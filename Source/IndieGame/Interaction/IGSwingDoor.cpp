@@ -6,6 +6,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
+#include "GameFramework/Pawn.h"
+#include "GameFramework/PlayerController.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Player/IGHorrorHUD.h"
 
@@ -227,6 +229,30 @@ void AIGSwingDoor::Tick(const float DeltaSeconds)
 
 	const bool bFinished = DoorAnimation.Advance(DeltaSeconds);
 	DoorPivot->SetRelativeRotation(FRotator(0.0f, DoorAnimation.CurrentValue, 0.0f));
+
+	if (!bOpen)
+	{
+		const APlayerController* PlayerController =
+			GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		const APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+		FVector ClosestPoint = FVector::ZeroVector;
+		const float DistanceToLeaf = Pawn
+			? DoorMesh->GetDistanceToCollision(Pawn->GetActorLocation(), ClosestPoint)
+			: -1.0f;
+		if (DistanceToLeaf >= 0.0f && DistanceToLeaf < 45.0f)
+		{
+			// Child-component rotation cannot sweep in Unreal. Re-open before
+			// the leaf enters the capsule instead of crushing or tunnelling
+			// the player when an authored/scripted close catches the doorway.
+			bOpen = true;
+			bSuppressNextCloseThud = true;
+			DoorAnimation.Begin(
+				DoorPivot->GetRelativeRotation().Yaw,
+				OpenYaw,
+				FMath::Max(0.3f, SwingDuration * 0.55f));
+			return;
+		}
+	}
 
 	if (bFinished)
 	{

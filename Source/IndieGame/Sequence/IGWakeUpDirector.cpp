@@ -660,12 +660,14 @@ void AIGWakeUpDirector::ApplyLyingCameraPose()
 		Camera->SetRelativeLocationAndRotation(LyingCameraLocation, LyingCameraRotation);
 	}
 
-	// Head on the pillow: the view genuinely lies on its side until sitting up.
+	// Camera-relative roll supplies the lying pose.  Do not also roll the
+	// controller: bUsePawnControlRotation composes both rotations and used to
+	// tip the view past 130 degrees, framing the ceiling and clipping props.
 	if (APlayerController* PlayerController =
 		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
 	{
 		FRotator ControlRotation = PlayerController->GetControlRotation();
-		ControlRotation.Roll = -52.0f;
+		ControlRotation.Roll = 0.0f;
 		PlayerController->SetControlRotation(ControlRotation);
 	}
 }

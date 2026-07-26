@@ -23,7 +23,10 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
 
-	GetCapsuleComponent()->InitCapsuleSize(42.0f, 96.0f);
+	// Interior openings are 84-88 cm wide.  A 42 cm radius capsule had zero
+	// clearance and caught on jambs or was shoved by an opening door.  Keep
+	// the standing height while using a realistic shoulder clearance.
+	GetCapsuleComponent()->InitCapsuleSize(36.0f, 96.0f);
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;

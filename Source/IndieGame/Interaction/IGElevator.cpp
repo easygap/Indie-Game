@@ -3,11 +3,13 @@
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
+#include "GameFramework/Character.h"
 #include "GameFramework/Pawn.h"
 #include "IndieGame.h"
 #include "TimerManager.h"
@@ -38,11 +40,13 @@ AIGElevator::AIGElevator()
 
 	UpperCabTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("UpperCabTrigger"));
 	UpperCabTrigger->SetupAttachment(ElevatorRoot);
-	// The trigger has to cover the whole cab floor. It used to sit 45 cm back
-	// with a 50 cm extent, so it only caught the rear half of the car and a
-	// rider who stopped just inside the doors was never detected.
-	UpperCabTrigger->SetBoxExtent(FVector(66.0f, 66.0f, 105.0f));
-	UpperCabTrigger->SetRelativeLocation(FVector(0.0f, 0.0f, 105.0f));
+	// Keep the admission volume behind the door plane. A full-cab trigger
+	// overlapped the capsule while the player was still outside, so the doors
+	// could close on someone who had only approached the threshold.
+	// Keep the volume behind the door plane. A separate full-capsule test
+	// decides when the rider is actually far enough inside to depart.
+	UpperCabTrigger->SetBoxExtent(FVector(48.0f, 62.0f, 105.0f));
+	UpperCabTrigger->SetRelativeLocation(FVector(20.0f, 0.0f, 105.0f));
 	UpperCabTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
 	UpperCabTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
 	UpperCabTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
@@ -140,12 +144,16 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 		this, *FString::Printf(TEXT("ElevatorCabLight_%d"), PieceCounter++));
 	CabLight->SetupAttachment(Parent);
 	CabLight->SetRelativeLocation(FVector(0, 0, CeilingZ - 26.0f));
-	CabLight->SetIntensity(3400.0f);
+	CabLight->SetIntensity(2100.0f);
 	CabLight->SetAttenuationRadius(430.0f);
 	CabLight->SetLightColor(FLinearColor(0.94f, 0.98f, 1.0f));
 	CabLight->SetSourceRadius(46.0f);
 	CabLight->SetSoftSourceRadius(70.0f);
 	CabLight->SetCastShadows(true);
+	// The visible diffuser meshes provide the fixture reflection. Suppress
+	// the analytic point source itself so the brushed rear panel does not show
+	// a giant circular highlight unrelated to the rectangular ceiling lights.
+	CabLight->SetSpecularScale(0.18f);
 	CabLight->SetMobility(EComponentMobility::Movable);
 	CabLight->SetVolumetricScatteringIntensity(0.28f);
 	CabLight->RegisterComponent();
@@ -155,11 +163,12 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 		this, *FString::Printf(TEXT("ElevatorCabFill_%d"), PieceCounter++));
 	FloorFill->SetupAttachment(Parent);
 	FloorFill->SetRelativeLocation(FVector(10.0f, 0, BaseZ + 55.0f));
-	FloorFill->SetIntensity(340.0f);
+	FloorFill->SetIntensity(190.0f);
 	FloorFill->SetAttenuationRadius(260.0f);
 	FloorFill->SetLightColor(FLinearColor(0.90f, 0.94f, 1.0f));
 	FloorFill->SetSourceRadius(60.0f);
 	FloorFill->SetCastShadows(false);
+	FloorFill->SetSpecularScale(0.0f);
 	FloorFill->SetMobility(EComponentMobility::Movable);
 	FloorFill->RegisterComponent();
 
@@ -192,11 +201,17 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 				FVector(FinX, WallY - Side * 1.2f, BaseZ + CabHeight * 0.55f),
 				FVector(3, 2.4f, CabHeight - 46), false);
 		}
-		// Handrail: a round tube on brackets at hand height.
+		// Handrail: the COP occupies the front of the right wall, so that rail
+		// starts farther back instead of crossing the artwork and buttons.
+		const bool bCopSide = Side > 0.0f;
+		const float RailX = bCopSide ? 22.0f : 6.0f;
+		const float RailLength = bCopSide ? 84.0f : CabDepth - 34.0f;
 		MakePiece(Parent, CachedCylinderMesh, CachedDoorMaterial,
-			FVector(6, WallY - Side * 6.0f, BaseZ + 92.0f),
-			FVector(4, 4, CabDepth - 34), false, FRotator(90, 0, 0));
-		for (const float BracketX : {-42.0f, 54.0f})
+			FVector(RailX, WallY - Side * 6.0f, BaseZ + 92.0f),
+			FVector(4, 4, RailLength), false, FRotator(90, 0, 0));
+		const TArray<float> BracketPositions =
+			bCopSide ? TArray<float>{5.0f, 54.0f} : TArray<float>{-42.0f, 54.0f};
+		for (const float BracketX : BracketPositions)
 		{
 			MakePiece(Parent, CachedCubeMesh, CachedDoorMaterial,
 				FVector(BracketX, WallY - Side * 3.0f, BaseZ + 92.0f),
@@ -343,7 +358,10 @@ void AIGElevator::ResetForNewRide()
 	// otherwise fire into the new ride and desynchronise the doors.
 	GetWorldTimerManager().ClearTimer(RideTimerHandle);
 	GetWorldTimerManager().ClearTimer(ChimeTimerHandle);
+	GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
 	SetActorTickEnabled(false);
+	PendingRider.Reset();
+	bUpperDoorDepartureStarted = false;
 
 	// Both door pairs shut, both cabs idle, the rider counted as upstairs.
 	ApplyDoorOffsets(0.0f, 0.0f);
@@ -393,6 +411,8 @@ void AIGElevator::BeginPlay()
 
 	UpperCabTrigger->OnComponentBeginOverlap.AddDynamic(
 		this, &ThisClass::HandleCabBeginOverlap);
+	UpperCabTrigger->OnComponentEndOverlap.AddDynamic(
+		this, &ThisClass::HandleCabEndOverlap);
 }
 
 bool AIGElevator::CanInteract_Implementation(AActor* Interactor) const
@@ -434,13 +454,89 @@ void AIGElevator::HandleCabBeginOverlap(
 	bool bFromSweep,
 	const FHitResult& SweepResult)
 {
-	const APawn* Pawn = Cast<APawn>(OtherActor);
-	if (!Pawn || !Pawn->IsPlayerControlled() || State != EIGElevatorState::WaitingForRider)
+	TryAdmitRider(Cast<APawn>(OtherActor));
+}
+
+void AIGElevator::HandleCabEndOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComponent,
+	int32 OtherBodyIndex)
+{
+	APawn* Pawn = Cast<APawn>(OtherActor);
+	if (!Pawn
+		|| PendingRider.Get() != Pawn
+		|| State != EIGElevatorState::ClosingUpper)
 	{
 		return;
 	}
 
-	// Give the rider a beat to settle, then close up and go.
+	// The rider backed out either during the settle beat or while the panels
+	// were already closing. Child-component door motion cannot sweep, so abort
+	// the departure and reopen instead of teleporting an outside pawn.
+	GetWorldTimerManager().ClearTimer(RideTimerHandle);
+	PendingRider.Reset();
+	if (bUpperDoorDepartureStarted)
+	{
+		bUpperDoorDepartureStarted = false;
+		SetState(EIGElevatorState::OpeningUpper);
+		DoorAnimation.Begin(
+			DoorAnimation.CurrentValue,
+			DoorPanelWidth,
+			FMath::Max(0.25f, DoorSlideDuration * 0.65f));
+		SetActorTickEnabled(true);
+	}
+	else
+	{
+		SetState(EIGElevatorState::WaitingForRider);
+		GetWorldTimerManager().SetTimer(
+			AdmissionPollHandle,
+			this,
+			&ThisClass::PollForRider,
+			0.08f,
+			true);
+	}
+}
+
+void AIGElevator::PollForRider()
+{
+	if (State != EIGElevatorState::WaitingForRider)
+	{
+		GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
+		return;
+	}
+
+	TArray<AActor*> OverlappingActors;
+	UpperCabTrigger->GetOverlappingActors(OverlappingActors, APawn::StaticClass());
+	for (AActor* Actor : OverlappingActors)
+	{
+		if (APawn* Pawn = Cast<APawn>(Actor))
+		{
+			TryAdmitRider(Pawn);
+			if (State == EIGElevatorState::ClosingUpper)
+			{
+				return;
+			}
+		}
+	}
+}
+
+void AIGElevator::TryAdmitRider(APawn* Pawn)
+{
+	if (!Pawn
+		|| !Pawn->IsPlayerControlled()
+		|| State != EIGElevatorState::WaitingForRider
+		|| !UpperCabTrigger->IsOverlappingActor(Pawn)
+		|| !IsRiderSafelyInsideUpperCab(Pawn))
+	{
+		return;
+	}
+
+	// Give the rider a beat to settle. End-overlap cancels this timer, so
+	// merely grazing the volume can no longer start a phantom ride.
+	GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
+	PendingRider = Pawn;
+	bUpperDoorDepartureStarted = false;
 	SetState(EIGElevatorState::ClosingUpper);
 	GetWorldTimerManager().SetTimer(
 		RideTimerHandle,
@@ -450,8 +546,54 @@ void AIGElevator::HandleCabBeginOverlap(
 		false);
 }
 
+bool AIGElevator::IsRiderSafelyInsideUpperCab(const APawn* Pawn) const
+{
+	if (!Pawn)
+	{
+		return false;
+	}
+
+	float RiderRadius = 36.0f;
+	if (const ACharacter* Character = Cast<ACharacter>(Pawn))
+	{
+		if (const UCapsuleComponent* Capsule = Character->GetCapsuleComponent())
+		{
+			RiderRadius = Capsule->GetScaledCapsuleRadius();
+		}
+	}
+
+	const FVector LocalLocation =
+		GetActorTransform().InverseTransformPosition(Pawn->GetActorLocation());
+	constexpr float InteriorClearance = 2.0f;
+	const float HalfDepth = IGElevator::CabDepth * 0.5f;
+	const float HalfWidth = IGElevator::CabWidth * 0.5f;
+	return LocalLocation.X - RiderRadius >= -HalfDepth + InteriorClearance
+		&& LocalLocation.X + RiderRadius <= HalfDepth - InteriorClearance
+		&& FMath::Abs(LocalLocation.Y) + RiderRadius
+			<= HalfWidth - InteriorClearance;
+}
+
 void AIGElevator::StartRide()
 {
+	GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
+	APawn* Rider = PendingRider.Get();
+	if (!Rider
+		|| !UpperCabTrigger->IsOverlappingActor(Rider)
+		|| !IsRiderSafelyInsideUpperCab(Rider))
+	{
+		PendingRider.Reset();
+		bUpperDoorDepartureStarted = false;
+		SetState(EIGElevatorState::WaitingForRider);
+		GetWorldTimerManager().SetTimer(
+			AdmissionPollHandle,
+			this,
+			&ThisClass::PollForRider,
+			0.08f,
+			true);
+		return;
+	}
+
+	bUpperDoorDepartureStarted = true;
 	DoorAnimation.Begin(DoorPanelWidth, 0.0f, DoorSlideDuration);
 	SetActorTickEnabled(true);
 }
@@ -486,23 +628,48 @@ void AIGElevator::Tick(const float DeltaSeconds)
 	{
 	case EIGElevatorState::OpeningUpper:
 		SetState(EIGElevatorState::WaitingForRider);
+		// A quick player can enter while the doors are still opening. That
+		// overlap may already have fired. Poll while the doors wait so a
+		// capsule that crossed the volume edge too early is admitted as soon
+		// as its full body clears the threshold.
+		GetWorldTimerManager().SetTimer(
+			AdmissionPollHandle,
+			this,
+			&ThisClass::PollForRider,
+			0.08f,
+			true);
+		PollForRider();
 		break;
 
 	case EIGElevatorState::ClosingUpper:
 	{
+		APawn* Rider = PendingRider.Get();
+		if (!Rider
+			|| !UpperCabTrigger->IsOverlappingActor(Rider)
+			|| !IsRiderSafelyInsideUpperCab(Rider))
+		{
+			// End-overlap normally catches this, but revalidate at the exact
+			// commit point as protection against teleports and missed overlap
+			// notifications during the closing animation.
+			PendingRider.Reset();
+			bUpperDoorDepartureStarted = false;
+			SetState(EIGElevatorState::OpeningUpper);
+			DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
+			SetActorTickEnabled(true);
+			break;
+		}
+
 		SetState(EIGElevatorState::Descending);
 
-		// Move the rider to the identical lower cab while the doors are shut.
-		if (APawn* Pawn = GetWorld() && GetWorld()->GetFirstPlayerController()
-			? GetWorld()->GetFirstPlayerController()->GetPawn()
-			: nullptr)
-		{
-			Pawn->SetActorLocation(
-				Pawn->GetActorLocation() - FVector(0, 0, FloorDeltaZ),
-				false,
-				nullptr,
-				ETeleportType::TeleportPhysics);
-		}
+		// Move only the pawn that actually entered this cab. Looking up the
+		// world's first pawn could teleport a spectator or an outside player.
+		Rider->SetActorLocation(
+			Rider->GetActorLocation() - FVector(0, 0, FloorDeltaZ),
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics);
+		PendingRider.Reset();
+		bUpperDoorDepartureStarted = false;
 
 		// Machinery hum for the whole descent.
 		TArray<FIGToneNote> HumNotes;

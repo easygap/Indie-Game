@@ -6,6 +6,8 @@ never stretch their textures; prop materials use mesh UVs so movable physics
 objects carry their surface with them.
 """
 
+import os
+
 import unreal
 
 
@@ -86,7 +88,7 @@ TEXTURED_MATERIALS = {
     "M_StainlessUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
                          "tint": (1.10, 1.13, 1.16), "metallic": 1.0, "force_rough": 0.21},
     "M_CabMirrorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
-                         "tint": (1.22, 1.24, 1.28), "metallic": 1.0, "force_rough": 0.05},
+                         "tint": (1.22, 1.24, 1.28), "metallic": 1.0, "force_rough": 0.14},
     "M_SteelDoorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
                          "tint": (0.115, 0.12, 0.132), "metallic": 0.2, "force_rough": 0.42},
     "M_KitchenGlossUV": {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
@@ -102,7 +104,7 @@ DECAL_MATERIALS = {
     "M_NoteFridge":    {"tex_asset": "T_NoteFridge_D", "rough": 0.7},
     "M_SignToilet":    {"tex_asset": "T_SignToilet_D", "rough": 0.4},
     "M_SignAutoDoor":  {"tex_asset": "T_SignAutoDoor_D", "rough": 0.3, "emissive_scale": 0.15},
-    "M_PriceStrip":    {"tex_asset": "T_PriceStrip_D", "rough": 0.4, "emissive_scale": 0.35,
+    "M_PriceStrip":    {"tex_asset": "T_PriceStrip_D", "rough": 0.4, "emissive_scale": 0.03,
                         "tile_u": 2.0},
     "M_SignVilla":     {"tex_asset": "T_SignVilla_D", "rough": 0.4, "emissive_scale": 0.25},
     "M_Plate401":      {"tex_asset": "T_Plate401_D", "rough": 0.35},
@@ -137,7 +139,7 @@ DECAL_MATERIALS = {
     "M_DoorLock":      {"tex_asset": "T_DoorLock_D", "rough": 0.34, "emissive_scale": 0.12},
     "M_MeterBox":      {"tex_asset": "T_MeterBox_D", "rough": 0.52},
     "M_Intercom":      {"tex_asset": "T_Intercom_D", "rough": 0.34, "emissive_scale": 0.08},
-    "M_LiftCOP":       {"tex_asset": "T_LiftCOP_D", "rough": 0.26, "emissive_scale": 0.55},
+    "M_LiftCOP":       {"tex_asset": "T_LiftCOP_D", "rough": 0.26, "emissive_scale": 0.03},
     "M_LiftHall":      {"tex_asset": "T_LiftHall_D", "rough": 0.3, "emissive_scale": 1.4},
     "M_SwitchPlate":   {"tex_asset": "T_SwitchPlate_D", "rough": 0.4, "emissive_scale": 0.1},
     # Product labels: printed plastic film, so fairly smooth and unlit-free.
@@ -233,9 +235,9 @@ def _recreate_material(assets, tools, name):
     return material
 
 
-def create_textured_materials(assets, tools):
+def create_textured_materials(assets, tools, specs=None):
     created = []
-    for name, spec in TEXTURED_MATERIALS.items():
+    for name, spec in (specs or TEXTURED_MATERIALS).items():
         material = _recreate_material(assets, tools, name)
         base_name = spec["tex"]
         mapping = spec["mapping"]
@@ -314,7 +316,10 @@ def create_textured_materials(assets, tools):
                 material,
                 _load_texture(rough_asset),
                 _make_uv_source(material, mapping, tile, 840),
-                unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR,
+                # Roughness imports use TC_GRAYSCALE.  Sampling them as
+                # Linear Color makes the entire material fail compilation
+                # and Unreal falls back to the grey checkerboard material.
+                unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
                 840,
             )
             unreal.MaterialEditingLibrary.connect_material_property(
@@ -461,13 +466,13 @@ def create_wet_asphalt(assets, tools):
     rough = _sample(
         material, _load_texture("T_Asphalt_R"),
         _make_uv_source(material, "XY", 260.0, 760),
-        unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR, 760)
+        unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE, 760)
 
     # Puddle mask: the same roughness map read at street scale.
     mask = _sample(
         material, _load_texture("T_Asphalt_R"),
         _make_uv_source(material, "XY", 1150.0, 1140),
-        unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR, 1140)
+        unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE, 1140)
     threshold = _expr(material, unreal.MaterialExpressionConstant, -1100, 1320)
     threshold.set_editor_property("r", 0.42)
     below = _expr(material, unreal.MaterialExpressionSubtract, -900, 1240)
@@ -519,6 +524,40 @@ def create_wet_asphalt(assets, tools):
     unreal.MaterialEditingLibrary.layout_material_expressions(material)
     unreal.MaterialEditingLibrary.recompile_material(material)
     unreal.log("[IndieGame] Created wet asphalt: M_AsphaltWorld")
+    return material
+
+
+def create_wet_step(assets, tools):
+    """Thin opaque puddle material for footprint meshes.
+
+    The print is dark because the underlying floor is wet, not because it is
+    painted black. A low roughness/high specular response lets the same surface
+    read under the lift and lobby lights without a translucent sorting fringe.
+    """
+    material = _recreate_material(assets, tools, "M_WetStep")
+    material.set_editor_property("two_sided", True)
+
+    base = _expr(material, unreal.MaterialExpressionConstant3Vector, -600, 0)
+    base.set_editor_property(
+        "constant", unreal.LinearColor(0.040, 0.045, 0.050, 1.0)
+    )
+    roughness = _expr(material, unreal.MaterialExpressionConstant, -600, 160)
+    roughness.set_editor_property("r", 0.18)
+    specular = _expr(material, unreal.MaterialExpressionConstant, -600, 280)
+    specular.set_editor_property("r", 0.55)
+
+    unreal.MaterialEditingLibrary.connect_material_property(
+        base, "", unreal.MaterialProperty.MP_BASE_COLOR
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        roughness, "", unreal.MaterialProperty.MP_ROUGHNESS
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        specular, "", unreal.MaterialProperty.MP_SPECULAR
+    )
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    unreal.log("[IndieGame] Created wet footprint material: M_WetStep")
     return material
 
 
@@ -604,11 +643,27 @@ def run():
     if assets is None or tools is None:
         raise RuntimeError("Unreal editor asset services are unavailable")
 
+    if os.environ.get("IG_WET_STEP_ONLY") == "1":
+        wet_step = create_wet_step(assets, tools)
+        if not assets.save_loaded_assets([wet_step], False):
+            raise RuntimeError("Could not save M_WetStep")
+        unreal.log("[IndieGame] Wet footprint material update complete")
+        return
+    if os.environ.get("IG_CAB_MIRROR_ONLY") == "1":
+        mirrors = create_textured_materials(
+            assets, tools, {"M_CabMirrorUV": TEXTURED_MATERIALS["M_CabMirrorUV"]}
+        )
+        if not assets.save_loaded_assets(mirrors, False):
+            raise RuntimeError("Could not save M_CabMirrorUV")
+        unreal.log("[IndieGame] Cab mirror material update complete")
+        return
+
     created = []
     created += create_textured_materials(assets, tools)
     created += create_flat_texture_materials(assets, tools, DECAL_MATERIALS, False)
     created += create_flat_texture_materials(assets, tools, SIGN_MATERIALS, True)
     created.append(create_wet_asphalt(assets, tools))
+    created.append(create_wet_step(assets, tools))
     created.append(create_sky_material(assets, tools))
 
     if not assets.save_loaded_assets(created, False):

@@ -15,6 +15,7 @@
 #include "Interaction/IGSwingDoor.h"
 #include "Misc/Paths.h"
 #include "Sequence/IGWakeUpDirector.h"
+#include "ShaderCompiler.h"
 #include "UnrealClient.h"
 
 AIGDemoDirector::AIGDemoDirector()
@@ -137,7 +138,9 @@ void AIGDemoDirector::BuildScript()
 	const FVector ElevatorSpot(700, -305, FloorZ + 110);
 	const FVector KitchenSpot(168, 130, FloorZ + 110);
 	const FVector NeighbourDoorSpot(-40, -242, FloorZ + 118);
-	const FVector CabPanelSpot(752, -276, 140);
+	// Look through the doorway at the whole car. The previous target sat on
+	// the near-right COP and made the jamb fill a quarter of the still.
+	const FVector CabPanelSpot(820, -305, 140);
 	const FVector CabDoorSpot(714, -305, 128);
 	const FVector LobbyDoorSpot(643, -380, 115);
 	const FVector VillaFacadeSpot(240, -390, 620);
@@ -195,7 +198,10 @@ void AIGDemoDirector::BuildScript()
 	Steps.Add(MakeWalk(FVector(520, -305, 0)));
 	Steps.Add(MakeWalkLook(FVector(600, -305, 0), ElevatorSpot));
 	Steps.Add(MakeInteract(Elevator.Get(), 1.6f, ElevatorSpot)); // call it
-	Steps.Add(MakeWalk(FVector(795, -305, 0)));                  // step inside
+	// Walk target sits beyond the desired stopping point because the tour's
+	// 55 cm arrival radius would otherwise advance while the capsule was
+	// still straddling the lift threshold.
+	Steps.Add(MakeWalk(FVector(840, -305, 0)));                  // step fully inside
 	{
 		// Doors close, four floors chime past, doors open on the lobby. Look
 		// around the car on the way down rather than at the doors from 10 cm.
@@ -208,11 +214,13 @@ void AIGDemoDirector::BuildScript()
 	}
 	// Step out and turn back: the open car from the landing shows the panel,
 	// the handrails, the lit ceiling and the stone floor in one frame.
-	Steps.Add(MakeWalkLook(FVector(688, -305, 0), CabPanelSpot));
+	// Likewise, aim 55 cm beyond the documentation camera position so the
+	// captured view actually settles at X=625 rather than X=680.
+	Steps.Add(MakeWalkLook(FVector(570, -305, 0), CabPanelSpot));
 	Steps.Add(MakeWait(1.1f, CabPanelSpot));
 	Steps.Add(MakeStill(TEXT("prologue-elevator")));
-	Steps.Add(MakeWalkLook(FVector(608, -300, 0), FVector(520, -236, 152)));
-	Steps.Add(MakeWait(0.9f, FVector(520, -236, 152)));           // mailbox wall
+	Steps.Add(MakeWalkLook(FVector(640, -345, 0), FVector(530, -243, 152)));
+	Steps.Add(MakeWait(0.9f, FVector(530, -243, 152)));           // mailbox wall
 	Steps.Add(MakeStill(TEXT("prologue-lobby")));
 	Steps.Add(MakeWalkLook(FVector(643, -340, 0), LobbyDoorSpot));
 	Steps.Add(MakeInteract(BuildingDoor.Get(), 1.8f, LobbyDoorSpot));
@@ -446,6 +454,25 @@ void AIGDemoDirector::RequestStill(const FString& BaseName) const
 	if (!bCaptureStills || BaseName.IsEmpty())
 	{
 		return;
+	}
+	if (GShaderCompilingManager)
+	{
+		GShaderCompilingManager->FinishAllCompilation();
+	}
+	if (APlayerController* PlayerController =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
+	{
+		PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+	}
+
+	if (BaseName == TEXT("prologue-corridor"))
+	{
+		// The 404 leaf otherwise occupies most of the frame from the authored
+		// landing position and hides the corridor the still is meant to show.
+		if (AIGSwingDoor* Door = HomeDoor.Get())
+		{
+			Door->ForceOpenState(false);
+		}
 	}
 
 	const FString ScreenshotPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(

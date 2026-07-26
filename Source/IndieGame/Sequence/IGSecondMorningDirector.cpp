@@ -100,6 +100,35 @@ void AIGSecondMorningDirector::BeginPlay()
 		Scene->SetStoreNorthLightsLive(false);
 	}
 
+	// A future save/load coordinator may restore tags before this director is
+	// spawned. Reconcile that snapshot here instead of relying exclusively on
+	// change notifications that have already happened.
+	const bool bRestoredPurchase = HasState(WaterPurchasedTag);
+	const bool bRestoredReturn = HasState(ReturnedTag);
+	if (bRestoredReturn && !bRestoredPurchase)
+	{
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UIGStoryStateSubsystem* StoryState =
+				GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
+			{
+				StoryState->RemoveState(ReturnedTag);
+			}
+		}
+	}
+	else if (bRestoredPurchase)
+	{
+		if (Scene)
+		{
+			Scene->RevealSecondReceipt();
+			Scene->SetChapterTwoReturnZoneArmed(!bRestoredReturn);
+		}
+		if (bRestoredReturn)
+		{
+			StartEndingBeat();
+		}
+	}
+
 	RefreshObjective();
 }
 
@@ -307,6 +336,7 @@ void AIGSecondMorningDirector::HandleStoryStateChanged(
 		if (Scene)
 		{
 			Scene->RevealSecondReceipt();
+			Scene->SetChapterTwoReturnZoneArmed(true);
 		}
 		AIGHorrorHUD::PushThought(
 			this,
@@ -315,7 +345,23 @@ void AIGSecondMorningDirector::HandleStoryStateChanged(
 	}
 	else if (StateTag.MatchesTagExact(ReturnedTag))
 	{
-		StartEndingBeat();
+		// Scene-side arming is the primary gate; keep this prerequisite here
+		// as a defensive check for scripted/direct state injection.
+		if (HasState(WaterPurchasedTag))
+		{
+			StartEndingBeat();
+		}
+		else if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			// Do not leave an impossible Returned tag latched: IsActive()
+			// treats it as chapter completion and would otherwise hide the
+			// objective permanently before the purchase can be made.
+			if (UIGStoryStateSubsystem* StoryState =
+				GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
+			{
+				StoryState->RemoveState(ReturnedTag);
+			}
+		}
 	}
 
 	RefreshObjective();
@@ -565,8 +611,25 @@ void AIGSecondMorningDirector::ApplyThreatPressure(const float Pressure) const
 
 void AIGSecondMorningDirector::HandleIntermediateStopOpened(AIGElevator* StoppedElevator)
 {
-	if (StoppedElevator != Elevator || HasState(LiftStoppedTag))
+	if (StoppedElevator != Elevator)
 	{
+		return;
+	}
+
+	if (HasState(LiftStoppedTag))
+	{
+		// A restored story tag means the scare was already consumed, not that
+		// the lift should remain held forever. Always schedule its release.
+		if (Scene)
+		{
+			Scene->RevealElevatorFootprints();
+		}
+		GetWorldTimerManager().SetTimer(
+			LiftResumeHandle,
+			this,
+			&ThisClass::ResumeLift,
+			0.25f,
+			false);
 		return;
 	}
 

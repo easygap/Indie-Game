@@ -49,6 +49,7 @@
 #include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGSecondMorningDirector.h"
 #include "Player/IGStressComponent.h"
+#include "ShaderCompiler.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -58,7 +59,10 @@ namespace IGPrologueWorld
 
 	// The player wakes beside the bed facing the nightstand, so the ringing
 	// alarm is the first thing in view and the first prompt is reachable.
-	const FVector PlayerLocation(-85.0f, 60.0f, 997.0f);
+	// Keep the 72 cm player capsule clear of the mattress edge. The old X=-85
+	// start penetrated the bed by roughly 30 cm and produced a violent
+	// depenetration/camera shove on both mornings.
+	const FVector PlayerLocation(-48.0f, 60.0f, 997.0f);
 	const FRotator PlayerActorRotation(0.0f, -128.0f, 0.0f);
 	const FRotator PlayerViewRotation(-14.0f, -128.0f, 0.0f);
 
@@ -237,34 +241,35 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	PostProcess->Settings.AutoExposureMethod = AEM_Histogram;
 	PostProcess->Settings.bOverride_AutoExposureMinBrightness = true;
 	PostProcess->Settings.bOverride_AutoExposureMaxBrightness = true;
-	// The range must span both the pre-dawn alley and the fluorescent store;
-	// too low a ceiling leaves the store permanently blown out.
-	PostProcess->Settings.AutoExposureMinBrightness = -2.6f;
-	PostProcess->Settings.AutoExposureMaxBrightness = 2.8f;
+	// Keep the eye adaptation useful without allowing a point light or white
+	// ceiling to drive a five-stop swing.  The former -2.6..2.8 range blew
+	// bedrooms and the shop to white, then crushed the next dark frame.
+	PostProcess->Settings.AutoExposureMinBrightness = -1.2f;
+	PostProcess->Settings.AutoExposureMaxBrightness = 1.1f;
 	PostProcess->Settings.bOverride_AutoExposureBias = true;
-	PostProcess->Settings.AutoExposureBias = 0.0f;
+	PostProcess->Settings.AutoExposureBias = -0.35f;
 	PostProcess->Settings.bOverride_AutoExposureSpeedUp = true;
-	PostProcess->Settings.AutoExposureSpeedUp = 3.0f;
+	PostProcess->Settings.AutoExposureSpeedUp = 2.0f;
 	PostProcess->Settings.bOverride_AutoExposureSpeedDown = true;
-	PostProcess->Settings.AutoExposureSpeedDown = 1.0f;
+	PostProcess->Settings.AutoExposureSpeedDown = 0.75f;
 	// Grade stays close to neutral; the atmosphere supplies the palette.
 	PostProcess->Settings.bOverride_VignetteIntensity = true;
-	PostProcess->Settings.VignetteIntensity = 0.35f;
+	PostProcess->Settings.VignetteIntensity = 0.22f;
 	PostProcess->Settings.bOverride_FilmGrainIntensity = true;
-	PostProcess->Settings.FilmGrainIntensity = 0.03f;
+	PostProcess->Settings.FilmGrainIntensity = 0.02f;
 	PostProcess->Settings.bOverride_ColorSaturation = true;
 	PostProcess->Settings.ColorSaturation = FVector4(0.93f, 0.95f, 1.0f, 1.0f);
 	// Restrained bloom keeps emissive signage readable instead of hazy.
 	PostProcess->Settings.bOverride_BloomIntensity = true;
-	PostProcess->Settings.BloomIntensity = 0.3f;
+	PostProcess->Settings.BloomIntensity = 0.18f;
 	// Low motion blur: walking stays smooth but frames remain readable.
 	PostProcess->Settings.bOverride_MotionBlurAmount = true;
-	PostProcess->Settings.MotionBlurAmount = 0.18f;
+	PostProcess->Settings.MotionBlurAmount = 0.05f;
 	// Ambient occlusion seats furniture and shelf stock into their corners.
 	PostProcess->Settings.bOverride_AmbientOcclusionIntensity = true;
-	PostProcess->Settings.AmbientOcclusionIntensity = 0.65f;
+	PostProcess->Settings.AmbientOcclusionIntensity = 0.38f;
 	PostProcess->Settings.bOverride_AmbientOcclusionRadius = true;
-	PostProcess->Settings.AmbientOcclusionRadius = 90.0f;
+	PostProcess->Settings.AmbientOcclusionRadius = 62.0f;
 }
 
 void AIGPrologueWorldScene::BeginPlay()
@@ -340,8 +345,10 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreatePhysicsProp(
 	Prop->RegisterComponent();
 	Prop->SetSimulatePhysics(true);
 	Prop->SetMassOverrideInKg(NAME_None, FMath::Max(0.05f, MassKg));
-	Prop->SetAngularDamping(0.5f);
-	Prop->SetLinearDamping(0.1f);
+	// Small household props should settle instead of skating and spinning for
+	// seconds after a light capsule contact.
+	Prop->SetAngularDamping(2.4f);
+	Prop->SetLinearDamping(1.1f);
 	GeometryComponents.Add(Prop);
 	return Prop;
 }
@@ -373,7 +380,7 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 	const float EffectiveSourceRadius = FMath::Max(SourceRadius, 3.0f);
 	Light->SetSourceRadius(EffectiveSourceRadius);
 	Light->SetSoftSourceRadius(EffectiveSourceRadius * 1.6f);
-	Light->ContactShadowLength = 0.15f;
+	Light->ContactShadowLength = 0.08f;
 	Light->ContactShadowLengthInWS = false;
 	Light->ShadowSharpen = 0.0f;
 	Light->SetSpecularScale(0.85f);
@@ -448,7 +455,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_LiftCOP"), TEXT("M_LiftHall"), TEXT("M_SwitchPlate"),
 		// Aged paper stock for readable notes, and the rental notice.
 		TEXT("M_PaperClean"), TEXT("M_PaperWet"), TEXT("M_PaperFolded"),
-		TEXT("M_PaperOld"), TEXT("M_NoticeRent"),
+		TEXT("M_PaperOld"), TEXT("M_NoticeRent"), TEXT("M_WetStep"),
 	};
 
 	int32 LoadedCount = 0;
@@ -607,25 +614,65 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateBottleLabel(
 
 UStaticMesh* AIGPrologueWorldScene::FindPhotoPropMesh(const TCHAR* AssetId) const
 {
-	// Interchange usually names the mesh after the source asset; try directly.
-	const FString DirectPath = FString::Printf(
-		TEXT("/Game/Photo/Props/%s/%s.%s"), AssetId, AssetId, AssetId);
-	if (UStaticMesh* Direct = LoadObject<UStaticMesh>(nullptr, *DirectPath))
-	{
-		return Direct;
-	}
-
+	// Interchange nests generated meshes below the source folder.  Query the
+	// registry first instead of probing a guessed object path; every failed
+	// guess printed a scary runtime warning even when the asset existed.
 	const FAssetRegistryModule& RegistryModule =
 		FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
 	TArray<FAssetData> Assets;
 	RegistryModule.Get().GetAssetsByPath(
 		*FString::Printf(TEXT("/Game/Photo/Props/%s"), AssetId), Assets, true);
+
+	// Interchange can create several meshes in one source folder. Registry
+	// iteration order is not stable, and choosing its first entry previously
+	// turned a cash register into a loose drawer and an outdoor set into one
+	// chair. Explicitly select the authored primary mesh.
+	static const TMap<FName, FName> PreferredAssetNames = {
+		{TEXT("CashRegister_01"), TEXT("CashRegister_01_body")},
+		{TEXT("metal_office_desk"), TEXT("metal_office_desk")},
+		{TEXT("outdoor_table_chair_set_01"), TEXT("outdoor_table_chair_set_01_table")},
+		{TEXT("wine_bottles_01"), TEXT("wine_bottles_01_bordeaux")},
+	};
+	const FName AssetIdName(AssetId);
+	if (AssetIdName == TEXT("modern_wooden_cabinet"))
+	{
+		// This source imported its body only as a skeletal mesh; its two static
+		// entries are detached doors. Use the complete procedural cabinet.
+		return nullptr;
+	}
+	const FName PreferredName = PreferredAssetNames.Contains(AssetIdName)
+		? PreferredAssetNames[AssetIdName]
+		: FName(FString::Printf(TEXT("%s_1k"), AssetId));
+
+	TArray<FAssetData> StaticMeshes;
 	for (const FAssetData& Asset : Assets)
 	{
 		if (Asset.AssetClassPath == UStaticMesh::StaticClass()->GetClassPathName())
 		{
-			return Cast<UStaticMesh>(Asset.GetAsset());
+			StaticMeshes.Add(Asset);
+			if (Asset.AssetName == PreferredName)
+			{
+				return Cast<UStaticMesh>(Asset.GetAsset());
+			}
 		}
+	}
+
+	// A newly imported source may use a different suffix. Keep that fallback
+	// deterministic so two machines still build the same world.
+	StaticMeshes.Sort([](const FAssetData& Left, const FAssetData& Right)
+	{
+		return Left.AssetName.LexicalLess(Right.AssetName);
+	});
+	if (!StaticMeshes.IsEmpty())
+	{
+		UE_LOG(
+			LogIndieGame,
+			Warning,
+			TEXT("Photo prop '%s' missing preferred mesh '%s'; using '%s'."),
+			AssetId,
+			*PreferredName.ToString(),
+			*StaticMeshes[0].AssetName.ToString());
+		return Cast<UStaticMesh>(StaticMeshes[0].GetAsset());
 	}
 	return nullptr;
 }
@@ -736,6 +783,12 @@ void AIGPrologueWorldScene::InitializePrologue()
 
 	bPrologueInitialized = true;
 
+	// Interchange photo props are discovered asynchronously in editor-game
+	// launches.  Building the world before the registry finished meant every
+	// lookup missed and silently fell back to cubes on a cold run.
+	FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"))
+		.Get()
+		.WaitForCompletion();
 	LoadTexturedMaterials();
 
 	// Unit 404 and its corridor live on the 4th floor, three slabs up.
@@ -984,11 +1037,11 @@ void AIGPrologueWorldScene::BuildApartment()
 	// Apartment lighting: no ceiling light at this hour — only the warm
 	// bedside lamp, the strip left on under the wall units, and the cool
 	// spill through the window; the sky light carries the rest physically.
-	CreateLight(FVector(-160, -35, 110), 300.0f, 340.0f, FLinearColor(1.0f, 0.45f, 0.18f), true, 4.0f);
-	CreateLight(FVector(-100, 190, 160), 140.0f, 420.0f, FLinearColor(0.5f, 0.6f, 0.95f), true, 16.0f);
+	CreateLight(FVector(-160, -35, 110), 175.0f, 330.0f, FLinearColor(1.0f, 0.48f, 0.22f), true, 12.0f);
+	CreateLight(FVector(-100, 190, 160), 85.0f, 400.0f, FLinearColor(0.52f, 0.64f, 0.95f), true, 24.0f);
 	UPointLightComponent* UnderCabinet = CreateLight(
-		FVector(150, 128, 138), 190.0f, 300.0f,
-		FLinearColor(0.92f, 0.96f, 1.0f), true, 5.0f);
+		FVector(150, 128, 138), 115.0f, 280.0f,
+		FLinearColor(0.92f, 0.96f, 1.0f), true, 10.0f);
 	UnderCabinet->SetVolumetricScatteringIntensity(0.2f);
 
 	// Window frame and cross bars turn the glow plane into a real window.
@@ -1248,9 +1301,9 @@ void AIGPrologueWorldScene::BuildCorridor()
 			FVector(FixtureX, -305, 234.5f), FVector(21, 21, 2),
 			LightPanelMaterial, false, CylinderMesh));
 		UPointLightComponent* CorridorLight = CreateLight(
-			FVector(FixtureX, -305, 226), 1500.0f, 560.0f,
-			FLinearColor(0.86f, 0.97f, 1.0f), true, 10.0f);
-		CorridorLight->SetVolumetricScatteringIntensity(0.3f);
+			FVector(FixtureX, -305, 226), 1200.0f, 520.0f,
+			FLinearColor(0.86f, 0.97f, 1.0f), true, 16.0f);
+		CorridorLight->SetVolumetricScatteringIntensity(0.16f);
 		CorridorLights.Add(CorridorLight);
 		if (FixtureX < 0.0f)
 		{
@@ -1270,12 +1323,13 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// boundary; this avoids a hitch exactly where the cut must feel seamless.
 	ActiveParent = UpperFloorRoot;
 
-	UMaterialInterface* RoomWall = TexMat(TEXT("M_RoomWall_X"), WallMaterial);
-	UMaterialInterface* RoomFloor = TexMat(TEXT("M_RoomFloor_XY"), FloorMaterial);
+	UMaterialInterface* RoomWallX = TexMat(TEXT("M_Wallpaper_X"), WallMaterial);
+	UMaterialInterface* RoomWallY = TexMat(TEXT("M_Wallpaper_Y"), WallMaterial);
+	UMaterialInterface* RoomFloor = TexMat(TEXT("M_Jangpan"), FloorMaterial);
 	UMaterialInterface* RoomCeiling = TexMat(TEXT("M_StuccoCeil"), ConcreteMaterial);
-	UMaterialInterface* Furniture = TexMat(TEXT("M_DarkWoodUV"), WoodMaterial);
+	UMaterialInterface* Furniture = TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial);
 	UMaterialInterface* Bedding = TexMat(TEXT("M_BeddingUV"), BeddingMaterial);
-	UMaterialInterface* DarkGloss = TexMat(TEXT("M_PlasticDarkUV"), PlasticDarkMaterial);
+	UMaterialInterface* DarkGloss = PlasticDarkMaterial;
 
 	auto AddOverlay = [this](
 		const FVector& Center,
@@ -1308,57 +1362,67 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// while darkness lets the player's memory complete the room.
 	AddOverlay(FVector(430, 0, -10), FVector(440, 450, 20), RoomFloor);
 	AddOverlay(FVector(430, 0, 240), FVector(440, 450, 20), RoomCeiling);
-	AddOverlay(FVector(430, 225, 115), FVector(440, 20, 230), RoomWall);
-	AddOverlay(FVector(210, 0, 115), FVector(20, 450, 230), RoomWall);
-	AddOverlay(FVector(650, 0, 115), FVector(20, 450, 230), RoomWall);
-	AddOverlay(FVector(384, -233, 102), FVector(8, 7, 208), RoomWall, false);
-	AddOverlay(FVector(476, -233, 102), FVector(8, 7, 208), RoomWall, false);
-	AddOverlay(FVector(430, -233, 204), FVector(100, 7, 8), RoomWall, false);
+	AddOverlay(FVector(430, 225, 115), FVector(440, 20, 230), RoomWallX);
+	AddOverlay(FVector(210, 0, 115), FVector(20, 450, 230), RoomWallY);
+	AddOverlay(FVector(650, 0, 115), FVector(20, 450, 230), RoomWallY);
+	AddOverlay(FVector(384, -233, 102), FVector(8, 7, 208), RoomWallX, false);
+	AddOverlay(FVector(476, -233, 102), FVector(8, 7, 208), RoomWallX, false);
+	AddOverlay(FVector(430, -233, 204), FVector(100, 7, 8), RoomWallX, false);
 	AddOverlay(
 		FVector(430, -233.5f, 214), FVector(16, 2, 8),
 		TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial), false);
 
 	// Where 403 stood yesterday: four paler screw-shadow strips on bare wall,
 	// not a replacement door. The player has to supply the memory.
-	UMaterialInterface* OldPaint = TexMat(TEXT("M_RoomWall"), WallMaterial);
+	UMaterialInterface* OldPaint = TexMat(TEXT("M_Wallpaper_X"), WallMaterial);
 	AddOverlay(FVector(-72, -232.0f, 100), FVector(2.5f, 1.4f, 190), OldPaint, false);
 	AddOverlay(FVector(12, -232.0f, 100), FVector(2.5f, 1.4f, 190), OldPaint, false);
 	AddOverlay(FVector(-30, -232.0f, 194), FVector(84, 1.4f, 2.5f), OldPaint, false);
 	AddOverlay(FVector(-30, -232.0f, 7), FVector(84, 1.4f, 2.5f), OldPaint, false);
 
-	// Bed, pillow and the sleeping mound. It never animates and never attacks.
+	// Bed, pillow and a human-scale mound kept low beneath the duvet. The old
+	// 82 x 105 cm box plus a 55 cm sphere read as two construction blocks.
 	AddOverlay(FVector(300, 110, 20), FVector(100, 200, 40), Furniture);
 	AddOverlay(FVector(300, 110, 47), FVector(94, 194, 18), Bedding);
-	AddOverlay(FVector(300, 155, 64), FVector(82, 105, 24), Bedding, false);
-	AddOverlay(FVector(300, 190, 75), FVector(55, 48, 32), Bedding, false, SphereMesh);
-	AddOverlay(FVector(300, 48, 60), FVector(92, 55, 12), Bedding, false);
+	AddOverlay(FVector(300, 132, 62), FVector(70, 92, 21), Bedding, false, SphereMesh);
+	AddOverlay(FVector(300, 91, 60), FVector(72, 56, 17), Bedding, false, SphereMesh);
+	AddOverlay(FVector(300, 182, 59), FVector(80, 47, 10), Bedding, false);
+	AddOverlay(FVector(300, 188, 68), FVector(25, 23, 19), Bedding, false, SphereMesh);
 	AddOverlay(FVector(365, 28, 28), FVector(55, 55, 56), Furniture);
 
-	// Black horn-rim glasses on the bedside cabinet. Four short bars per lens
-	// read more clearly at this scale than two opaque discs.
-	for (const float LensX : {355.0f, 375.0f})
+	// Black horn-rim glasses at real scale (about 14 cm across).
+	for (const float LensX : {361.2f, 368.8f})
 	{
-		AddOverlay(FVector(LensX, 21, 57.0f), FVector(15, 1.8f, 1.8f), DarkGloss, false);
-		AddOverlay(FVector(LensX, 21, 63.0f), FVector(15, 1.8f, 1.8f), DarkGloss, false);
-		AddOverlay(FVector(LensX - 7.0f, 21, 60.0f), FVector(1.8f, 1.8f, 8), DarkGloss, false);
-		AddOverlay(FVector(LensX + 7.0f, 21, 60.0f), FVector(1.8f, 1.8f, 8), DarkGloss, false);
+		AddOverlay(FVector(LensX, 21, 57.4f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
+		AddOverlay(FVector(LensX, 21, 61.2f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
+		AddOverlay(FVector(LensX - 2.75f, 21, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
+		AddOverlay(FVector(LensX + 2.75f, 21, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
 	}
-	AddOverlay(FVector(365, 21, 60), FVector(6, 1.8f, 1.8f), DarkGloss, false);
+	AddOverlay(FVector(365, 21, 59.3f), FVector(2.1f, 0.8f, 0.8f), DarkGloss, false);
 	AddOverlay(
-		FVector(344, 25, 58), FVector(18, 1.8f, 1.8f), DarkGloss, false,
+		FVector(356.0f, 24, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
 		nullptr, FRotator(0, -18, 0));
 	AddOverlay(
-		FVector(386, 25, 58), FVector(18, 1.8f, 1.8f), DarkGloss, false,
+		FVector(374.0f, 24, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
 		nullptr, FRotator(0, 18, 0));
 
 	// The one inviting warm light in a dead corridor.
 	AddOverlay(FVector(380, 34, 68), FVector(12, 12, 28), DarkGloss, false, CylinderMesh);
-	AddOverlay(
+	UStaticMeshComponent* LampShade = AddOverlay(
 		FVector(380, 34, 89), FVector(27, 27, 24),
 		FridgeInteriorMaterial, false, ConeMesh);
+	if (LampShade)
+	{
+		// The point light sits inside this solid prototype cone. Letting the
+		// cone cast produced a large black triangular pool across the bed.
+		LampShade->SetCastShadow(false);
+	}
+	// Keep the source above the shade's lower rim. A low point source threw
+	// metre-long, nearly black shadows from the sleeper and bedside props,
+	// which read as broken geometry rather than a dim occupied room.
 	MirrorRoomLamp = CreateLight(
-		FVector(380, 34, 94), 780.0f, 440.0f,
-		FLinearColor(1.0f, 0.54f, 0.23f), true, 5.0f);
+		FVector(376, 42, 108), 330.0f, 375.0f,
+		FLinearColor(1.0f, 0.54f, 0.23f), true, 24.0f);
 	if (MirrorRoomLamp)
 	{
 		MirrorRoomLamp->SetVisibility(false);
@@ -1366,28 +1430,52 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 
 	ActiveParent = nullptr;
 
-	// A thin line of salt and a small offering at the common entrance. These
-	// are deliberately non-colliding so the return path cannot soft-lock.
+	// A scattered line of salt and a small offering at the common entrance.
+	// These are deliberately non-colliding so the return path cannot soft-lock.
+	for (int32 GrainIndex = 0; GrainIndex < 31; ++GrainIndex)
+	{
+		const float GrainX = 600.0f + GrainIndex * 2.85f;
+		const float GrainY = -399.0f + FMath::Sin(GrainIndex * 1.73f) * 1.25f;
+		const float GrainSize = 1.1f + (GrainIndex % 4) * 0.28f;
+		UStaticMeshComponent* Grain = AddOverlay(
+			FVector(GrainX, GrainY, 0.55f),
+			FVector(GrainSize, GrainSize * 0.75f, 0.7f),
+			FridgeInteriorMaterial, false, SphereMesh,
+			FRotator::ZeroRotator, SceneRoot);
+		if (Grain)
+		{
+			Grain->SetCastShadow(false);
+		}
+	}
 	AddOverlay(
-		FVector(644, -399, 2.0f), FVector(92, 3, 2.5f),
-		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial), false,
-		nullptr, FRotator::ZeroRotator, SceneRoot);
-	AddOverlay(
-		FVector(565, -412, 5.0f), FVector(28, 28, 7),
-		TexMat(TEXT("M_CeramicUV"), FridgeInteriorMaterial), false,
+		FVector(700, -412, 4.0f), FVector(20, 20, 6),
+		FridgeInteriorMaterial, false,
 		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
 	AddOverlay(
-		FVector(565, -412, 12.0f), FVector(22, 22, 10),
-		TexMat(TEXT("M_Rice"), FridgeInteriorMaterial), false,
+		FVector(700, -412, 8.2f), FVector(16, 16, 4),
+		FridgeInteriorMaterial, false,
 		SphereMesh, FRotator::ZeroRotator, SceneRoot);
 	AddOverlay(
-		FVector(565, -412, 26.0f), FVector(2.2f, 2.2f, 31),
+		FVector(700, -412, 18.0f), FVector(1.2f, 1.2f, 22),
 		TexMat(TEXT("M_MetalUV"), MetalFrameMaterial), false,
 		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
 	AddOverlay(
-		FVector(602, -414, 5.0f), FVector(24, 24, 8),
-		TexMat(TEXT("M_CeramicUV"), FridgeInteriorMaterial), false,
+		FVector(675, -414, 4.5f), FVector(8, 8, 9),
+		FridgeInteriorMaterial, false,
 		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+	// A very soft practical spill makes the bowl and salt legible from normal
+	// eye height without turning the pre-dawn entrance into a spotlight. The
+	// recessed lobby fixtures otherwise leave this story beat as an isolated
+	// overbright pixel in black asphalt.
+	OfferingLight = CreateLight(
+		FVector(690, -447, 72), 210.0f, 225.0f,
+		FLinearColor(1.0f, 0.72f, 0.46f), false, 24.0f);
+	if (OfferingLight)
+	{
+		OfferingLight->SetVisibility(false);
+		OfferingLight->SetSpecularScale(0.45f);
+		OfferingLight->SetVolumetricScatteringIntensity(0.04f);
+	}
 
 	// Wet steps already inside the lower cab, then continuing through the
 	// lobby toward the threshold. They stay separately parked until the 2F
@@ -1402,15 +1490,19 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	for (int32 StepIndex = 0; StepIndex < UE_ARRAY_COUNT(FootprintLocations); ++StepIndex)
 	{
 		UStaticMeshComponent* Step = AddOverlay(
-			FootprintLocations[StepIndex],
-			FVector(19, 8, 1.3f),
-			TexMat(TEXT("M_WetConcrete"), ConcreteDarkMaterial),
+			FVector(
+				FootprintLocations[StepIndex].X,
+				FootprintLocations[StepIndex].Y,
+				0.45f),
+			FVector(23, 9.5f, 0.7f),
+			TexMat(TEXT("M_WetStep"), ConcreteDarkMaterial),
 			false,
 			SphereMesh,
 			FRotator(0, StepIndex % 2 == 0 ? -12.0f : 12.0f, 0),
 			SceneRoot);
 		if (Step)
 		{
+			Step->SetCastShadow(false);
 			ElevatorFootprintComponents.Add(Step);
 		}
 	}
@@ -1440,7 +1532,7 @@ void AIGPrologueWorldScene::SetFixtureLive(
 	// glowing ring where the lamp used to be.
 	if (UPointLightComponent* Light = FixtureLights[Index])
 	{
-		Light->SetIntensity(bLive ? (bCorridor ? 1500.0f : 1600.0f) : 0.0f);
+		Light->SetIntensity(bLive ? (bCorridor ? 1200.0f : 1250.0f) : 0.0f);
 	}
 	if (UStaticMeshComponent* Disc = FixtureDiscs[Index])
 	{
@@ -1489,7 +1581,12 @@ void AIGPrologueWorldScene::SetChapterTwoOverlayVisible(const bool bVisible)
 	if (MirrorRoomLamp)
 	{
 		MirrorRoomLamp->SetVisibility(bVisible);
-		MirrorRoomLamp->SetIntensity(bVisible ? 780.0f : 0.0f);
+		MirrorRoomLamp->SetIntensity(bVisible ? 330.0f : 0.0f);
+	}
+	if (OfferingLight)
+	{
+		OfferingLight->SetVisibility(bVisible);
+		OfferingLight->SetIntensity(bVisible ? 210.0f : 0.0f);
 	}
 
 	auto SetChapterActorVisible = [bVisible](AIGInteractableActor* Actor)
@@ -1541,6 +1638,14 @@ void AIGPrologueWorldScene::RevealSecondReceipt()
 	DuplicateReceipt->SetInteractionEnabled(true);
 }
 
+void AIGPrologueWorldScene::SetChapterTwoReturnZoneArmed(const bool bArmed)
+{
+	if (ChapterTwoReturnZone)
+	{
+		ChapterTwoReturnZone->SetActorEnableCollision(bArmed);
+	}
+}
+
 void AIGPrologueWorldScene::SetStoreNorthLightsLive(const bool bLive)
 {
 	// BuildStore appends in X-major/Y-minor order. Indices 0 and 2 are the
@@ -1549,7 +1654,7 @@ void AIGPrologueWorldScene::SetStoreNorthLightsLive(const bool bLive)
 	{
 		if (StoreLights.IsValidIndex(LightIndex) && StoreLights[LightIndex])
 		{
-			StoreLights[LightIndex]->SetIntensity(bLive ? 5200.0f : 0.0f);
+			StoreLights[LightIndex]->SetIntensity(bLive ? 2850.0f : 0.0f);
 		}
 		if (StoreLightDiscs.IsValidIndex(LightIndex) && StoreLightDiscs[LightIndex])
 		{
@@ -1704,18 +1809,18 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(710, -305, 225), FVector(20, 110, 30), LobbyWallY);
 
 	// Mailboxes for the whole building on the north wall.
-	CreateBlock(FVector(528, -231, 151), FVector(96, 4, 66), ShelfSteel, false);
+	CreateBlock(FVector(528, -237, 151), FVector(96, 4, 66), ShelfSteel, false);
 	for (const float BoxZ : {131.0f, 151.0f, 171.0f})
 	{
 		for (const float BoxX : {500.0f, 528.0f, 556.0f})
 		{
-			CreateBlock(FVector(BoxX, -228.5f, BoxZ), FVector(26, 9, 18), Metal, false);
+			CreateBlock(FVector(BoxX, -241.5f, BoxZ), FVector(26, 9, 18), Metal, false);
 			CreateBlock(
-				FVector(BoxX, -223.7f, BoxZ + 4), FVector(18, 1.2f, 2.5f),
+				FVector(BoxX, -246.3f, BoxZ + 4), FVector(18, 1.2f, 2.5f),
 				PlasticDarkMaterial, false);
 			// Cam-lock keyhole.
 			CreateBlock(
-				FVector(BoxX + 8, -223.5f, BoxZ - 4), FVector(2.4f, 1.2f, 2.4f),
+				FVector(BoxX + 8, -246.5f, BoxZ - 4), FVector(2.4f, 1.2f, 2.4f),
 				PlasticDarkMaterial, false, CylinderMesh, FRotator(90, 0, 0));
 		}
 	}
@@ -1727,9 +1832,9 @@ void AIGPrologueWorldScene::BuildLobby()
 		TexMat(TEXT("M_Intercom"), SignWhiteMaterial), false);
 	CreateBlock(FVector(672, -383.5f, 145), FVector(19, 3, 25), Stainless, false);
 	CreateBlock(
-		FVector(600, -230.5f, 196), FVector(84, 3, 44),
+		FVector(600, -239.5f, 196), FVector(84, 3, 44),
 		TexMat(TEXT("M_NoticeA4"), SignWhiteMaterial), false);
-	CreateBlock(FVector(600, -232, 196), FVector(90, 3, 50), Metal, false);
+	CreateBlock(FVector(600, -237, 196), FVector(90, 3, 50), Metal, false);
 	CreateBlock(FVector(468, -252, 24), FVector(26, 26, 48), Metal, true, CylinderMesh);
 
 	// Lobby fluorescents: one over the mailboxes, one at the lift doors.
@@ -1742,9 +1847,9 @@ void AIGPrologueWorldScene::BuildLobby()
 			FVector(FixtureX, -305, 234.5f), FVector(23, 23, 2),
 			LightPanelMaterial, false, CylinderMesh));
 		UPointLightComponent* LobbyLight = CreateLight(
-			FVector(FixtureX, -305, 226), 1600.0f, 560.0f,
-			FLinearColor(0.87f, 0.98f, 1.0f), true, 10.0f);
-		LobbyLight->SetVolumetricScatteringIntensity(0.3f);
+			FVector(FixtureX, -305, 226), 1250.0f, 520.0f,
+			FLinearColor(0.87f, 0.98f, 1.0f), true, 16.0f);
+		LobbyLight->SetVolumetricScatteringIntensity(0.16f);
 		LobbyLights.Add(LobbyLight);
 	}
 }
@@ -1772,7 +1877,10 @@ void AIGPrologueWorldScene::BuildAlley()
 	CreateBlock(FVector(1040, -665, 4), FVector(2720, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
 
 	// Manhole covers and the drainage channel running down the alley center.
-	CreateBlock(FVector(500, -470, 1.5f), FVector(72, 72, 3), Metal, true, CylinderMesh);
+	// Keep the first cover clear of the villa threshold and CH02 offering.
+	// The old 72 cm cover sat less than a metre from the bowl and dominated
+	// the approach at ordinary first-person eye height.
+	CreateBlock(FVector(430, -525, 1.5f), FVector(64, 64, 3), Metal, true, CylinderMesh);
 	CreateBlock(FVector(1520, -560, 1.5f), FVector(72, 72, 3), Metal, true, CylinderMesh);
 	CreateBlock(FVector(1040, -537, 0.8f), FVector(2720, 26, 2), Metal, false);
 
@@ -1845,9 +1953,9 @@ void AIGPrologueWorldScene::BuildAlley()
 		// A single sodium bulkhead keeps the bay from being a black hole.
 		CreateBlock(FVector(-30, -244, 214), FVector(22, 14, 12), Metal, false);
 		UPointLightComponent* PilotisLamp = CreateLight(
-			FVector(-30, -252, 208), 420.0f, 520.0f,
-			FLinearColor(0.98f, 0.78f, 0.48f), true, 6.0f);
-		PilotisLamp->SetVolumetricScatteringIntensity(1.3f);
+			FVector(-30, -252, 208), 300.0f, 480.0f,
+			FLinearColor(0.98f, 0.78f, 0.48f), true, 12.0f);
+		PilotisLamp->SetVolumetricScatteringIntensity(0.65f);
 		// Rubbish bags and a bicycle nobody has moved in months.
 		PlacePhotoProp(TEXT("trashbag"), FVector(-286, -262, 0), FVector(58, 58, 56), 20.0f);
 		PlacePhotoProp(TEXT("cardboard_box_01"), FVector(-244, -256, 0), FVector(46, 38, 32), -35.0f);
@@ -1886,9 +1994,9 @@ void AIGPrologueWorldScene::BuildAlley()
 			TexMat(TEXT("M_ConeOrange"), SnackRedMaterial), true, ConeMesh);
 		// One failing lamp deep inside: barely enough to show it dead-ends.
 		UPointLightComponent* SideLamp = CreateLight(
-			FVector(GapCenterX + 50, -172, 206), 220.0f, 320.0f,
-			FLinearColor(0.95f, 0.72f, 0.45f), true, 4.0f);
-		SideLamp->SetVolumetricScatteringIntensity(1.6f);
+			FVector(GapCenterX + 50, -172, 206), 150.0f, 300.0f,
+			FLinearColor(0.95f, 0.72f, 0.45f), true, 9.0f);
+		SideLamp->SetVolumetricScatteringIntensity(0.70f);
 	}
 
 	// Windows for floors two to four. Korean villa windows are tall sashes in
@@ -2121,12 +2229,12 @@ void AIGPrologueWorldScene::BuildAlley()
 		}
 		UPointLightComponent* LampLight = CreateLight(
 			FVector(PoleX, -600, 346),
-			5200.0f,
-			950.0f,
+			3200.0f,
+			860.0f,
 			FLinearColor(1.0f, 0.72f, 0.42f),
 			true,
-			10.0f);
-		LampLight->SetVolumetricScatteringIntensity(2.4f);
+			18.0f);
+		LampLight->SetVolumetricScatteringIntensity(0.9f);
 		if (FMath::IsNearlyEqual(PoleX, 1000.0f))
 		{
 			FlickerStreetlight = LampLight;
@@ -2229,8 +2337,8 @@ void AIGPrologueWorldScene::BuildStore()
 
 	// Warm spill onto the pavement in front of the entrance.
 	UPointLightComponent* SpillLight = CreateLight(
-		FVector(2340, -457, 225), 1800.0f, 720.0f, FLinearColor(1.0f, 0.95f, 0.85f), true, 14.0f);
-	SpillLight->SetVolumetricScatteringIntensity(1.0f);
+		FVector(2340, -457, 225), 1050.0f, 660.0f, FLinearColor(1.0f, 0.95f, 0.85f), true, 22.0f);
+	SpillLight->SetVolumetricScatteringIntensity(0.45f);
 
 	// Interior fluorescents in a 2x2 grid over the enlarged sales floor.
 	for (const float PanelX : {2540.0f, 2820.0f})
@@ -2241,9 +2349,9 @@ void AIGPrologueWorldScene::BuildStore()
 				FVector(PanelX, PanelY, 264), FVector(120, 42, 6),
 				LightPanelMaterial, false));
 			UPointLightComponent* CeilingLight = CreateLight(
-				FVector(PanelX, PanelY, 238), 5200.0f, 820.0f,
-				FLinearColor(1.0f, 0.98f, 0.92f), true, 16.0f);
-			CeilingLight->SetVolumetricScatteringIntensity(0.3f);
+				FVector(PanelX, PanelY, 238), 2850.0f, 720.0f,
+				FLinearColor(1.0f, 0.98f, 0.92f), true, 28.0f);
+			CeilingLight->SetVolumetricScatteringIntensity(0.16f);
 			StoreLights.Add(CeilingLight);
 		}
 	}
@@ -2349,7 +2457,7 @@ void AIGPrologueWorldScene::BuildStore()
 		// label on the cup mesh painted the artwork over the lid and the
 		// underside too, because the lid is unioned into the same mesh and
 		// shares its only material slot.
-		CreateCupRamyeon(FVector(CupX, -365, 144), CupX * 1.7f);
+		CreateCupRamyeon(FVector(CupX, -365, 142), CupX * 1.7f);
 	}
 
 	// South wall: chilled open showcase (kimbap/sandwich) flanked by scanned
@@ -2551,7 +2659,10 @@ void AIGPrologueWorldScene::BuildSkyAndFog()
 	PreDawnSun->SetWorldRotation(FRotator(14.0f, 180.0f, 0.0f));
 	PreDawnSun->SetIntensity(120000.0f); // physical sun illuminance in lux
 	PreDawnSun->SetLightColor(FLinearColor(1.0f, 0.86f, 0.72f));
-	PreDawnSun->SetCastShadows(false); // below horizon; atmosphere only
+	// A shadowless 120 klux directional light shines straight through the
+	// villa and overexposes every surface even while the sun is below the
+	// horizon. Let the ground/building occlude it.
+	PreDawnSun->SetCastShadows(true);
 	PreDawnSun->SetAtmosphereSunLight(true);
 	PreDawnSun->SetAtmosphereSunLightIndex(0);
 	PreDawnSun->ForwardShadingPriority = 0;
@@ -2576,8 +2687,8 @@ void AIGPrologueWorldScene::BuildSkyAndFog()
 	SkyAmbient->SetupAttachment(SceneRoot);
 	SkyAmbient->SetMobility(EComponentMobility::Movable);
 	SkyAmbient->bRealTimeCapture = true;
-	SkyAmbient->SetIntensity(1.0f);
-	SkyAmbient->bLowerHemisphereIsBlack = false;
+	SkyAmbient->SetIntensity(0.62f);
+	SkyAmbient->bLowerHemisphereIsBlack = true;
 	SkyAmbient->RegisterComponent();
 
 	// Thin pre-dawn haze; volumetric so the streetlights carve visible cones.
@@ -2991,7 +3102,8 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 			TexMat(TEXT("M_SteelDoorUV"), DoorMaterial),
 			TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial),
 			FVector(7, 84, 204));
-		MirrorRoomDoor->SetOpenYaw(-95.0f);
+		// Swing into 403 (+Y), not across the 72 cm-wide corridor route.
+		MirrorRoomDoor->SetOpenYaw(95.0f);
 		MirrorRoomDoor->SetInteractionPrompt(
 			NSLOCTEXT("IGCH02", "MirrorDoorPrompt", "403호 문"));
 		MirrorRoomDoor->ForceOpenState(true);
@@ -3258,7 +3370,10 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		TEXT("State.CH02.Loop.SawMirrorRoom"),
 		NSLOCTEXT("IGCH02", "MirrorMovedThought", "403호가… 여기였나?"));
 	MirrorEntryZone = SpawnParkedZone(
-		FVector(430, -170, 1010), FVector(55, 45, 110),
+		// Trigger only after the capsule has cleared the inward-swinging leaf.
+		// Closing at the threshold made the door safety sensor reopen it and
+		// left the scripted blackout playing against a visibly open doorway.
+		FVector(430, -65, 1010), FVector(45, 20, 110),
 		TEXT("State.CH02.Loop.EnteredMirrorRoom"),
 		NSLOCTEXT("IGCH02", "MirrorEnteredThought", "…우리 집이랑 똑같네."));
 	ChapterTwoStoreEntryZone = SpawnParkedZone(
@@ -3709,13 +3824,16 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 
 	for (AIGZoneTrigger* Zone :
 		{ChapterTwoLeftHomeZone.Get(), MirrorSightZone.Get(), MirrorEntryZone.Get(),
-			ChapterTwoStoreEntryZone.Get(), ChapterTwoReturnZone.Get()})
+			ChapterTwoStoreEntryZone.Get()})
 	{
 		if (Zone)
 		{
 			Zone->SetActorEnableCollision(true);
 		}
 	}
+	// The route passes through this part of the lobby on the outbound trip.
+	// Arming it here ended CH02 before the player ever reached the store.
+	SetChapterTwoReturnZoneArmed(false);
 
 	// Put the body back beside the same bed before the second alarm begins.
 	APlayerController* PlayerController = World->GetFirstPlayerController();
@@ -3832,6 +3950,10 @@ void AIGPrologueWorldScene::StartChapterTwoCaptureSequence()
 	// Deterministic documentation captures must never contain checkerboard
 	// materials or the editor's "Preparing Shaders" overlay.
 	FAssetCompilingManager::Get().FinishAllCompilation();
+	if (GShaderCompilingManager)
+	{
+		GShaderCompilingManager->FinishAllCompilation();
+	}
 	if (GEngine)
 	{
 		GEngine->bEnableOnScreenDebugMessages = false;
@@ -3841,6 +3963,7 @@ void AIGPrologueWorldScene::StartChapterTwoCaptureSequence()
 		if (APlayerController* PlayerController = World->GetFirstPlayerController())
 		{
 			PlayerController->ConsoleCommand(TEXT("r.MotionBlurQuality 0"), true);
+			PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
 		}
 	}
 
@@ -3862,6 +3985,13 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 	{
 		FinishChapterTwoCaptureSequence();
 		return;
+	}
+	// Material/PSO jobs can be queued on the first rendered frames after the
+	// initial world build. Drain that second wave before each still.
+	FAssetCompilingManager::Get().FinishAllCompilation();
+	if (GShaderCompilingManager)
+	{
+		GShaderCompilingManager->FinishAllCompilation();
 	}
 
 	if (APlayerCameraManager* CameraManager = PlayerController->PlayerCameraManager)
@@ -3920,15 +4050,15 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 		if (MirrorRoomLamp)
 		{
 			MirrorRoomLamp->SetVisibility(true);
-			MirrorRoomLamp->SetIntensity(780.0f);
+			MirrorRoomLamp->SetIntensity(560.0f);
 		}
 		if (MirrorRoomDoor)
 		{
 			MirrorRoomDoor->ForceOpenState(true);
 		}
 		PlaceCaptureCamera(
-			FVector(430, -145, 997),
-			FVector(300, 130, 970));
+			FVector(430, -120, 1005),
+			FVector(315, 105, 970));
 		BaseName = TEXT("ch02-mirror-room");
 		break;
 
@@ -3943,10 +4073,19 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 		{
 			BuildingDoor->ForceOpenState(true);
 			BuildingDoor->SetInteractionEnabled(false);
+			BuildingDoor->SetActorHiddenInGame(true);
+			BuildingDoor->SetActorEnableCollision(false);
+		}
+		if (OfferingLight)
+		{
+			OfferingLight->SetVisibility(true);
+			OfferingLight->SetIntensity(235.0f);
 		}
 		PlaceCaptureCamera(
-			FVector(630, -500, 96),
-			FVector(583, -412, 20));
+			// Frame the bowl at the end of the salt line, keeping the hinge
+			// post to one side while the wet steps remain visible inside.
+			FVector(735, -535, 88),
+			FVector(665, -407, 10));
 		BaseName = TEXT("ch02-lobby-offering");
 		break;
 
@@ -4014,8 +4153,76 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 	{
 		OpenNote->Close();
 	}
-	UE_LOG(LogIndieGame, Display, TEXT("CH02 capture sequence complete."));
-	FPlatformMisc::RequestExit(false);
+
+	// The three stills also serve as a deterministic CH02 smoke run. Exercise
+	// the complete intermediate-stop state machine before exiting so a visual
+	// capture cannot pass while the chapter's one-off elevator ride is broken.
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
+	APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	if (!Elevator || !PlayerPawn)
+	{
+		UE_LOG(LogIndieGame, Error, TEXT("CH02 elevator validation could not start."));
+		FPlatformMisc::RequestExit(false);
+		return;
+	}
+
+	Elevator->ResetForNewRide();
+	Elevator->ConfigureIntermediateStop(true, 12.0f);
+	PlayerPawn->SetActorLocation(
+		FVector(625, -305, IGPrologueWorld::FourthFloorZ),
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics);
+
+	FIGInteractionContext Context;
+	Context.Interactor = PlayerPawn;
+	Context.TargetActor = Elevator;
+	Context.HoldProgress = 1.0f;
+	IIGInteractable::Execute_CompleteInteraction(Elevator, Context);
+
+	const TWeakObjectPtr<APawn> WeakPlayerPawn = PlayerPawn;
+	FTimerDelegate EnterCabDelegate;
+	EnterCabDelegate.BindLambda([WeakPlayerPawn]()
+	{
+		if (APawn* Pawn = WeakPlayerPawn.Get())
+		{
+			Pawn->SetActorLocation(
+				FVector(795, -305, IGPrologueWorld::FourthFloorZ),
+				false,
+				nullptr,
+				ETeleportType::TeleportPhysics);
+		}
+	});
+	FTimerHandle EnterCabHandle;
+	GetWorldTimerManager().SetTimer(EnterCabHandle, EnterCabDelegate, 1.35f, false);
+
+	FTimerDelegate ValidationDelegate;
+	ValidationDelegate.BindLambda([this]()
+	{
+		const bool bRideCompleted = Elevator && Elevator->IsRideComplete();
+		if (bRideCompleted)
+		{
+			UE_LOG(
+				LogIndieGame,
+				Display,
+				TEXT("CH02 capture and elevator validation complete."));
+		}
+		else
+		{
+			UE_LOG(
+				LogIndieGame,
+				Error,
+				TEXT("CH02 capture and elevator validation failed."));
+		}
+		FPlatformMisc::RequestExit(false);
+	});
+	GetWorldTimerManager().SetTimer(
+		ChapterCaptureHandle,
+		ValidationDelegate,
+		18.0f,
+		false);
+	UE_LOG(LogIndieGame, Display, TEXT("CH02 elevator validation started."));
 }
 
 void AIGPrologueWorldScene::HandleFlickerZoneTriggered(AIGZoneTrigger* Zone)

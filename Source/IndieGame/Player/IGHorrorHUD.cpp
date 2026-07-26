@@ -1122,7 +1122,7 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		DrawRight(PaymentLine.Value, ReceiptFont, ContentRight, PenY);
 		PenY += ReceiptLineHeight;
 	}
-	PenY += 2.0f;
+	PenY += 6.0f;
 	DrawRule();
 
 	for (const FText& FooterLine : Receipt.FooterLines)

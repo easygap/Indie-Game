@@ -144,6 +144,9 @@ public:
 	/** Drops the duplicate 04:44 receipt after the second checkout. */
 	void RevealSecondReceipt();
 
+	/** Arms the homecoming volume only after the second purchase is complete. */
+	void SetChapterTwoReturnZoneArmed(bool bArmed);
+
 	/** Kills/restores the two north-side sales-floor luminaires and diffusers. */
 	void SetStoreNorthLightsLive(bool bLive);
 
@@ -419,6 +422,7 @@ private:
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> NightRoster;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> MirrorRoomDoor;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomLamp;
+	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> OfferingLight;
 
 	/** CH01 wall plug masks the future 403 doorway until the first loop ends. */
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> ChapterOneMaskComponents;

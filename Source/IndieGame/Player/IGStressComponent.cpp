@@ -179,15 +179,15 @@ void UIGStressComponent::UpdatePostProcess()
 	FPostProcessSettings& Settings = FearPostProcess->Settings;
 
 	Settings.bOverride_VignetteIntensity = true;
-	Settings.VignetteIntensity = FMath::Lerp(0.40f, 1.15f, Ramp);
+	Settings.VignetteIntensity = FMath::Lerp(0.28f, 0.72f, Ramp);
 
 	// Colour drains toward grey as fear rises — tunnel vision is partly a
 	// loss of colour discrimination, and it reads instantly on screen.
 	Settings.bOverride_ColorSaturation = true;
 	Settings.ColorSaturation = FVector4(
-		FMath::Lerp(1.0f, 0.42f, Ramp),
-		FMath::Lerp(1.0f, 0.42f, Ramp),
-		FMath::Lerp(1.0f, 0.48f, Ramp),
+		FMath::Lerp(1.0f, 0.66f, Ramp),
+		FMath::Lerp(1.0f, 0.66f, Ramp),
+		FMath::Lerp(1.0f, 0.70f, Ramp),
 		1.0f);
 
 	// A cold cast at the edges of panic.
@@ -199,11 +199,11 @@ void UIGStressComponent::UpdatePostProcess()
 		1.0f);
 
 	Settings.bOverride_SceneFringeIntensity = true;
-	Settings.SceneFringeIntensity = FMath::Lerp(0.0f, 2.6f, Ramp);
+	Settings.SceneFringeIntensity = FMath::Lerp(0.0f, 0.8f, Ramp);
 
 	// Focus pulls in: the far end of the corridor goes soft.
 	Settings.bOverride_DepthOfFieldFocalDistance = true;
-	Settings.DepthOfFieldFocalDistance = FMath::Lerp(2400.0f, 340.0f, Ramp);
+	Settings.DepthOfFieldFocalDistance = FMath::Lerp(2400.0f, 700.0f, Ramp);
 	Settings.bOverride_DepthOfFieldFstop = true;
-	Settings.DepthOfFieldFstop = FMath::Lerp(22.0f, 3.4f, Ramp);
+	Settings.DepthOfFieldFstop = FMath::Lerp(22.0f, 5.6f, Ramp);
 }

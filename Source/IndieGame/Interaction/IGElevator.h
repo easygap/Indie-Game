@@ -6,6 +6,7 @@
 #include "IGElevator.generated.h"
 
 class AIGElevator;
+class APawn;
 class UBoxComponent;
 class UMaterialInterface;
 class USceneComponent;
@@ -118,6 +119,13 @@ protected:
 		bool bFromSweep,
 		const FHitResult& SweepResult);
 
+	UFUNCTION()
+	void HandleCabEndOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComponent,
+		int32 OtherBodyIndex);
+
 	/** Seconds the doors take to open/close. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Elevator", meta = (ClampMin = "0.1", Units = "s"))
 	float DoorSlideDuration = 1.1f;
@@ -155,6 +163,9 @@ private:
 	void SetState(EIGElevatorState NewState);
 	void ApplyDoorOffsets(float UpperOffset, float LowerOffset);
 	void HandleFloorChime();
+	void PollForRider();
+	void TryAdmitRider(APawn* Pawn);
+	bool IsRiderSafelyInsideUpperCab(const APawn* Pawn) const;
 	void StartRide();
 
 	UPROPERTY(VisibleAnywhere, Category = "Elevator|Components")
@@ -202,6 +213,8 @@ private:
 	FIGDoorAnimation DoorAnimation;
 	FTimerHandle RideTimerHandle;
 	FTimerHandle ChimeTimerHandle;
+	FTimerHandle AdmissionPollHandle;
+	TWeakObjectPtr<APawn> PendingRider;
 	EIGElevatorState State = EIGElevatorState::IdleClosed;
 	float FloorDeltaZ = 900.0f;
 	float DoorPanelWidth = 55.0f;
@@ -209,6 +222,7 @@ private:
 	int32 ChimeFloor = 4;
 	int32 PieceCounter = 0;
 	bool bIntermediateStopEnabled = false;
+	bool bUpperDoorDepartureStarted = false;
 	bool bRideComplete = false;
 	bool bVisualsConfigured = false;
 };

@@ -141,7 +141,7 @@ protected:
 	FVector LyingCameraLocation = FVector(0.0f, 0.0f, 28.0f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Wake Flow|Presentation")
-	FRotator LyingCameraRotation = FRotator(-8.0f, 0.0f, -82.0f);
+	FRotator LyingCameraRotation = FRotator(-4.0f, 0.0f, -48.0f);
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Wake Flow|Save")
 	bool bAutosaveWhenStanding = true;
