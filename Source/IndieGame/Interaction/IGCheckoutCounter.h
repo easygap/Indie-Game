@@ -48,6 +48,13 @@ public:
 		const FText& InPurchaseThought);
 
 	/**
+	 * Adds a second story prerequisite without replacing the carried-item
+	 * requirement. Passing an invalid tag clears the extra gate.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Checkout|Story")
+	void SetAdditionalRequiredState(FGameplayTag InRequiredStateTag);
+
+	/**
 	 * Cancels delayed register audio and makes the counter available again.
 	 * The chapter director remains responsible for clearing story states.
 	 */
@@ -78,6 +85,10 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Checkout|Story")
 	FGameplayTag PurchasedStateTag;
+
+	/** Optional clue/route prerequisite in addition to RequiredStateTag. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Checkout|Story")
+	FGameplayTag AdditionalRequiredStateTag;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Checkout|Story")
 	FText PurchaseThought;

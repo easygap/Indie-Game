@@ -183,9 +183,13 @@ void AIGDemoDirector::BuildScript()
 	// -- wallet, then out the door ----------------------------------------
 	Steps.Add(MakeWalkLook(FVector(-70, -140, 0), WalletSpot));
 	Steps.Add(MakeInteract(Wallet.Get(), 1.5f, WalletSpot));
-	Steps.Add(MakeWalkLook(FVector(70, -160, 0), DoorSpot));
+	// Aim beyond the doorway centre: the walk step completes 55 cm early,
+	// leaving the pawn aligned with the narrow opening before the door moves.
+	Steps.Add(MakeWalkLook(FVector(198, -160, 0), DoorSpot));
 	Steps.Add(MakeInteract(HomeDoor.Get(), 1.7f, DoorSpot));
-	Steps.Add(MakeWalk(FVector(143, -200, 0)));
+	// The matching overshoot settles the pawn near y=-305, squarely across
+	// the threshold and clear of both the opened leaf and corridor walls.
+	Steps.Add(MakeWalk(FVector(143, -360, 0)));
 
 	// -- 4F corridor and the elevator ride down ---------------------------
 	// The lift is at the far end, so this is a real walk down the hallway.
@@ -243,9 +247,12 @@ void AIGDemoDirector::BuildScript()
 	Steps.Add(MakeWalkLook(FVector(1520, -520, 0), StoreFar));
 	Steps.Add(MakeWalk(FVector(2080, -490, 0)));
 	Steps.Add(MakeWalk(FVector(2330, -460, 0))); // sliding door senses us
+	Steps.Add(MakeWait(1.2f, StoreDoorSpot));    // let both glass leaves clear
 
 	// -- the store ---------------------------------------------------------
-	Steps.Add(MakeWalk(FVector(2455, -457, 0)));
+	// Continue well past the kick rail. The former shallow target completed
+	// at the door plane, where the capsule could remain caught on the sill.
+	Steps.Add(MakeWalk(FVector(2515, -457, 0)));
 	Steps.Add(MakeWalkLook(FVector(2620, -450, 0), RamyeonSpot));
 	Steps.Add(MakeWait(1.1f, RamyeonSpot));
 	Steps.Add(MakeStill(TEXT("prologue-ramyeon")));
@@ -255,8 +262,11 @@ void AIGDemoDirector::BuildScript()
 	Steps.Add(MakeStill(TEXT("prologue-store")));
 	Steps.Add(MakeWalkLook(FVector(2848, -532, 0), CoolerSpot));
 	Steps.Add(MakeInteract(WaterBottle.Get(), 2.2f, CoolerSpot));
-	Steps.Add(MakeWalkLook(FVector(2650, -450, 0), RegisterSpot));
-	Steps.Add(MakeWalkLook(FVector(2610, -320, 0), RegisterSpot));
+	// Reach the register around the open east ends of the gondola and
+	// counter. The 62 cm slot between them is narrower than the capsule.
+	Steps.Add(MakeWalk(FVector(2900, -430, 0)));
+	Steps.Add(MakeWalk(FVector(2840, -195, 0)));
+	Steps.Add(MakeWalkLook(FVector(2665, -250, 0), RegisterSpot));
 	Steps.Add(MakeInteract(Checkout.Get(), 3.4f, RegisterSpot));
 	Steps.Add(MakeWait(2.6f, StoreDoorSpot));    // ...the chime rings by itself
 	Steps.Add(MakeWait(3.0f, StoreDoorSpot));
@@ -420,8 +430,11 @@ void AIGDemoDirector::UpdateWalk(const float DeltaSeconds)
 		UE_LOG(
 			LogIndieGame,
 			Warning,
-			TEXT("Demo walk step %d timed out; snapping to waypoint."),
-			StepIndex);
+			TEXT("Demo walk step %d timed out at %s (target %s, remaining %.1f cm); snapping to waypoint."),
+			StepIndex,
+			*Pawn->GetActorLocation().ToCompactString(),
+			*Step.Target.ToCompactString(),
+			ToTarget.Size2D());
 		Pawn->SetActorLocation(
 			FVector(Step.Target.X, Step.Target.Y, Pawn->GetActorLocation().Z),
 			false,

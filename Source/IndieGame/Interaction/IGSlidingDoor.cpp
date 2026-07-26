@@ -58,11 +58,15 @@ void AIGSlidingDoor::ConfigurePrototypeVisuals(
 	// Panels meet at the actor center; each slides outward along its own Y sign.
 	LeftPanel->SetStaticMesh(CubeMesh);
 	LeftPanel->SetMaterial(0, GlassMaterial);
+	// Translucent panes should not generate an opaque VSM silhouette. The
+	// aluminum child frame still casts the door's readable shadow.
+	LeftPanel->SetCastShadow(false);
 	LeftPanel->SetRelativeLocation(FVector(0.0f, -PanelSize.Y * 0.5f, PanelSize.Z * 0.5f));
 	LeftPanel->SetRelativeScale3D(PanelSize / 100.0f);
 
 	RightPanel->SetStaticMesh(CubeMesh);
 	RightPanel->SetMaterial(0, GlassMaterial);
+	RightPanel->SetCastShadow(false);
 	RightPanel->SetRelativeLocation(FVector(0.0f, PanelSize.Y * 0.5f, PanelSize.Z * 0.5f));
 	RightPanel->SetRelativeScale3D(PanelSize / 100.0f);
 
@@ -168,6 +172,11 @@ void AIGSlidingDoor::Tick(const float DeltaSeconds)
 
 	if (bFinished)
 	{
+		if (!bOpen)
+		{
+			LeftPanel->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+			RightPanel->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+		}
 		SetActorTickEnabled(false);
 	}
 }
@@ -235,6 +244,12 @@ void AIGSlidingDoor::SetDoorOpen(const bool bInOpen)
 	}
 
 	bOpen = bInOpen;
+	// The leaves move as child components and therefore cannot sweep. Keep
+	// them non-blocking while opening/open/closing, then restore collision only
+	// after both leaves are fully closed. This prevents the automatic door from
+	// shoving or trapping a pawn at the sensor boundary.
+	LeftPanel->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+	RightPanel->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	SlideAnimation.Begin(
 		SlideAnimation.CurrentValue,
 		bOpen ? PanelSlideDistance : 0.0f,

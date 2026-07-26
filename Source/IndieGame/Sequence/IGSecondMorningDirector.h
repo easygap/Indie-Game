@@ -135,6 +135,7 @@ private:
 	FGameplayTag ReadNoticeTag;
 	FGameplayTag EnteredStoreTag;
 	FGameplayTag SawReceiptTag;
+	FGameplayTag ReadDuplicateReceiptTag;
 	FGameplayTag HasWaterTag;
 	FGameplayTag WaterPurchasedTag;
 	FGameplayTag ReturnedTag;

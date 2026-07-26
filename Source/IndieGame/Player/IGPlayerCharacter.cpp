@@ -24,9 +24,11 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	PrimaryActorTick.bStartWithTickEnabled = false;
 
 	// Interior openings are 84-88 cm wide.  A 42 cm radius capsule had zero
-	// clearance and caught on jambs or was shoved by an opening door.  Keep
-	// the standing height while using a realistic shoulder clearance.
-	GetCapsuleComponent()->InitCapsuleSize(36.0f, 96.0f);
+	// clearance, and even 36 cm left too little tolerance beside a moving
+	// Korean steel door.  UE first-person characters commonly use a ~34 cm
+	// radius; keep the standing height while giving door jambs realistic
+	// shoulder clearance instead of letting the capsule snag on millimetres.
+	GetCapsuleComponent()->InitCapsuleSize(34.0f, 96.0f);
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
@@ -39,6 +41,19 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	MovementComponent->MaxWalkSpeedCrouched = 160.0f;
 	MovementComponent->MaxAcceleration = 1200.0f;
 	MovementComponent->BrakingDecelerationWalking = 1200.0f;
+	// CharacterMovement's stock 750,000 push force is intended for heavy
+	// physics gameplay. Against a 200 g slipper or an empty bottle it launches
+	// the prop down the corridor from a light brush. Scale the impulse by mass
+	// and cap the continuous touch force so small dressing can still be nudged
+	// without exploding or spinning indefinitely.
+	MovementComponent->bEnablePhysicsInteraction = true;
+	MovementComponent->bPushForceScaledToMass = true;
+	MovementComponent->bScalePushForceToVelocity = true;
+	MovementComponent->InitialPushForceFactor = 250.0f;
+	MovementComponent->PushForceFactor = 450.0f;
+	MovementComponent->TouchForceFactor = 0.6f;
+	MovementComponent->MinTouchForce = -1.0f;
+	MovementComponent->MaxTouchForce = 120.0f;
 
 	FirstPersonCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FirstPersonCamera"));
 	FirstPersonCamera->SetupAttachment(GetCapsuleComponent());

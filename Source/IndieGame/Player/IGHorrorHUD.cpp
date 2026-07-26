@@ -107,6 +107,41 @@ void AIGHorrorHUD::InitializeKoreanFont()
 		KoreanFontSmall = MakeRuntimeFont(
 			FontFace, IGHorrorHUD::SmallFontSize, TEXT("KoreanFontSmall"));
 
+		// Receipt printers use a compact, almost fixed-width bitmap face. Keep
+		// the normal UI on Malgun Gothic, but prefer the narrower Gulim/Dotum
+		// family for the 80 mm thermal roll. Column positions are still
+		// measured explicitly, so Korean and ASCII remain aligned at 720p.
+		KoreanReceiptFontFace = FontFace;
+		const TCHAR* ReceiptCandidateFonts[] = {
+			TEXT("gulim.ttc"),
+			TEXT("Dotum.ttc"),
+		};
+		for (const TCHAR* ReceiptFontFileName : ReceiptCandidateFonts)
+		{
+			const FString ReceiptFontPath =
+				FPaths::Combine(FontsDirectory, ReceiptFontFileName);
+			TArray<uint8> ReceiptFontBytes;
+			if (!FPaths::FileExists(ReceiptFontPath)
+				|| !FFileHelper::LoadFileToArray(ReceiptFontBytes, *ReceiptFontPath))
+			{
+				continue;
+			}
+
+			KoreanReceiptFontFace =
+				NewObject<UFontFace>(this, TEXT("ReceiptFontFace"));
+			KoreanReceiptFontFace->LoadingPolicy = EFontLoadingPolicy::Inline;
+			KoreanReceiptFontFace->Hinting = EFontHinting::Monochrome;
+			KoreanReceiptFontFace->SourceFilename = ReceiptFontPath;
+			KoreanReceiptFontFace->FontFaceData =
+				FFontFaceData::MakeFontFaceData(MoveTemp(ReceiptFontBytes));
+			break;
+		}
+
+		KoreanReceiptHeaderFont = MakeRuntimeFont(
+			KoreanReceiptFontFace.Get(), 21, TEXT("KoreanReceiptHeaderFont"));
+		KoreanReceiptFont = MakeRuntimeFont(
+			KoreanReceiptFontFace.Get(), 12, TEXT("KoreanReceiptFont"));
+
 		UE_LOG(LogIndieGame, Display, TEXT("HUD Korean font loaded: %s"), *FontPath);
 		return;
 	}
@@ -392,9 +427,14 @@ void AIGHorrorHUD::ResolveDirectors()
 FText AIGHorrorHUD::GetObjectiveText() const
 {
 	const AIGWakeUpDirector* Wake = WakeDirector.Get();
+	const IIGObjectiveProvider* Provider =
+		Cast<IIGObjectiveProvider>(ObjectiveProvider.Get());
 	if (!Wake)
 	{
-		return FText::GetEmpty();
+		// Later chapters retire the reusable wake director once the player is
+		// already standing. Their chapter director still owns the objective,
+		// so do not make that HUD line depend on a CH01/02-only actor.
+		return Provider ? Provider->GetObjectiveText() : FText::GetEmpty();
 	}
 
 	switch (Wake->GetWakeState())
@@ -410,8 +450,6 @@ FText AIGHorrorHUD::GetObjectiveText() const
 
 	case EIGWakeState::FreeRoam:
 	{
-		const IIGObjectiveProvider* Provider =
-			Cast<IIGObjectiveProvider>(ObjectiveProvider.Get());
 		if (Provider)
 		{
 			// An empty objective can be intentional between story beats.
@@ -429,9 +467,11 @@ FText AIGHorrorHUD::GetObjectiveText() const
 FString AIGHorrorHUD::GetObjectiveTextAscii() const
 {
 	const AIGWakeUpDirector* Wake = WakeDirector.Get();
+	const IIGObjectiveProvider* Provider =
+		Cast<IIGObjectiveProvider>(ObjectiveProvider.Get());
 	if (!Wake)
 	{
-		return FString();
+		return Provider ? Provider->GetObjectiveTextAscii() : FString();
 	}
 
 	switch (Wake->GetWakeState())
@@ -447,8 +487,6 @@ FString AIGHorrorHUD::GetObjectiveTextAscii() const
 
 	case EIGWakeState::FreeRoam:
 	{
-		const IIGObjectiveProvider* Provider =
-			Cast<IIGObjectiveProvider>(ObjectiveProvider.Get());
 		if (Provider)
 		{
 			return Provider->GetObjectiveTextAscii();
@@ -848,8 +886,8 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		FLinearColor(0.0f, 0.0f, 0.0f, 0.78f),
 		0.0f, 0.0f, ScreenWidth, ScreenHeight);
 
-	const float PaperHeight = FMath::Min(ScreenHeight * 0.88f, 760.0f);
-	const float PaperWidth = FMath::Min(PaperHeight * 0.47f, ScreenWidth * 0.34f);
+	const float PaperHeight = FMath::Min(ScreenHeight * 0.91f, 760.0f);
+	const float PaperWidth = FMath::Min(PaperHeight * 0.465f, ScreenWidth * 0.32f);
 	const FVector2D PaperOrigin(
 		(ScreenWidth - PaperWidth) * 0.5f,
 		(ScreenHeight - PaperHeight) * 0.5f);
@@ -867,59 +905,84 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 			ReceiptPaperTexture,
 			PaperOrigin.X, PaperOrigin.Y, PaperWidth, PaperHeight,
 			0.0f, 0.0f, 1.0f, 1.0f,
-			FLinearColor(1.0f, 1.0f, 0.97f, 1.0f), BLEND_Opaque);
+			FLinearColor(0.97f, 0.965f, 0.925f, 1.0f), BLEND_Opaque);
 	}
 	else
 	{
 		DrawRect(
-			FLinearColor(0.94f, 0.94f, 0.90f, 1.0f),
+			FLinearColor(0.945f, 0.94f, 0.885f, 1.0f),
 			PaperOrigin.X, PaperOrigin.Y, PaperWidth, PaperHeight);
 	}
 
-	// Very faint horizontal thermal banding keeps the surface from reading as
-	// a flat UI card without turning clean receipt stock into aged stationery.
-	for (float BandY = PaperOrigin.Y + 12.0f;
+	// Uneven heat and the low-grade roll stock leave faint horizontal bands.
+	// Two different intervals prevent the surface from looking like ruled
+	// notebook paper while remaining visible at a 1280x720 capture.
+	for (float BandY = PaperOrigin.Y + 9.0f;
 		BandY < PaperOrigin.Y + PaperHeight - 8.0f;
-		BandY += 19.0f)
+		BandY += 13.0f)
 	{
 		DrawRect(
-			FLinearColor(0.28f, 0.27f, 0.24f, 0.035f),
+			FLinearColor(0.24f, 0.225f, 0.19f, 0.012f),
 			PaperOrigin.X + 1.0f,
 			BandY,
 			PaperWidth - 2.0f,
 			1.0f);
 	}
+	for (float BandY = PaperOrigin.Y + 31.0f;
+		BandY < PaperOrigin.Y + PaperHeight - 8.0f;
+		BandY += 47.0f)
+	{
+		DrawRect(
+			FLinearColor(1.0f, 0.995f, 0.95f, 0.04f),
+			PaperOrigin.X + 3.0f,
+			BandY,
+			PaperWidth - 6.0f,
+			1.0f);
+	}
+	// A soft compression crease and slightly dirty roll edges sell physical
+	// paper without making a brand-new receipt look like an antique note.
+	const float CreaseY = PaperOrigin.Y + PaperHeight * 0.585f;
 	DrawRect(
-		FLinearColor(0.27f, 0.26f, 0.23f, 0.45f),
+		FLinearColor(0.23f, 0.21f, 0.17f, 0.035f),
+		PaperOrigin.X + 2.0f, CreaseY, PaperWidth - 4.0f, 2.0f);
+	DrawRect(
+		FLinearColor(1.0f, 0.995f, 0.96f, 0.10f),
+		PaperOrigin.X + 3.0f, CreaseY + 2.0f, PaperWidth - 6.0f, 1.0f);
+	DrawRect(
+		FLinearColor(0.24f, 0.22f, 0.18f, 0.36f),
 		PaperOrigin.X,
 		PaperOrigin.Y,
 		1.0f,
 		PaperHeight);
 	DrawRect(
-		FLinearColor(0.27f, 0.26f, 0.23f, 0.45f),
+		FLinearColor(0.24f, 0.22f, 0.18f, 0.36f),
 		PaperOrigin.X + PaperWidth - 1.0f,
 		PaperOrigin.Y,
 		1.0f,
 		PaperHeight);
 
-	UFont* HeaderFont = GetFontForRole(EIGHudTextRole::Prompt);
-	UFont* ReceiptFont = GetFontForRole(EIGHudTextRole::Hint);
+	UFont* HeaderFont = KoreanReceiptHeaderFont
+		? KoreanReceiptHeaderFont.Get()
+		: GetFontForRole(EIGHudTextRole::Prompt);
+	UFont* ReceiptFont = KoreanReceiptFont
+		? KoreanReceiptFont.Get()
+		: GetFontForRole(EIGHudTextRole::Hint);
 	if (!HeaderFont || !ReceiptFont)
 	{
 		return;
 	}
 
-	const FLinearColor ThermalInk(0.055f, 0.052f, 0.048f, 0.96f);
-	const FLinearColor FaintInk(0.12f, 0.115f, 0.105f, 0.88f);
-	const float ContentLeft = PaperOrigin.X + PaperWidth * 0.075f;
-	const float ContentRight = PaperOrigin.X + PaperWidth * 0.925f;
+	const FLinearColor ThermalInk(0.015f, 0.012f, 0.009f, 0.98f);
+	const FLinearColor FaintInk(0.045f, 0.040f, 0.032f, 0.84f);
+	const float ContentLeft = PaperOrigin.X + PaperWidth * 0.065f;
+	const float ContentRight = PaperOrigin.X + PaperWidth * 0.935f;
 	const float ContentWidth = ContentRight - ContentLeft;
 	// Thermal printers pack rows much more tightly than normal UI text. Font
 	// ascent metrics are intentionally not used here: Malgun Gothic reports a
 	// generous line box that made the first pass look like a document again.
 	const float ReceiptLineHeight =
-		FMath::Clamp(PaperHeight / 31.0f, 18.0f, 21.0f);
-	float PenY = PaperOrigin.Y + PaperHeight * 0.038f;
+		FMath::Clamp(PaperHeight / 39.0f, 15.5f, 17.5f);
+	float PenY = PaperOrigin.Y + PaperHeight * 0.027f;
 
 	auto MeasureText = [this](UFont* Font, const FText& Text)
 	{
@@ -999,9 +1062,19 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 	};
 
 	DrawCentered(Receipt.StoreName, HeaderFont, PenY);
-	PenY += FMath::Max(22.0f, HeaderFont->GetMaxCharHeight() * 1.18f);
+	// A second sub-pixel impression mimics the heavy one-colour logo pass
+	// common at the top of convenience-store thermal receipts.
+	const FVector2D StoreNameSize = MeasureText(HeaderFont, Receipt.StoreName);
+	DrawTextAt(
+		Receipt.StoreName,
+		HeaderFont,
+		PaperOrigin.X + (PaperWidth - StoreNameSize.X) * 0.5f + 0.65f,
+		PenY);
+	PenY += FMath::Max(23.0f, HeaderFont->GetMaxCharHeight() * 1.05f);
 	DrawCentered(Receipt.StoreSubtitle, ReceiptFont, PenY, &FaintInk);
-	PenY += ReceiptLineHeight + 2.0f;
+	// Gulim's descenders extend slightly beyond its reported compact line
+	// box; keep the first perforated rule visibly below the branch subtitle.
+	PenY += ReceiptLineHeight + 4.0f;
 	DrawRule(true);
 
 	for (const FText& DetailLine : Receipt.StoreDetailLines)
@@ -1011,7 +1084,7 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 	}
 	if (!Receipt.StoreDetailLines.IsEmpty())
 	{
-		PenY += 2.0f;
+		PenY += 1.0f;
 	}
 
 	for (const FText& PolicyLine : Receipt.PolicyLines)
@@ -1019,23 +1092,29 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		DrawTextAt(PolicyLine, ReceiptFont, ContentLeft, PenY, &FaintInk);
 		PenY += ReceiptLineHeight;
 	}
-	PenY += 2.0f;
+	PenY += 1.0f;
 	DrawRule();
 
-	DrawTextAt(Receipt.TransactionDateTime, ReceiptFont, ContentLeft, PenY);
-	DrawRight(Receipt.PosLabel, ReceiptFont, ContentRight, PenY);
-	PenY += ReceiptLineHeight;
+	// Keep identifiers and the timestamp on adjacent dense rows. This avoids
+	// collisions on 720p while matching Korean POS layouts that print a
+	// receipt/transaction number immediately before the dated sales line.
 	DrawTextAt(
-		NSLOCTEXT("IGHUD", "ReceiptNumberLabel", "영수증번호"),
+		FText::Format(
+			NSLOCTEXT("IGHUD", "ReceiptTransactionNumber", "거래NO {0}"),
+			Receipt.ReceiptNumber),
 		ReceiptFont,
 		ContentLeft,
-		PenY,
-		&FaintInk);
-	DrawRight(Receipt.ReceiptNumber, ReceiptFont, ContentRight, PenY);
-	PenY += ReceiptLineHeight + 2.0f;
+		PenY);
+	DrawRight(Receipt.PosLabel, ReceiptFont, ContentRight, PenY);
+	PenY += ReceiptLineHeight;
+	DrawCentered(Receipt.TransactionDateTime, ReceiptFont, PenY);
+	PenY += ReceiptLineHeight;
 	DrawRule();
 
-	const float QuantityCenterX = ContentLeft + ContentWidth * 0.62f;
+	// Give Korean product names a true left column. The former 49% boundary
+	// made "새벽샘물500mL" touch the quantity at 1280x720.
+	const float QuantityCenterX = ContentLeft + ContentWidth * 0.53f;
+	const float UnitPriceRightX = ContentLeft + ContentWidth * 0.76f;
 	DrawTextAt(
 		NSLOCTEXT("IGHUD", "ReceiptProductHeading", "상품명"),
 		ReceiptFont,
@@ -1048,6 +1127,12 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		QuantityHeading,
 		ReceiptFont,
 		QuantityCenterX - QuantityHeadingSize.X * 0.5f,
+		PenY,
+		&FaintInk);
+	DrawRight(
+		NSLOCTEXT("IGHUD", "ReceiptUnitPriceHeading", "단가"),
+		ReceiptFont,
+		UnitPriceRightX,
 		PenY,
 		&FaintInk);
 	DrawRight(
@@ -1068,8 +1153,13 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 			ReceiptFont,
 			QuantityCenterX - QuantitySize.X * 0.5f,
 			PenY);
+		DrawRight(
+			FormatAmount(Item.UnitPrice > 0 ? Item.UnitPrice : Item.Amount),
+			ReceiptFont,
+			UnitPriceRightX,
+			PenY);
 		DrawRight(FormatAmount(Item.Amount), ReceiptFont, ContentRight, PenY);
-		PenY += ReceiptLineHeight + 2.0f;
+		PenY += ReceiptLineHeight + 1.0f;
 	}
 	DrawRule();
 
@@ -1083,7 +1173,7 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		DrawRight(FormatAmount(Amount), Font, ContentRight, PenY, Color);
 		PenY += FMath::Max(
 			ReceiptLineHeight,
-			static_cast<float>(Font->GetMaxCharHeight()) * 1.08f);
+			static_cast<float>(Font->GetMaxCharHeight()) * 1.02f);
 	};
 
 	DrawAmountRow(
@@ -1104,7 +1194,6 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		NSLOCTEXT("IGHUD", "ReceiptTotal", "결 제 금 액"),
 		Receipt.Total,
 		HeaderFont);
-	PenY += 1.0f;
 	DrawRule(true);
 
 	if (!Receipt.PaymentHeading.IsEmpty())
@@ -1122,7 +1211,7 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		DrawRight(PaymentLine.Value, ReceiptFont, ContentRight, PenY);
 		PenY += ReceiptLineHeight;
 	}
-	PenY += 6.0f;
+	PenY += 2.0f;
 	DrawRule();
 
 	for (const FText& FooterLine : Receipt.FooterLines)
@@ -1131,44 +1220,91 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		PenY += ReceiptLineHeight;
 	}
 
-	// A deterministic, deliberately non-standard visual barcode. It reads as
-	// POS output but is not a scannable copy of a real receipt.
-	const float BarcodeTop = PenY + 2.0f;
-	const float BarcodeHeight = FMath::Max(
-		24.0f,
-		FMath::Min(36.0f, PaperOrigin.Y + PaperHeight - BarcodeTop - 29.0f));
-	const int32 PatternUnits = FMath::Max(1, Receipt.BarcodeDigits.Len() * 8);
-	const float UnitWidth = FMath::Min(1.8f, ContentWidth / PatternUnits);
-	float BarcodeX = ContentLeft + (ContentWidth - PatternUnits * UnitWidth) * 0.5f;
-	for (int32 DigitIndex = 0; DigitIndex < Receipt.BarcodeDigits.Len(); ++DigitIndex)
+	// EAN-13-like layout: start/centre/end guards, six left digits with L/G
+	// parity, and six right digits. Story data deliberately supplies an
+	// invalid check digit, so this has authentic proportions without becoming
+	// a usable identifier for a real product.
+	FString BarcodeDigits = Receipt.BarcodeDigits;
+	bool bValidBarcodeDigits = BarcodeDigits.Len() == 13;
+	for (int32 Index = 0; bValidBarcodeDigits && Index < BarcodeDigits.Len(); ++Index)
 	{
-		const int32 Digit = FMath::Clamp(
-			Receipt.BarcodeDigits[DigitIndex] - TEXT('0'),
-			0,
-			9);
-		const uint8 Pattern = static_cast<uint8>(
-			((Digit + 1) * 37 + (DigitIndex + 3) * 19) & 0x7f);
-		for (int32 Bit = 0; Bit < 7; ++Bit)
+		bValidBarcodeDigits =
+			BarcodeDigits[Index] >= TEXT('0') && BarcodeDigits[Index] <= TEXT('9');
+	}
+	if (!bValidBarcodeDigits)
+	{
+		BarcodeDigits = TEXT("2904440711004");
+	}
+
+	static const TCHAR* LeftOddPatterns[10] = {
+		TEXT("0001101"), TEXT("0011001"), TEXT("0010011"), TEXT("0111101"),
+		TEXT("0100011"), TEXT("0110001"), TEXT("0101111"), TEXT("0111011"),
+		TEXT("0110111"), TEXT("0001011"),
+	};
+	static const TCHAR* LeftEvenPatterns[10] = {
+		TEXT("0100111"), TEXT("0110011"), TEXT("0011011"), TEXT("0100001"),
+		TEXT("0011101"), TEXT("0111001"), TEXT("0000101"), TEXT("0010001"),
+		TEXT("0001001"), TEXT("0010111"),
+	};
+	static const TCHAR* RightPatterns[10] = {
+		TEXT("1110010"), TEXT("1100110"), TEXT("1101100"), TEXT("1000010"),
+		TEXT("1011100"), TEXT("1001110"), TEXT("1010000"), TEXT("1000100"),
+		TEXT("1001000"), TEXT("1110100"),
+	};
+	static const TCHAR* LeftParity[10] = {
+		TEXT("LLLLLL"), TEXT("LLGLGG"), TEXT("LLGGLG"), TEXT("LLGGGL"),
+		TEXT("LGLLGG"), TEXT("LGGLLG"), TEXT("LGGGLL"), TEXT("LGLGLG"),
+		TEXT("LGLGGL"), TEXT("LGGLGL"),
+	};
+
+	FString BarcodeModules(TEXT("101"));
+	const int32 LeadingDigit = BarcodeDigits[0] - TEXT('0');
+	for (int32 Index = 1; Index <= 6; ++Index)
+	{
+		const int32 Digit = BarcodeDigits[Index] - TEXT('0');
+		BarcodeModules += LeftParity[LeadingDigit][Index - 1] == TEXT('L')
+			? LeftOddPatterns[Digit]
+			: LeftEvenPatterns[Digit];
+	}
+	BarcodeModules += TEXT("01010");
+	for (int32 Index = 7; Index <= 12; ++Index)
+	{
+		BarcodeModules += RightPatterns[BarcodeDigits[Index] - TEXT('0')];
+	}
+	BarcodeModules += TEXT("101");
+
+	// Leave one printer row between the service line and the first guard bar.
+	const float BarcodeTop = PenY + 5.0f;
+	const float BarcodeHeight = FMath::Max(
+		26.0f,
+		FMath::Min(35.0f, PaperOrigin.Y + PaperHeight - BarcodeTop - 26.0f));
+	const float UnitWidth = ContentWidth / 95.0f;
+	float BarcodeX = ContentLeft;
+	for (int32 ModuleIndex = 0; ModuleIndex < BarcodeModules.Len(); ++ModuleIndex)
+	{
+		if (BarcodeModules[ModuleIndex] == TEXT('1'))
 		{
-			if ((Pattern & (1 << Bit)) != 0)
-			{
-				const float BarHeight = (Bit == 0 || Bit == 6)
-					? BarcodeHeight
-					: BarcodeHeight - 3.0f;
-				DrawRect(
-					ThermalInk,
-					BarcodeX,
-					BarcodeTop,
-					FMath::Max(1.0f, UnitWidth * 0.72f),
-					BarHeight);
-			}
-			BarcodeX += UnitWidth;
+			const bool bGuard =
+				ModuleIndex <= 2
+				|| (ModuleIndex >= 45 && ModuleIndex <= 49)
+				|| ModuleIndex >= 92;
+			DrawRect(
+				ThermalInk,
+				BarcodeX,
+				BarcodeTop,
+				FMath::Max(1.0f, UnitWidth * 0.86f),
+				BarcodeHeight + (bGuard ? 4.0f : 0.0f));
 		}
 		BarcodeX += UnitWidth;
 	}
-	PenY = BarcodeTop + BarcodeHeight + 1.0f;
+	PenY = BarcodeTop + BarcodeHeight + 3.0f;
+	const FString HumanReadableBarcode = FString::Printf(
+		TEXT("%c  %s  %s"),
+		BarcodeDigits[0],
+		*BarcodeDigits.Mid(1, 6),
+		*BarcodeDigits.Mid(7, 6));
 	DrawCentered(
-		FText::FromString(Receipt.BarcodeDigits),
+		FText::FromString(HumanReadableBarcode),
 		ReceiptFont,
 		PenY,
 		&FaintInk);

@@ -77,6 +77,29 @@ public:
 	static UIGToneSequenceSoundWave* CreateRegisterSound(UObject* Outer);
 
 	/**
+	 * A dry relay crack followed by the short 120 Hz ring of a failing
+	 * fluorescent ballast. Kept separate from footsteps so a light going out
+	 * reads as an electrical event even when it happens behind the player.
+	 */
+	static UIGToneSequenceSoundWave* CreateFluorescentBallastSnap(UObject* Outer);
+
+	/**
+	 * One water drop striking thin elevator metal: a soft liquid impact first,
+	 * then a narrow, lingering metal resonance.
+	 */
+	static UIGToneSequenceSoundWave* CreateWaterDripMetalRing(UObject* Outer);
+
+	/**
+	 * Looping, unintelligible low-band radio cadence heard through unit 401's
+	 * closed door. It suggests an early-morning prayer broadcast without
+	 * synthesizing words or a recognizable human voice.
+	 */
+	static UIGToneSequenceSoundWave* CreateMuffledPrayerRadio(UObject* Outer);
+
+	/** One rough cardboard scrape and a small box-settle thump. */
+	static UIGToneSequenceSoundWave* CreateCardboardDrag(UObject* Outer);
+
+	/**
 	 * Looping cheerful music-box store jingle.
 	 * PitchSemitones and TimeScale author the degraded CH02 version without
 	 * changing global audio-component pitch (which would couple both values).

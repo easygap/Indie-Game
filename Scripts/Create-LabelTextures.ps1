@@ -184,7 +184,7 @@ $midAmber  = [System.Drawing.Color]::FromArgb(255, 176, 116, 36)
 $sodaGreen = [System.Drawing.Color]::FromArgb(255, 22, 150, 96)
 $sojuBlue  = [System.Drawing.Color]::FromArgb(255, 20, 62, 130)
 
-New-BottleLabel -FileName 'T_LabelWater_D.png' -BrandKo '새벽수' -BrandEn 'SAEBYEOK MINERAL WATER' `
+New-BottleLabel -FileName 'T_LabelWater_D.png' -BrandKo '새벽샘물' -BrandEn 'SAEBYEOK SPRING WATER' `
     -Kind '먹는샘물' -Volume '500mL' -BaseTop $paleBlue -BaseBottom $white `
     -AccentColor $deepBlue -TextColor $white -Waves
 New-BottleLabel -FileName 'T_LabelGreenTea_D.png' -BrandKo '숲의녹차' -BrandEn 'FOREST GREEN TEA' `

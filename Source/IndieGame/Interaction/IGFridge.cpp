@@ -158,7 +158,7 @@ void AIGFridge::ConfigurePrototypeVisuals(
 	}
 
 	// Non-colliding appliance detailing: what makes it read as a fridge.
-	auto AddDetail = [this, CubeMesh](
+	auto AddDetail = [this, CubeMesh, GlassMaterial](
 		USceneComponent* Parent, UMaterialInterface* Material,
 		const FVector& Center, const FVector& Size)
 	{
@@ -174,6 +174,10 @@ void AIGFridge::ConfigurePrototypeVisuals(
 		Detail->SetGenerateOverlapEvents(false);
 		Detail->SetCanEverAffectNavigation(false);
 		Detail->SetMobility(EComponentMobility::Movable);
+		if (Material == GlassMaterial)
+		{
+			Detail->SetCastShadow(false);
+		}
 		Detail->RegisterComponent();
 		ShellMeshes.Add(Detail);
 	};

@@ -71,6 +71,9 @@ void AIGSecondMorningDirector::BeginPlay()
 	{
 		Elevator->OnIntermediateStopOpened.AddUniqueDynamic(
 			this, &ThisClass::HandleIntermediateStopOpened);
+		// The impossible 403 room is a required story beat. The call button
+		// becomes live only after the player has crossed its threshold.
+		Elevator->SetInteractionEnabled(HasState(EnteredMirrorRoomTag));
 	}
 
 	BindNote(ExistingReceipt);
@@ -104,8 +107,9 @@ void AIGSecondMorningDirector::BeginPlay()
 	// spawned. Reconcile that snapshot here instead of relying exclusively on
 	// change notifications that have already happened.
 	const bool bRestoredPurchase = HasState(WaterPurchasedTag);
+	const bool bRestoredDuplicateRead = HasState(ReadDuplicateReceiptTag);
 	const bool bRestoredReturn = HasState(ReturnedTag);
-	if (bRestoredReturn && !bRestoredPurchase)
+	if (bRestoredReturn && (!bRestoredPurchase || !bRestoredDuplicateRead))
 	{
 		if (UGameInstance* GameInstance = GetGameInstance())
 		{
@@ -121,7 +125,8 @@ void AIGSecondMorningDirector::BeginPlay()
 		if (Scene)
 		{
 			Scene->RevealSecondReceipt();
-			Scene->SetChapterTwoReturnZoneArmed(!bRestoredReturn);
+			Scene->SetChapterTwoReturnZoneArmed(
+				bRestoredDuplicateRead && !bRestoredReturn);
 		}
 		if (bRestoredReturn)
 		{
@@ -185,6 +190,8 @@ void AIGSecondMorningDirector::ResolveTags()
 	ReadNoticeTag = Tag(TEXT("State.CH02.Loop.ReadNotice"));
 	EnteredStoreTag = Tag(TEXT("State.CH02.Loop.EnteredStore"));
 	SawReceiptTag = Tag(TEXT("State.CH02.Loop.SawReceipt"));
+	ReadDuplicateReceiptTag =
+		Tag(TEXT("State.CH02.Loop.ReadDuplicateReceipt"));
 	HasWaterTag = Tag(TEXT("State.CH02.Loop.HasWater"));
 	WaterPurchasedTag = Tag(TEXT("State.CH02.Loop.WaterPurchased"));
 	ReturnedTag = Tag(TEXT("State.CH02.Loop.Returned"));
@@ -251,14 +258,44 @@ FText AIGSecondMorningDirector::GetObjectiveText() const
 	{
 		return FText::GetEmpty();
 	}
+	if (!HasState(LeftHomeTag))
+	{
+		return NSLOCTEXT(
+			"IGCH02", "ObjectiveLeaveHome", "지갑과 손전등을 챙겨 편의점으로 가자");
+	}
+	if (HasState(SawMirrorRoomTag) && !HasState(EnteredMirrorRoomTag))
+	{
+		return NSLOCTEXT(
+			"IGCH02", "ObjectiveMirrorRoom", "열린 403호 안을 확인하자");
+	}
+	if (!HasState(LiftStoppedTag))
+	{
+		return NSLOCTEXT(
+			"IGCH02", "ObjectiveElevator", "엘리베이터를 타고 내려가자");
+	}
+	if (!HasState(EnteredStoreTag))
+	{
+		return NSLOCTEXT(
+			"IGCH02", "ObjectiveFindStore", "새벽24 무영로점으로 가자");
+	}
 	if (!HasState(HasWaterTag))
 	{
 		return NSLOCTEXT(
-			"IGCH02", "ObjectiveErrand", "…또 물이 없다. 편의점에 다녀오자");
+			"IGCH02", "ObjectiveWater", "진열대에서 새벽샘물 500mL를 집자");
+	}
+	if (!HasState(SawReceiptTag))
+	{
+		return NSLOCTEXT(
+			"IGCH02", "ObjectiveReceipt", "POS 옆에 놓인 영수증을 확인하자");
 	}
 	if (!HasState(WaterPurchasedTag))
 	{
 		return NSLOCTEXT("IGCH02", "ObjectiveCheckout", "계산하고 나가자");
+	}
+	if (!HasState(ReadDuplicateReceiptTag))
+	{
+		return NSLOCTEXT(
+			"IGCH02", "ObjectiveDuplicateReceipt", "방금 나온 영수증을 확인하자");
 	}
 	return NSLOCTEXT("IGCH02", "ObjectiveReturn", "집으로 돌아가자");
 }
@@ -277,13 +314,37 @@ FString AIGSecondMorningDirector::GetObjectiveTextAscii() const
 	{
 		return FString();
 	}
+	if (!HasState(LeftHomeTag))
+	{
+		return TEXT("Take the wallet and flashlight, then leave");
+	}
+	if (HasState(SawMirrorRoomTag) && !HasState(EnteredMirrorRoomTag))
+	{
+		return TEXT("Inspect the open apartment 403");
+	}
+	if (!HasState(LiftStoppedTag))
+	{
+		return TEXT("Take the elevator downstairs");
+	}
+	if (!HasState(EnteredStoreTag))
+	{
+		return TEXT("Go to Saebyeok 24 Muyeong-ro");
+	}
 	if (!HasState(HasWaterTag))
 	{
-		return TEXT("No water again. Go to the convenience store");
+		return TEXT("Take one 500 mL bottle of Saebyeok water");
+	}
+	if (!HasState(SawReceiptTag))
+	{
+		return TEXT("Inspect the receipt beside the register");
 	}
 	if (!HasState(WaterPurchasedTag))
 	{
 		return TEXT("Pay and leave");
+	}
+	if (!HasState(ReadDuplicateReceiptTag))
+	{
+		return TEXT("Inspect the receipt that just printed");
 	}
 	return TEXT("Go home");
 }
@@ -303,11 +364,11 @@ float AIGSecondMorningDirector::GetObjectiveProgress() const
 	for (const FGameplayTag& Tag :
 		{FridgeCheckedTag, HasWalletTag, LeftHomeTag, SawMirrorRoomTag,
 			LiftStoppedTag, EnteredStoreTag, SawReceiptTag, HasWaterTag,
-			WaterPurchasedTag})
+			WaterPurchasedTag, ReadDuplicateReceiptTag})
 	{
 		Completed += HasState(Tag) ? 1 : 0;
 	}
-	return Completed / 9.0f;
+	return Completed / 10.0f;
 }
 
 void AIGSecondMorningDirector::HandleStoryStateChanged(
@@ -325,6 +386,10 @@ void AIGSecondMorningDirector::HandleStoryStateChanged(
 	}
 	else if (StateTag.MatchesTagExact(EnteredMirrorRoomTag))
 	{
+		if (Elevator)
+		{
+			Elevator->SetInteractionEnabled(true);
+		}
 		StartMirrorRoomBeat();
 	}
 	else if (StateTag.MatchesTagExact(EnteredStoreTag))
@@ -336,12 +401,14 @@ void AIGSecondMorningDirector::HandleStoryStateChanged(
 		if (Scene)
 		{
 			Scene->RevealSecondReceipt();
+		}
+	}
+	else if (StateTag.MatchesTagExact(ReadDuplicateReceiptTag))
+	{
+		if (Scene)
+		{
 			Scene->SetChapterTwoReturnZoneArmed(true);
 		}
-		AIGHorrorHUD::PushThought(
-			this,
-			NSLOCTEXT("IGCH02", "DuplicateReceiptThought", "같은 시간. 같은 물."),
-			4.4f);
 	}
 	else if (StateTag.MatchesTagExact(ReturnedTag))
 	{
@@ -449,8 +516,24 @@ void AIGSecondMorningDirector::HandleDirectorStep()
 
 	const float ScareAmounts[] = {0.10f, 0.14f, 0.18f};
 	const int32 ScareIndex = FMath::Clamp(NextCorridorFixture - 1, 0, 2);
-	Scene->SetFixtureLive(NextCorridorFixture, false, true);
+	const int32 FixtureToKill = NextCorridorFixture;
 	PlayCorridorSnap(FixtureLocation, ScareAmounts[ScareIndex]);
+	// Let the relay crack lead the picture by a few frames. The player hears
+	// an electrical cause, then turns to discover its visual consequence.
+	FTimerHandle FixtureKillHandle;
+	const TWeakObjectPtr<AIGSecondMorningDirector> WeakThis(this);
+	GetWorldTimerManager().SetTimer(
+		FixtureKillHandle,
+		[WeakThis, FixtureToKill]()
+		{
+			if (AIGSecondMorningDirector* Director = WeakThis.Get();
+				Director && Director->Scene)
+			{
+				Director->Scene->SetFixtureLive(FixtureToKill, false, true);
+			}
+		},
+		0.055f,
+		false);
 
 	if (NextCorridorFixture == 1)
 	{
@@ -475,9 +558,9 @@ void AIGSecondMorningDirector::PlayCorridorSnap(
 {
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateFootstep(this, 2.8f, 0.32f),
+		UIGToneSequenceSoundWave::CreateFluorescentBallastSnap(this),
 		Location,
-		0.75f,
+		0.68f,
 		1.0f,
 		80.0f,
 		850.0f);
@@ -644,9 +727,9 @@ void AIGSecondMorningDirector::HandleIntermediateStopOpened(AIGElevator* Stopped
 	// The first water tick comes from the black slit.
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateFootstep(this, 2.25f, 0.18f),
+		UIGToneSequenceSoundWave::CreateWaterDripMetalRing(this),
 		Elevator->GetActorLocation() - FVector(0, 0, 820),
-		0.55f,
+		0.48f,
 		1.0f,
 		40.0f,
 		520.0f);
@@ -749,6 +832,27 @@ void AIGSecondMorningDirector::HandleNoteRead(
 					"IGCH02", "ExistingReceiptThought",
 					"계산은 아직 안 했는데. …내 카드 번호다."),
 				4.8f);
+		}
+		return;
+	}
+
+	if (Note == DuplicateReceipt)
+	{
+		if (!bOpened
+			&& HasState(WaterPurchasedTag)
+			&& !HasState(ReadDuplicateReceiptTag))
+		{
+			// Let the player compare both papers before naming the impossible
+			// match. The route home is armed only after the second receipt is
+			// lowered, so this reveal cannot be skipped accidentally.
+			AddState(ReadDuplicateReceiptTag);
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGCH02",
+					"DuplicateReceiptThought",
+					"같은 시간. 같은 물. …승인번호까지 똑같아."),
+				5.0f);
 		}
 		return;
 	}

@@ -9,7 +9,7 @@ class UMaterialInterface;
 class UStaticMesh;
 class UStaticMeshComponent;
 
-/** One product row on a thermal receipt. Amount is the row total in won. */
+/** One product row on a thermal receipt. Prices are expressed in won. */
 USTRUCT(BlueprintType)
 struct INDIEGAME_API FIGReceiptItemLine
 {
@@ -21,6 +21,11 @@ struct INDIEGAME_API FIGReceiptItemLine
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
 	int32 Quantity = 1;
 
+	/** Price for one unit, printed separately on Korean POS receipts. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
+	int32 UnitPrice = 0;
+
+	/** Quantity multiplied by unit price after any line discount. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
 	int32 Amount = 0;
 };

@@ -157,8 +157,11 @@ DECAL_MATERIALS = {
 
 # Emissive signage: the texture *is* the light source.
 SIGN_MATERIALS = {
-    "M_SignMainLit":  {"tex_asset": "T_SignMain_D", "emissive_scale": 2.2},
-    "M_SignBladeLit": {"tex_asset": "T_SignBlade_D", "emissive_scale": 1.8},
+    # At the old 2.2/1.8 multipliers the pale lettering clipped to cyan-white
+    # before the camera exposed the alley, erasing the Korean store identity.
+    # These remain visibly self-lit while preserving the print and mint band.
+    "M_SignMainLit":  {"tex_asset": "T_SignMain_D", "emissive_scale": 0.85},
+    "M_SignBladeLit": {"tex_asset": "T_SignBlade_D", "emissive_scale": 0.65},
 }
 
 
@@ -347,7 +350,9 @@ def create_textured_materials(assets, tools, specs=None):
     return created
 
 
-def create_flat_texture_materials(assets, tools, specs, emissive_only):
+def create_flat_texture_materials(
+    assets, tools, specs, emissive_only, update_in_place=False
+):
     created = []
     skipped = []
     for name, spec in specs.items():
@@ -363,7 +368,18 @@ def create_flat_texture_materials(assets, tools, specs, emissive_only):
             skipped.append(name)
             continue
 
-        material = _recreate_material(assets, tools, name)
+        asset_path = f"{MATERIAL_ROOT}/{name}"
+        if update_in_place and assets.does_asset_exist(asset_path):
+            # Sign materials are loaded by the prologue scene CDO while this
+            # commandlet is running, so deleting their packages fails with a
+            # sharing violation. Rebuilding the graph in place keeps those
+            # live references valid and still saves the corrected asset.
+            material = unreal.load_asset(asset_path)
+            if material is None:
+                raise RuntimeError(f"Could not load material: {asset_path}")
+            unreal.MaterialEditingLibrary.delete_all_material_expressions(material)
+        else:
+            material = _recreate_material(assets, tools, name)
         texture = _load_texture(source_asset)
 
         uv = None
@@ -656,6 +672,14 @@ def run():
         if not assets.save_loaded_assets(mirrors, False):
             raise RuntimeError("Could not save M_CabMirrorUV")
         unreal.log("[IndieGame] Cab mirror material update complete")
+        return
+    if os.environ.get("IG_RETAIL_SIGNS_ONLY") == "1":
+        signs = create_flat_texture_materials(
+            assets, tools, SIGN_MATERIALS, True, update_in_place=True
+        )
+        if not assets.save_loaded_assets(signs, False):
+            raise RuntimeError("Could not save retail sign materials")
+        unreal.log("[IndieGame] Retail sign emissive polish complete")
         return
 
     created = []

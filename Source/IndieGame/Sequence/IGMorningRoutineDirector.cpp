@@ -1,14 +1,11 @@
 ﻿#include "Sequence/IGMorningRoutineDirector.h"
 
-#include "Audio/IGToneSequenceSoundWave.h"
-#include "Components/AudioComponent.h"
+#include "Audio/IGChapterOnePresenceAudioComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "IndieGame.h"
-#include "Interaction/IGSlidingDoor.h"
-#include "Kismet/GameplayStatics.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -27,29 +24,15 @@ namespace IGMorningDirector
 AIGMorningRoutineDirector::AIGMorningRoutineDirector()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	PresenceAudio = CreateDefaultSubobject<UIGChapterOnePresenceAudioComponent>(
+		TEXT("ChapterOnePresenceAudio"));
 }
 
 void AIGMorningRoutineDirector::SetSceneReferences(
-	AIGSlidingDoor* InStoreDoor,
-	UPointLightComponent* InFlickerLight,
-	TArray<UPointLightComponent*>&& InStoreLights,
-	UAudioComponent* InJingleComponent)
+	UPointLightComponent* InFlickerLight)
 {
-	StoreDoor = InStoreDoor;
 	FlickerLight = InFlickerLight;
 	FlickerBaseIntensity = FlickerLight ? FlickerLight->Intensity : 0.0f;
-	JingleComponent = InJingleComponent;
-
-	StoreLights.Reset();
-	StoreLightBaseIntensities.Reset();
-	for (UPointLightComponent* Light : InStoreLights)
-	{
-		if (Light)
-		{
-			StoreLights.Add(Light);
-			StoreLightBaseIntensities.Add(Light->Intensity);
-		}
-	}
 }
 
 void AIGMorningRoutineDirector::BeginPlay()
@@ -74,6 +57,13 @@ void AIGMorningRoutineDirector::BeginPlay()
 
 void AIGMorningRoutineDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (PresenceAudio)
+	{
+		// EnterChapterTwo destroys this director at the black-frame transition.
+		// Silence the lived-in CH01 layer before any CH02 sound can begin.
+		PresenceAudio->SetPresenceEnabled(false);
+	}
+
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UIGStoryStateSubsystem* StoryState =
@@ -174,15 +164,6 @@ void AIGMorningRoutineDirector::RefreshPhase(const bool bLiveTransition)
 		}
 	}
 
-	// Restores rebuild ongoing presentation that matches the loaded phase.
-	if (!bLiveTransition
-		&& Phase >= EIGMorningPhase::GoToStore
-		&& Phase < EIGMorningPhase::FindWater
-		&& IGStory::HasState(this, LeftHomeStateTag))
-	{
-		StartDrone();
-	}
-
 	OnPhaseChanged.Broadcast(PreviousPhase, NewPhase);
 }
 
@@ -206,61 +187,14 @@ void AIGMorningRoutineDirector::HandleLiveStateSideEffects(const FGameplayTag& S
 	else if (StateTag.MatchesTagExact(LeftHomeStateTag))
 	{
 		RequestCheckpointAutosave(AlleyCheckpointTag);
-		StartDrone();
 	}
 	else if (StateTag.MatchesTagExact(EnteredStoreStateTag))
 	{
 		RequestCheckpointAutosave(StoreCheckpointTag);
-		StopDrone();
-	}
-	else if (StateTag.MatchesTagExact(HasWaterStateTag))
-	{
-		if (!bWaterBeatConsumed)
-		{
-			bWaterBeatConsumed = true;
-
-			// The cheerful jingle hiccups and the fluorescents dip, once.
-			if (JingleComponent)
-			{
-				JingleComponent->SetPaused(true);
-				GetWorldTimerManager().SetTimer(
-					JingleTimerHandle,
-					this,
-					&ThisClass::HandleJingleResume,
-					1.15f,
-					false);
-			}
-
-			for (int32 LightIndex = 0; LightIndex < StoreLights.Num(); ++LightIndex)
-			{
-				if (StoreLights[LightIndex])
-				{
-					StoreLights[LightIndex]->SetIntensity(
-						StoreLightBaseIntensities[LightIndex] * 0.22f);
-				}
-			}
-			GetWorldTimerManager().SetTimer(
-				StoreLightsTimerHandle,
-				this,
-				&ThisClass::HandleStoreLightsRestore,
-				0.34f,
-				false);
-		}
 	}
 	else if (StateTag.MatchesTagExact(WaterPurchasedStateTag))
 	{
 		RequestCheckpointAutosave(PurchasedCheckpointTag);
-
-		if (!bGhostChimeConsumed)
-		{
-			bGhostChimeConsumed = true;
-			GetWorldTimerManager().SetTimer(
-				GhostChimeTimerHandle,
-				this,
-				&ThisClass::HandleGhostChime,
-				2.3f,
-				false);
-		}
 	}
 }
 
@@ -292,42 +226,6 @@ void AIGMorningRoutineDirector::EnablePlayerCameraMotion()
 	{
 		Character->SetCameraMotionEnabled(true);
 	}
-}
-
-void AIGMorningRoutineDirector::StartDrone()
-{
-	if (bDroneActive)
-	{
-		return;
-	}
-
-	if (!DroneComponent)
-	{
-		DroneComponent = UGameplayStatics::CreateSound2D(
-			this,
-			UIGToneSequenceSoundWave::CreateDreadDrone(this),
-			1.0f,
-			1.0f,
-			0.0f,
-			nullptr,
-			false,
-			false);
-	}
-
-	if (DroneComponent)
-	{
-		bDroneActive = true;
-		DroneComponent->FadeIn(3.2f, 0.62f);
-	}
-}
-
-void AIGMorningRoutineDirector::StopDrone()
-{
-	if (bDroneActive && DroneComponent)
-	{
-		DroneComponent->FadeOut(1.8f, 0.0f);
-	}
-	bDroneActive = false;
 }
 
 void AIGMorningRoutineDirector::TriggerAlleyLightFailure()
@@ -363,47 +261,6 @@ void AIGMorningRoutineDirector::HandleFlickerStep()
 	FlickerLight->SetIntensity(
 		FlickerBaseIntensity * IGMorningDirector::FlickerPattern[FlickerStepIndex]);
 	++FlickerStepIndex;
-}
-
-void AIGMorningRoutineDirector::HandleJingleResume()
-{
-	if (JingleComponent)
-	{
-		JingleComponent->SetPaused(false);
-	}
-}
-
-void AIGMorningRoutineDirector::HandleStoreLightsRestore()
-{
-	for (int32 LightIndex = 0; LightIndex < StoreLights.Num(); ++LightIndex)
-	{
-		if (StoreLights[LightIndex])
-		{
-			StoreLights[LightIndex]->SetIntensity(StoreLightBaseIntensities[LightIndex]);
-		}
-	}
-}
-
-void AIGMorningRoutineDirector::HandleGhostChime()
-{
-	if (StoreDoor && !StoreDoor->IsOpen())
-	{
-		StoreDoor->PlayChime(0.85f);
-		GetWorldTimerManager().SetTimer(
-			GhostThoughtTimerHandle,
-			this,
-			&ThisClass::HandleGhostChimeThought,
-			1.4f,
-			false);
-	}
-}
-
-void AIGMorningRoutineDirector::HandleGhostChimeThought()
-{
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT("IGMorning", "GhostChime", "…방금, 문은 안 열렸는데."),
-		3.8f);
 }
 
 FText AIGMorningRoutineDirector::GetObjectiveText() const

@@ -31,12 +31,12 @@ $outDir = Join-Path $projectRoot 'Content\SourceArt'
 # with our own fictional wording — the artwork is the AI's, the words are ours.
 $patchesWater = @(
     @{ Rect = @(4, 0, 176, 84); Fill = '#FFFFFF'
-       Lines = @('새벽수는 이 동네 지하 200 m,', '아무도 손대지 않은 물길에서', '밤사이 길어 올린 물입니다.')
+       Lines = @('새벽샘물은 이 동네 지하 200 m,', '아무도 손대지 않은 물길에서', '밤사이 길어 올린 물입니다.')
        FontSize = 12; Color = '#1F3A66'; LineHeight = 17 }
     @{ Rect = @(921, 163, 96, 36); Fill = '#FFFFFF'
-       Lines = @('(주)새벽수'); FontSize = 12; Color = '#1F3A66'; LineHeight = 16 }
+       Lines = @('(주)새벽샘물'); FontSize = 12; Color = '#1F3A66'; LineHeight = 16 }
     @{ Rect = @(921, 213, 96, 36); Fill = '#FFFFFF'
-       Lines = @('(주)새벽수'); FontSize = 12; Color = '#1F3A66'; LineHeight = 16 }
+       Lines = @('(주)새벽샘물'); FontSize = 12; Color = '#1F3A66'; LineHeight = 16 }
     @{ Rect = @(852, 0, 172, 14); Fill = '#FFFFFF'
        Lines = @(); FontSize = 12; Color = '#1F3A66'; LineHeight = 16 }
 )

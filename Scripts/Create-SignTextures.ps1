@@ -4,7 +4,12 @@
 # assets are involved.
 
 [CmdletBinding()]
-param()
+param(
+    # Rebuild only the two textures that must stay synchronized with the
+    # thermal POS receipt. This prevents a small retail-data correction from
+    # replacing the already authored poster and neighbourhood art.
+    [switch]$RetailIdentityOnly
+)
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
@@ -53,15 +58,53 @@ $nearWhite = [System.Drawing.Color]::FromArgb(255, 236, 240, 238)
 $dark = [System.Drawing.Color]::FromArgb(255, 24, 26, 28)
 $red = [System.Drawing.Color]::FromArgb(255, 198, 40, 32)
 
-# --- Store fascia sign: mint band, white lettering -------------------------
-New-SignBitmap -Width 1024 -Height 256 -Background $mint -FileName 'T_SignMain_D.png' -Draw {
+# --- Store fascia: exact fictional POS identity -----------------------------
+New-SignBitmap -Width 1024 -Height 256 -Background ([System.Drawing.Color]::FromArgb(255, 5, 31, 66)) -FileName 'T_SignMain_D.png' -Draw {
     param($g, $w, $h)
-    Draw-CenteredText $g '새벽편의점' $malgun 128 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.42) ($h * 0.5)
-    $pen = New-Object System.Drawing.Pen($white, 5)
-    $g.DrawLine($pen, [single]($w * 0.755), [single]($h * 0.2), [single]($w * 0.755), [single]($h * 0.8))
+
+    # Deep-navy-to-teal fascia is plausible for a Korean independent chain
+    # while remaining clearly fictional and trademark-safe.
+    $rect = New-Object System.Drawing.Rectangle(0, 0, $w, $h)
+    $gradient = New-Object System.Drawing.Drawing2D.LinearGradientBrush(
+        $rect,
+        [System.Drawing.Color]::FromArgb(255, 4, 28, 65),
+        [System.Drawing.Color]::FromArgb(255, 5, 143, 147),
+        0.0)
+    $g.FillRectangle($gradient, $rect)
+    $gradient.Dispose()
+
+    # A deterministic vector crescent keeps the mark readable at a distance.
+    $moon = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 255, 238, 166))
+    $cutout = New-Object System.Drawing.SolidBrush([System.Drawing.Color]::FromArgb(255, 4, 35, 73))
+    $g.FillEllipse($moon, 43, 28, 145, 200)
+    $g.FillEllipse($cutout, 92, 4, 132, 184)
+    $moon.Dispose()
+    $cutout.Dispose()
+
+    Draw-CenteredText $g '새벽24' $malgun 126 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.45) ($h * 0.50)
+    $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(210, 255, 255, 255), 4)
+    $g.DrawLine($pen, [single]($w * 0.73), [single]($h * 0.18), [single]($w * 0.73), [single]($h * 0.82))
     $pen.Dispose()
-    Draw-CenteredText $g '24' $malgun 118 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.85) ($h * 0.42)
-    Draw-CenteredText $g 'HOURS' $malgun 34 ([System.Drawing.FontStyle]::Regular) $white ($w * 0.85) ($h * 0.80)
+    Draw-CenteredText $g '무영로점' $malgun 48 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.86) ($h * 0.36)
+    Draw-CenteredText $g '24 HOURS' $malgun 31 ([System.Drawing.FontStyle]::Regular) $white ($w * 0.86) ($h * 0.68)
+}
+
+function Write-RetailPriceStrip {
+    New-SignBitmap -Width 1024 -Height 64 -Background $white -FileName 'T_PriceStrip_D.png' -Draw {
+        param($g, $w, $h)
+        for ($i = 0; $i -lt 4; $i++) {
+            $x = [single]($w * (0.125 + 0.25 * $i))
+            Draw-CenteredText $g '새벽샘물 1,100' $malgun 29 ([System.Drawing.FontStyle]::Regular) $dark $x ($h * 0.5)
+            $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 190, 192, 190), 3)
+            $g.DrawLine($pen, [single]($w * 0.25 * ($i + 1)), 8, [single]($w * 0.25 * ($i + 1)), [single]($h - 8))
+            $pen.Dispose()
+        }
+    }
+}
+
+if ($RetailIdentityOnly) {
+    Write-RetailPriceStrip
+    return
 }
 
 # --- Vertical blade sign ---------------------------------------------------
@@ -80,8 +123,8 @@ New-SignBitmap -Width 512 -Height 704 -Background $nearWhite -FileName 'T_Poster
     $g.FillRectangle($band, 0, 0, $w, [single]($h * 0.30))
     $band.Dispose()
     Draw-CenteredText $g '1+1' $malgun 150 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.5) ($h * 0.15)
-    Draw-CenteredText $g '생수 행사' $malgun 84 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.45)
-    Draw-CenteredText $g '500mL 950원' $malgun 52 ([System.Drawing.FontStyle]::Regular) $red ($w * 0.5) ($h * 0.62)
+    Draw-CenteredText $g '새벽샘물' $malgun 84 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.45)
+    Draw-CenteredText $g '500mL 1,100원' $malgun 52 ([System.Drawing.FontStyle]::Regular) $red ($w * 0.5) ($h * 0.62)
     $gray = [System.Drawing.Color]::FromArgb(255, 150, 152, 150)
     for ($i = 0; $i -lt 3; $i++) {
         $pen = New-Object System.Drawing.Pen($gray, 6)
@@ -119,16 +162,7 @@ New-SignBitmap -Width 256 -Height 128 -Background $white -FileName 'T_SignAutoDo
 }
 
 # --- Cooler price strip ----------------------------------------------------
-New-SignBitmap -Width 1024 -Height 64 -Background $white -FileName 'T_PriceStrip_D.png' -Draw {
-    param($g, $w, $h)
-    for ($i = 0; $i -lt 4; $i++) {
-        $x = [single]($w * (0.125 + 0.25 * $i))
-        Draw-CenteredText $g '생수 950' $malgun 34 ([System.Drawing.FontStyle]::Regular) $dark $x ($h * 0.5)
-        $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 190, 192, 190), 3)
-        $g.DrawLine($pen, [single]($w * 0.25 * ($i + 1)), 8, [single]($w * 0.25 * ($i + 1)), [single]($h - 8))
-        $pen.Dispose()
-    }
-}
+Write-RetailPriceStrip
 
 # --- Building name plate over the common entrance --------------------------
 New-SignBitmap -Width 320 -Height 96 -Background ([System.Drawing.Color]::FromArgb(255, 30, 36, 48)) -FileName 'T_SignVilla_D.png' -Draw {

@@ -12,12 +12,15 @@ class AIGDemoDirector;
 class AIGElevator;
 class AIGFridge;
 class AIGInspectable;
+class AIGApartmentStoryDressing;
 class AIGMorningRoutineDirector;
+class AIGNeighborhoodLifeDirector;
 class AIGPickupItem;
 class AIGReadableNote;
 class AIGSecondMorningDirector;
 class AIGSlidingDoor;
 class AIGSwingDoor;
+class AIGThirdMorningDirector;
 class AIGZoneTrigger;
 class UAudioComponent;
 class UDirectionalLightComponent;
@@ -274,6 +277,7 @@ private:
 	void SpawnReturnBoundary();
 	void BeginChapterTwoTransition();
 	void EnterChapterTwo();
+	void EnterChapterThree();
 	void StartChapterTwoCaptureSequence();
 	void CaptureNextChapterTwoFrame();
 	void FinishChapterTwoCaptureSequence();
@@ -383,19 +387,23 @@ private:
 	UPROPERTY(Transient) TObjectPtr<AIGPrologueWakeDirector> WakeDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGPrologueGetUpTarget> GetUpTarget;
 	UPROPERTY(Transient) TObjectPtr<AIGFridge> Fridge;
+	UPROPERTY(Transient) TObjectPtr<AIGApartmentStoryDressing> ApartmentStoryDressing;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> HomeDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> BuildingDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGElevator> Elevator;
 	UPROPERTY(Transient) TObjectPtr<AIGSlidingDoor> StoreDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGCheckoutCounter> Checkout;
 	UPROPERTY(Transient) TObjectPtr<AIGMorningRoutineDirector> MorningDirector;
+	UPROPERTY(Transient) TObjectPtr<AIGNeighborhoodLifeDirector> NeighborhoodLifeDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGSecondMorningDirector> SecondMorningDirector;
+	UPROPERTY(Transient) TObjectPtr<AIGThirdMorningDirector> ThirdMorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGDemoDirector> DemoDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> LeftHomeZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> FlickerZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> StoreEntryZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ReturnBoundaryZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterTwoLeftHomeZone;
+	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterTwoOutdoorZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> MirrorSightZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> MirrorEntryZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterTwoStoreEntryZone;
@@ -415,6 +423,7 @@ private:
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> LobbyLightDiscs;
 	UPROPERTY(Transient) TObjectPtr<AIGPickupItem> Flashlight;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ManagementNotice;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ChapterOneReceipt;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ExistingReceipt;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> DuplicateReceipt;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> MailboxBills;
@@ -422,6 +431,7 @@ private:
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> NightRoster;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> MirrorRoomDoor;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomLamp;
+	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomBounce;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> OfferingLight;
 
 	/** CH01 wall plug masks the future 403 doorway until the first loop ends. */
@@ -455,6 +465,7 @@ private:
 	bool bChapterTwoTransitionPending = false;
 	bool bChapterTwoActive = false;
 	bool bChapterTwoFinished = false;
+	bool bChapterThreeActive = false;
 
 	FTimerHandle ChapterTransitionHandle;
 	FTimerHandle ChapterEndingHandle;

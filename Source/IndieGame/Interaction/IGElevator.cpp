@@ -144,8 +144,8 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 		this, *FString::Printf(TEXT("ElevatorCabLight_%d"), PieceCounter++));
 	CabLight->SetupAttachment(Parent);
 	CabLight->SetRelativeLocation(FVector(0, 0, CeilingZ - 26.0f));
-	CabLight->SetIntensity(2100.0f);
-	CabLight->SetAttenuationRadius(430.0f);
+	CabLight->SetIntensity(1250.0f);
+	CabLight->SetAttenuationRadius(340.0f);
 	CabLight->SetLightColor(FLinearColor(0.94f, 0.98f, 1.0f));
 	CabLight->SetSourceRadius(46.0f);
 	CabLight->SetSoftSourceRadius(70.0f);
@@ -155,7 +155,7 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 	// a giant circular highlight unrelated to the rectangular ceiling lights.
 	CabLight->SetSpecularScale(0.18f);
 	CabLight->SetMobility(EComponentMobility::Movable);
-	CabLight->SetVolumetricScatteringIntensity(0.28f);
+	CabLight->SetVolumetricScatteringIntensity(0.12f);
 	CabLight->RegisterComponent();
 
 	// Floor bounce so the marble and the rider's feet are not a black hole.
@@ -163,8 +163,8 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 		this, *FString::Printf(TEXT("ElevatorCabFill_%d"), PieceCounter++));
 	FloorFill->SetupAttachment(Parent);
 	FloorFill->SetRelativeLocation(FVector(10.0f, 0, BaseZ + 55.0f));
-	FloorFill->SetIntensity(190.0f);
-	FloorFill->SetAttenuationRadius(260.0f);
+	FloorFill->SetIntensity(80.0f);
+	FloorFill->SetAttenuationRadius(220.0f);
 	FloorFill->SetLightColor(FLinearColor(0.90f, 0.94f, 1.0f));
 	FloorFill->SetSourceRadius(60.0f);
 	FloorFill->SetCastShadows(false);

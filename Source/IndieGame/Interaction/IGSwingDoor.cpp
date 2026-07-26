@@ -142,6 +142,9 @@ void AIGSwingDoor::ConfigureFramedGlassVisuals(
 	// Two glass insets in an aluminum frame with a mid rail and push bar.
 	DoorMesh->SetStaticMesh(CubeMesh);
 	DoorMesh->SetMaterial(0, GlassMaterial);
+	// The surrounding frame provides contact shadow; casting the full
+	// translucent slab as opaque made the open lobby doorway look boarded up.
+	DoorMesh->SetCastShadow(false);
 	DoorMesh->SetRelativeLocation(FVector(0.0f, PanelSize.Y * 0.5f, PanelSize.Z * 0.5f));
 	DoorMesh->SetRelativeScale3D(
 		FVector(PanelSize.X * 0.55f, PanelSize.Y - 14.0f, PanelSize.Z - 14.0f) / 100.0f);
@@ -246,6 +249,7 @@ void AIGSwingDoor::Tick(const float DeltaSeconds)
 			// the player when an authored/scripted close catches the doorway.
 			bOpen = true;
 			bSuppressNextCloseThud = true;
+			DoorMesh->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			DoorAnimation.Begin(
 				DoorPivot->GetRelativeRotation().Yaw,
 				OpenYaw,
@@ -330,6 +334,10 @@ void AIGSwingDoor::ForceOpenState(const bool bInOpen)
 	DoorAnimation = FIGDoorAnimation();
 	bOpen = bInOpen;
 	bSuppressNextCloseThud = false;
+	DoorMesh->SetCollisionProfileName(
+		bOpen
+			? UCollisionProfile::NoCollision_ProfileName
+			: UCollisionProfile::BlockAll_ProfileName);
 	DoorPivot->SetRelativeRotation(FRotator(0.0f, bOpen ? OpenYaw : 0.0f, 0.0f));
 	SetActorTickEnabled(false);
 }
@@ -354,6 +362,14 @@ bool AIGSwingDoor::BeginSwing(
 
 	bOpen = bInOpen;
 	bSuppressNextCloseThud = !bOpen && bSuppressCloseThud;
+	// A rotating child component cannot sweep against the character capsule.
+	// Remove leaf collision as soon as it opens so a narrow Korean unit door
+	// cannot snag the player; restore it before a close, where Tick's proximity
+	// guard can safely reverse the motion instead of pushing through the pawn.
+	DoorMesh->SetCollisionProfileName(
+		bOpen
+			? UCollisionProfile::NoCollision_ProfileName
+			: UCollisionProfile::BlockAll_ProfileName);
 	DoorAnimation.Begin(
 		DoorPivot->GetRelativeRotation().Yaw,
 		bOpen ? OpenYaw : 0.0f,

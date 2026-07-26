@@ -44,8 +44,14 @@ void AIGPickupItem::ConfigurePrototypeVisuals(
 		MeshComponent->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
 		MeshComponent->SetSimulatePhysics(true);
 		MeshComponent->SetMassOverrideInKg(NAME_None, FMath::Max(0.05f, MassKg));
-		MeshComponent->SetAngularDamping(0.6f);
-		MeshComponent->SetLinearDamping(0.15f);
+		// Small pickups otherwise tunnel through thin shelves and keep skating
+		// after a capsule touch. CCD is cheap for the handful of interactable
+		// props in this scene and the stronger damping gives them household
+		// rather than pinball behaviour.
+		MeshComponent->SetUseCCD(true);
+		MeshComponent->SetPhysicsMaxAngularVelocityInDegrees(720.0f);
+		MeshComponent->SetAngularDamping(2.0f);
+		MeshComponent->SetLinearDamping(0.65f);
 	}
 }
 

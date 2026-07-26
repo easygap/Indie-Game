@@ -40,9 +40,9 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 
 | 원본 | 산출 텍스처 | 내용 |
 |---|---|---|
-| `LabelWater_raw.png` | `T_LabelWater_D` | 새벽수 생수 라벨 (미세문구 재작성) |
+| `LabelWater_raw.png` | `T_LabelWater_D` | 새벽샘물 생수 라벨 (미세문구 재작성) |
 | `LabelRamyeon_raw.png` | `T_LabelRamyeon_D` | 왕라면 컵라면 라벨 |
-| `SignMain_raw.png` | `T_SignMain_D` | 새벽편의점 파사드 간판 |
+| `SignMain_raw.png` | `T_SignMain_D` | 새벽24 무영로점 파사드 간판 |
 | `SheetSnacks.png` | `T_SnackShrimp_D` · `T_SnackPotato_D` · `T_SnackSquid_D` · `T_SnackCorn_D` | 과자 봉지 4종 (새우빵·감자스낵·오징어칩·콘스낵) |
 | `SheetBottles.png` | `T_LabelGreenTea_D` · `T_LabelBarley_D` · `T_LabelSoda_D` · `T_LabelSoju_D` | 음료 라벨 4종 (산들녹차·구수한보리·톡소다·새벽이슬) |
 | `SheetSigns.png` | `T_SignLaundry_D` · `T_SignHair_D` · `T_SignHof_D` · `T_SignSuper_D` · `T_SignPC_D` · `T_SignKaraoke_D` | 골목 상가 간판 6종 |
@@ -57,7 +57,7 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 
 1. **가상 브랜드만.** 프롬프트에 실존 상표·로고·브랜드 색 조합을 요구하지 않으며,
    생성물에 실존으로 보이는 이름이 섞여 들어오면 `Prepare-AIArt.ps1`의 패치
-   단계에서 덮어쓴다. 새벽수 라벨의 제조원/판매원·본문 카피가 그 사례다.
+   단계에서 덮어쓴다. 새벽샘물 라벨의 제조원/판매원·본문 카피가 그 사례다.
 2. **헤드라인 한글은 검수, 본문 한글은 재작성.** ImageGen은 짧은 한글 제목은
    정확히 렌더하지만 본문은 지어낸다. 제목은 눈으로 확인하고, 의미가 있는
    본문은 Malgun Gothic으로 직접 다시 그린다.

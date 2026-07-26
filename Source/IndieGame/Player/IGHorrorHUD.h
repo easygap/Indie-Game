@@ -126,6 +126,16 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UFont> KoreanFontSmall;
 
+	/** Dense Gulim/Dotum-style faces reserved for narrow thermal receipts. */
+	UPROPERTY(Transient)
+	TObjectPtr<UFontFace> KoreanReceiptFontFace;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFont> KoreanReceiptHeaderFont;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFont> KoreanReceiptFont;
+
 	TWeakObjectPtr<UIGInteractionComponent> InteractionComponent;
 	TWeakObjectPtr<AIGWakeUpDirector> WakeDirector;
 	TWeakObjectPtr<UObject> ObjectiveProvider;

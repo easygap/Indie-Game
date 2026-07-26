@@ -34,7 +34,7 @@ AIGCheckoutCounter::AIGCheckoutCounter()
 	PurchaseThought = NSLOCTEXT(
 		"IGCheckout",
 		"PaidThought",
-		"바코드를 찍고 카드로 결제했다. …점원은 어디 갔지?");
+		"결제 완료. 영수증은 챙겨 두자.");
 }
 
 void AIGCheckoutCounter::ConfigurePrototypeVisuals(
@@ -83,6 +83,12 @@ void AIGCheckoutCounter::ConfigureChapterPurchase(
 	PurchaseThought = InPurchaseThought;
 }
 
+void AIGCheckoutCounter::SetAdditionalRequiredState(
+	const FGameplayTag InRequiredStateTag)
+{
+	AdditionalRequiredStateTag = InRequiredStateTag;
+}
+
 void AIGCheckoutCounter::ResetForNewChapter()
 {
 	GetWorldTimerManager().ClearTimer(RegisterSoundTimerHandle);
@@ -117,6 +123,8 @@ bool AIGCheckoutCounter::CanInteract_Implementation(AActor* Interactor) const
 {
 	return Super::CanInteract_Implementation(Interactor)
 		&& IGStory::HasState(this, RequiredStateTag)
+		&& (!AdditionalRequiredStateTag.IsValid()
+			|| IGStory::HasState(this, AdditionalRequiredStateTag))
 		&& !IGStory::HasState(this, PurchasedStateTag);
 }
 
@@ -125,6 +133,8 @@ void AIGCheckoutCounter::CompleteInteraction_Implementation(const FIGInteraction
 	Super::CompleteInteraction_Implementation(Context);
 
 	if (!IGStory::HasState(this, RequiredStateTag)
+		|| (AdditionalRequiredStateTag.IsValid()
+			&& !IGStory::HasState(this, AdditionalRequiredStateTag))
 		|| IGStory::HasState(this, PurchasedStateTag))
 	{
 		return;

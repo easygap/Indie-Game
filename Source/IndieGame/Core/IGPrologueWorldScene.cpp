@@ -20,6 +20,8 @@
 #include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "Environment/IGNeighborhoodLifeDirector.h"
+#include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/PlatformMisc.h"
@@ -43,11 +45,13 @@
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
+#include "Narrative/IGApartmentStoryDressing.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Sequence/IGDemoDirector.h"
 #include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGSecondMorningDirector.h"
+#include "Sequence/IGThirdMorningDirector.h"
 #include "Player/IGStressComponent.h"
 #include "ShaderCompiler.h"
 #include "TimerManager.h"
@@ -241,11 +245,12 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	PostProcess->Settings.AutoExposureMethod = AEM_Histogram;
 	PostProcess->Settings.bOverride_AutoExposureMinBrightness = true;
 	PostProcess->Settings.bOverride_AutoExposureMaxBrightness = true;
-	// Keep the eye adaptation useful without allowing a point light or white
-	// ceiling to drive a five-stop swing.  The former -2.6..2.8 range blew
-	// bedrooms and the shop to white, then crushed the next dark frame.
-	PostProcess->Settings.AutoExposureMinBrightness = -1.2f;
-	PostProcess->Settings.AutoExposureMaxBrightness = 1.1f;
+	// These values are EV100 because extended luminance range is enabled.
+	// The old -1.2..1.1 clamp was below the actual fluorescent/store range,
+	// so the camera could not stop down and white fixtures clipped. Retain a
+	// bounded adaptation range, but let bright practicals reach a sane EV.
+	PostProcess->Settings.AutoExposureMinBrightness = -0.5f;
+	PostProcess->Settings.AutoExposureMaxBrightness = 5.0f;
 	PostProcess->Settings.bOverride_AutoExposureBias = true;
 	PostProcess->Settings.AutoExposureBias = -0.35f;
 	PostProcess->Settings.bOverride_AutoExposureSpeedUp = true;
@@ -312,7 +317,7 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateBlock(
 	// Paper-thin dressing (posters, price rails, seams, panel grooves) sits
 	// flush against its host surface; letting it cast shadows only produces
 	// self-shadow acne and doubled contact lines.
-	if (SizeCentimeters.GetMin() < 3.0f)
+	if (SizeCentimeters.GetMin() < 3.0f || Material == GlassMaterial)
 	{
 		Block->SetCastShadow(false);
 	}
@@ -347,6 +352,8 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreatePhysicsProp(
 	Prop->SetMassOverrideInKg(NAME_None, FMath::Max(0.05f, MassKg));
 	// Small household props should settle instead of skating and spinning for
 	// seconds after a light capsule contact.
+	Prop->SetUseCCD(true);
+	Prop->SetPhysicsMaxAngularVelocityInDegrees(720.0f);
 	Prop->SetAngularDamping(2.4f);
 	Prop->SetLinearDamping(1.1f);
 	GeometryComponents.Add(Prop);
@@ -807,11 +814,71 @@ void AIGPrologueWorldScene::InitializePrologue()
 	BuildStore();
 	BuildSkyAndFog();
 	SpawnInteractables();
+
+	// These ordinary possessions are persistent anchors: CH02 repeats the
+	// same desk and entryway instead of spawning its clues into view.
+	FActorSpawnParameters StoryDressingParameters;
+	StoryDressingParameters.Owner = this;
+	StoryDressingParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	const FTransform StoryDressingTransform =
+		FTransform(FRotator::ZeroRotator, FVector(0.0f, 0.0f, IGPrologueWorld::FourthFloorZ))
+		* GetActorTransform();
+	ApartmentStoryDressing = GetWorld()->SpawnActor<AIGApartmentStoryDressing>(
+		AIGApartmentStoryDressing::StaticClass(),
+		StoryDressingTransform,
+		StoryDressingParameters);
+	if (ApartmentStoryDressing)
+	{
+		ApartmentStoryDressing->ConfigurePrototypeVisuals(
+			CubeMesh,
+			SignWhiteMaterial,
+			PlasticDarkMaterial,
+			SnackBlueMaterial,
+			SignMintMaterial,
+			SignWhiteMaterial,
+			ScreenGlowMaterial,
+			TexMat(TEXT("M_NoteFridge"), SignWhiteMaterial),
+			Fridge ? Fridge->GetDoorPivot() : nullptr);
+	}
+
 	SpawnChapterTwoInteractables();
 	SpawnDirectors();
 	CreateAmbience();
-	if (FParse::Param(FCommandLine::Get(), TEXT("IGChapterTwo"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH02")))
+
+	// Ordinary street life is a narrative baseline, not decoration. CH01
+	// establishes a car, a delivery motorcycle, wind-blown leaves and a
+	// peripheral stray cat; later chapters can vary or remove that grammar
+	// without allocating a second set of actors.
+	FActorSpawnParameters NeighborhoodParameters;
+	NeighborhoodParameters.Owner = this;
+	NeighborhoodParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	NeighborhoodLifeDirector = GetWorld()->SpawnActor<AIGNeighborhoodLifeDirector>(
+		AIGNeighborhoodLifeDirector::StaticClass(),
+		FTransform::Identity,
+		NeighborhoodParameters);
+	if (NeighborhoodLifeDirector)
+	{
+		NeighborhoodLifeDirector->ConfigureNeighborhood(
+			GetActorTransform().TransformPosition(FVector(-360.0f, -555.0f, -5.0f)),
+			GetActorTransform().TransformPosition(FVector(2390.0f, -555.0f, -5.0f)),
+			4040444);
+	}
+
+	const bool bIgnoreDirectStart =
+		GetWorld()->URL.HasOption(TEXT("IGIgnoreDirectStart"));
+	const bool bDirectChapterThree = !bIgnoreDirectStart
+		&& (FParse::Param(FCommandLine::Get(), TEXT("IGChapterThree"))
+			|| FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH03"))
+			|| GetWorld()->URL.HasOption(TEXT("IGChapterThree")));
+	if (bDirectChapterThree)
+	{
+		EnterChapterThree();
+	}
+	else if (!bIgnoreDirectStart
+		&& (FParse::Param(FCommandLine::Get(), TEXT("IGChapterTwo"))
+			|| FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH02"))))
 	{
 		EnterChapterTwo();
 	}
@@ -879,11 +946,19 @@ void AIGPrologueWorldScene::BuildApartment()
 	CreateBlock(FVector(0, 0, 240), FVector(440, 490, 20), CeilHome);
 	CreateBlock(FVector(-200, 0, 115), FVector(20, 490, 230), WallY);
 	CreateBlock(FVector(200, 0, 115), FVector(20, 490, 230), WallY);
+	// The east wall projects ten centimetres past the south wall into the
+	// corridor. Its exposed end is a Y-facing surface, so the wall's X-facing
+	// material stretched into dense horizontal bands at the authored corridor
+	// camera. Cap that return with the correctly oriented wallpaper material.
+	CreateBlock(FVector(200, -245.6f, 115), FVector(20, 0.8f, 230), WallX, false);
 	CreateBlock(FVector(0, 225, 115), FVector(440, 20, 230), WallX);
 	// South wall with the entrance opening (X 98..186).
 	CreateBlock(FVector(-61, -225, 115), FVector(318, 20, 230), WallX);
 	CreateBlock(FVector(203, -225, 115), FVector(34, 20, 230), WallX);
-	CreateBlock(FVector(142, -225, 215), FVector(88, 20, 30), WallX);
+	// A 210 cm clear opening leaves headroom above the 8 cm Korean shoe step.
+	// The former 200 cm soffit exactly touched the 192 cm player capsule once
+	// the pawn stood on the step, making the doorway look open but impassable.
+	CreateBlock(FVector(142, -225, 220), FVector(88, 20, 20), WallX);
 	// Entrance shoe step.
 	CreateBlock(FVector(143, -195, 4), FVector(80, 40, 8), TexMat(TEXT("M_Concrete_XY"), ConcreteDarkMaterial));
 
@@ -1112,6 +1187,13 @@ void AIGPrologueWorldScene::BuildCorridor()
 	UMaterialInterface* SteelDoor = TexMat(TEXT("M_SteelDoorUV"), DoorMaterial);
 	UMaterialInterface* Stainless = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
+	// Thin cube UVs smear into horizontal bands on a tall jamb. The flat
+	// powder-coated metal fallback reads like a Korean steel-door casing.
+	UMaterialInterface* DoorTrim = PlasticDarkMaterial;
+	// Directional stone/metal UVs smear across the 1–2 cm portal strips. A
+	// matte charcoal powder coat is common on renovated Korean villa lifts and
+	// stays visually stable on every thin reveal face.
+	UMaterialInterface* LiftStone = PlasticDarkMaterial;
 
 	// Floor and ceiling. The hallway runs well past our door so that leaving
 	// 404 means actually walking the building, not stepping into the lift.
@@ -1138,6 +1220,26 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(FVector(710, -242.5f, 120), FVector(20, 15, 240), CorridorWallY);
 	CreateBlock(FVector(710, -367.5f, 120), FVector(20, 15, 240), CorridorWallY);
 	CreateBlock(FVector(710, -305, 225), FVector(20, 110, 30), CorridorWallY);
+	// World-mapped stone portal and a live hall indicator keep the lift
+	// opening distinct from the stucco without changing its collision.
+	for (const float PortalY : {-245.0f, -365.0f})
+	{
+		CreateBlock(
+			FVector(699, PortalY, 105), FVector(2, 10, 210),
+			LiftStone, false);
+	}
+	// Cover the two side reveals and soffit as well as the corridor-facing
+	// portal. Otherwise the directional stucco on a 20 cm return stretches
+	// into conspicuous horizontal bands when the player looks into the car.
+	CreateBlock(FVector(710, -250.5f, 105), FVector(20, 1, 210), LiftStone, false);
+	CreateBlock(FVector(710, -359.5f, 105), FVector(20, 1, 210), LiftStone, false);
+	CreateBlock(FVector(710, -305, 210.5f), FVector(20, 110, 1), LiftStone, false);
+	CreateBlock(
+		FVector(699, -305, 216), FVector(2, 130, 12),
+		LiftStone, false);
+	CreateBlock(
+		FVector(697.8f, -305, 225), FVector(1.2f, 38, 19),
+		TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial), false);
 	CreateBlock(FVector(-330, -305, 120), FVector(20, 160, 240), PlasticDarkMaterial);
 
 	// North wall extensions beyond the apartment span, plus the height filler
@@ -1199,11 +1301,11 @@ void AIGPrologueWorldScene::BuildCorridor()
 		const float DoorX = NeighborDoorXs[NeighborIndex];
 		const int32 FirstDoorComponent = GeometryComponents.Num();
 		DressUnitDoor(DoorX, -234.5f);
-		// Door casing: two jamb strips and a head strip, in stucco like the
-		// wall they are troweled into.
-		CreateBlock(FVector(DoorX - 46, -233, 102), FVector(8, 7, 208), CorridorWallX, false);
-		CreateBlock(FVector(DoorX + 46, -233, 102), FVector(8, 7, 208), CorridorWallX, false);
-		CreateBlock(FVector(DoorX, -233, 204), FVector(100, 7, 8), CorridorWallX, false);
+		// Powder-coated casing stays readable at this thin aspect ratio; the
+		// former stucco UV stretched into conspicuous horizontal stripes.
+		CreateBlock(FVector(DoorX - 46, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+		CreateBlock(FVector(DoorX + 46, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+		CreateBlock(FVector(DoorX, -233, 204), FVector(100, 7, 8), DoorTrim, false);
 		CreateBlock(
 			FVector(DoorX, -231.5f, 214), FVector(16, 2, 8),
 			TexMat(NeighborPlates[NeighborIndex], FridgeInteriorMaterial), false);
@@ -1219,9 +1321,18 @@ void AIGPrologueWorldScene::BuildCorridor()
 	}
 	// Our 404 door casing and plate around the real swing door; the leaf
 	// itself is the AIGSwingDoor actor, which dresses its own face.
-	CreateBlock(FVector(96, -233, 102), FVector(8, 7, 208), CorridorWallX, false);
-	CreateBlock(FVector(190, -233, 102), FVector(8, 7, 208), CorridorWallX, false);
-	CreateBlock(FVector(143, -233, 206), FVector(102, 7, 8), CorridorWallX, false);
+	CreateBlock(FVector(96, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+	CreateBlock(FVector(190, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+	CreateBlock(FVector(143, -233, 206), FVector(102, 7, 8), DoorTrim, false);
+	// The actual 404 opening also needs its three inside returns capped. The
+	// south-wall material is authored for the broad wall face and streaks when
+	// seen edge-on through this 20 cm reveal.
+	// Offset these caps a few millimetres into the opening. Making their outer
+	// faces exactly coplanar with the wall return caused a striped z-fighting
+	// pattern in the corridor capture.
+	CreateBlock(FVector(99.1f, -225, 105), FVector(1.8f, 22, 210), DoorTrim, false);
+	CreateBlock(FVector(184.4f, -225, 105), FVector(2.8f, 22, 210), DoorTrim, false);
+	CreateBlock(FVector(142, -225, 209.7f), FVector(88, 22, 0.4f), DoorTrim, false);
 	CreateBlock(
 		FVector(144, -233.5f, 214), FVector(16, 2, 8),
 		TexMat(TEXT("M_Plate404"), FridgeInteriorMaterial), false);
@@ -1301,9 +1412,9 @@ void AIGPrologueWorldScene::BuildCorridor()
 			FVector(FixtureX, -305, 234.5f), FVector(21, 21, 2),
 			LightPanelMaterial, false, CylinderMesh));
 		UPointLightComponent* CorridorLight = CreateLight(
-			FVector(FixtureX, -305, 226), 1200.0f, 520.0f,
+			FVector(FixtureX, -305, 226), 820.0f, 410.0f,
 			FLinearColor(0.86f, 0.97f, 1.0f), true, 16.0f);
-		CorridorLight->SetVolumetricScatteringIntensity(0.16f);
+		CorridorLight->SetVolumetricScatteringIntensity(0.10f);
 		CorridorLights.Add(CorridorLight);
 		if (FixtureX < 0.0f)
 		{
@@ -1330,6 +1441,7 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	UMaterialInterface* Furniture = TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial);
 	UMaterialInterface* Bedding = TexMat(TEXT("M_BeddingUV"), BeddingMaterial);
 	UMaterialInterface* DarkGloss = PlasticDarkMaterial;
+	UMaterialInterface* DoorTrim = PlasticDarkMaterial;
 
 	auto AddOverlay = [this](
 		const FVector& Center,
@@ -1365,9 +1477,9 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	AddOverlay(FVector(430, 225, 115), FVector(440, 20, 230), RoomWallX);
 	AddOverlay(FVector(210, 0, 115), FVector(20, 450, 230), RoomWallY);
 	AddOverlay(FVector(650, 0, 115), FVector(20, 450, 230), RoomWallY);
-	AddOverlay(FVector(384, -233, 102), FVector(8, 7, 208), RoomWallX, false);
-	AddOverlay(FVector(476, -233, 102), FVector(8, 7, 208), RoomWallX, false);
-	AddOverlay(FVector(430, -233, 204), FVector(100, 7, 8), RoomWallX, false);
+	AddOverlay(FVector(384, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+	AddOverlay(FVector(476, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+	AddOverlay(FVector(430, -233, 204), FVector(100, 7, 8), DoorTrim, false);
 	AddOverlay(
 		FVector(430, -233.5f, 214), FVector(16, 2, 8),
 		TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial), false);
@@ -1384,10 +1496,20 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// 82 x 105 cm box plus a 55 cm sphere read as two construction blocks.
 	AddOverlay(FVector(300, 110, 20), FVector(100, 200, 40), Furniture);
 	AddOverlay(FVector(300, 110, 47), FVector(94, 194, 18), Bedding);
-	AddOverlay(FVector(300, 132, 62), FVector(70, 92, 21), Bedding, false, SphereMesh);
-	AddOverlay(FVector(300, 91, 60), FVector(72, 56, 17), Bedding, false, SphereMesh);
-	AddOverlay(FVector(300, 182, 59), FVector(80, 47, 10), Bedding, false);
-	AddOverlay(FVector(300, 188, 68), FVector(25, 23, 19), Bedding, false, SphereMesh);
+	// Most of the figure is below the same duvet: using near-black concrete
+	// for both lobes collapsed the bed and sleeper into one opaque cut-out.
+	AddOverlay(
+		FVector(300, 132, 62), FVector(70, 92, 21),
+		Bedding, false, SphereMesh);
+	AddOverlay(
+		FVector(300, 91, 60), FVector(72, 56, 17),
+		Bedding, false, SphereMesh);
+	// A pale pillow gives the eye one human-scale reference before the player
+	// understands the low mound beneath the otherwise dark duvet.
+	AddOverlay(FVector(300, 182, 59), FVector(80, 47, 10), FridgeInteriorMaterial, false);
+	AddOverlay(
+		FVector(300, 188, 68), FVector(25, 23, 19),
+		WalletBrownMaterial, false, SphereMesh);
 	AddOverlay(FVector(365, 28, 28), FVector(55, 55, 56), Furniture);
 
 	// Black horn-rim glasses at real scale (about 14 cm across).
@@ -1407,7 +1529,7 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 		nullptr, FRotator(0, 18, 0));
 
 	// The one inviting warm light in a dead corridor.
-	AddOverlay(FVector(380, 34, 68), FVector(12, 12, 28), DarkGloss, false, CylinderMesh);
+	AddOverlay(FVector(380, 34, 70), FVector(12, 12, 28), DarkGloss, false, CylinderMesh);
 	UStaticMeshComponent* LampShade = AddOverlay(
 		FVector(380, 34, 89), FVector(27, 27, 24),
 		FridgeInteriorMaterial, false, ConeMesh);
@@ -1421,11 +1543,25 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// metre-long, nearly black shadows from the sleeper and bedside props,
 	// which read as broken geometry rather than a dim occupied room.
 	MirrorRoomLamp = CreateLight(
-		FVector(376, 42, 108), 330.0f, 375.0f,
-		FLinearColor(1.0f, 0.54f, 0.23f), true, 24.0f);
+		FVector(376, 42, 108), 620.0f, 330.0f,
+		FLinearColor(1.0f, 0.54f, 0.23f), false, 30.0f);
 	if (MirrorRoomLamp)
 	{
 		MirrorRoomLamp->SetVisibility(false);
+		MirrorRoomLamp->SetSpecularScale(0.55f);
+		MirrorRoomLamp->SetVolumetricScatteringIntensity(0.05f);
+	}
+	// Keep the non-specular fill on the camera side of the bed. Placing it
+	// twenty centimetres from the rear wall made a cold white hotspot while
+	// the outward-facing duvet and frame remained black.
+	MirrorRoomBounce = CreateLight(
+		FVector(430, -40, 125), 360.0f, 310.0f,
+		FLinearColor(0.30f, 0.38f, 0.56f), false, 56.0f);
+	if (MirrorRoomBounce)
+	{
+		MirrorRoomBounce->SetVisibility(false);
+		MirrorRoomBounce->SetSpecularScale(0.0f);
+		MirrorRoomBounce->SetVolumetricScatteringIntensity(0.0f);
 	}
 
 	ActiveParent = nullptr;
@@ -1434,46 +1570,98 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// These are deliberately non-colliding so the return path cannot soft-lock.
 	for (int32 GrainIndex = 0; GrainIndex < 31; ++GrainIndex)
 	{
-		const float GrainX = 600.0f + GrainIndex * 2.85f;
-		const float GrainY = -399.0f + FMath::Sin(GrainIndex * 1.73f) * 1.25f;
-		const float GrainSize = 1.1f + (GrainIndex % 4) * 0.28f;
+		// Extend the threshold line toward the bowls instead of hiding every
+		// grain in the dark masonry reveal.
+		const float GrainX = 620.0f + GrainIndex * 3.45f;
+		const float GrainY = -426.0f + FMath::Sin(GrainIndex * 1.73f) * 1.4f;
+		const float GrainSize = 1.4f + (GrainIndex % 4) * 0.35f;
 		UStaticMeshComponent* Grain = AddOverlay(
 			FVector(GrainX, GrainY, 0.55f),
 			FVector(GrainSize, GrainSize * 0.75f, 0.7f),
-			FridgeInteriorMaterial, false, SphereMesh,
+			SignWhiteMaterial, false, SphereMesh,
 			FRotator::ZeroRotator, SceneRoot);
 		if (Grain)
 		{
 			Grain->SetCastShadow(false);
 		}
 	}
+	// Keep the complete offering on the exterior asphalt, well in front of the
+	// threshold and 686..720 cm masonry jamb. The pieces are separated enough
+	// to read at standing height as a Korean doorstep offering rather than
+	// clipped construction fragments: water, rice with spoon, then incense.
 	AddOverlay(
-		FVector(700, -412, 4.0f), FVector(20, 20, 6),
+		FVector(730, -455, 1.5f), FVector(12, 12, 3.0f),
+		MetalFrameMaterial, false,
+		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+	AddOverlay(
+		FVector(730, -455, 4.0f), FVector(22, 22, 5.0f),
+		MetalFrameMaterial, false,
+		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+	if (UStaticMeshComponent* WaterSurface = AddOverlay(
+		FVector(730, -455, 6.75f), FVector(18.0f, 18.0f, 0.6f),
+		WaterBlueMaterial, false,
+		CylinderMesh, FRotator::ZeroRotator, SceneRoot))
+	{
+		WaterSurface->SetCastShadow(false);
+	}
+
+	// Small rice bowl, rice mound, and a separately modelled diagonal spoon.
+	AddOverlay(
+		FVector(757, -455, 1.5f), FVector(11, 11, 3.0f),
 		FridgeInteriorMaterial, false,
 		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
 	AddOverlay(
-		FVector(700, -412, 8.2f), FVector(16, 16, 4),
+		FVector(757, -455, 4.5f), FVector(17, 17, 5.0f),
 		FridgeInteriorMaterial, false,
+		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+	AddOverlay(
+		FVector(757, -455, 7.1f), FVector(13.5f, 13.5f, 3.4f),
+		SignWhiteMaterial, false,
 		SphereMesh, FRotator::ZeroRotator, SceneRoot);
 	AddOverlay(
-		FVector(700, -412, 18.0f), FVector(1.2f, 1.2f, 22),
+		FVector(752.5f, -454.0f, 15.0f), FVector(1.2f, 1.2f, 19.0f),
 		TexMat(TEXT("M_MetalUV"), MetalFrameMaterial), false,
-		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+		CylinderMesh, FRotator(34.0f, -12.0f, 0.0f), SceneRoot);
 	AddOverlay(
-		FVector(675, -414, 4.5f), FVector(8, 8, 9),
+		FVector(747.3f, -452.9f, 22.5f), FVector(3.7f, 2.5f, 1.0f),
+		TexMat(TEXT("M_MetalUV"), MetalFrameMaterial), false,
+		SphereMesh, FRotator(34.0f, -12.0f, 0.0f), SceneRoot);
+
+	// The brown stick visibly meets the ash cup; it must not read as a black
+	// rod floating above the threshold.
+	AddOverlay(
+		FVector(783, -455, 4.0f), FVector(10, 10, 8.0f),
 		FridgeInteriorMaterial, false,
 		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+	AddOverlay(
+		FVector(783, -455, 8.2f), FVector(7.5f, 7.5f, 0.6f),
+		ConcreteDarkMaterial, false,
+		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+	AddOverlay(
+		FVector(783, -455, 16.7f), FVector(1.3f, 1.3f, 22.0f),
+		Furniture, false,
+		CylinderMesh, FRotator(8.0f, 18.0f, 0.0f), SceneRoot);
+	AddOverlay(
+		FVector(784.4f, -454.5f, 27.6f), FVector(1.7f, 1.7f, 1.7f),
+		SnackRedMaterial, false,
+		SphereMesh, FRotator::ZeroRotator, SceneRoot);
+	// A small conical pile beside the ash cup makes the salt readable even
+	// before the player's eye follows the scattered threshold line.
+	AddOverlay(
+		FVector(806, -455, 2.4f), FVector(8.0f, 8.0f, 4.8f),
+		SignWhiteMaterial, false,
+		ConeMesh, FRotator::ZeroRotator, SceneRoot);
 	// A very soft practical spill makes the bowl and salt legible from normal
 	// eye height without turning the pre-dawn entrance into a spotlight. The
 	// recessed lobby fixtures otherwise leave this story beat as an isolated
 	// overbright pixel in black asphalt.
 	OfferingLight = CreateLight(
-		FVector(690, -447, 72), 210.0f, 225.0f,
-		FLinearColor(1.0f, 0.72f, 0.46f), false, 24.0f);
+		FVector(760, -482, 78), 195.0f, 255.0f,
+		FLinearColor(1.0f, 0.78f, 0.58f), false, 30.0f);
 	if (OfferingLight)
 	{
 		OfferingLight->SetVisibility(false);
-		OfferingLight->SetSpecularScale(0.45f);
+		OfferingLight->SetSpecularScale(0.35f);
 		OfferingLight->SetVolumetricScatteringIntensity(0.04f);
 	}
 
@@ -1532,7 +1720,7 @@ void AIGPrologueWorldScene::SetFixtureLive(
 	// glowing ring where the lamp used to be.
 	if (UPointLightComponent* Light = FixtureLights[Index])
 	{
-		Light->SetIntensity(bLive ? (bCorridor ? 1200.0f : 1250.0f) : 0.0f);
+		Light->SetIntensity(bLive ? (bCorridor ? 820.0f : 920.0f) : 0.0f);
 	}
 	if (UStaticMeshComponent* Disc = FixtureDiscs[Index])
 	{
@@ -1581,12 +1769,17 @@ void AIGPrologueWorldScene::SetChapterTwoOverlayVisible(const bool bVisible)
 	if (MirrorRoomLamp)
 	{
 		MirrorRoomLamp->SetVisibility(bVisible);
-		MirrorRoomLamp->SetIntensity(bVisible ? 330.0f : 0.0f);
+		MirrorRoomLamp->SetIntensity(bVisible ? 300.0f : 0.0f);
+	}
+	if (MirrorRoomBounce)
+	{
+		MirrorRoomBounce->SetVisibility(bVisible);
+		MirrorRoomBounce->SetIntensity(bVisible ? 360.0f : 0.0f);
 	}
 	if (OfferingLight)
 	{
 		OfferingLight->SetVisibility(bVisible);
-		OfferingLight->SetIntensity(bVisible ? 210.0f : 0.0f);
+		OfferingLight->SetIntensity(bVisible ? 195.0f : 0.0f);
 	}
 
 	auto SetChapterActorVisible = [bVisible](AIGInteractableActor* Actor)
@@ -1671,6 +1864,13 @@ void AIGPrologueWorldScene::FinishChapterTwo()
 		return;
 	}
 	bChapterTwoFinished = true;
+	if (NeighborhoodLifeDirector)
+	{
+		// When the player returns, even the ordinary city has stopped answering.
+		// The distant alarm is allowed to own the entire sound field.
+		NeighborhoodLifeDirector->SetChapterVariant(
+			EIGNeighborhoodChapterVariant::ChapterTwoAbsent);
+	}
 
 	for (int32 FixtureIndex = 0; FixtureIndex < GetCorridorFixtureCount(); ++FixtureIndex)
 	{
@@ -1733,6 +1933,20 @@ void AIGPrologueWorldScene::FinishChapterTwo()
 						NSLOCTEXT("IGCH02", "ChapterThreeSubtitle", "물이 온다"),
 						4.8f);
 
+					// The card is a transition, not the old demo's dead end.
+					// Keep CH02 documentation capture finite, but an ordinary
+					// playthrough now continues into the complete greybox ending.
+					if (!FParse::Param(
+						FCommandLine::Get(), TEXT("IGCaptureCH02")))
+					{
+						GetWorldTimerManager().SetTimer(
+							ChapterTransitionHandle,
+							this,
+							&ThisClass::EnterChapterThree,
+							4.85f,
+							false);
+					}
+
 					// The alarm survives onto the card for two more seconds.
 					GetWorldTimerManager().SetTimer(
 						ChapterEndingHandle,
@@ -1785,6 +1999,7 @@ void AIGPrologueWorldScene::BuildLobby()
 	UMaterialInterface* Stainless = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
 	UMaterialInterface* ShelfSteel = TexMat(TEXT("M_ShelfSteelUV"), CoolerBodyMaterial);
+	UMaterialInterface* LiftStone = PlasticDarkMaterial;
 
 	// Interior X 450..710, Y -375..-235, height 240 — directly under the lift.
 	CreateBlock(FVector(580, -305, -10), FVector(300, 180, 20), LobbyFloor);
@@ -1807,6 +2022,21 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(710, -242.5f, 120), FVector(20, 15, 240), LobbyWallY);
 	CreateBlock(FVector(710, -367.5f, 120), FVector(20, 15, 240), LobbyWallY);
 	CreateBlock(FVector(710, -305, 225), FVector(20, 110, 30), LobbyWallY);
+	for (const float PortalY : {-245.0f, -365.0f})
+	{
+		CreateBlock(
+			FVector(699, PortalY, 105), FVector(2, 10, 210),
+			LiftStone, false);
+	}
+	CreateBlock(FVector(710, -250.5f, 105), FVector(20, 1, 210), LiftStone, false);
+	CreateBlock(FVector(710, -359.5f, 105), FVector(20, 1, 210), LiftStone, false);
+	CreateBlock(FVector(710, -305, 210.5f), FVector(20, 110, 1), LiftStone, false);
+	CreateBlock(
+		FVector(699, -305, 216), FVector(2, 130, 12),
+		LiftStone, false);
+	CreateBlock(
+		FVector(697.8f, -305, 225), FVector(1.2f, 38, 19),
+		TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial), false);
 
 	// Mailboxes for the whole building on the north wall.
 	CreateBlock(FVector(528, -237, 151), FVector(96, 4, 66), ShelfSteel, false);
@@ -1847,9 +2077,9 @@ void AIGPrologueWorldScene::BuildLobby()
 			FVector(FixtureX, -305, 234.5f), FVector(23, 23, 2),
 			LightPanelMaterial, false, CylinderMesh));
 		UPointLightComponent* LobbyLight = CreateLight(
-			FVector(FixtureX, -305, 226), 1250.0f, 520.0f,
+			FVector(FixtureX, -305, 226), 920.0f, 400.0f,
 			FLinearColor(0.87f, 0.98f, 1.0f), true, 16.0f);
-		LobbyLight->SetVolumetricScatteringIntensity(0.16f);
+		LobbyLight->SetVolumetricScatteringIntensity(0.10f);
 		LobbyLights.Add(LobbyLight);
 	}
 }
@@ -2229,12 +2459,12 @@ void AIGPrologueWorldScene::BuildAlley()
 		}
 		UPointLightComponent* LampLight = CreateLight(
 			FVector(PoleX, -600, 346),
-			3200.0f,
-			860.0f,
-			FLinearColor(1.0f, 0.72f, 0.42f),
+			2400.0f,
+			760.0f,
+			FLinearColor(1.0f, 0.82f, 0.58f),
 			true,
 			18.0f);
-		LampLight->SetVolumetricScatteringIntensity(0.9f);
+		LampLight->SetVolumetricScatteringIntensity(0.55f);
 		if (FMath::IsNearlyEqual(PoleX, 1000.0f))
 		{
 			FlickerStreetlight = LampLight;
@@ -2287,6 +2517,7 @@ void AIGPrologueWorldScene::BuildStore()
 	UMaterialInterface* StoreCeil = TexMat(TEXT("M_StoreCeilWorld"), ConcreteMaterial);
 	UMaterialInterface* ShelfSteel = TexMat(TEXT("M_ShelfSteelUV"), CoolerBodyMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
+	UMaterialInterface* PriceStrip = TexMat(TEXT("M_PriceStrip"), FridgeInteriorMaterial);
 
 	// Shell: a real convenience-store footprint (540 x 500 interior).
 	CreateBlock(FVector(2680, -430, 2), FVector(544, 504, 8), Tile);
@@ -2305,8 +2536,11 @@ void AIGPrologueWorldScene::BuildStore()
 	{
 		CreateBlock(FVector(2405, ColumnY, 105), FVector(14, 14, 210), Metal);
 	}
-	// Kick rail and head transom across the whole shopfront.
-	CreateBlock(FVector(2405, -430, 12), FVector(12, 470, 24), Metal);
+	// Kick rails stop at the automatic-door jambs. A continuous 24 cm bar
+	// across the entrance looked plausible from afar but acted like a curb and
+	// could catch the character capsule at the threshold.
+	CreateBlock(FVector(2405, -295, 12), FVector(12, 200, 24), Metal);
+	CreateBlock(FVector(2405, -590, 12), FVector(12, 150, 24), Metal);
 	CreateBlock(FVector(2405, -531.5f, 216), FVector(14, 297, 22), Metal);
 	CreateBlock(FVector(2405, -531.5f, 245), FVector(10, 297, 36), StoreWallX);
 
@@ -2442,7 +2676,7 @@ void AIGPrologueWorldScene::BuildStore()
 						0.48f))
 					{
 						CreateBlock(
-							FVector(SnackX, GondolaY + FaceSign * 11.0f, TierZ + 8.0f),
+							FVector(SnackX, GondolaY + FaceSign * 11.0f, TierZ + 9.5f),
 							FVector(15, 12, 16), SnackMaterial, false);
 					}
 					++SnackIndex;
@@ -2484,7 +2718,7 @@ void AIGPrologueWorldScene::BuildStore()
 			if (!bPlaced)
 			{
 				CreateBlock(
-					FVector(ItemX, -655, TierZ + 4.0f),
+					FVector(ItemX, -655, TierZ + (bKimbap ? 4.0f : 3.0f)),
 					bKimbap ? FVector(9, 8, 8) : FVector(13, 9, 6),
 					bKimbap ? FridgeInteriorMaterial : SnackYellowMaterial, false);
 			}
@@ -2501,7 +2735,7 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(FVector(2452, -668, 86), FVector(70, 38, 160), ShelfSteel);
 	for (float CupX = 2432.0f; CupX <= 2472.0f; CupX += 20.0f)
 	{
-		CreateCupRamyeon(FVector(CupX, -654, 166.0f), CupX * 3.0f);
+		CreateCupRamyeon(FVector(CupX, -654, 167.5f), CupX * 3.0f);
 	}
 
 	// East wall: the walk-up reach-in cooler bank — six framed glass doors,
@@ -2577,9 +2811,14 @@ void AIGPrologueWorldScene::BuildStore()
 		// Price strip on every shelf edge.
 		for (const float StripZ : {63.0f, 108.0f, 153.0f})
 		{
+			// Real label rails are only about four centimetres high. A dark
+			// carrier breaks up the former eight-centimetre glowing white band.
 			CreateBlock(
-				FVector(2902, BayY, StripZ), FVector(2, 64, 8),
-				TexMat(TEXT("M_PriceStrip"), FridgeInteriorMaterial), false);
+				FVector(2902.6f, BayY, StripZ), FVector(2.2f, 66, 6),
+				PlasticDarkMaterial, false);
+			CreateBlock(
+				FVector(2901.2f, BayY, StripZ), FVector(0.8f, 62, 4.2f),
+				PriceStrip, false);
 		}
 
 		// Door frame; the open bay's leaf swings wide on its hinge.
@@ -2773,11 +3012,13 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		HomeDoor->ConfigurePrototypeVisuals(
 			CubeMesh,
 			TexMat(TEXT("M_SteelDoorUV"), DoorMaterial),
-			TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial),
+			// The authored stainless UV is useful on broad lift panels but
+			// compresses into horizontal bands on this 13 cm vertical inlay.
+			MetalFrameMaterial,
 			FVector(7, 84, 204));
 		HomeDoor->SetLeverMesh(
 			PropMesh(TEXT("SM_LeverHandle")),
-			TexMat(TEXT("M_MetalUV"), MetalFrameMaterial),
+			MetalFrameMaterial,
 			FVector(7, 84, 204));
 		// Korean entrance doors open outward — and it keeps the hallway clear.
 		HomeDoor->SetOpenYaw(-95.0f);
@@ -2907,7 +3148,11 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		AIGElevator::FIGElevatorVisuals CabVisuals;
 		CabVisuals.CubeMesh = CubeMesh;
 		CabVisuals.CylinderMesh = CylinderMesh;
-		CabVisuals.StainlessMaterial = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
+		// UV-brushed metal turned the tall side shells into stretched bands
+		// and mirrored the alley brick strongly enough to look like bare
+		// masonry inside the cab. Keep the true rear mirror, but use the
+		// restrained flat metal already used by the villa frames for the shell.
+		CabVisuals.StainlessMaterial = MetalFrameMaterial;
 		CabVisuals.MirrorMaterial = TexMat(TEXT("M_CabMirrorUV"), MetalFrameMaterial);
 		CabVisuals.FloorMaterial = TexMat(TEXT("M_MarbleFloor_XY"), StoreFloorMaterial);
 		CabVisuals.InlayMaterial = PlasticDarkMaterial;
@@ -2915,6 +3160,22 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		CabVisuals.HallMaterial = TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial);
 		CabVisuals.DiffuserMaterial = LightPanelMaterial;
 		Elevator->ConfigurePrototypeVisuals(CabVisuals, 900.0f);
+
+		// The primary COP is correctly beside the door, but that places it
+		// behind the first-person capture. A non-colliding secondary panel on
+		// the opposite wall is common accessibility equipment in Korean lifts
+		// and keeps the floor/buttons legible from inside both cab copies.
+		for (const float CabBaseZ : {0.0f, -900.0f})
+		{
+			CreateDecoOnComponent(
+				Elevator->GetRootComponent(), CubeMesh, MetalFrameMaterial,
+				FVector(12, -74.2f, CabBaseZ + 108), FRotator::ZeroRotator,
+				FVector(0.19f, 0.012f, 0.94f));
+			CreateDecoOnComponent(
+				Elevator->GetRootComponent(), CubeMesh, CabVisuals.CopMaterial,
+				FVector(12, -73.4f, CabBaseZ + 108), FRotator::ZeroRotator,
+				FVector(0.14f, 0.006f, 0.86f));
+		}
 	}
 
 	// Wallet on the desk.
@@ -3052,7 +3313,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	LeftHomeZone = SpawnZone(
 		FVector(643, -435, 110), FVector(120, 55, 110),
 		TEXT("State.CH01.Morning.LeftHome"),
-		NSLOCTEXT("IGPrologue", "LeftHomeThought", "공기가 차다. …골목이 너무 조용한데."));
+		NSLOCTEXT("IGPrologue", "LeftHomeThought", "새벽 공기가 차다."));
 	FlickerZone = SpawnZone(
 		FVector(1000, -537, 110), FVector(80, 160, 110),
 		nullptr,
@@ -3060,7 +3321,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	StoreEntryZone = SpawnZone(
 		FVector(2450, -457, 116), FVector(35, 95, 110),
 		TEXT("State.CH01.Morning.EnteredStore"),
-		NSLOCTEXT("IGPrologue", "EnteredStoreThought", "…“어서 오세요” 소리는 없었다."));
+		FText::GetEmpty());
 }
 
 void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
@@ -3138,10 +3399,10 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 	auto ReceiptLines = []() -> TArray<FText>
 	{
 		return {
-			NSLOCTEXT("IGCH02", "ReceiptDate", "2026-07-26 04:44"),
-			NSLOCTEXT("IGCH02", "ReceiptWater", "새벽수 500mL / 1 / 1,100원"),
-			NSLOCTEXT("IGCH02", "ReceiptCard", "체크카드 승인 4482**"),
-			NSLOCTEXT("IGCH02", "ReceiptPoints", "적립 없음"),
+			NSLOCTEXT("IGCH02", "ReceiptDate", "2024/07/26(금) 04:44 POS-01"),
+			NSLOCTEXT("IGCH02", "ReceiptWater", "새벽샘물500mL / 1 / 1,100원"),
+			NSLOCTEXT("IGCH02", "ReceiptCard", "체크카드 승인 04821736"),
+			NSLOCTEXT("IGCH02", "ReceiptPoints", "거래NO. 04571"),
 		};
 	};
 
@@ -3149,28 +3410,36 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 	{
 		FIGThermalReceiptData Data;
 		Data.StoreName =
-			NSLOCTEXT("IGCH02", "ReceiptStore", "새벽편의점");
+			NSLOCTEXT("IGCH02", "ReceiptStore", "새벽24");
 		Data.StoreSubtitle =
-			NSLOCTEXT("IGCH02", "ReceiptStoreSubtitle", "24 HOURS");
+			NSLOCTEXT("IGCH02", "ReceiptStoreSubtitle", "무영로점  ·  24 HOURS");
 		Data.StoreDetailLines = {
-			NSLOCTEXT("IGCH02", "ReceiptBusinessMasked", "사업자번호  ***-**-*****"),
-			NSLOCTEXT("IGCH02", "ReceiptStoreMasked", "가맹점 정보  ***************"),
+			NSLOCTEXT("IGCH02", "ReceiptBranch", "새벽24 무영로점"),
+			// Plausible Korean 3-2-5 grouping with a deliberately invalid
+			// checksum: it reads like a real POS header without identifying a
+			// real registered business.
+			NSLOCTEXT("IGCH02", "ReceiptBusiness", "사업자등록번호 110-81-04444"),
+			NSLOCTEXT("IGCH02", "ReceiptOwner", "대표 박해원"),
+			NSLOCTEXT("IGCH02", "ReceiptAddress", "주소 서울 은평구 무영로44길 4"),
+			NSLOCTEXT("IGCH02", "ReceiptTelephone", "TEL 02-0000-0444"),
 		};
 		Data.PolicyLines = {
-			NSLOCTEXT("IGCH02", "ReceiptPolicy1", "교환·환불 시 영수증을"),
-			NSLOCTEXT("IGCH02", "ReceiptPolicy2", "지참해 주세요."),
+			NSLOCTEXT("IGCH02", "ReceiptPolicy1", "교환/환불은 구입 후 30일 이내"),
+			NSLOCTEXT("IGCH02", "ReceiptPolicy2", "영수증과 결제카드를 지참해 주세요."),
+			NSLOCTEXT("IGCH02", "ReceiptPolicy3", "일부 행사·신선식품은 제외됩니다."),
 		};
 		Data.TransactionDateTime =
-			NSLOCTEXT("IGCH02", "ReceiptDateStructured", "2026-07-26 04:44");
+			NSLOCTEXT("IGCH02", "ReceiptDateStructured", "2024/07/26(금) 04:44");
 		Data.PosLabel =
 			NSLOCTEXT("IGCH02", "ReceiptPos", "POS-01");
 		Data.ReceiptNumber =
-			NSLOCTEXT("IGCH02", "ReceiptNumber", "0444");
+			NSLOCTEXT("IGCH02", "ReceiptNumber", "04571");
 
 		FIGReceiptItemLine WaterItem;
 		WaterItem.ProductName =
-			NSLOCTEXT("IGCH02", "ReceiptProduct", "새벽수 500mL");
+			NSLOCTEXT("IGCH02", "ReceiptProduct", "새벽샘물500mL");
 		WaterItem.Quantity = 1;
+		WaterItem.UnitPrice = 1100;
 		WaterItem.Amount = 1100;
 		Data.Items.Add(MoveTemp(WaterItem));
 
@@ -3179,37 +3448,68 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		Data.Vat = 100;
 		Data.Total = 1100;
 		Data.PaymentHeading =
-			NSLOCTEXT("IGCH02", "ReceiptPaymentHeading", "체크카드 매출전표");
+			NSLOCTEXT("IGCH02", "ReceiptPaymentHeading", "******** 체크카드(일시불) ********");
 
 		FIGReceiptKeyValueLine CardLine;
 		CardLine.Label =
-			NSLOCTEXT("IGCH02", "ReceiptCardLabel", "체크카드 승인");
+			NSLOCTEXT("IGCH02", "ReceiptCardLabel", "카드번호");
 		CardLine.Value =
-			NSLOCTEXT("IGCH02", "ReceiptCardValue", "4482**");
+			NSLOCTEXT("IGCH02", "ReceiptCardValue", "5417-****-****-0444");
 		Data.PaymentLines.Add(MoveTemp(CardLine));
+
+		FIGReceiptKeyValueLine AcquirerLine;
+		AcquirerLine.Label =
+			NSLOCTEXT("IGCH02", "ReceiptAcquirerLabel", "매입사");
+		AcquirerLine.Value =
+			NSLOCTEXT("IGCH02", "ReceiptAcquirerValue", "해온카드");
+		Data.PaymentLines.Add(MoveTemp(AcquirerLine));
+
+		FIGReceiptKeyValueLine ApprovalLine;
+		ApprovalLine.Label =
+			NSLOCTEXT("IGCH02", "ReceiptApprovalLabel", "승인번호");
+		ApprovalLine.Value =
+			NSLOCTEXT("IGCH02", "ReceiptApprovalValue", "04821736");
+		Data.PaymentLines.Add(MoveTemp(ApprovalLine));
 
 		FIGReceiptKeyValueLine PaymentAmountLine;
 		PaymentAmountLine.Label =
 			NSLOCTEXT("IGCH02", "ReceiptPaymentAmountLabel", "결제금액");
 		PaymentAmountLine.Value =
-			NSLOCTEXT("IGCH02", "ReceiptPaymentAmountValue", "1,100");
+			NSLOCTEXT("IGCH02", "ReceiptPaymentAmountValue", "1,100원");
 		Data.PaymentLines.Add(MoveTemp(PaymentAmountLine));
 
-		FIGReceiptKeyValueLine PointsLine;
-		PointsLine.Label =
-			NSLOCTEXT("IGCH02", "ReceiptPointsLabel", "적립");
-		PointsLine.Value =
-			NSLOCTEXT("IGCH02", "ReceiptPointsValue", "없음");
-		Data.PaymentLines.Add(MoveTemp(PointsLine));
+		FIGReceiptKeyValueLine InstallmentLine;
+		InstallmentLine.Label =
+			NSLOCTEXT("IGCH02", "ReceiptInstallmentLabel", "할부");
+		InstallmentLine.Value =
+			NSLOCTEXT("IGCH02", "ReceiptInstallmentValue", "일시불");
+		Data.PaymentLines.Add(MoveTemp(InstallmentLine));
 
 		Data.FooterLines = {
-			NSLOCTEXT("IGCH02", "ReceiptFooter", "이용해 주셔서 감사합니다."),
+			NSLOCTEXT("IGCH02", "ReceiptFooterThanks", "이용해 주셔서 감사합니다."),
+			NSLOCTEXT("IGCH02", "ReceiptFooterClerk", "담당:07  거래NO:04571  재출력:0"),
+			NSLOCTEXT("IGCH02", "ReceiptFooterService", "고객센터 080-000-0444"),
 		};
-		// The HUD turns this into a deliberately non-standard visual pattern,
-		// so it cannot be mistaken for a real store's scannable barcode.
-		Data.BarcodeDigits = TEXT("2026072604441100");
+		// An intentionally invalid check digit keeps the EAN-13-like visual
+		// from becoming a usable/scannable identifier for a real product.
+		Data.BarcodeDigits = TEXT("2904440711004");
 		return Data;
 	};
+
+	// Plant the 04:44 anomaly in the first loop before CH02 varies it. This
+	// copy is revealed by the first checkout and parked again at the loop cut.
+	ChapterOneReceipt = SpawnNote(
+		FVector(2582, -252, 100.5f),
+		FRotator::ZeroRotator,
+		FVector(8.5f, 15.0f, 0.25f),
+		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
+		NSLOCTEXT("IGPrologue", "FirstReceiptPrompt", "출력된 영수증 읽기"),
+		NSLOCTEXT("IGPrologue", "FirstReceiptTitle", "영수증"),
+		ReceiptLines());
+	if (ChapterOneReceipt)
+	{
+		ChapterOneReceipt->SetThermalReceiptData(BuildReceiptData());
+	}
 
 	ExistingReceipt = SpawnNote(
 		FVector(2582, -252, 100.5f),
@@ -3365,6 +3665,10 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		FVector(180, -305, 1010), FVector(72, 62, 110),
 		TEXT("State.CH02.Loop.LeftHome"),
 		FText::GetEmpty());
+	ChapterTwoOutdoorZone = SpawnParkedZone(
+		FVector(643, -435, 110), FVector(120, 55, 110),
+		TEXT("State.CH02.Loop.EnteredAlley"),
+		FText::GetEmpty());
 	MirrorSightZone = SpawnParkedZone(
 		FVector(350, -300, 1010), FVector(72, 72, 110),
 		TEXT("State.CH02.Loop.SawMirrorRoom"),
@@ -3467,16 +3771,7 @@ void AIGPrologueWorldScene::SpawnDirectors()
 		DirectorParameters);
 	if (MorningDirector)
 	{
-		TArray<UPointLightComponent*> StoreLightPointers;
-		for (const TObjectPtr<UPointLightComponent>& StoreLight : StoreLights)
-		{
-			StoreLightPointers.Add(StoreLight.Get());
-		}
-		MorningDirector->SetSceneReferences(
-			StoreDoor,
-			FlickerStreetlight,
-			MoveTemp(StoreLightPointers),
-			JingleComponent);
+		MorningDirector->SetSceneReferences(FlickerStreetlight);
 
 		if (FlickerZone)
 		{
@@ -3514,21 +3809,6 @@ void AIGPrologueWorldScene::CreateAmbience()
 		0.45f,
 		260.0f,
 		1700.0f);
-
-	if (MorningDirector && JingleComponent)
-	{
-		// Late wire: the jingle component is created after the director spawns.
-		TArray<UPointLightComponent*> StoreLightPointers;
-		for (const TObjectPtr<UPointLightComponent>& StoreLight : StoreLights)
-		{
-			StoreLightPointers.Add(StoreLight.Get());
-		}
-		MorningDirector->SetSceneReferences(
-			StoreDoor,
-			FlickerStreetlight,
-			MoveTemp(StoreLightPointers),
-			JingleComponent);
-	}
 }
 
 void AIGPrologueWorldScene::SpawnDemoDirectorIfRequested()
@@ -3576,15 +3856,37 @@ void AIGPrologueWorldScene::HandleStoryStateChanged(
 	const FGameplayTag StateTag,
 	const bool bAdded)
 {
-	if (!bAdded || bChapterTwoActive || bChapterTwoTransitionPending)
+	if (!bAdded || bChapterTwoTransitionPending)
 	{
 		return;
 	}
 
 	const FGameplayTag ChapterOnePurchase = FGameplayTag::RequestGameplayTag(
 		FName(TEXT("State.CH01.Morning.WaterPurchased")), false);
+	const FGameplayTag ChapterOneLeftHome = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("State.CH01.Morning.LeftHome")), false);
+	const FGameplayTag ChapterTwoEnteredAlley = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("State.CH02.Loop.EnteredAlley")), false);
+	if (bChapterTwoActive)
+	{
+		if (StateTag.MatchesTagExact(ChapterTwoEnteredAlley) && NeighborhoodLifeDirector)
+		{
+			NeighborhoodLifeDirector->PrimeOutdoorSequence();
+		}
+		return;
+	}
+	if (StateTag.MatchesTagExact(ChapterOneLeftHome) && NeighborhoodLifeDirector)
+	{
+		NeighborhoodLifeDirector->PrimeOutdoorSequence();
+	}
 	if (StateTag.MatchesTagExact(ChapterOnePurchase))
 	{
+		if (ChapterOneReceipt)
+		{
+			ChapterOneReceipt->SetActorHiddenInGame(false);
+			ChapterOneReceipt->SetActorEnableCollision(true);
+			ChapterOneReceipt->SetInteractionEnabled(true);
+		}
 		SpawnReturnBoundary();
 	}
 }
@@ -3663,6 +3965,18 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 		return;
 	}
 
+	if (NeighborhoodLifeDirector)
+	{
+		NeighborhoodLifeDirector->SetChapterVariant(
+			EIGNeighborhoodChapterVariant::ChapterTwoUncanny);
+	}
+	if (ChapterOneReceipt)
+	{
+		ChapterOneReceipt->SetActorHiddenInGame(true);
+		ChapterOneReceipt->SetActorEnableCollision(false);
+		ChapterOneReceipt->SetInteractionEnabled(false);
+	}
+
 	bChapterTwoTransitionPending = false;
 	bChapterTwoActive = true;
 
@@ -3670,7 +3984,6 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	{
 		OpenNote->Close();
 	}
-
 	if (MorningDirector)
 	{
 		MorningDirector->Destroy();
@@ -3758,6 +4071,9 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 				FName(TEXT("State.CH02.Loop.WaterPurchased")), false),
 			NSLOCTEXT("IGCH02", "SecondCheckoutPrompt", "계산하기 (생수 1,100원)"),
 			FText::GetEmpty());
+		Checkout->SetAdditionalRequiredState(
+			FGameplayTag::RequestGameplayTag(
+				FName(TEXT("State.CH02.Loop.SawReceipt")), false));
 		Checkout->ResetForNewChapter();
 	}
 
@@ -3850,6 +4166,13 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	if (PlayerController)
 	{
 		PlayerController->SetControlRotation(IGPrologueWorld::PlayerViewRotation);
+	}
+	// This ground-floor zone overlaps the CH01 return boundary. Enabling it
+	// before the pawn is moved back upstairs consumes the one-shot while the
+	// camera is black and schedules every alley event from the wrong floor.
+	if (ChapterTwoOutdoorZone)
+	{
+		ChapterTwoOutdoorZone->SetActorEnableCollision(true);
 	}
 
 	if (AIGPlayerCharacter* Player = Cast<AIGPlayerCharacter>(PlayerPawn))
@@ -3945,6 +4268,102 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	UE_LOG(LogIndieGame, Display, TEXT("CH02 second morning entered in-session."));
 }
 
+void AIGPrologueWorldScene::EnterChapterThree()
+{
+	if (bChapterThreeActive || !GetWorld())
+	{
+		return;
+	}
+	bChapterThreeActive = true;
+	bChapterTwoTransitionPending = false;
+
+	if (AIGReadableNote* OpenNote = AIGReadableNote::GetOpenNote())
+	{
+		OpenNote->Close();
+	}
+	if (DistantAlarmComponent)
+	{
+		DistantAlarmComponent->Stop();
+		DistantAlarmComponent = nullptr;
+	}
+	if (JingleComponent)
+	{
+		JingleComponent->Stop();
+	}
+	if (NeighborhoodLifeDirector)
+	{
+		NeighborhoodLifeDirector->SetChapterVariant(
+			EIGNeighborhoodChapterVariant::ChapterTwoAbsent);
+	}
+
+	// Retire chapter scripts and every one-shot volume.  The stage itself is
+	// far away so the sky/fog remain shared, while stale 404 logic cannot add
+	// CH01/02 state tags during the ending.
+	for (AActor* Director :
+		{static_cast<AActor*>(MorningDirector.Get()),
+			static_cast<AActor*>(SecondMorningDirector.Get()),
+			static_cast<AActor*>(WakeDirector.Get()),
+			static_cast<AActor*>(AlarmClock.Get()),
+			static_cast<AActor*>(GetUpTarget.Get())})
+	{
+		if (Director)
+		{
+			Director->Destroy();
+		}
+	}
+	MorningDirector = nullptr;
+	SecondMorningDirector = nullptr;
+	WakeDirector = nullptr;
+	AlarmClock = nullptr;
+	GetUpTarget = nullptr;
+	for (AIGZoneTrigger* Zone :
+		{LeftHomeZone.Get(), FlickerZone.Get(), StoreEntryZone.Get(),
+			ReturnBoundaryZone.Get(), ChapterTwoLeftHomeZone.Get(),
+			ChapterTwoOutdoorZone.Get(), MirrorSightZone.Get(), MirrorEntryZone.Get(),
+			ChapterTwoStoreEntryZone.Get(), ChapterTwoReturnZone.Get()})
+	{
+		if (Zone)
+		{
+			Zone->SetActorEnableCollision(false);
+		}
+	}
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UIGStoryStateSubsystem* StoryState =
+			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
+		{
+			StoryState->ClearStates(false);
+		}
+	}
+
+	FActorSpawnParameters Parameters;
+	Parameters.Owner = this;
+	Parameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ThirdMorningDirector = GetWorld()->SpawnActor<AIGThirdMorningDirector>(
+		AIGThirdMorningDirector::StaticClass(),
+		FTransform(
+			FRotator::ZeroRotator,
+			AIGThirdMorningDirector::GetStageOrigin()),
+		Parameters);
+	if (!ThirdMorningDirector)
+	{
+		UE_LOG(LogIndieGame, Error, TEXT("CH03 director failed to spawn."));
+		return;
+	}
+
+	const bool bCapture =
+		FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH03"));
+	const bool bDirectStart =
+		FParse::Param(FCommandLine::Get(), TEXT("IGChapterThree"))
+		|| bCapture
+		|| GetWorld()->URL.HasOption(TEXT("IGChapterThree"));
+	ThirdMorningDirector->ConfigureAndStart(bDirectStart && !bCapture, bCapture);
+
+	UE_LOG(LogIndieGame, Display, TEXT("CH03 third morning entered in-session."));
+}
+
 void AIGPrologueWorldScene::StartChapterTwoCaptureSequence()
 {
 	// Deterministic documentation captures must never contain checkerboard
@@ -4002,6 +4421,12 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 	{
 		OpenNote->Close();
 	}
+	if (AHUD* HUD = PlayerController->GetHUD())
+	{
+		// Environment stills stay clean; the receipt frame deliberately turns
+		// the real HUD back on because that panel is the product being shown.
+		HUD->bShowHUD = ChapterCaptureIndex == 2;
+	}
 
 	auto PlaceCaptureCamera = [PlayerPawn, PlayerController](
 		const FVector& PawnLocation,
@@ -4050,7 +4475,12 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 		if (MirrorRoomLamp)
 		{
 			MirrorRoomLamp->SetVisibility(true);
-			MirrorRoomLamp->SetIntensity(560.0f);
+			MirrorRoomLamp->SetIntensity(620.0f);
+		}
+		if (MirrorRoomBounce)
+		{
+			MirrorRoomBounce->SetVisibility(true);
+			MirrorRoomBounce->SetIntensity(360.0f);
 		}
 		if (MirrorRoomDoor)
 		{
@@ -4079,13 +4509,13 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 		if (OfferingLight)
 		{
 			OfferingLight->SetVisibility(true);
-			OfferingLight->SetIntensity(235.0f);
+			OfferingLight->SetIntensity(195.0f);
 		}
 		PlaceCaptureCamera(
 			// Frame the bowl at the end of the salt line, keeping the hinge
 			// post to one side while the wet steps remain visible inside.
-			FVector(735, -535, 88),
-			FVector(665, -407, 10));
+			FVector(750, -585, 92),
+			FVector(754, -455, 9));
 		BaseName = TEXT("ch02-lobby-offering");
 		break;
 

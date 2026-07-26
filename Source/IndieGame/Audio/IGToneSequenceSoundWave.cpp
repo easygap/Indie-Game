@@ -271,6 +271,155 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRegisterSound(UObject*
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateFluorescentBallastSnap(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGFluorescentBallastSnap"));
+	TArray<FIGToneNote> SnapNotes;
+
+	// Contactor/lampholder crack: very short and spectrally broad.
+	SnapNotes.Add({
+		0.000f, 0.022f, 3900.0f, 0.220f,
+		0.015f, 0.75f, EIGToneWaveform::ValueNoise});
+	SnapNotes.Add({
+		0.006f, 0.034f, 1260.0f, 0.105f,
+		0.010f, 1.8f, EIGToneWaveform::SoftSquare});
+
+	// The tube/reflector rings after power drops. The slight detune prevents
+	// this from reading as a UI beep.
+	SnapNotes.Add({
+		0.013f, 0.190f, 119.6f, 0.105f,
+		0.010f, 4.2f, EIGToneWaveform::Sine});
+	SnapNotes.Add({
+		0.013f, 0.145f, 241.3f, 0.042f,
+		0.010f, 4.8f, EIGToneWaveform::Sine});
+	SnapNotes.Add({
+		0.020f, 0.090f, 720.0f, 0.026f,
+		0.010f, 3.6f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(SnapNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWaterDripMetalRing(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGWaterDripMetalRing"));
+	TArray<FIGToneNote> DripNotes;
+
+	// Rounded water contact, then the lift sill answers a fraction later.
+	DripNotes.Add({
+		0.000f, 0.045f, 760.0f, 0.105f,
+		0.015f, 2.8f, EIGToneWaveform::ValueNoise});
+	DripNotes.Add({
+		0.000f, 0.060f, 185.0f, 0.090f,
+		0.020f, 3.2f, EIGToneWaveform::Sine});
+	DripNotes.Add({
+		0.020f, 0.720f, 1287.0f, 0.080f,
+		0.006f, 3.9f, EIGToneWaveform::Sine});
+	DripNotes.Add({
+		0.020f, 0.560f, 2134.0f, 0.038f,
+		0.006f, 4.6f, EIGToneWaveform::Sine});
+	DripNotes.Add({
+		0.028f, 0.310f, 643.0f, 0.025f,
+		0.010f, 3.5f, EIGToneWaveform::Triangle});
+
+	Wave->ConfigureNotes(MoveTemp(DripNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateMuffledPrayerRadio(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGMuffledPrayerRadio"));
+	constexpr float LoopLength = 13.6f;
+	TArray<FIGToneNote> RadioNotes;
+
+	// A tiny mains hum and cabinet noise identify a cheap radio. The pulse
+	// groups below imitate sentence cadence only; no formants or intelligible
+	// speech are generated.
+	RadioNotes.Add({
+		0.0f, LoopLength, 59.8f, 0.010f,
+		0.25f, 0.7f, EIGToneWaveform::Sine});
+	RadioNotes.Add({
+		0.0f, LoopLength, 92.0f, 0.006f,
+		0.25f, 0.7f, EIGToneWaveform::ValueNoise});
+
+	struct FMurmurPulse
+	{
+		float Start;
+		float Duration;
+		float BaseHz;
+		float Level;
+	};
+	const FMurmurPulse Pulses[] = {
+		{0.45f, 0.82f, 151.0f, 0.034f},
+		{1.38f, 0.55f, 172.0f, 0.030f},
+		{2.10f, 1.08f, 143.0f, 0.036f},
+		{3.72f, 0.68f, 166.0f, 0.029f},
+		{4.55f, 1.32f, 148.0f, 0.035f},
+		{6.95f, 0.72f, 158.0f, 0.031f},
+		{7.82f, 0.46f, 181.0f, 0.027f},
+		{8.48f, 1.18f, 146.0f, 0.035f},
+		{10.20f, 0.62f, 169.0f, 0.030f},
+		{10.98f, 1.50f, 142.0f, 0.034f},
+	};
+	for (int32 PulseIndex = 0;
+		PulseIndex < static_cast<int32>(UE_ARRAY_COUNT(Pulses));
+		++PulseIndex)
+	{
+		const FMurmurPulse& Pulse = Pulses[PulseIndex];
+		RadioNotes.Add({
+			Pulse.Start,
+			Pulse.Duration,
+			Pulse.BaseHz,
+			Pulse.Level,
+			0.18f,
+			1.7f,
+			EIGToneWaveform::SoftSquare});
+		RadioNotes.Add({
+			Pulse.Start + 0.025f,
+			Pulse.Duration * 0.92f,
+			Pulse.BaseHz * (1.43f + (PulseIndex % 3) * 0.035f),
+			Pulse.Level * 0.33f,
+			0.22f,
+			1.9f,
+			EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(RadioNotes), true, LoopLength);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCardboardDrag(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGCardboardDrag"));
+	TArray<FIGToneNote> DragNotes;
+
+	// Broad but low-energy friction with two changes of pressure.
+	DragNotes.Add({
+		0.000f, 0.92f, 310.0f, 0.110f,
+		0.12f, 1.45f, EIGToneWaveform::ValueNoise});
+	DragNotes.Add({
+		0.130f, 0.54f, 118.0f, 0.052f,
+		0.18f, 1.6f, EIGToneWaveform::Triangle});
+	DragNotes.Add({
+		0.460f, 0.38f, 520.0f, 0.048f,
+		0.08f, 1.8f, EIGToneWaveform::ValueNoise});
+
+	// The box is set down, not thrown.
+	DragNotes.Add({
+		0.940f, 0.105f, 67.0f, 0.190f,
+		0.015f, 3.2f, EIGToneWaveform::Sine});
+	DragNotes.Add({
+		0.940f, 0.055f, 430.0f, 0.060f,
+		0.025f, 2.2f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(DragNotes), false);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateStoreJingle(
 	UObject* Outer,
 	const float PitchSemitones,

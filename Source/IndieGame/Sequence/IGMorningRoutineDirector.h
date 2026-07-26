@@ -6,8 +6,7 @@
 #include "Sequence/IGObjectiveProvider.h"
 #include "IGMorningRoutineDirector.generated.h"
 
-class AIGSlidingDoor;
-class UAudioComponent;
+class UIGChapterOnePresenceAudioComponent;
 class UPointLightComponent;
 
 /** Objective phases of the prologue morning, derived purely from story state. */
@@ -34,9 +33,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
  * fridge reveal -> wallet -> alley -> store -> water -> checkout.
  *
  * The phase is a pure function of persistent story tags, so restores are
- * automatically consistent. The director layers presentation on top:
- * objectives, checkpoint autosaves, the outdoor dread drone and a few
- * deliberately subtle horror beats.
+ * automatically consistent. CH01 deliberately establishes normal life:
+ * objectives and checkpoint saves plus one plausible streetlight failure.
+ * Every stronger audiovisual anomaly belongs to a later loop.
  */
 UCLASS(Blueprintable)
 class INDIEGAME_API AIGMorningRoutineDirector
@@ -48,12 +47,8 @@ class INDIEGAME_API AIGMorningRoutineDirector
 public:
 	AIGMorningRoutineDirector();
 
-	/** World references wired by the scene right after spawn. */
-	void SetSceneReferences(
-		AIGSlidingDoor* InStoreDoor,
-		UPointLightComponent* InFlickerLight,
-		TArray<UPointLightComponent*>&& InStoreLights,
-		UAudioComponent* InJingleComponent);
+	/** The one CH01 anomaly: a failing alley streetlight. */
+	void SetSceneReferences(UPointLightComponent* InFlickerLight);
 
 	/** One-shot alley streetlight failure; wired to a zone trigger. */
 	UFUNCTION(BlueprintCallable, Category = "Morning Flow|Beats")
@@ -100,14 +95,8 @@ private:
 	void HandleLiveStateSideEffects(const FGameplayTag& StateTag);
 	void RequestCheckpointAutosave(const FGameplayTag& CheckpointTag);
 	void EnablePlayerCameraMotion();
-	void StartDrone();
-	void StopDrone();
 
 	void HandleFlickerStep();
-	void HandleJingleResume();
-	void HandleStoreLightsRestore();
-	void HandleGhostChime();
-	void HandleGhostChimeThought();
 
 	// Story states consumed to derive the phase.
 	FGameplayTag StandingStateTag;
@@ -125,32 +114,16 @@ private:
 	FGameplayTag PurchasedCheckpointTag;
 
 	UPROPERTY(Transient)
-	TObjectPtr<AIGSlidingDoor> StoreDoor;
-
-	UPROPERTY(Transient)
 	TObjectPtr<UPointLightComponent> FlickerLight;
 
-	UPROPERTY(Transient)
-	TArray<TObjectPtr<UPointLightComponent>> StoreLights;
+	/** Dies with this CH01-only director when the second morning begins. */
+	UPROPERTY(VisibleAnywhere, Category = "Morning Flow|Audio")
+	TObjectPtr<UIGChapterOnePresenceAudioComponent> PresenceAudio;
 
-	UPROPERTY(Transient)
-	TObjectPtr<UAudioComponent> JingleComponent;
-
-	UPROPERTY(Transient)
-	TObjectPtr<UAudioComponent> DroneComponent;
-
-	TArray<float> StoreLightBaseIntensities;
 	FTimerHandle FlickerTimerHandle;
-	FTimerHandle JingleTimerHandle;
-	FTimerHandle StoreLightsTimerHandle;
-	FTimerHandle GhostChimeTimerHandle;
-	FTimerHandle GhostThoughtTimerHandle;
 
 	EIGMorningPhase Phase = EIGMorningPhase::Inactive;
 	float FlickerBaseIntensity = 0.0f;
 	int32 FlickerStepIndex = 0;
 	bool bFlickerConsumed = false;
-	bool bWaterBeatConsumed = false;
-	bool bGhostChimeConsumed = false;
-	bool bDroneActive = false;
 };
