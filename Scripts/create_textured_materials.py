@@ -1,0 +1,620 @@
+"""Create the textured PBR material set for the prologue realism pass.
+
+Requires the textures imported by generate_surface_textures.py. Architecture
+materials sample in world space (per-axis variants) so scaled greybox blocks
+never stretch their textures; prop materials use mesh UVs so movable physics
+objects carry their surface with them.
+"""
+
+import unreal
+
+
+MATERIAL_ROOT = "/Game/Prototype/Materials"
+TEXTURE_ROOT = "/Game/Prototype/Textures"
+
+# mapping: XY (floors/ceilings), XZ (walls running along X), YZ (walls along Y),
+#          UV (mesh UVs with a tiling multiplier)
+# tile: world centimeters per texture repeat (or UV multiplier for UV mapping)
+TEXTURED_MATERIALS = {
+    # --- apartment ---------------------------------------------------------
+    # Tile sizes are the real-world repeat of the surface: a 1K photo over a
+    # 115 cm span is ~9 px/cm, which is what makes floors and walls hold up
+    # when the camera is a metre away.
+    "M_Jangpan":        {"tex": "Jangpan", "mapping": "XY", "tile": 115.0},
+    "M_Wallpaper_X":    {"tex": "Wallpaper", "mapping": "XZ", "tile": 105.0, "rough": 0.85},
+    "M_Wallpaper_Y":    {"tex": "Wallpaper", "mapping": "YZ", "tile": 105.0, "rough": 0.85},
+    "M_WallpaperCeil":  {"tex": "Wallpaper", "mapping": "XY", "tile": 105.0, "rough": 0.9,
+                         "tint": (0.85, 0.85, 0.85)},
+    "M_WoodFurnitureUV": {"tex": "WoodDark", "mapping": "UV", "tile": 1.0, "rough": 0.55},
+    "M_BeddingUV":      {"tex": "Blanket", "mapping": "UV", "tile": 2.0, "rough": 0.95},
+    # --- alley -------------------------------------------------------------
+    # (M_AsphaltWorld is built by create_wet_asphalt: dew puddles + mirror wet)
+    "M_Brick_X":        {"tex": "Brick", "mapping": "XZ", "tile": 210.0, "rough": 0.9},
+    "M_Brick_Y":        {"tex": "Brick", "mapping": "YZ", "tile": 210.0, "rough": 0.9},
+    "M_Concrete_XY":    {"tex": "Concrete", "mapping": "XY", "tile": 150.0},
+    "M_Concrete_X":     {"tex": "Concrete", "mapping": "XZ", "tile": 150.0},
+    "M_Concrete_Y":     {"tex": "Concrete", "mapping": "YZ", "tile": 150.0},
+    "M_Shutter_X":      {"tex": "Shutter", "mapping": "XZ", "tile": 130.0},
+    "M_ConcreteDark_X": {"tex": "Concrete", "mapping": "XZ", "tile": 260.0,
+                         "tint": (0.32, 0.33, 0.36)},
+    "M_ConcreteDark_Y": {"tex": "Concrete", "mapping": "YZ", "tile": 260.0,
+                         "tint": (0.32, 0.33, 0.36)},
+    # --- store -------------------------------------------------------------
+    # Shop floors are buffed to a mirror; the photo roughness map is far too
+    # matte for that, so this one forces a polished value.
+    "M_StoreTileWorld": {"tex": "StoreTile", "mapping": "XY", "tile": 60.0,
+                         "force_rough": 0.14},
+    "M_StoreCeilWorld": {"tex": "CeilingTile", "mapping": "XY", "tile": 120.0, "rough": 0.8},
+    "M_StoreWall_X":    {"tex": "Concrete", "mapping": "XZ", "tile": 150.0,
+                         "tint": (1.25, 1.25, 1.22)},
+    "M_StoreWall_Y":    {"tex": "Concrete", "mapping": "YZ", "tile": 150.0,
+                         "tint": (1.25, 1.25, 1.22)},
+    "M_MetalUV":        {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
+                         "metallic": 0.85},
+    "M_ShelfSteelUV":   {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
+                         "tint": (0.60, 0.66, 0.72), "metallic": 0.4, "rough": 0.5},
+    # --- villa: corridor, lift car, facade, kitchenette ---------------------
+    # A Korean walk-up villa is troweled stucco inside the hallway, 600 mm
+    # speckled granite tile underfoot, and 900 mm granite cladding outside.
+    # The lift car is hairline stainless over a marble floor. Roughness is
+    # forced on the polished surfaces: the photo maps are far too matte to
+    # give back the reflections these materials are recognised by.
+    "M_Stucco_X":       {"tex": "Stucco", "mapping": "XZ", "tile": 185.0, "rough": 0.93,
+                         "tint": (1.05, 1.02, 0.90)},
+    "M_Stucco_Y":       {"tex": "Stucco", "mapping": "YZ", "tile": 185.0, "rough": 0.93,
+                         "tint": (1.05, 1.02, 0.90)},
+    "M_StuccoCeil":     {"tex": "Stucco", "mapping": "XY", "tile": 185.0, "rough": 0.95,
+                         "tint": (0.94, 0.93, 0.86)},
+    # The terrazzo scans are confetti at their native scale; 화강석 is the same
+    # material read at a tenth the chip size with the colour taken out, so the
+    # repeat is tightened hard and the chroma is desaturated away.
+    "M_GraniteTile_XY": {"tex": "GraniteTile", "mapping": "XY", "tile": 17.0,
+                         "desaturate": 0.9, "tint": (0.88, 0.88, 0.86),
+                         "force_rough": 0.26},
+    "M_GranitePanel_X": {"tex": "GranitePanel", "mapping": "XZ", "tile": 24.0,
+                         "desaturate": 0.92, "tint": (0.80, 0.80, 0.78), "rough": 0.58},
+    "M_GranitePanel_Y": {"tex": "GranitePanel", "mapping": "YZ", "tile": 24.0,
+                         "desaturate": 0.92, "tint": (0.80, 0.80, 0.78), "rough": 0.58},
+    "M_MarbleFloor_XY": {"tex": "MarbleFloor", "mapping": "XY", "tile": 130.0,
+                         "desaturate": 0.55, "tint": (1.75, 1.75, 1.72),
+                         "force_rough": 0.10},
+    # Worktops need UV mapping, not world mapping: a world-XY stone smears
+    # into stripes the moment it wraps a vertical edge or a splashback.
+    "M_CounterStoneUV": {"tex": "MarbleFloor", "mapping": "UV", "tile": 1.3,
+                         "desaturate": 0.7, "tint": (2.3, 2.3, 2.25),
+                         "force_rough": 0.17},
+    "M_StainlessUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
+                         "tint": (1.10, 1.13, 1.16), "metallic": 1.0, "force_rough": 0.21},
+    "M_CabMirrorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
+                         "tint": (1.22, 1.24, 1.28), "metallic": 1.0, "force_rough": 0.05},
+    "M_SteelDoorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
+                         "tint": (0.115, 0.12, 0.132), "metallic": 0.2, "force_rough": 0.42},
+    "M_KitchenGlossUV": {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
+                         "desaturate": 1.0, "tint": (1.72, 1.70, 1.64),
+                         "metallic": 0.0, "force_rough": 0.13},
+}
+
+# Lit poster/label materials: texture straight onto mesh UVs.
+DECAL_MATERIALS = {
+    "M_PosterSale":    {"tex_asset": "T_PosterSale_D", "rough": 0.55, "emissive_scale": 0.06},
+    "M_PosterRamyeon": {"tex_asset": "T_PosterRamyeon_D", "rough": 0.55, "emissive_scale": 0.06},
+    "M_PosterFlyer":   {"tex_asset": "T_PosterFlyer_D", "rough": 0.75, "flutter": True},
+    "M_NoteFridge":    {"tex_asset": "T_NoteFridge_D", "rough": 0.7},
+    "M_SignToilet":    {"tex_asset": "T_SignToilet_D", "rough": 0.4},
+    "M_SignAutoDoor":  {"tex_asset": "T_SignAutoDoor_D", "rough": 0.3, "emissive_scale": 0.15},
+    "M_PriceStrip":    {"tex_asset": "T_PriceStrip_D", "rough": 0.4, "emissive_scale": 0.35,
+                        "tile_u": 2.0},
+    "M_SignVilla":     {"tex_asset": "T_SignVilla_D", "rough": 0.4, "emissive_scale": 0.25},
+    "M_Plate401":      {"tex_asset": "T_Plate401_D", "rough": 0.35},
+    "M_Plate403":      {"tex_asset": "T_Plate403_D", "rough": 0.35},
+    "M_Plate404":      {"tex_asset": "T_Plate404_D", "rough": 0.35},
+    "M_ElevatorPanel": {"tex_asset": "T_ElevatorPanel_D", "rough": 0.3, "emissive_scale": 0.8},
+    "M_ClockFace":     {"tex_asset": "T_ClockFace_D", "rough": 0.25, "emissive_scale": 1.6},
+    "M_SignLaundry":   {"tex_asset": "T_SignLaundry_D", "rough": 0.45, "emissive_scale": 0.05},
+    "M_SignHair":      {"tex_asset": "T_SignHair_D", "rough": 0.45, "emissive_scale": 0.05},
+    "M_SignHof":       {"tex_asset": "T_SignHof_D", "rough": 0.45, "emissive_scale": 0.5},
+    "M_SignSuper":     {"tex_asset": "T_SignSuper_D", "rough": 0.45, "emissive_scale": 0.05},
+    "M_Banner":        {"tex_asset": "T_Banner_D", "rough": 0.7, "flutter": True},
+    "M_NoticeA4":      {"tex_asset": "T_NoticeA4_D", "rough": 0.7},
+    # Aged paper stock for readable notes. The Korean copy is drawn over these
+    # at runtime by the HUD, so the sheets themselves carry no text — only
+    # creases, tape, water damage and age.
+    # V2 preserves the faulty first paper sheet for provenance while replacing
+    # the live materials with the verified, text-free ImageGen paper stock.
+    "M_PaperClean":    {"tex_asset": "T_PaperClean_V2_D", "rough": 0.82},
+    "M_PaperWet":      {"tex_asset": "T_PaperWet_V2_D", "rough": 0.62},
+    "M_PaperFolded":   {"tex_asset": "T_PaperFolded_V2_D", "rough": 0.84},
+    "M_PaperOld":      {"tex_asset": "T_PaperOld_V2_D", "rough": 0.86},
+    "M_NoticeRent":    {"tex_asset": "T_NoticeRent_D", "rough": 0.72},
+    "M_DoorAd":        {"tex_asset": "T_DoorAd_D", "rough": 0.6},
+    "M_Calendar":      {"tex_asset": "T_Calendar_D", "rough": 0.7},
+    "M_FireBox":       {"tex_asset": "T_FireBox_D", "rough": 0.4, "emissive_scale": 0.08},
+    "M_TobaccoNotice": {"tex_asset": "T_TobaccoNotice_D", "rough": 0.5},
+    "M_SignPC":        {"tex_asset": "T_SignPC_D", "rough": 0.45, "emissive_scale": 0.05},
+    "M_SignKaraoke":   {"tex_asset": "T_SignKaraoke_D", "rough": 0.45, "emissive_scale": 0.45},
+    # Villa fittings. The lift readouts are the only thing genuinely emitting
+    # in the shaft, so they carry a strong emissive; the rest are plastic.
+    "M_DoorLock":      {"tex_asset": "T_DoorLock_D", "rough": 0.34, "emissive_scale": 0.12},
+    "M_MeterBox":      {"tex_asset": "T_MeterBox_D", "rough": 0.52},
+    "M_Intercom":      {"tex_asset": "T_Intercom_D", "rough": 0.34, "emissive_scale": 0.08},
+    "M_LiftCOP":       {"tex_asset": "T_LiftCOP_D", "rough": 0.26, "emissive_scale": 0.55},
+    "M_LiftHall":      {"tex_asset": "T_LiftHall_D", "rough": 0.3, "emissive_scale": 1.4},
+    "M_SwitchPlate":   {"tex_asset": "T_SwitchPlate_D", "rough": 0.4, "emissive_scale": 0.1},
+    # Product labels: printed plastic film, so fairly smooth and unlit-free.
+    "M_LabelWater":    {"tex_asset": "T_LabelWater_D", "rough": 0.28},
+    "M_LabelGreenTea": {"tex_asset": "T_LabelGreenTea_D", "rough": 0.28},
+    "M_LabelBarley":   {"tex_asset": "T_LabelBarley_D", "rough": 0.28},
+    "M_LabelSoda":     {"tex_asset": "T_LabelSoda_D", "rough": 0.28},
+    "M_LabelSoju":     {"tex_asset": "T_LabelSoju_D", "rough": 0.32},
+    "M_LabelRamyeon":  {"tex_asset": "T_LabelRamyeon_D", "rough": 0.42},
+    "M_SnackShrimp":   {"tex_asset": "T_SnackShrimp_D", "rough": 0.22},
+    "M_SnackPotato":   {"tex_asset": "T_SnackPotato_D", "rough": 0.22},
+    "M_SnackSquid":    {"tex_asset": "T_SnackSquid_D", "rough": 0.22},
+    "M_SnackCorn":     {"tex_asset": "T_SnackCorn_D", "rough": 0.22},
+}
+
+# Emissive signage: the texture *is* the light source.
+SIGN_MATERIALS = {
+    "M_SignMainLit":  {"tex_asset": "T_SignMain_D", "emissive_scale": 2.2},
+    "M_SignBladeLit": {"tex_asset": "T_SignBlade_D", "emissive_scale": 1.8},
+}
+
+
+def _expr(material, expression_class, x=-600, y=0):
+    expression = unreal.MaterialEditingLibrary.create_material_expression(
+        material, expression_class, x, y
+    )
+    if expression is None:
+        raise RuntimeError(
+            f"Could not create {expression_class} on {material.get_path_name()}"
+        )
+    return expression
+
+
+def _load_texture(name):
+    """Prefers the CC0 photo capture (T_Photo_*) over the procedural fallback."""
+    if name.startswith("T_") and not name.startswith("T_Photo_"):
+        photo = unreal.load_asset(f"{TEXTURE_ROOT}/T_Photo_{name[2:]}")
+        if photo is not None:
+            return photo
+    texture = unreal.load_asset(f"{TEXTURE_ROOT}/{name}")
+    if texture is None:
+        raise RuntimeError(f"Missing texture asset: {TEXTURE_ROOT}/{name}")
+    return texture
+
+
+def _make_uv_source(material, mapping, tile, y_offset):
+    """Returns an expression producing 2D UVs for the requested mapping."""
+    if mapping == "UV":
+        coords = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1100, y_offset)
+        coords.set_editor_property("u_tiling", tile)
+        coords.set_editor_property("v_tiling", tile)
+        return coords
+
+    world_position = _expr(
+        material, unreal.MaterialExpressionWorldPosition, -1300, y_offset
+    )
+    mask = _expr(material, unreal.MaterialExpressionComponentMask, -1100, y_offset)
+    mask.set_editor_property("r", mapping[0] == "X")
+    mask.set_editor_property("g", mapping in ("XY", "YZ"))
+    mask.set_editor_property("b", mapping in ("XZ", "YZ"))
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        world_position, "", mask, ""
+    )
+
+    scale = _expr(material, unreal.MaterialExpressionConstant, -1100, y_offset + 150)
+    scale.set_editor_property("r", 1.0 / tile)
+    multiply = _expr(material, unreal.MaterialExpressionMultiply, -900, y_offset)
+    unreal.MaterialEditingLibrary.connect_material_expressions(mask, "", multiply, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(scale, "", multiply, "B")
+    return multiply
+
+
+def _sample(material, texture, uv_expression, sampler_type, y_offset):
+    sample = _expr(material, unreal.MaterialExpressionTextureSample, -650, y_offset)
+    sample.set_editor_property("texture", texture)
+    sample.set_editor_property("sampler_type", sampler_type)
+    if uv_expression is not None:
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            uv_expression, "", sample, "UVs"
+        )
+    return sample
+
+
+def _recreate_material(assets, tools, name):
+    asset_path = f"{MATERIAL_ROOT}/{name}"
+    if assets.does_asset_exist(asset_path) and not assets.delete_asset(asset_path):
+        raise RuntimeError(f"Could not replace material: {asset_path}")
+    material = tools.create_asset(
+        name, MATERIAL_ROOT, unreal.Material, unreal.MaterialFactoryNew()
+    )
+    if material is None:
+        raise RuntimeError(f"Could not create material: {asset_path}")
+    return material
+
+
+def create_textured_materials(assets, tools):
+    created = []
+    for name, spec in TEXTURED_MATERIALS.items():
+        material = _recreate_material(assets, tools, name)
+        base_name = spec["tex"]
+        mapping = spec["mapping"]
+        tile = spec["tile"]
+
+        uv_color = _make_uv_source(material, mapping, tile, 0)
+        diffuse = _sample(
+            material,
+            _load_texture(f"T_{base_name}_D"),
+            uv_color,
+            unreal.MaterialSamplerType.SAMPLERTYPE_COLOR,
+            0,
+        )
+
+        # Colour chain: sample -> optional desaturation -> optional tint.
+        # Desaturation is what turns a confetti terrazzo scan into the fine
+        # grey speckle of Korean 화강석; a tint alone cannot remove chroma.
+        color_source = diffuse
+        color_pin = "RGB"
+        desaturate = spec.get("desaturate")
+        if desaturate is not None:
+            fraction = _expr(material, unreal.MaterialExpressionConstant, -650, 300)
+            fraction.set_editor_property("r", desaturate)
+            grey = _expr(material, unreal.MaterialExpressionDesaturation, -450, 140)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                color_source, color_pin, grey, ""
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                fraction, "", grey, "Fraction"
+            )
+            color_source = grey
+            color_pin = ""
+
+        tint = spec.get("tint")
+        if tint:
+            tint_constant = _expr(material, unreal.MaterialExpressionConstant3Vector, -650, 220)
+            tint_constant.set_editor_property(
+                "constant", unreal.LinearColor(tint[0], tint[1], tint[2], 1.0)
+            )
+            tinted = _expr(material, unreal.MaterialExpressionMultiply, -400, 60)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                color_source, color_pin, tinted, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                tint_constant, "", tinted, "B"
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                tinted, "", unreal.MaterialProperty.MP_BASE_COLOR
+            )
+        else:
+            unreal.MaterialEditingLibrary.connect_material_property(
+                color_source, color_pin, unreal.MaterialProperty.MP_BASE_COLOR
+            )
+
+        normal = _sample(
+            material,
+            _load_texture(f"T_{base_name}_N"),
+            _make_uv_source(material, mapping, tile, 420),
+            unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+            420,
+        )
+        unreal.MaterialEditingLibrary.connect_material_property(
+            normal, "RGB", unreal.MaterialProperty.MP_NORMAL
+        )
+
+        rough_asset = f"T_{base_name}_R"
+        forced_rough = spec.get("force_rough")
+        if forced_rough is not None:
+            rough_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 880)
+            rough_constant.set_editor_property("r", forced_rough)
+            unreal.MaterialEditingLibrary.connect_material_property(
+                rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
+            )
+        elif assets.does_asset_exist(f"{TEXTURE_ROOT}/{rough_asset}"):
+            rough_sample = _sample(
+                material,
+                _load_texture(rough_asset),
+                _make_uv_source(material, mapping, tile, 840),
+                unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR,
+                840,
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                rough_sample, "R", unreal.MaterialProperty.MP_ROUGHNESS
+            )
+        else:
+            rough_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 880)
+            rough_constant.set_editor_property("r", spec.get("rough", 0.8))
+            unreal.MaterialEditingLibrary.connect_material_property(
+                rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
+            )
+
+        metallic = spec.get("metallic")
+        if metallic is not None:
+            metallic_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 1020)
+            metallic_constant.set_editor_property("r", metallic)
+            unreal.MaterialEditingLibrary.connect_material_property(
+                metallic_constant, "", unreal.MaterialProperty.MP_METALLIC
+            )
+
+        unreal.MaterialEditingLibrary.layout_material_expressions(material)
+        unreal.MaterialEditingLibrary.recompile_material(material)
+        unreal.log(f"[IndieGame] Created textured material: {name}")
+        created.append(material)
+    return created
+
+
+def create_flat_texture_materials(assets, tools, specs, emissive_only):
+    created = []
+    skipped = []
+    for name, spec in specs.items():
+        # Artwork arrives in batches — a generated sheet may not have landed
+        # yet. Skipping the material is right: the C++ side already falls back
+        # to a flat colour for anything it cannot load, so a half-finished
+        # asset run still produces a playable build.
+        source_asset = spec["tex_asset"]
+        if not (
+            assets.does_asset_exist(f"{TEXTURE_ROOT}/{source_asset}")
+            or assets.does_asset_exist(f"{TEXTURE_ROOT}/T_Photo_{source_asset[2:]}")
+        ):
+            skipped.append(name)
+            continue
+
+        material = _recreate_material(assets, tools, name)
+        texture = _load_texture(source_asset)
+
+        uv = None
+        tile_u = spec.get("tile_u")
+        if tile_u:
+            uv = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1100, 0)
+            uv.set_editor_property("u_tiling", tile_u)
+            uv.set_editor_property("v_tiling", 1.0)
+
+        sample = _sample(
+            material, texture, uv, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR, 0
+        )
+
+        # Paper flutter in the pre-dawn wind via world position offset.
+        if spec.get("flutter"):
+            time_expr = _expr(material, unreal.MaterialExpressionTime, -1300, 700)
+            time_scale = _expr(material, unreal.MaterialExpressionConstant, -1300, 840)
+            time_scale.set_editor_property("r", 0.42)
+            phase = _expr(material, unreal.MaterialExpressionMultiply, -1100, 720)
+            unreal.MaterialEditingLibrary.connect_material_expressions(time_expr, "", phase, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(time_scale, "", phase, "B")
+            wobble = _expr(material, unreal.MaterialExpressionSine, -950, 720)
+            unreal.MaterialEditingLibrary.connect_material_expressions(phase, "", wobble, "")
+            amplitude = _expr(material, unreal.MaterialExpressionConstant, -950, 860)
+            amplitude.set_editor_property("r", 0.9)
+            offset_y = _expr(material, unreal.MaterialExpressionMultiply, -780, 740)
+            unreal.MaterialEditingLibrary.connect_material_expressions(wobble, "", offset_y, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(amplitude, "", offset_y, "B")
+            zero_a = _expr(material, unreal.MaterialExpressionConstant, -780, 880)
+            zero_a.set_editor_property("r", 0.0)
+            xy = _expr(material, unreal.MaterialExpressionAppendVector, -620, 760)
+            unreal.MaterialEditingLibrary.connect_material_expressions(zero_a, "", xy, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(offset_y, "", xy, "B")
+            zero_b = _expr(material, unreal.MaterialExpressionConstant, -620, 900)
+            zero_b.set_editor_property("r", 0.0)
+            xyz = _expr(material, unreal.MaterialExpressionAppendVector, -470, 780)
+            unreal.MaterialEditingLibrary.connect_material_expressions(xy, "", xyz, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(zero_b, "", xyz, "B")
+            unreal.MaterialEditingLibrary.connect_material_property(
+                xyz, "", unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET
+            )
+
+        emissive_scale = spec.get("emissive_scale", 0.0)
+        if emissive_only:
+            dark = _expr(material, unreal.MaterialExpressionConstant3Vector, -650, 300)
+            dark.set_editor_property("constant", unreal.LinearColor(0.02, 0.02, 0.02, 1.0))
+            unreal.MaterialEditingLibrary.connect_material_property(
+                dark, "", unreal.MaterialProperty.MP_BASE_COLOR
+            )
+        else:
+            unreal.MaterialEditingLibrary.connect_material_property(
+                sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
+            )
+            rough_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 340)
+            rough_constant.set_editor_property("r", spec.get("rough", 0.6))
+            unreal.MaterialEditingLibrary.connect_material_property(
+                rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
+            )
+
+        if emissive_scale > 0.0:
+            scale_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 500)
+            scale_constant.set_editor_property("r", emissive_scale)
+            emissive = _expr(material, unreal.MaterialExpressionMultiply, -400, 460)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                sample, "RGB", emissive, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                scale_constant, "", emissive, "B"
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR
+            )
+
+        unreal.MaterialEditingLibrary.layout_material_expressions(material)
+        unreal.MaterialEditingLibrary.recompile_material(material)
+        unreal.log(f"[IndieGame] Created sign material: {name}")
+        created.append(material)
+
+    if skipped:
+        unreal.log_warning(
+            f"[IndieGame] Skipped {len(skipped)} material(s) with no artwork yet: "
+            + ", ".join(skipped)
+        )
+    return created
+
+
+def create_wet_asphalt(assets, tools):
+    """Dew-wet alley asphalt: large-scale puddle mask flattens the normal and
+    drops roughness to a mirror so Lumen reflects the signs and streetlights."""
+    material = _recreate_material(assets, tools, "M_AsphaltWorld")
+
+    base_uv = _make_uv_source(material, "XY", 260.0, 0)
+    diffuse = _sample(
+        material, _load_texture("T_Asphalt_D"), base_uv,
+        unreal.MaterialSamplerType.SAMPLERTYPE_COLOR, 0)
+    normal = _sample(
+        material, _load_texture("T_Asphalt_N"),
+        _make_uv_source(material, "XY", 260.0, 380),
+        unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL, 380)
+    rough = _sample(
+        material, _load_texture("T_Asphalt_R"),
+        _make_uv_source(material, "XY", 260.0, 760),
+        unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR, 760)
+
+    # Puddle mask: the same roughness map read at street scale.
+    mask = _sample(
+        material, _load_texture("T_Asphalt_R"),
+        _make_uv_source(material, "XY", 1150.0, 1140),
+        unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR, 1140)
+    threshold = _expr(material, unreal.MaterialExpressionConstant, -1100, 1320)
+    threshold.set_editor_property("r", 0.42)
+    below = _expr(material, unreal.MaterialExpressionSubtract, -900, 1240)
+    unreal.MaterialEditingLibrary.connect_material_expressions(threshold, "", below, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(mask, "R", below, "B")
+    sharpen = _expr(material, unreal.MaterialExpressionConstant, -900, 1380)
+    sharpen.set_editor_property("r", 6.0)
+    scaled = _expr(material, unreal.MaterialExpressionMultiply, -740, 1260)
+    unreal.MaterialEditingLibrary.connect_material_expressions(below, "", scaled, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(sharpen, "", scaled, "B")
+    puddle = _expr(material, unreal.MaterialExpressionSaturate, -600, 1260)
+    unreal.MaterialEditingLibrary.connect_material_expressions(scaled, "", puddle, "")
+
+    # Base color darkens where wet.
+    dark_scale = _expr(material, unreal.MaterialExpressionLinearInterpolate, -420, 120)
+    one = _expr(material, unreal.MaterialExpressionConstant, -600, 40)
+    one.set_editor_property("r", 1.0)
+    wet_dark = _expr(material, unreal.MaterialExpressionConstant, -600, 180)
+    wet_dark.set_editor_property("r", 0.45)
+    unreal.MaterialEditingLibrary.connect_material_expressions(one, "", dark_scale, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(wet_dark, "", dark_scale, "B")
+    unreal.MaterialEditingLibrary.connect_material_expressions(puddle, "", dark_scale, "Alpha")
+    tinted = _expr(material, unreal.MaterialExpressionMultiply, -240, 60)
+    unreal.MaterialEditingLibrary.connect_material_expressions(diffuse, "RGB", tinted, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(dark_scale, "", tinted, "B")
+    unreal.MaterialEditingLibrary.connect_material_property(
+        tinted, "", unreal.MaterialProperty.MP_BASE_COLOR)
+
+    # Roughness collapses to a mirror inside puddles.
+    mirror = _expr(material, unreal.MaterialExpressionConstant, -420, 820)
+    mirror.set_editor_property("r", 0.03)
+    rough_mix = _expr(material, unreal.MaterialExpressionLinearInterpolate, -240, 780)
+    unreal.MaterialEditingLibrary.connect_material_expressions(rough, "R", rough_mix, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(mirror, "", rough_mix, "B")
+    unreal.MaterialEditingLibrary.connect_material_expressions(puddle, "", rough_mix, "Alpha")
+    unreal.MaterialEditingLibrary.connect_material_property(
+        rough_mix, "", unreal.MaterialProperty.MP_ROUGHNESS)
+
+    # Standing water lies flat: blend the normal toward straight up.
+    flat = _expr(material, unreal.MaterialExpressionConstant3Vector, -420, 480)
+    flat.set_editor_property("constant", unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
+    normal_mix = _expr(material, unreal.MaterialExpressionLinearInterpolate, -240, 440)
+    unreal.MaterialEditingLibrary.connect_material_expressions(normal, "RGB", normal_mix, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(flat, "", normal_mix, "B")
+    unreal.MaterialEditingLibrary.connect_material_expressions(puddle, "", normal_mix, "Alpha")
+    unreal.MaterialEditingLibrary.connect_material_property(
+        normal_mix, "", unreal.MaterialProperty.MP_NORMAL)
+
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    unreal.log("[IndieGame] Created wet asphalt: M_AsphaltWorld")
+    return material
+
+
+def create_sky_material(assets, tools):
+    material = _recreate_material(assets, tools, "M_SkyDawn")
+    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
+    material.set_editor_property("two_sided", True)
+
+    world_position = _expr(material, unreal.MaterialExpressionWorldPosition, -1500, 0)
+
+    # Vertical gradient: horizon glow fades into a near-black zenith.
+    mask_z = _expr(material, unreal.MaterialExpressionComponentMask, -1300, 0)
+    mask_z.set_editor_property("r", False)
+    mask_z.set_editor_property("g", False)
+    mask_z.set_editor_property("b", True)
+    unreal.MaterialEditingLibrary.connect_material_expressions(world_position, "", mask_z, "")
+
+    height_scale = _expr(material, unreal.MaterialExpressionConstant, -1300, 160)
+    height_scale.set_editor_property("r", 1.0 / 2600.0)
+    height_norm = _expr(material, unreal.MaterialExpressionMultiply, -1100, 40)
+    unreal.MaterialEditingLibrary.connect_material_expressions(mask_z, "", height_norm, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(height_scale, "", height_norm, "B")
+    height_saturated = _expr(material, unreal.MaterialExpressionSaturate, -950, 40)
+    unreal.MaterialEditingLibrary.connect_material_expressions(height_norm, "", height_saturated, "")
+
+    horizon = _expr(material, unreal.MaterialExpressionConstant3Vector, -800, -160)
+    horizon.set_editor_property("constant", unreal.LinearColor(0.085, 0.052, 0.075, 1.0))
+    zenith = _expr(material, unreal.MaterialExpressionConstant3Vector, -800, 0)
+    zenith.set_editor_property("constant", unreal.LinearColor(0.004, 0.008, 0.02, 1.0))
+    gradient = _expr(material, unreal.MaterialExpressionLinearInterpolate, -600, -60)
+    unreal.MaterialEditingLibrary.connect_material_expressions(horizon, "", gradient, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(zenith, "", gradient, "B")
+    unreal.MaterialEditingLibrary.connect_material_expressions(height_saturated, "", gradient, "Alpha")
+
+    # A faint warm smear low in the east: dawn is close but not here yet.
+    mask_x = _expr(material, unreal.MaterialExpressionComponentMask, -1300, 400)
+    mask_x.set_editor_property("r", True)
+    mask_x.set_editor_property("g", False)
+    mask_x.set_editor_property("b", False)
+    unreal.MaterialEditingLibrary.connect_material_expressions(world_position, "", mask_x, "")
+    east_scale = _expr(material, unreal.MaterialExpressionConstant, -1300, 560)
+    east_scale.set_editor_property("r", 1.0 / 5200.0)
+    east_norm = _expr(material, unreal.MaterialExpressionMultiply, -1100, 440)
+    unreal.MaterialEditingLibrary.connect_material_expressions(mask_x, "", east_norm, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(east_scale, "", east_norm, "B")
+    east_saturated = _expr(material, unreal.MaterialExpressionSaturate, -950, 440)
+    unreal.MaterialEditingLibrary.connect_material_expressions(east_norm, "", east_saturated, "")
+
+    inverse_height = _expr(material, unreal.MaterialExpressionOneMinus, -950, 240)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        height_saturated, "", inverse_height, ""
+    )
+    east_falloff = _expr(material, unreal.MaterialExpressionMultiply, -750, 380)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        east_saturated, "", east_falloff, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        inverse_height, "", east_falloff, "B"
+    )
+
+    warm = _expr(material, unreal.MaterialExpressionConstant3Vector, -750, 540)
+    warm.set_editor_property("constant", unreal.LinearColor(0.14, 0.05, 0.015, 1.0))
+    east_glow = _expr(material, unreal.MaterialExpressionMultiply, -550, 440)
+    unreal.MaterialEditingLibrary.connect_material_expressions(east_falloff, "", east_glow, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(warm, "", east_glow, "B")
+
+    sky = _expr(material, unreal.MaterialExpressionAdd, -350, 120)
+    unreal.MaterialEditingLibrary.connect_material_expressions(gradient, "", sky, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(east_glow, "", sky, "B")
+    unreal.MaterialEditingLibrary.connect_material_property(
+        sky, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR
+    )
+
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    unreal.log("[IndieGame] Created sky material: M_SkyDawn")
+    return material
+
+
+def run():
+    assets = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
+    tools = unreal.AssetToolsHelpers.get_asset_tools()
+    if assets is None or tools is None:
+        raise RuntimeError("Unreal editor asset services are unavailable")
+
+    created = []
+    created += create_textured_materials(assets, tools)
+    created += create_flat_texture_materials(assets, tools, DECAL_MATERIALS, False)
+    created += create_flat_texture_materials(assets, tools, SIGN_MATERIALS, True)
+    created.append(create_wet_asphalt(assets, tools))
+    created.append(create_sky_material(assets, tools))
+
+    if not assets.save_loaded_assets(created, False):
+        raise RuntimeError("Could not save textured materials")
+    unreal.log(f"[IndieGame] Textured material pass complete: {len(created)} materials")
+
+
+if __name__ == "__main__":
+    run()

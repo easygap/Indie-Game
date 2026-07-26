@@ -1,0 +1,94 @@
+#pragma once
+
+#include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
+#include "Subsystems/GameInstanceSubsystem.h"
+#include "IGSaveSubsystem.generated.h"
+
+class UIGSaveGame;
+class USaveGame;
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
+	FIGSaveCompletedSignature,
+	bool, bSuccess,
+	FString, SlotName);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
+	FIGLoadCompletedSignature,
+	bool, bSuccess,
+	FString, SlotName,
+	UIGSaveGame*, SaveGame);
+
+/** Serializes checkpoint snapshots without blocking the game thread. */
+UCLASS()
+class INDIEGAME_API UIGSaveSubsystem : public UGameInstanceSubsystem
+{
+	GENERATED_BODY()
+
+public:
+	UFUNCTION(BlueprintCallable, Category = "Save")
+	bool RequestSave(
+		const FString& SlotName,
+		FGameplayTag ChapterId,
+		FName MapPackageName,
+		FGameplayTag CheckpointTag);
+
+	/** Alternates between two autosave files so one previous checkpoint survives. */
+	UFUNCTION(BlueprintCallable, Category = "Save")
+	bool RequestAutosave(
+		FGameplayTag ChapterId,
+		FName MapPackageName,
+		FGameplayTag CheckpointTag);
+
+	UFUNCTION(BlueprintCallable, Category = "Save")
+	bool RequestLoad(const FString& SlotName);
+
+	UFUNCTION(BlueprintCallable, Category = "Save")
+	bool ApplyLoadedProgress();
+
+	UFUNCTION(BlueprintPure, Category = "Save")
+	bool IsBusy() const { return bSaveInProgress || bLoadInProgress; }
+
+	UFUNCTION(BlueprintPure, Category = "Save")
+	UIGSaveGame* GetLastLoadedSave() const { return LastLoadedSave; }
+
+	UPROPERTY(BlueprintAssignable, Category = "Save")
+	FIGSaveCompletedSignature OnSaveCompleted;
+
+	UPROPERTY(BlueprintAssignable, Category = "Save")
+	FIGLoadCompletedSignature OnLoadCompleted;
+
+private:
+	bool BeginSave(
+		const FString& SlotName,
+		FGameplayTag ChapterId,
+		FName MapPackageName,
+		FGameplayTag CheckpointTag,
+		bool bIsAutosave,
+		int32 AutosaveIndex,
+		UIGSaveGame* PrebuiltSnapshot = nullptr);
+	UIGSaveGame* CreateSaveSnapshot(
+		FGameplayTag ChapterId,
+		FName MapPackageName,
+		FGameplayTag CheckpointTag) const;
+	void ProcessQueuedAutosave();
+	void HandleSaveComplete(const FString& SlotName, int32 UserIndex, bool bSuccess);
+	void HandleLoadComplete(const FString& SlotName, int32 UserIndex, USaveGame* LoadedObject);
+	bool IsSaveCompatible(const UIGSaveGame* SaveGame) const;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UIGSaveGame> PendingSave;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UIGSaveGame> LastLoadedSave;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UIGSaveGame> QueuedAutosave;
+
+	bool bSaveInProgress = false;
+	bool bLoadInProgress = false;
+	bool bActiveSaveIsAutosave = false;
+	int32 ActiveAutosaveIndex = INDEX_NONE;
+	int32 NextAutosaveIndex = 0;
+	int32 LocalUserIndex = 0;
+};

@@ -1,0 +1,62 @@
+# Visual Studio and Rider user data
+.vs/
+.idea/
+.claude/
+.agents/
+*.sln
+*.slnx
+*.suo
+*.opensdf
+*.sdf
+*.VC.db
+*.VC.opendb
+*.user
+*.userprefs
+
+# Unreal Engine generated directories
+Binaries/
+DerivedDataCache/
+Intermediate/
+Saved/
+
+# Generated project files
+*.xcodeproj
+*.xcworkspace
+Makefile
+CMakeLists.txt
+CMakeSettings.json
+compile_commands.json
+
+# Build products and debug artifacts
+*.dll
+*.dylib
+*.exe
+*.exp
+*.ilk
+*.lib
+*.pdb
+*.so
+*.dSYM/
+
+# Local environment and OS metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+*.log
+
+# Keep Unreal source assets and project configuration tracked.
+!Content/**
+!Config/**
+!Source/**
+
+# Secrets and machine-local credentials. Keep this block after re-includes above.
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.keystore
+credentials*.json
+secrets*.ini
+Config/DefaultCrypto.ini

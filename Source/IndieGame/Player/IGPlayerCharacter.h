@@ -1,0 +1,128 @@
+﻿#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Character.h"
+#include "IGPlayerCharacter.generated.h"
+
+class UCameraComponent;
+class UIGFlashlightComponent;
+class UIGInteractionComponent;
+class UIGStressComponent;
+class UInputAction;
+struct FInputActionValue;
+
+/** First-person player pawn with asset-driven Enhanced Input bindings. */
+UCLASS()
+class INDIEGAME_API AIGPlayerCharacter : public ACharacter
+{
+	GENERATED_BODY()
+
+public:
+	AIGPlayerCharacter();
+	virtual void Tick(float DeltaSeconds) override;
+
+	UFUNCTION(BlueprintPure, Category = "Player|Components")
+	UCameraComponent* GetFirstPersonCamera() const { return FirstPersonCamera; }
+
+	UFUNCTION(BlueprintPure, Category = "Player|Components")
+	UIGInteractionComponent* GetInteractionComponent() const { return InteractionComponent; }
+
+	UFUNCTION(BlueprintPure, Category = "Player|Components")
+	UIGFlashlightComponent* GetFlashlight() const { return Flashlight; }
+
+	UFUNCTION(BlueprintPure, Category = "Player|Components")
+	UIGStressComponent* GetStress() const { return StressComponent; }
+
+	/**
+	 * Enables the procedural head-bob/breath sway and footstep cadence.
+	 * Kept off while a director owns the camera (lying in bed, getting up).
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player|Camera")
+	void SetCameraMotionEnabled(bool bEnabled);
+
+	/** Parents an item to the camera at the given relative pose (held item). */
+	UFUNCTION(BlueprintCallable, Category = "Player|Carry")
+	void CarryActor(AActor* Item, const FVector& RelativeOffset, const FRotator& RelativeRotation);
+
+	UFUNCTION(BlueprintPure, Category = "Player|Carry")
+	AActor* GetCarriedActor() const { return CarriedActor.Get(); }
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+
+	UFUNCTION()
+	void HandleFocusChanged(AActor* PreviousActor, AActor* NewActor);
+
+private:
+	void Move(const FInputActionValue& Value);
+	void Look(const FInputActionValue& Value);
+	void MoveForward(float Value);
+	void MoveRight(float Value);
+	void Turn(float Value);
+	void LookUp(float Value);
+	void BeginInteraction();
+	void EndInteraction();
+	void ToggleFlashlight();
+	/** Samples how dark it is where the player stands, for the stress model. */
+	float SampleAmbientDarkness() const;
+	void TryRequestGetUpFallback();
+	void UpdateCameraMotion(float DeltaSeconds);
+	void UpdateCarriedItem(float DeltaSeconds);
+	void PlayFootstep(float SpeedScale);
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UCameraComponent> FirstPersonCamera;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UIGInteractionComponent> InteractionComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UIGFlashlightComponent> Flashlight;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UIGStressComponent> StressComponent;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> MoveInputAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> LookInputAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> InteractInputAction;
+
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Input", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UInputAction> FlashlightInputAction;
+
+	/** Vertical bob amplitude at full walk speed, in centimeters. */
+	UPROPERTY(EditDefaultsOnly, Category = "Player|Camera", meta = (AllowPrivateAccess = "true", ClampMin = "0.0", Units = "cm"))
+	float BobAmplitude = 2.1f;
+
+	/** Distance covered by one footstep, in centimeters. */
+	UPROPERTY(EditDefaultsOnly, Category = "Player|Camera", meta = (AllowPrivateAccess = "true", ClampMin = "10.0", Units = "cm"))
+	float StepDistance = 74.0f;
+
+	UPROPERTY(EditDefaultsOnly, Category = "Player|Camera", meta = (AllowPrivateAccess = "true", ClampMin = "0.0", ClampMax = "1.0"))
+	float FootstepVolume = 0.34f;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AActor> CarriedActor;
+
+	FVector CameraBaseLocation = FVector(0.0f, 0.0f, 64.0f);
+	float TraveledDistanceAccum = 0.0f;
+	float BreathTime = 0.0f;
+	int32 LastStepIndex = 0;
+	bool bCameraMotionEnabled = false;
+
+	/** Decaying kick applied when an interaction is pressed. */
+	float InteractPunch = 0.0f;
+	/** Throttles the darkness probe: it traces, so it does not run per frame. */
+	float DarknessSampleTimer = 0.0f;
+	float CachedDarkness = 0.0f;
+	/** Held-item inertia: lag offset and the previous view rotation driving it. */
+	FRotator CarrySwayOffset = FRotator::ZeroRotator;
+	FRotator PreviousControlRotation = FRotator::ZeroRotator;
+	FRotator CarriedBaseRotation = FRotator::ZeroRotator;
+	FVector CarriedBaseLocation = FVector::ZeroVector;
+};
