@@ -5,6 +5,7 @@
 #include "IGHorrorHUD.generated.h"
 
 class AIGMorningRoutineDirector;
+class AIGReadableNote;
 class AIGWakeUpDirector;
 class IIGObjectiveProvider;
 class UFont;
@@ -98,6 +99,8 @@ private:
 	bool DrawChapterCard(double CurrentTime);
 	/** Full-screen reading panel for whatever note is currently open. */
 	void DrawNotePanel();
+	/** Narrow, dense convenience-store thermal receipt presentation. */
+	void DrawThermalReceiptPanel(const AIGReadableNote& Note);
 	void DrawHoldProgress(float Progress);
 	/** Screen-space bracket that snaps around whatever is currently focused. */
 	void UpdateFocusBracket(const AActor* FocusedActor, float DeltaSeconds);
@@ -108,6 +111,10 @@ private:
 	/** Aged-paper sheet the reading panel is printed on. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> NotePaperTexture;
+
+	/** Cleaner paper grain used for thermal receipts. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> ReceiptPaperTexture;
 
 	/** Per-role fonts rasterized at native size so Hangul stays crisp. */
 	UPROPERTY(Transient)

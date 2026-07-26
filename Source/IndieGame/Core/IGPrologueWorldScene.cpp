@@ -3026,14 +3026,77 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 	auto ReceiptLines = []() -> TArray<FText>
 	{
 		return {
-			NSLOCTEXT("IGCH02", "ReceiptStore", "새벽편의점"),
-			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "ReceiptDate", "2026-07-26  04:44"),
-			NSLOCTEXT("IGCH02", "ReceiptWater", "새벽수 500mL        1,100원"),
-			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "ReceiptCard", "체크카드 승인          4482**"),
+			NSLOCTEXT("IGCH02", "ReceiptDate", "2026-07-26 04:44"),
+			NSLOCTEXT("IGCH02", "ReceiptWater", "새벽수 500mL / 1 / 1,100원"),
+			NSLOCTEXT("IGCH02", "ReceiptCard", "체크카드 승인 4482**"),
 			NSLOCTEXT("IGCH02", "ReceiptPoints", "적립 없음"),
 		};
+	};
+
+	auto BuildReceiptData = []() -> FIGThermalReceiptData
+	{
+		FIGThermalReceiptData Data;
+		Data.StoreName =
+			NSLOCTEXT("IGCH02", "ReceiptStore", "새벽편의점");
+		Data.StoreSubtitle =
+			NSLOCTEXT("IGCH02", "ReceiptStoreSubtitle", "24 HOURS");
+		Data.StoreDetailLines = {
+			NSLOCTEXT("IGCH02", "ReceiptBusinessMasked", "사업자번호  ***-**-*****"),
+			NSLOCTEXT("IGCH02", "ReceiptStoreMasked", "가맹점 정보  ***************"),
+		};
+		Data.PolicyLines = {
+			NSLOCTEXT("IGCH02", "ReceiptPolicy1", "교환·환불 시 영수증을"),
+			NSLOCTEXT("IGCH02", "ReceiptPolicy2", "지참해 주세요."),
+		};
+		Data.TransactionDateTime =
+			NSLOCTEXT("IGCH02", "ReceiptDateStructured", "2026-07-26 04:44");
+		Data.PosLabel =
+			NSLOCTEXT("IGCH02", "ReceiptPos", "POS-01");
+		Data.ReceiptNumber =
+			NSLOCTEXT("IGCH02", "ReceiptNumber", "0444");
+
+		FIGReceiptItemLine WaterItem;
+		WaterItem.ProductName =
+			NSLOCTEXT("IGCH02", "ReceiptProduct", "새벽수 500mL");
+		WaterItem.Quantity = 1;
+		WaterItem.Amount = 1100;
+		Data.Items.Add(MoveTemp(WaterItem));
+
+		Data.Subtotal = 1100;
+		Data.TaxableSupply = 1000;
+		Data.Vat = 100;
+		Data.Total = 1100;
+		Data.PaymentHeading =
+			NSLOCTEXT("IGCH02", "ReceiptPaymentHeading", "체크카드 매출전표");
+
+		FIGReceiptKeyValueLine CardLine;
+		CardLine.Label =
+			NSLOCTEXT("IGCH02", "ReceiptCardLabel", "체크카드 승인");
+		CardLine.Value =
+			NSLOCTEXT("IGCH02", "ReceiptCardValue", "4482**");
+		Data.PaymentLines.Add(MoveTemp(CardLine));
+
+		FIGReceiptKeyValueLine PaymentAmountLine;
+		PaymentAmountLine.Label =
+			NSLOCTEXT("IGCH02", "ReceiptPaymentAmountLabel", "결제금액");
+		PaymentAmountLine.Value =
+			NSLOCTEXT("IGCH02", "ReceiptPaymentAmountValue", "1,100");
+		Data.PaymentLines.Add(MoveTemp(PaymentAmountLine));
+
+		FIGReceiptKeyValueLine PointsLine;
+		PointsLine.Label =
+			NSLOCTEXT("IGCH02", "ReceiptPointsLabel", "적립");
+		PointsLine.Value =
+			NSLOCTEXT("IGCH02", "ReceiptPointsValue", "없음");
+		Data.PaymentLines.Add(MoveTemp(PointsLine));
+
+		Data.FooterLines = {
+			NSLOCTEXT("IGCH02", "ReceiptFooter", "이용해 주셔서 감사합니다."),
+		};
+		// The HUD turns this into a deliberately non-standard visual pattern,
+		// so it cannot be mistaken for a real store's scannable barcode.
+		Data.BarcodeDigits = TEXT("2026072604441100");
+		return Data;
 	};
 
 	ExistingReceipt = SpawnNote(
@@ -3044,6 +3107,10 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		NSLOCTEXT("IGCH02", "ReceiptPrompt", "놓인 영수증 읽기"),
 		NSLOCTEXT("IGCH02", "ReceiptTitle", "영수증"),
 		ReceiptLines());
+	if (ExistingReceipt)
+	{
+		ExistingReceipt->SetThermalReceiptData(BuildReceiptData());
+	}
 
 	DuplicateReceipt = SpawnNote(
 		FVector(2600, -252, 100.8f),
@@ -3053,6 +3120,10 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		NSLOCTEXT("IGCH02", "DuplicateReceiptPrompt", "새 영수증 읽기"),
 		NSLOCTEXT("IGCH02", "DuplicateReceiptTitle", "영수증"),
 		ReceiptLines());
+	if (DuplicateReceipt)
+	{
+		DuplicateReceipt->SetThermalReceiptData(BuildReceiptData());
+	}
 
 	MailboxBills = SpawnNote(
 		FVector(528, -222.5f, 157),

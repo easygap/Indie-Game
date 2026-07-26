@@ -664,22 +664,38 @@ void AIGSecondMorningDirector::HandleNoteRead(
 	AIGReadableNote* Note,
 	const bool bOpened)
 {
-	if (!bOpened || !Note)
+	if (!Note)
 	{
 		return;
 	}
 
 	if (Note == ExistingReceipt)
 	{
-		AddState(SawReceiptTag);
-		AIGHorrorHUD::PushThought(
-			this,
-			NSLOCTEXT(
-				"IGCH02", "ExistingReceiptThought",
-				"계산은 아직 안 했는데. …내 카드 번호다."),
-			4.8f);
+		if (bOpened)
+		{
+			AddState(SawReceiptTag);
+		}
+		else
+		{
+			// The reading panel intentionally suppresses the rest of the HUD.
+			// React after the paper is lowered so this clue is never hidden
+			// behind the receipt the player is trying to read.
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGCH02", "ExistingReceiptThought",
+					"계산은 아직 안 했는데. …내 카드 번호다."),
+				4.8f);
+		}
+		return;
 	}
-	else if (Note == MailboxBills)
+
+	if (!bOpened)
+	{
+		return;
+	}
+
+	if (Note == MailboxBills)
 	{
 		AIGHorrorHUD::PushThought(
 			this,

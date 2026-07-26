@@ -48,6 +48,12 @@ void AIGReadableNote::SetNoteText(const FText& InTitle, TArray<FText> InBodyLine
 	NoteBodyLines = MoveTemp(InBodyLines);
 }
 
+void AIGReadableNote::SetThermalReceiptData(FIGThermalReceiptData InReceiptData)
+{
+	ThermalReceiptData = MoveTemp(InReceiptData);
+	bUsesThermalReceiptPresentation = true;
+}
+
 FText AIGReadableNote::GetInteractionPrompt_Implementation(AActor* Interactor) const
 {
 	return OpenPrompt;

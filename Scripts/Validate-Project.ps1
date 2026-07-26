@@ -221,9 +221,11 @@ foreach ($requiredChapterTwoCopy in @(
 }
 
 foreach ($requiredReceiptCopy in @(
-	'2026-07-26  04:44',
-	'새벽수 500mL        1,100원',
-	'체크카드 승인          4482**',
+	'2026-07-26 04:44',
+	'새벽수 500mL',
+	'1,100원',
+	'체크카드 승인',
+	'4482**',
 	'적립 없음'
 )) {
 	if (-not $worldSceneSource.Contains($requiredReceiptCopy)) {

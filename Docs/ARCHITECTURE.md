@@ -61,6 +61,8 @@ flowchart TD
 
 `AIGHorrorHUD`는 구체적인 챕터 감독 클래스를 판정하지 않고 현재 `IIGObjectiveProvider`를 조회합니다. CH02와 이후 챕터가 추가되어도 HUD 분기문을 늘리지 않아도 됩니다. 기존 `SetMorningDirector`는 CH01 호환용으로 남아 있으며 내부적으로 공용 `SetObjectiveProvider`에 위임합니다.
 
+읽기 화면은 `AIGReadableNote`가 가진 표현 데이터를 따릅니다. 일반 공지와 메모는 기존 종이 문서 패널을 사용하고, 편의점 영수증은 `FIGThermalReceiptData`의 상품·금액·결제 행을 전용 감열지 렌더러가 좌우 열로 배치합니다. 따라서 현지화 문구에 공백을 채워 정렬하지 않으며, 이후 영수증 품목이 늘어나도 HUD의 좌표를 다시 작성할 필요가 없습니다.
+
 CH02 감독은 지오메트리를 직접 만들지 않습니다. `AIGSecondMorningDirector`가 Gameplay Tag와 좁은 장면 API만 사용해 다음 비트를 순서대로 조율합니다.
 
 - 플레이어의 위치·시야를 검사하는 복도 소등
