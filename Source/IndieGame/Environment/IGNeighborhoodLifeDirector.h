@@ -72,6 +72,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
 	void PrimeOutdoorSequence();
 
+	/**
+	 * Stops ambient scheduling and plays the canonical third gust with a cat
+	 * trace from the villa forecourt into the common entrance.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
+	void PlayAuthoredReturnIncident(FVector CatStart, FVector CatEnd);
+
+	/** Emits one directed cat call without spawning or moving the cat trace. */
+	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
+	void PlayAuthoredCatCall(FVector WorldLocation, bool bUncanny = false);
+
 	UFUNCTION(BlueprintPure, Category = "Indie Game|Neighborhood")
 	EIGNeighborhoodChapterVariant GetChapterVariant() const { return ChapterVariant; }
 

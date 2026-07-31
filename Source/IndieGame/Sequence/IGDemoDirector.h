@@ -65,7 +65,9 @@ private:
 		float Duration = 1.0f;
 		FVector Target = FVector::ZeroVector;
 		FVector LookAt = FVector::ZeroVector;
+		float LookAtPawnZOffset = 0.0f;
 		bool bHasLookAt = false;
+		bool bTrackPawnHeight = false;
 		TWeakObjectPtr<AActor> Actor;
 		FString StillName;
 	};
@@ -80,6 +82,10 @@ private:
 	APawn* GetDemoPawn() const;
 
 	FIGDemoStep MakeWait(float Duration, const FVector& LookAt, bool bLook = true);
+	FIGDemoStep MakeRideWait(
+		float Duration,
+		const FVector& LookAt,
+		float ReferencePawnZ);
 	FIGDemoStep MakeWalk(const FVector& Target);
 	FIGDemoStep MakeWalkLook(const FVector& Target, const FVector& LookAt);
 	FIGDemoStep MakeInteract(AActor* Actor, float PostDelay, const FVector& LookAt);

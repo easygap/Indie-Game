@@ -38,6 +38,7 @@
 #include "Interaction/IGPickupItem.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSlidingDoor.h"
+#include "Interaction/IGStairTransition.h"
 #include "Interaction/IGSwingDoor.h"
 #include "Interaction/IGZoneTrigger.h"
 #include "Materials/MaterialInterface.h"
@@ -46,13 +47,18 @@
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
 #include "Narrative/IGApartmentStoryDressing.h"
+#include "Narrative/IGRebirthNarrativeSubsystem.h"
+#include "Narrative/IGStoryHelpers.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Sequence/IGDemoDirector.h"
+#include "Sequence/IGChapterOneIncidentDirector.h"
 #include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGSecondMorningDirector.h"
 #include "Sequence/IGThirdMorningDirector.h"
 #include "Player/IGStressComponent.h"
+#include "Save/IGSaveGame.h"
+#include "Save/IGSaveSubsystem.h"
 #include "ShaderCompiler.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
@@ -82,6 +88,252 @@ namespace IGPrologueWorld
 	const FVector StoreDoorLocation(2405.0f, -457.0f, 6.0f);
 	const FVector CheckoutLocation(2620.0f, -255.0f, 96.0f);
 	const FVector WalletLocation(-150.0f, -185.0f, FourthFloorZ + 78.0f);
+
+	const FName PurchaseBagProxyTag(TEXT("REBIRTH.PurchaseBagProxy"));
+
+	enum class EReceiptTimeline : uint8
+	{
+		ActualPurchase0431,
+		DeathOverlay0444
+	};
+
+	struct FPurchaseProfileSpec
+	{
+		FText ProductName;
+		int32 Quantity = 1;
+		int32 UnitPrice = 0;
+		FString ReceiptNumber;
+		FString ApprovalNumber;
+		FString BarcodeDigits;
+		FVector BagSize = FVector(12.0f, 18.0f, 20.0f);
+		float BagCenterY = 0.0f;
+		float BagHandleHeight = 8.0f;
+	};
+
+	FPurchaseProfileSpec GetPurchaseProfileSpec(
+		const EIGRebirthPurchaseProfile PurchaseProfile)
+	{
+		FPurchaseProfileSpec Spec;
+		switch (PurchaseProfile)
+		{
+		case EIGRebirthPurchaseProfile::ProfileB1LX1:
+			Spec.ProductName =
+				NSLOCTEXT("IGReceipt", "ProfileBProduct", "한강수 1L");
+			Spec.Quantity = 1;
+			Spec.UnitPrice = 1500;
+			Spec.ReceiptNumber = TEXT("31858");
+			Spec.ApprovalNumber = TEXT("82716391");
+			Spec.BarcodeDigits = TEXT("2903185815002");
+			Spec.BagSize = FVector(13.0f, 12.0f, 28.0f);
+			Spec.BagCenterY = 0.0f;
+			Spec.BagHandleHeight = 10.0f;
+			break;
+		case EIGRebirthPurchaseProfile::ProfileC2LX2:
+			Spec.ProductName =
+				NSLOCTEXT("IGReceipt", "ProfileCProduct", "맑은산 2L");
+			Spec.Quantity = 2;
+			Spec.UnitPrice = 2000;
+			Spec.ReceiptNumber = TEXT("31859");
+			Spec.ApprovalNumber = TEXT("82716392");
+			Spec.BarcodeDigits = TEXT("2903185940003");
+			Spec.BagSize = FVector(16.0f, 25.0f, 31.0f);
+			Spec.BagCenterY = 5.5f;
+			Spec.BagHandleHeight = 15.0f;
+			break;
+		case EIGRebirthPurchaseProfile::ProfileA500MlX2:
+		case EIGRebirthPurchaseProfile::Unset:
+		default:
+			Spec.ProductName =
+				NSLOCTEXT("IGReceipt", "ProfileAProduct", "새벽샘물 500mL");
+			Spec.Quantity = 2;
+			Spec.UnitPrice = 1000;
+			Spec.ReceiptNumber = TEXT("31857");
+			Spec.ApprovalNumber = TEXT("82716390");
+			Spec.BarcodeDigits = TEXT("2903185720001");
+			Spec.BagSize = FVector(12.0f, 18.0f, 20.0f);
+			Spec.BagCenterY = 4.0f;
+			Spec.BagHandleHeight = 8.0f;
+			break;
+		}
+		return Spec;
+	}
+
+	FText FormatWon(const int32 Amount)
+	{
+		return FText::Format(
+			NSLOCTEXT("IGReceipt", "WonFormat", "{0}원"),
+			FText::AsNumber(Amount));
+	}
+
+	FText GetReceiptDateTime(const EReceiptTimeline Timeline)
+	{
+		return Timeline == EReceiptTimeline::ActualPurchase0431
+			? NSLOCTEXT(
+				"IGReceipt",
+				"ActualPurchaseDateTime",
+				"2024/07/26(금) 04:31")
+			: NSLOCTEXT(
+				"IGReceipt",
+				"DeathOverlayDateTime",
+				"2024/07/26(금) 04:44");
+	}
+
+	TArray<FText> BuildPurchaseReceiptSummary(
+		const EIGRebirthPurchaseProfile PurchaseProfile,
+		const EReceiptTimeline Timeline)
+	{
+		const FPurchaseProfileSpec Spec =
+			GetPurchaseProfileSpec(PurchaseProfile);
+		const int32 Total = Spec.Quantity * Spec.UnitPrice;
+		return {
+			FText::Format(
+				NSLOCTEXT("IGReceipt", "SummaryDate", "{0} POS-01"),
+				GetReceiptDateTime(Timeline)),
+			FText::Format(
+				NSLOCTEXT(
+					"IGReceipt",
+					"SummaryItem",
+					"{0} / {1} / {2}"),
+				Spec.ProductName,
+				FText::AsNumber(Spec.Quantity),
+				FormatWon(Total)),
+			FText::Format(
+				NSLOCTEXT(
+					"IGReceipt",
+					"SummaryApproval",
+					"체크카드 승인 {0}"),
+				FText::FromString(Spec.ApprovalNumber)),
+			FText::Format(
+				NSLOCTEXT("IGReceipt", "SummaryNumber", "거래NO. {0}"),
+				FText::FromString(Spec.ReceiptNumber)),
+		};
+	}
+
+	FIGThermalReceiptData BuildPurchaseReceiptData(
+		const EIGRebirthPurchaseProfile PurchaseProfile,
+		const EReceiptTimeline Timeline)
+	{
+		const FPurchaseProfileSpec Spec =
+			GetPurchaseProfileSpec(PurchaseProfile);
+		const int32 Total = Spec.Quantity * Spec.UnitPrice;
+
+		FIGThermalReceiptData Data;
+		Data.StoreName =
+			NSLOCTEXT("IGReceipt", "Store", "새벽24");
+		Data.StoreSubtitle =
+			NSLOCTEXT("IGReceipt", "StoreSubtitle", "무영로점  ·  24 HOURS");
+		Data.StoreDetailLines = {
+			NSLOCTEXT("IGReceipt", "Branch", "새벽24 무영로점"),
+			// Fictional identifiers use plausible Korean formatting without
+			// repeating 4s or pointing at an actual business.
+			NSLOCTEXT(
+				"IGReceipt",
+				"Business",
+				"사업자등록번호 110-81-32765"),
+			NSLOCTEXT("IGReceipt", "Owner", "대표 박해원"),
+			NSLOCTEXT(
+				"IGReceipt",
+				"Address",
+				"주소 서울 은평구 무영로17길 8"),
+			NSLOCTEXT("IGReceipt", "Telephone", "TEL 02-3157-0826"),
+		};
+		Data.PolicyLines = {
+			NSLOCTEXT("IGReceipt", "Policy1", "교환/환불은 구입 후 30일 이내"),
+			NSLOCTEXT("IGReceipt", "Policy2", "영수증과 결제카드를 지참해 주세요."),
+			NSLOCTEXT("IGReceipt", "Policy3", "일부 행사·신선식품은 제외됩니다."),
+		};
+		Data.TransactionDateTime = GetReceiptDateTime(Timeline);
+		Data.PosLabel =
+			NSLOCTEXT("IGReceipt", "Pos", "POS-01");
+		Data.ReceiptNumber = FText::FromString(Spec.ReceiptNumber);
+
+		FIGReceiptItemLine WaterItem;
+		WaterItem.ProductName = Spec.ProductName;
+		WaterItem.Quantity = Spec.Quantity;
+		WaterItem.UnitPrice = Spec.UnitPrice;
+		WaterItem.Amount = Total;
+		Data.Items.Add(MoveTemp(WaterItem));
+
+		Data.Subtotal = Total;
+		Data.Vat = FMath::RoundToInt(static_cast<float>(Total) / 11.0f);
+		Data.TaxableSupply = Total - Data.Vat;
+		Data.Total = Total;
+		Data.PaymentHeading =
+			NSLOCTEXT(
+				"IGReceipt",
+				"PaymentHeading",
+				"******** 체크카드(일시불) ********");
+
+		FIGReceiptKeyValueLine CardLine;
+		CardLine.Label =
+			NSLOCTEXT("IGReceipt", "CardLabel", "카드번호");
+		CardLine.Value =
+			NSLOCTEXT("IGReceipt", "CardValue", "5417-****-****-2719");
+		Data.PaymentLines.Add(MoveTemp(CardLine));
+
+		FIGReceiptKeyValueLine AcquirerLine;
+		AcquirerLine.Label =
+			NSLOCTEXT("IGReceipt", "AcquirerLabel", "매입사");
+		AcquirerLine.Value =
+			NSLOCTEXT("IGReceipt", "AcquirerValue", "해온카드");
+		Data.PaymentLines.Add(MoveTemp(AcquirerLine));
+
+		FIGReceiptKeyValueLine ApprovalLine;
+		ApprovalLine.Label =
+			NSLOCTEXT("IGReceipt", "ApprovalLabel", "승인번호");
+		ApprovalLine.Value = FText::FromString(Spec.ApprovalNumber);
+		Data.PaymentLines.Add(MoveTemp(ApprovalLine));
+
+		FIGReceiptKeyValueLine PaymentAmountLine;
+		PaymentAmountLine.Label =
+			NSLOCTEXT("IGReceipt", "PaymentAmountLabel", "결제금액");
+		PaymentAmountLine.Value = FormatWon(Total);
+		Data.PaymentLines.Add(MoveTemp(PaymentAmountLine));
+
+		FIGReceiptKeyValueLine InstallmentLine;
+		InstallmentLine.Label =
+			NSLOCTEXT("IGReceipt", "InstallmentLabel", "할부");
+		InstallmentLine.Value =
+			NSLOCTEXT("IGReceipt", "InstallmentValue", "일시불");
+		Data.PaymentLines.Add(MoveTemp(InstallmentLine));
+
+		Data.FooterLines = {
+			NSLOCTEXT("IGReceipt", "FooterThanks", "이용해 주셔서 감사합니다."),
+			FText::Format(
+				NSLOCTEXT(
+					"IGReceipt",
+					"FooterClerk",
+					"담당:07  거래NO:{0}  재출력:0"),
+				FText::FromString(Spec.ReceiptNumber)),
+			NSLOCTEXT(
+				"IGReceipt",
+				"FooterService",
+				"고객센터 080-315-0726"),
+		};
+		// These EAN-13-like digits intentionally have invalid check digits.
+		Data.BarcodeDigits = Spec.BarcodeDigits;
+		return Data;
+	}
+
+	FText BuildCheckoutPrompt(
+		const EIGRebirthPurchaseProfile PurchaseProfile,
+		const bool bWalletInHand)
+	{
+		const FPurchaseProfileSpec Spec =
+			GetPurchaseProfileSpec(PurchaseProfile);
+		return FText::Format(
+			bWalletInHand
+				? NSLOCTEXT(
+					"IGReceipt",
+					"CheckoutPromptWallet",
+					"{0} 결제하기 ({1})")
+				: NSLOCTEXT(
+					"IGReceipt",
+					"CheckoutPromptPocket",
+					"{0} 후드 주머니 카드로 결제하기 ({1})"),
+			Spec.ProductName,
+			FormatWon(Spec.Quantity * Spec.UnitPrice));
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -425,6 +677,213 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateDecoOnComponent(
 	Deco->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 	Deco->RegisterComponent();
 	return Deco;
+}
+
+void AIGPrologueWorldScene::AddStaticPurchaseBagProxy(
+	AIGPickupItem* WaterBottle,
+	const EIGRebirthPurchaseProfile PurchaseProfile)
+{
+	if (!WaterBottle || !CubeMesh)
+	{
+		return;
+	}
+
+	UStaticMeshComponent* BottleRoot = WaterBottle->GetMeshComponent();
+	if (!BottleRoot)
+	{
+		return;
+	}
+
+	const IGPrologueWorld::FPurchaseProfileSpec Spec =
+		IGPrologueWorld::GetPurchaseProfileSpec(PurchaseProfile);
+	const FVector RootScale = BottleRoot->GetRelativeScale3D().GetAbs();
+	const FVector SafeRootScale(
+		FMath::Max(RootScale.X, KINDA_SMALL_NUMBER),
+		FMath::Max(RootScale.Y, KINDA_SMALL_NUMBER),
+		FMath::Max(RootScale.Z, KINDA_SMALL_NUMBER));
+	const auto DivideByRootScale = [SafeRootScale](const FVector& Value)
+	{
+		return FVector(
+			Value.X / SafeRootScale.X,
+			Value.Y / SafeRootScale.Y,
+			Value.Z / SafeRootScale.Z);
+	};
+	const auto AddProxyPart =
+		[this, BottleRoot, &DivideByRootScale](
+			UMaterialInterface* Material,
+			const FVector& ActorSpaceLocation,
+			const FVector& ActorSpaceSize)
+		{
+			UStaticMeshComponent* Part = CreateDecoOnComponent(
+				BottleRoot,
+				CubeMesh,
+				Material,
+				DivideByRootScale(ActorSpaceLocation),
+				FRotator::ZeroRotator,
+				DivideByRootScale(ActorSpaceSize / 100.0f));
+			if (Part)
+			{
+				Part->ComponentTags.AddUnique(
+					IGPrologueWorld::PurchaseBagProxyTag);
+				Part->SetVisibility(false, true);
+				Part->SetCastShadow(false);
+			}
+			return Part;
+		};
+
+	const float Depth = Spec.BagSize.X;
+	const float Width = Spec.BagSize.Y;
+	const float Height = Spec.BagSize.Z;
+	const float CenterY = Spec.BagCenterY;
+	const float PanelThickness = 0.35f;
+
+	// Five translucent sheets preserve the selected bottles while giving the
+	// carried actor a readable convenience-store-bag silhouette.
+	AddProxyPart(
+		GlassMaterial,
+		FVector(Depth * 0.5f, CenterY, Height * 0.5f),
+		FVector(PanelThickness, Width, Height));
+	AddProxyPart(
+		GlassMaterial,
+		FVector(-Depth * 0.5f, CenterY, Height * 0.5f),
+		FVector(PanelThickness, Width, Height));
+	AddProxyPart(
+		GlassMaterial,
+		FVector(0.0f, CenterY + Width * 0.5f, Height * 0.5f),
+		FVector(Depth, PanelThickness, Height));
+	AddProxyPart(
+		GlassMaterial,
+		FVector(0.0f, CenterY - Width * 0.5f, Height * 0.5f),
+		FVector(Depth, PanelThickness, Height));
+	AddProxyPart(
+		GlassMaterial,
+		FVector(0.0f, CenterY, PanelThickness * 0.5f),
+		FVector(Depth, Width, PanelThickness));
+
+	const float HandleHalfWidth = Width * 0.29f;
+	const float HandleCenterZ = Height + Spec.BagHandleHeight * 0.5f;
+	for (const float HandleY :
+		{CenterY - HandleHalfWidth, CenterY + HandleHalfWidth})
+	{
+		AddProxyPart(
+			SignWhiteMaterial,
+			FVector(0.0f, HandleY, HandleCenterZ),
+			FVector(0.9f, 0.8f, Spec.BagHandleHeight));
+	}
+	AddProxyPart(
+		SignWhiteMaterial,
+		FVector(0.0f, CenterY, Height + Spec.BagHandleHeight),
+		FVector(0.9f, HandleHalfWidth * 2.0f, 0.8f));
+}
+
+void AIGPrologueWorldScene::RefreshPurchaseProfilePresentation()
+{
+	EIGRebirthPurchaseProfile PurchaseProfile =
+		EIGRebirthPurchaseProfile::ProfileA500MlX2;
+	if (const UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (const UIGRebirthNarrativeSubsystem* RebirthState =
+			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
+		{
+			const EIGRebirthPurchaseProfile SavedProfile =
+				RebirthState->GetChoices().PurchaseProfile;
+			if (SavedProfile != EIGRebirthPurchaseProfile::Unset)
+			{
+				PurchaseProfile = SavedProfile;
+			}
+		}
+	}
+
+	const auto ConfigureReceipt =
+		[PurchaseProfile](
+			AIGReadableNote* Receipt,
+			const IGPrologueWorld::EReceiptTimeline Timeline)
+		{
+			if (!Receipt)
+			{
+				return;
+			}
+			Receipt->SetNoteText(
+				NSLOCTEXT("IGReceipt", "ReceiptTitle", "영수증"),
+				IGPrologueWorld::BuildPurchaseReceiptSummary(
+					PurchaseProfile,
+					Timeline));
+			Receipt->SetThermalReceiptData(
+				IGPrologueWorld::BuildPurchaseReceiptData(
+					PurchaseProfile,
+					Timeline));
+		};
+
+	ConfigureReceipt(
+		ChapterOneReceipt,
+		IGPrologueWorld::EReceiptTimeline::ActualPurchase0431);
+	ConfigureReceipt(
+		ExistingReceipt,
+		IGPrologueWorld::EReceiptTimeline::DeathOverlay0444);
+	ConfigureReceipt(
+		DuplicateReceipt,
+		IGPrologueWorld::EReceiptTimeline::DeathOverlay0444);
+	if (DuplicateReceipt)
+	{
+		// The functional P2 proxy must put both observed values on the paper.
+		// Without this line Ji-un's follow-up thought would know 04:31 even
+		// when the player skipped the optional CH01 receipt.
+		FIGThermalReceiptData Comparison =
+			IGPrologueWorld::BuildPurchaseReceiptData(
+				PurchaseProfile,
+				IGPrologueWorld::EReceiptTimeline::DeathOverlay0444);
+		Comparison.StoreDetailLines.Insert(
+			NSLOCTEXT(
+				"IGReceipt",
+				"DuplicateComparisonTimes",
+				"[대조] 원거래 04:31 / 현재 04:44 중복"),
+			0);
+		DuplicateReceipt->SetThermalReceiptData(MoveTemp(Comparison));
+	}
+
+	if (Checkout && !bChapterTwoActive)
+	{
+		const bool bWalletInHand = IGStory::HasState(
+			this,
+			FGameplayTag::RequestGameplayTag(
+				FName(TEXT("State.CH01.Morning.HasWallet")),
+				false));
+		Checkout->SetInteractionPrompt(
+			IGPrologueWorld::BuildCheckoutPrompt(
+				PurchaseProfile,
+				bWalletInHand));
+	}
+
+	const FGameplayTag PurchaseTag = FGameplayTag::RequestGameplayTag(
+		FName(
+			bChapterTwoActive
+				? TEXT("State.CH02.Loop.WaterPurchased")
+				: TEXT("State.CH01.Morning.WaterPurchased")),
+		false);
+	const bool bPurchaseCommitted = IGStory::HasState(this, PurchaseTag);
+	const TArray<TObjectPtr<AIGPickupItem>>& ActiveBottles =
+		bChapterTwoActive ? ChapterTwoWaterBottles : WaterBottles;
+	for (AIGPickupItem* WaterBottle : ActiveBottles)
+	{
+		if (!WaterBottle)
+		{
+			continue;
+		}
+		const bool bShowBag =
+			bPurchaseCommitted
+			&& WaterBottle->RebirthPurchaseProfileOnPickup == PurchaseProfile;
+		TArray<UStaticMeshComponent*> Components;
+		WaterBottle->GetComponents<UStaticMeshComponent>(Components);
+		for (UStaticMeshComponent* Component : Components)
+		{
+			if (Component
+				&& Component->ComponentTags.Contains(
+					IGPrologueWorld::PurchaseBagProxyTag))
+			{
+				Component->SetVisibility(bShowBag, true);
+			}
+		}
+	}
 }
 
 void AIGPrologueWorldScene::LoadTexturedMaterials()
@@ -814,6 +1273,7 @@ void AIGPrologueWorldScene::InitializePrologue()
 	BuildStore();
 	BuildSkyAndFog();
 	SpawnInteractables();
+	SpawnStairTransition();
 
 	// These ordinary possessions are persistent anchors: CH02 repeats the
 	// same desk and entryway instead of spawning its clues into view.
@@ -843,6 +1303,7 @@ void AIGPrologueWorldScene::InitializePrologue()
 	}
 
 	SpawnChapterTwoInteractables();
+	RefreshPurchaseProfilePresentation();
 	SpawnDirectors();
 	CreateAmbience();
 
@@ -878,7 +1339,8 @@ void AIGPrologueWorldScene::InitializePrologue()
 	}
 	else if (!bIgnoreDirectStart
 		&& (FParse::Param(FCommandLine::Get(), TEXT("IGChapterTwo"))
-			|| FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH02"))))
+			|| FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH02"))
+			|| GetWorld()->URL.HasOption(TEXT("IGChapterTwo"))))
 	{
 		EnterChapterTwo();
 	}
@@ -906,7 +1368,160 @@ void AIGPrologueWorldScene::InitializePrologue()
 		}
 	}
 
+	ReconcileLoadedCheckpoint();
 	UE_LOG(LogIndieGame, Display, TEXT("Prologue world ready: apartment, alley and store assembled."));
+}
+
+void AIGPrologueWorldScene::ReconcileLoadedCheckpoint()
+{
+	UWorld* World = GetWorld();
+	if (!World
+		|| !World->URL.HasOption(TEXT("IGResumeSave"))
+		|| bChapterTwoActive
+		|| bChapterThreeActive)
+	{
+		return;
+	}
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	const UIGSaveGame* LoadedSave =
+		SaveSubsystem ? SaveSubsystem->GetLastLoadedSave() : nullptr;
+	if (!LoadedSave)
+	{
+		return;
+	}
+
+	const FGameplayTag ChapterOne = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("Chapter.CH01")),
+		false);
+	if (!LoadedSave->Progress.ChapterId.MatchesTagExact(ChapterOne))
+	{
+		return;
+	}
+
+	const FGameplayTag Checkpoint = LoadedSave->Progress.CheckpointTag;
+	const auto IsCheckpoint = [&Checkpoint](const TCHAR* TagName)
+	{
+		return Checkpoint.MatchesTagExact(FGameplayTag::RequestGameplayTag(
+			FName(TagName),
+			false));
+	};
+	const bool bAtStore =
+		IsCheckpoint(TEXT("Checkpoint.CH01.StoreEntrance"))
+		|| IsCheckpoint(TEXT("Checkpoint.CH01.WaterPurchased"));
+	const bool bOnReturnWalk =
+		IsCheckpoint(TEXT("Checkpoint.CH01.CatApproach"))
+		|| IsCheckpoint(TEXT("Checkpoint.CH01.CatSpot"))
+		|| IsCheckpoint(TEXT("Checkpoint.CH01.ReturnAlley"));
+	const bool bAtLobby =
+		IsCheckpoint(TEXT("Checkpoint.CH01.Lobby"));
+	const bool bAtFourthFloor =
+		IsCheckpoint(TEXT("Checkpoint.CH01.FourthFloor"));
+	const bool bOutside =
+		bAtStore
+		|| bOnReturnWalk
+		|| bAtLobby
+		|| IsCheckpoint(TEXT("Checkpoint.CH01.AlleyEntrance"));
+
+	FVector SafeLocation = IGPrologueWorld::PlayerLocation;
+	FRotator SafeActorRotation = IGPrologueWorld::PlayerActorRotation;
+	FRotator SafeViewRotation = IGPrologueWorld::PlayerViewRotation;
+	if (IsCheckpoint(TEXT("Checkpoint.CH01.BedroomDoor")))
+	{
+		SafeLocation = FVector(48.0f, -155.0f, 997.0f);
+		SafeActorRotation = FRotator(0.0f, -90.0f, 0.0f);
+		SafeViewRotation = FRotator(-4.0f, -90.0f, 0.0f);
+	}
+	else if (IsCheckpoint(TEXT("Checkpoint.CH01.FridgeChecked")))
+	{
+		SafeLocation = FVector(75.0f, 15.0f, 997.0f);
+		SafeActorRotation = FRotator(0.0f, 0.0f, 0.0f);
+		SafeViewRotation = FRotator(-4.0f, 0.0f, 0.0f);
+	}
+	else if (IsCheckpoint(TEXT("Checkpoint.CH01.AlleyEntrance")))
+	{
+		SafeLocation = FVector(705.0f, -445.0f, 110.0f);
+		SafeActorRotation = FRotator(0.0f, 0.0f, 0.0f);
+		SafeViewRotation = FRotator(-4.0f, 0.0f, 0.0f);
+	}
+	else if (bAtStore)
+	{
+		SafeLocation = IsCheckpoint(TEXT("Checkpoint.CH01.WaterPurchased"))
+			? FVector(2525.0f, -330.0f, 110.0f)
+			: FVector(2505.0f, -455.0f, 110.0f);
+		SafeActorRotation = FRotator(0.0f, -90.0f, 0.0f);
+		SafeViewRotation = FRotator(-4.0f, -90.0f, 0.0f);
+	}
+	else if (bOnReturnWalk)
+	{
+		SafeLocation = IsCheckpoint(TEXT("Checkpoint.CH01.CatApproach"))
+			? FVector(1550.0f, -515.0f, 110.0f)
+			: IsCheckpoint(TEXT("Checkpoint.CH01.CatSpot"))
+				? FVector(1320.0f, -515.0f, 110.0f)
+				: FVector(1005.0f, -515.0f, 110.0f);
+		SafeActorRotation = FRotator(0.0f, 180.0f, 0.0f);
+		SafeViewRotation = FRotator(-4.0f, 180.0f, 0.0f);
+	}
+	else if (bAtLobby)
+	{
+		SafeLocation = FVector(585.0f, -360.0f, 110.0f);
+		SafeActorRotation = FRotator(0.0f, 180.0f, 0.0f);
+		SafeViewRotation = FRotator(-4.0f, 180.0f, 0.0f);
+	}
+	else if (bAtFourthFloor)
+	{
+		SafeLocation = FVector(-80.0f, -305.0f, 1010.0f);
+		SafeActorRotation = FRotator(0.0f, 180.0f, 0.0f);
+		SafeViewRotation = FRotator(-4.0f, 180.0f, 0.0f);
+	}
+
+	APlayerController* PlayerController = World->GetFirstPlayerController();
+	APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+	if (PlayerPawn)
+	{
+		PlayerPawn->SetActorLocationAndRotation(
+			SafeLocation,
+			SafeActorRotation,
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics);
+	}
+	if (PlayerController)
+	{
+		PlayerController->SetControlRotation(SafeViewRotation);
+		if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
+		{
+			Camera->StopCameraFade();
+		}
+	}
+	if (WakeDirector)
+	{
+		WakeDirector->RestoreStandingCheckpoint();
+	}
+	if (bOutside && Elevator)
+	{
+		Elevator->RestoreAtLobbyOpen();
+	}
+
+	const FGameplayTag PurchaseTag = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("State.CH01.Morning.WaterPurchased")),
+		false);
+	if (IGStory::HasState(this, PurchaseTag))
+	{
+		// The live change event happened before this newly built world existed.
+		// Recreate the receipt and homeward boundary without replaying feedback.
+		HandleStoryStateChanged(PurchaseTag, true);
+	}
+
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT("CH01 checkpoint reconciled at %s (%s)."),
+		*SafeLocation.ToCompactString(),
+		*Checkpoint.ToString());
 }
 
 bool AIGPrologueWorldScene::PositionPlayer()
@@ -1089,9 +1704,13 @@ void AIGPrologueWorldScene::BuildApartment()
 	CreateBlock(FVector(40, -196.2f, 188), FVector(70, 1.5f, 3), PlasticDarkMaterial, false);
 	CreateBlock(FVector(-70, -212.5f, 32), FVector(7, 2, 11), FridgeInteriorMaterial, false);
 	CreateBlock(FVector(186.5f, 40, 32), FVector(2, 7, 11), FridgeInteriorMaterial, false);
+	// Hang the calendar on the clear wall directly above the desk. The old
+	// west-wall position overlapped the wardrobe/bedside-table sightline and
+	// made a normal wall calendar look wedged behind furniture.
 	CreateBlock(
-		FVector(-187.2f, -60, 152), FVector(1.5f, 31, 42),
-		TexMat(TEXT("M_Calendar"), SignWhiteMaterial), false);
+		FVector(-140, -213.2f, 154), FVector(1.5f, 31, 42),
+		TexMat(TEXT("M_Calendar"), SignWhiteMaterial), false,
+		nullptr, FRotator(0, 90, 0));
 	CreateBlock(FVector(170, 90, 182), FVector(46, 40, 22), Metal, false);
 	CreateBlock(FVector(170, 90, 212), FVector(13, 13, 38), Metal, false, CylinderMesh);
 
@@ -1240,14 +1859,23 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(
 		FVector(697.8f, -305, 225), FVector(1.2f, 38, 19),
 		TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial), false);
-	CreateBlock(FVector(-330, -305, 120), FVector(20, 160, 240), PlasticDarkMaterial);
+	// Open stair throat. The former full-height wall made the five visible
+	// treads a dead-end decoration while route tests claimed a stair choice.
+	CreateBlock(FVector(-330, -237.5f, 120), FVector(20, 15, 240), PlasticDarkMaterial);
+	CreateBlock(FVector(-330, -372.5f, 120), FVector(20, 15, 240), PlasticDarkMaterial);
+	CreateBlock(FVector(-330, -305, 225), FVector(20, 120, 30), PlasticDarkMaterial);
 
 	// North wall extensions beyond the apartment span, plus the height filler
 	// strip above the apartment's 230 cm wall to the corridor's 240 cm. The
 	// east extension is permanently split around the future 403 doorway.
 	// During CH01 a removable wall plug makes the split read as an ordinary
 	// uninterrupted wall; CH02 parks that plug and reveals the open room.
-	CreateBlock(FVector(-280, -225, 120), FVector(120, 20, 240), CorridorWallX);
+	// The west section is split around the permanent 4F->5F stair opening.
+	// The stairs themselves exist from the first visit; only their interaction
+	// surface is armed by the authored 4F light-and-cat cue.
+	CreateBlock(FVector(-332.5f, -225, 120), FVector(15, 20, 240), CorridorWallX);
+	CreateBlock(FVector(-225.0f, -225, 120), FVector(10, 20, 240), CorridorWallX);
+	CreateBlock(FVector(-277.5f, -225, 225), FVector(95, 20, 30), CorridorWallX);
 	CreateBlock(FVector(302.5f, -225, 120), FVector(165, 20, 240), CorridorWallX);
 	CreateBlock(FVector(582.5f, -225, 120), FVector(215, 20, 240), CorridorWallX);
 	CreateBlock(FVector(430, -225, 225), FVector(90, 20, 30), CorridorWallX);
@@ -1363,8 +1991,46 @@ void AIGPrologueWorldScene::BuildCorridor()
 		SnackRedMaterial, true, CylinderMesh);
 	CreateBlock(FVector(232, -364, 52), FVector(5, 5, 8), PlasticDarkMaterial, false);
 
-	// Stairwell: five steps sinking west into darkness. Korean walk-ups have a
-	// black steel balustrade with a flat cap rail and thin square balusters.
+	// Permanent first flight toward 5F. It turns north from the west landing,
+	// so it never overlaps the parallel flight descending toward 3F. The
+	// memory cut happens on the first tread, but the visible architecture is
+	// always here and therefore cannot pop in when the story state changes.
+	for (int32 UpperStepIndex = 0; UpperStepIndex < 4; ++UpperStepIndex)
+	{
+		const float StepY = -216.0f + UpperStepIndex * 22.0f;
+		const float StepTop = 18.0f + UpperStepIndex * 18.0f;
+		CreateBlock(
+			FVector(-277.5f, StepY, StepTop * 0.5f),
+			FVector(85, 22, StepTop),
+			CorridorFloor);
+		CreateBlock(
+			FVector(-277.5f, StepY + 10.0f, StepTop + 0.8f),
+			FVector(83, 2.5f, 1.6f),
+			Skirting,
+			false);
+	}
+	// Close the greybox flight beyond the authored boundary and keep the
+	// unseen upper landing dark. Release art can extend it without changing
+	// the interaction or narrative state contract.
+	CreateBlock(
+		FVector(-332.5f, -165.0f, 120),
+		FVector(15, 120, 240),
+		ConcreteDarkMaterial);
+	CreateBlock(
+		FVector(-222.5f, -165.0f, 120),
+		FVector(15, 120, 240),
+		ConcreteDarkMaterial);
+	CreateBlock(
+		FVector(-277.5f, -105.0f, 120),
+		FVector(125, 15, 240),
+		ConcreteDarkMaterial);
+	CreateBlock(
+		FVector(-277.5f, -165.0f, 250),
+		FVector(125, 120, 20),
+		CorridorCeil);
+
+	// Down flight: five steps sinking west into darkness. Korean walk-ups have
+	// a black steel balustrade with a flat cap rail and thin square balusters.
 	int32 StepIndex = 0;
 	for (const float StepX : {-230.0f, -252.0f, -274.0f, -296.0f, -318.0f})
 	{
@@ -1440,6 +2106,10 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	UMaterialInterface* RoomCeiling = TexMat(TEXT("M_StuccoCeil"), ConcreteMaterial);
 	UMaterialInterface* Furniture = TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial);
 	UMaterialInterface* Bedding = TexMat(TEXT("M_BeddingUV"), BeddingMaterial);
+	UMaterialInterface* CorridorFloor =
+		TexMat(TEXT("M_GraniteTile_XY"), ConcreteMaterial);
+	UMaterialInterface* OfferingBowlMaterial =
+		TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
 	UMaterialInterface* DarkGloss = PlasticDarkMaterial;
 	UMaterialInterface* DoorTrim = PlasticDarkMaterial;
 
@@ -1564,99 +2234,79 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 		MirrorRoomBounce->SetVolumetricScatteringIntensity(0.0f);
 	}
 
-	ActiveParent = nullptr;
-
-	// A scattered line of salt and a small offering at the common entrance.
-	// These are deliberately non-colliding so the return path cannot soft-lock.
-	for (int32 GrainIndex = 0; GrainIndex < 31; ++GrainIndex)
+	// CH02 overlaps the 7/27 state after the management reply: 401 has already
+	// removed the rice, spoon and incense. The salt was swept apart by hand,
+	// leaving a deliberate central gap rather than a trampled line.
+	for (int32 GrainIndex = 0; GrainIndex < 9; ++GrainIndex)
 	{
-		// Extend the threshold line toward the bowls instead of hiding every
-		// grain in the dark masonry reveal.
-		const float GrainX = 620.0f + GrainIndex * 3.45f;
-		const float GrainY = -426.0f + FMath::Sin(GrainIndex * 1.73f) * 1.4f;
-		const float GrainSize = 1.4f + (GrainIndex % 4) * 0.35f;
-		UStaticMeshComponent* Grain = AddOverlay(
-			FVector(GrainX, GrainY, 0.55f),
-			FVector(GrainSize, GrainSize * 0.75f, 0.7f),
-			SignWhiteMaterial, false, SphereMesh,
-			FRotator::ZeroRotator, SceneRoot);
-		if (Grain)
+		const float Alpha = static_cast<float>(GrainIndex) / 8.0f;
+		const float GrainSize = 1.35f + (GrainIndex % 3) * 0.3f;
+		for (const float Side : {-1.0f, 1.0f})
+		{
+			const float GrainX = -150.0f
+				+ Side * (17.0f + (1.0f - Alpha) * 25.0f);
+			const float GrainY = -248.0f - Alpha * 4.0f
+				+ FMath::Sin(GrainIndex * 1.71f) * 0.8f;
+			if (UStaticMeshComponent* Grain = AddOverlay(
+				FVector(GrainX, GrainY, 0.55f),
+				FVector(GrainSize, GrainSize * 0.72f, 0.7f),
+				SignWhiteMaterial, false, SphereMesh))
+			{
+				Grain->SetCastShadow(false);
+			}
+		}
+	}
+	const FVector2D SweptSalt[] = {
+		FVector2D(-198.0f, -250.0f), FVector2D(-202.0f, -254.0f),
+		FVector2D(-102.0f, -250.0f), FVector2D(-98.0f, -254.0f)};
+	for (int32 ScatterIndex = 0;
+		ScatterIndex < UE_ARRAY_COUNT(SweptSalt);
+		++ScatterIndex)
+	{
+		if (UStaticMeshComponent* Grain = AddOverlay(
+			FVector(SweptSalt[ScatterIndex].X, SweptSalt[ScatterIndex].Y, 0.5f),
+			FVector(1.2f, 1.0f, 0.6f),
+			SignWhiteMaterial,
+			false,
+			SphereMesh))
 		{
 			Grain->SetCastShadow(false);
 		}
 	}
-	// Keep the complete offering on the exterior asphalt, well in front of the
-	// threshold and 686..720 cm masonry jamb. The pieces are separated enough
-	// to read at standing height as a Korean doorstep offering rather than
-	// clipped construction fragments: water, rice with spoon, then incense.
+
+	// Only the dry circular trace of the removed rice bowl remains.
+	if (UStaticMeshComponent* DryOuter = AddOverlay(
+		FVector(-174, -280, 0.35f), FVector(24, 24, 0.5f),
+		ConcreteDarkMaterial, false, CylinderMesh))
+	{
+		DryOuter->SetCastShadow(false);
+	}
+	if (UStaticMeshComponent* DryInner = AddOverlay(
+		FVector(-174, -280, 0.65f), FVector(18, 18, 0.35f),
+		CorridorFloor, false, CylinderMesh))
+	{
+		DryInner->SetCastShadow(false);
+	}
+
+	// The clear-water bowl sits outside the broken line. Its 24 cm steel body
+	// matches the overturned bowl that reappears on the unfinished fifth floor.
 	AddOverlay(
-		FVector(730, -455, 1.5f), FVector(12, 12, 3.0f),
-		MetalFrameMaterial, false,
-		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+		FVector(-126, -280, 4.5f), FVector(24, 24, 9.0f),
+		OfferingBowlMaterial, false, CylinderMesh);
 	AddOverlay(
-		FVector(730, -455, 4.0f), FVector(22, 22, 5.0f),
-		MetalFrameMaterial, false,
-		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
+		FVector(-126, -280, 8.8f), FVector(26, 26, 1.2f),
+		OfferingBowlMaterial, false, CylinderMesh);
 	if (UStaticMeshComponent* WaterSurface = AddOverlay(
-		FVector(730, -455, 6.75f), FVector(18.0f, 18.0f, 0.6f),
-		WaterBlueMaterial, false,
-		CylinderMesh, FRotator::ZeroRotator, SceneRoot))
+		FVector(-126, -280, 9.55f), FVector(18, 18, 0.5f),
+		WaterBlueMaterial, false, CylinderMesh))
 	{
 		WaterSurface->SetCastShadow(false);
 	}
 
-	// Small rice bowl, rice mound, and a separately modelled diagonal spoon.
-	AddOverlay(
-		FVector(757, -455, 1.5f), FVector(11, 11, 3.0f),
-		FridgeInteriorMaterial, false,
-		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
-	AddOverlay(
-		FVector(757, -455, 4.5f), FVector(17, 17, 5.0f),
-		FridgeInteriorMaterial, false,
-		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
-	AddOverlay(
-		FVector(757, -455, 7.1f), FVector(13.5f, 13.5f, 3.4f),
-		SignWhiteMaterial, false,
-		SphereMesh, FRotator::ZeroRotator, SceneRoot);
-	AddOverlay(
-		FVector(752.5f, -454.0f, 15.0f), FVector(1.2f, 1.2f, 19.0f),
-		TexMat(TEXT("M_MetalUV"), MetalFrameMaterial), false,
-		CylinderMesh, FRotator(34.0f, -12.0f, 0.0f), SceneRoot);
-	AddOverlay(
-		FVector(747.3f, -452.9f, 22.5f), FVector(3.7f, 2.5f, 1.0f),
-		TexMat(TEXT("M_MetalUV"), MetalFrameMaterial), false,
-		SphereMesh, FRotator(34.0f, -12.0f, 0.0f), SceneRoot);
-
-	// The brown stick visibly meets the ash cup; it must not read as a black
-	// rod floating above the threshold.
-	AddOverlay(
-		FVector(783, -455, 4.0f), FVector(10, 10, 8.0f),
-		FridgeInteriorMaterial, false,
-		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
-	AddOverlay(
-		FVector(783, -455, 8.2f), FVector(7.5f, 7.5f, 0.6f),
-		ConcreteDarkMaterial, false,
-		CylinderMesh, FRotator::ZeroRotator, SceneRoot);
-	AddOverlay(
-		FVector(783, -455, 16.7f), FVector(1.3f, 1.3f, 22.0f),
-		Furniture, false,
-		CylinderMesh, FRotator(8.0f, 18.0f, 0.0f), SceneRoot);
-	AddOverlay(
-		FVector(784.4f, -454.5f, 27.6f), FVector(1.7f, 1.7f, 1.7f),
-		SnackRedMaterial, false,
-		SphereMesh, FRotator::ZeroRotator, SceneRoot);
-	// A small conical pile beside the ash cup makes the salt readable even
-	// before the player's eye follows the scattered threshold line.
-	AddOverlay(
-		FVector(806, -455, 2.4f), FVector(8.0f, 8.0f, 4.8f),
-		SignWhiteMaterial, false,
-		ConeMesh, FRotator::ZeroRotator, SceneRoot);
-	// A very soft practical spill makes the bowl and salt legible from normal
-	// eye height without turning the pre-dawn entrance into a spotlight. The
-	// recessed lobby fixtures otherwise leave this story beat as an isolated
-	// overbright pixel in black asphalt.
+	// A restrained corridor spill keeps the evidence legible without turning
+	// this quiet act of waiting into a supernatural spotlight.
 	OfferingLight = CreateLight(
-		FVector(760, -482, 78), 195.0f, 255.0f,
+		FVector(-150, -312, 78), 195.0f, 220.0f,
 		FLinearColor(1.0f, 0.78f, 0.58f), false, 30.0f);
 	if (OfferingLight)
 	{
@@ -1665,15 +2315,21 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 		OfferingLight->SetVolumetricScatteringIntensity(0.04f);
 	}
 
-	// Wet steps already inside the lower cab, then continuing through the
-	// lobby toward the threshold. They stay separately parked until the 2F
-	// doors are about to re-close.
+	ActiveParent = nullptr;
+
+	// Wet steps begin inside the real 2F cab, from the narrow door gap to the
+	// rider's back. Matching lower-cab/lobby steps are already waiting when
+	// the doors reopen at 1F, so the impossible follower still obeys the
+	// building's visible floors.
 	const FVector FootprintLocations[] = {
-		FVector(760, -286, 3), FVector(778, -326, 3),
-		FVector(730, -284, 3), FVector(748, -326, 3),
-		FVector(690, -286, 3), FVector(708, -326, 3),
-		FVector(650, -300, 3), FVector(626, -338, 3),
-		FVector(603, -350, 3), FVector(579, -374, 3),
+		FVector(726, -286, 300), FVector(748, -326, 300),
+		FVector(766, -284, 300), FVector(788, -326, 300),
+		FVector(806, -286, 300), FVector(828, -326, 300),
+		FVector(760, -286, 0), FVector(778, -326, 0),
+		FVector(730, -284, 0), FVector(748, -326, 0),
+		FVector(690, -286, 0), FVector(708, -326, 0),
+		FVector(650, -300, 0), FVector(626, -338, 0),
+		FVector(603, -350, 0), FVector(579, -374, 0),
 	};
 	for (int32 StepIndex = 0; StepIndex < UE_ARRAY_COUNT(FootprintLocations); ++StepIndex)
 	{
@@ -1681,7 +2337,7 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 			FVector(
 				FootprintLocations[StepIndex].X,
 				FootprintLocations[StepIndex].Y,
-				0.45f),
+				FootprintLocations[StepIndex].Z + 0.45f),
 			FVector(23, 9.5f, 0.7f),
 			TexMat(TEXT("M_WetStep"), ConcreteDarkMaterial),
 			false,
@@ -1795,11 +2451,12 @@ void AIGPrologueWorldScene::SetChapterTwoOverlayVisible(const bool bVisible)
 
 	SetChapterActorVisible(MirrorRoomDoor);
 	SetChapterActorVisible(ExistingReceipt);
+	SetChapterActorVisible(MirrorAlarmMemo);
 	SetChapterActorVisible(MailboxBills);
-	SetChapterActorVisible(SaltMemo);
+	SetChapterActorVisible(OfferingNote);
 	SetChapterActorVisible(NightRoster);
 
-	// The second copy does not exist for the player until they pay again.
+	// The restored copy does not exist until the unanswered employee call.
 	if (DuplicateReceipt)
 	{
 		DuplicateReceipt->SetActorHiddenInGame(true);
@@ -1821,6 +2478,9 @@ void AIGPrologueWorldScene::RevealElevatorFootprints()
 
 void AIGPrologueWorldScene::RevealSecondReceipt()
 {
+	// Refresh defensively at the reveal boundary. The CH02 paper must preserve
+	// the CH01 product row while replacing only 04:31 with the 04:44 overlay.
+	RefreshPurchaseProfilePresentation();
 	if (!DuplicateReceipt)
 	{
 		return;
@@ -2005,7 +2665,19 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(580, -305, -10), FVector(300, 180, 20), LobbyFloor);
 	CreateBlock(FVector(580, -305, 250), FVector(300, 180, 20), LobbyCeil);
 	CreateBlock(FVector(580, -225, 120), FVector(300, 20, 240), LobbyWallX);
-	CreateBlock(FVector(440, -305, 120), FVector(20, 160, 240), LobbyWallY);
+	// Split the west wall around a real stair-core doorway. The old solid
+	// slab forced a player standing inside the lobby to walk back outdoors
+	// and around the pilotis before the lower stair mouth became reachable.
+	CreateBlock(FVector(440, -370, 120), FVector(20, 30, 240), LobbyWallY);
+	CreateBlock(FVector(440, -240, 120), FVector(20, 30, 240), LobbyWallY);
+	CreateBlock(FVector(440, -305, 225), FVector(20, 100, 30), LobbyWallY);
+	// Enclosed ground-floor connector from the lobby doorway to the stair
+	// core. The core is vertically aligned with the west end of the 4F hall;
+	// leaving this span open made the new doorway lead into a five-metre void.
+	CreateBlock(FVector(170.5f, -305, -10), FVector(519, 120, 20), LobbyFloor);
+	CreateBlock(FVector(170.5f, -305, 250), FVector(519, 120, 20), LobbyCeil);
+	CreateBlock(FVector(170.5f, -375, 120), FVector(519, 20, 240), LobbyWallX);
+	CreateBlock(FVector(170.5f, -235, 120), FVector(519, 20, 240), LobbyWallX);
 	// Granite skirting round the lobby, matching the landings upstairs.
 	CreateBlock(FVector(580, -233.4f, 6), FVector(300, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(448.4f, -305, 6), FVector(3.5f, 160, 12), Skirting, false);
@@ -2082,6 +2754,98 @@ void AIGPrologueWorldScene::BuildLobby()
 		LobbyLight->SetVolumetricScatteringIntensity(0.10f);
 		LobbyLights.Add(LobbyLight);
 	}
+
+	// A physically separate 2F landing for the interrupted CH02 ride. The
+	// previous prototype opened the 1F lobby doors and called that view "2F",
+	// which broke the building's vertical logic. This enclosed landing shares
+	// the 300 cm floor spacing of the rest of the villa and is visible only
+	// through the authored 12 cm lift-door gap.
+	constexpr float SecondFloorZ = 300.0f;
+	CreateBlock(
+		FVector(580, -305, SecondFloorZ - 10),
+		FVector(300, 180, 20),
+		TexMat(TEXT("M_Concrete_XY"), ConcreteDarkMaterial));
+	CreateBlock(
+		FVector(580, -305, SecondFloorZ + 250),
+		FVector(300, 180, 20),
+		LobbyCeil);
+	CreateBlock(
+		FVector(580, -225, SecondFloorZ + 120),
+		FVector(300, 20, 240),
+		LobbyWallX);
+	CreateBlock(
+		FVector(440, -305, SecondFloorZ + 120),
+		FVector(20, 160, 240),
+		LobbyWallY);
+
+	// East wall and reveals around the actual 2F lift opening.
+	CreateBlock(
+		FVector(710, -242.5f, SecondFloorZ + 120),
+		FVector(20, 15, 240),
+		LobbyWallY);
+	CreateBlock(
+		FVector(710, -367.5f, SecondFloorZ + 120),
+		FVector(20, 15, 240),
+		LobbyWallY);
+	CreateBlock(
+		FVector(710, -305, SecondFloorZ + 225),
+		FVector(20, 110, 30),
+		LobbyWallY);
+	for (const float PortalY : {-245.0f, -365.0f})
+	{
+		CreateBlock(
+			FVector(699, PortalY, SecondFloorZ + 105),
+			FVector(2, 10, 210),
+			LiftStone,
+			false);
+	}
+	CreateBlock(
+		FVector(699, -305, SecondFloorZ + 216),
+		FVector(2, 130, 12),
+		LiftStone,
+		false);
+
+	// The closed service door and a dim floor plaque give the slit a readable
+	// destination without turning the landing into an explorable branch.
+	CreateBlock(
+		FVector(451.0f, -305, SecondFloorZ + 100),
+		FVector(4, 86, 200),
+		TexMat(TEXT("M_SteelDoorUV"), DoorMaterial),
+		false);
+	CreateBlock(
+		FVector(454.0f, -305, SecondFloorZ + 158),
+		FVector(1.2f, 18, 24),
+		ScreenGlowMaterial,
+		false);
+	UPointLightComponent* SecondFloorEmergencyLight = CreateLight(
+		FVector(520, -305, SecondFloorZ + 205),
+		18.0f,
+		185.0f,
+		FLinearColor(0.42f, 0.55f, 0.46f),
+		false,
+		4.0f);
+	SecondFloorEmergencyLight->SetVolumetricScatteringIntensity(0.08f);
+
+	// Lower mouth of the same occluded switchback stair. Five real treads and
+	// a dark return wall make the floor compression happen behind a plausible
+	// 180-degree corner instead of in the open lobby.
+	for (int32 LowerStepIndex = 0; LowerStepIndex < 5; ++LowerStepIndex)
+	{
+		const float StepX = -100.0f - LowerStepIndex * 22.0f;
+		const float StepTop = 18.0f + LowerStepIndex * 18.0f;
+		CreateBlock(
+			FVector(StepX, -305, StepTop * 0.5f),
+			FVector(22, 112, StepTop),
+			LobbyFloor);
+	}
+	CreateBlock(
+		FVector(-214, -305, 48),
+		FVector(44, 112, 96),
+		LobbyFloor);
+	CreateBlock(
+		FVector(-244, -305, 120),
+		FVector(12, 136, 240),
+		ConcreteDarkMaterial);
 }
 
 void AIGPrologueWorldScene::BuildAlley()
@@ -2943,6 +3707,42 @@ void AIGPrologueWorldScene::BuildSkyAndFog()
 	HeightFog->RegisterComponent();
 }
 
+void AIGPrologueWorldScene::SpawnStairTransition()
+{
+	if (!GetWorld() || StairTransition)
+	{
+		return;
+	}
+
+	const FTransform TransitionTransform = GetActorTransform();
+	StairTransition = GetWorld()->SpawnActorDeferred<AIGStairTransition>(
+		AIGStairTransition::StaticClass(),
+		TransitionTransform,
+		this,
+		nullptr,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!StairTransition)
+	{
+		return;
+	}
+
+	const auto ToWorld = [this](const FVector& Local)
+	{
+		return GetActorTransform().TransformPosition(Local);
+	};
+	StairTransition->Configure(
+		ToWorld(FVector(-352.0f, -305.0f, 915.0f)),
+		ToWorld(FVector(-300.0f, -305.0f, 942.0f)),
+		FRotator(0.0f, 0.0f, 0.0f),
+		ToWorld(FVector(-214.0f, -305.0f, 193.0f)),
+		ToWorld(FVector(-188.0f, -305.0f, 187.0f)),
+		FRotator(0.0f, 0.0f, 0.0f));
+	StairTransition->FinishSpawning(TransitionTransform);
+	StairTransition->OnTransitionCompleted.AddUniqueDynamic(
+		this,
+		&ThisClass::HandleStairTransitionCompleted);
+}
+
 void AIGPrologueWorldScene::SpawnInteractables()
 {
 	UWorld* World = GetWorld();
@@ -3002,7 +3802,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		FVector(474, -226.4f, 150), FVector(22, 1.2f, 30),
 		TexMat(TEXT("M_NoticeA4"), SignWhiteMaterial), false);
 
-	// Front door: locked until the fridge is checked and the wallet is taken.
+	// Front door: always available; room clues remain optional.
 	HomeDoor = World->SpawnActor<AIGSwingDoor>(
 		AIGSwingDoor::StaticClass(),
 		FTransform(FRotator(0, -90, 0), IGPrologueWorld::HomeDoorLocation),
@@ -3023,27 +3823,11 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		// Korean entrance doors open outward — and it keeps the hallway clear.
 		HomeDoor->SetOpenYaw(-95.0f);
 
-		TArray<FIGDoorRequirement> DoorRequirements;
-		{
-			FIGDoorRequirement FridgeRequirement;
-			FridgeRequirement.RequiredState = FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH01.Morning.FridgeChecked")), false);
-			FridgeRequirement.LockedPrompt =
-				NSLOCTEXT("IGPrologue", "DoorNeedFridge", "…아직 나갈 이유가 없다");
-			FridgeRequirement.LockedThought = NSLOCTEXT(
-				"IGPrologue", "DoorNeedFridgeThought", "목말라. 냉장고부터 확인하자.");
-			DoorRequirements.Add(MoveTemp(FridgeRequirement));
-
-			FIGDoorRequirement WalletRequirement;
-			WalletRequirement.RequiredState = FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH01.Morning.HasWallet")), false);
-			WalletRequirement.LockedPrompt =
-				NSLOCTEXT("IGPrologue", "DoorNeedWallet", "지갑을 안 챙겼다");
-			WalletRequirement.LockedThought = NSLOCTEXT(
-				"IGPrologue", "DoorNeedWalletThought", "빈손으로는 못 가지. 지갑… 책상 위에 있었지.");
-			DoorRequirements.Add(MoveTemp(WalletRequirement));
-		}
-		HomeDoor->SetRequirements(MoveTemp(DoorRequirements));
+		// Fridge and wallet are optional investigations. Leaving immediately
+		// is the canonical PocketCard route, so objectives may suggest them but
+		// the physical door must never enforce either state.
+		TArray<FIGDoorRequirement> NoDoorRequirements;
+		HomeDoor->SetRequirements(MoveTemp(NoDoorRequirements));
 
 		// Delivery-ad sticker, on the leaf so it swings with the door. This
 		// has to happen after the spawn above.
@@ -3149,17 +3933,23 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		CabVisuals.CubeMesh = CubeMesh;
 		CabVisuals.CylinderMesh = CylinderMesh;
 		// UV-brushed metal turned the tall side shells into stretched bands
-		// and mirrored the alley brick strongly enough to look like bare
-		// masonry inside the cab. Keep the true rear mirror, but use the
-		// restrained flat metal already used by the villa frames for the shell.
+		// and reflected the alley brick strongly enough to look like bare
+		// masonry inside the cab. Use the restrained flat metal already used
+		// by the villa frames for both the shell and rear inset.
 		CabVisuals.StainlessMaterial = MetalFrameMaterial;
-		CabVisuals.MirrorMaterial = TexMat(TEXT("M_CabMirrorUV"), MetalFrameMaterial);
+		// The story specifies no readable mirror in the safe CH01 car. A
+		// brushed rear panel also prevents the outdoor facade/sky reflection
+		// from appearing inside a closed elevator during the hidden transfer.
+		CabVisuals.MirrorMaterial = MetalFrameMaterial;
 		CabVisuals.FloorMaterial = TexMat(TEXT("M_MarbleFloor_XY"), StoreFloorMaterial);
 		CabVisuals.InlayMaterial = PlasticDarkMaterial;
 		CabVisuals.CopMaterial = TexMat(TEXT("M_LiftCOP"), ScreenGlowMaterial);
 		CabVisuals.HallMaterial = TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial);
 		CabVisuals.DiffuserMaterial = LightPanelMaterial;
 		Elevator->ConfigurePrototypeVisuals(CabVisuals, 900.0f);
+		Elevator->OnReturnedToFourthFloor.AddUniqueDynamic(
+			this,
+			&ThisClass::HandleElevatorReturnedToFourthFloor);
 
 		// The primary COP is correctly beside the door, but that places it
 		// behind the first-person capture. A non-colliding secondary panel on
@@ -3193,6 +3983,9 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			NSLOCTEXT("IGPrologue", "WalletThought", "지갑. 현금이 조금 있다.");
 		Wallet->ConfigurePrototypeVisuals(
 			CubeMesh, WalletBrownMaterial, FVector(0.14f, 0.09f, 0.03f), false);
+		Wallet->OnPickedUp.AddUniqueDynamic(
+			this,
+			&ThisClass::HandlePurchaseSelectionChanged);
 	}
 
 	// Bathroom door and window flavor.
@@ -3229,10 +4022,18 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			CubeMesh, GlassMaterial, MetalFrameMaterial, FVector(6, 60, 200));
 	}
 
-	// Water bottles on the open cooler bay's middle shelf; any one works.
+	// Three fixed purchase profiles share the cooler shelf. Picking one commits
+	// its REBIRTH profile before the legacy HasWater event is broadcast.
 	const float WaterYs[] = {-576.0f, -552.0f, -528.0f};
-	for (const float WaterY : WaterYs)
+	const EIGRebirthPurchaseProfile WaterProfiles[] = {
+		EIGRebirthPurchaseProfile::ProfileA500MlX2,
+		EIGRebirthPurchaseProfile::ProfileB1LX1,
+		EIGRebirthPurchaseProfile::ProfileC2LX2};
+	for (int32 WaterIndex = 0; WaterIndex < UE_ARRAY_COUNT(WaterYs); ++WaterIndex)
 	{
+		const float WaterY = WaterYs[WaterIndex];
+		const EIGRebirthPurchaseProfile PurchaseProfile =
+			WaterProfiles[WaterIndex];
 		AIGPickupItem* WaterBottle = World->SpawnActor<AIGPickupItem>(
 			AIGPickupItem::StaticClass(),
 			FTransform(FRotator::ZeroRotator, FVector(2925, WaterY, 106.5f)),
@@ -3240,22 +4041,53 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		if (WaterBottle)
 		{
 			WaterBottle->PickupMode = EIGPickupMode::CarryInHand;
+			WaterBottle->RebirthPurchaseProfileOnPickup = PurchaseProfile;
 			WaterBottle->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
 				FName(TEXT("State.CH01.Morning.HasWater")), false);
-			WaterBottle->SetInteractionPrompt(
-				NSLOCTEXT("IGPrologue", "WaterPrompt", "생수 집기 (500mL)"));
-			WaterBottle->ThoughtOnPickup =
-				NSLOCTEXT("IGPrologue", "WaterThought", "차갑다. 이거면 됐어.");
+			FVector ProfileScale = FVector::OneVector;
+			bool bHasSecondBottle = false;
+			switch (PurchaseProfile)
+			{
+			case EIGRebirthPurchaseProfile::ProfileA500MlX2:
+				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
+					"IGPrologue", "WaterProfileA", "새벽샘물 500mL × 2 고르기"));
+				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
+					"IGPrologue", "WaterProfileAThought", "두 병이면 충분하겠지.");
+				bHasSecondBottle = true;
+				break;
+			case EIGRebirthPurchaseProfile::ProfileB1LX1:
+				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
+					"IGPrologue", "WaterProfileB", "한강수 1L × 1 고르기"));
+				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
+					"IGPrologue", "WaterProfileBThought", "이거 하나면 되겠다.");
+				ProfileScale = FVector(1.12f, 1.12f, 1.35f);
+				WaterBottle->CarryOffset = FVector(36.0f, 15.0f, -31.0f);
+				break;
+			case EIGRebirthPurchaseProfile::ProfileC2LX2:
+				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
+					"IGPrologue", "WaterProfileC", "맑은산 2L × 2 고르기"));
+				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
+					"IGPrologue", "WaterProfileCThought", "무겁지만 한 번에 가져가자.");
+				ProfileScale = FVector(1.34f, 1.34f, 1.72f);
+				WaterBottle->CarryOffset = FVector(39.0f, 16.0f, -42.0f);
+				bHasSecondBottle = true;
+				break;
+			default:
+				break;
+			}
 			// Held low and to the side so the lathed bottle reads without
 			// filling the view; the mesh pivot is at the bottle's base.
-			WaterBottle->CarryOffset = FVector(34.0f, 15.0f, -26.0f);
+			if (PurchaseProfile == EIGRebirthPurchaseProfile::ProfileA500MlX2)
+			{
+				WaterBottle->CarryOffset = FVector(34.0f, 15.0f, -26.0f);
+			}
 			WaterBottle->CarryRotation = FRotator(-12.0f, -14.0f, 0.0f);
 			// Not simulated on the shelf: a lathed bottle standing on a wire
 			// shelf topples the instant physics settles, and this one is a
 			// pickup target rather than a kickable prop.
 			WaterBottle->ConfigurePrototypeVisuals(
 				PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
-				GlassMaterial, FVector::OneVector, false);
+				GlassMaterial, ProfileScale, false);
 			CreateDecoOnComponent(
 				WaterBottle->GetMeshComponent(),
 				PropMesh(TEXT("SM_BottleCap"), CylinderMesh), SnackBlueMaterial,
@@ -3267,9 +4099,47 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
 				FVector(0, 0, 5.0f), FRotator(0.0f, -90.0f, 0.0f),
 				FVector(3.36f, 3.36f, 8.6f));
+			if (bHasSecondBottle)
+			{
+				UStaticMeshComponent* SecondBottle = CreateDecoOnComponent(
+					WaterBottle->GetMeshComponent(),
+					PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
+					GlassMaterial,
+					FVector(0, 8.0f, 0),
+					FRotator(0, 7.0f, 0),
+					FVector::OneVector);
+				CreateDecoOnComponent(
+					SecondBottle,
+					PropMesh(TEXT("SM_BottleCap"), CylinderMesh),
+					SnackBlueMaterial,
+					FVector(0, 0, 20.1f),
+					FRotator::ZeroRotator,
+					FVector::OneVector);
+				CreateDecoOnComponent(
+					SecondBottle,
+					PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
+					TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
+					FVector(0, 0, 5.0f),
+					FRotator(0.0f, -90.0f, 0.0f),
+					FVector(3.36f, 3.36f, 8.6f));
+			}
+			AddStaticPurchaseBagProxy(WaterBottle, PurchaseProfile);
+			WaterBottle->OnPickedUp.AddUniqueDynamic(
+				this,
+				&ThisClass::HandlePurchaseSelectionChanged);
 			WaterBottles.Add(WaterBottle);
 		}
 	}
+	CreateBlock(
+		FVector(-352, -305, -90),
+		FVector(48, 130, 18),
+		CorridorFloor);
+	// The return wall hides the bounded transition at a genuine switchback
+	// corner; the camera never sees the other floor or open sky.
+	CreateBlock(
+		FVector(-382, -305, 20),
+		FVector(12, 150, 220),
+		PlasticDarkMaterial);
 
 	// Self-service checkout on the counter.
 	Checkout = World->SpawnActor<AIGCheckoutCounter>(
@@ -3294,10 +4164,13 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	auto SpawnZone = [&](const FVector& Location, const FVector& Extent,
 		const TCHAR* StateTagName, const FText& Thought) -> AIGZoneTrigger*
 	{
-		AIGZoneTrigger* Zone = World->SpawnActor<AIGZoneTrigger>(
+		const FTransform ZoneTransform(FRotator::ZeroRotator, Location);
+		AIGZoneTrigger* Zone = World->SpawnActorDeferred<AIGZoneTrigger>(
 			AIGZoneTrigger::StaticClass(),
-			FTransform(FRotator::ZeroRotator, Location),
-			SpawnParameters);
+			ZoneTransform,
+			this,
+			nullptr,
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (Zone)
 		{
 			Zone->SetZoneExtent(Extent);
@@ -3306,10 +4179,18 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				Zone->StateTagOnEnter = FGameplayTag::RequestGameplayTag(FName(StateTagName), false);
 			}
 			Zone->ThoughtOnEnter = Thought;
+			Zone->FinishSpawning(ZoneTransform);
 		}
 		return Zone;
 	};
 
+	// Canonical CH01 dressing happens when the player actually crosses the
+	// 404 threshold. The ground-floor LeftHome volume remains an alley
+	// checkpoint and legacy migration input, never the outfit authority.
+	ChapterOneApartmentExitZone = SpawnZone(
+		FVector(180, -305, 1010), FVector(72, 62, 110),
+		TEXT("State.CH01.Morning.LeftApartment"),
+		FText::GetEmpty());
 	LeftHomeZone = SpawnZone(
 		FVector(643, -435, 110), FVector(120, 55, 110),
 		TEXT("State.CH01.Morning.LeftHome"),
@@ -3396,108 +4277,8 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		return Note;
 	};
 
-	auto ReceiptLines = []() -> TArray<FText>
-	{
-		return {
-			NSLOCTEXT("IGCH02", "ReceiptDate", "2024/07/26(금) 04:44 POS-01"),
-			NSLOCTEXT("IGCH02", "ReceiptWater", "새벽샘물500mL / 1 / 1,100원"),
-			NSLOCTEXT("IGCH02", "ReceiptCard", "체크카드 승인 04821736"),
-			NSLOCTEXT("IGCH02", "ReceiptPoints", "거래NO. 04571"),
-		};
-	};
-
-	auto BuildReceiptData = []() -> FIGThermalReceiptData
-	{
-		FIGThermalReceiptData Data;
-		Data.StoreName =
-			NSLOCTEXT("IGCH02", "ReceiptStore", "새벽24");
-		Data.StoreSubtitle =
-			NSLOCTEXT("IGCH02", "ReceiptStoreSubtitle", "무영로점  ·  24 HOURS");
-		Data.StoreDetailLines = {
-			NSLOCTEXT("IGCH02", "ReceiptBranch", "새벽24 무영로점"),
-			// Plausible Korean 3-2-5 grouping with a deliberately invalid
-			// checksum: it reads like a real POS header without identifying a
-			// real registered business.
-			NSLOCTEXT("IGCH02", "ReceiptBusiness", "사업자등록번호 110-81-04444"),
-			NSLOCTEXT("IGCH02", "ReceiptOwner", "대표 박해원"),
-			NSLOCTEXT("IGCH02", "ReceiptAddress", "주소 서울 은평구 무영로44길 4"),
-			NSLOCTEXT("IGCH02", "ReceiptTelephone", "TEL 02-0000-0444"),
-		};
-		Data.PolicyLines = {
-			NSLOCTEXT("IGCH02", "ReceiptPolicy1", "교환/환불은 구입 후 30일 이내"),
-			NSLOCTEXT("IGCH02", "ReceiptPolicy2", "영수증과 결제카드를 지참해 주세요."),
-			NSLOCTEXT("IGCH02", "ReceiptPolicy3", "일부 행사·신선식품은 제외됩니다."),
-		};
-		Data.TransactionDateTime =
-			NSLOCTEXT("IGCH02", "ReceiptDateStructured", "2024/07/26(금) 04:44");
-		Data.PosLabel =
-			NSLOCTEXT("IGCH02", "ReceiptPos", "POS-01");
-		Data.ReceiptNumber =
-			NSLOCTEXT("IGCH02", "ReceiptNumber", "04571");
-
-		FIGReceiptItemLine WaterItem;
-		WaterItem.ProductName =
-			NSLOCTEXT("IGCH02", "ReceiptProduct", "새벽샘물500mL");
-		WaterItem.Quantity = 1;
-		WaterItem.UnitPrice = 1100;
-		WaterItem.Amount = 1100;
-		Data.Items.Add(MoveTemp(WaterItem));
-
-		Data.Subtotal = 1100;
-		Data.TaxableSupply = 1000;
-		Data.Vat = 100;
-		Data.Total = 1100;
-		Data.PaymentHeading =
-			NSLOCTEXT("IGCH02", "ReceiptPaymentHeading", "******** 체크카드(일시불) ********");
-
-		FIGReceiptKeyValueLine CardLine;
-		CardLine.Label =
-			NSLOCTEXT("IGCH02", "ReceiptCardLabel", "카드번호");
-		CardLine.Value =
-			NSLOCTEXT("IGCH02", "ReceiptCardValue", "5417-****-****-0444");
-		Data.PaymentLines.Add(MoveTemp(CardLine));
-
-		FIGReceiptKeyValueLine AcquirerLine;
-		AcquirerLine.Label =
-			NSLOCTEXT("IGCH02", "ReceiptAcquirerLabel", "매입사");
-		AcquirerLine.Value =
-			NSLOCTEXT("IGCH02", "ReceiptAcquirerValue", "해온카드");
-		Data.PaymentLines.Add(MoveTemp(AcquirerLine));
-
-		FIGReceiptKeyValueLine ApprovalLine;
-		ApprovalLine.Label =
-			NSLOCTEXT("IGCH02", "ReceiptApprovalLabel", "승인번호");
-		ApprovalLine.Value =
-			NSLOCTEXT("IGCH02", "ReceiptApprovalValue", "04821736");
-		Data.PaymentLines.Add(MoveTemp(ApprovalLine));
-
-		FIGReceiptKeyValueLine PaymentAmountLine;
-		PaymentAmountLine.Label =
-			NSLOCTEXT("IGCH02", "ReceiptPaymentAmountLabel", "결제금액");
-		PaymentAmountLine.Value =
-			NSLOCTEXT("IGCH02", "ReceiptPaymentAmountValue", "1,100원");
-		Data.PaymentLines.Add(MoveTemp(PaymentAmountLine));
-
-		FIGReceiptKeyValueLine InstallmentLine;
-		InstallmentLine.Label =
-			NSLOCTEXT("IGCH02", "ReceiptInstallmentLabel", "할부");
-		InstallmentLine.Value =
-			NSLOCTEXT("IGCH02", "ReceiptInstallmentValue", "일시불");
-		Data.PaymentLines.Add(MoveTemp(InstallmentLine));
-
-		Data.FooterLines = {
-			NSLOCTEXT("IGCH02", "ReceiptFooterThanks", "이용해 주셔서 감사합니다."),
-			NSLOCTEXT("IGCH02", "ReceiptFooterClerk", "담당:07  거래NO:04571  재출력:0"),
-			NSLOCTEXT("IGCH02", "ReceiptFooterService", "고객센터 080-000-0444"),
-		};
-		// An intentionally invalid check digit keeps the EAN-13-like visual
-		// from becoming a usable/scannable identifier for a real product.
-		Data.BarcodeDigits = TEXT("2904440711004");
-		return Data;
-	};
-
-	// Plant the 04:44 anomaly in the first loop before CH02 varies it. This
-	// copy is revealed by the first checkout and parked again at the loop cut.
+	// The actual CH01 transaction and the CH02 death overlay share the
+	// selected product data. Only the narrative timestamp differs.
 	ChapterOneReceipt = SpawnNote(
 		FVector(2582, -252, 100.5f),
 		FRotator::ZeroRotator,
@@ -3505,10 +4286,15 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
 		NSLOCTEXT("IGPrologue", "FirstReceiptPrompt", "출력된 영수증 읽기"),
 		NSLOCTEXT("IGPrologue", "FirstReceiptTitle", "영수증"),
-		ReceiptLines());
+		IGPrologueWorld::BuildPurchaseReceiptSummary(
+			EIGRebirthPurchaseProfile::ProfileA500MlX2,
+			IGPrologueWorld::EReceiptTimeline::ActualPurchase0431));
 	if (ChapterOneReceipt)
 	{
-		ChapterOneReceipt->SetThermalReceiptData(BuildReceiptData());
+		ChapterOneReceipt->SetThermalReceiptData(
+			IGPrologueWorld::BuildPurchaseReceiptData(
+				EIGRebirthPurchaseProfile::ProfileA500MlX2,
+				IGPrologueWorld::EReceiptTimeline::ActualPurchase0431));
 	}
 
 	ExistingReceipt = SpawnNote(
@@ -3518,10 +4304,15 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
 		NSLOCTEXT("IGCH02", "ReceiptPrompt", "놓인 영수증 읽기"),
 		NSLOCTEXT("IGCH02", "ReceiptTitle", "영수증"),
-		ReceiptLines());
+		IGPrologueWorld::BuildPurchaseReceiptSummary(
+			EIGRebirthPurchaseProfile::ProfileA500MlX2,
+			IGPrologueWorld::EReceiptTimeline::DeathOverlay0444));
 	if (ExistingReceipt)
 	{
-		ExistingReceipt->SetThermalReceiptData(BuildReceiptData());
+		ExistingReceipt->SetThermalReceiptData(
+			IGPrologueWorld::BuildPurchaseReceiptData(
+				EIGRebirthPurchaseProfile::ProfileA500MlX2,
+				IGPrologueWorld::EReceiptTimeline::DeathOverlay0444));
 	}
 
 	DuplicateReceipt = SpawnNote(
@@ -3531,42 +4322,59 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
 		NSLOCTEXT("IGCH02", "DuplicateReceiptPrompt", "새 영수증 읽기"),
 		NSLOCTEXT("IGCH02", "DuplicateReceiptTitle", "영수증"),
-		ReceiptLines());
+		IGPrologueWorld::BuildPurchaseReceiptSummary(
+			EIGRebirthPurchaseProfile::ProfileA500MlX2,
+			IGPrologueWorld::EReceiptTimeline::DeathOverlay0444));
 	if (DuplicateReceipt)
 	{
-		DuplicateReceipt->SetThermalReceiptData(BuildReceiptData());
+		DuplicateReceipt->SetThermalReceiptData(
+			IGPrologueWorld::BuildPurchaseReceiptData(
+				EIGRebirthPurchaseProfile::ProfileA500MlX2,
+				IGPrologueWorld::EReceiptTimeline::DeathOverlay0444));
 	}
+
+	MirrorAlarmMemo = SpawnNote(
+		FVector(365, 42, IGPrologueWorld::FourthFloorZ + 61.0f),
+		FRotator(0, 0, -3),
+		FVector(14.0f, 10.0f, 0.3f),
+		TexMat(TEXT("M_PaperFolded"), SignWhiteMaterial),
+		NSLOCTEXT("IGCH02", "AlarmMemoPrompt", "집결 메모 읽기"),
+		NSLOCTEXT("IGCH02", "AlarmMemoTitle", "[캠프 집결 메모]"),
+		{
+			NSLOCTEXT("IGCH02", "AlarmMemoL1", "내일  05:30  캠프 집결"),
+			NSLOCTEXT("IGCH02", "AlarmMemoL2", "알람  :  집결 20분 전"),
+			FText::GetEmpty(),
+			NSLOCTEXT("IGCH02", "AlarmMemoL3", "※ 늦지 말 것"),
+		});
 
 	MailboxBills = SpawnNote(
 		FVector(528, -222.5f, 157),
 		FRotator::ZeroRotator,
 		FVector(19, 1.3f, 27),
 		TexMat(TEXT("M_PaperFolded"), SignWhiteMaterial),
-		NSLOCTEXT("IGCH02", "MailboxPrompt", "403호 우편함 확인"),
-		NSLOCTEXT("IGCH02", "MailboxTitle", "403호 우편함"),
+		NSLOCTEXT("IGCH02", "MailboxPrompt", "관리 연락함 확인"),
+		NSLOCTEXT("IGCH02", "MailboxTitle", "[민원 접수 사본]"),
 		{
-			NSLOCTEXT("IGCH02", "MailboxL1", "전기요금 납부 고지서"),
-			NSLOCTEXT("IGCH02", "MailboxL2", "도시가스 사용량 안내"),
-			NSLOCTEXT("IGCH02", "MailboxL3", "관리비 미납 안내"),
+			NSLOCTEXT("IGCH02", "MailboxL1", "7/27  06:18  ·  401호 정막례"),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "MailboxL4", "수취인  404호  한지운"),
-			NSLOCTEXT("IGCH02", "MailboxL5", "수취인  404호  한지운"),
-			NSLOCTEXT("IGCH02", "MailboxL6", "수취인  404호  한지운"),
+			NSLOCTEXT("IGCH02", "MailboxL2", "“사람이 떨어진 것 같은 쿵 소리.”"),
+			NSLOCTEXT("IGCH02", "MailboxL3", "처리 : 고양이로 추정 · 옥상 잠금 확인"),
+			FText::GetEmpty(),
+			NSLOCTEXT("IGCH02", "MailboxL4", "404호 연락 불가 · 가족 연락처 확인 요청"),
 		});
 
-	SaltMemo = SpawnNote(
-		FVector(688, -383.0f, 125),
-		FRotator::ZeroRotator,
-		FVector(21, 1.2f, 29.7f),
-		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
-		NSLOCTEXT("IGCH02", "SaltMemoPrompt", "메모 읽기"),
-		NSLOCTEXT("IGCH02", "SaltMemoTitle", "관리사무소"),
+	OfferingNote = SpawnNote(
+		FVector(-94, -278, IGPrologueWorld::FourthFloorZ + 0.6f),
+		FRotator(0, 0, -8),
+		FVector(25, 18, 0.6f),
+		TexMat(TEXT("M_PaperFolded"), SignWhiteMaterial),
+		NSLOCTEXT("IGCH02", "OfferingNotePrompt", "물그릇 옆 쪽지 읽기"),
+		NSLOCTEXT("IGCH02", "OfferingNoteTitle", "삐뚤한 글씨"),
 		{
-			NSLOCTEXT("IGCH02", "SaltMemoL1", "※ 현관에 소금 뿌리신 분,"),
-			NSLOCTEXT("IGCH02", "SaltMemoL2", "치워 주세요."),
-			NSLOCTEXT("IGCH02", "SaltMemoL3", "민원 들어옵니다."),
+			NSLOCTEXT("IGCH02", "OfferingNoteL1", "목마른 사람은"),
+			NSLOCTEXT("IGCH02", "OfferingNoteL2", "이 물을 드시오."),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "SaltMemoL4", "— 관리사무소"),
+			NSLOCTEXT("IGCH02", "OfferingNoteL3", "— 401호"),
 		});
 
 	NightRoster = SpawnNote(
@@ -3585,27 +4393,36 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 			NSLOCTEXT("IGCH02", "RosterL5", "문의: 점장"),
 		});
 
-	// A second set of pickups remains allocation-stable behind the loop cut.
+	// CH02 keeps matching product silhouettes on the shelf for continuity,
+	// but they are evidence dressing rather than a second shopping errand.
 	ChapterTwoWallet = World->SpawnActor<AIGPickupItem>(
 		AIGPickupItem::StaticClass(),
 		FTransform(FRotator(0, 20, 0), IGPrologueWorld::WalletLocation),
 		SpawnParameters);
 	if (ChapterTwoWallet)
 	{
+		// This is a non-authoritative memory prop. Its visibility is restored
+		// from the CH01 payment choice and it can never be picked up again.
 		ChapterTwoWallet->PickupMode = EIGPickupMode::Pocket;
-		ChapterTwoWallet->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("State.CH02.Loop.HasWallet")), false);
 		ChapterTwoWallet->SetInteractionPrompt(
-			NSLOCTEXT("IGCH02", "SecondWalletPrompt", "지갑 챙기기"));
-		ChapterTwoWallet->ThoughtOnPickup =
-			NSLOCTEXT("IGCH02", "SecondWalletThought", "지갑. …분명 아까 챙겼는데.");
+			NSLOCTEXT("IGCH02", "SecondWalletPrompt", "놓인 지갑 확인"));
 		ChapterTwoWallet->ConfigurePrototypeVisuals(
 			CubeMesh, WalletBrownMaterial, FVector(0.14f, 0.09f, 0.03f), false);
 		ParkActor(ChapterTwoWallet);
 	}
 
-	for (const float WaterY : {-576.0f, -552.0f, -528.0f})
+	const float ChapterTwoWaterYs[] = {-576.0f, -552.0f, -528.0f};
+	const EIGRebirthPurchaseProfile ChapterTwoProfiles[] = {
+		EIGRebirthPurchaseProfile::ProfileA500MlX2,
+		EIGRebirthPurchaseProfile::ProfileB1LX1,
+		EIGRebirthPurchaseProfile::ProfileC2LX2};
+	for (int32 WaterIndex = 0;
+		WaterIndex < UE_ARRAY_COUNT(ChapterTwoWaterYs);
+		++WaterIndex)
 	{
+		const float WaterY = ChapterTwoWaterYs[WaterIndex];
+		const EIGRebirthPurchaseProfile PurchaseProfile =
+			ChapterTwoProfiles[WaterIndex];
 		AIGPickupItem* WaterBottle = World->SpawnActor<AIGPickupItem>(
 			AIGPickupItem::StaticClass(),
 			FTransform(FRotator::ZeroRotator, FVector(2925, WaterY, 106.5f)),
@@ -3616,17 +4433,41 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		}
 
 		WaterBottle->PickupMode = EIGPickupMode::CarryInHand;
+		WaterBottle->RebirthPurchaseProfileOnPickup = PurchaseProfile;
 		WaterBottle->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
 			FName(TEXT("State.CH02.Loop.HasWater")), false);
-		WaterBottle->SetInteractionPrompt(
-			NSLOCTEXT("IGCH02", "SecondWaterPrompt", "생수 집기 (500mL)"));
+		FVector ProfileScale = FVector::OneVector;
+		bool bHasSecondBottle = false;
+		switch (PurchaseProfile)
+		{
+		case EIGRebirthPurchaseProfile::ProfileA500MlX2:
+			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
+				"IGCH02", "SecondWaterProfileA", "같은 새벽샘물 확인하기"));
+			WaterBottle->CarryOffset = FVector(34.0f, 15.0f, -26.0f);
+			bHasSecondBottle = true;
+			break;
+		case EIGRebirthPurchaseProfile::ProfileB1LX1:
+			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
+				"IGCH02", "SecondWaterProfileB", "같은 한강수 확인하기"));
+			WaterBottle->CarryOffset = FVector(36.0f, 15.0f, -31.0f);
+			ProfileScale = FVector(1.12f, 1.12f, 1.35f);
+			break;
+		case EIGRebirthPurchaseProfile::ProfileC2LX2:
+			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
+				"IGCH02", "SecondWaterProfileC", "같은 맑은산 두 병 확인하기"));
+			WaterBottle->CarryOffset = FVector(39.0f, 16.0f, -42.0f);
+			ProfileScale = FVector(1.34f, 1.34f, 1.72f);
+			bHasSecondBottle = true;
+			break;
+		default:
+			break;
+		}
 		WaterBottle->ThoughtOnPickup =
-			NSLOCTEXT("IGCH02", "SecondWaterThought", "같은 자리. 같은 물.");
-		WaterBottle->CarryOffset = FVector(34.0f, 15.0f, -26.0f);
+			NSLOCTEXT("IGCH02", "SecondWaterThought", "같은 자리. 내가 골랐던 물.");
 		WaterBottle->CarryRotation = FRotator(-12.0f, -14.0f, 0.0f);
 		WaterBottle->ConfigurePrototypeVisuals(
 			PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
-			GlassMaterial, FVector::OneVector, false);
+			GlassMaterial, ProfileScale, false);
 		CreateDecoOnComponent(
 			WaterBottle->GetMeshComponent(),
 			PropMesh(TEXT("SM_BottleCap"), CylinderMesh), SnackBlueMaterial,
@@ -3637,6 +4478,31 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 			TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
 			FVector(0, 0, 5.0f), FRotator(0.0f, -90.0f, 0.0f),
 			FVector(3.36f, 3.36f, 8.6f));
+		if (bHasSecondBottle)
+		{
+			UStaticMeshComponent* SecondBottle = CreateDecoOnComponent(
+				WaterBottle->GetMeshComponent(),
+				PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
+				GlassMaterial,
+				FVector(0, 8.0f, 0),
+				FRotator(0, 7.0f, 0),
+				FVector::OneVector);
+			CreateDecoOnComponent(
+				SecondBottle,
+				PropMesh(TEXT("SM_BottleCap"), CylinderMesh),
+				SnackBlueMaterial,
+				FVector(0, 0, 20.1f),
+				FRotator::ZeroRotator,
+				FVector::OneVector);
+			CreateDecoOnComponent(
+				SecondBottle,
+				PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
+				TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
+				FVector(0, 0, 5.0f),
+				FRotator(0.0f, -90.0f, 0.0f),
+				FVector(3.36f, 3.36f, 8.6f));
+		}
+		AddStaticPurchaseBagProxy(WaterBottle, PurchaseProfile);
 		ParkActor(WaterBottle);
 		ChapterTwoWaterBottles.Add(WaterBottle);
 	}
@@ -3646,10 +4512,13 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		const TCHAR* StateTagName,
 		const FText& Thought) -> AIGZoneTrigger*
 	{
-		AIGZoneTrigger* Zone = World->SpawnActor<AIGZoneTrigger>(
+		const FTransform ZoneTransform(FRotator::ZeroRotator, Location);
+		AIGZoneTrigger* Zone = World->SpawnActorDeferred<AIGZoneTrigger>(
 			AIGZoneTrigger::StaticClass(),
-			FTransform(FRotator::ZeroRotator, Location),
-			SpawnParameters);
+			ZoneTransform,
+			this,
+			nullptr,
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 		if (Zone)
 		{
 			Zone->SetZoneExtent(Extent);
@@ -3657,6 +4526,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 				FName(StateTagName), false);
 			Zone->ThoughtOnEnter = Thought;
 			Zone->SetActorEnableCollision(false);
+			Zone->FinishSpawning(ZoneTransform);
 		}
 		return Zone;
 	};
@@ -3684,14 +4554,58 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		FVector(2450, -457, 116), FVector(35, 95, 110),
 		TEXT("State.CH02.Loop.EnteredStore"),
 		FText::GetEmpty());
+	// C3 belongs to the return toward 404, not to a directionless lobby
+	// crossing. The old ground-floor volume ended the chapter while a player
+	// with P1+search evidence was still walking out, and could miss an
+	// elevator return entirely. This 4F corridor anchor is crossed only after
+	// the player has turned back toward the apartment.
 	ChapterTwoReturnZone = SpawnParkedZone(
-		FVector(643, -360, 110), FVector(72, 52, 110),
+		FVector(300, -305, 1010), FVector(45, 62, 110),
 		TEXT("State.CH02.Loop.Returned"),
 		FText::GetEmpty());
 }
 
 void AIGPrologueWorldScene::HandleFlashlightPickedUp(AIGPickupItem* Item)
 {
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UIGRebirthNarrativeSubsystem* RebirthState =
+			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
+		{
+			RebirthState->SetHasMemoryFlashlight(true);
+		}
+		if (UIGSaveSubsystem* SaveSubsystem =
+			GameInstance->GetSubsystem<UIGSaveSubsystem>())
+		{
+			const FGameplayTag EnteredStoreTag =
+				FGameplayTag::RequestGameplayTag(
+					FName(TEXT("State.CH02.Loop.EnteredStore")),
+					false);
+			const FGameplayTag LeftHomeTag =
+				FGameplayTag::RequestGameplayTag(
+					FName(TEXT("State.CH02.Loop.LeftHome")),
+					false);
+			const FGameplayTag CheckpointTag =
+				IGStory::HasState(this, EnteredStoreTag)
+					? FGameplayTag::RequestGameplayTag(
+						FName(TEXT("Checkpoint.CH02.Store")),
+						false)
+					: IGStory::HasState(this, LeftHomeTag)
+						? FGameplayTag::RequestGameplayTag(
+							FName(TEXT("Checkpoint.CH02.Corridor")),
+							false)
+						: FGameplayTag::RequestGameplayTag(
+							FName(TEXT("Checkpoint.CH02.Woke")),
+							false);
+			SaveSubsystem->RequestAutosave(
+				FGameplayTag::RequestGameplayTag(
+					FName(TEXT("Chapter.CH02")),
+					false),
+				GetWorld() ? GetWorld()->GetOutermost()->GetFName() : NAME_None,
+				CheckpointTag);
+		}
+	}
+
 	const UWorld* World = GetWorld();
 	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
 	AIGPlayerCharacter* Player = PlayerController
@@ -3700,6 +4614,14 @@ void AIGPrologueWorldScene::HandleFlashlightPickedUp(AIGPickupItem* Item)
 	if (UIGFlashlightComponent* Torch = Player ? Player->GetFlashlight() : nullptr)
 	{
 		Torch->SetAvailable(true);
+	}
+}
+
+void AIGPrologueWorldScene::HandlePurchaseSelectionChanged(AIGPickupItem* Item)
+{
+	if (Item && !bChapterTwoActive)
+	{
+		RefreshPurchaseProfilePresentation();
 	}
 }
 
@@ -3768,10 +4690,12 @@ void AIGPrologueWorldScene::SpawnDirectors()
 	MorningDirector = World->SpawnActor<AIGMorningRoutineDirector>(
 		AIGMorningRoutineDirector::StaticClass(),
 		FTransform::Identity,
-		DirectorParameters);
+	DirectorParameters);
 	if (MorningDirector)
 	{
-		MorningDirector->SetSceneReferences(FlickerStreetlight);
+		MorningDirector->SetSceneReferences(
+			FlickerStreetlight,
+			ChapterOneApartmentExitZone);
 
 		if (FlickerZone)
 		{
@@ -3863,15 +4787,26 @@ void AIGPrologueWorldScene::HandleStoryStateChanged(
 
 	const FGameplayTag ChapterOnePurchase = FGameplayTag::RequestGameplayTag(
 		FName(TEXT("State.CH01.Morning.WaterPurchased")), false);
+	const FGameplayTag ChapterOneHasWater = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("State.CH01.Morning.HasWater")), false);
 	const FGameplayTag ChapterOneLeftHome = FGameplayTag::RequestGameplayTag(
 		FName(TEXT("State.CH01.Morning.LeftHome")), false);
 	const FGameplayTag ChapterTwoEnteredAlley = FGameplayTag::RequestGameplayTag(
 		FName(TEXT("State.CH02.Loop.EnteredAlley")), false);
+	const FGameplayTag ChapterTwoHasWater = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("State.CH02.Loop.HasWater")), false);
+	const FGameplayTag ChapterTwoPurchase = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("State.CH02.Loop.WaterPurchased")), false);
 	if (bChapterTwoActive)
 	{
 		if (StateTag.MatchesTagExact(ChapterTwoEnteredAlley) && NeighborhoodLifeDirector)
 		{
 			NeighborhoodLifeDirector->PrimeOutdoorSequence();
+		}
+		if (StateTag.MatchesTagExact(ChapterTwoHasWater)
+			|| StateTag.MatchesTagExact(ChapterTwoPurchase))
+		{
+			RefreshPurchaseProfilePresentation();
 		}
 		return;
 	}
@@ -3879,16 +4814,59 @@ void AIGPrologueWorldScene::HandleStoryStateChanged(
 	{
 		NeighborhoodLifeDirector->PrimeOutdoorSequence();
 	}
+	if (StateTag.MatchesTagExact(ChapterOneHasWater))
+	{
+		RefreshPurchaseProfilePresentation();
+	}
 	if (StateTag.MatchesTagExact(ChapterOnePurchase))
 	{
+		RefreshPurchaseProfilePresentation();
 		if (ChapterOneReceipt)
 		{
 			ChapterOneReceipt->SetActorHiddenInGame(false);
 			ChapterOneReceipt->SetActorEnableCollision(true);
 			ChapterOneReceipt->SetInteractionEnabled(true);
 		}
+		SpawnChapterOneIncident();
 		SpawnReturnBoundary();
 	}
+}
+
+void AIGPrologueWorldScene::SpawnChapterOneIncident()
+{
+	if (ChapterOneIncidentDirector
+		|| bChapterTwoActive
+		|| bChapterThreeActive
+		|| !GetWorld())
+	{
+		return;
+	}
+
+	FActorSpawnParameters Parameters;
+	Parameters.Owner = this;
+	Parameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ChapterOneIncidentDirector =
+		GetWorld()->SpawnActor<AIGChapterOneIncidentDirector>(
+			AIGChapterOneIncidentDirector::StaticClass(),
+			FTransform::Identity,
+			Parameters);
+	if (!ChapterOneIncidentDirector)
+	{
+		return;
+	}
+	ChapterOneIncidentDirector->Configure(
+		this,
+		NeighborhoodLifeDirector,
+		CubeMesh,
+		CylinderMesh,
+		PlasticDarkMaterial,
+		SignWhiteMaterial,
+		WaterBlueMaterial,
+		GetActorTransform());
+	ChapterOneIncidentDirector->OnMemoryBoundaryCompleted.AddUniqueDynamic(
+		this,
+		&ThisClass::HandleChapterOneMemoryBoundaryCompleted);
 }
 
 void AIGPrologueWorldScene::SpawnReturnBoundary()
@@ -3912,13 +4890,19 @@ void AIGPrologueWorldScene::SpawnReturnBoundary()
 	SpawnParameters.Owner = this;
 	SpawnParameters.SpawnCollisionHandlingOverride =
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	ReturnBoundaryZone = GetWorld()->SpawnActor<AIGZoneTrigger>(
+	const FTransform ReturnBoundaryTransform(
+		FRotator::ZeroRotator,
+		FVector(643, -360, 110));
+	ReturnBoundaryZone = GetWorld()->SpawnActorDeferred<AIGZoneTrigger>(
 		AIGZoneTrigger::StaticClass(),
-		FTransform(FRotator::ZeroRotator, FVector(643, -360, 110)),
-		SpawnParameters);
+		ReturnBoundaryTransform,
+		this,
+		nullptr,
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (ReturnBoundaryZone)
 	{
 		ReturnBoundaryZone->SetZoneExtent(FVector(72, 52, 110));
+		ReturnBoundaryZone->FinishSpawning(ReturnBoundaryTransform);
 		ReturnBoundaryZone->OnZoneTriggered.AddUniqueDynamic(
 			this, &ThisClass::HandleReturnBoundaryTriggered);
 	}
@@ -3926,9 +4910,56 @@ void AIGPrologueWorldScene::SpawnReturnBoundary()
 
 void AIGPrologueWorldScene::HandleReturnBoundaryTriggered(AIGZoneTrigger* Zone)
 {
-	if (Zone == ReturnBoundaryZone)
+	if (Zone == ReturnBoundaryZone && ChapterOneIncidentDirector)
 	{
-		BeginChapterTwoTransition();
+		// Crossing the actual common entrance records only 1F arrival. The
+		// player still chooses stairs or lift and physically reaches 4F before
+		// the shared accident convergence can own input or fade the camera.
+		ChapterOneIncidentDirector->RegisterLobbyReturn();
+	}
+}
+
+void AIGPrologueWorldScene::HandleChapterOneMemoryBoundaryCompleted()
+{
+	BeginChapterTwoTransition();
+}
+
+void AIGPrologueWorldScene::HandleElevatorReturnedToFourthFloor(
+	AIGElevator* ReturnedElevator)
+{
+	if (ReturnedElevator != Elevator
+		|| bChapterTwoActive
+		|| bChapterThreeActive
+		|| !ChapterOneIncidentDirector)
+	{
+		return;
+	}
+	ChapterOneIncidentDirector->RegisterFourthFloorReturn();
+}
+
+void AIGPrologueWorldScene::HandleStairTransitionCompleted(
+	const bool bGoingDown)
+{
+	if (bChapterThreeActive)
+	{
+		return;
+	}
+	if (bGoingDown)
+	{
+		// Floor transfer is not the outdoor boundary. The real common-door
+		// volumes own LeftHome/EnteredAlley after the player actually exits.
+		return;
+	}
+
+	if (!bChapterTwoActive
+		&& ChapterOneIncidentDirector
+		&& IGStory::HasState(
+			this,
+			FGameplayTag::RequestGameplayTag(
+				FName(TEXT("State.CH01.Morning.WaterPurchased")),
+				false)))
+	{
+		ChapterOneIncidentDirector->RegisterFourthFloorReturn();
 	}
 }
 
@@ -3944,8 +4975,11 @@ void AIGPrologueWorldScene::BeginChapterTwoTransition()
 	{
 		if (APlayerCameraManager* CameraManager = PlayerController->PlayerCameraManager)
 		{
+			// The 1.8-second first-stair memory cut already owns black. Hold
+			// it through the chapter swap instead of flashing back to the
+			// corridor by restarting a 0->1 fade.
 			CameraManager->StartCameraFade(
-				0.0f, 1.0f, 1.2f, FLinearColor::Black, false, true);
+				1.0f, 1.0f, 1.2f, FLinearColor::Black, false, true);
 		}
 	}
 
@@ -3964,6 +4998,39 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	{
 		return;
 	}
+	if (ChapterOneIncidentDirector)
+	{
+		ChapterOneIncidentDirector->OnMemoryBoundaryCompleted.RemoveDynamic(
+			this,
+			&ThisClass::HandleChapterOneMemoryBoundaryCompleted);
+		ChapterOneIncidentDirector->Destroy();
+		ChapterOneIncidentDirector = nullptr;
+	}
+	const bool bResumeLoadedCheckpoint =
+		World->URL.HasOption(TEXT("IGResumeSave"));
+	const UIGSaveGame* LoadedSave = nullptr;
+	if (const UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (const UIGSaveSubsystem* SaveSubsystem =
+			GameInstance->GetSubsystem<UIGSaveSubsystem>())
+		{
+			LoadedSave = SaveSubsystem->GetLastLoadedSave();
+		}
+	}
+	const FGameplayTag LoadedCheckpoint =
+		LoadedSave ? LoadedSave->Progress.CheckpointTag : FGameplayTag();
+	const FGameplayTag StoreCheckpoint = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("Checkpoint.CH02.Store")),
+		false);
+	const FGameplayTag WokeCheckpoint = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("Checkpoint.CH02.Woke")),
+		false);
+	const bool bResumeAtStore =
+		bResumeLoadedCheckpoint
+		&& LoadedCheckpoint.MatchesTagExact(StoreCheckpoint);
+	const bool bResumeAtWoke =
+		bResumeLoadedCheckpoint
+		&& LoadedCheckpoint.MatchesTagExact(WokeCheckpoint);
 
 	if (NeighborhoodLifeDirector)
 	{
@@ -3990,12 +5057,15 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 		MorningDirector = nullptr;
 	}
 
-	if (UGameInstance* GameInstance = GetGameInstance())
+	if (!bResumeLoadedCheckpoint)
 	{
-		if (UIGStoryStateSubsystem* StoryState =
-			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
+		if (UGameInstance* GameInstance = GetGameInstance())
 		{
-			StoryState->ClearStates(false);
+			if (UIGStoryStateSubsystem* StoryState =
+				GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
+			{
+				StoryState->ClearStates(false);
+			}
 		}
 	}
 
@@ -4016,20 +5086,31 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	}
 	WaterBottles.Reset();
 
-	auto RevealPickup = [](AIGPickupItem* Item)
+	bool bWalletRemainsOnDesk = true;
+	if (const UGameInstance* GameInstance = GetGameInstance())
 	{
-		if (!Item)
+		if (const UIGRebirthNarrativeSubsystem* RebirthState =
+			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
 		{
-			return;
+			bWalletRemainsOnDesk =
+				RebirthState->GetChoices().PaymentMethod
+				!= EIGRebirthPaymentMethod::WalletCard;
 		}
-		Item->SetActorHiddenInGame(false);
-		Item->SetActorEnableCollision(true);
-		Item->SetInteractionEnabled(true);
-	};
-	RevealPickup(ChapterTwoWallet);
+	}
+	if (ChapterTwoWallet)
+	{
+		ChapterTwoWallet->SetActorHiddenInGame(!bWalletRemainsOnDesk);
+		ChapterTwoWallet->SetActorEnableCollision(false);
+		ChapterTwoWallet->SetInteractionEnabled(false);
+	}
 	for (AIGPickupItem* WaterBottle : ChapterTwoWaterBottles)
 	{
-		RevealPickup(WaterBottle);
+		if (WaterBottle)
+		{
+			WaterBottle->SetActorHiddenInGame(false);
+			WaterBottle->SetActorEnableCollision(true);
+			WaterBottle->SetInteractionEnabled(false);
+		}
 	}
 	if (Flashlight)
 	{
@@ -4064,51 +5145,26 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 
 	if (Checkout)
 	{
-		Checkout->ConfigureChapterPurchase(
+		Checkout->ConfigureChapterAction(
 			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Loop.HasWater")), false),
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Loop.WaterPurchased")), false),
-			NSLOCTEXT("IGCH02", "SecondCheckoutPrompt", "계산하기 (생수 1,100원)"),
-			FText::GetEmpty());
-		Checkout->SetAdditionalRequiredState(
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Loop.SawReceipt")), false));
+				FName(TEXT("State.CH02.Loop.CalledEmployee")), false),
+			NSLOCTEXT("IGCH02", "EmployeeCallPrompt", "직원 호출 버튼 누르기"),
+			NSLOCTEXT(
+				"IGCH02",
+				"EmployeeCallResult",
+				"직원 응답 없음. [보류 거래 자동 복원] 이미 결제된 상품입니다."));
 		Checkout->ResetForNewChapter();
 	}
+	RefreshPurchaseProfilePresentation();
 
 	if (HomeDoor)
 	{
 		HomeDoor->ForceOpenState(false);
-		TArray<FIGDoorRequirement> Requirements;
-
-		FIGDoorRequirement FridgeRequirement;
-		FridgeRequirement.RequiredState = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("State.CH02.Loop.FridgeChecked")), false);
-		FridgeRequirement.LockedPrompt =
-			NSLOCTEXT("IGCH02", "SecondDoorNeedFridge", "…또 냉장고부터");
-		FridgeRequirement.LockedThought =
-			NSLOCTEXT("IGCH02", "SecondDoorNeedFridgeThought", "목이 마르다. 확인부터 하자.");
-		Requirements.Add(MoveTemp(FridgeRequirement));
-
-		FIGDoorRequirement WalletRequirement;
-		WalletRequirement.RequiredState = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("State.CH02.Loop.HasWallet")), false);
-		WalletRequirement.LockedPrompt =
-			NSLOCTEXT("IGCH02", "SecondDoorNeedWallet", "지갑을 안 챙겼다");
-		WalletRequirement.LockedThought =
-			NSLOCTEXT("IGCH02", "SecondDoorNeedWalletThought", "지갑은… 같은 자리에 있겠지.");
-		Requirements.Add(MoveTemp(WalletRequirement));
-
-		FIGDoorRequirement FlashlightRequirement;
-		FlashlightRequirement.RequiredState = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("State.CH02.Loop.HasFlashlight")), false);
-		FlashlightRequirement.LockedPrompt =
-			NSLOCTEXT("IGCH02", "SecondDoorNeedTorch", "손전등을 챙겨야 한다");
-		FlashlightRequirement.LockedThought =
-			NSLOCTEXT("IGCH02", "SecondDoorNeedTorchThought", "복도 불이… 손전등을 챙기자.");
-		Requirements.Add(MoveTemp(FlashlightRequirement));
-		HomeDoor->SetRequirements(MoveTemp(Requirements));
+		// CH02 supports an unlit route and optional repeat investigations.
+		// Keep HUD guidance, but do not turn fridge, wallet or flashlight into
+		// movement locks.
+		TArray<FIGDoorRequirement> NoDoorRequirements;
+		HomeDoor->SetRequirements(MoveTemp(NoDoorRequirements));
 	}
 	if (BuildingDoor)
 	{
@@ -4123,14 +5179,18 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	{
 		Elevator->ResetForNewRide();
 		Elevator->ConfigureIntermediateStop(true, 12.0f);
+		if (bResumeAtStore)
+		{
+			Elevator->RestoreAtLobbyOpen();
+		}
 	}
 
 	// CH01 volumes outlive their director. Disable them before the second
 	// route starts so direct CH02 runs cannot emit first-morning thoughts or
 	// repopulate State.CH01 tags after the story-state reset.
 	for (AIGZoneTrigger* Zone :
-		{LeftHomeZone.Get(), FlickerZone.Get(), StoreEntryZone.Get(),
-			ReturnBoundaryZone.Get()})
+		{ChapterOneApartmentExitZone.Get(), LeftHomeZone.Get(),
+			FlickerZone.Get(), StoreEntryZone.Get(), ReturnBoundaryZone.Get()})
 	{
 		if (Zone)
 		{
@@ -4147,25 +5207,40 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 			Zone->SetActorEnableCollision(true);
 		}
 	}
-	// The route passes through this part of the lobby on the outbound trip.
-	// Arming it here ended CH02 before the player ever reached the store.
+	// The 4F homecoming anchor stays dormant until the director confirms any
+	// two C3 truths. It may then close a store route or a store-skipping route.
 	SetChapterTwoReturnZoneArmed(false);
 
-	// Put the body back beside the same bed before the second alarm begins.
+	// A load always resumes at an authored safe anchor, never in a moving lift
+	// or inside a one-shot trigger. Corridor saves sit on the elevator side of
+	// the 4F homecoming gate so walking back to 404 still crosses it naturally.
 	APlayerController* PlayerController = World->GetFirstPlayerController();
 	APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
 	if (PlayerPawn)
 	{
+		const FVector ResumeLocation = bResumeLoadedCheckpoint
+			? (bResumeAtStore
+				? FVector(2515.0f, -455.0f, 110.0f)
+				: bResumeAtWoke
+					? IGPrologueWorld::PlayerLocation
+					: FVector(430.0f, -305.0f, 1010.0f))
+			: IGPrologueWorld::PlayerLocation;
+		const FRotator ResumeActorRotation = bResumeLoadedCheckpoint
+			? FRotator(0.0f, -180.0f, 0.0f)
+			: IGPrologueWorld::PlayerActorRotation;
 		PlayerPawn->SetActorLocationAndRotation(
-			IGPrologueWorld::PlayerLocation,
-			IGPrologueWorld::PlayerActorRotation,
+			ResumeLocation,
+			ResumeActorRotation,
 			false,
 			nullptr,
 			ETeleportType::TeleportPhysics);
 	}
 	if (PlayerController)
 	{
-		PlayerController->SetControlRotation(IGPrologueWorld::PlayerViewRotation);
+		PlayerController->SetControlRotation(
+			bResumeLoadedCheckpoint
+				? FRotator(-4.0f, -180.0f, 0.0f)
+				: IGPrologueWorld::PlayerViewRotation);
 	}
 	// This ground-floor zone overlaps the CH01 return boundary. Enabling it
 	// before the pawn is moved back upstairs consumes the one-shot while the
@@ -4179,7 +5254,43 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	{
 		if (UIGFlashlightComponent* Torch = Player->GetFlashlight())
 		{
-			Torch->SetAvailable(false);
+			bool bRestoreFlashlight = false;
+			if (bResumeLoadedCheckpoint)
+			{
+				const FGameplayTag FlashlightTag =
+					FGameplayTag::RequestGameplayTag(
+						FName(TEXT("State.CH02.Loop.HasFlashlight")),
+						false);
+				const bool bLegacyOwnsFlashlight =
+					IGStory::HasState(this, FlashlightTag);
+				bRestoreFlashlight = bLegacyOwnsFlashlight;
+				if (UGameInstance* GameInstance = GetGameInstance())
+				{
+					if (UIGRebirthNarrativeSubsystem* RebirthState =
+						GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
+					{
+						const bool bCanonicalOwnsFlashlight =
+							RebirthState->BuildSnapshot().bHasMemoryFlashlight;
+						bRestoreFlashlight |= bCanonicalOwnsFlashlight;
+						// v2 saves used only the gameplay tag; v3 uses the
+						// canonical narrative field as well. Normalize both
+						// directions before any actor reconciles its pickup.
+						if (bRestoreFlashlight && !bCanonicalOwnsFlashlight)
+						{
+							RebirthState->SetHasMemoryFlashlight(true);
+						}
+					}
+				}
+				if (bRestoreFlashlight && !bLegacyOwnsFlashlight)
+				{
+					IGStory::AddState(this, FlashlightTag);
+				}
+				if (bRestoreFlashlight && Flashlight && !Flashlight->WasPickedUp())
+				{
+					Flashlight->ApplyRestoredPickedUpState(false);
+				}
+			}
+			Torch->SetAvailable(bRestoreFlashlight);
 			Torch->RefillBattery(1.0f);
 		}
 	}
@@ -4203,8 +5314,12 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 			JingleComponent,
 			ExistingReceipt,
 			DuplicateReceipt,
+			ApartmentStoryDressing
+				? ApartmentStoryDressing->GetPlannerNote()
+				: nullptr,
+			MirrorAlarmMemo,
 			MailboxBills,
-			SaltMemo,
+			OfferingNote,
 			NightRoster,
 			ManagementNotice);
 		SecondMorningDirector->FinishSpawning(FTransform::Identity);
@@ -4231,7 +5346,7 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 
 	const bool bCaptureChapterTwo =
 		FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH02"));
-	if (!bCaptureChapterTwo)
+	if (!bCaptureChapterTwo && !bResumeLoadedCheckpoint)
 	{
 		AIGHorrorHUD::ShowChapterCard(
 			this,
@@ -4252,11 +5367,18 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 			FGameplayTag::RequestGameplayTag(
 				FName(TEXT("Checkpoint.CH02.Woke")), false),
 			false);
-		WakeDirector->ResetForNewChapter();
-		WakeDirector->StartWakeUp();
-		if (bCaptureChapterTwo)
+		if (bResumeLoadedCheckpoint)
 		{
 			WakeDirector->RestoreStandingCheckpoint();
+		}
+		else
+		{
+			WakeDirector->ResetForNewChapter();
+			WakeDirector->StartWakeUp();
+			if (bCaptureChapterTwo)
+			{
+				WakeDirector->RestoreStandingCheckpoint();
+			}
 		}
 	}
 
@@ -4274,8 +5396,29 @@ void AIGPrologueWorldScene::EnterChapterThree()
 	{
 		return;
 	}
+	const bool bResumeLoadedCheckpoint =
+		GetWorld()->URL.HasOption(TEXT("IGResumeSave"));
+	FGameplayTag LoadedCheckpoint;
+	if (bResumeLoadedCheckpoint)
+	{
+		if (const UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (const UIGSaveSubsystem* SaveSubsystem =
+				GameInstance->GetSubsystem<UIGSaveSubsystem>())
+			{
+				if (const UIGSaveGame* LoadedSave =
+					SaveSubsystem->GetLastLoadedSave())
+				{
+					LoadedCheckpoint = LoadedSave->Progress.CheckpointTag;
+				}
+			}
+		}
+	}
 	bChapterThreeActive = true;
 	bChapterTwoTransitionPending = false;
+	// The 7/29 state moves the same bowl and note upstairs. Retire their CH02
+	// placement before the fifth-floor copy is spawned so both cannot coexist.
+	SetChapterTwoOverlayVisible(false);
 
 	if (AIGReadableNote* OpenNote = AIGReadableNote::GetOpenNote())
 	{
@@ -4317,8 +5460,9 @@ void AIGPrologueWorldScene::EnterChapterThree()
 	AlarmClock = nullptr;
 	GetUpTarget = nullptr;
 	for (AIGZoneTrigger* Zone :
-		{LeftHomeZone.Get(), FlickerZone.Get(), StoreEntryZone.Get(),
-			ReturnBoundaryZone.Get(), ChapterTwoLeftHomeZone.Get(),
+		{ChapterOneApartmentExitZone.Get(), LeftHomeZone.Get(),
+			FlickerZone.Get(), StoreEntryZone.Get(), ReturnBoundaryZone.Get(),
+			ChapterTwoLeftHomeZone.Get(),
 			ChapterTwoOutdoorZone.Get(), MirrorSightZone.Get(), MirrorEntryZone.Get(),
 			ChapterTwoStoreEntryZone.Get(), ChapterTwoReturnZone.Get()})
 	{
@@ -4333,6 +5477,25 @@ void AIGPrologueWorldScene::EnterChapterThree()
 		if (UIGStoryStateSubsystem* StoryState =
 			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
 		{
+			// Preserve the CH02 receipt comparison before retiring the legacy
+			// chapter event bus. CH03 consumes the REBIRTH truth record after
+			// the old per-chapter tags have been cleared.
+			const FGameplayTag DuplicateReceiptTag =
+				FGameplayTag::RequestGameplayTag(
+					FName(TEXT("State.CH02.Loop.ReadDuplicateReceipt")),
+					false);
+			if (StoryState->HasState(DuplicateReceiptTag))
+			{
+				if (UIGRebirthNarrativeSubsystem* RebirthState =
+					GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
+				{
+					RebirthState->RegisterTruthSource(
+						FGameplayTag::RequestGameplayTag(
+							FName(TEXT("Truth.DeathOverlay")),
+							false),
+						FName(TEXT("CH02.DuplicateReceipt")));
+				}
+			}
 			StoryState->ClearStates(false);
 		}
 	}
@@ -4360,6 +5523,10 @@ void AIGPrologueWorldScene::EnterChapterThree()
 		|| bCapture
 		|| GetWorld()->URL.HasOption(TEXT("IGChapterThree"));
 	ThirdMorningDirector->ConfigureAndStart(bDirectStart && !bCapture, bCapture);
+	if (bResumeLoadedCheckpoint)
+	{
+		ThirdMorningDirector->RestoreCheckpointAnchor(LoadedCheckpoint);
+	}
 
 	UE_LOG(LogIndieGame, Display, TEXT("CH03 third morning entered in-session."));
 }
@@ -4493,29 +5660,16 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 		break;
 
 	case 1:
-		// Quarter-lit lobby, wet prints and the offering at the threshold.
-		RevealElevatorFootprints();
-		if (ChapterTwoReturnZone)
-		{
-			ChapterTwoReturnZone->SetActorEnableCollision(false);
-		}
-		if (BuildingDoor)
-		{
-			BuildingDoor->ForceOpenState(true);
-			BuildingDoor->SetInteractionEnabled(false);
-			BuildingDoor->SetActorHiddenInGame(true);
-			BuildingDoor->SetActorEnableCollision(false);
-		}
+		// 401 after the management reply: swept salt, a dry bowl ring and clear
+		// water outside the line. Rice, spoon and incense are already gone.
 		if (OfferingLight)
 		{
 			OfferingLight->SetVisibility(true);
 			OfferingLight->SetIntensity(195.0f);
 		}
 		PlaceCaptureCamera(
-			// Frame the bowl at the end of the salt line, keeping the hinge
-			// post to one side while the wet steps remain visible inside.
-			FVector(750, -585, 92),
-			FVector(754, -455, 9));
+			FVector(-150, -360, IGPrologueWorld::FourthFloorZ),
+			FVector(-150, -276, IGPrologueWorld::FourthFloorZ + 5));
 		BaseName = TEXT("ch02-lobby-offering");
 		break;
 
@@ -4546,8 +5700,8 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 	++ChapterCaptureIndex;
 
 	// Let the teleported camera settle so temporal history cannot smear the
-	// documentation frame. This is especially visible on the long 4F->lobby
-	// move between the first two captures.
+	// documentation frame. This is especially visible when the first two
+	// captures jump between the 403 interior and the 401 corridor threshold.
 	FTimerDelegate CaptureDelegate;
 	CaptureDelegate.BindLambda([this, ScreenshotPath]()
 	{
@@ -4631,28 +5785,89 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 	ValidationDelegate.BindLambda([this]()
 	{
 		const bool bRideCompleted = Elevator && Elevator->IsRideComplete();
-		if (bRideCompleted)
-		{
-			UE_LOG(
-				LogIndieGame,
-				Display,
-				TEXT("CH02 capture and elevator validation complete."));
-		}
-		else
+		APlayerController* Controller =
+			GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+		if (!bRideCompleted || !Elevator || !Pawn)
 		{
 			UE_LOG(
 				LogIndieGame,
 				Error,
-				TEXT("CH02 capture and elevator validation failed."));
+				TEXT("CH02 elevator descent validation failed."));
+			FPlatformMisc::RequestExit(false);
+			return;
 		}
-		FPlatformMisc::RequestExit(false);
+
+		// Exercise the route that closes the actual chapter: call the same cab
+		// at 1F, board it, transfer only behind shut doors, and reopen at 4F.
+		Pawn->SetActorLocation(
+			FVector(625, -305, 110),
+			false,
+			nullptr,
+			ETeleportType::TeleportPhysics);
+		FIGInteractionContext ReturnContext;
+		ReturnContext.Interactor = Pawn;
+		ReturnContext.TargetActor = Elevator;
+		ReturnContext.HoldProgress = 1.0f;
+		IIGInteractable::Execute_CompleteInteraction(Elevator, ReturnContext);
+
+		const TWeakObjectPtr<APawn> WeakReturnPawn = Pawn;
+		FTimerDelegate BoardReturnDelegate;
+		BoardReturnDelegate.BindLambda([WeakReturnPawn]()
+		{
+			if (APawn* ReturnPawn = WeakReturnPawn.Get())
+			{
+				ReturnPawn->SetActorLocation(
+					FVector(795, -305, 110),
+					false,
+					nullptr,
+					ETeleportType::TeleportPhysics);
+			}
+		});
+		FTimerHandle BoardReturnHandle;
+		GetWorldTimerManager().SetTimer(
+			BoardReturnHandle,
+			BoardReturnDelegate,
+			1.0f,
+			false);
+
+		FTimerDelegate ReturnValidationDelegate;
+		ReturnValidationDelegate.BindLambda([this, WeakReturnPawn]()
+		{
+			const APawn* ReturnPawn = WeakReturnPawn.Get();
+			const bool bReturned =
+				Elevator
+				&& Elevator->HasReturnedToFourthFloor()
+				&& ReturnPawn
+				&& ReturnPawn->GetActorLocation().Z > 900.0f;
+			if (bReturned)
+			{
+				UE_LOG(
+					LogIndieGame,
+					Display,
+					TEXT("CH02 elevator roundtrip validation complete."));
+			}
+			else
+			{
+				UE_LOG(
+					LogIndieGame,
+					Error,
+					TEXT("CH02 elevator return validation failed."));
+			}
+			FPlatformMisc::RequestExit(false);
+		});
+		GetWorldTimerManager().SetTimer(
+			ChapterCaptureHandle,
+			ReturnValidationDelegate,
+			10.0f,
+			false);
 	});
 	GetWorldTimerManager().SetTimer(
 		ChapterCaptureHandle,
 		ValidationDelegate,
 		18.0f,
 		false);
-	UE_LOG(LogIndieGame, Display, TEXT("CH02 elevator validation started."));
+	UE_LOG(LogIndieGame, Display, TEXT("CH02 elevator roundtrip validation started."));
 }
 
 void AIGPrologueWorldScene::HandleFlickerZoneTriggered(AIGZoneTrigger* Zone)

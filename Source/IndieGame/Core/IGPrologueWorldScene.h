@@ -13,12 +13,14 @@ class AIGElevator;
 class AIGFridge;
 class AIGInspectable;
 class AIGApartmentStoryDressing;
+class AIGChapterOneIncidentDirector;
 class AIGMorningRoutineDirector;
 class AIGNeighborhoodLifeDirector;
 class AIGPickupItem;
 class AIGReadableNote;
 class AIGSecondMorningDirector;
 class AIGSlidingDoor;
+class AIGStairTransition;
 class AIGSwingDoor;
 class AIGThirdMorningDirector;
 class AIGZoneTrigger;
@@ -34,6 +36,7 @@ class USkyLightComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
 class UIGAlarmSoundWave;
+enum class EIGRebirthPurchaseProfile : uint8;
 
 /** Prototype-only alarm subclass that exposes protected presentation components safely. */
 UCLASS(NotBlueprintable, Transient)
@@ -147,7 +150,7 @@ public:
 	/** Drops the duplicate 04:44 receipt after the second checkout. */
 	void RevealSecondReceipt();
 
-	/** Arms the homecoming volume only after the second purchase is complete. */
+	/** Arms the 4F approach-to-404 volume after C3 has two independent truths. */
 	void SetChapterTwoReturnZoneArmed(bool bArmed);
 
 	/** Kills/restores the two north-side sales-floor luminaires and diffusers. */
@@ -270,11 +273,18 @@ private:
 	void BuildStore();
 	void BuildSkyAndFog();
 	void SpawnInteractables();
+	void SpawnStairTransition();
 	void SpawnChapterTwoInteractables();
+	void AddStaticPurchaseBagProxy(
+		AIGPickupItem* WaterBottle,
+		EIGRebirthPurchaseProfile PurchaseProfile);
+	void RefreshPurchaseProfilePresentation();
 	void SpawnDirectors();
 	void CreateAmbience();
 	void SpawnDemoDirectorIfRequested();
+	void SpawnChapterOneIncident();
 	void SpawnReturnBoundary();
+	void ReconcileLoadedCheckpoint();
 	void BeginChapterTwoTransition();
 	void EnterChapterTwo();
 	void EnterChapterThree();
@@ -288,9 +298,22 @@ private:
 	UFUNCTION()
 	void HandleReturnBoundaryTriggered(AIGZoneTrigger* Zone);
 
+	UFUNCTION()
+	void HandleChapterOneMemoryBoundaryCompleted();
+
+	UFUNCTION()
+	void HandleElevatorReturnedToFourthFloor(AIGElevator* ReturnedElevator);
+
+	UFUNCTION()
+	void HandleStairTransitionCompleted(bool bGoingDown);
+
 	/** Grants the torch to the player pawn once the pickup is taken. */
 	UFUNCTION()
 	void HandleFlashlightPickedUp(AIGPickupItem* Item);
+
+	/** Refreshes price, receipt, and bag presentation after a profile swap. */
+	UFUNCTION()
+	void HandlePurchaseSelectionChanged(AIGPickupItem* Item);
 
 	UFUNCTION()
 	void HandleFlickerZoneTriggered(AIGZoneTrigger* Zone);
@@ -391,13 +414,16 @@ private:
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> HomeDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> BuildingDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGElevator> Elevator;
+	UPROPERTY(Transient) TObjectPtr<AIGStairTransition> StairTransition;
 	UPROPERTY(Transient) TObjectPtr<AIGSlidingDoor> StoreDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGCheckoutCounter> Checkout;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterOneIncidentDirector> ChapterOneIncidentDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGMorningRoutineDirector> MorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGNeighborhoodLifeDirector> NeighborhoodLifeDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGSecondMorningDirector> SecondMorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGThirdMorningDirector> ThirdMorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGDemoDirector> DemoDirector;
+	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterOneApartmentExitZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> LeftHomeZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> FlickerZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> StoreEntryZone;
@@ -426,8 +452,9 @@ private:
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ChapterOneReceipt;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ExistingReceipt;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> DuplicateReceipt;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> MirrorAlarmMemo;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> MailboxBills;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> SaltMemo;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> OfferingNote;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> NightRoster;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> MirrorRoomDoor;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomLamp;

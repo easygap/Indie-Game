@@ -13,8 +13,8 @@ class UPointLightComponent;
  * It is deliberately a poor light: a warm, narrow, slightly uneven beam from
  * a cheap convenience-store torch. Three things make it feel handheld rather
  * than head-mounted — the beam lags the view by a few degrees, it swings with
- * the walk cycle, and the contact of a footfall nudges it. A dying cell adds
- * a brown-out flicker that gets worse as the battery drains.
+ * the walk cycle, and the contact of a footfall nudges it. Brief brown-outs
+ * are pressure cues only: the light never depletes into a progression lock.
  */
 UCLASS(ClassGroup = (IndieGame), meta = (BlueprintSpawnableComponent))
 class INDIEGAME_API UIGFlashlightComponent : public USceneComponent
@@ -43,14 +43,14 @@ public:
 	/**
 	 * Whether the beam is actually putting out useful light right now.
 	 *
-	 * Not the same as IsOn(): a dying cell browns the beam out to about a
+	 * Not the same as IsOn(): a pressure cue can brown the beam out to about a
 	 * tenth for a fraction of a second at a time while the switch stays on.
 	 * The fear model has to see those frames as darkness, otherwise the
 	 * visually blackest moments in the game read as "fully lit" and the
 	 * player's pulse drops exactly when it should spike.
 	 */
 	UFUNCTION(BlueprintPure, Category = "Flashlight")
-	bool IsProvidingLight() const { return bOn && BrownOutTimer <= 0.0f && BatteryFraction > 0.0f; }
+	bool IsProvidingLight() const { return bOn && BrownOutTimer <= 0.0f; }
 
 	/** Whether the player has picked the torch up at all. */
 	UFUNCTION(BlueprintCallable, Category = "Flashlight")
@@ -59,7 +59,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Flashlight")
 	bool IsAvailable() const { return bAvailable; }
 
-	/** Remaining charge, 0..1. Drains only while lit. */
+	/** Compatibility value; REBIRTH keeps it at full charge. */
 	UFUNCTION(BlueprintPure, Category = "Flashlight")
 	float GetBatteryFraction() const { return BatteryFraction; }
 
@@ -69,11 +69,10 @@ public:
 	/** Nudges the beam, e.g. on a footfall or a scare. */
 	void AddImpulse(const FRotator& Impulse);
 
-protected:
-	/** Seconds of continuous use a full cell lasts. */
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Flashlight", meta = (ClampMin = "10.0", Units = "s"))
-	float BatterySeconds = 420.0f;
+	/** Presentation-only darkness cue; switch and availability stay intact. */
+	void TriggerBrownOut(float DurationSeconds);
 
+protected:
 	/** Beam intensity in candelas at full charge. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Flashlight", meta = (ClampMin = "0.0"))
 	float BeamIntensity = 5200.0f;
@@ -84,7 +83,6 @@ protected:
 
 private:
 	void UpdateSway(float DeltaSeconds);
-	void UpdateBattery(float DeltaSeconds);
 	float SampleFlicker(float DeltaSeconds);
 
 	UPROPERTY(VisibleAnywhere, Category = "Flashlight", meta = (AllowPrivateAccess = "true"))

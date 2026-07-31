@@ -41,8 +41,10 @@ public:
 		UAudioComponent* InJingleComponent,
 		AIGReadableNote* InExistingReceipt,
 		AIGReadableNote* InDuplicateReceipt,
+		AIGReadableNote* InHomePlanner,
+		AIGReadableNote* InMirrorAlarmMemo,
 		AIGReadableNote* InMailboxBills,
-		AIGReadableNote* InSaltMemo,
+		AIGReadableNote* InOfferingNote,
 		AIGReadableNote* InNightRoster,
 		AIGReadableNote* InManagementNotice);
 
@@ -72,11 +74,22 @@ private:
 	void SetThreat(float Pressure, float DurationSeconds);
 	void ClearThreat();
 	void CloseMirrorDoor();
-	void KillMirrorLampAndLock();
+	void KillMirrorLampAndPlayKeypad();
 	void RevealLiftFootprints();
 	void ResumeLift();
 	void PlaySecondStoreChime();
 	void ApplyThreatPressure(float Pressure) const;
+	void RegisterSecondMorningTruth(
+		const TCHAR* TruthTagName,
+		FName SourceId,
+		FName PuzzleId = NAME_None) const;
+	void RegisterDeathOverlayTruth() const;
+	int32 GetSecondMorningTruthCount() const;
+	bool CanConvergeSecondMorning() const;
+	void RefreshReturnGate() const;
+	void RestoreOutfitFromCanonical(bool bAllowLegacyMigration);
+	void CommitOutfitAtFirstExit();
+	void RequestCheckpointAutosave(const FGameplayTag& CheckpointTag) const;
 
 	UFUNCTION()
 	void HandleStoryStateChanged(FGameplayTag StateTag, bool bAdded);
@@ -112,10 +125,16 @@ private:
 	TObjectPtr<AIGReadableNote> DuplicateReceipt;
 
 	UPROPERTY(Transient)
+	TObjectPtr<AIGReadableNote> HomePlanner;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGReadableNote> MirrorAlarmMemo;
+
+	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> MailboxBills;
 
 	UPROPERTY(Transient)
-	TObjectPtr<AIGReadableNote> SaltMemo;
+	TObjectPtr<AIGReadableNote> OfferingNote;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> NightRoster;
@@ -133,12 +152,18 @@ private:
 	FGameplayTag EnteredMirrorRoomTag;
 	FGameplayTag LiftStoppedTag;
 	FGameplayTag ReadNoticeTag;
+	FGameplayTag EnteredAlleyTag;
 	FGameplayTag EnteredStoreTag;
 	FGameplayTag SawReceiptTag;
+	FGameplayTag CalledEmployeeTag;
 	FGameplayTag ReadDuplicateReceiptTag;
-	FGameplayTag HasWaterTag;
-	FGameplayTag WaterPurchasedTag;
+	/** Accepted only to migrate saves made by the old CH02 repurchase flow. */
+	FGameplayTag LegacyWaterPurchasedTag;
 	FGameplayTag ReturnedTag;
+	FGameplayTag ChapterIdTag;
+	FGameplayTag WokeCheckpointTag;
+	FGameplayTag CorridorCheckpointTag;
+	FGameplayTag StoreCheckpointTag;
 
 	FTimerHandle DirectorStepHandle;
 	FTimerHandle ThreatHandle;

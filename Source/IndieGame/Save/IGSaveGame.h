@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "GameplayTagContainer.h"
+#include "Narrative/IGRebirthNarrativeTypes.h"
 #include "IGSaveGame.generated.h"
 
 USTRUCT(BlueprintType)
@@ -27,6 +28,9 @@ struct INDIEGAME_API FIGProgressSnapshot
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Save")
 	FGameplayTagContainer StoryStateTags;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Save")
+	FIGRebirthNarrativeSnapshot RebirthNarrative;
 };
 
 /** Versioned story progress. User settings belong in a separate save object. */
@@ -36,7 +40,7 @@ class INDIEGAME_API UIGSaveGame : public USaveGame
 	GENERATED_BODY()
 
 public:
-	static constexpr int32 CurrentSchemaVersion = 1;
+	static constexpr int32 CurrentSchemaVersion = 3;
 
 	UIGSaveGame();
 

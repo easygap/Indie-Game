@@ -1,16 +1,20 @@
 @echo off
 setlocal
 set "PROJECT_ROOT=%~dp0.."
-set "UE_EDITOR=C:\Program Files\Epic Games\UE_5.8\Engine\Binaries\Win64\UnrealEditor.exe"
+set "PROJECT_FILE=%PROJECT_ROOT%\IndieGame.uproject"
+set "UE_RESOLVER=%PROJECT_ROOT%\Scripts\Resolve-UnrealEditor.ps1"
+set "RESOLVED_UE_EDITOR="
 
-if not exist "%UE_EDITOR%" (
-    echo Unreal Engine 5.8 was not found at:
-    echo %UE_EDITOR%
-    echo.
-    echo Install UE 5.8 with Epic Games Launcher, then try again.
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%UE_RESOLVER%" -ProjectPath "%PROJECT_FILE%" 2^>nul`) do (
+    set "RESOLVED_UE_EDITOR=%%I"
+)
+
+if not defined RESOLVED_UE_EDITOR (
+    echo Unreal Engine matching IndieGame.uproject was not found.
+    echo Install the associated engine or set IG_UNREAL_EDITOR to UnrealEditor.exe.
     pause
     exit /b 1
 )
 
-start "Indie Game Editor" "%UE_EDITOR%" "%PROJECT_ROOT%\IndieGame.uproject"
+start "Indie Game Editor" "%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%"
 endlocal

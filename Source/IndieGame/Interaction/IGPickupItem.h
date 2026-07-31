@@ -2,9 +2,11 @@
 
 #include "CoreMinimal.h"
 #include "Interaction/IGInteractableActor.h"
+#include "Narrative/IGRebirthNarrativeTypes.h"
 #include "IGPickupItem.generated.h"
 
 class AIGPickupItem;
+class AIGPlayerCharacter;
 class UMaterialInterface;
 class UStaticMesh;
 class UStaticMeshComponent;
@@ -64,6 +66,15 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup|Story")
 	FGameplayTag StateTagOnPickup;
 
+	/**
+	 * Optional fixed REBIRTH purchase profile represented by this pickup.
+	 * It is committed before StateTagOnPickup so checkout/autosave observers
+	 * can never snapshot an Unset or mismatched product.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup|Story")
+	EIGRebirthPurchaseProfile RebirthPurchaseProfileOnPickup =
+		EIGRebirthPurchaseProfile::Unset;
+
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup|Story")
 	FText ThoughtOnPickup;
 
@@ -84,7 +95,24 @@ protected:
 	TObjectPtr<UStaticMeshComponent> MeshComponent;
 
 private:
-	void FinishPickup(AActor* Interactor, bool bBroadcast, bool bPlayFeedback);
+	void CommitRebirthPurchaseProfile();
+	bool IsRebirthPurchaseCommitted() const;
+	bool MatchesRestoredRebirthPurchaseProfile() const;
+	bool ReturnForProfileSwap(AIGPlayerCharacter* Character);
+	void ReconcileRestoredPickedUpState();
+	void TryAttachRestoredPickup();
+	bool FinishPickup(
+		AActor* Interactor,
+		bool bBroadcast,
+		bool bPlayFeedback,
+		bool bAllowCarry = true);
+
+	static constexpr int32 MaxRestoreAttachAttempts = 120;
 
 	bool bPickedUp = false;
+	bool bRestoreReconcilePending = true;
+	bool bInitialTransformCaptured = false;
+	bool bInitiallySimulatedPhysics = false;
+	int32 RestoreAttachAttemptCount = 0;
+	FTransform InitialWorldTransform;
 };

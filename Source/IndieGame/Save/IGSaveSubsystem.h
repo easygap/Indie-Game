@@ -43,11 +43,22 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Save")
 	bool RequestLoad(const FString& SlotName);
 
+	/** Selects the newest compatible rotating autosave, then loads it. */
+	UFUNCTION(BlueprintCallable, Category = "Save")
+	bool RequestLoadLatestAutosave();
+
+	/** Invalidates both rotating autosaves after an explicit restart/menu reset. */
+	UFUNCTION(BlueprintCallable, Category = "Save")
+	bool ClearRotatingAutosaves();
+
 	UFUNCTION(BlueprintCallable, Category = "Save")
 	bool ApplyLoadedProgress();
 
 	UFUNCTION(BlueprintPure, Category = "Save")
 	bool IsBusy() const { return bSaveInProgress || bLoadInProgress; }
+
+	UFUNCTION(BlueprintPure, Category = "Save")
+	bool IsApplyingLoadedProgress() const { return bApplyingLoadedProgress; }
 
 	UFUNCTION(BlueprintPure, Category = "Save")
 	UIGSaveGame* GetLastLoadedSave() const { return LastLoadedSave; }
@@ -72,8 +83,10 @@ private:
 		FName MapPackageName,
 		FGameplayTag CheckpointTag) const;
 	void ProcessQueuedAutosave();
+	void ClearRotatingAutosavesNow();
 	void HandleSaveComplete(const FString& SlotName, int32 UserIndex, bool bSuccess);
 	void HandleLoadComplete(const FString& SlotName, int32 UserIndex, USaveGame* LoadedObject);
+	bool ApplyLoadedProgressInternal(bool bBroadcastStoryChanges);
 	bool IsSaveCompatible(const UIGSaveGame* SaveGame) const;
 
 	UPROPERTY(Transient)
@@ -87,7 +100,10 @@ private:
 
 	bool bSaveInProgress = false;
 	bool bLoadInProgress = false;
+	bool bApplyingLoadedProgress = false;
+	bool bLastLoadedProgressApplied = false;
 	bool bActiveSaveIsAutosave = false;
+	bool bClearAutosavesAfterActiveSave = false;
 	int32 ActiveAutosaveIndex = INDEX_NONE;
 	int32 NextAutosaveIndex = 0;
 	int32 LocalUserIndex = 0;

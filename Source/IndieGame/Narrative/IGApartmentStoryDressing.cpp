@@ -196,7 +196,7 @@ void AIGApartmentStoryDressing::ConfigurePrototypeVisuals(
 			"2차 불합격 통지서. …아직 책갈피처럼 끼워 놨다."));
 
 	// The planner is the quiet proof that 04:44 was never his alarm time.
-	AddReadable(
+	PlannerNote = AddReadable(
 		CubeMesh,
 		PaperMaterial,
 		FVector(-136.0f, -169.0f, 79.0f),

@@ -1,8 +1,12 @@
 # 4시 44분 — 스토리·연출 프로덕션 블루프린트
 
-> 전체 스포일러. 플레이어용 문서가 아니라 구현·연출·QA의 판단 기준이다.
+> **보관 문서 — REBIRTH 이전 방향 기록.**
+> 현재 제작 정사는 [STORY_BIBLE_REBIRTH.md](STORY_BIBLE_REBIRTH.md)를
+> 따른다.
 >
-> 정사와 대사 전문은 [STORY_BIBLE.md](STORY_BIBLE.md)가 우선한다.
+> 전체 스포일러. 플레이어용 문서가 아니라 과거 구현·연출·QA의 판단 기록이다.
+>
+> 이 보관본 내부의 옛 정사·대사는 [STORY_BIBLE.md](STORY_BIBLE.md)에 남아 있다.
 
 ## 1. 플레이어에게 하는 약속
 

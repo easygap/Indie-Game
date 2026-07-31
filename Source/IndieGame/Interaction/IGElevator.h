@@ -18,17 +18,24 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
 	AIGElevator*, Elevator);
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
+	FIGElevatorReturnedSignature,
+	AIGElevator*, Elevator);
+
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
 	FIGElevatorIntermediateStopSignature,
 	AIGElevator*, Elevator);
 
 /**
- * One-way villa elevator between the 4F corridor and the ground-floor lobby.
+ * Reusable villa elevator between the 4F corridor and the ground-floor lobby.
  *
- * Two identical cab shells sit at the top and bottom of the shaft. Calling
- * the elevator (this actor's interaction is the hall button) opens the upper
- * doors; stepping into the cab closes them, the ride hums and chimes down
- * the floors while the rider is moved to the identical lower cab, and the
- * lobby doors open. Riders never notice the cab itself never moves.
+ * Identical enclosed cab shells sit at 4F, 2F and 1F. Calling the elevator
+ * (this actor's interaction is the hall button) opens the upper doors;
+ * stepping into the cab closes them, the ride hums and chimes down the
+ * floors while the rider is transferred only behind fully closed doors.
+ *
+ * The authored 2F interruption uses its own physical landing. It must never
+ * borrow the 1F lobby doorway: the player should be able to trust every
+ * threshold that is visible.
  */
 UCLASS(Blueprintable)
 class INDIEGAME_API AIGElevator : public AIGInteractableActor
@@ -46,7 +53,7 @@ public:
 		UStaticMesh* CylinderMesh = nullptr;
 		/** Hairline stainless: cab walls, doors, jambs. */
 		UMaterialInterface* StainlessMaterial = nullptr;
-		/** Near-mirror stainless for the rear wall and the door reveals. */
+		/** Brushed rear-wall stainless; no readable player reflection. */
 		UMaterialInterface* MirrorMaterial = nullptr;
 		/** Marble slab under foot, with a darker inlay material for the border. */
 		UMaterialInterface* FloorMaterial = nullptr;
@@ -68,16 +75,18 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Elevator")
 	bool IsRideComplete() const { return bRideComplete; }
 
+	UFUNCTION(BlueprintPure, Category = "Elevator")
+	bool HasReturnedToFourthFloor() const;
+
 	/**
-	 * Puts the lift back to idle-with-doors-shut so it can be ridden again.
-	 *
-	 * The ride is a one-shot by construction: bRideComplete latches, and
-	 * CanInteract only offers the call button while State is IdleClosed. That
-	 * is correct for a single descent and blocks every later chapter, which
-	 * all begin on the fourth floor.
+	 * Puts the lift back to idle-with-doors-shut on 4F for a new chapter.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Elevator")
 	void ResetForNewRide();
+
+	/** Restores a safe downstairs checkpoint with the lobby doors open. */
+	UFUNCTION(BlueprintCallable, Category = "Elevator|Save")
+	void RestoreAtLobbyOpen();
 
 	/**
 	 * Enables an authored stop at 2F. The lower doors open only by the given
@@ -92,12 +101,19 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Elevator|Intermediate Stop")
 	bool IsHoldingAtIntermediateStop() const;
 
+	/** World-space centre of the authored 2F cab floor. */
+	FVector GetIntermediateCabWorldLocation() const;
+
 	/** Closes the narrow 2F gap and resumes the descent to the lobby. */
 	UFUNCTION(BlueprintCallable, Category = "Elevator|Intermediate Stop")
 	bool ReleaseIntermediateStop();
 
 	UPROPERTY(BlueprintAssignable, Category = "Elevator|Events")
 	FIGElevatorArrivedSignature OnArrivedAtLobby;
+
+	/** Fires only after the return doors are fully open on the physical 4F landing. */
+	UPROPERTY(BlueprintAssignable, Category = "Elevator|Events")
+	FIGElevatorReturnedSignature OnReturnedToFourthFloor;
 
 	/** Fires after the narrow 2F opening reaches its hold position. */
 	UPROPERTY(BlueprintAssignable, Category = "Elevator|Events")
@@ -146,7 +162,17 @@ private:
 		HoldingIntermediate,
 		ClosingIntermediate,
 		OpeningLower,
-		Done
+		DoneAtLobby,
+		WaitingForReturnRider,
+		ClosingLowerForReturn,
+		OpeningLowerForReturn,
+		ClosingUpperForEmptyCall,
+		EmptyDescending,
+		ClosingLowerForEmptyCall,
+		EmptyAscending,
+		Ascending,
+		OpeningUpperForReturn,
+		ReturnedToFourthFloor
 	};
 
 	UStaticMeshComponent* MakePiece(
@@ -161,12 +187,45 @@ private:
 	/** Interior fit-out of one cab: ceiling light box, COP, handrails, floor. */
 	void BuildCabInterior(USceneComponent* Parent, float BaseZ);
 	void SetState(EIGElevatorState NewState);
-	void ApplyDoorOffsets(float UpperOffset, float LowerOffset);
+	void ApplyDoorOffsets(
+		float UpperOffset,
+		float IntermediateOffset,
+		float LowerOffset);
 	void HandleFloorChime();
 	void PollForRider();
+	void PollForReturnRider();
 	void TryAdmitRider(APawn* Pawn);
+	void TryAdmitReturnRider(APawn* Pawn);
 	bool IsRiderSafelyInsideUpperCab(const APawn* Pawn) const;
+	bool IsRiderSafelyInsideLowerCab(const APawn* Pawn) const;
+	bool TransferRiderToCab(APawn* Rider, float CabBaseZ);
 	void StartRide();
+	void StartReturnRide();
+	void BeginOpeningUpperAfterReturn();
+	void StartEmptyCallToLobby();
+	void StartEmptyCallToFourthFloor();
+	void StartEmptyTravelToLobby();
+	void StartEmptyTravelToFourthFloor();
+	void BeginOpeningLowerAfterEmptyCall();
+	void BeginOpeningUpperAfterEmptyCall();
+	void PlayEmptyTravelHum(bool bAscending);
+	float GetIntermediateCabBaseZ() const;
+
+	UFUNCTION()
+	void HandleLowerCabBeginOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComponent,
+		int32 OtherBodyIndex,
+		bool bFromSweep,
+		const FHitResult& SweepResult);
+
+	UFUNCTION()
+	void HandleLowerCabEndOverlap(
+		UPrimitiveComponent* OverlappedComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComponent,
+		int32 OtherBodyIndex);
 
 	UPROPERTY(VisibleAnywhere, Category = "Elevator|Components")
 	TObjectPtr<USceneComponent> ElevatorRoot;
@@ -175,10 +234,19 @@ private:
 	TObjectPtr<UStaticMeshComponent> CallButtonMesh;
 
 	UPROPERTY(VisibleAnywhere, Category = "Elevator|Components")
+	TObjectPtr<UStaticMeshComponent> LowerCallButtonMesh;
+
+	UPROPERTY(VisibleAnywhere, Category = "Elevator|Components")
 	TObjectPtr<UBoxComponent> UpperCabTrigger;
+
+	UPROPERTY(VisibleAnywhere, Category = "Elevator|Components")
+	TObjectPtr<UBoxComponent> LowerCabTrigger;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> UpperDoorPanels;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> IntermediateDoorPanels;
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> LowerDoorPanels;
@@ -214,7 +282,9 @@ private:
 	FTimerHandle RideTimerHandle;
 	FTimerHandle ChimeTimerHandle;
 	FTimerHandle AdmissionPollHandle;
+	FTimerHandle ReturnAdmissionPollHandle;
 	TWeakObjectPtr<APawn> PendingRider;
+	TWeakObjectPtr<APawn> ActiveRider;
 	EIGElevatorState State = EIGElevatorState::IdleClosed;
 	float FloorDeltaZ = 900.0f;
 	float DoorPanelWidth = 55.0f;

@@ -7,6 +7,7 @@
 #include "IGMorningRoutineDirector.generated.h"
 
 class UIGChapterOnePresenceAudioComponent;
+class AIGZoneTrigger;
 class UPointLightComponent;
 
 /** Objective phases of the prologue morning, derived purely from story state. */
@@ -30,7 +31,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
 
 /**
  * Post-wake objective coordinator for the morning routine:
- * fridge reveal -> wallet -> alley -> store -> water -> checkout.
+ * fridge reveal -> apartment exit -> alley -> store -> water -> checkout.
+ * The desk wallet is optional route dressing, never a progression gate.
  *
  * The phase is a pure function of persistent story tags, so restores are
  * automatically consistent. CH01 deliberately establishes normal life:
@@ -48,7 +50,9 @@ public:
 	AIGMorningRoutineDirector();
 
 	/** The one CH01 anomaly: a failing alley streetlight. */
-	void SetSceneReferences(UPointLightComponent* InFlickerLight);
+	void SetSceneReferences(
+		UPointLightComponent* InFlickerLight,
+		AIGZoneTrigger* InApartmentExitZone);
 
 	/** One-shot alley streetlight failure; wired to a zone trigger. */
 	UFUNCTION(BlueprintCallable, Category = "Morning Flow|Beats")
@@ -89,9 +93,16 @@ private:
 	UFUNCTION()
 	void HandleStoryStateChanged(FGameplayTag StateTag, bool bAdded);
 
+	UFUNCTION()
+	void HandleApartmentExitZoneTriggered(AIGZoneTrigger* Zone);
+
 	void ResolveDefaultTags();
 	EIGMorningPhase EvaluatePhaseFromState() const;
 	void RefreshPhase(bool bLiveTransition);
+	void BootstrapRebirthStateFromLegacy();
+	void BridgeRebirthState(const FGameplayTag& StateTag);
+	void RestoreOutfitFromCanonical(bool bAllowLegacyMigration);
+	void CommitOutfitAtFirstExit();
 	void HandleLiveStateSideEffects(const FGameplayTag& StateTag);
 	void RequestCheckpointAutosave(const FGameplayTag& CheckpointTag);
 	void EnablePlayerCameraMotion();
@@ -102,6 +113,7 @@ private:
 	FGameplayTag StandingStateTag;
 	FGameplayTag FridgeCheckedStateTag;
 	FGameplayTag HasWalletStateTag;
+	FGameplayTag LeftApartmentStateTag;
 	FGameplayTag LeftHomeStateTag;
 	FGameplayTag EnteredStoreStateTag;
 	FGameplayTag HasWaterStateTag;
@@ -115,6 +127,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UPointLightComponent> FlickerLight;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGZoneTrigger> ApartmentExitZone;
 
 	/** Dies with this CH01-only director when the second morning begins. */
 	UPROPERTY(VisibleAnywhere, Category = "Morning Flow|Audio")

@@ -10,6 +10,7 @@
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Character.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Pawn.h"
 #include "IndieGame.h"
 #include "TimerManager.h"
@@ -38,6 +39,12 @@ AIGElevator::AIGElevator()
 	CallButtonMesh->SetGenerateOverlapEvents(false);
 	CallButtonMesh->SetCanEverAffectNavigation(false);
 
+	LowerCallButtonMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("LowerCallButton"));
+	LowerCallButtonMesh->SetupAttachment(ElevatorRoot);
+	LowerCallButtonMesh->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+	LowerCallButtonMesh->SetGenerateOverlapEvents(false);
+	LowerCallButtonMesh->SetCanEverAffectNavigation(false);
+
 	UpperCabTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("UpperCabTrigger"));
 	UpperCabTrigger->SetupAttachment(ElevatorRoot);
 	// Keep the admission volume behind the door plane. A full-cab trigger
@@ -51,6 +58,15 @@ AIGElevator::AIGElevator()
 	UpperCabTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
 	UpperCabTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	UpperCabTrigger->SetGenerateOverlapEvents(true);
+
+	LowerCabTrigger = CreateDefaultSubobject<UBoxComponent>(TEXT("LowerCabTrigger"));
+	LowerCabTrigger->SetupAttachment(ElevatorRoot);
+	LowerCabTrigger->SetBoxExtent(FVector(48.0f, 62.0f, 105.0f));
+	LowerCabTrigger->SetRelativeLocation(FVector(20.0f, 0.0f, -795.0f));
+	LowerCabTrigger->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+	LowerCabTrigger->SetCollisionResponseToAllChannels(ECR_Ignore);
+	LowerCabTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
+	LowerCabTrigger->SetGenerateOverlapEvents(true);
 
 	InteractionPrompt = NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 호출");
 }
@@ -89,7 +105,7 @@ void AIGElevator::BuildCabShell(USceneComponent* Parent, const float BaseZ)
 	using namespace IGElevator;
 
 	// Cab interior: back (+X), two sides, floor, ceiling; opening faces -X.
-	// The rear wall is the near-mirror panel every Korean lift car has.
+	// The rear wall is brushed stainless, not a readable player mirror.
 	MakePiece(Parent, CachedCubeMesh, CachedMirrorMaterial,
 		FVector(CabDepth * 0.5f + WallThickness * 0.5f, 0, BaseZ + CabHeight * 0.5f),
 		FVector(WallThickness, CabWidth + 2 * WallThickness, CabHeight));
@@ -219,7 +235,7 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 		}
 	}
 
-	// Rear handrail and the mirror inset above it.
+	// Rear handrail and the darker brushed inset above it.
 	MakePiece(Parent, CachedCylinderMesh, CachedDoorMaterial,
 		FVector(HalfDepth - 6.0f, 0, BaseZ + 92.0f),
 		FVector(4, 4, CabWidth - 34), false, FRotator(0, 0, 90));
@@ -286,13 +302,15 @@ void AIGElevator::ConfigurePrototypeVisuals(
 	FloorDeltaZ = FMath::Abs(InFloorDeltaZ);
 	DoorPanelWidth = CabWidth * 0.5f;
 
+	const float IntermediateCabBaseZ = GetIntermediateCabBaseZ();
 	BuildCabShell(ElevatorRoot, 0.0f);
+	BuildCabShell(ElevatorRoot, IntermediateCabBaseZ);
 	BuildCabShell(ElevatorRoot, -FloorDeltaZ);
 
-	// Sliding door pairs at the cab opening plane for both floors. Each leaf
+	// Sliding door pairs at the cab opening plane for all authored stops. Each leaf
 	// gets a hairline seam and a mirror stile so it reads as a lift door and
 	// not a slab of metal.
-	for (const float BaseZ : {0.0f, -FloorDeltaZ})
+	for (const float BaseZ : {0.0f, IntermediateCabBaseZ, -FloorDeltaZ})
 	{
 		for (const float Side : {-1.0f, 1.0f})
 		{
@@ -306,17 +324,27 @@ void AIGElevator::ConfigurePrototypeVisuals(
 			{
 				UpperDoorPanels.Add(Panel);
 			}
+			else if (FMath::IsNearlyEqual(BaseZ, IntermediateCabBaseZ))
+			{
+				IntermediateDoorPanels.Add(Panel);
+			}
 			else
 			{
 				LowerDoorPanels.Add(Panel);
 			}
 		}
-		// Hall lantern above each landing: the red floor digit and arrow.
+		// Hall lantern above each landing. The only authored digit artwork is
+		// the live 4F display; reusing it downstairs would show a false floor,
+		// so the lower landings use a neutral diffuser until dynamic indicators
+		// are implemented.
 		MakePiece(ElevatorRoot, CachedCubeMesh, CachedCabMaterial,
 			FVector(-CabDepth * 0.5f - WallThickness - 1.0f, 0, BaseZ + DoorHeight + 15.0f),
 			FVector(3, 48, 26), false);
+		UMaterialInterface* HallFaceMaterial = FMath::IsNearlyZero(BaseZ)
+			? (Visuals.HallMaterial ? Visuals.HallMaterial : Visuals.CopMaterial)
+			: CachedDiffuserMaterial;
 		MakePiece(ElevatorRoot, CachedCubeMesh,
-			Visuals.HallMaterial ? Visuals.HallMaterial : Visuals.CopMaterial,
+			HallFaceMaterial,
 			FVector(-CabDepth * 0.5f - WallThickness - 2.6f, 0, BaseZ + DoorHeight + 15.0f),
 			FVector(1.6f, 38, 19), false);
 		// Landing architrave: the stainless surround around the doorway.
@@ -338,8 +366,19 @@ void AIGElevator::ConfigurePrototypeVisuals(
 		-CabWidth * 0.5f + 10.0f,
 		105.0f));
 	CallButtonMesh->SetRelativeScale3D(FVector(0.04f, 0.12f, 0.20f));
-	// The two round call buttons on that plate, at both landings.
-	for (const float BaseZ : {0.0f, -FloorDeltaZ})
+	LowerCallButtonMesh->SetStaticMesh(CachedCubeMesh);
+	LowerCallButtonMesh->SetMaterial(0, CachedCabMaterial);
+	LowerCallButtonMesh->SetRelativeLocation(FVector(
+		-CabDepth * 0.5f - WallThickness - 4.0f,
+		-CabWidth * 0.5f + 10.0f,
+		-FloorDeltaZ + 105.0f));
+	LowerCallButtonMesh->SetRelativeScale3D(FVector(0.04f, 0.12f, 0.20f));
+	LowerCabTrigger->SetRelativeLocation(FVector(
+		20.0f,
+		0.0f,
+		-FloorDeltaZ + 105.0f));
+	// The two round call buttons on that plate, at each physical landing.
+	for (const float BaseZ : {0.0f, IntermediateCabBaseZ, -FloorDeltaZ})
 	{
 		for (int32 ButtonIndex = 0; ButtonIndex < 2; ++ButtonIndex)
 		{
@@ -359,16 +398,41 @@ void AIGElevator::ResetForNewRide()
 	GetWorldTimerManager().ClearTimer(RideTimerHandle);
 	GetWorldTimerManager().ClearTimer(ChimeTimerHandle);
 	GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
+	GetWorldTimerManager().ClearTimer(ReturnAdmissionPollHandle);
 	SetActorTickEnabled(false);
 	PendingRider.Reset();
+	ActiveRider.Reset();
 	bUpperDoorDepartureStarted = false;
 
-	// Both door pairs shut, both cabs idle, the rider counted as upstairs.
-	ApplyDoorOffsets(0.0f, 0.0f);
+	// Every door pair shuts and the rider is counted as upstairs.
+	ApplyDoorOffsets(0.0f, 0.0f, 0.0f);
 	DoorAnimation = FIGDoorAnimation();
 	ChimeFloor = 3;
 	bRideComplete = false;
 	SetState(EIGElevatorState::IdleClosed);
+}
+
+bool AIGElevator::HasReturnedToFourthFloor() const
+{
+	return State == EIGElevatorState::ReturnedToFourthFloor;
+}
+
+void AIGElevator::RestoreAtLobbyOpen()
+{
+	GetWorldTimerManager().ClearTimer(RideTimerHandle);
+	GetWorldTimerManager().ClearTimer(ChimeTimerHandle);
+	GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
+	GetWorldTimerManager().ClearTimer(ReturnAdmissionPollHandle);
+	SetActorTickEnabled(false);
+	PendingRider.Reset();
+	ActiveRider.Reset();
+	bUpperDoorDepartureStarted = false;
+
+	ApplyDoorOffsets(0.0f, 0.0f, DoorPanelWidth);
+	DoorAnimation = FIGDoorAnimation();
+	ChimeFloor = 3;
+	bRideComplete = true;
+	SetState(EIGElevatorState::DoneAtLobby);
 }
 
 void AIGElevator::ConfigureIntermediateStop(
@@ -385,6 +449,12 @@ void AIGElevator::ConfigureIntermediateStop(
 bool AIGElevator::IsHoldingAtIntermediateStop() const
 {
 	return State == EIGElevatorState::HoldingIntermediate;
+}
+
+FVector AIGElevator::GetIntermediateCabWorldLocation() const
+{
+	return GetActorTransform().TransformPosition(
+		FVector(0.0f, 0.0f, GetIntermediateCabBaseZ()));
 }
 
 bool AIGElevator::ReleaseIntermediateStop()
@@ -413,16 +483,54 @@ void AIGElevator::BeginPlay()
 		this, &ThisClass::HandleCabBeginOverlap);
 	UpperCabTrigger->OnComponentEndOverlap.AddDynamic(
 		this, &ThisClass::HandleCabEndOverlap);
+	LowerCabTrigger->OnComponentBeginOverlap.AddDynamic(
+		this, &ThisClass::HandleLowerCabBeginOverlap);
+	LowerCabTrigger->OnComponentEndOverlap.AddDynamic(
+		this, &ThisClass::HandleLowerCabEndOverlap);
 }
 
 bool AIGElevator::CanInteract_Implementation(AActor* Interactor) const
 {
-	return Super::CanInteract_Implementation(Interactor)
-		&& State == EIGElevatorState::IdleClosed;
+	if (!Super::CanInteract_Implementation(Interactor) || !Interactor)
+	{
+		return false;
+	}
+
+	const float LocalZ =
+		GetActorTransform().InverseTransformPosition(Interactor->GetActorLocation()).Z;
+	const bool bAtLobby = LocalZ < -FloorDeltaZ * 0.5f;
+	return bAtLobby
+		? State == EIGElevatorState::DoneAtLobby
+			|| State == EIGElevatorState::WaitingForReturnRider
+			|| State == EIGElevatorState::IdleClosed
+			|| State == EIGElevatorState::WaitingForRider
+			|| State == EIGElevatorState::ReturnedToFourthFloor
+		: State == EIGElevatorState::IdleClosed
+			|| State == EIGElevatorState::DoneAtLobby
+			|| State == EIGElevatorState::WaitingForReturnRider
+			|| State == EIGElevatorState::WaitingForRider
+			|| State == EIGElevatorState::ReturnedToFourthFloor;
 }
 
 FText AIGElevator::GetInteractionPrompt_Implementation(AActor* Interactor) const
 {
+	if (Interactor)
+	{
+		const float LocalZ =
+			GetActorTransform().InverseTransformPosition(Interactor->GetActorLocation()).Z;
+		if (LocalZ < -FloorDeltaZ * 0.5f)
+		{
+			if (State != EIGElevatorState::DoneAtLobby
+				&& State != EIGElevatorState::WaitingForReturnRider)
+			{
+				return NSLOCTEXT(
+					"IGElevator",
+					"CallFromLobbyPrompt",
+					"엘리베이터 호출");
+			}
+			return NSLOCTEXT("IGElevator", "ReturnPrompt", "4층으로 올라가기");
+		}
+	}
 	return NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 호출");
 }
 
@@ -430,7 +538,83 @@ void AIGElevator::CompleteInteraction_Implementation(const FIGInteractionContext
 {
 	Super::CompleteInteraction_Implementation(Context);
 
-	if (State != EIGElevatorState::IdleClosed)
+	const APawn* InteractingPawn = Cast<APawn>(Context.Interactor);
+	const float LocalZ = InteractingPawn
+		? GetActorTransform().InverseTransformPosition(
+			InteractingPawn->GetActorLocation()).Z
+		: 0.0f;
+	const bool bAtLobby = LocalZ < -FloorDeltaZ * 0.5f;
+
+	// The player is free to mix stairs and lift. When the cab was left at the
+	// opposite landing, the hall button first calls an empty cab instead of
+	// inheriting an impossible floor state from the route used earlier.
+	if (bAtLobby
+		&& (State == EIGElevatorState::IdleClosed
+			|| State == EIGElevatorState::WaitingForRider
+			|| State == EIGElevatorState::ReturnedToFourthFloor))
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateScannerBeep(this),
+			LowerCallButtonMesh->GetComponentLocation(),
+			0.5f,
+			0.7f);
+		StartEmptyCallToLobby();
+		return;
+	}
+
+	if (bAtLobby
+		&& (State == EIGElevatorState::DoneAtLobby
+			|| State == EIGElevatorState::WaitingForReturnRider))
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateScannerBeep(this),
+			LowerCallButtonMesh->GetComponentLocation(),
+			0.5f,
+			0.7f);
+		SetState(EIGElevatorState::WaitingForReturnRider);
+		GetWorldTimerManager().SetTimer(
+			ReturnAdmissionPollHandle,
+			this,
+			&ThisClass::PollForReturnRider,
+			0.08f,
+			true);
+		PollForReturnRider();
+		return;
+	}
+
+	if (!bAtLobby
+		&& (State == EIGElevatorState::DoneAtLobby
+			|| State == EIGElevatorState::WaitingForReturnRider))
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateScannerBeep(this),
+			CallButtonMesh->GetComponentLocation(),
+			0.5f,
+			0.7f);
+		StartEmptyCallToFourthFloor();
+		return;
+	}
+
+	if (!bAtLobby
+		&& (State == EIGElevatorState::ReturnedToFourthFloor
+			|| State == EIGElevatorState::WaitingForRider))
+	{
+		bRideComplete = false;
+		SetState(EIGElevatorState::WaitingForRider);
+		GetWorldTimerManager().SetTimer(
+			AdmissionPollHandle,
+			this,
+			&ThisClass::PollForRider,
+			0.08f,
+			true);
+		PollForRider();
+		return;
+	}
+
+	if (bAtLobby || State != EIGElevatorState::IdleClosed)
 	{
 		return;
 	}
@@ -444,6 +628,133 @@ void AIGElevator::CompleteInteraction_Implementation(const FIGInteractionContext
 	SetState(EIGElevatorState::OpeningUpper);
 	DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
 	SetActorTickEnabled(true);
+}
+
+void AIGElevator::StartEmptyCallToLobby()
+{
+	GetWorldTimerManager().ClearTimer(RideTimerHandle);
+	GetWorldTimerManager().ClearTimer(ChimeTimerHandle);
+	GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
+	GetWorldTimerManager().ClearTimer(ReturnAdmissionPollHandle);
+	PendingRider.Reset();
+	ActiveRider.Reset();
+	bUpperDoorDepartureStarted = false;
+	bRideComplete = false;
+
+	if (State == EIGElevatorState::WaitingForRider
+		|| State == EIGElevatorState::ReturnedToFourthFloor)
+	{
+		SetState(EIGElevatorState::ClosingUpperForEmptyCall);
+		DoorAnimation.Begin(DoorPanelWidth, 0.0f, DoorSlideDuration);
+		SetActorTickEnabled(true);
+		return;
+	}
+
+	StartEmptyTravelToLobby();
+}
+
+void AIGElevator::StartEmptyCallToFourthFloor()
+{
+	GetWorldTimerManager().ClearTimer(RideTimerHandle);
+	GetWorldTimerManager().ClearTimer(ChimeTimerHandle);
+	GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
+	GetWorldTimerManager().ClearTimer(ReturnAdmissionPollHandle);
+	PendingRider.Reset();
+	ActiveRider.Reset();
+	bUpperDoorDepartureStarted = false;
+	bRideComplete = false;
+
+	SetState(EIGElevatorState::ClosingLowerForEmptyCall);
+	DoorAnimation.Begin(DoorPanelWidth, 0.0f, DoorSlideDuration);
+	SetActorTickEnabled(true);
+}
+
+void AIGElevator::StartEmptyTravelToLobby()
+{
+	ApplyDoorOffsets(0.0f, 0.0f, 0.0f);
+	SetState(EIGElevatorState::EmptyDescending);
+	const float TravelSeconds = SecondsPerFloor * 3.0f;
+	PlayEmptyTravelHum(false);
+	GetWorldTimerManager().SetTimer(
+		RideTimerHandle,
+		this,
+		&ThisClass::BeginOpeningLowerAfterEmptyCall,
+		TravelSeconds,
+		false);
+}
+
+void AIGElevator::StartEmptyTravelToFourthFloor()
+{
+	ApplyDoorOffsets(0.0f, 0.0f, 0.0f);
+	SetState(EIGElevatorState::EmptyAscending);
+	const float TravelSeconds = SecondsPerFloor * 3.0f;
+	PlayEmptyTravelHum(true);
+	GetWorldTimerManager().SetTimer(
+		RideTimerHandle,
+		this,
+		&ThisClass::BeginOpeningUpperAfterEmptyCall,
+		TravelSeconds,
+		false);
+}
+
+void AIGElevator::BeginOpeningLowerAfterEmptyCall()
+{
+	if (State != EIGElevatorState::EmptyDescending)
+	{
+		return;
+	}
+
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateDoorChime(this),
+		LowerCallButtonMesh->GetComponentLocation(),
+		0.55f);
+	SetState(EIGElevatorState::OpeningLowerForReturn);
+	DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
+	SetActorTickEnabled(true);
+}
+
+void AIGElevator::BeginOpeningUpperAfterEmptyCall()
+{
+	if (State != EIGElevatorState::EmptyAscending)
+	{
+		return;
+	}
+
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateDoorChime(this),
+		CallButtonMesh->GetComponentLocation(),
+		0.55f);
+	// The caller already reached 4F by stairs, so this hall-call opening must
+	// not emit the physical-rider-arrival delegate.
+	SetState(EIGElevatorState::OpeningUpper);
+	DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
+	SetActorTickEnabled(true);
+}
+
+void AIGElevator::PlayEmptyTravelHum(const bool bAscending)
+{
+	TArray<FIGToneNote> HumNotes;
+	const float TravelSeconds = SecondsPerFloor * 3.0f;
+	HumNotes.Add({0.0f, TravelSeconds, 38.0f, 0.13f, 0.15f, 0.6f, EIGToneWaveform::Sine});
+	HumNotes.Add({0.0f, TravelSeconds, 76.0f, 0.05f, 0.15f, 0.6f, EIGToneWaveform::Sine});
+	HumNotes.Add({0.0f, TravelSeconds, 240.0f, 0.018f, 0.20f, 0.8f, EIGToneWaveform::ValueNoise});
+	UIGToneSequenceSoundWave* Hum = NewObject<UIGToneSequenceSoundWave>(this);
+	Hum->ConfigureNotes(MoveTemp(HumNotes), false);
+	const FVector ShaftSoundLocation = GetActorLocation()
+		+ FVector(
+			0.0f,
+			0.0f,
+			bAscending ? -FloorDeltaZ * 0.45f : -FloorDeltaZ * 0.55f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		Hum,
+		ShaftSoundLocation,
+		0.72f,
+		1.0f,
+		180.0f,
+		950.0f);
 }
 
 void AIGElevator::HandleCabBeginOverlap(
@@ -498,6 +809,41 @@ void AIGElevator::HandleCabEndOverlap(
 	}
 }
 
+void AIGElevator::HandleLowerCabBeginOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComponent,
+	int32 OtherBodyIndex,
+	bool bFromSweep,
+	const FHitResult& SweepResult)
+{
+	TryAdmitReturnRider(Cast<APawn>(OtherActor));
+}
+
+void AIGElevator::HandleLowerCabEndOverlap(
+	UPrimitiveComponent* OverlappedComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComponent,
+	int32 OtherBodyIndex)
+{
+	APawn* Pawn = Cast<APawn>(OtherActor);
+	if (!Pawn
+		|| PendingRider.Get() != Pawn
+		|| State != EIGElevatorState::ClosingLowerForReturn)
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(RideTimerHandle);
+	PendingRider.Reset();
+	SetState(EIGElevatorState::OpeningLowerForReturn);
+	DoorAnimation.Begin(
+		DoorAnimation.CurrentValue,
+		DoorPanelWidth,
+		FMath::Max(0.25f, DoorSlideDuration * 0.65f));
+	SetActorTickEnabled(true);
+}
+
 void AIGElevator::PollForRider()
 {
 	if (State != EIGElevatorState::WaitingForRider)
@@ -514,6 +860,29 @@ void AIGElevator::PollForRider()
 		{
 			TryAdmitRider(Pawn);
 			if (State == EIGElevatorState::ClosingUpper)
+			{
+				return;
+			}
+		}
+	}
+}
+
+void AIGElevator::PollForReturnRider()
+{
+	if (State != EIGElevatorState::WaitingForReturnRider)
+	{
+		GetWorldTimerManager().ClearTimer(ReturnAdmissionPollHandle);
+		return;
+	}
+
+	TArray<AActor*> OverlappingActors;
+	LowerCabTrigger->GetOverlappingActors(OverlappingActors, APawn::StaticClass());
+	for (AActor* Actor : OverlappingActors)
+	{
+		if (APawn* Pawn = Cast<APawn>(Actor))
+		{
+			TryAdmitReturnRider(Pawn);
+			if (State == EIGElevatorState::ClosingLowerForReturn)
 			{
 				return;
 			}
@@ -546,6 +915,28 @@ void AIGElevator::TryAdmitRider(APawn* Pawn)
 		false);
 }
 
+void AIGElevator::TryAdmitReturnRider(APawn* Pawn)
+{
+	if (!Pawn
+		|| !Pawn->IsPlayerControlled()
+		|| State != EIGElevatorState::WaitingForReturnRider
+		|| !LowerCabTrigger->IsOverlappingActor(Pawn)
+		|| !IsRiderSafelyInsideLowerCab(Pawn))
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(ReturnAdmissionPollHandle);
+	PendingRider = Pawn;
+	SetState(EIGElevatorState::ClosingLowerForReturn);
+	GetWorldTimerManager().SetTimer(
+		RideTimerHandle,
+		this,
+		&ThisClass::StartReturnRide,
+		1.1f,
+		false);
+}
+
 bool AIGElevator::IsRiderSafelyInsideUpperCab(const APawn* Pawn) const
 {
 	if (!Pawn)
@@ -573,6 +964,113 @@ bool AIGElevator::IsRiderSafelyInsideUpperCab(const APawn* Pawn) const
 			<= HalfWidth - InteriorClearance;
 }
 
+bool AIGElevator::IsRiderSafelyInsideLowerCab(const APawn* Pawn) const
+{
+	if (!Pawn)
+	{
+		return false;
+	}
+
+	float RiderRadius = 36.0f;
+	if (const ACharacter* Character = Cast<ACharacter>(Pawn))
+	{
+		if (const UCapsuleComponent* Capsule = Character->GetCapsuleComponent())
+		{
+			RiderRadius = Capsule->GetScaledCapsuleRadius();
+		}
+	}
+
+	FVector LocalLocation =
+		GetActorTransform().InverseTransformPosition(Pawn->GetActorLocation());
+	LocalLocation.Z += FloorDeltaZ;
+	constexpr float InteriorClearance = 2.0f;
+	const float HalfDepth = IGElevator::CabDepth * 0.5f;
+	const float HalfWidth = IGElevator::CabWidth * 0.5f;
+	return LocalLocation.X - RiderRadius >= -HalfDepth + InteriorClearance
+		&& LocalLocation.X + RiderRadius <= HalfDepth - InteriorClearance
+		&& FMath::Abs(LocalLocation.Y) + RiderRadius
+			<= HalfWidth - InteriorClearance;
+}
+
+float AIGElevator::GetIntermediateCabBaseZ() const
+{
+	// Four storeys use 300 cm floor-to-floor spacing: 4F=900, 2F=300, 1F=0.
+	return -FloorDeltaZ * (2.0f / 3.0f);
+}
+
+bool AIGElevator::TransferRiderToCab(APawn* Rider, const float CabBaseZ)
+{
+	if (!Rider)
+	{
+		return false;
+	}
+
+	const FTransform ElevatorTransform = GetActorTransform();
+	FVector LocalRider = ElevatorTransform.InverseTransformPosition(
+		Rider->GetActorLocation());
+
+	float RiderRadius = 36.0f;
+	float RiderHalfHeight = 96.0f;
+	UCharacterMovementComponent* Movement = nullptr;
+	if (ACharacter* Character = Cast<ACharacter>(Rider))
+	{
+		if (const UCapsuleComponent* Capsule = Character->GetCapsuleComponent())
+		{
+			RiderRadius = Capsule->GetScaledCapsuleRadius();
+			RiderHalfHeight = Capsule->GetScaledCapsuleHalfHeight();
+		}
+		Movement = Character->GetCharacterMovement();
+	}
+
+	// Preserve where the player stood inside the car, but never preserve an
+	// accumulated falling offset. The destination is derived from the visible
+	// floor plane and the actual capsule dimensions every time.
+	constexpr float WallClearance = 3.0f;
+	constexpr float FloorClearance = 2.0f;
+	const float MaxLocalX =
+		IGElevator::CabDepth * 0.5f - RiderRadius - WallClearance;
+	const float MaxLocalY =
+		IGElevator::CabWidth * 0.5f - RiderRadius - WallClearance;
+	LocalRider.X = FMath::Clamp(LocalRider.X, -MaxLocalX, MaxLocalX);
+	LocalRider.Y = FMath::Clamp(LocalRider.Y, -MaxLocalY, MaxLocalY);
+	LocalRider.Z = CabBaseZ + RiderHalfHeight + FloorClearance;
+
+	if (Movement)
+	{
+		Movement->StopMovementImmediately();
+		Movement->DisableMovement();
+	}
+
+	const FVector Destination = ElevatorTransform.TransformPosition(LocalRider);
+	const bool bTransferred = Rider->SetActorLocation(
+		Destination,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics);
+
+	if (Movement)
+	{
+		Movement->SetMovementMode(MOVE_Walking);
+	}
+
+	if (!bTransferred)
+	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT("Elevator refused safe rider transfer to cab base Z %.1f."),
+			CabBaseZ);
+		return false;
+	}
+
+	UE_LOG(
+		LogIndieGame,
+		Verbose,
+		TEXT("Elevator rider transferred behind closed doors to %s."),
+		*Destination.ToCompactString());
+	return true;
+}
+
 void AIGElevator::StartRide()
 {
 	GetWorldTimerManager().ClearTimer(AdmissionPollHandle);
@@ -598,6 +1096,43 @@ void AIGElevator::StartRide()
 	SetActorTickEnabled(true);
 }
 
+void AIGElevator::StartReturnRide()
+{
+	APawn* Rider = PendingRider.Get();
+	if (!Rider
+		|| !LowerCabTrigger->IsOverlappingActor(Rider)
+		|| !IsRiderSafelyInsideLowerCab(Rider))
+	{
+		PendingRider.Reset();
+		SetState(EIGElevatorState::WaitingForReturnRider);
+		GetWorldTimerManager().SetTimer(
+			ReturnAdmissionPollHandle,
+			this,
+			&ThisClass::PollForReturnRider,
+			0.08f,
+			true);
+		return;
+	}
+
+	DoorAnimation.Begin(DoorPanelWidth, 0.0f, DoorSlideDuration);
+	SetActorTickEnabled(true);
+}
+
+void AIGElevator::BeginOpeningUpperAfterReturn()
+{
+	const FVector CabSoundLocation = ActiveRider.IsValid()
+		? ActiveRider->GetActorLocation() + FVector(0, 0, 54.0f)
+		: GetActorLocation() + FVector(0, 0, 150.0f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateDoorChime(this),
+		CabSoundLocation,
+		0.55f);
+	SetState(EIGElevatorState::OpeningUpperForReturn);
+	DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
+	SetActorTickEnabled(true);
+}
+
 void AIGElevator::Tick(const float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -607,12 +1142,19 @@ void AIGElevator::Tick(const float DeltaSeconds)
 	{
 	case EIGElevatorState::OpeningUpper:
 	case EIGElevatorState::ClosingUpper:
-		ApplyDoorOffsets(DoorAnimation.CurrentValue, 0.0f);
+	case EIGElevatorState::ClosingUpperForEmptyCall:
+	case EIGElevatorState::OpeningUpperForReturn:
+		ApplyDoorOffsets(DoorAnimation.CurrentValue, 0.0f, 0.0f);
 		break;
 	case EIGElevatorState::OpeningIntermediate:
 	case EIGElevatorState::ClosingIntermediate:
+		ApplyDoorOffsets(0.0f, DoorAnimation.CurrentValue, 0.0f);
+		break;
 	case EIGElevatorState::OpeningLower:
-		ApplyDoorOffsets(0.0f, DoorAnimation.CurrentValue);
+	case EIGElevatorState::ClosingLowerForReturn:
+	case EIGElevatorState::ClosingLowerForEmptyCall:
+	case EIGElevatorState::OpeningLowerForReturn:
+		ApplyDoorOffsets(0.0f, 0.0f, DoorAnimation.CurrentValue);
 		break;
 	default:
 		break;
@@ -661,13 +1203,21 @@ void AIGElevator::Tick(const float DeltaSeconds)
 
 		SetState(EIGElevatorState::Descending);
 
-		// Move only the pawn that actually entered this cab. Looking up the
-		// world's first pawn could teleport a spectator or an outside player.
-		Rider->SetActorLocation(
-			Rider->GetActorLocation() - FVector(0, 0, FloorDeltaZ),
-			false,
-			nullptr,
-			ETeleportType::TeleportPhysics);
+		// Move only the pawn that actually entered this cab. The technical
+		// transfer happens behind fully shut, identical doors. A CH02 ride
+		// first lands in the physical 2F shell; a normal ride lands at 1F.
+		const float DestinationCabBaseZ =
+			bIntermediateStopEnabled ? GetIntermediateCabBaseZ() : -FloorDeltaZ;
+		if (!TransferRiderToCab(Rider, DestinationCabBaseZ))
+		{
+			PendingRider.Reset();
+			bUpperDoorDepartureStarted = false;
+			SetState(EIGElevatorState::OpeningUpper);
+			DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
+			SetActorTickEnabled(true);
+			break;
+		}
+		ActiveRider = Rider;
 		PendingRider.Reset();
 		bUpperDoorDepartureStarted = false;
 
@@ -694,12 +1244,25 @@ void AIGElevator::Tick(const float DeltaSeconds)
 		break;
 	}
 
+	case EIGElevatorState::ClosingUpperForEmptyCall:
+		StartEmptyTravelToLobby();
+		break;
+
 	case EIGElevatorState::OpeningIntermediate:
 		SetState(EIGElevatorState::HoldingIntermediate);
 		OnIntermediateStopOpened.Broadcast(this);
 		break;
 
 	case EIGElevatorState::ClosingIntermediate:
+		if (!TransferRiderToCab(ActiveRider.Get(), -FloorDeltaZ))
+		{
+			UE_LOG(
+				LogIndieGame,
+				Error,
+				TEXT("Elevator could not continue from the 2F stop."));
+			SetState(EIGElevatorState::HoldingIntermediate);
+			break;
+		}
 		SetState(EIGElevatorState::Descending);
 		GetWorldTimerManager().SetTimer(
 			ChimeTimerHandle,
@@ -710,9 +1273,83 @@ void AIGElevator::Tick(const float DeltaSeconds)
 		break;
 
 	case EIGElevatorState::OpeningLower:
-		SetState(EIGElevatorState::Done);
+		SetState(EIGElevatorState::DoneAtLobby);
 		bRideComplete = true;
 		OnArrivedAtLobby.Broadcast(this);
+		ActiveRider.Reset();
+		break;
+
+	case EIGElevatorState::ClosingLowerForReturn:
+	{
+		APawn* Rider = PendingRider.Get();
+		if (!Rider
+			|| !LowerCabTrigger->IsOverlappingActor(Rider)
+			|| !IsRiderSafelyInsideLowerCab(Rider))
+		{
+			PendingRider.Reset();
+			SetState(EIGElevatorState::OpeningLowerForReturn);
+			DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
+			SetActorTickEnabled(true);
+			break;
+		}
+
+		// Commit the state before teleporting. SetActorLocation can synchronously
+		// emit LowerCabTrigger end-overlap; leaving PendingRider latched here
+		// would let that callback mistake a valid closed-door transfer for an
+		// aborted boarding attempt.
+		PendingRider.Reset();
+		SetState(EIGElevatorState::Ascending);
+		if (!TransferRiderToCab(Rider, 0.0f))
+		{
+			SetState(EIGElevatorState::OpeningLowerForReturn);
+			DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
+			SetActorTickEnabled(true);
+			break;
+		}
+
+		ActiveRider = Rider;
+
+		TArray<FIGToneNote> HumNotes;
+		const float RideSeconds = SecondsPerFloor * 3.0f;
+		HumNotes.Add({0.0f, RideSeconds, 38.0f, 0.16f, 0.15f, 0.6f, EIGToneWaveform::Sine});
+		HumNotes.Add({0.0f, RideSeconds, 76.0f, 0.06f, 0.15f, 0.6f, EIGToneWaveform::Sine});
+		HumNotes.Add({0.0f, RideSeconds, 240.0f, 0.02f, 0.20f, 0.8f, EIGToneWaveform::ValueNoise});
+		UIGToneSequenceSoundWave* Hum = NewObject<UIGToneSequenceSoundWave>(this);
+		Hum->ConfigureNotes(MoveTemp(HumNotes), false);
+		IGAudio::SpawnOneShotAt(
+			this, Hum,
+			GetActorLocation() + FVector(0, 0, 120.0f),
+			0.9f, 1.0f, 200.0f, 900.0f);
+
+		GetWorldTimerManager().SetTimer(
+			RideTimerHandle,
+			this,
+			&ThisClass::BeginOpeningUpperAfterReturn,
+			RideSeconds,
+			false);
+		break;
+	}
+
+	case EIGElevatorState::ClosingLowerForEmptyCall:
+		StartEmptyTravelToFourthFloor();
+		break;
+
+	case EIGElevatorState::OpeningLowerForReturn:
+		SetState(EIGElevatorState::WaitingForReturnRider);
+		GetWorldTimerManager().SetTimer(
+			ReturnAdmissionPollHandle,
+			this,
+			&ThisClass::PollForReturnRider,
+			0.08f,
+			true);
+		PollForReturnRider();
+		break;
+
+	case EIGElevatorState::OpeningUpperForReturn:
+		SetState(EIGElevatorState::ReturnedToFourthFloor);
+		bRideComplete = false;
+		ActiveRider.Reset();
+		OnReturnedToFourthFloor.Broadcast(this);
 		break;
 
 	default:
@@ -722,11 +1359,13 @@ void AIGElevator::Tick(const float DeltaSeconds)
 
 void AIGElevator::HandleFloorChime()
 {
-	const FVector LowerCabLocation = GetActorLocation() - FVector(0, 0, FloorDeltaZ - 150.0f);
+	const FVector CabSoundLocation = ActiveRider.IsValid()
+		? ActiveRider->GetActorLocation() + FVector(0, 0, 54.0f)
+		: GetActorLocation() - FVector(0, 0, FloorDeltaZ - 150.0f);
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateScannerBeep(this),
-		LowerCabLocation,
+		CabSoundLocation,
 		0.35f,
 		ChimeFloor == 1 ? 1.0f : 0.62f);
 
@@ -749,7 +1388,7 @@ void AIGElevator::HandleFloorChime()
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateDoorChime(this),
-			LowerCabLocation,
+			CabSoundLocation,
 			0.55f);
 		SetState(EIGElevatorState::OpeningLower);
 		DoorAnimation.Begin(0.0f, DoorPanelWidth, DoorSlideDuration);
@@ -757,7 +1396,10 @@ void AIGElevator::HandleFloorChime()
 	}
 }
 
-void AIGElevator::ApplyDoorOffsets(const float UpperOffset, const float LowerOffset)
+void AIGElevator::ApplyDoorOffsets(
+	const float UpperOffset,
+	const float IntermediateOffset,
+	const float LowerOffset)
 {
 	using namespace IGElevator;
 	const float DoorX = -CabDepth * 0.5f - WallThickness * 0.5f;
@@ -777,6 +1419,14 @@ void AIGElevator::ApplyDoorOffsets(const float UpperOffset, const float LowerOff
 			DoorX,
 			Side * (DoorPanelWidth * 0.5f + LowerOffset),
 			-FloorDeltaZ + DoorHeight * 0.5f));
+	}
+	for (int32 PanelIndex = 0; PanelIndex < IntermediateDoorPanels.Num(); ++PanelIndex)
+	{
+		const float Side = PanelIndex == 0 ? -1.0f : 1.0f;
+		IntermediateDoorPanels[PanelIndex]->SetRelativeLocation(FVector(
+			DoorX,
+			Side * (DoorPanelWidth * 0.5f + IntermediateOffset),
+			GetIntermediateCabBaseZ() + DoorHeight * 0.5f));
 	}
 }
 

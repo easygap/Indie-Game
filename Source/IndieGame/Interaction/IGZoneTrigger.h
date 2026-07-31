@@ -43,6 +43,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	UFUNCTION()
 	void HandleBeginOverlap(
@@ -53,9 +54,14 @@ protected:
 		bool bFromSweep,
 		const FHitResult& SweepResult);
 
+	UFUNCTION()
+	void HandleStoryStateChanged(FGameplayTag StateTag, bool bAdded);
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Zone|Components")
 	TObjectPtr<UBoxComponent> ZoneBox;
 
 private:
+	void ReconcileWithStoryState();
+
 	bool bTriggered = false;
 };

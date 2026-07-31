@@ -42,6 +42,8 @@ public:
 		UMaterialInterface* WaterNoteMaterial,
 		USceneComponent* FridgeDoorPivot);
 
+	AIGReadableNote* GetPlannerNote() const { return PlannerNote; }
+
 private:
 	UStaticMeshComponent* AddVisual(
 		UStaticMesh* Mesh,
@@ -77,6 +79,9 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<AActor>> StoryInteractables;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGReadableNote> PlannerNote;
 
 	bool bConfigured = false;
 	int32 VisualCounter = 0;

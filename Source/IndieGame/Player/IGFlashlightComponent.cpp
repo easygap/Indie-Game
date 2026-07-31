@@ -48,9 +48,7 @@ bool UIGFlashlightComponent::Toggle()
 
 void UIGFlashlightComponent::SetOn(const bool bNewOn)
 {
-	// A flat cell will not strike at all; the click is all you get.
-	const bool bCanLight = bAvailable && BatteryFraction > 0.0f;
-	bOn = bNewOn && bCanLight;
+	bOn = bNewOn && bAvailable;
 	Beam->SetVisibility(bOn);
 	Spill->SetVisibility(bOn);
 	if (bOn)
@@ -81,6 +79,17 @@ void UIGFlashlightComponent::AddImpulse(const FRotator& Impulse)
 	ImpulseOffset.Yaw = FMath::Clamp(ImpulseOffset.Yaw, -9.0f, 9.0f);
 }
 
+void UIGFlashlightComponent::TriggerBrownOut(const float DurationSeconds)
+{
+	if (bOn)
+	{
+		BrownOutTimer = FMath::Max(
+			BrownOutTimer,
+			FMath::Max(0.0f, DurationSeconds));
+		AddImpulse(FRotator(2.4f, -3.0f, 0.0f));
+	}
+}
+
 void UIGFlashlightComponent::TickComponent(
 	const float DeltaSeconds,
 	const ELevelTick TickType,
@@ -95,14 +104,9 @@ void UIGFlashlightComponent::TickComponent(
 		return;
 	}
 
-	UpdateBattery(DeltaSeconds);
-
-	// Output falls away as the cell dies, then the flicker takes over: at
-	// full charge it is a barely visible ripple, near flat it is a brown-out.
-	const float ChargeCurve = FMath::Pow(FMath::Clamp(BatteryFraction, 0.0f, 1.0f), 0.35f);
 	const float Flicker = SampleFlicker(DeltaSeconds);
-	Beam->SetIntensity(BeamIntensity * ChargeCurve * Flicker);
-	Spill->SetIntensity(220.0f * ChargeCurve * Flicker);
+	Beam->SetIntensity(BeamIntensity * Flicker);
+	Spill->SetIntensity(220.0f * Flicker);
 }
 
 void UIGFlashlightComponent::UpdateSway(const float DeltaSeconds)
@@ -121,20 +125,6 @@ void UIGFlashlightComponent::UpdateSway(const float DeltaSeconds)
 	ImpulseOffset = FMath::RInterpTo(ImpulseOffset, FRotator::ZeroRotator, DeltaSeconds, 4.5f);
 
 	Beam->SetRelativeRotation(SwayOffset + ImpulseOffset);
-}
-
-void UIGFlashlightComponent::UpdateBattery(const float DeltaSeconds)
-{
-	if (BatterySeconds <= 0.0f)
-	{
-		return;
-	}
-
-	BatteryFraction = FMath::Max(0.0f, BatteryFraction - DeltaSeconds / BatterySeconds);
-	if (BatteryFraction <= 0.0f)
-	{
-		SetOn(false);
-	}
 }
 
 float UIGFlashlightComponent::SampleFlicker(const float DeltaSeconds)
@@ -163,19 +153,19 @@ float UIGFlashlightComponent::SampleFlicker(const float DeltaSeconds)
 		Hash01(FMath::FloorToInt(SlowStep) + 7920),
 		FMath::Frac(SlowStep));
 
-	// Ripple depth scales with how flat the cell is.
-	const float Weakness = 1.0f - FMath::Clamp(BatteryFraction, 0.0f, 1.0f);
+	// A fixed cheap-torch ripple preserves unease without consuming a resource.
+	constexpr float Weakness = 0.18f;
 	const float Ripple = 1.0f - (0.03f + 0.30f * Weakness) * (0.6f * Fast + 0.4f * Slow);
 
-	// Below a quarter charge the torch starts dropping out entirely.
+	// Very rare, short brown-outs are presentation-only and always recover.
 	if (BrownOutTimer > 0.0f)
 	{
 		BrownOutTimer -= DeltaSeconds;
 		return Ripple * 0.12f;
 	}
-	if (BatteryFraction < 0.25f && Fast > 0.985f)
+	if (Fast > 0.997f && Slow < 0.22f)
 	{
-		BrownOutTimer = 0.05f + 0.22f * Slow;
+		BrownOutTimer = 0.05f + 0.10f * Slow;
 	}
 	FlickerValue = Ripple;
 	return FlickerValue;

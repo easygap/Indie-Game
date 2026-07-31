@@ -6,6 +6,8 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "IndieGame.h"
+#include "Interaction/IGZoneTrigger.h"
+#include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -29,10 +31,25 @@ AIGMorningRoutineDirector::AIGMorningRoutineDirector()
 }
 
 void AIGMorningRoutineDirector::SetSceneReferences(
-	UPointLightComponent* InFlickerLight)
+	UPointLightComponent* InFlickerLight,
+	AIGZoneTrigger* InApartmentExitZone)
 {
 	FlickerLight = InFlickerLight;
 	FlickerBaseIntensity = FlickerLight ? FlickerLight->Intensity : 0.0f;
+
+	if (ApartmentExitZone)
+	{
+		ApartmentExitZone->OnZoneTriggered.RemoveDynamic(
+			this,
+			&ThisClass::HandleApartmentExitZoneTriggered);
+	}
+	ApartmentExitZone = InApartmentExitZone;
+	if (ApartmentExitZone)
+	{
+		ApartmentExitZone->OnZoneTriggered.AddUniqueDynamic(
+			this,
+			&ThisClass::HandleApartmentExitZoneTriggered);
+	}
 }
 
 void AIGMorningRoutineDirector::BeginPlay()
@@ -50,6 +67,11 @@ void AIGMorningRoutineDirector::BeginPlay()
 				&ThisClass::HandleStoryStateChanged);
 		}
 	}
+
+	// Legacy saves may restore their story tags before this actor exists.
+	// Mirror those completed beats into the REBIRTH snapshot once, without
+	// replaying any presentation or checkpoint side effects.
+	BootstrapRebirthStateFromLegacy();
 
 	// Initial evaluation restores a checkpointed phase without side effects.
 	RefreshPhase(false);
@@ -75,6 +97,13 @@ void AIGMorningRoutineDirector::EndPlay(const EEndPlayReason::Type EndPlayReason
 		}
 	}
 
+	if (ApartmentExitZone)
+	{
+		ApartmentExitZone->OnZoneTriggered.RemoveDynamic(
+			this,
+			&ThisClass::HandleApartmentExitZoneTriggered);
+	}
+
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	Super::EndPlay(EndPlayReason);
 }
@@ -93,6 +122,7 @@ void AIGMorningRoutineDirector::ResolveDefaultTags()
 	Resolve(StandingStateTag, TEXT("State.CH01.Wake.Standing"));
 	Resolve(FridgeCheckedStateTag, TEXT("State.CH01.Morning.FridgeChecked"));
 	Resolve(HasWalletStateTag, TEXT("State.CH01.Morning.HasWallet"));
+	Resolve(LeftApartmentStateTag, TEXT("State.CH01.Morning.LeftApartment"));
 	Resolve(LeftHomeStateTag, TEXT("State.CH01.Morning.LeftHome"));
 	Resolve(EnteredStoreStateTag, TEXT("State.CH01.Morning.EnteredStore"));
 	Resolve(HasWaterStateTag, TEXT("State.CH01.Morning.HasWater"));
@@ -121,14 +151,11 @@ EIGMorningPhase AIGMorningRoutineDirector::EvaluatePhaseFromState() const
 	{
 		return EIGMorningPhase::FindWater;
 	}
-	if (IGStory::HasState(this, FridgeCheckedStateTag)
-		&& IGStory::HasState(this, HasWalletStateTag))
+	if (IGStory::HasState(this, LeftApartmentStateTag)
+		|| IGStory::HasState(this, LeftHomeStateTag)
+		|| IGStory::HasState(this, FridgeCheckedStateTag))
 	{
 		return EIGMorningPhase::GoToStore;
-	}
-	if (IGStory::HasState(this, FridgeCheckedStateTag))
-	{
-		return EIGMorningPhase::TakeWallet;
 	}
 	return EIGMorningPhase::CheckFridge;
 }
@@ -167,6 +194,160 @@ void AIGMorningRoutineDirector::RefreshPhase(const bool bLiveTransition)
 	OnPhaseChanged.Broadcast(PreviousPhase, NewPhase);
 }
 
+void AIGMorningRoutineDirector::BootstrapRebirthStateFromLegacy()
+{
+	for (const FGameplayTag& StateTag :
+		{FridgeCheckedStateTag, EnteredStoreStateTag, WaterPurchasedStateTag})
+	{
+		if (IGStory::HasState(this, StateTag))
+		{
+			BridgeRebirthState(StateTag);
+		}
+	}
+
+	// State.CH01.Morning.LeftHome was emitted at the ground-floor entrance in
+	// legacy builds. It is accepted only once as migration input; all visual
+	// restoration below reads the canonical EquippedOutfitChapters array.
+	RestoreOutfitFromCanonical(true);
+}
+
+void AIGMorningRoutineDirector::BridgeRebirthState(
+	const FGameplayTag& StateTag)
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState)
+	{
+		return;
+	}
+
+	auto Truth = [](const TCHAR* TagName)
+	{
+		return FGameplayTag::RequestGameplayTag(FName(TagName), false);
+	};
+
+	if (StateTag.MatchesTagExact(FridgeCheckedStateTag))
+	{
+		RebirthState->RegisterTruthSource(
+			Truth(TEXT("Truth.NeedWater")),
+			FName(TEXT("CH01.EmptyFridge")));
+		return;
+	}
+
+	if (StateTag.MatchesTagExact(EnteredStoreStateTag))
+	{
+		RebirthState->MarkLocationVisited(FName(TEXT("CH01.Store")));
+		return;
+	}
+
+	if (!StateTag.MatchesTagExact(WaterPurchasedStateTag))
+	{
+		return;
+	}
+
+	// Checkout commits only facts that are actually known at the counter.
+	// Cat water, waiting, and bottle closure are authored later on the return
+	// walk; pre-filling them here made every live choice a decorative override.
+	FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+	if (Choices.PurchaseProfile == EIGRebirthPurchaseProfile::Unset)
+	{
+		Choices.PurchaseProfile =
+			EIGRebirthPurchaseProfile::ProfileA500MlX2;
+	}
+	if (Choices.PaymentMethod == EIGRebirthPaymentMethod::Unset)
+	{
+		Choices.PaymentMethod = IGStory::HasState(this, HasWalletStateTag)
+			? EIGRebirthPaymentMethod::WalletCard
+			: EIGRebirthPaymentMethod::PocketCard;
+	}
+	// Choices and truth are committed in the same story-event callback before
+	// the checkpoint request below snapshots either subsystem.
+	RebirthState->SetChoices(Choices);
+	RebirthState->RegisterTruthSource(
+		Truth(TEXT("Truth.Purchase0431")),
+		FName(TEXT("CH01.PurchaseCommitted0431")));
+}
+
+void AIGMorningRoutineDirector::RestoreOutfitFromCanonical(
+	const bool bAllowLegacyMigration)
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState)
+	{
+		return;
+	}
+
+	const FName ChapterOutfitId(TEXT("CH01"));
+	bool bCanonicalEquipped =
+		RebirthState->BuildSnapshot().EquippedOutfitChapters.Contains(
+			ChapterOutfitId);
+	if (!bCanonicalEquipped
+		&& bAllowLegacyMigration
+		&& (IGStory::HasState(this, LeftApartmentStateTag)
+			|| IGStory::HasState(this, LeftHomeStateTag)))
+	{
+		RebirthState->MarkOutfitEquipped(ChapterOutfitId);
+		bCanonicalEquipped =
+			RebirthState->BuildSnapshot().EquippedOutfitChapters.Contains(
+				ChapterOutfitId);
+	}
+
+	const APlayerController* PlayerController =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (AIGPlayerCharacter* Player = PlayerController
+		? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
+		: nullptr)
+	{
+		// Restore is immediate and silent; it never replays the first-exit
+		// sleeve presentation.
+		Player->SetRebirthOutfitEquipped(bCanonicalEquipped);
+	}
+}
+
+void AIGMorningRoutineDirector::CommitOutfitAtFirstExit()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState)
+	{
+		return;
+	}
+
+	const FName ChapterOutfitId(TEXT("CH01"));
+	const bool bFirstPresentation =
+		RebirthState->MarkOutfitEquipped(ChapterOutfitId);
+	const bool bCanonicalEquipped =
+		RebirthState->BuildSnapshot().EquippedOutfitChapters.Contains(
+			ChapterOutfitId);
+
+	const APlayerController* PlayerController =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (AIGPlayerCharacter* Player = PlayerController
+		? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
+		: nullptr)
+	{
+		Player->SetRebirthOutfitEquipped(
+			bCanonicalEquipped,
+			bFirstPresentation);
+	}
+}
+
+void AIGMorningRoutineDirector::HandleApartmentExitZoneTriggered(
+	AIGZoneTrigger* Zone)
+{
+	if (Zone == ApartmentExitZone)
+	{
+		CommitOutfitAtFirstExit();
+	}
+}
+
 void AIGMorningRoutineDirector::HandleStoryStateChanged(const FGameplayTag StateTag, const bool bAdded)
 {
 	if (!bAdded)
@@ -180,6 +361,10 @@ void AIGMorningRoutineDirector::HandleStoryStateChanged(const FGameplayTag State
 
 void AIGMorningRoutineDirector::HandleLiveStateSideEffects(const FGameplayTag& StateTag)
 {
+	// The REBIRTH state must be complete before the legacy checkpoint captures
+	// the same event.
+	BridgeRebirthState(StateTag);
+
 	if (StateTag.MatchesTagExact(FridgeCheckedStateTag))
 	{
 		RequestCheckpointAutosave(FridgeCheckpointTag);
@@ -268,9 +453,12 @@ FText AIGMorningRoutineDirector::GetObjectiveText() const
 	switch (Phase)
 	{
 	case EIGMorningPhase::CheckFridge:
-		return NSLOCTEXT("IGMorning", "ObjFridge", "목이 마르다 — 냉장고를 확인하자");
+		return NSLOCTEXT("IGMorning", "ObjFridge", "목이 마르다 — 마실 물을 해결하자");
 	case EIGMorningPhase::TakeWallet:
-		return NSLOCTEXT("IGMorning", "ObjWallet", "물이 없다… 책상 위 지갑을 챙기자");
+		return NSLOCTEXT(
+			"IGMorning",
+			"ObjWallet",
+			"필요하면 책상 위 지갑을 챙기고 나가자");
 	case EIGMorningPhase::GoToStore:
 		return NSLOCTEXT("IGMorning", "ObjStore", "골목 끝 편의점에서 물을 사 오자");
 	case EIGMorningPhase::FindWater:
@@ -290,9 +478,9 @@ FString AIGMorningRoutineDirector::GetObjectiveTextAscii() const
 	switch (Phase)
 	{
 	case EIGMorningPhase::CheckFridge:
-		return TEXT("Thirsty - check the fridge");
+		return TEXT("Thirsty - find a way to get drinking water");
 	case EIGMorningPhase::TakeWallet:
-		return TEXT("No water... grab the wallet on the desk");
+		return TEXT("Optionally take the wallet, then leave");
 	case EIGMorningPhase::GoToStore:
 		return TEXT("Buy water at the corner store");
 	case EIGMorningPhase::FindWater:

@@ -1,8 +1,10 @@
 #include "Interaction/IGZoneTrigger.h"
 
 #include "Components/BoxComponent.h"
+#include "Engine/GameInstance.h"
 #include "GameFramework/Pawn.h"
 #include "Narrative/IGStoryHelpers.h"
+#include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 
 AIGZoneTrigger::AIGZoneTrigger()
@@ -27,14 +29,78 @@ void AIGZoneTrigger::BeginPlay()
 {
 	Super::BeginPlay();
 
-	// Restored checkpoints treat an already-recorded state as consumed.
-	if (StateTagOnEnter.IsValid() && IGStory::HasState(this, StateTagOnEnter))
+	if (UGameInstance* GameInstance = GetGameInstance())
 	{
-		bTriggered = true;
+		if (UIGStoryStateSubsystem* StoryState =
+			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
+		{
+			StoryState->OnStoryStateTagChanged.AddUniqueDynamic(
+				this,
+				&ThisClass::HandleStoryStateChanged);
+		}
+	}
+
+	ReconcileWithStoryState();
+}
+
+void AIGZoneTrigger::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UIGStoryStateSubsystem* StoryState =
+			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
+		{
+			StoryState->OnStoryStateTagChanged.RemoveDynamic(
+				this,
+				&ThisClass::HandleStoryStateChanged);
+		}
+	}
+	Super::EndPlay(EndPlayReason);
+}
+
+void AIGZoneTrigger::ReconcileWithStoryState()
+{
+	// A configured checkpoint tag is authoritative both during initial spawn
+	// and when a save is applied to a world that is already running.
+	bTriggered = StateTagOnEnter.IsValid()
+		&& IGStory::HasState(this, StateTagOnEnter);
+	if (bTriggered)
+	{
+		ZoneBox->OnComponentBeginOverlap.RemoveDynamic(
+			this,
+			&ThisClass::HandleBeginOverlap);
+	}
+	else
+	{
+		ZoneBox->OnComponentBeginOverlap.AddUniqueDynamic(
+			this,
+			&ThisClass::HandleBeginOverlap);
+	}
+}
+
+void AIGZoneTrigger::HandleStoryStateChanged(
+	const FGameplayTag StateTag,
+	const bool bAdded)
+{
+	if (!StateTagOnEnter.IsValid()
+		|| !StateTag.MatchesTagExact(StateTagOnEnter))
+	{
 		return;
 	}
 
-	ZoneBox->OnComponentBeginOverlap.AddDynamic(this, &ThisClass::HandleBeginOverlap);
+	bTriggered = bAdded;
+	if (bTriggered)
+	{
+		ZoneBox->OnComponentBeginOverlap.RemoveDynamic(
+			this,
+			&ThisClass::HandleBeginOverlap);
+	}
+	else
+	{
+		ZoneBox->OnComponentBeginOverlap.AddUniqueDynamic(
+			this,
+			&ThisClass::HandleBeginOverlap);
+	}
 }
 
 void AIGZoneTrigger::HandleBeginOverlap(

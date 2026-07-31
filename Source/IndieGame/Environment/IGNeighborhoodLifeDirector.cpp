@@ -816,6 +816,112 @@ void AIGNeighborhoodLifeDirector::LaunchCatTrace()
 	RefreshRuntimeUpdates();
 }
 
+void AIGNeighborhoodLifeDirector::PlayAuthoredReturnIncident(
+	const FVector CatStart,
+	const FVector CatEnd)
+{
+	if (ChapterVariant != EIGNeighborhoodChapterVariant::ChapterOneNormal
+		|| CatStart.Equals(CatEnd, 10.0f))
+	{
+		return;
+	}
+	InitializePools();
+	GetWorldTimerManager().ClearTimer(VehicleScheduleHandle);
+	GetWorldTimerManager().ClearTimer(GustScheduleHandle);
+	GetWorldTimerManager().ClearTimer(CatScheduleHandle);
+
+	// The first two gusts belong to the ambient baseline. This authored third
+	// gust always follows the road toward the villa and is never duplicated by
+	// a newly scheduled ambient event.
+	GustElapsed = 0.0f;
+	GustDuration = 3.1f;
+	GustPeakStrength = 0.72f;
+	GustDirection = (CatEnd - CatStart).GetSafeNormal();
+	GustVisualPhase = 0.35f * UE_PI;
+	OnWindGust.Broadcast(GustPeakStrength, GustDirection, GustDuration);
+
+	UAudioComponent* GustAudio = CreateSpatialAudioComponent(
+		SceneRoot,
+		MakeUniqueObjectName(
+			this,
+			UAudioComponent::StaticClass(),
+			TEXT("AuthoredReturnGust")),
+		320.0f,
+		1900.0f);
+	GustAudio->bAutoDestroy = true;
+	TransientAudio.Add(GustAudio);
+	GustAudio->SetWorldLocation(FMath::Lerp(CatStart, CatEnd, 0.35f));
+	GustAudio->SetSound(CreateGustSound(this, GustDuration));
+	GustAudio->SetVolumeMultiplier(0.42f);
+	GustAudio->Play();
+	ActivateLeaves(CatStart, 11, GustPeakStrength);
+
+	UAudioComponent* CatAudio = CreateSpatialAudioComponent(
+		SceneRoot,
+		MakeUniqueObjectName(
+			this,
+			UAudioComponent::StaticClass(),
+			TEXT("AuthoredReturnCat")),
+		90.0f,
+		1500.0f);
+	CatAudio->bAutoDestroy = true;
+	TransientAudio.Add(CatAudio);
+	CatAudio->SetWorldLocation(CatStart + FVector(0, 0, 35));
+	CatAudio->SetSound(CreateCatCall(this, false));
+	CatAudio->SetVolumeMultiplier(0.58f);
+	CatAudio->Play();
+
+	CatRuntime.bActive = true;
+	CatRuntime.Start = CatStart;
+	CatRuntime.End = CatEnd;
+	CatRuntime.Elapsed = 0.0f;
+	CatRuntime.Duration = 0.95f;
+	CatTraceRoot->SetWorldLocation(CatRuntime.Start);
+	CatTraceRoot->SetWorldRotation((CatRuntime.End - CatRuntime.Start).Rotation());
+	CatTraceRoot->SetWorldScale3D(FVector::OneVector);
+	for (UStaticMeshComponent* Part : CatSilhouetteParts)
+	{
+		if (Part)
+		{
+			Part->SetVisibility(true);
+			Part->SetHiddenInGame(false);
+		}
+	}
+	ActivateLeaves(CatRuntime.End, 5, 0.58f);
+	RefreshRuntimeUpdates();
+}
+
+void AIGNeighborhoodLifeDirector::PlayAuthoredCatCall(
+	const FVector WorldLocation,
+	const bool bUncanny)
+{
+	if (!GetWorld() || !SceneRoot)
+	{
+		return;
+	}
+
+	TransientAudio.RemoveAllSwap(
+		[](const TObjectPtr<UAudioComponent>& Component)
+		{
+			return !IsValid(Component.Get());
+		},
+		EAllowShrinking::No);
+	UAudioComponent* CatAudio = CreateSpatialAudioComponent(
+		SceneRoot,
+		MakeUniqueObjectName(
+			this,
+			UAudioComponent::StaticClass(),
+			TEXT("AuthoredCatCall")),
+		85.0f,
+		1250.0f);
+	CatAudio->bAutoDestroy = true;
+	TransientAudio.Add(CatAudio);
+	CatAudio->SetWorldLocation(WorldLocation);
+	CatAudio->SetSound(CreateCatCall(this, bUncanny));
+	CatAudio->SetVolumeMultiplier(bUncanny ? 0.38f : 0.50f);
+	CatAudio->Play();
+}
+
 void AIGNeighborhoodLifeDirector::ActivateLeaves(
 	const FVector& Origin,
 	const int32 Count,

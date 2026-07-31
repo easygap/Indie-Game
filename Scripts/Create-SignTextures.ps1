@@ -94,7 +94,7 @@ function Write-RetailPriceStrip {
         param($g, $w, $h)
         for ($i = 0; $i -lt 4; $i++) {
             $x = [single]($w * (0.125 + 0.25 * $i))
-            Draw-CenteredText $g '새벽샘물 1,100' $malgun 29 ([System.Drawing.FontStyle]::Regular) $dark $x ($h * 0.5)
+            Draw-CenteredText $g '새벽샘물 1,000' $malgun 29 ([System.Drawing.FontStyle]::Regular) $dark $x ($h * 0.5)
             $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 190, 192, 190), 3)
             $g.DrawLine($pen, [single]($w * 0.25 * ($i + 1)), 8, [single]($w * 0.25 * ($i + 1)), [single]($h - 8))
             $pen.Dispose()
@@ -124,7 +124,7 @@ New-SignBitmap -Width 512 -Height 704 -Background $nearWhite -FileName 'T_Poster
     $band.Dispose()
     Draw-CenteredText $g '1+1' $malgun 150 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.5) ($h * 0.15)
     Draw-CenteredText $g '새벽샘물' $malgun 84 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.45)
-    Draw-CenteredText $g '500mL 1,100원' $malgun 52 ([System.Drawing.FontStyle]::Regular) $red ($w * 0.5) ($h * 0.62)
+    Draw-CenteredText $g '500mL 1,000원' $malgun 52 ([System.Drawing.FontStyle]::Regular) $red ($w * 0.5) ($h * 0.62)
     $gray = [System.Drawing.Color]::FromArgb(255, 150, 152, 150)
     for ($i = 0; $i -lt 3; $i++) {
         $pen = New-Object System.Drawing.Pen($gray, 6)
@@ -279,8 +279,13 @@ New-SignBitmap -Width 256 -Height 256 -Background ([System.Drawing.Color]::FromA
 }
 New-SignBitmap -Width 256 -Height 320 -Background $nearWhite -FileName 'T_Calendar_D.png' -Draw {
     param($g, $w, $h)
-    Draw-CenteredText $g '2026  7월' $malgun 44 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.12)
+    Draw-CenteredText $g '2024  7월' $malgun 44 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.11)
     $gray = [System.Drawing.Color]::FromArgb(255, 150, 152, 150)
+    $weekdays = @('일','월','화','수','목','금','토')
+    for ($c = 0; $c -lt 7; $c++) {
+        $color = if ($c -eq 0) { $red } else { $gray }
+        Draw-CenteredText $g $weekdays[$c] $malgun 15 ([System.Drawing.FontStyle]::Bold) $color ($w * (0.13 + $c * 0.125)) ($h * 0.235)
+    }
     for ($r = 0; $r -lt 5; $r++) {
         for ($c = 0; $c -lt 7; $c++) {
             $color = if ($c -eq 0) { $red } else { $gray }
@@ -288,6 +293,21 @@ New-SignBitmap -Width 256 -Height 320 -Background $nearWhite -FileName 'T_Calend
             $x = [single]($w * (0.08 + $c * 0.125)); $y = [single]($h * (0.3 + $r * 0.13))
             $g.DrawRectangle($pen, $x, $y, [single]($w*0.1), [single]($h*0.09))
             $pen.Dispose()
+            # 2024-07-01 was Monday. Keep the texture itself consistent with
+            # the canonical Friday, July 26 incident instead of drawing a
+            # decorative but contradictory generic grid.
+            $day = $r * 7 + $c
+            if ($r -eq 0) { $day = $c }
+            if ($r -eq 0 -and $c -eq 0) { continue }
+            if ($r -gt 0) { $day = $r * 7 + $c }
+            if ($day -gt 31) { continue }
+            $dayColor = if ($c -eq 0) { $red } else { $dark }
+            Draw-CenteredText $g ([string]$day) $malgun 15 ([System.Drawing.FontStyle]::Regular) $dayColor ($w * (0.13 + $c * 0.125)) ($h * (0.345 + $r * 0.13))
+            if ($day -eq 26) {
+                $markPen = New-Object System.Drawing.Pen($red, 3)
+                $g.DrawEllipse($markPen, [single]($x + 2), [single]($y + 2), [single]($w*0.085), [single]($h*0.075))
+                $markPen.Dispose()
+            }
         }
     }
 }

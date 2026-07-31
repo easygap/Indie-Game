@@ -9,6 +9,7 @@ class UIGFlashlightComponent;
 class UIGInteractionComponent;
 class UIGStressComponent;
 class UInputAction;
+class UStaticMeshComponent;
 struct FInputActionValue;
 
 /** First-person player pawn with asset-driven Enhanced Input bindings. */
@@ -42,10 +43,27 @@ public:
 
 	/** Parents an item to the camera at the given relative pose (held item). */
 	UFUNCTION(BlueprintCallable, Category = "Player|Carry")
-	void CarryActor(AActor* Item, const FVector& RelativeOffset, const FRotator& RelativeRotation);
+	bool CarryActor(AActor* Item, const FVector& RelativeOffset, const FRotator& RelativeRotation);
+
+	/** Clears the hand only when it still owns ExpectedItem. */
+	UFUNCTION(BlueprintCallable, Category = "Player|Carry")
+	bool ReleaseCarriedActor(AActor* ExpectedItem);
 
 	UFUNCTION(BlueprintPure, Category = "Player|Carry")
 	AActor* GetCarriedActor() const { return CarriedActor.Get(); }
+
+	/**
+	 * Renders the persistent REBIRTH outfit fact with a static first-person
+	 * sleeve proxy. Restore callers leave bPlayPresentation false; the
+	 * canonical first-exit commit requests the non-blocking 1.2 second reveal.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player|Outfit")
+	void SetRebirthOutfitEquipped(
+		bool bEquipped,
+		bool bPlayPresentation = false);
+
+	UFUNCTION(BlueprintPure, Category = "Player|Outfit")
+	bool IsRebirthOutfitEquipped() const { return bRebirthOutfitEquipped; }
 
 protected:
 	virtual void BeginPlay() override;
@@ -64,11 +82,13 @@ private:
 	void BeginInteraction();
 	void EndInteraction();
 	void ToggleFlashlight();
+	void LoadLatestAutosave();
 	/** Samples how dark it is where the player stands, for the stress model. */
 	float SampleAmbientDarkness() const;
 	void TryRequestGetUpFallback();
 	void UpdateCameraMotion(float DeltaSeconds);
 	void UpdateCarriedItem(float DeltaSeconds);
+	void UpdateOutfitPresentation(float DeltaSeconds);
 	void PlayFootstep(float SpeedScale);
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
@@ -82,6 +102,12 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UIGStressComponent> StressComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Outfit", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UStaticMeshComponent> OutfitSleeveProxy;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Outfit", meta = (AllowPrivateAccess = "true"))
+	TArray<TObjectPtr<UStaticMeshComponent>> OutfitStitchProxies;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> MoveInputAction;
@@ -114,6 +140,11 @@ private:
 	float BreathTime = 0.0f;
 	int32 LastStepIndex = 0;
 	bool bCameraMotionEnabled = false;
+	bool bRebirthOutfitEquipped = false;
+	bool bOutfitPresentationActive = false;
+	float OutfitPresentationElapsed = 0.0f;
+	bool bHeavyBagInteractionProxyActive = false;
+	FVector HeavyBagRestLocation = FVector::ZeroVector;
 
 	/** Decaying kick applied when an interaction is pressed. */
 	float InteractPunch = 0.0f;

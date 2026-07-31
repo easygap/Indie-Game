@@ -1,6 +1,7 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "GameplayTagContainer.h"
 #include "Interaction/IGInteractableActor.h"
 #include "Sequence/IGObjectiveProvider.h"
 #include "IGThirdMorningDirector.generated.h"
@@ -9,6 +10,7 @@ class AIGPlayerCharacter;
 class AIGReadableNote;
 class AIGThirdMorningDirector;
 class AIGZoneTrigger;
+class UIGRebirthNarrativeSubsystem;
 class UAudioComponent;
 class UMaterialInterface;
 class UPointLightComponent;
@@ -25,15 +27,31 @@ class UTextRenderComponent;
 UENUM()
 enum class EIGChapterThreeAction : uint8
 {
+	None,
 	OpenFridge,
+	RecoverFlashlight,
 	OpenApartmentDoor,
 	InspectElevator,
 	OpenRoofDoor,
 	InspectKeys,
-	InspectGlasses,
+	P3CloseDirectInlet,
+	P3CloseReserveInlet,
+	P3OpenPressureRelease,
+	P3OpenFloorDrain,
+	EvidenceCatEntered,
+	EvidenceCatExited,
+	EvidenceHosePaw,
+	EvidenceHoseImpact,
+	EvidenceBag,
+	EvidenceWetRung,
+	EvidenceHandSmear,
+	EvidenceGlasses,
+	EvidenceTankClothing,
+	EvidenceCurrentSleeve,
+	EvidenceSearchPoster,
 	OpenTank,
 	CloseTank,
-	EnterTank
+	SupportLid
 };
 
 /** Small native interaction target owned by AIGThirdMorningDirector. */
@@ -55,6 +73,10 @@ public:
 		float HoldSeconds = 0.0f);
 
 	UStaticMeshComponent* GetPresentationMesh() const { return PresentationMesh; }
+	void SetHoldSeconds(float HoldSeconds)
+	{
+		InteractionHoldDuration = FMath::Max(0.0f, HoldSeconds);
+	}
 
 	virtual void CompleteInteraction_Implementation(
 		const FIGInteractionContext& Context) override;
@@ -66,7 +88,7 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<AIGThirdMorningDirector> Director;
 
-	EIGChapterThreeAction Action = EIGChapterThreeAction::OpenFridge;
+	EIGChapterThreeAction Action = EIGChapterThreeAction::None;
 };
 
 UENUM()
@@ -105,6 +127,9 @@ public:
 	/** Builds the stage, positions the player, then starts the self-stopping alarm. */
 	void ConfigureAndStart(bool bShowIntroCard, bool bCaptureSequence);
 
+	/** Rehydrates a loaded save at a deterministic non-transient world anchor. */
+	void RestoreCheckpointAnchor(FGameplayTag CheckpointTag);
+
 	/** Called only by the director-owned physical interaction actors. */
 	void HandleAction(EIGChapterThreeAction Action, AIGChapterThreeAction* Source);
 
@@ -123,9 +148,12 @@ private:
 	void BuildStage();
 	void BuildApartment();
 	void BuildFloodedCorridor();
+	void BuildP3ServiceCabinet();
 	void BuildLoopingStairwell();
 	void BuildFifthFloorAndRoof();
 	void BuildWaterTank();
+	void BuildP5AccidentEvidence();
+	void PresentPurchaseEvidenceContinuity();
 	void SpawnClueDocuments();
 	void SpawnTriggers();
 
@@ -135,7 +163,8 @@ private:
 		UMaterialInterface* Material,
 		bool bCollision = true,
 		const FRotator& Rotation = FRotator::ZeroRotator,
-		UStaticMesh* MeshOverride = nullptr);
+		UStaticMesh* MeshOverride = nullptr,
+		bool bMovable = false);
 	UPointLightComponent* CreatePointLight(
 		const FVector& LocalLocation,
 		float Intensity,
@@ -163,9 +192,29 @@ private:
 	FVector ToWorld(const FVector& LocalLocation) const;
 
 	void SetVisibleInteractive(AIGChapterThreeAction* Action, bool bVisible);
+	void SetDocumentAvailable(AIGReadableNote* Note, bool bAvailable);
+	bool HasMemoryFlashlight() const;
+	void ApplyTankRevealVisibility();
+	void ArmFlashlightReturnReveal();
 	void UpdateStairSign();
 	void SetPhase(EIGThirdMorningPhase NewPhase);
 	void SetFloodMovement(bool bFlooded);
+	UIGRebirthNarrativeSubsystem* GetRebirthState() const;
+	void BootstrapRebirthContext();
+	void CommitChapterThreeState();
+	void RequestCheckpointAutosave(const TCHAR* CheckpointTagName) const;
+	bool RestoreChapterThreeState();
+	void ApplyChapterThreeWorldState();
+	void ApplyCommonDiscoveryWorldState();
+	void ResumeRestoredEnding();
+	void RegisterTruth(
+		const TCHAR* TruthName,
+		FName SourceId,
+		bool bConfirmsTruth = true);
+	void RegisterTruth(
+		const TCHAR* TruthName,
+		const TCHAR* SourceId,
+		bool bConfirmsTruth = true);
 
 	// --- experience flow --------------------------------------------------
 	void BeginAwakening();
@@ -174,10 +223,36 @@ private:
 	void TryUnlockApartmentExit();
 	void RevealUpwardRoute();
 	void EnterRoofSilence();
+	void RevealRoofInvestigationFolder();
 	void RevealTank();
+	void BeginP3PressureRelease();
+	void UpdateP3PressureRelease();
+	void PollP3Hint();
+	void RestoreP3HintHighlight();
+	void StopP3HintClock();
+	void HandleP3Mistake();
+	void CompleteP3();
+	void FocusOrCompareEvidence(EIGChapterThreeAction EvidenceAction);
+	void RegisterEvidenceObservation(EIGChapterThreeAction EvidenceAction);
+	void RefreshEvidencePrompts();
+	bool ResolveEvidencePair(
+		EIGChapterThreeAction First,
+		EIGChapterThreeAction Second);
+	bool IsEvidencePairValid(
+		EIGChapterThreeAction First,
+		EIGChapterThreeAction Second) const;
+	int32 GetAccidentTruthCount() const;
+	bool IsEndingChoiceReady() const;
+	void UpdateEndingAvailability();
+	void ScheduleAccidentScratch();
+	void EvaluateAccidentScratchGate();
+	void PlayAccidentScratch();
+	void SettleAccidentScratchTail();
 	void FinishEndingA();
+	void FinishEndingAAfterDiscovery();
 	void BeginEndingB();
 	void FinishEndingB();
+	void ShowCommonDiscoveryCard();
 	void PresentEndingControls(const FText& EndingTitle, const FText& EndingSubtitle);
 	void EnableEndingInput();
 	void RestartChapter();
@@ -192,9 +267,13 @@ private:
 
 	// --- capture/smoke hook ----------------------------------------------
 	void StartCaptureSequence();
+	void WaitForRebirthGreyboxScratches();
 	void CaptureNextFrame();
 	void FinishCaptureSequence();
 	void PlaceCaptureCamera(const FVector& LocalPawnLocation, const FVector& LocalLookAt);
+	void StartRebirthGreyboxValidation();
+	void ContinueRebirthGreyboxValidation();
+	void FinishRebirthGreyboxValidation();
 
 	UFUNCTION()
 	void HandleCorridorEntered(AIGZoneTrigger* Zone);
@@ -209,7 +288,16 @@ private:
 	void HandleLadderEntered(AIGZoneTrigger* Zone);
 
 	UFUNCTION()
+	void HandleFlashlightReturnReveal(AIGZoneTrigger* Zone);
+
+	UFUNCTION()
 	void HandleClueRead(AIGReadableNote* Note, bool bOpened);
+
+	UFUNCTION()
+	void HandleRebirthTruthChanged(
+		FGameplayTag TruthTag,
+		FName SourceId,
+		bool bConfirmed);
 
 	UPROPERTY(VisibleAnywhere, Category = "CH03|Components")
 	TObjectPtr<USceneComponent> SceneRoot;
@@ -247,24 +335,41 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> EmergencyMaterial;
 
 	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> FridgeDoorAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> MemoryFlashlightAction;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> ApartmentDoorAction;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> ElevatorAction;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> RoofDoorAction;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> KeysAction;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> GlassesAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> CurrentSleeveAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> SearchPosterAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> P3DirectInletAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> P3ReserveInletAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> P3PressureReleaseAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> P3FloorDrainAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> P3HintHighlightedAction;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> TankLidAction;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> CloseChoiceAction;
-	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> EnterChoiceAction;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterThreeAction> SupportChoiceAction;
+	UPROPERTY(Transient)
+	TMap<EIGChapterThreeAction, TObjectPtr<AIGChapterThreeAction>> EvidenceActions;
 
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> PlannerNote;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> MotherPhoneNote;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> OfferingNote;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> EstimateNote;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> RecheckNoticeNote;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> PreservationNoticeNote;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> PoliceChecklistNote;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> P3RecordNote;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> P3PhotoNote;
+	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ManagementDbNote;
 
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> CorridorEntryZone;
 	UPROPERTY(Transient) TArray<TObjectPtr<AIGZoneTrigger>> StairLoopZones;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> FifthFloorZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> LadderZone;
+	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> FlashlightReturnRevealZone;
 
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> FridgeInteriorLightPanel;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> FridgeInteriorLight;
@@ -272,6 +377,10 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> ApartmentDoorLeaf;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> UpRouteGate;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> DownRouteWaterBarrier;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> CorridorWaterVisual;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3PressureNeedle;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3BleedTubeVisual;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3BleedWaterVisual;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> RoofDoorLeaf;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> TankLidVisual;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> TankWaterSurface;
@@ -280,6 +389,7 @@ private:
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> StairSignParts;
 	UPROPERTY(Transient) TObjectPtr<UTextRenderComponent> StairSignText;
 	UPROPERTY(Transient) TObjectPtr<UTextRenderComponent> StairRoofText;
+	UPROPERTY(Transient) TObjectPtr<UTextRenderComponent> P3PressureText;
 
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> AlarmComponent;
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> WaterBedComponent;
@@ -287,22 +397,58 @@ private:
 	EIGThirdMorningPhase Phase = EIGThirdMorningPhase::Awakening;
 	int32 StairLoopCount = 0;
 	int32 CaptureIndex = 0;
+	int32 P3MistakeCount = 0;
+	int32 AccidentScratchCount = 0;
+	int32 GreyboxScratchWaitTicks = 0;
 	bool bStageBuilt = false;
 	bool bAlarmStopped = false;
 	bool bFridgeInspected = false;
 	bool bPlannerRead = false;
 	bool bMotherPhoneRead = false;
 	bool bEstimateRead = false;
+	bool bRecheckNoticeRead = false;
+	bool bPreservationNoticeRead = false;
+	bool bPoliceChecklistRead = false;
+	bool bP3RecordRead = false;
+	bool bP3PhotoRead = false;
+	bool bManagementDbRead = false;
 	bool bKeysInspected = false;
 	bool bGlassesInspected = false;
+	bool bP3DirectClosed = false;
+	bool bP3ReserveClosed = false;
+	bool bP3PressureReleaseOpen = false;
+	bool bP3PressureZero = false;
+	bool bP3Solved = false;
 	bool bTankOpened = false;
+	bool bAccidentScratchTailSettled = false;
+	bool bLookedAwayAfterFirstScratch = false;
+	bool bActedAfterSecondScratch = false;
+	bool bScratchGatePlayerWasMoving = false;
 	bool bEndingFinished = false;
+	bool bEndingASelected = false;
 	bool bCaptureMode = false;
+	bool bGreyboxValidationMode = false;
+	bool bGreyboxDocumentSkipRouteValid = false;
+	bool bRestoredChapterThreeProgress = false;
+	float P3PressureKPa = 60.0f;
+	float P3HintElapsedSeconds = 0.0f;
+	int32 P3ZeroConfirmationTicks = 0;
+	int32 P3HintStage = 0;
+	EIGChapterThreeAction FocusedEvidence = EIGChapterThreeAction::None;
+	TArray<FName> ObservedP5Sources;
+	double AccidentScratchGateStartSeconds = -1.0;
 	double LastPlayerMovingTime = 0.0;
 	double NextDelayedSplashTime = 0.0;
 
 	FTimerHandle AlarmTimer;
 	FTimerHandle FlowTimer;
+	FTimerHandle RoofFolderRevealTimer;
+	FTimerHandle LadderEchoTimer;
 	FTimerHandle MotionPollTimer;
 	FTimerHandle CaptureTimer;
+	FTimerHandle P3PressureTimer;
+	FTimerHandle P3HintTimer;
+	FTimerHandle P3HintVisualTimer;
+	FTimerHandle AccidentScratchTimer;
+	FTimerHandle AccidentScratchTailTimer;
 };

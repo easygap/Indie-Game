@@ -11,7 +11,8 @@
 낯선 괴물을 계속 보여 주기보다, 매일 지나던 복도와 편의점이 조금씩
 틀어지는 순간에 집중했습니다. 플레이어는 세 번의 아침을 반복하며
 영수증, 휴대폰, 관리 기록과 생활 흔적을 직접 대조하고, 마지막에는
-사건을 다시 덮을지 세상에 남길지 선택하게 됩니다.
+이미 일어난 발견을 마주한 채 기억 속 뚜껑을 다시 닫을지, 잠시 붙들고
+04:44 이후를 받아들일지 선택하게 됩니다.
 
 | 구분 | 내용 |
 |---|---|
@@ -166,10 +167,10 @@
 - Visual Studio 2026의 **Game development with C++** 워크로드
 - Windows SDK
 
-실행 스크립트는 Unreal Engine이
-`C:\Program Files\Epic Games\UE_5.8`에 설치되어 있다고 가정합니다.
-설치 위치가 다르면 배치 파일의 `UE_EDITOR` 값을 실제
-`UnrealEditor.exe` 경로로 바꿔 주세요.
+실행 스크립트는 프로젝트의 `EngineAssociation`과 일치하는 Unreal
+Editor를 표준 설치 경로, 레지스트리와 Epic Launcher 설치 목록에서
+찾습니다. 소스 빌드처럼 별도 위치를 쓴다면 환경 변수
+`IG_UNREAL_EDITOR`에 실제 `UnrealEditor.exe` 경로를 지정하면 됩니다.
 
 에디터에서 직접 열려면 [IndieGame.uproject](IndieGame.uproject)을
 실행하고 UE 5.8을 선택합니다. 모듈을 다시 빌드할지 묻는 창이 나오면
@@ -178,6 +179,9 @@
 ## 더 보기
 
 - [CH01 실제 플레이 영상](Docs/Media/prologue-walkthrough.mp4)
-- [전체 스토리 바이블](Docs/STORY_BIBLE.md) — 결말 포함
+- [REBIRTH 스토리 마스터](Docs/STORY_BIBLE_REBIRTH.md) — 단일 제작 정사와 서사·공포·음악·이미지·대화 통합 기준
+- [출시 타당성 제작 계약](Docs/FEASIBILITY.md) — Keep/Static Proxy/Cut 범위와 S1~S4 승인 기준
+- [현재 구현 상태](Docs/IMPLEMENTATION_STATUS.md) — REBIRTH 반영 범위와 남은 출시 차단 항목
+- [구버전 스토리 바이블 보관본](Docs/STORY_BIBLE.md) — REBIRTH 이전 기록, 제작 기준 아님
 - [스토리와 공포 연출 설계](Docs/STORY_DIRECTION.md) — 결말 포함
 - [사용 에셋과 라이선스](Docs/ASSET_POLICY.md)

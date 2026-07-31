@@ -48,6 +48,17 @@ public:
 		const FText& InPurchaseThought);
 
 	/**
+	 * Reuses the physical POS as a story action that does not require a carried
+	 * product. CH02 uses this for the employee-call button: the completion tag
+	 * is committed, but checkout audio is deliberately suppressed.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Checkout|Story")
+	void ConfigureChapterAction(
+		FGameplayTag InCompletedStateTag,
+		const FText& InInteractionPrompt,
+		const FText& InCompletionThought);
+
+	/**
 	 * Adds a second story prerequisite without replacing the carried-item
 	 * requirement. Passing an invalid tag clears the extra gate.
 	 */
@@ -97,4 +108,6 @@ private:
 	void PlayRegisterTimerElapsed();
 
 	FTimerHandle RegisterSoundTimerHandle;
+	bool bRequiresPrimaryState = true;
+	bool bPlayRegisterPresentation = true;
 };

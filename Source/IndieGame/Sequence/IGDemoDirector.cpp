@@ -87,6 +87,17 @@ AIGDemoDirector::FIGDemoStep AIGDemoDirector::MakeWait(
 	return Step;
 }
 
+AIGDemoDirector::FIGDemoStep AIGDemoDirector::MakeRideWait(
+	const float Duration,
+	const FVector& LookAt,
+	const float ReferencePawnZ)
+{
+	FIGDemoStep Step = MakeWait(Duration, LookAt);
+	Step.bTrackPawnHeight = true;
+	Step.LookAtPawnZOffset = LookAt.Z - ReferencePawnZ;
+	return Step;
+}
+
 AIGDemoDirector::FIGDemoStep AIGDemoDirector::MakeWalk(const FVector& Target)
 {
 	FIGDemoStep Step;
@@ -130,6 +141,7 @@ void AIGDemoDirector::BuildScript()
 	Steps.Reset();
 
 	constexpr float FloorZ = 900.0f; // unit 404 is on the 4th floor
+	constexpr float StandingPawnZ = FloorZ + 98.0f;
 	const FVector AlarmSpot(-160, -35, FloorZ + 75);
 	const FVector FridgeFace(122, -20, FloorZ + 105);
 	const FVector FridgeInside(150, -20, FloorZ + 100);
@@ -141,7 +153,6 @@ void AIGDemoDirector::BuildScript()
 	// Look through the doorway at the whole car. The previous target sat on
 	// the near-right COP and made the jamb fill a quarter of the still.
 	const FVector CabPanelSpot(820, -305, 140);
-	const FVector CabDoorSpot(714, -305, 128);
 	const FVector LobbyDoorSpot(643, -380, 115);
 	const FVector VillaFacadeSpot(240, -390, 620);
 	const FVector StoreFar(2400, -457, 240);
@@ -212,9 +223,15 @@ void AIGDemoDirector::BuildScript()
 		// Every target here has to be in the frame the rider is actually in:
 		// aiming at a lobby-height point while still on the fourth floor
 		// pitches the camera straight at the floor.
-		Steps.Add(MakeWait(2.4f, FVector(747, -232, FloorZ + 122)));  // the COP
-		Steps.Add(MakeWait(3.1f, FVector(846, -305, FloorZ + 165)));  // mirrored rear
-		Steps.Add(MakeWait(5.0f, CabDoorSpot));                       // doors, in the lobby
+		// Track the rider's vertical position. Fixed 4F look targets survived
+		// the closed-door transfer in the old capture and yanked the camera up
+		// toward the sky while the pawn was already standing in the lobby cab.
+		Steps.Add(MakeRideWait(
+			2.4f, FVector(747, -232, FloorZ + 122), StandingPawnZ)); // the COP
+		Steps.Add(MakeRideWait(
+			3.1f, FVector(846, -305, FloorZ + 165), StandingPawnZ)); // rear panel
+		Steps.Add(MakeRideWait(
+			5.0f, FVector(714, -305, FloorZ + 128), StandingPawnZ)); // doors
 	}
 	// Step out and turn back: the open car from the landing shows the panel,
 	// the handrails, the lit ceiling and the stone floor in one frame.
@@ -394,8 +411,14 @@ void AIGDemoDirector::UpdateLook(const float DeltaSeconds)
 
 	const FVector EyeLocation =
 		Pawn->GetActorLocation() + FVector(0, 0, 64);
+	FVector ResolvedLookAt = CurrentLookAt;
+	if (Steps.IsValidIndex(StepIndex) && Steps[StepIndex].bTrackPawnHeight)
+	{
+		ResolvedLookAt.Z =
+			Pawn->GetActorLocation().Z + Steps[StepIndex].LookAtPawnZOffset;
+	}
 	const FRotator DesiredRotation =
-		(CurrentLookAt - EyeLocation).Rotation();
+		(ResolvedLookAt - EyeLocation).Rotation();
 	const FRotator NewRotation = FMath::RInterpTo(
 		Controller->GetControlRotation(),
 		DesiredRotation,
@@ -425,22 +448,18 @@ void AIGDemoDirector::UpdateWalk(const float DeltaSeconds)
 
 	if (WalkTimeout >= MaxWalkSeconds)
 	{
-		// Stuck-recovery: snap to the waypoint so the tour always continues
-		// from the intended spot instead of drifting off-route.
+		// A verification tour must expose a broken threshold instead of
+		// teleporting through it and recording an impossible transition.
 		UE_LOG(
 			LogIndieGame,
-			Warning,
-			TEXT("Demo walk step %d timed out at %s (target %s, remaining %.1f cm); snapping to waypoint."),
+			Error,
+			TEXT("Demo walk step %d timed out at %s (target %s, remaining %.1f cm); aborting spatial-continuity capture."),
 			StepIndex,
 			*Pawn->GetActorLocation().ToCompactString(),
 			*Step.Target.ToCompactString(),
 			ToTarget.Size2D());
-		Pawn->SetActorLocation(
-			FVector(Step.Target.X, Step.Target.Y, Pawn->GetActorLocation().Z),
-			false,
-			nullptr,
-			ETeleportType::TeleportPhysics);
-		AdvanceStep();
+		bScriptFinished = true;
+		SetActorTickEnabled(false);
 		return;
 	}
 

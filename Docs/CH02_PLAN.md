@@ -1,6 +1,11 @@
 ﻿# CH02 — 두 번째 아침: 집이 아니다
 
-> 문서 성격: 현재 코드 기준의 **구현 계약**
+> **보관 문서 — REBIRTH 이전 CH02 선형 구현 기록.**
+> 재구매·구형 영수증·강제 순서는 현재 계약이 아니다. 현재 정사는
+> [STORY_BIBLE_REBIRTH.md](STORY_BIBLE_REBIRTH.md), 실제 반영 상태는
+> [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)를 따른다.
+>
+> 문서 성격: 과거 코드 기준의 **구현 기록**
 >
 > 코드 검증 기준일: **2026-07-26**
 >

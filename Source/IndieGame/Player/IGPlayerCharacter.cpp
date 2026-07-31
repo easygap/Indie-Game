@@ -5,17 +5,40 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/CollisionProfile.h"
+#include "Engine/GameInstance.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
 #include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "InputActionValue.h"
+#include "InputCoreTypes.h"
+#include "Interaction/IGPickupItem.h"
+#include "Materials/MaterialInterface.h"
+#include "Narrative/IGStoryHelpers.h"
 #include "UObject/UObjectIterator.h"
 #include "Interaction/IGReadableNote.h"
 #include "Player/IGFlashlightComponent.h"
+#include "Player/IGHorrorHUD.h"
 #include "Player/IGInteractionComponent.h"
 #include "Player/IGStressComponent.h"
 #include "Sequence/IGWakeUpDirector.h"
+#include "Save/IGSaveSubsystem.h"
+#include "UObject/ConstructorHelpers.h"
+
+namespace IGPlayerOutfit
+{
+	constexpr float PresentationDurationSeconds = 1.2f;
+	constexpr float PresentationPeakAlpha = 0.42f;
+	const FVector RestLocation(34.0f, -18.0f, -27.0f);
+	const FVector StartLocation(22.0f, -18.0f, -49.0f);
+	const FVector PeakLocation(38.0f, -16.0f, -18.0f);
+	const FRotator RestRotation(72.0f, -8.0f, -6.0f);
+	const FRotator StartRotation(78.0f, -5.0f, -12.0f);
+	const FRotator PeakRotation(48.0f, -16.0f, 12.0f);
+}
 
 AIGPlayerCharacter::AIGPlayerCharacter()
 {
@@ -62,6 +85,68 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	// ~standard 35mm feel; the default 90 reads wide-angle and warps depth.
 	FirstPersonCamera->SetFieldOfView(78.0f);
 
+	// REBIRTH uses a static first-person proxy instead of introducing a
+	// skeletal-arms pipeline. The three dark stitches are the unique repair
+	// repeated on the 403 figure and the tank clothing.
+	OutfitSleeveProxy =
+		CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OutfitSleeveProxy"));
+	OutfitSleeveProxy->SetupAttachment(FirstPersonCamera);
+	OutfitSleeveProxy->SetCollisionProfileName(
+		UCollisionProfile::NoCollision_ProfileName);
+	OutfitSleeveProxy->SetGenerateOverlapEvents(false);
+	OutfitSleeveProxy->SetCanEverAffectNavigation(false);
+	OutfitSleeveProxy->SetCastShadow(false);
+	OutfitSleeveProxy->SetRelativeLocation(IGPlayerOutfit::RestLocation);
+	OutfitSleeveProxy->SetRelativeRotation(IGPlayerOutfit::RestRotation);
+	OutfitSleeveProxy->SetRelativeScale3D(FVector(0.055f, 0.055f, 0.28f));
+	OutfitSleeveProxy->SetHiddenInGame(true);
+
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMeshFinder(
+		TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMeshFinder(
+		TEXT("/Engine/BasicShapes/Cube.Cube"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> SleeveMaterialFinder(
+		TEXT("/Game/Prototype/Materials/M_BeddingUV.M_BeddingUV"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> StitchMaterialFinder(
+		TEXT("/Game/Prototype/Materials/M_PlasticDark.M_PlasticDark"));
+	if (CylinderMeshFinder.Succeeded())
+	{
+		OutfitSleeveProxy->SetStaticMesh(CylinderMeshFinder.Object);
+	}
+	if (SleeveMaterialFinder.Succeeded())
+	{
+		OutfitSleeveProxy->SetMaterial(0, SleeveMaterialFinder.Object);
+	}
+
+	for (int32 StitchIndex = 0; StitchIndex < 3; ++StitchIndex)
+	{
+		UStaticMeshComponent* Stitch = CreateDefaultSubobject<UStaticMeshComponent>(
+			*FString::Printf(TEXT("OutfitRepairStitch%d"), StitchIndex + 1));
+		// The repair belongs to the cloth, not the camera. Parenting all three
+		// stitches to the sleeve keeps their spacing and orientation exact
+		// throughout the first-exit presentation and ordinary camera motion.
+		Stitch->SetupAttachment(OutfitSleeveProxy);
+		Stitch->SetCollisionProfileName(
+			UCollisionProfile::NoCollision_ProfileName);
+		Stitch->SetGenerateOverlapEvents(false);
+		Stitch->SetCanEverAffectNavigation(false);
+		Stitch->SetCastShadow(false);
+		Stitch->SetRelativeLocation(
+			FVector(-10.0f, -52.0f, -12.0f + StitchIndex * 12.0f));
+		Stitch->SetRelativeRotation(FRotator(0.0f, 0.0f, 18.0f));
+		Stitch->SetRelativeScale3D(FVector(0.16f, 0.045f, 0.012f));
+		Stitch->SetHiddenInGame(true);
+		if (CubeMeshFinder.Succeeded())
+		{
+			Stitch->SetStaticMesh(CubeMeshFinder.Object);
+		}
+		if (StitchMaterialFinder.Succeeded())
+		{
+			Stitch->SetMaterial(0, StitchMaterialFinder.Object);
+		}
+		OutfitStitchProxies.Add(Stitch);
+	}
+
 	InteractionComponent = CreateDefaultSubobject<UIGInteractionComponent>(TEXT("InteractionComponent"));
 
 	// The torch hangs off the camera so it aims where you look, but it has
@@ -86,6 +171,51 @@ void AIGPlayerCharacter::BeginPlay()
 	}
 
 	SetActorTickEnabled(true);
+}
+
+void AIGPlayerCharacter::SetRebirthOutfitEquipped(
+	const bool bEquipped,
+	const bool bPlayPresentation)
+{
+	bRebirthOutfitEquipped = bEquipped;
+	if (OutfitSleeveProxy)
+	{
+		if (!bEquipped)
+		{
+			OutfitSleeveProxy->SetRelativeLocation(
+				IGPlayerOutfit::RestLocation);
+			OutfitSleeveProxy->SetRelativeRotation(
+				IGPlayerOutfit::RestRotation);
+		}
+		OutfitSleeveProxy->SetHiddenInGame(!bEquipped);
+	}
+	for (UStaticMeshComponent* Stitch : OutfitStitchProxies)
+	{
+		if (Stitch)
+		{
+			Stitch->SetHiddenInGame(!bEquipped);
+		}
+	}
+
+	if (!bEquipped)
+	{
+		bOutfitPresentationActive = false;
+		OutfitPresentationElapsed = 0.0f;
+		return;
+	}
+
+	if (bPlayPresentation && OutfitSleeveProxy)
+	{
+		bOutfitPresentationActive = true;
+		OutfitPresentationElapsed = 0.0f;
+		OutfitSleeveProxy->SetRelativeLocation(
+			IGPlayerOutfit::StartLocation);
+		OutfitSleeveProxy->SetRelativeRotation(
+			IGPlayerOutfit::StartRotation);
+		// No input or view lock: this camera-child prop moves while the player
+		// remains in full control.
+		SetActorTickEnabled(true);
+	}
 }
 
 void AIGPlayerCharacter::HandleFocusChanged(AActor* PreviousActor, AActor* NewActor)
@@ -124,6 +254,67 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 
 	UpdateCameraMotion(DeltaSeconds);
 	UpdateCarriedItem(DeltaSeconds);
+	UpdateOutfitPresentation(DeltaSeconds);
+}
+
+void AIGPlayerCharacter::UpdateOutfitPresentation(const float DeltaSeconds)
+{
+	if (!bOutfitPresentationActive || !OutfitSleeveProxy)
+	{
+		return;
+	}
+
+	OutfitPresentationElapsed = FMath::Min(
+		OutfitPresentationElapsed + DeltaSeconds,
+		IGPlayerOutfit::PresentationDurationSeconds);
+	const float Alpha = OutfitPresentationElapsed
+		/ IGPlayerOutfit::PresentationDurationSeconds;
+
+	FVector Location;
+	FRotator Rotation;
+	if (Alpha < IGPlayerOutfit::PresentationPeakAlpha)
+	{
+		const float Phase = FMath::SmoothStep(
+			0.0f,
+			1.0f,
+			Alpha / IGPlayerOutfit::PresentationPeakAlpha);
+		Location = FMath::Lerp(
+			IGPlayerOutfit::StartLocation,
+			IGPlayerOutfit::PeakLocation,
+			Phase);
+		Rotation = FMath::Lerp(
+			IGPlayerOutfit::StartRotation,
+			IGPlayerOutfit::PeakRotation,
+			Phase);
+	}
+	else
+	{
+		const float Phase = FMath::SmoothStep(
+			0.0f,
+			1.0f,
+			(Alpha - IGPlayerOutfit::PresentationPeakAlpha)
+				/ (1.0f - IGPlayerOutfit::PresentationPeakAlpha));
+		Location = FMath::Lerp(
+			IGPlayerOutfit::PeakLocation,
+			IGPlayerOutfit::RestLocation,
+			Phase);
+		Rotation = FMath::Lerp(
+			IGPlayerOutfit::PeakRotation,
+			IGPlayerOutfit::RestRotation,
+			Phase);
+	}
+
+	OutfitSleeveProxy->SetRelativeLocation(Location);
+	OutfitSleeveProxy->SetRelativeRotation(Rotation);
+	if (OutfitPresentationElapsed
+		>= IGPlayerOutfit::PresentationDurationSeconds)
+	{
+		bOutfitPresentationActive = false;
+		OutfitSleeveProxy->SetRelativeLocation(
+			IGPlayerOutfit::RestLocation);
+		OutfitSleeveProxy->SetRelativeRotation(
+			IGPlayerOutfit::RestRotation);
+	}
 }
 
 float AIGPlayerCharacter::SampleAmbientDarkness() const
@@ -346,23 +537,27 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 	}
 }
 
-void AIGPlayerCharacter::CarryActor(
+bool AIGPlayerCharacter::CarryActor(
 	AActor* Item,
 	const FVector& RelativeOffset,
 	const FRotator& RelativeRotation)
 {
-	if (!Item || !FirstPersonCamera)
+	if (!Item || !FirstPersonCamera || CarriedActor.IsValid())
 	{
-		return;
+		return false;
 	}
 
-	Item->AttachToComponent(
+	const bool bAttached = Item->AttachToComponent(
 		FirstPersonCamera,
 		FAttachmentTransformRules(
 			EAttachmentRule::SnapToTarget,
 			EAttachmentRule::SnapToTarget,
 			EAttachmentRule::KeepWorld,
 			false));
+	if (!bAttached)
+	{
+		return false;
+	}
 	Item->SetActorRelativeLocation(RelativeOffset);
 	Item->SetActorRelativeRotation(RelativeRotation);
 	CarriedActor = Item;
@@ -377,6 +572,23 @@ void AIGPlayerCharacter::CarryActor(
 	}
 	// Carrying something is reason enough to keep the camera alive.
 	SetCameraMotionEnabled(true);
+	return true;
+}
+
+bool AIGPlayerCharacter::ReleaseCarriedActor(AActor* ExpectedItem)
+{
+	if (!ExpectedItem || CarriedActor.Get() != ExpectedItem)
+	{
+		return false;
+	}
+
+	CarriedActor.Reset();
+	CarriedBaseLocation = FVector::ZeroVector;
+	CarriedBaseRotation = FRotator::ZeroRotator;
+	CarrySwayOffset = FRotator::ZeroRotator;
+	bHeavyBagInteractionProxyActive = false;
+	HeavyBagRestLocation = FVector::ZeroVector;
+	return true;
 }
 
 void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -456,6 +668,35 @@ void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	{
 		PlayerInputComponent->BindAction(TEXT("Flashlight"), IE_Pressed, this, &ThisClass::ToggleFlashlight);
 	}
+	// Save/load remains available even when no Blueprint input asset or front
+	// end menu has been authored yet. Autosaves are the only shipped slots.
+	PlayerInputComponent->BindKey(
+		EKeys::F9,
+		IE_Pressed,
+		this,
+		&ThisClass::LoadLatestAutosave);
+}
+
+void AIGPlayerCharacter::LoadLatestAutosave()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	const bool bLoadStarted =
+		SaveSubsystem && SaveSubsystem->RequestLoadLatestAutosave();
+	AIGHorrorHUD::PushThought(
+		this,
+		bLoadStarted
+			? NSLOCTEXT(
+				"IGSave",
+				"LoadingLatestAutosave",
+				"최근 자동 저장을 불러옵니다.")
+			: NSLOCTEXT(
+				"IGSave",
+				"NoAutosaveAvailable",
+				"불러올 자동 저장이 없습니다."),
+		2.2f);
 }
 
 void AIGPlayerCharacter::Move(const FInputActionValue& Value)
@@ -533,6 +774,32 @@ void AIGPlayerCharacter::BeginInteraction()
 		{
 			InteractPunch = 1.0f;
 			SetCameraMotionEnabled(true);
+
+			const AIGPickupItem* CarriedPickup =
+				Cast<AIGPickupItem>(CarriedActor.Get());
+			const bool bProfileCCommitted =
+				CarriedPickup
+				&& CarriedPickup->RebirthPurchaseProfileOnPickup
+					== EIGRebirthPurchaseProfile::ProfileC2LX2
+				&& IGStory::HasState(
+					this,
+					FGameplayTag::RequestGameplayTag(
+						FName(TEXT("State.CH01.Morning.WaterPurchased")),
+						false));
+			if (bProfileCCommitted && !bHeavyBagInteractionProxyActive)
+			{
+				// Static-proxy version of setting the 4 kg bag down before
+				// using both hands. Input stays live; only the carried prop and
+				// concrete-contact foley change state.
+				bHeavyBagInteractionProxyActive = true;
+				HeavyBagRestLocation = CarriedBaseLocation;
+				CarriedBaseLocation += FVector(-8.0f, 2.0f, -48.0f);
+				IGAudio::SpawnOneShotAt(
+					this,
+					UIGToneSequenceSoundWave::CreateFootstep(this, 0.72f, 0.62f),
+					GetActorLocation() - FVector(0.0f, 0.0f, 88.0f),
+					0.55f);
+			}
 		}
 
 		InteractionComponent->PressInteraction();
@@ -548,6 +815,17 @@ void AIGPlayerCharacter::EndInteraction()
 	if (InteractionComponent)
 	{
 		InteractionComponent->ReleaseInteraction();
+	}
+	if (bHeavyBagInteractionProxyActive)
+	{
+		CarriedBaseLocation = HeavyBagRestLocation;
+		bHeavyBagInteractionProxyActive = false;
+		HeavyBagRestLocation = FVector::ZeroVector;
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateFootstep(this, 0.93f, 0.34f),
+			GetActorLocation() - FVector(0.0f, 0.0f, 72.0f),
+			0.42f);
 	}
 }
 

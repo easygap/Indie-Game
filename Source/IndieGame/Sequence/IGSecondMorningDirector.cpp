@@ -13,10 +13,12 @@
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSlidingDoor.h"
 #include "Interaction/IGSwingDoor.h"
+#include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGStressComponent.h"
+#include "Save/IGSaveSubsystem.h"
 #include "TimerManager.h"
 
 AIGSecondMorningDirector::AIGSecondMorningDirector()
@@ -33,8 +35,10 @@ void AIGSecondMorningDirector::Configure(
 	UAudioComponent* InJingleComponent,
 	AIGReadableNote* InExistingReceipt,
 	AIGReadableNote* InDuplicateReceipt,
+	AIGReadableNote* InHomePlanner,
+	AIGReadableNote* InMirrorAlarmMemo,
 	AIGReadableNote* InMailboxBills,
-	AIGReadableNote* InSaltMemo,
+	AIGReadableNote* InOfferingNote,
 	AIGReadableNote* InNightRoster,
 	AIGReadableNote* InManagementNotice)
 {
@@ -46,8 +50,10 @@ void AIGSecondMorningDirector::Configure(
 	JingleComponent = InJingleComponent;
 	ExistingReceipt = InExistingReceipt;
 	DuplicateReceipt = InDuplicateReceipt;
+	HomePlanner = InHomePlanner;
+	MirrorAlarmMemo = InMirrorAlarmMemo;
 	MailboxBills = InMailboxBills;
-	SaltMemo = InSaltMemo;
+	OfferingNote = InOfferingNote;
 	NightRoster = InNightRoster;
 	ManagementNotice = InManagementNotice;
 }
@@ -71,15 +77,17 @@ void AIGSecondMorningDirector::BeginPlay()
 	{
 		Elevator->OnIntermediateStopOpened.AddUniqueDynamic(
 			this, &ThisClass::HandleIntermediateStopOpened);
-		// The impossible 403 room is a required story beat. The call button
-		// becomes live only after the player has crossed its threshold.
-		Elevator->SetInteractionEnabled(HasState(EnteredMirrorRoomTag));
+		// 403 is a high-value optional investigation, not a movement lock.
+		// Players who distrust the open room may go straight downstairs.
+		Elevator->SetInteractionEnabled(true);
 	}
 
 	BindNote(ExistingReceipt);
 	BindNote(DuplicateReceipt);
+	BindNote(HomePlanner);
+	BindNote(MirrorAlarmMemo);
 	BindNote(MailboxBills);
-	BindNote(SaltMemo);
+	BindNote(OfferingNote);
 	BindNote(NightRoster);
 	BindNote(ManagementNotice);
 
@@ -106,10 +114,24 @@ void AIGSecondMorningDirector::BeginPlay()
 	// A future save/load coordinator may restore tags before this director is
 	// spawned. Reconcile that snapshot here instead of relying exclusively on
 	// change notifications that have already happened.
-	const bool bRestoredPurchase = HasState(WaterPurchasedTag);
+	const bool bRestoredLeftHome = HasState(LeftHomeTag);
+	if (HasState(LegacyWaterPurchasedTag) && !HasState(CalledEmployeeTag))
+	{
+		// Pre-REBIRTH saves called this POS interaction a second purchase.
+		// Preserve their progress without restoring the contradicted motive.
+		AddState(CalledEmployeeTag);
+	}
+	const bool bRestoredEmployeeCall = HasState(CalledEmployeeTag);
 	const bool bRestoredDuplicateRead = HasState(ReadDuplicateReceiptTag);
 	const bool bRestoredReturn = HasState(ReturnedTag);
-	if (bRestoredReturn && (!bRestoredPurchase || !bRestoredDuplicateRead))
+	if (bRestoredDuplicateRead)
+	{
+		RegisterDeathOverlayTruth();
+	}
+	// Old CH02 saves exposed only LeftHome. Migrate that fact once, then let
+	// the canonical outfit chapter array alone drive the restored player prop.
+	RestoreOutfitFromCanonical(bRestoredLeftHome);
+	if (bRestoredReturn && !CanConvergeSecondMorning())
 	{
 		if (UGameInstance* GameInstance = GetGameInstance())
 		{
@@ -120,14 +142,16 @@ void AIGSecondMorningDirector::BeginPlay()
 			}
 		}
 	}
-	else if (bRestoredPurchase)
+	else
 	{
 		if (Scene)
 		{
-			Scene->RevealSecondReceipt();
-			Scene->SetChapterTwoReturnZoneArmed(
-				bRestoredDuplicateRead && !bRestoredReturn);
+			if (bRestoredEmployeeCall)
+			{
+				Scene->RevealSecondReceipt();
+			}
 		}
+		RefreshReturnGate();
 		if (bRestoredReturn)
 		{
 			StartEndingBeat();
@@ -159,8 +183,9 @@ void AIGSecondMorningDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 
 	for (AIGReadableNote* Note :
-		{ExistingReceipt.Get(), DuplicateReceipt.Get(), MailboxBills.Get(),
-			SaltMemo.Get(), NightRoster.Get(), ManagementNotice.Get()})
+		{ExistingReceipt.Get(), DuplicateReceipt.Get(), HomePlanner.Get(),
+			MirrorAlarmMemo.Get(), MailboxBills.Get(), OfferingNote.Get(),
+			NightRoster.Get(), ManagementNotice.Get()})
 	{
 		if (Note)
 		{
@@ -188,13 +213,19 @@ void AIGSecondMorningDirector::ResolveTags()
 	EnteredMirrorRoomTag = Tag(TEXT("State.CH02.Loop.EnteredMirrorRoom"));
 	LiftStoppedTag = Tag(TEXT("State.CH02.Loop.LiftStopped"));
 	ReadNoticeTag = Tag(TEXT("State.CH02.Loop.ReadNotice"));
+	EnteredAlleyTag = Tag(TEXT("State.CH02.Loop.EnteredAlley"));
 	EnteredStoreTag = Tag(TEXT("State.CH02.Loop.EnteredStore"));
 	SawReceiptTag = Tag(TEXT("State.CH02.Loop.SawReceipt"));
+	CalledEmployeeTag = Tag(TEXT("State.CH02.Loop.CalledEmployee"));
 	ReadDuplicateReceiptTag =
 		Tag(TEXT("State.CH02.Loop.ReadDuplicateReceipt"));
-	HasWaterTag = Tag(TEXT("State.CH02.Loop.HasWater"));
-	WaterPurchasedTag = Tag(TEXT("State.CH02.Loop.WaterPurchased"));
+	LegacyWaterPurchasedTag =
+		Tag(TEXT("State.CH02.Loop.WaterPurchased"));
 	ReturnedTag = Tag(TEXT("State.CH02.Loop.Returned"));
+	ChapterIdTag = Tag(TEXT("Chapter.CH02"));
+	WokeCheckpointTag = Tag(TEXT("Checkpoint.CH02.Woke"));
+	CorridorCheckpointTag = Tag(TEXT("Checkpoint.CH02.Corridor"));
+	StoreCheckpointTag = Tag(TEXT("Checkpoint.CH02.Store"));
 }
 
 void AIGSecondMorningDirector::BindNote(AIGReadableNote* Note)
@@ -254,50 +285,62 @@ FText AIGSecondMorningDirector::GetObjectiveText() const
 	{
 		return NSLOCTEXT("IGCH02", "ObjectiveStopAlarm", "알람을 끄자");
 	}
-	if (!HasState(FridgeCheckedTag))
-	{
-		return FText::GetEmpty();
-	}
 	if (!HasState(LeftHomeTag))
 	{
 		return NSLOCTEXT(
-			"IGCH02", "ObjectiveLeaveHome", "지갑과 손전등을 챙겨 편의점으로 가자");
+			"IGCH02",
+			"ObjectiveLeaveHome",
+			"달라진 아침을 확인하거나 복도로 나가자");
 	}
-	if (HasState(SawMirrorRoomTag) && !HasState(EnteredMirrorRoomTag))
+	if (CanConvergeSecondMorning())
 	{
 		return NSLOCTEXT(
-			"IGCH02", "ObjectiveMirrorRoom", "열린 403호 안을 확인하자");
+			"IGCH02",
+			"ObjectiveConvergedReturn",
+			"방으로 돌아가 달라진 소리를 확인하자");
 	}
-	if (!HasState(LiftStoppedTag))
+	if (HasState(SawMirrorRoomTag)
+		&& !HasState(EnteredMirrorRoomTag)
+		&& !HasState(EnteredAlleyTag)
+		&& !HasState(EnteredStoreTag))
 	{
 		return NSLOCTEXT(
-			"IGCH02", "ObjectiveElevator", "엘리베이터를 타고 내려가자");
+			"IGCH02",
+			"ObjectiveMirrorRoom",
+			"열린 403호를 보거나 아래층으로 내려가자");
 	}
 	if (!HasState(EnteredStoreTag))
 	{
 		return NSLOCTEXT(
-			"IGCH02", "ObjectiveFindStore", "새벽24 무영로점으로 가자");
+			"IGCH02",
+			"ObjectiveFindStore",
+			"불 켜진 편의점에서 사람을 찾거나 다른 흔적을 확인하자");
 	}
-	if (!HasState(HasWaterTag))
+	if (!HasState(CalledEmployeeTag))
 	{
 		return NSLOCTEXT(
-			"IGCH02", "ObjectiveWater", "진열대에서 새벽샘물 500mL를 집자");
+			"IGCH02",
+			"ObjectiveEmployeeCall",
+			"카운터의 직원 호출 버튼을 눌러 보자");
 	}
 	if (!HasState(SawReceiptTag))
 	{
 		return NSLOCTEXT(
-			"IGCH02", "ObjectiveReceipt", "POS 옆에 놓인 영수증을 확인하자");
-	}
-	if (!HasState(WaterPurchasedTag))
-	{
-		return NSLOCTEXT("IGCH02", "ObjectiveCheckout", "계산하고 나가자");
+			"IGCH02",
+			"ObjectiveReceipt",
+			"POS 옆의 04:44 거래 기록을 확인하자");
 	}
 	if (!HasState(ReadDuplicateReceiptTag))
 	{
 		return NSLOCTEXT(
-			"IGCH02", "ObjectiveDuplicateReceipt", "방금 나온 영수증을 확인하자");
+			"IGCH02",
+			"ObjectiveDuplicateReceipt",
+			"처음 결제와 지금 기록을 대조하자");
 	}
-	return NSLOCTEXT("IGCH02", "ObjectiveReturn", "집으로 돌아가자");
+	return NSLOCTEXT(
+		"IGCH02",
+		"ObjectiveFindSecondTruth",
+		"실제 알람 시각이나 나를 찾은 흔적을 확인하자");
 }
 
 FString AIGSecondMorningDirector::GetObjectiveTextAscii() const
@@ -310,43 +353,38 @@ FString AIGSecondMorningDirector::GetObjectiveTextAscii() const
 	{
 		return TEXT("Turn off the alarm");
 	}
-	if (!HasState(FridgeCheckedTag))
-	{
-		return FString();
-	}
 	if (!HasState(LeftHomeTag))
 	{
-		return TEXT("Take the wallet and flashlight, then leave");
+		return TEXT("Inspect the changed morning or step into the corridor");
 	}
-	if (HasState(SawMirrorRoomTag) && !HasState(EnteredMirrorRoomTag))
+	if (CanConvergeSecondMorning())
 	{
-		return TEXT("Inspect the open apartment 403");
+		return TEXT("Return home and check the changed sound");
 	}
-	if (!HasState(LiftStoppedTag))
+	if (HasState(SawMirrorRoomTag)
+		&& !HasState(EnteredMirrorRoomTag)
+		&& !HasState(EnteredAlleyTag)
+		&& !HasState(EnteredStoreTag))
 	{
-		return TEXT("Take the elevator downstairs");
+		return TEXT("Inspect the open 403 or continue downstairs");
 	}
 	if (!HasState(EnteredStoreTag))
 	{
-		return TEXT("Go to Saebyeok 24 Muyeong-ro");
+		return TEXT("Look for someone in the lit store or inspect another trace");
 	}
-	if (!HasState(HasWaterTag))
+	if (!HasState(CalledEmployeeTag))
 	{
-		return TEXT("Take one 500 mL bottle of Saebyeok water");
+		return TEXT("Use the employee-call button at the counter");
 	}
 	if (!HasState(SawReceiptTag))
 	{
-		return TEXT("Inspect the receipt beside the register");
-	}
-	if (!HasState(WaterPurchasedTag))
-	{
-		return TEXT("Pay and leave");
+		return TEXT("Inspect the 04:44 transaction beside the POS");
 	}
 	if (!HasState(ReadDuplicateReceiptTag))
 	{
-		return TEXT("Inspect the receipt that just printed");
+		return TEXT("Compare the first purchase with the current record");
 	}
-	return TEXT("Go home");
+	return TEXT("Find the real alarm time or signs that someone searched");
 }
 
 float AIGSecondMorningDirector::GetObjectiveProgress() const
@@ -360,15 +398,186 @@ float AIGSecondMorningDirector::GetObjectiveProgress() const
 		return 1.0f;
 	}
 
-	int32 Completed = 0;
-	for (const FGameplayTag& Tag :
-		{FridgeCheckedTag, HasWalletTag, LeftHomeTag, SawMirrorRoomTag,
-			LiftStoppedTag, EnteredStoreTag, SawReceiptTag, HasWaterTag,
-			WaterPurchasedTag, ReadDuplicateReceiptTag})
+	float Progress = 0.0f;
+	Progress += HasState(WakeAlarmStoppedTag) ? 0.20f : 0.0f;
+	Progress += HasState(LeftHomeTag) ? 0.30f : 0.0f;
+	Progress += FMath::Min(GetSecondMorningTruthCount(), 2) * 0.25f;
+	return FMath::Clamp(Progress, 0.0f, 0.99f);
+}
+
+void AIGSecondMorningDirector::RegisterSecondMorningTruth(
+	const TCHAR* TruthTagName,
+	const FName SourceId,
+	const FName PuzzleId) const
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	if (UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr)
 	{
-		Completed += HasState(Tag) ? 1 : 0;
+		bool bStateChanged = RebirthState->RegisterTruthSource(
+			FGameplayTag::RequestGameplayTag(
+				FName(TruthTagName),
+				false),
+			SourceId);
+		if (!PuzzleId.IsNone())
+		{
+			bStateChanged |= RebirthState->MarkPuzzleResolved(PuzzleId);
+		}
+		if (bStateChanged)
+		{
+			RequestCheckpointAutosave(
+				HasState(EnteredStoreTag)
+					? StoreCheckpointTag
+					: HasState(LeftHomeTag)
+						? CorridorCheckpointTag
+						: WokeCheckpointTag);
+		}
 	}
-	return Completed / 10.0f;
+	RefreshReturnGate();
+}
+
+void AIGSecondMorningDirector::RegisterDeathOverlayTruth() const
+{
+	RegisterSecondMorningTruth(
+		TEXT("Truth.DeathOverlay"),
+		FName(TEXT("CH02.DuplicateReceipt")),
+		FName(TEXT("P2.ReceiptComparisonProxy")));
+}
+
+int32 AIGSecondMorningDirector::GetSecondMorningTruthCount() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState)
+	{
+		return 0;
+	}
+
+	int32 Confirmed = 0;
+	for (const TCHAR* TruthName :
+		{TEXT("Truth.Alarm0510"),
+			TEXT("Truth.DeathOverlay"),
+			TEXT("Truth.WasSearched")})
+	{
+		const FGameplayTag TruthTag = FGameplayTag::RequestGameplayTag(
+			FName(TruthName),
+			false);
+		Confirmed += RebirthState->HasTruth(TruthTag) ? 1 : 0;
+	}
+	return Confirmed;
+}
+
+bool AIGSecondMorningDirector::CanConvergeSecondMorning() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	return RebirthState
+		&& RebirthState->CanConverge(
+			EIGRebirthConvergencePoint::C3SecondMorning);
+}
+
+void AIGSecondMorningDirector::RefreshReturnGate() const
+{
+	if (Scene)
+	{
+		Scene->SetChapterTwoReturnZoneArmed(
+			CanConvergeSecondMorning()
+			&& !HasState(ReturnedTag));
+	}
+}
+
+void AIGSecondMorningDirector::RestoreOutfitFromCanonical(
+	const bool bAllowLegacyMigration)
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState)
+	{
+		return;
+	}
+
+	const FName ChapterOutfitId(TEXT("CH02"));
+	bool bCanonicalEquipped =
+		RebirthState->BuildSnapshot().EquippedOutfitChapters.Contains(
+			ChapterOutfitId);
+	if (!bCanonicalEquipped && bAllowLegacyMigration)
+	{
+		RebirthState->MarkOutfitEquipped(ChapterOutfitId);
+		bCanonicalEquipped =
+			RebirthState->BuildSnapshot().EquippedOutfitChapters.Contains(
+				ChapterOutfitId);
+	}
+
+	const APlayerController* PlayerController =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (AIGPlayerCharacter* Player = PlayerController
+		? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
+		: nullptr)
+	{
+		Player->SetRebirthOutfitEquipped(bCanonicalEquipped);
+	}
+}
+
+void AIGSecondMorningDirector::CommitOutfitAtFirstExit()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState)
+	{
+		return;
+	}
+
+	const FName ChapterOutfitId(TEXT("CH02"));
+	const bool bFirstPresentation =
+		RebirthState->MarkOutfitEquipped(ChapterOutfitId);
+	const bool bCanonicalEquipped =
+		RebirthState->BuildSnapshot().EquippedOutfitChapters.Contains(
+			ChapterOutfitId);
+
+	const APlayerController* PlayerController =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (AIGPlayerCharacter* Player = PlayerController
+		? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
+		: nullptr)
+	{
+		Player->SetRebirthOutfitEquipped(
+			bCanonicalEquipped,
+			bFirstPresentation);
+	}
+}
+
+void AIGSecondMorningDirector::RequestCheckpointAutosave(
+	const FGameplayTag& CheckpointTag) const
+{
+	if (!ChapterIdTag.IsValid() || !CheckpointTag.IsValid())
+	{
+		return;
+	}
+
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	if (!SaveSubsystem)
+	{
+		return;
+	}
+
+	const FName MapPackageName =
+		GetWorld() ? GetWorld()->GetOutermost()->GetFName() : NAME_None;
+	SaveSubsystem->RequestAutosave(
+		ChapterIdTag,
+		MapPackageName,
+		CheckpointTag);
 }
 
 void AIGSecondMorningDirector::HandleStoryStateChanged(
@@ -382,47 +591,61 @@ void AIGSecondMorningDirector::HandleStoryStateChanged(
 
 	if (StateTag.MatchesTagExact(LeftHomeTag))
 	{
+		CommitOutfitAtFirstExit();
 		StartCorridorBlackout();
+		RequestCheckpointAutosave(CorridorCheckpointTag);
 	}
 	else if (StateTag.MatchesTagExact(EnteredMirrorRoomTag))
 	{
-		if (Elevator)
-		{
-			Elevator->SetInteractionEnabled(true);
-		}
 		StartMirrorRoomBeat();
 	}
 	else if (StateTag.MatchesTagExact(EnteredStoreTag))
 	{
 		StartStoreBeat();
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UIGRebirthNarrativeSubsystem* RebirthState =
+				GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
+			{
+				RebirthState->MarkLocationVisited(FName(TEXT("CH02.Store")));
+			}
+		}
+		RefreshReturnGate();
+		RequestCheckpointAutosave(StoreCheckpointTag);
 	}
-	else if (StateTag.MatchesTagExact(WaterPurchasedTag))
+	else if (StateTag.MatchesTagExact(CalledEmployeeTag))
 	{
 		if (Scene)
 		{
+			// Functional P2 entry proxy: this restores an overwritten record.
+			// It does not pick up a product or charge the player a second time.
 			Scene->RevealSecondReceipt();
 		}
+		RequestCheckpointAutosave(StoreCheckpointTag);
 	}
 	else if (StateTag.MatchesTagExact(ReadDuplicateReceiptTag))
 	{
-		if (Scene)
-		{
-			Scene->SetChapterTwoReturnZoneArmed(true);
-		}
+		// This is the first actual CH02 observation of the 04:44 overwrite.
+		// Keep the original 04:31 purchase profile untouched.
+		RegisterDeathOverlayTruth();
 	}
 	else if (StateTag.MatchesTagExact(ReturnedTag))
 	{
 		// Scene-side arming is the primary gate; keep this prerequisite here
 		// as a defensive check for scripted/direct state injection.
-		if (HasState(WaterPurchasedTag))
+		if (CanConvergeSecondMorning())
 		{
+			// Returned is emitted by the physical fourth-floor homecoming
+			// volume. Saving the store checkpoint here used to reload the
+			// player beside the POS while the 404 ending beat played upstairs.
+			RequestCheckpointAutosave(CorridorCheckpointTag);
 			StartEndingBeat();
 		}
 		else if (UGameInstance* GameInstance = GetGameInstance())
 		{
 			// Do not leave an impossible Returned tag latched: IsActive()
 			// treats it as chapter completion and would otherwise hide the
-			// objective permanently before the purchase can be made.
+			// objective permanently before two independent truths exist.
 			if (UIGStoryStateSubsystem* StoryState =
 				GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
 			{
@@ -596,7 +819,7 @@ void AIGSecondMorningDirector::StartMirrorRoomBeat()
 	GetWorldTimerManager().SetTimer(
 		MirrorLampHandle,
 		this,
-		&ThisClass::KillMirrorLampAndLock,
+		&ThisClass::KillMirrorLampAndPlayKeypad,
 		1.75f,
 		false);
 }
@@ -610,7 +833,7 @@ void AIGSecondMorningDirector::CloseMirrorDoor()
 	}
 }
 
-void AIGSecondMorningDirector::KillMirrorLampAndLock()
+void AIGSecondMorningDirector::KillMirrorLampAndPlayKeypad()
 {
 	if (MirrorRoomLamp)
 	{
@@ -647,7 +870,10 @@ void AIGSecondMorningDirector::KillMirrorLampAndLock()
 
 	AIGHorrorHUD::PushThought(
 		this,
-		NSLOCTEXT("IGCH02", "LockedInsideThought", "지금… 안에서 잠갔는데."),
+		NSLOCTEXT(
+			"IGCH02",
+			"KeypadOutsideThought",
+			"도어락 소리가… 바깥에서 났다. 문은 아직 열린다."),
 		4.4f);
 }
 
@@ -718,7 +944,8 @@ void AIGSecondMorningDirector::HandleIntermediateStopOpened(AIGElevator* Stopped
 
 	AddState(LiftStoppedTag);
 	SetThreat(0.45f, 5.2f);
-	PlayCorridorSnap(Elevator->GetActorLocation() - FVector(0, 0, 780), 0.22f);
+	const FVector IntermediateCab = Elevator->GetIntermediateCabWorldLocation();
+	PlayCorridorSnap(IntermediateCab + FVector(0, 0, 120), 0.22f);
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT("IGCH02", "UnpressedFloorThought", "눌리지도 않은 층이잖아."),
@@ -728,7 +955,7 @@ void AIGSecondMorningDirector::HandleIntermediateStopOpened(AIGElevator* Stopped
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateWaterDripMetalRing(this),
-		Elevator->GetActorLocation() - FVector(0, 0, 820),
+		IntermediateCab + FVector(0, 0, 80),
 		0.48f,
 		1.0f,
 		40.0f,
@@ -830,7 +1057,7 @@ void AIGSecondMorningDirector::HandleNoteRead(
 				this,
 				NSLOCTEXT(
 					"IGCH02", "ExistingReceiptThought",
-					"계산은 아직 안 했는데. …내 카드 번호다."),
+					"난 아무것도 고르지 않았는데. …내 카드 번호다."),
 				4.8f);
 		}
 		return;
@@ -839,48 +1066,100 @@ void AIGSecondMorningDirector::HandleNoteRead(
 	if (Note == DuplicateReceipt)
 	{
 		if (!bOpened
-			&& HasState(WaterPurchasedTag)
+			&& HasState(CalledEmployeeTag)
 			&& !HasState(ReadDuplicateReceiptTag))
 		{
-			// Let the player compare both papers before naming the impossible
-			// match. The route home is armed only after the second receipt is
-			// lowered, so this reveal cannot be skipped accidentally.
+			// The second paper is a restored transaction record, never a second
+			// purchase. Lowering it commits the optional greybox comparison.
 			AddState(ReadDuplicateReceiptTag);
 			AIGHorrorHUD::PushThought(
 				this,
 				NSLOCTEXT(
 					"IGCH02",
 					"DuplicateReceiptThought",
-					"같은 시간. 같은 물. …승인번호까지 똑같아."),
+					"처음 결제는 4시 31분인데. 4시 44분이… 거래까지 덮었어."),
 				5.0f);
 		}
 		return;
 	}
 
-	if (!bOpened)
+	if (Note == HomePlanner)
 	{
+		if (!bOpened)
+		{
+			// This planner has occupied the same 404 desk since CH01. Reading
+			// it in CH02 is the low-pressure alternate to P1, so a player who
+			// refuses the impossible 403 room still has a physical 05:10 source.
+			RegisterSecondMorningTruth(
+				TEXT("Truth.Alarm0510"),
+				FName(TEXT("CH02.HomePlanner0510")));
+			RefreshObjective();
+			// If this is the second independent truth and the player is
+			// physically back inside 404, C3 has already been reached. Requiring
+			// them to leave home and cross the corridor return volume backwards
+			// made the homecoming beat fire during another departure.
+			if (HasState(LeftHomeTag) && CanConvergeSecondMorning())
+			{
+				AddState(ReturnedTag);
+			}
+		}
+		return;
+	}
+
+	if (Note == MirrorAlarmMemo)
+	{
+		if (!bOpened)
+		{
+			RegisterSecondMorningTruth(
+				TEXT("Truth.Alarm0510"),
+				FName(TEXT("CH02.MirrorAlarmMemo")),
+				FName(TEXT("P1.AlarmArithmeticProxy")));
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGCH02",
+					"AlarmMemoThought",
+					"5시 30분보다 스무 분 전이면… 내가 맞춘 알람은 5시 10분이다."),
+				4.8f);
+			RefreshObjective();
+		}
 		return;
 	}
 
 	if (Note == MailboxBills)
 	{
-		AIGHorrorHUD::PushThought(
-			this,
-			NSLOCTEXT(
-				"IGCH02", "MailboxBillsThought",
-				"고지서가 꽉 찼는데… 수취인이 다 404호야."),
-			4.8f);
+		if (!bOpened)
+		{
+			RegisterSecondMorningTruth(
+				TEXT("Truth.WasSearched"),
+				FName(TEXT("CH02.ManagementComplaint")));
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGCH02",
+					"ManagementComplaintThought",
+					"401호도 관리실도… 나를 찾고 있었어."),
+				4.8f);
+			RefreshObjective();
+		}
+		return;
 	}
-	else if (Note == SaltMemo)
+
+	if (Note == OfferingNote)
 	{
-		AIGHorrorHUD::PushThought(
-			this,
-			NSLOCTEXT(
-				"IGCH02", "OfferingThought",
-				"밥에 숟가락은… 저렇게 꽂는 게 아닌데."),
-			4.4f);
+		if (!bOpened)
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGCH02", "OfferingThought",
+					"누굴… 기다리는 거지."),
+				4.4f);
+		}
+		return;
 	}
-	else if (Note == ManagementNotice)
+
+	if (bOpened && Note == ManagementNotice)
 	{
 		AddState(ReadNoticeTag);
 	}
