@@ -55,6 +55,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Second Morning")
 	bool IsActive() const;
 
+	/**
+	 * Drives one unattended CH02 path through the production story-tag and
+	 * note handlers, then emits the same physical-return state used by the
+	 * fourth-floor volume. Used only by the release end-to-end route.
+	 */
+	bool RunRebirthEndToEndRoute();
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -144,6 +151,7 @@ private:
 
 	FGameplayTag StartedTag;
 	FGameplayTag WakeAlarmStoppedTag;
+	FGameplayTag WakeStandingTag;
 	FGameplayTag FridgeCheckedTag;
 	FGameplayTag HasWalletTag;
 	FGameplayTag LeftHomeTag;

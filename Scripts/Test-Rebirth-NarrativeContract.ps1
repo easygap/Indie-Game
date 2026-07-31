@@ -77,6 +77,7 @@ $saveSubsystem =
 $saveSubsystemHeader =
 	Read-ProjectText 'Source/IndieGame/Save/IGSaveSubsystem.h'
 $feasibility = Read-ProjectText 'Docs/FEASIBILITY.md'
+$releaseValidation = Read-ProjectText 'Docs/RELEASE_VALIDATION.md'
 $routeMatrix = Read-ProjectText 'Scripts/Test-Rebirth-RouteMatrix.ps1'
 $signTextureGenerator = Read-ProjectText 'Scripts/Create-SignTextures.ps1'
 
@@ -187,13 +188,23 @@ foreach ($feasibilityContract in @(
 	'Keep — 출시 필수 기능',
 	'Static Proxy — 허용 구현',
 	'Cut or Post-launch',
-	'S1 착의 소매',
-	'S2 11cm 문·고양이',
-	'S3 P3 중단·재개',
-	'S4 엔딩 공통 복원'
+	'합격 기준'
 )) {
 	Assert-Contract ($feasibility.Contains($feasibilityContract)) `
 		"Feasibility contract is missing '$feasibilityContract'."
+}
+foreach ($manualAcceptanceCase in @(
+	'S1 착의 소매',
+	'S2 11cm 문·고양이',
+	'S3 P3 중단·재개',
+	'S4 엔딩 공통 복원',
+	'S5 소지품 인과 연속성',
+	'S6 CH02 도움 요청·P1/P2 전달',
+	'S7 엔딩 최종 연출',
+	'S8 사고 물리 리허설'
+)) {
+	Assert-Contract ($releaseValidation.Contains($manualAcceptanceCase)) `
+		"Release validation procedure is missing '$manualAcceptanceCase'."
 }
 Assert-Contract ($routeMatrix.Contains('$routeCount -eq 7200') -and
 	$routeMatrix.Contains('$endingCheckCount -eq 14400') -and
@@ -259,6 +270,7 @@ Assert-Contract ($worldScene.Contains('SetHasMemoryFlashlight(true)') -and
 	$worldScene.Contains('Torch->SetAvailable(bRestoreFlashlight)')) `
 	'The optional flashlight must retain both canonical ownership and functional availability.'
 foreach ($requiredChapterThreeField in @(
+	'bool bApartmentFridgeInspected = false',
 	'float PressureKPa = 60.0f',
 	'int32 ZeroConfirmationTicks = 0',
 	'float HintElapsedSeconds = 0.0f',
@@ -286,6 +298,15 @@ Assert-Contract (
 	$router.Contains('FName(TEXT("CH03.SearchPoster"))') -and
 	$router.Contains('FName(TEXT("CH03.PhoneApprovalHistory"))')) `
 	'Restarting CH03 must remove every CH03-only alternate truth source.'
+$chapterThreeReset = Get-BlockBetween $router `
+	'void UIGRebirthNarrativeSubsystem::ResetChapterThreeAttempt()' `
+	'void UIGRebirthNarrativeSubsystem::NormalizeState('
+Assert-Contract (
+	$chapterThreeReset.Contains(
+		'IGRebirthState::TankOpenedWithoutFlashlight') -and
+	$chapterThreeReset.Contains(
+		'IGRebirthState::TankRevealedAfterFlashlight')) `
+	'Restarting CH03 must clear both attempt-local dark-tank reveal guards.'
 $chapterThreeCommit = Get-BlockBetween $director `
 	'void AIGThirdMorningDirector::CommitChapterThreeState()' `
 	'void AIGThirdMorningDirector::RequestCheckpointAutosave('
@@ -293,6 +314,10 @@ $chapterThreeRestore = Get-BlockBetween $director `
 	'bool AIGThirdMorningDirector::RestoreChapterThreeState()' `
 	'void AIGThirdMorningDirector::ApplyChapterThreeWorldState()'
 $persistenceAssignments = @(
+	@{
+		Commit = 'State.bApartmentFridgeInspected = bFridgeInspected'
+		Restore = 'bFridgeInspected = State.bApartmentFridgeInspected'
+	},
 	@{
 		Commit = 'State.P3.ZeroConfirmationTicks = P3ZeroConfirmationTicks'
 		Restore = 'P3ZeroConfirmationTicks = State.P3.ZeroConfirmationTicks'
@@ -324,6 +349,19 @@ foreach ($assignment in $persistenceAssignments) {
 		$chapterThreeRestore.Contains($assignment.Restore)) `
 		"CH03 commit/restore symmetry is missing '$($assignment.Commit)'."
 }
+$chapterThreeWorldApply = Get-BlockBetween $director `
+	'void AIGThirdMorningDirector::ApplyChapterThreeWorldState()' `
+	'void AIGThirdMorningDirector::ApplyRoofDoorState('
+Assert-Contract (
+	$chapterThreeWorldApply.Contains('if (bFridgeInspected)') -and
+	$chapterThreeWorldApply.Contains(
+		'SetVisibleInteractive(FridgeDoorAction, false)') -and
+	$chapterThreeWorldApply.Contains('Bottle->SetVisibility(true)') -and
+	$chapterThreeWorldApply.Contains(
+		'FridgeInteriorLightPanel->SetVisibility(true)') -and
+	$chapterThreeWorldApply.Contains(
+		'FridgeInteriorLight->SetVisibility(true)')) `
+	'The CH03 apartment checkpoint must restore the inspected full-fridge world state.'
 Assert-Contract (
 	$director.Contains('P3HintElapsedSeconds += 1.0f') -and
 	[regex]::IsMatch(
@@ -961,6 +999,44 @@ Assert-Contract (
 	$director.Contains('State.bActedAfterSecondScratch') -and
 	$director.Contains('ScheduleAccidentScratch();')) `
 	'Scratches two and three must require persisted look-away/action gates rather than timer-only playback.'
+$handleActionBlock = Get-BlockBetween $director `
+	'void AIGThirdMorningDirector::HandleAction(' `
+	'void AIGThirdMorningDirector::TryUnlockApartmentExit()'
+$evidenceActionBlock = Get-BlockBetween $handleActionBlock `
+	'case EIGChapterThreeAction::EvidenceCatEntered:' `
+	'case EIGChapterThreeAction::OpenTank:'
+$evidenceActionSetIndex =
+	$evidenceActionBlock.IndexOf('bActedAfterSecondScratch = true;')
+$evidenceActionCommitIndex = $evidenceActionBlock.IndexOf(
+	'CommitChapterThreeState();',
+	$evidenceActionSetIndex)
+$evidenceActionSaveIndex = $evidenceActionBlock.IndexOf(
+	'RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"))',
+	$evidenceActionCommitIndex)
+$evidenceActionContinueIndex =
+	$evidenceActionBlock.IndexOf('FocusOrCompareEvidence(Action);')
+$ladderActionSetIndex =
+	$ladderBlock.IndexOf('bActedAfterSecondScratch = true;')
+$ladderActionCommitIndex = $ladderBlock.IndexOf(
+	'CommitChapterThreeState();',
+	$ladderActionSetIndex)
+$ladderActionSaveIndex = $ladderBlock.IndexOf(
+	'RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"))',
+	$ladderActionCommitIndex)
+$ladderActionContinueIndex =
+	$ladderBlock.IndexOf('ScheduleAccidentScratch();')
+Assert-Contract (
+	$evidenceActionBlock.Contains('!bActedAfterSecondScratch') -and
+	$evidenceActionSetIndex -ge 0 -and
+	$evidenceActionCommitIndex -gt $evidenceActionSetIndex -and
+	$evidenceActionSaveIndex -gt $evidenceActionCommitIndex -and
+	$evidenceActionSaveIndex -lt $evidenceActionContinueIndex -and
+	$ladderBlock.Contains('!bActedAfterSecondScratch') -and
+	$ladderActionSetIndex -ge 0 -and
+	$ladderActionCommitIndex -gt $ladderActionSetIndex -and
+	$ladderActionSaveIndex -gt $ladderActionCommitIndex -and
+	$ladderActionSaveIndex -lt $ladderActionContinueIndex) `
+	'Every physical second-scratch action path must persist before the next timer tick can advance it.'
 $endingACueBlock = Get-BlockBetween $director `
 	'void AIGThirdMorningDirector::FinishEndingAAfterDiscovery()' `
 	'void AIGThirdMorningDirector::FinishEndingB()'

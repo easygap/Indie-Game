@@ -52,6 +52,12 @@ namespace IGThirdMorning
 	constexpr float DefaultWalkSpeed = 300.0f;
 	constexpr float FloodWalkSpeed = 225.0f;
 	constexpr float RoofFloorZ = 240.0f;
+	const FVector RoofDoorLatchedLocation(1662.0f, -400.0f, 366.0f);
+	const FRotator RoofDoorLatchedRotation = FRotator::ZeroRotator;
+	const FVector RoofDoorPulledLocation(1604.0f, -458.0f, 366.0f);
+	const FRotator RoofDoorPulledRotation(0.0f, 90.0f, 0.0f);
+	constexpr float RoofDoorHoldSeconds = 2.4f;
+	constexpr float RoofDoorReturnSeconds = 0.18f;
 	const FVector TankCenter(2500.0f, -300.0f, 0.0f);
 
 	UMaterialInterface* LoadMaterial(const TCHAR* AssetPath)
@@ -483,7 +489,7 @@ void AIGThirdMorningDirector::RestoreCheckpointAnchor(
 	FRotator SafeView(-5.0f, 0.0f, 0.0f);
 	if (bRestoreRoof)
 	{
-		OpenPassage(RoofDoorAction);
+		ApplyRoofDoorState(EIGRoofDoorState::LatchedGap);
 		RevealUpwardRoute();
 		SetDocumentAvailable(P3PhotoNote, true);
 		SetDocumentAvailable(ManagementDbNote, true);
@@ -698,6 +704,7 @@ void AIGThirdMorningDirector::CommitChapterThreeState()
 
 	FIGRebirthChapterThreeState State =
 		RebirthState->GetChapterThreeState();
+	State.bApartmentFridgeInspected = bFridgeInspected;
 	State.P3.bDirectInletClosed = bP3DirectClosed;
 	State.P3.bReserveInletClosed = bP3ReserveClosed;
 	State.P3.bPressureReleaseOpen = bP3PressureReleaseOpen;
@@ -773,6 +780,7 @@ bool AIGThirdMorningDirector::RestoreChapterThreeState()
 
 	const FIGRebirthChapterThreeState State =
 		RebirthState->GetChapterThreeState();
+	bFridgeInspected = State.bApartmentFridgeInspected;
 	bP3DirectClosed = State.P3.bDirectInletClosed;
 	bP3ReserveClosed = State.P3.bReserveInletClosed;
 	bP3PressureReleaseOpen = State.P3.bPressureReleaseOpen;
@@ -799,7 +807,8 @@ bool AIGThirdMorningDirector::RestoreChapterThreeState()
 	bEndingASelected =
 		State.EndingChoice == EIGRebirthEndingChoice::EndingA;
 
-	return bP3DirectClosed
+	return bFridgeInspected
+		|| bP3DirectClosed
 		|| bP3ReserveClosed
 		|| bP3PressureReleaseOpen
 		|| bP3PressureZero
@@ -815,6 +824,26 @@ bool AIGThirdMorningDirector::RestoreChapterThreeState()
 
 void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 {
+	if (bFridgeInspected)
+	{
+		SetVisibleInteractive(FridgeDoorAction, false);
+		for (UStaticMeshComponent* Bottle : FridgeContents)
+		{
+			if (Bottle)
+			{
+				Bottle->SetVisibility(true);
+			}
+		}
+		if (FridgeInteriorLightPanel)
+		{
+			FridgeInteriorLightPanel->SetVisibility(true);
+		}
+		if (FridgeInteriorLight)
+		{
+			FridgeInteriorLight->SetVisibility(true);
+		}
+	}
+
 	const auto ApplyClosedValve = [](AIGChapterThreeAction* Action)
 	{
 		if (Action)
@@ -905,6 +934,7 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 			false));
 	if (bReachedRoof || bTankOpened || bEndingFinished)
 	{
+		ApplyRoofDoorState(EIGRoofDoorState::LatchedGap);
 		SetDocumentAvailable(P3PhotoNote, true);
 		SetDocumentAvailable(ManagementDbNote, true);
 		SetDocumentAvailable(PreservationNoticeNote, true);
@@ -937,6 +967,123 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 	{
 		ApplyCommonDiscoveryWorldState();
 	}
+}
+
+void AIGThirdMorningDirector::ApplyRoofDoorState(
+	const EIGRoofDoorState NewState)
+{
+	if (!RoofDoorAction || !RoofDoorLeaf)
+	{
+		return;
+	}
+
+	RoofDoorState = NewState;
+	const bool bPulledOpen = NewState == EIGRoofDoorState::PulledOpen;
+	const FVector& LocalLocation = bPulledOpen
+		? IGThirdMorning::RoofDoorPulledLocation
+		: IGThirdMorning::RoofDoorLatchedLocation;
+	const FRotator& LocalRotation = bPulledOpen
+		? IGThirdMorning::RoofDoorPulledRotation
+		: IGThirdMorning::RoofDoorLatchedRotation;
+	const FRotator WorldRotation =
+		GetActorTransform().TransformRotation(LocalRotation.Quaternion()).Rotator();
+
+	RoofDoorAction->SetActorHiddenInGame(false);
+	RoofDoorAction->SetActorEnableCollision(true);
+	RoofDoorAction->SetActorLocationAndRotation(
+		ToWorld(LocalLocation),
+		WorldRotation,
+		false,
+		nullptr,
+		ETeleportType::TeleportPhysics);
+	RoofDoorLeaf->SetCollisionProfileName(
+		UCollisionProfile::BlockAll_ProfileName);
+	RoofDoorLeaf->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	RoofDoorLeaf->SetCollisionResponseToAllChannels(ECR_Block);
+	RoofDoorLeaf->SetGenerateOverlapEvents(false);
+	RoofDoorLeaf->SetCanEverAffectNavigation(false);
+
+	switch (NewState)
+	{
+	case EIGRoofDoorState::LatchedGap:
+		RoofDoorAction->SetInteractionPrompt(
+			NSLOCTEXT("IGCH03", "RoofDoorLatchedPrompt", "옥상 철문 당기기"));
+		RoofDoorAction->SetInteractionEnabled(true);
+		break;
+	case EIGRoofDoorState::PulledOpen:
+		RoofDoorAction->SetInteractionPrompt(
+			NSLOCTEXT("IGCH03", "RoofDoorReleasePrompt", "옥상 철문 놓기"));
+		RoofDoorAction->SetInteractionEnabled(true);
+		break;
+	case EIGRoofDoorState::ReturnToGap:
+		RoofDoorAction->SetInteractionPrompt(
+			NSLOCTEXT("IGCH03", "RoofDoorReturningPrompt", "문이 문턱에 걸리는 중"));
+		RoofDoorAction->SetInteractionEnabled(false);
+		break;
+	default:
+		break;
+	}
+}
+
+void AIGThirdMorningDirector::BeginRoofDoorReturn()
+{
+	if (!GetWorld() || RoofDoorState != EIGRoofDoorState::PulledOpen)
+	{
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(RoofDoorHoldTimer);
+	if (!IsRoofDoorReturnClear())
+	{
+		// The static proxy must never teleport into a player or cat lingering
+		// in the threshold. Keep the usable open state and retry after they
+		// clear the closing envelope.
+		GetWorldTimerManager().SetTimer(
+			RoofDoorReturnTimer,
+			this,
+			&ThisClass::BeginRoofDoorReturn,
+			IGThirdMorning::RoofDoorReturnSeconds,
+			false);
+		return;
+	}
+	ApplyRoofDoorState(EIGRoofDoorState::ReturnToGap);
+	GetWorldTimerManager().SetTimer(
+		RoofDoorReturnTimer,
+		this,
+		&ThisClass::FinishRoofDoorReturn,
+		IGThirdMorning::RoofDoorReturnSeconds,
+		false);
+}
+
+bool AIGThirdMorningDirector::IsRoofDoorReturnClear() const
+{
+	UWorld* World = GetWorld();
+	if (!World || !RoofDoorAction)
+	{
+		return false;
+	}
+
+	FCollisionQueryParams QueryParams(
+		SCENE_QUERY_STAT(RebirthRoofDoorReturn),
+		false);
+	QueryParams.AddIgnoredActor(this);
+	QueryParams.AddIgnoredActor(RoofDoorAction);
+	FCollisionObjectQueryParams ObjectQueryParams;
+	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
+	const FVector DoorHalfExtent(6.0f, 58.0f, 115.0f);
+	const FQuat DoorRotation = GetActorTransform().TransformRotation(
+		IGThirdMorning::RoofDoorLatchedRotation.Quaternion());
+	return !World->OverlapAnyTestByObjectType(
+		ToWorld(IGThirdMorning::RoofDoorLatchedLocation),
+		DoorRotation,
+		ObjectQueryParams,
+		FCollisionShape::MakeBox(DoorHalfExtent),
+		QueryParams);
+}
+
+void AIGThirdMorningDirector::FinishRoofDoorReturn()
+{
+	ApplyRoofDoorState(EIGRoofDoorState::LatchedGap);
 }
 
 void AIGThirdMorningDirector::ApplyCommonDiscoveryWorldState()
@@ -2002,10 +2149,19 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 
 	RoofDoorAction = SpawnAction(
 		EIGChapterThreeAction::OpenRoofDoor,
-		FVector(1662, -400, 366),
+		IGThirdMorning::RoofDoorLatchedLocation,
 		FVector(12, 116, 230),
 		MetalMaterial,
-		NSLOCTEXT("IGCH03", "RoofDoorPrompt", "옥상 철문 열기"));
+		NSLOCTEXT("IGCH03", "RoofDoorPrompt", "옥상 철문 당기기"));
+	if (RoofDoorAction)
+	{
+		RoofDoorLeaf = RoofDoorAction->GetPresentationMesh();
+		if (RoofDoorLeaf)
+		{
+			RoofDoorLeaf->SetMobility(EComponentMobility::Movable);
+		}
+		ApplyRoofDoorState(EIGRoofDoorState::LatchedGap);
+	}
 	KeysAction = SpawnAction(
 		EIGChapterThreeAction::InspectKeys,
 		FVector(1625, -342, 330),
@@ -3397,13 +3553,29 @@ void AIGThirdMorningDirector::HandleAction(
 		break;
 
 	case EIGChapterThreeAction::OpenRoofDoor:
-		if (Source)
+		if (RoofDoorState == EIGRoofDoorState::PulledOpen)
 		{
-			Source->SetActorHiddenInGame(true);
-			Source->SetActorEnableCollision(false);
-			Source->SetInteractionEnabled(false);
+			BeginRoofDoorReturn();
+			break;
 		}
-		EnterRoofSilence();
+		if (RoofDoorState == EIGRoofDoorState::ReturnToGap)
+		{
+			break;
+		}
+		ApplyRoofDoorState(EIGRoofDoorState::PulledOpen);
+		if (Phase < EIGThirdMorningPhase::Roof)
+		{
+			EnterRoofSilence();
+		}
+		if (GetWorld())
+		{
+			GetWorldTimerManager().SetTimer(
+				RoofDoorHoldTimer,
+				this,
+				&ThisClass::BeginRoofDoorReturn,
+				IGThirdMorning::RoofDoorHoldSeconds,
+				false);
+		}
 		break;
 
 	case EIGChapterThreeAction::P3CloseDirectInlet:
@@ -3475,12 +3647,18 @@ void AIGThirdMorningDirector::HandleAction(
 	case EIGChapterThreeAction::EvidenceCurrentSleeve:
 	case EIGChapterThreeAction::EvidenceSearchPoster:
 		if (AccidentScratchCount == 2
+			&& !bActedAfterSecondScratch
 			&& GetWorld()
 			&& AccidentScratchGateStartSeconds >= 0.0
 			&& GetWorld()->GetTimeSeconds()
 				- AccidentScratchGateStartSeconds >= 4.0)
 		{
 			bActedAfterSecondScratch = true;
+			// Evidence re-selection can return before its normal commit path.
+			// Persist this physical gate at the action boundary so a quit in
+			// the following timer tick never asks for the action twice.
+			CommitChapterThreeState();
+			RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
 		}
 		if (bTankOpened && HasMemoryFlashlight())
 		{
@@ -4780,6 +4958,7 @@ void AIGThirdMorningDirector::HandleLadderEntered(AIGZoneTrigger* Zone)
 		return;
 	}
 	if (AccidentScratchCount == 2
+		&& !bActedAfterSecondScratch
 		&& GetWorld()
 		&& AccidentScratchGateStartSeconds >= 0.0
 		&& GetWorld()->GetTimeSeconds()
@@ -4787,6 +4966,7 @@ void AIGThirdMorningDirector::HandleLadderEntered(AIGZoneTrigger* Zone)
 	{
 		bActedAfterSecondScratch = true;
 		CommitChapterThreeState();
+		RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
 		ScheduleAccidentScratch();
 	}
 	// My rung, then one wetter answer from below.
@@ -6128,6 +6308,38 @@ void AIGThirdMorningDirector::FinishRebirthGreyboxValidation()
 	const bool bScratchSequenceComplete =
 		AccidentScratchCount == 3 && bAccidentScratchTailSettled;
 
+	const bool bEndToEndValidation = FParse::Param(
+		FCommandLine::Get(),
+		TEXT("IGRebirthEndToEndValidation"));
+	int32 OutfitDuplicateCount = 0;
+	int32 OutfitStitchCount = 0;
+	bool bOutfitSpikeValid = !bEndToEndValidation;
+	if (bEndToEndValidation && RebirthState)
+	{
+		const TArray<FName> EquippedChapters =
+			RebirthState->BuildSnapshot().EquippedOutfitChapters;
+		TSet<FName> UniqueEquippedChapters;
+		for (const FName ChapterId : EquippedChapters)
+		{
+			UniqueEquippedChapters.Add(ChapterId);
+		}
+		OutfitDuplicateCount =
+			EquippedChapters.Num() - UniqueEquippedChapters.Num();
+		const APlayerController* Controller =
+			GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		const AIGPlayerCharacter* Player = Controller
+			? Cast<AIGPlayerCharacter>(Controller->GetPawn())
+			: nullptr;
+		bOutfitSpikeValid =
+			EquippedChapters.Num() == 3
+			&& EquippedChapters.Contains(FName(TEXT("CH01")))
+			&& EquippedChapters.Contains(FName(TEXT("CH02")))
+			&& EquippedChapters.Contains(FName(TEXT("CH03")))
+			&& OutfitDuplicateCount == 0
+			&& Player
+			&& Player->ValidateRebirthOutfitProxy(OutfitStitchCount);
+	}
+
 	float RoofDoorGap = -1.0f;
 	if (RoofDoorAction && RoofDoorAction->GetPresentationMesh())
 	{
@@ -6153,10 +6365,20 @@ void AIGThirdMorningDirector::FinishRebirthGreyboxValidation()
 		&& bActualDiscoveryDeferred
 		&& bScratchSequenceComplete
 		&& bChoicesVisible
+		&& bOutfitSpikeValid
 		&& bDoorGapValid;
 
 	if (bPassed)
 	{
+		if (bEndToEndValidation)
+		{
+			UE_LOG(
+				LogIndieGame,
+				Display,
+				TEXT(
+					"REBIRTH_SPIKE PASS s1_outfit_sleeve "
+					"chapters=3 duplicates=0 stitches=3"));
+		}
 		UE_LOG(
 			LogIndieGame,
 			Display,
@@ -6183,7 +6405,8 @@ void AIGThirdMorningDirector::FinishRebirthGreyboxValidation()
 				"REBIRTH_GREYBOX FAIL p3=%d pressure=%.0f mistakes=%d "
 				"p5_truths=%d evidence=%d p3_actors=%d evidence_actors=%d "
 				"sources=%d negligence_sources=%d c5=%d found_deferred=%d "
-				"scratches=%d tail_settled=%d choices=%d roof_gap=%.1fcm"),
+				"scratches=%d tail_settled=%d choices=%d outfit=%d "
+				"outfit_duplicates=%d outfit_stitches=%d roof_gap=%.1fcm"),
 			bP3Solved ? 1 : 0,
 			P3PressureKPa,
 			P3MistakeCount,
@@ -6198,6 +6421,9 @@ void AIGThirdMorningDirector::FinishRebirthGreyboxValidation()
 			AccidentScratchCount,
 			bAccidentScratchTailSettled ? 1 : 0,
 			bChoicesVisible ? 1 : 0,
+			bOutfitSpikeValid ? 1 : 0,
+			OutfitDuplicateCount,
+			OutfitStitchCount,
 			RoofDoorGap);
 	}
 	FPlatformMisc::RequestExitWithStatus(
@@ -6212,7 +6438,6 @@ void AIGThirdMorningDirector::StartRebirthReleaseValidation()
 	{
 		return;
 	}
-	bReleaseValidationInProgress = true;
 
 	FString EndingValue;
 	if (!FParse::Value(
@@ -6228,6 +6453,71 @@ void AIGThirdMorningDirector::StartRebirthReleaseValidation()
 	}
 	bReleaseValidationEndingA =
 		EndingValue.Equals(TEXT("A"), ESearchCase::IgnoreCase);
+
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	if (!SaveSubsystem || !GetWorld())
+	{
+		FailRebirthReleaseValidation(TEXT("savegame_v3 subsystem unavailable"));
+		return;
+	}
+	if (SaveSubsystem->IsBusy())
+	{
+		// The settled scratch tail requests its final autosave immediately
+		// before the greybox verifier reaches this function. Let that real
+		// asynchronous boundary flush instead of treating disk latency as a
+		// release failure.
+		++ReleaseValidationSaveIdleRetryCount;
+		if (ReleaseValidationSaveIdleRetryCount > 100)
+		{
+			FailRebirthReleaseValidation(
+				TEXT("savegame_v3 autosave did not become idle"));
+			return;
+		}
+		GetWorldTimerManager().SetTimer(
+			ReleaseValidationTimer,
+			this,
+			&ThisClass::StartRebirthReleaseValidation,
+			0.10f,
+			false);
+		return;
+	}
+	ReleaseValidationSaveIdleRetryCount = 0;
+	bReleaseValidationInProgress = true;
+
+	int32 CatEnterPasses = 0;
+	int32 CatExitPasses = 0;
+	int32 LatchedHumanBlocks = 0;
+	int32 OpenHumanPasses = 0;
+	int32 ReturnHumanBlocks = 0;
+	float RoofDoorGapCentimeters = -1.0f;
+	if (!ValidateRebirthRoofDoor(
+		CatEnterPasses,
+		CatExitPasses,
+		LatchedHumanBlocks,
+		OpenHumanPasses,
+		ReturnHumanBlocks,
+		RoofDoorGapCentimeters))
+	{
+		FailRebirthReleaseValidation(TEXT("s2_roof_door"));
+		return;
+	}
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_RELEASE PASS s2_roof_door states=3 gap=%.1fcm "
+			"cat_enter=%d/20 cat_exit=%d/20 "
+			"human_latched_block=%d/20 human_open_pass=%d/20 "
+			"human_return_block=%d/20 authoritative_collision=1"),
+		RoofDoorGapCentimeters,
+		CatEnterPasses,
+		CatExitPasses,
+		LatchedHumanBlocks,
+		OpenHumanPasses,
+		ReturnHumanBlocks);
 
 	int32 CollisionFloorSamples = 0;
 	int32 CollisionCapsuleSegments = 0;
@@ -6273,16 +6563,6 @@ void AIGThirdMorningDirector::StartRebirthReleaseValidation()
 		Display,
 		TEXT("REBIRTH_RELEASE PASS p3_p5 core=1 truths=4 sources=15"));
 
-	UGameInstance* GameInstance = GetGameInstance();
-	UIGSaveSubsystem* SaveSubsystem = GameInstance
-		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
-		: nullptr;
-	if (!SaveSubsystem || SaveSubsystem->IsBusy() || !GetWorld())
-	{
-		FailRebirthReleaseValidation(TEXT("savegame_v3 subsystem unavailable"));
-		return;
-	}
-
 	ReleaseValidationSlotName = FString::Printf(
 		TEXT("RebirthReleaseValidation_%u"),
 		FPlatformProcess::GetCurrentProcessId());
@@ -6323,6 +6603,163 @@ void AIGThirdMorningDirector::StartRebirthReleaseValidation()
 			&ThisClass::HandleReleaseValidationSaveCompleted);
 		FailRebirthReleaseValidation(TEXT("savegame_v3 save request rejected"));
 	}
+}
+
+bool AIGThirdMorningDirector::ValidateRebirthRoofDoor(
+	int32& OutCatEnterPasses,
+	int32& OutCatExitPasses,
+	int32& OutLatchedHumanBlocks,
+	int32& OutOpenHumanPasses,
+	int32& OutReturnHumanBlocks,
+	float& OutGapCentimeters)
+{
+	OutCatEnterPasses = 0;
+	OutCatExitPasses = 0;
+	OutLatchedHumanBlocks = 0;
+	OutOpenHumanPasses = 0;
+	OutReturnHumanBlocks = 0;
+	OutGapCentimeters = -1.0f;
+
+	UWorld* World = GetWorld();
+	if (!World || !RoofDoorAction || !RoofDoorLeaf)
+	{
+		return false;
+	}
+
+	GetWorldTimerManager().ClearTimer(RoofDoorHoldTimer);
+	GetWorldTimerManager().ClearTimer(RoofDoorReturnTimer);
+	const EIGRoofDoorState PreviousState = RoofDoorState;
+	const auto HasAuthoritativeCollision = [this]()
+	{
+		return RoofDoorAction
+			&& RoofDoorLeaf
+			&& RoofDoorAction->GetActorEnableCollision()
+			&& RoofDoorLeaf->GetCollisionEnabled()
+				== ECollisionEnabled::QueryAndPhysics
+			&& RoofDoorLeaf->GetCollisionResponseToChannel(ECC_Pawn)
+				== ECR_Block;
+	};
+
+	FCollisionQueryParams QueryParams(
+		SCENE_QUERY_STAT(RebirthReleaseRoofDoor),
+		false);
+	if (const APlayerController* Controller =
+			World->GetFirstPlayerController())
+	{
+		QueryParams.AddIgnoredActor(Controller->GetPawn());
+	}
+	const auto Sweep = [
+		World,
+		&QueryParams,
+		this](
+			const FCollisionShape& Shape,
+			const FVector& LocalStart,
+			const FVector& LocalEnd,
+			FHitResult& OutHit)
+	{
+		return World->SweepSingleByChannel(
+			OutHit,
+			ToWorld(LocalStart),
+			ToWorld(LocalEnd),
+			FQuat::Identity,
+			ECC_Pawn,
+			Shape,
+			QueryParams);
+	};
+	const FCollisionShape CatCapsule =
+		FCollisionShape::MakeCapsule(4.0f, 4.0f);
+	const FCollisionShape PlayerCapsule =
+		FCollisionShape::MakeCapsule(34.0f, 96.0f);
+	const FVector CatInside(
+		1620.0f,
+		-400.0f,
+		IGThirdMorning::RoofFloorZ + 5.0f);
+	const FVector CatOutside(
+		1705.0f,
+		-400.0f,
+		IGThirdMorning::RoofFloorZ + 5.0f);
+	const FVector PlayerInside(
+		1620.0f,
+		-400.0f,
+		IGThirdMorning::RoofFloorZ
+			+ IGThirdMorning::StandingCapsuleCenter
+			+ 1.0f);
+	const FVector PlayerOutside(
+		1705.0f,
+		-400.0f,
+		IGThirdMorning::RoofFloorZ
+			+ IGThirdMorning::StandingCapsuleCenter
+			+ 1.0f);
+
+	ApplyRoofDoorState(EIGRoofDoorState::LatchedGap);
+	const bool bLatchedStateApplied =
+		RoofDoorState == EIGRoofDoorState::LatchedGap
+		&& HasAuthoritativeCollision();
+	const FBoxSphereBounds DoorBounds = RoofDoorLeaf->CalcBounds(
+		RoofDoorLeaf->GetComponentTransform());
+	const float RoofTop =
+		ToWorld(FVector(0.0f, 0.0f, IGThirdMorning::RoofFloorZ)).Z;
+	OutGapCentimeters =
+		DoorBounds.Origin.Z - DoorBounds.BoxExtent.Z - RoofTop;
+	for (int32 Attempt = 0; Attempt < 20; ++Attempt)
+	{
+		FHitResult EnterHit;
+		if (!Sweep(CatCapsule, CatInside, CatOutside, EnterHit))
+		{
+			++OutCatEnterPasses;
+		}
+		FHitResult ExitHit;
+		if (!Sweep(CatCapsule, CatOutside, CatInside, ExitHit))
+		{
+			++OutCatExitPasses;
+		}
+		FHitResult HumanHit;
+		if (Sweep(PlayerCapsule, PlayerInside, PlayerOutside, HumanHit)
+			&& HumanHit.GetComponent() == RoofDoorLeaf.Get())
+		{
+			++OutLatchedHumanBlocks;
+		}
+	}
+
+	ApplyRoofDoorState(EIGRoofDoorState::PulledOpen);
+	const bool bPulledStateApplied =
+		RoofDoorState == EIGRoofDoorState::PulledOpen
+		&& HasAuthoritativeCollision();
+	for (int32 Attempt = 0; Attempt < 20; ++Attempt)
+	{
+		FHitResult HumanHit;
+		if (!Sweep(PlayerCapsule, PlayerInside, PlayerOutside, HumanHit))
+		{
+			++OutOpenHumanPasses;
+		}
+	}
+
+	ApplyRoofDoorState(EIGRoofDoorState::ReturnToGap);
+	const bool bReturnStateApplied =
+		RoofDoorState == EIGRoofDoorState::ReturnToGap
+		&& HasAuthoritativeCollision();
+	for (int32 Attempt = 0; Attempt < 20; ++Attempt)
+	{
+		FHitResult HumanHit;
+		if (Sweep(PlayerCapsule, PlayerInside, PlayerOutside, HumanHit)
+			&& HumanHit.GetComponent() == RoofDoorLeaf.Get())
+		{
+			++OutReturnHumanBlocks;
+		}
+	}
+
+	ApplyRoofDoorState(PreviousState);
+	const bool bRestoredState = RoofDoorState == PreviousState;
+	return bLatchedStateApplied
+		&& bPulledStateApplied
+		&& bReturnStateApplied
+		&& bRestoredState
+		&& FMath::IsNearlyEqual(OutGapCentimeters, 11.0f, 1.0f)
+		&& OutCatEnterPasses == 20
+		&& OutCatExitPasses == 20
+		&& OutLatchedHumanBlocks == 20
+		&& OutOpenHumanPasses == 20
+		&& OutReturnHumanBlocks == 20;
 }
 
 bool AIGThirdMorningDirector::ValidateRebirthCollisionRoute(
@@ -6699,6 +7136,19 @@ void AIGThirdMorningDirector::HandleReleaseValidationLoadCompleted(
 
 void AIGThirdMorningDirector::BeginRebirthEndingValidation()
 {
+	ReleaseValidationTankLidBeforeEnding = TankLidAction;
+	ReleaseValidationTankLidCountBeforeEnding =
+		CountOwnedChapterThreeActions(EIGChapterThreeAction::OpenTank);
+	ReleaseValidationOwnedActionCountBeforeEnding =
+		CountOwnedChapterThreeActions();
+	if (!IsValid(ReleaseValidationTankLidBeforeEnding)
+		|| ReleaseValidationTankLidCountBeforeEnding != 1)
+	{
+		FailRebirthReleaseValidation(
+			TEXT("s4_common_prop precondition"));
+		return;
+	}
+
 	if (bReleaseValidationEndingA)
 	{
 		FinishEndingA();
@@ -6737,6 +7187,35 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 	const FName StrongCue = bEndingA
 		? FName(TEXT("Ending.A.StrongCuePlayed"))
 		: FName(TEXT("Ending.B.StrongCuePlayed"));
+	bool bAllBodySilhouetteHidden = BodySilhouette.Num() > 0;
+	for (const UStaticMeshComponent* Piece : BodySilhouette)
+	{
+		if (!IsValid(Piece) || Piece->IsVisible())
+		{
+			bAllBodySilhouetteHidden = false;
+			break;
+		}
+	}
+	const FVector ExpectedLidLocation =
+		ToWorld(IGThirdMorning::TankCenter + FVector(0, 0, 610));
+	const int32 TankLidCountAfterEnding =
+		CountOwnedChapterThreeActions(EIGChapterThreeAction::OpenTank);
+	const int32 OwnedActionCountAfterEnding =
+		CountOwnedChapterThreeActions();
+	const bool bCommonPropPassed =
+		IsValid(ReleaseValidationTankLidBeforeEnding)
+		&& TankLidAction == ReleaseValidationTankLidBeforeEnding
+		&& ReleaseValidationTankLidCountBeforeEnding == 1
+		&& TankLidCountAfterEnding == 1
+		&& OwnedActionCountAfterEnding
+			== ReleaseValidationOwnedActionCountBeforeEnding
+		&& !TankLidAction->IsHidden()
+		&& TankLidAction->GetActorLocation().Equals(
+			ExpectedLidLocation,
+			0.1f)
+		&& !TankLidAction->GetActorEnableCollision()
+		&& !TankLidAction->IsInteractionEnabled()
+		&& bAllBodySilhouetteHidden;
 	const bool bPassed =
 		RebirthState
 		&& Snapshot.ChapterThree.EndingChoice
@@ -6748,15 +7227,51 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 			FName(TEXT("Truth.Found0731")),
 			false))
 		&& RebirthState->CanConverge(
-			EIGRebirthConvergencePoint::C6AfterDiscovery);
+			EIGRebirthConvergencePoint::C6AfterDiscovery)
+		&& bCommonPropPassed;
 	if (!bPassed)
 	{
+		if (!bCommonPropPassed)
+		{
+			UE_LOG(
+				LogIndieGame,
+				Error,
+				TEXT(
+					"REBIRTH_SPIKE FAIL s4_common_prop "
+					"same_lid=%d lid_before=%d lid_after=%d "
+					"actions_before=%d actions_after=%d visible=%d "
+					"collision=%d interactive=%d body_hidden=%d"),
+				TankLidAction == ReleaseValidationTankLidBeforeEnding
+					? 1
+					: 0,
+				ReleaseValidationTankLidCountBeforeEnding,
+				TankLidCountAfterEnding,
+				ReleaseValidationOwnedActionCountBeforeEnding,
+				OwnedActionCountAfterEnding,
+				TankLidAction && !TankLidAction->IsHidden() ? 1 : 0,
+				TankLidAction
+					&& TankLidAction->GetActorEnableCollision()
+					? 1
+					: 0,
+				TankLidAction
+					&& TankLidAction->IsInteractionEnabled()
+					? 1
+					: 0,
+				bAllBodySilhouetteHidden ? 1 : 0);
+		}
 		FailRebirthReleaseValidation(
 			bEndingA ? TEXT("ending_a") : TEXT("ending_b"));
 		return;
 	}
 
 	const TCHAR* EndingLabel = bEndingA ? TEXT("A") : TEXT("B");
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_SPIKE PASS s4_common_prop "
+			"ending=%s duplicates=0"),
+		EndingLabel);
 	UE_LOG(
 		LogIndieGame,
 		Display,
@@ -6774,6 +7289,31 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 		false,
 		0,
 		TEXT("REBIRTH release validation completed"));
+}
+
+int32 AIGThirdMorningDirector::CountOwnedChapterThreeActions(
+	const EIGChapterThreeAction FilterAction) const
+{
+	TArray<AActor*> ActionActors;
+	UGameplayStatics::GetAllActorsOfClass(
+		this,
+		AIGChapterThreeAction::StaticClass(),
+		ActionActors);
+
+	int32 Count = 0;
+	for (const AActor* Actor : ActionActors)
+	{
+		const AIGChapterThreeAction* ActionActor =
+			Cast<AIGChapterThreeAction>(Actor);
+		if (ActionActor
+			&& ActionActor->GetOwner() == this
+			&& (FilterAction == EIGChapterThreeAction::None
+				|| ActionActor->GetAction() == FilterAction))
+		{
+			++Count;
+		}
+	}
+	return Count;
 }
 
 void AIGThirdMorningDirector::FailRebirthReleaseValidation(

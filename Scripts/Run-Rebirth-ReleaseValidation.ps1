@@ -17,6 +17,8 @@ $projectRoot = Split-Path -Parent $PSScriptRoot
 $projectFile = Join-Path $projectRoot 'IndieGame.uproject'
 $resolverScript = Join-Path $PSScriptRoot 'Resolve-UnrealEditor.ps1'
 $validationScript = Join-Path $PSScriptRoot 'Validate-Project.ps1'
+$persistenceScript =
+	Join-Path $PSScriptRoot 'Run-Rebirth-PersistenceSpikes.ps1'
 $resultDirectory = Join-Path $projectRoot 'Saved\Validation\RebirthRelease'
 $runId = '{0}_{1}' -f (
 	[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')),
@@ -32,6 +34,7 @@ $allStepNames = @(
 	'source_state_pre',
 	'development_editor_build',
 	'development_game_build',
+	'persistence_spikes',
 	'map_check',
 	'runtime_ending_a',
 	'runtime_ending_b',
@@ -449,16 +452,173 @@ function Assert-ReleaseLog {
 	}
 	foreach ($requiredMarker in @(
 		'REBIRTH_GREYBOX PASS',
+		'REBIRTH_RELEASE PASS s2_roof_door',
 		'REBIRTH_RELEASE PASS collision_route',
 		'REBIRTH_RELEASE PASS audio_queue',
 		'REBIRTH_RELEASE PASS p3_p5',
 		'REBIRTH_RELEASE PASS savegame_v3',
+		"REBIRTH_SPIKE PASS s4_common_prop ending=$Ending duplicates=0",
 		"REBIRTH_RELEASE PASS ending=$Ending",
 		"REBIRTH_RELEASE PASS complete ending=$Ending"
 	)) {
 		if (-not $logText.Contains($requiredMarker)) {
 			throw "Runtime validation marker is missing: $requiredMarker. Check $LogPath."
 		}
+	}
+	if ($Ending -eq 'A') {
+		foreach ($endToEndMarker in @(
+			'REBIRTH_E2E PASS ch01_router',
+			'REBIRTH_E2E PASS ch02_router',
+			'REBIRTH_E2E PASS ch03_handoff',
+			'REBIRTH_SPIKE PASS s1_outfit_sleeve chapters=3 duplicates=0 stitches=3'
+		)) {
+			if (-not $logText.Contains($endToEndMarker)) {
+				throw (
+					"End-to-end runtime marker is missing: $endToEndMarker. " +
+					"Check $LogPath.")
+			}
+		}
+	}
+}
+
+function Assert-PersistenceSpikeEvidence {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$LogPath,
+		[Parameter(Mandatory = $true)]
+		[string]$EvidenceDirectory,
+		[Parameter(Mandatory = $true)]
+		[string]$ExpectedCommitSha
+	)
+
+	if (-not (Test-Path -LiteralPath $LogPath -PathType Leaf)) {
+		throw "Persistence spike harness log is missing: $LogPath"
+	}
+	$harnessLog = Get-Content -Raw -Encoding UTF8 -LiteralPath $LogPath
+	if ($harnessLog.Contains('REBIRTH_SPIKE FAIL') -or
+		-not $harnessLog.Contains(
+			'REBIRTH_SPIKE_HARNESS PASS complete p3=7 endings=2')) {
+		throw "Persistence spike harness did not report a complete PASS: $LogPath"
+	}
+
+	$nestedSummaryPath = Join-Path $EvidenceDirectory 'summary.json'
+	if (-not (Test-Path -LiteralPath $nestedSummaryPath -PathType Leaf)) {
+		throw "Persistence spike summary is missing: $nestedSummaryPath"
+	}
+	try {
+		$nestedSummary =
+			Get-Content -Raw -Encoding UTF8 -LiteralPath $nestedSummaryPath |
+			ConvertFrom-Json
+	}
+	catch {
+		throw (
+			"Persistence spike summary is invalid JSON: " +
+			"$nestedSummaryPath ($($_.Exception.Message))")
+	}
+	if ($nestedSummary.status -ne 'PASS' -or
+		[string]$nestedSummary.commitSha -ne $ExpectedCommitSha -or
+		[int]$nestedSummary.p3ProcessRestarts -ne 7 -or
+		[int]$nestedSummary.endingProcessRestarts -ne 4) {
+		throw (
+			'Persistence spike summary metadata does not match the locked ' +
+			"release source state: $nestedSummaryPath")
+	}
+
+	$expectedCases = [System.Collections.Generic.HashSet[string]]::new(
+		[System.StringComparer]::Ordinal)
+	for ($checkpoint = 0; $checkpoint -le 6; ++$checkpoint) {
+		[void]$expectedCases.Add("P3Write_$checkpoint")
+		[void]$expectedCases.Add("P3Read_$checkpoint")
+	}
+	foreach ($ending in @('A', 'B')) {
+		[void]$expectedCases.Add("EndingWrite_$ending")
+		[void]$expectedCases.Add("EndingCommit_$ending")
+		[void]$expectedCases.Add("EndingVerify_$ending")
+	}
+	$results = @($nestedSummary.results)
+	if ($results.Count -ne $expectedCases.Count) {
+		throw (
+			"Persistence spike result count was $($results.Count); " +
+			"expected $($expectedCases.Count).")
+	}
+
+	$evidenceRoot = (
+		Resolve-Path -LiteralPath $EvidenceDirectory
+	).Path.TrimEnd('\') + '\'
+	$seenCases = [System.Collections.Generic.HashSet[string]]::new(
+		[System.StringComparer]::Ordinal)
+	foreach ($result in $results) {
+		$caseName = [string]$result.case
+		if (-not $expectedCases.Contains($caseName) -or
+			-not $seenCases.Add($caseName) -or
+			$result.status -ne 'PASS') {
+			throw "Persistence spike result is missing, duplicated, or failed: $caseName"
+		}
+		if (-not (Test-Path -LiteralPath $result.logPath -PathType Leaf)) {
+			throw "Persistence spike case log is missing: $($result.logPath)"
+		}
+		$resolvedCaseLog = (
+			Resolve-Path -LiteralPath $result.logPath
+		).Path
+		if (-not $resolvedCaseLog.StartsWith(
+				$evidenceRoot,
+				[System.StringComparison]::OrdinalIgnoreCase)) {
+			throw "Persistence spike log escaped its evidence directory: $resolvedCaseLog"
+		}
+		$actualHash = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedCaseLog
+		).Hash
+		if ($actualHash -ne [string]$result.logSha256) {
+			throw "Persistence spike log hash mismatch: $resolvedCaseLog"
+		}
+		$caseLogText =
+			Get-Content -Raw -Encoding UTF8 -LiteralPath $resolvedCaseLog
+		if ($caseLogText.Contains('REBIRTH_SPIKE FAIL')) {
+			throw "Persistence spike case reported FAIL: $resolvedCaseLog"
+		}
+
+		$requiresSaveSnapshot =
+			$caseName -like 'P3Write_*' -or
+			$caseName -like 'EndingWrite_*' -or
+			$caseName -like 'EndingCommit_*'
+		$requiresSaveDeletion =
+			$caseName -like 'P3Read_*' -or
+			$caseName -like 'EndingVerify_*'
+		if ($requiresSaveSnapshot) {
+			if ([string]::IsNullOrWhiteSpace(
+					[string]$result.saveSnapshotPath) -or
+				-not (Test-Path `
+					-LiteralPath $result.saveSnapshotPath `
+					-PathType Leaf)) {
+				throw "Persistence save snapshot is missing: $caseName"
+			}
+			$resolvedSaveSnapshot = (
+				Resolve-Path -LiteralPath $result.saveSnapshotPath
+			).Path
+			if (-not $resolvedSaveSnapshot.StartsWith(
+					$evidenceRoot,
+					[System.StringComparison]::OrdinalIgnoreCase)) {
+				throw (
+					'Persistence save snapshot escaped its evidence ' +
+					"directory: $resolvedSaveSnapshot")
+			}
+			$actualSaveHash = (
+				Get-FileHash `
+					-Algorithm SHA256 `
+					-LiteralPath $resolvedSaveSnapshot
+			).Hash
+			if ($actualSaveHash -ne [string]$result.saveSnapshotSha256) {
+				throw (
+					"Persistence save snapshot hash mismatch: " +
+					$resolvedSaveSnapshot)
+			}
+		}
+		elseif ($requiresSaveDeletion -and -not [bool]$result.saveDeleted) {
+			throw "Persistence save slot was not deleted: $caseName"
+		}
+	}
+	if ($seenCases.Count -ne $expectedCases.Count) {
+		throw 'Persistence spike result set is incomplete.'
 	}
 }
 
@@ -488,11 +648,16 @@ function Invoke-RebirthRuntimeCase {
 		'-stdout',
 		'-FullStdOutLogOutput',
 		"-abslog=$logPath",
-		'-IGChapterThree',
 		'-IGRebirthGreybox',
 		'-IGRebirthReleaseValidation',
 		"-IGRebirthEnding=$Ending"
 	)
+	if ($Ending -eq 'A') {
+		$runtimeArguments += '-IGRebirthEndToEndValidation'
+	}
+	else {
+		$runtimeArguments += '-IGChapterThree'
+	}
 	$processArguments = @(
 		$runtimeArguments |
 			ForEach-Object { ConvertTo-ProcessArgument -Value $_ }
@@ -612,6 +777,9 @@ if (-not (Test-Path -LiteralPath $resolverScript -PathType Leaf)) {
 }
 if (-not (Test-Path -LiteralPath $validationScript -PathType Leaf)) {
 	throw "Static project validator was not found: $validationScript"
+}
+if (-not (Test-Path -LiteralPath $persistenceScript -PathType Leaf)) {
+	throw "Persistence spike harness was not found: $persistenceScript"
 }
 $projectDescriptor =
 	Get-Content -Raw -Encoding UTF8 -LiteralPath $projectFile |
@@ -786,6 +954,44 @@ else {
 		-LogPath $null
 }
 
+if (-not $SkipRuntimeValidation) {
+	$persistenceLog = Join-Path $runDirectory 'PersistenceSpikes.log'
+	$persistenceEvidence =
+		Join-Path $runDirectory 'PersistenceSpikes'
+	Set-ActiveStep -Name 'persistence_spikes' -LogPath $persistenceLog
+	Invoke-NativeChecked `
+		-FilePath 'powershell.exe' `
+		-Arguments @(
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			$persistenceScript,
+			'-TimeoutSeconds',
+			"$RuntimeTimeoutSeconds",
+			'-EvidenceDirectory',
+			$persistenceEvidence
+		) `
+		-Label 'Process-boundary persistence spikes' `
+		-LogPath $persistenceLog
+	Assert-PersistenceSpikeEvidence `
+		-LogPath $persistenceLog `
+		-EvidenceDirectory $persistenceEvidence `
+		-ExpectedCommitSha $initialSourceState.commitSha
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail (
+			'S3 P3 checkpoints 0..6 and S4 ending A/B common-prefix state ' +
+			'passed separate-process disk restore with verified log hashes.')
+}
+else {
+	Add-StepResult `
+		-Name 'persistence_spikes' `
+		-Status 'NOT_RUN' `
+		-Detail 'SkipRuntimeValidation requested.' `
+		-LogPath $null
+}
+
 if (-not $SkipMapCheck) {
 	$mapCheckLog = Join-Path $runDirectory 'MapCheck_Prologue_Morning.log'
 	Set-ActiveStep -Name 'map_check' -LogPath $mapCheckLog
@@ -811,7 +1017,8 @@ if (-not $SkipRuntimeValidation) {
 	Complete-ActiveStep `
 		-Status 'PASS' `
 		-Detail (
-			'Sampled collision, synthetic PCM/component lifecycle, in-process ' +
+			'CH01-to-CH03 production-event route, S1 outfit, S2 roof door, ' +
+			'sampled collision, synthetic PCM/component lifecycle, in-process ' +
 			'v3 disk round-trip, P3/P5, and ending A passed.')
 
 	$endingBLog = Join-Path $runDirectory 'RebirthRelease_EndingB.log'
@@ -820,8 +1027,8 @@ if (-not $SkipRuntimeValidation) {
 	Complete-ActiveStep `
 		-Status 'PASS' `
 		-Detail (
-			'Sampled collision, synthetic PCM/component lifecycle, in-process ' +
-			'v3 disk round-trip, P3/P5, and ending B passed.')
+			'S2 roof door, sampled collision, synthetic PCM/component lifecycle, ' +
+			'in-process v3 disk round-trip, P3/P5, and ending B passed.')
 }
 else {
 	foreach ($notRunStep in @('runtime_ending_a', 'runtime_ending_b')) {

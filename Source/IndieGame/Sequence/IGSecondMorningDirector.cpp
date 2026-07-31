@@ -205,6 +205,7 @@ void AIGSecondMorningDirector::ResolveTags()
 
 	StartedTag = Tag(TEXT("State.CH02.Loop.Started"));
 	WakeAlarmStoppedTag = Tag(TEXT("State.CH02.Wake.AlarmStopped"));
+	WakeStandingTag = Tag(TEXT("State.CH02.Wake.Standing"));
 	FridgeCheckedTag = Tag(TEXT("State.CH02.Loop.FridgeChecked"));
 	HasWalletTag = Tag(TEXT("State.CH02.Loop.HasWallet"));
 	LeftHomeTag = Tag(TEXT("State.CH02.Loop.LeftHome"));
@@ -479,6 +480,58 @@ bool AIGSecondMorningDirector::CanConvergeSecondMorning() const
 	return RebirthState
 		&& RebirthState->CanConverge(
 			EIGRebirthConvergencePoint::C3SecondMorning);
+}
+
+bool AIGSecondMorningDirector::RunRebirthEndToEndRoute()
+{
+	UIGRebirthNarrativeSubsystem* RebirthState =
+		GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+			: nullptr;
+	if (!RebirthState
+		|| !MirrorAlarmMemo
+		|| !MailboxBills
+		|| !DuplicateReceipt)
+	{
+		return false;
+	}
+
+	AddState(WakeAlarmStoppedTag);
+	AddState(WakeStandingTag);
+	AddState(LeftHomeTag);
+	// A repeated threshold must not replay or duplicate the CH02 outfit.
+	CommitOutfitAtFirstExit();
+	AddState(EnteredStoreTag);
+	AddState(CalledEmployeeTag);
+	HandleNoteRead(DuplicateReceipt, false);
+	HandleNoteRead(MirrorAlarmMemo, false);
+	HandleNoteRead(MailboxBills, false);
+
+	const FIGRebirthNarrativeSnapshot Snapshot =
+		RebirthState->BuildSnapshot();
+	int32 ChapterTwoOutfitRecords = 0;
+	for (const FName ChapterId : Snapshot.EquippedOutfitChapters)
+	{
+		ChapterTwoOutfitRecords +=
+			ChapterId == FName(TEXT("CH02")) ? 1 : 0;
+	}
+	const bool bRouteReady =
+		ChapterTwoOutfitRecords == 1
+		&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
+			FName(TEXT("Truth.Alarm0510")),
+			false))
+		&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
+			FName(TEXT("Truth.DeathOverlay")),
+			false))
+		&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
+			FName(TEXT("Truth.WasSearched")),
+			false))
+		&& CanConvergeSecondMorning();
+	if (bRouteReady)
+	{
+		AddState(ReturnedTag);
+	}
+	return bRouteReady && HasState(ReturnedTag);
 }
 
 void AIGSecondMorningDirector::RefreshReturnGate() const

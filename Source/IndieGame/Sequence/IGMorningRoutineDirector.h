@@ -76,6 +76,14 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Morning Flow")
 	virtual float GetObjectiveProgress() const override;
 
+	/**
+	 * Exercises the same first-exit outfit commit used by the apartment
+	 * threshold. This exists only for the unattended CH01->CH03 release route;
+	 * it returns true when a repeated threshold entry still owns one CH01
+	 * outfit record.
+	 */
+	bool RunRebirthEndToEndFirstExit();
+
 	UPROPERTY(BlueprintAssignable, Category = "Morning Flow")
 	FIGMorningPhaseChangedSignature OnPhaseChanged;
 

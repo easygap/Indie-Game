@@ -161,6 +161,10 @@ struct INDIEGAME_API FIGRebirthChapterThreeState
 {
 	GENERATED_BODY()
 
+	/** The apartment checkpoint must not re-close the inspected full fridge. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	bool bApartmentFridgeInspected = false;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	FIGRebirthP3State P3;
 

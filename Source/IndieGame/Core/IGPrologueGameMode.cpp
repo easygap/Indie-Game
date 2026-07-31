@@ -2,7 +2,10 @@
 
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Player/IGHorrorHUD.h"
+#include "Sequence/IGRebirthPersistenceProbe.h"
 
 AIGPrologueGameMode::AIGPrologueGameMode()
 {
@@ -16,6 +19,23 @@ void AIGPrologueGameMode::StartPlay()
 	UWorld* World = GetWorld();
 	if (!World || IsValid(WorldScene))
 	{
+		return;
+	}
+
+	FString PersistenceProbeMode;
+	if (FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGRebirthPersistenceProbe="),
+			PersistenceProbeMode))
+	{
+		FActorSpawnParameters ProbeParameters;
+		ProbeParameters.Name = TEXT("RebirthPersistenceProbe");
+		ProbeParameters.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		World->SpawnActor<AIGRebirthPersistenceProbe>(
+			AIGRebirthPersistenceProbe::StaticClass(),
+			FTransform::Identity,
+			ProbeParameters);
 		return;
 	}
 

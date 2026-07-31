@@ -218,6 +218,30 @@ void AIGPlayerCharacter::SetRebirthOutfitEquipped(
 	}
 }
 
+bool AIGPlayerCharacter::ValidateRebirthOutfitProxy(
+	int32& OutStitchCount) const
+{
+	OutStitchCount = 0;
+	if (!bRebirthOutfitEquipped
+		|| !IsValid(OutfitSleeveProxy)
+		|| !OutfitSleeveProxy->GetStaticMesh())
+	{
+		return false;
+	}
+
+	for (const UStaticMeshComponent* Stitch : OutfitStitchProxies)
+	{
+		if (!IsValid(Stitch)
+			|| !Stitch->GetStaticMesh()
+			|| Stitch->GetAttachParent() != OutfitSleeveProxy.Get())
+		{
+			return false;
+		}
+		++OutStitchCount;
+	}
+	return OutStitchCount == 3;
+}
+
 void AIGPlayerCharacter::HandleFocusChanged(AActor* PreviousActor, AActor* NewActor)
 {
 	if (!IsValid(NewActor) || !FirstPersonCamera)

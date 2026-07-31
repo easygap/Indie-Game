@@ -65,6 +65,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Player|Outfit")
 	bool IsRebirthOutfitEquipped() const { return bRebirthOutfitEquipped; }
 
+	/** Runtime release probe for the static sleeve and its three repair stitches. */
+	bool ValidateRebirthOutfitProxy(int32& OutStitchCount) const;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;

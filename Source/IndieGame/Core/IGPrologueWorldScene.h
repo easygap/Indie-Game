@@ -288,6 +288,9 @@ private:
 	void BeginChapterTwoTransition();
 	void EnterChapterTwo();
 	void EnterChapterThree();
+	void StartRebirthEndToEndValidation();
+	void ContinueRebirthEndToEndChapterTwo();
+	void FailRebirthEndToEndValidation(const TCHAR* Reason) const;
 	void StartChapterTwoCaptureSequence();
 	void CaptureNextChapterTwoFrame();
 	void FinishChapterTwoCaptureSequence();
@@ -493,9 +496,11 @@ private:
 	bool bChapterTwoActive = false;
 	bool bChapterTwoFinished = false;
 	bool bChapterThreeActive = false;
+	bool bRebirthEndToEndValidation = false;
 
 	FTimerHandle ChapterTransitionHandle;
 	FTimerHandle ChapterEndingHandle;
 	FTimerHandle ChapterCaptureHandle;
+	FTimerHandle RebirthEndToEndHandle;
 	int32 ChapterCaptureIndex = 0;
 };

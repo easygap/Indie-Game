@@ -78,6 +78,7 @@ $requiredFiles = @(
 	'Scripts/Resolve-UnrealEditor.ps1',
 	'Scripts/Run-Rebirth-Greybox.bat',
 	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
+	'Scripts/Run-Rebirth-PersistenceSpikes.ps1',
 	'Scripts/Test-Rebirth-NarrativeContract.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
 	'Scripts/RunEditor.bat',
@@ -91,6 +92,9 @@ $requiredFiles = @(
 	'Source/IndieGame/Sequence/IGSecondMorningDirector.cpp',
 	'Source/IndieGame/Sequence/IGThirdMorningDirector.h',
 	'Source/IndieGame/Sequence/IGThirdMorningDirector.cpp',
+	'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.h',
+	'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.cpp',
+	'Source/IndieGame/Core/IGPrologueGameMode.cpp',
 	'Source/IndieGame/Narrative/IGRebirthNarrativeTypes.h',
 	'Source/IndieGame/Narrative/IGRebirthNarrativeSubsystem.h',
 	'Source/IndieGame/Narrative/IGRebirthNarrativeSubsystem.cpp',
@@ -284,6 +288,15 @@ $releaseValidationScriptPath = Join-Path $projectRoot (
 	'Scripts/Run-Rebirth-ReleaseValidation.ps1')
 $releaseValidationScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	$releaseValidationScriptPath)
+$persistenceSpikeScriptPath = Join-Path $projectRoot (
+	'Scripts/Run-Rebirth-PersistenceSpikes.ps1')
+$persistenceSpikeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	$persistenceSpikeScriptPath)
+$persistenceProbeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot (
+		'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.cpp'))
+$prologueGameModeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Core/IGPrologueGameMode.cpp')
 $releaseValidationProcedure = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Docs/RELEASE_VALIDATION.md')
 $performanceContract = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -584,8 +597,17 @@ foreach ($requiredChapterThreeGate in @(
 	'EIGRebirthConvergencePoint::C5FinalChoice',
 	'SetTankOpenedEarly',
 	'REBIRTH_GREYBOX PASS',
+	'REBIRTH_SPIKE PASS s1_outfit_sleeve',
+	'ValidateRebirthRoofDoor',
+	'EIGRoofDoorState::LatchedGap',
+	'EIGRoofDoorState::PulledOpen',
+	'EIGRoofDoorState::ReturnToGap',
+	'REBIRTH_RELEASE PASS s2_roof_door',
+	'authoritative_collision=1',
 	'ValidateRebirthCollisionRoute',
 	'ValidateRebirthAudioQueue',
+	'ReleaseValidationSaveIdleRetryCount > 100',
+	'savegame_v3 autosave did not become idle',
 	'HandleReleaseValidationSaveCompleted',
 	'HandleReleaseValidationLoadCompleted',
 	'FinishRebirthEndingValidation',
@@ -607,6 +629,58 @@ foreach ($requiredChapterThreeGate in @(
 )) {
 	if (-not $thirdMorningSource.Contains($requiredChapterThreeGate)) {
 		throw "Required CH03 progression/ending gate is missing: $requiredChapterThreeGate"
+	}
+}
+foreach ($requiredEndToEndInvariant in @(
+	'IGRebirthEndToEndValidation',
+	'REBIRTH_E2E PASS ch01_router',
+	'REBIRTH_E2E PASS ch02_router',
+	'REBIRTH_E2E PASS ch03_handoff'
+)) {
+	if (-not $worldSceneSource.Contains($requiredEndToEndInvariant)) {
+		throw "REBIRTH end-to-end invariant is missing: $requiredEndToEndInvariant"
+	}
+}
+foreach ($requiredChapterTwoEndToEndInvariant in @(
+	'RunRebirthEndToEndRoute',
+	'AddState(WakeAlarmStoppedTag);',
+	'AddState(WakeStandingTag);',
+	'State.CH02.Wake.Standing'
+)) {
+	if (-not $secondMorningSource.Contains($requiredChapterTwoEndToEndInvariant)) {
+		throw "CH02 end-to-end state transition is missing: $requiredChapterTwoEndToEndInvariant"
+	}
+}
+foreach ($requiredRoofDoorInvariant in @(
+	'RoofDoorLeaf->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics)',
+	'RoofDoorLeaf->GetCollisionResponseToChannel(ECC_Pawn)',
+	'IsRoofDoorReturnClear',
+	'OverlapAnyTestByObjectType',
+	'FCollisionShape::MakeCapsule(4.0f, 4.0f)',
+	'OutCatEnterPasses == 20',
+	'OutCatExitPasses == 20',
+	'OutLatchedHumanBlocks == 20',
+	'OutOpenHumanPasses == 20',
+	'OutReturnHumanBlocks == 20'
+)) {
+	if (-not $thirdMorningSource.Contains($requiredRoofDoorInvariant)) {
+		throw "S2 authoritative roof-door invariant is missing: $requiredRoofDoorInvariant"
+	}
+}
+foreach ($requiredCommonPropInvariant in @(
+	'ReleaseValidationTankLidBeforeEnding',
+	'CountOwnedChapterThreeActions(EIGChapterThreeAction::OpenTank)',
+	'TankLidAction == ReleaseValidationTankLidBeforeEnding',
+	'TankLidCountAfterEnding == 1',
+	'OwnedActionCountAfterEnding',
+	'ExpectedLidLocation',
+	'!TankLidAction->GetActorEnableCollision()',
+	'!TankLidAction->IsInteractionEnabled()',
+	'bAllBodySilhouetteHidden',
+	'REBIRTH_SPIKE PASS s4_common_prop'
+)) {
+	if (-not $thirdMorningSource.Contains($requiredCommonPropInvariant)) {
+		throw "S4 common-prop invariant is missing: $requiredCommonPropInvariant"
 	}
 }
 foreach ($requiredChapterThreeRouteInvariant in @(
@@ -851,6 +925,17 @@ if ($releaseValidationParseErrors.Count -gt 0) {
 		ForEach-Object { $_.Message }
 	throw "REBIRTH release validation script does not parse: $($parseMessages -join '; ')"
 }
+$persistenceSpikeTokens = $null
+$persistenceSpikeParseErrors = $null
+[void][System.Management.Automation.Language.Parser]::ParseFile(
+	$persistenceSpikeScriptPath,
+	[ref]$persistenceSpikeTokens,
+	[ref]$persistenceSpikeParseErrors)
+if ($persistenceSpikeParseErrors.Count -gt 0) {
+	$parseMessages = $persistenceSpikeParseErrors |
+		ForEach-Object { $_.Message }
+	throw "REBIRTH persistence spike script does not parse: $($parseMessages -join '; ')"
+}
 foreach ($requiredReleaseValidationInvariant in @(
 	'[switch]$StaticOnly',
 	"'IndieGameEditor'",
@@ -863,10 +948,17 @@ foreach ($requiredReleaseValidationInvariant in @(
 	"'-ExecCmds=MAP CHECK,QUIT_EDITOR'",
 	'REBIRTH_RELEASE_HARNESS PASS map_check',
 	"'-IGRebirthReleaseValidation'",
+	"'-IGRebirthEndToEndValidation'",
 	'"-IGRebirthEnding=$Ending"',
 	"Invoke-RebirthRuntimeCase -EditorCommand `$editorCommand -Ending 'A'",
 	"Invoke-RebirthRuntimeCase -EditorCommand `$editorCommand -Ending 'B'",
 	'Assert-ReleaseLog',
+	'REBIRTH_E2E PASS ch01_router',
+	'REBIRTH_E2E PASS ch02_router',
+	'REBIRTH_E2E PASS ch03_handoff',
+	'REBIRTH_SPIKE PASS s1_outfit_sleeve chapters=3 duplicates=0 stitches=3',
+	'REBIRTH_RELEASE PASS s2_roof_door',
+	'REBIRTH_SPIKE PASS s4_common_prop ending=$Ending duplicates=0',
 	'REBIRTH_RELEASE PASS collision_route',
 	'REBIRTH_RELEASE PASS audio_queue',
 	'REBIRTH_RELEASE PASS p3_p5',
@@ -901,6 +993,83 @@ foreach ($requiredReleaseValidationInvariant in @(
 	if (-not $releaseValidationScript.Contains(
 			$requiredReleaseValidationInvariant)) {
 		throw "REBIRTH release harness invariant is missing: $requiredReleaseValidationInvariant"
+	}
+}
+foreach ($requiredPersistenceIntegrationInvariant in @(
+	"'persistence_spikes'",
+	'Run-Rebirth-PersistenceSpikes.ps1',
+	'Assert-PersistenceSpikeEvidence',
+	'REBIRTH_SPIKE_HARNESS PASS complete p3=7 endings=2',
+	'p3ProcessRestarts',
+	'endingProcessRestarts',
+	'saveSnapshotSha256',
+	'Persistence save snapshot hash mismatch',
+	'Get-FileHash -Algorithm SHA256',
+	'PersistenceSpikes.log'
+)) {
+	if (-not $releaseValidationScript.Contains(
+			$requiredPersistenceIntegrationInvariant)) {
+		throw (
+			'Release persistence-spike integration invariant is missing: ' +
+			$requiredPersistenceIntegrationInvariant)
+	}
+}
+foreach ($requiredPersistenceHarnessInvariant in @(
+	'Start-Process',
+	'"-UserDir=$userDirectory"',
+	'"-IGRebirthPersistenceProbe=$Mode"',
+	"'P3Write'",
+	"'P3Read'",
+	"'EndingWrite'",
+	"'EndingCommit'",
+	"'EndingVerify'",
+	'$checkpoint -le 6',
+	"foreach (`$ending in @('A', 'B'))",
+	'p3ProcessRestarts = 7',
+	'endingProcessRestarts = 4',
+	'SaveSnapshots',
+	'Copy-Item',
+	'saveSnapshotSha256',
+	'saveDeleted',
+	'Get-FileHash -Algorithm SHA256',
+	'REBIRTH_SPIKE_HARNESS PASS complete p3=7 endings=2'
+)) {
+	if (-not $persistenceSpikeScript.Contains(
+			$requiredPersistenceHarnessInvariant)) {
+		throw (
+			'Persistence spike harness invariant is missing: ' +
+			$requiredPersistenceHarnessInvariant)
+	}
+}
+foreach ($requiredPersistenceProbeInvariant in @(
+	'IGRebirthPersistenceProbe=',
+	'MakeP3Checkpoint',
+	'MatchesP3Checkpoint',
+	'P3 checkpoint must be 0..6',
+	'CommitChapterThreeCommonDiscovery()',
+	'State->CommitChapterThreeCommonDiscovery()',
+	'branch_exclusive=1',
+	'DeleteGameInSlot',
+	'REBIRTH_SPIKE PASS %s',
+	'RequestExitWithStatus'
+)) {
+	if (-not $persistenceProbeSource.Contains(
+			$requiredPersistenceProbeInvariant)) {
+		throw (
+			'Persistence probe invariant is missing: ' +
+			$requiredPersistenceProbeInvariant)
+	}
+}
+foreach ($requiredPersistenceBootstrapInvariant in @(
+	'IGRebirthPersistenceProbe=',
+	'SpawnActor<AIGRebirthPersistenceProbe>',
+	'return;'
+)) {
+	if (-not $prologueGameModeSource.Contains(
+			$requiredPersistenceBootstrapInvariant)) {
+		throw (
+			'Persistence probe bootstrap invariant is missing: ' +
+			$requiredPersistenceBootstrapInvariant)
 	}
 }
 foreach ($requiredReleaseProcedureInvariant in @(
@@ -1080,6 +1249,10 @@ if (-not $playerCharacterSource.Contains(
 	'constexpr float PresentationDurationSeconds = 1.2f') -or
 	-not $playerCharacterSource.Contains(
 		'Stitch->SetupAttachment(OutfitSleeveProxy)') -or
+	-not $playerCharacterSource.Contains(
+		'ValidateRebirthOutfitProxy') -or
+	-not $playerCharacterSource.Contains(
+		'OutStitchCount == 3') -or
 	-not $playerCharacterSource.Contains('bPlayPresentation') -or
 	$playerCharacterSource.Contains(
 		'bOutfitPresentationPlayedForCurrentChapter') -or

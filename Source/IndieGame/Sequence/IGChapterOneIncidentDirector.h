@@ -104,6 +104,13 @@ public:
 	/** Starts the 1.8 s memory cut only after the player chooses the first upper tread. */
 	bool BeginMemoryBoundary();
 
+	/**
+	 * Runs one deterministic return choice through the production drink,
+	 * cat, lobby and fourth-floor handlers. The normal fourth-floor cue still
+	 * owns the memory-boundary transition.
+	 */
+	bool RunRebirthEndToEndReturnRoute();
+
 	virtual FText GetObjectiveText() const override;
 	virtual FString GetObjectiveTextAscii() const override;
 	virtual float GetObjectiveProgress() const override;
@@ -138,6 +145,7 @@ private:
 	void StartFourthFloorCueIfNeeded();
 	void AdvanceCorridorBlink();
 	void CompleteFourthFloorCue();
+	void BeginRebirthEndToEndMemoryBoundary();
 	void CompleteMemoryBoundary();
 	void PushObjectiveRefresh() const;
 

@@ -12,6 +12,8 @@
 #include "Engine/World.h"
 #include "Environment/IGNeighborhoodLifeDirector.h"
 #include "GameFramework/PlayerController.h"
+#include "HAL/PlatformMisc.h"
+#include "IndieGame.h"
 #include "Interaction/IGZoneTrigger.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
@@ -664,6 +666,69 @@ bool AIGChapterOneIncidentDirector::RegisterFourthFloorReturn()
 	RequestReturnCheckpointAutosave();
 	PushObjectiveRefresh();
 	return true;
+}
+
+bool AIGChapterOneIncidentDirector::RunRebirthEndToEndReturnRoute()
+{
+	if (!bConfigured)
+	{
+		return false;
+	}
+
+	PerformDrink();
+	HandleAction(
+		EIGChapterOneIncidentAction::TakePaperCup,
+		PaperCupAction);
+	HandleAction(
+		EIGChapterOneIncidentAction::GiveWaterInPaperCup,
+		CupWaterAction);
+	HandleAction(
+		EIGChapterOneIncidentAction::WaitForCat,
+		WaitAction);
+	if (!RegisterLobbyReturn() || !RegisterFourthFloorReturn())
+	{
+		return false;
+	}
+
+	GetWorldTimerManager().SetTimer(
+		BoundaryTimer,
+		this,
+		&ThisClass::BeginRebirthEndToEndMemoryBoundary,
+		0.65f,
+		false);
+
+	const UIGRebirthNarrativeSubsystem* RebirthState =
+		GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+			: nullptr;
+	if (!RebirthState)
+	{
+		return false;
+	}
+	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+	return Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup
+		&& Choices.BottleClosureState
+			== EIGRebirthBottleClosureState::Resealed
+		&& Choices.bHasPaperCup
+		&& Choices.bWaitedForCat;
+}
+
+void AIGChapterOneIncidentDirector::BeginRebirthEndToEndMemoryBoundary()
+{
+	if (!BeginMemoryBoundary())
+	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_E2E FAIL ch01_memory_boundary "
+				"reached_fourth_floor=1 cue_armed=%d"),
+			bFifthFloorStepArmed ? 1 : 0);
+		FPlatformMisc::RequestExitWithStatus(
+			false,
+			1,
+			TEXT("REBIRTH end-to-end CH01 transition failed"));
+	}
 }
 
 void AIGChapterOneIncidentDirector::StartFourthFloorCueIfNeeded()

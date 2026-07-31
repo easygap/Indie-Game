@@ -98,6 +98,10 @@ namespace IGRebirthState
 	const FName ActualStateRestored(TEXT("CH03.ActualStateRestored"));
 	const FName EndingAStrongCue(TEXT("Ending.A.StrongCuePlayed"));
 	const FName EndingBStrongCue(TEXT("Ending.B.StrongCuePlayed"));
+	const FName TankOpenedWithoutFlashlight(
+		TEXT("CH03.TankOpenedWithoutFlashlight"));
+	const FName TankRevealedAfterFlashlight(
+		TEXT("CH03.TankRevealedAfterFlashlight"));
 	const FName CommonDiscoverySource(TEXT("Ending.CommonDiscoveryCard"));
 
 	FGameplayTag MakeTruth(const TCHAR* Name)
@@ -676,6 +680,13 @@ void UIGRebirthNarrativeSubsystem::ResetChapterThreeAttempt()
 	State.PlayedOneShotBeats.Remove(IGRebirthState::ActualStateRestored);
 	State.PlayedOneShotBeats.Remove(IGRebirthState::EndingAStrongCue);
 	State.PlayedOneShotBeats.Remove(IGRebirthState::EndingBStrongCue);
+	// These guards describe the current CH03 attempt, not the upstream
+	// flashlight item. Leaving the dark-open guard behind can suppress every
+	// scratch in a restarted attempt that collects the flashlight first.
+	State.PlayedOneShotBeats.Remove(
+		IGRebirthState::TankOpenedWithoutFlashlight);
+	State.PlayedOneShotBeats.Remove(
+		IGRebirthState::TankRevealedAfterFlashlight);
 	State.VisitedLocations.Remove(FName(TEXT("CH03.Apartment")));
 	State.VisitedLocations.Remove(FName(TEXT("CH03.Roof")));
 	State.bTankOpenedEarly = false;

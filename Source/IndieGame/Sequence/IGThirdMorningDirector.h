@@ -74,6 +74,7 @@ public:
 		float HoldSeconds = 0.0f);
 
 	UStaticMeshComponent* GetPresentationMesh() const { return PresentationMesh; }
+	EIGChapterThreeAction GetAction() const { return Action; }
 	void SetHoldSeconds(float HoldSeconds)
 	{
 		InteractionHoldDuration = FMath::Max(0.0f, HoldSeconds);
@@ -105,6 +106,14 @@ enum class EIGThirdMorningPhase : uint8
 	TankReveal,
 	Choice,
 	Ending
+};
+
+/** Physical roof-door states shared by play and the S2 release verifier. */
+enum class EIGRoofDoorState : uint8
+{
+	LatchedGap,
+	PulledOpen,
+	ReturnToGap
 };
 
 /**
@@ -208,6 +217,10 @@ private:
 	void ApplyChapterThreeWorldState();
 	void ApplyCommonDiscoveryWorldState();
 	void ResumeRestoredEnding();
+	void ApplyRoofDoorState(EIGRoofDoorState NewState);
+	bool IsRoofDoorReturnClear() const;
+	void BeginRoofDoorReturn();
+	void FinishRoofDoorReturn();
 	void RegisterTruth(
 		const TCHAR* TruthName,
 		FName SourceId,
@@ -279,12 +292,22 @@ private:
 	bool ValidateRebirthCollisionRoute(
 		int32& OutFloorSamples,
 		int32& OutCapsuleSegments) const;
+	bool ValidateRebirthRoofDoor(
+		int32& OutCatEnterPasses,
+		int32& OutCatExitPasses,
+		int32& OutLatchedHumanBlocks,
+		int32& OutOpenHumanPasses,
+		int32& OutReturnHumanBlocks,
+		float& OutGapCentimeters);
 	bool ValidateRebirthAudioQueue(
 		int32& OutGeneratedSamples,
 		int32& OutGeneratedBytes,
 		int32& OutNonZeroSamples);
 	void BeginRebirthEndingValidation();
 	void FinishRebirthEndingValidation();
+	int32 CountOwnedChapterThreeActions(
+		EIGChapterThreeAction FilterAction =
+			EIGChapterThreeAction::None) const;
 	void FailRebirthReleaseValidation(const TCHAR* Reason);
 
 	UFUNCTION()
@@ -454,7 +477,14 @@ private:
 	bool bReleaseValidationInProgress = false;
 	bool bReleaseValidationEndingA = false;
 	bool bRestoredChapterThreeProgress = false;
+	EIGRoofDoorState RoofDoorState = EIGRoofDoorState::LatchedGap;
+	UPROPERTY(Transient)
+	TObjectPtr<AIGChapterThreeAction>
+		ReleaseValidationTankLidBeforeEnding;
 	FString ReleaseValidationSlotName;
+	int32 ReleaseValidationTankLidCountBeforeEnding = 0;
+	int32 ReleaseValidationOwnedActionCountBeforeEnding = 0;
+	int32 ReleaseValidationSaveIdleRetryCount = 0;
 	float P3PressureKPa = 60.0f;
 	float P3HintElapsedSeconds = 0.0f;
 	int32 P3ZeroConfirmationTicks = 0;
@@ -472,6 +502,8 @@ private:
 	FTimerHandle MotionPollTimer;
 	FTimerHandle CaptureTimer;
 	FTimerHandle ReleaseValidationTimer;
+	FTimerHandle RoofDoorHoldTimer;
+	FTimerHandle RoofDoorReturnTimer;
 	FTimerHandle P3PressureTimer;
 	FTimerHandle P3HintTimer;
 	FTimerHandle P3HintVisualTimer;

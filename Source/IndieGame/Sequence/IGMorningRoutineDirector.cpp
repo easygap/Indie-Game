@@ -339,6 +339,29 @@ void AIGMorningRoutineDirector::CommitOutfitAtFirstExit()
 	}
 }
 
+bool AIGMorningRoutineDirector::RunRebirthEndToEndFirstExit()
+{
+	UIGRebirthNarrativeSubsystem* RebirthState =
+		GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+			: nullptr;
+	if (!RebirthState)
+	{
+		return false;
+	}
+
+	CommitOutfitAtFirstExit();
+	CommitOutfitAtFirstExit();
+	const FIGRebirthNarrativeSnapshot Snapshot =
+		RebirthState->BuildSnapshot();
+	int32 ChapterOneRecords = 0;
+	for (const FName ChapterId : Snapshot.EquippedOutfitChapters)
+	{
+		ChapterOneRecords += ChapterId == FName(TEXT("CH01")) ? 1 : 0;
+	}
+	return ChapterOneRecords == 1;
+}
+
 void AIGMorningRoutineDirector::HandleApartmentExitZoneTriggered(
 	AIGZoneTrigger* Zone)
 {

@@ -1348,6 +1348,25 @@ void AIGPrologueWorldScene::InitializePrologue()
 	{
 		SpawnDemoDirectorIfRequested();
 	}
+	bRebirthEndToEndValidation =
+		FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGRebirthEndToEndValidation"));
+	if (bRebirthEndToEndValidation)
+	{
+		if (bDirectChapterThree || bChapterTwoActive)
+		{
+			FailRebirthEndToEndValidation(
+				TEXT("end-to-end validation must start from CH01"));
+			return;
+		}
+		GetWorldTimerManager().SetTimer(
+			RebirthEndToEndHandle,
+			this,
+			&ThisClass::StartRebirthEndToEndValidation,
+			0.25f,
+			false);
+	}
 
 	// A tired ballast shimmer runs for the whole session.
 	GetWorldTimerManager().SetTimer(
@@ -4991,6 +5010,168 @@ void AIGPrologueWorldScene::BeginChapterTwoTransition()
 		false);
 }
 
+void AIGPrologueWorldScene::StartRebirthEndToEndValidation()
+{
+	if (!bRebirthEndToEndValidation
+		|| !MorningDirector
+		|| !Checkout
+		|| !Wallet
+		|| !GetWorld())
+	{
+		FailRebirthEndToEndValidation(TEXT("CH01 actors unavailable"));
+		return;
+	}
+
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGStoryStateSubsystem* StoryState = GameInstance
+		? GameInstance->GetSubsystem<UIGStoryStateSubsystem>()
+		: nullptr;
+	UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	APlayerController* PlayerController =
+		GetWorld()->GetFirstPlayerController();
+	AIGPlayerCharacter* Player = PlayerController
+		? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
+		: nullptr;
+	if (!StoryState || !RebirthState || !Player)
+	{
+		FailRebirthEndToEndValidation(TEXT("CH01 subsystems or player unavailable"));
+		return;
+	}
+
+	StoryState->ClearStates(false);
+	RebirthState->ResetNarrative();
+	const auto AddStoryState = [this](const TCHAR* Name)
+	{
+		IGStory::AddState(
+			this,
+			FGameplayTag::RequestGameplayTag(FName(Name), false));
+	};
+	AddStoryState(TEXT("State.CH01.Wake.Standing"));
+	AddStoryState(TEXT("State.CH01.Morning.FridgeChecked"));
+
+	FIGInteractionContext Context;
+	Context.Interactor = Player;
+	Context.TargetActor = Wallet;
+	Wallet->CompleteInteraction_Implementation(Context);
+	AddStoryState(TEXT("State.CH01.Morning.LeftApartment"));
+	if (!MorningDirector->RunRebirthEndToEndFirstExit())
+	{
+		FailRebirthEndToEndValidation(TEXT("CH01 outfit first-exit contract"));
+		return;
+	}
+	AddStoryState(TEXT("State.CH01.Morning.LeftHome"));
+	AddStoryState(TEXT("State.CH01.Morning.EnteredStore"));
+
+	AIGPickupItem* SelectedWater = nullptr;
+	for (AIGPickupItem* Candidate : WaterBottles)
+	{
+		if (Candidate
+			&& Candidate->RebirthPurchaseProfileOnPickup
+				== EIGRebirthPurchaseProfile::ProfileA500MlX2)
+		{
+			SelectedWater = Candidate;
+			break;
+		}
+	}
+	if (!SelectedWater)
+	{
+		FailRebirthEndToEndValidation(TEXT("CH01 profile A pickup unavailable"));
+		return;
+	}
+	Context.TargetActor = SelectedWater;
+	SelectedWater->CompleteInteraction_Implementation(Context);
+	Context.TargetActor = Checkout;
+	Checkout->CompleteInteraction_Implementation(Context);
+
+	if (!ChapterOneIncidentDirector
+		|| !ChapterOneIncidentDirector->RunRebirthEndToEndReturnRoute())
+	{
+		FailRebirthEndToEndValidation(TEXT("CH01 return incident route"));
+		return;
+	}
+
+	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+	const bool bPassed =
+		MorningDirector->GetPhase() == EIGMorningPhase::Complete
+		&& Choices.PurchaseProfile
+			== EIGRebirthPurchaseProfile::ProfileA500MlX2
+		&& Choices.PaymentMethod == EIGRebirthPaymentMethod::WalletCard
+		&& Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup
+		&& Choices.BottleClosureState
+			== EIGRebirthBottleClosureState::Resealed
+		&& Choices.bHasPaperCup
+		&& Choices.bWaitedForCat
+		&& RebirthState->CanConverge(
+			EIGRebirthConvergencePoint::C1StorePurchase)
+		&& RebirthState->CanConverge(
+			EIGRebirthConvergencePoint::C2FirstReturn);
+	if (!bPassed)
+	{
+		FailRebirthEndToEndValidation(TEXT("CH01 router state mismatch"));
+		return;
+	}
+
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_E2E PASS ch01_router profile=A payment=wallet "
+			"cat=paper_cup waited=1 outfit_once=1 c1=1 c2=1"));
+}
+
+void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()
+{
+	if (!bRebirthEndToEndValidation
+		|| !SecondMorningDirector
+		|| !SecondMorningDirector->RunRebirthEndToEndRoute())
+	{
+		FailRebirthEndToEndValidation(TEXT("CH02 production event route"));
+		return;
+	}
+
+	const UIGRebirthNarrativeSubsystem* RebirthState =
+		GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+			: nullptr;
+	const FIGRebirthChoiceState Choices =
+		RebirthState ? RebirthState->GetChoices() : FIGRebirthChoiceState();
+	const bool bPassed =
+		RebirthState
+		&& Choices.PurchaseProfile
+			== EIGRebirthPurchaseProfile::ProfileA500MlX2
+		&& Choices.PaymentMethod == EIGRebirthPaymentMethod::WalletCard
+		&& RebirthState->CanConverge(
+			EIGRebirthConvergencePoint::C3SecondMorning);
+	if (!bPassed)
+	{
+		FailRebirthEndToEndValidation(TEXT("CH02 router state mismatch"));
+		return;
+	}
+
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_E2E PASS ch02_router p1=1 p2=1 searched=1 "
+			"outfit_once=1 c3=1 purchase_preserved=1"));
+}
+
+void AIGPrologueWorldScene::FailRebirthEndToEndValidation(
+	const TCHAR* Reason) const
+{
+	UE_LOG(
+		LogIndieGame,
+		Error,
+		TEXT("REBIRTH_E2E FAIL reason=%s"),
+		Reason ? Reason : TEXT("unknown"));
+	FPlatformMisc::RequestExitWithStatus(
+		false,
+		1,
+		TEXT("REBIRTH end-to-end validation failed"));
+}
+
 void AIGPrologueWorldScene::EnterChapterTwo()
 {
 	UWorld* World = GetWorld();
@@ -5386,6 +5567,15 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	{
 		StartChapterTwoCaptureSequence();
 	}
+	if (bRebirthEndToEndValidation)
+	{
+		GetWorldTimerManager().SetTimer(
+			RebirthEndToEndHandle,
+			this,
+			&ThisClass::ContinueRebirthEndToEndChapterTwo,
+			0.25f,
+			false);
+	}
 
 	UE_LOG(LogIndieGame, Display, TEXT("CH02 second morning entered in-session."));
 }
@@ -5526,6 +5716,26 @@ void AIGPrologueWorldScene::EnterChapterThree()
 	if (bResumeLoadedCheckpoint)
 	{
 		ThirdMorningDirector->RestoreCheckpointAnchor(LoadedCheckpoint);
+	}
+	if (bRebirthEndToEndValidation)
+	{
+		const UIGRebirthNarrativeSubsystem* RebirthState =
+			GetGameInstance()
+				? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+				: nullptr;
+		if (!RebirthState
+			|| !RebirthState->CanConverge(
+				EIGRebirthConvergencePoint::C3SecondMorning))
+		{
+			FailRebirthEndToEndValidation(TEXT("CH03 handoff lost CH01/CH02 state"));
+			return;
+		}
+		UE_LOG(
+			LogIndieGame,
+			Display,
+			TEXT(
+				"REBIRTH_E2E PASS ch03_handoff c1=1 c2=1 c3=1 "
+				"same_session=1"));
 	}
 
 	UE_LOG(LogIndieGame, Display, TEXT("CH03 third morning entered in-session."));
