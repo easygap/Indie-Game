@@ -28,5 +28,7 @@ public class IndieGame : ModuleRules
 			// Photo-prop meshes are resolved by path at runtime.
 			"AssetRegistry"
 		});
+
+		PrivateDependencyModuleNames.Add("PhysicsCore");
 	}
 }

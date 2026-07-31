@@ -6,6 +6,8 @@
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
+#include "CollisionQueryParams.h"
+#include "CollisionShape.h"
 #include "Components/AudioComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
@@ -20,6 +22,7 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/PlatformMisc.h"
+#include "HAL/PlatformProcess.h"
 #include "HighResScreenshot.h"
 #include "IndieGame.h"
 #include "Interaction/IGInteractable.h"
@@ -36,6 +39,7 @@
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Save/IGSaveGame.h"
 #include "Save/IGSaveSubsystem.h"
 #include "ShaderCompiler.h"
 #include "TimerManager.h"
@@ -193,6 +197,29 @@ void AIGChapterThreeAction::Configure(
 	PresentationMesh->SetStaticMesh(Mesh);
 	PresentationMesh->SetMaterial(0, Material);
 	PresentationMesh->SetRelativeScale3D(SizeCentimeters / 100.0f);
+	const bool bEvidenceOnly =
+		InAction == EIGChapterThreeAction::EvidenceCatEntered
+		|| InAction == EIGChapterThreeAction::EvidenceCatExited
+		|| InAction == EIGChapterThreeAction::EvidenceHosePaw
+		|| InAction == EIGChapterThreeAction::EvidenceHoseImpact
+		|| InAction == EIGChapterThreeAction::EvidenceBag
+		|| InAction == EIGChapterThreeAction::EvidenceWetRung
+		|| InAction == EIGChapterThreeAction::EvidenceHandSmear
+		|| InAction == EIGChapterThreeAction::EvidenceGlasses
+		|| InAction == EIGChapterThreeAction::EvidenceTankClothing
+		|| InAction == EIGChapterThreeAction::EvidenceCurrentSleeve
+		|| InAction == EIGChapterThreeAction::EvidenceSearchPoster;
+	if (bEvidenceOnly)
+	{
+		// Evidence must remain hittable by the visibility interaction trace,
+		// but a two-centimeter footprint or fallen bag must never snag the
+		// player's movement capsule.
+		PresentationMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		PresentationMesh->SetCollisionResponseToAllChannels(ECR_Ignore);
+		PresentationMesh->SetCollisionResponseToChannel(
+			ECC_Visibility,
+			ECR_Block);
+	}
 	InteractionPrompt = Prompt;
 	InteractionHoldDuration = FMath::Max(0.0f, HoldSeconds);
 	InteractionTag = FGameplayTag::RequestGameplayTag(
@@ -239,6 +266,11 @@ void AIGThirdMorningDirector::ConfigureAndStart(
 	bCaptureMode = bCaptureSequence;
 	bGreyboxValidationMode =
 		FParse::Param(FCommandLine::Get(), TEXT("IGRebirthGreybox"));
+	bReleaseValidationMode =
+		bGreyboxValidationMode
+		&& FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGRebirthReleaseValidation"));
 	if (bCaptureMode || bGreyboxValidationMode)
 	{
 		if (UIGRebirthNarrativeSubsystem* RebirthState = GetRebirthState())
@@ -555,6 +587,23 @@ void AIGThirdMorningDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		RebirthState->OnTruthChanged.RemoveDynamic(
 			this,
 			&ThisClass::HandleRebirthTruthChanged);
+	}
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UIGSaveSubsystem* SaveSubsystem =
+				GameInstance->GetSubsystem<UIGSaveSubsystem>())
+		{
+			SaveSubsystem->OnSaveCompleted.RemoveDynamic(
+				this,
+				&ThisClass::HandleReleaseValidationSaveCompleted);
+			SaveSubsystem->OnLoadCompleted.RemoveDynamic(
+				this,
+				&ThisClass::HandleReleaseValidationLoadCompleted);
+		}
+	}
+	if (!ReleaseValidationSlotName.IsEmpty())
+	{
+		UGameplayStatics::DeleteGameInSlot(ReleaseValidationSlotName, 0);
 	}
 	StopAllChapterAudio();
 	if (UWorld* World = GetWorld())
@@ -1715,7 +1764,12 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 {
 	// Entry landing.
 	CreateBlock(FVector(1085, 0, -10), FVector(200, 260, 20), ConcreteMaterial);
-	CreateBlock(FVector(975, 0, 130), FVector(20, 760, 280), DarkConcreteMaterial);
+	// Keep the original fire wall, but divide it around a real 150 x 210 cm
+	// opening. A single full-width collision block here used to make the
+	// corridor and stair landing look connected while being impassable.
+	CreateBlock(FVector(975, -227.5f, 130), FVector(20, 305, 280), DarkConcreteMaterial);
+	CreateBlock(FVector(975, 227.5f, 130), FVector(20, 305, 280), DarkConcreteMaterial);
+	CreateBlock(FVector(975, 0, 245), FVector(20, 150, 70), DarkConcreteMaterial);
 	CreateBlock(FVector(1210, 180, 20), FVector(20, 500, 520), DarkConcreteMaterial);
 
 	// Down flight.  Every tread has a constant bottom so collision remains
@@ -1890,8 +1944,17 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 {
 	// Unfinished fifth-floor landing.
-	CreateBlock(FVector(1240, -400, 170), FVector(420, 250, 20), ConcreteMaterial);
-	CreateBlock(FVector(1450, -400, 205), FVector(18, 250, 410), DarkConcreteMaterial);
+	// The slab overlaps the first roof riser by one centimeter so no invisible
+	// fall-through strip exists between the two pieces.
+	CreateBlock(
+		FVector(1265, -451.5f, 170),
+		FVector(470, 147, 20),
+		ConcreteMaterial);
+	// A 160 x 210 cm unfinished doorway connects the landing to the roof
+	// risers. The side piers preserve the load-bearing wall silhouette.
+	CreateBlock(FVector(1450, -502.5f, 205), FVector(18, 45, 410), DarkConcreteMaterial);
+	CreateBlock(FVector(1450, -297.5f, 205), FVector(18, 45, 410), DarkConcreteMaterial);
+	CreateBlock(FVector(1450, -400, 400), FVector(18, 160, 20), DarkConcreteMaterial);
 	for (int32 BeamIndex = 0; BeamIndex < 4; ++BeamIndex)
 	{
 		CreateBlock(
@@ -2209,9 +2272,13 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		CreateBlock(
 			FVector(2265, -300, 285.0f + RungIndex * 34.0f),
 			FVector(10, 136, 7),
-			MetalMaterial);
+			MetalMaterial,
+			false);
 	}
-	CreateBlock(FVector(2325, -300, 610), FVector(150, 220, 20), MetalMaterial);
+	// Start the top platform where the last tread ends. The previous overlap
+	// buried that tread under a 40 cm lip even though every authored rise was
+	// intended to stay at 20 cm.
+	CreateBlock(FVector(2335, -300, 610), FVector(140, 220, 20), MetalMaterial);
 
 	GlassesAction = SpawnAction(
 		EIGChapterThreeAction::EvidenceGlasses,
@@ -4724,12 +4791,13 @@ void AIGThirdMorningDirector::HandleLadderEntered(AIGZoneTrigger* Zone)
 	}
 	// My rung, then one wetter answer from below.
 	PlayMetalEcho(FVector(2075, -300, 350), 1.0f);
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
 	FTimerDelegate EchoDelegate;
-	EchoDelegate.BindLambda([this]()
+	EchoDelegate.BindLambda([WeakThis]()
 	{
-		if (IsValid(this))
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
-			PlayMetalEcho(FVector(1970, -300, 280), 0.92f);
+			Director->PlayMetalEcho(FVector(1970, -300, 280), 0.92f);
 		}
 	});
 	GetWorldTimerManager().SetTimer(
@@ -5103,17 +5171,20 @@ void AIGThirdMorningDirector::FinishEndingAAfterDiscovery()
 		80.0f,
 		900.0f);
 
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
 	FTimerDelegate LoopAlarmDelegate;
-	LoopAlarmDelegate.BindLambda([this]()
+	LoopAlarmDelegate.BindLambda([WeakThis]()
 	{
-		if (IsValid(this))
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
 			UIGAlarmSoundWave* LoopAlarm =
-				NewObject<UIGAlarmSoundWave>(this, TEXT("CH03EndingLoopAlarm"));
+				NewObject<UIGAlarmSoundWave>(
+					Director,
+					TEXT("CH03EndingLoopAlarm"));
 			IGAudio::SpawnOneShotAt(
-				this,
+				Director,
 				LoopAlarm,
-				ToWorld(FVector(-205, -190, 82)),
+				Director->ToWorld(FVector(-205, -190, 82)),
 				0.30f,
 				0.983f,
 				80.0f,
@@ -5125,11 +5196,11 @@ void AIGThirdMorningDirector::FinishEndingAAfterDiscovery()
 		LoopAlarmHandle, LoopAlarmDelegate, 0.55f, false);
 
 	FTimerDelegate FinalCardDelegate;
-	FinalCardDelegate.BindLambda([this]()
+	FinalCardDelegate.BindLambda([WeakThis]()
 	{
-		if (IsValid(this))
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
-			PresentEndingControls(
+			Director->PresentEndingControls(
 				NSLOCTEXT("IGCH03", "EndingATitle", "내일 또"),
 				NSLOCTEXT(
 					"IGCH03",
@@ -6097,6 +6168,11 @@ void AIGThirdMorningDirector::FinishRebirthGreyboxValidation()
 			P3PressureKPa,
 			EvidenceActions.Num(),
 			RoofDoorGap);
+		if (bReleaseValidationMode)
+		{
+			StartRebirthReleaseValidation();
+			return;
+		}
 	}
 	else
 	{
@@ -6128,6 +6204,595 @@ void AIGThirdMorningDirector::FinishRebirthGreyboxValidation()
 		false,
 		bPassed ? 0 : 1,
 		TEXT("REBIRTH greybox validation completed"));
+}
+
+void AIGThirdMorningDirector::StartRebirthReleaseValidation()
+{
+	if (bReleaseValidationInProgress)
+	{
+		return;
+	}
+	bReleaseValidationInProgress = true;
+
+	FString EndingValue;
+	if (!FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGRebirthEnding="),
+			EndingValue)
+		|| (!EndingValue.Equals(TEXT("A"), ESearchCase::IgnoreCase)
+			&& !EndingValue.Equals(TEXT("B"), ESearchCase::IgnoreCase)))
+	{
+		FailRebirthReleaseValidation(
+			TEXT("IGRebirthEnding must be A or B"));
+		return;
+	}
+	bReleaseValidationEndingA =
+		EndingValue.Equals(TEXT("A"), ESearchCase::IgnoreCase);
+
+	int32 CollisionFloorSamples = 0;
+	int32 CollisionCapsuleSegments = 0;
+	if (!ValidateRebirthCollisionRoute(
+		CollisionFloorSamples,
+		CollisionCapsuleSegments))
+	{
+		FailRebirthReleaseValidation(TEXT("collision_route"));
+		return;
+	}
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_RELEASE PASS collision_route "
+			"floor_samples=%d capsule_segments=%d capsule_radius=34 "
+			"capsule_half_height=96"),
+		CollisionFloorSamples,
+		CollisionCapsuleSegments);
+
+	int32 GeneratedAudioSamples = 0;
+	int32 GeneratedAudioBytes = 0;
+	int32 NonZeroAudioSamples = 0;
+	if (!ValidateRebirthAudioQueue(
+		GeneratedAudioSamples,
+		GeneratedAudioBytes,
+		NonZeroAudioSamples))
+	{
+		FailRebirthReleaseValidation(TEXT("audio_queue"));
+		return;
+	}
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_RELEASE PASS audio_queue created=1 stopped=1 "
+			"generated_samples=%d generated_bytes=%d nonzero_samples=%d"),
+		GeneratedAudioSamples,
+		GeneratedAudioBytes,
+		NonZeroAudioSamples);
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT("REBIRTH_RELEASE PASS p3_p5 core=1 truths=4 sources=15"));
+
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	if (!SaveSubsystem || SaveSubsystem->IsBusy() || !GetWorld())
+	{
+		FailRebirthReleaseValidation(TEXT("savegame_v3 subsystem unavailable"));
+		return;
+	}
+
+	ReleaseValidationSlotName = FString::Printf(
+		TEXT("RebirthReleaseValidation_%u"),
+		FPlatformProcess::GetCurrentProcessId());
+	if (UGameplayStatics::DoesSaveGameExist(ReleaseValidationSlotName, 0))
+	{
+		const bool bRemovedStaleSlot =
+			UGameplayStatics::DeleteGameInSlot(ReleaseValidationSlotName, 0);
+		if (!bRemovedStaleSlot
+			|| UGameplayStatics::DoesSaveGameExist(
+				ReleaseValidationSlotName,
+				0))
+		{
+			FailRebirthReleaseValidation(
+				TEXT("savegame_v3 stale slot cleanup failed"));
+			return;
+		}
+	}
+
+	SaveSubsystem->OnSaveCompleted.AddUniqueDynamic(
+		this,
+		&ThisClass::HandleReleaseValidationSaveCompleted);
+	const FGameplayTag ChapterTag = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("Chapter.CH03")),
+		false);
+	const FGameplayTag CheckpointTag = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("Checkpoint.CH03.Roof")),
+		false);
+	if (!ChapterTag.IsValid()
+		|| !CheckpointTag.IsValid()
+		|| !SaveSubsystem->RequestSave(
+			ReleaseValidationSlotName,
+			ChapterTag,
+			NAME_None,
+			CheckpointTag))
+	{
+		SaveSubsystem->OnSaveCompleted.RemoveDynamic(
+			this,
+			&ThisClass::HandleReleaseValidationSaveCompleted);
+		FailRebirthReleaseValidation(TEXT("savegame_v3 save request rejected"));
+	}
+}
+
+bool AIGThirdMorningDirector::ValidateRebirthCollisionRoute(
+	int32& OutFloorSamples,
+	int32& OutCapsuleSegments) const
+{
+	OutFloorSamples = 0;
+	OutCapsuleSegments = 0;
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	FCollisionQueryParams QueryParams(
+		SCENE_QUERY_STAT(RebirthReleaseCollisionRoute),
+		false);
+	if (const APlayerController* Controller = World->GetFirstPlayerController())
+	{
+		QueryParams.AddIgnoredActor(Controller->GetPawn());
+	}
+
+	struct FFloorSample
+	{
+		FVector LocalPosition;
+		float SurfaceZ;
+	};
+	TArray<FFloorSample> FloorSamples;
+	FloorSamples.Reserve(41);
+	FloorSamples.Add({FVector(0.0f, 0.0f, 0.0f), 0.0f});
+	FloorSamples.Add({FVector(675.0f, 0.0f, 0.0f), 0.0f});
+	FloorSamples.Add({FVector(1040.0f, 0.0f, 0.0f), 0.0f});
+	for (int32 StepIndex = 0; StepIndex < 12; ++StepIndex)
+	{
+		const float StepTopZ = 15.0f * (StepIndex + 1);
+		FloorSamples.Add({
+			FVector(1085.0f, -45.0f - StepIndex * 29.0f, 0.0f),
+			StepTopZ});
+	}
+	FloorSamples.Add({FVector(1200.0f, -420.0f, 0.0f), 180.0f});
+	for (int32 StepIndex = 0; StepIndex < 4; ++StepIndex)
+	{
+		const float StepTopZ = 195.0f + StepIndex * 15.0f;
+		FloorSamples.Add({
+			FVector(1510.0f + StepIndex * 36.0f, -420.0f, 0.0f),
+			StepTopZ});
+	}
+	FloorSamples.Add({
+		FVector(1660.0f, -420.0f, 0.0f),
+		IGThirdMorning::RoofFloorZ});
+	FloorSamples.Add({
+		FVector(1800.0f, -600.0f, 0.0f),
+		IGThirdMorning::RoofFloorZ});
+	for (int32 StepIndex = 0; StepIndex < 18; ++StepIndex)
+	{
+		const float StepTopZ =
+			IGThirdMorning::RoofFloorZ + 20.0f * (StepIndex + 1);
+		FloorSamples.Add({
+			FVector(1915.0f + StepIndex * 20.0f, -300.0f, 0.0f),
+			StepTopZ});
+	}
+	FloorSamples.Add({FVector(2310.0f, -300.0f, 0.0f), 620.0f});
+	OutFloorSamples = FloorSamples.Num();
+	for (const FFloorSample& Sample : FloorSamples)
+	{
+		FHitResult FloorHit;
+		const FVector Start = ToWorld(FVector(
+			Sample.LocalPosition.X,
+			Sample.LocalPosition.Y,
+			Sample.SurfaceZ + 150.0f));
+		const FVector End = ToWorld(FVector(
+			Sample.LocalPosition.X,
+			Sample.LocalPosition.Y,
+			Sample.SurfaceZ - 40.0f));
+		const float ExpectedSurfaceZ = ToWorld(FVector(
+			Sample.LocalPosition.X,
+			Sample.LocalPosition.Y,
+			Sample.SurfaceZ)).Z;
+		if (!World->LineTraceSingleByChannel(
+				FloorHit,
+				Start,
+				End,
+				ECC_Pawn,
+				QueryParams)
+			|| FloorHit.ImpactNormal.Z < 0.75f
+			|| !FMath::IsNearlyEqual(
+				FloorHit.ImpactPoint.Z,
+				ExpectedSurfaceZ,
+				2.0f))
+		{
+			UE_LOG(
+				LogIndieGame,
+				Error,
+				TEXT(
+					"REBIRTH_RELEASE collision floor sample failed "
+					"local=%s expected_z=%.1f hit=%d hit_z=%.1f normal_z=%.2f"),
+				*Sample.LocalPosition.ToCompactString(),
+				ExpectedSurfaceZ,
+				FloorHit.bBlockingHit ? 1 : 0,
+				FloorHit.ImpactPoint.Z,
+				FloorHit.ImpactNormal.Z);
+			return false;
+		}
+	}
+
+	struct FCapsuleSegment
+	{
+		FVector LocalStart;
+		FVector LocalEnd;
+	};
+	// Match AIGPlayerCharacter's actual 34 x 96 cm capsule. The one-centimeter
+	// floor clearance avoids treating stable floor contact as a route blocker.
+	constexpr float StandingCenter =
+		IGThirdMorning::StandingCapsuleCenter + 1.0f;
+	const FCapsuleSegment RouteSegments[] = {
+		{
+			FVector(280.0f, 0.0f, StandingCenter),
+			FVector(430.0f, 0.0f, StandingCenter)
+		},
+		{
+			FVector(430.0f, 0.0f, StandingCenter),
+			FVector(1040.0f, 0.0f, StandingCenter)
+		},
+		{
+			FVector(1085.0f, -420.0f, 180.0f + StandingCenter),
+			FVector(1455.0f, -420.0f, 180.0f + StandingCenter)
+		},
+		{
+			FVector(1590.0f, -420.0f, IGThirdMorning::RoofFloorZ + StandingCenter),
+			FVector(1740.0f, -420.0f, IGThirdMorning::RoofFloorZ + StandingCenter)
+		},
+		{
+			FVector(1740.0f, -420.0f, IGThirdMorning::RoofFloorZ + StandingCenter),
+			FVector(1740.0f, -600.0f, IGThirdMorning::RoofFloorZ + StandingCenter)
+		},
+		{
+			FVector(1740.0f, -600.0f, IGThirdMorning::RoofFloorZ + StandingCenter),
+			FVector(1840.0f, -600.0f, IGThirdMorning::RoofFloorZ + StandingCenter)
+		},
+		{
+			FVector(1840.0f, -600.0f, IGThirdMorning::RoofFloorZ + StandingCenter),
+			FVector(1840.0f, -300.0f, IGThirdMorning::RoofFloorZ + StandingCenter)
+		},
+		{
+			FVector(1840.0f, -300.0f, IGThirdMorning::RoofFloorZ + StandingCenter),
+			FVector(1868.0f, -300.0f, IGThirdMorning::RoofFloorZ + StandingCenter)
+		},
+		{
+			FVector(2280.0f, -300.0f, 620.0f + StandingCenter),
+			FVector(2330.0f, -300.0f, 620.0f + StandingCenter)
+		}
+	};
+	OutCapsuleSegments = UE_ARRAY_COUNT(RouteSegments);
+	const FCollisionShape PlayerCapsule =
+		FCollisionShape::MakeCapsule(34.0f, 96.0f);
+	for (const FCapsuleSegment& Segment : RouteSegments)
+	{
+		FHitResult RouteHit;
+		if (World->SweepSingleByChannel(
+			RouteHit,
+			ToWorld(Segment.LocalStart),
+			ToWorld(Segment.LocalEnd),
+			FQuat::Identity,
+			ECC_Pawn,
+			PlayerCapsule,
+			QueryParams))
+		{
+			UE_LOG(
+				LogIndieGame,
+				Error,
+				TEXT(
+					"REBIRTH_RELEASE collision route blocked "
+					"start=%s end=%s hit=%s"),
+				*Segment.LocalStart.ToCompactString(),
+				*Segment.LocalEnd.ToCompactString(),
+				*GetNameSafe(RouteHit.GetActor()));
+			return false;
+		}
+	}
+	return true;
+}
+
+bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
+	int32& OutGeneratedSamples,
+	int32& OutGeneratedBytes,
+	int32& OutNonZeroSamples)
+{
+	OutGeneratedSamples = 0;
+	OutGeneratedBytes = 0;
+	OutNonZeroSamples = 0;
+
+	UIGToneSequenceSoundWave* ValidationWave =
+		NewObject<UIGToneSequenceSoundWave>(
+			this,
+			TEXT("CH03ReleaseValidationPcm"));
+	TArray<FIGToneNote> ValidationNotes;
+	ValidationNotes.Add({
+		0.0f,
+		0.10f,
+		440.0f,
+		0.25f,
+		0.01f,
+		2.0f,
+		EIGToneWaveform::Sine});
+	ValidationWave->ConfigureNotes(MoveTemp(ValidationNotes), false);
+	TArray<uint8> GeneratedPcm;
+	constexpr int32 RequestedSamples = 1024;
+	OutGeneratedSamples =
+		ValidationWave->OnGeneratePCMAudio(GeneratedPcm, RequestedSamples);
+	OutGeneratedBytes = GeneratedPcm.Num();
+	if (OutGeneratedBytes % static_cast<int32>(sizeof(int16)) == 0)
+	{
+		const int16* Samples =
+			reinterpret_cast<const int16*>(GeneratedPcm.GetData());
+		const int32 SampleCount =
+			OutGeneratedBytes / static_cast<int32>(sizeof(int16));
+		for (int32 SampleIndex = 0; SampleIndex < SampleCount; ++SampleIndex)
+		{
+			OutNonZeroSamples += Samples[SampleIndex] != 0 ? 1 : 0;
+		}
+	}
+	const bool bPcmGenerated =
+		OutGeneratedSamples == RequestedSamples
+		&& OutGeneratedBytes
+			== RequestedSamples * static_cast<int32>(sizeof(int16))
+		&& OutNonZeroSamples > 0;
+
+	StopAllChapterAudio();
+	StartWaterBed();
+	UAudioComponent* QueuedAudio = WaterBedComponent.Get();
+	const bool bCreated =
+		IsValid(QueuedAudio) && IsValid(QueuedAudio->GetSound());
+	if (QueuedAudio)
+	{
+		QueuedAudio->Stop();
+	}
+	const bool bStopped =
+		!IsValid(QueuedAudio) || !QueuedAudio->IsPlaying();
+	WaterBedComponent = nullptr;
+	return bPcmGenerated && bCreated && bStopped;
+}
+
+void AIGThirdMorningDirector::HandleReleaseValidationSaveCompleted(
+	const bool bSuccess,
+	const FString SlotName)
+{
+	if (SlotName != ReleaseValidationSlotName)
+	{
+		return;
+	}
+
+	UGameInstance* GameInstance = GetGameInstance();
+	UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	if (SaveSubsystem)
+	{
+		SaveSubsystem->OnSaveCompleted.RemoveDynamic(
+			this,
+			&ThisClass::HandleReleaseValidationSaveCompleted);
+	}
+	if (!bSuccess
+		|| !SaveSubsystem
+		|| !UGameplayStatics::DoesSaveGameExist(ReleaseValidationSlotName, 0))
+	{
+		FailRebirthReleaseValidation(TEXT("savegame_v3 disk write failed"));
+		return;
+	}
+
+	UIGRebirthNarrativeSubsystem* RebirthState = GetRebirthState();
+	if (!RebirthState)
+	{
+		FailRebirthReleaseValidation(TEXT("savegame_v3 narrative unavailable"));
+		return;
+	}
+	RebirthState->SetHasMemoryFlashlight(false);
+	RebirthState->ResetChapterThreeAttempt();
+
+	SaveSubsystem->OnLoadCompleted.AddUniqueDynamic(
+		this,
+		&ThisClass::HandleReleaseValidationLoadCompleted);
+	if (!SaveSubsystem->RequestLoad(ReleaseValidationSlotName))
+	{
+		SaveSubsystem->OnLoadCompleted.RemoveDynamic(
+			this,
+			&ThisClass::HandleReleaseValidationLoadCompleted);
+		FailRebirthReleaseValidation(TEXT("savegame_v3 load request rejected"));
+	}
+}
+
+void AIGThirdMorningDirector::HandleReleaseValidationLoadCompleted(
+	const bool bSuccess,
+	const FString SlotName,
+	UIGSaveGame* SaveGame)
+{
+	if (SlotName != ReleaseValidationSlotName)
+	{
+		return;
+	}
+
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UIGSaveSubsystem* SaveSubsystem =
+				GameInstance->GetSubsystem<UIGSaveSubsystem>())
+		{
+			SaveSubsystem->OnLoadCompleted.RemoveDynamic(
+				this,
+				&ThisClass::HandleReleaseValidationLoadCompleted);
+		}
+	}
+
+	const UIGRebirthNarrativeSubsystem* RebirthState = GetRebirthState();
+	const FIGRebirthNarrativeSnapshot RestoredSnapshot = RebirthState
+		? RebirthState->BuildSnapshot()
+		: FIGRebirthNarrativeSnapshot();
+	const FIGRebirthChapterThreeState& RestoredChapterThree =
+		RestoredSnapshot.ChapterThree;
+	const FGameplayTag ExpectedChapter = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("Chapter.CH03")),
+		false);
+	const FGameplayTag ExpectedCheckpoint = FGameplayTag::RequestGameplayTag(
+		FName(TEXT("Checkpoint.CH03.Roof")),
+		false);
+	const bool bRestored =
+		bSuccess
+		&& SaveGame
+		&& SaveGame->Progress.SchemaVersion
+			== UIGSaveGame::CurrentSchemaVersion
+		&& SaveGame->Progress.ChapterId.MatchesTagExact(ExpectedChapter)
+		&& SaveGame->Progress.CheckpointTag.MatchesTagExact(
+			ExpectedCheckpoint)
+		&& SaveGame->Progress.MapPackageName.IsNone()
+		&& SaveGame->Progress.RebirthNarrative.SchemaVersion == 3
+		&& RestoredSnapshot.SchemaVersion == 3
+		&& RestoredSnapshot.bHasMemoryFlashlight
+		&& RestoredChapterThree.P3.bCompleted
+		&& RestoredChapterThree.ObservedP5Sources.Num() == 15
+		&& RestoredChapterThree.AccidentScratchCount == 3
+		&& RestoredChapterThree.bAccidentScratchTailSettled
+		&& GetAccidentTruthCount() == 4
+		&& RebirthState
+		&& RebirthState->CanConverge(
+			EIGRebirthConvergencePoint::C5FinalChoice);
+	const bool bDeleteSucceeded =
+		UGameplayStatics::DeleteGameInSlot(ReleaseValidationSlotName, 0);
+	const bool bSlotDeleted =
+		!UGameplayStatics::DoesSaveGameExist(ReleaseValidationSlotName, 0);
+	if (!bRestored || !bDeleteSucceeded || !bSlotDeleted)
+	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_RELEASE savegame cleanup detail "
+				"restored=%d delete_call=%d slot_deleted=%d"),
+			bRestored ? 1 : 0,
+			bDeleteSucceeded ? 1 : 0,
+			bSlotDeleted ? 1 : 0);
+		FailRebirthReleaseValidation(
+			bRestored
+				? TEXT("savegame_v3 cleanup mismatch")
+				: TEXT("savegame_v3 restore mismatch"));
+		return;
+	}
+
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_RELEASE PASS savegame_v3 "
+			"outer=3 inner=3 restored=1 delete_call=1 slot_deleted=1"));
+	BeginRebirthEndingValidation();
+}
+
+void AIGThirdMorningDirector::BeginRebirthEndingValidation()
+{
+	if (bReleaseValidationEndingA)
+	{
+		FinishEndingA();
+	}
+	else
+	{
+		BeginEndingB();
+	}
+
+	if (!bEndingFinished)
+	{
+		FailRebirthReleaseValidation(TEXT("ending action rejected"));
+		return;
+	}
+	GetWorldTimerManager().SetTimer(
+		ReleaseValidationTimer,
+		this,
+		&ThisClass::FinishRebirthEndingValidation,
+		12.5f,
+		false);
+}
+
+void AIGThirdMorningDirector::FinishRebirthEndingValidation()
+{
+	const UIGRebirthNarrativeSubsystem* RebirthState = GetRebirthState();
+	const FIGRebirthNarrativeSnapshot Snapshot = RebirthState
+		? RebirthState->BuildSnapshot()
+		: FIGRebirthNarrativeSnapshot();
+	const bool bEndingA = bReleaseValidationEndingA;
+	const EIGRebirthEndingChoice ExpectedEnding = bEndingA
+		? EIGRebirthEndingChoice::EndingA
+		: EIGRebirthEndingChoice::EndingB;
+	const FName EndingPuzzle = bEndingA
+		? FName(TEXT("Ending.A"))
+		: FName(TEXT("Ending.B"));
+	const FName StrongCue = bEndingA
+		? FName(TEXT("Ending.A.StrongCuePlayed"))
+		: FName(TEXT("Ending.B.StrongCuePlayed"));
+	const bool bPassed =
+		RebirthState
+		&& Snapshot.ChapterThree.EndingChoice
+			== ExpectedEnding
+		&& Snapshot.ChapterThree.bCommonDiscoveryCommitted
+		&& Snapshot.ResolvedPuzzles.Contains(EndingPuzzle)
+		&& Snapshot.PlayedOneShotBeats.Contains(StrongCue)
+		&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
+			FName(TEXT("Truth.Found0731")),
+			false))
+		&& RebirthState->CanConverge(
+			EIGRebirthConvergencePoint::C6AfterDiscovery);
+	if (!bPassed)
+	{
+		FailRebirthReleaseValidation(
+			bEndingA ? TEXT("ending_a") : TEXT("ending_b"));
+		return;
+	}
+
+	const TCHAR* EndingLabel = bEndingA ? TEXT("A") : TEXT("B");
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_RELEASE PASS ending=%s "
+			"common_discovery=1 strong_cue=1 c6=1"),
+		EndingLabel);
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT("REBIRTH_RELEASE PASS complete ending=%s"),
+		EndingLabel);
+	bReleaseValidationInProgress = false;
+	FPlatformMisc::RequestExitWithStatus(
+		false,
+		0,
+		TEXT("REBIRTH release validation completed"));
+}
+
+void AIGThirdMorningDirector::FailRebirthReleaseValidation(
+	const TCHAR* Reason)
+{
+	UE_LOG(
+		LogIndieGame,
+		Error,
+		TEXT("REBIRTH_RELEASE FAIL reason=%s"),
+		Reason ? Reason : TEXT("unknown"));
+	if (!ReleaseValidationSlotName.IsEmpty())
+	{
+		UGameplayStatics::DeleteGameInSlot(ReleaseValidationSlotName, 0);
+	}
+	bReleaseValidationInProgress = false;
+	FPlatformMisc::RequestExitWithStatus(
+		false,
+		1,
+		TEXT("REBIRTH release validation failed"));
 }
 
 void AIGThirdMorningDirector::StartCaptureSequence()
@@ -6276,18 +6941,20 @@ void AIGThirdMorningDirector::CaptureNextFrame()
 			FString::Printf(TEXT("Docs/Media/%s.png"), *BaseName)));
 	++CaptureIndex;
 
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
 	FTimerDelegate CaptureDelegate;
-	CaptureDelegate.BindLambda([this, ScreenshotPath]()
+	CaptureDelegate.BindLambda([WeakThis, ScreenshotPath]()
 	{
-		if (!IsValid(this))
+		AIGThirdMorningDirector* Director = WeakThis.Get();
+		if (!Director)
 		{
 			return;
 		}
 		FScreenshotRequest::RequestScreenshot(ScreenshotPath, true, false);
 		UE_LOG(LogIndieGame, Display, TEXT("CH03 capture requested: %s"), *ScreenshotPath);
-		GetWorldTimerManager().SetTimer(
-			CaptureTimer,
-			this,
+		Director->GetWorldTimerManager().SetTimer(
+			Director->CaptureTimer,
+			Director,
 			&ThisClass::CaptureNextFrame,
 			4.0f,
 			false);

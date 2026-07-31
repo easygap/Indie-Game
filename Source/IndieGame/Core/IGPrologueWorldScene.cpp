@@ -5702,10 +5702,12 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 	// Let the teleported camera settle so temporal history cannot smear the
 	// documentation frame. This is especially visible when the first two
 	// captures jump between the 403 interior and the 401 corridor threshold.
+	const TWeakObjectPtr<AIGPrologueWorldScene> WeakThis(this);
 	FTimerDelegate CaptureDelegate;
-	CaptureDelegate.BindLambda([this, ScreenshotPath]()
+	CaptureDelegate.BindLambda([WeakThis, ScreenshotPath]()
 	{
-		if (!IsValid(this))
+		AIGPrologueWorldScene* Scene = WeakThis.Get();
+		if (!Scene)
 		{
 			return;
 		}
@@ -5717,9 +5719,9 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 			TEXT("CH02 capture requested: %s"),
 			*ScreenshotPath);
 
-		GetWorldTimerManager().SetTimer(
-			ChapterCaptureHandle,
-			this,
+		Scene->GetWorldTimerManager().SetTimer(
+			Scene->ChapterCaptureHandle,
+			Scene,
 			&ThisClass::CaptureNextChapterTwoFrame,
 			6.0f,
 			false);
@@ -5781,14 +5783,23 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 	FTimerHandle EnterCabHandle;
 	GetWorldTimerManager().SetTimer(EnterCabHandle, EnterCabDelegate, 1.35f, false);
 
+	const TWeakObjectPtr<AIGPrologueWorldScene> WeakThis(this);
 	FTimerDelegate ValidationDelegate;
-	ValidationDelegate.BindLambda([this]()
+	ValidationDelegate.BindLambda([WeakThis]()
 	{
-		const bool bRideCompleted = Elevator && Elevator->IsRideComplete();
+		AIGPrologueWorldScene* Scene = WeakThis.Get();
+		if (!Scene)
+		{
+			return;
+		}
+		const bool bRideCompleted =
+			Scene->Elevator && Scene->Elevator->IsRideComplete();
 		APlayerController* Controller =
-			GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+			Scene->GetWorld()
+				? Scene->GetWorld()->GetFirstPlayerController()
+				: nullptr;
 		APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
-		if (!bRideCompleted || !Elevator || !Pawn)
+		if (!bRideCompleted || !Scene->Elevator || !Pawn)
 		{
 			UE_LOG(
 				LogIndieGame,
@@ -5807,9 +5818,11 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 			ETeleportType::TeleportPhysics);
 		FIGInteractionContext ReturnContext;
 		ReturnContext.Interactor = Pawn;
-		ReturnContext.TargetActor = Elevator;
+		ReturnContext.TargetActor = Scene->Elevator;
 		ReturnContext.HoldProgress = 1.0f;
-		IIGInteractable::Execute_CompleteInteraction(Elevator, ReturnContext);
+		IIGInteractable::Execute_CompleteInteraction(
+			Scene->Elevator,
+			ReturnContext);
 
 		const TWeakObjectPtr<APawn> WeakReturnPawn = Pawn;
 		FTimerDelegate BoardReturnDelegate;
@@ -5825,19 +5838,24 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 			}
 		});
 		FTimerHandle BoardReturnHandle;
-		GetWorldTimerManager().SetTimer(
+		Scene->GetWorldTimerManager().SetTimer(
 			BoardReturnHandle,
 			BoardReturnDelegate,
 			1.0f,
 			false);
 
 		FTimerDelegate ReturnValidationDelegate;
-		ReturnValidationDelegate.BindLambda([this, WeakReturnPawn]()
+		ReturnValidationDelegate.BindLambda([WeakThis, WeakReturnPawn]()
 		{
+			AIGPrologueWorldScene* ReturnScene = WeakThis.Get();
+			if (!ReturnScene)
+			{
+				return;
+			}
 			const APawn* ReturnPawn = WeakReturnPawn.Get();
 			const bool bReturned =
-				Elevator
-				&& Elevator->HasReturnedToFourthFloor()
+				ReturnScene->Elevator
+				&& ReturnScene->Elevator->HasReturnedToFourthFloor()
 				&& ReturnPawn
 				&& ReturnPawn->GetActorLocation().Z > 900.0f;
 			if (bReturned)
@@ -5856,8 +5874,8 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 			}
 			FPlatformMisc::RequestExit(false);
 		});
-		GetWorldTimerManager().SetTimer(
-			ChapterCaptureHandle,
+		Scene->GetWorldTimerManager().SetTimer(
+			Scene->ChapterCaptureHandle,
 			ReturnValidationDelegate,
 			10.0f,
 			false);

@@ -69,11 +69,15 @@ $requiredFiles = @(
 	'Docs/Media/ch03-roof-tank.png',
 	'Docs/Media/ch03-tank-reveal.png',
 	'Docs/FEASIBILITY.md',
+	'Docs/PERFORMANCE.md',
+	'Docs/RELEASE_VALIDATION.md',
+	'Docs/SAVE_COMPATIBILITY.md',
 	'Scripts/RunGame.bat',
 	'Scripts/RunGame-Chapter2.bat',
 	'Scripts/RunGame-Chapter3.bat',
 	'Scripts/Resolve-UnrealEditor.ps1',
 	'Scripts/Run-Rebirth-Greybox.bat',
+	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
 	'Scripts/Test-Rebirth-NarrativeContract.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
 	'Scripts/RunEditor.bat',
@@ -258,6 +262,8 @@ $worldSceneSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Core/IGPrologueWorldScene.cpp')
 $storyBibleSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Docs/STORY_BIBLE_REBIRTH.md')
+$feasibilityContract = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Docs/FEASIBILITY.md')
 $thirdMorningSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGThirdMorningDirector.cpp')
 $rebirthNarrativeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -268,10 +274,22 @@ $saveGameHeader = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Save/IGSaveGame.h')
 $saveSubsystemSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Save/IGSaveSubsystem.cpp')
+$moduleRulesSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/IndieGame.Build.cs')
 $gameplayTagsConfig = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Config/DefaultGameplayTags.ini')
 $rebirthGreyboxScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/Run-Rebirth-Greybox.bat')
+$releaseValidationScriptPath = Join-Path $projectRoot (
+	'Scripts/Run-Rebirth-ReleaseValidation.ps1')
+$releaseValidationScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	$releaseValidationScriptPath)
+$releaseValidationProcedure = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Docs/RELEASE_VALIDATION.md')
+$performanceContract = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Docs/PERFORMANCE.md')
+$saveCompatibilityContract = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Docs/SAVE_COMPATIBILITY.md')
 $horrorHudSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGHorrorHUD.cpp')
 $playerCharacterSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -565,11 +583,87 @@ foreach ($requiredChapterThreeGate in @(
 	'bAllNegligenceSourcesValid',
 	'EIGRebirthConvergencePoint::C5FinalChoice',
 	'SetTankOpenedEarly',
-	'REBIRTH_GREYBOX PASS'
+	'REBIRTH_GREYBOX PASS',
+	'ValidateRebirthCollisionRoute',
+	'ValidateRebirthAudioQueue',
+	'HandleReleaseValidationSaveCompleted',
+	'HandleReleaseValidationLoadCompleted',
+	'FinishRebirthEndingValidation',
+	'FCollisionShape::MakeCapsule(34.0f, 96.0f)',
+	'OutFloorSamples = FloorSamples.Num()',
+	'OutCapsuleSegments = UE_ARRAY_COUNT(RouteSegments)',
+	'OnGeneratePCMAudio(GeneratedPcm, RequestedSamples)',
+	'OutNonZeroSamples > 0',
+	'savegame_v3 stale slot cleanup failed',
+	'Progress.ChapterId.MatchesTagExact',
+	'Progress.CheckpointTag.MatchesTagExact',
+	'Progress.MapPackageName.IsNone',
+	'bDeleteSucceeded',
+	'bSlotDeleted',
+	'REBIRTH_RELEASE PASS collision_route',
+	'REBIRTH_RELEASE PASS audio_queue',
+	'REBIRTH_RELEASE PASS savegame_v3',
+	'REBIRTH_RELEASE PASS ending='
 )) {
 	if (-not $thirdMorningSource.Contains($requiredChapterThreeGate)) {
 		throw "Required CH03 progression/ending gate is missing: $requiredChapterThreeGate"
 	}
+}
+foreach ($requiredChapterThreeRouteInvariant in @(
+	'FVector(975, -227.5f, 130)',
+	'FVector(975, 227.5f, 130)',
+	'FVector(975, 0, 245)',
+	'FVector(1265, -451.5f, 170)',
+	'FVector(470, 147, 20)',
+	'FVector(1450, -502.5f, 205)',
+	'FVector(1450, -297.5f, 205)',
+	'FVector(1450, -400, 400)',
+	'FVector(2335, -300, 610), FVector(140, 220, 20)',
+	'FloorSamples.Reserve(41)',
+	'FVector(1040.0f, 0.0f, StandingCenter)',
+	'FVector(1455.0f, -420.0f, 180.0f + StandingCenter)',
+	'FVector(1868.0f, -300.0f, IGThirdMorning::RoofFloorZ + StandingCenter)',
+	'FVector(2280.0f, -300.0f, 620.0f + StandingCenter)'
+)) {
+	if (-not $thirdMorningSource.Contains($requiredChapterThreeRouteInvariant)) {
+		throw "CH03 physical-route invariant is missing: $requiredChapterThreeRouteInvariant"
+	}
+}
+foreach ($forbiddenChapterThreeRouteBlocker in @(
+	'CreateBlock(FVector(975, 0, 130), FVector(20, 760, 280)',
+	'CreateBlock(FVector(1240, -400, 170), FVector(420, 250, 20)',
+	'FVector(1265, -400, 170), FVector(470, 250, 20)',
+	'CreateBlock(FVector(1450, -400, 205), FVector(18, 250, 410)',
+	'CreateBlock(FVector(2325, -300, 610), FVector(150, 220, 20)'
+)) {
+	if ($thirdMorningSource.Contains($forbiddenChapterThreeRouteBlocker)) {
+		throw "CH03 physical route regressed to a blocking shell: $forbiddenChapterThreeRouteBlocker"
+	}
+}
+if ($thirdMorningSource -notmatch
+	'(?s)for \(int32 RungIndex = 0; RungIndex < 10; \+\+RungIndex\).*?FVector\(10, 136, 7\),\s*MetalMaterial,\s*false\);') {
+	throw 'The decorative tank-ladder rungs must not block the service stair.'
+}
+foreach ($evidenceQueryInvariant in @(
+	'const bool bEvidenceOnly',
+	'PresentationMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly)',
+	'PresentationMesh->SetCollisionResponseToAllChannels(ECR_Ignore)',
+	'PresentationMesh->SetCollisionResponseToChannel(',
+	'ECC_Visibility'
+)) {
+	if (-not $thirdMorningSource.Contains($evidenceQueryInvariant)) {
+		throw "CH03 evidence query-only collision is missing: $evidenceQueryInvariant"
+	}
+}
+if ($thirdMorningSource -match 'BindLambda\(\s*\[this(?:,|\])') {
+	throw 'CH03 timer delegates must use weak UObject captures instead of raw this.'
+}
+if ($worldSceneSource -match 'BindLambda\(\s*\[this(?:,|\])') {
+	throw 'World-scene timer delegates must use weak UObject captures instead of raw this.'
+}
+if (-not $moduleRulesSource.Contains(
+	'PrivateDependencyModuleNames.Add("PhysicsCore")')) {
+	throw 'The collision release verifier requires a direct PhysicsCore module dependency.'
 }
 foreach ($forbiddenLegacyChapterThreeGate in @(
 	'if (!bFridgeInspected || !bPlannerRead || !bMotherPhoneRead)',
@@ -744,6 +838,155 @@ foreach ($requiredGreyboxScriptInvariant in @(
 )) {
 	if (-not $rebirthGreyboxScript.Contains($requiredGreyboxScriptInvariant)) {
 		throw "REBIRTH greybox stale-log guard is missing: $requiredGreyboxScriptInvariant"
+	}
+}
+$releaseValidationTokens = $null
+$releaseValidationParseErrors = $null
+[void][System.Management.Automation.Language.Parser]::ParseFile(
+	$releaseValidationScriptPath,
+	[ref]$releaseValidationTokens,
+	[ref]$releaseValidationParseErrors)
+if ($releaseValidationParseErrors.Count -gt 0) {
+	$parseMessages = $releaseValidationParseErrors |
+		ForEach-Object { $_.Message }
+	throw "REBIRTH release validation script does not parse: $($parseMessages -join '; ')"
+}
+foreach ($requiredReleaseValidationInvariant in @(
+	'[switch]$StaticOnly',
+	"'IndieGameEditor'",
+	"'IndieGame'",
+	"'Development'",
+	"'BuildCookRun'",
+	"'-clientconfig=Shipping'",
+	"'-prereqs'",
+	"'/Game/Maps/Prologue_Morning'",
+	"'-ExecCmds=MAP CHECK,QUIT_EDITOR'",
+	'REBIRTH_RELEASE_HARNESS PASS map_check',
+	"'-IGRebirthReleaseValidation'",
+	'"-IGRebirthEnding=$Ending"',
+	"Invoke-RebirthRuntimeCase -EditorCommand `$editorCommand -Ending 'A'",
+	"Invoke-RebirthRuntimeCase -EditorCommand `$editorCommand -Ending 'B'",
+	'Assert-ReleaseLog',
+	'REBIRTH_RELEASE PASS collision_route',
+	'REBIRTH_RELEASE PASS audio_queue',
+	'REBIRTH_RELEASE PASS p3_p5',
+	'REBIRTH_RELEASE PASS savegame_v3',
+	'REBIRTH_RELEASE PASS complete',
+	'StaticContracts.log',
+	'EngineResolution.log',
+	'Get-SourceState',
+	'Test-SourceStateUnchanged',
+	'Test-CleanSourceStateLocked',
+	'worktreeClean = $initialWorktreeClean',
+	'sourceStateUnchanged',
+	'sourceChangedDuringRun',
+	'cleanSourceStateLocked',
+	'Add-MissingStepResults',
+	'automatedReleaseCandidateEligible',
+	'releaseEligible = $false',
+	'ShippingArchiveManifest.json',
+	'Shipping archive directory must be absent or empty',
+	"Name -ieq 'IndieGame.exe'",
+	'Refusing to write PASS because the final Git source state is not',
+	'PASS evidence log could not be hashed',
+	'did not report a native process exit code',
+	'commitSha = $initialCommitSha',
+	'engineAssociation = $engineAssociation',
+	'engineBuildVersion = $engineBuildVersion',
+	'logSha256 = $logHash',
+	"Write-RunSummary -Status 'BLOCKED'",
+	"-Status 'PARTIAL'",
+	'All automated release stages completed from one clean commit.'
+)) {
+	if (-not $releaseValidationScript.Contains(
+			$requiredReleaseValidationInvariant)) {
+		throw "REBIRTH release harness invariant is missing: $requiredReleaseValidationInvariant"
+	}
+}
+foreach ($requiredReleaseProcedureInvariant in @(
+	'진짜 초견 최소 16명',
+	'`Wallet` 코호트 8명',
+	'`Hood-card (no-wallet)` 코호트 8명',
+	'`core_panel_id` 8명',
+	'집단 이름 없이 단순히 `8명 중`',
+	'각 코호트 전체',
+	'퍼즐별 서로 다른 초견',
+	'시작자 8명이 찰 때까지 추가 모집',
+	'진짜 2회차 CCTV 표본을 최소 6명',
+	'R1, R2, R3, R4마다 재사용하지 않는',
+	'고유 절대 `-UserDir`',
+	'`0 / false / unset`',
+	'`FEASIBILITY.md`의 S1~S8',
+	'바닥 지지점 41개',
+	'평면 여유 구간 9개',
+	'클린 VM 스냅샷 또는 별도 물리 PC',
+	'Windows 사용자 계정 실행은 사전 점검',
+	'`SAVE_COMPATIBILITY.md`',
+	'`PERFORMANCE.md`'
+)) {
+	if (-not $releaseValidationProcedure.Contains(
+		$requiredReleaseProcedureInvariant)) {
+		throw "Release procedure invariant is missing: $requiredReleaseProcedureInvariant"
+	}
+}
+foreach ($requiredPerformanceInvariant in @(
+	'문서 버전: `Windows-v1`',
+	'Intel Core i5-8400 또는 AMD Ryzen 5 2600',
+	'Intel Core i5-12400 또는 AMD Ryzen 5 5600',
+	'Windows 11 Home/Pro 25H2',
+	'26H1을 포함한 다른 기능 업데이트',
+	'1280×720',
+	'1920×1080',
+	'2560×1440',
+	'3840×2160',
+	'`r.ScreenPercentage=100`',
+	'프레임 시간 `p95`',
+	'`1% low`',
+	'peak committed 12.0GB 이하',
+	'peak 5.5GB 이하',
+	'설치된 Shipping 배포물의 총 파일 크기는 8.0GB 이하',
+	'`MIN-W10-NV`',
+	'`MIN-W10-AMD`',
+	'`MIN-W11-NV`',
+	'`MIN-W11-AMD`',
+	'`REC-W11-NV`',
+	'`REC-W11-AMD`',
+	'여섯 필수 장비',
+	'판정은 **BLOCKED**'
+)) {
+	if (-not $performanceContract.Contains($requiredPerformanceInvariant)) {
+		throw "Performance release contract is missing: $requiredPerformanceInvariant"
+	}
+}
+foreach ($requiredSaveCompatibilityInvariant in @(
+	'문서 버전: `Save-v1`',
+	'`v1-ch02-legacy`',
+	'`v2-ch03-nominal`',
+	'`v2-normalization-boundary`',
+	'`v3-p3-mid-bleed`',
+	'`v3-p5-pre-choice`',
+	'`v3-ending-common-a`',
+	'과거 불변 태그의 원본',
+	'현재 v3 클래스의 메모리 레이아웃으로 v1·v2를 직렬화',
+	'clean Windows VM 스냅샷 또는 별도 물리 PC',
+	'fixture-set.json',
+	'fixture_sha256_before',
+	'CurrentSchemaVersion보다 큰 외부 버전',
+	'현재 G6 세이브 호환성 판정은 **BLOCKED**'
+)) {
+	if (-not $saveCompatibilityContract.Contains(
+		$requiredSaveCompatibilityInvariant)) {
+		throw "Save compatibility contract is missing: $requiredSaveCompatibilityInvariant"
+	}
+}
+foreach ($requiredFeasibilityInvariant in @(
+	'`Choice→ActualStateRestored→Found0731→CommonDiscoveryCard→BranchCoda`',
+	'`ActualStateRestored→Found0731→CommonDiscoveryCard` 세 이벤트',
+	'`Choice`는 각 선택값으로 공통 prefix보다 먼저 1회',
+	'`BranchCoda`는 공통 prefix 뒤에 1회'
+)) {
+	if (-not $feasibilityContract.Contains($requiredFeasibilityInvariant)) {
+		throw "Feasibility release contract is missing: $requiredFeasibilityInvariant"
 	}
 }
 if (-not $saveGameHeader.Contains('CurrentSchemaVersion = 3') -or

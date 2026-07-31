@@ -35,6 +35,15 @@
   - 마지막 선택만 C5의 진실 합류 조건으로 제한
   - 손전등의 영구 배터리 소모를 제거하고 짧은 브라운아웃만 항상
     회복되는 압박 연출로 유지
+  - 4층 복도→계단실과 5층 계단참→옥상 사이의 통짜 충돌 벽을 실제
+    150cm·160cm 개구부로 분할하고, 계단참과 첫 단·마지막 단과 상부
+    발판을 겹쳐 공중 틈과 40cm 턱을 제거
+  - 물탱크 서비스 계단의 장식 가로대는 비충돌로 전환하고, 자동
+    릴리스 검증에서 아파트부터 상부 발판까지 41개 바닥 표본과
+    9개 평면 캡슐 구간을 검사. 실제 계단 오르내리기는 S8 수동 입력
+    검증이 별도로 필요
+  - 바닥의 발자국·봉지·안경 같은 조사 액터는 가시성 상호작용
+    trace만 막고 Pawn은 무시해 작은 단서가 이동 캡슐을 붙잡지 않음
 - P3 서비스함 그레이박스
   - 직결 급수·예비조 차단, 압력 해제, 실제 6초 감압, 0kPa 확인,
     바닥 배수 순서를 실제 상호작용으로 구현
@@ -75,18 +84,52 @@
     0.6초 잔향 종료 뒤 두 선택 노출,
     옥상문 11cm 틈, P3 과실 증거의 조기 확정 금지, 실제 발견의 C6 지연을
     검사하고 로그에 `REBIRTH_GREYBOX PASS/FAIL` 출력
-  - 실행마다 새 절대 로그를 사용하고 프로세스 종료 코드와 `FAIL`을
-    `PASS`보다 먼저 판정해 이전 로그의 거짓 통과를 차단
+  - 고정 절대 경로 `Saved\Logs\RebirthGreybox.log`의 기존 파일을 지운 뒤
+    새 실행만 기록하고, 프로세스 종료 코드와 `FAIL`을 `PASS`보다 먼저
+    판정해 이전 내용의 거짓 통과를 차단
+  - 로그 파일명 자체는 실행별로 고유하지 않으므로 릴리스 증거로 쓸 때는
+    실행 직후 SHA·UTC 기준 증거 폴더로 복사하고 매니페스트를 별도 작성
   - 검증 종료 시 `RequestExitWithStatus`로 성공 0·실패 1을 명시하고,
     강제 종료 대신 정상 메인 루프 종료로 로그 플러시를 허용
+- `Scripts\Run-Rebirth-ReleaseValidation.ps1`
+  - `-StaticOnly`에서 구조 검증과 두 정적 오라클을 실행하고, 엔진 단계는
+    `NOT_RUN`, 최상위 결과는 `PARTIAL`로 분리한 실행별 `summary.json`과
+    해시가 기록된 `StaticContracts.log`를 생성
+  - 전체 모드는 UE 5.8 해석, Development Editor/Game 빌드,
+    `Prologue_Morning` Map Check, A/B 무렌더 자동 런타임과 Win64 Shipping
+    UAT를 순서대로 실행
+  - A/B 자동 런타임은 충돌 경로·오디오 큐 순서·P3/P5·실제 v3 SaveGame·
+    공통 발견과 분기 마커를 검사하지만 실제 화면·소리·사람 입력은 검사하지 않음
+  - 실행별 UTC+PID 폴더에 원본 로그와 SHA-256을 포함한 요약을 남기고,
+    엔진 미발견은 `BLOCKED`와 종료 코드 2로 구분
+  - Full은 빌드 전과 종료 직전 같은 깨끗한 Git SHA인지 확인한다. dirty
+    작업 트리나 실행 중 소스 변경을 기존 HEAD의 증거로 기록하지 않음
+  - Skip 옵션이 하나라도 있으면 최상위 결과는 `PARTIAL`이며,
+    `NOT_RUN` 단계나 S1~S8·R1~R4 수동 증거를 승인하지 않음
+  - Shipping 기본 보관 경로는 실행별로 고유하고, 비어 있지 않은 명시
+    경로는 거부한다. EXE·PAK·UTOC·UCAS를 확인한 뒤 파일별 SHA-256
+    `ShippingArchiveManifest.json`을 생성
+- 출시 게이트 계약
+  - G4는 진짜 초견 16명, 결제·소지품 코호트 각 8명, 고정 코어 패널
+    8명, 최초 엔딩별 3명과 CH01부터 다시 완주하는 CCTV 2회차 6명으로 잠금
+  - R1~R4는 경로마다 새 `-UserDir`와 0/unset 시작 덤프, 세이브 해시,
+    종료 뒤 데이터 루트 정리 증거를 요구
+  - `PERFORMANCE.md`에 Windows-v1 최소·권장 사양, 720p/1080p/1440p,
+    Windows 10/Windows 11 Home·Pro 25H2와 NVIDIA/AMD를 나눈 필수
+    6장비, p95·1% low·hitch·RAM·VRAM·설치 용량 기준을 고정. 현재
+    측정 원본이 없으므로 BLOCKED
+  - `SAVE_COMPATIBILITY.md`에 실제 과거 Shipping 빌드가 생산할
+    v1~v3 픽스처 6개와 거부 회귀 2개, 오라클·SHA-256·클린 환경
+    절차를 고정. 실제 픽스처가 없으므로 BLOCKED
 - `Scripts\Test-Rebirth-NarrativeContract.ps1`
   - 진실 12개, C5 4,096개 상태, 최종 긁힘 게이트 128개 상태,
     P5 첫 순서쌍 110개+자기 재선택 11개+신원 6순서+원자료 92개,
     P3 원자료 32개 부분집합과 날짜·요일을 검사하는 정적 명세 오라클
 
-현재 환경에는 Unreal Engine 5.8 실행 파일이 없어 구조 검증까지만
-통과했다. 엔진이 있는 환경에서 UHT/UBT 빌드와 위 전용 런타임 검증을
-반드시 실행해야 한다.
+현재 환경에는 Unreal Engine 5.8 실행 파일과 `cl.exe`·`msbuild.exe`
+C++ 빌드 도구가 없어 구조 검증까지만 통과했다. 엔진과 Visual Studio
+Game development with C++ 워크로드가 있는 환경에서 UHT/UBT 빌드와
+위 전용 런타임 검증을 반드시 실행해야 한다.
 
 ## 기존 플레이 빌드에서 확인됐던 범위
 
@@ -242,7 +285,11 @@ REBIRTH 상태로 연결했다.
 - `-IGCaptureCH03`로 가득 찬 냉장고·계단 루프·옥상 물탱크·탱크
   리빌의 실제 게임 화면 4장을 재촬영 가능
 
-## 현재 작업 트리에서 확인한 항목
+## 현재 작업 트리의 로컬 정적 사전 점검
+
+아래 결과는 G2 범위의 로컬 콘솔 점검이다. 아직
+`RELEASE_VALIDATION.md` 형식의 커밋별 외부 증거 보관은 만들지 않았으며,
+이 결과로 G3~G6을 통과 처리하지 않는다.
 
 - `Scripts\Validate-Project.ps1`: 통과
 - `Scripts\Test-Rebirth-NarrativeContract.ps1`: 통과
@@ -262,15 +309,29 @@ REBIRTH 상태로 연결했다.
   - R1~R4 대표 경로 정의가 전수 행렬 안에 존재하는지 4개 확인
 - `git diff --check`: 통과
 - `Scripts\Run-Rebirth-Greybox.bat`: UE 5.8 실행 파일이 없을 때 종료 코드
-  1로 실패하는 경로 확인
+  1로 끝나는 엔진 탐색 차단 경로만 확인. 런타임 본체는 미실행
+- `Scripts\Run-Rebirth-ReleaseValidation.ps1 -StaticOnly`: 정적 단계 통과,
+  최상위 결과 `PARTIAL`
+  - 실행별 `summary.json` 생성
+  - `StaticContracts.log`와 SHA-256 생성
+  - 정적 계약만 PASS, 소스 릴리스 게이트·엔진 해석·빌드·Map Check·
+    A/B 런타임·Shipping은 모두 `NOT_RUN`
+- `Scripts\Run-Rebirth-ReleaseValidation.ps1`: 차단
+  - 정적 계약 통과 뒤 UE 5.8 탐색 단계에서 `BLOCKED` 요약 생성
+  - 엔진 빌드·Map Check·A/B 런타임·Shipping은 모두 `NOT_RUN`
+  - 따라서 이 실행은 G3·G6 통과 증거가 아니다
 
-현재 환경에는 Unreal Engine 5.8 실행 파일이 없다. 따라서 아래 항목은
-**현재 변경분에 대해 확인하지 못했다.**
+현재 환경에는 Unreal Engine 5.8 실행 파일과 C++ 빌드 도구가 없다.
+따라서 아래 항목은 **현재 변경분에 대해 확인하지 못했다.**
 
 - S1 착의 소매: 미실행
 - S2 11cm 옥상문·고양이 왕복: 미실행
 - S3 P3 실제 저장 종료·재실행: 미실행
 - S4 양 엔딩 공통 복원 실제 입력·영상: 미실행
+- S5 A/B/C 소지품·음용·봉지 인과 연속성: 미실행
+- S6 CH02 전화·이웃·P1/P2 전달: 미실행
+- S7 양 엔딩 최종 아트·오디오 연출: 미실행
+- S8 사고 물리 20회 리허설: 미실행
 - Unreal Header Tool / Unreal Build Tool
 - REBIRTH 전용 P3·P5 런타임 그레이박스
 - CH01→CH03 실제 입력 완주와 A/B 엔딩
@@ -284,11 +345,17 @@ REBIRTH 상태로 연결했다.
 ## 현재 출시 판정
 
 - 서사 명세 G1: 통과
-- 정적 계약 G2: 통과
-- 엔진 런타임 G3: 미검증
-- 초견 플레이 G4: 미검증
-- 콘텐츠·접근성 G5: 미완성
-- 패키징 G6: 미검증
+- 정적 계약 G2: 로컬 검사 통과, 커밋별 증거 보관 전
+- 엔진 런타임 G3: 차단 — UE 5.8 부재
+- 초견 플레이 G4: 차단 — 같은 SHA의 G3 후보 없음
+- 콘텐츠·접근성 G5: 미완성·미검증
+- 패키징 G6: 차단 — G3·G5 승인 후보가 없고 하네스의 Shipping UAT 미실행.
+  v1~v3 출처 픽스처와 클린 환경 소비자 결과도 없음. 하네스 밖 에디터
+  기본 패키징 설정은 `Development / ForDistribution=False`
+
+G3~G6의 실행 순서, 증거 파일과 매니페스트, 초견 체크리스트,
+콘텐츠·접근성 조합 및 Shipping 검사는 `RELEASE_VALIDATION.md`를 따른다.
+현재 G3~G6에 대한 PASS 매니페스트는 없다.
 
 따라서 현재 상태는 **출시 가능한 수준으로 잠근 스토리 명세와 1차
 그레이박스**이며, **출시 가능한 게임 빌드가 아니다.**
@@ -306,4 +373,5 @@ REBIRTH 상태로 연결했다.
 - 두 엔딩을 실제 입력으로 각각 완주해 카드 대기 시간과 재시작 입력 검증
 - Load Coordinator와 F9 최신 자동저장 복원을 실제 UE 종료·재실행으로 검증
 - 게임패드용 Enhanced Input Mapping Context
-- PIE 자동화, Map Check, 패키징과 Unreal Insights 성능 측정
+- UE 5.8 환경에서 전체 릴리스 하네스를 실행하고, 이어 S1~S8·R1~R4
+  실제 입력·별도 PC 패키지·Unreal Insights 증거를 보완

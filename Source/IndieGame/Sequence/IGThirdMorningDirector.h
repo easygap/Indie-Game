@@ -11,6 +11,7 @@ class AIGReadableNote;
 class AIGThirdMorningDirector;
 class AIGZoneTrigger;
 class UIGRebirthNarrativeSubsystem;
+class UIGSaveGame;
 class UAudioComponent;
 class UMaterialInterface;
 class UPointLightComponent;
@@ -274,6 +275,26 @@ private:
 	void StartRebirthGreyboxValidation();
 	void ContinueRebirthGreyboxValidation();
 	void FinishRebirthGreyboxValidation();
+	void StartRebirthReleaseValidation();
+	bool ValidateRebirthCollisionRoute(
+		int32& OutFloorSamples,
+		int32& OutCapsuleSegments) const;
+	bool ValidateRebirthAudioQueue(
+		int32& OutGeneratedSamples,
+		int32& OutGeneratedBytes,
+		int32& OutNonZeroSamples);
+	void BeginRebirthEndingValidation();
+	void FinishRebirthEndingValidation();
+	void FailRebirthReleaseValidation(const TCHAR* Reason);
+
+	UFUNCTION()
+	void HandleReleaseValidationSaveCompleted(bool bSuccess, FString SlotName);
+
+	UFUNCTION()
+	void HandleReleaseValidationLoadCompleted(
+		bool bSuccess,
+		FString SlotName,
+		UIGSaveGame* SaveGame);
 
 	UFUNCTION()
 	void HandleCorridorEntered(AIGZoneTrigger* Zone);
@@ -428,8 +449,12 @@ private:
 	bool bEndingASelected = false;
 	bool bCaptureMode = false;
 	bool bGreyboxValidationMode = false;
+	bool bReleaseValidationMode = false;
 	bool bGreyboxDocumentSkipRouteValid = false;
+	bool bReleaseValidationInProgress = false;
+	bool bReleaseValidationEndingA = false;
 	bool bRestoredChapterThreeProgress = false;
+	FString ReleaseValidationSlotName;
 	float P3PressureKPa = 60.0f;
 	float P3HintElapsedSeconds = 0.0f;
 	int32 P3ZeroConfirmationTicks = 0;
@@ -446,6 +471,7 @@ private:
 	FTimerHandle LadderEchoTimer;
 	FTimerHandle MotionPollTimer;
 	FTimerHandle CaptureTimer;
+	FTimerHandle ReleaseValidationTimer;
 	FTimerHandle P3PressureTimer;
 	FTimerHandle P3HintTimer;
 	FTimerHandle P3HintVisualTimer;

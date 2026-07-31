@@ -5,6 +5,11 @@
 
 ![새벽 4시 44분에 알람 소리로 시작되는 실제 게임 화면](Docs/Media/prologue-bedroom.png)
 
+> **개발 상태:** REBIRTH 서사·정적 계약까지만 확인했으며 UE 런타임,
+> 초견 플레이, 최종 콘텐츠·접근성과 Shipping 패키징은 아직 승인하지
+> 않았습니다. 아래 이미지와 영상은 과거 개발 빌드의 참고 자료이며 현재
+> 커밋의 릴리스 증거가 아닙니다.
+
 **4시 44분**은 낡은 한국 빌라와 새벽 골목을 무대로 만든 싱글 플레이
 1인칭 현실 공포 게임입니다.
 
@@ -22,15 +27,20 @@
 | 엔진 | Unreal Engine 5.8 / C++ |
 | 플랫폼 | Windows |
 
-## 바로 플레이하기
+## 개발 프리뷰 실행하기
 
-1. 저장소를 내려받습니다.
-2. [Scripts/RunGame.bat](Scripts/RunGame.bat)을 더블클릭합니다.
-3. 첫 화면에서 알람 시계를 바라보고 `E`를 누릅니다.
+1. 저장소를 내려받고 `git lfs pull`로 LFS 에셋을 받습니다.
+2. 아래 실행 환경의 UE 5.8과 C++ 빌드 도구를 설치합니다.
+3. [Scripts/RunEditor.bat](Scripts/RunEditor.bat)을 실행해 C++ 모듈을
+   빌드합니다.
+4. 에디터에서 Play를 누르거나, 빌드 뒤
+   [Scripts/RunGame.bat](Scripts/RunGame.bat)을 실행합니다.
+5. 첫 화면에서 알람 시계를 바라보고 `E`를 누릅니다.
 
 이 프로젝트는 아직 별도의 패키지 실행 파일이 아니라 UE 5.8 프로젝트로
-제공됩니다. 첫 실행은 C++ 모듈과 셰이더를 준비하느라 창이 뜨기까지
-조금 걸릴 수 있습니다.
+제공됩니다. `RunGame.bat`은 엔진을 찾아 개발 게임을 시작할 뿐 C++ 빌드,
+실행 성공이나 릴리스 품질을 판정하지 않습니다. 첫 에디터 실행은 C++
+모듈과 셰이더를 준비하느라 창이 뜨기까지 조금 걸릴 수 있습니다.
 
 중간 챕터를 바로 확인하고 싶다면 아래 실행 파일을 사용하면 됩니다.
 
@@ -39,6 +49,19 @@
 | [RunGame-Chapter2.bat](Scripts/RunGame-Chapter2.bat) | 두 번째 아침 |
 | [RunGame-Chapter3.bat](Scripts/RunGame-Chapter3.bat) | 세 번째 아침 |
 | [RunEditor.bat](Scripts/RunEditor.bat) | Unreal Editor |
+
+엔진 없이 정적 사전 점검만 재현하려면 다음 명령을 사용합니다.
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File Scripts\Run-Rebirth-ReleaseValidation.ps1 -StaticOnly
+```
+
+이 모드는 정적 단계 로그와 `summary.json`을 만들고 최상위 결과를
+`PARTIAL`로 기록하며, 빌드·Map Check·A/B 런타임·Shipping은
+`NOT_RUN`으로 남깁니다. UE 5.8이 있는 제작 환경의 전체
+하네스도 최종 초견·시청각·접근성·별도 PC 패키지 검증을 대신하지 않습니다.
+승인 절차는 [G3~G6 릴리스 검증 절차](Docs/RELEASE_VALIDATION.md)를
+따릅니다.
 
 첫 플레이는 변화의 기준이 되는 CH01부터 시작하는 것을 권장합니다.
 
@@ -96,11 +119,11 @@
 <table>
   <tr>
     <td width="52%"><img src="Docs/Media/ch02-receipt-0444.png" alt="한국 편의점 형식 영수증 실제 게임 화면"></td>
-    <td width="48%"><img src="Docs/Media/ch02-lobby-offering.png" alt="공동현관 제물과 젖은 발자국 실제 게임 화면"></td>
+    <td width="48%"><img src="Docs/Media/ch02-lobby-offering.png" alt="구버전 공동현관 의례 장면 개발 캡처"></td>
   </tr>
   <tr>
     <td align="center">게임 안에서 확대해 읽는 04:44 영수증</td>
-    <td align="center">공동현관에 남은 물·밥·향과 젖은 발자국</td>
+    <td align="center">구버전 캡처 — 현재 정사는 마른 밥그릇 자국·끊긴 소금선 바깥 물그릇</td>
   </tr>
 </table>
 
@@ -167,6 +190,9 @@
 - Visual Studio 2026의 **Game development with C++** 워크로드
 - Windows SDK
 
+출시 인증 OS 버전과 최소·권장 하드웨어는
+[Windows 출시 성능·지원 계약](Docs/PERFORMANCE.md)을 기준으로 합니다.
+
 실행 스크립트는 프로젝트의 `EngineAssociation`과 일치하는 Unreal
 Editor를 표준 설치 경로, 레지스트리와 Epic Launcher 설치 목록에서
 찾습니다. 소스 빌드처럼 별도 위치를 쓴다면 환경 변수
@@ -180,7 +206,10 @@ Editor를 표준 설치 경로, 레지스트리와 Epic Launcher 설치 목록�
 
 - [CH01 실제 플레이 영상](Docs/Media/prologue-walkthrough.mp4)
 - [REBIRTH 스토리 마스터](Docs/STORY_BIBLE_REBIRTH.md) — 단일 제작 정사와 서사·공포·음악·이미지·대화 통합 기준
-- [출시 타당성 제작 계약](Docs/FEASIBILITY.md) — Keep/Static Proxy/Cut 범위와 S1~S4 승인 기준
+- [출시 타당성 제작 계약](Docs/FEASIBILITY.md) — Keep/Static Proxy/Cut 범위와 S1~S8 승인 기준
+- [G3~G6 릴리스 검증 절차](Docs/RELEASE_VALIDATION.md) — 실행 순서, 증거 보관, 초견·접근성·Shipping 체크리스트
+- [Windows 출시 성능·지원 계약](Docs/PERFORMANCE.md) — 최소·권장 사양, 해상도와 성능 합격선
+- [세이브 호환성 출시 계약](Docs/SAVE_COMPATIBILITY.md) — v1~v3 픽스처, 마이그레이션 오라클과 클린 환경 검증
 - [현재 구현 상태](Docs/IMPLEMENTATION_STATUS.md) — REBIRTH 반영 범위와 남은 출시 차단 항목
 - [구버전 스토리 바이블 보관본](Docs/STORY_BIBLE.md) — REBIRTH 이전 기록, 제작 기준 아님
 - [스토리와 공포 연출 설계](Docs/STORY_DIRECTION.md) — 결말 포함

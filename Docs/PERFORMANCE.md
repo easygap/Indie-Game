@@ -1,35 +1,157 @@
-# Provisional Performance Budget
+# Windows 출시 성능·지원 계약
 
-최소/권장 PC 사양이 확정되기 전까지 Windows PC, 1080p High, 60fps를 임시 대표 환경으로 사용합니다.
+문서 버전: `Windows-v1`
 
-## 프레임 예산
+기준일: `2026-07-31`
 
-- 전체 프레임: 16.67ms 이내
-- GPU: 대표 장면에서 14ms 이내 목표
-- Game Thread: 8ms 이내 목표
-- Render Thread: 8ms 이내 목표
-- 진행을 방해하는 50ms 이상의 긴 hitch 없음
+지원 대상: `IndieGame Win64 Shipping`
 
-CPU와 Render Thread는 병렬로 실행되므로 각 수치를 단순 합산하지 않습니다.
+이 문서는 Windows 첫 출시에서 바꾸지 않을 지원 범위와 성능 합격선을
+정한다. 아래 수치는 **출시 목표**이며 측정 결과가 아니다. 현재 SHA의
+Shipping 후보를 지정된 장비에서 측정하고 원본 증거를 남기기 전까지
+성능 게이트는 `BLOCKED`다. 목표표를 작성했다는 사실을 PASS로 해석하지
+않는다.
 
-## 런타임 규칙
+지원 범위나 합격선을 바꾸려면 문서 버전을 올리고 G3~G6의 성능·화면
+검증을 새 후보로 다시 실행한다. 결과가 기준에 미달하면 사양이나 수치를
+조용히 낮추지 않고 최적화, 지원 범위 변경, 출시 차단 중 하나를 이슈로
+결정한다.
 
-- Actor Tick은 기본 비활성화하고 이벤트 또는 제한 주기 타이머를 사용합니다.
-- 플레이 중 동기 에셋 로드는 금지하며 챕터 데이터의 soft reference를 미리 비동기 로드합니다.
-- 상호작용 trace는 플레이어당 하나, 10~15Hz를 기본값으로 합니다.
-- 공간 오디오는 virtualization과 streaming을 사용하고 동시 활성 음성을 관리합니다.
-- 일반 소품 텍스처는 1K, hero 소품은 2K를 출발점으로 하며 4K는 화면 점유 근거가 있을 때만 사용합니다.
-- Lumen을 사용할 때 shadow-casting movable light의 수와 영향 반경을 장면별로 제한합니다.
-- 정적 고밀도 환경 메시에는 Nanite를 검토하되 단순 collision을 별도로 제공합니다.
+## 출시 사양
 
-## 회귀 점검
+| 구분 | 최소 사양 | 권장 사양 |
+|---|---|---|
+| 운영체제 | Windows 10 22H2 또는 Windows 11 Home/Pro 25H2, 64비트 | Windows 11 Home/Pro 25H2, 64비트 |
+| CPU | Intel Core i5-8400 또는 AMD Ryzen 5 2600 | Intel Core i5-12400 또는 AMD Ryzen 5 5600 |
+| GPU | NVIDIA GeForce GTX 1060 6GB 또는 AMD Radeon RX 580 8GB, DirectX 12 | NVIDIA GeForce RTX 2060 6GB 또는 AMD Radeon RX 6600 8GB, DirectX 12 |
+| 시스템 메모리 | 16GB | 16GB 이상 |
+| 저장 장치 | SSD 필수, 설치 전 여유 공간 12GB 이상 | SSD 필수, 설치 전 여유 공간 12GB 이상 |
+| 기본 성능 목표 | 1920×1080, Low, 30fps | 1920×1080, High, 60fps |
 
-각 마일스톤에서 대표 체크포인트를 동일하게 재생하며 다음을 기록합니다.
+동급 장비는 CPU 코어 구성, GPU 전용 메모리와 DirectX 12 지원이 표의
+기준보다 낮지 않을 때만 같은 등급으로 취급한다. 내장 GPU, HDD, ARM
+Windows, Steam Deck/Linux 호환 계층은 Windows-v1 지원 범위가 아니다.
 
-- `stat unit`, `stat gpu`
-- Unreal Insights CPU, loading과 hitch trace
-- `MemReport`
-- Size Map과 Reference Viewer
-- Development 및 Shipping 패키지의 첫 실행/재실행 차이
+### 필수 장비 축
 
-정확한 VRAM, 시스템 메모리, 설치 용량과 scalability tier별 예산은 목표 GPU가 확정된 뒤 고정합니다.
+표에서 `또는`으로 지원한다고 쓴 OS·CPU·GPU 계열을 한 조합의 결과로
+대신하지 않는다. Windows-v1 PASS에는 최소 다음 여섯 장비가 필요하다.
+CPU와 GPU는 표의 정확한 모델 또는 사전 등록한 동급 모델을 쓰며, 동급
+판정 근거를 결과 매니페스트에 남긴다.
+
+| 장비 ID | OS | CPU 등급 | GPU 계열 | 필수 성능 경로 |
+|---|---|---|---|---|
+| `MIN-W10-NV` | Windows 10 22H2, 최신 누적 업데이트 | 최소 Intel | NVIDIA GTX 1060 6GB급 | 720p Low 30, 1080p Low 30 |
+| `MIN-W10-AMD` | Windows 10 22H2, 최신 누적 업데이트 | 최소 AMD | AMD RX 580 8GB급 | 720p Low 30, 1080p Low 30 |
+| `MIN-W11-NV` | Windows 11 Home/Pro 25H2, 최신 누적 업데이트 | 최소 Intel | NVIDIA GTX 1060 6GB급 | 720p Low 30, 1080p Low 30 |
+| `MIN-W11-AMD` | Windows 11 Home/Pro 25H2, 최신 누적 업데이트 | 최소 AMD | AMD RX 580 8GB급 | 720p Low 30, 1080p Low 30 |
+| `REC-W11-NV` | Windows 11 Home/Pro 25H2, 최신 누적 업데이트 | 권장 Intel | NVIDIA RTX 2060 6GB급 | 1080p High 60, 1440p High 30 |
+| `REC-W11-AMD` | Windows 11 Home/Pro 25H2, 최신 누적 업데이트 | 권장 AMD | AMD RX 6600 8GB급 | 1080p High 60, 1440p High 30 |
+
+Windows 10과 11, NVIDIA와 AMD의 기능 경계도 각 장비에서 새 게임,
+재실행, 해상도/창 모드 전환, 자막·문서 UI, 저장·불러오기와 양 엔딩까지
+확인한다. 한 OS나 한 GPU 공급사 결과가 빠지면 그 대안은 지원 목록에서
+제거하거나 게이트를 `BLOCKED`로 유지한다.
+
+Windows-v1의 Windows 11 인증 범위는 Home/Pro 25H2로 한정한다.
+26H1을 포함한 다른 기능 업데이트는 실행될 수 있어도 출시 지원으로
+광고하지 않는다. 새 Windows 11 기능 업데이트를 지원하려면 해당 버전의
+NVIDIA·AMD 기능 검사와 최소/권장 성능 경로를 추가하고 문서 버전을 올린다.
+
+## 해상도·화면 지원 매트릭스
+
+| 출력 해상도 | 지원 상태 | 인증 프리셋과 목표 |
+|---|---|---|
+| 1280×720 | 지원 | 최소 사양, Low, 30fps. UI·자막·문서의 최소 가독성 기준 |
+| 1920×1080 | 주 지원 | 최소 사양 Low 30fps와 권장 사양 High 60fps를 모두 인증 |
+| 2560×1440 | 지원 | 권장 사양, High, 30fps. UI·자막·문서 배치도 별도 확인 |
+| 3840×2160 | 미인증 | 실행 선택지가 노출되더라도 성능·가독성·메모리를 보증하지 않으며 출시 지원 해상도로 광고하지 않음 |
+
+Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드와 전체
+화면에서 위 세 지원 해상도를 각각 확인한다. 초광폭, HDR과 다중 모니터는
+출시 인증 범위 밖이며 필수 정보가 잘리는 명백한 결함만 P0/P1로 처리한다.
+
+성능 인증은 동적 해상도를 끄고 `r.ScreenPercentage=100`인 네이티브
+렌더링으로 진행한다. TSR을 사용하더라도 내부 해상도를 낮춰 기준을
+통과시키지 않는다. 출시 설정에 별도 TSR Quality 프리셋을 제공할 수
+있지만 네이티브 인증 결과를 대체하지 않는다. VSync와 프레임 제한은
+측정 중 끄고, 화면 찢김 확인은 VSync를 켠 별도 기능 검사에서 수행한다.
+
+## 성능 합격선
+
+프레임 시간 `p95`는 워밍업을 제외한 프레임의 95백분위 값이다.
+`1% low`는 가장 느린 1% 프레임 시간의 산술 평균을 밀리초로 계산한 뒤
+`1000 / 평균 프레임 시간`으로 환산한다. 평균 fps만으로 합격시키지 않는다.
+
+| 인증 경로 | 프레임 시간 p95 | 1% low | 워밍업 뒤 단일 hitch | 게임 프로세스 메모리 | 전용 VRAM |
+|---|---:|---:|---:|---:|---:|
+| 최소 사양, 1280×720 Low 30 | 33.33ms 이하 | 25fps 이상 | 100ms 초과 0건 | peak committed 12.0GB 이하 | peak 5.5GB 이하 |
+| 최소 사양, 1920×1080 Low 30 | 33.33ms 이하 | 25fps 이상 | 100ms 초과 0건 | peak committed 12.0GB 이하 | peak 5.5GB 이하 |
+| 권장 사양, 1920×1080 High 60 | 16.67ms 이하 | 50fps 이상 | 50ms 초과 0건 | peak committed 12.0GB 이하 | peak 5.5GB 이하 |
+| 권장 사양, 2560×1440 High 30 | 33.33ms 이하 | 25fps 이상 | 100ms 초과 0건 | peak committed 12.0GB 이하 | peak 5.5GB 이하 |
+
+로딩 화면과 의도적으로 멈춘 엔딩 정지 컷은 프레임 통계에서 분리하되
+멈춘 이유와 구간을 원본 trace에 주석으로 남긴다. 플레이 가능한 상태의
+스트리밍, 체크포인트, 저장 완료, 문 열림과 음악 전환은 제외하지 않는다.
+셰이더 컴파일이나 에셋 누락 때문에 생긴 hitch는 워밍업 사유로 숨길 수
+없다.
+
+설치된 Shipping 배포물의 총 파일 크기는 8.0GB 이하여야 한다. 설치 전
+12GB 여유 공간 요구에는 압축 해제·prerequisite·업데이트 임시 공간을
+포함한다. 사용자 세이브, 크래시 덤프와 로그는 설치 크기에 포함하지
+않지만 정상 1회 완주 뒤 `Saved` 폴더가 1.0GB를 넘으면 실패다.
+
+## 측정 절차
+
+1. 검증할 40자리 Git SHA와 작업 트리 clean 상태를 고정하고 같은 SHA의
+   Win64 Shipping 패키지를 사용한다. Development/Editor 수치는 진단용이며
+   출시 승인을 대신하지 않는다.
+2. Windows 업데이트, GPU 드라이버 버전, CPU/GPU/RAM, 저장 장치, 출력
+   모드와 게임 설정을 결과 매니페스트에 기록한다. 전원 모드는 AC 전원과
+   Windows `최고 성능`으로 고정하고 불필요한 오버레이·녹화 프로그램은
+   끈다.
+3. `필수 장비 축`의 여섯 장비에서 각자 지정된 프리셋을 실행한다.
+   게임을 실행한 뒤 2분간 워밍업하고, 다음 장면을 포함한 동일 입력
+   경로를 각 프리셋마다 세 번 실행한다. 재부팅 뒤 첫 실행도 별도로
+   보존한다.
+   - CH01 집→엘리베이터→현관→골목→편의점 왕복
+   - CH02 403호 복도, 문서·폰 UI, 셔터와 추적 압박
+   - CH03 사고 현장→계단→옥상 탱크→P3→P5→엔딩 선택
+4. 세 반복 중 어느 하나라도 표의 합격선을 넘으면 실패다. 가장 좋은
+   반복만 골라 제출하지 않는다.
+5. `stat unit`, `stat gpu`, Unreal Insights의 CPU/GPU/frame/loadtime/
+   memory trace, `MemReport`, 실행 로그와 화면 설정 캡처를 원본 그대로
+   보존한다. GPU 캡처가 지원되지 않는 장비는 도구명과 누락 사유를
+   기록하되 프레임·메모리 측정은 생략하지 않는다.
+6. 결과 폴더의 모든 파일에 SHA-256을 계산하고 커밋 SHA, 패키지
+   매니페스트, 장비 정보, 각 반복의 p95·1% low·최대 hitch·RAM·VRAM·
+   설치 크기를 `performance-result.json`에 기록한다.
+
+첫 실행 셰이더 준비와 재실행의 차이는 별도 행으로 남긴다. 반복 측정
+사이에 설정, 드라이버, 패키지 또는 맵이 바뀌면 같은 표본으로 합치지
+않는다.
+
+## 런타임 예산 규칙
+
+- Actor Tick은 기본 비활성화하고 이벤트 또는 제한 주기 타이머를 사용한다.
+- 플레이 중 동기 에셋 로드는 금지하며 챕터 데이터의 soft reference를
+  미리 비동기 로드한다.
+- 상호작용 trace는 플레이어당 하나, 10~15Hz를 기본값으로 한다.
+- 공간 오디오는 virtualization과 streaming을 사용하고 동시 활성 음성을
+  관리한다.
+- 일반 소품 텍스처는 1K, hero 소품은 2K를 출발점으로 하며 4K는 화면
+  점유와 메모리 근거가 있을 때만 사용한다.
+- Lumen을 사용할 때 shadow-casting movable light의 수와 영향 반경을
+  장면별로 제한한다.
+- 정적 고밀도 환경 메시에는 Nanite를 검토하되 플레이 캡슐용 단순
+  collision을 별도로 제공한다.
+
+## 판정
+
+여섯 필수 장비의 지정 인증 경로, OS·GPU 공급사별 기능 검사, 설치
+크기와 `Saved` 증가량이 모두 같은 SHA에서 PASS여야 Windows-v1 성능
+게이트를 통과한다. 한 장비·OS·GPU 공급사·해상도가 누락되면 `PARTIAL`이
+아니라 `BLOCKED`, 수치가 초과되면 `FAIL`이다.
+
+현재는 이 계약에 따른 Shipping 패키지, 최소/권장 장비 원본 trace와
+`performance-result.json`이 없으므로 판정은 **BLOCKED**다.
