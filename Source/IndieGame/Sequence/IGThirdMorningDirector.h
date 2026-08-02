@@ -267,6 +267,29 @@ private:
 	void BeginEndingB();
 	void FinishEndingB();
 	void ShowCommonDiscoveryCard();
+	/** Runs Fn after DelaySeconds on a pooled ending-sequence timer. */
+	void ScheduleEndingCue(float DelaySeconds, TFunction<void()> Fn);
+	/**
+	 * The 0.8 s actual-state restore heard at three different distances:
+	 * the lid settling shut, the inspection rod meeting the deck, and the
+	 * glasses temple ringing once against the railing.
+	 */
+	void PlayRestoreStateSounds();
+	/**
+	 * The five sounds of the 07/31 joint opening, in fixed order over black:
+	 * gas detector, duct and fan, harness, two climbers, the real hatch.
+	 * Ends by showing the common discovery card.
+	 */
+	void PlayCommonSafetyOpening();
+	void PlayEndingABlackoutCues();
+	void ShowEndingAFinalCard();
+	void ShowEndingBFamilyCard();
+	void StartEndingBMontage();
+	void StartEndingBEpilogue();
+	void PlayEpilogueDripAndClock();
+	void ShowEndingBFinalCard();
+	void PlayEndingBCatCoda();
+	void SetInspectionRodWedged(bool bWedged);
 	void PresentEndingControls(const FText& EndingTitle, const FText& EndingSubtitle);
 	void EnableEndingInput();
 	void RestartChapter();
@@ -428,6 +451,12 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> RoofDoorLeaf;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> TankLidVisual;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> TankWaterSurface;
+	/** The loose inspection rod: on the deck normally, wedged only in ending B. */
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> InspectionRodVisual;
+	/** Spring-morning kitchen dressing revealed only by ending B's epilogue. */
+	UPROPERTY(Transient) TObjectPtr<UTextRenderComponent> EpilogueClockText;
+	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> EpilogueSpringLight;
+	UPROPERTY(Transient) TObjectPtr<AActor> EpilogueCamera;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> BodySilhouette;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> StairLatinSignParts;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> StairSignParts;
@@ -509,4 +538,6 @@ private:
 	FTimerHandle P3HintVisualTimer;
 	FTimerHandle AccidentScratchTimer;
 	FTimerHandle AccidentScratchTailTimer;
+	/** Pooled handles for the ending cue schedules; cleared on EndPlay. */
+	TArray<FTimerHandle> EndingSequenceTimers;
 };

@@ -2,10 +2,10 @@
 
 #include "Engine/GameInstance.h"
 #include "Kismet/GameplayStatics.h"
-#include "Misc/GuardValue.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Save/IGSaveGame.h"
+#include "Templates/UnrealTemplate.h"
 
 namespace IGSave
 {

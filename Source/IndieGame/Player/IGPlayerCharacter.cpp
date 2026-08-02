@@ -820,7 +820,7 @@ void AIGPlayerCharacter::BeginInteraction()
 				CarriedBaseLocation += FVector(-8.0f, 2.0f, -48.0f);
 				IGAudio::SpawnOneShotAt(
 					this,
-					UIGToneSequenceSoundWave::CreateFootstep(this, 0.72f, 0.62f),
+					UIGToneSequenceSoundWave::CreatePlasticBagSetDown(this),
 					GetActorLocation() - FVector(0.0f, 0.0f, 88.0f),
 					0.55f);
 			}
@@ -847,10 +847,63 @@ void AIGPlayerCharacter::EndInteraction()
 		HeavyBagRestLocation = FVector::ZeroVector;
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateFootstep(this, 0.93f, 0.34f),
+			UIGToneSequenceSoundWave::CreatePlasticBagLift(this),
 			GetActorLocation() - FVector(0.0f, 0.0f, 72.0f),
 			0.42f);
 	}
+}
+
+bool AIGPlayerCharacter::BeginScriptedHeavyBagRest(const float Seconds)
+{
+	const AIGPickupItem* CarriedPickup =
+		Cast<AIGPickupItem>(CarriedActor.Get());
+	const bool bProfileCCommitted =
+		CarriedPickup
+		&& CarriedPickup->RebirthPurchaseProfileOnPickup
+			== EIGRebirthPurchaseProfile::ProfileC2LX2
+		&& IGStory::HasState(
+			this,
+			FGameplayTag::RequestGameplayTag(
+				FName(TEXT("State.CH01.Morning.WaterPurchased")),
+				false));
+	if (!bProfileCCommitted || bHeavyBagInteractionProxyActive)
+	{
+		return false;
+	}
+
+	bHeavyBagInteractionProxyActive = true;
+	HeavyBagRestLocation = CarriedBaseLocation;
+	CarriedBaseLocation += FVector(-8.0f, 2.0f, -48.0f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreatePlasticBagSetDown(this),
+		GetActorLocation() - FVector(0.0f, 0.0f, 88.0f),
+		0.55f);
+	GetWorldTimerManager().SetTimer(
+		HeavyBagRestTimer,
+		this,
+		&ThisClass::EndScriptedHeavyBagRest,
+		FMath::Max(Seconds, 0.5f),
+		false);
+	return true;
+}
+
+void AIGPlayerCharacter::EndScriptedHeavyBagRest()
+{
+	// An interaction release may already have re-gripped the bag; the flag
+	// keeps the restore idempotent.
+	if (!bHeavyBagInteractionProxyActive)
+	{
+		return;
+	}
+	CarriedBaseLocation = HeavyBagRestLocation;
+	bHeavyBagInteractionProxyActive = false;
+	HeavyBagRestLocation = FVector::ZeroVector;
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreatePlasticBagLift(this),
+		GetActorLocation() - FVector(0.0f, 0.0f, 72.0f),
+		0.42f);
 }
 
 void AIGPlayerCharacter::TryRequestGetUpFallback()

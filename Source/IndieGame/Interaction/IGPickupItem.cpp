@@ -151,7 +151,7 @@ void AIGPickupItem::CompleteInteraction_Implementation(const FIGInteractionConte
 	}
 
 	if (!FinishPickup(
-			Character ? static_cast<AActor*>(Character) : Context.Interactor,
+			Character ? static_cast<AActor*>(Character) : Context.Interactor.Get(),
 			false,
 			true))
 	{

@@ -355,9 +355,9 @@ bool AIGMorningRoutineDirector::RunRebirthEndToEndFirstExit()
 	const FIGRebirthNarrativeSnapshot Snapshot =
 		RebirthState->BuildSnapshot();
 	int32 ChapterOneRecords = 0;
-	for (const FName ChapterId : Snapshot.EquippedOutfitChapters)
+	for (const FName OutfitChapterId : Snapshot.EquippedOutfitChapters)
 	{
-		ChapterOneRecords += ChapterId == FName(TEXT("CH01")) ? 1 : 0;
+		ChapterOneRecords += OutfitChapterId == FName(TEXT("CH01")) ? 1 : 0;
 	}
 	return ChapterOneRecords == 1;
 }

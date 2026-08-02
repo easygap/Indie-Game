@@ -4,6 +4,7 @@
 #include "Audio/IGAlarmSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "Camera/CameraActor.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "CollisionQueryParams.h"
@@ -1088,6 +1089,9 @@ void AIGThirdMorningDirector::FinishRoofDoorReturn()
 
 void AIGThirdMorningDirector::ApplyCommonDiscoveryWorldState()
 {
+	// The 0.8 s actual-state restore both endings share: the lid closed, the
+	// rod back on the deck, the glasses still on their railing bolt, and every
+	// future-dated police overlay gone. Only the memory ever held them here.
 	for (UStaticMeshComponent* Piece : BodySilhouette)
 	{
 		if (Piece)
@@ -1104,8 +1108,140 @@ void AIGThirdMorningDirector::ApplyCommonDiscoveryWorldState()
 		TankLidAction->SetInteractionEnabled(false);
 		TankLidAction->SetActorEnableCollision(false);
 	}
+	SetInspectionRodWedged(false);
+	SetDocumentAvailable(RecheckNoticeNote, false);
+	SetDocumentAvailable(PreservationNoticeNote, false);
+	SetDocumentAvailable(PoliceChecklistNote, false);
+	SetDocumentAvailable(P3PhotoNote, false);
+	SetDocumentAvailable(ManagementDbNote, false);
 	SetVisibleInteractive(CloseChoiceAction, false);
 	SetVisibleInteractive(SupportChoiceAction, false);
+}
+
+void AIGThirdMorningDirector::SetInspectionRodWedged(const bool bWedged)
+{
+	if (!InspectionRodVisual)
+	{
+		return;
+	}
+	if (bWedged)
+	{
+		// Raised into the support groove, holding the remembered lid open.
+		InspectionRodVisual->SetRelativeLocation(
+			IGThirdMorning::TankCenter + FVector(-160, 105, 618));
+		InspectionRodVisual->SetRelativeRotation(FRotator(38, 0, 0));
+	}
+	else
+	{
+		InspectionRodVisual->SetRelativeLocation(
+			IGThirdMorning::TankCenter
+				+ FVector(-196, 128, IGThirdMorning::RoofFloorZ + 4.0f));
+		InspectionRodVisual->SetRelativeRotation(FRotator(90, 24, 0));
+	}
+}
+
+void AIGThirdMorningDirector::ScheduleEndingCue(
+	const float DelaySeconds,
+	TFunction<void()> Fn)
+{
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	FTimerDelegate CueDelegate;
+	CueDelegate.BindLambda([WeakThis, Fn = MoveTemp(Fn)]()
+	{
+		if (WeakThis.IsValid())
+		{
+			Fn();
+		}
+	});
+	FTimerHandle& Handle = EndingSequenceTimers.AddDefaulted_GetRef();
+	GetWorldTimerManager().SetTimer(
+		Handle, CueDelegate, FMath::Max(DelaySeconds, 0.01f), false);
+}
+
+void AIGThirdMorningDirector::PlayRestoreStateSounds()
+{
+	// Three distances, one restore: the lid at the rim, the rod on the deck,
+	// the glasses temple far out on the railing.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateDoorThud(this),
+		ToWorld(IGThirdMorning::TankCenter + FVector(-25, 0, 640)),
+		0.40f,
+		0.62f,
+		120.0f,
+		900.0f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateRodWedgeSeat(this),
+		ToWorld(IGThirdMorning::TankCenter
+			+ FVector(-196, 128, IGThirdMorning::RoofFloorZ + 6.0f)),
+		0.34f,
+		0.86f,
+		90.0f,
+		760.0f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateGlassesTinyRing(this),
+		ToWorld(FVector(1880, -250, 250)),
+		0.30f,
+		1.0f,
+		60.0f,
+		620.0f);
+}
+
+void AIGThirdMorningDirector::PlayCommonSafetyOpening()
+{
+	// 2024-07-31 04:00, heard only: the machines are calm, the people are
+	// careful, and the hatch opens the way it always should have.
+	const FVector TankTop =
+		ToWorld(IGThirdMorning::TankCenter + FVector(0, 0, 620));
+	const FVector LadderBase = ToWorld(FVector(2265, -300, 300));
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	auto PlayAt = [WeakThis](
+		UIGToneSequenceSoundWave* (*Factory)(UObject*),
+		const FVector& Location,
+		const float Volume)
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			IGAudio::SpawnOneShotAt(
+				Director,
+				Factory(Director),
+				Location,
+				Volume,
+				1.0f,
+				140.0f,
+				1200.0f);
+		}
+	};
+
+	ScheduleEndingCue(0.10f, [PlayAt, TankTop]()
+	{
+		PlayAt(&UIGToneSequenceSoundWave::CreateGasDetectorOk, TankTop, 0.42f);
+	});
+	ScheduleEndingCue(1.40f, [PlayAt, TankTop]()
+	{
+		PlayAt(&UIGToneSequenceSoundWave::CreateVentDuctSpinUp, TankTop, 0.40f);
+	});
+	ScheduleEndingCue(4.10f, [PlayAt, LadderBase]()
+	{
+		PlayAt(&UIGToneSequenceSoundWave::CreateHarnessBuckle, LadderBase, 0.44f);
+	});
+	ScheduleEndingCue(5.30f, [PlayAt, LadderBase]()
+	{
+		PlayAt(&UIGToneSequenceSoundWave::CreateLadderClimbTwoPeople, LadderBase, 0.42f);
+	});
+	ScheduleEndingCue(9.00f, [PlayAt, TankTop]()
+	{
+		PlayAt(&UIGToneSequenceSoundWave::CreateHatchOpenMetal, TankTop, 0.46f);
+	});
+	ScheduleEndingCue(10.90f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->ShowCommonDiscoveryCard();
+		}
+	});
 }
 
 void AIGThirdMorningDirector::ResumeRestoredEnding()
@@ -1736,6 +1872,58 @@ void AIGThirdMorningDirector::BuildApartment()
 		280.0f,
 		FLinearColor(0.62f, 0.42f, 0.28f),
 		false);
+
+	// One-room kitchenette on the north wall: a real 404 has a sink, and
+	// ending B's epilogue returns here for its single drop of water.
+	CreateBlock(FVector(-55, 185, 42), FVector(85, 66, 84), PlasticMaterial);
+	CreateBlock(FVector(-55, 185, 82.5f), FVector(48, 40, 5), DarkConcreteMaterial, false);
+	CreateBlock(
+		FVector(-55, 205, 100),
+		FVector(5, 5, 26),
+		MetalMaterial,
+		false,
+		FRotator::ZeroRotator,
+		CylinderMesh);
+	CreateBlock(
+		FVector(-55, 196, 111),
+		FVector(4, 4, 22),
+		MetalMaterial,
+		false,
+		FRotator(90, 0, 0),
+		CylinderMesh);
+	// The empty glass cup under the closed tap. It is here in the flood
+	// morning too: the same cup, before and after.
+	CreateBlock(
+		FVector(-30, 188, 91),
+		FVector(8, 8, 13),
+		GlassMaterial,
+		false,
+		FRotator::ZeroRotator,
+		CylinderMesh);
+
+	// Spring-morning dressing, revealed only by ending B's epilogue: the new
+	// tenant's wall clock and a daylight key that has no place in the flood.
+	EpilogueClockText = NewObject<UTextRenderComponent>(
+		this, TEXT("CH03_EpilogueClock"));
+	EpilogueClockText->SetupAttachment(SceneRoot);
+	EpilogueClockText->SetRelativeLocation(FVector(-55, 207, 162));
+	EpilogueClockText->SetRelativeRotation(FRotator(0, -90, 0));
+	EpilogueClockText->SetHorizontalAlignment(EHTA_Center);
+	EpilogueClockText->SetWorldSize(20.0f);
+	EpilogueClockText->SetTextRenderColor(FColor(46, 66, 58));
+	EpilogueClockText->SetText(FText::FromString(TEXT("4:43")));
+	EpilogueClockText->SetVisibility(false);
+	EpilogueClockText->RegisterComponent();
+	EpilogueSpringLight = CreatePointLight(
+		FVector(40, 60, 216),
+		0.0f,
+		760.0f,
+		FLinearColor(0.93f, 0.97f, 1.0f),
+		true);
+	if (EpilogueSpringLight)
+	{
+		EpilogueSpringLight->SetVisibility(false);
+	}
 }
 
 void AIGThirdMorningDirector::BuildFloodedCorridor()
@@ -2479,6 +2667,17 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		1.2f);
 	SetVisibleInteractive(CloseChoiceAction, false);
 	SetVisibleInteractive(SupportChoiceAction, false);
+
+	// The loose inspection rod itself, resting on the deck by the tank base
+	// where a maintenance hand once left it. Choosing B moves it up into the
+	// support groove; the shared actual-state restore returns it here.
+	InspectionRodVisual = CreateBlock(
+		Tank + FVector(-196, 128, IGThirdMorning::RoofFloorZ + 4.0f),
+		FVector(7, 7, 118),
+		MetalMaterial,
+		false,
+		FRotator(90, 24, 0),
+		CylinderMesh);
 
 	// Concentric broken highlights make the otherwise still surface read as
 	// water rather than a blue floor.  They are deliberately sparse: the only
@@ -4755,7 +4954,7 @@ void AIGThirdMorningDirector::PollP3Hint()
 				false);
 		}
 		PlayMetalEcho(
-			P3PressureReleaseOpen
+			bP3PressureReleaseOpen
 				? FVector(755, -178, 178)
 				: FVector(705, -178, 112),
 			1.04f);
@@ -5169,38 +5368,40 @@ void AIGThirdMorningDirector::FinishEndingA()
 	CommitChapterThreeState();
 	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
 	SetPhase(EIGThirdMorningPhase::Ending);
-	SetVisibleInteractive(CloseChoiceAction, false);
-	SetVisibleInteractive(SupportChoiceAction, false);
-	for (UStaticMeshComponent* Piece : BodySilhouette)
-	{
-		if (Piece)
-		{
-			Piece->SetVisibility(false);
-		}
-	}
-	if (TankLidAction)
-	{
-		TankLidAction->SetActorHiddenInGame(false);
-		TankLidAction->SetActorLocation(
-			ToWorld(IGThirdMorning::TankCenter + FVector(0, 0, 610)));
-		TankLidAction->SetActorRotation(FRotator::ZeroRotator);
-	}
-	PlayTankSlam();
 
-	if (APlayerController* PlayerController = GetWorld()->GetFirstPlayerController())
+	// The player's own hand closes the lid; the same instant, every remembered
+	// overlay resolves to the actual post-accident state and stays visible for
+	// 0.8 seconds before the dark takes it.
+	PlayTankSlam();
+	ApplyCommonDiscoveryWorldState();
+	PlayRestoreStateSounds();
+
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	ScheduleEndingCue(0.80f, [WeakThis]()
 	{
-		if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
+		AIGThirdMorningDirector* Director = WeakThis.Get();
+		if (!Director || !Director->GetWorld())
 		{
-			Camera->StartCameraFade(
-				0.0f, 1.0f, 2.2f, FLinearColor::Black, false, true);
+			return;
 		}
-	}
-	GetWorldTimerManager().SetTimer(
-		FlowTimer,
-		this,
-		&ThisClass::ShowCommonDiscoveryCard,
-		2.4f,
-		false);
+		if (APlayerController* PlayerController =
+			Director->GetWorld()->GetFirstPlayerController())
+		{
+			if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
+			{
+				Camera->StartCameraFade(
+					0.0f, 1.0f, 0.7f, FLinearColor::Black, false, true);
+			}
+		}
+	});
+	ScheduleEndingCue(1.60f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->StopAllChapterAudio();
+			Director->PlayCommonSafetyOpening();
+		}
+	});
 }
 
 void AIGThirdMorningDirector::BeginEndingB()
@@ -5223,39 +5424,100 @@ void AIGThirdMorningDirector::BeginEndingB()
 	SetPhase(EIGThirdMorningPhase::Ending);
 	SetVisibleInteractive(CloseChoiceAction, false);
 	SetVisibleInteractive(SupportChoiceAction, false);
-	if (RebirthState->MarkOneShotBeatPlayed(
-		FName(TEXT("Ending.B.StrongCuePlayed"))))
-	{
-		RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
-		IGAudio::SpawnOneShotAt(
-			this,
-			UIGToneSequenceSoundWave::CreateWaterDripMetalRing(this),
-			ToWorld(IGThirdMorning::TankCenter + FVector(0, 0, 545)),
-			0.52f,
-			0.62f,
-			80.0f,
-			650.0f);
-	}
 
-	if (APlayerController* PlayerController = GetWorld()->GetFirstPlayerController())
-	{
-		if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
-		{
-			Camera->StartCameraFade(
-				0.0f,
-				1.0f,
-				4.8f,
-				FLinearColor(0.015f, 0.12f, 0.14f),
-				false,
-				true);
-		}
-	}
-	GetWorldTimerManager().SetTimer(
-		FlowTimer,
+	// The rod seats in its groove; the railing answers with one tiny ring
+	// from the glasses. Then the player may watch the open water for two
+	// full seconds before the roof's colour and sound leave like memory.
+	SetInspectionRodWedged(true);
+	IGAudio::SpawnOneShotAt(
 		this,
-		&ThisClass::ShowCommonDiscoveryCard,
-		5.2f,
-		false);
+		UIGToneSequenceSoundWave::CreateRodWedgeSeat(this),
+		ToWorld(IGThirdMorning::TankCenter + FVector(-160, 105, 618)),
+		0.50f,
+		1.0f,
+		90.0f,
+		760.0f);
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	ScheduleEndingCue(0.45f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			IGAudio::SpawnOneShotAt(
+				Director,
+				UIGToneSequenceSoundWave::CreateGlassesTinyRing(Director),
+				Director->ToWorld(FVector(1880, -250, 250)),
+				0.34f,
+				1.0f,
+				60.0f,
+				620.0f);
+		}
+	});
+
+	// 2.0 s undisturbed look at the lid and the water.
+	ScheduleEndingCue(2.00f, [WeakThis]()
+	{
+		AIGThirdMorningDirector* Director = WeakThis.Get();
+		if (!Director || !Director->GetWorld())
+		{
+			return;
+		}
+		if (APlayerController* PlayerController =
+			Director->GetWorld()->GetFirstPlayerController())
+		{
+			if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
+			{
+				// Colour drains first; this is not yet black.
+				Camera->StartCameraFade(
+					0.0f,
+					0.55f,
+					2.2f,
+					FLinearColor(0.015f, 0.12f, 0.14f),
+					false,
+					true);
+			}
+		}
+	});
+	ScheduleEndingCue(3.60f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			// The roof's sound leaves before its light does.
+			Director->StopAllChapterAudio();
+		}
+	});
+	// The remembered scene resolves to the actual state while still visible.
+	ScheduleEndingCue(4.20f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->ApplyCommonDiscoveryWorldState();
+			Director->PlayRestoreStateSounds();
+		}
+	});
+	ScheduleEndingCue(5.00f, [WeakThis]()
+	{
+		AIGThirdMorningDirector* Director = WeakThis.Get();
+		if (!Director || !Director->GetWorld())
+		{
+			return;
+		}
+		if (APlayerController* PlayerController =
+			Director->GetWorld()->GetFirstPlayerController())
+		{
+			if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
+			{
+				Camera->StartCameraFade(
+					0.55f, 1.0f, 0.6f, FLinearColor::Black, false, true);
+			}
+		}
+	});
+	ScheduleEndingCue(5.80f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->PlayCommonSafetyOpening();
+		}
+	});
 }
 
 void AIGThirdMorningDirector::ShowCommonDiscoveryCard()
@@ -5295,12 +5557,13 @@ void AIGThirdMorningDirector::ShowCommonDiscoveryCard()
 		return;
 	}
 
+	// The card holds for two seconds, then the dark returns (§9).
 	AIGHorrorHUD::ShowChapterCard(
 		this,
 		NSLOCTEXT("IGCH03", "DiscoveryDate", "2024년 7월 31일 04:00"),
 		NSLOCTEXT("IGCH03", "DiscoveryTitle", "옥상 예비 저수조 합동 확인 중 실종자 한지운 발견"),
 		FText::GetEmpty(),
-		6.0f);
+		2.0f);
 
 	if (bEndingASelected)
 	{
@@ -5308,7 +5571,7 @@ void AIGThirdMorningDirector::ShowCommonDiscoveryCard()
 			FlowTimer,
 			this,
 			&ThisClass::FinishEndingAAfterDiscovery,
-			6.1f,
+			2.1f,
 			false);
 	}
 	else
@@ -5317,7 +5580,7 @@ void AIGThirdMorningDirector::ShowCommonDiscoveryCard()
 			FlowTimer,
 			this,
 			&ThisClass::FinishEndingB,
-			6.1f,
+			2.1f,
 			false);
 	}
 }
@@ -5337,68 +5600,333 @@ void AIGThirdMorningDirector::FinishEndingAAfterDiscovery()
 				"2024년 7월 26일 금요일, 오전 4시 44분."));
 		return;
 	}
-	// Persist the guard before emitting either part of the cue. Otherwise a
-	// quit after the final controls would replay the chime and alarm on load.
+	// Persist the guard before emitting any part of the cue. Otherwise a
+	// quit after the final controls would replay the blackout cues on load.
 	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
-	// The loop cue belongs to Ji-woon's chosen memory, not to the common
-	// physical outcome. It therefore starts only after the 07/31 discovery.
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreateDoorChime(this),
-		ToWorld(IGThirdMorning::TankCenter),
-		0.17f,
-		0.90f,
-		80.0f,
-		900.0f);
+	PlayEndingABlackoutCues();
+}
 
+void AIGThirdMorningDirector::PlayEndingABlackoutCues()
+{
+	// The chosen memory restarts in the dark, at its own fixed clock:
+	// 0.75 s store chime, 1.30 s the 04:44 alarm, 1.90 s the cat exactly as
+	// the player left it — cut mid-motion — and 2.55 s one phone vibration
+	// far away in an empty room, dying before its third bar.
 	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
-	FTimerDelegate LoopAlarmDelegate;
-	LoopAlarmDelegate.BindLambda([WeakThis]()
+
+	ScheduleEndingCue(0.75f, [WeakThis]()
 	{
 		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
-			UIGAlarmSoundWave* LoopAlarm =
-				NewObject<UIGAlarmSoundWave>(
-					Director,
-					TEXT("CH03EndingLoopAlarm"));
 			IGAudio::SpawnOneShotAt(
 				Director,
-				LoopAlarm,
-				Director->ToWorld(FVector(-205, -190, 82)),
-				0.30f,
-				0.983f,
+				UIGToneSequenceSoundWave::CreateDoorChime(Director),
+				Director->ToWorld(IGThirdMorning::TankCenter),
+				0.17f,
+				0.90f,
 				80.0f,
-				750.0f);
+				900.0f);
 		}
 	});
-	FTimerHandle LoopAlarmHandle;
-	GetWorldTimerManager().SetTimer(
-		LoopAlarmHandle, LoopAlarmDelegate, 0.55f, false);
-
-	FTimerDelegate FinalCardDelegate;
-	FinalCardDelegate.BindLambda([WeakThis]()
+	ScheduleEndingCue(1.30f, [WeakThis]()
+	{
+		AIGThirdMorningDirector* Director = WeakThis.Get();
+		if (!Director)
+		{
+			return;
+		}
+		UIGAlarmSoundWave* LoopAlarm =
+			NewObject<UIGAlarmSoundWave>(Director, TEXT("CH03EndingLoopAlarm"));
+		UAudioComponent* AlarmBurst = IGAudio::SpawnOneShotAt(
+			Director,
+			LoopAlarm,
+			Director->ToWorld(FVector(-205, -190, 82)),
+			0.30f,
+			0.983f,
+			80.0f,
+			750.0f);
+		if (AlarmBurst)
+		{
+			// One pattern's worth of alarm, then it is taken away again.
+			Director->ScheduleEndingCue(0.62f, [WeakAlarm =
+				TWeakObjectPtr<UAudioComponent>(AlarmBurst)]()
+			{
+				if (UAudioComponent* Component = WeakAlarm.Get())
+				{
+					Component->Stop();
+				}
+			});
+		}
+	});
+	ScheduleEndingCue(1.90f, [WeakThis]()
+	{
+		AIGThirdMorningDirector* Director = WeakThis.Get();
+		if (!Director)
+		{
+			return;
+		}
+		const UIGRebirthNarrativeSubsystem* RebirthState =
+			Director->GetRebirthState();
+		const EIGRebirthCatWaterState CatState = RebirthState
+			? RebirthState->BuildSnapshot().Choices.CatWaterState
+			: EIGRebirthCatWaterState::Unset;
+		UIGToneSequenceSoundWave* CatCue = nullptr;
+		switch (CatState)
+		{
+		case EIGRebirthCatWaterState::BottleCap:
+			CatCue = UIGToneSequenceSoundWave::CreateCatLickWaterPlastic(
+				Director, true);
+			break;
+		case EIGRebirthCatWaterState::PaperCup:
+			CatCue = UIGToneSequenceSoundWave::CreateCatLickWaterPaper(Director);
+			break;
+		default:
+			CatCue = UIGToneSequenceSoundWave::CreateCatPawTrot(
+				Director, 2, true);
+			break;
+		}
+		IGAudio::SpawnOneShotAt(
+			Director,
+			CatCue,
+			Director->ToWorld(FVector(660, -240, 20)),
+			0.30f,
+			1.0f,
+			90.0f,
+			700.0f);
+	});
+	ScheduleEndingCue(2.55f, [WeakThis]()
 	{
 		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
-			Director->PresentEndingControls(
-				NSLOCTEXT("IGCH03", "EndingATitle", "내일 또"),
-				NSLOCTEXT(
-					"IGCH03",
-					"EndingASubtitle",
-					"2024년 7월 26일 금요일, 오전 4시 44분."));
+			IGAudio::SpawnOneShotAt(
+				Director,
+				UIGToneSequenceSoundWave::CreatePhoneVibrationUnfinished(Director),
+				Director->ToWorld(FVector(-200, -190, 82)),
+				0.26f,
+				1.0f,
+				70.0f,
+				640.0f);
 		}
 	});
-	GetWorldTimerManager().SetTimer(FlowTimer, FinalCardDelegate, 1.8f, false);
+	ScheduleEndingCue(5.60f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->ShowEndingAFinalCard();
+		}
+	});
+}
+
+void AIGThirdMorningDirector::ShowEndingAFinalCard()
+{
+	PresentEndingControls(
+		NSLOCTEXT("IGCH03", "EndingATitle", "내일 또"),
+		NSLOCTEXT(
+			"IGCH03",
+			"EndingASubtitle",
+			"2024년 7월 26일 금요일, 오전 4시 44분."));
 }
 
 void AIGThirdMorningDirector::FinishEndingB()
+{
+	// Resume rule: a load after the montage guard replays only the final
+	// card; a load between the common card and the guard re-enters the coda.
+	const UIGRebirthNarrativeSubsystem* RebirthState = GetRebirthState();
+	if (RebirthState
+		&& RebirthState->WasOneShotBeatPlayed(
+			FName(TEXT("Ending.B.StrongCuePlayed"))))
+	{
+		ShowEndingBFinalCard();
+		return;
+	}
+	ShowEndingBFamilyCard();
+}
+
+void AIGThirdMorningDirector::ShowEndingBFamilyCard()
+{
+	AIGHorrorHUD::ShowChapterCard(
+		this,
+		FText::GetEmpty(),
+		NSLOCTEXT("IGCH03", "EndingBFamilyLine", "가족에게 돌아갔다."),
+		FText::GetEmpty(),
+		3.0f);
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	ScheduleEndingCue(3.40f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->StartEndingBMontage();
+		}
+	});
+}
+
+void AIGThirdMorningDirector::StartEndingBMontage()
+{
+	UIGRebirthNarrativeSubsystem* RebirthState = GetRebirthState();
+	if (RebirthState
+		&& RebirthState->MarkOneShotBeatPlayed(
+			FName(TEXT("Ending.B.StrongCuePlayed"))))
+	{
+		// Persist the guard before the first montage sample, so a quit during
+		// the goodbye never plays the tape twice.
+		CommitChapterThreeState();
+		RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
+	}
+
+	// The screen stays black to the end; only the sounds pack the room.
+	UGameplayStatics::PlaySound2D(
+		this,
+		UIGToneSequenceSoundWave::CreateEndingBMontage(this),
+		0.9f);
+
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	ScheduleEndingCue(16.40f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->StartEndingBEpilogue();
+		}
+	});
+}
+
+void AIGThirdMorningDirector::StartEndingBEpilogue()
+{
+	// Next spring, the same kitchen, a tenant we never see. The room is lit
+	// like an ordinary morning for the first time in the whole chapter.
+	if (EpilogueClockText)
+	{
+		EpilogueClockText->SetText(FText::FromString(TEXT("4:43")));
+		EpilogueClockText->SetVisibility(true);
+	}
+	if (EpilogueSpringLight)
+	{
+		EpilogueSpringLight->SetVisibility(true);
+		EpilogueSpringLight->SetIntensity(2400.0f);
+	}
+
+	UWorld* World = GetWorld();
+	APlayerController* PlayerController = World
+		? World->GetFirstPlayerController()
+		: nullptr;
+	if (PlayerController)
+	{
+		// One static shot of the sink and the empty cup; the view is a still
+		// image in everything but name, per the approved static proxy.
+		FActorSpawnParameters CameraParams;
+		CameraParams.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		const FVector CameraLocation = ToWorld(FVector(58, 62, 110));
+		const FRotator CameraRotation =
+			FRotationMatrix::MakeFromX(
+				ToWorld(FVector(-42, 186, 92)) - CameraLocation).Rotator();
+		EpilogueCamera = World->SpawnActor<AActor>(
+			ACameraActor::StaticClass(),
+			CameraLocation,
+			CameraRotation,
+			CameraParams);
+		if (EpilogueCamera)
+		{
+			PlayerController->SetViewTargetWithBlend(EpilogueCamera, 0.0f);
+		}
+		if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
+		{
+			Camera->StartCameraFade(
+				1.0f, 0.0f, 1.4f, FLinearColor::Black, false, true);
+		}
+	}
+
+	UGameplayStatics::PlaySound2D(
+		this,
+		UIGToneSequenceSoundWave::CreateSpringMorningBed(this),
+		0.8f);
+
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	ScheduleEndingCue(3.20f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->PlayEpilogueDripAndClock();
+		}
+	});
+	ScheduleEndingCue(7.60f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->ShowEndingBFinalCard();
+		}
+	});
+}
+
+void AIGThirdMorningDirector::PlayEpilogueDripAndClock()
+{
+	// The clock turns 4:44 and the shut tap lets go of exactly one drop.
+	if (EpilogueClockText)
+	{
+		EpilogueClockText->SetText(FText::FromString(TEXT("4:44")));
+	}
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateGlassCupDrip(this),
+		ToWorld(FVector(-30, 188, 96)),
+		0.7f,
+		1.0f,
+		120.0f,
+		700.0f);
+}
+
+void AIGThirdMorningDirector::ShowEndingBFinalCard()
 {
 	PresentEndingControls(
 		NSLOCTEXT("IGCH03", "EndingBTitle", "돌려보내다"),
 		NSLOCTEXT(
 			"IGCH03",
 			"EndingBSubtitle",
-			"찾는 사람이 있었다.\n가족에게 돌아갔다."));
+			"찾는 사람이 있었다."));
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	ScheduleEndingCue(4.60f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->PlayEndingBCatCoda();
+		}
+	});
+}
+
+void AIGThirdMorningDirector::PlayEndingBCatCoda()
+{
+	// After the card: the cat, alive either way. Water-givers hear the same
+	// two far-off laps; everyone else hears paws approach the bowl and one
+	// short mewl. The survival reads identically.
+	const UIGRebirthNarrativeSubsystem* RebirthState = GetRebirthState();
+	const EIGRebirthCatWaterState CatState = RebirthState
+		? RebirthState->BuildSnapshot().Choices.CatWaterState
+		: EIGRebirthCatWaterState::Unset;
+	const bool bGaveWater =
+		CatState == EIGRebirthCatWaterState::BottleCap
+		|| CatState == EIGRebirthCatWaterState::PaperCup;
+	if (bGaveWater)
+	{
+		UGameplayStatics::PlaySound2D(
+			this,
+			UIGToneSequenceSoundWave::CreateCatLickWaterPlastic(this, false),
+			0.22f);
+		return;
+	}
+	UGameplayStatics::PlaySound2D(
+		this,
+		UIGToneSequenceSoundWave::CreateCatPawTrot(this, 4, false),
+		0.26f);
+	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	ScheduleEndingCue(0.95f, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			UGameplayStatics::PlaySound2D(
+				Director,
+				UIGToneSequenceSoundWave::CreateCatShortMewl(Director),
+				0.20f);
+		}
+	});
 }
 
 void AIGThirdMorningDirector::PresentEndingControls(
@@ -7163,11 +7691,14 @@ void AIGThirdMorningDirector::BeginRebirthEndingValidation()
 		FailRebirthReleaseValidation(TEXT("ending action rejected"));
 		return;
 	}
+	// The full authored tails: A reaches its strong-cue guard about 14.8 s
+	// after the choice (restore 0.8 s, fade, five opening sounds, 2 s card,
+	// blackout cues); B adds the pre-black watch and the montage guard.
 	GetWorldTimerManager().SetTimer(
 		ReleaseValidationTimer,
 		this,
 		&ThisClass::FinishRebirthEndingValidation,
-		12.5f,
+		bReleaseValidationEndingA ? 17.0f : 25.5f,
 		false);
 }
 

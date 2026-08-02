@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -1037,12 +1037,14 @@ Assert-Contract (
 	$ladderActionSaveIndex -gt $ladderActionCommitIndex -and
 	$ladderActionSaveIndex -lt $ladderActionContinueIndex) `
 	'Every physical second-scratch action path must persist before the next timer tick can advance it.'
+# Each branch's strong cue lives in the function that first emits audio for
+# it: A's blackout chime/alarm/cat/vibration, B's goodbye montage.
 $endingACueBlock = Get-BlockBetween $director `
 	'void AIGThirdMorningDirector::FinishEndingAAfterDiscovery()' `
-	'void AIGThirdMorningDirector::FinishEndingB()'
+	'void AIGThirdMorningDirector::ShowEndingAFinalCard()'
 $endingBCueBlock = Get-BlockBetween $director `
-	'void AIGThirdMorningDirector::BeginEndingB()' `
-	'void AIGThirdMorningDirector::ShowCommonDiscoveryCard()'
+	'void AIGThirdMorningDirector::StartEndingBMontage()' `
+	'void AIGThirdMorningDirector::StartEndingBEpilogue()'
 $endingBGuardIndex = $endingBCueBlock.IndexOf('Ending.B.StrongCuePlayed')
 $endingBSaveIndex = $endingBCueBlock.IndexOf(
 	'RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"))',
@@ -1059,15 +1061,48 @@ Assert-Contract ($scratchBlock.Contains(
 	$endingBGuardIndex -ge 0 -and
 	$endingBSaveIndex -gt $endingBGuardIndex -and
 	$endingBSaveIndex -lt
-		$endingBCueBlock.IndexOf('CreateWaterDripMetalRing')) `
+		$endingBCueBlock.IndexOf('CreateEndingBMontage')) `
 	'Every scratch and both ending strong cues must persist before they can replay.'
 Assert-Contract ($director.Contains('Ending.CommonDiscoveryCard')) `
 	'Both endings must register the same common-discovery source.'
+# Both branches reach the neutral card only through the shared 07/31 safety
+# opening, and that opening is the sole scheduler of the card.
+$safetyOpeningBlock = Get-BlockBetween $director `
+	'void AIGThirdMorningDirector::PlayCommonSafetyOpening()' `
+	'void AIGThirdMorningDirector::HandleRebirthTruthChanged('
 Assert-Contract (([regex]::Matches(
 	$director,
-	'&ThisClass::ShowCommonDiscoveryCard')).Count -eq 2 -and
+	'PlayCommonSafetyOpening\(\);')).Count -eq 2 -and
+	$safetyOpeningBlock.Contains('ShowCommonDiscoveryCard();') -and
 	$director.Contains('FText::GetEmpty()')) `
 	'Ending A and B must both enter the neutral common-discovery card before emotional divergence.'
+# The five 07/31 joint-opening sounds must stay in the authored order.
+$safetyCueOrder = @(
+	'CreateGasDetectorOk',
+	'CreateVentDuctSpinUp',
+	'CreateHarnessBuckle',
+	'CreateLadderClimbTwoPeople',
+	'CreateHatchOpenMetal')
+$safetyCueIndices = $safetyCueOrder | ForEach-Object {
+	$safetyOpeningBlock.IndexOf($_)
+}
+Assert-Contract (
+	($safetyCueIndices | Where-Object { $_ -lt 0 }).Count -eq 0 -and
+	($safetyCueIndices | Sort-Object) -join ',' -eq
+		($safetyCueIndices -join ',')) `
+	'The shared 07/31 opening must play its five sounds in the authored order.'
+# Ending A's blackout is a fixed clock ending on one unfinished vibration.
+$endingABlackoutBlock = Get-BlockBetween $director `
+	'void AIGThirdMorningDirector::PlayEndingABlackoutCues()' `
+	'void AIGThirdMorningDirector::ShowEndingAFinalCard()'
+Assert-Contract ($endingABlackoutBlock.Contains('0.75f') -and
+	$endingABlackoutBlock.Contains('1.30f') -and
+	$endingABlackoutBlock.Contains('1.90f') -and
+	$endingABlackoutBlock.Contains('2.55f') -and
+	$endingABlackoutBlock.Contains('CreatePhoneVibrationUnfinished') -and
+	$endingABlackoutBlock.IndexOf('CreatePhoneVibrationUnfinished') -gt
+		$endingABlackoutBlock.IndexOf('CreateDoorChime')) `
+	'Ending A must keep its 0.75/1.30/1.90/2.55 s blackout clock and end on the unfinished vibration.'
 
 $expectedDays = @{
 	'2024-07-26' = [DayOfWeek]::Friday

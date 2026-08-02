@@ -342,7 +342,7 @@ void AIGElevator::ConfigurePrototypeVisuals(
 			FVector(3, 48, 26), false);
 		UMaterialInterface* HallFaceMaterial = FMath::IsNearlyZero(BaseZ)
 			? (Visuals.HallMaterial ? Visuals.HallMaterial : Visuals.CopMaterial)
-			: CachedDiffuserMaterial;
+			: CachedDiffuserMaterial.Get();
 		MakePiece(ElevatorRoot, CachedCubeMesh,
 			HallFaceMaterial,
 			FVector(-CabDepth * 0.5f - WallThickness - 2.6f, 0, BaseZ + DoorHeight + 15.0f),

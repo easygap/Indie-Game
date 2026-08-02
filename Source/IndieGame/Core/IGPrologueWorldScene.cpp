@@ -4152,7 +4152,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	CreateBlock(
 		FVector(-352, -305, -90),
 		FVector(48, 130, 18),
-		CorridorFloor);
+		TexMat(TEXT("M_GraniteTile_XY"), ConcreteMaterial));
 	// The return wall hides the bounded transition at a genuine switchback
 	// corner; the camera never sees the other floor or open sky.
 	CreateBlock(

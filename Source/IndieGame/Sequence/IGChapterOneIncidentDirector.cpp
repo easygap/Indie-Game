@@ -378,32 +378,90 @@ void AIGChapterOneIncidentDirector::PerformDrink()
 	{
 		return;
 	}
-	if (UIGRebirthNarrativeSubsystem* RebirthState =
-			GetGameInstance()
-				? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
-				: nullptr)
+	UIGRebirthNarrativeSubsystem* RebirthState =
+		GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+			: nullptr;
+	bool bProfileC = false;
+	if (RebirthState)
 	{
 		FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+		bProfileC = Choices.PurchaseProfile
+			== EIGRebirthPurchaseProfile::ProfileC2LX2;
 		Choices.BottleClosureState =
 			EIGRebirthBottleClosureState::Resealed;
 		RebirthState->SetChoices(Choices);
 	}
 	IGStory::AddState(this, DrankTag);
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGCH01",
-			"DrinkAndReseal",
-			"몇 모금 삼키고 뚜껑을 다시 잠갔다."),
-		3.0f);
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreateWaterDripMetalRing(this),
-		GetListenerLocation(),
-		0.12f,
-		1.35f,
-		40.0f,
-		420.0f);
+
+	// 04:33, wordless (§10.1: the hand proves it, the subtitle stays quiet).
+	// Profile C first puts the 4 kg bag on the concrete, then the cap cracks,
+	// a few swallows, the cap ratchets back, and the bag comes up again.
+	float DrinkStart = 0.15f;
+	if (bProfileC)
+	{
+		APlayerController* PlayerController = GetWorld()
+			? GetWorld()->GetFirstPlayerController()
+			: nullptr;
+		if (AIGPlayerCharacter* Player = PlayerController
+			? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
+			: nullptr)
+		{
+			if (Player->BeginScriptedHeavyBagRest(3.6f))
+			{
+				DrinkStart = 0.65f;
+			}
+		}
+	}
+	const TWeakObjectPtr<AIGChapterOneIncidentDirector> WeakThis(this);
+	auto PlayNearHands = [WeakThis](
+		UIGToneSequenceSoundWave* (*Factory)(UObject*),
+		const float Volume,
+		const float Pitch)
+	{
+		if (AIGChapterOneIncidentDirector* Director = WeakThis.Get())
+		{
+			IGAudio::SpawnOneShotAt(
+				Director,
+				Factory(Director),
+				Director->GetListenerLocation() - FVector(0, 0, 34),
+				Volume,
+				Pitch,
+				40.0f,
+				420.0f);
+		}
+	};
+	FTimerHandle CapHandle;
+	GetWorldTimerManager().SetTimer(
+		CapHandle,
+		[PlayNearHands]()
+		{
+			PlayNearHands(
+				&UIGToneSequenceSoundWave::CreateBottleCapOpen, 0.42f, 1.0f);
+		},
+		DrinkStart,
+		false);
+	FTimerHandle SwallowHandle;
+	GetWorldTimerManager().SetTimer(
+		SwallowHandle,
+		[PlayNearHands]()
+		{
+			PlayNearHands(
+				&UIGToneSequenceSoundWave::CreateWaterSwallows, 0.46f, 1.0f);
+		},
+		DrinkStart + 0.55f,
+		false);
+	FTimerHandle ResealHandle;
+	GetWorldTimerManager().SetTimer(
+		ResealHandle,
+		[PlayNearHands]()
+		{
+			PlayNearHands(
+				&UIGToneSequenceSoundWave::CreateBottleReseal, 0.40f, 1.0f);
+		},
+		DrinkStart + 2.45f,
+		false);
+
 	ReconcileState();
 	RequestReturnCheckpointAutosave();
 	PushObjectiveRefresh();

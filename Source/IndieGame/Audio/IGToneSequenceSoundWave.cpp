@@ -520,3 +520,639 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateFootstep(
 	Wave->ConfigureNotes(MoveTemp(StepNotes), false);
 	return Wave;
 }
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateAlarmFirstNote(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGAlarmFirstNote"));
+	TArray<FIGToneNote> AlarmNotes;
+
+	// One 140 ms pulse matching UIGAlarmSoundWave's first slot (880 Hz plus
+	// its quiet harmonic), so the intercepted call reads as the same clock.
+	AlarmNotes.Add({0.000f, 0.140f, 880.0f, 0.170f, 0.030f, 1.1f, EIGToneWaveform::Sine});
+	AlarmNotes.Add({0.000f, 0.140f, 2640.0f, 0.025f, 0.030f, 1.1f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(AlarmNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCallFailTone(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGCallFailTone"));
+	TArray<FIGToneNote> FailNotes;
+
+	// Flat handset beeps stepping down: the network refusing, not a jump cue.
+	FailNotes.Add({0.000f, 0.180f, 425.0f, 0.085f, 0.040f, 1.4f, EIGToneWaveform::SoftSquare});
+	FailNotes.Add({0.260f, 0.240f, 355.0f, 0.075f, 0.040f, 1.8f, EIGToneWaveform::SoftSquare});
+
+	Wave->ConfigureNotes(MoveTemp(FailNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateDoorbellChime(UObject* Outer)
+{
+	using namespace IGToneSequence;
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGDoorbellChime"));
+	TArray<FIGToneNote> BellNotes;
+
+	// Rounder and lower than the store chime; it must sound like it belongs
+	// to somebody's hallway, heard from outside their door.
+	BellNotes.Add({0.000f, 0.700f, NoteE4, 0.085f, 0.010f, 2.6f, EIGToneWaveform::Sine});
+	BellNotes.Add({0.000f, 0.520f, NoteE4 * 2.0f, 0.022f, 0.010f, 3.0f, EIGToneWaveform::Sine});
+	BellNotes.Add({0.420f, 0.980f, NoteC4, 0.080f, 0.012f, 2.2f, EIGToneWaveform::Sine});
+	BellNotes.Add({0.420f, 0.700f, NoteC4 * 2.0f, 0.020f, 0.012f, 2.6f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(BellNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRelayClick(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGRelayClick"));
+	TArray<FIGToneNote> ClickNotes;
+
+	ClickNotes.Add({0.000f, 0.022f, 2400.0f, 0.100f, 0.005f, 4.0f, EIGToneWaveform::ValueNoise});
+	ClickNotes.Add({0.000f, 0.045f, 300.0f, 0.055f, 0.005f, 3.6f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(ClickNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateBottleCapOpen(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGBottleCapOpen"));
+	TArray<FIGToneNote> CapNotes;
+
+	// Security-ring bridges snap in a fast cluster, then the threads rasp.
+	CapNotes.Add({0.000f, 0.030f, 3100.0f, 0.085f, 0.005f, 4.0f, EIGToneWaveform::ValueNoise});
+	CapNotes.Add({0.045f, 0.026f, 3400.0f, 0.075f, 0.005f, 4.0f, EIGToneWaveform::ValueNoise});
+	CapNotes.Add({0.082f, 0.024f, 2900.0f, 0.065f, 0.005f, 4.0f, EIGToneWaveform::ValueNoise});
+	CapNotes.Add({0.130f, 0.180f, 1600.0f, 0.038f, 0.060f, 2.4f, EIGToneWaveform::ValueNoise});
+	// Air equalizing through the fresh opening.
+	CapNotes.Add({0.320f, 0.090f, 900.0f, 0.020f, 0.200f, 2.0f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(CapNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWaterSwallows(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGWaterSwallows"));
+	TArray<FIGToneNote> DrinkNotes;
+
+	// Bottle glug and throat answer, three times, slowing slightly. Kept low
+	// and short: this is a screen-bottom action, not a close-mic ASMR cue.
+	const float SwallowStarts[] = {0.00f, 0.62f, 1.30f};
+	for (int32 SwallowIndex = 0; SwallowIndex < 3; ++SwallowIndex)
+	{
+		const float Start = SwallowStarts[SwallowIndex];
+		DrinkNotes.Add({
+			Start, 0.110f, 240.0f - SwallowIndex * 18.0f, 0.055f,
+			0.100f, 2.2f, EIGToneWaveform::Sine});
+		DrinkNotes.Add({
+			Start + 0.020f, 0.080f, 620.0f, 0.030f,
+			0.080f, 2.6f, EIGToneWaveform::ValueNoise});
+		DrinkNotes.Add({
+			Start + 0.150f, 0.070f, 150.0f, 0.040f,
+			0.060f, 2.8f, EIGToneWaveform::Sine});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(DrinkNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateBottleReseal(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGBottleReseal"));
+	TArray<FIGToneNote> ResealNotes;
+
+	// One continuous ratchet down the threads, ending in a firm stop.
+	for (int32 ClickIndex = 0; ClickIndex < 5; ++ClickIndex)
+	{
+		ResealNotes.Add({
+			ClickIndex * 0.055f, 0.020f, 2500.0f + ClickIndex * 120.0f,
+			0.045f, 0.005f, 3.6f, EIGToneWaveform::ValueNoise});
+	}
+	ResealNotes.Add({0.300f, 0.060f, 800.0f, 0.045f, 0.010f, 3.2f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(ResealNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasticBagSetDown(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGPlasticBagSetDown"));
+	TArray<FIGToneNote> BagNotes;
+
+	// Film crinkle spreading as the load transfers, then bottles knock once.
+	BagNotes.Add({0.000f, 0.240f, 3800.0f, 0.050f, 0.100f, 2.0f, EIGToneWaveform::ValueNoise});
+	BagNotes.Add({0.060f, 0.180f, 2500.0f, 0.040f, 0.120f, 2.2f, EIGToneWaveform::ValueNoise});
+	BagNotes.Add({0.190f, 0.070f, 210.0f, 0.060f, 0.010f, 3.0f, EIGToneWaveform::Sine});
+	BagNotes.Add({0.240f, 0.055f, 260.0f, 0.038f, 0.010f, 3.2f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(BagNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasticBagLift(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGPlasticBagLift"));
+	TArray<FIGToneNote> BagNotes;
+
+	// Handles stretching taut first, then the shorter gather crinkle.
+	BagNotes.Add({0.000f, 0.140f, 1400.0f, 0.030f, 0.300f, 1.8f, EIGToneWaveform::ValueNoise});
+	BagNotes.Add({0.090f, 0.190f, 3300.0f, 0.045f, 0.120f, 2.2f, EIGToneWaveform::ValueNoise});
+	BagNotes.Add({0.210f, 0.045f, 290.0f, 0.030f, 0.010f, 3.2f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(BagNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateClothSettle(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGClothSettle"));
+	TArray<FIGToneNote> ClothNotes;
+
+	// A single sinking weight: broadband cloth friction that decays without
+	// any rhythm. Deliberately nothing like breathing.
+	ClothNotes.Add({0.000f, 0.460f, 1200.0f, 0.038f, 0.180f, 2.6f, EIGToneWaveform::ValueNoise});
+	ClothNotes.Add({0.050f, 0.360f, 500.0f, 0.030f, 0.220f, 2.8f, EIGToneWaveform::ValueNoise});
+	ClothNotes.Add({0.260f, 0.180f, 90.0f, 0.026f, 0.150f, 3.0f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(ClothNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateShutterMotorStep(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGShutterMotorStep"));
+	TArray<FIGToneNote> MotorNotes;
+
+	// Gear motor under load with slat chatter, one short descent step.
+	MotorNotes.Add({0.000f, 0.850f, 95.0f, 0.070f, 0.060f, 1.6f, EIGToneWaveform::SoftSquare});
+	MotorNotes.Add({0.000f, 0.850f, 190.0f, 0.030f, 0.060f, 1.6f, EIGToneWaveform::SoftSquare});
+	MotorNotes.Add({0.080f, 0.700f, 1500.0f, 0.022f, 0.100f, 2.0f, EIGToneWaveform::ValueNoise});
+	MotorNotes.Add({0.870f, 0.090f, 320.0f, 0.055f, 0.010f, 3.0f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(MotorNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateShutterMotorRise(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGShutterMotorRise"));
+	TArray<FIGToneNote> MotorNotes;
+
+	// Longer unloaded run, pitch easing up, ending on the top end stop.
+	MotorNotes.Add({0.000f, 2.300f, 105.0f, 0.060f, 0.100f, 1.2f, EIGToneWaveform::SoftSquare});
+	MotorNotes.Add({0.000f, 2.300f, 212.0f, 0.024f, 0.100f, 1.2f, EIGToneWaveform::SoftSquare});
+	MotorNotes.Add({0.150f, 2.000f, 1400.0f, 0.016f, 0.150f, 1.6f, EIGToneWaveform::ValueNoise});
+	MotorNotes.Add({2.320f, 0.120f, 480.0f, 0.050f, 0.010f, 3.0f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(MotorNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateThermalPrinterFeed(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGThermalPrinterFeed"));
+	TArray<FIGToneNote> FeedNotes;
+
+	// Stepper whirr plus paper hiss; ends with the cutter's soft chop.
+	FeedNotes.Add({0.000f, 0.520f, 780.0f, 0.045f, 0.030f, 1.6f, EIGToneWaveform::SoftSquare});
+	FeedNotes.Add({0.000f, 0.520f, 3100.0f, 0.018f, 0.080f, 1.8f, EIGToneWaveform::ValueNoise});
+	FeedNotes.Add({0.560f, 0.070f, 1100.0f, 0.050f, 0.008f, 3.4f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(FeedNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateJingleOpeningNotes(UObject* Outer)
+{
+	using namespace IGToneSequence;
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGJingleOpeningNotes"));
+	TArray<FIGToneNote> JingleNotes;
+
+	// Exactly the healthy CH01 jingle's first two melody notes (E4 then G4 at
+	// the original 0.54 s beat), including their music-box partials. Nothing
+	// follows: the store answers the correct time with one healthy breath.
+	constexpr float Beat = 0.54f;
+	const float Melody[2] = {NoteE4, NoteG4};
+	for (int32 NoteIndex = 0; NoteIndex < 2; ++NoteIndex)
+	{
+		const float Start = NoteIndex * Beat;
+		const float NoteLength = Beat * 0.85f;
+		JingleNotes.Add({
+			Start, NoteLength, Melody[NoteIndex],
+			0.105f, 0.02f, 2.2f, EIGToneWaveform::Sine});
+		JingleNotes.Add({
+			Start, NoteLength * 0.8f, Melody[NoteIndex] * 2.0f,
+			0.030f, 0.02f, 2.8f, EIGToneWaveform::Sine});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(JingleNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateGasDetectorOk(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGGasDetectorOk"));
+	TArray<FIGToneNote> DetectorNotes;
+
+	// Two clean instrument passes and the shorter confirm chirp. Clinical,
+	// quiet, and over quickly: machines are calm about this roof.
+	DetectorNotes.Add({0.000f, 0.090f, 1900.0f, 0.060f, 0.020f, 2.0f, EIGToneWaveform::SoftSquare});
+	DetectorNotes.Add({0.240f, 0.090f, 1900.0f, 0.060f, 0.020f, 2.0f, EIGToneWaveform::SoftSquare});
+	DetectorNotes.Add({0.640f, 0.055f, 2533.0f, 0.050f, 0.020f, 2.4f, EIGToneWaveform::SoftSquare});
+
+	Wave->ConfigureNotes(MoveTemp(DetectorNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateVentDuctSpinUp(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGVentDuctSpinUp"));
+	TArray<FIGToneNote> DuctNotes;
+
+	// Flexible duct sections unfolding in three pulls...
+	DuctNotes.Add({0.000f, 0.260f, 900.0f, 0.045f, 0.080f, 2.2f, EIGToneWaveform::ValueNoise});
+	DuctNotes.Add({0.320f, 0.220f, 1150.0f, 0.040f, 0.080f, 2.2f, EIGToneWaveform::ValueNoise});
+	DuctNotes.Add({0.600f, 0.240f, 800.0f, 0.038f, 0.080f, 2.4f, EIGToneWaveform::ValueNoise});
+	// ...then the fan comes up and holds a steady low idle.
+	DuctNotes.Add({0.900f, 1.700f, 68.0f, 0.055f, 0.350f, 0.9f, EIGToneWaveform::SoftSquare});
+	DuctNotes.Add({0.900f, 1.700f, 136.0f, 0.022f, 0.350f, 0.9f, EIGToneWaveform::SoftSquare});
+	DuctNotes.Add({1.100f, 1.500f, 400.0f, 0.014f, 0.300f, 1.0f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(DuctNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateHarnessBuckle(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGHarnessBuckle"));
+	TArray<FIGToneNote> BuckleNotes;
+
+	// Buckle tongue seating, carabiner gate snapping, webbing pulled tight.
+	BuckleNotes.Add({0.000f, 0.040f, 2100.0f, 0.080f, 0.005f, 3.6f, EIGToneWaveform::ValueNoise});
+	BuckleNotes.Add({0.055f, 0.070f, 950.0f, 0.045f, 0.010f, 3.0f, EIGToneWaveform::Sine});
+	BuckleNotes.Add({0.420f, 0.030f, 3200.0f, 0.075f, 0.005f, 4.0f, EIGToneWaveform::ValueNoise});
+	BuckleNotes.Add({0.460f, 0.120f, 1450.0f, 0.030f, 0.010f, 3.4f, EIGToneWaveform::Sine});
+	BuckleNotes.Add({0.700f, 0.300f, 700.0f, 0.028f, 0.150f, 2.2f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(BuckleNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateLadderClimbTwoPeople(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGLadderClimbTwoPeople"));
+	TArray<FIGToneNote> ClimbNotes;
+
+	// Person one: heavier boots, slower cadence, deeper rung answer.
+	for (int32 StepIndex = 0; StepIndex < 5; ++StepIndex)
+	{
+		const float Start = StepIndex * 0.560f;
+		ClimbNotes.Add({
+			Start, 0.070f, 180.0f, 0.070f, 0.008f, 3.0f, EIGToneWaveform::Sine});
+		ClimbNotes.Add({
+			Start + 0.010f, 0.240f, 620.0f, 0.026f, 0.010f, 3.6f, EIGToneWaveform::Sine});
+	}
+	// Person two: lighter, quicker, starting later and ringing higher.
+	for (int32 StepIndex = 0; StepIndex < 6; ++StepIndex)
+	{
+		const float Start = 0.900f + StepIndex * 0.410f;
+		ClimbNotes.Add({
+			Start, 0.050f, 240.0f, 0.048f, 0.008f, 3.2f, EIGToneWaveform::Sine});
+		ClimbNotes.Add({
+			Start + 0.008f, 0.180f, 840.0f, 0.020f, 0.010f, 3.8f, EIGToneWaveform::Sine});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(ClimbNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateHatchOpenMetal(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGHatchOpenMetal"));
+	TArray<FIGToneNote> HatchNotes;
+
+	// Latch turned, the heavy lid swept up on real hinges, then set to rest.
+	HatchNotes.Add({0.000f, 0.090f, 1300.0f, 0.070f, 0.010f, 3.2f, EIGToneWaveform::ValueNoise});
+	HatchNotes.Add({0.180f, 0.850f, 140.0f, 0.060f, 0.200f, 1.4f, EIGToneWaveform::SoftSquare});
+	HatchNotes.Add({0.180f, 0.850f, 340.0f, 0.026f, 0.200f, 1.4f, EIGToneWaveform::ValueNoise});
+	HatchNotes.Add({1.120f, 0.140f, 210.0f, 0.075f, 0.008f, 2.8f, EIGToneWaveform::Sine});
+	HatchNotes.Add({1.140f, 0.550f, 830.0f, 0.022f, 0.010f, 3.6f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(HatchNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePhoneVibrationUnfinished(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGPhoneVibrationUnfinished"));
+	TArray<FIGToneNote> BuzzNotes;
+
+	// Motor buzz on a wooden desk: two full bars, then the third cut short.
+	// Nothing answers it and the screen never lights.
+	const float BarStarts[] = {0.000f, 0.560f, 1.120f};
+	const float BarLengths[] = {0.360f, 0.360f, 0.120f};
+	for (int32 BarIndex = 0; BarIndex < 3; ++BarIndex)
+	{
+		BuzzNotes.Add({
+			BarStarts[BarIndex], BarLengths[BarIndex], 178.0f, 0.060f,
+			0.040f, BarIndex == 2 ? 8.0f : 1.2f, EIGToneWaveform::SoftSquare});
+		BuzzNotes.Add({
+			BarStarts[BarIndex], BarLengths[BarIndex], 356.0f, 0.024f,
+			0.040f, BarIndex == 2 ? 8.0f : 1.2f, EIGToneWaveform::SoftSquare});
+		BuzzNotes.Add({
+			BarStarts[BarIndex], BarLengths[BarIndex], 89.0f, 0.030f,
+			0.040f, BarIndex == 2 ? 8.0f : 1.2f, EIGToneWaveform::Sine});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(BuzzNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCatLickWaterPlastic(
+	UObject* Outer,
+	const bool bCutMid)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGCatLickWaterPlastic"));
+	TArray<FIGToneNote> LickNotes;
+
+	// Tiny tongue laps against a shallow plastic cap. Cut mid-lick when the
+	// memory ends before the animal finishes.
+	const int32 LickCount = bCutMid ? 3 : 4;
+	for (int32 LickIndex = 0; LickIndex < LickCount; ++LickIndex)
+	{
+		const float Start = LickIndex * 0.240f;
+		const bool bTruncated = bCutMid && LickIndex == LickCount - 1;
+		LickNotes.Add({
+			Start, bTruncated ? 0.030f : 0.075f, 1900.0f, 0.030f,
+			0.100f, bTruncated ? 9.0f : 2.6f, EIGToneWaveform::ValueNoise});
+		LickNotes.Add({
+			Start + 0.012f, bTruncated ? 0.020f : 0.050f, 3600.0f, 0.016f,
+			0.080f, bTruncated ? 9.0f : 3.0f, EIGToneWaveform::ValueNoise});
+		if (!bTruncated)
+		{
+			// The cap itself answers with a faint plastic tick.
+			LickNotes.Add({
+				Start + 0.055f, 0.030f, 1150.0f, 0.012f,
+				0.010f, 3.4f, EIGToneWaveform::Sine});
+		}
+	}
+
+	Wave->ConfigureNotes(MoveTemp(LickNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCatLickWaterPaper(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGCatLickWaterPaper"));
+	TArray<FIGToneNote> LickNotes;
+
+	// Wet paper damps the tick into a softer patting texture; cut mid-lick.
+	for (int32 LickIndex = 0; LickIndex < 3; ++LickIndex)
+	{
+		const float Start = LickIndex * 0.250f;
+		const bool bTruncated = LickIndex == 2;
+		LickNotes.Add({
+			Start, bTruncated ? 0.030f : 0.085f, 1300.0f, 0.028f,
+			0.140f, bTruncated ? 9.0f : 2.4f, EIGToneWaveform::ValueNoise});
+		LickNotes.Add({
+			Start + 0.018f, bTruncated ? 0.018f : 0.045f, 2400.0f, 0.013f,
+			0.120f, bTruncated ? 9.0f : 2.8f, EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(LickNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCatPawTrot(
+	UObject* Outer,
+	const int32 Steps,
+	const bool bCutMid)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGCatPawTrot"));
+	TArray<FIGToneNote> PawNotes;
+
+	const int32 SafeSteps = FMath::Clamp(Steps, 1, 8);
+	for (int32 StepIndex = 0; StepIndex < SafeSteps; ++StepIndex)
+	{
+		const float Start = StepIndex * 0.190f;
+		const bool bTruncated = bCutMid && StepIndex == SafeSteps - 1;
+		// Soft pads: almost no attack transient, just small weight.
+		PawNotes.Add({
+			Start, bTruncated ? 0.020f : 0.055f, 95.0f, 0.040f,
+			0.100f, bTruncated ? 9.0f : 3.0f, EIGToneWaveform::Sine});
+		PawNotes.Add({
+			Start + 0.006f, bTruncated ? 0.015f : 0.035f, 900.0f, 0.012f,
+			0.120f, bTruncated ? 9.0f : 3.2f, EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(PawNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRodWedgeSeat(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGRodWedgeSeat"));
+	TArray<FIGToneNote> RodNotes;
+
+	// Steel rod sliding along the groove, then seating with one firm knock.
+	RodNotes.Add({0.000f, 0.340f, 1050.0f, 0.035f, 0.120f, 2.0f, EIGToneWaveform::ValueNoise});
+	RodNotes.Add({0.000f, 0.340f, 460.0f, 0.020f, 0.120f, 2.0f, EIGToneWaveform::Sine});
+	RodNotes.Add({0.380f, 0.100f, 240.0f, 0.080f, 0.008f, 2.8f, EIGToneWaveform::Sine});
+	RodNotes.Add({0.395f, 0.420f, 910.0f, 0.024f, 0.010f, 3.4f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(RodNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateGlassesTinyRing(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGGlassesTinyRing"));
+	TArray<FIGToneNote> RingNotes;
+
+	RingNotes.Add({0.000f, 0.020f, 3300.0f, 0.030f, 0.005f, 4.0f, EIGToneWaveform::ValueNoise});
+	RingNotes.Add({0.004f, 0.480f, 3150.0f, 0.022f, 0.006f, 4.2f, EIGToneWaveform::Sine});
+	RingNotes.Add({0.004f, 0.300f, 5210.0f, 0.009f, 0.006f, 4.6f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(RingNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEndingBMontage(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEndingBMontage"));
+	TArray<FIGToneNote> MontageNotes;
+
+	// 0.0 s — the 404 door lock: four familiar keypad notes and the bolt.
+	for (int32 ToneIndex = 0; ToneIndex < 4; ++ToneIndex)
+	{
+		MontageNotes.Add({
+			ToneIndex * 0.130f, 0.070f, 1568.0f - ToneIndex * 90.0f, 0.045f,
+			0.020f, 2.4f, EIGToneWaveform::SoftSquare});
+	}
+	MontageNotes.Add({0.620f, 0.090f, 300.0f, 0.055f, 0.010f, 3.0f, EIGToneWaveform::Sine});
+
+	// 1.5 s — a drawer pulled open on wooden runners and stopped by hand.
+	MontageNotes.Add({1.500f, 0.420f, 480.0f, 0.038f, 0.150f, 2.0f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({1.500f, 0.420f, 130.0f, 0.028f, 0.150f, 2.0f, EIGToneWaveform::Sine});
+	MontageNotes.Add({1.940f, 0.070f, 220.0f, 0.045f, 0.010f, 3.0f, EIGToneWaveform::Sine});
+
+	// 2.8 s — four books set into a cardboard box, one unhurried hand.
+	for (int32 BookIndex = 0; BookIndex < 4; ++BookIndex)
+	{
+		const float Start = 2.800f + BookIndex * 0.440f;
+		MontageNotes.Add({
+			Start, 0.075f, 150.0f - BookIndex * 8.0f, 0.055f,
+			0.010f, 2.8f, EIGToneWaveform::Sine});
+		MontageNotes.Add({
+			Start + 0.008f, 0.060f, 700.0f, 0.020f,
+			0.060f, 3.0f, EIGToneWaveform::ValueNoise});
+	}
+
+	// 5.2 s (after 0.6 s of held air) — the box tape from 7/22, torn in two
+	// pulls: a short first pull, a hesitation, then the longer second pull.
+	MontageNotes.Add({5.200f, 0.300f, 2200.0f, 0.070f, 0.030f, 1.6f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({5.200f, 0.300f, 950.0f, 0.030f, 0.030f, 1.6f, EIGToneWaveform::SoftSquare});
+	MontageNotes.Add({5.780f, 0.520f, 2050.0f, 0.065f, 0.020f, 1.8f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({5.780f, 0.520f, 880.0f, 0.028f, 0.020f, 1.8f, EIGToneWaveform::SoftSquare});
+
+	// 6.9 s (0.6 s of air again) — the work-vest zipper drawn up once.
+	MontageNotes.Add({6.900f, 0.380f, 1700.0f, 0.040f, 0.050f, 1.8f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({6.900f, 0.380f, 620.0f, 0.018f, 0.050f, 1.8f, EIGToneWaveform::SoftSquare});
+
+	// 7.9 s — the cracked phone buzzes exactly once, slightly rattly.
+	MontageNotes.Add({7.900f, 0.340f, 172.0f, 0.050f, 0.040f, 1.4f, EIGToneWaveform::SoftSquare});
+	MontageNotes.Add({7.900f, 0.340f, 344.0f, 0.022f, 0.040f, 1.4f, EIGToneWaveform::SoftSquare});
+	MontageNotes.Add({7.900f, 0.340f, 2900.0f, 0.010f, 0.040f, 1.6f, EIGToneWaveform::ValueNoise});
+
+	// 9.1 s — the roof door: latch, hinge sweep, frame contact.
+	MontageNotes.Add({9.100f, 0.080f, 1300.0f, 0.055f, 0.010f, 3.2f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({9.220f, 0.700f, 150.0f, 0.048f, 0.200f, 1.5f, EIGToneWaveform::SoftSquare});
+	MontageNotes.Add({9.980f, 0.110f, 230.0f, 0.060f, 0.008f, 2.8f, EIGToneWaveform::Sine});
+
+	// 10.6 s — a ceramic bowl set on concrete: one careful contact.
+	MontageNotes.Add({10.600f, 0.045f, 2600.0f, 0.055f, 0.006f, 3.6f, EIGToneWaveform::Sine});
+	MontageNotes.Add({10.610f, 0.240f, 1320.0f, 0.028f, 0.010f, 3.2f, EIGToneWaveform::Sine});
+	MontageNotes.Add({10.600f, 0.060f, 340.0f, 0.030f, 0.010f, 3.0f, EIGToneWaveform::Sine});
+
+	// 11.5 s — water poured into the bowl, thinning as it fills.
+	MontageNotes.Add({11.500f, 1.350f, 1450.0f, 0.038f, 0.150f, 1.6f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({11.500f, 1.350f, 620.0f, 0.024f, 0.150f, 1.6f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({12.500f, 0.500f, 2100.0f, 0.016f, 0.200f, 2.0f, EIGToneWaveform::ValueNoise});
+
+	// 13.9 s — no recorded voice exists in this build, so the line the
+	// player never hears becomes cloth folded once and a single breath.
+	MontageNotes.Add({13.900f, 0.520f, 900.0f, 0.026f, 0.220f, 2.2f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({14.700f, 0.640f, 480.0f, 0.016f, 0.350f, 2.0f, EIGToneWaveform::ValueNoise});
+	MontageNotes.Add({14.700f, 0.640f, 190.0f, 0.010f, 0.350f, 2.0f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(MontageNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSpringMorningBed(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGSpringMorningBed"));
+	constexpr float LoopLength = 11.0f;
+	TArray<FIGToneNote> SpringNotes;
+
+	// Soft daylight room tone.
+	SpringNotes.Add({0.0f, LoopLength, 210.0f, 0.006f, 0.30f, 0.8f, EIGToneWaveform::ValueNoise});
+
+	// Sparrow chatter: quick high chirp clusters, unevenly spaced.
+	struct FChirp
+	{
+		float Start;
+		float BaseHz;
+		int32 Count;
+	};
+	const FChirp Chirps[] = {
+		{0.80f, 3900.0f, 3},
+		{2.10f, 4300.0f, 2},
+		{3.35f, 3700.0f, 4},
+		{5.60f, 4100.0f, 3},
+		{7.15f, 3800.0f, 2},
+		{9.05f, 4400.0f, 3},
+	};
+	for (const FChirp& Chirp : Chirps)
+	{
+		for (int32 ChirpIndex = 0; ChirpIndex < Chirp.Count; ++ChirpIndex)
+		{
+			SpringNotes.Add({
+				Chirp.Start + ChirpIndex * 0.085f, 0.045f,
+				Chirp.BaseHz + ChirpIndex * 160.0f, 0.012f,
+				0.100f, 2.6f, EIGToneWaveform::Triangle});
+		}
+	}
+
+	// A delivery scooter passing two streets away, once per loop.
+	SpringNotes.Add({4.20f, 2.60f, 95.0f, 0.010f, 0.45f, 1.1f, EIGToneWaveform::SoftSquare});
+	SpringNotes.Add({4.20f, 2.60f, 190.0f, 0.006f, 0.45f, 1.1f, EIGToneWaveform::SoftSquare});
+
+	Wave->ConfigureNotes(MoveTemp(SpringNotes), true, LoopLength);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateGlassCupDrip(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGGlassCupDrip"));
+	TArray<FIGToneNote> DripNotes;
+
+	// One drop against empty glass: liquid contact, then the cup's clear
+	// ring. There is deliberately no second drop.
+	DripNotes.Add({0.000f, 0.040f, 980.0f, 0.070f, 0.010f, 3.0f, EIGToneWaveform::ValueNoise});
+	DripNotes.Add({0.012f, 0.900f, 1180.0f, 0.055f, 0.006f, 4.0f, EIGToneWaveform::Sine});
+	DripNotes.Add({0.012f, 0.600f, 2360.0f, 0.020f, 0.006f, 4.4f, EIGToneWaveform::Sine});
+	DripNotes.Add({0.020f, 0.260f, 560.0f, 0.018f, 0.010f, 3.4f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(DripNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCatShortMewl(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGCatShortMewl"));
+	TArray<FIGToneNote> MewlNotes;
+
+	// A small falling two-segment cry, breathy rather than cartoonish.
+	MewlNotes.Add({0.000f, 0.190f, 640.0f, 0.030f, 0.240f, 1.6f, EIGToneWaveform::Triangle});
+	MewlNotes.Add({0.000f, 0.190f, 1280.0f, 0.010f, 0.240f, 1.6f, EIGToneWaveform::Triangle});
+	MewlNotes.Add({0.170f, 0.230f, 512.0f, 0.026f, 0.120f, 2.2f, EIGToneWaveform::Triangle});
+	MewlNotes.Add({0.170f, 0.230f, 1024.0f, 0.008f, 0.120f, 2.2f, EIGToneWaveform::Triangle});
+	MewlNotes.Add({0.000f, 0.400f, 2100.0f, 0.005f, 0.300f, 2.0f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(MewlNotes), false);
+	return Wave;
+}

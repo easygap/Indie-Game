@@ -53,6 +53,15 @@ public:
 	AActor* GetCarriedActor() const { return CarriedActor.Get(); }
 
 	/**
+	 * Profile-C static proxy for scripted beats (the 04:33 drink): sets the
+	 * carried bag down for Seconds, then re-grips automatically. No input is
+	 * taken away. Returns false unless the committed purchase actually needs
+	 * both hands or the bag is already down.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Player|Carry")
+	bool BeginScriptedHeavyBagRest(float Seconds);
+
+	/**
 	 * Renders the persistent REBIRTH outfit fact with a static first-person
 	 * sleeve proxy. Restore callers leave bPlayPresentation false; the
 	 * canonical first-exit commit requests the non-blocking 1.2 second reveal.
@@ -89,6 +98,7 @@ private:
 	/** Samples how dark it is where the player stands, for the stress model. */
 	float SampleAmbientDarkness() const;
 	void TryRequestGetUpFallback();
+	void EndScriptedHeavyBagRest();
 	void UpdateCameraMotion(float DeltaSeconds);
 	void UpdateCarriedItem(float DeltaSeconds);
 	void UpdateOutfitPresentation(float DeltaSeconds);
@@ -148,6 +158,7 @@ private:
 	float OutfitPresentationElapsed = 0.0f;
 	bool bHeavyBagInteractionProxyActive = false;
 	FVector HeavyBagRestLocation = FVector::ZeroVector;
+	FTimerHandle HeavyBagRestTimer;
 
 	/** Decaying kick applied when an interaction is pressed. */
 	float InteractPunch = 0.0f;

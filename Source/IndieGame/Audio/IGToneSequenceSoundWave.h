@@ -118,6 +118,118 @@ public:
 	 */
 	static UIGToneSequenceSoundWave* CreateFootstep(UObject* Outer, float PitchScale, float Amplitude);
 
+	/**
+	 * The isolated first note of the 04:44 alarm pattern. CH02 plays it once
+	 * in place of a call-connect tone; ending A replays it inside the blackout.
+	 */
+	static UIGToneSequenceSoundWave* CreateAlarmFirstNote(UObject* Outer);
+
+	/** Two flat descending handset beeps that end a failed call attempt. */
+	static UIGToneSequenceSoundWave* CreateCallFailTone(UObject* Outer);
+
+	/** Rounded residential doorbell, softer and lower than the store chime. */
+	static UIGToneSequenceSoundWave* CreateDoorbellChime(UObject* Outer);
+
+	/** Tiny dry relay click for a small appliance switching off. */
+	static UIGToneSequenceSoundWave* CreateRelayClick(UObject* Outer);
+
+	// --- CH01 04:33 drink beat --------------------------------------------
+
+	/** PET cap cracked open: security-ring snap and a short thread rasp. */
+	static UIGToneSequenceSoundWave* CreateBottleCapOpen(UObject* Outer);
+
+	/** A few unhurried swallows straight from the bottle. */
+	static UIGToneSequenceSoundWave* CreateWaterSwallows(UObject* Outer);
+
+	/** The cap ratcheted back shut in one motion. */
+	static UIGToneSequenceSoundWave* CreateBottleReseal(UObject* Outer);
+
+	/** Loaded carrier bag settling onto concrete: crinkle, then bottle knock. */
+	static UIGToneSequenceSoundWave* CreatePlasticBagSetDown(UObject* Outer);
+
+	/** The same bag gathered and lifted: stretch creak and a light clink. */
+	static UIGToneSequenceSoundWave* CreatePlasticBagLift(UObject* Outer);
+
+	// --- P1 / P2 pressure cues --------------------------------------------
+
+	/** Duvet weight settling once: cloth friction with no breath rhythm. */
+	static UIGToneSequenceSoundWave* CreateClothSettle(UObject* Outer);
+
+	/** Short shutter-motor burst lowering the front grille one step. */
+	static UIGToneSequenceSoundWave* CreateShutterMotorStep(UObject* Outer);
+
+	/** Longer motor run with an end stop, used when the shutter fully rises. */
+	static UIGToneSequenceSoundWave* CreateShutterMotorRise(UObject* Outer);
+
+	/** Thermal printer feeding a short strip of blank paper. */
+	static UIGToneSequenceSoundWave* CreateThermalPrinterFeed(UObject* Outer);
+
+	/** Only the first two notes of the healthy CH01 jingle, played once. */
+	static UIGToneSequenceSoundWave* CreateJingleOpeningNotes(UObject* Outer);
+
+	// --- shared ending transition -----------------------------------------
+
+	/** Multigas detector self-check: two clean passes and a confirm chirp. */
+	static UIGToneSequenceSoundWave* CreateGasDetectorOk(UObject* Outer);
+
+	/** Flexible duct unfolding, then a ventilation fan holding low RPM. */
+	static UIGToneSequenceSoundWave* CreateVentDuctSpinUp(UObject* Outer);
+
+	/** Safety-harness buckle, carabiner gate and webbing pulled tight. */
+	static UIGToneSequenceSoundWave* CreateHarnessBuckle(UObject* Outer);
+
+	/** Two people on an exterior ladder with distinctly different footfalls. */
+	static UIGToneSequenceSoundWave* CreateLadderClimbTwoPeople(UObject* Outer);
+
+	/** The real access hatch: latch turn, heavy hinge sweep, settle. */
+	static UIGToneSequenceSoundWave* CreateHatchOpenMetal(UObject* Outer);
+
+	// --- ending A ---------------------------------------------------------
+
+	/**
+	 * A phone vibrating far away on a desk. The pattern dies before its third
+	 * bar completes; the screen never lights, so the sound is all there is.
+	 */
+	static UIGToneSequenceSoundWave* CreatePhoneVibrationUnfinished(UObject* Outer);
+
+	/** Water lapped from a plastic cap; optionally cut off mid-lick. */
+	static UIGToneSequenceSoundWave* CreateCatLickWaterPlastic(UObject* Outer, bool bCutMid);
+
+	/** Wet paper cup and tongue, cut off mid-lick. */
+	static UIGToneSequenceSoundWave* CreateCatLickWaterPaper(UObject* Outer);
+
+	/**
+	 * Small paws crossing hard ground. Steps counts the footfalls; bCutMid
+	 * ends the run abruptly the way ending A's blackout cues stop.
+	 */
+	static UIGToneSequenceSoundWave* CreateCatPawTrot(UObject* Outer, int32 Steps, bool bCutMid);
+
+	// --- ending B ---------------------------------------------------------
+
+	/** The inspection rod sliding into its support groove and seating. */
+	static UIGToneSequenceSoundWave* CreateRodWedgeSeat(UObject* Outer);
+
+	/** A glasses temple touching a railing: one very small ring. */
+	static UIGToneSequenceSoundWave* CreateGlassesTinyRing(UObject* Outer);
+
+	/**
+	 * The whole ending-B goodbye montage over black, in order: 404 door lock,
+	 * a drawer, four books boxed, box tape torn in two pulls (0.6 s of air on
+	 * both sides), a work-vest zip, one cracked-phone buzz, the roof door, a
+	 * ceramic bowl set on concrete, water poured, and finally cloth folded
+	 * with a single audible breath standing in for the unrecorded voice line.
+	 */
+	static UIGToneSequenceSoundWave* CreateEndingBMontage(UObject* Outer);
+
+	/** Bright, ordinary spring morning bed: sparrows and a distant scooter. */
+	static UIGToneSequenceSoundWave* CreateSpringMorningBed(UObject* Outer);
+
+	/** One clear water drop landing in an empty glass cup. No second drop. */
+	static UIGToneSequenceSoundWave* CreateGlassCupDrip(UObject* Outer);
+
+	/** One short, unalarmed cat mewl from very close to the ground. */
+	static UIGToneSequenceSoundWave* CreateCatShortMewl(UObject* Outer);
+
 private:
 	static float EvaluateWaveform(EIGToneWaveform Waveform, float FrequencyHz, double NoteTimeSeconds);
 	static float EvaluateEnvelope(const FIGToneNote& Note, float NoteProgress01);
