@@ -241,9 +241,12 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<USceneComponent> CatTraceRoot;
 
-	/** Six pooled primitives: body, head, tail and three leg streaks. */
+	/** One authored cat mesh, or the six-part release-safe fallback. */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> CatSilhouetteParts;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> AlleyCatMesh;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMesh> CubeMesh;
@@ -262,6 +265,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInterface> LeafMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> AlleyCatMaterial;
 
 	TArray<FVehicleRuntime> VehicleRuntime;
 	TArray<FLeafRuntime> LeafRuntime;

@@ -197,7 +197,8 @@ private:
 		const FText& Prompt,
 		const FText& Title,
 		TArray<FText> BodyLines,
-		UMaterialInterface* PaperMaterial);
+		UMaterialInterface* PaperMaterial,
+		UStaticMesh* MeshOverride = nullptr);
 	AIGZoneTrigger* SpawnZone(const FVector& LocalLocation, const FVector& HalfExtent);
 	FVector ToWorld(const FVector& LocalLocation) const;
 
@@ -218,6 +219,7 @@ private:
 	void ApplyCommonDiscoveryWorldState();
 	void ResumeRestoredEnding();
 	void ApplyRoofDoorState(EIGRoofDoorState NewState);
+	float MeasureRoofDoorFreeEdgeGap() const;
 	bool IsRoofDoorReturnClear() const;
 	void BeginRoofDoorReturn();
 	void FinishRoofDoorReturn();
@@ -376,11 +378,39 @@ private:
 	TArray<TObjectPtr<UPointLightComponent>> Lights;
 
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> CubeMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> PlaneMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> CylinderMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> SphereMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> WaterBottleMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> BottleCapMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> LabelSleeveMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> HornRimGlassesMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> InspectionRodMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> CrackedPhoneMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> SubmergedHoodieMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> SubmergedPantsMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> SubmergedSlippersMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> RooftopWaterTankShellMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> RooftopTankPipeClusterMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> TankInternalLadderMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> TankAccessGuardRailMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> TankAccessDeckMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> TankAccessLidMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> RooftopServiceHoseMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> HoseCouplingMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> CarrierBagCollapsedMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> RooftopFireDoorLeafMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> RooftopFireDoorFrameMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> RooftopUnlockedPadlockKeysMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> TankExteriorAccessStairMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> LadderFailureRungMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> LadderRungPadMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> LadderRungClipsMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> P3ServiceCabinetShellMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> P3ServiceManifoldMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> P3LargeValveWheelMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> P3SmallValveWheelMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> P3PressureGaugeMesh;
 
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> ConcreteMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> DarkConcreteMaterial;
@@ -392,8 +422,24 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WetPaperMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WaterMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WetStepMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> EvidenceSlipperMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> EvidenceCatPawMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> EvidenceHoseMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> EvidenceHandSmearMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> DecalDampWallpaperMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> DecalRustFastenersMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> DecalMineralScaleMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> DecalRainGrimeMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> ScreenMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> BeddingMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WetHoodieMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> CarrierBagMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WaterTankMetalMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WetServiceHoseMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WetRungPadMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> TankRevealWaterMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> P3CabinetMetalMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> RoofDoorMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> GlassMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> BottleCapMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WaterLabelMaterial;

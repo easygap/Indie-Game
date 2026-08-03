@@ -48,6 +48,19 @@ $engineBuildVersion = $null
 $resolvedEditorForSummary = $null
 $initialSourceState = $null
 $shippingArchiveManifestPath = $null
+$unrealDiagnosticPatterns = @(
+	'(?i)\bFatal error\b',
+	'(?i)\bCritical error:',
+	'(?i)\bUnhandled Exception\b',
+	'(?i)\bEnsure condition failed\b',
+	'(?i)\bAssertion failed:',
+	'(?i)\bLog[A-Za-z0-9_]+:\s*Error:'
+)
+$unrealDiagnosticAllowlist = @(
+	# No Ensure/Error/Fatal diagnostic is approved for the current G3
+	# automatic runtime. Future entries must provide exact pattern and reason.
+	# [pscustomobject]@{ pattern = '<exact regex>'; reason = '<approval reason>' }
+)
 if ([string]::IsNullOrWhiteSpace($ArchiveDirectory)) {
 	$ArchiveDirectory = Join-Path (
 		Join-Path $projectRoot 'Saved\StagedBuilds\RebirthShipping') $runId
@@ -321,11 +334,9 @@ function Write-RunSummary {
 			'Refusing to write PASS because the final Git source state is not ' +
 			'the clean commit locked at startup.')
 	}
-	if ($Status -eq 'PARTIAL' -and
-		-not $StaticOnly -and
-		-not $cleanSourceStateLocked) {
+	if ($Status -eq 'PARTIAL' -and -not $cleanSourceStateLocked) {
 		throw (
-			'Refusing to write a Full/PARTIAL result because the final Git ' +
+			'Refusing to write PARTIAL because the final Git ' +
 			'source state is not the clean commit locked at startup.')
 	}
 	$summary = [pscustomobject]@{
@@ -352,6 +363,7 @@ function Write-RunSummary {
 		archiveDirectory = $ArchiveDirectory
 		shippingArchiveManifest = $shippingArchiveManifestPath
 		shippingArchiveManifestSha256 = $shippingManifestHash
+		unrealDiagnosticAllowlist = @($unrealDiagnosticAllowlist)
 		automatedReleaseCandidateEligible =
 			$Status -eq 'PASS' `
 			-and $cleanSourceStateLocked `
@@ -433,6 +445,53 @@ function ConvertTo-ProcessArgument {
 	return '"' + $Value.Replace('"', '\"') + '"'
 }
 
+function Assert-NoUnexpectedUnrealDiagnostics {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$LogPath,
+		[Parameter(Mandatory = $true)]
+		[string]$LogText
+	)
+
+	$unexpectedDiagnostics = [System.Collections.Generic.List[string]]::new()
+	foreach ($line in @($LogText -split '\r?\n')) {
+		if ([string]::IsNullOrWhiteSpace($line)) {
+			continue
+		}
+		$isDiagnostic = $false
+		foreach ($diagnosticPattern in $unrealDiagnosticPatterns) {
+			if ($line -match $diagnosticPattern) {
+				$isDiagnostic = $true
+				break
+			}
+		}
+		if (-not $isDiagnostic) {
+			continue
+		}
+
+		$isAllowed = $false
+		foreach ($allowEntry in $unrealDiagnosticAllowlist) {
+			if ($line -match [string]$allowEntry.pattern) {
+				$isAllowed = $true
+				break
+			}
+		}
+		if (-not $isAllowed) {
+			[void]$unexpectedDiagnostics.Add($line.Trim())
+		}
+	}
+	if ($unexpectedDiagnostics.Count -gt 0) {
+		$preview = @(
+			$unexpectedDiagnostics |
+				Select-Object -First 8
+		) -join ' | '
+		throw (
+			'Unapproved Unreal Ensure/Error/Fatal diagnostic was found ' +
+			"in $LogPath (count=$($unexpectedDiagnostics.Count), " +
+			"allowlist=$($unrealDiagnosticAllowlist.Count)): $preview")
+	}
+}
+
 function Assert-ReleaseLog {
 	param(
 		[Parameter(Mandatory = $true)]
@@ -450,6 +509,9 @@ function Assert-ReleaseLog {
 		$logText.Contains('REBIRTH_GREYBOX FAIL')) {
 		throw "Runtime validation reported FAIL. Check $LogPath."
 	}
+	Assert-NoUnexpectedUnrealDiagnostics `
+		-LogPath $LogPath `
+		-LogText $logText
 	foreach ($requiredMarker in @(
 		'REBIRTH_GREYBOX PASS',
 		'REBIRTH_RELEASE PASS s2_roof_door',
@@ -576,6 +638,9 @@ function Assert-PersistenceSpikeEvidence {
 		if ($caseLogText.Contains('REBIRTH_SPIKE FAIL')) {
 			throw "Persistence spike case reported FAIL: $resolvedCaseLog"
 		}
+		Assert-NoUnexpectedUnrealDiagnostics `
+			-LogPath $resolvedCaseLog `
+			-LogText $caseLogText
 
 		$requiresSaveSnapshot =
 			$caseName -like 'P3Write_*' -or
@@ -645,6 +710,8 @@ function Invoke-RebirthRuntimeCase {
 		'-unattended',
 		'-nosplash',
 		'-nullrhi',
+		'-nosound',
+		'-RenderOffscreen',
 		'-stdout',
 		'-FullStdOutLogOutput',
 		"-abslog=$logPath",
@@ -667,7 +734,7 @@ function Invoke-RebirthRuntimeCase {
 		-FilePath $EditorCommand `
 		-ArgumentList $processArguments `
 		-PassThru `
-		-NoNewWindow
+		-WindowStyle Hidden
 	try {
 		if (-not $process.WaitForExit($RuntimeTimeoutSeconds * 1000)) {
 			$process.Kill()
@@ -703,6 +770,8 @@ function Invoke-RebirthMapCheck {
 		'-unattended',
 		'-nosplash',
 		'-nullrhi',
+		'-nosound',
+		'-RenderOffscreen',
 		'-stdout',
 		'-FullStdOutLogOutput',
 		"-abslog=$LogPath",
@@ -717,7 +786,7 @@ function Invoke-RebirthMapCheck {
 		-FilePath $EditorCommand `
 		-ArgumentList $processArguments `
 		-PassThru `
-		-NoNewWindow
+		-WindowStyle Hidden
 	try {
 		if (-not $process.WaitForExit($RuntimeTimeoutSeconds * 1000)) {
 			$process.Kill()
@@ -737,9 +806,15 @@ function Invoke-RebirthMapCheck {
 		throw "Map Check did not create its log: $LogPath"
 	}
 	$logText = Get-Content -Raw -Encoding UTF8 -LiteralPath $LogPath
+	Assert-NoUnexpectedUnrealDiagnostics `
+		-LogPath $LogPath `
+		-LogText $logText
+	$mapPassPattern =
+		'(?im)MapCheck:.*(?:Map check complete:\s*0 Error|' +
+		'맵 체크 완료:\s*오류 0 회,\s*경고 0 회)'
 	if ($logText -match '(?im)MapCheck:.*Error:' -or
-		$logText -match '(?im)Map check failed' -or
-		$logText -notmatch '(?im)Map check complete:\s*0 Error') {
+		$logText -match '(?im)Map check failed|맵 체크 실패' -or
+		$logText -notmatch $mapPassPattern) {
 		throw "Map Check did not complete with zero errors. Check $LogPath."
 	}
 	Write-Host (
@@ -786,6 +861,26 @@ $projectDescriptor =
 	ConvertFrom-Json
 $engineAssociation = [string]$projectDescriptor.EngineAssociation
 $initialSourceState = Get-SourceState
+if ($StaticOnly) {
+	Set-ActiveStep -Name 'source_state_pre'
+	$sourceStateBeforeStatic = Get-SourceState
+	if (-not (Test-CleanSourceStateLocked `
+			-Initial $initialSourceState `
+			-Current $sourceStateBeforeStatic)) {
+		$sourceBlockedDetail =
+			'Static validation requires one clean, unchanged Git commit. ' +
+			'Commit or revert all tracked and untracked changes, then rerun.'
+		Complete-ActiveStep -Status 'BLOCKED' -Detail $sourceBlockedDetail
+		Add-MissingStepResults -Detail 'Static source-state gate was blocked.'
+		Write-RunSummary -Status 'BLOCKED' -Detail $sourceBlockedDetail
+		[Console]::Error.WriteLine(
+			"REBIRTH_RELEASE_HARNESS BLOCKED $sourceBlockedDetail")
+		exit 2
+	}
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail "Clean static source state locked to $($initialSourceState.commitSha)."
+}
 if (-not $StaticOnly `
 	-and $SkipDevelopmentBuild `
 	-and (-not $SkipMapCheck -or -not $SkipRuntimeValidation)) {
@@ -812,6 +907,18 @@ Complete-ActiveStep `
 	-Status 'PASS' `
 	-Detail 'PowerShell and REBIRTH static contracts passed.'
 if ($StaticOnly) {
+	Set-ActiveStep -Name 'source_state_post'
+	$sourceStateAfterStatic = Get-SourceState
+	if (-not (Test-CleanSourceStateLocked `
+			-Initial $initialSourceState `
+			-Current $sourceStateAfterStatic)) {
+		throw (
+			'Git source state changed during static release validation. ' +
+			'Discard this run and rerun from one clean commit.')
+	}
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail "Static source state remained $($initialSourceState.commitSha)."
 	Add-MissingStepResults -Detail 'StaticOnly requested.'
 	Write-RunSummary `
 		-Status 'PARTIAL' `
@@ -833,7 +940,8 @@ $resolvedEditorOutput = @(
 		-NoProfile `
 		-ExecutionPolicy Bypass `
 		-File $resolverScript `
-		-ProjectPath $projectFile 2>&1
+		-ProjectPath $projectFile `
+		-Commandlet 2>&1
 )
 $resolverExitCode = $LASTEXITCODE
 $ErrorActionPreference = $previousErrorActionPreference
@@ -843,7 +951,7 @@ $resolvedEditorOutput |
 if ($resolverExitCode -ne 0 -or $resolvedEditorOutput.Count -eq 0) {
 	$blockedDetail =
 		"Unreal Engine $engineAssociation was not found. " +
-		'Install it or set IG_UNREAL_EDITOR to UnrealEditor.exe.'
+		'Install it or set IG_UNREAL_EDITOR to its editor binary.'
 	Complete-ActiveStep -Status 'BLOCKED' -Detail $blockedDetail
 	Add-MissingStepResults -Detail 'Engine resolution was blocked.'
 	Write-RunSummary -Status 'BLOCKED' -Detail $blockedDetail
@@ -851,13 +959,18 @@ if ($resolverExitCode -ne 0 -or $resolvedEditorOutput.Count -eq 0) {
 		"REBIRTH_RELEASE_HARNESS BLOCKED $blockedDetail")
 	exit 2
 }
-$editorExecutable = ([string]$resolvedEditorOutput[-1]).Trim()
-if (-not (Test-Path -LiteralPath $editorExecutable -PathType Leaf)) {
-	throw "Resolved Unreal Editor does not exist: $editorExecutable"
+$editorCommand = ([string]$resolvedEditorOutput[-1]).Trim()
+if (-not (Test-Path -LiteralPath $editorCommand -PathType Leaf)) {
+	throw "Resolved Unreal commandlet does not exist: $editorCommand"
 }
-$resolvedEditorForSummary = $editorExecutable
+if (-not $editorCommand.EndsWith(
+		'UnrealEditor-Cmd.exe',
+		[StringComparison]::OrdinalIgnoreCase)) {
+	throw "Headless release validation requires UnrealEditor-Cmd.exe: $editorCommand"
+}
+$resolvedEditorForSummary = $editorCommand
 
-$win64Directory = Split-Path -Parent $editorExecutable
+$win64Directory = Split-Path -Parent $editorCommand
 $binariesDirectory = Split-Path -Parent $win64Directory
 $engineDirectory = Split-Path -Parent $binariesDirectory
 $buildVersionPath = Join-Path $engineDirectory 'Build\Build.version'
@@ -873,7 +986,7 @@ if (Test-Path -LiteralPath $buildVersionPath -PathType Leaf) {
 }
 Complete-ActiveStep `
 	-Status 'PASS' `
-	-Detail "Resolved $editorExecutable ($engineBuildVersion)."
+	-Detail "Resolved $editorCommand ($engineBuildVersion)."
 
 Set-ActiveStep -Name 'source_state_pre'
 $sourceStateBeforeBuild = Get-SourceState
@@ -896,9 +1009,8 @@ Complete-ActiveStep `
 
 $buildScript = Join-Path $engineDirectory 'Build\BatchFiles\Build.bat'
 $automationScript = Join-Path $engineDirectory 'Build\BatchFiles\RunUAT.bat'
-$editorCommand = Join-Path $win64Directory 'UnrealEditor-Cmd.exe'
 if (-not (Test-Path -LiteralPath $editorCommand -PathType Leaf)) {
-	$editorCommand = $editorExecutable
+	throw "UnrealEditor-Cmd.exe was not found: $editorCommand"
 }
 
 if (-not $SkipDevelopmentBuild) {

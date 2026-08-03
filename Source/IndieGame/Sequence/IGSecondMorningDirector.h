@@ -7,6 +7,7 @@
 #include "IGSecondMorningDirector.generated.h"
 
 class AIGElevator;
+class AIGChapterTwoHumanGateDirector;
 class AIGPrologueWorldScene;
 class AIGReadableNote;
 class AIGSlidingDoor;
@@ -34,6 +35,7 @@ public:
 
 	void Configure(
 		AIGPrologueWorldScene* InScene,
+		AIGChapterTwoHumanGateDirector* InHumanGateDirector,
 		AIGSwingDoor* InMirrorRoomDoor,
 		UPointLightComponent* InMirrorRoomLamp,
 		AIGElevator* InElevator,
@@ -111,6 +113,9 @@ private:
 	TObjectPtr<AIGPrologueWorldScene> Scene;
 
 	UPROPERTY(Transient)
+	TObjectPtr<AIGChapterTwoHumanGateDirector> HumanGateDirector;
+
+	UPROPERTY(Transient)
 	TObjectPtr<AIGSwingDoor> MirrorRoomDoor;
 
 	UPROPERTY(Transient)
@@ -165,6 +170,10 @@ private:
 	FGameplayTag SawReceiptTag;
 	FGameplayTag CalledEmployeeTag;
 	FGameplayTag ReadDuplicateReceiptTag;
+	FGameplayTag HumanChecksUnlockedTag;
+	FGameplayTag HumanHelpAttemptedTag;
+	FGameplayTag HumanLobbyWitnessedTag;
+	FGameplayTag StoreHumanMotiveTag;
 	/** Accepted only to migrate saves made by the old CH02 repurchase flow. */
 	FGameplayTag LegacyWaterPurchasedTag;
 	FGameplayTag ReturnedTag;

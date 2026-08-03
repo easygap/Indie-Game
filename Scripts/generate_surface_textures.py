@@ -455,10 +455,15 @@ def import_textures():
             )
             texture.set_editor_property("srgb", False)
             texture.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD_NORMAL_MAP)
-        elif asset_name.endswith("_R"):
+        elif asset_name.endswith(("_R", "_A", "_W")):
             texture.set_editor_property("srgb", False)
             texture.set_editor_property(
                 "compression_settings", unreal.TextureCompressionSettings.TC_GRAYSCALE
+            )
+        elif asset_name.endswith("_M"):
+            texture.set_editor_property("srgb", False)
+            texture.set_editor_property(
+                "compression_settings", unreal.TextureCompressionSettings.TC_MASKS
             )
         imported.append(texture)
 

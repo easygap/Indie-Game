@@ -20,6 +20,7 @@
 #include "Engine/Engine.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "Environment/IGNeighborhoodLifeDirector.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
@@ -47,12 +48,14 @@
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
 #include "Narrative/IGApartmentStoryDressing.h"
+#include "Narrative/IGItemContinuityDressing.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Sequence/IGDemoDirector.h"
 #include "Sequence/IGChapterOneIncidentDirector.h"
+#include "Sequence/IGChapterTwoHumanGateDirector.h"
 #include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGSecondMorningDirector.h"
 #include "Sequence/IGThirdMorningDirector.h"
@@ -736,27 +739,29 @@ void AIGPrologueWorldScene::AddStaticPurchaseBagProxy(
 	const float Height = Spec.BagSize.Z;
 	const float CenterY = Spec.BagCenterY;
 	const float PanelThickness = 0.35f;
+	UMaterialInterface* BagFilmMaterial =
+		TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial);
 
 	// Five translucent sheets preserve the selected bottles while giving the
 	// carried actor a readable convenience-store-bag silhouette.
 	AddProxyPart(
-		GlassMaterial,
+		BagFilmMaterial,
 		FVector(Depth * 0.5f, CenterY, Height * 0.5f),
 		FVector(PanelThickness, Width, Height));
 	AddProxyPart(
-		GlassMaterial,
+		BagFilmMaterial,
 		FVector(-Depth * 0.5f, CenterY, Height * 0.5f),
 		FVector(PanelThickness, Width, Height));
 	AddProxyPart(
-		GlassMaterial,
+		BagFilmMaterial,
 		FVector(0.0f, CenterY + Width * 0.5f, Height * 0.5f),
 		FVector(Depth, PanelThickness, Height));
 	AddProxyPart(
-		GlassMaterial,
+		BagFilmMaterial,
 		FVector(0.0f, CenterY - Width * 0.5f, Height * 0.5f),
 		FVector(Depth, PanelThickness, Height));
 	AddProxyPart(
-		GlassMaterial,
+		BagFilmMaterial,
 		FVector(0.0f, CenterY, PanelThickness * 0.5f),
 		FVector(Depth, Width, PanelThickness));
 
@@ -911,6 +916,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_LabelSoda"), TEXT("M_LabelSoju"), TEXT("M_LabelRamyeon"),
 		TEXT("M_SnackShrimp"), TEXT("M_SnackPotato"),
 		TEXT("M_SnackSquid"), TEXT("M_SnackCorn"),
+		TEXT("M_CarrierBagFilm"), TEXT("M_WetHoodieUV"),
 		TEXT("M_SkyDawn"),
 		// Villa surfaces and fittings from the reference photos.
 		TEXT("M_Stucco_X"), TEXT("M_Stucco_Y"), TEXT("M_StuccoCeil"),
@@ -1292,7 +1298,8 @@ void AIGPrologueWorldScene::InitializePrologue()
 	{
 		ApartmentStoryDressing->ConfigurePrototypeVisuals(
 			CubeMesh,
-			SignWhiteMaterial,
+			PropMesh(TEXT("SM_CrackedPhone"), CubeMesh),
+			TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial),
 			PlasticDarkMaterial,
 			SnackBlueMaterial,
 			SignMintMaterial,
@@ -4584,6 +4591,95 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		FText::GetEmpty());
 }
 
+void AIGPrologueWorldScene::SpawnChapterTwoItemContinuityDressing()
+{
+	if (IsValid(ChapterTwoItemContinuityDressing) || !GetWorld())
+	{
+		return;
+	}
+
+	EIGRebirthPurchaseProfile PurchaseProfile =
+		EIGRebirthPurchaseProfile::ProfileA500MlX2;
+	EIGRebirthBottleClosureState ClosureState =
+		EIGRebirthBottleClosureState::Resealed;
+	if (const UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (const UIGRebirthNarrativeSubsystem* RebirthState =
+			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
+		{
+			const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+			if (Choices.PurchaseProfile != EIGRebirthPurchaseProfile::Unset)
+			{
+				PurchaseProfile = Choices.PurchaseProfile;
+			}
+			if (Choices.BottleClosureState
+				!= EIGRebirthBottleClosureState::Unset)
+			{
+				ClosureState = Choices.BottleClosureState;
+			}
+		}
+	}
+
+	for (TActorIterator<AIGItemContinuityDressing> It(GetWorld()); It; ++It)
+	{
+		AIGItemContinuityDressing* Existing = *It;
+		if (!Existing
+			|| !Existing->ActorHasTag(
+				FName(TEXT("REBIRTH.ItemContinuity.CH02RecycleSack"))))
+		{
+			continue;
+		}
+		if (Existing->MatchesContract(
+			EIGItemContinuityPresentation::LobbyRecycleSack,
+			PurchaseProfile,
+			ClosureState))
+		{
+			ChapterTwoItemContinuityDressing = Existing;
+			IGStory::AddState(
+				this,
+				FGameplayTag::RequestGameplayTag(
+					FName(TEXT(
+						"State.CH02.Loop.RecycleEvidenceRestored")),
+					false));
+			return;
+		}
+		Existing->Destroy();
+	}
+
+	const FTransform EvidenceTransform(
+		GetActorTransform().TransformRotation(
+			FRotator(0.0f, 14.0f, 0.0f).Quaternion()),
+		GetActorTransform().TransformPosition(
+			FVector(-210.0f, -350.0f, 0.8f)));
+	FActorSpawnParameters Parameters;
+	Parameters.Owner = this;
+	Parameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	ChapterTwoItemContinuityDressing =
+		GetWorld()->SpawnActor<AIGItemContinuityDressing>(
+			AIGItemContinuityDressing::StaticClass(),
+			EvidenceTransform,
+			Parameters);
+	if (ChapterTwoItemContinuityDressing)
+	{
+		ChapterTwoItemContinuityDressing->Configure(
+			EIGItemContinuityPresentation::LobbyRecycleSack,
+			PurchaseProfile,
+			ClosureState,
+			CubeMesh,
+			CylinderMesh,
+			SignWhiteMaterial,
+			GlassMaterial,
+			WaterBlueMaterial,
+			SnackBlueMaterial);
+		IGStory::AddState(
+			this,
+			FGameplayTag::RequestGameplayTag(
+				FName(TEXT("State.CH02.Loop.RecycleEvidenceRestored")),
+				false));
+	}
+}
+
 void AIGPrologueWorldScene::HandleFlashlightPickedUp(AIGPickupItem* Item)
 {
 	if (UGameInstance* GameInstance = GetGameInstance())
@@ -4880,7 +4976,7 @@ void AIGPrologueWorldScene::SpawnChapterOneIncident()
 		CubeMesh,
 		CylinderMesh,
 		PlasticDarkMaterial,
-		SignWhiteMaterial,
+		TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial),
 		WaterBlueMaterial,
 		GetActorTransform());
 	ChapterOneIncidentDirector->OnMemoryBoundaryCompleted.AddUniqueDynamic(
@@ -5142,6 +5238,13 @@ void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()
 		&& Choices.PurchaseProfile
 			== EIGRebirthPurchaseProfile::ProfileA500MlX2
 		&& Choices.PaymentMethod == EIGRebirthPaymentMethod::WalletCard
+		&& RebirthState->WasOneShotBeatPlayed(
+			FName(TEXT("CH01.BagPlacedAtLadder")))
+		&& ChapterTwoItemContinuityDressing
+		&& ChapterTwoItemContinuityDressing->MatchesContract(
+			EIGItemContinuityPresentation::LobbyRecycleSack,
+			Choices.PurchaseProfile,
+			Choices.BottleClosureState)
 		&& RebirthState->CanConverge(
 			EIGRebirthConvergencePoint::C3SecondMorning);
 	if (!bPassed)
@@ -5155,7 +5258,8 @@ void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()
 		Display,
 		TEXT(
 			"REBIRTH_E2E PASS ch02_router p1=1 p2=1 searched=1 "
-			"outfit_once=1 c3=1 purchase_preserved=1"));
+			"outfit_once=1 human_gate=1 c3=1 purchase_preserved=1 "
+			"item_continuity=1"));
 }
 
 void AIGPrologueWorldScene::FailRebirthEndToEndValidation(
@@ -5288,11 +5392,15 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	{
 		if (WaterBottle)
 		{
-			WaterBottle->SetActorHiddenInGame(false);
-			WaterBottle->SetActorEnableCollision(true);
+			// CH02 is not a second shopping errand. Keep the old shelf actors
+			// parked; the one lobby sack is the authoritative recovered
+			// purchase keyed to the persisted A/B/C choice.
+			WaterBottle->SetActorHiddenInGame(true);
+			WaterBottle->SetActorEnableCollision(false);
 			WaterBottle->SetInteractionEnabled(false);
 		}
 	}
+	SpawnChapterTwoItemContinuityDressing();
 	if (Flashlight)
 	{
 		Flashlight->SetInteractionEnabled(true);
@@ -5478,6 +5586,26 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 
 	FActorSpawnParameters DirectorParameters;
 	DirectorParameters.Owner = this;
+	ChapterTwoHumanGateDirector =
+		World->SpawnActorDeferred<AIGChapterTwoHumanGateDirector>(
+			AIGChapterTwoHumanGateDirector::StaticClass(),
+			GetActorTransform(),
+			this,
+			nullptr,
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (ChapterTwoHumanGateDirector)
+	{
+		ChapterTwoHumanGateDirector->Configure(
+			ApartmentStoryDressing
+				? ApartmentStoryDressing->GetPhoneInspectable()
+				: nullptr,
+			CubeMesh,
+			PlasticDarkMaterial,
+			SignWhiteMaterial,
+			ScreenGlowMaterial);
+		ChapterTwoHumanGateDirector->FinishSpawning(GetActorTransform());
+	}
+
 	SecondMorningDirector = World->SpawnActorDeferred<AIGSecondMorningDirector>(
 		AIGSecondMorningDirector::StaticClass(),
 		FTransform::Identity,
@@ -5488,6 +5616,7 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	{
 		SecondMorningDirector->Configure(
 			this,
+			ChapterTwoHumanGateDirector,
 			MirrorRoomDoor,
 			MirrorRoomLamp,
 			Elevator,
@@ -5635,6 +5764,7 @@ void AIGPrologueWorldScene::EnterChapterThree()
 	for (AActor* Director :
 		{static_cast<AActor*>(MorningDirector.Get()),
 			static_cast<AActor*>(SecondMorningDirector.Get()),
+			static_cast<AActor*>(ChapterTwoHumanGateDirector.Get()),
 			static_cast<AActor*>(WakeDirector.Get()),
 			static_cast<AActor*>(AlarmClock.Get()),
 			static_cast<AActor*>(GetUpTarget.Get())})
@@ -5646,9 +5776,15 @@ void AIGPrologueWorldScene::EnterChapterThree()
 	}
 	MorningDirector = nullptr;
 	SecondMorningDirector = nullptr;
+	ChapterTwoHumanGateDirector = nullptr;
 	WakeDirector = nullptr;
 	AlarmClock = nullptr;
 	GetUpTarget = nullptr;
+	if (ChapterTwoItemContinuityDressing)
+	{
+		ChapterTwoItemContinuityDressing->Destroy();
+		ChapterTwoItemContinuityDressing = nullptr;
+	}
 	for (AIGZoneTrigger* Zone :
 		{ChapterOneApartmentExitZone.Get(), LeftHomeZone.Get(),
 			FlickerZone.Get(), StoreEntryZone.Get(), ReturnBoundaryZone.Get(),

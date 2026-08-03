@@ -10,11 +10,14 @@
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "Environment/IGNeighborhoodLifeDirector.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/PlatformMisc.h"
 #include "IndieGame.h"
 #include "Interaction/IGZoneTrigger.h"
+#include "Interaction/IGPickupItem.h"
+#include "Narrative/IGItemContinuityDressing.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Player/IGHorrorHUD.h"
@@ -107,6 +110,11 @@ void AIGChapterOneIncidentDirector::Configure(
 	WorldScene = InWorldScene;
 	Neighborhood = InNeighborhood;
 	SceneTransform = InSceneTransform;
+	ContinuityCubeMesh = CubeMesh;
+	ContinuityCylinderMesh = CylinderMesh;
+	ContinuityBagMaterial = PaperMaterial;
+	ContinuityBottleMaterial = WaterMaterial;
+	ContinuityCapMaterial = PlasticMaterial;
 
 	DrinkZone = SpawnZone(
 		FVector(1880.0f, -515.0f, 105.0f),
@@ -209,6 +217,11 @@ void AIGChapterOneIncidentDirector::EndPlay(
 	{
 		WorldScene->SetFixtureLive(0, true, true);
 		WorldScene->SuspendCorridorFlicker(false);
+	}
+	if (AccidentBagDressing)
+	{
+		AccidentBagDressing->Destroy();
+		AccidentBagDressing = nullptr;
 	}
 	Super::EndPlay(EndPlayReason);
 }
@@ -897,10 +910,19 @@ bool AIGChapterOneIncidentDirector::BeginMemoryBoundary()
 
 	bMemoryBoundaryStarted = true;
 	SetVisibleInteractive(FifthFloorStepAction, false);
+	PlaceAccidentBagAndRetireCarriedPurchase();
 	IGStory::AddState(
 		this,
 		IGChapterOneIncident::Tag(
 			TEXT("State.CH01.Incident.MemoryBoundary")));
+	IGStory::AddState(
+		this,
+		IGChapterOneIncident::Tag(
+			TEXT("State.CH01.Incident.BagPlacedAtLadder")));
+	// Do not create a save inside the 1.8-second chapter cut. A load from the
+	// last fourth-floor checkpoint replays this atomic hand-to-floor transfer;
+	// CH02 writes the next safe checkpoint only after the old carried actor
+	// and this transient proxy have both been retired.
 	if (APlayerController* Controller = GetWorld()->GetFirstPlayerController())
 	{
 		Controller->SetIgnoreMoveInput(true);
@@ -923,6 +945,102 @@ bool AIGChapterOneIncidentDirector::BeginMemoryBoundary()
 		1.8f,
 		false);
 	return true;
+}
+
+void AIGChapterOneIncidentDirector::PlaceAccidentBagAndRetireCarriedPurchase()
+{
+	if (AccidentBagDressing || !GetWorld())
+	{
+		return;
+	}
+
+	EIGRebirthPurchaseProfile PurchaseProfile =
+		EIGRebirthPurchaseProfile::ProfileA500MlX2;
+	EIGRebirthBottleClosureState ClosureState =
+		EIGRebirthBottleClosureState::Resealed;
+	UIGRebirthNarrativeSubsystem* NarrativeState = nullptr;
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		NarrativeState =
+			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>();
+		if (NarrativeState)
+		{
+			const FIGRebirthChoiceState Choices = NarrativeState->GetChoices();
+			if (Choices.PurchaseProfile != EIGRebirthPurchaseProfile::Unset)
+			{
+				PurchaseProfile = Choices.PurchaseProfile;
+			}
+			if (Choices.BottleClosureState
+				!= EIGRebirthBottleClosureState::Unset)
+			{
+				ClosureState = Choices.BottleClosureState;
+			}
+		}
+	}
+
+	AIGPlayerCharacter* Player = nullptr;
+	if (APlayerController* Controller = GetWorld()->GetFirstPlayerController())
+	{
+		Player = Cast<AIGPlayerCharacter>(Controller->GetPawn());
+	}
+	if (Player)
+	{
+		if (AActor* Carried = Player->GetCarriedActor())
+		{
+			Player->ReleaseCarriedActor(Carried);
+		}
+	}
+
+	// Checkpoint restoration can briefly leave the selected pickup detached
+	// while it retries its camera attachment. Retire every already-acquired
+	// copy of the selected profile before the ground proxy appears.
+	for (TActorIterator<AIGPickupItem> It(GetWorld()); It; ++It)
+	{
+		AIGPickupItem* Pickup = *It;
+		if (!Pickup
+			|| !Pickup->WasPickedUp()
+			|| Pickup->RebirthPurchaseProfileOnPickup != PurchaseProfile)
+		{
+			continue;
+		}
+		Pickup->SetActorHiddenInGame(true);
+		Pickup->SetActorEnableCollision(false);
+		Pickup->SetInteractionEnabled(false);
+	}
+
+	// The first-stair cut never materializes the roof on top of the fourth
+	// floor. Build the transfer in CH03's detached roof-stage coordinates so
+	// no visible bag teleports onto the apartment stair landing.
+	const FTransform BagTransform =
+		AIGItemContinuityDressing::GetCanonicalAccidentTransform(
+			PurchaseProfile);
+	FActorSpawnParameters SpawnParameters;
+	SpawnParameters.Owner = this;
+	SpawnParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AccidentBagDressing =
+		GetWorld()->SpawnActor<AIGItemContinuityDressing>(
+			AIGItemContinuityDressing::StaticClass(),
+			BagTransform,
+			SpawnParameters);
+	if (AccidentBagDressing)
+	{
+		AccidentBagDressing->Configure(
+			EIGItemContinuityPresentation::AccidentBag,
+			PurchaseProfile,
+			ClosureState,
+			ContinuityCubeMesh,
+			ContinuityCylinderMesh,
+			ContinuityBagMaterial,
+			ContinuityBottleMaterial,
+			ContinuityBottleMaterial,
+			ContinuityCapMaterial);
+		if (NarrativeState)
+		{
+			NarrativeState->MarkOneShotBeatPlayed(
+				FName(TEXT("CH01.BagPlacedAtLadder")));
+		}
+	}
 }
 
 void AIGChapterOneIncidentDirector::CompleteMemoryBoundary()

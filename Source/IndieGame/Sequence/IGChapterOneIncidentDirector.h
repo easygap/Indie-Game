@@ -6,6 +6,7 @@
 #include "IGChapterOneIncidentDirector.generated.h"
 
 class AIGChapterOneIncidentDirector;
+class AIGItemContinuityDressing;
 class AIGNeighborhoodLifeDirector;
 class AIGPrologueWorldScene;
 class AIGZoneTrigger;
@@ -141,6 +142,7 @@ private:
 	void ReconcileState();
 	void PerformDrink();
 	void FinalizeCatChoice();
+	void PlaceAccidentBagAndRetireCarriedPurchase();
 	void RequestReturnCheckpointAutosave() const;
 	void StartFourthFloorCueIfNeeded();
 	void AdvanceCorridorBlink();
@@ -181,6 +183,24 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGChapterOneIncidentAction> FifthFloorStepAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGItemContinuityDressing> AccidentBagDressing;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> ContinuityCubeMesh;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMesh> ContinuityCylinderMesh;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> ContinuityBagMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> ContinuityBottleMaterial;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInterface> ContinuityCapMaterial;
 
 	FTransform SceneTransform = FTransform::Identity;
 	bool bConfigured = false;

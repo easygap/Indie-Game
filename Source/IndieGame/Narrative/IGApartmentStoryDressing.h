@@ -33,6 +33,7 @@ public:
 	 */
 	void ConfigurePrototypeVisuals(
 		UStaticMesh* CubeMesh,
+		UStaticMesh* PhoneMesh,
 		UMaterialInterface* PaperMaterial,
 		UMaterialInterface* DarkPlasticMaterial,
 		UMaterialInterface* BookCoverMaterial,
@@ -43,6 +44,7 @@ public:
 		USceneComponent* FridgeDoorPivot);
 
 	AIGReadableNote* GetPlannerNote() const { return PlannerNote; }
+	AIGInspectable* GetPhoneInspectable() const { return PhoneInspectable; }
 
 private:
 	UStaticMeshComponent* AddVisual(
@@ -82,6 +84,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> PlannerNote;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGInspectable> PhoneInspectable;
 
 	bool bConfigured = false;
 	int32 VisualCounter = 0;

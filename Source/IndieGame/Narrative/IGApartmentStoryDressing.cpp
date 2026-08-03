@@ -133,6 +133,7 @@ AIGReadableNote* AIGApartmentStoryDressing::AddReadable(
 
 void AIGApartmentStoryDressing::ConfigurePrototypeVisuals(
 	UStaticMesh* CubeMesh,
+	UStaticMesh* PhoneMesh,
 	UMaterialInterface* PaperMaterial,
 	UMaterialInterface* DarkPlasticMaterial,
 	UMaterialInterface* BookCoverMaterial,
@@ -218,11 +219,12 @@ void AIGApartmentStoryDressing::ConfigurePrototypeVisuals(
 	// now; the full message thread can still be reserved for CH03.
 	const FVector PhoneCenter(-174.0f, -174.0f, 79.0f);
 	const FRotator PhoneRotation(0.0f, 8.0f, 0.0f);
-	AddInspectable(
-		CubeMesh,
+	const bool bHasPhoneMesh = PhoneMesh && PhoneMesh != CubeMesh;
+	PhoneInspectable = AddInspectable(
+		bHasPhoneMesh ? PhoneMesh : CubeMesh,
 		DarkPlasticMaterial,
 		PhoneCenter,
-		FVector(7.2f, 14.2f, 1.2f),
+		bHasPhoneMesh ? FVector(100.0f) : FVector(7.2f, 14.2f, 1.2f),
 		PhoneRotation,
 		NSLOCTEXT("IGApartmentStory", "PhonePrompt", "휴대폰 알림"),
 		NSLOCTEXT(
@@ -232,14 +234,18 @@ void AIGApartmentStoryDressing::ConfigurePrototypeVisuals(
 	AddVisual(
 		CubeMesh,
 		PhoneScreenMaterial,
-		PhoneCenter + FVector(0.0f, 0.0f, 0.72f),
+		PhoneCenter + FVector(
+			0.0f,
+			0.0f,
+			bHasPhoneMesh ? 1.02f : 0.72f),
 		FVector(5.9f, 11.8f, 0.22f),
 		PhoneRotation);
 
+	const float CrackSurfaceZ = bHasPhoneMesh ? 1.13f : 0.86f;
 	const FVector CrackOffsets[] = {
-		FVector(-0.7f, 2.1f, 0.86f),
-		FVector(0.4f, 0.7f, 0.87f),
-		FVector(0.7f, -1.1f, 0.88f),
+		FVector(-0.7f, 2.1f, CrackSurfaceZ),
+		FVector(0.4f, 0.7f, CrackSurfaceZ + 0.01f),
+		FVector(0.7f, -1.1f, CrackSurfaceZ + 0.02f),
 	};
 	const FVector CrackSizes[] = {
 		FVector(0.18f, 5.0f, 0.10f),

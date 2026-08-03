@@ -19,6 +19,7 @@
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGStressComponent.h"
 #include "Save/IGSaveSubsystem.h"
+#include "Sequence/IGChapterTwoHumanGateDirector.h"
 #include "TimerManager.h"
 
 AIGSecondMorningDirector::AIGSecondMorningDirector()
@@ -28,6 +29,7 @@ AIGSecondMorningDirector::AIGSecondMorningDirector()
 
 void AIGSecondMorningDirector::Configure(
 	AIGPrologueWorldScene* InScene,
+	AIGChapterTwoHumanGateDirector* InHumanGateDirector,
 	AIGSwingDoor* InMirrorRoomDoor,
 	UPointLightComponent* InMirrorRoomLamp,
 	AIGElevator* InElevator,
@@ -43,6 +45,7 @@ void AIGSecondMorningDirector::Configure(
 	AIGReadableNote* InManagementNotice)
 {
 	Scene = InScene;
+	HumanGateDirector = InHumanGateDirector;
 	MirrorRoomDoor = InMirrorRoomDoor;
 	MirrorRoomLamp = InMirrorRoomLamp;
 	Elevator = InElevator;
@@ -220,6 +223,14 @@ void AIGSecondMorningDirector::ResolveTags()
 	CalledEmployeeTag = Tag(TEXT("State.CH02.Loop.CalledEmployee"));
 	ReadDuplicateReceiptTag =
 		Tag(TEXT("State.CH02.Loop.ReadDuplicateReceipt"));
+	HumanChecksUnlockedTag =
+		Tag(TEXT("State.CH02.HumanGate.Unlocked"));
+	HumanHelpAttemptedTag =
+		Tag(TEXT("State.CH02.HumanGate.HelpAttempted"));
+	HumanLobbyWitnessedTag =
+		Tag(TEXT("State.CH02.HumanGate.LobbyWitnessed"));
+	StoreHumanMotiveTag =
+		Tag(TEXT("State.CH02.HumanGate.StoreMotive"));
 	LegacyWaterPurchasedTag =
 		Tag(TEXT("State.CH02.Loop.WaterPurchased"));
 	ReturnedTag = Tag(TEXT("State.CH02.Loop.Returned"));
@@ -300,6 +311,24 @@ FText AIGSecondMorningDirector::GetObjectiveText() const
 			"ObjectiveConvergedReturn",
 			"방으로 돌아가 달라진 소리를 확인하자");
 	}
+	if (!HasState(EnteredStoreTag)
+		&& HasState(StoreHumanMotiveTag))
+	{
+		return NSLOCTEXT(
+			"IGCH02",
+			"ObjectiveFindHumanAtStore",
+			"불 켜진 편의점에서 사람을 찾자");
+	}
+	if (!HasState(EnteredStoreTag)
+		&& HasState(HumanChecksUnlockedTag)
+		&& !HasState(HumanHelpAttemptedTag)
+		&& !HasState(HumanLobbyWitnessedTag))
+	{
+		return NSLOCTEXT(
+			"IGCH02",
+			"ObjectiveFindReachableHuman",
+			"연락할 사람을 찾아보자");
+	}
 	if (HasState(SawMirrorRoomTag)
 		&& !HasState(EnteredMirrorRoomTag)
 		&& !HasState(EnteredAlleyTag)
@@ -361,6 +390,18 @@ FString AIGSecondMorningDirector::GetObjectiveTextAscii() const
 	if (CanConvergeSecondMorning())
 	{
 		return TEXT("Return home and check the changed sound");
+	}
+	if (!HasState(EnteredStoreTag)
+		&& HasState(StoreHumanMotiveTag))
+	{
+		return TEXT("Find someone in the lit convenience store");
+	}
+	if (!HasState(EnteredStoreTag)
+		&& HasState(HumanChecksUnlockedTag)
+		&& !HasState(HumanHelpAttemptedTag)
+		&& !HasState(HumanLobbyWitnessedTag))
+	{
+		return TEXT("Try to reach another person");
 	}
 	if (HasState(SawMirrorRoomTag)
 		&& !HasState(EnteredMirrorRoomTag)
@@ -501,6 +542,16 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute()
 	AddState(LeftHomeTag);
 	// A repeated threshold must not replay or duplicate the CH02 outfit.
 	CommitOutfitAtFirstExit();
+	// Entering the impossible mirror room unlocks, but never requires, S6's
+	// ordinary human checks. Its E2E helper reaches the lobby first to prove
+	// that skipping every help interaction still converges on the store.
+	AddState(SawMirrorRoomTag);
+	AddState(EnteredMirrorRoomTag);
+	if (!HumanGateDirector
+		|| !HumanGateDirector->RunRebirthEndToEndValidation())
+	{
+		return false;
+	}
 	AddState(EnteredStoreTag);
 	AddState(CalledEmployeeTag);
 	HandleNoteRead(DuplicateReceipt, false);

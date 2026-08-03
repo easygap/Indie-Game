@@ -79,7 +79,11 @@ $requiredFiles = @(
 	'Scripts/Run-Rebirth-Greybox.bat',
 	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
 	'Scripts/Run-Rebirth-PersistenceSpikes.ps1',
+	'Scripts/Run-Rebirth-BackgroundRuntimeValidation.ps1',
 	'Scripts/Test-Rebirth-NarrativeContract.ps1',
+	'Scripts/Test-Rebirth-ItemContinuityContract.ps1',
+	'Scripts/Test-ArtAssetContract.ps1',
+	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
 	'Scripts/RunEditor.bat',
     'Source/IndieGame.Target.cs',
@@ -131,16 +135,55 @@ if ($descriptor.EngineAssociation -ne '5.8') {
     throw 'IndieGame.uproject must target the portable launcher association 5.8.'
 }
 
+$androidFileServer = @(
+	$descriptor.Plugins |
+		Where-Object { $_.Name -eq 'AndroidFileServer' }
+)
+if ($androidFileServer.Count -ne 1 -or
+	[bool]$androidFileServer[0].Enabled) {
+	throw 'AndroidFileServer must stay explicitly disabled to prevent token generation.'
+}
+
 $engineResolver = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/Resolve-UnrealEditor.ps1')
 foreach ($resolverInvariant in @(
 	'$env:IG_UNREAL_EDITOR',
 	'LauncherInstalled.dat',
 	'Build\Build.version',
-	'Test-EngineAssociation'
+	'Test-EngineAssociation',
+	'[switch]$Commandlet',
+	'UnrealEditor-Cmd.exe'
 )) {
 	if (-not $engineResolver.Contains($resolverInvariant)) {
 		throw "Portable Unreal resolver invariant is missing: $resolverInvariant"
+	}
+}
+$headlessScripts = @(
+	'Scripts/Build-ArtAssets.ps1',
+	'Scripts/Run-Rebirth-PersistenceSpikes.ps1',
+	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
+	'Scripts/Run-Rebirth-Greybox.bat'
+)
+foreach ($headlessScript in $headlessScripts) {
+	$headlessText = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+		Join-Path $projectRoot $headlessScript)
+	foreach ($headlessInvariant in @(
+		'-Commandlet',
+		'-nullrhi',
+		'-nosound',
+		'-RenderOffscreen'
+	)) {
+		if (-not $headlessText.Contains($headlessInvariant)) {
+			throw "Headless Unreal invariant is missing ($headlessInvariant): $headlessScript"
+		}
+	}
+	foreach ($forbiddenFallback in @(
+		'$editorCommand = $editor',
+		'$editorCommand = $editorExecutable'
+	)) {
+		if ($headlessText.Contains($forbiddenFallback)) {
+			throw "Headless Unreal script can fall back to a visible editor: $headlessScript"
+		}
 	}
 }
 foreach ($launcherScript in @(
@@ -292,6 +335,10 @@ $persistenceSpikeScriptPath = Join-Path $projectRoot (
 	'Scripts/Run-Rebirth-PersistenceSpikes.ps1')
 $persistenceSpikeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	$persistenceSpikeScriptPath)
+$backgroundRuntimeScriptPath = Join-Path $projectRoot (
+	'Scripts/Run-Rebirth-BackgroundRuntimeValidation.ps1')
+$backgroundRuntimeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	$backgroundRuntimeScriptPath)
 $persistenceProbeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot (
 		'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.cpp'))
@@ -656,7 +703,11 @@ foreach ($requiredRoofDoorInvariant in @(
 	'RoofDoorLeaf->GetCollisionResponseToChannel(ECC_Pawn)',
 	'IsRoofDoorReturnClear',
 	'OverlapAnyTestByObjectType',
-	'FCollisionShape::MakeCapsule(4.0f, 4.0f)',
+	'FCollisionShape::MakeCapsule(3.5f, 3.5f)',
+	'RoofDoorLatchedAngleDegrees = 5.441396f',
+	'MeasureRoofDoorFreeEdgeGap()',
+	'FVector(1645.5f, -340.5f, CatCenterZ)',
+	'FVector(1655.5f, -339.0f, CatCenterZ)',
 	'OutCatEnterPasses == 20',
 	'OutCatExitPasses == 20',
 	'OutLatchedHumanBlocks == 20',
@@ -692,7 +743,7 @@ foreach ($requiredChapterThreeRouteInvariant in @(
 	'FVector(1450, -502.5f, 205)',
 	'FVector(1450, -297.5f, 205)',
 	'FVector(1450, -400, 400)',
-	'FVector(2335, -300, 610), FVector(140, 220, 20)',
+	'FVector(2308.5f, -300, 610), FVector(87, 220, 20)',
 	'FloorSamples.Reserve(41)',
 	'FVector(1040.0f, 0.0f, StandingCenter)',
 	'FVector(1455.0f, -420.0f, 180.0f + StandingCenter)',
@@ -714,9 +765,38 @@ foreach ($forbiddenChapterThreeRouteBlocker in @(
 		throw "CH03 physical route regressed to a blocking shell: $forbiddenChapterThreeRouteBlocker"
 	}
 }
-if ($thirdMorningSource -notmatch
-	'(?s)for \(int32 RungIndex = 0; RungIndex < 10; \+\+RungIndex\).*?FVector\(10, 136, 7\),\s*MetalMaterial,\s*false\);') {
-	throw 'The decorative tank-ladder rungs must not block the service stair.'
+foreach ($requiredExteriorStairInvariant in @(
+	'const bool bHasAuthoredExteriorStair',
+	'TankExteriorAccessStairMesh && LadderFailureRungMesh',
+	'for (int32 StepIndex = 0; StepIndex < 18; ++StepIndex)',
+	'StairCollision->SetVisibility(false, true)',
+	'const FVector RailStart(1915, -300 + Side * 56.0f, 335)',
+	'FVector(2235, -300, 578.5f)'
+)) {
+	if (-not $thirdMorningSource.Contains($requiredExteriorStairInvariant)) {
+		throw "CH03 exterior-stair physical invariant is missing: $requiredExteriorStairInvariant"
+	}
+}
+foreach ($requiredHatchReachInvariant in @(
+	'TankHatchOffset(-96.0f, 0.0f, 0.0f)',
+	'TankLidOpenOffset(36.9f, 0.0f, 49.5f)',
+	'Tank + IGThirdMorning::TankHatchOffset + FVector(0, 0, 610)',
+	'FVector(2308.5f, -300, 610), FVector(87, 220, 20)',
+	'Tank + FVector(-125, 0, 400 + InnerRungIndex * 30.0f)',
+	'FRotator(-78, 0, 0)'
+)) {
+	if (-not $thirdMorningSource.Contains($requiredHatchReachInvariant)) {
+		throw "CH03 west-side service-hatch invariant is missing: $requiredHatchReachInvariant"
+	}
+}
+foreach ($forbiddenExteriorStairToken in @(
+	'FVector(2265, -365, 455)',
+	'for (int32 RungIndex = 0; RungIndex < 10; ++RungIndex)',
+	'FVector(10, 136, 7)'
+)) {
+	if ($thirdMorningSource.Contains($forbiddenExteriorStairToken)) {
+		throw "The unrelated vertical ladder returned beside the diagonal service stair: $forbiddenExteriorStairToken"
+	}
 }
 foreach ($evidenceQueryInvariant in @(
 	'const bool bEvidenceOnly',
@@ -936,8 +1016,35 @@ if ($persistenceSpikeParseErrors.Count -gt 0) {
 		ForEach-Object { $_.Message }
 	throw "REBIRTH persistence spike script does not parse: $($parseMessages -join '; ')"
 }
+$backgroundRuntimeTokens = $null
+$backgroundRuntimeParseErrors = $null
+[void][System.Management.Automation.Language.Parser]::ParseFile(
+	$backgroundRuntimeScriptPath,
+	[ref]$backgroundRuntimeTokens,
+	[ref]$backgroundRuntimeParseErrors)
+if ($backgroundRuntimeParseErrors.Count -gt 0) {
+	$parseMessages = $backgroundRuntimeParseErrors |
+		ForEach-Object { $_.Message }
+	throw "REBIRTH background runtime script does not parse: $($parseMessages -join '; ')"
+}
+foreach ($requiredBackgroundInvariant in @(
+	'-WindowStyle Hidden',
+	"'-nullrhi'",
+	"'-nosound'",
+	"'-RenderOffscreen'",
+	"'-ExecCmds=MAP CHECK,QUIT_EDITOR'",
+	'맵 체크 완료:',
+	'REBIRTH_BACKGROUND PASS runtime ending=',
+	'REBIRTH_BACKGROUND PASS complete',
+	'visible_windows=0'
+)) {
+	if (-not $backgroundRuntimeScript.Contains($requiredBackgroundInvariant)) {
+		throw "REBIRTH background runtime invariant is missing: $requiredBackgroundInvariant"
+	}
+}
 foreach ($requiredReleaseValidationInvariant in @(
 	'[switch]$StaticOnly',
+	'[ValidateRange(30, 1800)]',
 	"'IndieGameEditor'",
 	"'IndieGame'",
 	"'Development'",
@@ -946,6 +1053,7 @@ foreach ($requiredReleaseValidationInvariant in @(
 	"'-prereqs'",
 	"'/Game/Maps/Prologue_Morning'",
 	"'-ExecCmds=MAP CHECK,QUIT_EDITOR'",
+	'맵 체크 완료:',
 	'REBIRTH_RELEASE_HARNESS PASS map_check',
 	"'-IGRebirthReleaseValidation'",
 	"'-IGRebirthEndToEndValidation'",
@@ -969,10 +1077,18 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'Get-SourceState',
 	'Test-SourceStateUnchanged',
 	'Test-CleanSourceStateLocked',
+	'Static validation requires one clean, unchanged Git commit.',
+	'Git source state changed during static release validation.',
+	'Refusing to write PARTIAL because the final Git',
 	'worktreeClean = $initialWorktreeClean',
 	'sourceStateUnchanged',
 	'sourceChangedDuringRun',
 	'cleanSourceStateLocked',
+	'$unrealDiagnosticPatterns = @(',
+	'$unrealDiagnosticAllowlist = @(',
+	'Assert-NoUnexpectedUnrealDiagnostics',
+	'Unapproved Unreal Ensure/Error/Fatal diagnostic',
+	'unrealDiagnosticAllowlist = @($unrealDiagnosticAllowlist)',
 	'Add-MissingStepResults',
 	'automatedReleaseCandidateEligible',
 	'releaseEligible = $false',
@@ -995,6 +1111,45 @@ foreach ($requiredReleaseValidationInvariant in @(
 		throw "REBIRTH release harness invariant is missing: $requiredReleaseValidationInvariant"
 	}
 }
+$initialSourceStateIndex = $releaseValidationScript.IndexOf(
+	'$initialSourceState = Get-SourceState')
+$staticContractsIndex = $releaseValidationScript.IndexOf(
+	'$staticContractsLog =',
+	$initialSourceStateIndex)
+$staticPreBranchIndex = $releaseValidationScript.IndexOf(
+	'if ($StaticOnly) {',
+	$initialSourceStateIndex)
+$staticPreGateIndex = $releaseValidationScript.IndexOf(
+	"Set-ActiveStep -Name 'source_state_pre'",
+	$staticPreBranchIndex)
+if ($initialSourceStateIndex -lt 0 -or
+	$staticPreBranchIndex -le $initialSourceStateIndex -or
+	$staticPreGateIndex -le $staticPreBranchIndex -or
+	$staticContractsIndex -le $staticPreGateIndex) {
+	throw 'StaticOnly must lock a clean source state before static contracts run.'
+}
+$staticCompletionBranchIndex = $releaseValidationScript.IndexOf(
+	'if ($StaticOnly) {',
+	$staticContractsIndex)
+$staticPostGateIndex = $releaseValidationScript.IndexOf(
+	"Set-ActiveStep -Name 'source_state_post'",
+	$staticCompletionBranchIndex)
+$staticExitIndex = $releaseValidationScript.IndexOf(
+	'exit 0',
+	$staticCompletionBranchIndex)
+if ($staticCompletionBranchIndex -le $staticContractsIndex -or
+	$staticPostGateIndex -le $staticCompletionBranchIndex -or
+	$staticExitIndex -le $staticPostGateIndex) {
+	throw 'StaticOnly must recheck the clean source state before returning PARTIAL.'
+}
+$unrealDiagnosticGuardCount = [regex]::Matches(
+	$releaseValidationScript,
+	[regex]::Escape('Assert-NoUnexpectedUnrealDiagnostics')).Count
+if ($unrealDiagnosticGuardCount -lt 4) {
+	throw (
+		'Unreal diagnostic guard must cover its definition, release A/B logs, ' +
+		'persistence case logs, and Map Check.')
+}
 foreach ($requiredPersistenceIntegrationInvariant in @(
 	"'persistence_spikes'",
 	'Run-Rebirth-PersistenceSpikes.ps1',
@@ -1015,7 +1170,9 @@ foreach ($requiredPersistenceIntegrationInvariant in @(
 	}
 }
 foreach ($requiredPersistenceHarnessInvariant in @(
+	'[ValidateRange(30, 1800)]',
 	'Start-Process',
+	'-WindowStyle Hidden',
 	'"-UserDir=$userDirectory"',
 	'"-IGRebirthPersistenceProbe=$Mode"',
 	"'P3Write'",
@@ -1091,7 +1248,9 @@ foreach ($requiredReleaseProcedureInvariant in @(
 	'클린 VM 스냅샷 또는 별도 물리 PC',
 	'Windows 사용자 계정 실행은 사전 점검',
 	'`SAVE_COMPATIBILITY.md`',
-	'`PERFORMANCE.md`'
+	'`PERFORMANCE.md`',
+	'성능 측정은 G6의 Shipping 후보에서만 승인하며',
+	'G3 합격 조건에 포함하지'
 )) {
 	if (-not $releaseValidationProcedure.Contains(
 		$requiredReleaseProcedureInvariant)) {
@@ -1100,6 +1259,8 @@ foreach ($requiredReleaseProcedureInvariant in @(
 }
 foreach ($requiredPerformanceInvariant in @(
 	'문서 버전: `Windows-v1`',
+	'G3·G5를',
+	'G6 성능 항목',
 	'Intel Core i5-8400 또는 AMD Ryzen 5 2600',
 	'Intel Core i5-12400 또는 AMD Ryzen 5 5600',
 	'Windows 11 Home/Pro 25H2',
@@ -1311,5 +1472,13 @@ $narrativeContractScript = Join-Path $projectRoot `
 $routeMatrixScript = Join-Path $projectRoot `
 	'Scripts/Test-Rebirth-RouteMatrix.ps1'
 & $routeMatrixScript
+
+$itemContinuityContractScript = Join-Path $projectRoot `
+	'Scripts/Test-Rebirth-ItemContinuityContract.ps1'
+& $itemContinuityContractScript
+
+$artAssetContractScript = Join-Path $projectRoot `
+	'Scripts/Test-ArtAssetContract.ps1'
+& $artAssetContractScript
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

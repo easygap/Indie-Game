@@ -1,0 +1,170 @@
+"""Generate conservative PBR companion maps from the approved AI material scans.
+
+This is an offline source-art step.  It deliberately keeps the generated bitmap as
+BaseColor and derives only low-amplitude surface information from it; hero geometry,
+silhouette, collision, and shadows remain the responsibility of the 3D mesh.
+"""
+
+from __future__ import annotations
+
+import argparse
+import math
+from dataclasses import dataclass
+from pathlib import Path
+
+from PIL import Image, ImageFilter, ImageOps, ImageStat
+
+
+@dataclass(frozen=True)
+class SurfaceSpec:
+    stem: str
+    roughness: float
+    roughness_min: float
+    roughness_max: float
+    normal_strength: float
+    rough_detail: float = 0.22
+    ao_depth: float = 1.35
+    wetness: float = 0.0
+    metallic: bool = False
+
+
+SURFACES = (
+    SurfaceSpec("T_WetHoodie", 0.67, 0.48, 0.84, 0.52, wetness=0.92),
+    SurfaceSpec("T_AlleyCatTabby", 0.83, 0.68, 0.94, 0.34, rough_detail=0.14),
+    SurfaceSpec("T_WaterTankGalvanized", 0.46, 0.25, 0.68, 0.78, wetness=0.72, metallic=True),
+    SurfaceSpec("T_WetServiceHose", 0.61, 0.42, 0.76, 0.66, wetness=0.88),
+    SurfaceSpec("T_WetRungPad", 0.70, 0.50, 0.86, 0.72, wetness=0.82),
+    SurfaceSpec("T_P3CabinetPaintedSteel", 0.64, 0.48, 0.78, 0.58, wetness=0.42),
+    SurfaceSpec("T_CarrierBagFilm", 0.29, 0.18, 0.46, 0.24, rough_detail=0.12),
+    SurfaceSpec("T_TankWaterSurface", 0.12, 0.06, 0.24, 0.86, rough_detail=0.10),
+)
+
+
+def _clamp(value: float, low: float = 0.0, high: float = 1.0) -> float:
+    return min(high, max(low, value))
+
+
+def _save_l(path: Path, values: bytearray, size: tuple[int, int]) -> None:
+    Image.frombytes("L", size, bytes(values)).save(path, optimize=True)
+
+
+def _generate(spec: SurfaceSpec, source_root: Path, force: bool) -> list[Path]:
+    base_path = source_root / f"{spec.stem}_D.png"
+    if not base_path.exists():
+        raise FileNotFoundError(f"BaseColor source is missing: {base_path}")
+
+    outputs = {
+        "N": source_root / f"{spec.stem}_N.png",
+        "R": source_root / f"{spec.stem}_R.png",
+        "A": source_root / f"{spec.stem}_A.png",
+    }
+    if spec.wetness > 0.0:
+        outputs["W"] = source_root / f"{spec.stem}_W.png"
+    if spec.metallic:
+        outputs["M"] = source_root / f"{spec.stem}_M.png"
+
+    if not force and all(path.exists() and path.stat().st_mtime >= base_path.stat().st_mtime for path in outputs.values()):
+        print(f"[PBR] up-to-date: {spec.stem}")
+        return list(outputs.values())
+
+    base = Image.open(base_path).convert("RGB")
+    gray = base.convert("L")
+    width, height = gray.size
+    pixels = gray.tobytes()
+    rgb = base.tobytes()
+    local_blur = gray.filter(ImageFilter.GaussianBlur(radius=3.0)).tobytes()
+    broad_blur = gray.filter(ImageFilter.GaussianBlur(radius=18.0)).tobytes()
+    mean_luma = ImageStat.Stat(gray).mean[0]
+
+    normal = bytearray(width * height * 3)
+    roughness = bytearray(width * height)
+    occlusion = bytearray(width * height)
+    wetness = bytearray(width * height) if spec.wetness > 0.0 else None
+    metalness = bytearray(width * height) if spec.metallic else None
+
+    for y in range(height):
+        y_up = (y - 1) % height
+        y_down = (y + 1) % height
+        row = y * width
+        up_row = y_up * width
+        down_row = y_down * width
+        for x in range(width):
+            x_left = (x - 1) % width
+            x_right = (x + 1) % width
+            index = row + x
+            value = pixels[index]
+
+            dx = (pixels[row + x_right] - pixels[row + x_left]) / 255.0
+            dy = (pixels[down_row + x] - pixels[up_row + x]) / 255.0
+            nx = -dx * spec.normal_strength
+            ny = -dy * spec.normal_strength
+            inv_length = 1.0 / math.sqrt(nx * nx + ny * ny + 1.0)
+            n_index = index * 3
+            normal[n_index] = round((nx * inv_length * 0.5 + 0.5) * 255.0)
+            normal[n_index + 1] = round((ny * inv_length * 0.5 + 0.5) * 255.0)
+            normal[n_index + 2] = round((inv_length * 0.5 + 0.5) * 255.0)
+
+            local_delta = (local_blur[index] - value) / 255.0
+            micro_detail = abs(local_delta)
+            tonal_bias = (127.5 - value) / 255.0
+            rough = spec.roughness + micro_detail * spec.rough_detail + tonal_bias * 0.08
+            roughness[index] = round(_clamp(rough, spec.roughness_min, spec.roughness_max) * 255.0)
+
+            cavity = max(0.0, local_delta)
+            ao = _clamp(1.0 - cavity * spec.ao_depth, 0.58, 1.0)
+            occlusion[index] = round(ao * 255.0)
+
+            if wetness is not None:
+                # Wetness is intentionally low-frequency. Fine weave/rust grain
+                # belongs in N/R and must not become glittering wet speckles.
+                local_value = local_blur[index]
+                broad_cavity = max(0.0, (broad_blur[index] - local_value) / 72.0)
+                low_tone = max(0.0, (mean_luma - local_value) / 255.0)
+                wet = _clamp(broad_cavity * 0.82 + low_tone * 0.38 - 0.035)
+                wetness[index] = round(wet * 255.0)
+
+            if metalness is not None:
+                r = rgb[n_index]
+                g = rgb[n_index + 1]
+                b = rgb[n_index + 2]
+                warm_rust = _clamp(max(0.0, r - g) / 54.0 + max(0.0, g - b) / 92.0)
+                dark_oxide = _clamp((72.0 - value) / 72.0) * 0.24
+                metal = _clamp(0.93 - warm_rust * 0.88 - dark_oxide, 0.03, 0.96)
+                metalness[index] = round(metal * 255.0)
+
+    Image.frombytes("RGB", (width, height), bytes(normal)).save(outputs["N"], optimize=True)
+    _save_l(outputs["R"], roughness, (width, height))
+    _save_l(outputs["A"], occlusion, (width, height))
+    if wetness is not None:
+        wet_image = Image.frombytes("L", (width, height), bytes(wetness)).filter(ImageFilter.GaussianBlur(radius=8.0))
+        wet_image = ImageOps.autocontrast(wet_image, cutoff=(4.0, 1.0))
+        wet_image = wet_image.point(lambda value: round(value * spec.wetness))
+        wet_image.save(outputs["W"], optimize=True)
+    if metalness is not None:
+        _save_l(outputs["M"], metalness, (width, height))
+
+    print(f"[PBR] generated: {spec.stem} ({width}x{height}, maps={','.join(outputs)})")
+    return list(outputs.values())
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Build PBR companion maps for AI material scans")
+    parser.add_argument("--source-root", type=Path, default=Path(__file__).resolve().parents[1] / "Content" / "SourceArt")
+    parser.add_argument("--only", action="append", default=[], help="Surface stem to generate (repeatable)")
+    parser.add_argument("--force", action="store_true")
+    args = parser.parse_args()
+
+    selected = [spec for spec in SURFACES if not args.only or spec.stem in args.only]
+    unknown = sorted(set(args.only) - {spec.stem for spec in SURFACES})
+    if unknown:
+        parser.error(f"Unknown surface stem(s): {', '.join(unknown)}")
+
+    generated: list[Path] = []
+    for spec in selected:
+        generated.extend(_generate(spec, args.source_root.resolve(), args.force))
+    print(f"[PBR] ready: surfaces={len(selected)}, maps={len(generated)}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

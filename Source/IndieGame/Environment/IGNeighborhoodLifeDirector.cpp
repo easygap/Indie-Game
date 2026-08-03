@@ -184,12 +184,17 @@ void AIGNeighborhoodLifeDirector::InitializePools()
 	CubeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
 	SphereMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Sphere.Sphere"));
 	CylinderMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+	AlleyCatMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_AlleyCatRun.SM_AlleyCatRun"));
 	DarkMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_PlasticDark.M_PlasticDark"));
 	MetalMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_MetalUV.M_MetalUV"));
 	LeafMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_Cardboard.M_Cardboard"));
+	AlleyCatMaterial = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_AlleyCatTabbyUV.M_AlleyCatTabbyUV"));
 
 	if (!CubeMesh || !SphereMesh || !CylinderMesh)
 	{
@@ -288,12 +293,13 @@ void AIGNeighborhoodLifeDirector::InitializePools()
 	auto AddCatPart = [this, &ConfigureVisual](
 		const TCHAR* Name,
 		UStaticMesh* Mesh,
+		UMaterialInterface* Material,
 		const FVector& Location,
 		const FVector& Scale,
 		const FRotator& Rotation)
 	{
 		UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this, Name);
-		ConfigureVisual(Part, Mesh, DarkMaterial);
+		ConfigureVisual(Part, Mesh, Material ? Material : DarkMaterial.Get());
 		Part->AttachToComponent(CatTraceRoot, FAttachmentTransformRules::KeepRelativeTransform);
 		Part->SetRelativeLocation(Location);
 		Part->SetRelativeRotation(Rotation);
@@ -302,26 +308,40 @@ void AIGNeighborhoodLifeDirector::InitializePools()
 		CatSilhouetteParts.Add(Part);
 	};
 
-	// A readable cat only in silhouette and only for about a second. Separate
-	// body/head/tail/leg masses avoid the "flattened debug sphere" look while
-	// staying abstract enough that it never presents as a creature encounter.
+	// One coherent static pose is enough for the brief peripheral pass. It
+	// carries the story bible's mackerel-tabby identity without adding a
+	// skeletal animation pipeline. Engine primitives remain a playable fallback
+	// until the generated mesh has been baked in UE.
+	if (AlleyCatMesh)
+	{
+		AddCatPart(
+			TEXT("AlleyCatRun"),
+			AlleyCatMesh,
+			AlleyCatMaterial,
+			FVector::ZeroVector,
+			FVector::OneVector,
+			FRotator::ZeroRotator);
+		bPoolsInitialized = true;
+		return;
+	}
+
 	AddCatPart(
-		TEXT("CatBody"), SphereMesh, FVector(0, 0, 18),
+		TEXT("CatBody"), SphereMesh, DarkMaterial, FVector(0, 0, 18),
 		FVector(0.42f, 0.14f, 0.14f), FRotator::ZeroRotator);
 	AddCatPart(
-		TEXT("CatHead"), SphereMesh, FVector(26, 0, 22),
+		TEXT("CatHead"), SphereMesh, DarkMaterial, FVector(26, 0, 22),
 		FVector(0.15f, 0.12f, 0.13f), FRotator::ZeroRotator);
 	AddCatPart(
-		TEXT("CatTail"), CubeMesh, FVector(-31, 0, 23), FVector(0.34f, 0.028f, 0.028f),
+		TEXT("CatTail"), CubeMesh, DarkMaterial, FVector(-31, 0, 23), FVector(0.34f, 0.028f, 0.028f),
 		FRotator(0, -18, 18));
 	AddCatPart(
-		TEXT("CatForeLeg"), CubeMesh, FVector(14, -5, 7), FVector(0.10f, 0.028f, 0.11f),
+		TEXT("CatForeLeg"), CubeMesh, DarkMaterial, FVector(14, -5, 7), FVector(0.10f, 0.028f, 0.11f),
 		FRotator(0, 0, -18));
 	AddCatPart(
-		TEXT("CatHindLeg"), CubeMesh, FVector(-14, 5, 7), FVector(0.11f, 0.028f, 0.10f),
+		TEXT("CatHindLeg"), CubeMesh, DarkMaterial, FVector(-14, 5, 7), FVector(0.11f, 0.028f, 0.10f),
 		FRotator(0, 0, 24));
 	AddCatPart(
-		TEXT("CatFarLeg"), CubeMesh, FVector(-6, -5, 6), FVector(0.09f, 0.025f, 0.09f),
+		TEXT("CatFarLeg"), CubeMesh, DarkMaterial, FVector(-6, -5, 6), FVector(0.09f, 0.025f, 0.09f),
 		FRotator(0, 0, -28));
 
 	bPoolsInitialized = true;

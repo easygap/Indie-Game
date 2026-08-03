@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param(
-	[ValidateRange(30, 600)]
+	[ValidateRange(30, 1800)]
 	[int]$TimeoutSeconds = 180,
 	[string]$EvidenceDirectory
 )
@@ -36,16 +36,17 @@ $editorOutput = @(
 		-NoProfile `
 		-ExecutionPolicy Bypass `
 		-File $resolver `
-		-ProjectPath $projectFile 2>&1
+		-ProjectPath $projectFile `
+		-Commandlet 2>&1
 )
 if ($LASTEXITCODE -ne 0 -or $editorOutput.Count -eq 0) {
 	throw 'Unreal Engine resolution failed.'
 }
-$editor = ([string]$editorOutput[-1]).Trim()
-$editorDirectory = Split-Path -Parent $editor
-$editorCommand = Join-Path $editorDirectory 'UnrealEditor-Cmd.exe'
-if (-not (Test-Path -LiteralPath $editorCommand -PathType Leaf)) {
-	$editorCommand = $editor
+$editorCommand = ([string]$editorOutput[-1]).Trim()
+if (-not $editorCommand.EndsWith(
+		'UnrealEditor-Cmd.exe',
+		[StringComparison]::OrdinalIgnoreCase)) {
+	throw "Headless persistence validation requires UnrealEditor-Cmd.exe: $editorCommand"
 }
 
 function ConvertTo-ProcessArgument {
@@ -82,6 +83,8 @@ function Invoke-PersistenceProbe {
 		'-unattended',
 		'-nosplash',
 		'-nullrhi',
+		'-nosound',
+		'-RenderOffscreen',
 		'-stdout',
 		'-FullStdOutLogOutput',
 		"-abslog=$logPath",
@@ -103,7 +106,7 @@ function Invoke-PersistenceProbe {
 		-FilePath $editorCommand `
 		-ArgumentList $processArguments `
 		-PassThru `
-		-NoNewWindow
+		-WindowStyle Hidden
 	try {
 		if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
 			$process.Kill()

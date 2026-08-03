@@ -14,6 +14,8 @@ class AIGFridge;
 class AIGInspectable;
 class AIGApartmentStoryDressing;
 class AIGChapterOneIncidentDirector;
+class AIGChapterTwoHumanGateDirector;
+class AIGItemContinuityDressing;
 class AIGMorningRoutineDirector;
 class AIGNeighborhoodLifeDirector;
 class AIGPickupItem;
@@ -275,6 +277,7 @@ private:
 	void SpawnInteractables();
 	void SpawnStairTransition();
 	void SpawnChapterTwoInteractables();
+	void SpawnChapterTwoItemContinuityDressing();
 	void AddStaticPurchaseBagProxy(
 		AIGPickupItem* WaterBottle,
 		EIGRebirthPurchaseProfile PurchaseProfile);
@@ -424,6 +427,8 @@ private:
 	UPROPERTY(Transient) TObjectPtr<AIGMorningRoutineDirector> MorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGNeighborhoodLifeDirector> NeighborhoodLifeDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGSecondMorningDirector> SecondMorningDirector;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterTwoHumanGateDirector> ChapterTwoHumanGateDirector;
+	UPROPERTY(Transient) TObjectPtr<AIGItemContinuityDressing> ChapterTwoItemContinuityDressing;
 	UPROPERTY(Transient) TObjectPtr<AIGThirdMorningDirector> ThirdMorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGDemoDirector> DemoDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterOneApartmentExitZone;

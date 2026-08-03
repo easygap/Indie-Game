@@ -153,6 +153,75 @@ DECAL_MATERIALS = {
     "M_SnackPotato":   {"tex_asset": "T_SnackPotato_D", "rough": 0.22},
     "M_SnackSquid":    {"tex_asset": "T_SnackSquid_D", "rough": 0.22},
     "M_SnackCorn":     {"tex_asset": "T_SnackCorn_D", "rough": 0.22},
+    # ImageGen scans are BaseColor inputs on authored geometry, not finished
+    # materials. Companion N/R/A/W/M maps make them respond to flashlight,
+    # Lumen reflections and contact shadowing without baking light into colour.
+    "M_WetHoodieUV": {
+        "tex_asset": "T_WetHoodie_D", "pbr_stem": "T_WetHoodie",
+        "wet_rough": 0.27, "wet_dark": 0.72, "wet_normal_flatten": 0.45,
+        "specular": 0.50,
+    },
+    "M_AlleyCatTabbyUV": {
+        "tex_asset": "T_AlleyCatTabby_D", "pbr_stem": "T_AlleyCatTabby",
+        "specular": 0.32,
+    },
+    "M_WaterTankMetalUV": {
+        "tex_asset": "T_WaterTankGalvanized_D", "pbr_stem": "T_WaterTankGalvanized",
+        "tile_u": 2.0, "metal_map": True, "wet_rough": 0.19,
+        "wet_dark": 0.76, "wet_normal_flatten": 0.28, "specular": 0.50,
+    },
+    "M_WetServiceHoseUV": {
+        "tex_asset": "T_WetServiceHose_D", "pbr_stem": "T_WetServiceHose",
+        "tile_u": 6.0, "wet_rough": 0.22, "wet_dark": 0.68,
+        "wet_normal_flatten": 0.52, "specular": 0.55,
+    },
+    "M_WetRungPadUV": {
+        "tex_asset": "T_WetRungPad_D", "pbr_stem": "T_WetRungPad",
+        "tile_u": 2.0, "wet_rough": 0.24, "wet_dark": 0.72,
+        "wet_normal_flatten": 0.45, "specular": 0.52,
+    },
+    "M_P3CabinetMetalUV": {
+        "tex_asset": "T_P3CabinetPaintedSteel_D", "pbr_stem": "T_P3CabinetPaintedSteel",
+        "tile_u": 2.2, "wet_rough": 0.38, "wet_dark": 0.84,
+        "wet_normal_flatten": 0.22, "specular": 0.50,
+    },
+}
+
+# ImageGen source is split by Prepare-AIArt.ps1. Evidence sheets remain
+# grayscale value masks so one texture controls the irregular wet edge; the
+# surface overlays carry authored colour plus a keyed alpha channel.
+EVIDENCE_MASK_MATERIALS = {
+    "M_EvidenceSlipperTrail": {
+        "tex_asset": "T_EvidenceSlipperTrail_M", "rough": 0.10,
+        "color": (0.025, 0.034, 0.038), "mask_gain": 4.0,
+    },
+    "M_EvidenceCatPawTrail": {
+        "tex_asset": "T_EvidenceCatPawTrail_M", "rough": 0.08,
+        "color": (0.023, 0.032, 0.036), "mask_gain": 4.4,
+    },
+    "M_EvidenceHoseDrag": {
+        "tex_asset": "T_EvidenceHoseDrag_M", "rough": 0.09,
+        "color": (0.026, 0.035, 0.039), "mask_gain": 4.2,
+    },
+    "M_EvidenceHandSmear": {
+        "tex_asset": "T_EvidenceHandSmear_M", "rough": 0.07,
+        "color": (0.021, 0.030, 0.034), "mask_gain": 4.0,
+    },
+}
+
+SURFACE_OVERLAY_MATERIALS = {
+    "M_DecalDampWallpaper": {
+        "tex_asset": "T_DecalDampWallpaper_D", "rough": 0.78,
+    },
+    "M_DecalRustFasteners": {
+        "tex_asset": "T_DecalRustFasteners_D", "rough": 0.66,
+    },
+    "M_DecalMineralScale": {
+        "tex_asset": "T_DecalMineralScale_D", "rough": 0.84,
+    },
+    "M_DecalRainGrime": {
+        "tex_asset": "T_DecalRainGrime_D", "rough": 0.80,
+    },
 }
 
 # Emissive signage: the texture *is* the light source.
@@ -430,14 +499,17 @@ def create_flat_texture_materials(
                 dark, "", unreal.MaterialProperty.MP_BASE_COLOR
             )
         else:
-            unreal.MaterialEditingLibrary.connect_material_property(
-                sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
-            )
-            rough_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 340)
-            rough_constant.set_editor_property("r", spec.get("rough", 0.6))
-            unreal.MaterialEditingLibrary.connect_material_property(
-                rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
-            )
+            if spec.get("pbr_stem"):
+                _connect_scan_pbr(material, sample, uv, spec)
+            else:
+                unreal.MaterialEditingLibrary.connect_material_property(
+                    sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
+                )
+                rough_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 340)
+                rough_constant.set_editor_property("r", spec.get("rough", 0.6))
+                unreal.MaterialEditingLibrary.connect_material_property(
+                    rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
+                )
 
         if emissive_scale > 0.0:
             scale_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 500)
@@ -464,6 +536,353 @@ def create_flat_texture_materials(
             + ", ".join(skipped)
         )
     return created
+
+
+def create_masked_texture_materials(assets, tools, specs, mask_only):
+    """Builds two-sided plane overlays without translucent sorting.
+
+    Evidence masks use R as opacity and a physically wet constant surface.
+    Chroma-keyed environmental overlays use RGB for colour and A for opacity.
+    The planes sit a few millimetres above authored surfaces, so masked mode
+    avoids the halo/sort failures that are especially visible in flashlight
+    sweeps.
+    """
+    created = []
+    for name, spec in specs.items():
+        source_asset = spec["tex_asset"]
+        if not assets.does_asset_exist(f"{TEXTURE_ROOT}/{source_asset}"):
+            unreal.log_warning(
+                f"[IndieGame] Skipped {name}: missing {source_asset}"
+            )
+            continue
+
+        material = _recreate_material(assets, tools, name)
+        material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_MASKED)
+        material.set_editor_property("two_sided", True)
+        material.set_editor_property("opacity_mask_clip_value", 0.08)
+        texture = _load_texture(source_asset)
+        sample = _sample(
+            material, texture, None,
+            (unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE
+             if mask_only else unreal.MaterialSamplerType.SAMPLERTYPE_COLOR),
+            0,
+        )
+
+        if mask_only:
+            gain = _expr(material, unreal.MaterialExpressionConstant, -760, 180)
+            gain.set_editor_property("r", spec.get("mask_gain", 4.0))
+            amplified = _expr(material, unreal.MaterialExpressionMultiply, -560, 100)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                sample, "R", amplified, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                gain, "", amplified, "B"
+            )
+            opacity = _expr(material, unreal.MaterialExpressionSaturate, -380, 100)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                amplified, "", opacity, ""
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                opacity, "", unreal.MaterialProperty.MP_OPACITY_MASK
+            )
+            color = spec.get("color", (0.025, 0.034, 0.038))
+            base = _expr(material, unreal.MaterialExpressionConstant3Vector, -380, -80)
+            base.set_editor_property(
+                "constant", unreal.LinearColor(color[0], color[1], color[2], 1.0)
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                base, "", unreal.MaterialProperty.MP_BASE_COLOR
+            )
+            specular = _expr(material, unreal.MaterialExpressionConstant, -380, 360)
+            specular.set_editor_property("r", 0.62)
+            unreal.MaterialEditingLibrary.connect_material_property(
+                specular, "", unreal.MaterialProperty.MP_SPECULAR
+            )
+        else:
+            unreal.MaterialEditingLibrary.connect_material_property(
+                sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                sample, "A", unreal.MaterialProperty.MP_OPACITY_MASK
+            )
+
+        roughness = _expr(material, unreal.MaterialExpressionConstant, -180, 300)
+        roughness.set_editor_property("r", spec.get("rough", 0.75))
+        unreal.MaterialEditingLibrary.connect_material_property(
+            roughness, "", unreal.MaterialProperty.MP_ROUGHNESS
+        )
+        unreal.MaterialEditingLibrary.layout_material_expressions(material)
+        unreal.MaterialEditingLibrary.recompile_material(material)
+        unreal.log(f"[IndieGame] Created masked overlay material: {name}")
+        created.append(material)
+    return created
+
+
+def create_carrier_bag_material(assets, tools):
+    """Thin printed LDPE without an opaque glass-box silhouette.
+
+    The texture supplies wrinkles and fictional pale-blue print. Opacity stays
+    in a narrow physical range, so the selected bottle count remains visible
+    in every purchase profile and at the CH03 accident reconstruction.
+    """
+    source_asset = "T_CarrierBagFilm_D"
+    if not assets.does_asset_exist(f"{TEXTURE_ROOT}/{source_asset}"):
+        unreal.log_warning(
+            f"[IndieGame] Skipped M_CarrierBagFilm: missing {source_asset}"
+        )
+        return None
+
+    material = _recreate_material(assets, tools, "M_CarrierBagFilm")
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    material.set_editor_property("two_sided", True)
+    sample = _sample(
+        material,
+        _load_texture(source_asset),
+        None,
+        unreal.MaterialSamplerType.SAMPLERTYPE_COLOR,
+        0,
+    )
+    _connect_scan_pbr(
+        material,
+        sample,
+        None,
+        {
+            "pbr_stem": "T_CarrierBagFilm",
+            "specular": 0.52,
+        },
+    )
+
+    opacity_scale = _expr(material, unreal.MaterialExpressionConstant, -620, 220)
+    opacity_scale.set_editor_property("r", 0.24)
+    opacity_detail = _expr(material, unreal.MaterialExpressionMultiply, -420, 160)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        sample, "R", opacity_detail, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        opacity_scale, "", opacity_detail, "B"
+    )
+    opacity_floor = _expr(material, unreal.MaterialExpressionConstant, -420, 300)
+    opacity_floor.set_editor_property("r", 0.11)
+    opacity = _expr(material, unreal.MaterialExpressionAdd, -220, 210)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        opacity_detail, "", opacity, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        opacity_floor, "", opacity, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        opacity, "", unreal.MaterialProperty.MP_OPACITY
+    )
+
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    unreal.log("[IndieGame] Created translucent carrier bag: M_CarrierBagFilm")
+    return material
+
+
+def _connect_scan_pbr(material, base_sample, uv, spec):
+    """Connect a generated scan as a complete, flashlight-reactive PBR surface."""
+    stem = spec["pbr_stem"]
+    wet_sample = None
+    if "wet_rough" in spec:
+        wet_sample = _sample(
+            material,
+            _load_texture(f"{stem}_W"),
+            uv,
+            unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+            620,
+        )
+        wet_dark = _expr(material, unreal.MaterialExpressionConstant, -420, 700)
+        wet_dark.set_editor_property("r", spec.get("wet_dark", 0.75))
+        darkened = _expr(material, unreal.MaterialExpressionMultiply, -220, 80)
+        unreal.MaterialEditingLibrary.connect_material_expressions(base_sample, "RGB", darkened, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(wet_dark, "", darkened, "B")
+        wet_base = _expr(material, unreal.MaterialExpressionLinearInterpolate, 0, 20)
+        unreal.MaterialEditingLibrary.connect_material_expressions(base_sample, "RGB", wet_base, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(darkened, "", wet_base, "B")
+        unreal.MaterialEditingLibrary.connect_material_expressions(wet_sample, "R", wet_base, "Alpha")
+        unreal.MaterialEditingLibrary.connect_material_property(
+            wet_base, "", unreal.MaterialProperty.MP_BASE_COLOR
+        )
+    else:
+        unreal.MaterialEditingLibrary.connect_material_property(
+            base_sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
+        )
+
+    normal_sample = _sample(
+        material,
+        _load_texture(f"{stem}_N"),
+        uv,
+        unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+        180,
+    )
+    normal_output = normal_sample
+    normal_output_pin = "RGB"
+    if wet_sample is not None and spec.get("wet_normal_flatten", 0.0) > 0.0:
+        flatten_scale = _expr(material, unreal.MaterialExpressionConstant, -420, 820)
+        flatten_scale.set_editor_property("r", spec["wet_normal_flatten"])
+        flatten_alpha = _expr(material, unreal.MaterialExpressionMultiply, -220, 760)
+        unreal.MaterialEditingLibrary.connect_material_expressions(wet_sample, "R", flatten_alpha, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(flatten_scale, "", flatten_alpha, "B")
+        flat_normal = _expr(material, unreal.MaterialExpressionConstant3Vector, -220, 900)
+        flat_normal.set_editor_property("constant", unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
+        flattened = _expr(material, unreal.MaterialExpressionLinearInterpolate, 0, 220)
+        unreal.MaterialEditingLibrary.connect_material_expressions(normal_sample, "RGB", flattened, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(flat_normal, "", flattened, "B")
+        unreal.MaterialEditingLibrary.connect_material_expressions(flatten_alpha, "", flattened, "Alpha")
+        normal_output = flattened
+        normal_output_pin = ""
+    unreal.MaterialEditingLibrary.connect_material_property(
+        normal_output, normal_output_pin, unreal.MaterialProperty.MP_NORMAL
+    )
+
+    rough_sample = _sample(
+        material,
+        _load_texture(f"{stem}_R"),
+        uv,
+        unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+        340,
+    )
+    rough_output = rough_sample
+    rough_output_pin = "R"
+    if wet_sample is not None:
+        wet_rough = _expr(material, unreal.MaterialExpressionConstant, -220, 1040)
+        wet_rough.set_editor_property("r", spec["wet_rough"])
+        rough_lerp = _expr(material, unreal.MaterialExpressionLinearInterpolate, 0, 400)
+        unreal.MaterialEditingLibrary.connect_material_expressions(rough_sample, "R", rough_lerp, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(wet_rough, "", rough_lerp, "B")
+        unreal.MaterialEditingLibrary.connect_material_expressions(wet_sample, "R", rough_lerp, "Alpha")
+        rough_output = rough_lerp
+        rough_output_pin = ""
+    unreal.MaterialEditingLibrary.connect_material_property(
+        rough_output, rough_output_pin, unreal.MaterialProperty.MP_ROUGHNESS
+    )
+
+    ao_sample = _sample(
+        material,
+        _load_texture(f"{stem}_A"),
+        uv,
+        unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+        500,
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        ao_sample, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION
+    )
+
+    if spec.get("metal_map"):
+        metal_sample = _sample(
+            material,
+            _load_texture(f"{stem}_M"),
+            uv,
+            unreal.MaterialSamplerType.SAMPLERTYPE_MASKS,
+            980,
+        )
+        unreal.MaterialEditingLibrary.connect_material_property(
+            metal_sample, "R", unreal.MaterialProperty.MP_METALLIC
+        )
+
+    specular = _expr(material, unreal.MaterialExpressionConstant, 0, 1120)
+    specular.set_editor_property("r", spec.get("specular", 0.5))
+    unreal.MaterialEditingLibrary.connect_material_property(
+        specular, "", unreal.MaterialProperty.MP_SPECULAR
+    )
+
+
+def create_tank_water_material(assets, tools):
+    """Dark translucent tank water for the final silhouette reveal.
+
+    The source image supplies only low-frequency settling ripples and mineral
+    specks. Runtime opacity and weak per-pixel refraction decide how much of
+    the submerged clothing is readable; no body information is baked in.
+    """
+    source_asset = "T_TankWaterSurface_D"
+    if not assets.does_asset_exist(f"{TEXTURE_ROOT}/{source_asset}"):
+        unreal.log_warning(
+            f"[IndieGame] Skipped M_TankWaterReveal: missing {source_asset}"
+        )
+        return None
+
+    material = _recreate_material(assets, tools, "M_TankWaterReveal")
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    material.set_editor_property("two_sided", True)
+    try:
+        material.set_editor_property(
+            "translucency_lighting_mode",
+            unreal.TranslucencyLightingMode.TLM_SURFACE,
+        )
+    except Exception:  # noqa: BLE001 - enum/property moved between UE minors
+        pass
+
+    sample = _sample(
+        material,
+        _load_texture(source_asset),
+        None,
+        unreal.MaterialSamplerType.SAMPLERTYPE_COLOR,
+        0,
+    )
+    _connect_scan_pbr(
+        material,
+        sample,
+        None,
+        {
+            "pbr_stem": "T_TankWaterSurface",
+            "specular": 0.72,
+        },
+    )
+
+    # About 0.25 opacity at the texture's measured dark range. This keeps the
+    # body unreadable in ambient light but lets the flashlight recover cloth.
+    opacity_gain = _expr(material, unreal.MaterialExpressionConstant, -620, 220)
+    opacity_gain.set_editor_property("r", 0.42)
+    opacity_detail = _expr(material, unreal.MaterialExpressionMultiply, -420, 160)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        sample, "R", opacity_detail, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        opacity_gain, "", opacity_detail, "B"
+    )
+    opacity_floor = _expr(material, unreal.MaterialExpressionConstant, -420, 300)
+    opacity_floor.set_editor_property("r", 0.24)
+    opacity = _expr(material, unreal.MaterialExpressionAdd, -220, 210)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        opacity_detail, "", opacity, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        opacity_floor, "", opacity, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        opacity, "", unreal.MaterialProperty.MP_OPACITY
+    )
+
+    # Spatial IOR variation stays between roughly 1.006 and 1.018 for the
+    # dark source range. It bends the silhouette slightly without turning the
+    # water into a wobbling supernatural lens.
+    refraction_gain = _expr(material, unreal.MaterialExpressionConstant, -620, 650)
+    refraction_gain.set_editor_property("r", 0.09)
+    refraction_detail = _expr(material, unreal.MaterialExpressionMultiply, -420, 630)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        sample, "R", refraction_detail, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        refraction_gain, "", refraction_detail, "B"
+    )
+    refraction_floor = _expr(material, unreal.MaterialExpressionConstant, -420, 760)
+    refraction_floor.set_editor_property("r", 1.006)
+    refraction = _expr(material, unreal.MaterialExpressionAdd, -220, 690)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        refraction_detail, "", refraction, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        refraction_floor, "", refraction, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        refraction, "", unreal.MaterialProperty.MP_REFRACTION
+    )
+
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    unreal.log("[IndieGame] Created tank reveal water: M_TankWaterReveal")
+    return material
 
 
 def create_wet_asphalt(assets, tools):
@@ -686,6 +1105,18 @@ def run():
     created += create_textured_materials(assets, tools)
     created += create_flat_texture_materials(assets, tools, DECAL_MATERIALS, False)
     created += create_flat_texture_materials(assets, tools, SIGN_MATERIALS, True)
+    created += create_masked_texture_materials(
+        assets, tools, EVIDENCE_MASK_MATERIALS, True
+    )
+    created += create_masked_texture_materials(
+        assets, tools, SURFACE_OVERLAY_MATERIALS, False
+    )
+    carrier_bag = create_carrier_bag_material(assets, tools)
+    if carrier_bag is not None:
+        created.append(carrier_bag)
+    tank_water = create_tank_water_material(assets, tools)
+    if tank_water is not None:
+        created.append(tank_water)
     created.append(create_wet_asphalt(assets, tools))
     created.append(create_wet_step(assets, tools))
     created.append(create_sky_material(assets, tools))

@@ -53,6 +53,12 @@ $chapterOneIncident =
 $morningDirector = Read-ProjectText 'Source/IndieGame/Sequence/IGMorningRoutineDirector.cpp'
 $secondMorningDirector =
 	Read-ProjectText 'Source/IndieGame/Sequence/IGSecondMorningDirector.cpp'
+$humanGateHeader =
+	Read-ProjectText 'Source/IndieGame/Sequence/IGChapterTwoHumanGateDirector.h'
+$humanGateDirector =
+	Read-ProjectText 'Source/IndieGame/Sequence/IGChapterTwoHumanGateDirector.cpp'
+$apartmentDressingHeader =
+	Read-ProjectText 'Source/IndieGame/Narrative/IGApartmentStoryDressing.h'
 $pickup = Read-ProjectText 'Source/IndieGame/Interaction/IGPickupItem.cpp'
 $elevatorHeader =
 	Read-ProjectText 'Source/IndieGame/Interaction/IGElevator.h'
@@ -500,6 +506,63 @@ Assert-Contract ($secondMorningDirector.Contains('Truth.Alarm0510') -and
 	-not $chapterTwoReturnZone.Contains('FVector(643, -360, 110)') -and
 	$worldScene.Contains('SetInteractionEnabled(false)')) `
 	'CH02 must converge through optional alarm, overlay, and search truths without a live repurchase gate.'
+
+$humanGateTags = @(
+	'State.CH02.HumanGate.Unlocked',
+	'State.CH02.HumanGate.PhoneAttempted',
+	'State.CH02.HumanGate.Phone.Mother',
+	'State.CH02.HumanGate.Phone.Emergency112',
+	'State.CH02.HumanGate.Phone.PatrolManager',
+	'State.CH02.HumanGate.AlarmFirstTonePlayed',
+	'State.CH02.HumanGate.Doorbell401Attempted',
+	'State.CH02.HumanGate.Doorbell402Attempted',
+	'State.CH02.HumanGate.HelpAttempted',
+	'State.CH02.HumanGate.LobbyWitnessed',
+	'State.CH02.HumanGate.StoreMotive'
+)
+foreach ($humanGateTag in $humanGateTags) {
+	Assert-Contract ($gameplayTags.Contains("Tag=`"$humanGateTag`"")) `
+		"CH02 human-gate tag '$humanGateTag' is missing."
+}
+$phoneChoiceBlock = Get-BlockBetween $humanGateDirector `
+	'case EIGChapterTwoHumanCheckAction::PhoneMother:' `
+	'case EIGChapterTwoHumanCheckAction::Doorbell401:'
+Assert-Contract (
+	$humanGateHeader.Contains('EIGChapterTwoHumanCheckAction') -and
+	$humanGateDirector.Contains('"PhoneMotherPrompt", "엄마에게 전화하기"') -and
+	$humanGateDirector.Contains('"Phone112Prompt", "112에 전화하기"') -and
+	$humanGateDirector.Contains(
+		'"PhoneManagerPrompt",') -and
+	$humanGateDirector.Contains('"순회 관리인에게 전화하기"') -and
+	$phoneChoiceBlock.Contains('HasState(PhoneAttemptedTag)') -and
+	$phoneChoiceBlock.Contains('PlayAlarmFirstToneOnce();') -and
+	$phoneChoiceBlock.Contains('"PhoneConnectionFailed"') -and
+	$phoneChoiceBlock.Contains('"통화 연결 불가."') -and
+	$humanGateDirector.Contains('AlarmFirstTonePlayCount == 1') -and
+	$humanGateDirector.Contains('voice=0') -and
+	$humanGateDirector.Contains('Stop401Radio();') -and
+	$humanGateDirector.Contains(
+		'"라디오가 멎었다. 문은 열리지 않는다."') -and
+	$humanGateDirector.Contains('Set402IndicatorLit(true);') -and
+	$humanGateDirector.Contains('"야간 근무 중. 표시등만 켜졌다."') -and
+	$humanGateDirector.Contains('bNoHelpBeforeLobby') -and
+	$humanGateDirector.Contains('bDirectLobbyConverged') -and
+	$humanGateDirector.Contains('"편의점엔… 사람 있겠지."') -and
+	$humanGateDirector.Contains('RequestCheckpointAutosave();') -and
+	$saveGame.Contains('FGameplayTagContainer StoryStateTags') -and
+	$saveSubsystem.Contains(
+		'Snapshot->Progress.StoryStateTags = StoryState->GetStateSnapshot()') -and
+	$secondMorningDirector.Contains('"연락할 사람을 찾아보자"') -and
+	$secondMorningDirector.Contains('"불 켜진 편의점에서 사람을 찾자"') -and
+	$secondMorningDirector.Contains(
+		'HumanGateDirector->RunRebirthEndToEndValidation()') -and
+	$worldScene.Contains(
+		'SpawnActorDeferred<AIGChapterTwoHumanGateDirector>') -and
+	$worldScene.Contains(
+		'static_cast<AActor*>(ChapterTwoHumanGateDirector.Get())') -and
+	$apartmentDressingHeader.Contains('GetPhoneInspectable()') -and
+	$humanGateDirector.Contains('REBIRTH_E2E PASS s6_human_gate')) `
+	'CH02 S6 must offer optional phone/401/402 human checks, persist every one-shot response, and converge direct-lobby or help routes on the lit-store motive.'
 $chapterTwoOverlay = Get-BlockBetween $worldScene `
 	'void AIGPrologueWorldScene::BuildChapterTwoOverlay()' `
 	'void AIGPrologueWorldScene::SetChapterTwoOverlayVisible('

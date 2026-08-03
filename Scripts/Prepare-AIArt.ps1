@@ -12,7 +12,9 @@
 # the whole folder without caring which tool made which file.
 
 [CmdletBinding()]
-param()
+param(
+    [string[]]$OnlySource = @()
+)
 
 $ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.Drawing
@@ -167,7 +169,96 @@ $plan = @(
         Source = 'SheetPaperNotes_v2'; Target = 'T_PaperOld_V2_D.png'
         Crop = @(0.588, 0.522, 0.323, 0.453); Size = @(512, 724)
     }
+    # P5 forensic reads. The source is intentionally a black-backed value
+    # atlas; each crop remains grayscale so the material can use one channel
+    # for both opacity breakup and wetness variation.
+    [pscustomobject]@{
+        Source = 'SheetHorrorEvidenceMasks'; Target = 'T_EvidenceSlipperTrail_M.png'
+        Crop = @(0.000, 0.000, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'Mask'
+    }
+    [pscustomobject]@{
+        Source = 'SheetHorrorEvidenceMasks'; Target = 'T_EvidenceCatPawTrail_M.png'
+        Crop = @(0.500, 0.000, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'Mask'
+    }
+    [pscustomobject]@{
+        Source = 'SheetHorrorEvidenceMasks'; Target = 'T_EvidenceHoseDrag_M.png'
+        Crop = @(0.000, 0.500, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'Mask'
+    }
+    [pscustomobject]@{
+        Source = 'SheetHorrorEvidenceMasks'; Target = 'T_EvidenceHandSmear_M.png'
+        Crop = @(0.500, 0.500, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'Mask'
+    }
+    # Environment overlays arrive on a flat chroma backing. ChromaAlpha
+    # removes only pixels that are decisively key-coloured; rust and damp
+    # browns remain intact instead of being flattened into generic gray dirt.
+    [pscustomobject]@{
+        Source = 'SheetHorrorSurfaceBlends'; Target = 'T_DecalDampWallpaper_D.png'
+        Crop = @(0.000, 0.000, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'ChromaAlpha'
+    }
+    [pscustomobject]@{
+        Source = 'SheetHorrorSurfaceBlends'; Target = 'T_DecalRustFasteners_D.png'
+        Crop = @(0.500, 0.000, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'ChromaAlpha'
+    }
+    [pscustomobject]@{
+        Source = 'SheetHorrorSurfaceBlends'; Target = 'T_DecalMineralScale_D.png'
+        Crop = @(0.000, 0.500, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'ChromaAlpha'
+    }
+    [pscustomobject]@{
+        Source = 'SheetHorrorSurfaceBlends'; Target = 'T_DecalRainGrime_D.png'
+        Crop = @(0.500, 0.500, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'ChromaAlpha'; Desaturate = 0.82
+    }
+    # Standalone ImageGen material scans. They are intentionally kept as
+    # ordinary color textures: roughness and translucency remain authored in
+    # the UE material graph, so baked highlights cannot fight the flashlight.
+    [pscustomobject]@{
+        Source = 'TextureWetHoodieFabric'; Target = 'T_WetHoodie_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureCarrierBagFilm'; Target = 'T_CarrierBagFilm_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureAlleyCatTabby'; Target = 'T_AlleyCatTabby_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureWaterTankGalvanized'; Target = 'T_WaterTankGalvanized_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureWetServiceHoseRubber'; Target = 'T_WetServiceHose_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureWetRungPadRubber'; Target = 'T_WetRungPad_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureTankWaterSurface'; Target = 'T_TankWaterSurface_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureP3CabinetPaintedSteel'; Target = 'T_P3CabinetPaintedSteel_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
 )
+
+if ($OnlySource.Count -gt 0) {
+    $sourceFilter = @{}
+    foreach ($sourceName in $OnlySource) {
+        $sourceFilter[$sourceName] = $true
+    }
+    $plan = @($plan | Where-Object { $sourceFilter.ContainsKey($_.Source) })
+}
 
 $written = 0
 foreach ($entry in $plan) {
@@ -197,7 +288,13 @@ foreach ($entry in $plan) {
 
         # Paint out and rewrite any fine print the generator invented.
         $graphics.TextRenderingHint = 'AntiAliasGridFit'
-        foreach ($patch in $entry.Patches) {
+        $patches = if ($null -ne $entry.PSObject.Properties['Patches']) {
+            @($entry.Patches)
+        }
+        else {
+            @()
+        }
+        foreach ($patch in $patches) {
             $fill = [System.Drawing.ColorTranslator]::FromHtml($patch.Fill)
             $brush = New-Object System.Drawing.SolidBrush($fill)
             $graphics.FillRectangle(
@@ -219,6 +316,77 @@ foreach ($entry in $plan) {
         }
 
         $graphics.Dispose()
+
+        $entryMode = if ($null -ne $entry.PSObject.Properties['Mode']) {
+            [string]$entry.Mode
+        }
+        else {
+            ''
+        }
+        if ($entryMode -eq 'Mask') {
+            for ($y = 0; $y -lt $target.Height; $y++) {
+                for ($x = 0; $x -lt $target.Width; $x++) {
+                    $pixel = $target.GetPixel($x, $y)
+                    $value = [Math]::Max($pixel.R, [Math]::Max($pixel.G, $pixel.B))
+                    $target.SetPixel(
+                        $x,
+                        $y,
+                        [System.Drawing.Color]::FromArgb(255, $value, $value, $value))
+                }
+            }
+        }
+        elseif ($entryMode -eq 'ChromaAlpha') {
+            $desaturate = if (
+                $null -ne $entry.PSObject.Properties['Desaturate']
+            ) {
+                [double]$entry.Desaturate
+            }
+            else {
+                0.0
+            }
+            for ($y = 0; $y -lt $target.Height; $y++) {
+                for ($x = 0; $x -lt $target.Width; $x++) {
+                    $pixel = $target.GetPixel($x, $y)
+                    # Both red and blue rise together in a magenta-backed
+                    # antialiased edge. Rust raises red alone; mildew and
+                    # mineral scale keep RGB much closer together. This
+                    # excess test therefore removes the key fringe without
+                    # punching holes through the actual deposits.
+                    $keyExcess =
+                        [Math]::Min($pixel.R, $pixel.B) - $pixel.G
+                    $isKey =
+                        $keyExcess -gt 18 -and
+                        $pixel.R -gt 110 -and
+                        $pixel.B -gt 110
+                    if ($isKey) {
+                        $target.SetPixel(
+                            $x,
+                            $y,
+                            [System.Drawing.Color]::FromArgb(0, 0, 0, 0))
+                        continue
+                    }
+
+                    $spill = [Math]::Max(0.0, [double]$keyExcess)
+                    $red = [Math]::Max(0.0, [double]$pixel.R - $spill)
+                    $green = [double]$pixel.G
+                    $blue = [Math]::Max(0.0, [double]$pixel.B - $spill)
+                    if ($desaturate -gt 0.0) {
+                        $luma = $red * 0.2126 + $green * 0.7152 + $blue * 0.0722
+                        $red = $red + ($luma - $red) * $desaturate
+                        $green = $green + ($luma - $green) * $desaturate
+                        $blue = $blue + ($luma - $blue) * $desaturate
+                    }
+                    $target.SetPixel(
+                        $x,
+                        $y,
+                        [System.Drawing.Color]::FromArgb(
+                            255,
+                            [int][Math]::Round($red),
+                            [int][Math]::Round($green),
+                            [int][Math]::Round($blue)))
+                }
+            }
+        }
 
         $targetPath = Join-Path $outDir $entry.Target
         $target.Save($targetPath, [System.Drawing.Imaging.ImageFormat]::Png)

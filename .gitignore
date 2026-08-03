@@ -28,6 +28,8 @@ CMakeSettings.json
 compile_commands.json
 
 # Build products and debug artifacts
+__pycache__/
+*.py[cod]
 *.dll
 *.dylib
 *.exe

@@ -105,17 +105,31 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 		TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMeshFinder(
 		TEXT("/Engine/BasicShapes/Cube.Cube"));
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> SleeveMaterialFinder(
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> AuthoredSleeveMeshFinder(
+		TEXT("/Game/Meshes/SM_FirstPersonHoodieSleeve.SM_FirstPersonHoodieSleeve"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> WetSleeveMaterialFinder(
+		TEXT("/Game/Prototype/Materials/M_WetHoodieUV.M_WetHoodieUV"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> SleeveFallbackFinder(
 		TEXT("/Game/Prototype/Materials/M_BeddingUV.M_BeddingUV"));
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> StitchMaterialFinder(
 		TEXT("/Game/Prototype/Materials/M_PlasticDark.M_PlasticDark"));
-	if (CylinderMeshFinder.Succeeded())
+	const bool bHasAuthoredSleeveMesh = AuthoredSleeveMeshFinder.Succeeded();
+	if (bHasAuthoredSleeveMesh)
+	{
+		OutfitSleeveProxy->SetStaticMesh(AuthoredSleeveMeshFinder.Object);
+		OutfitSleeveProxy->SetRelativeScale3D(FVector::OneVector);
+	}
+	else if (CylinderMeshFinder.Succeeded())
 	{
 		OutfitSleeveProxy->SetStaticMesh(CylinderMeshFinder.Object);
 	}
-	if (SleeveMaterialFinder.Succeeded())
+	if (WetSleeveMaterialFinder.Succeeded())
 	{
-		OutfitSleeveProxy->SetMaterial(0, SleeveMaterialFinder.Object);
+		OutfitSleeveProxy->SetMaterial(0, WetSleeveMaterialFinder.Object);
+	}
+	else if (SleeveFallbackFinder.Succeeded())
+	{
+		OutfitSleeveProxy->SetMaterial(0, SleeveFallbackFinder.Object);
 	}
 
 	for (int32 StitchIndex = 0; StitchIndex < 3; ++StitchIndex)
@@ -131,10 +145,24 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 		Stitch->SetGenerateOverlapEvents(false);
 		Stitch->SetCanEverAffectNavigation(false);
 		Stitch->SetCastShadow(false);
-		Stitch->SetRelativeLocation(
-			FVector(-10.0f, -52.0f, -12.0f + StitchIndex * 12.0f));
-		Stitch->SetRelativeRotation(FRotator(0.0f, 0.0f, 18.0f));
-		Stitch->SetRelativeScale3D(FVector(0.16f, 0.045f, 0.012f));
+		if (bHasAuthoredSleeveMesh)
+		{
+			// Three 12 mm black bar stitches cross the inner seam about 6 cm
+			// above the cuff. Real-centimetre sleeve geometry uses unit scale.
+			Stitch->SetRelativeLocation(
+				FVector(1.0f, -5.75f, -7.0f + StitchIndex * 1.4f));
+			Stitch->SetRelativeRotation(FRotator::ZeroRotator);
+			Stitch->SetRelativeScale3D(FVector(0.012f, 0.003f, 0.0025f));
+		}
+		else
+		{
+			// Preserve the release-safe cylinder proxy and its parent-scaled
+			// stitch placement until the authored mesh has been baked.
+			Stitch->SetRelativeLocation(
+				FVector(-10.0f, -52.0f, -12.0f + StitchIndex * 12.0f));
+			Stitch->SetRelativeRotation(FRotator(0.0f, 0.0f, 18.0f));
+			Stitch->SetRelativeScale3D(FVector(0.16f, 0.045f, 0.012f));
+		}
 		Stitch->SetHiddenInGame(true);
 		if (CubeMeshFinder.Succeeded())
 		{

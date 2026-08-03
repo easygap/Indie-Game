@@ -45,6 +45,7 @@
 #include "ShaderCompiler.h"
 #include "TimerManager.h"
 #include "UObject/UObjectGlobals.h"
+#include "Validation/IGRebirthEvidenceSubsystem.h"
 
 namespace IGThirdMorning
 {
@@ -53,13 +54,38 @@ namespace IGThirdMorning
 	constexpr float DefaultWalkSpeed = 300.0f;
 	constexpr float FloodWalkSpeed = 225.0f;
 	constexpr float RoofFloorZ = 240.0f;
-	const FVector RoofDoorLatchedLocation(1662.0f, -400.0f, 366.0f);
-	const FRotator RoofDoorLatchedRotation = FRotator::ZeroRotator;
-	const FVector RoofDoorPulledLocation(1604.0f, -458.0f, 366.0f);
+	constexpr float RoofDoorLeafWidth = 116.0f;
+	constexpr float RoofDoorFreeEdgeGap = 11.0f;
+	constexpr float RoofDoorLatchedAngleDegrees = 5.441396f;
+	const FVector RoofDoorClosedLocation(1662.0f, -400.0f, 356.5f);
+	const FVector RoofDoorClosedFreeEdgeLocation(1662.0f, -342.0f, 356.5f);
+	const FVector RoofDoorLatchedLocation(1656.5f, -400.26136f, 356.5f);
+	const FRotator RoofDoorLatchedRotation(
+		0.0f,
+		RoofDoorLatchedAngleDegrees,
+		0.0f);
+	const FVector RoofDoorPulledLocation(1604.0f, -458.0f, 356.5f);
 	const FRotator RoofDoorPulledRotation(0.0f, 90.0f, 0.0f);
 	constexpr float RoofDoorHoldSeconds = 2.4f;
 	constexpr float RoofDoorReturnSeconds = 0.18f;
 	const FVector TankCenter(2500.0f, -300.0f, 0.0f);
+	const FVector TankHatchOffset(-96.0f, 0.0f, 0.0f);
+	const FVector TankLidOpenOffset(36.9f, 0.0f, 49.5f);
+	constexpr float TankShellBottomZ = 340.0f;
+	constexpr float TankShellCenterZ = 470.0f;
+	constexpr float TankInternalFloorZ = 381.0f;
+	constexpr float TankDeckUndersideZ = 596.0f;
+	constexpr float TankWaterSurfaceZ = 561.0f;
+	constexpr float TankBodyPlacementAdjustmentZ = -16.0f;
+	static_assert(
+		TankDeckUndersideZ - TankInternalFloorZ == 215.0f,
+		"Tank internal height must remain 2.15 m");
+	static_assert(
+		TankWaterSurfaceZ - TankInternalFloorZ == 180.0f,
+		"Tank residual water depth must remain 1.80 m");
+	static_assert(
+		TankDeckUndersideZ - TankWaterSurfaceZ == 35.0f,
+		"Tank water surface must remain 35 cm below the hatch underside");
 
 	UMaterialInterface* LoadMaterial(const TCHAR* AssetPath)
 	{
@@ -852,6 +878,10 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 			Action->SetInteractionPrompt(
 				NSLOCTEXT("IGCH03", "P3RestoredValveClosed", "잠김"));
 			Action->SetInteractionEnabled(false);
+			if (UStaticMeshComponent* Wheel = Action->GetPresentationMesh())
+			{
+				Wheel->SetRelativeRotation(FRotator(0, 45, 0));
+			}
 		}
 	};
 	if (bP3DirectClosed)
@@ -867,6 +897,11 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 		P3PressureReleaseAction->SetInteractionPrompt(
 			NSLOCTEXT("IGCH03", "P3RestoredBleedOpen", "압력 해제 열림"));
 		P3PressureReleaseAction->SetInteractionEnabled(false);
+		if (UStaticMeshComponent* Wheel =
+			P3PressureReleaseAction->GetPresentationMesh())
+		{
+			Wheel->SetRelativeRotation(FRotator(0, 45, 0));
+		}
 	}
 	if (P3PressureText)
 	{
@@ -877,7 +912,7 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 	{
 		const float Alpha = 1.0f - P3PressureKPa / 60.0f;
 		P3PressureNeedle->SetRelativeRotation(
-			FRotator(0, 0, FMath::Lerp(-55.0f, 55.0f, Alpha)));
+			FRotator(FMath::Lerp(-55.0f, 55.0f, Alpha), 0, 0));
 	}
 	if (P3BleedWaterVisual)
 	{
@@ -888,7 +923,7 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 			0.08f,
 			1.0f);
 		P3BleedWaterVisual->SetRelativeScale3D(
-			FVector(0.62f * FlowScale, 0.038f, 0.038f));
+			FVector(0.026f, 0.026f, 0.40f * FlowScale));
 	}
 	if (bP3PressureZero && P3FloorDrainAction)
 	{
@@ -897,6 +932,14 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 				? NSLOCTEXT("IGCH03", "P3RestoredDrainOpen", "바닥 배수 열림")
 				: NSLOCTEXT("IGCH03", "P3RestoredDrainReady", "0 확인 후 바닥 배수 열기"));
 		P3FloorDrainAction->SetInteractionEnabled(!bP3Solved);
+		if (bP3Solved)
+		{
+			if (UStaticMeshComponent* Wheel =
+				P3FloorDrainAction->GetPresentationMesh())
+			{
+				Wheel->SetRelativeRotation(FRotator(0, 45, 0));
+			}
+		}
 	}
 	if (bP3PressureReleaseOpen && !bP3PressureZero && !bP3Solved)
 	{
@@ -946,7 +989,13 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 	{
 		if (TankLidAction)
 		{
-			TankLidAction->SetActorHiddenInGame(true);
+			TankLidAction->SetActorHiddenInGame(false);
+			TankLidAction->SetActorLocation(ToWorld(
+				IGThirdMorning::TankCenter
+				+ IGThirdMorning::TankHatchOffset
+				+ IGThirdMorning::TankLidOpenOffset
+				+ FVector(0, 0, 610)));
+			TankLidAction->SetActorRotation(FRotator(-78, 0, 0));
 			TankLidAction->SetInteractionEnabled(false);
 			TankLidAction->SetActorEnableCollision(false);
 		}
@@ -1026,6 +1075,30 @@ void AIGThirdMorningDirector::ApplyRoofDoorState(
 	}
 }
 
+float AIGThirdMorningDirector::MeasureRoofDoorFreeEdgeGap() const
+{
+	if (!RoofDoorAction)
+	{
+		return -1.0f;
+	}
+
+	// The story's 11 cm is the horizontal slit at the latch/free edge.  It is
+	// not floor clearance under the whole leaf.  Both the authored mesh and
+	// cube fallback are centred on the actor, so the same local free-edge point
+	// remains authoritative in every build.
+	const FVector CurrentFreeEdge =
+		RoofDoorAction->GetActorTransform().TransformPosition(
+			FVector(0.0f, IGThirdMorning::RoofDoorLeafWidth * 0.5f, 0.0f));
+	const FVector ClosedFreeEdge =
+		ToWorld(IGThirdMorning::RoofDoorClosedFreeEdgeLocation);
+	const FVector ClosedDoorNormal =
+		GetActorTransform().TransformVectorNoScale(FVector::ForwardVector)
+		.GetSafeNormal();
+	return FMath::Abs(FVector::DotProduct(
+		CurrentFreeEdge - ClosedFreeEdge,
+		ClosedDoorNormal));
+}
+
 void AIGThirdMorningDirector::BeginRoofDoorReturn()
 {
 	if (!GetWorld() || RoofDoorState != EIGRoofDoorState::PulledOpen)
@@ -1071,7 +1144,9 @@ bool AIGThirdMorningDirector::IsRoofDoorReturnClear() const
 	QueryParams.AddIgnoredActor(RoofDoorAction);
 	FCollisionObjectQueryParams ObjectQueryParams;
 	ObjectQueryParams.AddObjectTypesToQuery(ECC_Pawn);
-	const FVector DoorHalfExtent(6.0f, 58.0f, 115.0f);
+	// Include the shallow panel relief and pull handle in the predicted closing
+	// envelope.  The leaf itself is only 45 mm thick.
+	const FVector DoorHalfExtent(8.5f, 60.0f, 117.0f);
 	const FQuat DoorRotation = GetActorTransform().TransformRotation(
 		IGThirdMorning::RoofDoorLatchedRotation.Quaternion());
 	return !World->OverlapAnyTestByObjectType(
@@ -1102,8 +1177,10 @@ void AIGThirdMorningDirector::ApplyCommonDiscoveryWorldState()
 	if (TankLidAction)
 	{
 		TankLidAction->SetActorHiddenInGame(false);
-		TankLidAction->SetActorLocation(
-			ToWorld(IGThirdMorning::TankCenter + FVector(0, 0, 610)));
+		TankLidAction->SetActorLocation(ToWorld(
+			IGThirdMorning::TankCenter
+			+ IGThirdMorning::TankHatchOffset
+			+ FVector(0, 0, 610)));
 		TankLidAction->SetActorRotation(FRotator::ZeroRotator);
 		TankLidAction->SetInteractionEnabled(false);
 		TankLidAction->SetActorEnableCollision(false);
@@ -1165,7 +1242,10 @@ void AIGThirdMorningDirector::PlayRestoreStateSounds()
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateDoorThud(this),
-		ToWorld(IGThirdMorning::TankCenter + FVector(-25, 0, 640)),
+		ToWorld(
+			IGThirdMorning::TankCenter
+			+ IGThirdMorning::TankHatchOffset
+			+ FVector(-25, 0, 640)),
 		0.40f,
 		0.62f,
 		120.0f,
@@ -1182,7 +1262,7 @@ void AIGThirdMorningDirector::PlayRestoreStateSounds()
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateGlassesTinyRing(this),
-		ToWorld(FVector(1880, -250, 250)),
+		ToWorld(FVector(2335, -184, 662)),
 		0.30f,
 		1.0f,
 		60.0f,
@@ -1193,9 +1273,11 @@ void AIGThirdMorningDirector::PlayCommonSafetyOpening()
 {
 	// 2024-07-31 04:00, heard only: the machines are calm, the people are
 	// careful, and the hatch opens the way it always should have.
-	const FVector TankTop =
-		ToWorld(IGThirdMorning::TankCenter + FVector(0, 0, 620));
-	const FVector LadderBase = ToWorld(FVector(2265, -300, 300));
+	const FVector TankTop = ToWorld(
+		IGThirdMorning::TankCenter
+		+ IGThirdMorning::TankHatchOffset
+		+ FVector(0, 0, 620));
+	const FVector LadderBase = ToWorld(FVector(1915, -300, 260));
 	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
 	auto PlayAt = [WeakThis](
 		UIGToneSequenceSoundWave* (*Factory)(UObject*),
@@ -1311,11 +1393,70 @@ void AIGThirdMorningDirector::HandleRebirthTruthChanged(
 void AIGThirdMorningDirector::BuildStage()
 {
 	CubeMesh = IGThirdMorning::LoadMesh(TEXT("/Engine/BasicShapes/Cube.Cube"));
+	PlaneMesh = IGThirdMorning::LoadMesh(TEXT("/Engine/BasicShapes/Plane.Plane"));
 	CylinderMesh = IGThirdMorning::LoadMesh(TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
 	SphereMesh = IGThirdMorning::LoadMesh(TEXT("/Engine/BasicShapes/Sphere.Sphere"));
 	WaterBottleMesh = IGThirdMorning::LoadMesh(TEXT("/Game/Meshes/SM_WaterBottle.SM_WaterBottle"));
 	BottleCapMesh = IGThirdMorning::LoadMesh(TEXT("/Game/Meshes/SM_BottleCap.SM_BottleCap"));
 	LabelSleeveMesh = IGThirdMorning::LoadMesh(TEXT("/Game/Meshes/SM_LabelSleeve.SM_LabelSleeve"));
+	HornRimGlassesMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_HornRimGlasses.SM_HornRimGlasses"));
+	InspectionRodMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_InspectionRod.SM_InspectionRod"));
+	CrackedPhoneMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_CrackedPhone.SM_CrackedPhone"));
+	SubmergedHoodieMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_SubmergedHoodieCurl.SM_SubmergedHoodieCurl"));
+	SubmergedPantsMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_SubmergedPantsCurl.SM_SubmergedPantsCurl"));
+	SubmergedSlippersMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_SubmergedSlippersCurl.SM_SubmergedSlippersCurl"));
+	RooftopWaterTankShellMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_RooftopWaterTankShell.SM_RooftopWaterTankShell"));
+	RooftopTankPipeClusterMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_RooftopTankPipeCluster.SM_RooftopTankPipeCluster"));
+	TankInternalLadderMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_TankInternalLadder.SM_TankInternalLadder"));
+	TankAccessGuardRailMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_TankAccessGuardRail.SM_TankAccessGuardRail"));
+	TankAccessDeckMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_TankAccessDeck.SM_TankAccessDeck"));
+	TankAccessLidMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_TankAccessLid.SM_TankAccessLid"));
+	RooftopServiceHoseMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_RooftopServiceHose.SM_RooftopServiceHose"));
+	HoseCouplingMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_HoseCoupling.SM_HoseCoupling"));
+	CarrierBagCollapsedMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_CarrierBagCollapsed.SM_CarrierBagCollapsed"));
+	RooftopFireDoorLeafMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_RooftopFireDoorLeaf.SM_RooftopFireDoorLeaf"));
+	RooftopFireDoorFrameMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_RooftopFireDoorFrame.SM_RooftopFireDoorFrame"));
+	RooftopUnlockedPadlockKeysMesh = IGThirdMorning::LoadMesh(
+		TEXT(
+			"/Game/Meshes/SM_RooftopUnlockedPadlockKeys."
+			"SM_RooftopUnlockedPadlockKeys"));
+	TankExteriorAccessStairMesh = IGThirdMorning::LoadMesh(
+		TEXT(
+			"/Game/Meshes/SM_TankExteriorAccessStair."
+			"SM_TankExteriorAccessStair"));
+	LadderFailureRungMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_LadderFailureRung.SM_LadderFailureRung"));
+	LadderRungPadMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_LadderRungPadLifted.SM_LadderRungPadLifted"));
+	LadderRungClipsMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_LadderRungRetainingClips.SM_LadderRungRetainingClips"));
+	P3ServiceCabinetShellMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_P3ServiceCabinetShell.SM_P3ServiceCabinetShell"));
+	P3ServiceManifoldMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_P3ServiceManifold.SM_P3ServiceManifold"));
+	P3LargeValveWheelMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_P3ValveWheelLarge.SM_P3ValveWheelLarge"));
+	P3SmallValveWheelMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_P3ValveWheelSmall.SM_P3ValveWheelSmall"));
+	P3PressureGaugeMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_P3PressureGauge.SM_P3PressureGauge"));
 
 	ConcreteMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_Concrete.M_Concrete"));
@@ -1337,10 +1478,42 @@ void AIGThirdMorningDirector::BuildStage()
 		TEXT("/Game/Prototype/Materials/M_WaterBlue.M_WaterBlue"));
 	WetStepMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_WetStep.M_WetStep"));
+	EvidenceSlipperMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_EvidenceSlipperTrail.M_EvidenceSlipperTrail"));
+	EvidenceCatPawMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_EvidenceCatPawTrail.M_EvidenceCatPawTrail"));
+	EvidenceHoseMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_EvidenceHoseDrag.M_EvidenceHoseDrag"));
+	EvidenceHandSmearMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_EvidenceHandSmear.M_EvidenceHandSmear"));
+	DecalDampWallpaperMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_DecalDampWallpaper.M_DecalDampWallpaper"));
+	DecalRustFastenersMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_DecalRustFasteners.M_DecalRustFasteners"));
+	DecalMineralScaleMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_DecalMineralScale.M_DecalMineralScale"));
+	DecalRainGrimeMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_DecalRainGrime.M_DecalRainGrime"));
 	ScreenMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_ScreenGlow.M_ScreenGlow"));
 	BeddingMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_BeddingUV.M_BeddingUV"));
+	WetHoodieMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_WetHoodieUV.M_WetHoodieUV"));
+	CarrierBagMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_CarrierBagFilm.M_CarrierBagFilm"));
+	WaterTankMetalMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_WaterTankMetalUV.M_WaterTankMetalUV"));
+	WetServiceHoseMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_WetServiceHoseUV.M_WetServiceHoseUV"));
+	WetRungPadMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_WetRungPadUV.M_WetRungPadUV"));
+	TankRevealWaterMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_TankWaterReveal.M_TankWaterReveal"));
+	P3CabinetMetalMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_P3CabinetMetalUV.M_P3CabinetMetalUV"));
+	RoofDoorMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_SteelDoorUV.M_SteelDoorUV"));
 	GlassMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_Glass.M_Glass"));
 	BottleCapMaterial = IGThirdMorning::LoadMaterial(
@@ -1383,6 +1556,54 @@ void AIGThirdMorningDirector::BuildStage()
 	FallBack(FridgeBodyMaterial);
 	FallBack(FridgeInteriorMaterial);
 	FallBack(EmergencyMaterial);
+	if (!WetHoodieMaterial)
+	{
+		WetHoodieMaterial = BeddingMaterial;
+	}
+	if (!CarrierBagMaterial)
+	{
+		CarrierBagMaterial = GlassMaterial;
+	}
+	if (!WaterTankMetalMaterial)
+	{
+		WaterTankMetalMaterial = MetalMaterial;
+	}
+	if (!WetServiceHoseMaterial)
+	{
+		WetServiceHoseMaterial = PlasticMaterial;
+	}
+	if (!WetRungPadMaterial)
+	{
+		WetRungPadMaterial = PlasticMaterial;
+	}
+	if (!TankRevealWaterMaterial)
+	{
+		TankRevealWaterMaterial = WaterMaterial;
+	}
+	if (!P3CabinetMetalMaterial)
+	{
+		P3CabinetMetalMaterial = MetalMaterial;
+	}
+	if (!RoofDoorMaterial)
+	{
+		RoofDoorMaterial = MetalMaterial;
+	}
+	if (!EvidenceSlipperMaterial)
+	{
+		EvidenceSlipperMaterial = WetStepMaterial;
+	}
+	if (!EvidenceCatPawMaterial)
+	{
+		EvidenceCatPawMaterial = WetStepMaterial;
+	}
+	if (!EvidenceHoseMaterial)
+	{
+		EvidenceHoseMaterial = WetStepMaterial;
+	}
+	if (!EvidenceHandSmearMaterial)
+	{
+		EvidenceHandSmearMaterial = WetStepMaterial;
+	}
 
 	BuildApartment();
 	BuildFloodedCorridor();
@@ -1506,7 +1727,8 @@ AIGReadableNote* AIGThirdMorningDirector::SpawnNote(
 	const FText& Prompt,
 	const FText& Title,
 	TArray<FText> BodyLines,
-	UMaterialInterface* InPaperMaterial)
+	UMaterialInterface* InPaperMaterial,
+	UStaticMesh* MeshOverride)
 {
 	if (!GetWorld() || !CubeMesh)
 	{
@@ -1524,7 +1746,7 @@ AIGReadableNote* AIGThirdMorningDirector::SpawnNote(
 	if (Note)
 	{
 		Note->ConfigurePrototypeVisuals(
-			CubeMesh,
+			MeshOverride ? MeshOverride : CubeMesh.Get(),
 			InPaperMaterial ? InPaperMaterial : PaperMaterial.Get(),
 			PaperSize);
 		Note->SetInteractionPrompt(Prompt);
@@ -1569,6 +1791,18 @@ void AIGThirdMorningDirector::BuildApartment()
 	CreateBlock(FVector(0, 220, 130), FVector(700, 20, 280), WallMaterial);
 	CreateBlock(FVector(-350, 0, 130), FVector(20, 440, 280), WallMaterial);
 	CreateBlock(FVector(0, 0, 270), FVector(700, 440, 20), WallMaterial);
+	if (PlaneMesh && DecalDampWallpaperMaterial)
+	{
+		// A single tide line anchors the flooded room in familiar vinyl
+		// wallpaper. It stays below eye level and never reads as decoration.
+		CreateBlock(
+			FVector(-48.0f, -209.4f, 82.0f),
+			FVector(220.0f, 92.0f, 1.0f),
+			DecalDampWallpaperMaterial,
+			false,
+			FRotator(0.0f, 0.0f, 90.0f),
+			PlaneMesh);
+	}
 	// East wall leaves a 110 cm Korean apartment doorway.
 	CreateBlock(FVector(350, -165, 130), FVector(20, 110, 280), WallMaterial);
 	CreateBlock(FVector(350, 165, 130), FVector(20, 110, 280), WallMaterial);
@@ -1976,77 +2210,135 @@ void AIGThirdMorningDirector::BuildP3ServiceCabinet()
 	// A single open cabinet keeps every P3 state readable in one view.
 	// The broken latch and the two missing screws are physical continuity
 	// clues, not a lock the player has to solve.
+	const bool bHasAuthoredP3Cluster =
+		P3ServiceCabinetShellMesh
+		&& P3ServiceManifoldMesh
+		&& P3LargeValveWheelMesh
+		&& P3SmallValveWheelMesh
+		&& P3PressureGaugeMesh;
+	if (bHasAuthoredP3Cluster)
+	{
+		CreateBlock(
+			FVector(675, -196, 132),
+			FVector(100, 100, 100),
+			P3CabinetMetalMaterial,
+			false,
+			FRotator::ZeroRotator,
+			P3ServiceCabinetShellMesh);
+		CreateBlock(
+			FVector(675, -196, 132),
+			FVector(100, 100, 100),
+			WaterTankMetalMaterial,
+			false,
+			FRotator::ZeroRotator,
+			P3ServiceManifoldMesh);
+	}
+	else
+	{
+		// Release-safe blockout keeps the exact cabinet envelope and interaction
+		// coordinates until every authored member has been baked.
+		CreateBlock(
+			FVector(675, -208, 132),
+			FVector(270, 12, 196),
+			DarkConcreteMaterial,
+			false);
+		CreateBlock(FVector(675, -196, 224), FVector(270, 18, 10), MetalMaterial, false);
+		CreateBlock(FVector(675, -196, 40), FVector(270, 18, 10), MetalMaterial, false);
+		CreateBlock(FVector(545, -196, 132), FVector(10, 18, 194), MetalMaterial, false);
+		CreateBlock(FVector(805, -196, 132), FVector(10, 18, 194), MetalMaterial, false);
+		CreateBlock(
+			FVector(810, -186, 126),
+			FVector(8, 32, 42),
+			MetalMaterial,
+			false,
+			FRotator(0, 0, -12));
+	}
+
+	// Exactly two black recesses mark the absent latch screws. They are not
+	// interaction targets and never multiply with puzzle or save state.
 	CreateBlock(
-		FVector(675, -208, 132),
-		FVector(270, 12, 196),
-		DarkConcreteMaterial,
-		false);
-	CreateBlock(FVector(675, -196, 224), FVector(270, 18, 10), MetalMaterial, false);
-	CreateBlock(FVector(675, -196, 40), FVector(270, 18, 10), MetalMaterial, false);
-	CreateBlock(FVector(545, -196, 132), FVector(10, 18, 194), MetalMaterial, false);
-	CreateBlock(FVector(805, -196, 132), FVector(10, 18, 194), MetalMaterial, false);
-	CreateBlock(
-		FVector(810, -186, 126),
-		FVector(8, 32, 42),
-		MetalMaterial,
+		FVector(812, -176.8f, 130),
+		FVector(1.2f, 1.2f, 0.4f),
+		PlasticMaterial,
 		false,
-		FRotator(0, 0, -12));
-	CreateBlock(FVector(812, -178, 154), FVector(8, 8, 4), WetStepMaterial, false);
-	CreateBlock(FVector(812, -178, 98), FVector(8, 8, 4), WetStepMaterial, false);
+		FRotator(0, 0, -90),
+		CylinderMesh);
+	CreateBlock(
+		FVector(812, -176.8f, 122),
+		FVector(1.2f, 1.2f, 0.4f),
+		PlasticMaterial,
+		false,
+		FRotator(0, 0, -90),
+		CylinderMesh);
+
+	UStaticMesh* const LargeValveMesh =
+		bHasAuthoredP3Cluster ? P3LargeValveWheelMesh.Get() : CylinderMesh.Get();
+	UStaticMesh* const SmallValveMesh =
+		bHasAuthoredP3Cluster ? P3SmallValveWheelMesh.Get() : CylinderMesh.Get();
+	const FVector LargeValveSize =
+		bHasAuthoredP3Cluster ? FVector(100, 100, 100) : FVector(18, 18, 4);
+	const FVector SmallValveSize =
+		bHasAuthoredP3Cluster ? FVector(100, 100, 100) : FVector(12, 12, 3);
+	const FRotator ValveRotation(0, 0, -90);
 
 	P3DirectInletAction = SpawnAction(
 		EIGChapterThreeAction::P3CloseDirectInlet,
 		FVector(600, -178, 164),
-		FVector(34, 34, 8),
-		MetalMaterial,
+		LargeValveSize,
+		EmergencyMaterial,
 		NSLOCTEXT("IGCH03", "P3DirectPrompt", "직결 급수 잠그기"),
 		0.45f,
-		FRotator(90, 0, 0),
-		CylinderMesh);
+		ValveRotation,
+		LargeValveMesh);
 	P3ReserveInletAction = SpawnAction(
 		EIGChapterThreeAction::P3CloseReserveInlet,
 		FVector(650, -178, 164),
-		FVector(34, 34, 8),
-		MetalMaterial,
+		LargeValveSize,
+		BottleCapMaterial,
 		NSLOCTEXT("IGCH03", "P3ReservePrompt", "예비조 잠그기"),
 		0.45f,
-		FRotator(90, 0, 0),
-		CylinderMesh);
+		ValveRotation,
+		LargeValveMesh);
 	P3PressureReleaseAction = SpawnAction(
 		EIGChapterThreeAction::P3OpenPressureRelease,
 		FVector(705, -178, 112),
-		FVector(24, 24, 7),
-		MetalMaterial,
+		SmallValveSize,
+		PlasticMaterial,
 		NSLOCTEXT("IGCH03", "P3BleedPrompt", "압력 해제 열기"),
 		0.55f,
-		FRotator(90, 0, 0),
-		CylinderMesh);
+		ValveRotation,
+		SmallValveMesh);
 	P3FloorDrainAction = SpawnAction(
 		EIGChapterThreeAction::P3OpenFloorDrain,
 		FVector(760, -178, 112),
-		FVector(38, 38, 8),
+		LargeValveSize,
 		MetalMaterial,
 		NSLOCTEXT("IGCH03", "P3DrainPrompt", "바닥 배수 열기"),
 		0.75f,
-		FRotator(90, 0, 0),
-		CylinderMesh);
+		ValveRotation,
+		LargeValveMesh);
 
-	CreateBlock(FVector(600, -190, 150), FVector(12, 12, 74), MetalMaterial, false);
-	CreateBlock(FVector(650, -190, 150), FVector(12, 12, 74), MetalMaterial, false);
-	CreateBlock(FVector(705, -190, 95), FVector(8, 8, 52), MetalMaterial, false);
-	CreateBlock(FVector(760, -190, 95), FVector(16, 16, 52), MetalMaterial, false);
+	if (!bHasAuthoredP3Cluster)
+	{
+		CreateBlock(FVector(600, -190, 150), FVector(4, 4, 74), MetalMaterial, false);
+		CreateBlock(FVector(650, -190, 150), FVector(4, 4, 74), MetalMaterial, false);
+		CreateBlock(FVector(705, -190, 95), FVector(3, 3, 52), MetalMaterial, false);
+		CreateBlock(FVector(760, -190, 95), FVector(3, 3, 52), MetalMaterial, false);
+	}
 	P3BleedTubeVisual = CreateBlock(
-		FVector(705, -190, 62),
-		FVector(70, 7, 7),
+		FVector(705, -174, 73),
+		FVector(4, 4, 46),
 		GlassMaterial,
-		false);
+		false,
+		FRotator::ZeroRotator,
+		CylinderMesh);
 	P3BleedWaterVisual = CreateBlock(
-		FVector(705, -189, 62),
-		FVector(62, 3.8f, 3.8f),
+		FVector(705, -174, 73),
+		FVector(2.6f, 2.6f, 40),
 		WaterMaterial,
 		false,
 		FRotator::ZeroRotator,
-		nullptr,
+		CylinderMesh,
 		true);
 	if (P3BleedWaterVisual)
 	{
@@ -2054,20 +2346,42 @@ void AIGThirdMorningDirector::BuildP3ServiceCabinet()
 	}
 
 	P3PressureNeedle = CreateBlock(
-		FVector(755, -178, 178),
-		FVector(4, 30, 4),
+		FVector(755, -174.8f, 178),
+		FVector(0.8f, 0.5f, 7),
 		EmergencyMaterial,
 		false,
-		FRotator(0, 0, -55),
+		FRotator(-55, 0, 0),
 		nullptr,
 		true);
 	CreateBlock(
-		FVector(755, -188, 178),
-		FVector(54, 8, 54),
-		GlassMaterial,
+		FVector(755, -178, 178),
+		bHasAuthoredP3Cluster ? FVector(100, 100, 100) : FVector(16, 16, 4),
+		P3CabinetMetalMaterial,
 		false,
-		FRotator(90, 0, 0),
+		FRotator(0, 0, -90),
+		bHasAuthoredP3Cluster ? P3PressureGaugeMesh.Get() : CylinderMesh.Get());
+	CreateBlock(
+		FVector(755, -175.8f, 178),
+		FVector(14, 14, 0.35f),
+		PaperMaterial,
+		false,
+		FRotator(0, 0, -90),
 		CylinderMesh);
+
+	// Blank physical plates keep the cabinet believable. Korean control names
+	// remain in the HUD prompt because the fallback 3D font has no CJK glyphs.
+	for (const FVector& PlateLocation : {
+		FVector(600, -174.0f, 190),
+		FVector(650, -174.0f, 190),
+		FVector(705, -174.0f, 138),
+		FVector(760, -174.0f, 138)})
+	{
+		CreateBlock(
+			PlateLocation,
+			FVector(20, 0.8f, 6),
+			PaperMaterial,
+			false);
+	}
 
 	P3PressureText = NewObject<UTextRenderComponent>(
 		this,
@@ -2081,18 +2395,6 @@ void AIGThirdMorningDirector::BuildP3ServiceCabinet()
 	P3PressureText->SetText(FText::FromString(TEXT("60 kPa")));
 	P3PressureText->RegisterComponent();
 
-	UTextRenderComponent* Labels = NewObject<UTextRenderComponent>(
-		this,
-		TEXT("CH03_P3Labels"));
-	Labels->SetupAttachment(SceneRoot);
-	Labels->SetRelativeLocation(FVector(680, -171, 202));
-	Labels->SetRelativeRotation(FRotator(0, 90, 0));
-	Labels->SetHorizontalAlignment(EHorizTextAligment::EHTA_Center);
-	Labels->SetWorldSize(10.0f);
-	Labels->SetTextRenderColor(FColor(162, 176, 164));
-	Labels->SetText(FText::FromString(
-		TEXT("DIRECT  RESERVE\nPRESSURE RELEASE  FLOOR DRAIN")));
-	Labels->RegisterComponent();
 }
 
 void AIGThirdMorningDirector::BuildLoopingStairwell()
@@ -2106,6 +2408,16 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 	CreateBlock(FVector(975, 227.5f, 130), FVector(20, 305, 280), DarkConcreteMaterial);
 	CreateBlock(FVector(975, 0, 245), FVector(20, 150, 70), DarkConcreteMaterial);
 	CreateBlock(FVector(1210, 180, 20), FVector(20, 500, 520), DarkConcreteMaterial);
+	if (PlaneMesh && DecalRainGrimeMaterial)
+	{
+		CreateBlock(
+			FVector(986.0f, 118.0f, 132.0f),
+			FVector(150.0f, 175.0f, 1.0f),
+			DecalRainGrimeMaterial,
+			false,
+			FRotator(90.0f, 0.0f, 0.0f),
+			PlaneMesh);
+	}
 
 	// Down flight.  Every tread has a constant bottom so collision remains
 	// stable and there are no thin physics slivers.
@@ -2335,12 +2647,68 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 			ConcreteMaterial);
 	}
 
+	const bool bHasAuthoredRoofDoor =
+		RooftopFireDoorLeafMesh && RooftopFireDoorFrameMesh;
+	if (bHasAuthoredRoofDoor)
+	{
+		CreateBlock(
+			IGThirdMorning::RoofDoorClosedLocation,
+			FVector(100.0f, 100.0f, 100.0f),
+			RoofDoorMaterial,
+			false,
+			FRotator::ZeroRotator,
+			RooftopFireDoorFrameMesh);
+	}
+	else
+	{
+		// Primitive fallback preserves the same 120 x 234 cm clear opening.
+		for (const float JambY : {-464.0f, -336.0f})
+		{
+			CreateBlock(
+				FVector(1669.0f, JambY, 357.0f),
+				FVector(14.0f, 8.0f, 234.0f),
+				RoofDoorMaterial,
+				false);
+		}
+		CreateBlock(
+			FVector(1669.0f, -400.0f, 478.0f),
+			FVector(14.0f, 136.0f, 8.0f),
+			RoofDoorMaterial,
+			false);
+		CreateBlock(
+			FVector(1669.0f, -400.0f, 240.5f),
+			FVector(14.0f, 136.0f, 1.2f),
+			RoofDoorMaterial,
+			false);
+	}
+
+	// Thin hidden stop volumes keep the frame opening authoritative without a
+	// convex hull filling the visible authored frame.  Their inner X face is
+	// the closed plane used by the 11 cm free-edge measurement.
+	for (const float JambY : {-464.0f, -336.0f})
+	{
+		if (UStaticMeshComponent* JambCollision = CreateBlock(
+			FVector(1664.0f, JambY, 357.0f),
+			FVector(4.0f, 8.0f, 234.0f),
+			MetalMaterial,
+			true))
+		{
+			JambCollision->SetVisibility(false, true);
+			JambCollision->SetHiddenInGame(true, true);
+		}
+	}
+
 	RoofDoorAction = SpawnAction(
 		EIGChapterThreeAction::OpenRoofDoor,
 		IGThirdMorning::RoofDoorLatchedLocation,
-		FVector(12, 116, 230),
-		MetalMaterial,
-		NSLOCTEXT("IGCH03", "RoofDoorPrompt", "옥상 철문 당기기"));
+		bHasAuthoredRoofDoor
+			? FVector(100.0f, 100.0f, 100.0f)
+			: FVector(4.5f, 116.0f, 230.0f),
+		RoofDoorMaterial,
+		NSLOCTEXT("IGCH03", "RoofDoorPrompt", "옥상 철문 당기기"),
+		0.0f,
+		IGThirdMorning::RoofDoorLatchedRotation,
+		bHasAuthoredRoofDoor ? RooftopFireDoorLeafMesh.Get() : nullptr);
 	if (RoofDoorAction)
 	{
 		RoofDoorLeaf = RoofDoorAction->GetPresentationMesh();
@@ -2350,12 +2718,71 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		}
 		ApplyRoofDoorState(EIGRoofDoorState::LatchedGap);
 	}
+	const bool bHasAuthoredPadlockKeys =
+		RooftopUnlockedPadlockKeysMesh != nullptr;
+	const FVector PadlockKeysLocation(1659.5f, -336.0f, 353.5f);
 	KeysAction = SpawnAction(
 		EIGChapterThreeAction::InspectKeys,
-		FVector(1625, -342, 330),
-		FVector(7, 18, 8),
+		PadlockKeysLocation,
+		bHasAuthoredPadlockKeys
+			? FVector(100.0f, 100.0f, 100.0f)
+			: FVector(2.8f, 5.0f, 6.2f),
 		MetalMaterial,
-		NSLOCTEXT("IGCH03", "KeysPrompt", "꽂힌 열쇠뭉치 확인하기"));
+		NSLOCTEXT(
+			"IGCH03",
+			"KeysPrompt",
+			"열린 자물쇠와 꽂힌 열쇠 확인하기"),
+		0.0f,
+		FRotator::ZeroRotator,
+		bHasAuthoredPadlockKeys
+			? RooftopUnlockedPadlockKeysMesh.Get()
+			: nullptr);
+	if (!bHasAuthoredPadlockKeys)
+	{
+		// The fallback keeps the same unlocked read: one open shackle, one
+		// inserted stem and three hanging blades.  It never becomes a solid
+		// nineteen-centimetre key-shaped cube.
+		CreateBlock(
+			PadlockKeysLocation + FVector(0.0f, -1.65f, 4.8f),
+			FVector(0.8f, 0.8f, 4.0f),
+			MetalMaterial,
+			false,
+			FRotator::ZeroRotator,
+			CylinderMesh);
+		CreateBlock(
+			PadlockKeysLocation + FVector(0.0f, 1.65f, 6.45f),
+			FVector(0.8f, 0.8f, 1.2f),
+			MetalMaterial,
+			false,
+			FRotator::ZeroRotator,
+			CylinderMesh);
+		CreateBlock(
+			PadlockKeysLocation + FVector(0.0f, 0.0f, 7.0f),
+			FVector(0.8f, 4.1f, 0.8f),
+			MetalMaterial,
+			false);
+		CreateBlock(
+			PadlockKeysLocation + FVector(0.0f, 0.0f, -3.6f),
+			FVector(0.24f, 0.82f, 2.2f),
+			MetalMaterial,
+			false);
+		const FVector FallbackKeySizes[] = {
+			FVector(0.22f, 0.72f, 5.0f),
+			FVector(0.22f, 0.90f, 4.0f),
+			FVector(0.22f, 0.64f, 3.0f)};
+		for (int32 KeyIndex = 0; KeyIndex < 3; ++KeyIndex)
+		{
+			CreateBlock(
+				PadlockKeysLocation + FVector(
+					0.0f,
+					-1.15f + KeyIndex * 1.15f,
+					-9.15f + KeyIndex * 0.50f),
+				FallbackKeySizes[KeyIndex],
+				MetalMaterial,
+				false,
+				FRotator(0.0f, 0.0f, -5.0f + KeyIndex * 6.0f));
+		}
+	}
 
 	// Wide roof: the absence of traffic and animals is legible because there
 	// is room for the player to wait and hear nothing.
@@ -2484,11 +2911,27 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 void AIGThirdMorningDirector::BuildWaterTank()
 {
 	const FVector Tank = IGThirdMorning::TankCenter;
+	UMaterialInterface* const TankMetal = WaterTankMetalMaterial
+		? WaterTankMetalMaterial.Get()
+		: MetalMaterial.Get();
 
-	// Concrete plinth and a sixteen-panel cylindrical shell.  Panels are
-	// cheaper than a masked custom mesh and leave the open top genuinely open.
+	// Concrete plinth and the authored hollow shell. Sixteen invisible panels
+	// retain the proven collision envelope without leaking greybox geometry into
+	// the final silhouette.
 	CreateBlock(Tank + FVector(0, 0, 50 + IGThirdMorning::RoofFloorZ),
 		FVector(360, 360, 100), ConcreteMaterial);
+	const bool bHasAuthoredTankShell =
+		RooftopWaterTankShellMesh != nullptr;
+	if (bHasAuthoredTankShell)
+	{
+		CreateBlock(
+			Tank + FVector(0, 0, IGThirdMorning::TankShellCenterZ),
+			FVector(100.0f),
+			TankMetal,
+			false,
+			FRotator::ZeroRotator,
+			RooftopWaterTankShellMesh);
+	}
 	for (int32 PanelIndex = 0; PanelIndex < 16; ++PanelIndex)
 	{
 		const float AngleDegrees = PanelIndex * 22.5f;
@@ -2497,76 +2940,169 @@ void AIGThirdMorningDirector::BuildWaterTank()
 			FMath::Cos(AngleRadians) * 145.0f,
 			FMath::Sin(AngleRadians) * 145.0f,
 			0.0f);
-		CreateBlock(
+		UStaticMeshComponent* const CollisionPanel = CreateBlock(
 			Tank + Radial + FVector(0, 0, 470),
 			FVector(58, 12, 260),
-			MetalMaterial,
+			TankMetal,
 			true,
 			FRotator(0, AngleDegrees + 90.0f, 0));
+		if (bHasAuthoredTankShell && CollisionPanel)
+		{
+			CollisionPanel->SetVisibility(false, true);
+			CollisionPanel->SetHiddenInGame(true, true);
+		}
+	}
+	if (PlaneMesh && DecalRustFastenersMaterial)
+	{
+		// Two surviving screws and one empty hole repeat the same maintenance
+		// failure language established before the accident.
+		CreateBlock(
+			Tank + FVector(-151.2f, 0.0f, 520.0f),
+			FVector(112.0f, 74.0f, 1.0f),
+			DecalRustFastenersMaterial,
+			false,
+			FRotator(90.0f, 0.0f, 0.0f),
+			PlaneMesh);
+	}
+	if (PlaneMesh && DecalMineralScaleMaterial)
+	{
+		CreateBlock(
+			Tank + FVector(0.0f, 0.0f, 602.0f),
+			FVector(318.0f, 318.0f, 1.0f),
+			DecalMineralScaleMaterial,
+			false,
+			FRotator::ZeroRotator,
+			PlaneMesh);
 	}
 
-	// Three proud reinforcement rings catch long highlights across several
-	// facets, visually joining the sixteen panels into an industrial tank.
-	for (const float BandZ : {352.0f, 470.0f, 588.0f})
+	// The authored shell owns its three continuous hoops. Development checkouts
+	// without baked assets retain the segmented, non-colliding fallback.
+	if (!bHasAuthoredTankShell)
 	{
-		for (int32 SegmentIndex = 0; SegmentIndex < 16; ++SegmentIndex)
+		for (const float BandZ : {352.0f, 470.0f, 588.0f})
 		{
-			const float AngleDegrees = SegmentIndex * 22.5f;
-			const float AngleRadians = FMath::DegreesToRadians(AngleDegrees);
-			const FVector Radial(
-				FMath::Cos(AngleRadians) * 153.0f,
-				FMath::Sin(AngleRadians) * 153.0f,
-				0.0f);
-			CreateBlock(
-				Tank + Radial + FVector(0, 0, BandZ),
-				FVector(61, 20, 12),
-				MetalMaterial,
-				false,
-				FRotator(0, AngleDegrees + 90.0f, 0));
+			for (int32 SegmentIndex = 0; SegmentIndex < 16; ++SegmentIndex)
+			{
+				const float AngleDegrees = SegmentIndex * 22.5f;
+				const float AngleRadians = FMath::DegreesToRadians(AngleDegrees);
+				const FVector Radial(
+					FMath::Cos(AngleRadians) * 153.0f,
+					FMath::Sin(AngleRadians) * 153.0f,
+					0.0f);
+				CreateBlock(
+					Tank + Radial + FVector(0, 0, BandZ),
+					FVector(61, 20, 12),
+					TankMetal,
+					false,
+					FRotator(0, AngleDegrees + 90.0f, 0));
+			}
 		}
 	}
 
-	// Visible inlet pipe, clamps and valve connect the tank to the building.
-	// Cylinders are static and non-colliding, so this detail adds no gameplay
-	// physics or per-frame work.
-	CreateBlock(
-		Tank + FVector(128, -128, 390),
-		FVector(18, 18, 300),
-		MetalMaterial,
-		false,
-		FRotator::ZeroRotator,
-		CylinderMesh);
-	CreateBlock(
-		Tank + FVector(248, -128, 254),
-		FVector(16, 16, 240),
-		MetalMaterial,
-		false,
-		FRotator(90, 0, 0),
-		CylinderMesh);
-	for (const float ClampZ : {330.0f, 450.0f})
+	// Real-scale 89/76 mm plumbing replaces the oversized engine cylinders.
+	// The static valve reuses the same 18 cm authored wheel as P3.
+	const bool bHasAuthoredTankPlumbing =
+		RooftopTankPipeClusterMesh && P3LargeValveWheelMesh;
+	if (bHasAuthoredTankPlumbing)
 	{
 		CreateBlock(
-			Tank + FVector(128, -128, ClampZ),
-			FVector(26, 26, 8),
-			DarkConcreteMaterial,
+			Tank,
+			FVector(100.0f),
+			TankMetal,
+			false,
+			FRotator::ZeroRotator,
+			RooftopTankPipeClusterMesh);
+		CreateBlock(
+			Tank + FVector(181, -128, 302),
+			FVector(100.0f),
+			TankMetal,
+			false,
+			FRotator(90, 0, 0),
+			P3LargeValveWheelMesh);
+	}
+	else
+	{
+		CreateBlock(
+			Tank + FVector(128, -128, 392),
+			FVector(8.9f, 8.9f, 300),
+			TankMetal,
 			false,
 			FRotator::ZeroRotator,
 			CylinderMesh);
+		CreateBlock(
+			Tank + FVector(154.5f, -128, 302),
+			FVector(7.6f, 7.6f, 53),
+			TankMetal,
+			false,
+			FRotator(90, 0, 0),
+			CylinderMesh);
+		for (const float ClampZ : {340.0f, 438.0f})
+		{
+			CreateBlock(
+				Tank + FVector(128, -128, ClampZ),
+				FVector(11.6f, 11.6f, 2.4f),
+				DarkConcreteMaterial,
+				false,
+				FRotator::ZeroRotator,
+				CylinderMesh);
+		}
+		CreateBlock(
+			Tank + FVector(181, -128, 302),
+			FVector(18, 18, 3),
+			TankMetal,
+			false,
+			FRotator(90, 0, 0),
+			CylinderMesh);
 	}
-	CreateBlock(
-		Tank + FVector(128, -151, 410),
-		FVector(46, 46, 8),
-		MetalMaterial,
-		false,
-		FRotator(0, 0, 90),
-		CylinderMesh);
+
+	// The final reveal names a real internal ladder, so it must exist in the
+	// same tank geometry before the water plane is drawn over it. Seven rungs
+	// descend from the hatch to the raised inner floor without offering a new
+	// climb interaction or collision trap.
+	if (TankInternalLadderMesh)
+	{
+		CreateBlock(
+			Tank,
+			FVector(100.0f),
+			TankMetal,
+			false,
+			FRotator::ZeroRotator,
+			TankInternalLadderMesh);
+	}
+	else
+	{
+		for (const float RailY : {-23.0f, 23.0f})
+		{
+			CreateBlock(
+				Tank + FVector(-125, RailY, 488),
+				FVector(3.4f, 3.4f, 204),
+				TankMetal,
+				false);
+			for (const float BracketZ : {405.0f, 575.0f})
+			{
+				CreateBlock(
+					Tank + FVector(-135, RailY, BracketZ),
+					FVector(20, 3.4f, 3.4f),
+					TankMetal,
+					false);
+			}
+		}
+		for (int32 InnerRungIndex = 0; InnerRungIndex < 7; ++InnerRungIndex)
+		{
+			CreateBlock(
+				Tank + FVector(-125, 0, 400 + InnerRungIndex * 30.0f),
+				FVector(2.5f, 46, 2.5f),
+				TankMetal,
+				false);
+		}
+	}
 
 	// A small service lamp on the pipe side lifts the lower shell and bands,
 	// while the opposite side remains available for the flashlight scare.
 	CreateBlock(
 		Tank + FVector(145, -151, 570),
 		FVector(34, 18, 24),
-		MetalMaterial,
+		TankMetal,
 		false);
 	CreateBlock(
 		Tank + FVector(158, -164, 570),
@@ -2581,10 +3117,19 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		false);
 
 	TankWaterSurface = CreateBlock(
-		Tank + FVector(0, 0, 542),
-		FVector(270, 270, 3),
-		WaterMaterial,
-		false);
+		Tank + FVector(0, 0, IGThirdMorning::TankWaterSurfaceZ),
+		PlaneMesh ? FVector(270, 270, 1.0f) : FVector(270, 270, 3.0f),
+		TankRevealWaterMaterial,
+		false,
+		FRotator::ZeroRotator,
+		PlaneMesh.Get());
+	if (TankWaterSurface)
+	{
+		// One horizontal sheet avoids the doubled opacity and sorting seams of
+		// a translucent cube. It must never cast a black slab over the body.
+		TankWaterSurface->SetCastShadow(false);
+		TankWaterSurface->SetTranslucentSortPriority(2);
+	}
 	CreatePointLight(
 		Tank + FVector(-38, -42, 586),
 		390.0f,
@@ -2598,61 +3143,211 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		FLinearColor(0.34f, 0.045f, 0.028f),
 		false);
 
-	// Service stair disguised with ladder rails/rungs.  The 20 cm risers are
-	// within CharacterMovement step height, avoiding bespoke ladder physics.
+	// The authored 45-degree stair and the proven 18-step collision route share
+	// the same origin, 20 cm run and 20 cm rise. The visual mesh omits tread 16;
+	// the separate failure cluster supplies that upper-second evidence tread.
+	const bool bHasAuthoredExteriorStair =
+		TankExteriorAccessStairMesh && LadderFailureRungMesh
+		&& LadderRungPadMesh && LadderRungClipsMesh;
+	if (bHasAuthoredExteriorStair)
+	{
+		CreateBlock(
+			FVector(1915, -300, IGThirdMorning::RoofFloorZ),
+			FVector(100.0f),
+			TankMetal,
+			false,
+			FRotator::ZeroRotator,
+			TankExteriorAccessStairMesh);
+	}
 	for (int32 StepIndex = 0; StepIndex < 18; ++StepIndex)
 	{
 		const float TopZ = IGThirdMorning::RoofFloorZ + 20.0f * (StepIndex + 1);
 		const float Height = TopZ - IGThirdMorning::RoofFloorZ;
-		CreateBlock(
+		UStaticMeshComponent* const StairCollision = CreateBlock(
 			FVector(1915.0f + StepIndex * 20.0f, -300, IGThirdMorning::RoofFloorZ + Height * 0.5f),
 			FVector(22, 105, Height),
-			MetalMaterial);
+			TankMetal);
+		if (bHasAuthoredExteriorStair && StairCollision)
+		{
+			StairCollision->SetVisibility(false, true);
+			StairCollision->SetHiddenInGame(true, true);
+		}
 	}
-	CreateBlock(FVector(2265, -365, 455), FVector(12, 12, 430), MetalMaterial);
-	CreateBlock(FVector(2265, -235, 455), FVector(12, 12, 430), MetalMaterial);
-	for (int32 RungIndex = 0; RungIndex < 10; ++RungIndex)
+	if (bHasAuthoredExteriorStair)
 	{
 		CreateBlock(
-			FVector(2265, -300, 285.0f + RungIndex * 34.0f),
-			FVector(10, 136, 7),
-			MetalMaterial,
-			false);
+			FVector(2235, -300, 578.5f),
+			FVector(100.0f),
+			TankMetal,
+			false,
+			FRotator::ZeroRotator,
+			LadderFailureRungMesh);
+	}
+	else
+	{
+		// Development checkouts without baked assets keep the same diagonal
+		// travel line. Two primitive rails replace the old unrelated vertical
+		// rung wall, so even the fallback preserves physical coherence.
+		for (const float Side : {-1.0f, 1.0f})
+		{
+			const FVector RailStart(1915, -300 + Side * 56.0f, 335);
+			const FVector RailEnd(2270, -300 + Side * 105.0f, 695);
+			const FVector RailDirection = (RailEnd - RailStart).GetSafeNormal();
+			CreateBlock(
+				(RailStart + RailEnd) * 0.5f,
+				FVector(4.2f, 4.2f, FVector::Distance(RailStart, RailEnd)),
+				TankMetal,
+				false,
+				FQuat::FindBetweenNormals(FVector::UpVector, RailDirection).Rotator(),
+				CylinderMesh);
+		}
 	}
 	// Start the top platform where the last tread ends. The previous overlap
 	// buried that tread under a 40 cm lip even though every authored rise was
 	// intended to stay at 20 cm.
-	CreateBlock(FVector(2335, -300, 610), FVector(140, 220, 20), MetalMaterial);
+	CreateBlock(FVector(2308.5f, -300, 610), FVector(87, 220, 20), TankMetal);
 
+	// A compact two-sided guardrail makes the top landing physically legible.
+	// The approach edge remains open, while invisible side volumes preserve the
+	// safety boundary without depending on generated complex collision.
+	if (TankAccessGuardRailMesh)
+	{
+		CreateBlock(
+			FVector(2335, -300, 620),
+			FVector(100.0f),
+			TankMetal,
+			false,
+			FRotator::ZeroRotator,
+			TankAccessGuardRailMesh);
+	}
+	else
+	{
+		for (const float RailY : {-405.0f, -195.0f})
+		{
+			CreateBlock(
+				FVector(2304.5f, RailY, 695),
+				FVector(69, 4.2f, 4.2f),
+				TankMetal,
+				false);
+			CreateBlock(
+				FVector(2304.5f, RailY, 658),
+				FVector(69, 4.2f, 4.2f),
+				TankMetal,
+				false);
+			for (const float PostX : {2270.0f, 2339.0f})
+			{
+				CreateBlock(
+					FVector(PostX, RailY, 657.5f),
+					FVector(4.2f, 4.2f, 75),
+					TankMetal,
+					false);
+			}
+		}
+		CreateBlock(
+			FVector(2337, -193, 677),
+			FVector(10, 1.6f, 12),
+			TankMetal,
+			false);
+		CreateBlock(
+			FVector(2335, -191.5f, 672),
+			FVector(1.2f, 13, 1.2f),
+			TankMetal,
+			false);
+		CreateBlock(
+			FVector(2335, -191.5f, 680),
+			FVector(1.2f, 13, 1.2f),
+			TankMetal,
+			false);
+		CreateBlock(
+			FVector(2335, -185, 676),
+			FVector(1.2f, 1.2f, 8),
+			TankMetal,
+			false);
+	}
+	for (const float RailY : {-405.0f, -195.0f})
+	{
+		if (UStaticMeshComponent* RailCollision = CreateBlock(
+			FVector(2304.5f, RailY, 657.5f),
+			FVector(69, 6, 75),
+			TankMetal,
+			true))
+		{
+			RailCollision->SetVisibility(false, true);
+			RailCollision->SetHiddenInGame(true, true);
+		}
+	}
+
+	const bool bHasGlassesMesh = HornRimGlassesMesh != nullptr;
 	GlassesAction = SpawnAction(
 		EIGChapterThreeAction::EvidenceGlasses,
-		FVector(1880, -250, 247),
-		FVector(16, 5, 3),
+		FVector(2335, -184, 662),
+		bHasGlassesMesh ? FVector(100.0f) : FVector(16, 5, 3),
 		PlasticMaterial,
-		NSLOCTEXT("IGCH03", "GlassesPrompt", "젖은 안경 확인하기"));
+		NSLOCTEXT(
+			"IGCH03",
+			"GlassesPrompt",
+			"난간 U볼트의 젖은 안경 확인하기"),
+		0.0f,
+		FRotator(0.0f, -8.0f, 82.0f),
+		bHasGlassesMesh ? HornRimGlassesMesh.Get() : nullptr);
 	if (GlassesAction)
 	{
 		EvidenceActions.Add(EIGChapterThreeAction::EvidenceGlasses, GlassesAction);
 	}
-	// Two temple arms make the block immediately read as black horn-rimmed glasses.
-	CreateBlock(FVector(1882, -242, 249), FVector(20, 2, 2), PlasticMaterial, false);
-	CreateBlock(FVector(1882, -258, 249), FVector(20, 2, 2), PlasticMaterial, false);
+	if (!bHasGlassesMesh)
+	{
+		// Two narrow temple lines preserve the hanging read without duplicating
+		// the action's single fallback frame proxy.
+		CreateBlock(
+			FVector(2331, -184, 668),
+			FVector(2, 2, 12),
+			PlasticMaterial,
+			false,
+			FRotator(0, -8, 8));
+		CreateBlock(
+			FVector(2339, -184, 668),
+			FVector(2, 2, 12),
+			PlasticMaterial,
+			false,
+			FRotator(0, 8, -8));
+	}
+
+	// A person can lift the service hatch, not the tank's entire three-metre
+	// roof. The authored annulus leaves a 104 cm opening; four plates preserve
+	// the same opening in an unbaked development checkout.
+	if (TankAccessDeckMesh)
+	{
+		CreateBlock(
+			Tank + FVector(0, 0, 600),
+			FVector(100.0f),
+			TankMetal,
+			false,
+			FRotator::ZeroRotator,
+			TankAccessDeckMesh);
+	}
+	else
+	{
+		CreateBlock(Tank + FVector(-151, 0, 600), FVector(6, 308, 8), TankMetal, false);
+		CreateBlock(Tank + FVector(55, 0, 600), FVector(198, 308, 8), TankMetal, false);
+		CreateBlock(Tank + FVector(-96, -103, 600), FVector(104, 102, 8), TankMetal, false);
+		CreateBlock(Tank + FVector(-96, 103, 600), FVector(104, 102, 8), TankMetal, false);
+	}
 
 	TankLidAction = SpawnAction(
 		EIGChapterThreeAction::OpenTank,
-		Tank + FVector(-25, 0, 655),
-		FVector(310, 310, 8),
-		MetalMaterial,
+		Tank + IGThirdMorning::TankHatchOffset + FVector(0, 0, 610),
+		TankAccessLidMesh ? FVector(100.0f) : FVector(108, 108, 6),
+		TankMetal,
 		NSLOCTEXT("IGCH03", "OpenTankPrompt", "물탱크 뚜껑 열기"),
 		1.2f,
-		FRotator(0, 0, 58),
-		CylinderMesh);
+		FRotator::ZeroRotator,
+		TankAccessLidMesh ? TankAccessLidMesh.Get() : CylinderMesh.Get());
 
 	CloseChoiceAction = SpawnAction(
 		EIGChapterThreeAction::CloseTank,
 		Tank + FVector(-155, -82, 625),
 		FVector(24, 10, 8),
-		MetalMaterial,
+		TankMetal,
 		NSLOCTEXT("IGCH03", "CloseTankPrompt", "뚜껑을 닫는다"),
 		0.8f);
 	SupportChoiceAction = SpawnAction(
@@ -2673,45 +3368,19 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	// support groove; the shared actual-state restore returns it here.
 	InspectionRodVisual = CreateBlock(
 		Tank + FVector(-196, 128, IGThirdMorning::RoofFloorZ + 4.0f),
-		FVector(7, 7, 118),
-		MetalMaterial,
+		InspectionRodMesh ? FVector(100.0f) : FVector(7, 7, 118),
+		TankMetal,
 		false,
 		FRotator(90, 24, 0),
-		CylinderMesh);
+		InspectionRodMesh ? InspectionRodMesh.Get() : CylinderMesh.Get());
 
-	// Concentric broken highlights make the otherwise still surface read as
-	// water rather than a blue floor.  They are deliberately sparse: the only
-	// motion after the lid lifts is the player's own light and these ripples.
-	for (int32 RingIndex = 0; RingIndex < 3; ++RingIndex)
-	{
-		const float RadiusX = 62.0f + RingIndex * 32.0f;
-		const float RadiusY = 40.0f + RingIndex * 24.0f;
-		const int32 SegmentCount = 12;
-		for (int32 SegmentIndex = 0; SegmentIndex < SegmentCount; ++SegmentIndex)
-		{
-			// Missing segments stop the pattern looking like a UI reticle.
-			if ((SegmentIndex + RingIndex * 2) % 5 == 0)
-			{
-				continue;
-			}
-			const float Angle = 2.0f * PI
-				* static_cast<float>(SegmentIndex)
-				/ static_cast<float>(SegmentCount);
-			CreateBlock(
-				Tank + FVector(
-					-4.0f + FMath::Cos(Angle) * RadiusX,
-					2.0f + FMath::Sin(Angle) * RadiusY,
-					544.0f + RingIndex * 0.25f),
-				FVector(24.0f + RingIndex * 3.0f, 1.8f, 0.7f),
-				WetStepMaterial,
-				false,
-				FRotator(0, FMath::RadiansToDegrees(Angle) + 90.0f, 0));
-		}
-	}
+	// Settling ripples live in the single translucent water material. Separate
+	// opaque ring segments used to float above the surface, hide refraction,
+	// and read like a targeting reticle under the flashlight.
 
-	// A curled, back-facing human silhouette assembled from rounded primitives.
-	// It stays non-graphic, but shoulders, elbows, knees and wet clothing make
-	// it unmistakably human instead of a rectangular placeholder.
+	// The reveal prefers three authored static groups sharing one local origin.
+	// Clothing groups retain material continuity while avoiding both a skeletal
+	// pipeline and the visible "pile of engine primitives" greybox silhouette.
 	auto AddBodyPiece =
 		[this, &Tank](
 			const FVector& Offset,
@@ -2721,7 +3390,10 @@ void AIGThirdMorningDirector::BuildWaterTank()
 			const FRotator& Rotation = FRotator::ZeroRotator)
 	{
 		if (UStaticMeshComponent* Piece = CreateBlock(
-			Tank + Offset + FVector(0, 0, -10.0f),
+			Tank + Offset + FVector(
+				0,
+				0,
+				IGThirdMorning::TankBodyPlacementAdjustmentZ),
 			Size,
 			Material,
 			false,
@@ -2732,36 +3404,65 @@ void AIGThirdMorningDirector::BuildWaterTank()
 			BodySilhouette.Add(Piece);
 		}
 	};
-	auto AddLimb =
-		[this, &Tank, &AddBodyPiece](
-			const FVector& Start,
-			const FVector& End,
-			const float Diameter,
-			UMaterialInterface* Material)
+
+	const bool bHasAuthoredBody =
+		SubmergedHoodieMesh &&
+		SubmergedPantsMesh &&
+		SubmergedSlippersMesh;
+	if (bHasAuthoredBody)
 	{
-		const FVector Delta = End - Start;
-		const FRotator Rotation = FQuat::FindBetweenNormals(
-			FVector::UpVector,
-			Delta.GetSafeNormal()).Rotator();
+		// The mesh origin is Tank + (0,0,537). The hoodie crown peaks at local
+		// Z=21, leaving three centimetres of real water above every body group.
+		// All groups retain the same offset and therefore cannot drift apart.
 		AddBodyPiece(
-			(Start + End) * 0.5f,
-			FVector(Diameter, Diameter, Delta.Size()),
-			Material,
-			CylinderMesh,
-			Rotation);
-		// A rounded joint hides the cylinder end and keeps bent limbs reading
-		// as one submerged human silhouette instead of detached oval pieces.
+			FVector(0, 0, 553),
+			FVector(100.0f),
+			WetHoodieMaterial,
+			SubmergedHoodieMesh);
 		AddBodyPiece(
-			End,
-			FVector(Diameter * 1.08f),
-			Material,
-			SphereMesh);
-	};
+			FVector(0, 0, 553),
+			FVector(100.0f),
+			BeddingMaterial,
+			SubmergedPantsMesh);
+		AddBodyPiece(
+			FVector(0, 0, 553),
+			FVector(100.0f),
+			PlasticMaterial,
+			SubmergedSlippersMesh);
+	}
+	else
+	{
+		// Development machines without baked assets retain the proven greybox.
+		auto AddLimb =
+			[this, &AddBodyPiece](
+				const FVector& Start,
+				const FVector& End,
+				const float Diameter,
+				UMaterialInterface* Material)
+		{
+			const FVector Delta = End - Start;
+			const FRotator Rotation = FQuat::FindBetweenNormals(
+				FVector::UpVector,
+				Delta.GetSafeNormal()).Rotator();
+			AddBodyPiece(
+				(Start + End) * 0.5f,
+				FVector(Diameter, Diameter, Delta.Size()),
+				Material,
+				CylinderMesh,
+				Rotation);
+			// A rounded joint hides the cylinder end and keeps bent limbs reading
+			// as one submerged human silhouette instead of detached oval pieces.
+			AddBodyPiece(
+				End,
+				FVector(Diameter * 1.08f),
+				Material,
+				SphereMesh);
+		};
 
 	AddBodyPiece(
 		FVector(8, 4, 553),
 		FVector(92, 46, 25),
-		WetStepMaterial,
+		WetHoodieMaterial,
 		SphereMesh,
 		FRotator(0, 16, -3));
 	AddBodyPiece(
@@ -2773,36 +3474,36 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	AddBodyPiece(
 		FVector(62, 15, 556),
 		FVector(31, 29, 29),
-		WetStepMaterial,
+		WetHoodieMaterial,
 		SphereMesh,
 		FRotator(0, 9, 0));
 	AddBodyPiece(
 		FVector(66, 18, 563),
 		FVector(36, 34, 17),
-		PlasticMaterial,
+		WetHoodieMaterial,
 		SphereMesh,
 		FRotator(0, 14, 8));
 	AddBodyPiece(
 		FVector(50, 11, 553),
 		FVector(18, 19, 18),
-		WetStepMaterial,
+		WetHoodieMaterial,
 		SphereMesh);
 
 	// Arms folded in toward the chest.
-	AddLimb(FVector(30, -10, 554), FVector(7, -38, 551), 13.5f, WetStepMaterial);
-	AddLimb(FVector(7, -38, 551), FVector(-20, -24, 548), 11.5f, WetStepMaterial);
+	AddLimb(FVector(30, -10, 554), FVector(7, -38, 551), 13.5f, WetHoodieMaterial);
+	AddLimb(FVector(7, -38, 551), FVector(-20, -24, 548), 11.5f, WetHoodieMaterial);
 	AddBodyPiece(
 		FVector(-23, -22, 548),
 		FVector(13, 10, 8),
-		WetStepMaterial,
+		WetHoodieMaterial,
 		SphereMesh,
 		FRotator(0, -12, 0));
-	AddLimb(FVector(31, 20, 554), FVector(4, 44, 551), 13.5f, WetStepMaterial);
-	AddLimb(FVector(4, 44, 551), FVector(-25, 31, 548), 11.5f, WetStepMaterial);
+	AddLimb(FVector(31, 20, 554), FVector(4, 44, 551), 13.5f, WetHoodieMaterial);
+	AddLimb(FVector(4, 44, 551), FVector(-25, 31, 548), 11.5f, WetHoodieMaterial);
 	AddBodyPiece(
 		FVector(-28, 29, 548),
 		FVector(13, 10, 8),
-		WetStepMaterial,
+		WetHoodieMaterial,
 		SphereMesh,
 		FRotator(0, 10, 0));
 
@@ -2823,6 +3524,8 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		PlasticMaterial,
 		SphereMesh,
 		FRotator(0, 11, 0));
+	}
+
 	// Three black repair stitches on the left sleeve and the worn outer heel
 	// are separate identity source details, not one generic "same clothes" prop.
 	for (int32 StitchIndex = 0; StitchIndex < 3; ++StitchIndex)
@@ -2840,6 +3543,15 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		WetPaperMaterial,
 		CubeMesh,
 		FRotator(0, -19, 0));
+	for (int32 StripeIndex = 0; StripeIndex < 3; ++StripeIndex)
+	{
+		AddBodyPiece(
+			FVector(-110.0f + StripeIndex * 3.4f, -17.0f, 554.5f),
+			FVector(1.6f, 10.0f, 1.0f),
+			WetPaperMaterial,
+			CubeMesh,
+			FRotator(0, -19, 0));
+	}
 }
 
 void AIGThirdMorningDirector::BuildP5AccidentEvidence()
@@ -2907,25 +3619,51 @@ void AIGThirdMorningDirector::BuildP5AccidentEvidence()
 	const FTransform PurchaseBagTransform(
 		PurchaseBagRotation,
 		PurchaseBagLocation);
+	const bool bHasCarrierBagMesh = CarrierBagCollapsedMesh != nullptr;
+	const FVector CarrierBagMeshScalePercent(
+		BagSize.X / 12.0f * 100.0f,
+		BagSize.Y / 18.0f * 100.0f,
+		BagSize.Z / 20.0f * 100.0f);
 
-	// The sagging roof door leaves an authored 11 cm gap above the threshold.
+	// The sagging roof door catches at the threshold and leaves an authored
+	// 11 cm horizontal slit at its free edge; the underside stays near the floor.
 	// Paw marks cross it in both directions; human access still requires the
 	// existing pull interaction.
-	CreateBlock(FVector(1666, -400, 248), FVector(18, 122, 4), WetStepMaterial, false);
-	for (int32 Step = 0; Step < 3; ++Step)
+	const bool bHasCatPawPlane =
+		PlaneMesh && EvidenceCatPawMaterial != WetStepMaterial;
+	const bool bHasHosePlane =
+		PlaneMesh && EvidenceHoseMaterial != WetStepMaterial;
+	const bool bHasSlipperPlane =
+		PlaneMesh && EvidenceSlipperMaterial != WetStepMaterial;
+	const bool bHasHandSmearPlane =
+		PlaneMesh && EvidenceHandSmearMaterial != WetStepMaterial;
+	const bool bHasRungFailureCluster =
+		TankExteriorAccessStairMesh && LadderFailureRungMesh
+		&& LadderRungPadMesh && LadderRungClipsMesh;
+	if (!bHasCatPawPlane)
+	{
+		CreateBlock(
+			FVector(1666, -400, 244.2f),
+			FVector(18, 122, 4.0f),
+			WetStepMaterial,
+			false);
+	}
+	for (int32 Step = 0; Step < (bHasCatPawPlane ? 0 : 3); ++Step)
 	{
 		CreateBlock(
 			FVector(1698.0f + Step * 24.0f, -430.0f + Step * 5.0f, 242.5f),
-			FVector(12, 8, 1.2f),
-			WetStepMaterial,
+			FVector(18, 24, 1.0f),
+			EvidenceCatPawMaterial,
 			false,
-			FRotator(0, 12, 0));
+			FRotator(0, 12, 0),
+			bHasCatPawPlane ? PlaneMesh.Get() : nullptr);
 		CreateBlock(
 			FVector(1770.0f - Step * 24.0f, -360.0f - Step * 5.0f, 242.7f),
-			FVector(12, 8, 1.2f),
-			WetStepMaterial,
+			FVector(18, 24, 1.0f),
+			EvidenceCatPawMaterial,
 			false,
-			FRotator(0, 192, 0));
+			FRotator(0, 192, 0),
+			bHasCatPawPlane ? PlaneMesh.Get() : nullptr);
 	}
 
 	auto AddEvidence = [this](
@@ -2956,115 +3694,150 @@ void AIGThirdMorningDirector::BuildP5AccidentEvidence()
 	AddEvidence(
 		EIGChapterThreeAction::EvidenceCatEntered,
 		FVector(1718, -430, 245),
-		FVector(20, 14, 2),
-		WetStepMaterial,
+		FVector(28, 34, bHasCatPawPlane ? 1.0f : 2.0f),
+		EvidenceCatPawMaterial,
 		NSLOCTEXT("IGCH03", "EvidenceCatEntered", "들어온 앞발자국 확인하기"),
-		FRotator(0, 12, 0));
+		FRotator(0, 12, 0),
+		bHasCatPawPlane ? PlaneMesh.Get() : nullptr);
 	AddEvidence(
 		EIGChapterThreeAction::EvidenceCatExited,
 		FVector(1750, -360, 245),
-		FVector(20, 14, 2),
-		WetStepMaterial,
+		FVector(28, 34, bHasCatPawPlane ? 1.0f : 2.0f),
+		EvidenceCatPawMaterial,
 		NSLOCTEXT("IGCH03", "EvidenceCatExited", "나간 앞발자국 확인하기"),
-		FRotator(0, 192, 0));
+		FRotator(0, 192, 0),
+		bHasCatPawPlane ? PlaneMesh.Get() : nullptr);
 
-	// The hose ends on the support deck, never inside the tank. A flattened
-	// section carries the paw compression and the coupling carries the impact.
-	for (int32 Segment = 0; Segment < 5; ++Segment)
+	// One continuous 42 mm service hose replaces the five disconnected 14 cm
+	// greybox cylinders. The lower mesh deformation carries the paw compression
+	// and the separate galvanized coupling carries the upper impact source.
+	if (RooftopServiceHoseMesh)
 	{
 		CreateBlock(
-			Tank + FVector(180.0f - Segment * 55.0f, -180.0f + Segment * 18.0f, 248.0f + Segment * 65.0f),
-			FVector(14, 14, 82),
-			PlasticMaterial,
+			Tank,
+			FVector(100.0f),
+			WetServiceHoseMaterial,
 			false,
-			FRotator(0, 18, -38),
-			CylinderMesh);
+			FRotator::ZeroRotator,
+			RooftopServiceHoseMesh);
 	}
+	else
+	{
+		for (int32 Segment = 0; Segment < 5; ++Segment)
+		{
+			CreateBlock(
+				Tank + FVector(
+					180.0f - Segment * 55.0f,
+					-180.0f + Segment * 18.0f,
+					248.0f + Segment * 65.0f),
+				FVector(4.2f, 4.2f, 82.0f),
+				WetServiceHoseMaterial,
+				false,
+				FRotator(0, 18, -38),
+				CylinderMesh);
+		}
+	}
+	const FVector CouplingDirection =
+		(FVector(-118, -72, 622) - FVector(-91, -86, 590)).GetSafeNormal();
+	const FRotator CouplingRotation = FQuat::FindBetweenNormals(
+		FVector::UpVector,
+		CouplingDirection).Rotator();
+	CreateBlock(
+		Tank + FVector(-121, -70, 627),
+		HoseCouplingMesh ? FVector(100.0f) : FVector(7.0f, 7.0f, 12.0f),
+		WaterTankMetalMaterial,
+		false,
+		CouplingRotation,
+		HoseCouplingMesh ? HoseCouplingMesh.Get() : CylinderMesh.Get());
 	AddEvidence(
 		EIGChapterThreeAction::EvidenceHosePaw,
 		Tank + FVector(165, -175, 250),
-		FVector(26, 18, 5),
-		WetStepMaterial,
+		FVector(42, 32, bHasHosePlane ? 1.0f : 5.0f),
+		EvidenceHoseMaterial,
 		NSLOCTEXT("IGCH03", "EvidenceHosePaw", "호스의 눌린 앞발 자국 확인하기"),
-		FRotator(0, 18, 0));
+		FRotator(0, 18, 0),
+		bHasHosePlane ? PlaneMesh.Get() : nullptr);
 	AddEvidence(
 		EIGChapterThreeAction::EvidenceHoseImpact,
 		Tank + FVector(-118, -72, 632),
-		FVector(22, 12, 9),
-		WetStepMaterial,
+		FVector(44, 28, bHasHosePlane ? 1.0f : 9.0f),
+		EvidenceHoseMaterial,
 		NSLOCTEXT(
 			"IGCH03",
 			"EvidenceHoseImpact",
 			"젖은 안쪽 마찰 자국과 커플링 물자국 대조하기"),
 		FRotator(0, -18, 0),
-		CylinderMesh);
+		bHasHosePlane ? PlaneMesh.Get() : CylinderMesh.Get());
 
 	AddEvidence(
 		EIGChapterThreeAction::EvidenceBag,
 		PurchaseBagLocation,
-		BagSize,
-		GlassMaterial,
+		bHasCarrierBagMesh ? CarrierBagMeshScalePercent : BagSize,
+		CarrierBagMaterial,
 		NSLOCTEXT("IGCH03", "EvidenceBag", "사다리 아래 편의점 봉지 확인하기"),
-		PurchaseBagRotation);
+		PurchaseBagRotation,
+		bHasCarrierBagMesh ? CarrierBagCollapsedMesh.Get() : nullptr);
 
 	// The final scene reproduces the exact purchase branch instead of using a
 	// generic bag token. The first bottle is the one Ji-woon drank from: its
 	// water is visibly lower and its cap is absent only on cap+leave.
-	const float BagWallThickness = 0.55f;
-	for (const float Side :
-		{-1.0f, 1.0f})
+	if (!bHasCarrierBagMesh)
 	{
+		const float BagWallThickness = 0.55f;
+		for (const float Side : {-1.0f, 1.0f})
+		{
+			CreateBlock(
+				PurchaseBagTransform.TransformPosition(
+					FVector(
+						Side * BagSize.X * 0.48f,
+						0.0f,
+						0.0f)),
+				FVector(
+					BagWallThickness,
+					BagSize.Y,
+					BagSize.Z),
+				CarrierBagMaterial,
+				false,
+				PurchaseBagRotation);
+			CreateBlock(
+				PurchaseBagTransform.TransformPosition(
+					FVector(
+						0.0f,
+						Side * BagSize.Y * 0.48f,
+						0.0f)),
+				FVector(
+					BagSize.X,
+					BagWallThickness,
+					BagSize.Z),
+				CarrierBagMaterial,
+				false,
+				PurchaseBagRotation);
+		}
+		const float HandleHalfWidth = BagSize.Y * 0.29f;
+		for (const float HandleSide : {-1.0f, 1.0f})
+		{
+			CreateBlock(
+				PurchaseBagTransform.TransformPosition(
+					FVector(
+						0.0f,
+						HandleSide * HandleHalfWidth,
+						BagSize.Z * 0.5f + BagHandleHeight * 0.5f)),
+				FVector(0.9f, 0.8f, BagHandleHeight),
+				CarrierBagMaterial,
+				false,
+				PurchaseBagRotation);
+		}
 		CreateBlock(
 			PurchaseBagTransform.TransformPosition(
 				FVector(
-					Side * BagSize.X * 0.48f,
 					0.0f,
-					0.0f)),
-			FVector(
-				BagWallThickness,
-				BagSize.Y,
-				BagSize.Z),
-			GlassMaterial,
-			false,
-			PurchaseBagRotation);
-		CreateBlock(
-			PurchaseBagTransform.TransformPosition(
-				FVector(
 					0.0f,
-					Side * BagSize.Y * 0.48f,
-					0.0f)),
-			FVector(
-				BagSize.X,
-				BagWallThickness,
-				BagSize.Z),
-			GlassMaterial,
+					BagSize.Z * 0.5f + BagHandleHeight)),
+			FVector(0.9f, HandleHalfWidth * 2.0f, 0.8f),
+			CarrierBagMaterial,
 			false,
 			PurchaseBagRotation);
 	}
-	const float HandleHalfWidth = BagSize.Y * 0.29f;
-	for (const float HandleSide : {-1.0f, 1.0f})
-	{
-		CreateBlock(
-			PurchaseBagTransform.TransformPosition(
-				FVector(
-					0.0f,
-					HandleSide * HandleHalfWidth,
-					BagSize.Z * 0.5f + BagHandleHeight * 0.5f)),
-			FVector(0.9f, 0.8f, BagHandleHeight),
-			PaperMaterial,
-			false,
-			PurchaseBagRotation);
-	}
-	CreateBlock(
-		PurchaseBagTransform.TransformPosition(
-			FVector(
-				0.0f,
-				0.0f,
-				BagSize.Z * 0.5f + BagHandleHeight)),
-		FVector(0.9f, HandleHalfWidth * 2.0f, 0.8f),
-		PaperMaterial,
-		false,
-		PurchaseBagRotation);
 
 	// The visual loss is derived from an absolute amount, not copied between
 	// bottle sizes. Ji-woon drinks about 90 mL; the cap and paper-cup routes
@@ -3205,72 +3978,106 @@ void AIGThirdMorningDirector::BuildP5AccidentEvidence()
 
 	AddEvidence(
 		EIGChapterThreeAction::EvidenceWetRung,
-		FVector(2260, -300, 556),
-		FVector(20, 58, 10),
-		WetStepMaterial,
+		FVector(2235, -300, 582.0f),
+		FVector(8.0f, 52.0f, bHasSlipperPlane ? 1.0f : 3.0f),
+		EvidenceSlipperMaterial,
 		NSLOCTEXT(
 			"IGCH03",
 			"EvidenceWetRung",
-			"상단 자국·들뜬 패드·녹슨 클립을 함께 확인하기"));
+			"상단 자국·들뜬 패드·녹슨 클립을 함께 확인하기"),
+		FRotator(0, 12, 0),
+		bHasSlipperPlane ? PlaneMesh.Get() : nullptr);
 	// RungFailureCluster is one causal object, not a wet-rung token: the last
 	// slipper mark ends here, the rubber pad has lifted inward, and both
 	// retaining clips show the same corrosion visible in the 04:03 photo.
-	for (int32 PrintIndex = 0; PrintIndex < 3; ++PrintIndex)
+	for (int32 PrintIndex = 0; PrintIndex < (bHasSlipperPlane ? 0 : 3); ++PrintIndex)
 	{
 		CreateBlock(
 			FVector(
-				2198.0f + PrintIndex * 27.0f,
+				2195.0f + PrintIndex * 20.0f,
 				-323.0f + PrintIndex * 8.0f,
-				514.0f + PrintIndex * 20.0f),
-			FVector(16, 9, 1.2f),
-			WetStepMaterial,
+				540.6f + PrintIndex * 20.0f),
+			FVector(20, 30, 1.0f),
+			EvidenceSlipperMaterial,
 			false,
-			FRotator(0, 12, 0));
+			FRotator(0, 12, 0),
+			bHasSlipperPlane ? PlaneMesh.Get() : nullptr);
 	}
-	CreateBlock(
-		FVector(2256.0f, -300.0f, 562.0f),
-		FVector(18, 54, 3.2f),
-		PlasticMaterial,
-		false,
-		FRotator(0, 0, -8));
-	for (const float ClipY : {-326.0f, -274.0f})
+	if (bHasRungFailureCluster)
 	{
 		CreateBlock(
-			FVector(2263.0f, ClipY, 559.0f),
-			FVector(5, 7, 5),
+			FVector(2235, -300, 578.5f),
+			FVector(100.0f),
+			WetRungPadMaterial,
+			false,
+			FRotator::ZeroRotator,
+			LadderRungPadMesh);
+		CreateBlock(
+			FVector(2235, -300, 578.5f),
+			FVector(100.0f),
+			WaterTankMetalMaterial,
+			false,
+			FRotator::ZeroRotator,
+			LadderRungClipsMesh);
+	}
+	else
+	{
+		CreateBlock(
+			FVector(2235.0f, -300.0f, 580.7f),
+			FVector(8.5f, 54.0f, 0.3f),
+			WetRungPadMaterial,
+			false,
+			FRotator(6.0f, 0.0f, 0.0f));
+	}
+	// Corrosion is a small source detail on otherwise galvanized clips. Two
+	// thin screw-head inserts avoid tinting the entire clip orange.
+	for (const float ClipY : {-329.0f, -271.0f})
+	{
+		CreateBlock(
+			FVector(2235.0f, ClipY, 581.55f),
+			FVector(1.8f, 1.8f, 0.6f),
 			EmergencyMaterial,
 			false,
-			FRotator(0, 0, 18));
+			FRotator::ZeroRotator,
+			CylinderMesh);
 	}
 	AddEvidence(
 		EIGChapterThreeAction::EvidenceHandSmear,
 		Tank + FVector(-135, 10, 626),
-		FVector(34, 14, 3),
-		WetStepMaterial,
+		FVector(48, 34, bHasHandSmearPlane ? 1.0f : 3.0f),
+		EvidenceHandSmearMaterial,
 		NSLOCTEXT(
 			"IGCH03",
 			"EvidenceHandSmear",
 			"안쪽으로 이어진 손바닥 쓸림 확인하기"),
-		FRotator(0, 82, 0));
+		FRotator(0, 82, 0),
+		bHasHandSmearPlane ? PlaneMesh.Get() : nullptr);
 
 	AIGChapterThreeAction* ClothingEvidence = AddEvidence(
 		EIGChapterThreeAction::EvidenceTankClothing,
-		Tank + FVector(20, 5, 562),
-		FVector(55, 28, 9),
+		Tank + FVector(-10, -30, 540),
+		FVector(55, 28, 18),
 		BeddingMaterial,
 		NSLOCTEXT("IGCH03", "EvidenceTankClothing", "물속 후드의 수선 자국 대조하기"),
 		FRotator(0, 16, 0));
+	if (ClothingEvidence && ClothingEvidence->GetPresentationMesh())
+	{
+		// This is a query-only focus volume around the actual sleeve stitches,
+		// not another visible clothing proxy floating above the authored body.
+		ClothingEvidence->GetPresentationMesh()->SetVisibility(false);
+		ClothingEvidence->GetPresentationMesh()->SetCastShadow(false);
+	}
 	SetVisibleInteractive(ClothingEvidence, false);
 
 	// The support rod is present before the ending prompt so choice B never
 	// materializes an unexplained tool.
 	CreateBlock(
 		Tank + FVector(-190, 108, 612),
-		FVector(10, 10, 118),
+		InspectionRodMesh ? FVector(100.0f) : FVector(10, 10, 118),
 		MetalMaterial,
 		false,
 		FRotator(0, 72, 68),
-		CylinderMesh);
+		InspectionRodMesh ? InspectionRodMesh.Get() : CylinderMesh.Get());
 }
 
 void AIGThirdMorningDirector::SpawnClueDocuments()
@@ -3292,7 +4099,7 @@ void AIGThirdMorningDirector::SpawnClueDocuments()
 	MotherPhoneNote = SpawnNote(
 		FVector(122, 150, 44.4f),
 		FRotator(0, 0, -8),
-		FVector(16, 8, 1.4f),
+		CrackedPhoneMesh ? FVector(100.0f) : FVector(16, 8, 1.4f),
 		NSLOCTEXT("IGCH03", "MotherPhonePrompt", "금 간 휴대폰 확인하기"),
 		NSLOCTEXT("IGCH03", "MotherPhoneTitle", "엄마"),
 		{
@@ -3318,17 +4125,18 @@ void AIGThirdMorningDirector::SpawnClueDocuments()
 				"MotherPhoneApproval0444",
 				"거래 기록  7/26 04:44  동일 승인 중복")
 		},
-		PlasticMaterial);
+		PlasticMaterial,
+		CrackedPhoneMesh.Get());
 	// Two hairline screen cracks are enough to identify the object before the
 	// reading panel opens, without making a bespoke phone UI asset.
 	CreateBlock(
-		FVector(121, 150, 45.25f),
+		FVector(121, 150, CrackedPhoneMesh ? 45.44f : 45.25f),
 		FVector(7, 0.5f, 0.25f),
 		ScreenMaterial,
 		false,
 		FRotator(0, -17, 0));
 	CreateBlock(
-		FVector(124, 150, 45.28f),
+		FVector(124, 150, CrackedPhoneMesh ? 45.47f : 45.28f),
 		FVector(5, 0.5f, 0.25f),
 		ScreenMaterial,
 		false,
@@ -3737,17 +4545,15 @@ void AIGThirdMorningDirector::HandleAction(
 			bKeysInspected = true;
 			AIGHorrorHUD::PushThought(
 				this,
-				NSLOCTEXT("IGCH03", "KeysThought", "관리사무소 열쇠다. 그날부터 꽂혀 있었던 건가."),
+				NSLOCTEXT(
+					"IGCH03",
+					"KeysThought",
+					"자물쇠가 열려 있다. 관리 열쇠도 그대로 꽂혀 있다."),
 				4.2f);
 			IGStory::AddState(
 				this,
 				FGameplayTag::RequestGameplayTag(
 					FName(TEXT("State.CH03.Flood.FoundKeys")), false));
-			if (RoofDoorAction)
-			{
-				RoofDoorAction->SetInteractionPrompt(
-					NSLOCTEXT("IGCH03", "RoofDoorUnlockedPrompt", "열쇠로 옥상 철문 열기"));
-			}
 		}
 		break;
 
@@ -3786,6 +4592,10 @@ void AIGThirdMorningDirector::HandleAction(
 				Source->SetInteractionPrompt(
 					NSLOCTEXT("IGCH03", "P3DirectClosed", "직결 급수 잠김"));
 				Source->SetInteractionEnabled(false);
+				if (UStaticMeshComponent* Wheel = Source->GetPresentationMesh())
+				{
+					Wheel->SetRelativeRotation(FRotator(0, 45, 0));
+				}
 			}
 			PlayMetalEcho(FVector(600, -178, 164), 0.92f);
 			CommitChapterThreeState();
@@ -3802,6 +4612,10 @@ void AIGThirdMorningDirector::HandleAction(
 				Source->SetInteractionPrompt(
 					NSLOCTEXT("IGCH03", "P3ReserveClosed", "예비조 잠김"));
 				Source->SetInteractionEnabled(false);
+				if (UStaticMeshComponent* Wheel = Source->GetPresentationMesh())
+				{
+					Wheel->SetRelativeRotation(FRotator(0, 45, 0));
+				}
 			}
 			PlayMetalEcho(FVector(650, -178, 164), 0.88f);
 			CommitChapterThreeState();
@@ -3907,6 +4721,11 @@ void AIGThirdMorningDirector::BeginP3PressureRelease()
 		P3PressureReleaseAction->SetInteractionPrompt(
 			NSLOCTEXT("IGCH03", "P3BleedOpen", "압력 해제 열림"));
 		P3PressureReleaseAction->SetInteractionEnabled(false);
+		if (UStaticMeshComponent* Wheel =
+			P3PressureReleaseAction->GetPresentationMesh())
+		{
+			Wheel->SetRelativeRotation(FRotator(0, 45, 0));
+		}
 	}
 	if (P3BleedWaterVisual)
 	{
@@ -3944,7 +4763,7 @@ void AIGThirdMorningDirector::UpdateP3PressureRelease()
 	{
 		const float Alpha = 1.0f - P3PressureKPa / 60.0f;
 		P3PressureNeedle->SetRelativeRotation(
-			FRotator(0, 0, FMath::Lerp(-55.0f, 55.0f, Alpha)));
+			FRotator(FMath::Lerp(-55.0f, 55.0f, Alpha), 0, 0));
 	}
 	if (P3BleedWaterVisual)
 	{
@@ -3953,7 +4772,7 @@ void AIGThirdMorningDirector::UpdateP3PressureRelease()
 			0.08f,
 			1.0f);
 		P3BleedWaterVisual->SetRelativeScale3D(
-			FVector(0.62f * FlowScale, 0.038f, 0.038f));
+			FVector(0.026f, 0.026f, 0.40f * FlowScale));
 	}
 
 	if (P3PressureKPa <= 0.0f)
@@ -4039,6 +4858,11 @@ void AIGThirdMorningDirector::CompleteP3()
 		P3FloorDrainAction->SetInteractionPrompt(
 			NSLOCTEXT("IGCH03", "P3DrainOpen", "바닥 배수 열림"));
 		P3FloorDrainAction->SetInteractionEnabled(false);
+		if (UStaticMeshComponent* Wheel =
+			P3FloorDrainAction->GetPresentationMesh())
+		{
+			Wheel->SetRelativeRotation(FRotator(0, 45, 0));
+		}
 	}
 	if (CorridorWaterVisual)
 	{
@@ -4081,7 +4905,7 @@ void AIGThirdMorningDirector::FocusOrCompareEvidence(
 			this,
 			FGameplayTag::RequestGameplayTag(
 				FName(TEXT("State.CH03.Flood.FoundGlasses")), false));
-		PlayMetalEcho(FVector(2265, -300, 360), 1.0f);
+		PlayMetalEcho(FVector(2335, -184, 662), 1.0f);
 	}
 	if (EvidenceAction == EIGChapterThreeAction::EvidenceCurrentSleeve)
 	{
@@ -5002,6 +5826,10 @@ void AIGThirdMorningDirector::HandleStairLoop(AIGZoneTrigger* Zone)
 	}
 
 	++StairLoopCount;
+	UIGRebirthEvidenceSubsystem::RecordPuzzleFourObservation(
+		this,
+		StairLoopCount,
+		StairLoopCount >= 3);
 	SetPhase(EIGThirdMorningPhase::StairLoops);
 	IGStory::AddState(
 		this,
@@ -5088,6 +5916,10 @@ void AIGThirdMorningDirector::RevealUpwardRoute()
 
 void AIGThirdMorningDirector::HandleFifthFloorEntered(AIGZoneTrigger* Zone)
 {
+	UIGRebirthEvidenceSubsystem::RecordPuzzleFourObservation(
+		this,
+		StairLoopCount,
+		true);
 	SetPhase(EIGThirdMorningPhase::FifthFloor);
 	AIGHorrorHUD::PushThought(
 		this,
@@ -5169,14 +6001,14 @@ void AIGThirdMorningDirector::HandleLadderEntered(AIGZoneTrigger* Zone)
 		ScheduleAccidentScratch();
 	}
 	// My rung, then one wetter answer from below.
-	PlayMetalEcho(FVector(2075, -300, 350), 1.0f);
+	PlayMetalEcho(FVector(2075, -300, 420), 1.0f);
 	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
 	FTimerDelegate EchoDelegate;
 	EchoDelegate.BindLambda([WeakThis]()
 	{
 		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
-			Director->PlayMetalEcho(FVector(1970, -300, 280), 0.92f);
+			Director->PlayMetalEcho(FVector(1975, -300, 320), 0.92f);
 		}
 	});
 	GetWorldTimerManager().SetTimer(
@@ -5196,9 +6028,16 @@ void AIGThirdMorningDirector::RevealTank()
 	SetPhase(EIGThirdMorningPhase::TankReveal);
 	if (TankLidAction)
 	{
-		// The open disc sits beyond the player's sightline.  A 3.1 m lid parked
-		// on the near hinge used to cut through the body like a render artifact.
-		TankLidAction->SetActorHiddenInGame(true);
+		// The one-person service lid remains visible on the far hinge. Unlike the
+		// former three-metre disc, it clears the opening without cutting through
+		// the body silhouette and gives the support rod a readable physical job.
+		TankLidAction->SetActorHiddenInGame(false);
+		TankLidAction->SetActorLocation(ToWorld(
+			IGThirdMorning::TankCenter
+			+ IGThirdMorning::TankHatchOffset
+			+ IGThirdMorning::TankLidOpenOffset
+			+ FVector(0, 0, 610)));
+		TankLidAction->SetActorRotation(FRotator(-78, 0, 0));
 		TankLidAction->SetInteractionEnabled(false);
 		TankLidAction->SetActorEnableCollision(false);
 	}
@@ -5286,7 +6125,7 @@ void AIGThirdMorningDirector::HandleFlashlightReturnReveal(
 		&ThisClass::HandleFlashlightReturnReveal);
 	StopAllChapterAudio();
 	PlayMetalEcho(
-		IGThirdMorning::TankCenter + FVector(0.0f, 0.0f, 545.0f),
+		IGThirdMorning::TankCenter + FVector(0.0f, 0.0f, 564.0f),
 		0.72f);
 	AIGHorrorHUD::PushThought(
 		this,
@@ -5365,6 +6204,9 @@ void AIGThirdMorningDirector::FinishEndingA()
 	}
 	bEndingFinished = true;
 	bEndingASelected = true;
+	UIGRebirthEvidenceSubsystem::RecordEndingEvent(
+		this,
+		FName(TEXT("Choice")));
 	CommitChapterThreeState();
 	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
 	SetPhase(EIGThirdMorningPhase::Ending);
@@ -5374,6 +6216,9 @@ void AIGThirdMorningDirector::FinishEndingA()
 	// 0.8 seconds before the dark takes it.
 	PlayTankSlam();
 	ApplyCommonDiscoveryWorldState();
+	UIGRebirthEvidenceSubsystem::RecordEndingEvent(
+		this,
+		FName(TEXT("ActualStateRestored")));
 	PlayRestoreStateSounds();
 
 	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
@@ -5419,6 +6264,9 @@ void AIGThirdMorningDirector::BeginEndingB()
 	}
 	bEndingFinished = true;
 	bEndingASelected = false;
+	UIGRebirthEvidenceSubsystem::RecordEndingEvent(
+		this,
+		FName(TEXT("Choice")));
 	CommitChapterThreeState();
 	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
 	SetPhase(EIGThirdMorningPhase::Ending);
@@ -5445,7 +6293,7 @@ void AIGThirdMorningDirector::BeginEndingB()
 			IGAudio::SpawnOneShotAt(
 				Director,
 				UIGToneSequenceSoundWave::CreateGlassesTinyRing(Director),
-				Director->ToWorld(FVector(1880, -250, 250)),
+				Director->ToWorld(FVector(2335, -184, 662)),
 				0.34f,
 				1.0f,
 				60.0f,
@@ -5491,6 +6339,9 @@ void AIGThirdMorningDirector::BeginEndingB()
 		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
 			Director->ApplyCommonDiscoveryWorldState();
+			UIGRebirthEvidenceSubsystem::RecordEndingEvent(
+				Director,
+				FName(TEXT("ActualStateRestored")));
 			Director->PlayRestoreStateSounds();
 		}
 	});
@@ -5530,6 +6381,12 @@ void AIGThirdMorningDirector::ShowCommonDiscoveryCard()
 	ApplyCommonDiscoveryWorldState();
 	const bool bFirstCommit =
 		RebirthState->CommitChapterThreeCommonDiscovery();
+	if (bFirstCommit)
+	{
+		UIGRebirthEvidenceSubsystem::RecordEndingEvent(
+			this,
+			FName(TEXT("Found0731")));
+	}
 	ensureMsgf(
 		RebirthState->GetTruthSources(FGameplayTag::RequestGameplayTag(
 			FName(TEXT("Truth.Found0731")),
@@ -5564,6 +6421,9 @@ void AIGThirdMorningDirector::ShowCommonDiscoveryCard()
 		NSLOCTEXT("IGCH03", "DiscoveryTitle", "옥상 예비 저수조 합동 확인 중 실종자 한지운 발견"),
 		FText::GetEmpty(),
 		2.0f);
+	UIGRebirthEvidenceSubsystem::RecordEndingEvent(
+		this,
+		FName(TEXT("CommonDiscoveryCard")));
 
 	if (bEndingASelected)
 	{
@@ -5603,6 +6463,9 @@ void AIGThirdMorningDirector::FinishEndingAAfterDiscovery()
 	// Persist the guard before emitting any part of the cue. Otherwise a
 	// quit after the final controls would replay the blackout cues on load.
 	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
+	UIGRebirthEvidenceSubsystem::RecordEndingEvent(
+		this,
+		FName(TEXT("BranchCoda")));
 	PlayEndingABlackoutCues();
 }
 
@@ -5771,6 +6634,9 @@ void AIGThirdMorningDirector::StartEndingBMontage()
 		// the goodbye never plays the tape twice.
 		CommitChapterThreeState();
 		RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Roof"));
+		UIGRebirthEvidenceSubsystem::RecordEndingEvent(
+			this,
+			FName(TEXT("BranchCoda")));
 	}
 
 	// The screen stays black to the end; only the sounds pack the room.
@@ -6193,7 +7059,10 @@ void AIGThirdMorningDirector::PlayTankSlam()
 	IGAudio::SpawnOneShotAt(
 		this,
 		Slam,
-		ToWorld(IGThirdMorning::TankCenter + FVector(0, 0, 620)),
+		ToWorld(
+			IGThirdMorning::TankCenter
+			+ IGThirdMorning::TankHatchOffset
+			+ FVector(0, 0, 620)),
 		0.86f,
 		1.0f,
 		140.0f,
@@ -6868,17 +7737,11 @@ void AIGThirdMorningDirector::FinishRebirthGreyboxValidation()
 			&& Player->ValidateRebirthOutfitProxy(OutfitStitchCount);
 	}
 
-	float RoofDoorGap = -1.0f;
-	if (RoofDoorAction && RoofDoorAction->GetPresentationMesh())
-	{
-		const FBoxSphereBounds DoorBounds =
-			RoofDoorAction->GetPresentationMesh()->CalcBounds(
-				RoofDoorAction->GetPresentationMesh()->GetComponentTransform());
-		const float RoofTop = ToWorld(
-			FVector(0, 0, IGThirdMorning::RoofFloorZ)).Z;
-		RoofDoorGap = DoorBounds.Origin.Z - DoorBounds.BoxExtent.Z - RoofTop;
-	}
-	const bool bDoorGapValid = FMath::IsNearlyEqual(RoofDoorGap, 11.0f, 1.0f);
+	const float RoofDoorGap = MeasureRoofDoorFreeEdgeGap();
+	const bool bDoorGapValid = FMath::IsNearlyEqual(
+		RoofDoorGap,
+		IGThirdMorning::RoofDoorFreeEdgeGap,
+		1.0f);
 	const bool bPassed =
 		bP3Solved
 		&& bP3PressureZero
@@ -7195,17 +8058,20 @@ bool AIGThirdMorningDirector::ValidateRebirthRoofDoor(
 			QueryParams);
 	};
 	const FCollisionShape CatCapsule =
-		FCollisionShape::MakeCapsule(4.0f, 4.0f);
+		FCollisionShape::MakeCapsule(3.5f, 3.5f);
 	const FCollisionShape PlayerCapsule =
 		FCollisionShape::MakeCapsule(34.0f, 96.0f);
-	const FVector CatInside(
-		1620.0f,
-		-400.0f,
-		IGThirdMorning::RoofFloorZ + 5.0f);
-	const FVector CatOutside(
-		1705.0f,
-		-400.0f,
-		IGThirdMorning::RoofFloorZ + 5.0f);
+	const float CatCenterZ = IGThirdMorning::RoofFloorZ + 5.0f;
+	// The animal route bends around the free edge and through the narrow slit.
+	// A straight centre-line sweep would either intersect the leaf or recreate
+	// the old, physically wrong gap under the entire door.
+	const TArray<FVector> CatRoute = {
+		FVector(1620.0f, -400.0f, CatCenterZ),
+		FVector(1645.5f, -340.5f, CatCenterZ),
+		FVector(1647.0f, -339.0f, CatCenterZ),
+		FVector(1653.5f, -338.5f, CatCenterZ),
+		FVector(1655.5f, -339.0f, CatCenterZ),
+		FVector(1705.0f, -400.0f, CatCenterZ)};
 	const FVector PlayerInside(
 		1620.0f,
 		-400.0f,
@@ -7218,26 +8084,46 @@ bool AIGThirdMorningDirector::ValidateRebirthRoofDoor(
 		IGThirdMorning::RoofFloorZ
 			+ IGThirdMorning::StandingCapsuleCenter
 			+ 1.0f);
+	const auto IsCatRouteClear = [
+		&Sweep,
+		&CatCapsule,
+		&CatRoute](const bool bReverse)
+	{
+		for (int32 SegmentIndex = 0;
+			SegmentIndex < CatRoute.Num() - 1;
+			++SegmentIndex)
+		{
+			const int32 StartIndex = bReverse
+				? CatRoute.Num() - 1 - SegmentIndex
+				: SegmentIndex;
+			const int32 EndIndex = bReverse
+				? StartIndex - 1
+				: StartIndex + 1;
+			FHitResult Hit;
+			if (Sweep(
+				CatCapsule,
+				CatRoute[StartIndex],
+				CatRoute[EndIndex],
+				Hit))
+			{
+				return false;
+			}
+		}
+		return true;
+	};
 
 	ApplyRoofDoorState(EIGRoofDoorState::LatchedGap);
 	const bool bLatchedStateApplied =
 		RoofDoorState == EIGRoofDoorState::LatchedGap
 		&& HasAuthoritativeCollision();
-	const FBoxSphereBounds DoorBounds = RoofDoorLeaf->CalcBounds(
-		RoofDoorLeaf->GetComponentTransform());
-	const float RoofTop =
-		ToWorld(FVector(0.0f, 0.0f, IGThirdMorning::RoofFloorZ)).Z;
-	OutGapCentimeters =
-		DoorBounds.Origin.Z - DoorBounds.BoxExtent.Z - RoofTop;
+	OutGapCentimeters = MeasureRoofDoorFreeEdgeGap();
 	for (int32 Attempt = 0; Attempt < 20; ++Attempt)
 	{
-		FHitResult EnterHit;
-		if (!Sweep(CatCapsule, CatInside, CatOutside, EnterHit))
+		if (IsCatRouteClear(false))
 		{
 			++OutCatEnterPasses;
 		}
-		FHitResult ExitHit;
-		if (!Sweep(CatCapsule, CatOutside, CatInside, ExitHit))
+		if (IsCatRouteClear(true))
 		{
 			++OutCatExitPasses;
 		}
@@ -7282,7 +8168,10 @@ bool AIGThirdMorningDirector::ValidateRebirthRoofDoor(
 		&& bPulledStateApplied
 		&& bReturnStateApplied
 		&& bRestoredState
-		&& FMath::IsNearlyEqual(OutGapCentimeters, 11.0f, 1.0f)
+		&& FMath::IsNearlyEqual(
+			OutGapCentimeters,
+			IGThirdMorning::RoofDoorFreeEdgeGap,
+			1.0f)
 		&& OutCatEnterPasses == 20
 		&& OutCatExitPasses == 20
 		&& OutLatchedHumanBlocks == 20
@@ -7309,6 +8198,10 @@ bool AIGThirdMorningDirector::ValidateRebirthCollisionRoute(
 	{
 		QueryParams.AddIgnoredActor(Controller->GetPawn());
 	}
+	// The moving leaf has its own three-state cat/player sweep above. Ignore
+	// only that actor here so this pass measures the fixed route, frame and
+	// floor without treating the intentionally latched door as a regression.
+	QueryParams.AddIgnoredActor(RoofDoorAction);
 
 	struct FFloorSample
 	{
@@ -7335,8 +8228,11 @@ bool AIGThirdMorningDirector::ValidateRebirthCollisionRoute(
 			FVector(1510.0f + StepIndex * 36.0f, -420.0f, 0.0f),
 			StepTopZ});
 	}
+	// Sample the first uninterrupted roof patch beyond the movable fire door.
+	// The old X=1660 point sat inside the leaf while it was being held open,
+	// so the vertical trace reported the door panel instead of the roof slab.
 	FloorSamples.Add({
-		FVector(1660.0f, -420.0f, 0.0f),
+		FVector(1720.0f, -420.0f, 0.0f),
 		IGThirdMorning::RoofFloorZ});
 	FloorSamples.Add({
 		FVector(1800.0f, -600.0f, 0.0f),
@@ -7518,6 +8414,19 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	StopAllChapterAudio();
 	StartWaterBed();
 	UAudioComponent* QueuedAudio = WaterBedComponent.Get();
+	// -nosound deliberately prevents SpawnSoundAtLocation from returning a
+	// device-backed component. Keep workplace/CI runs silent, but still verify
+	// that the generated sound can be assigned to a component and stopped.
+	if (!QueuedAudio && FParse::Param(FCommandLine::Get(), TEXT("nosound")))
+	{
+		QueuedAudio = NewObject<UAudioComponent>(
+			this,
+			TEXT("CH03ReleaseValidationSilentAudio"));
+		if (QueuedAudio)
+		{
+			QueuedAudio->SetSound(ValidationWave);
+		}
+	}
 	const bool bCreated =
 		IsValid(QueuedAudio) && IsValid(QueuedAudio->GetSound());
 	if (QueuedAudio)
@@ -7527,6 +8436,22 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	const bool bStopped =
 		!IsValid(QueuedAudio) || !QueuedAudio->IsPlaying();
 	WaterBedComponent = nullptr;
+	if (!bPcmGenerated || !bCreated || !bStopped)
+	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_RELEASE audio queue failed pcm=%d created=%d "
+				"stopped=%d samples=%d bytes=%d nonzero=%d nosound=%d"),
+			bPcmGenerated ? 1 : 0,
+			bCreated ? 1 : 0,
+			bStopped ? 1 : 0,
+			OutGeneratedSamples,
+			OutGeneratedBytes,
+			OutNonZeroSamples,
+			FParse::Param(FCommandLine::Get(), TEXT("nosound")) ? 1 : 0);
+	}
 	return bPcmGenerated && bCreated && bStopped;
 }
 
@@ -7727,8 +8652,10 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 			break;
 		}
 	}
-	const FVector ExpectedLidLocation =
-		ToWorld(IGThirdMorning::TankCenter + FVector(0, 0, 610));
+	const FVector ExpectedLidLocation = ToWorld(
+		IGThirdMorning::TankCenter
+		+ IGThirdMorning::TankHatchOffset
+		+ FVector(0, 0, 610));
 	const int32 TankLidCountAfterEnding =
 		CountOwnedChapterThreeActions(EIGChapterThreeAction::OpenTank);
 	const int32 OwnedActionCountAfterEnding =
@@ -7998,7 +8925,7 @@ void AIGThirdMorningDirector::CaptureNextFrame()
 		HandleAction(EIGChapterThreeAction::OpenTank, TankLidAction);
 		PlaceCaptureCamera(
 			FVector(2420, -220, 1020),
-			IGThirdMorning::TankCenter + FVector(-8, 2, 550));
+			IGThirdMorning::TankCenter + FVector(-8, 2, 544));
 		BaseName = TEXT("ch03-tank-reveal");
 		break;
 	default:

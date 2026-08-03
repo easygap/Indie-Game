@@ -6,13 +6,13 @@ set "UE_RESOLVER=%PROJECT_ROOT%\Scripts\Resolve-UnrealEditor.ps1"
 set "RESOLVED_UE_EDITOR="
 set "RUN_LOG=%PROJECT_ROOT%\Saved\Logs\RebirthGreybox.log"
 
-for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%UE_RESOLVER%" -ProjectPath "%PROJECT_FILE%" 2^>nul`) do (
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%UE_RESOLVER%" -ProjectPath "%PROJECT_FILE%" -Commandlet 2^>nul`) do (
     set "RESOLVED_UE_EDITOR=%%I"
 )
 
 if not defined RESOLVED_UE_EDITOR (
     echo Unreal Engine matching IndieGame.uproject was not found.
-    echo Install the associated engine or set IG_UNREAL_EDITOR to UnrealEditor.exe.
+    echo Install the associated engine or set IG_UNREAL_EDITOR to its editor binary.
     exit /b 1
 )
 
@@ -28,7 +28,7 @@ if exist "%RUN_LOG%" (
     exit /b 1
 )
 
-"%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -unattended -nosplash -nullrhi -stdout -FullStdOutLogOutput -abslog="%RUN_LOG%" -IGChapterThree -IGRebirthGreybox
+"%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -unattended -nosplash -nullrhi -nosound -RenderOffscreen -stdout -FullStdOutLogOutput -abslog="%RUN_LOG%" -IGChapterThree -IGRebirthGreybox
 set "EDITOR_EXIT=%ERRORLEVEL%"
 
 if not "%EDITOR_EXIT%"=="0" (

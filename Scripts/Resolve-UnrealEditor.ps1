@@ -1,7 +1,8 @@
 [CmdletBinding()]
 param(
 	[string]$ProjectPath,
-	[string]$ExplicitEditorPath = $env:IG_UNREAL_EDITOR
+	[string]$ExplicitEditorPath = $env:IG_UNREAL_EDITOR,
+	[switch]$Commandlet
 )
 
 $ErrorActionPreference = 'Stop'
@@ -108,13 +109,20 @@ if (Test-Path -LiteralPath $launcherManifest -PathType Leaf) {
 foreach ($candidate in $candidateRoots |
 		Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
 		Select-Object -Unique) {
-	$editorPath = if ($candidate.EndsWith(
-			'UnrealEditor.exe',
-			[StringComparison]::OrdinalIgnoreCase)) {
-		$candidate
+	$requestedBinary = if ($Commandlet) {
+		'UnrealEditor-Cmd.exe'
 	}
 	else {
-		Join-Path $candidate 'Engine\Binaries\Win64\UnrealEditor.exe'
+		'UnrealEditor.exe'
+	}
+	$editorPath = if (
+		$candidate.EndsWith('UnrealEditor.exe', [StringComparison]::OrdinalIgnoreCase) -or
+		$candidate.EndsWith('UnrealEditor-Cmd.exe', [StringComparison]::OrdinalIgnoreCase)
+	) {
+		Join-Path (Split-Path -Parent $candidate) $requestedBinary
+	}
+	else {
+		Join-Path $candidate "Engine\Binaries\Win64\$requestedBinary"
 	}
 
 	if ((Test-Path -LiteralPath $editorPath -PathType Leaf) -and
@@ -128,5 +136,5 @@ foreach ($candidate in $candidateRoots |
 
 Write-Error (
 	"Unreal Engine $association was not found. " +
-	"Install it or set IG_UNREAL_EDITOR to UnrealEditor.exe.")
+	"Install it or set IG_UNREAL_EDITOR to the engine editor binary.")
 exit 1

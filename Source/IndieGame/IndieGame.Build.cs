@@ -29,6 +29,7 @@ public class IndieGame : ModuleRules
 			"AssetRegistry"
 		});
 
+		PrivateDependencyModuleNames.Add("Json");
 		PrivateDependencyModuleNames.Add("PhysicsCore");
 	}
 }
