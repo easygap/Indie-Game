@@ -170,6 +170,12 @@ DECAL_MATERIALS = {
         "tile_u": 2.0, "metal_map": True, "wet_rough": 0.19,
         "wet_dark": 0.76, "wet_normal_flatten": 0.28, "specular": 0.50,
     },
+    "M_TankInteriorBiofilmUV": {
+        "tex_asset": "T_TankInteriorBiofilm_D", "pbr_stem": "T_TankInteriorBiofilm",
+        "tile_u": 3.0, "metal_map": True, "wet_rough": 0.18,
+        "wet_dark": 0.70, "wet_normal_flatten": 0.32, "specular": 0.48,
+        "wet_waterline_z": 561.0, "wet_transition_cm": 8.0,
+    },
     "M_WetServiceHoseUV": {
         "tex_asset": "T_WetServiceHose_D", "pbr_stem": "T_WetServiceHose",
         "tile_u": 6.0, "wet_rough": 0.22, "wet_dark": 0.68,
@@ -184,6 +190,24 @@ DECAL_MATERIALS = {
         "tex_asset": "T_P3CabinetPaintedSteel_D", "pbr_stem": "T_P3CabinetPaintedSteel",
         "tile_u": 2.2, "wet_rough": 0.38, "wet_dark": 0.84,
         "wet_normal_flatten": 0.22, "specular": 0.50,
+    },
+    "M_SubmergedPantsUV": {
+        "tex_asset": "T_WetHoodie_D", "pbr_stem": "T_WetHoodie",
+        "tile_u": 2.5, "wet_rough": 0.24, "wet_dark": 0.62,
+        "wet_normal_flatten": 0.55, "minimum_wetness": 0.86,
+        "specular": 0.48,
+    },
+    "M_SubmergedSlippersUV": {
+        "tex_asset": "T_WetServiceHose_D", "pbr_stem": "T_WetServiceHose",
+        "tile_u": 1.35, "wet_rough": 0.15, "wet_dark": 0.68,
+        "wet_normal_flatten": 0.60, "minimum_wetness": 0.90,
+        "specular": 0.54,
+    },
+    "M_SubmergedSlipperWearUV": {
+        "tex_asset": "T_WetRungPad_D", "pbr_stem": "T_WetRungPad",
+        "tile_u": 1.0, "wet_rough": 0.30, "wet_dark": 0.82,
+        "wet_normal_flatten": 0.36, "minimum_wetness": 0.82,
+        "specular": 0.46,
     },
 }
 
@@ -282,6 +306,25 @@ def _make_uv_source(material, mapping, tile, y_offset):
     unreal.MaterialEditingLibrary.connect_material_expressions(mask, "", multiply, "A")
     unreal.MaterialEditingLibrary.connect_material_expressions(scale, "", multiply, "B")
     return multiply
+
+
+def _make_panning_uv(material, tiling, speed_x, speed_y, y_offset):
+    """Build a restrained time-driven UV layer for water micro-motion."""
+    coords = _expr(
+        material,
+        unreal.MaterialExpressionTextureCoordinate,
+        -1500,
+        y_offset,
+    )
+    coords.set_editor_property("u_tiling", tiling)
+    coords.set_editor_property("v_tiling", tiling)
+    panner = _expr(material, unreal.MaterialExpressionPanner, -1300, y_offset)
+    panner.set_editor_property("speed_x", speed_x)
+    panner.set_editor_property("speed_y", speed_y)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        coords, "", panner, "Coordinate"
+    )
+    return panner
 
 
 def _sample(material, texture, uv_expression, sampler_type, y_offset):
@@ -563,7 +606,7 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
         texture = _load_texture(source_asset)
         sample = _sample(
             material, texture, None,
-            (unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE
+            (unreal.MaterialSamplerType.SAMPLERTYPE_MASKS
              if mask_only else unreal.MaterialSamplerType.SAMPLERTYPE_COLOR),
             0,
         )
@@ -684,6 +727,8 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
     """Connect a generated scan as a complete, flashlight-reactive PBR surface."""
     stem = spec["pbr_stem"]
     wet_sample = None
+    wet_output = None
+    wet_output_pin = "R"
     if "wet_rough" in spec:
         wet_sample = _sample(
             material,
@@ -692,6 +737,115 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
             unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
             620,
         )
+        wet_output = wet_sample
+        if "minimum_wetness" in spec:
+            minimum_wetness = _expr(
+                material, unreal.MaterialExpressionConstant, -650, 760
+            )
+            minimum_wetness.set_editor_property(
+                "r", spec["minimum_wetness"]
+            )
+            minimum_blend = _expr(
+                material, unreal.MaterialExpressionMax, -470, 720
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                wet_sample, "R", minimum_blend, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                minimum_wetness, "", minimum_blend, "B"
+            )
+            wet_output = minimum_blend
+            wet_output_pin = ""
+        if "wet_waterline_z" in spec:
+            transition_width = max(1.0, spec.get("wet_transition_cm", 8.0))
+            world_position = _expr(
+                material, unreal.MaterialExpressionWorldPosition, -1250, 780
+            )
+            world_height = _expr(
+                material, unreal.MaterialExpressionComponentMask, -1070, 780
+            )
+            world_height.set_editor_property("r", False)
+            world_height.set_editor_property("g", False)
+            world_height.set_editor_property("b", True)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                world_position, "", world_height, ""
+            )
+            transition_top = _expr(
+                material, unreal.MaterialExpressionConstant, -1070, 900
+            )
+            transition_top.set_editor_property(
+                "r", spec["wet_waterline_z"] + transition_width * 0.5
+            )
+            height_below_top = _expr(
+                material, unreal.MaterialExpressionSubtract, -890, 820
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                transition_top, "", height_below_top, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                world_height, "", height_below_top, "B"
+            )
+            inverse_width = _expr(
+                material, unreal.MaterialExpressionConstant, -890, 940
+            )
+            inverse_width.set_editor_property("r", 1.0 / transition_width)
+            normalized_depth = _expr(
+                material, unreal.MaterialExpressionMultiply, -710, 840
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                height_below_top, "", normalized_depth, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                inverse_width, "", normalized_depth, "B"
+            )
+            submerged_mask = _expr(
+                material, unreal.MaterialExpressionSaturate, -530, 840
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                normalized_depth, "", submerged_mask, ""
+            )
+            local_wet_scale = _expr(
+                material, unreal.MaterialExpressionConstant, -710, 1040
+            )
+            local_wet_scale.set_editor_property("r", 0.35)
+            local_wetness = _expr(
+                material, unreal.MaterialExpressionMultiply, -530, 1020
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                wet_output, wet_output_pin, local_wetness, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                local_wet_scale, "", local_wetness, "B"
+            )
+            submerged_scale = _expr(
+                material, unreal.MaterialExpressionConstant, -530, 1120
+            )
+            submerged_scale.set_editor_property("r", 0.78)
+            submerged_wetness = _expr(
+                material, unreal.MaterialExpressionMultiply, -350, 900
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                submerged_mask, "", submerged_wetness, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                submerged_scale, "", submerged_wetness, "B"
+            )
+            combined_wetness = _expr(
+                material, unreal.MaterialExpressionAdd, -170, 940
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                local_wetness, "", combined_wetness, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                submerged_wetness, "", combined_wetness, "B"
+            )
+            wet_output = _expr(
+                material, unreal.MaterialExpressionSaturate, 10, 940
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                combined_wetness, "", wet_output, ""
+            )
+            wet_output_pin = ""
         wet_dark = _expr(material, unreal.MaterialExpressionConstant, -420, 700)
         wet_dark.set_editor_property("r", spec.get("wet_dark", 0.75))
         darkened = _expr(material, unreal.MaterialExpressionMultiply, -220, 80)
@@ -700,7 +854,9 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
         wet_base = _expr(material, unreal.MaterialExpressionLinearInterpolate, 0, 20)
         unreal.MaterialEditingLibrary.connect_material_expressions(base_sample, "RGB", wet_base, "A")
         unreal.MaterialEditingLibrary.connect_material_expressions(darkened, "", wet_base, "B")
-        unreal.MaterialEditingLibrary.connect_material_expressions(wet_sample, "R", wet_base, "Alpha")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            wet_output, wet_output_pin, wet_base, "Alpha"
+        )
         unreal.MaterialEditingLibrary.connect_material_property(
             wet_base, "", unreal.MaterialProperty.MP_BASE_COLOR
         )
@@ -722,7 +878,9 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
         flatten_scale = _expr(material, unreal.MaterialExpressionConstant, -420, 820)
         flatten_scale.set_editor_property("r", spec["wet_normal_flatten"])
         flatten_alpha = _expr(material, unreal.MaterialExpressionMultiply, -220, 760)
-        unreal.MaterialEditingLibrary.connect_material_expressions(wet_sample, "R", flatten_alpha, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            wet_output, wet_output_pin, flatten_alpha, "A"
+        )
         unreal.MaterialEditingLibrary.connect_material_expressions(flatten_scale, "", flatten_alpha, "B")
         flat_normal = _expr(material, unreal.MaterialExpressionConstant3Vector, -220, 900)
         flat_normal.set_editor_property("constant", unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
@@ -751,7 +909,9 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
         rough_lerp = _expr(material, unreal.MaterialExpressionLinearInterpolate, 0, 400)
         unreal.MaterialEditingLibrary.connect_material_expressions(rough_sample, "R", rough_lerp, "A")
         unreal.MaterialEditingLibrary.connect_material_expressions(wet_rough, "", rough_lerp, "B")
-        unreal.MaterialEditingLibrary.connect_material_expressions(wet_sample, "R", rough_lerp, "Alpha")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            wet_output, wet_output_pin, rough_lerp, "Alpha"
+        )
         rough_output = rough_lerp
         rough_output_pin = ""
     unreal.MaterialEditingLibrary.connect_material_property(
@@ -786,6 +946,13 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
     unreal.MaterialEditingLibrary.connect_material_property(
         specular, "", unreal.MaterialProperty.MP_SPECULAR
     )
+    return {
+        "normal": normal_output,
+        "normal_pin": normal_output_pin,
+        "roughness": rough_output,
+        "roughness_pin": rough_output_pin,
+        "ao": ao_sample,
+    }
 
 
 def create_tank_water_material(assets, tools):
@@ -820,14 +987,55 @@ def create_tank_water_material(assets, tools):
         unreal.MaterialSamplerType.SAMPLERTYPE_COLOR,
         0,
     )
-    _connect_scan_pbr(
+    # Two large, slowly crossing ripple fields avoid an obvious scrolling
+    # texture. A full UV crossing takes roughly two to four minutes, so the
+    # surface remains ordinary standing water rather than a supernatural lens.
+    ripple_a_uv = _make_panning_uv(material, 1.15, 0.0040, 0.0060, 120)
+    ripple_b_uv = _make_panning_uv(material, 1.70, -0.0060, 0.0035, 420)
+    pbr_nodes = _connect_scan_pbr(
         material,
         sample,
-        None,
+        ripple_a_uv,
         {
             "pbr_stem": "T_TankWaterSurface",
             "specular": 0.72,
         },
+    )
+    ripple_b_normal = _sample(
+        material,
+        _load_texture("T_TankWaterSurface_N"),
+        ripple_b_uv,
+        unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+        560,
+    )
+    ripple_mix = _expr(
+        material,
+        unreal.MaterialExpressionLinearInterpolate,
+        -160,
+        520,
+    )
+    ripple_weight = _expr(material, unreal.MaterialExpressionConstant, -360, 620)
+    ripple_weight.set_editor_property("r", 0.44)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        pbr_nodes["normal"], pbr_nodes["normal_pin"], ripple_mix, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        ripple_b_normal, "RGB", ripple_mix, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        ripple_weight, "", ripple_mix, "Alpha"
+    )
+    ripple_normalized = _expr(
+        material,
+        unreal.MaterialExpressionNormalize,
+        40,
+        520,
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        ripple_mix, "", ripple_normalized, ""
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        ripple_normalized, "", unreal.MaterialProperty.MP_NORMAL
     )
 
     # About 0.25 opacity at the texture's measured dark range. This keeps the
@@ -1099,6 +1307,47 @@ def run():
         if not assets.save_loaded_assets(signs, False):
             raise RuntimeError("Could not save retail sign materials")
         unreal.log("[IndieGame] Retail sign emissive polish complete")
+        return
+    if os.environ.get("IG_TANK_WATER_ONLY") == "1":
+        tank_water = create_tank_water_material(assets, tools)
+        if tank_water is None or not assets.save_loaded_assets([tank_water], False):
+            raise RuntimeError("Could not save M_TankWaterReveal")
+        unreal.log("[IndieGame] Tank water material update complete")
+        return
+    if os.environ.get("IG_TANK_INTERIOR_ONLY") == "1":
+        tank_interior = create_flat_texture_materials(
+            assets,
+            tools,
+            {
+                "M_TankInteriorBiofilmUV": DECAL_MATERIALS[
+                    "M_TankInteriorBiofilmUV"
+                ]
+            },
+            False,
+        )
+        if not tank_interior or not assets.save_loaded_assets(
+            tank_interior, False
+        ):
+            raise RuntimeError("Could not save M_TankInteriorBiofilmUV")
+        unreal.log("[IndieGame] Tank interior material update complete")
+        return
+    if os.environ.get("IG_SUBMERGED_CLOTHING_ONLY") == "1":
+        names = (
+            "M_SubmergedPantsUV",
+            "M_SubmergedSlippersUV",
+            "M_SubmergedSlipperWearUV",
+        )
+        submerged_clothing = create_flat_texture_materials(
+            assets,
+            tools,
+            {name: DECAL_MATERIALS[name] for name in names},
+            False,
+        )
+        if len(submerged_clothing) != len(names) or not assets.save_loaded_assets(
+            submerged_clothing, False
+        ):
+            raise RuntimeError("Could not save submerged clothing materials")
+        unreal.log("[IndieGame] Submerged clothing material update complete")
         return
 
     created = []

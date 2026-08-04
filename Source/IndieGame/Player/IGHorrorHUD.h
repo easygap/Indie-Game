@@ -45,6 +45,18 @@ public:
 		const FText& Thought,
 		float DurationSeconds = 3.5f);
 
+	/** Shows a non-dialogue sound caption when the accessibility option is on. */
+	static void PushAudioCaption(
+		const UObject* WorldContext,
+		const FText& Caption,
+		float DurationSeconds = 2.0f);
+
+	/** Shows a short grayscale edge wave pointing toward an authored fear cue. */
+	static void PushFearDirection(
+		const UObject* WorldContext,
+		const FVector& WorldLocation,
+		float DurationSeconds = 1.1f);
+
 	/**
 	 * Shows a reusable story-transition card over a fading black scrim.
 	 * All copy is supplied by the caller so the HUD remains chapter-agnostic.
@@ -57,6 +69,8 @@ public:
 		float DurationSeconds = 4.2f);
 
 	void ShowThought(const FText& Thought, float DurationSeconds);
+	void ShowAudioCaption(const FText& Caption, float DurationSeconds);
+	void ShowFearDirection(const FVector& WorldLocation, float DurationSeconds);
 	void PresentChapterCard(
 		const FText& Eyebrow,
 		const FText& Title,
@@ -79,6 +93,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "HUD")
 	bool SupportsKoreanText() const { return KoreanFontMedium != nullptr; }
 
+	/** Native, asset-independent accessibility panel driven by the controller. */
+	void SetAccessibilityMenuState(bool bVisible, int32 SelectedRow);
+	void SetInputDevicePresentation(bool bInUsingGamepad)
+	{
+		bUsingGamepad = bInUsingGamepad;
+	}
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -94,14 +115,33 @@ private:
 		const FText& Text,
 		float ScreenY,
 		const FLinearColor& Color,
-		EIGHudTextRole TextRole);
+		EIGHudTextRole TextRole,
+		float TextScale = 1.0f);
 	void DrawCrosshair(const FLinearColor& Color);
 	bool DrawChapterCard(double CurrentTime);
 	/** Full-screen reading panel for whatever note is currently open. */
 	void DrawNotePanel();
 	/** Narrow, dense convenience-store thermal receipt presentation. */
 	void DrawThermalReceiptPanel(const AIGReadableNote& Note);
+	/** Dark, portrait phone screen used for the CH02 card approval record. */
+	void DrawPhoneNotificationPanel(const AIGReadableNote& Note);
 	void DrawHoldProgress(float Progress);
+	void DrawFearDirection(double CurrentTime);
+	void DrawAudioCaption(double CurrentTime);
+	float MeasureTextWidth(const FString& Text, UFont* Font, float TextScale) const;
+	int32 FindFittingCaptionPrefix(
+		const FString& Text,
+		UFont* Font,
+		float TextScale,
+		float MaximumWidth) const;
+	void WrapAudioCaption(
+		const FString& Caption,
+		UFont* Font,
+		float TextScale,
+		float MaximumWidth,
+		FString& OutFirstLine,
+		FString& OutSecondLine) const;
+	void DrawAccessibilityPanel();
 	/** Screen-space bracket that snaps around whatever is currently focused. */
 	void UpdateFocusBracket(const AActor* FocusedActor, float DeltaSeconds);
 	void DrawFocusBracket(const FLinearColor& Color, float Progress);
@@ -126,6 +166,10 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UFont> KoreanFontSmall;
 
+	/** 15 px sender/status face used by the phone presentation contract. */
+	UPROPERTY(Transient)
+	TObjectPtr<UFont> KoreanPhoneMetaFont;
+
 	/** Dense Gulim/Dotum-style faces reserved for narrow thermal receipts. */
 	UPROPERTY(Transient)
 	TObjectPtr<UFontFace> KoreanReceiptFontFace;
@@ -145,6 +189,14 @@ private:
 	double ThoughtStartTime = 0.0;
 	double ThoughtEndTime = -1.0;
 
+	FText CurrentAudioCaption;
+	double AudioCaptionStartTime = 0.0;
+	double AudioCaptionEndTime = -1.0;
+
+	FVector FearCueWorldLocation = FVector::ZeroVector;
+	double FearCueStartTime = 0.0;
+	double FearCueEndTime = -1.0;
+
 	FText ChapterCardEyebrow;
 	FText ChapterCardTitle;
 	FText ChapterCardSubtitle;
@@ -155,4 +207,7 @@ private:
 	FVector2D FocusBracketMax = FVector2D::ZeroVector;
 	float FocusBracketAlpha = 0.0f;
 	double LastHudDrawTime = 0.0;
+	int32 AccessibilitySelectedRow = 0;
+	bool bAccessibilityMenuVisible = false;
+	bool bUsingGamepad = false;
 };

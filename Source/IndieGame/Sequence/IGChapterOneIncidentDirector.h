@@ -112,6 +112,9 @@ public:
 	 */
 	bool RunRebirthEndToEndReturnRoute();
 
+	/** Verifies the saved cat-water choice against the physical alley props. */
+	bool ValidateCatWaterAftermath() const;
+
 	virtual FText GetObjectiveText() const override;
 	virtual FString GetObjectiveTextAscii() const override;
 	virtual float GetObjectiveProgress() const override;
@@ -137,6 +140,9 @@ private:
 	FVector ToWorld(const FVector& LocalLocation) const;
 	FVector GetListenerLocation() const;
 	void SetVisibleInteractive(
+		AIGChapterOneIncidentAction* Action,
+		bool bVisible);
+	void SetVisibleDecorative(
 		AIGChapterOneIncidentAction* Action,
 		bool bVisible);
 	void ReconcileState();
@@ -201,6 +207,9 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UMaterialInterface> ContinuityCapMaterial;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<AActor>> SpawnedIncidentActors;
 
 	FTransform SceneTransform = FTransform::Identity;
 	bool bConfigured = false;

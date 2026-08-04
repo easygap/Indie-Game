@@ -73,6 +73,7 @@ $checkout =
 $worldScene = Read-ProjectText 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
 $playerCharacter =
 	Read-ProjectText 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+$inputConfig = Read-ProjectText 'Config/DefaultInput.ini'
 $flashlightHeader =
 	Read-ProjectText 'Source/IndieGame/Player/IGFlashlightComponent.h'
 $flashlight =
@@ -247,7 +248,10 @@ Assert-Contract ($saveSubsystemHeader.Contains('IsApplyingLoadedProgress') -and
 	$saveSubsystem.Contains('IGIgnoreDirectStart=1?IGResumeSave=1') -and
 	$saveSubsystem.Contains('QueuedAutosave = nullptr')) `
 	'Load coordination must apply once, suppress stale autosaves, and identify resume travel.'
-Assert-Contract ($playerCharacter.Contains('EKeys::F9') -and
+
+Assert-Contract ($playerCharacter.Contains('TEXT("LoadAutosave")') -and
+	$inputConfig.Contains('ActionName="LoadAutosave"') -and
+	$inputConfig.Contains('Key=F9') -and
 	$playerCharacter.Contains('RequestLoadLatestAutosave()') -and
 	$playerCharacter.Contains('최근 자동 저장을 불러옵니다.')) `
 	'The player must have an actual latest-autosave load entry point.'
@@ -372,9 +376,9 @@ Assert-Contract (
 	$director.Contains('P3HintElapsedSeconds += 1.0f') -and
 	[regex]::IsMatch(
 		$director,
-		'P3HintElapsedSeconds \+= 1\.0f;\s*.*?CommitChapterThreeState\(\);\s*const float Thresholds',
+		'P3HintElapsedSeconds \+= 1\.0f;\s*.*?CommitChapterThreeState\(\);\s*const FVector HintThresholds.*?const float Thresholds',
 		[System.Text.RegularExpressions.RegexOptions]::Singleline)) `
-	'P3 hint dwell time must enter the snapshot between authored thresholds.'
+	'P3 hint dwell time must enter the snapshot before mode-specific authored thresholds.'
 
 $chapterThreeBootstrap = Get-BlockBetween $director `
 	'void AIGThirdMorningDirector::BootstrapRebirthContext()' `
@@ -479,7 +483,7 @@ $chapterTwoReturnZone = Get-BlockBetween $worldScene `
 	'ChapterTwoReturnZone = SpawnParkedZone(' `
 	'void AIGPrologueWorldScene::HandleFlashlightPickedUp('
 Assert-Contract ($secondMorningDirector.Contains('Truth.Alarm0510') -and
-	$secondMorningDirector.Contains('CH02.MirrorAlarmMemo') -and
+	$secondMorningDirector.Contains('CH02.P1Clock') -and
 	$secondMorningDirector.Contains('Truth.DeathOverlay') -and
 	$secondMorningDirector.Contains('CH02.DuplicateReceipt') -and
 	$secondMorningDirector.Contains('Truth.WasSearched') -and
@@ -1154,6 +1158,15 @@ Assert-Contract (
 	($safetyCueIndices | Sort-Object) -join ',' -eq
 		($safetyCueIndices -join ',')) `
 	'The shared 07/31 opening must play its five sounds in the authored order.'
+foreach ($invariant in @(
+	'RecordCommonSafetyCue(CueId)',
+	'ReleaseValidationSafetyOpeningCues == ExpectedSafetyOpeningCues',
+	'ValidateCommonDiscoveryWorldState()',
+	'actual_state=1 safety_cues=5'
+)) {
+	Assert-Contract ($director.Contains($invariant)) `
+		"The shared discovery runtime audit is missing '$invariant'."
+}
 # Ending A's blackout is a fixed clock ending on one unfinished vibration.
 $endingABlackoutBlock = Get-BlockBetween $director `
 	'void AIGThirdMorningDirector::PlayEndingABlackoutCues()' `

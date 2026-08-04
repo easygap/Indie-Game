@@ -93,6 +93,10 @@ namespace IGPrologueWorld
 	const FVector WalletLocation(-150.0f, -185.0f, FourthFloorZ + 78.0f);
 
 	const FName PurchaseBagProxyTag(TEXT("REBIRTH.PurchaseBagProxy"));
+	const FName CatWaterAftermathTag(TEXT("REBIRTH.CatWaterAftermath.CH02"));
+	const FName CatWaterCapTag(TEXT("REBIRTH.CatWaterAftermath.Cap"));
+	const FName CatWaterCupTag(TEXT("REBIRTH.CatWaterAftermath.Cup"));
+	const FName CatWaterWetRingTag(TEXT("REBIRTH.CatWaterAftermath.WetRing"));
 
 	enum class EReceiptTimeline : uint8
 	{
@@ -4178,9 +4182,10 @@ void AIGPrologueWorldScene::SpawnInteractables()
 
 		// A scanned cash register stands in for the greybox cluster; the
 		// hidden blocks keep providing the interaction collision.
-		if (PlacePhotoProp(
+		StoreCashRegisterVisual = PlacePhotoProp(
 			TEXT("CashRegister_01"),
-			FVector(2620, -253, 99), FVector(48, 44, 40), 180.0f, false))
+			FVector(2620, -253, 99), FVector(48, 44, 40), 180.0f, false);
+		if (StoreCashRegisterVisual)
 		{
 			Checkout->SetVisualsHidden(true);
 		}
@@ -4678,6 +4683,154 @@ void AIGPrologueWorldScene::SpawnChapterTwoItemContinuityDressing()
 				FName(TEXT("State.CH02.Loop.RecycleEvidenceRestored")),
 				false));
 	}
+}
+
+void AIGPrologueWorldScene::RefreshChapterTwoCatWaterAftermath()
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+	for (TActorIterator<AIGChapterOneIncidentAction> It(GetWorld()); It; ++It)
+	{
+		AIGChapterOneIncidentAction* Existing = *It;
+		if (Existing
+			&& Existing->Tags.Contains(IGPrologueWorld::CatWaterAftermathTag)
+			&& !Existing->IsActorBeingDestroyed())
+		{
+			Existing->Destroy();
+		}
+	}
+	ChapterTwoCatWaterAftermath = nullptr;
+
+	const UIGRebirthNarrativeSubsystem* RebirthState = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState)
+	{
+		return;
+	}
+	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+	FVector LocalLocation = FVector::ZeroVector;
+	FVector Size = FVector::ZeroVector;
+	UStaticMesh* Mesh = nullptr;
+	UMaterialInterface* Material = nullptr;
+	FName PresentationTag;
+	if (Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap)
+	{
+		if (Choices.bWaitedForCat)
+		{
+			LocalLocation = FVector(1198.0f, -438.0f, 8.0f);
+			Size = FVector(18.0f, 18.0f, 0.8f);
+			Mesh = CylinderMesh;
+			Material = WaterBlueMaterial;
+			PresentationTag = IGPrologueWorld::CatWaterWetRingTag;
+		}
+		else
+		{
+			LocalLocation = FVector(1230.0f, -438.0f, 9.0f);
+			Size = FVector(8.0f, 8.0f, 3.0f);
+			Mesh = CylinderMesh;
+			Material = PlasticDarkMaterial;
+			PresentationTag = IGPrologueWorld::CatWaterCapTag;
+		}
+	}
+	else if (Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup)
+	{
+		LocalLocation = FVector(1255.0f, -438.0f, 10.0f);
+		Size = FVector(10.0f, 10.0f, 13.0f);
+		Mesh = CylinderMesh;
+		Material = SignWhiteMaterial;
+		PresentationTag = IGPrologueWorld::CatWaterCupTag;
+	}
+	else
+	{
+		return;
+	}
+
+	const FTransform SpawnTransform(
+		GetActorTransform().TransformRotation(FQuat::Identity),
+		GetActorTransform().TransformPosition(LocalLocation));
+	ChapterTwoCatWaterAftermath =
+		GetWorld()->SpawnActorDeferred<AIGChapterOneIncidentAction>(
+			AIGChapterOneIncidentAction::StaticClass(),
+			SpawnTransform,
+			this,
+			nullptr,
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+	if (!ChapterTwoCatWaterAftermath)
+	{
+		return;
+	}
+	ChapterTwoCatWaterAftermath->Configure(
+		nullptr,
+		EIGChapterOneIncidentAction::None,
+		Mesh,
+		Material,
+		Size,
+		FText::GetEmpty());
+	ChapterTwoCatWaterAftermath->Tags.AddUnique(
+		IGPrologueWorld::CatWaterAftermathTag);
+	ChapterTwoCatWaterAftermath->Tags.AddUnique(PresentationTag);
+	ChapterTwoCatWaterAftermath->FinishSpawning(SpawnTransform);
+	ChapterTwoCatWaterAftermath->SetActorHiddenInGame(false);
+	ChapterTwoCatWaterAftermath->SetActorEnableCollision(false);
+	ChapterTwoCatWaterAftermath->SetInteractionEnabled(false);
+}
+
+bool AIGPrologueWorldScene::ValidateChapterTwoCatWaterAftermath() const
+{
+	const UIGRebirthNarrativeSubsystem* RebirthState = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState || !GetWorld())
+	{
+		return false;
+	}
+	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+	FName ExpectedTag;
+	FVector ExpectedLocalLocation = FVector::ZeroVector;
+	if (Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap)
+	{
+		ExpectedTag = Choices.bWaitedForCat
+			? IGPrologueWorld::CatWaterWetRingTag
+			: IGPrologueWorld::CatWaterCapTag;
+		ExpectedLocalLocation = Choices.bWaitedForCat
+			? FVector(1198.0f, -438.0f, 8.0f)
+			: FVector(1230.0f, -438.0f, 9.0f);
+	}
+	else if (Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup)
+	{
+		ExpectedTag = IGPrologueWorld::CatWaterCupTag;
+		ExpectedLocalLocation = FVector(1255.0f, -438.0f, 10.0f);
+	}
+
+	int32 LiveAftermathCount = 0;
+	for (TActorIterator<AIGChapterOneIncidentAction> It(GetWorld()); It; ++It)
+	{
+		const AIGChapterOneIncidentAction* Existing = *It;
+		LiveAftermathCount += Existing
+			&& Existing->Tags.Contains(IGPrologueWorld::CatWaterAftermathTag)
+			&& !Existing->IsActorBeingDestroyed()
+			? 1
+			: 0;
+	}
+	if (ExpectedTag.IsNone())
+	{
+		return LiveAftermathCount == 0
+			&& !IsValid(ChapterTwoCatWaterAftermath);
+	}
+	const FVector ExpectedWorldLocation =
+		GetActorTransform().TransformPosition(ExpectedLocalLocation);
+	return LiveAftermathCount == 1
+		&& IsValid(ChapterTwoCatWaterAftermath)
+		&& ChapterTwoCatWaterAftermath->Tags.Contains(ExpectedTag)
+		&& !ChapterTwoCatWaterAftermath->IsHidden()
+		&& !ChapterTwoCatWaterAftermath->GetActorEnableCollision()
+		&& !ChapterTwoCatWaterAftermath->IsInteractionEnabled()
+		&& FVector::DistSquared(
+			ChapterTwoCatWaterAftermath->GetActorLocation(),
+			ExpectedWorldLocation) <= 1.0f;
 }
 
 void AIGPrologueWorldScene::HandleFlashlightPickedUp(AIGPickupItem* Item)
@@ -5219,9 +5372,44 @@ void AIGPrologueWorldScene::StartRebirthEndToEndValidation()
 
 void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()
 {
+	FString EndingValue;
+	const bool bEndingB =
+		FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGRebirthEnding="),
+			EndingValue)
+		&& EndingValue.Equals(TEXT("B"), ESearchCase::IgnoreCase);
+	FString RouteValue;
+	if (!FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGRebirthCH02Route="),
+			RouteValue))
+	{
+		RouteValue = bEndingB ? TEXT("P2ThenP1") : TEXT("P1ThenP2");
+	}
+	const bool bP2First =
+		RouteValue.Equals(TEXT("P2ThenP1"), ESearchCase::IgnoreCase);
+	const bool bSkipP1 =
+		RouteValue.Equals(TEXT("SkipP1"), ESearchCase::IgnoreCase)
+		|| RouteValue.Equals(TEXT("SkipBoth"), ESearchCase::IgnoreCase);
+	const bool bSkipP2 =
+		RouteValue.Equals(TEXT("SkipP2"), ESearchCase::IgnoreCase)
+		|| RouteValue.Equals(TEXT("SkipBoth"), ESearchCase::IgnoreCase);
+	const bool bKnownRoute = bP2First
+		|| RouteValue.Equals(TEXT("P1ThenP2"), ESearchCase::IgnoreCase)
+		|| bSkipP1
+		|| bSkipP2;
+	if (!bKnownRoute || (bP2First && (bSkipP1 || bSkipP2)))
+	{
+		FailRebirthEndToEndValidation(TEXT("unknown CH02 validation route"));
+		return;
+	}
 	if (!bRebirthEndToEndValidation
 		|| !SecondMorningDirector
-		|| !SecondMorningDirector->RunRebirthEndToEndRoute())
+		|| !SecondMorningDirector->RunRebirthEndToEndRoute(
+			bP2First,
+			bSkipP1,
+			bSkipP2))
 	{
 		FailRebirthEndToEndValidation(TEXT("CH02 production event route"));
 		return;
@@ -5233,6 +5421,34 @@ void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()
 			: nullptr;
 	const FIGRebirthChoiceState Choices =
 		RebirthState ? RebirthState->GetChoices() : FIGRebirthChoiceState();
+	const FIGRebirthNarrativeSnapshot Snapshot = RebirthState
+		? RebirthState->BuildSnapshot()
+		: FIGRebirthNarrativeSnapshot();
+	const bool bP1Resolved =
+		Snapshot.ResolvedPuzzles.Contains(FName(TEXT("P1")));
+	const bool bP2Resolved =
+		Snapshot.ResolvedPuzzles.Contains(FName(TEXT("P2")));
+	const int32 TimeEntryPhysicalCount =
+		SecondMorningDirector->GetTimeEntryPhysicalContractCount();
+	const int32 TimeEntryMeshComponentCount =
+		SecondMorningDirector->GetTimeEntryMeshComponentCount();
+	const int32 AuthoredHousingCount =
+		SecondMorningDirector->GetAuthoredTimeEntryHousingCount();
+	const int32 LayeredDisplayCount =
+		SecondMorningDirector->GetLayeredTimeEntryDisplayCount();
+	int32 TruthCount = 0;
+	for (const TCHAR* TruthName : {
+		TEXT("Truth.Alarm0510"),
+		TEXT("Truth.DeathOverlay"),
+		TEXT("Truth.WasSearched")})
+	{
+		TruthCount += RebirthState
+			&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
+				FName(TruthName),
+				false))
+			? 1
+			: 0;
+	}
 	const bool bPassed =
 		RebirthState
 		&& Choices.PurchaseProfile
@@ -5245,6 +5461,14 @@ void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()
 			EIGItemContinuityPresentation::LobbyRecycleSack,
 			Choices.PurchaseProfile,
 			Choices.BottleClosureState)
+		&& ValidateChapterTwoCatWaterAftermath()
+		&& TimeEntryPhysicalCount == 2
+		&& TimeEntryMeshComponentCount == 23
+		&& AuthoredHousingCount == 2
+		&& LayeredDisplayCount == 2
+		&& bP1Resolved == !bSkipP1
+		&& bP2Resolved == !bSkipP2
+		&& TruthCount == (bSkipP1 || bSkipP2 ? 2 : 3)
 		&& RebirthState->CanConverge(
 			EIGRebirthConvergencePoint::C3SecondMorning);
 	if (!bPassed)
@@ -5257,9 +5481,29 @@ void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()
 		LogIndieGame,
 		Display,
 		TEXT(
-			"REBIRTH_E2E PASS ch02_router p1=1 p2=1 searched=1 "
+			"REBIRTH_E2E PASS ch02_router p1=%d p2=%d truths=%d searched=1 "
 			"outfit_once=1 human_gate=1 c3=1 purchase_preserved=1 "
-			"item_continuity=1"));
+			"item_continuity=1 cat_aftermath=1 authored_housings=%d "
+			"layered_displays=%d "
+			"time_entry_physical=%d "
+			"time_entry_mesh_components=%d "
+			"pressure_caps=%d "
+			"route_order=%s"),
+		bP1Resolved ? 1 : 0,
+		bP2Resolved ? 1 : 0,
+		TruthCount,
+		AuthoredHousingCount,
+		LayeredDisplayCount,
+		TimeEntryPhysicalCount,
+		TimeEntryMeshComponentCount,
+		(bSkipP1 ? 0 : 1) + (bSkipP2 ? 0 : 1),
+		bSkipP1 && bSkipP2
+			? TEXT("skip_both")
+			: bSkipP1
+				? TEXT("skip_p1")
+				: bSkipP2
+					? TEXT("skip_p2")
+					: bP2First ? TEXT("p2_p1") : TEXT("p1_p2"));
 }
 
 void AIGPrologueWorldScene::FailRebirthEndToEndValidation(
@@ -5401,6 +5645,7 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 		}
 	}
 	SpawnChapterTwoItemContinuityDressing();
+	RefreshChapterTwoCatWaterAftermath();
 	if (Flashlight)
 	{
 		Flashlight->SetInteractionEnabled(true);
@@ -5509,10 +5754,10 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 	{
 		const FVector ResumeLocation = bResumeLoadedCheckpoint
 			? (bResumeAtStore
-				? FVector(2515.0f, -455.0f, 110.0f)
+				? FVector(2515.0f, -455.0f, 104.0f)
 				: bResumeAtWoke
 					? IGPrologueWorld::PlayerLocation
-					: FVector(430.0f, -305.0f, 1010.0f))
+					: FVector(430.0f, -305.0f, 998.0f))
 			: IGPrologueWorld::PlayerLocation;
 		const FRotator ResumeActorRotation = bResumeLoadedCheckpoint
 			? FRotator(0.0f, -180.0f, 0.0f)
@@ -5614,6 +5859,18 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
 	if (SecondMorningDirector)
 	{
+		// P2 owns the final register presentation. Retire the CH01 dressing scan
+		// before spawning it so two copies cannot overlap and z-fight.
+		if (StoreCashRegisterVisual)
+		{
+			StoreCashRegisterVisual->SetVisibility(false, true);
+			StoreCashRegisterVisual->SetHiddenInGame(true, true);
+		}
+		UStaticMesh* PosHousingMesh = nullptr;
+		if (StoreCashRegisterVisual)
+		{
+			PosHousingMesh = StoreCashRegisterVisual->GetStaticMesh();
+		}
 		SecondMorningDirector->Configure(
 			this,
 			ChapterTwoHumanGateDirector,
@@ -5631,7 +5888,16 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 			MailboxBills,
 			OfferingNote,
 			NightRoster,
-			ManagementNotice);
+			ManagementNotice,
+			CubeMesh,
+			PropMesh(TEXT("SM_AlarmClock")),
+			PosHousingMesh,
+			PlasticDarkMaterial,
+			PlasticDarkMaterial,
+			GlassMaterial,
+			AlarmMaterial,
+			ScreenGlowMaterial,
+			SnackRedMaterial);
 		SecondMorningDirector->FinishSpawning(FTransform::Identity);
 
 		if (PlayerController)
@@ -5676,7 +5942,7 @@ void AIGPrologueWorldScene::EnterChapterTwo()
 				FName(TEXT("State.CH02.Wake.Standing")), false),
 			FGameplayTag::RequestGameplayTag(
 				FName(TEXT("Checkpoint.CH02.Woke")), false),
-			false);
+			true);
 		if (bResumeLoadedCheckpoint)
 		{
 			WakeDirector->RestoreStandingCheckpoint();
@@ -5785,6 +6051,11 @@ void AIGPrologueWorldScene::EnterChapterThree()
 		ChapterTwoItemContinuityDressing->Destroy();
 		ChapterTwoItemContinuityDressing = nullptr;
 	}
+	if (ChapterTwoCatWaterAftermath)
+	{
+		ChapterTwoCatWaterAftermath->Destroy();
+		ChapterTwoCatWaterAftermath = nullptr;
+	}
 	for (AIGZoneTrigger* Zone :
 		{ChapterOneApartmentExitZone.Get(), LeftHomeZone.Get(),
 			FlickerZone.Get(), StoreEntryZone.Get(), ReturnBoundaryZone.Get(),
@@ -5872,6 +6143,25 @@ void AIGPrologueWorldScene::EnterChapterThree()
 			TEXT(
 				"REBIRTH_E2E PASS ch03_handoff c1=1 c2=1 c3=1 "
 				"same_session=1"));
+		if (FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGRebirthCH02FreedomProbe")))
+		{
+			FString RouteValue;
+			FParse::Value(
+				FCommandLine::Get(),
+				TEXT("IGRebirthCH02Route="),
+				RouteValue);
+			UE_LOG(
+				LogIndieGame,
+				Display,
+				TEXT("REBIRTH_CH02_FREEDOM PASS route=%s handoff=1"),
+				*RouteValue);
+			FPlatformMisc::RequestExitWithStatus(
+				false,
+				0,
+				TEXT("REBIRTH CH02 freedom probe passed"));
+		}
 	}
 
 	UE_LOG(LogIndieGame, Display, TEXT("CH03 third morning entered in-session."));

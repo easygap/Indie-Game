@@ -26,12 +26,16 @@ class SurfaceSpec:
     ao_depth: float = 1.35
     wetness: float = 0.0
     metallic: bool = False
+    coated_metal: bool = False
 
 
 SURFACES = (
     SurfaceSpec("T_WetHoodie", 0.67, 0.48, 0.84, 0.52, wetness=0.92),
     SurfaceSpec("T_AlleyCatTabby", 0.83, 0.68, 0.94, 0.34, rough_detail=0.14),
     SurfaceSpec("T_WaterTankGalvanized", 0.46, 0.25, 0.68, 0.78, wetness=0.72, metallic=True),
+    SurfaceSpec(
+        "T_TankInteriorBiofilm", 0.58, 0.22, 0.86, 0.84,
+        wetness=0.82, metallic=True, coated_metal=True),
     SurfaceSpec("T_WetServiceHose", 0.61, 0.42, 0.76, 0.66, wetness=0.88),
     SurfaceSpec("T_WetRungPad", 0.70, 0.50, 0.86, 0.72, wetness=0.82),
     SurfaceSpec("T_P3CabinetPaintedSteel", 0.64, 0.48, 0.78, 0.58, wetness=0.42),
@@ -129,7 +133,16 @@ def _generate(spec: SurfaceSpec, source_root: Path, force: bool) -> list[Path]:
                 b = rgb[n_index + 2]
                 warm_rust = _clamp(max(0.0, r - g) / 54.0 + max(0.0, g - b) / 92.0)
                 dark_oxide = _clamp((72.0 - value) / 72.0) * 0.24
-                metal = _clamp(0.93 - warm_rust * 0.88 - dark_oxide, 0.03, 0.96)
+                if spec.coated_metal:
+                    # Calcite, biofilm and rust are dielectric coatings over
+                    # steel. Their pixels must not reflect as bare metal.
+                    pale_scale = _clamp((value - 135.0) / 90.0)
+                    olive_biofilm = _clamp(
+                        max(0.0, g - r) / 40.0 + max(0.0, g - b) / 55.0)
+                    coating = max(warm_rust, pale_scale * 0.78, olive_biofilm)
+                    metal = _clamp(0.82 - coating * 0.76 - dark_oxide, 0.02, 0.88)
+                else:
+                    metal = _clamp(0.93 - warm_rust * 0.88 - dark_oxide, 0.03, 0.96)
                 metalness[index] = round(metal * 255.0)
 
     Image.frombytes("RGB", (width, height), bytes(normal)).save(outputs["N"], optimize=True)

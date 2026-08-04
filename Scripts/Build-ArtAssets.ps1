@@ -1,7 +1,10 @@
 [CmdletBinding()]
 param(
 	[switch]$SourceOnly,
-	[switch]$CodeOnly
+	[switch]$CodeOnly,
+	[switch]$TankWaterOnly,
+	[switch]$TankInteriorOnly,
+	[switch]$SubmergedClothingOnly
 )
 
 Set-StrictMode -Version Latest
@@ -82,11 +85,19 @@ function Get-AsciiArtBuildRoot {
 	return $mirrorRoot
 }
 
-if ($SourceOnly -and $CodeOnly) {
-	throw 'SourceOnly와 CodeOnly는 동시에 사용할 수 없습니다.'
+$modeCount = @(
+	$SourceOnly.IsPresent,
+	$CodeOnly.IsPresent,
+	$TankWaterOnly.IsPresent,
+	$TankInteriorOnly.IsPresent,
+	$SubmergedClothingOnly.IsPresent
+) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
+if ($modeCount -gt 1) {
+	throw 'SourceOnly, CodeOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
 }
 
-if (-not $CodeOnly) {
+if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
+	-not $SubmergedClothingOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
 
 	$python = Get-Command python -ErrorAction Stop
@@ -103,7 +114,7 @@ if ($SourceOnly) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Art source contract failed ($LASTEXITCODE)"
 	}
-	Write-Host 'ART_SOURCE_BUILD PASS material_scans=8 pbr_maps=30 no_unreal_process=true'
+	Write-Host 'ART_SOURCE_BUILD PASS material_scans=9 pbr_maps=35 no_unreal_process=true'
 	return
 }
 
@@ -168,6 +179,125 @@ if ($CodeOnly) {
 			-Destination (Join-Path $projectRoot 'Binaries\Win64')
 	}
 	Write-Host 'ART_CODE_BUILD PASS target=IndieGameEditor platform=Win64 configuration=Development'
+	return
+}
+
+if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
+	$targetName = if ($TankWaterOnly) {
+		'TankWater'
+	}
+	elseif ($TankInteriorOnly) {
+		'TankInterior'
+	}
+	else {
+		'SubmergedClothing'
+	}
+	$targetEnvironment = if ($TankWaterOnly) {
+		'IG_TANK_WATER_ONLY'
+	}
+	elseif ($TankInteriorOnly) {
+		'IG_TANK_INTERIOR_ONLY'
+	}
+	else {
+		'IG_SUBMERGED_CLOTHING_ONLY'
+	}
+	$targetSuccessPattern = if ($TankWaterOnly) {
+		'\[IndieGame\] Tank water material update complete'
+	}
+	elseif ($TankInteriorOnly) {
+		'\[IndieGame\] Tank interior material update complete'
+	}
+	else {
+		'\[IndieGame\] Submerged clothing material update complete'
+	}
+	$targetRelativeMaterials = if ($TankWaterOnly) {
+		@('Content\Prototype\Materials\M_TankWaterReveal.uasset')
+	}
+	elseif ($TankInteriorOnly) {
+		@('Content\Prototype\Materials\M_TankInteriorBiofilmUV.uasset')
+	}
+	else {
+		@(
+			'Content\Prototype\Materials\M_SubmergedPantsUV.uasset',
+			'Content\Prototype\Materials\M_SubmergedSlippersUV.uasset',
+			'Content\Prototype\Materials\M_SubmergedSlipperWearUV.uasset'
+		)
+	}
+	$targetedStages = @(
+		@{
+			Script = 'create_textured_materials.py'
+			SuccessPattern = $targetSuccessPattern
+			TargetEnvironment = $true
+		},
+		@{
+			Script = 'validate_baked_art_assets.py'
+			SuccessPattern = 'ART_UASSET_AUDIT PASS'
+			TargetEnvironment = $false
+		}
+	)
+	$logRoot = Join-Path $unrealProjectRoot 'Saved\Logs'
+	New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+	$previousTargetMode = [Environment]::GetEnvironmentVariable(
+		$targetEnvironment,
+		'Process')
+	try {
+		foreach ($stage in $targetedStages) {
+			if ([bool]$stage.TargetEnvironment) {
+				[Environment]::SetEnvironmentVariable(
+					$targetEnvironment,
+					'1',
+					'Process')
+			}
+			else {
+				[Environment]::SetEnvironmentVariable(
+					$targetEnvironment,
+					$null,
+					'Process')
+			}
+			$stageName = [string]$stage.Script
+			$scriptPath = Join-Path $unrealScriptsRoot $stageName
+			$logName = 'ArtBuild_{0}_{1}_{2}.log' -f $targetName, (
+				[IO.Path]::GetFileNameWithoutExtension($stageName)),
+				(Get-Date -Format 'yyyyMMdd_HHmmss_fff')
+			$logPath = Join-Path $logRoot $logName
+			Write-Host "ART_BUILD running targeted $stageName"
+			& $editorCommand `
+				$unrealProjectFile `
+				-unattended `
+				-nop4 `
+				-nosplash `
+				-nullrhi `
+				-nosound `
+				-RenderOffscreen `
+				-stdout `
+				-FullStdOutLogOutput `
+				"-abslog=$logPath" `
+				"-ExecutePythonScript=$scriptPath"
+			$editorExit = $LASTEXITCODE
+			$success = Select-String `
+				-LiteralPath $logPath `
+				-Pattern ([string]$stage.SuccessPattern) `
+				-ErrorAction SilentlyContinue |
+				Select-Object -Last 1
+			if ($editorExit -ne 0 -or -not $success) {
+				throw "Targeted $targetName stage failed ($editorExit): $stageName"
+			}
+		}
+	}
+	finally {
+		[Environment]::SetEnvironmentVariable(
+			$targetEnvironment,
+			$previousTargetMode,
+			'Process')
+	}
+	if ($usingAsciiMirror) {
+		foreach ($targetRelativeMaterial in $targetRelativeMaterials) {
+			$sourceMaterial = Join-Path $unrealProjectRoot $targetRelativeMaterial
+			$targetMaterial = Join-Path $projectRoot $targetRelativeMaterial
+			Copy-Item -LiteralPath $sourceMaterial -Destination $targetMaterial -Force
+		}
+	}
+	Write-Host "ART_TARGETED_MATERIAL_BUILD PASS target=$targetName materials=$($targetRelativeMaterials.Count) uasset_audit=1 no_visible_window=true"
 	return
 }
 
@@ -265,6 +395,7 @@ $requiredAssets = @(
 	'Content\Meshes\SM_SubmergedPantsCurl.uasset',
 	'Content\Meshes\SM_SubmergedSlippersCurl.uasset',
 	'Content\Meshes\SM_RooftopWaterTankShell.uasset',
+	'Content\Meshes\SM_TankInternalLining.uasset',
 	'Content\Meshes\SM_RooftopTankPipeCluster.uasset',
 	'Content\Meshes\SM_TankInternalLadder.uasset',
 	'Content\Meshes\SM_TankAccessGuardRail.uasset',
@@ -286,6 +417,7 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_CarrierBagFilm_D.uasset',
 	'Content\Prototype\Textures\T_AlleyCatTabby_D.uasset',
 	'Content\Prototype\Textures\T_WaterTankGalvanized_D.uasset',
+	'Content\Prototype\Textures\T_TankInteriorBiofilm_D.uasset',
 	'Content\Prototype\Textures\T_WetServiceHose_D.uasset',
 	'Content\Prototype\Textures\T_WetRungPad_D.uasset',
 	'Content\Prototype\Textures\T_TankWaterSurface_D.uasset',
@@ -302,6 +434,11 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_WaterTankGalvanized_A.uasset',
 	'Content\Prototype\Textures\T_WaterTankGalvanized_W.uasset',
 	'Content\Prototype\Textures\T_WaterTankGalvanized_M.uasset',
+	'Content\Prototype\Textures\T_TankInteriorBiofilm_N.uasset',
+	'Content\Prototype\Textures\T_TankInteriorBiofilm_R.uasset',
+	'Content\Prototype\Textures\T_TankInteriorBiofilm_A.uasset',
+	'Content\Prototype\Textures\T_TankInteriorBiofilm_W.uasset',
+	'Content\Prototype\Textures\T_TankInteriorBiofilm_M.uasset',
 	'Content\Prototype\Textures\T_WetServiceHose_N.uasset',
 	'Content\Prototype\Textures\T_WetServiceHose_R.uasset',
 	'Content\Prototype\Textures\T_WetServiceHose_A.uasset',
@@ -323,9 +460,13 @@ $requiredAssets = @(
 	'Content\Prototype\Materials\M_EvidenceCatPawTrail.uasset',
 	'Content\Prototype\Materials\M_DecalRustFasteners.uasset',
 	'Content\Prototype\Materials\M_WetHoodieUV.uasset',
+	'Content\Prototype\Materials\M_SubmergedPantsUV.uasset',
+	'Content\Prototype\Materials\M_SubmergedSlippersUV.uasset',
+	'Content\Prototype\Materials\M_SubmergedSlipperWearUV.uasset',
 	'Content\Prototype\Materials\M_CarrierBagFilm.uasset',
 	'Content\Prototype\Materials\M_AlleyCatTabbyUV.uasset',
 	'Content\Prototype\Materials\M_WaterTankMetalUV.uasset',
+	'Content\Prototype\Materials\M_TankInteriorBiofilmUV.uasset',
 	'Content\Prototype\Materials\M_WetServiceHoseUV.uasset',
 	'Content\Prototype\Materials\M_WetRungPadUV.uasset',
 	'Content\Prototype\Materials\M_TankWaterReveal.uasset',
@@ -341,4 +482,4 @@ if ($missing.Count -gt 0) {
 	throw ('Art build finished but required assets are missing: ' + ($missing -join ', '))
 }
 
-Write-Host 'ART_BUILD PASS meshes=29 evidence_masks=4 environment_overlays=4 material_scans=8 pbr_maps=30 uasset_audit=1'
+Write-Host 'ART_BUILD PASS meshes=30 evidence_masks=4 environment_overlays=4 material_scans=9 pbr_maps=35 uasset_audit=1'

@@ -63,11 +63,23 @@ function Invoke-PersistenceProbe {
 		[Parameter(Mandatory = $true)][string]$Mode,
 		[Parameter(Mandatory = $true)][string]$Slot,
 		[Parameter(Mandatory = $true)][string]$ExpectedMarker,
+		[int]$CH02TimeCheckpoint = -1,
+		[int]$P5Checkpoint = -1,
 		[int]$P3Checkpoint = -1,
+		[string]$CatChoice,
 		[string]$Ending
 	)
 
-	$caseName = if ($P3Checkpoint -ge 0) {
+	$caseName = if (-not [string]::IsNullOrWhiteSpace($CatChoice)) {
+		'{0}_{1}' -f $Mode, $CatChoice
+	}
+	elseif ($CH02TimeCheckpoint -ge 0) {
+		'{0}_{1}' -f $Mode, $CH02TimeCheckpoint
+	}
+	elseif ($P5Checkpoint -ge 0) {
+		'{0}_{1}' -f $Mode, $P5Checkpoint
+	}
+	elseif ($P3Checkpoint -ge 0) {
 		'{0}_{1}' -f $Mode, $P3Checkpoint
 	}
 	elseif (-not [string]::IsNullOrWhiteSpace($Ending)) {
@@ -92,8 +104,21 @@ function Invoke-PersistenceProbe {
 		"-IGRebirthPersistenceProbe=$Mode",
 		"-IGRebirthValidationSlot=$Slot"
 	)
+	if ($Mode -eq 'CatChoiceRead') {
+		$arguments += '-IGChapterTwo'
+	}
 	if ($P3Checkpoint -ge 0) {
 		$arguments += "-IGRebirthP3Checkpoint=$P3Checkpoint"
+	}
+	if ($CH02TimeCheckpoint -ge 0) {
+		$arguments +=
+			"-IGRebirthCH02TimeCheckpoint=$CH02TimeCheckpoint"
+	}
+	if ($P5Checkpoint -ge 0) {
+		$arguments += "-IGRebirthP5Checkpoint=$P5Checkpoint"
+	}
+	if (-not [string]::IsNullOrWhiteSpace($CatChoice)) {
+		$arguments += "-IGRebirthCatChoiceCase=$CatChoice"
 	}
 	if (-not [string]::IsNullOrWhiteSpace($Ending)) {
 		$arguments += "-IGRebirthEnding=$Ending"
@@ -138,9 +163,24 @@ function Invoke-PersistenceProbe {
 			-Filter "$Slot.sav"
 	)
 	$preservesSaveSnapshot =
-		$Mode -in @('P3Write', 'EndingWrite', 'EndingCommit')
+		$Mode -in @(
+			'BoundaryBeforeWrite',
+			'BoundaryAfterWrite',
+			'CatChoiceWrite',
+			'CH02TimeWrite',
+			'P5Write',
+			'P3Write',
+			'EndingWrite',
+			'EndingCommit')
 	$expectsSaveDeletion =
-		$Mode -in @('P3Read', 'EndingVerify')
+		$Mode -in @(
+			'BoundaryBeforeRead',
+			'BoundaryAfterRead',
+			'CatChoiceRead',
+			'CH02TimeRead',
+			'P5Read',
+			'P3Read',
+			'EndingVerify')
 	$saveSnapshotPath = $null
 	$saveSnapshotHash = $null
 	$saveDeleted = $false
@@ -177,6 +217,79 @@ function Invoke-PersistenceProbe {
 		saveDeleted = $saveDeleted
 	})
 	Write-Host "REBIRTH_SPIKE_HARNESS PASS case=$caseName"
+}
+
+foreach ($phase in @('Before', 'After')) {
+	$slot = "RebirthBoundary_${runId}_$phase"
+	Invoke-PersistenceProbe `
+		-Mode "Boundary${phase}Write" `
+		-Slot $slot `
+		-ExpectedMarker (
+			"REBIRTH_SPIKE PASS s5_boundary_write phase=$($phase.ToLowerInvariant()) immutable=1")
+	$expectedBeatCount = if ($phase -eq 'After') { 1 } else { 0 }
+	$expectedSafeStateCount = if ($phase -eq 'After') { 3 } else { 1 }
+	Invoke-PersistenceProbe `
+		-Mode "Boundary${phase}Read" `
+		-Slot $slot `
+		-ExpectedMarker (
+			"REBIRTH_SPIKE PASS s5_boundary_resume phase=$($phase.ToLowerInvariant()) " +
+			"transient_tags=0 safe_states=$expectedSafeStateCount " +
+			"beat_count=$expectedBeatCount slot_deleted=1")
+}
+
+foreach ($catChoice in @(
+	'CapLeft',
+	'CapWaited',
+	'CupLeft',
+	'CupWaited',
+	'PassedBy'
+)) {
+	$slot = "RebirthCatChoice_${runId}_$catChoice"
+	Invoke-PersistenceProbe `
+		-Mode 'CatChoiceWrite' `
+		-Slot $slot `
+		-CatChoice $catChoice `
+		-ExpectedMarker (
+			"REBIRTH_SPIKE PASS s5_cat_write case=$catChoice")
+	Invoke-PersistenceProbe `
+		-Mode 'CatChoiceRead' `
+		-Slot $slot `
+		-CatChoice $catChoice `
+		-ExpectedMarker (
+			"REBIRTH_SPIKE PASS s5_cat_resume case=$catChoice " +
+			'ch01_physical=1 ch02_physical=1 slot_deleted=1')
+}
+
+for ($checkpoint = 0; $checkpoint -le 1; ++$checkpoint) {
+	$slot = "RebirthCH02Time_${runId}_$checkpoint"
+	Invoke-PersistenceProbe `
+		-Mode 'CH02TimeWrite' `
+		-Slot $slot `
+		-CH02TimeCheckpoint $checkpoint `
+		-ExpectedMarker (
+			"REBIRTH_SPIKE PASS s6_ch02_time_write checkpoint=$checkpoint")
+	Invoke-PersistenceProbe `
+		-Mode 'CH02TimeRead' `
+		-Slot $slot `
+		-CH02TimeCheckpoint $checkpoint `
+		-ExpectedMarker (
+			"REBIRTH_SPIKE PASS s6_ch02_time_resume checkpoint=$checkpoint exact=1")
+}
+
+for ($checkpoint = 0; $checkpoint -le 3; ++$checkpoint) {
+	$slot = "RebirthP5_${runId}_$checkpoint"
+	Invoke-PersistenceProbe `
+		-Mode 'P5Write' `
+		-Slot $slot `
+		-P5Checkpoint $checkpoint `
+		-ExpectedMarker (
+			"REBIRTH_SPIKE PASS s3_p5_write checkpoint=$checkpoint")
+	Invoke-PersistenceProbe `
+		-Mode 'P5Read' `
+		-Slot $slot `
+		-P5Checkpoint $checkpoint `
+		-ExpectedMarker (
+			"REBIRTH_SPIKE PASS s3_p5_resume checkpoint=$checkpoint exact=1")
 }
 
 for ($checkpoint = 0; $checkpoint -le 6; ++$checkpoint) {
@@ -229,6 +342,10 @@ $summary = [pscustomobject]@{
 	editor = $editorCommand
 	userDirectory = $userDirectory
 	finishedAtUtc = [DateTime]::UtcNow.ToString('o')
+	memoryBoundaryProcessRestarts = 2
+	catChoiceProcessRestarts = 5
+	ch02TimeProcessRestarts = 2
+	p5ProcessRestarts = 4
 	p3ProcessRestarts = 7
 	endingProcessRestarts = 4
 	results = @($results)
@@ -238,5 +355,5 @@ $summary |
 	ConvertTo-Json -Depth 6 |
 	Set-Content -LiteralPath $summaryPath -Encoding UTF8
 Write-Host (
-	"REBIRTH_SPIKE_HARNESS PASS complete p3=7 endings=2 " +
+	"REBIRTH_SPIKE_HARNESS PASS complete boundary=2 cat_choices=5 ch02_time=2 p5=4 p3=7 endings=2 " +
 	"summary=$summaryPath")

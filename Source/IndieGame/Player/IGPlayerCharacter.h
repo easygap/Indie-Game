@@ -5,6 +5,7 @@
 #include "IGPlayerCharacter.generated.h"
 
 class UCameraComponent;
+class UIGAccessibilitySubsystem;
 class UIGFlashlightComponent;
 class UIGInteractionComponent;
 class UIGStressComponent;
@@ -115,6 +116,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UIGStressComponent> StressComponent;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UIGAccessibilitySubsystem> AccessibilitySubsystem;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Outfit", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UStaticMeshComponent> OutfitSleeveProxy;

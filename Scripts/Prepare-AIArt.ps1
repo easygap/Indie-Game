@@ -235,6 +235,10 @@ $plan = @(
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
     [pscustomobject]@{
+        Source = 'TextureTankInteriorBiofilm'; Target = 'T_TankInteriorBiofilm_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
         Source = 'TextureWetServiceHoseRubber'; Target = 'T_WetServiceHose_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }

@@ -22,8 +22,10 @@ namespace IGRebirthEvidenceCapture
 	const TCHAR* AutoDumpSwitch = TEXT("IGRebirthEvidenceAutoDump");
 	const TCHAR* OutputPathSwitch = TEXT("IGRebirthEvidencePath=");
 
-	const FName PuzzleP1(TEXT("P1.AlarmArithmeticProxy"));
-	const FName PuzzleP2(TEXT("P2.ReceiptComparisonProxy"));
+	const FName PuzzleP1(TEXT("P1"));
+	const FName PuzzleP1Legacy(TEXT("P1.AlarmArithmeticProxy"));
+	const FName PuzzleP2(TEXT("P2"));
+	const FName PuzzleP2Legacy(TEXT("P2.ReceiptComparisonProxy"));
 	const FName PuzzleP3(TEXT("P3"));
 	const FName PuzzleP5(TEXT("P5"));
 	const FName RoofLocation(TEXT("CH03.Roof"));
@@ -592,9 +594,11 @@ FString UIGRebirthEvidenceSubsystem::BuildDeterministicJson(
 		ContainsName(Snapshot.VisitedLocations, RoofLocation);
 	Writer->WriteObjectStart(TEXT("P1"));
 	const bool bP1Resolved =
-		ContainsName(Snapshot.ResolvedPuzzles, PuzzleP1);
+		ContainsName(Snapshot.ResolvedPuzzles, PuzzleP1)
+		|| ContainsName(Snapshot.ResolvedPuzzles, PuzzleP1Legacy);
 	const bool bP1ExplicitlySkipped =
-		ContainsName(Snapshot.SkippedPuzzles, PuzzleP1);
+		ContainsName(Snapshot.SkippedPuzzles, PuzzleP1)
+		|| ContainsName(Snapshot.SkippedPuzzles, PuzzleP1Legacy);
 	Writer->WriteValue(
 		TEXT("resolved"),
 		bP1Resolved);
@@ -612,9 +616,11 @@ FString UIGRebirthEvidenceSubsystem::BuildDeterministicJson(
 
 	Writer->WriteObjectStart(TEXT("P2"));
 	const bool bP2Resolved =
-		ContainsName(Snapshot.ResolvedPuzzles, PuzzleP2);
+		ContainsName(Snapshot.ResolvedPuzzles, PuzzleP2)
+		|| ContainsName(Snapshot.ResolvedPuzzles, PuzzleP2Legacy);
 	const bool bP2ExplicitlySkipped =
-		ContainsName(Snapshot.SkippedPuzzles, PuzzleP2);
+		ContainsName(Snapshot.SkippedPuzzles, PuzzleP2)
+		|| ContainsName(Snapshot.SkippedPuzzles, PuzzleP2Legacy);
 	Writer->WriteValue(
 		TEXT("resolved"),
 		bP2Resolved);

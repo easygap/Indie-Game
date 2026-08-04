@@ -149,6 +149,9 @@ public:
 	 */
 	void SetThermalReceiptData(FIGThermalReceiptData InReceiptData);
 
+	/** Uses a dark smartphone notification screen instead of a paper sheet. */
+	void SetPhoneNotificationPresentation();
+
 	/** Sets the prompt shown before it has been read (e.g. "공지 읽기"). */
 	void SetInteractionPrompt(const FText& InPrompt) { OpenPrompt = InPrompt; }
 
@@ -163,6 +166,12 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Note|Receipt")
 	bool UsesThermalReceiptPresentation() const { return bUsesThermalReceiptPresentation; }
+
+	UFUNCTION(BlueprintPure, Category = "Note|Phone")
+	bool UsesPhoneNotificationPresentation() const
+	{
+		return bUsesPhoneNotificationPresentation;
+	}
 
 	UFUNCTION(BlueprintPure, Category = "Note|Receipt")
 	const FIGThermalReceiptData& GetThermalReceiptData() const { return ThermalReceiptData; }
@@ -203,6 +212,9 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Note|Receipt")
 	FIGThermalReceiptData ThermalReceiptData;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Note|Phone")
+	bool bUsesPhoneNotificationPresentation = false;
 
 private:
 	static TWeakObjectPtr<AIGReadableNote> OpenNote;

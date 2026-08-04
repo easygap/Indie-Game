@@ -142,6 +142,8 @@ public:
 
 	/** Called only by the director-owned physical interaction actors. */
 	void HandleAction(EIGChapterThreeAction Action, AIGChapterThreeAction* Source);
+	/** Reveals the next P3 hint rung without enabling automatic hints. */
+	bool RequestManualHint();
 
 	virtual FText GetObjectiveText() const override;
 	virtual FString GetObjectiveTextAscii() const override;
@@ -217,6 +219,7 @@ private:
 	bool RestoreChapterThreeState();
 	void ApplyChapterThreeWorldState();
 	void ApplyCommonDiscoveryWorldState();
+	bool ValidateCommonDiscoveryWorldState() const;
 	void ResumeRestoredEnding();
 	void ApplyRoofDoorState(EIGRoofDoorState NewState);
 	float MeasureRoofDoorFreeEdgeGap() const;
@@ -244,12 +247,23 @@ private:
 	void BeginP3PressureRelease();
 	void UpdateP3PressureRelease();
 	void PollP3Hint();
+	void AdvanceP3TimedPressure();
+	void PresentNextP3Hint();
 	void RestoreP3HintHighlight();
 	void StopP3HintClock();
 	void HandleP3Mistake();
 	void CompleteP3();
+	void PollP4PressureAndHint();
+	void AdvanceP4Pressure();
+	void PresentNextP4Hint();
+	void ApplyP4PresentationState();
+	void StopP4Clock();
+	void BeginP4ReceiptHint();
+	void UpdateP4ReceiptHint();
 	void FocusOrCompareEvidence(EIGChapterThreeAction EvidenceAction);
 	void RegisterEvidenceObservation(EIGChapterThreeAction EvidenceAction);
+	bool IsEvidenceActionObserved(EIGChapterThreeAction EvidenceAction) const;
+	bool TryAutoConnectEvidence(EIGChapterThreeAction EvidenceAction);
 	void RefreshEvidencePrompts();
 	bool ResolveEvidencePair(
 		EIGChapterThreeAction First,
@@ -283,6 +297,7 @@ private:
 	 * Ends by showing the common discovery card.
 	 */
 	void PlayCommonSafetyOpening();
+	void RecordCommonSafetyCue(FName CueId);
 	void PlayEndingABlackoutCues();
 	void ShowEndingAFinalCard();
 	void ShowEndingBFamilyCard();
@@ -328,6 +343,7 @@ private:
 		int32& OutGeneratedSamples,
 		int32& OutGeneratedBytes,
 		int32& OutNonZeroSamples);
+	bool ValidateRebirthItemContinuity(int32& OutCaseCount);
 	void BeginRebirthEndingValidation();
 	void FinishRebirthEndingValidation();
 	int32 CountOwnedChapterThreeActions(
@@ -391,6 +407,7 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> SubmergedPantsMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> SubmergedSlippersMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> RooftopWaterTankShellMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> TankInternalLiningMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> RooftopTankPipeClusterMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> TankInternalLadderMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> TankAccessGuardRailMesh;
@@ -433,8 +450,12 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> ScreenMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> BeddingMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WetHoodieMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> SubmergedPantsMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> SubmergedSlippersMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> SubmergedSlipperWearMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> CarrierBagMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WaterTankMetalMaterial;
+	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> TankInteriorBiofilmMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WetServiceHoseMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WetRungPadMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> TankRevealWaterMaterial;
@@ -486,11 +507,13 @@ private:
 
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> FridgeInteriorLightPanel;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> FridgeInteriorLight;
+	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> P4LandingLight;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> FridgeContents;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> ApartmentDoorLeaf;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> UpRouteGate;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> DownRouteWaterBarrier;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> CorridorWaterVisual;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P4ReceiptFragment;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3PressureNeedle;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3BleedTubeVisual;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3BleedWaterVisual;
@@ -537,7 +560,10 @@ private:
 	bool bP3ReserveClosed = false;
 	bool bP3PressureReleaseOpen = false;
 	bool bP3PressureZero = false;
+	bool bP3PressureRiseArmed = false;
 	bool bP3Solved = false;
+	bool bP4PressureArmed = false;
+	bool bP4Completed = false;
 	bool bTankOpened = false;
 	bool bAccidentScratchTailSettled = false;
 	bool bLookedAwayAfterFirstScratch = false;
@@ -560,10 +586,17 @@ private:
 	int32 ReleaseValidationTankLidCountBeforeEnding = 0;
 	int32 ReleaseValidationOwnedActionCountBeforeEnding = 0;
 	int32 ReleaseValidationSaveIdleRetryCount = 0;
+	TArray<FName> ReleaseValidationSafetyOpeningCues;
 	float P3PressureKPa = 60.0f;
 	float P3HintElapsedSeconds = 0.0f;
+	float P3PressureRiseElapsedSeconds = 0.0f;
 	int32 P3ZeroConfirmationTicks = 0;
 	int32 P3HintStage = 0;
+	float P4PressureRiseElapsedSeconds = 0.0f;
+	float P4HintElapsedSeconds = 0.0f;
+	int32 P4PressureStage = 0;
+	int32 P4HintStage = 0;
+	float P4ReceiptHintAlpha = 1.0f;
 	EIGChapterThreeAction FocusedEvidence = EIGChapterThreeAction::None;
 	TArray<FName> ObservedP5Sources;
 	double AccidentScratchGateStartSeconds = -1.0;
@@ -582,6 +615,8 @@ private:
 	FTimerHandle P3PressureTimer;
 	FTimerHandle P3HintTimer;
 	FTimerHandle P3HintVisualTimer;
+	FTimerHandle P4Timer;
+	FTimerHandle P4ReceiptHintTimer;
 	FTimerHandle AccidentScratchTimer;
 	FTimerHandle AccidentScratchTailTimer;
 	/** Pooled handles for the ending cue schedules; cleared on EndPlay. */

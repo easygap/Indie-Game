@@ -17,6 +17,7 @@ MESH_NAMES = (
     "SM_SubmergedPantsCurl",
     "SM_SubmergedSlippersCurl",
     "SM_RooftopWaterTankShell",
+    "SM_TankInternalLining",
     "SM_RooftopTankPipeCluster",
     "SM_TankInternalLadder",
     "SM_TankAccessGuardRail",
@@ -56,6 +57,7 @@ PBR_STEMS = {
     "T_WetHoodie": ("D", "N", "R", "A", "W"),
     "T_AlleyCatTabby": ("D", "N", "R", "A"),
     "T_WaterTankGalvanized": ("D", "N", "R", "A", "W", "M"),
+    "T_TankInteriorBiofilm": ("D", "N", "R", "A", "W", "M"),
     "T_WetServiceHose": ("D", "N", "R", "A", "W"),
     "T_WetRungPad": ("D", "N", "R", "A", "W"),
     "T_P3CabinetPaintedSteel": ("D", "N", "R", "A", "W"),
@@ -65,8 +67,12 @@ PBR_STEMS = {
 
 MATERIAL_TEXTURES = {
     "M_WetHoodieUV": "T_WetHoodie",
+    "M_SubmergedPantsUV": "T_WetHoodie",
+    "M_SubmergedSlippersUV": "T_WetServiceHose",
+    "M_SubmergedSlipperWearUV": "T_WetRungPad",
     "M_AlleyCatTabbyUV": "T_AlleyCatTabby",
     "M_WaterTankMetalUV": "T_WaterTankGalvanized",
+    "M_TankInteriorBiofilmUV": "T_TankInteriorBiofilm",
     "M_WetServiceHoseUV": "T_WetServiceHose",
     "M_WetRungPadUV": "T_WetRungPad",
     "M_P3CabinetMetalUV": "T_P3CabinetPaintedSteel",
@@ -83,6 +89,13 @@ MASK_MATERIALS = {
     "M_DecalRustFasteners": "T_DecalRustFasteners_D",
     "M_DecalMineralScale": "T_DecalMineralScale_D",
     "M_DecalRainGrime": "T_DecalRainGrime_D",
+}
+
+EVIDENCE_MASK_MATERIALS = {
+    "M_EvidenceSlipperTrail": "T_EvidenceSlipperTrail_M",
+    "M_EvidenceCatPawTrail": "T_EvidenceCatPawTrail_M",
+    "M_EvidenceHoseDrag": "T_EvidenceHoseDrag_M",
+    "M_EvidenceHandSmear": "T_EvidenceHandSmear_M",
 }
 
 
@@ -114,6 +127,21 @@ def expression_texture_paths(material) -> set[str]:
         if texture is not None:
             paths.add(texture_path(texture))
     return paths
+
+
+def texture_sample_types(material) -> dict[str, str]:
+    """Return persisted sampler types keyed by the linked texture path."""
+    sample_types = {}
+    expressions = unreal.MaterialEditingLibrary.get_material_expressions(material)
+    for expression in expressions:
+        if not isinstance(expression, unreal.MaterialExpressionTextureSample):
+            continue
+        texture = expression.get_editor_property("texture")
+        if texture is not None:
+            sample_types[texture_path(texture)] = str(
+                expression.get_editor_property("sampler_type")
+            )
+    return sample_types
 
 
 def validate_meshes() -> tuple[int, int]:
@@ -154,6 +182,14 @@ def validate_textures() -> int:
             size_y = texture.blueprint_get_size_y()
             require(size_x >= 1024 and size_y >= 1024, f"Texture below 1K: {name} ({size_x}x{size_y})")
             checked += 1
+    for texture_name in EVIDENCE_MASK_MATERIALS.values():
+        texture = load(
+            f"/Game/Prototype/Textures/{texture_name}", unreal.Texture2D
+        )
+        require(not texture.get_editor_property("srgb"), f"Mask must be linear: {texture_name}")
+        compression = str(texture.get_editor_property("compression_settings"))
+        require("MASK" in compression.upper(), f"Mask compression missing: {texture_name}")
+        checked += 1
     return checked
 
 
@@ -186,7 +222,7 @@ def validate_materials() -> tuple[int, int]:
             unreal.MaterialProperty.MP_AMBIENT_OCCLUSION,
         ):
             material_input(material, material_property)
-        if name == "M_WaterTankMetalUV":
+        if name in {"M_WaterTankMetalUV", "M_TankInteriorBiofilmUV"}:
             material_input(material, unreal.MaterialProperty.MP_METALLIC)
         if name in {"M_CarrierBagFilm", "M_TankWaterReveal"}:
             require(
@@ -195,6 +231,53 @@ def validate_materials() -> tuple[int, int]:
                 f"Translucent blend mode missing: {name}",
             )
             material_input(material, unreal.MaterialProperty.MP_OPACITY)
+        if name == "M_TankWaterReveal":
+            expressions = unreal.MaterialEditingLibrary.get_material_expressions(
+                material
+            )
+            panner_count = sum(
+                isinstance(expression, unreal.MaterialExpressionPanner)
+                for expression in expressions
+            )
+            normal_layer_count = 0
+            for expression in expressions:
+                if not isinstance(
+                    expression, unreal.MaterialExpressionTextureSample
+                ):
+                    continue
+                texture = expression.get_editor_property("texture")
+                if texture is not None and texture_path(texture).endswith(
+                    "/T_TankWaterSurface_N"
+                ):
+                    normal_layer_count += 1
+            require(
+                panner_count >= 2,
+                "Tank water needs two independent ripple panners",
+            )
+            require(
+                normal_layer_count >= 2,
+                "Tank water needs two blended normal layers",
+            )
+        if name == "M_TankInteriorBiofilmUV":
+            expressions = unreal.MaterialEditingLibrary.get_material_expressions(
+                material
+            )
+            require(
+                any(
+                    isinstance(
+                        expression, unreal.MaterialExpressionWorldPosition
+                    )
+                    for expression in expressions
+                ),
+                "Tank interior needs a world-height waterline blend",
+            )
+            require(
+                any(
+                    isinstance(expression, unreal.MaterialExpressionSubtract)
+                    for expression in expressions
+                ),
+                "Tank interior waterline blend lost its depth calculation",
+            )
         checked += 1
 
     for name, texture_name in MASK_MATERIALS.items():
@@ -204,6 +287,13 @@ def validate_materials() -> tuple[int, int]:
         used = expression_texture_paths(material)
         expected = f"/Game/Prototype/Textures/{texture_name}"
         require(expected in used, f"Mask texture is not linked to {name}: {expected}")
+        if name in EVIDENCE_MASK_MATERIALS:
+            sampler_types = texture_sample_types(material)
+            sampler_type = sampler_types.get(expected, "")
+            require(
+                "MASK" in sampler_type.upper(),
+                f"Mask sampler type does not match TC_MASKS: {name}: {sampler_type}",
+            )
         require(
             material.get_editor_property("blend_mode") == unreal.BlendMode.BLEND_MASKED,
             f"Masked blend mode missing: {name}",

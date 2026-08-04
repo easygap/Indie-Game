@@ -28,6 +28,14 @@ void AIGPrologueGameMode::StartPlay()
 			TEXT("IGRebirthPersistenceProbe="),
 			PersistenceProbeMode))
 	{
+		const bool bBuildWorldForProbe =
+			(PersistenceProbeMode.Equals(
+				TEXT("AnchorRead"),
+				ESearchCase::IgnoreCase)
+				&& World->URL.HasOption(TEXT("IGResumeSave")))
+			|| PersistenceProbeMode.Equals(
+				TEXT("CatChoiceRead"),
+				ESearchCase::IgnoreCase);
 		FActorSpawnParameters ProbeParameters;
 		ProbeParameters.Name = TEXT("RebirthPersistenceProbe");
 		ProbeParameters.SpawnCollisionHandlingOverride =
@@ -36,7 +44,10 @@ void AIGPrologueGameMode::StartPlay()
 			AIGRebirthPersistenceProbe::StaticClass(),
 			FTransform::Identity,
 			ProbeParameters);
-		return;
+		if (!bBuildWorldForProbe)
+		{
+			return;
+		}
 	}
 
 	FActorSpawnParameters SpawnParameters;

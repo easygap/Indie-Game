@@ -25,7 +25,7 @@
 | `/Game/Prototype/Textures/T_Photo_Blanket_*` | ambientCG.com — Fabric022 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 침구 원단 |
 | `/Game/Prototype/Textures/T_Photo_WoodDark_*` | ambientCG.com — Wood067 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 가구 목재 |
 | `/Game/Photo/Props/*` (15종: old_bed_frame, side_table_01, metal_office_desk, painted_wooden_chair_01, modern_wooden_cabinet, desk_lamp_arm_01, electric_stove, street_lamp_01, trashbag, cardboard_box_01, steel_frame_shelves_01, CashRegister_01, plastic_crate_01, utility_box_01, wine_bottles_01) | polyhaven.com (포토그래메트리 스캔) | CC0 1.0 | 2026-07-19 | 원본(glTF, 1K 텍스처) | `Content/SourceArt/PhotoProps/` | 실물 스캔 소품 |
-| `/Game/Meshes/SM_*` (47종: 기존 생활 소품 18종 + 증거 소품 3종·골목 고양이·1인칭 소매·P3 서비스함 5종·옥상 철문/문틀/열린 자물쇠 열쇠 3종·수중 인체 의복 3종·탱크 외피/배관/내부 사다리/난간/상판/점검구 6종·P5 호스/커플링/봉지 3종·외부 계단/사고 발판/패드/클립 4종) | 직접 제작 (UE5 Geometry Script 절차 모델링) | 프로젝트 소유 | 2026-08-03 | 원본 | `Scripts/generate_meshes.py` | 회전체·베벨·불리언·스윕. 증거 소품·생물·1인칭 복장·P3 설비·옥상 철문과 관리 열쇠·수중 인체·탱크·사고 프롭을 ImageGen 기준과 실제 치수 계약에 맞춰 절차 메시로 재구성 |
+| `/Game/Meshes/SM_*` (48종: 기존 생활 소품 18종 + 증거 소품 3종·골목 고양이·1인칭 소매·P3 서비스함 5종·옥상 철문/문틀/열린 자물쇠 열쇠 3종·수중 인체 의복 3종·탱크 외피/내부 라이닝/배관/내부 사다리/난간/상판/점검구 7종·P5 호스/커플링/봉지 3종·외부 계단/사고 발판/패드/클립 4종) | 직접 제작 (UE5 Geometry Script 절차 모델링) | 프로젝트 소유 | 2026-08-04 | 원본 | `Scripts/generate_meshes.py` | 회전체·베벨·불리언·스윕. 증거 소품·생물·1인칭 복장·P3 설비·옥상 철문과 관리 열쇠·수중 인체·탱크·사고 프롭을 ImageGen 기준과 실제 치수 계약에 맞춰 절차 메시로 재구성 |
 | `/Game/Prototype/Textures/T_Label* · T_Snack*` | 직접 제작 (System.Drawing) — 가상 브랜드, 실제 상표 미사용 | 프로젝트 소유 | 2026-07-25 | 원본 | `Scripts/Create-LabelTextures.ps1` | 제품 라벨·봉지 아트 |
 | `/Game/Prototype/Textures/T_Sign* · T_Poster* · T_Note*` | 직접 제작 (System.Drawing + 시스템 폰트) | 프로젝트 소유 | 2026-07-19 | 원본 | `Scripts/Create-SignTextures.ps1` | 한글 간판·포스터 |
 | `/Game/Prototype/Textures/T_(Jangpan·Wallpaper·…)_{D,N,R}` | 직접 제작 (절차 생성) | 프로젝트 소유 | 2026-07-19 | 원본 | `Scripts/generate_surface_textures.py` | 사진 텍스처 폴백 |
@@ -63,6 +63,7 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 | `TextureCarrierBagFilm.png` | `T_CarrierBagFilm_D` | 가상 옅은 청색 무늬가 있는 편의점 LDPE 박막. CH01/CH02 운반 프롭과 CH03 사고 봉지에 같은 반투명 머티리얼 적용 |
 | `SheetSubmergedBodyPoseReference.png` | 직접 텍스처로 사용하지 않음 | CH03 최종 리빌의 동일 인물 4시점 기준. 얼굴·피부·손발·상처를 노출하지 않고 후드·하의·슬리퍼를 공통 원점의 정적 메시 3종으로 재구성 |
 | `TextureWaterTankGalvanized.png` | `T_WaterTankGalvanized_D` | 저채도 청회색 아연도금 강판과 습윤 흘러내림의 타일형 알베도. 탱크 외피·보강띠·배관·사다리·점검구에 `M_WaterTankMetalUV`로 공통 적용 |
+| `TextureTankInteriorBiofilm.png` | `T_TankInteriorBiofilm_D` | 수면 아래 아연강판의 석회 침착·얇은 바이오필름·국부 녹을 억제된 알베도로 사용. 전용 N/R/A/W/M 채널과 `M_TankInteriorBiofilmUV`를 거쳐 비충돌 내부 라이닝 `SM_TankInternalLining`에만 적용한다. 월드 Z 561cm를 중심으로 8cm 습윤 전이를 두어 수중부와 35cm 공기층의 반사·거칠기를 분리한다 |
 | `SheetRooftopWaterTankReference.png` | 직접 텍스처로 사용하지 않음 | 외경 306cm·높이 260cm의 16절 외피, 보강띠 3줄, 89/76mm 배관, 18cm 밸브와 내부 바닥·잔수 비례 기준. `SM_RooftopWaterTankShell`과 `SM_RooftopTankPipeCluster`로 재구성 |
 | `SheetTankAccessSafetyHardwareReference.png` | 직접 텍스처로 사용하지 않음 | 열린 접근부의 42mm 상부 난간·U볼트 1개·걸린 안경 1쌍과 탱크 내부 7단 사다리의 형상·부착·수면 아래 판독 기준. `SM_TankAccessGuardRail`과 `SM_TankInternalLadder`로 재구성 |
 | `SheetTankExteriorAccessStairReference.png` | 직접 텍스처로 사용하지 않음 | 20cm 단차·20cm 진행의 18단 45도 외부 계단, 오픈 트레드, 양측 스트링거·42mm 난간과 상단 두 번째 사고 단의 공간 관계 기준. 정확한 단 수와 좌표는 `SM_TankExteriorAccessStair` 절차 메시로 고정 |
@@ -70,11 +71,11 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 | `TextureWetServiceHoseRubber.png` | `T_WetServiceHose_D` | 젖은 검정 EPDM 보강 고무의 저대비 타일형 알베도. `M_WetServiceHoseUV`로 연속 호스 메시와 42mm 폴백에 공통 적용 |
 | `SheetLadderRungFailureReference.png` | 직접 텍스처로 사용하지 않음 | P5 상단 두 번째 발판의 젖은 리브 고무·양 끝 고정 클립 2개·억제된 부식 디테일 기준. 과거 수직 발판 비례는 폐기하고 정확한 몸체 치수와 위치는 외부 계단 계약을 따른다 |
 | `TextureWetRungPadRubber.png` | `T_WetRungPad_D` | 젖은 흑연색 세로 리브 고무의 저대비 타일형 알베도. `M_WetRungPadUV`로 들뜬 패드와 정확한 치수의 폴백에 공통 적용 |
-| `TextureTankWaterSurface.png` | `T_TankWaterSurface_D` | 최종 리빌용 어두운 청회색 탱크 수면. 이미지에는 인체를 굽지 않고 낮은 물결·광도 변화·미세 광물 입자만 두며 `M_TankWaterReveal`의 투명도와 약한 굴절 입력으로 사용 |
-| 위 재질 스캔 8종의 `T_*_D` | `T_*_{N,R,A}` 24종 · `T_*_W` 5종 · `T_WaterTankGalvanized_M` 1종 | `generate_ai_pbr_maps.py`로 생성하는 PBR 동반 채널 30종. 젖음은 알베도·거칠기·노멀 블렌드에 함께 사용하며 아연도금 탱크의 녹 영역만 비금속으로 분리 |
+| `TextureTankWaterSurface.png` | `T_TankWaterSurface_D` | 최종 리빌용 어두운 청회색 탱크 수면. 이미지에는 인체를 굽지 않고 낮은 물결·광도 변화·미세 광물 입자만 둔다. 알베도는 고정하고 전용 노멀을 서로 다른 배율·방향으로 두 번 천천히 이동시켜 `M_TankWaterReveal`의 반사와 약한 굴절만 변화시킨다 |
+| 위 재질 스캔 9종의 `T_*_D` | `T_*_{N,R,A}` 27종 · `T_*_W` 6종 · 금속 마스크 2종 | `generate_ai_pbr_maps.py`로 생성하는 PBR 동반 채널 35종. 젖음은 알베도·거칠기·노멀 블렌드에 함께 사용하며 외부 녹과 내부 석회·바이오필름·녹 피복을 비금속으로 분리 |
 
 한 번의 생성에 5분이 걸리므로 낱장 대신 **격자 시트**로 묶어 뽑고 슬라이스합니다.
-현재 73장의 파생 텍스처(기존 43장 + PBR 동반 채널 30장)와 증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-03
+현재 79장의 파생 텍스처(기존 44장 + PBR 동반 채널 35장)와 증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-04
 추가분은 생성 실패를 그대로 채택하지 않고 슬리퍼 밑창과 빗물 때를 각각
 한 차례 수정 생성했습니다.
 
@@ -196,11 +197,18 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 - 파생: `SM_SubmergedHoodieCurl`, `SM_SubmergedPantsCurl`,
   `SM_SubmergedSlippersCurl` Geometry Script 정적 메시 3종
 - 적용: 세 메시가 같은 로컬 원점을 사용하며 CH03 디렉터가 한 위치에 겹쳐
-  젖은 후드·검은 하의·검은 슬리퍼 재질을 분리 적용한다. 얼굴과 피부는
-  메시 자체에 만들지 않고 세 땀·왼발 뒤꿈치 마모·슬리퍼 세 줄은 별도
-  기하로 유지한다.
+  젖은 후드·검은 하의·검은 슬리퍼 재질을 분리 적용한다. 하의는 기존 젖은
+  후드 원단의 PBR 채널을 타일링한 `M_SubmergedPantsUV`, 슬리퍼는 젖은 EPDM
+  고무 채널을 재해석한 `M_SubmergedSlippersUV`, 뒤꿈치 마모와 세 줄은
+  리브 고무 채널의 `M_SubmergedSlipperWearUV`를 사용한다. 세 재질은 습윤도
+  하한을 0.82~0.90으로 고정해 수중에서 건조한 프록시처럼 보이지 않으며,
+  별도 생성 이미지를 늘리지 않고 승인된 ImageGen 원본의 물성 채널을
+  재사용한다. 얼굴과 피부는 메시 자체에 만들지 않고 세 땀·왼발 뒤꿈치
+  마모·슬리퍼 세 줄은 별도 기하로 유지한다.
 - 폴백: 세 메시 중 하나라도 미베이크면 기존 구·원통 그레이박스 전체로만
-  전환한다. 정식 그룹과 그레이박스가 겹쳐 보이지 않는다.
+  전환한다. 그레이박스도 동일한 세 전용 재질을 사용하며, 개별 머티리얼이
+  없을 때에만 침구·플라스틱·젖은 종이 재질로 되돌아간다. 정식 그룹과
+  그레이박스가 겹쳐 보이지 않는다.
 
 ### CH03 물탱크 금속·점검구 생성 기록
 

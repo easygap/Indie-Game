@@ -26,6 +26,7 @@ $requiredRaw = @(
 	'AI\TextureAlleyCatTabby.png',
 	'AI\SheetSubmergedBodyPoseReference.png',
 	'AI\TextureWaterTankGalvanized.png',
+	'AI\TextureTankInteriorBiofilm.png',
 	'AI\SheetAccidentPropsReference.png',
 	'AI\TextureWetServiceHoseRubber.png',
 	'AI\SheetLadderRungFailureReference.png',
@@ -49,6 +50,7 @@ $requiredMaterialTextures = @(
 	'T_CarrierBagFilm_D.png',
 	'T_AlleyCatTabby_D.png',
 	'T_WaterTankGalvanized_D.png',
+	'T_TankInteriorBiofilm_D.png',
 	'T_WetServiceHose_D.png',
 	'T_WetRungPad_D.png',
 	'T_TankWaterSurface_D.png',
@@ -67,6 +69,11 @@ $requiredPbrMaps = @(
 	'T_WaterTankGalvanized_A.png',
 	'T_WaterTankGalvanized_W.png',
 	'T_WaterTankGalvanized_M.png',
+	'T_TankInteriorBiofilm_N.png',
+	'T_TankInteriorBiofilm_R.png',
+	'T_TankInteriorBiofilm_A.png',
+	'T_TankInteriorBiofilm_W.png',
+	'T_TankInteriorBiofilm_M.png',
 	'T_WetServiceHose_N.png',
 	'T_WetServiceHose_R.png',
 	'T_WetServiceHose_A.png',
@@ -191,6 +198,11 @@ foreach ($relativePath in $requiredDerived) {
 						throw "Tank metal lost its restrained galvanized range: $relativePath"
 					}
 				}
+				'T_TankInteriorBiofilm_D.png' {
+					if ($meanLuma -lt 65 -or $meanLuma -gt 160 -or $dynamicRange -lt 45) {
+						throw "Tank interior lost its restrained mineral and biofilm range: $relativePath"
+					}
+				}
 				'T_WetServiceHose_D.png' {
 					if ($meanLuma -gt 55 -or $dynamicRange -lt 35) {
 						throw "Service hose lost its dark wet-rubber range: $relativePath"
@@ -281,8 +293,12 @@ foreach ($token in @(
 	'M_DecalMineralScale',
 	'M_DecalRainGrime',
 	'M_WetHoodieUV',
+	'M_SubmergedPantsUV',
+	'M_SubmergedSlippersUV',
+	'M_SubmergedSlipperWearUV',
 	'M_AlleyCatTabbyUV',
 	'M_WaterTankMetalUV',
+	'M_TankInteriorBiofilmUV',
 	'M_WetServiceHoseUV',
 	'M_WetRungPadUV',
 	'M_P3CabinetMetalUV',
@@ -291,16 +307,33 @@ foreach ($token in @(
 	'BLEND_MASKED',
 	'MP_OPACITY_MASK',
 	'BLEND_TRANSLUCENT',
-	'MP_OPACITY'
+	'MP_OPACITY',
+	'MaterialExpressionPanner',
+	'MaterialExpressionNormalize',
+	'ripple_a_uv',
+	'ripple_b_uv',
+	'IG_TANK_WATER_ONLY',
+	'IG_TANK_INTERIOR_ONLY',
+	'IG_SUBMERGED_CLOTHING_ONLY',
+	'MaterialExpressionMax',
+	'minimum_wetness',
+	'"wet_waterline_z": 561.0',
+	'MaterialExpressionWorldPosition',
+	'"M_TankInteriorBiofilmUV": DECAL_MATERIALS['
 )) {
 	if (-not $materialScript.Contains($token)) {
 		throw "Masked material contract is missing: $token"
 	}
 }
+if ($materialScript -notmatch
+	'SAMPLERTYPE_MASKS\s*\r?\n\s*if mask_only else unreal\.MaterialSamplerType\.SAMPLERTYPE_COLOR') {
+	throw 'Evidence mask textures must use the Masks material sampler type.'
+}
 foreach ($token in @(
 	'SurfaceSpec("T_WetHoodie"',
 	'SurfaceSpec("T_AlleyCatTabby"',
 	'SurfaceSpec("T_WaterTankGalvanized"',
+	'"T_TankInteriorBiofilm", 0.58',
 	'SurfaceSpec("T_WetServiceHose"',
 	'SurfaceSpec("T_WetRungPad"',
 	'SurfaceSpec("T_P3CabinetPaintedSteel"',
@@ -309,7 +342,8 @@ foreach ($token in @(
 	'ImageOps.autocontrast',
 	'normal_strength',
 	'wetness',
-	'metalness'
+	'metalness',
+	'coated_metal'
 )) {
 	if (-not $pbrScript.Contains($token)) {
 		throw "PBR source-map generation contract is missing: $token"
@@ -370,6 +404,24 @@ foreach ($token in @(
 		throw "Submerged body group is not generated and loaded: $token"
 	}
 }
+foreach ($token in @(
+	'M_SubmergedPantsUV',
+	'M_SubmergedSlippersUV',
+	'M_SubmergedSlipperWearUV',
+	'SubmergedPantsMaterial',
+	'SubmergedSlippersMaterial',
+	'SubmergedSlipperWearMaterial'
+)) {
+	if (-not $directorSource.Contains($token)) {
+		throw "Submerged clothing material contract is missing: $token"
+	}
+}
+if ($directorSource -match
+	'BeddingMaterial,\s*\r?\n\s*SubmergedPantsMesh' -or
+	$directorSource -match
+	'PlasticMaterial,\s*\r?\n\s*SubmergedSlippersMesh') {
+	throw 'Authored submerged clothing regressed to a generic proxy material'
+}
 foreach ($token in @('SM_TankAccessDeck', 'SM_TankAccessLid')) {
 	if (-not $meshScript.Contains($token) -or
 		-not $directorSource.Contains($token)) {
@@ -378,6 +430,7 @@ foreach ($token in @('SM_TankAccessDeck', 'SM_TankAccessLid')) {
 }
 foreach ($token in @(
 	'SM_RooftopWaterTankShell',
+	'SM_TankInternalLining',
 	'SM_RooftopTankPipeCluster',
 	'SM_TankInternalLadder',
 	'SM_TankAccessGuardRail',
@@ -410,6 +463,23 @@ foreach ($token in @(
 if (-not $meshScript.Contains('SM_RooftopUnlockedPadlockKeys') -or
 	-not $directorSource.Contains('SM_RooftopUnlockedPadlockKeys')) {
 	throw 'Rooftop unlocked padlock/key assembly is not generated and loaded'
+}
+if (($directorSource.Split(
+	@('InspectionRodVisual = CreateBlock('),
+	[System.StringSplitOptions]::None).Count - 1) -ne 1 -or
+	($directorSource.Split(
+	@('InspectionRodMesh ? InspectionRodMesh.Get() : CylinderMesh.Get()'),
+	[System.StringSplitOptions]::None).Count - 1) -ne 1) {
+	throw 'CH03 inspection rod must be one movable component without a duplicate prop'
+}
+foreach ($token in @(
+	'SetInspectionRodWedged(true)',
+	'SetInspectionRodWedged(false)',
+	'never spawn a second explanatory prop'
+)) {
+	if (-not $directorSource.Contains($token)) {
+		throw "Inspection-rod continuity contract is missing: $token"
+	}
 }
 foreach ($token in @(
 	'Content\Meshes\SM_RooftopFireDoorLeaf.uasset',
@@ -497,6 +567,9 @@ foreach ($token in @(
 if (-not $directorSource.Contains('M_WaterTankMetalUV')) {
 	throw 'CH03 tank assembly does not load the shared galvanized material'
 }
+if (-not $directorSource.Contains('M_TankInteriorBiofilmUV')) {
+	throw 'CH03 tank interior does not load its mineral and biofilm material'
+}
 if (-not $directorSource.Contains('M_WetServiceHoseUV')) {
 	throw 'P5 hose does not load the shared wet-rubber material'
 }
@@ -537,6 +610,20 @@ foreach ($token in @(
 )) {
 	if (-not $meshScript.Contains($token)) {
 		throw "Rooftop water-tank dimensional mesh contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'def build_tank_internal_lining',
+	'(145.0, 382.0)',
+	'(147.0, 596.0)',
+	'location=(0.0, 0.0, 381.2)',
+	'return bake(mesh, "SM_TankInternalLining", add_collision=False)',
+	'TankInternalLiningMesh',
+	'TankInteriorBiofilmMaterial',
+	'InteriorLining->SetCastShadow(false)'
+)) {
+	if (-not $meshScript.Contains($token) -and -not $directorSource.Contains($token)) {
+		throw "Tank-interior lining contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -633,7 +720,8 @@ foreach ($token in @(
 }
 foreach ($token in @(
 	'Content\Meshes\SM_TankExteriorAccessStair.uasset',
-	'ART_BUILD PASS meshes=29'
+	'Content\Meshes\SM_TankInternalLining.uasset',
+	'ART_BUILD PASS meshes=30'
 )) {
 	if (-not $buildScript.Contains($token)) {
 		throw "Exterior access-stair output is not release-gated: $token"
@@ -741,6 +829,13 @@ foreach ($token in @(
 	'generate_ai_pbr_maps.py',
 	'[switch]$SourceOnly',
 	'[switch]$CodeOnly',
+	'[switch]$TankWaterOnly',
+	'[switch]$TankInteriorOnly',
+	'[switch]$SubmergedClothingOnly',
+	'ART_TARGETED_MATERIAL_BUILD PASS',
+	'IG_TANK_WATER_ONLY',
+	'IG_TANK_INTERIOR_ONLY',
+	'IG_SUBMERGED_CLOTHING_ONLY',
 	'ART_SOURCE_BUILD PASS',
 	'ART_CODE_BUILD PASS',
 	'ART_BUILD compiling IndieGameEditor Win64 Development',
@@ -780,4 +875,4 @@ foreach ($token in @(
 	}
 }
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=22 masks=4 overlays=4 material_scans=8 pbr_maps=30 meshes=29'
+Write-Host 'ART_ASSET_CONTRACT PASS raw=23 masks=4 overlays=4 material_scans=9 pbr_maps=35 meshes=30'

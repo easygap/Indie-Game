@@ -6,6 +6,7 @@
 
 class USpotLightComponent;
 class UPointLightComponent;
+class UIGAccessibilitySubsystem;
 
 /**
  * The handheld light the player carries from chapter two on.
@@ -91,6 +92,9 @@ private:
 	/** Short-range fill so the torch lights the ground at the player's feet. */
 	UPROPERTY(VisibleAnywhere, Category = "Flashlight", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UPointLightComponent> Spill;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UIGAccessibilitySubsystem> AccessibilitySubsystem;
 
 	FRotator SwayOffset = FRotator::ZeroRotator;
 	FRotator ImpulseOffset = FRotator::ZeroRotator;

@@ -14,6 +14,7 @@ class AIGFridge;
 class AIGInspectable;
 class AIGApartmentStoryDressing;
 class AIGChapterOneIncidentDirector;
+class AIGChapterOneIncidentAction;
 class AIGChapterTwoHumanGateDirector;
 class AIGItemContinuityDressing;
 class AIGMorningRoutineDirector;
@@ -160,6 +161,10 @@ public:
 
 	/** CH02 ending: relight 4F, sound the distant alarm, fade, and show CH03 card. */
 	void FinishChapterTwo();
+
+	/** Rebuilds the persisted CH01 cat-water trace for CH02 and direct save loads. */
+	void RefreshChapterTwoCatWaterAftermath();
+	bool ValidateChapterTwoCatWaterAftermath() const;
 
 	int32 GetCorridorFixtureCount() const { return CorridorLights.Num(); }
 	int32 GetLobbyFixtureCount() const { return LobbyLights.Num(); }
@@ -423,12 +428,15 @@ private:
 	UPROPERTY(Transient) TObjectPtr<AIGStairTransition> StairTransition;
 	UPROPERTY(Transient) TObjectPtr<AIGSlidingDoor> StoreDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGCheckoutCounter> Checkout;
+	/** CH01 checkout scan; CH02 replaces it with the interactive P2 terminal. */
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> StoreCashRegisterVisual;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterOneIncidentDirector> ChapterOneIncidentDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGMorningRoutineDirector> MorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGNeighborhoodLifeDirector> NeighborhoodLifeDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGSecondMorningDirector> SecondMorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGChapterTwoHumanGateDirector> ChapterTwoHumanGateDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGItemContinuityDressing> ChapterTwoItemContinuityDressing;
+	UPROPERTY(Transient) TObjectPtr<AIGChapterOneIncidentAction> ChapterTwoCatWaterAftermath;
 	UPROPERTY(Transient) TObjectPtr<AIGThirdMorningDirector> ThirdMorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGDemoDirector> DemoDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterOneApartmentExitZone;

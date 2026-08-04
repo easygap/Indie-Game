@@ -7,6 +7,7 @@
 
 class AIGChapterTwoHumanGateDirector;
 class AIGInspectable;
+class AIGReadableNote;
 class AIGZoneTrigger;
 class UAudioComponent;
 class UBoxComponent;
@@ -23,6 +24,7 @@ enum class EIGChapterTwoHumanCheckAction : uint8
 	PhoneMother,
 	PhoneEmergency112,
 	PhonePatrolManager,
+	PhoneApprovalRecord,
 	Doorbell401,
 	Doorbell402
 };
@@ -159,6 +161,12 @@ private:
 	TArray<TObjectPtr<AIGChapterTwoHumanGateAction>> PhoneActions;
 
 	UPROPERTY(Transient)
+	TObjectPtr<AIGChapterTwoHumanGateAction> PhoneApprovalAction;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGReadableNote> PhoneApprovalRecord;
+
+	UPROPERTY(Transient)
 	TObjectPtr<AIGChapterTwoHumanGateAction> Doorbell401Action;
 
 	UPROPERTY(Transient)
@@ -179,6 +187,7 @@ private:
 	FGameplayTag PhoneMotherTag;
 	FGameplayTag PhoneEmergency112Tag;
 	FGameplayTag PhonePatrolManagerTag;
+	FGameplayTag PhoneApprovalReadTag;
 	FGameplayTag AlarmFirstTonePlayedTag;
 	FGameplayTag Doorbell401AttemptedTag;
 	FGameplayTag Doorbell402AttemptedTag;

@@ -188,6 +188,33 @@ Assert-Contract ($worldSceneHeader.Contains(
 	'TObjectPtr<AIGItemContinuityDressing> ChapterTwoItemContinuityDressing')) `
 	'The CH02 evidence actor has no single owner pointer.'
 
+$chapterTwoCatAftermathBlock = Get-BlockBetween $worldScene `
+	'void AIGPrologueWorldScene::RefreshChapterTwoCatWaterAftermath()' `
+	'void AIGPrologueWorldScene::HandleFlashlightPickedUp('
+foreach ($invariant in @(
+	'TActorIterator<AIGChapterOneIncidentAction>',
+	'IGPrologueWorld::CatWaterAftermathTag',
+	'EIGRebirthCatWaterState::BottleCap',
+	'EIGRebirthCatWaterState::PaperCup',
+	'Choices.bWaitedForCat',
+	'FVector(1198.0f, -438.0f, 8.0f)',
+	'FVector(1230.0f, -438.0f, 9.0f)',
+	'FVector(1255.0f, -438.0f, 10.0f)',
+	'SetActorEnableCollision(false)',
+	'SetInteractionEnabled(false)',
+	'LiveAftermathCount == 0',
+	'LiveAftermathCount == 1'
+)) {
+	Assert-Contract ($chapterTwoCatAftermathBlock.Contains($invariant)) `
+		"CH02 cat-water reconstruction is missing '$invariant'."
+}
+Assert-Contract ($worldSceneHeader.Contains(
+	'TObjectPtr<AIGChapterOneIncidentAction> ChapterTwoCatWaterAftermath')) `
+	'The CH02 cat-water aftermath has no single owner pointer.'
+Assert-Contract ($worldScene.Contains(
+	'REBIRTH.CatWaterAftermath.CH02')) `
+	'The CH02 cat-water aftermath has no unique actor tag.'
+
 $enterChapterTwoBlock = Get-BlockBetween $worldScene `
 	'void AIGPrologueWorldScene::EnterChapterTwo()' `
 	'void AIGPrologueWorldScene::EnterChapterThree()'
@@ -200,8 +227,10 @@ Assert-Contract (
 	$shelfRetirementBlock.Contains('SetInteractionEnabled(false)') -and
 	$shelfRetirementBlock.Contains(
 		'SpawnChapterTwoItemContinuityDressing();') -and
+	$shelfRetirementBlock.Contains(
+		'RefreshChapterTwoCatWaterAftermath();') -and
 	-not $shelfRetirementBlock.Contains('SetActorHiddenInGame(false)')
-) 'CH02 must retire all shelf pickups before spawning one lobby evidence actor.'
+) 'CH02 must retire shelf pickups and rebuild both persisted alley traces.'
 
 $enterChapterThreeBlock = $worldScene.Substring(
 	$worldScene.IndexOf('void AIGPrologueWorldScene::EnterChapterThree()'))
@@ -209,7 +238,11 @@ Assert-Contract (
 	$enterChapterThreeBlock.Contains(
 		'ChapterTwoItemContinuityDressing->Destroy();') -and
 	$enterChapterThreeBlock.Contains(
-		'ChapterTwoItemContinuityDressing = nullptr;')
+		'ChapterTwoItemContinuityDressing = nullptr;') -and
+	$enterChapterThreeBlock.Contains(
+		'ChapterTwoCatWaterAftermath->Destroy();') -and
+	$enterChapterThreeBlock.Contains(
+		'ChapterTwoCatWaterAftermath = nullptr;')
 ) 'CH02 evidence must be retired before the CH03 reconstruction exists.'
 
 $chapterThreeBagBlock = Get-BlockBetween $chapterThree `
@@ -225,6 +258,90 @@ foreach ($invariant in @(
 	Assert-Contract ($chapterThreeBagBlock.Contains($invariant)) `
 		"CH03 purchase reconstruction is missing '$invariant'."
 }
+
+$catAftermathBlock = Get-BlockBetween $chapterOne `
+	'void AIGChapterOneIncidentDirector::ReconcileState()' `
+	'void AIGChapterOneIncidentDirector::HandleDrinkZone('
+foreach ($invariant in @(
+	'SetVisibleDecorative',
+	'bShowCapEvidence',
+	'bShowCupEvidence',
+	'bShowRecoveredCapWetRing',
+	'Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap',
+	'Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup',
+	'&& !Choices.bWaitedForCat',
+	'&& Choices.bWaitedForCat'
+)) {
+	Assert-Contract ($catAftermathBlock.Contains($invariant)) `
+		"Cat-water physical aftermath is missing '$invariant'."
+}
+$aftermathValidationBlock = Get-BlockBetween $chapterOne `
+	'bool AIGChapterOneIncidentDirector::ValidateCatWaterAftermath() const' `
+	'void AIGChapterOneIncidentDirector::ReconcileState()'
+foreach ($invariant in @(
+	'CatChoiceCommitted',
+	'bCapVisible',
+	'bCupVisible',
+	'bWetRingVisible',
+	'bAllDecorative',
+	'EIGRebirthCatWaterState::BottleCap',
+	'EIGRebirthCatWaterState::PaperCup',
+	'EIGRebirthCatWaterState::PassedBy'
+)) {
+	Assert-Contract ($aftermathValidationBlock.Contains($invariant)) `
+		"Cat-water aftermath validator is missing '$invariant'."
+}
+$endToEndReturnBlock = Get-BlockBetween $chapterOne `
+	'bool AIGChapterOneIncidentDirector::RunRebirthEndToEndReturnRoute()' `
+	'void AIGChapterOneIncidentDirector::BeginRebirthEndToEndMemoryBoundary()'
+Assert-Contract ($endToEndReturnBlock.Contains(
+	'ValidateCatWaterAftermath()')) `
+	'CH01 end-to-end route does not verify the physical cat-water aftermath.'
+$chapterOneCleanupBlock = Get-BlockBetween $chapterOne `
+	'void AIGChapterOneIncidentDirector::EndPlay(' `
+	'AIGChapterOneIncidentAction*'
+foreach ($invariant in @(
+	'SpawnedIncidentActors',
+	'SpawnedActor->Destroy();',
+	'SpawnedIncidentActors.Reset();'
+)) {
+	Assert-Contract ($chapterOneCleanupBlock.Contains($invariant)) `
+		"CH01 incident cleanup is missing '$invariant'."
+}
+
+$chapterTwoEndToEndBlock = Get-BlockBetween $worldScene `
+	'void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()' `
+	'void AIGPrologueWorldScene::FailRebirthEndToEndValidation('
+Assert-Contract (
+	$chapterTwoEndToEndBlock.Contains(
+		'ValidateChapterTwoCatWaterAftermath()') -and
+	$chapterTwoEndToEndBlock.Contains('cat_aftermath=1')
+) 'CH02 end-to-end route does not verify the restored cat-water aftermath.'
+
+$runtimeValidationBlock = Get-BlockBetween $chapterThree `
+	'bool AIGThirdMorningDirector::ValidateRebirthItemContinuity(' `
+	'void AIGThirdMorningDirector::HandleReleaseValidationSaveCompleted('
+foreach ($invariant in @(
+	'EIGRebirthPurchaseProfile::ProfileA500MlX2',
+	'EIGRebirthPurchaseProfile::ProfileB1LX1',
+	'EIGRebirthPurchaseProfile::ProfileC2LX2',
+	'EIGRebirthBottleClosureState::MissingCap',
+	'EIGRebirthBottleClosureState::Resealed',
+	'EIGItemContinuityPresentation::AccidentBag',
+	'EIGItemContinuityPresentation::LobbyRecycleSack',
+	'CountLiveContinuityActors() == 1',
+	'OutCaseCount == 12',
+	'GetCanonicalAccidentTransform(Profile)'
+)) {
+	Assert-Contract ($runtimeValidationBlock.Contains($invariant)) `
+		"S5 runtime matrix is missing '$invariant'."
+}
+Assert-Contract (
+	$chapterThree.Contains(
+		'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 ') -and
+	$chapterThree.Contains(
+		'presentations=2 cases=%d duplicates=0')
+) 'S5 runtime validation PASS marker is missing.'
 
 Assert-Contract (
 	$status.Contains('04:33') -and

@@ -52,6 +52,13 @@ void AIGReadableNote::SetThermalReceiptData(FIGThermalReceiptData InReceiptData)
 {
 	ThermalReceiptData = MoveTemp(InReceiptData);
 	bUsesThermalReceiptPresentation = true;
+	bUsesPhoneNotificationPresentation = false;
+}
+
+void AIGReadableNote::SetPhoneNotificationPresentation()
+{
+	bUsesPhoneNotificationPresentation = true;
+	bUsesThermalReceiptPresentation = false;
 }
 
 FText AIGReadableNote::GetInteractionPrompt_Implementation(AActor* Interactor) const

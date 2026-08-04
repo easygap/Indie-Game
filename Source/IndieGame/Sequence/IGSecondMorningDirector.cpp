@@ -1,11 +1,16 @@
 ﻿#include "Sequence/IGSecondMorningDirector.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/SceneComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
+#include "Engine/CollisionProfile.h"
 #include "Engine/GameInstance.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -13,6 +18,8 @@
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSlidingDoor.h"
 #include "Interaction/IGSwingDoor.h"
+#include "Interaction/IGTimeEntryPuzzle.h"
+#include "Materials/MaterialInterface.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -22,9 +29,43 @@
 #include "Sequence/IGChapterTwoHumanGateDirector.h"
 #include "TimerManager.h"
 
+namespace IGSecondMorningTimeEntry
+{
+	FName PuzzleName(const EIGTimeEntryPuzzleId PuzzleId)
+	{
+		return PuzzleId == EIGTimeEntryPuzzleId::P1Alarm
+			? FName(TEXT("P1"))
+			: FName(TEXT("P2"));
+	}
+
+	FGameplayTag StateTag(
+		const EIGTimeEntryPuzzleId PuzzleId,
+		const TCHAR* Leaf)
+	{
+		const TCHAR* PuzzleNameText =
+			PuzzleId == EIGTimeEntryPuzzleId::P1Alarm
+				? TEXT("P1")
+				: TEXT("P2");
+		return FGameplayTag::RequestGameplayTag(
+			FName(*FString::Printf(
+				TEXT("State.CH02.%s.%s"),
+				PuzzleNameText,
+				Leaf)),
+			false);
+	}
+}
+
 AIGSecondMorningDirector::AIGSecondMorningDirector()
 {
 	PrimaryActorTick.bCanEverTick = false;
+	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
+	SetRootComponent(SceneRoot);
+	P2Shutter = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("P2Shutter"));
+	P2Shutter->SetupAttachment(SceneRoot);
+	P2Shutter->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	P2Shutter->SetGenerateOverlapEvents(false);
+	P2Shutter->SetCanEverAffectNavigation(false);
+	P2Shutter->SetVisibility(false, true);
 }
 
 void AIGSecondMorningDirector::Configure(
@@ -42,7 +83,16 @@ void AIGSecondMorningDirector::Configure(
 	AIGReadableNote* InMailboxBills,
 	AIGReadableNote* InOfferingNote,
 	AIGReadableNote* InNightRoster,
-	AIGReadableNote* InManagementNotice)
+	AIGReadableNote* InManagementNotice,
+	UStaticMesh* InCubeMesh,
+	UStaticMesh* InAlarmHousingMesh,
+	UStaticMesh* InPosHousingMesh,
+	UMaterialInterface* InBodyMaterial,
+	UMaterialInterface* InDisplayOffMaterial,
+	UMaterialInterface* InDisplayGlassMaterial,
+	UMaterialInterface* InAlarmDisplayOnMaterial,
+	UMaterialInterface* InPosDisplayOnMaterial,
+	UMaterialInterface* InButtonMaterial)
 {
 	Scene = InScene;
 	HumanGateDirector = InHumanGateDirector;
@@ -59,6 +109,97 @@ void AIGSecondMorningDirector::Configure(
 	OfferingNote = InOfferingNote;
 	NightRoster = InNightRoster;
 	ManagementNotice = InManagementNotice;
+	if (P2Shutter)
+	{
+		P2Shutter->SetStaticMesh(InCubeMesh);
+		P2Shutter->SetMaterial(0, InBodyMaterial);
+		P2Shutter->SetRelativeLocation(FVector(2405.0f, -457.0f, 230.0f));
+		P2Shutter->SetRelativeScale3D(FVector(1.2f, 0.06f, 0.2f));
+		P2Shutter->SetCollisionProfileName(
+			UCollisionProfile::BlockAll_ProfileName);
+	}
+	SpawnTimeEntryPuzzles(
+		InCubeMesh,
+		InAlarmHousingMesh,
+		InPosHousingMesh,
+		InBodyMaterial,
+		InDisplayOffMaterial,
+		InDisplayGlassMaterial,
+		InAlarmDisplayOnMaterial,
+		InPosDisplayOnMaterial,
+		InButtonMaterial);
+}
+
+void AIGSecondMorningDirector::SpawnTimeEntryPuzzles(
+	UStaticMesh* CubeMesh,
+	UStaticMesh* AlarmHousingMesh,
+	UStaticMesh* PosHousingMesh,
+	UMaterialInterface* BodyMaterial,
+	UMaterialInterface* DisplayOffMaterial,
+	UMaterialInterface* DisplayGlassMaterial,
+	UMaterialInterface* AlarmDisplayOnMaterial,
+	UMaterialInterface* PosDisplayOnMaterial,
+	UMaterialInterface* ButtonMaterial)
+{
+	UWorld* World = GetWorld();
+	if (!World || !CubeMesh)
+	{
+		return;
+	}
+
+	const auto SpawnPuzzle = [this,
+		World,
+		CubeMesh,
+		AlarmHousingMesh,
+		PosHousingMesh,
+		BodyMaterial,
+		DisplayOffMaterial,
+		DisplayGlassMaterial,
+		AlarmDisplayOnMaterial,
+		PosDisplayOnMaterial,
+		ButtonMaterial](
+		const EIGTimeEntryPuzzleId PuzzleId,
+		const FTransform& Transform)
+	{
+		AIGTimeEntryPuzzle* Puzzle =
+			World->SpawnActorDeferred<AIGTimeEntryPuzzle>(
+				AIGTimeEntryPuzzle::StaticClass(),
+				Transform,
+				this,
+				nullptr,
+				ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
+		if (Puzzle)
+		{
+			UStaticMesh* AuthoredHousingMesh =
+				PuzzleId == EIGTimeEntryPuzzleId::P1Alarm
+					? AlarmHousingMesh
+					: PosHousingMesh;
+			Puzzle->Configure(
+				this,
+				PuzzleId,
+				CubeMesh,
+				AuthoredHousingMesh,
+				BodyMaterial,
+				DisplayOffMaterial,
+				DisplayGlassMaterial,
+				AlarmDisplayOnMaterial,
+				PosDisplayOnMaterial,
+				ButtonMaterial);
+			Puzzle->FinishSpawning(Transform);
+		}
+		return Puzzle;
+	};
+
+	P1TimeEntry = SpawnPuzzle(
+		EIGTimeEntryPuzzleId::P1Alarm,
+		FTransform(
+			FRotator(0.0f, -90.0f, 0.0f),
+			FVector(388.0f, 30.0f, 982.0f)));
+	P2TimeEntry = SpawnPuzzle(
+		EIGTimeEntryPuzzleId::P2Transaction,
+		FTransform(
+			FRotator(0.0f, -90.0f, 0.0f),
+			FVector(2600.0f, -282.0f, 122.0f)));
 }
 
 void AIGSecondMorningDirector::BeginPlay()
@@ -100,6 +241,12 @@ void AIGSecondMorningDirector::BeginPlay()
 		&ThisClass::HandleDirectorStep,
 		0.1f,
 		true);
+	GetWorldTimerManager().SetTimer(
+		PuzzlePressureHandle,
+		this,
+		&ThisClass::PollPuzzlePressure,
+		1.0f,
+		true);
 
 	if (JingleComponent)
 	{
@@ -127,6 +274,8 @@ void AIGSecondMorningDirector::BeginPlay()
 	const bool bRestoredEmployeeCall = HasState(CalledEmployeeTag);
 	const bool bRestoredDuplicateRead = HasState(ReadDuplicateReceiptTag);
 	const bool bRestoredReturn = HasState(ReturnedTag);
+	RestoreTimeEntryPuzzles();
+	bP1PressureArmed = HasState(EnteredMirrorRoomTag);
 	if (bRestoredDuplicateRead)
 	{
 		RegisterDeathOverlayTruth();
@@ -149,7 +298,8 @@ void AIGSecondMorningDirector::BeginPlay()
 	{
 		if (Scene)
 		{
-			if (bRestoredEmployeeCall)
+			if (bRestoredEmployeeCall
+				&& IsPuzzleResolved(FName(TEXT("P2"))))
 			{
 				Scene->RevealSecondReceipt();
 			}
@@ -195,6 +345,16 @@ void AIGSecondMorningDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			Note->OnReadStateChanged.RemoveDynamic(this, &ThisClass::HandleNoteRead);
 		}
 	}
+	for (AIGTimeEntryPuzzle* Puzzle :
+		{P1TimeEntry.Get(), P2TimeEntry.Get()})
+	{
+		if (Puzzle)
+		{
+			Puzzle->Destroy();
+		}
+	}
+	P1TimeEntry = nullptr;
+	P2TimeEntry = nullptr;
 
 	Super::EndPlay(EndPlayReason);
 }
@@ -281,6 +441,22 @@ void AIGSecondMorningDirector::AddState(const FGameplayTag& Tag) const
 	}
 }
 
+void AIGSecondMorningDirector::RemoveState(const FGameplayTag& Tag) const
+{
+	if (!Tag.IsValid())
+	{
+		return;
+	}
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (UIGStoryStateSubsystem* StoryState =
+			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
+		{
+			StoryState->RemoveState(Tag);
+		}
+	}
+}
+
 bool AIGSecondMorningDirector::IsActive() const
 {
 	return HasState(StartedTag) && !HasState(ReturnedTag);
@@ -360,6 +536,13 @@ FText AIGSecondMorningDirector::GetObjectiveText() const
 			"ObjectiveReceipt",
 			"POS 옆의 04:44 거래 기록을 확인하자");
 	}
+	if (!IsPuzzleResolved(FName(TEXT("P2"))))
+	{
+		return NSLOCTEXT(
+			"IGCH02",
+			"ObjectiveRestoreTransaction",
+			"거래 복원 단말에 처음 결제 시각을 입력하자");
+	}
 	if (!HasState(ReadDuplicateReceiptTag))
 	{
 		return NSLOCTEXT(
@@ -421,6 +604,10 @@ FString AIGSecondMorningDirector::GetObjectiveTextAscii() const
 	if (!HasState(SawReceiptTag))
 	{
 		return TEXT("Inspect the 04:44 transaction beside the POS");
+	}
+	if (!IsPuzzleResolved(FName(TEXT("P2"))))
+	{
+		return TEXT("Enter the original purchase time into the recovery terminal");
 	}
 	if (!HasState(ReadDuplicateReceiptTag))
 	{
@@ -484,7 +671,7 @@ void AIGSecondMorningDirector::RegisterDeathOverlayTruth() const
 	RegisterSecondMorningTruth(
 		TEXT("Truth.DeathOverlay"),
 		FName(TEXT("CH02.DuplicateReceipt")),
-		FName(TEXT("P2.ReceiptComparisonProxy")));
+		FName(TEXT("P2")));
 }
 
 int32 AIGSecondMorningDirector::GetSecondMorningTruthCount() const
@@ -523,8 +710,20 @@ bool AIGSecondMorningDirector::CanConvergeSecondMorning() const
 			EIGRebirthConvergencePoint::C3SecondMorning);
 }
 
-bool AIGSecondMorningDirector::RunRebirthEndToEndRoute()
+bool AIGSecondMorningDirector::RunRebirthEndToEndRoute(
+	const bool bP2First,
+	const bool bSkipP1,
+	const bool bSkipP2)
 {
+	// Even a freedom route that skips both deductions must prove that the
+	// production scene still contains two fully authored, interactive devices.
+	if (GetTimeEntryPhysicalContractCount() != 2
+		|| GetAuthoredTimeEntryHousingCount() != 2
+		|| GetLayeredTimeEntryDisplayCount() != 2)
+	{
+		return false;
+	}
+
 	UIGRebirthNarrativeSubsystem* RebirthState =
 		GetGameInstance()
 			? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
@@ -532,7 +731,8 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute()
 	if (!RebirthState
 		|| !MirrorAlarmMemo
 		|| !MailboxBills
-		|| !DuplicateReceipt)
+		|| !DuplicateReceipt
+		|| (bSkipP1 && bSkipP2 && !HomePlanner))
 	{
 		return false;
 	}
@@ -552,10 +752,32 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute()
 	{
 		return false;
 	}
-	AddState(EnteredStoreTag);
-	AddState(CalledEmployeeTag);
-	HandleNoteRead(DuplicateReceipt, false);
-	HandleNoteRead(MirrorAlarmMemo, false);
+	bool bPuzzleRoutePassed = false;
+	if (bSkipP1 && bSkipP2)
+	{
+		// Both world puzzles remain available. The familiar 404 planner is the
+		// authored low-pressure Alarm0510 source for a player who refuses them.
+		HandleNoteRead(HomePlanner, false);
+		bPuzzleRoutePassed = true;
+	}
+	else if (bSkipP1)
+	{
+		bPuzzleRoutePassed = RunP2EndToEndStep();
+	}
+	else if (bSkipP2)
+	{
+		bPuzzleRoutePassed = RunP1EndToEndStep();
+	}
+	else
+	{
+		bPuzzleRoutePassed = bP2First
+			? RunP2EndToEndStep() && RunP1EndToEndStep()
+			: RunP1EndToEndStep() && RunP2EndToEndStep();
+	}
+	if (!bPuzzleRoutePassed)
+	{
+		return false;
+	}
 	HandleNoteRead(MailboxBills, false);
 
 	const FIGRebirthNarrativeSnapshot Snapshot =
@@ -566,14 +788,14 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute()
 		ChapterTwoOutfitRecords +=
 			ChapterId == FName(TEXT("CH02")) ? 1 : 0;
 	}
+	const bool bP1Resolved = IsPuzzleResolved(FName(TEXT("P1")));
+	const bool bP2Resolved = IsPuzzleResolved(FName(TEXT("P2")));
+	const int32 ExpectedTruthCount = bSkipP1 || bSkipP2 ? 2 : 3;
 	const bool bRouteReady =
 		ChapterTwoOutfitRecords == 1
-		&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
-			FName(TEXT("Truth.Alarm0510")),
-			false))
-		&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
-			FName(TEXT("Truth.DeathOverlay")),
-			false))
+		&& bP1Resolved == !bSkipP1
+		&& bP2Resolved == !bSkipP2
+		&& GetSecondMorningTruthCount() == ExpectedTruthCount
 		&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
 			FName(TEXT("Truth.WasSearched")),
 			false))
@@ -583,6 +805,115 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute()
 		AddState(ReturnedTag);
 	}
 	return bRouteReady && HasState(ReturnedTag);
+}
+
+int32 AIGSecondMorningDirector::GetTimeEntryPhysicalContractCount() const
+{
+	int32 Count = 0;
+	for (const AIGTimeEntryPuzzle* Puzzle :
+		{P1TimeEntry.Get(), P2TimeEntry.Get()})
+	{
+		Count += Puzzle && Puzzle->HasPhysicalContract() ? 1 : 0;
+	}
+	return Count;
+}
+
+int32 AIGSecondMorningDirector::GetTimeEntryMeshComponentCount() const
+{
+	int32 Count = 0;
+	for (const AIGTimeEntryPuzzle* Puzzle :
+		{P1TimeEntry.Get(), P2TimeEntry.Get()})
+	{
+		Count += Puzzle ? Puzzle->GetPhysicalMeshComponentCount() : 0;
+	}
+	return Count;
+}
+
+int32 AIGSecondMorningDirector::GetAuthoredTimeEntryHousingCount() const
+{
+	int32 Count = 0;
+	for (const AIGTimeEntryPuzzle* Puzzle :
+		{P1TimeEntry.Get(), P2TimeEntry.Get()})
+	{
+		Count += Puzzle && Puzzle->UsesAuthoredHousing() ? 1 : 0;
+	}
+	return Count;
+}
+
+int32 AIGSecondMorningDirector::GetLayeredTimeEntryDisplayCount() const
+{
+	int32 Count = 0;
+	for (const AIGTimeEntryPuzzle* Puzzle :
+		{P1TimeEntry.Get(), P2TimeEntry.Get()})
+	{
+		Count += Puzzle && Puzzle->UsesLayeredDisplay() ? 1 : 0;
+	}
+	return Count;
+}
+
+bool AIGSecondMorningDirector::RunP1EndToEndStep()
+{
+	HandleNoteRead(MirrorAlarmMemo, false);
+	if (!P1TimeEntry
+		|| !P1TimeEntry->HasPhysicalContract())
+	{
+		return false;
+	}
+	for (int32 AttemptIndex = 0; AttemptIndex < 3; ++AttemptIndex)
+	{
+		P1TimeEntry->HandleButton(EIGTimeEntryButtonAction::Confirm);
+	}
+	const FGameplayTag P1PressureCap = IGSecondMorningTimeEntry::StateTag(
+		EIGTimeEntryPuzzleId::P1Alarm,
+		TEXT("Pressure3"));
+	if (P1TimeEntry->GetWrongAttempts() != 3
+		|| !HasState(P1PressureCap)
+		|| !P1TimeEntry->RunAutomatedSolution()
+		|| HasState(P1PressureCap))
+	{
+		return false;
+	}
+	return true;
+}
+
+bool AIGSecondMorningDirector::RunP2EndToEndStep()
+{
+	AddState(EnteredStoreTag);
+	AddState(CalledEmployeeTag);
+	HandleNoteRead(ExistingReceipt, true);
+	HandleNoteRead(ExistingReceipt, false);
+	if (!HasState(IGSecondMorningTimeEntry::StateTag(
+			EIGTimeEntryPuzzleId::P2Transaction,
+			TEXT("SourceApprovalRead")))
+		|| !P2TimeEntry
+		|| !P2TimeEntry->HasPhysicalContract())
+	{
+		return false;
+	}
+	for (int32 AttemptIndex = 0; AttemptIndex < 3; ++AttemptIndex)
+	{
+		P2TimeEntry->HandleButton(EIGTimeEntryButtonAction::Confirm);
+	}
+	const FGameplayTag P2PressureCap = IGSecondMorningTimeEntry::StateTag(
+		EIGTimeEntryPuzzleId::P2Transaction,
+		TEXT("Pressure3"));
+	const float ShutterBottom = P2Shutter
+		? P2Shutter->GetRelativeLocation().Z
+			- P2Shutter->GetRelativeScale3D().Z * 50.0f
+		: 0.0f;
+	if (P2TimeEntry->GetWrongAttempts() != 3
+		|| !HasState(P2PressureCap)
+		|| !P2Shutter
+		|| P2Shutter->GetCollisionEnabled()
+			!= ECollisionEnabled::QueryAndPhysics
+		|| !FMath::IsNearlyEqual(ShutterBottom, 205.0f, 0.5f)
+		|| !P2TimeEntry->RunAutomatedSolution()
+		|| HasState(P2PressureCap))
+	{
+		return false;
+	}
+	HandleNoteRead(DuplicateReceipt, false);
+	return HasState(ReadDuplicateReceiptTag);
 }
 
 void AIGSecondMorningDirector::RefreshReturnGate() const
@@ -684,6 +1015,569 @@ void AIGSecondMorningDirector::RequestCheckpointAutosave(
 		CheckpointTag);
 }
 
+bool AIGSecondMorningDirector::IsPuzzleResolved(const FName PuzzleId) const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	if (!RebirthState)
+	{
+		return false;
+	}
+	const FIGRebirthNarrativeSnapshot Snapshot = RebirthState->BuildSnapshot();
+	const TArray<FName>& Resolved = Snapshot.ResolvedPuzzles;
+	if (Resolved.Contains(PuzzleId))
+	{
+		return true;
+	}
+	// v3 세이브 스키마는 유지하되 기능 프록시 시절 식별자를 읽는다.
+	const FName LegacyPuzzleId = PuzzleId == FName(TEXT("P1"))
+		? FName(TEXT("P1.AlarmArithmeticProxy"))
+		: PuzzleId == FName(TEXT("P2"))
+			? FName(TEXT("P2.ReceiptComparisonProxy"))
+			: NAME_None;
+	return !LegacyPuzzleId.IsNone() && Resolved.Contains(LegacyPuzzleId);
+}
+
+void AIGSecondMorningDirector::RestoreTimeEntryPuzzles()
+{
+	const auto RestorePuzzle = [this](AIGTimeEntryPuzzle* Puzzle)
+	{
+		if (!Puzzle)
+		{
+			return;
+		}
+		const EIGTimeEntryPuzzleId PuzzleId = Puzzle->GetPuzzleId();
+		const int32 Hour = HasState(
+			IGSecondMorningTimeEntry::StateTag(PuzzleId, TEXT("Hour05")))
+			? 5
+			: 4;
+		const int32 Minute = HasState(
+			IGSecondMorningTimeEntry::StateTag(PuzzleId, TEXT("Minute10")))
+			? 10
+			: HasState(IGSecondMorningTimeEntry::StateTag(
+				PuzzleId,
+				TEXT("Minute31")))
+				? 31
+				: 44;
+		int32 PressureStage = 0;
+		for (int32 Stage = 3; Stage >= 1; --Stage)
+		{
+			if (HasState(IGSecondMorningTimeEntry::StateTag(
+				PuzzleId,
+				*FString::Printf(TEXT("Pressure%d"), Stage))))
+			{
+				PressureStage = Stage;
+				break;
+			}
+		}
+		Puzzle->RestoreState(
+			Hour,
+			Minute,
+			PressureStage,
+			IsPuzzleResolved(
+				IGSecondMorningTimeEntry::PuzzleName(PuzzleId)));
+	};
+
+	RestorePuzzle(P1TimeEntry);
+	RestorePuzzle(P2TimeEntry);
+	RefreshTimeEntryAvailability();
+	ApplyP1PressureStage(P1TimeEntry ? P1TimeEntry->GetWrongAttempts() : 0);
+	if (HasState(CalledEmployeeTag)
+		&& P2TimeEntry
+		&& !P2TimeEntry->IsSolved())
+	{
+		SetP2ShutterStage(P2TimeEntry->GetWrongAttempts());
+	}
+	else if (P2Shutter)
+	{
+		P2Shutter->SetVisibility(false, true);
+		P2Shutter->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+}
+
+void AIGSecondMorningDirector::RefreshTimeEntryAvailability()
+{
+	if (P1TimeEntry)
+	{
+		P1TimeEntry->SetAvailable(!P1TimeEntry->IsSolved());
+	}
+	if (P2TimeEntry)
+	{
+		P2TimeEntry->SetAvailable(
+			HasState(CalledEmployeeTag)
+			&& !P2TimeEntry->IsSolved());
+	}
+}
+
+void AIGSecondMorningDirector::ClearTimeEntryStateTags(
+	const AIGTimeEntryPuzzle& Puzzle) const
+{
+	const EIGTimeEntryPuzzleId PuzzleId = Puzzle.GetPuzzleId();
+	for (const TCHAR* Leaf : {
+		TEXT("Hour05"),
+		TEXT("Minute10"),
+		TEXT("Minute31"),
+		TEXT("Pressure1"),
+		TEXT("Pressure2"),
+		TEXT("Pressure3")})
+	{
+		RemoveState(IGSecondMorningTimeEntry::StateTag(PuzzleId, Leaf));
+	}
+}
+
+void AIGSecondMorningDirector::PersistTimeEntryState(
+	const AIGTimeEntryPuzzle& Puzzle) const
+{
+	ClearTimeEntryStateTags(Puzzle);
+	const EIGTimeEntryPuzzleId PuzzleId = Puzzle.GetPuzzleId();
+	if (Puzzle.GetHour() == 5)
+	{
+		AddState(IGSecondMorningTimeEntry::StateTag(
+			PuzzleId,
+			TEXT("Hour05")));
+	}
+	if (Puzzle.GetMinute() == 10)
+	{
+		AddState(IGSecondMorningTimeEntry::StateTag(
+			PuzzleId,
+			TEXT("Minute10")));
+	}
+	else if (Puzzle.GetMinute() == 31)
+	{
+		AddState(IGSecondMorningTimeEntry::StateTag(
+			PuzzleId,
+			TEXT("Minute31")));
+	}
+	if (Puzzle.GetWrongAttempts() > 0)
+	{
+		AddState(IGSecondMorningTimeEntry::StateTag(
+			PuzzleId,
+			*FString::Printf(
+				TEXT("Pressure%d"),
+				FMath::Clamp(Puzzle.GetWrongAttempts(), 1, 3))));
+	}
+}
+
+void AIGSecondMorningDirector::HandleTimeEntrySelectionChanged(
+	AIGTimeEntryPuzzle* Puzzle)
+{
+	if (!Puzzle || Puzzle->IsSolved())
+	{
+		return;
+	}
+	PersistTimeEntryState(*Puzzle);
+	RequestCheckpointAutosave(
+		Puzzle->GetPuzzleId() == EIGTimeEntryPuzzleId::P2Transaction
+			? StoreCheckpointTag
+			: CorridorCheckpointTag);
+}
+
+void AIGSecondMorningDirector::HandleTimeEntryConfirmed(
+	AIGTimeEntryPuzzle* Puzzle,
+	const bool bCorrect)
+{
+	if (!Puzzle)
+	{
+		return;
+	}
+
+	const bool bP1 =
+		Puzzle->GetPuzzleId() == EIGTimeEntryPuzzleId::P1Alarm;
+	if (!bCorrect)
+	{
+		PersistTimeEntryState(*Puzzle);
+		if (bP1)
+		{
+			ApplyP1PressureStage(Puzzle->GetWrongAttempts());
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateClothSettle(this),
+				FVector(525.0f, 85.0f, 965.0f),
+				0.86f,
+				1.0f,
+				90.0f,
+				650.0f);
+		}
+		else
+		{
+			SetP2ShutterStage(Puzzle->GetWrongAttempts());
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateShutterMotorStep(this),
+				FVector(2405.0f, -457.0f, 220.0f));
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateThermalPrinterFeed(this),
+				Puzzle->GetActorLocation(),
+				0.82f);
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateDoorChime(this),
+				FVector(2460.0f, -520.0f, 125.0f),
+				0.72f);
+		}
+		SetThreat(0.16f + Puzzle->GetWrongAttempts() * 0.09f, 4.8f);
+		RequestCheckpointAutosave(bP1 ? CorridorCheckpointTag : StoreCheckpointTag);
+		return;
+	}
+
+	ClearTimeEntryStateTags(*Puzzle);
+	if (bP1)
+	{
+		P1PressureElapsedSeconds = 0.0f;
+	}
+	else
+	{
+		P2PressureElapsedSeconds = 0.0f;
+	}
+	if (bP1)
+	{
+		RegisterSecondMorningTruth(
+			TEXT("Truth.Alarm0510"),
+			FName(TEXT("CH02.P1Clock")),
+			FName(TEXT("P1")));
+		ApplyP1SolvedLight();
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateAlarmFirstNote(this),
+			Puzzle->GetActorLocation(),
+			0.70f);
+	}
+	else
+	{
+		if (UGameInstance* GameInstance = GetGameInstance())
+		{
+			if (UIGRebirthNarrativeSubsystem* RebirthState =
+				GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
+			{
+				RebirthState->MarkPuzzleResolved(FName(TEXT("P2")));
+			}
+		}
+		if (Scene)
+		{
+			Scene->RevealSecondReceipt();
+		}
+		BeginP2ShutterRise();
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateJingleOpeningNotes(this),
+			Puzzle->GetActorLocation(),
+			0.72f);
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateThermalPrinterFeed(this),
+			Puzzle->GetActorLocation(),
+			0.95f);
+		RequestCheckpointAutosave(StoreCheckpointTag);
+	}
+	ClearThreat();
+	RefreshTimeEntryAvailability();
+	RefreshObjective();
+}
+
+void AIGSecondMorningDirector::PollPuzzlePressure()
+{
+	if (AIGReadableNote::GetOpenNote() || CanConvergeSecondMorning())
+	{
+		return;
+	}
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const float RiseInterval = Accessibility
+		? Accessibility->GetPressureRiseIntervalSeconds()
+		: 55.0f;
+
+	const auto TickPressure = [this, RiseInterval](
+		AIGTimeEntryPuzzle* Puzzle,
+		const bool bActive,
+		const bool bP1,
+		float& ElapsedSeconds)
+	{
+		if (!bActive || !Puzzle || Puzzle->IsSolved())
+		{
+			ElapsedSeconds = 0.0f;
+			return;
+		}
+		ElapsedSeconds += 1.0f;
+		if (ElapsedSeconds < RiseInterval)
+		{
+			return;
+		}
+		ElapsedSeconds = FMath::Max(0.0f, ElapsedSeconds - RiseInterval);
+		RaiseTimedPuzzlePressure(Puzzle, bP1);
+	};
+
+	TickPressure(
+		P1TimeEntry,
+		bP1PressureArmed,
+		true,
+		P1PressureElapsedSeconds);
+	TickPressure(
+		P2TimeEntry,
+		HasState(CalledEmployeeTag),
+		false,
+		P2PressureElapsedSeconds);
+}
+
+void AIGSecondMorningDirector::RaiseTimedPuzzlePressure(
+	AIGTimeEntryPuzzle* Puzzle,
+	const bool bP1)
+{
+	if (!Puzzle || !Puzzle->AdvancePressureStage())
+	{
+		return;
+	}
+
+	PersistTimeEntryState(*Puzzle);
+	const int32 PressureStage = Puzzle->GetPressureStage();
+	if (bP1)
+	{
+		ApplyP1PressureStage(PressureStage);
+		if (PressureStage >= 2)
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateClothSettle(this),
+				FVector(525.0f, 85.0f, 965.0f),
+				PressureStage == 2 ? 0.52f : 0.68f,
+				PressureStage == 2 ? 0.92f : 0.82f,
+				90.0f,
+				650.0f);
+		}
+		if (PressureStage >= 3)
+		{
+			PlayCorridorSnap(
+				MirrorRoomDoor
+					? MirrorRoomDoor->GetActorLocation() - FVector(55.0f, 0.0f, 0.0f)
+					: GetActorLocation(),
+				0.18f);
+		}
+	}
+	else
+	{
+		SetP2ShutterStage(PressureStage);
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateShutterMotorStep(this),
+			FVector(2405.0f, -457.0f, 220.0f),
+			PressureStage == 1 ? 0.58f : 0.72f);
+		if (PressureStage >= 2)
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateDoorChime(this),
+				FVector(2460.0f, -520.0f, 125.0f),
+				0.44f);
+		}
+		if (PressureStage >= 3)
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateThermalPrinterFeed(this),
+				Puzzle->GetActorLocation(),
+				0.64f);
+		}
+	}
+
+	SetThreat(0.16f + PressureStage * 0.09f, 4.8f);
+	RequestCheckpointAutosave(bP1 ? CorridorCheckpointTag : StoreCheckpointTag);
+}
+
+bool AIGSecondMorningDirector::RequestManualHint()
+{
+	if (AIGReadableNote::GetOpenNote() || CanConvergeSecondMorning())
+	{
+		return false;
+	}
+	const APlayerController* Controller =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	if (!Pawn)
+	{
+		return false;
+	}
+
+	AIGTimeEntryPuzzle* Candidate = nullptr;
+	bool bCandidateIsP1 = false;
+	float BestDistanceSquared = FMath::Square(420.0f);
+	const auto Consider = [&Candidate, &bCandidateIsP1, &BestDistanceSquared, Pawn](
+		AIGTimeEntryPuzzle* Puzzle,
+		const bool bActive,
+		const bool bP1)
+	{
+		if (!bActive || !Puzzle || Puzzle->IsSolved())
+		{
+			return;
+		}
+		const float DistanceSquared = FVector::DistSquared(
+			Pawn->GetActorLocation(),
+			Puzzle->GetActorLocation());
+		if (DistanceSquared <= BestDistanceSquared)
+		{
+			Candidate = Puzzle;
+			bCandidateIsP1 = bP1;
+			BestDistanceSquared = DistanceSquared;
+		}
+	};
+	Consider(P1TimeEntry, bP1PressureArmed, true);
+	Consider(P2TimeEntry, HasState(CalledEmployeeTag), false);
+	if (!Candidate)
+	{
+		return false;
+	}
+
+	if (bCandidateIsP1)
+	{
+		PresentP1ManualHint();
+	}
+	else
+	{
+		PresentP2ManualHint();
+	}
+	return true;
+}
+
+void AIGSecondMorningDirector::PresentP1ManualHint()
+{
+	static const FText Hints[] =
+	{
+		NSLOCTEXT("IGCH02", "P1ManualHintContext", "집결은 5시 30분. 알람은 그보다 스무 분 전이었어."),
+		NSLOCTEXT("IGCH02", "P1ManualHintRelation", "05:30과 ‘20분 전’을 한 시각으로 맞춰 보자."),
+		NSLOCTEXT("IGCH02", "P1ManualHintAnswer", "집결 시각보다 20분 앞선 05:10을 입력하자.")
+	};
+	AIGHorrorHUD::PushThought(this, Hints[P1ManualHintStage], 4.8f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateScannerBeep(this),
+		P1TimeEntry ? P1TimeEntry->GetActorLocation() : GetActorLocation(),
+		0.28f,
+		1.0f + P1ManualHintStage * 0.08f);
+	P1ManualHintStage = FMath::Min(P1ManualHintStage + 1, 2);
+}
+
+void AIGSecondMorningDirector::PresentP2ManualHint()
+{
+	static const FText Hints[] =
+	{
+		NSLOCTEXT("IGCH02", "P2ManualHintContext", "처음 받은 영수증과 지금 남은 거래 기록을 다시 보자."),
+		NSLOCTEXT("IGCH02", "P2ManualHintRelation", "두 기록에서 서로 다른 결제 시각을 대조하면 돼."),
+		NSLOCTEXT("IGCH02", "P2ManualHintAnswer", "처음 결제한 시각 04:31을 복원 단말에 입력하자.")
+	};
+	AIGHorrorHUD::PushThought(this, Hints[P2ManualHintStage], 4.8f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateThermalPrinterFeed(this),
+		P2TimeEntry ? P2TimeEntry->GetActorLocation() : GetActorLocation(),
+		0.34f);
+	P2ManualHintStage = FMath::Min(P2ManualHintStage + 1, 2);
+}
+
+void AIGSecondMorningDirector::ApplyP1PressureStage(
+	const int32 PressureStage)
+{
+	if (MirrorRoomLamp && !IsPuzzleResolved(FName(TEXT("P1"))))
+	{
+		MirrorRoomLamp->SetIntensity(
+			300.0f * (1.0f - FMath::Clamp(PressureStage, 0, 3) * 0.10f));
+	}
+}
+
+void AIGSecondMorningDirector::ApplyP1SolvedLight()
+{
+	if (!MirrorRoomLamp)
+	{
+		return;
+	}
+	MirrorRoomLamp->SetVisibility(true);
+	MirrorRoomLamp->SetIntensity(620.0f);
+	GetWorldTimerManager().ClearTimer(P1SolvedLightHandle);
+	GetWorldTimerManager().SetTimer(
+		P1SolvedLightHandle,
+		this,
+		&ThisClass::RestoreP1LightAfterSolve,
+		2.0f,
+		false);
+}
+
+void AIGSecondMorningDirector::RestoreP1LightAfterSolve()
+{
+	if (MirrorRoomLamp)
+	{
+		MirrorRoomLamp->SetIntensity(300.0f);
+	}
+}
+
+void AIGSecondMorningDirector::SetP2ShutterStage(
+	const int32 PressureStage)
+{
+	if (!P2Shutter)
+	{
+		return;
+	}
+	const float Height = 20.0f + FMath::Clamp(PressureStage, 0, 3) * 5.0f;
+	P2Shutter->SetRelativeScale3D(FVector(1.2f, 0.06f, Height / 100.0f));
+	P2Shutter->SetRelativeLocation(FVector(
+		2405.0f,
+		-457.0f,
+		240.0f - Height * 0.5f));
+	P2Shutter->SetVisibility(true, true);
+	P2Shutter->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+}
+
+void AIGSecondMorningDirector::BeginP2ShutterRise()
+{
+	if (!P2Shutter || !GetWorld())
+	{
+		return;
+	}
+	P2ShutterAnimationStartTime = GetWorld()->GetTimeSeconds();
+	P2ShutterAnimationStartZ = P2Shutter->GetRelativeLocation().Z;
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateShutterMotorRise(this),
+		P2Shutter->GetComponentLocation());
+	GetWorldTimerManager().ClearTimer(P2ShutterAnimationHandle);
+	GetWorldTimerManager().SetTimer(
+		P2ShutterAnimationHandle,
+		this,
+		&ThisClass::AnimateP2ShutterRise,
+		0.05f,
+		true);
+}
+
+void AIGSecondMorningDirector::AnimateP2ShutterRise()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	if (!P2Shutter)
+	{
+		World->GetTimerManager().ClearTimer(P2ShutterAnimationHandle);
+		return;
+	}
+	const float Alpha = FMath::Clamp(
+		static_cast<float>(
+			(World->GetTimeSeconds() - P2ShutterAnimationStartTime) / 1.2),
+		0.0f,
+		1.0f);
+	FVector Location = P2Shutter->GetRelativeLocation();
+	Location.Z = FMath::Lerp(P2ShutterAnimationStartZ, 265.0f, Alpha);
+	P2Shutter->SetRelativeLocation(Location);
+	if (Alpha >= 1.0f)
+	{
+		GetWorldTimerManager().ClearTimer(P2ShutterAnimationHandle);
+		P2Shutter->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		P2Shutter->SetVisibility(false, true);
+	}
+}
+
 void AIGSecondMorningDirector::HandleStoryStateChanged(
 	const FGameplayTag StateTag,
 	const bool bAdded)
@@ -719,12 +1613,10 @@ void AIGSecondMorningDirector::HandleStoryStateChanged(
 	}
 	else if (StateTag.MatchesTagExact(CalledEmployeeTag))
 	{
-		if (Scene)
-		{
-			// Functional P2 entry proxy: this restores an overwritten record.
-			// It does not pick up a product or charge the player a second time.
-			Scene->RevealSecondReceipt();
-		}
+		// 직원 호출은 P2 입력 단말과 셔터만 깨운다. 덮인 거래 기록은
+		// 플레이어가 04:31을 직접 복원한 뒤에만 출력된다.
+		RefreshTimeEntryAvailability();
+		SetP2ShutterStage(P2TimeEntry ? P2TimeEntry->GetWrongAttempts() : 0);
 		RequestCheckpointAutosave(StoreCheckpointTag);
 	}
 	else if (StateTag.MatchesTagExact(ReadDuplicateReceiptTag))
@@ -883,6 +1775,7 @@ void AIGSecondMorningDirector::PlayCorridorSnap(
 	const FVector& Location,
 	const float ScareAmount)
 {
+	AIGHorrorHUD::PushFearDirection(this, Location, 1.0f);
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateFluorescentBallastSnap(this),
@@ -930,6 +1823,8 @@ void AIGSecondMorningDirector::StartMirrorRoomBeat()
 
 void AIGSecondMorningDirector::CloseMirrorDoor()
 {
+	bP1PressureArmed = true;
+	P1PressureElapsedSeconds = 0.0f;
 	if (MirrorRoomDoor)
 	{
 		// Creak only. The absence of a slam is part of the scare.
@@ -1171,6 +2066,7 @@ void AIGSecondMorningDirector::HandleNoteRead(
 	{
 		if (!bOpened
 			&& HasState(CalledEmployeeTag)
+			&& IsPuzzleResolved(FName(TEXT("P2")))
 			&& !HasState(ReadDuplicateReceiptTag))
 		{
 			// The second paper is a restored transaction record, never a second
@@ -1214,16 +2110,12 @@ void AIGSecondMorningDirector::HandleNoteRead(
 	{
 		if (!bOpened)
 		{
-			RegisterSecondMorningTruth(
-				TEXT("Truth.Alarm0510"),
-				FName(TEXT("CH02.MirrorAlarmMemo")),
-				FName(TEXT("P1.AlarmArithmeticProxy")));
 			AIGHorrorHUD::PushThought(
 				this,
 				NSLOCTEXT(
 					"IGCH02",
 					"AlarmMemoThought",
-					"5시 30분보다 스무 분 전이면… 내가 맞춘 알람은 5시 10분이다."),
+					"5시 30분보다 스무 분 전. 단말에 맞는 시각을 넣어 보자."),
 				4.8f);
 			RefreshObjective();
 		}

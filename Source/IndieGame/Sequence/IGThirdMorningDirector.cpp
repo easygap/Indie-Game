@@ -1,5 +1,6 @@
 ﻿#include "Sequence/IGThirdMorningDirector.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "AssetCompilingManager.h"
 #include "Audio/IGAlarmSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
@@ -16,8 +17,10 @@
 #include "Components/TextRenderComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
@@ -34,12 +37,14 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "Narrative/IGItemContinuityDressing.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGPlayerController.h"
 #include "Save/IGSaveGame.h"
 #include "Save/IGSaveSubsystem.h"
 #include "ShaderCompiler.h"
@@ -51,6 +56,9 @@ namespace IGThirdMorning
 {
 	const FVector StageOrigin(-4800.0f, 4200.0f, 0.0f);
 	constexpr float StandingCapsuleCenter = 96.0f;
+	// CharacterMovement keeps a small floor gap after resolving contact. Resume
+	// directly at that stable center so a loaded camera never drops for a frame.
+	constexpr float RestoredCapsuleCenter = StandingCapsuleCenter + 2.0f;
 	constexpr float DefaultWalkSpeed = 300.0f;
 	constexpr float FloodWalkSpeed = 225.0f;
 	constexpr float RoofFloorZ = 240.0f;
@@ -511,7 +519,7 @@ void AIGThirdMorningDirector::RestoreCheckpointAnchor(
 		CorridorEntryZone->SetActorEnableCollision(false);
 	}
 
-	FVector SafeLocalLocation(520.0f, 0.0f, IGThirdMorning::StandingCapsuleCenter);
+	FVector SafeLocalLocation(520.0f, 0.0f, IGThirdMorning::RestoredCapsuleCenter);
 	FRotator SafeRotation(0.0f, 0.0f, 0.0f);
 	FRotator SafeView(-5.0f, 0.0f, 0.0f);
 	if (bRestoreRoof)
@@ -538,7 +546,7 @@ void AIGThirdMorningDirector::RestoreCheckpointAnchor(
 			1815.0f,
 			-400.0f,
 			IGThirdMorning::RoofFloorZ
-				+ IGThirdMorning::StandingCapsuleCenter);
+				+ IGThirdMorning::RestoredCapsuleCenter);
 		SafeRotation = FRotator(0.0f, 0.0f, 0.0f);
 		SafeView = FRotator(-5.0f, 0.0f, 0.0f);
 	}
@@ -552,7 +560,7 @@ void AIGThirdMorningDirector::RestoreCheckpointAnchor(
 		SafeLocalLocation = FVector(
 			35.0f,
 			-55.0f,
-			IGThirdMorning::StandingCapsuleCenter);
+			IGThirdMorning::RestoredCapsuleCenter);
 		SafeRotation = FRotator(0.0f, -142.0f, 0.0f);
 		SafeView = FRotator(-9.0f, -142.0f, 0.0f);
 	}
@@ -575,6 +583,15 @@ void AIGThirdMorningDirector::RestoreCheckpointAnchor(
 				P3HintTimer,
 				this,
 				&ThisClass::PollP3Hint,
+				1.0f,
+				true);
+		}
+		if (!bP4Completed)
+		{
+			GetWorldTimerManager().SetTimer(
+				P4Timer,
+				this,
+				&ThisClass::PollP4PressureAndHint,
 				1.0f,
 				true);
 		}
@@ -741,7 +758,16 @@ void AIGThirdMorningDirector::CommitChapterThreeState()
 	State.P3.MistakeCount = P3MistakeCount;
 	State.P3.ZeroConfirmationTicks = P3ZeroConfirmationTicks;
 	State.P3.HintElapsedSeconds = P3HintElapsedSeconds;
+	State.P3.PressureRiseElapsedSeconds = P3PressureRiseElapsedSeconds;
+	State.P3.bPressureRiseArmed = bP3PressureRiseArmed;
 	State.P3.HintStage = P3HintStage;
+	State.P4.StairLoopCount = StairLoopCount;
+	State.P4.PressureStage = P4PressureStage;
+	State.P4.PressureRiseElapsedSeconds = P4PressureRiseElapsedSeconds;
+	State.P4.HintElapsedSeconds = P4HintElapsedSeconds;
+	State.P4.HintStage = P4HintStage;
+	State.P4.bPressureArmed = bP4PressureArmed;
+	State.P4.bCompleted = bP4Completed;
 	State.bTankOpened = bTankOpened;
 	State.FocusedEvidence =
 		IGThirdMorning::ToPersistentEvidence(FocusedEvidence);
@@ -817,7 +843,16 @@ bool AIGThirdMorningDirector::RestoreChapterThreeState()
 	P3MistakeCount = State.P3.MistakeCount;
 	P3ZeroConfirmationTicks = State.P3.ZeroConfirmationTicks;
 	P3HintElapsedSeconds = State.P3.HintElapsedSeconds;
+	P3PressureRiseElapsedSeconds = State.P3.PressureRiseElapsedSeconds;
+	bP3PressureRiseArmed = State.P3.bPressureRiseArmed;
 	P3HintStage = State.P3.HintStage;
+	StairLoopCount = State.P4.StairLoopCount;
+	P4PressureStage = State.P4.PressureStage;
+	P4PressureRiseElapsedSeconds = State.P4.PressureRiseElapsedSeconds;
+	P4HintElapsedSeconds = State.P4.HintElapsedSeconds;
+	P4HintStage = State.P4.HintStage;
+	bP4PressureArmed = State.P4.bPressureArmed;
+	bP4Completed = State.P4.bCompleted;
 	bTankOpened = State.bTankOpened;
 	FocusedEvidence =
 		IGThirdMorning::FromPersistentEvidence(State.FocusedEvidence);
@@ -842,6 +877,13 @@ bool AIGThirdMorningDirector::RestoreChapterThreeState()
 		|| bP3Solved
 		|| P3MistakeCount > 0
 		|| P3ZeroConfirmationTicks > 0
+		|| StairLoopCount > 0
+		|| P4PressureStage > 0
+		|| P4PressureRiseElapsedSeconds > 0.0f
+		|| P4HintElapsedSeconds > 0.0f
+		|| P4HintStage > 0
+		|| bP4PressureArmed
+		|| bP4Completed
 		|| bTankOpened
 		|| FocusedEvidence != EIGChapterThreeAction::None
 		|| !ObservedP5Sources.IsEmpty()
@@ -971,6 +1013,26 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 				? FVector(992.0f, -84.0f, 150.0f)
 				: FVector(1178.0f, -185.0f, 188.0f)));
 	}
+	for (AIGZoneTrigger* LoopZone : StairLoopZones)
+	{
+		if (LoopZone)
+		{
+			LoopZone->SetActorEnableCollision(false);
+		}
+	}
+	if (!bP4Completed
+		&& StairLoopCount < 3
+		&& StairLoopZones.IsValidIndex(StairLoopCount))
+	{
+		StairLoopZones[StairLoopCount]->SetActorEnableCollision(true);
+	}
+	if (DownRouteWaterBarrier)
+	{
+		DownRouteWaterBarrier->SetVisibility(StairLoopCount >= 3);
+		DownRouteWaterBarrier->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	}
+	UpdateStairSign();
+	ApplyP4PresentationState();
 	const bool bReachedRoof = IGStory::HasState(
 		this,
 		FGameplayTag::RequestGameplayTag(
@@ -1191,8 +1253,100 @@ void AIGThirdMorningDirector::ApplyCommonDiscoveryWorldState()
 	SetDocumentAvailable(PoliceChecklistNote, false);
 	SetDocumentAvailable(P3PhotoNote, false);
 	SetDocumentAvailable(ManagementDbNote, false);
+	for (const TPair<
+		EIGChapterThreeAction,
+		TObjectPtr<AIGChapterThreeAction>>& Pair : EvidenceActions)
+	{
+		if (AIGChapterThreeAction* Evidence = Pair.Value)
+		{
+			Evidence->SetActorEnableCollision(false);
+			Evidence->SetInteractionEnabled(false);
+		}
+	}
 	SetVisibleInteractive(CloseChoiceAction, false);
 	SetVisibleInteractive(SupportChoiceAction, false);
+}
+
+bool AIGThirdMorningDirector::ValidateCommonDiscoveryWorldState() const
+{
+	const FVector ExpectedLidLocation = ToWorld(
+		IGThirdMorning::TankCenter
+		+ IGThirdMorning::TankHatchOffset
+		+ FVector(0, 0, 610));
+	const FVector ExpectedRodLocation =
+		IGThirdMorning::TankCenter
+		+ FVector(
+			-196,
+			128,
+			IGThirdMorning::RoofFloorZ + 4.0f);
+	const FRotator ExpectedRodRotation(90, 24, 0);
+	const auto IsRetiredDocument = [](const AIGReadableNote* Note)
+	{
+		return IsValid(Note)
+			&& Note->IsHidden()
+			&& !Note->GetActorEnableCollision()
+			&& !Note->IsInteractionEnabled();
+	};
+
+	bool bAllBodySilhouetteHidden = BodySilhouette.Num() > 0;
+	for (const UStaticMeshComponent* Piece : BodySilhouette)
+	{
+		if (!IsValid(Piece) || Piece->IsVisible())
+		{
+			bAllBodySilhouetteHidden = false;
+			break;
+		}
+	}
+	bool bAllEvidenceRetired = EvidenceActions.Num() > 0;
+	for (const TPair<
+		EIGChapterThreeAction,
+		TObjectPtr<AIGChapterThreeAction>>& Pair : EvidenceActions)
+	{
+		const AIGChapterThreeAction* Evidence = Pair.Value;
+		if (!IsValid(Evidence)
+			|| Evidence->GetActorEnableCollision()
+			|| Evidence->IsInteractionEnabled())
+		{
+			bAllEvidenceRetired = false;
+			break;
+		}
+	}
+
+	return IsValid(TankLidAction)
+		&& !TankLidAction->IsHidden()
+		&& TankLidAction->GetActorLocation().Equals(ExpectedLidLocation, 0.1f)
+		&& TankLidAction->GetActorRotation().Equals(FRotator::ZeroRotator, 0.1f)
+		&& !TankLidAction->GetActorEnableCollision()
+		&& !TankLidAction->IsInteractionEnabled()
+		&& IsValid(InspectionRodVisual)
+		&& InspectionRodVisual->GetRelativeLocation().Equals(
+			ExpectedRodLocation,
+			0.1f)
+		&& InspectionRodVisual->GetRelativeRotation().Equals(
+			ExpectedRodRotation,
+			0.1f)
+		&& IsValid(GlassesAction)
+		&& !GlassesAction->IsHidden()
+		&& GlassesAction->GetActorLocation().Equals(
+			ToWorld(FVector(2335, -184, 662)),
+			0.1f)
+		&& !GlassesAction->GetActorEnableCollision()
+		&& !GlassesAction->IsInteractionEnabled()
+		&& IsRetiredDocument(RecheckNoticeNote)
+		&& IsRetiredDocument(PreservationNoticeNote)
+		&& IsRetiredDocument(PoliceChecklistNote)
+		&& IsRetiredDocument(P3PhotoNote)
+		&& IsRetiredDocument(ManagementDbNote)
+		&& IsValid(CloseChoiceAction)
+		&& CloseChoiceAction->IsHidden()
+		&& !CloseChoiceAction->GetActorEnableCollision()
+		&& !CloseChoiceAction->IsInteractionEnabled()
+		&& IsValid(SupportChoiceAction)
+		&& SupportChoiceAction->IsHidden()
+		&& !SupportChoiceAction->GetActorEnableCollision()
+		&& !SupportChoiceAction->IsInteractionEnabled()
+		&& bAllBodySilhouetteHidden
+		&& bAllEvidenceRetired;
 }
 
 void AIGThirdMorningDirector::SetInspectionRodWedged(const bool bWedged)
@@ -1267,6 +1421,13 @@ void AIGThirdMorningDirector::PlayRestoreStateSounds()
 		1.0f,
 		60.0f,
 		620.0f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGCH03",
+			"RestoreStateCaption",
+			"[뚜껑과 지지봉이 제자리로 돌아가고, 난간의 안경이 한 번 울린다]"),
+		2.2f);
 }
 
 void AIGThirdMorningDirector::PlayCommonSafetyOpening()
@@ -1282,10 +1443,13 @@ void AIGThirdMorningDirector::PlayCommonSafetyOpening()
 	auto PlayAt = [WeakThis](
 		UIGToneSequenceSoundWave* (*Factory)(UObject*),
 		const FVector& Location,
-		const float Volume)
+		const float Volume,
+		const FName CueId,
+		const float CaptionDuration)
 	{
 		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
+			Director->RecordCommonSafetyCue(CueId);
 			IGAudio::SpawnOneShotAt(
 				Director,
 				Factory(Director),
@@ -1294,28 +1458,78 @@ void AIGThirdMorningDirector::PlayCommonSafetyOpening()
 				1.0f,
 				140.0f,
 				1200.0f);
+			FText Caption;
+			if (CueId == FName(TEXT("Safety.GasDetector")))
+			{
+				Caption = NSLOCTEXT("IGCH03", "SafetyGasCaption", "[가스 측정기가 정상음을 낸다]");
+			}
+			else if (CueId == FName(TEXT("Safety.Ventilation")))
+			{
+				Caption = NSLOCTEXT("IGCH03", "SafetyVentCaption", "[환기 덕트와 송풍기가 차례로 돈다]");
+			}
+			else if (CueId == FName(TEXT("Safety.Harness")))
+			{
+				Caption = NSLOCTEXT("IGCH03", "SafetyHarnessCaption", "[안전벨트 버클을 잠근다]");
+			}
+			else if (CueId == FName(TEXT("Safety.TwoClimbers")))
+			{
+				Caption = NSLOCTEXT("IGCH03", "SafetyClimbersCaption", "[두 사람이 사다리를 오른다]");
+			}
+			else if (CueId == FName(TEXT("Safety.HatchOpen")))
+			{
+				Caption = NSLOCTEXT("IGCH03", "SafetyHatchCaption", "[점검구가 천천히 열린다]");
+			}
+			AIGHorrorHUD::PushAudioCaption(
+				Director,
+				Caption,
+				CaptionDuration);
 		}
 	};
 
 	ScheduleEndingCue(0.10f, [PlayAt, TankTop]()
 	{
-		PlayAt(&UIGToneSequenceSoundWave::CreateGasDetectorOk, TankTop, 0.42f);
+		PlayAt(
+			&UIGToneSequenceSoundWave::CreateGasDetectorOk,
+			TankTop,
+			0.42f,
+			FName(TEXT("Safety.GasDetector")),
+			1.15f);
 	});
 	ScheduleEndingCue(1.40f, [PlayAt, TankTop]()
 	{
-		PlayAt(&UIGToneSequenceSoundWave::CreateVentDuctSpinUp, TankTop, 0.40f);
+		PlayAt(
+			&UIGToneSequenceSoundWave::CreateVentDuctSpinUp,
+			TankTop,
+			0.40f,
+			FName(TEXT("Safety.Ventilation")),
+			2.30f);
 	});
 	ScheduleEndingCue(4.10f, [PlayAt, LadderBase]()
 	{
-		PlayAt(&UIGToneSequenceSoundWave::CreateHarnessBuckle, LadderBase, 0.44f);
+		PlayAt(
+			&UIGToneSequenceSoundWave::CreateHarnessBuckle,
+			LadderBase,
+			0.44f,
+			FName(TEXT("Safety.Harness")),
+			1.05f);
 	});
 	ScheduleEndingCue(5.30f, [PlayAt, LadderBase]()
 	{
-		PlayAt(&UIGToneSequenceSoundWave::CreateLadderClimbTwoPeople, LadderBase, 0.42f);
+		PlayAt(
+			&UIGToneSequenceSoundWave::CreateLadderClimbTwoPeople,
+			LadderBase,
+			0.42f,
+			FName(TEXT("Safety.TwoClimbers")),
+			2.50f);
 	});
 	ScheduleEndingCue(9.00f, [PlayAt, TankTop]()
 	{
-		PlayAt(&UIGToneSequenceSoundWave::CreateHatchOpenMetal, TankTop, 0.46f);
+		PlayAt(
+			&UIGToneSequenceSoundWave::CreateHatchOpenMetal,
+			TankTop,
+			0.46f,
+			FName(TEXT("Safety.HatchOpen")),
+			1.70f);
 	});
 	ScheduleEndingCue(10.90f, [WeakThis]()
 	{
@@ -1324,6 +1538,14 @@ void AIGThirdMorningDirector::PlayCommonSafetyOpening()
 			Director->ShowCommonDiscoveryCard();
 		}
 	});
+}
+
+void AIGThirdMorningDirector::RecordCommonSafetyCue(const FName CueId)
+{
+	if (bReleaseValidationInProgress && !CueId.IsNone())
+	{
+		ReleaseValidationSafetyOpeningCues.Add(CueId);
+	}
 }
 
 void AIGThirdMorningDirector::ResumeRestoredEnding()
@@ -1413,6 +1635,8 @@ void AIGThirdMorningDirector::BuildStage()
 		TEXT("/Game/Meshes/SM_SubmergedSlippersCurl.SM_SubmergedSlippersCurl"));
 	RooftopWaterTankShellMesh = IGThirdMorning::LoadMesh(
 		TEXT("/Game/Meshes/SM_RooftopWaterTankShell.SM_RooftopWaterTankShell"));
+	TankInternalLiningMesh = IGThirdMorning::LoadMesh(
+		TEXT("/Game/Meshes/SM_TankInternalLining.SM_TankInternalLining"));
 	RooftopTankPipeClusterMesh = IGThirdMorning::LoadMesh(
 		TEXT("/Game/Meshes/SM_RooftopTankPipeCluster.SM_RooftopTankPipeCluster"));
 	TankInternalLadderMesh = IGThirdMorning::LoadMesh(
@@ -1500,10 +1724,20 @@ void AIGThirdMorningDirector::BuildStage()
 		TEXT("/Game/Prototype/Materials/M_BeddingUV.M_BeddingUV"));
 	WetHoodieMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_WetHoodieUV.M_WetHoodieUV"));
+	SubmergedPantsMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_SubmergedPantsUV.M_SubmergedPantsUV"));
+	SubmergedSlippersMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_SubmergedSlippersUV.M_SubmergedSlippersUV"));
+	SubmergedSlipperWearMaterial = IGThirdMorning::LoadMaterial(
+		TEXT("/Game/Prototype/Materials/M_SubmergedSlipperWearUV.M_SubmergedSlipperWearUV"));
 	CarrierBagMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_CarrierBagFilm.M_CarrierBagFilm"));
 	WaterTankMetalMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_WaterTankMetalUV.M_WaterTankMetalUV"));
+	TankInteriorBiofilmMaterial = IGThirdMorning::LoadMaterial(
+		TEXT(
+			"/Game/Prototype/Materials/M_TankInteriorBiofilmUV."
+			"M_TankInteriorBiofilmUV"));
 	WetServiceHoseMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_WetServiceHoseUV.M_WetServiceHoseUV"));
 	WetRungPadMaterial = IGThirdMorning::LoadMaterial(
@@ -1560,6 +1794,18 @@ void AIGThirdMorningDirector::BuildStage()
 	{
 		WetHoodieMaterial = BeddingMaterial;
 	}
+	if (!SubmergedPantsMaterial)
+	{
+		SubmergedPantsMaterial = BeddingMaterial;
+	}
+	if (!SubmergedSlippersMaterial)
+	{
+		SubmergedSlippersMaterial = PlasticMaterial;
+	}
+	if (!SubmergedSlipperWearMaterial)
+	{
+		SubmergedSlipperWearMaterial = WetPaperMaterial;
+	}
 	if (!CarrierBagMaterial)
 	{
 		CarrierBagMaterial = GlassMaterial;
@@ -1567,6 +1813,10 @@ void AIGThirdMorningDirector::BuildStage()
 	if (!WaterTankMetalMaterial)
 	{
 		WaterTankMetalMaterial = MetalMaterial;
+	}
+	if (!TankInteriorBiofilmMaterial)
+	{
+		TankInteriorBiofilmMaterial = WaterTankMetalMaterial;
 	}
 	if (!WetServiceHoseMaterial)
 	{
@@ -2474,7 +2724,7 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 		FVector(62, 18, 4),
 		ScreenMaterial,
 		false);
-	CreatePointLight(
+	P4LandingLight = CreatePointLight(
 		FVector(1110, -30, 232),
 		1180.0f,
 		560.0f,
@@ -2585,6 +2835,16 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 	{
 		Drip->SetVisibility(false);
 		StairLatinSignParts.Add(Drip);
+	}
+	P4ReceiptFragment = CreateBlock(
+		FVector(1090, -250, 190),
+		FVector(24, 13, 1.2f),
+		WetPaperMaterial,
+		false,
+		FRotator(0, 0, 12));
+	if (P4ReceiptFragment)
+	{
+		P4ReceiptFragment->SetVisibility(false);
 	}
 }
 
@@ -2950,6 +3210,22 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		{
 			CollisionPanel->SetVisibility(false, true);
 			CollisionPanel->SetHiddenInGame(true, true);
+		}
+	}
+	if (TankInternalLiningMesh)
+	{
+		// The wet lining is visual-only and sits behind the canonical collision
+		// panels. Disabling its shadow prevents a second shell from darkening the
+		// reveal while its PBR channels still respond to the flashlight and Lumen.
+		if (UStaticMeshComponent* const InteriorLining = CreateBlock(
+			Tank,
+			FVector(100.0f),
+			TankInteriorBiofilmMaterial,
+			false,
+			FRotator::ZeroRotator,
+			TankInternalLiningMesh))
+		{
+			InteriorLining->SetCastShadow(false);
 		}
 	}
 	if (PlaneMesh && DecalRustFastenersMaterial)
@@ -3422,12 +3698,12 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		AddBodyPiece(
 			FVector(0, 0, 553),
 			FVector(100.0f),
-			BeddingMaterial,
+			SubmergedPantsMaterial,
 			SubmergedPantsMesh);
 		AddBodyPiece(
 			FVector(0, 0, 553),
 			FVector(100.0f),
-			PlasticMaterial,
+			SubmergedSlippersMaterial,
 			SubmergedSlippersMesh);
 	}
 	else
@@ -3468,7 +3744,7 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	AddBodyPiece(
 		FVector(-34, -3, 551),
 		FVector(52, 43, 27),
-		BeddingMaterial,
+		SubmergedPantsMaterial,
 		SphereMesh,
 		FRotator(0, 12, 0));
 	AddBodyPiece(
@@ -3508,20 +3784,20 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		FRotator(0, 10, 0));
 
 	// Bent legs give the same uneasy foetal posture glimpsed in room 403.
-	AddLimb(FVector(-30, -8, 551), FVector(-63, -42, 549), 20.0f, BeddingMaterial);
-	AddLimb(FVector(-63, -42, 549), FVector(-107, -21, 547), 16.5f, BeddingMaterial);
+	AddLimb(FVector(-30, -8, 551), FVector(-63, -42, 549), 20.0f, SubmergedPantsMaterial);
+	AddLimb(FVector(-63, -42, 549), FVector(-107, -21, 547), 16.5f, SubmergedPantsMaterial);
 	AddBodyPiece(
 		FVector(-115, -17, 547),
 		FVector(28, 16, 12),
-		PlasticMaterial,
+		SubmergedSlippersMaterial,
 		SphereMesh,
 		FRotator(0, -19, 0));
-	AddLimb(FVector(-33, 8, 551), FVector(-62, 38, 550), 20.0f, BeddingMaterial);
-	AddLimb(FVector(-62, 38, 550), FVector(-102, 27, 547), 16.5f, BeddingMaterial);
+	AddLimb(FVector(-33, 8, 551), FVector(-62, 38, 550), 20.0f, SubmergedPantsMaterial);
+	AddLimb(FVector(-62, 38, 550), FVector(-102, 27, 547), 16.5f, SubmergedPantsMaterial);
 	AddBodyPiece(
 		FVector(-111, 25, 547),
 		FVector(28, 16, 12),
-		PlasticMaterial,
+		SubmergedSlippersMaterial,
 		SphereMesh,
 		FRotator(0, 11, 0));
 	}
@@ -3540,7 +3816,7 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	AddBodyPiece(
 		FVector(-120, -19, 548.5f),
 		FVector(7, 11, 3),
-		WetPaperMaterial,
+		SubmergedSlipperWearMaterial,
 		CubeMesh,
 		FRotator(0, -19, 0));
 	for (int32 StripeIndex = 0; StripeIndex < 3; ++StripeIndex)
@@ -3548,7 +3824,7 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		AddBodyPiece(
 			FVector(-110.0f + StripeIndex * 3.4f, -17.0f, 554.5f),
 			FVector(1.6f, 10.0f, 1.0f),
-			WetPaperMaterial,
+			SubmergedSlipperWearMaterial,
 			CubeMesh,
 			FRotator(0, -19, 0));
 	}
@@ -4069,15 +4345,8 @@ void AIGThirdMorningDirector::BuildP5AccidentEvidence()
 	}
 	SetVisibleInteractive(ClothingEvidence, false);
 
-	// The support rod is present before the ending prompt so choice B never
-	// materializes an unexplained tool.
-	CreateBlock(
-		Tank + FVector(-190, 108, 612),
-		InspectionRodMesh ? FVector(100.0f) : FVector(10, 10, 118),
-		MetalMaterial,
-		false,
-		FRotator(0, 72, 68),
-		InspectionRodMesh ? InspectionRodMesh.Get() : CylinderMesh.Get());
+	// InspectionRodVisual already exists on the deck. Ending B moves that same
+	// component into the support groove; never spawn a second explanatory prop.
 }
 
 void AIGThirdMorningDirector::SpawnClueDocuments()
@@ -4840,6 +5109,49 @@ void AIGThirdMorningDirector::HandleP3Mistake()
 		2.8f);
 }
 
+void AIGThirdMorningDirector::AdvanceP3TimedPressure()
+{
+	if (bP3Solved || P3MistakeCount >= 3)
+	{
+		return;
+	}
+	++P3MistakeCount;
+	if (CorridorWaterVisual)
+	{
+		FVector WaterLocation = CorridorWaterVisual->GetRelativeLocation();
+		WaterLocation.Z = 2.0f + P3MistakeCount * 5.0f;
+		CorridorWaterVisual->SetRelativeLocation(WaterLocation);
+	}
+
+	if (P3MistakeCount == 1)
+	{
+		PlayMetalEcho(FVector(675, -190, 115), 0.76f);
+	}
+	else if (P3MistakeCount == 2)
+	{
+		PlayDelayedSplash();
+		if (APlayerController* Controller =
+				GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
+		{
+			if (AIGPlayerCharacter* Player =
+					Cast<AIGPlayerCharacter>(Controller->GetPawn()))
+			{
+				if (UIGFlashlightComponent* Flashlight = Player->GetFlashlight())
+				{
+					Flashlight->AddImpulse(FRotator(-0.6f, 0.9f, 0.0f));
+				}
+			}
+		}
+	}
+	else
+	{
+		PlayMetalEcho(FVector(620, -245, 126), 0.64f);
+	}
+
+	CommitChapterThreeState();
+	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Flood"));
+}
+
 void AIGThirdMorningDirector::CompleteP3()
 {
 	if (bP3Solved)
@@ -4847,6 +5159,8 @@ void AIGThirdMorningDirector::CompleteP3()
 		return;
 	}
 	bP3Solved = true;
+	bP3PressureRiseArmed = false;
+	P3PressureRiseElapsedSeconds = 0.0f;
 	StopP3HintClock();
 	if (SearchPosterAction)
 	{
@@ -4931,6 +5245,14 @@ void AIGThirdMorningDirector::FocusOrCompareEvidence(
 			: Phase <= EIGThirdMorningPhase::ApartmentClues
 				? TEXT("Checkpoint.CH03.Apartment")
 				: TEXT("Checkpoint.CH03.Flood");
+	if (TryAutoConnectEvidence(EvidenceAction))
+	{
+		FocusedEvidence = EIGChapterThreeAction::None;
+		CommitChapterThreeState();
+		RequestCheckpointAutosave(EvidenceCheckpoint);
+		RefreshEvidencePrompts();
+		return;
+	}
 
 	if (FocusedEvidence == EIGChapterThreeAction::None)
 	{
@@ -4979,6 +5301,68 @@ void AIGThirdMorningDirector::RegisterEvidenceObservation(
 			TEXT("Truth.WasSearched"),
 			TEXT("CH03.SearchPoster"));
 	}
+}
+
+bool AIGThirdMorningDirector::IsEvidenceActionObserved(
+	const EIGChapterThreeAction EvidenceAction) const
+{
+	const TArray<FName> Sources =
+		IGThirdMorning::EvidenceSources(EvidenceAction);
+	if (Sources.IsEmpty())
+	{
+		return false;
+	}
+	for (const FName SourceId : Sources)
+	{
+		if (!ObservedP5Sources.Contains(SourceId))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+bool AIGThirdMorningDirector::TryAutoConnectEvidence(
+	const EIGChapterThreeAction EvidenceAction)
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	if (!Accessibility
+		|| !Accessibility->UsesAutomaticEvidenceConnections())
+	{
+		return false;
+	}
+
+	// Automatic connection never invents evidence. It only removes the second
+	// selection/hold after both physical nodes (or all three identity nodes)
+	// have actually been inspected by the player.
+	const EIGChapterThreeAction CandidateActions[] =
+	{
+		EIGChapterThreeAction::EvidenceCatEntered,
+		EIGChapterThreeAction::EvidenceCatExited,
+		EIGChapterThreeAction::EvidenceHosePaw,
+		EIGChapterThreeAction::EvidenceHoseImpact,
+		EIGChapterThreeAction::EvidenceBag,
+		EIGChapterThreeAction::EvidenceWetRung,
+		EIGChapterThreeAction::EvidenceHandSmear,
+		EIGChapterThreeAction::EvidenceCurrentSleeve,
+		EIGChapterThreeAction::EvidenceSearchPoster,
+		EIGChapterThreeAction::EvidenceGlasses,
+		EIGChapterThreeAction::EvidenceTankClothing
+	};
+	for (const EIGChapterThreeAction Candidate : CandidateActions)
+	{
+		if (Candidate != EvidenceAction
+			&& IsEvidenceActionObserved(Candidate)
+			&& IsEvidencePairValid(Candidate, EvidenceAction)
+			&& ResolveEvidencePair(Candidate, EvidenceAction))
+		{
+			return true;
+		}
+	}
+	return false;
 }
 
 void AIGThirdMorningDirector::PresentPurchaseEvidenceContinuity()
@@ -5474,6 +5858,13 @@ void AIGThirdMorningDirector::PlayAccidentScratch()
 	PlayMetalEcho(
 		IGThirdMorning::TankCenter + FVector(-42, 18, Height),
 		0.88f - AccidentScratchCount * 0.07f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGCH03",
+			"TankScratchCaption",
+			"[물탱크 안쪽을 긁는 소리]"),
+		2.2f);
 	++AccidentScratchCount;
 	if (AccidentScratchCount == 1)
 	{
@@ -5706,6 +6097,16 @@ void AIGThirdMorningDirector::HandleCorridorEntered(AIGZoneTrigger* Zone)
 			1.0f,
 			true);
 	}
+	if (!bP4Completed
+		&& !GetWorldTimerManager().IsTimerActive(P4Timer))
+	{
+		GetWorldTimerManager().SetTimer(
+			P4Timer,
+			this,
+			&ThisClass::PollP4PressureAndHint,
+			1.0f,
+			true);
+	}
 	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Flood"));
 }
 
@@ -5719,29 +6120,336 @@ void AIGThirdMorningDirector::PollP3Hint()
 	APlayerController* Controller =
 		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
 	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
-	if (!Pawn
-		|| FVector::DistSquared(
+	const bool bNearCabinet = Pawn
+		&& FVector::DistSquared(
 			Pawn->GetActorLocation(),
 			ToWorld(FVector(675, -190, 132)))
-			> FMath::Square(420.0f))
+			<= FMath::Square(420.0f);
+	if (bNearCabinet && !bP3PressureRiseArmed)
 	{
-		// Hint time is cabinet dwell time. Exploring the stairwell pauses it,
-		// and walking back into range resumes from the persisted value.
+		bP3PressureRiseArmed = true;
+		CommitChapterThreeState();
+	}
+	if (AIGReadableNote::GetOpenNote())
+	{
+		// Reading a clue owns the player's attention. Both pressure and hint
+		// clocks resume from the exact persisted values after the note closes.
+		return;
+	}
+	const UIGAccessibilitySubsystem* Accessibility = nullptr;
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			Accessibility =
+				GameInstance->GetSubsystem<UIGAccessibilitySubsystem>();
+		}
+	}
+	if (bP3PressureRiseArmed)
+	{
+		P3PressureRiseElapsedSeconds += 1.0f;
+		const float PressureRiseInterval = Accessibility
+			? Accessibility->GetPressureRiseIntervalSeconds()
+			: 55.0f;
+		if (P3PressureRiseElapsedSeconds >= PressureRiseInterval)
+		{
+			P3PressureRiseElapsedSeconds = FMath::Max(
+				0.0f,
+				P3PressureRiseElapsedSeconds - PressureRiseInterval);
+			AdvanceP3TimedPressure();
+		}
+		CommitChapterThreeState();
+	}
+	if (!bNearCabinet)
+	{
+		// Automatic hints count only actual cabinet dwell. Pressure remains
+		// armed while the player retreats into the corridor or stairwell.
+		return;
+	}
+	if (Accessibility && !Accessibility->ShouldAutoShowHints())
+	{
+		// Silent mode preserves the exact persisted dwell time. A later manual
+		// request can reveal the next rung without a hidden clock advancing.
 		return;
 	}
 
 	P3HintElapsedSeconds += 1.0f;
-	// Keep the in-memory narrative snapshot exact even between authored hint
-	// thresholds. Disk autosaves stay bounded, but a manual save or checkpoint
-	// now captures the real cabinet dwell time instead of the previous stage.
+	// Keep the in-memory narrative snapshot exact between authored thresholds.
 	CommitChapterThreeState();
-	const float Thresholds[] = {90.0f, 150.0f, 210.0f};
+	const FVector HintThresholds = Accessibility
+		? Accessibility->GetP3HintThresholds()
+		: FVector(90.0f, 150.0f, 210.0f);
+	const float Thresholds[] =
+	{
+		HintThresholds.X,
+		HintThresholds.Y,
+		HintThresholds.Z
+	};
 	if (P3HintStage >= UE_ARRAY_COUNT(Thresholds)
 		|| P3HintElapsedSeconds < Thresholds[P3HintStage])
 	{
 		return;
 	}
 
+	PresentNextP3Hint();
+}
+
+void AIGThirdMorningDirector::PollP4PressureAndHint()
+{
+	if (bP4Completed || Phase >= EIGThirdMorningPhase::FifthFloor)
+	{
+		StopP4Clock();
+		return;
+	}
+	APlayerController* Controller =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	const bool bNearLanding = Pawn
+		&& FVector::DistSquared(
+			Pawn->GetActorLocation(),
+			ToWorld(FVector(1085.0f, -90.0f, 145.0f)))
+			<= FMath::Square(360.0f);
+	if (bNearLanding && !bP4PressureArmed)
+	{
+		bP4PressureArmed = true;
+		CommitChapterThreeState();
+	}
+	if (AIGReadableNote::GetOpenNote())
+	{
+		return;
+	}
+
+	const UIGAccessibilitySubsystem* Accessibility = nullptr;
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			Accessibility =
+				GameInstance->GetSubsystem<UIGAccessibilitySubsystem>();
+		}
+	}
+	if (bP4PressureArmed && P4PressureStage < 3)
+	{
+		P4PressureRiseElapsedSeconds += 1.0f;
+		const float PressureRiseInterval = Accessibility
+			? Accessibility->GetPressureRiseIntervalSeconds()
+			: 55.0f;
+		if (P4PressureRiseElapsedSeconds >= PressureRiseInterval)
+		{
+			P4PressureRiseElapsedSeconds = FMath::Max(
+				0.0f,
+				P4PressureRiseElapsedSeconds - PressureRiseInterval);
+			AdvanceP4Pressure();
+		}
+		CommitChapterThreeState();
+	}
+	if (!bNearLanding
+		|| (Accessibility && !Accessibility->ShouldAutoShowHints()))
+	{
+		return;
+	}
+
+	P4HintElapsedSeconds += 1.0f;
+	CommitChapterThreeState();
+	const FVector HintThresholds = Accessibility
+		? Accessibility->GetP4HintThresholds()
+		: FVector(45.0f, 100.0f, 150.0f);
+	const float Thresholds[] =
+	{
+		HintThresholds.X,
+		HintThresholds.Y,
+		HintThresholds.Z
+	};
+	if (P4HintStage >= UE_ARRAY_COUNT(Thresholds)
+		|| P4HintElapsedSeconds < Thresholds[P4HintStage])
+	{
+		return;
+	}
+	PresentNextP4Hint();
+}
+
+void AIGThirdMorningDirector::AdvanceP4Pressure()
+{
+	if (bP4Completed || P4PressureStage >= 3)
+	{
+		return;
+	}
+	++P4PressureStage;
+	ApplyP4PresentationState();
+	if (P4PressureStage == 2)
+	{
+		PlayDelayedSplash();
+		if (APlayerController* Controller =
+				GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
+		{
+			if (AIGPlayerCharacter* Player =
+					Cast<AIGPlayerCharacter>(Controller->GetPawn()))
+			{
+				if (UIGFlashlightComponent* Flashlight = Player->GetFlashlight())
+				{
+					Flashlight->AddImpulse(FRotator(-0.45f, 0.72f, 0.0f));
+				}
+			}
+		}
+	}
+	else if (P4PressureStage == 3)
+	{
+		PlayMetalEcho(FVector(1110, -250, 240), 0.71f);
+		AIGHorrorHUD::PushAudioCaption(
+			this,
+			NSLOCTEXT(
+				"IGCH03",
+				"P4UpperMetalCaption",
+				"[계단 위쪽에서 금속이 울린다]"),
+			2.4f);
+	}
+	CommitChapterThreeState();
+	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Flood"));
+}
+
+void AIGThirdMorningDirector::PresentNextP4Hint()
+{
+	if (bP4Completed || P4HintStage >= 3)
+	{
+		return;
+	}
+	const int32 HintToPresent = P4HintStage;
+	if (HintToPresent == 0)
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGCH03",
+				"P4HintFlowRelation",
+				"물은… 위에서 내려오고 있어."),
+			4.2f);
+	}
+	else if (HintToPresent == 1)
+	{
+		BeginP4ReceiptHint();
+		PlayDelayedSplash();
+	}
+	else
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGCH03",
+				"P4HintRouteAnswer",
+				"물때 아래 화살표가 위를 가리킨다. 흐름이 시작된 쪽이야."),
+			5.0f);
+	}
+	P4HintStage = FMath::Min(P4HintStage + 1, 3);
+	UpdateStairSign();
+	CommitChapterThreeState();
+	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Flood"));
+}
+
+void AIGThirdMorningDirector::ApplyP4PresentationState()
+{
+	if (P4LandingLight)
+	{
+		const float Intensities[] = {1180.0f, 900.0f, 690.0f, 520.0f};
+		P4LandingLight->SetIntensity(
+			Intensities[FMath::Clamp(P4PressureStage, 0, 3)]);
+	}
+	if (P4ReceiptFragment
+		&& !GetWorldTimerManager().IsTimerActive(P4ReceiptHintTimer))
+	{
+		P4ReceiptFragment->SetVisibility(P4HintStage >= 2);
+		if (P4HintStage >= 2)
+		{
+			P4ReceiptFragment->SetRelativeLocation(FVector(1060, -25, 9));
+			P4ReceiptFragment->SetRelativeRotation(FRotator(0, 0, -18));
+		}
+	}
+	UpdateStairSign();
+}
+
+void AIGThirdMorningDirector::StopP4Clock()
+{
+	GetWorldTimerManager().ClearTimer(P4Timer);
+}
+
+void AIGThirdMorningDirector::BeginP4ReceiptHint()
+{
+	if (!P4ReceiptFragment || !GetWorld())
+	{
+		return;
+	}
+	P4ReceiptHintAlpha = 0.0f;
+	P4ReceiptFragment->SetRelativeLocation(FVector(1090, -250, 190));
+	P4ReceiptFragment->SetRelativeRotation(FRotator(0, 0, 12));
+	P4ReceiptFragment->SetVisibility(true);
+	GetWorldTimerManager().SetTimer(
+		P4ReceiptHintTimer,
+		this,
+		&ThisClass::UpdateP4ReceiptHint,
+		0.05f,
+		true);
+}
+
+void AIGThirdMorningDirector::UpdateP4ReceiptHint()
+{
+	if (!P4ReceiptFragment)
+	{
+		GetWorldTimerManager().ClearTimer(P4ReceiptHintTimer);
+		return;
+	}
+	P4ReceiptHintAlpha = FMath::Min(1.0f, P4ReceiptHintAlpha + 0.05f / 1.35f);
+	const FVector Start(1090, -250, 190);
+	const FVector End(1060, -25, 9);
+	FVector Location = FMath::Lerp(Start, End, P4ReceiptHintAlpha);
+	Location.Z += FMath::Sin(P4ReceiptHintAlpha * PI * 3.0f) * 5.0f;
+	P4ReceiptFragment->SetRelativeLocation(Location);
+	P4ReceiptFragment->SetRelativeRotation(FRotator(
+		0,
+		0,
+		FMath::Lerp(12.0f, -18.0f, P4ReceiptHintAlpha)));
+	if (P4ReceiptHintAlpha >= 1.0f)
+	{
+		GetWorldTimerManager().ClearTimer(P4ReceiptHintTimer);
+	}
+}
+
+bool AIGThirdMorningDirector::RequestManualHint()
+{
+	if (Phase < EIGThirdMorningPhase::FloodedCorridor
+		|| Phase >= EIGThirdMorningPhase::Roof
+		|| AIGReadableNote::GetOpenNote())
+	{
+		return false;
+	}
+	const APlayerController* Controller =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	if (!Pawn)
+	{
+		return false;
+	}
+	const bool bNearP4 = FVector::DistSquared(
+		Pawn->GetActorLocation(),
+		ToWorld(FVector(1085.0f, -90.0f, 145.0f)))
+		<= FMath::Square(360.0f);
+	if (!bP4Completed && bNearP4)
+	{
+		PresentNextP4Hint();
+		return true;
+	}
+	const bool bNearP3 = FVector::DistSquared(
+		Pawn->GetActorLocation(),
+		ToWorld(FVector(675, -190, 132)))
+		<= FMath::Square(420.0f);
+	if (!bP3Solved && bNearP3)
+	{
+		PresentNextP3Hint();
+		return true;
+	}
+	return false;
+}
+
+void AIGThirdMorningDirector::PresentNextP3Hint()
+{
 	if (P3HintStage == 0)
 	{
 		AIGHorrorHUD::PushThought(
@@ -5793,7 +6501,7 @@ void AIGThirdMorningDirector::PollP3Hint()
 			"두 유입 차단, 압력 해제, 0에서 두 번 확인, 마지막으로 바닥 배수."),
 			5.2f);
 	}
-	++P3HintStage;
+	P3HintStage = FMath::Min(P3HintStage + 1, 3);
 	CommitChapterThreeState();
 	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Flood"));
 }
@@ -5826,6 +6534,7 @@ void AIGThirdMorningDirector::HandleStairLoop(AIGZoneTrigger* Zone)
 	}
 
 	++StairLoopCount;
+	bP4PressureArmed = true;
 	UIGRebirthEvidenceSubsystem::RecordPuzzleFourObservation(
 		this,
 		StairLoopCount,
@@ -5849,7 +6558,7 @@ void AIGThirdMorningDirector::HandleStairLoop(AIGZoneTrigger* Zone)
 		}
 	}
 
-	UpdateStairSign();
+	ApplyP4PresentationState();
 	PlayMetalEcho(FVector(985, 24, 145), 1.0f - StairLoopCount * 0.045f);
 	AIGHorrorHUD::PushThought(
 		this,
@@ -5866,6 +6575,8 @@ void AIGThirdMorningDirector::HandleStairLoop(AIGZoneTrigger* Zone)
 	{
 		RevealUpwardRoute();
 	}
+	CommitChapterThreeState();
+	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Flood"));
 }
 
 void AIGThirdMorningDirector::UpdateStairSign()
@@ -5874,27 +6585,31 @@ void AIGThirdMorningDirector::UpdateStairSign()
 	{
 		StairSignText->SetVisibility(true);
 		StairSignText->SetText(FText::FromString(TEXT("4F")));
-		StairSignText->SetTextRenderColor(
-			StairLoopCount >= 2
-				? FColor(152, 164, 154)
-				: FColor(188, 194, 184));
+		const int32 PressureDim = P4PressureStage * 18;
+		const FColor BaseColor = StairLoopCount >= 2
+			? FColor(152, 164, 154)
+			: FColor(188, 194, 184);
+		StairSignText->SetTextRenderColor(FColor(
+			FMath::Max(72, static_cast<int32>(BaseColor.R) - PressureDim),
+			FMath::Max(76, static_cast<int32>(BaseColor.G) - PressureDim),
+			FMath::Max(72, static_cast<int32>(BaseColor.B) - PressureDim)));
 	}
 	if (StairRoofText)
 	{
-		StairRoofText->SetVisibility(StairLoopCount >= 3);
+		StairRoofText->SetVisibility(StairLoopCount >= 3 || P4HintStage >= 3);
 	}
 	for (UStaticMeshComponent* Drip : StairLatinSignParts)
 	{
 		if (Drip)
 		{
-			Drip->SetVisibility(StairLoopCount == 2);
+			Drip->SetVisibility(StairLoopCount == 2 || P4HintStage >= 2);
 		}
 	}
 	for (UStaticMeshComponent* ArrowStroke : StairSignParts)
 	{
 		if (ArrowStroke)
 		{
-			ArrowStroke->SetVisibility(StairLoopCount >= 3);
+			ArrowStroke->SetVisibility(StairLoopCount >= 3 || P4HintStage >= 3);
 		}
 	}
 }
@@ -5916,10 +6631,22 @@ void AIGThirdMorningDirector::RevealUpwardRoute()
 
 void AIGThirdMorningDirector::HandleFifthFloorEntered(AIGZoneTrigger* Zone)
 {
+	if (bP4Completed)
+	{
+		return;
+	}
 	UIGRebirthEvidenceSubsystem::RecordPuzzleFourObservation(
 		this,
 		StairLoopCount,
 		true);
+	bP4Completed = true;
+	bP4PressureArmed = false;
+	P4PressureRiseElapsedSeconds = 0.0f;
+	P4PressureStage = FMath::Max(0, P4PressureStage - 1);
+	StopP4Clock();
+	ApplyP4PresentationState();
+	CommitChapterThreeState();
+	RequestCheckpointAutosave(TEXT("Checkpoint.CH03.Flood"));
 	SetPhase(EIGThirdMorningPhase::FifthFloor);
 	AIGHorrorHUD::PushThought(
 		this,
@@ -5931,6 +6658,7 @@ void AIGThirdMorningDirector::EnterRoofSilence()
 {
 	SetPhase(EIGThirdMorningPhase::Roof);
 	StopP3HintClock();
+	StopP4Clock();
 	SetDocumentAvailable(P3PhotoNote, false);
 	SetDocumentAvailable(ManagementDbNote, false);
 	SetDocumentAvailable(PreservationNoticeNote, false);
@@ -6285,6 +7013,13 @@ void AIGThirdMorningDirector::BeginEndingB()
 		1.0f,
 		90.0f,
 		760.0f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGCH03",
+			"RodWedgeCaption",
+			"[철제 지지봉이 홈에 걸린다]"),
+		2.1f);
 	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
 	ScheduleEndingCue(0.45f, [WeakThis]()
 	{
@@ -6489,6 +7224,10 @@ void AIGThirdMorningDirector::PlayEndingABlackoutCues()
 				0.90f,
 				80.0f,
 				900.0f);
+			AIGHorrorHUD::PushAudioCaption(
+				Director,
+				NSLOCTEXT("IGCH03", "EndingAChimeCaption", "[편의점 문 차임]"),
+				1.2f);
 		}
 	});
 	ScheduleEndingCue(1.30f, [WeakThis]()
@@ -6520,6 +7259,10 @@ void AIGThirdMorningDirector::PlayEndingABlackoutCues()
 				}
 			});
 		}
+		AIGHorrorHUD::PushAudioCaption(
+			Director,
+			NSLOCTEXT("IGCH03", "EndingAAlarmCaption", "[04:44 알람]"),
+			1.1f);
 	});
 	ScheduleEndingCue(1.90f, [WeakThis]()
 	{
@@ -6556,6 +7299,13 @@ void AIGThirdMorningDirector::PlayEndingABlackoutCues()
 			1.0f,
 			90.0f,
 			700.0f);
+		AIGHorrorHUD::PushAudioCaption(
+			Director,
+			CatState == EIGRebirthCatWaterState::BottleCap
+				|| CatState == EIGRebirthCatWaterState::PaperCup
+				? NSLOCTEXT("IGCH03", "EndingACatDrinksCaption", "[고양이가 물을 핥는다]")
+				: NSLOCTEXT("IGCH03", "EndingACatLeavesCaption", "[고양이 발소리가 멀어진다]"),
+			1.2f);
 	});
 	ScheduleEndingCue(2.55f, [WeakThis]()
 	{
@@ -6569,6 +7319,10 @@ void AIGThirdMorningDirector::PlayEndingABlackoutCues()
 				1.0f,
 				70.0f,
 				640.0f);
+			AIGHorrorHUD::PushAudioCaption(
+				Director,
+				NSLOCTEXT("IGCH03", "EndingAPhoneCaption", "[빈방에서 휴대폰이 진동한다]"),
+				2.0f);
 		}
 	});
 	ScheduleEndingCue(5.60f, [WeakThis]()
@@ -6646,6 +7400,35 @@ void AIGThirdMorningDirector::StartEndingBMontage()
 		0.9f);
 
 	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
+	const struct
+	{
+		float Delay;
+		const TCHAR* Korean;
+		float Duration;
+	} MontageCaptions[] = {
+		{0.01f, TEXT("[현관 잠금음과 빗장]"), 1.4f},
+		{1.50f, TEXT("[서랍을 여는 소리]"), 1.2f},
+		{2.80f, TEXT("[책을 상자에 넣는다]"), 1.8f},
+		{5.20f, TEXT("[박스 테이프를 뜯는다]"), 1.4f},
+		{6.90f, TEXT("[작업 조끼 지퍼]"), 1.0f},
+		{7.90f, TEXT("[금 간 휴대폰이 진동한다]"), 1.2f},
+		{9.10f, TEXT("[옥상문을 연다]"), 1.4f},
+		{10.60f, TEXT("[콘크리트 위에 물그릇을 놓는다]"), 0.8f},
+		{11.50f, TEXT("[물그릇에 물을 붓는다]"), 1.9f},
+		{13.90f, TEXT("[천을 접고 한 번 숨을 쉰다]"), 2.0f}
+	};
+	for (const auto& Caption : MontageCaptions)
+	{
+		const FText CaptionText = FText::FromString(Caption.Korean);
+		const float Duration = Caption.Duration;
+		ScheduleEndingCue(Caption.Delay, [WeakThis, CaptionText, Duration]()
+		{
+			if (AIGThirdMorningDirector* Director = WeakThis.Get())
+			{
+				AIGHorrorHUD::PushAudioCaption(Director, CaptionText, Duration);
+			}
+		});
+	}
 	ScheduleEndingCue(16.40f, [WeakThis]()
 	{
 		if (AIGThirdMorningDirector* Director = WeakThis.Get())
@@ -6738,6 +7521,13 @@ void AIGThirdMorningDirector::PlayEpilogueDripAndClock()
 		1.0f,
 		120.0f,
 		700.0f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGCH03",
+			"EpilogueDripCaption",
+			"[잠긴 수도에서 물 한 방울]"),
+		2.1f);
 }
 
 void AIGThirdMorningDirector::ShowEndingBFinalCard()
@@ -6776,12 +7566,20 @@ void AIGThirdMorningDirector::PlayEndingBCatCoda()
 			this,
 			UIGToneSequenceSoundWave::CreateCatLickWaterPlastic(this, false),
 			0.22f);
+		AIGHorrorHUD::PushAudioCaption(
+			this,
+			NSLOCTEXT("IGCH03", "EndingBCatDrinkCaption", "[멀리서 고양이가 물을 핥는다]"),
+			2.2f);
 		return;
 	}
 	UGameplayStatics::PlaySound2D(
 		this,
 		UIGToneSequenceSoundWave::CreateCatPawTrot(this, 4, false),
 		0.26f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT("IGCH03", "EndingBCatApproachCaption", "[고양이 발소리가 물그릇으로 다가온다]"),
+		1.6f);
 	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
 	ScheduleEndingCue(0.95f, [WeakThis]()
 	{
@@ -6791,6 +7589,10 @@ void AIGThirdMorningDirector::PlayEndingBCatCoda()
 				Director,
 				UIGToneSequenceSoundWave::CreateCatShortMewl(Director),
 				0.20f);
+			AIGHorrorHUD::PushAudioCaption(
+				Director,
+				NSLOCTEXT("IGCH03", "EndingBCatMewlCaption", "[고양이가 짧게 운다]"),
+				1.2f);
 		}
 	});
 }
@@ -6799,15 +7601,24 @@ void AIGThirdMorningDirector::PresentEndingControls(
 	const FText& EndingTitle,
 	const FText& EndingSubtitle)
 {
+	const AIGPlayerController* PlayerController = Cast<AIGPlayerController>(
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr);
+	const bool bUsingGamepad =
+		PlayerController && PlayerController->IsUsingGamepadForHud();
 	AIGHorrorHUD::ShowChapterCard(
 		this,
 		NSLOCTEXT("IGCH03", "EndingEyebrow", "ENDING"),
 		EndingTitle,
 		FText::Format(
-			NSLOCTEXT(
-				"IGCH03",
-				"EndingControls",
-				"{0}\nR  이 아침 다시 시작  ·  M  처음으로"),
+			bUsingGamepad
+				? NSLOCTEXT(
+					"IGCH03",
+					"EndingControlsGamepad",
+					"{0}\nL3  이 아침 다시 시작  ·  R3  처음으로")
+				: NSLOCTEXT(
+					"IGCH03",
+					"EndingControlsKeyboard",
+					"{0}\nR  이 아침 다시 시작  ·  M  처음으로"),
 			EndingSubtitle),
 		120.0f);
 	EnableEndingInput();
@@ -7010,14 +7821,24 @@ void AIGThirdMorningDirector::PlayDelayedSplash()
 	Notes.Add({0.00f, 0.21f, 72.0f, 0.18f, 0.02f, 3.4f, EIGToneWaveform::Sine});
 	Notes.Add({0.06f, 0.26f, 980.0f, 0.045f, 0.02f, 3.1f, EIGToneWaveform::ValueNoise});
 	Splash->ConfigureNotes(MoveTemp(Notes), false);
+	const FVector CueLocation =
+		Pawn->GetActorLocation() - Pawn->GetActorForwardVector() * 115.0f;
 	IGAudio::SpawnOneShotAt(
 		this,
 		Splash,
-		Pawn->GetActorLocation() - Pawn->GetActorForwardVector() * 115.0f,
+		CueLocation,
 		0.46f,
 		0.92f,
 		45.0f,
 		720.0f);
+	AIGHorrorHUD::PushFearDirection(this, CueLocation, 0.9f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGCH03",
+			"RearSplashCaption",
+			"[뒤쪽에서 물이 튀는 소리]"),
+		2.0f);
 }
 
 void AIGThirdMorningDirector::PlayMetalEcho(
@@ -7036,14 +7857,16 @@ void AIGThirdMorningDirector::PlayMetalEcho(
 	Notes.Add({0.00f, 0.82f, 181.0f, 0.13f, 0.01f, 4.0f, EIGToneWaveform::Sine});
 	Notes.Add({0.01f, 0.63f, 1180.0f, 0.060f, 0.01f, 4.4f, EIGToneWaveform::Sine});
 	Ring->ConfigureNotes(MoveTemp(Notes), false);
+	const FVector WorldLocation = ToWorld(LocalLocation);
 	IGAudio::SpawnOneShotAt(
 		this,
 		Ring,
-		ToWorld(LocalLocation),
+		WorldLocation,
 		0.52f,
 		PitchMultiplier,
 		65.0f,
 		1050.0f);
+	AIGHorrorHUD::PushFearDirection(this, WorldLocation, 1.1f);
 }
 
 void AIGThirdMorningDirector::PlayTankSlam()
@@ -7056,17 +7879,19 @@ void AIGThirdMorningDirector::PlayTankSlam()
 	Notes.Add({0.015f, 0.62f, 164.0f, 0.32f, 0.01f, 4.2f, EIGToneWaveform::Triangle});
 	Notes.Add({0.02f, 0.44f, 970.0f, 0.12f, 0.01f, 4.5f, EIGToneWaveform::Sine});
 	Slam->ConfigureNotes(MoveTemp(Notes), false);
+	const FVector WorldLocation = ToWorld(
+		IGThirdMorning::TankCenter
+		+ IGThirdMorning::TankHatchOffset
+		+ FVector(0, 0, 620));
 	IGAudio::SpawnOneShotAt(
 		this,
 		Slam,
-		ToWorld(
-			IGThirdMorning::TankCenter
-			+ IGThirdMorning::TankHatchOffset
-			+ FVector(0, 0, 620)),
+		WorldLocation,
 		0.86f,
 		1.0f,
 		140.0f,
 		1700.0f);
+	AIGHorrorHUD::PushFearDirection(this, WorldLocation, 1.4f);
 }
 
 void AIGThirdMorningDirector::StopAllChapterAudio()
@@ -7949,6 +8774,20 @@ void AIGThirdMorningDirector::StartRebirthReleaseValidation()
 		GeneratedAudioSamples,
 		GeneratedAudioBytes,
 		NonZeroAudioSamples);
+
+	int32 ItemContinuityCases = 0;
+	if (!ValidateRebirthItemContinuity(ItemContinuityCases))
+	{
+		FailRebirthReleaseValidation(TEXT("s5_item_continuity"));
+		return;
+	}
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 "
+			"presentations=2 cases=%d duplicates=0"),
+		ItemContinuityCases);
 	UE_LOG(
 		LogIndieGame,
 		Display,
@@ -8455,6 +9294,110 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	return bPcmGenerated && bCreated && bStopped;
 }
 
+bool AIGThirdMorningDirector::ValidateRebirthItemContinuity(
+	int32& OutCaseCount)
+{
+	OutCaseCount = 0;
+	if (!GetWorld() || !CubeMesh || !CylinderMesh)
+	{
+		return false;
+	}
+
+	const auto CountLiveContinuityActors = [this]()
+	{
+		int32 Count = 0;
+		for (TActorIterator<AIGItemContinuityDressing> It(GetWorld()); It; ++It)
+		{
+			const AIGItemContinuityDressing* Dressing = *It;
+			if (IsValid(Dressing) && !Dressing->IsActorBeingDestroyed())
+			{
+				++Count;
+			}
+		}
+		return Count;
+	};
+	if (CountLiveContinuityActors() != 0)
+	{
+		return false;
+	}
+
+	const EIGRebirthPurchaseProfile Profiles[] = {
+		EIGRebirthPurchaseProfile::ProfileA500MlX2,
+		EIGRebirthPurchaseProfile::ProfileB1LX1,
+		EIGRebirthPurchaseProfile::ProfileC2LX2};
+	const EIGRebirthBottleClosureState ClosureStates[] = {
+		EIGRebirthBottleClosureState::MissingCap,
+		EIGRebirthBottleClosureState::Resealed};
+	const EIGItemContinuityPresentation Presentations[] = {
+		EIGItemContinuityPresentation::AccidentBag,
+		EIGItemContinuityPresentation::LobbyRecycleSack};
+
+	for (const EIGRebirthPurchaseProfile Profile : Profiles)
+	{
+		for (const EIGRebirthBottleClosureState ClosureState : ClosureStates)
+		{
+			for (const EIGItemContinuityPresentation Presentation : Presentations)
+			{
+				const bool bAccidentBag =
+					Presentation == EIGItemContinuityPresentation::AccidentBag;
+				const FTransform TestTransform = bAccidentBag
+					? AIGItemContinuityDressing::GetCanonicalAccidentTransform(Profile)
+					: FTransform(
+						FRotator::ZeroRotator,
+						IGThirdMorning::StageOrigin
+							+ FVector(0.0f, 0.0f, -10000.0f));
+				FActorSpawnParameters Parameters;
+				Parameters.Owner = this;
+				Parameters.SpawnCollisionHandlingOverride =
+					ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+				AIGItemContinuityDressing* Dressing =
+					GetWorld()->SpawnActor<AIGItemContinuityDressing>(
+						AIGItemContinuityDressing::StaticClass(),
+						TestTransform,
+						Parameters);
+				if (!Dressing)
+				{
+					return false;
+				}
+				Dressing->Configure(
+					Presentation,
+					Profile,
+					ClosureState,
+					CubeMesh,
+					CylinderMesh,
+					CarrierBagMaterial,
+					GlassMaterial,
+					WaterMaterial,
+					BottleCapMaterial);
+				Dressing->SetActorHiddenInGame(true);
+
+				const FName PresentationTag = bAccidentBag
+					? FName(TEXT("REBIRTH.ItemContinuity.CH01AccidentBag"))
+					: FName(TEXT("REBIRTH.ItemContinuity.CH02RecycleSack"));
+				const bool bTransformMatches = !bAccidentBag
+					|| Dressing->GetActorTransform().Equals(TestTransform, 0.01f);
+				const bool bCasePassed = Dressing->MatchesContract(
+					Presentation,
+					Profile,
+					ClosureState)
+					&& Dressing->ActorHasTag(
+						FName(TEXT("REBIRTH.ItemContinuity")))
+					&& Dressing->ActorHasTag(PresentationTag)
+					&& bTransformMatches
+					&& CountLiveContinuityActors() == 1;
+				const bool bDestroyed = Dressing->Destroy();
+				if (!bCasePassed || !bDestroyed
+					|| CountLiveContinuityActors() != 0)
+				{
+					return false;
+				}
+				++OutCaseCount;
+			}
+		}
+	}
+	return OutCaseCount == 12 && CountLiveContinuityActors() == 0;
+}
+
 void AIGThirdMorningDirector::HandleReleaseValidationSaveCompleted(
 	const bool bSuccess,
 	const FString SlotName)
@@ -8589,6 +9532,7 @@ void AIGThirdMorningDirector::HandleReleaseValidationLoadCompleted(
 
 void AIGThirdMorningDirector::BeginRebirthEndingValidation()
 {
+	ReleaseValidationSafetyOpeningCues.Reset();
 	ReleaseValidationTankLidBeforeEnding = TankLidAction;
 	ReleaseValidationTankLidCountBeforeEnding =
 		CountOwnedChapterThreeActions(EIGChapterThreeAction::OpenTank);
@@ -8643,19 +9587,14 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 	const FName StrongCue = bEndingA
 		? FName(TEXT("Ending.A.StrongCuePlayed"))
 		: FName(TEXT("Ending.B.StrongCuePlayed"));
-	bool bAllBodySilhouetteHidden = BodySilhouette.Num() > 0;
-	for (const UStaticMeshComponent* Piece : BodySilhouette)
-	{
-		if (!IsValid(Piece) || Piece->IsVisible())
-		{
-			bAllBodySilhouetteHidden = false;
-			break;
-		}
-	}
-	const FVector ExpectedLidLocation = ToWorld(
-		IGThirdMorning::TankCenter
-		+ IGThirdMorning::TankHatchOffset
-		+ FVector(0, 0, 610));
+	const TArray<FName> ExpectedSafetyOpeningCues = {
+		FName(TEXT("Safety.GasDetector")),
+		FName(TEXT("Safety.Ventilation")),
+		FName(TEXT("Safety.Harness")),
+		FName(TEXT("Safety.TwoClimbers")),
+		FName(TEXT("Safety.HatchOpen"))};
+	const bool bSafetyOpeningPassed =
+		ReleaseValidationSafetyOpeningCues == ExpectedSafetyOpeningCues;
 	const int32 TankLidCountAfterEnding =
 		CountOwnedChapterThreeActions(EIGChapterThreeAction::OpenTank);
 	const int32 OwnedActionCountAfterEnding =
@@ -8667,13 +9606,8 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 		&& TankLidCountAfterEnding == 1
 		&& OwnedActionCountAfterEnding
 			== ReleaseValidationOwnedActionCountBeforeEnding
-		&& !TankLidAction->IsHidden()
-		&& TankLidAction->GetActorLocation().Equals(
-			ExpectedLidLocation,
-			0.1f)
-		&& !TankLidAction->GetActorEnableCollision()
-		&& !TankLidAction->IsInteractionEnabled()
-		&& bAllBodySilhouetteHidden;
+		&& ValidateCommonDiscoveryWorldState()
+		&& bSafetyOpeningPassed;
 	const bool bPassed =
 		RebirthState
 		&& Snapshot.ChapterThree.EndingChoice
@@ -8697,8 +9631,8 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 				TEXT(
 					"REBIRTH_SPIKE FAIL s4_common_prop "
 					"same_lid=%d lid_before=%d lid_after=%d "
-					"actions_before=%d actions_after=%d visible=%d "
-					"collision=%d interactive=%d body_hidden=%d"),
+					"actions_before=%d actions_after=%d world_state=%d "
+					"safety_order=%d safety_cues=%d"),
 				TankLidAction == ReleaseValidationTankLidBeforeEnding
 					? 1
 					: 0,
@@ -8706,16 +9640,9 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 				TankLidCountAfterEnding,
 				ReleaseValidationOwnedActionCountBeforeEnding,
 				OwnedActionCountAfterEnding,
-				TankLidAction && !TankLidAction->IsHidden() ? 1 : 0,
-				TankLidAction
-					&& TankLidAction->GetActorEnableCollision()
-					? 1
-					: 0,
-				TankLidAction
-					&& TankLidAction->IsInteractionEnabled()
-					? 1
-					: 0,
-				bAllBodySilhouetteHidden ? 1 : 0);
+				ValidateCommonDiscoveryWorldState() ? 1 : 0,
+				bSafetyOpeningPassed ? 1 : 0,
+				ReleaseValidationSafetyOpeningCues.Num());
 		}
 		FailRebirthReleaseValidation(
 			bEndingA ? TEXT("ending_a") : TEXT("ending_b"));
@@ -8728,7 +9655,7 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 		Display,
 		TEXT(
 			"REBIRTH_SPIKE PASS s4_common_prop "
-			"ending=%s duplicates=0"),
+			"ending=%s duplicates=0 actual_state=1 safety_cues=5"),
 		EndingLabel);
 	UE_LOG(
 		LogIndieGame,

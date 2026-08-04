@@ -1,10 +1,12 @@
 ﻿#include "Player/IGHorrorHUD.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "CanvasItem.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
 #include "Engine/FontFace.h"
+#include "Engine/GameInstance.h"
 #include "Engine/Texture2D.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -29,6 +31,7 @@ namespace IGHorrorHUD
 	constexpr int32 LargeFontSize = 22;
 	constexpr int32 MediumFontSize = 19;
 	constexpr int32 SmallFontSize = 14;
+	constexpr int32 PhoneMetaFontSize = 15;
 
 	const FLinearColor Shadow(0.0f, 0.0f, 0.0f, 0.9f);
 	const FLinearColor PaleGray(0.82f, 0.84f, 0.82f, 0.95f);
@@ -106,6 +109,10 @@ void AIGHorrorHUD::InitializeKoreanFont()
 			FontFace, IGHorrorHUD::MediumFontSize, TEXT("KoreanFontMedium"));
 		KoreanFontSmall = MakeRuntimeFont(
 			FontFace, IGHorrorHUD::SmallFontSize, TEXT("KoreanFontSmall"));
+		KoreanPhoneMetaFont = MakeRuntimeFont(
+			FontFace,
+			IGHorrorHUD::PhoneMetaFontSize,
+			TEXT("KoreanPhoneMetaFont"));
 
 		// Receipt printers use a compact, almost fixed-width bitmap face. Keep
 		// the normal UI on Malgun Gothic, but prefer the narrower Gulim/Dotum
@@ -206,6 +213,101 @@ void AIGHorrorHUD::ShowThought(const FText& Thought, const float DurationSeconds
 	ThoughtEndTime = ThoughtStartTime + FMath::Max(1.0f, DurationSeconds);
 }
 
+void AIGHorrorHUD::PushAudioCaption(
+	const UObject* WorldContext,
+	const FText& Caption,
+	const float DurationSeconds)
+{
+	const UWorld* World = GEngine && WorldContext
+		? GEngine->GetWorldFromContextObject(
+			WorldContext,
+			EGetWorldErrorMode::ReturnNull)
+		: nullptr;
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	if (!Accessibility || !Accessibility->AreSubtitlesEnabled())
+	{
+		return;
+	}
+
+	const APlayerController* PlayerController =
+		World ? World->GetFirstPlayerController() : nullptr;
+	if (AIGHorrorHUD* HorrorHUD = PlayerController
+		? Cast<AIGHorrorHUD>(PlayerController->GetHUD())
+		: nullptr)
+	{
+		HorrorHUD->ShowAudioCaption(Caption, DurationSeconds);
+	}
+}
+
+void AIGHorrorHUD::ShowAudioCaption(
+	const FText& Caption,
+	const float DurationSeconds)
+{
+	const UWorld* World = GetWorld();
+	if (!World || Caption.IsEmpty())
+	{
+		return;
+	}
+	CurrentAudioCaption = Caption;
+	AudioCaptionStartTime = World->GetTimeSeconds();
+	AudioCaptionEndTime =
+		AudioCaptionStartTime + FMath::Max(0.8f, DurationSeconds);
+}
+
+void AIGHorrorHUD::PushFearDirection(
+	const UObject* WorldContext,
+	const FVector& WorldLocation,
+	const float DurationSeconds)
+{
+	const UWorld* World = GEngine && WorldContext
+		? GEngine->GetWorldFromContextObject(
+			WorldContext,
+			EGetWorldErrorMode::ReturnNull)
+		: nullptr;
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	if (!Accessibility || !Accessibility->UsesDirectionalFearCues())
+	{
+		return;
+	}
+
+	const APlayerController* PlayerController =
+		World ? World->GetFirstPlayerController() : nullptr;
+	if (AIGHorrorHUD* HorrorHUD = PlayerController
+		? Cast<AIGHorrorHUD>(PlayerController->GetHUD())
+		: nullptr)
+	{
+		HorrorHUD->ShowFearDirection(WorldLocation, DurationSeconds);
+	}
+}
+
+void AIGHorrorHUD::ShowFearDirection(
+	const FVector& WorldLocation,
+	const float DurationSeconds)
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	FearCueWorldLocation = WorldLocation;
+	FearCueStartTime = World->GetTimeSeconds();
+	FearCueEndTime = FearCueStartTime + FMath::Max(0.35f, DurationSeconds);
+}
+
+void AIGHorrorHUD::SetAccessibilityMenuState(
+	const bool bVisible,
+	const int32 SelectedRow)
+{
+	bAccessibilityMenuVisible = bVisible;
+	AccessibilitySelectedRow = FMath::Clamp(SelectedRow, 0, 11);
+}
+
 void AIGHorrorHUD::ShowChapterCard(
 	const UObject* WorldContext,
 	const FText& Eyebrow,
@@ -266,6 +368,11 @@ void AIGHorrorHUD::DrawHUD()
 	{
 		return;
 	}
+	if (bAccessibilityMenuVisible)
+	{
+		DrawAccessibilityPanel();
+		return;
+	}
 
 	const UWorld* World = GetWorld();
 	const double CurrentTime = World ? World->GetTimeSeconds() : 0.0;
@@ -303,6 +410,7 @@ void AIGHorrorHUD::DrawHUD()
 			IGHorrorHUD::RedAccent,
 			Interaction && Interaction->IsInteracting() ? Interaction->GetHoldProgress() : 0.0f);
 	}
+	DrawFearDirection(CurrentTime);
 
 	// Objective line.
 	if (SupportsKorean())
@@ -338,7 +446,9 @@ void AIGHorrorHUD::DrawHUD()
 		if (!FocusedPrompt.IsEmpty())
 		{
 			const FText Prompt = FText::Format(
-				NSLOCTEXT("IGHUD", "PromptFormat", "[ E ]  {0}"),
+				bUsingGamepad
+					? NSLOCTEXT("IGHUD", "PromptFormatGamepad", "[ A ]  {0}")
+					: NSLOCTEXT("IGHUD", "PromptFormatKeyboard", "[ E ]  {0}"),
 				FocusedPrompt);
 			DrawCenteredText(
 				Prompt,
@@ -371,14 +481,393 @@ void AIGHorrorHUD::DrawHUD()
 		DrawCenteredText(
 			CurrentThought, Canvas->ClipY * 0.66f, ThoughtColor, EIGHudTextRole::Thought);
 	}
+	DrawAudioCaption(CurrentTime);
 
 	// Control hints.
 	const FText Hints = SupportsKorean()
-		? NSLOCTEXT("IGHUD", "Hints", "WASD 이동  ·  마우스 시점  ·  E 상호작용  ·  Esc 커서")
-		: FText::FromString(TEXT("WASD Move  |  Mouse Look  |  E Interact  |  Esc Release Cursor"));
+		? bUsingGamepad
+			? NSLOCTEXT(
+				"IGHUD",
+				"HintsGamepad",
+				"LS 이동  ·  RS 시점  ·  A 상호작용  ·  RB 힌트  ·  Menu 접근성")
+			: NSLOCTEXT(
+				"IGHUD",
+				"HintsKeyboard",
+				"WASD 이동  ·  마우스 시점  ·  E 상호작용  ·  H 힌트  ·  F10 접근성")
+		: FText::FromString(
+			bUsingGamepad
+				? TEXT("LS MOVE  |  RS LOOK  |  A INTERACT  |  RB HINT  |  MENU ACCESSIBILITY")
+				: TEXT("WASD MOVE  |  MOUSE LOOK  |  E INTERACT  |  H HINT  |  F10 ACCESSIBILITY"));
 	DrawCenteredText(
 		Hints,
 		FMath::Max(0.0f, Canvas->ClipY - 34.0f),
+		IGHorrorHUD::MutedGray,
+		EIGHudTextRole::Hint);
+}
+
+void AIGHorrorHUD::DrawAudioCaption(const double CurrentTime)
+{
+	if (!Canvas
+		|| CurrentAudioCaption.IsEmpty()
+		|| CurrentTime >= AudioCaptionEndTime)
+	{
+		return;
+	}
+	const UGameInstance* GameInstance = GetWorld()
+		? GetWorld()->GetGameInstance()
+		: nullptr;
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	if (!Accessibility || !Accessibility->AreSubtitlesEnabled())
+	{
+		return;
+	}
+	const double Elapsed = CurrentTime - AudioCaptionStartTime;
+	const double Remaining = AudioCaptionEndTime - CurrentTime;
+	const float Alpha = FMath::Clamp(
+		FMath::Min(
+			static_cast<float>(Elapsed / 0.12),
+			static_cast<float>(Remaining / 0.28)),
+		0.0f,
+		1.0f);
+	const FIGAccessibilitySettings Settings = Accessibility->GetSettings();
+	const float CaptionScale = Settings.CaptionSizeScale;
+	const float SafeAreaScale = Settings.CaptionSafeAreaScale;
+	const float SafeWidth = Canvas->ClipX * SafeAreaScale;
+	const float PanelWidth = FMath::Min(
+		FMath::Clamp(Canvas->ClipX * 0.62f, 320.0f, 760.0f),
+		FMath::Max(260.0f, SafeWidth - 32.0f));
+	const float MaximumTextWidth = FMath::Max(220.0f, PanelWidth - 38.0f);
+	FString FirstLine;
+	FString SecondLine;
+	WrapAudioCaption(
+		CurrentAudioCaption.ToString(),
+		GetFontForRole(EIGHudTextRole::Hint),
+		CaptionScale,
+		MaximumTextWidth,
+		FirstLine,
+		SecondLine);
+	const bool bTwoLines = !SecondLine.IsEmpty();
+	const float PanelHeight = (bTwoLines ? 58.0f : 38.0f) * CaptionScale;
+	const float SafeVerticalInset = Canvas->ClipY * (1.0f - SafeAreaScale) * 0.5f;
+	const float PanelY = FMath::Clamp(
+		Canvas->ClipY * 0.76f,
+		SafeVerticalInset + 28.0f,
+		Canvas->ClipY - SafeVerticalInset - PanelHeight - 22.0f);
+	FCanvasTileItem Backdrop(
+		FVector2D((Canvas->ClipX - PanelWidth) * 0.5f, PanelY),
+		FVector2D(PanelWidth, PanelHeight),
+		FLinearColor(0.015f, 0.018f, 0.017f, 0.82f * Alpha));
+	Backdrop.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Backdrop);
+	FLinearColor CaptionColor = IGHorrorHUD::PaleGray;
+	CaptionColor.A = Alpha;
+	DrawCenteredText(
+		FText::FromString(FirstLine),
+		PanelY + 8.0f * CaptionScale,
+		CaptionColor,
+		EIGHudTextRole::Hint,
+		CaptionScale);
+	if (bTwoLines)
+	{
+		DrawCenteredText(
+			FText::FromString(SecondLine),
+			PanelY + 29.0f * CaptionScale,
+			CaptionColor,
+			EIGHudTextRole::Hint,
+			CaptionScale);
+	}
+}
+
+float AIGHorrorHUD::MeasureTextWidth(
+	const FString& Text,
+	UFont* Font,
+	const float TextScale) const
+{
+	if (!Canvas || !Font || Text.IsEmpty())
+	{
+		return 0.0f;
+	}
+
+	float Width = 0.0f;
+	float Height = 0.0f;
+	Canvas->StrLen(Font, Text, Width, Height, true);
+	return Width * FMath::Max(0.5f, TextScale);
+}
+
+int32 AIGHorrorHUD::FindFittingCaptionPrefix(
+	const FString& Text,
+	UFont* Font,
+	const float TextScale,
+	const float MaximumWidth) const
+{
+	if (Text.IsEmpty() || !Font || MaximumWidth <= 0.0f)
+	{
+		return 0;
+	}
+	if (MeasureTextWidth(Text, Font, TextScale) <= MaximumWidth)
+	{
+		return Text.Len();
+	}
+
+	int32 BestLength = 0;
+	int32 Low = 1;
+	int32 High = Text.Len();
+	while (Low <= High)
+	{
+		const int32 CandidateLength = Low + ((High - Low) / 2);
+		if (MeasureTextWidth(Text.Left(CandidateLength), Font, TextScale)
+			<= MaximumWidth)
+		{
+			BestLength = CandidateLength;
+			Low = CandidateLength + 1;
+		}
+		else
+		{
+			High = CandidateLength - 1;
+		}
+	}
+	return FMath::Max(1, BestLength);
+}
+
+void AIGHorrorHUD::WrapAudioCaption(
+	const FString& Caption,
+	UFont* Font,
+	const float TextScale,
+	const float MaximumWidth,
+	FString& OutFirstLine,
+	FString& OutSecondLine) const
+{
+	OutFirstLine = Caption.TrimStartAndEnd();
+	OutSecondLine.Reset();
+	if (OutFirstLine.IsEmpty()
+		|| MeasureTextWidth(OutFirstLine, Font, TextScale) <= MaximumWidth)
+	{
+		return;
+	}
+
+	int32 BreakIndex = FindFittingCaptionPrefix(
+		OutFirstLine,
+		Font,
+		TextScale,
+		MaximumWidth);
+	const int32 SpaceIndex = OutFirstLine.Left(BreakIndex).Find(
+		TEXT(" "),
+		ESearchCase::CaseSensitive,
+		ESearchDir::FromEnd);
+	if (SpaceIndex >= BreakIndex / 2)
+	{
+		BreakIndex = SpaceIndex;
+	}
+
+	OutSecondLine = OutFirstLine.Mid(BreakIndex).TrimStartAndEnd();
+	OutFirstLine = OutFirstLine.Left(BreakIndex).TrimEnd();
+	if (OutSecondLine.IsEmpty()
+		|| MeasureTextWidth(OutSecondLine, Font, TextScale) <= MaximumWidth)
+	{
+		return;
+	}
+
+	const FString Ellipsis = TEXT("…");
+	const float EllipsisWidth = MeasureTextWidth(Ellipsis, Font, TextScale);
+	const int32 VisibleLength = FindFittingCaptionPrefix(
+		OutSecondLine,
+		Font,
+		TextScale,
+		FMath::Max(1.0f, MaximumWidth - EllipsisWidth));
+	OutSecondLine = OutSecondLine.Left(VisibleLength).TrimEnd() + Ellipsis;
+}
+
+void AIGHorrorHUD::DrawFearDirection(const double CurrentTime)
+{
+	if (!Canvas || CurrentTime >= FearCueEndTime)
+	{
+		return;
+	}
+	APlayerController* PlayerController = GetOwningPlayerController();
+	if (!PlayerController)
+	{
+		return;
+	}
+
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	const FVector Direction =
+		(FearCueWorldLocation - ViewLocation).GetSafeNormal();
+	if (Direction.IsNearlyZero())
+	{
+		return;
+	}
+
+	const FVector Forward = ViewRotation.Vector();
+	const FVector Right = FRotationMatrix(ViewRotation).GetUnitAxis(EAxis::Y);
+	const float ForwardAmount = FVector::DotProduct(Direction, Forward);
+	const float RightAmount = FVector::DotProduct(Direction, Right);
+	const float Angle = FMath::Atan2(RightAmount, ForwardAmount);
+	const FVector2D Radial(FMath::Sin(Angle), -FMath::Cos(Angle));
+	const FVector2D Tangent(-Radial.Y, Radial.X);
+	const FVector2D Center(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+	const FVector2D WaveCenter = Center + FVector2D(
+		Radial.X * Canvas->ClipX * 0.42f,
+		Radial.Y * Canvas->ClipY * 0.39f);
+
+	const double Elapsed = CurrentTime - FearCueStartTime;
+	const double Remaining = FearCueEndTime - CurrentTime;
+	const float Alpha = FMath::Clamp(
+		FMath::Min(
+			static_cast<float>(Elapsed / 0.12),
+			static_cast<float>(Remaining / 0.30)),
+		0.0f,
+		1.0f);
+	const FLinearColor CueColor(0.72f, 0.74f, 0.72f, Alpha * 0.78f);
+	constexpr int32 SegmentCount = 6;
+	constexpr float SegmentLength = 8.0f;
+	constexpr float WaveAmplitude = 4.0f;
+	FVector2D Previous = WaveCenter
+		- Tangent * (SegmentCount * SegmentLength * 0.5f);
+	for (int32 Index = 1; Index <= SegmentCount; ++Index)
+	{
+		const float Across =
+			(Index - SegmentCount * 0.5f) * SegmentLength;
+		const float Wave = Index == SegmentCount
+			? 0.0f
+			: (Index % 2 == 0 ? WaveAmplitude : -WaveAmplitude);
+		const FVector2D Next = WaveCenter
+			+ Tangent * Across
+			+ Radial * Wave;
+		FCanvasLineItem Line(Previous, Next);
+		Line.SetColor(CueColor);
+		Line.LineThickness = 2.0f;
+		Canvas->DrawItem(Line);
+		Previous = Next;
+	}
+}
+
+void AIGHorrorHUD::DrawAccessibilityPanel()
+{
+	if (!Canvas)
+	{
+		return;
+	}
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	if (!Accessibility)
+	{
+		return;
+	}
+	const FIGAccessibilitySettings Settings = Accessibility->GetSettings();
+	const bool bKorean = SupportsKorean();
+	const auto OnOff = [bKorean](const bool bEnabled)
+	{
+		return bKorean
+			? FString(bEnabled ? TEXT("켬") : TEXT("끔"))
+			: FString(bEnabled ? TEXT("ON") : TEXT("OFF"));
+	};
+
+	FString HintMode;
+	switch (Settings.HintMode)
+	{
+	case EIGHintMode::Story:
+		HintMode = bKorean ? TEXT("이야기") : TEXT("STORY");
+		break;
+	case EIGHintMode::Silent:
+		HintMode = bKorean ? TEXT("침묵") : TEXT("SILENT");
+		break;
+	case EIGHintMode::Standard:
+	default:
+		HintMode = bKorean ? TEXT("기본") : TEXT("STANDARD");
+		break;
+	}
+
+	const FString Labels[] =
+	{
+		bKorean ? TEXT("힌트 난이도") : TEXT("HINT MODE"),
+		bKorean ? TEXT("카메라 흔들림 감소") : TEXT("REDUCED CAMERA MOTION"),
+		bKorean ? TEXT("손전등 점멸 감소") : TEXT("REDUCED FLASHLIGHT FLICKER"),
+		bKorean ? TEXT("공포음 방향 표시") : TEXT("FEAR SOUND DIRECTION"),
+		bKorean ? TEXT("P5 단서 자동 연결") : TEXT("AUTO-CONNECT EVIDENCE"),
+		bKorean ? TEXT("핵심 소리 자막") : TEXT("SOUND CAPTIONS"),
+		bKorean ? TEXT("소리 자막 크기") : TEXT("CAPTION SIZE"),
+		bKorean ? TEXT("자막 안전 영역") : TEXT("CAPTION SAFE AREA"),
+		bKorean ? TEXT("길게 누르기 방식") : TEXT("HOLD INPUT"),
+		bKorean ? TEXT("홀드 길이") : TEXT("HOLD DURATION"),
+		bKorean ? TEXT("기본값으로 초기화") : TEXT("RESET TO DEFAULTS"),
+		bKorean ? TEXT("닫기") : TEXT("CLOSE")
+	};
+	const FString Values[] =
+	{
+		HintMode,
+		OnOff(Settings.bReducedCameraMotion),
+		OnOff(Settings.bReducedFlicker),
+		OnOff(Settings.bDirectionalFearCues),
+		OnOff(Settings.bAutoConnectEvidence),
+		OnOff(Settings.bSubtitlesEnabled),
+		FString::Printf(
+			TEXT("%d%%"),
+			FMath::RoundToInt(Settings.CaptionSizeScale * 100.0f)),
+		FString::Printf(
+			TEXT("%d%%"),
+			FMath::RoundToInt(Settings.CaptionSafeAreaScale * 100.0f)),
+		bKorean
+			? (Settings.bToggleHoldInteractions ? TEXT("토글") : TEXT("누르는 동안"))
+			: (Settings.bToggleHoldInteractions ? TEXT("TOGGLE") : TEXT("HOLD")),
+		FString::Printf(
+			TEXT("%d%%"),
+			FMath::RoundToInt(Settings.HoldDurationScale * 100.0f)),
+		FString(),
+		FString()
+	};
+
+	FCanvasTileItem Scrim(
+		FVector2D::ZeroVector,
+		FVector2D(Canvas->ClipX, Canvas->ClipY),
+		FLinearColor(0.0f, 0.0f, 0.0f, 0.94f));
+	Scrim.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Scrim);
+	DrawCenteredText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "AccessibilityTitle", "접근성 설정")
+			: FText::FromString(TEXT("ACCESSIBILITY")),
+		72.0f,
+		IGHorrorHUD::PaleGray,
+		EIGHudTextRole::Objective);
+
+	const float RowStartY = FMath::Max(116.0f, Canvas->ClipY * 0.18f);
+	const float RowSpacing = FMath::Clamp(Canvas->ClipY * 0.047f, 28.0f, 38.0f);
+	for (int32 Row = 0; Row < UE_ARRAY_COUNT(Labels); ++Row)
+	{
+		const bool bSelected = Row == AccessibilitySelectedRow;
+		FString RowText = Values[Row].IsEmpty()
+			? Labels[Row]
+			: FString::Printf(TEXT("%s    < %s >"), *Labels[Row], *Values[Row]);
+		RowText = FString(bSelected ? TEXT(">  ") : TEXT("   ")) + RowText;
+		DrawCenteredText(
+			FText::FromString(RowText),
+			RowStartY + Row * RowSpacing,
+			bSelected ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray,
+			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
+	}
+
+	DrawCenteredText(
+		bKorean
+			? bUsingGamepad
+				? NSLOCTEXT(
+					"IGHUD",
+					"AccessibilityControlsGamepad",
+					"D-pad 항목·변경  ·  A 선택  ·  B 닫기")
+				: NSLOCTEXT(
+					"IGHUD",
+					"AccessibilityControlsKeyboard",
+					"방향키 항목·변경  ·  Enter 선택  ·  Esc/F10 닫기")
+			: FText::FromString(
+				bUsingGamepad
+					? TEXT("D-PAD SELECT + CHANGE  |  A APPLY  |  B CLOSE")
+					: TEXT("ARROWS SELECT + CHANGE  |  ENTER APPLY  |  ESC/F10 CLOSE")),
+		FMath::Max(RowStartY + 12.5f * RowSpacing, Canvas->ClipY - 48.0f),
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint);
 }
@@ -574,7 +1063,8 @@ void AIGHorrorHUD::DrawCenteredText(
 	const FText& Text,
 	const float ScreenY,
 	const FLinearColor& Color,
-	const EIGHudTextRole TextRole)
+	const EIGHudTextRole TextRole,
+	const float TextScale)
 {
 	if (!Canvas || Text.IsEmpty())
 	{
@@ -593,6 +1083,7 @@ void AIGHorrorHUD::DrawCenteredText(
 		Font,
 		Color);
 	TextItem.bCentreX = true;
+	TextItem.Scale = FVector2D(FMath::Max(0.5f, TextScale));
 
 	// A one-pixel outline keeps small Hangul legible on bright surfaces;
 	// larger text reads better with a soft drop shadow instead.
@@ -763,6 +1254,12 @@ void AIGHorrorHUD::DrawNotePanel()
 		return;
 	}
 
+	if (Note->UsesPhoneNotificationPresentation())
+	{
+		DrawPhoneNotificationPanel(*Note);
+		return;
+	}
+
 	if (Note->UsesThermalReceiptPresentation())
 	{
 		DrawThermalReceiptPanel(*Note);
@@ -851,8 +1348,11 @@ void AIGHorrorHUD::DrawNotePanel()
 	if (HintFont)
 	{
 		const FText Hint = SupportsKorean()
-			? NSLOCTEXT("IGHUD", "NoteClose", "[ E ]  덮기")
-			: FText::FromString(TEXT("[ E ]  Close"));
+			? bUsingGamepad
+				? NSLOCTEXT("IGHUD", "NoteCloseGamepad", "[ A ]  덮기")
+				: NSLOCTEXT("IGHUD", "NoteCloseKeyboard", "[ E ]  덮기")
+			: FText::FromString(
+				bUsingGamepad ? TEXT("[ A ]  Close") : TEXT("[ E ]  Close"));
 		const FString HintString = Hint.ToString();
 		float HintWidth = 0.0f;
 		float HintHeight = 0.0f;
@@ -866,6 +1366,187 @@ void AIGHorrorHUD::DrawNotePanel()
 			FLinearColor(0.42f, 0.39f, 0.35f, 1.0f));
 		Canvas->DrawItem(HintItem);
 	}
+}
+
+void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)
+{
+	if (!Canvas)
+	{
+		return;
+	}
+
+	const float ScreenWidth = Canvas->ClipX;
+	const float ScreenHeight = Canvas->ClipY;
+	DrawRect(
+		FLinearColor(0.0f, 0.0f, 0.0f, 0.84f),
+		0.0f,
+		0.0f,
+		ScreenWidth,
+		ScreenHeight);
+
+	const float PhoneHeight = FMath::Clamp(ScreenHeight * 0.82f, 500.0f, 700.0f);
+	const float PhoneWidth = FMath::Clamp(PhoneHeight * 0.58f, 280.0f, 400.0f);
+	const FVector2D PhoneOrigin(
+		(ScreenWidth - PhoneWidth) * 0.5f,
+		(ScreenHeight - PhoneHeight) * 0.5f);
+	constexpr float Bezel = 8.0f;
+	const FVector2D ScreenOrigin = PhoneOrigin + FVector2D(Bezel, Bezel);
+	const float InnerWidth = PhoneWidth - Bezel * 2.0f;
+	const float InnerHeight = PhoneHeight - Bezel * 2.0f;
+
+	DrawRect(
+		FLinearColor(0.0f, 0.0f, 0.0f, 0.62f),
+		PhoneOrigin.X + 7.0f,
+		PhoneOrigin.Y + 10.0f,
+		PhoneWidth,
+		PhoneHeight);
+	DrawRect(
+		FLinearColor(0.025f, 0.029f, 0.032f, 1.0f),
+		PhoneOrigin.X,
+		PhoneOrigin.Y,
+		PhoneWidth,
+		PhoneHeight);
+	DrawRect(
+		FLinearColor(0.035f, 0.055f, 0.064f, 1.0f),
+		ScreenOrigin.X,
+		ScreenOrigin.Y,
+		InnerWidth,
+		InnerHeight);
+	DrawRect(
+		FLinearColor(0.12f, 0.15f, 0.16f, 1.0f),
+		ScreenWidth * 0.5f - 18.0f,
+		PhoneOrigin.Y + 4.0f,
+		36.0f,
+		3.0f);
+	DrawRect(
+		FLinearColor(0.005f, 0.008f, 0.010f, 1.0f),
+		ScreenWidth * 0.5f - 3.0f,
+		ScreenOrigin.Y + 7.0f,
+		6.0f,
+		6.0f);
+
+	UFont* BodyFont = GetFontForRole(EIGHudTextRole::Prompt);
+	UFont* MetaFont = KoreanPhoneMetaFont
+		? KoreanPhoneMetaFont.Get()
+		: GetFontForRole(EIGHudTextRole::Hint);
+	if (!BodyFont || !MetaFont)
+	{
+		return;
+	}
+
+	const FLinearColor PrimaryText(0.91f, 0.94f, 0.94f, 1.0f);
+	const FLinearColor SecondaryText(0.63f, 0.69f, 0.70f, 1.0f);
+	const FLinearColor Accent(0.18f, 0.66f, 0.57f, 1.0f);
+	auto DrawPhoneText = [this](
+		const FText& Text,
+		UFont* Font,
+		const float X,
+		const float Y,
+		const FLinearColor& Color)
+	{
+		FCanvasTextItem Item(FVector2D(X, Y), Text, Font, Color);
+		Item.EnableShadow(FLinearColor(0.0f, 0.0f, 0.0f, 0.75f), FVector2D(1.0f, 1.0f));
+		Canvas->DrawItem(Item);
+	};
+
+	const float ContentLeft = ScreenOrigin.X + 16.0f;
+	DrawPhoneText(
+		FText::FromString(TEXT("04:44")),
+		MetaFont,
+		ContentLeft,
+		ScreenOrigin.Y + 9.0f,
+		PrimaryText);
+	const FText StatusText = FText::FromString(TEXT("LTE   76%"));
+	float StatusWidth = 0.0f;
+	float StatusHeight = 0.0f;
+	Canvas->StrLen(MetaFont, StatusText.ToString(), StatusWidth, StatusHeight);
+	DrawPhoneText(
+		StatusText,
+		MetaFont,
+		ScreenOrigin.X + InnerWidth - StatusWidth - 14.0f,
+		ScreenOrigin.Y + 9.0f,
+		SecondaryText);
+
+	const float NotificationX = ScreenOrigin.X + 11.0f;
+	const float NotificationY = ScreenOrigin.Y + 48.0f;
+	const float NotificationWidth = InnerWidth - 22.0f;
+	const float NotificationHeight = FMath::Min(250.0f, InnerHeight * 0.47f);
+	DrawRect(
+		FLinearColor(0.065f, 0.086f, 0.092f, 0.98f),
+		NotificationX,
+		NotificationY,
+		NotificationWidth,
+		NotificationHeight);
+	DrawRect(
+		Accent,
+		NotificationX,
+		NotificationY,
+		4.0f,
+		NotificationHeight);
+	DrawRect(
+		Accent,
+		NotificationX + 15.0f,
+		NotificationY + 15.0f,
+		28.0f,
+		28.0f);
+	// 읽지 않은 상태는 색 면이나 확대 대신 작은 푸른 점 하나로만 남긴다.
+	DrawRect(
+		FLinearColor(0.20f, 0.55f, 0.95f, 1.0f),
+		NotificationX + NotificationWidth - 20.0f,
+		NotificationY + 18.0f,
+		6.0f,
+		6.0f);
+	DrawPhoneText(
+		NSLOCTEXT("IGHUD", "PhoneApprovalApp", "해온카드"),
+		MetaFont,
+		NotificationX + 51.0f,
+		NotificationY + 13.0f,
+		PrimaryText);
+	DrawPhoneText(
+		NSLOCTEXT("IGHUD", "PhoneApprovalJustNow", "방금 전"),
+		MetaFont,
+		NotificationX + 51.0f,
+		NotificationY + 31.0f,
+		SecondaryText);
+
+	DrawPhoneText(
+		Note.GetTitle(),
+		BodyFont,
+		NotificationX + 16.0f,
+		NotificationY + 60.0f,
+		PrimaryText);
+	float PenY = NotificationY + 94.0f;
+	const float LineHeight = FMath::Clamp(NotificationHeight / 7.8f, 24.0f, 30.0f);
+	const TArray<FText>& Lines = Note.GetBodyLines();
+	for (int32 LineIndex = 0; LineIndex < Lines.Num(); ++LineIndex)
+	{
+		const bool bStatusLine = LineIndex == Lines.Num() - 1;
+		DrawPhoneText(
+			Lines[LineIndex],
+			BodyFont,
+			NotificationX + 16.0f,
+			PenY,
+			bStatusLine ? Accent : PrimaryText);
+		PenY += LineHeight;
+	}
+
+	DrawPhoneText(
+		NSLOCTEXT("IGHUD", "PhoneApprovalHistory", "알림 기록"),
+		MetaFont,
+		ContentLeft,
+		ScreenOrigin.Y + InnerHeight - 31.0f,
+		SecondaryText);
+	const FText Hint = SupportsKorean()
+		? bUsingGamepad
+			? NSLOCTEXT("IGHUD", "PhoneCloseGamepad", "[ A ]  휴대폰 내려놓기")
+			: NSLOCTEXT("IGHUD", "PhoneCloseKeyboard", "[ E ]  휴대폰 내려놓기")
+		: FText::FromString(
+			bUsingGamepad ? TEXT("[ A ]  Put phone down") : TEXT("[ E ]  Put phone down"));
+	DrawCenteredText(
+		Hint,
+		FMath::Min(ScreenHeight - 26.0f, PhoneOrigin.Y + PhoneHeight + 16.0f),
+		IGHorrorHUD::PaleGray,
+		EIGHudTextRole::Hint);
 }
 
 void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
@@ -1310,8 +1991,13 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		&FaintInk);
 
 	const FText Hint = SupportsKorean()
-		? NSLOCTEXT("IGHUD", "ReceiptClose", "[ E ]  영수증 내려놓기")
-		: FText::FromString(TEXT("[ E ]  Put receipt down"));
+		? bUsingGamepad
+			? NSLOCTEXT("IGHUD", "ReceiptCloseGamepad", "[ A ]  영수증 내려놓기")
+			: NSLOCTEXT("IGHUD", "ReceiptCloseKeyboard", "[ E ]  영수증 내려놓기")
+		: FText::FromString(
+			bUsingGamepad
+				? TEXT("[ A ]  Put receipt down")
+				: TEXT("[ E ]  Put receipt down"));
 	const FVector2D HintSize = MeasureText(ReceiptFont, Hint);
 	const float HintY = FMath::Min(
 		ScreenHeight - HintSize.Y - 5.0f,

@@ -12,8 +12,13 @@ class AIGPrologueWorldScene;
 class AIGReadableNote;
 class AIGSlidingDoor;
 class AIGSwingDoor;
+class AIGTimeEntryPuzzle;
 class UAudioComponent;
+class UMaterialInterface;
 class UPointLightComponent;
+class USceneComponent;
+class UStaticMesh;
+class UStaticMeshComponent;
 
 /**
  * Coordinates CH02 without owning level geometry.
@@ -48,7 +53,23 @@ public:
 		AIGReadableNote* InMailboxBills,
 		AIGReadableNote* InOfferingNote,
 		AIGReadableNote* InNightRoster,
-		AIGReadableNote* InManagementNotice);
+		AIGReadableNote* InManagementNotice,
+		UStaticMesh* InCubeMesh,
+		UStaticMesh* InAlarmHousingMesh,
+		UStaticMesh* InPosHousingMesh,
+		UMaterialInterface* InBodyMaterial,
+		UMaterialInterface* InDisplayOffMaterial,
+		UMaterialInterface* InDisplayGlassMaterial,
+		UMaterialInterface* InAlarmDisplayOnMaterial,
+		UMaterialInterface* InPosDisplayOnMaterial,
+		UMaterialInterface* InButtonMaterial);
+
+	void HandleTimeEntrySelectionChanged(AIGTimeEntryPuzzle* Puzzle);
+	void HandleTimeEntryConfirmed(
+		AIGTimeEntryPuzzle* Puzzle,
+		bool bCorrect);
+	/** Reveals the next hint rung for the currently approached CH02 puzzle. */
+	bool RequestManualHint();
 
 	virtual FText GetObjectiveText() const override;
 	virtual FString GetObjectiveTextAscii() const override;
@@ -62,7 +83,14 @@ public:
 	 * note handlers, then emits the same physical-return state used by the
 	 * fourth-floor volume. Used only by the release end-to-end route.
 	 */
-	bool RunRebirthEndToEndRoute();
+	bool RunRebirthEndToEndRoute(
+		bool bP2First = false,
+		bool bSkipP1 = false,
+		bool bSkipP2 = false);
+	int32 GetTimeEntryPhysicalContractCount() const;
+	int32 GetTimeEntryMeshComponentCount() const;
+	int32 GetAuthoredTimeEntryHousingCount() const;
+	int32 GetLayeredTimeEntryDisplayCount() const;
 
 protected:
 	virtual void BeginPlay() override;
@@ -95,10 +123,38 @@ private:
 	void RegisterDeathOverlayTruth() const;
 	int32 GetSecondMorningTruthCount() const;
 	bool CanConvergeSecondMorning() const;
+	bool RunP1EndToEndStep();
+	bool RunP2EndToEndStep();
 	void RefreshReturnGate() const;
 	void RestoreOutfitFromCanonical(bool bAllowLegacyMigration);
 	void CommitOutfitAtFirstExit();
 	void RequestCheckpointAutosave(const FGameplayTag& CheckpointTag) const;
+	void SpawnTimeEntryPuzzles(
+		UStaticMesh* CubeMesh,
+		UStaticMesh* AlarmHousingMesh,
+		UStaticMesh* PosHousingMesh,
+		UMaterialInterface* BodyMaterial,
+		UMaterialInterface* DisplayOffMaterial,
+		UMaterialInterface* DisplayGlassMaterial,
+		UMaterialInterface* AlarmDisplayOnMaterial,
+		UMaterialInterface* PosDisplayOnMaterial,
+		UMaterialInterface* ButtonMaterial);
+	void RestoreTimeEntryPuzzles();
+	void RefreshTimeEntryAvailability();
+	void PersistTimeEntryState(const AIGTimeEntryPuzzle& Puzzle) const;
+	void ClearTimeEntryStateTags(const AIGTimeEntryPuzzle& Puzzle) const;
+	bool IsPuzzleResolved(FName PuzzleId) const;
+	void ApplyP1PressureStage(int32 PressureStage);
+	void ApplyP1SolvedLight();
+	void RestoreP1LightAfterSolve();
+	void SetP2ShutterStage(int32 PressureStage);
+	void BeginP2ShutterRise();
+	void AnimateP2ShutterRise();
+	void PollPuzzlePressure();
+	void RaiseTimedPuzzlePressure(AIGTimeEntryPuzzle* Puzzle, bool bP1);
+	void PresentP1ManualHint();
+	void PresentP2ManualHint();
+	void RemoveState(const FGameplayTag& Tag) const;
 
 	UFUNCTION()
 	void HandleStoryStateChanged(FGameplayTag StateTag, bool bAdded);
@@ -108,6 +164,12 @@ private:
 
 	UFUNCTION()
 	void HandleNoteRead(AIGReadableNote* Note, bool bOpened);
+
+	UPROPERTY(VisibleAnywhere, Category = "Second Morning")
+	TObjectPtr<USceneComponent> SceneRoot;
+
+	UPROPERTY(VisibleAnywhere, Category = "Second Morning|P2")
+	TObjectPtr<UStaticMeshComponent> P2Shutter;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGPrologueWorldScene> Scene;
@@ -154,6 +216,12 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> ManagementNotice;
 
+	UPROPERTY(Transient)
+	TObjectPtr<AIGTimeEntryPuzzle> P1TimeEntry;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGTimeEntryPuzzle> P2TimeEntry;
+
 	FGameplayTag StartedTag;
 	FGameplayTag WakeAlarmStoppedTag;
 	FGameplayTag WakeStandingTag;
@@ -189,11 +257,21 @@ private:
 	FTimerHandle LiftRevealHandle;
 	FTimerHandle LiftResumeHandle;
 	FTimerHandle StoreChimeHandle;
+	FTimerHandle P1SolvedLightHandle;
+	FTimerHandle P2ShutterAnimationHandle;
+	FTimerHandle PuzzlePressureHandle;
 
 	double NextBlackoutAllowedTime = 0.0;
 	double ThreatEndTime = 0.0;
+	double P2ShutterAnimationStartTime = 0.0;
 	float ActiveThreatPressure = 0.0f;
+	float P2ShutterAnimationStartZ = 230.0f;
+	float P1PressureElapsedSeconds = 0.0f;
+	float P2PressureElapsedSeconds = 0.0f;
 	int32 NextCorridorFixture = INDEX_NONE;
+	int32 P1ManualHintStage = 0;
+	int32 P2ManualHintStage = 0;
+	bool bP1PressureArmed = false;
 	bool bMirrorBeatConsumed = false;
 	bool bStoreBeatConsumed = false;
 	bool bEndingConsumed = false;

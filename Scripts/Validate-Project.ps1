@@ -79,9 +79,13 @@ $requiredFiles = @(
 	'Scripts/Run-Rebirth-Greybox.bat',
 	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
 	'Scripts/Run-Rebirth-PersistenceSpikes.ps1',
+	'Scripts/Run-Rebirth-CH02FreedomSpikes.ps1',
+	'Scripts/Run-Rebirth-CheckpointAnchorSpikes.ps1',
 	'Scripts/Run-Rebirth-BackgroundRuntimeValidation.ps1',
 	'Scripts/Test-Rebirth-NarrativeContract.ps1',
 	'Scripts/Test-Rebirth-ItemContinuityContract.ps1',
+	'Scripts/Test-Rebirth-ChapterTwoTimeEntryContract.ps1',
+	'Scripts/Test-Rebirth-AccessibilityContract.ps1',
 	'Scripts/Test-ArtAssetContract.ps1',
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
@@ -92,12 +96,16 @@ $requiredFiles = @(
     'Source/IndieGame/IndieGame.h',
     'Source/IndieGame/IndieGame.cpp',
 	'Source/IndieGame/Sequence/IGObjectiveProvider.h',
+	'Source/IndieGame/Interaction/IGTimeEntryPuzzle.h',
+	'Source/IndieGame/Interaction/IGTimeEntryPuzzle.cpp',
 	'Source/IndieGame/Sequence/IGSecondMorningDirector.h',
 	'Source/IndieGame/Sequence/IGSecondMorningDirector.cpp',
 	'Source/IndieGame/Sequence/IGThirdMorningDirector.h',
 	'Source/IndieGame/Sequence/IGThirdMorningDirector.cpp',
 	'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.h',
 	'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.cpp',
+	'Source/IndieGame/Accessibility/IGAccessibilitySubsystem.h',
+	'Source/IndieGame/Accessibility/IGAccessibilitySubsystem.cpp',
 	'Source/IndieGame/Core/IGPrologueGameMode.cpp',
 	'Source/IndieGame/Narrative/IGRebirthNarrativeTypes.h',
 	'Source/IndieGame/Narrative/IGRebirthNarrativeSubsystem.h',
@@ -161,6 +169,8 @@ foreach ($resolverInvariant in @(
 $headlessScripts = @(
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Run-Rebirth-PersistenceSpikes.ps1',
+	'Scripts/Run-Rebirth-CH02FreedomSpikes.ps1',
+	'Scripts/Run-Rebirth-CheckpointAnchorSpikes.ps1',
 	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
 	'Scripts/Run-Rebirth-Greybox.bat'
 )
@@ -335,6 +345,14 @@ $persistenceSpikeScriptPath = Join-Path $projectRoot (
 	'Scripts/Run-Rebirth-PersistenceSpikes.ps1')
 $persistenceSpikeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	$persistenceSpikeScriptPath)
+$ch02FreedomSpikeScriptPath = Join-Path $projectRoot (
+	'Scripts/Run-Rebirth-CH02FreedomSpikes.ps1')
+$ch02FreedomSpikeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	$ch02FreedomSpikeScriptPath)
+$checkpointAnchorSpikeScriptPath = Join-Path $projectRoot (
+	'Scripts/Run-Rebirth-CheckpointAnchorSpikes.ps1')
+$checkpointAnchorSpikeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	$checkpointAnchorSpikeScriptPath)
 $backgroundRuntimeScriptPath = Join-Path $projectRoot (
 	'Scripts/Run-Rebirth-BackgroundRuntimeValidation.ps1')
 $backgroundRuntimeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -653,6 +671,7 @@ foreach ($requiredChapterThreeGate in @(
 	'authoritative_collision=1',
 	'ValidateRebirthCollisionRoute',
 	'ValidateRebirthAudioQueue',
+	'ValidateRebirthItemContinuity',
 	'ReleaseValidationSaveIdleRetryCount > 100',
 	'savegame_v3 autosave did not become idle',
 	'HandleReleaseValidationSaveCompleted',
@@ -671,6 +690,7 @@ foreach ($requiredChapterThreeGate in @(
 	'bSlotDeleted',
 	'REBIRTH_RELEASE PASS collision_route',
 	'REBIRTH_RELEASE PASS audio_queue',
+	'REBIRTH_RELEASE PASS s5_item_continuity',
 	'REBIRTH_RELEASE PASS savegame_v3',
 	'REBIRTH_RELEASE PASS ending='
 )) {
@@ -682,6 +702,7 @@ foreach ($requiredEndToEndInvariant in @(
 	'IGRebirthEndToEndValidation',
 	'REBIRTH_E2E PASS ch01_router',
 	'REBIRTH_E2E PASS ch02_router',
+	'cat_aftermath=1',
 	'REBIRTH_E2E PASS ch03_handoff'
 )) {
 	if (-not $worldSceneSource.Contains($requiredEndToEndInvariant)) {
@@ -697,6 +718,12 @@ foreach ($requiredChapterTwoEndToEndInvariant in @(
 	if (-not $secondMorningSource.Contains($requiredChapterTwoEndToEndInvariant)) {
 		throw "CH02 end-to-end state transition is missing: $requiredChapterTwoEndToEndInvariant"
 	}
+}
+$chapterTwoWakeAutosavePattern =
+	'(?s)WakeDirector->ConfigureChapterSaveTags\s*\(.*?' +
+	'Checkpoint\.CH02\.Woke.*?true\s*\);'
+if ($worldSceneSource -notmatch $chapterTwoWakeAutosavePattern) {
+	throw 'CH02 must write the Woke checkpoint after the player reaches the safe standing state.'
 }
 foreach ($requiredRoofDoorInvariant in @(
 	'RoofDoorLeaf->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics)',
@@ -725,10 +752,21 @@ foreach ($requiredCommonPropInvariant in @(
 	'TankLidCountAfterEnding == 1',
 	'OwnedActionCountAfterEnding',
 	'ExpectedLidLocation',
+	'ValidateCommonDiscoveryWorldState()',
+	'ExpectedRodLocation',
+	'IsRetiredDocument',
+	'bAllEvidenceRetired',
 	'!TankLidAction->GetActorEnableCollision()',
 	'!TankLidAction->IsInteractionEnabled()',
 	'bAllBodySilhouetteHidden',
-	'REBIRTH_SPIKE PASS s4_common_prop'
+	'ReleaseValidationSafetyOpeningCues == ExpectedSafetyOpeningCues',
+	'Safety.GasDetector',
+	'Safety.Ventilation',
+	'Safety.Harness',
+	'Safety.TwoClimbers',
+	'Safety.HatchOpen',
+	'REBIRTH_SPIKE PASS s4_common_prop',
+	'actual_state=1 safety_cues=5'
 )) {
 	if (-not $thirdMorningSource.Contains($requiredCommonPropInvariant)) {
 		throw "S4 common-prop invariant is missing: $requiredCommonPropInvariant"
@@ -1034,6 +1072,10 @@ foreach ($requiredBackgroundInvariant in @(
 	"'-RenderOffscreen'",
 	"'-ExecCmds=MAP CHECK,QUIT_EDITOR'",
 	'맵 체크 완료:',
+	'$unrealDiagnosticPatterns = @(',
+	'$unrealDiagnosticAllowlist = @(',
+	'Assert-NoUnexpectedUnrealDiagnostics',
+	'허용되지 않은 Unreal Ensure/Error/Fatal 진단',
 	'REBIRTH_BACKGROUND PASS runtime ending=',
 	'REBIRTH_BACKGROUND PASS complete',
 	'visible_windows=0'
@@ -1041,6 +1083,12 @@ foreach ($requiredBackgroundInvariant in @(
 	if (-not $backgroundRuntimeScript.Contains($requiredBackgroundInvariant)) {
 		throw "REBIRTH background runtime invariant is missing: $requiredBackgroundInvariant"
 	}
+}
+$backgroundDiagnosticGuardCount = [regex]::Matches(
+	$backgroundRuntimeScript,
+	[regex]::Escape('Assert-NoUnexpectedUnrealDiagnostics')).Count
+if ($backgroundDiagnosticGuardCount -lt 3) {
+	throw 'Background diagnostic guard must cover its definition, Map Check, and runtime logs.'
 }
 foreach ($requiredReleaseValidationInvariant in @(
 	'[switch]$StaticOnly',
@@ -1063,12 +1111,24 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'Assert-ReleaseLog',
 	'REBIRTH_E2E PASS ch01_router',
 	'REBIRTH_E2E PASS ch02_router',
+	'approval_0431=1',
+	'approval_screen=1',
+	'cat_aftermath=1',
+	'authored_housings=2',
+	'layered_displays=2',
+	'pressure_caps=2',
+	'time_entry_physical=2',
+	'route_order=$expectedRouteOrder',
+	"'p1_p2'",
+	"'p2_p1'",
 	'REBIRTH_E2E PASS ch03_handoff',
 	'REBIRTH_SPIKE PASS s1_outfit_sleeve chapters=3 duplicates=0 stitches=3',
 	'REBIRTH_RELEASE PASS s2_roof_door',
 	'REBIRTH_SPIKE PASS s4_common_prop ending=$Ending duplicates=0',
+	'actual_state=1 safety_cues=5',
 	'REBIRTH_RELEASE PASS collision_route',
 	'REBIRTH_RELEASE PASS audio_queue',
+	'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 presentations=2 cases=12 duplicates=0',
 	'REBIRTH_RELEASE PASS p3_p5',
 	'REBIRTH_RELEASE PASS savegame_v3',
 	'REBIRTH_RELEASE PASS complete',
@@ -1088,6 +1148,16 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'$unrealDiagnosticAllowlist = @(',
 	'Assert-NoUnexpectedUnrealDiagnostics',
 	'Unapproved Unreal Ensure/Error/Fatal diagnostic',
+	'Get-AsciiReleaseBuildRoot',
+	'Invoke-ReleaseRobocopy',
+	'$buildProjectFile',
+	'usingAsciiBuildMirror',
+	'Get-VcRuntimePrerequisite',
+	"'vc_runtime_prerequisite'",
+	"[Version]'14.50.35719.0'",
+	'VC++ runtime prerequisite was blocked.',
+	'vcRuntimePrerequisite = $vcRuntimePrerequisite',
+	'schemaVersion = 3',
 	'unrealDiagnosticAllowlist = @($unrealDiagnosticAllowlist)',
 	'Add-MissingStepResults',
 	'automatedReleaseCandidateEligible',
@@ -1145,16 +1215,20 @@ if ($staticCompletionBranchIndex -le $staticContractsIndex -or
 $unrealDiagnosticGuardCount = [regex]::Matches(
 	$releaseValidationScript,
 	[regex]::Escape('Assert-NoUnexpectedUnrealDiagnostics')).Count
-if ($unrealDiagnosticGuardCount -lt 4) {
+if ($unrealDiagnosticGuardCount -lt 5) {
 	throw (
 		'Unreal diagnostic guard must cover its definition, release A/B logs, ' +
-		'persistence case logs, and Map Check.')
+		'persistence/anchor case logs, and Map Check.')
 }
 foreach ($requiredPersistenceIntegrationInvariant in @(
 	"'persistence_spikes'",
 	'Run-Rebirth-PersistenceSpikes.ps1',
 	'Assert-PersistenceSpikeEvidence',
-	'REBIRTH_SPIKE_HARNESS PASS complete p3=7 endings=2',
+	'REBIRTH_SPIKE_HARNESS PASS complete boundary=2 cat_choices=5 ch02_time=2 p5=4 p3=7 endings=2',
+	'memoryBoundaryProcessRestarts',
+	'catChoiceProcessRestarts',
+	'ch02TimeProcessRestarts',
+	'p5ProcessRestarts',
 	'p3ProcessRestarts',
 	'endingProcessRestarts',
 	'saveSnapshotSha256',
@@ -1169,12 +1243,125 @@ foreach ($requiredPersistenceIntegrationInvariant in @(
 			$requiredPersistenceIntegrationInvariant)
 	}
 }
+foreach ($requiredCH02FreedomIntegrationInvariant in @(
+	"'ch02_freedom_spikes'",
+	'Run-Rebirth-CH02FreedomSpikes.ps1',
+	'Assert-CH02FreedomSpikeEvidence',
+	'REBIRTH_CH02_FREEDOM_HARNESS PASS complete routes=5',
+	'CH02FreedomSpikes.log',
+	'CH02FreedomSpikes',
+	'P1ThenP2',
+	'P2ThenP1',
+	'SkipP1',
+	'SkipP2',
+	'SkipBoth'
+)) {
+	if (-not $releaseValidationScript.Contains(
+			$requiredCH02FreedomIntegrationInvariant)) {
+		throw (
+			'Release CH02-freedom integration invariant is missing: ' +
+			$requiredCH02FreedomIntegrationInvariant)
+	}
+}
+foreach ($requiredCH02FreedomHarnessInvariant in @(
+	'[ValidateRange(30, 600)]',
+	'-WindowStyle Hidden',
+	'-IGRebirthEndToEndValidation',
+	'-IGRebirthCH02FreedomProbe',
+	'IGRebirthCH02Route',
+	'route_order=',
+	'authored_housings=2',
+	'layered_displays=2',
+	'time_entry_physical=2 pressure_caps=',
+	'Get-FileHash -Algorithm SHA256',
+	'REBIRTH_CH02_FREEDOM_HARNESS PASS complete routes=5'
+)) {
+	if (-not $ch02FreedomSpikeScript.Contains(
+			$requiredCH02FreedomHarnessInvariant)) {
+		throw (
+			'CH02 freedom harness invariant is missing: ' +
+			$requiredCH02FreedomHarnessInvariant)
+	}
+}
+foreach ($requiredCheckpointAnchorIntegrationInvariant in @(
+	"'checkpoint_anchor_spikes'",
+	'Run-Rebirth-CheckpointAnchorSpikes.ps1',
+	'Assert-CheckpointAnchorSpikeEvidence',
+	'REBIRTH_ANCHOR_HARNESS PASS complete anchors=5 processes=10',
+	'CheckpointAnchorSpikes.log',
+	'mapReentryCount',
+	'capsuleClearCount',
+	'floorContactCount',
+	'capsule_clear=1 map_reentered=1'
+)) {
+	if (-not $releaseValidationScript.Contains(
+			$requiredCheckpointAnchorIntegrationInvariant)) {
+		throw (
+			'Release checkpoint-anchor integration invariant is missing: ' +
+			$requiredCheckpointAnchorIntegrationInvariant)
+	}
+}
+foreach ($requiredCheckpointAnchorHarnessInvariant in @(
+	'[ValidateRange(30, 1800)]',
+	'-WindowStyle Hidden',
+	'"-IGRebirthPersistenceProbe=$Mode"',
+	'"-IGRebirthAnchorCase=$AnchorCase"',
+	"'CH02Corridor'",
+	"'CH02Store'",
+	"'CH03Apartment'",
+	"'CH03Flood'",
+	"'CH03Roof'",
+	'SaveSnapshots',
+	'saveSnapshotSha256',
+	'Get-FileHash -Algorithm SHA256',
+	'REBIRTH_ANCHOR_HARNESS PASS complete anchors=$($anchors.Count)'
+)) {
+	if (-not $checkpointAnchorSpikeScript.Contains(
+			$requiredCheckpointAnchorHarnessInvariant)) {
+		throw (
+			'Checkpoint anchor harness invariant is missing: ' +
+			$requiredCheckpointAnchorHarnessInvariant)
+	}
+}
+foreach ($requiredChapterTwoAnchorInvariant in @(
+	'FVector(430.0f, -305.0f, 998.0f)',
+	'FVector(2515.0f, -455.0f, 104.0f)'
+)) {
+	if (-not $worldSceneSource.Contains($requiredChapterTwoAnchorInvariant)) {
+		throw (
+			'CH02 grounded checkpoint anchor invariant is missing: ' +
+			$requiredChapterTwoAnchorInvariant)
+	}
+}
+foreach ($requiredChapterThreeAnchorInvariant in @(
+	'RestoredCapsuleCenter = StandingCapsuleCenter + 2.0f',
+	'IGThirdMorning::RestoredCapsuleCenter'
+)) {
+	if (-not $thirdMorningSource.Contains(
+			$requiredChapterThreeAnchorInvariant)) {
+		throw (
+			'CH03 grounded checkpoint anchor invariant is missing: ' +
+			$requiredChapterThreeAnchorInvariant)
+	}
+}
 foreach ($requiredPersistenceHarnessInvariant in @(
 	'[ValidateRange(30, 1800)]',
 	'Start-Process',
 	'-WindowStyle Hidden',
 	'"-UserDir=$userDirectory"',
 	'"-IGRebirthPersistenceProbe=$Mode"',
+	"if (`$Mode -eq 'CatChoiceRead')",
+	"`$arguments += '-IGChapterTwo'",
+	"'BoundaryBeforeWrite'",
+	"'BoundaryBeforeRead'",
+	"'BoundaryAfterWrite'",
+	"'BoundaryAfterRead'",
+	"'CatChoiceWrite'",
+	"'CatChoiceRead'",
+	"'CH02TimeWrite'",
+	"'CH02TimeRead'",
+	"'P5Write'",
+	"'P5Read'",
 	"'P3Write'",
 	"'P3Read'",
 	"'EndingWrite'",
@@ -1182,6 +1369,10 @@ foreach ($requiredPersistenceHarnessInvariant in @(
 	"'EndingVerify'",
 	'$checkpoint -le 6',
 	"foreach (`$ending in @('A', 'B'))",
+	'memoryBoundaryProcessRestarts = 2',
+	'catChoiceProcessRestarts = 5',
+	'ch02TimeProcessRestarts = 2',
+	'p5ProcessRestarts = 4',
 	'p3ProcessRestarts = 7',
 	'endingProcessRestarts = 4',
 	'SaveSnapshots',
@@ -1189,7 +1380,7 @@ foreach ($requiredPersistenceHarnessInvariant in @(
 	'saveSnapshotSha256',
 	'saveDeleted',
 	'Get-FileHash -Algorithm SHA256',
-	'REBIRTH_SPIKE_HARNESS PASS complete p3=7 endings=2'
+	'REBIRTH_SPIKE_HARNESS PASS complete boundary=2 cat_choices=5 ch02_time=2 p5=4 p3=7 endings=2'
 )) {
 	if (-not $persistenceSpikeScript.Contains(
 			$requiredPersistenceHarnessInvariant)) {
@@ -1200,9 +1391,30 @@ foreach ($requiredPersistenceHarnessInvariant in @(
 }
 foreach ($requiredPersistenceProbeInvariant in @(
 	'IGRebirthPersistenceProbe=',
+	'StartBoundaryWrite',
+	'StartBoundaryRead',
+	's5_boundary_resume phase=%s transient_tags=0 safe_states=%d',
+	'StartCatChoiceWrite',
+	'StartCatChoiceRead',
+	'ResolveCatChoiceContract',
+	'ValidateCatWaterAftermath',
+	'RefreshChapterTwoCatWaterAftermath',
+	'ValidateChapterTwoCatWaterAftermath',
+	's5_cat_resume case=%s ch01_physical=1 ch02_physical=1',
+	'State.CH02.Wake.AlarmStopped',
+	'State.CH02.Wake.Standing',
+	'MakeP5Checkpoint',
+	'MatchesP5Checkpoint',
+	'P5 checkpoint must be 0..3',
+	's3_p5_resume checkpoint=%d exact=1',
 	'MakeP3Checkpoint',
 	'MatchesP3Checkpoint',
 	'P3 checkpoint must be 0..6',
+	'ResolveAnchorContract',
+	'ValidateLoadedAnchor',
+	'OverlapBlockingTestByChannel',
+	'LineTraceSingleByChannel',
+	's7_anchor_resume case=%s',
 	'CommitChapterThreeCommonDiscovery()',
 	'State->CommitChapterThreeCommonDiscovery()',
 	'branch_exclusive=1',
@@ -1220,6 +1432,9 @@ foreach ($requiredPersistenceProbeInvariant in @(
 foreach ($requiredPersistenceBootstrapInvariant in @(
 	'IGRebirthPersistenceProbe=',
 	'SpawnActor<AIGRebirthPersistenceProbe>',
+	'bBuildWorldForProbe',
+	'TEXT("CatChoiceRead")',
+	'IGResumeSave',
 	'return;'
 )) {
 	if (-not $prologueGameModeSource.Contains(
@@ -1476,6 +1691,14 @@ $routeMatrixScript = Join-Path $projectRoot `
 $itemContinuityContractScript = Join-Path $projectRoot `
 	'Scripts/Test-Rebirth-ItemContinuityContract.ps1'
 & $itemContinuityContractScript
+
+$chapterTwoTimeEntryContractScript = Join-Path $projectRoot `
+	'Scripts/Test-Rebirth-ChapterTwoTimeEntryContract.ps1'
+& $chapterTwoTimeEntryContractScript
+
+$accessibilityContractScript = Join-Path $projectRoot `
+	'Scripts/Test-Rebirth-AccessibilityContract.ps1'
+& $accessibilityContractScript
 
 $artAssetContractScript = Join-Path $projectRoot `
 	'Scripts/Test-ArtAssetContract.ps1'

@@ -1,5 +1,6 @@
 ﻿#include "Player/IGPlayerCharacter.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
@@ -189,6 +190,11 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 void AIGPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		AccessibilitySubsystem =
+			GameInstance->GetSubsystem<UIGAccessibilitySubsystem>();
+	}
 
 	// A short tick whenever something new becomes usable is the cheapest way
 	// to make aiming at objects feel responsive rather than guessy.
@@ -509,6 +515,8 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 		GroundSpeed / FMath::Max(MovementComponent ? MovementComponent->MaxWalkSpeed : 300.0f, 1.0f),
 		0.0f,
 		1.0f);
+	const bool bReducedMotion = AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled();
 
 	BreathTime += DeltaSeconds;
 
@@ -524,29 +532,43 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 			PlayFootstep(SpeedScale);
 		}
 
-		// One full sine cycle spans two footsteps (left/right).
-		const float StepPhase =
-			(TraveledDistanceAccum / StepDistance) * UE_PI;
-		TargetOffset.Z += -FMath::Abs(FMath::Sin(StepPhase)) * BobAmplitude * SpeedScale;
-		TargetOffset.Y += FMath::Sin(StepPhase) * 0.8f * SpeedScale;
+		if (!bReducedMotion)
+		{
+			// One full sine cycle spans two footsteps (left/right).
+			const float StepPhase =
+				(TraveledDistanceAccum / StepDistance) * UE_PI;
+			TargetOffset.Z +=
+				-FMath::Abs(FMath::Sin(StepPhase)) * BobAmplitude * SpeedScale;
+			TargetOffset.Y += FMath::Sin(StepPhase) * 0.8f * SpeedScale;
+		}
 	}
 
-	// Slow breathing sway; more noticeable while standing still. The rate is
-	// the fear model's, so the chest visibly speeds up before the player has
-	// worked out why they are frightened.
-	const float BreathScale = FMath::Lerp(1.0f, 0.35f, SpeedScale);
-	const float BreathsPerMinute = StressComponent ? StressComponent->GetBreathsPerMinute() : 13.0f;
-	const float BreathHz = BreathsPerMinute / 60.0f;
-	const float BreathDepth = StressComponent
-		? FMath::Lerp(0.55f, 1.35f, StressComponent->GetStress())
-		: 0.55f;
-	TargetOffset.Z += FMath::Sin(BreathTime * 2.0f * UE_PI * BreathHz) * BreathDepth * BreathScale;
+	if (!bReducedMotion)
+	{
+		// Slow breathing sway; more noticeable while standing still. The rate is
+		// the fear model's, so the chest visibly speeds up before the player has
+		// worked out why they are frightened.
+		const float BreathScale = FMath::Lerp(1.0f, 0.35f, SpeedScale);
+		const float BreathsPerMinute =
+			StressComponent ? StressComponent->GetBreathsPerMinute() : 13.0f;
+		const float BreathHz = BreathsPerMinute / 60.0f;
+		const float BreathDepth = StressComponent
+			? FMath::Lerp(0.55f, 1.35f, StressComponent->GetStress())
+			: 0.55f;
+		TargetOffset.Z +=
+			FMath::Sin(BreathTime * 2.0f * UE_PI * BreathHz)
+			* BreathDepth
+			* BreathScale;
+	}
 
 	// Pressing Interact nudges the head forward and down, then springs back.
 	if (InteractPunch > KINDA_SMALL_NUMBER)
 	{
-		TargetOffset.X += InteractPunch * 2.4f;
-		TargetOffset.Z -= InteractPunch * 1.6f;
+		if (!bReducedMotion)
+		{
+			TargetOffset.X += InteractPunch * 2.4f;
+			TargetOffset.Z -= InteractPunch * 1.6f;
+		}
 		InteractPunch = FMath::FInterpTo(InteractPunch, 0.0f, DeltaSeconds, 7.0f);
 	}
 
@@ -559,7 +581,11 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 
 	// Fear tremor rides on the camera's own rotation rather than the control
 	// rotation, so it shakes the view without fighting the player's aim.
-	if (StressComponent)
+	if (bReducedMotion)
+	{
+		FirstPersonCamera->SetRelativeRotation(FRotator::ZeroRotator);
+	}
+	else if (StressComponent)
 	{
 		FirstPersonCamera->SetRelativeRotation(StressComponent->GetTremor());
 	}
@@ -581,7 +607,10 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 
 	// Every footfall knocks the torch: alternate the kick left/right so the
 	// beam walks with the body instead of floating.
-	if (Flashlight && Flashlight->IsOn())
+	if (Flashlight
+		&& Flashlight->IsOn()
+		&& (!AccessibilitySubsystem
+			|| !AccessibilitySubsystem->IsReducedCameraMotionEnabled()))
 	{
 		const float Side = (LastStepIndex % 2 == 0) ? 1.0f : -1.0f;
 		Flashlight->AddImpulse(
@@ -722,8 +751,8 @@ void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	}
 	// Save/load remains available even when no Blueprint input asset or front
 	// end menu has been authored yet. Autosaves are the only shipped slots.
-	PlayerInputComponent->BindKey(
-		EKeys::F9,
+	PlayerInputComponent->BindAction(
+		TEXT("LoadAutosave"),
 		IE_Pressed,
 		this,
 		&ThisClass::LoadLatestAutosave);

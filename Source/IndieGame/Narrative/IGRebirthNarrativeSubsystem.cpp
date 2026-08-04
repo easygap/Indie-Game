@@ -740,6 +740,10 @@ void UIGRebirthNarrativeSubsystem::NormalizeSnapshot(
 	P3.HintElapsedSeconds = FMath::IsFinite(P3.HintElapsedSeconds)
 		? FMath::Max(0.0f, P3.HintElapsedSeconds)
 		: 0.0f;
+	P3.PressureRiseElapsedSeconds = FMath::IsFinite(
+		P3.PressureRiseElapsedSeconds)
+		? FMath::Max(0.0f, P3.PressureRiseElapsedSeconds)
+		: 0.0f;
 	P3.HintStage = FMath::Clamp(P3.HintStage, 0, 3);
 	P3.PressureKPa = FMath::IsFinite(P3.PressureKPa)
 		? FMath::Clamp(P3.PressureKPa, 0.0f, 60.0f)
@@ -761,7 +765,9 @@ void UIGRebirthNarrativeSubsystem::NormalizeSnapshot(
 		P3.bReserveInletClosed = true;
 		P3.bPressureReleaseOpen = true;
 		P3.bPressureZero = true;
+		P3.bPressureRiseArmed = false;
 		P3.PressureKPa = 0.0f;
+		P3.PressureRiseElapsedSeconds = 0.0f;
 		P3.ZeroConfirmationTicks = 2;
 		IGRebirthState::AddUniqueName(
 			Snapshot.ResolvedPuzzles,
@@ -778,6 +784,23 @@ void UIGRebirthNarrativeSubsystem::NormalizeSnapshot(
 		P3.bPressureReleaseOpen = true;
 		P3.PressureKPa = 0.0f;
 		P3.bPressureZero = P3.ZeroConfirmationTicks >= 2;
+	}
+
+	FIGRebirthP4State& P4 = ChapterThree.P4;
+	P4.StairLoopCount = FMath::Clamp(P4.StairLoopCount, 0, 3);
+	P4.PressureStage = FMath::Clamp(P4.PressureStage, 0, 3);
+	P4.HintStage = FMath::Clamp(P4.HintStage, 0, 3);
+	P4.PressureRiseElapsedSeconds = FMath::IsFinite(
+		P4.PressureRiseElapsedSeconds)
+		? FMath::Max(0.0f, P4.PressureRiseElapsedSeconds)
+		: 0.0f;
+	P4.HintElapsedSeconds = FMath::IsFinite(P4.HintElapsedSeconds)
+		? FMath::Max(0.0f, P4.HintElapsedSeconds)
+		: 0.0f;
+	if (P4.bCompleted)
+	{
+		P4.bPressureArmed = false;
+		P4.PressureRiseElapsedSeconds = 0.0f;
 	}
 
 	TArray<FName> UniqueObservedSources;

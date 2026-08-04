@@ -1,6 +1,8 @@
 #include "Player/IGInteractionComponent.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "DrawDebugHelpers.h"
+#include "Engine/GameInstance.h"
 #include "GameFramework/Pawn.h"
 #include "Interaction/IGInteractable.h"
 #include "Engine/World.h"
@@ -59,7 +61,20 @@ void UIGInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 
 void UIGInteractionComponent::PressInteraction()
 {
-	if (!bInteractionInputEnabled || !IsActive() || bInteractionPressed || bFinalizingInteraction)
+	if (!bInteractionInputEnabled || !IsActive() || bFinalizingInteraction)
+	{
+		return;
+	}
+	if (bInteractionActive && bToggleHoldLatched)
+	{
+		// The same input that latched a hold also gives the player an immediate,
+		// predictable way to cancel it before completion.
+		++InteractionGeneration;
+		bInteractionPressed = false;
+		FinishActiveInteraction(EIGInteractionEndReason::Cancelled, false);
+		return;
+	}
+	if (bInteractionPressed)
 	{
 		return;
 	}
@@ -103,12 +118,28 @@ void UIGInteractionComponent::PressInteraction()
 		return;
 	}
 
-	const float TargetHoldDuration = FMath::Max(
+	float TargetHoldDuration = FMath::Max(
 		0.0f,
 		IIGInteractable::Execute_GetInteractionHoldDuration(Target, Interactor));
 	if (!IsAttemptValid())
 	{
 		return;
+	}
+	bool bUseToggleHold = false;
+	if (TargetHoldDuration > KINDA_SMALL_NUMBER)
+	{
+		if (const UWorld* World = GetWorld())
+		{
+			if (const UGameInstance* GameInstance = World->GetGameInstance())
+			{
+				if (const UIGAccessibilitySubsystem* Accessibility =
+					GameInstance->GetSubsystem<UIGAccessibilitySubsystem>())
+				{
+					TargetHoldDuration *= Accessibility->GetHoldDurationScale();
+					bUseToggleHold = Accessibility->UsesToggleHoldInteractions();
+				}
+			}
+		}
 	}
 
 	ActiveActor = Target;
@@ -117,6 +148,7 @@ void UIGInteractionComponent::PressInteraction()
 	ActiveHoldDuration = TargetHoldDuration;
 	ActiveStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 	bInteractionActive = true;
+	bToggleHoldLatched = bUseToggleHold;
 
 	const FIGInteractionContext Context = MakeContext(
 		Target,
@@ -155,8 +187,13 @@ void UIGInteractionComponent::ReleaseInteraction()
 		return;
 	}
 
-	++InteractionGeneration;
 	bInteractionPressed = false;
+	if (bToggleHoldLatched && bInteractionActive)
+	{
+		return;
+	}
+
+	++InteractionGeneration;
 	FinishActiveInteraction(EIGInteractionEndReason::Released, false);
 }
 
@@ -444,7 +481,9 @@ void UIGInteractionComponent::SetFocusedActor(AActor* NewActor, const FHitResult
 void UIGInteractionComponent::UpdateActiveInteraction()
 {
 	AActor* Target = ActiveActor.Get();
-	if (!bInteractionActive || !bInteractionPressed || !IsValid(Target))
+	if (!bInteractionActive
+		|| (!bInteractionPressed && !bToggleHoldLatched)
+		|| !IsValid(Target))
 	{
 		return;
 	}
@@ -535,6 +574,7 @@ void UIGInteractionComponent::FinishActiveInteraction(
 void UIGInteractionComponent::ResetActiveState()
 {
 	bInteractionActive = false;
+	bToggleHoldLatched = false;
 	ActiveActor.Reset();
 	ActiveHitResult = FHitResult();
 	ActiveInteractionTag = FGameplayTag();

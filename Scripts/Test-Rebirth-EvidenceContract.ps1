@@ -115,7 +115,9 @@ foreach ($puzzleId in 1..5) {
 	Assert-True ($evidenceSource.Contains("TEXT(`"P$puzzleId`")")) "P$puzzleId 상태가 JSON에 없다"
 }
 Assert-ContainsAll $evidenceSource @(
+	'const FName PuzzleP1(TEXT("P1"))',
 	'P1.AlarmArithmeticProxy',
+	'const FName PuzzleP2(TEXT("P2"))',
 	'P2.ReceiptComparisonProxy',
 	'TEXT("directInletClosed")',
 	'TEXT("pressureKPa")',

@@ -147,5 +147,7 @@ private:
 	bool bFocusScanInProgress = false;
 	bool bInteractionPressed = false;
 	bool bInteractionActive = false;
+	/** A hold that continues after the physical key is released. */
+	bool bToggleHoldLatched = false;
 	bool bFinalizingInteraction = false;
 };

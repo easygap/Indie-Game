@@ -1033,6 +1033,35 @@ def build_rooftop_water_tank_shell():
     return bake(mesh, "SM_RooftopWaterTankShell", add_collision=False)
 
 
+def build_tank_internal_lining():
+    """Non-colliding wet inner skin for the tank reveal.
+
+    The separate lining keeps the exterior galvanized material clean while a
+    dedicated UV/PBR set carries mineral scale and biofilm below the lid. It
+    sits two centimetres behind the proven collision envelope, so neither the
+    tank silhouette nor puzzle traversal changes.
+    """
+    mesh = new_mesh()
+    revolve(
+        mesh,
+        [
+            (145.0, 382.0),
+            (147.0, 382.0),
+            (147.0, 596.0),
+            (145.0, 596.0),
+        ],
+        steps=64,
+        smooth=True,
+        scale_to_fill=True)
+    cylinder(
+        mesh,
+        144.5,
+        0.8,
+        location=(0.0, 0.0, 381.2),
+        steps=64)
+    return bake(mesh, "SM_TankInternalLining", add_collision=False)
+
+
 def build_rooftop_tank_pipe_cluster():
     """Real-scale 89/76 mm inlet, elbow, branch, flanges and clamps."""
     mesh = new_mesh()
@@ -1718,6 +1747,7 @@ BUILDERS = (
     build_submerged_pants_curl,
     build_submerged_slippers_curl,
     build_rooftop_water_tank_shell,
+    build_tank_internal_lining,
     build_rooftop_tank_pipe_cluster,
     build_tank_internal_ladder,
     build_tank_access_guard_rail,

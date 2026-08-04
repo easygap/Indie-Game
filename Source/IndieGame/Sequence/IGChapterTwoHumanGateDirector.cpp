@@ -13,6 +13,7 @@
 #include "Engine/World.h"
 #include "IndieGame.h"
 #include "Interaction/IGInspectable.h"
+#include "Interaction/IGReadableNote.h"
 #include "Interaction/IGZoneTrigger.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -161,6 +162,35 @@ void AIGChapterTwoHumanGateDirector::Configure(
 	if (PhoneInspectable)
 	{
 		const FTransform PhoneTransform = PhoneInspectable->GetActorTransform();
+		FActorSpawnParameters RecordParameters;
+		RecordParameters.Owner = this;
+		RecordParameters.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		PhoneApprovalRecord = GetWorld()->SpawnActor<AIGReadableNote>(
+			AIGReadableNote::StaticClass(),
+			PhoneTransform,
+			RecordParameters);
+		if (PhoneApprovalRecord)
+		{
+			PhoneApprovalRecord->ConfigurePrototypeVisuals(
+				CubeMesh,
+				PanelMaterial,
+				FVector(7.0f, 14.0f, 0.25f));
+			PhoneApprovalRecord->SetNoteText(
+				NSLOCTEXT("IGCH02", "ApprovalRecordTitle", "카드 승인 알림"),
+				{
+					NSLOCTEXT("IGCH02", "ApprovalRecordCard", "해온카드 · 체크카드 원승인"),
+					NSLOCTEXT("IGCH02", "ApprovalRecordDate", "2024/07/26(금) 04:31"),
+					NSLOCTEXT("IGCH02", "ApprovalRecordStore", "새벽24 무영로점"),
+					NSLOCTEXT("IGCH02", "ApprovalRecordStatus", "승인 완료"),
+				});
+			PhoneApprovalRecord->SetPhoneNotificationPresentation();
+			// 실제 폰 메시 위에서 조사만 위임한다. 기록은 전용 휴대폰 HUD로
+			// 표시하며 별도 종이 프롭을 만들지 않는다.
+			PhoneApprovalRecord->SetActorHiddenInGame(true);
+			PhoneApprovalRecord->SetActorEnableCollision(false);
+			PhoneApprovalRecord->SetInteractionEnabled(false);
+		}
 		struct FPhoneChoice
 		{
 			EIGChapterTwoHumanCheckAction Action;
@@ -198,6 +228,20 @@ void AIGChapterTwoHumanGateDirector::Configure(
 				PhoneActions.Add(PhoneAction);
 			}
 		}
+		const FTransform ApprovalRowTransform(
+			FRotator::ZeroRotator,
+			FVector(0.0f, 9.0f, 1.45f));
+		PhoneApprovalAction = SpawnAction(
+			EIGChapterTwoHumanCheckAction::PhoneApprovalRecord,
+			ApprovalRowTransform * PhoneTransform,
+			FVector(7.0f, 4.0f, 2.2f),
+			CubeMesh,
+			DarkMaterial,
+			NSLOCTEXT(
+				"IGCH02",
+				"PhoneApprovalPrompt",
+				"04:31 카드 승인 기록 확인"),
+			false);
 	}
 
 	Doorbell401Action = SpawnAction(
@@ -298,6 +342,17 @@ void AIGChapterTwoHumanGateDirector::EndPlay(
 		}
 	}
 	PhoneActions.Reset();
+	if (PhoneApprovalAction)
+	{
+		PhoneApprovalAction->Destroy();
+		PhoneApprovalAction = nullptr;
+	}
+	if (PhoneApprovalRecord)
+	{
+		PhoneApprovalRecord->Close();
+		PhoneApprovalRecord->Destroy();
+		PhoneApprovalRecord = nullptr;
+	}
 	for (AIGChapterTwoHumanGateAction* Doorbell :
 		{Doorbell401Action.Get(), Doorbell402Action.Get()})
 	{
@@ -414,6 +469,8 @@ void AIGChapterTwoHumanGateDirector::ResolveTags()
 		Tag(TEXT("State.CH02.HumanGate.Phone.Emergency112"));
 	PhonePatrolManagerTag =
 		Tag(TEXT("State.CH02.HumanGate.Phone.PatrolManager"));
+	PhoneApprovalReadTag =
+		Tag(TEXT("State.CH02.P2.SourceApprovalRead"));
 	AlarmFirstTonePlayedTag =
 		Tag(TEXT("State.CH02.HumanGate.AlarmFirstTonePlayed"));
 	Doorbell401AttemptedTag =
@@ -498,6 +555,12 @@ void AIGChapterTwoHumanGateDirector::UpdateActionAvailability()
 		{
 			PhoneAction->SetAvailable(bPhoneAvailable);
 		}
+	}
+	if (PhoneApprovalAction)
+	{
+		// 승인 기록은 통화 선택과 별개이며 P2를 역순으로 진행해도
+		// 기억력 시험이 되지 않도록 계속 다시 읽을 수 있다.
+		PhoneApprovalAction->SetAvailable(bUnlocked);
 	}
 	if (Doorbell401Action)
 	{
@@ -589,6 +652,27 @@ void AIGChapterTwoHumanGateDirector::HandleAction(
 	bool bCommitted = false;
 	switch (Action)
 	{
+	case EIGChapterTwoHumanCheckAction::PhoneApprovalRecord:
+		AddState(PhoneApprovalReadTag);
+		if (PhoneApprovalRecord && !PhoneApprovalRecord->IsOpen())
+		{
+			FIGInteractionContext Context;
+			Context.TargetActor = PhoneApprovalRecord;
+			PhoneApprovalRecord->CompleteInteraction_Implementation(Context);
+		}
+		else if (!PhoneApprovalRecord)
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGCH02",
+					"PhoneApprovalRecordFallback",
+					"7월 26일 04:31. 새벽24 체크카드 원승인."),
+				3.4f);
+		}
+		RequestCheckpointAutosave();
+		return;
+
 	case EIGChapterTwoHumanCheckAction::PhoneMother:
 	case EIGChapterTwoHumanCheckAction::PhoneEmergency112:
 	case EIGChapterTwoHumanCheckAction::PhonePatrolManager:
@@ -624,6 +708,13 @@ void AIGChapterTwoHumanGateDirector::HandleAction(
 		if (!HasState(Doorbell401AttemptedTag))
 		{
 			Stop401Radio();
+			AIGHorrorHUD::PushAudioCaption(
+				this,
+				NSLOCTEXT(
+					"IGCH02HumanGate",
+					"RadioStopsCaption",
+					"[옆집 라디오가 갑자기 끊긴다]"),
+				2.0f);
 			AddState(Doorbell401AttemptedTag);
 			AIGHorrorHUD::PushThought(
 				this,
@@ -708,6 +799,13 @@ void AIGChapterTwoHumanGateDirector::PlayAlarmFirstToneOnce()
 		1.0f,
 		45.0f,
 		520.0f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGCH02HumanGate",
+			"AlarmFirstToneCaption",
+			"[휴대폰에서 짧은 알람음]"),
+		1.6f);
 	++AlarmFirstTonePlayCount;
 }
 
@@ -832,6 +930,8 @@ bool AIGChapterTwoHumanGateDirector::RunRebirthEndToEndValidation()
 {
 	if (!HasState(HumanChecksUnlockedTag)
 		|| PhoneActions.Num() != 3
+		|| !PhoneApprovalAction
+		|| !PhoneApprovalRecord
 		|| !Doorbell401Action
 		|| !Doorbell402Action)
 	{
@@ -839,6 +939,18 @@ bool AIGChapterTwoHumanGateDirector::RunRebirthEndToEndValidation()
 	}
 
 	const bool bNoHelpBeforeLobby = !HasState(HelpAttemptedTag);
+	HandleAction(
+		EIGChapterTwoHumanCheckAction::PhoneApprovalRecord,
+		PhoneApprovalAction);
+	const bool bApprovalRecordPresented =
+		AIGReadableNote::GetOpenNote() == PhoneApprovalRecord
+		&& PhoneApprovalRecord->GetTitle().ToString().Contains(TEXT("카드 승인"))
+		&& PhoneApprovalRecord->GetBodyLines().ContainsByPredicate(
+			[](const FText& Line)
+			{
+				return Line.ToString().Contains(TEXT("04:31"));
+			});
+	PhoneApprovalRecord->Close();
 	HandleLobbyEntered(LobbyZone);
 	const bool bDirectLobbyConverged =
 		bNoHelpBeforeLobby
@@ -869,6 +981,8 @@ bool AIGChapterTwoHumanGateDirector::RunRebirthEndToEndValidation()
 		+ (HasState(PhonePatrolManagerTag) ? 1 : 0);
 	const bool bPassed =
 		bDirectLobbyConverged
+		&& bApprovalRecordPresented
+		&& HasState(PhoneApprovalReadTag)
 		&& HasState(PhoneAttemptedTag)
 		&& PhoneChoiceCount == 1
 		&& HasState(AlarmFirstTonePlayedTag)
@@ -889,7 +1003,7 @@ bool AIGChapterTwoHumanGateDirector::RunRebirthEndToEndValidation()
 				"REBIRTH_E2E PASS s6_human_gate direct_lobby=1 "
 				"phone_choice=1 alarm_once=1 voice=0 "
 				"bell401_radio_stop=1 door_open=0 "
-				"bell402_light=1 optional=1"));
+				"bell402_light=1 approval_0431=1 approval_screen=1 optional=1"));
 	}
 	else
 	{

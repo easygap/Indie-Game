@@ -161,8 +161,8 @@ void AIGChapterOneIncidentDirector::Configure(
 	WaitAction = SpawnAction(
 		EIGChapterOneIncidentAction::WaitForCat,
 		FVector(1198.0f, -438.0f, 8.0f),
-		FVector(22.0f, 16.0f, 3.0f),
-		CubeMesh,
+		FVector(18.0f, 18.0f, 0.8f),
+		CylinderMesh,
 		WaterMaterial,
 		NSLOCTEXT("IGCH01", "WaitForCat", "마실 때까지 잠시 기다리기"),
 		1.2f);
@@ -223,6 +223,14 @@ void AIGChapterOneIncidentDirector::EndPlay(
 		AccidentBagDressing->Destroy();
 		AccidentBagDressing = nullptr;
 	}
+	for (AActor* SpawnedActor : SpawnedIncidentActors)
+	{
+		if (IsValid(SpawnedActor) && !SpawnedActor->IsActorBeingDestroyed())
+		{
+			SpawnedActor->Destroy();
+		}
+	}
+	SpawnedIncidentActors.Reset();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -257,6 +265,7 @@ AIGChapterOneIncidentDirector::SpawnAction(
 			Prompt,
 			HoldSeconds);
 		Result->FinishSpawning(SpawnTransform);
+		SpawnedIncidentActors.Add(Result);
 	}
 	return Result;
 }
@@ -278,6 +287,7 @@ AIGZoneTrigger* AIGChapterOneIncidentDirector::SpawnZone(
 	{
 		Result->SetZoneExtent(HalfExtent);
 		Result->FinishSpawning(SpawnTransform);
+		SpawnedIncidentActors.Add(Result);
 	}
 	return Result;
 }
@@ -307,6 +317,70 @@ void AIGChapterOneIncidentDirector::SetVisibleInteractive(
 	Action->SetActorHiddenInGame(!bVisible);
 	Action->SetActorEnableCollision(bVisible);
 	Action->SetInteractionEnabled(bVisible);
+}
+
+void AIGChapterOneIncidentDirector::SetVisibleDecorative(
+	AIGChapterOneIncidentAction* Action,
+	const bool bVisible)
+{
+	if (!Action)
+	{
+		return;
+	}
+	Action->SetActorHiddenInGame(!bVisible);
+	Action->SetActorEnableCollision(false);
+	Action->SetInteractionEnabled(false);
+}
+
+bool AIGChapterOneIncidentDirector::ValidateCatWaterAftermath() const
+{
+	const UIGRebirthNarrativeSubsystem* RebirthState =
+		GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+			: nullptr;
+	if (!RebirthState
+		|| !IGStory::HasState(
+			this,
+			IGChapterOneIncident::Tag(
+				TEXT("State.CH01.Incident.CatChoiceCommitted")))
+		|| !CapWaterAction
+		|| !CupWaterAction
+		|| !WaitAction)
+	{
+		return false;
+	}
+
+	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+	const bool bCapVisible = !CapWaterAction->IsHidden();
+	const bool bCupVisible = !CupWaterAction->IsHidden();
+	const bool bWetRingVisible = !WaitAction->IsHidden();
+	const bool bAllDecorative =
+		!CapWaterAction->GetActorEnableCollision()
+		&& !CupWaterAction->GetActorEnableCollision()
+		&& !WaitAction->GetActorEnableCollision()
+		&& !CapWaterAction->IsInteractionEnabled()
+		&& !CupWaterAction->IsInteractionEnabled()
+		&& !WaitAction->IsInteractionEnabled();
+	if (!bAllDecorative)
+	{
+		return false;
+	}
+
+	if (Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap)
+	{
+		return Choices.bWaitedForCat
+			? !bCapVisible && !bCupVisible && bWetRingVisible
+			: bCapVisible && !bCupVisible && !bWetRingVisible;
+	}
+	if (Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup)
+	{
+		return !bCapVisible && bCupVisible && !bWetRingVisible;
+	}
+	if (Choices.CatWaterState == EIGRebirthCatWaterState::PassedBy)
+	{
+		return !bCapVisible && !bCupVisible && !bWetRingVisible;
+	}
+	return false;
 }
 
 void AIGChapterOneIncidentDirector::ReconcileState()
@@ -346,16 +420,37 @@ void AIGChapterOneIncidentDirector::ReconcileState()
 		bDrank
 		&& !bChoiceCommitted
 		&& Choices.CatWaterState == EIGRebirthCatWaterState::Unset;
-	SetVisibleInteractive(CapWaterAction, bChoosingContainer);
-	SetVisibleInteractive(
-		CupWaterAction,
-		bChoosingContainer && Choices.bHasPaperCup);
+	const bool bShowCapEvidence =
+		Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap
+		&& !Choices.bWaitedForCat;
+	const bool bShowCupEvidence =
+		Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup;
+	if (bChoosingContainer)
+	{
+		SetVisibleInteractive(CapWaterAction, true);
+		SetVisibleInteractive(CupWaterAction, Choices.bHasPaperCup);
+	}
+	else
+	{
+		SetVisibleDecorative(CapWaterAction, bShowCapEvidence);
+		SetVisibleDecorative(CupWaterAction, bShowCupEvidence);
+	}
 	const bool bCanWait =
 		bDrank
 		&& !bChoiceCommitted
 		&& (Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap
 			|| Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup);
-	SetVisibleInteractive(WaitAction, bCanWait);
+	if (bCanWait)
+	{
+		SetVisibleInteractive(WaitAction, true);
+	}
+	else
+	{
+		const bool bShowRecoveredCapWetRing =
+			Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap
+			&& Choices.bWaitedForCat;
+		SetVisibleDecorative(WaitAction, bShowRecoveredCapWetRing);
+	}
 	const bool bReachedFourthFloor = IGStory::HasState(
 		this,
 		IGChapterOneIncident::Tag(
@@ -777,11 +872,13 @@ bool AIGChapterOneIncidentDirector::RunRebirthEndToEndReturnRoute()
 		return false;
 	}
 	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
+	const bool bCatAftermathMatched = ValidateCatWaterAftermath();
 	return Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup
 		&& Choices.BottleClosureState
 			== EIGRebirthBottleClosureState::Resealed
 		&& Choices.bHasPaperCup
-		&& Choices.bWaitedForCat;
+		&& Choices.bWaitedForCat
+		&& bCatAftermathMatched;
 }
 
 void AIGChapterOneIncidentDirector::BeginRebirthEndToEndMemoryBoundary()

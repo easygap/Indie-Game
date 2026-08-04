@@ -15,10 +15,17 @@ $ErrorActionPreference = 'Stop'
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $projectFile = Join-Path $projectRoot 'IndieGame.uproject'
+$buildProjectRoot = $projectRoot
+$buildProjectFile = $projectFile
+$usingAsciiBuildMirror = $false
 $resolverScript = Join-Path $PSScriptRoot 'Resolve-UnrealEditor.ps1'
 $validationScript = Join-Path $PSScriptRoot 'Validate-Project.ps1'
 $persistenceScript =
 	Join-Path $PSScriptRoot 'Run-Rebirth-PersistenceSpikes.ps1'
+$ch02FreedomScript =
+	Join-Path $PSScriptRoot 'Run-Rebirth-CH02FreedomSpikes.ps1'
+$checkpointAnchorScript =
+	Join-Path $PSScriptRoot 'Run-Rebirth-CheckpointAnchorSpikes.ps1'
 $resultDirectory = Join-Path $projectRoot 'Saved\Validation\RebirthRelease'
 $runId = '{0}_{1}' -f (
 	[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')),
@@ -31,10 +38,13 @@ $stepResults = [System.Collections.Generic.List[object]]::new()
 $allStepNames = @(
 	'static_contracts',
 	'engine_resolution',
+	'vc_runtime_prerequisite',
 	'source_state_pre',
 	'development_editor_build',
 	'development_game_build',
 	'persistence_spikes',
+	'ch02_freedom_spikes',
+	'checkpoint_anchor_spikes',
 	'map_check',
 	'runtime_ending_a',
 	'runtime_ending_b',
@@ -46,6 +56,7 @@ $activeStepLogPath = $null
 $engineAssociation = $null
 $engineBuildVersion = $null
 $resolvedEditorForSummary = $null
+$vcRuntimePrerequisite = $null
 $initialSourceState = $null
 $shippingArchiveManifestPath = $null
 $unrealDiagnosticPatterns = @(
@@ -64,6 +75,99 @@ $unrealDiagnosticAllowlist = @(
 if ([string]::IsNullOrWhiteSpace($ArchiveDirectory)) {
 	$ArchiveDirectory = Join-Path (
 		Join-Path $projectRoot 'Saved\StagedBuilds\RebirthShipping') $runId
+}
+
+function Invoke-ReleaseRobocopy {
+	param(
+		[Parameter(Mandatory = $true)][string]$Source,
+		[Parameter(Mandatory = $true)][string]$Destination,
+		[switch]$Mirror
+	)
+
+	New-Item -ItemType Directory -Force -Path $Destination | Out-Null
+	$arguments = @($Source, $Destination)
+	$arguments += if ($Mirror) { '/MIR' } else { '/E' }
+	$arguments += @(
+		'/COPY:DAT',
+		'/DCOPY:DAT',
+		'/R:2',
+		'/W:1',
+		'/XJ',
+		'/NFL',
+		'/NDL',
+		'/NP',
+		'/NJH',
+		'/NJS'
+	)
+	if ($Mirror) {
+		$arguments += @(
+			'/XD',
+			'.git',
+			'Saved',
+			'Intermediate',
+			'Binaries',
+			'DerivedDataCache',
+			'.vs'
+		)
+	}
+
+	& robocopy.exe @arguments | Out-Null
+	$robocopyExit = $LASTEXITCODE
+	if ($robocopyExit -ge 8) {
+		throw "Release workspace sync failed ($robocopyExit): $Source -> $Destination"
+	}
+}
+
+function Get-AsciiReleaseBuildRoot {
+	$mirrorBase = Join-Path $env:LOCALAPPDATA 'IndieGame\AsciiBuild\Release'
+	$mirrorRoot = Join-Path $mirrorBase $runId
+	$fullBase = [IO.Path]::GetFullPath($mirrorBase).TrimEnd('\', '/')
+	$fullRoot = [IO.Path]::GetFullPath($mirrorRoot)
+	if (-not $fullRoot.StartsWith(
+			$fullBase + [IO.Path]::DirectorySeparatorChar,
+			[StringComparison]::OrdinalIgnoreCase)) {
+		throw "Unsafe release build mirror path: $fullRoot"
+	}
+	return $fullRoot
+}
+
+function Get-VcRuntimePrerequisite {
+	param([Parameter(Mandatory = $true)][string]$EngineRoot)
+
+	$requiredVersion = [Version]'14.50.35719.0'
+	$systemRoot = [Environment]::GetEnvironmentVariable('SystemRoot')
+	$systemDirectory = Join-Path $systemRoot 'System32'
+	$runtimeFiles = @('msvcp140_2.dll', 'vcruntime140_1.dll')
+	$versions = [ordered]@{}
+	$isValid = $true
+	foreach ($runtimeFile in $runtimeFiles) {
+		$runtimePath = Join-Path $systemDirectory $runtimeFile
+		$parsedVersion = $null
+		if (Test-Path -LiteralPath $runtimePath -PathType Leaf) {
+			$rawVersion = (Get-Item -LiteralPath $runtimePath).VersionInfo.FileVersion
+			$parsed = [Version]'0.0.0.0'
+			if ([Version]::TryParse($rawVersion, [ref]$parsed)) {
+				$parsedVersion = $parsed
+			}
+		}
+		$versions[$runtimeFile] = if ($null -ne $parsedVersion) {
+			$parsedVersion.ToString()
+		}
+		else {
+			$null
+		}
+		if ($null -eq $parsedVersion -or $parsedVersion -lt $requiredVersion) {
+			$isValid = $false
+		}
+	}
+	$installerPath = Join-Path $EngineRoot 'Extras\Redist\en-us\vc_redist.x64.exe'
+	return [pscustomobject]@{
+		valid = $isValid
+		requiredVersion = $requiredVersion.ToString()
+		versions = [pscustomobject]$versions
+		installerPath = $installerPath
+		installerAvailable = Test-Path -LiteralPath $installerPath -PathType Leaf
+	}
 }
 
 function Add-StepResult {
@@ -340,7 +444,7 @@ function Write-RunSummary {
 			'source state is not the clean commit locked at startup.')
 	}
 	$summary = [pscustomobject]@{
-		schemaVersion = 2
+		schemaVersion = 3
 		runId = $runId
 		status = $Status
 		mode = if ($StaticOnly) { 'StaticOnly' } else { 'Full' }
@@ -357,9 +461,12 @@ function Write-RunSummary {
 		sourceChangedDuringRun = -not $sourceStateUnchanged
 		cleanSourceStateLocked = $cleanSourceStateLocked
 		projectFile = $projectFile
+		buildProjectFile = $buildProjectFile
+		usingAsciiBuildMirror = $usingAsciiBuildMirror
 		engineAssociation = $engineAssociation
 		engineBuildVersion = $engineBuildVersion
 		resolvedEditor = $resolvedEditorForSummary
+		vcRuntimePrerequisite = $vcRuntimePrerequisite
 		archiveDirectory = $ArchiveDirectory
 		shippingArchiveManifest = $shippingArchiveManifestPath
 		shippingArchiveManifestSha256 = $shippingManifestHash
@@ -517,9 +624,11 @@ function Assert-ReleaseLog {
 		'REBIRTH_RELEASE PASS s2_roof_door',
 		'REBIRTH_RELEASE PASS collision_route',
 		'REBIRTH_RELEASE PASS audio_queue',
+		'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 presentations=2 cases=12 duplicates=0',
 		'REBIRTH_RELEASE PASS p3_p5',
 		'REBIRTH_RELEASE PASS savegame_v3',
-		"REBIRTH_SPIKE PASS s4_common_prop ending=$Ending duplicates=0",
+		"REBIRTH_SPIKE PASS s4_common_prop ending=$Ending duplicates=0 " +
+			'actual_state=1 safety_cues=5',
 		"REBIRTH_RELEASE PASS ending=$Ending",
 		"REBIRTH_RELEASE PASS complete ending=$Ending"
 	)) {
@@ -527,10 +636,18 @@ function Assert-ReleaseLog {
 			throw "Runtime validation marker is missing: $requiredMarker. Check $LogPath."
 		}
 	}
-	if ($Ending -eq 'A') {
-		foreach ($endToEndMarker in @(
+	$expectedRouteOrder = if ($Ending -eq 'A') { 'p1_p2' } else { 'p2_p1' }
+	foreach ($endToEndMarker in @(
 			'REBIRTH_E2E PASS ch01_router',
 			'REBIRTH_E2E PASS ch02_router',
+			'approval_0431=1',
+			'approval_screen=1',
+			'cat_aftermath=1',
+			'authored_housings=2',
+			'layered_displays=2',
+			'pressure_caps=2',
+			'time_entry_physical=2',
+			"route_order=$expectedRouteOrder",
 			'REBIRTH_E2E PASS ch03_handoff',
 			'REBIRTH_SPIKE PASS s1_outfit_sleeve chapters=3 duplicates=0 stitches=3'
 		)) {
@@ -540,7 +657,6 @@ function Assert-ReleaseLog {
 					"Check $LogPath.")
 			}
 		}
-	}
 }
 
 function Assert-PersistenceSpikeEvidence {
@@ -559,7 +675,7 @@ function Assert-PersistenceSpikeEvidence {
 	$harnessLog = Get-Content -Raw -Encoding UTF8 -LiteralPath $LogPath
 	if ($harnessLog.Contains('REBIRTH_SPIKE FAIL') -or
 		-not $harnessLog.Contains(
-			'REBIRTH_SPIKE_HARNESS PASS complete p3=7 endings=2')) {
+			'REBIRTH_SPIKE_HARNESS PASS complete boundary=2 cat_choices=5 ch02_time=2 p5=4 p3=7 endings=2')) {
 		throw "Persistence spike harness did not report a complete PASS: $LogPath"
 	}
 
@@ -579,6 +695,10 @@ function Assert-PersistenceSpikeEvidence {
 	}
 	if ($nestedSummary.status -ne 'PASS' -or
 		[string]$nestedSummary.commitSha -ne $ExpectedCommitSha -or
+		[int]$nestedSummary.memoryBoundaryProcessRestarts -ne 2 -or
+		[int]$nestedSummary.catChoiceProcessRestarts -ne 5 -or
+		[int]$nestedSummary.ch02TimeProcessRestarts -ne 2 -or
+		[int]$nestedSummary.p5ProcessRestarts -ne 4 -or
 		[int]$nestedSummary.p3ProcessRestarts -ne 7 -or
 		[int]$nestedSummary.endingProcessRestarts -ne 4) {
 		throw (
@@ -588,6 +708,28 @@ function Assert-PersistenceSpikeEvidence {
 
 	$expectedCases = [System.Collections.Generic.HashSet[string]]::new(
 		[System.StringComparer]::Ordinal)
+	foreach ($phase in @('Before', 'After')) {
+		[void]$expectedCases.Add("Boundary${phase}Write")
+		[void]$expectedCases.Add("Boundary${phase}Read")
+	}
+	foreach ($catChoice in @(
+		'CapLeft',
+		'CapWaited',
+		'CupLeft',
+		'CupWaited',
+		'PassedBy'
+	)) {
+		[void]$expectedCases.Add("CatChoiceWrite_$catChoice")
+		[void]$expectedCases.Add("CatChoiceRead_$catChoice")
+	}
+	for ($checkpoint = 0; $checkpoint -le 1; ++$checkpoint) {
+		[void]$expectedCases.Add("CH02TimeWrite_$checkpoint")
+		[void]$expectedCases.Add("CH02TimeRead_$checkpoint")
+	}
+	for ($checkpoint = 0; $checkpoint -le 3; ++$checkpoint) {
+		[void]$expectedCases.Add("P5Write_$checkpoint")
+		[void]$expectedCases.Add("P5Read_$checkpoint")
+	}
 	for ($checkpoint = 0; $checkpoint -le 6; ++$checkpoint) {
 		[void]$expectedCases.Add("P3Write_$checkpoint")
 		[void]$expectedCases.Add("P3Read_$checkpoint")
@@ -643,10 +785,18 @@ function Assert-PersistenceSpikeEvidence {
 			-LogText $caseLogText
 
 		$requiresSaveSnapshot =
+			$caseName -like 'Boundary*Write' -or
+			$caseName -like 'CatChoiceWrite_*' -or
+			$caseName -like 'CH02TimeWrite_*' -or
+			$caseName -like 'P5Write_*' -or
 			$caseName -like 'P3Write_*' -or
 			$caseName -like 'EndingWrite_*' -or
 			$caseName -like 'EndingCommit_*'
 		$requiresSaveDeletion =
+			$caseName -like 'Boundary*Read' -or
+			$caseName -like 'CatChoiceRead_*' -or
+			$caseName -like 'CH02TimeRead_*' -or
+			$caseName -like 'P5Read_*' -or
 			$caseName -like 'P3Read_*' -or
 			$caseName -like 'EndingVerify_*'
 		if ($requiresSaveSnapshot) {
@@ -687,6 +837,205 @@ function Assert-PersistenceSpikeEvidence {
 	}
 }
 
+function Assert-CH02FreedomSpikeEvidence {
+	param(
+		[Parameter(Mandatory = $true)][string]$LogPath,
+		[Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+		[Parameter(Mandatory = $true)][string]$ExpectedCommitSha
+	)
+
+	if (-not (Test-Path -LiteralPath $LogPath -PathType Leaf)) {
+		throw "CH02 freedom harness log is missing: $LogPath"
+	}
+	$harnessLog = Get-Content -Raw -Encoding UTF8 -LiteralPath $LogPath
+	if ($harnessLog.Contains('REBIRTH_E2E FAIL') -or
+		-not $harnessLog.Contains(
+			'REBIRTH_CH02_FREEDOM_HARNESS PASS complete routes=5')) {
+		throw "CH02 freedom harness did not report a complete PASS: $LogPath"
+	}
+
+	$summaryPath = Join-Path $EvidenceDirectory 'summary.json'
+	if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) {
+		throw "CH02 freedom summary is missing: $summaryPath"
+	}
+	$summary = Get-Content -Raw -Encoding UTF8 -LiteralPath $summaryPath |
+		ConvertFrom-Json
+	if ($summary.status -ne 'PASS' -or
+		[string]$summary.commitSha -ne $ExpectedCommitSha -or
+		[int]$summary.routeCount -ne 5) {
+		throw "CH02 freedom summary metadata mismatch: $summaryPath"
+	}
+
+	$expected = @{
+		P1ThenP2 = @(1, 1, 3, 2)
+		P2ThenP1 = @(1, 1, 3, 2)
+		SkipP1 = @(0, 1, 2, 1)
+		SkipP2 = @(1, 0, 2, 1)
+		SkipBoth = @(0, 0, 2, 0)
+	}
+	$results = @($summary.results)
+	if ($results.Count -ne $expected.Count) {
+		throw "CH02 freedom result count mismatch: $($results.Count)"
+	}
+	$evidenceRoot = (
+		Resolve-Path -LiteralPath $EvidenceDirectory
+	).Path.TrimEnd('\') + '\'
+	$seen = [System.Collections.Generic.HashSet[string]]::new(
+		[System.StringComparer]::Ordinal)
+	foreach ($result in $results) {
+		$route = [string]$result.route
+		if (-not $expected.ContainsKey($route) -or
+			-not $seen.Add($route) -or
+			$result.status -ne 'PASS') {
+			throw "CH02 freedom route is missing, duplicated, or failed: $route"
+		}
+		$contract = $expected[$route]
+		if ([int][bool]$result.p1Resolved -ne $contract[0] -or
+			[int][bool]$result.p2Resolved -ne $contract[1] -or
+			[int]$result.truthCount -ne $contract[2] -or
+			[int]$result.pressureCaps -ne $contract[3]) {
+			throw "CH02 freedom state mismatch: $route"
+		}
+		$resolvedLog = (Resolve-Path -LiteralPath $result.logPath).Path
+		if (-not $resolvedLog.StartsWith(
+				$evidenceRoot,
+				[System.StringComparison]::OrdinalIgnoreCase)) {
+			throw "CH02 freedom log escaped evidence directory: $resolvedLog"
+		}
+		$actualHash = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedLog
+		).Hash
+		if ($actualHash -ne [string]$result.logSha256) {
+			throw "CH02 freedom log hash mismatch: $resolvedLog"
+		}
+		$caseLog = Get-Content -Raw -Encoding UTF8 -LiteralPath $resolvedLog
+		Assert-NoUnexpectedUnrealDiagnostics `
+			-LogPath $resolvedLog `
+			-LogText $caseLog
+	}
+	if ($seen.Count -ne $expected.Count) {
+		throw 'CH02 freedom route set is incomplete.'
+	}
+}
+
+function Assert-CheckpointAnchorSpikeEvidence {
+	param(
+		[Parameter(Mandatory = $true)][string]$LogPath,
+		[Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+		[Parameter(Mandatory = $true)][string]$ExpectedCommitSha
+	)
+
+	if (-not (Test-Path -LiteralPath $LogPath -PathType Leaf)) {
+		throw "Checkpoint anchor harness log is missing: $LogPath"
+	}
+	$harnessLog = Get-Content -Raw -Encoding UTF8 -LiteralPath $LogPath
+	if ($harnessLog.Contains('REBIRTH_SPIKE FAIL') -or
+		-not $harnessLog.Contains(
+			'REBIRTH_ANCHOR_HARNESS PASS complete anchors=5 processes=10')) {
+		throw "Checkpoint anchor harness did not report a complete PASS: $LogPath"
+	}
+
+	$summaryPath = Join-Path $EvidenceDirectory 'summary.json'
+	if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) {
+		throw "Checkpoint anchor summary is missing: $summaryPath"
+	}
+	$summary = Get-Content -Raw -Encoding UTF8 -LiteralPath $summaryPath |
+		ConvertFrom-Json
+	if ($summary.status -ne 'PASS' -or
+		[string]$summary.commitSha -ne $ExpectedCommitSha -or
+		[int]$summary.anchorCount -ne 5 -or
+		[int]$summary.processCount -ne 10 -or
+		[int]$summary.mapReentryCount -ne 5 -or
+		[int]$summary.capsuleClearCount -ne 5 -or
+		[int]$summary.floorContactCount -ne 5) {
+		throw "Checkpoint anchor summary metadata mismatch: $summaryPath"
+	}
+
+	$anchors = @(
+		'CH02Corridor',
+		'CH02Store',
+		'CH03Apartment',
+		'CH03Flood',
+		'CH03Roof'
+	)
+	$expectedCases = [System.Collections.Generic.HashSet[string]]::new(
+		[System.StringComparer]::Ordinal)
+	foreach ($anchor in $anchors) {
+		[void]$expectedCases.Add("AnchorWrite_$anchor")
+		[void]$expectedCases.Add("AnchorRead_$anchor")
+	}
+	$results = @($summary.results)
+	if ($results.Count -ne $expectedCases.Count) {
+		throw "Checkpoint anchor result count mismatch: $($results.Count)"
+	}
+	$evidenceRoot = (
+		Resolve-Path -LiteralPath $EvidenceDirectory
+	).Path.TrimEnd('\') + '\'
+	$seen = [System.Collections.Generic.HashSet[string]]::new(
+		[System.StringComparer]::Ordinal)
+	foreach ($result in $results) {
+		$caseName = [string]$result.case
+		if (-not $expectedCases.Contains($caseName) -or
+			-not $seen.Add($caseName) -or
+			$result.status -ne 'PASS') {
+			throw "Checkpoint anchor case is missing, duplicated, or failed: $caseName"
+		}
+		$resolvedLog = (Resolve-Path -LiteralPath $result.logPath).Path
+		if (-not $resolvedLog.StartsWith(
+				$evidenceRoot,
+				[System.StringComparison]::OrdinalIgnoreCase)) {
+			throw "Checkpoint anchor log escaped evidence directory: $resolvedLog"
+		}
+		$actualHash = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedLog
+		).Hash
+		if ($actualHash -ne [string]$result.logSha256) {
+			throw "Checkpoint anchor log hash mismatch: $resolvedLog"
+		}
+		$caseLog = Get-Content -Raw -Encoding UTF8 -LiteralPath $resolvedLog
+		if ($caseLog.Contains('REBIRTH_SPIKE FAIL')) {
+			throw "Checkpoint anchor case reported FAIL: $resolvedLog"
+		}
+		Assert-NoUnexpectedUnrealDiagnostics `
+			-LogPath $resolvedLog `
+			-LogText $caseLog
+		if ($caseName -like 'AnchorWrite_*') {
+			if ([string]::IsNullOrWhiteSpace(
+					[string]$result.saveSnapshotPath) -or
+				-not (Test-Path `
+					-LiteralPath $result.saveSnapshotPath `
+					-PathType Leaf)) {
+				throw "Checkpoint anchor save snapshot is missing: $caseName"
+			}
+			$resolvedSaveSnapshot = (
+				Resolve-Path -LiteralPath $result.saveSnapshotPath
+			).Path
+			if (-not $resolvedSaveSnapshot.StartsWith(
+					$evidenceRoot,
+					[System.StringComparison]::OrdinalIgnoreCase)) {
+				throw (
+					'Checkpoint anchor save snapshot escaped its evidence ' +
+					"directory: $resolvedSaveSnapshot")
+			}
+			$actualSaveHash = (
+				Get-FileHash `
+					-Algorithm SHA256 `
+					-LiteralPath $resolvedSaveSnapshot
+			).Hash
+			if ($actualSaveHash -ne [string]$result.saveSnapshotSha256) {
+				throw "Checkpoint anchor save hash mismatch: $caseName"
+			}
+		}
+		elseif (-not [bool]$result.saveDeleted -or
+			-not $caseLog.Contains('capsule_clear=1 map_reentered=1')) {
+			throw "Checkpoint anchor physical restore contract failed: $caseName"
+		}
+	}
+	if ($seen.Count -ne $expectedCases.Count) {
+		throw 'Checkpoint anchor result set is incomplete.'
+	}
+}
+
 function Invoke-RebirthRuntimeCase {
 	param(
 		[Parameter(Mandatory = $true)]
@@ -719,12 +1068,7 @@ function Invoke-RebirthRuntimeCase {
 		'-IGRebirthReleaseValidation',
 		"-IGRebirthEnding=$Ending"
 	)
-	if ($Ending -eq 'A') {
-		$runtimeArguments += '-IGRebirthEndToEndValidation'
-	}
-	else {
-		$runtimeArguments += '-IGChapterThree'
-	}
+	$runtimeArguments += '-IGRebirthEndToEndValidation'
 	$processArguments = @(
 		$runtimeArguments |
 			ForEach-Object { ConvertTo-ProcessArgument -Value $_ }
@@ -988,6 +1332,52 @@ Complete-ActiveStep `
 	-Status 'PASS' `
 	-Detail "Resolved $editorCommand ($engineBuildVersion)."
 
+$requiresEditorRuntime =
+	-not $SkipMapCheck -or
+	-not $SkipRuntimeValidation -or
+	-not $SkipShippingPackage
+if ($requiresEditorRuntime) {
+	Set-ActiveStep -Name 'vc_runtime_prerequisite'
+	$vcRuntimePrerequisite = Get-VcRuntimePrerequisite -EngineRoot $engineDirectory
+	if (-not $vcRuntimePrerequisite.valid) {
+		$installedVersions = @(
+			$vcRuntimePrerequisite.versions.psobject.Properties |
+				ForEach-Object {
+					$versionLabel = if ($null -ne $_.Value) {
+						$_.Value
+					}
+					else {
+						'missing'
+					}
+					'{0}={1}' -f $_.Name, $versionLabel
+				}
+		) -join ', '
+		$runtimeBlockedDetail =
+			'Unreal Engine editor execution requires Microsoft Visual C++ ' +
+			"Redistributable $($vcRuntimePrerequisite.requiredVersion) or newer. " +
+			"Detected $installedVersions. Install $($vcRuntimePrerequisite.installerPath) " +
+			'outside this unattended run, then rerun the release harness.'
+		Complete-ActiveStep -Status 'BLOCKED' -Detail $runtimeBlockedDetail
+		Add-MissingStepResults -Detail 'VC++ runtime prerequisite was blocked.'
+		Write-RunSummary -Status 'BLOCKED' -Detail $runtimeBlockedDetail
+		[Console]::Error.WriteLine(
+			"REBIRTH_RELEASE_HARNESS BLOCKED $runtimeBlockedDetail")
+		exit 2
+	}
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail (
+			'Microsoft Visual C++ Redistributable satisfies Unreal Engine ' +
+			"minimum $($vcRuntimePrerequisite.requiredVersion).")
+}
+else {
+	Add-StepResult `
+		-Name 'vc_runtime_prerequisite' `
+		-Status 'NOT_RUN' `
+		-Detail 'No Unreal editor runtime stage was requested.' `
+		-LogPath $null
+}
+
 Set-ActiveStep -Name 'source_state_pre'
 $sourceStateBeforeBuild = Get-SourceState
 if (-not (Test-CleanSourceStateLocked `
@@ -1006,6 +1396,20 @@ if (-not (Test-CleanSourceStateLocked `
 Complete-ActiveStep `
 	-Status 'PASS' `
 	-Detail "Clean source state locked to $($initialSourceState.commitSha)."
+
+$usingAsciiBuildMirror = $projectRoot -match '[^\x00-\x7F]'
+if ($usingAsciiBuildMirror) {
+	$buildProjectRoot = Get-AsciiReleaseBuildRoot
+	Write-Host "REBIRTH_RELEASE_HARNESS syncing ASCII build workspace: $buildProjectRoot"
+	Invoke-ReleaseRobocopy `
+		-Source $projectRoot `
+		-Destination $buildProjectRoot `
+		-Mirror
+	$buildProjectFile = Join-Path $buildProjectRoot 'IndieGame.uproject'
+	if (-not (Test-Path -LiteralPath $buildProjectFile -PathType Leaf)) {
+		throw "ASCII release project descriptor was not created: $buildProjectFile"
+	}
+}
 
 $buildScript = Join-Path $engineDirectory 'Build\BatchFiles\Build.bat'
 $automationScript = Join-Path $engineDirectory 'Build\BatchFiles\RunUAT.bat'
@@ -1027,7 +1431,7 @@ if (-not $SkipDevelopmentBuild) {
 			'IndieGameEditor',
 			'Win64',
 			'Development',
-			$projectFile,
+			$buildProjectFile,
 			'-WaitMutex',
 			'-NoHotReloadFromIDE'
 		) `
@@ -1045,12 +1449,17 @@ if (-not $SkipDevelopmentBuild) {
 			'IndieGame',
 			'Win64',
 			'Development',
-			$projectFile,
+			$buildProjectFile,
 			'-WaitMutex'
 		) `
 		-Label 'Development game build' `
 		-LogPath $gameBuildLog
 	Complete-ActiveStep -Status 'PASS' -Detail 'IndieGame Development built.'
+	if ($usingAsciiBuildMirror) {
+		Invoke-ReleaseRobocopy `
+			-Source (Join-Path $buildProjectRoot 'Binaries\Win64') `
+			-Destination (Join-Path $projectRoot 'Binaries\Win64')
+	}
 	Write-Host 'REBIRTH_RELEASE_HARNESS PASS development_build'
 }
 else {
@@ -1093,15 +1502,77 @@ if (-not $SkipRuntimeValidation) {
 	Complete-ActiveStep `
 		-Status 'PASS' `
 		-Detail (
-			'S3 P3 checkpoints 0..6 and S4 ending A/B common-prefix state ' +
-			'passed separate-process disk restore with verified log hashes.')
+			'CH01 memory-boundary before/after images, CH02 P1/P2, P5 ' +
+			'checkpoints 0..3, P3 checkpoints 0..6, and S4 ending A/B ' +
+			'state passed separate-process disk restore.')
+
+	$freedomLog = Join-Path $runDirectory 'CH02FreedomSpikes.log'
+	$freedomEvidence = Join-Path $runDirectory 'CH02FreedomSpikes'
+	Set-ActiveStep -Name 'ch02_freedom_spikes' -LogPath $freedomLog
+	Invoke-NativeChecked `
+		-FilePath 'powershell.exe' `
+		-Arguments @(
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			$ch02FreedomScript,
+			'-TimeoutSeconds',
+			"$RuntimeTimeoutSeconds",
+			'-EvidenceDirectory',
+			$freedomEvidence
+		) `
+		-Label 'CH02 free-order and skip-route spikes' `
+		-LogPath $freedomLog
+	Assert-CH02FreedomSpikeEvidence `
+		-LogPath $freedomLog `
+		-EvidenceDirectory $freedomEvidence `
+		-ExpectedCommitSha $initialSourceState.commitSha
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail (
+			'P1/P2 both orders, either skip, and both-skip alternate records ' +
+			'reached the same CH03 handoff in five isolated processes.')
+
+	$anchorLog = Join-Path $runDirectory 'CheckpointAnchorSpikes.log'
+	$anchorEvidence = Join-Path $runDirectory 'CheckpointAnchorSpikes'
+	Set-ActiveStep -Name 'checkpoint_anchor_spikes' -LogPath $anchorLog
+	Invoke-NativeChecked `
+		-FilePath 'powershell.exe' `
+		-Arguments @(
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			$checkpointAnchorScript,
+			'-TimeoutSeconds',
+			"$RuntimeTimeoutSeconds",
+			'-EvidenceDirectory',
+			$anchorEvidence
+		) `
+		-Label 'Checkpoint map re-entry and physical anchor spikes' `
+		-LogPath $anchorLog
+	Assert-CheckpointAnchorSpikeEvidence `
+		-LogPath $anchorLog `
+		-EvidenceDirectory $anchorEvidence `
+		-ExpectedCommitSha $initialSourceState.commitSha
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail (
+			'CH02 corridor/store and CH03 apartment/flood/roof checkpoints ' +
+			're-entered their maps on clear capsules with supported floors.')
 }
 else {
-	Add-StepResult `
-		-Name 'persistence_spikes' `
-		-Status 'NOT_RUN' `
-		-Detail 'SkipRuntimeValidation requested.' `
-		-LogPath $null
+	foreach ($notRunStep in @(
+		'persistence_spikes',
+		'ch02_freedom_spikes',
+		'checkpoint_anchor_spikes')) {
+		Add-StepResult `
+			-Name $notRunStep `
+			-Status 'NOT_RUN' `
+			-Detail 'SkipRuntimeValidation requested.' `
+			-LogPath $null
+	}
 }
 
 if (-not $SkipMapCheck) {
@@ -1175,7 +1646,7 @@ if (-not $SkipShippingPackage) {
 		-FilePath $automationScript `
 		-Arguments @(
 			'BuildCookRun',
-			"-project=$projectFile",
+			"-project=$buildProjectFile",
 			'-target=IndieGame',
 			'-noP4',
 			'-unattended',

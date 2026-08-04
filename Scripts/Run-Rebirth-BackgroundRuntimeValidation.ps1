@@ -8,6 +8,17 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$unrealDiagnosticPatterns = @(
+	'(?i)\bFatal error\b',
+	'(?i)\bCritical error:',
+	'(?i)\bUnhandled Exception\b',
+	'(?i)\bEnsure condition failed\b',
+	'(?i)\bAssertion failed:',
+	'(?i)\bLog[A-Za-z0-9_]+:\s*Error:'
+)
+$unrealDiagnosticAllowlist = @(
+	# 백그라운드 런타임 증거도 G3와 같이 예외를 허용하지 않는다.
+)
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $projectFile = Join-Path $projectRoot 'IndieGame.uproject'
@@ -71,6 +82,48 @@ function Invoke-HiddenUnreal {
 	Get-Content -Raw -Encoding UTF8 -LiteralPath $LogPath
 }
 
+function Assert-NoUnexpectedUnrealDiagnostics {
+	param(
+		[Parameter(Mandatory = $true)][string]$LogPath,
+		[Parameter(Mandatory = $true)][string]$LogText
+	)
+
+	$unexpectedDiagnostics = [System.Collections.Generic.List[string]]::new()
+	foreach ($line in @($LogText -split '\r?\n')) {
+		if ([string]::IsNullOrWhiteSpace($line)) {
+			continue
+		}
+		$isDiagnostic = $false
+		foreach ($diagnosticPattern in $unrealDiagnosticPatterns) {
+			if ($line -match $diagnosticPattern) {
+				$isDiagnostic = $true
+				break
+			}
+		}
+		if (-not $isDiagnostic) {
+			continue
+		}
+
+		$isAllowed = $false
+		foreach ($allowEntry in $unrealDiagnosticAllowlist) {
+			if ($line -match [string]$allowEntry.pattern) {
+				$isAllowed = $true
+				break
+			}
+		}
+		if (-not $isAllowed) {
+			[void]$unexpectedDiagnostics.Add($line.Trim())
+		}
+	}
+	if ($unexpectedDiagnostics.Count -gt 0) {
+		$preview = @($unexpectedDiagnostics | Select-Object -First 8) -join ' | '
+		throw (
+			'허용되지 않은 Unreal Ensure/Error/Fatal 진단이 ' +
+			"${LogPath}에 있습니다 (count=$($unexpectedDiagnostics.Count), " +
+			"allowlist=$($unrealDiagnosticAllowlist.Count)): $preview")
+	}
+}
+
 if (-not $SkipMapCheck) {
 	$mapLog = Join-Path $runDirectory 'MapCheck_Prologue_Morning.log'
 	$mapText = Invoke-HiddenUnreal `
@@ -89,6 +142,7 @@ if (-not $SkipMapCheck) {
 			"-abslog=$mapLog",
 			'-ExecCmds=MAP CHECK,QUIT_EDITOR'
 		)
+	Assert-NoUnexpectedUnrealDiagnostics -LogPath $mapLog -LogText $mapText
 	$mapPassPattern =
 		'(?im)MapCheck:.*(?:Map check complete:\s*0 Error|' +
 		'맵 체크 완료:\s*오류 0 회,\s*경고 0 회)'
@@ -118,24 +172,24 @@ if (-not $SkipRuntimeEndings) {
 			'-IGRebirthReleaseValidation',
 			"-IGRebirthEnding=$ending"
 		)
-		if ($ending -eq 'A') {
-			$runtimeArguments += '-IGRebirthEndToEndValidation'
-		}
-		else {
-			$runtimeArguments += '-IGChapterThree'
-		}
+		$runtimeArguments += '-IGRebirthEndToEndValidation'
 		$runtimeText = Invoke-HiddenUnreal `
 			-Name "엔딩 $ending 종단" `
 			-LogPath $runtimeLog `
 			-Arguments $runtimeArguments
+		Assert-NoUnexpectedUnrealDiagnostics `
+			-LogPath $runtimeLog `
+			-LogText $runtimeText
 		foreach ($marker in @(
 			'REBIRTH_GREYBOX PASS',
 			'REBIRTH_RELEASE PASS s2_roof_door',
 			'REBIRTH_RELEASE PASS collision_route',
 			'REBIRTH_RELEASE PASS audio_queue',
+			'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 presentations=2 cases=12 duplicates=0',
 			'REBIRTH_RELEASE PASS p3_p5',
 			'REBIRTH_RELEASE PASS savegame_v3',
-			"REBIRTH_SPIKE PASS s4_common_prop ending=$ending duplicates=0",
+			"REBIRTH_SPIKE PASS s4_common_prop ending=$ending duplicates=0 " +
+				'actual_state=1 safety_cues=5',
 			"REBIRTH_RELEASE PASS ending=$ending",
 			"REBIRTH_RELEASE PASS complete ending=$ending"
 		)) {
@@ -143,18 +197,25 @@ if (-not $SkipRuntimeEndings) {
 				throw "엔딩 $ending 필수 마커가 없습니다: $marker"
 			}
 		}
-		if ($ending -eq 'A') {
-			foreach ($marker in @(
+		$expectedRouteOrder = if ($ending -eq 'A') { 'p1_p2' } else { 'p2_p1' }
+		foreach ($marker in @(
 				'REBIRTH_E2E PASS ch01_router',
 				'REBIRTH_E2E PASS ch02_router',
+				'approval_0431=1',
+				'approval_screen=1',
+				'cat_aftermath=1',
+				'authored_housings=2',
+				'layered_displays=2',
+				'time_entry_physical=2',
+				'pressure_caps=2',
+				"route_order=$expectedRouteOrder",
 				'REBIRTH_E2E PASS ch03_handoff',
 				'REBIRTH_SPIKE PASS s1_outfit_sleeve chapters=3 duplicates=0 stitches=3'
 			)) {
 				if (-not $runtimeText.Contains($marker)) {
-					throw "엔딩 A 종단 필수 마커가 없습니다: $marker"
+					throw "엔딩 $ending 종단 필수 마커가 없습니다: $marker"
 				}
 			}
-		}
 		Write-Host "REBIRTH_BACKGROUND PASS runtime ending=$ending"
 	}
 }

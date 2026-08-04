@@ -1,8 +1,11 @@
 ﻿#include "Player/IGFlashlightComponent.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Engine/CollisionProfile.h"
+#include "Engine/GameInstance.h"
+#include "Engine/World.h"
 
 UIGFlashlightComponent::UIGFlashlightComponent()
 {
@@ -38,6 +41,14 @@ void UIGFlashlightComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	PreviousWorldRotation = GetComponentRotation();
+	if (const UWorld* World = GetWorld())
+	{
+		if (UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			AccessibilitySubsystem =
+				GameInstance->GetSubsystem<UIGAccessibilitySubsystem>();
+		}
+	}
 }
 
 bool UIGFlashlightComponent::Toggle()
@@ -54,7 +65,11 @@ void UIGFlashlightComponent::SetOn(const bool bNewOn)
 	if (bOn)
 	{
 		// Kick the beam so switching on reads as a hand movement.
-		AddImpulse(FRotator(-1.6f, 2.2f, 0.0f));
+		if (!AccessibilitySubsystem
+			|| !AccessibilitySubsystem->IsReducedCameraMotionEnabled())
+		{
+			AddImpulse(FRotator(-1.6f, 2.2f, 0.0f));
+		}
 	}
 }
 
@@ -74,6 +89,11 @@ void UIGFlashlightComponent::RefillBattery(const float Fraction)
 
 void UIGFlashlightComponent::AddImpulse(const FRotator& Impulse)
 {
+	if (AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled())
+	{
+		return;
+	}
 	ImpulseOffset += Impulse;
 	ImpulseOffset.Pitch = FMath::Clamp(ImpulseOffset.Pitch, -9.0f, 9.0f);
 	ImpulseOffset.Yaw = FMath::Clamp(ImpulseOffset.Yaw, -9.0f, 9.0f);
@@ -81,6 +101,12 @@ void UIGFlashlightComponent::AddImpulse(const FRotator& Impulse)
 
 void UIGFlashlightComponent::TriggerBrownOut(const float DurationSeconds)
 {
+	if (AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedFlickerEnabled())
+	{
+		BrownOutTimer = 0.0f;
+		return;
+	}
 	if (bOn)
 	{
 		BrownOutTimer = FMath::Max(
@@ -117,11 +143,19 @@ void UIGFlashlightComponent::UpdateSway(const float DeltaSeconds)
 	const FRotator ViewDelta = (CurrentRotation - PreviousWorldRotation).GetNormalized();
 	PreviousWorldRotation = CurrentRotation;
 
-	const FRotator TargetSway(
-		FMath::Clamp(-ViewDelta.Pitch * 1.4f, -6.0f, 6.0f),
-		FMath::Clamp(-ViewDelta.Yaw * 1.4f, -7.0f, 7.0f),
-		0.0f);
+	const bool bReducedMotion = AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled();
+	const FRotator TargetSway = bReducedMotion
+		? FRotator::ZeroRotator
+		: FRotator(
+			FMath::Clamp(-ViewDelta.Pitch * 1.4f, -6.0f, 6.0f),
+			FMath::Clamp(-ViewDelta.Yaw * 1.4f, -7.0f, 7.0f),
+			0.0f);
 	SwayOffset = FMath::RInterpTo(SwayOffset, TargetSway, DeltaSeconds, SwayFollowSpeed);
+	if (bReducedMotion)
+	{
+		ImpulseOffset = FRotator::ZeroRotator;
+	}
 	ImpulseOffset = FMath::RInterpTo(ImpulseOffset, FRotator::ZeroRotator, DeltaSeconds, 4.5f);
 
 	Beam->SetRelativeRotation(SwayOffset + ImpulseOffset);
@@ -130,6 +164,13 @@ void UIGFlashlightComponent::UpdateSway(const float DeltaSeconds)
 float UIGFlashlightComponent::SampleFlicker(const float DeltaSeconds)
 {
 	FlickerTime += DeltaSeconds;
+	if (AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedFlickerEnabled())
+	{
+		BrownOutTimer = 0.0f;
+		FlickerValue = 1.0f;
+		return FlickerValue;
+	}
 
 	// Hash-based value noise: deterministic, no allocation, and cheap enough
 	// to run every frame. Two octaves give a ripple plus a slower wander.

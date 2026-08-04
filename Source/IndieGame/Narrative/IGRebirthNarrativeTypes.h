@@ -152,8 +152,48 @@ struct INDIEGAME_API FIGRebirthP3State
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	float HintElapsedSeconds = 0.0f;
 
+	/** Elapsed cabinet-pressure time, independent from automatic hint timing. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	float PressureRiseElapsedSeconds = 0.0f;
+
+	/** Becomes true after the player first approaches the open service cabinet. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	bool bPressureRiseArmed = false;
+
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	int32 HintStage = 0;
+};
+
+/** Exact resumable state for the optional P4 looping-stair investigation. */
+USTRUCT(BlueprintType)
+struct INDIEGAME_API FIGRebirthP4State
+{
+	GENERATED_BODY()
+
+	/** Number of completed lower-stair loops. The upward route is never locked. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	int32 StairLoopCount = 0;
+
+	/** Presentation-only tension stage. It never changes collision or fail state. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	int32 PressureStage = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	float PressureRiseElapsedSeconds = 0.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	float HintElapsedSeconds = 0.0f;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	int32 HintStage = 0;
+
+	/** Arms only after the player approaches the poster and stair landing. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	bool bPressureArmed = false;
+
+	/** Set when the player reaches the fifth-floor landing, even with zero loops. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	bool bCompleted = false;
 };
 
 USTRUCT(BlueprintType)
@@ -167,6 +207,9 @@ struct INDIEGAME_API FIGRebirthChapterThreeState
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	FIGRebirthP3State P3;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	FIGRebirthP4State P4;
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	bool bTankOpened = false;
