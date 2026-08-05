@@ -284,6 +284,19 @@ $auditScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\validate_baked_art_assets.py')
 
 foreach ($token in @(
+	'pitch=rotation[0]',
+	'yaw=rotation[1]',
+	'roll=rotation[2]'
+)) {
+	if (-not $meshScript.Contains($token)) {
+		throw "Mesh transform axis contract is missing: $token"
+	}
+}
+if ($meshScript.Contains('unreal.Rotator(*rotation)')) {
+	throw 'Mesh transforms must not pass C++-ordered rotations positionally.'
+}
+
+foreach ($token in @(
 	'M_EvidenceSlipperTrail',
 	'M_EvidenceCatPawTrail',
 	'M_EvidenceHoseDrag',
@@ -293,6 +306,7 @@ foreach ($token in @(
 	'M_DecalMineralScale',
 	'M_DecalRainGrime',
 	'M_WetHoodieUV',
+	'M_SubmergedHoodieUV',
 	'M_SubmergedPantsUV',
 	'M_SubmergedSlippersUV',
 	'M_SubmergedSlipperWearUV',
@@ -389,6 +403,24 @@ foreach ($token in @(
 		throw "Evidence prop is not generated and loaded: $token"
 	}
 }
+if (-not $meshScript.Contains('SM_OfferingWaterBowl') -or
+	-not $prologueSource.Contains('SM_OfferingWaterBowl')) {
+	throw 'Lobby offering bowl is not generated and loaded as an open vessel'
+}
+foreach ($token in @(
+	'def build_offering_water_bowl',
+	'(12.2, 8.0)',
+	'(10.7, 7.7)',
+	'revolve(mesh, profile, steps=48, smooth=True, scale_to_fill=True)',
+	'return bake(mesh, "SM_OfferingWaterBowl", add_collision=False)',
+	'FVector(-126, -280, 7.72f)',
+	'WaterSurface->SetCastShadow(false)'
+)) {
+	if (-not $meshScript.Contains($token) -and
+		-not $prologueSource.Contains($token)) {
+		throw "Offering-bowl open-water contract is missing: $token"
+	}
+}
 if (-not $meshScript.Contains('SM_AlleyCatRun') -or
 	-not $neighborhoodSource.Contains('SM_AlleyCatRun') -or
 	-not $neighborhoodSource.Contains('M_AlleyCatTabbyUV')) {
@@ -405,6 +437,7 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
+	'M_SubmergedHoodieUV',
 	'M_SubmergedPantsUV',
 	'M_SubmergedSlippersUV',
 	'M_SubmergedSlipperWearUV',
@@ -583,13 +616,20 @@ foreach ($token in @(
 	'TankDeckUndersideZ = 596.0f',
 	'TankWaterSurfaceZ = 561.0f',
 	'TankBodyPlacementAdjustmentZ = -16.0f',
+	'AuthoredTankBodyPlacement(-90.0f, 0.0f, 542.0f)',
+	'AuthoredTankBodyRotation(0.0f, 90.0f, 0.0f)',
+	'AuthoredSleeveStitchLocalBase(23.0f, -25.0f, 13.0f)',
+	'GetAuthoredSleeveStitchFocusOffset()',
 	'TankDeckUndersideZ - TankInternalFloorZ == 215.0f',
 	'TankWaterSurfaceZ - TankInternalFloorZ == 180.0f',
 	'TankDeckUndersideZ - TankWaterSurfaceZ == 35.0f',
 	'PlaneMesh ? FVector(270, 270, 1.0f) : FVector(270, 270, 3.0f)',
 	'TankWaterSurface->SetCastShadow(false)',
 	'TankWaterSurface->SetTranslucentSortPriority(2)',
-	'Tank + FVector(-10, -30, 540)',
+	'Tank + FVector(-151.0f, 45.0f, 580.0f)',
+	'Tank + FVector(-149, -28, 574)',
+	'const FVector ClothingEvidenceOffset = bUsesAuthoredTankBody',
+	'Tank + ClothingEvidenceOffset',
 	'ClothingEvidence->GetPresentationMesh()->SetVisibility(false)'
 )) {
 	if (-not $directorSource.Contains($token)) {
@@ -752,7 +792,7 @@ foreach ($token in @(
 if ($directorSource.Contains('FVector(310, 310, 8)')) {
 	throw 'The non-liftable three-metre tank lid returned'
 }
-foreach ($token in @('M_WetHoodieUV', 'M_CarrierBagFilm')) {
+foreach ($token in @('M_SubmergedHoodieUV', 'M_CarrierBagFilm')) {
 	if (-not $directorSource.Contains($token)) {
 		throw "CH03 material is not loaded: $token"
 	}
@@ -833,6 +873,7 @@ foreach ($token in @(
 	'[switch]$TankInteriorOnly',
 	'[switch]$SubmergedClothingOnly',
 	'ART_TARGETED_MATERIAL_BUILD PASS',
+	'@($targetRelativeMaterials).Count',
 	'IG_TANK_WATER_ONLY',
 	'IG_TANK_INTERIOR_ONLY',
 	'IG_SUBMERGED_CLOTHING_ONLY',

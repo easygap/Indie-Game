@@ -27,12 +27,15 @@ UE 5.8과 Win64 C++ 빌드 환경에서 같은 SHA의 런타임·수동·초견�
 
 `Resolve-UnrealEditor.ps1`이 프로젝트와 일치하는 UE 5.8 실행 파일을
 찾지 못하면 릴리스 하네스는 종료 코드 2와 `BLOCKED` 요약을 남긴다.
-Full 실행은 에디터를 시작하기 전에 Windows System32의
-`msvcp140_2.dll`과 `vcruntime140_1.dll`을 확인한다. 둘 중 하나라도
-`14.50.35719.0`보다 낮거나 없으면 `vc_runtime_prerequisite` 단계를
-`BLOCKED`로 기록하고 종료 코드 2로 끝낸다. 하네스가 관리자 권한 설치나
-임시 DLL 우회를 시도하지 않으므로, 요약에 기록된 UE 5.8 redist 설치 파일을
-화면 사용이 허용된 유지보수 시간에 실행한 뒤 새 clean SHA 검증을 시작한다.
+Full 실행은 에디터를 시작하기 전에 Windows System32 또는 이 UE 설치의
+공식 Engine AppLocal 위치에서 `msvcp140_2.dll`과
+`vcruntime140_1.dll`을 확인한다. 두 파일이 모두 `14.50.35719.0` 이상이고,
+Engine AppLocal 경로를 쓸 때는 ThirdParty 원본과 해시까지 일치해야 한다.
+두 경로 모두 충족하지 못하면 `vc_runtime_prerequisite` 단계를 `BLOCKED`로
+기록하고 종료 코드 2로 끝낸다. 하네스는 관리자 권한 설치나 임시 DLL
+우회를 시도하지 않는다. 요약에 기록된 UE 5.8 redist 설치 또는 공식 엔진
+파일 복구를 화면 사용이 허용된 유지보수 시간에 수행한 뒤 새 clean SHA
+검증을 시작한다.
 `-StaticOnly`도 실행 전후 같은 깨끗한 SHA를 잠근다. dirty 상태는
 `BLOCKED`, 실행 중 변경은 `FAIL`이며, 잠금에 성공한 정적 단계만 PASS,
 최상위 결과는 `PARTIAL`이다. 어느 경우에도 G3 이후를 통과 처리하지 않는다.
@@ -44,6 +47,37 @@ Development Editor/Game과 Shipping을 빌드한다. `.git`, `Saved`,
 제외하며, 원본 저장소의 SHA·작업 트리 잠금이 계속 증거 기준이다. 빌드된
 Win64 바이너리만 원본 런타임 검증용으로 되돌리고, 요약에는 실제
 `buildProjectFile`과 `usingAsciiBuildMirror`를 기록한다.
+
+## 2026-08-05 자동 사전 검증 현황
+
+이 절은 현재 작업의 위치를 기록할 뿐 아래 G3~G6 합격 조건을 완화하지
+않는다.
+
+- `Saved/Validation/RebirthRelease/20260805T050814587Z_24436/summary.json`:
+  `-AllowDirtyWorktree`로 고정한 변경 불가 스냅샷에서 정적 계약,
+  Editor/Game Development 빌드, 저장 46프로세스, CH02 자유 경로 5개,
+  체크포인트 10프로세스, Map Check 오류·경고 0, A/B 자동 종단과 Shipping
+  Build/Cook/Stage/Package/Archive가 모두 개별 PASS했다. dirty 입력 때문에
+  최상위는 `PARTIAL`이며 clean SHA의 정식 자동 후보나 수동 게이트 PASS가
+  아니다.
+- 이후 시각 보정 소스도 `IndieGameEditor Development`와 `IndieGame
+  Shipping` 컴파일·링크를 통과했고,
+  `C:/Users/USER/AppData/Local/IndieGame/ManualShipping/20260805T163500Z`에
+  재스테이징했다. 내부·런처 EXE의 `4:44 AM / 1.0.0 / easygap`
+  VERSIONINFO와 32px 아이콘 1,024픽셀, AppLocal CRT 14.50.35719.0을 다시
+  통과했다.
+- 같은 아카이브의 IoStore 목록은 1,007개 패키지·3,049개 청크이며
+  `SM_OfferingWaterBowl`, `M_SubmergedHoodieUV`, `M_TankWaterReveal`,
+  `SM_SubmergedHoodieCurl`, `Prologue_Morning` 포함을 확인했다. 목록과
+  아이콘·메타데이터 로그는
+  `Saved/Validation/ManualShipping_20260805T163500Z/`에 보존한다.
+- 직전 시각 스냅샷의 Shipping CH02 캡처는 미러룸·공동현관 제물·04:44
+  영수증과 엘리베이터 2층 중단·1층 하차·4층 복귀를 종료 코드 0으로
+  완주했다. 마지막 소금 판독성 보정을 포함한 내부 EXE
+  `E5DD7FEDE31B71E1D59EB9330AE6210C69179E5175AB59A7FF62411963B4D805`는
+  회사 Enterprise Application Control 이벤트 3077/3033으로 실행이
+  차단됐다. 보안 정책을 끄거나 신뢰 경로·파일명을 이용해 우회하지 않으며,
+  이 최신 해시의 CH02/CH03 GPU 캡처는 미승인으로 남긴다.
 
 ## 증거 보관 규칙
 
@@ -83,7 +117,15 @@ Saved/Validation/RebirthRelease/<UTC+PID>/
   RebirthRelease_EndingA.log
   RebirthRelease_EndingB.log
   ShippingPackage.log
+  ShippingExecutableMetadataSync.log
+  ShippingExecutableMetadata.log
+  ShippingApplicationIcon.log
+  ShippingApplicationIcon.png
   ShippingArchiveManifest.json
+  ShippingRuntime_EndingA.txt
+  ShippingRuntime_EndingB.txt
+  ShippingRuntimeUser_A/
+  ShippingRuntimeUser_B/
 Saved/Validation/RebirthRelease/Latest.json
 Saved/StagedBuilds/RebirthShipping/<UTC+PID>/
 ```
@@ -94,8 +136,11 @@ Saved/StagedBuilds/RebirthShipping/<UTC+PID>/
 뜻이며 S1~S8·R1~R4 수동 항목을 승인하지 않는다. 요약의
 `releaseEligible`은 수동 G3~G6이 남아 있으므로 항상 false이고,
 `automatedReleaseCandidateEligible`만 자동 범위의 완결성을 나타낸다.
-요약 스키마 v3는 실제 빌드 미러 경로와 VC++ 런타임 사전 점검 결과를
-추가하며, 이전 v2 요약은 현재 하네스의 새 실행 결과로 대체해야 한다.
+요약 스키마 v3는 실제 빌드 미러 경로, VC++ 런타임 사전 점검 결과,
+Shipping 실행 파일 VERSIONINFO 동기화·검증 로그와 아이콘 증거 경로·해시를
+기록하고, 패키지 A/B 실제 실행의 영수증·실행 파일 해시·격리 데이터 루트를
+`shippingRuntimeResults`로 보존한다. 이전 v2 요약은
+현재 하네스의 새 실행 결과로 대체해야 한다.
 
 `Saved/`는 Git에서 제외된다. 릴리스 승인 때는 해당 실행 폴더, Shipping
 산출물, 수동 G3 증거와 G4~G6 자료를 SHA별 읽기 전용 외부 보관소나 CI
@@ -284,9 +329,10 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Scripts\Run-Rebirth-ReleaseV
    `-nullrhi`이므로 전체 이동 공간, 실제 청감·렌더링·화면 가독성,
    실제 문 통과 입력이나 사람 입력을 증명하지 않는다. CH01 종단 경로는
    `종이컵+기다림` 결과 프롭의 표시·무충돌·상호작용 해제를 검사한다.
-   별도 저장 하네스도 다섯 선택의 CH01·CH02 물리 표현을 검사하지만 현재
-   환경에서 추가 10프로세스는 미실행이며, 어느 자동 경로도 세 용기 결과의
-   최종 화면을 증명하지 않는다. 04:33·04:43의 시간 연출, 손 프롭의 보이는 소멸,
+   별도 저장 하네스도 다섯 선택의 CH01·CH02 물리 표현을 10프로세스로
+   검사하며 위 dirty 회귀 스냅샷에서는 모두 통과했다. 다만 최신 clean SHA의
+   정식 증거는 아니고, 어느 자동 경로도 세 용기 결과의 최종 화면을 증명하지
+   않는다. 04:33·04:43의 시간 연출, 손 프롭의 보이는 소멸,
    봉지·병의 시각적 동일성, 폰·결제·지갑 상태도 수동 승인이 필요하다.
    필수 PASS 마커가 있더라도 비허용 Ensure·Error·Fatal이 하나라도
    있으면 해당 자동 단계는 실패다. 하네스의 현재 허용목록은 0개다.
@@ -458,8 +504,20 @@ CH02의 04:31 원승인은 일반 종이 패널을 쓰지 않고 검은 휴대�
   필수 정보가 사라지거나 자동 연결 범위를 넘어 진실이 조기 확정되지 않는다.
 - 헤드폰 스테레오, 노트북 스피커, TV/일반 스테레오와 모노 폴드다운에서
   P2 호출, P3 블리드, P4 물소리, P5 긁힘의 순서와 의미를 구분한다.
-- 키보드·마우스와 게임패드에서 조사, 홀드, 기록 닫기, 설정, 엔딩 선택,
-  재시작과 저장 복원이 모두 가능하다.
+- 키보드·마우스와 게임패드에서 타이틀의 새 게임·이어하기, 일시정지·복귀,
+  조사, 홀드, 기록 닫기, 설정, 크레딧, 정상 종료, 엔딩 선택, 재시작과 저장
+  복원이 모두 가능하다. 저장이 없거나 현재 스키마와 호환되지 않으면
+  이어하기는 비활성 상태여야 한다. 호환 저장이 있는 새 게임은 삭제 경고와
+  두 번째 확인 전에는 슬롯을 지우지 않으며, 취소·항목 이동 뒤에도 저장이
+  그대로 남아 있어야 한다.
+- 화면 설정에서 720p·1080p·1440p, 전체 화면·테두리 없는 창·창 모드,
+  Low/High, VSync와 30/60/무제한 프레임을 키보드·마우스·게임패드로 모두
+  변경한다. 적용 뒤 유지 확인, 명시적 되돌리기, Esc/B/View 취소와 10초
+  무입력 자동 복원이 해상도·화면 모드·품질·VSync·프레임 제한을 함께
+  되돌리는지 확인한다.
+- 저장 폴더를 읽기 전용으로 만든 실패 주입에서 새 게임은 기존 상태를
+  초기화하지 않고 멈추며, 저장·불러오기 실패 문구와 Error 로그가 각각
+  한 번 나타나야 한다. 권한을 복구한 뒤 같은 세션에서 재시도할 수 있어야 한다.
 - 연속 홀드는 길이 조절 또는 토글 대체 입력을 제공하고, 카메라 흔들림
   감소 상태에서는 필수 시선 이동을 강제하지 않는다. 점멸·왜곡을 줄여도
   퍼즐과 공포 사건의 발생 여부를 알 수 있어야 한다.
@@ -482,13 +540,37 @@ CH02의 04:31 원승인은 일반 종이 패널을 쓰지 않고 검은 휴대�
    기본 보관 위치는 실행 ID별로 고유하다. `-ArchiveDirectory`를 직접
    지정했다면 기존 파일이 없는 경로만 허용한다. 하네스는 UAT
    `BuildCookRun`에 `-clientconfig=Shipping`을 명시해
-   Build/Cook/Stage/Package하고 prerequisites를 포함한다. 현재
-   `DefaultGame.ini`의 에디터 기본값은
-   `PPBC_Development / ForDistribution=False`이므로 하네스 밖에서 기본
-   메뉴로 만든 산출물을 섞지 않는다. `ShippingPackage.log`, UAT 종료 코드,
+   Build/Cook/Stage/Package하고 prerequisites와 UE 5.8 공식 AppLocal CRT를
+   포함한다. 현재
+   `DefaultGame.ini`의 에디터 기본값도
+   `PPBC_Shipping / FullRebuild=True / ForDistribution=True`로 잠겨 있다.
+   그래도 수동 메뉴 패키지는 clean SHA·실행 ID·명령행·로그가 고정되지
+   않으므로 정식 증거로 섞지 않는다. `ShippingPackage.log`, UAT 종료 코드,
    EXE·PAK·UTOC·UCAS의 존재와 0바이트 여부를 확인하고 파일별 경로·크기·
-   SHA-256을 `ShippingArchiveManifest.json`에 남긴다. 스토어용
-   distribution 서명·인증은 G6 이후 플랫폼 게이트에서 별도로 처리한다.
+   SHA-256을 `ShippingArchiveManifest.json`에 남긴다. 아카이브의 실제
+   내부 `IndieGame-Win64-Shipping.exe`의 제품 VERSIONINFO를 루트
+   `IndieGame.exe`에 동기화하고 `OriginalFilename`을 루트 파일명으로
+   보정한다. 그 뒤 FileDescription·FileVersion·ProductName·ProductVersion·
+   CompanyName·LegalCopyright·InternalName·OriginalFilename이
+   `4:44 AM / 1.0.0 / easygap` 계약과 일치하며 엔진 빌드 문자열이 노출되지
+   않는지 검사한다. 내부 게임 EXE와 같은 폴더의 `msvcp140_2.dll`과
+   `vcruntime140_1.dll`이 모두 14.50.35719.0 이상인지 확인하고 경로·버전·
+   SHA-256을 매니페스트에 기록한다. 같은 `IndieGame.exe`에서 32px 대표
+   아이콘을 추출해
+   기준 ICO와 1,024픽셀을
+   전부 대조하며, 추출 PNG·검증 로그와 각각의 SHA-256도 같은 실행의
+   매니페스트와 요약에 기록한다. 그 직후 내부
+   `IndieGame-Win64-Shipping.exe`를 A/B 각각 별도 `-UserDir`에서
+   `-nullrhi -nosound -RenderOffscreen`으로 실제 실행한다. 각 프로세스는
+   종료 코드 0과 정확한 `REBIRTH_PACKAGED_RUNTIME PASS` 영수증을 남겨야
+   하며, 영수증·실행 파일 SHA-256과 데이터 루트를 요약에 기록한다. 시작
+   거부, 시간 초과, 비정상 종료, 누락·불일치 영수증은 자동 하네스 실패다.
+   A/B가 끝나면 최초 매니페스트의 모든 파일 수·크기·SHA-256을 다시 검사해
+   패키지가 실행 중 바뀌거나 매니페스트 밖 파일을 만든 경우도 실패시킨다.
+   이 개발 PC의 무렌더 패키지 실행은 3항의 클린 환경과 4항의 실제 입력
+   완주를 대신하지 않는다. 스토어용
+   distribution 서명·인증은 G6 이후 플랫폼 게이트에서 별도로 처리하며,
+   VERSIONINFO 동기화 뒤 서명해 서명된 파일을 다시 수정하지 않는다.
 2. 방금 만든 정확히 같은 Shipping 아카이브를 `PERFORMANCE.md`의 여섯
    필수 장비와 잠긴 해상도·품질 조합에서 각각 세 번 측정한다. p95,
    1% low, hitch, RAM, VRAM, 설치 크기와 `Saved` 증가량을 원본

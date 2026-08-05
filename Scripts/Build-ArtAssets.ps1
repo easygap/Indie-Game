@@ -218,6 +218,7 @@ if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
 	}
 	else {
 		@(
+			'Content\Prototype\Materials\M_SubmergedHoodieUV.uasset',
 			'Content\Prototype\Materials\M_SubmergedPantsUV.uasset',
 			'Content\Prototype\Materials\M_SubmergedSlippersUV.uasset',
 			'Content\Prototype\Materials\M_SubmergedSlipperWearUV.uasset'
@@ -297,7 +298,7 @@ if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
 			Copy-Item -LiteralPath $sourceMaterial -Destination $targetMaterial -Force
 		}
 	}
-	Write-Host "ART_TARGETED_MATERIAL_BUILD PASS target=$targetName materials=$($targetRelativeMaterials.Count) uasset_audit=1 no_visible_window=true"
+	Write-Host "ART_TARGETED_MATERIAL_BUILD PASS target=$targetName materials=$(@($targetRelativeMaterials).Count) uasset_audit=1 no_visible_window=true"
 	return
 }
 
@@ -384,6 +385,7 @@ $requiredAssets = @(
 	'Content\Meshes\SM_HornRimGlasses.uasset',
 	'Content\Meshes\SM_InspectionRod.uasset',
 	'Content\Meshes\SM_CrackedPhone.uasset',
+	'Content\Meshes\SM_OfferingWaterBowl.uasset',
 	'Content\Meshes\SM_AlleyCatRun.uasset',
 	'Content\Meshes\SM_FirstPersonHoodieSleeve.uasset',
 	'Content\Meshes\SM_P3ServiceCabinetShell.uasset',

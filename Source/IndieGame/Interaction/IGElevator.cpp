@@ -291,7 +291,8 @@ void AIGElevator::ConfigurePrototypeVisuals(
 	CachedCabMaterial = Visuals.StainlessMaterial;
 	CachedMirrorMaterial =
 		Visuals.MirrorMaterial ? Visuals.MirrorMaterial : Visuals.StainlessMaterial;
-	CachedDoorMaterial = Visuals.StainlessMaterial;
+	CachedDoorMaterial =
+		Visuals.DoorMaterial ? Visuals.DoorMaterial : Visuals.StainlessMaterial;
 	CachedFloorMaterial =
 		Visuals.FloorMaterial ? Visuals.FloorMaterial : Visuals.StainlessMaterial;
 	CachedInlayMaterial =
@@ -312,14 +313,19 @@ void AIGElevator::ConfigurePrototypeVisuals(
 	// not a slab of metal.
 	for (const float BaseZ : {0.0f, IntermediateCabBaseZ, -FloorDeltaZ})
 	{
+		constexpr float DoorCenterSeamWidth = 1.4f;
+		static_assert(
+			DoorCenterSeamWidth > 0.0f
+				&& DoorCenterSeamWidth < CabWidth * 0.5f,
+			"The lift centre seam must remain narrower than one door leaf.");
 		for (const float Side : {-1.0f, 1.0f})
 		{
 			UStaticMeshComponent* Panel = MakePiece(
-				ElevatorRoot, CachedCubeMesh, CachedCabMaterial,
+				ElevatorRoot, CachedCubeMesh, CachedDoorMaterial,
 				FVector(-CabDepth * 0.5f - WallThickness * 0.5f,
 					Side * DoorPanelWidth * 0.5f,
 					BaseZ + DoorHeight * 0.5f),
-				FVector(8, DoorPanelWidth, DoorHeight));
+				FVector(8, DoorPanelWidth - DoorCenterSeamWidth, DoorHeight));
 			if (FMath::IsNearlyZero(BaseZ))
 			{
 				UpperDoorPanels.Add(Panel);

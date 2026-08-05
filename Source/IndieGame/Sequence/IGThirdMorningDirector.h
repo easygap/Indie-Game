@@ -350,6 +350,9 @@ private:
 		EIGChapterThreeAction FilterAction =
 			EIGChapterThreeAction::None) const;
 	void FailRebirthReleaseValidation(const TCHAR* Reason);
+	bool WriteRebirthReleaseValidationResult(
+		bool bPassed,
+		const TCHAR* Reason) const;
 
 	UFUNCTION()
 	void HandleReleaseValidationSaveCompleted(bool bSuccess, FString SlotName);
@@ -520,6 +523,9 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> RoofDoorLeaf;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> TankLidVisual;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> TankWaterSurface;
+	/** Sub-surface reveal lights stay off until the remembered flashlight exists. */
+	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> TankRevealKeyLight;
+	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> TankRevealRimLight;
 	/** The loose inspection rod: on the deck normally, wedged only in ending B. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> InspectionRodVisual;
 	/** Spring-morning kitchen dressing revealed only by ending B's epilogue. */
@@ -565,6 +571,8 @@ private:
 	bool bP4PressureArmed = false;
 	bool bP4Completed = false;
 	bool bTankOpened = false;
+	/** Shipping visual probes reject the primitive body fallback. */
+	bool bUsesAuthoredTankBody = false;
 	bool bAccidentScratchTailSettled = false;
 	bool bLookedAwayAfterFirstScratch = false;
 	bool bActedAfterSecondScratch = false;

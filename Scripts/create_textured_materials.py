@@ -161,6 +161,12 @@ DECAL_MATERIALS = {
         "wet_rough": 0.27, "wet_dark": 0.72, "wet_normal_flatten": 0.45,
         "specular": 0.50,
     },
+    "M_SubmergedHoodieUV": {
+        "tex_asset": "T_WetHoodie_D", "pbr_stem": "T_WetHoodie",
+        "tile_u": 1.7, "wet_rough": 0.38, "wet_dark": 0.80,
+        "wet_normal_flatten": 0.28, "minimum_wetness": 0.84,
+        "specular": 0.28,
+    },
     "M_AlleyCatTabbyUV": {
         "tex_asset": "T_AlleyCatTabby_D", "pbr_stem": "T_AlleyCatTabby",
         "specular": 0.32,
@@ -193,15 +199,15 @@ DECAL_MATERIALS = {
     },
     "M_SubmergedPantsUV": {
         "tex_asset": "T_WetHoodie_D", "pbr_stem": "T_WetHoodie",
-        "tile_u": 2.5, "wet_rough": 0.24, "wet_dark": 0.62,
-        "wet_normal_flatten": 0.55, "minimum_wetness": 0.86,
-        "specular": 0.48,
+        "tile_u": 2.5, "wet_rough": 0.36, "wet_dark": 0.70,
+        "wet_normal_flatten": 0.34, "minimum_wetness": 0.86,
+        "specular": 0.26,
     },
     "M_SubmergedSlippersUV": {
         "tex_asset": "T_WetServiceHose_D", "pbr_stem": "T_WetServiceHose",
-        "tile_u": 1.35, "wet_rough": 0.15, "wet_dark": 0.68,
-        "wet_normal_flatten": 0.60, "minimum_wetness": 0.90,
-        "specular": 0.54,
+        "tile_u": 1.35, "wet_rough": 0.28, "wet_dark": 0.72,
+        "wet_normal_flatten": 0.42, "minimum_wetness": 0.90,
+        "specular": 0.32,
     },
     "M_SubmergedSlipperWearUV": {
         "tex_asset": "T_WetRungPad_D", "pbr_stem": "T_WetRungPad",
@@ -998,7 +1004,7 @@ def create_tank_water_material(assets, tools):
         ripple_a_uv,
         {
             "pbr_stem": "T_TankWaterSurface",
-            "specular": 0.72,
+            "specular": 0.28,
         },
     )
     ripple_b_normal = _sample(
@@ -1034,14 +1040,49 @@ def create_tank_water_material(assets, tools):
     unreal.MaterialEditingLibrary.connect_material_expressions(
         ripple_mix, "", ripple_normalized, ""
     )
+    flat_normal = _expr(
+        material, unreal.MaterialExpressionConstant3Vector, 40, 690
+    )
+    flat_normal.set_editor_property(
+        "constant", unreal.LinearColor(0.0, 0.0, 1.0, 1.0)
+    )
+    normal_flatten = _expr(
+        material, unreal.MaterialExpressionConstant, 220, 680
+    )
+    normal_flatten.set_editor_property("r", 0.58)
+    readable_ripples = _expr(
+        material, unreal.MaterialExpressionLinearInterpolate, 380, 560
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        ripple_normalized, "", readable_ripples, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        flat_normal, "", readable_ripples, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        normal_flatten, "", readable_ripples, "Alpha"
+    )
     unreal.MaterialEditingLibrary.connect_material_property(
-        ripple_normalized, "", unreal.MaterialProperty.MP_NORMAL
+        readable_ripples, "", unreal.MaterialProperty.MP_NORMAL
     )
 
-    # About 0.25 opacity at the texture's measured dark range. This keeps the
-    # body unreadable in ambient light but lets the flashlight recover cloth.
+    # A standing-water surface inside a closed tank is not a roof mirror. A
+    # stable roughness floor suppresses bright rooftop reflections while the
+    # two normal fields and weak IOR variation keep the water visibly present.
+    water_roughness = _expr(
+        material, unreal.MaterialExpressionConstant, 380, 740
+    )
+    water_roughness.set_editor_property("r", 0.42)
+    unreal.MaterialEditingLibrary.connect_material_property(
+        water_roughness, "", unreal.MaterialProperty.MP_ROUGHNESS
+    )
+
+    # About 0.23 opacity at the texture's measured dark range. The lower floor
+    # preserves a water sheet and refraction, while the runtime sub-surface
+    # key can recover the clothing silhouette without making it look printed
+    # directly onto an opaque plane.
     opacity_gain = _expr(material, unreal.MaterialExpressionConstant, -620, 220)
-    opacity_gain.set_editor_property("r", 0.42)
+    opacity_gain.set_editor_property("r", 0.25)
     opacity_detail = _expr(material, unreal.MaterialExpressionMultiply, -420, 160)
     unreal.MaterialEditingLibrary.connect_material_expressions(
         sample, "R", opacity_detail, "A"
@@ -1050,7 +1091,7 @@ def create_tank_water_material(assets, tools):
         opacity_gain, "", opacity_detail, "B"
     )
     opacity_floor = _expr(material, unreal.MaterialExpressionConstant, -420, 300)
-    opacity_floor.set_editor_property("r", 0.24)
+    opacity_floor.set_editor_property("r", 0.14)
     opacity = _expr(material, unreal.MaterialExpressionAdd, -220, 210)
     unreal.MaterialEditingLibrary.connect_material_expressions(
         opacity_detail, "", opacity, "A"
@@ -1333,6 +1374,7 @@ def run():
         return
     if os.environ.get("IG_SUBMERGED_CLOTHING_ONLY") == "1":
         names = (
+            "M_SubmergedHoodieUV",
             "M_SubmergedPantsUV",
             "M_SubmergedSlippersUV",
             "M_SubmergedSlipperWearUV",

@@ -1,5 +1,6 @@
 #include "Save/IGSaveSubsystem.h"
 
+#include "IndieGame.h"
 #include "Engine/GameInstance.h"
 #include "Kismet/GameplayStatics.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
@@ -45,12 +46,12 @@ bool UIGSaveSubsystem::ClearRotatingAutosaves()
 		bClearAutosavesAfterActiveSave = true;
 		return true;
 	}
-	ClearRotatingAutosavesNow();
-	return true;
+	return ClearRotatingAutosavesNow();
 }
 
-void UIGSaveSubsystem::ClearRotatingAutosavesNow()
+bool UIGSaveSubsystem::ClearRotatingAutosavesNow()
 {
+	bool bAllSlotsCleared = true;
 	for (int32 SlotIndex = 0; SlotIndex < IGSave::AutosaveSlotCount; ++SlotIndex)
 	{
 		const FString SlotName = FString::Printf(
@@ -59,11 +60,24 @@ void UIGSaveSubsystem::ClearRotatingAutosavesNow()
 			SlotIndex);
 		if (UGameplayStatics::DoesSaveGameExist(SlotName, LocalUserIndex))
 		{
-			UGameplayStatics::DeleteGameInSlot(SlotName, LocalUserIndex);
+			if (!UGameplayStatics::DeleteGameInSlot(SlotName, LocalUserIndex))
+			{
+				bAllSlotsCleared = false;
+				UE_LOG(
+					LogIndieGame,
+					Error,
+					TEXT("Failed to delete autosave slot '%s' for local user %d."),
+					*SlotName,
+					LocalUserIndex);
+			}
 		}
 	}
-	NextAutosaveIndex = 0;
+	if (bAllSlotsCleared)
+	{
+		NextAutosaveIndex = 0;
+	}
 	bClearAutosavesAfterActiveSave = false;
+	return bAllSlotsCleared;
 }
 
 bool UIGSaveSubsystem::BeginSave(
@@ -138,6 +152,23 @@ bool UIGSaveSubsystem::RequestAutosave(
 	const FName MapPackageName,
 	const FGameplayTag CheckpointTag)
 {
+	if (!ChapterId.IsValid()
+		|| MapPackageName.IsNone()
+		|| !CheckpointTag.IsValid())
+	{
+		// The front end only offers navigable checkpoints. Reject malformed
+		// writes here as well so a bad caller cannot poison both rotating slots.
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"Rejected malformed autosave: chapter_valid=%d map='%s' "
+				"checkpoint_valid=%d."),
+			ChapterId.IsValid() ? 1 : 0,
+			*MapPackageName.ToString(),
+			CheckpointTag.IsValid() ? 1 : 0);
+		return false;
+	}
 	if (bLoadInProgress || bApplyingLoadedProgress)
 	{
 		// Never mix a pre-load checkpoint with state that is being replaced by
@@ -205,6 +236,20 @@ bool UIGSaveSubsystem::RequestLoadLatestAutosave()
 	}
 
 	FString NewestSlot;
+	return FindNewestCompatibleAutosave(NewestSlot)
+		&& RequestLoad(NewestSlot);
+}
+
+bool UIGSaveSubsystem::HasCompatibleAutosave() const
+{
+	FString NewestSlot;
+	return FindNewestCompatibleAutosave(NewestSlot);
+}
+
+bool UIGSaveSubsystem::FindNewestCompatibleAutosave(
+	FString& OutSlotName) const
+{
+	OutSlotName.Reset();
 	FDateTime NewestTimestamp = FDateTime::MinValue();
 	for (int32 AutosaveIndex = 0;
 		AutosaveIndex < IGSave::AutosaveSlotCount;
@@ -221,16 +266,16 @@ bool UIGSaveSubsystem::RequestLoadLatestAutosave()
 
 		const UIGSaveGame* Candidate = Cast<UIGSaveGame>(
 			UGameplayStatics::LoadGameFromSlot(SlotName, LocalUserIndex));
-		if (IsSaveCompatible(Candidate)
-			&& (NewestSlot.IsEmpty()
+		if (IsAutosaveLoadable(Candidate)
+			&& (OutSlotName.IsEmpty()
 				|| Candidate->Progress.SavedAtUtc > NewestTimestamp))
 		{
-			NewestSlot = SlotName;
+			OutSlotName = SlotName;
 			NewestTimestamp = Candidate->Progress.SavedAtUtc;
 		}
 	}
 
-	return !NewestSlot.IsEmpty() && RequestLoad(NewestSlot);
+	return !OutSlotName.IsEmpty();
 }
 
 bool UIGSaveSubsystem::ApplyLoadedProgress()
@@ -292,6 +337,15 @@ void UIGSaveSubsystem::HandleSaveComplete(
 {
 	bSaveInProgress = false;
 	PendingSave = nullptr;
+	if (!bSuccess)
+	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT("Save operation failed for slot '%s' (user %d)."),
+			*SlotName,
+			UserIndex);
+	}
 	if (bSuccess && bActiveSaveIsAutosave && ActiveAutosaveIndex != INDEX_NONE)
 	{
 		NextAutosaveIndex = (ActiveAutosaveIndex + 1) % IGSave::AutosaveSlotCount;
@@ -301,7 +355,13 @@ void UIGSaveSubsystem::HandleSaveComplete(
 	ActiveAutosaveIndex = INDEX_NONE;
 	if (bClearAutosavesAfterActiveSave)
 	{
-		ClearRotatingAutosavesNow();
+		if (!ClearRotatingAutosavesNow())
+		{
+			UE_LOG(
+				LogIndieGame,
+				Error,
+				TEXT("Deferred rotating autosave cleanup failed."));
+		}
 	}
 	ProcessQueuedAutosave();
 	OnSaveCompleted.Broadcast(bSuccess, SlotName);
@@ -325,6 +385,19 @@ void UIGSaveSubsystem::HandleLoadComplete(
 	const bool bApplied = bLoaded
 		&& ApplyLoadedProgressInternal(!bWillTravel);
 	const bool bSuccess = bLoaded && bApplied;
+	if (!bSuccess)
+	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"Load operation failed for slot '%s' (user %d, compatible=%d, "
+				"applied=%d)."),
+			*SlotName,
+			UserIndex,
+			bLoaded ? 1 : 0,
+			bApplied ? 1 : 0);
+	}
 	OnLoadCompleted.Broadcast(bSuccess, SlotName, LastLoadedSave);
 
 	if (bSuccess && bWillTravel)
@@ -381,4 +454,12 @@ bool UIGSaveSubsystem::IsSaveCompatible(const UIGSaveGame* SaveGame) const
 	return SaveGame
 		&& SaveGame->Progress.SchemaVersion > 0
 		&& SaveGame->Progress.SchemaVersion <= UIGSaveGame::CurrentSchemaVersion;
+}
+
+bool UIGSaveSubsystem::IsAutosaveLoadable(const UIGSaveGame* SaveGame) const
+{
+	return IsSaveCompatible(SaveGame)
+		&& SaveGame->Progress.ChapterId.IsValid()
+		&& !SaveGame->Progress.MapPackageName.IsNone()
+		&& SaveGame->Progress.CheckpointTag.IsValid();
 }

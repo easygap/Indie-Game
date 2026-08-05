@@ -129,7 +129,9 @@ foreach ($case in $cases) {
 				$case.P1, $case.P2, $case.Truths),
 		'authored_housings=2',
 		'layered_displays=2',
-		"time_entry_physical=2 pressure_caps=$($case.PressureCaps)",
+		'time_entry_physical=2',
+		'time_entry_mesh_components=23',
+		"pressure_caps=$($case.PressureCaps)",
 		"route_order=$($case.Order)",
 		'REBIRTH_E2E PASS ch03_handoff',
 		"REBIRTH_CH02_FREEDOM PASS route=$($case.Route) handoff=1"
@@ -150,6 +152,10 @@ foreach ($case in $cases) {
 		p2Resolved = [bool]$case.P2
 		truthCount = $case.Truths
 		pressureCaps = $case.PressureCaps
+		physicalContracts = 2
+		meshComponents = 23
+		authoredHousings = 2
+		layeredDisplays = 2
 		logPath = $logPath
 		logSha256 = $hash
 	})

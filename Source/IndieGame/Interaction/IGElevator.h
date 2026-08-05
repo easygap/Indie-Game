@@ -51,8 +51,10 @@ public:
 	{
 		UStaticMesh* CubeMesh = nullptr;
 		UStaticMesh* CylinderMesh = nullptr;
-		/** Hairline stainless: cab walls, doors, jambs. */
+		/** Hairline stainless: cab walls and jambs. */
 		UMaterialInterface* StainlessMaterial = nullptr;
+		/** Powder-coated landing/car door face, kept separate from the cab shell. */
+		UMaterialInterface* DoorMaterial = nullptr;
 		/** Brushed rear-wall stainless; no readable player reflection. */
 		UMaterialInterface* MirrorMaterial = nullptr;
 		/** Marble slab under foot, with a darker inlay material for the border. */

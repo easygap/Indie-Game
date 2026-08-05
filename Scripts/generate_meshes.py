@@ -73,9 +73,20 @@ def prim_options(scale_to_fill=False):
 
 
 def xf(location=(0.0, 0.0, 0.0), rotation=(0.0, 0.0, 0.0), scale=(1.0, 1.0, 1.0)):
+    """Builds a transform from Unreal's familiar (pitch, yaw, roll) tuple.
+
+    ``unreal.Rotator`` exposes its positional constructor in reflected struct
+    order (roll, pitch, yaw), unlike C++ ``FRotator(Pitch, Yaw, Roll)``.  The
+    mesh authoring calls below deliberately use the C++ order shared by the
+    runtime scene code, so pass named fields here to keep vertical seams,
+    cabinet leaves and stair stringers on their intended axes.
+    """
     return unreal.Transform(
         location=unreal.Vector(*location),
-        rotation=unreal.Rotator(*rotation),
+        rotation=unreal.Rotator(
+            pitch=rotation[0],
+            yaw=rotation[1],
+            roll=rotation[2]),
         scale=unreal.Vector(*scale))
 
 
@@ -201,6 +212,7 @@ HERO_MESHES = {
     "SM_P3ValveWheelLarge",
     "SM_P3ValveWheelSmall",
     "SM_P3PressureGauge",
+    "SM_OfferingWaterBowl",
 }
 
 LARGE_PROP_PREFIXES = (
@@ -426,6 +438,24 @@ def build_kimchi_tub():
     ]
     revolve(mesh, profile, steps=44)
     return bake(mesh, "SM_KimchiTub")
+
+
+def build_offering_water_bowl():
+    """Shallow stainless water bowl with a real open interior.
+
+    The lobby offering is read from standing eye height and later reappears as
+    accident evidence.  A capped cylinder looked like a black puck, so the
+    revolved profile keeps a weighted base, tapered wall, rolled lip and an
+    unobstructed cavity for the separate water surface.
+    """
+    mesh = new_mesh()
+    profile = [
+        (0.0, 0.0), (8.8, 0.0), (9.8, 0.7), (11.1, 4.6),
+        (11.8, 7.5), (12.2, 8.0), (12.0, 8.6), (11.3, 8.7),
+        (10.7, 7.7), (10.0, 4.9), (8.4, 1.2), (0.0, 1.2),
+    ]
+    revolve(mesh, profile, steps=48, smooth=True, scale_to_fill=True)
+    return bake(mesh, "SM_OfferingWaterBowl", add_collision=False)
 
 
 def build_milk_carton():
@@ -875,35 +905,32 @@ def build_submerged_hoodie_curl():
     """
     mesh = new_mesh()
 
-    # Back and shoulders form the first read through dark tank water. The
-    # silhouette follows the approved ImageGen sheet but retains the exact
-    # gameplay footprint of the existing greybox reveal.
+    # A compact side-curl fits below the real 104 cm service hatch. The older
+    # two-metre reclining footprint pre-dated the authored access deck and was
+    # only readable while the entire tank roof was absent.
     ellipsoid(
-        mesh, (92.0, 46.0, 25.0), location=(8.0, 4.0, 0.0),
-        rotation=(0.0, 16.0, -3.0), steps=32)
+        mesh, (64.0, 46.0, 24.0), location=(0.0, -4.0, 0.0),
+        rotation=(0.0, 10.0, -4.0), steps=32)
     ellipsoid(
-        mesh, (34.0, 42.0, 24.0), location=(34.0, 4.0, 2.0),
-        rotation=(0.0, 12.0, -4.0), steps=24)
+        mesh, (42.0, 48.0, 23.0), location=(17.0, 0.0, 2.0),
+        rotation=(0.0, -8.0, -3.0), steps=28)
 
-    # Raised shoulder, tucked hood and compressed crown. No separate face or
-    # skin mesh exists, so no camera angle can accidentally reveal one.
+    # The cowl and hood overlap the shoulder mass. There is deliberately no
+    # face or skin group: folded cuffs close the only forward opening.
     ellipsoid(
-        mesh, (31.0, 29.0, 29.0), location=(62.0, 15.0, 3.0),
-        rotation=(0.0, 9.0, 0.0), steps=24)
+        mesh, (34.0, 38.0, 13.0), location=(25.0, 3.0, -1.0),
+        rotation=(0.0, -12.0, 0.0), steps=24)
     ellipsoid(
-        mesh, (36.0, 34.0, 22.0), location=(66.0, 18.0, 10.0),
-        rotation=(0.0, 14.0, 8.0), steps=24)
-    ellipsoid(
-        mesh, (19.0, 20.0, 18.0), location=(50.0, 11.0, 0.0),
-        rotation=(0.0, 12.0, 0.0), steps=20)
+        mesh, (30.0, 32.0, 26.0), location=(35.0, 7.0, 5.0),
+        rotation=(0.0, -20.0, 7.0), steps=28)
 
-    # Both arms fold inward. Slightly enlarged cuffs overlap the sleeve tubes
-    # and hide the hands completely, even under refraction or close flashlight.
+    # Both sleeves wrap toward the hood instead of splaying away from the
+    # torso. Rounded overlaps hide joints while preserving a human elbow read.
     arm_paths = (
-        (6.75, [(30.0, -10.0, 1.0), (7.0, -38.0, -2.0)]),
-        (5.75, [(7.0, -38.0, -2.0), (-20.0, -24.0, -5.0)]),
-        (6.75, [(31.0, 20.0, 1.0), (4.0, 44.0, -2.0)]),
-        (5.75, [(4.0, 44.0, -2.0), (-25.0, 31.0, -5.0)]),
+        (6.6, [(14.0, -18.0, 2.0), (32.0, -28.0, 3.0)]),
+        (5.7, [(32.0, -28.0, 3.0), (39.0, -10.0, 5.0)]),
+        (6.6, [(14.0, 18.0, 2.0), (33.0, 27.0, 3.0)]),
+        (5.7, [(33.0, 27.0, 3.0), (40.0, 11.0, 5.0)]),
     )
     for radius, path in arm_paths:
         _append_round_path(mesh, radius, path)
@@ -912,8 +939,18 @@ def build_submerged_hoodie_curl():
             (radius * 2.12, radius * 2.12, radius * 1.72),
             location=path[-1],
             steps=18)
-    ellipsoid(mesh, (17.0, 13.0, 10.0), location=(-23.0, -22.0, -5.0), steps=18)
-    ellipsoid(mesh, (17.0, 13.0, 10.0), location=(-28.0, 29.0, -5.0), steps=18)
+    ellipsoid(mesh, (15.0, 12.0, 9.0), location=(39.0, -10.0, 5.0), steps=18)
+    ellipsoid(mesh, (15.0, 12.0, 9.0), location=(40.0, 11.0, 5.0), steps=18)
+
+    # Shallow raised folds break the mathematically smooth ellipsoids under a
+    # flashlight without adding a separate material or baked lighting.
+    for location, yaw, length in (
+            ((-4.0, -16.0, 12.0), 18.0, 24.0),
+            ((4.0, 13.0, 12.5), -16.0, 21.0),
+            ((19.0, -8.0, 13.0), 32.0, 17.0)):
+        ellipsoid(
+            mesh, (length, 3.2, 2.2), location=location,
+            rotation=(0.0, yaw, 0.0), steps=16)
     return bake(mesh, "SM_SubmergedHoodieCurl", add_collision=False)
 
 
@@ -921,14 +958,16 @@ def build_submerged_pants_curl():
     """Loose black training pants in the same back-facing curled pose."""
     mesh = new_mesh()
     ellipsoid(
-        mesh, (54.0, 44.0, 28.0), location=(-34.0, -3.0, -2.0),
-        rotation=(0.0, 12.0, 0.0), steps=28)
+        mesh, (44.0, 42.0, 25.0), location=(-25.0, -4.0, -3.0),
+        rotation=(0.0, 8.0, 0.0), steps=28)
 
+    # Both knees are drawn back toward the chest, then the shins return beside
+    # the hips. This produces the closed C-shape in the approved pose sheet.
     leg_paths = (
-        (10.0, [(-30.0, -8.0, -2.0), (-63.0, -42.0, -4.0)]),
-        (8.25, [(-63.0, -42.0, -4.0), (-107.0, -21.0, -6.0)]),
-        (10.0, [(-33.0, 8.0, -2.0), (-62.0, 38.0, -3.0)]),
-        (8.25, [(-62.0, 38.0, -3.0), (-102.0, 27.0, -6.0)]),
+        (9.6, [(-22.0, -10.0, -2.0), (5.0, -37.0, -1.0)]),
+        (7.6, [(5.0, -37.0, -1.0), (-35.0, -43.0, -5.0)]),
+        (9.6, [(-27.0, 5.0, -3.0), (2.0, 35.0, 0.0)]),
+        (7.6, [(2.0, 35.0, 0.0), (-42.0, 33.0, -5.0)]),
     )
     for radius, path in leg_paths:
         _append_round_path(mesh, radius, path)
@@ -941,11 +980,11 @@ def build_submerged_pants_curl():
     # Long gathered cuffs overlap the sock-shaped foot volumes in the slipper
     # group. This deliberately removes the ankle skin visible in the reference.
     ellipsoid(
-        mesh, (23.0, 18.0, 12.0), location=(-105.0, -21.0, -6.0),
-        rotation=(0.0, -19.0, 0.0), steps=20)
+        mesh, (21.0, 17.0, 11.0), location=(-39.0, -42.0, -6.0),
+        rotation=(0.0, 20.0, 0.0), steps=20)
     ellipsoid(
-        mesh, (23.0, 18.0, 12.0), location=(-101.0, 27.0, -6.0),
-        rotation=(0.0, 11.0, 0.0), steps=20)
+        mesh, (21.0, 17.0, 11.0), location=(-46.0, 32.0, -6.0),
+        rotation=(0.0, -15.0, 0.0), steps=20)
     return bake(mesh, "SM_SubmergedPantsCurl", add_collision=False)
 
 
@@ -953,8 +992,8 @@ def build_submerged_slippers_curl():
     """Black slide slippers plus fully covered feet for the identity reveal."""
     mesh = new_mesh()
     slipper_specs = (
-        ((-115.0, -17.0, -7.0), -19.0),
-        ((-111.0, 25.0, -7.0), 11.0),
+        ((-48.0, -39.0, -7.0), 20.0),
+        ((-52.0, 31.0, -7.0), -15.0),
     )
     for location, yaw in slipper_specs:
         # Thin worn sole, black sock/covered foot, and a broad upper strap.
@@ -1726,6 +1765,7 @@ BUILDERS = (
     build_cup_sleeve,
     build_cup_lid,
     build_kimchi_tub,
+    build_offering_water_bowl,
     build_milk_carton,
     build_snack_bag,
     build_alarm_clock,

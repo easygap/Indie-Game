@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"EngineAssociation": "5.8",
 	"Category": "Games",
-	"Description": "A scalable single-player realistic horror game built with Unreal Engine 5.",
+	"Description": "A Korean first-person psychological horror game set at 4:44 AM.",
 	"Modules": [
 		{
 			"Name": "IndieGame",

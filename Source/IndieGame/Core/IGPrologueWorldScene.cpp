@@ -1090,15 +1090,6 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateBottleLabel(
 
 UStaticMesh* AIGPrologueWorldScene::FindPhotoPropMesh(const TCHAR* AssetId) const
 {
-	// Interchange nests generated meshes below the source folder.  Query the
-	// registry first instead of probing a guessed object path; every failed
-	// guess printed a scary runtime warning even when the asset existed.
-	const FAssetRegistryModule& RegistryModule =
-		FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
-	TArray<FAssetData> Assets;
-	RegistryModule.Get().GetAssetsByPath(
-		*FString::Printf(TEXT("/Game/Photo/Props/%s"), AssetId), Assets, true);
-
 	// Interchange can create several meshes in one source folder. Registry
 	// iteration order is not stable, and choosing its first entry previously
 	// turned a cash register into a loose drawer and an outdoor set into one
@@ -1119,6 +1110,32 @@ UStaticMesh* AIGPrologueWorldScene::FindPhotoPropMesh(const TCHAR* AssetId) cons
 	const FName PreferredName = PreferredAssetNames.Contains(AssetIdName)
 		? PreferredAssetNames[AssetIdName]
 		: FName(FString::Printf(TEXT("%s_1k"), AssetId));
+
+	// Required photo props must be available while the world is constructed,
+	// including a first run with an empty Asset Registry discovery cache. The
+	// import pipeline owns this stable package convention, so load the authored
+	// primary object directly before falling back to a registry search for
+	// future import variants.
+	const FString PreferredObjectPath = FString::Printf(
+		TEXT("/Game/Photo/Props/%s/%s_1k/StaticMeshes/%s.%s"),
+		AssetId,
+		AssetId,
+		*PreferredName.ToString(),
+		*PreferredName.ToString());
+	if (UStaticMesh* DirectMesh = LoadObject<UStaticMesh>(
+		nullptr,
+		*PreferredObjectPath,
+		nullptr,
+		LOAD_NoWarn))
+	{
+		return DirectMesh;
+	}
+
+	const FAssetRegistryModule& RegistryModule =
+		FModuleManager::LoadModuleChecked<FAssetRegistryModule>(TEXT("AssetRegistry"));
+	TArray<FAssetData> Assets;
+	RegistryModule.Get().GetAssetsByPath(
+		*FString::Printf(TEXT("/Game/Photo/Props/%s"), AssetId), Assets, true);
 
 	TArray<FAssetData> StaticMeshes;
 	for (const FAssetData& Asset : Assets)
@@ -2073,6 +2090,21 @@ void AIGPrologueWorldScene::BuildCorridor()
 			FVector(3, 128, 1.6f), Skirting, false);
 		++StepIndex;
 	}
+	// Enclose the descending flight beyond the transition volume. Without the
+	// far wall and side returns the sky dome filled the stair throat, making an
+	// ordinary interior landing look like a blue portal from the corridor.
+	CreateBlock(
+		FVector(-392.5f, -385, 80), FVector(125, 20, 340),
+		CorridorWallX);
+	CreateBlock(
+		FVector(-392.5f, -225, 80), FVector(125, 20, 340),
+		CorridorWallX);
+	CreateBlock(
+		FVector(-455, -305, 80), FVector(20, 200, 340),
+		CorridorWallY);
+	CreateBlock(
+		FVector(-392.5f, -305, 250), FVector(125, 160, 20),
+		CorridorCeil);
 	for (const float RailY : {-243.0f, -367.0f})
 	{
 		CreateBlock(
@@ -2139,7 +2171,11 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	UMaterialInterface* CorridorFloor =
 		TexMat(TEXT("M_GraniteTile_XY"), ConcreteMaterial);
 	UMaterialInterface* OfferingBowlMaterial =
-		TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
+		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
+	UMaterialInterface* OfferingWaterMaterial =
+		TexMat(TEXT("M_TankWaterReveal"), GlassMaterial);
+	UMaterialInterface* LampShadeMaterial =
+		TexMat(TEXT("M_PaperOld"), SignWhiteMaterial);
 	UMaterialInterface* DarkGloss = PlasticDarkMaterial;
 	UMaterialInterface* DoorTrim = PlasticDarkMaterial;
 
@@ -2213,38 +2249,40 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	AddOverlay(FVector(365, 28, 28), FVector(55, 55, 56), Furniture);
 
 	// Black horn-rim glasses at real scale (about 14 cm across).
-	for (const float LensX : {361.2f, 368.8f})
+	for (const float LensX : {343.5f, 351.5f})
 	{
 		AddOverlay(FVector(LensX, 21, 57.4f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
 		AddOverlay(FVector(LensX, 21, 61.2f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
 		AddOverlay(FVector(LensX - 2.75f, 21, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
 		AddOverlay(FVector(LensX + 2.75f, 21, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
 	}
-	AddOverlay(FVector(365, 21, 59.3f), FVector(2.1f, 0.8f, 0.8f), DarkGloss, false);
+	AddOverlay(FVector(347.5f, 21, 59.3f), FVector(2.1f, 0.8f, 0.8f), DarkGloss, false);
 	AddOverlay(
-		FVector(356.0f, 24, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
+		FVector(338.3f, 24, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
 		nullptr, FRotator(0, -18, 0));
 	AddOverlay(
-		FVector(374.0f, 24, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
+		FVector(356.7f, 24, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
 		nullptr, FRotator(0, 18, 0));
 
-	// The one inviting warm light in a dead corridor.
-	AddOverlay(FVector(380, 34, 70), FVector(12, 12, 28), DarkGloss, false, CylinderMesh);
+	// The small nightstand already carries the alarm, memo and glasses. A wall
+	// sconce above it keeps that real 55 cm surface physically usable and gives
+	// the otherwise dead corridor one believable warm source.
+	AddOverlay(FVector(380, 216, 157), FVector(14, 4, 22), DarkGloss, false);
+	AddOverlay(FVector(380, 206, 157), FVector(4, 18, 4), DarkGloss, false);
 	UStaticMeshComponent* LampShade = AddOverlay(
-		FVector(380, 34, 89), FVector(27, 27, 24),
-		FridgeInteriorMaterial, false, ConeMesh);
+		FVector(380, 197, 143), FVector(24, 24, 20),
+		LampShadeMaterial, false, ConeMesh);
 	if (LampShade)
 	{
 		// The point light sits inside this solid prototype cone. Letting the
 		// cone cast produced a large black triangular pool across the bed.
 		LampShade->SetCastShadow(false);
 	}
-	// Keep the source above the shade's lower rim. A low point source threw
-	// metre-long, nearly black shadows from the sleeper and bedside props,
-	// which read as broken geometry rather than a dim occupied room.
+	// The bulb sits just below the wall shade. A small soft source keeps the
+	// sleeper readable without flattening the far corner or lighting the hall.
 	MirrorRoomLamp = CreateLight(
-		FVector(376, 42, 108), 620.0f, 330.0f,
-		FLinearColor(1.0f, 0.54f, 0.23f), false, 30.0f);
+		FVector(380, 194, 132), 560.0f, 380.0f,
+		FLinearColor(1.0f, 0.52f, 0.22f), false, 34.0f);
 	if (MirrorRoomLamp)
 	{
 		MirrorRoomLamp->SetVisibility(false);
@@ -2267,23 +2305,53 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// CH02 overlaps the 7/27 state after the management reply: 401 has already
 	// removed the rice, spoon and incense. The salt was swept apart by hand,
 	// leaving a deliberate central gap rather than a trampled line.
-	for (int32 GrainIndex = 0; GrainIndex < 9; ++GrainIndex)
+	for (int32 GrainIndex = 0; GrainIndex < 17; ++GrainIndex)
 	{
-		const float Alpha = static_cast<float>(GrainIndex) / 8.0f;
-		const float GrainSize = 1.35f + (GrainIndex % 3) * 0.3f;
+		const float Alpha = static_cast<float>(GrainIndex) / 16.0f;
+		const float GrainSize = 0.38f + (GrainIndex % 4) * 0.05f;
 		for (const float Side : {-1.0f, 1.0f})
 		{
 			const float GrainX = -150.0f
 				+ Side * (17.0f + (1.0f - Alpha) * 25.0f);
 			const float GrainY = -248.0f - Alpha * 4.0f
-				+ FMath::Sin(GrainIndex * 1.71f) * 0.8f;
+				+ FMath::Sin(GrainIndex * 1.71f) * 1.05f;
 			if (UStaticMeshComponent* Grain = AddOverlay(
-				FVector(GrainX, GrainY, 0.55f),
-				FVector(GrainSize, GrainSize * 0.72f, 0.7f),
-				SignWhiteMaterial, false, SphereMesh))
+				FVector(GrainX, GrainY, 0.27f),
+				FVector(GrainSize, GrainSize * 0.72f, 0.38f),
+				LampShadeMaterial, false, SphereMesh))
 			{
 				Grain->SetCastShadow(false);
 			}
+		}
+	}
+	// Thin, asymmetric deposits keep the swept salt legible without turning the
+	// threshold into an evenly spaced row of pebble-like props.
+	struct FSaltDepositSpec
+	{
+		FVector2D Position;
+		FVector Scale;
+		float Yaw;
+	};
+	const FSaltDepositSpec SaltDeposits[] = {
+		{FVector2D(-193.0f, -249.4f), FVector(8.2f, 1.55f, 0.42f), -11.0f},
+		{FVector2D(-183.5f, -246.9f), FVector(3.6f, 1.15f, 0.32f),   7.0f},
+		{FVector2D(-175.0f, -250.2f), FVector(9.2f, 1.85f, 0.48f),  -4.0f},
+		{FVector2D(-166.5f, -247.6f), FVector(3.0f, 1.00f, 0.30f),  15.0f},
+		{FVector2D(-133.0f, -249.0f), FVector(4.1f, 1.10f, 0.33f), -12.0f},
+		{FVector2D(-124.0f, -246.5f), FVector(9.6f, 1.75f, 0.48f),   6.0f},
+		{FVector2D(-113.0f, -250.7f), FVector(3.2f, 0.95f, 0.30f), -18.0f},
+		{FVector2D(-103.5f, -247.8f), FVector(8.7f, 1.50f, 0.42f),   9.0f}};
+	for (const FSaltDepositSpec& Deposit : SaltDeposits)
+	{
+		if (UStaticMeshComponent* Cluster = AddOverlay(
+			FVector(Deposit.Position.X, Deposit.Position.Y, 0.28f),
+			Deposit.Scale,
+			LampShadeMaterial,
+			false,
+			SphereMesh,
+			FRotator(0, Deposit.Yaw, 0)))
+		{
+			Cluster->SetCastShadow(false);
 		}
 	}
 	const FVector2D SweptSalt[] = {
@@ -2294,9 +2362,9 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 		++ScatterIndex)
 	{
 		if (UStaticMeshComponent* Grain = AddOverlay(
-			FVector(SweptSalt[ScatterIndex].X, SweptSalt[ScatterIndex].Y, 0.5f),
-			FVector(1.2f, 1.0f, 0.6f),
-			SignWhiteMaterial,
+			FVector(SweptSalt[ScatterIndex].X, SweptSalt[ScatterIndex].Y, 0.20f),
+			FVector(0.42f, 0.34f, 0.30f),
+			LampShadeMaterial,
 			false,
 			SphereMesh))
 		{
@@ -2306,42 +2374,53 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 
 	// Only the dry circular trace of the removed rice bowl remains.
 	if (UStaticMeshComponent* DryOuter = AddOverlay(
-		FVector(-174, -280, 0.35f), FVector(24, 24, 0.5f),
-		ConcreteDarkMaterial, false, CylinderMesh))
+		FVector(-174, -280, 0.16f), FVector(24, 24, 0.24f),
+		ConcreteMaterial, false, CylinderMesh))
 	{
 		DryOuter->SetCastShadow(false);
 	}
 	if (UStaticMeshComponent* DryInner = AddOverlay(
-		FVector(-174, -280, 0.65f), FVector(18, 18, 0.35f),
+		FVector(-174, -280, 0.24f), FVector(23.1f, 23.1f, 0.18f),
 		CorridorFloor, false, CylinderMesh))
 	{
 		DryInner->SetCastShadow(false);
 	}
+	// Foot traffic and wiping interrupt the mineral ring at three points. The
+	// residue remains recognizable without looking like a puzzle UI outline.
+	AddOverlay(FVector(-186.0f, -280.0f, 0.36f), FVector(4.0f, 5.0f, 0.12f), CorridorFloor, false);
+	AddOverlay(FVector(-174.0f, -268.0f, 0.36f), FVector(5.0f, 4.0f, 0.12f), CorridorFloor, false);
+	AddOverlay(FVector(-164.5f, -287.0f, 0.36f), FVector(4.0f, 5.0f, 0.12f), CorridorFloor, false);
 
 	// The clear-water bowl sits outside the broken line. Its 24 cm steel body
 	// matches the overturned bowl that reappears on the unfinished fifth floor.
 	AddOverlay(
-		FVector(-126, -280, 4.5f), FVector(24, 24, 9.0f),
-		OfferingBowlMaterial, false, CylinderMesh);
-	AddOverlay(
-		FVector(-126, -280, 8.8f), FVector(26, 26, 1.2f),
-		OfferingBowlMaterial, false, CylinderMesh);
+		FVector(-126, -280, 0.08f), FVector(100.0f),
+		OfferingBowlMaterial, false,
+		PropMesh(TEXT("SM_OfferingWaterBowl"), CylinderMesh));
 	if (UStaticMeshComponent* WaterSurface = AddOverlay(
-		FVector(-126, -280, 9.55f), FVector(18, 18, 0.5f),
-		WaterBlueMaterial, false, CylinderMesh))
+		FVector(-126, -280, 7.72f), FVector(20.6f, 20.6f, 0.16f),
+		OfferingWaterMaterial, false, CylinderMesh))
 	{
 		WaterSurface->SetCastShadow(false);
 	}
+	// Two broken reflections are enough to communicate a liquid surface in the
+	// dim corridor without turning the bowl into an emissive objective marker.
+	AddOverlay(
+		FVector(-129.0f, -276.5f, 7.86f), FVector(7.2f, 0.85f, 0.08f),
+		FridgeInteriorMaterial, false, SphereMesh, FRotator(0, -18, 0));
+	AddOverlay(
+		FVector(-122.5f, -282.5f, 7.87f), FVector(4.2f, 0.62f, 0.06f),
+		FridgeInteriorMaterial, false, SphereMesh, FRotator(0, 24, 0));
 
 	// A restrained corridor spill keeps the evidence legible without turning
 	// this quiet act of waiting into a supernatural spotlight.
 	OfferingLight = CreateLight(
-		FVector(-150, -312, 78), 195.0f, 220.0f,
+		FVector(-150, -312, 78), 175.0f, 220.0f,
 		FLinearColor(1.0f, 0.78f, 0.58f), false, 30.0f);
 	if (OfferingLight)
 	{
 		OfferingLight->SetVisibility(false);
-		OfferingLight->SetSpecularScale(0.35f);
+		OfferingLight->SetSpecularScale(0.18f);
 		OfferingLight->SetVolumetricScatteringIntensity(0.04f);
 	}
 
@@ -2465,7 +2544,7 @@ void AIGPrologueWorldScene::SetChapterTwoOverlayVisible(const bool bVisible)
 	if (OfferingLight)
 	{
 		OfferingLight->SetVisibility(bVisible);
-		OfferingLight->SetIntensity(bVisible ? 195.0f : 0.0f);
+		OfferingLight->SetIntensity(bVisible ? 145.0f : 0.0f);
 	}
 
 	auto SetChapterActorVisible = [bVisible](AIGInteractableActor* Actor)
@@ -2987,7 +3066,12 @@ void AIGPrologueWorldScene::BuildAlley()
 	// The north facade is split by a service gap, so the alley reads as a
 	// junction rather than one long tube. The neighbouring block starts where
 	// the villa ends.
-	CreateBlock(FVector(935, -385, 230), FVector(430, 20, 460), BrickX);
+	// The lift projects 160 cm beyond the old villa edge. Give that shaft its
+	// own thin granite enclosure, then start the neighbouring brick block after
+	// it. The previous continuous brick facade intersected the lobby cab and
+	// appeared literally inside its left wall.
+	CreateBlock(FVector(800, -394, 620), FVector(160, 6, 1240), GranitePanelX);
+	CreateBlock(FVector(1015, -385, 230), FVector(270, 20, 460), BrickX);
 	CreateBlock(FVector(1845, -385, 230), FVector(1110, 20, 460), BrickX);
 
 	// Side alley running north between the two buildings: unlit, dead-ended,
@@ -3962,15 +4046,18 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		AIGElevator::FIGElevatorVisuals CabVisuals;
 		CabVisuals.CubeMesh = CubeMesh;
 		CabVisuals.CylinderMesh = CylinderMesh;
-		// UV-brushed metal turned the tall side shells into stretched bands
-		// and reflected the alley brick strongly enough to look like bare
-		// masonry inside the cab. Use the restrained flat metal already used
-		// by the villa frames for both the shell and rear inset.
-		CabVisuals.StainlessMaterial = MetalFrameMaterial;
+		// The metallic prototype reflected the alley brick with enough fidelity
+		// to look like exposed masonry inside the cab. A rough neutral enamel is
+		// stable under both the cold cabin lights and the predawn exterior.
+		CabVisuals.StainlessMaterial = FridgeBodyMaterial;
+		// The apartment-door navy read as an open patch of sky at the end of the
+		// corridor. Neutral lift enamel plus the physical 1.4 cm centre seam keeps
+		// both landing leaves unmistakably closed before the call completes.
+		CabVisuals.DoorMaterial = FridgeBodyMaterial;
 		// The story specifies no readable mirror in the safe CH01 car. A
 		// brushed rear panel also prevents the outdoor facade/sky reflection
 		// from appearing inside a closed elevator during the hidden transfer.
-		CabVisuals.MirrorMaterial = MetalFrameMaterial;
+		CabVisuals.MirrorMaterial = FridgeBodyMaterial;
 		CabVisuals.FloorMaterial = TexMat(TEXT("M_MarbleFloor_XY"), StoreFloorMaterial);
 		CabVisuals.InlayMaterial = PlasticDarkMaterial;
 		CabVisuals.CopMaterial = TexMat(TEXT("M_LiftCOP"), ScreenGlowMaterial);
@@ -4365,7 +4452,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 	}
 
 	MirrorAlarmMemo = SpawnNote(
-		FVector(365, 42, IGPrologueWorld::FourthFloorZ + 61.0f),
+		FVector(346, 44, IGPrologueWorld::FourthFloorZ + 61.0f),
 		FRotator(0, 0, -3),
 		FVector(14.0f, 10.0f, 0.3f),
 		TexMat(TEXT("M_PaperFolded"), SignWhiteMaterial),
@@ -6278,7 +6365,7 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 		if (MirrorRoomLamp)
 		{
 			MirrorRoomLamp->SetVisibility(true);
-			MirrorRoomLamp->SetIntensity(620.0f);
+			MirrorRoomLamp->SetIntensity(390.0f);
 		}
 		if (MirrorRoomBounce)
 		{
@@ -6301,7 +6388,7 @@ void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
 		if (OfferingLight)
 		{
 			OfferingLight->SetVisibility(true);
-			OfferingLight->SetIntensity(195.0f);
+			OfferingLight->SetIntensity(175.0f);
 		}
 		PlaceCaptureCamera(
 			FVector(-150, -360, IGPrologueWorld::FourthFloorZ),
@@ -6385,7 +6472,10 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 	if (!Elevator || !PlayerPawn)
 	{
 		UE_LOG(LogIndieGame, Error, TEXT("CH02 elevator validation could not start."));
-		FPlatformMisc::RequestExit(false);
+		FPlatformMisc::RequestExitWithStatus(
+			false,
+			1,
+			TEXT("CH02 capture validation could not start"));
 		return;
 	}
 
@@ -6441,7 +6531,10 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 				LogIndieGame,
 				Error,
 				TEXT("CH02 elevator descent validation failed."));
-			FPlatformMisc::RequestExit(false);
+			FPlatformMisc::RequestExitWithStatus(
+				false,
+				1,
+				TEXT("CH02 capture elevator descent failed"));
 			return;
 		}
 
@@ -6508,7 +6601,12 @@ void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
 					Error,
 					TEXT("CH02 elevator return validation failed."));
 			}
-			FPlatformMisc::RequestExit(false);
+			FPlatformMisc::RequestExitWithStatus(
+				false,
+				bReturned ? 0 : 1,
+				bReturned
+					? TEXT("CH02 capture validation completed")
+					: TEXT("CH02 capture elevator return failed"));
 		});
 		Scene->GetWorldTimerManager().SetTimer(
 			Scene->ChapterCaptureHandle,

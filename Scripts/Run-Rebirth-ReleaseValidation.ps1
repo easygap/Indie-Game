@@ -5,6 +5,7 @@ param(
 	[switch]$SkipMapCheck,
 	[switch]$SkipRuntimeValidation,
 	[switch]$SkipShippingPackage,
+	[switch]$AllowDirtyWorktree,
 	[ValidateRange(30, 1800)]
 	[int]$RuntimeTimeoutSeconds = 240,
 	[string]$ArchiveDirectory
@@ -26,6 +27,12 @@ $ch02FreedomScript =
 	Join-Path $PSScriptRoot 'Run-Rebirth-CH02FreedomSpikes.ps1'
 $checkpointAnchorScript =
 	Join-Path $PSScriptRoot 'Run-Rebirth-CheckpointAnchorSpikes.ps1'
+$applicationIconValidationScript =
+	Join-Path $PSScriptRoot 'Test-Windows-ExecutableIcon.ps1'
+$executableMetadataSyncScript =
+	Join-Path $PSScriptRoot 'Copy-Windows-ExecutableVersionResource.ps1'
+$executableMetadataValidationScript =
+	Join-Path $PSScriptRoot 'Test-Windows-ExecutableMetadata.ps1'
 $resultDirectory = Join-Path $projectRoot 'Saved\Validation\RebirthRelease'
 $runId = '{0}_{1}' -f (
 	[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')),
@@ -49,6 +56,9 @@ $allStepNames = @(
 	'runtime_ending_a',
 	'runtime_ending_b',
 	'shipping_package',
+	'shipping_runtime_ending_a',
+	'shipping_runtime_ending_b',
+	'shipping_archive_post_runtime',
 	'source_state_post'
 )
 $activeStepName = $null
@@ -59,6 +69,11 @@ $resolvedEditorForSummary = $null
 $vcRuntimePrerequisite = $null
 $initialSourceState = $null
 $shippingArchiveManifestPath = $null
+$shippingApplicationIconEvidencePath = $null
+$shippingApplicationIconLogPath = $null
+$shippingExecutableMetadataSyncLogPath = $null
+$shippingExecutableMetadataLogPath = $null
+$shippingRuntimeResults = [ordered]@{}
 $unrealDiagnosticPatterns = @(
 	'(?i)\bFatal error\b',
 	'(?i)\bCritical error:',
@@ -119,8 +134,24 @@ function Invoke-ReleaseRobocopy {
 }
 
 function Get-AsciiReleaseBuildRoot {
-	$mirrorBase = Join-Path $env:LOCALAPPDATA 'IndieGame\AsciiBuild\Release'
-	$mirrorRoot = Join-Path $mirrorBase $runId
+	# Keep one deterministic ASCII workspace per source path. Enterprise
+	# Application Control can approve this stable BuildRules assembly, whereas
+	# a new run-id directory creates a new unsigned DLL path on every run. The
+	# source snapshot and all evidence still remain isolated by runId/archive.
+	$hashAlgorithm = [Security.Cryptography.SHA256]::Create()
+	try {
+		$pathBytes = [Text.Encoding]::UTF8.GetBytes(
+			$projectRoot.ToLowerInvariant())
+		$hashBytes = $hashAlgorithm.ComputeHash($pathBytes)
+	}
+	finally {
+		$hashAlgorithm.Dispose()
+	}
+	$shortHash = -join ($hashBytes[0..3] | ForEach-Object {
+		$_.ToString('x2')
+	})
+	$mirrorBase = Join-Path $env:LOCALAPPDATA 'IndieGame\AsciiBuild'
+	$mirrorRoot = Join-Path $mirrorBase "Art_$shortHash"
 	$fullBase = [IO.Path]::GetFullPath($mirrorBase).TrimEnd('\', '/')
 	$fullRoot = [IO.Path]::GetFullPath($mirrorRoot)
 	if (-not $fullRoot.StartsWith(
@@ -161,12 +192,101 @@ function Get-VcRuntimePrerequisite {
 		}
 	}
 	$installerPath = Join-Path $EngineRoot 'Extras\Redist\en-us\vc_redist.x64.exe'
+	$appLocalDirectory = Join-Path $EngineRoot (
+		'Binaries\ThirdParty\AppLocalDependencies\Win64\x64\Microsoft.VC.CRT')
+	$appLocalVersions = [ordered]@{}
+	$appLocalHashes = [ordered]@{}
+	$appLocalValid = $true
+	foreach ($runtimeFile in $runtimeFiles) {
+		$runtimePath = Join-Path $appLocalDirectory $runtimeFile
+		$parsedVersion = $null
+		if (Test-Path -LiteralPath $runtimePath -PathType Leaf) {
+			$rawVersion = (Get-Item -LiteralPath $runtimePath).VersionInfo.FileVersion
+			$parsed = [Version]'0.0.0.0'
+			if ([Version]::TryParse($rawVersion, [ref]$parsed)) {
+				$parsedVersion = $parsed
+			}
+		}
+		$appLocalVersions[$runtimeFile] = if ($null -ne $parsedVersion) {
+			$parsedVersion.ToString()
+		}
+		else {
+			$null
+		}
+		if ($null -eq $parsedVersion -or $parsedVersion -lt $requiredVersion) {
+			$appLocalValid = $false
+		}
+		$appLocalHashes[$runtimeFile] = if (
+			Test-Path -LiteralPath $runtimePath -PathType Leaf) {
+			(Get-FileHash -LiteralPath $runtimePath -Algorithm SHA256).Hash
+		}
+		else {
+			$null
+		}
+	}
+
+	# UE resolves imports beside UnrealEditor-Cmd.exe before System32. Epic's
+	# own AppLocal CRT can therefore support a locked-down workstation without
+	# silently installing a machine-wide redistributable. Accept that route
+	# only when both editor-local DLLs are new enough and byte-identical to the
+	# official files shipped with this exact engine installation.
+	$editorLocalDirectory = Join-Path $EngineRoot 'Binaries\Win64'
+	$editorLocalVersions = [ordered]@{}
+	$editorLocalHashes = [ordered]@{}
+	$editorLocalValid = $appLocalValid
+	foreach ($runtimeFile in $runtimeFiles) {
+		$runtimePath = Join-Path $editorLocalDirectory $runtimeFile
+		$parsedVersion = $null
+		if (Test-Path -LiteralPath $runtimePath -PathType Leaf) {
+			$rawVersion = (Get-Item -LiteralPath $runtimePath).VersionInfo.FileVersion
+			$parsed = [Version]'0.0.0.0'
+			if ([Version]::TryParse($rawVersion, [ref]$parsed)) {
+				$parsedVersion = $parsed
+			}
+			$editorLocalHashes[$runtimeFile] = (
+				Get-FileHash -LiteralPath $runtimePath -Algorithm SHA256).Hash
+		}
+		else {
+			$editorLocalHashes[$runtimeFile] = $null
+		}
+		$editorLocalVersions[$runtimeFile] = if ($null -ne $parsedVersion) {
+			$parsedVersion.ToString()
+		}
+		else {
+			$null
+		}
+		if ($null -eq $parsedVersion -or
+			$parsedVersion -lt $requiredVersion -or
+			$null -eq $appLocalHashes[$runtimeFile] -or
+			$editorLocalHashes[$runtimeFile] -ne $appLocalHashes[$runtimeFile]) {
+			$editorLocalValid = $false
+		}
+	}
+	$runtimeSource = if ($isValid) {
+		'System32'
+	}
+	elseif ($editorLocalValid) {
+		'EngineAppLocal'
+	}
+	else {
+		'Unavailable'
+	}
 	return [pscustomobject]@{
-		valid = $isValid
+		valid = $isValid -or $editorLocalValid
+		systemValid = $isValid
+		runtimeSource = $runtimeSource
 		requiredVersion = $requiredVersion.ToString()
 		versions = [pscustomobject]$versions
 		installerPath = $installerPath
 		installerAvailable = Test-Path -LiteralPath $installerPath -PathType Leaf
+		appLocalDirectory = $appLocalDirectory
+		appLocalVersions = [pscustomobject]$appLocalVersions
+		appLocalHashes = [pscustomobject]$appLocalHashes
+		appLocalValid = $appLocalValid
+		editorLocalDirectory = $editorLocalDirectory
+		editorLocalVersions = [pscustomobject]$editorLocalVersions
+		editorLocalHashes = [pscustomobject]$editorLocalHashes
+		editorLocalValid = $editorLocalValid
 	}
 }
 
@@ -320,6 +440,18 @@ function Test-CleanSourceStateLocked {
 		-and (Test-SourceStateUnchanged -Initial $Initial -Current $Current)
 }
 
+function Test-RequestedSourceStateLocked {
+	param(
+		[Parameter(Mandatory = $true)]$Initial,
+		[Parameter(Mandatory = $true)]$Current
+	)
+
+	if ($AllowDirtyWorktree) {
+		return Test-SourceStateUnchanged -Initial $Initial -Current $Current
+	}
+	return Test-CleanSourceStateLocked -Initial $Initial -Current $Current
+}
+
 function Write-ShippingArchiveManifest {
 	if (-not (Test-Path -LiteralPath $ArchiveDirectory -PathType Container)) {
 		throw "Shipping archive directory was not created: $ArchiveDirectory"
@@ -339,11 +471,110 @@ function Write-ShippingArchiveManifest {
 				$_.Name -ieq 'IndieGame.exe' -and $_.Length -gt 0
 			}
 	)
-	if ($productExecutables.Count -eq 0) {
+	if ($productExecutables.Count -ne 1) {
 		throw (
-			'Shipping archive has no non-empty IndieGame.exe product ' +
-			"executable: $resolvedArchive")
+			'Shipping archive must contain exactly one non-empty ' +
+			'IndieGame.exe product executable: ' +
+			"found=$($productExecutables.Count) archive=$resolvedArchive")
 	}
+	$runtimeExecutables = @(
+		$archiveFiles |
+			Where-Object {
+				$_.Name -ieq 'IndieGame-Win64-Shipping.exe' -and
+				$_.Length -gt 0
+			}
+	)
+	if ($runtimeExecutables.Count -ne 1) {
+		throw (
+			'Shipping archive must contain exactly one non-empty ' +
+			'IndieGame-Win64-Shipping.exe runtime executable: ' +
+			"found=$($runtimeExecutables.Count) archive=$resolvedArchive")
+	}
+	$script:shippingExecutableMetadataSyncLogPath =
+		Join-Path $script:runDirectory 'ShippingExecutableMetadataSync.log'
+	Invoke-NativeChecked `
+		-FilePath 'powershell.exe' `
+		-Arguments @(
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			$executableMetadataSyncScript,
+			'-SourceExecutable',
+			$runtimeExecutables[0].FullName,
+			'-DestinationExecutable',
+			$productExecutables[0].FullName
+		) `
+		-Label 'Shipping launcher executable metadata sync' `
+		-LogPath $script:shippingExecutableMetadataSyncLogPath
+	$metadataSyncText = Get-Content `
+		-Raw `
+		-Encoding UTF8 `
+		-LiteralPath $script:shippingExecutableMetadataSyncLogPath
+	if (-not $metadataSyncText.Contains(
+		'WINDOWS_EXECUTABLE_METADATA_SYNC PASS')) {
+		throw 'Shipping launcher executable metadata sync did not report PASS.'
+	}
+	$script:shippingExecutableMetadataLogPath =
+		Join-Path $script:runDirectory 'ShippingExecutableMetadata.log'
+	Invoke-NativeChecked `
+		-FilePath 'powershell.exe' `
+		-Arguments @(
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			$executableMetadataValidationScript,
+			'-Executable',
+			$productExecutables[0].FullName
+		) `
+		-Label 'Shipping launcher executable metadata' `
+		-LogPath $script:shippingExecutableMetadataLogPath
+	$metadataValidationText = Get-Content `
+		-Raw `
+		-Encoding UTF8 `
+		-LiteralPath $script:shippingExecutableMetadataLogPath
+	if (-not $metadataValidationText.Contains(
+		'WINDOWS_EXECUTABLE_METADATA PASS')) {
+		throw 'Shipping launcher executable metadata did not report PASS.'
+	}
+	$expectedApplicationIcon =
+		Join-Path $buildProjectRoot 'Build\Windows\Application.ico'
+	$script:shippingApplicationIconEvidencePath =
+		Join-Path $script:runDirectory 'ShippingApplicationIcon.png'
+	$script:shippingApplicationIconLogPath =
+		Join-Path $script:runDirectory 'ShippingApplicationIcon.log'
+	Invoke-NativeChecked `
+		-FilePath 'powershell.exe' `
+		-Arguments @(
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			$applicationIconValidationScript,
+			'-Executable',
+			$productExecutables[0].FullName,
+			'-ExpectedIco',
+			$expectedApplicationIcon,
+			'-EvidencePng',
+			$script:shippingApplicationIconEvidencePath
+		) `
+		-Label 'Shipping executable application icon' `
+		-LogPath $script:shippingApplicationIconLogPath
+	$iconValidationText = Get-Content `
+		-Raw `
+		-Encoding UTF8 `
+		-LiteralPath $script:shippingApplicationIconLogPath
+	if (-not $iconValidationText.Contains(
+			'WINDOWS_EXECUTABLE_ICON PASS size=32 matched_pixels=1024')) {
+		throw 'Shipping executable application icon did not report exact pixel parity.'
+	}
+	# VERSIONINFO synchronization mutates the launcher after UAT staging. Refresh
+	# FileInfo instances so manifest sizes describe the exact hashed artifact.
+	$archiveFiles = @(
+		Get-ChildItem -LiteralPath $resolvedArchive -Recurse -File |
+			Sort-Object FullName
+	)
 	foreach ($requiredExtension in @('.pak', '.utoc', '.ucas')) {
 		$requiredArtifacts = @(
 			$archiveFiles |
@@ -357,6 +588,36 @@ function Write-ShippingArchiveManifest {
 				"artifact: $resolvedArchive")
 		}
 	}
+	$requiredAppLocalVersion = [Version]'14.50.35719.0'
+	$appLocalRuntimeFiles = @(
+		foreach ($runtimeName in @('msvcp140_2.dll', 'vcruntime140_1.dll')) {
+			$runtimePath = Join-Path $runtimeExecutables[0].DirectoryName $runtimeName
+			if (-not (Test-Path -LiteralPath $runtimePath -PathType Leaf)) {
+				throw (
+					"Shipping runtime is missing AppLocal dependency $runtimeName " +
+					"beside $($runtimeExecutables[0].FullName)")
+			}
+			$rawVersion = (Get-Item -LiteralPath $runtimePath).VersionInfo.FileVersion
+			$parsedVersion = [Version]'0.0.0.0'
+			$versionParsed = [Version]::TryParse(
+				$rawVersion,
+				[ref]$parsedVersion)
+			if (-not $versionParsed -or
+				$parsedVersion -lt $requiredAppLocalVersion) {
+				throw (
+					"Shipping AppLocal dependency is outdated: name=$runtimeName " +
+					"required=$requiredAppLocalVersion actual=$rawVersion")
+			}
+			[pscustomobject]@{
+				path = $runtimePath.Substring(
+					$resolvedArchive.Length).TrimStart([char[]]@('\', '/'))
+				version = $parsedVersion.ToString()
+				sha256 = (
+					Get-FileHash -Algorithm SHA256 -LiteralPath $runtimePath
+				).Hash
+			}
+		}
+	)
 
 	$artifacts = @(
 		foreach ($archiveFile in $archiveFiles) {
@@ -381,6 +642,45 @@ function Write-ShippingArchiveManifest {
 		projectFile = $projectFile
 		archiveDirectory = $resolvedArchive
 		fileCount = $artifacts.Count
+		applicationIcon = [pscustomobject]@{
+			executable = $productExecutables[0].FullName
+			expectedIco = $expectedApplicationIcon
+			evidencePng = $script:shippingApplicationIconEvidencePath
+			evidenceSha256 = (
+				Get-FileHash `
+					-Algorithm SHA256 `
+					-LiteralPath $script:shippingApplicationIconEvidencePath
+			).Hash
+			validationLog = $script:shippingApplicationIconLogPath
+			validationLogSha256 = (
+				Get-FileHash `
+					-Algorithm SHA256 `
+					-LiteralPath $script:shippingApplicationIconLogPath
+			).Hash
+		}
+		executableMetadata = [pscustomobject]@{
+			launcherExecutable = $productExecutables[0].FullName
+			runtimeExecutable = $runtimeExecutables[0].FullName
+			expectedProductName = '4:44 AM'
+			expectedProjectVersion = '1.0.0'
+			expectedCompanyName = 'easygap'
+			syncLog = $script:shippingExecutableMetadataSyncLogPath
+			syncLogSha256 = (
+				Get-FileHash `
+					-Algorithm SHA256 `
+					-LiteralPath $script:shippingExecutableMetadataSyncLogPath
+			).Hash
+			validationLog = $script:shippingExecutableMetadataLogPath
+			validationLogSha256 = (
+				Get-FileHash `
+					-Algorithm SHA256 `
+					-LiteralPath $script:shippingExecutableMetadataLogPath
+			).Hash
+		}
+		appLocalRuntime = [pscustomobject]@{
+			minimumVersion = $requiredAppLocalVersion.ToString()
+			files = $appLocalRuntimeFiles
+		}
 		artifacts = $artifacts
 	}
 	$manifest |
@@ -425,6 +725,30 @@ function Write-RunSummary {
 				-LiteralPath $shippingArchiveManifestPath
 			).Hash
 	}
+	$shippingIconEvidenceHash = $null
+	if (-not [string]::IsNullOrWhiteSpace(
+			$shippingApplicationIconEvidencePath) -and
+		(Test-Path `
+			-LiteralPath $shippingApplicationIconEvidencePath `
+			-PathType Leaf)) {
+		$shippingIconEvidenceHash = (
+			Get-FileHash `
+				-Algorithm SHA256 `
+				-LiteralPath $shippingApplicationIconEvidencePath
+		).Hash
+	}
+	$shippingMetadataLogHash = $null
+	if (-not [string]::IsNullOrWhiteSpace(
+			$shippingExecutableMetadataLogPath) -and
+		(Test-Path `
+			-LiteralPath $shippingExecutableMetadataLogPath `
+			-PathType Leaf)) {
+		$shippingMetadataLogHash = (
+			Get-FileHash `
+				-Algorithm SHA256 `
+				-LiteralPath $shippingExecutableMetadataLogPath
+		).Hash
+	}
 	$sourceStateUnchanged = $null -ne $initialSourceState `
 		-and (Test-SourceStateUnchanged `
 			-Initial $initialSourceState `
@@ -433,12 +757,16 @@ function Write-RunSummary {
 		-and (Test-CleanSourceStateLocked `
 			-Initial $initialSourceState `
 			-Current $currentSourceState)
+	$requestedSourceStateLocked = $null -ne $initialSourceState `
+		-and (Test-RequestedSourceStateLocked `
+			-Initial $initialSourceState `
+			-Current $currentSourceState)
 	if ($Status -eq 'PASS' -and -not $cleanSourceStateLocked) {
 		throw (
 			'Refusing to write PASS because the final Git source state is not ' +
 			'the clean commit locked at startup.')
 	}
-	if ($Status -eq 'PARTIAL' -and -not $cleanSourceStateLocked) {
+	if ($Status -eq 'PARTIAL' -and -not $requestedSourceStateLocked) {
 		throw (
 			'Refusing to write PARTIAL because the final Git ' +
 			'source state is not the clean commit locked at startup.')
@@ -460,6 +788,8 @@ function Write-RunSummary {
 		sourceStateUnchanged = $sourceStateUnchanged
 		sourceChangedDuringRun = -not $sourceStateUnchanged
 		cleanSourceStateLocked = $cleanSourceStateLocked
+		allowDirtyWorktree = $AllowDirtyWorktree.IsPresent
+		requestedSourceStateLocked = $requestedSourceStateLocked
 		projectFile = $projectFile
 		buildProjectFile = $buildProjectFile
 		usingAsciiBuildMirror = $usingAsciiBuildMirror
@@ -470,6 +800,18 @@ function Write-RunSummary {
 		archiveDirectory = $ArchiveDirectory
 		shippingArchiveManifest = $shippingArchiveManifestPath
 		shippingArchiveManifestSha256 = $shippingManifestHash
+		shippingApplicationIconEvidence =
+			$shippingApplicationIconEvidencePath
+		shippingApplicationIconEvidenceSha256 =
+			$shippingIconEvidenceHash
+		shippingApplicationIconLog = $shippingApplicationIconLogPath
+		shippingExecutableMetadataSyncLog =
+			$shippingExecutableMetadataSyncLogPath
+		shippingExecutableMetadataLog =
+			$shippingExecutableMetadataLogPath
+		shippingExecutableMetadataLogSha256 =
+			$shippingMetadataLogHash
+		shippingRuntimeResults = [pscustomobject]$shippingRuntimeResults
 		unrealDiagnosticAllowlist = @($unrealDiagnosticAllowlist)
 		automatedReleaseCandidateEligible =
 			$Status -eq 'PASS' `
@@ -557,11 +899,75 @@ function Assert-NoUnexpectedUnrealDiagnostics {
 		[Parameter(Mandatory = $true)]
 		[string]$LogPath,
 		[Parameter(Mandatory = $true)]
-		[string]$LogText
+		[string]$LogText,
+		[switch]$AllowUE58UnifiedErrorStartupNoise
 	)
 
+	$logLines = @($LogText -split '\r?\n')
+	$knownStartupDiagnostics =
+		[System.Collections.Generic.HashSet[int]]::new()
+	if ($AllowUE58UnifiedErrorStartupNoise -and
+		$engineBuildVersion -match '^5\.8\.1-') {
+		$unifiedErrorStart = -1
+		$engineInitialize = -1
+		for ($lineIndex = 0; $lineIndex -lt $logLines.Count; $lineIndex++) {
+			if ($unifiedErrorStart -lt 0 -and
+				$logLines[$lineIndex].Contains(
+					'LogTemp: Error test: UE::UnifiedErrorTest::Empty:')) {
+				$unifiedErrorStart = $lineIndex
+			}
+			if ($unifiedErrorStart -ge 0 -and
+				$logLines[$lineIndex].Contains(
+					'LogEngine: Initializing Engine...')) {
+				$engineInitialize = $lineIndex
+				break
+			}
+		}
+
+		if ($unifiedErrorStart -ge 0 -and
+			$engineInitialize -gt $unifiedErrorStart -and
+			$engineInitialize - $unifiedErrorStart -le 32) {
+			$startupWindow = @(
+				$logLines[$unifiedErrorStart..$engineInitialize]) -join "`n"
+			$requiredEngineMarkers = @(
+				'LogTemp: Error with param: UE::UnifiedErrorTest::WithInt:',
+				'LogTemp: Error with context: UE::UnifiedErrorTest::Empty:',
+				'LogTemp: FError that has been invalidated:',
+				'LogTemp: FError that has been moved from:'
+			)
+			$hasCompleteEngineSignature = $true
+			foreach ($requiredEngineMarker in $requiredEngineMarkers) {
+				if (-not $startupWindow.Contains($requiredEngineMarker)) {
+					$hasCompleteEngineSignature = $false
+					break
+				}
+			}
+			if ($hasCompleteEngineSignature) {
+				$conditionIndexes = @(
+					for ($lineIndex = $unifiedErrorStart;
+						$lineIndex -lt $engineInitialize;
+						$lineIndex++) {
+						if ($logLines[$lineIndex] -match
+							'LogAutomationTest:\s*Error:\s*Condition failed\s*$') {
+							$lineIndex
+						}
+					}
+				)
+				if ($conditionIndexes.Count -eq 15) {
+					foreach ($conditionIndex in $conditionIndexes) {
+						[void]$knownStartupDiagnostics.Add($conditionIndex)
+					}
+					Write-Host (
+						'REBIRTH_RELEASE_HARNESS INFO ignored known UE 5.8.1 ' +
+						'UnifiedError startup diagnostics count=15 scope=map_check')
+				}
+			}
+		}
+	}
+
 	$unexpectedDiagnostics = [System.Collections.Generic.List[string]]::new()
-	foreach ($line in @($LogText -split '\r?\n')) {
+	for ($lineIndex = 0; $lineIndex -lt $logLines.Count; $lineIndex++) {
+		$line = $logLines[$lineIndex]
 		if ([string]::IsNullOrWhiteSpace($line)) {
 			continue
 		}
@@ -573,6 +979,9 @@ function Assert-NoUnexpectedUnrealDiagnostics {
 			}
 		}
 		if (-not $isDiagnostic) {
+			continue
+		}
+		if ($knownStartupDiagnostics.Contains($lineIndex)) {
 			continue
 		}
 
@@ -1097,6 +1506,213 @@ function Invoke-RebirthRuntimeCase {
 	Write-Host "REBIRTH_RELEASE_HARNESS PASS runtime ending=$Ending log=$logPath"
 }
 
+# UAT success proves that files were staged, not that the monolithic Shipping
+# executable can boot and reach an ending. Use a game-written receipt because
+# Shipping logging can be compiled out, redirected or unavailable to stdout.
+function Invoke-RebirthShippingRuntimeCase {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$ArchiveRoot,
+		[Parameter(Mandatory = $true)]
+		[ValidateSet('A', 'B')]
+		[string]$Ending
+	)
+
+	$runtimeExecutables = @(
+		Get-ChildItem -LiteralPath $ArchiveRoot -Recurse -File |
+			Where-Object {
+				$_.Name -ieq 'IndieGame-Win64-Shipping.exe' -and
+				$_.Length -gt 0
+			}
+	)
+	if ($runtimeExecutables.Count -ne 1) {
+		throw (
+			'Shipping runtime validation requires exactly one non-empty ' +
+			'IndieGame-Win64-Shipping.exe: ' +
+			"found=$($runtimeExecutables.Count) archive=$ArchiveRoot")
+	}
+
+	$runtimeExecutable = $runtimeExecutables[0]
+	$resultPath = Join-Path $runDirectory "ShippingRuntime_Ending$Ending.txt"
+	$userDirectory = Join-Path $runDirectory "ShippingRuntimeUser_$Ending"
+	if (Test-Path -LiteralPath $resultPath -PathType Leaf) {
+		throw (
+			"Shipping runtime receipt path is not fresh for ending ${Ending}: " +
+			$resultPath)
+	}
+	if (Test-Path -LiteralPath $userDirectory) {
+		throw (
+			"Shipping runtime user directory is not fresh for ending ${Ending}: " +
+			$userDirectory)
+	}
+	New-Item -ItemType Directory -Path $userDirectory | Out-Null
+
+	$runtimeArguments = @(
+		'/Game/Maps/Prologue_Morning',
+		'-game',
+		'-unattended',
+		'-nosplash',
+		'-NoLoadingScreen',
+		'-nullrhi',
+		'-nosound',
+		'-RenderOffscreen',
+		'-IGRebirthGreybox',
+		'-IGRebirthReleaseValidation',
+		'-IGRebirthEndToEndValidation',
+		"-IGRebirthEnding=$Ending",
+		"-IGRebirthResultPath=$resultPath",
+		"-UserDir=$userDirectory"
+	)
+	$processArguments = @(
+		$runtimeArguments |
+			ForEach-Object { ConvertTo-ProcessArgument -Value $_ }
+	)
+	Write-Host (
+		"[Shipping runtime ending $Ending] $($runtimeExecutable.FullName) " +
+		($runtimeArguments -join ' '))
+	$process = Start-Process `
+		-FilePath $runtimeExecutable.FullName `
+		-ArgumentList $processArguments `
+		-WorkingDirectory $runtimeExecutable.DirectoryName `
+		-PassThru `
+		-WindowStyle Hidden
+	try {
+		if (-not $process.WaitForExit($RuntimeTimeoutSeconds * 1000)) {
+			$process.Kill()
+			[void]$process.WaitForExit(5000)
+			throw (
+				"Shipping runtime ending $Ending timed out after " +
+				"$RuntimeTimeoutSeconds seconds.")
+		}
+		$process.Refresh()
+		if ($process.ExitCode -ne 0) {
+			throw (
+				"Shipping runtime ending $Ending exited with code " +
+				"$($process.ExitCode).")
+		}
+	}
+	finally {
+		$process.Dispose()
+	}
+
+	if (-not (Test-Path -LiteralPath $resultPath -PathType Leaf)) {
+		throw "Shipping runtime ending $Ending did not create $resultPath"
+	}
+	$resultText = (
+		Get-Content -Raw -Encoding UTF8 -LiteralPath $resultPath
+	).Trim()
+	$expectedResult =
+		"REBIRTH_PACKAGED_RUNTIME PASS contract=1 ending=$Ending " +
+		'common_discovery=1 strong_cue=1 c6=1'
+	if ($resultText -cne $expectedResult) {
+		throw (
+			"Shipping runtime ending $Ending returned an invalid receipt: " +
+			$resultText)
+	}
+	$resultHash = (
+		Get-FileHash -Algorithm SHA256 -LiteralPath $resultPath
+	).Hash
+	$script:shippingRuntimeResults[$Ending] = [pscustomobject]@{
+		executable = $runtimeExecutable.FullName
+		executableSha256 = (
+			Get-FileHash `
+				-Algorithm SHA256 `
+				-LiteralPath $runtimeExecutable.FullName
+		).Hash
+		resultPath = $resultPath
+		resultSha256 = $resultHash
+		userDirectory = $userDirectory
+	}
+	Write-Host (
+		"REBIRTH_RELEASE_HARNESS PASS shipping_runtime ending=$Ending " +
+		"receipt=$resultPath sha256=$resultHash")
+}
+
+function Assert-ShippingArchiveManifestUnchanged {
+	param(
+		[Parameter(Mandatory = $true)]
+		[string]$ArchiveRoot,
+		[Parameter(Mandatory = $true)]
+		[string]$ManifestPath
+	)
+
+	if (-not (Test-Path -LiteralPath $ManifestPath -PathType Leaf)) {
+		throw "Shipping archive manifest is missing: $ManifestPath"
+	}
+	$resolvedArchive = (
+		Resolve-Path -LiteralPath $ArchiveRoot
+	).Path.TrimEnd([char[]]@('\', '/'))
+	$manifest = Get-Content `
+		-Raw `
+		-Encoding UTF8 `
+		-LiteralPath $ManifestPath | ConvertFrom-Json
+	$manifestArchive = [IO.Path]::GetFullPath(
+		[string]$manifest.archiveDirectory).TrimEnd([char[]]@('\', '/'))
+	if (-not $manifestArchive.Equals(
+			$resolvedArchive,
+			[System.StringComparison]::OrdinalIgnoreCase)) {
+		throw (
+			'Shipping archive manifest root mismatch: ' +
+			"expected=$resolvedArchive actual=$manifestArchive")
+	}
+
+	$manifestArtifacts = @($manifest.artifacts)
+	$actualFiles = @(
+		Get-ChildItem -LiteralPath $resolvedArchive -Recurse -File
+	)
+	if ($manifestArtifacts.Count -ne [int]$manifest.fileCount -or
+		$actualFiles.Count -ne $manifestArtifacts.Count) {
+		throw (
+			'Shipping archive file count changed after runtime validation: ' +
+			"manifest=$($manifestArtifacts.Count) actual=$($actualFiles.Count)")
+	}
+
+	$archivePrefix = $resolvedArchive + [IO.Path]::DirectorySeparatorChar
+	$seenPaths = [System.Collections.Generic.HashSet[string]]::new(
+		[System.StringComparer]::OrdinalIgnoreCase)
+	foreach ($artifact in $manifestArtifacts) {
+		$relativePath = [string]$artifact.path
+		if ([string]::IsNullOrWhiteSpace($relativePath) -or
+			[IO.Path]::IsPathRooted($relativePath)) {
+			throw "Shipping manifest has an invalid relative path: $relativePath"
+		}
+		$joinedArtifactPath = Join-Path $resolvedArchive $relativePath
+		$artifactPath = [IO.Path]::GetFullPath($joinedArtifactPath)
+		if (-not $artifactPath.StartsWith(
+				$archivePrefix,
+				[System.StringComparison]::OrdinalIgnoreCase)) {
+			throw "Shipping manifest path escaped the archive: $relativePath"
+		}
+		if (-not $seenPaths.Add($artifactPath)) {
+			throw "Shipping manifest contains a duplicate path: $relativePath"
+		}
+		if (-not (Test-Path -LiteralPath $artifactPath -PathType Leaf)) {
+			throw "Shipping archive file disappeared after runtime: $relativePath"
+		}
+		$file = Get-Item -LiteralPath $artifactPath
+		if ($file.Length -ne [long]$artifact.sizeBytes) {
+			throw "Shipping archive file size changed after runtime: $relativePath"
+		}
+		$actualHash = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $artifactPath
+		).Hash
+		if ($actualHash -cne [string]$artifact.sha256) {
+			throw "Shipping archive file hash changed after runtime: $relativePath"
+		}
+	}
+
+	foreach ($actualFile in $actualFiles) {
+		if (-not $seenPaths.Contains($actualFile.FullName)) {
+			throw (
+				'Shipping runtime created an unmanifested archive file: ' +
+				$actualFile.FullName)
+		}
+	}
+	Write-Host (
+		'REBIRTH_RELEASE_HARNESS PASS shipping_archive_post_runtime ' +
+		"files=$($actualFiles.Count) manifest=$ManifestPath")
+}
+
 function Invoke-RebirthMapCheck {
 	param(
 		[Parameter(Mandatory = $true)]
@@ -1152,7 +1768,8 @@ function Invoke-RebirthMapCheck {
 	$logText = Get-Content -Raw -Encoding UTF8 -LiteralPath $LogPath
 	Assert-NoUnexpectedUnrealDiagnostics `
 		-LogPath $LogPath `
-		-LogText $logText
+		-LogText $logText `
+		-AllowUE58UnifiedErrorStartupNoise
 	$mapPassPattern =
 		'(?im)MapCheck:.*(?:Map check complete:\s*0 Error|' +
 		'맵 체크 완료:\s*오류 0 회,\s*경고 0 회)'
@@ -1205,15 +1822,25 @@ $projectDescriptor =
 	ConvertFrom-Json
 $engineAssociation = [string]$projectDescriptor.EngineAssociation
 $initialSourceState = Get-SourceState
+$sourceLockLabel = if ($AllowDirtyWorktree) {
+	'unchanged dirty regression snapshot'
+}
+else {
+	'clean commit'
+}
 if ($StaticOnly) {
 	Set-ActiveStep -Name 'source_state_pre'
 	$sourceStateBeforeStatic = Get-SourceState
-	if (-not (Test-CleanSourceStateLocked `
+	if (-not (Test-RequestedSourceStateLocked `
 			-Initial $initialSourceState `
 			-Current $sourceStateBeforeStatic)) {
-		$sourceBlockedDetail =
+		$sourceBlockedDetail = if ($AllowDirtyWorktree) {
+			'Static regression source state changed before it could be locked. Rerun.'
+		}
+		else {
 			'Static validation requires one clean, unchanged Git commit. ' +
 			'Commit or revert all tracked and untracked changes, then rerun.'
+		}
 		Complete-ActiveStep -Status 'BLOCKED' -Detail $sourceBlockedDetail
 		Add-MissingStepResults -Detail 'Static source-state gate was blocked.'
 		Write-RunSummary -Status 'BLOCKED' -Detail $sourceBlockedDetail
@@ -1253,7 +1880,7 @@ Complete-ActiveStep `
 if ($StaticOnly) {
 	Set-ActiveStep -Name 'source_state_post'
 	$sourceStateAfterStatic = Get-SourceState
-	if (-not (Test-CleanSourceStateLocked `
+	if (-not (Test-RequestedSourceStateLocked `
 			-Initial $initialSourceState `
 			-Current $sourceStateAfterStatic)) {
 		throw (
@@ -1262,7 +1889,7 @@ if ($StaticOnly) {
 	}
 	Complete-ActiveStep `
 		-Status 'PASS' `
-		-Detail "Static source state remained $($initialSourceState.commitSha)."
+		-Detail "Static source state locked as $sourceLockLabel at $($initialSourceState.commitSha)."
 	Add-MissingStepResults -Detail 'StaticOnly requested.'
 	Write-RunSummary `
 		-Status 'PARTIAL' `
@@ -1352,11 +1979,25 @@ if ($requiresEditorRuntime) {
 					'{0}={1}' -f $_.Name, $versionLabel
 				}
 		) -join ', '
+		$editorLocalVersions = @(
+			$vcRuntimePrerequisite.editorLocalVersions.psobject.Properties |
+				ForEach-Object {
+					$versionLabel = if ($null -ne $_.Value) {
+						$_.Value
+					}
+					else {
+						'missing'
+					}
+					'{0}={1}' -f $_.Name, $versionLabel
+				}
+		) -join ', '
 		$runtimeBlockedDetail =
 			'Unreal Engine editor execution requires Microsoft Visual C++ ' +
 			"Redistributable $($vcRuntimePrerequisite.requiredVersion) or newer. " +
-			"Detected $installedVersions. Install $($vcRuntimePrerequisite.installerPath) " +
-			'outside this unattended run, then rerun the release harness.'
+			"Detected System32 [$installedVersions], engine-local " +
+			"[$editorLocalVersions]. Install $($vcRuntimePrerequisite.installerPath) " +
+			'or restore the official UE AppLocal files outside this unattended run, ' +
+			'then rerun the release harness.'
 		Complete-ActiveStep -Status 'BLOCKED' -Detail $runtimeBlockedDetail
 		Add-MissingStepResults -Detail 'VC++ runtime prerequisite was blocked.'
 		Write-RunSummary -Status 'BLOCKED' -Detail $runtimeBlockedDetail
@@ -1364,11 +2005,27 @@ if ($requiresEditorRuntime) {
 			"REBIRTH_RELEASE_HARNESS BLOCKED $runtimeBlockedDetail")
 		exit 2
 	}
+	if (-not $SkipShippingPackage -and
+		-not $vcRuntimePrerequisite.appLocalValid) {
+		$appLocalBlockedDetail =
+			'Shipping requires the UE AppLocal CRT source at ' +
+			"$($vcRuntimePrerequisite.appLocalDirectory) with version " +
+			"$($vcRuntimePrerequisite.requiredVersion) or newer. Repair the " +
+			'UE 5.8 installation, then rerun the release harness.'
+		Complete-ActiveStep -Status 'BLOCKED' -Detail $appLocalBlockedDetail
+		Add-MissingStepResults -Detail 'Shipping AppLocal CRT source was blocked.'
+		Write-RunSummary -Status 'BLOCKED' -Detail $appLocalBlockedDetail
+		[Console]::Error.WriteLine(
+			"REBIRTH_RELEASE_HARNESS BLOCKED $appLocalBlockedDetail")
+		exit 2
+	}
 	Complete-ActiveStep `
 		-Status 'PASS' `
 		-Detail (
-			'Microsoft Visual C++ Redistributable satisfies Unreal Engine ' +
-			"minimum $($vcRuntimePrerequisite.requiredVersion).")
+			'Microsoft Visual C++ runtime satisfies Unreal Engine minimum ' +
+			"$($vcRuntimePrerequisite.requiredVersion) via " +
+			"$($vcRuntimePrerequisite.runtimeSource); AppLocal " +
+			"source valid=$($vcRuntimePrerequisite.appLocalValid).")
 }
 else {
 	Add-StepResult `
@@ -1380,12 +2037,16 @@ else {
 
 Set-ActiveStep -Name 'source_state_pre'
 $sourceStateBeforeBuild = Get-SourceState
-if (-not (Test-CleanSourceStateLocked `
+if (-not (Test-RequestedSourceStateLocked `
 		-Initial $initialSourceState `
 		-Current $sourceStateBeforeBuild)) {
-	$sourceBlockedDetail =
+	$sourceBlockedDetail = if ($AllowDirtyWorktree) {
+		'Regression source state changed before it could be locked. Rerun.'
+	}
+	else {
 		'Release validation requires one clean, unchanged Git commit. ' +
 		'Commit or revert all tracked and untracked changes, then rerun.'
+	}
 	Complete-ActiveStep -Status 'BLOCKED' -Detail $sourceBlockedDetail
 	Add-MissingStepResults -Detail 'Source-state gate was blocked.'
 	Write-RunSummary -Status 'BLOCKED' -Detail $sourceBlockedDetail
@@ -1395,7 +2056,7 @@ if (-not (Test-CleanSourceStateLocked `
 }
 Complete-ActiveStep `
 	-Status 'PASS' `
-	-Detail "Clean source state locked to $($initialSourceState.commitSha)."
+	-Detail "Source state locked as $sourceLockLabel at $($initialSourceState.commitSha)."
 
 $usingAsciiBuildMirror = $projectRoot -match '[^\x00-\x7F]'
 if ($usingAsciiBuildMirror) {
@@ -1660,6 +2321,7 @@ if (-not $SkipShippingPackage) {
 			'-pak',
 			'-package',
 			'-prereqs',
+			'-applocaldirectory=$(EngineDir)/Binaries/ThirdParty/AppLocalDependencies',
 			'-archive',
 			"-archivedirectory=$ArchiveDirectory"
 		) `
@@ -1669,7 +2331,9 @@ if (-not $SkipShippingPackage) {
 	Complete-ActiveStep `
 		-Status 'PASS' `
 		-Detail (
-			"Shipping archive and SHA-256 manifest created at $ArchiveDirectory.")
+			'Shipping archive, AppLocal CRT, exact product metadata/icon ' +
+			'parity evidence, and ' +
+			"SHA-256 manifest created at $ArchiveDirectory.")
 	Write-Host (
 		"REBIRTH_RELEASE_HARNESS PASS shipping_package " +
 		"archive=$ArchiveDirectory manifest=$shippingArchiveManifestPath")
@@ -1682,14 +2346,63 @@ else {
 		-LogPath $null
 }
 
+if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation) {
+	foreach ($shippingEnding in @('A', 'B')) {
+		$stepSuffix = $shippingEnding.ToLowerInvariant()
+		$receiptPath = Join-Path `
+			$runDirectory `
+			"ShippingRuntime_Ending$shippingEnding.txt"
+		Set-ActiveStep `
+			-Name "shipping_runtime_ending_$stepSuffix" `
+			-LogPath $receiptPath
+		Invoke-RebirthShippingRuntimeCase `
+			-ArchiveRoot $ArchiveDirectory `
+			-Ending $shippingEnding
+		Complete-ActiveStep `
+			-Status 'PASS' `
+			-Detail (
+				"Packaged Shipping ending $shippingEnding completed from an " +
+				'isolated user directory and produced the exact runtime receipt.')
+	}
+	Set-ActiveStep `
+		-Name 'shipping_archive_post_runtime' `
+		-LogPath $shippingArchiveManifestPath
+	Assert-ShippingArchiveManifestUnchanged `
+		-ArchiveRoot $ArchiveDirectory `
+		-ManifestPath $shippingArchiveManifestPath
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail (
+			'Shipping archive file count, sizes and SHA-256 values remained ' +
+			'unchanged after both packaged runtime cases.')
+}
+else {
+	$shippingRuntimeSkipDetail = if ($SkipShippingPackage) {
+		'SkipShippingPackage requested.'
+	}
+	else {
+		'SkipRuntimeValidation requested.'
+	}
+	foreach ($notRunStep in @(
+		'shipping_runtime_ending_a',
+		'shipping_runtime_ending_b',
+		'shipping_archive_post_runtime')) {
+		Add-StepResult `
+			-Name $notRunStep `
+			-Status 'NOT_RUN' `
+			-Detail $shippingRuntimeSkipDetail `
+			-LogPath $null
+	}
+}
+
 Set-ActiveStep -Name 'source_state_post'
 $sourceStateAfterValidation = Get-SourceState
-if (-not (Test-CleanSourceStateLocked `
+if (-not (Test-RequestedSourceStateLocked `
 		-Initial $initialSourceState `
 		-Current $sourceStateAfterValidation)) {
 	throw (
 		'Git source state changed during release validation. ' +
-		'Discard this run and rerun from one clean commit.')
+		'Discard this run and rerun from one frozen source snapshot.')
 }
 Complete-ActiveStep `
 	-Status 'PASS' `
@@ -1699,12 +2412,15 @@ $hasSkippedStages =
 	$SkipDevelopmentBuild `
 	-or $SkipMapCheck `
 	-or $SkipRuntimeValidation `
-	-or $SkipShippingPackage
+	-or $SkipShippingPackage `
+	-or $AllowDirtyWorktree
 if ($hasSkippedStages) {
 	Write-RunSummary `
 		-Status 'PARTIAL' `
-		-Detail 'All requested stages passed; one or more release stages were skipped.'
-	Write-Host 'REBIRTH_RELEASE_HARNESS PARTIAL complete (one or more stages skipped)'
+		-Detail (
+			'All requested automatic stages passed; at least one release stage was ' +
+			'skipped or the run used an unchanged dirty regression snapshot.')
+	Write-Host 'REBIRTH_RELEASE_HARNESS PARTIAL complete (not release-candidate eligible)'
 }
 else {
 	Write-RunSummary `

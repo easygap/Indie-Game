@@ -14,6 +14,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "IndieGame.h"
 #include "Interaction/IGElevator.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSlidingDoor.h"
@@ -194,7 +195,7 @@ void AIGSecondMorningDirector::SpawnTimeEntryPuzzles(
 		EIGTimeEntryPuzzleId::P1Alarm,
 		FTransform(
 			FRotator(0.0f, -90.0f, 0.0f),
-			FVector(388.0f, 30.0f, 982.0f)));
+			FVector(376.0f, 32.0f, 982.0f)));
 	P2TimeEntry = SpawnPuzzle(
 		EIGTimeEntryPuzzleId::P2Transaction,
 		FTransform(
@@ -717,10 +718,30 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute(
 {
 	// Even a freedom route that skips both deductions must prove that the
 	// production scene still contains two fully authored, interactive devices.
-	if (GetTimeEntryPhysicalContractCount() != 2
-		|| GetAuthoredTimeEntryHousingCount() != 2
-		|| GetLayeredTimeEntryDisplayCount() != 2)
+	const int32 PhysicalContractCount = GetTimeEntryPhysicalContractCount();
+	const int32 AuthoredHousingCount = GetAuthoredTimeEntryHousingCount();
+	const int32 LayeredDisplayCount = GetLayeredTimeEntryDisplayCount();
+	if (PhysicalContractCount != 2
+		|| AuthoredHousingCount != 2
+		|| LayeredDisplayCount != 2)
 	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_E2E FAIL ch02_route stage=physical "
+				"contracts=%d housings=%d displays=%d "
+				"p1_contract=%d p1_housing=%d p1_display=%d "
+				"p2_contract=%d p2_housing=%d p2_display=%d"),
+			PhysicalContractCount,
+			AuthoredHousingCount,
+			LayeredDisplayCount,
+			P1TimeEntry && P1TimeEntry->HasPhysicalContract() ? 1 : 0,
+			P1TimeEntry && P1TimeEntry->UsesAuthoredHousing() ? 1 : 0,
+			P1TimeEntry && P1TimeEntry->UsesLayeredDisplay() ? 1 : 0,
+			P2TimeEntry && P2TimeEntry->HasPhysicalContract() ? 1 : 0,
+			P2TimeEntry && P2TimeEntry->UsesAuthoredHousing() ? 1 : 0,
+			P2TimeEntry && P2TimeEntry->UsesLayeredDisplay() ? 1 : 0);
 		return false;
 	}
 
@@ -734,6 +755,17 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute(
 		|| !DuplicateReceipt
 		|| (bSkipP1 && bSkipP2 && !HomePlanner))
 	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_E2E FAIL ch02_route stage=prerequisites "
+				"state=%d memo=%d bills=%d duplicate=%d planner=%d"),
+			RebirthState ? 1 : 0,
+			MirrorAlarmMemo ? 1 : 0,
+			MailboxBills ? 1 : 0,
+			DuplicateReceipt ? 1 : 0,
+			HomePlanner ? 1 : 0);
 		return false;
 	}
 
@@ -750,6 +782,11 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute(
 	if (!HumanGateDirector
 		|| !HumanGateDirector->RunRebirthEndToEndValidation())
 	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT("REBIRTH_E2E FAIL ch02_route stage=human_gate director=%d"),
+			HumanGateDirector ? 1 : 0);
 		return false;
 	}
 	bool bPuzzleRoutePassed = false;
@@ -776,6 +813,15 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute(
 	}
 	if (!bPuzzleRoutePassed)
 	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_E2E FAIL ch02_route stage=puzzles "
+				"p2_first=%d skip_p1=%d skip_p2=%d"),
+			bP2First ? 1 : 0,
+			bSkipP1 ? 1 : 0,
+			bSkipP2 ? 1 : 0);
 		return false;
 	}
 	HandleNoteRead(MailboxBills, false);
@@ -803,6 +849,25 @@ bool AIGSecondMorningDirector::RunRebirthEndToEndRoute(
 	if (bRouteReady)
 	{
 		AddState(ReturnedTag);
+	}
+	else
+	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_E2E FAIL ch02_route stage=convergence "
+				"outfits=%d p1=%d p2=%d truths=%d expected_truths=%d "
+				"searched=%d converge=%d"),
+			ChapterTwoOutfitRecords,
+			bP1Resolved ? 1 : 0,
+			bP2Resolved ? 1 : 0,
+			GetSecondMorningTruthCount(),
+			ExpectedTruthCount,
+			RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
+				FName(TEXT("Truth.WasSearched")),
+				false)) ? 1 : 0,
+			CanConvergeSecondMorning() ? 1 : 0);
 	}
 	return bRouteReady && HasState(ReturnedTag);
 }

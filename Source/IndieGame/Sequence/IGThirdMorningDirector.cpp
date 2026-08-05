@@ -35,6 +35,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInterface.h"
 #include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "Narrative/IGItemContinuityDressing.h"
@@ -85,6 +86,10 @@ namespace IGThirdMorning
 	constexpr float TankDeckUndersideZ = 596.0f;
 	constexpr float TankWaterSurfaceZ = 561.0f;
 	constexpr float TankBodyPlacementAdjustmentZ = -16.0f;
+	const FVector AuthoredTankBodyPlacement(-90.0f, 0.0f, 542.0f);
+	const FRotator AuthoredTankBodyRotation(0.0f, 90.0f, 0.0f);
+	const FVector AuthoredSleeveStitchLocalBase(23.0f, -25.0f, 13.0f);
+	const FVector AuthoredSleeveStitchLocalStep(2.5f, 1.2f, 0.0f);
 	static_assert(
 		TankDeckUndersideZ - TankInternalFloorZ == 215.0f,
 		"Tank internal height must remain 2.15 m");
@@ -94,6 +99,16 @@ namespace IGThirdMorning
 	static_assert(
 		TankDeckUndersideZ - TankWaterSurfaceZ == 35.0f,
 		"Tank water surface must remain 35 cm below the hatch underside");
+
+	FVector GetAuthoredSleeveStitchFocusOffset()
+	{
+		// Aim at the middle repair stitch. The same authored transform also drives
+		// the visible stitch geometry, so moving the body cannot strand its trace.
+		return AuthoredTankBodyPlacement
+			+ AuthoredTankBodyRotation.Quaternion().RotateVector(
+				AuthoredSleeveStitchLocalBase + AuthoredSleeveStitchLocalStep)
+			+ FVector(0.0f, 0.0f, TankBodyPlacementAdjustmentZ);
+	}
 
 	UMaterialInterface* LoadMaterial(const TCHAR* AssetPath)
 	{
@@ -1723,7 +1738,9 @@ void AIGThirdMorningDirector::BuildStage()
 	BeddingMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_BeddingUV.M_BeddingUV"));
 	WetHoodieMaterial = IGThirdMorning::LoadMaterial(
-		TEXT("/Game/Prototype/Materials/M_WetHoodieUV.M_WetHoodieUV"));
+		TEXT(
+			"/Game/Prototype/Materials/M_SubmergedHoodieUV."
+			"M_SubmergedHoodieUV"));
 	SubmergedPantsMaterial = IGThirdMorning::LoadMaterial(
 		TEXT("/Game/Prototype/Materials/M_SubmergedPantsUV.M_SubmergedPantsUV"));
 	SubmergedSlippersMaterial = IGThirdMorning::LoadMaterial(
@@ -2421,7 +2438,7 @@ void AIGThirdMorningDirector::BuildFloodedCorridor()
 	CorridorWaterVisual = CreateBlock(
 		FVector(675, 0, 2),
 		FVector(640, 430, 3),
-		WaterMaterial,
+		TankRevealWaterMaterial,
 		false,
 		FRotator::ZeroRotator,
 		nullptr,
@@ -2658,6 +2675,28 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 	CreateBlock(FVector(975, 227.5f, 130), FVector(20, 305, 280), DarkConcreteMaterial);
 	CreateBlock(FVector(975, 0, 245), FVector(20, 150, 70), DarkConcreteMaterial);
 	CreateBlock(FVector(1210, 180, 20), FVector(20, 500, 520), DarkConcreteMaterial);
+	// Enclose the upward flight all the way to the unfinished fifth-floor
+	// landing. The former shell stopped after the first tread, exposing the
+	// sky as a flat blue rectangle and making an ordinary stairwell read like
+	// a missing level rather than a continuous route through the building.
+	CreateBlock(FVector(975, -235, 195), FVector(20, 330, 390), DarkConcreteMaterial);
+	// Stop the right wall before the fifth-floor landing. The upper flight runs
+	// along -Y, but the player turns +X at Y=-420; extending this wall to the
+	// landing made the enclosure look complete while silently sealing the turn.
+	constexpr float UpperFlightRightWallCenterY = -200.0f;
+	constexpr float UpperFlightRightWallDepth = 260.0f;
+	constexpr float LandingRouteY = -420.0f;
+	constexpr float PlayerCapsuleRadius = 34.0f;
+	constexpr float RequiredWallClearance = 20.0f;
+	static_assert(
+		UpperFlightRightWallCenterY - UpperFlightRightWallDepth * 0.5f
+			>= LandingRouteY + PlayerCapsuleRadius + RequiredWallClearance,
+		"The upper-flight wall must leave a capsule-safe turn at the landing.");
+	CreateBlock(
+		FVector(1210, UpperFlightRightWallCenterY, 195),
+		FVector(20, UpperFlightRightWallDepth, 390),
+		DarkConcreteMaterial);
+	CreateBlock(FVector(1092.5f, -235, 400), FVector(255, 330, 20), DarkConcreteMaterial);
 	if (PlaneMesh && DecalRainGrimeMaterial)
 	{
 		CreateBlock(
@@ -2690,7 +2729,7 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 	DownRouteWaterBarrier = CreateBlock(
 		FVector(1085, 48, 78),
 		FVector(205, 18, 156),
-		WaterMaterial,
+		TankRevealWaterMaterial,
 		true);
 	if (DownRouteWaterBarrier)
 	{
@@ -2744,6 +2783,19 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 		880.0f,
 		470.0f,
 		FLinearColor(0.30f, 0.39f, 0.34f),
+		false);
+	// The next practical is visible before the player reaches the turn. It
+	// establishes a real upper landing and preserves a dark pocket behind it.
+	CreateBlock(
+		FVector(1085, -365, 382),
+		FVector(58, 20, 5),
+		ScreenMaterial,
+		false);
+	CreatePointLight(
+		FVector(1085, -350, 360),
+		680.0f,
+		430.0f,
+		FLinearColor(0.28f, 0.39f, 0.36f),
 		false);
 	CreateBlock(
 		FVector(1174, -205, 181),
@@ -2857,6 +2909,27 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		FVector(1265, -451.5f, 170),
 		FVector(470, 147, 20),
 		ConcreteMaterial);
+	// The stair opens into a real enclosed landing, not straight into the sky.
+	// The south wall starts east of the stair aperture, so the player can step
+	// onto the slab and turn right toward the roof doorway without crossing a
+	// hidden blocker. The rear wall and soffit close every sightline visible
+	// from 4F while retaining the unfinished concrete character of the space.
+	CreateBlock(
+		FVector(1235, -525, 290),
+		FVector(530, 18, 220),
+		DarkConcreteMaterial);
+	CreateBlock(
+		FVector(1020, -451.5f, 290),
+		FVector(20, 147, 220),
+		DarkConcreteMaterial);
+	CreateBlock(
+		FVector(1355, -378, 290),
+		FVector(290, 18, 220),
+		DarkConcreteMaterial);
+	CreateBlock(
+		FVector(1235, -451.5f, 410),
+		FVector(530, 147, 20),
+		DarkConcreteMaterial);
 	// A 160 x 210 cm unfinished doorway connects the landing to the roof
 	// risers. The side piers preserve the load-bearing wall silhouette.
 	CreateBlock(FVector(1450, -502.5f, 205), FVector(18, 45, 410), DarkConcreteMaterial);
@@ -3112,9 +3185,18 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		false,
 		FRotator(0, 28, 11));
 
-	// Distant Korean rooftop landmark: a muted red church cross.
-	CreateBlock(FVector(3020, 120, 520), FVector(12, 12, 220), ScreenMaterial, false);
-	CreateBlock(FVector(3020, 120, 555), FVector(85, 12, 12), ScreenMaterial, false);
+	// Distant Korean rooftop landmark: a muted church cross fixed to an actual
+	// neighbouring roof silhouette. The old marker stood beside the capture
+	// camera and appeared as three unrelated floating light bars.
+	CreateBlock(
+		FVector(1580, -1900, 430), FVector(360, 160, 380),
+		DarkConcreteMaterial, false);
+	CreateBlock(
+		FVector(1580, -1900, 690), FVector(6, 6, 130),
+		EmergencyMaterial, false);
+	CreateBlock(
+		FVector(1580, -1900, 720), FVector(62, 6, 6),
+		EmergencyMaterial, false);
 
 	// A caged maintenance lamp and the stale red emergency lamp separate the
 	// tank, service stair and parapet without flattening the predawn darkness.
@@ -3137,20 +3219,20 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		MetalMaterial,
 		false);
 	CreateBlock(
-		FVector(2655, -568, 548),
-		FVector(68, 12, 10),
+		FVector(2650, -560, 548),
+		FVector(86, 24, 12),
 		MetalMaterial,
 		false,
-		FRotator(0, -28, 0));
+		FRotator(0, -45, 0));
 	CreateBlock(
-		FVector(2630, -546, 542),
-		FVector(42, 24, 8),
+		FVector(2650, -560, 541),
+		FVector(60, 16, 3),
 		ScreenMaterial,
 		false,
-		FRotator(0, -28, 0));
+		FRotator(0, -45, 0));
 	CreatePointLight(
-		FVector(2630, -546, 530),
-		4200.0f,
+		FVector(2645, -555, 530),
+		3150.0f,
 		1480.0f,
 		FLinearColor(0.36f, 0.47f, 0.68f),
 		false);
@@ -3162,8 +3244,8 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		true);
 	CreatePointLight(
 		FVector(2350, -120, 520),
-		780.0f,
-		620.0f,
+		1380.0f,
+		760.0f,
 		FLinearColor(0.16f, 0.30f, 0.46f),
 		false);
 }
@@ -3242,12 +3324,15 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	}
 	if (PlaneMesh && DecalMineralScaleMaterial)
 	{
+		// Mineral residue streaks down the inner wall immediately below the hatch.
+		// Keeping the masked plane vertical preserves the maintenance clue without
+		// projecting a bright ring across the water or the body silhouette.
 		CreateBlock(
-			Tank + FVector(0.0f, 0.0f, 602.0f),
-			FVector(318.0f, 318.0f, 1.0f),
+			Tank + FVector(-151.0f, 45.0f, 580.0f),
+			FVector(58.0f, 58.0f, 1.0f),
 			DecalMineralScaleMaterial,
 			false,
-			FRotator::ZeroRotator,
+			FRotator(90.0f, 0.0f, 0.0f),
 			PlaneMesh);
 	}
 
@@ -3376,17 +3461,19 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	// A small service lamp on the pipe side lifts the lower shell and bands,
 	// while the opposite side remains available for the flashlight scare.
 	CreateBlock(
-		Tank + FVector(145, -151, 570),
-		FVector(34, 18, 24),
+		Tank + FVector(105, -105, 570),
+		FVector(30, 12, 22),
 		TankMetal,
-		false);
+		false,
+		FRotator(0, 45, 0));
 	CreateBlock(
-		Tank + FVector(158, -164, 570),
-		FVector(18, 6, 14),
+		Tank + FVector(110, -110, 570),
+		FVector(22, 2, 14),
 		ScreenMaterial,
-		false);
+		false,
+		FRotator(0, 45, 0));
 	CreatePointLight(
-		Tank + FVector(170, -176, 560),
+		Tank + FVector(123, -123, 560),
 		1050.0f,
 		660.0f,
 		FLinearColor(0.34f, 0.45f, 0.58f),
@@ -3406,18 +3493,32 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		TankWaterSurface->SetCastShadow(false);
 		TankWaterSurface->SetTranslucentSortPriority(2);
 	}
-	CreatePointLight(
-		Tank + FVector(-38, -42, 586),
-		390.0f,
-		330.0f,
-		FLinearColor(0.18f, 0.40f, 0.58f),
+	TankRevealKeyLight = CreatePointLight(
+		Tank + FVector(-90, 0, 572),
+		0.0f,
+		270.0f,
+		FLinearColor(0.36f, 0.42f, 0.48f),
 		false);
-	CreatePointLight(
-		Tank + FVector(72, 68, 576),
-		90.0f,
-		235.0f,
-		FLinearColor(0.34f, 0.045f, 0.028f),
+	TankRevealRimLight = CreatePointLight(
+		Tank + FVector(-90, 38, 550),
+		0.0f,
+		250.0f,
+		FLinearColor(0.08f, 0.025f, 0.018f),
 		false);
+	if (TankRevealKeyLight)
+	{
+		TankRevealKeyLight->SetVisibility(false);
+		TankRevealKeyLight->SetSourceRadius(50.0f);
+		TankRevealKeyLight->SetSoftSourceRadius(90.0f);
+		TankRevealKeyLight->SetSpecularScale(0.12f);
+	}
+	if (TankRevealRimLight)
+	{
+		TankRevealRimLight->SetVisibility(false);
+		TankRevealRimLight->SetSourceRadius(24.0f);
+		TankRevealRimLight->SetSoftSourceRadius(54.0f);
+		TankRevealRimLight->SetSpecularScale(0.08f);
+	}
 
 	// The authored 45-degree stair and the proven 18-step collision route share
 	// the same origin, 20 cm run and 20 cm rise. The visual mesh omits tread 16;
@@ -3655,8 +3756,25 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	// and read like a targeting reticle under the flashlight.
 
 	// The reveal prefers three authored static groups sharing one local origin.
-	// Clothing groups retain material continuity while avoiding both a skeletal
-	// pipeline and the visible "pile of engine primitives" greybox silhouette.
+	// The compact pose sits directly below the real 104 cm service hatch. This
+	// placement is part of the physical sightline: the player never sees a body
+	// through an impossible missing tank roof.
+	const FVector& AuthoredBodyPlacement =
+		IGThirdMorning::AuthoredTankBodyPlacement;
+	const FRotator& AuthoredBodyRotation =
+		IGThirdMorning::AuthoredTankBodyRotation;
+	const FQuat AuthoredBodyRotationQuat = AuthoredBodyRotation.Quaternion();
+	auto RotateAuthoredBodyOffset =
+		[AuthoredBodyPlacement, AuthoredBodyRotationQuat](const FVector& LocalOffset)
+	{
+		return AuthoredBodyPlacement
+			+ AuthoredBodyRotationQuat.RotateVector(LocalOffset);
+	};
+	auto RotateAuthoredBodyRotation =
+		[AuthoredBodyRotationQuat](const FRotator& LocalRotation)
+	{
+		return (AuthoredBodyRotationQuat * LocalRotation.Quaternion()).Rotator();
+	};
 	auto AddBodyPiece =
 		[this, &Tank](
 			const FVector& Offset,
@@ -3685,26 +3803,30 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		SubmergedHoodieMesh &&
 		SubmergedPantsMesh &&
 		SubmergedSlippersMesh;
+	bUsesAuthoredTankBody = bHasAuthoredBody;
 	if (bHasAuthoredBody)
 	{
-		// The mesh origin is Tank + (0,0,537). The hoodie crown peaks at local
-		// Z=21, leaving three centimetres of real water above every body group.
-		// All groups retain the same offset and therefore cannot drift apart.
+		// The hoodie crown peaks at local Z=18, leaving a shallow real water layer
+		// above every body group. All three groups share the hatch-aligned origin
+		// and therefore cannot drift apart.
 		AddBodyPiece(
-			FVector(0, 0, 553),
+			AuthoredBodyPlacement,
 			FVector(100.0f),
 			WetHoodieMaterial,
-			SubmergedHoodieMesh);
+			SubmergedHoodieMesh,
+			AuthoredBodyRotation);
 		AddBodyPiece(
-			FVector(0, 0, 553),
+			AuthoredBodyPlacement,
 			FVector(100.0f),
 			SubmergedPantsMaterial,
-			SubmergedPantsMesh);
+			SubmergedPantsMesh,
+			AuthoredBodyRotation);
 		AddBodyPiece(
-			FVector(0, 0, 553),
+			AuthoredBodyPlacement,
 			FVector(100.0f),
 			SubmergedSlippersMaterial,
-			SubmergedSlippersMesh);
+			SubmergedSlippersMesh,
+			AuthoredBodyRotation);
 	}
 	else
 	{
@@ -3804,29 +3926,52 @@ void AIGThirdMorningDirector::BuildWaterTank()
 
 	// Three black repair stitches on the left sleeve and the worn outer heel
 	// are separate identity source details, not one generic "same clothes" prop.
+	const FVector StitchBase = bHasAuthoredBody
+		? RotateAuthoredBodyOffset(
+			IGThirdMorning::AuthoredSleeveStitchLocalBase)
+		: FVector(-15.0f, -30.0f, 552.5f);
+	const FVector StitchStep = bHasAuthoredBody
+		? AuthoredBodyRotationQuat.RotateVector(
+			IGThirdMorning::AuthoredSleeveStitchLocalStep)
+		: FVector(4.0f, 0.0f, 0.0f);
+	const FRotator StitchRotation = bHasAuthoredBody
+		? RotateAuthoredBodyRotation(FRotator(0, 0, 18))
+		: FRotator(0, 0, 18);
 	for (int32 StitchIndex = 0; StitchIndex < 3; ++StitchIndex)
 	{
 		AddBodyPiece(
-			FVector(-15.0f + StitchIndex * 4.0f, -30.0f, 552.5f),
+			StitchBase + StitchStep * StitchIndex,
 			FVector(1.2f, 7.0f, 1.2f),
 			DarkConcreteMaterial,
 			CubeMesh,
-			FRotator(0, 0, 18));
+			StitchRotation);
 	}
+	const FVector HeelWearLocation = bHasAuthoredBody
+		? RotateAuthoredBodyOffset(FVector(-50.0f, -39.0f, -1.0f))
+		: FVector(-120, -19, 548.5f);
+	const FRotator HeelWearRotation = bHasAuthoredBody
+		? RotateAuthoredBodyRotation(FRotator(0, 20, 0))
+		: FRotator(0, -19, 0);
 	AddBodyPiece(
-		FVector(-120, -19, 548.5f),
+		HeelWearLocation,
 		FVector(7, 11, 3),
 		SubmergedSlipperWearMaterial,
 		CubeMesh,
-		FRotator(0, -19, 0));
+		HeelWearRotation);
+	const FVector StripeBase = bHasAuthoredBody
+		? RotateAuthoredBodyOffset(FVector(-45.0f, -39.0f, 2.0f))
+		: FVector(-110.0f, -17.0f, 554.5f);
+	const FVector StripeStep = bHasAuthoredBody
+		? AuthoredBodyRotationQuat.RotateVector(FVector(2.7f, 0.9f, 0.0f))
+		: FVector(3.4f, 0.0f, 0.0f);
 	for (int32 StripeIndex = 0; StripeIndex < 3; ++StripeIndex)
 	{
 		AddBodyPiece(
-			FVector(-110.0f + StripeIndex * 3.4f, -17.0f, 554.5f),
+			StripeBase + StripeStep * StripeIndex,
 			FVector(1.6f, 10.0f, 1.0f),
 			SubmergedSlipperWearMaterial,
 			CubeMesh,
-			FRotator(0, -19, 0));
+			HeelWearRotation);
 	}
 }
 
@@ -4319,20 +4464,23 @@ void AIGThirdMorningDirector::BuildP5AccidentEvidence()
 	}
 	AddEvidence(
 		EIGChapterThreeAction::EvidenceHandSmear,
-		Tank + FVector(-135, 10, 626),
-		FVector(48, 34, bHasHandSmearPlane ? 1.0f : 3.0f),
+		Tank + FVector(-149, -28, 574),
+		FVector(34, 24, bHasHandSmearPlane ? 1.0f : 3.0f),
 		EvidenceHandSmearMaterial,
 		NSLOCTEXT(
 			"IGCH03",
 			"EvidenceHandSmear",
 			"안쪽으로 이어진 손바닥 쓸림 확인하기"),
-		FRotator(0, 82, 0),
+		FRotator(90, 0, 0),
 		bHasHandSmearPlane ? PlaneMesh.Get() : nullptr);
 
+	const FVector ClothingEvidenceOffset = bUsesAuthoredTankBody
+		? IGThirdMorning::GetAuthoredSleeveStitchFocusOffset()
+		: FVector(-11.0f, -30.0f, 536.5f);
 	AIGChapterThreeAction* ClothingEvidence = AddEvidence(
 		EIGChapterThreeAction::EvidenceTankClothing,
-		Tank + FVector(-10, -30, 540),
-		FVector(55, 28, 18),
+		Tank + ClothingEvidenceOffset,
+		FVector(34, 28, 18),
 		BeddingMaterial,
 		NSLOCTEXT("IGCH03", "EvidenceTankClothing", "물속 후드의 수선 자국 대조하기"),
 		FRotator(0, 16, 0));
@@ -6908,6 +7056,16 @@ void AIGThirdMorningDirector::ApplyTankRevealVisibility()
 		{
 			Piece->SetVisibility(bCanIdentifyBody);
 		}
+	}
+	if (TankRevealKeyLight)
+	{
+		TankRevealKeyLight->SetVisibility(bCanIdentifyBody);
+		TankRevealKeyLight->SetIntensity(bCanIdentifyBody ? 1450.0f : 0.0f);
+	}
+	if (TankRevealRimLight)
+	{
+		TankRevealRimLight->SetVisibility(bCanIdentifyBody);
+		TankRevealRimLight->SetIntensity(bCanIdentifyBody ? 105.0f : 0.0f);
 	}
 	if (TObjectPtr<AIGChapterThreeAction>* ClothingEvidence =
 		EvidenceActions.Find(EIGChapterThreeAction::EvidenceTankClothing))
@@ -9669,6 +9827,11 @@ void AIGThirdMorningDirector::FinishRebirthEndingValidation()
 		Display,
 		TEXT("REBIRTH_RELEASE PASS complete ending=%s"),
 		EndingLabel);
+	if (!WriteRebirthReleaseValidationResult(true, TEXT("complete")))
+	{
+		FailRebirthReleaseValidation(TEXT("result_evidence_write"));
+		return;
+	}
 	bReleaseValidationInProgress = false;
 	FPlatformMisc::RequestExitWithStatus(
 		false,
@@ -9709,6 +9872,7 @@ void AIGThirdMorningDirector::FailRebirthReleaseValidation(
 		Error,
 		TEXT("REBIRTH_RELEASE FAIL reason=%s"),
 		Reason ? Reason : TEXT("unknown"));
+	WriteRebirthReleaseValidationResult(false, Reason);
 	if (!ReleaseValidationSlotName.IsEmpty())
 	{
 		UGameplayStatics::DeleteGameInSlot(ReleaseValidationSlotName, 0);
@@ -9718,6 +9882,46 @@ void AIGThirdMorningDirector::FailRebirthReleaseValidation(
 		false,
 		1,
 		TEXT("REBIRTH release validation failed"));
+}
+
+bool AIGThirdMorningDirector::WriteRebirthReleaseValidationResult(
+	const bool bPassed,
+	const TCHAR* Reason) const
+{
+	FString ResultPath;
+	if (!FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGRebirthResultPath="),
+			ResultPath))
+	{
+		return true;
+	}
+
+	ResultPath.TrimQuotesInline();
+	if (ResultPath.IsEmpty())
+	{
+		return false;
+	}
+
+	const TCHAR* EndingLabel = bReleaseValidationEndingA
+		? TEXT("A")
+		: TEXT("B");
+	const FString Result = bPassed
+		? FString::Printf(
+			TEXT(
+				"REBIRTH_PACKAGED_RUNTIME PASS contract=1 ending=%s "
+				"common_discovery=1 strong_cue=1 c6=1\n"),
+			EndingLabel)
+		: FString::Printf(
+			TEXT(
+				"REBIRTH_PACKAGED_RUNTIME FAIL contract=1 ending=%s "
+				"reason=%s\n"),
+			EndingLabel,
+			Reason ? Reason : TEXT("unknown"));
+	return FFileHelper::SaveStringToFile(
+		Result,
+		*FPaths::ConvertRelativePathToFull(ResultPath),
+		FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
 }
 
 void AIGThirdMorningDirector::StartCaptureSequence()
@@ -9851,8 +10055,8 @@ void AIGThirdMorningDirector::CaptureNextFrame()
 		HandleAction(EIGChapterThreeAction::EvidenceGlasses, GlassesAction);
 		HandleAction(EIGChapterThreeAction::OpenTank, TankLidAction);
 		PlaceCaptureCamera(
-			FVector(2420, -220, 1020),
-			IGThirdMorning::TankCenter + FVector(-8, 2, 544));
+			FVector(2285, -300, 690),
+			IGThirdMorning::TankCenter + FVector(-90, 0, 542));
 		BaseName = TEXT("ch03-tank-reveal");
 		break;
 	default:
@@ -9893,23 +10097,35 @@ void AIGThirdMorningDirector::FinishCaptureSequence()
 		bTankOpened
 		&& P3DirectInletAction
 		&& P3PressureReleaseAction
-		&& EvidenceActions.Num() == 11;
+		&& EvidenceActions.Num() == 11
+		&& bUsesAuthoredTankBody;
 	if (!bRebirthGreyboxPresent)
 	{
 		UE_LOG(
 			LogIndieGame,
 			Error,
-			TEXT("CH03 capture smoke route is missing REBIRTH P3/P5 greybox actors."));
+			TEXT(
+				"CH03 capture smoke route is missing P3/P5 actors or the "
+				"authored tank body."));
+		FPlatformMisc::RequestExitWithStatus(
+			false,
+			1,
+			TEXT("CH03 capture validation failed"));
+		return;
 	}
 	UE_LOG(
 		LogIndieGame,
 		Display,
 		TEXT(
 			"CH03_CAPTURE COMPLETE loops=%d roof=%d tank=%d "
-			"rebirth_greybox=%d visual_stills=4"),
+			"rebirth_greybox=%d authored_body=%d visual_stills=4"),
 		StairLoopCount,
 		Phase >= EIGThirdMorningPhase::Roof ? 1 : 0,
 		bTankOpened ? 1 : 0,
-		bRebirthGreyboxPresent ? 1 : 0);
-	FPlatformMisc::RequestExit(false);
+		bRebirthGreyboxPresent ? 1 : 0,
+		bUsesAuthoredTankBody ? 1 : 0);
+	FPlatformMisc::RequestExitWithStatus(
+		false,
+		0,
+		TEXT("CH03 capture validation completed"));
 }

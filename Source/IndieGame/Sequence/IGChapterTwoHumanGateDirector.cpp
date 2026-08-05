@@ -935,6 +935,19 @@ bool AIGChapterTwoHumanGateDirector::RunRebirthEndToEndValidation()
 		|| !Doorbell401Action
 		|| !Doorbell402Action)
 	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_E2E FAIL s6_human_gate stage=prerequisites "
+				"unlocked=%d phone_actions=%d approval_action=%d "
+				"approval_record=%d bell401=%d bell402=%d"),
+			HasState(HumanChecksUnlockedTag) ? 1 : 0,
+			PhoneActions.Num(),
+			PhoneApprovalAction ? 1 : 0,
+			PhoneApprovalRecord ? 1 : 0,
+			Doorbell401Action ? 1 : 0,
+			Doorbell402Action ? 1 : 0);
 		return false;
 	}
 

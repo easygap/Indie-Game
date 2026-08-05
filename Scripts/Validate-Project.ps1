@@ -9,6 +9,7 @@ $requiredFiles = @(
     'IndieGame.uproject',
     'Config/DefaultEngine.ini',
     'Config/DefaultGame.ini',
+	'Config/DefaultGameUserSettings.ini',
     'Config/DefaultInput.ini',
     'Config/DefaultGameplayTags.ini',
 	'Content/Maps/Prologue_Morning.umap',
@@ -50,6 +51,9 @@ $requiredFiles = @(
 	'Content/Prototype/Materials/M_SnackBlue.uasset',
 	'Content/Prototype/Materials/M_CupNoodle.uasset',
 	'Content/SourceArt/AI/SheetPaperNotes_v2.png',
+	'Content/SourceArt/AI/ApplicationIcon_raw.png',
+	'Build/Windows/ApplicationIcon.png',
+	'Build/Windows/Application.ico',
 	'Content/Prototype/Textures/T_PaperClean_V2_D.uasset',
 	'Content/Prototype/Textures/T_PaperWet_V2_D.uasset',
 	'Content/Prototype/Textures/T_PaperFolded_V2_D.uasset',
@@ -69,6 +73,7 @@ $requiredFiles = @(
 	'Docs/Media/ch03-roof-tank.png',
 	'Docs/Media/ch03-tank-reveal.png',
 	'Docs/FEASIBILITY.md',
+	'Docs/IMAGEGEN_PROMPTS_2026-08-05.md',
 	'Docs/PERFORMANCE.md',
 	'Docs/RELEASE_VALIDATION.md',
 	'Docs/SAVE_COMPATIBILITY.md',
@@ -86,6 +91,11 @@ $requiredFiles = @(
 	'Scripts/Test-Rebirth-ItemContinuityContract.ps1',
 	'Scripts/Test-Rebirth-ChapterTwoTimeEntryContract.ps1',
 	'Scripts/Test-Rebirth-AccessibilityContract.ps1',
+	'Scripts/Test-Rebirth-FrontendContract.ps1',
+	'Scripts/prepare_application_icon.py',
+	'Scripts/Test-Windows-ExecutableIcon.ps1',
+	'Scripts/Copy-Windows-ExecutableVersionResource.ps1',
+	'Scripts/Test-Windows-ExecutableMetadata.ps1',
 	'Scripts/Test-ArtAssetContract.ps1',
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
@@ -285,11 +295,13 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
     Select-String -Pattern 'PrimaryActorTick\.bCanEverTick\s*=\s*true'
 # Reviewed exceptions. Every entry sets bStartWithTickEnabled = false; the
 # first group enables Tick only for bounded animation/presentation windows and
-# switches it off again, and IGDemoDirector is a development-only capture
+# switches it off again. IGPlayerController ticks only during the 10-second
+# display-settings confirmation. IGDemoDirector is a development-only capture
 # driver that is spawned solely under -IGCapture / -IGDemo / -IGDemoFrames.
 $reviewedTickingFiles = @(
 	'IGWakeUpDirector.cpp',
 	'IGPlayerCharacter.cpp',
+	'IGPlayerController.cpp',
 	'IGFridge.cpp',
 	'IGSwingDoor.cpp',
 	'IGSlidingDoor.cpp',
@@ -409,11 +421,52 @@ if ($elevatorSource.Contains(
 }
 foreach ($worldContinuityInvariant in @(
 	'constexpr float SecondFloorZ = 300.0f',
-	'FVector(-140, -213.2f, 154)'
+	'FVector(-140, -213.2f, 154)',
+	'FVector(-392.5f, -385, 80), FVector(125, 20, 340)',
+	'FVector(-392.5f, -225, 80), FVector(125, 20, 340)',
+	'FVector(-455, -305, 80), FVector(20, 200, 340)',
+	'FVector(-392.5f, -305, 250), FVector(125, 160, 20)',
+	'FVector(800, -394, 620), FVector(160, 6, 1240)',
+	'FVector(1015, -385, 230), FVector(270, 20, 460)',
+	'CabVisuals.StainlessMaterial = FridgeBodyMaterial',
+	'CabVisuals.DoorMaterial = FridgeBodyMaterial',
+	'CabVisuals.MirrorMaterial = FridgeBodyMaterial'
 )) {
 	if (-not $worldSceneSource.Contains($worldContinuityInvariant)) {
 		throw "World spatial-continuity invariant is missing: $worldContinuityInvariant"
 	}
+}
+$saltDepositStart = $worldSceneSource.IndexOf('struct FSaltDepositSpec')
+$saltDepositEnd = if ($saltDepositStart -ge 0) {
+	$worldSceneSource.IndexOf(
+		'for (const FSaltDepositSpec& Deposit : SaltDeposits)',
+		$saltDepositStart)
+}
+else {
+	-1
+}
+if ($saltDepositStart -lt 0 -or $saltDepositEnd -le $saltDepositStart) {
+	throw 'CH02 swept-salt deposit block is malformed.'
+}
+$saltDepositBlock = $worldSceneSource.Substring(
+	$saltDepositStart,
+	$saltDepositEnd - $saltDepositStart)
+if ([regex]::Matches($saltDepositBlock, 'FVector2D\(').Count -ne 8 -or
+	-not $worldSceneSource.Contains('FVector(Deposit.Position.X, Deposit.Position.Y, 0.28f)')) {
+	throw 'CH02 swept salt must remain eight low, irregular neutral deposits.'
+}
+$saltRenderingEnd = $worldSceneSource.IndexOf(
+	'// Only the dry circular trace of the removed rice bowl remains.',
+	$saltDepositEnd)
+if ($saltRenderingEnd -le $saltDepositEnd) {
+	throw 'CH02 swept-salt rendering block is malformed.'
+}
+$saltRenderingBlock = $worldSceneSource.Substring(
+	$saltDepositStart,
+	$saltRenderingEnd - $saltDepositStart)
+if ($saltRenderingBlock.Contains('SignWhiteMaterial') -or
+	$saltRenderingBlock.Contains('WaterBlueMaterial')) {
+	throw 'CH02 swept salt must use the restrained neutral material contract.'
 }
 if ($worldSceneSource.Contains('FVector(-187.2f, -60, 152)')) {
 	throw 'The calendar must not regress behind the wardrobe and bedside table.'
@@ -781,6 +834,10 @@ foreach ($requiredChapterThreeRouteInvariant in @(
 	'FVector(1450, -502.5f, 205)',
 	'FVector(1450, -297.5f, 205)',
 	'FVector(1450, -400, 400)',
+	'constexpr float UpperFlightRightWallCenterY = -200.0f',
+	'constexpr float UpperFlightRightWallDepth = 260.0f',
+	'constexpr float RequiredWallClearance = 20.0f',
+	'"The upper-flight wall must leave a capsule-safe turn at the landing."',
 	'FVector(2308.5f, -300, 610), FVector(87, 220, 20)',
 	'FloorSamples.Reserve(41)',
 	'FVector(1040.0f, 0.0f, StandingCenter)',
@@ -797,6 +854,7 @@ foreach ($forbiddenChapterThreeRouteBlocker in @(
 	'CreateBlock(FVector(1240, -400, 170), FVector(420, 250, 20)',
 	'FVector(1265, -400, 170), FVector(470, 250, 20)',
 	'CreateBlock(FVector(1450, -400, 205), FVector(18, 250, 410)',
+	'CreateBlock(FVector(1210, -235, 195), FVector(20, 330, 390)',
 	'CreateBlock(FVector(2325, -300, 610), FVector(150, 220, 20)'
 )) {
 	if ($thirdMorningSource.Contains($forbiddenChapterThreeRouteBlocker)) {
@@ -884,11 +942,29 @@ foreach ($requiredChapterThreeEvidenceInvariant in @(
 	'Handover.Closed0358',
 	'ManagementDb.FalseCompletion0620',
 	'Tank + FVector(-118, -72, 632)',
-	'Tank + FVector(-135, 10, 626)'
+	'Tank + FVector(-149, -28, 574)'
 )) {
 	if (-not $thirdMorningSource.Contains($requiredChapterThreeEvidenceInvariant)) {
 		throw "Required CH03 evidence invariant is missing: $requiredChapterThreeEvidenceInvariant"
 	}
+}
+foreach ($requiredTankRevealInvariant in @(
+	'AuthoredTankBodyPlacement(-90.0f, 0.0f, 542.0f)',
+	'AuthoredTankBodyRotation(0.0f, 90.0f, 0.0f)',
+	'AuthoredSleeveStitchLocalBase(23.0f, -25.0f, 13.0f)',
+	'GetAuthoredSleeveStitchFocusOffset()',
+	'Tank + FVector(-151.0f, 45.0f, 580.0f)',
+	'FRotator(90.0f, 0.0f, 0.0f)',
+	'const FVector ClothingEvidenceOffset = bUsesAuthoredTankBody',
+	'Tank + ClothingEvidenceOffset',
+	'FVector(34, 28, 18)'
+)) {
+	if (-not $thirdMorningSource.Contains($requiredTankRevealInvariant)) {
+		throw "CH03 tank-reveal alignment invariant is missing: $requiredTankRevealInvariant"
+	}
+}
+if ($thirdMorningSource.Contains('Tank + FVector(-10, -30, 540)')) {
+	throw 'CH03 clothing evidence focus regressed to its pre-body-alignment position.'
 }
 if (-not $thirdMorningSource.Contains('RequestExitWithStatus(') -or
 	$thirdMorningSource.Contains('RequestExit(!bPassed)')) {
@@ -1108,6 +1184,20 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'"-IGRebirthEnding=$Ending"',
 	"Invoke-RebirthRuntimeCase -EditorCommand `$editorCommand -Ending 'A'",
 	"Invoke-RebirthRuntimeCase -EditorCommand `$editorCommand -Ending 'B'",
+	'function Invoke-RebirthShippingRuntimeCase',
+	"'shipping_runtime_ending_a'",
+	"'shipping_runtime_ending_b'",
+	'"-IGRebirthResultPath=$resultPath"',
+	'"-UserDir=$userDirectory"',
+	'$resultText -cne $expectedResult',
+	'Invoke-RebirthShippingRuntimeCase',
+	'shippingRuntimeResults = [pscustomobject]$shippingRuntimeResults',
+	'function Assert-ShippingArchiveManifestUnchanged',
+	"'shipping_archive_post_runtime'",
+	'Shipping manifest path escaped the archive',
+	'Shipping archive file hash changed after runtime',
+	'Assert-ShippingArchiveManifestUnchanged',
+	'if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation)',
 	'Assert-ReleaseLog',
 	'REBIRTH_E2E PASS ch01_router',
 	'REBIRTH_E2E PASS ch02_router',
@@ -1147,6 +1237,14 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'$unrealDiagnosticPatterns = @(',
 	'$unrealDiagnosticAllowlist = @(',
 	'Assert-NoUnexpectedUnrealDiagnostics',
+	'AllowUE58UnifiedErrorStartupNoise',
+	'LogTemp: Error test: UE::UnifiedErrorTest::Empty:',
+	'LogTemp: Error with param: UE::UnifiedErrorTest::WithInt:',
+	'LogTemp: Error with context: UE::UnifiedErrorTest::Empty:',
+	'LogTemp: FError that has been invalidated:',
+	'LogTemp: FError that has been moved from:',
+	'$conditionIndexes.Count -eq 15',
+	'scope=map_check',
 	'Unapproved Unreal Ensure/Error/Fatal diagnostic',
 	'Get-AsciiReleaseBuildRoot',
 	'Invoke-ReleaseRobocopy',
@@ -1156,15 +1254,38 @@ foreach ($requiredReleaseValidationInvariant in @(
 	"'vc_runtime_prerequisite'",
 	"[Version]'14.50.35719.0'",
 	'VC++ runtime prerequisite was blocked.',
+	'Shipping AppLocal CRT source was blocked.',
 	'vcRuntimePrerequisite = $vcRuntimePrerequisite',
+	'appLocalDirectory = $appLocalDirectory',
+	'appLocalVersions = [pscustomobject]$appLocalVersions',
+	'appLocalValid = $appLocalValid',
 	'schemaVersion = 3',
 	'unrealDiagnosticAllowlist = @($unrealDiagnosticAllowlist)',
 	'Add-MissingStepResults',
 	'automatedReleaseCandidateEligible',
 	'releaseEligible = $false',
 	'ShippingArchiveManifest.json',
+	'Test-Windows-ExecutableIcon.ps1',
+	'WINDOWS_EXECUTABLE_ICON PASS size=32 matched_pixels=1024',
+	'Copy-Windows-ExecutableVersionResource.ps1',
+	'Test-Windows-ExecutableMetadata.ps1',
+	'WINDOWS_EXECUTABLE_METADATA_SYNC PASS',
+	'WINDOWS_EXECUTABLE_METADATA PASS',
+	"'-applocaldirectory=`$(EngineDir)/Binaries/ThirdParty/AppLocalDependencies'",
+	"@('msvcp140_2.dll', 'vcruntime140_1.dll')",
+	'appLocalRuntime = [pscustomobject]@{',
+	'ShippingExecutableMetadataSync.log',
+	'ShippingExecutableMetadata.log',
+	'executableMetadata = [pscustomobject]@{',
+	'shippingExecutableMetadataLogSha256',
+	'ShippingApplicationIcon.png',
+	'ShippingApplicationIcon.log',
+	'applicationIcon = [pscustomobject]@{',
+	'shippingApplicationIconEvidenceSha256',
+	'shippingApplicationIconLog',
 	'Shipping archive directory must be absent or empty',
 	"Name -ieq 'IndieGame.exe'",
+	"Name -ieq 'IndieGame-Win64-Shipping.exe'",
 	'Refusing to write PASS because the final Git source state is not',
 	'PASS evidence log could not be hashed',
 	'did not report a native process exit code',
@@ -1180,6 +1301,22 @@ foreach ($requiredReleaseValidationInvariant in @(
 			$requiredReleaseValidationInvariant)) {
 		throw "REBIRTH release harness invariant is missing: $requiredReleaseValidationInvariant"
 	}
+}
+$shippingPackageGateIndex = $releaseValidationScript.LastIndexOf(
+	"Set-ActiveStep -Name 'shipping_package'")
+$shippingRuntimeGateIndex = $releaseValidationScript.LastIndexOf(
+	'Invoke-RebirthShippingRuntimeCase')
+$shippingPostRuntimeGateIndex = $releaseValidationScript.LastIndexOf(
+	'Assert-ShippingArchiveManifestUnchanged')
+$fullSourcePostGateIndex = $releaseValidationScript.LastIndexOf(
+	"Set-ActiveStep -Name 'source_state_post'")
+if ($shippingPackageGateIndex -lt 0 -or
+	$shippingRuntimeGateIndex -le $shippingPackageGateIndex -or
+	$shippingPostRuntimeGateIndex -le $shippingRuntimeGateIndex -or
+	$fullSourcePostGateIndex -le $shippingPostRuntimeGateIndex) {
+	throw (
+		'Shipping A/B runtime receipts and the post-runtime archive hash check ' +
+		'must run after packaging and before the final source-state lock.')
 }
 $initialSourceStateIndex = $releaseValidationScript.IndexOf(
 	'$initialSourceState = Get-SourceState')
@@ -1272,7 +1409,11 @@ foreach ($requiredCH02FreedomHarnessInvariant in @(
 	'route_order=',
 	'authored_housings=2',
 	'layered_displays=2',
-	'time_entry_physical=2 pressure_caps=',
+	'time_entry_physical=2',
+	'time_entry_mesh_components=23',
+	'pressure_caps=',
+	'physicalContracts = 2',
+	'meshComponents = 23',
 	'Get-FileHash -Algorithm SHA256',
 	'REBIRTH_CH02_FREEDOM_HARNESS PASS complete routes=5'
 )) {
@@ -1410,6 +1551,7 @@ foreach ($requiredPersistenceProbeInvariant in @(
 	'MakeP3Checkpoint',
 	'MatchesP3Checkpoint',
 	'P3 checkpoint must be 0..6',
+	'P3_MISMATCH checkpoint=%d',
 	'ResolveAnchorContract',
 	'ValidateLoadedAnchor',
 	'OverlapBlockingTestByChannel',
@@ -1428,6 +1570,22 @@ foreach ($requiredPersistenceProbeInvariant in @(
 			'Persistence probe invariant is missing: ' +
 			$requiredPersistenceProbeInvariant)
 	}
+}
+$p3CompletedCheckpointStart = $persistenceProbeSource.IndexOf('case 6:')
+$p3CompletedCheckpointEnd = $persistenceProbeSource.IndexOf(
+	'break;',
+	$p3CompletedCheckpointStart)
+if ($p3CompletedCheckpointStart -lt 0 -or $p3CompletedCheckpointEnd -lt 0) {
+	throw 'P3 completed checkpoint fixture block is missing.'
+}
+$p3CompletedCheckpointBlock = $persistenceProbeSource.Substring(
+	$p3CompletedCheckpointStart,
+	$p3CompletedCheckpointEnd - $p3CompletedCheckpointStart)
+if (-not $p3CompletedCheckpointBlock.Contains(
+		'State.PressureRiseElapsedSeconds = 0.0f;')) {
+	throw (
+		'P3 completed checkpoint fixture must match runtime normalization by ' +
+		'clearing the pressure-rise timer.')
 }
 foreach ($requiredPersistenceBootstrapInvariant in @(
 	'IGRebirthPersistenceProbe=',
@@ -1699,6 +1857,10 @@ $chapterTwoTimeEntryContractScript = Join-Path $projectRoot `
 $accessibilityContractScript = Join-Path $projectRoot `
 	'Scripts/Test-Rebirth-AccessibilityContract.ps1'
 & $accessibilityContractScript
+
+$frontendContractScript = Join-Path $projectRoot `
+	'Scripts/Test-Rebirth-FrontendContract.ps1'
+& $frontendContractScript
 
 $artAssetContractScript = Join-Path $projectRoot `
 	'Scripts/Test-ArtAssetContract.ps1'

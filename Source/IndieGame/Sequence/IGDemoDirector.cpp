@@ -387,7 +387,10 @@ void AIGDemoDirector::AdvanceStep()
 
 	case EIGDemoStepType::Exit:
 		UE_LOG(LogIndieGame, Display, TEXT("Demo walkthrough complete; exiting."));
-		FPlatformMisc::RequestExit(false);
+		FPlatformMisc::RequestExitWithStatus(
+			false,
+			0,
+			TEXT("CH01 spatial-continuity capture completed"));
 		break;
 
 	default:
@@ -460,6 +463,10 @@ void AIGDemoDirector::UpdateWalk(const float DeltaSeconds)
 			ToTarget.Size2D());
 		bScriptFinished = true;
 		SetActorTickEnabled(false);
+		FPlatformMisc::RequestExitWithStatus(
+			false,
+			1,
+			TEXT("CH01 spatial-continuity capture timed out"));
 		return;
 	}
 

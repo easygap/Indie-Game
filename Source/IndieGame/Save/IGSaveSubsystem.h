@@ -47,6 +47,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Save")
 	bool RequestLoadLatestAutosave();
 
+	/** True only when at least one rotating autosave can be loaded by this build. */
+	UFUNCTION(BlueprintCallable, Category = "Save")
+	bool HasCompatibleAutosave() const;
+
 	/** Invalidates both rotating autosaves after an explicit restart/menu reset. */
 	UFUNCTION(BlueprintCallable, Category = "Save")
 	bool ClearRotatingAutosaves();
@@ -83,10 +87,12 @@ private:
 		FName MapPackageName,
 		FGameplayTag CheckpointTag) const;
 	void ProcessQueuedAutosave();
-	void ClearRotatingAutosavesNow();
+	bool ClearRotatingAutosavesNow();
 	void HandleSaveComplete(const FString& SlotName, int32 UserIndex, bool bSuccess);
 	void HandleLoadComplete(const FString& SlotName, int32 UserIndex, USaveGame* LoadedObject);
 	bool ApplyLoadedProgressInternal(bool bBroadcastStoryChanges);
+	bool FindNewestCompatibleAutosave(FString& OutSlotName) const;
+	bool IsAutosaveLoadable(const UIGSaveGame* SaveGame) const;
 	bool IsSaveCompatible(const UIGSaveGame* SaveGame) const;
 
 	UPROPERTY(Transient)

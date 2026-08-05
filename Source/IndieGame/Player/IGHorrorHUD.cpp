@@ -19,6 +19,7 @@
 #include "Misc/Paths.h"
 #include "Interaction/IGReadableNote.h"
 #include "Player/IGInteractionComponent.h"
+#include "Player/IGPlayerController.h"
 #include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGObjectiveProvider.h"
 #include "Sequence/IGWakeUpDirector.h"
@@ -58,6 +59,11 @@ void AIGHorrorHUD::BeginPlay()
 	if (const UWorld* World = GetWorld())
 	{
 		NextDirectorSearchTime = World->GetTimeSeconds() + IGHorrorHUD::DirectorSearchInterval;
+	}
+	if (const AIGPlayerController* IndieController =
+		Cast<AIGPlayerController>(GetOwningPlayerController()))
+	{
+		IndieController->RefreshMenuHud();
 	}
 }
 
@@ -308,6 +314,34 @@ void AIGHorrorHUD::SetAccessibilityMenuState(
 	AccessibilitySelectedRow = FMath::Clamp(SelectedRow, 0, 11);
 }
 
+void AIGHorrorHUD::SetSystemMenuState(
+	const FIGSystemMenuPresentation& Presentation)
+{
+	bSystemMenuVisible = Presentation.bVisible;
+	bSystemMenuIsTitle = Presentation.bTitle;
+	bSystemMenuIsCredits = Presentation.bCredits;
+	bSystemMenuIsDisplaySettings = Presentation.bDisplaySettings;
+	SystemMenuSelectedRow = FMath::Clamp(Presentation.SelectedRow, 0, 4);
+	bSystemMenuCanContinue = Presentation.bCanContinue;
+	bSystemMenuConfirmNewGame = Presentation.bConfirmNewGame;
+	DisplaySettingsSelectedRow = FMath::Clamp(
+		Presentation.DisplaySelectedRow,
+		0,
+		7);
+	DisplayWindowModeIndex = FMath::Clamp(Presentation.WindowModeIndex, 0, 2);
+	DisplayResolutionIndex = FMath::Clamp(Presentation.ResolutionIndex, 0, 2);
+	DisplayQualityIndex = FMath::Clamp(Presentation.QualityIndex, 0, 1);
+	DisplayFrameLimitIndex = FMath::Clamp(Presentation.FrameLimitIndex, 0, 2);
+	bSystemMenuVSync = Presentation.bVSync;
+	bDisplaySettingsApplied = Presentation.bDisplaySettingsApplied;
+	bDisplaySettingsAwaitingConfirmation =
+		Presentation.bDisplaySettingsAwaitingConfirmation;
+	DisplayConfirmationSecondsRemaining =
+		FMath::Max(0, Presentation.ConfirmationSecondsRemaining);
+	SystemMenuStatusText = Presentation.StatusText;
+	bSystemMenuStatusIsError = Presentation.bStatusIsError;
+}
+
 void AIGHorrorHUD::ShowChapterCard(
 	const UObject* WorldContext,
 	const FText& Eyebrow,
@@ -371,6 +405,11 @@ void AIGHorrorHUD::DrawHUD()
 	if (bAccessibilityMenuVisible)
 	{
 		DrawAccessibilityPanel();
+		return;
+	}
+	if (bSystemMenuVisible)
+	{
+		DrawSystemMenuPanel();
 		return;
 	}
 
@@ -868,6 +907,428 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 					? TEXT("D-PAD SELECT + CHANGE  |  A APPLY  |  B CLOSE")
 					: TEXT("ARROWS SELECT + CHANGE  |  ENTER APPLY  |  ESC/F10 CLOSE")),
 		FMath::Max(RowStartY + 12.5f * RowSpacing, Canvas->ClipY - 48.0f),
+		IGHorrorHUD::MutedGray,
+		EIGHudTextRole::Hint);
+}
+
+void AIGHorrorHUD::DrawDisplaySettingsPanel()
+{
+	if (!Canvas)
+	{
+		return;
+	}
+	const bool bKorean = SupportsKorean();
+	const FString WindowModes[] =
+	{
+		bKorean ? TEXT("전체 화면") : TEXT("FULLSCREEN"),
+		bKorean ? TEXT("테두리 없는 창") : TEXT("BORDERLESS"),
+		bKorean ? TEXT("창 모드") : TEXT("WINDOWED")
+	};
+	const FString Resolutions[] =
+	{
+		TEXT("1280 x 720"),
+		TEXT("1920 x 1080"),
+		TEXT("2560 x 1440")
+	};
+	const FString Qualities[] =
+	{
+		bKorean ? TEXT("낮음") : TEXT("LOW"),
+		bKorean ? TEXT("높음") : TEXT("HIGH")
+	};
+	const FString FrameLimits[] =
+	{
+		TEXT("30 FPS"),
+		TEXT("60 FPS"),
+		bKorean ? TEXT("제한 없음") : TEXT("UNLIMITED")
+	};
+	const FString Labels[] =
+	{
+		bKorean ? TEXT("화면 모드") : TEXT("DISPLAY MODE"),
+		bKorean ? TEXT("해상도") : TEXT("RESOLUTION"),
+		bKorean ? TEXT("그래픽 품질") : TEXT("GRAPHICS QUALITY"),
+		bKorean ? TEXT("수직 동기화") : TEXT("V-SYNC"),
+		bKorean ? TEXT("프레임 제한") : TEXT("FRAME LIMIT"),
+		bKorean ? TEXT("접근성 설정") : TEXT("ACCESSIBILITY"),
+		bDisplaySettingsAwaitingConfirmation
+			? bKorean ? TEXT("이 설정 유지") : TEXT("KEEP THESE SETTINGS")
+			: bKorean ? TEXT("변경 적용") : TEXT("APPLY CHANGES"),
+		bDisplaySettingsAwaitingConfirmation
+			? bKorean ? TEXT("이전 설정으로 되돌리기") : TEXT("REVERT SETTINGS")
+			: bKorean ? TEXT("변경 취소하고 돌아가기") : TEXT("CANCEL AND BACK")
+	};
+	const FString Values[] =
+	{
+		WindowModes[DisplayWindowModeIndex],
+		Resolutions[DisplayResolutionIndex],
+		Qualities[DisplayQualityIndex],
+		bKorean
+			? FString(bSystemMenuVSync ? TEXT("켬") : TEXT("끔"))
+			: FString(bSystemMenuVSync ? TEXT("ON") : TEXT("OFF")),
+		FrameLimits[DisplayFrameLimitIndex],
+		FString(),
+		FString(),
+		FString()
+	};
+
+	DrawCenteredText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "DisplaySettingsTitle", "화면 설정")
+			: FText::FromString(TEXT("DISPLAY SETTINGS")),
+		72.0f,
+		IGHorrorHUD::PaleGray,
+		EIGHudTextRole::Objective);
+	DrawCenteredText(
+		bKorean
+			? NSLOCTEXT(
+				"IGHUD",
+				"DisplaySettingsSubtitle",
+				"Windows-v1 지원 범위 안에서 화면과 성능을 조정합니다.")
+			: FText::FromString(
+				TEXT("ADJUST DISPLAY AND PERFORMANCE WITHIN WINDOWS-V1 SUPPORT.")),
+		112.0f,
+		IGHorrorHUD::MutedGray,
+		EIGHudTextRole::Hint);
+	if (bDisplaySettingsAwaitingConfirmation)
+	{
+		DrawCenteredText(
+			bKorean
+				? FText::Format(
+					NSLOCTEXT(
+						"IGHUD",
+						"DisplaySettingsConfirmCountdown",
+						"이 화면 설정을 유지할까요? {0}초 뒤 자동으로 되돌립니다."),
+					FText::AsNumber(DisplayConfirmationSecondsRemaining))
+				: FText::Format(
+					FText::FromString(
+						TEXT("KEEP THESE DISPLAY SETTINGS? REVERTING IN {0} SECONDS.")),
+					FText::AsNumber(DisplayConfirmationSecondsRemaining)),
+			140.0f,
+			IGHorrorHUD::RedAccent,
+			EIGHudTextRole::Hint);
+	}
+	else if (bDisplaySettingsApplied)
+	{
+		DrawCenteredText(
+			bKorean
+				? NSLOCTEXT("IGHUD", "DisplaySettingsApplied", "설정을 적용했습니다.")
+				: FText::FromString(TEXT("SETTINGS APPLIED.")),
+			140.0f,
+			FLinearColor(0.62f, 0.72f, 0.66f, 1.0f),
+			EIGHudTextRole::Hint);
+	}
+	else if (!SystemMenuStatusText.IsEmpty())
+	{
+		DrawCenteredText(
+			SystemMenuStatusText,
+			140.0f,
+			bSystemMenuStatusIsError
+				? IGHorrorHUD::RedAccent
+				: IGHorrorHUD::PaleGray,
+			EIGHudTextRole::Hint);
+	}
+
+	const float RowStartY = FMath::Max(174.0f, Canvas->ClipY * 0.24f);
+	const float RowSpacing = FMath::Clamp(Canvas->ClipY * 0.055f, 34.0f, 42.0f);
+	for (int32 Row = 0; Row < UE_ARRAY_COUNT(Labels); ++Row)
+	{
+		const bool bSelected = Row == DisplaySettingsSelectedRow;
+		FString RowText = Values[Row].IsEmpty()
+			? Labels[Row]
+			: FString::Printf(TEXT("%s    < %s >"), *Labels[Row], *Values[Row]);
+		RowText = FString(bSelected ? TEXT(">  ") : TEXT("   ")) + RowText;
+		DrawCenteredText(
+			FText::FromString(RowText),
+			RowStartY + Row * RowSpacing,
+			bSelected ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray,
+			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
+	}
+
+	DrawCenteredText(
+		bDisplaySettingsAwaitingConfirmation
+			? bUsingGamepad
+				? bKorean
+					? NSLOCTEXT(
+						"IGHUD",
+						"DisplaySettingsConfirmControlsGamepad",
+						"A 유지  ·  B/View 자동 복원  ·  아래 항목에서 되돌리기")
+					: FText::FromString(
+						TEXT("A KEEP  |  B/VIEW AUTO-REVERT  |  SELECT REVERT BELOW"))
+				: bKorean
+					? NSLOCTEXT(
+						"IGHUD",
+						"DisplaySettingsConfirmControlsKeyboard",
+						"Enter/클릭 유지  ·  Esc 자동 복원  ·  아래 항목에서 되돌리기")
+					: FText::FromString(
+						TEXT("ENTER/CLICK KEEP  |  ESC AUTO-REVERT  |  SELECT REVERT BELOW"))
+			: bKorean
+			? bUsingGamepad
+				? NSLOCTEXT(
+					"IGHUD",
+					"DisplaySettingsControlsGamepad",
+					"D-pad 항목·변경  ·  A 선택  ·  B/View 취소")
+				: NSLOCTEXT(
+					"IGHUD",
+					"DisplaySettingsControlsKeyboard",
+					"방향키/WASD 항목·변경  ·  Enter 선택  ·  Esc 취소  ·  마우스 선택")
+			: FText::FromString(
+				bUsingGamepad
+					? TEXT("D-PAD SELECT + CHANGE  |  A APPLY  |  B/VIEW CANCEL")
+					: TEXT("ARROWS/WASD CHANGE  |  ENTER APPLY  |  ESC CANCEL  |  MOUSE SELECT")),
+		FMath::Max(0.0f, Canvas->ClipY - 48.0f),
+		IGHorrorHUD::MutedGray,
+		EIGHudTextRole::Hint);
+}
+
+void AIGHorrorHUD::DrawSystemMenuPanel()
+{
+	if (!Canvas)
+	{
+		return;
+	}
+
+	const bool bKorean = SupportsKorean();
+	FCanvasTileItem Scrim(
+		FVector2D::ZeroVector,
+		FVector2D(Canvas->ClipX, Canvas->ClipY),
+		FLinearColor(0.004f, 0.006f, 0.007f, 0.985f));
+	Scrim.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Scrim);
+
+	// A single reflected strip is enough to suggest the rooftop tank without
+	// placing a literal spoiler behind the first screen.
+	const float CenterX = Canvas->ClipX * 0.5f;
+	FCanvasTileItem Reflection(
+		FVector2D(CenterX - 0.5f, 0.0f),
+		FVector2D(1.0f, Canvas->ClipY),
+		FLinearColor(0.22f, 0.25f, 0.26f, 0.16f));
+	Reflection.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Reflection);
+	FCanvasTileItem Accent(
+		FVector2D(CenterX - 44.0f, 174.0f),
+		FVector2D(88.0f, 1.0f),
+		IGHorrorHUD::RedAccent);
+	Accent.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Accent);
+	if (bSystemMenuIsDisplaySettings)
+	{
+		DrawDisplaySettingsPanel();
+		return;
+	}
+
+	if (bSystemMenuIsCredits)
+	{
+		DrawCenteredText(
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsTitle", "만든 사람")
+				: FText::FromString(TEXT("CREDITS")),
+			96.0f,
+			IGHorrorHUD::PaleGray,
+			EIGHudTextRole::Objective,
+			1.15f);
+		DrawCenteredText(
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsGameTitle", "4시 44분")
+				: FText::FromString(TEXT("4:44 AM")),
+			136.0f,
+			IGHorrorHUD::MutedGray,
+			EIGHudTextRole::Hint);
+
+		const FText CreditLines[] =
+		{
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsDeveloper", "기획 · 개발    easygap")
+				: FText::FromString(TEXT("DESIGN + DEVELOPMENT    easygap")),
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsEngine", "제작 도구    Unreal Engine 5.8")
+				: FText::FromString(TEXT("POWERED BY    UNREAL ENGINE 5.8")),
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsMaterials", "일부 재질    ambientCG · CC0")
+				: FText::FromString(TEXT("SELECT MATERIALS    ambientCG · CC0")),
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsProps", "일부 소품    Poly Haven · CC0")
+				: FText::FromString(TEXT("SELECT PROPS    POLY HAVEN · CC0")),
+			FText::FromString(TEXT("Copyright 2026 easygap. All rights reserved."))
+		};
+		const float CreditStartY = FMath::Max(230.0f, Canvas->ClipY * 0.34f);
+		const float CreditSpacing = FMath::Clamp(
+			Canvas->ClipY * 0.058f,
+			32.0f,
+			42.0f);
+		for (int32 Line = 0; Line < UE_ARRAY_COUNT(CreditLines); ++Line)
+		{
+			DrawCenteredText(
+				CreditLines[Line],
+				CreditStartY + Line * CreditSpacing,
+				Line == 0 ? IGHorrorHUD::PaleGray : IGHorrorHUD::MutedGray,
+				Line == 0 ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
+		}
+		DrawCenteredText(
+			bKorean
+				? bUsingGamepad
+					? NSLOCTEXT("IGHUD", "CreditsBackGamepad", "B  돌아가기")
+					: NSLOCTEXT("IGHUD", "CreditsBackKeyboard", "Esc 또는 Enter  돌아가기")
+				: FText::FromString(
+					bUsingGamepad ? TEXT("B  BACK") : TEXT("ESC OR ENTER  BACK")),
+			FMath::Max(0.0f, Canvas->ClipY - 48.0f),
+			IGHorrorHUD::MutedGray,
+			EIGHudTextRole::Hint);
+		return;
+	}
+
+	DrawCenteredText(
+		bSystemMenuIsTitle
+			? bKorean
+				? NSLOCTEXT("IGHUD", "MainTitle", "4시 44분")
+				: FText::FromString(TEXT("4:44 AM"))
+			: bKorean
+				? NSLOCTEXT("IGHUD", "PauseTitle", "잠시 멈춤")
+				: FText::FromString(TEXT("PAUSED")),
+		92.0f,
+		IGHorrorHUD::PaleGray,
+		EIGHudTextRole::Objective,
+		1.25f);
+	DrawCenteredText(
+		bSystemMenuIsTitle
+			? bKorean
+				? NSLOCTEXT(
+					"IGHUD",
+					"MainSubtitle",
+					"다음 날 새벽, 냉장고에는 또 물이 없다.")
+				: FText::FromString(
+					TEXT("THE NEXT MORNING, THE FRIDGE IS EMPTY AGAIN."))
+			: bKorean
+				? NSLOCTEXT(
+					"IGHUD",
+					"PauseSubtitle",
+					"숨을 고르고, 기억을 이어 간다.")
+				: FText::FromString(TEXT("CATCH YOUR BREATH. CONTINUE THE MEMORY.")),
+		142.0f,
+		IGHorrorHUD::MutedGray,
+		EIGHudTextRole::Hint);
+	if (bSystemMenuIsTitle && bSystemMenuConfirmNewGame)
+	{
+		DrawCenteredText(
+			bKorean
+				? NSLOCTEXT(
+					"IGHUD",
+					"NewGameDeleteWarning",
+					"기존 자동 저장이 삭제됩니다. 새 게임을 한 번 더 선택하세요.")
+				: FText::FromString(
+					TEXT("AUTOSAVES WILL BE DELETED. SELECT NEW GAME AGAIN.")),
+			194.0f,
+			IGHorrorHUD::RedAccent,
+			EIGHudTextRole::Hint);
+	}
+	else if (!SystemMenuStatusText.IsEmpty())
+	{
+		DrawCenteredText(
+			SystemMenuStatusText,
+			194.0f,
+			bSystemMenuStatusIsError
+				? IGHorrorHUD::RedAccent
+				: IGHorrorHUD::PaleGray,
+			EIGHudTextRole::Hint);
+	}
+
+	const FString TitleRows[] =
+	{
+		bKorean ? TEXT("이어하기") : TEXT("CONTINUE"),
+		bKorean ? TEXT("새 게임") : TEXT("NEW GAME"),
+		bKorean ? TEXT("설정") : TEXT("SETTINGS"),
+		bKorean ? TEXT("제작 정보") : TEXT("CREDITS"),
+		bKorean ? TEXT("게임 종료") : TEXT("QUIT")
+	};
+	const FString PauseRows[] =
+	{
+		bKorean ? TEXT("계속하기") : TEXT("RESUME"),
+		bKorean ? TEXT("최근 자동 저장 불러오기") : TEXT("LOAD LATEST AUTOSAVE"),
+		bKorean ? TEXT("설정") : TEXT("SETTINGS"),
+		bKorean ? TEXT("제작 정보") : TEXT("CREDITS"),
+		bKorean ? TEXT("게임 종료") : TEXT("QUIT")
+	};
+	const float RowStartY = FMath::Max(244.0f, Canvas->ClipY * 0.36f);
+	const float RowSpacing = FMath::Clamp(Canvas->ClipY * 0.062f, 36.0f, 46.0f);
+	const int32 LoadRow = bSystemMenuIsTitle ? 0 : 1;
+	for (int32 Row = 0; Row < UE_ARRAY_COUNT(TitleRows); ++Row)
+	{
+		const bool bEnabled = Row != LoadRow || bSystemMenuCanContinue;
+		const bool bSelected = Row == SystemMenuSelectedRow;
+		FString Label = bSystemMenuIsTitle ? TitleRows[Row] : PauseRows[Row];
+		if (bSystemMenuIsTitle && Row == 1 && bSystemMenuConfirmNewGame)
+		{
+			Label = bKorean
+				? TEXT("새 게임 확인")
+				: TEXT("CONFIRM NEW GAME");
+		}
+		if (!bEnabled)
+		{
+			Label += bKorean ? TEXT("  (저장 없음)") : TEXT("  (NO SAVE)");
+		}
+		Label = FString(bSelected ? TEXT(">  ") : TEXT("   ")) + Label;
+		DrawCenteredText(
+			FText::FromString(Label),
+			RowStartY + Row * RowSpacing,
+			!bEnabled
+				? FLinearColor(0.28f, 0.29f, 0.28f, 0.82f)
+				: bSelected
+					? IGHorrorHUD::RedAccent
+					: IGHorrorHUD::PaleGray,
+			bSelected && bEnabled
+				? EIGHudTextRole::Prompt
+				: EIGHudTextRole::Hint);
+	}
+
+	FText SystemControls;
+	if (bKorean)
+	{
+		SystemControls = bUsingGamepad
+			? bSystemMenuIsTitle
+				? bSystemMenuConfirmNewGame
+					? NSLOCTEXT(
+						"IGHUD",
+						"TitleConfirmControlsGamepad",
+						"A 새 게임 시작  ·  View 취소")
+					: NSLOCTEXT(
+						"IGHUD",
+						"TitleControlsGamepad",
+						"D-pad 항목  ·  A 선택  ·  Menu 접근성")
+				: NSLOCTEXT(
+					"IGHUD",
+					"SystemMenuControlsGamepad",
+					"D-pad 항목  ·  A 선택  ·  View 돌아가기  ·  Menu 접근성")
+			: bSystemMenuIsTitle
+				? bSystemMenuConfirmNewGame
+					? NSLOCTEXT(
+						"IGHUD",
+						"TitleConfirmControlsKeyboard",
+						"Enter 새 게임 시작  ·  Esc 취소")
+					: NSLOCTEXT(
+						"IGHUD",
+						"TitleControlsKeyboard",
+						"W/S 또는 방향키 항목  ·  Enter/마우스 선택  ·  F10 접근성")
+				: NSLOCTEXT(
+					"IGHUD",
+					"SystemMenuControlsKeyboard",
+					"W/S 또는 방향키 항목  ·  Enter/마우스 선택  ·  Esc 돌아가기  ·  F10 접근성");
+	}
+	else
+	{
+		SystemControls = FText::FromString(
+			bUsingGamepad
+				? bSystemMenuIsTitle
+					? bSystemMenuConfirmNewGame
+						? TEXT("A START NEW GAME  |  VIEW CANCEL")
+						: TEXT("D-PAD SELECT  |  A APPLY  |  MENU ACCESSIBILITY")
+					: TEXT("D-PAD SELECT  |  A APPLY  |  VIEW BACK  |  MENU ACCESSIBILITY")
+				: bSystemMenuIsTitle
+					? bSystemMenuConfirmNewGame
+						? TEXT("ENTER START NEW GAME  |  ESC CANCEL")
+						: TEXT("W/S OR ARROWS SELECT  |  ENTER/MOUSE APPLY  |  F10 ACCESSIBILITY")
+					: TEXT("W/S OR ARROWS SELECT  |  ENTER/MOUSE APPLY  |  ESC BACK  |  F10 ACCESSIBILITY"));
+	}
+	DrawCenteredText(
+		SystemControls,
+		FMath::Max(0.0f, Canvas->ClipY - 48.0f),
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint);
 }

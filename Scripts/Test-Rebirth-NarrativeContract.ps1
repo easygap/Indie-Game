@@ -580,8 +580,10 @@ Assert-Contract (
 	$chapterTwoOverlay.Contains('OfferingBowlMaterial') -and
 	$chapterTwoOverlay.Contains('DryOuter') -and
 	$chapterTwoOverlay.Contains('DryInner') -and
-	$chapterTwoOverlay.Contains('FVector(-126, -280, 4.5f)') -and
-	$chapterTwoOverlay.Contains('FVector(24, 24, 9.0f)') -and
+	$chapterTwoOverlay.Contains('SM_OfferingWaterBowl') -and
+	$chapterTwoOverlay.Contains('FVector(-126, -280, 0.08f)') -and
+	$chapterTwoOverlay.Contains('FVector(-126, -280, 7.72f)') -and
+	$chapterTwoOverlay.Contains('struct FSaltDepositSpec') -and
 	-not $chapterTwoOverlay.Contains('Small rice bowl') -and
 	-not $chapterTwoOverlay.Contains('incense sticks') -and
 	$worldScene.Contains('OfferingNote = SpawnNote(') -and

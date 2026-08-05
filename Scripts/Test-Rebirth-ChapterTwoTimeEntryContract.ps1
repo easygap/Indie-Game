@@ -193,6 +193,15 @@ foreach ($invariant in @(
 		$director.Contains($invariant)
 	) "Preloaded terminal wiring is missing '$invariant'."
 }
+foreach ($invariant in @(
+	'PreferredObjectPath',
+	'/Game/Photo/Props/%s/%s_1k/StaticMeshes/%s.%s',
+	'LoadObject<UStaticMesh>',
+	'LOAD_NoWarn'
+)) {
+	Assert-Contract ($worldScene.Contains($invariant)) `
+		"First-run photo-prop preload contract is missing '$invariant'."
+}
 $chapterTwoTerminalBlock = Get-BlockBetween $worldScene `
 	'if (SecondMorningDirector)' `
 	'if (PlayerController)'

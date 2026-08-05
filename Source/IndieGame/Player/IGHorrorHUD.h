@@ -22,6 +22,29 @@ enum class EIGHudTextRole : uint8
 	Hint
 };
 
+/** Snapshot of controller-owned front-end state consumed by the native HUD. */
+struct FIGSystemMenuPresentation
+{
+	bool bVisible = false;
+	bool bTitle = false;
+	bool bCredits = false;
+	bool bDisplaySettings = false;
+	bool bCanContinue = false;
+	bool bConfirmNewGame = false;
+	bool bVSync = true;
+	bool bDisplaySettingsApplied = false;
+	bool bDisplaySettingsAwaitingConfirmation = false;
+	bool bStatusIsError = false;
+	int32 SelectedRow = 0;
+	int32 DisplaySelectedRow = 0;
+	int32 WindowModeIndex = 0;
+	int32 ResolutionIndex = 1;
+	int32 QualityIndex = 1;
+	int32 FrameLimitIndex = 1;
+	int32 ConfirmationSecondsRemaining = 0;
+	FText StatusText;
+};
+
 /**
  * Lightweight native HUD for the prologue.
  * It intentionally avoids widget assets so the first playable build always has
@@ -95,6 +118,8 @@ public:
 
 	/** Native, asset-independent accessibility panel driven by the controller. */
 	void SetAccessibilityMenuState(bool bVisible, int32 SelectedRow);
+	/** Native title, pause and credits presentation shared by packaged builds. */
+	void SetSystemMenuState(const FIGSystemMenuPresentation& Presentation);
 	void SetInputDevicePresentation(bool bInUsingGamepad)
 	{
 		bUsingGamepad = bInUsingGamepad;
@@ -142,6 +167,8 @@ private:
 		FString& OutFirstLine,
 		FString& OutSecondLine) const;
 	void DrawAccessibilityPanel();
+	void DrawSystemMenuPanel();
+	void DrawDisplaySettingsPanel();
 	/** Screen-space bracket that snaps around whatever is currently focused. */
 	void UpdateFocusBracket(const AActor* FocusedActor, float DeltaSeconds);
 	void DrawFocusBracket(const FLinearColor& Color, float Progress);
@@ -208,6 +235,24 @@ private:
 	float FocusBracketAlpha = 0.0f;
 	double LastHudDrawTime = 0.0;
 	int32 AccessibilitySelectedRow = 0;
+	int32 SystemMenuSelectedRow = 0;
 	bool bAccessibilityMenuVisible = false;
+	bool bSystemMenuVisible = false;
+	bool bSystemMenuIsTitle = false;
+	bool bSystemMenuIsCredits = false;
+	bool bSystemMenuIsDisplaySettings = false;
+	bool bSystemMenuCanContinue = false;
+	bool bSystemMenuConfirmNewGame = false;
+	bool bSystemMenuVSync = true;
+	bool bDisplaySettingsApplied = false;
+	bool bDisplaySettingsAwaitingConfirmation = false;
+	bool bSystemMenuStatusIsError = false;
+	int32 DisplaySettingsSelectedRow = 0;
+	int32 DisplayWindowModeIndex = 0;
+	int32 DisplayResolutionIndex = 1;
+	int32 DisplayQualityIndex = 1;
+	int32 DisplayFrameLimitIndex = 1;
+	int32 DisplayConfirmationSecondsRemaining = 0;
+	FText SystemMenuStatusText;
 	bool bUsingGamepad = false;
 };

@@ -36,6 +36,7 @@ MESH_NAMES = (
     "SM_HornRimGlasses",
     "SM_InspectionRod",
     "SM_CrackedPhone",
+    "SM_OfferingWaterBowl",
 )
 
 HERO_MESHES = {
@@ -51,6 +52,7 @@ HERO_MESHES = {
     "SM_P3ValveWheelLarge",
     "SM_P3ValveWheelSmall",
     "SM_P3PressureGauge",
+    "SM_OfferingWaterBowl",
 }
 
 PBR_STEMS = {
@@ -67,6 +69,7 @@ PBR_STEMS = {
 
 MATERIAL_TEXTURES = {
     "M_WetHoodieUV": "T_WetHoodie",
+    "M_SubmergedHoodieUV": "T_WetHoodie",
     "M_SubmergedPantsUV": "T_WetHoodie",
     "M_SubmergedSlippersUV": "T_WetServiceHose",
     "M_SubmergedSlipperWearUV": "T_WetRungPad",

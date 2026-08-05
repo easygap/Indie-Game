@@ -1065,6 +1065,7 @@ FIGRebirthP3State AIGRebirthPersistenceProbe::MakeP3Checkpoint(
 		State.bPressureZero = true;
 		State.bCompleted = true;
 		State.PressureKPa = 0.0f;
+		State.PressureRiseElapsedSeconds = 0.0f;
 		State.ZeroConfirmationTicks = 2;
 		break;
 	default:
@@ -1738,6 +1739,36 @@ void AIGRebirthPersistenceProbe::HandleLoadCompleted(
 			&& !UGameplayStatics::DoesSaveGameExist(SlotName, 0);
 		if (!bMatched || !bDeleted)
 		{
+			UE_LOG(
+				LogIndieGame,
+				Error,
+				TEXT(
+					"REBIRTH_SPIKE P3_MISMATCH checkpoint=%d "
+					"p3_flags=%d%d%d%d%d pressure=%.2f mistakes=%d "
+					"zero_ticks=%d hint=%.2f rise=%.2f armed=%d stage=%d "
+					"p4_loop=%d pressure_stage=%d rise=%.2f hint=%.2f "
+					"hint_stage=%d armed=%d completed=%d deleted=%d"),
+				P3CheckpointIndex,
+				Actual.bDirectInletClosed ? 1 : 0,
+				Actual.bReserveInletClosed ? 1 : 0,
+				Actual.bPressureReleaseOpen ? 1 : 0,
+				Actual.bPressureZero ? 1 : 0,
+				Actual.bCompleted ? 1 : 0,
+				Actual.PressureKPa,
+				Actual.MistakeCount,
+				Actual.ZeroConfirmationTicks,
+				Actual.HintElapsedSeconds,
+				Actual.PressureRiseElapsedSeconds,
+				Actual.bPressureRiseArmed ? 1 : 0,
+				Actual.HintStage,
+				ActualP4.StairLoopCount,
+				ActualP4.PressureStage,
+				ActualP4.PressureRiseElapsedSeconds,
+				ActualP4.HintElapsedSeconds,
+				ActualP4.HintStage,
+				ActualP4.bPressureArmed ? 1 : 0,
+				ActualP4.bCompleted ? 1 : 0,
+				bDeleted ? 1 : 0);
 			ExitFailure(TEXT("P3 process-boundary restore mismatch"));
 			return;
 		}
