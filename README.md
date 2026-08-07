@@ -1,228 +1,163 @@
 # 4시 44분
 
-> 물이 떨어졌다. 편의점에 다녀왔다.
+> 물이 떨어졌다. 편의점에 다녀왔다.<br>
 > 다음 날 새벽 4시 44분, 냉장고에는 또 물이 없다.
 
-![새벽 4시 44분에 알람 소리로 시작되는 실제 게임 화면](Docs/Media/prologue-bedroom.png)
+![새벽 4시 44분의 원룸과 대화 HUD 실제 게임 화면](Docs/Media/dialogue-hud-default-1080.png)
 
-> **개발 상태:** 네이티브 타이틀·이어하기·일시정지·화면/접근성 설정·
-> 크레딧·종료 흐름, Windows 아이콘·제품 버전 검증과 Shipping 기본 설정까지
-> 구현했지만, 최신 UE 런타임 종단, 초견
-> 플레이, 최종 시청각·접근성과 Shipping 패키지는 아직 승인하지 않았습니다.
-> 아래 이미지와 영상은 과거 개발 빌드의 참고 자료이며 현재 커밋의 릴리스
-> 증거가 아닙니다.
+**4시 44분**은 낡은 한국 빌라와 새벽 골목을 반복해서 오가며, 익숙한
+생활 공간에서 달라진 흔적을 찾아 연결하는 1인칭 심리 공포 게임입니다.
+괴물보다 기억의 오차, 끊긴 생활음, 설명되지 않는 물건의 위치로
+플레이어를 압박합니다.
 
-**4시 44분**은 낡은 한국 빌라와 새벽 골목을 무대로 만든 싱글 플레이
-1인칭 현실 공포 게임입니다.
+| 장르 | 플레이 | 배경 | 엔진·플랫폼 |
+|:---:|:---:|:---:|:---:|
+| 1인칭 심리 공포 | 조사 · 추론 · 선택 | 한국의 오래된 빌라 | Unreal Engine 5.8 · Windows |
 
-낯선 괴물을 계속 보여 주기보다, 매일 지나던 복도와 편의점이 조금씩
-틀어지는 순간에 집중했습니다. 플레이어는 세 번의 아침을 반복하며
-영수증, 휴대폰, 관리 기록과 생활 흔적을 직접 대조하고, 마지막에는
-이미 일어난 발견을 마주한 채 기억 속 뚜껑을 다시 닫을지, 잠시 붙들고
-04:44 이후를 받아들일지 선택하게 됩니다.
+## 매일 걷던 길을 의심한다
 
-| 구분 | 내용 |
-|---|---|
-| 장르 | 싱글 플레이 · 1인칭 · 현실/심리 공포 |
-| 배경 | 한국의 오래된 빌라, 새벽 골목, 무인 편의점 |
-| 플레이 범위 | CH01–CH03, 선택에 따른 두 가지 결말 |
-| 엔진 | Unreal Engine 5.8 / C++ |
-| 플랫폼 | Windows |
+![원룸에서 편의점까지 이어지는 실제 플레이 동선](Docs/Media/readme-route-preview.gif)
 
-## 개발 프리뷰 실행하기
+<sub>실제 게임 캡처를 원룸 → 복도 → 엘리베이터 → 공동현관 → 골목 → 편의점 순서로 재생한 미리보기입니다.</sub>
 
-1. 저장소를 내려받고 `git lfs pull`로 LFS 에셋을 받습니다.
-2. 아래 실행 환경의 UE 5.8과 C++ 빌드 도구를 설치합니다.
-3. [Scripts/RunEditor.bat](Scripts/RunEditor.bat)을 실행해 C++ 모듈을
-   빌드합니다.
-4. 에디터에서 Play를 누르거나, 빌드 뒤
-   [Scripts/RunGame.bat](Scripts/RunGame.bat)을 실행합니다.
-5. 타이틀에서 **새 게임**을 고른 뒤, 알람 시계를 바라보고 `E`를 누릅니다.
-
-이 프로젝트는 아직 별도의 패키지 실행 파일이 아니라 UE 5.8 프로젝트로
-제공됩니다. `RunGame.bat`은 엔진을 찾아 개발 게임을 시작할 뿐 C++ 빌드,
-실행 성공이나 릴리스 품질을 판정하지 않습니다. 첫 에디터 실행은 C++
-모듈과 셰이더를 준비하느라 창이 뜨기까지 조금 걸릴 수 있습니다.
-
-중간 챕터를 바로 확인하고 싶다면 아래 실행 파일을 사용하면 됩니다.
-
-| 실행 파일 | 시작 위치 |
-|---|---|
-| [RunGame-Chapter2.bat](Scripts/RunGame-Chapter2.bat) | 두 번째 아침 |
-| [RunGame-Chapter3.bat](Scripts/RunGame-Chapter3.bat) | 세 번째 아침 |
-| [RunEditor.bat](Scripts/RunEditor.bat) | Unreal Editor |
-
-엔진 없이 정적 사전 점검만 재현하려면 다음 명령을 사용합니다.
-
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File Scripts\Run-Rebirth-ReleaseValidation.ps1 -StaticOnly
-```
-
-이 모드는 정적 단계 로그와 `summary.json`을 만들고 최상위 결과를
-`PARTIAL`로 기록하며, 빌드·Map Check·A/B 런타임·Shipping은
-`NOT_RUN`으로 남깁니다. UE 5.8이 있는 제작 환경의 전체
-하네스도 최종 초견·시청각·접근성·별도 PC 패키지 검증을 대신하지 않습니다.
-승인 절차는 [G3~G6 릴리스 검증 절차](Docs/RELEASE_VALIDATION.md)를
-따릅니다.
-
-첫 플레이는 변화의 기준이 되는 CH01부터 시작하는 것을 권장합니다.
-
-## 평범한 하루를 먼저 기억하는 게임
-
-첫 번째 아침에는 알람을 끄고, 빈 냉장고를 확인하고, 지갑을 챙겨
-편의점에서 생수를 사 옵니다. 방에서 편의점까지의 길을 직접 걷게 한
-이유는 단순합니다. 정상적인 공간을 기억해야 다음 날 사라진 문 하나,
-꺼진 형광등 하나도 이상하게 느껴지기 때문입니다.
+첫날에는 알람을 끄고 물을 사 오는 평범한 동선을 직접 익힙니다. 다음
+아침부터는 같은 장소에서 문 하나, 형광등 하나, 들려야 할 소리 하나가
+달라집니다. 어느 단서부터 확인하더라도 필요한 진실을 충분히 이해하면
+다시 하나의 진행점으로 합류합니다.
 
 <table>
   <tr>
-    <td width="50%"><img src="Docs/Media/prologue-corridor.png" alt="빌라 4층 복도 실제 게임 화면"></td>
-    <td width="50%"><img src="Docs/Media/prologue-elevator.png" alt="빌라 엘리베이터 실제 게임 화면"></td>
+    <td width="33%"><img src="Docs/Media/prologue-corridor.png" alt="빌라 4층 복도 실제 게임 화면"></td>
+    <td width="33%"><img src="Docs/Media/ch02-receipt-0444.png" alt="04시 44분 편의점 영수증 실제 게임 화면"></td>
+    <td width="33%"><img src="Docs/Media/ch03-fifth-floor-doorway.png" alt="5층 옥상문 앞 실제 게임 화면"></td>
   </tr>
   <tr>
-    <td align="center">매일 지나가는 4층 복도</td>
-    <td align="center">층마다 소리와 움직임이 달라지는 엘리베이터</td>
+    <td align="center"><b>기억</b><br>정상적인 공간과 소리를 익힌다</td>
+    <td align="center"><b>대조</b><br>시간·기록·소지품을 연결한다</td>
+    <td align="center"><b>압박</b><br>불안정한 상황에서 판단한다</td>
   </tr>
 </table>
 
-두 번째 아침부터는 같은 동선에서 한 번에 한 가지 규칙만 바뀝니다.
-어제 없던 403호, 누르지 않은 층에서 멈추는 엘리베이터, 사람이 없는데
-두 번 울리는 편의점 차임처럼 설명할 수는 있지만 납득하기 어려운
-상황을 차례로 배치했습니다.
+## 보고, 듣고, 연결한다
 
-![따뜻한 스탠드 너머에 누군가 누워 있는 403호 실제 게임 화면](Docs/Media/ch02-mirror-room.png)
-
-## 한국에서 본 듯한 공간
-
-붉은 벽돌, 외벽 배관, 공동현관, 우편함, 화강석 바닥, 좁은 계단과
-옥상 철문까지 한국의 오래된 빌라에서 익숙하게 볼 수 있는 요소를
-기준으로 공간을 구성했습니다.
-
-골목에는 길고양이, 돌풍 뒤에 구르는 마른 낙엽, 승용차와 배달
-오토바이가 정해진 경로를 따라 등장합니다. 반복이 진행되면 이 작은
-생활 사건들의 순서와 소리, 또는 존재 자체가 달라집니다.
-
-![붉은 벽돌 빌라와 새벽24 편의점이 이어지는 새벽 골목 실제 게임 화면](Docs/Media/prologue-alley.png)
-
-편의점도 단순한 밝은 방으로 만들지 않았습니다. 냉장 쇼케이스의 상품과
-가격표, 셀프 계산대, 입장 차임, 매장 징글과 영수증 출력음이 함께
-작동합니다. 익숙한 공간이 충분히 정상적으로 보이기 때문에 점장 목소리와
-생활음이 사라지는 순간이 더 크게 느껴집니다.
-
-![새벽24 무영로점 음료 냉장고와 가격표 실제 게임 화면](Docs/Media/prologue-store.png)
-
-## 읽고 비교하는 조사
-
-핵심 단서는 자동으로 수집되는 로그가 아니라 게임 안에서 직접 펼쳐
-읽는 물건입니다. 같은 시각이 찍힌 두 장의 영수증, 읽지 않은 가족의
-문자, 비어 있는 안전 확인란을 연결하면 세 번의 아침이 반복되는 이유를
-알 수 있습니다.
+단서는 자동으로 정답표에 들어가지 않습니다. 영수증의 결제 시각,
+관리 기록의 빈칸, 휴대폰 메시지, 젖은 발자국과 물건의 위치를 플레이어가
+직접 읽고 비교해야 합니다. 퍼즐을 건너뛴 경우에는 다른 원자료 조합으로
+진실에 도달할 수 있지만, 적게 확인한 만큼 마지막 장면의 정보와 압박이
+달라집니다.
 
 <table>
   <tr>
-    <td width="52%"><img src="Docs/Media/ch02-receipt-0444.png" alt="한국 편의점 형식 영수증 실제 게임 화면"></td>
-    <td width="48%"><img src="Docs/Media/ch02-lobby-offering.png" alt="구버전 공동현관 의례 장면 개발 캡처"></td>
+    <td width="50%"><img src="Docs/Media/ch02-mirror-room.png" alt="기억과 다른 403호 실제 게임 화면"></td>
+    <td width="50%"><img src="Docs/Media/ch03-roof-tank.png" alt="옥상 물탱크 실제 게임 화면"></td>
   </tr>
   <tr>
-    <td align="center">게임 안에서 확대해 읽는 04:44 영수증</td>
-    <td align="center">구버전 캡처 — 현재 정사는 마른 밥그릇 자국·끊긴 소금선 바깥 물그릇</td>
+    <td align="center">기억에 없던 403호</td>
+    <td align="center">소리와 흔적이 모이는 옥상</td>
   </tr>
 </table>
 
-영수증은 한국 편의점 감열지 구성을 기준으로 새로 만들었습니다.
-가상 점포와 상품, 거래 번호, 수량·단가·부가세, 마스킹 카드, 승인 번호,
-일시불 표기와 바코드까지 한 장의 결제 내역처럼 읽히도록 정렬했습니다.
-상호, 인물, 사업 정보, 주소, 전화번호와 결제 정보는 모두 허구입니다.
+## 한국에서 본 듯한 새벽
+
+붉은 벽돌, 공동현관, 화강석 계단, 외벽 배관, 무인 편의점과 옥상
+물탱크처럼 익숙한 생활 공간을 공포의 기준점으로 삼았습니다. 길고양이,
+배달 오토바이, 냉장 쇼케이스의 전기음과 편의점 차임도 반복될수록
+순서·거리·존재 여부가 달라집니다.
+
+<table>
+  <tr>
+    <td width="50%"><img src="Docs/Media/prologue-alley.png" alt="붉은 벽돌 빌라와 새벽24 편의점이 이어지는 골목 실제 게임 화면"></td>
+    <td width="50%"><img src="Docs/Media/prologue-store.png" alt="새벽24 무인 편의점 실제 게임 화면"></td>
+  </tr>
+  <tr>
+    <td align="center">좁은 빌라 골목</td>
+    <td align="center">새벽의 무인 편의점</td>
+  </tr>
+</table>
 
 ## 세 번의 아침
 
-| 챕터 | 스포일러 없는 소개 |
-|---|---|
-| CH01 · 물이 없다 | 평범한 기상과 편의점 심부름으로 공간과 생활 소리를 익힙니다. |
-| CH02 · 집이 아니다 | 기억과 다른 옆집, 복도, 엘리베이터와 영수증을 조사합니다. |
-| CH03 · 물이 온다 | 물에 잠긴 집을 벗어나 반복되는 계단과 옥상으로 향합니다. |
+| CH01 · 물이 없다 | CH02 · 집이 아니다 | CH03 · 물이 온다 |
+|:---:|:---:|:---:|
+| 공간과 생활 소리를 기억한다 | 달라진 집과 기록을 조사한다 | 반복되는 계단을 지나 옥상으로 향한다 |
 
 <table>
   <tr>
-    <td width="33%"><img src="Docs/Media/ch03-full-fridge.png" alt="생수로 가득 찬 냉장고 실제 게임 화면"></td>
-    <td width="33%"><img src="Docs/Media/ch03-stair-up.png" alt="반복되는 4층 계단 실제 게임 화면"></td>
-    <td width="33%"><img src="Docs/Media/ch03-roof-tank.png" alt="옥상 물탱크 실제 게임 화면"></td>
-  </tr>
-  <tr>
-    <td align="center">가득 찬 냉장고</td>
-    <td align="center">끝나지 않는 4층</td>
-    <td align="center">새벽의 옥상</td>
+    <td width="25%"><img src="Docs/Media/prologue-bedroom.png" alt="첫 번째 아침 원룸 실제 게임 화면"></td>
+    <td width="25%"><img src="Docs/Media/ch02-receipt-0444.png" alt="두 번째 아침 영수증 실제 게임 화면"></td>
+    <td width="25%"><img src="Docs/Media/ch03-stair-up.png" alt="세 번째 아침 반복 계단 실제 게임 화면"></td>
+    <td width="25%"><img src="Docs/Media/ch03-tank-reveal.png" alt="옥상 물탱크 조사 실제 게임 화면"></td>
   </tr>
 </table>
 
-## 소리와 연출
+## 대화와 접근성
 
-사운드는 분위기를 채우는 배경이 아니라 진행을 읽는 단서로 사용했습니다.
+속마음·대화·휴대폰 메시지는 하단 대화 상자에, 문 너머 라디오·물소리
+같은 비언어음은 별도 효과음 자막에 표시됩니다. 대화가 길면 페이지를
+나눠 순서대로 보여 주며, 노트나 설정 화면을 읽는 동안에는 표시 시간이
+멈춥니다.
 
-- 알람, 발소리, 호흡, 심박과 물소리
-- 냉장고·형광등의 전기음, 도어락, 문 마찰음과 금속 울림
-- 편의점 차임, 계산음, 영수증 출력음과 매장 징글
-- 고양이, 바람과 낙엽, 승용차와 배달 오토바이의 공간 이동음
-- 반복이 깊어질수록 음정과 속도가 달라지는 생활음
-- 중요한 순간에 배경음을 덜어 내는 의도적인 침묵
+<table>
+  <tr>
+    <td width="50%"><img src="Docs/Media/dialogue-hud-default-1080.png" alt="기본 크기 대화 HUD 실제 게임 화면"></td>
+    <td width="50%"><img src="Docs/Media/dialogue-hud-accessibility-200-1080.png" alt="자막 크기 200퍼센트 대화 HUD 실제 게임 화면"></td>
+  </tr>
+  <tr>
+    <td align="center">기본 100%</td>
+    <td align="center">확대 200%</td>
+  </tr>
+</table>
 
-조명도 방의 주황색 스탠드, 복도의 낡은 형광등, 편의점의 차가운 백색광,
-손전등과 옥상 새벽빛이 서로 다른 감정을 만들도록 나눴습니다. 유리와
-거울의 과한 그림자, 좁은 문틀과 자동문 문턱 충돌, 가벼운 소품이
-과하게 튀는 물리 반응도 실제 플레이 동선을 기준으로 조정했습니다.
+- 자막 크기 85~200%, 배경 불투명도와 화면 안전 영역 조절
+- 카메라 흔들림·렌즈 물방울 이동 감소
+- 키보드·마우스와 게임패드 메뉴 조작
+- 720p·1080p·1440p, 창 모드, VSync와 프레임 제한 설정
 
-## 조작법
+## 조작
 
-| 입력 | 동작 |
-|---|---|
-| `W A S D` | 이동 |
-| 마우스 | 시점, 메뉴 항목 선택 |
-| `E` | 조사, 집기, 문 열기, 문서 읽기, 계산 |
-| `E` 길게 | 진행 바가 있는 상호작용 |
-| `F` | 손전등 켜기·끄기 |
-| `H` | 현재 퍼즐의 다음 단계 힌트 |
-| `F9` | 최근 자동 저장 불러오기 |
-| `F10` | 접근성 설정 열기·닫기 |
-| `Esc` | 일시정지 메뉴 열기·돌아가기 |
-| `WASD` 또는 방향키, `Enter` | 타이틀·일시정지·화면/접근성 메뉴 이동·변경·선택 |
-| `R` | 엔딩에서 CH03 다시 시작 |
-| `M` | 엔딩에서 처음부터 시작 |
-| 일시정지 메뉴의 **게임 종료** | 정상 종료 |
+| 입력 | 동작 | 입력 | 동작 |
+|---|---|---|---|
+| `W A S D` | 이동 | 마우스 | 시점 |
+| `E` | 조사·상호작용 | `E` 길게 | 집중 조사 |
+| `F` | 손전등 | `H` | 단계별 힌트 |
+| `F9` | 최근 자동 저장 | `F10` | 접근성 설정 |
+| `Esc` | 일시정지·뒤로 | `Enter` | 메뉴 선택 |
 
-게임패드는 LS/RS 이동·시점, A 조사·선택, X 손전등, RB 힌트, Y 자동 저장
-불러오기, Menu 접근성, View 일시정지, D-pad 메뉴 이동을 지원합니다.
-화면 설정은 720p·1080p·1440p, 전체 화면·테두리 없는 창·창 모드,
-Low·High, VSync와 30/60/무제한 프레임을 지원합니다. 새 화면 모드는 10초
-안에 확인하지 않으면 이전 설정으로 자동 복원됩니다.
+게임패드는 이동·시점, 조사, 손전등, 힌트, 자동 저장 불러오기와 모든
+메뉴 조작을 지원합니다.
 
-## 실행 환경
+## 개발 프리뷰 실행
 
-- Windows 10 또는 Windows 11
-- Unreal Engine 5.8
-- Visual Studio 2026의 **Game development with C++** 워크로드
-- Windows SDK
+필요한 환경은 **Windows 10/11**, **Unreal Engine 5.8**,
+**Visual Studio의 Game development with C++ 워크로드**입니다.
 
-출시 인증 OS 버전과 최소·권장 하드웨어는
-[Windows 출시 성능·지원 계약](Docs/PERFORMANCE.md)을 기준으로 합니다.
+```powershell
+git clone https://github.com/easygap/Indie-Game.git
+cd Indie-Game
+git lfs pull
+.\Scripts\RunEditor.bat
+```
 
-실행 스크립트는 프로젝트의 `EngineAssociation`과 일치하는 Unreal
-Editor를 표준 설치 경로, 레지스트리와 Epic Launcher 설치 목록에서
-찾습니다. 소스 빌드처럼 별도 위치를 쓴다면 환경 변수
-`IG_UNREAL_EDITOR`에 실제 `UnrealEditor.exe` 경로를 지정하면 됩니다.
+에디터에서 **Play**를 누르거나 빌드 뒤
+`Scripts\RunGame.bat`을 실행합니다. CH02·CH03을 바로 확인하려면
+`RunGame-Chapter2.bat`, `RunGame-Chapter3.bat`을 사용할 수 있습니다.
 
-에디터에서 직접 열려면 [IndieGame.uproject](IndieGame.uproject)을
-실행하고 UE 5.8을 선택합니다. 모듈을 다시 빌드할지 묻는 창이 나오면
-**Yes**를 선택한 뒤 상단 **Play** 버튼을 누르면 됩니다.
+정적 계약만 확인하는 명령:
 
-## 더 보기
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File Scripts\Validate-Project.ps1
+```
 
-- [CH01 실제 플레이 영상](Docs/Media/prologue-walkthrough.mp4)
-- [REBIRTH 스토리 마스터](Docs/STORY_BIBLE_REBIRTH.md) — 단일 제작 정사와 서사·공포·음악·이미지·대화 통합 기준
-- [출시 타당성 제작 계약](Docs/FEASIBILITY.md) — Keep/Static Proxy/Cut 범위와 S1~S8 승인 기준
-- [G3~G6 릴리스 검증 절차](Docs/RELEASE_VALIDATION.md) — 실행 순서, 증거 보관, 초견·접근성·Shipping 체크리스트
-- [Windows 출시 성능·지원 계약](Docs/PERFORMANCE.md) — 최소·권장 사양, 해상도와 성능 합격선
-- [세이브 호환성 출시 계약](Docs/SAVE_COMPATIBILITY.md) — v1~v3 픽스처, 마이그레이션 오라클과 클린 환경 검증
-- [현재 구현 상태](Docs/IMPLEMENTATION_STATUS.md) — REBIRTH 반영 범위와 남은 출시 차단 항목
-- [구버전 스토리 바이블 보관본](Docs/STORY_BIBLE.md) — REBIRTH 이전 기록, 제작 기준 아님
-- [스토리와 공포 연출 설계](Docs/STORY_DIRECTION.md) — 결말 포함
-- [사용 에셋과 라이선스](Docs/ASSET_POLICY.md)
+> 현재 저장소는 개발 프리뷰입니다. 자동 검증은 서사 상태, 경로 합류,
+> 저장·복원, UI·오디오 계약과 빌드 하네스를 다룹니다. 출시 판정에는
+> clean SHA 전체 종단 검증, 초견 플레이, 접근성·시청각 검수와 별도 PC
+> 성능 측정이 추가로 필요합니다.
+
+## 제작 문서
+
+- [스토리·연출 마스터](Docs/STORY_BIBLE_REBIRTH.md)
+- [현재 구현 범위](Docs/IMPLEMENTATION_STATUS.md)
+- [릴리스 검증 절차](Docs/RELEASE_VALIDATION.md)
+- [성능·지원 기준](Docs/PERFORMANCE.md)
+- [UI 스타일 가이드](Docs/UI_STYLE_GUIDE.md)
+- [에셋 출처와 라이선스](Docs/ASSET_POLICY.md)

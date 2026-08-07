@@ -12,10 +12,15 @@
 #include "GameFramework/GameUserSettings.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "HAL/FileManager.h"
+#include "HAL/PlatformMisc.h"
 #include "HAL/PlatformTime.h"
+#include "HighResScreenshot.h"
 #include "Misc/App.h"
 #include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
+#include "Misc/Paths.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -25,7 +30,7 @@
 
 namespace IGAccessibilityMenu
 {
-	constexpr int32 RowCount = 12;
+	constexpr int32 RowCount = 14;
 }
 
 namespace IGSystemMenu
@@ -75,6 +80,14 @@ void AIGPlayerController::BeginPlay()
 	{
 		RefreshMenuHud();
 	}
+
+	if (IsLocalController()
+		&& FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGFrontendShippingProbe")))
+	{
+		StartFrontendShippingProbe();
+	}
 }
 
 void AIGPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -86,6 +99,11 @@ void AIGPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 void AIGPlayerController::Tick(const float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (bFrontendShippingProbe)
+	{
+		TickFrontendShippingProbe();
+		return;
+	}
 	if (!bDisplaySettingsAwaitingConfirmation)
 	{
 		SetActorTickEnabled(false);
@@ -153,6 +171,12 @@ void AIGPlayerController::SetupInputComponent()
 
 bool AIGPlayerController::InputKey(const FInputKeyEventArgs& Params)
 {
+	if (bFrontendShippingProbe
+		&& !Params.IsSimulatedInput()
+		&& Params.Event == IE_Pressed)
+	{
+		++FrontendProbePressedEventCount;
+	}
 	const bool bGamepad = Params.IsGamepad();
 	const float AxisThreshold = bGamepad ? 0.30f : 0.01f;
 	const bool bMeaningfulInput = !Params.IsSimulatedInput()
@@ -180,6 +204,727 @@ bool AIGPlayerController::InputKey(const FInputKeyEventArgs& Params)
 		return true;
 	}
 	return Super::InputKey(Params);
+}
+
+void AIGPlayerController::StartFrontendShippingProbe()
+{
+	const TCHAR* CommandLine = FCommandLine::Get();
+	FParse::Value(
+		CommandLine,
+		TEXT("IGFrontendExpectedWidth="),
+		FrontendProbeExpectedWidth);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGFrontendExpectedHeight="),
+		FrontendProbeExpectedHeight);
+	if (FrontendProbeExpectedWidth <= 0 || FrontendProbeExpectedHeight <= 0)
+	{
+		bFrontendShippingProbe = true;
+		FailFrontendShippingProbe(TEXT("expected_resolution_missing"));
+		return;
+	}
+
+	bFrontendShippingProbe = true;
+	FrontendProbeStep = 0;
+	FrontendProbeLayoutSampleCount = 0;
+	FrontendProbeMinimumElementCount = MAX_int32;
+	FrontendProbePressedEventCount = 0;
+	bFrontendDialogueDefaultVerified = false;
+	bFrontendDialogueVerified = false;
+	bFrontendDialogueSpeakerVerified = false;
+	bFrontendDialogueContinuationVerified = false;
+	FrontendProbeAwaitFrameSerial = 0;
+	FrontendProbeDefaultScreenshotPath.Reset();
+	FrontendProbeScreenshotPath.Reset();
+	FrontendProbeBoundsMin = FVector2D(
+		TNumericLimits<float>::Max(),
+		TNumericLimits<float>::Max());
+	FrontendProbeBoundsMax = FVector2D(
+		TNumericLimits<float>::Lowest(),
+		TNumericLimits<float>::Lowest());
+
+	bAccessibilityMenuVisible = false;
+	AccessibilitySelection = 0;
+	SystemMenuSelection = 0;
+	SetSystemMenuMode(EIGSystemMenuMode::Hidden);
+	SetInputDevicePresentation(false);
+	const double Now = FPlatformTime::Seconds();
+	FrontendProbeNextActionTime = Now + 0.75;
+	FrontendProbeStepDeadline = Now + 8.0;
+	SetActorTickEnabled(true);
+}
+
+void AIGPlayerController::TickFrontendShippingProbe()
+{
+	const double Now = FPlatformTime::Seconds();
+	if (Now > FrontendProbeStepDeadline)
+	{
+		FailFrontendShippingProbe(FString::Printf(
+			TEXT("timeout_step_%d"),
+			FrontendProbeStep));
+		return;
+	}
+	if (Now < FrontendProbeNextActionTime)
+	{
+		return;
+	}
+	auto WaitForInputProcessing = [this, Now](const int32 NextStep)
+	{
+		FrontendProbeStep = NextStep;
+		FrontendProbeNextActionTime = Now + 0.05;
+		FrontendProbeStepDeadline = Now + 4.0;
+	};
+
+	switch (FrontendProbeStep)
+	{
+	case 0:
+		DispatchFrontendProbeKey(EKeys::F10);
+		WaitForInputProcessing(1);
+		return;
+	case 1:
+		if (!bAccessibilityMenuVisible || bUsingGamepadForHud)
+		{
+			FailFrontendShippingProbe(TEXT("keyboard_f10_open"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::F10);
+		FrontendProbeStep = 2;
+		AwaitFrontendProbeFrame();
+		return;
+	case 2:
+		if (!TryCaptureFrontendProbeLayout(TEXT("accessibility_keyboard"), 14))
+		{
+			return;
+		}
+		DispatchFrontendProbeKey(EKeys::Gamepad_DPad_Down);
+		WaitForInputProcessing(3);
+		return;
+	case 3:
+		if (!bAccessibilityMenuVisible
+			|| AccessibilitySelection != 1
+			|| !bUsingGamepadForHud)
+		{
+			FailFrontendShippingProbe(TEXT("gamepad_dpad_down"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Gamepad_DPad_Down);
+		FrontendProbeStep = 4;
+		AwaitFrontendProbeFrame();
+		return;
+	case 4:
+		if (!TryCaptureFrontendProbeLayout(TEXT("accessibility_gamepad"), 14))
+		{
+			return;
+		}
+		DispatchFrontendProbeKey(EKeys::Up);
+		WaitForInputProcessing(5);
+		return;
+	case 5:
+		if (!bAccessibilityMenuVisible
+			|| AccessibilitySelection != 0
+			|| bUsingGamepadForHud)
+		{
+			FailFrontendShippingProbe(TEXT("keyboard_up_return"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Up);
+		FrontendProbeStep = 6;
+		AwaitFrontendProbeFrame();
+		return;
+	case 6:
+		if (!TryCaptureFrontendProbeLayout(TEXT("accessibility_keyboard_return"), 14))
+		{
+			return;
+		}
+		DispatchFrontendProbeKey(EKeys::F10);
+		WaitForInputProcessing(7);
+		return;
+	case 7:
+		if (bAccessibilityMenuVisible)
+		{
+			FailFrontendShippingProbe(TEXT("keyboard_f10_close"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::F10);
+		FrontendProbeStep = 8;
+		FrontendProbeNextActionTime = Now + 0.10;
+		FrontendProbeStepDeadline = Now + 4.0;
+		return;
+	case 8:
+		DispatchFrontendProbeKey(EKeys::Gamepad_Special_Right);
+		WaitForInputProcessing(9);
+		return;
+	case 9:
+		if (!bAccessibilityMenuVisible || !bUsingGamepadForHud)
+		{
+			FailFrontendShippingProbe(TEXT("gamepad_menu_open"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Gamepad_Special_Right);
+		FrontendProbeStep = 10;
+		AwaitFrontendProbeFrame();
+		return;
+	case 10:
+		if (!TryCaptureFrontendProbeLayout(TEXT("accessibility_gamepad_reopen"), 14))
+		{
+			return;
+		}
+		DispatchFrontendProbeKey(EKeys::Gamepad_FaceButton_Right);
+		WaitForInputProcessing(11);
+		return;
+	case 11:
+		if (bAccessibilityMenuVisible)
+		{
+			FailFrontendShippingProbe(TEXT("gamepad_b_close"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Gamepad_FaceButton_Right);
+		FrontendProbeStep = 12;
+		FrontendProbeNextActionTime = Now + 0.10;
+		FrontendProbeStepDeadline = Now + 4.0;
+		return;
+	case 12:
+		DispatchFrontendProbeKey(EKeys::Escape);
+		WaitForInputProcessing(13);
+		return;
+	case 13:
+		if (SystemMenuMode != EIGSystemMenuMode::Pause
+			|| bUsingGamepadForHud)
+		{
+			FailFrontendShippingProbe(TEXT("keyboard_escape_pause"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Escape);
+		FrontendProbeStep = 14;
+		AwaitFrontendProbeFrame();
+		return;
+	case 14:
+		if (!TryCaptureFrontendProbeLayout(TEXT("pause_keyboard"), 8))
+		{
+			return;
+		}
+		DispatchFrontendProbeKey(EKeys::Gamepad_DPad_Down);
+		WaitForInputProcessing(15);
+		return;
+	case 15:
+		if (SystemMenuMode != EIGSystemMenuMode::Pause
+			|| SystemMenuSelection != 2
+			|| !bUsingGamepadForHud)
+		{
+			FailFrontendShippingProbe(TEXT("gamepad_pause_settings_row"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Gamepad_DPad_Down);
+		FrontendProbeStep = 16;
+		AwaitFrontendProbeFrame();
+		return;
+	case 16:
+		if (!TryCaptureFrontendProbeLayout(TEXT("pause_gamepad"), 8))
+		{
+			return;
+		}
+		DispatchFrontendProbeKey(EKeys::Gamepad_FaceButton_Bottom);
+		WaitForInputProcessing(17);
+		return;
+	case 17:
+		if (SystemMenuMode != EIGSystemMenuMode::DisplaySettings)
+		{
+			FailFrontendShippingProbe(TEXT("gamepad_a_display_open"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Gamepad_FaceButton_Bottom);
+		FrontendProbeStep = 18;
+		AwaitFrontendProbeFrame();
+		return;
+	case 18:
+		if (!TryCaptureFrontendProbeLayout(TEXT("display_gamepad"), 11))
+		{
+			return;
+		}
+		DispatchFrontendProbeKey(EKeys::Gamepad_FaceButton_Right);
+		WaitForInputProcessing(19);
+		return;
+	case 19:
+		if (SystemMenuMode != EIGSystemMenuMode::Pause)
+		{
+			FailFrontendShippingProbe(TEXT("gamepad_b_display_back"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Gamepad_FaceButton_Right);
+		FrontendProbeStep = 20;
+		AwaitFrontendProbeFrame();
+		return;
+	case 20:
+		if (!TryCaptureFrontendProbeLayout(TEXT("pause_gamepad_return"), 8))
+		{
+			return;
+		}
+		DispatchFrontendProbeKey(EKeys::Gamepad_Special_Left);
+		WaitForInputProcessing(21);
+		return;
+	case 21:
+		if (SystemMenuMode != EIGSystemMenuMode::Hidden)
+		{
+			FailFrontendShippingProbe(TEXT("gamepad_view_pause_close"));
+			return;
+		}
+		ReleaseFrontendProbeKey(EKeys::Gamepad_Special_Left);
+		if (bAccessibilityMenuVisible
+			|| SystemMenuMode != EIGSystemMenuMode::Hidden)
+		{
+			FailFrontendShippingProbe(TEXT("frontend_not_closed"));
+			return;
+		}
+		if (UIGAccessibilitySubsystem* Accessibility =
+			GetAccessibilitySubsystem())
+		{
+			FIGAccessibilitySettings Settings = Accessibility->GetSettings();
+			Settings.bSubtitlesEnabled = true;
+			Settings.bSoundCaptionsEnabled = true;
+			Settings.CaptionSizeScale = 1.0f;
+			Settings.CaptionBackgroundOpacity = 0.82f;
+			Settings.CaptionSafeAreaScale = 0.90f;
+			Accessibility->ApplySettings(Settings);
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("dialogue_accessibility_missing"));
+			return;
+		}
+		if (AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			HorrorHUD->ShowDialogue(
+				NSLOCTEXT("IGFrontendProbe", "DialogueSpeaker", "휴대폰"),
+				NSLOCTEXT(
+					"IGFrontendProbe",
+					"DialogueDefaultKorean",
+					"라디오가 끊겼다. 휴대폰 시계는 4시 44분에서 멈춰 있다."),
+				EIGDialogueChannel::Device,
+				5.0f,
+				EIGDialoguePriority::Story);
+			HorrorHUD->ShowAudioCaption(
+				NSLOCTEXT(
+					"IGFrontendProbe",
+					"SoundCaption",
+					"[오른쪽 문 너머에서 라디오가 끊긴다]"),
+				5.0f);
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("dialogue_hud_missing"));
+			return;
+		}
+		FrontendProbeStep = 22;
+		AwaitFrontendProbeFrame();
+		// Capture the settled reading state, not an early frame from the 240 ms
+		// entrance transition. This keeps visual evidence representative while
+		// layout validation still observes the animated path frame-by-frame.
+		FrontendProbeNextActionTime = Now + 0.30;
+		return;
+	case 22:
+		if (!TryCaptureFrontendProbeLayout(
+			TEXT("dialogue_default_scale"),
+			5,
+			false)
+			|| !TryVerifyFrontendDialogueLayout(
+				TEXT("dialogue_default"),
+				1,
+				2,
+				false))
+		{
+			return;
+		}
+		bFrontendDialogueDefaultVerified = true;
+		if (FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGFrontendDefaultScreenshotPath="),
+			FrontendProbeDefaultScreenshotPath))
+		{
+			FrontendProbeDefaultScreenshotPath.TrimQuotesInline();
+			FrontendProbeDefaultScreenshotPath = FPaths::ConvertRelativePathToFull(
+				FrontendProbeDefaultScreenshotPath);
+			IFileManager::Get().MakeDirectory(
+				*FPaths::GetPath(FrontendProbeDefaultScreenshotPath),
+				true);
+			FScreenshotRequest::RequestScreenshot(
+				FrontendProbeDefaultScreenshotPath,
+				true,
+				false);
+		}
+		FrontendProbeStep = 23;
+		FrontendProbeNextActionTime = Now + 0.08;
+		FrontendProbeStepDeadline = Now + 5.0;
+		return;
+	case 23:
+		if (!FrontendProbeDefaultScreenshotPath.IsEmpty()
+			&& !FPaths::FileExists(FrontendProbeDefaultScreenshotPath))
+		{
+			FrontendProbeNextActionTime = Now + 0.05;
+			return;
+		}
+		if (UIGAccessibilitySubsystem* Accessibility =
+			GetAccessibilitySubsystem())
+		{
+			FIGAccessibilitySettings Settings = Accessibility->GetSettings();
+			Settings.CaptionSizeScale = 2.0f;
+			Settings.CaptionBackgroundOpacity = 0.92f;
+			Settings.CaptionSafeAreaScale = 0.80f;
+			Accessibility->ApplySettings(Settings);
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("dialogue_max_accessibility_missing"));
+			return;
+		}
+		if (AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			HorrorHUD->ShowDialogue(
+				NSLOCTEXT("IGFrontendProbe", "DialogueSpeaker", "휴대폰"),
+				NSLOCTEXT(
+					"IGFrontendProbe",
+					"DialogueLongKorean",
+					"통화가 연결되지 않습니다. 복도 오른쪽 문 너머에서 라디오가 끊겼고, 같은 순간 휴대폰의 시계가 4시 44분으로 돌아왔습니다. 이 문장은 큰 글자에서도 잘리지 않고 다음 페이지로 이어져야 합니다. 플레이어가 이동 중이어도 앞 문장을 덮어쓰지 않아야 합니다."),
+				EIGDialogueChannel::Device,
+				5.0f,
+				EIGDialoguePriority::Critical);
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("dialogue_max_hud_missing"));
+			return;
+		}
+		FrontendProbeStep = 24;
+		AwaitFrontendProbeFrame();
+		FrontendProbeNextActionTime = Now + 0.30;
+		return;
+	case 24:
+		if (!TryCaptureFrontendProbeLayout(
+			TEXT("dialogue_max_scale"),
+			8,
+			false)
+			|| !TryVerifyFrontendDialogueLayout(
+				TEXT("dialogue_max"),
+				3,
+				3,
+				true))
+		{
+			return;
+		}
+		bFrontendDialogueVerified = true;
+		bFrontendDialogueSpeakerVerified = true;
+		bFrontendDialogueContinuationVerified = true;
+		if (FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGFrontendScreenshotPath="),
+			FrontendProbeScreenshotPath))
+		{
+			FrontendProbeScreenshotPath.TrimQuotesInline();
+			FrontendProbeScreenshotPath = FPaths::ConvertRelativePathToFull(
+				FrontendProbeScreenshotPath);
+			IFileManager::Get().MakeDirectory(
+				*FPaths::GetPath(FrontendProbeScreenshotPath),
+				true);
+			FScreenshotRequest::RequestScreenshot(
+				FrontendProbeScreenshotPath,
+				true,
+				false);
+			FrontendProbeStep = 25;
+			FrontendProbeNextActionTime = Now + 0.08;
+			FrontendProbeStepDeadline = Now + 5.0;
+			return;
+		}
+		CompleteFrontendShippingProbe();
+		return;
+	case 25:
+		if (!FPaths::FileExists(FrontendProbeScreenshotPath))
+		{
+			FrontendProbeNextActionTime = Now + 0.05;
+			return;
+		}
+		CompleteFrontendShippingProbe();
+		return;
+	default:
+		FailFrontendShippingProbe(TEXT("invalid_step"));
+		return;
+	}
+}
+
+void AIGPlayerController::DispatchFrontendProbeKey(const FKey& Key)
+{
+	const FInputDeviceId DeviceId = FInputDeviceId::CreateFromInternalId(0);
+	FInputKeyEventArgs Pressed(
+		nullptr,
+		DeviceId,
+		Key,
+		IE_Pressed,
+		1.0f,
+		false,
+		FPlatformTime::Cycles64());
+	InputKey(Pressed);
+}
+
+void AIGPlayerController::ReleaseFrontendProbeKey(const FKey& Key)
+{
+	const FInputDeviceId DeviceId = FInputDeviceId::CreateFromInternalId(0);
+	FInputKeyEventArgs Released(
+		nullptr,
+		DeviceId,
+		Key,
+		IE_Released,
+		0.0f,
+		false,
+		FPlatformTime::Cycles64());
+	InputKey(Released);
+}
+
+void AIGPlayerController::AwaitFrontendProbeFrame()
+{
+	FrontendProbeAwaitFrameSerial = 0;
+	if (const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+	{
+		FVector2D CanvasSize;
+		FVector2D BoundsMin;
+		FVector2D BoundsMax;
+		int32 ElementCount = 0;
+		bool bAllInsideCanvas = false;
+		HorrorHUD->GetLayoutValidationSample(
+			CanvasSize,
+			BoundsMin,
+			BoundsMax,
+			ElementCount,
+			bAllInsideCanvas,
+			FrontendProbeAwaitFrameSerial);
+	}
+	const double Now = FPlatformTime::Seconds();
+	FrontendProbeNextActionTime = Now + 0.05;
+	FrontendProbeStepDeadline = Now + 4.0;
+}
+
+bool AIGPlayerController::TryCaptureFrontendProbeLayout(
+	const TCHAR* PanelName,
+	const int32 MinimumElementCount,
+	const bool bIncludeInMinimumElementCoverage)
+{
+	const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+	if (!HorrorHUD)
+	{
+		return false;
+	}
+	FVector2D CanvasSize;
+	FVector2D BoundsMin;
+	FVector2D BoundsMax;
+	int32 ElementCount = 0;
+	bool bAllInsideCanvas = false;
+	uint64 FrameSerial = 0;
+	if (!HorrorHUD->GetLayoutValidationSample(
+		CanvasSize,
+		BoundsMin,
+		BoundsMax,
+		ElementCount,
+		bAllInsideCanvas,
+		FrameSerial)
+		|| FrameSerial <= FrontendProbeAwaitFrameSerial)
+	{
+		return false;
+	}
+	if (FMath::Abs(CanvasSize.X - FrontendProbeExpectedWidth) > 1.0f
+		|| FMath::Abs(CanvasSize.Y - FrontendProbeExpectedHeight) > 1.0f)
+	{
+		FailFrontendShippingProbe(FString::Printf(
+			TEXT("%s_canvas_%dx%d"),
+			PanelName,
+			FMath::RoundToInt(CanvasSize.X),
+			FMath::RoundToInt(CanvasSize.Y)));
+		return false;
+	}
+	if (!bAllInsideCanvas)
+	{
+		FailFrontendShippingProbe(FString::Printf(
+			TEXT("%s_overflow_%d_%d_%d_%d"),
+			PanelName,
+			FMath::RoundToInt(BoundsMin.X),
+			FMath::RoundToInt(BoundsMin.Y),
+			FMath::RoundToInt(BoundsMax.X),
+			FMath::RoundToInt(BoundsMax.Y)));
+		return false;
+	}
+	if (ElementCount < MinimumElementCount)
+	{
+		FailFrontendShippingProbe(FString::Printf(
+			TEXT("%s_elements_%d"),
+			PanelName,
+			ElementCount));
+		return false;
+	}
+
+	FrontendProbeBoundsMin.X = FMath::Min(
+		FrontendProbeBoundsMin.X,
+		BoundsMin.X);
+	FrontendProbeBoundsMin.Y = FMath::Min(
+		FrontendProbeBoundsMin.Y,
+		BoundsMin.Y);
+	FrontendProbeBoundsMax.X = FMath::Max(
+		FrontendProbeBoundsMax.X,
+		BoundsMax.X);
+	FrontendProbeBoundsMax.Y = FMath::Max(
+		FrontendProbeBoundsMax.Y,
+		BoundsMax.Y);
+	if (bIncludeInMinimumElementCoverage)
+	{
+		FrontendProbeMinimumElementCount = FMath::Min(
+			FrontendProbeMinimumElementCount,
+			ElementCount);
+	}
+	++FrontendProbeLayoutSampleCount;
+	FrontendProbeAwaitFrameSerial = FrameSerial;
+	return true;
+}
+
+bool AIGPlayerController::TryVerifyFrontendDialogueLayout(
+	const TCHAR* CaseName,
+	const int32 MinimumLineCount,
+	const int32 MaximumLineCount,
+	const bool bExpectedContinuation)
+{
+	const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+	if (!HorrorHUD)
+	{
+		FailFrontendShippingProbe(FString::Printf(
+			TEXT("%s_hud_missing"),
+			CaseName));
+		return false;
+	}
+
+	FVector2D PanelMinimum;
+	FVector2D PanelMaximum;
+	FVector2D CanvasSize;
+	int32 LineCount = 0;
+	bool bSpeakerVisible = false;
+	bool bHasContinuation = false;
+	bool bInsideSafeArea = false;
+	uint64 RenderSerial = 0;
+	const bool bValid = HorrorHUD->GetDialogueRenderSample(
+		PanelMinimum,
+		PanelMaximum,
+		CanvasSize,
+		LineCount,
+		bSpeakerVisible,
+		bHasContinuation,
+		bInsideSafeArea,
+		RenderSerial)
+		&& FMath::Abs(CanvasSize.X - FrontendProbeExpectedWidth) <= 1.0f
+		&& FMath::Abs(CanvasSize.Y - FrontendProbeExpectedHeight) <= 1.0f
+		&& LineCount >= MinimumLineCount
+		&& LineCount <= MaximumLineCount
+		&& bSpeakerVisible
+		&& bHasContinuation == bExpectedContinuation
+		&& bInsideSafeArea
+		&& RenderSerial > 0;
+	if (!bValid)
+	{
+		FailFrontendShippingProbe(FString::Printf(
+			TEXT("%s_lines_%d_speaker_%d_cont_%d_safe_%d"),
+			CaseName,
+			LineCount,
+			bSpeakerVisible ? 1 : 0,
+			bHasContinuation ? 1 : 0,
+			bInsideSafeArea ? 1 : 0));
+		return false;
+	}
+	return true;
+}
+
+void AIGPlayerController::CompleteFrontendShippingProbe()
+{
+	if (FrontendProbeLayoutSampleCount != 10
+		|| FrontendProbeMinimumElementCount < 8
+		|| FrontendProbePressedEventCount != 11
+		|| !bFrontendDialogueDefaultVerified
+		|| !bFrontendDialogueVerified
+		|| !bFrontendDialogueSpeakerVerified
+		|| !bFrontendDialogueContinuationVerified)
+	{
+		FailFrontendShippingProbe(FString::Printf(
+			TEXT("coverage_samples_%d_elements_%d_inputs_%d"),
+			FrontendProbeLayoutSampleCount,
+			FrontendProbeMinimumElementCount,
+			FrontendProbePressedEventCount));
+		return;
+	}
+	const bool bReceiptWritten = WriteFrontendShippingProbeReceipt(
+		true,
+		TEXT("complete"));
+	bFrontendShippingProbe = false;
+	FPlatformMisc::RequestExitWithStatus(true, bReceiptWritten ? 0 : 3);
+}
+
+void AIGPlayerController::FailFrontendShippingProbe(const FString& Reason)
+{
+	WriteFrontendShippingProbeReceipt(false, Reason);
+	bFrontendShippingProbe = false;
+	FPlatformMisc::RequestExitWithStatus(true, 2);
+}
+
+bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
+	const bool bSuccess,
+	const FString& Reason) const
+{
+	FString ResultPath;
+	if (!FParse::Value(
+		FCommandLine::Get(),
+		TEXT("IGFrontendResultPath="),
+		ResultPath))
+	{
+		return false;
+	}
+	ResultPath.TrimQuotesInline();
+	if (ResultPath.IsEmpty())
+	{
+		return false;
+	}
+	const FString FullPath = FPaths::ConvertRelativePathToFull(ResultPath);
+	IFileManager::Get().MakeDirectory(
+		*FPaths::GetPath(FullPath),
+		true);
+	FString Receipt;
+	if (bSuccess)
+	{
+		Receipt = FString::Printf(
+			TEXT("REBIRTH_FRONTEND PASS contract=3 resolution=%dx%d ")
+			TEXT("keyboard_access=1 gamepad_access=1 dpad_down=1 ")
+			TEXT("keyboard_up=1 gamepad_close=1 keyboard_pause=1 ")
+			TEXT("gamepad_pause=1 display=1 dialogue=1 dialogue_default=1 ")
+			TEXT("speaker=1 continuation=1 default_scale=100 max_scale=200 ")
+			TEXT("sound_lane=1 ")
+			TEXT("samples=%d elements_min=%d ")
+			TEXT("input_events=%d bounds=%d,%d,%d,%d"),
+			FrontendProbeExpectedWidth,
+			FrontendProbeExpectedHeight,
+			FrontendProbeLayoutSampleCount,
+			FrontendProbeMinimumElementCount,
+			FrontendProbePressedEventCount,
+			FMath::RoundToInt(FrontendProbeBoundsMin.X),
+			FMath::RoundToInt(FrontendProbeBoundsMin.Y),
+			FMath::RoundToInt(FrontendProbeBoundsMax.X),
+			FMath::RoundToInt(FrontendProbeBoundsMax.Y));
+	}
+	else
+	{
+		FString SafeReason = Reason;
+		SafeReason.ReplaceInline(TEXT("\r"), TEXT("_"));
+		SafeReason.ReplaceInline(TEXT("\n"), TEXT("_"));
+		SafeReason.ReplaceInline(TEXT(" "), TEXT("_"));
+		Receipt = FString::Printf(
+			TEXT("REBIRTH_FRONTEND FAIL reason=%s step=%d samples=%d inputs=%d"),
+			*SafeReason,
+			FrontendProbeStep,
+			FrontendProbeLayoutSampleCount,
+			FrontendProbePressedEventCount);
+	}
+	return FFileHelper::SaveStringToFile(
+		Receipt,
+		*FullPath,
+		FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
 }
 
 void AIGPlayerController::ToggleSystemMenu()
@@ -377,7 +1122,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		return;
 	}
 
-	if (AccessibilitySelection == 10)
+	if (AccessibilitySelection == 12)
 	{
 		if (bConfirm)
 		{
@@ -386,7 +1131,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		RefreshMenuHud();
 		return;
 	}
-	if (AccessibilitySelection == 11)
+	if (AccessibilitySelection == 13)
 	{
 		if (bConfirm)
 		{
@@ -423,21 +1168,31 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		Settings.bSubtitlesEnabled = !Settings.bSubtitlesEnabled;
 		break;
 	case 6:
+		Settings.bSoundCaptionsEnabled = !Settings.bSoundCaptionsEnabled;
+		break;
+	case 7:
 		Settings.CaptionSizeScale = FMath::Clamp(
 			Settings.CaptionSizeScale + (Direction < 0 ? -0.10f : 0.10f),
 			0.85f,
-			1.25f);
+			2.0f);
 		break;
-	case 7:
+	case 8:
+		Settings.CaptionBackgroundOpacity = FMath::Clamp(
+			Settings.CaptionBackgroundOpacity
+				+ (Direction < 0 ? -0.10f : 0.10f),
+			0.0f,
+			1.0f);
+		break;
+	case 9:
 		Settings.CaptionSafeAreaScale = FMath::Clamp(
 			Settings.CaptionSafeAreaScale + (Direction < 0 ? -0.05f : 0.05f),
 			0.80f,
 			1.0f);
 		break;
-	case 8:
+	case 10:
 		Settings.bToggleHoldInteractions = !Settings.bToggleHoldInteractions;
 		break;
-	case 9:
+	case 11:
 		Settings.HoldDurationScale = FMath::Clamp(
 			Settings.HoldDurationScale + (Direction < 0 ? -0.25f : 0.25f),
 			0.25f,
@@ -1271,7 +2026,8 @@ bool AIGPlayerController::ShouldShowTitleMenu() const
 	const TCHAR* CommandLine = FCommandLine::Get();
 	if (FParse::Param(CommandLine, TEXT("IGSkipFrontend"))
 		|| FParse::Param(CommandLine, TEXT("IGChapterTwo"))
-		|| FParse::Param(CommandLine, TEXT("IGChapterThree")))
+		|| FParse::Param(CommandLine, TEXT("IGChapterThree"))
+		|| FParse::Param(CommandLine, TEXT("IGFrontendShippingProbe")))
 	{
 		return false;
 	}

@@ -2,6 +2,7 @@
 
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
+#include "Components/AudioComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
@@ -10,7 +11,9 @@
 UIGStressComponent::UIGStressComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = true;
+	// Calm gameplay has no fear presentation to integrate. Input setters wake
+	// the component when darkness, a threat, a scare or authored silence starts.
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 }
 
 void UIGStressComponent::BeginPlay()
@@ -33,21 +36,58 @@ void UIGStressComponent::BeginPlay()
 	FearPostProcess->RegisterComponent();
 
 	UpdatePostProcess();
+	RefreshTickState();
+}
+
+void UIGStressComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (IsValid(HeartbeatComponent))
+	{
+		HeartbeatComponent->Stop();
+	}
+	HeartbeatComponent = nullptr;
+	Super::EndPlay(EndPlayReason);
 }
 
 void UIGStressComponent::ApplyScare(const float Amount)
 {
 	ScareCharge = FMath::Clamp(ScareCharge + FMath::Max(0.0f, Amount), 0.0f, 1.0f);
+	RefreshTickState();
 }
 
 void UIGStressComponent::SetThreatPressure(const float Pressure)
 {
 	ThreatPressure = FMath::Clamp(Pressure, 0.0f, 1.0f);
+	RefreshTickState();
 }
 
 void UIGStressComponent::SetDarkness(const float InDarkness)
 {
 	Darkness = FMath::Clamp(InDarkness, 0.0f, 1.0f);
+	RefreshTickState();
+}
+
+void UIGStressComponent::SuppressHeartbeat(
+	const float DurationSeconds,
+	const bool bPlayOneBeatOnRelease)
+{
+	const float SafeDuration = FMath::Max(0.0f, DurationSeconds);
+	if (SafeDuration <= KINDA_SMALL_NUMBER)
+	{
+		return;
+	}
+	HeartbeatSuppressionRemaining = FMath::Max(
+		HeartbeatSuppressionRemaining,
+		SafeDuration);
+	bPlayHeartbeatOnSuppressionRelease =
+		bPlayHeartbeatOnSuppressionRelease || bPlayOneBeatOnRelease;
+	BeatPhase = 0.0f;
+	if (IsValid(HeartbeatComponent))
+	{
+		HeartbeatComponent->Stop();
+	}
+	HeartbeatComponent = nullptr;
+	RefreshTickState();
 }
 
 float UIGStressComponent::GetBreathsPerMinute() const
@@ -69,6 +109,21 @@ void UIGStressComponent::TickComponent(
 	UpdateHeartbeat(DeltaSeconds);
 	UpdateTremor(DeltaSeconds);
 	UpdatePostProcess();
+	RefreshTickState();
+}
+
+void UIGStressComponent::RefreshTickState()
+{
+	const bool bNeedsTick =
+		Stress > KINDA_SMALL_NUMBER
+		|| Darkness > KINDA_SMALL_NUMBER
+		|| ThreatPressure > KINDA_SMALL_NUMBER
+		|| ScareCharge > KINDA_SMALL_NUMBER
+		|| HeartbeatSuppressionRemaining > KINDA_SMALL_NUMBER;
+	if (IsComponentTickEnabled() != bNeedsTick)
+	{
+		SetComponentTickEnabled(bNeedsTick);
+	}
 }
 
 void UIGStressComponent::UpdateStress(const float DeltaSeconds)
@@ -107,6 +162,26 @@ void UIGStressComponent::UpdateStress(const float DeltaSeconds)
 
 void UIGStressComponent::UpdateHeartbeat(const float DeltaSeconds)
 {
+	if (HeartbeatSuppressionRemaining > 0.0f)
+	{
+		HeartbeatSuppressionRemaining = FMath::Max(
+			0.0f,
+			HeartbeatSuppressionRemaining - DeltaSeconds);
+		BeatPhase = 0.0f;
+		if (HeartbeatSuppressionRemaining > 0.0f)
+		{
+			return;
+		}
+
+		const bool bPlayReleaseBeat = bPlayHeartbeatOnSuppressionRelease;
+		bPlayHeartbeatOnSuppressionRelease = false;
+		if (bPlayReleaseBeat)
+		{
+			PlayHeartbeat(FMath::Max(Stress, 0.38f));
+			return;
+		}
+	}
+
 	// Below a threshold you simply do not hear your own pulse.
 	if (Stress < 0.18f)
 	{
@@ -123,13 +198,18 @@ void UIGStressComponent::UpdateHeartbeat(const float DeltaSeconds)
 		return;
 	}
 	BeatPhase -= SecondsPerBeat;
+	PlayHeartbeat(Stress);
+}
 
+void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
+{
 	// One heartbeat is a lub-dub: a low thump, then a slightly higher,
 	// quieter one about a fifth of a beat later. Both are short noise-shaped
 	// sines so they read as a body sound rather than a drum.
 	TArray<FIGToneNote> Beat;
+	const float SafeStress = FMath::Clamp(EffectiveStress, 0.18f, 1.0f);
 	const float Loudness = FMath::GetMappedRangeValueClamped(
-		FVector2D(0.18f, 1.0f), FVector2D(0.06f, 0.30f), Stress);
+		FVector2D(0.18f, 1.0f), FVector2D(0.06f, 0.30f), SafeStress);
 	Beat.Add({0.0f, 0.16f, 44.0f, Loudness, 0.04f, 2.6f, EIGToneWaveform::Sine});
 	Beat.Add({0.0f, 0.10f, 88.0f, Loudness * 0.35f, 0.05f, 3.0f, EIGToneWaveform::Sine});
 	Beat.Add({0.20f, 0.13f, 38.0f, Loudness * 0.72f, 0.05f, 2.8f, EIGToneWaveform::Sine});
@@ -137,7 +217,16 @@ void UIGStressComponent::UpdateHeartbeat(const float DeltaSeconds)
 	UIGToneSequenceSoundWave* Heartbeat = NewObject<UIGToneSequenceSoundWave>(this);
 	Heartbeat->ConfigureNotes(MoveTemp(Beat), false);
 	// 2D: the player's own pulse is inside their head, not in the room.
-	UGameplayStatics::PlaySound2D(this, Heartbeat, 1.0f, 1.0f);
+	if (IsValid(HeartbeatComponent))
+	{
+		HeartbeatComponent->Stop();
+	}
+	HeartbeatComponent = nullptr;
+	HeartbeatComponent = UGameplayStatics::SpawnSound2D(
+		this,
+		Heartbeat,
+		1.0f,
+		1.0f);
 }
 
 void UIGStressComponent::UpdateTremor(const float DeltaSeconds)

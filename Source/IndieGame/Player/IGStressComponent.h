@@ -42,6 +42,7 @@ public:
 		float DeltaSeconds,
 		ELevelTick TickType,
 		FActorComponentTickFunction* ThisTickFunction) override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 	/** Current fear, 0..1. */
 	UFUNCTION(BlueprintPure, Category = "Stress")
@@ -62,6 +63,12 @@ public:
 	/** Told by the player pawn how dark it is where they stand, 0..1. */
 	UFUNCTION(BlueprintCallable, Category = "Stress")
 	void SetDarkness(float InDarkness);
+
+	/**
+	 * Silences the bodily pulse for an authored reveal window. Any pulse already
+	 * playing is stopped; optionally one pulse resolves the silence at its end.
+	 */
+	void SuppressHeartbeat(float DurationSeconds, bool bPlayOneBeatOnRelease);
 
 	/** Current breaths per minute, for the pawn's breath sway. */
 	UFUNCTION(BlueprintPure, Category = "Stress")
@@ -104,13 +111,19 @@ protected:
 	float PanicBPM = 148.0f;
 
 private:
+	/** Enables frame updates only while fear state is changing or audible. */
+	void RefreshTickState();
 	void UpdateStress(float DeltaSeconds);
 	void UpdateHeartbeat(float DeltaSeconds);
+	void PlayHeartbeat(float EffectiveStress);
 	void UpdateTremor(float DeltaSeconds);
 	void UpdatePostProcess();
 
 	UPROPERTY(Transient)
 	TObjectPtr<UPostProcessComponent> FearPostProcess;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> HeartbeatComponent;
 
 	float Stress = 0.0f;
 	float Darkness = 0.0f;
@@ -118,6 +131,8 @@ private:
 	/** Scare jolts decay separately so a jolt reads as a spike, not a plateau. */
 	float ScareCharge = 0.0f;
 	float BeatPhase = 0.0f;
+	float HeartbeatSuppressionRemaining = 0.0f;
+	bool bPlayHeartbeatOnSuppressionRelease = false;
 	float TremorTime = 0.0f;
 	FRotator Tremor = FRotator::ZeroRotator;
 };

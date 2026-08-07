@@ -1,6 +1,7 @@
 ﻿#include "Sequence/IGSecondMorningDirector.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
+#include "Audio/IGAmbienceSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
@@ -253,7 +254,10 @@ void AIGSecondMorningDirector::BeginPlay()
 	{
 		JingleComponent->Stop();
 		JingleComponent->SetSound(
-			UIGToneSequenceSoundWave::CreateStoreJingle(this, -1.0f, 1.12f));
+			UIGToneSequenceSoundWave::CreateStoreJingle(
+				this,
+				-0.18f,
+				1.0f / 0.92f));
 		JingleComponent->Play();
 	}
 
@@ -312,6 +316,7 @@ void AIGSecondMorningDirector::BeginPlay()
 		}
 	}
 
+	RefreshDoorBeyondBed(bRestoredLeftHome);
 	RefreshObjective();
 }
 
@@ -319,6 +324,7 @@ void AIGSecondMorningDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearAllTimersForObject(this);
 	ClearThreat();
+	StopDoorBeyondBed(0.0f);
 
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
@@ -638,7 +644,7 @@ float AIGSecondMorningDirector::GetObjectiveProgress() const
 void AIGSecondMorningDirector::RegisterSecondMorningTruth(
 	const TCHAR* TruthTagName,
 	const FName SourceId,
-	const FName PuzzleId) const
+	const FName PuzzleId)
 {
 	UGameInstance* GameInstance = GetGameInstance();
 	if (UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
@@ -665,14 +671,28 @@ void AIGSecondMorningDirector::RegisterSecondMorningTruth(
 		}
 	}
 	RefreshReturnGate();
+	RefreshDoorBeyondBed();
 }
 
-void AIGSecondMorningDirector::RegisterDeathOverlayTruth() const
+void AIGSecondMorningDirector::RegisterDeathOverlayTruth()
 {
 	RegisterSecondMorningTruth(
 		TEXT("Truth.DeathOverlay"),
 		FName(TEXT("CH02.DuplicateReceipt")),
 		FName(TEXT("P2")));
+}
+
+bool AIGSecondMorningDirector::HasNarrativeTruth(
+	const TCHAR* TruthTagName) const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
+		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+		: nullptr;
+	return RebirthState
+		&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
+			FName(TruthTagName),
+			false));
 }
 
 int32 AIGSecondMorningDirector::GetSecondMorningTruthCount() const
@@ -1284,6 +1304,10 @@ void AIGSecondMorningDirector::HandleTimeEntryConfirmed(
 				0.72f);
 		}
 		SetThreat(0.16f + Puzzle->GetWrongAttempts() * 0.09f, 4.8f);
+		if (bP1)
+		{
+			RefreshDoorBeyondBed();
+		}
 		RequestCheckpointAutosave(bP1 ? CorridorCheckpointTag : StoreCheckpointTag);
 		return;
 	}
@@ -1339,6 +1363,7 @@ void AIGSecondMorningDirector::HandleTimeEntryConfirmed(
 	}
 	ClearThreat();
 	RefreshTimeEntryAvailability();
+	RefreshDoorBeyondBed();
 	RefreshObjective();
 }
 
@@ -1379,7 +1404,8 @@ void AIGSecondMorningDirector::PollPuzzlePressure()
 
 	TickPressure(
 		P1TimeEntry,
-		bP1PressureArmed,
+		bP1PressureArmed
+			&& !HasNarrativeTruth(TEXT("Truth.Alarm0510")),
 		true,
 		P1PressureElapsedSeconds);
 	TickPressure(
@@ -1450,6 +1476,10 @@ void AIGSecondMorningDirector::RaiseTimedPuzzlePressure(
 	}
 
 	SetThreat(0.16f + PressureStage * 0.09f, 4.8f);
+	if (bP1)
+	{
+		RefreshDoorBeyondBed();
+	}
 	RequestCheckpointAutosave(bP1 ? CorridorCheckpointTag : StoreCheckpointTag);
 }
 
@@ -1489,7 +1519,11 @@ bool AIGSecondMorningDirector::RequestManualHint()
 			BestDistanceSquared = DistanceSquared;
 		}
 	};
-	Consider(P1TimeEntry, bP1PressureArmed, true);
+	Consider(
+		P1TimeEntry,
+		bP1PressureArmed
+			&& !HasNarrativeTruth(TEXT("Truth.Alarm0510")),
+		true);
 	Consider(P2TimeEntry, HasState(CalledEmployeeTag), false);
 	if (!Candidate)
 	{
@@ -1549,6 +1583,80 @@ void AIGSecondMorningDirector::ApplyP1PressureStage(
 	{
 		MirrorRoomLamp->SetIntensity(
 			300.0f * (1.0f - FMath::Clamp(PressureStage, 0, 3) * 0.10f));
+	}
+}
+
+void AIGSecondMorningDirector::RefreshDoorBeyondBed(
+	const bool bRestoreImmediately)
+{
+	// M2 is a location-bound clue, not a score that follows the player. Once
+	// Alarm0510 is known by any source, its pressure layer becomes unnecessary.
+	const bool bShouldPlay =
+		HasState(LeftHomeTag)
+		&& !HasState(ReturnedTag)
+		&& !CanConvergeSecondMorning()
+		&& !HasNarrativeTruth(TEXT("Truth.Alarm0510"));
+	if (!bShouldPlay)
+	{
+		StopDoorBeyondBed(bRestoreImmediately ? 0.0f : 1.6f);
+		return;
+	}
+
+	const int32 PressureStage = P1TimeEntry
+		? FMath::Clamp(P1TimeEntry->GetPressureStage(), 0, 3)
+		: 0;
+	const float TargetVolume = 0.28f + PressureStage * 0.07f;
+	if (!DoorBeyondComponent)
+	{
+		UIGAmbienceSoundWave* DoorBeyond = NewObject<UIGAmbienceSoundWave>(
+			this,
+			TEXT("CH02DoorBeyondWave"));
+		DoorBeyond->Configure(EIGAmbienceMode::DoorBeyond, 0xD002403u);
+		const FVector BedLocation = MirrorRoomDoor
+			? MirrorRoomDoor->GetActorLocation() + FVector(-45.0f, 0.0f, 105.0f)
+			: P1TimeEntry
+				? P1TimeEntry->GetActorLocation()
+				: FVector(420.0f, 40.0f, 980.0f);
+		DoorBeyondComponent = IGAudio::SpawnOneShotAt(
+			this,
+			DoorBeyond,
+			BedLocation,
+			bRestoreImmediately ? TargetVolume : 0.001f,
+			1.0f,
+			260.0f,
+			920.0f);
+		if (DoorBeyondComponent && !bRestoreImmediately)
+		{
+			DoorBeyondComponent->FadeIn(1.6f, TargetVolume, 0.0f);
+		}
+		return;
+	}
+
+	if (bRestoreImmediately)
+	{
+		DoorBeyondComponent->SetVolumeMultiplier(TargetVolume);
+	}
+	else
+	{
+		DoorBeyondComponent->AdjustVolume(1.6f, TargetVolume);
+	}
+}
+
+void AIGSecondMorningDirector::StopDoorBeyondBed(const float FadeSeconds)
+{
+	if (!DoorBeyondComponent)
+	{
+		return;
+	}
+	UAudioComponent* Component = DoorBeyondComponent;
+	DoorBeyondComponent = nullptr;
+	if (FadeSeconds <= KINDA_SMALL_NUMBER)
+	{
+		Component->Stop();
+	}
+	else
+	{
+		Component->FadeOut(FadeSeconds, 0.0f);
 	}
 }
 
@@ -1715,6 +1823,7 @@ void AIGSecondMorningDirector::HandleStoryStateChanged(
 		}
 	}
 
+	RefreshDoorBeyondBed();
 	RefreshObjective();
 }
 

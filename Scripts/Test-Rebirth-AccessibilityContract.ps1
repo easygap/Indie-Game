@@ -78,7 +78,9 @@ Assert-ContainsAll $header @(
 	'bDirectionalFearCues',
 	'bAutoConnectEvidence',
 	'bSubtitlesEnabled',
+	'bSoundCaptionsEnabled',
 	'CaptionSizeScale',
+	'CaptionBackgroundOpacity',
 	'CaptionSafeAreaScale',
 	'bToggleHoldInteractions',
 	'HoldDurationScale',
@@ -88,7 +90,9 @@ Assert-ContainsAll $header @(
 	'UsesDirectionalFearCues',
 	'UsesAutomaticEvidenceConnections',
 	'AreSubtitlesEnabled',
+	'AreSoundCaptionsEnabled',
 	'GetCaptionSizeScale',
+	'GetCaptionBackgroundOpacity',
 	'GetCaptionSafeAreaScale',
 	'ApplySettings',
 	'ResetToDefaults'
@@ -101,14 +105,19 @@ Assert-ContainsAll $source @(
 	'GConfig->Flush(false, GGameUserSettingsIni)',
 	'FMath::IsFinite(Result.HoldDurationScale)',
 	'FMath::IsFinite(Result.CaptionSizeScale)',
+	'FMath::IsFinite(Result.CaptionBackgroundOpacity)',
 	'FMath::IsFinite(Result.CaptionSafeAreaScale)',
 	'MinimumHoldScale = 0.25f',
 	'MaximumHoldScale = 1.0f',
 	'MinimumCaptionScale = 0.85f',
-	'MaximumCaptionScale = 1.25f',
+	'MaximumCaptionScale = 2.0f',
+	'MinimumCaptionBackgroundOpacity = 0.0f',
+	'MaximumCaptionBackgroundOpacity = 1.0f',
 	'MinimumCaptionSafeArea = 0.80f',
 	'MaximumCaptionSafeArea = 1.0f',
 	'TEXT("CaptionSizeScale")',
+	'TEXT("SoundCaptionsEnabled")',
+	'TEXT("CaptionBackgroundOpacity")',
 	'TEXT("CaptionSafeAreaScale")'
 ) '영구 저장·입력 정규화'
 
@@ -125,9 +134,11 @@ Assert-ContainsAll $source @(
 	'IGFearDirection',
 	'IGAutoConnectEvidence',
 	'IGNoSubtitles',
+	'IGNoSoundCaptions',
 	'IGToggleHolds',
 	'IGHoldScale=',
 	'IGCaptionScale=',
+	'IGCaptionBackground=',
 	'IGCaptionSafeArea='
 ) '난이도·무상태 QA 오버라이드'
 
@@ -291,23 +302,28 @@ Assert-ContainsAll $hudHeader @(
 	'AudioCaptionEndTime'
 ) '핵심 소리 자막 HUD 표면'
 Assert-ContainsAll $hudSource @(
-	'Accessibility->AreSubtitlesEnabled()',
-	'void AIGHorrorHUD::DrawAudioCaption',
-	'FCanvasTileItem Backdrop',
+	'Accessibility->AreSoundCaptionsEnabled()',
+	'bool AIGHorrorHUD::DrawAudioCaption',
+	'DrawRoundedHudSurface(',
+	'DrawDialogueFilm(',
+	'FCanvasTileItem WaveBar',
 	'Settings.CaptionSizeScale',
+	'Settings.CaptionBackgroundOpacity',
 	'Settings.CaptionSafeAreaScale',
 	'MaximumTextWidth',
 	'MeasureTextWidth',
 	'Canvas->StrLen',
 	'FindFittingCaptionPrefix',
-	'WrapAudioCaption',
-	'const FString Ellipsis = TEXT("…")',
-	'SecondLine',
+	'WrapHudText',
+	'OutRemainder',
+	'AudioCaptionQueue.Insert',
 	'TextItem.Scale',
-	'DrawAudioCaption(CurrentTime)',
-	'핵심 소리 자막',
+	'DrawAudioCaption(',
+	'핵심 소리 캡션',
 	'SOUND CAPTIONS'
 ) '핵심 소리 자막 설정·출력 연결'
+Assert-True (-not $hudSource.Contains(
+	'const FString Ellipsis = TEXT("…")')) '긴 자막을 말줄임표로 손실한다'
 Assert-ContainsAll $thirdMorning @(
 	'RearSplashCaption',
 	'TankScratchCaption',
@@ -379,8 +395,9 @@ Assert-ContainsAll $controllerSource @(
 	'Accessibility->ResetToDefaults()',
 	'SetAccessibilityMenuState',
 	'Settings.CaptionSizeScale = FMath::Clamp',
+	'Settings.CaptionBackgroundOpacity = FMath::Clamp',
 	'Settings.CaptionSafeAreaScale = FMath::Clamp',
-	'RowCount = 12'
+	'RowCount = 14'
 ) '일시정지 접근성 설정 입력'
 Assert-ContainsAll $hudSource @(
 	'DrawAccessibilityPanel()',
@@ -390,8 +407,10 @@ Assert-ContainsAll $hudSource @(
 	'손전등 점멸 감소',
 	'공포음 방향 표시',
 	'P5 단서 자동 연결',
-	'핵심 소리 자막',
-	'소리 자막 크기',
+	'대사 음성 자막',
+	'핵심 소리 캡션',
+	'대사·캡션 크기',
+	'메시지 배경 농도',
 	'자막 안전 영역',
 	'길게 누르기 방식',
 	'홀드 길이',
@@ -504,11 +523,17 @@ foreach ($holdScale in @(-2.0, 0.25, 0.7, 1.0, 4.0)) {
 		$clamped -ge 0.25 -and $clamped -le 1.0
 	) "홀드 길이 배율 범위 오류: $holdScale"
 }
-foreach ($captionScale in @(-2.0, 0.85, 1.0, 1.25, 4.0)) {
-	$clamped = [Math]::Min(1.25, [Math]::Max(0.85, $captionScale))
+foreach ($captionScale in @(-2.0, 0.85, 1.0, 1.25, 1.5, 2.0, 4.0)) {
+	$clamped = [Math]::Min(2.0, [Math]::Max(0.85, $captionScale))
 	Assert-True (
-		$clamped -ge 0.85 -and $clamped -le 1.25
+		$clamped -ge 0.85 -and $clamped -le 2.0
 	) "자막 크기 배율 범위 오류: $captionScale"
+}
+foreach ($backgroundOpacity in @(-2.0, 0.0, 0.50, 0.82, 1.0, 4.0)) {
+	$clamped = [Math]::Min(1.0, [Math]::Max(0.0, $backgroundOpacity))
+	Assert-True (
+		$clamped -ge 0.0 -and $clamped -le 1.0
+	) "메시지 배경 농도 범위 오류: $backgroundOpacity"
 }
 foreach ($safeArea in @(-2.0, 0.80, 0.90, 1.0, 4.0)) {
 	$clamped = [Math]::Min(1.0, [Math]::Max(0.80, $safeArea))
@@ -518,8 +543,8 @@ foreach ($safeArea in @(-2.0, 0.80, 0.90, 1.0, 4.0)) {
 }
 
 # 실제 실행을 대체하지 않는 순수 배치 오라클. 최소 720p부터 목표 1440p까지
-# 모든 사용자 설정 경계에서 자막 패널과 12행 설정 패널이 화면 및 하단 조작
-# 안내를 침범하지 않는지 C++과 독립된 계산으로 확인한다.
+# 14행 설정, 실시간 미리 보기와 200% 하단 메시지가 안전 영역을 지키는지
+# C++과 독립된 계산으로 확인한다.
 $layoutProfiles = @(
 	@{ Width = 1280.0; Height = 720.0 },
 	@{ Width = 1600.0; Height = 900.0 },
@@ -531,33 +556,50 @@ foreach ($profile in $layoutProfiles) {
 	$height = $profile.Height
 	$rowStart = [Math]::Max(116.0, $height * 0.18)
 	$rowSpacing = [Math]::Min(38.0, [Math]::Max(28.0, $height * 0.047))
-	$lastRowY = $rowStart + (11.0 * $rowSpacing)
-	$footerY = [Math]::Max($rowStart + (12.5 * $rowSpacing), $height - 48.0)
+	$lastRowY = $rowStart + (13.0 * $rowSpacing)
+	$footerY = [Math]::Max($rowStart + (14.5 * $rowSpacing), $height - 48.0)
 	Assert-True ($rowStart -ge 116.0) "설정 패널 제목 간격 오류: ${width}x${height}"
-	Assert-True ($lastRowY + 22.0 -lt $footerY) "설정 패널 행·도움말 겹침: ${width}x${height}"
+	Assert-True ($lastRowY + 16.0 -lt $footerY) "설정 패널 행·도움말 겹침: ${width}x${height}"
 	Assert-True ($footerY + 22.0 -le $height) "설정 패널 도움말 잘림: ${width}x${height}"
 
-	foreach ($captionScale in @(0.85, 1.0, 1.25)) {
+	$resolutionScale = [Math]::Min(2.0, [Math]::Max(0.85, $height / 1080.0))
+	foreach ($captionScale in @(0.85, 1.0, 1.25, 1.5, 2.0)) {
 		foreach ($safeArea in @(0.80, 0.90, 1.0)) {
 			$safeWidth = $width * $safeArea
-			$basePanelWidth = [Math]::Min(760.0, [Math]::Max(320.0, $width * 0.62))
-			$panelWidth = [Math]::Min($basePanelWidth, [Math]::Max(260.0, $safeWidth - 32.0))
+			$basePanelWidth = [Math]::Min(
+				920.0 * $resolutionScale,
+				[Math]::Max(360.0 * $resolutionScale, $width * 0.72))
+			$panelWidth = [Math]::Min(
+				$basePanelWidth,
+				[Math]::Max(280.0, $safeWidth - 32.0 * $resolutionScale))
 			$safeLeft = ($width - $safeWidth) * 0.5
 			$panelLeft = ($width - $panelWidth) * 0.5
 			$panelRight = $panelLeft + $panelWidth
-			Assert-True ($panelLeft -ge $safeLeft + 15.9) "자막 왼쪽 안전 영역 침범: ${width}x${height}"
-			Assert-True ($panelRight -le $width - $safeLeft - 15.9) "자막 오른쪽 안전 영역 침범: ${width}x${height}"
+			Assert-True ($panelLeft -ge $safeLeft - 0.1) "메시지 왼쪽 안전 영역 침범: ${width}x${height}"
+			Assert-True ($panelRight -le $width - $safeLeft + 0.1) "메시지 오른쪽 안전 영역 침범: ${width}x${height}"
 
-			$panelHeight = 58.0 * $captionScale
+			$textScale = $captionScale * $resolutionScale
+			$lineCount = if ($captionScale -gt 1.25) { 3.0 } else { 2.0 }
+			$bodyHeight = [Math]::Max(16.0, 19.0 * $textScale)
+			$lineStep = $bodyHeight * $(if ($lineCount -ge 3.0) { 1.45 } else { 1.34 })
+			$speakerHeight = [Math]::Max(12.0, 14.0 * $textScale * 0.84)
+			$panelHeight = 16.0 * $resolutionScale + $speakerHeight +
+				9.0 * $resolutionScale + $bodyHeight +
+				$lineStep * ($lineCount - 1.0) + 17.0 * $resolutionScale
 			$safeInset = $height * (1.0 - $safeArea) * 0.5
-			$minimumY = $safeInset + 28.0
-			$maximumY = $height - $safeInset - $panelHeight - 22.0
-			$panelY = [Math]::Min($maximumY, [Math]::Max($minimumY, $height * 0.76))
+			$panelY = $height - $safeInset - $panelHeight - 24.0 * $resolutionScale
 			$panelBottom = $panelY + $panelHeight
-			$controlHintY = $height - 34.0
-			Assert-True ($panelY -ge $minimumY - 0.01) "자막 위쪽 안전 영역 침범: ${width}x${height}"
-			Assert-True ($panelBottom -le $height - $safeInset - 21.9) "자막 아래쪽 안전 영역 침범: ${width}x${height}"
-			Assert-True ($panelBottom + 24.0 -le $controlHintY) "자막·하단 조작 안내 겹침: ${width}x${height}"
+			Assert-True ($panelY -ge $safeInset - 0.1) "메시지 위쪽 안전 영역 침범: ${width}x${height}"
+			Assert-True ($panelBottom -le $height - $safeInset + 0.1) "메시지 아래쪽 안전 영역 침범: ${width}x${height}"
+
+			$previewBodyHeight = [Math]::Max(16.0, 19.0 * $textScale)
+			$previewSpeakerHeight = 14.0 * $textScale * 0.78
+			$previewHeight = [Math]::Max(
+				48.0 * $resolutionScale,
+				$previewSpeakerHeight + $previewBodyHeight + 23.0 * $resolutionScale)
+			$previewY = $height - 148.0 * $resolutionScale
+			Assert-True ($previewY -ge $lastRowY + 14.0) "설정 행·미리 보기 겹침: ${width}x${height}"
+			Assert-True ($previewY + $previewHeight -le $footerY - 7.0) "미리 보기·도움말 겹침: ${width}x${height}"
 		}
 	}
 }

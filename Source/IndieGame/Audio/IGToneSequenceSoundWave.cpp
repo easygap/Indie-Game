@@ -85,6 +85,14 @@ void UIGToneSequenceSoundWave::ConfigureNotes(
 	}
 }
 
+void UIGToneSequenceSoundWave::ConfigurePitchWow(
+	const float DepthRatio,
+	const float RateHz)
+{
+	PitchWowDepthRatio = FMath::Clamp(DepthRatio, 0.0f, 0.02f);
+	PitchWowRateHz = FMath::Clamp(RateHz, 0.0f, 4.0f);
+}
+
 float UIGToneSequenceSoundWave::EvaluateWaveform(
 	const EIGToneWaveform Waveform,
 	const float FrequencyHz,
@@ -185,9 +193,24 @@ int32 UIGToneSequenceSoundWave::OnGeneratePCMAudio(TArray<uint8>& OutAudio, cons
 			}
 
 			const float Progress = static_cast<float>(NoteTime / Note.DurationSeconds);
+			double WaveTime = NoteTime;
+			if (PitchWowDepthRatio > 0.0f && PitchWowRateHz > 0.0f)
+			{
+				// Integrate 1 + depth*sin(wt) so wow changes instantaneous pitch
+				// without the discontinuities caused by multiplying phase directly.
+				const double AngularRate =
+					IGToneSequence::TwoPi * PitchWowRateHz;
+				const double PatternOffset =
+					PitchWowDepthRatio / AngularRate
+					* (1.0 - FMath::Cos(AngularRate * PatternSeconds));
+				const double NoteStartOffset =
+					PitchWowDepthRatio / AngularRate
+					* (1.0 - FMath::Cos(AngularRate * Note.StartSeconds));
+				WaveTime += PatternOffset - NoteStartOffset;
+			}
 			Mixed += Note.Amplitude
 				* EvaluateEnvelope(Note, Progress)
-				* EvaluateWaveform(Note.Waveform, Note.FrequencyHz, NoteTime);
+				* EvaluateWaveform(Note.Waveform, Note.FrequencyHz, WaveTime);
 		}
 
 		OutputSamples[OutputIndex] = static_cast<int16>(
@@ -430,7 +453,11 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateStoreJingle(
 
 	const float SafeTimeScale = FMath::Clamp(TimeScale, 0.5f, 2.0f);
 	const float PitchRatio = FMath::Pow(2.0f, PitchSemitones / 12.0f);
-	const float Beat = 0.54f * SafeTimeScale; // CH01 ~111 BPM; CH02 12% slower.
+	constexpr float BaseBeatSeconds = 60.0f / 76.0f;
+	const float Beat = BaseBeatSeconds * SafeTimeScale;
+	const bool bDegraded =
+		!FMath::IsNearlyZero(PitchSemitones)
+		|| !FMath::IsNearlyEqual(SafeTimeScale, 1.0f);
 	TArray<FIGToneNote> JingleNotes;
 
 	struct FMelodyStep
@@ -452,13 +479,22 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateStoreJingle(
 		{NoteC4, 28.0f, 3.0f},
 	};
 
-	for (const FMelodyStep& Step : Melody)
+	for (int32 StepIndex = 0;
+		StepIndex < static_cast<int32>(UE_ARRAY_COUNT(Melody));
+		++StepIndex)
 	{
+		// M1b leaves one expected mallet strike empty; the accompaniment keeps
+		// moving, making the absence register before the player names it.
+		if (bDegraded && StepIndex == 18)
+		{
+			continue;
+		}
+		const FMelodyStep& Step = Melody[StepIndex];
 		const float Start = Step.StartBeat * Beat;
 		const float NoteLength = Step.Beats * Beat * 0.85f;
 		JingleNotes.Add({
 			Start, NoteLength, Step.Frequency * PitchRatio,
-			0.105f, 0.02f, 2.2f, EIGToneWaveform::Sine});
+			0.082f, 0.02f, 2.2f, EIGToneWaveform::Triangle});
 		JingleNotes.Add({
 			Start, NoteLength * 0.8f, Step.Frequency * 2.0f * PitchRatio,
 			0.028f, 0.02f, 2.6f, EIGToneWaveform::Sine});
@@ -478,10 +514,14 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateStoreJingle(
 			0.050f,
 			0.04f,
 			1.4f,
-			EIGToneWaveform::Triangle});
+			EIGToneWaveform::SoftSquare});
 	}
 
 	Wave->ConfigureNotes(MoveTemp(JingleNotes), true, 32.0f * Beat);
+	if (bDegraded)
+	{
+		Wave->ConfigurePitchWow(0.003f, 0.30f);
+	}
 	return Wave;
 }
 
@@ -503,6 +543,21 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateDreadDrone(UObject* Ou
 	// A barely audible high whistle keeps the ear searching for a source.
 	DroneNotes.Add({6.0f, 14.0f, NoteE5, 0.005f, 0.48f, 1.5f, EIGToneWaveform::Sine});
 	Wave->ConfigureNotes(MoveTemp(DroneNotes), true, LoopLength);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave*
+UIGToneSequenceSoundWave::CreateFloodedCorridorWaterBed(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGFloodedCorridorWaterBed"));
+	TArray<FIGToneNote> Notes;
+	Notes.Add({0.0f, 9.0f, 96.0f, 0.025f, 0.20f, 0.8f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.0f, 9.0f, 52.0f, 0.018f, 0.25f, 0.8f, EIGToneWaveform::Sine});
+	Notes.Add({1.2f, 0.24f, 820.0f, 0.065f, 0.02f, 2.8f, EIGToneWaveform::ValueNoise});
+	Notes.Add({4.7f, 0.36f, 1280.0f, 0.050f, 0.02f, 3.2f, EIGToneWaveform::Sine});
+	Notes.Add({7.4f, 0.20f, 610.0f, 0.052f, 0.02f, 2.6f, EIGToneWaveform::ValueNoise});
+	Wave->ConfigureNotes(MoveTemp(Notes), true, 9.0f);
 	return Wave;
 }
 
@@ -1076,6 +1131,59 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEndingBMontage(UObject
 	MontageNotes.Add({14.700f, 0.640f, 190.0f, 0.010f, 0.350f, 2.0f, EIGToneWaveform::Sine});
 
 	Wave->ConfigureNotes(MoveTemp(MontageNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEndingBReturnHomeBed(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEndingBReturnHomeBed"));
+	constexpr float DurationSeconds = 45.0f;
+	constexpr float BeatSeconds = 60.0f / 52.0f;
+	TArray<FIGToneNote> Notes;
+
+	// A refrigerator is the harmonic floor, not an orchestral pad. The shallow
+	// release keeps it almost level until it naturally gives way at 45 seconds.
+	Notes.Add({0.0f, DurationSeconds, 60.0f, 0.016f, 0.030f, 0.25f, EIGToneWaveform::Sine});
+	Notes.Add({0.0f, DurationSeconds, 120.0f, 0.008f, 0.030f, 0.28f, EIGToneWaveform::Sine});
+	Notes.Add({0.0f, DurationSeconds, 180.0f, 0.003f, 0.030f, 0.32f, EIGToneWaveform::Sine});
+
+	// The 05:10 alarm's first three intervals are stretched to 52 BPM and
+	// voiced as glass rims. The final statement intentionally omits its third
+	// strike; the single diegetic cup drop resolves that space near the end.
+	constexpr float PhraseStarts[] = {2.40f, 13.94f, 25.48f, 37.02f};
+	constexpr float RimFrequencies[] = {1320.0f, 1650.0f, 1320.0f};
+	for (int32 PhraseIndex = 0;
+		PhraseIndex < static_cast<int32>(UE_ARRAY_COUNT(PhraseStarts));
+		++PhraseIndex)
+	{
+		const int32 StrikeCount = PhraseIndex == 3 ? 2 : 3;
+		const float PhraseGain = 0.030f - PhraseIndex * 0.004f;
+		for (int32 StrikeIndex = 0; StrikeIndex < StrikeCount; ++StrikeIndex)
+		{
+			const float Start =
+				PhraseStarts[PhraseIndex] + StrikeIndex * BeatSeconds;
+			Notes.Add({
+				Start,
+				2.40f,
+				RimFrequencies[StrikeIndex],
+				PhraseGain,
+				0.004f,
+				3.4f,
+				EIGToneWaveform::Sine});
+			Notes.Add({
+				Start,
+				1.35f,
+				RimFrequencies[StrikeIndex] * 2.0f,
+				PhraseGain * 0.26f,
+				0.004f,
+				3.8f,
+				EIGToneWaveform::Sine});
+		}
+	}
+
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
 	return Wave;
 }
 

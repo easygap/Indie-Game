@@ -23,10 +23,13 @@ TEXTURED_MATERIALS = {
     # 115 cm span is ~9 px/cm, which is what makes floors and walls hold up
     # when the camera is a metre away.
     "M_Jangpan":        {"tex": "Jangpan", "mapping": "XY", "tile": 115.0},
-    "M_Wallpaper_X":    {"tex": "Wallpaper", "mapping": "XZ", "tile": 105.0, "rough": 0.85},
-    "M_Wallpaper_Y":    {"tex": "Wallpaper", "mapping": "YZ", "tile": 105.0, "rough": 0.85},
-    "M_WallpaperCeil":  {"tex": "Wallpaper", "mapping": "XY", "tile": 105.0, "rough": 0.9,
-                         "tint": (0.85, 0.85, 0.85)},
+    "M_Wallpaper_X":    {"tex": "ApartmentWallpaperV2", "mapping": "XZ", "tile": 165.0,
+                         "rough": 0.86, "ao": True, "tint": (0.72, 0.70, 0.65)},
+    "M_Wallpaper_Y":    {"tex": "ApartmentWallpaperV2", "mapping": "YZ", "tile": 165.0,
+                         "rough": 0.86, "ao": True, "tint": (0.72, 0.70, 0.65)},
+    "M_WallpaperCeil":  {"tex": "ApartmentWallpaperV2", "mapping": "XY", "tile": 220.0,
+                         "rough": 0.92, "ao": True, "desaturate": 0.82,
+                         "tint": (0.48, 0.48, 0.46)},
     "M_WoodFurnitureUV": {"tex": "WoodDark", "mapping": "UV", "tile": 1.0, "rough": 0.55},
     "M_BeddingUV":      {"tex": "Blanket", "mapping": "UV", "tile": 2.0, "rough": 0.95},
     # --- alley -------------------------------------------------------------
@@ -221,6 +224,11 @@ DECAL_MATERIALS = {
 # grayscale value masks so one texture controls the irregular wet edge; the
 # surface overlays carry authored colour plus a keyed alpha channel.
 EVIDENCE_MASK_MATERIALS = {
+    "M_ApartmentWallPatina": {
+        "tex_asset": "T_ApartmentWallPatina_M", "rough": 0.91,
+        "color": (0.065, 0.052, 0.034), "mask_gain": 2.1,
+        "specular": 0.16,
+    },
     "M_EvidenceSlipperTrail": {
         "tex_asset": "T_EvidenceSlipperTrail_M", "rough": 0.10,
         "color": (0.025, 0.034, 0.038), "mask_gain": 4.0,
@@ -453,6 +461,20 @@ def create_textured_materials(assets, tools, specs=None):
                 rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
             )
 
+        if spec.get("ao"):
+            ao_asset = f"T_{base_name}_A"
+            if assets.does_asset_exist(f"{TEXTURE_ROOT}/{ao_asset}"):
+                ao_sample = _sample(
+                    material,
+                    _load_texture(ao_asset),
+                    _make_uv_source(material, mapping, tile, 1120),
+                    unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+                    1120,
+                )
+                unreal.MaterialEditingLibrary.connect_material_property(
+                    ao_sample, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION
+                )
+
         metallic = spec.get("metallic")
         if metallic is not None:
             metallic_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 1020)
@@ -643,7 +665,7 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
                 base, "", unreal.MaterialProperty.MP_BASE_COLOR
             )
             specular = _expr(material, unreal.MaterialExpressionConstant, -380, 360)
-            specular.set_editor_property("r", 0.62)
+            specular.set_editor_property("r", spec.get("specular", 0.62))
             unreal.MaterialEditingLibrary.connect_material_property(
                 specular, "", unreal.MaterialProperty.MP_SPECULAR
             )
@@ -1332,6 +1354,36 @@ def run():
         if not assets.save_loaded_assets([wet_step], False):
             raise RuntimeError("Could not save M_WetStep")
         unreal.log("[IndieGame] Wet footprint material update complete")
+        return
+    if os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1":
+        apartment_material_names = (
+            "M_Wallpaper_X",
+            "M_Wallpaper_Y",
+            "M_WallpaperCeil",
+        )
+        apartment_materials = create_textured_materials(
+            assets,
+            tools,
+            {
+                name: TEXTURED_MATERIALS[name]
+                for name in apartment_material_names
+            },
+        )
+        apartment_materials += create_masked_texture_materials(
+            assets,
+            tools,
+            {
+                "M_ApartmentWallPatina": EVIDENCE_MASK_MATERIALS[
+                    "M_ApartmentWallPatina"
+                ]
+            },
+            True,
+        )
+        if len(apartment_materials) != 4 or not assets.save_loaded_assets(
+            apartment_materials, False
+        ):
+            raise RuntimeError("Could not save apartment visual materials")
+        unreal.log("[IndieGame] Apartment visual material update complete")
         return
     if os.environ.get("IG_CAB_MIRROR_ONLY") == "1":
         mirrors = create_textured_materials(

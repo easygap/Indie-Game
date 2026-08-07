@@ -25,6 +25,13 @@ UE 5.8과 Win64 C++ 빌드 환경에서 같은 SHA의 런타임·수동·초견�
 작업 트리에서도 회귀 탐색용으로 실행할 수 있지만 clean SHA·Shipping 증거를
 잠그지 않으므로 정식 G3 또는 G6 증거는 아니다.
 
+Editor DLL 실행만 조직 정책으로 차단되고 Shipping EXE는 허용되는 환경은
+`-SkipEditorRuntimeValidation -SkipMapCheck`를 사용할 수 있다. 이 조합은
+저장·자유 경로·체크포인트·Editor A/B를 `NOT_RUN`으로 남기지만 Shipping
+패키징과 격리된 A/B 실행은 유지한다. `-SkipRuntimeValidation`은 종전대로
+Editor와 Shipping 런타임을 모두 끄므로 둘을 혼동하지 않는다. 어느 Skip
+조합도 최상위 `PARTIAL`이며 clean 환경·수동 게이트를 승인하지 않는다.
+
 `Resolve-UnrealEditor.ps1`이 프로젝트와 일치하는 UE 5.8 실행 파일을
 찾지 못하면 릴리스 하네스는 종료 코드 2와 `BLOCKED` 요약을 남긴다.
 Full 실행은 에디터를 시작하기 전에 Windows System32 또는 이 UE 설치의
@@ -48,36 +55,135 @@ Development Editor/Game과 Shipping을 빌드한다. `.git`, `Saved`,
 Win64 바이너리만 원본 런타임 검증용으로 되돌리고, 요약에는 실제
 `buildProjectFile`과 `usingAsciiBuildMirror`를 기록한다.
 
-## 2026-08-05 자동 사전 검증 현황
+## 2026-08-06 자동 사전 검증 현황
 
 이 절은 현재 작업의 위치를 기록할 뿐 아래 G3~G6 합격 조건을 완화하지
 않는다.
 
-- `Saved/Validation/RebirthRelease/20260805T050814587Z_24436/summary.json`:
-  `-AllowDirtyWorktree`로 고정한 변경 불가 스냅샷에서 정적 계약,
+- `Saved/Validation/RebirthRelease/20260806T072107035Z_51232/summary.json`:
+  현재 변경 불가 dirty 회귀 스냅샷의 Full 하네스에서 요청한 자동 단계가
+  모두 개별 PASS했다. 세 타깃 빌드, Map Check, Editor·Shipping A/B,
+  Build/Cook/Stage/Package/Archive, Editor와 패키징 Shipping 저장 46프로세스,
+  네 해상도 입력·HUD 및 실행 후 88파일 무변조를 한 실행에서 확인했다.
+  아카이브는 919,396,939바이트이고 내부 EXE SHA-256은
+  `45261B5215729AEEBDEB5341A4668D5EEE5E83F4C0C53E7576994155FDABCBDA`다.
+  첫 통합 실행 `20260806T065855451Z_55376`은 46프로세스 성공 뒤 Editor 모드
+  요약의 빈 배열이 `$null`로 접히는 StrictMode 결함을 검출했다. 명시적 배열
+  초기화와 정적 회귀 규칙을 추가하고 저장 단독 실행
+  `20260806T071113203Z_39204` 및 위 Full 실행을 새로 통과했다. 소스는 실행
+  동안 변하지 않았지만 dirty 입력이므로 최상위는 `PARTIAL`이며 clean SHA나
+  수동 G3~G6 PASS로 승격하지 않는다.
+- `Saved/Validation/RebirthRelease/20260805T235228055Z_29780/summary.json`:
+  `-AllowDirtyWorktree`로 고정한 변경 불가 스냅샷에서 요청한 자동 단계 17개가
+  모두 개별 PASS했다. 정적 계약, UE 5.8.1 해석, Engine AppLocal CRT,
   Editor/Game Development 빌드, 저장 46프로세스, CH02 자유 경로 5개,
-  체크포인트 10프로세스, Map Check 오류·경고 0, A/B 자동 종단과 Shipping
-  Build/Cook/Stage/Package/Archive가 모두 개별 PASS했다. dirty 입력 때문에
-  최상위는 `PARTIAL`이며 clean SHA의 정식 자동 후보나 수동 게이트 PASS가
-  아니다.
-- 이후 시각 보정 소스도 `IndieGameEditor Development`와 `IndieGame
-  Shipping` 컴파일·링크를 통과했고,
-  `C:/Users/USER/AppData/Local/IndieGame/ManualShipping/20260805T163500Z`에
-  재스테이징했다. 내부·런처 EXE의 `4:44 AM / 1.0.0 / easygap`
-  VERSIONINFO와 32px 아이콘 1,024픽셀, AppLocal CRT 14.50.35719.0을 다시
+  체크포인트 10프로세스, Map Check 오류·경고 0, Editor A/B 종단,
+  Shipping Build/Cook/Stage/Package/Archive와 패키지 A/B 실행을 포함한다.
+  dirty 입력 때문에 최상위는 `PARTIAL`이며 clean SHA의 정식 자동 후보나
+  수동 게이트 PASS가 아니다.
+- Shipping 아카이브는
+  `Saved/StagedBuilds/RebirthShipping/20260805T235228055Z_29780/`에 있다.
+  내부 Shipping EXE를 서로 다른 `-UserDir`로 A/B 각각 실제 실행해 종료 코드
+  0과 `ShippingRuntime_EndingA.txt`, `ShippingRuntime_EndingB.txt`의 정확한
+  PASS 영수증을 받았다. 두 실행 전후 파일 수·크기·SHA-256도 모두 같아
+  아카이브 변경과 새 파일 생성은 0건이다. 루트 런처 SHA-256은
+  `62FEE0CD7F668239E71819B12629EC95933BA0ABDD68EB51C9201767A0182145`이며
+  `4:44 AM / 1.0.0 / easygap`, 기준 아이콘과 AppLocal CRT 계약을 통과했다.
+- 이 실행 전에 clean SHA 자동 종단이 5층 계단참의 벽과 160cm 연결문이
+  겹친 실제 캡슐 충돌을 검출했다. 벽·바닥·천장 범위를 분리하고 문 양쪽의
+  54cm 캡슐 여유를 컴파일 타임 계약으로 고정한 뒤, 바닥 41지점과
+  34×96cm 캡슐 9구간, Editor A/B와 위 전체 dirty 회귀 실행을 다시
   통과했다.
-- 같은 아카이브의 IoStore 목록은 1,007개 패키지·3,049개 청크이며
-  `SM_OfferingWaterBowl`, `M_SubmergedHoodieUV`, `M_TankWaterReveal`,
-  `SM_SubmergedHoodieCurl`, `Prologue_Morning` 포함을 확인했다. 목록과
-  아이콘·메타데이터 로그는
-  `Saved/Validation/ManualShipping_20260805T163500Z/`에 보존한다.
-- 직전 시각 스냅샷의 Shipping CH02 캡처는 미러룸·공동현관 제물·04:44
-  영수증과 엘리베이터 2층 중단·1층 하차·4층 복귀를 종료 코드 0으로
-  완주했다. 마지막 소금 판독성 보정을 포함한 내부 EXE
-  `E5DD7FEDE31B71E1D59EB9330AE6210C69179E5175AB59A7FF62411963B4D805`는
-  회사 Enterprise Application Control 이벤트 3077/3033으로 실행이
-  차단됐다. 보안 정책을 끄거나 신뢰 경로·파일명을 이용해 우회하지 않으며,
-  이 최신 해시의 CH02/CH03 GPU 캡처는 미승인으로 남긴다.
+- 실제 D3D12 오프스크린 `-IGCaptureCH03`은 2026-08-06 종료 코드 0과
+  `visual_stills=5`를 기록했다. 새 5층 프레임은 통로를 가리던 비충돌
+  비닐을 벽면으로 옮기고 20Hz 저비용 흔들림과 약한 비상등을 적용한 뒤
+  `Docs/Media/ch03-fifth-floor-doorway.png`로 보존했다. 이후 재링크된 unsigned
+  Editor DLL은 회사 Enterprise Application Control 이벤트 3077/3033으로
+  로드가 차단됐다. 보안 정책을 끄거나 신뢰 경로·파일명을 이용해 우회하지
+  않으며, 새 clean SHA의 전체 자동·수동 증거는 계속 별도로 요구한다.
+- 이후 CH03 신규 기상의 1회성 렌즈 물방울을 절차 BGRA 텍스처와 알파
+  블렌딩으로 구현했다. 정적 검사는 단일 타이머 예약, 복원·그레이박스·일반
+  캡처 차단, 챕터 카드 아래가 아닌 월드 위/HUD 아래 렌더 순서, 모션 감소 시
+  이동 0을 확인한다. 얇은 비대칭 수막으로 보정한 최신 소스는 UE 5.8
+  Editor·Shipping UBT와 코드 전용 재스테이지
+  `20260806T124336_lens_polish`를 통과했다. 전용 하네스는 아카이브를 두
+  격리 복사본으로 나눠 실제 Shipping D3D12 1280×720을 실행했고 기본
+  `11.56px`, 모션 감소 `0px`, 최소 HUD 알파 `0.720`, 안전 영역 1과 PNG
+  4장을 확인했다. 프레임은 `Docs/Media/ch03-lens-droplet-*.png`, 원본 요약은
+  `Saved/Validation/LensDropletCapture/20260806T124336_lens_polish_retry/summary.json`
+  에 있다. 같은 아카이브의 최신 A/B 종단과 88파일 무변경도
+  `Saved/Validation/RebirthLensRelease/20260806T124336_lens_polish/summary.json`
+  에서 통과했다. 이는 고정 GPU 계약의 PASS이며 사람 자유 입력·다중
+  디스플레이 감마를 포함한 전체 G5 승인을 대신하지 않는다.
+- 이후 M0~M5 생산 오디오 라우터를 구현했다. 정적 계약 79개는 M1b의
+  `-18센트/-8%`, M2 `proven_elsewhere`, M3 보행 반응, 분리된 M4 압력층,
+  최초 개방과 손전등 복귀 양쪽의 심박 포함 6초 침묵, M5 45초와 단일
+  물방울을 고정한다. 최신 UE 5.8 Editor·Shipping 빌드는 성공했다.
+  `20260806T025202630Z_44524` dirty Shipping 전용 회귀는 같은 생산 생성기
+  8개를 실제 PCM으로 렌더링하는 `audio_synthesis`를 포함해 A/B 종료 코드
+  0과 정확한 영수증을 받았다. Cook/Stage/Package, 제품 메타데이터·아이콘,
+  AppLocal CRT와 88개 아카이브 파일의 실행 전후 SHA-256 무변경도 통과했다.
+  Editor 런타임·Map Check를 의도적으로 건너뛴 `PARTIAL`이므로 clean SHA
+  전체 하네스와 실제 청감 증거는 여전히 필요하다.
+- CH03 5층과 옥상의 지나친 암부를 보정한 뒤 Editor/Game Development와
+  Shipping UBT를 다시 통과했다. 새 Editor DLL의 Cook 실행은 조직
+  Application Control 오류 4551로 차단됐으므로 정책을 우회하지 않았다.
+  대신 `Content/`, `Config/`, `Build/`, 플러그인과 프로젝트 설명자 변경이
+  0건임을 먼저 확인하고, 직전 검증 Cook을 사용한 코드 전용 재스테이지
+  `20260806T121300_codeonly`를 만들었다. `.ucas/.utoc` 네 파일은 직전
+  아카이브와 SHA-256이 같고, 포장 바이트만 달라진 `.pak`은 양쪽을 풀어
+  1,735개 페이로드의 경로·크기·SHA-256이 모두 같음을 확인했다.
+  최신 Shipping EXE는 기준 EXE와 다른 해시를 가지며 A/B 격리 실행의 정확한
+  영수증, 제품 메타데이터·아이콘·AppLocal CRT와 88파일 실행 전후 무변경을
+  통과했다. 증거는
+  `Saved/Validation/RebirthReleaseCodeOnly/20260806T121300_codeonly/`에 있다.
+  이 경로는 코드 회귀와 GPU 촬영을 허용하는 사전 증거일 뿐 clean SHA의
+  완전 Cook/Stage/Package를 대신하지 않는다.
+- 같은 최신 Shipping EXE의 D3D12 오프스크린 CH03 촬영은 종료 코드 0과
+  1280×720 PNG 5장을 만들었다. 5층 프레임의 5% 미만 암부 비율은
+  80.3%에서 67.5%, 옥상 프레임은 75.7%에서 67.2%로 줄었고 98% 초과
+  하이라이트는 각각 0%와 0.002%다. 계단·160cm 연결문·탱크·사다리가
+  읽히면서도 검은 여백과 방향 압박을 유지하므로 추가 증광은 하지 않는다.
+  촬영 원본은
+  `Saved/Validation/ShippingVisual/20260806T123100_lighting_audio/`에 있고,
+  영향받은 5층·옥상·탱크 리빌 프레임을 `Docs/Media/`에 갱신했다. 렌즈
+  기본/모션 감소의 고정 D3D12 비교도 위 별도 하네스에서 승인했으며, 실제
+  사람 입력과 디스플레이별 감마 승인은 계속 G5 수동 게이트다.
+- `20260806T130501_shipping_persistence`는 기존 46개 저장 스파이크를 실제
+  패키징 Shipping 프로세스로 다시 실행했다. 각 쓰기 프로세스가 남긴 실제
+  SaveGame을 다음 읽기 프로세스가 복원했고 CH01 암전 4, 고양이 선택 10,
+  CH02 시간 4, P5 8, P3 14, 엔딩 A/B 6개 영수증이 정확히 일치했다. 요약은
+  `Saved/Validation/RebirthShippingSpikes/20260806T130501_shipping_persistence/summary.json`
+  이며 `processCount=46`, `archiveFileCount=88`, `archiveUnchanged=true`다.
+  이는 dirty 코드 전용 아카이브의 자동 사전 증거이며 clean SHA G3를
+  대신하지 않는다.
+- `Run-Rebirth-FrontendShippingProbe.ps1`는 1280×720·1600×900·1920×1080·
+  2560×1440 각각에서 비시뮬레이션 `InputKey` 11회와 HUD 프레임 9개의 실제
+  글리프 경계를 검사하도록 구현했다. 아홉 번째 프레임은 화자명이 있는
+  200% 하단 기기 메시지 3줄, 무손실 `이어짐`, 위쪽 환경음 레인과 80%
+  안전 영역을 함께 검사하고 해상도별 PNG·SHA-256을 보존한다. 첫 시도는
+  눌림·뗌을 같은 틱에 넣은
+  하네스 결함을 `keyboard_f10_open` 실패 영수증으로 검출했고, 물리 입력과
+  같은 누름 프레임→입력 처리→상태 확인→뗌 순서로 수정했다. 수정된 최종
+  소스는 Editor/Game Development/Shipping 빌드와 88파일 재스테이지
+  `20260806T133117_frontend_contract`, 제품 메타데이터·아이콘을 통과했다.
+  해당 재스테이지의 내부 Shipping EXE는 조직 Application Control 오류
+  4551로 프로세스 생성 전에 차단됐고, 이 시점의 네 해상도 영수증은
+  `NOT_RUN`이었다. 정책을 우회하지 않고 이후 완전 Cook/Package 전체 실행
+  `20260806T072107035Z_51232`에서 같은 하네스를 다시 실행해 네 해상도를
+  모두 PASS했다. 입력 이벤트 44개, HUD 배치 샘플 36개, 대화 사례 4개가
+  일치했고 해상도별 PNG와 실행 전후 88파일 무변조를 보존했다.
+  Full 하네스의 `shipping_persistence_spikes`와
+  `shipping_frontend_input_hud`는 패키징 A/B 뒤, 최종 아카이브 무변조 검사
+  전에 실행되므로 생략된 clean 실행은 자동 후보 PASS가 될 수 없다.
+  대화 소스는 정적 계약 109개, UE 5.8 Editor 빌드와 Development D3D12
+  1280×720·1600×900·1920×1080·2560×1440 프로브도 통과했다.
+  초기 50ms 전환 프레임의 낮은 대비를
+  증거로 잘못 캡처하던 하네스도 240ms 진입이 끝난 뒤 촬영하도록 수정했다.
+  네 영수증과 원본 PNG는
+  `Saved/Validation/DialogueHudMultiResolution_20260806T064728473Z/`에 있다.
+  자동 Shipping 입력·HUD PASS는 실제 게임패드 조작, 사람 청감과 초견,
+  디스플레이별 감마를 포함한 G5 수동 승인을 대신하지 않는다.
 
 ## 증거 보관 규칙
 
@@ -303,7 +409,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Scripts\Run-Rebirth-ReleaseV
    열 개 로그의 SHA-256을 보존하고 성공한 읽기 뒤 원래 슬롯을 삭제한다.
 5. 하네스의 Map Check가 `Prologue_Morning`에서 오류 0으로 끝나는지
    확인한다.
-6. A/B 자동 런타임 로그가 `collision_route`, `audio_queue`,
+6. A/B 자동 런타임 로그가 `collision_route`, `audio_synthesis`, `audio_queue`,
    `s5_item_continuity`, `p3_p5`, `savegame_v3`, 해당 엔딩과 `complete`
    마커를 모두 갖는지 확인한다.
    A/B 모두 CH01 구매·결제·고양이 선택의 실제 이벤트 핸들러부터 CH02
@@ -323,7 +429,9 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Scripts\Run-Rebirth-ReleaseV
    인스턴스 무복제·실루엣 숨김·충돌 해제를 확인한다.
    자동 런타임은 아파트→복도→상행 계단→5층→옥상→물탱크 상부의
    바닥 지지점 41개와 실제 34×96 캡슐의 평면 여유 구간 9개,
-   합성 PCM 생성과 오디오 컴포넌트 생성/정지, 같은 프로세스 안의
+   M0/M1/M1b/M2/M3/M4 바람·압력/M5 생산 생성기 8개를 각각 4,096샘플
+   렌더링한 PCM의 무음 0·클리핑 0·M5 45.05초 종료와 오디오 컴포넌트
+   생성/정지, 같은 프로세스 안의
    실제 디스크 v3 저장·복원·삭제를 검사한다. 계단 `step-up` 자체는
    고정 높이 sweep으로 합격시키지 않고 S8 실제 입력으로 확인한다.
    `-nullrhi`이므로 전체 이동 공간, 실제 청감·렌더링·화면 가독성,
@@ -465,10 +573,14 @@ G5는 최종 아트·오디오·UI가 들어간 후보에서 다음 항목을 �
 현재 자동 사전 점검은 `Scripts/Test-Rebirth-AccessibilityContract.ps1`이
 담당한다. 저장 가능한 설정 구조, P3/P4 자동 힌트 임계값, P1~P4 수동 힌트,
 80/55/45초 압박 주기, P3/P4 압박 시계·P4 반복·완료의 저장 배선과 결합
-왕복 오라클, 카메라·손전등 감소, 방향 파형, 관찰 뒤 P5 자동 연결, 핵심 소리
-자막의 설정 게이트·HUD·주요 큐·85~125% 크기·80~100% 안전 영역·실제
-글리프 폭 기반 두 줄 분할과 말줄임, 720p/900p/1080p/1440p 경계 배치,
-안전 개방·엔딩 B 암전 자막의 무겹침, 홀드 길이·토글 상태기와
+왕복 오라클, 카메라·손전등 감소, 방향 파형, 관찰 뒤 P5 자동 연결, 독립된
+음성 자막·비언어음 자막 게이트, 85~200% 크기·0~100% 배경 불투명도·
+80~100% 안전 영역을 검사한다. `Test-Rebirth-DialogueContract.ps1`은
+속마음·대화·음성·기기 채널, 화자명, 우선순위 중단 복귀, 중복 병합, 실제
+한글 글리프 폭 기반 2~3줄 무손실 페이지 분할과 읽기 시간, 위아래 HUD 레인,
+모션 감소 전환, CH02 실제 기기 메시지를 별도로 검사한다. 두 검사는
+720p/900p/1080p/1440p 경계 배치, 안전 개방·엔딩 B 암전 자막의 무겹침,
+홀드 길이·토글 상태기와
 키보드·게임패드 기본 매핑, 마지막 실제 입력
 장치에 따른 상호작용·힌트·설정·엔딩 안내 전환을 검사한다. 이 검사는
 F10/Menu 패널의 입력 배선과 항목 존재도
@@ -486,15 +598,27 @@ CH02의 04:31 원승인은 일반 종이 패널을 쓰지 않고 검은 휴대�
 `-IGAccessibilityPreset=Story|Standard|Silent`, `-IGReducedMotion`,
 `-IGReducedFlicker`, `-IGFearDirection`, `-IGAutoConnectEvidence`,
 `-IGToggleHolds`, `-IGHoldScale=0.25..1.0`, `-IGNoSubtitles`,
-`-IGCaptionScale=0.85..1.25`, `-IGCaptionSafeArea=0.80..1.00`을 사용할 수
-있다. 명령행 값은 해당 프로세스의 유효 설정에만 합성한다.
+`-IGNoSoundCaptions`, `-IGCaptionScale=0.85..2.00`,
+`-IGCaptionBackground=0.00..1.00`, `-IGCaptionSafeArea=0.80..1.00`을 사용할
+수 있다. 명령행 값은 해당 프로세스의 유효 설정에만 합성한다.
+
+수동 판정은 Microsoft [XAG 101 Text display](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/101)과
+[XAG 104 Subtitles and captions](https://learn.microsoft.com/en-us/xbox/accessibility/xbox-accessibility-guidelines/104)의
+글자 크기·확대·왼쪽 정렬·화자 식별·비언어음·두 줄 우선·불투명 배경
+원칙과 UE 5.8의 DPI Scaling·Safe Zone을 기준으로 한다. 자동 수치는 사람의
+실제 독해·청취 속도 검증을 대신하지 않는다.
 
 - 최종 메시와 재질에 디버그 도형·임시 텍스트·누락 텍스처가 없고,
   소매 세 땀·발자국·호스·발판·안경·탱크 실루엣이 일반 FOV에서 읽힌다.
 - M0~M5, 생활 베드와 필수 큐가 상태에 맞게 전환되며 무음 단절·중복
-  스팅·클리핑이 없다.
+  스팅·클리핑이 없다. 공간 전환은 1.6초 이상 이어지고, 최초 탱크 개방과
+  손전등 복귀 리빌은 재생 중이던 심박까지 끊은 6초 침묵 뒤 심박 한 번만
+  들린다. M5는 45초 동안 유지되고 빈 마지막 음을 물방울 한 번이 닫는다.
 - 한글 문서·폰·영수증·자막이 1280×720과 목표 해상도에서 잘리거나
   겹치지 않고, 입력 장치가 바뀌면 안내도 일치한다.
+- 속마음·기기 메시지·음성 자막은 화자를 혼동하지 않고, 환경음 자막과
+  동시에 떠도 서로 겹치지 않는다. 200%에서 본문은 버려지지 않고 다음
+  페이지로 이어지며 노트·설정·챕터 카드 뒤에는 남은 읽기 시간부터 재개한다.
 - 필수 정보는 색 하나로만 구분하지 않고 형태·텍스트·소리를 함께 쓴다.
   본문·자막은 배경과 구분되며 텍스트 크기·안전 영역 설정 뒤에도 잘리지
   않는다.
@@ -502,6 +626,10 @@ CH02의 04:31 원승인은 일반 종이 패널을 쓰지 않고 검은 휴대�
   달라진다.
 - `카메라 흔들림 감소`, `공포음 방향 표시`, `자동 연결`을 켜고 껐을 때
   필수 정보가 사라지거나 자동 연결 범위를 넘어 진실이 조기 확정되지 않는다.
+- 신규 CH03 시작에서는 렌즈 물방울이 한 번만 나타나고, 같은 저장을 불러온
+  복원 진입과 일반 문서 캡처에서는 0회여야 한다. 기본 설정에서는 짧게 아래로
+  미끄러지고 모션 감소에서는 같은 위치에서 페이드만 하며, 어느 경우에도
+  목표·조준점·상호작용·자막의 대비와 판독성을 낮추지 않는다.
 - 헤드폰 스테레오, 노트북 스피커, TV/일반 스테레오와 모노 폴드다운에서
   P2 호출, P3 블리드, P4 물소리, P5 긁힘의 순서와 의미를 구분한다.
 - 키보드·마우스와 게임패드에서 타이틀의 새 게임·이어하기, 일시정지·복귀,

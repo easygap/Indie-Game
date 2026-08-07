@@ -19,7 +19,50 @@ enum class EIGHudTextRole : uint8
 	Objective,
 	Prompt,
 	Thought,
+	Dialogue,
+	Speaker,
 	Hint
+};
+
+/** Visual and accessibility contract for a line presented in the lower HUD. */
+enum class EIGDialogueChannel : uint8
+{
+	/** Ji-woon's unvoiced inner monologue. This is story text, not a subtitle. */
+	InnerVoice,
+	/** Text-first exchange whose copy is the primary delivery channel. */
+	Conversation,
+	/** Subtitle paired with recorded speech; follows the subtitle toggle. */
+	VoiceSubtitle,
+	/** Diegetic machine or phone response. */
+	Device
+};
+
+/** Higher-priority lines may briefly interrupt and then resume a lower one. */
+enum class EIGDialoguePriority : uint8
+{
+	Ambient,
+	Story,
+	Critical
+};
+
+/** Small value object kept outside UObject reflection to avoid per-line allocation churn. */
+struct FIGDialogueMessage
+{
+	FText Speaker;
+	FText Line;
+	EIGDialogueChannel Channel = EIGDialogueChannel::InnerVoice;
+	EIGDialoguePriority Priority = EIGDialoguePriority::Story;
+	float MinimumDurationSeconds = 0.0f;
+	double QueuedAt = 0.0;
+	bool bContinuation = false;
+};
+
+/** Queued non-dialogue audio description; authored timings remain the source of truth. */
+struct FIGAudioCaptionMessage
+{
+	FText Caption;
+	float DurationSeconds = 0.0f;
+	double QueuedAt = 0.0;
 };
 
 /** Snapshot of controller-owned front-end state consumed by the native HUD. */
@@ -68,6 +111,19 @@ public:
 		const FText& Thought,
 		float DurationSeconds = 3.5f);
 
+	/**
+	 * Presents a speaker-aware line without taking movement or camera control.
+	 * Text-first channels remain visible because hiding them would remove story;
+	 * only VoiceSubtitle follows the player's subtitle toggle.
+	 */
+	static void PushDialogue(
+		const UObject* WorldContext,
+		const FText& Speaker,
+		const FText& Line,
+		EIGDialogueChannel Channel = EIGDialogueChannel::Conversation,
+		float MinimumDurationSeconds = 0.0f,
+		EIGDialoguePriority Priority = EIGDialoguePriority::Story);
+
 	/** Shows a non-dialogue sound caption when the accessibility option is on. */
 	static void PushAudioCaption(
 		const UObject* WorldContext,
@@ -79,6 +135,48 @@ public:
 		const UObject* WorldContext,
 		const FVector& WorldLocation,
 		float DurationSeconds = 1.1f);
+
+	/** Shows the single authored CH03 lens droplet without requiring a cooked UI asset. */
+	static void PushLensDroplet(
+		const UObject* WorldContext,
+		float DurationSeconds = 3.0f);
+
+	/**
+	 * Returns the most recent frame that actually drew the CH03 lens droplet.
+	 * The Shipping visual probe uses this instead of trusting a screenshot
+	 * request alone, so reduced-motion and HUD-safe placement remain measurable.
+	 */
+	bool GetLensDropletRenderSample(
+		FVector2D& OutPosition,
+		FVector2D& OutSize,
+		FVector2D& OutCanvasSize,
+		float& OutAlpha,
+		bool& bOutReducedMotion,
+		double& OutWorldTime) const;
+
+	/**
+	 * Returns text bounds from the most recently completed HUD frame. The
+	 * packaged frontend probe uses this to prove that native menu copy stayed
+	 * inside the real Shipping canvas at every supported resolution.
+	 */
+	bool GetLayoutValidationSample(
+		FVector2D& OutCanvasSize,
+		FVector2D& OutBoundsMin,
+		FVector2D& OutBoundsMax,
+		int32& OutElementCount,
+		bool& bOutAllInsideCanvas,
+		uint64& OutFrameSerial) const;
+
+	/** Last lower-third dialogue layout actually drawn by the Shipping probe. */
+	bool GetDialogueRenderSample(
+		FVector2D& OutPanelMinimum,
+		FVector2D& OutPanelMaximum,
+		FVector2D& OutCanvasSize,
+		int32& OutLineCount,
+		bool& bOutSpeakerVisible,
+		bool& bOutHasContinuation,
+		bool& bOutInsideSafeArea,
+		uint64& OutFrameSerial) const;
 
 	/**
 	 * Shows a reusable story-transition card over a fading black scrim.
@@ -92,8 +190,15 @@ public:
 		float DurationSeconds = 4.2f);
 
 	void ShowThought(const FText& Thought, float DurationSeconds);
+	void ShowDialogue(
+		const FText& Speaker,
+		const FText& Line,
+		EIGDialogueChannel Channel,
+		float MinimumDurationSeconds,
+		EIGDialoguePriority Priority);
 	void ShowAudioCaption(const FText& Caption, float DurationSeconds);
 	void ShowFearDirection(const FVector& WorldLocation, float DurationSeconds);
+	void ShowLensDroplet(float DurationSeconds);
 	void PresentChapterCard(
 		const FText& Eyebrow,
 		const FText& Title,
@@ -132,6 +237,8 @@ private:
 	void ResolveInteractionComponent();
 	void ResolveDirectors();
 	void InitializeKoreanFont();
+	void InitializeLensDropletTexture();
+	void InitializeDialogueSurfaceTextures();
 	UFont* MakeRuntimeFont(UFontFace* FontFace, int32 PixelSize, const TCHAR* FontName);
 	UFont* GetFontForRole(EIGHudTextRole TextRole) const;
 	FText GetObjectiveText() const;
@@ -142,6 +249,18 @@ private:
 		const FLinearColor& Color,
 		EIGHudTextRole TextRole,
 		float TextScale = 1.0f);
+	void DrawLeftAlignedText(
+		const FText& Text,
+		const FVector2D& Position,
+		const FLinearColor& Color,
+		EIGHudTextRole TextRole,
+		float TextScale = 1.0f,
+		bool bUseOutline = false);
+	void BeginLayoutValidationSample();
+	void RecordLayoutValidationRect(
+		const FVector2D& Minimum,
+		const FVector2D& Maximum);
+	void FinalizeLayoutValidationSample();
 	void DrawCrosshair(const FLinearColor& Color);
 	bool DrawChapterCard(double CurrentTime);
 	/** Full-screen reading panel for whatever note is currently open. */
@@ -152,20 +271,51 @@ private:
 	void DrawPhoneNotificationPanel(const AIGReadableNote& Note);
 	void DrawHoldProgress(float Progress);
 	void DrawFearDirection(double CurrentTime);
-	void DrawAudioCaption(double CurrentTime);
+	void DrawLensDroplet(double CurrentTime);
+	/** Draws a scalable anti-aliased surface without allocating a Slate widget. */
+	void DrawRoundedHudSurface(
+		const FVector2D& Position,
+		const FVector2D& Size,
+		float CornerRadius,
+		const FLinearColor& Color) const;
+	/** Adds the authored optical-film grain while keeping rounded corners clean. */
+	void DrawDialogueFilm(
+		const FVector2D& Position,
+		const FVector2D& Size,
+		float CornerRadius,
+		float Alpha) const;
+	bool DrawDialoguePanel(double CurrentTime, float& OutPanelTop);
+	bool DrawAudioCaption(double CurrentTime, float MaximumBottomY);
+	void EnqueueDialogue(FIGDialogueMessage&& Message, double CurrentTime);
+	void ActivateDialogue(FIGDialogueMessage&& Message, double CurrentTime);
+	void AdvanceDialogueQueue(double CurrentTime);
+	void SuspendDialoguePresentation(double CurrentTime);
+	void ResumeDialoguePresentation(double CurrentTime);
+	float CalculateDialogueDuration(
+		const FString& Line,
+		float MinimumDurationSeconds) const;
+	float GetResolutionTextScale(float UserScale) const;
+	void PrepareDialoguePage(
+		float TextScale,
+		float MaximumWidth,
+		int32 MaximumLines,
+		double CurrentTime);
+	void ActivateAudioCaption(FIGAudioCaptionMessage&& Message, double CurrentTime);
+	void AdvanceAudioCaptionQueue(double CurrentTime);
 	float MeasureTextWidth(const FString& Text, UFont* Font, float TextScale) const;
 	int32 FindFittingCaptionPrefix(
 		const FString& Text,
 		UFont* Font,
 		float TextScale,
 		float MaximumWidth) const;
-	void WrapAudioCaption(
-		const FString& Caption,
+	void WrapHudText(
+		const FString& Source,
 		UFont* Font,
 		float TextScale,
 		float MaximumWidth,
-		FString& OutFirstLine,
-		FString& OutSecondLine) const;
+		int32 MaximumLines,
+		TArray<FString>& OutLines,
+		FString& OutRemainder) const;
 	void DrawAccessibilityPanel();
 	void DrawSystemMenuPanel();
 	void DrawDisplaySettingsPanel();
@@ -182,6 +332,18 @@ private:
 	/** Cleaner paper grain used for thermal receipts. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> ReceiptPaperTexture;
+
+	/** Procedural low-cost proxy for the one authored camera-lens droplet. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> LensDropletTexture;
+
+	/** ImageGen-derived, low-contrast optical grain used by dialogue surfaces. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> DialogueFilmTexture;
+
+	/** Runtime 9-slice mask; one 64 px allocation shared by every HUD surface. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> HudRoundedMaskTexture;
 
 	/** Per-role fonts rasterized at native size so Hangul stays crisp. */
 	UPROPERTY(Transient)
@@ -212,17 +374,44 @@ private:
 	TWeakObjectPtr<UObject> ObjectiveProvider;
 	double NextDirectorSearchTime = 0.0;
 
-	FText CurrentThought;
-	double ThoughtStartTime = 0.0;
-	double ThoughtEndTime = -1.0;
+	FIGDialogueMessage CurrentDialogue;
+	TArray<FIGDialogueMessage> DialogueQueue;
+	TArray<FString> CurrentDialogueLines;
+	bool bHasCurrentDialogue = false;
+	bool bCurrentDialogueHasContinuation = false;
+	double DialogueStartTime = 0.0;
+	double DialogueEndTime = -1.0;
+	double DialogueOccludedAt = -1.0;
+	float DialogueLayoutScale = -1.0f;
+	float DialogueLayoutWidth = -1.0f;
+	int32 DialogueLayoutMaximumLines = 0;
+
+	FVector2D DialogueLastPanelMinimum = FVector2D::ZeroVector;
+	FVector2D DialogueLastPanelMaximum = FVector2D::ZeroVector;
+	FVector2D DialogueLastCanvasSize = FVector2D::ZeroVector;
+	int32 DialogueLastLineCount = 0;
+	bool bDialogueLastSpeakerVisible = false;
+	bool bDialogueLastHasContinuation = false;
+	bool bDialogueLastInsideSafeArea = false;
+	uint64 DialogueLastRenderSerial = 0;
 
 	FText CurrentAudioCaption;
+	TArray<FIGAudioCaptionMessage> AudioCaptionQueue;
 	double AudioCaptionStartTime = 0.0;
 	double AudioCaptionEndTime = -1.0;
 
 	FVector FearCueWorldLocation = FVector::ZeroVector;
 	double FearCueStartTime = 0.0;
 	double FearCueEndTime = -1.0;
+
+	double LensDropletStartTime = 0.0;
+	double LensDropletEndTime = -1.0;
+	FVector2D LensDropletLastPosition = FVector2D::ZeroVector;
+	FVector2D LensDropletLastSize = FVector2D::ZeroVector;
+	FVector2D LensDropletLastCanvasSize = FVector2D::ZeroVector;
+	float LensDropletLastAlpha = 0.0f;
+	bool bLensDropletLastReducedMotion = false;
+	double LensDropletLastRenderTime = -1.0;
 
 	FText ChapterCardEyebrow;
 	FText ChapterCardTitle;
@@ -234,6 +423,14 @@ private:
 	FVector2D FocusBracketMax = FVector2D::ZeroVector;
 	float FocusBracketAlpha = 0.0f;
 	double LastHudDrawTime = 0.0;
+	FVector2D LayoutValidationCanvasSize = FVector2D::ZeroVector;
+	FVector2D LayoutValidationBoundsMin = FVector2D::ZeroVector;
+	FVector2D LayoutValidationBoundsMax = FVector2D::ZeroVector;
+	int32 LayoutValidationElementCount = 0;
+	uint64 LayoutValidationFrameSerial = 0;
+	bool bLayoutValidationAllInsideCanvas = false;
+	bool bLayoutValidationSampleReady = false;
+	bool bLayoutValidationEnabled = false;
 	int32 AccessibilitySelectedRow = 0;
 	int32 SystemMenuSelectedRow = 0;
 	bool bAccessibilityMenuVisible = false;

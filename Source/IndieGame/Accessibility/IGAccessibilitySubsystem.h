@@ -36,13 +36,25 @@ struct INDIEGAME_API FIGAccessibilitySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bSubtitlesEnabled = true;
 
-	/** Scale applied only to non-dialogue sound captions. */
+	/** Important non-speech sounds can be configured separately from dialogue. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bSoundCaptionsEnabled = true;
+
+	/** Shared dialogue/caption scale; 2.0 preserves the 200% accessibility path. */
 	UPROPERTY(
 		EditAnywhere,
 		BlueprintReadWrite,
 		Category = "Accessibility",
-		meta = (ClampMin = "0.85", ClampMax = "1.25"))
+		meta = (ClampMin = "0.85", ClampMax = "2.00"))
 	float CaptionSizeScale = 1.0f;
+
+	/** Opacity of the high-contrast lower-third backing surface. */
+	UPROPERTY(
+		EditAnywhere,
+		BlueprintReadWrite,
+		Category = "Accessibility",
+		meta = (ClampMin = "0.00", ClampMax = "1.00"))
+	float CaptionBackgroundOpacity = 0.82f;
 
 	/** Width/height fraction reserved as the caption-safe display rectangle. */
 	UPROPERTY(
@@ -137,9 +149,21 @@ public:
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Subtitles")
+	bool AreSoundCaptionsEnabled() const
+	{
+		return EffectiveSettings.bSoundCaptionsEnabled;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Subtitles")
 	float GetCaptionSizeScale() const
 	{
 		return EffectiveSettings.CaptionSizeScale;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Subtitles")
+	float GetCaptionBackgroundOpacity() const
+	{
+		return EffectiveSettings.CaptionBackgroundOpacity;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Subtitles")

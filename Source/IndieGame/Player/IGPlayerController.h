@@ -87,6 +87,25 @@ private:
 		float MaximumSpacing,
 		float SpacingFraction,
 		int32& OutRow) const;
+	void StartFrontendShippingProbe();
+	void TickFrontendShippingProbe();
+	void DispatchFrontendProbeKey(const FKey& Key);
+	void ReleaseFrontendProbeKey(const FKey& Key);
+	void AwaitFrontendProbeFrame();
+	bool TryCaptureFrontendProbeLayout(
+		const TCHAR* PanelName,
+		int32 MinimumElementCount,
+		bool bIncludeInMinimumElementCoverage = true);
+	bool TryVerifyFrontendDialogueLayout(
+		const TCHAR* CaseName,
+		int32 MinimumLineCount,
+		int32 MaximumLineCount,
+		bool bExpectedContinuation);
+	void CompleteFrontendShippingProbe();
+	void FailFrontendShippingProbe(const FString& Reason);
+	bool WriteFrontendShippingProbeReceipt(
+		bool bSuccess,
+		const FString& Reason) const;
 	bool ShouldShowTitleMenu() const;
 	bool HasCompatibleAutosave() const;
 	bool IsSystemMenuRowEnabled(int32 Row) const;
@@ -123,6 +142,24 @@ private:
 	bool bDisplaySettingsAwaitingConfirmation = false;
 	bool bSystemMenuStatusIsError = false;
 	bool bPreviousDisplayVSync = true;
+	bool bFrontendShippingProbe = false;
+	bool bFrontendDialogueDefaultVerified = false;
+	bool bFrontendDialogueVerified = false;
+	bool bFrontendDialogueSpeakerVerified = false;
+	bool bFrontendDialogueContinuationVerified = false;
+	int32 FrontendProbeStep = 0;
+	int32 FrontendProbeExpectedWidth = 0;
+	int32 FrontendProbeExpectedHeight = 0;
+	int32 FrontendProbeLayoutSampleCount = 0;
+	int32 FrontendProbeMinimumElementCount = MAX_int32;
+	int32 FrontendProbePressedEventCount = 0;
+	uint64 FrontendProbeAwaitFrameSerial = 0;
+	double FrontendProbeNextActionTime = 0.0;
+	double FrontendProbeStepDeadline = 0.0;
+	FVector2D FrontendProbeBoundsMin = FVector2D::ZeroVector;
+	FVector2D FrontendProbeBoundsMax = FVector2D::ZeroVector;
+	FString FrontendProbeDefaultScreenshotPath;
+	FString FrontendProbeScreenshotPath;
 	float PreviousDisplayFrameLimit = 60.0f;
 	double DisplayConfirmationDeadline = 0.0;
 	FText SystemMenuStatusText;

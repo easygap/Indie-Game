@@ -2,7 +2,16 @@
 
 from __future__ import annotations
 
+import os
+import sys
+
 import unreal
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from photo_prop_lod_contract import inspect_photo_prop_lods
 
 
 MESH_NAMES = (
@@ -56,6 +65,7 @@ HERO_MESHES = {
 }
 
 PBR_STEMS = {
+    "T_ApartmentWallpaperV2": ("D", "N", "R", "A"),
     "T_WetHoodie": ("D", "N", "R", "A", "W"),
     "T_AlleyCatTabby": ("D", "N", "R", "A"),
     "T_WaterTankGalvanized": ("D", "N", "R", "A", "W", "M"),
@@ -68,6 +78,9 @@ PBR_STEMS = {
 }
 
 MATERIAL_TEXTURES = {
+    "M_Wallpaper_X": "T_ApartmentWallpaperV2",
+    "M_Wallpaper_Y": "T_ApartmentWallpaperV2",
+    "M_WallpaperCeil": "T_ApartmentWallpaperV2",
     "M_WetHoodieUV": "T_WetHoodie",
     "M_SubmergedHoodieUV": "T_WetHoodie",
     "M_SubmergedPantsUV": "T_WetHoodie",
@@ -84,6 +97,7 @@ MATERIAL_TEXTURES = {
 }
 
 MASK_MATERIALS = {
+    "M_ApartmentWallPatina": "T_ApartmentWallPatina_M",
     "M_EvidenceSlipperTrail": "T_EvidenceSlipperTrail_M",
     "M_EvidenceCatPawTrail": "T_EvidenceCatPawTrail_M",
     "M_EvidenceHoseDrag": "T_EvidenceHoseDrag_M",
@@ -161,6 +175,16 @@ def validate_meshes() -> tuple[int, int]:
             require(lod_count >= 2, f"Non-hero mesh has no reduced LOD: {name}")
             reduced_meshes += 1
     return total_lods, reduced_meshes
+
+
+def validate_photo_prop_lods() -> int:
+    inspected = inspect_photo_prop_lods()
+    for item in inspected:
+        require(
+            int(item["lod_count"]) >= 2,
+            f"Photo prop has no reduced LOD: {item['path']}",
+        )
+    return len(inspected)
 
 
 def validate_textures() -> int:
@@ -309,12 +333,14 @@ def validate_materials() -> tuple[int, int]:
 
 def main() -> None:
     total_lods, reduced_meshes = validate_meshes()
+    photo_prop_meshes = validate_photo_prop_lods()
     texture_count = validate_textures()
     material_count, linked_textures = validate_materials()
     unreal.log_warning(
         "ART_UASSET_AUDIT PASS "
         f"meshes={len(MESH_NAMES)} total_lods={total_lods} "
-        f"reduced_meshes={reduced_meshes} textures={texture_count} "
+        f"reduced_meshes={reduced_meshes} photo_meshes={photo_prop_meshes} "
+        f"textures={texture_count} "
         f"materials={material_count} linked_textures={linked_textures}"
     )
 

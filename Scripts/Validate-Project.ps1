@@ -52,12 +52,30 @@ $requiredFiles = @(
 	'Content/Prototype/Materials/M_CupNoodle.uasset',
 	'Content/SourceArt/AI/SheetPaperNotes_v2.png',
 	'Content/SourceArt/AI/ApplicationIcon_raw.png',
+	'Content/SourceArt/AI/DialogueHUDConcept_v1.png',
+	'Content/SourceArt/AI/TextureHudDialogueFilm.png',
+	'Content/SourceArt/AI/ApartmentVisualTarget_v1.png',
+	'Content/SourceArt/AI/TextureApartmentWallpaperVintage.png',
+	'Content/SourceArt/AI/MaskApartmentWallPatina.png',
+	'Content/SourceArt/T_HudDialogueFilm_D.png',
+	'Content/SourceArt/T_ApartmentWallpaperV2_D.png',
+	'Content/SourceArt/T_ApartmentWallpaperV2_N.png',
+	'Content/SourceArt/T_ApartmentWallpaperV2_R.png',
+	'Content/SourceArt/T_ApartmentWallpaperV2_A.png',
+	'Content/SourceArt/T_ApartmentWallPatina_M.png',
 	'Build/Windows/ApplicationIcon.png',
 	'Build/Windows/Application.ico',
 	'Content/Prototype/Textures/T_PaperClean_V2_D.uasset',
 	'Content/Prototype/Textures/T_PaperWet_V2_D.uasset',
 	'Content/Prototype/Textures/T_PaperFolded_V2_D.uasset',
 	'Content/Prototype/Textures/T_PaperOld_V2_D.uasset',
+	'Content/Prototype/Textures/T_HudDialogueFilm_D.uasset',
+	'Content/Prototype/Textures/T_ApartmentWallpaperV2_D.uasset',
+	'Content/Prototype/Textures/T_ApartmentWallpaperV2_N.uasset',
+	'Content/Prototype/Textures/T_ApartmentWallpaperV2_R.uasset',
+	'Content/Prototype/Textures/T_ApartmentWallpaperV2_A.uasset',
+	'Content/Prototype/Textures/T_ApartmentWallPatina_M.uasset',
+	'Content/Prototype/Materials/M_ApartmentWallPatina.uasset',
 	'Content/Prototype/Textures/T_SignMain_D.uasset',
 	'Content/Prototype/Textures/T_PriceStrip_D.uasset',
 	'Content/Prototype/Textures/T_PosterSale_D.uasset',
@@ -70,13 +88,22 @@ $requiredFiles = @(
 	'Docs/Media/ch02-receipt-0444.png',
 	'Docs/Media/ch03-full-fridge.png',
 	'Docs/Media/ch03-stair-up.png',
+	'Docs/Media/ch03-fifth-floor-doorway.png',
+	'Docs/Media/ch03-lens-droplet-default-early.png',
+	'Docs/Media/ch03-lens-droplet-default-late.png',
+	'Docs/Media/ch03-lens-droplet-reduced-early.png',
+	'Docs/Media/ch03-lens-droplet-reduced-late.png',
 	'Docs/Media/ch03-roof-tank.png',
 	'Docs/Media/ch03-tank-reveal.png',
+	'Docs/Media/dialogue-hud-default-1080.png',
+	'Docs/Media/dialogue-hud-accessibility-200-1080.png',
+	'Docs/Media/readme-route-preview.gif',
 	'Docs/FEASIBILITY.md',
 	'Docs/IMAGEGEN_PROMPTS_2026-08-05.md',
 	'Docs/PERFORMANCE.md',
 	'Docs/RELEASE_VALIDATION.md',
 	'Docs/SAVE_COMPATIBILITY.md',
+	'Docs/UI_STYLE_GUIDE.md',
 	'Scripts/RunGame.bat',
 	'Scripts/RunGame-Chapter2.bat',
 	'Scripts/RunGame-Chapter3.bat',
@@ -87,15 +114,20 @@ $requiredFiles = @(
 	'Scripts/Run-Rebirth-CH02FreedomSpikes.ps1',
 	'Scripts/Run-Rebirth-CheckpointAnchorSpikes.ps1',
 	'Scripts/Run-Rebirth-BackgroundRuntimeValidation.ps1',
+	'Scripts/Run-Rebirth-LensDropletCapture.ps1',
+	'Scripts/Run-Rebirth-FrontendShippingProbe.ps1',
 	'Scripts/Test-Rebirth-NarrativeContract.ps1',
 	'Scripts/Test-Rebirth-ItemContinuityContract.ps1',
 	'Scripts/Test-Rebirth-ChapterTwoTimeEntryContract.ps1',
+	'Scripts/Test-Rebirth-AudioContract.ps1',
 	'Scripts/Test-Rebirth-AccessibilityContract.ps1',
+	'Scripts/Test-Rebirth-DialogueContract.ps1',
 	'Scripts/Test-Rebirth-FrontendContract.ps1',
 	'Scripts/prepare_application_icon.py',
 	'Scripts/Test-Windows-ExecutableIcon.ps1',
 	'Scripts/Copy-Windows-ExecutableVersionResource.ps1',
 	'Scripts/Test-Windows-ExecutableMetadata.ps1',
+	'Scripts/create_readme_media.py',
 	'Scripts/Test-ArtAssetContract.ps1',
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
@@ -138,6 +170,57 @@ $missing = @(
 
 if ($missing.Count -gt 0) {
     throw "Missing required project files: $($missing -join ', ')"
+}
+
+$readme = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'README.md')
+foreach ($requiredReadmeToken in @(
+	'Docs/Media/dialogue-hud-default-1080.png',
+	'Docs/Media/readme-route-preview.gif',
+	'Docs/Media/ch02-receipt-0444.png',
+	'Docs/Media/ch03-roof-tank.png',
+	'## 대화와 접근성',
+	'## 개발 프리뷰 실행'
+)) {
+	if (-not $readme.Contains($requiredReadmeToken)) {
+		throw "README product overview is missing: $requiredReadmeToken"
+	}
+}
+foreach ($forbiddenReadmeToken in @(
+	'## Contributors',
+	'## 기여자'
+)) {
+	if ($readme.Contains($forbiddenReadmeToken)) {
+		throw "README must not contain a generated contributor section: $forbiddenReadmeToken"
+	}
+}
+$readmeMediaReferences = @(
+	[regex]::Matches($readme, '(?:src="|\]\()(?<path>Docs/[^\)"]+)') |
+		ForEach-Object { $_.Groups['path'].Value } |
+		Sort-Object -Unique
+)
+foreach ($readmeMediaReference in $readmeMediaReferences) {
+	if (-not (Test-Path -LiteralPath (
+		Join-Path $projectRoot $readmeMediaReference) -PathType Leaf)) {
+		throw "README media or document link is missing: $readmeMediaReference"
+	}
+}
+$readmeGif = Get-Item -LiteralPath (
+	Join-Path $projectRoot 'Docs/Media/readme-route-preview.gif')
+if ($readmeGif.Length -lt 500KB -or $readmeGif.Length -gt 10MB) {
+	throw 'README route preview must stay legible and below the 10 MB review budget.'
+}
+$readmeMediaRecipe = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/create_readme_media.py')
+foreach ($requiredRecipeToken in @(
+	'CAPTURES = (',
+	'prologue-bedroom.png',
+	'prologue-store.png',
+	'Actual in-game capture route preview'
+)) {
+	if (-not $readmeMediaRecipe.Contains($requiredRecipeToken)) {
+		throw "README media recipe is missing: $requiredRecipeToken"
+	}
 }
 
 $descriptor = Get-Content -Raw -LiteralPath $projectFile | ConvertFrom-Json
@@ -231,7 +314,11 @@ foreach ($primaryAssetType in @('IGChapter', 'IGStoryBeat')) {
 
 foreach ($requiredSetting in @(
 	'GameDefaultMap=/Game/Maps/Prologue_Morning',
-	'GlobalDefaultGameMode=/Script/IndieGame.IGPrologueGameMode'
+	'GlobalDefaultGameMode=/Script/IndieGame.IGPrologueGameMode',
+	'r.TextureStreaming=True',
+	'r.PSOPrecaching=1',
+	'r.PSOPrecache.Components=1',
+	'r.PSOPrecache.GlobalShaders=1'
 )) {
 	if ($engineConfig -notmatch [regex]::Escape($requiredSetting)) {
 		throw "Default playable scene setting is missing: $requiredSetting"
@@ -295,9 +382,10 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
     Select-String -Pattern 'PrimaryActorTick\.bCanEverTick\s*=\s*true'
 # Reviewed exceptions. Every entry sets bStartWithTickEnabled = false; the
 # first group enables Tick only for bounded animation/presentation windows and
-# switches it off again. IGPlayerController ticks only during the 10-second
-# display-settings confirmation. IGDemoDirector is a development-only capture
-# driver that is spawned solely under -IGCapture / -IGDemo / -IGDemoFrames.
+# switches it off again. IGPlayerController ticks during the 10-second display
+# confirmation and the bounded -IGFrontendShippingProbe process only.
+# IGDemoDirector is a development-only capture driver that is spawned solely
+# under -IGCapture / -IGDemo / -IGDemoFrames.
 $reviewedTickingFiles = @(
 	'IGWakeUpDirector.cpp',
 	'IGPlayerCharacter.cpp',
@@ -316,10 +404,23 @@ if ($unreviewedTickingActors.Count -gt 0) {
     $locations = $unreviewedTickingActors | ForEach-Object { "$($_.Path):$($_.LineNumber)" }
     throw "Actor Tick requires an explicit architecture review: $($locations -join ', ')"
 }
+$alwaysTickingComponents = @(Get-ChildItem `
+	-LiteralPath (Join-Path $projectRoot 'Source') `
+	-Recurse `
+	-Include '*.h','*.cpp' |
+	Select-String -Pattern 'PrimaryComponentTick\.bStartWithTickEnabled\s*=\s*true')
+if ($alwaysTickingComponents.Count -gt 0) {
+	$locations = $alwaysTickingComponents | ForEach-Object {
+		"$($_.Path):$($_.LineNumber)"
+	}
+	throw (
+		'Component Tick must start disabled and wake from explicit state: ' +
+		($locations -join ', '))
+}
 
 $attributesFile = Join-Path $projectRoot '.gitattributes'
 $attributes = Get-Content -Raw -LiteralPath $attributesFile
-foreach ($extension in @('*.uasset', '*.umap', '*.png', '*.zip', '*.bin')) {
+foreach ($extension in @('*.uasset', '*.umap', '*.png', '*.gif', '*.zip', '*.bin')) {
     if ($attributes -notmatch [regex]::Escape("$extension filter=lfs")) {
         throw "$extension must be tracked by Git LFS."
     }
@@ -369,6 +470,14 @@ $backgroundRuntimeScriptPath = Join-Path $projectRoot (
 	'Scripts/Run-Rebirth-BackgroundRuntimeValidation.ps1')
 $backgroundRuntimeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	$backgroundRuntimeScriptPath)
+$lensDropletCaptureScriptPath = Join-Path $projectRoot (
+	'Scripts/Run-Rebirth-LensDropletCapture.ps1')
+$lensDropletCaptureScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	$lensDropletCaptureScriptPath)
+$frontendShippingProbeScriptPath = Join-Path $projectRoot (
+	'Scripts/Run-Rebirth-FrontendShippingProbe.ps1')
+$frontendShippingProbeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	$frontendShippingProbeScriptPath)
 $persistenceProbeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot (
 		'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.cpp'))
@@ -382,12 +491,16 @@ $saveCompatibilityContract = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Docs/SAVE_COMPATIBILITY.md')
 $horrorHudSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGHorrorHUD.cpp')
+$playerControllerSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGPlayerController.cpp')
 $playerCharacterSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGPlayerCharacter.cpp')
 $flashlightHeader = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGFlashlightComponent.h')
 $flashlightSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGFlashlightComponent.cpp')
+$stressSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGStressComponent.cpp')
 $morningDirectorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGMorningRoutineDirector.cpp')
 $pickupItemSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -435,6 +548,11 @@ foreach ($worldContinuityInvariant in @(
 	if (-not $worldSceneSource.Contains($worldContinuityInvariant)) {
 		throw "World spatial-continuity invariant is missing: $worldContinuityInvariant"
 	}
+}
+if ($engineConfig -match '(?m)^r\.VolumetricFog\s*=') {
+	throw (
+		'r.VolumetricFog must remain scalability-owned; a project-level value ' +
+		'prevents Low ShadowQuality from disabling its 3D volume.')
 }
 $saltDepositStart = $worldSceneSource.IndexOf('struct FSaltDepositSpec')
 $saltDepositEnd = if ($saltDepositStart -ge 0) {
@@ -666,6 +784,50 @@ if ($flashlightHeader.Contains('BatterySeconds') -or
 	-not $flashlightSource.Contains('presentation-only and always recover')) {
 	throw 'Flashlight brown-outs must remain presentation-only without battery depletion.'
 }
+foreach ($requiredIdleTickInvariant in @(
+	'PrimaryComponentTick.bStartWithTickEnabled = false',
+	'SetComponentTickEnabled(true)',
+	'SetComponentTickEnabled(false)'
+)) {
+	if (-not $flashlightSource.Contains($requiredIdleTickInvariant)) {
+		throw "Flashlight idle-Tick invariant is missing: $requiredIdleTickInvariant"
+	}
+}
+foreach ($requiredStressTickInvariant in @(
+	'PrimaryComponentTick.bStartWithTickEnabled = false',
+	'void UIGStressComponent::RefreshTickState()',
+	'HeartbeatSuppressionRemaining > KINDA_SMALL_NUMBER',
+	'SetComponentTickEnabled(bNeedsTick)'
+)) {
+	if (-not $stressSource.Contains($requiredStressTickInvariant)) {
+		throw "Stress idle-Tick invariant is missing: $requiredStressTickInvariant"
+	}
+}
+foreach ($requiredStorePerformanceInvariant in @(
+	'Components/InstancedStaticMeshComponent.h',
+	'ExpectedStoreStockInstances = 1122',
+	'MaximumStoreStockBatches = 24',
+	'StoreStockCullStartCentimeters = 1600',
+	'StoreStockCullEndCentimeters = 2200',
+	'Batch->SetAffectDistanceFieldLighting(false)',
+	'Batch->SetCollisionEnabled(ECollisionEnabled::NoCollision)',
+	'FinalizeStoreStockBatches();',
+	'REBIRTH_RELEASE PASS store_instancing instances=%d batches=%d'
+)) {
+	if (-not $worldSceneSource.Contains($requiredStorePerformanceInvariant)) {
+		throw "Store runtime-performance invariant is missing: $requiredStorePerformanceInvariant"
+	}
+}
+foreach ($movablePresentationPattern in @(
+	'P4ReceiptFragment\s*=\s*CreateBlock\([\s\S]{0,260}nullptr,\s*true\);',
+	'InspectionRodVisual\s*=\s*CreateBlock\([\s\S]{0,360}CylinderMesh\.Get\(\),\s*true\);'
+)) {
+	if ($thirdMorningSource -notmatch $movablePresentationPattern) {
+		throw (
+			'CH03 presentation changes a Static component transform: ' +
+			$movablePresentationPattern)
+	}
+}
 if (-not $checkoutSource.Contains('ConfigureChapterAction') -or
 	-not $checkoutSource.Contains('bRequiresPrimaryState = false') -or
 	-not $checkoutSource.Contains('bPlayRegisterPresentation = false')) {
@@ -733,8 +895,11 @@ foreach ($requiredChapterThreeGate in @(
 	'FCollisionShape::MakeCapsule(34.0f, 96.0f)',
 	'OutFloorSamples = FloorSamples.Num()',
 	'OutCapsuleSegments = UE_ARRAY_COUNT(RouteSegments)',
-	'OnGeneratePCMAudio(GeneratedPcm, RequestedSamples)',
-	'OutNonZeroSamples > 0',
+	'RequestedSamplesPerTrack = 4096',
+	'TrackNonZeroSamples > 32',
+	'TrackClippedSamples == 0',
+	'ExpectedM5DurationSeconds = 45.05f',
+	'REBIRTH_RELEASE PASS audio_synthesis',
 	'savegame_v3 stale slot cleanup failed',
 	'Progress.ChapterId.MatchesTagExact',
 	'Progress.CheckpointTag.MatchesTagExact',
@@ -830,6 +995,22 @@ foreach ($requiredChapterThreeRouteInvariant in @(
 	'FVector(975, 227.5f, 130)',
 	'FVector(975, 0, 245)',
 	'FVector(1265, -451.5f, 170)',
+	'FVector(1355, -340.0f, 170)',
+	'FVector(1355, -311, 290)',
+	'"The fifth-floor landing must preserve the 160 cm doorway route."',
+	'FVector(1415, -420, 397)',
+	'FVector(1415, -420, 386)',
+	'FVector(1570, -420, 305)',
+	'1850.0f',
+	'4600.0f',
+	'HangingVinyl = CreateBlock(',
+	'FVector(1325, HangingVinylWallY, 300)',
+	'constexpr float HangingVinylMaximumRouteReach = 12.0f',
+	'"The moving vinyl must not visually seal the landing route."',
+	'UpdateHangingVinylSway()',
+	'&ThisClass::UpdateHangingVinylSway',
+	'TEXT("ch03-fifth-floor-doorway")',
+	'visual_stills=5',
 	'FVector(470, 147, 20)',
 	'FVector(1450, -502.5f, 205)',
 	'FVector(1450, -297.5f, 205)',
@@ -855,6 +1036,8 @@ foreach ($forbiddenChapterThreeRouteBlocker in @(
 	'FVector(1265, -400, 170), FVector(470, 250, 20)',
 	'CreateBlock(FVector(1450, -400, 205), FVector(18, 250, 410)',
 	'CreateBlock(FVector(1210, -235, 195), FVector(20, 330, 390)',
+	'FVector(1390, -335, 300)',
+	'FVector(3, 155, 210)',
 	'CreateBlock(FVector(2325, -300, 610), FVector(150, 220, 20)'
 )) {
 	if ($thirdMorningSource.Contains($forbiddenChapterThreeRouteBlocker)) {
@@ -1141,6 +1324,88 @@ if ($backgroundRuntimeParseErrors.Count -gt 0) {
 		ForEach-Object { $_.Message }
 	throw "REBIRTH background runtime script does not parse: $($parseMessages -join '; ')"
 }
+$lensDropletCaptureTokens = $null
+$lensDropletCaptureParseErrors = $null
+[void][System.Management.Automation.Language.Parser]::ParseFile(
+	$lensDropletCaptureScriptPath,
+	[ref]$lensDropletCaptureTokens,
+	[ref]$lensDropletCaptureParseErrors)
+if ($lensDropletCaptureParseErrors.Count -gt 0) {
+	$parseMessages = $lensDropletCaptureParseErrors |
+		ForEach-Object { $_.Message }
+	throw "REBIRTH lens-droplet capture script does not parse: $($parseMessages -join '; ')"
+}
+$frontendShippingProbeTokens = $null
+$frontendShippingProbeParseErrors = $null
+[void][System.Management.Automation.Language.Parser]::ParseFile(
+	$frontendShippingProbeScriptPath,
+	[ref]$frontendShippingProbeTokens,
+	[ref]$frontendShippingProbeParseErrors)
+if ($frontendShippingProbeParseErrors.Count -gt 0) {
+	$parseMessages = $frontendShippingProbeParseErrors |
+		ForEach-Object { $_.Message }
+	throw "REBIRTH frontend Shipping probe script does not parse: $($parseMessages -join '; ')"
+}
+foreach ($requiredLensCaptureHarnessInvariant in @(
+	"'-IGCaptureCH03LensDroplet'",
+	"'-IGReducedMotion'",
+	"'-RenderOffscreen'",
+	"'-d3d12'",
+	'-WindowStyle Hidden',
+	"'Windows\IndieGame.exe'",
+	"'Windows\IndieGame\Binaries\Win64\IndieGame-Win64-Shipping.exe'",
+	'ArchiveDirectory must be the BuildCookRun archive root containing',
+	'Get-PngDimensions',
+	'Assert-ArchiveUnchanged',
+	'REBIRTH_CH03_LENS_CAPTURE PASS',
+	'REBIRTH_LENS_CAPTURE_HARNESS PASS modes=2 stills=4',
+	'$Mode -eq ''default'' -and $travelY -lt 8.0',
+	'$Mode -eq ''reduced'' -and $travelY -gt 0.5',
+	'$minimumAlpha -lt 0.55',
+	'$canvasWidth -ne 1280 -or $canvasHeight -ne 720'
+)) {
+	if (-not $lensDropletCaptureScript.Contains(
+			$requiredLensCaptureHarnessInvariant)) {
+		throw (
+			'REBIRTH lens-droplet capture invariant is missing: ' +
+			$requiredLensCaptureHarnessInvariant)
+	}
+}
+foreach ($requiredFrontendShippingHarnessInvariant in @(
+	"'-IGFrontendShippingProbe'",
+	'"-IGFrontendExpectedWidth=$Width"',
+	'"-IGFrontendExpectedHeight=$Height"',
+	'"-IGFrontendResultPath=$receiptPath"',
+	'"-IGFrontendDefaultScreenshotPath=$defaultScreenshotPath"',
+	'"-IGFrontendScreenshotPath=$screenshotPath"',
+	"'-RenderOffscreen'",
+	"'-d3d12'",
+	'-WindowStyle Hidden',
+	'1280; height = 720',
+	'1600; height = 900',
+	'1920; height = 1080',
+	'2560; height = 1440',
+	'Assert-ArchiveUnchanged',
+	'Get-PngDimensions',
+	'dialogueScreenshotSha256',
+	'defaultDialogueScreenshotSha256',
+	'keyboard_access=1 gamepad_access=1 dpad_down=1',
+	'gamepad_pause=1 display=1 dialogue=1 dialogue_default=1',
+	'speaker=1 continuation=1 default_scale=100 max_scale=200',
+	'sound_lane=1 samples=10 elements_min=',
+	'input_events=11 bounds=',
+	'REBIRTH_FRONTEND_SHIPPING PASS resolutions=4 input_events=44',
+	'layout_samples=40 dialogue_cases=8',
+	'archiveUnchanged = $true',
+	'layoutSampleCount'
+)) {
+	if (-not $frontendShippingProbeScript.Contains(
+		$requiredFrontendShippingHarnessInvariant)) {
+		throw (
+			'REBIRTH frontend Shipping harness invariant is missing: ' +
+			$requiredFrontendShippingHarnessInvariant)
+	}
+}
 foreach ($requiredBackgroundInvariant in @(
 	'-WindowStyle Hidden',
 	"'-nullrhi'",
@@ -1192,12 +1457,33 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'$resultText -cne $expectedResult',
 	'Invoke-RebirthShippingRuntimeCase',
 	'shippingRuntimeResults = [pscustomobject]$shippingRuntimeResults',
+	"'shipping_persistence_spikes'",
+	"'shipping_frontend_input_hud'",
+	'Packaged Shipping process-boundary persistence spikes',
+	'Packaged Shipping input and HUD layout probe',
+	"'-ArchiveDirectory'",
+	'$frontendShippingProbeScript',
+	'Assert-FrontendShippingProbeEvidence',
+	'REBIRTH_FRONTEND_SHIPPING PASS resolutions=4 input_events=44',
+	'$summaryResults.Count -ne 4',
+	'Frontend Shipping executable hash mismatch',
+	'[regex]::Escape($resolution)',
+	'Frontend Shipping receipt evidence mismatch',
+	'shippingPersistenceSummary = $shippingPersistenceSummaryPath',
+	'shippingPersistenceSummarySha256 = $shippingPersistenceSummaryHash',
+	'shippingFrontendSummary = $shippingFrontendSummaryPath',
+	'shippingFrontendSummarySha256 = $shippingFrontendSummaryHash',
+	'$packagedShipping',
+	"'REBIRTH_SPIKE PASS '",
 	'function Assert-ShippingArchiveManifestUnchanged',
 	"'shipping_archive_post_runtime'",
 	'Shipping manifest path escaped the archive',
 	'Shipping archive file hash changed after runtime',
 	'Assert-ShippingArchiveManifestUnchanged',
 	'if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation)',
+	'[switch]$SkipEditorRuntimeValidation',
+	'$skipEditorRuntimeValidation',
+	'SkipEditorRuntimeValidation requested; packaged Shipping runtime remains enabled.',
 	'Assert-ReleaseLog',
 	'REBIRTH_E2E PASS ch01_router',
 	'REBIRTH_E2E PASS ch02_router',
@@ -1217,6 +1503,8 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'REBIRTH_SPIKE PASS s4_common_prop ending=$Ending duplicates=0',
 	'actual_state=1 safety_cues=5',
 	'REBIRTH_RELEASE PASS collision_route',
+	'REBIRTH_RELEASE PASS store_instancing instances=1122',
+	'REBIRTH_RELEASE PASS audio_synthesis tracks=8 invalid=0 clipped=0',
 	'REBIRTH_RELEASE PASS audio_queue',
 	'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 presentations=2 cases=12 duplicates=0',
 	'REBIRTH_RELEASE PASS p3_p5',
@@ -1306,17 +1594,25 @@ $shippingPackageGateIndex = $releaseValidationScript.LastIndexOf(
 	"Set-ActiveStep -Name 'shipping_package'")
 $shippingRuntimeGateIndex = $releaseValidationScript.LastIndexOf(
 	'Invoke-RebirthShippingRuntimeCase')
+$shippingPersistenceGateIndex = $releaseValidationScript.IndexOf(
+	"-Name 'shipping_persistence_spikes'",
+	$shippingRuntimeGateIndex)
+$shippingFrontendGateIndex = $releaseValidationScript.IndexOf(
+	"-Name 'shipping_frontend_input_hud'",
+	$shippingPersistenceGateIndex)
 $shippingPostRuntimeGateIndex = $releaseValidationScript.LastIndexOf(
 	'Assert-ShippingArchiveManifestUnchanged')
 $fullSourcePostGateIndex = $releaseValidationScript.LastIndexOf(
 	"Set-ActiveStep -Name 'source_state_post'")
 if ($shippingPackageGateIndex -lt 0 -or
 	$shippingRuntimeGateIndex -le $shippingPackageGateIndex -or
-	$shippingPostRuntimeGateIndex -le $shippingRuntimeGateIndex -or
+	$shippingPersistenceGateIndex -le $shippingRuntimeGateIndex -or
+	$shippingFrontendGateIndex -le $shippingPersistenceGateIndex -or
+	$shippingPostRuntimeGateIndex -le $shippingFrontendGateIndex -or
 	$fullSourcePostGateIndex -le $shippingPostRuntimeGateIndex) {
 	throw (
-		'Shipping A/B runtime receipts and the post-runtime archive hash check ' +
-		'must run after packaging and before the final source-state lock.')
+		'Shipping A/B, packaged persistence, input/HUD receipts and the final ' +
+		'archive hash check must run after packaging and before source lock.')
 }
 $initialSourceStateIndex = $releaseValidationScript.IndexOf(
 	'$initialSourceState = Get-SourceState')
@@ -1487,10 +1783,16 @@ foreach ($requiredChapterThreeAnchorInvariant in @(
 }
 foreach ($requiredPersistenceHarnessInvariant in @(
 	'[ValidateRange(30, 1800)]',
+	'[string]$ArchiveDirectory',
+	'$usingPackagedShipping',
+	'IndieGame-Win64-Shipping.exe',
 	'Start-Process',
 	'-WindowStyle Hidden',
 	'"-UserDir=$userDirectory"',
 	'"-IGRebirthPersistenceProbe=$Mode"',
+	'"-IGRebirthProbeResultPath=$resultPath"',
+	'Assert-ArchiveUnchanged',
+	'ArchiveDirectory must be the BuildCookRun archive root containing',
 	"if (`$Mode -eq 'CatChoiceRead')",
 	"`$arguments += '-IGChapterTwo'",
 	"'BoundaryBeforeWrite'",
@@ -1519,7 +1821,11 @@ foreach ($requiredPersistenceHarnessInvariant in @(
 	'SaveSnapshots',
 	'Copy-Item',
 	'saveSnapshotSha256',
+	'receiptSha256',
 	'saveDeleted',
+	'$archiveManifestBefore = @()',
+	'archiveUnchanged = $usingPackagedShipping',
+	'processCount = $results.Count',
 	'Get-FileHash -Algorithm SHA256',
 	'REBIRTH_SPIKE_HARNESS PASS complete boundary=2 cat_choices=5 ch02_time=2 p5=4 p3=7 endings=2'
 )) {
@@ -1529,6 +1835,12 @@ foreach ($requiredPersistenceHarnessInvariant in @(
 			'Persistence spike harness invariant is missing: ' +
 			$requiredPersistenceHarnessInvariant)
 	}
+}
+if ($persistenceSpikeScript.Contains(
+		'$archiveManifestBefore = if ($usingPackagedShipping)')) {
+	throw (
+		'Persistence spike harness must initialize an empty array explicitly; ' +
+		'a PowerShell if-expression collapses @() to null under strict mode.')
 }
 foreach ($requiredPersistenceProbeInvariant in @(
 	'IGRebirthPersistenceProbe=',
@@ -1562,6 +1874,9 @@ foreach ($requiredPersistenceProbeInvariant in @(
 	'branch_exclusive=1',
 	'DeleteGameInSlot',
 	'REBIRTH_SPIKE PASS %s',
+	'IGRebirthProbeResultPath=',
+	'WriteResultReceipt',
+	'ForceUTF8WithoutBOM',
 	'RequestExitWithStatus'
 )) {
 	if (-not $persistenceProbeSource.Contains(
@@ -1655,6 +1970,12 @@ foreach ($requiredPerformanceInvariant in @(
 	'`REC-W11-NV`',
 	'`REC-W11-AMD`',
 	'여섯 필수 장비',
+	'기준일: `2026-08-06`',
+	'`UInstancedStaticMeshComponent` 최대 24개',
+	'`instances=1122`',
+	'Component Tick은 기본 활성 상태로 시작할 수 없으며',
+	'현재 월드는 `BeginPlay`에서 절차적으로 조립되므로',
+	'`stat PSOPrecache`',
 	'판정은 **BLOCKED**'
 )) {
 	if (-not $performanceContract.Contains($requiredPerformanceInvariant)) {
@@ -1775,6 +2096,150 @@ if (-not $horrorHudSource.Contains(
 	throw 'CH03 HUD objective-provider fallback is missing.'
 }
 
+foreach ($requiredFrontendProbeControllerInvariant in @(
+	'IGFrontendShippingProbe',
+	'void AIGPlayerController::TickFrontendShippingProbe()',
+	'FInputKeyEventArgs Pressed(',
+	'FInputKeyEventArgs Released(',
+	'!Params.IsSimulatedInput()',
+	'EKeys::F10',
+	'EKeys::Gamepad_DPad_Down',
+	'EKeys::Gamepad_Special_Right',
+	'EKeys::Gamepad_FaceButton_Bottom',
+	'EKeys::Gamepad_FaceButton_Right',
+	'EKeys::Gamepad_Special_Left',
+	'TryCaptureFrontendProbeLayout(TEXT("display_gamepad"), 11)',
+	'TEXT("dialogue_default_scale"),',
+	'TEXT("dialogue_max_scale"),',
+	'GetDialogueRenderSample(',
+	'IGFrontendDefaultScreenshotPath=',
+	'IGFrontendScreenshotPath=',
+	'FScreenshotRequest::RequestScreenshot(',
+	'Settings.CaptionSizeScale = 2.0f',
+	'FrontendProbeLayoutSampleCount != 10',
+	'FrontendProbePressedEventCount != 11',
+	'REBIRTH_FRONTEND PASS contract=3 resolution=%dx%d',
+	'FPlatformMisc::RequestExitWithStatus'
+)) {
+	if (-not $playerControllerSource.Contains(
+		$requiredFrontendProbeControllerInvariant)) {
+		throw (
+			'Frontend Shipping input-path invariant is missing: ' +
+			$requiredFrontendProbeControllerInvariant)
+	}
+}
+foreach ($requiredHudLayoutProbeInvariant in @(
+	'bLayoutValidationEnabled = FParse::Param(',
+	'bool AIGHorrorHUD::GetLayoutValidationSample(',
+	'void AIGHorrorHUD::BeginLayoutValidationSample()',
+	'void AIGHorrorHUD::RecordLayoutValidationRect(',
+	'void AIGHorrorHUD::FinalizeLayoutValidationSample()',
+	'if (bLayoutValidationEnabled)',
+	'Canvas->StrLen(Font, Text.ToString(), TextWidth, TextHeight, true)',
+	'bLayoutValidationAllInsideCanvas',
+	'PixelTolerance = 1.5f'
+)) {
+	if (-not $horrorHudSource.Contains($requiredHudLayoutProbeInvariant)) {
+		throw (
+			'Frontend HUD layout-probe invariant is missing: ' +
+			$requiredHudLayoutProbeInvariant)
+	}
+}
+$layoutMeasurementIndex = $horrorHudSource.IndexOf(
+	'Canvas->StrLen(Font, Text.ToString(), TextWidth, TextHeight, true)')
+$layoutGateIndex = $horrorHudSource.LastIndexOf(
+	'if (bLayoutValidationEnabled)',
+	$layoutMeasurementIndex)
+if ($layoutMeasurementIndex -lt 0 -or
+	$layoutGateIndex -lt 0 -or
+	$layoutMeasurementIndex - $layoutGateIndex -gt 100) {
+	throw 'HUD layout measurement must remain gated out of normal gameplay.'
+}
+
+foreach ($requiredLensDropletHudInvariant in @(
+	'void AIGHorrorHUD::InitializeLensDropletTexture()',
+	'MakeUniqueObjectName(',
+	'UTexture2D::CreateTransient(',
+	'PF_B8G8R8A8',
+	'LensDropletTexture->NeverStream = true',
+	'void AIGHorrorHUD::DrawLensDroplet(',
+	'Accessibility->IsReducedCameraMotionEnabled()',
+	'bool AIGHorrorHUD::GetLensDropletRenderSample(',
+	'LensDropletLastPosition = DropPosition',
+	'LensDropletLastCanvasSize = FVector2D(Canvas->ClipX, Canvas->ClipY)',
+	'LensDropletLastRenderTime = CurrentTime',
+	'Droplet.BlendMode = SE_BLEND_Translucent',
+	'DrawLensDroplet(CurrentTime);'
+)) {
+	if (-not $horrorHudSource.Contains($requiredLensDropletHudInvariant)) {
+		throw "CH03 one-shot lens-droplet HUD invariant is missing: $requiredLensDropletHudInvariant"
+	}
+}
+foreach ($requiredLensDropletFlowInvariant in @(
+	'OpeningLensDropletDelaySeconds = 1.05f',
+	'OpeningLensDropletDurationSeconds = 3.0f',
+	'&ThisClass::ShowOpeningLensDroplet',
+	'if ((bCaptureMode && !bLensDropletCaptureMode)',
+	'AIGHorrorHUD::PushLensDroplet('
+)) {
+	if (-not $thirdMorningSource.Contains($requiredLensDropletFlowInvariant)) {
+		throw "CH03 one-shot lens-droplet flow invariant is missing: $requiredLensDropletFlowInvariant"
+	}
+}
+foreach ($requiredLensDropletCaptureInvariant in @(
+	'IGCaptureCH03LensDroplet',
+	'LensDropletCaptureEarlyDelaySeconds = 0.42f',
+	'LensDropletCaptureLateDelaySeconds = 1.35f',
+	'LensDropletCaptureMinimumTravelPixels = 8.0f',
+	'LensDropletCaptureMaximumReducedTravelPixels = 0.5f',
+	'LensDropletCaptureMinimumAlpha = 0.55f',
+	'void AIGThirdMorningDirector::StartLensDropletCaptureSequence()',
+	'void AIGThirdMorningDirector::CaptureLensDropletEarlyFrame()',
+	'void AIGThirdMorningDirector::CaptureLensDropletLateFrame()',
+	'void AIGThirdMorningDirector::FinishLensDropletCaptureSequence()',
+	'FPaths::FileExists(LensDropletCaptureEarlyPath)',
+	'REBIRTH_CH03_LENS_CAPTURE %s mode=%s reduced_motion=%d',
+	'hud_safe=%d',
+	'WriteCaptureReceipt(Receipt)'
+)) {
+	if (-not $thirdMorningSource.Contains($requiredLensDropletCaptureInvariant)) {
+		throw (
+			'CH03 Shipping lens-droplet capture invariant is missing: ' +
+			$requiredLensDropletCaptureInvariant)
+	}
+}
+if (([regex]::Matches(
+	$worldSceneSource,
+	'IGCaptureCH03LensDroplet')).Count -ne 2) {
+	throw 'CH03 lens-droplet capture flag must route and configure exactly once each.'
+}
+$drawHudStart = $horrorHudSource.IndexOf('void AIGHorrorHUD::DrawHUD()')
+if ($drawHudStart -lt 0) {
+	throw 'CH03 lens-droplet DrawHUD entry is missing.'
+}
+$drawAudioCaptionStart = $horrorHudSource.IndexOf(
+	'bool AIGHorrorHUD::DrawAudioCaption(',
+	$drawHudStart)
+if ($drawAudioCaptionStart -le $drawHudStart) {
+	throw 'CH03 lens-droplet DrawHUD block is malformed.'
+}
+$drawHudBlock = $horrorHudSource.Substring(
+	$drawHudStart,
+	$drawAudioCaptionStart - $drawHudStart)
+$chapterCardDrawIndex = $drawHudBlock.IndexOf('DrawChapterCard(CurrentTime)')
+$lensDropletDrawIndex = $drawHudBlock.IndexOf('DrawLensDroplet(CurrentTime);')
+$crosshairDrawIndex = $drawHudBlock.IndexOf('DrawCrosshair(')
+if ($chapterCardDrawIndex -lt 0 -or
+	$lensDropletDrawIndex -le $chapterCardDrawIndex -or
+	$crosshairDrawIndex -le $lensDropletDrawIndex) {
+	throw 'CH03 lens droplet must stay below native HUD content and outside chapter cards.'
+}
+if (([regex]::Matches(
+	$thirdMorningSource,
+	'&ThisClass::ShowOpeningLensDroplet')).Count -ne 1) {
+	throw 'CH03 opening lens droplet must be scheduled exactly once.'
+}
+
 if (-not $playerCharacterSource.Contains(
 	'InitCapsuleSize(34.0f, 96.0f)')) {
 	throw 'First-person capsule must preserve clearance through the 84-88 cm interior doors.'
@@ -1854,9 +2319,17 @@ $chapterTwoTimeEntryContractScript = Join-Path $projectRoot `
 	'Scripts/Test-Rebirth-ChapterTwoTimeEntryContract.ps1'
 & $chapterTwoTimeEntryContractScript
 
+$audioContractScript = Join-Path $projectRoot `
+	'Scripts/Test-Rebirth-AudioContract.ps1'
+& $audioContractScript
+
 $accessibilityContractScript = Join-Path $projectRoot `
 	'Scripts/Test-Rebirth-AccessibilityContract.ps1'
 & $accessibilityContractScript
+
+$dialogueContractScript = Join-Path $projectRoot `
+	'Scripts/Test-Rebirth-DialogueContract.ps1'
+& $dialogueContractScript
 
 $frontendContractScript = Join-Path $projectRoot `
 	'Scripts/Test-Rebirth-FrontendContract.ps1'

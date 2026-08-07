@@ -254,6 +254,26 @@ $plan = @(
         Source = 'TextureP3CabinetPaintedSteel'; Target = 'T_P3CabinetPaintedSteel_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
+    # The generated UI scan is intentionally free of frames and baked text.
+    # Runtime geometry supplies the rounded mask and channel accents while this
+    # low-contrast layer prevents a sterile flat-color subtitle surface.
+    [pscustomobject]@{
+        Source = 'TextureHudDialogueFilm'; Target = 'T_HudDialogueFilm_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    # Apartment vertical-slice art direction. The wallpaper remains a neutral
+    # BaseColor scan; N/R/A are derived offline so no generated highlight is
+    # baked into the room. The patina sheet is data, not a photographed plane:
+    # white is damage coverage and black leaves the wallpaper untouched.
+    [pscustomobject]@{
+        Source = 'TextureApartmentWallpaperVintage'; Target = 'T_ApartmentWallpaperV2_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'MaskApartmentWallPatina'; Target = 'T_ApartmentWallPatina_M.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+        Mode = 'Mask'
+    }
 )
 
 if ($OnlySource.Count -gt 0) {

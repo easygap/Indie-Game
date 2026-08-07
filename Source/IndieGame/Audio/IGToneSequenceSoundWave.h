@@ -55,6 +55,12 @@ public:
 	 * note and stops at its finite Duration.
 	 */
 	void ConfigureNotes(TArray<FIGToneNote>&& InNotes, bool bInLooping, float LoopSeconds = 0.0f);
+	/** Applies a small integrated pitch drift without changing sequence timing. */
+	void ConfigurePitchWow(float DepthRatio, float RateHz);
+	/** Finite authored length, including the protected release tail. */
+	float GetConfiguredDurationSeconds() const { return Duration; }
+	/** True when ConfigureNotes installed an indefinitely repeating pattern. */
+	bool IsConfiguredLooping() const { return bLooping; }
 
 	virtual int32 OnGeneratePCMAudio(TArray<uint8>& OutAudio, int32 NumSamples) override;
 
@@ -111,6 +117,9 @@ public:
 
 	/** Looping low minor-cluster drone for the pre-dawn alley. */
 	static UIGToneSequenceSoundWave* CreateDreadDrone(UObject* Outer);
+
+	/** Looping CH03 flooded-corridor bed with low water mass and sparse drops. */
+	static UIGToneSequenceSoundWave* CreateFloodedCorridorWaterBed(UObject* Outer);
 
 	/**
 	 * Soft shoe-on-floor step. PitchScale shifts the surface character
@@ -221,6 +230,12 @@ public:
 	 */
 	static UIGToneSequenceSoundWave* CreateEndingBMontage(UObject* Outer);
 
+	/**
+	 * M5 "Return Home": 45 seconds at 52 BPM, rebuilding the first three
+	 * alarm intervals from glass-rim tones over refrigerator harmonics.
+	 */
+	static UIGToneSequenceSoundWave* CreateEndingBReturnHomeBed(UObject* Outer);
+
 	/** Bright, ordinary spring morning bed: sparrows and a distant scooter. */
 	static UIGToneSequenceSoundWave* CreateSpringMorningBed(UObject* Outer);
 
@@ -238,6 +253,8 @@ private:
 	TArray<FIGToneNote> Notes;
 	int64 LoopSampleCount = 0;
 	int64 TotalSampleCount = 0;
+	float PitchWowDepthRatio = 0.0f;
+	float PitchWowRateHz = 0.0f;
 
 	// Render-thread-owned sample cursor.
 	uint64 GeneratedSampleCount = 0;

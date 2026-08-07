@@ -13,7 +13,13 @@ enum class EIGAmbienceMode : uint8
 	/** Pre-dawn alley wind with slow gusts and a faint distant rumble. */
 	StreetWind,
 	/** Convenience-store fluorescent ballast buzz with a thin high whine. */
-	StoreBuzz
+	StoreBuzz,
+	/** CH02 pressure bed: 38/57 Hz beating with narrow 240 Hz air noise. */
+	DoorBeyond,
+	/** CH03 roof-only wind and rope tension; no score. */
+	RoofWindRope,
+	/** Directional tank pressure removed only after C5 and the third scratch tail. */
+	RoofTankPressure
 };
 
 /**
@@ -46,4 +52,6 @@ private:
 	uint64 GeneratedSampleCount = 0;
 	uint32 NoiseState = 0x1F123BB5u;
 	float BrownAccumulator = 0.0f;
+	float DoorNoiseLow180 = 0.0f;
+	float DoorNoiseLow320 = 0.0f;
 };

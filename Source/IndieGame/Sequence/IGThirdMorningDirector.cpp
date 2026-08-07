@@ -3,6 +3,7 @@
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "AssetCompilingManager.h"
 #include "Audio/IGAlarmSoundWave.h"
+#include "Audio/IGAmbienceSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraActor.h"
@@ -46,6 +47,7 @@
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGPlayerController.h"
+#include "Player/IGStressComponent.h"
 #include "Save/IGSaveGame.h"
 #include "Save/IGSaveSubsystem.h"
 #include "ShaderCompiler.h"
@@ -62,6 +64,21 @@ namespace IGThirdMorning
 	constexpr float RestoredCapsuleCenter = StandingCapsuleCenter + 2.0f;
 	constexpr float DefaultWalkSpeed = 300.0f;
 	constexpr float FloodWalkSpeed = 225.0f;
+	constexpr float OpeningLensDropletDelaySeconds = 1.05f;
+	constexpr float OpeningLensDropletDurationSeconds = 3.0f;
+	constexpr float LensDropletCaptureEarlyDelaySeconds = 0.42f;
+	constexpr float LensDropletCaptureLateDelaySeconds = 1.35f;
+	constexpr float LensDropletCaptureFinishRetrySeconds = 0.10f;
+	constexpr int32 LensDropletCaptureMaximumFinishRetries = 20;
+	constexpr float LensDropletCaptureMinimumTravelPixels = 8.0f;
+	constexpr float LensDropletCaptureMaximumReducedTravelPixels = 0.5f;
+	constexpr float LensDropletCaptureMinimumAlpha = 0.55f;
+	constexpr float NarrativeCrossfadeSeconds = 1.6f;
+	constexpr float TankRevealSilenceSeconds = 6.0f;
+	constexpr float EndingBMusicDurationSeconds = 45.0f;
+	constexpr float EndingBDripDelaySeconds = 42.0f;
+	constexpr float EndingBFinalCardDelaySeconds = 45.2f;
+	static_assert(EndingBDripDelaySeconds < EndingBMusicDurationSeconds);
 	constexpr float RoofFloorZ = 240.0f;
 	constexpr float RoofDoorLeafWidth = 116.0f;
 	constexpr float RoofDoorFreeEdgeGap = 11.0f;
@@ -320,6 +337,10 @@ void AIGThirdMorningDirector::ConfigureAndStart(
 	}
 
 	bCaptureMode = bCaptureSequence;
+	bLensDropletCaptureMode = bCaptureMode
+		&& FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGCaptureCH03LensDroplet"));
 	bGreyboxValidationMode =
 		FParse::Param(FCommandLine::Get(), TEXT("IGRebirthGreybox"));
 	bReleaseValidationMode =
@@ -411,7 +432,9 @@ void AIGThirdMorningDirector::ConfigureAndStart(
 		GetWorldTimerManager().SetTimer(
 			CaptureTimer,
 			this,
-			&ThisClass::StartCaptureSequence,
+			bLensDropletCaptureMode
+				? &ThisClass::StartLensDropletCaptureSequence
+				: &ThisClass::StartCaptureSequence,
 			1.2f,
 			false);
 		return;
@@ -546,6 +569,10 @@ void AIGThirdMorningDirector::RestoreCheckpointAnchor(
 		SetDocumentAvailable(PreservationNoticeNote, true);
 		SetDocumentAvailable(PoliceChecklistNote, true);
 		SetFloodMovement(false);
+		if (!bEndingFinished)
+		{
+			StartRoofBed(true);
+		}
 		if (bEndingFinished)
 		{
 			SetPhase(EIGThirdMorningPhase::Ending);
@@ -583,7 +610,7 @@ void AIGThirdMorningDirector::RestoreCheckpointAnchor(
 	{
 		SetPhase(EIGThirdMorningPhase::FloodedCorridor);
 		SetFloodMovement(true);
-		StartWaterBed();
+		StartWaterBed(true);
 		LastPlayerMovingTime = GetWorld()->GetTimeSeconds();
 		NextDelayedSplashTime = LastPlayerMovingTime + 7.0;
 		GetWorldTimerManager().SetTimer(
@@ -2893,7 +2920,9 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 		FVector(24, 13, 1.2f),
 		WetPaperMaterial,
 		false,
-		FRotator(0, 0, 12));
+		FRotator(0, 0, 12),
+		nullptr,
+		true);
 	if (P4ReceiptFragment)
 	{
 		P4ReceiptFragment->SetVisibility(false);
@@ -2902,6 +2931,22 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 
 void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 {
+	constexpr float LandingRouteY = -420.0f;
+	constexpr float DoorLowerInnerY = -480.0f;
+	constexpr float DoorUpperInnerY = -320.0f;
+	constexpr float RequiredCapsuleHalfWidth = 34.0f + 20.0f;
+	constexpr float HangingVinylWallY = -322.0f;
+	// Half-thickness plus the farthest 5.75-degree roll of the 210 cm sheet.
+	constexpr float HangingVinylMaximumRouteReach = 12.0f;
+	static_assert(
+		LandingRouteY - DoorLowerInnerY >= RequiredCapsuleHalfWidth
+			&& DoorUpperInnerY - LandingRouteY >= RequiredCapsuleHalfWidth,
+		"The fifth-floor landing must preserve the 160 cm doorway route.");
+	static_assert(
+		HangingVinylWallY - HangingVinylMaximumRouteReach
+			>= LandingRouteY + RequiredCapsuleHalfWidth,
+		"The moving vinyl must not visually seal the landing route.");
+
 	// Unfinished fifth-floor landing.
 	// The slab overlaps the first roof riser by one centimeter so no invisible
 	// fall-through strip exists between the two pieces.
@@ -2909,11 +2954,19 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		FVector(1265, -451.5f, 170),
 		FVector(470, 147, 20),
 		ConcreteMaterial);
+	// Extend only the doorway side of the landing. Extending the whole slab
+	// north would cover the last upper-flight treads and turn them into an
+	// invisible 30 cm step.
+	CreateBlock(
+		FVector(1355, -340.0f, 170),
+		FVector(290, 76, 20),
+		ConcreteMaterial);
 	// The stair opens into a real enclosed landing, not straight into the sky.
-	// The south wall starts east of the stair aperture, so the player can step
-	// onto the slab and turn right toward the roof doorway without crossing a
-	// hidden blocker. The rear wall and soffit close every sightline visible
-	// from 4F while retaining the unfinished concrete character of the space.
+	// The landing-side wall starts east of the stair aperture and meets the
+	// north roof-door jamb at its inner edge. This preserves the authored
+	// 160 cm doorway instead of narrowing it with an overlapping wall. The
+	// extended slab, west wall and soffit close every sightline visible from
+	// 4F while retaining the unfinished concrete character of the space.
 	CreateBlock(
 		FVector(1235, -525, 290),
 		FVector(530, 18, 220),
@@ -2923,13 +2976,41 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		FVector(20, 147, 220),
 		DarkConcreteMaterial);
 	CreateBlock(
-		FVector(1355, -378, 290),
+		FVector(1355, -311, 290),
 		FVector(290, 18, 220),
 		DarkConcreteMaterial);
 	CreateBlock(
 		FVector(1235, -451.5f, 410),
 		FVector(530, 147, 20),
 		DarkConcreteMaterial);
+	CreateBlock(
+		FVector(1355, -340.0f, 410),
+		FVector(290, 76, 20),
+		DarkConcreteMaterial);
+	// A weak maintenance fixture makes the four risers and the latched fire
+	// door read as a navigable route, not a black collision wall.  It stays
+	// shadowless and local so the fifth floor remains the story's quiet,
+	// low-pressure transition rather than becoming a safe room.
+	CreateBlock(
+		FVector(1415, -420, 397),
+		FVector(48, 14, 3),
+		ScreenMaterial,
+		false);
+	CreatePointLight(
+		FVector(1415, -420, 386),
+		1850.0f,
+		520.0f,
+		FLinearColor(0.24f, 0.34f, 0.29f),
+		false);
+	// A dim reflected pool on the roof side separates the four risers from the
+	// fire-door leaf. It carries no visible fixture and stays below the landing
+	// practical, reading as spill from outdoors rather than a second safe light.
+	CreatePointLight(
+		FVector(1570, -420, 305),
+		540.0f,
+		360.0f,
+		FLinearColor(0.17f, 0.25f, 0.32f),
+		false);
 	// A 160 x 210 cm unfinished doorway connects the landing to the roof
 	// risers. The side piers preserve the load-bearing wall silhouette.
 	CreateBlock(FVector(1450, -502.5f, 205), FVector(18, 45, 410), DarkConcreteMaterial);
@@ -2942,14 +3023,29 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 			FVector(16, 16, 310),
 			MetalMaterial);
 	}
-	// Hanging vinyl: a thin non-colliding sheet, motionless air made suspect
-	// by its skewed pose.
-	CreateBlock(
-		FVector(1390, -335, 300),
-		FVector(3, 155, 210),
-		WetPaperMaterial,
+	// Keep the construction vinyl on the landing wall instead of laying a
+	// bright, non-colliding plane across the playable doorway.  The dedicated
+	// film material catches the flashlight at a grazing angle while the entire
+	// 160 cm route remains visually legible.
+	HangingVinyl = CreateBlock(
+		FVector(1325, HangingVinylWallY, 300),
+		FVector(150, 3, 210),
+		CarrierBagMaterial,
 		false,
-		FRotator(0, 0, 7));
+		FRotator(0, 0, -4),
+		nullptr,
+		true);
+	if (HangingVinyl && GetWorld())
+	{
+		// One 20 Hz transform is enough for slow, irregular movement and avoids
+		// enabling an otherwise unnecessary per-frame actor tick.
+		GetWorldTimerManager().SetTimer(
+			HangingVinylTimer,
+			this,
+			&ThisClass::UpdateHangingVinylSway,
+			0.05f,
+			true);
+	}
 
 	// The search flyer is found on the 4F route, never as a convenient document
 	// cache on the fifth floor. Before P3 it hangs wet across the stair rail;
@@ -3232,8 +3328,8 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		FRotator(0, -45, 0));
 	CreatePointLight(
 		FVector(2645, -555, 530),
-		3150.0f,
-		1480.0f,
+		4600.0f,
+		1620.0f,
 		FLinearColor(0.36f, 0.47f, 0.68f),
 		false);
 	CreatePointLight(
@@ -3244,10 +3340,24 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 		true);
 	CreatePointLight(
 		FVector(2350, -120, 520),
-		1380.0f,
-		760.0f,
+		2050.0f,
+		920.0f,
 		FLinearColor(0.16f, 0.30f, 0.46f),
 		false);
+}
+
+void AIGThirdMorningDirector::UpdateHangingVinylSway()
+{
+	if (!HangingVinyl || !GetWorld())
+	{
+		return;
+	}
+
+	const float Seconds = GetWorld()->GetTimeSeconds();
+	const float SlowDrift = FMath::Sin(Seconds * 0.83f) * 1.4f;
+	const float UnevenFlutter = FMath::Sin(Seconds * 1.73f + 0.8f) * 0.35f;
+	HangingVinyl->SetRelativeRotation(
+		FRotator(0.0f, 0.0f, -4.0f + SlowDrift + UnevenFlutter));
 }
 
 void AIGThirdMorningDirector::BuildWaterTank()
@@ -3474,8 +3584,8 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		FRotator(0, 45, 0));
 	CreatePointLight(
 		Tank + FVector(123, -123, 560),
-		1050.0f,
-		660.0f,
+		1580.0f,
+		760.0f,
 		FLinearColor(0.34f, 0.45f, 0.58f),
 		false);
 
@@ -3749,7 +3859,8 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		TankMetal,
 		false,
 		FRotator(90, 24, 0),
-		InspectionRodMesh ? InspectionRodMesh.Get() : CylinderMesh.Get());
+		InspectionRodMesh ? InspectionRodMesh.Get() : CylinderMesh.Get(),
+		true);
 
 	// Settling ripples live in the single translucent water material. Separate
 	// opaque ring segments used to float above the surface, hide refraction,
@@ -4764,6 +4875,17 @@ void AIGThirdMorningDirector::BeginAwakening()
 				1.0f, 0.0f, 1.2f, FLinearColor::Black, false, false);
 		}
 	}
+	// New CH03 attempts alone reach BeginAwakening. Keep an explicit guard so
+	// save restoration and deterministic validation can never replay the cue.
+	if (!bCaptureMode && !bGreyboxValidationMode && !bRestoredChapterThreeProgress)
+	{
+		GetWorldTimerManager().SetTimer(
+			LensDropletTimer,
+			this,
+			&ThisClass::ShowOpeningLensDroplet,
+			IGThirdMorning::OpeningLensDropletDelaySeconds,
+			false);
+	}
 
 	UIGAlarmSoundWave* Alarm = NewObject<UIGAlarmSoundWave>(this, TEXT("CH03SelfStoppingAlarm"));
 	AlarmComponent = IGAudio::SpawnOneShotAt(
@@ -4781,6 +4903,19 @@ void AIGThirdMorningDirector::BeginAwakening()
 		&ThisClass::StopAlarmByItself,
 		4.0f,
 		false);
+}
+
+void AIGThirdMorningDirector::ShowOpeningLensDroplet()
+{
+	if ((bCaptureMode && !bLensDropletCaptureMode)
+		|| bGreyboxValidationMode
+		|| bRestoredChapterThreeProgress)
+	{
+		return;
+	}
+	AIGHorrorHUD::PushLensDroplet(
+		this,
+		IGThirdMorning::OpeningLensDropletDurationSeconds);
 }
 
 void AIGThirdMorningDirector::StopAlarmByItself()
@@ -5839,6 +5974,13 @@ void AIGThirdMorningDirector::UpdateEndingAvailability()
 	SetVisibleInteractive(SupportChoiceAction, bReady);
 	if (bReady)
 	{
+		if (TankPressureComponent)
+		{
+			TankPressureComponent->FadeOut(
+				IGThirdMorning::NarrativeCrossfadeSeconds,
+				0.0f);
+			TankPressureComponent = nullptr;
+		}
 		SetPhase(EIGThirdMorningPhase::Choice);
 	}
 }
@@ -5888,7 +6030,7 @@ void AIGThirdMorningDirector::ScheduleAccidentScratch()
 			AccidentScratchTimer,
 			this,
 			&ThisClass::PlayAccidentScratch,
-			2.0f,
+			IGThirdMorning::TankRevealSilenceSeconds,
 			false);
 		return;
 	}
@@ -6221,6 +6363,7 @@ void AIGThirdMorningDirector::HandleCorridorEntered(AIGZoneTrigger* Zone)
 {
 	SetPhase(EIGThirdMorningPhase::FloodedCorridor);
 	SetFloodMovement(true);
+	StopRoofBed(IGThirdMorning::NarrativeCrossfadeSeconds);
 	StartWaterBed();
 	AIGHorrorHUD::PushThought(
 		this,
@@ -6814,9 +6957,12 @@ void AIGThirdMorningDirector::EnterRoofSilence()
 	SetFloodMovement(false);
 	if (WaterBedComponent)
 	{
-		WaterBedComponent->FadeOut(1.1f, 0.0f);
+		WaterBedComponent->FadeOut(
+			IGThirdMorning::NarrativeCrossfadeSeconds,
+			0.0f);
 		WaterBedComponent = nullptr;
 	}
+	StartRoofBed();
 	GetWorldTimerManager().ClearTimer(MotionPollTimer);
 
 	IGStory::AddState(
@@ -6918,7 +7064,7 @@ void AIGThirdMorningDirector::RevealTank()
 		TankLidAction->SetActorEnableCollision(false);
 	}
 	ApplyTankRevealVisibility();
-	StopAllChapterAudio();
+	StartTankRevealSilence();
 	IGStory::AddState(
 		this,
 		FGameplayTag::RequestGameplayTag(
@@ -6999,10 +7145,7 @@ void AIGThirdMorningDirector::HandleFlashlightReturnReveal(
 	FlashlightReturnRevealZone->OnZoneTriggered.RemoveDynamic(
 		this,
 		&ThisClass::HandleFlashlightReturnReveal);
-	StopAllChapterAudio();
-	PlayMetalEcho(
-		IGThirdMorning::TankCenter + FVector(0.0f, 0.0f, 564.0f),
-		0.72f);
+	StartTankRevealSilence();
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
@@ -7642,26 +7785,66 @@ void AIGThirdMorningDirector::StartEndingBEpilogue()
 		}
 	}
 
-	UGameplayStatics::PlaySound2D(
+	EndingBMusicComponent = UGameplayStatics::SpawnSound2D(
 		this,
-		UIGToneSequenceSoundWave::CreateSpringMorningBed(this),
-		0.8f);
+		UIGToneSequenceSoundWave::CreateEndingBReturnHomeBed(this),
+		0.001f);
+	if (EndingBMusicComponent)
+	{
+		EndingBMusicComponent->FadeIn(
+			IGThirdMorning::NarrativeCrossfadeSeconds,
+			0.8f,
+			0.0f);
+	}
 
 	const TWeakObjectPtr<AIGThirdMorningDirector> WeakThis(this);
-	ScheduleEndingCue(3.20f, [WeakThis]()
+	ScheduleEndingCue(IGThirdMorning::EndingBDripDelaySeconds, [WeakThis]()
 	{
 		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
 			Director->PlayEpilogueDripAndClock();
 		}
 	});
-	ScheduleEndingCue(7.60f, [WeakThis]()
+	ScheduleEndingCue(IGThirdMorning::EndingBMusicDurationSeconds, [WeakThis]()
+	{
+		if (AIGThirdMorningDirector* Director = WeakThis.Get())
+		{
+			Director->StartEndingBLifeBed();
+		}
+	});
+	ScheduleEndingCue(IGThirdMorning::EndingBFinalCardDelaySeconds, [WeakThis]()
 	{
 		if (AIGThirdMorningDirector* Director = WeakThis.Get())
 		{
 			Director->ShowEndingBFinalCard();
 		}
 	});
+}
+
+void AIGThirdMorningDirector::StartEndingBLifeBed()
+{
+	if (EndingBMusicComponent)
+	{
+		// M5 has completed its authored 45 seconds; discard only its protected
+		// silent tail before the ordinary spring room takes over.
+		EndingBMusicComponent->Stop();
+		EndingBMusicComponent = nullptr;
+	}
+	if (EndingBLifeBedComponent)
+	{
+		return;
+	}
+	EndingBLifeBedComponent = UGameplayStatics::SpawnSound2D(
+		this,
+		UIGToneSequenceSoundWave::CreateSpringMorningBed(this),
+		0.001f);
+	if (EndingBLifeBedComponent)
+	{
+		EndingBLifeBedComponent->FadeIn(
+			IGThirdMorning::NarrativeCrossfadeSeconds,
+			0.8f,
+			0.0f);
+	}
 }
 
 void AIGThirdMorningDirector::PlayEpilogueDripAndClock()
@@ -7690,6 +7873,12 @@ void AIGThirdMorningDirector::PlayEpilogueDripAndClock()
 
 void AIGThirdMorningDirector::ShowEndingBFinalCard()
 {
+	if (!EndingBMusicComponent && !EndingBLifeBedComponent)
+	{
+		// A save restored after the one-shot montage guard resumes at the card.
+		// It never replays M5, but it should not return to a dead audio world.
+		StartEndingBLifeBed();
+	}
 	PresentEndingControls(
 		NSLOCTEXT("IGCH03", "EndingBTitle", "돌려보내다"),
 		NSLOCTEXT(
@@ -7903,7 +8092,7 @@ void AIGThirdMorningDirector::SetFloodMovement(const bool bFlooded)
 // Sound field
 // ---------------------------------------------------------------------------
 
-void AIGThirdMorningDirector::StartWaterBed()
+void AIGThirdMorningDirector::StartWaterBed(const bool bRestoreImmediately)
 {
 	if (WaterBedComponent)
 	{
@@ -7911,19 +8100,12 @@ void AIGThirdMorningDirector::StartWaterBed()
 	}
 
 	UIGToneSequenceSoundWave* WaterBed =
-		NewObject<UIGToneSequenceSoundWave>(this, TEXT("CH03WaterBed"));
-	TArray<FIGToneNote> Notes;
-	Notes.Add({0.0f, 9.0f, 96.0f, 0.025f, 0.20f, 0.8f, EIGToneWaveform::ValueNoise});
-	Notes.Add({0.0f, 9.0f, 52.0f, 0.018f, 0.25f, 0.8f, EIGToneWaveform::Sine});
-	Notes.Add({1.2f, 0.24f, 820.0f, 0.065f, 0.02f, 2.8f, EIGToneWaveform::ValueNoise});
-	Notes.Add({4.7f, 0.36f, 1280.0f, 0.050f, 0.02f, 3.2f, EIGToneWaveform::Sine});
-	Notes.Add({7.4f, 0.20f, 610.0f, 0.052f, 0.02f, 2.6f, EIGToneWaveform::ValueNoise});
-	WaterBed->ConfigureNotes(MoveTemp(Notes), true, 9.0f);
+		UIGToneSequenceSoundWave::CreateFloodedCorridorWaterBed(this);
 	WaterBedComponent = IGAudio::SpawnOneShotAt(
 		this,
 		WaterBed,
 		ToWorld(FVector(690, 0, 5)),
-		0.42f,
+		bRestoreImmediately ? 0.42f : 0.001f,
 		1.0f,
 		260.0f,
 		1450.0f);
@@ -7931,6 +8113,124 @@ void AIGThirdMorningDirector::StartWaterBed()
 	{
 		WaterBedComponent->SetLowPassFilterEnabled(true);
 		WaterBedComponent->SetLowPassFilterFrequency(2100.0f);
+		if (!bRestoreImmediately)
+		{
+			WaterBedComponent->FadeIn(
+				IGThirdMorning::NarrativeCrossfadeSeconds,
+				0.42f,
+				0.0f);
+		}
+	}
+	if (GetWorld())
+	{
+		NextWaterBedPulseTime =
+			GetWorld()->GetTimeSeconds()
+			+ IGThirdMorning::NarrativeCrossfadeSeconds;
+	}
+}
+
+void AIGThirdMorningDirector::StartRoofBed(const bool bRestoreImmediately)
+{
+	if (!RoofBedComponent)
+	{
+		UIGAmbienceSoundWave* RoofBed = NewObject<UIGAmbienceSoundWave>(
+			this,
+			TEXT("CH03RoofWindRopeWave"));
+		RoofBed->Configure(EIGAmbienceMode::RoofWindRope, 0xB00400Fu);
+		RoofBedComponent = IGAudio::SpawnOneShotAt(
+			this,
+			RoofBed,
+			ToWorld(IGThirdMorning::TankCenter + FVector(-420.0f, 0.0f, 500.0f)),
+			bRestoreImmediately ? 0.38f : 0.001f,
+			1.0f,
+			680.0f,
+			1500.0f);
+		if (RoofBedComponent && !bRestoreImmediately)
+		{
+			RoofBedComponent->FadeIn(
+				IGThirdMorning::NarrativeCrossfadeSeconds,
+				0.38f,
+				0.0f);
+		}
+	}
+
+	if (!TankPressureComponent && !IsEndingChoiceReady())
+	{
+		UIGAmbienceSoundWave* TankPressure = NewObject<UIGAmbienceSoundWave>(
+			this,
+			TEXT("CH03RoofTankPressureWave"));
+		TankPressure->Configure(EIGAmbienceMode::RoofTankPressure, 0x7A4C005u);
+		TankPressureComponent = IGAudio::SpawnOneShotAt(
+			this,
+			TankPressure,
+			ToWorld(IGThirdMorning::TankCenter + FVector(0.0f, 0.0f, 520.0f)),
+			bRestoreImmediately ? 0.30f : 0.001f,
+			1.0f,
+			260.0f,
+			1050.0f);
+		if (TankPressureComponent && !bRestoreImmediately)
+		{
+			TankPressureComponent->FadeIn(
+				IGThirdMorning::NarrativeCrossfadeSeconds,
+				0.30f,
+				0.0f);
+		}
+	}
+}
+
+void AIGThirdMorningDirector::StopRoofBed(const float FadeSeconds)
+{
+	const auto StopComponent = [FadeSeconds](TObjectPtr<UAudioComponent>& Component)
+	{
+		if (!Component)
+		{
+			return;
+		}
+		UAudioComponent* Audio = Component;
+		Component = nullptr;
+		if (FadeSeconds <= KINDA_SMALL_NUMBER)
+		{
+			Audio->Stop();
+		}
+		else
+		{
+			Audio->FadeOut(FadeSeconds, 0.0f);
+		}
+	};
+	StopComponent(RoofBedComponent);
+	StopComponent(TankPressureComponent);
+}
+
+void AIGThirdMorningDirector::StartTankRevealSilence()
+{
+	StopAllChapterAudio();
+	if (UWorld* World = GetWorld())
+	{
+		APlayerController* PlayerController = World->GetFirstPlayerController();
+		AIGPlayerCharacter* Player = PlayerController
+			? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
+			: nullptr;
+		if (UIGStressComponent* Stress = Player ? Player->GetStress() : nullptr)
+		{
+			Stress->SuppressHeartbeat(
+				IGThirdMorning::TankRevealSilenceSeconds,
+				true);
+		}
+		World->GetTimerManager().SetTimer(
+			TankRevealBedRestoreTimer,
+			this,
+			&ThisClass::RestoreRoofBedAfterTankSilence,
+			IGThirdMorning::TankRevealSilenceSeconds,
+			false);
+	}
+}
+
+void AIGThirdMorningDirector::RestoreRoofBedAfterTankSilence()
+{
+	if (Phase >= EIGThirdMorningPhase::Roof
+		&& Phase < EIGThirdMorningPhase::Ending)
+	{
+		StartRoofBed();
 	}
 }
 
@@ -7949,8 +8249,20 @@ void AIGThirdMorningDirector::PollPlayerMotion()
 	}
 
 	const double Now = GetWorld()->GetTimeSeconds();
-	if (Pawn->GetVelocity().Size2D() > 12.0f)
+	const float GroundSpeed = Pawn->GetVelocity().Size2D();
+	if (GroundSpeed > 12.0f)
 	{
+		if (WaterBedComponent && Now >= NextWaterBedPulseTime)
+		{
+			// Reuse the looping bed instead of allocating a procedural wave per
+			// footfall. A short gain swell lets its 52 Hz layer answer cadence.
+			WaterBedComponent->SetVolumeMultiplier(0.50f);
+			WaterBedComponent->AdjustVolume(0.30f, 0.42f);
+			NextWaterBedPulseTime = Now + FMath::Clamp(
+				74.0 / FMath::Max(static_cast<double>(GroundSpeed), 1.0),
+				0.32,
+				0.72);
+		}
 		LastPlayerMovingTime = Now;
 		return;
 	}
@@ -8054,6 +8366,7 @@ void AIGThirdMorningDirector::PlayTankSlam()
 
 void AIGThirdMorningDirector::StopAllChapterAudio()
 {
+	GetWorldTimerManager().ClearTimer(TankRevealBedRestoreTimer);
 	if (AlarmComponent)
 	{
 		AlarmComponent->Stop();
@@ -8063,6 +8376,26 @@ void AIGThirdMorningDirector::StopAllChapterAudio()
 	{
 		WaterBedComponent->Stop();
 		WaterBedComponent = nullptr;
+	}
+	if (RoofBedComponent)
+	{
+		RoofBedComponent->Stop();
+		RoofBedComponent = nullptr;
+	}
+	if (TankPressureComponent)
+	{
+		TankPressureComponent->Stop();
+		TankPressureComponent = nullptr;
+	}
+	if (EndingBMusicComponent)
+	{
+		EndingBMusicComponent->Stop();
+		EndingBMusicComponent = nullptr;
+	}
+	if (EndingBLifeBedComponent)
+	{
+		EndingBLifeBedComponent->Stop();
+		EndingBLifeBedComponent = nullptr;
 	}
 }
 
@@ -9348,15 +9681,32 @@ bool AIGThirdMorningDirector::ValidateRebirthCollisionRoute(
 			PlayerCapsule,
 			QueryParams))
 		{
+			const UPrimitiveComponent* HitComponent =
+				RouteHit.GetComponent();
+			const FVector LocalImpact = GetActorTransform()
+				.InverseTransformPosition(RouteHit.ImpactPoint);
 			UE_LOG(
 				LogIndieGame,
 				Error,
 				TEXT(
 					"REBIRTH_RELEASE collision route blocked "
-					"start=%s end=%s hit=%s"),
+					"start=%s end=%s actor=%s component=%s local_impact=%s "
+					"component_local=%s bounds_extent=%s time=%.3f "
+					"penetrating=%d depth=%.2f"),
 				*Segment.LocalStart.ToCompactString(),
 				*Segment.LocalEnd.ToCompactString(),
-				*GetNameSafe(RouteHit.GetActor()));
+				*GetNameSafe(RouteHit.GetActor()),
+				*GetNameSafe(HitComponent),
+				*LocalImpact.ToCompactString(),
+				HitComponent
+					? *HitComponent->GetRelativeLocation().ToCompactString()
+					: TEXT("None"),
+				HitComponent
+					? *HitComponent->Bounds.BoxExtent.ToCompactString()
+					: TEXT("None"),
+				RouteHit.Time,
+				RouteHit.bStartPenetrating ? 1 : 0,
+				RouteHit.PenetrationDepth);
 			return false;
 		}
 	}
@@ -9372,44 +9722,145 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	OutGeneratedBytes = 0;
 	OutNonZeroSamples = 0;
 
-	UIGToneSequenceSoundWave* ValidationWave =
-		NewObject<UIGToneSequenceSoundWave>(
-			this,
-			TEXT("CH03ReleaseValidationPcm"));
-	TArray<FIGToneNote> ValidationNotes;
-	ValidationNotes.Add({
-		0.0f,
-		0.10f,
-		440.0f,
-		0.25f,
-		0.01f,
-		2.0f,
-		EIGToneWaveform::Sine});
-	ValidationWave->ConfigureNotes(MoveTemp(ValidationNotes), false);
-	TArray<uint8> GeneratedPcm;
-	constexpr int32 RequestedSamples = 1024;
-	OutGeneratedSamples =
-		ValidationWave->OnGeneratePCMAudio(GeneratedPcm, RequestedSamples);
-	OutGeneratedBytes = GeneratedPcm.Num();
-	if (OutGeneratedBytes % static_cast<int32>(sizeof(int16)) == 0)
+	struct FAudioTrackProbe
 	{
-		const int16* Samples =
-			reinterpret_cast<const int16*>(GeneratedPcm.GetData());
-		const int32 SampleCount =
-			OutGeneratedBytes / static_cast<int32>(sizeof(int16));
-		for (int32 SampleIndex = 0; SampleIndex < SampleCount; ++SampleIndex)
+		const TCHAR* Name = TEXT("Unknown");
+		UIGToneSequenceSoundWave* Tone = nullptr;
+		UIGAmbienceSoundWave* Ambience = nullptr;
+	};
+
+	TArray<FAudioTrackProbe> Tracks;
+	constexpr int32 ExpectedTrackCount = 8;
+	Tracks.Reserve(ExpectedTrackCount);
+	const auto AddAmbienceTrack =
+		[this, &Tracks](
+			const TCHAR* Name,
+			const EIGAmbienceMode Mode,
+			const uint32 Seed)
+	{
+		UIGAmbienceSoundWave* Wave = NewObject<UIGAmbienceSoundWave>(this);
+		Wave->Configure(Mode, Seed);
+		Tracks.Add(FAudioTrackProbe{Name, nullptr, Wave});
+	};
+
+	AddAmbienceTrack(TEXT("M0.RoomTone"), EIGAmbienceMode::RoomTone, 0xA000001u);
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("M1.StoreJingle"),
+		UIGToneSequenceSoundWave::CreateStoreJingle(this),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("M1b.DegradedJingle"),
+		UIGToneSequenceSoundWave::CreateStoreJingle(
+			this,
+			-0.18f,
+			1.0f / 0.92f),
+		nullptr});
+	AddAmbienceTrack(TEXT("M2.DoorBeyond"), EIGAmbienceMode::DoorBeyond, 0xA200002u);
+	UIGToneSequenceSoundWave* FloodedWaterBed =
+		UIGToneSequenceSoundWave::CreateFloodedCorridorWaterBed(this);
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("M3.FloodedWater"),
+		FloodedWaterBed,
+		nullptr});
+	AddAmbienceTrack(TEXT("M4.WindRope"), EIGAmbienceMode::RoofWindRope, 0xA400004u);
+	AddAmbienceTrack(TEXT("M4.TankPressure"), EIGAmbienceMode::RoofTankPressure, 0xA400005u);
+	UIGToneSequenceSoundWave* EndingBReturnHome =
+		UIGToneSequenceSoundWave::CreateEndingBReturnHomeBed(this);
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("M5.ReturnHome"),
+		EndingBReturnHome,
+		nullptr});
+
+	constexpr int32 RequestedSamplesPerTrack = 4096;
+	int32 InvalidTrackCount = 0;
+	int32 ClippedSampleCount = 0;
+	int32 PeakMagnitude = 0;
+	for (const FAudioTrackProbe& Track : Tracks)
+	{
+		TArray<uint8> GeneratedPcm;
+		int32 GeneratedSamples = 0;
+		if (Track.Tone)
 		{
-			OutNonZeroSamples += Samples[SampleIndex] != 0 ? 1 : 0;
+			GeneratedSamples = Track.Tone->OnGeneratePCMAudio(
+				GeneratedPcm,
+				RequestedSamplesPerTrack);
+		}
+		else if (Track.Ambience)
+		{
+			GeneratedSamples = Track.Ambience->OnGeneratePCMAudio(
+				GeneratedPcm,
+				RequestedSamplesPerTrack);
+		}
+
+		const int32 GeneratedBytes = GeneratedPcm.Num();
+		int32 TrackNonZeroSamples = 0;
+		int32 TrackClippedSamples = 0;
+		int32 TrackPeakMagnitude = 0;
+		if (GeneratedBytes % static_cast<int32>(sizeof(int16)) == 0)
+		{
+			const int16* Samples =
+				reinterpret_cast<const int16*>(GeneratedPcm.GetData());
+			const int32 SampleCount =
+				GeneratedBytes / static_cast<int32>(sizeof(int16));
+			for (int32 SampleIndex = 0; SampleIndex < SampleCount; ++SampleIndex)
+			{
+				const int32 Magnitude =
+					FMath::Abs(static_cast<int32>(Samples[SampleIndex]));
+				TrackNonZeroSamples += Magnitude > 0 ? 1 : 0;
+				TrackClippedSamples += Magnitude >= 32767 ? 1 : 0;
+				TrackPeakMagnitude = FMath::Max(TrackPeakMagnitude, Magnitude);
+			}
+		}
+
+		OutGeneratedSamples += GeneratedSamples;
+		OutGeneratedBytes += GeneratedBytes;
+		OutNonZeroSamples += TrackNonZeroSamples;
+		ClippedSampleCount += TrackClippedSamples;
+		PeakMagnitude = FMath::Max(PeakMagnitude, TrackPeakMagnitude);
+
+		const bool bTrackValid =
+			GeneratedSamples == RequestedSamplesPerTrack
+			&& GeneratedBytes
+				== RequestedSamplesPerTrack * static_cast<int32>(sizeof(int16))
+			&& TrackNonZeroSamples > 32
+			&& TrackClippedSamples == 0;
+		if (!bTrackValid)
+		{
+			++InvalidTrackCount;
+			UE_LOG(
+				LogIndieGame,
+				Error,
+				TEXT(
+					"REBIRTH_RELEASE audio track failed name=%s samples=%d "
+					"bytes=%d nonzero=%d clipped=%d peak=%d"),
+				Track.Name,
+				GeneratedSamples,
+				GeneratedBytes,
+				TrackNonZeroSamples,
+				TrackClippedSamples,
+				TrackPeakMagnitude);
 		}
 	}
+
+	constexpr float ExpectedM5DurationSeconds = 45.05f;
+	const float M5DurationSeconds = EndingBReturnHome
+		? EndingBReturnHome->GetConfiguredDurationSeconds()
+		: 0.0f;
+	const bool bM5TimingValid =
+		EndingBReturnHome
+		&& !EndingBReturnHome->IsConfiguredLooping()
+		&& FMath::IsNearlyEqual(
+			M5DurationSeconds,
+			ExpectedM5DurationSeconds,
+			0.01f);
 	const bool bPcmGenerated =
-		OutGeneratedSamples == RequestedSamples
-		&& OutGeneratedBytes
-			== RequestedSamples * static_cast<int32>(sizeof(int16))
-		&& OutNonZeroSamples > 0;
+		Tracks.Num() == ExpectedTrackCount
+		&& InvalidTrackCount == 0
+		&& ClippedSampleCount == 0
+		&& bM5TimingValid;
 
 	StopAllChapterAudio();
-	StartWaterBed();
+	StartWaterBed(true);
 	UAudioComponent* QueuedAudio = WaterBedComponent.Get();
 	// -nosound deliberately prevents SpawnSoundAtLocation from returning a
 	// device-backed component. Keep workplace/CI runs silent, but still verify
@@ -9421,7 +9872,7 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 			TEXT("CH03ReleaseValidationSilentAudio"));
 		if (QueuedAudio)
 		{
-			QueuedAudio->SetSound(ValidationWave);
+			QueuedAudio->SetSound(FloodedWaterBed);
 		}
 	}
 	const bool bCreated =
@@ -9440,14 +9891,32 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 			Error,
 			TEXT(
 				"REBIRTH_RELEASE audio queue failed pcm=%d created=%d "
-				"stopped=%d samples=%d bytes=%d nonzero=%d nosound=%d"),
+				"stopped=%d tracks=%d invalid=%d samples=%d bytes=%d "
+				"nonzero=%d clipped=%d peak=%d m5_duration=%.2f nosound=%d"),
 			bPcmGenerated ? 1 : 0,
 			bCreated ? 1 : 0,
 			bStopped ? 1 : 0,
+			Tracks.Num(),
+			InvalidTrackCount,
 			OutGeneratedSamples,
 			OutGeneratedBytes,
 			OutNonZeroSamples,
+			ClippedSampleCount,
+			PeakMagnitude,
+			M5DurationSeconds,
 			FParse::Param(FCommandLine::Get(), TEXT("nosound")) ? 1 : 0);
+	}
+	else
+	{
+		UE_LOG(
+			LogIndieGame,
+			Display,
+			TEXT(
+				"REBIRTH_RELEASE PASS audio_synthesis tracks=%d invalid=0 "
+				"clipped=0 peak=%d m5_duration=%.2f"),
+			Tracks.Num(),
+			PeakMagnitude,
+			M5DurationSeconds);
 	}
 	return bPcmGenerated && bCreated && bStopped;
 }
@@ -9963,6 +10432,247 @@ void AIGThirdMorningDirector::StartCaptureSequence()
 	CaptureNextFrame();
 }
 
+bool AIGThirdMorningDirector::WriteCaptureReceipt(const FString& Receipt) const
+{
+	FString ResultPath;
+	if (!FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGCaptureResultPath="),
+			ResultPath))
+	{
+		return true;
+	}
+	ResultPath.TrimQuotesInline();
+	if (ResultPath.IsEmpty())
+	{
+		return false;
+	}
+	return FFileHelper::SaveStringToFile(
+		Receipt + LINE_TERMINATOR,
+		*FPaths::ConvertRelativePathToFull(ResultPath),
+		FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+}
+
+bool AIGThirdMorningDirector::ReadLensDropletCaptureSample(
+	FVector2D& OutPosition,
+	FVector2D& OutSize,
+	FVector2D& OutCanvasSize,
+	float& OutAlpha,
+	bool& bOutReducedMotion) const
+{
+	const UWorld* World = GetWorld();
+	const APlayerController* PlayerController = World
+		? World->GetFirstPlayerController()
+		: nullptr;
+	const AIGHorrorHUD* HUD = PlayerController
+		? Cast<AIGHorrorHUD>(PlayerController->GetHUD())
+		: nullptr;
+	double RenderTime = -1.0;
+	if (!HUD || !HUD->GetLensDropletRenderSample(
+		OutPosition,
+		OutSize,
+		OutCanvasSize,
+		OutAlpha,
+		bOutReducedMotion,
+		RenderTime))
+	{
+		return false;
+	}
+	return World->GetTimeSeconds() - RenderTime <= 0.25;
+}
+
+void AIGThirdMorningDirector::StartLensDropletCaptureSequence()
+{
+	FAssetCompilingManager::Get().FinishAllCompilation();
+	if (GShaderCompilingManager)
+	{
+		GShaderCompilingManager->FinishAllCompilation();
+	}
+	if (GEngine)
+	{
+		GEngine->bEnableOnScreenDebugMessages = false;
+	}
+	if (APlayerController* PlayerController = GetWorld()->GetFirstPlayerController())
+	{
+		PlayerController->ConsoleCommand(TEXT("r.MotionBlurQuality 0"), true);
+		PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+		if (AHUD* HUD = PlayerController->GetHUD())
+		{
+			HUD->bShowHUD = true;
+		}
+		if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
+		{
+			Camera->StopCameraFade();
+		}
+	}
+
+	StopAllChapterAudio();
+	SetPhase(EIGThirdMorningPhase::Awakening);
+	PlaceCaptureCamera(
+		FVector(35.0f, -55.0f, IGThirdMorning::StandingCapsuleCenter),
+		FVector(-208.0f, 115.0f, 132.0f));
+	bLensDropletCaptureEarlyValid = false;
+	bLensDropletCaptureLateValid = false;
+	LensDropletCaptureFinishRetries = 0;
+	ShowOpeningLensDroplet();
+	GetWorldTimerManager().SetTimer(
+		CaptureTimer,
+		this,
+		&ThisClass::CaptureLensDropletEarlyFrame,
+		IGThirdMorning::LensDropletCaptureEarlyDelaySeconds,
+		false);
+}
+
+void AIGThirdMorningDirector::CaptureLensDropletEarlyFrame()
+{
+	FVector2D SampleSize = FVector2D::ZeroVector;
+	FVector2D CanvasSize = FVector2D::ZeroVector;
+	bool bReducedMotion = false;
+	bLensDropletCaptureEarlyValid = ReadLensDropletCaptureSample(
+		LensDropletCaptureEarlyPosition,
+		SampleSize,
+		CanvasSize,
+		LensDropletCaptureEarlyAlpha,
+		bReducedMotion);
+	LensDropletCaptureSize = SampleSize;
+	LensDropletCaptureCanvasSize = CanvasSize;
+	bLensDropletCaptureReducedMotion = bReducedMotion;
+	const TCHAR* Mode = bReducedMotion ? TEXT("reduced") : TEXT("default");
+	LensDropletCaptureEarlyPath = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(
+			FPaths::ProjectDir(),
+			FString::Printf(
+				TEXT("Docs/Media/ch03-lens-droplet-%s-early.png"),
+				Mode)));
+	FScreenshotRequest::RequestScreenshot(
+		LensDropletCaptureEarlyPath,
+		true,
+		false);
+	GetWorldTimerManager().SetTimer(
+		CaptureTimer,
+		this,
+		&ThisClass::CaptureLensDropletLateFrame,
+		IGThirdMorning::LensDropletCaptureLateDelaySeconds,
+		false);
+}
+
+void AIGThirdMorningDirector::CaptureLensDropletLateFrame()
+{
+	FVector2D SampleSize = FVector2D::ZeroVector;
+	FVector2D CanvasSize = FVector2D::ZeroVector;
+	bool bReducedMotion = false;
+	bLensDropletCaptureLateValid = ReadLensDropletCaptureSample(
+		LensDropletCaptureLatePosition,
+		SampleSize,
+		CanvasSize,
+		LensDropletCaptureLateAlpha,
+		bReducedMotion);
+	const bool bSampleModeMatches =
+		bReducedMotion == bLensDropletCaptureReducedMotion;
+	const bool bSampleDimensionsMatch =
+		SampleSize.Equals(LensDropletCaptureSize, 0.5f)
+		&& CanvasSize.Equals(LensDropletCaptureCanvasSize, 0.5f);
+	bLensDropletCaptureLateValid =
+		bLensDropletCaptureLateValid
+		&& bSampleModeMatches
+		&& bSampleDimensionsMatch;
+	const TCHAR* Mode = bLensDropletCaptureReducedMotion
+		? TEXT("reduced")
+		: TEXT("default");
+	LensDropletCaptureLatePath = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(
+			FPaths::ProjectDir(),
+			FString::Printf(
+				TEXT("Docs/Media/ch03-lens-droplet-%s-late.png"),
+				Mode)));
+	FScreenshotRequest::RequestScreenshot(
+		LensDropletCaptureLatePath,
+		true,
+		false);
+	GetWorldTimerManager().SetTimer(
+		CaptureTimer,
+		this,
+		&ThisClass::FinishLensDropletCaptureSequence,
+		IGThirdMorning::LensDropletCaptureFinishRetrySeconds,
+		false);
+}
+
+void AIGThirdMorningDirector::FinishLensDropletCaptureSequence()
+{
+	const bool bScreenshotsReady =
+		FPaths::FileExists(LensDropletCaptureEarlyPath)
+		&& FPaths::FileExists(LensDropletCaptureLatePath);
+	if (!bScreenshotsReady
+		&& LensDropletCaptureFinishRetries
+			< IGThirdMorning::LensDropletCaptureMaximumFinishRetries)
+	{
+		++LensDropletCaptureFinishRetries;
+		GetWorldTimerManager().SetTimer(
+			CaptureTimer,
+			this,
+			&ThisClass::FinishLensDropletCaptureSequence,
+			IGThirdMorning::LensDropletCaptureFinishRetrySeconds,
+			false);
+		return;
+	}
+
+	const float TravelX = FMath::Abs(
+		LensDropletCaptureLatePosition.X - LensDropletCaptureEarlyPosition.X);
+	const float TravelY = FMath::Abs(
+		LensDropletCaptureLatePosition.Y - LensDropletCaptureEarlyPosition.Y);
+	const float MinimumAlpha = FMath::Min(
+		LensDropletCaptureEarlyAlpha,
+		LensDropletCaptureLateAlpha);
+	const FVector2D DropletMaximum =
+		LensDropletCaptureLatePosition + LensDropletCaptureSize;
+	const bool bHudSafePlacement =
+		LensDropletCaptureLatePosition.X
+			>= LensDropletCaptureCanvasSize.X * 0.60f
+		&& DropletMaximum.X <= LensDropletCaptureCanvasSize.X * 0.90f
+		&& LensDropletCaptureLatePosition.Y
+			>= LensDropletCaptureCanvasSize.Y * 0.08f
+		&& DropletMaximum.Y <= LensDropletCaptureCanvasSize.Y * 0.43f;
+	const bool bMotionValid = bLensDropletCaptureReducedMotion
+		? TravelY <= IGThirdMorning::LensDropletCaptureMaximumReducedTravelPixels
+		: TravelY >= IGThirdMorning::LensDropletCaptureMinimumTravelPixels;
+	const bool bPassed =
+		bScreenshotsReady
+		&& bLensDropletCaptureEarlyValid
+		&& bLensDropletCaptureLateValid
+		&& TravelX <= 0.5f
+		&& MinimumAlpha >= IGThirdMorning::LensDropletCaptureMinimumAlpha
+		&& bHudSafePlacement
+		&& bMotionValid;
+	const TCHAR* Mode = bLensDropletCaptureReducedMotion
+		? TEXT("reduced")
+		: TEXT("default");
+	const FString Receipt = FString::Printf(
+		TEXT(
+			"REBIRTH_CH03_LENS_CAPTURE %s mode=%s reduced_motion=%d "
+			"stills=2 early_x=%.2f early_y=%.2f late_x=%.2f late_y=%.2f "
+			"travel_y=%.2f alpha_min=%.3f canvas=%.0fx%.0f hud_safe=%d"),
+		bPassed ? TEXT("PASS") : TEXT("FAIL"),
+		Mode,
+		bLensDropletCaptureReducedMotion ? 1 : 0,
+		LensDropletCaptureEarlyPosition.X,
+		LensDropletCaptureEarlyPosition.Y,
+		LensDropletCaptureLatePosition.X,
+		LensDropletCaptureLatePosition.Y,
+		TravelY,
+		MinimumAlpha,
+		LensDropletCaptureCanvasSize.X,
+		LensDropletCaptureCanvasSize.Y,
+		bHudSafePlacement ? 1 : 0);
+	const bool bReceiptWritten = WriteCaptureReceipt(Receipt);
+	UE_LOG(LogIndieGame, Display, TEXT("%s"), *Receipt);
+	FPlatformMisc::RequestExitWithStatus(
+		false,
+		bPassed && bReceiptWritten ? 0 : 1,
+		bPassed && bReceiptWritten
+			? TEXT("CH03 lens droplet capture completed")
+			: TEXT("CH03 lens droplet capture failed"));
+}
+
 void AIGThirdMorningDirector::PlaceCaptureCamera(
 	const FVector& LocalPawnLocation,
 	const FVector& LocalLookAt)
@@ -10040,6 +10750,18 @@ void AIGThirdMorningDirector::CaptureNextFrame()
 		BaseName = TEXT("ch03-stair-up");
 		break;
 	case 2:
+		// Keep the repaired fifth-floor landing in the deterministic visual
+		// regression set.  This frame must read as one continuous, enclosed
+		// route: upper stair -> 160 cm doorway -> four roof risers -> fire door.
+		PlaceCaptureCamera(
+			FVector(
+				1115,
+				-420,
+				180.0f + IGThirdMorning::StandingCapsuleCenter),
+			IGThirdMorning::RoofDoorClosedLocation);
+		BaseName = TEXT("ch03-fifth-floor-doorway");
+		break;
+	case 3:
 		HandleAction(EIGChapterThreeAction::InspectKeys, KeysAction);
 		HandleAction(EIGChapterThreeAction::OpenRoofDoor, RoofDoorAction);
 		HandleClueRead(EstimateNote, true);
@@ -10051,7 +10773,7 @@ void AIGThirdMorningDirector::CaptureNextFrame()
 			IGThirdMorning::TankCenter + FVector(0, 0, 470));
 		BaseName = TEXT("ch03-roof-tank");
 		break;
-	case 3:
+	case 4:
 		HandleAction(EIGChapterThreeAction::EvidenceGlasses, GlassesAction);
 		HandleAction(EIGChapterThreeAction::OpenTank, TankLidAction);
 		PlaceCaptureCamera(
@@ -10113,19 +10835,25 @@ void AIGThirdMorningDirector::FinishCaptureSequence()
 			TEXT("CH03 capture validation failed"));
 		return;
 	}
-	UE_LOG(
-		LogIndieGame,
-		Display,
+	const FString Receipt = FString::Printf(
 		TEXT(
-			"CH03_CAPTURE COMPLETE loops=%d roof=%d tank=%d "
-			"rebirth_greybox=%d authored_body=%d visual_stills=4"),
+			"REBIRTH_CH03_CAPTURE PASS loops=%d roof=%d tank=%d "
+			"rebirth_greybox=%d authored_body=%d visual_stills=5"),
 		StairLoopCount,
 		Phase >= EIGThirdMorningPhase::Roof ? 1 : 0,
 		bTankOpened ? 1 : 0,
 		bRebirthGreyboxPresent ? 1 : 0,
 		bUsesAuthoredTankBody ? 1 : 0);
+	const bool bReceiptWritten = WriteCaptureReceipt(Receipt);
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT("CH03_CAPTURE COMPLETE %s"),
+		*Receipt);
 	FPlatformMisc::RequestExitWithStatus(
 		false,
-		0,
-		TEXT("CH03 capture validation completed"));
+		bReceiptWritten ? 0 : 1,
+		bReceiptWritten
+			? TEXT("CH03 capture validation completed")
+			: TEXT("CH03 capture receipt failed"));
 }

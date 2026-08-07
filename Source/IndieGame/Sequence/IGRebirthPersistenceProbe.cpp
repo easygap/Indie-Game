@@ -9,11 +9,14 @@
 #include "EngineUtils.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
 #include "IndieGame.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
+#include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
+#include "Misc/Paths.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
@@ -1851,26 +1854,74 @@ void AIGRebirthPersistenceProbe::HandleLoadCompleted(
 		bEndingA ? TEXT("A") : TEXT("B")));
 }
 
+bool AIGRebirthPersistenceProbe::WriteResultReceipt(
+	const FString& Receipt) const
+{
+	FString ResultPath;
+	if (!FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGRebirthProbeResultPath="),
+			ResultPath))
+	{
+		// Editor validation consumes the log marker. Packaged Shipping passes an
+		// explicit path because Shipping logging may be compiled out.
+		return true;
+	}
+	ResultPath.TrimQuotesInline();
+	if (ResultPath.IsEmpty())
+	{
+		return false;
+	}
+
+	const FString FullPath = FPaths::ConvertRelativePathToFull(ResultPath);
+	const FString ParentDirectory = FPaths::GetPath(FullPath);
+	if (!ParentDirectory.IsEmpty())
+	{
+		IFileManager::Get().MakeDirectory(*ParentDirectory, true);
+	}
+	return FFileHelper::SaveStringToFile(
+		Receipt + LINE_TERMINATOR,
+		*FullPath,
+		FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+}
+
 void AIGRebirthPersistenceProbe::ExitSuccess(const FString& Marker)
 {
-	UE_LOG(
-		LogIndieGame,
-		Display,
+	const FString Receipt = FString::Printf(
 		TEXT("REBIRTH_SPIKE PASS %s"),
 		*Marker);
+	const bool bReceiptWritten = WriteResultReceipt(Receipt);
+	if (bReceiptWritten)
+	{
+		UE_LOG(LogIndieGame, Display, TEXT("%s"), *Receipt);
+	}
+	else
+	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT("Persistence receipt could not be written: %s"),
+			*Receipt);
+	}
 	FPlatformMisc::RequestExitWithStatus(
 		false,
-		0,
-		TEXT("REBIRTH persistence probe passed"));
+		bReceiptWritten ? 0 : 1,
+		bReceiptWritten
+			? TEXT("REBIRTH persistence probe passed")
+			: TEXT("REBIRTH persistence receipt failed"));
 }
 
 void AIGRebirthPersistenceProbe::ExitFailure(const TCHAR* Reason)
 {
+	const FString Receipt = FString::Printf(
+		TEXT("REBIRTH_SPIKE FAIL reason=%s"),
+		Reason ? Reason : TEXT("unknown"));
+	WriteResultReceipt(Receipt);
 	UE_LOG(
 		LogIndieGame,
 		Error,
-		TEXT("REBIRTH_SPIKE FAIL reason=%s"),
-		Reason ? Reason : TEXT("unknown"));
+		TEXT("%s"),
+		*Receipt);
 	FPlatformMisc::RequestExitWithStatus(
 		false,
 		1,

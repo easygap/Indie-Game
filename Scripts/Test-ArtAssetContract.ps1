@@ -31,7 +31,12 @@ $requiredRaw = @(
 	'AI\TextureWetServiceHoseRubber.png',
 	'AI\SheetLadderRungFailureReference.png',
 	'AI\TextureWetRungPadRubber.png',
-	'AI\TextureTankWaterSurface.png'
+	'AI\TextureTankWaterSurface.png',
+	'AI\DialogueHUDConcept_v1.png',
+	'AI\TextureHudDialogueFilm.png',
+	'AI\ApartmentVisualTarget_v1.png',
+	'AI\TextureApartmentWallpaperVintage.png',
+	'AI\MaskApartmentWallPatina.png'
 )
 $requiredMasks = @(
 	'T_EvidenceSlipperTrail_M.png',
@@ -45,6 +50,9 @@ $requiredOverlays = @(
 	'T_DecalMineralScale_D.png',
 	'T_DecalRainGrime_D.png'
 )
+$requiredMaterialMasks = @(
+	'T_ApartmentWallPatina_M.png'
+)
 $requiredMaterialTextures = @(
 	'T_WetHoodie_D.png',
 	'T_CarrierBagFilm_D.png',
@@ -54,7 +62,9 @@ $requiredMaterialTextures = @(
 	'T_WetServiceHose_D.png',
 	'T_WetRungPad_D.png',
 	'T_TankWaterSurface_D.png',
-	'T_P3CabinetPaintedSteel_D.png'
+	'T_P3CabinetPaintedSteel_D.png',
+	'T_HudDialogueFilm_D.png',
+	'T_ApartmentWallpaperV2_D.png'
 )
 $requiredPbrMaps = @(
 	'T_WetHoodie_N.png',
@@ -91,10 +101,14 @@ $requiredPbrMaps = @(
 	'T_CarrierBagFilm_A.png',
 	'T_TankWaterSurface_N.png',
 	'T_TankWaterSurface_R.png',
-	'T_TankWaterSurface_A.png'
+	'T_TankWaterSurface_A.png',
+	'T_ApartmentWallpaperV2_N.png',
+	'T_ApartmentWallpaperV2_R.png',
+	'T_ApartmentWallpaperV2_A.png'
 )
 $requiredDerived = @(
-	$requiredMasks + $requiredOverlays + $requiredMaterialTextures + $requiredPbrMaps
+	$requiredMasks + $requiredOverlays + $requiredMaterialMasks +
+	$requiredMaterialTextures + $requiredPbrMaps
 )
 foreach ($relativePath in @($requiredRaw + $requiredDerived)) {
 	$path = Join-Path $sourceArt $relativePath
@@ -111,6 +125,7 @@ foreach ($relativePath in $requiredDerived) {
 	$image = [System.Drawing.Bitmap]::FromFile($path)
 	try {
 		$expectedSize = if (
+			$requiredMaterialMasks -contains $relativePath -or
 			$requiredMaterialTextures -contains $relativePath -or
 			$requiredPbrMaps -contains $relativePath
 		) { 1024 } else { 512 }
@@ -174,7 +189,14 @@ foreach ($relativePath in $requiredDerived) {
 			throw "Material scan lost its opaque color field: $relativePath"
 		}
 
-		if ($requiredMaterialTextures -contains $relativePath) {
+		if ($requiredMaterialMasks -contains $relativePath) {
+			$meanLuma = $lumaTotal / [Math]::Max(1, $colorSamples)
+			$dynamicRange = $lumaMaximum - $lumaMinimum
+			if ($meanLuma -lt 8 -or $meanLuma -gt 220 -or $dynamicRange -lt 45) {
+				throw "Wall-patina mask lost its usable damage range: $relativePath"
+			}
+		}
+		elseif ($requiredMaterialTextures -contains $relativePath) {
 			$meanLuma = $lumaTotal / [Math]::Max(1, $colorSamples)
 			$dynamicRange = $lumaMaximum - $lumaMinimum
 			switch ($relativePath) {
@@ -221,6 +243,12 @@ foreach ($relativePath in $requiredDerived) {
 				'T_P3CabinetPaintedSteel_D.png' {
 					if ($meanLuma -lt 120 -or $meanLuma -gt 180 -or $dynamicRange -lt 45) {
 						throw "P3 cabinet lost its restrained painted-steel range: $relativePath"
+					}
+				}
+				'T_HudDialogueFilm_D.png' {
+					if ($meanLuma -lt 12 -or $meanLuma -gt 70 -or
+						$dynamicRange -lt 8 -or $dynamicRange -gt 90) {
+						throw "Dialogue film lost its restrained near-black UI range: $relativePath"
 					}
 				}
 			}
@@ -282,6 +310,12 @@ $buildScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\Build-ArtAssets.ps1')
 $auditScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\validate_baked_art_assets.py')
+$photoLodContract = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts\photo_prop_lod_contract.py')
+$photoLodApplyScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts\apply_photo_prop_lods.py')
+$photoImportScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts\import_photo_props.py')
 
 foreach ($token in @(
 	'pitch=rotation[0]',
@@ -305,6 +339,8 @@ foreach ($token in @(
 	'M_DecalRustFasteners',
 	'M_DecalMineralScale',
 	'M_DecalRainGrime',
+	'M_ApartmentWallPatina',
+	'"tex": "ApartmentWallpaperV2"',
 	'M_WetHoodieUV',
 	'M_SubmergedHoodieUV',
 	'M_SubmergedPantsUV',
@@ -869,11 +905,17 @@ foreach ($token in @(
 	'generate_ai_pbr_maps.py',
 	'[switch]$SourceOnly',
 	'[switch]$CodeOnly',
+	'[switch]$HudUiOnly',
 	'[switch]$TankWaterOnly',
 	'[switch]$TankInteriorOnly',
 	'[switch]$SubmergedClothingOnly',
-	'ART_TARGETED_MATERIAL_BUILD PASS',
-	'@($targetRelativeMaterials).Count',
+	'ART_TARGETED_BUILD PASS',
+	'@($targetRelativeAssets).Count',
+	'IG_HUD_UI_ONLY',
+	'T_HudDialogueFilm_D.uasset',
+	'IG_APARTMENT_VISUAL_ONLY',
+	'T_ApartmentWallpaperV2_D.uasset',
+	'T_ApartmentWallPatina_M.uasset',
 	'IG_TANK_WATER_ONLY',
 	'IG_TANK_INTERIOR_ONLY',
 	'IG_SUBMERGED_CLOTHING_ONLY',
@@ -886,6 +928,8 @@ foreach ($token in @(
 	'generate_meshes.py',
 	'generate_surface_textures.py',
 	'create_textured_materials.py',
+	'apply_photo_prop_lods.py',
+	'Content\Photo\Props',
 	'validate_baked_art_assets.py',
 	'Get-AsciiArtBuildRoot',
 	'Invoke-ArtRobocopy',
@@ -908,6 +952,8 @@ foreach ($token in @(
 	'MP_OPACITY',
 	'MP_OPACITY_MASK',
 	'get_material_expressions',
+	'validate_photo_prop_lods',
+	'photo_meshes=',
 	'recompile_material',
 	'ART_UASSET_AUDIT PASS'
 )) {
@@ -915,5 +961,31 @@ foreach ($token in @(
 		throw "Baked UAsset audit contract is missing: $token"
 	}
 }
+foreach ($token in @(
+	'PHOTO_PROP_ROOT = "/Game/Photo/Props"',
+	'LARGE_PROP_IDS',
+	'def inspect_photo_prop_lods',
+	'def apply_photo_prop_lod_contract',
+	'get_number_verts',
+	'set_lod_group',
+	'lod_count < 2',
+	'50_000'
+)) {
+	if (-not $photoLodContract.Contains($token)) {
+		throw "Photo-prop LOD contract is missing: $token"
+	}
+}
+if ($photoLodContract.Contains('set_nanite_settings')) {
+	throw 'Photo-prop LOD automation must not enable Nanite without an A/B GPU trace.'
+}
+foreach ($token in @(
+	'PHOTO_PROP_LOD_BUILD PASS',
+	'apply_photo_prop_lod_contract'
+)) {
+	if (-not $photoLodApplyScript.Contains($token) -or
+		-not $photoImportScript.Contains('apply_photo_prop_lod_contract')) {
+		throw "Photo-prop import/apply pipeline is missing: $token"
+	}
+}
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=23 masks=4 overlays=4 material_scans=9 pbr_maps=35 meshes=30'
+Write-Host 'ART_ASSET_CONTRACT PASS raw=28 masks=5 overlays=4 material_scans=11 pbr_maps=38 meshes=31 photo_meshes=50'

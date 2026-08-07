@@ -45,6 +45,7 @@ private:
 	void StartEndingWrite();
 	void StartEndingRead();
 	void PrepareEndingPrerequisites();
+	bool WriteResultReceipt(const FString& Receipt) const;
 	void ExitSuccess(const FString& Marker);
 	void ExitFailure(const TCHAR* Reason);
 

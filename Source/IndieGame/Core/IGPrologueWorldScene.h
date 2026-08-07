@@ -38,6 +38,7 @@ class USkyAtmosphereComponent;
 class USkyLightComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
+class UInstancedStaticMeshComponent;
 class UIGAlarmSoundWave;
 enum class EIGRebirthPurchaseProfile : uint8;
 
@@ -237,10 +238,34 @@ private:
 		bool bEnableCollision = false);
 
 	/**
-	 * Wraps a printed label band around a lathed bottle. BottleBase is the
-	 * bottle's own base; BandBottomZ/BandHeight are measured from there.
+	 * Adds one non-interactive store item to a mesh/material batch. Store stock
+	 * has no gameplay collision and may fade once it is too small to read.
 	 */
-	UStaticMeshComponent* CreateBottleLabel(
+	bool AddStoreStockInstance(
+		UStaticMesh* Mesh,
+		UMaterialInterface* Material,
+		const FTransform& RelativeTransform,
+		bool bCastShadow);
+
+	/** Adds an authored store prop at real scale; returns false if it is absent. */
+	bool AddStoreStockProp(
+		const TCHAR* MeshName,
+		const FVector& BaseLocation,
+		UMaterialInterface* Material,
+		float YawDegrees = 0.0f,
+		float UniformScale = 1.0f,
+		bool bCastShadow = true);
+
+	/** Adds a cube fallback to the same store-stock batching path. */
+	void AddStoreStockBlock(
+		const FVector& Center,
+		const FVector& SizeCentimeters,
+		UMaterialInterface* Material,
+		bool bCastShadow,
+		const FRotator& Rotation = FRotator::ZeroRotator);
+
+	/** Wraps a printed, non-shadowing label around one batched bottle. */
+	void AddStoreStockBottleLabel(
 		const FVector& BottleBase,
 		float Radius,
 		float BandBottomZ,
@@ -249,13 +274,21 @@ private:
 		float YawDegrees);
 
 	/**
-	 * Places one cup ramyeon: foam cup, printed sleeve, foil lid.
+	 * Adds one batched cup ramyeon: foam cup, printed sleeve, foil lid.
 	 *
-	 * Three props rather than one, because the cup mesh has a single material
+	 * Three instances rather than one, because the cup mesh has a single material
 	 * slot and the lid is unioned into it — texturing the mesh with the label
 	 * smears the artwork across the foil and the base.
 	 */
-	void CreateCupRamyeon(const FVector& BaseLocation, float YawDegrees);
+	void AddStoreStockCup(const FVector& BaseLocation, float YawDegrees);
+
+	/** Registers completed batches once, after all instances have been added. */
+	void FinalizeStoreStockBatches();
+
+	/** Runtime release contract for draw-call batching and per-instance culling. */
+	bool ValidateStoreStockBatches(
+		int32& OutBatchCount,
+		int32& OutInstanceCount) const;
 
 	/**
 	 * Places a scanned prop uniformly scaled to fit TargetSize, resting on
@@ -339,6 +372,13 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Prologue|Components")
 	TArray<TObjectPtr<UStaticMeshComponent>> GeometryComponents;
 
+	/**
+	 * Dense, non-interactive convenience-store stock. A material/mesh pair owns
+	 * one component instead of one UObject and draw submission per item.
+	 */
+	UPROPERTY(Transient)
+	TMap<FString, TObjectPtr<UInstancedStaticMeshComponent>> StoreStockBatches;
+
 	UPROPERTY(VisibleAnywhere, Category = "Prologue|Lighting")
 	TArray<TObjectPtr<UPointLightComponent>> Lights;
 
@@ -351,6 +391,7 @@ private:
 	// --- assets -----------------------------------------------------------
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> CubeMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> CylinderMesh;
+	UPROPERTY(Transient) TObjectPtr<UStaticMesh> PlaneMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> SphereMesh;
 	UPROPERTY(Transient) TObjectPtr<UStaticMesh> ConeMesh;
 

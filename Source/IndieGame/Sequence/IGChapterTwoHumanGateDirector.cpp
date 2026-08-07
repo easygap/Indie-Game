@@ -693,13 +693,16 @@ void AIGChapterTwoHumanGateDirector::HandleAction(
 		// first 04:44 alarm tone once, then a local failure card. No caller,
 		// dispatcher or manager voice object is ever created.
 		PlayAlarmFirstToneOnce();
-		AIGHorrorHUD::PushThought(
+		AIGHorrorHUD::PushDialogue(
 			this,
+			NSLOCTEXT("IGCH02", "PhoneDeviceSpeaker", "휴대폰"),
 			NSLOCTEXT(
 				"IGCH02",
 				"PhoneConnectionFailed",
 				"통화 연결 불가."),
-			2.2f);
+			EIGDialogueChannel::Device,
+			2.2f,
+			EIGDialoguePriority::Critical);
 		bCommitted = true;
 		break;
 	}

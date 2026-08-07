@@ -17,6 +17,16 @@ import unreal
 PROJECT_DIR = unreal.SystemLibrary.get_project_directory()
 SOURCE_ART_DIR = os.path.join(PROJECT_DIR, "Content", "SourceArt")
 TEXTURE_PACKAGE_ROOT = "/Game/Prototype/Textures"
+HUD_UI_ONLY = os.environ.get("IG_HUD_UI_ONLY") == "1"
+HUD_UI_TEXTURE_NAME = "T_HudDialogueFilm_D"
+APARTMENT_VISUAL_ONLY = os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1"
+APARTMENT_VISUAL_TEXTURE_NAMES = {
+    "T_ApartmentWallpaperV2_D",
+    "T_ApartmentWallpaperV2_N",
+    "T_ApartmentWallpaperV2_R",
+    "T_ApartmentWallpaperV2_A",
+    "T_ApartmentWallPatina_M",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -426,6 +436,17 @@ def import_textures():
         os.path.join(SOURCE_ART_DIR, entry)
         for entry in os.listdir(SOURCE_ART_DIR)
         if entry.lower().endswith(".png")
+        and (
+            (not HUD_UI_ONLY and not APARTMENT_VISUAL_ONLY)
+            or (
+                HUD_UI_ONLY
+                and os.path.splitext(entry)[0] == HUD_UI_TEXTURE_NAME
+            )
+            or (
+                APARTMENT_VISUAL_ONLY
+                and os.path.splitext(entry)[0] in APARTMENT_VISUAL_TEXTURE_NAMES
+            )
+        )
     )
     if not png_files:
         raise RuntimeError(f"No PNG files found in {SOURCE_ART_DIR}")
@@ -465,6 +486,19 @@ def import_textures():
             texture.set_editor_property(
                 "compression_settings", unreal.TextureCompressionSettings.TC_MASKS
             )
+        elif asset_name == "T_HudDialogueFilm_D":
+            # This texture is sampled in screen space. World streaming and
+            # generated mips make its fine grain shimmer at changing UI scales.
+            texture.set_editor_property(
+                "compression_settings", unreal.TextureCompressionSettings.TC_EDITOR_ICON
+            )
+            texture.set_editor_property(
+                "lod_group", unreal.TextureGroup.TEXTUREGROUP_UI
+            )
+            texture.set_editor_property(
+                "mip_gen_settings", unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS
+            )
+            texture.set_editor_property("never_stream", True)
         imported.append(texture)
 
     if not asset_subsystem.save_loaded_assets(imported, False):
@@ -473,5 +507,6 @@ def import_textures():
 
 
 if __name__ == "__main__":
-    generate_surface_pngs()
+    if not HUD_UI_ONLY and not APARTMENT_VISUAL_ONLY:
+        generate_surface_pngs()
     import_textures()

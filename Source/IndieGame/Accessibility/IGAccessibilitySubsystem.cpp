@@ -10,7 +10,9 @@ namespace IGAccessibility
 	constexpr float MinimumHoldScale = 0.25f;
 	constexpr float MaximumHoldScale = 1.0f;
 	constexpr float MinimumCaptionScale = 0.85f;
-	constexpr float MaximumCaptionScale = 1.25f;
+	constexpr float MaximumCaptionScale = 2.0f;
+	constexpr float MinimumCaptionBackgroundOpacity = 0.0f;
+	constexpr float MaximumCaptionBackgroundOpacity = 1.0f;
 	constexpr float MinimumCaptionSafeArea = 0.80f;
 	constexpr float MaximumCaptionSafeArea = 1.0f;
 
@@ -123,6 +125,12 @@ FIGAccessibilitySettings UIGAccessibilitySubsystem::Sanitize(
 			: 1.0f,
 		IGAccessibility::MinimumCaptionScale,
 		IGAccessibility::MaximumCaptionScale);
+	Result.CaptionBackgroundOpacity = FMath::Clamp(
+		FMath::IsFinite(Result.CaptionBackgroundOpacity)
+			? Result.CaptionBackgroundOpacity
+			: 0.82f,
+		IGAccessibility::MinimumCaptionBackgroundOpacity,
+		IGAccessibility::MaximumCaptionBackgroundOpacity);
 	Result.CaptionSafeAreaScale = FMath::Clamp(
 		FMath::IsFinite(Result.CaptionSafeAreaScale)
 			? Result.CaptionSafeAreaScale
@@ -172,10 +180,20 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		TEXT("SubtitlesEnabled"),
 		PersistedSettings.bSubtitlesEnabled,
 		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("SoundCaptionsEnabled"),
+		PersistedSettings.bSoundCaptionsEnabled,
+		GGameUserSettingsIni);
 	GConfig->GetFloat(
 		IGAccessibility::ConfigSection,
 		TEXT("CaptionSizeScale"),
 		PersistedSettings.CaptionSizeScale,
+		GGameUserSettingsIni);
+	GConfig->GetFloat(
+		IGAccessibility::ConfigSection,
+		TEXT("CaptionBackgroundOpacity"),
+		PersistedSettings.CaptionBackgroundOpacity,
 		GGameUserSettingsIni);
 	GConfig->GetFloat(
 		IGAccessibility::ConfigSection,
@@ -232,10 +250,20 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		TEXT("SubtitlesEnabled"),
 		PersistedSettings.bSubtitlesEnabled,
 		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("SoundCaptionsEnabled"),
+		PersistedSettings.bSoundCaptionsEnabled,
+		GGameUserSettingsIni);
 	GConfig->SetFloat(
 		IGAccessibility::ConfigSection,
 		TEXT("CaptionSizeScale"),
 		PersistedSettings.CaptionSizeScale,
+		GGameUserSettingsIni);
+	GConfig->SetFloat(
+		IGAccessibility::ConfigSection,
+		TEXT("CaptionBackgroundOpacity"),
+		PersistedSettings.CaptionBackgroundOpacity,
 		GGameUserSettingsIni);
 	GConfig->SetFloat(
 		IGAccessibility::ConfigSection,
@@ -285,6 +313,10 @@ void UIGAccessibilitySubsystem::ApplyCommandLineOverrides(
 	{
 		Settings.bSubtitlesEnabled = false;
 	}
+	if (FParse::Param(CommandLine, TEXT("IGNoSoundCaptions")))
+	{
+		Settings.bSoundCaptionsEnabled = false;
+	}
 
 	float HoldScale = Settings.HoldDurationScale;
 	if (FParse::Value(CommandLine, TEXT("IGHoldScale="), HoldScale))
@@ -295,6 +327,14 @@ void UIGAccessibilitySubsystem::ApplyCommandLineOverrides(
 	if (FParse::Value(CommandLine, TEXT("IGCaptionScale="), CaptionScale))
 	{
 		Settings.CaptionSizeScale = CaptionScale;
+	}
+	float CaptionBackgroundOpacity = Settings.CaptionBackgroundOpacity;
+	if (FParse::Value(
+		CommandLine,
+		TEXT("IGCaptionBackground="),
+		CaptionBackgroundOpacity))
+	{
+		Settings.CaptionBackgroundOpacity = CaptionBackgroundOpacity;
 	}
 	float CaptionSafeArea = Settings.CaptionSafeAreaScale;
 	if (FParse::Value(

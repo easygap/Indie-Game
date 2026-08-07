@@ -30,6 +30,12 @@ class SurfaceSpec:
 
 
 SURFACES = (
+    # ImageGen supplies only the evenly lit BaseColor scan. Conservative
+    # companion maps make the embossed paper read under a moving practical
+    # light without turning the tiny floral print into glittering geometry.
+    SurfaceSpec(
+        "T_ApartmentWallpaperV2", 0.86, 0.72, 0.94, 0.32,
+        rough_detail=0.12, ao_depth=0.62),
     SurfaceSpec("T_WetHoodie", 0.67, 0.48, 0.84, 0.52, wetness=0.92),
     SurfaceSpec("T_AlleyCatTabby", 0.83, 0.68, 0.94, 0.34, rough_detail=0.14),
     SurfaceSpec("T_WaterTankGalvanized", 0.46, 0.25, 0.68, 0.78, wetness=0.72, metallic=True),

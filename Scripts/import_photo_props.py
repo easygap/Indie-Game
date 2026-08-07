@@ -3,8 +3,15 @@
 mesh at runtime and falls back to composed greybox shapes when missing."""
 
 import os
+import sys
 
 import unreal
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+from photo_prop_lod_contract import apply_photo_prop_lod_contract
 
 
 PROJECT_DIR = unreal.SystemLibrary.get_project_directory()
@@ -40,6 +47,12 @@ def import_props():
 
     if not imported_any:
         raise RuntimeError("No props were imported")
+
+    lod_result = apply_photo_prop_lod_contract()
+    unreal.log(
+        "[IndieGame] Photo-prop LOD contract applied: "
+        f"meshes={lod_result['meshes']} updated={lod_result['updated']}"
+    )
 
 
 if __name__ == "__main__":

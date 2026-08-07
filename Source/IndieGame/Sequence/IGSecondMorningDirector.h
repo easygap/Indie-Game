@@ -119,9 +119,10 @@ private:
 	void RegisterSecondMorningTruth(
 		const TCHAR* TruthTagName,
 		FName SourceId,
-		FName PuzzleId = NAME_None) const;
-	void RegisterDeathOverlayTruth() const;
+		FName PuzzleId = NAME_None);
+	void RegisterDeathOverlayTruth();
 	int32 GetSecondMorningTruthCount() const;
+	bool HasNarrativeTruth(const TCHAR* TruthTagName) const;
 	bool CanConvergeSecondMorning() const;
 	bool RunP1EndToEndStep();
 	bool RunP2EndToEndStep();
@@ -155,6 +156,8 @@ private:
 	void PresentP1ManualHint();
 	void PresentP2ManualHint();
 	void RemoveState(const FGameplayTag& Tag) const;
+	void RefreshDoorBeyondBed(bool bRestoreImmediately = false);
+	void StopDoorBeyondBed(float FadeSeconds = 1.6f);
 
 	UFUNCTION()
 	void HandleStoryStateChanged(FGameplayTag StateTag, bool bAdded);
@@ -191,6 +194,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> JingleComponent;
+
+	/** M2 remains spatially anchored to 403/P1 instead of following the player. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> DoorBeyondComponent;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> ExistingReceipt;

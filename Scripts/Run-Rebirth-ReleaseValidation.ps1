@@ -3,6 +3,7 @@ param(
 	[switch]$StaticOnly,
 	[switch]$SkipDevelopmentBuild,
 	[switch]$SkipMapCheck,
+	[switch]$SkipEditorRuntimeValidation,
 	[switch]$SkipRuntimeValidation,
 	[switch]$SkipShippingPackage,
 	[switch]$AllowDirtyWorktree,
@@ -13,6 +14,17 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$skipEditorRuntimeValidation =
+	$SkipRuntimeValidation -or $SkipEditorRuntimeValidation
+$editorRuntimeSkipDetail = if ($SkipRuntimeValidation) {
+	'SkipRuntimeValidation requested.'
+}
+elseif ($SkipEditorRuntimeValidation) {
+	'SkipEditorRuntimeValidation requested; packaged Shipping runtime remains enabled.'
+}
+else {
+	''
+}
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $projectFile = Join-Path $projectRoot 'IndieGame.uproject'
@@ -27,6 +39,8 @@ $ch02FreedomScript =
 	Join-Path $PSScriptRoot 'Run-Rebirth-CH02FreedomSpikes.ps1'
 $checkpointAnchorScript =
 	Join-Path $PSScriptRoot 'Run-Rebirth-CheckpointAnchorSpikes.ps1'
+$frontendShippingProbeScript =
+	Join-Path $PSScriptRoot 'Run-Rebirth-FrontendShippingProbe.ps1'
 $applicationIconValidationScript =
 	Join-Path $PSScriptRoot 'Test-Windows-ExecutableIcon.ps1'
 $executableMetadataSyncScript =
@@ -58,6 +72,8 @@ $allStepNames = @(
 	'shipping_package',
 	'shipping_runtime_ending_a',
 	'shipping_runtime_ending_b',
+	'shipping_persistence_spikes',
+	'shipping_frontend_input_hud',
 	'shipping_archive_post_runtime',
 	'source_state_post'
 )
@@ -74,6 +90,8 @@ $shippingApplicationIconLogPath = $null
 $shippingExecutableMetadataSyncLogPath = $null
 $shippingExecutableMetadataLogPath = $null
 $shippingRuntimeResults = [ordered]@{}
+$shippingPersistenceSummaryPath = $null
+$shippingFrontendSummaryPath = $null
 $unrealDiagnosticPatterns = @(
 	'(?i)\bFatal error\b',
 	'(?i)\bCritical error:',
@@ -749,6 +767,29 @@ function Write-RunSummary {
 				-LiteralPath $shippingExecutableMetadataLogPath
 		).Hash
 	}
+	$shippingPersistenceSummaryHash = $null
+	if (-not [string]::IsNullOrWhiteSpace(
+			$shippingPersistenceSummaryPath) -and
+		(Test-Path `
+			-LiteralPath $shippingPersistenceSummaryPath `
+			-PathType Leaf)) {
+		$shippingPersistenceSummaryHash = (
+			Get-FileHash `
+				-Algorithm SHA256 `
+				-LiteralPath $shippingPersistenceSummaryPath
+		).Hash
+	}
+	$shippingFrontendSummaryHash = $null
+	if (-not [string]::IsNullOrWhiteSpace($shippingFrontendSummaryPath) -and
+		(Test-Path `
+			-LiteralPath $shippingFrontendSummaryPath `
+			-PathType Leaf)) {
+		$shippingFrontendSummaryHash = (
+			Get-FileHash `
+				-Algorithm SHA256 `
+				-LiteralPath $shippingFrontendSummaryPath
+		).Hash
+	}
 	$sourceStateUnchanged = $null -ne $initialSourceState `
 		-and (Test-SourceStateUnchanged `
 			-Initial $initialSourceState `
@@ -812,6 +853,10 @@ function Write-RunSummary {
 		shippingExecutableMetadataLogSha256 =
 			$shippingMetadataLogHash
 		shippingRuntimeResults = [pscustomobject]$shippingRuntimeResults
+		shippingPersistenceSummary = $shippingPersistenceSummaryPath
+		shippingPersistenceSummarySha256 = $shippingPersistenceSummaryHash
+		shippingFrontendSummary = $shippingFrontendSummaryPath
+		shippingFrontendSummarySha256 = $shippingFrontendSummaryHash
 		unrealDiagnosticAllowlist = @($unrealDiagnosticAllowlist)
 		automatedReleaseCandidateEligible =
 			$Status -eq 'PASS' `
@@ -1032,6 +1077,8 @@ function Assert-ReleaseLog {
 		'REBIRTH_GREYBOX PASS',
 		'REBIRTH_RELEASE PASS s2_roof_door',
 		'REBIRTH_RELEASE PASS collision_route',
+		'REBIRTH_RELEASE PASS store_instancing instances=1122',
+		'REBIRTH_RELEASE PASS audio_synthesis tracks=8 invalid=0 clipped=0',
 		'REBIRTH_RELEASE PASS audio_queue',
 		'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 presentations=2 cases=12 duplicates=0',
 		'REBIRTH_RELEASE PASS p3_p5',
@@ -1102,6 +1149,9 @@ function Assert-PersistenceSpikeEvidence {
 			"Persistence spike summary is invalid JSON: " +
 			"$nestedSummaryPath ($($_.Exception.Message))")
 	}
+	$packagedShipping =
+		$null -ne $nestedSummary.PSObject.Properties['packagedShipping'] `
+		-and [bool]$nestedSummary.packagedShipping
 	if ($nestedSummary.status -ne 'PASS' -or
 		[string]$nestedSummary.commitSha -ne $ExpectedCommitSha -or
 		[int]$nestedSummary.memoryBoundaryProcessRestarts -ne 2 -or
@@ -1113,6 +1163,14 @@ function Assert-PersistenceSpikeEvidence {
 		throw (
 			'Persistence spike summary metadata does not match the locked ' +
 			"release source state: $nestedSummaryPath")
+	}
+	if ($packagedShipping -and (
+			[int]$nestedSummary.processCount -ne 46 -or
+			[int]$nestedSummary.archiveFileCount -le 0 -or
+			-not [bool]$nestedSummary.archiveUnchanged)) {
+		throw (
+			'Packaged Shipping persistence metadata is incomplete: ' +
+			$nestedSummaryPath)
 	}
 
 	$expectedCases = [System.Collections.Generic.HashSet[string]]::new(
@@ -1167,31 +1225,64 @@ function Assert-PersistenceSpikeEvidence {
 			$result.status -ne 'PASS') {
 			throw "Persistence spike result is missing, duplicated, or failed: $caseName"
 		}
-		if (-not (Test-Path -LiteralPath $result.logPath -PathType Leaf)) {
-			throw "Persistence spike case log is missing: $($result.logPath)"
+		if ($packagedShipping) {
+			if (-not (Test-Path `
+					-LiteralPath $result.receiptPath `
+					-PathType Leaf)) {
+				throw "Packaged persistence receipt is missing: $caseName"
+			}
+			$resolvedReceipt = (
+				Resolve-Path -LiteralPath $result.receiptPath
+			).Path
+			if (-not $resolvedReceipt.StartsWith(
+					$evidenceRoot,
+					[System.StringComparison]::OrdinalIgnoreCase)) {
+				throw (
+					'Packaged persistence receipt escaped its evidence ' +
+					"directory: $resolvedReceipt")
+			}
+			$actualReceiptHash = (
+				Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedReceipt
+			).Hash
+			if ($actualReceiptHash -ne [string]$result.receiptSha256) {
+				throw "Packaged persistence receipt hash mismatch: $resolvedReceipt"
+			}
+			$receiptText = (
+				Get-Content -Raw -Encoding UTF8 -LiteralPath $resolvedReceipt
+			).Trim()
+			if (-not $receiptText.StartsWith(
+					'REBIRTH_SPIKE PASS ',
+					[StringComparison]::Ordinal)) {
+				throw "Packaged persistence receipt reported failure: $resolvedReceipt"
+			}
 		}
-		$resolvedCaseLog = (
-			Resolve-Path -LiteralPath $result.logPath
-		).Path
-		if (-not $resolvedCaseLog.StartsWith(
-				$evidenceRoot,
-				[System.StringComparison]::OrdinalIgnoreCase)) {
-			throw "Persistence spike log escaped its evidence directory: $resolvedCaseLog"
+		else {
+			if (-not (Test-Path -LiteralPath $result.logPath -PathType Leaf)) {
+				throw "Persistence spike case log is missing: $($result.logPath)"
+			}
+			$resolvedCaseLog = (
+				Resolve-Path -LiteralPath $result.logPath
+			).Path
+			if (-not $resolvedCaseLog.StartsWith(
+					$evidenceRoot,
+					[System.StringComparison]::OrdinalIgnoreCase)) {
+				throw "Persistence spike log escaped its evidence directory: $resolvedCaseLog"
+			}
+			$actualHash = (
+				Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedCaseLog
+			).Hash
+			if ($actualHash -ne [string]$result.logSha256) {
+				throw "Persistence spike log hash mismatch: $resolvedCaseLog"
+			}
+			$caseLogText =
+				Get-Content -Raw -Encoding UTF8 -LiteralPath $resolvedCaseLog
+			if ($caseLogText.Contains('REBIRTH_SPIKE FAIL')) {
+				throw "Persistence spike case reported FAIL: $resolvedCaseLog"
+			}
+			Assert-NoUnexpectedUnrealDiagnostics `
+				-LogPath $resolvedCaseLog `
+				-LogText $caseLogText
 		}
-		$actualHash = (
-			Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedCaseLog
-		).Hash
-		if ($actualHash -ne [string]$result.logSha256) {
-			throw "Persistence spike log hash mismatch: $resolvedCaseLog"
-		}
-		$caseLogText =
-			Get-Content -Raw -Encoding UTF8 -LiteralPath $resolvedCaseLog
-		if ($caseLogText.Contains('REBIRTH_SPIKE FAIL')) {
-			throw "Persistence spike case reported FAIL: $resolvedCaseLog"
-		}
-		Assert-NoUnexpectedUnrealDiagnostics `
-			-LogPath $resolvedCaseLog `
-			-LogText $caseLogText
 
 		$requiresSaveSnapshot =
 			$caseName -like 'Boundary*Write' -or
@@ -1628,6 +1719,188 @@ function Invoke-RebirthShippingRuntimeCase {
 		"receipt=$resultPath sha256=$resultHash")
 }
 
+function Assert-FrontendShippingProbeEvidence {
+	param(
+		[Parameter(Mandatory = $true)][string]$LogPath,
+		[Parameter(Mandatory = $true)][string]$EvidenceDirectory,
+		[Parameter(Mandatory = $true)][string]$ArchiveRoot
+	)
+
+	if (-not (Test-Path -LiteralPath $LogPath -PathType Leaf)) {
+		throw "Frontend Shipping harness log is missing: $LogPath"
+	}
+	$harnessLog = Get-Content -Raw -Encoding UTF8 -LiteralPath $LogPath
+	if (-not $harnessLog.Contains(
+			'REBIRTH_FRONTEND_SHIPPING PASS resolutions=4 input_events=44')) {
+		throw "Frontend Shipping harness did not report a complete PASS: $LogPath"
+	}
+	$summaryPath = Join-Path $EvidenceDirectory 'summary.json'
+	if (-not (Test-Path -LiteralPath $summaryPath -PathType Leaf)) {
+		throw "Frontend Shipping summary is missing: $summaryPath"
+	}
+	$summary = Get-Content -Raw -Encoding UTF8 -LiteralPath $summaryPath |
+		ConvertFrom-Json
+	$resolvedArchive = (
+		Resolve-Path -LiteralPath $ArchiveRoot
+	).Path.TrimEnd([char[]]@('\', '/'))
+	$summaryArchive = [IO.Path]::GetFullPath(
+		[string]$summary.archiveDirectory).TrimEnd([char[]]@('\', '/'))
+	$summaryResults = @($summary.results)
+	if ([int]$summary.schemaVersion -ne 3 -or
+		-not $summaryArchive.Equals(
+			$resolvedArchive,
+			[StringComparison]::OrdinalIgnoreCase) -or
+		[int]$summary.archiveFileCount -le 0 -or
+		[int]$summary.resolutionCount -ne 4 -or
+		[int]$summary.dialogueCaseCount -ne 8 -or
+		[int]$summary.inputEventCount -ne 44 -or
+		[int]$summary.layoutSampleCount -ne 40 -or
+		$summaryResults.Count -ne 4 -or
+		-not [bool]$summary.archiveUnchanged) {
+		throw "Frontend Shipping summary metadata mismatch: $summaryPath"
+	}
+	$archivePrefix = $resolvedArchive + [IO.Path]::DirectorySeparatorChar
+	$summaryShippingExecutable = (
+		Resolve-Path -LiteralPath ([string]$summary.shippingExecutable)
+	).Path
+	if (-not $summaryShippingExecutable.StartsWith(
+			$archivePrefix,
+			[StringComparison]::OrdinalIgnoreCase)) {
+		throw (
+			'Frontend Shipping executable escaped the archive: ' +
+			$summaryShippingExecutable)
+	}
+	$actualShippingExecutableHash = (
+		Get-FileHash -Algorithm SHA256 -LiteralPath $summaryShippingExecutable
+	).Hash
+	if ($actualShippingExecutableHash -cne
+		[string]$summary.shippingExecutableSha256) {
+		throw (
+			'Frontend Shipping executable hash mismatch: ' +
+			$summaryShippingExecutable)
+	}
+	$expectedResolutions = [System.Collections.Generic.HashSet[string]]::new(
+		[StringComparer]::Ordinal)
+	foreach ($resolution in @(
+		'1280x720',
+		'1600x900',
+		'1920x1080',
+		'2560x1440')) {
+		[void]$expectedResolutions.Add($resolution)
+	}
+	$evidenceRoot = (
+		Resolve-Path -LiteralPath $EvidenceDirectory
+	).Path.TrimEnd('\') + '\'
+	foreach ($result in $summaryResults) {
+		$resolution = [string]$result.resolution
+		if (-not $expectedResolutions.Remove($resolution) -or
+			[int]$result.inputEvents -ne 11 -or
+			[int]$result.layoutSamples -ne 10 -or
+			[int]$result.minimumElements -lt 8) {
+			throw "Frontend Shipping result contract failed: $resolution"
+		}
+		$resolvedReceipt = (
+			Resolve-Path -LiteralPath $result.receiptPath
+		).Path
+		if (-not $resolvedReceipt.StartsWith(
+				$evidenceRoot,
+				[StringComparison]::OrdinalIgnoreCase)) {
+			throw "Frontend Shipping receipt escaped evidence: $resolvedReceipt"
+		}
+		$actualReceiptHash = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedReceipt
+		).Hash
+		if ($actualReceiptHash -ne [string]$result.receiptSha256) {
+			throw "Frontend Shipping receipt hash mismatch: $resolvedReceipt"
+		}
+		$resolvedDialogueScreenshot = (
+			Resolve-Path -LiteralPath $result.dialogueScreenshotPath
+		).Path
+		if (-not $resolvedDialogueScreenshot.StartsWith(
+			$evidenceRoot,
+			[StringComparison]::OrdinalIgnoreCase)) {
+			throw (
+				'Frontend Shipping dialogue screenshot escaped evidence: ' +
+				$resolvedDialogueScreenshot)
+		}
+		$actualDialogueScreenshotHash = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $resolvedDialogueScreenshot
+		).Hash
+		if ($actualDialogueScreenshotHash -ne
+			[string]$result.dialogueScreenshotSha256) {
+			throw (
+				'Frontend Shipping dialogue screenshot hash mismatch: ' +
+				$resolvedDialogueScreenshot)
+		}
+		$resolvedDefaultDialogueScreenshot = (
+			Resolve-Path -LiteralPath $result.defaultDialogueScreenshotPath
+		).Path
+		if (-not $resolvedDefaultDialogueScreenshot.StartsWith(
+			$evidenceRoot,
+			[StringComparison]::OrdinalIgnoreCase)) {
+			throw (
+				'Frontend Shipping default dialogue screenshot escaped evidence: ' +
+				$resolvedDefaultDialogueScreenshot)
+		}
+		$actualDefaultDialogueScreenshotHash = (
+			Get-FileHash `
+				-Algorithm SHA256 `
+				-LiteralPath $resolvedDefaultDialogueScreenshot
+		).Hash
+		if ($actualDefaultDialogueScreenshotHash -ne
+			[string]$result.defaultDialogueScreenshotSha256) {
+			throw (
+				'Frontend Shipping default dialogue screenshot hash mismatch: ' +
+				$resolvedDefaultDialogueScreenshot)
+		}
+		$receiptText = (
+			Get-Content -Raw -Encoding UTF8 -LiteralPath $resolvedReceipt
+		).Trim()
+		$receiptPattern = (
+			'^REBIRTH_FRONTEND PASS contract=3 resolution=' +
+			[regex]::Escape($resolution) +
+			' keyboard_access=1 gamepad_access=1 dpad_down=1 ' +
+			'keyboard_up=1 gamepad_close=1 keyboard_pause=1 ' +
+			'gamepad_pause=1 display=1 dialogue=1 dialogue_default=1 ' +
+			'speaker=1 continuation=1 default_scale=100 max_scale=200 ' +
+			'sound_lane=1 samples=10 elements_min=(?<elements>[0-9]+) ' +
+			'input_events=11 bounds=(?<minX>-?[0-9]+),(?<minY>-?[0-9]+),' +
+			'(?<maxX>-?[0-9]+),(?<maxY>-?[0-9]+)$')
+		$receiptMatch = [regex]::Match($receiptText, $receiptPattern)
+		$resolutionMatch = [regex]::Match(
+			$resolution,
+			'^(?<width>[0-9]+)x(?<height>[0-9]+)$')
+		if (-not $receiptMatch.Success -or -not $resolutionMatch.Success) {
+			throw "Frontend Shipping receipt contract failed: $resolvedReceipt"
+		}
+		$minimumElements = [int]$receiptMatch.Groups['elements'].Value
+		$minimumX = [int]$receiptMatch.Groups['minX'].Value
+		$minimumY = [int]$receiptMatch.Groups['minY'].Value
+		$maximumX = [int]$receiptMatch.Groups['maxX'].Value
+		$maximumY = [int]$receiptMatch.Groups['maxY'].Value
+		$expectedWidth = [int]$resolutionMatch.Groups['width'].Value
+		$expectedHeight = [int]$resolutionMatch.Groups['height'].Value
+		if ($minimumElements -ne [int]$result.minimumElements -or
+			[int]$result.dialogueScreenshotWidth -ne $expectedWidth -or
+			[int]$result.dialogueScreenshotHeight -ne $expectedHeight -or
+			[int]$result.defaultDialogueScreenshotWidth -ne $expectedWidth -or
+			[int]$result.defaultDialogueScreenshotHeight -ne $expectedHeight -or
+			$minimumX -ne [int]$result.bounds.minimumX -or
+			$minimumY -ne [int]$result.bounds.minimumY -or
+			$maximumX -ne [int]$result.bounds.maximumX -or
+			$maximumY -ne [int]$result.bounds.maximumY -or
+			$minimumX -lt -1 -or $minimumY -lt -1 -or
+			$maximumX -gt ($expectedWidth + 1) -or
+			$maximumY -gt ($expectedHeight + 1) -or
+			[string]$result.receipt -cne $receiptText) {
+			throw "Frontend Shipping receipt evidence mismatch: $resolvedReceipt"
+		}
+	}
+	if ($expectedResolutions.Count -ne 0) {
+		throw 'Frontend Shipping result set is incomplete.'
+	}
+}
+
 function Assert-ShippingArchiveManifestUnchanged {
 	param(
 		[Parameter(Mandatory = $true)]
@@ -1854,7 +2127,7 @@ if ($StaticOnly) {
 }
 if (-not $StaticOnly `
 	-and $SkipDevelopmentBuild `
-	-and (-not $SkipMapCheck -or -not $SkipRuntimeValidation)) {
+	-and (-not $SkipMapCheck -or -not $skipEditorRuntimeValidation)) {
 	throw (
 		'SkipDevelopmentBuild cannot be combined with Map Check or runtime ' +
 		'validation without a commit-bound prebuilt manifest. Run the ' +
@@ -2136,7 +2409,7 @@ else {
 		-LogPath $null
 }
 
-if (-not $SkipRuntimeValidation) {
+if (-not $skipEditorRuntimeValidation) {
 	$persistenceLog = Join-Path $runDirectory 'PersistenceSpikes.log'
 	$persistenceEvidence =
 		Join-Path $runDirectory 'PersistenceSpikes'
@@ -2231,7 +2504,7 @@ else {
 		Add-StepResult `
 			-Name $notRunStep `
 			-Status 'NOT_RUN' `
-			-Detail 'SkipRuntimeValidation requested.' `
+			-Detail $editorRuntimeSkipDetail `
 			-LogPath $null
 	}
 }
@@ -2254,7 +2527,7 @@ else {
 		-LogPath $null
 }
 
-if (-not $SkipRuntimeValidation) {
+if (-not $skipEditorRuntimeValidation) {
 	$endingALog = Join-Path $runDirectory 'RebirthRelease_EndingA.log'
 	Set-ActiveStep -Name 'runtime_ending_a' -LogPath $endingALog
 	Invoke-RebirthRuntimeCase -EditorCommand $editorCommand -Ending 'A'
@@ -2279,7 +2552,7 @@ else {
 		Add-StepResult `
 			-Name $notRunStep `
 			-Status 'NOT_RUN' `
-			-Detail 'SkipRuntimeValidation requested.' `
+			-Detail $editorRuntimeSkipDetail `
 			-LogPath $null
 	}
 }
@@ -2364,6 +2637,81 @@ if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation) {
 				"Packaged Shipping ending $shippingEnding completed from an " +
 				'isolated user directory and produced the exact runtime receipt.')
 	}
+	$shippingPersistenceLog = Join-Path (
+		$runDirectory) 'ShippingPersistenceSpikes.log'
+	$shippingPersistenceEvidence = Join-Path (
+		$runDirectory) 'ShippingPersistenceSpikes'
+	Set-ActiveStep `
+		-Name 'shipping_persistence_spikes' `
+		-LogPath $shippingPersistenceLog
+	Invoke-NativeChecked `
+		-FilePath 'powershell.exe' `
+		-Arguments @(
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			$persistenceScript,
+			'-ArchiveDirectory',
+			$ArchiveDirectory,
+			'-TimeoutSeconds',
+			"$RuntimeTimeoutSeconds",
+			'-EvidenceDirectory',
+			$shippingPersistenceEvidence
+		) `
+		-Label 'Packaged Shipping process-boundary persistence spikes' `
+		-LogPath $shippingPersistenceLog
+	Assert-PersistenceSpikeEvidence `
+		-LogPath $shippingPersistenceLog `
+		-EvidenceDirectory $shippingPersistenceEvidence `
+		-ExpectedCommitSha $initialSourceState.commitSha
+	$script:shippingPersistenceSummaryPath = Join-Path (
+		$shippingPersistenceEvidence) 'summary.json'
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail (
+			'Packaged Shipping passed 46 independent save, exit, restart, ' +
+			'restore and deletion processes with exact receipts.')
+
+	$shippingFrontendLog = Join-Path (
+		$runDirectory) 'ShippingFrontendInputHud.log'
+	$shippingFrontendEvidence = Join-Path (
+		$runDirectory) 'ShippingFrontendInputHud'
+	$frontendTimeoutSeconds = [Math]::Min(
+		180,
+		[Math]::Max(30, $RuntimeTimeoutSeconds))
+	Set-ActiveStep `
+		-Name 'shipping_frontend_input_hud' `
+		-LogPath $shippingFrontendLog
+	Invoke-NativeChecked `
+		-FilePath 'powershell.exe' `
+		-Arguments @(
+			'-NoProfile',
+			'-ExecutionPolicy',
+			'Bypass',
+			'-File',
+			$frontendShippingProbeScript,
+			'-ArchiveDirectory',
+			$ArchiveDirectory,
+			'-TimeoutSeconds',
+			"$frontendTimeoutSeconds",
+			'-EvidenceDirectory',
+			$shippingFrontendEvidence
+		) `
+		-Label 'Packaged Shipping input and HUD layout probe' `
+		-LogPath $shippingFrontendLog
+	Assert-FrontendShippingProbeEvidence `
+		-LogPath $shippingFrontendLog `
+		-EvidenceDirectory $shippingFrontendEvidence `
+		-ArchiveRoot $ArchiveDirectory
+	$script:shippingFrontendSummaryPath = Join-Path (
+		$shippingFrontendEvidence) 'summary.json'
+	Complete-ActiveStep `
+		-Status 'PASS' `
+		-Detail (
+			'Packaged Shipping processed keyboard and gamepad menu input and ' +
+			'kept native HUD text inside 720p, 900p, 1080p and 1440p canvases.')
+
 	Set-ActiveStep `
 		-Name 'shipping_archive_post_runtime' `
 		-LogPath $shippingArchiveManifestPath
@@ -2374,7 +2722,7 @@ if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation) {
 		-Status 'PASS' `
 		-Detail (
 			'Shipping archive file count, sizes and SHA-256 values remained ' +
-			'unchanged after both packaged runtime cases.')
+			'unchanged after every packaged runtime validation.')
 }
 else {
 	$shippingRuntimeSkipDetail = if ($SkipShippingPackage) {
@@ -2386,6 +2734,8 @@ else {
 	foreach ($notRunStep in @(
 		'shipping_runtime_ending_a',
 		'shipping_runtime_ending_b',
+		'shipping_persistence_spikes',
+		'shipping_frontend_input_hud',
 		'shipping_archive_post_runtime')) {
 		Add-StepResult `
 			-Name $notRunStep `
@@ -2411,6 +2761,7 @@ Complete-ActiveStep `
 $hasSkippedStages =
 	$SkipDevelopmentBuild `
 	-or $SkipMapCheck `
+	-or $SkipEditorRuntimeValidation `
 	-or $SkipRuntimeValidation `
 	-or $SkipShippingPackage `
 	-or $AllowDirtyWorktree

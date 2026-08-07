@@ -2,6 +2,8 @@
 param(
 	[switch]$SourceOnly,
 	[switch]$CodeOnly,
+	[switch]$HudUiOnly,
+	[switch]$ApartmentVisualOnly,
 	[switch]$TankWaterOnly,
 	[switch]$TankInteriorOnly,
 	[switch]$SubmergedClothingOnly
@@ -88,16 +90,19 @@ function Get-AsciiArtBuildRoot {
 $modeCount = @(
 	$SourceOnly.IsPresent,
 	$CodeOnly.IsPresent,
+	$HudUiOnly.IsPresent,
+	$ApartmentVisualOnly.IsPresent,
 	$TankWaterOnly.IsPresent,
 	$TankInteriorOnly.IsPresent,
 	$SubmergedClothingOnly.IsPresent
 ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($modeCount -gt 1) {
-	throw 'SourceOnly, CodeOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
+	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
 }
 
 if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
-	-not $SubmergedClothingOnly) {
+	-not $SubmergedClothingOnly -and -not $HudUiOnly -and
+	-not $ApartmentVisualOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
 
 	$python = Get-Command python -ErrorAction Stop
@@ -109,12 +114,29 @@ if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	}
 }
 
+if ($ApartmentVisualOnly) {
+	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
+		-OnlySource @(
+			'TextureApartmentWallpaperVintage',
+			'MaskApartmentWallPatina'
+		)
+	$python = Get-Command python -ErrorAction Stop
+	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
+	Write-Host 'ART_BUILD running apartment PBR source-map generation'
+	& $python.Source $pbrGenerator `
+		--only T_ApartmentWallpaperV2 `
+		--force
+	if ($LASTEXITCODE -ne 0) {
+		throw "Apartment PBR source-map generation failed ($LASTEXITCODE)"
+	}
+}
+
 if ($SourceOnly) {
 	& (Join-Path $PSScriptRoot 'Test-ArtAssetContract.ps1')
 	if ($LASTEXITCODE -ne 0) {
 		throw "Art source contract failed ($LASTEXITCODE)"
 	}
-	Write-Host 'ART_SOURCE_BUILD PASS material_scans=9 pbr_maps=35 no_unreal_process=true'
+	Write-Host 'ART_SOURCE_BUILD PASS material_scans=11 material_masks=1 pbr_maps=38 no_unreal_process=true'
 	return
 }
 
@@ -182,8 +204,15 @@ if ($CodeOnly) {
 	return
 }
 
-if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
-	$targetName = if ($TankWaterOnly) {
+if ($HudUiOnly -or $ApartmentVisualOnly -or $TankWaterOnly -or
+	$TankInteriorOnly -or $SubmergedClothingOnly) {
+	$targetName = if ($HudUiOnly) {
+		'HudUi'
+	}
+	elseif ($ApartmentVisualOnly) {
+		'ApartmentVisual'
+	}
+	elseif ($TankWaterOnly) {
 		'TankWater'
 	}
 	elseif ($TankInteriorOnly) {
@@ -192,7 +221,13 @@ if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
 	else {
 		'SubmergedClothing'
 	}
-	$targetEnvironment = if ($TankWaterOnly) {
+	$targetEnvironment = if ($HudUiOnly) {
+		'IG_HUD_UI_ONLY'
+	}
+	elseif ($ApartmentVisualOnly) {
+		'IG_APARTMENT_VISUAL_ONLY'
+	}
+	elseif ($TankWaterOnly) {
 		'IG_TANK_WATER_ONLY'
 	}
 	elseif ($TankInteriorOnly) {
@@ -201,7 +236,13 @@ if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
 	else {
 		'IG_SUBMERGED_CLOTHING_ONLY'
 	}
-	$targetSuccessPattern = if ($TankWaterOnly) {
+	$targetSuccessPattern = if ($HudUiOnly) {
+		'\[IndieGame\] Imported 1 textures'
+	}
+	elseif ($ApartmentVisualOnly) {
+		'\[IndieGame\] Apartment visual material update complete'
+	}
+	elseif ($TankWaterOnly) {
 		'\[IndieGame\] Tank water material update complete'
 	}
 	elseif ($TankInteriorOnly) {
@@ -210,7 +251,23 @@ if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
 	else {
 		'\[IndieGame\] Submerged clothing material update complete'
 	}
-	$targetRelativeMaterials = if ($TankWaterOnly) {
+	$targetRelativeAssets = if ($HudUiOnly) {
+		@('Content\Prototype\Textures\T_HudDialogueFilm_D.uasset')
+	}
+	elseif ($ApartmentVisualOnly) {
+		@(
+			'Content\Prototype\Textures\T_ApartmentWallpaperV2_D.uasset',
+			'Content\Prototype\Textures\T_ApartmentWallpaperV2_N.uasset',
+			'Content\Prototype\Textures\T_ApartmentWallpaperV2_R.uasset',
+			'Content\Prototype\Textures\T_ApartmentWallpaperV2_A.uasset',
+			'Content\Prototype\Textures\T_ApartmentWallPatina_M.uasset',
+			'Content\Prototype\Materials\M_Wallpaper_X.uasset',
+			'Content\Prototype\Materials\M_Wallpaper_Y.uasset',
+			'Content\Prototype\Materials\M_WallpaperCeil.uasset',
+			'Content\Prototype\Materials\M_ApartmentWallPatina.uasset'
+		)
+	}
+	elseif ($TankWaterOnly) {
 		@('Content\Prototype\Materials\M_TankWaterReveal.uasset')
 	}
 	elseif ($TankInteriorOnly) {
@@ -224,18 +281,48 @@ if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
 			'Content\Prototype\Materials\M_SubmergedSlipperWearUV.uasset'
 		)
 	}
-	$targetedStages = @(
-		@{
-			Script = 'create_textured_materials.py'
-			SuccessPattern = $targetSuccessPattern
-			TargetEnvironment = $true
-		},
-		@{
-			Script = 'validate_baked_art_assets.py'
-			SuccessPattern = 'ART_UASSET_AUDIT PASS'
-			TargetEnvironment = $false
-		}
-	)
+	$targetedStages = if ($HudUiOnly) {
+		@(
+			@{
+				Script = 'generate_surface_textures.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			}
+		)
+	}
+	elseif ($ApartmentVisualOnly) {
+		@(
+			@{
+				Script = 'generate_surface_textures.py'
+				SuccessPattern = '\[IndieGame\] Imported 5 textures'
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
+	else {
+		@(
+			@{
+				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
 	$logRoot = Join-Path $unrealProjectRoot 'Saved\Logs'
 	New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 	$previousTargetMode = [Environment]::GetEnvironmentVariable(
@@ -292,13 +379,14 @@ if ($TankWaterOnly -or $TankInteriorOnly -or $SubmergedClothingOnly) {
 			'Process')
 	}
 	if ($usingAsciiMirror) {
-		foreach ($targetRelativeMaterial in $targetRelativeMaterials) {
-			$sourceMaterial = Join-Path $unrealProjectRoot $targetRelativeMaterial
-			$targetMaterial = Join-Path $projectRoot $targetRelativeMaterial
-			Copy-Item -LiteralPath $sourceMaterial -Destination $targetMaterial -Force
+		foreach ($targetRelativeAsset in $targetRelativeAssets) {
+			$sourceAsset = Join-Path $unrealProjectRoot $targetRelativeAsset
+			$targetAsset = Join-Path $projectRoot $targetRelativeAsset
+			Copy-Item -LiteralPath $sourceAsset -Destination $targetAsset -Force
 		}
 	}
-	Write-Host "ART_TARGETED_MATERIAL_BUILD PASS target=$targetName materials=$(@($targetRelativeMaterials).Count) uasset_audit=1 no_visible_window=true"
+	$targetAudit = if ($HudUiOnly) { 0 } else { 1 }
+	Write-Host "ART_TARGETED_BUILD PASS target=$targetName assets=$(@($targetRelativeAssets).Count) uasset_audit=$targetAudit no_visible_window=true"
 	return
 }
 
@@ -314,6 +402,10 @@ $pythonStages = @(
 	@{
 		Script = 'create_textured_materials.py'
 		SuccessPattern = '\[IndieGame\] Textured material pass complete: \d+ materials'
+	},
+	@{
+		Script = 'apply_photo_prop_lods.py'
+		SuccessPattern = 'PHOTO_PROP_LOD_BUILD PASS'
 	},
 	@{
 		Script = 'validate_baked_art_assets.py'
@@ -370,8 +462,9 @@ if ($usingAsciiMirror) {
 	Invoke-ArtRobocopy `
 		-Source (Join-Path $unrealProjectRoot 'Binaries\Win64') `
 		-Destination (Join-Path $projectRoot 'Binaries\Win64')
-	foreach ($relativeFolder in @(
+		foreach ($relativeFolder in @(
 			'Content\Meshes',
+			'Content\Photo\Props',
 			'Content\Prototype\Textures',
 			'Content\Prototype\Materials'
 	)) {
@@ -424,6 +517,7 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_WetRungPad_D.uasset',
 	'Content\Prototype\Textures\T_TankWaterSurface_D.uasset',
 	'Content\Prototype\Textures\T_P3CabinetPaintedSteel_D.uasset',
+	'Content\Prototype\Textures\T_HudDialogueFilm_D.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_N.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_R.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_A.uasset',
@@ -484,4 +578,4 @@ if ($missing.Count -gt 0) {
 	throw ('Art build finished but required assets are missing: ' + ($missing -join ', '))
 }
 
-Write-Host 'ART_BUILD PASS meshes=30 evidence_masks=4 environment_overlays=4 material_scans=9 pbr_maps=35 uasset_audit=1'
+Write-Host 'ART_BUILD PASS meshes=30 evidence_masks=4 material_masks=1 environment_overlays=4 material_scans=11 pbr_maps=38 uasset_audit=1'

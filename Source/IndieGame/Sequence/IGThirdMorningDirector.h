@@ -163,6 +163,7 @@ private:
 	void BuildP3ServiceCabinet();
 	void BuildLoopingStairwell();
 	void BuildFifthFloorAndRoof();
+	void UpdateHangingVinylSway();
 	void BuildWaterTank();
 	void BuildP5AccidentEvidence();
 	void PresentPurchaseEvidenceContinuity();
@@ -237,6 +238,7 @@ private:
 
 	// --- experience flow --------------------------------------------------
 	void BeginAwakening();
+	void ShowOpeningLensDroplet();
 	void StopAlarmByItself();
 	void EndOpeningSilence();
 	void TryUnlockApartmentExit();
@@ -303,6 +305,7 @@ private:
 	void ShowEndingBFamilyCard();
 	void StartEndingBMontage();
 	void StartEndingBEpilogue();
+	void StartEndingBLifeBed();
 	void PlayEpilogueDripAndClock();
 	void ShowEndingBFinalCard();
 	void PlayEndingBCatCoda();
@@ -312,7 +315,11 @@ private:
 	void RestartChapter();
 	void ReturnToBeginning();
 
-	void StartWaterBed();
+	void StartWaterBed(bool bRestoreImmediately = false);
+	void StartRoofBed(bool bRestoreImmediately = false);
+	void StopRoofBed(float FadeSeconds = 1.6f);
+	void StartTankRevealSilence();
+	void RestoreRoofBedAfterTankSilence();
 	void StopAllChapterAudio();
 	void PollPlayerMotion();
 	void PlayDelayedSplash();
@@ -321,6 +328,17 @@ private:
 
 	// --- capture/smoke hook ----------------------------------------------
 	void StartCaptureSequence();
+	void StartLensDropletCaptureSequence();
+	void CaptureLensDropletEarlyFrame();
+	void CaptureLensDropletLateFrame();
+	void FinishLensDropletCaptureSequence();
+	bool ReadLensDropletCaptureSample(
+		FVector2D& OutPosition,
+		FVector2D& OutSize,
+		FVector2D& OutCanvasSize,
+		float& OutAlpha,
+		bool& bOutReducedMotion) const;
+	bool WriteCaptureReceipt(const FString& Receipt) const;
 	void WaitForRebirthGreyboxScratches();
 	void CaptureNextFrame();
 	void FinishCaptureSequence();
@@ -517,6 +535,7 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> DownRouteWaterBarrier;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> CorridorWaterVisual;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P4ReceiptFragment;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> HangingVinyl;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3PressureNeedle;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3BleedTubeVisual;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> P3BleedWaterVisual;
@@ -541,10 +560,15 @@ private:
 
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> AlarmComponent;
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> WaterBedComponent;
+	UPROPERTY(Transient) TObjectPtr<UAudioComponent> RoofBedComponent;
+	UPROPERTY(Transient) TObjectPtr<UAudioComponent> TankPressureComponent;
+	UPROPERTY(Transient) TObjectPtr<UAudioComponent> EndingBMusicComponent;
+	UPROPERTY(Transient) TObjectPtr<UAudioComponent> EndingBLifeBedComponent;
 
 	EIGThirdMorningPhase Phase = EIGThirdMorningPhase::Awakening;
 	int32 StairLoopCount = 0;
 	int32 CaptureIndex = 0;
+	int32 LensDropletCaptureFinishRetries = 0;
 	int32 P3MistakeCount = 0;
 	int32 AccidentScratchCount = 0;
 	int32 GreyboxScratchWaitTicks = 0;
@@ -580,6 +604,18 @@ private:
 	bool bEndingFinished = false;
 	bool bEndingASelected = false;
 	bool bCaptureMode = false;
+	bool bLensDropletCaptureMode = false;
+	bool bLensDropletCaptureEarlyValid = false;
+	bool bLensDropletCaptureLateValid = false;
+	bool bLensDropletCaptureReducedMotion = false;
+	FVector2D LensDropletCaptureEarlyPosition = FVector2D::ZeroVector;
+	FVector2D LensDropletCaptureLatePosition = FVector2D::ZeroVector;
+	FVector2D LensDropletCaptureSize = FVector2D::ZeroVector;
+	FVector2D LensDropletCaptureCanvasSize = FVector2D::ZeroVector;
+	float LensDropletCaptureEarlyAlpha = 0.0f;
+	float LensDropletCaptureLateAlpha = 0.0f;
+	FString LensDropletCaptureEarlyPath;
+	FString LensDropletCaptureLatePath;
 	bool bGreyboxValidationMode = false;
 	bool bReleaseValidationMode = false;
 	bool bGreyboxDocumentSkipRouteValid = false;
@@ -610,11 +646,14 @@ private:
 	double AccidentScratchGateStartSeconds = -1.0;
 	double LastPlayerMovingTime = 0.0;
 	double NextDelayedSplashTime = 0.0;
+	double NextWaterBedPulseTime = 0.0;
 
 	FTimerHandle AlarmTimer;
+	FTimerHandle LensDropletTimer;
 	FTimerHandle FlowTimer;
 	FTimerHandle RoofFolderRevealTimer;
 	FTimerHandle LadderEchoTimer;
+	FTimerHandle TankRevealBedRestoreTimer;
 	FTimerHandle MotionPollTimer;
 	FTimerHandle CaptureTimer;
 	FTimerHandle ReleaseValidationTimer;
@@ -625,6 +664,7 @@ private:
 	FTimerHandle P3HintVisualTimer;
 	FTimerHandle P4Timer;
 	FTimerHandle P4ReceiptHintTimer;
+	FTimerHandle HangingVinylTimer;
 	FTimerHandle AccidentScratchTimer;
 	FTimerHandle AccidentScratchTailTimer;
 	/** Pooled handles for the ending cue schedules; cleared on EndPlay. */

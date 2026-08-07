@@ -10,6 +10,7 @@
 #include "Components/AudioComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/SkyLightComponent.h"
@@ -97,6 +98,14 @@ namespace IGPrologueWorld
 	const FName CatWaterCapTag(TEXT("REBIRTH.CatWaterAftermath.Cap"));
 	const FName CatWaterCupTag(TEXT("REBIRTH.CatWaterAftermath.Cup"));
 	const FName CatWaterWetRingTag(TEXT("REBIRTH.CatWaterAftermath.WetRing"));
+
+	// These products are never interacted with; the evidence bottles spawned
+	// later remain individual actors. At 16 m a 5-20 cm package is already a
+	// handful of pixels, so it can fade before the store itself disappears.
+	constexpr int32 StoreStockCullStartCentimeters = 1600;
+	constexpr int32 StoreStockCullEndCentimeters = 2200;
+	constexpr int32 ExpectedStoreStockInstances = 1122;
+	constexpr int32 MaximumStoreStockBatches = 24;
 
 	enum class EReceiptTimeline : uint8
 	{
@@ -444,12 +453,15 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 		TEXT("/Engine/BasicShapes/Cube.Cube"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMeshFinder(
 		TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> PlaneMeshFinder(
+		TEXT("/Engine/BasicShapes/Plane.Plane"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> SphereMeshFinder(
 		TEXT("/Engine/BasicShapes/Sphere.Sphere"));
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> ConeMeshFinder(
 		TEXT("/Engine/BasicShapes/Cone.Cone"));
 	CubeMesh = CubeMeshFinder.Object;
 	CylinderMesh = CylinderMeshFinder.Object;
+	PlaneMesh = PlaneMeshFinder.Object;
 	SphereMesh = SphereMeshFinder.Object;
 	ConeMesh = ConeMeshFinder.Object;
 
@@ -516,9 +528,27 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	PostProcess->Settings.AutoExposureSpeedUp = 2.0f;
 	PostProcess->Settings.bOverride_AutoExposureSpeedDown = true;
 	PostProcess->Settings.AutoExposureSpeedDown = 0.75f;
+	// The apartment deliberately contains a hot tungsten pool and an almost
+	// unlit wardrobe in the same frame. Bilateral local exposure preserves the
+	// wallpaper emboss and furniture silhouette without raising the global
+	// exposure until the night scene looks like daylight.
+	PostProcess->Settings.bOverride_LocalExposureMethod = true;
+	PostProcess->Settings.LocalExposureMethod = ELocalExposureMethod::Bilateral;
+	PostProcess->Settings.bOverride_LocalExposureHighlightContrastScale = true;
+	PostProcess->Settings.LocalExposureHighlightContrastScale = 0.82f;
+	PostProcess->Settings.bOverride_LocalExposureShadowContrastScale = true;
+	PostProcess->Settings.LocalExposureShadowContrastScale = 0.76f;
+	PostProcess->Settings.bOverride_LocalExposureDetailStrength = true;
+	PostProcess->Settings.LocalExposureDetailStrength = 1.0f;
+	PostProcess->Settings.bOverride_LocalExposureBlurredLuminanceBlend = true;
+	PostProcess->Settings.LocalExposureBlurredLuminanceBlend = 0.52f;
+	PostProcess->Settings.bOverride_LocalExposureBlurredLuminanceKernelSizePercent = true;
+	PostProcess->Settings.LocalExposureBlurredLuminanceKernelSizePercent = 48.0f;
+	PostProcess->Settings.bOverride_LocalExposureMiddleGreyBias = true;
+	PostProcess->Settings.LocalExposureMiddleGreyBias = -0.18f;
 	// Grade stays close to neutral; the atmosphere supplies the palette.
 	PostProcess->Settings.bOverride_VignetteIntensity = true;
-	PostProcess->Settings.VignetteIntensity = 0.22f;
+	PostProcess->Settings.VignetteIntensity = 0.17f;
 	PostProcess->Settings.bOverride_FilmGrainIntensity = true;
 	PostProcess->Settings.FilmGrainIntensity = 0.02f;
 	PostProcess->Settings.bOverride_ColorSaturation = true;
@@ -899,7 +929,8 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 {
 	const TCHAR* MaterialNames[] = {
 		TEXT("M_Jangpan"), TEXT("M_Wallpaper_X"), TEXT("M_Wallpaper_Y"),
-		TEXT("M_WallpaperCeil"), TEXT("M_WoodFurnitureUV"), TEXT("M_BeddingUV"),
+		TEXT("M_WallpaperCeil"), TEXT("M_ApartmentWallPatina"),
+		TEXT("M_WoodFurnitureUV"), TEXT("M_BeddingUV"),
 		TEXT("M_AsphaltWorld"), TEXT("M_Brick_X"), TEXT("M_Brick_Y"),
 		TEXT("M_Concrete_XY"), TEXT("M_Concrete_X"), TEXT("M_Concrete_Y"),
 		TEXT("M_ConcreteDark_X"), TEXT("M_ConcreteDark_Y"),
@@ -1023,37 +1054,159 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateProp(
 	return Prop;
 }
 
-void AIGPrologueWorldScene::CreateCupRamyeon(
+bool AIGPrologueWorldScene::AddStoreStockInstance(
+	UStaticMesh* Mesh,
+	UMaterialInterface* Material,
+	const FTransform& RelativeTransform,
+	const bool bCastShadow)
+{
+	if (!Mesh)
+	{
+		return false;
+	}
+
+	USceneComponent* ResolvedParent =
+		ActiveParent ? ActiveParent.Get() : SceneRoot.Get();
+	const FString BatchKey = FString::Printf(
+		TEXT("%s|%s|%s|shadow=%d"),
+		*Mesh->GetPathName(),
+		*GetPathNameSafe(Material),
+		*GetPathNameSafe(ResolvedParent),
+		bCastShadow ? 1 : 0);
+
+	UInstancedStaticMeshComponent* Batch = nullptr;
+	if (const TObjectPtr<UInstancedStaticMeshComponent>* Existing =
+			StoreStockBatches.Find(BatchKey))
+	{
+		Batch = Existing->Get();
+	}
+	else
+	{
+		Batch = NewObject<UInstancedStaticMeshComponent>(
+			this,
+			*FString::Printf(
+				TEXT("StoreStockBatch_%02d"),
+				StoreStockBatches.Num()));
+		Batch->SetupAttachment(ResolvedParent);
+		Batch->SetStaticMesh(Mesh);
+		Batch->SetMaterial(0, Material);
+		Batch->SetMobility(EComponentMobility::Static);
+		Batch->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+		Batch->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Batch->SetGenerateOverlapEvents(false);
+		Batch->SetCanEverAffectNavigation(false);
+		Batch->SetReceivesDecals(false);
+		Batch->SetCastShadow(bCastShadow);
+		// Tiny packages do not justify entries in the Lumen distance-field scene.
+		// They still receive direct light, material response and screen traces.
+		Batch->SetAffectDistanceFieldLighting(false);
+		// Start/end are kept as one authoring contract so a stock material may
+		// consume PerInstanceFadeAmount later. Opaque materials that do not use
+		// that node are still GPU-culled at the end distance; do not describe
+		// this interval as a visual blend until the material has been verified.
+		Batch->SetCullDistances(
+			IGPrologueWorld::StoreStockCullStartCentimeters,
+			IGPrologueWorld::StoreStockCullEndCentimeters);
+		StoreStockBatches.Add(BatchKey, Batch);
+	}
+
+	return Batch && Batch->AddInstance(RelativeTransform) != INDEX_NONE;
+}
+
+bool AIGPrologueWorldScene::AddStoreStockProp(
+	const TCHAR* MeshName,
+	const FVector& BaseLocation,
+	UMaterialInterface* Material,
+	const float YawDegrees,
+	const float UniformScale,
+	const bool bCastShadow)
+{
+	return AddStoreStockInstance(
+		PropMesh(MeshName),
+		Material,
+		FTransform(
+			FRotator(0.0f, YawDegrees, 0.0f),
+			BaseLocation,
+			FVector(UniformScale)),
+		bCastShadow);
+}
+
+void AIGPrologueWorldScene::AddStoreStockBlock(
+	const FVector& Center,
+	const FVector& SizeCentimeters,
+	UMaterialInterface* Material,
+	const bool bCastShadow,
+	const FRotator& Rotation)
+{
+	const bool bAdded = AddStoreStockInstance(
+		CubeMesh,
+		Material,
+		FTransform(Rotation, Center, SizeCentimeters / 100.0f),
+		bCastShadow);
+	ensureMsgf(bAdded, TEXT("The store-stock cube fallback must always be available."));
+}
+
+void AIGPrologueWorldScene::AddStoreStockCup(
 	const FVector& BaseLocation,
 	const float YawDegrees)
 {
-	// Foam cup body. SM_CupNoodle models the taper, the rolled rim and the
-	// domed lid; all of it is expanded polystyrene white except the lid, which
-	// the foil disc below covers.
-	CreateProp(
-		TEXT("SM_CupNoodle"), BaseLocation, CupNoodleMaterial, YawDegrees, 1.0f, true);
-
-	// The printed band. SM_CupSleeve is authored at unit size — base radius 1,
-	// height 1 — for the same reason SM_LabelSleeve is: the cylindrical UV
-	// projection normalises against the mesh's extent, so a sleeve modelled at
-	// real centimetres tiles the artwork dozens of times around. X/Y carry the
-	// cup's base radius, Z the band height.
-	if (UStaticMeshComponent* Sleeve = CreateProp(
-			TEXT("SM_CupSleeve"), BaseLocation + FVector(0.0f, 0.0f, 1.6f),
-			TexMat(TEXT("M_LabelRamyeon"), CupNoodleMaterial), YawDegrees, 1.0f, false))
+	// Foam cup body. The fallback keeps the batch contract intact when an
+	// artist is rebuilding an authored mesh locally.
+	if (!AddStoreStockProp(
+			TEXT("SM_CupNoodle"),
+			BaseLocation,
+			CupNoodleMaterial,
+			YawDegrees))
 	{
-		Sleeve->SetRelativeScale3D(FVector(4.10f, 4.10f, 7.2f));
-		// It hugs the cup; its shadow would only fight the cup's own.
-		Sleeve->SetCastShadow(false);
+		AddStoreStockBlock(
+			BaseLocation + FVector(0.0f, 0.0f, 5.5f),
+			FVector(10.8f, 10.8f, 11.0f),
+			CupNoodleMaterial,
+			true,
+			FRotator(0.0f, YawDegrees, 0.0f));
 	}
 
-	// Crimped foil lid.
-	CreateProp(
-		TEXT("SM_CupLid"), BaseLocation,
-		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial), YawDegrees, 1.0f, false);
+	// The sleeve is authored at unit radius/height so the cylindrical UV spans
+	// the printed artwork once. It hugs the cup and must not cast a second shadow.
+	UMaterialInterface* LabelMaterial =
+		TexMat(TEXT("M_LabelRamyeon"), CupNoodleMaterial);
+	if (!AddStoreStockInstance(
+			PropMesh(TEXT("SM_CupSleeve")),
+			LabelMaterial,
+			FTransform(
+				FRotator(0.0f, YawDegrees, 0.0f),
+				BaseLocation + FVector(0.0f, 0.0f, 1.6f),
+				FVector(4.10f, 4.10f, 7.2f)),
+			false))
+	{
+		AddStoreStockBlock(
+			BaseLocation + FVector(0.0f, 0.0f, 5.2f),
+			FVector(8.2f, 8.2f, 7.2f),
+			LabelMaterial,
+			false,
+			FRotator(0.0f, YawDegrees, 0.0f));
+	}
+
+	UMaterialInterface* LidMaterial =
+		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
+	if (!AddStoreStockProp(
+			TEXT("SM_CupLid"),
+			BaseLocation,
+			LidMaterial,
+			YawDegrees,
+			1.0f,
+			false))
+	{
+		AddStoreStockBlock(
+			BaseLocation + FVector(0.0f, 0.0f, 10.85f),
+			FVector(10.9f, 10.9f, 0.3f),
+			LidMaterial,
+			false,
+			FRotator(0.0f, YawDegrees, 0.0f));
+	}
 }
 
-UStaticMeshComponent* AIGPrologueWorldScene::CreateBottleLabel(
+void AIGPrologueWorldScene::AddStoreStockBottleLabel(
 	const FVector& BottleBase,
 	const float Radius,
 	const float BandBottomZ,
@@ -1061,31 +1214,81 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateBottleLabel(
 	const TCHAR* LabelMaterialName,
 	const float YawDegrees)
 {
-	UStaticMesh* Sleeve = PropMesh(TEXT("SM_LabelSleeve"));
-	if (!Sleeve)
+	UMaterialInterface* LabelMaterial =
+		TexMat(LabelMaterialName, FridgeInteriorMaterial);
+	if (AddStoreStockInstance(
+			PropMesh(TEXT("SM_LabelSleeve")),
+			LabelMaterial,
+			FTransform(
+				FRotator(0.0f, YawDegrees, 0.0f),
+				BottleBase + FVector(0.0f, 0.0f, BandBottomZ),
+				FVector(Radius, Radius, BandHeight)),
+			false))
 	{
-		return nullptr;
+		return;
 	}
 
-	UStaticMeshComponent* Label = NewObject<UStaticMeshComponent>(
-		this,
-		*FString::Printf(TEXT("Label_%d"), BlockCounter++));
-	Label->SetupAttachment(ActiveParent ? ActiveParent.Get() : SceneRoot.Get());
-	Label->SetStaticMesh(Sleeve);
-	Label->SetMaterial(0, TexMat(LabelMaterialName, FridgeInteriorMaterial));
-	Label->SetRelativeLocation(BottleBase + FVector(0.0f, 0.0f, BandBottomZ));
-	Label->SetRelativeRotation(FRotator(0.0f, YawDegrees, 0.0f));
-	// The sleeve is a unit cylinder: X/Y carry the radius, Z the band height.
-	Label->SetRelativeScale3D(FVector(Radius, Radius, BandHeight));
-	Label->SetMobility(EComponentMobility::Static);
-	Label->SetGenerateOverlapEvents(false);
-	Label->SetCanEverAffectNavigation(false);
-	Label->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	// The sleeve hugs the bottle; its shadow would just fight the bottle's.
-	Label->SetCastShadow(false);
-	Label->RegisterComponent();
-	GeometryComponents.Add(Label);
-	return Label;
+	// The flat fallback is deliberately thin and front-facing. Its role is to
+	// preserve product colour and instance count while the sleeve is rebuilt.
+	AddStoreStockBlock(
+		BottleBase + FVector(-Radius, 0.0f, BandBottomZ + BandHeight * 0.5f),
+		FVector(0.3f, Radius * 2.0f, BandHeight),
+		LabelMaterial,
+		false,
+		FRotator(0.0f, YawDegrees, 0.0f));
+}
+
+void AIGPrologueWorldScene::FinalizeStoreStockBatches()
+{
+	// Register once per batch. Registering before every AddInstance rebuilds
+	// render state repeatedly during BeginPlay and produces an avoidable hitch.
+	for (const TPair<FString, TObjectPtr<UInstancedStaticMeshComponent>>& Pair :
+		StoreStockBatches)
+	{
+		UInstancedStaticMeshComponent* Batch = Pair.Value.Get();
+		if (!Batch || Batch->IsRegistered())
+		{
+			continue;
+		}
+		Batch->RegisterComponent();
+		GeometryComponents.Add(Batch);
+	}
+}
+
+bool AIGPrologueWorldScene::ValidateStoreStockBatches(
+	int32& OutBatchCount,
+	int32& OutInstanceCount) const
+{
+	OutBatchCount = StoreStockBatches.Num();
+	OutInstanceCount = 0;
+	bool bConfigurationValid = true;
+
+	for (const TPair<FString, TObjectPtr<UInstancedStaticMeshComponent>>& Pair :
+		StoreStockBatches)
+	{
+		const UInstancedStaticMeshComponent* Batch = Pair.Value.Get();
+		if (!Batch)
+		{
+			bConfigurationValid = false;
+			continue;
+		}
+
+		OutInstanceCount += Batch->GetInstanceCount();
+		int32 CullStart = 0;
+		int32 CullEnd = 0;
+		Batch->GetCullDistances(CullStart, CullEnd);
+		bConfigurationValid = bConfigurationValid
+			&& Batch->IsRegistered()
+			&& Batch->GetMobility() == EComponentMobility::Static
+			&& Batch->GetCollisionEnabled() == ECollisionEnabled::NoCollision
+			&& CullStart == IGPrologueWorld::StoreStockCullStartCentimeters
+			&& CullEnd == IGPrologueWorld::StoreStockCullEndCentimeters;
+	}
+
+	return bConfigurationValid
+		&& OutInstanceCount == IGPrologueWorld::ExpectedStoreStockInstances
+		&& OutBatchCount > 0
+		&& OutBatchCount <= IGPrologueWorld::MaximumStoreStockBatches;
 }
 
 UStaticMesh* AIGPrologueWorldScene::FindPhotoPropMesh(const TCHAR* AssetId) const
@@ -1360,6 +1563,9 @@ void AIGPrologueWorldScene::InitializePrologue()
 	const bool bDirectChapterThree = !bIgnoreDirectStart
 		&& (FParse::Param(FCommandLine::Get(), TEXT("IGChapterThree"))
 			|| FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH03"))
+			|| FParse::Param(
+				FCommandLine::Get(),
+				TEXT("IGCaptureCH03LensDroplet"))
 			|| GetWorld()->URL.HasOption(TEXT("IGChapterThree")));
 	if (bDirectChapterThree)
 	{
@@ -1599,6 +1805,7 @@ void AIGPrologueWorldScene::BuildApartment()
 	UMaterialInterface* WallX = TexMat(TEXT("M_Wallpaper_X"), WallMaterial);
 	UMaterialInterface* WallY = TexMat(TEXT("M_Wallpaper_Y"), WallMaterial);
 	UMaterialInterface* CeilHome = TexMat(TEXT("M_WallpaperCeil"), WallMaterial);
+	UMaterialInterface* WallPatina = TexMat(TEXT("M_ApartmentWallPatina"), nullptr);
 	UMaterialInterface* Furniture = TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial);
 	UMaterialInterface* Bedding = TexMat(TEXT("M_BeddingUV"), BeddingMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
@@ -1623,6 +1830,37 @@ void AIGPrologueWorldScene::BuildApartment()
 	CreateBlock(FVector(142, -225, 220), FVector(88, 20, 20), WallX);
 	// Entrance shoe step.
 	CreateBlock(FVector(143, -195, 4), FVector(80, 40, 8), TexMat(TEXT("M_Concrete_XY"), ConcreteDarkMaterial));
+
+	// Localised wear is layered, never baked across every wall. Two masked
+	// planes are enough to establish humidity at the cold exterior corner and
+	// behind the desk while leaving the living surfaces recognisably cared for.
+	// Small overlays cull outside the apartment and never enter collision or
+	// the Lumen distance field.
+	if (PlaneMesh && WallPatina)
+	{
+		if (UStaticMeshComponent* SouthPatina = CreateBlock(
+			FVector(-82.0f, -214.4f, 54.0f),
+			FVector(148.0f, 104.0f, 1.0f),
+			WallPatina,
+			false,
+			PlaneMesh,
+			FRotator(0.0f, 0.0f, 90.0f)))
+		{
+			SouthPatina->SetCullDistance(950.0f);
+			SouthPatina->SetAffectDistanceFieldLighting(false);
+		}
+		if (UStaticMeshComponent* WestPatina = CreateBlock(
+			FVector(-189.4f, 58.0f, 48.0f),
+			FVector(96.0f, 126.0f, 1.0f),
+			WallPatina,
+			false,
+			PlaneMesh,
+			FRotator(90.0f, 0.0f, 0.0f)))
+		{
+			WestPatina->SetCullDistance(950.0f);
+			WestPatina->SetAffectDistanceFieldLighting(false);
+		}
+	}
 
 	// Bed: a real scanned frame when available, greybox otherwise. The
 	// mattress/duvet dressing sits on top either way.
@@ -1653,6 +1891,54 @@ void AIGPrologueWorldScene::BuildApartment()
 	{
 		CreateBlock(FVector(-172, -105, 90), FVector(35, 80, 180), Furniture);
 	}
+
+	// Eye-level dressing gives the room a personal history without blocking a
+	// route or becoming false evidence. Each tiny mesh has a short draw range;
+	// at corridor distance it is sub-pixel and should not cost a draw call.
+	auto AddApartmentDressing = [this](
+		const FVector& Center,
+		const FVector& Size,
+		UMaterialInterface* Material,
+		UStaticMesh* Mesh,
+		const FRotator& Rotation)
+	{
+		UStaticMeshComponent* Component = CreateBlock(
+			Center, Size, Material, false, Mesh, Rotation);
+		if (Component)
+		{
+			Component->SetCullDistance(850.0f);
+			Component->SetAffectDistanceFieldLighting(false);
+		}
+		return Component;
+	};
+	// Pencil cup and three uneven pencils on the back corner of the desk.
+	AddApartmentDressing(
+		FVector(-178.0f, -188.0f, 84.0f), FVector(8.0f, 8.0f, 12.0f),
+		PlasticDarkMaterial, CylinderMesh, FRotator::ZeroRotator);
+	AddApartmentDressing(
+		FVector(-180.0f, -188.0f, 95.0f), FVector(1.0f, 1.0f, 18.0f),
+		SnackRedMaterial, CylinderMesh, FRotator(2.0f, 0.0f, -4.0f));
+	AddApartmentDressing(
+		FVector(-177.0f, -188.0f, 94.0f), FVector(1.0f, 1.0f, 16.0f),
+		SnackYellowMaterial, CylinderMesh, FRotator(-3.0f, 0.0f, 3.0f));
+	AddApartmentDressing(
+		FVector(-174.5f, -188.0f, 93.0f), FVector(1.0f, 1.0f, 14.0f),
+		SnackBlueMaterial, CylinderMesh, FRotator(1.0f, 0.0f, 5.0f));
+	// Two used notebooks break the otherwise perfect horizontal desk surface.
+	AddApartmentDressing(
+		FVector(-108.0f, -188.0f, 79.5f), FVector(25.0f, 18.0f, 2.2f),
+		Bedding, nullptr, FRotator(0.0f, -4.0f, 0.0f));
+	AddApartmentDressing(
+		FVector(-108.0f, -188.0f, 82.0f), FVector(22.0f, 16.0f, 2.0f),
+		SignWhiteMaterial, nullptr, FRotator(0.0f, 3.0f, 0.0f));
+	// The practical has a visible emitting face and a routed power lead, so the
+	// warm pool reads as light from a real object rather than a floating point.
+	AddApartmentDressing(
+		FVector(-164.0f, -45.0f, 96.0f), FVector(9.0f, 9.0f, 1.0f),
+		LightPanelMaterial, CylinderMesh, FRotator::ZeroRotator);
+	AddApartmentDressing(
+		FVector(-175.0f, -55.0f, 61.0f), FVector(1.2f, 1.2f, 22.0f),
+		PlasticDarkMaterial, CylinderMesh, FRotator(0.0f, 18.0f, 18.0f));
 
 	// --- Built-in kitchen line along the east wall ---------------------------
 	// A real 원룸 is fitted, not furnished: one continuous run of white gloss
@@ -1778,8 +2064,21 @@ void AIGPrologueWorldScene::BuildApartment()
 	// Apartment lighting: no ceiling light at this hour — only the warm
 	// bedside lamp, the strip left on under the wall units, and the cool
 	// spill through the window; the sky light carries the rest physically.
-	CreateLight(FVector(-160, -35, 110), 175.0f, 330.0f, FLinearColor(1.0f, 0.48f, 0.22f), true, 12.0f);
-	CreateLight(FVector(-100, 190, 160), 85.0f, 400.0f, FLinearColor(0.52f, 0.64f, 0.95f), true, 24.0f);
+	UPointLightComponent* BedsideLamp = CreateLight(
+		FVector(-160, -35, 108), 255.0f, 340.0f,
+		FLinearColor(1.0f, 0.53f, 0.25f), true, 15.0f);
+	BedsideLamp->SetVolumetricScatteringIntensity(0.28f);
+	CreateLight(
+		FVector(-100, 190, 160), 132.0f, 460.0f,
+		FLinearColor(0.42f, 0.58f, 0.90f), true, 32.0f);
+	// A weak, shadowless cool bounce approximates the window contribution that
+	// would otherwise disappear behind the wardrobe at this small scale. It is
+	// intentionally too dim to flatten the lamp shadow or reveal the whole room.
+	UPointLightComponent* WindowBounce = CreateLight(
+		FVector(-55, -98, 132), 22.0f, 270.0f,
+		FLinearColor(0.34f, 0.46f, 0.68f), false, 46.0f);
+	WindowBounce->SetSpecularScale(0.12f);
+	WindowBounce->SetVolumetricScatteringIntensity(0.0f);
 	UPointLightComponent* UnderCabinet = CreateLight(
 		FVector(150, 128, 138), 115.0f, 280.0f,
 		FLinearColor(0.92f, 0.96f, 1.0f), true, 10.0f);
@@ -3496,7 +3795,11 @@ void AIGPrologueWorldScene::BuildStore()
 			UMaterialInterface* RackMaterial =
 				(CigaretteIndex % 3 == 0) ? SnackRedMaterial :
 				(CigaretteIndex % 3 == 1) ? SnackYellowMaterial : SnackBlueMaterial;
-			CreateBlock(FVector(RackX, -181, RackZ), FVector(14, 8, 12), RackMaterial, false);
+			AddStoreStockBlock(
+				FVector(RackX, -181, RackZ),
+				FVector(14, 8, 12),
+				RackMaterial,
+				false);
 			++CigaretteIndex;
 		}
 	}
@@ -3544,18 +3847,19 @@ void AIGPrologueWorldScene::BuildStore()
 						SnackLabels[FMath::Abs(SnackIndex) % 4],
 						(SnackIndex % 3 == 0) ? SnackRedMaterial :
 						(SnackIndex % 3 == 1) ? SnackYellowMaterial : SnackBlueMaterial);
-					if (!CreateProp(
+					if (!AddStoreStockProp(
 						TEXT("SM_SnackBag"),
 						// The bag mesh carries a crimped bottom seal, so its
 						// pivot sits slightly below the body.
 						FVector(SnackX, GondolaY + FaceSign * 11.0f, TierZ + 6.8f),
 						SnackMaterial,
 						FaceSign > 0.0f ? 90.0f : -90.0f,
-						0.48f))
+						0.48f,
+						true))
 					{
-						CreateBlock(
+						AddStoreStockBlock(
 							FVector(SnackX, GondolaY + FaceSign * 11.0f, TierZ + 9.5f),
-							FVector(15, 12, 16), SnackMaterial, false);
+							FVector(15, 12, 16), SnackMaterial, true);
 					}
 					++SnackIndex;
 				}
@@ -3569,7 +3873,7 @@ void AIGPrologueWorldScene::BuildStore()
 		// label on the cup mesh painted the artwork over the lid and the
 		// underside too, because the lid is unioned into the same mesh and
 		// shares its only material slot.
-		CreateCupRamyeon(FVector(CupX, -365, 142), CupX * 1.7f);
+		AddStoreStockCup(FVector(CupX, -365, 142), CupX * 1.7f);
 	}
 
 	// South wall: chilled open showcase (kimbap/sandwich) flanked by scanned
@@ -3589,16 +3893,23 @@ void AIGPrologueWorldScene::BuildStore()
 			// Kimbap trays lie flat; sandwich wedges stand on their long edge.
 			const bool bKimbap = (ChilledIndex % 2) == 0;
 			const bool bPlaced = bKimbap
-				? CreateProp(TEXT("SM_KimbapPack"), FVector(ItemX, -655, TierZ),
-					FridgeInteriorMaterial, 90.0f) != nullptr
-				: CreateProp(TEXT("SM_SandwichPack"), FVector(ItemX, -655, TierZ),
-					SnackYellowMaterial, 90.0f) != nullptr;
+				? AddStoreStockProp(
+					TEXT("SM_KimbapPack"),
+					FVector(ItemX, -655, TierZ),
+					FridgeInteriorMaterial,
+					90.0f)
+				: AddStoreStockProp(
+					TEXT("SM_SandwichPack"),
+					FVector(ItemX, -655, TierZ),
+					SnackYellowMaterial,
+					90.0f);
 			if (!bPlaced)
 			{
-				CreateBlock(
+				AddStoreStockBlock(
 					FVector(ItemX, -655, TierZ + (bKimbap ? 4.0f : 3.0f)),
 					bKimbap ? FVector(9, 8, 8) : FVector(13, 9, 6),
-					bKimbap ? FridgeInteriorMaterial : SnackYellowMaterial, false);
+					bKimbap ? FridgeInteriorMaterial : SnackYellowMaterial,
+					true);
 			}
 			++ChilledIndex;
 		}
@@ -3613,7 +3924,7 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(FVector(2452, -668, 86), FVector(70, 38, 160), ShelfSteel);
 	for (float CupX = 2432.0f; CupX <= 2472.0f; CupX += 20.0f)
 	{
-		CreateCupRamyeon(FVector(CupX, -654, 167.5f), CupX * 3.0f);
+		AddStoreStockCup(FVector(CupX, -654, 167.5f), CupX * 3.0f);
 	}
 
 	// East wall: the walk-up reach-in cooler bank — six framed glass doors,
@@ -3664,23 +3975,68 @@ void AIGPrologueWorldScene::BuildStore()
 				const float BottleYaw = -90.0f + (DrinkIndex % 3 - 1) * 7.0f;
 				if (bTallBottle)
 				{
-					CreateProp(TEXT("SM_SojuBottle"), BottleBase, BottleGreenMaterial,
-						BottleYaw);
-					CreateProp(TEXT("SM_BottleCap"), BottleBase + FVector(0, 0, 21.0f),
-						CapMaterial, 0.0f);
-					CreateBottleLabel(BottleBase, 3.42f, 3.0f, 7.0f,
+					if (!AddStoreStockProp(
+							TEXT("SM_SojuBottle"),
+							BottleBase,
+							BottleGreenMaterial,
+							BottleYaw))
+					{
+						AddStoreStockBlock(
+							BottleBase + FVector(0.0f, 0.0f, 10.6f),
+							FVector(6.7f, 6.7f, 21.2f),
+							BottleGreenMaterial,
+							true);
+					}
+					if (!AddStoreStockProp(
+							TEXT("SM_BottleCap"),
+							BottleBase + FVector(0, 0, 21.0f),
+							CapMaterial,
+							0.0f,
+							1.0f,
+							false))
+					{
+						AddStoreStockBlock(
+							BottleBase + FVector(0.0f, 0.0f, 21.8f),
+							FVector(3.4f, 3.4f, 1.6f),
+							CapMaterial,
+							false);
+					}
+					AddStoreStockBottleLabel(BottleBase, 3.42f, 3.0f, 7.0f,
 						TEXT("M_LabelSoju"), BottleYaw);
 				}
 				else
 				{
-					CreateProp(TEXT("SM_DrinkBottle"), BottleBase, DrinkMaterial,
-						BottleYaw);
-					CreateProp(TEXT("SM_BottleCap"), BottleBase + FVector(0, 0, 16.9f),
-						CapMaterial, 0.0f);
+					if (!AddStoreStockProp(
+							TEXT("SM_DrinkBottle"),
+							BottleBase,
+							DrinkMaterial,
+							BottleYaw))
+					{
+						AddStoreStockBlock(
+							BottleBase + FVector(0.0f, 0.0f, 8.55f),
+							FVector(7.2f, 7.2f, 17.1f),
+							DrinkMaterial,
+							true);
+					}
+					if (!AddStoreStockProp(
+							TEXT("SM_BottleCap"),
+							BottleBase + FVector(0, 0, 16.9f),
+							CapMaterial,
+							0.0f,
+							1.0f,
+							false))
+					{
+						AddStoreStockBlock(
+							BottleBase + FVector(0.0f, 0.0f, 17.7f),
+							FVector(3.4f, 3.4f, 1.6f),
+							CapMaterial,
+							false);
+					}
 					const TCHAR* LabelName = (DrinkIndex % 3 == 0)
 						? TEXT("M_LabelGreenTea")
 						: ((DrinkIndex % 2 == 0) ? TEXT("M_LabelBarley") : TEXT("M_LabelSoda"));
-					CreateBottleLabel(BottleBase, 3.67f, 3.0f, 7.6f, LabelName, BottleYaw);
+					AddStoreStockBottleLabel(
+						BottleBase, 3.67f, 3.0f, 7.6f, LabelName, BottleYaw);
 				}
 				++DrinkIndex;
 			}
@@ -3758,6 +4114,8 @@ void AIGPrologueWorldScene::BuildStore()
 		CreateBlock(FVector(2445, -305, 17), FVector(40, 30, 22), SnackRedMaterial);
 		CreateBlock(FVector(2445, -305, 39), FVector(38, 28, 20), SnackRedMaterial);
 	}
+
+	FinalizeStoreStockBatches();
 }
 
 void AIGPrologueWorldScene::BuildSkyAndFog()
@@ -5376,6 +5734,26 @@ void AIGPrologueWorldScene::StartRebirthEndToEndValidation()
 		return;
 	}
 
+	int32 StoreStockBatchCount = 0;
+	int32 StoreStockInstanceCount = 0;
+	if (!ValidateStoreStockBatches(
+			StoreStockBatchCount,
+			StoreStockInstanceCount))
+	{
+		FailRebirthEndToEndValidation(TEXT("store stock batching contract"));
+		return;
+	}
+	UE_LOG(
+		LogIndieGame,
+		Display,
+		TEXT(
+			"REBIRTH_RELEASE PASS store_instancing instances=%d batches=%d "
+			"cull_cm=%d-%d"),
+		StoreStockInstanceCount,
+		StoreStockBatchCount,
+		IGPrologueWorld::StoreStockCullStartCentimeters,
+		IGPrologueWorld::StoreStockCullEndCentimeters);
+
 	StoryState->ClearStates(false);
 	RebirthState->ResetNarrative();
 	const auto AddStoryState = [this](const TCHAR* Name)
@@ -6201,7 +6579,10 @@ void AIGPrologueWorldScene::EnterChapterThree()
 	}
 
 	const bool bCapture =
-		FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH03"));
+		FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH03"))
+		|| FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGCaptureCH03LensDroplet"));
 	const bool bDirectStart =
 		FParse::Param(FCommandLine::Get(), TEXT("IGChapterThree"))
 		|| bCapture

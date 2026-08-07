@@ -72,11 +72,17 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 | `SheetLadderRungFailureReference.png` | 직접 텍스처로 사용하지 않음 | P5 상단 두 번째 발판의 젖은 리브 고무·양 끝 고정 클립 2개·억제된 부식 디테일 기준. 과거 수직 발판 비례는 폐기하고 정확한 몸체 치수와 위치는 외부 계단 계약을 따른다 |
 | `TextureWetRungPadRubber.png` | `T_WetRungPad_D` | 젖은 흑연색 세로 리브 고무의 저대비 타일형 알베도. `M_WetRungPadUV`로 들뜬 패드와 정확한 치수의 폴백에 공통 적용 |
 | `TextureTankWaterSurface.png` | `T_TankWaterSurface_D` | 최종 리빌용 어두운 청회색 탱크 수면. 이미지에는 인체를 굽지 않고 낮은 물결·광도 변화·미세 광물 입자만 둔다. 알베도는 고정하고 전용 노멀을 서로 다른 배율·방향으로 두 번 천천히 이동시켜 `M_TankWaterReveal`의 반사와 약한 굴절만 변화시킨다 |
-| 위 재질 스캔 9종의 `T_*_D` | `T_*_{N,R,A}` 27종 · `T_*_W` 6종 · 금속 마스크 2종 | `generate_ai_pbr_maps.py`로 생성하는 PBR 동반 채널 35종. 젖음은 알베도·거칠기·노멀 블렌드에 함께 사용하며 외부 녹과 내부 석회·바이오필름·녹 피복을 비금속으로 분리 |
+| 위 재질 스캔 10종의 `T_*_D` | `T_*_{N,R,A}` 30종 · `T_*_W` 6종 · 금속 마스크 2종 | `generate_ai_pbr_maps.py`로 생성하는 PBR 동반 채널 38종. 젖음은 알베도·거칠기·노멀 블렌드에 함께 사용하며 외부 녹과 내부 석회·바이오필름·녹 피복을 비금속으로 분리 |
 | `ApplicationIcon_raw.png` | `Build/Windows/ApplicationIcon.png` · `Application.ico` | 물탱크 점검구·새벽빛 모티프의 Windows 배포 아이콘. `prepare_application_icon.py`로 1024px 등급 PNG와 16~256px 7단계 ICO를 생성 |
+| `DialogueHUDConcept_v1.png` | UI 아트 디렉션 기준 이미지 | 실제 Shipping 캡처의 디버그형 대화창을 낮은 하단 점유율, 분리된 환경음 캡슐, 작은 화자 태그와 습기 낀 smoked-glass 재질로 재설계한 시안. 런타임 텍스트를 굽지 않고 색·여백·질감 기준만 사용 |
+| `TextureHudDialogueFilm.png` | `T_HudDialogueFilm_D` | 대화창 표면의 저대비 charcoal/oxidized-green 미세 필름 스캔. UI 그룹·NoMipmaps·비스트리밍으로 임포트하고 런타임 둥근 마스크 안에서 낮은 알파로만 사용 |
+| `ApartmentVisualTarget_v1.png` | 원룸 비주얼 아트 디렉션 기준 이미지 | 실제 Shipping 원룸 캡처의 카메라·동선·가구·HUD는 유지하고, 주황 스탠드와 청록 새벽광, 낡은 벽지·장판의 물성, 국부 습기 흔적만 보강한 목표 시안. 런타임 텍스처로 직접 사용하지 않음 |
+| `TextureApartmentWallpaperVintage.png` | `T_ApartmentWallpaperV2_D` | 2000년대 초 한국 빌라의 저가 아이보리 엠보싱 벽지 알베도. 전용 N/R/A 채널과 `M_Wallpaper_X/Y/Ceil`에 연결 |
+| `MaskApartmentWallPatina.png` | `T_ApartmentWallPatina_M` | 원룸 하부 모서리에 제한한 습기·들뜸 마스크. `M_ApartmentWallPatina`의 불투명도·색·거칠기 변화에 사용하고 충돌 없는 근거리 평면으로 배치 |
 
 한 번의 생성에 5분이 걸리므로 낱장 대신 **격자 시트**로 묶어 뽑고 슬라이스합니다.
-현재 79장의 파생 텍스처(기존 44장 + PBR 동반 채널 35장)와 증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-04
+현재 85장의 파생 텍스처(기존 80장 + 원룸 벽지 D/N/R/A 4장 + 파티나 마스크 1장)와
+증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-06
 추가분은 생성 실패를 그대로 채택하지 않고 슬리퍼 밑창과 빗물 때를 각각
 한 차례 수정 생성했습니다.
 
@@ -95,6 +101,26 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 5. **정사 물증을 그림으로만 고정하지 않는다.** 흔적은 마스크드 평면과
    거칠기 변화로, 안경·점검봉·휴대폰은 실제 정적 메시와 런타임 상태로
    구현한다. 기준 시트는 형상·마모 참고이며 카메라에 직접 노출하지 않는다.
+
+### 원룸 비주얼 패스 생성 기록
+
+- 서비스: OpenAI ImageGen 내장 도구
+- 생성일: 2026-08-06
+- 보존 원본: `Content/SourceArt/AI/ApartmentVisualTarget_v1.png`,
+  `TextureApartmentWallpaperVintage.png`, `MaskApartmentWallPatina.png`
+- SHA-256: 목표 시안
+  `01562DEE4BCD53C9A44663AEADB81BAB5B582FABD26D82071BBE91FDFB55CBA5`,
+  벽지 `464803BCFE96602303AF292E03FC5308C46C972EC9249B6C78CFAB5CFA91BB03`,
+  파티나 `1C8D8B6E1F9849DE838A67BC3D712E71B6ECA5F39D2412A815377BDC04773D17`
+- 목표 시안 프롬프트: 실제 Shipping 원룸의 카메라·기하·동선·소품과 HUD를
+  보존하고, 따뜻한 텅스텐 조명과 차가운 새벽광, 오래된 벽지·장판의 미세
+  물성만 보강한다. 괴물·고어·새 가구·새 출입구는 추가하지 않는다.
+- 재질 프롬프트: 벽지는 조명과 그림자를 굽지 않은 이음매 없는 아이보리
+  엠보싱 알베도, 파티나는 검정 무손상·흰색 손상의 그레이스케일 마스크로
+  생성한다. 의미 있는 문자·상표·인물은 포함하지 않는다.
+- 적용: `Build-ArtAssets.ps1 -ApartmentVisualOnly`가 5개 텍스처와 4개
+  머티리얼을 빌드·감사한다. 파티나는 두 곳에만 국부 배치하고 9.5m에서
+  컬링하며, 조명·상호작용·충돌·서사 상태에는 영향을 주지 않는다.
 
 ### Windows 배포 아이콘 생성 기록
 

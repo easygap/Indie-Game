@@ -10,7 +10,9 @@
 UIGFlashlightComponent::UIGFlashlightComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
-	PrimaryComponentTick.bStartWithTickEnabled = true;
+	// The torch is unavailable for most of CH01. Sway and flicker only need a
+	// frame update while its beam is visible.
+	PrimaryComponentTick.bStartWithTickEnabled = false;
 
 	Beam = CreateDefaultSubobject<USpotLightComponent>(TEXT("FlashlightBeam"));
 	Beam->SetupAttachment(this);
@@ -41,6 +43,7 @@ void UIGFlashlightComponent::BeginPlay()
 {
 	Super::BeginPlay();
 	PreviousWorldRotation = GetComponentRotation();
+	SetComponentTickEnabled(false);
 	if (const UWorld* World = GetWorld())
 	{
 		if (UGameInstance* GameInstance = World->GetGameInstance())
@@ -59,18 +62,37 @@ bool UIGFlashlightComponent::Toggle()
 
 void UIGFlashlightComponent::SetOn(const bool bNewOn)
 {
-	bOn = bNewOn && bAvailable;
+	const bool bShouldBeOn = bNewOn && bAvailable;
+	if (bOn == bShouldBeOn)
+	{
+		return;
+	}
+
+	bOn = bShouldBeOn;
 	Beam->SetVisibility(bOn);
 	Spill->SetVisibility(bOn);
 	if (bOn)
 	{
+		PreviousWorldRotation = GetComponentRotation();
+		Beam->SetIntensity(BeamIntensity);
+		Spill->SetIntensity(220.0f);
+		SetComponentTickEnabled(true);
 		// Kick the beam so switching on reads as a hand movement.
 		if (!AccessibilitySubsystem
 			|| !AccessibilitySubsystem->IsReducedCameraMotionEnabled())
 		{
 			AddImpulse(FRotator(-1.6f, 2.2f, 0.0f));
 		}
+		return;
 	}
+
+	// Do not carry a stale scare impulse into the next switch-on. Keeping the
+	// component asleep here removes a permanent per-frame update in CH01.
+	BrownOutTimer = 0.0f;
+	SwayOffset = FRotator::ZeroRotator;
+	ImpulseOffset = FRotator::ZeroRotator;
+	Beam->SetRelativeRotation(FRotator::ZeroRotator);
+	SetComponentTickEnabled(false);
 }
 
 void UIGFlashlightComponent::SetAvailable(const bool bNewAvailable)
@@ -89,8 +111,9 @@ void UIGFlashlightComponent::RefillBattery(const float Fraction)
 
 void UIGFlashlightComponent::AddImpulse(const FRotator& Impulse)
 {
-	if (AccessibilitySubsystem
-		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled())
+	const bool bReducedMotion = AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled();
+	if (!bOn || bReducedMotion)
 	{
 		return;
 	}
@@ -123,13 +146,14 @@ void UIGFlashlightComponent::TickComponent(
 {
 	Super::TickComponent(DeltaSeconds, TickType, ThisTickFunction);
 
-	UpdateSway(DeltaSeconds);
-
 	if (!bOn)
 	{
+		// Defensive self-healing for state changes made by future callers.
+		SetComponentTickEnabled(false);
 		return;
 	}
 
+	UpdateSway(DeltaSeconds);
 	const float Flicker = SampleFlicker(DeltaSeconds);
 	Beam->SetIntensity(BeamIntensity * Flicker);
 	Spill->SetIntensity(220.0f * Flicker);

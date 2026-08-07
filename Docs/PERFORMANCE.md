@@ -2,7 +2,7 @@
 
 문서 버전: `Windows-v1`
 
-기준일: `2026-07-31`
+기준일: `2026-08-06`
 
 지원 대상: `IndieGame Win64 Shipping`
 
@@ -136,6 +136,95 @@ Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드�
 사이에 설정, 드라이버, 패키지 또는 맵이 바뀌면 같은 표본으로 합치지
 않는다.
 
+## 2026-08-06 적용 구조
+
+아래 표는 목표가 아니라 현재 소스와 자동 검증이 강제하는 구현 계약이다.
+성능 수치 PASS와는 구분한다.
+
+| 영역 | 현재 구현 | 회귀 합격 조건 |
+|---|---|---|
+| 정적 메시 LOD | `generate_meshes.py`가 근접 조사용 hero를 제외한 제작 메시를 `SmallProp`/`LargeProp` LOD 그룹으로 빌드한다. LOD 전환은 고정 거리 대신 화면 점유율을 따른다. | `validate_baked_art_assets.py`에서 모든 non-hero 메시가 LOD 2개 이상이어야 한다. |
+| 사진측량 프롭 LOD | 수입된 50개 Static Mesh를 크기 용도에 따라 `SmallProp`/`LargeProp`으로 분류하고, 기존 LOD가 없을 때만 축소 LOD를 빌드·저장한다. 2026-08-06 적용 결과 50개를 갱신했다. | UAsset 감사에서 50개 모두 LOD 2개 이상이어야 한다. 5만 vertex 이상은 Nanite 검토 대상으로만 기록하며 자동 전환하지 않는다. |
+| 편의점 반복 재고 | 담배·과자·컵라면·냉장식품·음료 1,122개를 메시/머티리얼별 `UInstancedStaticMeshComponent` 최대 24개로 묶는다. | 런타임에서 `instances=1122`, `batches<=24`, 무충돌, Static mobility와 16~22m start/end 컬링 값을 직접 검사한다. |
+| 작은 프롭의 Lumen 비용 | 위 재고는 직접광·머티리얼·화면 추적은 유지하고 distance-field 장면 기여, 데칼 수신, 내비게이션과 그림자 중복을 줄인다. 몸체처럼 실루엣에 필요한 배치만 그림자를 남긴다. | `REBIRTH_RELEASE PASS store_instancing` 영수증이 없으면 A/B 런타임 검증이 실패한다. |
+| 유휴 CPU | 손전등은 켜진 동안만, 스트레스 컴포넌트는 공포 값·심박 억제 상태가 실제로 진행되는 동안만 Tick한다. 상호작용 탐색은 기존 10~15Hz 타이머를 유지한다. | Component Tick은 기본 활성 상태로 시작할 수 없으며 정적 검증이 `bStartWithTickEnabled=true`를 차단한다. |
+| 하단 대화·자막 HUD | 별도 Widget 트리와 raw binding을 늘리지 않고 기존 네이티브 HUD 한 경로에서 이벤트로 큐만 갱신한다. 대화 6개·환경음 4개로 메모리를 제한하고, 한글 줄바꿈 결과는 페이지·크기·폭이 달라질 때만 다시 계산한다. 숨김 상태에서는 패널·글리프를 그리지 않는다. | 정적 대화 계약, 720p~1440p 경계 오라클과 실제 D3D12 프런트엔드 프로브가 안전 영역·최대 3줄·두 레인·200% 배율을 통과해야 한다. 성능 PASS는 별도 Shipping trace로 판정한다. |
+| 텍스처·PSO | 텍스처 스트리밍과 component/global-shader PSO precache를 Shipping 설정에 명시한다. VRAM 풀 크기는 장비 실측 전에는 고정하지 않는다. | `DefaultEngine.ini`의 네 설정과 `stat Streaming`, `stat PSOPrecache`, Insights 증거를 함께 확인한다. |
+| 품질 확장성 | Volumetric Fog의 프로젝트 우선순위 고정을 제거해 Low에서는 엔진 scalability가 비활성화하고 High에서는 낮은 해상도 볼륨으로 유지한다. | `DefaultEngine.ini`에 루트 `r.VolumetricFog` 값이 다시 들어오면 정적 검증이 실패한다. |
+
+편의점의 16~22m 값은 **LOD 전환값이 아니라 개별 소형 재고의
+per-instance start/end cull 범위**다. 재질이 `PerInstanceFadeAmount`를
+소비할 때만 이 구간이 시각적 fade가 되며, 그렇지 않은 불투명 재질은
+22m에서 GPU cull된다. 매장 외벽, 조명, 상호작용 물병과 모든 서사
+증거물은 이 배치에 넣지 않는다. 따라서 멀리서 매장 실루엣과 빛은 남고,
+읽을 수 없는 포장지만 사라진다. fade 재질을 도입하면 PSO·overdraw와
+팝 감소를 같은 Shipping 장면에서 A/B 측정한 뒤 채택한다.
+
+현재 월드는 `BeginPlay`에서 절차적으로 조립되므로 에디터가 미리 굽는
+HLOD 클러스터를 적용하지 않는다. 향후 환경을 저장된 Level/World
+Partition 셀로 이전하면 그때 HLOD를 빌드하고 셀 경계 이동 hitch와
+occlusion 결과를 다시 측정한다. 지금 HLOD를 켜는 것은 실제 생성 프롭을
+포함하지 못해 복잡도만 늘린다.
+
+Nanite도 기능 이름만 보고 일괄 적용하지 않는다. 현재 생성 프롭은 저폴리
+메시이며 화면 크기 기반 LOD가 더 예측 가능하다. 사진측량 메시처럼 실제
+삼각형·머티리얼 비용이 큰 에셋은 `Nanite`와 전통 LOD 두 후보를 동일
+Shipping 경로에서 비교하고 GPU 시간, fallback mesh, 메모리와 그림자
+결과가 나아질 때만 전환한다.
+
+정식 프로파일은 추측 대신 Unreal Insights와 `stat unit`, `stat gpu`,
+`stat RHI`, `stat InitViews`, `stat Streaming`, `stat PSOPrecache`를 함께
+쓴다. 특히 첫 편의점 진입 전후의 draw call/primitive 수, CH03 탱크 공개
+직전의 PSO `Too Late`/miss, 세 챕터의 texture-pool over budget 여부를
+별도 북마크로 남긴다.
+
+관련 UE 5.8 기준은 [성능 프로파일링](https://dev.epicgames.com/documentation/en-us/unreal-engine/introduction-to-performance-profiling-and-configuration-in-unreal-engine),
+[Static Mesh LOD](https://dev.epicgames.com/documentation/en-us/unreal-engine/creating-and-using-lods-in-unreal-engine),
+[Instanced Static Mesh](https://dev.epicgames.com/documentation/en-us/unreal-engine/instanced-static-mesh-component-in-unreal-engine),
+[가시성·오클루전 컬링](https://dev.epicgames.com/documentation/en-us/unreal-engine/visibility-and-occlusion-culling-in-unreal-engine),
+[텍스처 스트리밍](https://dev.epicgames.com/documentation/en-us/unreal-engine/texture-streaming-configuration-in-unreal-engine),
+[PSO precaching](https://dev.epicgames.com/documentation/en-us/unreal-engine/pso-precaching-for-unreal-engine),
+[Actor Tick](https://dev.epicgames.com/documentation/en-us/unreal-engine/actor-ticking-in-unreal-engine),
+[Scalability](https://dev.epicgames.com/documentation/unreal-engine/scalability-in-unreal-engine?lang=en-US),
+[Memory Insights](https://dev.epicgames.com/documentation/en-us/unreal-engine/memory-insights-in-unreal-engine),
+[DPI Scaling](https://dev.epicgames.com/documentation/en-us/unreal-engine/dpi-scaling-in-unreal-engine),
+[Safe Zones](https://dev.epicgames.com/documentation/unreal-engine/umg-safe-zones-in-unreal-engine?lang=en-US),
+[UI 최적화](https://dev.epicgames.com/documentation/unreal-engine/optimization-guidelines-for-umg-in-unreal-engine)을 따른다.
+
+## 2026-08-06 로컬 D3D12 스모크
+
+이 결과는 현재 개발 PC의 `UnrealEditor-Cmd -game`, 1920×1080 High,
+D3D12, offscreen 실행이다. Shipping 패키지나 최소·권장 장비 결과가 아니며
+G6 판정을 바꾸지 않는다. CSV profiler가 수집한 2,514프레임 중 맵 로드와
+초기 준비 700프레임을 제외한 1,814프레임을 같은 산식으로 계산했다.
+
+| 항목 | 측정값 |
+|---|---:|
+| 프레임 시간 p95 / p99 / 최대 | 24.43ms / 29.23ms / 34.88ms |
+| 1% low | 32.54fps |
+| 50ms 초과 / 100ms 초과 hitch | 0 / 0 |
+| Game Thread p95 | 4.98ms |
+| Render Thread critical path p95 | 23.75ms |
+| GPU p95 / 최대 | 13.86ms / 14.98ms |
+| RHI draw calls 평균 / p95 | 145.08 / 155 |
+| primitives 평균 | 13,953.31 |
+| 프로세스 working set 최대 | 3,687MB |
+| 전용 GPU 메모리 최대 | 2,735.80MB |
+| texture wanted mip 충족 평균 | 99.98% |
+| Graphics PSO hitch | 0건 |
+
+GPU에는 60fps 예산 이내의 여유가 있었지만 전체 프레임 p95는 16.67ms를
+넘었다. Editor·CSV 계측 오버헤드와 Render Thread 비용이 섞였어도 합격선은
+완화하지 않는다. 이 결과는 1080p High 30fps 스모크만 통과한 것으로
+기록하고, 60fps는 같은 SHA의 Shipping 패키지를 권장 장비에서 세 번
+측정할 때까지 미승인으로 둔다.
+
+원본은 `Saved/Validation/PerformanceOptimization/runtime_d3d12_smoke/`의
+CSV, `csv-stats.json`, `csv-critical-stats.json`, `render-stats.json`,
+`RebirthRelease_EndingA_D3D12.utrace`와 오류 0건의
+`RebirthRelease_EndingA_D3D12_trace.log`다. trace SHA-256은
+`E0177A74C3281C1AA52602F1F12AFC16E616637373306EB7207AC47B250BEA21`이다.
+
 ## 런타임 예산 규칙
 
 - Actor Tick은 기본 비활성화하고 이벤트 또는 제한 주기 타이머를 사용한다.
@@ -146,10 +235,15 @@ Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드�
   관리한다.
 - 일반 소품 텍스처는 1K, hero 소품은 2K를 출발점으로 하며 4K는 화면
   점유와 메모리 근거가 있을 때만 사용한다.
+- 반복되는 비상호작용 정적 메시를 개별 컴포넌트로 생성하지 않는다.
+  메시·머티리얼·그림자 정책이 같은 항목은 ISM으로 묶고, 작은 프롭에는
+  거리 fade/cull을 지정한다.
+- 일반 Static Mesh LOD는 월드 거리 숫자가 아니라 화면 점유율로 고른다.
+  서사 증거물은 근접 판독 LOD를 보존하고 자동 축소 결과를 눈으로 확인한다.
 - Lumen을 사용할 때 shadow-casting movable light의 수와 영향 반경을
   장면별로 제한한다.
-- 정적 고밀도 환경 메시에는 Nanite를 검토하되 플레이 캡슐용 단순
-  collision을 별도로 제공한다.
+- 정적 고밀도 환경 메시에는 Nanite를 비교 검토하되 저폴리 프롭에
+  일괄 적용하지 않고, 플레이 캡슐용 단순 collision을 별도로 제공한다.
 
 ## 판정
 
@@ -158,5 +252,8 @@ Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드�
 G6 성능 항목을 통과한다. 한 장비·OS·GPU 공급사·해상도가 누락되면
 `PARTIAL`이 아니라 `BLOCKED`, 수치가 초과되면 `FAIL`이다.
 
-현재는 이 계약에 따른 Shipping 패키지, 최소/권장 장비 원본 trace와
+현재 dirty 회귀 스냅샷의 검증용 Shipping 패키지는
+`Saved/StagedBuilds/RebirthShipping/20260806T072107035Z_51232/`에 있으며
+88파일·919,396,939바이트로 자동 A/B·저장·HUD 검증을 통과했다. 그러나 이
+계약이 요구하는 clean SHA 후보와 최소/권장 여섯 장비 원본 trace,
 `performance-result.json`이 없으므로 판정은 **BLOCKED**다.

@@ -16,6 +16,8 @@
 #include "HAL/PlatformMisc.h"
 #include "IndieGame.h"
 #include "Misc/FileHelper.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "Interaction/IGReadableNote.h"
 #include "Player/IGInteractionComponent.h"
@@ -23,12 +25,24 @@
 #include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGObjectiveProvider.h"
 #include "Sequence/IGWakeUpDirector.h"
+#include "UObject/UObjectGlobals.h"
 
 namespace IGHorrorHUD
 {
 	constexpr double DirectorSearchInterval = 2.0;
+	constexpr int32 LensDropletTextureSize = 128;
+	constexpr int32 HudRoundedMaskTextureSize = 64;
+	constexpr int32 MaximumDialogueQueueDepth = 6;
+	constexpr int32 MaximumAudioCaptionQueueDepth = 4;
+	constexpr double StoryDialogueMaximumQueueAge = 14.0;
+	constexpr double AmbientDialogueMaximumQueueAge = 6.0;
+	constexpr float DialogueGlyphsPerSecond = 11.5f;
+	constexpr float DialogueMinimumSeconds = 2.2f;
+	constexpr float DialogueMaximumSeconds = 9.0f;
 
-	// Native pixel sizes per text role; glyphs are never scaled after rasterization.
+	// Native font sizes per text role. Presentation scale is applied once for the
+	// current resolution and accessibility setting, then reused for measurement
+	// and drawing so Korean wrapping stays pixel-consistent.
 	constexpr int32 LargeFontSize = 22;
 	constexpr int32 MediumFontSize = 19;
 	constexpr int32 SmallFontSize = 14;
@@ -39,11 +53,22 @@ namespace IGHorrorHUD
 	const FLinearColor MutedGray(0.62f, 0.64f, 0.62f, 0.9f);
 	const FLinearColor RedAccent(0.72f, 0.08f, 0.06f, 1.0f);
 	const FLinearColor ThoughtBlue(0.74f, 0.78f, 0.86f, 1.0f);
+	const FLinearColor DialogueIvory(0.88f, 0.87f, 0.81f, 1.0f);
+	const FLinearColor DialogueTeal(0.42f, 0.64f, 0.59f, 1.0f);
+
+	static float SmoothStep01(const float Value)
+	{
+		const float Clamped = FMath::Clamp(Value, 0.0f, 1.0f);
+		return Clamped * Clamped * (3.0f - 2.0f * Clamped);
+	}
 }
 
 void AIGHorrorHUD::BeginPlay()
 {
 	Super::BeginPlay();
+	bLayoutValidationEnabled = FParse::Param(
+		FCommandLine::Get(),
+		TEXT("IGFrontendShippingProbe"));
 	InitializeKoreanFont();
 
 	// Optional: absent until Scripts/Prepare-AIArt.ps1 has produced it, in
@@ -52,6 +77,8 @@ void AIGHorrorHUD::BeginPlay()
 		nullptr, TEXT("/Game/Prototype/Textures/T_PaperOld_V2_D.T_PaperOld_V2_D"));
 	ReceiptPaperTexture = LoadObject<UTexture2D>(
 		nullptr, TEXT("/Game/Prototype/Textures/T_PaperClean_V2_D.T_PaperClean_V2_D"));
+	InitializeLensDropletTexture();
+	InitializeDialogueSurfaceTextures();
 
 	ResolveInteractionComponent();
 	ResolveDirectors();
@@ -64,6 +91,138 @@ void AIGHorrorHUD::BeginPlay()
 		Cast<AIGPlayerController>(GetOwningPlayerController()))
 	{
 		IndieController->RefreshMenuHud();
+	}
+}
+
+void AIGHorrorHUD::InitializeDialogueSurfaceTextures()
+{
+	DialogueFilmTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/Prototype/Textures/T_HudDialogueFilm_D.T_HudDialogueFilm_D"));
+
+	constexpr int32 TextureSize = IGHorrorHUD::HudRoundedMaskTextureSize;
+	constexpr float SourceRadius = TextureSize * 0.25f;
+	TArray64<uint8> PixelBytes;
+	PixelBytes.SetNumZeroed(TextureSize * TextureSize * sizeof(FColor));
+	FColor* Pixels = reinterpret_cast<FColor*>(PixelBytes.GetData());
+	for (int32 Row = 0; Row < TextureSize; ++Row)
+	{
+		for (int32 Column = 0; Column < TextureSize; ++Column)
+		{
+			const FVector2D PixelCenter(
+				static_cast<float>(Column) + 0.5f,
+				static_cast<float>(Row) + 0.5f);
+			const FVector2D NearestCornerCenter(
+				FMath::Clamp(PixelCenter.X, SourceRadius, TextureSize - SourceRadius),
+				FMath::Clamp(PixelCenter.Y, SourceRadius, TextureSize - SourceRadius));
+			const float SignedDistance =
+				(PixelCenter - NearestCornerCenter).Size() - SourceRadius;
+			const float Coverage = 1.0f - IGHorrorHUD::SmoothStep01(
+				(SignedDistance + 1.0f) * 0.5f);
+			Pixels[Column + Row * TextureSize] = FLinearColor(
+				1.0f,
+				1.0f,
+				1.0f,
+				Coverage).ToFColorSRGB();
+		}
+	}
+
+	const FName TextureName = MakeUniqueObjectName(
+		GetTransientPackage(),
+		UTexture2D::StaticClass(),
+		TEXT("HudRoundedMask"));
+	HudRoundedMaskTexture = UTexture2D::CreateTransient(
+		TextureSize,
+		TextureSize,
+		PF_B8G8R8A8,
+		TextureName,
+		PixelBytes);
+	if (HudRoundedMaskTexture)
+	{
+		HudRoundedMaskTexture->Filter = TF_Bilinear;
+		HudRoundedMaskTexture->AddressX = TA_Clamp;
+		HudRoundedMaskTexture->AddressY = TA_Clamp;
+		HudRoundedMaskTexture->NeverStream = true;
+		HudRoundedMaskTexture->UpdateResource();
+	}
+}
+
+void AIGHorrorHUD::InitializeLensDropletTexture()
+{
+	constexpr int32 TextureSize = IGHorrorHUD::LensDropletTextureSize;
+	TArray64<uint8> PixelBytes;
+	PixelBytes.SetNumZeroed(TextureSize * TextureSize * sizeof(FColor));
+	FColor* Pixels = reinterpret_cast<FColor*>(PixelBytes.GetData());
+
+	for (int32 Row = 0; Row < TextureSize; ++Row)
+	{
+		for (int32 Column = 0; Column < TextureSize; ++Column)
+		{
+			const float X =
+				((static_cast<float>(Column) + 0.5f) / TextureSize) * 2.0f - 1.0f;
+			const float Y =
+				((static_cast<float>(Row) + 0.5f) / TextureSize) * 2.0f - 1.0f;
+			const float Vertical01 = FMath::Clamp((Y + 1.0f) * 0.5f, 0.0f, 1.0f);
+			// A lens bead is never a clean icon. Slightly shear its centre and vary
+			// the edge at two frequencies so the proxy reads as a thin water film
+			// even though it deliberately avoids an expensive refraction pass.
+			const float WarpedX = X
+				+ Y * 0.035f
+				+ FMath::Sin(Y * 4.7f) * 0.018f;
+			const float HalfWidth = FMath::Lerp(0.50f, 0.62f, Vertical01);
+			const float EdgeVariation =
+				FMath::Sin(X * 3.1f + Y * 4.3f) * 0.020f
+				+ FMath::Sin(X * 8.4f - Y * 5.2f) * 0.010f;
+			const float EllipseRadius = FMath::Sqrt(
+				FMath::Square(WarpedX / HalfWidth)
+				+ FMath::Square((Y - 0.03f) / 0.90f))
+				+ EdgeVariation;
+
+			const float Coverage = 1.0f - IGHorrorHUD::SmoothStep01(
+				(EllipseRadius - 0.88f) / 0.12f);
+			const float Rim = Coverage * IGHorrorHUD::SmoothStep01(
+				(EllipseRadius - 0.70f) / 0.23f);
+			const float HighlightDistance = FVector2D(
+				WarpedX + 0.24f,
+				(Y + 0.29f) * 1.35f).Size();
+			const float Highlight = Coverage * (
+				1.0f - IGHorrorHUD::SmoothStep01((HighlightDistance - 0.04f) / 0.16f));
+			const float LowerShadow = Coverage * IGHorrorHUD::SmoothStep01(
+				((X * 0.42f + Y * 0.58f) + 0.10f) / 0.90f);
+
+			const float Alpha = Coverage * FMath::Clamp(
+				0.022f + Rim * 0.23f + Highlight * 0.24f + LowerShadow * 0.025f,
+				0.0f,
+				0.54f);
+			const float Luminance = FMath::Clamp(
+				0.52f + Rim * 0.16f + Highlight * 0.22f - LowerShadow * 0.12f,
+				0.28f,
+				0.90f);
+			Pixels[Column + Row * TextureSize] = FLinearColor(
+				Luminance * 0.90f,
+				Luminance * 0.96f,
+				Luminance,
+				Alpha).ToFColorSRGB();
+		}
+	}
+
+	const FName TextureName = MakeUniqueObjectName(
+		GetTransientPackage(),
+		UTexture2D::StaticClass(),
+		TEXT("CH03LensDroplet"));
+	LensDropletTexture = UTexture2D::CreateTransient(
+		TextureSize,
+		TextureSize,
+		PF_B8G8R8A8,
+		TextureName,
+		PixelBytes);
+	if (LensDropletTexture)
+	{
+		LensDropletTexture->Filter = TF_Bilinear;
+		LensDropletTexture->AddressX = TA_Clamp;
+		LensDropletTexture->AddressY = TA_Clamp;
+		LensDropletTexture->NeverStream = true;
+		LensDropletTexture->UpdateResource();
 	}
 }
 
@@ -175,7 +334,9 @@ UFont* AIGHorrorHUD::GetFontForRole(const EIGHudTextRole TextRole) const
 			return KoreanFontLarge.Get();
 		case EIGHudTextRole::Prompt:
 		case EIGHudTextRole::Thought:
+		case EIGHudTextRole::Dialogue:
 			return KoreanFontMedium.Get();
+		case EIGHudTextRole::Speaker:
 		case EIGHudTextRole::Hint:
 		default:
 			return KoreanFontSmall.Get();
@@ -186,7 +347,10 @@ UFont* AIGHorrorHUD::GetFontForRole(const EIGHudTextRole TextRole) const
 	{
 		return nullptr;
 	}
-	return TextRole == EIGHudTextRole::Hint ? GEngine->GetSmallFont() : GEngine->GetMediumFont();
+	return TextRole == EIGHudTextRole::Hint
+		|| TextRole == EIGHudTextRole::Speaker
+		? GEngine->GetSmallFont()
+		: GEngine->GetMediumFont();
 }
 
 void AIGHorrorHUD::PushThought(
@@ -202,21 +366,256 @@ void AIGHorrorHUD::PushThought(
 		? Cast<AIGHorrorHUD>(PlayerController->GetHUD())
 		: nullptr)
 	{
-		HorrorHUD->ShowThought(Thought, DurationSeconds);
+		HorrorHUD->ShowDialogue(
+			FText::GetEmpty(),
+			Thought,
+			EIGDialogueChannel::InnerVoice,
+			DurationSeconds,
+			EIGDialoguePriority::Story);
 	}
 }
 
 void AIGHorrorHUD::ShowThought(const FText& Thought, const float DurationSeconds)
 {
+	ShowDialogue(
+		FText::GetEmpty(),
+		Thought,
+		EIGDialogueChannel::InnerVoice,
+		DurationSeconds,
+		EIGDialoguePriority::Story);
+}
+
+void AIGHorrorHUD::PushDialogue(
+	const UObject* WorldContext,
+	const FText& Speaker,
+	const FText& Line,
+	const EIGDialogueChannel Channel,
+	const float MinimumDurationSeconds,
+	const EIGDialoguePriority Priority)
+{
+	const UWorld* World = GEngine && WorldContext
+		? GEngine->GetWorldFromContextObject(
+			WorldContext,
+			EGetWorldErrorMode::ReturnNull)
+		: nullptr;
+	const APlayerController* PlayerController =
+		World ? World->GetFirstPlayerController() : nullptr;
+	if (AIGHorrorHUD* HorrorHUD = PlayerController
+		? Cast<AIGHorrorHUD>(PlayerController->GetHUD())
+		: nullptr)
+	{
+		HorrorHUD->ShowDialogue(
+			Speaker,
+			Line,
+			Channel,
+			MinimumDurationSeconds,
+			Priority);
+	}
+}
+
+void AIGHorrorHUD::ShowDialogue(
+	const FText& Speaker,
+	const FText& Line,
+	const EIGDialogueChannel Channel,
+	const float MinimumDurationSeconds,
+	const EIGDialoguePriority Priority)
+{
 	const UWorld* World = GetWorld();
-	if (!World || Thought.IsEmpty())
+	if (!World || Line.IsEmpty())
 	{
 		return;
 	}
 
-	CurrentThought = Thought;
-	ThoughtStartTime = World->GetTimeSeconds();
-	ThoughtEndTime = ThoughtStartTime + FMath::Max(1.0f, DurationSeconds);
+	if (Channel == EIGDialogueChannel::VoiceSubtitle)
+	{
+		const UGameInstance* GameInstance = World->GetGameInstance();
+		const UIGAccessibilitySubsystem* Accessibility = GameInstance
+			? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+			: nullptr;
+		if (!Accessibility || !Accessibility->AreSubtitlesEnabled())
+		{
+			return;
+		}
+	}
+
+	FIGDialogueMessage Message;
+	Message.Speaker = Speaker;
+	Message.Line = Line;
+	Message.Channel = Channel;
+	Message.Priority = Priority;
+	Message.MinimumDurationSeconds = FMath::Max(0.0f, MinimumDurationSeconds);
+	const double CurrentTime = World->GetTimeSeconds();
+	Message.QueuedAt = CurrentTime;
+	EnqueueDialogue(MoveTemp(Message), CurrentTime);
+}
+
+float AIGHorrorHUD::CalculateDialogueDuration(
+	const FString& Line,
+	const float MinimumDurationSeconds) const
+{
+	int32 VisibleGlyphs = 0;
+	for (const TCHAR Character : Line)
+	{
+		if (!FChar::IsWhitespace(Character))
+		{
+			++VisibleGlyphs;
+		}
+	}
+	const float ReadingDuration = FMath::Clamp(
+		1.15f + VisibleGlyphs / IGHorrorHUD::DialogueGlyphsPerSecond,
+		IGHorrorHUD::DialogueMinimumSeconds,
+		IGHorrorHUD::DialogueMaximumSeconds);
+	return FMath::Max(ReadingDuration, MinimumDurationSeconds);
+}
+
+void AIGHorrorHUD::ActivateDialogue(
+	FIGDialogueMessage&& Message,
+	const double CurrentTime)
+{
+	CurrentDialogue = MoveTemp(Message);
+	bHasCurrentDialogue = true;
+	bCurrentDialogueHasContinuation = false;
+	CurrentDialogueLines.Reset();
+	DialogueLayoutScale = -1.0f;
+	DialogueLayoutWidth = -1.0f;
+	DialogueLayoutMaximumLines = 0;
+	DialogueStartTime = CurrentTime;
+	DialogueEndTime = CurrentTime + CalculateDialogueDuration(
+		CurrentDialogue.Line.ToString(),
+		CurrentDialogue.MinimumDurationSeconds);
+}
+
+void AIGHorrorHUD::EnqueueDialogue(
+	FIGDialogueMessage&& Message,
+	const double CurrentTime)
+{
+	const FString IncomingLine = Message.Line.ToString();
+	const FString IncomingSpeaker = Message.Speaker.ToString();
+	const EIGDialogueChannel IncomingChannel = Message.Channel;
+	const auto IsSameMessage = [
+		&IncomingLine,
+		&IncomingSpeaker,
+		IncomingChannel](
+		const FIGDialogueMessage& Candidate)
+	{
+		return Candidate.Channel == IncomingChannel
+			&& Candidate.Line.ToString().Equals(IncomingLine)
+			&& Candidate.Speaker.ToString().Equals(IncomingSpeaker);
+	};
+
+	if (bHasCurrentDialogue
+		&& CurrentDialogue.Channel == Message.Channel
+		&& IsSameMessage(CurrentDialogue))
+	{
+		DialogueEndTime = FMath::Max(
+			DialogueEndTime,
+			CurrentTime + CalculateDialogueDuration(
+				IncomingLine,
+				Message.MinimumDurationSeconds));
+		return;
+	}
+	for (FIGDialogueMessage& Queued : DialogueQueue)
+	{
+		if (Queued.Channel == Message.Channel && IsSameMessage(Queued))
+		{
+			Queued.MinimumDurationSeconds = FMath::Max(
+				Queued.MinimumDurationSeconds,
+				Message.MinimumDurationSeconds);
+			Queued.QueuedAt = CurrentTime;
+			return;
+		}
+	}
+
+	if (!bHasCurrentDialogue)
+	{
+		ActivateDialogue(MoveTemp(Message), CurrentTime);
+		return;
+	}
+
+	if (static_cast<uint8>(Message.Priority)
+		> static_cast<uint8>(CurrentDialogue.Priority))
+	{
+		CurrentDialogue.MinimumDurationSeconds = FMath::Max(
+			0.8f,
+			static_cast<float>(DialogueEndTime - CurrentTime));
+		CurrentDialogue.QueuedAt = CurrentTime;
+		DialogueQueue.Insert(MoveTemp(CurrentDialogue), 0);
+		if (DialogueQueue.Num() > IGHorrorHUD::MaximumDialogueQueueDepth)
+		{
+			DialogueQueue.RemoveAt(DialogueQueue.Num() - 1);
+		}
+		ActivateDialogue(MoveTemp(Message), CurrentTime);
+		return;
+	}
+
+	if (DialogueQueue.Num() >= IGHorrorHUD::MaximumDialogueQueueDepth)
+	{
+		int32 RemovalIndex = INDEX_NONE;
+		for (int32 Index = DialogueQueue.Num() - 1; Index >= 0; --Index)
+		{
+			if (static_cast<uint8>(DialogueQueue[Index].Priority)
+				<= static_cast<uint8>(Message.Priority))
+			{
+				RemovalIndex = Index;
+				break;
+			}
+		}
+		if (RemovalIndex == INDEX_NONE)
+		{
+			return;
+		}
+		DialogueQueue.RemoveAt(RemovalIndex);
+	}
+	DialogueQueue.Add(MoveTemp(Message));
+}
+
+void AIGHorrorHUD::AdvanceDialogueQueue(const double CurrentTime)
+{
+	if (bHasCurrentDialogue && CurrentTime < DialogueEndTime)
+	{
+		return;
+	}
+	bHasCurrentDialogue = false;
+	CurrentDialogueLines.Reset();
+
+	while (!DialogueQueue.IsEmpty())
+	{
+		FIGDialogueMessage Next = MoveTemp(DialogueQueue[0]);
+		DialogueQueue.RemoveAt(0);
+		const double MaximumAge = Next.Priority == EIGDialoguePriority::Ambient
+			? IGHorrorHUD::AmbientDialogueMaximumQueueAge
+			: IGHorrorHUD::StoryDialogueMaximumQueueAge;
+		if (!Next.bContinuation && CurrentTime - Next.QueuedAt > MaximumAge)
+		{
+			continue;
+		}
+		ActivateDialogue(MoveTemp(Next), CurrentTime);
+		return;
+	}
+}
+
+void AIGHorrorHUD::SuspendDialoguePresentation(const double CurrentTime)
+{
+	if (bHasCurrentDialogue && DialogueOccludedAt < 0.0)
+	{
+		DialogueOccludedAt = CurrentTime;
+	}
+}
+
+void AIGHorrorHUD::ResumeDialoguePresentation(const double CurrentTime)
+{
+	if (DialogueOccludedAt < 0.0)
+	{
+		return;
+	}
+	const double OccludedDuration = FMath::Max(0.0, CurrentTime - DialogueOccludedAt);
+	DialogueStartTime += OccludedDuration;
+	DialogueEndTime += OccludedDuration;
+	for (FIGDialogueMessage& Queued : DialogueQueue)
+	{
+		Queued.QueuedAt += OccludedDuration;
+	}
+	DialogueOccludedAt = -1.0;
 }
 
 void AIGHorrorHUD::PushAudioCaption(
@@ -233,7 +632,7 @@ void AIGHorrorHUD::PushAudioCaption(
 	const UIGAccessibilitySubsystem* Accessibility = GameInstance
 		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
 		: nullptr;
-	if (!Accessibility || !Accessibility->AreSubtitlesEnabled())
+	if (!Accessibility || !Accessibility->AreSoundCaptionsEnabled())
 	{
 		return;
 	}
@@ -257,10 +656,74 @@ void AIGHorrorHUD::ShowAudioCaption(
 	{
 		return;
 	}
-	CurrentAudioCaption = Caption;
-	AudioCaptionStartTime = World->GetTimeSeconds();
-	AudioCaptionEndTime =
-		AudioCaptionStartTime + FMath::Max(0.8f, DurationSeconds);
+	const double CurrentTime = World->GetTimeSeconds();
+	const float ClampedDuration = FMath::Max(0.8f, DurationSeconds);
+	if (!CurrentAudioCaption.IsEmpty()
+		&& CurrentTime < AudioCaptionEndTime
+		&& CurrentAudioCaption.ToString().Equals(Caption.ToString()))
+	{
+		AudioCaptionEndTime = FMath::Max(
+			AudioCaptionEndTime,
+			CurrentTime + ClampedDuration);
+		return;
+	}
+
+	FIGAudioCaptionMessage Message;
+	Message.Caption = Caption;
+	Message.DurationSeconds = ClampedDuration;
+	Message.QueuedAt = CurrentTime;
+	if (CurrentAudioCaption.IsEmpty() || CurrentTime >= AudioCaptionEndTime)
+	{
+		ActivateAudioCaption(MoveTemp(Message), CurrentTime);
+		return;
+	}
+	for (FIGAudioCaptionMessage& Queued : AudioCaptionQueue)
+	{
+		if (Queued.Caption.ToString().Equals(Caption.ToString()))
+		{
+			Queued.DurationSeconds = FMath::Max(
+				Queued.DurationSeconds,
+				ClampedDuration);
+			Queued.QueuedAt = CurrentTime;
+			return;
+		}
+	}
+	if (AudioCaptionQueue.Num() >= IGHorrorHUD::MaximumAudioCaptionQueueDepth)
+	{
+		AudioCaptionQueue.RemoveAt(0);
+	}
+	AudioCaptionQueue.Add(MoveTemp(Message));
+}
+
+void AIGHorrorHUD::ActivateAudioCaption(
+	FIGAudioCaptionMessage&& Message,
+	const double CurrentTime)
+{
+	CurrentAudioCaption = MoveTemp(Message.Caption);
+	AudioCaptionStartTime = CurrentTime;
+	AudioCaptionEndTime = CurrentTime + FMath::Max(0.8f, Message.DurationSeconds);
+}
+
+void AIGHorrorHUD::AdvanceAudioCaptionQueue(const double CurrentTime)
+{
+	if (!CurrentAudioCaption.IsEmpty() && CurrentTime < AudioCaptionEndTime)
+	{
+		return;
+	}
+	CurrentAudioCaption = FText::GetEmpty();
+	while (!AudioCaptionQueue.IsEmpty())
+	{
+		FIGAudioCaptionMessage Next = MoveTemp(AudioCaptionQueue[0]);
+		AudioCaptionQueue.RemoveAt(0);
+		// A caption that would be badly detached from its sound is safer to drop
+		// than to present as a false current event.
+		if (CurrentTime - Next.QueuedAt > 3.0)
+		{
+			continue;
+		}
+		ActivateAudioCaption(MoveTemp(Next), CurrentTime);
+		return;
+	}
 }
 
 void AIGHorrorHUD::PushFearDirection(
@@ -292,6 +755,66 @@ void AIGHorrorHUD::PushFearDirection(
 	}
 }
 
+void AIGHorrorHUD::PushLensDroplet(
+	const UObject* WorldContext,
+	const float DurationSeconds)
+{
+	const UWorld* World = GEngine && WorldContext
+		? GEngine->GetWorldFromContextObject(
+			WorldContext,
+			EGetWorldErrorMode::ReturnNull)
+		: nullptr;
+	const APlayerController* PlayerController =
+		World ? World->GetFirstPlayerController() : nullptr;
+	if (AIGHorrorHUD* HorrorHUD = PlayerController
+		? Cast<AIGHorrorHUD>(PlayerController->GetHUD())
+		: nullptr)
+	{
+		HorrorHUD->ShowLensDroplet(DurationSeconds);
+	}
+}
+
+void AIGHorrorHUD::ShowLensDroplet(const float DurationSeconds)
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	if (!LensDropletTexture)
+	{
+		InitializeLensDropletTexture();
+	}
+
+	LensDropletStartTime = World->GetTimeSeconds();
+	LensDropletEndTime = LensDropletStartTime + FMath::Max(1.6f, DurationSeconds);
+}
+
+bool AIGHorrorHUD::GetLensDropletRenderSample(
+	FVector2D& OutPosition,
+	FVector2D& OutSize,
+	FVector2D& OutCanvasSize,
+	float& OutAlpha,
+	bool& bOutReducedMotion,
+	double& OutWorldTime) const
+{
+	if (LensDropletLastRenderTime < 0.0
+		|| LensDropletLastSize.X <= 0.0f
+		|| LensDropletLastSize.Y <= 0.0f
+		|| LensDropletLastCanvasSize.X <= 0.0f
+		|| LensDropletLastCanvasSize.Y <= 0.0f)
+	{
+		return false;
+	}
+	OutPosition = LensDropletLastPosition;
+	OutSize = LensDropletLastSize;
+	OutCanvasSize = LensDropletLastCanvasSize;
+	OutAlpha = LensDropletLastAlpha;
+	bOutReducedMotion = bLensDropletLastReducedMotion;
+	OutWorldTime = LensDropletLastRenderTime;
+	return true;
+}
+
 void AIGHorrorHUD::ShowFearDirection(
 	const FVector& WorldLocation,
 	const float DurationSeconds)
@@ -311,7 +834,7 @@ void AIGHorrorHUD::SetAccessibilityMenuState(
 	const int32 SelectedRow)
 {
 	bAccessibilityMenuVisible = bVisible;
-	AccessibilitySelectedRow = FMath::Clamp(SelectedRow, 0, 11);
+	AccessibilitySelectedRow = FMath::Clamp(SelectedRow, 0, 13);
 }
 
 void AIGHorrorHUD::SetSystemMenuState(
@@ -402,24 +925,35 @@ void AIGHorrorHUD::DrawHUD()
 	{
 		return;
 	}
+	const UWorld* World = GetWorld();
+	const double CurrentTime = World ? World->GetTimeSeconds() : 0.0;
+	BeginLayoutValidationSample();
 	if (bAccessibilityMenuVisible)
 	{
+		SuspendDialoguePresentation(CurrentTime);
 		DrawAccessibilityPanel();
+		FinalizeLayoutValidationSample();
 		return;
 	}
 	if (bSystemMenuVisible)
 	{
+		SuspendDialoguePresentation(CurrentTime);
 		DrawSystemMenuPanel();
+		FinalizeLayoutValidationSample();
 		return;
 	}
 
-	const UWorld* World = GetWorld();
-	const double CurrentTime = World ? World->GetTimeSeconds() : 0.0;
 	if (DrawChapterCard(CurrentTime))
 	{
+		SuspendDialoguePresentation(CurrentTime);
 		LastHudDrawTime = CurrentTime;
+		FinalizeLayoutValidationSample();
 		return;
 	}
+	ResumeDialoguePresentation(CurrentTime);
+	// The droplet belongs to the camera lens, while prompts and captions remain
+	// optically crisp on top of it. Draw it before every native HUD element.
+	DrawLensDroplet(CurrentTime);
 
 	if (!InteractionComponent.IsValid())
 	{
@@ -474,9 +1008,13 @@ void AIGHorrorHUD::DrawHUD()
 	// A note being read owns the screen: no crosshair chatter under the paper.
 	if (AIGReadableNote::GetOpenNote())
 	{
+		SuspendDialoguePresentation(CurrentTime);
 		DrawNotePanel();
+		DrawAudioCaption(CurrentTime, Canvas->ClipY - 24.0f);
+		FinalizeLayoutValidationSample();
 		return;
 	}
+	ResumeDialoguePresentation(CurrentTime);
 
 	// Focused interaction prompt and hold progress.
 	if (bHasFocus)
@@ -506,24 +1044,22 @@ void AIGHorrorHUD::DrawHUD()
 		}
 	}
 
-	// Inner-voice line with fade in/out.
-	if (!CurrentThought.IsEmpty() && CurrentTime < ThoughtEndTime)
-	{
-		const double Elapsed = CurrentTime - ThoughtStartTime;
-		const double Remaining = ThoughtEndTime - CurrentTime;
-		const float Alpha = FMath::Clamp(
-			FMath::Min(static_cast<float>(Elapsed / 0.25), static_cast<float>(Remaining / 0.6)),
-			0.0f,
-			1.0f);
-		FLinearColor ThoughtColor = IGHorrorHUD::ThoughtBlue;
-		ThoughtColor.A = Alpha * 0.95f;
-		DrawCenteredText(
-			CurrentThought, Canvas->ClipY * 0.66f, ThoughtColor, EIGHudTextRole::Thought);
-	}
-	DrawAudioCaption(CurrentTime);
+	float DialoguePanelTop = Canvas->ClipY;
+	const bool bDialogueVisible = DrawDialoguePanel(CurrentTime, DialoguePanelTop);
+	const float DialogueLaneGap = 14.0f * FMath::Clamp(
+		Canvas->ClipY / 1080.0f,
+		0.85f,
+		2.0f);
+	const bool bAudioCaptionVisible = DrawAudioCaption(
+		CurrentTime,
+		bDialogueVisible
+			? DialoguePanelTop - DialogueLaneGap
+			: Canvas->ClipY - 54.0f);
 
 	// Control hints.
-	const FText Hints = SupportsKorean()
+	if (!bDialogueVisible && !bAudioCaptionVisible)
+	{
+		const FText Hints = SupportsKorean()
 		? bUsingGamepad
 			? NSLOCTEXT(
 				"IGHUD",
@@ -537,20 +1073,624 @@ void AIGHorrorHUD::DrawHUD()
 			bUsingGamepad
 				? TEXT("LS MOVE  |  RS LOOK  |  A INTERACT  |  RB HINT  |  MENU ACCESSIBILITY")
 				: TEXT("WASD MOVE  |  MOUSE LOOK  |  E INTERACT  |  H HINT  |  F10 ACCESSIBILITY"));
-	DrawCenteredText(
-		Hints,
-		FMath::Max(0.0f, Canvas->ClipY - 34.0f),
-		IGHorrorHUD::MutedGray,
-		EIGHudTextRole::Hint);
+		DrawCenteredText(
+			Hints,
+			FMath::Max(0.0f, Canvas->ClipY - 34.0f),
+			IGHorrorHUD::MutedGray,
+			EIGHudTextRole::Hint);
+	}
+	FinalizeLayoutValidationSample();
 }
 
-void AIGHorrorHUD::DrawAudioCaption(const double CurrentTime)
+bool AIGHorrorHUD::GetLayoutValidationSample(
+	FVector2D& OutCanvasSize,
+	FVector2D& OutBoundsMin,
+	FVector2D& OutBoundsMax,
+	int32& OutElementCount,
+	bool& bOutAllInsideCanvas,
+	uint64& OutFrameSerial) const
 {
-	if (!Canvas
-		|| CurrentAudioCaption.IsEmpty()
-		|| CurrentTime >= AudioCaptionEndTime)
+	if (!bLayoutValidationEnabled || !bLayoutValidationSampleReady)
+	{
+		return false;
+	}
+	OutCanvasSize = LayoutValidationCanvasSize;
+	OutBoundsMin = LayoutValidationBoundsMin;
+	OutBoundsMax = LayoutValidationBoundsMax;
+	OutElementCount = LayoutValidationElementCount;
+	bOutAllInsideCanvas = bLayoutValidationAllInsideCanvas;
+	OutFrameSerial = LayoutValidationFrameSerial;
+	return true;
+}
+
+bool AIGHorrorHUD::GetDialogueRenderSample(
+	FVector2D& OutPanelMinimum,
+	FVector2D& OutPanelMaximum,
+	FVector2D& OutCanvasSize,
+	int32& OutLineCount,
+	bool& bOutSpeakerVisible,
+	bool& bOutHasContinuation,
+	bool& bOutInsideSafeArea,
+	uint64& OutFrameSerial) const
+{
+	if (DialogueLastRenderSerial == 0
+		|| DialogueLastLineCount <= 0
+		|| DialogueLastPanelMaximum.X <= DialogueLastPanelMinimum.X
+		|| DialogueLastPanelMaximum.Y <= DialogueLastPanelMinimum.Y)
+	{
+		return false;
+	}
+	OutPanelMinimum = DialogueLastPanelMinimum;
+	OutPanelMaximum = DialogueLastPanelMaximum;
+	OutCanvasSize = DialogueLastCanvasSize;
+	OutLineCount = DialogueLastLineCount;
+	bOutSpeakerVisible = bDialogueLastSpeakerVisible;
+	bOutHasContinuation = bDialogueLastHasContinuation;
+	bOutInsideSafeArea = bDialogueLastInsideSafeArea;
+	OutFrameSerial = DialogueLastRenderSerial;
+	return true;
+}
+
+void AIGHorrorHUD::BeginLayoutValidationSample()
+{
+	if (!bLayoutValidationEnabled)
 	{
 		return;
+	}
+	LayoutValidationCanvasSize = FVector2D(Canvas->ClipX, Canvas->ClipY);
+	LayoutValidationBoundsMin = FVector2D(
+		TNumericLimits<float>::Max(),
+		TNumericLimits<float>::Max());
+	LayoutValidationBoundsMax = FVector2D(
+		TNumericLimits<float>::Lowest(),
+		TNumericLimits<float>::Lowest());
+	LayoutValidationElementCount = 0;
+	bLayoutValidationAllInsideCanvas = true;
+	bLayoutValidationSampleReady = false;
+}
+
+void AIGHorrorHUD::RecordLayoutValidationRect(
+	const FVector2D& Minimum,
+	const FVector2D& Maximum)
+{
+	if (!bLayoutValidationEnabled || !Canvas)
+	{
+		return;
+	}
+	LayoutValidationBoundsMin.X = FMath::Min(
+		LayoutValidationBoundsMin.X,
+		Minimum.X);
+	LayoutValidationBoundsMin.Y = FMath::Min(
+		LayoutValidationBoundsMin.Y,
+		Minimum.Y);
+	LayoutValidationBoundsMax.X = FMath::Max(
+		LayoutValidationBoundsMax.X,
+		Maximum.X);
+	LayoutValidationBoundsMax.Y = FMath::Max(
+		LayoutValidationBoundsMax.Y,
+		Maximum.Y);
+	++LayoutValidationElementCount;
+	constexpr float PixelTolerance = 1.5f;
+	bLayoutValidationAllInsideCanvas =
+		bLayoutValidationAllInsideCanvas
+		&& Minimum.X >= -PixelTolerance
+		&& Minimum.Y >= -PixelTolerance
+		&& Maximum.X <= Canvas->ClipX + PixelTolerance
+		&& Maximum.Y <= Canvas->ClipY + PixelTolerance;
+}
+
+void AIGHorrorHUD::FinalizeLayoutValidationSample()
+{
+	if (!bLayoutValidationEnabled)
+	{
+		return;
+	}
+	if (LayoutValidationElementCount <= 0)
+	{
+		LayoutValidationBoundsMin = FVector2D::ZeroVector;
+		LayoutValidationBoundsMax = FVector2D::ZeroVector;
+		bLayoutValidationAllInsideCanvas = false;
+	}
+	++LayoutValidationFrameSerial;
+	bLayoutValidationSampleReady = true;
+}
+
+float AIGHorrorHUD::GetResolutionTextScale(const float UserScale) const
+{
+	if (!Canvas)
+	{
+		return FMath::Clamp(UserScale, 0.85f, 2.0f);
+	}
+	const float ResolutionScale = FMath::Clamp(
+		Canvas->ClipY / 1080.0f,
+		0.85f,
+		2.0f);
+	return FMath::Clamp(UserScale, 0.85f, 2.0f) * ResolutionScale;
+}
+
+void AIGHorrorHUD::PrepareDialoguePage(
+	const float TextScale,
+	const float MaximumWidth,
+	const int32 MaximumLines,
+	const double CurrentTime)
+{
+	if (!bHasCurrentDialogue
+		|| (CurrentDialogueLines.Num() > 0
+			&& FMath::IsNearlyEqual(DialogueLayoutScale, TextScale, 0.01f)
+			&& FMath::IsNearlyEqual(DialogueLayoutWidth, MaximumWidth, 1.0f)
+			&& DialogueLayoutMaximumLines == MaximumLines))
+	{
+		return;
+	}
+
+	TArray<FString> Lines;
+	FString Remainder;
+	WrapHudText(
+		CurrentDialogue.Line.ToString(),
+		GetFontForRole(EIGHudTextRole::Dialogue),
+		TextScale,
+		MaximumWidth,
+		MaximumLines,
+		Lines,
+		Remainder);
+	if (Lines.IsEmpty())
+	{
+		Lines.Add(CurrentDialogue.Line.ToString());
+	}
+
+	if (!Remainder.IsEmpty())
+	{
+		FIGDialogueMessage Continuation = CurrentDialogue;
+		Continuation.Line = FText::FromString(Remainder);
+		Continuation.MinimumDurationSeconds = 0.0f;
+		Continuation.QueuedAt = CurrentTime;
+		Continuation.bContinuation = true;
+		DialogueQueue.Insert(MoveTemp(Continuation), 0);
+		if (DialogueQueue.Num() > IGHorrorHUD::MaximumDialogueQueueDepth)
+		{
+			DialogueQueue.RemoveAt(DialogueQueue.Num() - 1);
+		}
+
+		CurrentDialogue.Line = FText::FromString(FString::Join(Lines, TEXT("\n")));
+		bCurrentDialogueHasContinuation = true;
+		DialogueStartTime = CurrentTime;
+		DialogueEndTime = CurrentTime + CalculateDialogueDuration(
+			CurrentDialogue.Line.ToString(),
+			CurrentDialogue.MinimumDurationSeconds);
+	}
+	CurrentDialogueLines = MoveTemp(Lines);
+	DialogueLayoutScale = TextScale;
+	DialogueLayoutWidth = MaximumWidth;
+	DialogueLayoutMaximumLines = MaximumLines;
+}
+
+void AIGHorrorHUD::DrawRoundedHudSurface(
+	const FVector2D& Position,
+	const FVector2D& Size,
+	const float CornerRadius,
+	const FLinearColor& Color) const
+{
+	if (!Canvas || Size.X <= 0.0f || Size.Y <= 0.0f || Color.A <= 0.001f)
+	{
+		return;
+	}
+
+	if (!HudRoundedMaskTexture || !HudRoundedMaskTexture->GetResource())
+	{
+		FCanvasTileItem Fallback(Position, Size, Color);
+		Fallback.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Fallback);
+		return;
+	}
+
+	const float Radius = FMath::Clamp(
+		CornerRadius,
+		1.0f,
+		FMath::Min(Size.X, Size.Y) * 0.5f);
+	const float XStops[] = {
+		Position.X,
+		Position.X + Radius,
+		Position.X + Size.X - Radius,
+		Position.X + Size.X,
+	};
+	const float YStops[] = {
+		Position.Y,
+		Position.Y + Radius,
+		Position.Y + Size.Y - Radius,
+		Position.Y + Size.Y,
+	};
+	constexpr float UvStops[] = {0.0f, 0.25f, 0.75f, 1.0f};
+	for (int32 Row = 0; Row < 3; ++Row)
+	{
+		for (int32 Column = 0; Column < 3; ++Column)
+		{
+			const FVector2D TileSize(
+				XStops[Column + 1] - XStops[Column],
+				YStops[Row + 1] - YStops[Row]);
+			if (TileSize.X <= 0.01f || TileSize.Y <= 0.01f)
+			{
+				continue;
+			}
+			FCanvasTileItem Tile(
+				FVector2D(XStops[Column], YStops[Row]),
+				HudRoundedMaskTexture->GetResource(),
+				TileSize,
+				FVector2D(UvStops[Column], UvStops[Row]),
+				FVector2D(UvStops[Column + 1], UvStops[Row + 1]),
+				Color);
+			Tile.BlendMode = SE_BLEND_Translucent;
+			Canvas->DrawItem(Tile);
+		}
+	}
+}
+
+void AIGHorrorHUD::DrawDialogueFilm(
+	const FVector2D& Position,
+	const FVector2D& Size,
+	const float CornerRadius,
+	const float Alpha) const
+{
+	if (!Canvas || !DialogueFilmTexture || !DialogueFilmTexture->GetResource()
+		|| Size.X <= 0.0f || Size.Y <= 0.0f || Alpha <= 0.001f)
+	{
+		return;
+	}
+
+	const float Radius = FMath::Clamp(
+		CornerRadius,
+		0.0f,
+		FMath::Min(Size.X, Size.Y) * 0.5f);
+	const auto DrawFilmRegion = [this, Position, Size, Alpha](
+		const FVector2D& RegionPosition,
+		const FVector2D& RegionSize)
+	{
+		if (RegionSize.X <= 0.01f || RegionSize.Y <= 0.01f)
+		{
+			return;
+		}
+		const FVector2D Uv0(
+			(RegionPosition.X - Position.X) / Size.X,
+			(RegionPosition.Y - Position.Y) / Size.Y);
+		const FVector2D Uv1(
+			(RegionPosition.X + RegionSize.X - Position.X) / Size.X,
+			(RegionPosition.Y + RegionSize.Y - Position.Y) / Size.Y);
+		FCanvasTileItem Grain(
+			RegionPosition,
+			DialogueFilmTexture->GetResource(),
+			RegionSize,
+			Uv0,
+			Uv1,
+			FLinearColor(0.78f, 0.86f, 0.82f, Alpha));
+		Grain.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Grain);
+	};
+
+	// Three rectangles are the inexpensive equivalent of a rounded clip: the
+	// curved corner squares remain owned by the 9-slice base surface.
+	DrawFilmRegion(
+		FVector2D(Position.X + Radius, Position.Y),
+		FVector2D(FMath::Max(0.0f, Size.X - Radius * 2.0f), Size.Y));
+	DrawFilmRegion(
+		FVector2D(Position.X, Position.Y + Radius),
+		FVector2D(Radius, FMath::Max(0.0f, Size.Y - Radius * 2.0f)));
+	DrawFilmRegion(
+		FVector2D(Position.X + Size.X - Radius, Position.Y + Radius),
+		FVector2D(Radius, FMath::Max(0.0f, Size.Y - Radius * 2.0f)));
+}
+
+bool AIGHorrorHUD::DrawDialoguePanel(
+	const double CurrentTime,
+	float& OutPanelTop)
+{
+	OutPanelTop = Canvas ? Canvas->ClipY : 0.0f;
+	if (!Canvas)
+	{
+		return false;
+	}
+	AdvanceDialogueQueue(CurrentTime);
+	if (!bHasCurrentDialogue)
+	{
+		return false;
+	}
+
+	const UGameInstance* GameInstance = GetWorld()
+		? GetWorld()->GetGameInstance()
+		: nullptr;
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	while (bHasCurrentDialogue
+		&& CurrentDialogue.Channel == EIGDialogueChannel::VoiceSubtitle
+		&& (!Accessibility || !Accessibility->AreSubtitlesEnabled()))
+	{
+		DialogueEndTime = CurrentTime;
+		AdvanceDialogueQueue(CurrentTime);
+	}
+	if (!bHasCurrentDialogue)
+	{
+		return false;
+	}
+
+	const FIGAccessibilitySettings Settings = Accessibility
+		? Accessibility->GetSettings()
+		: FIGAccessibilitySettings();
+	const float ResolutionScale = FMath::Clamp(
+		Canvas->ClipY / 1080.0f,
+		0.85f,
+		2.0f);
+	const float TextScale = GetResolutionTextScale(Settings.CaptionSizeScale);
+	const float SafeAreaScale = Settings.CaptionSafeAreaScale;
+	const float SafeWidth = Canvas->ClipX * SafeAreaScale;
+	const float PanelWidth = FMath::Min(
+		FMath::Clamp(
+			Canvas->ClipX * 0.56f,
+			520.0f * ResolutionScale,
+			840.0f * ResolutionScale),
+		FMath::Max(280.0f, SafeWidth - 48.0f * ResolutionScale));
+	const float HorizontalPadding = 30.0f * ResolutionScale;
+	const float MaximumTextWidth = FMath::Max(
+		220.0f,
+		PanelWidth - HorizontalPadding * 2.0f);
+	const int32 MaximumLines = Settings.CaptionSizeScale > 1.25f ? 3 : 2;
+	PrepareDialoguePage(
+		TextScale,
+		MaximumTextWidth,
+		MaximumLines,
+		CurrentTime);
+	if (CurrentDialogueLines.IsEmpty())
+	{
+		return false;
+	}
+
+	UFont* BodyFont = GetFontForRole(EIGHudTextRole::Dialogue);
+	UFont* SpeakerFont = GetFontForRole(EIGHudTextRole::Speaker);
+	float BodyRawWidth = 0.0f;
+	float BodyRawHeight = 19.0f;
+	if (BodyFont)
+	{
+		Canvas->StrLen(BodyFont, TEXT("한Ag"), BodyRawWidth, BodyRawHeight, true);
+	}
+	float SpeakerRawWidth = 0.0f;
+	float SpeakerRawHeight = 14.0f;
+	if (SpeakerFont)
+	{
+		Canvas->StrLen(
+			SpeakerFont,
+			TEXT("한Ag"),
+			SpeakerRawWidth,
+			SpeakerRawHeight,
+			true);
+	}
+	const float BodyHeight = FMath::Max(16.0f, BodyRawHeight * TextScale);
+	const float LineStep = BodyHeight * (
+		CurrentDialogueLines.Num() >= 3 ? 1.36f : 1.32f);
+	const bool bHasSpeaker = !CurrentDialogue.Speaker.IsEmpty();
+	const float SpeakerScale = TextScale * 0.78f;
+	const float SpeakerHeight = bHasSpeaker
+		? FMath::Max(11.0f, SpeakerRawHeight * SpeakerScale)
+		: 0.0f;
+	const float SpeakerChipHeight = bHasSpeaker
+		? FMath::Max(24.0f * ResolutionScale, SpeakerHeight + 10.0f * ResolutionScale)
+		: 0.0f;
+	const float HeaderGap = bHasSpeaker ? 10.0f * ResolutionScale : 0.0f;
+	const float TopPadding = 14.0f * ResolutionScale;
+	const float BottomPadding = (
+		bCurrentDialogueHasContinuation ? 26.0f : 19.0f) * ResolutionScale;
+	const float LinesHeight = BodyHeight
+		+ LineStep * FMath::Max(0, CurrentDialogueLines.Num() - 1);
+	const float PanelHeight = TopPadding + SpeakerChipHeight + HeaderGap
+		+ LinesHeight + BottomPadding;
+	const float SafeHorizontalInset = Canvas->ClipX * (1.0f - SafeAreaScale) * 0.5f;
+	const float SafeVerticalInset = Canvas->ClipY * (1.0f - SafeAreaScale) * 0.5f;
+
+	const double Elapsed = CurrentTime - DialogueStartTime;
+	const double Remaining = DialogueEndTime - CurrentTime;
+	const float FadeIn = IGHorrorHUD::SmoothStep01(
+		static_cast<float>(Elapsed / 0.24));
+	const float FadeOut = IGHorrorHUD::SmoothStep01(
+		static_cast<float>(Remaining / 0.16));
+	const float Alpha = FMath::Min(FadeIn, FadeOut);
+	const bool bReducedMotion = Accessibility
+		&& Accessibility->IsReducedCameraMotionEnabled();
+	const float TravelY = bReducedMotion
+		? 0.0f
+		: (1.0f - FadeIn) * 10.0f * ResolutionScale;
+	const float PanelX = (Canvas->ClipX - PanelWidth) * 0.5f;
+	const float PanelY = FMath::Clamp(
+		Canvas->ClipY - SafeVerticalInset - PanelHeight
+			- 42.0f * ResolutionScale - TravelY,
+		SafeVerticalInset + 24.0f * ResolutionScale,
+		Canvas->ClipY - SafeVerticalInset - PanelHeight
+			- 24.0f * ResolutionScale);
+	OutPanelTop = PanelY;
+
+	FLinearColor Accent = IGHorrorHUD::DialogueTeal;
+	if (CurrentDialogue.Channel == EIGDialogueChannel::InnerVoice)
+	{
+		Accent = IGHorrorHUD::ThoughtBlue;
+	}
+	else if (CurrentDialogue.Channel == EIGDialogueChannel::Device)
+	{
+		Accent = FLinearColor(0.50f, 0.70f, 0.62f, 1.0f);
+	}
+	else if (CurrentDialogue.Priority == EIGDialoguePriority::Critical)
+	{
+		Accent = IGHorrorHUD::RedAccent;
+	}
+	Accent.A = Alpha;
+	const float SurfaceAlpha = Settings.CaptionBackgroundOpacity * Alpha;
+	const float CornerRadius = 10.0f * ResolutionScale;
+	if (SurfaceAlpha > 0.001f)
+	{
+		DrawRoundedHudSurface(
+			FVector2D(PanelX, PanelY + 8.0f * ResolutionScale),
+			FVector2D(PanelWidth, PanelHeight),
+			CornerRadius + 2.0f * ResolutionScale,
+			FLinearColor(0.0f, 0.0f, 0.0f, SurfaceAlpha * 0.23f));
+		DrawRoundedHudSurface(
+			FVector2D(PanelX, PanelY + 3.0f * ResolutionScale),
+			FVector2D(PanelWidth, PanelHeight),
+			CornerRadius,
+			FLinearColor(0.0f, 0.0f, 0.0f, SurfaceAlpha * 0.38f));
+		FLinearColor BorderColor = Accent;
+		BorderColor.A = SurfaceAlpha * 0.28f;
+		DrawRoundedHudSurface(
+			FVector2D(PanelX, PanelY),
+			FVector2D(PanelWidth, PanelHeight),
+			CornerRadius,
+			BorderColor);
+		const float BorderInset = FMath::Max(1.0f, ResolutionScale);
+		DrawRoundedHudSurface(
+			FVector2D(PanelX + BorderInset, PanelY + BorderInset),
+			FVector2D(
+				PanelWidth - BorderInset * 2.0f,
+				PanelHeight - BorderInset * 2.0f),
+			FMath::Max(2.0f, CornerRadius - BorderInset),
+			FLinearColor(0.012f, 0.017f, 0.016f, SurfaceAlpha));
+		DrawDialogueFilm(
+			FVector2D(PanelX + BorderInset, PanelY + BorderInset),
+			FVector2D(
+				PanelWidth - BorderInset * 2.0f,
+				PanelHeight - BorderInset * 2.0f),
+			FMath::Max(2.0f, CornerRadius - BorderInset),
+			SurfaceAlpha * 0.14f);
+	}
+	FLinearColor KeylineColor = Accent;
+	KeylineColor.A = Alpha * 0.52f;
+	FCanvasTileItem Keyline(
+		FVector2D(PanelX + HorizontalPadding, PanelY),
+		FVector2D(56.0f * ResolutionScale, FMath::Max(1.0f, ResolutionScale)),
+		KeylineColor);
+	Keyline.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Keyline);
+	RecordLayoutValidationRect(
+		FVector2D(PanelX, PanelY),
+		FVector2D(PanelX + PanelWidth, PanelY + PanelHeight));
+
+	float PenY = PanelY + TopPadding;
+	const bool bUseTextOutline = Settings.CaptionBackgroundOpacity < 0.42f;
+	if (bHasSpeaker)
+	{
+		const float SpeakerTextWidth = MeasureTextWidth(
+			CurrentDialogue.Speaker.ToString(),
+			SpeakerFont,
+			SpeakerScale);
+		const float SpeakerChipWidth = FMath::Min(
+			PanelWidth - HorizontalPadding * 2.0f,
+			SpeakerTextWidth + 20.0f * ResolutionScale);
+		FLinearColor SpeakerChipColor = Accent;
+		SpeakerChipColor.R *= 0.24f;
+		SpeakerChipColor.G *= 0.24f;
+		SpeakerChipColor.B *= 0.24f;
+		SpeakerChipColor.A = Alpha
+			* Settings.CaptionBackgroundOpacity
+			* 0.34f;
+		DrawRoundedHudSurface(
+			FVector2D(PanelX + HorizontalPadding, PenY),
+			FVector2D(SpeakerChipWidth, SpeakerChipHeight),
+			SpeakerChipHeight * 0.5f,
+			SpeakerChipColor);
+		FLinearColor SpeakerColor = Accent;
+		SpeakerColor.A = Alpha * 0.96f;
+		DrawLeftAlignedText(
+			CurrentDialogue.Speaker,
+			FVector2D(
+				PanelX + HorizontalPadding + 10.0f * ResolutionScale,
+				PenY + (SpeakerChipHeight - SpeakerHeight) * 0.5f),
+			SpeakerColor,
+			EIGHudTextRole::Speaker,
+			SpeakerScale,
+			bUseTextOutline);
+		PenY += SpeakerChipHeight + HeaderGap;
+	}
+	FLinearColor BodyColor = CurrentDialogue.Channel == EIGDialogueChannel::InnerVoice
+		? IGHorrorHUD::ThoughtBlue
+		: IGHorrorHUD::DialogueIvory;
+	BodyColor.A = Alpha;
+	for (int32 LineIndex = 0; LineIndex < CurrentDialogueLines.Num(); ++LineIndex)
+	{
+		DrawLeftAlignedText(
+			FText::FromString(CurrentDialogueLines[LineIndex]),
+			FVector2D(
+				PanelX + HorizontalPadding,
+				PenY + LineIndex * LineStep),
+			BodyColor,
+			EIGHudTextRole::Dialogue,
+			TextScale,
+			bUseTextOutline);
+	}
+	if (bCurrentDialogueHasContinuation)
+	{
+		const FText ContinuationLabel = NSLOCTEXT(
+			"IGHorrorHUD",
+			"DialogueContinues",
+			"이어짐");
+		const float ContinuationScale = TextScale * 0.72f;
+		float ContinuationRawWidth = 0.0f;
+		float ContinuationRawHeight = 0.0f;
+		if (SpeakerFont)
+		{
+			Canvas->StrLen(
+				SpeakerFont,
+				ContinuationLabel.ToString(),
+				ContinuationRawWidth,
+				ContinuationRawHeight,
+				true);
+		}
+		FLinearColor ContinuationColor = Accent;
+		ContinuationColor.A *= 0.72f;
+		const float ContinuationY = PanelY + PanelHeight
+			- ContinuationRawHeight * ContinuationScale
+			- 7.0f * ResolutionScale;
+		FCanvasTileItem ContinuationRule(
+			FVector2D(
+				PanelX + PanelWidth - HorizontalPadding
+					- ContinuationRawWidth * ContinuationScale
+					- 16.0f * ResolutionScale,
+				ContinuationY + ContinuationRawHeight * ContinuationScale * 0.52f),
+			FVector2D(9.0f * ResolutionScale, FMath::Max(1.0f, ResolutionScale)),
+			ContinuationColor);
+		ContinuationRule.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(ContinuationRule);
+		DrawLeftAlignedText(
+			ContinuationLabel,
+			FVector2D(
+				PanelX + PanelWidth - HorizontalPadding
+					- ContinuationRawWidth * ContinuationScale,
+				ContinuationY),
+			ContinuationColor,
+			EIGHudTextRole::Speaker,
+			ContinuationScale,
+			bUseTextOutline);
+	}
+
+	DialogueLastPanelMinimum = FVector2D(PanelX, PanelY);
+	DialogueLastPanelMaximum = FVector2D(PanelX + PanelWidth, PanelY + PanelHeight);
+	DialogueLastCanvasSize = FVector2D(Canvas->ClipX, Canvas->ClipY);
+	DialogueLastLineCount = CurrentDialogueLines.Num();
+	bDialogueLastSpeakerVisible = bHasSpeaker;
+	bDialogueLastHasContinuation = bCurrentDialogueHasContinuation;
+	bDialogueLastInsideSafeArea =
+		PanelX >= SafeHorizontalInset - 1.0f
+		&& PanelX + PanelWidth <= Canvas->ClipX - SafeHorizontalInset + 1.0f
+		&& PanelY >= SafeVerticalInset - 1.0f
+		&& PanelY + PanelHeight <= Canvas->ClipY - SafeVerticalInset + 1.0f;
+	++DialogueLastRenderSerial;
+	return true;
+}
+
+bool AIGHorrorHUD::DrawAudioCaption(
+	const double CurrentTime,
+	const float MaximumBottomY)
+{
+	if (!Canvas)
+	{
+		return false;
+	}
+	AdvanceAudioCaptionQueue(CurrentTime);
+	if (CurrentAudioCaption.IsEmpty() || CurrentTime >= AudioCaptionEndTime)
+	{
+		return false;
 	}
 	const UGameInstance* GameInstance = GetWorld()
 		? GetWorld()->GetGameInstance()
@@ -558,9 +1698,9 @@ void AIGHorrorHUD::DrawAudioCaption(const double CurrentTime)
 	const UIGAccessibilitySubsystem* Accessibility = GameInstance
 		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
 		: nullptr;
-	if (!Accessibility || !Accessibility->AreSubtitlesEnabled())
+	if (!Accessibility || !Accessibility->AreSoundCaptionsEnabled())
 	{
-		return;
+		return false;
 	}
 	const double Elapsed = CurrentTime - AudioCaptionStartTime;
 	const double Remaining = AudioCaptionEndTime - CurrentTime;
@@ -571,52 +1711,201 @@ void AIGHorrorHUD::DrawAudioCaption(const double CurrentTime)
 		0.0f,
 		1.0f);
 	const FIGAccessibilitySettings Settings = Accessibility->GetSettings();
-	const float CaptionScale = Settings.CaptionSizeScale;
+	const float ResolutionScale = FMath::Clamp(
+		Canvas->ClipY / 1080.0f,
+		0.85f,
+		2.0f);
+	const float CaptionScale = GetResolutionTextScale(Settings.CaptionSizeScale) * 0.88f;
 	const float SafeAreaScale = Settings.CaptionSafeAreaScale;
 	const float SafeWidth = Canvas->ClipX * SafeAreaScale;
-	const float PanelWidth = FMath::Min(
-		FMath::Clamp(Canvas->ClipX * 0.62f, 320.0f, 760.0f),
-		FMath::Max(260.0f, SafeWidth - 32.0f));
-	const float MaximumTextWidth = FMath::Max(220.0f, PanelWidth - 38.0f);
-	FString FirstLine;
-	FString SecondLine;
-	WrapAudioCaption(
-		CurrentAudioCaption.ToString(),
-		GetFontForRole(EIGHudTextRole::Hint),
+	const float MaximumPanelWidth = FMath::Min(
+		FMath::Clamp(
+			Canvas->ClipX * 0.42f,
+			280.0f * ResolutionScale,
+			680.0f * ResolutionScale),
+		FMath::Max(240.0f, SafeWidth - 48.0f * ResolutionScale));
+	const float HorizontalPadding = 18.0f * ResolutionScale;
+	const float IconLaneWidth = 28.0f * ResolutionScale;
+	const float MaximumTextWidth = FMath::Max(
+		180.0f,
+		MaximumPanelWidth - HorizontalPadding * 2.0f - IconLaneWidth);
+	const int32 MaximumCaptionLines = Settings.CaptionSizeScale > 1.25f ? 3 : 2;
+	FString DisplayCaption = CurrentAudioCaption.ToString().TrimStartAndEnd();
+	// Authored captions keep square brackets in data for transcripts and
+	// fallback surfaces. This lane already has a waveform glyph, so repeating
+	// the same semantic marker on screen adds noise without adding meaning.
+	if (DisplayCaption.Len() >= 2
+		&& DisplayCaption[0] == TEXT('[')
+		&& DisplayCaption[DisplayCaption.Len() - 1] == TEXT(']'))
+	{
+		DisplayCaption = DisplayCaption.Mid(1, DisplayCaption.Len() - 2)
+			.TrimStartAndEnd();
+	}
+	TArray<FString> Lines;
+	FString Remainder;
+	WrapHudText(
+		DisplayCaption,
+		GetFontForRole(EIGHudTextRole::Dialogue),
 		CaptionScale,
 		MaximumTextWidth,
-		FirstLine,
-		SecondLine);
-	const bool bTwoLines = !SecondLine.IsEmpty();
-	const float PanelHeight = (bTwoLines ? 58.0f : 38.0f) * CaptionScale;
-	const float SafeVerticalInset = Canvas->ClipY * (1.0f - SafeAreaScale) * 0.5f;
-	const float PanelY = FMath::Clamp(
-		Canvas->ClipY * 0.76f,
-		SafeVerticalInset + 28.0f,
-		Canvas->ClipY - SafeVerticalInset - PanelHeight - 22.0f);
-	FCanvasTileItem Backdrop(
-		FVector2D((Canvas->ClipX - PanelWidth) * 0.5f, PanelY),
-		FVector2D(PanelWidth, PanelHeight),
-		FLinearColor(0.015f, 0.018f, 0.017f, 0.82f * Alpha));
-	Backdrop.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem(Backdrop);
-	FLinearColor CaptionColor = IGHorrorHUD::PaleGray;
-	CaptionColor.A = Alpha;
-	DrawCenteredText(
-		FText::FromString(FirstLine),
-		PanelY + 8.0f * CaptionScale,
-		CaptionColor,
-		EIGHudTextRole::Hint,
-		CaptionScale);
-	if (bTwoLines)
+		MaximumCaptionLines,
+		Lines,
+		Remainder);
+	if (Lines.IsEmpty())
 	{
-		DrawCenteredText(
-			FText::FromString(SecondLine),
-			PanelY + 29.0f * CaptionScale,
-			CaptionColor,
-			EIGHudTextRole::Hint,
-			CaptionScale);
+		return false;
 	}
+	if (!Remainder.IsEmpty())
+	{
+		FIGAudioCaptionMessage Continuation;
+		Continuation.Caption = FText::FromString(Remainder);
+		Continuation.DurationSeconds = FMath::Max(
+			1.2f,
+			static_cast<float>(AudioCaptionEndTime - CurrentTime));
+		Continuation.QueuedAt = CurrentTime;
+		AudioCaptionQueue.Insert(MoveTemp(Continuation), 0);
+		if (AudioCaptionQueue.Num() > IGHorrorHUD::MaximumAudioCaptionQueueDepth)
+		{
+			AudioCaptionQueue.RemoveAt(AudioCaptionQueue.Num() - 1);
+		}
+		CurrentAudioCaption = FText::FromString(FString::Join(Lines, TEXT("\n")));
+	}
+	UFont* CaptionFont = GetFontForRole(EIGHudTextRole::Dialogue);
+	float RawWidth = 0.0f;
+	float RawHeight = 19.0f;
+	if (CaptionFont)
+	{
+		Canvas->StrLen(CaptionFont, TEXT("한Ag"), RawWidth, RawHeight, true);
+	}
+	float LongestLineWidth = 0.0f;
+	for (const FString& Line : Lines)
+	{
+		LongestLineWidth = FMath::Max(
+			LongestLineWidth,
+			MeasureTextWidth(Line, CaptionFont, CaptionScale));
+	}
+	const float PanelWidth = FMath::Min(
+		MaximumPanelWidth,
+		FMath::Max(
+			280.0f * ResolutionScale,
+			LongestLineWidth + HorizontalPadding * 2.0f + IconLaneWidth));
+	const float BodyHeight = FMath::Max(16.0f, RawHeight * CaptionScale);
+	const float LineStep = BodyHeight * (Lines.Num() >= 3 ? 1.34f : 1.29f);
+	const float VerticalPadding = 11.0f * ResolutionScale;
+	const float PanelHeight = VerticalPadding * 2.0f + BodyHeight
+		+ LineStep * FMath::Max(0, Lines.Num() - 1);
+	const float SafeVerticalInset = Canvas->ClipY * (1.0f - SafeAreaScale) * 0.5f;
+	const float MinimumPanelY = SafeVerticalInset + 28.0f * ResolutionScale;
+	const float PanelY = FMath::Max(
+		MinimumPanelY,
+		MaximumBottomY - PanelHeight);
+	const float PanelX = (Canvas->ClipX - PanelWidth) * 0.5f;
+	const float SurfaceAlpha = Settings.CaptionBackgroundOpacity * Alpha;
+	const float CornerRadius = PanelHeight * 0.22f;
+	DrawRoundedHudSurface(
+		FVector2D(PanelX, PanelY + 4.0f * ResolutionScale),
+		FVector2D(PanelWidth, PanelHeight),
+		CornerRadius,
+		FLinearColor(0.0f, 0.0f, 0.0f, SurfaceAlpha * 0.34f));
+	DrawRoundedHudSurface(
+		FVector2D(PanelX, PanelY),
+		FVector2D(PanelWidth, PanelHeight),
+		CornerRadius,
+		FLinearColor(0.018f, 0.026f, 0.024f, SurfaceAlpha));
+	DrawDialogueFilm(
+		FVector2D(PanelX, PanelY),
+		FVector2D(PanelWidth, PanelHeight),
+		CornerRadius,
+		SurfaceAlpha * 0.11f);
+	RecordLayoutValidationRect(
+		FVector2D(PanelX, PanelY),
+		FVector2D(PanelX + PanelWidth, PanelY + PanelHeight));
+	FLinearColor WaveColor = IGHorrorHUD::DialogueTeal;
+	WaveColor.A = Alpha * 0.78f;
+	const float WaveCenterY = PanelY + PanelHeight * 0.5f;
+	const float WaveHeights[] = {5.0f, 11.0f, 16.0f, 8.0f};
+	for (int32 BarIndex = 0; BarIndex < UE_ARRAY_COUNT(WaveHeights); ++BarIndex)
+	{
+		const float BarHeight = WaveHeights[BarIndex] * ResolutionScale;
+		FCanvasTileItem WaveBar(
+			FVector2D(
+				PanelX + HorizontalPadding + BarIndex * 4.0f * ResolutionScale,
+				WaveCenterY - BarHeight * 0.5f),
+			FVector2D(FMath::Max(1.0f, 1.5f * ResolutionScale), BarHeight),
+			WaveColor);
+		WaveBar.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(WaveBar);
+	}
+	FLinearColor CaptionColor = FLinearColor(0.80f, 0.81f, 0.77f, 1.0f);
+	CaptionColor.A = Alpha;
+	const bool bUseTextOutline = Settings.CaptionBackgroundOpacity < 0.42f;
+	for (int32 LineIndex = 0; LineIndex < Lines.Num(); ++LineIndex)
+	{
+		DrawLeftAlignedText(
+			FText::FromString(Lines[LineIndex]),
+			FVector2D(
+				PanelX + HorizontalPadding + IconLaneWidth,
+				PanelY + VerticalPadding + LineIndex * LineStep),
+			CaptionColor,
+			EIGHudTextRole::Dialogue,
+			CaptionScale,
+			bUseTextOutline);
+	}
+	return true;
+}
+
+void AIGHorrorHUD::DrawLensDroplet(const double CurrentTime)
+{
+	if (!Canvas || !LensDropletTexture
+		|| CurrentTime < LensDropletStartTime
+		|| CurrentTime >= LensDropletEndTime)
+	{
+		return;
+	}
+
+	const double Duration = FMath::Max(
+		LensDropletEndTime - LensDropletStartTime,
+		0.001);
+	const float Age = FMath::Clamp(
+		static_cast<float>((CurrentTime - LensDropletStartTime) / Duration),
+		0.0f,
+		1.0f);
+	const float FadeIn = IGHorrorHUD::SmoothStep01(Age / 0.12f);
+	const float FadeOut = 1.0f - IGHorrorHUD::SmoothStep01((Age - 0.68f) / 0.32f);
+	const float Alpha = FadeIn * FadeOut * 0.72f;
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const bool bReducedMotion = Accessibility
+		&& Accessibility->IsReducedCameraMotionEnabled();
+	const float Travel = bReducedMotion
+		? 0.0f
+		: IGHorrorHUD::SmoothStep01(Age) * Canvas->ClipY * 0.028f;
+
+	const float DropHeight = FMath::Clamp(
+		FMath::Min(Canvas->ClipX, Canvas->ClipY) * 0.16f,
+		84.0f,
+		176.0f);
+	const FVector2D DropSize(DropHeight * 0.60f, DropHeight);
+	const FVector2D DropPosition(
+		Canvas->ClipX * 0.75f - DropSize.X * 0.5f,
+		Canvas->ClipY * 0.14f + Travel);
+	LensDropletLastPosition = DropPosition;
+	LensDropletLastSize = DropSize;
+	LensDropletLastCanvasSize = FVector2D(Canvas->ClipX, Canvas->ClipY);
+	LensDropletLastAlpha = Alpha;
+	bLensDropletLastReducedMotion = bReducedMotion;
+	LensDropletLastRenderTime = CurrentTime;
+
+	FCanvasTileItem Droplet(
+		DropPosition,
+		LensDropletTexture->GetResource(),
+		DropSize,
+		FLinearColor(0.76f, 0.82f, 0.84f, Alpha));
+	Droplet.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Droplet);
 }
 
 float AIGHorrorHUD::MeasureTextWidth(
@@ -670,52 +1959,92 @@ int32 AIGHorrorHUD::FindFittingCaptionPrefix(
 	return FMath::Max(1, BestLength);
 }
 
-void AIGHorrorHUD::WrapAudioCaption(
-	const FString& Caption,
+void AIGHorrorHUD::WrapHudText(
+	const FString& Source,
 	UFont* Font,
 	const float TextScale,
 	const float MaximumWidth,
-	FString& OutFirstLine,
-	FString& OutSecondLine) const
+	const int32 MaximumLines,
+	TArray<FString>& OutLines,
+	FString& OutRemainder) const
 {
-	OutFirstLine = Caption.TrimStartAndEnd();
-	OutSecondLine.Reset();
-	if (OutFirstLine.IsEmpty()
-		|| MeasureTextWidth(OutFirstLine, Font, TextScale) <= MaximumWidth)
+	OutLines.Reset();
+	OutRemainder.Reset();
+	if (!Font || MaximumWidth <= 0.0f || MaximumLines <= 0)
 	{
+		OutRemainder = Source;
 		return;
 	}
 
-	int32 BreakIndex = FindFittingCaptionPrefix(
-		OutFirstLine,
-		Font,
-		TextScale,
-		MaximumWidth);
-	const int32 SpaceIndex = OutFirstLine.Left(BreakIndex).Find(
-		TEXT(" "),
-		ESearchCase::CaseSensitive,
-		ESearchDir::FromEnd);
-	if (SpaceIndex >= BreakIndex / 2)
+	FString Remaining = Source;
+	Remaining.ReplaceInline(TEXT("\r"), TEXT(""));
+	Remaining = Remaining.TrimStartAndEnd();
+	while (!Remaining.IsEmpty() && OutLines.Num() < MaximumLines)
 	{
-		BreakIndex = SpaceIndex;
-	}
+		const int32 NewlineIndex = Remaining.Find(TEXT("\n"));
+		const int32 ParagraphLength = NewlineIndex == INDEX_NONE
+			? Remaining.Len()
+			: NewlineIndex;
+		FString Paragraph = Remaining.Left(ParagraphLength).TrimStartAndEnd();
+		if (Paragraph.IsEmpty())
+		{
+			Remaining = NewlineIndex == INDEX_NONE
+				? FString()
+				: Remaining.Mid(NewlineIndex + 1).TrimStart();
+			continue;
+		}
 
-	OutSecondLine = OutFirstLine.Mid(BreakIndex).TrimStartAndEnd();
-	OutFirstLine = OutFirstLine.Left(BreakIndex).TrimEnd();
-	if (OutSecondLine.IsEmpty()
-		|| MeasureTextWidth(OutSecondLine, Font, TextScale) <= MaximumWidth)
-	{
-		return;
-	}
+		if (MeasureTextWidth(Paragraph, Font, TextScale) <= MaximumWidth)
+		{
+			OutLines.Add(MoveTemp(Paragraph));
+			Remaining = NewlineIndex == INDEX_NONE
+				? FString()
+				: Remaining.Mid(NewlineIndex + 1).TrimStart();
+			continue;
+		}
 
-	const FString Ellipsis = TEXT("…");
-	const float EllipsisWidth = MeasureTextWidth(Ellipsis, Font, TextScale);
-	const int32 VisibleLength = FindFittingCaptionPrefix(
-		OutSecondLine,
-		Font,
-		TextScale,
-		FMath::Max(1.0f, MaximumWidth - EllipsisWidth));
-	OutSecondLine = OutSecondLine.Left(VisibleLength).TrimEnd() + Ellipsis;
+		int32 BreakIndex = FindFittingCaptionPrefix(
+			Paragraph,
+			Font,
+			TextScale,
+			MaximumWidth);
+		BreakIndex = FMath::Clamp(BreakIndex, 1, Paragraph.Len());
+		const int32 MinimumEditorialBreak = FMath::Max(1, BreakIndex / 2);
+		int32 EditorialBreak = INDEX_NONE;
+		for (int32 Index = BreakIndex - 1; Index >= MinimumEditorialBreak; --Index)
+		{
+			const TCHAR Character = Paragraph[Index];
+			if (FChar::IsWhitespace(Character))
+			{
+				EditorialBreak = Index;
+				break;
+			}
+			if (FCString::Strchr(TEXT(".,!?;:…。！？、，"), Character))
+			{
+				EditorialBreak = Index + 1;
+				break;
+			}
+		}
+		if (EditorialBreak > 0)
+		{
+			BreakIndex = EditorialBreak;
+		}
+
+		FString Line = Paragraph.Left(BreakIndex).TrimEnd();
+		if (Line.IsEmpty())
+		{
+			Line = Paragraph.Left(1);
+			BreakIndex = 1;
+		}
+		OutLines.Add(MoveTemp(Line));
+		const FString ParagraphRemainder =
+			Paragraph.Mid(BreakIndex).TrimStart();
+		const FString FollowingParagraphs = NewlineIndex == INDEX_NONE
+			? FString()
+			: Remaining.Mid(NewlineIndex);
+		Remaining = (ParagraphRemainder + FollowingParagraphs).TrimStart();
+	}
+	OutRemainder = Remaining.TrimStartAndEnd();
 }
 
 void AIGHorrorHUD::DrawFearDirection(const double CurrentTime)
@@ -829,8 +2158,10 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean ? TEXT("손전등 점멸 감소") : TEXT("REDUCED FLASHLIGHT FLICKER"),
 		bKorean ? TEXT("공포음 방향 표시") : TEXT("FEAR SOUND DIRECTION"),
 		bKorean ? TEXT("P5 단서 자동 연결") : TEXT("AUTO-CONNECT EVIDENCE"),
-		bKorean ? TEXT("핵심 소리 자막") : TEXT("SOUND CAPTIONS"),
-		bKorean ? TEXT("소리 자막 크기") : TEXT("CAPTION SIZE"),
+		bKorean ? TEXT("대사 음성 자막") : TEXT("VOICE SUBTITLES"),
+		bKorean ? TEXT("핵심 소리 캡션") : TEXT("SOUND CAPTIONS"),
+		bKorean ? TEXT("대사·캡션 크기") : TEXT("DIALOGUE + CAPTION SIZE"),
+		bKorean ? TEXT("메시지 배경 농도") : TEXT("MESSAGE BACKGROUND"),
 		bKorean ? TEXT("자막 안전 영역") : TEXT("CAPTION SAFE AREA"),
 		bKorean ? TEXT("길게 누르기 방식") : TEXT("HOLD INPUT"),
 		bKorean ? TEXT("홀드 길이") : TEXT("HOLD DURATION"),
@@ -845,9 +2176,13 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		OnOff(Settings.bDirectionalFearCues),
 		OnOff(Settings.bAutoConnectEvidence),
 		OnOff(Settings.bSubtitlesEnabled),
+		OnOff(Settings.bSoundCaptionsEnabled),
 		FString::Printf(
 			TEXT("%d%%"),
 			FMath::RoundToInt(Settings.CaptionSizeScale * 100.0f)),
+		FString::Printf(
+			TEXT("%d%%"),
+			FMath::RoundToInt(Settings.CaptionBackgroundOpacity * 100.0f)),
 		FString::Printf(
 			TEXT("%d%%"),
 			FMath::RoundToInt(Settings.CaptionSafeAreaScale * 100.0f)),
@@ -891,6 +2226,75 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
 	}
 
+	// Keep a live sample in the same screen where size, surface opacity and
+	// safe area are changed. The preview is text-only and never mutates the
+	// actual story queue.
+	const float ResolutionScale = FMath::Clamp(
+		Canvas->ClipY / 1080.0f,
+		0.85f,
+		2.0f);
+	const float PreviewTextScale = GetResolutionTextScale(Settings.CaptionSizeScale);
+	const float PreviewWidth = FMath::Min(
+		Canvas->ClipX * Settings.CaptionSafeAreaScale - 32.0f * ResolutionScale,
+		780.0f * ResolutionScale);
+	UFont* PreviewFont = GetFontForRole(EIGHudTextRole::Dialogue);
+	float PreviewRawWidth = 0.0f;
+	float PreviewRawHeight = 19.0f;
+	if (PreviewFont)
+	{
+		Canvas->StrLen(
+			PreviewFont,
+			TEXT("한Ag"),
+			PreviewRawWidth,
+			PreviewRawHeight,
+			true);
+	}
+	const float PreviewBodyHeight = FMath::Max(
+		16.0f,
+		PreviewRawHeight * PreviewTextScale);
+	const float PreviewSpeakerHeight = 14.0f * PreviewTextScale * 0.78f;
+	const float PreviewHeight = FMath::Max(
+		48.0f * ResolutionScale,
+		PreviewSpeakerHeight + PreviewBodyHeight + 23.0f * ResolutionScale);
+	const float PreviewX = (Canvas->ClipX - PreviewWidth) * 0.5f;
+	const float PreviewY = Canvas->ClipY - 148.0f * ResolutionScale;
+	FCanvasTileItem PreviewSurface(
+		FVector2D(PreviewX, PreviewY),
+		FVector2D(PreviewWidth, PreviewHeight),
+		FLinearColor(
+			0.018f,
+			0.021f,
+			0.020f,
+			Settings.CaptionBackgroundOpacity));
+	PreviewSurface.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(PreviewSurface);
+	RecordLayoutValidationRect(
+		FVector2D(PreviewX, PreviewY),
+		FVector2D(PreviewX + PreviewWidth, PreviewY + PreviewHeight));
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "CaptionPreviewSpeaker", "미리 보기")
+			: FText::FromString(TEXT("PREVIEW")),
+		FVector2D(
+			PreviewX + 18.0f * ResolutionScale,
+			PreviewY + 7.0f * ResolutionScale),
+		IGHorrorHUD::ThoughtBlue,
+		EIGHudTextRole::Speaker,
+		PreviewTextScale * 0.78f,
+		true);
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "CaptionPreviewBody", "대사·소리 캡션 예시입니다.")
+			: FText::FromString(TEXT("DIALOGUE + SOUND CAPTION PREVIEW.")),
+		FVector2D(
+			PreviewX + 18.0f * ResolutionScale,
+			PreviewY + 8.0f * ResolutionScale
+				+ PreviewSpeakerHeight + 5.0f * ResolutionScale),
+		IGHorrorHUD::PaleGray,
+		EIGHudTextRole::Dialogue,
+		PreviewTextScale,
+		true);
+
 	DrawCenteredText(
 		bKorean
 			? bUsingGamepad
@@ -906,7 +2310,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 				bUsingGamepad
 					? TEXT("D-PAD SELECT + CHANGE  |  A APPLY  |  B CLOSE")
 					: TEXT("ARROWS SELECT + CHANGE  |  ENTER APPLY  |  ESC/F10 CLOSE")),
-		FMath::Max(RowStartY + 12.5f * RowSpacing, Canvas->ClipY - 48.0f),
+		FMath::Max(RowStartY + 14.5f * RowSpacing, Canvas->ClipY - 48.0f),
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint);
 }
@@ -1545,6 +2949,22 @@ void AIGHorrorHUD::DrawCenteredText(
 		Color);
 	TextItem.bCentreX = true;
 	TextItem.Scale = FVector2D(FMath::Max(0.5f, TextScale));
+	if (bLayoutValidationEnabled)
+	{
+		float TextWidth = 0.0f;
+		float TextHeight = 0.0f;
+		Canvas->StrLen(Font, Text.ToString(), TextWidth, TextHeight, true);
+		const FVector2D ScaledSize(
+			TextWidth * TextItem.Scale.X,
+			TextHeight * TextItem.Scale.Y);
+		RecordLayoutValidationRect(
+			FVector2D(
+				(Canvas->ClipX - ScaledSize.X) * 0.5f,
+				ScreenY),
+			FVector2D(
+				(Canvas->ClipX + ScaledSize.X) * 0.5f,
+				ScreenY + ScaledSize.Y));
+	}
 
 	// A one-pixel outline keeps small Hangul legible on bright surfaces;
 	// larger text reads better with a soft drop shadow instead.
@@ -1560,6 +2980,53 @@ void AIGHorrorHUD::DrawCenteredText(
 		TextItem.EnableShadow(EffectColor, FVector2D(1.0f, 1.0f));
 	}
 
+	Canvas->DrawItem(TextItem);
+}
+
+void AIGHorrorHUD::DrawLeftAlignedText(
+	const FText& Text,
+	const FVector2D& Position,
+	const FLinearColor& Color,
+	const EIGHudTextRole TextRole,
+	const float TextScale,
+	const bool bUseOutline)
+{
+	if (!Canvas || Text.IsEmpty())
+	{
+		return;
+	}
+	UFont* Font = GetFontForRole(TextRole);
+	if (!Font)
+	{
+		return;
+	}
+
+	const float SafeTextScale = FMath::Max(0.5f, TextScale);
+	FCanvasTextItem TextItem(Position, Text, Font, Color);
+	TextItem.Scale = FVector2D(SafeTextScale);
+	FLinearColor EffectColor = IGHorrorHUD::Shadow;
+	EffectColor.A *= Color.A;
+	if (bUseOutline)
+	{
+		TextItem.bOutlined = true;
+		TextItem.OutlineColor = EffectColor;
+	}
+	else
+	{
+		TextItem.EnableShadow(EffectColor, FVector2D(1.0f, 1.0f));
+	}
+
+	if (bLayoutValidationEnabled)
+	{
+		float TextWidth = 0.0f;
+		float TextHeight = 0.0f;
+		Canvas->StrLen(Font, Text.ToString(), TextWidth, TextHeight, true);
+		RecordLayoutValidationRect(
+			Position,
+			Position + FVector2D(
+				TextWidth * SafeTextScale,
+				TextHeight * SafeTextScale));
+	}
 	Canvas->DrawItem(TextItem);
 }
 
