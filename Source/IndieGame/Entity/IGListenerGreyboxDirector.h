@@ -52,6 +52,15 @@ private:
 
 	/** Central hour-boundary wiring: dormancy, booth lock, day verbs. */
 	void HandleHourActiveChanged(bool bActive);
+
+	// -- README/night capture tour (-IGNightCapture) -----------------------
+	void StartNightCapture();
+	void AdvanceNightCapture();
+	void EnterCaptureStep(int32 StepIndex);
+	void CaptureTeleportPlayer(const FVector& Location, float Yaw, float Pitch);
+	void CaptureParkEntity(const FVector& Location, float Yaw);
+	void CaptureShot(const TCHAR* BaseName) const;
+	void CaptureBeginBurst(const TCHAR* DirectoryName, float Seconds);
 	void HandleNightOneSolved();
 	void HandleNightTwoSolved();
 	void HandleSleepRequested(class AIGMissingFloorEvidence* Evidence);
@@ -112,6 +121,21 @@ private:
 	EProbeStep ProbeStep = EProbeStep::Inactive;
 	float StepDeadlineSeconds = 0.0f;
 	float SetupRetrySeconds = 0.0f;
+
+	/** Capture-tour state; inert unless -IGNightCapture is on the command line. */
+	bool bNightCaptureRequested = false;
+	int32 CaptureStepIndex = -1;
+	float CaptureStepSeconds = 0.0f;
+	bool bCaptureBurstActive = false;
+	FString CaptureBurstDirectory;
+	int32 CaptureBurstFrame = 0;
+	float CaptureBurstEndsAt = 0.0f;
+	float CaptureBurstAccumulator = 0.0f;
+	/** One-shot latches for timed actions inside the current capture step. */
+	bool bCaptureActionADone = false;
+	bool bCaptureActionBDone = false;
+	bool bCaptureActionCDone = false;
+	FTimerHandle CaptureTimer;
 	FVector ProbeNoiseLocation = FVector::ZeroVector;
 	FVector ExpectedWakeLocation = FVector::ZeroVector;
 	bool bStageReady = false;

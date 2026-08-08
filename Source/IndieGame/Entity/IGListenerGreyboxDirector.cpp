@@ -5,8 +5,12 @@
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "HAL/FileManager.h"
 #include "Interaction/IGReadableNote.h"
+#include "Misc/Paths.h"
 #include "Player/IGHorrorHUD.h"
+#include "Sequence/IGWakeUpDirector.h"
+#include "UnrealClient.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNightLoopDirector.h"
 #include "Entity/IGMissingFloorEvidence.h"
@@ -51,6 +55,8 @@ void AIGListenerGreyboxDirector::BeginPlay()
 
 	bProbeRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"));
+	bNightCaptureRequested =
+		FParse::Param(FCommandLine::Get(), TEXT("IGNightCapture"));
 
 	// The procedural villa and the player pawn appear over the first frames;
 	// poll briefly instead of assuming a build order.
@@ -69,7 +75,13 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 	{
 		GetWorldTimerManager().ClearTimer(SetupTimer);
 		bStageReady = true;
-		if (bProbeRequested)
+		// The capture tour and the probe are mutually exclusive drivers of
+		// the same stage; the tour wins because it needs the screen.
+		if (bNightCaptureRequested)
+		{
+			StartNightCapture();
+		}
+		else if (bProbeRequested)
 		{
 			StartProbe();
 		}
@@ -975,4 +987,406 @@ void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 	// Same contract as the REBIRTH harnesses: explicit status, normal main
 	// loop shutdown so the log flushes.
 	FPlatformMisc::RequestExitWithStatus(false, bFailed ? 1 : 0);
+}
+
+// -- README/night capture tour ---------------------------------------------
+//
+// Ten staged stops that photograph the systems the README talks about, with
+// the same direct-into-Docs/Media discipline the legacy demo captures use.
+// Stills land as Docs/Media/<name>.png; the two bursts land under
+// Saved/NightCapture/<dir>/frame_%05d.png for the ffmpeg GIF pass.
+
+void AIGListenerGreyboxDirector::StartNightCapture()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// Release the camera from the wake intro: the capture starts standing.
+	for (TActorIterator<AIGWakeUpDirector> It(World); It; ++It)
+	{
+		It->RestoreStandingCheckpoint();
+		if (!It->IsFreeRoam())
+		{
+			It->RequestStopAlarmFallback();
+			It->CompleteGettingUp();
+		}
+		break;
+	}
+	if (APlayerController* PlayerController = World->GetFirstPlayerController())
+	{
+		PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+	}
+	// The dying west fixture must not strobe the stair still.
+	if (AIGPrologueWorldScene* SceneNow =
+		const_cast<AIGPrologueWorldScene*>(WorldScene.Get()))
+	{
+		SceneNow->SuspendCorridorFlicker(true);
+	}
+
+	EnterCaptureStep(0);
+	GetWorldTimerManager().SetTimer(
+		CaptureTimer,
+		this,
+		&AIGListenerGreyboxDirector::AdvanceNightCapture,
+		0.04f,
+		true);
+}
+
+void AIGListenerGreyboxDirector::CaptureTeleportPlayer(
+	const FVector& Location,
+	const float Yaw,
+	const float Pitch)
+{
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	if (!PlayerCharacter)
+	{
+		return;
+	}
+	PlayerCharacter->TeleportTo(
+		Location, FRotator(0.0f, Yaw, 0.0f), false, true);
+	if (APlayerController* Controller =
+		Cast<APlayerController>(PlayerCharacter->GetController()))
+	{
+		Controller->SetControlRotation(FRotator(Pitch, Yaw, 0.0f));
+	}
+}
+
+void AIGListenerGreyboxDirector::CaptureParkEntity(
+	const FVector& Location,
+	const float Yaw)
+{
+	if (!Entity)
+	{
+		return;
+	}
+	Entity->TeleportTo(Location, FRotator(0.0f, Yaw, 0.0f), false, true);
+	Entity->SetPatrolPoints({Location});
+}
+
+void AIGListenerGreyboxDirector::CaptureShot(const TCHAR* BaseName) const
+{
+	const FString ScreenshotPath = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(
+			FPaths::ProjectDir(),
+			FString::Printf(TEXT("Docs/Media/%s.png"), BaseName)));
+	FScreenshotRequest::RequestScreenshot(ScreenshotPath, true, false);
+	UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE shot: %s"), *ScreenshotPath);
+}
+
+void AIGListenerGreyboxDirector::CaptureBeginBurst(
+	const TCHAR* DirectoryName,
+	const float Seconds)
+{
+	CaptureBurstDirectory = FPaths::ConvertRelativePathToFull(FPaths::Combine(
+		FPaths::ProjectSavedDir(), TEXT("NightCapture"), DirectoryName));
+	IFileManager::Get().MakeDirectory(*CaptureBurstDirectory, true);
+	CaptureBurstFrame = 0;
+	CaptureBurstAccumulator = 0.0f;
+	CaptureBurstEndsAt = CaptureStepSeconds + Seconds;
+	bCaptureBurstActive = true;
+}
+
+void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
+{
+	CaptureStepIndex = StepIndex;
+	CaptureStepSeconds = 0.0f;
+	bCaptureActionADone = false;
+	bCaptureActionBDone = false;
+	bCaptureActionCDone = false;
+	bCaptureBurstActive = false;
+
+	switch (StepIndex)
+	{
+	case 0:
+		// The night card over the 403 bedroom, seconds into the hour.
+		CaptureParkEntity(FVector(540.0f, -305.0f, 960.0f), 180.0f);
+		CaptureTeleportPlayer(FVector(-48.0f, 60.0f, 997.0f), -128.0f, -6.0f);
+		break;
+	case 1:
+		// The one upstairs mid-knock, dead ahead down the corridor. The
+		// player stands east of the fire-cabinet beat zone (X > 292): parking
+		// inside it once fired the whole tutorial mid-photograph, and the
+		// capture reset shot the next two stills from the bedroom.
+		CaptureParkEntity(FVector(150.0f, -305.0f, 960.0f), 180.0f);
+		CaptureTeleportPlayer(FVector(330.0f, -305.0f, 997.0f), 180.0f, -6.0f);
+		break;
+	case 2:
+		// Looking down the stair throat at the half-landing cameo.
+		if (Entity)
+		{
+			Entity->TeleportTo(
+				FVector(-445.0f, -305.0f, 888.0f),
+				FRotator(0.0f, 180.0f, 0.0f),
+				false,
+				true);
+			Entity->SetPatrolPoints({
+				FVector(-445.0f, -305.0f, 888.0f),
+				FVector(-445.0f, -255.0f, 888.0f),
+			});
+		}
+		// The landing sits 1.8 m below the throat eye line at 1.5 m out, so
+		// the look-down is steep: shallower pitches photograph the far wall.
+		CaptureTeleportPlayer(FVector(-300.0f, -305.0f, 1005.0f), 180.0f, -52.0f);
+		break;
+	case 3:
+		// The noise ripple, moments after a deliberate sound.
+		CaptureTeleportPlayer(FVector(60.0f, -305.0f, 997.0f), 0.0f, -4.0f);
+		break;
+	case 4:
+		// The sealed common entrance and its refusal prompt.
+		CaptureParkEntity(FVector(540.0f, -305.0f, 960.0f), 180.0f);
+		CaptureTeleportPlayer(FVector(630.0f, -295.0f, 92.0f), -90.0f, -6.0f);
+		break;
+	case 5:
+		// P1: the meter cabinet with the fifth, nameless dial.
+		CaptureTeleportPlayer(FVector(505.0f, -300.0f, 92.0f), -62.0f, -10.0f);
+		break;
+	case 6:
+		// P2: the booth desk — ledger, carbon pad, monitor.
+		CaptureTeleportPlayer(FVector(162.0f, -164.0f, 92.0f), 90.0f, -12.0f);
+		break;
+	case 7:
+		// Burst: the extinguisher fall, with the entity resting so the
+		// physics beat stays unphotobombed.
+		if (Entity)
+		{
+			Entity->SetDormant(true);
+		}
+		CaptureTeleportPlayer(FVector(20.0f, -300.0f, 997.0f), -17.0f, -30.0f);
+		break;
+	case 8:
+		// Burst: hear-investigate-chase-capture-reset, first person.
+		if (Entity)
+		{
+			Entity->SetDormant(false);
+			Entity->TeleportTo(
+				FVector(300.0f, -305.0f, 960.0f),
+				FRotator(0.0f, 180.0f, 0.0f),
+				false,
+				true);
+			Entity->SetPatrolPoints({FVector(300.0f, -305.0f, 960.0f)});
+		}
+		CaptureTeleportPlayer(FVector(-250.0f, -305.0f, 997.0f), 0.0f, -4.0f);
+		break;
+	case 9:
+		// Dawn, then Hwang Sun-geum answering through her door.
+		if (NightPhase)
+		{
+			NightPhase->CompleteNightGoal();
+		}
+		CaptureTeleportPlayer(FVector(-150.0f, -284.0f, 997.0f), 90.0f, -6.0f);
+		break;
+	default:
+		break;
+	}
+}
+
+void AIGListenerGreyboxDirector::AdvanceNightCapture()
+{
+	constexpr float TickSeconds = 0.04f;
+	CaptureStepSeconds += TickSeconds;
+
+	// Burst frames ride the same timer. Each 1080p PNG write stalls the next
+	// request, so a fixed cadence would drop frames and punch holes in the
+	// numbering — and ffmpeg's image sequence reader stops at the first gap.
+	// Requesting only when the previous shot has been consumed keeps the
+	// sequence continuous at whatever rate the disk actually sustains.
+	if (bCaptureBurstActive)
+	{
+		if (!FScreenshotRequest::IsScreenshotRequested())
+		{
+			const FString FramePath = FPaths::Combine(
+				CaptureBurstDirectory,
+				FString::Printf(TEXT("frame_%05d.png"), CaptureBurstFrame++));
+			FScreenshotRequest::RequestScreenshot(FramePath, true, false);
+		}
+		if (CaptureStepSeconds >= CaptureBurstEndsAt)
+		{
+			bCaptureBurstActive = false;
+		}
+	}
+
+	const auto ActionA = [this](const float AtSeconds) -> bool
+	{
+		if (!bCaptureActionADone && CaptureStepSeconds >= AtSeconds)
+		{
+			bCaptureActionADone = true;
+			return true;
+		}
+		return false;
+	};
+	const auto ActionB = [this](const float AtSeconds) -> bool
+	{
+		if (!bCaptureActionBDone && CaptureStepSeconds >= AtSeconds)
+		{
+			bCaptureActionBDone = true;
+			return true;
+		}
+		return false;
+	};
+	const auto ActionC = [this](const float AtSeconds) -> bool
+	{
+		if (!bCaptureActionCDone && CaptureStepSeconds >= AtSeconds)
+		{
+			bCaptureActionCDone = true;
+			return true;
+		}
+		return false;
+	};
+	const auto StepDone = [this](const float AfterSeconds)
+	{
+		return CaptureStepSeconds >= AfterSeconds;
+	};
+
+	AIGPrologueWorldScene* SceneNow =
+		const_cast<AIGPrologueWorldScene*>(WorldScene.Get());
+	switch (CaptureStepIndex)
+	{
+	case 0:
+		if (ActionA(1.0f))
+		{
+			CaptureShot(TEXT("night1-card"));
+		}
+		// Hold here until the card scrim (4.2 s) and the wake-restore inner
+		// voice have both drained, so every later still gets a clean HUD.
+		if (StepDone(8.5f))
+		{
+			EnterCaptureStep(1);
+		}
+		break;
+	case 1:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night1-listener-corridor"));
+		}
+		if (StepDone(1.4f))
+		{
+			EnterCaptureStep(2);
+		}
+		break;
+	case 2:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night1-stair-sighting"));
+		}
+		if (StepDone(1.4f))
+		{
+			EnterCaptureStep(3);
+		}
+		break;
+	case 3:
+		if (ActionA(0.5f) && NoiseSubsystem)
+		{
+			if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+			{
+				NoiseSubsystem->ReportNoise(
+					PlayerCharacter->GetActorLocation()
+						+ FVector(30.0f, 0.0f, 0.0f),
+					0.5f,
+					PlayerCharacter);
+			}
+		}
+		if (ActionB(0.75f))
+		{
+			CaptureShot(TEXT("hud-noise-ripple"));
+		}
+		if (StepDone(1.3f))
+		{
+			EnterCaptureStep(4);
+		}
+		break;
+	case 4:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night-sealed-entrance"));
+		}
+		if (StepDone(1.4f))
+		{
+			EnterCaptureStep(5);
+		}
+		break;
+	case 5:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("p1-meter-cabinet"));
+		}
+		if (StepDone(1.4f))
+		{
+			EnterCaptureStep(6);
+		}
+		break;
+	case 6:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("p2-booth-desk"));
+		}
+		if (StepDone(1.4f))
+		{
+			EnterCaptureStep(7);
+		}
+		break;
+	case 7:
+		if (ActionA(0.2f))
+		{
+			CaptureBeginBurst(TEXT("extinguisher"), 3.2f);
+		}
+		if (ActionB(0.4f) && SceneNow)
+		{
+			SceneNow->DropCorridorExtinguisher();
+		}
+		if (StepDone(3.8f))
+		{
+			EnterCaptureStep(8);
+		}
+		break;
+	case 8:
+		if (ActionA(0.3f))
+		{
+			CaptureBeginBurst(TEXT("chase"), 7.4f);
+		}
+		// Two sounds a second apart: the first turns its head, the second
+		// starts the chase the GIF exists for. The capture and the wake in
+		// bed both land inside the frame window on purpose.
+		if (ActionB(0.5f) && NoiseSubsystem)
+		{
+			NoiseSubsystem->ReportNoise(
+				FVector(-220.0f, -305.0f, 960.0f), 0.45f, Player.Get());
+		}
+		if (ActionC(1.6f) && NoiseSubsystem)
+		{
+			NoiseSubsystem->ReportNoise(
+				FVector(-220.0f, -305.0f, 960.0f), 0.45f, Player.Get());
+		}
+		if (StepDone(8.2f))
+		{
+			EnterCaptureStep(9);
+		}
+		break;
+	case 9:
+		if (ActionA(0.8f) && Unit401Door)
+		{
+			FIGInteractionContext KnockContext;
+			KnockContext.Interactor = Player.Get();
+			KnockContext.TargetActor = Unit401Door;
+			KnockContext.HoldProgress = 1.0f;
+			IIGInteractable::Execute_CompleteInteraction(
+				Unit401Door, KnockContext);
+		}
+		if (ActionB(4.8f))
+		{
+			CaptureShot(TEXT("day-corridor-hwang"));
+		}
+		if (StepDone(5.6f))
+		{
+			GetWorldTimerManager().ClearTimer(CaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));
+			RequestExit(false);
+		}
+		break;
+	default:
+		break;
+	}
 }

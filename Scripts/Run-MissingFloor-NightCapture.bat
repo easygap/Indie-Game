@@ -1,0 +1,38 @@
+@echo off
+setlocal
+set "PROJECT_ROOT=%~dp0.."
+set "PROJECT_FILE=%PROJECT_ROOT%\IndieGame.uproject"
+set "UE_RESOLVER=%PROJECT_ROOT%\Scripts\Resolve-UnrealEditor.ps1"
+set "RESOLVED_UE_EDITOR="
+set "RUN_LOG=%PROJECT_ROOT%\Saved\Logs\MissingFloorNightCapture.log"
+
+for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%UE_RESOLVER%" -ProjectPath "%PROJECT_FILE%" -Commandlet 2^>nul`) do (
+    set "RESOLVED_UE_EDITOR=%%I"
+)
+
+if not defined RESOLVED_UE_EDITOR (
+    echo Unreal Engine matching IndieGame.uproject was not found.
+    exit /b 1
+)
+
+if exist "%RUN_LOG%" del /q "%RUN_LOG%"
+if exist "%PROJECT_ROOT%\Saved\NightCapture" rmdir /s /q "%PROJECT_ROOT%\Saved\NightCapture"
+
+rem Offscreen D3D12 render at a fixed resolution, the same recipe the lens
+rem droplet capture uses: real frames without depending on a desktop window.
+"%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -unattended -nosplash -NoLoadingScreen -RenderOffscreen -d3d12 -nosound -Windowed -ResX=1920 -ResY=1080 -ForceRes -abslog="%RUN_LOG%" -IGListenerGreybox -IGNightCapture -IGSkipFrontend
+set "EDITOR_EXIT=%ERRORLEVEL%"
+
+if not "%EDITOR_EXIT%"=="0" (
+    echo Night capture run exited with code %EDITOR_EXIT%.
+    exit /b 1
+)
+
+findstr /C:"MISSINGFLOOR_CAPTURE DONE" "%RUN_LOG%" >nul
+if errorlevel 1 (
+    echo Night capture did not report DONE. Check %RUN_LOG%.
+    exit /b 1
+)
+
+echo Night capture finished. Assemble GIFs with Make-NightCaptureGifs.ps1.
+endlocal
