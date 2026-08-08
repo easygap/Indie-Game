@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -263,7 +263,11 @@ Assert-ContainsAll $gameTarget @(
 ) 'Win64 공개 버전 리소스 계약'
 $configuredVersion = [regex]::Match(
 	$gameConfig,
-	'(?m)^ProjectVersion=(?<version>[^\r\n]+)$')
+	# .gitattributes normalizes this repo to CRLF on Windows, and in .NET the
+	# multiline $ anchors immediately before \n only. Excluding \r from the
+	# capture and then anchoring therefore never matched a CRLF checkout, so
+	# the carriage return has to be consumed explicitly.
+	'(?m)^ProjectVersion=(?<version>[^\r\n]+)\r?$')
 $targetVersion = [regex]::Match(
 	$gameTarget,
 	'BuildVersion\s*=\s*"(?<version>[^"]+)";')
