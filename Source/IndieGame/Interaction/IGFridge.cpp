@@ -7,6 +7,8 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/World.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
 #include "Narrative/IGStoryHelpers.h"
@@ -435,6 +437,19 @@ void AIGFridge::BeginDoorSwing(const bool bOpen)
 			DoorPivot->GetComponentLocation(),
 			0.4f,
 			1.6f);
+	}
+
+	// One report per committed swing (§5.1, drawer/cabinet band). The seal pop
+	// is the louder half, so opening carries a little further than closing.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(
+				DoorPivot->GetComponentLocation(),
+				bOpen ? 0.2f : 0.15f,
+				this);
+		}
 	}
 }
 

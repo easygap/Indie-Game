@@ -1,8 +1,9 @@
-#include "Save/IGSaveSubsystem.h"
+﻿#include "Save/IGSaveSubsystem.h"
 
 #include "IndieGame.h"
 #include "Engine/GameInstance.h"
 #include "Kismet/GameplayStatics.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Save/IGSaveGame.h"
@@ -141,6 +142,12 @@ UIGSaveGame* UIGSaveSubsystem::CreateSaveSnapshot(
 		{
 			Snapshot->Progress.RebirthNarrative =
 				RebirthState->BuildSnapshot();
+		}
+		if (const UIGMissingFloorNarrativeSubsystem* MissingFloorState =
+			GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
+		{
+			Snapshot->Progress.MissingFloorNarrative =
+				MissingFloorState->GetSnapshot();
 		}
 	}
 
@@ -315,6 +322,16 @@ bool UIGSaveSubsystem::ApplyLoadedProgressInternal(
 		{
 			RebirthState->ResetNarrative();
 		}
+		bApplied = true;
+	}
+	// Same reason as the REBIRTH restore above: 없는 층 truths and the hour's
+	// tier/capture state are authoritative, and the night directors rebuild
+	// their gates inside the story-tag callbacks that follow.
+	if (UIGMissingFloorNarrativeSubsystem* MissingFloorState =
+		GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
+	{
+		MissingFloorState->RestoreSnapshot(
+			LastLoadedSave->Progress.MissingFloorNarrative);
 		bApplied = true;
 	}
 	if (UIGStoryStateSubsystem* StoryState =

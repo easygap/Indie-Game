@@ -245,6 +245,34 @@ public:
 	/** One short, unalarmed cat mewl from very close to the ground. */
 	static UIGToneSequenceSoundWave* CreateCatShortMewl(UObject* Outer);
 
+	// --- The Missing Floor: the one upstairs ------------------------------
+
+	/**
+	 * Three deliberate knuckle knocks on a stud wall, evenly spaced. The
+	 * entity's idle cycle: it knocks, then listens. Muffle01 rolls off the
+	 * contact click for playback through a closed wall (1 = fully entombed).
+	 */
+	static UIGToneSequenceSoundWave* CreateWallKnockTriple(UObject* Outer, float Muffle01 = 0.0f);
+
+	/**
+	 * Two soft knocks, close together: the calmed reply it gives when an
+	 * answer reaches it, and the last thing a captured player hears.
+	 */
+	static UIGToneSequenceSoundWave* CreateWallKnockReply(UObject* Outer);
+
+	/**
+	 * Looping crawl bed for the entity: palm plant, a long dry drag of
+	 * cloth-and-weight over concrete, and a plaster grit tail. Volume is
+	 * driven by movement speed so silence means it is holding still.
+	 */
+	static UIGToneSequenceSoundWave* CreateEntityDragLoop(UObject* Outer);
+
+	/**
+	 * Hardened plaster shell settling: two or three dry hairline cracks.
+	 * Played when the entity stops moving to listen.
+	 */
+	static UIGToneSequenceSoundWave* CreatePlasterSettle(UObject* Outer);
+
 private:
 	static float EvaluateWaveform(EIGToneWaveform Waveform, float FrequencyHz, double NoteTimeSeconds);
 	static float EvaluateEnvelope(const FIGToneNote& Note, float NoteProgress01);

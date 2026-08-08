@@ -1,8 +1,9 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/SaveGame.h"
 #include "GameplayTagContainer.h"
+#include "Narrative/IGMissingFloorNarrativeTypes.h"
 #include "Narrative/IGRebirthNarrativeTypes.h"
 #include "IGSaveGame.generated.h"
 
@@ -31,6 +32,15 @@ struct INDIEGAME_API FIGProgressSnapshot
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Save")
 	FIGRebirthNarrativeSnapshot RebirthNarrative;
+
+	/**
+	 * 없는 층 state, added additively beside the legacy snapshot. Tagged
+	 * property serialization leaves this default-constructed in v1..v3 saves,
+	 * so no schema bump is needed — and CurrentSchemaVersion must stay 3,
+	 * which the compatibility contract pins.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Save")
+	FIGMissingFloorNarrativeSnapshot MissingFloorNarrative;
 };
 
 /** Versioned story progress. User settings belong in a separate save object. */

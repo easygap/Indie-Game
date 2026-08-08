@@ -170,6 +170,46 @@ public:
 	int32 GetCorridorFixtureCount() const { return CorridorLights.Num(); }
 	int32 GetLobbyFixtureCount() const { return LobbyLights.Num(); }
 
+	/**
+	 * 없는 층 '그 시간' (§1): seals or releases the building envelope.
+	 *
+	 * Two seals are needed, not one. The common entrance is the obvious door,
+	 * but the ground-floor stair mouth opens into the open pilotis car park, so
+	 * a player who takes the stairs down walks out to the alley without ever
+	 * touching the entrance. The connector gate closes that hole.
+	 *
+	 * Sealing is expressed physically — a shut leaf, a dead lift button, a
+	 * shutter across the passage — never as a HUD notice.
+	 */
+	void SetTheHourSealed(bool bSealed);
+
+	UFUNCTION(BlueprintPure, Category = "Story|Night")
+	bool IsTheHourSealed() const { return bTheHourSealed; }
+
+	/** True once BuildLobby has produced the connector gate the seal needs. */
+	bool HasNightSealGeometry() const { return StairCoreNightGate != nullptr; }
+
+	/** P1 fixtures, so the puzzle's director can dress them without rebuilding. */
+	UStaticMeshComponent* GetFifthMeterDisc() const { return FifthMeterDisc; }
+	UStaticMeshComponent* GetUnnamedBreakerToggle() const { return UnnamedBreakerToggle; }
+
+	/**
+	 * 없는 층 밤1: slides the stair teleport west so the 3.5F half-landing
+	 * becomes a walkable viewing pocket instead of being swallowed by the
+	 * portal. Off restores the legacy trigger position byte-for-byte, so the
+	 * chapters that never meet the night keep their exact traversal.
+	 */
+	void SetNightStairPocketEnabled(bool bEnabled);
+
+	/**
+	 * Knocks the corridor extinguisher off its bracket. The prop is kinematic
+	 * its whole life until this call — zero simulation cost at rest — and it
+	 * freezes again once settled. Returns false when already dropped.
+	 */
+	bool DropCorridorExtinguisher();
+	bool IsCorridorExtinguisherDropped() const { return bCorridorExtinguisherDropped; }
+	FVector GetCorridorExtinguisherLocation() const;
+
 private:
 	// --- assembly helpers -------------------------------------------------
 	UStaticMeshComponent* CreateBlock(
@@ -513,6 +553,19 @@ private:
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> MailboxBills;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> OfferingNote;
 	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> NightRoster;
+	/**
+	 * 없는 층: the roller shutter across the lobby-to-stair-core connector.
+	 * Built hidden and non-colliding; SetTheHourSealed is the only thing that
+	 * ever shows it, so the legacy chapters never meet it.
+	 */
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> StairCoreNightGate;
+	/** P1: the fifth meter's dial, which never turns, and its dead breaker. */
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> FifthMeterDisc;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> UnnamedBreakerToggle;
+	/** 밤1: the corridor extinguisher, kinematic until its scripted fall. */
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> CorridorExtinguisher;
+	bool bCorridorExtinguisherDropped = false;
+	FTimerHandle ExtinguisherSettleTimer;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> MirrorRoomDoor;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomLamp;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomBounce;
@@ -529,6 +582,7 @@ private:
 
 	/** Set while a chapter owns the west corridor fixture; see the flicker handler. */
 	bool bCorridorFlickerSuspended = false;
+	bool bTheHourSealed = false;
 
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> FlickerStreetlight;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> DegradedCorridorLight;

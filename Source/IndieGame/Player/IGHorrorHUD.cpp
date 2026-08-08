@@ -10,6 +10,7 @@
 #include "Engine/Texture2D.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "Fonts/CompositeFont.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -39,6 +40,18 @@ namespace IGHorrorHUD
 	constexpr float DialogueGlyphsPerSecond = 11.5f;
 	constexpr float DialogueMinimumSeconds = 2.2f;
 	constexpr float DialogueMaximumSeconds = 9.0f;
+
+	/**
+	 * The noise ripple (§5.1). One slot, deliberately short, with a minimum
+	 * gap so a walking player gets a pulse per few steps rather than a strobe.
+	 */
+	constexpr double NoiseRippleDurationSeconds = 0.85;
+	constexpr double NoiseRippleRetriggerSeconds = 0.34;
+	/** Arc geometry: segment count, sweep at full carry, and stroke weight. */
+	constexpr int32 NoiseRippleSegmentCount = 14;
+	constexpr float NoiseRippleMaximumSweepDegrees = 78.0f;
+	constexpr float NoiseRippleMinimumSweepDegrees = 16.0f;
+	constexpr float NoiseRippleMaximumThickness = 2.6f;
 
 	// Native font sizes per text role. Presentation scale is applied once for the
 	// current resolution and accessibility setting, then reused for measurement
@@ -83,15 +96,78 @@ void AIGHorrorHUD::BeginPlay()
 	ResolveInteractionComponent();
 	ResolveDirectors();
 
-	if (const UWorld* World = GetWorld())
+	if (UWorld* World = GetWorld())
 	{
 		NextDirectorSearchTime = World->GetTimeSeconds() + IGHorrorHUD::DirectorSearchInterval;
+		// The noise bus is a world subsystem, not a game-instance one: every
+		// other subsystem lookup in this file goes through the game instance
+		// and would silently return null here.
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			NoiseSubsystem = Noise;
+			NoiseReportedHandle = Noise->OnNoiseReported.AddUObject(
+				this, &AIGHorrorHUD::HandleNoiseReported);
+		}
 	}
 	if (const AIGPlayerController* IndieController =
 		Cast<AIGPlayerController>(GetOwningPlayerController()))
 	{
 		IndieController->RefreshMenuHud();
 	}
+}
+
+void AIGHorrorHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	if (UIGNoiseSubsystem* Noise = NoiseSubsystem.Get())
+	{
+		Noise->OnNoiseReported.Remove(NoiseReportedHandle);
+	}
+	NoiseReportedHandle.Reset();
+	NoiseSubsystem = nullptr;
+	Super::EndPlay(EndPlayReason);
+}
+
+void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
+{
+	// Only the player's own sounds get a ring. The bus also carries the
+	// entity's knocks and any scripted bait, and telling the player "you made
+	// that sound" when they did not would teach the wrong rule.
+	const APawn* OwningPawn = GetOwningPawn();
+	if (!OwningPawn || Event.Instigator.Get() != OwningPawn)
+	{
+		return;
+	}
+	if (Event.Loudness <= 0.0f)
+	{
+		return;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	// Game time, not the event's real time: every other HUD timer is game
+	// time, and mixing the two produces a garbage age after any pause.
+	const double Now = World->GetTimeSeconds();
+	const bool bRippleLive = Now < RippleEndTime;
+	if (bRippleLive)
+	{
+		const bool bRetriggerBlocked =
+			Now - RippleStartTime < IGHorrorHUD::NoiseRippleRetriggerSeconds;
+		// A quieter sound never interrupts a louder ring, and nothing
+		// interrupts a ring that only just started.
+		if (bRetriggerBlocked || Event.Loudness <= RippleLoudness)
+		{
+			return;
+		}
+	}
+
+	RippleWorldLocation = Event.Location;
+	RippleRadiusCentimeters = Event.Radius;
+	RippleLoudness = Event.Loudness;
+	RippleStartTime = Now;
+	RippleEndTime = Now + IGHorrorHUD::NoiseRippleDurationSeconds;
 }
 
 void AIGHorrorHUD::InitializeDialogueSurfaceTextures()
@@ -984,9 +1060,16 @@ void AIGHorrorHUD::DrawHUD()
 			Interaction && Interaction->IsInteracting() ? Interaction->GetHoldProgress() : 0.0f);
 	}
 	DrawFearDirection(CurrentTime);
+	DrawNoiseRipple(CurrentTime);
 
-	// Objective line.
-	if (SupportsKorean())
+	// Objective line. The hour shows none: during 없는 층's night the player
+	// is told nothing and has to listen instead (§11 V4).
+	if (bNightPresentation)
+	{
+		// Intentionally empty: gated here rather than inside GetObjectiveText,
+		// whose exact body the release gate pins.
+	}
+	else if (SupportsKorean())
 	{
 		const FText Objective = GetObjectiveText();
 		if (!Objective.IsEmpty())
@@ -2111,6 +2194,120 @@ void AIGHorrorHUD::DrawFearDirection(const double CurrentTime)
 		Canvas->DrawItem(Line);
 		Previous = Next;
 	}
+}
+
+void AIGHorrorHUD::DrawNoiseRipple(const double CurrentTime)
+{
+	if (!Canvas || CurrentTime >= RippleEndTime || RippleLoudness <= 0.0f)
+	{
+		return;
+	}
+	const APlayerController* PlayerController = GetOwningPlayerController();
+	if (!PlayerController)
+	{
+		return;
+	}
+
+	// Which way the sound went out. Deliberately duplicated from
+	// DrawFearDirection rather than shared: the accessibility contract pins
+	// that function's exact expressions.
+	FVector ViewLocation;
+	FRotator ViewRotation;
+	PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	FVector Direction = (RippleWorldLocation - ViewLocation).GetSafeNormal();
+	if (Direction.IsNearlyZero())
+	{
+		// A sound made exactly at the camera — a footstep, usually — still
+		// deserves a ring; put it straight ahead.
+		Direction = ViewRotation.Vector();
+	}
+
+	const FVector RippleForward = ViewRotation.Vector();
+	const FVector RippleRight = FRotationMatrix(ViewRotation).GetUnitAxis(EAxis::Y);
+	const float RippleAngle = FMath::Atan2(
+		FVector::DotProduct(Direction, RippleRight),
+		FVector::DotProduct(Direction, RippleForward));
+	const FVector2D EdgeNormal(FMath::Sin(RippleAngle), -FMath::Cos(RippleAngle));
+	const FVector2D ScreenCenter(Canvas->ClipX * 0.5f, Canvas->ClipY * 0.5f);
+
+	// How far the sound carries, normalized: a footstep is a short scratch of
+	// an arc, a hammer blow is a wide bow. Radius is post-masking, so a sound
+	// swallowed by a fridge hum never reaches this function at all.
+	const float CarryRatio = FMath::Clamp(
+		RippleRadiusCentimeters / UIGNoiseSubsystem::CarryPerLoudness,
+		0.0f,
+		1.0f);
+	const float SweepDegrees = FMath::Lerp(
+		IGHorrorHUD::NoiseRippleMinimumSweepDegrees,
+		IGHorrorHUD::NoiseRippleMaximumSweepDegrees,
+		CarryRatio);
+
+	const float Age = static_cast<float>(CurrentTime - RippleStartTime);
+	const float Life = FMath::Clamp(
+		Age / static_cast<float>(IGHorrorHUD::NoiseRippleDurationSeconds),
+		0.0f,
+		1.0f);
+	const float FadeIn = IGHorrorHUD::SmoothStep01(Age / 0.1f);
+	const float FadeOut = 1.0f - IGHorrorHUD::SmoothStep01((Life - 0.45f) / 0.55f);
+	const float Alpha = FMath::Clamp(FadeIn * FadeOut, 0.0f, 1.0f);
+	if (Alpha <= 0.01f)
+	{
+		return;
+	}
+
+	const UIGAccessibilitySubsystem* Accessibility = nullptr;
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			Accessibility = GameInstance->GetSubsystem<UIGAccessibilitySubsystem>();
+		}
+	}
+	const bool bReducedMotion =
+		Accessibility && Accessibility->IsReducedCameraMotionEnabled();
+
+	// The expansion is the ring's whole grammar, so reduced motion pins it at
+	// its final radius and keeps the fade instead of dropping the element:
+	// suppressing it would remove the only channel that carries loudness.
+	const float Expansion = bReducedMotion ? 1.0f : FMath::Sqrt(Life);
+	const float RadiusX = Canvas->ClipX * FMath::Lerp(0.30f, 0.455f, Expansion);
+	const float RadiusY = Canvas->ClipY * FMath::Lerp(0.28f, 0.425f, Expansion);
+
+	const FLinearColor RippleColor(
+		0.78f,
+		0.80f,
+		0.78f,
+		Alpha * FMath::Lerp(0.34f, 0.70f, CarryRatio));
+	const float BaseAngle = FMath::Atan2(EdgeNormal.X, -EdgeNormal.Y);
+	const float HalfSweep = FMath::DegreesToRadians(SweepDegrees) * 0.5f;
+
+	FVector2D Previous = FVector2D::ZeroVector;
+	for (int32 Index = 0; Index <= IGHorrorHUD::NoiseRippleSegmentCount; ++Index)
+	{
+		const float T =
+			static_cast<float>(Index) / IGHorrorHUD::NoiseRippleSegmentCount;
+		const float Angle = BaseAngle + FMath::Lerp(-HalfSweep, HalfSweep, T);
+		const FVector2D Point = ScreenCenter + FVector2D(
+			FMath::Sin(Angle) * RadiusX,
+			-FMath::Cos(Angle) * RadiusY);
+		if (Index > 0)
+		{
+			// Thin toward the ends so the arc reads as a wave rather than a
+			// gauge with hard stops.
+			const float EndTaper = FMath::Sin(T * UE_PI);
+			FCanvasLineItem Line(Previous, Point);
+			Line.SetColor(RippleColor);
+			Line.LineThickness = FMath::Max(
+				1.0f,
+				IGHorrorHUD::NoiseRippleMaximumThickness * EndTaper);
+			Canvas->DrawItem(Line);
+		}
+		Previous = Point;
+	}
+
+	// Never recorded for layout validation: a screen-edge arc is outside the
+	// caption-safe rect by design, and recording it would widen the bounds the
+	// packaged frontend probe asserts.
 }
 
 void AIGHorrorHUD::DrawAccessibilityPanel()

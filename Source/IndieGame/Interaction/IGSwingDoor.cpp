@@ -6,6 +6,8 @@
 #include "Components/StaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/World.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "Narrative/IGStoryHelpers.h"
@@ -302,7 +304,28 @@ FText AIGSwingDoor::GetInteractionPrompt_Implementation(AActor* Interactor) cons
 	{
 		return Unmet->LockedPrompt.IsEmpty() ? OpenPrompt : Unmet->LockedPrompt;
 	}
-	return bOpen ? ClosePrompt : OpenPrompt;
+	const FText& BasePrompt = bOpen ? ClosePrompt : OpenPrompt;
+	if (QuietOpenHoldSeconds <= 0.0f)
+	{
+		return BasePrompt;
+	}
+	// The quiet/loud verb pair only matters if the player can discover it.
+	// One short suffix teaches it everywhere without a tutorial screen.
+	return FText::Format(
+		NSLOCTEXT("IGSwingDoor", "HoldHintFormat", "{0} (꾹: 조용히)"),
+		BasePrompt);
+}
+
+float AIGSwingDoor::GetInteractionHoldDuration_Implementation(AActor* Interactor) const
+{
+	// A door that will not open has nothing to ease: press it and let it
+	// rattle at once, rather than making the player fill a progress bar to
+	// learn that it is sealed.
+	if (!bOpen && FindUnmetRequirement() != nullptr)
+	{
+		return 0.0f;
+	}
+	return QuietOpenHoldSeconds;
 }
 
 void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContext& Context)
@@ -318,6 +341,9 @@ void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContex
 				UIGToneSequenceSoundWave::CreateLockedRattle(this),
 				HandleMesh->GetComponentLocation(),
 				0.9f);
+			// Yanking a sealed door is the loudest thing a locked door does.
+			// The hour has to be a place where trying the exit costs you.
+			ReportSwingNoise(NormalSwingLoudness);
 			if (!Unmet->LockedThought.IsEmpty())
 			{
 				AIGHorrorHUD::PushThought(this, Unmet->LockedThought, 3.2f);
@@ -326,7 +352,40 @@ void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContex
 		}
 	}
 
-	BeginSwing(!bOpen, !bOpen, false);
+	// Reaching completion means the hold ran its course (or a director/capture
+	// tour called this directly): the careful, quiet swing.
+	BeginSwing(
+		!bOpen,
+		!bOpen,
+		false,
+		QuietSwingLoudness,
+		QuietSwingDurationScale);
+}
+
+void AIGSwingDoor::EndInteraction_Implementation(
+	const FIGInteractionContext& Context,
+	const EIGInteractionEndReason EndReason)
+{
+	Super::EndInteraction_Implementation(Context, EndReason);
+
+	// Only a deliberate early release is a tap. FocusLost fires from merely
+	// looking away mid-hold and Cancelled from cinematics and input locks —
+	// neither should slam a door.
+	if (EndReason != EIGInteractionEndReason::Released)
+	{
+		return;
+	}
+	if (QuietOpenHoldSeconds <= 0.0f)
+	{
+		return;
+	}
+	if (!bOpen && FindUnmetRequirement() != nullptr)
+	{
+		// Locked: the press already rattled through CompleteInteraction.
+		return;
+	}
+
+	BeginSwing(!bOpen, !bOpen, false, NormalSwingLoudness, 1.0f);
 }
 
 void AIGSwingDoor::ForceOpenState(const bool bInOpen)
@@ -347,13 +406,22 @@ bool AIGSwingDoor::BeginScriptedSwing(
 	const bool bPlayCreak,
 	const bool bSuppressCloseThud)
 {
-	return BeginSwing(bInOpen, bPlayCreak, bSuppressCloseThud);
+	// An authored swing is the building moving, not the player: it still
+	// sounds, at the ordinary loudness.
+	return BeginSwing(
+		bInOpen,
+		bPlayCreak,
+		bSuppressCloseThud,
+		NormalSwingLoudness,
+		1.0f);
 }
 
 bool AIGSwingDoor::BeginSwing(
 	const bool bInOpen,
 	const bool bPlayCreak,
-	const bool bSuppressCloseThud)
+	const bool bSuppressCloseThud,
+	const float Loudness,
+	const float DurationScale)
 {
 	if (DoorAnimation.bActive || bOpen == bInOpen)
 	{
@@ -373,17 +441,41 @@ bool AIGSwingDoor::BeginSwing(
 	DoorAnimation.Begin(
 		DoorPivot->GetRelativeRotation().Yaw,
 		bOpen ? OpenYaw : 0.0f,
-		SwingDuration);
+		SwingDuration * FMath::Max(DurationScale, 0.05f));
 	SetActorTickEnabled(true);
 
 	if (bPlayCreak)
 	{
+		// A slow leaf creaks more softly than a shoved one.
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateDoorCreak(this),
 			DoorMesh->GetComponentLocation(),
-			0.8f);
+			DurationScale > 1.0f ? 0.45f : 0.8f);
 	}
 
+	// One report per committed swing, at the start of motion: this funnel is
+	// the only exactly-once, tick-free moment, and every caller passes through
+	// it — player tap, player hold, and every authored swing.
+	ReportSwingNoise(Loudness);
+
 	return true;
+}
+
+void AIGSwingDoor::ReportSwingNoise(const float Loudness) const
+{
+	if (Loudness <= 0.0f)
+	{
+		return;
+	}
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(
+				DoorMesh ? DoorMesh->GetComponentLocation() : GetActorLocation(),
+				Loudness,
+				const_cast<AIGSwingDoor*>(this));
+		}
+	}
 }

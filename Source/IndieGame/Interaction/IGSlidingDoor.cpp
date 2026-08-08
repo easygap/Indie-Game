@@ -5,6 +5,8 @@
 #include "Components/BoxComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/World.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Pawn.h"
@@ -259,6 +261,17 @@ void AIGSlidingDoor::SetDoorOpen(const bool bInOpen)
 	if (bOpen && bChimeEnabled)
 	{
 		PlayChime();
+	}
+
+	// The store's automatic door is not an interactable — a pawn walking into
+	// the sensor is the whole verb — so the report belongs at the one place
+	// motion is actually committed.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(GetActorLocation(), 0.22f, this);
+		}
 	}
 }
 

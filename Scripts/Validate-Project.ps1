@@ -386,6 +386,13 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 # confirmation and the bounded -IGFrontendShippingProbe process only.
 # IGDemoDirector is a development-only capture driver that is spawned solely
 # under -IGCapture / -IGDemo / -IGDemoFrames.
+#
+# IGListenerEntity is the one deliberate always-on actor tick in the project.
+# 위층 사람 is a pursuer: its state machine, crawl locomotion, drag-loop gain
+# and threat pressure are per-frame concerns for its whole life, exactly like
+# the player pawn's. It exists only while a night stage is armed
+# (-IGListenerGreybox spawns it), it owns no timers that could substitute for
+# the tick, and gating it would make the pursuit visibly step.
 $reviewedTickingFiles = @(
 	'IGWakeUpDirector.cpp',
 	'IGPlayerCharacter.cpp',
@@ -395,7 +402,8 @@ $reviewedTickingFiles = @(
 	'IGSlidingDoor.cpp',
 	'IGElevator.cpp',
 	'IGNeighborhoodLifeDirector.cpp',
-	'IGDemoDirector.cpp'
+	'IGDemoDirector.cpp',
+	'IGListenerEntity.cpp'
 )
 $unreviewedTickingActors = @($tickingActors | Where-Object {
 	$reviewedTickingFiles -notcontains [System.IO.Path]::GetFileName($_.Path)

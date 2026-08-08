@@ -1264,3 +1264,82 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCatShortMewl(UObject* 
 	Wave->ConfigureNotes(MoveTemp(MewlNotes), false);
 	return Wave;
 }
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockTriple(
+	UObject* Outer,
+	const float Muffle01)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGWallKnockTriple"));
+	TArray<FIGToneNote> KnockNotes;
+
+	// Each knock is a low structural thump plus a knuckle contact click.
+	// Muffling (heard through a finished wall) keeps the thump and eats the
+	// click, which is what real drywall does to a fist.
+	const float Click = FMath::Lerp(0.085f, 0.012f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
+	const float Body = FMath::Lerp(0.360f, 0.300f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
+	for (int32 KnockIndex = 0; KnockIndex < 3; ++KnockIndex)
+	{
+		const float Start = 0.62f * KnockIndex;
+		KnockNotes.Add({Start, 0.110f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sine});
+		KnockNotes.Add({Start, 0.060f, 176.0f, 0.130f, 0.006f, 2.0f, EIGToneWaveform::Sine});
+		KnockNotes.Add({Start, 0.030f, 1150.0f, Click, 0.020f, 1.2f, EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(KnockNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockReply(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGWallKnockReply"));
+	TArray<FIGToneNote> ReplyNotes;
+
+	// Two knocks only, softer and closer together than the hunting triple:
+	// an answer, not a search.
+	for (int32 KnockIndex = 0; KnockIndex < 2; ++KnockIndex)
+	{
+		const float Start = 0.42f * KnockIndex;
+		ReplyNotes.Add({Start, 0.100f, 58.0f, 0.250f, 0.005f, 2.8f, EIGToneWaveform::Sine});
+		ReplyNotes.Add({Start, 0.050f, 176.0f, 0.080f, 0.008f, 2.0f, EIGToneWaveform::Sine});
+		ReplyNotes.Add({Start, 0.024f, 1000.0f, 0.030f, 0.030f, 1.4f, EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(ReplyNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityDragLoop(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEntityDragLoop"));
+	TArray<FIGToneNote> DragNotes;
+
+	// One crawl cycle: palm plant, weight shift, the long drag of trailing
+	// legs, then a grit tail. Loops at the crawl cadence.
+	DragNotes.Add({0.000f, 0.070f, 66.0f, 0.240f, 0.008f, 2.4f, EIGToneWaveform::Sine});
+	DragNotes.Add({0.000f, 0.050f, 700.0f, 0.050f, 0.030f, 1.5f, EIGToneWaveform::ValueNoise});
+	DragNotes.Add({0.180f, 0.520f, 320.0f, 0.085f, 0.180f, 1.2f, EIGToneWaveform::ValueNoise});
+	DragNotes.Add({0.180f, 0.520f, 92.0f, 0.070f, 0.180f, 1.4f, EIGToneWaveform::ValueNoise});
+	DragNotes.Add({0.740f, 0.180f, 1400.0f, 0.024f, 0.200f, 1.8f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(DragNotes), true, 1.05f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasterSettle(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGPlasterSettle"));
+	TArray<FIGToneNote> SettleNotes;
+
+	// Dry hairline cracks with no resonance: hardened plaster, not wood.
+	SettleNotes.Add({0.000f, 0.030f, 2400.0f, 0.060f, 0.010f, 1.0f, EIGToneWaveform::ValueNoise});
+	SettleNotes.Add({0.140f, 0.024f, 3100.0f, 0.045f, 0.010f, 1.0f, EIGToneWaveform::ValueNoise});
+	SettleNotes.Add({0.330f, 0.040f, 1900.0f, 0.050f, 0.010f, 1.2f, EIGToneWaveform::ValueNoise});
+	SettleNotes.Add({0.330f, 0.060f, 120.0f, 0.060f, 0.010f, 2.6f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(SettleNotes), false);
+	return Wave;
+}

@@ -13,6 +13,7 @@
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
 #include "EngineUtils.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "InputActionValue.h"
 #include "InputCoreTypes.h"
@@ -28,6 +29,20 @@
 #include "Sequence/IGWakeUpDirector.h"
 #include "Save/IGSaveSubsystem.h"
 #include "UObject/ConstructorHelpers.h"
+
+namespace IGPlayerNoise
+{
+	/**
+	 * The project's ordinary walk speed. Footstep loudness is measured against
+	 * this fixed reference rather than the movement component's current cap, so
+	 * a chapter that slows the player also makes them quieter — which is what
+	 * moving carefully should mean.
+	 */
+	constexpr float ReferenceWalkSpeed = 300.0f;
+	/** Quietest and loudest footfall reported to the noise bus (§5.1). */
+	constexpr float MinimumFootstepLoudness = 0.06f;
+	constexpr float MaximumFootstepLoudness = 0.18f;
+}
 
 namespace IGPlayerOutfit
 {
@@ -310,6 +325,7 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 		}
 	}
 
+	UpdateFootsteps(DeltaSeconds);
 	UpdateCameraMotion(DeltaSeconds);
 	UpdateCarriedItem(DeltaSeconds);
 	UpdateOutfitPresentation(DeltaSeconds);
@@ -500,6 +516,44 @@ void AIGPlayerCharacter::SetCameraMotionEnabled(const bool bEnabled)
 	}
 }
 
+void AIGPlayerCharacter::UpdateFootsteps(const float DeltaSeconds)
+{
+	// Footsteps are the player's voice in a game that hunts by sound, so the
+	// cadence must not depend on the camera-bob flag the way it used to: a
+	// director that never enabled camera motion would leave the player silent
+	// and the one upstairs deaf.
+	if (DeltaSeconds <= 0.0f)
+	{
+		return;
+	}
+
+	const UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+	const float GroundSpeed = GetVelocity().Size2D();
+	if (!MovementComponent
+		|| !MovementComponent->IsMovingOnGround()
+		|| GroundSpeed <= 20.0f)
+	{
+		return;
+	}
+
+	TraveledDistanceAccum += GroundSpeed * DeltaSeconds;
+	const int32 StepIndex = FMath::FloorToInt32(TraveledDistanceAccum / StepDistance);
+	if (StepIndex == LastStepIndex)
+	{
+		return;
+	}
+	LastStepIndex = StepIndex;
+
+	// Absolute speed, not speed normalized against MaxWalkSpeed: the flood
+	// director lowers the cap, and a wader must not sound like a stroller
+	// merely because the denominator moved with them.
+	const float SpeedScale = FMath::Clamp(
+		GroundSpeed / IGPlayerNoise::ReferenceWalkSpeed,
+		0.0f,
+		1.0f);
+	PlayFootstep(SpeedScale);
+}
+
 void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 {
 	if (!bCameraMotionEnabled || !FirstPersonCamera || DeltaSeconds <= 0.0f)
@@ -523,15 +577,6 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	FVector TargetOffset = FVector::ZeroVector;
 	if (bWalking)
 	{
-		TraveledDistanceAccum += GroundSpeed * DeltaSeconds;
-
-		const int32 StepIndex = FMath::FloorToInt32(TraveledDistanceAccum / StepDistance);
-		if (StepIndex != LastStepIndex)
-		{
-			LastStepIndex = StepIndex;
-			PlayFootstep(SpeedScale);
-		}
-
 		if (!bReducedMotion)
 		{
 			// One full sine cycle spans two footsteps (left/right).
@@ -604,6 +649,23 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 		1.0f,
 		120.0f,
 		700.0f);
+
+	// Every footfall is also a report to the building's ear. Loudness sits in
+	// the design table's walking band (0.06 crouch-soft .. 0.18 brisk); the
+	// subsystem applies hum masking and decides whether anything sounded.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(
+				GetActorLocation(),
+				FMath::Lerp(
+					IGPlayerNoise::MinimumFootstepLoudness,
+					IGPlayerNoise::MaximumFootstepLoudness,
+					FMath::Clamp(SpeedScale, 0.0f, 1.0f)),
+				this);
+		}
+	}
 
 	// Every footfall knocks the torch: alternate the kick left/right so the
 	// beam walks with the body instead of floating.

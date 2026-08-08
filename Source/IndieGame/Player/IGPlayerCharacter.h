@@ -100,6 +100,8 @@ private:
 	float SampleAmbientDarkness() const;
 	void TryRequestGetUpFallback();
 	void EndScriptedHeavyBagRest();
+	/** Footstep cadence and its noise report; runs whether or not the camera bobs. */
+	void UpdateFootsteps(float DeltaSeconds);
 	void UpdateCameraMotion(float DeltaSeconds);
 	void UpdateCarriedItem(float DeltaSeconds);
 	void UpdateOutfitPresentation(float DeltaSeconds);

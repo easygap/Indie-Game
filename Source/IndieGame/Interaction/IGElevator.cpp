@@ -7,6 +7,8 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Engine/World.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Character.h"
@@ -543,6 +545,17 @@ FText AIGElevator::GetInteractionPrompt_Implementation(AActor* Interactor) const
 void AIGElevator::CompleteInteraction_Implementation(const FIGInteractionContext& Context)
 {
 	Super::CompleteInteraction_Implementation(Context);
+
+	// Pressing a call button is a small, dry click, but it is a sound the one
+	// upstairs can walk toward. Reported once here rather than inside SetState,
+	// which chapter resets and checkpoint restores also route through.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(GetActorLocation(), 0.18f, Context.Interactor);
+		}
+	}
 
 	const APawn* InteractingPawn = Cast<APawn>(Context.Interactor);
 	const float LocalZ = InteractingPawn

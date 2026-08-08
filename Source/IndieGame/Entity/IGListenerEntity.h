@@ -1,0 +1,178 @@
+﻿#pragma once
+
+#include "CoreMinimal.h"
+#include "GameFramework/Pawn.h"
+#include "Entity/IGNoiseSubsystem.h"
+#include "IGListenerEntity.generated.h"
+
+class UAudioComponent;
+class UCapsuleComponent;
+class UStaticMeshComponent;
+
+/** What the one upstairs is doing. See STORY_BIBLE_MISSING_FLOOR.md §4.5. */
+UENUM(BlueprintType)
+enum class EIGListenerState : uint8
+{
+	/** Crawling between patrol nodes. */
+	Patrolling,
+	/** Stationary, knocking three times. The player's masked window. */
+	Banging,
+	/** Stationary, listening. Hearing doubles. */
+	Listening,
+	/** Moving to the last heard sound. */
+	Investigating,
+	/** Arrived where it heard something; holding still and listening. */
+	Holding,
+	/** Burst pursuit toward the last sound. */
+	Chasing,
+	/** Lost the sound; short local sweep before giving up. */
+	Searching,
+	/** Frozen by an answer knock. Hope, while it lasts. */
+	Waiting,
+	/** Holding the caught player; the director owns the screen. */
+	CaptureHold
+};
+
+DECLARE_MULTICAST_DELEGATE_OneParam(FIGPlayerCapturedSignature, APawn* /*Player*/);
+
+/**
+ * 위층 사람 — the one upstairs. Blind; hunts entirely by sound through the
+ * IGNoiseSubsystem. It knocks, then listens; it investigates what it hears
+ * and bursts into a chase when a sound answers twice. Catching the player is
+ * not violence — it is an embrace and a walk toward the wall — and hands
+ * control to the night-loop director, which resets the hour.
+ *
+ * Grey-box body: assembled engine primitives under a hardened-plaster
+ * material stand-in, upper body raised, legs trailing. No skeletal assets,
+ * matching the project's no-human-mesh pipeline.
+ */
+UCLASS()
+class INDIEGAME_API AIGListenerEntity : public APawn
+{
+	GENERATED_BODY()
+
+public:
+	AIGListenerEntity();
+
+	virtual void Tick(float DeltaSeconds) override;
+
+	UFUNCTION(BlueprintPure, Category = "Listener")
+	EIGListenerState GetListenerState() const { return State; }
+
+	/** Capture escalation, 0..3. Raised by the director on each loop reset. */
+	UFUNCTION(BlueprintPure, Category = "Listener")
+	int32 GetAggressionTier() const { return AggressionTier; }
+
+	UFUNCTION(BlueprintCallable, Category = "Listener")
+	void SetAggressionTier(int32 Tier);
+
+	/**
+	 * World-space patrol stops. The entity crawls node to node, knocking and
+	 * listening at each. With no nodes it haunts its spawn point in place.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Listener")
+	void SetPatrolPoints(const TArray<FVector>& Points);
+
+	/**
+	 * The learned answer: two knocks, a rest, one. Freezes an approaching
+	 * entity into Waiting — and tells it exactly where the answer came from.
+	 * When hope runs out it investigates that spot.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Listener")
+	void NotifyAnswerKnock(const FVector& KnockLocation);
+
+	/** Returns the entity to its patrol start after a capture reset. */
+	UFUNCTION(BlueprintCallable, Category = "Listener")
+	void ResetToPatrolStart(bool bRaiseAggression);
+
+	/** Fired once per catch; the night-loop director listens. */
+	FIGPlayerCapturedSignature OnPlayerCaptured;
+
+protected:
+	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
+	/** Crawl speed between patrol nodes, cm/s. Slow enough to walk away from. */
+	UPROPERTY(EditAnywhere, Category = "Listener|Movement", meta = (ClampMin = "0.0"))
+	float CrawlSpeed = 110.0f;
+
+	UPROPERTY(EditAnywhere, Category = "Listener|Movement", meta = (ClampMin = "0.0"))
+	float InvestigateSpeed = 240.0f;
+
+	/** Burst speed. Faster than the player walks; the point of the rules. */
+	UPROPERTY(EditAnywhere, Category = "Listener|Movement", meta = (ClampMin = "0.0"))
+	float ChaseSpeed = 460.0f;
+
+	/** Touching distance that ends the night, in centimeters. */
+	UPROPERTY(EditAnywhere, Category = "Listener|Movement", meta = (ClampMin = "0.0"))
+	float CaptureRadius = 110.0f;
+
+	/** Cross-floor sounds read farther away than line distance says. */
+	UPROPERTY(EditAnywhere, Category = "Listener|Hearing", meta = (ClampMin = "1.0"))
+	float CrossFloorDistancePenalty = 1.4f;
+
+	/** Height difference that counts as another floor, in centimeters. */
+	UPROPERTY(EditAnywhere, Category = "Listener|Hearing", meta = (ClampMin = "0.0"))
+	float FloorHeightThreshold = 240.0f;
+
+private:
+	// -- state machine ------------------------------------------------------
+	void EnterState(EIGListenerState NewState);
+	void TickState(float DeltaSeconds);
+	void HandleNoise(const FIGNoiseEvent& Event);
+	bool CanHear(const FIGNoiseEvent& Event) const;
+	float HearingMultiplier() const;
+	float ListenSecondsForTier() const;
+	float WaitSecondsForTier() const;
+
+	// -- locomotion ---------------------------------------------------------
+	/** Sweeps toward Target; returns true on arrival (or when wedged). */
+	bool CrawlTowards(const FVector& Target, float Speed, float DeltaSeconds);
+	void FaceDirection(const FVector& Direction, float DeltaSeconds);
+	const FVector* CurrentPatrolTarget() const;
+
+	// -- presentation -------------------------------------------------------
+	void BuildGreyboxBody();
+	void PlayKnockTriple();
+	void PlayPlasterSettle();
+	void UpdateDragLoop(float CurrentSpeed);
+	void UpdateThreatPressure();
+
+	void BeginCapture(APawn* Player);
+
+	UPROPERTY(VisibleAnywhere, Category = "Listener|Components")
+	TObjectPtr<UCapsuleComponent> Body;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> BodyBlocks;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> DragLoopComponent;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UIGNoiseSubsystem> NoiseSubsystem;
+
+	FDelegateHandle NoiseHandle;
+
+	UPROPERTY(EditAnywhere, Category = "Listener|Patrol")
+	TArray<FVector> PatrolPoints;
+
+	EIGListenerState State = EIGListenerState::Patrolling;
+	int32 AggressionTier = 0;
+	int32 PatrolIndex = 0;
+	FVector SpawnLocation = FVector::ZeroVector;
+	FVector LastHeardLocation = FVector::ZeroVector;
+	double LastHeardTime = -1000.0;
+	/** Hearing something while already reacting to a sound means a chase. */
+	bool bReactingToSound = false;
+	FVector SearchAnchor = FVector::ZeroVector;
+	FVector SearchTarget = FVector::ZeroVector;
+	FVector AnswerKnockLocation = FVector::ZeroVector;
+	float StateSeconds = 0.0f;
+	float SearchRetargetSeconds = 0.0f;
+	float StuckSeconds = 0.0f;
+	float LastMoveSpeed = 0.0f;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<APawn> CachedPlayer;
+};

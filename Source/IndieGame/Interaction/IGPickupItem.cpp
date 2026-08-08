@@ -7,6 +7,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/PlayerController.h"
 #include "IndieGame.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
@@ -427,6 +428,16 @@ bool AIGPickupItem::FinishPickup(
 		if (!ThoughtOnPickup.IsEmpty())
 		{
 			AIGHorrorHUD::PushThought(this, ThoughtOnPickup, 3.4f);
+		}
+		// Only a real pickup sounds. Checkpoint restores come through here
+		// with feedback suppressed and must stay silent, or every load would
+		// ring the building's ear.
+		if (UWorld* World = GetWorld())
+		{
+			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+			{
+				Noise->ReportNoise(GetActorLocation(), 0.14f, Character);
+			}
 		}
 	}
 

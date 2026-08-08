@@ -2,6 +2,7 @@
 
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
+#include "Entity/IGListenerGreyboxDirector.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Player/IGHorrorHUD.h"
@@ -59,4 +60,21 @@ void AIGPrologueGameMode::StartPlay()
 		AIGPrologueWorldScene::StaticClass(),
 		FTransform::Identity,
 		SpawnParameters);
+
+	// The Missing Floor M1 stage: with -IGListenerGreybox the one upstairs
+	// haunts the real 4F corridor (plus its smoke probe when
+	// -IGListenerGreyboxProbe is present). Off the flag, the legacy prologue
+	// is untouched.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"))
+		|| World->URL.HasOption(TEXT("IGListenerGreybox")))
+	{
+		FActorSpawnParameters GreyboxParameters;
+		GreyboxParameters.Name = TEXT("ListenerGreyboxDirector");
+		GreyboxParameters.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		World->SpawnActor<AIGListenerGreyboxDirector>(
+			AIGListenerGreyboxDirector::StaticClass(),
+			FTransform::Identity,
+			GreyboxParameters);
+	}
 }

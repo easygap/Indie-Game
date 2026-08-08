@@ -5,6 +5,7 @@
 #include "Components/AudioComponent.h"
 #include "Components/PostProcessComponent.h"
 #include "Engine/World.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 
@@ -227,6 +228,24 @@ void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 		Heartbeat,
 		1.0f,
 		1.0f);
+
+	// Panic betrays you: past 0.85 the pulse itself is a sound in the world,
+	// carrying about three meters. Standing beside a humming machine still
+	// swallows it — managing fear and finding cover are the same skill.
+	if (EffectiveStress >= 0.85f)
+	{
+		if (AActor* Owner = GetOwner())
+		{
+			if (UWorld* World = GetWorld())
+			{
+				if (UIGNoiseSubsystem* Noise =
+					World->GetSubsystem<UIGNoiseSubsystem>())
+				{
+					Noise->ReportNoise(Owner->GetActorLocation(), 0.115f, Owner);
+				}
+			}
+		}
+	}
 }
 
 void UIGStressComponent::UpdateTremor(const float DeltaSeconds)

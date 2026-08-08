@@ -21,6 +21,7 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -1644,6 +1645,13 @@ void AIGPlayerController::StartNewGame()
 			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
 		{
 			RebirthState->ResetNarrative();
+		}
+		// Game-instance subsystems outlive a new game inside one process, so
+		// without this the previous run's truths and aggression tier leak in.
+		if (UIGMissingFloorNarrativeSubsystem* MissingFloorState =
+			GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
+		{
+			MissingFloorState->ResetNarrative();
 		}
 	}
 	bNewGameConfirmationArmed = false;

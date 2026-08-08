@@ -2332,10 +2332,35 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(
 		FVector(236, -371, 140), FVector(26, 9, 34),
 		TexMat(TEXT("M_FireBox"), SnackRedMaterial), false);
-	CreateBlock(
-		FVector(232, -364, 26), FVector(15, 15, 48),
-		SnackRedMaterial, true, CylinderMesh);
-	CreateBlock(FVector(232, -364, 52), FVector(5, 5, 8), PlasticDarkMaterial, false);
+	// The extinguisher is the one corridor prop authored to fall (밤1 beat
+	// 1-5). A physics body from birth, but kinematic until the scripted drop:
+	// visually identical to the old static block and free at rest.
+	CorridorExtinguisher = CreatePhysicsProp(
+		CylinderMesh,
+		SnackRedMaterial,
+		FVector(0.15f, 0.15f, 0.48f),
+		FVector(232, -364, 26),
+		FRotator::ZeroRotator,
+		6.0f);
+	if (CorridorExtinguisher)
+	{
+		CorridorExtinguisher->SetSimulatePhysics(false);
+		// Valve stub rides the body so the silhouette survives the fall.
+		UStaticMeshComponent* Valve = NewObject<UStaticMeshComponent>(
+			this, TEXT("CorridorExtinguisherValve"));
+		Valve->SetupAttachment(CorridorExtinguisher);
+		Valve->SetStaticMesh(CylinderMesh);
+		Valve->SetMaterial(0, PlasticDarkMaterial);
+		// Child scale compounds with the parent's (0.15, 0.15, 0.48).
+		Valve->SetRelativeScale3D(FVector(0.33f, 0.33f, 0.17f));
+		Valve->SetRelativeLocation(FVector(0.0f, 0.0f, 54.0f));
+		Valve->SetMobility(EComponentMobility::Movable);
+		Valve->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Valve->SetGenerateOverlapEvents(false);
+		Valve->SetCanEverAffectNavigation(false);
+		Valve->RegisterComponent();
+		GeometryComponents.Add(Valve);
+	}
 
 	// Permanent first flight toward 5F. It turns north from the west landing,
 	// so it never overlaps the parallel flight descending toward 3F. The
@@ -2404,6 +2429,14 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(
 		FVector(-392.5f, -305, 250), FVector(125, 160, 20),
 		CorridorCeil);
+	// The 3.5F half-landing. Flush with the last down-tread (top local -72),
+	// filling what used to be open shaft void. In the legacy chapters the
+	// stair portal fires before a player can reach it, so this slab is only
+	// ever walked during 없는 층 nights — where it is the stage for the first
+	// sighting (STORY_BIBLE_MISSING_FLOOR.md §8 밤1 1-4).
+	CreateBlock(
+		FVector(-392.5f, -305, -81), FVector(125, 160, 18),
+		CorridorFloor);
 	for (const float RailY : {-243.0f, -367.0f})
 	{
 		CreateBlock(
@@ -2907,6 +2940,133 @@ void AIGPrologueWorldScene::SetChapterTwoReturnZoneArmed(const bool bArmed)
 	}
 }
 
+void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
+{
+	bTheHourSealed = bSealed;
+
+	// The 공동현관. Shut the leaf first: a swing door only consults its
+	// requirements while closed, so sealing an open door is a no-op and the
+	// player strolls out. ForceOpenState is instant and tick-free, which also
+	// dodges the proximity auto-reopen a scripted swing would expose.
+	if (BuildingDoor)
+	{
+		if (bSealed)
+		{
+			BuildingDoor->ForceOpenState(false);
+			TArray<FIGDoorRequirement> SealRequirements;
+			FIGDoorRequirement& Seal = SealRequirements.AddDefaulted_GetRef();
+			// Deliberately a state that is never granted during the hour. The
+			// release below drops the requirement instead of granting the tag,
+			// so no 'sealed' fact can ever be written into a save.
+			Seal.RequiredState = FGameplayTag::RequestGameplayTag(
+				FName(TEXT("State.MissingFloor.Night.MorningCame")),
+				false);
+			Seal.LockedPrompt = NSLOCTEXT(
+				"IGMissingFloor", "EntranceSealedPrompt", "공동현관");
+			Seal.LockedThought = NSLOCTEXT(
+				"IGMissingFloor",
+				"EntranceSealedThought",
+				"…안 열린다. 잠긴 것도 아닌데.");
+			BuildingDoor->SetRequirements(MoveTemp(SealRequirements));
+		}
+		else
+		{
+			TArray<FIGDoorRequirement> NoRequirements;
+			BuildingDoor->SetRequirements(MoveTemp(NoRequirements));
+		}
+	}
+
+	// The lift is dead for the hour. Its hall button *is* its interaction, so
+	// disabling that is a complete lockout while the cab shells stay solid.
+	if (Elevator)
+	{
+		Elevator->SetInteractionEnabled(!bSealed);
+		if (!bSealed)
+		{
+			Elevator->ResetForNewRide();
+		}
+	}
+
+	// The second seal, without which the stairs deliver the player into the
+	// open car park and out to the alley.
+	if (StairCoreNightGate)
+	{
+		StairCoreNightGate->SetHiddenInGame(!bSealed);
+		StairCoreNightGate->SetCollisionEnabled(
+			bSealed
+				? ECollisionEnabled::QueryAndPhysics
+				: ECollisionEnabled::NoCollision);
+		StairCoreNightGate->SetCollisionProfileName(
+			bSealed
+				? UCollisionProfile::BlockAll_ProfileName
+				: UCollisionProfile::NoCollision_ProfileName);
+	}
+}
+
+void AIGPrologueWorldScene::SetNightStairPocketEnabled(const bool bEnabled)
+{
+	if (!StairTransition)
+	{
+		return;
+	}
+	const auto ToWorld = [this](const FVector& Local)
+	{
+		return GetActorTransform().TransformPosition(Local);
+	};
+	// Configure only repositions the portal boxes, so re-calling it is the
+	// supported way to slide the trigger. Exits stay untouched in both modes.
+	const FVector UpperTrigger = bEnabled
+		? FVector(-440.0f, -305.0f, 880.0f)
+		: FVector(-352.0f, -305.0f, 915.0f);
+	StairTransition->Configure(
+		ToWorld(UpperTrigger),
+		ToWorld(FVector(-300.0f, -305.0f, 942.0f)),
+		FRotator(0.0f, 0.0f, 0.0f),
+		ToWorld(FVector(-214.0f, -305.0f, 193.0f)),
+		ToWorld(FVector(-188.0f, -305.0f, 187.0f)),
+		FRotator(0.0f, 0.0f, 0.0f));
+}
+
+bool AIGPrologueWorldScene::DropCorridorExtinguisher()
+{
+	if (!CorridorExtinguisher || bCorridorExtinguisherDropped)
+	{
+		return false;
+	}
+	bCorridorExtinguisherDropped = true;
+
+	CorridorExtinguisher->SetSimulatePhysics(true);
+	// A shove at the neck, toward the walkway, so the cylinder tips into the
+	// player's path instead of rolling into the wall.
+	const FVector Neck =
+		CorridorExtinguisher->GetComponentLocation() + FVector(0.0f, 0.0f, 20.0f);
+	CorridorExtinguisher->AddImpulseAtLocation(
+		FVector(0.0f, 260.0f, 40.0f) * CorridorExtinguisher->GetMass(),
+		Neck);
+
+	// Physics only runs for the fall itself: once the clatter has settled the
+	// body freezes where it lies and costs nothing again.
+	GetWorldTimerManager().SetTimer(
+		ExtinguisherSettleTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (CorridorExtinguisher)
+			{
+				CorridorExtinguisher->SetSimulatePhysics(false);
+			}
+		}),
+		4.0f,
+		false);
+	return true;
+}
+
+FVector AIGPrologueWorldScene::GetCorridorExtinguisherLocation() const
+{
+	return CorridorExtinguisher
+		? CorridorExtinguisher->GetComponentLocation()
+		: GetActorTransform().TransformPosition(FVector(232.0f, -364.0f, 926.0f));
+}
+
 void AIGPrologueWorldScene::SetStoreNorthLightsLive(const bool bLive)
 {
 	// BuildStore appends in X-major/Y-minor order. Indices 0 and 2 are the
@@ -3090,6 +3250,22 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(580, -233.4f, 6), FVector(300, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(448.4f, -305, 6), FVector(3.5f, 160, 12), Skirting, false);
 
+	// 없는 층 night seal: a fire shutter at the stair-core end of the
+	// connector. Locking the common entrance alone does not shut the building
+	// in — the ground stair mouth opens into the open pilotis car park, so the
+	// stairs are a way out to the alley. Built here so the geometry exists from
+	// the first frame, but hidden and non-colliding until SetTheHourSealed
+	// lowers it; the legacy chapters therefore never see it.
+	StairCoreNightGate = CreateBlock(
+		FVector(-83, -305, 120),
+		FVector(10, 120, 240),
+		Metal,
+		false);
+	if (StairCoreNightGate)
+	{
+		StairCoreNightGate->SetHiddenInGame(true);
+	}
+
 	// Street wall of the lobby, with the common-entrance opening at X 600..686.
 	// West of X 450 the ground floor is the open pilotis car park, which
 	// BuildAlley puts in — Korean villas give the whole ground level to
@@ -3134,6 +3310,76 @@ void AIGPrologueWorldScene::BuildLobby()
 				PlasticDarkMaterial, false, CylinderMesh, FRotator(90, 0, 0));
 		}
 	}
+
+	// 없는 층 P1: the utility meter cabinet and the distribution panel, on the
+	// one genuinely empty wall in the vestibule — the street wall segment
+	// X 450..600, whose inner face is Y = -375. Props extend toward +Y so
+	// nothing sinks into the 20 cm wall, and everything stays west of X 598 to
+	// clear the common-entrance opening and the swept volume of its leaf.
+	//
+	// Four unit meters and a fifth with no nameplate. The dial that does not
+	// turn is the whole point, so its component is kept: the other four are
+	// given a slow rotation and it is left motionless.
+	CreateBlock(
+		FVector(506, -371.0f, 150), FVector(96, 8, 62),
+		TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial), false);
+	CreateBlock(FVector(506, -366.4f, 150), FVector(98, 1.2f, 64), Metal, false);
+	{
+		const TCHAR* MeterPlateNames[] = {
+			TEXT("M_Plate401"), TEXT("M_Plate403"), TEXT("M_Plate404"), TEXT("M_Plate401")};
+		const float MeterXs[] = {470.0f, 488.0f, 506.0f, 524.0f, 542.0f};
+		for (int32 MeterIndex = 0; MeterIndex < 5; ++MeterIndex)
+		{
+			const float MeterX = MeterXs[MeterIndex];
+			CreateBlock(
+				FVector(MeterX, -365.4f, 156), FVector(13, 13, 1.2f),
+				GlassMaterial, false);
+			// Roll 90 puts the cylinder axis on world Y, so the disc face is
+			// what a reader standing in the lobby actually sees.
+			UStaticMeshComponent* Disc = CreateBlock(
+				FVector(MeterX, -366.0f, 152), FVector(9, 9, 1.6f),
+				PlasticDarkMaterial, false, CylinderMesh, FRotator(0, 0, 90));
+			if (MeterIndex == 4)
+			{
+				FifthMeterDisc = Disc;
+				// No nameplate: a unit that is not on any list.
+				CreateBlock(
+					FVector(MeterX, -365.6f, 133), FVector(15, 1.0f, 6),
+					SignWhiteMaterial, false);
+			}
+			else
+			{
+				CreateBlock(
+					FVector(MeterX, -365.6f, 133), FVector(15, 1.0f, 6),
+					TexMat(MeterPlateNames[MeterIndex], SignWhiteMaterial), false);
+			}
+		}
+	}
+
+	// The 두꺼비집, east of the cabinet and clear of the entrance opening.
+	// The fifth toggle is the one that is off.
+	CreateBlock(
+		FVector(576, -372.0f, 152), FVector(36, 6, 54),
+		TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial), false);
+	CreateBlock(FVector(576, -368.4f, 152), FVector(37, 1.2f, 55), Metal, false);
+	CreateBlock(
+		FVector(576, -367.4f, 152), FVector(30, 1.0f, 34),
+		TexMat(TEXT("M_SwitchPlate"), SignWhiteMaterial), false);
+	for (const float ToggleZ : {166.0f, 158.0f, 150.0f, 142.0f})
+	{
+		CreateBlock(
+			FVector(576, -366.4f, ToggleZ), FVector(4, 2.4f, 5),
+			PlasticDarkMaterial, false);
+	}
+	// The unnamed circuit, visibly thrown down. Kept so P1 can raise it.
+	UnnamedBreakerToggle = CreateBlock(
+		FVector(576, -366.4f, 134), FVector(4, 2.4f, 5),
+		Stainless, false);
+
+	// The meter-reading clipboard's backing, on the free north-wall band east
+	// of the notice board. The note actor itself is spawned later, because
+	// BuildLobby runs before any interactable exists.
+	CreateBlock(FVector(672, -238.5f, 150), FVector(23, 3, 32), Metal, false);
 
 	// Lobby fittings: the video intercom by the door, a notice board over the
 	// mailboxes, and the umbrella stand nobody has emptied since the rains.

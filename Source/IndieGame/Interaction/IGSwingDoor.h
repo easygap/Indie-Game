@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Interaction/IGDoorAnimation.h"
@@ -96,7 +96,11 @@ public:
 
 	virtual bool CanInteract_Implementation(AActor* Interactor) const override;
 	virtual FText GetInteractionPrompt_Implementation(AActor* Interactor) const override;
+	virtual float GetInteractionHoldDuration_Implementation(AActor* Interactor) const override;
 	virtual void CompleteInteraction_Implementation(const FIGInteractionContext& Context) override;
+	virtual void EndInteraction_Implementation(
+		const FIGInteractionContext& Context,
+		EIGInteractionEndReason EndReason) override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -128,9 +132,36 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door")
 	TArray<FIGDoorRequirement> Requirements;
 
+	/**
+	 * The 없는 층 verb (§5.3): holding eases the leaf open and barely sounds,
+	 * a tap yanks it and carries. Zero disables the hold entirely and restores
+	 * press-to-open, which is what a locked door does so its rattle is instant.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door|Noise", meta = (ClampMin = "0.0", Units = "s"))
+	float QuietOpenHoldSeconds = 0.55f;
+
+	/** Reported loudness for an eased open/close, 0..1. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door|Noise", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float QuietSwingLoudness = 0.1f;
+
+	/** Reported loudness for a yanked open/close, 0..1. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door|Noise", meta = (ClampMin = "0.0", ClampMax = "1.0"))
+	float NormalSwingLoudness = 0.35f;
+
+	/** How much longer an eased swing takes than a yanked one. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door|Noise", meta = (ClampMin = "1.0"))
+	float QuietSwingDurationScale = 1.8f;
+
 private:
 	const FIGDoorRequirement* FindUnmetRequirement() const;
-	bool BeginSwing(bool bInOpen, bool bPlayCreak, bool bSuppressCloseThud);
+	bool BeginSwing(
+		bool bInOpen,
+		bool bPlayCreak,
+		bool bSuppressCloseThud,
+		float Loudness,
+		float DurationScale);
+	/** Reports one sound to the building's ear; silent when the bus is absent. */
+	void ReportSwingNoise(float Loudness) const;
 
 	FIGDoorAnimation DoorAnimation;
 	bool bOpen = false;

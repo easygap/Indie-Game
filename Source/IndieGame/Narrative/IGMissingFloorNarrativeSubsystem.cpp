@@ -1,0 +1,501 @@
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+
+namespace IGMissingFloorNarrative
+{
+	/**
+	 * One evidence category: any one of these records satisfies it. Most
+	 * categories hold a single record; T6's location category holds two
+	 * because the design offers a patient route (compare the water through
+	 * the pipes) and a reckless one (knock on the wall and be heard).
+	 */
+	struct FCategory
+	{
+		TArray<EIGMissingFloorSource> AcceptedSources;
+	};
+
+	/**
+	 * A truth crosses when EVERY category has at least one record. This table
+	 * is the executable form of STORY_BIBLE_MISSING_FLOOR.md §12 — the crossing
+	 * rules live here and nowhere else.
+	 */
+	struct FRule
+	{
+		EIGMissingFloorTruth Truth = EIGMissingFloorTruth::None;
+		const TCHAR* TagName = nullptr;
+		TArray<FCategory> Categories;
+	};
+
+	static const TArray<FRule>& RuleTable()
+	{
+		static const TArray<FRule> Rules = {
+			{
+				EIGMissingFloorTruth::LivedUpstairs,
+				TEXT("Truth.MissingFloor.LivedUpstairs"),
+				{
+					{{EIGMissingFloorSource::MeterFifthDial}},
+					{{EIGMissingFloorSource::MeterReadingSheet}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::TenantIdentity,
+				TEXT("Truth.MissingFloor.TenantIdentity"),
+				{
+					{{EIGMissingFloorSource::ShippingLabels}},
+					{{EIGMissingFloorSource::TunerNotebookName}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::NoiseWasHomecoming,
+				TEXT("Truth.MissingFloor.NoiseWasHomecoming"),
+				{
+					{{EIGMissingFloorSource::NoiseForumPosts}},
+					{{EIGMissingFloorSource::TunerWorkSchedule}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::LandingStruggle,
+				TEXT("Truth.MissingFloor.LandingStruggle"),
+				{
+					{{EIGMissingFloorSource::ForumFinalPost}},
+					{{EIGMissingFloorSource::LandingImpactMark}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::WallSealedThatDay,
+				TEXT("Truth.MissingFloor.WallSealedThatDay"),
+				{
+					{{EIGMissingFloorSource::BoardDeliveryReceipt}},
+					{{EIGMissingFloorSource::FreshPlasterDating}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::SomeoneInTheWall,
+				TEXT("Truth.MissingFloor.SomeoneInTheWall"),
+				{
+					// Knowing what a hollow wall sounds like...
+					{{EIGMissingFloorSource::PipeAuditionCriterion}},
+					// ...and finding which wall it is, by water or by fist.
+					{{
+						EIGMissingFloorSource::PipeWaterComparison,
+						EIGMissingFloorSource::WallEchoByHand,
+					}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::WasStillAlive,
+				TEXT("Truth.MissingFloor.WasStillAlive"),
+				{
+					{{EIGMissingFloorSource::CarbonLedgerOriginal}},
+					{{EIGMissingFloorSource::AgentMoveOutMessage}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::FiveNightsOfThirst,
+				TEXT("Truth.MissingFloor.FiveNightsOfThirst"),
+				{
+					{{EIGMissingFloorSource::KnockTallyJournal}},
+					{{EIGMissingFloorSource::TankWaterAudition}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::WaitingForAnAnswer,
+				TEXT("Truth.MissingFloor.WaitingForAnAnswer"),
+				{
+					{{EIGMissingFloorSource::AnswerRhythmMaterials}},
+					{{EIGMissingFloorSource::AnswerReturned}},
+				},
+			},
+			{
+				EIGMissingFloorTruth::StillCoveringIt,
+				TEXT("Truth.MissingFloor.StillCoveringIt"),
+				{
+					{{EIGMissingFloorSource::EvictionWarning}},
+					{{EIGMissingFloorSource::BreakerCutIntervention}},
+				},
+			},
+		};
+		return Rules;
+	}
+
+	static const FRule* FindRule(const EIGMissingFloorTruth Truth)
+	{
+		return RuleTable().FindByPredicate([Truth](const FRule& Rule)
+		{
+			return Rule.Truth == Truth;
+		});
+	}
+
+	static const FRule* FindRuleByTag(const FGameplayTag& Tag)
+	{
+		if (!Tag.IsValid())
+		{
+			return nullptr;
+		}
+		return RuleTable().FindByPredicate([&Tag](const FRule& Rule)
+		{
+			return UIGMissingFloorNarrativeSubsystem::GetTruthTag(Rule.Truth)
+				.MatchesTagExact(Tag);
+		});
+	}
+
+	/**
+	 * Serialized evidence names. Strings, not enum values, so appending to
+	 * EIGMissingFloorSource can never reinterpret an existing save.
+	 */
+	static const TCHAR* SourceName(const EIGMissingFloorSource Source)
+	{
+		switch (Source)
+		{
+		case EIGMissingFloorSource::MeterFifthDial:
+			return TEXT("Lobby.MeterFifthDial");
+		case EIGMissingFloorSource::MeterReadingSheet:
+			return TEXT("Office.MeterReadingSheet");
+		case EIGMissingFloorSource::ShippingLabels:
+			return TEXT("Estate.ShippingLabels");
+		case EIGMissingFloorSource::TunerNotebookName:
+			return TEXT("Fifth.TunerNotebookName");
+		case EIGMissingFloorSource::NoiseForumPosts:
+			return TEXT("Forum.NoisePosts");
+		case EIGMissingFloorSource::TunerWorkSchedule:
+			return TEXT("Fifth.TunerWorkSchedule");
+		case EIGMissingFloorSource::ForumFinalPost:
+			return TEXT("Forum.FinalPost");
+		case EIGMissingFloorSource::LandingImpactMark:
+			return TEXT("Fifth.LandingImpactMark");
+		case EIGMissingFloorSource::BoardDeliveryReceipt:
+			return TEXT("Office.BoardDeliveryReceipt");
+		case EIGMissingFloorSource::FreshPlasterDating:
+			return TEXT("Fifth.FreshPlasterDating");
+		case EIGMissingFloorSource::PipeAuditionCriterion:
+			return TEXT("Fifth.PipeAuditionCriterion");
+		case EIGMissingFloorSource::PipeWaterComparison:
+			return TEXT("Fifth.PipeWaterComparison");
+		case EIGMissingFloorSource::WallEchoByHand:
+			return TEXT("Fifth.WallEchoByHand");
+		case EIGMissingFloorSource::CarbonLedgerOriginal:
+			return TEXT("Office.CarbonLedgerOriginal");
+		case EIGMissingFloorSource::AgentMoveOutMessage:
+			return TEXT("Office.AgentMoveOutMessage");
+		case EIGMissingFloorSource::KnockTallyJournal:
+			return TEXT("Unit401.KnockTallyJournal");
+		case EIGMissingFloorSource::TankWaterAudition:
+			return TEXT("Roof.TankWaterAudition");
+		case EIGMissingFloorSource::AnswerRhythmMaterials:
+			return TEXT("Player.AnswerRhythmMaterials");
+		case EIGMissingFloorSource::AnswerReturned:
+			return TEXT("Fifth.AnswerReturned");
+		case EIGMissingFloorSource::EvictionWarning:
+			return TEXT("Office.EvictionWarning");
+		case EIGMissingFloorSource::BreakerCutIntervention:
+			return TEXT("Fifth.BreakerCutIntervention");
+		default:
+			return nullptr;
+		}
+	}
+}
+
+FGameplayTag UIGMissingFloorNarrativeSubsystem::GetTruthTag(
+	const EIGMissingFloorTruth Truth)
+{
+	const IGMissingFloorNarrative::FRule* Rule =
+		IGMissingFloorNarrative::FindRule(Truth);
+	if (!Rule || !Rule->TagName)
+	{
+		return FGameplayTag();
+	}
+	// Every tag in this project comes from Config/DefaultGameplayTags.ini and
+	// is requested without erroring. A missing row therefore yields an invalid
+	// tag and silently disables the truth — the .ini rows are mandatory.
+	return FGameplayTag::RequestGameplayTag(FName(Rule->TagName), false);
+}
+
+FName UIGMissingFloorNarrativeSubsystem::GetSourceId(
+	const EIGMissingFloorSource Source)
+{
+	const TCHAR* Name = IGMissingFloorNarrative::SourceName(Source);
+	return Name ? FName(Name) : NAME_None;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::RegisterTruthSource(
+	const EIGMissingFloorTruth Truth,
+	const EIGMissingFloorSource Source)
+{
+	const FGameplayTag TruthTag = GetTruthTag(Truth);
+	const FName SourceId = GetSourceId(Source);
+	if (!TruthTag.IsValid() || SourceId.IsNone())
+	{
+		return false;
+	}
+
+	FIGMissingFloorTruthRecord* Record = FindRecord(TruthTag);
+	if (!Record)
+	{
+		FIGMissingFloorTruthRecord NewRecord;
+		NewRecord.TruthTag = TruthTag;
+		Record = &Snapshot.Truths[Snapshot.Truths.Add(MoveTemp(NewRecord))];
+	}
+
+	const bool bWasConfirmed = Record->bConfirmed;
+	Record->SourceIds.AddUnique(SourceId);
+	RecomputeConfirmations(/*bBroadcastNewlyConfirmed=*/true);
+
+	// FindRecord again: RecomputeConfirmations may reallocate nothing today,
+	// but reading through a pointer taken before a mutation is a trap worth
+	// not leaving behind.
+	const FIGMissingFloorTruthRecord* Updated = FindRecord(TruthTag);
+	return Updated && Updated->bConfirmed && !bWasConfirmed;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::HasTruth(
+	const EIGMissingFloorTruth Truth) const
+{
+	const FIGMissingFloorTruthRecord* Record = FindRecord(GetTruthTag(Truth));
+	return Record && Record->bConfirmed;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::HasSource(
+	const EIGMissingFloorTruth Truth,
+	const EIGMissingFloorSource Source) const
+{
+	const FIGMissingFloorTruthRecord* Record = FindRecord(GetTruthTag(Truth));
+	return Record && Record->SourceIds.Contains(GetSourceId(Source));
+}
+
+int32 UIGMissingFloorNarrativeSubsystem::GetConfirmedTruthCount() const
+{
+	int32 Count = 0;
+	for (const FIGMissingFloorTruthRecord& Record : Snapshot.Truths)
+	{
+		if (Record.bConfirmed)
+		{
+			++Count;
+		}
+	}
+	return Count;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::IsFinalChoiceUnlocked() const
+{
+	return HasTruth(EIGMissingFloorTruth::SomeoneInTheWall)
+		&& HasTruth(EIGMissingFloorTruth::WasStillAlive)
+		&& HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
+}
+
+// -- the hour's persistent runtime facts ------------------------------------
+
+void UIGMissingFloorNarrativeSubsystem::SetNightIndex(const int32 NightIndex)
+{
+	Snapshot.Night.NightIndex = FMath::Clamp(NightIndex, 0, 4);
+}
+
+void UIGMissingFloorNarrativeSubsystem::SetHourSealed(const bool bSealed)
+{
+	Snapshot.Night.bTheHourSealed = bSealed;
+	if (!bSealed)
+	{
+		Snapshot.Night.NightElapsedSeconds = 0.0f;
+	}
+}
+
+void UIGMissingFloorNarrativeSubsystem::SetNightElapsedSeconds(const float Seconds)
+{
+	Snapshot.Night.NightElapsedSeconds = FMath::Max(Seconds, 0.0f);
+}
+
+int32 UIGMissingFloorNarrativeSubsystem::RecordCapture()
+{
+	++Snapshot.Night.CaptureCount;
+	Snapshot.Night.AggressionTier =
+		FMath::Clamp(Snapshot.Night.AggressionTier + 1, 0, 3);
+	return Snapshot.Night.AggressionTier;
+}
+
+void UIGMissingFloorNarrativeSubsystem::SetAggressionTier(const int32 Tier)
+{
+	Snapshot.Night.AggressionTier = FMath::Clamp(Tier, 0, 3);
+}
+
+bool UIGMissingFloorNarrativeSubsystem::MarkBeatPlayed(const FName BeatId)
+{
+	if (BeatId.IsNone() || Snapshot.Night.CompletedBeats.Contains(BeatId))
+	{
+		return false;
+	}
+	Snapshot.Night.CompletedBeats.Add(BeatId);
+	return true;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::HasBeatPlayed(const FName BeatId) const
+{
+	return Snapshot.Night.CompletedBeats.Contains(BeatId);
+}
+
+bool UIGMissingFloorNarrativeSubsystem::MarkPuzzleSolved(const FName PuzzleId)
+{
+	if (PuzzleId.IsNone() || Snapshot.Night.SolvedPuzzles.Contains(PuzzleId))
+	{
+		return false;
+	}
+	Snapshot.Night.SolvedPuzzles.Add(PuzzleId);
+	return true;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::IsPuzzleSolved(const FName PuzzleId) const
+{
+	return Snapshot.Night.SolvedPuzzles.Contains(PuzzleId);
+}
+
+// -- persistence -----------------------------------------------------------
+
+void UIGMissingFloorNarrativeSubsystem::RestoreSnapshot(
+	const FIGMissingFloorNarrativeSnapshot& InSnapshot)
+{
+	Snapshot = InSnapshot;
+
+	// Read the version before touching anything. Version 0 means the save
+	// predates this subsystem: nothing to migrate, just start empty rather
+	// than trusting default-constructed records.
+	if (Snapshot.SchemaVersion <= 0)
+	{
+		Snapshot.Truths.Reset();
+	}
+
+	NormalizeSnapshot();
+	// A restore must not announce truths the player learned last session.
+	RecomputeConfirmations(/*bBroadcastNewlyConfirmed=*/false);
+	Snapshot.SchemaVersion = SnapshotSchemaVersion;
+}
+
+void UIGMissingFloorNarrativeSubsystem::ResetNarrative()
+{
+	Snapshot = FIGMissingFloorNarrativeSnapshot();
+	Snapshot.SchemaVersion = SnapshotSchemaVersion;
+}
+
+// -- internals -------------------------------------------------------------
+
+void UIGMissingFloorNarrativeSubsystem::RecomputeConfirmations(
+	const bool bBroadcastNewlyConfirmed)
+{
+	TArray<EIGMissingFloorTruth> NewlyConfirmed;
+	for (FIGMissingFloorTruthRecord& Record : Snapshot.Truths)
+	{
+		const IGMissingFloorNarrative::FRule* Rule =
+			IGMissingFloorNarrative::FindRuleByTag(Record.TruthTag);
+		if (!Rule)
+		{
+			Record.bConfirmed = false;
+			continue;
+		}
+
+		// Every category must hold at least one record. Derived, never
+		// latched: a save missing its sources loses the truth with it.
+		bool bAllCategoriesMet = Rule->Categories.Num() > 0;
+		for (const IGMissingFloorNarrative::FCategory& Category : Rule->Categories)
+		{
+			bool bCategoryMet = false;
+			for (const EIGMissingFloorSource Source : Category.AcceptedSources)
+			{
+				if (Record.SourceIds.Contains(GetSourceId(Source)))
+				{
+					bCategoryMet = true;
+					break;
+				}
+			}
+			if (!bCategoryMet)
+			{
+				bAllCategoriesMet = false;
+				break;
+			}
+		}
+
+		if (bAllCategoriesMet && !Record.bConfirmed)
+		{
+			NewlyConfirmed.Add(Rule->Truth);
+		}
+		Record.bConfirmed = bAllCategoriesMet;
+	}
+
+	if (!bBroadcastNewlyConfirmed)
+	{
+		return;
+	}
+	for (const EIGMissingFloorTruth Truth : NewlyConfirmed)
+	{
+		OnTruthConfirmed.Broadcast(Truth);
+	}
+}
+
+void UIGMissingFloorNarrativeSubsystem::NormalizeSnapshot()
+{
+	TSet<FName> SeenTags;
+	for (int32 Index = Snapshot.Truths.Num() - 1; Index >= 0; --Index)
+	{
+		FIGMissingFloorTruthRecord& Record = Snapshot.Truths[Index];
+		const bool bKnown =
+			IGMissingFloorNarrative::FindRuleByTag(Record.TruthTag) != nullptr;
+		// A tag that is no longer registered arrives here already stripped by
+		// ClearInvalidTags, so an empty tag means "dropped by config".
+		if (!bKnown || SeenTags.Contains(Record.TruthTag.GetTagName()))
+		{
+			Snapshot.Truths.RemoveAt(Index);
+			continue;
+		}
+		SeenTags.Add(Record.TruthTag.GetTagName());
+
+		// Drop evidence names this build no longer knows so a downgraded save
+		// cannot keep a truth alive through a record that means nothing.
+		for (int32 SourceIndex = Record.SourceIds.Num() - 1; SourceIndex >= 0; --SourceIndex)
+		{
+			bool bRecognized = false;
+			for (uint8 Raw = 1; Raw <= static_cast<uint8>(EIGMissingFloorSource::BreakerCutIntervention); ++Raw)
+			{
+				if (Record.SourceIds[SourceIndex]
+					== GetSourceId(static_cast<EIGMissingFloorSource>(Raw)))
+				{
+					bRecognized = true;
+					break;
+				}
+			}
+			if (!bRecognized)
+			{
+				Record.SourceIds.RemoveAt(SourceIndex);
+			}
+		}
+	}
+
+	Snapshot.Night.NightIndex = FMath::Clamp(Snapshot.Night.NightIndex, 0, 4);
+	Snapshot.Night.AggressionTier =
+		FMath::Clamp(Snapshot.Night.AggressionTier, 0, 3);
+	Snapshot.Night.CaptureCount = FMath::Max(Snapshot.Night.CaptureCount, 0);
+	Snapshot.Night.NightElapsedSeconds =
+		FMath::Max(Snapshot.Night.NightElapsedSeconds, 0.0f);
+}
+
+FIGMissingFloorTruthRecord* UIGMissingFloorNarrativeSubsystem::FindRecord(
+	const FGameplayTag& TruthTag)
+{
+	if (!TruthTag.IsValid())
+	{
+		return nullptr;
+	}
+	return Snapshot.Truths.FindByPredicate(
+		[&TruthTag](const FIGMissingFloorTruthRecord& Record)
+		{
+			return Record.TruthTag.MatchesTagExact(TruthTag);
+		});
+}
+
+const FIGMissingFloorTruthRecord* UIGMissingFloorNarrativeSubsystem::FindRecord(
+	const FGameplayTag& TruthTag) const
+{
+	if (!TruthTag.IsValid())
+	{
+		return nullptr;
+	}
+	return Snapshot.Truths.FindByPredicate(
+		[&TruthTag](const FIGMissingFloorTruthRecord& Record)
+		{
+			return Record.TruthTag.MatchesTagExact(TruthTag);
+		});
+}

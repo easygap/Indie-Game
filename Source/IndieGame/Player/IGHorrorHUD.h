@@ -221,6 +221,19 @@ public:
 	UFUNCTION(BlueprintPure, Category = "HUD")
 	bool SupportsKoreanText() const { return KoreanFontMedium != nullptr; }
 
+	/**
+	 * 없는 층 night austerity (§11 V4): during the hour the objective line is
+	 * not shown at all. Pushed by the night director; off leaves every legacy
+	 * chapter's HUD byte-identical.
+	 */
+	void SetNightPresentation(bool bInNightPresentation)
+	{
+		bNightPresentation = bInNightPresentation;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "HUD")
+	bool IsNightPresentation() const { return bNightPresentation; }
+
 	/** Native, asset-independent accessibility panel driven by the controller. */
 	void SetAccessibilityMenuState(bool bVisible, int32 SelectedRow);
 	/** Native title, pause and credits presentation shared by packaged builds. */
@@ -232,6 +245,8 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	/** Unbinds the noise-bus listener; HUDs are recreated per controller. */
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
 	void ResolveInteractionComponent();
@@ -272,6 +287,14 @@ private:
 	void DrawHoldProgress(float Progress);
 	void DrawFearDirection(double CurrentTime);
 	void DrawLensDroplet(double CurrentTime);
+	/**
+	 * One expanding arc at the screen edge, sized by how far the sound the
+	 * player just made actually carries (§5.1). No numbers, no meter: the ring
+	 * is the entire channel, which is why reduced motion keeps it (pinned at
+	 * its final radius) instead of suppressing it.
+	 */
+	void DrawNoiseRipple(double CurrentTime);
+	void HandleNoiseReported(const struct FIGNoiseEvent& Event);
 	/** Draws a scalable anti-aliased surface without allocating a Slate widget. */
 	void DrawRoundedHudSurface(
 		const FVector2D& Position,
@@ -374,6 +397,9 @@ private:
 	TWeakObjectPtr<UObject> ObjectiveProvider;
 	double NextDirectorSearchTime = 0.0;
 
+	TWeakObjectPtr<class UIGNoiseSubsystem> NoiseSubsystem;
+	FDelegateHandle NoiseReportedHandle;
+
 	FIGDialogueMessage CurrentDialogue;
 	TArray<FIGDialogueMessage> DialogueQueue;
 	TArray<FString> CurrentDialogueLines;
@@ -404,6 +430,17 @@ private:
 	double FearCueStartTime = 0.0;
 	double FearCueEndTime = -1.0;
 
+	/**
+	 * Single-slot ripple state. One slot on purpose: footsteps report every
+	 * footfall and a panicking heart every beat, so a per-event ring would
+	 * strobe the screen edge. The louder event wins; quieter ones are dropped.
+	 */
+	FVector RippleWorldLocation = FVector::ZeroVector;
+	float RippleRadiusCentimeters = 0.0f;
+	float RippleLoudness = 0.0f;
+	double RippleStartTime = 0.0;
+	double RippleEndTime = -1.0;
+
 	double LensDropletStartTime = 0.0;
 	double LensDropletEndTime = -1.0;
 	FVector2D LensDropletLastPosition = FVector2D::ZeroVector;
@@ -433,6 +470,7 @@ private:
 	bool bLayoutValidationEnabled = false;
 	int32 AccessibilitySelectedRow = 0;
 	int32 SystemMenuSelectedRow = 0;
+	bool bNightPresentation = false;
 	bool bAccessibilityMenuVisible = false;
 	bool bSystemMenuVisible = false;
 	bool bSystemMenuIsTitle = false;

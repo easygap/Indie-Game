@@ -1,6 +1,8 @@
 ﻿#include "Interaction/IGReadableNote.h"
 
 #include "Components/StaticMeshComponent.h"
+#include "Engine/World.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
 
@@ -89,6 +91,16 @@ void AIGReadableNote::CompleteInteraction_Implementation(const FIGInteractionCon
 	bEverRead = true;
 	OpenNote = this;
 	OnReadStateChanged.Broadcast(this, true);
+
+	// Paper handled in a silent stairwell is barely a sound, but it is one.
+	// Reported on open only; closing the panel moves nothing.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(GetActorLocation(), 0.08f, Context.Interactor);
+		}
+	}
 }
 
 void AIGReadableNote::Close()
