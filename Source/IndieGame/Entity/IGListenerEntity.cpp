@@ -410,6 +410,39 @@ void AIGListenerEntity::NotifyAnswerKnock(const FVector& KnockLocation)
 		2600.0f);
 }
 
+void AIGListenerEntity::SetDormant(const bool bInDormant)
+{
+	if (bDormant == bInDormant)
+	{
+		return;
+	}
+	bDormant = bInDormant;
+
+	SetActorHiddenInGame(bDormant);
+	SetActorEnableCollision(!bDormant);
+	// Tick off is the whole dormancy: no state machine, no knocking, no
+	// hearing, no threat pressure. Cheapest possible daytime.
+	SetActorTickEnabled(!bDormant);
+
+	if (bDormant)
+	{
+		if (DragLoopComponent)
+		{
+			DragLoopComponent->SetVolumeMultiplier(0.0f);
+		}
+		// A knock window must never outlive the knocker into the day.
+		if (NoiseSubsystem)
+		{
+			NoiseSubsystem->SetGlobalMasking(0.0f);
+		}
+	}
+	else
+	{
+		// Wake at the route start, impatience preserved.
+		ResetToPatrolStart(/*bRaiseAggression=*/false);
+	}
+}
+
 void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 {
 	if (bRaiseAggression)

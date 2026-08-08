@@ -1,11 +1,17 @@
 ﻿#include "Entity/IGListenerGreyboxDirector.h"
 
+#include "Audio/IGAudioHelpers.h"
+#include "Audio/IGToneSequenceSoundWave.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Interaction/IGReadableNote.h"
+#include "Player/IGHorrorHUD.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNightLoopDirector.h"
+#include "Entity/IGMissingFloorEvidence.h"
 #include "Entity/IGMissingFloorPuzzleOneDirector.h"
+#include "Entity/IGMissingFloorPuzzleTwoDirector.h"
 #include "Entity/IGNightOneBeatDirector.h"
 #include "Entity/IGNightPhaseDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
@@ -192,6 +198,10 @@ bool AIGListenerGreyboxDirector::SetupStage()
 			return false;
 		}
 		NightPhase->Configure(const_cast<AIGPrologueWorldScene*>(Scene), PlayerCharacter);
+		// Bind the hour boundary BEFORE the first seal so the initial
+		// broadcast reaches every listener this director wires up.
+		NightPhase->OnHourActiveChanged.AddUObject(
+			this, &AIGListenerGreyboxDirector::HandleHourActiveChanged);
 		NightPhase->BeginTheHour(/*NightIndex=*/1);
 	}
 
@@ -231,6 +241,94 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		return false;
 	}
 
+	// 밤2: the management booth and P2. Spawned for every night so free
+	// exploration is never fenced off; the narrative, not the walls, decides
+	// which night the evidence matters.
+	FActorSpawnParameters PuzzleTwoParameters;
+	PuzzleTwoParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	PuzzleTwoParameters.Name = TEXT("MissingFloorPuzzleTwoDirector");
+	PuzzleTwo = World->SpawnActor<AIGMissingFloorPuzzleTwoDirector>(
+		AIGMissingFloorPuzzleTwoDirector::StaticClass(),
+		FTransform::Identity,
+		PuzzleTwoParameters);
+	if (!PuzzleTwo
+		|| !PuzzleTwo->Configure(const_cast<AIGPrologueWorldScene*>(Scene)))
+	{
+		return false;
+	}
+
+	// Night goals: each puzzle announces itself once; the hour decides
+	// whether that ends the night.
+	PuzzleOne->OnSolved.AddUObject(
+		this, &AIGListenerGreyboxDirector::HandleNightOneSolved);
+	PuzzleTwo->OnSolved.AddUObject(
+		this, &AIGListenerGreyboxDirector::HandleNightTwoSolved);
+
+	// Day verbs. The bed advances the cycle; 401's door answers it.
+	UStaticMesh* CubeMesh =
+		LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (CubeMesh)
+	{
+		FActorSpawnParameters DayParameters;
+		DayParameters.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+		DayParameters.Name = TEXT("MissingFloorSleepTarget");
+		SleepTarget = World->SpawnActor<AIGMissingFloorEvidence>(
+			AIGMissingFloorEvidence::StaticClass(),
+			FTransform(
+				FRotator::ZeroRotator,
+				FVector(-140.0f, 183.0f, 952.0f)),
+			DayParameters);
+		if (SleepTarget)
+		{
+			SleepTarget->Configure(
+				CubeMesh,
+				nullptr,
+				FVector(60.0f, 40.0f, 14.0f),
+				NSLOCTEXT("IGMissingFloor", "SleepPrompt", "눕는다"),
+				FText::GetEmpty(),
+				EIGMissingFloorTruth::None,
+				EIGMissingFloorSource::None,
+				1.2f,
+				0.05f);
+			SleepTarget->OnExamined.AddUObject(
+				this, &AIGListenerGreyboxDirector::HandleSleepRequested);
+		}
+
+		DayParameters.Name = TEXT("MissingFloorUnit401Door");
+		Unit401Door = World->SpawnActor<AIGMissingFloorEvidence>(
+			AIGMissingFloorEvidence::StaticClass(),
+			FTransform(
+				FRotator::ZeroRotator,
+				FVector(-150.0f, -237.0f, 1000.0f)),
+			DayParameters);
+		if (Unit401Door)
+		{
+			Unit401Door->Configure(
+				CubeMesh,
+				nullptr,
+				FVector(12.0f, 3.0f, 40.0f),
+				NSLOCTEXT("IGMissingFloor", "Unit401Prompt", "401호 — 문을 두드린다"),
+				FText::GetEmpty(),
+				EIGMissingFloorTruth::None,
+				EIGMissingFloorSource::None,
+				0.0f,
+				0.15f);
+			Unit401Door->OnExamined.AddUObject(
+				this, &AIGListenerGreyboxDirector::HandleUnit401Knocked);
+		}
+	}
+
+	// The initial hour state fired before these actors existed; apply it to
+	// them now that they do. Without a night phase (capture tours) everything
+	// keeps its natural default and nothing is put to sleep.
+	if (NightPhase)
+	{
+		HandleHourActiveChanged(NightPhase->IsHourActive());
+	}
+
 	UE_LOG(LogTemp, Display,
 		TEXT("MISSINGFLOOR_GREYBOX stage ready: %d patrol stops, entity at %s, "
 			"hour_sealed=%d"),
@@ -247,6 +345,114 @@ UIGMissingFloorNarrativeSubsystem* AIGListenerGreyboxDirector::GetNarrative() co
 	return GameInstance
 		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
 		: nullptr;
+}
+
+void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
+{
+	// One boundary, every consequence, in one place: the entity sleeps by
+	// day, the booth locks by day, and the day verbs vanish by night.
+	if (Entity)
+	{
+		Entity->SetDormant(!bActive);
+	}
+	if (PuzzleTwo)
+	{
+		PuzzleTwo->SetHourActive(bActive);
+	}
+	if (SleepTarget)
+	{
+		SleepTarget->SetInteractionEnabled(!bActive);
+	}
+	if (Unit401Door)
+	{
+		Unit401Door->SetInteractionEnabled(!bActive);
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleNightOneSolved()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (NightPhase && Narrative && Narrative->GetNightIndex() == 1)
+	{
+		NightPhase->CompleteNightGoal();
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleNightTwoSolved()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (NightPhase && Narrative && Narrative->GetNightIndex() == 2)
+	{
+		NightPhase->CompleteNightGoal();
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleSleepRequested(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!NightPhase || !Narrative || NightPhase->IsHourActive())
+	{
+		return;
+	}
+	const int32 NextNight =
+		FMath::Clamp(Narrative->GetNightIndex() + 1, 1, 4);
+	NightPhase->BeginTheHour(NextNight);
+}
+
+void AIGListenerGreyboxDirector::HandleUnit401Knocked(
+	AIGMissingFloorEvidence* Evidence)
+{
+	// Two soft knocks from the player's side of 401. She answers through the
+	// door — the daytime hint channel the puzzles lean on (§7 난이도 보정).
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateWallKnockReply(this),
+		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
+		0.7f);
+
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const FText Speaker =
+		NSLOCTEXT("IGMissingFloor", "HwangSpeaker", "황순금");
+	if (Narrative && Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
+	{
+		AIGHorrorHUD::PushDialogue(
+			this,
+			Speaker,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"Hwang401AfterT7",
+				"들었냐. 종이는 눌린 대로 남는다. …벽도 그렇다."),
+			EIGDialogueChannel::Conversation,
+			0.0f,
+			EIGDialoguePriority::Story);
+	}
+	else if (Narrative && Narrative->GetNightIndex() >= 2)
+	{
+		AIGHorrorHUD::PushDialogue(
+			this,
+			Speaker,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"Hwang401HintP2",
+				"관리실 대장은 두 벌이다. 위엣장은 볼펜이 쓰고, 아랫장은 힘이 쓴다."),
+			EIGDialogueChannel::Conversation,
+			0.0f,
+			EIGDialoguePriority::Story);
+	}
+	else
+	{
+		AIGHorrorHUD::PushDialogue(
+			this,
+			Speaker,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"Hwang401Greeting",
+				"새로 온 사람이구나. …네가 뭘 듣는지부터 말해라."),
+			EIGDialogueChannel::Conversation,
+			0.0f,
+			EIGDialoguePriority::Story);
+	}
 }
 
 // -- probe -----------------------------------------------------------------
@@ -574,7 +780,15 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			|| State == EIGListenerState::CaptureHold;
 		if (bDropped && bBeatFired && bReacted)
 		{
-			PassProbe();
+			if (!NightPhase)
+			{
+				FailProbe(TEXT("night phase missing for the cycle contract"));
+				return;
+			}
+			// End night 1 through the goal exit and verify the day.
+			NightPhase->CompleteNightGoal();
+			ProbeStep = EProbeStep::DayNightCycle;
+			StepDeadlineSeconds = 0.0f;
 			break;
 		}
 		if (StepDeadlineSeconds > 6.0f)
@@ -585,6 +799,145 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				bBeatFired ? 1 : 0,
 				static_cast<int32>(State)));
 		}
+		break;
+	}
+
+	case EProbeStep::DayNightCycle:
+	{
+		const AIGPrologueWorldScene* SceneNow = WorldScene.Get();
+		const bool bDay = NightPhase && !NightPhase->IsHourActive();
+		const bool bUnsealed = SceneNow && !SceneNow->IsTheHourSealed();
+		const bool bEntityAsleep = Entity->IsDormant();
+		if (bDay && bUnsealed && bEntityAsleep)
+		{
+			// The day holds. Go to bed and expect night 2 to begin with the
+			// pursuer awake again.
+			if (!SleepTarget)
+			{
+				FailProbe(TEXT("sleep target missing"));
+				return;
+			}
+			FIGInteractionContext SleepContext;
+			SleepContext.Interactor = Player.Get();
+			SleepContext.TargetActor = SleepTarget;
+			SleepContext.HoldProgress = 1.0f;
+			IIGInteractable::Execute_CompleteInteraction(
+				SleepTarget, SleepContext);
+
+			UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+			const bool bNightTwo =
+				NightPhase->IsHourActive()
+				&& Narrative
+				&& Narrative->GetNightIndex() == 2
+				&& !Entity->IsDormant();
+			if (!bNightTwo)
+			{
+				FailProbe(TEXT("sleeping did not begin night 2"));
+				return;
+			}
+			// Into the booth, whose door the hour has opened.
+			if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+			{
+				PlayerCharacter->TeleportTo(
+					FVector(170.0f, -150.0f, 92.0f),
+					PlayerCharacter->GetActorRotation(),
+					false,
+					true);
+			}
+			ProbeStep = EProbeStep::PuzzleTwoContract;
+			StepDeadlineSeconds = 0.0f;
+			break;
+		}
+		if (StepDeadlineSeconds > 4.0f)
+		{
+			FailProbe(FString::Printf(
+				TEXT("dawn incomplete (day=%d unsealed=%d asleep=%d)"),
+				bDay ? 1 : 0,
+				bUnsealed ? 1 : 0,
+				bEntityAsleep ? 1 : 0));
+		}
+		break;
+	}
+
+	case EProbeStep::PuzzleTwoContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!PuzzleTwo || !Narrative || !PuzzleTwo->ValidateFixtures())
+		{
+			FailProbe(TEXT("P2 fixtures were not all placed"));
+			return;
+		}
+
+		AIGMissingFloorEvidence* Carbon = PuzzleTwo->GetCarbonLedger();
+		AIGReadableNote* AgentNote = PuzzleTwo->GetAgentMessageNote();
+		AIGMissingFloorEvidence* Cctv = PuzzleTwo->GetCctvSelector();
+		if (!Carbon || !AgentNote || !Cctv)
+		{
+			FailProbe(TEXT("P2 interactables unresolved"));
+			return;
+		}
+
+		FIGInteractionContext Context;
+		Context.Interactor = Player.Get();
+		Context.HoldProgress = 1.0f;
+
+		// Two passes of frottage restore nothing yet...
+		Context.TargetActor = Carbon;
+		IIGInteractable::Execute_CompleteInteraction(Carbon, Context);
+		IIGInteractable::Execute_CompleteInteraction(Carbon, Context);
+		if (Narrative->HasSource(
+			EIGMissingFloorTruth::WasStillAlive,
+			EIGMissingFloorSource::CarbonLedgerOriginal))
+		{
+			FailProbe(TEXT("carbon original filed before the final pass"));
+			return;
+		}
+		// ...and the third files the original.
+		IIGInteractable::Execute_CompleteInteraction(Carbon, Context);
+		if (!Narrative->HasSource(
+			EIGMissingFloorTruth::WasStillAlive,
+			EIGMissingFloorSource::CarbonLedgerOriginal))
+		{
+			FailProbe(TEXT("three frottage passes did not restore the original"));
+			return;
+		}
+		if (Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
+		{
+			FailProbe(TEXT("T7 confirmed from the carbon record alone"));
+			return;
+		}
+
+		// Crossing with the agent's message confirms T7 and, since this is
+		// night 2, ends the night through the goal exit.
+		Context.TargetActor = AgentNote;
+		IIGInteractable::Execute_CompleteInteraction(AgentNote, Context);
+		IIGInteractable::Execute_CompleteInteraction(AgentNote, Context);
+		if (!Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
+		{
+			FailProbe(TEXT("T7 did not confirm after crossing both records"));
+			return;
+		}
+		if (NightPhase->IsHourActive())
+		{
+			FailProbe(TEXT("confirming T7 did not end night 2"));
+			return;
+		}
+		if (!Entity->IsDormant())
+		{
+			FailProbe(TEXT("dawn after night 2 left the entity awake"));
+			return;
+		}
+
+		// The one-shot CCTV beat books itself exactly once.
+		Context.TargetActor = Cctv;
+		IIGInteractable::Execute_CompleteInteraction(Cctv, Context);
+		if (!Narrative->HasBeatPlayed(FName(TEXT("Night2.CCTV"))))
+		{
+			FailProbe(TEXT("CCTV channel-five beat did not book"));
+			return;
+		}
+
+		PassProbe();
 		break;
 	}
 

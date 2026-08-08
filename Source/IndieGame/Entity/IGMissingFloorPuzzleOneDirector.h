@@ -10,6 +10,8 @@ class AIGReadableNote;
 class UAudioComponent;
 class UIGMissingFloorNarrativeSubsystem;
 
+DECLARE_MULTICAST_DELEGATE(FIGPuzzleOneSolvedSignature);
+
 /**
  * P1 「다섯 번째 바늘」 — the proof that the fifth floor is lived in
  * (STORY_BIBLE_MISSING_FLOOR.md §7).
@@ -43,6 +45,9 @@ public:
 
 	/** Release probes: all three fixtures resolved and placed. */
 	bool ValidateFixtures() const;
+
+	/** Fired once, when the breaker goes up — the night-1 goal. */
+	FIGPuzzleOneSolvedSignature OnSolved;
 
 protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

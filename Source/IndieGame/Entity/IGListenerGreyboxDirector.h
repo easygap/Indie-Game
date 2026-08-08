@@ -50,6 +50,13 @@ private:
 
 	class UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 
+	/** Central hour-boundary wiring: dormancy, booth lock, day verbs. */
+	void HandleHourActiveChanged(bool bActive);
+	void HandleNightOneSolved();
+	void HandleNightTwoSolved();
+	void HandleSleepRequested(class AIGMissingFloorEvidence* Evidence);
+	void HandleUnit401Knocked(class AIGMissingFloorEvidence* Evidence);
+
 	UPROPERTY(Transient)
 	TObjectPtr<AIGListenerEntity> Entity;
 
@@ -64,6 +71,16 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGNightOneBeatDirector> NightOneBeats;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorPuzzleTwoDirector> PuzzleTwo;
+
+	/** Day interactions: the bed that ends the day, 401's door that talks. */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> SleepTarget;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> Unit401Door;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGPlayerCharacter> Player;
@@ -87,6 +104,8 @@ private:
 		Night1SightingStage,
 		Night1SightingRestore,
 		Night1Extinguisher,
+		DayNightCycle,
+		PuzzleTwoContract,
 		Done
 	};
 

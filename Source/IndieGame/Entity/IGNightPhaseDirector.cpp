@@ -109,6 +109,8 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 		&AIGNightPhaseDirector::TickHour,
 		IGNightPhase::TickIntervalSeconds,
 		true);
+
+	OnHourActiveChanged.Broadcast(true);
 }
 
 void AIGNightPhaseDirector::CompleteNightGoal()
@@ -164,6 +166,8 @@ void AIGNightPhaseDirector::ReleaseAtDawn()
 		this,
 		NSLOCTEXT("IGMissingFloor", "MorningCame", "…열린다. 아침이네."),
 		3.4f);
+
+	OnHourActiveChanged.Broadcast(false);
 }
 
 void AIGNightPhaseDirector::ApplySealedPresentation(const bool bSealed)

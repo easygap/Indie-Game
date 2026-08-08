@@ -280,6 +280,8 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 		this,
 		NSLOCTEXT("IGMissingFloor", "P1BallastThought", "…위에서 불이 들어왔어."),
 		4.0f);
+
+	OnSolved.Broadcast();
 }
 
 void AIGMissingFloorPuzzleOneDirector::HandleSheetRead(

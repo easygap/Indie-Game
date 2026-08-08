@@ -53,6 +53,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Evidence")
 	bool HasBeenExamined() const { return bExamined; }
 
+	/**
+	 * Turns the prop into a repeated-work surface (P2's frottage): each
+	 * completed hold plays the next interim thought and makes its noise, and
+	 * only the hold after the last interim line files the record and fires
+	 * OnExamined. The pencil has to cross the page more than once.
+	 */
+	void SetProgressiveStages(TArray<FText> InStageThoughts);
+
+	UFUNCTION(BlueprintPure, Category = "Evidence")
+	int32 GetCompletedStageCount() const { return CompletedStages; }
+
 	UFUNCTION(BlueprintPure, Category = "Evidence")
 	UStaticMeshComponent* GetPresentationMesh() const { return PresentationMesh; }
 
@@ -78,5 +89,10 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Evidence", meta = (ClampMin = "0.0", ClampMax = "1.0"))
 	float ExamineNoiseLoudness = 0.05f;
 
+	/** Interim lines for a multi-hold surface; empty means one-and-done. */
+	UPROPERTY(EditAnywhere, Category = "Evidence")
+	TArray<FText> StageThoughts;
+
+	int32 CompletedStages = 0;
 	bool bExamined = false;
 };

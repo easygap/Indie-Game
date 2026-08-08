@@ -85,6 +85,17 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Listener")
 	void ResetToPatrolStart(bool bRaiseAggression);
 
+	/**
+	 * Day rest (§1: 낮 구간은 안전하다). Dormant, it is hidden, silent,
+	 * tick-free and deaf — the daytime building must never knock. Waking
+	 * puts it back at its patrol start with its earned impatience intact.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Listener")
+	void SetDormant(bool bInDormant);
+
+	UFUNCTION(BlueprintPure, Category = "Listener")
+	bool IsDormant() const { return bDormant; }
+
 	/** Fired once per catch; the night-loop director listens. */
 	FIGPlayerCapturedSignature OnPlayerCaptured;
 
@@ -158,6 +169,7 @@ private:
 	TArray<FVector> PatrolPoints;
 
 	EIGListenerState State = EIGListenerState::Patrolling;
+	bool bDormant = false;
 	int32 AggressionTier = 0;
 	int32 PatrolIndex = 0;
 	FVector SpawnLocation = FVector::ZeroVector;

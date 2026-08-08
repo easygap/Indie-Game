@@ -9,6 +9,8 @@ class AIGPrologueWorldScene;
 class AIGPlayerCharacter;
 class UIGMissingFloorNarrativeSubsystem;
 
+DECLARE_MULTICAST_DELEGATE_OneParam(FIGHourActiveSignature, bool /*bActive*/);
+
 /**
  * Owner of '그 시간' — the hour from half past four to half past five in which
  * 없는 층 actually takes place (STORY_BIBLE_MISSING_FLOOR.md §1).
@@ -62,6 +64,13 @@ public:
 	virtual FText GetObjectiveText() const override;
 	virtual FString GetObjectiveTextAscii() const override;
 	virtual float GetObjectiveProgress() const override;
+
+	/**
+	 * Fires on every hour boundary: true when the night seals, false at dawn.
+	 * The composition root routes this to everything the boundary touches —
+	 * entity dormancy, the booth lock, the day interactions.
+	 */
+	FIGHourActiveSignature OnHourActiveChanged;
 
 	/**
 	 * Real seconds the hour lasts. Story time runs 04:30 to 05:30, but the

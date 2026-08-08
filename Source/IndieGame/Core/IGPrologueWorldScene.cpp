@@ -3245,7 +3245,39 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(170.5f, -305, -10), FVector(519, 120, 20), LobbyFloor);
 	CreateBlock(FVector(170.5f, -305, 250), FVector(519, 120, 20), LobbyCeil);
 	CreateBlock(FVector(170.5f, -375, 120), FVector(519, 20, 240), LobbyWallX);
-	CreateBlock(FVector(170.5f, -235, 120), FVector(519, 20, 240), LobbyWallX);
+	// North wall of the connector, split around the 관리실 doorway (X 120..200)
+	// instead of the old single slab. Coverage outside the opening is
+	// unchanged, so legacy traversal never notices.
+	CreateBlock(FVector(15.5f, -235, 120), FVector(209, 20, 240), LobbyWallX);
+	CreateBlock(FVector(315, -235, 120), FVector(230, 20, 240), LobbyWallX);
+	CreateBlock(FVector(160, -235, 225), FVector(80, 20, 30), LobbyWallX);
+
+	// 없는 층: the management booth, tucked behind the connector's north wall
+	// where Korean villas actually put it — beside the way in. Mok Hansu's
+	// daytime post and the night's P2 stage: the complaint ledger, the carbon
+	// ledger underneath it, the CCTV monitor with one channel too many, and
+	// the inner room whose door edge shows the egg-crate foam
+	// (STORY_BIBLE_MISSING_FLOOR.md §8 밤2).
+	CreateBlock(FVector(170, -155, -10), FVector(240, 160, 20), LobbyFloor);
+	CreateBlock(FVector(170, -155, 250), FVector(240, 160, 20), LobbyCeil);
+	CreateBlock(FVector(170, -77.5f, 120), FVector(240, 15, 240), LobbyWallX);
+	CreateBlock(FVector(52.5f, -155, 120), FVector(15, 140, 240), LobbyWallY);
+	CreateBlock(FVector(287.5f, -155, 120), FVector(15, 140, 240), LobbyWallY);
+	// Desk with the monitor shell; the interactables land on it later, from
+	// the night-2 director, because BuildLobby runs before any actor exists.
+	CreateBlock(FVector(160, -110, 38), FVector(110, 55, 76), ShelfSteel);
+	CreateBlock(
+		FVector(150, -100, 96), FVector(40, 10, 28),
+		TexMat(TEXT("M_ScreenGlow"), ScreenGlowMaterial), false);
+	CreateBlock(FVector(150, -103, 80), FVector(12, 8, 8), PlasticDarkMaterial, false);
+	// The inner room's door leaf, always shut: a dark slab with a hairline
+	// gap the foam reveal peers through. It never opens — that is the point.
+	CreateBlock(FVector(240, -84.5f, 105), FVector(70, 5, 210), PlasticDarkMaterial, false);
+	CreateBlock(FVector(272, -84, 105), FVector(2.4f, 3, 200), ConcreteDarkMaterial, false);
+	// Booth ceiling lamp block so the room is not a cave in the day section.
+	CreateBlock(FVector(170, -150, 237), FVector(24, 24, 4), PlasticDarkMaterial, false);
+	CreateLight(FVector(170, -150, 226), 900.0f, 420.0f,
+		FLinearColor(1.0f, 0.95f, 0.85f), false);
 	// Granite skirting round the lobby, matching the landings upstairs.
 	CreateBlock(FVector(580, -233.4f, 6), FVector(300, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(448.4f, -305, 6), FVector(3.5f, 160, 12), Skirting, false);

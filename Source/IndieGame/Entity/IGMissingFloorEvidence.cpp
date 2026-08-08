@@ -54,10 +54,44 @@ void AIGMissingFloorEvidence::Configure(
 	ExamineNoiseLoudness = FMath::Clamp(NoiseLoudness, 0.0f, 1.0f);
 }
 
+void AIGMissingFloorEvidence::SetProgressiveStages(TArray<FText> InStageThoughts)
+{
+	StageThoughts = MoveTemp(InStageThoughts);
+	CompletedStages = 0;
+}
+
 void AIGMissingFloorEvidence::CompleteInteraction_Implementation(
 	const FIGInteractionContext& Context)
 {
 	Super::CompleteInteraction_Implementation(Context);
+
+	// Interim stages: work done, noise made, nothing filed yet. The sound
+	// costs the same whether or not this pass finished the rubbing — that
+	// is the risk the design charges for evidence (§7).
+	if (CompletedStages < StageThoughts.Num())
+	{
+		const FText& InterimThought = StageThoughts[CompletedStages];
+		++CompletedStages;
+		if (UWorld* World = GetWorld())
+		{
+			if (ExamineNoiseLoudness > 0.0f)
+			{
+				if (UIGNoiseSubsystem* Noise =
+					World->GetSubsystem<UIGNoiseSubsystem>())
+				{
+					Noise->ReportNoise(
+						GetActorLocation(),
+						ExamineNoiseLoudness,
+						Context.Interactor);
+				}
+			}
+		}
+		if (!InterimThought.IsEmpty())
+		{
+			AIGHorrorHUD::PushThought(this, InterimThought, 3.2f);
+		}
+		return;
+	}
 
 	bExamined = true;
 
