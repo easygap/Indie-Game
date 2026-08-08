@@ -1,8 +1,9 @@
 # 4시 44분 — 스토리·연출 프로덕션 블루프린트
 
 > **보관 문서 — REBIRTH 이전 방향 기록.**
-> 현재 제작 정사는 [STORY_BIBLE_REBIRTH.md](STORY_BIBLE_REBIRTH.md)를
-> 따른다.
+> 현재 제작 정사는
+> [STORY_BIBLE_MISSING_FLOOR.md](STORY_BIBLE_MISSING_FLOOR.md)
+> (「없는 층」 — REBIRTH도 폐기됐다)를 따른다.
 >
 > 전체 스포일러. 플레이어용 문서가 아니라 과거 구현·연출·QA의 판단 기록이다.
 >

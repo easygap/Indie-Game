@@ -155,7 +155,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Scripts\Validate-Project.ps1
 
 ## 제작 문서
 
-- [스토리·연출 마스터](Docs/STORY_BIBLE_REBIRTH.md)
+- [스토리·연출 마스터 — 없는 층](Docs/STORY_BIBLE_MISSING_FLOOR.md)
+- [보관: 이전 정사 「4시 44분」](Docs/STORY_BIBLE_REBIRTH.md)
 - [현재 구현 범위](Docs/IMPLEMENTATION_STATUS.md)
 - [릴리스 검증 절차](Docs/RELEASE_VALIDATION.md)
 - [성능·지원 기준](Docs/PERFORMANCE.md)

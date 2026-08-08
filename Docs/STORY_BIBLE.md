@@ -2,7 +2,8 @@
 
 > **보관 문서 — REBIRTH 이전 설계.**
 > 현재 제작 정사로 사용하지 않는다. 서사 기준은
-> [STORY_BIBLE_REBIRTH.md](STORY_BIBLE_REBIRTH.md), 구현 사실은
+> [STORY_BIBLE_MISSING_FLOOR.md](STORY_BIBLE_MISSING_FLOOR.md)
+> (「없는 층」 — REBIRTH도 폐기됐다), 구현 사실은
 > [IMPLEMENTATION_STATUS.md](IMPLEMENTATION_STATUS.md)를 따른다.
 
 이 문서는 REBIRTH 개정 전 스토리·인물·연출·사운드·텍스트의
