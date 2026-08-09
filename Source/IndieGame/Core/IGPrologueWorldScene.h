@@ -349,6 +349,12 @@ private:
 	void BuildCorridor();
 	void BuildChapterTwoOverlay();
 	void BuildLobby();
+	/**
+	 * 없는 층 밤3: the half-finished fifth floor, as a detached stage north
+	 * of the villa (the CH03 precedent). Reached only through the night
+	 * stair teleport, so it never has to thread the real building's slabs.
+	 */
+	void BuildFifthFloorAnnex();
 	void BuildAlley();
 	void BuildStore();
 	void BuildSkyAndFog();

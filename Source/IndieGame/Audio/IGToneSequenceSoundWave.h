@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Sound/SoundWaveProcedural.h"
@@ -259,6 +259,14 @@ public:
 	 * answer reaches it, and the last thing a captured player hears.
 	 */
 	static UIGToneSequenceSoundWave* CreateWallKnockReply(UObject* Outer);
+
+	/**
+	 * The family signal: two, a rest, one — "문 열어, 나야." The player's
+	 * P4 answer and, muffled, the reply that comes back through the studs.
+	 */
+	static UIGToneSequenceSoundWave* CreateAnswerKnockPattern(
+		UObject* Outer,
+		float Muffle01 = 0.0f);
 
 	/**
 	 * Looping crawl bed for the entity: palm plant, a long dry drag of

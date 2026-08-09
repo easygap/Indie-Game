@@ -1499,6 +1499,7 @@ void AIGPrologueWorldScene::InitializePrologue()
 	BuildCorridor();
 	BuildChapterTwoOverlay();
 	BuildLobby();
+	BuildFifthFloorAnnex();
 	BuildAlley();
 	BuildStore();
 	BuildSkyAndFog();
@@ -2383,6 +2384,14 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// Close the greybox flight beyond the authored boundary and keep the
 	// unseen upper landing dark. Release art can extend it without changing
 	// the interaction or narrative state contract.
+	//
+	// 없는 층 밤3: a threshold slab flush with the top tread, so a player
+	// who unlocks the gate has ground to stand on while the stair teleport
+	// behind it carries them to the fifth-floor annex.
+	CreateBlock(
+		FVector(-277.5f, -125.0f, 63.0f),
+		FVector(85, 28, 18),
+		CorridorFloor);
 	CreateBlock(
 		FVector(-332.5f, -165.0f, 120),
 		FVector(15, 120, 240),
@@ -2938,6 +2947,55 @@ void AIGPrologueWorldScene::SetChapterTwoReturnZoneArmed(const bool bArmed)
 	{
 		ChapterTwoReturnZone->SetActorEnableCollision(bArmed);
 	}
+}
+
+void AIGPrologueWorldScene::BuildFifthFloorAnnex()
+{
+	// Detached stage in world coordinates, north of the villa footprint —
+	// the same trick the legacy CH03 director uses for its own fifth floor.
+	// The room is what 2019's stopped construction left: a concrete shell,
+	// three stud bays on the east side, the water riser behind the middle
+	// one, and the tuner's leavings among the stacked material.
+	ActiveParent = nullptr;
+
+	UMaterialInterface* AnnexFloor = TexMat(TEXT("M_ConcreteDark_X"), ConcreteDarkMaterial);
+	UMaterialInterface* AnnexWall = TexMat(TEXT("M_Stucco_X"), ConcreteMaterial);
+	UMaterialInterface* Stud = TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial);
+	UMaterialInterface* Board = TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial);
+
+	CreateBlock(FVector(0, 700, 1195), FVector(800, 500, 10), AnnexFloor);
+	CreateBlock(FVector(0, 700, 1445), FVector(800, 500, 10), AnnexWall);
+	CreateBlock(FVector(0, 947.5f, 1320), FVector(800, 15, 240), AnnexWall);
+	CreateBlock(FVector(0, 452.5f, 1320), FVector(800, 15, 240), AnnexWall);
+	CreateBlock(FVector(-397.5f, 700, 1320), FVector(15, 480, 240), AnnexWall);
+	CreateBlock(FVector(397.5f, 700, 1320), FVector(15, 480, 240), AnnexWall);
+
+	// Three finished bays in a row: only the middle one hides a cavity, and
+	// only sound can tell them apart. Gypsum faces with exposed stud edges.
+	for (const float BayY : {560.0f, 700.0f, 840.0f})
+	{
+		CreateBlock(FVector(257.5f, BayY, 1320), FVector(15, 120, 240), AnnexWall);
+		CreateBlock(FVector(249.0f, BayY - 62.0f, 1320), FVector(4, 6, 240), Stud, false);
+		CreateBlock(FVector(249.0f, BayY + 62.0f, 1320), FVector(4, 6, 240), Stud, false);
+	}
+	// The riser: two tonnes of water passing behind bay B on its way down.
+	CreateBlock(
+		FVector(310, 700, 1320), FVector(24, 24, 240),
+		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial), false,
+		CylinderMesh);
+
+	// Stopped-construction dressing: pallet stacks, boards, a bare hanging
+	// bulb block so the room reads without a flashlight.
+	CreateBlock(FVector(0, 590, 1230), FVector(120, 80, 60), Board);
+	CreateBlock(FVector(-80, 780, 1215), FVector(140, 60, 30), Board);
+	CreateBlock(FVector(-90, 770, 1236), FVector(60, 40, 12), Stud, false);
+	CreateBlock(FVector(120, 880, 1224), FVector(90, 50, 48), Board);
+	CreateBlock(FVector(0, 700, 1436), FVector(10, 10, 8), PlasticDarkMaterial, false);
+	CreateLight(
+		FVector(0, 700, 1420), 650.0f, 900.0f,
+		FLinearColor(1.0f, 0.93f, 0.82f), false);
+
+	ActiveParent = nullptr;
 }
 
 void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)

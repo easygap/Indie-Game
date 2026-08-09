@@ -7,6 +7,7 @@
 #include "EngineUtils.h"
 #include "HAL/FileManager.h"
 #include "Interaction/IGReadableNote.h"
+#include "Interaction/IGSwingDoor.h"
 #include "Misc/Paths.h"
 #include "Player/IGHorrorHUD.h"
 #include "Sequence/IGWakeUpDirector.h"
@@ -14,6 +15,7 @@
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNightLoopDirector.h"
 #include "Entity/IGMissingFloorEvidence.h"
+#include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Entity/IGMissingFloorPuzzleOneDirector.h"
 #include "Entity/IGMissingFloorPuzzleTwoDirector.h"
 #include "Entity/IGNightOneBeatDirector.h"
@@ -270,12 +272,29 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		return false;
 	}
 
+	// 밤3: the gate, the annex, and the two puzzles that end in an answer.
+	FActorSpawnParameters NightThreeParameters;
+	NightThreeParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	NightThreeParameters.Name = TEXT("MissingFloorNightThreeDirector");
+	NightThree = World->SpawnActor<AIGMissingFloorNightThreeDirector>(
+		AIGMissingFloorNightThreeDirector::StaticClass(),
+		FTransform::Identity,
+		NightThreeParameters);
+	if (!NightThree
+		|| !NightThree->Configure(const_cast<AIGPrologueWorldScene*>(Scene)))
+	{
+		return false;
+	}
+
 	// Night goals: each puzzle announces itself once; the hour decides
 	// whether that ends the night.
 	PuzzleOne->OnSolved.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleNightOneSolved);
 	PuzzleTwo->OnSolved.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleNightTwoSolved);
+	NightThree->OnSolved.AddUObject(
+		this, &AIGListenerGreyboxDirector::HandleNightThreeSolved);
 
 	// Day verbs. The bed advances the cycle; 401's door answers it.
 	UStaticMesh* CubeMesh =
@@ -371,6 +390,10 @@ void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
 	{
 		PuzzleTwo->SetHourActive(bActive);
 	}
+	if (NightThree)
+	{
+		NightThree->SetHourActive(bActive);
+	}
 	if (SleepTarget)
 	{
 		SleepTarget->SetInteractionEnabled(!bActive);
@@ -394,6 +417,15 @@ void AIGListenerGreyboxDirector::HandleNightTwoSolved()
 {
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (NightPhase && Narrative && Narrative->GetNightIndex() == 2)
+	{
+		NightPhase->CompleteNightGoal();
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleNightThreeSolved()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (NightPhase && Narrative && Narrative->GetNightIndex() == 3)
 	{
 		NightPhase->CompleteNightGoal();
 	}
@@ -949,7 +981,216 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
-		PassProbe();
+		ProbeStep = EProbeStep::DayTwoContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::DayTwoContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!NightThree || !Narrative || !NightThree->ValidateFixtures())
+		{
+			FailProbe(TEXT("night-3 fixtures were not all placed"));
+			return;
+		}
+
+		FIGInteractionContext Context;
+		Context.Interactor = Player.Get();
+		Context.HoldProgress = 1.0f;
+
+		// The day papers feed the truth board: the labels alone name no one
+		// (T2 needs the notebook), the printout carries both the noise war
+		// and its last morning, and the journal is earned by T7 and daylight.
+		AIGReadableNote* Labels = NightThree->GetLabelsNote();
+		AIGReadableNote* Forum = NightThree->GetForumNote();
+		AIGReadableNote* Journal = NightThree->GetJournalNote();
+		if (!Labels || !Forum || !Journal)
+		{
+			FailProbe(TEXT("day papers unresolved"));
+			return;
+		}
+		if (Journal->IsHidden())
+		{
+			FailProbe(TEXT("journal stayed hidden after T7 by day"));
+			return;
+		}
+
+		Context.TargetActor = Labels;
+		IIGInteractable::Execute_CompleteInteraction(Labels, Context);
+		IIGInteractable::Execute_CompleteInteraction(Labels, Context);
+		Context.TargetActor = Forum;
+		IIGInteractable::Execute_CompleteInteraction(Forum, Context);
+		IIGInteractable::Execute_CompleteInteraction(Forum, Context);
+		Context.TargetActor = Journal;
+		IIGInteractable::Execute_CompleteInteraction(Journal, Context);
+		IIGInteractable::Execute_CompleteInteraction(Journal, Context);
+
+		if (Narrative->HasTruth(EIGMissingFloorTruth::TenantIdentity))
+		{
+			FailProbe(TEXT("T2 confirmed from the labels alone"));
+			return;
+		}
+		if (!Narrative->HasSource(
+			EIGMissingFloorTruth::FiveNightsOfThirst,
+			EIGMissingFloorSource::KnockTallyJournal))
+		{
+			FailProbe(TEXT("journal read did not file the tally record"));
+			return;
+		}
+
+		// To bed: night 3 begins.
+		if (SleepTarget)
+		{
+			Context.TargetActor = SleepTarget;
+			IIGInteractable::Execute_CompleteInteraction(SleepTarget, Context);
+		}
+		if (!NightPhase || !NightPhase->IsHourActive()
+			|| Narrative->GetNightIndex() != 3)
+		{
+			FailProbe(TEXT("sleeping did not begin night 3"));
+			return;
+		}
+		ProbeStep = EProbeStep::NightThreeContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::NightThreeContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!NightThree || !Narrative)
+		{
+			FailProbe(TEXT("night-3 stage lost mid-contract"));
+			return;
+		}
+
+		FIGInteractionContext Context;
+		Context.Interactor = Player.Get();
+		Context.HoldProgress = 1.0f;
+
+		// The keyring in the open booth unlocks the gate as a saved fact.
+		AIGMissingFloorEvidence* Key = NightThree->GetKeyring();
+		AIGSwingDoor* Gate = NightThree->GetStairGate();
+		if (!Key || !Gate)
+		{
+			FailProbe(TEXT("keyring or gate unresolved"));
+			return;
+		}
+		if (!Gate->IsLocked())
+		{
+			FailProbe(TEXT("stair gate stood open before the keyring"));
+			return;
+		}
+		Context.TargetActor = Key;
+		IIGInteractable::Execute_CompleteInteraction(Key, Context);
+		if (Gate->IsLocked())
+		{
+			FailProbe(TEXT("keyring did not release the stair gate"));
+			return;
+		}
+
+		// Up to the annex: the notebook names him and arms the answer. The
+		// drop point stays clear of the return portal volume.
+		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+		{
+			PlayerCharacter->TeleportTo(
+				FVector(-280.0f, 700.0f, 1292.0f),
+				PlayerCharacter->GetActorRotation(),
+				false,
+				true);
+		}
+		AIGReadableNote* Notebook = NightThree->GetTunerNotebook();
+		Context.TargetActor = Notebook;
+		IIGInteractable::Execute_CompleteInteraction(Notebook, Context);
+		IIGInteractable::Execute_CompleteInteraction(Notebook, Context);
+		if (!Narrative->HasTruth(EIGMissingFloorTruth::TenantIdentity)
+			|| !Narrative->HasTruth(EIGMissingFloorTruth::NoiseWasHomecoming))
+		{
+			FailProbe(TEXT("notebook did not cross T2/T3 with the day papers"));
+			return;
+		}
+		AIGMissingFloorEvidence* Mark = NightThree->GetImpactMark();
+		Context.TargetActor = Mark;
+		IIGInteractable::Execute_CompleteInteraction(Mark, Context);
+		if (!Narrative->HasTruth(EIGMissingFloorTruth::LandingStruggle))
+		{
+			FailProbe(TEXT("impact mark did not cross T4 with the final post"));
+			return;
+		}
+
+		// P3, the patient route: silence first, then water behind one bay.
+		AIGMissingFloorEvidence* CavityListen = NightThree->GetWallListen(1);
+		Context.TargetActor = CavityListen;
+		IIGInteractable::Execute_CompleteInteraction(CavityListen, Context);
+		if (Narrative->HasSource(
+			EIGMissingFloorTruth::SomeoneInTheWall,
+			EIGMissingFloorSource::PipeWaterComparison))
+		{
+			FailProbe(TEXT("a dry wall filed the water comparison"));
+			return;
+		}
+		AIGMissingFloorEvidence* Valve = NightThree->GetRiserValve();
+		Context.TargetActor = Valve;
+		IIGInteractable::Execute_CompleteInteraction(Valve, Context);
+		if (!NightThree->IsValveOpen())
+		{
+			FailProbe(TEXT("valve did not open"));
+			return;
+		}
+		Context.TargetActor = CavityListen;
+		IIGInteractable::Execute_CompleteInteraction(CavityListen, Context);
+		if (!Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall))
+		{
+			FailProbe(TEXT("criterion plus water did not confirm T6"));
+			return;
+		}
+
+		// The answer surface arms only now.
+		AIGMissingFloorEvidence* Answer = NightThree->GetAnswerTarget();
+		if (!Answer || Answer->IsHidden() || !Answer->IsInteractionEnabled())
+		{
+			FailProbe(TEXT("answer target did not arm after T6"));
+			return;
+		}
+		Context.TargetActor = Answer;
+		IIGInteractable::Execute_CompleteInteraction(Answer, Context);
+		ProbeStep = EProbeStep::AnswerContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::AnswerContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!Narrative || !NightPhase)
+		{
+			FailProbe(TEXT("stage lost while waiting on the wall"));
+			return;
+		}
+		// Eight seconds of nothing, then the reply, T9, and dawn. The final
+		// choice must stand unlocked afterwards: T6, T7 and T9 are all in.
+		const bool bAnswered =
+			Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
+		if (bAnswered)
+		{
+			if (NightPhase->IsHourActive())
+			{
+				FailProbe(TEXT("the answer did not end night 3"));
+				return;
+			}
+			if (!Narrative->IsFinalChoiceUnlocked())
+			{
+				FailProbe(TEXT("T6+T7+T9 did not unlock the final choice"));
+				return;
+			}
+			PassProbe();
+			break;
+		}
+		if (StepDeadlineSeconds > 12.0f)
+		{
+			FailProbe(TEXT("the wall never answered"));
+		}
 		break;
 	}
 

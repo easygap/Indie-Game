@@ -1310,6 +1310,30 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockReply(UObject
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateAnswerKnockPattern(
+	UObject* Outer,
+	const float Muffle01)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGAnswerKnockPattern"));
+	TArray<FIGToneNote> PatternNotes;
+
+	// Two, a rest, one. The rest is the signature: 0.42 s inside the pair,
+	// 0.73 s of silence, then the single settling knock.
+	const float Click = FMath::Lerp(0.075f, 0.010f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
+	const float Body = FMath::Lerp(0.330f, 0.270f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
+	const float Starts[] = {0.0f, 0.42f, 1.15f};
+	for (const float Start : Starts)
+	{
+		PatternNotes.Add({Start, 0.105f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sine});
+		PatternNotes.Add({Start, 0.055f, 176.0f, 0.110f, 0.006f, 2.0f, EIGToneWaveform::Sine});
+		PatternNotes.Add({Start, 0.028f, 1100.0f, Click, 0.020f, 1.2f, EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(PatternNotes), false);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityDragLoop(UObject* Outer)
 {
 	UIGToneSequenceSoundWave* Wave =
