@@ -13,6 +13,8 @@
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
 #include "EngineUtils.h"
+#include "Entity/IGMissingFloorNightThreeDirector.h"
+#include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "InputActionValue.h"
@@ -20,6 +22,7 @@
 #include "Interaction/IGPickupItem.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGStoryHelpers.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "UObject/UObjectIterator.h"
 #include "Interaction/IGReadableNote.h"
 #include "Player/IGFlashlightComponent.h"
@@ -39,9 +42,18 @@ namespace IGPlayerNoise
 	 * moving carefully should mean.
 	 */
 	constexpr float ReferenceWalkSpeed = 300.0f;
+	constexpr float SprintSpeed = 460.0f;
+	constexpr float CrouchSpeed = 160.0f;
+	constexpr float ListenSpeed = 80.0f;
+	constexpr float SprintBreathThresholdSeconds = 3.5f;
+	constexpr float ListenCommitSeconds = 0.8f;
+	constexpr float MaximumBreathHoldSeconds = 4.0f;
 	/** Quietest and loudest footfall reported to the noise bus (§5.1). */
 	constexpr float MinimumFootstepLoudness = 0.06f;
 	constexpr float MaximumFootstepLoudness = 0.18f;
+	constexpr float CrouchFootstepLoudness = 0.05f;
+	constexpr float SprintFootstepLoudness = 0.50f;
+	constexpr float ExhaustedSprintFootstepLoudness = 0.70f;
 }
 
 namespace IGPlayerOutfit
@@ -77,9 +89,11 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	MovementComponent->bOrientRotationToMovement = false;
 	MovementComponent->bUseControllerDesiredRotation = true;
 	MovementComponent->MaxWalkSpeed = 300.0f;
-	MovementComponent->MaxWalkSpeedCrouched = 160.0f;
+	MovementComponent->MaxWalkSpeedCrouched = IGPlayerNoise::CrouchSpeed;
 	MovementComponent->MaxAcceleration = 1200.0f;
 	MovementComponent->BrakingDecelerationWalking = 1200.0f;
+	MovementComponent->NavAgentProps.bCanCrouch = true;
+	MovementComponent->SetCrouchedHalfHeight(48.0f);
 	// CharacterMovement's stock 750,000 push force is intended for heavy
 	// physics gameplay. Against a 200 g slipper or an empty bottle it launches
 	// the prop down the corridor from a light brush. Scale the impulse by mass
@@ -325,6 +339,7 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 		}
 	}
 
+	UpdateContextualActions(DeltaSeconds);
 	UpdateFootsteps(DeltaSeconds);
 	UpdateCameraMotion(DeltaSeconds);
 	UpdateCarriedItem(DeltaSeconds);
@@ -516,6 +531,106 @@ void AIGPlayerCharacter::SetCameraMotionEnabled(const bool bEnabled)
 	}
 }
 
+void AIGPlayerCharacter::ApplyContextMovementSpeed()
+{
+	UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+	if (!MovementComponent)
+	{
+		return;
+	}
+
+	if (bListening)
+	{
+		MovementComponent->MaxWalkSpeed = IGPlayerNoise::ListenSpeed;
+		MovementComponent->MaxAcceleration = 800.0f;
+		MovementComponent->BrakingDecelerationWalking = 1600.0f;
+		return;
+	}
+	if (bSprinting && !bIsCrouched)
+	{
+		MovementComponent->MaxWalkSpeed = IGPlayerNoise::SprintSpeed;
+		MovementComponent->MaxAcceleration = 1400.0f;
+		MovementComponent->BrakingDecelerationWalking = 900.0f;
+		return;
+	}
+
+	MovementComponent->MaxWalkSpeed = IGPlayerNoise::ReferenceWalkSpeed;
+	MovementComponent->MaxAcceleration = 1200.0f;
+	MovementComponent->BrakingDecelerationWalking = 1200.0f;
+}
+
+void AIGPlayerCharacter::UpdateContextualActions(const float DeltaSeconds)
+{
+	if (DeltaSeconds <= 0.0f)
+	{
+		return;
+	}
+
+	const UCharacterMovementComponent* MovementComponent = GetCharacterMovement();
+	const bool bActuallySprinting = bSprinting
+		&& !bIsCrouched
+		&& MovementComponent
+		&& MovementComponent->IsMovingOnGround()
+		&& GetVelocity().Size2D() > IGPlayerNoise::ReferenceWalkSpeed + 10.0f;
+	if (bActuallySprinting)
+	{
+		SprintActiveSeconds += DeltaSeconds;
+		SprintRecoverySeconds = 0.0f;
+	}
+	else
+	{
+		SprintRecoverySeconds += DeltaSeconds;
+		if (SprintRecoverySeconds >= 2.0f)
+		{
+			SprintActiveSeconds = FMath::Max(
+				0.0f,
+				SprintActiveSeconds - DeltaSeconds * 1.75f);
+		}
+	}
+
+	if (bListening)
+	{
+		AActor* FocusedActor = InteractionComponent
+			? InteractionComponent->GetFocusedActor()
+			: nullptr;
+		AIGMissingFloorNightThreeDirector* ListeningDirector = nullptr;
+		if (UWorld* World = GetWorld())
+		{
+			for (TActorIterator<AIGMissingFloorNightThreeDirector> It(World); It; ++It)
+			{
+				if (It->IsPlayerListenTarget(FocusedActor))
+				{
+					ListeningDirector = *It;
+					break;
+				}
+			}
+		}
+		if (!ListeningDirector)
+		{
+			EndListen();
+		}
+		else if (!bListenTriggered)
+		{
+			ListenHeldSeconds += DeltaSeconds;
+			if (ListenHeldSeconds >= IGPlayerNoise::ListenCommitSeconds)
+			{
+				bListenTriggered = ListeningDirector->TryPlayerListen(
+					FocusedActor,
+					this);
+			}
+		}
+	}
+
+	if (bHoldingBreath)
+	{
+		BreathHeldSeconds += DeltaSeconds;
+		if (BreathHeldSeconds >= IGPlayerNoise::MaximumBreathHoldSeconds)
+		{
+			FinishHoldBreath(true);
+		}
+	}
+}
+
 void AIGPlayerCharacter::UpdateFootsteps(const float DeltaSeconds)
 {
 	// Footsteps are the player's voice in a game that hunts by sound, so the
@@ -550,7 +665,7 @@ void AIGPlayerCharacter::UpdateFootsteps(const float DeltaSeconds)
 	const float SpeedScale = FMath::Clamp(
 		GroundSpeed / IGPlayerNoise::ReferenceWalkSpeed,
 		0.0f,
-		1.0f);
+		IGPlayerNoise::SprintSpeed / IGPlayerNoise::ReferenceWalkSpeed);
 	PlayFootstep(SpeedScale);
 }
 
@@ -588,7 +703,7 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 		}
 	}
 
-	if (!bReducedMotion)
+	if (!bReducedMotion && !bHoldingBreath)
 	{
 		// Slow breathing sway; more noticeable while standing still. The rate is
 		// the fear model's, so the chest visibly speeds up before the player has
@@ -650,19 +765,37 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 		120.0f,
 		700.0f);
 
-	// Every footfall is also a report to the building's ear. Loudness sits in
-	// the design table's walking band (0.06 crouch-soft .. 0.18 brisk); the
-	// subsystem applies hum masking and decides whether anything sounded.
+	// Every footfall is also a report to the building's ear. Crouching and
+	// sprinting are authored bands, not a rescale of ordinary walking: this is
+	// the resource decision the player makes before the pursuer hears it.
 	if (UWorld* World = GetWorld())
 	{
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
+			float Loudness = FMath::Lerp(
+				IGPlayerNoise::MinimumFootstepLoudness,
+				IGPlayerNoise::MaximumFootstepLoudness,
+				FMath::Clamp(SpeedScale, 0.0f, 1.0f));
+			if (bIsCrouched)
+			{
+				Loudness = IGPlayerNoise::CrouchFootstepLoudness;
+			}
+			else if (bSprinting)
+			{
+				const float BreathLoad = FMath::Clamp(
+					(SprintActiveSeconds
+						- IGPlayerNoise::SprintBreathThresholdSeconds)
+					/ 3.5f,
+					0.0f,
+					1.0f);
+				Loudness = FMath::Lerp(
+					IGPlayerNoise::SprintFootstepLoudness,
+					IGPlayerNoise::ExhaustedSprintFootstepLoudness,
+					BreathLoad);
+			}
 			Noise->ReportNoise(
 				GetActorLocation(),
-				FMath::Lerp(
-					IGPlayerNoise::MinimumFootstepLoudness,
-					IGPlayerNoise::MaximumFootstepLoudness,
-					FMath::Clamp(SpeedScale, 0.0f, 1.0f)),
+				Loudness,
 				this);
 		}
 	}
@@ -811,6 +944,26 @@ void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	{
 		PlayerInputComponent->BindAction(TEXT("Flashlight"), IE_Pressed, this, &ThisClass::ToggleFlashlight);
 	}
+
+	// These verbs are intentionally independent of Interact. In particular Q/B
+	// must never open a door while it is also filing a timed P4 knock.
+	PlayerInputComponent->BindAction(
+		TEXT("Sprint"), IE_Pressed, this, &ThisClass::BeginSprint);
+	PlayerInputComponent->BindAction(
+		TEXT("Sprint"), IE_Released, this, &ThisClass::EndSprint);
+	PlayerInputComponent->BindAction(
+		TEXT("Crouch"), IE_Pressed, this, &ThisClass::ToggleCrouch);
+	PlayerInputComponent->BindAction(
+		TEXT("Knock"), IE_Pressed, this, &ThisClass::Knock);
+	PlayerInputComponent->BindAction(
+		TEXT("Listen"), IE_Pressed, this, &ThisClass::BeginListen);
+	PlayerInputComponent->BindAction(
+		TEXT("Listen"), IE_Released, this, &ThisClass::EndListen);
+	PlayerInputComponent->BindAction(
+		TEXT("HoldBreath"), IE_Pressed, this, &ThisClass::BeginHoldBreath);
+	PlayerInputComponent->BindAction(
+		TEXT("HoldBreath"), IE_Released, this, &ThisClass::EndHoldBreath);
+
 	// Save/load remains available even when no Blueprint input asset or front
 	// end menu has been authored yet. Autosaves are the only shipped slots.
 	PlayerInputComponent->BindAction(
@@ -820,9 +973,211 @@ void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 		&ThisClass::LoadLatestAutosave);
 }
 
+void AIGPlayerCharacter::BeginSprint()
+{
+	if (bListening || bIsCrouched)
+	{
+		return;
+	}
+	bSprinting = true;
+	ApplyContextMovementSpeed();
+}
+
+void AIGPlayerCharacter::EndSprint()
+{
+	bSprinting = false;
+	ApplyContextMovementSpeed();
+}
+
+void AIGPlayerCharacter::ToggleCrouch()
+{
+	EndSprint();
+	if (bIsCrouched)
+	{
+		UnCrouch();
+	}
+	else
+	{
+		Crouch();
+	}
+}
+
+void AIGPlayerCharacter::Knock()
+{
+	if (AIGReadableNote::GetOpenNote())
+	{
+		return;
+	}
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
+		{
+			if (It->RegisterPlayerKnock())
+			{
+				return;
+			}
+		}
+	}
+	if (!InteractionComponent)
+	{
+		return;
+	}
+	AActor* FocusedActor = InteractionComponent->GetFocusedActor();
+	if (!IsValid(FocusedActor))
+	{
+		return;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorNightThreeDirector> It(World); It; ++It)
+		{
+			if (It->TryPlayerKnock(FocusedActor, this))
+			{
+				InteractPunch = 0.45f;
+				SetCameraMotionEnabled(true);
+				return;
+			}
+		}
+
+		// Ordinary doors and walls still answer the verb physically; they simply
+		// do not advance a puzzle unless a chapter director owns that surface.
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
+			FocusedActor->GetActorLocation(),
+			0.82f);
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(FocusedActor->GetActorLocation(), 0.30f, this);
+		}
+		InteractPunch = 0.45f;
+		SetCameraMotionEnabled(true);
+	}
+}
+
+void AIGPlayerCharacter::BeginListen()
+{
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
+		{
+			if (It->SetPlayerListening(true))
+			{
+				return;
+			}
+		}
+	}
+	if (bListening || !InteractionComponent)
+	{
+		return;
+	}
+	AActor* FocusedActor = InteractionComponent->GetFocusedActor();
+	if (!IsValid(FocusedActor) || !GetWorld())
+	{
+		return;
+	}
+
+	for (TActorIterator<AIGMissingFloorNightThreeDirector> It(GetWorld()); It; ++It)
+	{
+		if (!It->IsPlayerListenTarget(FocusedActor))
+		{
+			continue;
+		}
+		EndSprint();
+		bListening = true;
+		bListenTriggered = false;
+		ListenHeldSeconds = 0.0f;
+		ApplyContextMovementSpeed();
+		return;
+	}
+}
+
+void AIGPlayerCharacter::EndListen()
+{
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
+		{
+			if (It->SetPlayerListening(false))
+			{
+				return;
+			}
+		}
+	}
+	if (!bListening)
+	{
+		return;
+	}
+	bListening = false;
+	bListenTriggered = false;
+	ListenHeldSeconds = 0.0f;
+	ApplyContextMovementSpeed();
+}
+
+void AIGPlayerCharacter::BeginHoldBreath()
+{
+	if (bHoldingBreath)
+	{
+		return;
+	}
+	bHoldingBreath = true;
+	BreathHeldSeconds = 0.0f;
+}
+
+void AIGPlayerCharacter::EndHoldBreath()
+{
+	FinishHoldBreath(false);
+}
+
+void AIGPlayerCharacter::FinishHoldBreath(const bool bForcedRelease)
+{
+	if (!bHoldingBreath)
+	{
+		return;
+	}
+	const float HeldSeconds = BreathHeldSeconds;
+	bHoldingBreath = false;
+	BreathHeldSeconds = 0.0f;
+
+	// The recoil is camera-first so accessibility can suppress it. A forced
+	// four-second release also becomes a small real sound for the pursuer.
+	if (HeldSeconds >= 1.0f)
+	{
+		BreathTime += 0.35f;
+		InteractPunch = FMath::Max(InteractPunch, bForcedRelease ? 0.34f : 0.20f);
+	}
+	if (bForcedRelease)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+			{
+				Noise->ReportNoise(GetActorLocation(), 0.08f, this);
+			}
+		}
+	}
+}
+
 void AIGPlayerCharacter::LoadLatestAutosave()
 {
 	UGameInstance* GameInstance = GetGameInstance();
+	if (GameInstance)
+	{
+		if (const UIGMissingFloorNarrativeSubsystem* Narrative =
+			GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>();
+			Narrative && Narrative->IsHourSealed())
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGSave",
+					"MissingFloorLoadLocked",
+					"지금은 되돌릴 때가 아니다."),
+				2.2f);
+			return;
+		}
+	}
 	UIGSaveSubsystem* SaveSubsystem = GameInstance
 		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
 		: nullptr;
@@ -909,11 +1264,42 @@ void AIGPlayerCharacter::BeginInteraction()
 		OpenNote->Close();
 		return;
 	}
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
+		{
+			if (It->SetPlayerListening(true))
+			{
+				bInteractionRedirectedToInterludeListen = true;
+				return;
+			}
+		}
+	}
 
 	if (InteractionComponent)
 	{
+		AActor* FocusedActor = InteractionComponent->GetFocusedActor();
+		if (IsValid(FocusedActor) && GetWorld())
+		{
+			for (TActorIterator<AIGMissingFloorNightThreeDirector> It(GetWorld()); It; ++It)
+			{
+				// A knock surface advertises Q/B in the HUD; E/A must be inert so
+				// one press cannot also count as a door interaction.
+				if (It->IsPlayerKnockTarget(FocusedActor))
+				{
+					return;
+				}
+				if (It->IsPlayerListenTarget(FocusedActor))
+				{
+					bInteractionRedirectedToListen = true;
+					BeginListen();
+					return;
+				}
+			}
+		}
+
 		// Reaching out reads as a small forward dip of the head.
-		if (InteractionComponent->GetFocusedActor())
+		if (FocusedActor)
 		{
 			InteractPunch = 1.0f;
 			SetCameraMotionEnabled(true);
@@ -955,6 +1341,27 @@ void AIGPlayerCharacter::BeginInteraction()
 
 void AIGPlayerCharacter::EndInteraction()
 {
+	if (bInteractionRedirectedToInterludeListen)
+	{
+		bInteractionRedirectedToInterludeListen = false;
+		if (UWorld* World = GetWorld())
+		{
+			for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
+			{
+				if (It->SetPlayerListening(false))
+				{
+					break;
+				}
+			}
+		}
+		return;
+	}
+	if (bInteractionRedirectedToListen)
+	{
+		bInteractionRedirectedToListen = false;
+		EndListen();
+		return;
+	}
 	if (InteractionComponent)
 	{
 		InteractionComponent->ReleaseInteraction();

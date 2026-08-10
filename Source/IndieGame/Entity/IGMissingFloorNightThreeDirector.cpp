@@ -3,14 +3,16 @@
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Entity/IGMissingFloorEvidence.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "Interaction/IGReadableNote.h"
-#include "Interaction/IGStairTransition.h"
 #include "Interaction/IGSwingDoor.h"
+#include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Player/IGHorrorHUD.h"
@@ -18,20 +20,15 @@
 
 namespace IGNightThree
 {
-	// The stub-top gate and its threshold, corridor-local + 900 (world).
-	const FVector StairGateHinge(-317.0f, -150.0f, 972.0f);
-	const FVector StubPortal(-277.5f, -122.0f, 1040.0f);
-	const FVector StubReturnExit(-277.5f, -180.0f, 1064.0f);
-
-	// The annex, in its own detached world block north of the villa. The
-	// arrival point stands clear of the portal volume, or landing would
-	// immediately teleport the player straight back down.
-	const FVector AnnexPortal(-370.0f, 700.0f, 1290.0f);
-	const FVector AnnexArrival(-285.0f, 700.0f, 1292.0f);
+	// Two real leaves on the same roof slab. The route between their threshold
+	// centers is 407.5 + 232.5 = 640 cm and is built by the world scene.
+	const FVector StairGateHinge(-320.0f, 220.0f, 1200.0f);
+	const FVector AnnexGateHinge(85.0f, 452.5f, 1200.0f);
 
 	// Annex contents.
 	const FVector NotebookLocation(-90.0f, 770.0f, 1246.0f);
-	const FVector WandLocation(-40.0f, 755.0f, 1245.0f);
+	const FVector TuningHammerLocation(-40.0f, 755.0f, 1245.0f);
+	const FVector TunerToolCartLocation(-280.0f, 865.0f, 1201.0f);
 	const FVector ValveLocation(296.0f, 610.0f, 1266.0f);
 	const FVector ImpactMarkLocation(-10.0f, 585.0f, 1264.0f);
 	const float WallBayYs[3] = {560.0f, 700.0f, 840.0f};
@@ -53,6 +50,10 @@ namespace IGNightThree
 
 	/** Eight seconds of nothing before the wall comes back. */
 	constexpr float AnswerDelaySeconds = 8.0f;
+	constexpr double AnswerPairMinSeconds = 0.18;
+	constexpr double AnswerPairMaxSeconds = 0.65;
+	constexpr double AnswerRestMinSeconds = 0.68;
+	constexpr double AnswerRestMaxSeconds = 1.80;
 
 	const FName PuzzleThreeId(TEXT("P3"));
 	const FName PuzzleFourId(TEXT("P4"));
@@ -81,13 +82,45 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 		return false;
 	}
 
+	// Seo appears once, across the alley, only after T7 and only by day. A
+	// masked fixed-camera sprite is appropriate here because the player cannot
+	// approach or circle him; all near people and all interactable evidence stay
+	// 3D. Feet sit exactly on Z=0 and the masked card keeps a real cast shadow.
+	if (UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(
+			nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")))
+	{
+		if (UMaterialInterface* SeoMaterial = LoadObject<UMaterialInterface>(
+				nullptr,
+				TEXT("/Game/Prototype/Materials/M_SpriteSeo.M_SpriteSeo")))
+		{
+			DistantSeo = NewObject<UStaticMeshComponent>(this, TEXT("DistantSeo"));
+			DistantSeo->RegisterComponent();
+			DistantSeo->SetStaticMesh(PlaneMesh);
+			DistantSeo->SetMaterial(0, SeoMaterial);
+			DistantSeo->SetWorldLocation(FVector(-40.0f, -835.0f, 90.0f));
+			DistantSeo->SetWorldRotation(FRotator(0.0f, 0.0f, 90.0f));
+			DistantSeo->SetWorldScale3D(FVector(0.86f, 1.80f, 1.0f));
+			DistantSeo->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			DistantSeo->SetCanEverAffectNavigation(false);
+			DistantSeo->SetCastShadow(true);
+			DistantSeo->SetVisibility(false, true);
+		}
+	}
+
 	FActorSpawnParameters SpawnParameters;
 	SpawnParameters.SpawnCollisionHandlingOverride =
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-	// The fifth-floor gate. Locked on a real, persistent fact — the keyring
-	// tag — because owning a key is exactly the kind of thing a save should
-	// remember (unlike the hour's seal, which must never be written).
+	UMaterialInterface* DoorMaterial = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_SteelDoorUV.M_SteelDoorUV"));
+	UMaterialInterface* HandleMaterial = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_StainlessUV.M_StainlessUV"));
+
+	// The roof and annex leaves are separate physical locks. The state is the
+	// persisted *keyring* possession; the prop and text make its two labelled
+	// keys explicit instead of implying one magical master key.
 	SpawnParameters.Name = TEXT("MissingFloorStairGate");
 	StairGate = World->SpawnActor<AIGSwingDoor>(
 		AIGSwingDoor::StaticClass(),
@@ -98,7 +131,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 		return false;
 	}
 	StairGate->ConfigurePrototypeVisuals(
-		CubeMesh, nullptr, nullptr, FVector(6.0f, 80.0f, 170.0f));
+		CubeMesh, DoorMaterial, HandleMaterial, FVector(6.0f, 85.0f, 205.0f));
 	StairGate->SetOpenYaw(-95.0f);
 	{
 		TArray<FIGDoorRequirement> GateRequirements;
@@ -106,36 +139,53 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 		KeyLock.RequiredState = FGameplayTag::RequestGameplayTag(
 			FName(TEXT("State.MissingFloor.HasStairKey")), false);
 		KeyLock.LockedPrompt =
-			NSLOCTEXT("IGMissingFloor", "StairGatePrompt", "5층 철문");
+			NSLOCTEXT("IGMissingFloor", "StairGatePrompt", "옥상 철문 — 잠겨 있다");
 		KeyLock.LockedThought = NSLOCTEXT(
 			"IGMissingFloor",
 			"StairGateThought",
-			"잠겼다. …관리실 열쇠 걸이에 이런 게 있었지.");
+			"`옥상` 표찰 열쇠가 필요하다.");
 		StairGate->SetRequirements(MoveTemp(GateRequirements));
 	}
 
-	// The teleport that swallows the unbuilt flights between the stub and
-	// the annex — the same trick the lobby stair already plays. The actor is
-	// spawned yawed 90°, which rotates its portal boxes with it: their long
-	// axis then runs across the stair, so the lower volume stays strictly
-	// north of the gate plane and cannot swallow a player who has not
-	// opened the door yet.
-	SpawnParameters.Name = TEXT("MissingFloorAnnexTransition");
-	AnnexTransition = World->SpawnActor<AIGStairTransition>(
-		AIGStairTransition::StaticClass(),
-		FTransform(FRotator(0.0f, 90.0f, 0.0f), FVector::ZeroVector),
+	SpawnParameters.Name = TEXT("MissingFloorAnnexGate");
+	AnnexGate = World->SpawnActor<AIGSwingDoor>(
+		AIGSwingDoor::StaticClass(),
+		FTransform(FRotator(0.0f, -90.0f, 0.0f), IGNightThree::AnnexGateHinge),
 		SpawnParameters);
-	if (!AnnexTransition)
+	if (!AnnexGate)
 	{
 		return false;
 	}
-	AnnexTransition->Configure(
-		IGNightThree::AnnexPortal,
-		IGNightThree::AnnexArrival,
-		FRotator(0.0f, 0.0f, 0.0f),
-		IGNightThree::StubPortal,
-		IGNightThree::StubReturnExit,
-		FRotator(0.0f, 180.0f, 0.0f));
+	AnnexGate->ConfigurePrototypeVisuals(
+		CubeMesh, DoorMaterial, HandleMaterial, FVector(6.0f, 90.0f, 205.0f));
+	AnnexGate->SetOpenYaw(95.0f);
+	{
+		TArray<FIGDoorRequirement> GateRequirements;
+		FIGDoorRequirement& KeyLock = GateRequirements.AddDefaulted_GetRef();
+		KeyLock.RequiredState = FGameplayTag::RequestGameplayTag(
+			FName(TEXT("State.MissingFloor.HasStairKey")), false);
+		KeyLock.LockedPrompt = NSLOCTEXT(
+			"IGMissingFloor", "AnnexGatePrompt", "5층 철문 — 잠겨 있다");
+		KeyLock.LockedThought = NSLOCTEXT(
+			"IGMissingFloor", "AnnexGateThought", "`창고` 표찰 열쇠가 필요하다.");
+		AnnexGate->SetRequirements(MoveTemp(GateRequirements));
+	}
+	float RouteLengthCentimeters = 0.0f;
+	int32 UpperStepCount = 0;
+	if (!Scene->ValidateMissingFloorRooftopRoute(
+			RouteLengthCentimeters,
+			UpperStepCount))
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT(
+				"Missing-floor roof route invalid: length=%.1f steps=%d "
+				"(expected 640.0/14)."),
+			RouteLengthCentimeters,
+			UpperStepCount);
+		return false;
+	}
 
 	// The keyring, hanging in the booth the hour leaves open.
 	SpawnParameters.Name = TEXT("MissingFloorKeyring");
@@ -149,13 +199,13 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 	}
 	Keyring->Configure(
 		CubeMesh,
-		nullptr,
-		FVector(7.0f, 3.0f, 9.0f),
-		NSLOCTEXT("IGMissingFloor", "KeyringPrompt", "열쇠뭉치"),
+		HandleMaterial,
+		FVector(9.0f, 4.0f, 10.0f),
+		NSLOCTEXT("IGMissingFloor", "KeyringPrompt", "옥상·창고 열쇠뭉치"),
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"KeyringThought",
-			"계단 철문 열쇠다. …왜 관리실에만 있을까."),
+			"크기가 다른 열쇠 둘. `옥상`, `창고`."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
@@ -195,28 +245,54 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 	TunerNotebook->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorNightThreeDirector::HandleNotebookRead);
 
-	SpawnParameters.Name = TEXT("MissingFloorTunerWand");
-	TunerWand = World->SpawnActor<AIGMissingFloorEvidence>(
+	SpawnParameters.Name = TEXT("MissingFloorTuningHammer");
+	TuningHammer = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator(0.0f, 0.0f, 90.0f), IGNightThree::WandLocation),
+		FTransform(
+			FRotator(0.0f, 0.0f, 90.0f),
+			IGNightThree::TuningHammerLocation),
 		SpawnParameters);
-	if (!TunerWand)
+	if (!TuningHammer)
 	{
 		return false;
 	}
-	TunerWand->Configure(
-		CylinderMesh,
-		nullptr,
-		FVector(3.0f, 3.0f, 26.0f),
-		NSLOCTEXT("IGMissingFloor", "WandPrompt", "청음봉"),
+	UStaticMesh* TuningHammerMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_TuningHammer.SM_TuningHammer"));
+	UMaterialInterface* TuningHammerMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_MetalFrame.M_MetalFrame"));
+	TuningHammer->Configure(
+		TuningHammerMesh ? TuningHammerMesh : CylinderMesh,
+		TuningHammerMesh ? TuningHammerMaterial : nullptr,
+		TuningHammerMesh
+			? FVector(100.0f, 100.0f, 100.0f)
+			: FVector(3.0f, 3.0f, 26.0f),
+		NSLOCTEXT("IGMissingFloor", "TuningHammerPrompt", "조율 렌치"),
 		NSLOCTEXT(
 			"IGMissingFloor",
-			"WandThought",
-			"조율사의 것. …오른손잡이용인데, 왜 여기 떨어져 있지."),
+			"TuningHammerThought",
+			"오빠가 쓰던 조율 렌치다. …끌려갈 때 여기 떨어졌어."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
 		0.06f);
+
+	// A close prop must preserve parallax, contact shadow and the gap beneath
+	// its shelves.  The ImageGen sheet is only the shape reference; the runtime
+	// object is a real 45 x 34 x 78 cm mesh resting on the annex slab.
+	if (UStaticMesh* CartMesh = LoadObject<UStaticMesh>(
+			nullptr, TEXT("/Game/Meshes/SM_TunerToolCart.SM_TunerToolCart")))
+	{
+		TunerToolCart = NewObject<UStaticMeshComponent>(
+			this, TEXT("TunerToolCart"));
+		TunerToolCart->RegisterComponent();
+		TunerToolCart->SetStaticMesh(CartMesh);
+		TunerToolCart->SetMaterial(0, TuningHammerMaterial);
+		TunerToolCart->SetWorldLocation(IGNightThree::TunerToolCartLocation);
+		TunerToolCart->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+		TunerToolCart->SetCollisionResponseToAllChannels(ECR_Block);
+		TunerToolCart->SetCanEverAffectNavigation(false);
+		TunerToolCart->SetCastShadow(true);
+	}
 
 	SpawnParameters.Name = TEXT("MissingFloorRiserValve");
 	RiserValve = World->SpawnActor<AIGMissingFloorEvidence>(
@@ -296,6 +372,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 			EIGMissingFloorSource::None,
 			0.8f,
 			IGNightThree::ListenLoudness);
+		Listen->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Listen")));
 		Listen->OnExamined.AddWeakLambda(
 			this,
 			[this, BayIndex](AIGMissingFloorEvidence*)
@@ -327,18 +404,14 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 			EIGMissingFloorSource::None,
 			0.0f,
 			IGNightThree::KnockLoudness);
-		Knock->OnExamined.AddWeakLambda(
-			this,
-			[this, BayIndex](AIGMissingFloorEvidence*)
-			{
-				HandleWallKnocked(BayIndex);
-			});
+		Knock->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Knock")));
 		WallKnocks[BayIndex] = Knock;
 	}
 
-	// P4's surface on the cavity bay: hidden until the wall is certain and
-	// the rhythm is understood. No prompt ever explains the pattern — the
-	// player brings it.
+	// P4's surface on the cavity bay: hidden until the wall is certain and two
+	// independent rhythm clues are known.  The prompt exposes only the verb;
+	// three player-timed taps, not a hold that auto-solves the pattern, are the
+	// actual answer.
 	SpawnParameters.Name = TEXT("MissingFloorAnswerTarget");
 	AnswerTarget = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
@@ -357,16 +430,15 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"AnswerPrompt",
-			"둘, 쉬고, 하나 — 두드린다"),
+			"벽 — 두드린다"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
-		0.8f,
+		0.0f,
 		IGNightThree::KnockLoudness);
+	AnswerTarget->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Knock")));
 	AnswerTarget->SetInteractionEnabled(false);
 	AnswerTarget->SetActorHiddenInGame(true);
-	AnswerTarget->OnExamined.AddUObject(
-		this, &AIGMissingFloorNightThreeDirector::HandleAnswerKnock);
 
 	// -- day papers --------------------------------------------------------
 
@@ -431,8 +503,18 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 	{
 		return false;
 	}
+	UStaticMesh* CalendarJournalMesh = LoadObject<UStaticMesh>(
+		nullptr,
+		TEXT("/Game/Meshes/SM_CalendarJournal.SM_CalendarJournal"));
+	UMaterialInterface* JournalMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
 	JournalNote->ConfigurePrototypeVisuals(
-		CubeMesh, nullptr, FVector(17.0f, 1.4f, 24.0f));
+		CalendarJournalMesh ? CalendarJournalMesh : CubeMesh,
+		CalendarJournalMesh ? JournalMaterial : nullptr,
+		CalendarJournalMesh
+			? FVector(100.0f, 100.0f, 100.0f)
+			: FVector(17.0f, 1.4f, 24.0f),
+		CalendarJournalMesh != nullptr);
 	JournalNote->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "JournalPrompt", "달력 뒷장 소리 일지"));
 	JournalNote->SetNoteText(
@@ -454,10 +536,129 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
+		// The opening phone transcript is guaranteed starting knowledge. It is
+		// still recorded as provenance so P4 needs one more independent clue,
+		// instead of treating the protagonist's memory as invisible permission.
+		Narrative->RegisterTruthSource(
+			EIGMissingFloorTruth::WaitingForAnAnswer,
+			EIGMissingFloorSource::AnswerRhythmVoicemail);
 		TruthHandle = Narrative->OnTruthConfirmed.AddUObject(
 			this, &AIGMissingFloorNightThreeDirector::HandleTruthConfirmed);
 	}
 	return true;
+}
+
+bool AIGMissingFloorNightThreeDirector::IsPlayerKnockTarget(
+	const AActor* FocusedActor) const
+{
+	if (!IsValid(FocusedActor))
+	{
+		return false;
+	}
+	if (FocusedActor == AnswerTarget
+		&& AnswerTarget
+		&& AnswerTarget->IsInteractionEnabled()
+		&& !AnswerTarget->IsHidden())
+	{
+		return true;
+	}
+	for (const AIGMissingFloorEvidence* KnockTarget : WallKnocks)
+	{
+		if (FocusedActor == KnockTarget
+			&& IsValid(KnockTarget)
+			&& KnockTarget->IsInteractionEnabled()
+			&& !KnockTarget->IsHidden())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool AIGMissingFloorNightThreeDirector::IsPlayerListenTarget(
+	const AActor* FocusedActor) const
+{
+	if (!IsValid(FocusedActor))
+	{
+		return false;
+	}
+	for (const AIGMissingFloorEvidence* ListenTarget : WallListens)
+	{
+		if (FocusedActor == ListenTarget
+			&& IsValid(ListenTarget)
+			&& ListenTarget->IsInteractionEnabled()
+			&& !ListenTarget->IsHidden())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+bool AIGMissingFloorNightThreeDirector::TryPlayerKnock(
+	AActor* FocusedActor,
+	AActor* NoiseInstigator)
+{
+	if (!IsPlayerKnockTarget(FocusedActor))
+	{
+		return false;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(
+				FocusedActor->GetActorLocation(),
+				IGNightThree::KnockLoudness,
+				NoiseInstigator);
+		}
+	}
+
+	if (FocusedActor == AnswerTarget)
+	{
+		HandleAnswerKnock(AnswerTarget);
+		return true;
+	}
+	for (int32 BayIndex = 0; BayIndex < WallKnocks.Num(); ++BayIndex)
+	{
+		if (FocusedActor == WallKnocks[BayIndex])
+		{
+			HandleWallKnocked(BayIndex);
+			return true;
+		}
+	}
+	return false;
+}
+
+bool AIGMissingFloorNightThreeDirector::TryPlayerListen(
+	AActor* FocusedActor,
+	AActor* NoiseInstigator)
+{
+	if (!IsPlayerListenTarget(FocusedActor))
+	{
+		return false;
+	}
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(
+				FocusedActor->GetActorLocation(),
+				IGNightThree::ListenLoudness,
+				NoiseInstigator);
+		}
+	}
+	for (int32 BayIndex = 0; BayIndex < WallListens.Num(); ++BayIndex)
+	{
+		if (FocusedActor == WallListens[BayIndex])
+		{
+			HandleWallListened(BayIndex);
+			return true;
+		}
+	}
+	return false;
 }
 
 void AIGMissingFloorNightThreeDirector::EndPlay(
@@ -477,7 +678,9 @@ void AIGMissingFloorNightThreeDirector::EndPlay(
 
 void AIGMissingFloorNightThreeDirector::SetHourActive(const bool bHourActive)
 {
+	bHourCurrentlyActive = bHourActive;
 	RefreshJournalAvailability(bHourActive);
+	RefreshDistantSeoVisibility();
 }
 
 AIGMissingFloorEvidence* AIGMissingFloorNightThreeDirector::GetWallListen(
@@ -535,10 +738,6 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 		RiserFlow->Play();
 	}
 
-	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
-	{
-		Narrative->MarkPuzzleSolved(IGNightThree::PuzzleThreeId);
-	}
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
@@ -576,6 +775,10 @@ void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
 			Narrative->RegisterTruthSource(
 				EIGMissingFloorTruth::SomeoneInTheWall,
 				EIGMissingFloorSource::PipeWaterComparison);
+			if (Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall))
+			{
+				Narrative->MarkPuzzleSolved(IGNightThree::PuzzleThreeId);
+			}
 		}
 		return;
 	}
@@ -614,6 +817,10 @@ void AIGMissingFloorNightThreeDirector::HandleWallKnocked(const int32 BayIndex)
 			Narrative->RegisterTruthSource(
 				EIGMissingFloorTruth::SomeoneInTheWall,
 				EIGMissingFloorSource::WallEchoByHand);
+			if (Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall))
+			{
+				Narrative->MarkPuzzleSolved(IGNightThree::PuzzleThreeId);
+			}
 		}
 		return;
 	}
@@ -639,14 +846,56 @@ void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 	{
 		return;
 	}
-	bAnswerPending = true;
 
-	// The player's own hand: two, a rest, one, at the wall.
+	// Every interaction is one physical tap. The player owns the silence
+	// between taps; no progress bar or prompt leaks the accepted cadence.
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.0f),
+		UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
 		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
 		0.9f);
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	const double Now = World->GetTimeSeconds();
+	AnswerTapTimes.Add(Now);
+	while (AnswerTapTimes.Num() > 3)
+	{
+		AnswerTapTimes.RemoveAt(0);
+	}
+	if (AnswerTapTimes.Num() < 3)
+	{
+		return;
+	}
+
+	const double PairInterval = AnswerTapTimes[1] - AnswerTapTimes[0];
+	const double RestInterval = AnswerTapTimes[2] - AnswerTapTimes[1];
+	const bool bPairAccepted =
+		PairInterval >= IGNightThree::AnswerPairMinSeconds
+		&& PairInterval <= IGNightThree::AnswerPairMaxSeconds;
+	const bool bRestAccepted =
+		RestInterval >= IGNightThree::AnswerRestMinSeconds
+		&& RestInterval <= IGNightThree::AnswerRestMaxSeconds;
+	if (!bPairAccepted || !bRestAccepted)
+	{
+		// Keep a plausible new pair, otherwise make this tap the next attempt's
+		// first beat. Failure feedback is only the ordinary wall resonance.
+		if (RestInterval >= IGNightThree::AnswerPairMinSeconds
+			&& RestInterval <= IGNightThree::AnswerPairMaxSeconds)
+		{
+			AnswerTapTimes.RemoveAt(0);
+		}
+		else
+		{
+			AnswerTapTimes.Reset();
+			AnswerTapTimes.Add(Now);
+		}
+		return;
+	}
+
+	bAnswerPending = true;
 	if (Evidence)
 	{
 		// No repeat while the silence holds — the wait is the scene.
@@ -721,7 +970,7 @@ void AIGMissingFloorNightThreeDirector::HandleNotebookRead(
 		EIGMissingFloorSource::PipeAuditionCriterion);
 	Narrative->RegisterTruthSource(
 		EIGMissingFloorTruth::WaitingForAnAnswer,
-		EIGMissingFloorSource::AnswerRhythmMaterials);
+		EIGMissingFloorSource::AnswerRhythmNotebook);
 	RefreshAnswerTargetAvailability();
 }
 
@@ -773,6 +1022,10 @@ void AIGMissingFloorNightThreeDirector::HandleJournalRead(
 		Narrative->RegisterTruthSource(
 			EIGMissingFloorTruth::FiveNightsOfThirst,
 			EIGMissingFloorSource::KnockTallyJournal);
+		Narrative->RegisterTruthSource(
+			EIGMissingFloorTruth::WaitingForAnAnswer,
+			EIGMissingFloorSource::AnswerRhythmJournal);
+		RefreshAnswerTargetAvailability();
 	}
 }
 
@@ -796,13 +1049,30 @@ void AIGMissingFloorNightThreeDirector::RefreshAnswerTargetAvailability()
 	{
 		return;
 	}
-	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	int32 RhythmClueCount = 0;
+	for (const EIGMissingFloorSource Clue : {
+		EIGMissingFloorSource::AnswerRhythmVoicemail,
+		EIGMissingFloorSource::AnswerRhythmNotebook,
+		EIGMissingFloorSource::AnswerRhythmJournal})
+	{
+		RhythmClueCount += Narrative
+			&& Narrative->HasSource(EIGMissingFloorTruth::WaitingForAnAnswer, Clue)
+				? 1
+				: 0;
+	}
+	if (Narrative && RhythmClueCount >= 2)
+	{
+		// Store the derived compatibility record used by the existing T9 rule.
+		// Individual clue records remain in the save for fairness audits.
+		Narrative->RegisterTruthSource(
+			EIGMissingFloorTruth::WaitingForAnAnswer,
+			EIGMissingFloorSource::AnswerRhythmMaterials);
+	}
 	const bool bReady =
 		Narrative
 		&& Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall)
-		&& Narrative->HasSource(
-			EIGMissingFloorTruth::WaitingForAnAnswer,
-			EIGMissingFloorSource::AnswerRhythmMaterials);
+		&& RhythmClueCount >= 2;
 	AnswerTarget->SetActorHiddenInGame(!bReady);
 	AnswerTarget->SetInteractionEnabled(bReady);
 }
@@ -824,6 +1094,21 @@ void AIGMissingFloorNightThreeDirector::RefreshJournalAvailability(
 	JournalNote->SetInteractionEnabled(bEarned);
 }
 
+void AIGMissingFloorNightThreeDirector::RefreshDistantSeoVisibility()
+{
+	if (!DistantSeo)
+	{
+		return;
+	}
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const bool bShow =
+		!bHourCurrentlyActive
+		&& Narrative
+		&& Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive)
+		&& !Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
+	DistantSeo->SetVisibility(bShow, true);
+}
+
 UIGMissingFloorNarrativeSubsystem*
 AIGMissingFloorNightThreeDirector::GetNarrative() const
 {
@@ -836,11 +1121,21 @@ AIGMissingFloorNightThreeDirector::GetNarrative() const
 
 bool AIGMissingFloorNightThreeDirector::ValidateFixtures() const
 {
+	float RouteLengthCentimeters = 0.0f;
+	int32 UpperStepCount = 0;
+	const bool bPhysicalRouteValid =
+		Scene.IsValid()
+		&& Scene->ValidateMissingFloorRooftopRoute(
+			RouteLengthCentimeters,
+			UpperStepCount);
 	return StairGate != nullptr
-		&& AnnexTransition != nullptr
+		&& AnnexGate != nullptr
+		&& bPhysicalRouteValid
+		&& FMath::IsNearlyEqual(RouteLengthCentimeters, 640.0f, 0.1f)
+		&& UpperStepCount == 14
 		&& Keyring != nullptr
 		&& TunerNotebook != nullptr
-		&& TunerWand != nullptr
+		&& TuningHammer != nullptr
 		&& RiserValve != nullptr
 		&& WallListens.Num() == 3
 		&& WallKnocks.Num() == 3

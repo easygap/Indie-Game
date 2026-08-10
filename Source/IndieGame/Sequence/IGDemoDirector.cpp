@@ -158,10 +158,10 @@ void AIGDemoDirector::BuildScript()
 	const FVector StoreFar(2400, -457, 240);
 	const FVector LampSpot(1000, -565, 340);
 	const FVector CoolerSpot(2925, -552, 125);
-	// Close on the cup ramyeon standing on the gondola top: the cup, its
-	// printed sleeve and the foil lid are three separate props, and this is
-	// the angle that shows whether they line up.
-	const FVector RamyeonSpot(2620, -368, 150);
+	// Close on the stocked upper shelf bay. The frame must include the tier,
+	// price rail and cap underside so a cup can never masquerade as a display
+	// object perched on top of the gondola.
+	const FVector RamyeonSpot(2620, -377, 127);
 	const FVector RegisterSpot(2620, -262, 102);
 	const FVector StoreDoorSpot(2405, -457, 150);
 

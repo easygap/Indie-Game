@@ -46,6 +46,14 @@ MESH_NAMES = (
     "SM_InspectionRod",
     "SM_CrackedPhone",
     "SM_OfferingWaterBowl",
+    "SM_CupSleeve",
+    "SM_LabelSleeve",
+    "SM_StickyNote76mm",
+    "SM_ListenerEntityCrawl",
+    "SM_TuningHammer",
+    "SM_TunerToolCart",
+    "SM_ComplaintLedger",
+    "SM_CalendarJournal",
 )
 
 HERO_MESHES = {
@@ -62,6 +70,20 @@ HERO_MESHES = {
     "SM_P3ValveWheelSmall",
     "SM_P3PressureGauge",
     "SM_OfferingWaterBowl",
+    "SM_CupSleeve",
+    "SM_LabelSleeve",
+    "SM_StickyNote76mm",
+    "SM_ListenerEntityCrawl",
+    "SM_TuningHammer",
+    "SM_TunerToolCart",
+    "SM_ComplaintLedger",
+    "SM_CalendarJournal",
+}
+
+PRINT_SURFACE_MESHES = {
+    "SM_CupSleeve": 120,
+    "SM_LabelSleeve": 120,
+    "SM_StickyNote76mm": 60,
 }
 
 PBR_STEMS = {
@@ -75,6 +97,12 @@ PBR_STEMS = {
     "T_P3CabinetPaintedSteel": ("D", "N", "R", "A", "W"),
     "T_CarrierBagFilm": ("D", "N", "R", "A"),
     "T_TankWaterSurface": ("D", "N", "R", "A"),
+    "T_MissingFloorDryPlaster": ("D", "N", "R", "A"),
+    "T_SpriteListenerFront": ("D", "N", "R", "A"),
+    "T_SpriteListenerCrawl0": ("D", "N", "R", "A"),
+    "T_SpriteListenerCrawl1": ("D", "N", "R", "A"),
+    "T_SpriteListenerCrawl2": ("D", "N", "R", "A"),
+    "T_SpriteListenerCrawl3": ("D", "N", "R", "A"),
 }
 
 MATERIAL_TEXTURES = {
@@ -94,6 +122,15 @@ MATERIAL_TEXTURES = {
     "M_P3CabinetMetalUV": "T_P3CabinetPaintedSteel",
     "M_CarrierBagFilm": "T_CarrierBagFilm",
     "M_TankWaterReveal": "T_TankWaterSurface",
+    "M_MissingFloorPlaster_X": "T_MissingFloorDryPlaster",
+    "M_MissingFloorPlaster_Y": "T_MissingFloorDryPlaster",
+    "M_MissingFloorPlaster_XY": "T_MissingFloorDryPlaster",
+    "M_MissingFloorListenerPlasterUV": "T_MissingFloorDryPlaster",
+    "M_SpriteListenerFront": "T_SpriteListenerFront",
+    "M_SpriteListenerCrawl0": "T_SpriteListenerCrawl0",
+    "M_SpriteListenerCrawl1": "T_SpriteListenerCrawl1",
+    "M_SpriteListenerCrawl2": "T_SpriteListenerCrawl2",
+    "M_SpriteListenerCrawl3": "T_SpriteListenerCrawl3",
 }
 
 MASK_MATERIALS = {
@@ -106,6 +143,59 @@ MASK_MATERIALS = {
     "M_DecalRustFasteners": "T_DecalRustFasteners_D",
     "M_DecalMineralScale": "T_DecalMineralScale_D",
     "M_DecalRainGrime": "T_DecalRainGrime_D",
+    "M_MissingFloorHandprints": "T_MissingFloorHandprints_M",
+    "M_MissingFloorDragTrails": "T_MissingFloorDragTrails_M",
+    "M_MissingFloorDustJoint": "T_MissingFloorDustJoint_M",
+    "M_MissingFloorCavityScratches": "T_MissingFloorCavityScratches_M",
+    "M_SpriteSeo": "T_SpriteSeo_D",
+    "M_SpriteMok": "T_SpriteMok_D",
+    "M_SpriteHwang": "T_SpriteHwang_D",
+    "M_SpriteNarin": "T_SpriteNarin_D",
+    "M_SpriteListenerFront": "T_SpriteListenerFront_D",
+    "M_SpriteListenerCrawl0": "T_SpriteListenerCrawl0_D",
+    "M_SpriteListenerCrawl1": "T_SpriteListenerCrawl1_D",
+    "M_SpriteListenerCrawl2": "T_SpriteListenerCrawl2_D",
+    "M_SpriteListenerCrawl3": "T_SpriteListenerCrawl3_D",
+}
+
+PRINT_MATERIALS = {
+    "M_NoteFridge": "T_NoteFridge_D",
+    "M_LabelWater": "T_LabelWater_D",
+    "M_LabelGreenTea": "T_LabelGreenTea_D",
+    "M_LabelBarley": "T_LabelBarley_D",
+    "M_LabelSoda": "T_LabelSoda_D",
+    "M_LabelSoju": "T_LabelSoju_D",
+    "M_LabelRamyeon": "T_LabelRamyeon_D",
+}
+
+INSTANCED_PRODUCT_MATERIALS = {
+    "M_BottleBrown",
+    "M_BottleGreen",
+    "M_CupNoodle",
+    "M_FridgeInterior",
+    "M_LabelBarley",
+    "M_LabelGreenTea",
+    "M_LabelRamyeon",
+    "M_LabelSoda",
+    "M_LabelSoju",
+    "M_LabelWater",
+    "M_SnackBlue",
+    "M_SnackCorn",
+    "M_SnackPotato",
+    "M_SnackRed",
+    "M_SnackShrimp",
+    "M_SnackSquid",
+    "M_SnackYellow",
+    "M_StainlessUV",
+}
+
+WRAPPED_LABEL_MATERIALS = {
+    "M_LabelBarley",
+    "M_LabelGreenTea",
+    "M_LabelRamyeon",
+    "M_LabelSoda",
+    "M_LabelSoju",
+    "M_LabelWater",
 }
 
 EVIDENCE_MASK_MATERIALS = {
@@ -113,6 +203,10 @@ EVIDENCE_MASK_MATERIALS = {
     "M_EvidenceCatPawTrail": "T_EvidenceCatPawTrail_M",
     "M_EvidenceHoseDrag": "T_EvidenceHoseDrag_M",
     "M_EvidenceHandSmear": "T_EvidenceHandSmear_M",
+    "M_MissingFloorHandprints": "T_MissingFloorHandprints_M",
+    "M_MissingFloorDragTrails": "T_MissingFloorDragTrails_M",
+    "M_MissingFloorDustJoint": "T_MissingFloorDustJoint_M",
+    "M_MissingFloorCavityScratches": "T_MissingFloorCavityScratches_M",
 }
 
 
@@ -174,6 +268,15 @@ def validate_meshes() -> tuple[int, int]:
         if name not in HERO_MESHES:
             require(lod_count >= 2, f"Non-hero mesh has no reduced LOD: {name}")
             reduced_meshes += 1
+        if name in PRINT_SURFACE_MESHES:
+            require(
+                subsystem.get_num_uv_channels(mesh, 0) >= 1,
+                f"Printed surface has no UV0: {name}",
+            )
+            require(
+                subsystem.get_number_verts(mesh, 0) >= PRINT_SURFACE_MESHES[name],
+                f"Printed surface collapsed below its authored seam/grid density: {name}",
+            )
     return total_lods, reduced_meshes
 
 
@@ -216,6 +319,26 @@ def validate_textures() -> int:
         require(not texture.get_editor_property("srgb"), f"Mask must be linear: {texture_name}")
         compression = str(texture.get_editor_property("compression_settings"))
         require("MASK" in compression.upper(), f"Mask compression missing: {texture_name}")
+        checked += 1
+    for texture_name in sorted(set(PRINT_MATERIALS.values())):
+        texture = load(
+            f"/Game/Prototype/Textures/{texture_name}", unreal.Texture2D
+        )
+        require(texture.get_editor_property("srgb"), f"Print texture must be sRGB: {texture_name}")
+        require(
+            texture.get_editor_property("address_x") == unreal.TextureAddress.TA_CLAMP
+            and texture.get_editor_property("address_y") == unreal.TextureAddress.TA_CLAMP,
+            f"Print texture edges must clamp at the authored seam: {texture_name}",
+        )
+        require(
+            texture.get_editor_property("filter") == unreal.TextureFilter.TF_DEFAULT,
+            f"Print texture must inherit the World group's anisotropic sampler: {texture_name}",
+        )
+        require(
+            texture.blueprint_get_size_x() >= 512
+            and texture.blueprint_get_size_y() >= 240,
+            f"Print texture is below inspection resolution: {texture_name}",
+        )
         checked += 1
     return checked
 
@@ -327,6 +450,31 @@ def validate_materials() -> tuple[int, int]:
         )
         material_input(material, unreal.MaterialProperty.MP_OPACITY_MASK)
         linked_textures += 1
+        checked += 1
+    for name, texture_name in PRINT_MATERIALS.items():
+        material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
+        errors = unreal.MaterialEditingLibrary.recompile_material(material)
+        require(not errors, f"Printed material compile failed: {name}: {errors}")
+        expected = f"/Game/Prototype/Textures/{texture_name}"
+        require(
+            expected in expression_texture_paths(material),
+            f"Printed texture is not linked to {name}: {expected}",
+        )
+        material_input(material, unreal.MaterialProperty.MP_BASE_COLOR)
+        material_input(material, unreal.MaterialProperty.MP_ROUGHNESS)
+        linked_textures += 1
+        checked += 1
+    for name in sorted(INSTANCED_PRODUCT_MATERIALS):
+        material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
+        require(
+            material.get_editor_property("used_with_instanced_static_meshes"),
+            f"Instanced product shader usage is not persisted: {name}",
+        )
+        if name in WRAPPED_LABEL_MATERIALS:
+            require(
+                material.get_editor_property("two_sided"),
+                f"Wrapped product film lost two-sided rendering: {name}",
+            )
         checked += 1
     return checked, linked_textures
 

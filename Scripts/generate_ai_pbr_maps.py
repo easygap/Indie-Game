@@ -47,6 +47,33 @@ SURFACES = (
     SurfaceSpec("T_P3CabinetPaintedSteel", 0.64, 0.48, 0.78, 0.58, wetness=0.42),
     SurfaceSpec("T_CarrierBagFilm", 0.29, 0.18, 0.46, 0.24, rough_detail=0.12),
     SurfaceSpec("T_TankWaterSurface", 0.12, 0.06, 0.24, 0.86, rough_detail=0.10),
+    # Dry gypsum is shared by the fifth-floor shell and the listener mesh.
+    # Keep it highly diffuse; the flashlight should reveal powder and cracks
+    # through N/A, never turn the body into polished stone.
+    SurfaceSpec(
+        "T_MissingFloorDryPlaster", 0.91, 0.78, 0.97, 0.62,
+        rough_detail=0.10, ao_depth=0.86),
+    # The listener front card is still a lit surface, not an unlit pasted
+    # photo. Conservative relief lets the flashlight pick up pajama folds and
+    # plaster grain without pretending the portrait has full geometric depth.
+    SurfaceSpec(
+        "T_SpriteListenerFront", 0.86, 0.72, 0.96, 0.38,
+        rough_detail=0.12, ao_depth=0.58),
+    # The four locomotion phases share the same restrained response. Keeping
+    # their parameters identical prevents roughness or normal strength from
+    # visibly flashing when the runtime advances a frame.
+    SurfaceSpec(
+        "T_SpriteListenerCrawl0", 0.86, 0.72, 0.96, 0.38,
+        rough_detail=0.12, ao_depth=0.58),
+    SurfaceSpec(
+        "T_SpriteListenerCrawl1", 0.86, 0.72, 0.96, 0.38,
+        rough_detail=0.12, ao_depth=0.58),
+    SurfaceSpec(
+        "T_SpriteListenerCrawl2", 0.86, 0.72, 0.96, 0.38,
+        rough_detail=0.12, ao_depth=0.58),
+    SurfaceSpec(
+        "T_SpriteListenerCrawl3", 0.86, 0.72, 0.96, 0.38,
+        rough_detail=0.12, ao_depth=0.58),
 )
 
 

@@ -4,6 +4,7 @@ param(
 	[switch]$CodeOnly,
 	[switch]$HudUiOnly,
 	[switch]$ApartmentVisualOnly,
+	[switch]$MissingFloorOnly,
 	[switch]$TankWaterOnly,
 	[switch]$TankInteriorOnly,
 	[switch]$SubmergedClothingOnly
@@ -92,17 +93,18 @@ $modeCount = @(
 	$CodeOnly.IsPresent,
 	$HudUiOnly.IsPresent,
 	$ApartmentVisualOnly.IsPresent,
+	$MissingFloorOnly.IsPresent,
 	$TankWaterOnly.IsPresent,
 	$TankInteriorOnly.IsPresent,
 	$SubmergedClothingOnly.IsPresent
 ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($modeCount -gt 1) {
-	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
+	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
 }
 
 if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	-not $SubmergedClothingOnly -and -not $HudUiOnly -and
-	-not $ApartmentVisualOnly) {
+	-not $ApartmentVisualOnly -and -not $MissingFloorOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
 
 	$python = Get-Command python -ErrorAction Stop
@@ -111,6 +113,31 @@ if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	& $python.Source $pbrGenerator
 	if ($LASTEXITCODE -ne 0) {
 		throw "PBR source-map generation failed ($LASTEXITCODE)"
+	}
+}
+
+if ($MissingFloorOnly) {
+	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
+		-OnlySource @(
+			'TextureMissingFloorDryPlaster',
+			'SheetMissingFloorResidueMasks',
+			'SheetMissingFloorDistantCharacters',
+			'ListenerEntityFrontCutout',
+			'SheetListenerEntityCrawlPhases'
+		)
+	$python = Get-Command python -ErrorAction Stop
+	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
+	Write-Host 'ART_BUILD running missing-floor PBR source-map generation'
+	& $python.Source $pbrGenerator `
+		--only T_MissingFloorDryPlaster `
+		--only T_SpriteListenerFront `
+		--only T_SpriteListenerCrawl0 `
+		--only T_SpriteListenerCrawl1 `
+		--only T_SpriteListenerCrawl2 `
+		--only T_SpriteListenerCrawl3 `
+		--force
+	if ($LASTEXITCODE -ne 0) {
+		throw "Missing-floor PBR source-map generation failed ($LASTEXITCODE)"
 	}
 }
 
@@ -136,7 +163,7 @@ if ($SourceOnly) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Art source contract failed ($LASTEXITCODE)"
 	}
-	Write-Host 'ART_SOURCE_BUILD PASS material_scans=11 material_masks=1 pbr_maps=38 no_unreal_process=true'
+	Write-Host 'ART_SOURCE_BUILD PASS material_scans=12 material_masks=9 overlays=13 pbr_maps=56 no_unreal_process=true'
 	return
 }
 
@@ -194,23 +221,30 @@ if (-not (Test-Path -LiteralPath $moduleBinary -PathType Leaf)) {
 	throw "IndieGameEditor build did not produce the runtime module: $moduleBinary"
 }
 
+# Every targeted pass can compile runtime bindings as well as assets. Keeping
+# the newer DLL only inside the ASCII mirror makes the following visual run
+# silently execute stale code even though the UAssets were copied correctly.
+if ($usingAsciiMirror) {
+	Invoke-ArtRobocopy `
+		-Source (Join-Path $unrealProjectRoot 'Binaries\Win64') `
+		-Destination (Join-Path $projectRoot 'Binaries\Win64')
+}
+
 if ($CodeOnly) {
-	if ($usingAsciiMirror) {
-		Invoke-ArtRobocopy `
-			-Source (Join-Path $unrealProjectRoot 'Binaries\Win64') `
-			-Destination (Join-Path $projectRoot 'Binaries\Win64')
-	}
 	Write-Host 'ART_CODE_BUILD PASS target=IndieGameEditor platform=Win64 configuration=Development'
 	return
 }
 
-if ($HudUiOnly -or $ApartmentVisualOnly -or $TankWaterOnly -or
+if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly -or
 	$TankInteriorOnly -or $SubmergedClothingOnly) {
 	$targetName = if ($HudUiOnly) {
 		'HudUi'
 	}
 	elseif ($ApartmentVisualOnly) {
 		'ApartmentVisual'
+	}
+	elseif ($MissingFloorOnly) {
+		'MissingFloor'
 	}
 	elseif ($TankWaterOnly) {
 		'TankWater'
@@ -227,6 +261,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $TankWaterOnly -or
 	elseif ($ApartmentVisualOnly) {
 		'IG_APARTMENT_VISUAL_ONLY'
 	}
+	elseif ($MissingFloorOnly) {
+		'IG_MISSING_FLOOR_ONLY'
+	}
 	elseif ($TankWaterOnly) {
 		'IG_TANK_WATER_ONLY'
 	}
@@ -237,10 +274,13 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $TankWaterOnly -or
 		'IG_SUBMERGED_CLOTHING_ONLY'
 	}
 	$targetSuccessPattern = if ($HudUiOnly) {
-		'\[IndieGame\] Imported 1 textures'
+		'\[IndieGame\] Imported 2 textures'
 	}
 	elseif ($ApartmentVisualOnly) {
 		'\[IndieGame\] Apartment visual material update complete'
+	}
+	elseif ($MissingFloorOnly) {
+		'\[IndieGame\] Missing-floor visual material update complete'
 	}
 	elseif ($TankWaterOnly) {
 		'\[IndieGame\] Tank water material update complete'
@@ -252,7 +292,10 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $TankWaterOnly -or
 		'\[IndieGame\] Submerged clothing material update complete'
 	}
 	$targetRelativeAssets = if ($HudUiOnly) {
-		@('Content\Prototype\Textures\T_HudDialogueFilm_D.uasset')
+		@(
+			'Content\Prototype\Textures\T_HudDialogueFilm_D.uasset',
+			'Content\Prototype\Textures\T_MissingFloorJournalPaper_D.uasset'
+		)
 	}
 	elseif ($ApartmentVisualOnly) {
 		@(
@@ -267,6 +310,64 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $TankWaterOnly -or
 			'Content\Prototype\Materials\M_ApartmentWallPatina.uasset'
 		)
 	}
+	elseif ($MissingFloorOnly) {
+		@(
+			'Content\Meshes\SM_ListenerEntityCrawl.uasset',
+			'Content\Meshes\SM_TuningHammer.uasset',
+			'Content\Meshes\SM_TunerToolCart.uasset',
+			'Content\Meshes\SM_ComplaintLedger.uasset',
+			'Content\Meshes\SM_CalendarJournal.uasset',
+			'Content\Prototype\Textures\T_MissingFloorDryPlaster_D.uasset',
+			'Content\Prototype\Textures\T_MissingFloorDryPlaster_N.uasset',
+			'Content\Prototype\Textures\T_MissingFloorDryPlaster_R.uasset',
+			'Content\Prototype\Textures\T_MissingFloorDryPlaster_A.uasset',
+			'Content\Prototype\Textures\T_MissingFloorHandprints_M.uasset',
+			'Content\Prototype\Textures\T_MissingFloorDragTrails_M.uasset',
+			'Content\Prototype\Textures\T_MissingFloorDustJoint_M.uasset',
+			'Content\Prototype\Textures\T_MissingFloorCavityScratches_M.uasset',
+			'Content\Prototype\Textures\T_SpriteSeo_D.uasset',
+			'Content\Prototype\Textures\T_SpriteMok_D.uasset',
+			'Content\Prototype\Textures\T_SpriteHwang_D.uasset',
+			'Content\Prototype\Textures\T_SpriteNarin_D.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerFront_D.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerFront_N.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerFront_R.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerFront_A.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl0_D.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl0_N.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl0_R.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl0_A.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl1_D.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl1_N.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl1_R.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl1_A.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl2_D.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl2_N.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl2_R.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl2_A.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl3_D.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl3_N.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl3_R.uasset',
+			'Content\Prototype\Textures\T_SpriteListenerCrawl3_A.uasset',
+			'Content\Prototype\Materials\M_MissingFloorListenerPlasterUV.uasset',
+			'Content\Prototype\Materials\M_MissingFloorPlaster_X.uasset',
+			'Content\Prototype\Materials\M_MissingFloorPlaster_Y.uasset',
+			'Content\Prototype\Materials\M_MissingFloorPlaster_XY.uasset',
+			'Content\Prototype\Materials\M_MissingFloorHandprints.uasset',
+			'Content\Prototype\Materials\M_MissingFloorDragTrails.uasset',
+			'Content\Prototype\Materials\M_MissingFloorDustJoint.uasset',
+			'Content\Prototype\Materials\M_MissingFloorCavityScratches.uasset',
+			'Content\Prototype\Materials\M_SpriteSeo.uasset',
+			'Content\Prototype\Materials\M_SpriteMok.uasset',
+			'Content\Prototype\Materials\M_SpriteHwang.uasset',
+			'Content\Prototype\Materials\M_SpriteNarin.uasset',
+			'Content\Prototype\Materials\M_SpriteListenerFront.uasset',
+			'Content\Prototype\Materials\M_SpriteListenerCrawl0.uasset',
+			'Content\Prototype\Materials\M_SpriteListenerCrawl1.uasset',
+			'Content\Prototype\Materials\M_SpriteListenerCrawl2.uasset',
+			'Content\Prototype\Materials\M_SpriteListenerCrawl3.uasset'
+		)
+	}
 	elseif ($TankWaterOnly) {
 		@('Content\Prototype\Materials\M_TankWaterReveal.uasset')
 	}
@@ -275,6 +376,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $TankWaterOnly -or
 	}
 	else {
 		@(
+			'Content\Meshes\SM_SubmergedHoodieCurl.uasset',
+			'Content\Meshes\SM_SubmergedPantsCurl.uasset',
+			'Content\Meshes\SM_SubmergedSlippersCurl.uasset',
 			'Content\Prototype\Materials\M_SubmergedHoodieUV.uasset',
 			'Content\Prototype\Materials\M_SubmergedPantsUV.uasset',
 			'Content\Prototype\Materials\M_SubmergedSlippersUV.uasset',
@@ -295,6 +399,49 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $TankWaterOnly -or
 			@{
 				Script = 'generate_surface_textures.py'
 				SuccessPattern = '\[IndieGame\] Imported 5 textures'
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
+	elseif ($MissingFloorOnly) {
+		@(
+			@{
+				Script = 'generate_meshes.py'
+				SuccessPattern = '\[MESHGEN\] complete: 5/5 meshes'
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'generate_surface_textures.py'
+				SuccessPattern = '\[IndieGame\] Imported 32 textures'
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
+	elseif ($SubmergedClothingOnly) {
+		@(
+			@{
+				Script = 'generate_meshes.py'
+				SuccessPattern = '\[MESHGEN\] complete: 3/3 meshes'
 				TargetEnvironment = $true
 			},
 			@{
@@ -479,8 +626,16 @@ $requiredAssets = @(
 	'Content\Meshes\SM_InspectionRod.uasset',
 	'Content\Meshes\SM_CrackedPhone.uasset',
 	'Content\Meshes\SM_OfferingWaterBowl.uasset',
+	'Content\Meshes\SM_CupSleeve.uasset',
+	'Content\Meshes\SM_LabelSleeve.uasset',
+	'Content\Meshes\SM_StickyNote76mm.uasset',
 	'Content\Meshes\SM_AlleyCatRun.uasset',
 	'Content\Meshes\SM_FirstPersonHoodieSleeve.uasset',
+	'Content\Meshes\SM_ListenerEntityCrawl.uasset',
+	'Content\Meshes\SM_TuningHammer.uasset',
+	'Content\Meshes\SM_TunerToolCart.uasset',
+	'Content\Meshes\SM_ComplaintLedger.uasset',
+	'Content\Meshes\SM_CalendarJournal.uasset',
 	'Content\Meshes\SM_P3ServiceCabinetShell.uasset',
 	'Content\Meshes\SM_P3ServiceManifold.uasset',
 	'Content\Meshes\SM_P3ValveWheelLarge.uasset',
@@ -518,6 +673,39 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_TankWaterSurface_D.uasset',
 	'Content\Prototype\Textures\T_P3CabinetPaintedSteel_D.uasset',
 	'Content\Prototype\Textures\T_HudDialogueFilm_D.uasset',
+	'Content\Prototype\Textures\T_MissingFloorJournalPaper_D.uasset',
+	'Content\Prototype\Textures\T_MissingFloorDryPlaster_D.uasset',
+	'Content\Prototype\Textures\T_MissingFloorDryPlaster_N.uasset',
+	'Content\Prototype\Textures\T_MissingFloorDryPlaster_R.uasset',
+	'Content\Prototype\Textures\T_MissingFloorDryPlaster_A.uasset',
+	'Content\Prototype\Textures\T_MissingFloorHandprints_M.uasset',
+	'Content\Prototype\Textures\T_MissingFloorDragTrails_M.uasset',
+	'Content\Prototype\Textures\T_MissingFloorDustJoint_M.uasset',
+	'Content\Prototype\Textures\T_MissingFloorCavityScratches_M.uasset',
+	'Content\Prototype\Textures\T_SpriteSeo_D.uasset',
+	'Content\Prototype\Textures\T_SpriteMok_D.uasset',
+	'Content\Prototype\Textures\T_SpriteHwang_D.uasset',
+	'Content\Prototype\Textures\T_SpriteNarin_D.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerFront_D.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerFront_N.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerFront_R.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerFront_A.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl0_D.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl0_N.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl0_R.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl0_A.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl1_D.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl1_N.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl1_R.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl1_A.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl2_D.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl2_N.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl2_R.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl2_A.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl3_D.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl3_N.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl3_R.uasset',
+	'Content\Prototype\Textures\T_SpriteListenerCrawl3_A.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_N.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_R.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_A.uasset',
@@ -566,7 +754,30 @@ $requiredAssets = @(
 	'Content\Prototype\Materials\M_WetServiceHoseUV.uasset',
 	'Content\Prototype\Materials\M_WetRungPadUV.uasset',
 	'Content\Prototype\Materials\M_TankWaterReveal.uasset',
-	'Content\Prototype\Materials\M_P3CabinetMetalUV.uasset'
+	'Content\Prototype\Materials\M_P3CabinetMetalUV.uasset',
+	'Content\Prototype\Materials\M_MissingFloorListenerPlasterUV.uasset',
+	'Content\Prototype\Materials\M_MissingFloorPlaster_X.uasset',
+	'Content\Prototype\Materials\M_MissingFloorPlaster_Y.uasset',
+	'Content\Prototype\Materials\M_MissingFloorPlaster_XY.uasset',
+	'Content\Prototype\Materials\M_MissingFloorHandprints.uasset',
+	'Content\Prototype\Materials\M_MissingFloorDragTrails.uasset',
+	'Content\Prototype\Materials\M_MissingFloorDustJoint.uasset',
+	'Content\Prototype\Materials\M_MissingFloorCavityScratches.uasset',
+	'Content\Prototype\Materials\M_SpriteSeo.uasset',
+	'Content\Prototype\Materials\M_SpriteMok.uasset',
+	'Content\Prototype\Materials\M_SpriteHwang.uasset',
+	'Content\Prototype\Materials\M_SpriteNarin.uasset',
+	'Content\Prototype\Materials\M_SpriteListenerFront.uasset',
+	'Content\Prototype\Materials\M_SpriteListenerCrawl0.uasset',
+	'Content\Prototype\Materials\M_SpriteListenerCrawl1.uasset',
+	'Content\Prototype\Materials\M_SpriteListenerCrawl2.uasset',
+	'Content\Prototype\Materials\M_SpriteListenerCrawl3.uasset',
+	'Content\Prototype\Textures\T_NoteFridge_D.uasset',
+	'Content\Prototype\Textures\T_LabelWater_D.uasset',
+	'Content\Prototype\Textures\T_LabelRamyeon_D.uasset',
+	'Content\Prototype\Materials\M_NoteFridge.uasset',
+	'Content\Prototype\Materials\M_LabelWater.uasset',
+	'Content\Prototype\Materials\M_LabelRamyeon.uasset'
 )
 $missing = @(
 	$requiredAssets |
@@ -578,4 +789,4 @@ if ($missing.Count -gt 0) {
 	throw ('Art build finished but required assets are missing: ' + ($missing -join ', '))
 }
 
-Write-Host 'ART_BUILD PASS meshes=30 evidence_masks=4 material_masks=1 environment_overlays=4 material_scans=11 pbr_maps=38 uasset_audit=1'
+Write-Host 'ART_BUILD PASS meshes=32 evidence_masks=8 material_masks=1 environment_overlays=8 material_scans=12 pbr_maps=41 uasset_audit=1'

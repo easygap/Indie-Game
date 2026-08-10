@@ -1,6 +1,8 @@
 ﻿#include "Player/IGPlayerController.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
+#include "Audio/IGToneSequenceSoundWave.h"
+#include "AssetCompilingManager.h"
 #include "EnhancedInputSubsystems.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -28,6 +30,7 @@
 #include "Save/IGSaveSubsystem.h"
 #include "Sequence/IGSecondMorningDirector.h"
 #include "Sequence/IGThirdMorningDirector.h"
+#include "ShaderCompiler.h"
 
 namespace IGAccessibilityMenu
 {
@@ -89,6 +92,13 @@ void AIGPlayerController::BeginPlay()
 	{
 		StartFrontendShippingProbe();
 	}
+	else if (IsLocalController()
+		&& FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGMissingFloorJournalPreview")))
+	{
+		StartMissingFloorJournalPreviewProbe();
+	}
 }
 
 void AIGPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -105,9 +115,31 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 		TickFrontendShippingProbe();
 		return;
 	}
-	if (!bDisplaySettingsAwaitingConfirmation)
+	if (bMissingFloorJournalPreviewProbe)
+	{
+		TickMissingFloorJournalPreviewProbe();
+		return;
+	}
+	if (bJournalInputHeld && !bMissingFloorJournalVisible)
+	{
+		const UIGAccessibilitySubsystem* Accessibility =
+			GetAccessibilitySubsystem();
+		const double JournalHoldSeconds = 0.30 * (Accessibility
+			? Accessibility->GetHoldDurationScale()
+			: 1.0f);
+		if (FPlatformTime::Seconds() - JournalInputPressedAt >= JournalHoldSeconds)
+		{
+			bJournalInputHeld = false;
+			OpenMissingFloorJournal();
+		}
+	}
+	if (!bDisplaySettingsAwaitingConfirmation && !bJournalInputHeld)
 	{
 		SetActorTickEnabled(false);
+		return;
+	}
+	if (!bDisplaySettingsAwaitingConfirmation)
+	{
 		return;
 	}
 	const double Remaining = DisplayConfirmationDeadline - FPlatformTime::Seconds();
@@ -162,6 +194,24 @@ void AIGPlayerController::SetupInputComponent()
 		BindPausedAction(
 			TEXT("AccessibilityClose"),
 			&ThisClass::CloseAccessibilityMenu);
+		FInputActionBinding& JournalPressed = InputComponent->BindAction(
+			TEXT("Journal"),
+			IE_Pressed,
+			this,
+			&ThisClass::BeginJournalInput);
+		JournalPressed.bExecuteWhenPaused = true;
+		FInputActionBinding& JournalReleased = InputComponent->BindAction(
+			TEXT("Journal"),
+			IE_Released,
+			this,
+			&ThisClass::EndJournalInput);
+		JournalReleased.bExecuteWhenPaused = true;
+		BindPausedAction(
+			TEXT("JournalPrevious"),
+			&ThisClass::MoveMissingFloorJournalPageLeft);
+		BindPausedAction(
+			TEXT("JournalNext"),
+			&ThisClass::MoveMissingFloorJournalPageRight);
 		InputComponent->BindAction(
 			TEXT("RequestHint"),
 			IE_Pressed,
@@ -866,6 +916,202 @@ void AIGPlayerController::FailFrontendShippingProbe(const FString& Reason)
 	FPlatformMisc::RequestExitWithStatus(true, 2);
 }
 
+void AIGPlayerController::StartMissingFloorJournalPreviewProbe()
+{
+	const TCHAR* CommandLine = FCommandLine::Get();
+	FParse::Value(
+		CommandLine,
+		TEXT("IGJournalPreviewExpectedWidth="),
+		MissingFloorJournalPreviewExpectedWidth);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGJournalPreviewExpectedHeight="),
+		MissingFloorJournalPreviewExpectedHeight);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGJournalPreviewScreenshotPath="),
+		MissingFloorJournalPreviewScreenshotPath);
+	MissingFloorJournalPreviewScreenshotPath.TrimQuotesInline();
+	MissingFloorJournalPreviewScreenshotPath = FPaths::ConvertRelativePathToFull(
+		MissingFloorJournalPreviewScreenshotPath);
+	if (MissingFloorJournalPreviewExpectedWidth <= 0
+		|| MissingFloorJournalPreviewExpectedHeight <= 0
+		|| MissingFloorJournalPreviewScreenshotPath.IsEmpty())
+	{
+		FailMissingFloorJournalPreviewProbe(TEXT("arguments_missing"));
+		return;
+	}
+
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	if (!Narrative)
+	{
+		FailMissingFloorJournalPreviewProbe(TEXT("narrative_missing"));
+		return;
+	}
+	Narrative->ResetNarrative();
+	auto AddSource = [Narrative](
+		const EIGMissingFloorTruth Truth,
+		const EIGMissingFloorSource Source)
+	{
+		Narrative->RegisterTruthSource(Truth, Source);
+	};
+	AddSource(EIGMissingFloorTruth::LivedUpstairs,
+		EIGMissingFloorSource::MeterFifthDial);
+	AddSource(EIGMissingFloorTruth::LivedUpstairs,
+		EIGMissingFloorSource::MeterReadingSheet);
+	AddSource(EIGMissingFloorTruth::TenantIdentity,
+		EIGMissingFloorSource::ShippingLabels);
+	AddSource(EIGMissingFloorTruth::TenantIdentity,
+		EIGMissingFloorSource::TunerNotebookName);
+	AddSource(EIGMissingFloorTruth::NoiseWasHomecoming,
+		EIGMissingFloorSource::NoiseForumPosts);
+	AddSource(EIGMissingFloorTruth::NoiseWasHomecoming,
+		EIGMissingFloorSource::TunerWorkSchedule);
+	AddSource(EIGMissingFloorTruth::LandingStruggle,
+		EIGMissingFloorSource::ForumFinalPost);
+	AddSource(EIGMissingFloorTruth::LandingStruggle,
+		EIGMissingFloorSource::LandingImpactMark);
+	AddSource(EIGMissingFloorTruth::WallSealedThatDay,
+		EIGMissingFloorSource::BoardDeliveryReceipt);
+	AddSource(EIGMissingFloorTruth::WallSealedThatDay,
+		EIGMissingFloorSource::FreshPlasterDating);
+	AddSource(EIGMissingFloorTruth::FiveNightsOfThirst,
+		EIGMissingFloorSource::KnockTallyJournal);
+	AddSource(EIGMissingFloorTruth::FiveNightsOfThirst,
+		EIGMissingFloorSource::TankWaterAudition);
+
+	float RequestedTextScale = 1.0f;
+	FParse::Value(
+		CommandLine,
+		TEXT("IGJournalPreviewTextScale="),
+		RequestedTextScale);
+	if (UIGAccessibilitySubsystem* Accessibility =
+		GetAccessibilitySubsystem())
+	{
+		FIGAccessibilitySettings Settings = Accessibility->GetSettings();
+		Settings.CaptionSizeScale = FMath::Clamp(RequestedTextScale, 0.85f, 2.0f);
+		Accessibility->ApplySettings(Settings);
+	}
+
+	bMissingFloorJournalPreviewProbe = true;
+	bMissingFloorJournalPreviewScreenshotRequested = false;
+	bMissingFloorJournalPreviewCompilationDrained = false;
+	SystemMenuMode = EIGSystemMenuMode::Hidden;
+	bAccessibilityMenuVisible = false;
+	SetInputDevicePresentation(false);
+	// The production path pauses in OpenMissingFloorJournal. This probe keeps
+	// the world running until the GPU has produced and saved one evidence frame;
+	// pausing before the first offscreen present can starve the capture driver.
+	bMissingFloorJournalVisible = true;
+	MissingFloorJournalPage = 0;
+	ApplyMenuInputMode();
+	RefreshMenuHud();
+	IFileManager::Get().MakeDirectory(
+		*FPaths::GetPath(MissingFloorJournalPreviewScreenshotPath),
+		true);
+	const double Now = FPlatformTime::Seconds();
+	MissingFloorJournalPreviewNextActionTime = Now + 0.75;
+	MissingFloorJournalPreviewDeadline = Now + 8.0;
+	SetActorTickEnabled(true);
+}
+
+void AIGPlayerController::TickMissingFloorJournalPreviewProbe()
+{
+	const double Now = FPlatformTime::Seconds();
+	if (Now > MissingFloorJournalPreviewDeadline)
+	{
+		FailMissingFloorJournalPreviewProbe(TEXT("timeout"));
+		return;
+	}
+	if (Now < MissingFloorJournalPreviewNextActionTime)
+	{
+		return;
+	}
+	if (!bMissingFloorJournalPreviewCompilationDrained)
+	{
+		FAssetCompilingManager::Get().FinishAllCompilation();
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+		if (GEngine)
+		{
+			GEngine->bEnableOnScreenDebugMessages = false;
+		}
+		ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+		bMissingFloorJournalPreviewCompilationDrained = true;
+		MissingFloorJournalPreviewNextActionTime = Now + 0.40;
+		MissingFloorJournalPreviewDeadline = Now + 8.0;
+		return;
+	}
+	if (!bMissingFloorJournalPreviewScreenshotRequested)
+	{
+		const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+		FVector2D CanvasSize;
+		FVector2D BoundsMinimum;
+		FVector2D BoundsMaximum;
+		int32 ElementCount = 0;
+		bool bInsideCanvas = false;
+		uint64 FrameSerial = 0;
+		const bool bLayoutReady = HorrorHUD
+			&& HorrorHUD->IsMissingFloorJournalVisible()
+			&& HorrorHUD->GetLayoutValidationSample(
+				CanvasSize,
+				BoundsMinimum,
+				BoundsMaximum,
+				ElementCount,
+				bInsideCanvas,
+				FrameSerial)
+			&& FMath::Abs(
+				CanvasSize.X - MissingFloorJournalPreviewExpectedWidth) <= 1.0f
+			&& FMath::Abs(
+				CanvasSize.Y - MissingFloorJournalPreviewExpectedHeight) <= 1.0f
+			&& bInsideCanvas
+			&& ElementCount >= 12
+			&& FrameSerial > 0;
+		if (!bLayoutReady)
+		{
+			MissingFloorJournalPreviewNextActionTime = Now + 0.05;
+			return;
+		}
+		FScreenshotRequest::RequestScreenshot(
+			MissingFloorJournalPreviewScreenshotPath,
+			true,
+			false);
+		bMissingFloorJournalPreviewScreenshotRequested = true;
+		MissingFloorJournalPreviewNextActionTime = Now + 0.08;
+		return;
+	}
+	if (!FPaths::FileExists(MissingFloorJournalPreviewScreenshotPath))
+	{
+		MissingFloorJournalPreviewNextActionTime = Now + 0.05;
+		return;
+	}
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("MISSINGFLOOR_JOURNAL_PREVIEW PASS resolution=%dx%d path=%s"),
+		MissingFloorJournalPreviewExpectedWidth,
+		MissingFloorJournalPreviewExpectedHeight,
+		*MissingFloorJournalPreviewScreenshotPath);
+	bMissingFloorJournalPreviewProbe = false;
+	FPlatformMisc::RequestExitWithStatus(true, 0);
+}
+
+void AIGPlayerController::FailMissingFloorJournalPreviewProbe(
+	const FString& Reason) const
+{
+	UE_LOG(
+		LogTemp,
+		Error,
+		TEXT("MISSINGFLOOR_JOURNAL_PREVIEW FAIL reason=%s"),
+		*Reason);
+	FPlatformMisc::RequestExitWithStatus(true, 2);
+}
+
 bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
 	const bool bSuccess,
 	const FString& Reason) const
@@ -930,6 +1176,11 @@ bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
 
 void AIGPlayerController::ToggleSystemMenu()
 {
+	if (bMissingFloorJournalVisible)
+	{
+		CloseMissingFloorJournal();
+		return;
+	}
 	if (bAccessibilityMenuVisible)
 	{
 		CloseAccessibilityMenu();
@@ -972,6 +1223,11 @@ void AIGPlayerController::ToggleSystemMenu()
 
 void AIGPlayerController::ToggleAccessibilityMenu()
 {
+	if (bMissingFloorJournalVisible)
+	{
+		CloseMissingFloorJournal();
+		return;
+	}
 	if (bAccessibilityMenuVisible)
 	{
 		CloseAccessibilityMenu();
@@ -990,6 +1246,11 @@ void AIGPlayerController::ToggleAccessibilityMenu()
 
 void AIGPlayerController::CloseAccessibilityMenu()
 {
+	if (bMissingFloorJournalVisible)
+	{
+		CloseMissingFloorJournal();
+		return;
+	}
 	if (!bAccessibilityMenuVisible)
 	{
 		if (SystemMenuMode == EIGSystemMenuMode::Credits)
@@ -1022,6 +1283,141 @@ void AIGPlayerController::CloseAccessibilityMenu()
 	AccessibilityReturnMode = EIGSystemMenuMode::Hidden;
 	ApplyMenuInputMode();
 	RefreshMenuHud();
+}
+
+void AIGPlayerController::BeginJournalInput()
+{
+	if (bMissingFloorJournalVisible)
+	{
+		CloseMissingFloorJournal();
+		return;
+	}
+	if (bAccessibilityMenuVisible
+		|| SystemMenuMode != EIGSystemMenuMode::Hidden)
+	{
+		return;
+	}
+	if (IsMissingFloorNight())
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloorJournal",
+				"NightDenied",
+				"지금은 그럴 때가 아니다."),
+			2.2f);
+		return;
+	}
+	if (const UIGAccessibilitySubsystem* Accessibility =
+		GetAccessibilitySubsystem())
+	{
+		if (Accessibility->UsesToggleHoldInteractions())
+		{
+			OpenMissingFloorJournal();
+			return;
+		}
+	}
+
+	bJournalInputHeld = true;
+	JournalInputPressedAt = FPlatformTime::Seconds();
+	SetActorTickEnabled(true);
+}
+
+void AIGPlayerController::EndJournalInput()
+{
+	bJournalInputHeld = false;
+	if (!bDisplaySettingsAwaitingConfirmation)
+	{
+		SetActorTickEnabled(false);
+	}
+}
+
+void AIGPlayerController::OpenMissingFloorJournal()
+{
+	if (bMissingFloorJournalVisible || IsMissingFloorNight())
+	{
+		return;
+	}
+
+	bMissingFloorJournalVisible = true;
+	MissingFloorJournalPage = 0;
+	bGameWasPausedBeforeJournal = UGameplayStatics::IsGamePaused(this);
+	PlayMissingFloorJournalPaperSound(1.0f);
+	SetPause(true);
+	ApplyMenuInputMode();
+	RefreshMenuHud();
+}
+
+void AIGPlayerController::CloseMissingFloorJournal()
+{
+	if (!bMissingFloorJournalVisible)
+	{
+		return;
+	}
+
+	bMissingFloorJournalVisible = false;
+	bJournalInputHeld = false;
+	PlayMissingFloorJournalPaperSound(0.72f);
+	SetPause(bGameWasPausedBeforeJournal);
+	ApplyMenuInputMode();
+	RefreshMenuHud();
+}
+
+void AIGPlayerController::MoveMissingFloorJournalPage(const int32 Direction)
+{
+	if (!bMissingFloorJournalVisible || Direction == 0)
+	{
+		return;
+	}
+
+	const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+	const int32 PageCount = HorrorHUD
+		? FMath::Max(1, HorrorHUD->GetMissingFloorJournalPageCount())
+		: 1;
+	MissingFloorJournalPage =
+		(MissingFloorJournalPage + PageCount + FMath::Sign(Direction)) % PageCount;
+	PlayMissingFloorJournalPaperSound(0.58f);
+	RefreshMenuHud();
+}
+
+void AIGPlayerController::MoveMissingFloorJournalPageLeft()
+{
+	MoveMissingFloorJournalPage(-1);
+}
+
+void AIGPlayerController::MoveMissingFloorJournalPageRight()
+{
+	MoveMissingFloorJournalPage(1);
+}
+
+bool AIGPlayerController::IsMissingFloorNight() const
+{
+	if (const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+	{
+		if (HorrorHUD->IsNightPresentation())
+		{
+			return true;
+		}
+	}
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	return Narrative && Narrative->IsHourSealed();
+}
+
+void AIGPlayerController::PlayMissingFloorJournalPaperSound(
+	const float VolumeMultiplier) const
+{
+	if (UIGToneSequenceSoundWave* Paper =
+		UIGToneSequenceSoundWave::CreateJournalPageTurn(
+			const_cast<AIGPlayerController*>(this)))
+	{
+		UGameplayStatics::PlaySound2D(
+			this,
+			Paper,
+			FMath::Clamp(VolumeMultiplier, 0.0f, 1.0f));
+	}
 }
 
 void AIGPlayerController::MoveAccessibilitySelectionUp()
@@ -1092,6 +1488,27 @@ void AIGPlayerController::RequestManualHint()
 		|| !GetWorld())
 	{
 		return;
+	}
+	if (UGameInstance* GameInstance = GetGameInstance())
+	{
+		if (const UIGMissingFloorNarrativeSubsystem* MissingFloor =
+			GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>();
+			MissingFloor && MissingFloor->GetNightIndex() > 0)
+		{
+			// 없는 층 never reveals a puzzle answer from the default path.
+			// During the hour even this social nudge disappears with the HUD.
+			if (!MissingFloor->IsHourSealed())
+			{
+				AIGHorrorHUD::PushThought(
+					this,
+					NSLOCTEXT(
+						"IGMissingFloor",
+						"DayHintAskHwang",
+						"401호에 물어볼 수 있다."),
+					2.4f);
+			}
+			return;
+		}
 	}
 	for (TActorIterator<AIGThirdMorningDirector> It(GetWorld()); It; ++It)
 	{
@@ -1813,6 +2230,9 @@ void AIGPlayerController::RefreshMenuHud() const
 			DisplayConfirmationSecondsRemaining;
 		Presentation.StatusText = SystemMenuStatusText;
 		HorrorHUD->SetSystemMenuState(Presentation);
+		HorrorHUD->SetMissingFloorJournalState(
+			bMissingFloorJournalVisible,
+			MissingFloorJournalPage);
 		HorrorHUD->SetInputDevicePresentation(bUsingGamepadForHud);
 	}
 }
@@ -1826,10 +2246,12 @@ void AIGPlayerController::SetInputDevicePresentation(const bool bUsingGamepad)
 
 void AIGPlayerController::ApplyMenuInputMode()
 {
-	const bool bMenuVisible = bAccessibilityMenuVisible
+	const bool bPointerMenuVisible = bAccessibilityMenuVisible
 		|| SystemMenuMode != EIGSystemMenuMode::Hidden;
-	bShowMouseCursor = bMenuVisible && !bUsingGamepadForHud;
-	if (bMenuVisible)
+	const bool bInputLayerVisible = bPointerMenuVisible
+		|| bMissingFloorJournalVisible;
+	bShowMouseCursor = bPointerMenuVisible && !bUsingGamepadForHud;
+	if (bInputLayerVisible)
 	{
 		FInputModeGameAndUI InputMode;
 		InputMode.SetHideCursorDuringCapture(false);

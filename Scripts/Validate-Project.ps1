@@ -51,6 +51,7 @@ $requiredFiles = @(
 	'Content/Prototype/Materials/M_SnackBlue.uasset',
 	'Content/Prototype/Materials/M_CupNoodle.uasset',
 	'Content/SourceArt/AI/SheetPaperNotes_v2.png',
+	'Content/SourceArt/AI/SheetSubmergedBodyAnatomyReference_v2.png',
 	'Content/SourceArt/AI/ApplicationIcon_raw.png',
 	'Content/SourceArt/AI/DialogueHUDConcept_v1.png',
 	'Content/SourceArt/AI/TextureHudDialogueFilm.png',
@@ -1140,9 +1141,9 @@ foreach ($requiredChapterThreeEvidenceInvariant in @(
 	}
 }
 foreach ($requiredTankRevealInvariant in @(
-	'AuthoredTankBodyPlacement(-90.0f, 0.0f, 542.0f)',
-	'AuthoredTankBodyRotation(0.0f, 90.0f, 0.0f)',
-	'AuthoredSleeveStitchLocalBase(23.0f, -25.0f, 13.0f)',
+	'AuthoredTankBodyPlacement(-88.0f, 0.0f, 542.0f)',
+	'AuthoredTankBodyRotation(0.0f, 70.0f, 0.0f)',
+	'AuthoredSleeveStitchLocalBase(8.0f, -27.0f, 15.2f)',
 	'GetAuthoredSleeveStitchFocusOffset()',
 	'Tank + FVector(-151.0f, 45.0f, 580.0f)',
 	'FRotator(90.0f, 0.0f, 0.0f)',

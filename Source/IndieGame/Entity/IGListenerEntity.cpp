@@ -98,6 +98,8 @@ void AIGListenerEntity::Tick(const float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	StateSeconds += DeltaSeconds;
 	TickState(DeltaSeconds);
+	UpdatePresentationLayer();
+	UpdatePresentationPose(LastMoveSpeed, DeltaSeconds);
 	UpdateDragLoop(LastMoveSpeed);
 	UpdateThreatPressure();
 	LastMoveSpeed = 0.0f;
@@ -141,6 +143,13 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 
 	case EIGListenerState::Patrolling:
 		bReactingToSound = false;
+		break;
+
+	case EIGListenerState::Waiting:
+		// The learned family answer does not stun a monster. It makes Doha
+		// plant both elbows and listen like a person expecting the next knock.
+		ListenerPhase = 1.0f;
+		ListenerPhaseIndex = INDEX_NONE;
 		break;
 
 	default:
@@ -531,6 +540,104 @@ const FVector* AIGListenerEntity::CurrentPatrolTarget() const
 
 void AIGListenerEntity::BuildGreyboxBody()
 {
+	// The release path is one authored static crawl pose built from the
+	// ImageGen anatomy sheet. It keeps contact shadow, flashlight parallax and
+	// a continuous human silhouette; the primitive assembly below is a safe
+	// editor/source-only fallback while generated assets are unavailable.
+	if (UStaticMesh* ListenerMesh = LoadObject<UStaticMesh>(
+			nullptr,
+			TEXT("/Game/Meshes/SM_ListenerEntityCrawl.SM_ListenerEntityCrawl")))
+	{
+		UStaticMeshComponent* Component = NewObject<UStaticMeshComponent>(
+			this, TEXT("ListenerBody"));
+		Component->RegisterComponent();
+		Component->AttachToComponent(
+			Body, FAttachmentTransformRules::KeepRelativeTransform);
+		Component->SetStaticMesh(ListenerMesh);
+		// The capsule origin is 58 cm above the floor. The authored shell's
+		// lowest shoe is Z=-31, so -27 is the exact contact offset; leaving the
+		// identity transform made the whole person visibly float.
+		Component->SetRelativeLocation(FVector(0.0f, 0.0f, -27.0f));
+		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Component->SetCanEverAffectNavigation(false);
+		Component->SetCastShadow(true);
+		if (UMaterialInterface* PlasterMaterial = LoadObject<UMaterialInterface>(
+				nullptr,
+				TEXT("/Game/Prototype/Materials/"
+					 "M_MissingFloorListenerPlasterUV."
+					 "M_MissingFloorListenerPlasterUV")))
+		{
+			Component->SetMaterial(0, PlasterMaterial);
+		}
+		ListenerShell = Component;
+		BodyBlocks.Add(Component);
+
+		// The chase is staged head-on in a long, narrow corridor. Preserve the
+		// human anatomy from the approved ImageGen front view with one lit,
+		// masked PBR layer at that authored angle. The continuous 3D shell stays
+		// hidden-but-shadow-casting underneath, so the card never creates a flat
+		// rectangular shadow and the floor contact remains physically grounded.
+		UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(
+			nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
+		UMaterialInterface* FrontMaterial = LoadObject<UMaterialInterface>(
+			nullptr,
+			TEXT("/Game/Prototype/Materials/M_SpriteListenerFront."
+				 "M_SpriteListenerFront"));
+		static const TCHAR* PhaseMaterialPaths[] = {
+			TEXT("/Game/Prototype/Materials/M_SpriteListenerCrawl0."
+				 "M_SpriteListenerCrawl0"),
+			TEXT("/Game/Prototype/Materials/M_SpriteListenerCrawl1."
+				 "M_SpriteListenerCrawl1"),
+			TEXT("/Game/Prototype/Materials/M_SpriteListenerCrawl2."
+				 "M_SpriteListenerCrawl2"),
+			TEXT("/Game/Prototype/Materials/M_SpriteListenerCrawl3."
+				 "M_SpriteListenerCrawl3"),
+		};
+		for (const TCHAR* PhasePath : PhaseMaterialPaths)
+		{
+			if (UMaterialInterface* PhaseMaterial =
+				LoadObject<UMaterialInterface>(nullptr, PhasePath))
+			{
+				ListenerPhaseMaterials.Add(PhaseMaterial);
+			}
+		}
+		if (ListenerPhaseMaterials.Num() != UE_ARRAY_COUNT(PhaseMaterialPaths))
+		{
+			// Never advance a partial sequence: one absent phase would make the
+			// identity and lighting flash. The approved still is a safe fallback.
+			ListenerPhaseMaterials.Reset();
+		}
+		UMaterialInterface* CardMaterial =
+			ListenerPhaseMaterials.Num() > 0
+				? ListenerPhaseMaterials[0].Get()
+				: FrontMaterial;
+		if (PlaneMesh && CardMaterial)
+		{
+			UStaticMeshComponent* FrontCard = NewObject<UStaticMeshComponent>(
+				this, TEXT("ListenerFrontCard"));
+			FrontCard->RegisterComponent();
+			FrontCard->AttachToComponent(
+				Body, FAttachmentTransformRules::KeepRelativeTransform);
+			FrontCard->SetStaticMesh(PlaneMesh);
+			FrontCard->SetMaterial(0, CardMaterial);
+			// Roll makes texture V vertical; +90 yaw makes the plane normal
+			// follow the pawn's +X forward axis. At 85 cm card height the crop's
+			// lower 9% margin resolves to the floor at this exact center height.
+			// A 128 cm width stays inside the 4F corridor instead of clipping
+			// through a dwelling wall when the patrol line hugs one side.
+			FrontCard->SetRelativeLocation(FVector(38.0f, 0.0f, -23.0f));
+			FrontCard->SetRelativeRotation(FRotator(0.0f, 90.0f, 90.0f));
+			FrontCard->SetRelativeScale3D(FVector(1.28f, 0.85f, 1.0f));
+			FrontCard->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			FrontCard->SetCanEverAffectNavigation(false);
+			FrontCard->SetCastShadow(false);
+			FrontCard->SetHiddenInGame(true);
+			ListenerFrontCard = FrontCard;
+			BodyBlocks.Add(FrontCard);
+		}
+		return;
+	}
+
 	UStaticMesh* Cube =
 		LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
 	UStaticMesh* Sphere =
@@ -577,8 +684,7 @@ void AIGListenerEntity::BuildGreyboxBody()
 		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Component->SetCanEverAffectNavigation(false);
 
-		// Plaster-white stand-in until the M6 material pass: bone-grey,
-		// fully rough, so it reads matte and dusty under a flashlight.
+		// Source-only fallback: bone-grey and fully rough under a flashlight.
 		if (UMaterialInterface* BaseMaterial = Component->GetMaterial(0))
 		{
 			UMaterialInstanceDynamic* Mid =
@@ -589,6 +695,113 @@ void AIGListenerEntity::BuildGreyboxBody()
 		}
 		BodyBlocks.Add(Component);
 	}
+}
+
+void AIGListenerEntity::UpdatePresentationLayer()
+{
+	if (!ListenerShell || !ListenerFrontCard)
+	{
+		return;
+	}
+
+	if (!CachedPlayer.IsValid())
+	{
+		for (TActorIterator<AIGPlayerCharacter> It(GetWorld()); It; ++It)
+		{
+			CachedPlayer = *It;
+			break;
+		}
+	}
+
+	const APawn* Player = CachedPlayer.Get();
+	bool bUseFrontCard = false;
+	if (Player)
+	{
+		FVector ToPlayer = Player->GetActorLocation() - GetActorLocation();
+		ToPlayer.Z = 0.0f;
+		const float Distance = ToPlayer.Size();
+		const float Facing = Distance > KINDA_SMALL_NUMBER
+			? FVector::DotProduct(GetActorForwardVector(), ToPlayer / Distance)
+			: 1.0f;
+
+		// Hysteresis prevents one-frame popping at either threshold. The PBR
+		// layer remains over the grounded 3D shadow shell through the narrow
+		// head-on chase, then yields before the 110 cm capture boundary or as
+		// soon as the player gets a readable side angle.
+		if (bFrontCardActive)
+		{
+			bUseFrontCard = Distance > 125.0f && Facing > 0.35f;
+		}
+		else
+		{
+			bUseFrontCard = Distance > 160.0f && Facing > 0.60f;
+		}
+	}
+
+	if (bUseFrontCard == bFrontCardActive)
+	{
+		return;
+	}
+	bFrontCardActive = bUseFrontCard;
+	ListenerFrontCard->SetHiddenInGame(!bFrontCardActive);
+	ListenerShell->SetHiddenInGame(bFrontCardActive);
+	ListenerShell->SetCastHiddenShadow(bFrontCardActive);
+}
+
+void AIGListenerEntity::UpdatePresentationPose(
+	const float CurrentSpeed,
+	const float DeltaSeconds)
+{
+	if (!ListenerShell || !ListenerFrontCard)
+	{
+		return;
+	}
+
+	// Smooth speed before it controls cadence. A single blocked sweep must not
+	// snap a crawling shoulder from full extension straight into an idle pose.
+	PresentationSpeed = State == EIGListenerState::Waiting
+		? 0.0f
+		: FMath::FInterpTo(
+			PresentationSpeed, CurrentSpeed, DeltaSeconds, 7.5f);
+	const float SpeedAlpha = FMath::Clamp(
+		PresentationSpeed / FMath::Max(ChaseSpeed, 1.0f), 0.0f, 1.0f);
+	if (SpeedAlpha > 0.01f)
+	{
+		const float FramesPerSecond = FMath::Lerp(1.6f, 6.0f, SpeedAlpha);
+		ListenerPhase = FMath::Fmod(
+			ListenerPhase + DeltaSeconds * FramesPerSecond, 4.0f);
+	}
+
+	if (ListenerPhaseMaterials.Num() == 4)
+	{
+		const int32 PhaseIndex =
+			FMath::Clamp(FMath::FloorToInt(ListenerPhase), 0, 3);
+		if (PhaseIndex != ListenerPhaseIndex)
+		{
+			ListenerFrontCard->SetMaterial(
+				0, ListenerPhaseMaterials[PhaseIndex]);
+			ListenerPhaseIndex = PhaseIndex;
+		}
+	}
+
+	// The source poses supply elbow/leg changes. These sub-centimetre motions
+	// blend their weight across frames without lifting the crop from the floor.
+	const float TimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
+	const float Breath = FMath::Sin(TimeSeconds * 1.35f);
+	const float Stride = FMath::Sin(ListenerPhase * HALF_PI);
+	const float WeightShift = Stride * SpeedAlpha;
+	ListenerFrontCard->SetRelativeLocation(FVector(
+		38.0f,
+		WeightShift * 1.6f,
+		-23.0f + Breath * 0.18f));
+	ListenerFrontCard->SetRelativeRotation(FRotator(
+		0.0f,
+		90.0f + WeightShift * 0.6f,
+		90.0f + WeightShift * 0.9f));
+	ListenerShell->SetRelativeLocation(FVector(
+		0.0f, WeightShift * 0.55f, -27.0f));
+	ListenerShell->SetRelativeRotation(FRotator(
+		0.0f, WeightShift * 0.3f, 0.0f));
 }
 
 void AIGListenerEntity::PlayKnockTriple()

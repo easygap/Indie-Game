@@ -2,6 +2,27 @@
 
 namespace IGMissingFloorNarrative
 {
+	const FName NightFourDrain(TEXT("P5.RoofCleaningDrain"));
+	const FName NightFourFloatBypass(TEXT("P5.RoofFloatBypass"));
+	const FName NightFourTransferPump(TEXT("P5.TransferPump"));
+	const FName EndingA(TEXT("Ending.A"));
+	const FName EndingB(TEXT("Ending.B"));
+	const FName EndingC(TEXT("Ending.C"));
+
+	static bool IsNightFourControl(const FName ControlId)
+	{
+		return ControlId == NightFourDrain
+			|| ControlId == NightFourFloatBypass
+			|| ControlId == NightFourTransferPump;
+	}
+
+	static bool IsEnding(const FName EndingId)
+	{
+		return EndingId == EndingA
+			|| EndingId == EndingB
+			|| EndingId == EndingC;
+	}
+
 	/**
 	 * One evidence category: any one of these records satisfies it. Most
 	 * categories hold a single record; T6's location category holds two
@@ -188,6 +209,12 @@ namespace IGMissingFloorNarrative
 			return TEXT("Office.EvictionWarning");
 		case EIGMissingFloorSource::BreakerCutIntervention:
 			return TEXT("Fifth.BreakerCutIntervention");
+		case EIGMissingFloorSource::AnswerRhythmVoicemail:
+			return TEXT("Phone.AnswerRhythmVoicemail");
+		case EIGMissingFloorSource::AnswerRhythmNotebook:
+			return TEXT("Fifth.AnswerRhythmNotebook");
+		case EIGMissingFloorSource::AnswerRhythmJournal:
+			return TEXT("Unit401.AnswerRhythmJournal");
 		default:
 			return nullptr;
 		}
@@ -345,6 +372,78 @@ bool UIGMissingFloorNarrativeSubsystem::IsPuzzleSolved(const FName PuzzleId) con
 	return Snapshot.Night.SolvedPuzzles.Contains(PuzzleId);
 }
 
+bool UIGMissingFloorNarrativeSubsystem::ActivateNightFourControl(
+	const FName ControlId)
+{
+	if (!IGMissingFloorNarrative::IsNightFourControl(ControlId)
+		|| Snapshot.Night.NightFourControlOrder.Contains(ControlId))
+	{
+		return false;
+	}
+	Snapshot.Night.NightFourControlOrder.Add(ControlId);
+	return true;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::HasNightFourControl(
+	const FName ControlId) const
+{
+	return IGMissingFloorNarrative::IsNightFourControl(ControlId)
+		&& Snapshot.Night.NightFourControlOrder.Contains(ControlId);
+}
+
+bool UIGMissingFloorNarrativeSubsystem::IsNightFourMaskRunning() const
+{
+	return HasNightFourControl(IGMissingFloorNarrative::NightFourDrain)
+		&& HasNightFourControl(IGMissingFloorNarrative::NightFourFloatBypass)
+		&& HasNightFourControl(IGMissingFloorNarrative::NightFourTransferPump);
+}
+
+int32 UIGMissingFloorNarrativeSubsystem::RecordNightFourWallStrike()
+{
+	Snapshot.Night.NightFourWallStrikeCount = FMath::Clamp(
+		Snapshot.Night.NightFourWallStrikeCount + 1,
+		0,
+		5);
+	return Snapshot.Night.NightFourWallStrikeCount;
+}
+
+void UIGMissingFloorNarrativeSubsystem::SetNightFourWallOpened(
+	const bool bOpened)
+{
+	Snapshot.Night.bNightFourWallOpened = bOpened;
+	if (bOpened)
+	{
+		Snapshot.Night.NightFourWallStrikeCount = 5;
+	}
+}
+
+void UIGMissingFloorNarrativeSubsystem::SetFirstReportMade(const bool bMade)
+{
+	Snapshot.Night.bFirstReportMade = bMade;
+}
+
+void UIGMissingFloorNarrativeSubsystem::SetSecondReportMade(const bool bMade)
+{
+	Snapshot.Night.bSecondReportMade = bMade;
+}
+
+void UIGMissingFloorNarrativeSubsystem::SetFifthDawnInterludeCompleted(
+	const bool bCompleted)
+{
+	Snapshot.Night.bFifthDawnInterludeCompleted = bCompleted;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::SelectEnding(const FName EndingId)
+{
+	if (!IGMissingFloorNarrative::IsEnding(EndingId)
+		|| !Snapshot.Night.EndingChoice.IsNone())
+	{
+		return false;
+	}
+	Snapshot.Night.EndingChoice = EndingId;
+	return true;
+}
+
 // -- persistence -----------------------------------------------------------
 
 void UIGMissingFloorNarrativeSubsystem::RestoreSnapshot(
@@ -369,6 +468,11 @@ void UIGMissingFloorNarrativeSubsystem::RestoreSnapshot(
 void UIGMissingFloorNarrativeSubsystem::ResetNarrative()
 {
 	Snapshot = FIGMissingFloorNarrativeSnapshot();
+	// The opening voicemail is character memory, not a collectible. Seed it on
+	// reset as well as restore so a new-game reset cannot erase knowledge that
+	// the prologue has already established before the first playable frame.
+	NormalizeSnapshot();
+	RecomputeConfirmations(/*bBroadcastNewlyConfirmed=*/false);
 	Snapshot.SchemaVersion = SnapshotSchemaVersion;
 }
 
@@ -448,7 +552,12 @@ void UIGMissingFloorNarrativeSubsystem::NormalizeSnapshot()
 		for (int32 SourceIndex = Record.SourceIds.Num() - 1; SourceIndex >= 0; --SourceIndex)
 		{
 			bool bRecognized = false;
-			for (uint8 Raw = 1; Raw <= static_cast<uint8>(EIGMissingFloorSource::BreakerCutIntervention); ++Raw)
+			// The three P4 provenance rows are real serialized sources too. The
+			// previous upper bound stopped at BreakerCutIntervention and silently
+			// discarded voicemail/notebook/journal on every restore.
+			for (uint8 Raw = 1;
+				Raw <= static_cast<uint8>(EIGMissingFloorSource::AnswerRhythmJournal);
+				++Raw)
 			{
 				if (Record.SourceIds[SourceIndex]
 					== GetSourceId(static_cast<EIGMissingFloorSource>(Raw)))
@@ -464,12 +573,56 @@ void UIGMissingFloorNarrativeSubsystem::NormalizeSnapshot()
 		}
 	}
 
+	// The opening voicemail is guaranteed starting knowledge. Save loading may
+	// finish after the night-three fixtures configure, so relying on that actor
+	// to register the source creates an order-dependent loss on real resumes.
+	// Restoring the baseline here keeps old, empty and current saves equivalent
+	// without confirming T9: the reply is still a separate required category.
+	const FGameplayTag AnswerTruthTag =
+		GetTruthTag(EIGMissingFloorTruth::WaitingForAnAnswer);
+	const FName VoicemailSourceId =
+		GetSourceId(EIGMissingFloorSource::AnswerRhythmVoicemail);
+	if (AnswerTruthTag.IsValid() && !VoicemailSourceId.IsNone())
+	{
+		FIGMissingFloorTruthRecord* AnswerRecord = FindRecord(AnswerTruthTag);
+		if (!AnswerRecord)
+		{
+			FIGMissingFloorTruthRecord NewRecord;
+			NewRecord.TruthTag = AnswerTruthTag;
+			AnswerRecord =
+				&Snapshot.Truths[Snapshot.Truths.Add(MoveTemp(NewRecord))];
+		}
+		AnswerRecord->SourceIds.AddUnique(VoicemailSourceId);
+	}
+
 	Snapshot.Night.NightIndex = FMath::Clamp(Snapshot.Night.NightIndex, 0, 4);
 	Snapshot.Night.AggressionTier =
 		FMath::Clamp(Snapshot.Night.AggressionTier, 0, 3);
 	Snapshot.Night.CaptureCount = FMath::Max(Snapshot.Night.CaptureCount, 0);
 	Snapshot.Night.NightElapsedSeconds =
 		FMath::Max(Snapshot.Night.NightElapsedSeconds, 0.0f);
+
+	TArray<FName> NormalizedControls;
+	for (const FName ControlId : Snapshot.Night.NightFourControlOrder)
+	{
+		if (IGMissingFloorNarrative::IsNightFourControl(ControlId))
+		{
+			NormalizedControls.AddUnique(ControlId);
+		}
+	}
+	Snapshot.Night.NightFourControlOrder = MoveTemp(NormalizedControls);
+	Snapshot.Night.NightFourWallStrikeCount = FMath::Clamp(
+		Snapshot.Night.NightFourWallStrikeCount,
+		0,
+		5);
+	if (Snapshot.Night.bNightFourWallOpened)
+	{
+		Snapshot.Night.NightFourWallStrikeCount = 5;
+	}
+	if (!IGMissingFloorNarrative::IsEnding(Snapshot.Night.EndingChoice))
+	{
+		Snapshot.Night.EndingChoice = NAME_None;
+	}
 }
 
 FIGMissingFloorTruthRecord* UIGMissingFloorNarrativeSubsystem::FindRecord(

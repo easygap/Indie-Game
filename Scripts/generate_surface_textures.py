@@ -18,7 +18,10 @@ PROJECT_DIR = unreal.SystemLibrary.get_project_directory()
 SOURCE_ART_DIR = os.path.join(PROJECT_DIR, "Content", "SourceArt")
 TEXTURE_PACKAGE_ROOT = "/Game/Prototype/Textures"
 HUD_UI_ONLY = os.environ.get("IG_HUD_UI_ONLY") == "1"
-HUD_UI_TEXTURE_NAME = "T_HudDialogueFilm_D"
+HUD_UI_TEXTURE_NAMES = {
+    "T_HudDialogueFilm_D",
+    "T_MissingFloorJournalPaper_D",
+}
 APARTMENT_VISUAL_ONLY = os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1"
 APARTMENT_VISUAL_TEXTURE_NAMES = {
     "T_ApartmentWallpaperV2_D",
@@ -26,6 +29,41 @@ APARTMENT_VISUAL_TEXTURE_NAMES = {
     "T_ApartmentWallpaperV2_R",
     "T_ApartmentWallpaperV2_A",
     "T_ApartmentWallPatina_M",
+}
+MISSING_FLOOR_ONLY = os.environ.get("IG_MISSING_FLOOR_ONLY") == "1"
+MISSING_FLOOR_TEXTURE_NAMES = {
+    "T_MissingFloorDryPlaster_D",
+    "T_MissingFloorDryPlaster_N",
+    "T_MissingFloorDryPlaster_R",
+    "T_MissingFloorDryPlaster_A",
+    "T_MissingFloorHandprints_M",
+    "T_MissingFloorDragTrails_M",
+    "T_MissingFloorDustJoint_M",
+    "T_MissingFloorCavityScratches_M",
+    "T_SpriteSeo_D",
+    "T_SpriteMok_D",
+    "T_SpriteHwang_D",
+    "T_SpriteNarin_D",
+    "T_SpriteListenerFront_D",
+    "T_SpriteListenerFront_N",
+    "T_SpriteListenerFront_R",
+    "T_SpriteListenerFront_A",
+    "T_SpriteListenerCrawl0_D",
+    "T_SpriteListenerCrawl0_N",
+    "T_SpriteListenerCrawl0_R",
+    "T_SpriteListenerCrawl0_A",
+    "T_SpriteListenerCrawl1_D",
+    "T_SpriteListenerCrawl1_N",
+    "T_SpriteListenerCrawl1_R",
+    "T_SpriteListenerCrawl1_A",
+    "T_SpriteListenerCrawl2_D",
+    "T_SpriteListenerCrawl2_N",
+    "T_SpriteListenerCrawl2_R",
+    "T_SpriteListenerCrawl2_A",
+    "T_SpriteListenerCrawl3_D",
+    "T_SpriteListenerCrawl3_N",
+    "T_SpriteListenerCrawl3_R",
+    "T_SpriteListenerCrawl3_A",
 }
 
 
@@ -437,14 +475,18 @@ def import_textures():
         for entry in os.listdir(SOURCE_ART_DIR)
         if entry.lower().endswith(".png")
         and (
-            (not HUD_UI_ONLY and not APARTMENT_VISUAL_ONLY)
+            (not HUD_UI_ONLY and not APARTMENT_VISUAL_ONLY and not MISSING_FLOOR_ONLY)
             or (
                 HUD_UI_ONLY
-                and os.path.splitext(entry)[0] == HUD_UI_TEXTURE_NAME
+                and os.path.splitext(entry)[0] in HUD_UI_TEXTURE_NAMES
             )
             or (
                 APARTMENT_VISUAL_ONLY
                 and os.path.splitext(entry)[0] in APARTMENT_VISUAL_TEXTURE_NAMES
+            )
+            or (
+                MISSING_FLOOR_ONLY
+                and os.path.splitext(entry)[0] in MISSING_FLOOR_TEXTURE_NAMES
             )
         )
     )
@@ -486,7 +528,7 @@ def import_textures():
             texture.set_editor_property(
                 "compression_settings", unreal.TextureCompressionSettings.TC_MASKS
             )
-        elif asset_name == "T_HudDialogueFilm_D":
+        elif asset_name in HUD_UI_TEXTURE_NAMES:
             # This texture is sampled in screen space. World streaming and
             # generated mips make its fine grain shimmer at changing UI scales.
             texture.set_editor_property(
@@ -498,7 +540,27 @@ def import_textures():
             texture.set_editor_property(
                 "mip_gen_settings", unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS
             )
+            texture.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
+            texture.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
             texture.set_editor_property("never_stream", True)
+        elif asset_name == "T_NoteFridge_D" or asset_name.startswith("T_Label"):
+            # Printed film and the 76 mm memo are inspected at oblique angles.
+            # Clamp the authored 0/1 borders; the World texture group's default
+            # sampler retains project-wide anisotropy without overriding it per asset.
+            texture.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
+            texture.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
+            texture.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
+            texture.set_editor_property("filter", unreal.TextureFilter.TF_DEFAULT)
+            texture.set_editor_property(
+                "mip_gen_settings", unreal.TextureMipGenSettings.TMGS_SHARPEN2
+            )
+        elif asset_name.startswith("T_Sprite"):
+            texture.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
+            texture.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
+            texture.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
+            texture.set_editor_property(
+                "mip_gen_settings", unreal.TextureMipGenSettings.TMGS_SHARPEN1
+            )
         imported.append(texture)
 
     if not asset_subsystem.save_loaded_assets(imported, False):
@@ -507,6 +569,6 @@ def import_textures():
 
 
 if __name__ == "__main__":
-    if not HUD_UI_ONLY and not APARTMENT_VISUAL_ONLY:
+    if not HUD_UI_ONLY and not APARTMENT_VISUAL_ONLY and not MISSING_FLOOR_ONLY:
         generate_surface_pngs()
     import_textures()

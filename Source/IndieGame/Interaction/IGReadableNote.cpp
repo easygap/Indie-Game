@@ -29,7 +29,8 @@ AIGReadableNote::AIGReadableNote()
 void AIGReadableNote::ConfigurePrototypeVisuals(
 	UStaticMesh* CubeMesh,
 	UMaterialInterface* PaperMaterial,
-	const FVector& PaperSize)
+	const FVector& PaperSize,
+	const bool bCastPresentationShadow)
 {
 	if (!CubeMesh)
 	{
@@ -39,9 +40,10 @@ void AIGReadableNote::ConfigurePrototypeVisuals(
 	PaperMesh->SetStaticMesh(CubeMesh);
 	PaperMesh->SetMaterial(0, PaperMaterial);
 	PaperMesh->SetRelativeScale3D(PaperSize / 100.0f);
-	// Paper is too thin to cast a meaningful shadow and doing so only
-	// produces shadow-map acne along the wall it is taped to.
-	PaperMesh->SetCastShadow(false);
+	// Loose wall paper stays shadowless to avoid acne; bound desk objects are
+	// thick enough that their contact shadow is the cue preventing them from
+	// reading as a card floating above the furniture.
+	PaperMesh->SetCastShadow(bCastPresentationShadow);
 }
 
 void AIGReadableNote::SetNoteText(const FText& InTitle, TArray<FText> InBodyLines)

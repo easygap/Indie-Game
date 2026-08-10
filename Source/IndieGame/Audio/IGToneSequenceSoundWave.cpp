@@ -443,6 +443,32 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCardboardDrag(UObject*
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateJournalPageTurn(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGJournalPageTurn"));
+	TArray<FIGToneNote> PaperNotes;
+
+	// A quiet, dry lift followed by two fingertip brushes. The cue deliberately
+	// avoids a tonal UI click: the journal is a physical object in the room,
+	// even though PlaySound2D marks this one-shot as pause-safe UI audio.
+	PaperNotes.Add({
+		0.000f, 0.170f, 3400.0f, 0.045f,
+		0.08f, 1.8f, EIGToneWaveform::ValueNoise});
+	PaperNotes.Add({
+		0.025f, 0.110f, 620.0f, 0.028f,
+		0.10f, 2.1f, EIGToneWaveform::ValueNoise});
+	PaperNotes.Add({
+		0.145f, 0.075f, 2100.0f, 0.038f,
+		0.05f, 2.4f, EIGToneWaveform::ValueNoise});
+	PaperNotes.Add({
+		0.205f, 0.050f, 1250.0f, 0.024f,
+		0.04f, 2.8f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(PaperNotes), false);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateStoreJingle(
 	UObject* Outer,
 	const float PitchSemitones,
@@ -1265,6 +1291,32 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCatShortMewl(UObject* 
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateTrappedBreathBed(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGTrappedBreathBed"));
+	constexpr float LoopLength = 5.2f;
+	TArray<FIGToneNote> Notes;
+
+	// Two asymmetric breaths. Value-noise is kept very low and banded by a
+	// sine body so it reads as air against cloth, not a white-noise generator.
+	Notes.Add({
+		0.35f, 1.05f, 182.0f, 0.055f,
+		0.36f, 1.25f, EIGToneWaveform::ValueNoise});
+	Notes.Add({
+		0.42f, 0.92f, 61.0f, 0.021f,
+		0.42f, 1.10f, EIGToneWaveform::Sine});
+	Notes.Add({
+		2.45f, 1.38f, 154.0f, 0.048f,
+		0.28f, 1.75f, EIGToneWaveform::ValueNoise});
+	Notes.Add({
+		2.55f, 1.14f, 54.0f, 0.018f,
+		0.34f, 1.55f, EIGToneWaveform::Sine});
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopLength);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockTriple(
 	UObject* Outer,
 	const float Muffle01)
@@ -1286,6 +1338,23 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockTriple(
 		KnockNotes.Add({Start, 0.030f, 1150.0f, Click, 0.020f, 1.2f, EIGToneWaveform::ValueNoise});
 	}
 
+	Wave->ConfigureNotes(MoveTemp(KnockNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockSingle(
+	UObject* Outer,
+	const float Muffle01)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGWallKnockSingle"));
+	TArray<FIGToneNote> KnockNotes;
+	const float Muffle = FMath::Clamp(Muffle01, 0.0f, 1.0f);
+	const float Click = FMath::Lerp(0.085f, 0.012f, Muffle);
+	const float Body = FMath::Lerp(0.360f, 0.300f, Muffle);
+	KnockNotes.Add({0.0f, 0.110f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sine});
+	KnockNotes.Add({0.0f, 0.060f, 176.0f, 0.130f, 0.006f, 2.0f, EIGToneWaveform::Sine});
+	KnockNotes.Add({0.0f, 0.030f, 1150.0f, Click, 0.020f, 1.2f, EIGToneWaveform::ValueNoise});
 	Wave->ConfigureNotes(MoveTemp(KnockNotes), false);
 	return Wave;
 }

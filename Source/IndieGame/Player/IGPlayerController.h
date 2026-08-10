@@ -43,6 +43,15 @@ private:
 	void ToggleSystemMenu();
 	void ToggleAccessibilityMenu();
 	void CloseAccessibilityMenu();
+	void BeginJournalInput();
+	void EndJournalInput();
+	void OpenMissingFloorJournal();
+	void CloseMissingFloorJournal();
+	void MoveMissingFloorJournalPage(int32 Direction);
+	void MoveMissingFloorJournalPageLeft();
+	void MoveMissingFloorJournalPageRight();
+	bool IsMissingFloorNight() const;
+	void PlayMissingFloorJournalPaperSound(float VolumeMultiplier = 1.0f) const;
 	void MoveAccessibilitySelectionUp();
 	void MoveAccessibilitySelectionDown();
 	void AdjustAccessibilityLeft();
@@ -103,6 +112,9 @@ private:
 		bool bExpectedContinuation);
 	void CompleteFrontendShippingProbe();
 	void FailFrontendShippingProbe(const FString& Reason);
+	void StartMissingFloorJournalPreviewProbe();
+	void TickMissingFloorJournalPreviewProbe();
+	void FailMissingFloorJournalPreviewProbe(const FString& Reason) const;
 	bool WriteFrontendShippingProbeReceipt(
 		bool bSuccess,
 		const FString& Reason) const;
@@ -121,6 +133,7 @@ private:
 
 	int32 AccessibilitySelection = 0;
 	int32 SystemMenuSelection = 0;
+	int32 MissingFloorJournalPage = 0;
 	EIGSystemMenuMode SystemMenuMode = EIGSystemMenuMode::Hidden;
 	EIGSystemMenuMode CreditsReturnMode = EIGSystemMenuMode::Title;
 	EIGSystemMenuMode DisplaySettingsReturnMode = EIGSystemMenuMode::Title;
@@ -134,6 +147,9 @@ private:
 	int32 DisplayConfirmationSecondsRemaining = 0;
 	bool bAccessibilityMenuVisible = false;
 	bool bGameWasPausedBeforeAccessibility = false;
+	bool bMissingFloorJournalVisible = false;
+	bool bJournalInputHeld = false;
+	bool bGameWasPausedBeforeJournal = false;
 	bool bUsingGamepadForHud = false;
 	bool bCompatibleAutosaveAvailable = false;
 	bool bNewGameConfirmationArmed = false;
@@ -143,6 +159,9 @@ private:
 	bool bSystemMenuStatusIsError = false;
 	bool bPreviousDisplayVSync = true;
 	bool bFrontendShippingProbe = false;
+	bool bMissingFloorJournalPreviewProbe = false;
+	bool bMissingFloorJournalPreviewScreenshotRequested = false;
+	bool bMissingFloorJournalPreviewCompilationDrained = false;
 	bool bFrontendDialogueDefaultVerified = false;
 	bool bFrontendDialogueVerified = false;
 	bool bFrontendDialogueSpeakerVerified = false;
@@ -153,14 +172,20 @@ private:
 	int32 FrontendProbeLayoutSampleCount = 0;
 	int32 FrontendProbeMinimumElementCount = MAX_int32;
 	int32 FrontendProbePressedEventCount = 0;
+	int32 MissingFloorJournalPreviewExpectedWidth = 0;
+	int32 MissingFloorJournalPreviewExpectedHeight = 0;
 	uint64 FrontendProbeAwaitFrameSerial = 0;
 	double FrontendProbeNextActionTime = 0.0;
 	double FrontendProbeStepDeadline = 0.0;
+	double MissingFloorJournalPreviewNextActionTime = 0.0;
+	double MissingFloorJournalPreviewDeadline = 0.0;
 	FVector2D FrontendProbeBoundsMin = FVector2D::ZeroVector;
 	FVector2D FrontendProbeBoundsMax = FVector2D::ZeroVector;
 	FString FrontendProbeDefaultScreenshotPath;
 	FString FrontendProbeScreenshotPath;
+	FString MissingFloorJournalPreviewScreenshotPath;
 	float PreviousDisplayFrameLimit = 60.0f;
 	double DisplayConfirmationDeadline = 0.0;
+	double JournalInputPressedAt = 0.0;
 	FText SystemMenuStatusText;
 };

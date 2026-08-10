@@ -171,6 +171,16 @@ MATERIALS = {
     },
 }
 
+INSTANCED_PRODUCT_MATERIALS = {
+    "M_BottleBrown",
+    "M_BottleGreen",
+    "M_CupNoodle",
+    "M_FridgeInterior",
+    "M_SnackBlue",
+    "M_SnackRed",
+    "M_SnackYellow",
+}
+
 
 def _connect_constant(material, expression_class, value, material_property):
     expression = unreal.MaterialEditingLibrary.create_material_expression(
@@ -209,6 +219,9 @@ def create_materials():
         )
         if material is None:
             raise RuntimeError(f"Could not create material: {asset_path}")
+
+        if name in INSTANCED_PRODUCT_MATERIALS:
+            material.set_editor_property("used_with_instanced_static_meshes", True)
 
         if "opacity" in settings:
             material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)

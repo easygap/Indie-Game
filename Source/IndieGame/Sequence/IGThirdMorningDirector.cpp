@@ -102,11 +102,20 @@ namespace IGThirdMorning
 	constexpr float TankInternalFloorZ = 381.0f;
 	constexpr float TankDeckUndersideZ = 596.0f;
 	constexpr float TankWaterSurfaceZ = 561.0f;
-	constexpr float TankBodyPlacementAdjustmentZ = -16.0f;
-	const FVector AuthoredTankBodyPlacement(-90.0f, 0.0f, 542.0f);
-	const FRotator AuthoredTankBodyRotation(0.0f, 90.0f, 0.0f);
-	const FVector AuthoredSleeveStitchLocalBase(23.0f, -25.0f, 13.0f);
-	const FVector AuthoredSleeveStitchLocalStep(2.5f, 1.2f, 0.0f);
+	// The highest hood vertex is local Z=20.46 cm. At this placement it remains
+	// 7.5 cm below the real water plane, while sitting high enough that the near
+	// hatch lip cannot amputate the legs in the player's sightline.
+	constexpr float TankBodyPlacementAdjustmentZ = -9.0f;
+	// Seventy degrees turns the bent-knee axis partly across the camera instead
+	// of straight into depth. The body still fits inside the 306 cm tank, but
+	// head, torso, knees and both feet now connect in the hatch silhouette.
+	const FVector AuthoredTankBodyPlacement(-88.0f, 0.0f, 542.0f);
+	const FRotator AuthoredTankBodyRotation(0.0f, 70.0f, 0.0f);
+	// The repaired seam follows the revised left forearm rather than floating at
+	// the old ellipsoid shoulder. Evidence focus and visible stitches both derive
+	// from these local coordinates.
+	const FVector AuthoredSleeveStitchLocalBase(8.0f, -27.0f, 15.2f);
+	const FVector AuthoredSleeveStitchLocalStep(1.8f, 1.2f, 0.0f);
 	static_assert(
 		TankDeckUndersideZ - TankInternalFloorZ == 215.0f,
 		"Tank internal height must remain 2.15 m");
@@ -3610,10 +3619,13 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		FLinearColor(0.36f, 0.42f, 0.48f),
 		false);
 	TankRevealRimLight = CreatePointLight(
-		Tank + FVector(-90, 38, 550),
+		// The black slides return beside the knees in the compact foetal pose. A
+		// small cool grazing light reveals sole, strap and ankle without flattening
+		// the torso or turning the whole tank into a lit display case.
+		Tank + FVector(-70, 82, 552),
 		0.0f,
 		250.0f,
-		FLinearColor(0.08f, 0.025f, 0.018f),
+		FLinearColor(0.22f, 0.27f, 0.33f),
 		false);
 	if (TankRevealKeyLight)
 	{
@@ -3917,9 +3929,9 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	bUsesAuthoredTankBody = bHasAuthoredBody;
 	if (bHasAuthoredBody)
 	{
-		// The hoodie crown peaks at local Z=18, leaving a shallow real water layer
-		// above every body group. All three groups share the hatch-aligned origin
-		// and therefore cannot drift apart.
+		// The revised hood crown peaks below local Z=21, leaving more than 14 cm
+		// of real water above the body. All three anatomical clothing groups share
+		// the hatch-aligned origin and therefore cannot drift apart.
 		AddBodyPiece(
 			AuthoredBodyPlacement,
 			FVector(100.0f),
@@ -4052,16 +4064,16 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	{
 		AddBodyPiece(
 			StitchBase + StitchStep * StitchIndex,
-			FVector(1.2f, 7.0f, 1.2f),
-			DarkConcreteMaterial,
+			FVector(0.8f, 3.2f, 0.5f),
+			SubmergedSlippersMaterial,
 			CubeMesh,
 			StitchRotation);
 	}
 	const FVector HeelWearLocation = bHasAuthoredBody
-		? RotateAuthoredBodyOffset(FVector(-50.0f, -39.0f, -1.0f))
+		? RotateAuthoredBodyOffset(FVector(31.5f, 6.0f, -6.0f))
 		: FVector(-120, -19, 548.5f);
 	const FRotator HeelWearRotation = bHasAuthoredBody
-		? RotateAuthoredBodyRotation(FRotator(0, 20, 0))
+		? RotateAuthoredBodyRotation(FRotator(0, 2, 0))
 		: FRotator(0, -19, 0);
 	AddBodyPiece(
 		HeelWearLocation,
@@ -4070,10 +4082,10 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		CubeMesh,
 		HeelWearRotation);
 	const FVector StripeBase = bHasAuthoredBody
-		? RotateAuthoredBodyOffset(FVector(-45.0f, -39.0f, 2.0f))
+		? RotateAuthoredBodyOffset(FVector(46.0f, 6.0f, 0.8f))
 		: FVector(-110.0f, -17.0f, 554.5f);
 	const FVector StripeStep = bHasAuthoredBody
-		? AuthoredBodyRotationQuat.RotateVector(FVector(2.7f, 0.9f, 0.0f))
+		? AuthoredBodyRotationQuat.RotateVector(FVector(2.4f, 0.0f, 0.0f))
 		: FVector(3.4f, 0.0f, 0.0f);
 	for (int32 StripeIndex = 0; StripeIndex < 3; ++StripeIndex)
 	{
@@ -7203,12 +7215,12 @@ void AIGThirdMorningDirector::ApplyTankRevealVisibility()
 	if (TankRevealKeyLight)
 	{
 		TankRevealKeyLight->SetVisibility(bCanIdentifyBody);
-		TankRevealKeyLight->SetIntensity(bCanIdentifyBody ? 1450.0f : 0.0f);
+		TankRevealKeyLight->SetIntensity(bCanIdentifyBody ? 1600.0f : 0.0f);
 	}
 	if (TankRevealRimLight)
 	{
 		TankRevealRimLight->SetVisibility(bCanIdentifyBody);
-		TankRevealRimLight->SetIntensity(bCanIdentifyBody ? 105.0f : 0.0f);
+		TankRevealRimLight->SetIntensity(bCanIdentifyBody ? 360.0f : 0.0f);
 	}
 	if (TObjectPtr<AIGChapterThreeAction>* ClothingEvidence =
 		EvidenceActions.Find(EIGChapterThreeAction::EvidenceTankClothing))
@@ -10777,8 +10789,12 @@ void AIGThirdMorningDirector::CaptureNextFrame()
 		HandleAction(EIGChapterThreeAction::EvidenceGlasses, GlassesAction);
 		HandleAction(EIGChapterThreeAction::OpenTank, TankLidAction);
 		PlaceCaptureCamera(
-			FVector(2285, -300, 690),
-			IGThirdMorning::TankCenter + FVector(-90, 0, 542));
+			// A player-height lean over the 104 cm hatch shows the complete curled
+			// chain without moving the camera inside the tank wall.
+			FVector(2315, -300, 725),
+			IGThirdMorning::TankCenter
+				+ IGThirdMorning::AuthoredTankBodyPlacement
+				+ FVector(0, 0, IGThirdMorning::TankBodyPlacementAdjustmentZ));
 		BaseName = TEXT("ch03-tank-reveal");
 		break;
 	default:

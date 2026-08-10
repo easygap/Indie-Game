@@ -9,6 +9,7 @@ Run with: UnrealEditor-Cmd <uproject> -ExecutePythonScript=.../generate_meshes.p
 """
 
 import math
+import os
 
 import unreal
 
@@ -48,6 +49,9 @@ NEW_ASSET = unreal.GeometryScript_NewAssetUtils
 NORMALS = find_library("normal")
 QUERIES = find_library("quer")
 UVS = find_library("uv")
+# MeshBasicEditFunctions is exported to Python under its ScriptName,
+# ``GeometryScript_MeshEdits`` (the C++ class name is not reflected verbatim).
+EDITS = getattr(unreal, "GeometryScript_MeshEdits", None)
 
 
 def new_mesh():
@@ -123,6 +127,87 @@ def cylinder(mesh, radius, height, location=(0.0, 0.0, 0.0), rotation=(0.0, 0.0,
         mesh, prim_options(), xf(location, rotation),
         radius, height, steps, 1, capped,
         unreal.GeometryScriptPrimitiveOriginMode.BASE)
+
+
+def append_indexed_surface(mesh, positions, normals, uvs, triangles):
+    """Append an explicitly indexed surface with authored 0..1 UVs.
+
+    Geometry Script's cylinder projection uses transform scale as its UV
+    dimensions. That is useful for architecture, but it silently turned thin
+    product sleeves into dozens of narrow texture islands. Printed packaging
+    needs a deterministic seam, so these small meshes carry their UVs directly.
+    """
+    if EDITS is None:
+        raise RuntimeError("Geometry Script basic-edit library is unavailable")
+
+    buffers = unreal.GeometryScriptSimpleMeshBuffers()
+    buffers.set_editor_property(
+        "vertices", [unreal.Vector(*position) for position in positions])
+    buffers.set_editor_property(
+        "normals", [unreal.Vector(*normal) for normal in normals])
+    buffers.set_editor_property(
+        "uv0", [unreal.Vector2D(*uv) for uv in uvs])
+    buffers.set_editor_property(
+        "triangles", [unreal.IntVector(*triangle) for triangle in triangles])
+    # Python omits the C++ output reference (NewTriangleIndicesList) from the
+    # call signature and returns it in a tuple, so MaterialID is argument 3.
+    EDITS.append_buffers_to_mesh(mesh, buffers, 0, False)
+    return mesh
+
+
+def append_wrapped_label_surface(mesh, rings, segments=64):
+    """Build a single outward-facing shrink sleeve with one clean back seam.
+
+    ``rings`` is a bottom-to-top sequence of ``(radius_cm, z_cm, v)``. A seam
+    vertex is deliberately duplicated at U=0/1; this is what lets panoramic
+    label artwork wrap exactly once without tearing across random triangles.
+    """
+    if len(rings) < 2:
+        raise ValueError("A wrapped label needs at least two profile rings")
+
+    positions = []
+    normals = []
+    uvs = []
+    triangles = []
+    ring_stride = segments + 1
+
+    for ring_index, (radius, z, v) in enumerate(rings):
+        if ring_index == 0:
+            adjacent_radius, adjacent_z, _ = rings[1]
+            radial_slope = (adjacent_radius - radius) / max(adjacent_z - z, 1.0e-4)
+        elif ring_index == len(rings) - 1:
+            previous_radius, previous_z, _ = rings[-2]
+            radial_slope = (radius - previous_radius) / max(z - previous_z, 1.0e-4)
+        else:
+            previous_radius, previous_z, _ = rings[ring_index - 1]
+            adjacent_radius, adjacent_z, _ = rings[ring_index + 1]
+            radial_slope = (adjacent_radius - previous_radius) / max(
+                adjacent_z - previous_z, 1.0e-4)
+
+        normal_z = -radial_slope
+        normal_length = math.sqrt(1.0 + normal_z * normal_z)
+        for segment in range(segments + 1):
+            u = segment / segments
+            angle = math.tau * u
+            cosine = math.cos(angle)
+            sine = math.sin(angle)
+            positions.append((cosine * radius, sine * radius, z))
+            normals.append((cosine / normal_length, sine / normal_length,
+                            normal_z / normal_length))
+            uvs.append((u, v))
+
+    for ring_index in range(len(rings) - 1):
+        lower = ring_index * ring_stride
+        upper = (ring_index + 1) * ring_stride
+        for segment in range(segments):
+            lower_left = lower + segment
+            lower_right = lower_left + 1
+            upper_left = upper + segment
+            upper_right = upper_left + 1
+            triangles.append((lower_left, lower_right, upper_right))
+            triangles.append((lower_left, upper_right, upper_left))
+
+    return append_indexed_surface(mesh, positions, normals, uvs, triangles)
 
 
 def sweep(mesh, polygon2d, path_points, steps_ignored=None):
@@ -213,6 +298,14 @@ HERO_MESHES = {
     "SM_P3ValveWheelSmall",
     "SM_P3PressureGauge",
     "SM_OfferingWaterBowl",
+    "SM_CupSleeve",
+    "SM_LabelSleeve",
+    "SM_StickyNote76mm",
+    "SM_ListenerEntityCrawl",
+    "SM_TuningHammer",
+    "SM_TunerToolCart",
+    "SM_ComplaintLedger",
+    "SM_CalendarJournal",
 }
 
 LARGE_PROP_PREFIXES = (
@@ -242,12 +335,13 @@ def apply_lod_contract(static_mesh, asset_name):
         log(f"  LOD group skipped for {asset_name}: {error}")
 
 
-def bake(mesh, asset_name, add_collision=True):
+def bake(mesh, asset_name, add_collision=True, weld_edges=True):
     """Bakes the dynamic mesh into /Game/Meshes/<asset_name>."""
-    weld_options = unreal.GeometryScriptWeldEdgesOptions()
-    weld_options.set_editor_property("tolerance", 0.01)
-    weld_options.set_editor_property("only_unique_pairs", False)
-    REPAIR.weld_mesh_edges(mesh, weld_options)
+    if weld_edges:
+        weld_options = unreal.GeometryScriptWeldEdgesOptions()
+        weld_options.set_editor_property("tolerance", 0.01)
+        weld_options.set_editor_property("only_unique_pairs", False)
+        REPAIR.weld_mesh_edges(mesh, weld_options)
     recompute_normals(mesh)
 
     options = unreal.GeometryScriptCreateNewStaticMeshAssetOptions()
@@ -301,13 +395,17 @@ def bake(mesh, asset_name, add_collision=True):
 # ---------------------------------------------------------------------------
 
 def build_water_bottle():
-    """500 mL PET bottle: ribbed base, gripped waist, shoulder, threaded neck."""
+    """500 mL PET bottle with a straight real-world label zone."""
     mesh = new_mesh()
     profile = [
-        (0.0, 0.0), (2.5, 0.0), (3.15, 0.7), (3.3, 1.8),
-        (3.05, 2.9), (3.3, 4.0), (3.05, 5.1), (3.3, 6.2),
-        (3.3, 9.4), (2.85, 10.6), (2.85, 11.6), (3.3, 12.8),
-        (3.3, 14.4), (2.75, 15.8), (1.95, 17.0), (1.5, 17.9),
+        (0.0, 0.0), (2.45, 0.0), (3.08, 0.45), (3.25, 1.10),
+        (3.25, 1.80), (3.06, 2.15), (3.25, 2.55),
+        (3.06, 3.35), (3.25, 3.75), (3.06, 4.55), (3.25, 4.95),
+        (3.08, 5.75), (3.25, 6.20),
+        # Commercial wrap labels sit on a straight band rather than bridging
+        # deep grip grooves, so the film can contact the PET all the way round.
+        (3.25, 7.15), (3.25, 12.85), (3.22, 14.10),
+        (2.78, 15.25), (2.02, 16.65), (1.5, 17.9),
         (1.42, 18.4), (1.6, 18.7), (1.42, 19.0), (1.6, 19.3),
         (1.42, 19.6), (1.68, 20.0), (1.5, 20.3), (0.0, 20.3),
     ]
@@ -381,34 +479,16 @@ def build_cup_sleeve():
     mesh and therefore shares material slot 0.
     """
     mesh = new_mesh()
-    # A closed cross-section, not a line: AppendRevolvePolygon needs at least
-    # three vertices, and a printed band has thickness anyway. Outer face sits
-    # 0.4 mm proud of the cup wall so it never z-fights the foam.
-    # UNIT sized, exactly like SM_LabelSleeve: base radius 1, top radius 1.28
-    # (the cup's own taper), height 1. The scene scales it to centimetres.
-    #
-    # This is not a style choice. The cylindrical UV projection normalises
-    # against the mesh's own extent, so a sleeve authored at real centimetres
-    # comes out with the artwork tiled dozens of times around the cup — which
-    # is exactly what happened: the label rendered as vertical red streaks.
-    # Authoring at unit size is what makes the bottle labels read, and the cup
-    # has to follow the same rule.
-    profile = [
-        (1.000, 0.0), (1.283, 1.0), (1.271, 1.0), (0.988, 0.0),
-    ]
-    revolve(mesh, profile, steps=48)
-
-    project = None
-    if UVS is not None:
-        project = (getattr(UVS, "set_mesh_u_vs_from_cylinder_projection", None)
-                   or getattr(UVS, "set_mesh_uvs_from_cylinder_projection", None))
-    if project is not None:
-        selection = unreal.GeometryScriptMeshSelection()
-        # Centre the projection on the band so V spans it 0..1.
-        project(mesh, 0, xf(location=(0.0, 0.0, 0.5)), selection, 89.0)
-    else:
-        log("  cylinder UV projection unavailable; cup sleeve UVs left as generated")
-    return bake(mesh, "SM_CupSleeve", add_collision=False)
+    # Real centimetres, matching the cup wall from local Z 1.6 to 8.8. The
+    # roughly 1 mm radial clearance is deliberate: the old sub-millimetre gap
+    # collapsed in the depth buffer and let the opaque foam cup erase its own
+    # printed film. V=1 is the bottom; V=0 is the top of the artwork.
+    append_wrapped_label_surface(
+        mesh,
+        [(4.18, 0.0, 1.0), (5.36, 7.2, 0.0)],
+        segments=64)
+    return bake(
+        mesh, "SM_CupSleeve", add_collision=False, weld_edges=False)
 
 
 def build_cup_lid():
@@ -482,10 +562,24 @@ def build_snack_bag():
 
 
 def build_alarm_clock():
-    """Clock radio: beveled shell, recessed LED face, button row, feet."""
+    """Clock radio with one continuous, load-bearing lower chassis.
+
+    Separate feet are physically plausible at inspection distance but, under
+    the nearby bedside lamp, their gap projected a second dark rectangle below
+    the clock and made it read as hovering.  The release silhouette therefore
+    uses the broad chassis itself as the contact surface.  Its exact -0.40 cm
+    lower bound is shared with runtime placement; there is no empty padding or
+    hidden air gap below the visible mesh.
+    """
     mesh = new_mesh()
     box(mesh, (13.0, 8.5, 6.4), location=(0.0, 0.0, 3.2))
     bevel_all(mesh, distance=0.5)
+
+    plinth = new_mesh()
+    box(plinth, (12.2, 7.7, 0.65), location=(0.0, 0.0, -0.075))
+    bevel_all(plinth, distance=0.16)
+    union(mesh, plinth)
+
     recess = new_mesh()
     box(recess, (9.6, 1.4, 4.2), location=(0.0, 4.3, 3.4))
     subtract(mesh, recess)
@@ -496,13 +590,6 @@ def build_alarm_clock():
         options = unreal.GeometryScriptMeshBooleanOptions()
         BOOL_LIB.apply_mesh_boolean(
             mesh, xf(), button, xf(),
-            unreal.GeometryScriptBooleanOperation.UNION, options)
-    for foot_x, foot_y in ((-5.0, -3.0), (5.0, -3.0), (-5.0, 3.0), (5.0, 3.0)):
-        foot = new_mesh()
-        cylinder(foot, 0.7, 0.5, location=(foot_x, foot_y, -0.4))
-        options = unreal.GeometryScriptMeshBooleanOptions()
-        BOOL_LIB.apply_mesh_boolean(
-            mesh, xf(), foot, xf(),
             unreal.GeometryScriptBooleanOperation.UNION, options)
     return bake(mesh, "SM_AlarmClock")
 
@@ -584,25 +671,53 @@ def build_label_sleeve():
     the circumference, which is exactly how the label art is authored.
     """
     mesh = new_mesh()
-    PRIM.append_cylinder(
-        mesh, prim_options(scale_to_fill=True), xf(), 1.0, 1.0, 48, 1, False,
-        unreal.GeometryScriptPrimitiveOriginMode.BASE)
+    append_wrapped_label_surface(
+        mesh,
+        [(1.0, 0.0, 1.0), (1.0, 1.0, 0.0)],
+        segments=64)
+    return bake(
+        mesh, "SM_LabelSleeve", add_collision=False, weld_edges=False)
 
-    # AppendCylinder ignores the ScaleToFill UV mode, so its UVs come out
-    # scaled by world size — on a unit cylinder that collapses the whole
-    # label into one texel. Project them explicitly instead: U wraps the
-    # axis once, V runs 0..1 up the band.
-    # The binding spells UVs as "u_vs"; accept either form.
-    project = None
-    if UVS is not None:
-        project = (getattr(UVS, "set_mesh_u_vs_from_cylinder_projection", None)
-                   or getattr(UVS, "set_mesh_uvs_from_cylinder_projection", None))
-    if project is not None:
-        selection = unreal.GeometryScriptMeshSelection()
-        project(mesh, 0, xf(location=(0.0, 0.0, 0.5)), selection, 89.0)
-    else:
-        log("  cylinder UV projection unavailable; sleeve UVs left as generated")
-    return bake(mesh, "SM_LabelSleeve", add_collision=False)
+
+def build_sticky_note_76mm():
+    """A 76 mm adhesive note: top edge flush, lower edge barely released."""
+    mesh = new_mesh()
+    columns = 6
+    rows = 8
+    width = 7.6
+    height = 7.6
+    positions = []
+    normals = []
+    uvs = []
+    triangles = []
+
+    for row in range(rows + 1):
+        v = row / rows
+        release = max(0.0, (v - 0.72) / 0.28)
+        # Only the unglued lower 21 mm lifts, peaking at 1.8 mm. This remains
+        # a memo sheet, not the thick card that the old cube implied.
+        outward_x = -0.18 * release * release
+        for column in range(columns + 1):
+            u = column / columns
+            y = (u - 0.5) * width
+            z = (0.5 - v) * height
+            positions.append((outward_x, y, z))
+            normals.append((-1.0, 0.0, 0.0))
+            uvs.append((u, v))
+
+    stride = columns + 1
+    for row in range(rows):
+        for column in range(columns):
+            top_left = row * stride + column
+            top_right = top_left + 1
+            bottom_left = top_left + stride
+            bottom_right = bottom_left + 1
+            triangles.append((top_left, top_right, bottom_right))
+            triangles.append((top_left, bottom_right, bottom_left))
+
+    append_indexed_surface(mesh, positions, normals, uvs, triangles)
+    return bake(
+        mesh, "SM_StickyNote76mm", add_collision=False, weld_edges=False)
 
 
 def build_sandwich_pack():
@@ -737,6 +852,186 @@ def build_first_person_hoodie_sleeve():
             steps=36,
             transform=xf(location=(1.8, 0.0, 0.0)))
     return bake(mesh, "SM_FirstPersonHoodieSleeve", add_collision=False)
+
+
+def build_listener_entity_crawl():
+    """Anatomical static shell for 「없는 층」의 위층 사람.
+
+    The approved ImageGen sheet fixes a real 176 cm adult in a forearm-supported
+    crawl.  This mesh deliberately remains one frozen, disconnected-shell pose:
+    the pawn moves as a whole, so a skeletal pipeline would add cost without
+    improving the silhouette seen in the flashlight.  Unlike the six engine
+    blocks it replaces, every major anatomical chain remains readable.
+    """
+    mesh = new_mesh()
+
+    # Ribcage, abdomen and pelvis overlap just enough to stay human while
+    # retaining shallow waist/shoulder notches under grazing light.
+    ellipsoid(mesh, (58.0, 38.0, 27.0), location=(13.0, 0.0, 1.0),
+              rotation=(0.0, 0.0, -8.0), steps=36)
+    ellipsoid(mesh, (38.0, 32.0, 23.0), location=(-21.0, 0.0, -8.0),
+              rotation=(0.0, 0.0, -3.0), steps=32)
+    ellipsoid(mesh, (48.0, 17.0, 14.0), location=(24.0, 0.0, 9.0),
+              rotation=(0.0, 0.0, -7.0), steps=28)
+
+    # A real neck bridge prevents the old floating ball-head read.  The face
+    # is one smooth plaster ellipsoid: no eye, mouth, nose or separate hair.
+    _append_round_path(
+        mesh, 7.0,
+        [(36.0, 0.0, 12.0), (46.0, 0.0, 22.0)], sides=16)
+    ellipsoid(mesh, (23.0, 20.0, 28.0), location=(57.0, 0.0, 27.0),
+              rotation=(0.0, 0.0, -8.0), steps=36)
+    ellipsoid(mesh, (5.0, 18.5, 21.0), location=(68.2, 0.0, 25.5),
+              rotation=(0.0, 0.0, -8.0), steps=28)
+
+    # Both arms carry weight from shoulder through elbow to the floor.  Each
+    # radius narrows at the anatomical joint instead of ending in a cube.
+    arm_paths = (
+        (7.2, [(28.0, -17.0, 6.0), (43.0, -25.0, -10.0)]),
+        (5.8, [(43.0, -25.0, -10.0), (66.0, -25.0, -20.0)]),
+        (7.2, [(28.0, 17.0, 6.0), (43.0, 25.0, -10.0)]),
+        (5.8, [(43.0, 25.0, -10.0), (66.0, 25.0, -20.0)]),
+    )
+    for radius, path in arm_paths:
+        _append_round_path(mesh, radius, path, sides=16)
+    for side in (-1.0, 1.0):
+        hand_y = side * 25.0
+        ellipsoid(mesh, (18.0, 11.0, 5.0), location=(74.0, hand_y, -21.0),
+                  rotation=(0.0, 0.0, 0.0), steps=24)
+        # Long tuner fingers remain closed plaster geometry. Their unequal
+        # lengths keep the hand from reading as a mitten at capture distance.
+        for finger_index, (finger_y, finger_length) in enumerate((
+                (-3.6, 10.5), (-1.2, 12.0), (1.2, 11.4), (3.6, 9.4))):
+            y = hand_y + side * finger_y
+            z = -21.8 + (finger_index % 2) * 0.25
+            _append_round_path(
+                mesh, 1.15,
+                [(78.0, y, z), (78.0 + finger_length, y, z - 0.35)],
+                sides=10)
+
+    # Broken legs trail with different, restrained bends. They remain clothed
+    # and continuous from pelvis to foot; no gore or dislocated fantasy pose.
+    leg_paths = (
+        (9.2, [(-28.0, -10.0, -9.0), (-57.0, -18.0, -18.0)]),
+        (6.8, [(-57.0, -18.0, -18.0), (-98.0, -22.0, -27.0)]),
+        (9.2, [(-28.0, 10.0, -8.0), (-61.0, 14.0, -16.0)]),
+        (6.8, [(-61.0, 14.0, -16.0), (-103.0, 6.0, -29.0)]),
+    )
+    for radius, path in leg_paths:
+        _append_round_path(mesh, radius, path, sides=18)
+    ellipsoid(mesh, (20.0, 17.0, 13.0), location=(-57.0, -18.0, -18.0),
+              rotation=(0.0, 8.0, 0.0), steps=24)
+    ellipsoid(mesh, (20.0, 17.0, 13.0), location=(-61.0, 14.0, -16.0),
+              rotation=(0.0, -8.0, 0.0), steps=24)
+    ellipsoid(mesh, (25.0, 12.0, 8.0), location=(-110.0, -22.0, -29.0),
+              rotation=(0.0, 2.0, 0.0), steps=24)
+    ellipsoid(mesh, (25.0, 12.0, 8.0), location=(-115.0, 5.0, -31.0),
+              rotation=(0.0, -7.0, 0.0), steps=24)
+
+    return bake(mesh, "SM_ListenerEntityCrawl", add_collision=False)
+
+
+def build_tuning_hammer():
+    """Compact L-shaped piano tuning lever from the approved prop reference.
+
+    A tuning hammer is not a listening wand.  The 27 cm handle, short offset
+    steel shank and square socket remain readable as one close-inspection prop
+    without inventing an animation or a second material slot.
+    """
+    mesh = new_mesh()
+
+    # Rounded 17 cm grip with a subtle heel and ferrule.  The whole prop is
+    # modelled in centimetres so the runtime can use unit scale.
+    cylinder(mesh, 1.35, 17.0, location=(0.0, 0.0, 0.0), steps=24)
+    cylinder(mesh, 1.52, 0.9, location=(0.0, 0.0, 0.0), steps=24)
+    cylinder(mesh, 0.92, 1.2, location=(0.0, 0.0, 17.0), steps=24)
+
+    # Steel neck and the characteristic right-angle head.  A short angled
+    # transition keeps the union from reading as two intersecting primitives.
+    _append_round_path(
+        mesh,
+        0.48,
+        [(0.0, 0.0, 18.0), (0.0, 0.0, 24.5), (1.6, 0.0, 25.8)],
+        sides=14)
+    _append_round_path(
+        mesh,
+        0.58,
+        [(1.6, 0.0, 25.8), (5.1, 0.0, 25.8)],
+        sides=14)
+
+    # Replaceable star-tip socket, kept as a restrained square tool head.
+    socket = new_mesh()
+    box(socket, (2.2, 1.65, 1.65), location=(5.65, 0.0, 25.8))
+    bevel_all(socket, distance=0.18)
+    union(mesh, socket)
+    return bake(mesh, "SM_TuningHammer", add_collision=True)
+
+
+def build_tuner_tool_cart():
+    """45 x 34 x 78 cm two-tier cart from the ImageGen hero-prop sheet."""
+    mesh = new_mesh()
+
+    # Two shallow trays, four narrow posts and a rear push handle.  Parts stay
+    # restrained enough to read as a working piano technician's cart, not a
+    # hospital trolley or a solid programmer-art block.
+    for tray_z in (17.0, 55.0):
+        tray = new_mesh()
+        box(tray, (45.0, 34.0, 2.0), location=(0.0, 0.0, tray_z))
+        bevel_all(tray, distance=0.35)
+        union(mesh, tray)
+        for side_x in (-1.0, 1.0):
+            box(mesh, (1.2, 34.0, 4.0),
+                location=(side_x * 21.9, 0.0, tray_z + 2.7))
+        for side_y in (-1.0, 1.0):
+            box(mesh, (42.6, 1.2, 4.0),
+                location=(0.0, side_y * 16.4, tray_z + 2.7))
+
+    for x in (-20.5, 20.5):
+        for y in (-14.5, 14.5):
+            cylinder(mesh, 0.9, 54.0, location=(x, y, 6.0), steps=16)
+            cylinder(
+                mesh, 3.8, 2.0, location=(x, y, 3.8),
+                rotation=(0.0, 90.0, 0.0), steps=20)
+
+    # Handle rises from the rear posts and returns across the cart width.
+    _append_round_path(
+        mesh, 0.95,
+        [(-20.5, 14.5, 55.0), (-20.5, 14.5, 75.0),
+         (20.5, 14.5, 75.0), (20.5, 14.5, 55.0)],
+        sides=14)
+    return bake(mesh, "SM_TunerToolCart", add_collision=True)
+
+
+def build_complaint_ledger():
+    """Closed A4 complaint ledger with a real page block and cover thickness."""
+    mesh = new_mesh()
+    pages = new_mesh()
+    box(pages, (21.0, 29.7, 1.8), location=(0.0, 0.0, 0.0))
+    bevel_all(pages, distance=0.28)
+    union(mesh, pages)
+    for cover_z in (-1.15, 1.15):
+        cover = new_mesh()
+        box(cover, (22.0, 30.7, 0.5), location=(-0.25, 0.0, cover_z))
+        bevel_all(cover, distance=0.22)
+        union(mesh, cover)
+    box(mesh, (1.25, 30.7, 2.8), location=(-10.75, 0.0, 0.0))
+    return bake(mesh, "SM_ComplaintLedger", add_collision=True)
+
+
+def build_calendar_journal():
+    """Door-hung 20 x 27 cm calendar-back sound journal, blank at runtime."""
+    mesh = new_mesh()
+    backing = new_mesh()
+    box(backing, (20.0, 1.0, 27.0), location=(0.0, 0.0, 0.0))
+    bevel_all(backing, distance=0.24)
+    union(mesh, backing)
+    # The binding is physical; Korean handwriting remains runtime text.
+    for x in (-6.0, -2.0, 2.0, 6.0):
+        cylinder(
+            mesh, 0.42, 1.8, location=(x, -0.1, 13.6),
+            rotation=(90.0, 0.0, 0.0), steps=12)
+    box(mesh, (18.4, 0.35, 1.0), location=(0.0, -0.68, 11.8))
+    return bake(mesh, "SM_CalendarJournal", add_collision=True)
 
 
 def build_p3_service_cabinet_shell():
@@ -897,57 +1192,62 @@ def build_p3_pressure_gauge():
 
 
 def build_submerged_hoodie_curl():
-    """Wet hoodie, hood and fully covered folded arms for the CH03 reveal.
+    """Anatomically readable wet hoodie for the CH03 side-lying body.
 
-    All submerged-body meshes share the same origin. Runtime can therefore
-    overlap the three material groups at one transform without skeletal skin,
-    exposed hands or component-by-component primitive assembly.
+    All clothing groups share one origin.  The face and skin remain hidden,
+    but the head-in-hood, neck transition, shoulder line, elbows, forearms and
+    covered hands are separate masses.  Negative space around the folded arms
+    is intentional: at hatch distance it must read as a person wearing clothes,
+    not one mathematically smooth fabric bundle.
     """
     mesh = new_mesh()
 
-    # A compact side-curl fits below the real 104 cm service hatch. The older
-    # two-metre reclining footprint pre-dated the authored access deck and was
-    # only readable while the entire tank roof was absent.
+    # Ribcage and waist. The head is offset toward the floor side of the pose,
+    # leaving a real neck notch in top view instead of stacking concentric
+    # ovals into one anonymous bundle.
     ellipsoid(
-        mesh, (64.0, 46.0, 24.0), location=(0.0, -4.0, 0.0),
-        rotation=(0.0, 10.0, -4.0), steps=32)
+        mesh, (68.0, 34.0, 21.0), location=(2.0, -3.0, 0.0),
+        rotation=(0.0, 2.0, -2.0), steps=32)
     ellipsoid(
-        mesh, (42.0, 48.0, 23.0), location=(17.0, 0.0, 2.0),
-        rotation=(0.0, -8.0, -3.0), steps=28)
+        mesh, (36.0, 40.0, 20.0), location=(25.0, -3.0, 2.0),
+        rotation=(0.0, -2.0, -2.0), steps=30)
+    ellipsoid(
+        mesh, (24.0, 30.0, 18.0), location=(-28.0, 1.0, -2.0),
+        rotation=(0.0, 2.0, 0.0), steps=24)
 
-    # The cowl and hood overlap the shoulder mass. There is deliberately no
-    # face or skin group: folded cuffs close the only forward opening.
+    # One cowl and one hooded head. The previous extra hood-lip ellipsoid read
+    # as a second head once refracted by the water, so the silhouette is kept
+    # deliberately simple here. The face is turned into the tank floor.
     ellipsoid(
-        mesh, (34.0, 38.0, 13.0), location=(25.0, 3.0, -1.0),
-        rotation=(0.0, -12.0, 0.0), steps=24)
+        mesh, (18.0, 25.0, 12.0), location=(38.0, -12.0, 4.0),
+        rotation=(0.0, -18.0, 1.0), steps=24)
     ellipsoid(
-        mesh, (30.0, 32.0, 26.0), location=(35.0, 7.0, 5.0),
-        rotation=(0.0, -20.0, 7.0), steps=28)
+        mesh, (28.0, 24.0, 23.0), location=(50.0, -22.0, 7.0),
+        rotation=(0.0, -20.0, 7.0), steps=30)
 
-    # Both sleeves wrap toward the hood instead of splaying away from the
-    # torso. Rounded overlaps hide joints while preserving a human elbow read.
+    # Sleeves fold independently across the chest. Only the continuous tubes
+    # and small covered hands are needed; large endpoint spheres made elbows
+    # look like detached balls in the first runtime review.
     arm_paths = (
-        (6.6, [(14.0, -18.0, 2.0), (32.0, -28.0, 3.0)]),
-        (5.7, [(32.0, -28.0, 3.0), (39.0, -10.0, 5.0)]),
-        (6.6, [(14.0, 18.0, 2.0), (33.0, 27.0, 3.0)]),
-        (5.7, [(33.0, 27.0, 3.0), (40.0, 11.0, 5.0)]),
+        (6.2, [(25.0, -13.0, 5.0), (7.0, -29.0, 9.0)]),
+        (5.1, [(7.0, -29.0, 9.0), (24.0, -12.0, 14.0)]),
+        (6.1, [(24.0, 10.0, 4.0), (1.0, 22.0, 8.0)]),
+        (5.0, [(1.0, 22.0, 8.0), (17.0, 5.0, 13.0)]),
     )
     for radius, path in arm_paths:
         _append_round_path(mesh, radius, path)
-        ellipsoid(
-            mesh,
-            (radius * 2.12, radius * 2.12, radius * 1.72),
-            location=path[-1],
-            steps=18)
-    ellipsoid(mesh, (15.0, 12.0, 9.0), location=(39.0, -10.0, 5.0), steps=18)
-    ellipsoid(mesh, (15.0, 12.0, 9.0), location=(40.0, 11.0, 5.0), steps=18)
+    ellipsoid(mesh, (11.0, 7.0, 5.5), location=(25.0, -11.0, 14.0),
+              rotation=(0.0, 24.0, 0.0), steps=18)
+    ellipsoid(mesh, (11.0, 7.0, 5.5), location=(18.0, 5.0, 13.0),
+              rotation=(0.0, -22.0, 0.0), steps=18)
 
-    # Shallow raised folds break the mathematically smooth ellipsoids under a
-    # flashlight without adding a separate material or baked lighting.
+    # Raised cloth folds sit at compression points rather than randomly across
+    # the body, so flashlight highlights reinforce anatomy.
     for location, yaw, length in (
-            ((-4.0, -16.0, 12.0), 18.0, 24.0),
-            ((4.0, 13.0, 12.5), -16.0, 21.0),
-            ((19.0, -8.0, 13.0), 32.0, 17.0)):
+            ((-17.0, -11.0, 10.0), 18.0, 17.0),
+            ((-14.0, 10.0, 10.2), -18.0, 16.0),
+            ((8.0, -10.0, 11.5), 29.0, 13.0),
+            ((9.0, 9.0, 11.8), -27.0, 13.0)):
         ellipsoid(
             mesh, (length, 3.2, 2.2), location=location,
             rotation=(0.0, yaw, 0.0), steps=16)
@@ -955,58 +1255,104 @@ def build_submerged_hoodie_curl():
 
 
 def build_submerged_pants_curl():
-    """Loose black training pants in the same back-facing curled pose."""
+    """Loose training pants in a compact, readable side-lying foetal pose."""
     mesh = new_mesh()
-    ellipsoid(
-        mesh, (44.0, 42.0, 25.0), location=(-25.0, -4.0, -3.0),
-        rotation=(0.0, 8.0, 0.0), steps=28)
 
-    # Both knees are drawn back toward the chest, then the shins return beside
-    # the hips. This produces the closed C-shape in the approved pose sheet.
-    leg_paths = (
-        (9.6, [(-22.0, -10.0, -2.0), (5.0, -37.0, -1.0)]),
-        (7.6, [(5.0, -37.0, -1.0), (-35.0, -43.0, -5.0)]),
-        (9.6, [(-27.0, 5.0, -3.0), (2.0, 35.0, 0.0)]),
-        (7.6, [(2.0, 35.0, 0.0), (-42.0, 33.0, -5.0)]),
+    # Pelvis stays attached to the hoodie hem without swallowing the thigh
+    # roots. A shallow waistband breaks the two material groups cleanly.
+    ellipsoid(
+        mesh, (40.0, 34.0, 20.0), location=(-30.0, 4.0, -3.0),
+        rotation=(0.0, 2.0, 0.0), steps=28)
+    ellipsoid(
+        mesh, (9.0, 32.0, 3.5), location=(-22.0, 3.0, 6.5),
+        rotation=(0.0, 2.0, 0.0), steps=20)
+
+    # Both thighs bend toward the abdomen and both shins return toward the
+    # slippered feet. This Z-shaped continuity fits the 104 cm hatch while
+    # preserving the pelvis -> thigh -> knee -> shin chain in silhouette.
+    leg_segments = (
+        ((-34.0, -2.0, -2.0), (2.0, 27.0, 1.0), 23.0, 17.0),
+        ((2.0, 27.0, 1.0), (31.0, 6.0, -4.0), 18.0, 14.0),
+        ((-34.0, 10.0, 2.0), (-1.0, 42.0, 5.0), 24.0, 18.0),
+        ((-1.0, 42.0, 5.0), (34.0, 26.0, -1.0), 19.0, 14.0),
     )
-    for radius, path in leg_paths:
-        _append_round_path(mesh, radius, path)
+    for start, end, width, height in leg_segments:
+        delta_x = end[0] - start[0]
+        delta_y = end[1] - start[1]
+        length = math.hypot(delta_x, delta_y) + width * 0.45
+        location = (
+            (start[0] + end[0]) * 0.5,
+            (start[1] + end[1]) * 0.5,
+            (start[2] + end[2]) * 0.5)
+        yaw = math.degrees(math.atan2(delta_y, delta_x))
         ellipsoid(
-            mesh,
-            (radius * 2.18, radius * 2.05, radius * 1.72),
-            location=path[-1],
-            steps=18)
+            mesh, (length, width, height), location=location,
+            rotation=(0.0, yaw, 0.0), steps=28)
 
-    # Long gathered cuffs overlap the sock-shaped foot volumes in the slipper
-    # group. This deliberately removes the ankle skin visible in the reference.
+    # Knee caps are cloth-covered anatomical joints, not detached spheres.
+    ellipsoid(mesh, (24.0, 22.0, 16.0), location=(2.0, 27.0, 1.0),
+              rotation=(0.0, -18.0, 0.0), steps=22)
+    ellipsoid(mesh, (25.0, 23.0, 17.0), location=(-1.0, 42.0, 5.0),
+              rotation=(0.0, -12.0, 0.0), steps=22)
+
+    # Gathered cuffs overlap the sock-shaped foot volumes.  The ankles remain
+    # covered while still reading as narrower joints between shin and slipper.
     ellipsoid(
-        mesh, (21.0, 17.0, 11.0), location=(-39.0, -42.0, -6.0),
-        rotation=(0.0, 20.0, 0.0), steps=20)
+        mesh, (16.0, 13.0, 10.0), location=(32.0, 6.0, -5.0),
+        rotation=(0.0, -8.0, 0.0), steps=20)
     ellipsoid(
-        mesh, (21.0, 17.0, 11.0), location=(-46.0, 32.0, -6.0),
-        rotation=(0.0, -15.0, 0.0), steps=20)
+        mesh, (16.0, 13.0, 10.0), location=(35.0, 26.0, -3.0),
+        rotation=(0.0, -3.0, 0.0), steps=20)
+
+    for location, yaw in (((-14.0, 13.0, 10.0), 39.0),
+                          ((-12.0, 27.0, 12.0), 44.0),
+                          ((16.0, 17.0, 6.0), -36.0),
+                          ((18.0, 34.0, 8.0), -25.0)):
+        ellipsoid(mesh, (12.0, 2.6, 1.8), location=location,
+                  rotation=(0.0, yaw, 0.0), steps=14)
     return bake(mesh, "SM_SubmergedPantsCurl", add_collision=False)
 
 
 def build_submerged_slippers_curl():
-    """Black slide slippers plus fully covered feet for the identity reveal."""
+    """Two grounded slide slippers with soles, covered feet and upper straps."""
     mesh = new_mesh()
     slipper_specs = (
-        ((-48.0, -39.0, -7.0), 20.0),
-        ((-52.0, 31.0, -7.0), -15.0),
+        ((45.0, 6.0, -8.0), -8.0),
+        ((48.0, 26.0, -7.0), -3.0),
     )
     for location, yaw in slipper_specs:
-        # Thin worn sole, black sock/covered foot, and a broad upper strap.
-        ellipsoid(mesh, (31.0, 17.0, 5.5), location=location,
-                  rotation=(0.0, yaw, 0.0), steps=24)
+        # A beveled slab gives the sole a flat contact edge; ellipsoid-only
+        # slippers looked like detached stones in the old reveal.
+        sole = new_mesh()
+        box(sole, (30.0, 12.0, 2.6), location=location,
+            rotation=(0.0, yaw, 0.0))
+        bevel_all(sole, distance=0.9)
+        union(mesh, sole)
         ellipsoid(
-            mesh, (25.0, 12.0, 7.5),
-            location=(location[0] + 1.5, location[1], location[2] + 4.5),
+            mesh, (23.0, 10.0, 7.0),
+            location=(location[0] - 6.0, location[1], location[2] + 5.0),
             rotation=(0.0, yaw, 0.0), steps=20)
-        ellipsoid(
-            mesh, (12.5, 18.0, 6.0),
-            location=(location[0] + 4.0, location[1], location[2] + 7.0),
-            rotation=(0.0, yaw, 0.0), steps=20)
+        # A beveled rectangular upper is instantly recognisable as a slide;
+        # a round upper became another anonymous ball under refraction.
+        upper = new_mesh()
+        box(upper, (11.0, 13.0, 4.5),
+            location=(location[0] + 4.0, location[1], location[2] + 6.0),
+            rotation=(0.0, yaw, 0.0))
+        bevel_all(upper, distance=0.8)
+        union(mesh, upper)
+
+        # The evidence stripes are separate runtime material pieces, but the
+        # first upper carries matching shallow ribs.  The pale pieces therefore
+        # sit on a physical strap instead of reading as bars suspended in water.
+        if location == slipper_specs[0][0]:
+            for stripe_x in (46.0, 48.4, 50.8):
+                rib = new_mesh()
+                box(
+                    rib, (1.6, 10.0, 0.7),
+                    location=(stripe_x, location[1], 0.45),
+                    rotation=(0.0, yaw, 0.0))
+                bevel_all(rib, distance=0.18)
+                union(mesh, rib)
     return bake(mesh, "SM_SubmergedSlippersCurl", add_collision=False)
 
 
@@ -1776,8 +2122,14 @@ BUILDERS = (
     build_kimbap_pack,
     build_sandwich_pack,
     build_label_sleeve,
+    build_sticky_note_76mm,
     build_alley_cat_run,
     build_first_person_hoodie_sleeve,
+    build_listener_entity_crawl,
+    build_tuning_hammer,
+    build_tuner_tool_cart,
+    build_complaint_ledger,
+    build_calendar_journal,
     build_p3_service_cabinet_shell,
     build_p3_service_manifold,
     build_p3_large_valve_wheel,
@@ -1811,14 +2163,31 @@ BUILDERS = (
 
 def run():
     log(f"normals library: {NORMALS}, queries library: {QUERIES}")
+    builders = BUILDERS
+    if os.environ.get("IG_ALARM_CLOCK_ONLY") == "1":
+        builders = (build_alarm_clock,)
+    elif os.environ.get("IG_SUBMERGED_CLOTHING_ONLY") == "1":
+        builders = (
+            build_submerged_hoodie_curl,
+            build_submerged_pants_curl,
+            build_submerged_slippers_curl,
+        )
+    elif os.environ.get("IG_MISSING_FLOOR_ONLY") == "1":
+        builders = (
+            build_listener_entity_crawl,
+            build_tuning_hammer,
+            build_tuner_tool_cart,
+            build_complaint_ledger,
+            build_calendar_journal,
+        )
     built = 0
-    for builder in BUILDERS:
+    for builder in builders:
         try:
             builder()
             built += 1
         except Exception as error:  # noqa: BLE001 - report and keep going
             log(f"FAILED {builder.__name__}: {error}")
-    log(f"complete: {built}/{len(BUILDERS)} meshes")
+    log(f"complete: {built}/{len(builders)} meshes")
 
 
 if __name__ == "__main__":

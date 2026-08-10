@@ -8,9 +8,9 @@
 class AIGMissingFloorEvidence;
 class AIGPrologueWorldScene;
 class AIGReadableNote;
-class AIGStairTransition;
 class AIGSwingDoor;
 class UAudioComponent;
+class UStaticMeshComponent;
 class UIGMissingFloorNarrativeSubsystem;
 
 DECLARE_MULTICAST_DELEGATE(FIGNightThreeSolvedSignature);
@@ -19,17 +19,16 @@ DECLARE_MULTICAST_DELEGATE(FIGNightThreeSolvedSignature);
  * 밤3 「조율」 — the night the player climbs to the floor that is not there
  * (STORY_BIBLE_MISSING_FLOOR.md §7 P3/P4, §8 밤3).
  *
- * The route: the stair keyring hangs in the booth (open only during the
- * hour), the fifth-floor gate at the top of the stub honors it, and the
- * stair teleport behind the gate carries the player to the annex. The one
- * upstairs never follows — he cannot enter the room he was walled into,
- * which is why the fifth floor is the quietest place in the game.
+	 * The release route is physical: visible 4F stair -> roof door -> 6.4 m
+	 * tank-side passage -> annex door, with no portal actor. The one upstairs
+	 * never follows — he cannot enter the room he was walled into, which is why
+	 * the fifth floor is the quietest place.
  *
  * P3 is telling three identical walls apart by sound. The tuner's notebook
  * gives the criterion (a wall with resonance is a wall with a cavity); the
  * riser valve gives the patient instrument (water moving behind one bay);
  * a fist gives the reckless one. Either way the middle bay is the answer,
- * and with the criterion it confirms T6.
+ * and with the criterion it confirms the location recorded by T6.
  *
  * P4 is the answer. With T6 known and the family rhythm learned, the wall
  * accepts 둘-쉬고-하나 — and after eight seconds of nothing, it comes back
@@ -56,9 +55,20 @@ public:
 	/** Fired once, when T9 crosses — the night-3 goal. */
 	FIGNightThreeSolvedSignature OnSolved;
 
+	/**
+	 * Context verbs used by the player's dedicated Q/B and listen inputs.
+	 * Keeping these outside CompleteInteraction prevents opening a door and
+	 * filing one of P4's timed taps from the same E/A press.
+	 */
+	bool IsPlayerKnockTarget(const AActor* FocusedActor) const;
+	bool IsPlayerListenTarget(const AActor* FocusedActor) const;
+	bool TryPlayerKnock(AActor* FocusedActor, AActor* NoiseInstigator = nullptr);
+	bool TryPlayerListen(AActor* FocusedActor, AActor* NoiseInstigator = nullptr);
+
 	/** Probe queries. */
 	bool ValidateFixtures() const;
 	AIGSwingDoor* GetStairGate() const { return StairGate; }
+	AIGSwingDoor* GetAnnexGate() const { return AnnexGate; }
 	AIGMissingFloorEvidence* GetKeyring() const { return Keyring; }
 	AIGReadableNote* GetTunerNotebook() const { return TunerNotebook; }
 	AIGMissingFloorEvidence* GetRiserValve() const { return RiserValve; }
@@ -84,6 +94,7 @@ private:
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
 	void RefreshAnswerTargetAvailability();
 	void RefreshJournalAvailability(bool bHourActive);
+	void RefreshDistantSeoVisibility();
 
 	UFUNCTION()
 	void HandleNotebookRead(AIGReadableNote* Note, bool bOpened);
@@ -106,7 +117,7 @@ private:
 	TObjectPtr<AIGSwingDoor> StairGate;
 
 	UPROPERTY(Transient)
-	TObjectPtr<AIGStairTransition> AnnexTransition;
+	TObjectPtr<AIGSwingDoor> AnnexGate;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> Keyring;
@@ -115,7 +126,11 @@ private:
 	TObjectPtr<AIGReadableNote> TunerNotebook;
 
 	UPROPERTY(Transient)
-	TObjectPtr<AIGMissingFloorEvidence> TunerWand;
+	TObjectPtr<AIGMissingFloorEvidence> TuningHammer;
+
+	/** ImageGen-derived, fully 3D workshop cart; never an interactive sprite. */
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> TunerToolCart;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> RiserValve;
@@ -145,10 +160,16 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> RiserFlow;
 
+	/** Day-three fixed-camera figure; never used as a close or interactive NPC. */
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> DistantSeo;
+
 	FDelegateHandle TruthHandle;
 	FTimerHandle AnswerTimer;
+	TArray<double> AnswerTapTimes;
 	bool bValveOpen = false;
 	bool bAnswerPending = false;
 	bool bAnswerDelivered = false;
 	bool bSolvedAnnounced = false;
+	bool bHourCurrentlyActive = true;
 };

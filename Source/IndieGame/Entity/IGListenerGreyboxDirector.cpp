@@ -15,6 +15,8 @@
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNightLoopDirector.h"
 #include "Entity/IGMissingFloorEvidence.h"
+#include "Entity/IGMissingFloorFifthDawnDirector.h"
+#include "Entity/IGMissingFloorNightFourDirector.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Entity/IGMissingFloorPuzzleOneDirector.h"
 #include "Entity/IGMissingFloorPuzzleTwoDirector.h"
@@ -287,6 +289,35 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		return false;
 	}
 
+	FActorSpawnParameters FifthDawnParameters;
+	FifthDawnParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	FifthDawnParameters.Name = TEXT("MissingFloorFifthDawnDirector");
+	FifthDawn = World->SpawnActor<AIGMissingFloorFifthDawnDirector>(
+		AIGMissingFloorFifthDawnDirector::StaticClass(),
+		FTransform::Identity,
+		FifthDawnParameters);
+	if (!FifthDawn || !FifthDawn->ValidateTimeline())
+	{
+		return false;
+	}
+
+	// Night 4: the persisted three-control cleaning circuit, five physical
+	// wall strikes and the two spatial mourning choices.
+	FActorSpawnParameters NightFourParameters;
+	NightFourParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	NightFourParameters.Name = TEXT("MissingFloorNightFourDirector");
+	NightFour = World->SpawnActor<AIGMissingFloorNightFourDirector>(
+		AIGMissingFloorNightFourDirector::StaticClass(),
+		FTransform::Identity,
+		NightFourParameters);
+	if (!NightFour
+		|| !NightFour->Configure(const_cast<AIGPrologueWorldScene*>(Scene)))
+	{
+		return false;
+	}
+
 	// Night goals: each puzzle announces itself once; the hour decides
 	// whether that ends the night.
 	PuzzleOne->OnSolved.AddUObject(
@@ -295,6 +326,10 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		this, &AIGListenerGreyboxDirector::HandleNightTwoSolved);
 	NightThree->OnSolved.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleNightThreeSolved);
+	FifthDawn->OnCompleted.AddUObject(
+		this, &AIGListenerGreyboxDirector::HandleFifthDawnCompleted);
+	NightFour->OnResolved.AddUObject(
+		this, &AIGListenerGreyboxDirector::HandleNightFourResolved);
 
 	// Day verbs. The bed advances the cycle; 401's door answers it.
 	UStaticMesh* CubeMesh =
@@ -394,6 +429,10 @@ void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
 	{
 		NightThree->SetHourActive(bActive);
 	}
+	if (NightFour)
+	{
+		NightFour->SetHourActive(bActive);
+	}
 	if (SleepTarget)
 	{
 		SleepTarget->SetInteractionEnabled(!bActive);
@@ -424,11 +463,41 @@ void AIGListenerGreyboxDirector::HandleNightTwoSolved()
 
 void AIGListenerGreyboxDirector::HandleNightThreeSolved()
 {
-	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (NightPhase && Narrative && Narrative->GetNightIndex() == 3)
 	{
+		// The call happens as soon as signal returns at 05:30. Night 4 may
+		// disobey a scene-preservation warning, but it never exists because the
+		// protagonist simply forgot to report a voice behind a wall.
+		Narrative->SetFirstReportMade(true);
+		Narrative->MarkBeatPlayed(FName(TEXT("Night3.FirstReport")));
 		NightPhase->CompleteNightGoal();
 	}
+}
+
+void AIGListenerGreyboxDirector::HandleNightFourResolved()
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!NightPhase || !Narrative || Narrative->GetNightIndex() != 4)
+	{
+		return;
+	}
+	// A/B/C all return to the same discoverable world fact. The emotional
+	// choice is already stored by the night-four director; dawn owns the call.
+	Narrative->SetSecondReportMade(true);
+	Narrative->MarkBeatPlayed(FName(TEXT("Night4.SecondReport")));
+	NightPhase->CompleteNightGoal();
+}
+
+void AIGListenerGreyboxDirector::HandleFifthDawnCompleted()
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!NightPhase || !Narrative || NightPhase->IsHourActive()
+		|| Narrative->GetNightIndex() != 3)
+	{
+		return;
+	}
+	NightPhase->BeginTheHour(4);
 }
 
 void AIGListenerGreyboxDirector::HandleSleepRequested(
@@ -438,6 +507,38 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 	if (!NightPhase || !Narrative || NightPhase->IsHourActive())
 	{
 		return;
+	}
+	if (Narrative->GetNightIndex() == 3
+		&& !Narrative->WasFifthDawnInterludeCompleted())
+	{
+		if (bProbeRequested)
+		{
+			// Exercise the real fade/audio/input/save plumbing, then finish in the
+			// same frame so CI does not idle for 160 seconds before night 4.
+			if (!FifthDawn
+				|| !FifthDawn->ValidateTimeline()
+				|| !FifthDawn->StartInterlude(Player.Get())
+				|| !FifthDawn->RegisterPlayerKnock()
+				|| !FifthDawn->SetPlayerListening(true)
+				|| !FifthDawn->SetPlayerListening(false)
+				|| !FifthDawn->CompleteImmediatelyForProbe())
+			{
+				FailProbe(TEXT("fifth-dawn start/input/finish contract failed"));
+				return;
+			}
+			return;
+		}
+		if (FifthDawn && FifthDawn->IsActive())
+		{
+			return;
+		}
+		if (FifthDawn && FifthDawn->StartInterlude(Player.Get()))
+		{
+			return;
+		}
+		// A missing presentation must not strand a save between nights. The
+		// validation gate still fails the build through ValidateTimeline.
+		Narrative->SetFifthDawnInterludeCompleted(true);
 	}
 	const int32 NextNight =
 		FMath::Clamp(Narrative->GetNightIndex() + 1, 1, 4);
@@ -1072,26 +1173,28 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		// The keyring in the open booth unlocks the gate as a saved fact.
 		AIGMissingFloorEvidence* Key = NightThree->GetKeyring();
 		AIGSwingDoor* Gate = NightThree->GetStairGate();
-		if (!Key || !Gate)
+		AIGSwingDoor* AnnexGate = NightThree->GetAnnexGate();
+		if (!Key || !Gate || !AnnexGate)
 		{
-			FailProbe(TEXT("keyring or gate unresolved"));
+			FailProbe(TEXT("keyring or either physical gate unresolved"));
 			return;
 		}
-		if (!Gate->IsLocked())
+		if (!Gate->IsLocked() || !AnnexGate->IsLocked())
 		{
-			FailProbe(TEXT("stair gate stood open before the keyring"));
+			FailProbe(TEXT("a rooftop gate stood open before the keyring"));
 			return;
 		}
 		Context.TargetActor = Key;
 		IIGInteractable::Execute_CompleteInteraction(Key, Context);
-		if (Gate->IsLocked())
+		if (Gate->IsLocked() || AnnexGate->IsLocked())
 		{
-			FailProbe(TEXT("keyring did not release the stair gate"));
+			FailProbe(TEXT("the two labelled keys did not release both gates"));
 			return;
 		}
 
-		// Up to the annex: the notebook names him and arms the answer. The
-		// drop point stays clear of the return portal volume.
+		// The topology contract above owns the full walk. The probe jumps only
+		// after proving both leaves and the 640 cm collision receipt, so content
+		// interactions can remain deterministic and fast in headless CI.
 		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 		{
 			PlayerCharacter->TeleportTo(
@@ -1121,8 +1224,11 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 
 		// P3, the patient route: silence first, then water behind one bay.
 		AIGMissingFloorEvidence* CavityListen = NightThree->GetWallListen(1);
-		Context.TargetActor = CavityListen;
-		IIGInteractable::Execute_CompleteInteraction(CavityListen, Context);
+		if (!NightThree->TryPlayerListen(CavityListen, Player.Get()))
+		{
+			FailProbe(TEXT("dedicated listen verb rejected the cavity wall"));
+			return;
+		}
 		if (Narrative->HasSource(
 			EIGMissingFloorTruth::SomeoneInTheWall,
 			EIGMissingFloorSource::PipeWaterComparison))
@@ -1138,8 +1244,11 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("valve did not open"));
 			return;
 		}
-		Context.TargetActor = CavityListen;
-		IIGInteractable::Execute_CompleteInteraction(CavityListen, Context);
+		if (!NightThree->TryPlayerListen(CavityListen, Player.Get()))
+		{
+			FailProbe(TEXT("dedicated listen verb dropped after valve open"));
+			return;
+		}
 		if (!Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall))
 		{
 			FailProbe(TEXT("criterion plus water did not confirm T6"));
@@ -1153,8 +1262,62 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("answer target did not arm after T6"));
 			return;
 		}
-		Context.TargetActor = Answer;
-		IIGInteractable::Execute_CompleteInteraction(Answer, Context);
+		if (!NightThree->TryPlayerKnock(Answer, Player.Get()))
+		{
+			FailProbe(TEXT("dedicated knock verb rejected the armed answer wall"));
+			return;
+		}
+		ProbeStep = EProbeStep::AnswerPairTap;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::AnswerPairTap:
+	{
+		// Second beat at 0.42 s: inside the accepted 0.18..0.65 pair.
+		if (StepDeadlineSeconds < 0.42f)
+		{
+			break;
+		}
+		AIGMissingFloorEvidence* Answer = NightThree
+			? NightThree->GetAnswerTarget()
+			: nullptr;
+		if (!Answer || !Answer->IsInteractionEnabled())
+		{
+			FailProbe(TEXT("answer surface dropped before the second tap"));
+			return;
+		}
+		if (!NightThree->TryPlayerKnock(Answer, Player.Get()))
+		{
+			FailProbe(TEXT("dedicated knock verb rejected the second tap"));
+			return;
+		}
+		ProbeStep = EProbeStep::AnswerFinalTap;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::AnswerFinalTap:
+	{
+		// The 0.82 s rest is deliberately not the shortest accepted value, so
+		// timer jitter cannot accidentally collapse the family rhythm.
+		if (StepDeadlineSeconds < 0.82f)
+		{
+			break;
+		}
+		AIGMissingFloorEvidence* Answer = NightThree
+			? NightThree->GetAnswerTarget()
+			: nullptr;
+		if (!Answer || !Answer->IsInteractionEnabled())
+		{
+			FailProbe(TEXT("answer surface dropped before the final tap"));
+			return;
+		}
+		if (!NightThree->TryPlayerKnock(Answer, Player.Get()))
+		{
+			FailProbe(TEXT("dedicated knock verb rejected the final tap"));
+			return;
+		}
 		ProbeStep = EProbeStep::AnswerContract;
 		StepDeadlineSeconds = 0.0f;
 		break;
@@ -1184,13 +1347,237 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				FailProbe(TEXT("T6+T7+T9 did not unlock the final choice"));
 				return;
 			}
-			PassProbe();
+			if (!Narrative->IsPuzzleSolved(FName(TEXT("P3"))))
+			{
+				FailProbe(TEXT("P3 was not booked after the wall was identified"));
+				return;
+			}
+			if (!Narrative->WasFirstReportMade())
+			{
+				FailProbe(TEXT("night 3 ended without the 05:30 first report"));
+				return;
+			}
+			if (!NightFour || !NightFour->ValidateFixtures())
+			{
+				FailProbe(TEXT("night-4 fixtures were not all placed"));
+				return;
+			}
+
+			// Day after the first report: read Mok's repair/eviction notice,
+			// then sleep into night 4. T10 still needs the breaker cut later.
+			AIGMissingFloorEvidence* Eviction = NightFour->GetEvictionNotice();
+			if (!Eviction || Eviction->IsHidden()
+				|| !Eviction->IsInteractionEnabled())
+			{
+				FailProbe(TEXT("the day-four eviction notice was not available"));
+				return;
+			}
+			FIGInteractionContext Context;
+			Context.Interactor = Player.Get();
+			Context.TargetActor = Eviction;
+			Context.HoldProgress = 1.0f;
+			IIGInteractable::Execute_CompleteInteraction(Eviction, Context);
+			if (Narrative->HasTruth(EIGMissingFloorTruth::StillCoveringIt))
+			{
+				FailProbe(TEXT("eviction notice alone confirmed T10"));
+				return;
+			}
+			if (SleepTarget)
+			{
+				Context.TargetActor = SleepTarget;
+				IIGInteractable::Execute_CompleteInteraction(SleepTarget, Context);
+			}
+			if (!NightPhase->IsHourActive() || Narrative->GetNightIndex() != 4)
+			{
+				FailProbe(TEXT("sleeping did not begin night 4"));
+				return;
+			}
+			ProbeStep = EProbeStep::NightFourContract;
+			StepDeadlineSeconds = 0.0f;
 			break;
 		}
 		if (StepDeadlineSeconds > 12.0f)
 		{
 			FailProbe(TEXT("the wall never answered"));
 		}
+		break;
+	}
+
+	case EProbeStep::NightFourContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!Narrative || !NightFour || !NoiseSubsystem)
+		{
+			FailProbe(TEXT("stage lost entering night 4"));
+			return;
+		}
+
+		FIGInteractionContext Context;
+		Context.Interactor = Player.Get();
+		Context.HoldProgress = 1.0f;
+		// The mechanically safe order must produce a continuous 0.40 mask and
+		// no pressure-alarm branch. Each control remains a separately persisted
+		// first activation rather than one three-stage scripted switch.
+		for (AIGMissingFloorEvidence* Control : {
+			NightFour->GetCleaningDrain(),
+			NightFour->GetFloatBypass(),
+			NightFour->GetTransferPump(),
+		})
+		{
+			if (!Control || !Control->IsInteractionEnabled())
+			{
+				FailProbe(TEXT("a P5 cleaning-circuit control was unavailable"));
+				return;
+			}
+			Context.TargetActor = Control;
+			IIGInteractable::Execute_CompleteInteraction(Control, Context);
+		}
+		if (!Narrative->IsNightFourMaskRunning()
+			|| !Narrative->IsPuzzleSolved(FName(TEXT("P5")))
+			|| Narrative->GetNightFourControlOrder().Num() != 3)
+		{
+			FailProbe(TEXT("P5 controls did not settle into the running mask"));
+			return;
+		}
+		if (NightFour->WasHydraulicAlarmTriggered())
+		{
+			FailProbe(TEXT("the safe P5 order triggered the pressure alarm"));
+			return;
+		}
+		if (!NightFour->IsWaterMaskPlaying()
+			|| NoiseSubsystem->GetMaskingAt(FVector(246.0f, 700.0f, 1300.0f)) < 0.39f)
+		{
+			FailProbe(TEXT("P5 did not create its audible 0.40 wall mask"));
+			return;
+		}
+		AIGMissingFloorEvidence* Wall = NightFour->GetWallBreakTarget();
+		if (!Wall || Wall->IsHidden() || !Wall->IsInteractionEnabled())
+		{
+			FailProbe(TEXT("P5 completion did not arm the cavity wall"));
+			return;
+		}
+		Context.TargetActor = Wall;
+		IIGInteractable::Execute_CompleteInteraction(Wall, Context);
+		IIGInteractable::Execute_CompleteInteraction(Wall, Context);
+		if (Narrative->GetNightFourWallStrikeCount() != 2
+			|| Narrative->HasTruth(EIGMissingFloorTruth::StillCoveringIt))
+		{
+			FailProbe(TEXT("T10 crossed before the third hammer strike"));
+			return;
+		}
+		ProbeStep = EProbeStep::NightFourWallContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::NightFourWallContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		AIGMissingFloorEvidence* Wall = NightFour
+			? NightFour->GetWallBreakTarget()
+			: nullptr;
+		if (!Narrative || !Wall)
+		{
+			FailProbe(TEXT("night-4 wall stage lost"));
+			return;
+		}
+		FIGInteractionContext Context;
+		Context.Interactor = Player.Get();
+		Context.TargetActor = Wall;
+		Context.HoldProgress = 1.0f;
+		IIGInteractable::Execute_CompleteInteraction(Wall, Context);
+		if (!Narrative->HasTruth(EIGMissingFloorTruth::StillCoveringIt)
+			|| !Narrative->HasBeatPlayed(FName(TEXT("Night4.PowerCut"))))
+		{
+			FailProbe(TEXT("third strike did not cross T10 and cut power"));
+			return;
+		}
+		IIGInteractable::Execute_CompleteInteraction(Wall, Context);
+		IIGInteractable::Execute_CompleteInteraction(Wall, Context);
+		AIGPrologueWorldScene* Scene = WorldScene.Get();
+		if (!Narrative->IsNightFourWallOpened()
+			|| !Scene || !Scene->IsMissingFloorCavityOpen())
+		{
+			FailProbe(TEXT("five strikes did not remove the real cavity panel"));
+			return;
+		}
+		if (!NightFour->GetEndingATarget()
+			|| NightFour->GetEndingATarget()->IsHidden()
+			|| !NightFour->GetEndingATarget()->IsInteractionEnabled()
+			|| !NightFour->GetEndingBTarget()
+			|| NightFour->GetEndingBTarget()->IsHidden()
+			|| !NightFour->GetEndingBTarget()->IsInteractionEnabled())
+		{
+			FailProbe(TEXT("wall discovery did not expose both mourning choices"));
+			return;
+		}
+		Context.TargetActor = NightFour->GetEndingATarget();
+		IIGInteractable::Execute_CompleteInteraction(
+			NightFour->GetEndingATarget(), Context);
+		ProbeStep = EProbeStep::NightFourEndingContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::NightFourEndingContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!Narrative || Narrative->GetEndingChoice() != FName(TEXT("Ending.A")))
+		{
+			FailProbe(TEXT("ending A spatial target did not persist its choice"));
+			return;
+		}
+		if (!Narrative->WasFirstReportMade()
+			|| !Narrative->WasSecondReportMade()
+			|| !Narrative->HasBeatPlayed(FName(TEXT("Night4.SecondReport"))))
+		{
+			FailProbe(TEXT("ending divergence changed the common report facts"));
+			return;
+		}
+		if (NightPhase && NightPhase->IsHourActive())
+		{
+			FailProbe(TEXT("ending resolution did not release the building at dawn"));
+			return;
+		}
+		// Exercise the exact v1 -> v2 normalization boundary in memory. This
+		// catches both new night-four fields and the old upper-bound bug that
+		// used to discard P4 voicemail/notebook/journal sources on restore.
+		FIGMissingFloorNarrativeSnapshot RestoreReceipt = Narrative->GetSnapshot();
+		RestoreReceipt.SchemaVersion = 1;
+		Narrative->RestoreSnapshot(RestoreReceipt);
+		const bool bVoicemailRestored = Narrative->HasSource(
+			EIGMissingFloorTruth::WaitingForAnAnswer,
+			EIGMissingFloorSource::AnswerRhythmVoicemail);
+		const bool bNotebookRestored = Narrative->HasSource(
+			EIGMissingFloorTruth::WaitingForAnAnswer,
+			EIGMissingFloorSource::AnswerRhythmNotebook);
+		const bool bRestoreContractPassed =
+			Narrative->GetSnapshot().SchemaVersion
+				== UIGMissingFloorNarrativeSubsystem::SnapshotSchemaVersion
+			&& Narrative->GetNightFourControlOrder().Num() == 3
+			&& Narrative->GetNightFourWallStrikeCount() == 5
+			&& Narrative->IsNightFourWallOpened()
+			&& Narrative->GetEndingChoice() == FName(TEXT("Ending.A"))
+			&& Narrative->WasFirstReportMade()
+			&& Narrative->WasSecondReportMade()
+			&& bVoicemailRestored
+			&& bNotebookRestored;
+		if (!bRestoreContractPassed)
+		{
+			FailProbe(FString::Printf(
+				TEXT("v2 restore mismatch: schema=%d controls=%d strikes=%d wall=%d ending=%s reports=%d/%d p4=%d/%d"),
+				Narrative->GetSnapshot().SchemaVersion,
+				Narrative->GetNightFourControlOrder().Num(),
+				Narrative->GetNightFourWallStrikeCount(),
+				Narrative->IsNightFourWallOpened() ? 1 : 0,
+				*Narrative->GetEndingChoice().ToString(),
+				Narrative->WasFirstReportMade() ? 1 : 0,
+				Narrative->WasSecondReportMade() ? 1 : 0,
+				bVoicemailRestored ? 1 : 0,
+				bNotebookRestored ? 1 : 0));
+			return;
+		}
+		PassProbe();
 		break;
 	}
 
@@ -1232,7 +1619,7 @@ void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 
 // -- README/night capture tour ---------------------------------------------
 //
-// Ten staged stops that photograph the systems the README talks about, with
+// Sixteen staged stops that photograph the systems the README talks about, with
 // the same direct-into-Docs/Media discipline the legacy demo captures use.
 // Stills land as Docs/Media/<name>.png; the two bursts land under
 // Saved/NightCapture/<dir>/frame_%05d.png for the ffmpeg GIF pass.
@@ -1387,7 +1774,7 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		break;
 	case 6:
 		// P2: the booth desk — ledger, carbon pad, monitor.
-		CaptureTeleportPlayer(FVector(162.0f, -164.0f, 92.0f), 90.0f, -12.0f);
+		CaptureTeleportPlayer(FVector(160.0f, -214.0f, 92.0f), 90.0f, -25.0f);
 		break;
 	case 7:
 		// Burst: the extinguisher fall, with the entity resting so the
@@ -1404,11 +1791,14 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		{
 			Entity->SetDormant(false);
 			Entity->TeleportTo(
-				FVector(300.0f, -305.0f, 960.0f),
+				// Start west of the extinguisher already shown in the previous
+				// burst. The capture must exercise pursuit, not photograph the
+				// capsule wedged against that settled physics prop.
+				FVector(150.0f, -305.0f, 960.0f),
 				FRotator(0.0f, 180.0f, 0.0f),
 				false,
 				true);
-			Entity->SetPatrolPoints({FVector(300.0f, -305.0f, 960.0f)});
+			Entity->SetPatrolPoints({FVector(150.0f, -305.0f, 960.0f)});
 		}
 		CaptureTeleportPlayer(FVector(-250.0f, -305.0f, 997.0f), 0.0f, -4.0f);
 		break;
@@ -1419,6 +1809,48 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 			NightPhase->CompleteNightGoal();
 		}
 		CaptureTeleportPlayer(FVector(-150.0f, -284.0f, 997.0f), 90.0f, -6.0f);
+		break;
+	case 10:
+		// Portal-free climb: the camera remains inside the real upper stair.
+		if (Entity)
+		{
+			Entity->SetDormant(true);
+		}
+		if (NightThree)
+		{
+			if (AIGSwingDoor* RoofGate = NightThree->GetStairGate())
+			{
+				RoofGate->ForceOpenState(true);
+			}
+			if (AIGSwingDoor* AnnexGate = NightThree->GetAnnexGate())
+			{
+				AnnexGate->ForceOpenState(true);
+			}
+		}
+		CaptureTeleportPlayer(FVector(-277.5f, -175.0f, 1068.0f), 90.0f, 8.0f);
+		break;
+	case 11:
+		// First 4.075 m leg, squeezed between tank base and guard rail. Start
+		// beyond the stair cheek wall so the shot proves the walkable lane
+		// instead of filling half the frame with the wall behind the door.
+		CaptureTeleportPlayer(FVector(-150.0f, 220.0f, 1297.0f), 0.0f, -7.0f);
+		break;
+	case 12:
+		// The 90-degree turn and second physical fire door into the annex.
+		CaptureTeleportPlayer(FVector(130.0f, 350.0f, 1297.0f), 90.0f, -6.0f);
+		break;
+	case 13:
+		// Night-four roof hardware: both valves must sit on the tank, not hover
+		// over the lane or masquerade as four unrelated puzzle switches.
+		CaptureTeleportPlayer(FVector(5.0f, 350.0f, 1297.0f), -90.0f, -4.0f);
+		break;
+	case 14:
+		// Ground-floor motor, volute, pipes and selector inside the booth.
+		CaptureTeleportPlayer(FVector(225.0f, -220.0f, 96.0f), 158.0f, -35.0f);
+		break;
+	case 15:
+		// The real middle gypsum face before five strikes remove its collision.
+		CaptureTeleportPlayer(FVector(100.0f, 700.0f, 1297.0f), 0.0f, -5.0f);
 		break;
 	default:
 		break;
@@ -1594,7 +2026,7 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 		if (ActionB(0.5f) && NoiseSubsystem)
 		{
 			NoiseSubsystem->ReportNoise(
-				FVector(-220.0f, -305.0f, 960.0f), 0.45f, Player.Get());
+				FVector(100.0f, -305.0f, 960.0f), 0.45f, Player.Get());
 		}
 		if (ActionC(1.6f) && NoiseSubsystem)
 		{
@@ -1621,6 +2053,74 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 			CaptureShot(TEXT("day-corridor-hwang"));
 		}
 		if (StepDone(5.6f))
+		{
+			EnterCaptureStep(10);
+		}
+		break;
+	case 10:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night3-roof-stair"));
+		}
+		if (StepDone(1.5f))
+		{
+			EnterCaptureStep(11);
+		}
+		break;
+	case 11:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night3-roof-passage"));
+		}
+		if (StepDone(1.5f))
+		{
+			EnterCaptureStep(12);
+		}
+		break;
+	case 12:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night3-annex-doorway"));
+		}
+		if (StepDone(1.5f))
+		{
+			EnterCaptureStep(13);
+		}
+		break;
+	case 13:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night4-p5-roof-controls"));
+		}
+		if (StepDone(1.5f))
+		{
+			EnterCaptureStep(14);
+		}
+		break;
+	case 14:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night4-p5-transfer-pump"));
+		}
+		if (StepDone(1.5f))
+		{
+			EnterCaptureStep(15);
+		}
+		break;
+	case 15:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night4-cavity-wall"));
+		}
+		if (ActionB(1.25f) && SceneNow)
+		{
+			SceneNow->OpenMissingFloorCavity();
+		}
+		if (ActionC(1.75f))
+		{
+			CaptureShot(TEXT("night4-cavity-open"));
+		}
+		if (StepDone(2.35f))
 		{
 			GetWorldTimerManager().ClearTimer(CaptureTimer);
 			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));

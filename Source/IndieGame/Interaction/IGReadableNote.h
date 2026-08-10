@@ -127,11 +127,12 @@ class INDIEGAME_API AIGReadableNote : public AIGInteractableActor
 public:
 	AIGReadableNote();
 
-	/** Builds the paper: a thin quad with the note artwork on its face. */
+	/** Builds the physical reading prop; bound ledgers may opt into contact shadow. */
 	void ConfigurePrototypeVisuals(
 		UStaticMesh* CubeMesh,
 		UMaterialInterface* PaperMaterial,
-		const FVector& PaperSize);
+		const FVector& PaperSize,
+		bool bCastPresentationShadow = false);
 
 	/**
 	 * Sets the heading and body shown in the reading panel.

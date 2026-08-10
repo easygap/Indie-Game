@@ -23,6 +23,7 @@ function New-SignBitmap {
         [int]$Width,
         [int]$Height,
         [System.Drawing.Color]$Background,
+        [string]$BackgroundImagePath,
         [scriptblock]$Draw,
         [string]$FileName
     )
@@ -30,7 +31,23 @@ function New-SignBitmap {
     $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
     $graphics.SmoothingMode = 'AntiAlias'
     $graphics.TextRenderingHint = 'AntiAliasGridFit'
-    $graphics.Clear($Background)
+    if ($BackgroundImagePath) {
+        if (-not (Test-Path -LiteralPath $BackgroundImagePath -PathType Leaf)) {
+            throw "Sign background image is missing: $BackgroundImagePath"
+        }
+        $backgroundImage = [System.Drawing.Image]::FromFile($BackgroundImagePath)
+        try {
+            $graphics.InterpolationMode = 'HighQualityBicubic'
+            $graphics.PixelOffsetMode = 'HighQuality'
+            $graphics.DrawImage($backgroundImage, 0, 0, $Width, $Height)
+        }
+        finally {
+            $backgroundImage.Dispose()
+        }
+    }
+    else {
+        $graphics.Clear($Background)
+    }
     & $Draw $graphics $Width $Height
     $graphics.Dispose()
     $path = Join-Path $outDir $FileName
@@ -57,6 +74,16 @@ $white = [System.Drawing.Color]::White
 $nearWhite = [System.Drawing.Color]::FromArgb(255, 236, 240, 238)
 $dark = [System.Drawing.Color]::FromArgb(255, 24, 26, 28)
 $red = [System.Drawing.Color]::FromArgb(255, 198, 40, 32)
+
+# Windows ships the old Hangul word-processor "Pyunji" face as a font file
+# even when it is not registered as a normal family. Loading it privately gives
+# the fridge note a restrained handwritten shape without rasterising AI text.
+$privateFonts = New-Object System.Drawing.Text.PrivateFontCollection
+$privateFonts.AddFontFile((Join-Path $env:WINDIR 'Fonts\HMFMPYUN.TTF'))
+$noteFontFamily = $privateFonts.Families | Where-Object { $_.Name -eq 'Pyunji R' } | Select-Object -First 1
+if (-not $noteFontFamily) {
+    $noteFontFamily = $malgun
+}
 
 # --- Store fascia: exact fictional POS identity -----------------------------
 New-SignBitmap -Width 1024 -Height 256 -Background ([System.Drawing.Color]::FromArgb(255, 5, 31, 66)) -FileName 'T_SignMain_D.png' -Draw {
@@ -142,10 +169,14 @@ New-SignBitmap -Width 512 -Height 352 -Background ([System.Drawing.Color]::FromA
 }
 
 # --- Fridge note (the foreshadowing) --------------------------------------
-New-SignBitmap -Width 256 -Height 256 -Background ([System.Drawing.Color]::FromArgb(255, 245, 228, 130)) -FileName 'T_NoteFridge_D.png' -Draw {
+$stickyNotePaper = Join-Path $outDir 'AI\TextureStickyNotePaper_D.png'
+New-SignBitmap -Width 512 -Height 512 `
+    -Background ([System.Drawing.Color]::FromArgb(255, 245, 228, 130)) `
+    -BackgroundImagePath $stickyNotePaper `
+    -FileName 'T_NoteFridge_D.png' -Draw {
     param($g, $w, $h)
-    Draw-CenteredText $g '물 사올 것' $malgun 52 ([System.Drawing.FontStyle]::Italic) $dark ($w * 0.5) ($h * 0.36)
-    Draw-CenteredText $g '- 나' $malgun 34 ([System.Drawing.FontStyle]::Italic) $dark ($w * 0.68) ($h * 0.66)
+    Draw-CenteredText $g '물 사 올 것' $noteFontFamily 78 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.50) ($h * 0.38)
+    Draw-CenteredText $g '- 나' $noteFontFamily 55 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.67) ($h * 0.67)
 }
 
 # --- Bathroom door plate ---------------------------------------------------

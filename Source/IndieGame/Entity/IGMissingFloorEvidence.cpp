@@ -21,7 +21,10 @@ AIGMissingFloorEvidence::AIGMissingFloorEvidence()
 		UCollisionProfile::BlockAllDynamic_ProfileName);
 	PresentationMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
 	PresentationMesh->SetCanEverAffectNavigation(false);
-	PresentationMesh->SetMobility(EComponentMobility::Static);
+	// Runtime-spawned evidence is configured after component registration.
+	// Keep it movable only while assigning the mesh; SetStaticMesh on a Static
+	// component emits a PIE warning and can leave render state stale.
+	PresentationMesh->SetMobility(EComponentMobility::Movable);
 }
 
 void AIGMissingFloorEvidence::Configure(
@@ -45,6 +48,7 @@ void AIGMissingFloorEvidence::Configure(
 	{
 		PresentationMesh->SetMaterial(0, Material);
 	}
+	PresentationMesh->SetMobility(EComponentMobility::Static);
 
 	InteractionPrompt = Prompt;
 	ExamineThought = Thought;

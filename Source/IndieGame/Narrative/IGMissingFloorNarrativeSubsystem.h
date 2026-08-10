@@ -105,6 +105,67 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
 	bool IsPuzzleSolved(FName PuzzleId) const;
 
+	// -- night 4: hydraulic mask, wall and endings -------------------------
+
+	/** Records a P5 control once, preserving the first-activation order. */
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	bool ActivateNightFourControl(FName ControlId);
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	bool HasNightFourControl(FName ControlId) const;
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	bool IsNightFourMaskRunning() const;
+
+	const TArray<FName>& GetNightFourControlOrder() const
+	{
+		return Snapshot.Night.NightFourControlOrder;
+	}
+
+	/** Adds one physical hammer strike and returns the clamped 0..5 count. */
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	int32 RecordNightFourWallStrike();
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	int32 GetNightFourWallStrikeCount() const
+	{
+		return Snapshot.Night.NightFourWallStrikeCount;
+	}
+
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	void SetNightFourWallOpened(bool bOpened);
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	bool IsNightFourWallOpened() const { return Snapshot.Night.bNightFourWallOpened; }
+
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	void SetFirstReportMade(bool bMade);
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	bool WasFirstReportMade() const { return Snapshot.Night.bFirstReportMade; }
+
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	void SetSecondReportMade(bool bMade);
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	bool WasSecondReportMade() const { return Snapshot.Night.bSecondReportMade; }
+
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	void SetFifthDawnInterludeCompleted(bool bCompleted);
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	bool WasFifthDawnInterludeCompleted() const
+	{
+		return Snapshot.Night.bFifthDawnInterludeCompleted;
+	}
+
+	/** Accepts only Ending.A/B/C and never overwrites an existing choice. */
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	bool SelectEnding(FName EndingId);
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	FName GetEndingChoice() const { return Snapshot.Night.EndingChoice; }
+
 	// -- persistence -------------------------------------------------------
 
 	const FIGMissingFloorNarrativeSnapshot& GetSnapshot() const { return Snapshot; }
@@ -115,7 +176,7 @@ public:
 	FIGMissingFloorTruthSignature OnTruthConfirmed;
 
 	/** Current snapshot schema. Bumped only with a matching migration. */
-	static constexpr int32 SnapshotSchemaVersion = 1;
+	static constexpr int32 SnapshotSchemaVersion = 2;
 
 private:
 	/** Rebuilds bConfirmed on every record from its sources alone. */

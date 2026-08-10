@@ -274,6 +274,87 @@ $plan = @(
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
         Mode = 'Mask'
     }
+    # The Missing Floor art pass. The reference sheets remain in AI/ as
+    # provenance; only data that can receive real game lighting is promoted.
+    [pscustomobject]@{
+        Source = 'TextureMissingFloorDryPlaster'; Target = 'T_MissingFloorDryPlaster_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'SheetMissingFloorResidueMasks'; Target = 'T_MissingFloorHandprints_M.png'
+        Crop = @(0.000, 0.000, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'Mask'
+    }
+    [pscustomobject]@{
+        Source = 'SheetMissingFloorResidueMasks'; Target = 'T_MissingFloorDragTrails_M.png'
+        Crop = @(0.500, 0.000, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'Mask'
+    }
+    [pscustomobject]@{
+        Source = 'SheetMissingFloorResidueMasks'; Target = 'T_MissingFloorDustJoint_M.png'
+        Crop = @(0.000, 0.500, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'Mask'
+    }
+    [pscustomobject]@{
+        Source = 'SheetMissingFloorResidueMasks'; Target = 'T_MissingFloorCavityScratches_M.png'
+        Crop = @(0.500, 0.500, 0.500, 0.500); Size = @(512, 512)
+        Mode = 'Mask'
+    }
+    # Fixed-distance figures are the only people allowed to become sprites.
+    # The crop excludes the generator's white sheet gutters before keying.
+    [pscustomobject]@{
+        Source = 'SheetMissingFloorDistantCharacters'; Target = 'T_SpriteSeo_D.png'
+        Crop = @(0.010, 0.010, 0.484, 0.484); Size = @(512, 512)
+        Mode = 'ChromaAlpha'; Desaturate = 0.24
+    }
+    [pscustomobject]@{
+        Source = 'SheetMissingFloorDistantCharacters'; Target = 'T_SpriteMok_D.png'
+        Crop = @(0.506, 0.010, 0.484, 0.484); Size = @(512, 512)
+        Mode = 'ChromaAlpha'; Desaturate = 0.32
+    }
+    [pscustomobject]@{
+        Source = 'SheetMissingFloorDistantCharacters'; Target = 'T_SpriteHwang_D.png'
+        Crop = @(0.010, 0.506, 0.484, 0.484); Size = @(512, 512)
+        Mode = 'ChromaAlpha'; Desaturate = 0.28
+    }
+    [pscustomobject]@{
+        Source = 'SheetMissingFloorDistantCharacters'; Target = 'T_SpriteNarin_D.png'
+        Crop = @(0.506, 0.506, 0.484, 0.484); Size = @(512, 512)
+        Mode = 'ChromaAlpha'; Desaturate = 0.18
+    }
+    # The listener is seen head-on down a long corridor. A lit 2.5D card
+    # preserves the generated human anatomy at that one authored angle while
+    # the continuous 3D shell remains available for contact shadow and side
+    # reads. Green is used only for offline extraction and never reaches UE.
+    [pscustomobject]@{
+        Source = 'ListenerEntityFrontCutout'; Target = 'T_SpriteListenerFront_D.png'
+        Crop = @(0.080, 0.130, 0.880, 0.740); Size = @(1024, 1024)
+        Mode = 'ChromaAlphaGreen'; Desaturate = 0.10
+    }
+    # Four consecutive crawl phases generated from the approved anatomy and
+    # front-cutout references. The two-pixel outer border and five-pixel grid
+    # gutter stay outside these equal crops, so white sheet lines can never
+    # leak into the masked material.
+    [pscustomobject]@{
+        Source = 'SheetListenerEntityCrawlPhases'; Target = 'T_SpriteListenerCrawl0_D.png'
+        Crop = @(0.002, 0.002, 0.496, 0.496); Size = @(1024, 1024)
+        Mode = 'ChromaAlphaGreen'; Desaturate = 0.10
+    }
+    [pscustomobject]@{
+        Source = 'SheetListenerEntityCrawlPhases'; Target = 'T_SpriteListenerCrawl1_D.png'
+        Crop = @(0.502, 0.002, 0.496, 0.496); Size = @(1024, 1024)
+        Mode = 'ChromaAlphaGreen'; Desaturate = 0.10
+    }
+    [pscustomobject]@{
+        Source = 'SheetListenerEntityCrawlPhases'; Target = 'T_SpriteListenerCrawl2_D.png'
+        Crop = @(0.002, 0.502, 0.496, 0.496); Size = @(1024, 1024)
+        Mode = 'ChromaAlphaGreen'; Desaturate = 0.10
+    }
+    [pscustomobject]@{
+        Source = 'SheetListenerEntityCrawlPhases'; Target = 'T_SpriteListenerCrawl3_D.png'
+        Crop = @(0.502, 0.502, 0.496, 0.496); Size = @(1024, 1024)
+        Mode = 'ChromaAlphaGreen'; Desaturate = 0.10
+    }
 )
 
 if ($OnlySource.Count -gt 0) {
@@ -405,6 +486,60 @@ foreach ($entry in $plan) {
                         $y,
                         [System.Drawing.Color]::FromArgb(
                             255,
+                            [int][Math]::Round($red),
+                            [int][Math]::Round($green),
+                            [int][Math]::Round($blue)))
+                }
+            }
+        }
+        elseif ($entryMode -eq 'ChromaAlphaGreen') {
+            $desaturate = if (
+                $null -ne $entry.PSObject.Properties['Desaturate']
+            ) {
+                [double]$entry.Desaturate
+            }
+            else {
+                0.0
+            }
+            for ($y = 0; $y -lt $target.Height; $y++) {
+                for ($x = 0; $x -lt $target.Width; $x++) {
+                    $pixel = $target.GetPixel($x, $y)
+                    $otherMax = [Math]::Max($pixel.R, $pixel.B)
+                    $keyExcess = [double]$pixel.G - $otherMax
+
+                    # A soft key keeps hair and plaster-dust antialiasing,
+                    # then removes reflected green from the surviving RGB.
+                    $dominance = [Math]::Max(
+                        0.0,
+                        [Math]::Min(1.0, ($keyExcess - 10.0) / 86.0))
+                    $brightness = [Math]::Max(
+                        0.0,
+                        [Math]::Min(1.0, ($pixel.G - 70.0) / 150.0))
+                    $keyStrength = $dominance * $brightness
+                    $alpha = [int][Math]::Round(255.0 * (1.0 - $keyStrength))
+                    if ($alpha -le 3) {
+                        $target.SetPixel(
+                            $x,
+                            $y,
+                            [System.Drawing.Color]::FromArgb(0, 0, 0, 0))
+                        continue
+                    }
+
+                    $red = [double]$pixel.R
+                    $blue = [double]$pixel.B
+                    $neutralGreen = ($red + $blue) * 0.5 + 4.0
+                    $green = [Math]::Min([double]$pixel.G, $neutralGreen)
+                    if ($desaturate -gt 0.0) {
+                        $luma = $red * 0.2126 + $green * 0.7152 + $blue * 0.0722
+                        $red = $red + ($luma - $red) * $desaturate
+                        $green = $green + ($luma - $green) * $desaturate
+                        $blue = $blue + ($luma - $blue) * $desaturate
+                    }
+                    $target.SetPixel(
+                        $x,
+                        $y,
+                        [System.Drawing.Color]::FromArgb(
+                            $alpha,
                             [int][Math]::Round($red),
                             [int][Math]::Round($green),
                             [int][Math]::Round($blue)))

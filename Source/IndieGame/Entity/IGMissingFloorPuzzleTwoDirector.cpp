@@ -20,8 +20,10 @@ namespace IGPuzzleTwo
 	// same rule every night director follows, because the scene's coordinate
 	// namespace is .cpp-local.
 	const FVector BoothDoorHinge(120.0f, -235.0f, 0.0f);
-	const FVector FairCopyLocation(120.0f, -103.0f, 80.0f);
-	const FVector CarbonLocation(160.0f, -103.0f, 79.0f);
+	// Desk top is Z=76.  The 2.8 cm ledger rests at Z=77.5, never at the old
+	// upright-paper centre that made it intersect and appear to float.
+	const FVector FairCopyLocation(120.0f, -103.0f, 77.5f);
+	const FVector CarbonLocation(160.0f, -103.0f, 77.5f);
 	const FVector AgentNoteLocation(205.0f, -103.0f, 80.0f);
 	const FVector CctvLocation(150.0f, -94.0f, 96.0f);
 	const FVector FoamGapLocation(272.0f, -90.0f, 105.0f);
@@ -55,6 +57,10 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	{
 		return false;
 	}
+	UStaticMesh* ComplaintLedgerMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_ComplaintLedger.SM_ComplaintLedger"));
+	UMaterialInterface* LedgerMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
 
 	FActorSpawnParameters SpawnParameters;
 	SpawnParameters.SpawnCollisionHandlingOverride =
@@ -91,7 +97,12 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		return false;
 	}
 	FairCopyLedger->ConfigurePrototypeVisuals(
-		CubeMesh, nullptr, FVector(21.0f, 1.2f, 29.7f));
+		ComplaintLedgerMesh ? ComplaintLedgerMesh : CubeMesh,
+		ComplaintLedgerMesh ? LedgerMaterial : nullptr,
+		ComplaintLedgerMesh
+			? FVector(100.0f, 100.0f, 100.0f)
+			: FVector(21.0f, 1.2f, 29.7f),
+		ComplaintLedgerMesh != nullptr);
 	FairCopyLedger->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "P2FairCopyPrompt", "민원 대장"));
 	FairCopyLedger->SetNoteText(
@@ -119,9 +130,11 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		return false;
 	}
 	CarbonLedger->Configure(
-		CubeMesh,
-		nullptr,
-		FVector(21.0f, 1.0f, 29.7f),
+		ComplaintLedgerMesh ? ComplaintLedgerMesh : CubeMesh,
+		ComplaintLedgerMesh ? LedgerMaterial : nullptr,
+		ComplaintLedgerMesh
+			? FVector(100.0f, 100.0f, 100.0f)
+			: FVector(21.0f, 1.0f, 29.7f),
 		NSLOCTEXT("IGMissingFloor", "P2CarbonPrompt", "먹지 — 문지른다"),
 		NSLOCTEXT(
 			"IGMissingFloor",

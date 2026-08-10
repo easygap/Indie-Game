@@ -234,10 +234,27 @@ public:
 	UFUNCTION(BlueprintPure, Category = "HUD")
 	bool IsNightPresentation() const { return bNightPresentation; }
 
+	/**
+	 * The fifth-dawn interlude owns a black frame. Ordinary crosshair, focus,
+	 * objective and dialogue stay out; directional accessibility captions may
+	 * still draw because sound is the only image in that scene.
+	 */
+	void SetSensoryInterludePresentation(bool bEnabled)
+	{
+		bSensoryInterludePresentation = bEnabled;
+	}
+
 	/** Native, asset-independent accessibility panel driven by the controller. */
 	void SetAccessibilityMenuState(bool bVisible, int32 SelectedRow);
 	/** Native title, pause and credits presentation shared by packaged builds. */
 	void SetSystemMenuState(const FIGSystemMenuPresentation& Presentation);
+	/**
+	 * Daylight-only evidence journal for 없는 층. The controller owns pause and
+	 * input; the HUD only renders the requested page from the saved provenance.
+	 */
+	void SetMissingFloorJournalState(bool bVisible, int32 PageIndex);
+	bool IsMissingFloorJournalVisible() const { return bMissingFloorJournalVisible; }
+	int32 GetMissingFloorJournalPageCount() const;
 	void SetInputDevicePresentation(bool bInUsingGamepad)
 	{
 		bUsingGamepad = bInUsingGamepad;
@@ -254,6 +271,7 @@ private:
 	void InitializeKoreanFont();
 	void InitializeLensDropletTexture();
 	void InitializeDialogueSurfaceTextures();
+	void InitializeMissingFloorJournalTextures();
 	UFont* MakeRuntimeFont(UFontFace* FontFace, int32 PixelSize, const TCHAR* FontName);
 	UFont* GetFontForRole(EIGHudTextRole TextRole) const;
 	FText GetObjectiveText() const;
@@ -342,6 +360,8 @@ private:
 	void DrawAccessibilityPanel();
 	void DrawSystemMenuPanel();
 	void DrawDisplaySettingsPanel();
+	void DrawMissingFloorJournalPanel();
+	UTexture2D* GetMissingFloorJournalThumbnail(int32 ThumbnailType) const;
 	/** Screen-space bracket that snaps around whatever is currently focused. */
 	void UpdateFocusBracket(const AActor* FocusedActor, float DeltaSeconds);
 	void DrawFocusBracket(const FLinearColor& Color, float Progress);
@@ -363,6 +383,23 @@ private:
 	/** ImageGen-derived, low-contrast optical grain used by dialogue surfaces. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> DialogueFilmTexture;
+
+	/** ImageGen-derived blank ledger paper. All Korean copy remains runtime text. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> MissingFloorJournalTexture;
+
+	/** Existing world textures sampled as restrained evidence-card thumbnails. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> JournalMeterTexture;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> JournalPlasterTexture;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> JournalTankTexture;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> JournalMetalTexture;
 
 	/** Runtime 9-slice mask; one 64 px allocation shared by every HUD surface. */
 	UPROPERTY(Transient)
@@ -470,9 +507,12 @@ private:
 	bool bLayoutValidationEnabled = false;
 	int32 AccessibilitySelectedRow = 0;
 	int32 SystemMenuSelectedRow = 0;
+	int32 MissingFloorJournalPageIndex = 0;
 	bool bNightPresentation = false;
+	bool bSensoryInterludePresentation = false;
 	bool bAccessibilityMenuVisible = false;
 	bool bSystemMenuVisible = false;
+	bool bMissingFloorJournalVisible = false;
 	bool bSystemMenuIsTitle = false;
 	bool bSystemMenuIsCredits = false;
 	bool bSystemMenuIsDisplaySettings = false;

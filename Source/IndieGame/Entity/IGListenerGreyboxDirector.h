@@ -64,6 +64,8 @@ private:
 	void HandleNightOneSolved();
 	void HandleNightTwoSolved();
 	void HandleNightThreeSolved();
+	void HandleFifthDawnCompleted();
+	void HandleNightFourResolved();
 	void HandleSleepRequested(class AIGMissingFloorEvidence* Evidence);
 	void HandleUnit401Knocked(class AIGMissingFloorEvidence* Evidence);
 
@@ -87,6 +89,12 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGMissingFloorNightThreeDirector> NightThree;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorFifthDawnDirector> FifthDawn;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorNightFourDirector> NightFour;
 
 	/** Day interactions: the bed that ends the day, 401's door that talks. */
 	UPROPERTY(Transient)
@@ -121,7 +129,12 @@ private:
 		PuzzleTwoContract,
 		DayTwoContract,
 		NightThreeContract,
+		AnswerPairTap,
+		AnswerFinalTap,
 		AnswerContract,
+		NightFourContract,
+		NightFourWallContract,
+		NightFourEndingContract,
 		Done
 	};
 

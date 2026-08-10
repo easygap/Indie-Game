@@ -36,19 +36,42 @@ $requiredRaw = @(
 	'AI\TextureHudDialogueFilm.png',
 	'AI\ApartmentVisualTarget_v1.png',
 	'AI\TextureApartmentWallpaperVintage.png',
-	'AI\MaskApartmentWallPatina.png'
+	'AI\MaskApartmentWallPatina.png',
+	'AI\TextureStickyNotePaper_D.png',
+	'AI\SheetMissingFloorEnvironmentReference.png',
+	'AI\SheetListenerEntityAnatomyReference.png',
+	'AI\TextureMissingFloorDryPlaster.png',
+	'AI\SheetMissingFloorResidueMasks.png',
+	'AI\SheetMissingFloorDistantCharacters.png',
+	'AI\SheetMissingFloorHeroPropsReference.png',
+	'AI\ListenerEntityFrontCutout.png',
+	'AI\SheetListenerEntityCrawlPhases.png',
+	'AI\TextureMissingFloorJournalPaper_v1.png'
 )
 $requiredMasks = @(
 	'T_EvidenceSlipperTrail_M.png',
 	'T_EvidenceCatPawTrail_M.png',
 	'T_EvidenceHoseDrag_M.png',
-	'T_EvidenceHandSmear_M.png'
+	'T_EvidenceHandSmear_M.png',
+	'T_MissingFloorHandprints_M.png',
+	'T_MissingFloorDragTrails_M.png',
+	'T_MissingFloorDustJoint_M.png',
+	'T_MissingFloorCavityScratches_M.png'
 )
 $requiredOverlays = @(
 	'T_DecalDampWallpaper_D.png',
 	'T_DecalRustFasteners_D.png',
 	'T_DecalMineralScale_D.png',
-	'T_DecalRainGrime_D.png'
+	'T_DecalRainGrime_D.png',
+	'T_SpriteSeo_D.png',
+	'T_SpriteMok_D.png',
+	'T_SpriteHwang_D.png',
+	'T_SpriteNarin_D.png',
+	'T_SpriteListenerFront_D.png',
+	'T_SpriteListenerCrawl0_D.png',
+	'T_SpriteListenerCrawl1_D.png',
+	'T_SpriteListenerCrawl2_D.png',
+	'T_SpriteListenerCrawl3_D.png'
 )
 $requiredMaterialMasks = @(
 	'T_ApartmentWallPatina_M.png'
@@ -64,7 +87,9 @@ $requiredMaterialTextures = @(
 	'T_TankWaterSurface_D.png',
 	'T_P3CabinetPaintedSteel_D.png',
 	'T_HudDialogueFilm_D.png',
-	'T_ApartmentWallpaperV2_D.png'
+	'T_MissingFloorJournalPaper_D.png',
+	'T_ApartmentWallpaperV2_D.png',
+	'T_MissingFloorDryPlaster_D.png'
 )
 $requiredPbrMaps = @(
 	'T_WetHoodie_N.png',
@@ -104,7 +129,25 @@ $requiredPbrMaps = @(
 	'T_TankWaterSurface_A.png',
 	'T_ApartmentWallpaperV2_N.png',
 	'T_ApartmentWallpaperV2_R.png',
-	'T_ApartmentWallpaperV2_A.png'
+	'T_ApartmentWallpaperV2_A.png',
+	'T_MissingFloorDryPlaster_N.png',
+	'T_MissingFloorDryPlaster_R.png',
+	'T_MissingFloorDryPlaster_A.png',
+	'T_SpriteListenerFront_N.png',
+	'T_SpriteListenerFront_R.png',
+	'T_SpriteListenerFront_A.png',
+	'T_SpriteListenerCrawl0_N.png',
+	'T_SpriteListenerCrawl0_R.png',
+	'T_SpriteListenerCrawl0_A.png',
+	'T_SpriteListenerCrawl1_N.png',
+	'T_SpriteListenerCrawl1_R.png',
+	'T_SpriteListenerCrawl1_A.png',
+	'T_SpriteListenerCrawl2_N.png',
+	'T_SpriteListenerCrawl2_R.png',
+	'T_SpriteListenerCrawl2_A.png',
+	'T_SpriteListenerCrawl3_N.png',
+	'T_SpriteListenerCrawl3_R.png',
+	'T_SpriteListenerCrawl3_A.png'
 )
 $requiredDerived = @(
 	$requiredMasks + $requiredOverlays + $requiredMaterialMasks +
@@ -127,15 +170,23 @@ foreach ($relativePath in $requiredDerived) {
 		$expectedSize = if (
 			$requiredMaterialMasks -contains $relativePath -or
 			$requiredMaterialTextures -contains $relativePath -or
-			$requiredPbrMaps -contains $relativePath
+			$requiredPbrMaps -contains $relativePath -or
+			$relativePath -like 'T_SpriteListener*_D.png'
 		) { 1024 } else { 512 }
-		if ($image.Width -ne $expectedSize -or $image.Height -ne $expectedSize) {
-			throw "Derived art must be ${expectedSize}x${expectedSize}: $relativePath"
+		$expectedWidth = if ($relativePath -eq 'T_MissingFloorJournalPaper_D.png') {
+			1672
+		} else { $expectedSize }
+		$expectedHeight = if ($relativePath -eq 'T_MissingFloorJournalPaper_D.png') {
+			941
+		} else { $expectedSize }
+		if ($image.Width -ne $expectedWidth -or $image.Height -ne $expectedHeight) {
+			throw "Derived art must be ${expectedWidth}x${expectedHeight}: $relativePath"
 		}
 
 		$opaqueSamples = 0
 		$transparentSamples = 0
 		$visibleMagentaSamples = 0
+		$visibleGreenSamples = 0
 		$lumaTotal = 0.0
 		$lumaMinimum = 255.0
 		$lumaMaximum = 0.0
@@ -169,6 +220,11 @@ foreach ($relativePath in $requiredDerived) {
 					$pixel.G -lt 110) {
 					$visibleMagentaSamples++
 				}
+				if ($pixel.A -gt 8 -and
+					$pixel.G - $pixel.R -gt 24 -and
+					$pixel.G - $pixel.B -gt 24) {
+					$visibleGreenSamples++
+				}
 			}
 		}
 
@@ -183,6 +239,10 @@ foreach ($relativePath in $requiredDerived) {
 			}
 			if ($visibleMagentaSamples -gt 0) {
 				throw "RGBA overlay retained a visible magenta fringe: $relativePath"
+			}
+			if ($relativePath -like 'T_SpriteListener*_D.png' -and
+				$visibleGreenSamples -gt 0) {
+				throw "RGBA overlay retained a visible green fringe: $relativePath"
 			}
 		}
 		elseif ($opaqueSamples -lt 12000) {
@@ -251,6 +311,12 @@ foreach ($relativePath in $requiredDerived) {
 						throw "Dialogue film lost its restrained near-black UI range: $relativePath"
 					}
 				}
+				'T_MissingFloorJournalPaper_D.png' {
+					if ($meanLuma -lt 185 -or $meanLuma -gt 235 -or
+						$dynamicRange -lt 30) {
+						throw "Journal paper lost its readable tactile range: $relativePath"
+					}
+				}
 			}
 		}
 		elseif ($requiredPbrMaps -contains $relativePath) {
@@ -304,8 +370,34 @@ $neighborhoodSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Environment\IGNeighborhoodLifeDirector.cpp')
 $prologueSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Core\IGPrologueWorldScene.cpp')
+$listenerSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Entity\IGListenerEntity.cpp')
+$greyboxSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Entity\IGListenerGreyboxDirector.cpp')
+$nightThreeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Entity\IGMissingFloorNightThreeDirector.cpp')
+$fifthDawnSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Entity\IGMissingFloorFifthDawnDirector.cpp')
+$nightFourSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Entity\IGMissingFloorNightFourDirector.cpp')
+$missingFloorNarrativeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Narrative\IGMissingFloorNarrativeSubsystem.cpp')
+$missingFloorNarrativeHeader = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Narrative\IGMissingFloorNarrativeSubsystem.h')
+$missingFloorStory = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Docs\STORY_BIBLE_MISSING_FLOOR.md')
+$puzzleTwoSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Entity\IGMissingFloorPuzzleTwoDirector.cpp')
 $playerSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Player\IGPlayerCharacter.cpp')
+$playerControllerSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Player\IGPlayerController.cpp')
+$horrorHudSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Player\IGHorrorHUD.cpp')
+$toneSequenceSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Audio\IGToneSequenceSoundWave.cpp')
+$inputConfig = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Config\DefaultInput.ini')
 $buildScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\Build-ArtAssets.ps1')
 $auditScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -328,6 +420,88 @@ foreach ($token in @(
 }
 if ($meshScript.Contains('unreal.Rotator(*rotation)')) {
 	throw 'Mesh transforms must not pass C++-ordered rotations positionally.'
+}
+
+foreach ($token in @(
+	'def append_indexed_surface',
+	'def append_wrapped_label_surface',
+	'getattr(unreal, "GeometryScript_MeshEdits", None)',
+	'EDITS.append_buffers_to_mesh(mesh, buffers, 0, False)',
+	'uvs.append((u, v))',
+	'build_sticky_note_76mm',
+	'"SM_StickyNote76mm"',
+	'[(4.18, 0.0, 1.0), (5.36, 7.2, 0.0)]'
+)) {
+	if (-not $meshScript.Contains($token)) {
+		throw "Physical packaging UV/adhesive-note mesh contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'INSTANCED_PRODUCT_MATERIALS',
+	'WRAPPED_LABEL_MATERIALS',
+	'used_with_instanced_static_meshes'
+)) {
+	if (-not $materialScript.Contains($token) -or -not $auditScript.Contains($token)) {
+		throw "Runtime product-material contract is missing: $token"
+	}
+}
+if (-not $materialScript.Contains('material.set_editor_property("two_sided", True)') -or
+	-not $auditScript.Contains('material.get_editor_property("two_sided")')) {
+	throw 'Wrapped product film must be authored and audited as two-sided.'
+}
+if ($meshScript.Contains('set_mesh_u_vs_from_cylinder_projection') -or
+	$meshScript.Contains('set_mesh_uvs_from_cylinder_projection')) {
+	throw 'Printed sleeves must use an explicit single-seam UV instead of projection.'
+}
+foreach ($token in @(
+	'constexpr float BedsideTableTopZ = 60.0f;',
+	'constexpr float AlarmContactBottomLocalZ = -0.40f;',
+	'constexpr float PropContactEmbedZ = 0.10f;',
+	'BedsideTable->CalcBounds(',
+	'BedsideSurfaceWorldZ - IGPrologueWorld::AlarmContactBottomLocalZ',
+	'AlarmWorldLocation',
+	'PropMesh(TEXT("SM_StickyNote76mm"))',
+	'FVector(-7.43f, 36.0f, 18.0f)',
+	'FVector(3.30f, 3.30f, 5.5f)',
+	'BuildCabInterior owns the sole rider COP',
+	'Prop->bDisallowNanite = true;'
+)) {
+	if (-not $prologueSource.Contains($token)) {
+		throw "Household/retail physical placement contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'const bool bRamyeonBay =',
+	'constexpr float RamyeonShelfSurfaceZ = 121.5f;',
+	'FVector(CupX, RowY, RamyeonShelfSurfaceZ)',
+	'const float TierHeights[] = {30.0f, 60.0f, 90.0f, 120.0f, 150.0f};',
+	'FVector(2640, GondolaY, 174)',
+	'for (const float TierZ : {16.0f, 46.0f, 76.0f, 106.0f, 136.0f, 166.0f})'
+)) {
+	if (-not $prologueSource.Contains($token)) {
+		throw "Convenience-store shelf-bay placement contract is missing: $token"
+	}
+}
+foreach ($forbiddenToken in @(
+	'AddStoreStockCup(FVector(CupX, -365, 142)',
+	'AddStoreStockCup(FVector(CupX, -654, 167.5f)',
+	'constexpr float AlarmFootBottomLocalZ = -0.65f;',
+	'PropContactClearanceZ'
+)) {
+	if ($prologueSource.Contains($forbiddenToken)) {
+		throw "A known floating/top-cap retail placement regressed: $forbiddenToken"
+	}
+}
+foreach ($forbiddenToken in @(
+	'FVector(-6.9f, 36.0f, 18.0f)',
+	'FVector(0.012f, 0.20f, 0.20f)',
+	'FVector(12, -74.2f, CabBaseZ + 108)',
+	'FVector(4.10f, 4.10f, 7.2f)',
+	'FVector(3.36f, 3.36f, 8.6f)'
+)) {
+	if ($prologueSource.Contains($forbiddenToken)) {
+		throw "A known floating/intersecting/stretched visual regressed: $forbiddenToken"
+	}
 }
 
 foreach ($token in @(
@@ -470,6 +644,17 @@ foreach ($token in @(
 	if (-not $meshScript.Contains($token) -or
 		-not $directorSource.Contains($token)) {
 		throw "Submerged body group is not generated and loaded: $token"
+	}
+}
+foreach ($token in @(
+	'Anatomically readable wet hoodie',
+	'leg_segments = (',
+	'Two grounded slide slippers',
+	'location=(50.0, -22.0, 7.0)',
+	'((45.0, 6.0, -8.0), -8.0)'
+)) {
+	if (-not $meshScript.Contains($token)) {
+		throw "Submerged human-anatomy silhouette contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -651,10 +836,10 @@ foreach ($token in @(
 	'TankInternalFloorZ = 381.0f',
 	'TankDeckUndersideZ = 596.0f',
 	'TankWaterSurfaceZ = 561.0f',
-	'TankBodyPlacementAdjustmentZ = -16.0f',
-	'AuthoredTankBodyPlacement(-90.0f, 0.0f, 542.0f)',
-	'AuthoredTankBodyRotation(0.0f, 90.0f, 0.0f)',
-	'AuthoredSleeveStitchLocalBase(23.0f, -25.0f, 13.0f)',
+	'TankBodyPlacementAdjustmentZ = -9.0f',
+	'AuthoredTankBodyPlacement(-88.0f, 0.0f, 542.0f)',
+	'AuthoredTankBodyRotation(0.0f, 70.0f, 0.0f)',
+	'AuthoredSleeveStitchLocalBase(8.0f, -27.0f, 15.2f)',
 	'GetAuthoredSleeveStitchFocusOffset()',
 	'TankDeckUndersideZ - TankInternalFloorZ == 215.0f',
 	'TankWaterSurfaceZ - TankInternalFloorZ == 180.0f',
@@ -797,7 +982,7 @@ foreach ($token in @(
 foreach ($token in @(
 	'Content\Meshes\SM_TankExteriorAccessStair.uasset',
 	'Content\Meshes\SM_TankInternalLining.uasset',
-	'ART_BUILD PASS meshes=30'
+	'ART_BUILD PASS meshes=32'
 )) {
 	if (-not $buildScript.Contains($token)) {
 		throw "Exterior access-stair output is not release-gated: $token"
@@ -913,6 +1098,7 @@ foreach ($token in @(
 	'@($targetRelativeAssets).Count',
 	'IG_HUD_UI_ONLY',
 	'T_HudDialogueFilm_D.uasset',
+	'T_MissingFloorJournalPaper_D.uasset',
 	'IG_APARTMENT_VISUAL_ONLY',
 	'T_ApartmentWallpaperV2_D.uasset',
 	'T_ApartmentWallPatina_M.uasset',
@@ -988,4 +1174,335 @@ foreach ($token in @(
 	}
 }
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=28 masks=5 overlays=4 material_scans=11 pbr_maps=38 meshes=31 photo_meshes=50'
+# 「없는 층」의 ImageGen 원본은 참고 시트에서 끝나지 않는다. 근접 인체는
+# 연속 3D 접지 셸과 정면 PBR 레이어를 결합하고, 흔적은 값 마스크, 접근
+# 불가 인물은 고정 스프라이트로 제한하는 적용 경계를 소스 계약으로 잠근다.
+foreach ($token in @(
+	'T_MissingFloorDryPlaster',
+	'M_MissingFloorListenerPlasterUV',
+	'M_MissingFloorHandprints',
+	'M_SpriteSeo',
+	'M_SpriteListenerFront',
+	'M_SpriteListenerCrawl0',
+	'M_SpriteListenerCrawl3'
+)) {
+	if (-not $materialScript.Contains($token)) {
+		throw "Missing-floor material pipeline is missing: $token"
+	}
+}
+foreach ($token in @(
+	'Every targeted pass can compile runtime bindings',
+	"-Source (Join-Path `$unrealProjectRoot 'Binaries\Win64')",
+	"-Destination (Join-Path `$projectRoot 'Binaries\Win64')"
+)) {
+	if (-not $buildScript.Contains($token)) {
+		throw "ASCII targeted-build binary sync is missing: $token"
+	}
+}
+foreach ($token in @(
+	'build_listener_entity_crawl',
+	'"SM_ListenerEntityCrawl"',
+	'Long tuner fingers remain closed plaster geometry',
+	'build_tuning_hammer',
+	'"SM_TuningHammer"',
+	'A tuning hammer is not a listening wand',
+	'build_tuner_tool_cart',
+	'"SM_TunerToolCart"',
+	'build_complaint_ledger',
+	'"SM_ComplaintLedger"',
+	'build_calendar_journal',
+	'"SM_CalendarJournal"',
+	'IG_MISSING_FLOOR_ONLY'
+)) {
+	if (-not $meshScript.Contains($token)) {
+		throw "Missing-floor anatomical mesh contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'SM_ListenerEntityCrawl.SM_ListenerEntityCrawl',
+	'M_MissingFloorListenerPlasterUV',
+	'M_SpriteListenerFront',
+	'M_SpriteListenerCrawl0',
+	'M_SpriteListenerCrawl3',
+	'UpdatePresentationPose(LastMoveSpeed, DeltaSeconds)',
+	'ListenerPhaseMaterials.Num() == 4',
+	'State == EIGListenerState::Waiting',
+	'ListenerPhase = 1.0f',
+	'const float FramesPerSecond = FMath::Lerp(1.6f, 6.0f, SpeedAlpha)',
+	'SetCastHiddenShadow(bFrontCardActive)',
+	'Distance > 160.0f',
+	'Distance > 125.0f',
+	'Facing > 0.60f',
+	'FVector(0.0f, 0.0f, -27.0f)'
+)) {
+	if (-not $listenerSource.Contains($token)) {
+		throw "Listener release-visual binding is missing: $token"
+	}
+}
+foreach ($token in @(
+	'M_MissingFloorPlaster_X',
+	'M_MissingFloorHandprints',
+	'M_MissingFloorCavityScratches'
+)) {
+	if (-not $prologueSource.Contains($token)) {
+		throw "Fifth-floor PBR/residue placement is missing: $token"
+	}
+}
+foreach ($token in @(
+	'M_SpriteSeo.M_SpriteSeo',
+	'Feet sit exactly on Z=0',
+	'RefreshDistantSeoVisibility',
+	'SM_TuningHammer.SM_TuningHammer',
+	'조율 렌치',
+	'SM_TunerToolCart.SM_TunerToolCart',
+	'SM_CalendarJournal.SM_CalendarJournal'
+)) {
+	if (-not $nightThreeSource.Contains($token)) {
+		throw "Missing-floor night-three visual binding is missing: $token"
+	}
+}
+foreach ($token in @(
+	'SM_ComplaintLedger.SM_ComplaintLedger',
+	'ComplaintLedgerMesh ? LedgerMaterial',
+	'77.5f'
+)) {
+	if (-not $puzzleTwoSource.Contains($token)) {
+		throw "Missing-floor physical ledger binding is missing: $token"
+	}
+}
+
+# 정사 v2.5의 공간·퍼즐·영속성 계약. 시각 에셋이 맞아도 포털, 조기 P3
+# 해결, 가상 P5 설비 또는 복원 누락이 돌아오면 같은 빌드로 취급하지 않는다.
+foreach ($token in @(
+	'MissingFloorRouteLengthCentimeters = 640.0f',
+	'MissingFloorUpperStepCount = 14',
+	'ValidateMissingFloorRooftopRoute',
+	'OpenMissingFloorCavity',
+	'SetMissingFloorAnnexPower'
+)) {
+	if (-not $prologueSource.Contains($token)) {
+		throw "Missing-floor physical topology contract is missing: $token"
+	}
+}
+if ($nightThreeSource.Contains('MissingFloorAnnexTransition') -or
+	$nightThreeSource.Contains('AnnexTransition')) {
+	throw 'Night three regressed to a detached annex portal.'
+}
+$valveStart = $nightThreeSource.IndexOf(
+	'void AIGMissingFloorNightThreeDirector::HandleValveOpened')
+$listenStart = $nightThreeSource.IndexOf(
+	'void AIGMissingFloorNightThreeDirector::HandleWallListened')
+if ($valveStart -lt 0 -or $listenStart -le $valveStart) {
+	throw 'Night-three P3 function boundaries are missing.'
+}
+$valveBody = $nightThreeSource.Substring($valveStart, $listenStart - $valveStart)
+if ($valveBody.Contains('MarkPuzzleSolved')) {
+	throw 'P3 must not be solved by opening the valve before identifying a wall.'
+}
+foreach ($token in @(
+	'P5.RoofCleaningDrain',
+	'P5.RoofFloatBypass',
+	'P5.TransferPump',
+	'WaterMaskHumHandle',
+	'RecordNightFourWallStrike',
+	'SetMissingFloorAnnexPower(false)',
+	'OpenMissingFloorCavity',
+	'Ending.A',
+	'Ending.B',
+	'Ending.C'
+)) {
+	if (-not $nightFourSource.Contains($token)) {
+		throw "Night-four runtime contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'AnswerRhythmJournal',
+	'NightFourControlOrder',
+	'NightFourWallStrikeCount',
+	'bFirstReportMade',
+	'bSecondReportMade',
+	'SelectEnding'
+)) {
+	if (-not $missingFloorNarrativeSource.Contains($token) -and
+		-not $missingFloorNarrativeHeader.Contains($token)) {
+		throw "Missing-floor v2 persistence contract is missing: $token"
+	}
+}
+if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 2')) {
+	throw 'Missing-floor snapshot schema was not advanced for night-four state.'
+}
+foreach ($token in @(
+	'제작 정사 v2.5',
+	'세척 배수 OPEN',
+	'부자밸브 우회 OPEN',
+	'저수조 이송펌프',
+	'2분 40초',
+	'05:30 최초 신고',
+	'0:52~1:20 / 7월 29일 셋째 새벽',
+	'1:55~2:40 / 7월 31일 다섯째이자 마지막 새벽'
+)) {
+	if (-not $missingFloorStory.Contains($token)) {
+		throw "Missing-floor story v2.5 contract is missing: $token"
+	}
+}
+# v2.4 입력 실행 계약. 설정에 키 이름만 있거나 코드에 함수 이름만 있는
+# 반쪽 구현을 허용하지 않고, 실제 퍼즐 경로와 화면 프롬프트까지 함께 묶는다.
+foreach ($actionName in @('Sprint', 'Crouch', 'Knock', 'Listen', 'HoldBreath')) {
+	if (-not $inputConfig.Contains(('ActionName="{0}"' -f $actionName))) {
+		throw "Missing-floor input action is missing from DefaultInput.ini: $actionName"
+	}
+}
+if ($inputConfig.Contains('ActionName="Interact",bShift=False,bCtrl=False,bAlt=False,bCmd=False,Key=Q')) {
+	throw 'Q regressed to an Interact alias; P4 taps would mix with ordinary interaction.'
+}
+foreach ($token in @(
+	'void AIGPlayerCharacter::BeginSprint()',
+	'void AIGPlayerCharacter::ToggleCrouch()',
+	'void AIGPlayerCharacter::Knock()',
+	'void AIGPlayerCharacter::BeginListen()',
+	'void AIGPlayerCharacter::BeginHoldBreath()',
+	'SprintFootstepLoudness = 0.50f',
+	'CrouchFootstepLoudness = 0.05f',
+	'MaximumBreathHoldSeconds = 4.0f',
+	'IsHourSealed()'
+)) {
+	if (-not $playerSource.Contains($token)) {
+		throw "Missing-floor player-input runtime contract is missing: $token"
+	}
+}
+# v2.5의 낮 기록은 입력 이름, 일시정지, 실제 출처, 접근성 재페이지와 종이
+# 원샷이 한 경로로 연결돼야 한다. 정적인 배경 이미지 한 장만으로는 통과하지 않는다.
+foreach ($actionName in @('Journal', 'JournalPrevious', 'JournalNext')) {
+	if (-not $inputConfig.Contains(('ActionName="{0}"' -f $actionName))) {
+		throw "Missing-floor journal input action is missing: $actionName"
+	}
+}
+foreach ($token in @(
+	'void AIGPlayerController::BeginJournalInput()',
+	'JournalHoldSeconds = 0.30',
+	'UsesToggleHoldInteractions()',
+	'지금은 그럴 때가 아니다.',
+	'SetMissingFloorJournalState',
+	'CreateJournalPageTurn'
+)) {
+	if (-not $playerControllerSource.Contains($token)) {
+		throw "Missing-floor journal controller contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'T_MissingFloorJournalPaper_D',
+	'MissingFloorJournalTitle',
+	'JournalLaneAdministration',
+	'JournalLaneLife',
+	'JournalLanePersonal',
+	'Record.bConfirmed',
+	'GetCaptionSizeScale()',
+	'CardsPerLanePerPage'
+)) {
+	if (-not $horrorHudSource.Contains($token)) {
+		throw "Missing-floor journal HUD contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'UIGToneSequenceSoundWave::CreateJournalPageTurn',
+	'IGJournalPageTurn',
+	'fingertip brushes'
+)) {
+	if (-not $toneSequenceSource.Contains($token)) {
+		throw "Missing-floor journal sound contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'## 26. 2026-08-10 제품 감사',
+	'### 26.2 첫 12분 체험 계약',
+	'### 26.3 오디오 제작·믹스 계약',
+	'### 26.4 UI·UX·조작 편의 계약',
+	'### 26.5 성능·화질 예산',
+	'채택 방화벽'
+)) {
+	if (-not $missingFloorStory.Contains($token)) {
+		throw "Missing-floor v2.5 product contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'bool AIGMissingFloorNightThreeDirector::TryPlayerKnock',
+	'bool AIGMissingFloorNightThreeDirector::TryPlayerListen',
+	'MissingFloor.Verb.Knock',
+	'MissingFloor.Verb.Listen'
+)) {
+	if (-not $nightThreeSource.Contains($token)) {
+		throw "Missing-floor contextual verb routing is missing: $token"
+	}
+}
+foreach ($token in @(
+	'KnockPromptFormatKeyboard',
+	'ListenPromptFormatGamepad'
+)) {
+	if (-not $horrorHudSource.Contains($token)) {
+		throw "Missing-floor contextual prompt contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'MissingFloor->IsHourSealed()',
+	'401호에 물어볼 수 있다.'
+)) {
+	if (-not $playerControllerSource.Contains($token)) {
+		throw "Missing-floor hint policy runtime is missing: $token"
+	}
+}
+# 다섯 새벽은 렌더가 없는 대신 시간·오디오·입력·저장이 모두 실제여야 한다.
+foreach ($token in @(
+	'DurationSeconds = 160.0f',
+	'24.0f, 24.0f, 52.0f, 58.0f, 74.0f',
+	'80.0f, 115.0f, 118.0f, 148.0f, 159.2f',
+	'CreateTrappedBreathBed',
+	'CreateAnswerKnockPattern(this, 0.93f)',
+	'SetFifthDawnInterludeCompleted(true)',
+	'SetSensoryInterludePresentation'
+)) {
+	if (-not $fifthDawnSource.Contains($token)) {
+		throw "Missing-floor fifth-dawn runtime contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'MissingFloorFifthDawnDirector',
+	'ValidateTimeline()',
+	'HandleFifthDawnCompleted',
+	'WasFifthDawnInterludeCompleted()'
+)) {
+	if (-not $greyboxSource.Contains($token)) {
+		throw "Missing-floor fifth-dawn route wiring is missing: $token"
+	}
+}
+if (-not $horrorHudSource.Contains('bSensoryInterludePresentation')) {
+	throw 'The fifth-dawn black frame no longer suppresses the ordinary HUD.'
+}
+# v2.4 플레이 표면 계약. 조작감·UI/UX·난이도·사운드 실행·재미·몰입 절이
+# 사라지면 서사가 맞아도 같은 빌드로 취급하지 않는다.
+foreach ($token in @(
+	'## 18. 조작감 계약',
+	'## 19. UI·UX 계약',
+	'## 20. 난이도 설계',
+	'## 21. 효과음·믹스 제작 명세',
+	'## 22. 재미의 구조',
+	'## 23. 몰입 계약',
+	'즉시 차단 22개'
+)) {
+	if (-not $missingFloorStory.Contains($token)) {
+		throw "Missing-floor play-surface contract is missing: $token"
+	}
+}
+foreach ($forbidden in @(
+	'1F 드레인/에어빼기',
+	'저수조 양수펌프',
+	'무엇을 하든 4분이 흐른다',
+	'되어 보는 4분',
+	'렌더 0의 4분',
+	'즉시 차단 15개'
+)) {
+	if ($missingFloorStory.Contains($forbidden)) {
+		throw "Superseded missing-floor story literal remains: $forbidden"
+	}
+}
+
+Write-Host 'ART_ASSET_CONTRACT PASS raw=38 masks=9 overlays=13 material_scans=13 pbr_maps=56 meshes=37 photo_meshes=50'

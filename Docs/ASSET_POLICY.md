@@ -61,7 +61,7 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 | `TextureAlleyCatTabby.png` | `T_AlleyCatTabby_D` | 고등어태비 단모와 좁은 줄무늬의 저채도 알베도. `M_AlleyCatTabbyUV`로 단일 풀 고양이에 적용 |
 | `TextureWetHoodieFabric.png` | `T_WetHoodie_D` | 물에 잠긴 검정 면 후드 원단. 현재 소매와 탱크 복장의 동일 재질 계약에 사용 |
 | `TextureCarrierBagFilm.png` | `T_CarrierBagFilm_D` | 가상 옅은 청색 무늬가 있는 편의점 LDPE 박막. CH01/CH02 운반 프롭과 CH03 사고 봉지에 같은 반투명 머티리얼 적용 |
-| `SheetSubmergedBodyPoseReference.png` | 직접 텍스처로 사용하지 않음 | CH03 최종 리빌의 동일 인물 4시점 기준. 얼굴·피부·손발·상처를 노출하지 않고 후드·하의·슬리퍼를 공통 원점의 정적 메시 3종으로 재구성 |
+| `SheetSubmergedBodyPoseReference.png` · `SheetSubmergedBodyAnatomyReference_v2.png` | 직접 텍스처로 사용하지 않음 | CH03 최종 리빌의 동일 인물 4시점 기준. v2는 얼굴·피부·상처를 노출하지 않으면서 후드 속 머리, 목·어깨, 위팔·팔꿈치·아래팔·가려진 손, 골반·허벅지·무릎·정강이·발목·슬리퍼가 이어지는 인체 실루엣을 고정한다. 후드·하의·슬리퍼는 공통 원점의 정적 메시 3종으로 재구성 |
 | `TextureWaterTankGalvanized.png` | `T_WaterTankGalvanized_D` | 저채도 청회색 아연도금 강판과 습윤 흘러내림의 타일형 알베도. 탱크 외피·보강띠·배관·사다리·점검구에 `M_WaterTankMetalUV`로 공통 적용 |
 | `TextureTankInteriorBiofilm.png` | `T_TankInteriorBiofilm_D` | 수면 아래 아연강판의 석회 침착·얇은 바이오필름·국부 녹을 억제된 알베도로 사용. 전용 N/R/A/W/M 채널과 `M_TankInteriorBiofilmUV`를 거쳐 비충돌 내부 라이닝 `SM_TankInternalLining`에만 적용한다. 월드 Z 561cm를 중심으로 8cm 습윤 전이를 두어 수중부와 35cm 공기층의 반사·거칠기를 분리한다 |
 | `SheetRooftopWaterTankReference.png` | 직접 텍스처로 사용하지 않음 | 외경 306cm·높이 260cm의 16절 외피, 보강띠 3줄, 89/76mm 배관, 18cm 밸브와 내부 바닥·잔수 비례 기준. `SM_RooftopWaterTankShell`과 `SM_RooftopTankPipeCluster`로 재구성 |
@@ -76,12 +76,21 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 | `ApplicationIcon_raw.png` | `Build/Windows/ApplicationIcon.png` · `Application.ico` | 물탱크 점검구·새벽빛 모티프의 Windows 배포 아이콘. `prepare_application_icon.py`로 1024px 등급 PNG와 16~256px 7단계 ICO를 생성 |
 | `DialogueHUDConcept_v1.png` | UI 아트 디렉션 기준 이미지 | 실제 Shipping 캡처의 디버그형 대화창을 낮은 하단 점유율, 분리된 환경음 캡슐, 작은 화자 태그와 습기 낀 smoked-glass 재질로 재설계한 시안. 런타임 텍스트를 굽지 않고 색·여백·질감 기준만 사용 |
 | `TextureHudDialogueFilm.png` | `T_HudDialogueFilm_D` | 대화창 표면의 저대비 charcoal/oxidized-green 미세 필름 스캔. UI 그룹·NoMipmaps·비스트리밍으로 임포트하고 런타임 둥근 마스크 안에서 낮은 알파로만 사용 |
+| `TextureMissingFloorJournalPaper_v1.png` | `T_MissingFloorJournalPaper_D` | 「듣는 것들」 전체 화면의 무문자 장부 종이 표면. 16:9 정면 스캔 질감만 쓰고 모든 한글·출처 카드·썸네일·교차선은 런타임이 그린다. UI 그룹·NoMipmaps·Clamp·비스트리밍으로 임포트 |
 | `ApartmentVisualTarget_v1.png` | 원룸 비주얼 아트 디렉션 기준 이미지 | 실제 Shipping 원룸 캡처의 카메라·동선·가구·HUD는 유지하고, 주황 스탠드와 청록 새벽광, 낡은 벽지·장판의 물성, 국부 습기 흔적만 보강한 목표 시안. 런타임 텍스처로 직접 사용하지 않음 |
 | `TextureApartmentWallpaperVintage.png` | `T_ApartmentWallpaperV2_D` | 2000년대 초 한국 빌라의 저가 아이보리 엠보싱 벽지 알베도. 전용 N/R/A 채널과 `M_Wallpaper_X/Y/Ceil`에 연결 |
 | `MaskApartmentWallPatina.png` | `T_ApartmentWallPatina_M` | 원룸 하부 모서리에 제한한 습기·들뜸 마스크. `M_ApartmentWallPatina`의 불투명도·색·거칠기 변화에 사용하고 충돌 없는 근거리 평면으로 배치 |
+| `SheetMissingFloorEnvironmentReference.png` | 직접 텍스처로 사용하지 않음 | 「없는 층」의 같은 빌라 외관·4F 복도·불법 5층·옥상 통로의 카메라·재료·노출 기준. 실제 충돌 지오메트리는 코드가 소유 |
+| `SheetListenerEntityAnatomyReference.png` | `SM_ListenerEntityCrawl` | 위층 사람의 정·측·상·3/4 인체 연결 기준. 얼굴·피부·고어 없이 연속 3D 메시와 건식 석고 PBR로 재구성 |
+| `ListenerEntityFrontCutout.png` | `T_SpriteListenerFront_{D,N,R,A}` · `M_SpriteListenerFront` | 위층 사람의 정면 복도 판독용 PBR 레이어. 1.6m에서 켜고 활성화 뒤 1.25m까지 유지하며, 3D 셸·그림자는 계속 보존하고 측면에서는 숨김 |
+| `SheetListenerEntityCrawlPhases.png` | `T_SpriteListenerCrawl0..3_{D,N,R,A}` · `M_SpriteListenerCrawl0..3` | 같은 인물의 좌우 팔꿈치 지지·중앙 지지·회복 네 자세. 속도 연동 1.6~6fps, 정지 프레임 유지, 응답 노크 대기 시 중앙 자세 고정 |
+| `TextureMissingFloorDryPlaster.png` | `T_MissingFloorDryPlaster_{D,N,R,A}` | 불법 5층과 존재의 건식 석고 표면. 조명 없는 타일 알베도에서 PBR 동반 채널 생성 |
+| `SheetMissingFloorResidueMasks.png` | `T_MissingFloorHandprints_M` · `T_MissingFloorDragTrails_M` · `T_MissingFloorDustJoint_M` · `T_MissingFloorCavityScratches_M` | 손자국·끌림·분진 이음·공동 긁힘 값 마스크. 실표면에 masked 블렌드 |
+| `SheetMissingFloorDistantCharacters.png` | `T_SpriteSeo_D` · `T_SpriteMok_D` · `T_SpriteHwang_D` · `T_SpriteNarin_D` | 접근 불가 12m 이상 고정 컷용 RGBA 인물. 현재 서일영만 런타임 배치, 나머지는 근접 대용 방지를 위해 미배치 |
+| `SheetMissingFloorHeroPropsReference.png` | `SM_TuningHammer` · `SM_TunerToolCart` · `SM_ComplaintLedger` · `SM_CalendarJournal` | 조율 렌치·공구 카트·민원 원장·달력 일지의 실제 두께·접지·시차를 가진 3D 프롭 기준 |
 
 한 번의 생성에 5분이 걸리므로 낱장 대신 **격자 시트**로 묶어 뽑고 슬라이스합니다.
-현재 85장의 파생 텍스처(기존 80장 + 원룸 벽지 D/N/R/A 4장 + 파티나 마스크 1장)와
+현재 117장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·스프라이트 32장)와
 증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-06
 추가분은 생성 실패를 그대로 채택하지 않고 슬리퍼 밑창과 빗물 때를 각각
 한 차례 수정 생성했습니다.
@@ -232,8 +241,9 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 ### CH03 수중 인체 포즈 생성 기록
 
 - 서비스: OpenAI ImageGen
-- 생성일: 2026-08-03
-- 보존 원본: `Content/SourceArt/AI/SheetSubmergedBodyPoseReference.png`
+- 생성일: 2026-08-03, 인체 실루엣 개정 2026-08-07
+- 보존 원본: `Content/SourceArt/AI/SheetSubmergedBodyPoseReference.png`,
+  `Content/SourceArt/AI/SheetSubmergedBodyAnatomyReference_v2.png`
 - 파생: `SM_SubmergedHoodieCurl`, `SM_SubmergedPantsCurl`,
   `SM_SubmergedSlippersCurl` Geometry Script 정적 메시 3종
 - 적용: 세 메시가 같은 로컬 원점을 사용하며 CH03 디렉터가 점검구 바로 아래
@@ -245,7 +255,9 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
   리브 고무 채널의 `M_SubmergedSlipperWearUV`를 사용한다. 세 재질은 습윤도
   하한을 0.82~0.90으로 고정해 수중에서 건조한 프록시처럼 보이지 않으며,
   별도 생성 이미지를 늘리지 않고 승인된 ImageGen 원본의 물성 채널을
-  재사용한다. 얼굴과 피부는 메시 자체에 만들지 않고 세 땀·왼발 뒤꿈치
+  재사용한다. 얼굴과 피부는 메시 자체에 만들지 않되 후드 속 머리와 목 전이,
+  어깨선, 분리된 팔꿈치·가려진 손, 골반·무릎·정강이·발목의 연결과 팔다리
+  사이 음영 공간을 실제 기하로 만든다. 세 땀·왼발 뒤꿈치
   마모·슬리퍼 세 줄은 별도 기하로 유지한다. 신원 조사 볼륨은 별도 좌표를
   복사하지 않고 이 공유 인체 변환과 같은 소매 로컬 오프셋에서 계산하므로,
   포즈나 배치를 바꿔도 보이는 세 땀과 상호작용 지점이 함께 이동한다.
@@ -375,5 +387,36 @@ ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 �
 ```text
 [공통 스타일 규칙 - 반드시 지켜줘] 이건 사실적인 PBR 렌더링 기반 1인칭 공포게임에 쓸 종이 텍스처야. 여러 장을 따로 만들어도 전부 같은 세계에 있는 것처럼 보여야 해. 실제 종이를 스튜디오에서 완전 정면으로 촬영한 팩샷 사진처럼 만들어줘. 대형 소프트박스 조명, 그림자 거의 없음, 원근 왜곡 없이 완전 정면 평면. 종이의 섬유결, 눌림, 습기와 세월의 물성이 섬세하게 보여야 해. 배경은 순백색이고 색은 채도를 낮춘 실제 재료 톤이어야 해. 실존 상표나 로고는 절대 금지. 이번 이미지는 Unreal Engine 5 생활공포게임의 문서 배경용 원본 시트다. 전체 캔버스는 정확한 1:1 정사각형, 2열×2행의 엄격한 격자. 각 칸 사이는 굵고 깨끗한 흰 여백으로 완전히 분리하고, 네 칸의 조명·카메라·그레인·노출은 완전히 동일하게 유지한다. 각 칸 중앙에 세로 A4 비율(1:1.414)의 빈 종이 한 장을 완전 정면으로 놓고 셀 높이의 약 90%를 채운다. 좌상단: 깨끗하지만 아주 약간 따뜻한 흰색 복사용지, 미세한 종이 섬유만. 우상단: 아래 가장자리에서 번진 현실적인 물얼룩과 옅은 조수선, 살짝 물결친 가장자리의 젖은 종이. 좌하단: 한 번 세로로, 한 번 가로로 접었다 펼친 부드러운 십자 접힘 자국이 있는 종이. 우하단: 누렇게 바랜 낡은 종이, 모서리 마모와 아주 약한 갈색 반점, 찢어지거나 구멍 나지 않음. 네 종이 모두 완전히 비어 있어야 한다. 글자, 숫자, 도장, 선, 그림, 로고, 워터마크, 테이프, 클립, 손, 소품을 절대 넣지 말 것. 종이 밖 배경에는 그림자, 그라데이션, 바닥면, 반사, 질감이 없어야 한다. 게임에서 한국어 문자를 런타임으로 올릴 예정이므로 넓고 깨끗한 중앙 여백을 유지한다.
 ```
+
+### 「없는 층」 환경·인물·흔적·핵심 소품 생성 기록
+
+- 서비스: OpenAI ImageGen 내장 도구
+- 생성일: 2026-08-10
+- 보존 원본: `SheetMissingFloorEnvironmentReference.png`,
+  `SheetListenerEntityAnatomyReference.png`, `TextureMissingFloorDryPlaster.png`,
+  `SheetMissingFloorResidueMasks.png`, `SheetMissingFloorDistantCharacters.png`,
+  `SheetMissingFloorHeroPropsReference.png`, `ListenerEntityFrontCutout.png`,
+  `SheetListenerEntityCrawlPhases.png`
+- SHA-256:
+  - 환경 `041295A5CAC88B7180B58E8E0106DC0C62282B61FE48F9DFD2D3F6A912729AD8`
+  - 인체 `0C327F322224173879F1D19872A4F79F5CE725295155BBB60C337295B50823D7`
+  - 석고 `35D842AF7D9BE620E9CB22D10A8D60E2A2189CED72283B2EF848226C199DFDC3`
+  - 흔적 `201B650D2B052F26F8AE8961D17A681C249721E99CF01862B2922F3817FDA4D7`
+  - 인물 `0E8879B58588798184FCFC406348154E2A3AB33E5D88E26259A40DFC348633C1`
+  - 소품 `DEB5620CBDAC8C0CCE6EC782613077A76DB6EFFCB4522E380E1B48E08869DC84`
+  - 정면 인체 `80B4CDD471BD163E424E5291C0EDD03B4A0E9E9D376C4BD330FFF4FA47A50338`
+  - 기어오기 4단계 `C8DAE7F12E5C047ED277BC556E4043F2052321359ED628CE534267C2F35CAD8A`
+- 처리: `Prepare-AIArt.ps1`이 흔적·인물·동작 시트를 분리하고 마젠타/초록 키를
+  알파로 변환한다. `generate_ai_pbr_maps.py`가 석고와 정면 인체 5장 각각의
+  N/R/A를 만들며,
+  `generate_meshes.py`는 인체와 네 핵심 소품을 실제 치수의 3D 메시로
+  재구성한다. `create_textured_materials.py`가 PBR·masked 머티리얼을 만든다.
+- 적용 경계: 환경 시트는 방향 기준, 건식 석고는 PBR, 흔적은 값 마스크,
+  위층 사람과 근접 소품은 3D다. 위층 사람 정면 레이어는 3D 접지 셸을
+  보존한 정면 LOD다. 1.6m에서 켜고 1.25m까지 히스테리시스로 유지하며,
+  측면에서는 반드시 숨긴다.
+  나머지 스프라이트는 원거리 접근 불가 인물만 허용한다.
+- 전체 프롬프트: `Docs/IMAGEGEN_PROMPTS_2026-08-10.md`
+- 배치·거리·LOD 합격표: `Docs/MISSING_FLOOR_ART_MATRIX.md`
 
 프로젝트 코드의 공개 라이선스는 저장소 소유자가 별도로 선택합니다. 선택 전까지 저작권 고지만으로 공개 사용 권한을 추정하지 않습니다.

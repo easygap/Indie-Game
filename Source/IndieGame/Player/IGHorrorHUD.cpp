@@ -21,6 +21,7 @@
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "Interaction/IGReadableNote.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGInteractionComponent.h"
 #include "Player/IGPlayerController.h"
 #include "Sequence/IGMorningRoutineDirector.h"
@@ -69,6 +70,115 @@ namespace IGHorrorHUD
 	const FLinearColor DialogueIvory(0.88f, 0.87f, 0.81f, 1.0f);
 	const FLinearColor DialogueTeal(0.42f, 0.64f, 0.59f, 1.0f);
 
+	enum class EJournalLane : int32
+	{
+		Administration = 0,
+		Life = 1,
+		Personal = 2,
+	};
+
+	enum class EJournalThumbnail : int32
+	{
+		Document = 0,
+		Meter = 1,
+		Plaster = 2,
+		Tank = 3,
+		Metal = 4,
+	};
+
+	struct FJournalEntryDefinition
+	{
+		FName SourceId;
+		EJournalLane Lane = EJournalLane::Life;
+		const TCHAR* Title = nullptr;
+		const TCHAR* Excerpt = nullptr;
+		const TCHAR* WhereWhen = nullptr;
+		EJournalThumbnail Thumbnail = EJournalThumbnail::Document;
+	};
+
+	/**
+	 * This table presents observation, never interpretation. Confirmation lines
+	 * are derived later from the narrative snapshot, so UI copy cannot award a
+	 * truth or silently become a second puzzle router.
+	 */
+	static const TArray<FJournalEntryDefinition>& JournalEntries()
+	{
+		static const TArray<FJournalEntryDefinition> Entries = {
+			{TEXT("Lobby.MeterFifthDial"), EJournalLane::Administration,
+				TEXT("다섯 번째 계량기"), TEXT("봉인 테이프 아래, 지워진 5층 표기"),
+				TEXT("공동현관 계량기함 · 밤 1"), EJournalThumbnail::Meter},
+			{TEXT("Office.MeterReadingSheet"), EJournalLane::Administration,
+				TEXT("검침 기록지"), TEXT("5층 / 03471 kWh"),
+				TEXT("관리실 사본 · 밤 1"), EJournalThumbnail::Document},
+			{TEXT("Office.BoardDeliveryReceipt"), EJournalLane::Administration,
+				TEXT("석고보드 납품서"), TEXT("9.5T 석고보드 / 7월 26일"),
+				TEXT("관리실 원본 · 밤 3"), EJournalThumbnail::Document},
+			{TEXT("Office.CarbonLedgerOriginal"), EJournalLane::Administration,
+				TEXT("민원 원장 먹지"), TEXT("401호: 벽에서 쿵쿵. 사람 소리 같다."),
+				TEXT("관리실 책상 · 7/27~7/31"), EJournalThumbnail::Document},
+			{TEXT("Office.AgentMoveOutMessage"), EJournalLane::Administration,
+				TEXT("중개인 문자"), TEXT("5층 짐 뺐습니다. 7/26."),
+				TEXT("관리실 휴대폰 · 밤 2"), EJournalThumbnail::Metal},
+			{TEXT("Office.EvictionWarning"), EJournalLane::Administration,
+				TEXT("퇴거 통지"), TEXT("403호. 계약 위반. 이번 주 내 퇴거 바랍니다."),
+				TEXT("관리실 유리 · 밤 3 아침"), EJournalThumbnail::Document},
+
+			{TEXT("Forum.NoisePosts"), EJournalLane::Life,
+				TEXT("층간소음 게시글"), TEXT("04:20~04:40, 공구 카트 끄는 소리"),
+				TEXT("403호 우편물 · 낮 2"), EJournalThumbnail::Document},
+			{TEXT("Forum.FinalPost"), EJournalLane::Life,
+				TEXT("마지막 게시글"), TEXT("오늘은 올라가서 직접 말하겠습니다."),
+				TEXT("게시글 출력물 · 2024-07-26"), EJournalThumbnail::Document},
+			{TEXT("Fifth.LandingImpactMark"), EJournalLane::Life,
+				TEXT("계단참 충격 자국"), TEXT("철골 모서리와 바닥에 같은 검은 이염"),
+				TEXT("5층 계단참 · 밤 3"), EJournalThumbnail::Metal},
+			{TEXT("Fifth.FreshPlasterDating"), EJournalLane::Life,
+				TEXT("두 겹의 마감"), TEXT("안쪽 보드와 바깥 실란트의 굳은 정도가 다르다."),
+				TEXT("5층 공동벽 · 밤 3"), EJournalThumbnail::Plaster},
+			{TEXT("Fifth.PipeWaterComparison"), EJournalLane::Life,
+				TEXT("배관 청음"), TEXT("한쪽은 물, 한쪽은 먹먹한 빈 잔향"),
+				TEXT("5층 서비스 벽 · 밤 3"), EJournalThumbnail::Metal},
+			{TEXT("Fifth.WallEchoByHand"), EJournalLane::Life,
+				TEXT("직접 두드린 벽"), TEXT("둘째 벽만 소리가 짧게 끊겼다."),
+				TEXT("5층 · 밤 3"), EJournalThumbnail::Plaster},
+			{TEXT("Unit401.KnockTallyJournal"), EJournalLane::Life,
+				TEXT("황순금 소리 일지"), TEXT("7/27부터 닷새. 마지막 날은 세 번뿐."),
+				TEXT("401호 · 낮 3"), EJournalThumbnail::Document},
+			{TEXT("Roof.TankWaterAudition"), EJournalLane::Life,
+				TEXT("저수조 표찰"), TEXT("용량 2,000 L / 만수"),
+				TEXT("옥상 · 밤 3"), EJournalThumbnail::Tank},
+			{TEXT("Fifth.AnswerReturned"), EJournalLane::Life,
+				TEXT("벽의 대답"), TEXT("둘, 쉬고, 하나."),
+				TEXT("5층 공동벽 · 05:12"), EJournalThumbnail::Plaster},
+			{TEXT("Fifth.BreakerCutIntervention"), EJournalLane::Life,
+				TEXT("차단기 손자국"), TEXT("방금 내려간 주차단기. 관리실 쪽 흙먼지."),
+				TEXT("1층 배전반 · 밤 4"), EJournalThumbnail::Metal},
+
+			{TEXT("Estate.ShippingLabels"), EJournalLane::Personal,
+				TEXT("반송 소포"), TEXT("백도하 / 무영로 달빛빌라 5"),
+				TEXT("403호 이삿짐 · 입주일"), EJournalThumbnail::Document},
+			{TEXT("Fifth.TunerNotebookName"), EJournalLane::Personal,
+				TEXT("조율 수첩"), TEXT("백도하 / 야간 조율 일정"),
+				TEXT("5층 벽 틈 · 밤 3"), EJournalThumbnail::Document},
+			{TEXT("Fifth.TunerWorkSchedule"), EJournalLane::Personal,
+				TEXT("작업 시간표"), TEXT("마지막 작업 23:10 / 귀가 04:18"),
+				TEXT("조율 수첩 · 밤 3"), EJournalThumbnail::Document},
+			{TEXT("Fifth.PipeAuditionCriterion"), EJournalLane::Personal,
+				TEXT("청음 메모"), TEXT("빈 벽은 낮은 음이 길게 남는다."),
+				TEXT("조율 수첩 여백 · 밤 3"), EJournalThumbnail::Document},
+			{TEXT("Phone.AnswerRhythmVoicemail"), EJournalLane::Personal,
+				TEXT("마지막 음성사서함"), TEXT("문 두드리면 알지? 둘, 하나."),
+				TEXT("휴대폰 · 입주 전"), EJournalThumbnail::Metal},
+			{TEXT("Fifth.AnswerRhythmNotebook"), EJournalLane::Personal,
+				TEXT("수첩의 리듬"), TEXT("● ●  —  ●"),
+				TEXT("조율 수첩 여백 · 밤 3"), EJournalThumbnail::Document},
+			{TEXT("Unit401.AnswerRhythmJournal"), EJournalLane::Personal,
+				TEXT("일지의 답"), TEXT("나도 두드려 줬다. 그랬더니 조용하데."),
+				TEXT("401호 · 2024-07-29"), EJournalThumbnail::Document},
+		};
+		return Entries;
+	}
+
 	static float SmoothStep01(const float Value)
 	{
 		const float Clamped = FMath::Clamp(Value, 0.0f, 1.0f);
@@ -81,7 +191,10 @@ void AIGHorrorHUD::BeginPlay()
 	Super::BeginPlay();
 	bLayoutValidationEnabled = FParse::Param(
 		FCommandLine::Get(),
-		TEXT("IGFrontendShippingProbe"));
+		TEXT("IGFrontendShippingProbe"))
+		|| FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGMissingFloorJournalPreview"));
 	InitializeKoreanFont();
 
 	// Optional: absent until Scripts/Prepare-AIArt.ps1 has produced it, in
@@ -92,6 +205,7 @@ void AIGHorrorHUD::BeginPlay()
 		nullptr, TEXT("/Game/Prototype/Textures/T_PaperClean_V2_D.T_PaperClean_V2_D"));
 	InitializeLensDropletTexture();
 	InitializeDialogueSurfaceTextures();
+	InitializeMissingFloorJournalTextures();
 
 	ResolveInteractionComponent();
 	ResolveDirectors();
@@ -221,6 +335,28 @@ void AIGHorrorHUD::InitializeDialogueSurfaceTextures()
 		HudRoundedMaskTexture->NeverStream = true;
 		HudRoundedMaskTexture->UpdateResource();
 	}
+}
+
+void AIGHorrorHUD::InitializeMissingFloorJournalTextures()
+{
+	MissingFloorJournalTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/Prototype/Textures/T_MissingFloorJournalPaper_D."
+			"T_MissingFloorJournalPaper_D"));
+	JournalMeterTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/Prototype/Textures/T_MeterBox_D.T_MeterBox_D"));
+	JournalPlasterTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/Prototype/Textures/T_MissingFloorDryPlaster_D."
+			"T_MissingFloorDryPlaster_D"));
+	JournalTankTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/Prototype/Textures/T_WaterTankGalvanized_D."
+			"T_WaterTankGalvanized_D"));
+	JournalMetalTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/Prototype/Textures/T_MetalBrushed_D.T_MetalBrushed_D"));
 }
 
 void AIGHorrorHUD::InitializeLensDropletTexture()
@@ -941,6 +1077,61 @@ void AIGHorrorHUD::SetSystemMenuState(
 	bSystemMenuStatusIsError = Presentation.bStatusIsError;
 }
 
+void AIGHorrorHUD::SetMissingFloorJournalState(
+	const bool bVisible,
+	const int32 PageIndex)
+{
+	bMissingFloorJournalVisible = bVisible;
+	MissingFloorJournalPageIndex = FMath::Clamp(
+		PageIndex,
+		0,
+		FMath::Max(0, GetMissingFloorJournalPageCount() - 1));
+}
+
+int32 AIGHorrorHUD::GetMissingFloorJournalPageCount() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	if (!Narrative)
+	{
+		return 1;
+	}
+
+	TSet<FName> ObservedSources;
+	for (const FIGMissingFloorTruthRecord& Record :
+		Narrative->GetSnapshot().Truths)
+	{
+		ObservedSources.Append(Record.SourceIds);
+	}
+
+	int32 Counts[3] = {0, 0, 0};
+	for (const IGHorrorHUD::FJournalEntryDefinition& Entry :
+		IGHorrorHUD::JournalEntries())
+	{
+		if (ObservedSources.Contains(Entry.SourceId))
+		{
+			++Counts[static_cast<int32>(Entry.Lane)];
+		}
+	}
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const float UserTextScale = Accessibility
+		? Accessibility->GetCaptionSizeScale()
+		: 1.0f;
+	const int32 CardsPerLanePerPage = UserTextScale > 1.50f
+		? 1
+		: UserTextScale > 1.15f ? 2 : 3;
+	return FMath::Max(
+		1,
+		FMath::Max3(
+			FMath::DivideAndRoundUp(Counts[0], CardsPerLanePerPage),
+			FMath::DivideAndRoundUp(Counts[1], CardsPerLanePerPage),
+			FMath::DivideAndRoundUp(Counts[2], CardsPerLanePerPage)));
+}
+
 void AIGHorrorHUD::ShowChapterCard(
 	const UObject* WorldContext,
 	const FText& Eyebrow,
@@ -1018,6 +1209,13 @@ void AIGHorrorHUD::DrawHUD()
 		FinalizeLayoutValidationSample();
 		return;
 	}
+	if (bMissingFloorJournalVisible)
+	{
+		SuspendDialoguePresentation(CurrentTime);
+		DrawMissingFloorJournalPanel();
+		FinalizeLayoutValidationSample();
+		return;
+	}
 
 	if (DrawChapterCard(CurrentTime))
 	{
@@ -1027,6 +1225,17 @@ void AIGHorrorHUD::DrawHUD()
 		return;
 	}
 	ResumeDialoguePresentation(CurrentTime);
+	if (bSensoryInterludePresentation)
+	{
+		// Camera fade supplies the black image. The HUD contributes only the
+		// optional directional sound caption; no crosshair or objective can
+		// make the scene read as ordinary gameplay with a missing render.
+		SuspendDialoguePresentation(CurrentTime);
+		DrawAudioCaption(CurrentTime, Canvas->ClipY - 24.0f);
+		LastHudDrawTime = CurrentTime;
+		FinalizeLayoutValidationSample();
+		return;
+	}
 	// The droplet belongs to the camera lens, while prompts and captions remain
 	// optically crisp on top of it. Draw it before every native HUD element.
 	DrawLensDroplet(CurrentTime);
@@ -1105,10 +1314,26 @@ void AIGHorrorHUD::DrawHUD()
 		const FText FocusedPrompt = Interaction->GetFocusedPrompt();
 		if (!FocusedPrompt.IsEmpty())
 		{
+			const AActor* FocusedActor = Interaction->GetFocusedActor();
+			const bool bKnockVerb = FocusedActor
+				&& FocusedActor->ActorHasTag(
+					FName(TEXT("MissingFloor.Verb.Knock")));
+			const bool bListenVerb = FocusedActor
+				&& FocusedActor->ActorHasTag(
+					FName(TEXT("MissingFloor.Verb.Listen")));
+			const FText PromptFormat = bKnockVerb
+				? bUsingGamepad
+					? NSLOCTEXT("IGHUD", "KnockPromptFormatGamepad", "[ B ]  {0}")
+					: NSLOCTEXT("IGHUD", "KnockPromptFormatKeyboard", "[ Q ]  {0}")
+				: bListenVerb
+					? bUsingGamepad
+						? NSLOCTEXT("IGHUD", "ListenPromptFormatGamepad", "[ RT ]  {0}")
+						: NSLOCTEXT("IGHUD", "ListenPromptFormatKeyboard", "[ E ]  {0}")
+					: bUsingGamepad
+						? NSLOCTEXT("IGHUD", "PromptFormatGamepad", "[ A ]  {0}")
+						: NSLOCTEXT("IGHUD", "PromptFormatKeyboard", "[ E ]  {0}");
 			const FText Prompt = FText::Format(
-				bUsingGamepad
-					? NSLOCTEXT("IGHUD", "PromptFormatGamepad", "[ A ]  {0}")
-					: NSLOCTEXT("IGHUD", "PromptFormatKeyboard", "[ E ]  {0}"),
+				PromptFormat,
 				FocusedPrompt);
 			DrawCenteredText(
 				Prompt,
@@ -2510,6 +2735,472 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		FMath::Max(RowStartY + 14.5f * RowSpacing, Canvas->ClipY - 48.0f),
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint);
+}
+
+UTexture2D* AIGHorrorHUD::GetMissingFloorJournalThumbnail(
+	const int32 ThumbnailType) const
+{
+	switch (static_cast<IGHorrorHUD::EJournalThumbnail>(ThumbnailType))
+	{
+	case IGHorrorHUD::EJournalThumbnail::Meter:
+		return JournalMeterTexture;
+	case IGHorrorHUD::EJournalThumbnail::Plaster:
+		return JournalPlasterTexture;
+	case IGHorrorHUD::EJournalThumbnail::Tank:
+		return JournalTankTexture;
+	case IGHorrorHUD::EJournalThumbnail::Metal:
+		return JournalMetalTexture;
+	case IGHorrorHUD::EJournalThumbnail::Document:
+	default:
+		return NotePaperTexture;
+	}
+}
+
+void AIGHorrorHUD::DrawMissingFloorJournalPanel()
+{
+	if (!Canvas)
+	{
+		return;
+	}
+
+	const float ScreenWidth = Canvas->ClipX;
+	const float ScreenHeight = Canvas->ClipY;
+	const float ResolutionScale = FMath::Clamp(
+		FMath::Min(ScreenWidth / 1920.0f, ScreenHeight / 1080.0f),
+		0.68f,
+		1.35f);
+	DrawRect(
+		FLinearColor(0.004f, 0.006f, 0.007f, 0.97f),
+		0.0f,
+		0.0f,
+		ScreenWidth,
+		ScreenHeight);
+
+	const FVector2D PaperOrigin(ScreenWidth * 0.035f, ScreenHeight * 0.045f);
+	const FVector2D PaperSize(ScreenWidth * 0.93f, ScreenHeight * 0.90f);
+	DrawRect(
+		FLinearColor(0.0f, 0.0f, 0.0f, 0.50f),
+		PaperOrigin.X + 7.0f * ResolutionScale,
+		PaperOrigin.Y + 10.0f * ResolutionScale,
+		PaperSize.X,
+		PaperSize.Y);
+	if (MissingFloorJournalTexture)
+	{
+		DrawTexture(
+			MissingFloorJournalTexture,
+			PaperOrigin.X,
+			PaperOrigin.Y,
+			PaperSize.X,
+			PaperSize.Y,
+			0.0f,
+			0.0f,
+			1.0f,
+			1.0f,
+			FLinearColor(0.79f, 0.77f, 0.70f, 1.0f),
+			BLEND_Opaque);
+	}
+	else
+	{
+		DrawRect(
+			FLinearColor(0.73f, 0.70f, 0.62f, 1.0f),
+			PaperOrigin.X,
+			PaperOrigin.Y,
+			PaperSize.X,
+			PaperSize.Y);
+	}
+	// The texture carries tactile variation; this wash makes the runtime text
+	// pass contrast at 720p without bleaching that grain into a generic panel.
+	DrawRect(
+		FLinearColor(0.08f, 0.075f, 0.06f, 0.10f),
+		PaperOrigin.X,
+		PaperOrigin.Y,
+		PaperSize.X,
+		PaperSize.Y);
+
+	const FLinearColor Ink(0.075f, 0.070f, 0.060f, 0.98f);
+	const FLinearColor FaintInk(0.18f, 0.19f, 0.18f, 0.78f);
+	const FLinearColor BlueRule(0.20f, 0.29f, 0.31f, 0.56f);
+	const FLinearColor OxideRed(0.43f, 0.12f, 0.09f, 0.82f);
+	auto DrawPaperText = [this](
+		const FText& Text,
+		const FVector2D& Position,
+		const FLinearColor& Color,
+		const EIGHudTextRole TextRole,
+		const float TextScale)
+	{
+		UFont* Font = GetFontForRole(TextRole);
+		if (!Canvas || !Font || Text.IsEmpty())
+		{
+			return;
+		}
+		const float SafeScale = FMath::Max(0.5f, TextScale);
+		FCanvasTextItem Item(Position, Text, Font, Color);
+		Item.Scale = FVector2D(SafeScale);
+		Canvas->DrawItem(Item);
+		if (bLayoutValidationEnabled)
+		{
+			float Width = 0.0f;
+			float Height = 0.0f;
+			Canvas->StrLen(Font, Text.ToString(), Width, Height, true);
+			RecordLayoutValidationRect(
+				Position,
+				Position + FVector2D(Width * SafeScale, Height * SafeScale));
+		}
+	};
+	auto DrawCenteredPaperText = [this, &DrawPaperText](
+		const FText& Text,
+		const float Y,
+		const FLinearColor& Color,
+		const EIGHudTextRole TextRole,
+		const float TextScale)
+	{
+		UFont* Font = GetFontForRole(TextRole);
+		float Width = 0.0f;
+		float Height = 0.0f;
+		if (!Canvas || !Font || Text.IsEmpty())
+		{
+			return;
+		}
+		Canvas->StrLen(Font, Text.ToString(), Width, Height, true);
+		DrawPaperText(
+			Text,
+			FVector2D((Canvas->ClipX - Width * TextScale) * 0.5f, Y),
+			Color,
+			TextRole,
+			TextScale);
+	};
+	const float OuterMargin = 30.0f * ResolutionScale;
+	const float HeaderTop = PaperOrigin.Y + 20.0f * ResolutionScale;
+	DrawPaperText(
+		SupportsKorean()
+			? NSLOCTEXT("IGHUD", "MissingFloorJournalTitle", "듣는 것들")
+			: FText::FromString(TEXT("THINGS HEARD")),
+		FVector2D(PaperOrigin.X + OuterMargin, HeaderTop),
+		Ink,
+		EIGHudTextRole::Objective,
+		1.08f);
+	DrawPaperText(
+		SupportsKorean()
+			? NSLOCTEXT(
+				"IGHUD",
+				"MissingFloorJournalSubtitle",
+				"달빛빌라 · 관찰 기록")
+			: FText::FromString(TEXT("DALBIT VILLA · OBSERVATION LOG")),
+		FVector2D(
+			PaperOrigin.X + OuterMargin,
+			HeaderTop + 27.0f * ResolutionScale),
+		FaintInk,
+		EIGHudTextRole::Hint,
+		0.78f);
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const float UserTextScale = Accessibility
+		? Accessibility->GetCaptionSizeScale()
+		: 1.0f;
+	TSet<FName> ObservedSources;
+	if (Narrative)
+	{
+		for (const FIGMissingFloorTruthRecord& Record :
+			Narrative->GetSnapshot().Truths)
+		{
+			for (const FName SourceId : Record.SourceIds)
+			{
+				ObservedSources.Add(SourceId);
+			}
+		}
+	}
+
+	TArray<const IGHorrorHUD::FJournalEntryDefinition*> Lanes[3];
+	for (const IGHorrorHUD::FJournalEntryDefinition& Entry :
+		IGHorrorHUD::JournalEntries())
+	{
+		if (ObservedSources.Contains(Entry.SourceId))
+		{
+			Lanes[static_cast<int32>(Entry.Lane)].Add(&Entry);
+		}
+	}
+	const int32 PageCount = FMath::Max(1, GetMissingFloorJournalPageCount());
+	const int32 SafePage = FMath::Clamp(
+		MissingFloorJournalPageIndex,
+		0,
+		PageCount - 1);
+	const int32 ObservedCount =
+		Lanes[0].Num() + Lanes[1].Num() + Lanes[2].Num();
+	const FString CountText = SupportsKorean()
+		? FString::Printf(
+			TEXT("%d개 기록  ·  %d / %d"),
+			ObservedCount,
+			SafePage + 1,
+			PageCount)
+		: FString::Printf(
+			TEXT("%d RECORDS  ·  %d / %d"),
+			ObservedCount,
+			SafePage + 1,
+			PageCount);
+	DrawPaperText(
+		FText::FromString(CountText),
+		FVector2D(
+			PaperOrigin.X + PaperSize.X - 190.0f * ResolutionScale,
+			HeaderTop + 5.0f * ResolutionScale),
+		FaintInk,
+		EIGHudTextRole::Hint,
+		0.75f);
+
+	const float ContentLeft = PaperOrigin.X + OuterMargin;
+	const float ContentRight = PaperOrigin.X + PaperSize.X - OuterMargin;
+	const float ContentTop = PaperOrigin.Y + 82.0f * ResolutionScale;
+	const float FooterHeight = 43.0f * ResolutionScale;
+	const float ContentBottom = PaperOrigin.Y + PaperSize.Y - FooterHeight;
+	const float LaneGap = 13.0f * ResolutionScale;
+	const float LaneWidth =
+		(ContentRight - ContentLeft - LaneGap * 2.0f) / 3.0f;
+	const float LaneHeaderHeight = 30.0f * ResolutionScale;
+	const float CardGap = 9.0f * ResolutionScale;
+	const int32 CardsPerLanePerPage = UserTextScale > 1.50f
+		? 1
+		: UserTextScale > 1.15f ? 2 : 3;
+	const float CardHeight =
+		(ContentBottom - ContentTop - LaneHeaderHeight
+			- CardGap * FMath::Max(0, CardsPerLanePerPage - 1))
+		/ CardsPerLanePerPage;
+	const FText LaneTitles[3] = {
+		SupportsKorean()
+			? NSLOCTEXT("IGHUD", "JournalLaneAdministration", "행정")
+			: FText::FromString(TEXT("RECORD")),
+		SupportsKorean()
+			? NSLOCTEXT("IGHUD", "JournalLaneLife", "생활")
+			: FText::FromString(TEXT("LIFE")),
+		SupportsKorean()
+			? NSLOCTEXT("IGHUD", "JournalLanePersonal", "개인")
+			: FText::FromString(TEXT("PERSONAL")),
+	};
+
+	for (int32 LaneIndex = 0; LaneIndex < 3; ++LaneIndex)
+	{
+		const float LaneX = ContentLeft + LaneIndex * (LaneWidth + LaneGap);
+		DrawPaperText(
+			LaneTitles[LaneIndex],
+			FVector2D(LaneX + 3.0f * ResolutionScale, ContentTop),
+			LaneIndex == 0 ? OxideRed : Ink,
+			EIGHudTextRole::Speaker,
+			0.90f);
+		DrawRect(
+			LaneIndex == 0 ? OxideRed : BlueRule,
+			LaneX,
+			ContentTop + 23.0f * ResolutionScale,
+			LaneWidth,
+			LaneIndex == 0 ? 1.4f : 1.0f);
+		if (LaneIndex > 0)
+		{
+			DrawRect(
+				FLinearColor(0.10f, 0.16f, 0.17f, 0.16f),
+				LaneX - LaneGap * 0.5f,
+				ContentTop,
+				1.0f,
+				ContentBottom - ContentTop);
+		}
+	}
+
+	TMap<FName, FVector2D> VisibleCardCenters;
+	for (int32 LaneIndex = 0; LaneIndex < 3; ++LaneIndex)
+	{
+		const int32 FirstEntry = SafePage * CardsPerLanePerPage;
+		for (int32 Slot = 0; Slot < CardsPerLanePerPage; ++Slot)
+		{
+			const int32 EntryIndex = FirstEntry + Slot;
+			if (!Lanes[LaneIndex].IsValidIndex(EntryIndex))
+			{
+				continue;
+			}
+			const float LaneX = ContentLeft + LaneIndex * (LaneWidth + LaneGap);
+			const float CardY = ContentTop + LaneHeaderHeight
+				+ Slot * (CardHeight + CardGap);
+			VisibleCardCenters.Add(
+				Lanes[LaneIndex][EntryIndex]->SourceId,
+				FVector2D(LaneX + LaneWidth * 0.5f, CardY + CardHeight * 0.5f));
+		}
+	}
+
+	// A faint pencil stroke is the only deduction visualization. It appears
+	// only after the router confirms a truth and only when both source cards
+	// are on this page; no line itself reveals a missing record.
+	if (Narrative)
+	{
+		for (const FIGMissingFloorTruthRecord& Record :
+			Narrative->GetSnapshot().Truths)
+		{
+			if (!Record.bConfirmed)
+			{
+				continue;
+			}
+			TArray<FVector2D> Points;
+			for (const FName SourceId : Record.SourceIds)
+			{
+				if (const FVector2D* Center = VisibleCardCenters.Find(SourceId))
+				{
+					Points.Add(*Center);
+				}
+			}
+			if (Points.Num() >= 2)
+			{
+				FVector2D Direction = Points[1] - Points[0];
+				Direction.Normalize();
+				const FVector2D Start = Points[0] + Direction * LaneWidth * 0.40f;
+				const FVector2D End = Points[1] - Direction * LaneWidth * 0.40f;
+				DrawLine(
+					Start.X,
+					Start.Y,
+					End.X,
+					End.Y,
+					FLinearColor(0.34f, 0.10f, 0.08f, 0.42f),
+					1.6f * ResolutionScale);
+			}
+		}
+	}
+
+	UFont* BodyFont = GetFontForRole(EIGHudTextRole::Dialogue);
+	const float CardTextScale = FMath::Clamp(
+		ResolutionScale * 0.92f * UserTextScale,
+		0.64f,
+		1.45f);
+	for (int32 LaneIndex = 0; LaneIndex < 3; ++LaneIndex)
+	{
+		const int32 FirstEntry = SafePage * CardsPerLanePerPage;
+		for (int32 Slot = 0; Slot < CardsPerLanePerPage; ++Slot)
+		{
+			const int32 EntryIndex = FirstEntry + Slot;
+			if (!Lanes[LaneIndex].IsValidIndex(EntryIndex))
+			{
+				continue;
+			}
+			const IGHorrorHUD::FJournalEntryDefinition& Entry =
+				*Lanes[LaneIndex][EntryIndex];
+			const float LaneX = ContentLeft + LaneIndex * (LaneWidth + LaneGap);
+			const float CardY = ContentTop + LaneHeaderHeight
+				+ Slot * (CardHeight + CardGap);
+			DrawRoundedHudSurface(
+				FVector2D(LaneX, CardY),
+				FVector2D(LaneWidth, CardHeight),
+				8.0f * ResolutionScale,
+				FLinearColor(0.83f, 0.81f, 0.74f, 0.76f));
+			DrawRect(
+				FLinearColor(0.16f, 0.18f, 0.17f, 0.18f),
+				LaneX,
+				CardY + CardHeight - 1.0f,
+				LaneWidth,
+				1.0f);
+
+			const float Padding = 10.0f * ResolutionScale;
+			const float ThumbnailSize = FMath::Clamp(
+				CardHeight * 0.38f,
+				44.0f * ResolutionScale,
+				82.0f * ResolutionScale);
+			if (UTexture2D* Thumbnail = GetMissingFloorJournalThumbnail(
+				static_cast<int32>(Entry.Thumbnail)))
+			{
+				DrawTexture(
+					Thumbnail,
+					LaneX + Padding,
+					CardY + Padding,
+					ThumbnailSize,
+					ThumbnailSize,
+					0.08f,
+					0.08f,
+					0.84f,
+					0.84f,
+					FLinearColor(0.57f, 0.56f, 0.51f, 0.90f),
+					BLEND_Opaque);
+				DrawRect(
+					FLinearColor(0.08f, 0.08f, 0.07f, 0.26f),
+					LaneX + Padding,
+					CardY + Padding + ThumbnailSize - 1.0f,
+					ThumbnailSize,
+					1.0f);
+			}
+
+			const float TextX = LaneX + Padding + ThumbnailSize
+				+ 9.0f * ResolutionScale;
+			const float TextWidth = LaneWidth - (TextX - LaneX) - Padding;
+			DrawPaperText(
+				FText::FromString(Entry.Title),
+				FVector2D(TextX, CardY + Padding - 1.0f * ResolutionScale),
+				Ink,
+				EIGHudTextRole::Speaker,
+				CardTextScale * 0.86f);
+
+			TArray<FString> ExcerptLines;
+			FString ExcerptRemainder;
+			WrapHudText(
+				Entry.Excerpt,
+				BodyFont,
+				CardTextScale * 0.72f,
+				TextWidth,
+				2,
+				ExcerptLines,
+				ExcerptRemainder);
+			float TextY = CardY + Padding + 23.0f * ResolutionScale;
+			for (const FString& Line : ExcerptLines)
+			{
+				DrawPaperText(
+					FText::FromString(Line),
+					FVector2D(TextX, TextY),
+					FaintInk,
+					EIGHudTextRole::Dialogue,
+					CardTextScale * 0.72f);
+				TextY += 17.0f * ResolutionScale;
+			}
+			DrawPaperText(
+				FText::FromString(Entry.WhereWhen),
+				FVector2D(
+					LaneX + Padding,
+					CardY + CardHeight - 22.0f * ResolutionScale),
+				FaintInk,
+				EIGHudTextRole::Hint,
+				CardTextScale * 0.62f);
+		}
+	}
+
+	if (ObservedCount == 0)
+	{
+		DrawCenteredPaperText(
+			SupportsKorean()
+				? NSLOCTEXT(
+					"IGHUD",
+					"MissingFloorJournalEmpty",
+					"아직 옮겨 적은 것이 없다.")
+				: FText::FromString(TEXT("NOTHING HAS BEEN COPIED DOWN YET.")),
+			ContentTop + (ContentBottom - ContentTop) * 0.48f,
+			FaintInk,
+			EIGHudTextRole::Dialogue,
+			0.90f);
+	}
+
+	DrawCenteredPaperText(
+		SupportsKorean()
+			? bUsingGamepad
+				? NSLOCTEXT(
+					"IGHUD",
+					"MissingFloorJournalControlsGamepad",
+					"D-pad  기록 넘기기  ·  Y 닫기")
+				: NSLOCTEXT(
+					"IGHUD",
+					"MissingFloorJournalControlsKeyboard",
+					"← / →  기록 넘기기  ·  Tab 닫기")
+			: FText::FromString(
+				bUsingGamepad
+					? TEXT("D-PAD PAGES  ·  Y CLOSE")
+					: TEXT("LEFT / RIGHT PAGES  ·  TAB CLOSE")),
+		PaperOrigin.Y + PaperSize.Y - 29.0f * ResolutionScale,
+		FaintInk,
+		EIGHudTextRole::Hint,
+		0.78f);
+	RecordLayoutValidationRect(PaperOrigin, PaperOrigin + PaperSize);
 }
 
 void AIGHorrorHUD::DrawDisplaySettingsPanel()

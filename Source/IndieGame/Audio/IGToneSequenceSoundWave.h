@@ -105,6 +105,9 @@ public:
 	/** One rough cardboard scrape and a small box-settle thump. */
 	static UIGToneSequenceSoundWave* CreateCardboardDrag(UObject* Outer);
 
+	/** Dry paper lift and fingertip brush used by the daylight evidence journal. */
+	static UIGToneSequenceSoundWave* CreateJournalPageTurn(UObject* Outer);
+
 	/**
 	 * Looping cheerful music-box store jingle.
 	 * PitchSemitones and TimeScale author the degraded CH02 version without
@@ -247,12 +250,20 @@ public:
 
 	// --- The Missing Floor: the one upstairs ------------------------------
 
+	/** Close, exhausted inhale/exhale loop for the five-dawn black interlude. */
+	static UIGToneSequenceSoundWave* CreateTrappedBreathBed(UObject* Outer);
+
 	/**
 	 * Three deliberate knuckle knocks on a stud wall, evenly spaced. The
 	 * entity's idle cycle: it knocks, then listens. Muffle01 rolls off the
 	 * contact click for playback through a closed wall (1 = fully entombed).
 	 */
 	static UIGToneSequenceSoundWave* CreateWallKnockTriple(UObject* Outer, float Muffle01 = 0.0f);
+
+	/** One player-timed knuckle tap; P4 assembles three calls into its rhythm. */
+	static UIGToneSequenceSoundWave* CreateWallKnockSingle(
+		UObject* Outer,
+		float Muffle01 = 0.0f);
 
 	/**
 	 * Two soft knocks, close together: the calmed reply it gives when an

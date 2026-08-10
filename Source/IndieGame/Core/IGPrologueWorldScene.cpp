@@ -82,8 +82,22 @@ namespace IGPrologueWorld
 
 	// Unit 404 sits on the 4th floor, three slabs above the street.
 	constexpr float FourthFloorZ = 900.0f;
-
-	const FVector AlarmLocation(-160.0f, -35.0f, FourthFloorZ + 63.0f);
+	constexpr float MissingFloorRoofZ = 1200.0f;
+	constexpr int32 MissingFloorUpperStepCount = 14;
+	constexpr float MissingFloorRouteLengthCentimeters = 640.0f;
+	const FVector MissingFloorRouteStart(-277.5f, 220.0f, MissingFloorRoofZ);
+	const FVector MissingFloorRouteCorner(130.0f, 220.0f, MissingFloorRoofZ);
+	const FVector MissingFloorRouteEnd(130.0f, 452.5f, MissingFloorRoofZ);
+	constexpr float BedsideTableTopZ = 60.0f;
+	constexpr float DeskWorkSurfaceHeight = 74.0f;
+	// The generated mesh audit fixes the continuous chassis at local Z=-0.40 cm.
+	// Sink it by 1 mm into the measured tabletop instead of adding an air gap.
+	// The tabletop scan is
+	// uniformly fitted, so its actual height is read
+	// from component bounds in BuildApartment rather than assumed to be 60 cm.
+	constexpr float AlarmContactBottomLocalZ = -0.40f;
+	constexpr float PropContactEmbedZ = 0.10f;
+	const FVector AlarmHorizontalLocation(-160.0f, -35.0f, 0.0f);
 	const FVector GetUpTargetLocation(-140.0f, 183.0f, FourthFloorZ + 58.0f);
 	const FVector FridgeLocation(155.0f, -20.0f, FourthFloorZ);
 	const FVector HomeDoorLocation(101.0f, -225.0f, FourthFloorZ);
@@ -91,7 +105,7 @@ namespace IGPrologueWorld
 	const FVector ElevatorLocation(790.0f, -305.0f, FourthFloorZ);
 	const FVector StoreDoorLocation(2405.0f, -457.0f, 6.0f);
 	const FVector CheckoutLocation(2620.0f, -255.0f, 96.0f);
-	const FVector WalletLocation(-150.0f, -185.0f, FourthFloorZ + 78.0f);
+	const FVector WalletHorizontalLocation(-125.0f, -183.0f, 0.0f);
 
 	const FName PurchaseBagProxyTag(TEXT("REBIRTH.PurchaseBagProxy"));
 	const FName CatWaterAftermathTag(TEXT("REBIRTH.CatWaterAftermath.CH02"));
@@ -448,6 +462,18 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	SceneRoot->SetMobility(EComponentMobility::Static);
 	SetRootComponent(SceneRoot);
+	AlarmWorldLocation = FVector(
+		IGPrologueWorld::AlarmHorizontalLocation.X,
+		IGPrologueWorld::AlarmHorizontalLocation.Y,
+		IGPrologueWorld::FourthFloorZ + IGPrologueWorld::BedsideTableTopZ
+			- IGPrologueWorld::AlarmContactBottomLocalZ
+			- IGPrologueWorld::PropContactEmbedZ);
+	DeskSurfaceWorldZ = IGPrologueWorld::FourthFloorZ
+		+ IGPrologueWorld::DeskWorkSurfaceHeight;
+	WalletWorldLocation = FVector(
+		IGPrologueWorld::WalletHorizontalLocation.X,
+		IGPrologueWorld::WalletHorizontalLocation.Y,
+		DeskSurfaceWorldZ + 1.4f);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMeshFinder(
 		TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -960,6 +986,13 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_SteelDoorUV"), TEXT("M_KitchenGlossUV"), TEXT("M_CounterStoneUV"),
 		TEXT("M_DoorLock"), TEXT("M_MeterBox"), TEXT("M_Intercom"),
 		TEXT("M_LiftCOP"), TEXT("M_LiftHall"), TEXT("M_SwitchPlate"),
+		// 「없는 층」 dry-plaster architecture and authored residue layers.
+		TEXT("M_MissingFloorPlaster_X"), TEXT("M_MissingFloorPlaster_Y"),
+		TEXT("M_MissingFloorPlaster_XY"), TEXT("M_MissingFloorHandprints"),
+		TEXT("M_MissingFloorDragTrails"), TEXT("M_MissingFloorDustJoint"),
+		TEXT("M_MissingFloorCavityScratches"),
+		TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
+		TEXT("M_SpriteHwang"), TEXT("M_SpriteNarin"),
 		// Aged paper stock for readable notes, and the rental notice.
 		TEXT("M_PaperClean"), TEXT("M_PaperWet"), TEXT("M_PaperFolded"),
 		TEXT("M_PaperOld"), TEXT("M_NoticeRent"), TEXT("M_WetStep"),
@@ -1166,26 +1199,22 @@ void AIGPrologueWorldScene::AddStoreStockCup(
 			FRotator(0.0f, YawDegrees, 0.0f));
 	}
 
-	// The sleeve is authored at unit radius/height so the cylindrical UV spans
-	// the printed artwork once. It hugs the cup and must not cast a second shadow.
+	// The wrapper is authored at the cup's real dimensions and carries one
+	// explicit 360-degree UV seam. Runtime scaling would reintroduce the broken
+	// vertical strips that made the printed film look torn.
 	UMaterialInterface* LabelMaterial =
 		TexMat(TEXT("M_LabelRamyeon"), CupNoodleMaterial);
-	if (!AddStoreStockInstance(
+	const bool bAddedSleeve = AddStoreStockInstance(
 			PropMesh(TEXT("SM_CupSleeve")),
 			LabelMaterial,
 			FTransform(
 				FRotator(0.0f, YawDegrees, 0.0f),
 				BaseLocation + FVector(0.0f, 0.0f, 1.6f),
-				FVector(4.10f, 4.10f, 7.2f)),
-			false))
-	{
-		AddStoreStockBlock(
-			BaseLocation + FVector(0.0f, 0.0f, 5.2f),
-			FVector(8.2f, 8.2f, 7.2f),
-			LabelMaterial,
-			false,
-			FRotator(0.0f, YawDegrees, 0.0f));
-	}
+				FVector::OneVector),
+			false);
+	ensureMsgf(
+		bAddedSleeve,
+		TEXT("SM_CupSleeve is release-required; a flat box is not a valid wrapper."));
 
 	UMaterialInterface* LidMaterial =
 		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
@@ -1216,26 +1245,17 @@ void AIGPrologueWorldScene::AddStoreStockBottleLabel(
 {
 	UMaterialInterface* LabelMaterial =
 		TexMat(LabelMaterialName, FridgeInteriorMaterial);
-	if (AddStoreStockInstance(
+	const bool bAddedSleeve = AddStoreStockInstance(
 			PropMesh(TEXT("SM_LabelSleeve")),
 			LabelMaterial,
 			FTransform(
 				FRotator(0.0f, YawDegrees, 0.0f),
 				BottleBase + FVector(0.0f, 0.0f, BandBottomZ),
 				FVector(Radius, Radius, BandHeight)),
-			false))
-	{
-		return;
-	}
-
-	// The flat fallback is deliberately thin and front-facing. Its role is to
-	// preserve product colour and instance count while the sleeve is rebuilt.
-	AddStoreStockBlock(
-		BottleBase + FVector(-Radius, 0.0f, BandBottomZ + BandHeight * 0.5f),
-		FVector(0.3f, Radius * 2.0f, BandHeight),
-		LabelMaterial,
-		false,
-		FRotator(0.0f, YawDegrees, 0.0f));
+			false);
+	ensureMsgf(
+		bAddedSleeve,
+		TEXT("SM_LabelSleeve is release-required; a flat panel cannot replace wrap film."));
 }
 
 void AIGPrologueWorldScene::FinalizeStoreStockBatches()
@@ -1379,6 +1399,30 @@ UStaticMeshComponent* AIGPrologueWorldScene::PlacePhotoProp(
 	const FVector& TargetSize,
 	const float YawDegrees,
 	const bool bEnableCollision)
+
+{
+	return PlacePhotoPropInternal(
+		AssetId, FloorCenter, TargetSize, YawDegrees, bEnableCollision, true);
+}
+
+UStaticMeshComponent* AIGPrologueWorldScene::PlacePhotoPropExactSize(
+	const TCHAR* AssetId,
+	const FVector& FloorCenter,
+	const FVector& TargetSize,
+	const float YawDegrees,
+	const bool bEnableCollision)
+{
+	return PlacePhotoPropInternal(
+		AssetId, FloorCenter, TargetSize, YawDegrees, bEnableCollision, false);
+}
+
+UStaticMeshComponent* AIGPrologueWorldScene::PlacePhotoPropInternal(
+	const TCHAR* AssetId,
+	const FVector& FloorCenter,
+	const FVector& TargetSize,
+	const float YawDegrees,
+	const bool bEnableCollision,
+	const bool bPreserveAspectRatio)
 {
 	UStaticMesh* Mesh = FindPhotoPropMesh(AssetId);
 	if (!Mesh)
@@ -1393,17 +1437,24 @@ UStaticMeshComponent* AIGPrologueWorldScene::PlacePhotoProp(
 		return nullptr;
 	}
 
-	// Uniform scale that fits the target box without distorting the scan.
-	const float Scale = FMath::Min3(
-		TargetSize.X / MeshSize.X,
-		TargetSize.Y / MeshSize.Y,
-		TargetSize.Z / MeshSize.Z);
+	FVector Scale = TargetSize / MeshSize;
+	if (bPreserveAspectRatio)
+	{
+		const float UniformScale = Scale.GetMin();
+		Scale = FVector(UniformScale);
+	}
 
 	UStaticMeshComponent* Prop = NewObject<UStaticMeshComponent>(
 		this,
 		*FString::Printf(TEXT("PhotoProp_%d"), BlockCounter++));
 	Prop->SetupAttachment(ActiveParent ? ActiveParent.Get() : SceneRoot.Get());
 	Prop->SetStaticMesh(Mesh);
+	// Imported photo props already carry the project's audited fallback LODs.
+	// Force that path instead of asking every third-party material (including
+	// translucent glass slots) for a Nanite shader permutation it cannot use.
+	// Without this, a cooked build may replace the scan with the grey default
+	// material even though it looked correct after an editor-side recompile.
+	Prop->bDisallowNanite = true;
 	Prop->SetMobility(EComponentMobility::Static);
 	Prop->SetGenerateOverlapEvents(false);
 	Prop->SetCanEverAffectNavigation(false);
@@ -1414,14 +1465,17 @@ UStaticMeshComponent* AIGPrologueWorldScene::PlacePhotoProp(
 
 	const FRotator Rotation(0.0f, YawDegrees, 0.0f);
 	const FVector RotatedOriginOffset =
-		Rotation.RotateVector(FVector(Bounds.Origin.X, Bounds.Origin.Y, 0.0f)) * Scale;
+		Rotation.RotateVector(FVector(
+			Bounds.Origin.X * Scale.X,
+			Bounds.Origin.Y * Scale.Y,
+			0.0f));
 	const FVector Location(
 		FloorCenter.X - RotatedOriginOffset.X,
 		FloorCenter.Y - RotatedOriginOffset.Y,
-		FloorCenter.Z - (Bounds.Origin.Z - Bounds.BoxExtent.Z) * Scale);
+		FloorCenter.Z - (Bounds.Origin.Z - Bounds.BoxExtent.Z) * Scale.Z);
 	Prop->SetRelativeLocation(Location);
 	Prop->SetRelativeRotation(Rotation);
-	Prop->SetRelativeScale3D(FVector(Scale));
+	Prop->SetRelativeScale3D(Scale);
 	Prop->RegisterComponent();
 	GeometryComponents.Add(Prop);
 	return Prop;
@@ -1874,23 +1928,98 @@ void AIGPrologueWorldScene::BuildApartment()
 	CreateBlock(FVector(-140, 60, 60), FVector(96, 112, 12), Bedding);
 	CreateBlock(FVector(-140, 118, 63), FVector(96, 16, 8), Bedding);
 
-	// Bedside table with an articulated lamp, desk with chair, wardrobe.
-	if (!PlacePhotoProp(TEXT("side_table_01"), FVector(-160, -35, 0), FVector(58, 58, 60), 0.0f))
+	// Bedside table with an articulated lamp, desk with chair, wardrobe. Scanned
+	// props keep their aspect ratio, so "fit in 58x58x60" does not guarantee a
+	// 60 cm result. Measure the registered component and use its real upper
+	// bound for every object that rests on it.
+	UStaticMeshComponent* BedsideTable = PlacePhotoProp(
+		TEXT("side_table_01"),
+		FVector(-160, -35, 0),
+		FVector(58, 58, 60),
+		0.0f);
+	if (!BedsideTable)
 	{
-		CreateBlock(FVector(-160, -35, 27.5f), FVector(55, 55, 55), Furniture);
+		BedsideTable = CreateBlock(
+			FVector(-160, -35, IGPrologueWorld::BedsideTableTopZ * 0.5f),
+			FVector(55, 55, IGPrologueWorld::BedsideTableTopZ),
+			Furniture);
 	}
-	PlacePhotoProp(TEXT("desk_lamp_arm_01"), FVector(-172, -52, 56), FVector(30, 30, 48), 35.0f, false);
-	if (!PlacePhotoProp(TEXT("metal_office_desk"), FVector(-140, -185, 0), FVector(104, 58, 78), 0.0f))
+	float BedsideSurfaceLocalZ = IGPrologueWorld::BedsideTableTopZ;
+	if (BedsideTable)
 	{
-		CreateBlock(FVector(-140, -185, 37.5f), FVector(100, 55, 75), Furniture);
+		const FBoxSphereBounds TableBounds = BedsideTable->CalcBounds(
+			BedsideTable->GetComponentTransform());
+		const float BedsideSurfaceWorldZ =
+			TableBounds.Origin.Z + TableBounds.BoxExtent.Z;
+		const float UpperFloorWorldZ = UpperFloorRoot
+			? UpperFloorRoot->GetComponentLocation().Z
+			: IGPrologueWorld::FourthFloorZ;
+		BedsideSurfaceLocalZ = BedsideSurfaceWorldZ - UpperFloorWorldZ;
+		AlarmWorldLocation = FVector(
+			IGPrologueWorld::AlarmHorizontalLocation.X,
+			IGPrologueWorld::AlarmHorizontalLocation.Y,
+			BedsideSurfaceWorldZ - IGPrologueWorld::AlarmContactBottomLocalZ
+				- IGPrologueWorld::PropContactEmbedZ);
 	}
-	if (!PlacePhotoProp(TEXT("painted_wooden_chair_01"), FVector(-140, -138, 0), FVector(46, 46, 96), 180.0f))
+	PlacePhotoProp(
+		TEXT("desk_lamp_arm_01"),
+		FVector(-172, -52, BedsideSurfaceLocalZ),
+		FVector(30, 30, 48),
+		35.0f,
+		false);
+	// Furniture is dimensioned around a seated adult: 74 cm work surface and a
+	// roughly 43 cm chair seat. The source desk is two metres wide, so the usual
+	// aspect-preserving fit would shrink its height to about 41 cm.
+	UStaticMeshComponent* Desk = PlacePhotoPropExactSize(
+		TEXT("metal_office_desk"),
+		FVector(-100, -179, 0),
+		FVector(145, 68, IGPrologueWorld::DeskWorkSurfaceHeight),
+		0.0f);
+	if (!Desk)
 	{
-		CreateBlock(FVector(-140, -135, 22), FVector(40, 40, 44), Furniture);
+		Desk = CreateBlock(
+			FVector(-100, -179, 72.5f), FVector(145, 68, 3), Furniture);
+		for (const float LegX : {-164.0f, -36.0f})
+		{
+			for (const float LegY : {-207.0f, -151.0f})
+			{
+				CreateBlock(FVector(LegX, LegY, 36), FVector(4, 4, 72), Metal);
+			}
+		}
 	}
-	if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -105, 0), FVector(40, 84, 186), 90.0f))
+	float DeskSurfaceLocalZ = IGPrologueWorld::DeskWorkSurfaceHeight;
+	if (Desk)
 	{
-		CreateBlock(FVector(-172, -105, 90), FVector(35, 80, 180), Furniture);
+		const FBoxSphereBounds DeskBounds = Desk->CalcBounds(Desk->GetComponentTransform());
+		DeskSurfaceWorldZ = DeskBounds.Origin.Z + DeskBounds.BoxExtent.Z;
+		const float UpperFloorWorldZ = UpperFloorRoot
+			? UpperFloorRoot->GetComponentLocation().Z
+			: IGPrologueWorld::FourthFloorZ;
+		DeskSurfaceLocalZ = DeskSurfaceWorldZ - UpperFloorWorldZ;
+		WalletWorldLocation = FVector(
+			IGPrologueWorld::WalletHorizontalLocation.X,
+			IGPrologueWorld::WalletHorizontalLocation.Y,
+			DeskSurfaceWorldZ + 1.4f);
+	}
+	if (!PlacePhotoPropExactSize(
+			TEXT("painted_wooden_chair_01"),
+			FVector(-100, -118, 0),
+			FVector(48, 50, 88),
+			180.0f))
+	{
+		CreateBlock(FVector(-100, -118, 44), FVector(46, 46, 4), Furniture);
+		CreateBlock(FVector(-100, -139, 66), FVector(46, 4, 48), Furniture);
+		for (const float LegX : {-120.0f, -80.0f})
+		{
+			for (const float LegY : {-137.0f, -99.0f})
+			{
+				CreateBlock(FVector(LegX, LegY, 21), FVector(3, 3, 42), Furniture);
+			}
+		}
+	}
+	if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -70, 0), FVector(40, 84, 186), 90.0f))
+	{
+		CreateBlock(FVector(-172, -70, 90), FVector(35, 80, 180), Furniture);
 	}
 
 	// Eye-level dressing gives the room a personal history without blocking a
@@ -1914,23 +2043,23 @@ void AIGPrologueWorldScene::BuildApartment()
 	};
 	// Pencil cup and three uneven pencils on the back corner of the desk.
 	AddApartmentDressing(
-		FVector(-178.0f, -188.0f, 84.0f), FVector(8.0f, 8.0f, 12.0f),
+		FVector(-152.0f, -187.0f, DeskSurfaceLocalZ + 5.9f), FVector(8.0f, 8.0f, 12.0f),
 		PlasticDarkMaterial, CylinderMesh, FRotator::ZeroRotator);
 	AddApartmentDressing(
-		FVector(-180.0f, -188.0f, 95.0f), FVector(1.0f, 1.0f, 18.0f),
+		FVector(-154.0f, -187.0f, DeskSurfaceLocalZ + 17.0f), FVector(1.0f, 1.0f, 18.0f),
 		SnackRedMaterial, CylinderMesh, FRotator(2.0f, 0.0f, -4.0f));
 	AddApartmentDressing(
-		FVector(-177.0f, -188.0f, 94.0f), FVector(1.0f, 1.0f, 16.0f),
+		FVector(-151.0f, -187.0f, DeskSurfaceLocalZ + 16.0f), FVector(1.0f, 1.0f, 16.0f),
 		SnackYellowMaterial, CylinderMesh, FRotator(-3.0f, 0.0f, 3.0f));
 	AddApartmentDressing(
-		FVector(-174.5f, -188.0f, 93.0f), FVector(1.0f, 1.0f, 14.0f),
+		FVector(-148.5f, -187.0f, DeskSurfaceLocalZ + 15.0f), FVector(1.0f, 1.0f, 14.0f),
 		SnackBlueMaterial, CylinderMesh, FRotator(1.0f, 0.0f, 5.0f));
 	// Two used notebooks break the otherwise perfect horizontal desk surface.
 	AddApartmentDressing(
-		FVector(-108.0f, -188.0f, 79.5f), FVector(25.0f, 18.0f, 2.2f),
+		FVector(-75.0f, -183.0f, DeskSurfaceLocalZ + 1.0f), FVector(25.0f, 18.0f, 2.2f),
 		Bedding, nullptr, FRotator(0.0f, -4.0f, 0.0f));
 	AddApartmentDressing(
-		FVector(-108.0f, -188.0f, 82.0f), FVector(22.0f, 16.0f, 2.0f),
+		FVector(-75.0f, -183.0f, DeskSurfaceLocalZ + 3.05f), FVector(22.0f, 16.0f, 2.0f),
 		SignWhiteMaterial, nullptr, FRotator(0.0f, 3.0f, 0.0f));
 	// The practical has a visible emitting face and a routed power lead, so the
 	// warm pool reads as light from a real object rather than a floating point.
@@ -2066,8 +2195,8 @@ void AIGPrologueWorldScene::BuildApartment()
 	// bedside lamp, the strip left on under the wall units, and the cool
 	// spill through the window; the sky light carries the rest physically.
 	UPointLightComponent* BedsideLamp = CreateLight(
-		FVector(-160, -35, 108), 255.0f, 340.0f,
-		FLinearColor(1.0f, 0.53f, 0.25f), true, 15.0f);
+		FVector(-164, -45, 101), 255.0f, 340.0f,
+		FLinearColor(1.0f, 0.53f, 0.25f), true, 25.0f);
 	BedsideLamp->SetVolumetricScatteringIntensity(0.28f);
 	CreateLight(
 		FVector(-100, 190, 160), 132.0f, 460.0f,
@@ -2381,13 +2510,9 @@ void AIGPrologueWorldScene::BuildCorridor()
 			Skirting,
 			false);
 	}
-	// Close the greybox flight beyond the authored boundary and keep the
-	// unseen upper landing dark. Release art can extend it without changing
-	// the interaction or narrative state contract.
-	//
-	// 없는 층 밤3: a threshold slab flush with the top tread, so a player
-	// who unlocks the gate has ground to stand on while the stair teleport
-	// behind it carries them to the fifth-floor annex.
+	// Threshold slab flush with the fourth tread. The former north closure and
+	// hidden portal are gone: BuildFifthFloorAnnex continues this exact shaft
+	// with fourteen physical treads to the roof.
 	CreateBlock(
 		FVector(-277.5f, -125.0f, 63.0f),
 		FVector(85, 28, 18),
@@ -2399,10 +2524,6 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(
 		FVector(-222.5f, -165.0f, 120),
 		FVector(15, 120, 240),
-		ConcreteDarkMaterial);
-	CreateBlock(
-		FVector(-277.5f, -105.0f, 120),
-		FVector(125, 15, 240),
 		ConcreteDarkMaterial);
 	CreateBlock(
 		FVector(-277.5f, -165.0f, 250),
@@ -2509,6 +2630,7 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	UMaterialInterface* RoomCeiling = TexMat(TEXT("M_StuccoCeil"), ConcreteMaterial);
 	UMaterialInterface* Furniture = TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial);
 	UMaterialInterface* Bedding = TexMat(TEXT("M_BeddingUV"), BeddingMaterial);
+	UMaterialInterface* Hoodie = TexMat(TEXT("M_WetHoodieUV"), BeddingMaterial);
 	UMaterialInterface* CorridorFloor =
 		TexMat(TEXT("M_GraniteTile_XY"), ConcreteMaterial);
 	UMaterialInterface* OfferingBowlMaterial =
@@ -2569,24 +2691,40 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	AddOverlay(FVector(-30, -232.0f, 194), FVector(84, 1.4f, 2.5f), OldPaint, false);
 	AddOverlay(FVector(-30, -232.0f, 7), FVector(84, 1.4f, 2.5f), OldPaint, false);
 
-	// Bed, pillow and a human-scale mound kept low beneath the duvet. The old
-	// 82 x 105 cm box plus a 55 cm sphere read as two construction blocks.
+	// Bed, pillow and the same curled, fully clothed anatomy used by the tank
+	// reveal. Engine spheres made the sleeper read as a featureless creature;
+	// the authored mesh keeps a neck notch, shoulder line, elbows and covered
+	// hands while showing no skin.
 	AddOverlay(FVector(300, 110, 20), FVector(100, 200, 40), Furniture);
 	AddOverlay(FVector(300, 110, 47), FVector(94, 194, 18), Bedding);
-	// Most of the figure is below the same duvet: using near-black concrete
-	// for both lobes collapsed the bed and sleeper into one opaque cut-out.
-	AddOverlay(
-		FVector(300, 132, 62), FVector(70, 92, 21),
-		Bedding, false, SphereMesh);
-	AddOverlay(
-		FVector(300, 91, 60), FVector(72, 56, 17),
-		Bedding, false, SphereMesh);
-	// A pale pillow gives the eye one human-scale reference before the player
-	// understands the low mound beneath the otherwise dark duvet.
 	AddOverlay(FVector(300, 182, 59), FVector(80, 47, 10), FridgeInteriorMaterial, false);
+	const FVector SleeperOrigin(300.0f, 127.0f, 70.0f);
+	const FRotator SleeperRotation(0.0f, 90.0f, 0.0f);
 	AddOverlay(
-		FVector(300, 188, 68), FVector(25, 23, 19),
-		WalletBrownMaterial, false, SphereMesh);
+		SleeperOrigin, FVector(100.0f), Hoodie, false,
+		PropMesh(TEXT("SM_SubmergedHoodieCurl")), SleeperRotation);
+	// The lower body remains under the blanket, but follows two bent legs and
+	// knees instead of one mathematically smooth oval.
+	AddOverlay(
+		SleeperOrigin, FVector(100.0f), Bedding, false,
+		PropMesh(TEXT("SM_SubmergedPantsCurl")), SleeperRotation);
+	// Three stitches sit on the authored camera-side forearm. They are derived
+	// from the same local points as the tank identity evidence, not floated by
+	// eye above the duvet.
+	const FVector StitchBase = SleeperOrigin
+		+ SleeperRotation.RotateVector(FVector(8.0f, -27.0f, 15.2f));
+	const FVector StitchStep =
+		SleeperRotation.RotateVector(FVector(1.8f, 1.2f, 0.0f));
+	for (int32 StitchIndex = 0; StitchIndex < 3; ++StitchIndex)
+	{
+		AddOverlay(
+			StitchBase + StitchStep * StitchIndex,
+			FVector(0.8f, 3.2f, 0.5f),
+			PlasticDarkMaterial,
+			false,
+			nullptr,
+			FRotator(0.0f, 90.0f, 18.0f));
+	}
 	AddOverlay(FVector(365, 28, 28), FVector(55, 55, 56), Furniture);
 
 	// Black horn-rim glasses at real scale (about 14 cm across).
@@ -2951,30 +3089,205 @@ void AIGPrologueWorldScene::SetChapterTwoReturnZoneArmed(const bool bArmed)
 
 void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 {
-	// Detached stage in world coordinates, north of the villa footprint —
-	// the same trick the legacy CH03 director uses for its own fifth floor.
-	// The room is what 2019's stopped construction left: a concrete shell,
-	// three stud bays on the east side, the water riser behind the middle
-	// one, and the tuner's leavings among the stacked material.
+	// Release topology, all in one world: the existing 4F stair continues to
+	// the roof slab, a 1.2 m maintenance lane passes the real tank, and the
+	// second fire door enters the illegal annex. No portal or camera cut is
+	// allowed to stand in for this walk.
 	ActiveParent = nullptr;
 
 	UMaterialInterface* AnnexFloor = TexMat(TEXT("M_ConcreteDark_X"), ConcreteDarkMaterial);
-	UMaterialInterface* AnnexWall = TexMat(TEXT("M_Stucco_X"), ConcreteMaterial);
+	UMaterialInterface* AnnexWallX = TexMat(TEXT("M_MissingFloorPlaster_X"), ConcreteMaterial);
+	UMaterialInterface* AnnexWallY = TexMat(TEXT("M_MissingFloorPlaster_Y"), ConcreteMaterial);
+	UMaterialInterface* AnnexCeiling = TexMat(TEXT("M_MissingFloorPlaster_XY"), ConcreteMaterial);
 	UMaterialInterface* Stud = TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial);
 	UMaterialInterface* Board = TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial);
+	UMaterialInterface* RoofFloor = TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial);
+	UMaterialInterface* RoofMetal = TexMat(TEXT("M_WaterTankMetalUV"), MetalFrameMaterial);
+	UMaterialInterface* RailMetal = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
+
+	MissingFloorUpperStairSteps.Reset();
+	MissingFloorRooftopRouteFloors.Reset();
+	MissingFloorAnnexLights.Reset();
+	MissingFloorCavityWallPanel = nullptr;
+	MissingFloorCavityWallResidue = nullptr;
+	bMissingFloorCavityOpen = false;
+
+	// Fourteen 17 cm risers continue directly from the authored 4F threshold.
+	// Each box grows from the same 963 cm base, producing a solid, sweep-safe
+	// stair rather than independent floating treads.
+	constexpr float StairBaseZ = 963.0f;
+	constexpr float RiserHeight = 17.0f;
+	constexpr float TreadDepth = 22.0f;
+	for (int32 StepIndex = 0;
+		StepIndex < IGPrologueWorld::MissingFloorUpperStepCount;
+		++StepIndex)
+	{
+		const float Height = RiserHeight * (StepIndex + 1);
+		UStaticMeshComponent* Step = CreateBlock(
+			FVector(
+				-277.5f,
+				-100.0f + TreadDepth * StepIndex,
+				StairBaseZ + Height * 0.5f),
+			FVector(85.0f, TreadDepth, Height),
+			RoofFloor);
+		MissingFloorUpperStairSteps.Add(Step);
+	}
+	CreateBlock(
+		FVector(-277.5f, 208.5f, 1191.0f),
+		FVector(85.0f, 23.0f, 18.0f),
+		RoofFloor);
+
+	// Enclose the upper flight. The side walls overlap the existing stub by
+	// 10 cm, so there is no blue-sky seam when looking up from 4F.
+	CreateBlock(
+		FVector(-332.5f, 52.5f, 1200.0f),
+		FVector(15.0f, 325.0f, 480.0f),
+		AnnexWallY);
+	CreateBlock(
+		FVector(-222.5f, 52.5f, 1200.0f),
+		FVector(15.0f, 325.0f, 480.0f),
+		AnnexWallY);
+
+	// The reinforced roof slab is split around the stair opening. All three
+	// pieces collide; their top plane and the annex floor are exactly Z=1200.
+	MissingFloorRooftopRouteFloors.Add(CreateBlock(
+		FVector(-420.0f, -40.0f, 1190.0f),
+		FVector(160.0f, 520.0f, 20.0f),
+		RoofFloor));
+	MissingFloorRooftopRouteFloors.Add(CreateBlock(
+		FVector(142.5f, -40.0f, 1190.0f),
+		FVector(715.0f, 520.0f, 20.0f),
+		RoofFloor));
+	MissingFloorRooftopRouteFloors.Add(CreateBlock(
+		FVector(0.0f, 360.0f, 1190.0f),
+		FVector(1000.0f, 280.0f, 20.0f),
+		RoofFloor));
+
+	// A 2-ton-class cylindrical rooftop tank at authored scale. The detailed
+	// shell is visual-only; a hidden simple cylinder owns dependable collision.
+	const FVector TankCenter(0.0f, -25.0f, 0.0f);
+	CreateBlock(
+		TankCenter + FVector(0.0f, 0.0f, 1250.0f),
+		FVector(360.0f, 360.0f, 100.0f),
+		AnnexFloor);
+	if (UStaticMesh* TankShell = PropMesh(TEXT("SM_RooftopWaterTankShell")))
+	{
+		CreateBlock(
+			TankCenter + FVector(0.0f, 0.0f, 1430.0f),
+			FVector(100.0f),
+			RoofMetal,
+			false,
+			TankShell);
+	}
+	else
+	{
+		CreateBlock(
+			TankCenter + FVector(0.0f, 0.0f, 1430.0f),
+			FVector(306.0f, 306.0f, 260.0f),
+			RoofMetal,
+			false,
+			CylinderMesh);
+	}
+	if (UStaticMeshComponent* TankCollision = CreateBlock(
+			TankCenter + FVector(0.0f, 0.0f, 1430.0f),
+			FVector(306.0f, 306.0f, 260.0f),
+			RoofMetal,
+			true,
+			CylinderMesh))
+	{
+		TankCollision->SetVisibility(false, true);
+		TankCollision->SetHiddenInGame(true, true);
+		TankCollision->SetCastShadow(false);
+	}
+
+	// The route centerline is exactly 407.5 + 232.5 = 640 cm. Rail placement
+	// leaves a 120 cm clear lane and makes the corner physical, not a waypoint.
+	auto AddRail = [this, RailMetal](
+		const FVector& Start,
+		const FVector& End)
+	{
+		const FVector Delta = End - Start;
+		const float Length = Delta.Size2D();
+		if (Length <= KINDA_SMALL_NUMBER)
+		{
+			return;
+		}
+		const FVector Midpoint = (Start + End) * 0.5f;
+		const float Yaw = FMath::RadiansToDegrees(FMath::Atan2(Delta.Y, Delta.X));
+		for (const float Z : {1248.0f, 1294.0f})
+		{
+			CreateBlock(
+				FVector(Midpoint.X, Midpoint.Y, Z),
+				FVector(Length, 4.0f, 4.0f),
+				RailMetal,
+				true,
+				nullptr,
+				FRotator(0.0f, Yaw, 0.0f));
+		}
+		// Roughly one-metre post bays match ordinary Korean rooftop guardrails.
+		// The two continuous horizontal bars own collision between the posts, so
+		// denser greybox pickets only add visual noise without improving safety.
+		const int32 PostCount = FMath::Max(2, FMath::CeilToInt(Length / 100.0f) + 1);
+		for (int32 PostIndex = 0; PostIndex < PostCount; ++PostIndex)
+		{
+			const float Alpha = PostCount > 1
+				? static_cast<float>(PostIndex) / static_cast<float>(PostCount - 1)
+				: 0.0f;
+			const FVector Point = FMath::Lerp(Start, End, Alpha);
+			CreateBlock(
+				FVector(Point.X, Point.Y, 1247.0f),
+				FVector(4.0f, 4.0f, 94.0f),
+				RailMetal);
+		}
+	};
+	AddRail(FVector(-277.5f, 160.0f, 0.0f), FVector(-180.0f, 160.0f, 0.0f));
+	AddRail(FVector(-277.5f, 280.0f, 0.0f), FVector(70.0f, 280.0f, 0.0f));
+	AddRail(FVector(190.0f, 160.0f, 0.0f), FVector(190.0f, 452.5f, 0.0f));
+	AddRail(FVector(70.0f, 280.0f, 0.0f), FVector(70.0f, 452.5f, 0.0f));
+
+	// Door frames make both openings legible even before their interactive
+	// leaves are spawned by the night-three director.
+	for (const float DoorJambX : {-327.5f, -227.5f})
+	{
+		CreateBlock(
+			FVector(DoorJambX, 220.0f, 1305.0f),
+			FVector(10.0f, 12.0f, 210.0f),
+			RailMetal);
+	}
+	CreateBlock(
+		FVector(-277.5f, 220.0f, 1412.5f),
+		FVector(110.0f, 12.0f, 15.0f),
+		RailMetal);
 
 	CreateBlock(FVector(0, 700, 1195), FVector(800, 500, 10), AnnexFloor);
-	CreateBlock(FVector(0, 700, 1445), FVector(800, 500, 10), AnnexWall);
-	CreateBlock(FVector(0, 947.5f, 1320), FVector(800, 15, 240), AnnexWall);
-	CreateBlock(FVector(0, 452.5f, 1320), FVector(800, 15, 240), AnnexWall);
-	CreateBlock(FVector(-397.5f, 700, 1320), FVector(15, 480, 240), AnnexWall);
-	CreateBlock(FVector(397.5f, 700, 1320), FVector(15, 480, 240), AnnexWall);
+	CreateBlock(FVector(0, 700, 1445), FVector(800, 500, 10), AnnexCeiling);
+	CreateBlock(FVector(0, 947.5f, 1320), FVector(800, 15, 240), AnnexWallX);
+	// South wall split around the second 90 cm fire door (X=85..175).
+	CreateBlock(FVector(-157.5f, 452.5f, 1320), FVector(485, 15, 240), AnnexWallX);
+	CreateBlock(FVector(287.5f, 452.5f, 1320), FVector(225, 15, 240), AnnexWallX);
+	CreateBlock(FVector(130.0f, 452.5f, 1422.5f), FVector(90, 15, 35), AnnexWallX);
+	for (const float DoorJambX : {80.0f, 180.0f})
+	{
+		CreateBlock(
+			FVector(DoorJambX, 452.5f, 1305.0f),
+			FVector(10.0f, 12.0f, 210.0f),
+			RailMetal);
+	}
+	CreateBlock(FVector(-397.5f, 700, 1320), FVector(15, 480, 240), AnnexWallY);
+	CreateBlock(FVector(397.5f, 700, 1320), FVector(15, 480, 240), AnnexWallY);
 
 	// Three finished bays in a row: only the middle one hides a cavity, and
 	// only sound can tell them apart. Gypsum faces with exposed stud edges.
 	for (const float BayY : {560.0f, 700.0f, 840.0f})
 	{
-		CreateBlock(FVector(257.5f, BayY, 1320), FVector(15, 120, 240), AnnexWall);
+		UStaticMeshComponent* BayPanel = CreateBlock(
+			FVector(257.5f, BayY, 1320),
+			FVector(15, 120, 240),
+			AnnexWallY);
+		if (FMath::IsNearlyEqual(BayY, 700.0f))
+		{
+			MissingFloorCavityWallPanel = BayPanel;
+		}
 		CreateBlock(FVector(249.0f, BayY - 62.0f, 1320), FVector(4, 6, 240), Stud, false);
 		CreateBlock(FVector(249.0f, BayY + 62.0f, 1320), FVector(4, 6, 240), Stud, false);
 	}
@@ -2991,9 +3304,64 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	CreateBlock(FVector(-90, 770, 1236), FVector(60, 40, 12), Stud, false);
 	CreateBlock(FVector(120, 880, 1224), FVector(90, 50, 48), Board);
 	CreateBlock(FVector(0, 700, 1436), FVector(10, 10, 8), PlasticDarkMaterial, false);
-	CreateLight(
+
+	// ImageGen residue arrives as value masks, never as baked lighting. Thin
+	// masked receivers sit on the real wall/floor planes so the flashlight,
+	// contact angle and PBR surface underneath stay coherent. None collides.
+	auto AddResidue = [this](
+		const FVector& Center,
+		const FVector& Size,
+		const FName MaterialName,
+		const FRotator& Rotation) -> UStaticMeshComponent*
+	{
+		if (UStaticMeshComponent* Residue = CreateBlock(
+				Center,
+				Size,
+				TexMat(MaterialName, SignWhiteMaterial),
+				false,
+				nullptr,
+				Rotation))
+		{
+			Residue->SetCastShadow(false);
+			Residue->SetCanEverAffectNavigation(false);
+			return Residue;
+		}
+		return nullptr;
+	};
+	MissingFloorCavityWallResidue = AddResidue(
+		FVector(249.65f, 700.0f, 1318.0f),
+		FVector(0.30f, 102.0f, 118.0f),
+		TEXT("M_MissingFloorHandprints"),
+		FRotator::ZeroRotator);
+	AddResidue(
+		FVector(20.0f, 718.0f, 1200.25f),
+		FVector(250.0f, 112.0f, 0.30f),
+		TEXT("M_MissingFloorDragTrails"),
+		FRotator(0.0f, 13.0f, 0.0f));
+	AddResidue(
+		FVector(170.0f, 862.0f, 1200.26f),
+		FVector(210.0f, 72.0f, 0.32f),
+		TEXT("M_MissingFloorDustJoint"),
+		FRotator(0.0f, -8.0f, 0.0f));
+	// This face is deliberately behind bay B. It becomes visible only after
+	// the night-four wall panel is removed, so the reveal cannot leak early.
+	AddResidue(
+		FVector(266.0f, 700.0f, 1322.0f),
+		FVector(0.28f, 104.0f, 150.0f),
+		TEXT("M_MissingFloorCavityScratches"),
+		FRotator::ZeroRotator);
+	MissingFloorAnnexLights.Add(CreateLight(
 		FVector(0, 700, 1420), 650.0f, 900.0f,
-		FLinearColor(1.0f, 0.93f, 0.82f), false);
+		FLinearColor(1.0f, 0.93f, 0.82f), false));
+	// The upper flight is deliberately dim, but it must still read as fourteen
+	// grounded treads rather than a black transition volume. A cold bulkhead
+	// spill also silhouettes the first real roof door from the fourth floor.
+	MissingFloorAnnexLights.Add(CreateLight(
+		FVector(-277.5f, 92.0f, 1358.0f), 820.0f, 470.0f,
+		FLinearColor(0.50f, 0.61f, 0.76f), true, 8.0f));
+	MissingFloorAnnexLights.Add(CreateLight(
+		FVector(-35.0f, 224.0f, 1450.0f), 760.0f, 760.0f,
+		FLinearColor(0.48f, 0.58f, 0.72f), true, 12.0f));
 
 	ActiveParent = nullptr;
 }
@@ -3083,6 +3451,84 @@ void AIGPrologueWorldScene::SetNightStairPocketEnabled(const bool bEnabled)
 		ToWorld(FVector(-214.0f, -305.0f, 193.0f)),
 		ToWorld(FVector(-188.0f, -305.0f, 187.0f)),
 		FRotator(0.0f, 0.0f, 0.0f));
+}
+
+bool AIGPrologueWorldScene::ValidateMissingFloorRooftopRoute(
+	float& OutCenterlineLengthCentimeters,
+	int32& OutUpperStepCount) const
+{
+	OutCenterlineLengthCentimeters =
+		FVector::Dist2D(
+			IGPrologueWorld::MissingFloorRouteStart,
+			IGPrologueWorld::MissingFloorRouteCorner)
+		+ FVector::Dist2D(
+			IGPrologueWorld::MissingFloorRouteCorner,
+			IGPrologueWorld::MissingFloorRouteEnd);
+	OutUpperStepCount = MissingFloorUpperStairSteps.Num();
+
+	if (!FMath::IsNearlyEqual(
+			OutCenterlineLengthCentimeters,
+			IGPrologueWorld::MissingFloorRouteLengthCentimeters,
+			0.1f)
+		|| OutUpperStepCount != IGPrologueWorld::MissingFloorUpperStepCount
+		|| MissingFloorRooftopRouteFloors.Num() != 3)
+	{
+		return false;
+	}
+
+	auto HasWalkableCollision = [](const UStaticMeshComponent* Component)
+	{
+		return Component
+			&& Component->GetCollisionEnabled() != ECollisionEnabled::NoCollision
+			&& Component->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block;
+	};
+	for (const UStaticMeshComponent* Step : MissingFloorUpperStairSteps)
+	{
+		if (!HasWalkableCollision(Step))
+		{
+			return false;
+		}
+	}
+	for (const UStaticMeshComponent* Floor : MissingFloorRooftopRouteFloors)
+	{
+		if (!HasWalkableCollision(Floor))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+void AIGPrologueWorldScene::SetMissingFloorAnnexPower(const bool bPowered)
+{
+	for (UPointLightComponent* Light : MissingFloorAnnexLights)
+	{
+		if (Light)
+		{
+			Light->SetVisibility(bPowered, true);
+		}
+	}
+}
+
+bool AIGPrologueWorldScene::OpenMissingFloorCavity()
+{
+	if (!MissingFloorCavityWallPanel)
+	{
+		return false;
+	}
+	MissingFloorCavityWallPanel->SetVisibility(false, true);
+	MissingFloorCavityWallPanel->SetHiddenInGame(true, true);
+	MissingFloorCavityWallPanel->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	if (MissingFloorCavityWallResidue)
+	{
+		// The receiver belongs to the removable face. Leaving it visible after
+		// the gypsum disappears would create a pair of handprints floating over
+		// the cavity — exactly the kind of physical break this reveal cannot bear.
+		MissingFloorCavityWallResidue->SetVisibility(false, true);
+		MissingFloorCavityWallResidue->SetHiddenInGame(true, true);
+	}
+	bMissingFloorCavityOpen = true;
+	return true;
 }
 
 bool AIGPrologueWorldScene::DropCorridorExtinguisher()
@@ -3179,7 +3625,7 @@ void AIGPrologueWorldScene::FinishChapterTwo()
 
 			DistantAlarmComponent = CreateAmbientBed(
 				AlarmSound,
-				IGPrologueWorld::AlarmLocation,
+				AlarmWorldLocation,
 				0.12f,
 				90.0f,
 				1750.0f);
@@ -4143,19 +4589,19 @@ void AIGPrologueWorldScene::BuildStore()
 	// Two double-sided gondolas built like real shop fixtures: a central back
 	// panel, a kick base, and cantilevered shelf tiers on each face. Product
 	// stands *on* a tier inside the bay instead of perching on the top cap.
-	// Waist-height runs, as in a real store: you can see clear across the shop
-	// floor over the tops of them, and the aisle between is wide enough to
-	// pass someone.
+	// The 174 cm run is a common chest-height fixture: the 120 cm product tier
+	// has a real 150 cm shelf above it, so cup ramyeon reads as shelved stock
+	// from a standing player's approach instead of an item on a display table.
 	for (const float GondolaY : {-365.0f, -555.0f})
 	{
 		// Spine and structure.
-		CreateBlock(FVector(2640, GondolaY, 68), FVector(300, 8, 136), ShelfSteel);
+		CreateBlock(FVector(2640, GondolaY, 86), FVector(300, 8, 172), ShelfSteel);
 		CreateBlock(FVector(2640, GondolaY, 8), FVector(292, 46, 16), PlasticDarkMaterial);
-		CreateBlock(FVector(2488, GondolaY, 70), FVector(6, 50, 140), Metal);
-		CreateBlock(FVector(2792, GondolaY, 70), FVector(6, 50, 140), Metal);
-		CreateBlock(FVector(2640, GondolaY, 140), FVector(304, 50, 4), Metal, false);
+		CreateBlock(FVector(2488, GondolaY, 87), FVector(6, 50, 174), Metal);
+		CreateBlock(FVector(2792, GondolaY, 87), FVector(6, 50, 174), Metal);
+		CreateBlock(FVector(2640, GondolaY, 174), FVector(304, 50, 4), Metal, false);
 
-		const float TierHeights[] = {30.0f, 60.0f, 90.0f, 120.0f};
+		const float TierHeights[] = {30.0f, 60.0f, 90.0f, 120.0f, 150.0f};
 		const TCHAR* SnackLabels[] = {
 			TEXT("M_SnackShrimp"), TEXT("M_SnackPotato"),
 			TEXT("M_SnackSquid"), TEXT("M_SnackCorn")};
@@ -4163,7 +4609,7 @@ void AIGPrologueWorldScene::BuildStore()
 		for (const float FaceSign : {-1.0f, 1.0f})
 		{
 			int32 SnackIndex = static_cast<int32>(GondolaY * 0.1f + FaceSign);
-			for (int32 TierIndex = 0; TierIndex < 4; ++TierIndex)
+			for (int32 TierIndex = 0; TierIndex < UE_ARRAY_COUNT(TierHeights); ++TierIndex)
 			{
 				const float TierZ = TierHeights[TierIndex];
 				const float ShelfY = GondolaY + FaceSign * 13.0f;
@@ -4174,10 +4620,21 @@ void AIGPrologueWorldScene::BuildStore()
 				CreateBlock(FVector(2640, GondolaY + FaceSign * 24.5f, TierZ + 2.0f),
 					FVector(296, 2, 7), FridgeInteriorMaterial, false);
 
+				// The CH01 approach side of the first gondola reserves the bay
+				// between the 120 cm and 150 cm shelves for cup ramyeon. The upper
+				// shelf remains visible in profile and makes the storage relationship
+				// unambiguous from the aisle.
+				const bool bRamyeonBay =
+					FMath::IsNearlyEqual(GondolaY, -365.0f)
+					&& FaceSign < 0.0f
+					&& TierIndex == 3;
+
 				// Bags stand on the tier, backs to the spine, faces to the
 				// aisle — packed shoulder to shoulder the way a stocked shelf
 				// actually looks, not spaced out like a museum case.
-				for (float SnackX = 2500.0f; SnackX <= 2780.0f; SnackX += 14.0f)
+				for (float SnackX = 2500.0f;
+					!bRamyeonBay && SnackX <= 2780.0f;
+					SnackX += 14.0f)
 				{
 					UMaterialInterface* SnackMaterial = TexMat(
 						SnackLabels[FMath::Abs(SnackIndex) % 4],
@@ -4202,14 +4659,25 @@ void AIGPrologueWorldScene::BuildStore()
 			}
 		}
 	}
-	for (float CupX = 2540.0f; CupX <= 2700.0f; CupX += 40.0f)
+
+	// Two dense rows of cups occupy the enclosed 120--150 cm bay on the
+	// player-facing side. The 11 cm cups rest on the 121.5 cm shelf surface and
+	// leave 17.4 cm below the next shelf. The staggered back row reads as stocked
+	// depth without intersecting either the spine or price rail.
+	constexpr float RamyeonShelfSurfaceZ = 121.5f;
+	for (int32 RowIndex = 0; RowIndex < 2; ++RowIndex)
 	{
-		// A cup ramyeon is three materials, not one. The foam cup, the printed
-		// band around it, and the foil lid are separate props: putting the
-		// label on the cup mesh painted the artwork over the lid and the
-		// underside too, because the lid is unioned into the same mesh and
-		// shares its only material slot.
-		AddStoreStockCup(FVector(CupX, -365, 142), CupX * 1.7f);
+		const float RowY = RowIndex == 0 ? -379.0f : -368.7f;
+		const float StartX = RowIndex == 0 ? 2504.0f : 2512.0f;
+		const float EndX = RowIndex == 0 ? 2776.0f : 2768.0f;
+		for (float CupX = StartX; CupX <= EndX; CupX += 16.0f)
+		{
+			// A cup ramyeon is three materials, not one. The foam cup, the
+			// printed band and foil lid remain aligned as one retail unit.
+			AddStoreStockCup(
+				FVector(CupX, RowY, RamyeonShelfSurfaceZ),
+				-90.0f);
+		}
 	}
 
 	// South wall: chilled open showcase (kimbap/sandwich) flanked by scanned
@@ -4256,11 +4724,25 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(
 		FVector(2470, -678.5f, 200), FVector(70, 1.5f, 48),
 		TexMat(TEXT("M_PosterRamyeon"), SignWhiteMaterial), false);
-	// Ramyeon corner stack by the window bar.
-	CreateBlock(FVector(2452, -668, 86), FVector(70, 38, 160), ShelfSteel);
-	for (float CupX = 2432.0f; CupX <= 2472.0f; CupX += 20.0f)
+	// Ramyeon corner rack by the window bar. A thin back, two uprights and five
+	// shelf plates leave genuine open bays; the former solid cabinet with cups
+	// perched at Z=167.5 was not a plausible convenience-store fixture.
+	CreateBlock(FVector(2452, -684.5f, 86), FVector(70, 3, 160), ShelfSteel);
+	CreateBlock(FVector(2418.5f, -670, 86), FVector(3, 32, 160), Metal);
+	CreateBlock(FVector(2485.5f, -670, 86), FVector(3, 32, 160), Metal);
+	for (const float TierZ : {16.0f, 46.0f, 76.0f, 106.0f, 136.0f, 166.0f})
 	{
-		AddStoreStockCup(FVector(CupX, -654, 167.5f), CupX * 3.0f);
+		CreateBlock(FVector(2452, -670, TierZ), FVector(70, 32, 3), Metal);
+		if (TierZ >= 166.0f)
+		{
+			continue;
+		}
+		for (float CupX = 2427.0f; CupX <= 2477.0f; CupX += 12.5f)
+		{
+			AddStoreStockCup(
+				FVector(CupX, -670, TierZ + 1.5f),
+				90.0f);
+		}
 	}
 
 	// East wall: the walk-up reach-in cooler bank — six framed glass doors,
@@ -4588,12 +5070,22 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			PropMesh(TEXT("SM_WaterBottle"), CylinderMesh), GlassMaterial,
 			FVector::OneVector, FVector(150, -32, 986), FRotator(0, 0, 90), 0.15f);
 
-		// The handwritten note on the door: "buy water" — someone already knew.
-		CreateDecoOnComponent(
-			Fridge->GetDoorPivot(), CubeMesh,
+		// A standard 76 x 76 mm adhesive memo. Its top strip stays flush and the
+		// lower edge releases by only 1.8 mm, so the contact shadow reads as paper.
+		UStaticMesh* StickyNoteMesh = PropMesh(TEXT("SM_StickyNote76mm"));
+		const bool bHasAuthoredStickyNote = StickyNoteMesh != nullptr;
+		UStaticMeshComponent* StickyNote = CreateDecoOnComponent(
+			Fridge->GetDoorPivot(),
+			bHasAuthoredStickyNote ? StickyNoteMesh : PlaneMesh.Get(),
 			TexMat(TEXT("M_NoteFridge"), SignWhiteMaterial),
-			FVector(-6.9f, 36.0f, 18.0f), FRotator::ZeroRotator,
-			FVector(0.012f, 0.20f, 0.20f));
+			FVector(-7.43f, 36.0f, 18.0f),
+			bHasAuthoredStickyNote ? FRotator::ZeroRotator : FRotator(-90.0f, 0.0f, 0.0f),
+			bHasAuthoredStickyNote ? FVector::OneVector : FVector(0.076f));
+		if (StickyNote)
+		{
+			StickyNote->SetCullDistance(650.0f);
+			StickyNote->SetAffectDistanceFieldLighting(false);
+		}
 	}
 
 	// This morning's paper on the landing outside 404. The delivery-ad sticker
@@ -4762,27 +5254,14 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			this,
 			&ThisClass::HandleElevatorReturnedToFourthFloor);
 
-		// The primary COP is correctly beside the door, but that places it
-		// behind the first-person capture. A non-colliding secondary panel on
-		// the opposite wall is common accessibility equipment in Korean lifts
-		// and keeps the floor/buttons legible from inside both cab copies.
-		for (const float CabBaseZ : {0.0f, -900.0f})
-		{
-			CreateDecoOnComponent(
-				Elevator->GetRootComponent(), CubeMesh, MetalFrameMaterial,
-				FVector(12, -74.2f, CabBaseZ + 108), FRotator::ZeroRotator,
-				FVector(0.19f, 0.012f, 0.94f));
-			CreateDecoOnComponent(
-				Elevator->GetRootComponent(), CubeMesh, CabVisuals.CopMaterial,
-				FVector(12, -73.4f, CabBaseZ + 108), FRotator::ZeroRotator,
-				FVector(0.14f, 0.006f, 0.86f));
-		}
+		// BuildCabInterior owns the sole rider COP. Adding a camera-facing copy
+		// here used to bury buttons inside the opposite handrail.
 	}
 
 	// Wallet on the desk.
 	Wallet = World->SpawnActor<AIGPickupItem>(
 		AIGPickupItem::StaticClass(),
-		FTransform(FRotator(0, 20, 0), IGPrologueWorld::WalletLocation),
+		FTransform(FRotator(0, 20, 0), WalletWorldLocation),
 		SpawnParameters);
 	if (Wallet)
 	{
@@ -4903,13 +5382,15 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				WaterBottle->GetMeshComponent(),
 				PropMesh(TEXT("SM_BottleCap"), CylinderMesh), SnackBlueMaterial,
 				FVector(0, 0, 20.1f), FRotator::ZeroRotator, FVector::OneVector);
-			// The printed sleeve is what actually reads as "생수" in hand.
+			// A 55 mm commercial wrap band sits on the bottle's straight waist.
+			// Keeping it clear of the lower grip ribs prevents floating film and
+			// the stretched, torn-looking print of the old 86 mm sleeve.
 			CreateDecoOnComponent(
 				WaterBottle->GetMeshComponent(),
 				PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
 				TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
-				FVector(0, 0, 5.0f), FRotator(0.0f, -90.0f, 0.0f),
-				FVector(3.36f, 3.36f, 8.6f));
+				FVector(0, 0, 7.2f), FRotator(0.0f, -90.0f, 0.0f),
+				FVector(3.30f, 3.30f, 5.5f));
 			if (bHasSecondBottle)
 			{
 				UStaticMeshComponent* SecondBottle = CreateDecoOnComponent(
@@ -4930,9 +5411,9 @@ void AIGPrologueWorldScene::SpawnInteractables()
 					SecondBottle,
 					PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
 					TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
-					FVector(0, 0, 5.0f),
+					FVector(0, 0, 7.2f),
 					FRotator(0.0f, -90.0f, 0.0f),
-					FVector(3.36f, 3.36f, 8.6f));
+					FVector(3.30f, 3.30f, 5.5f));
 			}
 			AddStaticPurchaseBagProxy(WaterBottle, PurchaseProfile);
 			WaterBottle->OnPickedUp.AddUniqueDynamic(
@@ -5209,7 +5690,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 	// but they are evidence dressing rather than a second shopping errand.
 	ChapterTwoWallet = World->SpawnActor<AIGPickupItem>(
 		AIGPickupItem::StaticClass(),
-		FTransform(FRotator(0, 20, 0), IGPrologueWorld::WalletLocation),
+		FTransform(FRotator(0, 20, 0), WalletWorldLocation),
 		SpawnParameters);
 	if (ChapterTwoWallet)
 	{
@@ -5288,8 +5769,8 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 			WaterBottle->GetMeshComponent(),
 			PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
 			TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
-			FVector(0, 0, 5.0f), FRotator(0.0f, -90.0f, 0.0f),
-			FVector(3.36f, 3.36f, 8.6f));
+			FVector(0, 0, 7.2f), FRotator(0.0f, -90.0f, 0.0f),
+			FVector(3.30f, 3.30f, 5.5f));
 		if (bHasSecondBottle)
 		{
 			UStaticMeshComponent* SecondBottle = CreateDecoOnComponent(
@@ -5310,9 +5791,9 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 				SecondBottle,
 				PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
 				TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
-				FVector(0, 0, 5.0f),
+				FVector(0, 0, 7.2f),
 				FRotator(0.0f, -90.0f, 0.0f),
-				FVector(3.36f, 3.36f, 8.6f));
+				FVector(3.30f, 3.30f, 5.5f));
 		}
 		AddStaticPurchaseBagProxy(WaterBottle, PurchaseProfile);
 		ParkActor(WaterBottle);
@@ -5684,7 +6165,7 @@ void AIGPrologueWorldScene::SpawnDirectors()
 
 	AlarmSound = NewObject<UIGAlarmSoundWave>(this, TEXT("PrologueAlarmTone"));
 
-	const FTransform AlarmTransform(FRotator::ZeroRotator, IGPrologueWorld::AlarmLocation);
+	const FTransform AlarmTransform(FRotator::ZeroRotator, AlarmWorldLocation);
 	AlarmClock = World->SpawnActorDeferred<AIGPrologueAlarmClock>(
 		AIGPrologueAlarmClock::StaticClass(),
 		AlarmTransform,

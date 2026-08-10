@@ -202,6 +202,23 @@ public:
 	void SetNightStairPocketEnabled(bool bEnabled);
 
 	/**
+	 * Release topology for 없는 층 night 3. The path is built from real
+	 * collision surfaces: fourteen upper treads, a roof threshold, and a
+	 * 6.4 m L-shaped maintenance lane. This deliberately validates structure,
+	 * not a teleport trigger hidden behind a door.
+	 */
+	bool ValidateMissingFloorRooftopRoute(
+		float& OutCenterlineLengthCentimeters,
+		int32& OutUpperStepCount) const;
+
+	/** Night 4 breaker cut; keeps geometry and flashlight independent. */
+	void SetMissingFloorAnnexPower(bool bPowered);
+
+	/** Removes only the cavity-facing gypsum panel, never the structural studs. */
+	bool OpenMissingFloorCavity();
+	bool IsMissingFloorCavityOpen() const { return bMissingFloorCavityOpen; }
+
+	/**
 	 * Knocks the corridor extinguisher off its bracket. The prop is kinematic
 	 * its whole life until this call — zero simulation cost at rest — and it
 	 * freezes again once settled. Returns false when already dropped.
@@ -342,6 +359,29 @@ private:
 		float YawDegrees,
 		bool bEnableCollision = true);
 
+	/**
+	 * Places furniture at audited real-world dimensions on all three axes.
+	 *
+	 * Photo scans such as the two-metre office desk cannot be uniformly shrunk
+	 * to fit a compact room without also becoming coffee-table height. Use this
+	 * only where support height and seated ergonomics are the gameplay contract;
+	 * decorative scans continue through the aspect-preserving helper above.
+	 */
+	UStaticMeshComponent* PlacePhotoPropExactSize(
+		const TCHAR* AssetId,
+		const FVector& FloorCenter,
+		const FVector& TargetSize,
+		float YawDegrees,
+		bool bEnableCollision = true);
+
+	UStaticMeshComponent* PlacePhotoPropInternal(
+		const TCHAR* AssetId,
+		const FVector& FloorCenter,
+		const FVector& TargetSize,
+		float YawDegrees,
+		bool bEnableCollision,
+		bool bPreserveAspectRatio);
+
 	// --- construction stages ---------------------------------------------
 	void InitializePrologue();
 	bool PositionPlayer();
@@ -350,9 +390,8 @@ private:
 	void BuildChapterTwoOverlay();
 	void BuildLobby();
 	/**
-	 * 없는 층 밤3: the half-finished fifth floor, as a detached stage north
-	 * of the villa (the CH03 precedent). Reached only through the night
-	 * stair teleport, so it never has to thread the real building's slabs.
+	 * 없는 층 밤3: extends the real 4F stair to the roof, builds the 6.4 m
+	 * tank-side lane, and places the half-finished annex on the same slab.
 	 */
 	void BuildFifthFloorAnnex();
 	void BuildAlley();
@@ -599,6 +638,38 @@ private:
 	/** When set, assembly helpers parent to this instead of SceneRoot. */
 	UPROPERTY(Transient)
 	TObjectPtr<USceneComponent> ActiveParent;
+
+	/** Collision receipts for the portal-free missing-floor route. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> MissingFloorRooftopRouteFloors;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> MissingFloorUpperStairSteps;
+
+	/** Night 4: the three practical lights on the upper stair/roof/annex circuit. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UPointLightComponent>> MissingFloorAnnexLights;
+
+	/** The middle bay's removable gypsum face; studs and evidence remain. */
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> MissingFloorCavityWallPanel;
+
+	/** Front-face hand residue follows the gypsum panel when it is removed. */
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> MissingFloorCavityWallResidue;
+	bool bMissingFloorCavityOpen = false;
+
+	/**
+	 * Exact world-space contact transform derived from the registered bedside
+	 * table bounds. Imported scans are uniformly fitted and may finish shorter
+	 * than their target box, so a hard-coded 60 cm surface can visibly float the
+	 * clock above an otherwise correct table.
+	 */
+	FVector AlarmWorldLocation = FVector::ZeroVector;
+
+	/** Measured desk support plane and its gravity-seated wallet transform. */
+	float DeskSurfaceWorldZ = 0.0f;
+	FVector WalletWorldLocation = FVector::ZeroVector;
 
 	FTimerHandle CorridorFlickerHandle;
 	float DegradedLightBaseIntensity = 850.0f;

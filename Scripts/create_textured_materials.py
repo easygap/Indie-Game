@@ -93,10 +93,24 @@ TEXTURED_MATERIALS = {
     "M_CabMirrorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
                          "tint": (1.22, 1.24, 1.28), "metallic": 1.0, "force_rough": 0.14},
     "M_SteelDoorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
-                         "tint": (0.115, 0.12, 0.132), "metallic": 0.2, "force_rough": 0.42},
+                          "tint": (0.115, 0.12, 0.132), "metallic": 0.2, "force_rough": 0.42},
     "M_KitchenGlossUV": {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
-                         "desaturate": 1.0, "tint": (1.72, 1.70, 1.64),
-                         "metallic": 0.0, "force_rough": 0.13},
+                          "desaturate": 1.0, "tint": (1.72, 1.70, 1.64),
+                          "metallic": 0.0, "force_rough": 0.13},
+    # 「없는 층」의 마른 석고 표면. 방향별 월드 매핑을 따로 두어
+    # 그레이박스 벽을 늘려도 가루결과 균열의 밀도가 변하지 않는다.
+    "M_MissingFloorPlaster_X": {
+        "tex": "MissingFloorDryPlaster", "mapping": "XZ", "tile": 138.0,
+        "rough": 0.91, "ao": True, "tint": (0.78, 0.76, 0.71),
+    },
+    "M_MissingFloorPlaster_Y": {
+        "tex": "MissingFloorDryPlaster", "mapping": "YZ", "tile": 138.0,
+        "rough": 0.91, "ao": True, "tint": (0.78, 0.76, 0.71),
+    },
+    "M_MissingFloorPlaster_XY": {
+        "tex": "MissingFloorDryPlaster", "mapping": "XY", "tile": 138.0,
+        "rough": 0.93, "ao": True, "tint": (0.74, 0.73, 0.69),
+    },
 }
 
 # Lit poster/label materials: texture straight onto mesh UVs.
@@ -104,7 +118,7 @@ DECAL_MATERIALS = {
     "M_PosterSale":    {"tex_asset": "T_PosterSale_D", "rough": 0.55, "emissive_scale": 0.06},
     "M_PosterRamyeon": {"tex_asset": "T_PosterRamyeon_D", "rough": 0.55, "emissive_scale": 0.06},
     "M_PosterFlyer":   {"tex_asset": "T_PosterFlyer_D", "rough": 0.75, "flutter": True},
-    "M_NoteFridge":    {"tex_asset": "T_NoteFridge_D", "rough": 0.7},
+    "M_NoteFridge":    {"tex_asset": "T_NoteFridge_D", "rough": 0.86},
     "M_SignToilet":    {"tex_asset": "T_SignToilet_D", "rough": 0.4},
     "M_SignAutoDoor":  {"tex_asset": "T_SignAutoDoor_D", "rough": 0.3, "emissive_scale": 0.15},
     "M_PriceStrip":    {"tex_asset": "T_PriceStrip_D", "rough": 0.4, "emissive_scale": 0.03,
@@ -208,15 +222,21 @@ DECAL_MATERIALS = {
     },
     "M_SubmergedSlippersUV": {
         "tex_asset": "T_WetServiceHose_D", "pbr_stem": "T_WetServiceHose",
-        "tile_u": 1.35, "wet_rough": 0.28, "wet_dark": 0.72,
+        "tile_u": 1.35, "wet_rough": 0.42, "wet_dark": 0.20,
+        "base_lift": (0.012, 0.016, 0.022),
         "wet_normal_flatten": 0.42, "minimum_wetness": 0.90,
-        "specular": 0.32,
+        "specular": 0.22,
     },
     "M_SubmergedSlipperWearUV": {
         "tex_asset": "T_WetRungPad_D", "pbr_stem": "T_WetRungPad",
-        "tile_u": 1.0, "wet_rough": 0.30, "wet_dark": 0.82,
+        "tile_u": 1.0, "wet_rough": 0.36, "wet_dark": 0.34,
         "wet_normal_flatten": 0.36, "minimum_wetness": 0.82,
-        "specular": 0.46,
+        "specular": 0.32,
+    },
+    "M_MissingFloorListenerPlasterUV": {
+        "tex_asset": "T_MissingFloorDryPlaster_D",
+        "pbr_stem": "T_MissingFloorDryPlaster", "tile_u": 2.8,
+        "specular": 0.16,
     },
 }
 
@@ -245,6 +265,22 @@ EVIDENCE_MASK_MATERIALS = {
         "tex_asset": "T_EvidenceHandSmear_M", "rough": 0.07,
         "color": (0.021, 0.030, 0.034), "mask_gain": 4.0,
     },
+    "M_MissingFloorHandprints": {
+        "tex_asset": "T_MissingFloorHandprints_M", "rough": 0.94,
+        "color": (0.52, 0.50, 0.46), "mask_gain": 2.2, "specular": 0.08,
+    },
+    "M_MissingFloorDragTrails": {
+        "tex_asset": "T_MissingFloorDragTrails_M", "rough": 0.96,
+        "color": (0.48, 0.46, 0.42), "mask_gain": 2.0, "specular": 0.06,
+    },
+    "M_MissingFloorDustJoint": {
+        "tex_asset": "T_MissingFloorDustJoint_M", "rough": 0.98,
+        "color": (0.63, 0.61, 0.56), "mask_gain": 1.8, "specular": 0.04,
+    },
+    "M_MissingFloorCavityScratches": {
+        "tex_asset": "T_MissingFloorCavityScratches_M", "rough": 0.92,
+        "color": (0.68, 0.65, 0.59), "mask_gain": 2.5, "specular": 0.08,
+    },
 }
 
 SURFACE_OVERLAY_MATERIALS = {
@@ -260,6 +296,44 @@ SURFACE_OVERLAY_MATERIALS = {
     "M_DecalRainGrime": {
         "tex_asset": "T_DecalRainGrime_D", "rough": 0.80,
     },
+    # Each person card is fixed to an authored viewing cue, receives real
+    # scene light, and stays masked/opaque so hair edges cannot sort like a
+    # translucent card. The listener front layer also carries conservative
+    # N/R/A maps and is paired with a continuous contact-shadow shell.
+    "M_SpriteSeo": {"tex_asset": "T_SpriteSeo_D", "rough": 0.82},
+    "M_SpriteMok": {"tex_asset": "T_SpriteMok_D", "rough": 0.86},
+    "M_SpriteHwang": {"tex_asset": "T_SpriteHwang_D", "rough": 0.88},
+    "M_SpriteNarin": {"tex_asset": "T_SpriteNarin_D", "rough": 0.80},
+    "M_SpriteListenerFront": {
+        "tex_asset": "T_SpriteListenerFront_D",
+        "pbr_stem": "T_SpriteListenerFront",
+        "rough": 0.86,
+        "specular": 0.14,
+    },
+    "M_SpriteListenerCrawl0": {
+        "tex_asset": "T_SpriteListenerCrawl0_D",
+        "pbr_stem": "T_SpriteListenerCrawl0",
+        "rough": 0.86,
+        "specular": 0.14,
+    },
+    "M_SpriteListenerCrawl1": {
+        "tex_asset": "T_SpriteListenerCrawl1_D",
+        "pbr_stem": "T_SpriteListenerCrawl1",
+        "rough": 0.86,
+        "specular": 0.14,
+    },
+    "M_SpriteListenerCrawl2": {
+        "tex_asset": "T_SpriteListenerCrawl2_D",
+        "pbr_stem": "T_SpriteListenerCrawl2",
+        "rough": 0.86,
+        "specular": 0.14,
+    },
+    "M_SpriteListenerCrawl3": {
+        "tex_asset": "T_SpriteListenerCrawl3_D",
+        "pbr_stem": "T_SpriteListenerCrawl3",
+        "rough": 0.86,
+        "specular": 0.14,
+    },
 }
 
 # Emissive signage: the texture *is* the light source.
@@ -269,6 +343,40 @@ SIGN_MATERIALS = {
     # These remain visibly self-lit while preserving the print and mint band.
     "M_SignMainLit":  {"tex_asset": "T_SignMain_D", "emissive_scale": 0.85},
     "M_SignBladeLit": {"tex_asset": "T_SignBlade_D", "emissive_scale": 0.65},
+}
+
+# These materials are bound to the batched convenience-store stock. Unreal
+# does not compile the instanced-static-mesh shader permutation implicitly for
+# generated assets; without the persisted usage flag the editor substitutes
+# its grey default material at runtime even though the texture graph is valid.
+INSTANCED_PRODUCT_MATERIALS = {
+    "M_BottleBrown",
+    "M_BottleGreen",
+    "M_CupNoodle",
+    "M_FridgeInterior",
+    "M_LabelBarley",
+    "M_LabelGreenTea",
+    "M_LabelRamyeon",
+    "M_LabelSoda",
+    "M_LabelSoju",
+    "M_LabelWater",
+    "M_SnackBlue",
+    "M_SnackCorn",
+    "M_SnackPotato",
+    "M_SnackRed",
+    "M_SnackShrimp",
+    "M_SnackSquid",
+    "M_SnackYellow",
+    "M_StainlessUV",
+}
+
+WRAPPED_LABEL_MATERIALS = {
+    "M_LabelBarley",
+    "M_LabelGreenTea",
+    "M_LabelRamyeon",
+    "M_LabelSoda",
+    "M_LabelSoju",
+    "M_LabelWater",
 }
 
 
@@ -669,6 +777,11 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
             unreal.MaterialEditingLibrary.connect_material_property(
                 specular, "", unreal.MaterialProperty.MP_SPECULAR
             )
+        elif spec.get("pbr_stem"):
+            _connect_scan_pbr(material, sample, None, spec)
+            unreal.MaterialEditingLibrary.connect_material_property(
+                sample, "A", unreal.MaterialProperty.MP_OPACITY_MASK
+            )
         else:
             unreal.MaterialEditingLibrary.connect_material_property(
                 sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
@@ -677,11 +790,12 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
                 sample, "A", unreal.MaterialProperty.MP_OPACITY_MASK
             )
 
-        roughness = _expr(material, unreal.MaterialExpressionConstant, -180, 300)
-        roughness.set_editor_property("r", spec.get("rough", 0.75))
-        unreal.MaterialEditingLibrary.connect_material_property(
-            roughness, "", unreal.MaterialProperty.MP_ROUGHNESS
-        )
+        if not spec.get("pbr_stem"):
+            roughness = _expr(material, unreal.MaterialExpressionConstant, -180, 300)
+            roughness.set_editor_property("r", spec.get("rough", 0.75))
+            unreal.MaterialEditingLibrary.connect_material_property(
+                roughness, "", unreal.MaterialProperty.MP_ROUGHNESS
+            )
         unreal.MaterialEditingLibrary.layout_material_expressions(material)
         unreal.MaterialEditingLibrary.recompile_material(material)
         unreal.log(f"[IndieGame] Created masked overlay material: {name}")
@@ -749,6 +863,28 @@ def create_carrier_bag_material(assets, tools):
     unreal.MaterialEditingLibrary.recompile_material(material)
     unreal.log("[IndieGame] Created translucent carrier bag: M_CarrierBagFilm")
     return material
+
+
+def enable_instanced_product_usage(created):
+    """Persist the shader permutation required by batched retail props."""
+    by_name = {material.get_name(): material for material in created}
+    for name in sorted(INSTANCED_PRODUCT_MATERIALS):
+        material = by_name.get(name)
+        if material is None:
+            material = unreal.load_asset(f"{MATERIAL_ROOT}/{name}")
+        if material is None:
+            raise RuntimeError(f"Missing instanced product material: {name}")
+        material.set_editor_property("used_with_instanced_static_meshes", True)
+        if name in WRAPPED_LABEL_MATERIALS:
+            # A closed film sleeve has no meaningful exposed back, but making
+            # these tiny surfaces two-sided prevents a platform winding-rule
+            # difference from turning the wrap invisible. The affected pixel
+            # area is negligible compared with the cooler glass behind it.
+            material.set_editor_property("two_sided", True)
+        unreal.MaterialEditingLibrary.recompile_material(material)
+        if material not in created:
+            created.append(material)
+    return created
 
 
 def _connect_scan_pbr(material, base_sample, uv, spec):
@@ -885,8 +1021,30 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
         unreal.MaterialEditingLibrary.connect_material_expressions(
             wet_output, wet_output_pin, wet_base, "Alpha"
         )
+        base_output = wet_base
+        if "base_lift" in spec:
+            # Black rubber still needs a small diffuse floor underwater; pure
+            # texture black loses the entire sole while pale identity stripes
+            # remain, creating the illusion of three floating bars.
+            lift = spec["base_lift"]
+            lift_constant = _expr(
+                material, unreal.MaterialExpressionConstant3Vector, 180, 0
+            )
+            lift_constant.set_editor_property(
+                "constant", unreal.LinearColor(lift[0], lift[1], lift[2], 1.0)
+            )
+            lifted_base = _expr(
+                material, unreal.MaterialExpressionAdd, 360, 20
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                wet_base, "", lifted_base, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                lift_constant, "", lifted_base, "B"
+            )
+            base_output = lifted_base
         unreal.MaterialEditingLibrary.connect_material_property(
-            wet_base, "", unreal.MaterialProperty.MP_BASE_COLOR
+            base_output, "", unreal.MaterialProperty.MP_BASE_COLOR
         )
     else:
         unreal.MaterialEditingLibrary.connect_material_property(
@@ -1355,6 +1513,62 @@ def run():
             raise RuntimeError("Could not save M_WetStep")
         unreal.log("[IndieGame] Wet footprint material update complete")
         return
+    if os.environ.get("IG_MISSING_FLOOR_ONLY") == "1":
+        world_names = (
+            "M_MissingFloorPlaster_X",
+            "M_MissingFloorPlaster_Y",
+            "M_MissingFloorPlaster_XY",
+        )
+        residue_names = (
+            "M_MissingFloorHandprints",
+            "M_MissingFloorDragTrails",
+            "M_MissingFloorDustJoint",
+            "M_MissingFloorCavityScratches",
+        )
+        sprite_names = (
+            "M_SpriteSeo",
+            "M_SpriteMok",
+            "M_SpriteHwang",
+            "M_SpriteNarin",
+            "M_SpriteListenerFront",
+            "M_SpriteListenerCrawl0",
+            "M_SpriteListenerCrawl1",
+            "M_SpriteListenerCrawl2",
+            "M_SpriteListenerCrawl3",
+        )
+        missing_floor = create_textured_materials(
+            assets,
+            tools,
+            {name: TEXTURED_MATERIALS[name] for name in world_names},
+        )
+        missing_floor += create_flat_texture_materials(
+            assets,
+            tools,
+            {
+                "M_MissingFloorListenerPlasterUV": DECAL_MATERIALS[
+                    "M_MissingFloorListenerPlasterUV"
+                ]
+            },
+            False,
+        )
+        missing_floor += create_masked_texture_materials(
+            assets,
+            tools,
+            {name: EVIDENCE_MASK_MATERIALS[name] for name in residue_names},
+            True,
+        )
+        missing_floor += create_masked_texture_materials(
+            assets,
+            tools,
+            {name: SURFACE_OVERLAY_MATERIALS[name] for name in sprite_names},
+            False,
+        )
+        if len(missing_floor) != 17 or not assets.save_loaded_assets(
+            missing_floor, False
+        ):
+            raise RuntimeError("Could not save missing-floor visual materials")
+        unreal.log("[IndieGame] Missing-floor visual material update complete")
+        return
     if os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1":
         apartment_material_names = (
             "M_Wallpaper_X",
@@ -1463,6 +1677,7 @@ def run():
     created.append(create_wet_asphalt(assets, tools))
     created.append(create_wet_step(assets, tools))
     created.append(create_sky_material(assets, tools))
+    enable_instanced_product_usage(created)
 
     if not assets.save_loaded_assets(created, False):
         raise RuntimeError("Could not save textured materials")

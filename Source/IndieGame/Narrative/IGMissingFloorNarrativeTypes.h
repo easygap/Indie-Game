@@ -85,7 +85,13 @@ enum class EIGMissingFloorSource : uint8
 
 	// T10 — the eviction notice and the hand on the breaker.
 	EvictionWarning = 20,
-	BreakerCutIntervention = 21
+	BreakerCutIntervention = 21,
+
+	// P4 clue provenance. Two of these derive AnswerRhythmMaterials; keeping
+	// them separate makes the design's two-source promise auditable in saves.
+	AnswerRhythmVoicemail = 22,
+	AnswerRhythmNotebook = 23,
+	AnswerRhythmJournal = 24
 };
 
 /** One truth and the provenance behind it. Confirmation is always derived. */
@@ -143,6 +149,35 @@ struct INDIEGAME_API FIGMissingFloorNightState
 	/** P1..P5 solved, by author-facing name. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	TArray<FName> SolvedPuzzles;
+
+	/**
+	 * Night 4 P5 controls in the order the player first activated them.
+	 * Order is gameplay: the same final hydraulic state is always reachable,
+	 * but only Drain -> FloatBypass -> TransferPump avoids the pressure alarm.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	TArray<FName> NightFourControlOrder;
+
+	/** Completed hammer blows against the cavity panel, clamped to 0..5. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	int32 NightFourWallStrikeCount = 0;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	bool bNightFourWallOpened = false;
+
+	/** First report after night 3 and second report after discovery are separate. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	bool bFirstReportMade = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	bool bSecondReportMade = false;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	bool bFifthDawnInterludeCompleted = false;
+
+	/** None, Ending.A, Ending.B or Ending.C. */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	FName EndingChoice;
 };
 
 /**

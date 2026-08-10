@@ -94,8 +94,19 @@ private:
 	void LookUp(float Value);
 	void BeginInteraction();
 	void EndInteraction();
+	void BeginSprint();
+	void EndSprint();
+	void ToggleCrouch();
+	void Knock();
+	void BeginListen();
+	void EndListen();
+	void BeginHoldBreath();
+	void EndHoldBreath();
 	void ToggleFlashlight();
 	void LoadLatestAutosave();
+	void ApplyContextMovementSpeed();
+	void UpdateContextualActions(float DeltaSeconds);
+	void FinishHoldBreath(bool bForcedRelease);
 	/** Samples how dark it is where the player stands, for the stress model. */
 	float SampleAmbientDarkness() const;
 	void TryRequestGetUpFallback();
@@ -157,8 +168,18 @@ private:
 	FVector CameraBaseLocation = FVector(0.0f, 0.0f, 64.0f);
 	float TraveledDistanceAccum = 0.0f;
 	float BreathTime = 0.0f;
+	float SprintActiveSeconds = 0.0f;
+	float SprintRecoverySeconds = 0.0f;
+	float ListenHeldSeconds = 0.0f;
+	float BreathHeldSeconds = 0.0f;
 	int32 LastStepIndex = 0;
 	bool bCameraMotionEnabled = false;
+	bool bSprinting = false;
+	bool bListening = false;
+	bool bListenTriggered = false;
+	bool bHoldingBreath = false;
+	bool bInteractionRedirectedToListen = false;
+	bool bInteractionRedirectedToInterludeListen = false;
 	bool bRebirthOutfitEquipped = false;
 	bool bOutfitPresentationActive = false;
 	float OutfitPresentationElapsed = 0.0f;

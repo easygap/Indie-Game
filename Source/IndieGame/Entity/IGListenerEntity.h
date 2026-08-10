@@ -7,6 +7,7 @@
 
 class UAudioComponent;
 class UCapsuleComponent;
+class UMaterialInterface;
 class UStaticMeshComponent;
 
 /** What the one upstairs is doing. See STORY_BIBLE_MISSING_FLOOR.md §4.5. */
@@ -42,9 +43,10 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FIGPlayerCapturedSignature, APawn* /*Player*
  * not violence — it is an embrace and a walk toward the wall — and hands
  * control to the night-loop director, which resets the hour.
  *
- * Grey-box body: assembled engine primitives under a hardened-plaster
- * material stand-in, upper body raised, legs trailing. No skeletal assets,
- * matching the project's no-human-mesh pipeline.
+ * Release body: a continuous static crawl shell provides contact/parallax and
+ * a four-phase lit masked PBR layer preserves both generated human anatomy and
+ * visible weight transfer in the authored head-on chase. Engine primitives
+ * remain only as a missing-asset fallback. No skeletal pipeline is required.
  */
 UCLASS()
 class INDIEGAME_API AIGListenerEntity : public APawn
@@ -144,6 +146,8 @@ private:
 
 	// -- presentation -------------------------------------------------------
 	void BuildGreyboxBody();
+	void UpdatePresentationLayer();
+	void UpdatePresentationPose(float CurrentSpeed, float DeltaSeconds);
 	void PlayKnockTriple();
 	void PlayPlasterSettle();
 	void UpdateDragLoop(float CurrentSpeed);
@@ -156,6 +160,21 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> BodyBlocks;
+
+	/** Continuous close/side shell and authored long-corridor front layer. */
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> ListenerShell;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> ListenerFrontCard;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UMaterialInterface>> ListenerPhaseMaterials;
+
+	bool bFrontCardActive = false;
+	int32 ListenerPhaseIndex = INDEX_NONE;
+	float ListenerPhase = 0.0f;
+	float PresentationSpeed = 0.0f;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> DragLoopComponent;
