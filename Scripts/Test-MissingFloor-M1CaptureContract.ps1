@@ -152,7 +152,9 @@ Assert-ContainsAll $listener @(
 ) 'close capture sound'
 Assert-ContainsAll $greybox @(
 	'NightLoop->GetCaptureHandprintCount() >= 1',
-	'reset incomplete (atBed=%d tier=%d handprints=%d)'
+	'!NightLoop->IsCaptureResetInFlight()',
+	'PlayerCharacter->InputEnabled()',
+	'reset incomplete (atBed=%d tier=%d handprints=%d recovery=%d input=%d)'
 ) 'capture runtime probe'
 $replyBlock = Get-Block $toneSequence `
 	'UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockReply(UObject* Outer)' `

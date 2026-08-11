@@ -38,6 +38,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "NightLoop")
 	int32 GetCaptureHandprintCount() const { return CaptureHandprints.Num(); }
 
+	/** 암전·이동·짧은 기상 잔향 중에는 true다. */
+	UFUNCTION(BlueprintPure, Category = "NightLoop")
+	bool IsCaptureResetInFlight() const { return bResetInFlight; }
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -48,8 +52,11 @@ protected:
 private:
 	void HandlePlayerCaptured(APawn* Player);
 	void FinishReset();
+	void FinishWakeRecovery();
 	bool SpawnCaptureHandprint(AIGPlayerCharacter* Character);
 	float GetWakeFadeInSeconds() const;
+	float GetWakeEchoSeconds() const;
+	float GetWakeRecoverySeconds() const;
 	class UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 
 	UPROPERTY(Transient)
@@ -66,4 +73,5 @@ private:
 	bool bResetInFlight = false;
 	int32 CaptureCount = 0;
 	FTimerHandle ResetTimer;
+	FTimerHandle WakeRecoveryTimer;
 };

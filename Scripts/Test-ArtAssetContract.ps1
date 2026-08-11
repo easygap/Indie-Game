@@ -1356,7 +1356,7 @@ if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 2')) {
 	throw 'Missing-floor snapshot schema was not advanced for night-four state.'
 }
 foreach ($token in @(
-	'제작 정사 v2.7',
+	'제작 정사 v2.8',
 	'세척 배수 OPEN',
 	'부자밸브 우회 OPEN',
 	'저수조 이송펌프',
@@ -1366,7 +1366,7 @@ foreach ($token in @(
 	'1:55~2:40 / 7월 31일 다섯째이자 마지막 새벽'
 )) {
 	if (-not $missingFloorStory.Contains($token)) {
-		throw "Missing-floor story v2.7 contract is missing: $token"
+		throw "Missing-floor story v2.8 contract is missing: $token"
 	}
 }
 # v2.4 입력 실행 계약. 설정에 키 이름만 있거나 코드에 함수 이름만 있는
@@ -1437,7 +1437,7 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'## 26. 2026-08-10 제품 감사',
+	'## 26. 2026-08-11 제품 감사',
 	'### 26.2 첫 12분 체험 계약',
 	'### 26.3 오디오 제작·믹스 계약',
 	'### 26.4 UI·UX·조작 편의 계약',

@@ -152,6 +152,16 @@ public:
 	void PlayCaptureEmbrace(float DurationSeconds = 1.2f);
 
 	/**
+	 * 침대에서 시야가 돌아올 때 포옹의 마지막 자세를 짧은 잔상으로 남긴다.
+	 * 잔상은 VisualDurationSeconds에 사라지지만, 입력이 돌아오는
+	 * OwnershipDurationSeconds까지 일반 HUD가 먼저 나타나지 않게 프레임을 점유한다.
+	 */
+	void PlayCaptureWakeEcho(
+		int32 CaptureCount,
+		float VisualDurationSeconds = 0.68f,
+		float OwnershipDurationSeconds = 0.68f);
+
+	/**
 	 * Returns the most recent frame that actually drew the CH03 lens droplet.
 	 * The Shipping visual probe uses this instead of trusting a screenshot
 	 * request alone, so reduced-motion and HUD-safe placement remain measurable.
@@ -318,6 +328,8 @@ private:
 	void DrawFirstPersonKnock(double CurrentTime);
 	/** 포획 연출이 HUD 전체 프레임을 점유하는 동안 true를 반환한다. */
 	bool DrawCaptureEmbrace(double CurrentTime);
+	/** 포획 뒤 기상 잔상이 HUD 전체 프레임을 점유하는 동안 true를 반환한다. */
+	bool DrawCaptureWakeEcho(double CurrentTime);
 	/**
 	 * One expanding arc at the screen edge, sized by how far the sound the
 	 * player just made actually carries (§5.1). No numbers, no meter: the ring
@@ -510,11 +522,17 @@ private:
 	double FirstPersonKnockStartTime = -1.0;
 	double CaptureEmbraceStartTime = -1.0;
 	double CaptureEmbraceEndTime = -1.0;
+	double CaptureWakeEchoStartTime = -1.0;
+	double CaptureWakeEchoVisualEndTime = -1.0;
+	double CaptureWakeEchoEndTime = -1.0;
+	int32 CaptureWakeEchoCount = 0;
 #if !UE_BUILD_SHIPPING
 	double FirstPersonKnockPreviewNextTime = 0.0;
 	double CaptureEmbracePreviewNextTime = 0.0;
+	double CaptureWakeEchoPreviewNextTime = 0.0;
 	bool bFirstPersonKnockPreview = false;
 	bool bCaptureEmbracePreview = false;
+	bool bCaptureWakeEchoPreview = false;
 #endif
 
 	FText ChapterCardEyebrow;

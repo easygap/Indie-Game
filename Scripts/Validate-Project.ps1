@@ -2357,4 +2357,8 @@ $missingFloorM1CaptureContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M1CaptureContract.ps1'
 & $missingFloorM1CaptureContractScript
 
+$missingFloorM1WakeEchoContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M1WakeEchoContract.ps1'
+& $missingFloorM1WakeEchoContractScript
+
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

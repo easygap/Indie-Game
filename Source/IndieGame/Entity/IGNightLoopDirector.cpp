@@ -1,5 +1,7 @@
 #include "Entity/IGNightLoopDirector.h"
 
+#include "Audio/IGAudioHelpers.h"
+#include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
@@ -11,6 +13,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
 #include "TimerManager.h"
 
@@ -105,6 +108,7 @@ void AIGNightLoopDirector::HandlePlayerCaptured(APawn* Player)
 
 void AIGNightLoopDirector::FinishReset()
 {
+	bool bWakeRecoveryScheduled = false;
 	AIGPlayerCharacter* Character = CapturedPlayer.Get();
 	if (Character)
 	{
@@ -123,13 +127,39 @@ void AIGNightLoopDirector::FinishReset()
 			Cast<APlayerController>(Character->GetController()))
 		{
 			Controller->SetControlRotation(WakeTransform.Rotator());
-			Character->EnableInput(Controller);
+			const float WakeEchoSeconds = GetWakeEchoSeconds();
+			const float WakeRecoverySeconds = GetWakeRecoverySeconds();
+			if (AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(Controller->GetHUD()))
+			{
+				HorrorHUD->PlayCaptureWakeEcho(
+					CaptureCount,
+					WakeEchoSeconds,
+					WakeRecoverySeconds);
+			}
 			if (Controller->PlayerCameraManager)
 			{
 				Controller->PlayerCameraManager->StartCameraFade(
 					1.0f, 0.0f, GetWakeFadeInSeconds(), FLinearColor::Black,
 					/*bShouldFadeAudio=*/false, /*bHoldWhenFinished=*/false);
 			}
+
+			// A single duvet settle anchors the teleport at the bed. It must not
+			// repeat the two capture knocks or add a failure sting.
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateClothSettle(this),
+				WakeTransform.GetLocation(),
+				0.72f,
+				0.94f,
+				75.0f,
+				480.0f);
+			GetWorldTimerManager().SetTimer(
+				WakeRecoveryTimer,
+				this,
+				&AIGNightLoopDirector::FinishWakeRecovery,
+				WakeRecoverySeconds,
+				false);
+			bWakeRecoveryScheduled = true;
 		}
 	}
 
@@ -145,6 +175,23 @@ void AIGNightLoopDirector::FinishReset()
 		else
 		{
 			Entity->ResetToPatrolStart(/*bRaiseAggression=*/true);
+		}
+	}
+
+	if (!bWakeRecoveryScheduled)
+	{
+		FinishWakeRecovery();
+	}
+}
+
+void AIGNightLoopDirector::FinishWakeRecovery()
+{
+	if (AIGPlayerCharacter* Character = CapturedPlayer.Get())
+	{
+		if (APlayerController* Controller =
+			Cast<APlayerController>(Character->GetController()))
+		{
+			Character->EnableInput(Controller);
 		}
 	}
 
@@ -291,6 +338,30 @@ float AIGNightLoopDirector::GetWakeFadeInSeconds() const
 		return 1.4f;
 	}
 	return 0.4f;
+}
+
+float AIGNightLoopDirector::GetWakeEchoSeconds() const
+{
+	if (CaptureCount <= 1)
+	{
+		return 0.68f;
+	}
+	if (CaptureCount == 2)
+	{
+		return 0.48f;
+	}
+	if (CaptureCount <= 4)
+	{
+		return 0.30f;
+	}
+	return 0.16f;
+}
+
+float AIGNightLoopDirector::GetWakeRecoverySeconds() const
+{
+	// Keep input and normal HUD locked until the per-capture camera fade ends;
+	// the short echo animation is allowed to disappear first.
+	return FMath::Max(GetWakeFadeInSeconds(), GetWakeEchoSeconds());
 }
 
 UIGMissingFloorNarrativeSubsystem* AIGNightLoopDirector::GetNarrative() const

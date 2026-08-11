@@ -32,6 +32,7 @@
 | 달력 뒷장 소리 일지 | 같은 시트 우하 | `SM_CalendarJournal` | 3D hero paper | 401호 문 앞 전달 큐 | 종이판·상단 바인딩 실제 기하, 글은 런타임 패널, 가짜 글자 0 |
 | 1인칭 두드리기 오른손 | `SheetFirstPersonKnockPhases_v2.png` | `T_FPHandKnock0..3_D` | UI-space RGBA sprite blend | Q/B 유효 노크의 준비·접촉·반동 0.22초 | 같은 손·소매 유지, 입력 프레임에 접촉(2), 소매 끝은 화면 밖, 초록 프린지 0, 흔들림 감소 시 이동 0, 월드 평면 0 |
 | 1인칭 포획 포옹 | `SheetListenerCaptureEmbracePhases_v1.png` | `T_FPCaptureEmbrace0..3_D` | UI-space RGBA sprite blend | 포획 암전의 접촉·접근·닫힘·유지 1.2초 | 같은 두 팔·건식 석고·낡은 옷, 얼굴/몸통 0, 중앙 35% 가독, 화면 밖 소매 끝, 초록 프린지 0, 흔들림 감소 정지 프레임, 월드 평면 0 |
+| 1인칭 기상 잔향 | 포획 포옹 원본 재사용 | `T_FPCaptureEmbrace1..3_D` | UI-space translucent recall | 포획 뒤 403호 기상의 3→2→1 역재생 0.68/0.48/0.30/0.16초 | 최대 알파 0.34, 셀 교차 페이드 0, 1280×800 종횡비 변화·소매 절단 0, 잔향 뒤 페이드 끝까지 HUD 점유 |
 
 ## 블렌딩·거리·성능 계약
 
@@ -59,6 +60,10 @@
   네 자세를 한 장씩 전환한 뒤 암전까지 마지막 자세를 유지한다. 포즈 간
   교차 페이드는 팔이 네 개로 보이므로 금지한다. 장면과의 알파 블렌딩만 쓰며,
   월드의 위층 사람 셸과 포획 지점 손자국 masked 블렌드는 계속 별도 3D 표면으로 남는다.
+- 기상 잔향은 새 생성 에셋을 추가하지 않고 같은 포옹 셀 3·2·1만 역순으로
+  재사용한다. 첫 포획 최대 알파는 0.34이며 5회까지 0.68배로 낮아진다. 잔향이
+  먼저 사라져도 회차별 3.0/2.2/1.4/0.4초 기상 페이드가 끝나기 전에는 일반
+  HUD를 그리지 않는다.
 
 ## 물리·화면 승인
 
@@ -73,6 +78,9 @@
 - 캡처 한 장이 아니라 이동 전후 두 프레임과 그림자 프레임을 함께 승인한다.
 - 포획은 16:9·16:10·21:9에서 두 팔의 종횡비 변화 0, 화면 안쪽 소매 절단면
   0, 중앙 시야 유지, 1.2초 뒤 잔류 프레임 0을 승인한다.
+- 기상 잔향은 1920×1080과 1280×800 D3D12 실렌더에서 녹색 프린지·사각 경계·
+  추가 팔 0을 확인한다. 실제 포획 경로의 입력 반환은 잔향 종료가 아니라
+  기상 페이드 종료와 같은 프레임이어야 한다.
 
 ## 재현 경로
 
@@ -81,6 +89,8 @@
 .\Scripts\Build-ArtAssets.ps1 -HudUiOnly
 .\Scripts\Test-ArtAssetContract.ps1
 .\Scripts\Run-MissingFloor-NightCapture.bat
+$env:IG_NIGHT_CAPTURE_RES_X='1280'; $env:IG_NIGHT_CAPTURE_RES_Y='800'
+.\Scripts\Run-MissingFloor-NightCapture.bat -IGM1WakeEchoPreview
 ```
 
 첫 명령은 ImageGen 원본 분리 → PBR 생성 → 메시 베이크 → 텍스처/머티리얼

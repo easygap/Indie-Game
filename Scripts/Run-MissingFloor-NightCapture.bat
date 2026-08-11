@@ -5,6 +5,8 @@ set "PROJECT_FILE=%PROJECT_ROOT%\IndieGame.uproject"
 set "UE_RESOLVER=%PROJECT_ROOT%\Scripts\Resolve-UnrealEditor.ps1"
 set "RESOLVED_UE_EDITOR="
 set "RUN_LOG=%PROJECT_ROOT%\Saved\Logs\MissingFloorNightCapture.log"
+if not defined IG_NIGHT_CAPTURE_RES_X set "IG_NIGHT_CAPTURE_RES_X=1920"
+if not defined IG_NIGHT_CAPTURE_RES_Y set "IG_NIGHT_CAPTURE_RES_Y=1080"
 
 for /f "usebackq delims=" %%I in (`powershell -NoProfile -ExecutionPolicy Bypass -File "%UE_RESOLVER%" -ProjectPath "%PROJECT_FILE%" -Commandlet 2^>nul`) do (
     set "RESOLVED_UE_EDITOR=%%I"
@@ -18,9 +20,10 @@ if not defined RESOLVED_UE_EDITOR (
 if exist "%RUN_LOG%" del /q "%RUN_LOG%"
 if exist "%PROJECT_ROOT%\Saved\NightCapture" rmdir /s /q "%PROJECT_ROOT%\Saved\NightCapture"
 
-rem Offscreen D3D12 render at a fixed resolution, the same recipe the lens
-rem droplet capture uses: real frames without depending on a desktop window.
-"%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -unattended -nosplash -NoLoadingScreen -RenderOffscreen -d3d12 -nosound -Windowed -ResX=1920 -ResY=1080 -ForceRes -abslog="%RUN_LOG%" -IGListenerGreybox -IGNightCapture -IGSkipFrontend %*
+rem Offscreen D3D12 render, the same recipe the lens droplet capture uses:
+rem real frames without depending on a desktop window. Override the two
+rem IG_NIGHT_CAPTURE_RES_* variables for 16:10 or ultrawide visual checks.
+"%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -unattended -nosplash -NoLoadingScreen -RenderOffscreen -d3d12 -nosound -Windowed -ResX=%IG_NIGHT_CAPTURE_RES_X% -ResY=%IG_NIGHT_CAPTURE_RES_Y% -ForceRes -abslog="%RUN_LOG%" -IGListenerGreybox -IGNightCapture -IGSkipFrontend %*
 set "EDITOR_EXIT=%ERRORLEVEL%"
 
 if not "%EDITOR_EXIT%"=="0" (

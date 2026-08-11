@@ -220,6 +220,9 @@ void AIGHorrorHUD::BeginPlay()
 	bCaptureEmbracePreview = FParse::Param(
 		FCommandLine::Get(),
 		TEXT("IGM1CapturePreview"));
+	bCaptureWakeEchoPreview = FParse::Param(
+		FCommandLine::Get(),
+		TEXT("IGM1WakeEchoPreview"));
 #endif
 
 	ResolveInteractionComponent();
@@ -425,6 +428,26 @@ void AIGHorrorHUD::PlayCaptureEmbrace(const float DurationSeconds)
 		CaptureEmbraceEndTime = CaptureEmbraceStartTime + FMath::Max(
 			0.05f,
 			DurationSeconds);
+	}
+}
+
+void AIGHorrorHUD::PlayCaptureWakeEcho(
+	const int32 CaptureCount,
+	const float VisualDurationSeconds,
+	const float OwnershipDurationSeconds)
+{
+	if (const UWorld* World = GetWorld())
+	{
+		const float SafeVisualDuration = FMath::Max(0.05f, VisualDurationSeconds);
+		const float SafeOwnershipDuration = FMath::Max(
+			SafeVisualDuration,
+			OwnershipDurationSeconds);
+		CaptureWakeEchoStartTime = World->GetTimeSeconds();
+		CaptureWakeEchoVisualEndTime =
+			CaptureWakeEchoStartTime + SafeVisualDuration;
+		CaptureWakeEchoEndTime =
+			CaptureWakeEchoStartTime + SafeOwnershipDuration;
+		CaptureWakeEchoCount = FMath::Max(1, CaptureCount);
 	}
 }
 
@@ -1277,12 +1300,27 @@ void AIGHorrorHUD::DrawHUD()
 			static_cast<float>(IGHorrorHUD::CaptureEmbraceDurationSeconds));
 		CaptureEmbracePreviewNextTime = CurrentTime + 1.8;
 	}
+	if (bCaptureWakeEchoPreview
+		&& CurrentTime >= CaptureWakeEchoPreviewNextTime)
+	{
+		PlayCaptureWakeEcho(1, 0.68f);
+		CaptureWakeEchoPreviewNextTime = CurrentTime + 1.45;
+	}
 #endif
 	BeginLayoutValidationSample();
 	if (DrawCaptureEmbrace(CurrentTime))
 	{
 		// 포획은 실패 UI가 아니다. 카메라가 완전히 어두워질 때까지 화면을
 		// 점유해 프롬프트가 포옹을 게임 오버처럼 보이게 만들지 않도록 한다.
+		SuspendDialoguePresentation(CurrentTime);
+		LastHudDrawTime = CurrentTime;
+		FinalizeLayoutValidationSample();
+		return;
+	}
+	if (DrawCaptureWakeEcho(CurrentTime))
+	{
+		// 기상 잔상도 세계 안의 사건이다. 입력이 돌아오기 전에 목표나
+		// 상호작용 문구가 먼저 나타나 기억 효과를 설명하지 않도록 한다.
 		SuspendDialoguePresentation(CurrentTime);
 		LastHudDrawTime = CurrentTime;
 		FinalizeLayoutValidationSample();
@@ -2488,6 +2526,87 @@ bool AIGHorrorHUD::DrawCaptureEmbrace(const double CurrentTime)
 	// 포즈 사이 실루엣 차이가 커서 교차 페이드는 팔이 네 개로 보인다.
 	// 장면과의 알파 블렌드는 유지하되 애니메이션 셀은 한 장씩 전환한다.
 	DrawFrame(FrameIndex, Visibility);
+	return true;
+}
+
+bool AIGHorrorHUD::DrawCaptureWakeEcho(const double CurrentTime)
+{
+	if (!Canvas
+		|| CaptureWakeEchoStartTime < 0.0
+		|| CurrentTime < CaptureWakeEchoStartTime
+		|| CurrentTime >= CaptureWakeEchoEndTime)
+	{
+		return false;
+	}
+
+	// 잔상이 먼저 사라져도 카메라 페이드와 입력 잠금이 끝날 때까지 일반 HUD는
+	// 되살리지 않는다. 검은 화면 위에 목표/프롬프트만 먼저 뜨는 것을 막는다.
+	if (CurrentTime >= CaptureWakeEchoVisualEndTime)
+	{
+		return true;
+	}
+
+	const double VisualDuration = FMath::Max(
+		CaptureWakeEchoVisualEndTime - CaptureWakeEchoStartTime,
+		0.001);
+	const float NormalizedAge = FMath::Clamp(
+		static_cast<float>((CurrentTime - CaptureWakeEchoStartTime) / VisualDuration),
+		0.0f,
+		1.0f);
+	const float FadeIn = IGHorrorHUD::SmoothStep01(NormalizedAge / 0.12f);
+	const float FadeOut = 1.0f - IGHorrorHUD::SmoothStep01(
+		(NormalizedAge - 0.12f) / 0.88f);
+	const float RepeatAttenuation = FMath::Lerp(
+		1.0f,
+		0.68f,
+		FMath::Clamp((CaptureWakeEchoCount - 1) / 4.0f, 0.0f, 1.0f));
+	const float Visibility = FadeIn * FadeOut * 0.34f * RepeatAttenuation;
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const bool bReducedMotion = Accessibility
+		&& Accessibility->IsReducedCameraMotionEnabled();
+	int32 FrameIndex = 3;
+	if (!bReducedMotion)
+	{
+		// 닫힌 포옹이 한 단계씩 풀리는 방향으로만 재생한다. 셀 사이
+		// 교차 페이드는 추가 팔처럼 보이므로 포획 때와 같이 사용하지 않는다.
+		if (NormalizedAge >= 0.66f)
+		{
+			FrameIndex = 1;
+		}
+		else if (NormalizedAge >= 0.33f)
+		{
+			FrameIndex = 2;
+		}
+	}
+
+	if (!CaptureEmbraceFrames.IsValidIndex(FrameIndex)
+		|| !CaptureEmbraceFrames[FrameIndex]
+		|| !CaptureEmbraceFrames[FrameIndex]->GetResource())
+	{
+		// 잔상 에셋이 없어도 입력 복귀와 밤 루프는 계속 진행한다.
+		return true;
+	}
+
+	const float SpriteSize = FMath::Max(Canvas->ClipX, Canvas->ClipY);
+	const FVector2D DrawSize(SpriteSize, SpriteSize);
+	const FVector2D DrawPosition(
+		(Canvas->ClipX - SpriteSize) * 0.5f,
+		(Canvas->ClipY - SpriteSize) * 0.5f);
+	FCanvasTileItem FrameTile(
+		DrawPosition,
+		CaptureEmbraceFrames[FrameIndex]->GetResource(),
+		DrawSize,
+		FLinearColor(
+			0.62f,
+			0.68f,
+			0.72f,
+			FMath::Clamp(Visibility, 0.0f, 1.0f)));
+	FrameTile.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(FrameTile);
 	return true;
 }
 
