@@ -31,5 +31,8 @@ public class IndieGame : ModuleRules
 
 		PrivateDependencyModuleNames.Add("Json");
 		PrivateDependencyModuleNames.Add("PhysicsCore");
+		// Optional microphone mode reduces capture buffers to a local envelope;
+		// the platform backend is loaded by the AudioCapture project plugin.
+		PrivateDependencyModuleNames.Add("AudioCaptureCore");
 	}
 }

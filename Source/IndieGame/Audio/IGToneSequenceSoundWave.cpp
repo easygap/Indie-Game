@@ -1317,6 +1317,162 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateTrappedBreathBed(
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSurfaceFootstep(
+	UObject* Outer,
+	const EIGFootstepSurface Surface,
+	const float VariationPitch,
+	const float Amplitude)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		TEXT("IGSurfaceFootstep"));
+	const float Pitch = FMath::Clamp(VariationPitch, 0.88f, 1.12f);
+	const float Gain = FMath::Clamp(Amplitude, 0.0f, 1.0f);
+	TArray<FIGToneNote> Notes;
+
+	switch (Surface)
+	{
+	case EIGFootstepSurface::Vinyl:
+		Notes.Add({0.000f, 0.080f, 62.0f * Pitch, 0.42f * Gain, 0.010f, 3.2f, EIGToneWaveform::Sine});
+		Notes.Add({0.000f, 0.052f, 520.0f * Pitch, 0.20f * Gain, 0.040f, 2.4f, EIGToneWaveform::ValueNoise});
+		break;
+
+	case EIGFootstepSurface::Concrete:
+		Notes.Add({0.000f, 0.095f, 57.0f * Pitch, 0.46f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sine});
+		Notes.Add({0.000f, 0.115f, 880.0f * Pitch, 0.25f * Gain, 0.025f, 2.0f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.050f, 0.170f, 310.0f * Pitch, 0.075f * Gain, 0.080f, 2.2f, EIGToneWaveform::ValueNoise});
+		break;
+
+	case EIGFootstepSurface::MetalStair:
+		Notes.Add({0.000f, 0.070f, 72.0f * Pitch, 0.44f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sine});
+		Notes.Add({0.000f, 0.055f, 1900.0f * Pitch, 0.26f * Gain, 0.010f, 2.2f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.018f, 0.400f, 1480.0f * Pitch, 0.17f * Gain, 0.020f, 2.7f, EIGToneWaveform::Sine});
+		Notes.Add({0.025f, 0.360f, 2780.0f * Pitch, 0.075f * Gain, 0.020f, 3.0f, EIGToneWaveform::Sine});
+		break;
+
+	case EIGFootstepSurface::Rooftop:
+		Notes.Add({0.000f, 0.085f, 52.0f * Pitch, 0.50f * Gain, 0.010f, 3.4f, EIGToneWaveform::Sine});
+		Notes.Add({0.000f, 0.060f, 300.0f * Pitch, 0.17f * Gain, 0.040f, 2.6f, EIGToneWaveform::ValueNoise});
+		break;
+
+	case EIGFootstepSurface::GypsumDebris:
+		Notes.Add({0.000f, 0.075f, 64.0f * Pitch, 0.43f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sine});
+		// Three fixed micro-bursts become three audible variants through the
+		// deterministic per-step pitch hash, without runtime random allocation.
+		Notes.Add({0.000f, 0.045f, 1150.0f * Pitch, 0.25f * Gain, 0.010f, 2.0f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.038f, 0.050f, 2450.0f / Pitch, 0.23f * Gain, 0.010f, 2.2f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.078f, 0.060f, 760.0f * Pitch, 0.20f * Gain, 0.010f, 2.5f, EIGToneWaveform::ValueNoise});
+		break;
+
+	case EIGFootstepSurface::Water:
+		Notes.Add({0.000f, 0.100f, 49.0f * Pitch, 0.38f * Gain, 0.010f, 2.8f, EIGToneWaveform::Sine});
+		Notes.Add({0.000f, 0.150f, 560.0f * Pitch, 0.31f * Gain, 0.020f, 1.9f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.025f, 0.180f, 1420.0f * Pitch, 0.13f * Gain, 0.020f, 2.7f, EIGToneWaveform::Sine});
+		Notes.Add({0.090f, 0.100f, 2400.0f / Pitch, 0.065f * Gain, 0.020f, 3.0f, EIGToneWaveform::ValueNoise});
+		break;
+	}
+
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateTuningMotif(
+	UObject* Outer,
+	const bool bResolvedEndingA)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		TEXT("IGMissingFloorTuningMotif"));
+	constexpr int32 StrikeCount = 8;
+	constexpr float StrikeSpacing = 1.70f;
+	constexpr float LoopLength = StrikeCount * StrikeSpacing;
+	TArray<FIGToneNote> Notes;
+	for (int32 Strike = 0; Strike < StrikeCount; ++Strike)
+	{
+		const float Cents = -30.0f + Strike * 2.0f;
+		const float Frequency = 220.0f * FMath::Pow(2.0f, Cents / 1200.0f);
+		const float Start = Strike * StrikeSpacing;
+		Notes.Add({Start, 1.18f, Frequency, 0.075f, 0.025f, 2.0f, EIGToneWaveform::Triangle});
+		Notes.Add({Start, 0.34f, Frequency * 2.0f, 0.016f, 0.030f, 2.8f, EIGToneWaveform::Triangle});
+	}
+	if (bResolvedEndingA)
+	{
+		// The only consonant answer in the score bible: a quiet open fifth
+		// arrives after the eighth strike instead of resetting unresolved.
+		Notes.Add({LoopLength - 1.10f, 1.05f, 329.63f, 0.038f, 0.10f, 2.0f, EIGToneWaveform::Triangle});
+		Notes.Add({LoopLength - 1.10f, 1.05f, 440.00f, 0.030f, 0.10f, 2.0f, EIGToneWaveform::Triangle});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), !bResolvedEndingA, LoopLength);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateTuningStrike(
+	UObject* Outer,
+	const int32 ConfirmationIndex)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		TEXT("IGMissingFloorTruthTuningStrike"));
+	// Ten truths stop twelve cents short of concert A. Only Ending A may add
+	// the consonant resolution authored by CreateTuningMotif(true).
+	const int32 Strike = FMath::Clamp(ConfirmationIndex - 1, 0, 9);
+	const float Cents = -30.0f + Strike * 2.0f;
+	const float Frequency = 220.0f * FMath::Pow(2.0f, Cents / 1200.0f);
+	TArray<FIGToneNote> Notes;
+	Notes.Add({0.0f, 1.18f, Frequency, 0.075f, 0.025f, 2.0f,
+		EIGToneWaveform::Triangle});
+	Notes.Add({0.0f, 0.34f, Frequency * 2.0f, 0.016f, 0.030f, 2.8f,
+		EIGToneWaveform::Triangle});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCavityDrone(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		TEXT("IGMissingFloorCavityDrone"));
+	constexpr float LoopLength = 8.0f;
+	TArray<FIGToneNote> Notes;
+	Notes.Add({0.0f, LoopLength, 44.0f, 0.095f, 0.35f, 0.8f, EIGToneWaveform::Sine});
+	Notes.Add({0.0f, LoopLength, 180.0f, 0.027f, 0.30f, 0.9f, EIGToneWaveform::ValueNoise});
+	for (const float Tick : {1.30f, 3.85f, 6.70f})
+	{
+		Notes.Add({Tick, 0.035f, 980.0f + Tick * 41.0f, 0.055f, 0.010f, 3.2f, EIGToneWaveform::Sine});
+		Notes.Add({Tick, 0.090f, 420.0f + Tick * 13.0f, 0.026f, 0.020f, 2.8f, EIGToneWaveform::ValueNoise});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopLength);
+	Wave->ConfigurePitchWow(0.0035f, 0.07f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateChaseScore(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		TEXT("IGMissingFloorChaseScore"));
+	constexpr float Beat = 60.0f / 118.0f;
+	constexpr int32 BeatCount = 8;
+	constexpr float LoopLength = Beat * BeatCount;
+	TArray<FIGToneNote> Notes;
+	for (int32 Index = 0; Index < BeatCount; ++Index)
+	{
+		const float Start = Index * Beat;
+		const float Accent = Index % 4 == 0 ? 1.0f : 0.72f;
+		Notes.Add({Start, Beat * 0.54f, 52.0f, 0.15f * Accent, 0.025f, 2.4f, EIGToneWaveform::Sine});
+		Notes.Add({Start, 0.040f, 520.0f, 0.055f * Accent, 0.010f, 3.2f, EIGToneWaveform::ValueNoise});
+	}
+	for (const float Frequency : {220.0f, 223.0f, 227.0f})
+	{
+		Notes.Add({Beat * 0.50f, LoopLength - Beat * 0.50f, Frequency, 0.035f, 0.12f, 1.1f, EIGToneWaveform::Triangle});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopLength);
+	Wave->ConfigurePitchWow(0.0025f, 0.21f);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockTriple(
 	UObject* Outer,
 	const float Muffle01)

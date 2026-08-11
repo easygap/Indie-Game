@@ -189,7 +189,7 @@ Assert-ContainsAll $accessibility @(
 	'TEXT("IGNoHaptics")'
 ) 'accessibility persistence and QA overrides'
 Assert-ContainsAll $controller @(
-	'RowCount = 16',
+	'RowCount = 17',
 	'Settings.bToggleCrouch = !Settings.bToggleCrouch;',
 	'Settings.bHapticsEnabled = !Settings.bHapticsEnabled;'
 ) 'accessibility menu input'

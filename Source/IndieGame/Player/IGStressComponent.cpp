@@ -1,6 +1,7 @@
 ﻿#include "Player/IGStressComponent.h"
 
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Components/AudioComponent.h"
 #include "Components/PostProcessComponent.h"
@@ -223,11 +224,30 @@ void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 		HeartbeatComponent->Stop();
 	}
 	HeartbeatComponent = nullptr;
-	HeartbeatComponent = UGameplayStatics::SpawnSound2D(
+	if (UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+		? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+		: nullptr)
+	{
+		AudioDirector->PrepareSound(Heartbeat, EIGAudioBus::Player);
+	}
+	HeartbeatComponent = UGameplayStatics::CreateSound2D(
 		this,
 		Heartbeat,
 		1.0f,
 		1.0f);
+	if (HeartbeatComponent)
+	{
+		HeartbeatComponent->SetUISound(false);
+		if (UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+			? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+			: nullptr)
+		{
+			AudioDirector->RegisterComponent(
+				HeartbeatComponent,
+				EIGAudioBus::Player);
+		}
+		HeartbeatComponent->Play();
+	}
 
 	// Panic betrays you: past 0.85 the pulse itself is a sound in the world,
 	// carrying about three meters. Standing beside a humming machine still
@@ -308,6 +328,9 @@ void UIGStressComponent::UpdatePostProcess()
 
 	Settings.bOverride_SceneFringeIntensity = true;
 	Settings.SceneFringeIntensity = FMath::Lerp(0.0f, 0.8f, Ramp);
+
+	Settings.bOverride_FilmGrainIntensity = true;
+	Settings.FilmGrainIntensity = FMath::Lerp(0.04f, 0.08f, Ramp);
 
 	// Focus pulls in: the far end of the corridor goes soft.
 	Settings.bOverride_DepthOfFieldFocalDistance = true;

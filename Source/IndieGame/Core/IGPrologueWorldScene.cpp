@@ -4,6 +4,7 @@
 #include "AssetCompilingManager.h"
 #include "Audio/IGAlarmSoundWave.h"
 #include "Audio/IGAmbienceSoundWave.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
@@ -112,6 +113,19 @@ namespace IGPrologueWorld
 	const FName CatWaterCapTag(TEXT("REBIRTH.CatWaterAftermath.Cap"));
 	const FName CatWaterCupTag(TEXT("REBIRTH.CatWaterAftermath.Cup"));
 	const FName CatWaterWetRingTag(TEXT("REBIRTH.CatWaterAftermath.WetRing"));
+	const FName FootstepVinylTag(TEXT("Footstep.Vinyl"));
+	const FName FootstepConcreteTag(TEXT("Footstep.Concrete"));
+	const FName FootstepMetalStairTag(TEXT("Footstep.MetalStair"));
+	const FName FootstepRooftopTag(TEXT("Footstep.Rooftop"));
+	const FName FootstepGypsumTag(TEXT("Footstep.GypsumDebris"));
+
+	void TagFootstepSurface(UStaticMeshComponent* Component, const FName Tag)
+	{
+		if (Component && !Component->ComponentHasTag(Tag))
+		{
+			Component->ComponentTags.Add(Tag);
+		}
+	}
 
 	// These products are never interacted with; the evidence bottles spawned
 	// later remain individual actors. At 16 m a 5-20 cm package is already a
@@ -1504,6 +1518,14 @@ UAudioComponent* AIGPrologueWorldScene::CreateAmbientBed(
 	Bed->AttenuationOverrides.DistanceAlgorithm = EAttenuationDistanceModel::NaturalSound;
 	Bed->AttenuationOverrides.dBAttenuationAtMax = -60.0f;
 	Bed->RegisterComponent();
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterComponent(Bed, EIGAudioBus::World);
+		}
+	}
 	Bed->Play();
 	AmbientBeds.Add(Bed);
 	return Bed;
@@ -1866,7 +1888,9 @@ void AIGPrologueWorldScene::BuildApartment()
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
 
 	// Shell: interior 380 x 430 cm (about 5 pyeong), 230 cm ceiling.
-	CreateBlock(FVector(0, 0, -10), FVector(440, 490, 20), Jangpan);
+	IGPrologueWorld::TagFootstepSurface(
+		CreateBlock(FVector(0, 0, -10), FVector(440, 490, 20), Jangpan),
+		IGPrologueWorld::FootstepVinylTag);
 	CreateBlock(FVector(0, 0, 240), FVector(440, 490, 20), CeilHome);
 	CreateBlock(FVector(-200, 0, 115), FVector(20, 490, 230), WallY);
 	CreateBlock(FVector(200, 0, 115), FVector(20, 490, 230), WallY);
@@ -2293,7 +2317,9 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// Floor and ceiling. The hallway runs well past our door so that leaving
 	// 404 means actually walking the building, not stepping into the lift.
 	// Interior X -320..700, Y -375..-235, height 240.
-	CreateBlock(FVector(190, -305, -10), FVector(1040, 160, 20), CorridorFloor);
+	IGPrologueWorld::TagFootstepSurface(
+		CreateBlock(FVector(190, -305, -10), FVector(1040, 160, 20), CorridorFloor),
+		IGPrologueWorld::FootstepConcreteTag);
 	CreateBlock(FVector(190, -305, 250), FVector(1040, 160, 20), CorridorCeil);
 
 	// South wall is solid on this floor, with hopper windows onto the alley.
@@ -2500,10 +2526,10 @@ void AIGPrologueWorldScene::BuildCorridor()
 	{
 		const float StepY = -216.0f + UpperStepIndex * 22.0f;
 		const float StepTop = 18.0f + UpperStepIndex * 18.0f;
-		CreateBlock(
+		IGPrologueWorld::TagFootstepSurface(CreateBlock(
 			FVector(-277.5f, StepY, StepTop * 0.5f),
 			FVector(85, 22, StepTop),
-			CorridorFloor);
+			CorridorFloor), IGPrologueWorld::FootstepMetalStairTag);
 		CreateBlock(
 			FVector(-277.5f, StepY + 10.0f, StepTop + 0.8f),
 			FVector(83, 2.5f, 1.6f),
@@ -2513,10 +2539,10 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// Threshold slab flush with the fourth tread. The former north closure and
 	// hidden portal are gone: BuildFifthFloorAnnex continues this exact shaft
 	// with fourteen physical treads to the roof.
-	CreateBlock(
+	IGPrologueWorld::TagFootstepSurface(CreateBlock(
 		FVector(-277.5f, -125.0f, 63.0f),
 		FVector(85, 28, 18),
-		CorridorFloor);
+		CorridorFloor), IGPrologueWorld::FootstepMetalStairTag);
 	CreateBlock(
 		FVector(-332.5f, -165.0f, 120),
 		FVector(15, 120, 240),
@@ -2535,9 +2561,10 @@ void AIGPrologueWorldScene::BuildCorridor()
 	int32 StepIndex = 0;
 	for (const float StepX : {-230.0f, -252.0f, -274.0f, -296.0f, -318.0f})
 	{
-		CreateBlock(
+		IGPrologueWorld::TagFootstepSurface(CreateBlock(
 			FVector(StepX, -305, -9.0f - StepIndex * 18.0f),
-			FVector(22, 130, 18), CorridorFloor);
+			FVector(22, 130, 18), CorridorFloor),
+			IGPrologueWorld::FootstepMetalStairTag);
 		// Stair nosing: a darker lip on every tread catches the hall light.
 		CreateBlock(
 			FVector(StepX - 10, -305, 0.4f - StepIndex * 18.0f),
@@ -2564,9 +2591,9 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// stair portal fires before a player can reach it, so this slab is only
 	// ever walked during 없는 층 nights — where it is the stage for the first
 	// sighting (STORY_BIBLE_MISSING_FLOOR.md §8 밤1 1-4).
-	CreateBlock(
+	IGPrologueWorld::TagFootstepSurface(CreateBlock(
 		FVector(-392.5f, -305, -81), FVector(125, 160, 18),
-		CorridorFloor);
+		CorridorFloor), IGPrologueWorld::FootstepMetalStairTag);
 	for (const float RailY : {-243.0f, -367.0f})
 	{
 		CreateBlock(
@@ -3130,12 +3157,15 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 				StairBaseZ + Height * 0.5f),
 			FVector(85.0f, TreadDepth, Height),
 			RoofFloor);
+		IGPrologueWorld::TagFootstepSurface(
+			Step,
+			IGPrologueWorld::FootstepMetalStairTag);
 		MissingFloorUpperStairSteps.Add(Step);
 	}
-	CreateBlock(
+	IGPrologueWorld::TagFootstepSurface(CreateBlock(
 		FVector(-277.5f, 208.5f, 1191.0f),
 		FVector(85.0f, 23.0f, 18.0f),
-		RoofFloor);
+		RoofFloor), IGPrologueWorld::FootstepMetalStairTag);
 
 	// Enclose the upper flight. The side walls overlap the existing stub by
 	// 10 cm, so there is no blue-sky seam when looking up from 4F.
@@ -3162,6 +3192,12 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		FVector(0.0f, 360.0f, 1190.0f),
 		FVector(1000.0f, 280.0f, 20.0f),
 		RoofFloor));
+	for (UStaticMeshComponent* RouteFloor : MissingFloorRooftopRouteFloors)
+	{
+		IGPrologueWorld::TagFootstepSurface(
+			RouteFloor,
+			IGPrologueWorld::FootstepRooftopTag);
+	}
 
 	// A 2-ton-class cylindrical rooftop tank at authored scale. The detailed
 	// shell is visual-only; a hidden simple cylinder owns dependable collision.
@@ -3259,7 +3295,9 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		FVector(110.0f, 12.0f, 15.0f),
 		RailMetal);
 
-	CreateBlock(FVector(0, 700, 1195), FVector(800, 500, 10), AnnexFloor);
+	IGPrologueWorld::TagFootstepSurface(
+		CreateBlock(FVector(0, 700, 1195), FVector(800, 500, 10), AnnexFloor),
+		IGPrologueWorld::FootstepGypsumTag);
 	CreateBlock(FVector(0, 700, 1445), FVector(800, 500, 10), AnnexCeiling);
 	CreateBlock(FVector(0, 947.5f, 1320), FVector(800, 15, 240), AnnexWallX);
 	// South wall split around the second 90 cm fire door (X=85..175).
@@ -3362,6 +3400,25 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	MissingFloorAnnexLights.Add(CreateLight(
 		FVector(-35.0f, 224.0f, 1450.0f), 760.0f, 760.0f,
 		FLinearColor(0.48f, 0.58f, 0.72f), true, 12.0f));
+	// A separate battery emergency practical is deliberately not inserted into
+	// MissingFloorAnnexLights. When Mok cuts the annex breaker, this weak red
+	// pool survives and blends with the player's warm flashlight instead of
+	// reducing the finale to featureless black.
+	CreateBlock(
+		FVector(-389.0f, 700.0f, 1370.0f),
+		FVector(2.0f, 18.0f, 34.0f),
+		TexMat(TEXT("M_SnackRed"), SnackRedMaterial),
+		false);
+	if (UPointLightComponent* EmergencyPractical = CreateLight(
+		FVector(-356.0f, 700.0f, 1355.0f),
+		165.0f,
+		430.0f,
+		FLinearColor(1.0f, 0.055f, 0.018f),
+		false))
+	{
+		EmergencyPractical->SetSourceRadius(5.0f);
+		EmergencyPractical->SetVolumetricScatteringIntensity(0.14f);
+	}
 
 	ActiveParent = nullptr;
 }
@@ -3369,6 +3426,13 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 {
 	bTheHourSealed = bSealed;
+	if (PostProcess)
+	{
+		// Night never lifts the corridor into grey. Film grain is restrained at
+		// rest, then the stress layer can take it to 0.08 during pursuit.
+		PostProcess->Settings.FilmGrainIntensity = bSealed ? 0.04f : 0.02f;
+		PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;
+	}
 
 	// The 공동현관. Shut the leaf first: a swing door only consults its
 	// requirements while closed, so sealing an open door is a no-op and the

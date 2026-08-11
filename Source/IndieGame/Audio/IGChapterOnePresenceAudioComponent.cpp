@@ -1,6 +1,7 @@
 #include "Audio/IGChapterOnePresenceAudioComponent.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Engine/GameInstance.h"
@@ -142,6 +143,16 @@ void UIGChapterOnePresenceAudioComponent::StartPrayerRadio()
 		UIGToneSequenceSoundWave::CreateMuffledPrayerRadio(Owner));
 	PrayerRadioComponent->SetVolumeMultiplier(0.42f);
 	PrayerRadioComponent->RegisterComponent();
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterComponent(
+				PrayerRadioComponent,
+				EIGAudioBus::World);
+		}
+	}
 	PrayerRadioComponent->SetWorldLocation(PrayerRadioWorldLocation);
 	PrayerRadioComponent->Play();
 }

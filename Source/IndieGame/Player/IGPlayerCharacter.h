@@ -1,8 +1,14 @@
 ﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "Audio/IGToneSequenceSoundWave.h"
 #include "GameFramework/Character.h"
 #include "IGPlayerCharacter.generated.h"
+
+namespace Audio
+{
+	class FAudioCaptureSynth;
+}
 
 class UCameraComponent;
 class UIGAccessibilitySubsystem;
@@ -21,6 +27,7 @@ class INDIEGAME_API AIGPlayerCharacter : public ACharacter
 
 public:
 	AIGPlayerCharacter();
+	virtual ~AIGPlayerCharacter() override;
 	virtual void Tick(float DeltaSeconds) override;
 
 	UFUNCTION(BlueprintPure, Category = "Player|Components")
@@ -82,8 +89,21 @@ public:
 	/** Runtime release probe for the static sleeve and its three repair stitches. */
 	bool ValidateRebirthOutfitProxy(int32& OutStitchCount) const;
 
+	/** Applies the persisted/command-line microphone mode immediately. */
+	void RefreshMicrophoneCaptureMode();
+
+	UFUNCTION(BlueprintPure, Category = "Player|Audio")
+	bool IsMicrophoneCaptureRunning() const { return bMicrophoneCaptureRunning; }
+
+	UFUNCTION(BlueprintPure, Category = "Player|Audio")
+	EIGFootstepSurface GetLastFootstepSurface() const { return LastFootstepSurface; }
+
+	UFUNCTION(BlueprintPure, Category = "Player|Audio")
+	float GetLastFootstepNoiseLoudness() const { return LastFootstepNoiseLoudness; }
+
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
@@ -131,6 +151,11 @@ private:
 	void UpdateCarriedItem(float DeltaSeconds);
 	void UpdateOutfitPresentation(float DeltaSeconds);
 	void PlayFootstep(float SpeedScale);
+	EIGFootstepSurface ResolveFootstepSurface() const;
+	float GetSurfaceMovementScale(EIGFootstepSurface Surface) const;
+	float ResolveFootstepNoiseLoudness(EIGFootstepSurface Surface) const;
+	void UpdateMicrophoneNoise(float DeltaSeconds);
+	void StopMicrophoneCapture();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UCameraComponent> FirstPersonCamera;
@@ -213,6 +238,18 @@ private:
 	bool bHeavyBagInteractionProxyActive = false;
 	FVector HeavyBagRestLocation = FVector::ZeroVector;
 	FTimerHandle HeavyBagRestTimer;
+
+	/** Direct capture path: samples are reduced to an envelope, never retained. */
+	Audio::FAudioCaptureSynth* MicrophoneCaptureSynth = nullptr;
+	TArray<float> MicrophoneScratchSamples;
+	float MicrophonePollAccumulator = 0.0f;
+	float MicrophoneNoiseFloor = 0.012f;
+	float MicrophoneCalibrationRemaining = 0.0f;
+	float MicrophoneReportCooldown = 0.0f;
+	float LastFootstepNoiseLoudness = 0.0f;
+	EIGFootstepSurface LastFootstepSurface = EIGFootstepSurface::Concrete;
+	bool bMicrophoneCaptureRunning = false;
+	bool bMicrophoneOpenAttempted = false;
 
 	/** Decaying kick applied when an interaction is pressed. */
 	float InteractPunch = 0.0f;

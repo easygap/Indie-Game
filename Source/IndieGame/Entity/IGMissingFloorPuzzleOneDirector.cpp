@@ -2,6 +2,7 @@
 
 #include "Audio/IGAmbienceSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -213,6 +214,11 @@ void AIGMissingFloorPuzzleOneDirector::CreateBallastHum()
 	BallastHum->bAllowSpatialization = true;
 	BallastHum->bAutoActivate = false;
 	BallastHum->SetVolumeMultiplier(IGPuzzleOne::BallastHumVolume);
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->RegisterComponent(BallastHum, EIGAudioBus::World);
+	}
 	// Deliberately not played: there is nothing above the ceiling until the
 	// player gives that circuit power.
 }
@@ -263,7 +269,11 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 		this,
 		UIGToneSequenceSoundWave::CreateRelayClick(this),
 		IGPuzzleOne::BreakerFace,
-		0.8f);
+		0.8f,
+		1.0f,
+		90.0f,
+		900.0f,
+		EIGAudioBus::Puzzle);
 
 	if (BallastHum)
 	{

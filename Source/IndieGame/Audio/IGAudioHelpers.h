@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 
 class UAudioComponent;
 class USoundAttenuation;
@@ -26,5 +27,7 @@ namespace IGAudio
 		float VolumeMultiplier = 1.0f,
 		float PitchMultiplier = 1.0f,
 		float InnerRadius = 160.0f,
-		float FalloffDistance = 1400.0f);
+		float FalloffDistance = 1400.0f,
+		EIGAudioBus Bus = EIGAudioBus::World,
+		bool bPlayWhenPaused = false);
 }

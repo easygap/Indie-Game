@@ -1,6 +1,7 @@
 ﻿#include "Entity/IGListenerGreyboxDirector.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
@@ -604,7 +605,7 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 
 void AIGListenerGreyboxDirector::StartProbe()
 {
-	ProbeStep = EProbeStep::PuzzleOneContract;
+	ProbeStep = EProbeStep::AudioVisualContract;
 	StepDeadlineSeconds = 0.0f;
 	GetWorldTimerManager().SetTimer(
 		ProbeTimer,
@@ -625,6 +626,67 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 
 	switch (ProbeStep)
 	{
+	case EProbeStep::AudioVisualContract:
+	{
+		UIGMissingFloorAudioSubsystem* AudioDirector =
+			GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+		FString Failure;
+		if (!AudioDirector || !AudioDirector->ValidateContract(Failure))
+		{
+			FailProbe(FString::Printf(
+				TEXT("M6 audio graph invalid: %s"),
+				AudioDirector ? *Failure : TEXT("subsystem missing")));
+			return;
+		}
+		const bool bVoiceCapsMatch =
+			AudioDirector->GetVoiceCap(EIGAudioBus::Entity) == 4
+			&& AudioDirector->GetVoiceCap(EIGAudioBus::Player) == 6
+			&& AudioDirector->GetVoiceCap(EIGAudioBus::Puzzle) == 6
+			&& AudioDirector->GetVoiceCap(EIGAudioBus::World) == 12;
+		const bool bTitleWindowMatches =
+			UIGMissingFloorAudioSubsystem::IsTitleReplyTime(
+				FDateTime(2026, 8, 11, 4, 30))
+			&& UIGMissingFloorAudioSubsystem::IsTitleReplyTime(
+				FDateTime(2026, 8, 11, 5, 30))
+			&& !UIGMissingFloorAudioSubsystem::IsTitleReplyTime(
+				FDateTime(2026, 8, 11, 5, 31));
+		if (!bVoiceCapsMatch || !bTitleWindowMatches)
+		{
+			FailProbe(TEXT("M6 voice caps or title reply window drifted"));
+			return;
+		}
+		AudioDirector->SetAuthoredSilence(true);
+		const bool bSilenceMixMatches = FMath::IsNearlyEqual(
+			AudioDirector->GetEffectiveBusDecibels(EIGAudioBus::Score),
+			-96.0f,
+			0.01f)
+			&& FMath::IsNearlyEqual(
+				AudioDirector->GetEffectiveBusDecibels(EIGAudioBus::World),
+				-24.0f,
+				0.01f);
+		AudioDirector->SetAuthoredSilence(false);
+		AudioDirector->SetPlayerListening(true);
+		const bool bListeningDuckMatches = FMath::IsNearlyEqual(
+			AudioDirector->GetEffectiveBusDecibels(EIGAudioBus::World),
+			-14.0f,
+			0.01f);
+		AudioDirector->SetPlayerListening(false);
+		AudioDirector->SetEntityDistance(500.0f);
+		const bool bNearDuckMatches = FMath::IsNearlyEqual(
+			AudioDirector->GetEffectiveBusDecibels(EIGAudioBus::Player),
+			-7.0f,
+			0.01f);
+		AudioDirector->SetEntityDistance(MAX_flt);
+		if (!bSilenceMixMatches || !bListeningDuckMatches || !bNearDuckMatches)
+		{
+			FailProbe(TEXT("M6 silence or dynamic ducking values drifted"));
+			return;
+		}
+		ProbeStep = EProbeStep::PuzzleOneContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
 	case EProbeStep::PuzzleOneContract:
 	{
 		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
@@ -761,6 +823,15 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		if (Entity->GetListenerState() == EIGListenerState::Investigating
 			|| Entity->GetListenerState() == EIGListenerState::Holding)
 		{
+			const UIGMissingFloorAudioSubsystem* AudioDirector =
+				GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+			if (!AudioDirector
+				|| AudioDirector->GetThreatState()
+					!= EIGAudioThreatState::Investigating)
+			{
+				FailProbe(TEXT("M6 score did not follow investigation state"));
+				return;
+			}
 			EmitProbeNoise();
 			ProbeStep = EProbeStep::ChaseOnSecondSound;
 			StepDeadlineSeconds = 0.0f;
@@ -775,6 +846,15 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 	case EProbeStep::ChaseOnSecondSound:
 		if (Entity->GetListenerState() == EIGListenerState::Chasing)
 		{
+			const UIGMissingFloorAudioSubsystem* AudioDirector =
+				GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+			if (!AudioDirector
+				|| AudioDirector->GetThreatState()
+					!= EIGAudioThreatState::Chasing)
+			{
+				FailProbe(TEXT("M6 score did not follow chase state"));
+				return;
+			}
 			// Touch: hand the player to the pursuer.
 			if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 			{
@@ -1632,6 +1712,10 @@ void AIGListenerGreyboxDirector::PassProbe()
 {
 	GetWorldTimerManager().ClearTimer(ProbeTimer);
 	ProbeStep = EProbeStep::Done;
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("MISSINGFLOOR_M6_AUDIO PASS: six buses, score states, title window"));
 	UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_GREYBOX PASS"));
 	RequestExit(false);
 }

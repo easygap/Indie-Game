@@ -1,5 +1,8 @@
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 
+#include "Audio/IGMissingFloorAudioSubsystem.h"
+#include "Engine/World.h"
+
 namespace IGMissingFloorNarrative
 {
 	const FName NightFourDrain(TEXT("P5.RoofCleaningDrain"));
@@ -527,6 +530,15 @@ void UIGMissingFloorNarrativeSubsystem::RecomputeConfirmations(
 	for (const EIGMissingFloorTruth Truth : NewlyConfirmed)
 	{
 		OnTruthConfirmed.Broadcast(Truth);
+		if (UWorld* World = GetWorld())
+		{
+			if (UIGMissingFloorAudioSubsystem* AudioDirector =
+				World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+			{
+				AudioDirector->PlayTruthConfirmation(
+					GetConfirmedTruthCount());
+			}
+		}
 	}
 }
 

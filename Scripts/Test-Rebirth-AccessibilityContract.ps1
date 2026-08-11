@@ -85,6 +85,7 @@ Assert-ContainsAll $header @(
 	'bToggleHoldInteractions',
 	'bToggleCrouch',
 	'bHapticsEnabled',
+	'bMicrophoneNoiseEnabled',
 	'HoldDurationScale',
 	'GetP3HintThresholds',
 	'GetP4HintThresholds',
@@ -122,7 +123,8 @@ Assert-ContainsAll $source @(
 	'TEXT("CaptionSizeScale")',
 	'TEXT("SoundCaptionsEnabled")',
 	'TEXT("CaptionBackgroundOpacity")',
-	'TEXT("CaptionSafeAreaScale")'
+	'TEXT("CaptionSafeAreaScale")',
+	'TEXT("MicrophoneNoiseEnabled")'
 ) '영구 저장·입력 정규화'
 
 Assert-ContainsAll $source @(
@@ -140,6 +142,7 @@ Assert-ContainsAll $source @(
 	'IGNoSubtitles',
 	'IGNoSoundCaptions',
 	'IGToggleHolds',
+	'IGMicrophoneMode',
 	'IGHoldScale=',
 	'IGCaptionScale=',
 	'IGCaptionBackground=',
@@ -401,7 +404,9 @@ Assert-ContainsAll $controllerSource @(
 	'Settings.CaptionSizeScale = FMath::Clamp',
 	'Settings.CaptionBackgroundOpacity = FMath::Clamp',
 	'Settings.CaptionSafeAreaScale = FMath::Clamp',
-	'RowCount = 16'
+	'RowCount = 17',
+	'Settings.bMicrophoneNoiseEnabled = !Settings.bMicrophoneNoiseEnabled',
+	'RefreshMicrophoneCaptureMode()'
 ) '일시정지 접근성 설정 입력'
 Assert-ContainsAll $hudSource @(
 	'DrawAccessibilityPanel()',
@@ -416,6 +421,7 @@ Assert-ContainsAll $hudSource @(
 	'대사·캡션 크기',
 	'메시지 배경 농도',
 	'자막 안전 영역',
+	'마이크 소음 입력 (선택)',
 	'길게 누르기 방식',
 	'홀드 길이',
 	'기본값으로 초기화',

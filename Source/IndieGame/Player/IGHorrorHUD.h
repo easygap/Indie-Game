@@ -74,6 +74,7 @@ struct FIGSystemMenuPresentation
 	bool bDisplaySettings = false;
 	bool bCanContinue = false;
 	bool bConfirmNewGame = false;
+	bool bHeadphoneRecommendation = false;
 	bool bVSync = true;
 	bool bDisplaySettingsApplied = false;
 	bool bDisplaySettingsAwaitingConfirmation = false;
@@ -568,6 +569,7 @@ private:
 	bool bSystemMenuIsDisplaySettings = false;
 	bool bSystemMenuCanContinue = false;
 	bool bSystemMenuConfirmNewGame = false;
+	bool bSystemMenuHeadphoneRecommendation = false;
 	bool bSystemMenuVSync = true;
 	bool bDisplaySettingsApplied = false;
 	bool bDisplaySettingsAwaitingConfirmation = false;

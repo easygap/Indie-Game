@@ -1,11 +1,14 @@
 ﻿#include "Player/IGPlayerCharacter.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "AudioCaptureCore.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/PrimitiveComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/GameInstance.h"
@@ -15,6 +18,7 @@
 #include "EngineUtils.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
+#include "Entity/IGMissingFloorNightFourDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -69,6 +73,16 @@ namespace IGPlayerNoise
 	constexpr float CrouchFootstepLoudness = 0.05f;
 	constexpr float SprintFootstepLoudness = 0.50f;
 	constexpr float ExhaustedSprintFootstepLoudness = 0.70f;
+	constexpr float MicrophonePollSeconds = 0.08f;
+	constexpr float MicrophoneCalibrationSeconds = 1.50f;
+	constexpr float MicrophoneMinimumThreshold = 0.028f;
+	constexpr float MicrophoneReportCooldownSeconds = 0.28f;
+	const FName VinylSurfaceTag(TEXT("Footstep.Vinyl"));
+	const FName ConcreteSurfaceTag(TEXT("Footstep.Concrete"));
+	const FName MetalStairSurfaceTag(TEXT("Footstep.MetalStair"));
+	const FName RooftopSurfaceTag(TEXT("Footstep.Rooftop"));
+	const FName GypsumSurfaceTag(TEXT("Footstep.GypsumDebris"));
+	const FName WaterSurfaceTag(TEXT("Footstep.Water"));
 }
 
 namespace IGPlayerOutfit
@@ -231,6 +245,11 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	StressComponent = CreateDefaultSubobject<UIGStressComponent>(TEXT("Stress"));
 }
 
+AIGPlayerCharacter::~AIGPlayerCharacter()
+{
+	StopMicrophoneCapture();
+}
+
 void AIGPlayerCharacter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -248,7 +267,14 @@ void AIGPlayerCharacter::BeginPlay()
 			this, &AIGPlayerCharacter::HandleFocusChanged);
 	}
 
+	RefreshMicrophoneCaptureMode();
 	SetActorTickEnabled(true);
+}
+
+void AIGPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	StopMicrophoneCapture();
+	Super::EndPlay(EndPlayReason);
 }
 
 void AIGPlayerCharacter::OnStartCrouch(
@@ -374,7 +400,8 @@ void AIGPlayerCharacter::HandleFocusChanged(AActor* PreviousActor, AActor* NewAc
 		0.35f,
 		1.0f,
 		60.0f,
-		260.0f);
+		260.0f,
+		EIGAudioBus::UI);
 }
 
 void AIGPlayerCharacter::Tick(const float DeltaSeconds)
@@ -401,6 +428,7 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 	UpdateCameraMotion(DeltaSeconds);
 	UpdateCarriedItem(DeltaSeconds);
 	UpdateOutfitPresentation(DeltaSeconds);
+	UpdateMicrophoneNoise(DeltaSeconds);
 }
 
 void AIGPlayerCharacter::UpdateOutfitPresentation(const float DeltaSeconds)
@@ -535,7 +563,8 @@ void AIGPlayerCharacter::ToggleFlashlight()
 		0.18f,
 		bNowOn ? 2.4f : 2.0f,
 		60.0f,
-		320.0f);
+		320.0f,
+		EIGAudioBus::Player);
 }
 
 void AIGPlayerCharacter::UpdateCarriedItem(const float DeltaSeconds)
@@ -671,13 +700,14 @@ void AIGPlayerCharacter::ApplyContextMovementSpeed()
 	const float TransitionScale = CrouchTransitionRemaining > 0.0f
 		? IGPlayerNoise::CrouchTransitionSpeedScale
 		: 1.0f;
+	const float SurfaceScale = GetSurfaceMovementScale(LastFootstepSurface);
 	MovementComponent->MaxWalkSpeedCrouched =
-		IGPlayerNoise::CrouchSpeed * TransitionScale;
+		IGPlayerNoise::CrouchSpeed * TransitionScale * SurfaceScale;
 
 	if (bListening)
 	{
 		MovementComponent->MaxWalkSpeed =
-			IGPlayerNoise::ListenSpeed * TransitionScale;
+			IGPlayerNoise::ListenSpeed * TransitionScale * SurfaceScale;
 		MovementComponent->MaxAcceleration = 800.0f;
 		MovementComponent->BrakingDecelerationWalking = 1600.0f;
 		return;
@@ -685,7 +715,7 @@ void AIGPlayerCharacter::ApplyContextMovementSpeed()
 	if (bSprinting && !bIsCrouched)
 	{
 		MovementComponent->MaxWalkSpeed =
-			IGPlayerNoise::SprintSpeed * TransitionScale;
+			IGPlayerNoise::SprintSpeed * TransitionScale * SurfaceScale;
 		MovementComponent->MaxAcceleration = IGPlayerNoise::SprintAcceleration;
 		MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::SprintBraking;
 		return;
@@ -693,14 +723,14 @@ void AIGPlayerCharacter::ApplyContextMovementSpeed()
 	if (bIsCrouched)
 	{
 		MovementComponent->MaxWalkSpeed =
-			IGPlayerNoise::ReferenceWalkSpeed * TransitionScale;
+			IGPlayerNoise::ReferenceWalkSpeed * TransitionScale * SurfaceScale;
 		MovementComponent->MaxAcceleration = IGPlayerNoise::CrouchAcceleration;
 		MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::CrouchBraking;
 		return;
 	}
 
 	MovementComponent->MaxWalkSpeed =
-		IGPlayerNoise::ReferenceWalkSpeed * TransitionScale;
+		IGPlayerNoise::ReferenceWalkSpeed * TransitionScale * SurfaceScale;
 	MovementComponent->MaxAcceleration = IGPlayerNoise::WalkAcceleration;
 	MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::WalkBraking;
 }
@@ -960,46 +990,40 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 	// Deterministic per-step variation keeps the cadence from sounding looped.
 	const uint32 StepHash = static_cast<uint32>(LastStepIndex) * 2654435761u;
 	const float PitchVariation = 0.90f + 0.18f * ((StepHash >> 8) & 0xFF) / 255.0f;
+	const EIGFootstepSurface Surface = ResolveFootstepSurface();
+	if (LastFootstepSurface != Surface)
+	{
+		LastFootstepSurface = Surface;
+		ApplyContextMovementSpeed();
+	}
+	LastFootstepNoiseLoudness = ResolveFootstepNoiseLoudness(Surface);
+	const float AudibleLevel = FMath::Lerp(
+		0.42f,
+		1.0f,
+		FMath::Clamp(LastFootstepNoiseLoudness / 0.72f, 0.0f, 1.0f));
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateFootstep(this, PitchVariation, 1.0f),
+		UIGToneSequenceSoundWave::CreateSurfaceFootstep(
+			this,
+			Surface,
+			PitchVariation,
+			1.0f),
 		GetActorLocation() - FVector(0.0f, 0.0f, 80.0f),
-		FootstepVolume * (0.55f + 0.45f * SpeedScale),
+		FootstepVolume * AudibleLevel * (0.72f + 0.28f * SpeedScale),
 		1.0f,
 		120.0f,
-		700.0f);
+		900.0f,
+		EIGAudioBus::Player);
 
-	// Every footfall is also a report to the building's ear. Crouching and
-	// sprinting are authored bands, not a rescale of ordinary walking: this is
-	// the resource decision the player makes before the pursuer hears it.
+	// The AI receives the exact §21.2 matrix value. Audio gain stays separate,
+	// so changing a player's master volume can never change stealth balance.
 	if (UWorld* World = GetWorld())
 	{
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
-			float Loudness = FMath::Lerp(
-				IGPlayerNoise::MinimumFootstepLoudness,
-				IGPlayerNoise::MaximumFootstepLoudness,
-				FMath::Clamp(SpeedScale, 0.0f, 1.0f));
-			if (bIsCrouched)
-			{
-				Loudness = IGPlayerNoise::CrouchFootstepLoudness;
-			}
-			else if (bSprinting)
-			{
-				const float BreathLoad = FMath::Clamp(
-					(SprintActiveSeconds
-						- IGPlayerNoise::SprintBreathThresholdSeconds)
-					/ 3.5f,
-					0.0f,
-					1.0f);
-				Loudness = FMath::Lerp(
-					IGPlayerNoise::SprintFootstepLoudness,
-					IGPlayerNoise::ExhaustedSprintFootstepLoudness,
-					BreathLoad);
-			}
 			Noise->ReportNoise(
 				GetActorLocation(),
-				Loudness,
+				LastFootstepNoiseLoudness,
 				this);
 		}
 	}
@@ -1019,6 +1043,260 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 	{
 		PlayHapticFeedback(0.12f, 0.04f);
 	}
+}
+
+EIGFootstepSurface AIGPlayerCharacter::ResolveFootstepSurface() const
+{
+	const FVector Location = GetActorLocation();
+	if (Location.Z > 1100.0f && Location.Y > 430.0f)
+	{
+		if (const UWorld* World = GetWorld())
+		{
+			for (TActorIterator<AIGMissingFloorNightFourDirector> It(World); It; ++It)
+			{
+				if (It->IsWaterMaskPlaying())
+				{
+					return EIGFootstepSurface::Water;
+				}
+			}
+		}
+	}
+
+	FHitResult Hit;
+	FCollisionQueryParams QueryParams(SCENE_QUERY_STAT(IGFootstepSurface), false, this);
+	const UWorld* World = GetWorld();
+	if (World && World->LineTraceSingleByChannel(
+		Hit,
+		Location + FVector(0.0f, 0.0f, 12.0f),
+		Location - FVector(0.0f, 0.0f, 145.0f),
+		ECC_Visibility,
+		QueryParams))
+	{
+		const UPrimitiveComponent* Component = Hit.GetComponent();
+		if (Component)
+		{
+			if (Component->ComponentHasTag(IGPlayerNoise::WaterSurfaceTag))
+			{
+				return EIGFootstepSurface::Water;
+			}
+			if (Component->ComponentHasTag(IGPlayerNoise::GypsumSurfaceTag))
+			{
+				return EIGFootstepSurface::GypsumDebris;
+			}
+			if (Component->ComponentHasTag(IGPlayerNoise::MetalStairSurfaceTag))
+			{
+				return EIGFootstepSurface::MetalStair;
+			}
+			if (Component->ComponentHasTag(IGPlayerNoise::RooftopSurfaceTag))
+			{
+				return EIGFootstepSurface::Rooftop;
+			}
+			if (Component->ComponentHasTag(IGPlayerNoise::VinylSurfaceTag))
+			{
+				return EIGFootstepSurface::Vinyl;
+			}
+		}
+	}
+	return EIGFootstepSurface::Concrete;
+}
+
+float AIGPlayerCharacter::GetSurfaceMovementScale(
+	const EIGFootstepSurface Surface) const
+{
+	if (Surface == EIGFootstepSurface::GypsumDebris)
+	{
+		return 0.86f;
+	}
+	if (Surface == EIGFootstepSurface::Water)
+	{
+		return 0.78f;
+	}
+	return 1.0f;
+}
+
+float AIGPlayerCharacter::ResolveFootstepNoiseLoudness(
+	const EIGFootstepSurface Surface) const
+{
+	struct FSurfaceLoudness
+	{
+		float Walk;
+		float Crouch;
+		float Sprint;
+	};
+	static constexpr FSurfaceLoudness Matrix[] =
+	{
+		{0.15f, 0.05f, 0.50f}, // vinyl
+		{0.17f, 0.05f, 0.55f}, // concrete
+		{0.22f, 0.08f, 0.62f}, // metal stair
+		{0.14f, 0.05f, 0.48f}, // rooftop membrane
+		{0.28f, 0.12f, 0.70f}, // gypsum debris
+		{0.30f, 0.14f, 0.72f}  // water
+	};
+	const int32 Index = FMath::Clamp(
+		static_cast<int32>(Surface),
+		0,
+		UE_ARRAY_COUNT(Matrix) - 1);
+	if (bIsCrouched)
+	{
+		return Matrix[Index].Crouch;
+	}
+	if (bSprinting)
+	{
+		const float BreathLoad = FMath::Clamp(
+			(SprintActiveSeconds - IGPlayerNoise::SprintBreathThresholdSeconds)
+				/ 3.5f,
+			0.0f,
+			1.0f);
+		return FMath::Min(1.0f, Matrix[Index].Sprint + BreathLoad * 0.20f);
+	}
+	return Matrix[Index].Walk;
+}
+
+void AIGPlayerCharacter::RefreshMicrophoneCaptureMode()
+{
+	const bool bShouldCapture = AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsMicrophoneNoiseEnabled();
+	if (!bShouldCapture)
+	{
+		StopMicrophoneCapture();
+		bMicrophoneOpenAttempted = false;
+		return;
+	}
+	if (bMicrophoneCaptureRunning || bMicrophoneOpenAttempted)
+	{
+		return;
+	}
+
+	bMicrophoneOpenAttempted = true;
+	MicrophoneCaptureSynth = new Audio::FAudioCaptureSynth();
+	if (!MicrophoneCaptureSynth->OpenDefaultStream()
+		|| !MicrophoneCaptureSynth->StartCapturing())
+	{
+		delete MicrophoneCaptureSynth;
+		MicrophoneCaptureSynth = nullptr;
+		AIGHorrorHUD::PushAudioCaption(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"MicrophoneUnavailable",
+				"[마이크 입력을 열 수 없음]"),
+			2.6f);
+		return;
+	}
+
+	bMicrophoneCaptureRunning = true;
+	MicrophonePollAccumulator = 0.0f;
+	MicrophoneNoiseFloor = 0.012f;
+	MicrophoneCalibrationRemaining = IGPlayerNoise::MicrophoneCalibrationSeconds;
+	MicrophoneReportCooldown = 0.0f;
+	MicrophoneScratchSamples.Reserve(4096);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"MicrophoneEnabled",
+			"[마이크 소음 입력 켜짐 · 음성은 저장되지 않음]"),
+		2.8f);
+}
+
+void AIGPlayerCharacter::UpdateMicrophoneNoise(const float DeltaSeconds)
+{
+	if (!bMicrophoneCaptureRunning || !MicrophoneCaptureSynth)
+	{
+		return;
+	}
+	MicrophoneReportCooldown = FMath::Max(
+		0.0f,
+		MicrophoneReportCooldown - DeltaSeconds);
+	MicrophonePollAccumulator += DeltaSeconds;
+	if (MicrophonePollAccumulator < IGPlayerNoise::MicrophonePollSeconds)
+	{
+		return;
+	}
+	MicrophonePollAccumulator = 0.0f;
+	MicrophoneScratchSamples.Reset();
+	if (!MicrophoneCaptureSynth->GetAudioData(MicrophoneScratchSamples)
+		|| MicrophoneScratchSamples.IsEmpty())
+	{
+		return;
+	}
+
+	double SquareSum = 0.0;
+	float Peak = 0.0f;
+	for (const float Sample : MicrophoneScratchSamples)
+	{
+		const float Absolute = FMath::Abs(Sample);
+		Peak = FMath::Max(Peak, Absolute);
+		SquareSum += static_cast<double>(Sample) * Sample;
+	}
+	const float Rms = FMath::Sqrt(
+		static_cast<float>(SquareSum / MicrophoneScratchSamples.Num()));
+	// Samples have served their only purpose. Release contents before another
+	// frame can observe them; no waveform, words or recording leave this scope.
+	MicrophoneScratchSamples.Reset();
+
+	if (MicrophoneCalibrationRemaining > 0.0f)
+	{
+		MicrophoneCalibrationRemaining = FMath::Max(
+			0.0f,
+			MicrophoneCalibrationRemaining - IGPlayerNoise::MicrophonePollSeconds);
+		MicrophoneNoiseFloor = FMath::Lerp(
+			MicrophoneNoiseFloor,
+			FMath::Min(Rms, 0.08f),
+			0.08f);
+		return;
+	}
+
+	// The moving floor follows fans and device hiss slowly, while an actual
+	// voice/impact rises too quickly to calibrate itself out of detection.
+	if (Rms < MicrophoneNoiseFloor * 1.45f)
+	{
+		MicrophoneNoiseFloor = FMath::Lerp(
+			MicrophoneNoiseFloor,
+			Rms,
+			0.015f);
+	}
+	const float Threshold = FMath::Max(
+		IGPlayerNoise::MicrophoneMinimumThreshold,
+		MicrophoneNoiseFloor * 2.8f + 0.008f);
+	if (MicrophoneReportCooldown > 0.0f
+		|| Rms <= Threshold
+		|| Peak <= Threshold * 1.20f)
+	{
+		return;
+	}
+
+	const float Detection = FMath::Clamp(
+		(Rms - Threshold) / FMath::Max(0.08f, 0.24f - Threshold),
+		0.0f,
+		1.0f);
+	const float Loudness = FMath::Lerp(0.08f, 0.35f, Detection);
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(GetActorLocation(), Loudness, this);
+		}
+	}
+	MicrophoneReportCooldown = IGPlayerNoise::MicrophoneReportCooldownSeconds;
+}
+
+void AIGPlayerCharacter::StopMicrophoneCapture()
+{
+	if (MicrophoneCaptureSynth)
+	{
+		if (MicrophoneCaptureSynth->IsCapturing())
+		{
+			MicrophoneCaptureSynth->StopCapturing();
+		}
+		delete MicrophoneCaptureSynth;
+		MicrophoneCaptureSynth = nullptr;
+	}
+	bMicrophoneCaptureRunning = false;
+	MicrophoneScratchSamples.Reset();
+	MicrophonePollAccumulator = 0.0f;
+	MicrophoneCalibrationRemaining = 0.0f;
+	MicrophoneReportCooldown = 0.0f;
 }
 
 bool AIGPlayerCharacter::CarryActor(
@@ -1303,7 +1581,11 @@ void AIGPlayerCharacter::Knock()
 			this,
 			UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
 			FocusedActor->GetActorLocation(),
-			0.82f);
+			0.82f,
+			1.0f,
+			160.0f,
+			1400.0f,
+			EIGAudioBus::Player);
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
 			Noise->ReportNoise(FocusedActor->GetActorLocation(), 0.30f, this);
@@ -1384,6 +1666,11 @@ void AIGPlayerCharacter::BeginListen()
 		{
 			if (It->SetPlayerListening(true))
 			{
+				if (UIGMissingFloorAudioSubsystem* AudioDirector =
+					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+				{
+					AudioDirector->SetPlayerListening(true);
+				}
 				return;
 			}
 		}
@@ -1409,6 +1696,11 @@ void AIGPlayerCharacter::BeginListen()
 		bListenTriggered = false;
 		ListenHeldSeconds = 0.0f;
 		ApplyContextMovementSpeed();
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetPlayerListening(true);
+		}
 		return;
 	}
 }
@@ -1421,8 +1713,18 @@ void AIGPlayerCharacter::EndListen()
 		{
 			if (It->SetPlayerListening(false))
 			{
+				if (UIGMissingFloorAudioSubsystem* AudioDirector =
+					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+				{
+					AudioDirector->SetPlayerListening(false);
+				}
 				return;
 			}
+		}
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetPlayerListening(false);
 		}
 	}
 	if (!bListening)
@@ -1647,7 +1949,11 @@ void AIGPlayerCharacter::BeginInteraction()
 					this,
 					UIGToneSequenceSoundWave::CreatePlasticBagSetDown(this),
 					GetActorLocation() - FVector(0.0f, 0.0f, 88.0f),
-					0.55f);
+					0.55f,
+					1.0f,
+					100.0f,
+					700.0f,
+					EIGAudioBus::Player);
 			}
 		}
 
@@ -1695,7 +2001,11 @@ void AIGPlayerCharacter::EndInteraction()
 			this,
 			UIGToneSequenceSoundWave::CreatePlasticBagLift(this),
 			GetActorLocation() - FVector(0.0f, 0.0f, 72.0f),
-			0.42f);
+			0.42f,
+			1.0f,
+			100.0f,
+			700.0f,
+			EIGAudioBus::Player);
 	}
 }
 
@@ -1724,7 +2034,11 @@ bool AIGPlayerCharacter::BeginScriptedHeavyBagRest(const float Seconds)
 		this,
 		UIGToneSequenceSoundWave::CreatePlasticBagSetDown(this),
 		GetActorLocation() - FVector(0.0f, 0.0f, 88.0f),
-		0.55f);
+		0.55f,
+		1.0f,
+		100.0f,
+		700.0f,
+		EIGAudioBus::Player);
 	GetWorldTimerManager().SetTimer(
 		HeavyBagRestTimer,
 		this,
@@ -1749,7 +2063,11 @@ void AIGPlayerCharacter::EndScriptedHeavyBagRest()
 		this,
 		UIGToneSequenceSoundWave::CreatePlasticBagLift(this),
 		GetActorLocation() - FVector(0.0f, 0.0f, 72.0f),
-		0.42f);
+		0.42f,
+		1.0f,
+		100.0f,
+		700.0f,
+		EIGAudioBus::Player);
 }
 
 void AIGPlayerCharacter::TryRequestGetUpFallback()

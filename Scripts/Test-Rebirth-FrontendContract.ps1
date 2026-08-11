@@ -179,8 +179,10 @@ Assert-ContainsAll $hudHeader @(
 ) 'HUD 프런트엔드 인터페이스'
 Assert-ContainsAll $hudSource @(
 	'DrawSystemMenuPanel()',
-	'4시 44분',
-	'다음 날 새벽, 냉장고에는 또 물이 없다.',
+	'없는 층',
+	'THE MISSING FLOOR',
+	'존재하지 않는 층은 소리로 먼저 드러난다.',
+	'이 게임은 헤드폰으로 듣도록 만들어졌다.',
 	'이어하기',
 	'새 게임',
 	'기존 자동 저장이 삭제됩니다. 새 게임을 한 번 더 선택하세요.',
@@ -236,9 +238,9 @@ Assert-True (-not $controllerSource.Contains('ToggleCursorMode')) `
 	'컨트롤러에 이전 커서 토글 경로가 남아 있다'
 
 Assert-ContainsAll $gameConfig @(
-	'ProjectName=4:44 AM',
+	'ProjectName=없는 층',
 	'ProjectVersion=1.0.0',
-	'Description=A Korean first-person psychological horror game set at 4:44 AM.',
+	'Description=없는 층 — 소리와 기억, 불법 증축된 한 층을 추적하는 한국형 1인칭 심리 공포 게임.',
 	'CompanyName=easygap',
 	'Homepage=https://github.com/easygap/Indie-Game',
 	'SupportContact=https://github.com/easygap/Indie-Game/issues',
@@ -280,7 +282,7 @@ Assert-True (
 Assert-ContainsAll $projectDescriptor @(
 	'"EngineAssociation": "5.8"',
 	'"Category": "Games"',
-	'"Description": "A Korean first-person psychological horror game set at 4:44 AM."'
+	'"Description": "없는 층 — a Korean first-person psychological horror game about listening, memory, and an illegal floor."'
 ) '프로젝트 설명자 제품 정보'
 Assert-ContainsAll $userSettingsConfig @(
 	'[/Script/Engine.GameUserSettings]',

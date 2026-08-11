@@ -1,5 +1,6 @@
 #include "Environment/IGNeighborhoodLifeDirector.h"
 
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Components/SceneComponent.h"
@@ -366,6 +367,14 @@ UAudioComponent* AIGNeighborhoodLifeDirector::CreateSpatialAudioComponent(
 	Audio->AttenuationOverrides.DistanceAlgorithm = EAttenuationDistanceModel::NaturalSound;
 	Audio->AttenuationOverrides.dBAttenuationAtMax = -60.0f;
 	Audio->RegisterComponent();
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterComponent(Audio, EIGAudioBus::World);
+		}
+	}
 	return Audio;
 }
 

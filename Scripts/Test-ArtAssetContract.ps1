@@ -1392,7 +1392,7 @@ if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 2')) {
 	throw 'Missing-floor snapshot schema was not advanced for night-four state.'
 }
 foreach ($token in @(
-	'제작 정사 v2.8',
+	'제작 정사 v3.0',
 	'세척 배수 OPEN',
 	'부자밸브 우회 OPEN',
 	'저수조 이송펌프',
@@ -1402,7 +1402,7 @@ foreach ($token in @(
 	'1:55~2:40 / 7월 31일 다섯째이자 마지막 새벽'
 )) {
 	if (-not $missingFloorStory.Contains($token)) {
-		throw "Missing-floor story v2.8 contract is missing: $token"
+		throw "Missing-floor story v3.0 contract is missing: $token"
 	}
 }
 foreach ($token in @(

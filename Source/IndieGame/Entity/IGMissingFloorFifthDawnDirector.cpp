@@ -1,6 +1,7 @@
 ﻿#include "Entity/IGMissingFloorFifthDawnDirector.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
@@ -61,6 +62,11 @@ bool AIGMissingFloorFifthDawnDirector::StartInterlude(
 	WaterBed->bAllowSpatialization = false;
 	WaterBed->bAutoDestroy = false;
 	WaterBed->SetVolumeMultiplier(0.28f);
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->RegisterComponent(WaterBed, EIGAudioBus::World);
+	}
 	WaterBed->Play();
 
 	PrayerBed->RegisterComponent();
@@ -69,6 +75,11 @@ bool AIGMissingFloorFifthDawnDirector::StartInterlude(
 	PrayerBed->bAllowSpatialization = false;
 	PrayerBed->bAutoDestroy = false;
 	PrayerBed->SetVolumeMultiplier(0.12f);
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->RegisterComponent(PrayerBed, EIGAudioBus::World);
+	}
 	PrayerBed->Play();
 
 	BreathBed->RegisterComponent();
@@ -77,6 +88,11 @@ bool AIGMissingFloorFifthDawnDirector::StartInterlude(
 	BreathBed->bAllowSpatialization = false;
 	BreathBed->bAutoDestroy = false;
 	BreathBed->SetVolumeMultiplier(0.18f);
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->RegisterComponent(BreathBed, EIGAudioBus::Player);
+	}
 	BreathBed->Play();
 
 	InPlayer->GetCharacterMovement()->DisableMovement();
@@ -185,7 +201,11 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			this,
 			UIGToneSequenceSoundWave::CreateDoorThud(this),
 			SoundOrigin,
-			0.24f);
+			0.24f,
+			1.0f,
+			160.0f,
+			1200.0f,
+			EIGAudioBus::World);
 		PushDirectionCaption(
 			NSLOCTEXT(
 				"IGMissingFloor",
@@ -226,14 +246,22 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			this,
 			UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.84f),
 			SoundOrigin,
-			0.52f);
+			0.52f,
+			1.0f,
+			140.0f,
+			1000.0f,
+			EIGAudioBus::Player);
 		break;
 	case 5:
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.93f),
 			SoundOrigin,
-			0.38f);
+			0.38f,
+			1.0f,
+			140.0f,
+			1400.0f,
+			EIGAudioBus::Entity);
 		PushDirectionCaption(
 			NSLOCTEXT(
 				"IGMissingFloor",
@@ -274,7 +302,11 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			this,
 			UIGToneSequenceSoundWave::CreateWallKnockReply(this),
 			SoundOrigin,
-			0.30f);
+			0.30f,
+			1.0f,
+			120.0f,
+			900.0f,
+			EIGAudioBus::Player);
 		PushDirectionCaption(
 			NSLOCTEXT(
 				"IGMissingFloor",
@@ -324,7 +356,11 @@ bool AIGMissingFloorFifthDawnDirector::RegisterPlayerKnock()
 		this,
 		UIGToneSequenceSoundWave::CreateWallKnockSingle(this, Muffle),
 		Player.IsValid() ? Player->GetActorLocation() : GetActorLocation(),
-		FMath::Max(0.24f, 0.72f - PlayerKnockCount * 0.035f));
+		FMath::Max(0.24f, 0.72f - PlayerKnockCount * 0.035f),
+		1.0f,
+		120.0f,
+		900.0f,
+		EIGAudioBus::Player);
 	return true;
 }
 

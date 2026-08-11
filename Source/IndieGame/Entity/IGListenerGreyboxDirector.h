@@ -115,6 +115,7 @@ private:
 	enum class EProbeStep : uint8
 	{
 		Inactive,
+		AudioVisualContract,
 		PuzzleOneContract,
 		SealContract,
 		MaskingContract,

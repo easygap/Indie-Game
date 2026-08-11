@@ -1,6 +1,7 @@
 ﻿#include "Entity/IGMissingFloorNightThreeDirector.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
@@ -10,12 +11,15 @@
 #include "Engine/World.h"
 #include "Entity/IGMissingFloorEvidence.h"
 #include "Entity/IGNoiseSubsystem.h"
+#include "GameFramework/PlayerController.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSwingDoor.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGPlayerCharacter.h"
+#include "Player/IGStressComponent.h"
 #include "TimerManager.h"
 
 namespace IGNightThree
@@ -665,6 +669,15 @@ void AIGMissingFloorNightThreeDirector::EndPlay(
 	const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(AnswerTimer);
+	GetWorldTimerManager().ClearTimer(AnswerSilenceReleaseTimer);
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetAuthoredSilence(false);
+		}
+	}
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
 		Narrative->OnTruthConfirmed.Remove(TruthHandle);
@@ -679,6 +692,11 @@ void AIGMissingFloorNightThreeDirector::EndPlay(
 void AIGMissingFloorNightThreeDirector::SetHourActive(const bool bHourActive)
 {
 	bHourCurrentlyActive = bHourActive;
+	if (!bHourActive)
+	{
+		GetWorldTimerManager().ClearTimer(AnswerSilenceReleaseTimer);
+		EndAnswerSilence();
+	}
 	RefreshJournalAvailability(bHourActive);
 	RefreshDistantSeoVisibility();
 }
@@ -719,7 +737,10 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 		UIGToneSequenceSoundWave::CreateHatchOpenMetal(this),
 		IGNightThree::ValveLocation,
 		0.7f,
-		0.8f);
+		0.8f,
+		160.0f,
+		1400.0f,
+		EIGAudioBus::Puzzle);
 
 	// Water starts moving behind exactly one of three identical walls.
 	if (UWorld* World = GetWorld())
@@ -735,6 +756,11 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 		RiserFlow->AttenuationSettings = IGAudio::MakeAttenuation(this, 120.0f, 900.0f);
 		RiserFlow->bAllowSpatialization = true;
 		RiserFlow->SetVolumeMultiplier(0.5f);
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterComponent(RiserFlow, EIGAudioBus::Puzzle);
+		}
 		RiserFlow->Play();
 	}
 
@@ -801,7 +827,11 @@ void AIGMissingFloorNightThreeDirector::HandleWallKnocked(const int32 BayIndex)
 		WallKnocks.IsValidIndex(BayIndex) && WallKnocks[BayIndex]
 			? WallKnocks[BayIndex]->GetActorLocation()
 			: GetActorLocation(),
-		0.8f);
+		0.8f,
+		1.0f,
+		160.0f,
+		1400.0f,
+		EIGAudioBus::Player);
 
 	if (BayIndex == IGNightThree::CavityBayIndex)
 	{
@@ -853,7 +883,11 @@ void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 		this,
 		UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
 		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
-		0.9f);
+		0.9f,
+		1.0f,
+		160.0f,
+		1400.0f,
+		EIGAudioBus::Player);
 	const UWorld* World = GetWorld();
 	if (!World)
 	{
@@ -896,6 +930,23 @@ void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 	}
 
 	bAnswerPending = true;
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->SetAuthoredSilence(true);
+	}
+	if (APlayerController* Controller = GetWorld()->GetFirstPlayerController())
+	{
+		if (AIGPlayerCharacter* Player = Cast<AIGPlayerCharacter>(Controller->GetPawn()))
+		{
+			if (UIGStressComponent* Stress = Player->GetStress())
+			{
+				Stress->SuppressHeartbeat(
+					IGNightThree::AnswerDelaySeconds + 1.65f,
+					true);
+			}
+		}
+	}
 	if (Evidence)
 	{
 		// No repeat while the silence holds — the wait is the scene.
@@ -927,7 +978,8 @@ void AIGMissingFloorNightThreeDirector::DeliverWallAnswer()
 		0.85f,
 		0.92f,
 		140.0f,
-		1200.0f);
+		1200.0f,
+		EIGAudioBus::Entity);
 
 	AIGHorrorHUD::PushThought(
 		this,
@@ -940,6 +992,24 @@ void AIGMissingFloorNightThreeDirector::DeliverWallAnswer()
 			EIGMissingFloorTruth::WaitingForAnAnswer,
 			EIGMissingFloorSource::AnswerReturned);
 		Narrative->MarkPuzzleSolved(IGNightThree::PuzzleFourId);
+	}
+	GetWorldTimerManager().SetTimer(
+		AnswerSilenceReleaseTimer,
+		this,
+		&AIGMissingFloorNightThreeDirector::EndAnswerSilence,
+		1.65f,
+		false);
+}
+
+void AIGMissingFloorNightThreeDirector::EndAnswerSilence()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetAuthoredSilence(false);
+		}
 	}
 }
 

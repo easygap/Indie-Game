@@ -1138,7 +1138,7 @@ void AIGHorrorHUD::SetAccessibilityMenuState(
 	const int32 SelectedRow)
 {
 	bAccessibilityMenuVisible = bVisible;
-	AccessibilitySelectedRow = FMath::Clamp(SelectedRow, 0, 15);
+	AccessibilitySelectedRow = FMath::Clamp(SelectedRow, 0, 16);
 }
 
 void AIGHorrorHUD::SetSystemMenuState(
@@ -1151,6 +1151,8 @@ void AIGHorrorHUD::SetSystemMenuState(
 	SystemMenuSelectedRow = FMath::Clamp(Presentation.SelectedRow, 0, 4);
 	bSystemMenuCanContinue = Presentation.bCanContinue;
 	bSystemMenuConfirmNewGame = Presentation.bConfirmNewGame;
+	bSystemMenuHeadphoneRecommendation =
+		Presentation.bHeadphoneRecommendation;
 	DisplaySettingsSelectedRow = FMath::Clamp(
 		Presentation.DisplaySelectedRow,
 		0,
@@ -2983,6 +2985,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean ? TEXT("길게 누르기 방식") : TEXT("HOLD INPUT"),
 		bKorean ? TEXT("홀드 길이") : TEXT("HOLD DURATION"),
 		bKorean ? TEXT("컨트롤러 진동") : TEXT("CONTROLLER VIBRATION"),
+		bKorean ? TEXT("마이크 소음 입력 (선택)") : TEXT("OPTIONAL MICROPHONE NOISE"),
 		bKorean ? TEXT("기본값으로 초기화") : TEXT("RESET TO DEFAULTS"),
 		bKorean ? TEXT("닫기") : TEXT("CLOSE")
 	};
@@ -3014,6 +3017,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			TEXT("%d%%"),
 			FMath::RoundToInt(Settings.HoldDurationScale * 100.0f)),
 		OnOff(Settings.bHapticsEnabled),
+		OnOff(Settings.bMicrophoneNoiseEnabled),
 		FString(),
 		FString()
 	};
@@ -3032,8 +3036,8 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		IGHorrorHUD::PaleGray,
 		EIGHudTextRole::Objective);
 
-	const float RowStartY = FMath::Max(116.0f, Canvas->ClipY * 0.18f);
-	const float RowSpacing = FMath::Clamp(Canvas->ClipY * 0.047f, 28.0f, 38.0f);
+	const float RowStartY = FMath::Max(96.0f, Canvas->ClipY * 0.15f);
+	const float RowSpacing = FMath::Clamp(Canvas->ClipY * 0.038f, 24.0f, 34.0f);
 	for (int32 Row = 0; Row < UE_ARRAY_COUNT(Labels); ++Row)
 	{
 		const bool bSelected = Row == AccessibilitySelectedRow;
@@ -3132,7 +3136,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 				bUsingGamepad
 					? TEXT("D-PAD SELECT + CHANGE  |  A APPLY  |  B CLOSE")
 					: TEXT("ARROWS SELECT + CHANGE  |  ENTER APPLY  |  ESC/F10 CLOSE")),
-		FMath::Max(RowStartY + 14.5f * RowSpacing, Canvas->ClipY - 48.0f),
+		FMath::Max(RowStartY + 16.5f * RowSpacing, Canvas->ClipY - 48.0f),
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint);
 }
@@ -3819,8 +3823,8 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			1.15f);
 		DrawCenteredText(
 			bKorean
-				? NSLOCTEXT("IGHUD", "CreditsGameTitle", "4시 44분")
-				: FText::FromString(TEXT("4:44 AM")),
+				? NSLOCTEXT("IGHUD", "CreditsGameTitle", "없는 층")
+				: FText::FromString(TEXT("THE MISSING FLOOR")),
 			136.0f,
 			IGHorrorHUD::MutedGray,
 			EIGHudTextRole::Hint);
@@ -3870,8 +3874,8 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 	DrawCenteredText(
 		bSystemMenuIsTitle
 			? bKorean
-				? NSLOCTEXT("IGHUD", "MainTitle", "4시 44분")
-				: FText::FromString(TEXT("4:44 AM"))
+				? NSLOCTEXT("IGHUD", "MainTitle", "없는 층")
+				: FText::FromString(TEXT("THE MISSING FLOOR"))
 			: bKorean
 				? NSLOCTEXT("IGHUD", "PauseTitle", "잠시 멈춤")
 				: FText::FromString(TEXT("PAUSED")),
@@ -3885,9 +3889,9 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 				? NSLOCTEXT(
 					"IGHUD",
 					"MainSubtitle",
-					"다음 날 새벽, 냉장고에는 또 물이 없다.")
+					"존재하지 않는 층은 소리로 먼저 드러난다.")
 				: FText::FromString(
-					TEXT("THE NEXT MORNING, THE FRIDGE IS EMPTY AGAIN."))
+					TEXT("A FLOOR THAT ISN'T THERE IS HEARD FIRST."))
 			: bKorean
 				? NSLOCTEXT(
 					"IGHUD",
@@ -3897,7 +3901,21 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		142.0f,
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint);
-	if (bSystemMenuIsTitle && bSystemMenuConfirmNewGame)
+	if (bSystemMenuIsTitle && bSystemMenuHeadphoneRecommendation)
+	{
+		DrawCenteredText(
+			bKorean
+				? NSLOCTEXT(
+					"IGHUD",
+					"HeadphoneRecommendation",
+					"이 게임은 헤드폰으로 듣도록 만들어졌다.  ·  아무 키로 건너뛰기")
+				: FText::FromString(
+					TEXT("THIS GAME IS MADE TO BE HEARD ON HEADPHONES.  ·  ANY KEY TO SKIP")),
+			194.0f,
+			IGHorrorHUD::ThoughtBlue,
+			EIGHudTextRole::Hint);
+	}
+	else if (bSystemMenuIsTitle && bSystemMenuConfirmNewGame)
 	{
 		DrawCenteredText(
 			bKorean

@@ -91,6 +91,7 @@ private:
 	void HandleImpactMarkExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleAnswerKnock(AIGMissingFloorEvidence* Evidence);
 	void DeliverWallAnswer();
+	void EndAnswerSilence();
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
 	void RefreshAnswerTargetAvailability();
 	void RefreshJournalAvailability(bool bHourActive);
@@ -166,6 +167,7 @@ private:
 
 	FDelegateHandle TruthHandle;
 	FTimerHandle AnswerTimer;
+	FTimerHandle AnswerSilenceReleaseTimer;
 	TArray<double> AnswerTapTimes;
 	bool bValveOpen = false;
 	bool bAnswerPending = false;

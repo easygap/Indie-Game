@@ -215,6 +215,11 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		TEXT("HapticsEnabled"),
 		PersistedSettings.bHapticsEnabled,
 		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("MicrophoneNoiseEnabled"),
+		PersistedSettings.bMicrophoneNoiseEnabled,
+		GGameUserSettingsIni);
 	GConfig->GetFloat(
 		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
@@ -295,6 +300,11 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		TEXT("HapticsEnabled"),
 		PersistedSettings.bHapticsEnabled,
 		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("MicrophoneNoiseEnabled"),
+		PersistedSettings.bMicrophoneNoiseEnabled,
+		GGameUserSettingsIni);
 	GConfig->SetFloat(
 		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
@@ -329,6 +339,8 @@ void UIGAccessibilitySubsystem::ApplyCommandLineOverrides(
 		FParse::Param(CommandLine, TEXT("IGAutoConnectEvidence"));
 	Settings.bToggleHoldInteractions |=
 		FParse::Param(CommandLine, TEXT("IGToggleHolds"));
+	Settings.bMicrophoneNoiseEnabled |=
+		FParse::Param(CommandLine, TEXT("IGMicrophoneMode"));
 	if (FParse::Param(CommandLine, TEXT("IGHoldCrouch")))
 	{
 		Settings.bToggleCrouch = false;

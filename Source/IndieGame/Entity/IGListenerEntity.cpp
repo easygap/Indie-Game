@@ -1,6 +1,7 @@
 #include "Entity/IGListenerEntity.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Components/CapsuleComponent.h"
@@ -76,6 +77,13 @@ void AIGListenerEntity::BeginPlay()
 			IGAudio::MakeAttenuation(this, 220.0f, 2400.0f);
 		DragLoopComponent->bAllowSpatialization = true;
 		DragLoopComponent->SetVolumeMultiplier(0.0f);
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterComponent(
+				DragLoopComponent,
+				EIGAudioBus::Entity);
+		}
 		DragLoopComponent->Play();
 	}
 
@@ -118,6 +126,41 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 	State = NewState;
 	StateSeconds = 0.0f;
 	StuckSeconds = 0.0f;
+
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			EIGAudioThreatState AudioState = EIGAudioThreatState::Calm;
+			switch (NewState)
+			{
+			case EIGListenerState::Banging:
+				AudioState = EIGAudioThreatState::Banging;
+				break;
+			case EIGListenerState::Listening:
+				AudioState = EIGAudioThreatState::Listening;
+				break;
+			case EIGListenerState::Investigating:
+			case EIGListenerState::Holding:
+			case EIGListenerState::Searching:
+				AudioState = EIGAudioThreatState::Investigating;
+				break;
+			case EIGListenerState::Chasing:
+				AudioState = EIGAudioThreatState::Chasing;
+				break;
+			case EIGListenerState::CaptureHold:
+			case EIGListenerState::FinaleLured:
+				AudioState = EIGAudioThreatState::Finale;
+				break;
+			case EIGListenerState::Patrolling:
+			case EIGListenerState::Waiting:
+			default:
+				break;
+			}
+			AudioDirector->SetThreatState(AudioState);
+		}
+	}
 
 	switch (NewState)
 	{
@@ -432,7 +475,8 @@ void AIGListenerEntity::NotifyAnswerKnock(const FVector& KnockLocation)
 		0.9f,
 		1.0f,
 		240.0f,
-		2600.0f);
+		2600.0f,
+		EIGAudioBus::Entity);
 }
 
 void AIGListenerEntity::SetDormant(const bool bInDormant)
@@ -459,6 +503,15 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 		if (NoiseSubsystem)
 		{
 			NoiseSubsystem->SetGlobalMasking(0.0f);
+		}
+		if (UWorld* World = GetWorld())
+		{
+			if (UIGMissingFloorAudioSubsystem* AudioDirector =
+				World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+			{
+				AudioDirector->SetThreatState(EIGAudioThreatState::Calm);
+				AudioDirector->SetEntityDistance(MAX_flt);
+			}
 		}
 	}
 	else
@@ -855,7 +908,8 @@ void AIGListenerEntity::PlayKnockTriple()
 		1.0f,
 		1.0f,
 		300.0f,
-		3600.0f);
+		3600.0f,
+		EIGAudioBus::Entity);
 }
 
 void AIGListenerEntity::PlayPlasterSettle()
@@ -867,7 +921,8 @@ void AIGListenerEntity::PlayPlasterSettle()
 		0.6f,
 		1.0f,
 		160.0f,
-		1200.0f);
+		1200.0f,
+		EIGAudioBus::Entity);
 }
 
 void AIGListenerEntity::UpdateDragLoop(const float CurrentSpeed)
@@ -901,6 +956,14 @@ void AIGListenerEntity::UpdateThreatPressure()
 	float Pressure = 0.0f;
 	const float Distance =
 		FVector::Dist(Player->GetActorLocation(), GetActorLocation());
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetEntityDistance(Distance);
+		}
+	}
 	switch (State)
 	{
 	case EIGListenerState::Chasing:
@@ -948,7 +1011,8 @@ void AIGListenerEntity::BeginCapture(APawn* Player)
 		1.0f,
 		1.0f,
 		120.0f,
-		600.0f);
+		600.0f,
+		EIGAudioBus::Entity);
 
 	OnPlayerCaptured.Broadcast(Player);
 }

@@ -15,6 +15,18 @@ enum class EIGToneWaveform : uint8
 	ValueNoise
 };
 
+/** Physical floor families used by the §21.2 stealth/noise matrix. */
+UENUM(BlueprintType)
+enum class EIGFootstepSurface : uint8
+{
+	Vinyl,
+	Concrete,
+	MetalStair,
+	Rooftop,
+	GypsumDebris,
+	Water
+};
+
 /**
  * One note in a tone sequence. All fields are immutable once playback starts.
  * The amplitude envelope is a smooth attack over AttackFraction of the note,
@@ -129,6 +141,29 @@ public:
 	 * (lower = duller wood, higher = harder tile) and Amplitude scales loudness.
 	 */
 	static UIGToneSequenceSoundWave* CreateFootstep(UObject* Outer, float PitchScale, float Amplitude);
+
+	/** Surface-authored footfall; gameplay loudness is applied by the caller. */
+	static UIGToneSequenceSoundWave* CreateSurfaceFootstep(
+		UObject* Outer,
+		EIGFootstepSurface Surface,
+		float VariationPitch,
+		float Amplitude = 1.0f);
+
+	/** M-조율: 220 Hz triangle, -30 cents, rising two cents per strike. */
+	static UIGToneSequenceSoundWave* CreateTuningMotif(
+		UObject* Outer,
+		bool bResolvedEndingA);
+
+	/** One M-조율 strike for a newly crossed truth; index rises by two cents. */
+	static UIGToneSequenceSoundWave* CreateTuningStrike(
+		UObject* Outer,
+		int32 ConfirmationIndex);
+
+	/** M-공동: 44 Hz cavity mass, 180 Hz value noise and sparse water ticks. */
+	static UIGToneSequenceSoundWave* CreateCavityDrone(UObject* Outer);
+
+	/** 118 BPM pursuit loop: 52 Hz pulse plus a 220/223/227 Hz cluster. */
+	static UIGToneSequenceSoundWave* CreateChaseScore(UObject* Outer);
 
 	/**
 	 * The isolated first note of the 04:44 alarm pattern. CH02 plays it once

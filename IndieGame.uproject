@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"EngineAssociation": "5.8",
 	"Category": "Games",
-	"Description": "A Korean first-person psychological horror game set at 4:44 AM.",
+	"Description": "없는 층 — a Korean first-person psychological horror game about listening, memory, and an illegal floor.",
 	"Modules": [
 		{
 			"Name": "IndieGame",
@@ -17,6 +17,14 @@
 		},
 		{
 			"Name": "GeometryScripting",
+			"Enabled": true
+		},
+		{
+			"Name": "AudioCapture",
+			"Enabled": true
+		},
+		{
+			"Name": "ResonanceAudio",
 			"Enabled": true
 		},
 		{

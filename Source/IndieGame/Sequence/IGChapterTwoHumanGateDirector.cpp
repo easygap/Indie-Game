@@ -1,6 +1,7 @@
 ﻿#include "Sequence/IGChapterTwoHumanGateDirector.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
@@ -840,6 +841,11 @@ void AIGChapterTwoHumanGateDirector::Start401Radio()
 		UIGToneSequenceSoundWave::CreateMuffledPrayerRadio(this));
 	Radio401Component->SetVolumeMultiplier(0.28f);
 	Radio401Component->RegisterComponent();
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->RegisterComponent(Radio401Component, EIGAudioBus::World);
+	}
 	Radio401Component->SetWorldLocation(
 		ToWorld(IGChapterTwoHumanGate::Radio401LocalLocation));
 	Radio401Component->Play();

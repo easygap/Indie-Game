@@ -75,6 +75,13 @@ struct INDIEGAME_API FIGAccessibilitySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bHapticsEnabled = true;
 
+	/**
+	 * Optional real microphone-to-noise bridge. OFF is the balance baseline;
+	 * enabling it never records, stores or transmits captured samples.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bMicrophoneNoiseEnabled = false;
+
 	/** Multiplier applied only to non-zero hold interactions. */
 	UPROPERTY(
 		EditAnywhere,
@@ -196,6 +203,12 @@ public:
 	bool AreHapticsEnabled() const
 	{
 		return EffectiveSettings.bHapticsEnabled;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Audio")
+	bool IsMicrophoneNoiseEnabled() const
+	{
+		return EffectiveSettings.bMicrophoneNoiseEnabled;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Input")

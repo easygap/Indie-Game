@@ -1,6 +1,7 @@
 ﻿#include "Player/IGPlayerController.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "AssetCompilingManager.h"
 #include "EnhancedInputSubsystems.h"
@@ -20,6 +21,7 @@
 #include "HighResScreenshot.h"
 #include "Misc/App.h"
 #include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
@@ -27,6 +29,7 @@
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGPlayerCharacter.h"
 #include "Save/IGSaveSubsystem.h"
 #include "Sequence/IGSecondMorningDirector.h"
 #include "Sequence/IGThirdMorningDirector.h"
@@ -34,7 +37,7 @@
 
 namespace IGAccessibilityMenu
 {
-	constexpr int32 RowCount = 16;
+	constexpr int32 RowCount = 17;
 }
 
 namespace IGSystemMenu
@@ -79,6 +82,7 @@ void AIGPlayerController::BeginPlay()
 	{
 		SystemMenuSelection = 0;
 		SetSystemMenuMode(EIGSystemMenuMode::Title);
+		StartHeadphoneRecommendationIfNeeded();
 	}
 	else
 	{
@@ -133,7 +137,14 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 			OpenMissingFloorJournal();
 		}
 	}
-	if (!bDisplaySettingsAwaitingConfirmation && !bJournalInputHeld)
+	if (bHeadphoneRecommendationVisible
+		&& FPlatformTime::Seconds() >= HeadphoneRecommendationDeadline)
+	{
+		DismissHeadphoneRecommendation();
+	}
+	if (!bDisplaySettingsAwaitingConfirmation
+		&& !bJournalInputHeld
+		&& !bHeadphoneRecommendationVisible)
 	{
 		SetActorTickEnabled(false);
 		return;
@@ -237,6 +248,13 @@ bool AIGPlayerController::InputKey(const FInputKeyEventArgs& Params)
 				&& (FMath::Abs(Params.AmountDepressed) > AxisThreshold
 					|| Params.AmountDepressed2D.SizeSquared()
 						> FMath::Square(AxisThreshold))));
+	if (bHeadphoneRecommendationVisible
+		&& !Params.IsSimulatedInput()
+		&& Params.Event == IE_Pressed)
+	{
+		DismissHeadphoneRecommendation();
+		return true;
+	}
 	if (bMeaningfulInput && bUsingGamepadForHud != bGamepad)
 	{
 		SetInputDevicePresentation(bGamepad);
@@ -1413,10 +1431,21 @@ void AIGPlayerController::PlayMissingFloorJournalPaperSound(
 		UIGToneSequenceSoundWave::CreateJournalPageTurn(
 			const_cast<AIGPlayerController*>(this)))
 	{
-		UGameplayStatics::PlaySound2D(
+		UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+			? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+			: nullptr;
+		if (AudioDirector)
+		{
+			AudioDirector->PrepareSound(Paper, EIGAudioBus::UI);
+		}
+		UAudioComponent* PaperVoice = UGameplayStatics::SpawnSound2D(
 			this,
 			Paper,
 			FMath::Clamp(VolumeMultiplier, 0.0f, 1.0f));
+		if (AudioDirector)
+		{
+			AudioDirector->RegisterComponent(PaperVoice, EIGAudioBus::UI);
+		}
 	}
 }
 
@@ -1540,16 +1569,21 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		return;
 	}
 
-	if (AccessibilitySelection == 14)
+	if (AccessibilitySelection == 15)
 	{
 		if (bConfirm)
 		{
 			Accessibility->ResetToDefaults();
+			if (AIGPlayerCharacter* PlayerCharacter =
+				Cast<AIGPlayerCharacter>(GetPawn()))
+			{
+				PlayerCharacter->RefreshMicrophoneCaptureMode();
+			}
 		}
 		RefreshMenuHud();
 		return;
 	}
-	if (AccessibilitySelection == 15)
+	if (AccessibilitySelection == 16)
 	{
 		if (bConfirm)
 		{
@@ -1622,10 +1656,18 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 	case 13:
 		Settings.bHapticsEnabled = !Settings.bHapticsEnabled;
 		break;
+	case 14:
+		Settings.bMicrophoneNoiseEnabled = !Settings.bMicrophoneNoiseEnabled;
+		break;
 	default:
 		return;
 	}
 	Accessibility->ApplySettings(Settings);
+	if (AIGPlayerCharacter* PlayerCharacter =
+		Cast<AIGPlayerCharacter>(GetPawn()))
+	{
+		PlayerCharacter->RefreshMicrophoneCaptureMode();
+	}
 	RefreshMenuHud();
 }
 
@@ -1728,9 +1770,18 @@ void AIGPlayerController::ConfirmSystemMenuSelection()
 void AIGPlayerController::SetSystemMenuMode(const EIGSystemMenuMode NewMode)
 {
 	SystemMenuMode = NewMode;
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetTitleMode(NewMode == EIGSystemMenuMode::Title);
+		}
+	}
 	if (NewMode != EIGSystemMenuMode::Title)
 	{
 		bNewGameConfirmationArmed = false;
+		bHeadphoneRecommendationVisible = false;
 	}
 	if (NewMode != EIGSystemMenuMode::DisplaySettings)
 	{
@@ -1748,6 +1799,56 @@ void AIGPlayerController::SetSystemMenuMode(const EIGSystemMenuMode NewMode)
 	}
 	SetPause(NewMode != EIGSystemMenuMode::Hidden);
 	ApplyMenuInputMode();
+	RefreshMenuHud();
+}
+
+void AIGPlayerController::StartHeadphoneRecommendationIfNeeded()
+{
+	if (!IsLocalController()
+		|| SystemMenuMode != EIGSystemMenuMode::Title
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGFrontendShippingProbe"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloorJournalPreview")))
+	{
+		return;
+	}
+
+	constexpr const TCHAR* Section = TEXT("IndieGame.AudioOnboarding");
+	bool bAlreadyShown = false;
+	if (GConfig)
+	{
+		GConfig->GetBool(
+			Section,
+			TEXT("HeadphoneRecommendationShown"),
+			bAlreadyShown,
+			GGameUserSettingsIni);
+	}
+	if (bAlreadyShown)
+	{
+		return;
+	}
+
+	bHeadphoneRecommendationVisible = true;
+	HeadphoneRecommendationDeadline = FPlatformTime::Seconds() + 2.5;
+	if (GConfig)
+	{
+		GConfig->SetBool(
+			Section,
+			TEXT("HeadphoneRecommendationShown"),
+			true,
+			GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+	SetActorTickEnabled(true);
+	RefreshMenuHud();
+}
+
+void AIGPlayerController::DismissHeadphoneRecommendation()
+{
+	if (!bHeadphoneRecommendationVisible)
+	{
+		return;
+	}
+	bHeadphoneRecommendationVisible = false;
 	RefreshMenuHud();
 }
 
@@ -2221,6 +2322,8 @@ void AIGPlayerController::RefreshMenuHud() const
 			SystemMenuMode == EIGSystemMenuMode::DisplaySettings;
 		Presentation.bCanContinue = bCompatibleAutosaveAvailable;
 		Presentation.bConfirmNewGame = bNewGameConfirmationArmed;
+		Presentation.bHeadphoneRecommendation =
+			bHeadphoneRecommendationVisible;
 		Presentation.bVSync = bDisplayVSync;
 		Presentation.bDisplaySettingsApplied = bDisplaySettingsApplied;
 		Presentation.bDisplaySettingsAwaitingConfirmation =

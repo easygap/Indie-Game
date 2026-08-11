@@ -1,6 +1,7 @@
 ﻿#include "Entity/IGMissingFloorNightFourDirector.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
@@ -20,6 +21,7 @@
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGStressComponent.h"
 
 namespace IGNightFour
 {
@@ -744,6 +746,14 @@ void AIGMissingFloorNightFourDirector::EndPlay(
 	{
 		WaterMaskBed->Stop();
 	}
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetAuthoredSilence(false);
+		}
+	}
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -752,6 +762,14 @@ void AIGMissingFloorNightFourDirector::SetHourActive(const bool bHourActive)
 	bHourCurrentlyActive = bHourActive;
 	if (!bHourCurrentlyActive)
 	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UIGMissingFloorAudioSubsystem* AudioDirector =
+				World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+			{
+				AudioDirector->SetAuthoredSilence(false);
+			}
+		}
 		ResetFinaleTimers();
 		bFinalRevealActive = false;
 		bMokRetreatActive = false;
@@ -990,6 +1008,25 @@ void AIGMissingFloorNightFourDirector::BeginSilenceBeat()
 	{
 		Narrative->MarkBeatPlayed(IGNightFour::FinalRevealBeat);
 	}
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetAuthoredSilence(true);
+		}
+		if (APlayerController* Controller = World->GetFirstPlayerController())
+		{
+			if (AIGPlayerCharacter* Player =
+				Cast<AIGPlayerCharacter>(Controller->GetPawn()))
+			{
+				if (UIGStressComponent* Stress = Player->GetStress())
+				{
+					Stress->SuppressHeartbeat(2.35f, true);
+				}
+			}
+		}
+	}
 
 	AIGHorrorHUD::PushThought(
 		this,
@@ -1022,7 +1059,8 @@ void AIGMissingFloorNightFourDirector::PlayDistantReply()
 		0.72f,
 		0.84f,
 		220.0f,
-		2400.0f);
+		2400.0f,
+		EIGAudioBus::Entity);
 	AIGHorrorHUD::PushAudioCaption(
 		this,
 		NSLOCTEXT("IGMissingFloor", "FinalRevealKnockCaption", "멀리서, 두 번의 노크"),
@@ -1034,6 +1072,15 @@ void AIGMissingFloorNightFourDirector::PresentMokHansoo()
 	if (bFinalConfrontationComplete)
 	{
 		return;
+	}
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetAuthoredSilence(false);
+			AudioDirector->SetThreatState(EIGAudioThreatState::Finale);
+		}
 	}
 	for (UStaticMeshComponent* Visual : MokVisuals)
 	{
@@ -1051,7 +1098,8 @@ void AIGMissingFloorNightFourDirector::PresentMokHansoo()
 		0.52f,
 		0.88f,
 		160.0f,
-		1200.0f);
+		1200.0f,
+		EIGAudioBus::World);
 	AIGHorrorHUD::PushFearDirection(
 		this, IGNightFour::MokStartLocation, 1.0f);
 	AIGHorrorHUD::PushDialogue(
@@ -1270,7 +1318,11 @@ void AIGMissingFloorNightFourDirector::ActivateControl(
 			this,
 			UIGToneSequenceSoundWave::CreateDoorThud(this),
 			Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
-			0.9f);
+			0.9f,
+			1.0f,
+			180.0f,
+			1800.0f,
+			EIGAudioBus::Puzzle);
 		AIGHorrorHUD::PushThought(
 			this,
 			NSLOCTEXT(
@@ -1331,6 +1383,16 @@ void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 	WaterMaskBed->AttenuationSettings = IGAudio::MakeAttenuation(this, 180.0f, 1500.0f);
 	WaterMaskBed->bAllowSpatialization = true;
 	WaterMaskBed->SetVolumeMultiplier(0.62f);
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterComponent(
+				WaterMaskBed,
+				EIGAudioBus::Puzzle);
+		}
+	}
 	if (bHourCurrentlyActive)
 	{
 		WaterMaskBed->Play();
@@ -1363,7 +1425,10 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 		UIGToneSequenceSoundWave::CreateDoorThud(this),
 		Evidence ? Evidence->GetActorLocation() : IGNightFour::WallBreakLocation,
 		1.0f,
-		0.78f + static_cast<float>(StrikeCount) * 0.025f);
+		0.78f + static_cast<float>(StrikeCount) * 0.025f,
+		160.0f,
+		1400.0f,
+		EIGAudioBus::Puzzle);
 
 	if (StrikeCount == 3)
 	{
@@ -1443,6 +1508,11 @@ void AIGMissingFloorNightFourDirector::FinishEnding(const FName EndingId)
 	const bool bEndingA = EndingId == IGNightFour::EndingAId;
 	if (bEndingA)
 	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->PlayEndingATuningResolution();
+		}
 		bEndingHammerMoving = EndingHammerVisual != nullptr;
 		EndingHammerSeconds = 0.0f;
 		if (EndingHammerVisual)
@@ -1466,7 +1536,8 @@ void AIGMissingFloorNightFourDirector::FinishEnding(const FName EndingId)
 			0.35f,
 			0.82f,
 			80.0f,
-			520.0f);
+			520.0f,
+			EIGAudioBus::Puzzle);
 	}
 	AIGHorrorHUD::PushThought(
 		this,

@@ -62,6 +62,8 @@ private:
 	void MoveSystemMenuSelection(int32 Direction);
 	void ConfirmSystemMenuSelection();
 	void SetSystemMenuMode(EIGSystemMenuMode NewMode);
+	void StartHeadphoneRecommendationIfNeeded();
+	void DismissHeadphoneRecommendation();
 	void OpenDisplaySettings();
 	void ReturnFromDisplaySettings();
 	void RefreshStagedDisplaySettings();
@@ -153,6 +155,7 @@ private:
 	bool bUsingGamepadForHud = false;
 	bool bCompatibleAutosaveAvailable = false;
 	bool bNewGameConfirmationArmed = false;
+	bool bHeadphoneRecommendationVisible = false;
 	bool bDisplayVSync = true;
 	bool bDisplaySettingsApplied = false;
 	bool bDisplaySettingsAwaitingConfirmation = false;
@@ -187,5 +190,6 @@ private:
 	float PreviousDisplayFrameLimit = 60.0f;
 	double DisplayConfirmationDeadline = 0.0;
 	double JournalInputPressedAt = 0.0;
+	double HeadphoneRecommendationDeadline = 0.0;
 	FText SystemMenuStatusText;
 };

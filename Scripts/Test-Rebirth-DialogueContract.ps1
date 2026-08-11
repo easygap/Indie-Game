@@ -156,7 +156,7 @@ Assert-ContainsAll $accessibilitySource @(
 	'IGCaptionBackground='
 ) '200% 확대·배경·명령행 검증 경로'
 Assert-ContainsAll $controller @(
-	'RowCount = 16',
+	'RowCount = 17',
 	'Settings.bSoundCaptionsEnabled = !Settings.bSoundCaptionsEnabled',
 	'Settings.CaptionBackgroundOpacity = FMath::Clamp(',
 	'FrontendProbeNextActionTime = Now + 0.30',
