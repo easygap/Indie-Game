@@ -355,6 +355,29 @@ $plan = @(
         Crop = @(0.502, 0.502, 0.496, 0.496); Size = @(1024, 1024)
         Mode = 'ChromaAlphaGreen'; Desaturate = 0.10
     }
+    # M0 first-person knock. V2 keeps the approved hand while extending the
+    # sleeve through each lower-right cell corner, so its crop can live beyond
+    # the viewport instead of ending as a visible rectangle.
+    [pscustomobject]@{
+        Source = 'SheetFirstPersonKnockPhases_v2_RGBA'; Target = 'T_FPHandKnock0_D.png'
+        Crop = @(0.002, 0.002, 0.496, 0.496); Size = @(768, 768)
+        ContentScale = 0.63; Mode = 'PreserveAlphaGreenDespill'
+    }
+    [pscustomobject]@{
+        Source = 'SheetFirstPersonKnockPhases_v2_RGBA'; Target = 'T_FPHandKnock1_D.png'
+        Crop = @(0.502, 0.002, 0.496, 0.496); Size = @(768, 768)
+        ContentScale = 0.63; Mode = 'PreserveAlphaGreenDespill'
+    }
+    [pscustomobject]@{
+        Source = 'SheetFirstPersonKnockPhases_v2_RGBA'; Target = 'T_FPHandKnock2_D.png'
+        Crop = @(0.002, 0.502, 0.496, 0.496); Size = @(768, 768)
+        ContentScale = 0.63; Mode = 'PreserveAlphaGreenDespill'
+    }
+    [pscustomobject]@{
+        Source = 'SheetFirstPersonKnockPhases_v2_RGBA'; Target = 'T_FPHandKnock3_D.png'
+        Crop = @(0.502, 0.502, 0.496, 0.496); Size = @(768, 768)
+        ContentScale = 0.63; Mode = 'PreserveAlphaGreenDespill'
+    }
 )
 
 if ($OnlySource.Count -gt 0) {
@@ -388,7 +411,18 @@ foreach ($entry in $plan) {
         $graphics.InterpolationMode = 'HighQualityBicubic'
         $graphics.PixelOffsetMode = 'HighQuality'
         $graphics.SmoothingMode = 'HighQuality'
-        $destRect = New-Object System.Drawing.Rectangle(0, 0, $entry.Size[0], $entry.Size[1])
+        $graphics.Clear([System.Drawing.Color]::Transparent)
+        $contentScale = if ($null -ne $entry.PSObject.Properties['ContentScale']) {
+            [double]$entry.ContentScale
+        }
+        else {
+            1.0
+        }
+        $destRect = New-Object System.Drawing.Rectangle(
+            0,
+            0,
+            [int][Math]::Round($entry.Size[0] * $contentScale),
+            [int][Math]::Round($entry.Size[1] * $contentScale))
         $graphics.DrawImage($source, $destRect, $cropRect, [System.Drawing.GraphicsUnit]::Pixel)
 
         # Paint out and rewrite any fine print the generator invented.
@@ -543,6 +577,34 @@ foreach ($entry in $plan) {
                             [int][Math]::Round($red),
                             [int][Math]::Round($green),
                             [int][Math]::Round($blue)))
+                }
+            }
+        }
+        elseif ($entryMode -eq 'PreserveAlphaGreenDespill') {
+            # The imagegen helper owns the soft matte. This second pass only
+            # removes sub-pixel green reflected into surviving RGB during the
+            # source render; it never expands or erodes the approved alpha.
+            for ($y = 0; $y -lt $target.Height; $y++) {
+                for ($x = 0; $x -lt $target.Width; $x++) {
+                    $pixel = $target.GetPixel($x, $y)
+                    if ($pixel.A -le 3) {
+                        $target.SetPixel(
+                            $x,
+                            $y,
+                            [System.Drawing.Color]::FromArgb(0, 0, 0, 0))
+                        continue
+                    }
+                    $neutralGreen =
+                        ([double]$pixel.R + [double]$pixel.B) * 0.5 + 4.0
+                    $green = [Math]::Min([double]$pixel.G, $neutralGreen)
+                    $target.SetPixel(
+                        $x,
+                        $y,
+                        [System.Drawing.Color]::FromArgb(
+                            $pixel.A,
+                            $pixel.R,
+                            [int][Math]::Round($green),
+                            $pixel.B))
                 }
             }
         }

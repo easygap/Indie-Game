@@ -21,6 +21,10 @@ HUD_UI_ONLY = os.environ.get("IG_HUD_UI_ONLY") == "1"
 HUD_UI_TEXTURE_NAMES = {
     "T_HudDialogueFilm_D",
     "T_MissingFloorJournalPaper_D",
+    "T_FPHandKnock0_D",
+    "T_FPHandKnock1_D",
+    "T_FPHandKnock2_D",
+    "T_FPHandKnock3_D",
 }
 APARTMENT_VISUAL_ONLY = os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1"
 APARTMENT_VISUAL_TEXTURE_NAMES = {

@@ -17,7 +17,7 @@ namespace IGInteraction
 
 UIGInteractionComponent::UIGInteractionComponent()
 {
-	PrimaryComponentTick.bCanEverTick = false;
+	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 	bAutoActivate = true;
 }
@@ -30,6 +30,9 @@ void UIGInteractionComponent::BeginPlay()
 		FocusUpdateInterval,
 		IGInteraction::MinUpdateInterval,
 		IGInteraction::MaxUpdateInterval);
+	InputBufferSeconds = FMath::Clamp(InputBufferSeconds, 0.0f, 0.25f);
+	HoldRewindSpeedScale = FMath::Max(0.1f, HoldRewindSpeedScale);
+	SetComponentTickEnabled(false);
 
 	RefreshFocus();
 
@@ -52,6 +55,8 @@ void UIGInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	}
 
 	bInteractionPressed = false;
+	ClearBufferedPress();
+	ClearHoldProgressRewind();
 	FinishActiveInteraction(EIGInteractionEndReason::OwnerEndPlay, false);
 	FocusedActor.Reset();
 	FocusedHitResult = FHitResult();
@@ -59,10 +64,24 @@ void UIGInteractionComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	Super::EndPlay(EndPlayReason);
 }
 
+void UIGInteractionComponent::TickComponent(
+	const float DeltaTime,
+	const ELevelTick TickType,
+	FActorComponentTickFunction* ThisTickFunction)
+{
+	Super::TickComponent(DeltaTime, TickType, ThisTickFunction);
+	UpdateActiveInteraction();
+}
+
 void UIGInteractionComponent::PressInteraction()
 {
-	if (!bInteractionInputEnabled || !IsActive() || bFinalizingInteraction)
+	if (!bInteractionInputEnabled || !IsActive())
 	{
+		return;
+	}
+	if (bFinalizingInteraction)
+	{
+		BufferInteractionPress();
 		return;
 	}
 	if (bInteractionActive && bToggleHoldLatched)
@@ -85,6 +104,21 @@ void UIGInteractionComponent::PressInteraction()
 	{
 		return;
 	}
+	if (!TryStartFocusedInteraction())
+	{
+		BufferInteractionPress();
+	}
+}
+
+bool UIGInteractionComponent::TryStartFocusedInteraction()
+{
+	if (!bInteractionInputEnabled
+		|| !bInteractionPressed
+		|| bInteractionActive
+		|| bFinalizingInteraction)
+	{
+		return false;
+	}
 
 	AActor* Target = FocusedActor.Get();
 	AActor* Interactor = GetOwner();
@@ -93,7 +127,7 @@ void UIGInteractionComponent::PressInteraction()
 		|| !Target->GetClass()->ImplementsInterface(UIGInteractable::StaticClass())
 		|| !IIGInteractable::Execute_CanInteract(Target, Interactor))
 	{
-		return;
+		return false;
 	}
 
 	const auto IsAttemptValid = [this, Target, AttemptGeneration]()
@@ -108,14 +142,14 @@ void UIGInteractionComponent::PressInteraction()
 
 	if (!IsAttemptValid())
 	{
-		return;
+		return false;
 	}
 
 	const FGameplayTag TargetInteractionTag =
 		IIGInteractable::Execute_GetInteractionTag(Target, Interactor);
 	if (!IsAttemptValid())
 	{
-		return;
+		return false;
 	}
 
 	float TargetHoldDuration = FMath::Max(
@@ -123,7 +157,7 @@ void UIGInteractionComponent::PressInteraction()
 		IIGInteractable::Execute_GetInteractionHoldDuration(Target, Interactor));
 	if (!IsAttemptValid())
 	{
-		return;
+		return false;
 	}
 	bool bUseToggleHold = false;
 	if (TargetHoldDuration > KINDA_SMALL_NUMBER)
@@ -149,6 +183,9 @@ void UIGInteractionComponent::PressInteraction()
 	ActiveStartTime = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
 	bInteractionActive = true;
 	bToggleHoldLatched = bUseToggleHold;
+	ClearBufferedPress();
+	ClearHoldProgressRewind();
+	SetComponentTickEnabled(true);
 
 	const FIGInteractionContext Context = MakeContext(
 		Target,
@@ -161,12 +198,12 @@ void UIGInteractionComponent::PressInteraction()
 	if (!IsValid(Target))
 	{
 		FinishActiveInteraction(EIGInteractionEndReason::Cancelled, false);
-		return;
+		return true;
 	}
 
 	if (!bInteractionActive || ActiveActor.Get() != Target)
 	{
-		return;
+		return true;
 	}
 
 	OnInteractionStarted.Broadcast(Target);
@@ -178,6 +215,7 @@ void UIGInteractionComponent::PressInteraction()
 	{
 		CompleteActiveInteraction();
 	}
+	return true;
 }
 
 void UIGInteractionComponent::ReleaseInteraction()
@@ -199,13 +237,14 @@ void UIGInteractionComponent::ReleaseInteraction()
 
 void UIGInteractionComponent::CancelInteraction()
 {
-	if (!bInteractionPressed && !bInteractionActive)
+	if (!bInteractionPressed && !bInteractionActive && !bInteractionPressBuffered)
 	{
 		return;
 	}
 
 	++InteractionGeneration;
 	bInteractionPressed = false;
+	ClearBufferedPress();
 	FinishActiveInteraction(EIGInteractionEndReason::Cancelled, false);
 }
 
@@ -222,6 +261,8 @@ void UIGInteractionComponent::SetInteractionInputEnabled(const bool bEnabled)
 	if (!bEnabled)
 	{
 		bInteractionPressed = false;
+		ClearBufferedPress();
+		ClearHoldProgressRewind();
 		FinishActiveInteraction(EIGInteractionEndReason::Cancelled, false);
 		SetFocusedActor(nullptr, FHitResult());
 	}
@@ -401,17 +442,34 @@ bool UIGInteractionComponent::IsInteracting() const
 
 float UIGInteractionComponent::GetHoldProgress() const
 {
-	if (!bInteractionActive)
+	if (bInteractionActive)
+	{
+		if (ActiveHoldDuration <= KINDA_SMALL_NUMBER)
+		{
+			return 1.0f;
+		}
+
+		return FMath::Clamp(
+			GetActiveHeldDuration() / ActiveHoldDuration,
+			0.0f,
+			1.0f);
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World
+		|| RewindStartProgress <= KINDA_SMALL_NUMBER
+		|| RewindSourceHoldDuration <= KINDA_SMALL_NUMBER)
 	{
 		return 0.0f;
 	}
 
-	if (ActiveHoldDuration <= KINDA_SMALL_NUMBER)
-	{
-		return 1.0f;
-	}
-
-	return FMath::Clamp(GetActiveHeldDuration() / ActiveHoldDuration, 0.0f, 1.0f);
+	const float Elapsed = FMath::Max(
+		0.0f,
+		World->GetTimeSeconds() - RewindStartTime);
+	return FMath::Max(
+		0.0f,
+		RewindStartProgress
+			- Elapsed * HoldRewindSpeedScale / RewindSourceHoldDuration);
 }
 
 void UIGInteractionComponent::HandleUpdateTimer()
@@ -427,7 +485,64 @@ void UIGInteractionComponent::HandleUpdateTimer()
 	}
 
 	RefreshFocus();
-	UpdateActiveInteraction();
+	TryConsumeBufferedPress();
+}
+
+void UIGInteractionComponent::BufferInteractionPress()
+{
+	const UWorld* World = GetWorld();
+	if (!World || InputBufferSeconds <= 0.0f)
+	{
+		return;
+	}
+
+	bInteractionPressBuffered = true;
+	BufferedPressExpiresAt = World->GetTimeSeconds() + InputBufferSeconds;
+}
+
+void UIGInteractionComponent::TryConsumeBufferedPress()
+{
+	if (!bInteractionPressBuffered
+		|| bFinalizingInteraction
+		|| bInteractionActive
+		|| !bInteractionInputEnabled)
+	{
+		return;
+	}
+
+	const UWorld* World = GetWorld();
+	if (!World || World->GetTimeSeconds() > BufferedPressExpiresAt)
+	{
+		ClearBufferedPress();
+		return;
+	}
+
+	const bool bWasPhysicallyPressed = bInteractionPressed;
+	bInteractionPressed = true;
+	if (!TryStartFocusedInteraction())
+	{
+		bInteractionPressed = bWasPhysicallyPressed;
+		return;
+	}
+
+	// A released buffered tap must behave exactly like a fresh press/release.
+	// Instant targets already completed synchronously; hold targets receive the
+	// ordinary early-release path (for example, a loud rather than quiet door).
+	if (!bWasPhysicallyPressed)
+	{
+		bInteractionPressed = false;
+		if (bInteractionActive && !bToggleHoldLatched)
+		{
+			++InteractionGeneration;
+			FinishActiveInteraction(EIGInteractionEndReason::Released, false);
+		}
+	}
+}
+
+void UIGInteractionComponent::ClearBufferedPress()
+{
+	bInteractionPressBuffered = false;
+	BufferedPressExpiresAt = 0.0f;
 }
 
 bool UIGInteractionComponent::GetInteractionViewPoint(FVector& OutLocation, FRotator& OutRotation) const
@@ -544,6 +659,7 @@ void UIGInteractionComponent::FinishActiveInteraction(
 		: (ActiveHoldDuration <= KINDA_SMALL_NUMBER
 			? 0.0f
 			: FMath::Clamp(HeldDuration / ActiveHoldDuration, 0.0f, 1.0f));
+	const float CompletedHoldDuration = ActiveHoldDuration;
 	const FIGInteractionContext Context = MakeContext(
 		Target,
 		ActiveHitResult,
@@ -553,6 +669,14 @@ void UIGInteractionComponent::FinishActiveInteraction(
 
 	// Clear first so callbacks cannot complete or end the same interaction twice.
 	ResetActiveState();
+	SetComponentTickEnabled(false);
+	if (!bCompleted
+		&& bInteractionInputEnabled
+		&& HoldProgress > KINDA_SMALL_NUMBER
+		&& EndReason != EIGInteractionEndReason::OwnerEndPlay)
+	{
+		BeginHoldProgressRewind(HoldProgress, CompletedHoldDuration);
+	}
 
 	if (IsValid(Target) && Target->GetClass()->ImplementsInterface(UIGInteractable::StaticClass()))
 	{
@@ -569,6 +693,29 @@ void UIGInteractionComponent::FinishActiveInteraction(
 
 	OnInteractionEnded.Broadcast(IsValid(Target) ? Target : nullptr, EndReason);
 	bFinalizingInteraction = false;
+}
+
+void UIGInteractionComponent::BeginHoldProgressRewind(
+	const float HoldProgress,
+	const float HoldDuration)
+{
+	const UWorld* World = GetWorld();
+	if (!World || HoldDuration <= KINDA_SMALL_NUMBER)
+	{
+		ClearHoldProgressRewind();
+		return;
+	}
+
+	RewindStartProgress = FMath::Clamp(HoldProgress, 0.0f, 1.0f);
+	RewindSourceHoldDuration = HoldDuration;
+	RewindStartTime = World->GetTimeSeconds();
+}
+
+void UIGInteractionComponent::ClearHoldProgressRewind()
+{
+	RewindStartProgress = 0.0f;
+	RewindSourceHoldDuration = 0.0f;
+	RewindStartTime = 0.0f;
 }
 
 void UIGInteractionComponent::ResetActiveState()

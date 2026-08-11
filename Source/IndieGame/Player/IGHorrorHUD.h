@@ -141,6 +141,9 @@ public:
 		const UObject* WorldContext,
 		float DurationSeconds = 3.0f);
 
+	/** Starts the authored first-person contact/recoil sequence for a valid knock. */
+	void PlayFirstPersonKnock();
+
 	/**
 	 * Returns the most recent frame that actually drew the CH03 lens droplet.
 	 * The Shipping visual probe uses this instead of trusting a screenshot
@@ -272,6 +275,7 @@ private:
 	void InitializeLensDropletTexture();
 	void InitializeDialogueSurfaceTextures();
 	void InitializeMissingFloorJournalTextures();
+	void InitializeFirstPersonActionTextures();
 	UFont* MakeRuntimeFont(UFontFace* FontFace, int32 PixelSize, const TCHAR* FontName);
 	UFont* GetFontForRole(EIGHudTextRole TextRole) const;
 	FText GetObjectiveText() const;
@@ -302,9 +306,9 @@ private:
 	void DrawThermalReceiptPanel(const AIGReadableNote& Note);
 	/** Dark, portrait phone screen used for the CH02 card approval record. */
 	void DrawPhoneNotificationPanel(const AIGReadableNote& Note);
-	void DrawHoldProgress(float Progress);
 	void DrawFearDirection(double CurrentTime);
 	void DrawLensDroplet(double CurrentTime);
+	void DrawFirstPersonKnock(double CurrentTime);
 	/**
 	 * One expanding arc at the screen edge, sized by how far the sound the
 	 * player just made actually carries (§5.1). No numbers, no meter: the ring
@@ -363,7 +367,7 @@ private:
 	void DrawMissingFloorJournalPanel();
 	UTexture2D* GetMissingFloorJournalThumbnail(int32 ThumbnailType) const;
 	/** Screen-space bracket that snaps around whatever is currently focused. */
-	void UpdateFocusBracket(const AActor* FocusedActor, float DeltaSeconds);
+	void UpdateFocusBracket(AActor* FocusedActor, float DeltaSeconds);
 	void DrawFocusBracket(const FLinearColor& Color, float Progress);
 
 	bool SupportsKorean() const { return KoreanFontMedium != nullptr; }
@@ -387,6 +391,10 @@ private:
 	/** ImageGen-derived blank ledger paper. All Korean copy remains runtime text. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> MissingFloorJournalTexture;
+
+	/** ImageGen-derived M0 hand phases; screen-space only, never world geometry. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UTexture2D>> FirstPersonKnockFrames;
 
 	/** Existing world textures sampled as restrained evidence-card thumbnails. */
 	UPROPERTY(Transient)
@@ -486,6 +494,11 @@ private:
 	float LensDropletLastAlpha = 0.0f;
 	bool bLensDropletLastReducedMotion = false;
 	double LensDropletLastRenderTime = -1.0;
+	double FirstPersonKnockStartTime = -1.0;
+#if !UE_BUILD_SHIPPING
+	double FirstPersonKnockPreviewNextTime = 0.0;
+	bool bFirstPersonKnockPreview = false;
+#endif
 
 	FText ChapterCardEyebrow;
 	FText ChapterCardTitle;
@@ -495,7 +508,9 @@ private:
 
 	FVector2D FocusBracketMin = FVector2D::ZeroVector;
 	FVector2D FocusBracketMax = FVector2D::ZeroVector;
+	TWeakObjectPtr<AActor> FocusBracketTarget;
 	float FocusBracketAlpha = 0.0f;
+	float FocusBracketAcquireElapsed = 0.0f;
 	double LastHudDrawTime = 0.0;
 	FVector2D LayoutValidationCanvasSize = FVector2D::ZeroVector;
 	FVector2D LayoutValidationBoundsMin = FVector2D::ZeroVector;

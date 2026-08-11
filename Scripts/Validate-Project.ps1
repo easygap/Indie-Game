@@ -130,6 +130,7 @@ $requiredFiles = @(
 	'Scripts/Test-Windows-ExecutableMetadata.ps1',
 	'Scripts/create_readme_media.py',
 	'Scripts/Test-ArtAssetContract.ps1',
+	'Scripts/Test-MissingFloor-M0InputContract.ps1',
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
 	'Scripts/RunEditor.bat',
@@ -2347,5 +2348,9 @@ $frontendContractScript = Join-Path $projectRoot `
 $artAssetContractScript = Join-Path $projectRoot `
 	'Scripts/Test-ArtAssetContract.ps1'
 & $artAssetContractScript
+
+$missingFloorM0InputContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M0InputContract.ps1'
+& $missingFloorM0InputContractScript
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

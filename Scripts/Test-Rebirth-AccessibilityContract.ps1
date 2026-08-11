@@ -83,6 +83,8 @@ Assert-ContainsAll $header @(
 	'CaptionBackgroundOpacity',
 	'CaptionSafeAreaScale',
 	'bToggleHoldInteractions',
+	'bToggleCrouch',
+	'bHapticsEnabled',
 	'HoldDurationScale',
 	'GetP3HintThresholds',
 	'GetP4HintThresholds',
@@ -91,6 +93,8 @@ Assert-ContainsAll $header @(
 	'UsesAutomaticEvidenceConnections',
 	'AreSubtitlesEnabled',
 	'AreSoundCaptionsEnabled',
+	'UsesToggleCrouch',
+	'AreHapticsEnabled',
 	'GetCaptionSizeScale',
 	'GetCaptionBackgroundOpacity',
 	'GetCaptionSafeAreaScale',
@@ -397,7 +401,7 @@ Assert-ContainsAll $controllerSource @(
 	'Settings.CaptionSizeScale = FMath::Clamp',
 	'Settings.CaptionBackgroundOpacity = FMath::Clamp',
 	'Settings.CaptionSafeAreaScale = FMath::Clamp',
-	'RowCount = 14'
+	'RowCount = 16'
 ) '일시정지 접근성 설정 입력'
 Assert-ContainsAll $hudSource @(
 	'DrawAccessibilityPanel()',
@@ -543,7 +547,7 @@ foreach ($safeArea in @(-2.0, 0.80, 0.90, 1.0, 4.0)) {
 }
 
 # 실제 실행을 대체하지 않는 순수 배치 오라클. 최소 720p부터 목표 1440p까지
-# 14행 설정, 실시간 미리 보기와 200% 하단 메시지가 안전 영역을 지키는지
+# 16행 설정, 실시간 미리 보기와 200% 하단 메시지가 안전 영역을 지키는지
 # C++과 독립된 계산으로 확인한다.
 $layoutProfiles = @(
 	@{ Width = 1280.0; Height = 720.0 },

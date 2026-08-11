@@ -81,6 +81,8 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
+	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 
 	UFUNCTION()
 	void HandleFocusChanged(AActor* PreviousActor, AActor* NewActor);
@@ -96,6 +98,8 @@ private:
 	void EndInteraction();
 	void BeginSprint();
 	void EndSprint();
+	void BeginCrouchInput();
+	void EndCrouchInput();
 	void ToggleCrouch();
 	void Knock();
 	void BeginListen();
@@ -105,8 +109,13 @@ private:
 	void ToggleFlashlight();
 	void LoadLatestAutosave();
 	void ApplyContextMovementSpeed();
+	void RefreshSprintState();
+	void UpdateCrouchTransition(float DeltaSeconds);
 	void UpdateContextualActions(float DeltaSeconds);
 	void FinishHoldBreath(bool bForcedRelease);
+	void ApplyPlayerKnockFeedback();
+	void RegisterKnockSequenceTap();
+	void PlayHapticFeedback(float Intensity, float DurationSeconds) const;
 	/** Samples how dark it is where the player stands, for the stress model. */
 	float SampleAmbientDarkness() const;
 	void TryRequestGetUpFallback();
@@ -172,9 +181,19 @@ private:
 	float SprintRecoverySeconds = 0.0f;
 	float ListenHeldSeconds = 0.0f;
 	float BreathHeldSeconds = 0.0f;
+	float CrouchTransitionRemaining = 0.0f;
+	float CrouchCameraCompensation = 0.0f;
+	float CrouchCameraCompensationStart = 0.0f;
+	float AppliedCrouchCameraCompensation = 0.0f;
+	float KnockCameraKick = 0.0f;
+	double LastKnockInputSeconds = -1.0;
+	double KnockInputLockedUntil = -1.0;
 	int32 LastStepIndex = 0;
+	int32 KnockSequenceTapCount = 0;
 	bool bCameraMotionEnabled = false;
+	bool bSprintInputHeld = false;
 	bool bSprinting = false;
+	bool bCrouchInputHeld = false;
 	bool bListening = false;
 	bool bListenTriggered = false;
 	bool bHoldingBreath = false;

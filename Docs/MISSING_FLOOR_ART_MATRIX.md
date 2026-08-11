@@ -1,6 +1,6 @@
 # 없는 층 — ImageGen 에셋 적용 매트릭스
 
-> 기준일 2026-08-10. 이 문서는 이미지 목록이 아니라 **어떤 원본을 어떤
+> 기준일 2026-08-11. 이 문서는 이미지 목록이 아니라 **어떤 원본을 어떤
 > 런타임 표현으로 바꾸고, 어디까지 접근을 허용할지**를 잠그는 실행 계약이다.
 
 ## 적용 원칙
@@ -30,6 +30,7 @@
 | 조율 공구 카트 | 같은 시트 좌상 | `SM_TunerToolCart` | 3D prop | 5층 서북 모서리 | 45×34×78cm, 선반 틈·바퀴·손잡이 시차, 바닥 관통 0 |
 | 민원 원장·먹지 | 같은 시트 좌하 | `SM_ComplaintLedger` | 3D hero paper | 관리실 책상 Z=76cm 위 | 2.8cm 실제 두께, 중심 Z=77.5cm, 접촉 그림자, 공중 부양 0 |
 | 달력 뒷장 소리 일지 | 같은 시트 우하 | `SM_CalendarJournal` | 3D hero paper | 401호 문 앞 전달 큐 | 종이판·상단 바인딩 실제 기하, 글은 런타임 패널, 가짜 글자 0 |
+| 1인칭 두드리기 오른손 | `SheetFirstPersonKnockPhases_v2.png` | `T_FPHandKnock0..3_D` | UI-space RGBA sprite blend | Q/B 유효 노크의 준비·접촉·반동 0.22초 | 같은 손·소매 유지, 입력 프레임에 접촉(2), 소매 끝은 화면 밖, 초록 프린지 0, 흔들림 감소 시 이동 0, 월드 평면 0 |
 
 ## 블렌딩·거리·성능 계약
 
@@ -49,6 +50,9 @@
   단순화한다. 불법 5층 구조물은 반복 블록 재질을 공유하고 개별 Tick이 없다.
 - 스프라이트 알파, 흔적 값 마스크, 석고 PBR은 모두 1024px 이하 파생본을
   사용한다. 원본 1254px 시트는 SourceArt 증빙이며 런타임에 로드하지 않는다.
+- 1인칭 손은 투명 여백을 포함한 768px RGBA 네 장을 UI 그룹·NoMip·Clamp·NeverStream으로
+  임포트한다. 문·벽·인물·동물·배경은 기존 3D/PBR을 유지하며, 손 이미지를
+  월드 카드나 충돌 대용으로 쓰지 않는다.
 
 ## 물리·화면 승인
 
@@ -66,6 +70,7 @@
 
 ```powershell
 .\Scripts\Build-ArtAssets.ps1 -MissingFloorOnly
+.\Scripts\Build-ArtAssets.ps1 -HudUiOnly
 .\Scripts\Test-ArtAssetContract.ps1
 .\Scripts\Run-MissingFloor-NightCapture.bat
 ```

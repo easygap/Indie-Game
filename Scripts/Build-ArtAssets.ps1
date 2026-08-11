@@ -141,6 +141,11 @@ if ($MissingFloorOnly) {
 	}
 }
 
+if ($HudUiOnly) {
+	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
+		-OnlySource @('SheetFirstPersonKnockPhases_v2_RGBA')
+}
+
 if ($ApartmentVisualOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
 		-OnlySource @(
@@ -163,7 +168,7 @@ if ($SourceOnly) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Art source contract failed ($LASTEXITCODE)"
 	}
-	Write-Host 'ART_SOURCE_BUILD PASS material_scans=12 material_masks=9 overlays=13 pbr_maps=56 no_unreal_process=true'
+	Write-Host 'ART_SOURCE_BUILD PASS material_scans=12 material_masks=9 overlays=17 pbr_maps=56 no_unreal_process=true'
 	return
 }
 
@@ -274,7 +279,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 		'IG_SUBMERGED_CLOTHING_ONLY'
 	}
 	$targetSuccessPattern = if ($HudUiOnly) {
-		'\[IndieGame\] Imported 2 textures'
+		'\[IndieGame\] Imported 6 textures'
 	}
 	elseif ($ApartmentVisualOnly) {
 		'\[IndieGame\] Apartment visual material update complete'
@@ -294,7 +299,11 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 	$targetRelativeAssets = if ($HudUiOnly) {
 		@(
 			'Content\Prototype\Textures\T_HudDialogueFilm_D.uasset',
-			'Content\Prototype\Textures\T_MissingFloorJournalPaper_D.uasset'
+			'Content\Prototype\Textures\T_MissingFloorJournalPaper_D.uasset',
+			'Content\Prototype\Textures\T_FPHandKnock0_D.uasset',
+			'Content\Prototype\Textures\T_FPHandKnock1_D.uasset',
+			'Content\Prototype\Textures\T_FPHandKnock2_D.uasset',
+			'Content\Prototype\Textures\T_FPHandKnock3_D.uasset'
 		)
 	}
 	elseif ($ApartmentVisualOnly) {

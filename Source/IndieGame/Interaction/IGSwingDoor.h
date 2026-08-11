@@ -138,7 +138,7 @@ protected:
 	 * press-to-open, which is what a locked door does so its rattle is instant.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door|Noise", meta = (ClampMin = "0.0", Units = "s"))
-	float QuietOpenHoldSeconds = 0.55f;
+	float QuietOpenHoldSeconds = 1.4f;
 
 	/** Reported loudness for an eased open/close, 0..1. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Door|Noise", meta = (ClampMin = "0.0", ClampMax = "1.0"))

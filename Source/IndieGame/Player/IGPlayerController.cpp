@@ -34,7 +34,7 @@
 
 namespace IGAccessibilityMenu
 {
-	constexpr int32 RowCount = 14;
+	constexpr int32 RowCount = 16;
 }
 
 namespace IGSystemMenu
@@ -1540,7 +1540,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		return;
 	}
 
-	if (AccessibilitySelection == 12)
+	if (AccessibilitySelection == 14)
 	{
 		if (bConfirm)
 		{
@@ -1549,7 +1549,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		RefreshMenuHud();
 		return;
 	}
-	if (AccessibilitySelection == 13)
+	if (AccessibilitySelection == 15)
 	{
 		if (bConfirm)
 		{
@@ -1608,13 +1608,19 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 			1.0f);
 		break;
 	case 10:
-		Settings.bToggleHoldInteractions = !Settings.bToggleHoldInteractions;
+		Settings.bToggleCrouch = !Settings.bToggleCrouch;
 		break;
 	case 11:
+		Settings.bToggleHoldInteractions = !Settings.bToggleHoldInteractions;
+		break;
+	case 12:
 		Settings.HoldDurationScale = FMath::Clamp(
 			Settings.HoldDurationScale + (Direction < 0 ? -0.25f : 0.25f),
 			0.25f,
 			1.0f);
+		break;
+	case 13:
+		Settings.bHapticsEnabled = !Settings.bHapticsEnabled;
 		break;
 	default:
 		return;

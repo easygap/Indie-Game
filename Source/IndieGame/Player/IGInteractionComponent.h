@@ -28,7 +28,8 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
 
 /**
  * Player-owned interaction scanner and input state machine.
- * It uses one low-frequency timer; neither this component nor targets require Tick.
+ * Focus stays on a low-frequency timer. Tick is enabled only while a hold is
+ * active so completion time is not quantized to the scan interval.
  */
 UCLASS(ClassGroup = (Interaction), meta = (BlueprintSpawnableComponent))
 class INDIEGAME_API UIGInteractionComponent : public UActorComponent
@@ -91,9 +92,17 @@ public:
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+	virtual void TickComponent(
+		float DeltaTime,
+		ELevelTick TickType,
+		FActorComponentTickFunction* ThisTickFunction) override;
 
 private:
 	void HandleUpdateTimer();
+	bool TryStartFocusedInteraction();
+	void BufferInteractionPress();
+	void TryConsumeBufferedPress();
+	void ClearBufferedPress();
 	bool GetInteractionViewPoint(FVector& OutLocation, FRotator& OutRotation) const;
 	/** Returns the hit actor when it is an interactable that currently accepts input. */
 	AActor* ResolveInteractable(const FHitResult& HitResult, AActor* Interactor) const;
@@ -101,6 +110,8 @@ private:
 	void UpdateActiveInteraction();
 	void CompleteActiveInteraction();
 	void FinishActiveInteraction(EIGInteractionEndReason EndReason, bool bCompleted);
+	void BeginHoldProgressRewind(float HoldProgress, float HoldDuration);
+	void ClearHoldProgressRewind();
 	void ResetActiveState();
 	float GetActiveHeldDuration() const;
 	FIGInteractionContext MakeContext(
@@ -111,7 +122,7 @@ private:
 		float HoldProgress);
 
 	UPROPERTY(EditAnywhere, Category = "Interaction|Trace", meta = (ClampMin = "50.0", Units = "cm"))
-	float TraceDistance = 300.0f;
+	float TraceDistance = 220.0f;
 
 	UPROPERTY(EditAnywhere, Category = "Interaction|Trace")
 	TEnumAsByte<ECollisionChannel> TraceChannel = ECC_Visibility;
@@ -130,6 +141,14 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Interaction|Trace", meta = (ClampMin = "0.0667", ClampMax = "0.1", Units = "s"))
 	float FocusUpdateInterval = 0.08f;
 
+	/** Grace window for a tap that lands while focus or the prior hold is settling. */
+	UPROPERTY(EditAnywhere, Category = "Interaction|Input", meta = (ClampMin = "0.0", ClampMax = "0.25", Units = "s"))
+	float InputBufferSeconds = 0.12f;
+
+	/** Cancelled hold progress retreats at this fraction of its forward rate. */
+	UPROPERTY(EditAnywhere, Category = "Interaction|Input", meta = (ClampMin = "0.1", ClampMax = "2.0"))
+	float HoldRewindSpeedScale = 0.6f;
+
 	/** Has no effect in Shipping or Test builds. */
 	UPROPERTY(EditAnywhere, Category = "Interaction|Debug", meta = (DevelopmentOnly))
 	bool bDrawDebugTrace = false;
@@ -142,11 +161,16 @@ private:
 	FTimerHandle UpdateTimerHandle;
 	float ActiveHoldDuration = 0.0f;
 	float ActiveStartTime = 0.0f;
+	float RewindStartProgress = 0.0f;
+	float RewindSourceHoldDuration = 0.0f;
+	float RewindStartTime = 0.0f;
+	float BufferedPressExpiresAt = 0.0f;
 	uint32 InteractionGeneration = 0;
 	bool bInteractionInputEnabled = true;
 	bool bFocusScanInProgress = false;
 	bool bInteractionPressed = false;
 	bool bInteractionActive = false;
+	bool bInteractionPressBuffered = false;
 	/** A hold that continues after the physical key is released. */
 	bool bToggleHoldLatched = false;
 	bool bFinalizingInteraction = false;

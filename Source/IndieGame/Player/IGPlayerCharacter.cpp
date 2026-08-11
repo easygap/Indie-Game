@@ -17,6 +17,7 @@
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "GameFramework/PlayerController.h"
 #include "InputActionValue.h"
 #include "InputCoreTypes.h"
 #include "Interaction/IGPickupItem.h"
@@ -48,6 +49,18 @@ namespace IGPlayerNoise
 	constexpr float SprintBreathThresholdSeconds = 3.5f;
 	constexpr float ListenCommitSeconds = 0.8f;
 	constexpr float MaximumBreathHoldSeconds = 4.0f;
+	constexpr float WalkAcceleration = 1200.0f;
+	constexpr float WalkBraking = 1200.0f;
+	constexpr float CrouchAcceleration = 900.0f;
+	constexpr float CrouchBraking = 1500.0f;
+	constexpr float SprintAcceleration = 1400.0f;
+	constexpr float SprintBraking = 900.0f;
+	constexpr float CrouchTransitionSeconds = 0.35f;
+	constexpr float CrouchTransitionSpeedScale = 0.5f;
+	constexpr float KnockInputLockSeconds = 0.9f;
+	constexpr float KnockSequenceResetSeconds = 1.8f;
+	constexpr float KnockCameraKickDegrees = 0.4f;
+	constexpr float KnockCameraReturnSeconds = 0.18f;
 	/** Quietest and loudest footfall reported to the noise bus (§5.1). */
 	constexpr float MinimumFootstepLoudness = 0.06f;
 	constexpr float MaximumFootstepLoudness = 0.18f;
@@ -90,8 +103,8 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	MovementComponent->bUseControllerDesiredRotation = true;
 	MovementComponent->MaxWalkSpeed = 300.0f;
 	MovementComponent->MaxWalkSpeedCrouched = IGPlayerNoise::CrouchSpeed;
-	MovementComponent->MaxAcceleration = 1200.0f;
-	MovementComponent->BrakingDecelerationWalking = 1200.0f;
+	MovementComponent->MaxAcceleration = IGPlayerNoise::WalkAcceleration;
+	MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::WalkBraking;
 	MovementComponent->NavAgentProps.bCanCrouch = true;
 	MovementComponent->SetCrouchedHalfHeight(48.0f);
 	// CharacterMovement's stock 750,000 push force is intended for heavy
@@ -236,6 +249,46 @@ void AIGPlayerCharacter::BeginPlay()
 	SetActorTickEnabled(true);
 }
 
+void AIGPlayerCharacter::OnStartCrouch(
+	const float HalfHeightAdjust,
+	const float ScaledHalfHeightAdjust)
+{
+	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+	CrouchTransitionRemaining = IGPlayerNoise::CrouchTransitionSeconds;
+	CrouchCameraCompensationStart =
+		AppliedCrouchCameraCompensation + ScaledHalfHeightAdjust;
+	CrouchCameraCompensation = CrouchCameraCompensationStart;
+	if (FirstPersonCamera)
+	{
+		FVector CameraLocation = FirstPersonCamera->GetRelativeLocation();
+		CameraLocation.Z += CrouchCameraCompensation
+			- AppliedCrouchCameraCompensation;
+		FirstPersonCamera->SetRelativeLocation(CameraLocation);
+		AppliedCrouchCameraCompensation = CrouchCameraCompensation;
+	}
+	ApplyContextMovementSpeed();
+}
+
+void AIGPlayerCharacter::OnEndCrouch(
+	const float HalfHeightAdjust,
+	const float ScaledHalfHeightAdjust)
+{
+	Super::OnEndCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+	CrouchTransitionRemaining = IGPlayerNoise::CrouchTransitionSeconds;
+	CrouchCameraCompensationStart =
+		AppliedCrouchCameraCompensation - ScaledHalfHeightAdjust;
+	CrouchCameraCompensation = CrouchCameraCompensationStart;
+	if (FirstPersonCamera)
+	{
+		FVector CameraLocation = FirstPersonCamera->GetRelativeLocation();
+		CameraLocation.Z += CrouchCameraCompensation
+			- AppliedCrouchCameraCompensation;
+		FirstPersonCamera->SetRelativeLocation(CameraLocation);
+		AppliedCrouchCameraCompensation = CrouchCameraCompensation;
+	}
+	ApplyContextMovementSpeed();
+}
+
 void AIGPlayerCharacter::SetRebirthOutfitEquipped(
 	const bool bEquipped,
 	const bool bPlayPresentation)
@@ -340,6 +393,7 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 	}
 
 	UpdateContextualActions(DeltaSeconds);
+	UpdateCrouchTransition(DeltaSeconds);
 	UpdateFootsteps(DeltaSeconds);
 	UpdateCameraMotion(DeltaSeconds);
 	UpdateCarriedItem(DeltaSeconds);
@@ -527,7 +581,10 @@ void AIGPlayerCharacter::SetCameraMotionEnabled(const bool bEnabled)
 
 	if (!bEnabled && FirstPersonCamera)
 	{
-		FirstPersonCamera->SetRelativeLocation(CameraBaseLocation);
+		FirstPersonCamera->SetRelativeLocation(
+			CameraBaseLocation
+				+ FVector(0.0f, 0.0f, CrouchCameraCompensation));
+		AppliedCrouchCameraCompensation = CrouchCameraCompensation;
 	}
 }
 
@@ -539,24 +596,71 @@ void AIGPlayerCharacter::ApplyContextMovementSpeed()
 		return;
 	}
 
+	const float TransitionScale = CrouchTransitionRemaining > 0.0f
+		? IGPlayerNoise::CrouchTransitionSpeedScale
+		: 1.0f;
+	MovementComponent->MaxWalkSpeedCrouched =
+		IGPlayerNoise::CrouchSpeed * TransitionScale;
+
 	if (bListening)
 	{
-		MovementComponent->MaxWalkSpeed = IGPlayerNoise::ListenSpeed;
+		MovementComponent->MaxWalkSpeed =
+			IGPlayerNoise::ListenSpeed * TransitionScale;
 		MovementComponent->MaxAcceleration = 800.0f;
 		MovementComponent->BrakingDecelerationWalking = 1600.0f;
 		return;
 	}
 	if (bSprinting && !bIsCrouched)
 	{
-		MovementComponent->MaxWalkSpeed = IGPlayerNoise::SprintSpeed;
-		MovementComponent->MaxAcceleration = 1400.0f;
-		MovementComponent->BrakingDecelerationWalking = 900.0f;
+		MovementComponent->MaxWalkSpeed =
+			IGPlayerNoise::SprintSpeed * TransitionScale;
+		MovementComponent->MaxAcceleration = IGPlayerNoise::SprintAcceleration;
+		MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::SprintBraking;
+		return;
+	}
+	if (bIsCrouched)
+	{
+		MovementComponent->MaxWalkSpeed =
+			IGPlayerNoise::ReferenceWalkSpeed * TransitionScale;
+		MovementComponent->MaxAcceleration = IGPlayerNoise::CrouchAcceleration;
+		MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::CrouchBraking;
 		return;
 	}
 
-	MovementComponent->MaxWalkSpeed = IGPlayerNoise::ReferenceWalkSpeed;
-	MovementComponent->MaxAcceleration = 1200.0f;
-	MovementComponent->BrakingDecelerationWalking = 1200.0f;
+	MovementComponent->MaxWalkSpeed =
+		IGPlayerNoise::ReferenceWalkSpeed * TransitionScale;
+	MovementComponent->MaxAcceleration = IGPlayerNoise::WalkAcceleration;
+	MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::WalkBraking;
+}
+
+void AIGPlayerCharacter::RefreshSprintState()
+{
+	bSprinting = bSprintInputHeld
+		&& !bListening
+		&& !bIsCrouched
+		&& CrouchTransitionRemaining <= 0.0f;
+	ApplyContextMovementSpeed();
+}
+
+void AIGPlayerCharacter::UpdateCrouchTransition(const float DeltaSeconds)
+{
+	if (CrouchTransitionRemaining <= 0.0f || DeltaSeconds <= 0.0f)
+	{
+		return;
+	}
+
+	CrouchTransitionRemaining = FMath::Max(
+		0.0f,
+		CrouchTransitionRemaining - DeltaSeconds);
+	const float Alpha = CrouchTransitionRemaining
+		/ IGPlayerNoise::CrouchTransitionSeconds;
+	CrouchCameraCompensation = CrouchCameraCompensationStart * Alpha;
+	if (CrouchTransitionRemaining <= 0.0f)
+	{
+		CrouchCameraCompensation = 0.0f;
+		CrouchCameraCompensationStart = 0.0f;
+		RefreshSprintState();
+	}
 }
 
 void AIGPlayerCharacter::UpdateContextualActions(const float DeltaSeconds)
@@ -729,25 +833,44 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 			TargetOffset.X += InteractPunch * 2.4f;
 			TargetOffset.Z -= InteractPunch * 1.6f;
 		}
-		InteractPunch = FMath::FInterpTo(InteractPunch, 0.0f, DeltaSeconds, 7.0f);
 	}
+	InteractPunch = FMath::FInterpTo(InteractPunch, 0.0f, DeltaSeconds, 7.0f);
 
-	const FVector SmoothedLocation = FMath::VInterpTo(
-		FirstPersonCamera->GetRelativeLocation(),
+	FVector CameraLocationWithoutCrouch = FirstPersonCamera->GetRelativeLocation();
+	CameraLocationWithoutCrouch.Z -= AppliedCrouchCameraCompensation;
+	FVector SmoothedLocation = FMath::VInterpTo(
+		CameraLocationWithoutCrouch,
 		CameraBaseLocation + TargetOffset,
 		DeltaSeconds,
 		10.0f);
+	SmoothedLocation.Z += CrouchCameraCompensation;
 	FirstPersonCamera->SetRelativeLocation(SmoothedLocation);
+	AppliedCrouchCameraCompensation = CrouchCameraCompensation;
 
 	// Fear tremor rides on the camera's own rotation rather than the control
 	// rotation, so it shakes the view without fighting the player's aim.
+	FRotator CameraRotation = FRotator::ZeroRotator;
+	if (!bReducedMotion && StressComponent)
+	{
+		CameraRotation = StressComponent->GetTremor();
+	}
+	if (!bReducedMotion && KnockCameraKick > KINDA_SMALL_NUMBER)
+	{
+		CameraRotation.Pitch -= KnockCameraKick;
+	}
+	KnockCameraKick = FMath::FInterpConstantTo(
+		KnockCameraKick,
+		0.0f,
+		DeltaSeconds,
+		IGPlayerNoise::KnockCameraKickDegrees
+			/ IGPlayerNoise::KnockCameraReturnSeconds);
 	if (bReducedMotion)
 	{
 		FirstPersonCamera->SetRelativeRotation(FRotator::ZeroRotator);
 	}
-	else if (StressComponent)
+	else
 	{
-		FirstPersonCamera->SetRelativeRotation(StressComponent->GetTremor());
+		FirstPersonCamera->SetRelativeRotation(CameraRotation);
 	}
 }
 
@@ -810,6 +933,10 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 		const float Side = (LastStepIndex % 2 == 0) ? 1.0f : -1.0f;
 		Flashlight->AddImpulse(
 			FRotator(-0.5f * SpeedScale, Side * 0.9f * SpeedScale, 0.0f));
+	}
+	if (bSprinting && !bIsCrouched)
+	{
+		PlayHapticFeedback(0.12f, 0.04f);
 	}
 }
 
@@ -952,7 +1079,9 @@ void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	PlayerInputComponent->BindAction(
 		TEXT("Sprint"), IE_Released, this, &ThisClass::EndSprint);
 	PlayerInputComponent->BindAction(
-		TEXT("Crouch"), IE_Pressed, this, &ThisClass::ToggleCrouch);
+		TEXT("Crouch"), IE_Pressed, this, &ThisClass::BeginCrouchInput);
+	PlayerInputComponent->BindAction(
+		TEXT("Crouch"), IE_Released, this, &ThisClass::EndCrouchInput);
 	PlayerInputComponent->BindAction(
 		TEXT("Knock"), IE_Pressed, this, &ThisClass::Knock);
 	PlayerInputComponent->BindAction(
@@ -975,23 +1104,53 @@ void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 
 void AIGPlayerCharacter::BeginSprint()
 {
-	if (bListening || bIsCrouched)
-	{
-		return;
-	}
-	bSprinting = true;
-	ApplyContextMovementSpeed();
+	bSprintInputHeld = true;
+	RefreshSprintState();
 }
 
 void AIGPlayerCharacter::EndSprint()
 {
+	bSprintInputHeld = false;
 	bSprinting = false;
+	ApplyContextMovementSpeed();
+}
+
+void AIGPlayerCharacter::BeginCrouchInput()
+{
+	bCrouchInputHeld = true;
+	const bool bToggleCrouch = !AccessibilitySubsystem
+		|| AccessibilitySubsystem->UsesToggleCrouch();
+	if (bToggleCrouch)
+	{
+		ToggleCrouch();
+		return;
+	}
+
+	bSprinting = false;
+	CrouchTransitionRemaining = IGPlayerNoise::CrouchTransitionSeconds;
+	Crouch();
+	SetCameraMotionEnabled(true);
+	ApplyContextMovementSpeed();
+}
+
+void AIGPlayerCharacter::EndCrouchInput()
+{
+	bCrouchInputHeld = false;
+	if (!AccessibilitySubsystem || AccessibilitySubsystem->UsesToggleCrouch())
+	{
+		return;
+	}
+
+	CrouchTransitionRemaining = IGPlayerNoise::CrouchTransitionSeconds;
+	UnCrouch();
+	SetCameraMotionEnabled(true);
 	ApplyContextMovementSpeed();
 }
 
 void AIGPlayerCharacter::ToggleCrouch()
 {
-	EndSprint();
+	bSprinting = false;
+	CrouchTransitionRemaining = IGPlayerNoise::CrouchTransitionSeconds;
 	if (bIsCrouched)
 	{
 		UnCrouch();
@@ -1000,11 +1159,19 @@ void AIGPlayerCharacter::ToggleCrouch()
 	{
 		Crouch();
 	}
+	SetCameraMotionEnabled(true);
+	ApplyContextMovementSpeed();
 }
 
 void AIGPlayerCharacter::Knock()
 {
 	if (AIGReadableNote::GetOpenNote())
+	{
+		return;
+	}
+	const UWorld* CurrentWorld = GetWorld();
+	if (!CurrentWorld
+		|| CurrentWorld->GetTimeSeconds() < KnockInputLockedUntil)
 	{
 		return;
 	}
@@ -1014,6 +1181,7 @@ void AIGPlayerCharacter::Knock()
 		{
 			if (It->RegisterPlayerKnock())
 			{
+				ApplyPlayerKnockFeedback();
 				return;
 			}
 		}
@@ -1034,14 +1202,22 @@ void AIGPlayerCharacter::Knock()
 		{
 			if (It->TryPlayerKnock(FocusedActor, this))
 			{
-				InteractPunch = 0.45f;
-				SetCameraMotionEnabled(true);
+				ApplyPlayerKnockFeedback();
 				return;
 			}
 		}
+		const FGameplayTag DoorInteractionTag =
+			FGameplayTag::RequestGameplayTag(
+				FName(TEXT("Interaction.Door")),
+				false);
+		if (!InteractionComponent->GetFocusedInteractionTag().MatchesTagExact(
+				DoorInteractionTag))
+		{
+			return;
+		}
 
-		// Ordinary doors and walls still answer the verb physically; they simply
-		// do not advance a puzzle unless a chapter director owns that surface.
+		// Ordinary doors still answer the verb physically; they simply do not
+		// advance a puzzle unless a chapter director owns that surface.
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
@@ -1051,8 +1227,71 @@ void AIGPlayerCharacter::Knock()
 		{
 			Noise->ReportNoise(FocusedActor->GetActorLocation(), 0.30f, this);
 		}
-		InteractPunch = 0.45f;
-		SetCameraMotionEnabled(true);
+		ApplyPlayerKnockFeedback();
+	}
+}
+
+void AIGPlayerCharacter::ApplyPlayerKnockFeedback()
+{
+	InteractPunch = FMath::Max(InteractPunch, 0.45f);
+	KnockCameraKick = IGPlayerNoise::KnockCameraKickDegrees;
+	SetCameraMotionEnabled(true);
+	if (const APlayerController* PlayerController =
+		Cast<APlayerController>(Controller))
+	{
+		if (AIGHorrorHUD* HorrorHUD =
+			Cast<AIGHorrorHUD>(PlayerController->GetHUD()))
+		{
+			HorrorHUD->PlayFirstPersonKnock();
+		}
+	}
+	PlayHapticFeedback(0.35f, 0.06f);
+	RegisterKnockSequenceTap();
+}
+
+void AIGPlayerCharacter::RegisterKnockSequenceTap()
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	const double Now = World->GetTimeSeconds();
+	if (LastKnockInputSeconds < 0.0
+		|| Now - LastKnockInputSeconds > IGPlayerNoise::KnockSequenceResetSeconds)
+	{
+		KnockSequenceTapCount = 0;
+	}
+	LastKnockInputSeconds = Now;
+	++KnockSequenceTapCount;
+	if (KnockSequenceTapCount >= 3)
+	{
+		KnockSequenceTapCount = 0;
+		KnockInputLockedUntil = Now + IGPlayerNoise::KnockInputLockSeconds;
+	}
+}
+
+void AIGPlayerCharacter::PlayHapticFeedback(
+	const float Intensity,
+	const float DurationSeconds) const
+{
+	if ((AccessibilitySubsystem && !AccessibilitySubsystem->AreHapticsEnabled())
+		|| Intensity <= 0.0f
+		|| DurationSeconds <= 0.0f)
+	{
+		return;
+	}
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		PlayerController->PlayDynamicForceFeedback(
+			FMath::Clamp(Intensity, 0.0f, 1.0f),
+			DurationSeconds,
+			false,
+			false,
+			true,
+			true);
 	}
 }
 
@@ -1084,7 +1323,7 @@ void AIGPlayerCharacter::BeginListen()
 		{
 			continue;
 		}
-		EndSprint();
+		bSprinting = false;
 		bListening = true;
 		bListenTriggered = false;
 		ListenHeldSeconds = 0.0f;
@@ -1112,7 +1351,7 @@ void AIGPlayerCharacter::EndListen()
 	bListening = false;
 	bListenTriggered = false;
 	ListenHeldSeconds = 0.0f;
-	ApplyContextMovementSpeed();
+	RefreshSprintState();
 }
 
 void AIGPlayerCharacter::BeginHoldBreath()

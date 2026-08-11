@@ -44,7 +44,7 @@ namespace IGNightThree
 	const FVector JournalLocation(-172.0f, -237.5f, 985.0f);
 
 	/** §5.1: a fist on gypsum carries; leaning an ear does not. */
-	constexpr float KnockLoudness = 0.35f;
+	constexpr float KnockLoudness = 0.30f;
 	constexpr float ListenLoudness = 0.05f;
 	constexpr float ValveLoudness = 0.55f;
 

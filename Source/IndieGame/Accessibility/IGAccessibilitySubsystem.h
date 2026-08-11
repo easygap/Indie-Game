@@ -67,6 +67,14 @@ struct INDIEGAME_API FIGAccessibilitySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bToggleHoldInteractions = false;
 
+	/** Crouch is a tap toggle by default; disable for press-to-crouch. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bToggleCrouch = true;
+
+	/** Master gate for controller vibration, including audio replacement cues. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bHapticsEnabled = true;
+
 	/** Multiplier applied only to non-zero hold interactions. */
 	UPROPERTY(
 		EditAnywhere,
@@ -176,6 +184,18 @@ public:
 	bool UsesToggleHoldInteractions() const
 	{
 		return EffectiveSettings.bToggleHoldInteractions;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Input")
+	bool UsesToggleCrouch() const
+	{
+		return EffectiveSettings.bToggleCrouch;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Input")
+	bool AreHapticsEnabled() const
+	{
+		return EffectiveSettings.bHapticsEnabled;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Input")

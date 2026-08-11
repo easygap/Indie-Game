@@ -41,6 +41,10 @@ namespace IGHorrorHUD
 	constexpr float DialogueGlyphsPerSecond = 11.5f;
 	constexpr float DialogueMinimumSeconds = 2.2f;
 	constexpr float DialogueMaximumSeconds = 9.0f;
+	constexpr float FocusAcquireDelaySeconds = 0.09f;
+	constexpr float FocusAcquireRevealSeconds = 0.09f;
+	constexpr double FirstPersonKnockDurationSeconds = 0.22;
+	constexpr int32 FirstPersonKnockFrameCount = 4;
 
 	/**
 	 * The noise ripple (§5.1). One slot, deliberately short, with a minimum
@@ -206,6 +210,12 @@ void AIGHorrorHUD::BeginPlay()
 	InitializeLensDropletTexture();
 	InitializeDialogueSurfaceTextures();
 	InitializeMissingFloorJournalTextures();
+	InitializeFirstPersonActionTextures();
+#if !UE_BUILD_SHIPPING
+	bFirstPersonKnockPreview = FParse::Param(
+		FCommandLine::Get(),
+		TEXT("IGM0KnockPreview"));
+#endif
 
 	ResolveInteractionComponent();
 	ResolveDirectors();
@@ -357,6 +367,33 @@ void AIGHorrorHUD::InitializeMissingFloorJournalTextures()
 	JournalMetalTexture = LoadObject<UTexture2D>(
 		nullptr,
 		TEXT("/Game/Prototype/Textures/T_MetalBrushed_D.T_MetalBrushed_D"));
+}
+
+void AIGHorrorHUD::InitializeFirstPersonActionTextures()
+{
+	static const TCHAR* KnockTexturePaths[] = {
+		TEXT("/Game/Prototype/Textures/T_FPHandKnock0_D.T_FPHandKnock0_D"),
+		TEXT("/Game/Prototype/Textures/T_FPHandKnock1_D.T_FPHandKnock1_D"),
+		TEXT("/Game/Prototype/Textures/T_FPHandKnock2_D.T_FPHandKnock2_D"),
+		TEXT("/Game/Prototype/Textures/T_FPHandKnock3_D.T_FPHandKnock3_D"),
+	};
+	FirstPersonKnockFrames.SetNum(IGHorrorHUD::FirstPersonKnockFrameCount);
+	for (int32 FrameIndex = 0;
+		FrameIndex < IGHorrorHUD::FirstPersonKnockFrameCount;
+		++FrameIndex)
+	{
+		FirstPersonKnockFrames[FrameIndex] = LoadObject<UTexture2D>(
+			nullptr,
+			KnockTexturePaths[FrameIndex]);
+	}
+}
+
+void AIGHorrorHUD::PlayFirstPersonKnock()
+{
+	if (const UWorld* World = GetWorld())
+	{
+		FirstPersonKnockStartTime = World->GetTimeSeconds();
+	}
 }
 
 void AIGHorrorHUD::InitializeLensDropletTexture()
@@ -1046,7 +1083,7 @@ void AIGHorrorHUD::SetAccessibilityMenuState(
 	const int32 SelectedRow)
 {
 	bAccessibilityMenuVisible = bVisible;
-	AccessibilitySelectedRow = FMath::Clamp(SelectedRow, 0, 13);
+	AccessibilitySelectedRow = FMath::Clamp(SelectedRow, 0, 15);
 }
 
 void AIGHorrorHUD::SetSystemMenuState(
@@ -1194,6 +1231,14 @@ void AIGHorrorHUD::DrawHUD()
 	}
 	const UWorld* World = GetWorld();
 	const double CurrentTime = World ? World->GetTimeSeconds() : 0.0;
+#if !UE_BUILD_SHIPPING
+	if (bFirstPersonKnockPreview
+		&& CurrentTime >= FirstPersonKnockPreviewNextTime)
+	{
+		PlayFirstPersonKnock();
+		FirstPersonKnockPreviewNextTime = CurrentTime + 0.62;
+	}
+#endif
 	BeginLayoutValidationSample();
 	if (bAccessibilityMenuVisible)
 	{
@@ -1261,12 +1306,14 @@ void AIGHorrorHUD::DrawHUD()
 	LastHudDrawTime = CurrentTime;
 
 	UpdateFocusBracket(bHasFocus ? Interaction->GetFocusedActor() : nullptr, DeltaSeconds);
+	DrawFirstPersonKnock(CurrentTime);
 	DrawCrosshair(bHasFocus ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray);
+	const float HoldProgress = Interaction ? Interaction->GetHoldProgress() : 0.0f;
 	if (FocusBracketAlpha > 0.01f)
 	{
 		DrawFocusBracket(
 			IGHorrorHUD::RedAccent,
-			Interaction && Interaction->IsInteracting() ? Interaction->GetHoldProgress() : 0.0f);
+			HoldProgress);
 	}
 	DrawFearDirection(CurrentTime);
 	DrawNoiseRipple(CurrentTime);
@@ -1343,15 +1390,6 @@ void AIGHorrorHUD::DrawHUD()
 		}
 	}
 
-	if (Interaction && Interaction->IsInteracting())
-	{
-		const float HoldProgress = Interaction->GetHoldProgress();
-		if (HoldProgress > 0.0f && HoldProgress < 1.0f)
-		{
-			DrawHoldProgress(HoldProgress);
-		}
-	}
-
 	float DialoguePanelTop = Canvas->ClipY;
 	const bool bDialogueVisible = DrawDialoguePanel(CurrentTime, DialoguePanelTop);
 	const float DialogueLaneGap = 14.0f * FMath::Clamp(
@@ -1372,15 +1410,15 @@ void AIGHorrorHUD::DrawHUD()
 			? NSLOCTEXT(
 				"IGHUD",
 				"HintsGamepad",
-				"LS 이동  ·  RS 시점  ·  A 상호작용  ·  RB 힌트  ·  Menu 접근성")
+				"LS 이동  ·  L3 달리기  ·  R3 앉기  ·  A 상호작용  ·  B 두드리기  ·  X 손전등")
 			: NSLOCTEXT(
 				"IGHUD",
 				"HintsKeyboard",
-				"WASD 이동  ·  마우스 시점  ·  E 상호작용  ·  H 힌트  ·  F10 접근성")
+				"WASD 이동  ·  Shift 달리기  ·  C 앉기  ·  E 상호작용  ·  Q 두드리기  ·  F 손전등")
 		: FText::FromString(
 			bUsingGamepad
-				? TEXT("LS MOVE  |  RS LOOK  |  A INTERACT  |  RB HINT  |  MENU ACCESSIBILITY")
-				: TEXT("WASD MOVE  |  MOUSE LOOK  |  E INTERACT  |  H HINT  |  F10 ACCESSIBILITY"));
+				? TEXT("LS MOVE  |  L3 SPRINT  |  R3 CROUCH  |  A INTERACT  |  B KNOCK  |  X FLASHLIGHT")
+				: TEXT("WASD MOVE  |  SHIFT SPRINT  |  C CROUCH  |  E INTERACT  |  Q KNOCK  |  F FLASHLIGHT"));
 		DrawCenteredText(
 			Hints,
 			FMath::Max(0.0f, Canvas->ClipY - 34.0f),
@@ -2216,6 +2254,120 @@ void AIGHorrorHUD::DrawLensDroplet(const double CurrentTime)
 	Canvas->DrawItem(Droplet);
 }
 
+void AIGHorrorHUD::DrawFirstPersonKnock(const double CurrentTime)
+{
+	if (!Canvas
+		|| FirstPersonKnockFrames.Num()
+			!= IGHorrorHUD::FirstPersonKnockFrameCount)
+	{
+		return;
+	}
+	for (const UTexture2D* Frame : FirstPersonKnockFrames)
+	{
+		if (!Frame || !Frame->GetResource())
+		{
+			return;
+		}
+	}
+
+	const UIGInteractionComponent* Interaction = InteractionComponent.Get();
+	const AActor* FocusedActor = Interaction
+		? Interaction->GetFocusedActor()
+		: nullptr;
+	const bool bKnockReady = IsValid(FocusedActor)
+		&& FocusedActor->ActorHasTag(FName(TEXT("MissingFloor.Verb.Knock")));
+	const float ActionAge = FirstPersonKnockStartTime >= 0.0
+		? static_cast<float>(CurrentTime - FirstPersonKnockStartTime)
+		: -1.0f;
+	const bool bActionActive = ActionAge >= 0.0f
+		&& ActionAge < IGHorrorHUD::FirstPersonKnockDurationSeconds;
+	if (!bActionActive && !bKnockReady)
+	{
+		return;
+	}
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const bool bReducedMotion = Accessibility
+		&& Accessibility->IsReducedCameraMotionEnabled();
+
+	const float SpriteSize = FMath::Clamp(
+		Canvas->ClipY * 2.0f,
+		960.0f,
+		2880.0f);
+	const FVector2D DrawSize(SpriteSize, SpriteSize);
+	const FVector2D DrawPosition(
+		Canvas->ClipX * 0.5f - SpriteSize * 0.17f,
+		Canvas->ClipY * 0.5f - SpriteSize * 0.17f);
+
+	auto DrawFrame = [this, &DrawPosition, &DrawSize](
+		const int32 FrameIndex,
+		const float Alpha)
+	{
+		if (Alpha <= KINDA_SMALL_NUMBER)
+		{
+			return;
+		}
+		FCanvasTileItem FrameTile(
+			DrawPosition,
+			FirstPersonKnockFrames[FrameIndex]->GetResource(),
+			DrawSize,
+			FLinearColor(0.84f, 0.87f, 0.90f, FMath::Clamp(Alpha, 0.0f, 1.0f)));
+		FrameTile.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(FrameTile);
+	};
+
+	if (!bActionActive)
+	{
+		// The player sees their raised hand before committing the noisy verb.
+		// A very small 0<->1 blend keeps it alive without becoming a weapon idle.
+		const float ReadyBlend = bReducedMotion
+			? 0.0f
+			: 0.07f + 0.05f * (
+				0.5f + 0.5f * FMath::Sin(static_cast<float>(CurrentTime) * 2.1f));
+		const float ReadyAlpha = 0.72f * FMath::Clamp(
+			FocusBracketAlpha,
+			0.0f,
+			1.0f);
+		DrawFrame(0, ReadyAlpha * (1.0f - ReadyBlend));
+		DrawFrame(1, ReadyAlpha * ReadyBlend);
+		return;
+	}
+
+	const float NormalizedAge = FMath::Clamp(
+		ActionAge / static_cast<float>(IGHorrorHUD::FirstPersonKnockDurationSeconds),
+		0.0f,
+		1.0f);
+	const float Visibility = bKnockReady
+		? 0.96f
+		: 0.96f * (1.0f - IGHorrorHUD::SmoothStep01(
+			(NormalizedAge - 0.68f) / 0.32f));
+	if (bReducedMotion)
+	{
+		// Keep the tactile replacement cue but remove apparent arm travel.
+		DrawFrame(2, Visibility);
+		return;
+	}
+
+	// Audio and noise are emitted on the input frame, so the contact pose is
+	// frame zero here. The authored recoil then blends back to the ready hand.
+	if (NormalizedAge < 0.42f)
+	{
+		const float Blend = IGHorrorHUD::SmoothStep01(NormalizedAge / 0.42f);
+		DrawFrame(2, Visibility * (1.0f - Blend));
+		DrawFrame(3, Visibility * Blend);
+	}
+	else
+	{
+		const float Blend = IGHorrorHUD::SmoothStep01(
+			(NormalizedAge - 0.42f) / 0.58f);
+		DrawFrame(3, Visibility * (1.0f - Blend));
+		DrawFrame(0, Visibility * Blend);
+	}
+}
+
 float AIGHorrorHUD::MeasureTextWidth(
 	const FString& Text,
 	UFont* Font,
@@ -2585,8 +2737,10 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean ? TEXT("대사·캡션 크기") : TEXT("DIALOGUE + CAPTION SIZE"),
 		bKorean ? TEXT("메시지 배경 농도") : TEXT("MESSAGE BACKGROUND"),
 		bKorean ? TEXT("자막 안전 영역") : TEXT("CAPTION SAFE AREA"),
+		bKorean ? TEXT("앉기 입력 방식") : TEXT("CROUCH INPUT"),
 		bKorean ? TEXT("길게 누르기 방식") : TEXT("HOLD INPUT"),
 		bKorean ? TEXT("홀드 길이") : TEXT("HOLD DURATION"),
+		bKorean ? TEXT("컨트롤러 진동") : TEXT("CONTROLLER VIBRATION"),
 		bKorean ? TEXT("기본값으로 초기화") : TEXT("RESET TO DEFAULTS"),
 		bKorean ? TEXT("닫기") : TEXT("CLOSE")
 	};
@@ -2609,11 +2763,15 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			TEXT("%d%%"),
 			FMath::RoundToInt(Settings.CaptionSafeAreaScale * 100.0f)),
 		bKorean
+			? (Settings.bToggleCrouch ? TEXT("토글") : TEXT("누르는 동안"))
+			: (Settings.bToggleCrouch ? TEXT("TOGGLE") : TEXT("HOLD")),
+		bKorean
 			? (Settings.bToggleHoldInteractions ? TEXT("토글") : TEXT("누르는 동안"))
 			: (Settings.bToggleHoldInteractions ? TEXT("TOGGLE") : TEXT("HOLD")),
 		FString::Printf(
 			TEXT("%d%%"),
 			FMath::RoundToInt(Settings.HoldDurationScale * 100.0f)),
+		OnOff(Settings.bHapticsEnabled),
 		FString(),
 		FString()
 	};
@@ -3953,7 +4111,7 @@ void AIGHorrorHUD::DrawCrosshair(const FLinearColor& Color)
 	DrawRect(Color, CenterX - 1.5f, CenterY - 1.5f, 3.0f, 3.0f);
 }
 
-void AIGHorrorHUD::UpdateFocusBracket(const AActor* FocusedActor, const float DeltaSeconds)
+void AIGHorrorHUD::UpdateFocusBracket(AActor* FocusedActor, const float DeltaSeconds)
 {
 	if (!Canvas)
 	{
@@ -3962,9 +4120,18 @@ void AIGHorrorHUD::UpdateFocusBracket(const AActor* FocusedActor, const float De
 
 	if (!IsValid(FocusedActor))
 	{
+		FocusBracketTarget.Reset();
+		FocusBracketAcquireElapsed = 0.0f;
 		FocusBracketAlpha = FMath::FInterpTo(FocusBracketAlpha, 0.0f, DeltaSeconds, 12.0f);
 		return;
 	}
+	if (FocusBracketTarget.Get() != FocusedActor)
+	{
+		FocusBracketTarget = FocusedActor;
+		FocusBracketAcquireElapsed = 0.0f;
+		FocusBracketAlpha = 0.0f;
+	}
+	FocusBracketAcquireElapsed += FMath::Max(0.0f, DeltaSeconds);
 
 	// Project the focused actor's bounds and fit a box around them, so the
 	// reticle visibly grabs the object instead of just recolouring a dot.
@@ -4018,7 +4185,11 @@ void AIGHorrorHUD::UpdateFocusBracket(const AActor* FocusedActor, const float De
 		FocusBracketMin = FMath::Vector2DInterpTo(FocusBracketMin, TargetMin, DeltaSeconds, 18.0f);
 		FocusBracketMax = FMath::Vector2DInterpTo(FocusBracketMax, TargetMax, DeltaSeconds, 18.0f);
 	}
-	FocusBracketAlpha = FMath::FInterpTo(FocusBracketAlpha, 1.0f, DeltaSeconds, 14.0f);
+	FocusBracketAlpha = FMath::Clamp(
+		(FocusBracketAcquireElapsed - IGHorrorHUD::FocusAcquireDelaySeconds)
+			/ IGHorrorHUD::FocusAcquireRevealSeconds,
+		0.0f,
+		1.0f);
 }
 
 void AIGHorrorHUD::DrawFocusBracket(const FLinearColor& Color, const float Progress)
@@ -4030,8 +4201,19 @@ void AIGHorrorHUD::DrawFocusBracket(const FLinearColor& Color, const float Progr
 
 	FLinearColor BracketColor = Color;
 	BracketColor.A *= FMath::Clamp(FocusBracketAlpha, 0.0f, 1.0f);
-	const float CornerX = FMath::Min(18.0f, (FocusBracketMax.X - FocusBracketMin.X) * 0.34f);
-	const float CornerY = FMath::Min(18.0f, (FocusBracketMax.Y - FocusBracketMin.Y) * 0.34f);
+	const float CloseAlpha = FMath::Clamp(Progress, 0.0f, 1.0f);
+	const FVector2D Center = (FocusBracketMin + FocusBracketMax) * 0.5f;
+	const FVector2D ClosedHalfSize(7.0f, 7.0f);
+	const FVector2D DrawMin = FMath::Lerp(
+		FocusBracketMin,
+		Center - ClosedHalfSize,
+		CloseAlpha);
+	const FVector2D DrawMax = FMath::Lerp(
+		FocusBracketMax,
+		Center + ClosedHalfSize,
+		CloseAlpha);
+	const float CornerX = FMath::Min(18.0f, (DrawMax.X - DrawMin.X) * 0.34f);
+	const float CornerY = FMath::Min(18.0f, (DrawMax.Y - DrawMin.Y) * 0.34f);
 	constexpr float Thickness = 2.0f;
 
 	auto DrawCorner = [this, &BracketColor](
@@ -4044,22 +4226,10 @@ void AIGHorrorHUD::DrawFocusBracket(const FLinearColor& Color, const float Progr
 			BracketColor, Thickness);
 	};
 
-	DrawCorner(FocusBracketMin, 1.0f, 1.0f, CornerX, CornerY);
-	DrawCorner(FVector2D(FocusBracketMax.X, FocusBracketMin.Y), -1.0f, 1.0f, CornerX, CornerY);
-	DrawCorner(FVector2D(FocusBracketMin.X, FocusBracketMax.Y), 1.0f, -1.0f, CornerX, CornerY);
-	DrawCorner(FocusBracketMax, -1.0f, -1.0f, CornerX, CornerY);
-
-	// Hold interactions fill the bracket's bottom edge as they charge.
-	if (Progress > 0.0f)
-	{
-		const float Width = (FocusBracketMax.X - FocusBracketMin.X) * FMath::Clamp(Progress, 0.0f, 1.0f);
-		DrawRect(
-			BracketColor,
-			FocusBracketMin.X,
-			FocusBracketMax.Y - Thickness,
-			Width,
-			Thickness);
-	}
+	DrawCorner(DrawMin, 1.0f, 1.0f, CornerX, CornerY);
+	DrawCorner(FVector2D(DrawMax.X, DrawMin.Y), -1.0f, 1.0f, CornerX, CornerY);
+	DrawCorner(FVector2D(DrawMin.X, DrawMax.Y), 1.0f, -1.0f, CornerX, CornerY);
+	DrawCorner(DrawMax, -1.0f, -1.0f, CornerX, CornerY);
 }
 
 void AIGHorrorHUD::DrawNotePanel()
@@ -4824,30 +4994,4 @@ void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
 		(ScreenWidth - HintSize.X) * 0.5f,
 		HintY,
 		&IGHorrorHUD::PaleGray);
-}
-
-void AIGHorrorHUD::DrawHoldProgress(const float Progress)
-{
-	if (!Canvas)
-	{
-		return;
-	}
-
-	const float CenterX = Canvas->ClipX * 0.5f;
-	const float BarY = Canvas->ClipY * 0.5f + 30.0f;
-	constexpr float BarWidth = 64.0f;
-	constexpr float BarHeight = 4.0f;
-
-	DrawRect(
-		FLinearColor(0.0f, 0.0f, 0.0f, 0.65f),
-		CenterX - BarWidth * 0.5f - 1.0f,
-		BarY - 1.0f,
-		BarWidth + 2.0f,
-		BarHeight + 2.0f);
-	DrawRect(
-		IGHorrorHUD::RedAccent,
-		CenterX - BarWidth * 0.5f,
-		BarY,
-		BarWidth * FMath::Clamp(Progress, 0.0f, 1.0f),
-		BarHeight);
 }

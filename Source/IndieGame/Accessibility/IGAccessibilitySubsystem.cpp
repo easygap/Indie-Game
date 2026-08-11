@@ -205,6 +205,16 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		TEXT("ToggleHoldInteractions"),
 		PersistedSettings.bToggleHoldInteractions,
 		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("ToggleCrouch"),
+		PersistedSettings.bToggleCrouch,
+		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("HapticsEnabled"),
+		PersistedSettings.bHapticsEnabled,
+		GGameUserSettingsIni);
 	GConfig->GetFloat(
 		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
@@ -275,6 +285,16 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		TEXT("ToggleHoldInteractions"),
 		PersistedSettings.bToggleHoldInteractions,
 		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("ToggleCrouch"),
+		PersistedSettings.bToggleCrouch,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("HapticsEnabled"),
+		PersistedSettings.bHapticsEnabled,
+		GGameUserSettingsIni);
 	GConfig->SetFloat(
 		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
@@ -309,6 +329,14 @@ void UIGAccessibilitySubsystem::ApplyCommandLineOverrides(
 		FParse::Param(CommandLine, TEXT("IGAutoConnectEvidence"));
 	Settings.bToggleHoldInteractions |=
 		FParse::Param(CommandLine, TEXT("IGToggleHolds"));
+	if (FParse::Param(CommandLine, TEXT("IGHoldCrouch")))
+	{
+		Settings.bToggleCrouch = false;
+	}
+	if (FParse::Param(CommandLine, TEXT("IGNoHaptics")))
+	{
+		Settings.bHapticsEnabled = false;
+	}
 	if (FParse::Param(CommandLine, TEXT("IGNoSubtitles")))
 	{
 		Settings.bSubtitlesEnabled = false;
