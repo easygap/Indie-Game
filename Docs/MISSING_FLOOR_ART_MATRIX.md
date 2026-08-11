@@ -5,12 +5,12 @@
 
 ## 적용 원칙
 
-1. 가까이 갈 수 있거나 손전등 각도가 바뀌는 사물·인물·배경은 3D/PBR이다.
+1. 가까이 갈 수 있거나 손전등 각도가 바뀌는 사물·인물·배경은 연속 3D/PBR이
+   기준이다. 정면 디테일 레이어를 쓰더라도 접지·실루엣·그림자는 3D가 소유한다.
 2. 손자국·먼지처럼 본질적으로 얇은 것은 값 마스크로 기존 표면에 블렌드한다.
-3. 일반 인물 스프라이트는 12m 이상, 접근 불가, 한 컷에만 쓴다. 위층
-   사람은 예외적으로 연속 3D 접지 셸을 유지한 채 1.6m 정면에서 PBR
-   가독성 레이어를 켠다. 활성화 뒤 1.25m까지 유지하되 측면에서는 셸로
-   되돌린다.
+3. 일반 인물 스프라이트는 12m 이상, 접근 불가, 한 컷에만 쓴다. 위층 사람과
+   M5 최종 대치는 예외적으로 연속 3D 접지 셸을 유지한 채 제한된 정면 거리에서
+   PBR 가독성 레이어를 켠다. 범위를 벗어나면 즉시 셸로 되돌린다.
 4. ImageGen에 조명·그림자·한글·증거 상태를 굽지 않는다. 조명과 그림자는
    UE, 의미 있는 한글은 런타임 UI, 퍼즐 상태는 코드가 소유한다.
 5. 원본 시트는 카메라에 직접 노출하지 않는다. 크롭·알파·PBR·메시 변환을
@@ -33,6 +33,8 @@
 | 1인칭 두드리기 오른손 | `SheetFirstPersonKnockPhases_v2.png` | `T_FPHandKnock0..3_D` | UI-space RGBA sprite blend | Q/B 유효 노크의 준비·접촉·반동 0.22초 | 같은 손·소매 유지, 입력 프레임에 접촉(2), 소매 끝은 화면 밖, 초록 프린지 0, 흔들림 감소 시 이동 0, 월드 평면 0 |
 | 1인칭 포획 포옹 | `SheetListenerCaptureEmbracePhases_v1.png` | `T_FPCaptureEmbrace0..3_D` | UI-space RGBA sprite blend | 포획 암전의 접촉·접근·닫힘·유지 1.2초 | 같은 두 팔·건식 석고·낡은 옷, 얼굴/몸통 0, 중앙 35% 가독, 화면 밖 소매 끝, 초록 프린지 0, 흔들림 감소 정지 프레임, 월드 평면 0 |
 | 1인칭 기상 잔향 | 포획 포옹 원본 재사용 | `T_FPCaptureEmbrace1..3_D` | UI-space translucent recall | 포획 뒤 403호 기상의 3→2→1 역재생 0.68/0.48/0.30/0.16초 | 최대 알파 0.34, 셀 교차 페이드 0, 1280×800 종횡비 변화·소매 절단 0, 잔향 뒤 페이드 끝까지 HUD 점유 |
+| 공동 최종 잔존물 | `SheetFinalCavityRemainsReference_v1.png`, `FinalCavityFrontBlend_v1.png` | `SM_FinalCavityClothingShell`, `SM_FinalCavityBoneInsert`, `SM_FinalCavityTarp`, `SM_FinalCavityBrokenCaster`, `M_SpriteFinalCavity` | continuous 3D + lit masked PBR detail | 밤4 공동 개방 뒤 105~360cm·정면 내적 0.68에서 디테일, 그 밖은 셸 | 120cm 베이 안, 피부·머리카락·피·젖은 조직 0, 두개골→흉곽→신발 판독, 숨은 셸 그림자 유지, 측면 평면 노출 0 |
+| 목한수 최종 대치 | `SheetMokHansooConfrontationReference_v1.png`, `MokHansooFinalFrontBlend_v1.png` | `SM_MokHansooWorkwear`, `SM_MokHansooHeadHands`, `SM_MokHansooGypsumBoard`, `M_SpriteMokFinalUpper` | continuous 3D + upper-body PBR detail | 남쪽 계단참 등장→북쪽 퇴장 2.8초, 105~360cm·정면 내적 0.68에서 얼굴·재킷 보강 | 평균 체형·두 손 파지·95cm 보드·하체·그림자는 3D, 세로 31~39% 알파 감쇠, 근접 `T_SpriteMok_D` 사용 0, 괴물 통과 중 충돌 0 |
 
 ## 블렌딩·거리·성능 계약
 
@@ -47,11 +49,16 @@
   D/N/R/A로 수광하고, 이동 속도에 따라 네 자세를 1.6~6fps로 순환한다.
   정지하면 프레임을 유지하며 응답 노크 대기 상태는 중앙 지지 자세로
   고정한다. 숨은 연속 셸만 실제 접지 그림자를 낸다.
+- M5 잔존물·목한수 디테일은 105~360cm·정면 내적 0.68 초과에서만 켠다.
+  잔존물은 디테일 활성 중에도 숨은 3D 셸 그림자를 보존하고, 목한수는 얼굴·재킷
+  아래 알파를 감쇠해 실제 석고보드·하체·그림자를 덮지 않는다. 원거리 목한수
+  `T_SpriteMok_D`와 최종 대치 레이어는 서로 다른 용도이며 교체할 수 없다.
 - `SM_ListenerEntityCrawl`, 조율 렌치, 원장, 일지는 서사 근접 판독 때문에
   LOD0를 보존한다. 카트는 SmallProp LOD 그룹을 쓰며 화면 점유율 2% 아래에서
   단순화한다. 불법 5층 구조물은 반복 블록 재질을 공유하고 개별 Tick이 없다.
-- 스프라이트 알파, 흔적 값 마스크, 석고 PBR은 모두 1024px 이하 파생본을
-  사용한다. 원본 1254px 시트는 SourceArt 증빙이며 런타임에 로드하지 않는다.
+- 일반 스프라이트 알파, 흔적 값 마스크, 석고 PBR은 1024px 이하 파생본을 쓰고,
+  M5 세로형 정면 디테일만 1024×1536을 허용한다. 원본 시트는 SourceArt 증빙이며
+  런타임에 직접 로드하지 않는다.
 - 1인칭 손은 투명 여백을 포함한 768px RGBA 네 장을 UI 그룹·NoMip·Clamp·NeverStream으로
   임포트한다. 문·벽·인물·동물·배경은 기존 3D/PBR을 유지하며, 손 이미지를
   월드 카드나 충돌 대용으로 쓰지 않는다.

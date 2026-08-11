@@ -131,6 +131,7 @@ $requiredFiles = @(
 	'Scripts/create_readme_media.py',
 	'Scripts/Test-ArtAssetContract.ps1',
 	'Scripts/Test-MissingFloor-M0InputContract.ps1',
+	'Scripts/Test-MissingFloor-M5RevealContract.ps1',
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
 	'Scripts/RunEditor.bat',
@@ -181,8 +182,10 @@ foreach ($requiredReadmeToken in @(
 	'Docs/Media/readme-route-preview.gif',
 	'Docs/Media/ch02-receipt-0444.png',
 	'Docs/Media/ch03-roof-tank.png',
+	'Docs/Media/night4-cavity-open.png',
+	'Docs/Media/night4-mok-confrontation.png',
 	'## 대화와 접근성',
-	'## 개발 프리뷰 실행'
+	'## 직접 플레이하기'
 )) {
 	if (-not $readme.Contains($requiredReadmeToken)) {
 		throw "README product overview is missing: $requiredReadmeToken"
@@ -388,6 +391,10 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 # confirmation and the bounded -IGFrontendShippingProbe process only.
 # IGDemoDirector is a development-only capture driver that is spawned solely
 # under -IGCapture / -IGDemo / -IGDemoFrames.
+# IGMissingFloorNightFourDirector starts disabled and wakes only while the
+# final reveal, Mok retreat, ending prop movement, or the two camera-dependent
+# detail layers are visible. It disables itself as soon as those presentation
+# windows close.
 #
 # IGListenerEntity is the one deliberate always-on actor tick in the project.
 # 위층 사람 is a pursuer: its state machine, crawl locomotion, drag-loop gain
@@ -405,7 +412,8 @@ $reviewedTickingFiles = @(
 	'IGElevator.cpp',
 	'IGNeighborhoodLifeDirector.cpp',
 	'IGDemoDirector.cpp',
-	'IGListenerEntity.cpp'
+	'IGListenerEntity.cpp',
+	'IGMissingFloorNightFourDirector.cpp'
 )
 $unreviewedTickingActors = @($tickingActors | Where-Object {
 	$reviewedTickingFiles -notcontains [System.IO.Path]::GetFileName($_.Path)
@@ -2360,5 +2368,9 @@ $missingFloorM1CaptureContractScript = Join-Path $projectRoot `
 $missingFloorM1WakeEchoContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M1WakeEchoContract.ps1'
 & $missingFloorM1WakeEchoContractScript
+
+$missingFloorM5RevealContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M5RevealContract.ps1'
+& $missingFloorM5RevealContractScript
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

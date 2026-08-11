@@ -302,6 +302,13 @@ HERO_MESHES = {
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
     "SM_ListenerEntityCrawl",
+    "SM_FinalCavityClothingShell",
+    "SM_FinalCavityBoneInsert",
+    "SM_FinalCavityTarp",
+    "SM_FinalCavityBrokenCaster",
+    "SM_MokHansooWorkwear",
+    "SM_MokHansooHeadHands",
+    "SM_MokHansooGypsumBoard",
     "SM_TuningHammer",
     "SM_TunerToolCart",
     "SM_ComplaintLedger",
@@ -929,6 +936,197 @@ def build_listener_entity_crawl():
               rotation=(0.0, -7.0, 0.0), steps=24)
 
     return bake(mesh, "SM_ListenerEntityCrawl", add_collision=False)
+
+
+def build_final_cavity_clothing_shell():
+    """Dry clothing-led human volume for the night-four cavity reveal.
+
+    The ImageGen turntable fixes a 176 cm adult folded into a 120 cm stud bay.
+    Clothing carries the silhouette; the separate bone insert only occupies the
+    open jacket line.  This is one close-range authored static asset, never a
+    corpse card or a stack of runtime engine primitives.
+    """
+    mesh = new_mesh()
+
+    # Split jacket panels leave a narrow, irregular opening for the rib insert.
+    # Their overlap at shoulder and waist keeps the body volume continuous.
+    for side in (-1.0, 1.0):
+        ellipsoid(
+            mesh, (30.0, 38.0, 72.0),
+            location=(2.0, side * 18.0, 108.0),
+            rotation=(0.0, side * 3.0, side * -5.0), steps=30)
+    ellipsoid(mesh, (31.0, 75.0, 20.0), location=(1.0, 0.0, 137.0),
+              rotation=(0.0, 0.0, -2.0), steps=30)
+    ellipsoid(mesh, (31.0, 63.0, 39.0), location=(4.0, 0.0, 72.0),
+              rotation=(0.0, 0.0, 2.0), steps=28)
+
+    # Sleeves settle across the abdomen instead of hanging as detached rods.
+    arm_paths = (
+        [(1.0, -30.0, 128.0), (-5.0, -35.0, 98.0),
+         (-12.0, -10.0, 77.0)],
+        [(1.0, 30.0, 127.0), (-7.0, 34.0, 101.0),
+         (-13.0, 11.0, 79.0)],
+    )
+    for path in arm_paths:
+        _append_round_path(mesh, 8.2, path, sides=16)
+        wrist = path[-1]
+        ellipsoid(mesh, (15.0, 12.0, 9.0), location=wrist, steps=18)
+
+    # Both legs fold tightly under the pelvis.  Continuous swept trouser legs
+    # and compressed knees preserve the pelvis->knee->ankle read in silhouette.
+    leg_paths = (
+        [(5.0, -18.0, 73.0), (-2.0, -34.0, 49.0),
+         (-8.0, -43.0, 18.0)],
+        [(6.0, 18.0, 72.0), (0.0, 35.0, 48.0),
+         (-6.0, 42.0, 17.0)],
+    )
+    for path in leg_paths:
+        _append_round_path(mesh, 12.0, path, sides=18)
+        knee = path[1]
+        ankle = path[-1]
+        ellipsoid(mesh, (27.0, 24.0, 23.0), location=knee, steps=22)
+        ellipsoid(mesh, (32.0, 18.0, 12.0),
+                  location=(ankle[0] - 7.0, ankle[1], 9.0),
+                  rotation=(0.0, -4.0, 0.0), steps=22)
+
+    # Compression folds are geometry so grazing flashlight light remains live.
+    for location, yaw, length in (
+            ((-14.0, -20.0, 118.0), 18.0, 20.0),
+            ((-14.0, 20.0, 113.0), -20.0, 19.0),
+            ((-15.0, -20.0, 62.0), 34.0, 17.0),
+            ((-15.0, 21.0, 59.0), -31.0, 16.0)):
+        ellipsoid(mesh, (3.0, length, 2.1), location=location,
+                  rotation=(0.0, yaw, 0.0), steps=16)
+    return bake(mesh, "SM_FinalCavityClothingShell", add_collision=False)
+
+
+def build_final_cavity_bone_insert():
+    """Restrained skull-and-rib insert, dry and non-graphic by construction."""
+    mesh = new_mesh()
+
+    # A proportioned skull with shallow eye cavities. No skin, hair, teeth fan,
+    # wet surface or gore is authored into this release prop.
+    ellipsoid(mesh, (23.0, 20.0, 27.0), location=(-4.0, 0.0, 161.0),
+              rotation=(0.0, 0.0, -8.0), steps=36)
+    for eye_y in (-5.2, 5.2):
+        cutter = new_mesh()
+        ellipsoid(cutter, (9.0, 6.0, 7.0),
+                  location=(-14.0, eye_y, 164.0), steps=20)
+        subtract(mesh, cutter)
+    ellipsoid(mesh, (12.0, 14.0, 8.0), location=(-7.0, 0.0, 148.0),
+              rotation=(0.0, 0.0, -5.0), steps=20)
+
+    # Five paired ribs curve from the sternum into the clothing opening. The
+    # jacket hides their endpoints, avoiding the assembled classroom-skeleton
+    # read while retaining real chest proportions.
+    _append_round_path(mesh, 1.35,
+                       [(-15.0, 0.0, 137.0), (-15.0, 0.0, 101.0)], sides=12)
+    for rib_index in range(5):
+        z = 133.0 - rib_index * 7.0
+        reach = 19.0 + rib_index * 1.6
+        for side in (-1.0, 1.0):
+            _append_round_path(
+                mesh,
+                1.15,
+                [(-15.0, side * 1.5, z),
+                 (-16.5, side * reach * 0.60, z - 2.0),
+                 (-9.0, side * reach, z - 6.0)],
+                sides=10)
+    return bake(mesh, "SM_FinalCavityBoneInsert", add_collision=False)
+
+
+def build_final_cavity_tarp():
+    """One dusty waterproof-sheet edge compressed behind the remains."""
+    mesh = new_mesh()
+    ellipsoid(mesh, (4.0, 30.0, 146.0), location=(18.0, 39.0, 88.0),
+              rotation=(0.0, 0.0, -4.0), steps=28)
+    ellipsoid(mesh, (5.0, 88.0, 22.0), location=(12.0, 5.0, 16.0),
+              rotation=(0.0, 3.0, 0.0), steps=28)
+    for y, z, roll in ((31.0, 52.0, -9.0), (38.0, 91.0, 6.0),
+                       (34.0, 128.0, -5.0)):
+        ellipsoid(mesh, (3.0, 22.0, 5.0), location=(-1.0, y, z),
+                  rotation=(0.0, 0.0, roll), steps=16)
+    return bake(mesh, "SM_FinalCavityTarp", add_collision=False)
+
+
+def build_final_cavity_broken_caster():
+    """A single snapped tool-cart caster, scale clue and causal evidence."""
+    mesh = new_mesh()
+    profile = []
+    for index in range(13):
+        angle = math.tau * index / 12.0
+        profile.append((6.2 + math.cos(angle) * 1.45,
+                        math.sin(angle) * 1.45))
+    revolve(mesh, profile, steps=36,
+            transform=xf(location=(-10.0, -43.0, 12.0),
+                         rotation=(90.0, 0.0, 0.0)))
+    cylinder(mesh, 1.8, 4.0, location=(-10.0, -45.0, 12.0),
+             rotation=(90.0, 0.0, 0.0), steps=24)
+    box(mesh, (3.0, 14.0, 3.0), location=(-4.0, -43.0, 18.0),
+        rotation=(0.0, 18.0, 0.0))
+    box(mesh, (3.0, 5.0, 10.0), location=(1.0, -43.0, 22.0),
+        rotation=(0.0, 18.0, 0.0))
+    return bake(mesh, "SM_FinalCavityBrokenCaster", add_collision=False)
+
+
+def build_mok_hansoo_workwear():
+    """Close-range 3D maintenance-worker silhouette for Mok Han-su."""
+    mesh = new_mesh()
+    # Shoes and slightly uneven legs establish a tired, non-confrontational
+    # stance. All joints overlap under workwear; no mannequin gaps remain.
+    for side, lean in ((-1.0, -2.0), (1.0, 2.0)):
+        _append_round_path(
+            mesh, 9.0,
+            [(0.0, side * 13.0, 7.0),
+             (lean, side * 12.0, 48.0),
+             (1.0, side * 14.0, 91.0)], sides=18)
+        ellipsoid(mesh, (31.0, 15.0, 10.0),
+                  location=(-7.0, side * 13.0, 6.0), steps=22)
+    ellipsoid(mesh, (27.0, 46.0, 31.0), location=(1.0, 0.0, 91.0), steps=28)
+    ellipsoid(mesh, (32.0, 58.0, 67.0), location=(2.0, 0.0, 130.0),
+              rotation=(0.0, 0.0, -2.0), steps=32)
+    ellipsoid(mesh, (32.0, 66.0, 19.0), location=(1.0, 0.0, 151.0),
+              rotation=(0.0, 0.0, -2.0), steps=28)
+
+    # Both arms genuinely support the gypsum panel at waist/chest height.
+    for side in (-1.0, 1.0):
+        _append_round_path(
+            mesh, 7.7,
+            [(0.0, side * 28.0, 148.0),
+             (-4.0, side * 34.0, 124.0),
+             (-18.0, side * 39.0, 109.0)], sides=16)
+    return bake(mesh, "SM_MokHansooWorkwear", add_collision=False)
+
+
+def build_mok_hansoo_head_hands():
+    """Face and gloved hands kept separate for a matte skin/cotton material."""
+    mesh = new_mesh()
+    _append_round_path(mesh, 6.2, [(1.0, 0.0, 151.0),
+                                  (0.0, 0.0, 161.0)], sides=16)
+    ellipsoid(mesh, (23.0, 20.0, 27.0), location=(-1.0, 0.0, 174.0),
+              rotation=(0.0, 0.0, -4.0), steps=34)
+    ellipsoid(mesh, (6.0, 5.0, 7.0), location=(-12.0, 0.0, 174.0), steps=18)
+    for side in (-1.0, 1.0):
+        ellipsoid(mesh, (13.0, 10.0, 8.0),
+                  location=(-19.0, side * 40.0, 108.0),
+                  rotation=(0.0, side * 8.0, 0.0), steps=20)
+    return bake(mesh, "SM_MokHansooHeadHands", add_collision=False)
+
+
+def build_mok_hansoo_gypsum_board():
+    """Broken-edged 95 x 43 cm board held by Mok, with real thickness."""
+    mesh = new_mesh()
+    box(mesh, (3.0, 95.0, 43.0), location=(-23.0, 0.0, 112.0))
+    # Small missing bites stop the silhouette reading as a perfect UI rectangle.
+    for location, size, roll in (
+            ((-23.0, -42.0, 132.0), (7.0, 13.0, 9.0), 16.0),
+            ((-23.0, 44.0, 96.0), (7.0, 11.0, 10.0), -13.0),
+            ((-23.0, 16.0, 134.0), (7.0, 10.0, 7.0), 8.0)):
+        cutter = new_mesh()
+        box(cutter, size, location=location, rotation=(0.0, 0.0, roll))
+        subtract(mesh, cutter)
+    bevel_all(mesh, distance=0.18)
+    return bake(mesh, "SM_MokHansooGypsumBoard", add_collision=False)
 
 
 def build_tuning_hammer():
@@ -2126,6 +2324,13 @@ BUILDERS = (
     build_alley_cat_run,
     build_first_person_hoodie_sleeve,
     build_listener_entity_crawl,
+    build_final_cavity_clothing_shell,
+    build_final_cavity_bone_insert,
+    build_final_cavity_tarp,
+    build_final_cavity_broken_caster,
+    build_mok_hansoo_workwear,
+    build_mok_hansoo_head_hands,
+    build_mok_hansoo_gypsum_board,
     build_tuning_hammer,
     build_tuner_tool_cart,
     build_complaint_ledger,
@@ -2175,6 +2380,13 @@ def run():
     elif os.environ.get("IG_MISSING_FLOOR_ONLY") == "1":
         builders = (
             build_listener_entity_crawl,
+            build_final_cavity_clothing_shell,
+            build_final_cavity_bone_insert,
+            build_final_cavity_tarp,
+            build_final_cavity_broken_caster,
+            build_mok_hansoo_workwear,
+            build_mok_hansoo_head_hands,
+            build_mok_hansoo_gypsum_board,
             build_tuning_hammer,
             build_tuner_tool_cart,
             build_complaint_ledger,

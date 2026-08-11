@@ -6,6 +6,8 @@
 
 class AIGMissingFloorEvidence;
 class AIGPrologueWorldScene;
+class AIGListenerEntity;
+class APawn;
 class UAudioComponent;
 class UIGMissingFloorNarrativeSubsystem;
 class UStaticMeshComponent;
@@ -29,6 +31,7 @@ class INDIEGAME_API AIGMissingFloorNightFourDirector : public AActor
 
 public:
 	AIGMissingFloorNightFourDirector();
+	virtual void Tick(float DeltaSeconds) override;
 
 	bool Configure(AIGPrologueWorldScene* InScene);
 	void SetHourActive(bool bHourActive);
@@ -44,6 +47,18 @@ public:
 
 	bool WasHydraulicAlarmTriggered() const { return bHydraulicAlarmTriggered; }
 	bool IsWaterMaskPlaying() const;
+	bool IsFinalRevealPlaying() const { return bFinalRevealActive; }
+	bool IsFinalConfrontationComplete() const
+	{
+		return bFinalConfrontationComplete;
+	}
+	int32 GetFinalRevealStage() const { return FinalRevealStage; }
+
+	/**
+	 * Places the authored finale meshes for the repository's screenshot tour.
+	 * This changes no narrative, puzzle, save or AI state.
+	 */
+	void SetFinaleCapturePreview(bool bShowCavity, bool bShowMok);
 
 	/** Tier-3 capture during night 4 uses the same common-discovery state. */
 	bool ResolveFailureEnding();
@@ -61,14 +76,34 @@ private:
 	void HandleWallStrike(AIGMissingFloorEvidence* Evidence);
 	void HandleEndingA(AIGMissingFloorEvidence* Evidence);
 	void HandleEndingB(AIGMissingFloorEvidence* Evidence);
+	void HandleNightFourCapture(APawn* Player);
 	void ActivateControl(FName ControlId, AIGMissingFloorEvidence* Evidence);
 	void StartWaterMaskIfReady();
+	bool BuildFinaleVisuals();
+	void SetCavityRevealVisible(bool bVisible);
+	void SetMokVisible(bool bVisible);
+	void UpdateFinaleDetailLayers();
+	void BeginCavityReveal();
+	void UpdateCavityReveal(float DeltaSeconds);
+	void AdvanceCavityReveal();
+	void BeginSilenceBeat();
+	void PlayDistantReply();
+	void PresentMokHansoo();
+	void BeginEntityPass();
+	void TriggerBlackout();
+	void CompleteConfrontation();
+	void ResetFinaleTimers();
+	void UpdateMokRetreat(float DeltaSeconds);
+	void UpdateEndingHammer(float DeltaSeconds);
 	void RefreshPresentation();
 	void FinishEnding(FName EndingId);
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGPrologueWorldScene> Scene;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AIGListenerEntity> Listener;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> EvictionNotice;
@@ -98,9 +133,47 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> EquipmentVisuals;
 
+	/** Four separate material groups, all authored 3D and sharing one origin. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> CavityRevealVisuals;
+
+	/** Workwear, head/hands and gypsum board; never a near-field sprite. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> MokVisuals;
+
+	/** Lit masked detail over the continuous cavity shadow/silhouette meshes. */
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> CavityDetailCard;
+
+	/** Face/jacket only; the 95 cm board, lower body and shadow remain 3D. */
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> MokDetailCard;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> EndingHammerVisual;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> EndingPhoneVisual;
+
 	bool bHourCurrentlyActive = false;
 	bool bWaterMaskActive = false;
 	bool bHydraulicAlarmTriggered = false;
 	bool bResolvedBroadcast = false;
+	bool bFinalRevealActive = false;
+	bool bFinalConfrontationComplete = false;
+	bool bMokRetreatActive = false;
+	bool bEndingHammerMoving = false;
+	bool bCavityPresentationVisible = false;
+	bool bMokPresentationVisible = false;
+	int32 FinalRevealStage = INDEX_NONE;
+	float RevealAttentionSeconds = 0.0f;
+	float RevealStageElapsedSeconds = 0.0f;
+	float MokRetreatSeconds = 0.0f;
+	float EndingHammerSeconds = 0.0f;
 	int32 WaterMaskHumHandle = INDEX_NONE;
+	FTimerHandle DistantReplyTimer;
+	FTimerHandle MokRevealTimer;
+	FTimerHandle EntityPassTimer;
+	FTimerHandle BlackoutTimer;
+	FTimerHandle BlackoutRestoreTimer;
 };

@@ -74,6 +74,12 @@ SURFACES = (
     SurfaceSpec(
         "T_SpriteListenerCrawl3", 0.86, 0.72, 0.96, 0.38,
         rough_detail=0.12, ao_depth=0.58),
+    SurfaceSpec(
+        "T_SpriteFinalCavity", 0.90, 0.76, 0.97, 0.42,
+        rough_detail=0.10, ao_depth=0.72),
+    SurfaceSpec(
+        "T_SpriteMokFinalUpper", 0.84, 0.68, 0.94, 0.36,
+        rough_detail=0.10, ao_depth=0.54),
 )
 
 

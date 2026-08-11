@@ -355,6 +355,22 @@ $plan = @(
         Crop = @(0.502, 0.502, 0.496, 0.496); Size = @(1024, 1024)
         Mode = 'ChromaAlphaGreen'; Desaturate = 0.10
     }
+    # M5 keeps continuous 3D silhouettes and contact shadows. These two
+    # front layers contribute only the close flashlight detail that a
+    # procedural release mesh cannot carry at this stage.
+    [pscustomobject]@{
+        Source = 'FinalCavityFrontBlend_v1'; Target = 'T_SpriteFinalCavity_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1536)
+        Mode = 'ChromaAlphaGreen'; Desaturate = 0.08
+    }
+    [pscustomobject]@{
+        Source = 'MokHansooFinalFrontBlend_v1'; Target = 'T_SpriteMokFinalUpper_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1536)
+        Mode = 'ChromaAlphaGreen'; Desaturate = 0.06
+        # The real 95 cm board and lower body remain 3D. Fade this face/jacket
+        # layer behind the board top so no flat lower-body silhouette survives.
+        AlphaFadeBottom = @(0.31, 0.39)
+    }
     # M0 first-person knock. V2 keeps the approved hand while extending the
     # sleeve through each lower-right cell corner, so its crop can live beyond
     # the viewport instead of ending as a visible rectangle.
@@ -627,6 +643,33 @@ foreach ($entry in $plan) {
                             $pixel.A,
                             $pixel.R,
                             [int][Math]::Round($green),
+                            $pixel.B))
+                }
+            }
+        }
+
+        if ($null -ne $entry.PSObject.Properties['AlphaFadeBottom']) {
+            $fadeStart = [double]$entry.AlphaFadeBottom[0]
+            $fadeEnd = [double]$entry.AlphaFadeBottom[1]
+            if ($fadeEnd -le $fadeStart) {
+                throw "AlphaFadeBottom end must be greater than start: $($entry.Source)"
+            }
+            for ($y = 0; $y -lt $target.Height; $y++) {
+                $ratio = [double]$y / [Math]::Max(1, $target.Height - 1)
+                if ($ratio -lt $fadeStart) { continue }
+                $keep = [Math]::Max(
+                    0.0,
+                    [Math]::Min(1.0, ($fadeEnd - $ratio) / ($fadeEnd - $fadeStart)))
+                for ($x = 0; $x -lt $target.Width; $x++) {
+                    $pixel = $target.GetPixel($x, $y)
+                    if ($pixel.A -eq 0) { continue }
+                    $target.SetPixel(
+                        $x,
+                        $y,
+                        [System.Drawing.Color]::FromArgb(
+                            [int][Math]::Round($pixel.A * $keep),
+                            $pixel.R,
+                            $pixel.G,
                             $pixel.B))
                 }
             }

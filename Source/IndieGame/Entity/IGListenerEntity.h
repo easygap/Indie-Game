@@ -31,7 +31,9 @@ enum class EIGListenerState : uint8
 	/** Frozen by an answer knock. Hope, while it lasts. */
 	Waiting,
 	/** Holding the caught player; the director owns the screen. */
-	CaptureHold
+	CaptureHold,
+	/** Night-four authored pass: follows Mok, never diverts to or catches Yudam. */
+	FinaleLured
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FIGPlayerCapturedSignature, APawn* /*Player*/);
@@ -97,6 +99,20 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Listener")
 	bool IsDormant() const { return bDormant; }
+
+	/**
+	 * Runs the finale-only blind pass from StartLocation through RoutePoints.
+	 * This is presentation locomotion, not a stealth failure: player collision,
+	 * capture and ordinary noise retargeting stay disabled until the pawn exits.
+	 */
+	void BeginFinalePass(
+		const FVector& StartLocation,
+		const TArray<FVector>& RoutePoints);
+
+	bool IsFinalePassActive() const
+	{
+		return State == EIGListenerState::FinaleLured && !bDormant;
+	}
 
 	/** Fired once per catch; the night-loop director listens. */
 	FIGPlayerCapturedSignature OnPlayerCaptured;
@@ -199,6 +215,8 @@ private:
 	FVector SearchAnchor = FVector::ZeroVector;
 	FVector SearchTarget = FVector::ZeroVector;
 	FVector AnswerKnockLocation = FVector::ZeroVector;
+	TArray<FVector> FinaleRoutePoints;
+	int32 FinaleRouteIndex = 0;
 	float StateSeconds = 0.0f;
 	float SearchRetargetSeconds = 0.0f;
 	float StuckSeconds = 0.0f;

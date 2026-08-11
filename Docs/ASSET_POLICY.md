@@ -25,7 +25,7 @@
 | `/Game/Prototype/Textures/T_Photo_Blanket_*` | ambientCG.com — Fabric022 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 침구 원단 |
 | `/Game/Prototype/Textures/T_Photo_WoodDark_*` | ambientCG.com — Wood067 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 가구 목재 |
 | `/Game/Photo/Props/*` (15종: old_bed_frame, side_table_01, metal_office_desk, painted_wooden_chair_01, modern_wooden_cabinet, desk_lamp_arm_01, electric_stove, street_lamp_01, trashbag, cardboard_box_01, steel_frame_shelves_01, CashRegister_01, plastic_crate_01, utility_box_01, wine_bottles_01) | polyhaven.com (포토그래메트리 스캔) | CC0 1.0 | 2026-07-19 | 원본(glTF, 1K 텍스처) | `Content/SourceArt/PhotoProps/` | 실물 스캔 소품 |
-| `/Game/Meshes/SM_*` (49종: 기존 생활 소품 18종 + 개방형 제물 물그릇·증거 소품 3종·골목 고양이·1인칭 소매·P3 서비스함 5종·옥상 철문/문틀/열린 자물쇠 열쇠 3종·수중 인체 의복 3종·탱크 외피/내부 라이닝/배관/내부 사다리/난간/상판/점검구 7종·P5 호스/커플링/봉지 3종·외부 계단/사고 발판/패드/클립 4종) | 직접 제작 (UE5 Geometry Script 절차 모델링) | 프로젝트 소유 | 2026-08-05 | 원본 | `Scripts/generate_meshes.py` | 회전체·베벨·불리언·스윕. 제물 물그릇·증거 소품·생물·1인칭 복장·P3 설비·옥상 철문과 관리 열쇠·수중 인체·탱크·사고 프롭을 ImageGen 기준과 실제 치수 계약에 맞춰 절차 메시로 재구성 |
+| `/Game/Meshes/SM_*` (56종: 기존 49종 + M5 공동 잔존물 4종·목한수 근접 대치 3종) | 직접 제작 (UE5 Geometry Script 절차 모델링) | 프로젝트 소유 | 2026-08-05 | 원본 | `Scripts/generate_meshes.py` | 회전체·베벨·불리언·스윕. 생활 소품·생물·설비·인체·사고 프롭과 M5의 건조한 의복/골격/방수포/캐스터·목한수 작업복/머리와 손/석고보드를 ImageGen 비율 기준과 실제 치수 계약에 맞춰 절차 메시로 재구성 |
 | `/Game/Prototype/Textures/T_Label* · T_Snack*` | 직접 제작 (System.Drawing) — 가상 브랜드, 실제 상표 미사용 | 프로젝트 소유 | 2026-07-25 | 원본 | `Scripts/Create-LabelTextures.ps1` | 제품 라벨·봉지 아트 |
 | `/Game/Prototype/Textures/T_Sign* · T_Poster* · T_Note*` | 직접 제작 (System.Drawing + 시스템 폰트) | 프로젝트 소유 | 2026-07-19 | 원본 | `Scripts/Create-SignTextures.ps1` | 한글 간판·포스터 |
 | `/Game/Prototype/Textures/T_(Jangpan·Wallpaper·…)_{D,N,R}` | 직접 제작 (절차 생성) | 프로젝트 소유 | 2026-07-19 | 원본 | `Scripts/generate_surface_textures.py` | 사진 텍스처 폴백 |
@@ -92,7 +92,7 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `SheetMissingFloorHeroPropsReference.png` | `SM_TuningHammer` · `SM_TunerToolCart` · `SM_ComplaintLedger` · `SM_CalendarJournal` | 조율 렌치·공구 카트·민원 원장·달력 일지의 실제 두께·접지·시차를 가진 3D 프롭 기준 |
 
 한 번의 생성에 5분이 걸리므로 낱장 대신 **격자 시트**로 묶어 뽑고 슬라이스합니다.
-현재 125장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·스프라이트 40장)와
+현재 133장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·디테일 48장)와
 증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-06
 추가분은 생성 실패를 그대로 채택하지 않고 슬리퍼 밑창과 빗물 때를 각각
 한 차례 수정 생성했습니다.
@@ -476,4 +476,38 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
   모션 감소에서는 닫힌 정지 프레임만 사용한다.
 - 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-08-11.md`
 
-프로젝트 코드의 공개 라이선스는 저장소 소유자가 별도로 선택합니다. 선택 전까지 저작권 고지만으로 공개 사용 권한을 추정하지 않습니다.
+## 2026-08-11 없는 층 M5 공동 리빌 원본
+
+- `Content/SourceArt/AI/SheetFinalCavityRemainsReference_v1.png`
+  - 도구/모드: OpenAI ImageGen 내장 생성, `stylized-concept`
+  - SHA-256: `950EA1404E6804C083F4EF060ABA7AE175EB70DAD9BE396333605E889C855297`
+  - 용도: 건조한 부분 골격, 내려앉은 작업복, 방수포와 캐스터의 3D 비율·재질 참고.
+    생성본의 피부·머리카락과 스튜디오 배경은 사용하지 않는다.
+  - 런타임: 4개 Geometry Script 정적 메시로 재구성하며 원본 PNG를 카메라나
+    재질에 직접 노출하지 않는다.
+- `Content/SourceArt/AI/SheetMokHansooConfrontationReference_v1.png`
+  - 도구/모드: OpenAI ImageGen 내장 생성, `stylized-concept`
+  - SHA-256: `466FC1AF73CD8852E955022FA5D9FBE1F38A04F6623F318F966F0373FEBCF618`
+  - 용도: 목한수의 평균 체형, 작업복, 두 손 석고보드 파지와 피로한 표정 참고.
+  - 런타임: 작업복·머리/손·석고보드 3개 근접 3D 메시로 재구성한다. 기존
+    `T_SpriteMok_D`는 12m 이상 접근 불가 원거리 규칙을 유지한다.
+- `Content/SourceArt/AI/FinalCavityFrontBlend_v1.png`
+  - 도구/모드: OpenAI ImageGen 내장 생성·편집, `game-asset`
+  - SHA-256: `9C26AAC9D3160CBD73B3183A332BC822FA8B6A1B655D5B24A6D642E1952B6D11`
+  - 용도: 절차 3D 셸에서 부족한 건조한 의복·골격의 정면 판독 정보.
+  - 파생: `T_SpriteFinalCavity_{D,N,R,A}`와 `M_SpriteFinalCavity`. 105~360cm·
+    정면 내적 0.68 초과에서만 보이며, 숨은 3D 셸의 실제 그림자를 유지한다.
+- `Content/SourceArt/AI/MokHansooFinalFrontBlend_v1.png`
+  - 도구/모드: OpenAI ImageGen 내장 생성, `game-asset`
+  - SHA-256: `B2C6787D66E595F6A32BD6FD653060773097BF560CFE0EEDF0877EAB6FA6547C`
+  - 용도: 목한수의 피로한 얼굴과 낡은 재킷을 근접 정면에서 판독하기 위한 보강.
+  - 파생: `T_SpriteMokFinalUpper_{D,N,R,A}`와 `M_SpriteMokFinalUpper`. 세로
+    31~39%에서 알파를 없애 실제 3D 석고보드·하체·접지·그림자를 보존한다.
+
+네 원본 모두 프로젝트 제작 레퍼런스·파생 소스이며 외부 인물·브랜드·상표를
+참조하지 않은 생성물이다. 최종 런타임 형상과 배치, 거리·각도·재질 선택은
+프로젝트 코드가 소유한다. 전체 프롬프트와 생성·편집 이력은
+`Docs/IMAGEGEN_PROMPTS_2026-08-11.md`에 보존한다.
+
+프로젝트 코드의 공개 라이선스는 저장소 소유자가 별도로 선택합니다. 선택 전까지
+저작권 고지만으로 공개 사용 권한을 추정하지 않습니다.

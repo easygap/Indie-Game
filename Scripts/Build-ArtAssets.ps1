@@ -123,7 +123,9 @@ if ($MissingFloorOnly) {
 			'SheetMissingFloorResidueMasks',
 			'SheetMissingFloorDistantCharacters',
 			'ListenerEntityFrontCutout',
-			'SheetListenerEntityCrawlPhases'
+			'SheetListenerEntityCrawlPhases',
+			'FinalCavityFrontBlend_v1',
+			'MokHansooFinalFrontBlend_v1'
 		)
 	$python = Get-Command python -ErrorAction Stop
 	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
@@ -135,6 +137,8 @@ if ($MissingFloorOnly) {
 		--only T_SpriteListenerCrawl1 `
 		--only T_SpriteListenerCrawl2 `
 		--only T_SpriteListenerCrawl3 `
+		--only T_SpriteFinalCavity `
+		--only T_SpriteMokFinalUpper `
 		--force
 	if ($LASTEXITCODE -ne 0) {
 		throw "Missing-floor PBR source-map generation failed ($LASTEXITCODE)"
@@ -171,7 +175,7 @@ if ($SourceOnly) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Art source contract failed ($LASTEXITCODE)"
 	}
-	Write-Host 'ART_SOURCE_BUILD PASS material_scans=12 material_masks=9 overlays=17 pbr_maps=56 no_unreal_process=true'
+	Write-Host 'ART_SOURCE_BUILD PASS material_scans=12 material_masks=9 overlays=19 pbr_maps=62 no_unreal_process=true'
 	return
 }
 
@@ -329,6 +333,13 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 	elseif ($MissingFloorOnly) {
 		@(
 			'Content\Meshes\SM_ListenerEntityCrawl.uasset',
+			'Content\Meshes\SM_FinalCavityClothingShell.uasset',
+			'Content\Meshes\SM_FinalCavityBoneInsert.uasset',
+			'Content\Meshes\SM_FinalCavityTarp.uasset',
+			'Content\Meshes\SM_FinalCavityBrokenCaster.uasset',
+			'Content\Meshes\SM_MokHansooWorkwear.uasset',
+			'Content\Meshes\SM_MokHansooHeadHands.uasset',
+			'Content\Meshes\SM_MokHansooGypsumBoard.uasset',
 			'Content\Meshes\SM_TuningHammer.uasset',
 			'Content\Meshes\SM_TunerToolCart.uasset',
 			'Content\Meshes\SM_ComplaintLedger.uasset',
@@ -365,6 +376,14 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 			'Content\Prototype\Textures\T_SpriteListenerCrawl3_N.uasset',
 			'Content\Prototype\Textures\T_SpriteListenerCrawl3_R.uasset',
 			'Content\Prototype\Textures\T_SpriteListenerCrawl3_A.uasset',
+			'Content\Prototype\Textures\T_SpriteFinalCavity_D.uasset',
+			'Content\Prototype\Textures\T_SpriteFinalCavity_N.uasset',
+			'Content\Prototype\Textures\T_SpriteFinalCavity_R.uasset',
+			'Content\Prototype\Textures\T_SpriteFinalCavity_A.uasset',
+			'Content\Prototype\Textures\T_SpriteMokFinalUpper_D.uasset',
+			'Content\Prototype\Textures\T_SpriteMokFinalUpper_N.uasset',
+			'Content\Prototype\Textures\T_SpriteMokFinalUpper_R.uasset',
+			'Content\Prototype\Textures\T_SpriteMokFinalUpper_A.uasset',
 			'Content\Prototype\Materials\M_MissingFloorListenerPlasterUV.uasset',
 			'Content\Prototype\Materials\M_MissingFloorPlaster_X.uasset',
 			'Content\Prototype\Materials\M_MissingFloorPlaster_Y.uasset',
@@ -381,7 +400,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 			'Content\Prototype\Materials\M_SpriteListenerCrawl0.uasset',
 			'Content\Prototype\Materials\M_SpriteListenerCrawl1.uasset',
 			'Content\Prototype\Materials\M_SpriteListenerCrawl2.uasset',
-			'Content\Prototype\Materials\M_SpriteListenerCrawl3.uasset'
+			'Content\Prototype\Materials\M_SpriteListenerCrawl3.uasset',
+			'Content\Prototype\Materials\M_SpriteFinalCavity.uasset',
+			'Content\Prototype\Materials\M_SpriteMokFinalUpper.uasset'
 		)
 	}
 	elseif ($TankWaterOnly) {
@@ -433,12 +454,12 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 		@(
 			@{
 				Script = 'generate_meshes.py'
-				SuccessPattern = '\[MESHGEN\] complete: 5/5 meshes'
+				SuccessPattern = '\[MESHGEN\] complete: 12/12 meshes'
 				TargetEnvironment = $true
 			},
 			@{
 				Script = 'generate_surface_textures.py'
-				SuccessPattern = '\[IndieGame\] Imported 32 textures'
+				SuccessPattern = '\[IndieGame\] Imported 40 textures'
 				TargetEnvironment = $true
 			},
 			@{
@@ -648,6 +669,13 @@ $requiredAssets = @(
 	'Content\Meshes\SM_AlleyCatRun.uasset',
 	'Content\Meshes\SM_FirstPersonHoodieSleeve.uasset',
 	'Content\Meshes\SM_ListenerEntityCrawl.uasset',
+	'Content\Meshes\SM_FinalCavityClothingShell.uasset',
+	'Content\Meshes\SM_FinalCavityBoneInsert.uasset',
+	'Content\Meshes\SM_FinalCavityTarp.uasset',
+	'Content\Meshes\SM_FinalCavityBrokenCaster.uasset',
+	'Content\Meshes\SM_MokHansooWorkwear.uasset',
+	'Content\Meshes\SM_MokHansooHeadHands.uasset',
+	'Content\Meshes\SM_MokHansooGypsumBoard.uasset',
 	'Content\Meshes\SM_TuningHammer.uasset',
 	'Content\Meshes\SM_TunerToolCart.uasset',
 	'Content\Meshes\SM_ComplaintLedger.uasset',
@@ -722,6 +750,14 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_SpriteListenerCrawl3_N.uasset',
 	'Content\Prototype\Textures\T_SpriteListenerCrawl3_R.uasset',
 	'Content\Prototype\Textures\T_SpriteListenerCrawl3_A.uasset',
+	'Content\Prototype\Textures\T_SpriteFinalCavity_D.uasset',
+	'Content\Prototype\Textures\T_SpriteFinalCavity_N.uasset',
+	'Content\Prototype\Textures\T_SpriteFinalCavity_R.uasset',
+	'Content\Prototype\Textures\T_SpriteFinalCavity_A.uasset',
+	'Content\Prototype\Textures\T_SpriteMokFinalUpper_D.uasset',
+	'Content\Prototype\Textures\T_SpriteMokFinalUpper_N.uasset',
+	'Content\Prototype\Textures\T_SpriteMokFinalUpper_R.uasset',
+	'Content\Prototype\Textures\T_SpriteMokFinalUpper_A.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_N.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_R.uasset',
 	'Content\Prototype\Textures\T_WetHoodie_A.uasset',
@@ -788,6 +824,8 @@ $requiredAssets = @(
 	'Content\Prototype\Materials\M_SpriteListenerCrawl1.uasset',
 	'Content\Prototype\Materials\M_SpriteListenerCrawl2.uasset',
 	'Content\Prototype\Materials\M_SpriteListenerCrawl3.uasset',
+	'Content\Prototype\Materials\M_SpriteFinalCavity.uasset',
+	'Content\Prototype\Materials\M_SpriteMokFinalUpper.uasset',
 	'Content\Prototype\Textures\T_NoteFridge_D.uasset',
 	'Content\Prototype\Textures\T_LabelWater_D.uasset',
 	'Content\Prototype\Textures\T_LabelRamyeon_D.uasset',
@@ -805,4 +843,4 @@ if ($missing.Count -gt 0) {
 	throw ('Art build finished but required assets are missing: ' + ($missing -join ', '))
 }
 
-Write-Host 'ART_BUILD PASS meshes=32 evidence_masks=8 material_masks=1 environment_overlays=8 material_scans=12 pbr_maps=41 uasset_audit=1'
+Write-Host 'ART_BUILD PASS meshes=39 evidence_masks=8 material_masks=1 environment_overlays=10 material_scans=12 pbr_maps=47 uasset_audit=1'

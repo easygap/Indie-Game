@@ -334,6 +334,18 @@ SURFACE_OVERLAY_MATERIALS = {
         "rough": 0.86,
         "specular": 0.14,
     },
+    "M_SpriteFinalCavity": {
+        "tex_asset": "T_SpriteFinalCavity_D",
+        "pbr_stem": "T_SpriteFinalCavity",
+        "rough": 0.90,
+        "specular": 0.10,
+    },
+    "M_SpriteMokFinalUpper": {
+        "tex_asset": "T_SpriteMokFinalUpper_D",
+        "pbr_stem": "T_SpriteMokFinalUpper",
+        "rough": 0.84,
+        "specular": 0.14,
+    },
 }
 
 # Emissive signage: the texture *is* the light source.
@@ -1535,6 +1547,8 @@ def run():
             "M_SpriteListenerCrawl1",
             "M_SpriteListenerCrawl2",
             "M_SpriteListenerCrawl3",
+            "M_SpriteFinalCavity",
+            "M_SpriteMokFinalUpper",
         )
         missing_floor = create_textured_materials(
             assets,
@@ -1563,7 +1577,7 @@ def run():
             {name: SURFACE_OVERLAY_MATERIALS[name] for name in sprite_names},
             False,
         )
-        if len(missing_floor) != 17 or not assets.save_loaded_assets(
+        if len(missing_floor) != 19 or not assets.save_loaded_assets(
             missing_floor, False
         ):
             raise RuntimeError("Could not save missing-floor visual materials")

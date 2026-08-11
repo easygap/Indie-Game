@@ -72,6 +72,14 @@ MISSING_FLOOR_TEXTURE_NAMES = {
     "T_SpriteListenerCrawl3_N",
     "T_SpriteListenerCrawl3_R",
     "T_SpriteListenerCrawl3_A",
+    "T_SpriteFinalCavity_D",
+    "T_SpriteFinalCavity_N",
+    "T_SpriteFinalCavity_R",
+    "T_SpriteFinalCavity_A",
+    "T_SpriteMokFinalUpper_D",
+    "T_SpriteMokFinalUpper_N",
+    "T_SpriteMokFinalUpper_R",
+    "T_SpriteMokFinalUpper_A",
 }
 
 

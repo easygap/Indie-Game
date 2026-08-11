@@ -1514,6 +1514,19 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("five strikes did not remove the real cavity panel"));
 			return;
 		}
+		// The final choices are intentionally held behind the six-second
+		// flashlight read, silence, Mok line and harmless entity pass. Waiting
+		// here proves the authored sequence can finish without camera automation;
+		// the 28-second ceiling also covers all three gaze fallbacks and the
+		// complete silence, dialogue, entity-pass and blackout tail.
+		if (!NightFour->IsFinalConfrontationComplete())
+		{
+			if (StepDeadlineSeconds > 28.0f)
+			{
+				FailProbe(TEXT("night-4 reveal/confrontation sequence stalled"));
+			}
+			return;
+		}
 		if (!NightFour->GetEndingATarget()
 			|| NightFour->GetEndingATarget()->IsHidden()
 			|| !NightFour->GetEndingATarget()->IsInteractionEnabled()
@@ -1632,7 +1645,7 @@ void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 
 // -- README/night capture tour ---------------------------------------------
 //
-// Sixteen staged stops that photograph the systems the README talks about, with
+// Seventeen staged stops that photograph the systems the README talks about, with
 // the same direct-into-Docs/Media discipline the legacy demo captures use.
 // Stills land as Docs/Media/<name>.png; the two bursts land under
 // Saved/NightCapture/<dir>/frame_%05d.png for the ffmpeg GIF pass.
@@ -1667,7 +1680,26 @@ void AIGListenerGreyboxDirector::StartNightCapture()
 		SceneNow->SuspendCorridorFlicker(true);
 	}
 
-	EnterCaptureStep(0);
+	int32 StartStep = 0;
+	FParse::Value(
+		FCommandLine::Get(),
+		TEXT("IGNightCaptureStartStep="),
+		StartStep);
+	EnterCaptureStep(FMath::Clamp(StartStep, 0, 16));
+	if (StartStep > 0)
+	{
+		// A direct art-review stop still begins while the normal night card is
+		// fading. Keep timed actions behind that card instead of photographing it.
+		CaptureStepSeconds = -4.0f;
+		if (APlayerController* PlayerController =
+			World->GetFirstPlayerController())
+		{
+			if (AHUD* Hud = PlayerController->GetHUD())
+			{
+				Hud->bShowHUD = false;
+			}
+		}
+	}
 	GetWorldTimerManager().SetTimer(
 		CaptureTimer,
 		this,
@@ -1863,7 +1895,20 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		break;
 	case 15:
 		// The real middle gypsum face before five strikes remove its collision.
+		if (NightFour)
+		{
+			NightFour->SetFinaleCapturePreview(false, false);
+		}
 		CaptureTeleportPlayer(FVector(100.0f, 700.0f, 1297.0f), 0.0f, -5.0f);
+		break;
+	case 16:
+		// Close enough to read the board grip and tired workwear as real 3D,
+		// while keeping the player camera under normal first-person control.
+		if (NightFour)
+		{
+			NightFour->SetFinaleCapturePreview(true, true);
+		}
+		CaptureTeleportPlayer(FVector(130.0f, 710.0f, 1297.0f), -90.0f, -4.0f);
 		break;
 	default:
 		break;
@@ -2128,12 +2173,26 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 		if (ActionB(1.25f) && SceneNow)
 		{
 			SceneNow->OpenMissingFloorCavity();
+			if (NightFour)
+			{
+				NightFour->SetFinaleCapturePreview(true, false);
+			}
 		}
 		if (ActionC(1.75f))
 		{
 			CaptureShot(TEXT("night4-cavity-open"));
 		}
 		if (StepDone(2.35f))
+		{
+			EnterCaptureStep(16);
+		}
+		break;
+	case 16:
+		if (ActionA(0.9f))
+		{
+			CaptureShot(TEXT("night4-mok-confrontation"));
+		}
+		if (StepDone(1.5f))
 		{
 			GetWorldTimerManager().ClearTimer(CaptureTimer);
 			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));

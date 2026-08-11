@@ -52,6 +52,10 @@ $requiredRaw = @(
 	'AI\SheetMissingFloorHeroPropsReference.png',
 	'AI\ListenerEntityFrontCutout.png',
 	'AI\SheetListenerEntityCrawlPhases.png',
+	'AI\SheetFinalCavityRemainsReference_v1.png',
+	'AI\SheetMokHansooConfrontationReference_v1.png',
+	'AI\FinalCavityFrontBlend_v1.png',
+	'AI\MokHansooFinalFrontBlend_v1.png',
 	'AI\TextureMissingFloorJournalPaper_v1.png'
 )
 $requiredMasks = @(
@@ -78,6 +82,8 @@ $requiredOverlays = @(
 	'T_SpriteListenerCrawl1_D.png',
 	'T_SpriteListenerCrawl2_D.png',
 	'T_SpriteListenerCrawl3_D.png',
+	'T_SpriteFinalCavity_D.png',
+	'T_SpriteMokFinalUpper_D.png',
 	'T_FPHandKnock0_D.png',
 	'T_FPHandKnock1_D.png',
 	'T_FPHandKnock2_D.png',
@@ -161,7 +167,13 @@ $requiredPbrMaps = @(
 	'T_SpriteListenerCrawl2_A.png',
 	'T_SpriteListenerCrawl3_N.png',
 	'T_SpriteListenerCrawl3_R.png',
-	'T_SpriteListenerCrawl3_A.png'
+	'T_SpriteListenerCrawl3_A.png',
+	'T_SpriteFinalCavity_N.png',
+	'T_SpriteFinalCavity_R.png',
+	'T_SpriteFinalCavity_A.png',
+	'T_SpriteMokFinalUpper_N.png',
+	'T_SpriteMokFinalUpper_R.png',
+	'T_SpriteMokFinalUpper_A.png'
 )
 $requiredDerived = @(
 	$requiredMasks + $requiredOverlays + $requiredMaterialMasks +
@@ -193,9 +205,15 @@ foreach ($relativePath in $requiredDerived) {
 		) { 1024 } else { 512 }
 		$expectedWidth = if ($relativePath -eq 'T_MissingFloorJournalPaper_D.png') {
 			1672
+		} elseif ($relativePath -like 'T_SpriteFinalCavity_*' -or
+			$relativePath -like 'T_SpriteMokFinalUpper_*') {
+			1024
 		} else { $expectedSize }
 		$expectedHeight = if ($relativePath -eq 'T_MissingFloorJournalPaper_D.png') {
 			941
+		} elseif ($relativePath -like 'T_SpriteFinalCavity_*' -or
+			$relativePath -like 'T_SpriteMokFinalUpper_*') {
+			1536
 		} else { $expectedSize }
 		if ($image.Width -ne $expectedWidth -or $image.Height -ne $expectedHeight) {
 			throw "Derived art must be ${expectedWidth}x${expectedHeight}: $relativePath"
@@ -259,6 +277,8 @@ foreach ($relativePath in $requiredDerived) {
 				throw "RGBA overlay retained a visible magenta fringe: $relativePath"
 			}
 			if (($relativePath -like 'T_SpriteListener*_D.png' -or
+				$relativePath -like 'T_SpriteFinalCavity_D.png' -or
+				$relativePath -like 'T_SpriteMokFinalUpper_D.png' -or
 				$relativePath -like 'T_FPHandKnock*_D.png' -or
 				$relativePath -like 'T_FPCaptureEmbrace*_D.png') -and
 				$visibleGreenSamples -gt 0) {
@@ -1002,7 +1022,7 @@ foreach ($token in @(
 foreach ($token in @(
 	'Content\Meshes\SM_TankExteriorAccessStair.uasset',
 	'Content\Meshes\SM_TankInternalLining.uasset',
-	'ART_BUILD PASS meshes=32'
+	'ART_BUILD PASS meshes=39'
 )) {
 	if (-not $buildScript.Contains($token)) {
 		throw "Exterior access-stair output is not release-gated: $token"
@@ -1208,7 +1228,9 @@ foreach ($token in @(
 	'M_SpriteSeo',
 	'M_SpriteListenerFront',
 	'M_SpriteListenerCrawl0',
-	'M_SpriteListenerCrawl3'
+	'M_SpriteListenerCrawl3',
+	'M_SpriteFinalCavity',
+	'M_SpriteMokFinalUpper'
 )) {
 	if (-not $materialScript.Contains($token)) {
 		throw "Missing-floor material pipeline is missing: $token"
@@ -1226,6 +1248,20 @@ foreach ($token in @(
 foreach ($token in @(
 	'build_listener_entity_crawl',
 	'"SM_ListenerEntityCrawl"',
+	'build_final_cavity_clothing_shell',
+	'"SM_FinalCavityClothingShell"',
+	'build_final_cavity_bone_insert',
+	'"SM_FinalCavityBoneInsert"',
+	'build_final_cavity_tarp',
+	'"SM_FinalCavityTarp"',
+	'build_final_cavity_broken_caster',
+	'"SM_FinalCavityBrokenCaster"',
+	'build_mok_hansoo_workwear',
+	'"SM_MokHansooWorkwear"',
+	'build_mok_hansoo_head_hands',
+	'"SM_MokHansooHeadHands"',
+	'build_mok_hansoo_gypsum_board',
+	'"SM_MokHansooGypsumBoard"',
 	'Long tuner fingers remain closed plaster geometry',
 	'build_tuning_hammer',
 	'"SM_TuningHammer"',
@@ -1367,6 +1403,17 @@ foreach ($token in @(
 )) {
 	if (-not $missingFloorStory.Contains($token)) {
 		throw "Missing-floor story v2.8 contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'EIGListenerState::FinaleLured',
+	'BeginFinalePass(',
+	'SetActorEnableCollision(false)',
+	'FinaleRoutePoints[FinaleRouteIndex]',
+	'State == EIGListenerState::FinaleLured'
+)) {
+	if (-not $listenerSource.Contains($token)) {
+		throw "Night-four harmless entity-pass contract is missing: $token"
 	}
 }
 # v2.4 입력 실행 계약. 설정에 키 이름만 있거나 코드에 함수 이름만 있는
@@ -1529,4 +1576,4 @@ foreach ($forbidden in @(
 	}
 }
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=44 masks=9 overlays=21 material_scans=13 pbr_maps=56 meshes=37 photo_meshes=50'
+Write-Host 'ART_ASSET_CONTRACT PASS raw=48 masks=9 overlays=23 material_scans=13 pbr_maps=62 meshes=44 photo_meshes=50'

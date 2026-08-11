@@ -2,17 +2,24 @@
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorEvidence.h"
 #include "Entity/IGNoiseSubsystem.h"
+#include "GameFramework/PlayerController.h"
+#include "Math/RotationMatrix.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGPlayerCharacter.h"
 
 namespace IGNightFour
 {
@@ -24,6 +31,8 @@ namespace IGNightFour
 	const FName EndingBId(TEXT("Ending.B"));
 	const FName EndingCId(TEXT("Ending.C"));
 	const FName PowerCutBeat(TEXT("Night4.PowerCut"));
+	const FName FinalRevealBeat(TEXT("Night4.FinalReveal"));
+	const FName FinalConfrontationBeat(TEXT("Night4.FinalConfrontation"));
 
 	// Posted beside the existing fourth-floor lift notice, not on top of the
 	// 403 shipping labels. Its back face shares the established paper plane.
@@ -37,6 +46,45 @@ namespace IGNightFour
 	const FVector WallBreakLocation(246.0f, 700.0f, 1300.0f);
 	const FVector EndingALocation(223.0f, 665.0f, 1220.0f);
 	const FVector EndingBLocation(165.0f, 765.0f, 1220.0f);
+	const FVector CavityVisualOrigin(276.0f, 700.0f, 1200.0f);
+	const FVector MokStartLocation(130.0f, 470.0f, 1195.0f);
+	const FVector MokExitLocation(130.0f, 865.0f, 1195.0f);
+	const FRotator MokRotation(0.0f, -90.0f, 0.0f);
+	const FVector EndingHammerStart(218.0f, 660.0f, 1205.0f);
+	const FVector EndingHammerRest(263.0f, 686.0f, 1276.0f);
+	const FVector EndingPhoneRest(205.0f, 753.0f, 1204.0f);
+	const FVector CavityDetailCenter(244.0f, 700.0f, 1290.0f);
+	const FVector MokDetailOffset(0.0f, 16.0f, 113.0f);
+	const FVector CavityDetailNormal(-1.0f, 0.0f, 0.0f);
+	const FVector MokDetailNormal(0.0f, 1.0f, 0.0f);
+
+	static FRotator DetailCardRotation(
+		const FVector& ScreenRight,
+		const FVector& SurfaceNormal)
+	{
+		// Engine Plane uses local X/Y as image axes and local Z as its normal.
+		// Supplying screen-right as X makes the computed Y point downward, so
+		// the source bitmap remains upright without a negative component scale.
+		return FRotationMatrix::MakeFromXZ(
+			ScreenRight,
+			SurfaceNormal).Rotator();
+	}
+
+	static const FVector& RevealTarget(const int32 Stage)
+	{
+		static const FVector Targets[] = {
+			CavityVisualOrigin + FVector(-13.0f, 0.0f, 161.0f),
+			CavityVisualOrigin + FVector(-14.0f, 0.0f, 118.0f),
+			CavityVisualOrigin + FVector(-10.0f, 35.0f, 18.0f),
+		};
+		return Targets[FMath::Clamp(Stage, 0, 2)];
+	}
+
+	static float RequiredAttentionSeconds(const int32 Stage)
+	{
+		static constexpr float Seconds[] = {1.8f, 2.0f, 2.2f};
+		return Seconds[FMath::Clamp(Stage, 0, 2)];
+	}
 
 	static const TArray<FName>& SafeOrder()
 	{
@@ -51,7 +99,31 @@ namespace IGNightFour
 
 AIGMissingFloorNightFourDirector::AIGMissingFloorNightFourDirector()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+}
+
+void AIGMissingFloorNightFourDirector::Tick(const float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (bFinalRevealActive)
+	{
+		UpdateCavityReveal(DeltaSeconds);
+	}
+	if (bMokRetreatActive)
+	{
+		UpdateMokRetreat(DeltaSeconds);
+	}
+	if (bEndingHammerMoving)
+	{
+		UpdateEndingHammer(DeltaSeconds);
+	}
+	UpdateFinaleDetailLayers();
+	if (!bFinalRevealActive && !bMokRetreatActive && !bEndingHammerMoving)
+	{
+		SetActorTickEnabled(
+			bCavityPresentationVisible || bMokPresentationVisible);
+	}
 }
 
 bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
@@ -62,6 +134,13 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		return false;
 	}
 	Scene = InScene;
+	for (TActorIterator<AIGListenerEntity> It(World); It; ++It)
+	{
+		Listener = *It;
+		Listener->OnPlayerCaptured.AddUObject(
+			this, &AIGMissingFloorNightFourDirector::HandleNightFourCapture);
+		break;
+	}
 
 	UStaticMesh* CubeMesh =
 		LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -357,13 +436,299 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	EndingBTarget->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightFourDirector::HandleEndingB);
 
+	if (!BuildFinaleVisuals())
+	{
+		return false;
+	}
+
 	RefreshPresentation();
 	return ValidateFixtures();
+}
+
+bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+
+	auto LoadMesh = [](const TCHAR* Name) -> UStaticMesh*
+	{
+		return LoadObject<UStaticMesh>(
+			nullptr,
+			*FString::Printf(TEXT("/Game/Meshes/%s.%s"), Name, Name));
+	};
+	auto LoadMaterial = [](const TCHAR* Name) -> UMaterialInterface*
+	{
+		return LoadObject<UMaterialInterface>(
+			nullptr,
+			*FString::Printf(
+				TEXT("/Game/Prototype/Materials/%s.%s"), Name, Name));
+	};
+
+	UStaticMesh* ClothingMesh = LoadMesh(TEXT("SM_FinalCavityClothingShell"));
+	UStaticMesh* BoneMesh = LoadMesh(TEXT("SM_FinalCavityBoneInsert"));
+	UStaticMesh* TarpMesh = LoadMesh(TEXT("SM_FinalCavityTarp"));
+	UStaticMesh* CasterMesh = LoadMesh(TEXT("SM_FinalCavityBrokenCaster"));
+	UStaticMesh* MokWorkwearMesh = LoadMesh(TEXT("SM_MokHansooWorkwear"));
+	UStaticMesh* MokHeadHandsMesh = LoadMesh(TEXT("SM_MokHansooHeadHands"));
+	UStaticMesh* MokBoardMesh = LoadMesh(TEXT("SM_MokHansooGypsumBoard"));
+	UStaticMesh* TuningHammerMesh = LoadMesh(TEXT("SM_TuningHammer"));
+	UStaticMesh* PhoneMesh = LoadMesh(TEXT("SM_CrackedPhone"));
+	UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
+
+	UMaterialInterface* DryClothMaterial = LoadMaterial(TEXT("M_ConcreteDark"));
+	UMaterialInterface* BoneMaterial = LoadMaterial(TEXT("M_PaperOld"));
+	UMaterialInterface* TarpMaterial = LoadMaterial(TEXT("M_WindowDark"));
+	UMaterialInterface* MetalMaterial = LoadMaterial(TEXT("M_P3CabinetMetalUV"));
+	UMaterialInterface* WorkwearMaterial = LoadMaterial(TEXT("M_PlasticDark"));
+	UMaterialInterface* BoardMaterial = LoadMaterial(TEXT("M_MissingFloorPlaster_XY"));
+	UMaterialInterface* CavityDetailMaterial = LoadMaterial(
+		TEXT("M_SpriteFinalCavity"));
+	UMaterialInterface* MokDetailMaterial = LoadMaterial(
+		TEXT("M_SpriteMokFinalUpper"));
+
+	if (!ClothingMesh || !BoneMesh || !TarpMesh || !CasterMesh
+		|| !MokWorkwearMesh || !MokHeadHandsMesh || !MokBoardMesh
+		|| !TuningHammerMesh || !PhoneMesh || !DryClothMaterial
+		|| !BoneMaterial || !TarpMaterial || !MetalMaterial
+		|| !WorkwearMaterial || !BoardMaterial || !PlaneMesh
+		|| !CavityDetailMaterial || !MokDetailMaterial)
+	{
+		return false;
+	}
+
+	auto AddVisual = [this, World](
+		const FName Name,
+		UStaticMesh* Mesh,
+		UMaterialInterface* Material,
+		const FVector& Location,
+		const FRotator& Rotation) -> UStaticMeshComponent*
+	{
+		UStaticMeshComponent* Visual = NewObject<UStaticMeshComponent>(this, Name);
+		if (!Visual)
+		{
+			return nullptr;
+		}
+		Visual->SetStaticMesh(Mesh);
+		Visual->SetMaterial(0, Material);
+		Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Visual->SetGenerateOverlapEvents(false);
+		Visual->SetCanEverAffectNavigation(false);
+		Visual->SetCastShadow(true);
+		Visual->SetWorldTransform(FTransform(Rotation, Location));
+		Visual->SetVisibility(false, true);
+		Visual->SetHiddenInGame(true, true);
+		AddInstanceComponent(Visual);
+		Visual->RegisterComponentWithWorld(World);
+		return Visual;
+	};
+
+	CavityRevealVisuals.Reset();
+	CavityRevealVisuals.Add(AddVisual(
+		TEXT("FinalCavityClothing"), ClothingMesh, DryClothMaterial,
+		IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+	CavityRevealVisuals.Add(AddVisual(
+		TEXT("FinalCavityBoneInsert"), BoneMesh, BoneMaterial,
+		IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+	CavityRevealVisuals.Add(AddVisual(
+		TEXT("FinalCavityTarp"), TarpMesh, TarpMaterial,
+		IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+	CavityRevealVisuals.Add(AddVisual(
+		TEXT("FinalCavityCaster"), CasterMesh, MetalMaterial,
+		IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+
+	MokVisuals.Reset();
+	MokVisuals.Add(AddVisual(
+		TEXT("MokHansooWorkwear"), MokWorkwearMesh, WorkwearMaterial,
+		IGNightFour::MokStartLocation, IGNightFour::MokRotation));
+	MokVisuals.Add(AddVisual(
+		TEXT("MokHansooHeadHands"), MokHeadHandsMesh, BoneMaterial,
+		IGNightFour::MokStartLocation, IGNightFour::MokRotation));
+	MokVisuals.Add(AddVisual(
+		TEXT("MokHansooGypsumBoard"), MokBoardMesh, BoardMaterial,
+		IGNightFour::MokStartLocation, IGNightFour::MokRotation));
+
+	CavityDetailCard = AddVisual(
+		TEXT("FinalCavityDetailCard"), PlaneMesh, CavityDetailMaterial,
+		IGNightFour::CavityDetailCenter,
+		IGNightFour::DetailCardRotation(
+			FVector(0.0f, 1.0f, 0.0f),
+			IGNightFour::CavityDetailNormal));
+	if (CavityDetailCard)
+	{
+		CavityDetailCard->SetWorldScale3D(FVector(1.19f, 1.78f, 1.0f));
+		CavityDetailCard->SetCastShadow(false);
+	}
+	MokDetailCard = AddVisual(
+		TEXT("MokHansooDetailCard"), PlaneMesh, MokDetailMaterial,
+		IGNightFour::MokStartLocation + IGNightFour::MokDetailOffset,
+		IGNightFour::DetailCardRotation(
+			FVector(1.0f, 0.0f, 0.0f),
+			IGNightFour::MokDetailNormal));
+	if (MokDetailCard)
+	{
+		MokDetailCard->SetWorldScale3D(FVector(1.21f, 1.82f, 1.0f));
+		MokDetailCard->SetCastShadow(false);
+	}
+
+	EndingHammerVisual = AddVisual(
+		TEXT("NightFourEndingHammer"), TuningHammerMesh, MetalMaterial,
+		IGNightFour::EndingHammerStart, FRotator(0.0f, 18.0f, -76.0f));
+	EndingPhoneVisual = AddVisual(
+		TEXT("NightFourEndingPhone"), PhoneMesh, WorkwearMaterial,
+		IGNightFour::EndingPhoneRest, FRotator(0.0f, -8.0f, 0.0f));
+
+	return CavityRevealVisuals.Num() == 4
+		&& !CavityRevealVisuals.Contains(nullptr)
+		&& MokVisuals.Num() == 3
+		&& !MokVisuals.Contains(nullptr)
+		&& CavityDetailCard
+		&& MokDetailCard
+		&& EndingHammerVisual
+		&& EndingPhoneVisual;
+}
+
+void AIGMissingFloorNightFourDirector::SetCavityRevealVisible(
+	const bool bVisible)
+{
+	bCavityPresentationVisible = bVisible;
+	for (UStaticMeshComponent* Visual : CavityRevealVisuals)
+	{
+		if (Visual)
+		{
+			Visual->SetHiddenInGame(!bVisible, true);
+			Visual->SetVisibility(bVisible, true);
+		}
+	}
+	UpdateFinaleDetailLayers();
+}
+
+void AIGMissingFloorNightFourDirector::SetMokVisible(const bool bVisible)
+{
+	bMokPresentationVisible = bVisible;
+	for (UStaticMeshComponent* Visual : MokVisuals)
+	{
+		if (Visual)
+		{
+			Visual->SetHiddenInGame(!bVisible, true);
+			Visual->SetVisibility(bVisible, true);
+		}
+	}
+	UpdateFinaleDetailLayers();
+}
+
+void AIGMissingFloorNightFourDirector::UpdateFinaleDetailLayers()
+{
+	FVector ViewLocation = FVector::ZeroVector;
+	bool bHasView = false;
+	if (APlayerController* Controller = GetWorld()
+		? GetWorld()->GetFirstPlayerController()
+		: nullptr)
+	{
+		FRotator ViewRotation;
+		Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		bHasView = true;
+	}
+
+	auto ShouldUseLayer = [bHasView, &ViewLocation](
+		const FVector& Origin,
+		const FVector& Normal,
+		const bool bWorldVisible) -> bool
+	{
+		if (!bWorldVisible || !bHasView)
+		{
+			return false;
+		}
+		const FVector ToView = ViewLocation - Origin;
+		const float Distance = ToView.Size();
+		return Distance > 105.0f
+			&& Distance < 360.0f
+			&& FVector::DotProduct(
+				Normal, ToView.GetSafeNormal()) > 0.68f;
+	};
+
+	if (CavityDetailCard)
+	{
+		const bool bShowDetail = ShouldUseLayer(
+			IGNightFour::CavityDetailCenter,
+			IGNightFour::CavityDetailNormal,
+			bCavityPresentationVisible);
+		CavityDetailCard->SetHiddenInGame(!bShowDetail, true);
+		CavityDetailCard->SetVisibility(bShowDetail, true);
+		for (UStaticMeshComponent* Visual : CavityRevealVisuals)
+		{
+			if (Visual)
+			{
+				const bool bShowShell =
+					bCavityPresentationVisible && !bShowDetail;
+				Visual->SetHiddenInGame(!bShowShell, true);
+				Visual->SetVisibility(bShowShell, true);
+				Visual->SetCastHiddenShadow(
+					bCavityPresentationVisible && bShowDetail);
+			}
+		}
+	}
+	if (MokDetailCard)
+	{
+		const FVector MokLocation = MokVisuals.Num() > 0 && MokVisuals[0]
+			? MokVisuals[0]->GetComponentLocation()
+			: IGNightFour::MokStartLocation;
+		const FVector CardCenter = MokLocation + IGNightFour::MokDetailOffset;
+		MokDetailCard->SetWorldLocation(CardCenter);
+		const bool bShowDetail = ShouldUseLayer(
+			CardCenter,
+			IGNightFour::MokDetailNormal,
+			bMokPresentationVisible);
+		MokDetailCard->SetHiddenInGame(!bShowDetail, true);
+		MokDetailCard->SetVisibility(bShowDetail, true);
+	}
+
+	if (bCavityPresentationVisible || bMokPresentationVisible)
+	{
+		SetActorTickEnabled(true);
+	}
+}
+
+void AIGMissingFloorNightFourDirector::SetFinaleCapturePreview(
+	const bool bShowCavity,
+	const bool bShowMok)
+{
+	if (bShowCavity || bShowMok)
+	{
+		for (TActorIterator<AIGPlayerCharacter> It(GetWorld()); It; ++It)
+		{
+			if (UIGFlashlightComponent* Flashlight = It->GetFlashlight())
+			{
+				Flashlight->SetOn(true);
+			}
+			break;
+		}
+	}
+	SetCavityRevealVisible(bShowCavity);
+	for (UStaticMeshComponent* Visual : MokVisuals)
+	{
+		if (Visual)
+		{
+			Visual->SetWorldLocationAndRotation(
+				IGNightFour::MokStartLocation,
+				IGNightFour::MokRotation);
+		}
+	}
+	SetMokVisible(bShowMok);
+	UpdateFinaleDetailLayers();
 }
 
 void AIGMissingFloorNightFourDirector::EndPlay(
 	const EEndPlayReason::Type EndPlayReason)
 {
+	ResetFinaleTimers();
+	if (AIGListenerEntity* ListenerActor = Listener.Get())
+	{
+		ListenerActor->OnPlayerCaptured.RemoveAll(this);
+	}
 	if (UWorld* World = GetWorld())
 	{
 		if (WaterMaskHumHandle != INDEX_NONE)
@@ -385,7 +750,40 @@ void AIGMissingFloorNightFourDirector::EndPlay(
 void AIGMissingFloorNightFourDirector::SetHourActive(const bool bHourActive)
 {
 	bHourCurrentlyActive = bHourActive;
+	if (!bHourCurrentlyActive)
+	{
+		ResetFinaleTimers();
+		bFinalRevealActive = false;
+		bMokRetreatActive = false;
+		SetMokVisible(false);
+		if (AIGListenerEntity* ListenerActor = Listener.Get())
+		{
+			ListenerActor->SetDormant(true);
+		}
+		if (APlayerController* Controller = GetWorld()
+			? GetWorld()->GetFirstPlayerController()
+			: nullptr)
+		{
+			if (Controller->PlayerCameraManager)
+			{
+				Controller->PlayerCameraManager->StopCameraFade();
+			}
+		}
+	}
 	RefreshPresentation();
+	if (bHourCurrentlyActive)
+	{
+		if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+		{
+			if (Narrative->GetNightIndex() == 4
+				&& Narrative->IsNightFourWallOpened()
+				&& !Narrative->HasBeatPlayed(
+					IGNightFour::FinalConfrontationBeat))
+			{
+				BeginCavityReveal();
+			}
+		}
+	}
 }
 
 bool AIGMissingFloorNightFourDirector::ValidateFixtures() const
@@ -397,7 +795,14 @@ bool AIGMissingFloorNightFourDirector::ValidateFixtures() const
 		&& TransferPump
 		&& WallBreakTarget
 		&& EndingATarget
-		&& EndingBTarget;
+		&& EndingBTarget
+		&& Listener.IsValid()
+		&& CavityRevealVisuals.Num() == 4
+		&& MokVisuals.Num() == 3
+		&& CavityDetailCard
+		&& MokDetailCard
+		&& EndingHammerVisual
+		&& EndingPhoneVisual;
 }
 
 bool AIGMissingFloorNightFourDirector::IsWaterMaskPlaying() const
@@ -406,6 +811,405 @@ bool AIGMissingFloorNightFourDirector::IsWaterMaskPlaying() const
 	// Headless contracts run with -nosound, where UAudioComponent::IsPlaying
 	// is false even though the authored mask and hum source are both active.
 	return bWaterMaskActive;
+}
+
+void AIGMissingFloorNightFourDirector::ResetFinaleTimers()
+{
+	GetWorldTimerManager().ClearTimer(DistantReplyTimer);
+	GetWorldTimerManager().ClearTimer(MokRevealTimer);
+	GetWorldTimerManager().ClearTimer(EntityPassTimer);
+	GetWorldTimerManager().ClearTimer(BlackoutTimer);
+	GetWorldTimerManager().ClearTimer(BlackoutRestoreTimer);
+}
+
+void AIGMissingFloorNightFourDirector::BeginCavityReveal()
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || !bHourCurrentlyActive || Narrative->GetNightIndex() != 4
+		|| !Narrative->IsNightFourWallOpened())
+	{
+		return;
+	}
+
+	SetCavityRevealVisible(true);
+	bFinalConfrontationComplete = Narrative->HasBeatPlayed(
+		IGNightFour::FinalConfrontationBeat);
+	if (bFinalConfrontationComplete || bFinalRevealActive
+		|| bMokRetreatActive)
+	{
+		return;
+	}
+
+	if (Narrative->HasBeatPlayed(IGNightFour::FinalRevealBeat))
+	{
+		const bool bMokAlreadyVisible = MokVisuals.Num() > 0
+			&& MokVisuals[0]
+			&& MokVisuals[0]->IsVisible();
+		if (!bMokAlreadyVisible
+			&& !GetWorldTimerManager().IsTimerActive(MokRevealTimer)
+			&& !GetWorldTimerManager().IsTimerActive(EntityPassTimer))
+		{
+			GetWorldTimerManager().SetTimer(
+				MokRevealTimer,
+				this,
+				&AIGMissingFloorNightFourDirector::PresentMokHansoo,
+				0.25f,
+				false);
+		}
+		return;
+	}
+
+	ResetFinaleTimers();
+	FinalRevealStage = 0;
+	RevealAttentionSeconds = 0.0f;
+	RevealStageElapsedSeconds = 0.0f;
+	bFinalRevealActive = true;
+
+	// The hydraulic bed has served its mechanical purpose. Discovery begins
+	// with one real second where the player only hears their own room tone.
+	if (WaterMaskBed)
+	{
+		WaterMaskBed->FadeOut(0.14f, 0.0f);
+	}
+	bWaterMaskActive = false;
+	if (UWorld* World = GetWorld())
+	{
+		if (WaterMaskHumHandle != INDEX_NONE)
+		{
+			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+			{
+				Noise->UnregisterHumSource(WaterMaskHumHandle);
+			}
+			WaterMaskHumHandle = INDEX_NONE;
+		}
+	}
+	if (AIGListenerEntity* ListenerActor = Listener.Get())
+	{
+		ListenerActor->SetDormant(true);
+	}
+
+	for (TActorIterator<AIGPlayerCharacter> It(GetWorld()); It; ++It)
+	{
+		if (UIGFlashlightComponent* Flashlight = It->GetFlashlight())
+		{
+			Flashlight->SetOn(true);
+			Flashlight->TriggerBrownOut(0.08f);
+		}
+		break;
+	}
+
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"FinalRevealBegin",
+			"빛을 위에서부터 천천히 내린다. 눈을 피하면 아무것도 확정되지 않는다."),
+		4.2f);
+	SetActorTickEnabled(true);
+}
+
+void AIGMissingFloorNightFourDirector::UpdateCavityReveal(
+	const float DeltaSeconds)
+{
+	if (!bFinalRevealActive || FinalRevealStage < 0 || FinalRevealStage > 2)
+	{
+		return;
+	}
+
+	RevealStageElapsedSeconds += DeltaSeconds;
+	APlayerController* Controller = GetWorld()
+		? GetWorld()->GetFirstPlayerController()
+		: nullptr;
+	if (Controller)
+	{
+		FVector ViewLocation;
+		FRotator ViewRotation;
+		Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+		const FVector ToTarget =
+			(IGNightFour::RevealTarget(FinalRevealStage) - ViewLocation)
+			.GetSafeNormal();
+		const float Facing = FVector::DotProduct(
+			ViewRotation.Vector(), ToTarget);
+		if (Facing >= 0.72f)
+		{
+			RevealAttentionSeconds += DeltaSeconds;
+		}
+		else
+		{
+			RevealAttentionSeconds = FMath::Max(
+				0.0f, RevealAttentionSeconds - DeltaSeconds * 0.20f);
+		}
+	}
+
+	// The generous fallback prevents a lost flashlight or unusual FOV from
+	// turning a presentation beat into a progression lock.
+	if (RevealAttentionSeconds
+			>= IGNightFour::RequiredAttentionSeconds(FinalRevealStage)
+		|| RevealStageElapsedSeconds >= 5.5f)
+	{
+		AdvanceCavityReveal();
+	}
+}
+
+void AIGMissingFloorNightFourDirector::AdvanceCavityReveal()
+{
+	if (FinalRevealStage == 0)
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor", "FinalRevealSkull",
+				"머리뼈가 옷깃 안으로 기울어 있다. 세워 둔 모형이 아니다."),
+			3.0f);
+	}
+	else if (FinalRevealStage == 1)
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor", "FinalRevealRibs",
+				"갈비뼈 사이로 마른 석고 가루가 쌓였다. 오래됐다."),
+			3.0f);
+	}
+	else
+	{
+		BeginSilenceBeat();
+		return;
+	}
+
+	++FinalRevealStage;
+	RevealAttentionSeconds = 0.0f;
+	RevealStageElapsedSeconds = 0.0f;
+}
+
+void AIGMissingFloorNightFourDirector::BeginSilenceBeat()
+{
+	bFinalRevealActive = false;
+	FinalRevealStage = 3;
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->MarkBeatPlayed(IGNightFour::FinalRevealBeat);
+	}
+
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"FinalRevealShoes",
+			"한쪽 신발이 안으로 꺾였다. 방수포와 카트 바퀴까지… 오빠가 여기 있었다."),
+		5.0f);
+	GetWorldTimerManager().SetTimer(
+		DistantReplyTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::PlayDistantReply,
+		1.05f,
+		false);
+	GetWorldTimerManager().SetTimer(
+		MokRevealTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::PresentMokHansoo,
+		2.35f,
+		false);
+}
+
+void AIGMissingFloorNightFourDirector::PlayDistantReply()
+{
+	const FVector KnockLocation(360.0f, 930.0f, 1390.0f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateWallKnockReply(this),
+		KnockLocation,
+		0.72f,
+		0.84f,
+		220.0f,
+		2400.0f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT("IGMissingFloor", "FinalRevealKnockCaption", "멀리서, 두 번의 노크"),
+		1.8f);
+}
+
+void AIGMissingFloorNightFourDirector::PresentMokHansoo()
+{
+	if (bFinalConfrontationComplete)
+	{
+		return;
+	}
+	for (UStaticMeshComponent* Visual : MokVisuals)
+	{
+		if (Visual)
+		{
+			Visual->SetWorldLocationAndRotation(
+				IGNightFour::MokStartLocation, IGNightFour::MokRotation);
+		}
+	}
+	SetMokVisible(true);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateCardboardDrag(this),
+		IGNightFour::MokStartLocation,
+		0.52f,
+		0.88f,
+		160.0f,
+		1200.0f);
+	AIGHorrorHUD::PushFearDirection(
+		this, IGNightFour::MokStartLocation, 1.0f);
+	AIGHorrorHUD::PushDialogue(
+		this,
+		NSLOCTEXT("IGMissingFloor", "MokHansooName", "목한수"),
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"MokHansooFinalLine",
+			"…다시 덮어야 해요. 아무도 안 믿어요."),
+		EIGDialogueChannel::Conversation,
+		3.0f,
+		EIGDialoguePriority::Critical);
+	GetWorldTimerManager().SetTimer(
+		EntityPassTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::BeginEntityPass,
+		3.35f,
+		false);
+}
+
+void AIGMissingFloorNightFourDirector::BeginEntityPass()
+{
+	bMokRetreatActive = true;
+	MokRetreatSeconds = 0.0f;
+	SetActorTickEnabled(true);
+
+	const FVector EntityStart(130.0f, 425.0f, 1253.0f);
+	if (AIGListenerEntity* ListenerActor = Listener.Get())
+	{
+		ListenerActor->BeginFinalePass(
+			EntityStart,
+			{
+				FVector(130.0f, 520.0f, 1253.0f),
+				FVector(145.0f, 650.0f, 1253.0f),
+				FVector(135.0f, 790.0f, 1253.0f),
+				FVector(70.0f, 910.0f, 1253.0f),
+			});
+	}
+	AIGHorrorHUD::PushFearDirection(this, EntityStart, 1.5f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor", "FinaleDragCaption",
+			"석고 가루를 긁는 무거운 끌림 소리"),
+		2.3f);
+	GetWorldTimerManager().SetTimer(
+		BlackoutTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::TriggerBlackout,
+		2.25f,
+		false);
+}
+
+void AIGMissingFloorNightFourDirector::TriggerBlackout()
+{
+	if (APlayerController* Controller = GetWorld()
+		? GetWorld()->GetFirstPlayerController()
+		: nullptr)
+	{
+		if (Controller->PlayerCameraManager)
+		{
+			Controller->PlayerCameraManager->StartCameraFade(
+				0.0f,
+				1.0f,
+				0.18f,
+				FLinearColor::Black,
+				/*bShouldFadeAudio=*/true,
+				/*bHoldWhenFinished=*/true);
+		}
+	}
+	GetWorldTimerManager().SetTimer(
+		BlackoutRestoreTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::CompleteConfrontation,
+		0.55f,
+		false);
+}
+
+void AIGMissingFloorNightFourDirector::CompleteConfrontation()
+{
+	bMokRetreatActive = false;
+	SetMokVisible(false);
+	if (AIGListenerEntity* ListenerActor = Listener.Get())
+	{
+		ListenerActor->SetDormant(true);
+	}
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->MarkBeatPlayed(IGNightFour::FinalConfrontationBeat);
+	}
+	bFinalConfrontationComplete = true;
+
+	if (APlayerController* Controller = GetWorld()
+		? GetWorld()->GetFirstPlayerController()
+		: nullptr)
+	{
+		if (Controller->PlayerCameraManager)
+		{
+			Controller->PlayerCameraManager->StartCameraFade(
+				1.0f,
+				0.0f,
+				0.45f,
+				FLinearColor::Black,
+				/*bShouldFadeAudio=*/true,
+				/*bHoldWhenFinished=*/false);
+		}
+	}
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor", "FinalConfrontationAfter",
+			"그것은 내 앞에서 멈추지 않았다. 목한수의 발소리만 따라갔다."),
+		4.5f);
+	RefreshPresentation();
+}
+
+void AIGMissingFloorNightFourDirector::UpdateMokRetreat(
+	const float DeltaSeconds)
+{
+	MokRetreatSeconds += DeltaSeconds;
+	const float Alpha = FMath::InterpEaseInOut(
+		0.0f, 1.0f, FMath::Clamp(MokRetreatSeconds / 2.8f, 0.0f, 1.0f), 2.0f);
+	const FVector Location = FMath::Lerp(
+		IGNightFour::MokStartLocation, IGNightFour::MokExitLocation, Alpha);
+	for (int32 Index = 0; Index < MokVisuals.Num(); ++Index)
+	{
+		if (UStaticMeshComponent* Visual = MokVisuals[Index])
+		{
+			Visual->SetWorldLocation(Location);
+			Visual->SetWorldRotation(
+				Index == 2
+					? IGNightFour::MokRotation + FRotator(0.0f, 0.0f, Alpha * 9.0f)
+					: IGNightFour::MokRotation);
+		}
+	}
+}
+
+void AIGMissingFloorNightFourDirector::UpdateEndingHammer(
+	const float DeltaSeconds)
+{
+	if (!EndingHammerVisual)
+	{
+		bEndingHammerMoving = false;
+		return;
+	}
+	EndingHammerSeconds += DeltaSeconds;
+	const float Alpha = FMath::InterpEaseInOut(
+		0.0f, 1.0f, FMath::Clamp(EndingHammerSeconds / 0.85f, 0.0f, 1.0f), 2.0f);
+	EndingHammerVisual->SetWorldLocation(FMath::Lerp(
+		IGNightFour::EndingHammerStart, IGNightFour::EndingHammerRest, Alpha));
+	EndingHammerVisual->SetWorldRotation(FQuat::Slerp(
+		FRotator(0.0f, 18.0f, -76.0f).Quaternion(),
+		FRotator(-12.0f, 72.0f, -88.0f).Quaternion(),
+		Alpha));
+	if (Alpha >= 1.0f)
+	{
+		bEndingHammerMoving = false;
+	}
 }
 
 void AIGMissingFloorNightFourDirector::HandleEvictionNotice(
@@ -603,13 +1407,7 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 			Evidence->SetInteractionEnabled(false);
 			Evidence->SetActorHiddenInGame(true);
 		}
-		AIGHorrorHUD::PushThought(
-			this,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"NightFourWallOpened",
-				"방수포, 부러진 바퀴, 내려앉은 옷. …오빠가 여기 있었다."),
-			5.0f);
+		BeginCavityReveal();
 	}
 	RefreshPresentation();
 }
@@ -626,17 +1424,50 @@ void AIGMissingFloorNightFourDirector::HandleEndingB(
 	FinishEnding(IGNightFour::EndingBId);
 }
 
+void AIGMissingFloorNightFourDirector::HandleNightFourCapture(APawn* Player)
+{
+	ResolveFailureEnding();
+}
+
 void AIGMissingFloorNightFourDirector::FinishEnding(const FName EndingId)
 {
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (!Narrative || !Narrative->WasFirstReportMade()
 		|| !Narrative->IsNightFourWallOpened()
+		|| !Narrative->HasBeatPlayed(IGNightFour::FinalConfrontationBeat)
 		|| !Narrative->SelectEnding(EndingId))
 	{
 		return;
 	}
 
 	const bool bEndingA = EndingId == IGNightFour::EndingAId;
+	if (bEndingA)
+	{
+		bEndingHammerMoving = EndingHammerVisual != nullptr;
+		EndingHammerSeconds = 0.0f;
+		if (EndingHammerVisual)
+		{
+			EndingHammerVisual->SetHiddenInGame(false, true);
+			EndingHammerVisual->SetVisibility(true, true);
+		}
+		SetActorTickEnabled(true);
+	}
+	else
+	{
+		if (EndingPhoneVisual)
+		{
+			EndingPhoneVisual->SetHiddenInGame(false, true);
+			EndingPhoneVisual->SetVisibility(true, true);
+		}
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateRelayClick(this),
+			IGNightFour::EndingPhoneRest,
+			0.35f,
+			0.82f,
+			80.0f,
+			520.0f);
+	}
 	AIGHorrorHUD::PushThought(
 		this,
 		bEndingA
@@ -667,6 +1498,17 @@ bool AIGMissingFloorNightFourDirector::ResolveFailureEnding()
 	{
 		return false;
 	}
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"EndingCThought",
+			"세 번째 포옹은 침대로 돌려보내지 않는다. 벽 안쪽에서 내 노크가 먼저 들린다."),
+		4.0f);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT("IGMissingFloor", "EndingCCaption", "아주 가까이서, 같은 두 번의 노크"),
+		2.0f);
 	RefreshPresentation();
 	if (!bResolvedBroadcast)
 	{
@@ -685,6 +1527,10 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 	}
 	const bool bNightFour = bHourCurrentlyActive && Narrative->GetNightIndex() == 4;
 	const bool bHasEnding = !Narrative->GetEndingChoice().IsNone();
+	const bool bWallOpened = Narrative->IsNightFourWallOpened();
+	bFinalConfrontationComplete = Narrative->HasBeatPlayed(
+		IGNightFour::FinalConfrontationBeat);
+	SetCavityRevealVisible(bWallOpened);
 
 	const bool bShowEviction = !bHourCurrentlyActive
 		&& Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
@@ -718,7 +1564,7 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 			SceneActor->SetMissingFloorAnnexPower(!bNightFour);
 		}
 	}
-	if (Narrative->IsNightFourWallOpened())
+	if (bWallOpened)
 	{
 		if (AIGPrologueWorldScene* SceneActor = Scene.Get())
 		{
@@ -734,18 +1580,42 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 	WallBreakTarget->SetInteractionEnabled(bCanBreak);
 
 	const bool bCanChoose = bNightFour
-		&& Narrative->IsNightFourWallOpened()
+		&& bWallOpened
+		&& bFinalConfrontationComplete
 		&& Narrative->WasFirstReportMade()
 		&& !bHasEnding;
 	EndingATarget->SetActorHiddenInGame(!bCanChoose);
 	EndingATarget->SetInteractionEnabled(bCanChoose);
 	EndingBTarget->SetActorHiddenInGame(!bCanChoose);
 	EndingBTarget->SetInteractionEnabled(bCanChoose);
+	if (EndingHammerVisual)
+	{
+		const bool bShowHammer = bCanChoose
+			|| Narrative->GetEndingChoice() == IGNightFour::EndingAId;
+		EndingHammerVisual->SetHiddenInGame(!bShowHammer, true);
+		EndingHammerVisual->SetVisibility(bShowHammer, true);
+		if (bCanChoose)
+		{
+			EndingHammerVisual->SetWorldLocationAndRotation(
+				IGNightFour::EndingHammerStart,
+				FRotator(0.0f, 18.0f, -76.0f));
+		}
+	}
+	if (EndingPhoneVisual)
+	{
+		const bool bShowPhone =
+			Narrative->GetEndingChoice() == IGNightFour::EndingBId;
+		EndingPhoneVisual->SetHiddenInGame(!bShowPhone, true);
+		EndingPhoneVisual->SetVisibility(bShowPhone, true);
+	}
 
-	StartWaterMaskIfReady();
+	if (!bWallOpened)
+	{
+		StartWaterMaskIfReady();
+	}
 	if (WaterMaskBed)
 	{
-		if (bNightFour && Narrative->IsNightFourMaskRunning())
+		if (bNightFour && Narrative->IsNightFourMaskRunning() && !bWallOpened)
 		{
 			bWaterMaskActive = true;
 			if (!WaterMaskBed->IsPlaying())

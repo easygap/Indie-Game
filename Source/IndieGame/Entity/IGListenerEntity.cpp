@@ -262,6 +262,21 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 			ResetToPatrolStart(true);
 		}
 		break;
+
+	case EIGListenerState::FinaleLured:
+		if (!FinaleRoutePoints.IsValidIndex(FinaleRouteIndex))
+		{
+			SetDormant(true);
+			break;
+		}
+		if (CrawlTowards(
+				FinaleRoutePoints[FinaleRouteIndex],
+				ChaseSpeed * 0.82f,
+				DeltaSeconds))
+		{
+			++FinaleRouteIndex;
+		}
+		break;
 	}
 
 	// Touching the player ends the night from any moving pursuit state.
@@ -298,7 +313,8 @@ void AIGListenerEntity::HandleNoise(const FIGNoiseEvent& Event)
 		return;
 	}
 	if (State == EIGListenerState::Waiting
-		|| State == EIGListenerState::CaptureHold)
+		|| State == EIGListenerState::CaptureHold
+		|| State == EIGListenerState::FinaleLured)
 	{
 		return;
 	}
@@ -452,6 +468,29 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 	}
 }
 
+void AIGListenerEntity::BeginFinalePass(
+	const FVector& StartLocation,
+	const TArray<FVector>& RoutePoints)
+{
+	if (RoutePoints.Num() == 0)
+	{
+		return;
+	}
+
+	// Do not route through SetDormant(false): normal waking deliberately resets
+	// to the patrol start, while this one authored beat begins behind Mok.
+	bDormant = false;
+	SetActorHiddenInGame(false);
+	SetActorEnableCollision(false);
+	SetActorTickEnabled(true);
+	TeleportTo(StartLocation, GetActorRotation(), false, true);
+	FinaleRoutePoints = RoutePoints;
+	FinaleRouteIndex = 0;
+	bReactingToSound = false;
+	CachedPlayer.Reset();
+	EnterState(EIGListenerState::FinaleLured);
+}
+
 void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 {
 	if (bRaiseAggression)
@@ -459,7 +498,10 @@ void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 		SetAggressionTier(AggressionTier + 1);
 	}
 	TeleportTo(SpawnLocation, GetActorRotation(), false, true);
+	SetActorEnableCollision(true);
 	PatrolIndex = 0;
+	FinaleRoutePoints.Reset();
+	FinaleRouteIndex = 0;
 	bReactingToSound = false;
 	EnterState(EIGListenerState::Patrolling);
 }

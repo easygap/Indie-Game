@@ -50,6 +50,13 @@ MESH_NAMES = (
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
     "SM_ListenerEntityCrawl",
+    "SM_FinalCavityClothingShell",
+    "SM_FinalCavityBoneInsert",
+    "SM_FinalCavityTarp",
+    "SM_FinalCavityBrokenCaster",
+    "SM_MokHansooWorkwear",
+    "SM_MokHansooHeadHands",
+    "SM_MokHansooGypsumBoard",
     "SM_TuningHammer",
     "SM_TunerToolCart",
     "SM_ComplaintLedger",
@@ -74,6 +81,13 @@ HERO_MESHES = {
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
     "SM_ListenerEntityCrawl",
+    "SM_FinalCavityClothingShell",
+    "SM_FinalCavityBoneInsert",
+    "SM_FinalCavityTarp",
+    "SM_FinalCavityBrokenCaster",
+    "SM_MokHansooWorkwear",
+    "SM_MokHansooHeadHands",
+    "SM_MokHansooGypsumBoard",
     "SM_TuningHammer",
     "SM_TunerToolCart",
     "SM_ComplaintLedger",
@@ -103,6 +117,8 @@ PBR_STEMS = {
     "T_SpriteListenerCrawl1": ("D", "N", "R", "A"),
     "T_SpriteListenerCrawl2": ("D", "N", "R", "A"),
     "T_SpriteListenerCrawl3": ("D", "N", "R", "A"),
+    "T_SpriteFinalCavity": ("D", "N", "R", "A"),
+    "T_SpriteMokFinalUpper": ("D", "N", "R", "A"),
 }
 
 MATERIAL_TEXTURES = {
@@ -131,6 +147,8 @@ MATERIAL_TEXTURES = {
     "M_SpriteListenerCrawl1": "T_SpriteListenerCrawl1",
     "M_SpriteListenerCrawl2": "T_SpriteListenerCrawl2",
     "M_SpriteListenerCrawl3": "T_SpriteListenerCrawl3",
+    "M_SpriteFinalCavity": "T_SpriteFinalCavity",
+    "M_SpriteMokFinalUpper": "T_SpriteMokFinalUpper",
 }
 
 MASK_MATERIALS = {
@@ -156,6 +174,8 @@ MASK_MATERIALS = {
     "M_SpriteListenerCrawl1": "T_SpriteListenerCrawl1_D",
     "M_SpriteListenerCrawl2": "T_SpriteListenerCrawl2_D",
     "M_SpriteListenerCrawl3": "T_SpriteListenerCrawl3_D",
+    "M_SpriteFinalCavity": "T_SpriteFinalCavity_D",
+    "M_SpriteMokFinalUpper": "T_SpriteMokFinalUpper_D",
 }
 
 PRINT_MATERIALS = {
