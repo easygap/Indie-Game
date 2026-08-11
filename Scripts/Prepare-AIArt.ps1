@@ -378,6 +378,29 @@ $plan = @(
         Crop = @(0.502, 0.502, 0.496, 0.496); Size = @(768, 768)
         ContentScale = 0.63; Mode = 'PreserveAlphaGreenDespill'
     }
+    # M1 포획 포옹. 두 팔이 셀 바깥으로 이어지므로 HUD에서 정사각 프레임을
+    # 화면 비율에 맞춰 오버스캔해도 소매 단면이 드러나지 않는다.
+    # 시트 안쪽의 흰 격자는 크롭 범위에서 제외한다.
+    [pscustomobject]@{
+        Source = 'SheetListenerCaptureEmbracePhases_v1_RGBA'; Target = 'T_FPCaptureEmbrace0_D.png'
+        Crop = @(0.002, 0.002, 0.496, 0.496); Size = @(1024, 1024)
+        Mode = 'PreserveAlphaGreenDespill'
+    }
+    [pscustomobject]@{
+        Source = 'SheetListenerCaptureEmbracePhases_v1_RGBA'; Target = 'T_FPCaptureEmbrace1_D.png'
+        Crop = @(0.502, 0.002, 0.496, 0.496); Size = @(1024, 1024)
+        Mode = 'PreserveAlphaGreenDespill'
+    }
+    [pscustomobject]@{
+        Source = 'SheetListenerCaptureEmbracePhases_v1_RGBA'; Target = 'T_FPCaptureEmbrace2_D.png'
+        Crop = @(0.002, 0.502, 0.496, 0.496); Size = @(1024, 1024)
+        Mode = 'PreserveAlphaGreenDespill'
+    }
+    [pscustomobject]@{
+        Source = 'SheetListenerCaptureEmbracePhases_v1_RGBA'; Target = 'T_FPCaptureEmbrace3_D.png'
+        Crop = @(0.502, 0.502, 0.496, 0.496); Size = @(1024, 1024)
+        Mode = 'PreserveAlphaGreenDespill'
+    }
 )
 
 if ($OnlySource.Count -gt 0) {

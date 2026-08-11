@@ -18,6 +18,8 @@ $requiredRaw = @(
 	'AI\SheetFirstPersonKnockPhases_v1_RGBA.png',
 	'AI\SheetFirstPersonKnockPhases_v2.png',
 	'AI\SheetFirstPersonKnockPhases_v2_RGBA.png',
+	'AI\SheetListenerCaptureEmbracePhases_v1.png',
+	'AI\SheetListenerCaptureEmbracePhases_v1_RGBA.png',
 	'AI\SheetP3ServiceCabinetReference.png',
 	'AI\SheetRooftopFireDoorReference.png',
 	'AI\SheetRooftopUnlockedPadlockKeysReference.png',
@@ -79,7 +81,11 @@ $requiredOverlays = @(
 	'T_FPHandKnock0_D.png',
 	'T_FPHandKnock1_D.png',
 	'T_FPHandKnock2_D.png',
-	'T_FPHandKnock3_D.png'
+	'T_FPHandKnock3_D.png',
+	'T_FPCaptureEmbrace0_D.png',
+	'T_FPCaptureEmbrace1_D.png',
+	'T_FPCaptureEmbrace2_D.png',
+	'T_FPCaptureEmbrace3_D.png'
 )
 $requiredMaterialMasks = @(
 	'T_ApartmentWallPatina_M.png'
@@ -182,7 +188,8 @@ foreach ($relativePath in $requiredDerived) {
 			$requiredMaterialMasks -contains $relativePath -or
 			$requiredMaterialTextures -contains $relativePath -or
 			$requiredPbrMaps -contains $relativePath -or
-			$relativePath -like 'T_SpriteListener*_D.png'
+			$relativePath -like 'T_SpriteListener*_D.png' -or
+			$relativePath -like 'T_FPCaptureEmbrace*_D.png'
 		) { 1024 } else { 512 }
 		$expectedWidth = if ($relativePath -eq 'T_MissingFloorJournalPaper_D.png') {
 			1672
@@ -252,7 +259,8 @@ foreach ($relativePath in $requiredDerived) {
 				throw "RGBA overlay retained a visible magenta fringe: $relativePath"
 			}
 			if (($relativePath -like 'T_SpriteListener*_D.png' -or
-				$relativePath -like 'T_FPHandKnock*_D.png') -and
+				$relativePath -like 'T_FPHandKnock*_D.png' -or
+				$relativePath -like 'T_FPCaptureEmbrace*_D.png') -and
 				$visibleGreenSamples -gt 0) {
 				throw "RGBA overlay retained a visible green fringe: $relativePath"
 			}
@@ -1113,6 +1121,8 @@ foreach ($token in @(
 	'T_MissingFloorJournalPaper_D.uasset',
 	'T_FPHandKnock0_D.uasset',
 	'T_FPHandKnock3_D.uasset',
+	'T_FPCaptureEmbrace0_D.uasset',
+	'T_FPCaptureEmbrace3_D.uasset',
 	'IG_APARTMENT_VISUAL_ONLY',
 	'T_ApartmentWallpaperV2_D.uasset',
 	'T_ApartmentWallPatina_M.uasset',
@@ -1346,7 +1356,7 @@ if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 2')) {
 	throw 'Missing-floor snapshot schema was not advanced for night-four state.'
 }
 foreach ($token in @(
-	'제작 정사 v2.6',
+	'제작 정사 v2.7',
 	'세척 배수 OPEN',
 	'부자밸브 우회 OPEN',
 	'저수조 이송펌프',
@@ -1356,7 +1366,7 @@ foreach ($token in @(
 	'1:55~2:40 / 7월 31일 다섯째이자 마지막 새벽'
 )) {
 	if (-not $missingFloorStory.Contains($token)) {
-		throw "Missing-floor story v2.6 contract is missing: $token"
+		throw "Missing-floor story v2.7 contract is missing: $token"
 	}
 }
 # v2.4 입력 실행 계약. 설정에 키 이름만 있거나 코드에 함수 이름만 있는
@@ -1519,4 +1529,4 @@ foreach ($forbidden in @(
 	}
 }
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=42 masks=9 overlays=17 material_scans=13 pbr_maps=56 meshes=37 photo_meshes=50'
+Write-Host 'ART_ASSET_CONTRACT PASS raw=44 masks=9 overlays=21 material_scans=13 pbr_maps=56 meshes=37 photo_meshes=50'

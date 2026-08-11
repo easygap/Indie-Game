@@ -143,7 +143,10 @@ if ($MissingFloorOnly) {
 
 if ($HudUiOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
-		-OnlySource @('SheetFirstPersonKnockPhases_v2_RGBA')
+		-OnlySource @(
+			'SheetFirstPersonKnockPhases_v2_RGBA',
+			'SheetListenerCaptureEmbracePhases_v1_RGBA'
+		)
 }
 
 if ($ApartmentVisualOnly) {
@@ -279,7 +282,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 		'IG_SUBMERGED_CLOTHING_ONLY'
 	}
 	$targetSuccessPattern = if ($HudUiOnly) {
-		'\[IndieGame\] Imported 6 textures'
+		'\[IndieGame\] Imported 10 textures'
 	}
 	elseif ($ApartmentVisualOnly) {
 		'\[IndieGame\] Apartment visual material update complete'
@@ -303,7 +306,11 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 			'Content\Prototype\Textures\T_FPHandKnock0_D.uasset',
 			'Content\Prototype\Textures\T_FPHandKnock1_D.uasset',
 			'Content\Prototype\Textures\T_FPHandKnock2_D.uasset',
-			'Content\Prototype\Textures\T_FPHandKnock3_D.uasset'
+			'Content\Prototype\Textures\T_FPHandKnock3_D.uasset',
+			'Content\Prototype\Textures\T_FPCaptureEmbrace0_D.uasset',
+			'Content\Prototype\Textures\T_FPCaptureEmbrace1_D.uasset',
+			'Content\Prototype\Textures\T_FPCaptureEmbrace2_D.uasset',
+			'Content\Prototype\Textures\T_FPCaptureEmbrace3_D.uasset'
 		)
 	}
 	elseif ($ApartmentVisualOnly) {

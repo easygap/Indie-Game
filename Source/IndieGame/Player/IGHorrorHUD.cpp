@@ -45,6 +45,8 @@ namespace IGHorrorHUD
 	constexpr float FocusAcquireRevealSeconds = 0.09f;
 	constexpr double FirstPersonKnockDurationSeconds = 0.22;
 	constexpr int32 FirstPersonKnockFrameCount = 4;
+	constexpr double CaptureEmbraceDurationSeconds = 1.2;
+	constexpr int32 CaptureEmbraceFrameCount = 4;
 
 	/**
 	 * The noise ripple (§5.1). One slot, deliberately short, with a minimum
@@ -215,6 +217,9 @@ void AIGHorrorHUD::BeginPlay()
 	bFirstPersonKnockPreview = FParse::Param(
 		FCommandLine::Get(),
 		TEXT("IGM0KnockPreview"));
+	bCaptureEmbracePreview = FParse::Param(
+		FCommandLine::Get(),
+		TEXT("IGM1CapturePreview"));
 #endif
 
 	ResolveInteractionComponent();
@@ -386,6 +391,22 @@ void AIGHorrorHUD::InitializeFirstPersonActionTextures()
 			nullptr,
 			KnockTexturePaths[FrameIndex]);
 	}
+
+	static const TCHAR* CaptureTexturePaths[] = {
+		TEXT("/Game/Prototype/Textures/T_FPCaptureEmbrace0_D.T_FPCaptureEmbrace0_D"),
+		TEXT("/Game/Prototype/Textures/T_FPCaptureEmbrace1_D.T_FPCaptureEmbrace1_D"),
+		TEXT("/Game/Prototype/Textures/T_FPCaptureEmbrace2_D.T_FPCaptureEmbrace2_D"),
+		TEXT("/Game/Prototype/Textures/T_FPCaptureEmbrace3_D.T_FPCaptureEmbrace3_D"),
+	};
+	CaptureEmbraceFrames.SetNum(IGHorrorHUD::CaptureEmbraceFrameCount);
+	for (int32 FrameIndex = 0;
+		FrameIndex < IGHorrorHUD::CaptureEmbraceFrameCount;
+		++FrameIndex)
+	{
+		CaptureEmbraceFrames[FrameIndex] = LoadObject<UTexture2D>(
+			nullptr,
+			CaptureTexturePaths[FrameIndex]);
+	}
 }
 
 void AIGHorrorHUD::PlayFirstPersonKnock()
@@ -393,6 +414,17 @@ void AIGHorrorHUD::PlayFirstPersonKnock()
 	if (const UWorld* World = GetWorld())
 	{
 		FirstPersonKnockStartTime = World->GetTimeSeconds();
+	}
+}
+
+void AIGHorrorHUD::PlayCaptureEmbrace(const float DurationSeconds)
+{
+	if (const UWorld* World = GetWorld())
+	{
+		CaptureEmbraceStartTime = World->GetTimeSeconds();
+		CaptureEmbraceEndTime = CaptureEmbraceStartTime + FMath::Max(
+			0.05f,
+			DurationSeconds);
 	}
 }
 
@@ -1238,8 +1270,24 @@ void AIGHorrorHUD::DrawHUD()
 		PlayFirstPersonKnock();
 		FirstPersonKnockPreviewNextTime = CurrentTime + 0.62;
 	}
+	if (bCaptureEmbracePreview
+		&& CurrentTime >= CaptureEmbracePreviewNextTime)
+	{
+		PlayCaptureEmbrace(
+			static_cast<float>(IGHorrorHUD::CaptureEmbraceDurationSeconds));
+		CaptureEmbracePreviewNextTime = CurrentTime + 1.8;
+	}
 #endif
 	BeginLayoutValidationSample();
+	if (DrawCaptureEmbrace(CurrentTime))
+	{
+		// 포획은 실패 UI가 아니다. 카메라가 완전히 어두워질 때까지 화면을
+		// 점유해 프롬프트가 포옹을 게임 오버처럼 보이게 만들지 않도록 한다.
+		SuspendDialoguePresentation(CurrentTime);
+		LastHudDrawTime = CurrentTime;
+		FinalizeLayoutValidationSample();
+		return;
+	}
 	if (bAccessibilityMenuVisible)
 	{
 		SuspendDialoguePresentation(CurrentTime);
@@ -2366,6 +2414,81 @@ void AIGHorrorHUD::DrawFirstPersonKnock(const double CurrentTime)
 		DrawFrame(3, Visibility * (1.0f - Blend));
 		DrawFrame(0, Visibility * Blend);
 	}
+}
+
+bool AIGHorrorHUD::DrawCaptureEmbrace(const double CurrentTime)
+{
+	if (!Canvas
+		|| CaptureEmbraceStartTime < 0.0
+		|| CurrentTime < CaptureEmbraceStartTime
+		|| CurrentTime >= CaptureEmbraceEndTime)
+	{
+		return false;
+	}
+
+	const double Duration = FMath::Max(
+		CaptureEmbraceEndTime - CaptureEmbraceStartTime,
+		0.001);
+	const float NormalizedAge = FMath::Clamp(
+		static_cast<float>((CurrentTime - CaptureEmbraceStartTime) / Duration),
+		0.0f,
+		1.0f);
+	const float Visibility = IGHorrorHUD::SmoothStep01(NormalizedAge / 0.08f)
+		* (1.0f - IGHorrorHUD::SmoothStep01((NormalizedAge - 0.82f) / 0.18f));
+
+	// 어떤 화면 비율에서도 정사각 원본을 늘리지 않는다. 두 소매가 화면
+	// 바깥에서 시작하도록 의도적으로 오버스캔한다.
+	const float SpriteSize = FMath::Max(Canvas->ClipX, Canvas->ClipY);
+	const FVector2D DrawSize(SpriteSize, SpriteSize);
+	const FVector2D DrawPosition(
+		(Canvas->ClipX - SpriteSize) * 0.5f,
+		(Canvas->ClipY - SpriteSize) * 0.5f);
+	auto DrawFrame = [this, &DrawPosition, &DrawSize](
+		const int32 FrameIndex,
+		const float Alpha)
+	{
+		if (!CaptureEmbraceFrames.IsValidIndex(FrameIndex)
+			|| !CaptureEmbraceFrames[FrameIndex]
+			|| !CaptureEmbraceFrames[FrameIndex]->GetResource()
+			|| Alpha <= KINDA_SMALL_NUMBER)
+		{
+			return;
+		}
+		FCanvasTileItem FrameTile(
+			DrawPosition,
+			CaptureEmbraceFrames[FrameIndex]->GetResource(),
+			DrawSize,
+			FLinearColor(0.88f, 0.90f, 0.90f, FMath::Clamp(Alpha, 0.0f, 1.0f)));
+		FrameTile.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(FrameTile);
+	};
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const bool bReducedMotion = Accessibility
+		&& Accessibility->IsReducedCameraMotionEnabled();
+	if (bReducedMotion)
+	{
+		// 촉각을 대신할 정보는 남기되 팔이 이동하는 느낌은 제거한다.
+		DrawFrame(2, Visibility * 0.94f);
+		return true;
+	}
+
+	constexpr float ClosingAnimationEnd = 0.72f;
+	const float FramePosition = FMath::Clamp(
+		NormalizedAge / ClosingAnimationEnd,
+		0.0f,
+		1.0f) * IGHorrorHUD::CaptureEmbraceFrameCount;
+	const int32 FrameIndex = FMath::Clamp(
+		FMath::FloorToInt(FramePosition),
+		0,
+		IGHorrorHUD::CaptureEmbraceFrameCount - 1);
+	// 포즈 사이 실루엣 차이가 커서 교차 페이드는 팔이 네 개로 보인다.
+	// 장면과의 알파 블렌드는 유지하되 애니메이션 셀은 한 장씩 전환한다.
+	DrawFrame(FrameIndex, Visibility);
+	return true;
 }
 
 float AIGHorrorHUD::MeasureTextWidth(

@@ -55,6 +55,7 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `SheetAlleyCatPoseReference.png` | 직접 텍스처로 사용하지 않음 | 동일한 고등어태비의 좌측 달리기·정면 3/4·정지·후면 3/4 비례 기준. `SM_AlleyCatRun` 정적 메시로 재구성 |
 | `SheetFirstPersonSleeveReference.png` | 직접 텍스처로 사용하지 않음 | 36cm 왼쪽 후드 소매, 13.5cm 상완부→10.5cm 커프 테이퍼, 안쪽 아래팔의 검은 실 세 땀 기준. 손·피부 없이 `SM_FirstPersonHoodieSleeve` 정적 메시로 재구성 |
 | `SheetFirstPersonKnockPhases_v1.png` · `v1_RGBA.png` · `SheetFirstPersonKnockPhases_v2.png` · `v2_RGBA.png` | `T_FPHandKnock0_D` · `T_FPHandKnock1_D` · `T_FPHandKnock2_D` · `T_FPHandKnock3_D` | M0 Q/B 두드리기의 같은 오른손·후드 소매 준비/예비/접촉/반동 4단계. v1은 화면 안 소매 절단면 때문에 증빙 전용, v2가 런타임 원본. UI-space 전용 RGBA이며 문·벽·인물·동물·배경을 평면으로 대체하지 않음 |
+| `SheetListenerCaptureEmbracePhases_v1.png` · `v1_RGBA.png` | `T_FPCaptureEmbrace0_D` · `T_FPCaptureEmbrace1_D` · `T_FPCaptureEmbrace2_D` · `T_FPCaptureEmbrace3_D` | M1 포획의 같은 위층 사람 두 팔 접촉/접근/닫힘/유지 4단계. 건식 회색 석고와 낡은 옷을 기존 해부 기준에서 보존한 UI-space RGBA이며 얼굴·몸통·배경·충돌을 대체하지 않음 |
 | `SheetP3ServiceCabinetReference.png` | 직접 텍스처로 사용하지 않음 | 270×196×18cm 열린 급수 서비스함, 18/12cm 밸브, 16cm 압력계, 수직 블리드 튜브와 래치의 빈 나사 구멍 정확히 두 개 기준. 정적 메시 5종으로 분리해 조작 상태를 유지 |
 | `SheetRooftopFireDoorReference.png` | 직접 텍스처로 사용하지 않음 | 한국 빌라 옥상의 116×230×4.5cm 철문과 120×234cm 문틀, 하부 경첩 처짐·문턱 마찰 흔적 기준. `SM_RooftopFireDoorLeaf`와 `SM_RooftopFireDoorFrame`으로 재구성하고 11cm는 문 아래 높이가 아닌 자유단의 수평 열림으로 계산 |
 | `SheetRooftopUnlockedPadlockKeysReference.png` | 직접 텍스처로 사용하지 않음 | 문틀 고리에 열린 채 걸린 50mm 적층 자물쇠, 삽입 열쇠 1개, 고리 1개, 추가 열쇠 정확히 3개와 무문자 금속 태그 기준. `SM_RooftopUnlockedPadlockKeys` 한 메시로 묶어 열쇠 획득·잠금 퍼즐·프롭 복제를 만들지 않음 |
@@ -91,7 +92,7 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `SheetMissingFloorHeroPropsReference.png` | `SM_TuningHammer` · `SM_TunerToolCart` · `SM_ComplaintLedger` · `SM_CalendarJournal` | 조율 렌치·공구 카트·민원 원장·달력 일지의 실제 두께·접지·시차를 가진 3D 프롭 기준 |
 
 한 번의 생성에 5분이 걸리므로 낱장 대신 **격자 시트**로 묶어 뽑고 슬라이스합니다.
-현재 121장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·스프라이트 36장)와
+현재 125장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·스프라이트 40장)와
 증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-06
 추가분은 생성 실패를 그대로 채택하지 않고 슬리퍼 밑창과 빗물 때를 각각
 한 차례 수정 생성했습니다.
@@ -448,6 +449,31 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 - 적용 경계: 유효 노크의 준비·접촉·반동만 카메라 UI-space에서 알파
   블렌딩한다. 기존 3D/PBR 세계, 충돌, 조명과 접촉 그림자는 교체하지 않는다.
   흔들림 감소는 접촉 정지 프레임을 사용한다.
+- 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-08-11.md`
+
+### M1 포획 포옹 생성 기록
+
+- 서비스/모드: OpenAI ImageGen 내장 도구, `stylized-concept`
+- 생성일: 2026-08-11
+- 보존 원본: `Content/SourceArt/AI/SheetListenerCaptureEmbracePhases_v1.png`
+- 투명 마스터:
+  `Content/SourceArt/AI/SheetListenerCaptureEmbracePhases_v1_RGBA.png`
+- 원본 SHA-256:
+  `C27CAEBAE413E574AB3BA48AA95979718233C87893492420E8F5DBB9E11C999A`
+- 파생: `Content/SourceArt/T_FPCaptureEmbrace0_D.png`부터
+  `T_FPCaptureEmbrace3_D.png`, 각 1024×1024 RGBA. 런타임
+  `/Game/Prototype/Textures/T_FPCaptureEmbrace0_D`부터
+  `T_FPCaptureEmbrace3_D`
+- 참조 경계: `SheetListenerEntityAnatomyReference.png`는 동일 인물의 석고·
+  의복·비례, `night1-listener-corridor.png`는 1인칭 노출과 크기만 참고했다.
+  배경·복도·UI는 생성물에 보존하지 않았다.
+- 처리: 균일 초록 배경을 공식 `remove_chroma_key.py`의 border auto-key,
+  soft matte, despill, 1px edge contract로 제거했다. 2×2 셀의 흰 격자를
+  제외해 크롭하고 알파 보존 2차 despill 뒤 UI group·NoMip·Clamp·
+  NeverStream으로 임포트했다.
+- 적용 경계: 포획 암전의 1.2초에만 UI-space 알파 블렌딩한다. 위층 사람의
+  월드 3D 셸, 벽, 그림자, 충돌, AI와 카메라는 각 런타임 시스템이 소유한다.
+  모션 감소에서는 닫힌 정지 프레임만 사용한다.
 - 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-08-11.md`
 
 프로젝트 코드의 공개 라이선스는 저장소 소유자가 별도로 선택합니다. 선택 전까지 저작권 고지만으로 공개 사용 권한을 추정하지 않습니다.

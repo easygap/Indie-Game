@@ -76,3 +76,44 @@ No text, labels, numbers, watermark, logo, door, wall, environment, blood, jewel
 - 검출 키: `#13de16`
 - 투명 픽셀: 1,203,656 / 1,572,516
 - 부분 투명 픽셀: 5,840 / 1,572,516
+
+## M1 위층 사람 포획 포옹 4단계
+
+- 모드: OpenAI ImageGen 내장 도구, `stylized-concept`
+- 참조 1: `Content/SourceArt/AI/SheetListenerEntityAnatomyReference.png`
+- 참조 2: `Docs/Media/night1-listener-corridor.png`(런타임 크기·노출 참고 전용)
+- 보존 원본: `Content/SourceArt/AI/SheetListenerCaptureEmbracePhases_v1.png`
+- 투명 마스터:
+  `Content/SourceArt/AI/SheetListenerCaptureEmbracePhases_v1_RGBA.png`
+- 원본 SHA-256: `C27CAEBAE413E574AB3BA48AA95979718233C87893492420E8F5DBB9E11C999A`
+- 사용 범위: M1 포획 암전의 접촉·접근·닫힘·유지 UI-space 피드백
+
+최종 프롬프트:
+
+```text
+Use case: stylized-concept
+Asset type: production 2x2 first-person capture-embrace animation sprite sheet for a grounded psychological horror game
+Input images: Image 1 is the exact identity, dry gray plaster coating, worn clothing material, proportions, and non-gory tone of the same faceless adult entity; Image 2 is runtime context only for first-person camera scale and neutral-cool corridor exposure, not a background to preserve.
+Primary request: create one clean 2x2 sprite sheet showing four sequential phases of the SAME entity gently catching and embracing the player from the player's first-person viewpoint. Only the entity's same two plaster-coated forearms and hands enter the camera frame; never show a face, head, torso, player body, wall, room, or scenery.
+Frame order: top-left = first contact, fingertips and forearms just entering from both lower side edges; top-right = both open hands moving inward around the player's shoulders; bottom-left = forearms closing around both side edges in a restrained embrace; bottom-right = calm held-close pose with both arms settled around the screen edges while the central view remains readable for the blackout.
+Scene/backdrop: every cell uses the same perfectly flat solid #00ff00 chroma-key background. One uniform color only: no shadows, gradient, texture, reflection, floor plane, lighting variation, or scenery. Add a narrow uniform #00ff00 gutter between cells.
+Subject: exactly two anatomically correct adult hands and two forearms total in every cell, same left/right identity and scale across all four cells, five fingers per hand, intact wrists and sleeves, dry gray plaster dust and worn muted clothing continuous from Image 1. The gesture is protective and sorrowful, not violent: no grabbing the throat, no striking, no claws, no injury.
+Style/medium: photorealistic grounded game asset, restrained practical-horror realism, crisp opaque silhouette suitable for chroma-key removal.
+Composition/framing: player-eye first-person view; arms originate beyond the left and right/lower cell boundaries so no rectangular sleeve ends are visible; keep the middle 35 percent mostly open; no element crosses a cell gutter; consistent camera and lens in all cells.
+Lighting/mood: cool neutral soft frontal light matching Image 1's material readability, subtle shading only on the subject.
+Constraints: preserve the same entity identity and material in all frames; exact 2x2 ordering; clear progressive motion; hands fully plausible; generous key-color separation; no cast shadow; no contact shadow; no text; no symbols; no watermark; do not use #00ff00 in the subject.
+Avoid: extra hands, extra arms, duplicated fingers, fused fingers, missing fingers, disembodied floating hands, aggressive attack pose, neck restraint, gore, blood, exposed wounds, face, body, environment, doors, walls, UI, vignette, motion blur, cropped fingers, internal rectangular cutoffs.
+```
+
+처리 결과:
+
+- `remove_chroma_key.py --auto-key border --soft-matte --despill
+  --edge-contract 1 --transparent-threshold 12 --opaque-threshold 220 --force`
+- 검출 키: `#63f966`
+- 투명 픽셀: 1,312,092 / 1,572,516
+- 부분 투명 픽셀: 9,864 / 1,572,516
+- 파생 프레임: `Content/SourceArt/T_FPCaptureEmbrace0_D.png`부터
+  `Content/SourceArt/T_FPCaptureEmbrace3_D.png`, 각 1024×1024 RGBA.
+- 흰 격자를 제외한 각 셀의 49.6% 영역만 크롭하고 기존 알파를 보존한 제한적
+  green despill을 적용했다. Unreal에서는 UI group·NoMip·Clamp·NeverStream으로
+  임포트하며, 화면의 긴 변을 기준으로 정사각 오버스캔해 비율을 늘리지 않는다.

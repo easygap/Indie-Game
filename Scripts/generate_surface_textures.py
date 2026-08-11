@@ -25,6 +25,10 @@ HUD_UI_TEXTURE_NAMES = {
     "T_FPHandKnock1_D",
     "T_FPHandKnock2_D",
     "T_FPHandKnock3_D",
+    "T_FPCaptureEmbrace0_D",
+    "T_FPCaptureEmbrace1_D",
+    "T_FPCaptureEmbrace2_D",
+    "T_FPCaptureEmbrace3_D",
 }
 APARTMENT_VISUAL_ONLY = os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1"
 APARTMENT_VISUAL_TEXTURE_NAMES = {

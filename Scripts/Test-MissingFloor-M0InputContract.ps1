@@ -236,8 +236,9 @@ Assert-ContainsAll $surfaceTextures @(
 	'texture.set_editor_property("never_stream", True)'
 ) 'first-person sprite import settings'
 Assert-ContainsAll $artBuild @(
-	"-OnlySource @('SheetFirstPersonKnockPhases_v2_RGBA')",
-	"'\[IndieGame\] Imported 6 textures'",
+	'-OnlySource @(',
+	"'SheetFirstPersonKnockPhases_v2_RGBA'",
+	"'\[IndieGame\] Imported 10 textures'",
 	"'Content\Prototype\Textures\T_FPHandKnock0_D.uasset'",
 	"'Content\Prototype\Textures\T_FPHandKnock3_D.uasset'"
 ) 'first-person sprite targeted build'

@@ -817,7 +817,9 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				PlayerCharacter->GetActorLocation(),
 				ExpectedWakeLocation) <= 200.0f;
 		const bool bTierRaised = Entity->GetAggressionTier() == 1;
-		if (bPlayerBackAtBed && bTierRaised)
+		const bool bCaptureHandprintLeft =
+			NightLoop->GetCaptureHandprintCount() >= 1;
+		if (bPlayerBackAtBed && bTierRaised && bCaptureHandprintLeft)
 		{
 			// On to the night-1 beats: walk into the stair throat and expect
 			// the cameo on the half-landing.
@@ -836,9 +838,10 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		if (StepDeadlineSeconds > 6.0f)
 		{
 			FailProbe(FString::Printf(
-				TEXT("reset incomplete (atBed=%d tier=%d)"),
+				TEXT("reset incomplete (atBed=%d tier=%d handprints=%d)"),
 				bPlayerBackAtBed ? 1 : 0,
-				Entity->GetAggressionTier()));
+				Entity->GetAggressionTier(),
+				NightLoop->GetCaptureHandprintCount()));
 		}
 		break;
 	}

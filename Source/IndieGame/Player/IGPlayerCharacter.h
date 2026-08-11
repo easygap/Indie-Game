@@ -42,6 +42,10 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player|Camera")
 	void SetCameraMotionEnabled(bool bEnabled);
 
+	/** 비폭력 포획 포옹과 카메라 킥, 감쇠 진동을 시작한다. */
+	UFUNCTION(BlueprintCallable, Category = "Player|Camera")
+	void PlayCaptureFeedback(float DurationSeconds = 1.2f);
+
 	/** Parents an item to the camera at the given relative pose (held item). */
 	UFUNCTION(BlueprintCallable, Category = "Player|Carry")
 	bool CarryActor(AActor* Item, const FVector& RelativeOffset, const FRotator& RelativeRotation);
@@ -122,6 +126,7 @@ private:
 	void EndScriptedHeavyBagRest();
 	/** Footstep cadence and its noise report; runs whether or not the camera bobs. */
 	void UpdateFootsteps(float DeltaSeconds);
+	void UpdateCaptureFeedback(float DeltaSeconds);
 	void UpdateCameraMotion(float DeltaSeconds);
 	void UpdateCarriedItem(float DeltaSeconds);
 	void UpdateOutfitPresentation(float DeltaSeconds);
@@ -186,6 +191,9 @@ private:
 	float CrouchCameraCompensationStart = 0.0f;
 	float AppliedCrouchCameraCompensation = 0.0f;
 	float KnockCameraKick = 0.0f;
+	float CaptureFeedbackDurationSeconds = 0.0f;
+	float CaptureFeedbackRemainingSeconds = 0.0f;
+	uint64 CaptureForceFeedbackHandle = 0;
 	double LastKnockInputSeconds = -1.0;
 	double KnockInputLockedUntil = -1.0;
 	int32 LastStepIndex = 0;

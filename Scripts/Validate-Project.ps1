@@ -2353,4 +2353,8 @@ $missingFloorM0InputContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M0InputContract.ps1'
 & $missingFloorM0InputContractScript
 
+$missingFloorM1CaptureContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M1CaptureContract.ps1'
+& $missingFloorM1CaptureContractScript
+
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

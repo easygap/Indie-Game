@@ -61,6 +61,8 @@ namespace IGPlayerNoise
 	constexpr float KnockSequenceResetSeconds = 1.8f;
 	constexpr float KnockCameraKickDegrees = 0.4f;
 	constexpr float KnockCameraReturnSeconds = 0.18f;
+	constexpr float CaptureCameraKickDegrees = 3.2f;
+	constexpr float CaptureHapticIntensity = 0.70f;
 	/** Quietest and loudest footfall reported to the noise bus (§5.1). */
 	constexpr float MinimumFootstepLoudness = 0.06f;
 	constexpr float MaximumFootstepLoudness = 0.18f;
@@ -395,6 +397,7 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 	UpdateContextualActions(DeltaSeconds);
 	UpdateCrouchTransition(DeltaSeconds);
 	UpdateFootsteps(DeltaSeconds);
+	UpdateCaptureFeedback(DeltaSeconds);
 	UpdateCameraMotion(DeltaSeconds);
 	UpdateCarriedItem(DeltaSeconds);
 	UpdateOutfitPresentation(DeltaSeconds);
@@ -585,6 +588,75 @@ void AIGPlayerCharacter::SetCameraMotionEnabled(const bool bEnabled)
 			CameraBaseLocation
 				+ FVector(0.0f, 0.0f, CrouchCameraCompensation));
 		AppliedCrouchCameraCompensation = CrouchCameraCompensation;
+	}
+}
+
+void AIGPlayerCharacter::PlayCaptureFeedback(const float DurationSeconds)
+{
+	CaptureFeedbackDurationSeconds = FMath::Max(DurationSeconds, 0.05f);
+	CaptureFeedbackRemainingSeconds = CaptureFeedbackDurationSeconds;
+	SetCameraMotionEnabled(true);
+
+	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
+	{
+		if (AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(PlayerController->GetHUD()))
+		{
+			HorrorHUD->PlayCaptureEmbrace(CaptureFeedbackDurationSeconds);
+		}
+
+		if (CaptureForceFeedbackHandle > 0)
+		{
+			PlayerController->PlayDynamicForceFeedback(
+				0.0f, 0.0f, true, true, true, true,
+				EDynamicForceFeedbackAction::Stop,
+				CaptureForceFeedbackHandle);
+			CaptureForceFeedbackHandle = 0;
+		}
+		if (!AccessibilitySubsystem || AccessibilitySubsystem->AreHapticsEnabled())
+		{
+			CaptureForceFeedbackHandle = PlayerController->PlayDynamicForceFeedback(
+				IGPlayerNoise::CaptureHapticIntensity,
+				CaptureFeedbackDurationSeconds,
+				true, true, true, true,
+				EDynamicForceFeedbackAction::Start);
+		}
+	}
+}
+
+void AIGPlayerCharacter::UpdateCaptureFeedback(const float DeltaSeconds)
+{
+	if (CaptureFeedbackRemainingSeconds <= 0.0f || DeltaSeconds <= 0.0f)
+	{
+		return;
+	}
+
+	CaptureFeedbackRemainingSeconds = FMath::Max(
+		0.0f,
+		CaptureFeedbackRemainingSeconds - DeltaSeconds);
+	APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	const bool bHapticsEnabled = !AccessibilitySubsystem
+		|| AccessibilitySubsystem->AreHapticsEnabled();
+	if (PlayerController && CaptureForceFeedbackHandle > 0)
+	{
+		if (bHapticsEnabled && CaptureFeedbackRemainingSeconds > 0.0f)
+		{
+			const float RemainingAlpha = CaptureFeedbackRemainingSeconds
+				/ FMath::Max(CaptureFeedbackDurationSeconds, 0.05f);
+			CaptureForceFeedbackHandle = PlayerController->PlayDynamicForceFeedback(
+				IGPlayerNoise::CaptureHapticIntensity * RemainingAlpha,
+				0.0f,
+				true, true, true, true,
+				EDynamicForceFeedbackAction::Update,
+				CaptureForceFeedbackHandle);
+		}
+		else
+		{
+			PlayerController->PlayDynamicForceFeedback(
+				0.0f, 0.0f, true, true, true, true,
+				EDynamicForceFeedbackAction::Stop,
+				CaptureForceFeedbackHandle);
+			CaptureForceFeedbackHandle = 0;
+		}
 	}
 }
 
@@ -857,6 +929,15 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	if (!bReducedMotion && KnockCameraKick > KINDA_SMALL_NUMBER)
 	{
 		CameraRotation.Pitch -= KnockCameraKick;
+	}
+	if (!bReducedMotion && CaptureFeedbackRemainingSeconds > 0.0f)
+	{
+		const float CaptureAlpha = CaptureFeedbackRemainingSeconds
+			/ FMath::Max(CaptureFeedbackDurationSeconds, 0.05f);
+		const float SmoothedCaptureAlpha = CaptureAlpha * CaptureAlpha
+			* (3.0f - 2.0f * CaptureAlpha);
+		CameraRotation.Pitch -= IGPlayerNoise::CaptureCameraKickDegrees
+			* SmoothedCaptureAlpha;
 	}
 	KnockCameraKick = FMath::FInterpConstantTo(
 		KnockCameraKick,

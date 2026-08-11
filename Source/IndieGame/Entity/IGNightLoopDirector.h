@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -6,16 +6,16 @@
 
 class AIGListenerEntity;
 class AIGPlayerCharacter;
+class UStaticMeshComponent;
 
 /**
- * Owns the capture consequence of the hour: being caught is not a game-over
- * screen but a reset to the half-past-four bed. Fade to black over the
- * entity's close double knock, put the player back at the wake point, raise
- * the entity's aggression tier, fade back in.
+ * 그 시간의 포획 결과를 관리한다. 잡혀도 게임 오버 화면을 띄우지 않고
+ * 가까운 두 번의 노크와 함께 암전한 뒤 네시 반의 침대로 돌려보낸다.
+ * 복귀할 때 위층 사람의 공격성 티어를 높이고 다시 화면을 연다.
  *
- * What survives a reset and what rolls back is defined in
- * STORY_BIBLE_MISSING_FLOOR.md §5.4. This first cut resets position only;
- * door/prop rollback and the plaster handprint decal come with M2.
+ * 리셋 뒤 남는 상태와 되돌릴 상태는 STORY_BIBLE_MISSING_FLOOR.md §5.4를
+ * 따른다. M1은 포획 벽에 세션 동안 남는 석고 손자국을 만들며, 문과 프롭의
+ * 세부 롤백은 M2에서 처리한다.
  */
 UCLASS()
 class INDIEGAME_API AIGNightLoopDirector : public AActor
@@ -25,7 +25,7 @@ class INDIEGAME_API AIGNightLoopDirector : public AActor
 public:
 	AIGNightLoopDirector();
 
-	/** Where a caught player wakes: the bed side of unit 403. */
+	/** 포획된 플레이어가 다시 눈을 뜨는 403호 침대 옆 위치. */
 	UFUNCTION(BlueprintCallable, Category = "NightLoop")
 	void SetWakeTransform(const FTransform& Transform);
 
@@ -35,20 +35,21 @@ public:
 	UFUNCTION(BlueprintPure, Category = "NightLoop")
 	int32 GetCaptureCount() const { return CaptureCount; }
 
+	UFUNCTION(BlueprintPure, Category = "NightLoop")
+	int32 GetCaptureHandprintCount() const { return CaptureHandprints.Num(); }
+
 protected:
 	virtual void BeginPlay() override;
 
-	/** Blackout length before the player is moved, in seconds. */
+	/** 플레이어를 옮기기 전 포옹 암전 시간(초). */
 	UPROPERTY(EditAnywhere, Category = "NightLoop", meta = (ClampMin = "0.0"))
-	float FadeOutSeconds = 0.9f;
-
-	/** Fade back up at the bed, in seconds. */
-	UPROPERTY(EditAnywhere, Category = "NightLoop", meta = (ClampMin = "0.0"))
-	float FadeInSeconds = 1.6f;
+	float FadeOutSeconds = 1.2f;
 
 private:
 	void HandlePlayerCaptured(APawn* Player);
 	void FinishReset();
+	bool SpawnCaptureHandprint(AIGPlayerCharacter* Character);
+	float GetWakeFadeInSeconds() const;
 	class UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 
 	UPROPERTY(Transient)
@@ -56,6 +57,9 @@ private:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGPlayerCharacter> CapturedPlayer;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> CaptureHandprints;
 
 	FTransform WakeTransform = FTransform::Identity;
 	bool bWakeTransformSet = false;

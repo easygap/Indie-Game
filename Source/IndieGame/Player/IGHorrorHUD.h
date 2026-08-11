@@ -145,6 +145,13 @@ public:
 	void PlayFirstPersonKnock();
 
 	/**
+	 * 포획 암전 동안 위층 사람의 절제된 1인칭 포옹을 재생한다.
+	 * ImageGen 파생 4프레임은 화면 연출만 맡고 실제 포획 판정은
+	 * 밤 루프 디렉터가 계속 소유한다.
+	 */
+	void PlayCaptureEmbrace(float DurationSeconds = 1.2f);
+
+	/**
 	 * Returns the most recent frame that actually drew the CH03 lens droplet.
 	 * The Shipping visual probe uses this instead of trusting a screenshot
 	 * request alone, so reduced-motion and HUD-safe placement remain measurable.
@@ -309,6 +316,8 @@ private:
 	void DrawFearDirection(double CurrentTime);
 	void DrawLensDroplet(double CurrentTime);
 	void DrawFirstPersonKnock(double CurrentTime);
+	/** 포획 연출이 HUD 전체 프레임을 점유하는 동안 true를 반환한다. */
+	bool DrawCaptureEmbrace(double CurrentTime);
 	/**
 	 * One expanding arc at the screen edge, sized by how far the sound the
 	 * player just made actually carries (§5.1). No numbers, no meter: the ring
@@ -395,6 +404,10 @@ private:
 	/** ImageGen-derived M0 hand phases; screen-space only, never world geometry. */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UTexture2D>> FirstPersonKnockFrames;
+
+	/** 카메라 위에 합성하는 ImageGen 파생 M1 포옹 단계. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UTexture2D>> CaptureEmbraceFrames;
 
 	/** Existing world textures sampled as restrained evidence-card thumbnails. */
 	UPROPERTY(Transient)
@@ -495,9 +508,13 @@ private:
 	bool bLensDropletLastReducedMotion = false;
 	double LensDropletLastRenderTime = -1.0;
 	double FirstPersonKnockStartTime = -1.0;
+	double CaptureEmbraceStartTime = -1.0;
+	double CaptureEmbraceEndTime = -1.0;
 #if !UE_BUILD_SHIPPING
 	double FirstPersonKnockPreviewNextTime = 0.0;
+	double CaptureEmbracePreviewNextTime = 0.0;
 	bool bFirstPersonKnockPreview = false;
+	bool bCaptureEmbracePreview = false;
 #endif
 
 	FText ChapterCardEyebrow;
