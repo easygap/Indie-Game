@@ -120,6 +120,9 @@ public:
 	/** Dry paper lift and fingertip brush used by the daylight evidence journal. */
 	static UIGToneSequenceSoundWave* CreateJournalPageTurn(UObject* Outer);
 
+	/** 문틈을 통과해 복도 타일에 안착하는 얇은 종이 소리. */
+	static UIGToneSequenceSoundWave* CreatePaperDoorSlide(UObject* Outer);
+
 	/**
 	 * Looping cheerful music-box store jingle.
 	 * PitchSemitones and TimeScale author the degraded CH02 version without

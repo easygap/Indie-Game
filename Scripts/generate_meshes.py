@@ -727,6 +727,51 @@ def build_sticky_note_76mm():
         mesh, "SM_StickyNote76mm", add_collision=False, weld_edges=False)
 
 
+def build_capture_mercy_note():
+    """복도 방향 끝만 살짝 든 18×11cm 낱장 메모를 만든다."""
+    mesh = new_mesh()
+    columns = 8
+    rows = 6
+    width = 18.0
+    depth = 11.0
+    positions = []
+    normals = []
+    uvs = []
+    triangles = []
+
+    for row in range(rows + 1):
+        v = row / rows
+        leading_release = max(0.0, (v - 0.76) / 0.24)
+        for column in range(columns + 1):
+            u = column / columns
+            x = (u - 0.5) * width
+            y = (0.5 - v) * depth
+            # 종이 두께만큼 틈을 두어 Z-fighting을 막고, 끝 26mm만 들어
+            # 코팅지처럼 보이지 않으면서 복도 빛을 받게 한다.
+            side_wave = 0.025 * math.sin(u * math.pi * 2.0)
+            z = 0.06 + side_wave + 0.22 * leading_release * leading_release
+            positions.append((x, y, z))
+            normals.append((0.0, 0.0, 1.0))
+            # 플레이어가 +Y를 보면 카메라 오른쪽은 월드 -X가 된다.
+            # U만 뒤집어 필기는 좌우가 바로 보이고, 든 끝은 실제 종이의
+            # 가까운 면에 그대로 남게 한다.
+            uvs.append((1.0 - u, v))
+
+    stride = columns + 1
+    for row in range(rows):
+        for column in range(columns):
+            top_left = row * stride + column
+            top_right = top_left + 1
+            bottom_left = top_left + stride
+            bottom_right = bottom_left + 1
+            triangles.append((top_left, bottom_left, bottom_right))
+            triangles.append((top_left, bottom_right, top_right))
+
+    append_indexed_surface(mesh, positions, normals, uvs, triangles)
+    return bake(
+        mesh, "SM_CaptureMercyNote", add_collision=False, weld_edges=False)
+
+
 def build_sandwich_pack():
     """Triangular sandwich wedge pack."""
     mesh = new_mesh()
@@ -2321,6 +2366,7 @@ BUILDERS = (
     build_sandwich_pack,
     build_label_sleeve,
     build_sticky_note_76mm,
+    build_capture_mercy_note,
     build_alley_cat_run,
     build_first_person_hoodie_sleeve,
     build_listener_entity_crawl,
@@ -2371,6 +2417,8 @@ def run():
     builders = BUILDERS
     if os.environ.get("IG_ALARM_CLOCK_ONLY") == "1":
         builders = (build_alarm_clock,)
+    elif os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
+        builders = (build_capture_mercy_note,)
     elif os.environ.get("IG_SUBMERGED_CLOTHING_ONLY") == "1":
         builders = (
             build_submerged_hoodie_curl,

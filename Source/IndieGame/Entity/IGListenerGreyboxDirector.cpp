@@ -3,6 +3,7 @@
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "Camera/CameraComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -62,6 +63,8 @@ void AIGListenerGreyboxDirector::BeginPlay()
 		FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"));
 	bNightCaptureRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGNightCapture"));
+	bMercyNoteProbeRequested =
+		FParse::Param(FCommandLine::Get(), TEXT("IGM65MercyNoteProbe"));
 
 	// The procedural villa and the player pawn appear over the first frames;
 	// poll briefly instead of assuming a build order.
@@ -180,6 +183,10 @@ bool AIGListenerGreyboxDirector::SetupStage()
 	NightLoop->RegisterEntity(Entity);
 	// The half-past-four bed is wherever the player actually woke.
 	NightLoop->SetWakeTransform(PlayerCharacter->GetActorTransform());
+	if (bMercyNoteProbeRequested)
+	{
+		NightLoop->PrimeMercyNoteCaptureProbe();
+	}
 	ExpectedWakeLocation = PlayerCharacter->GetActorLocation();
 
 	NoiseSubsystem->RegisterHumSource(
@@ -903,12 +910,28 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			!NightLoop->IsCaptureResetInFlight();
 		const bool bInputRestored =
 			PlayerCharacter && PlayerCharacter->InputEnabled();
+		const bool bMercyNoteReady =
+			!bMercyNoteProbeRequested
+			|| (NightLoop->IsMercyNoteVisible()
+				&& !NightLoop->IsMercyNoteSliding()
+				&& FVector::Dist(
+					NightLoop->GetMercyNoteLocation(),
+					FVector(-150.0f, -269.5f, 900.12f)) <= 1.0f);
 		if (bPlayerBackAtBed
 			&& bTierRaised
 			&& bCaptureHandprintLeft
 			&& bWakeRecoveryFinished
-			&& bInputRestored)
+			&& bInputRestored
+			&& bMercyNoteReady)
 		{
+			if (bMercyNoteProbeRequested)
+			{
+				UE_LOG(
+					LogTemp,
+					Display,
+					TEXT("MISSINGFLOOR_M65_MERCY_NOTE PASS: "
+						"capture=5 slide=1 world_note=1 ui=0"));
+			}
 			// On to the night-1 beats: walk into the stair throat and expect
 			// the cameo on the half-landing.
 			if (PlayerCharacter)
@@ -925,13 +948,27 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		}
 		if (StepDeadlineSeconds > 6.0f)
 		{
-			FailProbe(FString::Printf(
-				TEXT("reset incomplete (atBed=%d tier=%d handprints=%d recovery=%d input=%d)"),
-				bPlayerBackAtBed ? 1 : 0,
-				Entity->GetAggressionTier(),
-				NightLoop->GetCaptureHandprintCount(),
-				bWakeRecoveryFinished ? 1 : 0,
-				bInputRestored ? 1 : 0));
+			if (bMercyNoteProbeRequested)
+			{
+				FailProbe(FString::Printf(
+					TEXT("reset incomplete (atBed=%d tier=%d handprints=%d recovery=%d input=%d mercy=%d)"),
+					bPlayerBackAtBed ? 1 : 0,
+					Entity->GetAggressionTier(),
+					NightLoop->GetCaptureHandprintCount(),
+					bWakeRecoveryFinished ? 1 : 0,
+					bInputRestored ? 1 : 0,
+					bMercyNoteReady ? 1 : 0));
+			}
+			else
+			{
+				FailProbe(FString::Printf(
+					TEXT("reset incomplete (atBed=%d tier=%d handprints=%d recovery=%d input=%d)"),
+					bPlayerBackAtBed ? 1 : 0,
+					Entity->GetAggressionTier(),
+					NightLoop->GetCaptureHandprintCount(),
+					bWakeRecoveryFinished ? 1 : 0,
+					bInputRestored ? 1 : 0));
+			}
 		}
 		break;
 	}
@@ -1729,10 +1766,10 @@ void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 
 // -- README/night capture tour ---------------------------------------------
 //
-// Seventeen staged stops that photograph the systems the README talks about, with
-// the same direct-into-Docs/Media discipline the legacy demo captures use.
-// Stills land as Docs/Media/<name>.png; the two bursts land under
-// Saved/NightCapture/<dir>/frame_%05d.png for the ffmpeg GIF pass.
+// README에서 설명하는 시스템을 실제로 찍는 18개 연출 구간이다.
+// 기존 데모 캡처와 똑같이 정지 화면은 Docs/Media/<name>.png에,
+// 연속 프레임은 Saved/NightCapture/<dir>/frame_%05d.png에 남겨
+// ffmpeg GIF 조립 경로를 하나로 유지한다.
 
 void AIGListenerGreyboxDirector::StartNightCapture()
 {
@@ -1769,7 +1806,7 @@ void AIGListenerGreyboxDirector::StartNightCapture()
 		FCommandLine::Get(),
 		TEXT("IGNightCaptureStartStep="),
 		StartStep);
-	EnterCaptureStep(FMath::Clamp(StartStep, 0, 16));
+	EnterCaptureStep(FMath::Clamp(StartStep, 0, 17));
 	if (StartStep > 0)
 	{
 		// A direct art-review stop still begins while the normal night card is
@@ -1993,6 +2030,21 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 			NightFour->SetFinaleCapturePreview(true, true);
 		}
 		CaptureTeleportPlayer(FVector(130.0f, 710.0f, 1297.0f), -90.0f, -4.0f);
+		break;
+	case 17:
+		// M6.5 좌절 안전망은 5회 포획 메모를 실물로 보여 준다.
+		// 평소 1인칭 시점에서 바닥을 보면 읽히지만 HUD는 절대 열지 않는다.
+		CaptureParkEntity(FVector(540.0f, -305.0f, 960.0f), 180.0f);
+		CaptureTeleportPlayer(FVector(-150.0f, -322.0f, 997.0f), 90.0f, -68.0f);
+		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+		{
+			// 실제 접근성 설정 범위의 낮은 FOV를 써서 게임플레이 카메라를
+			// 바꾸지 않고도 검수 스틸에서 글자가 충분히 읽히게 한다.
+			if (UCameraComponent* Camera = PlayerCharacter->GetFirstPersonCamera())
+			{
+				Camera->SetFieldOfView(68.0f);
+			}
+		}
 		break;
 	default:
 		break;
@@ -2277,6 +2329,38 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 			CaptureShot(TEXT("night4-mok-confrontation"));
 		}
 		if (StepDone(1.5f))
+		{
+			GetWorldTimerManager().ClearTimer(CaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));
+			RequestExit(false);
+		}
+		break;
+	case 17:
+		if (ActionA(0.2f))
+		{
+			CaptureBeginBurst(TEXT("mercy-note"), 2.35f);
+			if (NightLoop)
+			{
+				NightLoop->PlayMercyNoteCapturePreview();
+			}
+		}
+		// 고정 검수 카메라에서 종이가 어두운 타일을 지나면 TSR 히스토리가
+		// 실제보다 길게 남는다. 연속 캡처 후의 문서용 스틸만 FXAA로
+		// 바꾸어 멈춘 메모를 잔상 없이 남긴다. 게임 렌더러와 GIF는 기본 설정을 유지한다.
+		if (ActionC(2.65f))
+		{
+			if (APlayerController* PlayerController =
+				GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
+			{
+				PlayerController->ConsoleCommand(
+					TEXT("r.AntiAliasingMethod 1"), true);
+			}
+		}
+		if (ActionB(3.1f))
+		{
+			CaptureShot(TEXT("m65-capture-mercy-note"));
+		}
+		if (StepDone(3.8f))
 		{
 			GetWorldTimerManager().ClearTimer(CaptureTimer);
 			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));

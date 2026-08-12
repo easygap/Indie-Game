@@ -90,6 +90,7 @@ if (-not $noteFontFamily) {
 
 $stickyNotePaper = Join-Path $outDir 'AI\TextureStickyNotePaper_D.png'
 $notFoundPaper = Join-Path $outDir 'AI\TextureStickyNote404Doodle_D.png'
+$captureMercyNotePaper = Join-Path $outDir 'AI\TextureCaptureMercyNotePaper_D.png'
 
 function Write-CorridorEntranceSigns {
     # The room number stays an ordinary 403. A single handwritten memo occupies
@@ -119,6 +120,20 @@ function Write-CorridorEntranceSigns {
     New-SignBitmap -Width 128 -Height 64 -Background $nearWhite -FileName 'T_PlateCommon_D.png' -Draw {
         param($g, $w, $h)
         Draw-CenteredText $g '공용' $malgun 32 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.5)
+    }
+
+    # 다섯 번 포획되면 401호에서 조용한 도움을 한 번 건넨다.
+    # 생성 이미지는 값싼 종이 질감에만 쓰고, 한글은 절차적으로 합성해
+    # HUD 메모창 없이도 세계 안에서 정확히 읽히게 한다.
+    New-SignBitmap -Width 1024 -Height 640 `
+        -Background ([System.Drawing.Color]::FromArgb(255, 218, 207, 180)) `
+        -BackgroundImagePath $captureMercyNotePaper `
+        -FileName 'T_CaptureMercyNote_D.png' -Draw {
+        param($g, $w, $h)
+
+        $ballpoint = [System.Drawing.Color]::FromArgb(255, 35, 42, 54)
+        Draw-CenteredText $g '소리를 줄여라.' $noteFontFamily 92 ([System.Drawing.FontStyle]::Regular) $ballpoint ($w * 0.50) ($h * 0.38)
+        Draw-CenteredText $g '걔는 눈이 없어.' $noteFontFamily 92 ([System.Drawing.FontStyle]::Regular) $ballpoint ($w * 0.50) ($h * 0.62)
     }
 }
 

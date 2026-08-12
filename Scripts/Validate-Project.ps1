@@ -57,6 +57,7 @@ $requiredFiles = @(
 	'Content/SourceArt/AI/TextureHudDialogueFilm.png',
 	'Content/SourceArt/AI/ApartmentVisualTarget_v1.png',
 	'Content/SourceArt/AI/TextureApartmentWallpaperVintage.png',
+	'Content/SourceArt/AI/TextureCaptureMercyNotePaper_D.png',
 	'Content/SourceArt/AI/MaskApartmentWallPatina.png',
 	'Content/SourceArt/T_HudDialogueFilm_D.png',
 	'Content/SourceArt/T_ApartmentWallpaperV2_D.png',
@@ -64,6 +65,7 @@ $requiredFiles = @(
 	'Content/SourceArt/T_ApartmentWallpaperV2_R.png',
 	'Content/SourceArt/T_ApartmentWallpaperV2_A.png',
 	'Content/SourceArt/T_ApartmentWallPatina_M.png',
+	'Content/SourceArt/T_CaptureMercyNote_D.png',
 	'Build/Windows/ApplicationIcon.png',
 	'Build/Windows/Application.ico',
 	'Content/Prototype/Textures/T_PaperClean_V2_D.uasset',
@@ -77,6 +79,9 @@ $requiredFiles = @(
 	'Content/Prototype/Textures/T_ApartmentWallpaperV2_A.uasset',
 	'Content/Prototype/Textures/T_ApartmentWallPatina_M.uasset',
 	'Content/Prototype/Materials/M_ApartmentWallPatina.uasset',
+	'Content/Prototype/Textures/T_CaptureMercyNote_D.uasset',
+	'Content/Prototype/Materials/M_CaptureMercyNote.uasset',
+	'Content/Meshes/SM_CaptureMercyNote.uasset',
 	'Content/Prototype/Textures/T_SignMain_D.uasset',
 	'Content/Prototype/Textures/T_PriceStrip_D.uasset',
 	'Content/Prototype/Textures/T_PosterSale_D.uasset',
@@ -98,9 +103,12 @@ $requiredFiles = @(
 	'Docs/Media/ch03-tank-reveal.png',
 	'Docs/Media/dialogue-hud-default-1080.png',
 	'Docs/Media/dialogue-hud-accessibility-200-1080.png',
+	'Docs/Media/m65-capture-mercy-note.png',
+	'Docs/Media/m65-mercy-note-slide.gif',
 	'Docs/Media/readme-route-preview.gif',
 	'Docs/FEASIBILITY.md',
 	'Docs/IMAGEGEN_PROMPTS_2026-08-05.md',
+	'Docs/IMAGEGEN_PROMPTS_2026-08-12.md',
 	'Docs/PERFORMANCE.md',
 	'Docs/RELEASE_VALIDATION.md',
 	'Docs/SAVE_COMPATIBILITY.md',
@@ -133,6 +141,7 @@ $requiredFiles = @(
 	'Scripts/Test-MissingFloor-M0InputContract.ps1',
 	'Scripts/Test-MissingFloor-M5RevealContract.ps1',
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1',
+	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1',
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
 	'Scripts/RunEditor.bat',
@@ -181,8 +190,8 @@ $readme = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 foreach ($requiredReadmeToken in @(
 	'Docs/Media/dialogue-hud-default-1080.png',
 	'Docs/Media/readme-route-preview.gif',
-	'Docs/Media/ch02-receipt-0444.png',
-	'Docs/Media/ch03-roof-tank.png',
+	'Docs/Media/m65-mercy-note-slide.gif',
+	'Docs/Media/prologue-not-found-note.png',
 	'Docs/Media/night4-cavity-open.png',
 	'Docs/Media/night4-mok-confrontation.png',
 	'## 대화와 접근성',
@@ -215,6 +224,11 @@ $readmeGif = Get-Item -LiteralPath (
 	Join-Path $projectRoot 'Docs/Media/readme-route-preview.gif')
 if ($readmeGif.Length -lt 500KB -or $readmeGif.Length -gt 10MB) {
 	throw 'README route preview must stay legible and below the 10 MB review budget.'
+}
+$mercyNoteGif = Get-Item -LiteralPath (
+	Join-Path $projectRoot 'Docs/Media/m65-mercy-note-slide.gif')
+if ($mercyNoteGif.Length -lt 500KB -or $mercyNoteGif.Length -gt 10MB) {
+	throw 'README mercy-note preview must stay legible and below the 10 MB review budget.'
 }
 $readmeMediaRecipe = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/create_readme_media.py')
@@ -396,6 +410,8 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 # final reveal, Mok retreat, ending prop movement, or the two camera-dependent
 # detail layers are visible. It disables itself as soon as those presentation
 # windows close.
+# IGNightLoopDirector는 기본 Tick을 끄고, 5회 포획 후 종이가 미끄러지는
+# 0.82초에만 켠 뒤 다시 타이머 기반 리셋 처리로 돌아간다.
 #
 # IGListenerEntity is the one deliberate always-on actor tick in the project.
 # 위층 사람 is a pursuer: its state machine, crawl locomotion, drag-loop gain
@@ -414,7 +430,8 @@ $reviewedTickingFiles = @(
 	'IGNeighborhoodLifeDirector.cpp',
 	'IGDemoDirector.cpp',
 	'IGListenerEntity.cpp',
-	'IGMissingFloorNightFourDirector.cpp'
+	'IGMissingFloorNightFourDirector.cpp',
+	'IGNightLoopDirector.cpp'
 )
 $unreviewedTickingActors = @($tickingActors | Where-Object {
 	$reviewedTickingFiles -notcontains [System.IO.Path]::GetFileName($_.Path)
@@ -2377,5 +2394,9 @@ $missingFloorM5RevealContractScript = Join-Path $projectRoot `
 $missingFloorM6AudioVisualContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1'
 & $missingFloorM6AudioVisualContractScript
+
+$missingFloorM65MercyNoteContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1'
+& $missingFloorM65MercyNoteContractScript
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

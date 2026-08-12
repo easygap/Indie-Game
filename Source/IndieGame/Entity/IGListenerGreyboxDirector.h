@@ -145,6 +145,7 @@ private:
 
 	/** Capture-tour state; inert unless -IGNightCapture is on the command line. */
 	bool bNightCaptureRequested = false;
+	bool bMercyNoteProbeRequested = false;
 	int32 CaptureStepIndex = -1;
 	float CaptureStepSeconds = 0.0f;
 	bool bCaptureBurstActive = false;

@@ -24,6 +24,7 @@ class INDIEGAME_API AIGNightLoopDirector : public AActor
 
 public:
 	AIGNightLoopDirector();
+	virtual void Tick(float DeltaSeconds) override;
 
 	/** 포획된 플레이어가 다시 눈을 뜨는 403호 침대 옆 위치. */
 	UFUNCTION(BlueprintCallable, Category = "NightLoop")
@@ -42,6 +43,22 @@ public:
 	UFUNCTION(BlueprintPure, Category = "NightLoop")
 	bool IsCaptureResetInFlight() const { return bResetInFlight; }
 
+	/** 5회 포획 뒤 401호 문 아래에 남은 실물 메모 상태. */
+	UFUNCTION(BlueprintPure, Category = "NightLoop")
+	bool IsMercyNoteVisible() const;
+
+	UFUNCTION(BlueprintPure, Category = "NightLoop")
+	bool IsMercyNoteSliding() const { return bMercyNoteSliding; }
+
+	UFUNCTION(BlueprintPure, Category = "NightLoop")
+	FVector GetMercyNoteLocation() const;
+
+	/** 자동 검증 한정: 첫 포획을 다섯 번째 포획으로 시작한다. */
+	void PrimeMercyNoteCaptureProbe();
+
+	/** 미디어 캡처 한정: 저장·포획 횟수 없이 슬라이드를 재생한다. */
+	void PlayMercyNoteCapturePreview();
+
 protected:
 	virtual void BeginPlay() override;
 
@@ -54,6 +71,10 @@ private:
 	void FinishReset();
 	void FinishWakeRecovery();
 	bool SpawnCaptureHandprint(AIGPlayerCharacter* Character);
+	bool InitializeMercyNote();
+	void QueueMercyNoteReveal();
+	void BeginMercyNoteSlide();
+	void SetMercyNoteAtRest();
 	float GetWakeFadeInSeconds() const;
 	float GetWakeEchoSeconds() const;
 	float GetWakeRecoverySeconds() const;
@@ -68,10 +89,17 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> CaptureHandprints;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> MercyNote;
+
 	FTransform WakeTransform = FTransform::Identity;
 	bool bWakeTransformSet = false;
 	bool bResetInFlight = false;
+	bool bMercyNoteRevealed = false;
+	bool bMercyNoteSliding = false;
 	int32 CaptureCount = 0;
+	float MercyNoteSlideElapsedSeconds = 0.0f;
 	FTimerHandle ResetTimer;
 	FTimerHandle WakeRecoveryTimer;
+	FTimerHandle MercyNoteRevealTimer;
 };

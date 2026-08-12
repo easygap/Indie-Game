@@ -122,6 +122,9 @@ DECAL_MATERIALS = {
     "M_Note404NotFound": {
         "tex_asset": "T_Note404NotFound_D", "rough": 0.88, "two_sided": True,
     },
+    "M_CaptureMercyNote": {
+        "tex_asset": "T_CaptureMercyNote_D", "rough": 0.92, "two_sided": True,
+    },
     "M_SignToilet":    {"tex_asset": "T_SignToilet_D", "rough": 0.4},
     "M_SignAutoDoor":  {"tex_asset": "T_SignAutoDoor_D", "rough": 0.3, "emissive_scale": 0.15},
     "M_PriceStrip":    {"tex_asset": "T_PriceStrip_D", "rough": 0.4, "emissive_scale": 0.03,
@@ -1532,7 +1535,12 @@ def run():
         unreal.log("[IndieGame] Wet footprint material update complete")
         return
     if os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
-        names = ("M_Note404NotFound", "M_Plate402", "M_PlateCommon")
+        names = (
+            "M_Note404NotFound",
+            "M_CaptureMercyNote",
+            "M_Plate402",
+            "M_PlateCommon",
+        )
         signage = create_flat_texture_materials(
             assets,
             tools,

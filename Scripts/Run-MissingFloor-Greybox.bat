@@ -28,7 +28,7 @@ if exist "%RUN_LOG%" (
     exit /b 1
 )
 
-"%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -unattended -nosplash -nullrhi -nosound -RenderOffscreen -stdout -FullStdOutLogOutput -abslog="%RUN_LOG%" -IGListenerGreybox -IGListenerGreyboxProbe
+"%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -unattended -nosplash -nullrhi -nosound -RenderOffscreen -stdout -FullStdOutLogOutput -abslog="%RUN_LOG%" -IGListenerGreybox -IGListenerGreyboxProbe %*
 set "EDITOR_EXIT=%ERRORLEVEL%"
 
 if not "%EDITOR_EXIT%"=="0" (
@@ -51,6 +51,15 @@ findstr /C:"MISSINGFLOOR_GREYBOX PASS" "%RUN_LOG%" >nul
 if errorlevel 1 (
     echo Missing Floor greybox validation did not report PASS. Check %RUN_LOG%.
     exit /b 1
+)
+
+echo %* | findstr /C:"-IGM65MercyNoteProbe" >nul
+if not errorlevel 1 (
+    findstr /C:"MISSINGFLOOR_M65_MERCY_NOTE PASS" "%RUN_LOG%" >nul
+    if errorlevel 1 (
+        echo M6.5 mercy-note validation did not report PASS. Check %RUN_LOG%.
+        exit /b 1
+    )
 )
 
 echo Missing Floor greybox validation passed.

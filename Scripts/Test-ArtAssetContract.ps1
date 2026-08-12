@@ -45,6 +45,7 @@ $requiredRaw = @(
 	'AI\MaskApartmentWallPatina.png',
 	'AI\TextureStickyNotePaper_D.png',
 	'AI\TextureStickyNote404Doodle_D.png',
+	'AI\TextureCaptureMercyNotePaper_D.png',
 	'AI\SheetMissingFloorEnvironmentReference.png',
 	'AI\SheetListenerEntityAnatomyReference.png',
 	'AI\TextureMissingFloorDryPlaster.png',
@@ -181,6 +182,7 @@ $requiredDerived = @(
 	$requiredMaterialTextures + $requiredPbrMaps
 )
 $requiredEasterEggSigns = @{
+	'T_CaptureMercyNote_D.png' = @(1024, 640)
 	'T_Note404NotFound_D.png' = @(512, 512)
 	'T_Plate401_D.png' = @(128, 64)
 	'T_Plate402_D.png' = @(128, 64)
@@ -517,6 +519,10 @@ foreach ($token in @(
 	'uvs.append((u, v))',
 	'build_sticky_note_76mm',
 	'"SM_StickyNote76mm"',
+	'build_capture_mercy_note',
+	'"SM_CaptureMercyNote"',
+	'width = 18.0',
+	'depth = 11.0',
 	'[(4.18, 0.0, 1.0), (5.36, 7.2, 0.0)]'
 )) {
 	if (-not $meshScript.Contains($token)) {
@@ -526,6 +532,8 @@ foreach ($token in @(
 foreach ($token in @(
 	'"M_Note404NotFound": {',
 	'"tex_asset": "T_Note404NotFound_D", "rough": 0.88, "two_sided": True,',
+	'"M_CaptureMercyNote": {',
+	'"tex_asset": "T_CaptureMercyNote_D", "rough": 0.92, "two_sided": True,',
 	'"M_Plate402":      {"tex_asset": "T_Plate402_D", "rough": 0.35}',
 	'"M_PlateCommon":   {"tex_asset": "T_PlateCommon_D", "rough": 0.35}',
 	'material.set_editor_property("two_sided", bool(spec.get("two_sided", False)))',
@@ -539,10 +547,14 @@ foreach ($token in @(
 foreach ($token in @(
 	'[switch]$CorridorEntranceOnly',
 	"AI\TextureStickyNote404Doodle_D.png",
+	"AI\TextureCaptureMercyNotePaper_D.png",
 	"-BackgroundImagePath `$notFoundPaper",
+	"-BackgroundImagePath `$captureMercyNotePaper",
 	"Draw-CenteredText `$g '404'",
 	"Draw-CenteredText `$g 'Not'",
-	"Draw-CenteredText `$g 'Found'"
+	"Draw-CenteredText `$g 'Found'",
+	"Draw-CenteredText `$g '소리를 줄여라.'",
+	"Draw-CenteredText `$g '걔는 눈이 없어.'"
 )) {
 	if (-not $signScript.Contains($token)) {
 		throw "403/404 generated-paper composition contract is missing: $token"
@@ -551,9 +563,11 @@ foreach ($token in @(
 foreach ($token in @(
 	'CORRIDOR_SIGNAGE_ONLY = os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1"',
 	'CORRIDOR_SIGNAGE_TEXTURE_NAMES',
+	'"T_CaptureMercyNote_D"',
 	'"T_Note404NotFound_D"',
 	'"T_PlateCommon_D"',
-	'asset_name in {"T_NoteFridge_D", "T_Note404NotFound_D"}',
+	'"T_NoteFridge_D",',
+	'"T_CaptureMercyNote_D",',
 	'asset_name.startswith("T_Plate")'
 )) {
 	if (-not $surfaceScript.Contains($token)) {
@@ -575,8 +589,9 @@ if (-not $materialScript.Contains('material.set_editor_property("two_sided", Tru
 }
 foreach ($token in @(
 	'"M_Note404NotFound": "T_Note404NotFound_D"',
+	'"M_CaptureMercyNote": "T_CaptureMercyNote_D"',
 	'ENTRANCE_PLATE_MATERIALS',
-	'TWO_SIDED_PRINT_MATERIALS = {"M_Note404NotFound"}',
+	'TWO_SIDED_PRINT_MATERIALS = {"M_Note404NotFound", "M_CaptureMercyNote"}',
 	'Printed paper lost two-sided rendering'
 )) {
 	if (-not $auditScript.Contains($token)) {
@@ -1257,6 +1272,9 @@ foreach ($token in @(
 	'@($targetRelativeAssets).Count',
 	'IG_HUD_UI_ONLY',
 	'IG_CORRIDOR_SIGNAGE_ONLY',
+	'SM_CaptureMercyNote.uasset',
+	'T_CaptureMercyNote_D.uasset',
+	'M_CaptureMercyNote.uasset',
 	'T_Note404NotFound_D.uasset',
 	'M_Note404NotFound.uasset',
 	'T_HudDialogueFilm_D.uasset',
@@ -1514,7 +1532,7 @@ if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 2')) {
 	throw 'Missing-floor snapshot schema was not advanced for night-four state.'
 }
 foreach ($token in @(
-	'제작 정사 v3.0',
+	'제작 정사 v3.1',
 	'세척 배수 OPEN',
 	'부자밸브 우회 OPEN',
 	'저수조 이송펌프',
@@ -1524,7 +1542,7 @@ foreach ($token in @(
 	'1:55~2:40 / 7월 31일 다섯째이자 마지막 새벽'
 )) {
 	if (-not $missingFloorStory.Contains($token)) {
-		throw "Missing-floor story v3.0 contract is missing: $token"
+		throw "Missing-floor story v3.1 contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -1709,4 +1727,4 @@ foreach ($forbidden in @(
 	}
 }
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=49 masks=9 overlays=23 signage=5 material_scans=13 pbr_maps=62 meshes=44 photo_meshes=50'
+Write-Host 'ART_ASSET_CONTRACT PASS raw=50 masks=9 overlays=23 signage=6 material_scans=14 pbr_maps=62 meshes=45 photo_meshes=50'

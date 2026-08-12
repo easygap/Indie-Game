@@ -49,6 +49,7 @@ MESH_NAMES = (
     "SM_CupSleeve",
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
+    "SM_CaptureMercyNote",
     "SM_ListenerEntityCrawl",
     "SM_FinalCavityClothingShell",
     "SM_FinalCavityBoneInsert",
@@ -80,6 +81,7 @@ HERO_MESHES = {
     "SM_CupSleeve",
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
+    "SM_CaptureMercyNote",
     "SM_ListenerEntityCrawl",
     "SM_FinalCavityClothingShell",
     "SM_FinalCavityBoneInsert",
@@ -98,6 +100,7 @@ PRINT_SURFACE_MESHES = {
     "SM_CupSleeve": 120,
     "SM_LabelSleeve": 120,
     "SM_StickyNote76mm": 60,
+    "SM_CaptureMercyNote": 60,
 }
 
 PBR_STEMS = {
@@ -181,6 +184,7 @@ MASK_MATERIALS = {
 PRINT_MATERIALS = {
     "M_NoteFridge": "T_NoteFridge_D",
     "M_Note404NotFound": "T_Note404NotFound_D",
+    "M_CaptureMercyNote": "T_CaptureMercyNote_D",
     "M_LabelWater": "T_LabelWater_D",
     "M_LabelGreenTea": "T_LabelGreenTea_D",
     "M_LabelBarley": "T_LabelBarley_D",
@@ -237,7 +241,7 @@ EVIDENCE_MASK_MATERIALS = {
     "M_MissingFloorCavityScratches": "T_MissingFloorCavityScratches_M",
 }
 
-TWO_SIDED_PRINT_MATERIALS = {"M_Note404NotFound"}
+TWO_SIDED_PRINT_MATERIALS = {"M_Note404NotFound", "M_CaptureMercyNote"}
 ALL_PRINT_MATERIALS = {**PRINT_MATERIALS, **ENTRANCE_PLATE_MATERIALS}
 
 

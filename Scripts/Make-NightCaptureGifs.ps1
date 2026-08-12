@@ -1,25 +1,42 @@
-# Assembles the two -IGNightCapture frame bursts into README GIFs with a
-# two-pass ffmpeg palette so the dark corridor does not band.
+# 선택한 -IGNightCapture 연속 프레임을 README GIF로 묶는다.
+# 어두운 복도에 색 단계가 생기지 않도록 ffmpeg 팔레트를 두 번에 나눠 처리한다.
 #   Saved/NightCapture/extinguisher -> Docs/Media/night1-extinguisher-drop.gif
 #   Saved/NightCapture/chase        -> Docs/Media/night-listener-chase.gif
+#   Saved/NightCapture/mercy-note   -> Docs/Media/m65-mercy-note-slide.gif
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
+$Only = $args
 
 function Convert-Burst {
     param(
         [string]$BurstName,
-        [string]$OutputName,
-        [int]$Fps
+	[string]$OutputName,
+	[int]$Fps,
+	[int]$MinimumFrames = 8
     )
-    $framesDir = Join-Path $projectRoot "Saved\NightCapture\$BurstName"
-    $frameCount = @(Get-ChildItem -LiteralPath $framesDir -Filter 'frame_*.png' -ErrorAction SilentlyContinue).Count
-    if ($frameCount -lt 8) {
-        throw "Too few frames in $framesDir ($frameCount); run Run-MissingFloor-NightCapture.bat first."
-    }
-    $output = Join-Path $projectRoot "Docs\Media\$OutputName"
-    ffmpeg -y -framerate $Fps -i (Join-Path $framesDir 'frame_%05d.png') `
-        -vf "fps=$Fps,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" `
-        -loop 0 $output
+	$framesDir = Join-Path $projectRoot "Saved\NightCapture\$BurstName"
+	$frames = @(Get-ChildItem -LiteralPath $framesDir -Filter 'frame_*.png' -ErrorAction SilentlyContinue |
+		Sort-Object Name)
+	$frameCount = $frames.Count
+	if ($frameCount -lt $MinimumFrames) {
+		throw "Too few frames in $framesDir ($frameCount); run Run-MissingFloor-NightCapture.bat first."
+	}
+	# 1080p 캡처가 밀리면 프레임 하나가 비어 있을 수 있다. 남은 프레임을
+	# 연속 번호로 다시 묶어 ffmpeg이 중간에서 멈추지 않게 한다.
+	$sequenceDirectory = Join-Path $framesDir '_sequence'
+	if (Test-Path -LiteralPath $sequenceDirectory) {
+		Remove-Item -LiteralPath $sequenceDirectory -Recurse -Force
+	}
+	New-Item -ItemType Directory -Path $sequenceDirectory | Out-Null
+	for ($frameIndex = 0; $frameIndex -lt $frames.Count; $frameIndex++) {
+		Copy-Item -LiteralPath $frames[$frameIndex].FullName -Destination (
+			Join-Path $sequenceDirectory ('frame_{0:D5}.png' -f $frameIndex))
+	}
+	$output = Join-Path $projectRoot "Docs\Media\$OutputName"
+	ffmpeg -y -framerate $Fps -i (Join-Path $sequenceDirectory 'frame_%05d.png') `
+		-vf "fps=$Fps,scale=960:-1:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4" `
+		-loop 0 $output
+	Remove-Item -LiteralPath $sequenceDirectory -Recurse -Force
     if ($LASTEXITCODE -ne 0) { throw "ffmpeg failed for $BurstName with exit code $LASTEXITCODE" }
     $size = (Get-Item -LiteralPath $output).Length
     if ($size -gt 10MB) {
@@ -31,5 +48,12 @@ function Convert-Burst {
 # 6 fps matches roughly twice the sustained capture rate (each 1080p PNG
 # write throttles the burst to ~3 fps), so playback reads as a brisk clip
 # rather than a slideshow.
-Convert-Burst -BurstName 'extinguisher' -OutputName 'night1-extinguisher-drop.gif' -Fps 6
-Convert-Burst -BurstName 'chase' -OutputName 'night-listener-chase.gif' -Fps 6
+if ($Only.Count -eq 0 -or $Only -contains 'extinguisher') {
+	Convert-Burst -BurstName 'extinguisher' -OutputName 'night1-extinguisher-drop.gif' -Fps 6
+}
+if ($Only.Count -eq 0 -or $Only -contains 'chase') {
+	Convert-Burst -BurstName 'chase' -OutputName 'night-listener-chase.gif' -Fps 6
+}
+if ($Only.Count -eq 0 -or $Only -contains 'mercy-note') {
+	Convert-Burst -BurstName 'mercy-note' -OutputName 'm65-mercy-note-slide.gif' -Fps 7 -MinimumFrames 12
+}

@@ -1,4 +1,4 @@
-#include "Audio/IGToneSequenceSoundWave.h"
+﻿#include "Audio/IGToneSequenceSoundWave.h"
 
 namespace IGToneSequence
 {
@@ -464,6 +464,36 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateJournalPageTurn(UObjec
 	PaperNotes.Add({
 		0.205f, 0.050f, 1250.0f, 0.024f,
 		0.04f, 2.8f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(PaperNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePaperDoorSlide(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGPaperDoorSlide"));
+	TArray<FIGToneNote> PaperNotes;
+
+	// 첫 레이어는 문풍지에 스치는 종이, 두 번째는 문틈을 벗어난 뒤의
+	// 넓은 타일 마찰음이다. 마지막 두 번의 짧은 충격음으로 아이템 획득이
+	// 아니라 가벼운 종이 한 장이 바닥에 안착했다는 느낌을 준다.
+	PaperNotes.Add({
+		0.000f, 0.34f, 2850.0f, 0.036f,
+		0.10f, 1.55f, EIGToneWaveform::ValueNoise});
+	PaperNotes.Add({
+		0.110f, 0.58f, 930.0f, 0.052f,
+		0.14f, 1.72f, EIGToneWaveform::ValueNoise});
+	PaperNotes.Add({
+		0.290f, 0.42f, 310.0f, 0.023f,
+		0.18f, 1.95f, EIGToneWaveform::ValueNoise});
+	PaperNotes.Add({
+		0.700f, 0.055f, 1800.0f, 0.026f,
+		0.04f, 2.8f, EIGToneWaveform::ValueNoise});
+	PaperNotes.Add({
+		0.748f, 0.040f, 720.0f, 0.018f,
+		0.03f, 3.1f, EIGToneWaveform::ValueNoise});
 
 	Wave->ConfigureNotes(MoveTemp(PaperNotes), false);
 	return Wave;
