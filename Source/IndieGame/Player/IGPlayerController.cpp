@@ -10,6 +10,7 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "InputCoreTypes.h"
 #include "InputKeyEventArgs.h"
 #include "GameFramework/GameUserSettings.h"
@@ -129,6 +130,13 @@ void AIGPlayerController::BeginPlay()
 	{
 		StartAudioCalibrationPreviewProbe();
 	}
+	else if (IsLocalController()
+		&& FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGMissingFloorEndingPreview")))
+	{
+		StartMissingFloorEndingPreviewProbe();
+	}
 }
 
 void AIGPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -153,6 +161,11 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 	if (bAudioCalibrationPreviewProbe)
 	{
 		TickAudioCalibrationPreviewProbe();
+		return;
+	}
+	if (bMissingFloorEndingPreviewProbe)
+	{
+		TickMissingFloorEndingPreviewProbe();
 		return;
 	}
 	if (bJournalInputHeld && !bMissingFloorJournalVisible)
@@ -1464,6 +1477,171 @@ void AIGPlayerController::FailAudioCalibrationPreviewProbe(
 	FPlatformMisc::RequestExitWithStatus(true, 2);
 }
 
+void AIGPlayerController::StartMissingFloorEndingPreviewProbe()
+{
+	const TCHAR* CommandLine = FCommandLine::Get();
+	FParse::Value(
+		CommandLine,
+		TEXT("IGEndingPreviewExpectedWidth="),
+		MissingFloorEndingPreviewExpectedWidth);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGEndingPreviewExpectedHeight="),
+		MissingFloorEndingPreviewExpectedHeight);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGEndingPreviewScreenshotPath="),
+		MissingFloorEndingPreviewScreenshotPath);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGEndingPreviewElapsed="),
+		MissingFloorEndingPreviewElapsedSeconds);
+	MissingFloorEndingPreviewScreenshotPath.TrimQuotesInline();
+	MissingFloorEndingPreviewScreenshotPath = FPaths::ConvertRelativePathToFull(
+		MissingFloorEndingPreviewScreenshotPath);
+	MissingFloorEndingPreviewElapsedSeconds = FMath::Clamp(
+		MissingFloorEndingPreviewElapsedSeconds,
+		0.0f,
+		10.0f);
+	if (MissingFloorEndingPreviewExpectedWidth <= 0
+		|| MissingFloorEndingPreviewExpectedHeight <= 0
+		|| MissingFloorEndingPreviewScreenshotPath.IsEmpty())
+	{
+		FailMissingFloorEndingPreviewProbe(TEXT("arguments_missing"));
+		return;
+	}
+
+	bMissingFloorEndingPreviewProbe = true;
+	bMissingFloorEndingPreviewScreenshotRequested = false;
+	bMissingFloorEndingPreviewCompilationDrained = false;
+	SystemMenuMode = EIGSystemMenuMode::Hidden;
+	bAccessibilityMenuVisible = false;
+	bMissingFloorJournalVisible = false;
+	SetInputDevicePresentation(false);
+	ApplyMenuInputMode();
+	RefreshMenuHud();
+	IFileManager::Get().MakeDirectory(
+		*FPaths::GetPath(MissingFloorEndingPreviewScreenshotPath),
+		true);
+	MissingFloorEndingPreviewNextActionTime = FPlatformTime::Seconds() + 0.75;
+	MissingFloorEndingPreviewDeadline = FPlatformTime::Seconds() + 10.0;
+	SetActorTickEnabled(true);
+}
+
+void AIGPlayerController::TickMissingFloorEndingPreviewProbe()
+{
+	const double Now = FPlatformTime::Seconds();
+	if (Now > MissingFloorEndingPreviewDeadline)
+	{
+		FailMissingFloorEndingPreviewProbe(TEXT("timeout"));
+		return;
+	}
+	if (Now < MissingFloorEndingPreviewNextActionTime)
+	{
+		return;
+	}
+	if (!bMissingFloorEndingPreviewCompilationDrained)
+	{
+		FAssetCompilingManager::Get().FinishAllCompilation();
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+		if (GEngine)
+		{
+			GEngine->bEnableOnScreenDebugMessages = false;
+		}
+		ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+		bMissingFloorEndingPreviewCompilationDrained = true;
+		MissingFloorEndingPreviewNextActionTime = Now + 0.40;
+		MissingFloorEndingPreviewDeadline = Now + 8.0;
+		return;
+	}
+
+	AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+	if (!HorrorHUD)
+	{
+		FailMissingFloorEndingPreviewProbe(TEXT("hud_missing"));
+		return;
+	}
+	if (!HorrorHUD->IsMissingFloorFailureEndingVisible())
+	{
+		HorrorHUD->BeginMissingFloorFailureEnding(
+			MissingFloorEndingPreviewElapsedSeconds);
+		HorrorHUD->SetMissingFloorFailureRetryEnabled(
+			MissingFloorEndingPreviewElapsedSeconds >= 3.2f);
+		MissingFloorEndingPreviewNextActionTime = Now + 0.10;
+		return;
+	}
+
+	if (!bMissingFloorEndingPreviewScreenshotRequested)
+	{
+		FVector2D CanvasSize;
+		FVector2D BoundsMinimum;
+		FVector2D BoundsMaximum;
+		int32 ElementCount = 0;
+		bool bInsideCanvas = false;
+		bool bInsideSettingsContainers = false;
+		uint64 FrameSerial = 0;
+		const int32 MinimumElementCount =
+			MissingFloorEndingPreviewElapsedSeconds >= 3.2f ? 9 : 7;
+		const bool bLayoutReady = HorrorHUD->GetLayoutValidationSample(
+				CanvasSize,
+				BoundsMinimum,
+				BoundsMaximum,
+				ElementCount,
+				bInsideCanvas,
+				bInsideSettingsContainers,
+				FrameSerial)
+			&& FMath::Abs(
+				CanvasSize.X - MissingFloorEndingPreviewExpectedWidth) <= 1.0f
+			&& FMath::Abs(
+				CanvasSize.Y - MissingFloorEndingPreviewExpectedHeight) <= 1.0f
+			&& bInsideCanvas
+			&& ElementCount >= MinimumElementCount
+			&& FrameSerial > 0;
+		if (!bLayoutReady)
+		{
+			MissingFloorEndingPreviewNextActionTime = Now + 0.05;
+			return;
+		}
+		FScreenshotRequest::RequestScreenshot(
+			MissingFloorEndingPreviewScreenshotPath,
+			true,
+			false);
+		bMissingFloorEndingPreviewScreenshotRequested = true;
+		MissingFloorEndingPreviewNextActionTime = Now + 0.08;
+		return;
+	}
+	if (!FPaths::FileExists(MissingFloorEndingPreviewScreenshotPath))
+	{
+		MissingFloorEndingPreviewNextActionTime = Now + 0.05;
+		return;
+	}
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("MISSINGFLOOR_ENDING_PREVIEW PASS resolution=%dx%d elapsed=%.2f path=%s"),
+		MissingFloorEndingPreviewExpectedWidth,
+		MissingFloorEndingPreviewExpectedHeight,
+		MissingFloorEndingPreviewElapsedSeconds,
+		*MissingFloorEndingPreviewScreenshotPath);
+	bMissingFloorEndingPreviewProbe = false;
+	FPlatformMisc::RequestExitWithStatus(true, 0);
+}
+
+void AIGPlayerController::FailMissingFloorEndingPreviewProbe(
+	const FString& Reason) const
+{
+	UE_LOG(
+		LogTemp,
+		Error,
+		TEXT("MISSINGFLOOR_ENDING_PREVIEW FAIL reason=%s"),
+		*Reason);
+	FPlatformMisc::RequestExitWithStatus(true, 2);
+}
+
 bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
 	const bool bSuccess,
 	const FString& Reason) const
@@ -1658,6 +1836,16 @@ void AIGPlayerController::BeginJournalInput()
 	{
 		return;
 	}
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
+		{
+			if (It->BeginReplaySkipInput())
+			{
+				return;
+			}
+		}
+	}
 	if (IsMissingFloorNight())
 	{
 		AIGHorrorHUD::PushThought(
@@ -1686,6 +1874,16 @@ void AIGPlayerController::BeginJournalInput()
 
 void AIGPlayerController::EndJournalInput()
 {
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
+		{
+			if (It->EndReplaySkipInput())
+			{
+				return;
+			}
+		}
+	}
 	bJournalInputHeld = false;
 	if (!bDisplaySettingsAwaitingConfirmation)
 	{

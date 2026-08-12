@@ -65,6 +65,30 @@ void AIGNightLoopDirector::SetWakeTransform(const FTransform& Transform)
 	bWakeTransformSet = true;
 }
 
+bool AIGNightLoopDirector::RestorePlayerAtWakePoint(
+	AIGPlayerCharacter* Character) const
+{
+	if (!bWakeTransformSet || !IsValid(Character))
+	{
+		return false;
+	}
+	Character->TeleportTo(
+		WakeTransform.GetLocation(),
+		WakeTransform.Rotator(),
+		false,
+		true);
+	if (UCharacterMovementComponent* Movement = Character->GetCharacterMovement())
+	{
+		Movement->StopMovementImmediately();
+	}
+	if (APlayerController* Controller =
+		Cast<APlayerController>(Character->GetController()))
+	{
+		Controller->SetControlRotation(WakeTransform.Rotator());
+	}
+	return true;
+}
+
 void AIGNightLoopDirector::RegisterEntity(AIGListenerEntity* Entity)
 {
 	if (!Entity || ListenerEntity.Get() == Entity)
@@ -87,9 +111,18 @@ void AIGNightLoopDirector::HandlePlayerCaptured(APawn* Player)
 	{
 		return;
 	}
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (Narrative
+		&& Narrative->GetNightIndex() == 4
+		&& Narrative->GetAggressionTier() >= 3
+		&& Narrative->IsNightFourMaskRunning())
+	{
+		// 이 포획은 엔딩 C가 단독으로 처리한다. 일반 침대 리셋까지 시작하면
+		// 하나의 멀티캐스트에서 서로 충돌하는 두 타임라인이 진행된다.
+		return;
+	}
 
 	bResetInFlight = true;
-	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	const int32 PersistedCaptureCount = Narrative
 		? Narrative->GetCaptureCount()
 		: 0;

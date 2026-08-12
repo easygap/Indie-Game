@@ -1878,6 +1878,16 @@ void AIGPlayerCharacter::LookUp(const float Value)
 
 void AIGPlayerCharacter::BeginInteraction()
 {
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorNightFourDirector> It(World); It; ++It)
+		{
+			if (It->RequestFailureRetry())
+			{
+				return;
+			}
+		}
+	}
 	// While a note is open the interact key means "put it down", wherever the
 	// player happens to be looking. Without this you can walk away from the
 	// wall you took the note off and then have no way to close it.

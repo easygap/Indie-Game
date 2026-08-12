@@ -447,6 +447,24 @@ bool UIGMissingFloorNarrativeSubsystem::SelectEnding(const FName EndingId)
 	return true;
 }
 
+void UIGMissingFloorNarrativeSubsystem::ResetNightFourForRetry()
+{
+	Snapshot.Night.NightIndex = 4;
+	Snapshot.Night.AggressionTier = 1;
+	Snapshot.Night.bTheHourSealed = true;
+	Snapshot.Night.NightElapsedSeconds = 0.0f;
+	Snapshot.Night.NightFourControlOrder.Reset();
+	Snapshot.Night.NightFourWallStrikeCount = 0;
+	Snapshot.Night.bNightFourWallOpened = false;
+	Snapshot.Night.bSecondReportMade = false;
+	Snapshot.Night.EndingChoice = NAME_None;
+	Snapshot.Night.SolvedPuzzles.Remove(FName(TEXT("P5")));
+	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.PowerCut")));
+	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.FinalReveal")));
+	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.FinalConfrontation")));
+	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.SecondReport")));
+}
+
 // -- persistence -----------------------------------------------------------
 
 void UIGMissingFloorNarrativeSubsystem::RestoreSnapshot(

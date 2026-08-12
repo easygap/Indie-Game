@@ -228,7 +228,10 @@ void AIGHorrorHUD::BeginPlay()
 			TEXT("IGMissingFloorJournalPreview"))
 		|| FParse::Param(
 			FCommandLine::Get(),
-			TEXT("IGAudioCalibrationPreview"));
+			TEXT("IGAudioCalibrationPreview"))
+		|| FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGMissingFloorEndingPreview"));
 	InitializeKoreanFont();
 	InitializeFrontendMenuTextures();
 
@@ -1470,6 +1473,24 @@ void AIGHorrorHUD::PresentChapterCard(
 	ChapterCardEndTime = ChapterCardStartTime + FMath::Max(1.8f, DurationSeconds);
 }
 
+void AIGHorrorHUD::BeginMissingFloorFailureEnding(
+	const float InitialElapsedSeconds)
+{
+	bMissingFloorFailureEndingVisible = true;
+	bMissingFloorFailureRetryEnabled = false;
+	MissingFloorFailureEndingStartedAt = GetWorld()
+		? GetWorld()->GetTimeSeconds()
+			- FMath::Max(InitialElapsedSeconds, 0.0f)
+		: 0.0;
+}
+
+void AIGHorrorHUD::EndMissingFloorFailureEnding()
+{
+	bMissingFloorFailureEndingVisible = false;
+	bMissingFloorFailureRetryEnabled = false;
+	MissingFloorFailureEndingStartedAt = 0.0;
+}
+
 void AIGHorrorHUD::SetObjectiveProvider(UObject* InObjectiveProvider)
 {
 	ObjectiveProvider = IsValid(InObjectiveProvider)
@@ -1555,6 +1576,13 @@ void AIGHorrorHUD::DrawHUD()
 		FinalizeLayoutValidationSample();
 		return;
 	}
+	if (DrawMissingFloorFailureEnding(CurrentTime))
+	{
+		SuspendDialoguePresentation(CurrentTime);
+		LastHudDrawTime = CurrentTime;
+		FinalizeLayoutValidationSample();
+		return;
+	}
 
 	if (DrawChapterCard(CurrentTime))
 	{
@@ -1570,6 +1598,7 @@ void AIGHorrorHUD::DrawHUD()
 		// optional directional sound caption; no crosshair or objective can
 		// make the scene read as ordinary gameplay with a missing render.
 		SuspendDialoguePresentation(CurrentTime);
+		DrawSensoryInterludeSkip();
 		DrawAudioCaption(CurrentTime, Canvas->ClipY - 24.0f);
 		LastHudDrawTime = CurrentTime;
 		FinalizeLayoutValidationSample();
@@ -1966,6 +1995,303 @@ void AIGHorrorHUD::DrawRoundedHudSurface(
 			Canvas->DrawItem(Tile);
 		}
 	}
+}
+
+void AIGHorrorHUD::DrawSensoryInterludeSkip()
+{
+	if (!Canvas || !bSensoryInterludeSkipAvailable)
+	{
+		return;
+	}
+
+	const float Scale = FMath::Clamp(Canvas->ClipY / 1080.0f, 0.68f, 1.35f);
+	const float SafeInset = FMath::Max(24.0f * Scale, Canvas->ClipX * 0.035f);
+	const float PanelWidth = FMath::Min(338.0f * Scale, Canvas->ClipX - SafeInset * 2.0f);
+	const float PanelHeight = 68.0f * Scale;
+	const FVector2D PanelPosition(
+		Canvas->ClipX - SafeInset - PanelWidth,
+		SafeInset);
+	DrawRoundedHudSurface(
+		PanelPosition,
+		FVector2D(PanelWidth, PanelHeight),
+		12.0f * Scale,
+		FLinearColor(0.012f, 0.016f, 0.015f, 0.78f));
+
+	const FText Label = bSensoryInterludeSkipToggleMode
+		? (bSensoryInterludeSkipInProgress
+			? (bUsingGamepad
+				? NSLOCTEXT("IGHUD", "FifthDawnSkipToggleCancelPad", "Y  다시 눌러 취소")
+				: NSLOCTEXT("IGHUD", "FifthDawnSkipToggleCancel", "TAB  다시 눌러 취소"))
+			: (bUsingGamepad
+				? NSLOCTEXT("IGHUD", "FifthDawnSkipToggleStartPad", "Y  눌러 건너뛰기")
+				: NSLOCTEXT("IGHUD", "FifthDawnSkipToggleStart", "TAB  눌러 건너뛰기")))
+		: FText::Format(
+			bUsingGamepad
+				? NSLOCTEXT("IGHUD", "FifthDawnSkipHoldPad", "Y  {0}초 누르기 · 건너뛰기")
+				: NSLOCTEXT("IGHUD", "FifthDawnSkipHold", "TAB  {0}초 누르기 · 건너뛰기"),
+			FText::AsNumber(SensoryInterludeSkipHoldSeconds));
+	const float TextScale = GetFittedTextScale(
+		Label,
+		EIGHudTextRole::Hint,
+		0.82f * Scale,
+		PanelWidth - 34.0f * Scale,
+		0.58f * Scale);
+	DrawLeftAlignedText(
+		Label,
+		PanelPosition + FVector2D(17.0f * Scale, 13.0f * Scale),
+		FLinearColor(0.78f, 0.79f, 0.75f, 0.94f),
+		EIGHudTextRole::Hint,
+		TextScale);
+
+	const FVector2D TrackPosition =
+		PanelPosition + FVector2D(17.0f * Scale, PanelHeight - 15.0f * Scale);
+	const FVector2D TrackSize(PanelWidth - 34.0f * Scale, 3.0f * Scale);
+	DrawRoundedHudSurface(
+		TrackPosition,
+		TrackSize,
+		1.5f * Scale,
+		FLinearColor(0.25f, 0.27f, 0.25f, 0.72f));
+	if (SensoryInterludeSkipProgress > 0.001f)
+	{
+		DrawRoundedHudSurface(
+			TrackPosition,
+			FVector2D(TrackSize.X * SensoryInterludeSkipProgress, TrackSize.Y),
+			1.5f * Scale,
+			FLinearColor(0.63f, 0.21f, 0.18f, 0.96f));
+	}
+}
+
+bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
+{
+	if (!Canvas || !bMissingFloorFailureEndingVisible)
+	{
+		return false;
+	}
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const float UserTextScale = Accessibility
+		? Accessibility->GetCaptionSizeScale()
+		: 1.0f;
+	const bool bReducedMotion = Accessibility
+		&& Accessibility->IsReducedCameraMotionEnabled();
+	const float Scale = FMath::Clamp(
+		FMath::Min(Canvas->ClipY / 1080.0f, Canvas->ClipX / 1920.0f),
+		0.62f,
+		1.35f);
+	const float TypeScale = Scale * FMath::Clamp(UserTextScale, 0.85f, 2.0f);
+	const float Elapsed = FMath::Max(
+		static_cast<float>(CurrentTime - MissingFloorFailureEndingStartedAt),
+		0.0f);
+	const float EntranceAlpha = bReducedMotion
+		? 1.0f
+		: IGHorrorHUD::SmoothStep01(Elapsed / 0.42f);
+	const float ScrollAlpha = bReducedMotion
+		? (Elapsed >= 3.1f ? 1.0f : 0.0f)
+		: IGHorrorHUD::SmoothStep01((Elapsed - 2.55f) / 0.72f);
+
+	FCanvasTileItem Blackout(
+		FVector2D::ZeroVector,
+		FVector2D(Canvas->ClipX, Canvas->ClipY),
+		FLinearColor(0.002f, 0.003f, 0.003f, 1.0f));
+	Canvas->DrawItem(Blackout);
+
+	const float SafeInset = FMath::Max(18.0f * Scale, Canvas->ClipY * 0.035f);
+	const FVector2D PanelSize(
+		FMath::Min(760.0f * Scale, Canvas->ClipX - SafeInset * 2.0f),
+		FMath::Min(900.0f * Scale, Canvas->ClipY - SafeInset * 2.0f));
+	const FVector2D PanelPosition(
+		(Canvas->ClipX - PanelSize.X) * 0.5f,
+		(Canvas->ClipY - PanelSize.Y) * 0.5f);
+	DrawRoundedHudSurface(
+		PanelPosition + FVector2D(0.0f, 9.0f * Scale),
+		PanelSize,
+		24.0f * Scale,
+		FLinearColor(0.0f, 0.0f, 0.0f, 0.46f * EntranceAlpha));
+	DrawRoundedHudSurface(
+		PanelPosition,
+		PanelSize,
+		22.0f * Scale,
+		FLinearColor(0.91f, 0.90f, 0.86f, EntranceAlpha));
+
+	const float Padding = 34.0f * Scale;
+	const float TopBarHeight = 68.0f * Scale;
+	const float ContentLeft = PanelPosition.X + Padding;
+	const float ContentWidth = PanelSize.X - Padding * 2.0f;
+	DrawLeftAlignedText(
+		NSLOCTEXT("IGHUD", "EndingCAppSection", "주거  ·  빌라"),
+		FVector2D(ContentLeft, PanelPosition.Y + 22.0f * Scale),
+		FLinearColor(0.20f, 0.22f, 0.20f, 0.88f * EntranceAlpha),
+		EIGHudTextRole::Speaker,
+		0.82f * TypeScale);
+	DrawRoundedHudSurface(
+		FVector2D(ContentLeft, PanelPosition.Y + TopBarHeight - 2.0f * Scale),
+		FVector2D(ContentWidth, 1.0f * Scale),
+		0.5f * Scale,
+		FLinearColor(0.36f, 0.37f, 0.34f, 0.24f * EntranceAlpha));
+
+	const float BodyTop = PanelPosition.Y + TopBarHeight + 18.0f * Scale;
+	const float HeroHeight = FMath::Clamp(
+		PanelSize.Y * 0.27f,
+		150.0f * Scale,
+		238.0f * Scale);
+	const float HeroAlpha = EntranceAlpha * (1.0f - ScrollAlpha);
+	if (HeroAlpha > 0.01f && FrontendTitleBackgroundTexture
+		&& FrontendTitleBackgroundTexture->GetResource())
+	{
+		const float HeroTravel = bReducedMotion ? 0.0f : 24.0f * Scale * ScrollAlpha;
+		FCanvasTileItem Hero(
+			FVector2D(ContentLeft, BodyTop - HeroTravel),
+			FrontendTitleBackgroundTexture->GetResource(),
+			FVector2D(ContentWidth, HeroHeight),
+			FVector2D(0.20f, 0.26f),
+			FVector2D(1.00f, 0.74f),
+			FLinearColor(0.92f, 0.94f, 0.91f, HeroAlpha));
+		Hero.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Hero);
+		RecordLayoutValidationRect(
+			FVector2D(ContentLeft, BodyTop - HeroTravel),
+			FVector2D(ContentLeft + ContentWidth, BodyTop - HeroTravel + HeroHeight));
+		DrawRoundedHudSurface(
+			FVector2D(ContentLeft + 14.0f * Scale, BodyTop + 14.0f * Scale - HeroTravel),
+			FVector2D(72.0f * Scale, 31.0f * Scale),
+			15.5f * Scale,
+			FLinearColor(0.05f, 0.06f, 0.055f, 0.80f * HeroAlpha));
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCUnitChip", "403호"),
+			FVector2D(
+				ContentLeft + 29.0f * Scale,
+				BodyTop + 20.0f * Scale - HeroTravel),
+			FLinearColor(0.91f, 0.90f, 0.84f, HeroAlpha),
+			EIGHudTextRole::Hint,
+			0.66f * Scale);
+	}
+
+	const float ListingAlpha = EntranceAlpha * (1.0f - ScrollAlpha);
+	if (ListingAlpha > 0.01f)
+	{
+		float PenY = BodyTop + HeroHeight + 28.0f * Scale;
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCListingTitle", "무영로 달빛빌라 403호"),
+			FVector2D(ContentLeft, PenY),
+			FLinearColor(0.095f, 0.105f, 0.095f, ListingAlpha),
+			EIGHudTextRole::Prompt,
+			0.98f * TypeScale);
+		PenY += 45.0f * FMath::Max(Scale, TypeScale * 0.72f);
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCListingCopy", "채광 좋은 남향, 즉시 입주 가능"),
+			FVector2D(ContentLeft, PenY),
+			FLinearColor(0.25f, 0.27f, 0.24f, 0.88f * ListingAlpha),
+			EIGHudTextRole::Dialogue,
+			0.83f * TypeScale);
+		PenY += 42.0f * FMath::Max(Scale, TypeScale * 0.72f);
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCListingMeta", "빌라  ·  4층  ·  남향"),
+			FVector2D(ContentLeft, PenY),
+			FLinearColor(0.38f, 0.40f, 0.37f, 0.78f * ListingAlpha),
+			EIGHudTextRole::Hint,
+			0.70f * TypeScale);
+	}
+
+	const float CommentAlpha = EntranceAlpha * ScrollAlpha;
+	if (CommentAlpha > 0.01f)
+	{
+		const float MotionOffset = bReducedMotion
+			? 0.0f
+			: (1.0f - ScrollAlpha) * 28.0f * Scale;
+		float PenY = BodyTop + MotionOffset;
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCScrolledTitle", "무영로 달빛빌라 403호"),
+			FVector2D(ContentLeft, PenY),
+			FLinearColor(0.095f, 0.105f, 0.095f, CommentAlpha),
+			EIGHudTextRole::Prompt,
+			0.90f * TypeScale);
+		PenY += 48.0f * FMath::Max(Scale, TypeScale * 0.72f);
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCCommentHeading", "입주자 후기"),
+			FVector2D(ContentLeft, PenY),
+			FLinearColor(0.31f, 0.33f, 0.30f, 0.90f * CommentAlpha),
+			EIGHudTextRole::Speaker,
+			0.72f * TypeScale);
+		PenY += 39.0f * FMath::Max(Scale, TypeScale * 0.72f);
+
+		const float CommentHeight = FMath::Min(
+			244.0f * Scale + 34.0f * FMath::Max(UserTextScale - 1.0f, 0.0f),
+			PanelPosition.Y + PanelSize.Y - PenY - 118.0f * Scale);
+		DrawRoundedHudSurface(
+			FVector2D(ContentLeft, PenY),
+			FVector2D(ContentWidth, CommentHeight),
+			16.0f * Scale,
+			FLinearColor(0.84f, 0.83f, 0.78f, 0.78f * CommentAlpha));
+		RecordLayoutValidationRect(
+			FVector2D(ContentLeft, PenY),
+			FVector2D(ContentLeft + ContentWidth, PenY + CommentHeight));
+		const float CommentInset = 24.0f * Scale;
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCCommentLineOne", "이 집 새벽에 노크 소리 나요."),
+			FVector2D(ContentLeft + CommentInset, PenY + 27.0f * Scale),
+			FLinearColor(0.11f, 0.12f, 0.105f, CommentAlpha),
+			EIGHudTextRole::Dialogue,
+			0.84f * TypeScale);
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCCommentLineTwo", "두 명이서 하는 것 같아요."),
+			FVector2D(
+				ContentLeft + CommentInset,
+				PenY + 27.0f * Scale + 43.0f * FMath::Max(Scale, TypeScale * 0.72f)),
+			FLinearColor(0.11f, 0.12f, 0.105f, CommentAlpha),
+			EIGHudTextRole::Dialogue,
+			0.84f * TypeScale);
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "EndingCCommentMeta", "방금 전  ·  조회 17"),
+			FVector2D(
+				ContentLeft + CommentInset,
+				PenY + CommentHeight - 37.0f * Scale),
+			FLinearColor(0.39f, 0.40f, 0.37f, 0.80f * CommentAlpha),
+			EIGHudTextRole::Hint,
+			0.66f * TypeScale);
+	}
+
+	if (bMissingFloorFailureRetryEnabled)
+	{
+		const float FooterHeight = 84.0f * Scale;
+		const float FooterY = PanelPosition.Y + PanelSize.Y - FooterHeight;
+		DrawRoundedHudSurface(
+			FVector2D(PanelPosition.X + 2.0f * Scale, FooterY),
+			FVector2D(PanelSize.X - 4.0f * Scale, FooterHeight - 2.0f * Scale),
+			20.0f * Scale,
+			FLinearColor(0.075f, 0.086f, 0.080f, 0.98f));
+		RecordLayoutValidationRect(
+			FVector2D(PanelPosition.X + 2.0f * Scale, FooterY),
+			FVector2D(
+				PanelPosition.X + PanelSize.X - 2.0f * Scale,
+				FooterY + FooterHeight - 2.0f * Scale));
+		const FText RetryText = bUsingGamepad
+			? NSLOCTEXT("IGHUD", "EndingCRetryGamepad", "A  밤 4를 다시 시작할 수 있다")
+			: NSLOCTEXT("IGHUD", "EndingCRetryKeyboard", "E  밤 4를 다시 시작할 수 있다");
+		const float RetryScale = GetFittedTextScale(
+			RetryText,
+			EIGHudTextRole::Prompt,
+			0.86f * TypeScale,
+			ContentWidth,
+			0.58f * Scale);
+		const float RetryWidth = MeasureTextWidth(
+			RetryText.ToString(),
+			GetFontForRole(EIGHudTextRole::Prompt),
+			RetryScale);
+		DrawLeftAlignedText(
+			RetryText,
+			FVector2D(
+				PanelPosition.X + (PanelSize.X - RetryWidth) * 0.5f,
+				FooterY + 24.0f * Scale),
+			FLinearColor(0.90f, 0.89f, 0.84f, 1.0f),
+			EIGHudTextRole::Prompt,
+			RetryScale);
+	}
+
+	RecordLayoutValidationRect(PanelPosition, PanelPosition + PanelSize);
+	return true;
 }
 
 void AIGHorrorHUD::DrawDialogueFilm(

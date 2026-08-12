@@ -138,6 +138,7 @@ private:
 		AnswerFinalTap,
 		AnswerContract,
 		NightFourContract,
+		NightFourFailureRetryContract,
 		NightFourWallContract,
 		NightFourEndingContract,
 		Done
@@ -146,6 +147,8 @@ private:
 	EProbeStep ProbeStep = EProbeStep::Inactive;
 	float StepDeadlineSeconds = 0.0f;
 	float SetupRetrySeconds = 0.0f;
+	int32 FailureRetryCaptureCountBefore = 0;
+	bool bNightFourFailureRetryVerified = false;
 
 	/** Capture-tour state; inert unless -IGNightCapture is on the command line. */
 	bool bNightCaptureRequested = false;

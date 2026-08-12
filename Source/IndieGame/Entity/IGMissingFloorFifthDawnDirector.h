@@ -25,6 +25,7 @@ class INDIEGAME_API AIGMissingFloorFifthDawnDirector : public AActor
 
 public:
 	AIGMissingFloorFifthDawnDirector();
+	virtual void Tick(float DeltaSeconds) override;
 
 	/** Starts the canonical timeline and takes movement, not look/input. */
 	bool StartInterlude(AIGPlayerCharacter* InPlayer);
@@ -32,8 +33,12 @@ public:
 	/** Player-owned experiential layer; neither method advances the history. */
 	bool RegisterPlayerKnock();
 	bool SetPlayerListening(bool bListening);
+	/** 재관람 전용 우회 입력. 초회차이거나 막간 밖이면 false를 반환한다. */
+	bool BeginReplaySkipInput();
+	bool EndReplaySkipInput();
 
 	bool IsActive() const { return bActive; }
+	bool IsReplaySkipAvailable() const { return bReplaySkipAvailable; }
 
 	/** Release/probe receipt for all authored day boundaries and the final cut. */
 	bool ValidateTimeline() const;
@@ -49,9 +54,14 @@ private:
 	void FireCue(int32 CueIndex);
 	void ScheduleNextCue();
 	void HandleNextCue();
-	void FinishInterlude();
+	void FinishInterlude(bool bPersistExperience = true);
 	void SetSensoryHud(bool bEnabled) const;
+	void UpdateSensoryHudSkip() const;
 	void PushDirectionCaption(const FText& Caption, float Seconds) const;
+	float GetReplaySkipDurationSeconds() const;
+	bool UsesToggleSkipInput() const;
+	bool HasExperiencedInterludeProfile() const;
+	void PersistInterludeExperience() const;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> WaterBed;
@@ -69,6 +79,11 @@ private:
 	uint32 FiredCueMask = 0;
 	int32 PlayerKnockCount = 0;
 	int32 NextCueIndex = 1;
+	float ReplaySkipProgress = 0.0f;
 	bool bActive = false;
 	bool bPlayerListening = false;
+	bool bReplaySkipAvailable = false;
+	bool bReplaySkipInputActive = false;
+	bool bReplaySkipRewinding = false;
+	bool bReplayAvailabilityForcedForSession = false;
 };

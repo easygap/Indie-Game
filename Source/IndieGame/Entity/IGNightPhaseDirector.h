@@ -43,6 +43,11 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Night")
 	void BeginTheHour(int32 NightIndex);
 
+	/** 봉인된 건물을 열지 않고 엔딩 C 연출 동안 서사 시간을 멈춘다. */
+	void SuspendForFailureEnding();
+	/** 밤 4 범위의 서사 상태를 되돌린 뒤 같은 밤을 다시 시작한다. */
+	void RestartTheHour(int32 NightIndex);
+
 	/**
 	 * Ends the hour early because the night's goal was met. Morning is the
 	 * same exit as the timeout, so both routes leave identical world state.
@@ -52,6 +57,7 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Night")
 	bool IsHourActive() const { return bHourActive; }
+	bool IsFailureEndingSuspended() const { return bFailureEndingSuspended; }
 
 	UFUNCTION(BlueprintPure, Category = "Night")
 	float GetHourElapsedSeconds() const { return HourElapsedSeconds; }
@@ -101,5 +107,6 @@ private:
 	float HourElapsedSeconds = 0.0f;
 	bool bHourActive = false;
 	bool bGoalComplete = false;
+	bool bFailureEndingSuspended = false;
 	FTimerHandle HourTimer;
 };

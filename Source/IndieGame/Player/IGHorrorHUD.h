@@ -273,6 +273,30 @@ public:
 	{
 		bSensoryInterludePresentation = bEnabled;
 	}
+	void SetSensoryInterludeSkipState(
+		bool bAvailable,
+		float Progress,
+		bool bInProgress,
+		float RequiredHoldSeconds,
+		bool bToggleMode)
+	{
+		bSensoryInterludeSkipAvailable = bAvailable;
+		SensoryInterludeSkipProgress = FMath::Clamp(Progress, 0.0f, 1.0f);
+		bSensoryInterludeSkipInProgress = bInProgress;
+		SensoryInterludeSkipHoldSeconds = FMath::Max(RequiredHoldSeconds, 0.25f);
+		bSensoryInterludeSkipToggleMode = bToggleMode;
+	}
+	/** 서사가 소유하는 실패 연출이며 입력 처리는 밤 디렉터에 남긴다. */
+	void BeginMissingFloorFailureEnding(float InitialElapsedSeconds = 0.0f);
+	void SetMissingFloorFailureRetryEnabled(bool bEnabled)
+	{
+		bMissingFloorFailureRetryEnabled = bEnabled;
+	}
+	void EndMissingFloorFailureEnding();
+	bool IsMissingFloorFailureEndingVisible() const
+	{
+		return bMissingFloorFailureEndingVisible;
+	}
 
 	/** Native, asset-independent accessibility panel driven by the controller. */
 	void SetAccessibilityMenuState(bool bVisible, int32 SelectedRow);
@@ -357,6 +381,9 @@ private:
 	bool DrawCaptureEmbrace(double CurrentTime);
 	/** 포획 뒤 기상 잔상이 HUD 전체 프레임을 점유하는 동안 true를 반환한다. */
 	bool DrawCaptureWakeEcho(double CurrentTime);
+	/** 재관람 전용 우회 안내. 자막은 기존 하단 안전 영역을 그대로 사용한다. */
+	void DrawSensoryInterludeSkip();
+	bool DrawMissingFloorFailureEnding(double CurrentTime);
 	/**
 	 * One expanding arc at the screen edge, sized by how far the sound the
 	 * player just made actually carries (§5.1). No numbers, no meter: the ring
@@ -648,6 +675,14 @@ private:
 	int32 MissingFloorJournalPageIndex = 0;
 	bool bNightPresentation = false;
 	bool bSensoryInterludePresentation = false;
+	bool bSensoryInterludeSkipAvailable = false;
+	bool bSensoryInterludeSkipInProgress = false;
+	bool bSensoryInterludeSkipToggleMode = false;
+	float SensoryInterludeSkipProgress = 0.0f;
+	float SensoryInterludeSkipHoldSeconds = 2.0f;
+	bool bMissingFloorFailureEndingVisible = false;
+	bool bMissingFloorFailureRetryEnabled = false;
+	double MissingFloorFailureEndingStartedAt = 0.0;
 	bool bAccessibilityMenuVisible = false;
 	bool bSystemMenuVisible = false;
 	bool bMissingFloorJournalVisible = false;

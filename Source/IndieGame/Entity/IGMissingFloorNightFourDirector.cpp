@@ -14,6 +14,9 @@
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorEvidence.h"
 #include "Entity/IGNoiseSubsystem.h"
+#include "Entity/IGNightLoopDirector.h"
+#include "Entity/IGNightPhaseDirector.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Math/RotationMatrix.h"
 #include "Materials/MaterialInterface.h"
@@ -35,6 +38,9 @@ namespace IGNightFour
 	const FName PowerCutBeat(TEXT("Night4.PowerCut"));
 	const FName FinalRevealBeat(TEXT("Night4.FinalReveal"));
 	const FName FinalConfrontationBeat(TEXT("Night4.FinalConfrontation"));
+	constexpr float FailureCaptureSeconds = 1.2f;
+	constexpr float FailureListingDelaySeconds = 1.24f;
+	constexpr float FailureRetryDelaySeconds = 7.2f;
 
 	// Posted beside the existing fourth-floor lift notice, not on top of the
 	// 403 shipping labels. Its back face shares the established paper plane.
@@ -746,6 +752,15 @@ void AIGMissingFloorNightFourDirector::EndPlay(
 	{
 		WaterMaskBed->Stop();
 	}
+	if (APlayerController* Controller = GetWorld()
+		? GetWorld()->GetFirstPlayerController()
+		: nullptr)
+	{
+		if (AIGHorrorHUD* Hud = Cast<AIGHorrorHUD>(Controller->GetHUD()))
+		{
+			Hud->EndMissingFloorFailureEnding();
+		}
+	}
 	if (UWorld* World = GetWorld())
 	{
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
@@ -838,6 +853,8 @@ void AIGMissingFloorNightFourDirector::ResetFinaleTimers()
 	GetWorldTimerManager().ClearTimer(EntityPassTimer);
 	GetWorldTimerManager().ClearTimer(BlackoutTimer);
 	GetWorldTimerManager().ClearTimer(BlackoutRestoreTimer);
+	GetWorldTimerManager().ClearTimer(FailureListingTimer);
+	GetWorldTimerManager().ClearTimer(FailureRetryTimer);
 }
 
 void AIGMissingFloorNightFourDirector::BeginCavityReveal()
@@ -1364,6 +1381,12 @@ void AIGMissingFloorNightFourDirector::ActivateControl(
 
 void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 {
+	// 엔딩 C는 매물 화면 전에 기계음 마스킹을 제거한다. 시간이 봉인된 동안에도
+	// RefreshPresentation이 호출될 수 있으므로 호출부와 이 함수에서 함께 막는다.
+	if (bFailureEndingActive)
+	{
+		return;
+	}
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (!Narrative || !Narrative->IsNightFourMaskRunning())
 	{
@@ -1520,6 +1543,7 @@ void AIGMissingFloorNightFourDirector::HandleEndingB(
 
 void AIGMissingFloorNightFourDirector::HandleNightFourCapture(APawn* Player)
 {
+	FailurePlayer = Cast<AIGPlayerCharacter>(Player);
 	ResolveFailureEnding();
 }
 
@@ -1591,31 +1615,260 @@ void AIGMissingFloorNightFourDirector::FinishEnding(const FName EndingId)
 bool AIGMissingFloorNightFourDirector::ResolveFailureEnding()
 {
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	if (!Narrative || !bHourCurrentlyActive || Narrative->GetNightIndex() != 4
+	if (bFailureEndingActive || !Narrative || !bHourCurrentlyActive
+		|| Narrative->GetNightIndex() != 4
 		|| Narrative->GetAggressionTier() < 3
 		|| !Narrative->IsNightFourMaskRunning()
 		|| !Narrative->SelectEnding(IGNightFour::EndingCId))
 	{
 		return false;
 	}
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"EndingCThought",
-			"세 번째 포옹은 침대로 돌려보내지 않는다. 벽 안쪽에서 내 노크가 먼저 들린다."),
-		4.0f);
+	bFailureEndingActive = true;
+	bFailureRetryEnabled = false;
+	Narrative->RecordCapture();
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			// 최종 리빌의 강제 무음은 공동 대치까지만 유효하다. 엔딩 C에서는
+			// 가까운 롤러 소리를 내기 전에 WORLD 버스를 Calm 상태로 복구한다.
+			AudioDirector->SetAuthoredSilence(false);
+			AudioDirector->SetThreatState(EIGAudioThreatState::Calm);
+		}
+	}
+
+	for (TActorIterator<AIGNightPhaseDirector> It(GetWorld()); It; ++It)
+	{
+		It->SuspendForFailureEnding();
+		break;
+	}
+	if (WaterMaskBed)
+	{
+		WaterMaskBed->FadeOut(0.16f, 0.0f);
+	}
+	bWaterMaskActive = false;
+	if (WaterMaskHumHandle != INDEX_NONE)
+	{
+		if (UIGNoiseSubsystem* Noise = GetWorld()->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->UnregisterHumSource(WaterMaskHumHandle);
+		}
+		WaterMaskHumHandle = INDEX_NONE;
+	}
+	if (AIGListenerEntity* ListenerActor = Listener.Get())
+	{
+		ListenerActor->SetDormant(true);
+	}
+
+	if (AIGPlayerCharacter* Character = FailurePlayer.Get())
+	{
+		Character->PlayCaptureFeedback(IGNightFour::FailureCaptureSeconds);
+		if (UCharacterMovementComponent* Movement = Character->GetCharacterMovement())
+		{
+			Movement->StopMovementImmediately();
+			Movement->DisableMovement();
+		}
+		if (APlayerController* Controller =
+			Cast<APlayerController>(Character->GetController()))
+		{
+			if (Controller->PlayerCameraManager)
+			{
+				Controller->PlayerCameraManager->StartCameraFade(
+					0.0f,
+					1.0f,
+					IGNightFour::FailureCaptureSeconds,
+					FLinearColor::Black,
+					false,
+					true);
+			}
+		}
+	}
 	AIGHorrorHUD::PushAudioCaption(
 		this,
 		NSLOCTEXT("IGMissingFloor", "EndingCCaption", "아주 가까이서, 같은 두 번의 노크"),
 		2.0f);
+	GetWorldTimerManager().SetTimer(
+		FailureListingTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::BeginFailureListing,
+		IGNightFour::FailureListingDelaySeconds,
+		false);
+	GetWorldTimerManager().SetTimer(
+		FailureRetryTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::EnableFailureRetry,
+		IGNightFour::FailureRetryDelaySeconds,
+		false);
 	RefreshPresentation();
-	if (!bResolvedBroadcast)
-	{
-		bResolvedBroadcast = true;
-		OnResolved.Broadcast();
-	}
 	return true;
+}
+
+void AIGMissingFloorNightFourDirector::BeginFailureListing()
+{
+	if (!bFailureEndingActive)
+	{
+		return;
+	}
+	AIGPlayerCharacter* Character = FailurePlayer.Get();
+	APlayerController* Controller = Character
+		? Cast<APlayerController>(Character->GetController())
+		: nullptr;
+	if (AIGHorrorHUD* Hud = Controller
+		? Cast<AIGHorrorHUD>(Controller->GetHUD())
+		: nullptr)
+	{
+		Hud->BeginMissingFloorFailureEnding();
+	}
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateWallpaperSeamRoller(this),
+		Character ? Character->GetActorLocation() : GetActorLocation(),
+		0.78f,
+		0.96f,
+		120.0f,
+		520.0f,
+		EIGAudioBus::World);
+}
+
+void AIGMissingFloorNightFourDirector::EnableFailureRetry()
+{
+	if (!bFailureEndingActive)
+	{
+		return;
+	}
+	bFailureRetryEnabled = true;
+	AIGPlayerCharacter* Character = FailurePlayer.Get();
+	APlayerController* Controller = Character
+		? Cast<APlayerController>(Character->GetController())
+		: nullptr;
+	if (AIGHorrorHUD* Hud = Controller
+		? Cast<AIGHorrorHUD>(Controller->GetHUD())
+		: nullptr)
+	{
+		Hud->SetMissingFloorFailureRetryEnabled(true);
+	}
+}
+
+bool AIGMissingFloorNightFourDirector::CompleteFailurePresentationForProbe()
+{
+	if (!bFailureEndingActive)
+	{
+		return false;
+	}
+	GetWorldTimerManager().ClearTimer(FailureListingTimer);
+	GetWorldTimerManager().ClearTimer(FailureRetryTimer);
+	BeginFailureListing();
+	EnableFailureRetry();
+	return bFailureRetryEnabled;
+}
+
+bool AIGMissingFloorNightFourDirector::RequestFailureRetry()
+{
+	if (!bFailureEndingActive)
+	{
+		return false;
+	}
+	if (bFailureRetryEnabled)
+	{
+		ResetAfterFailureEnding();
+	}
+	// 카드가 펼쳐지는 동안 상호작용을 소비해 전면 연출 뒤의 월드 대상까지
+	// 입력이 새어 나가지 않게 한다.
+	return true;
+}
+
+void AIGMissingFloorNightFourDirector::ResetAfterFailureEnding()
+{
+	if (!bFailureEndingActive || !bFailureRetryEnabled)
+	{
+		return;
+	}
+	ResetFinaleTimers();
+	bFailureEndingActive = false;
+	bFailureRetryEnabled = false;
+	bResolvedBroadcast = false;
+	bHydraulicAlarmTriggered = false;
+	bFinalRevealActive = false;
+	bFinalConfrontationComplete = false;
+	bMokRetreatActive = false;
+	bEndingHammerMoving = false;
+	FinalRevealStage = INDEX_NONE;
+	RevealAttentionSeconds = 0.0f;
+	RevealStageElapsedSeconds = 0.0f;
+	MokRetreatSeconds = 0.0f;
+	EndingHammerSeconds = 0.0f;
+	SetCavityRevealVisible(false);
+	SetMokVisible(false);
+
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (Narrative)
+	{
+		Narrative->ResetNightFourForRetry();
+	}
+	if (AIGPrologueWorldScene* SceneActor = Scene.Get())
+	{
+		SceneActor->ResetMissingFloorCavity();
+		SceneActor->SetMissingFloorAnnexPower(true);
+	}
+	if (WaterMaskBed)
+	{
+		WaterMaskBed->Stop();
+	}
+	bWaterMaskActive = false;
+
+	AIGPlayerCharacter* Character = FailurePlayer.Get();
+	APlayerController* Controller = Character
+		? Cast<APlayerController>(Character->GetController())
+		: nullptr;
+	if (AIGHorrorHUD* Hud = Controller
+		? Cast<AIGHorrorHUD>(Controller->GetHUD())
+		: nullptr)
+	{
+		Hud->EndMissingFloorFailureEnding();
+	}
+	if (Character)
+	{
+		for (TActorIterator<AIGNightLoopDirector> It(GetWorld()); It; ++It)
+		{
+			It->RestorePlayerAtWakePoint(Character);
+			break;
+		}
+		if (UCharacterMovementComponent* Movement = Character->GetCharacterMovement())
+		{
+			Movement->StopMovementImmediately();
+			Movement->SetMovementMode(MOVE_Walking);
+		}
+		if (Controller && Controller->PlayerCameraManager)
+		{
+			Controller->PlayerCameraManager->StartCameraFade(
+				1.0f,
+				0.0f,
+				0.85f,
+				FLinearColor::Black,
+				false,
+				false);
+		}
+	}
+	if (AIGListenerEntity* ListenerActor = Listener.Get())
+	{
+		ListenerActor->SetAggressionTier(1);
+		if (ListenerActor->IsDormant())
+		{
+			ListenerActor->SetDormant(false);
+		}
+		else
+		{
+			ListenerActor->ResetToPatrolStart(false);
+		}
+	}
+	RefreshPresentation();
+	for (TActorIterator<AIGNightPhaseDirector> It(GetWorld()); It; ++It)
+	{
+		It->RestartTheHour(4);
+		break;
+	}
+	FailurePlayer.Reset();
 }
 
 void AIGMissingFloorNightFourDirector::RefreshPresentation()
@@ -1625,7 +1878,9 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 	{
 		return;
 	}
-	const bool bNightFour = bHourCurrentlyActive && Narrative->GetNightIndex() == 4;
+	const bool bNightFour = bHourCurrentlyActive
+		&& Narrative->GetNightIndex() == 4
+		&& !bFailureEndingActive;
 	const bool bHasEnding = !Narrative->GetEndingChoice().IsNone();
 	const bool bWallOpened = Narrative->IsNightFourWallOpened();
 	bFinalConfrontationComplete = Narrative->HasBeatPlayed(
@@ -1709,7 +1964,7 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 		EndingPhoneVisual->SetVisibility(bShowPhone, true);
 	}
 
-	if (!bWallOpened)
+	if (bNightFour && !bWallOpened)
 	{
 		StartWaterMaskIfReady();
 	}

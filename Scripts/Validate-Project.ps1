@@ -154,6 +154,8 @@ $requiredFiles = @(
 	'Scripts/Test-ArtAssetContract.ps1',
 	'Scripts/Test-MissingFloor-M0InputContract.ps1',
 	'Scripts/Test-MissingFloor-M5RevealContract.ps1',
+	'Scripts/Test-MissingFloor-ReleaseEndingContract.ps1',
+	'Scripts/Run-MissingFloor-EndingPreview.ps1',
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1',
 	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1',
 	'Scripts/Test-MissingFloor-M65AudioCalibrationContract.ps1',
@@ -435,6 +437,9 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 # windows close.
 # IGNightLoopDirector는 기본 Tick을 끄고, 5회 포획 후 종이가 미끄러지는
 # 0.82초에만 켠 뒤 다시 타이머 기반 리셋 처리로 돌아간다.
+# IGMissingFloorFifthDawnDirector는 기본 Tick을 끄고, 재관람 스킵을 누르는
+# 동안과 중도 해제 후 진행률을 되감는 짧은 구간에만 켠다. 완료 또는
+# 되감기 종료 즉시 스스로 비활성화하며 평상시 비용은 발생하지 않는다.
 #
 # IGListenerEntity is the one deliberate always-on actor tick in the project.
 # 위층 사람 is a pursuer: its state machine, crawl locomotion, drag-loop gain
@@ -454,7 +459,8 @@ $reviewedTickingFiles = @(
 	'IGDemoDirector.cpp',
 	'IGListenerEntity.cpp',
 	'IGMissingFloorNightFourDirector.cpp',
-	'IGNightLoopDirector.cpp'
+	'IGNightLoopDirector.cpp',
+	'IGMissingFloorFifthDawnDirector.cpp'
 )
 $unreviewedTickingActors = @($tickingActors | Where-Object {
 	$reviewedTickingFiles -notcontains [System.IO.Path]::GetFileName($_.Path)
@@ -2430,6 +2436,10 @@ $missingFloorM1WakeEchoContractScript = Join-Path $projectRoot `
 $missingFloorM5RevealContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M5RevealContract.ps1'
 & $missingFloorM5RevealContractScript
+
+$missingFloorReleaseEndingContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-ReleaseEndingContract.ps1'
+& $missingFloorReleaseEndingContractScript
 
 $missingFloorM6AudioVisualContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1'

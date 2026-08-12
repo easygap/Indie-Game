@@ -493,8 +493,9 @@ void AIGListenerGreyboxDirector::HandleNightFourResolved()
 	{
 		return;
 	}
-	// A/B/C all return to the same discoverable world fact. The emotional
-	// choice is already stored by the night-four director; dawn owns the call.
+	// 성공 엔딩 A/B는 같은 세계의 발견 사실로 돌아온다. C는 신고하거나
+	// 새벽에 건물을 여는 대신 시간을 멈추고 밤 4 재시도를 제공하므로
+	// 이 완료 경로에서 의도적으로 제외한다.
 	Narrative->SetSecondReportMade(true);
 	Narrative->MarkBeatPlayed(FName(TEXT("Night4.SecondReport")));
 	NightPhase->CompleteNightGoal();
@@ -1749,6 +1750,30 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("P5 completion did not arm the cavity wall"));
 			return;
 		}
+		if (!bNightFourFailureRetryVerified)
+		{
+			// 엔딩 C는 일반 포획 리셋이나 새벽 완료가 아니라 밤 4 한정 재시도다.
+			// 성공 공동 경로보다 먼저 한 번 실행하고, 다음 프로브 구간에서
+			// 초기화된 조작부로 P5를 다시 구성한다.
+			FailureRetryCaptureCountBefore = Narrative->GetCaptureCount();
+			Narrative->SetAggressionTier(3);
+			Entity->SetAggressionTier(3);
+			if (!NightFour->ResolveFailureEnding()
+				|| !NightFour->IsFailureEndingActive()
+				|| Narrative->GetEndingChoice() != FName(TEXT("Ending.C"))
+				|| !NightPhase || !NightPhase->IsHourActive()
+				|| !NightPhase->IsFailureEndingSuspended()
+				|| NightFour->IsWaterMaskPlaying()
+				|| NoiseSubsystem->GetMaskingAt(
+					FVector(246.0f, 700.0f, 1300.0f)) > 0.01f)
+			{
+				FailProbe(TEXT("ending C did not suspend the hour and remove its mask"));
+				return;
+			}
+			ProbeStep = EProbeStep::NightFourFailureRetryContract;
+			StepDeadlineSeconds = 0.0f;
+			return;
+		}
 		Context.TargetActor = Wall;
 		IIGInteractable::Execute_CompleteInteraction(Wall, Context);
 		IIGInteractable::Execute_CompleteInteraction(Wall, Context);
@@ -1759,6 +1784,45 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 		ProbeStep = EProbeStep::NightFourWallContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::NightFourFailureRetryContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		AIGPrologueWorldScene* Scene = WorldScene.Get();
+		if (!Narrative || !NightFour || !NightPhase || !Scene
+			|| !NightFour->CompleteFailurePresentationForProbe()
+			|| !NightFour->IsFailureRetryEnabled()
+			|| !NightFour->RequestFailureRetry())
+		{
+			FailProbe(TEXT("ending C retry affordance did not complete"));
+			return;
+		}
+		const bool bScopedRollbackPassed =
+			!NightFour->IsFailureEndingActive()
+			&& !NightFour->IsFailureRetryEnabled()
+			&& NightPhase->IsHourActive()
+			&& !NightPhase->IsFailureEndingSuspended()
+			&& Narrative->GetNightIndex() == 4
+			&& Narrative->GetAggressionTier() == 1
+			&& Narrative->GetCaptureCount() == FailureRetryCaptureCountBefore + 1
+			&& Narrative->GetEndingChoice().IsNone()
+			&& Narrative->GetNightFourControlOrder().IsEmpty()
+			&& Narrative->GetNightFourWallStrikeCount() == 0
+			&& !Narrative->IsNightFourWallOpened()
+			&& !Narrative->IsPuzzleSolved(FName(TEXT("P5")))
+			&& Narrative->WasFirstReportMade()
+			&& Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer)
+			&& !Scene->IsMissingFloorCavityOpen();
+		if (!bScopedRollbackPassed)
+		{
+			FailProbe(TEXT("ending C retry erased durable truth or kept night-four state"));
+			return;
+		}
+		bNightFourFailureRetryVerified = true;
+		ProbeStep = EProbeStep::NightFourContract;
 		StepDeadlineSeconds = 0.0f;
 		break;
 	}

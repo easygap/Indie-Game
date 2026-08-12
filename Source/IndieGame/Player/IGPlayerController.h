@@ -138,6 +138,9 @@ private:
 	void StartAudioCalibrationPreviewProbe();
 	void TickAudioCalibrationPreviewProbe();
 	void FailAudioCalibrationPreviewProbe(const FString& Reason) const;
+	void StartMissingFloorEndingPreviewProbe();
+	void TickMissingFloorEndingPreviewProbe();
+	void FailMissingFloorEndingPreviewProbe(const FString& Reason) const;
 	bool WriteFrontendShippingProbeReceipt(
 		bool bSuccess,
 		const FString& Reason) const;
@@ -199,6 +202,9 @@ private:
 	bool bAudioCalibrationPreviewProbe = false;
 	bool bAudioCalibrationPreviewScreenshotRequested = false;
 	bool bAudioCalibrationPreviewCompilationDrained = false;
+	bool bMissingFloorEndingPreviewProbe = false;
+	bool bMissingFloorEndingPreviewScreenshotRequested = false;
+	bool bMissingFloorEndingPreviewCompilationDrained = false;
 	bool bFrontendDialogueDefaultVerified = false;
 	bool bFrontendDialogueVerified = false;
 	bool bFrontendDialogueSpeakerVerified = false;
@@ -215,6 +221,8 @@ private:
 	int32 MissingFloorJournalPreviewExpectedHeight = 0;
 	int32 AudioCalibrationPreviewExpectedWidth = 0;
 	int32 AudioCalibrationPreviewExpectedHeight = 0;
+	int32 MissingFloorEndingPreviewExpectedWidth = 0;
+	int32 MissingFloorEndingPreviewExpectedHeight = 0;
 	uint64 FrontendProbeAwaitFrameSerial = 0;
 	double FrontendProbeNextActionTime = 0.0;
 	double FrontendProbeStepDeadline = 0.0;
@@ -222,6 +230,8 @@ private:
 	double MissingFloorJournalPreviewDeadline = 0.0;
 	double AudioCalibrationPreviewNextActionTime = 0.0;
 	double AudioCalibrationPreviewDeadline = 0.0;
+	double MissingFloorEndingPreviewNextActionTime = 0.0;
+	double MissingFloorEndingPreviewDeadline = 0.0;
 	double NextAudioCalibrationKnockTime = -1.0;
 	FVector2D FrontendProbeBoundsMin = FVector2D::ZeroVector;
 	FVector2D FrontendProbeBoundsMax = FVector2D::ZeroVector;
@@ -230,6 +240,8 @@ private:
 	FString FrontendProbeTitleScreenshotPath;
 	FString MissingFloorJournalPreviewScreenshotPath;
 	FString AudioCalibrationPreviewScreenshotPath;
+	FString MissingFloorEndingPreviewScreenshotPath;
+	float MissingFloorEndingPreviewElapsedSeconds = 0.8f;
 	float PreviousDisplayFrameLimit = 60.0f;
 	double DisplayConfirmationDeadline = 0.0;
 	double JournalInputPressedAt = 0.0;

@@ -166,6 +166,12 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
 	FName GetEndingChoice() const { return Snapshot.Night.EndingChoice; }
 
+	/**
+	 * 밤 4에서 소비된 플레이 상태만 되돌린다. 확인한 진실, 첫 신고,
+	 * 다섯 번째 새벽의 기억과 누적 포획은 이미 일어난 역사로 보존한다.
+	 */
+	void ResetNightFourForRetry();
+
 	// -- persistence -------------------------------------------------------
 
 	const FIGMissingFloorNarrativeSnapshot& GetSnapshot() const { return Snapshot; }

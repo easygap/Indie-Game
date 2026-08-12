@@ -62,6 +62,12 @@ public:
 
 	/** Tier-3 capture during night 4 uses the same common-discovery state. */
 	bool ResolveFailureEnding();
+	/** 엔딩 C 동안 상호작용을 소비하고, 카드가 완전히 열린 뒤에만 재시도한다. */
+	bool RequestFailureRetry();
+	bool IsFailureEndingActive() const { return bFailureEndingActive; }
+	bool IsFailureRetryEnabled() const { return bFailureRetryEnabled; }
+	/** 무화면 출시 계약에서 엔딩 카드 타이머만 완료 상태로 진행한다. */
+	bool CompleteFailurePresentationForProbe();
 
 	FIGNightFourResolvedSignature OnResolved;
 
@@ -77,6 +83,9 @@ private:
 	void HandleEndingA(AIGMissingFloorEvidence* Evidence);
 	void HandleEndingB(AIGMissingFloorEvidence* Evidence);
 	void HandleNightFourCapture(APawn* Player);
+	void BeginFailureListing();
+	void EnableFailureRetry();
+	void ResetAfterFailureEnding();
 	void ActivateControl(FName ControlId, AIGMissingFloorEvidence* Evidence);
 	void StartWaterMaskIfReady();
 	bool BuildFinaleVisuals();
@@ -104,6 +113,7 @@ private:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGListenerEntity> Listener;
+	TWeakObjectPtr<class AIGPlayerCharacter> FailurePlayer;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> EvictionNotice;
@@ -165,6 +175,8 @@ private:
 	bool bEndingHammerMoving = false;
 	bool bCavityPresentationVisible = false;
 	bool bMokPresentationVisible = false;
+	bool bFailureEndingActive = false;
+	bool bFailureRetryEnabled = false;
 	int32 FinalRevealStage = INDEX_NONE;
 	float RevealAttentionSeconds = 0.0f;
 	float RevealStageElapsedSeconds = 0.0f;
@@ -176,4 +188,6 @@ private:
 	FTimerHandle EntityPassTimer;
 	FTimerHandle BlackoutTimer;
 	FTimerHandle BlackoutRestoreTimer;
+	FTimerHandle FailureListingTimer;
+	FTimerHandle FailureRetryTimer;
 };

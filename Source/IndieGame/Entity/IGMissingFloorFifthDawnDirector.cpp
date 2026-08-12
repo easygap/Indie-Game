@@ -1,5 +1,6 @@
 ﻿#include "Entity/IGMissingFloorFifthDawnDirector.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -9,6 +10,9 @@
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/Parse.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
@@ -17,6 +21,10 @@
 namespace IGFifthDawn
 {
 	constexpr float DurationSeconds = 160.0f;
+	constexpr float ReplaySkipDurationSeconds = 2.0f;
+	constexpr float ReplaySkipRewindMultiplier = 2.4f;
+	constexpr const TCHAR* ProfileSection = TEXT("IndieGame.MissingFloorProfile");
+	constexpr const TCHAR* ExperiencedKey = TEXT("FifthDawnExperienced");
 	// 7/27 start, water shift, 7/28, 7/29 call/reply, 7/30, 7/31,
 	// final two knocks, all beds cut, wake.
 	constexpr float CueTimes[] =
@@ -28,7 +36,48 @@ namespace IGFifthDawn
 
 AIGMissingFloorFifthDawnDirector::AIGMissingFloorFifthDawnDirector()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	// 재관람 스킵의 연속 진행률을 그리는 동안에만 Tick을 깨운다.
+	// 입력이 끝나고 되감기까지 완료되면 즉시 다시 비활성화한다.
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+}
+
+void AIGMissingFloorFifthDawnDirector::Tick(const float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (!bActive || !bReplaySkipAvailable)
+	{
+		SetActorTickEnabled(false);
+		return;
+	}
+
+	const float RequiredSeconds = GetReplaySkipDurationSeconds();
+	const float SafeDelta = FMath::Max(DeltaSeconds, 0.0f);
+	if (bReplaySkipInputActive)
+	{
+		ReplaySkipProgress = FMath::Min(
+			ReplaySkipProgress + SafeDelta / RequiredSeconds,
+			1.0f);
+	}
+	else if (bReplaySkipRewinding)
+	{
+		ReplaySkipProgress = FMath::Max(
+			ReplaySkipProgress
+				- SafeDelta * IGFifthDawn::ReplaySkipRewindMultiplier / RequiredSeconds,
+			0.0f);
+		bReplaySkipRewinding = ReplaySkipProgress > 0.0f;
+	}
+
+	UpdateSensoryHudSkip();
+	if (ReplaySkipProgress >= 1.0f)
+	{
+		FinishInterlude();
+		return;
+	}
+	if (!bReplaySkipInputActive && !bReplaySkipRewinding)
+	{
+		SetActorTickEnabled(false);
+	}
 }
 
 bool AIGMissingFloorFifthDawnDirector::StartInterlude(
@@ -45,6 +94,14 @@ bool AIGMissingFloorFifthDawnDirector::StartInterlude(
 	PlayerKnockCount = 0;
 	NextCueIndex = 1;
 	bPlayerListening = false;
+	ReplaySkipProgress = 0.0f;
+	bReplaySkipInputActive = false;
+	bReplaySkipRewinding = false;
+	bReplayAvailabilityForcedForSession =
+		FParse::Param(FCommandLine::Get(), TEXT("IGFifthDawnReplay"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"));
+	bReplaySkipAvailable = HasExperiencedInterludeProfile()
+		|| bReplayAvailabilityForcedForSession;
 	bActive = true;
 	StartWorldSeconds = GetWorld()->GetTimeSeconds();
 
@@ -111,6 +168,8 @@ bool AIGMissingFloorFifthDawnDirector::StartInterlude(
 		}
 	}
 	SetSensoryHud(true);
+	// 안내만 보일 때는 정적이다. 홀드하거나 진행률을 되감을 때만 Tick을 켠다.
+	SetActorTickEnabled(false);
 	if (UGameInstance* GameInstance = GetGameInstance())
 	{
 		if (UIGMissingFloorNarrativeSubsystem* Narrative =
@@ -394,6 +453,44 @@ bool AIGMissingFloorFifthDawnDirector::SetPlayerListening(
 	return true;
 }
 
+bool AIGMissingFloorFifthDawnDirector::BeginReplaySkipInput()
+{
+	if (!bActive || !bReplaySkipAvailable)
+	{
+		return false;
+	}
+
+	if (UsesToggleSkipInput() && bReplaySkipInputActive)
+	{
+		bReplaySkipInputActive = false;
+		bReplaySkipRewinding = ReplaySkipProgress > 0.0f;
+	}
+	else
+	{
+		bReplaySkipInputActive = true;
+		bReplaySkipRewinding = false;
+	}
+	SetActorTickEnabled(true);
+	UpdateSensoryHudSkip();
+	return true;
+}
+
+bool AIGMissingFloorFifthDawnDirector::EndReplaySkipInput()
+{
+	if (!bActive || !bReplaySkipAvailable)
+	{
+		return false;
+	}
+	if (!UsesToggleSkipInput())
+	{
+		bReplaySkipInputActive = false;
+		bReplaySkipRewinding = ReplaySkipProgress > 0.0f;
+		SetActorTickEnabled(true);
+		UpdateSensoryHudSkip();
+	}
+	return true;
+}
+
 bool AIGMissingFloorFifthDawnDirector::ValidateTimeline() const
 {
 	return UE_ARRAY_COUNT(IGFifthDawn::CueTimes) == 12
@@ -414,17 +511,22 @@ bool AIGMissingFloorFifthDawnDirector::CompleteImmediatelyForProbe()
 	{
 		return false;
 	}
-	FinishInterlude();
+	// 자동 검증이 개발 PC의 관람 이력을 재관람 상태로 바꾸면 안 된다.
+	FinishInterlude(/*bPersistExperience=*/false);
 	return true;
 }
 
-void AIGMissingFloorFifthDawnDirector::FinishInterlude()
+void AIGMissingFloorFifthDawnDirector::FinishInterlude(
+	const bool bPersistExperience)
 {
 	if (!bActive)
 	{
 		return;
 	}
 	bActive = false;
+	bReplaySkipInputActive = false;
+	bReplaySkipRewinding = false;
+	SetActorTickEnabled(false);
 	GetWorldTimerManager().ClearTimer(CueTimerHandle);
 	if (WaterBed)
 	{
@@ -465,6 +567,10 @@ void AIGMissingFloorFifthDawnDirector::FinishInterlude()
 			Narrative->SetFifthDawnInterludeCompleted(true);
 		}
 	}
+	if (bPersistExperience && !bReplayAvailabilityForcedForSession)
+	{
+		PersistInterludeExperience();
+	}
 	OnCompleted.Broadcast();
 }
 
@@ -480,7 +586,81 @@ void AIGMissingFloorFifthDawnDirector::SetSensoryHud(
 		: nullptr)
 	{
 		Hud->SetSensoryInterludePresentation(bEnabled);
+		Hud->SetSensoryInterludeSkipState(
+			bEnabled && bReplaySkipAvailable,
+			bEnabled ? ReplaySkipProgress : 0.0f,
+			bEnabled && bReplaySkipInputActive,
+			GetReplaySkipDurationSeconds(),
+			UsesToggleSkipInput());
 	}
+}
+
+void AIGMissingFloorFifthDawnDirector::UpdateSensoryHudSkip() const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	const APlayerController* Controller = PlayerCharacter
+		? Cast<APlayerController>(PlayerCharacter->GetController())
+		: nullptr;
+	if (AIGHorrorHUD* Hud = Controller
+		? Cast<AIGHorrorHUD>(Controller->GetHUD())
+		: nullptr)
+	{
+		Hud->SetSensoryInterludeSkipState(
+			bReplaySkipAvailable,
+			ReplaySkipProgress,
+			bReplaySkipInputActive,
+			GetReplaySkipDurationSeconds(),
+			UsesToggleSkipInput());
+	}
+}
+
+float AIGMissingFloorFifthDawnDirector::GetReplaySkipDurationSeconds() const
+{
+	const UIGAccessibilitySubsystem* Accessibility = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const float DurationScale = Accessibility
+		? Accessibility->GetHoldDurationScale()
+		: 1.0f;
+	return FMath::Max(
+		IGFifthDawn::ReplaySkipDurationSeconds * DurationScale,
+		0.25f);
+}
+
+bool AIGMissingFloorFifthDawnDirector::UsesToggleSkipInput() const
+{
+	const UIGAccessibilitySubsystem* Accessibility = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	return Accessibility && Accessibility->UsesToggleHoldInteractions();
+}
+
+bool AIGMissingFloorFifthDawnDirector::HasExperiencedInterludeProfile() const
+{
+	bool bExperienced = false;
+	if (GConfig)
+	{
+		GConfig->GetBool(
+			IGFifthDawn::ProfileSection,
+			IGFifthDawn::ExperiencedKey,
+			bExperienced,
+			GGameUserSettingsIni);
+	}
+	return bExperienced;
+}
+
+void AIGMissingFloorFifthDawnDirector::PersistInterludeExperience() const
+{
+	if (!GConfig)
+	{
+		return;
+	}
+	GConfig->SetBool(
+		IGFifthDawn::ProfileSection,
+		IGFifthDawn::ExperiencedKey,
+		true,
+		GGameUserSettingsIni);
+	GConfig->Flush(false, GGameUserSettingsIni);
 }
 
 void AIGMissingFloorFifthDawnDirector::PushDirectionCaption(
@@ -507,5 +687,6 @@ void AIGMissingFloorFifthDawnDirector::EndPlay(
 		BreathBed->Stop();
 	}
 	SetSensoryHud(false);
+	SetActorTickEnabled(false);
 	Super::EndPlay(EndPlayReason);
 }

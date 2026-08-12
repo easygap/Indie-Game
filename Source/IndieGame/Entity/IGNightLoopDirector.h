@@ -59,6 +59,9 @@ public:
 	/** 미디어 캡처 한정: 저장·포획 횟수 없이 슬라이드를 재생한다. */
 	void PlayMercyNoteCapturePreview();
 
+	/** 포획 횟수를 추가하지 않고 기존 403호 기상 앵커로 복귀시킨다. */
+	bool RestorePlayerAtWakePoint(AIGPlayerCharacter* Character) const;
+
 protected:
 	virtual void BeginPlay() override;
 

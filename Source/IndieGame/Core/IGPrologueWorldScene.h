@@ -216,6 +216,8 @@ public:
 
 	/** Removes only the cavity-facing gypsum panel, never the structural studs. */
 	bool OpenMissingFloorCavity();
+	/** 밤 4 재시도 때 탈착 패널의 외형과 충돌을 함께 복구한다. */
+	bool ResetMissingFloorCavity();
 	bool IsMissingFloorCavityOpen() const { return bMissingFloorCavityOpen; }
 
 	/**

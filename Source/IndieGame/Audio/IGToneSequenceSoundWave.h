@@ -392,6 +392,12 @@ public:
 		UObject* Outer,
 		int32 StrikeIndex);
 
+	/**
+	 * 풀이 묻은 벽지를 누르는 고무 이음 롤러. 긴 상하 왕복 두 번과 젖은
+	 * 종이 표면, 방향 전환 때의 작은 축 소리를 합성하며 엔딩 C에서만 쓴다.
+	 */
+	static UIGToneSequenceSoundWave* CreateWallpaperSeamRoller(UObject* Outer);
+
 private:
 	static float EvaluateWaveform(EIGToneWaveform Waveform, float FrequencyHz, double NoteTimeSeconds);
 	static float EvaluateEnvelope(const FIGToneNote& Note, float NoteProgress01);

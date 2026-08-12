@@ -1859,3 +1859,27 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateHammerImpact(
 	Wave->ConfigureNotes(MoveTemp(HammerNotes), false);
 	return Wave;
 }
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallpaperSeamRoller(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGWallpaperSeamRoller"));
+	TArray<FIGToneNote> RollerNotes;
+
+	// 이음 롤러는 페인트 롤러가 아니라 작은 고무 원통이다. 종이와 풀의
+	// 넓은 마찰을 중심으로 두고, 방향이 바뀔 때만 작은 축이 반응한다.
+	// 기계나 프린터처럼 규칙적으로 들리지 않도록 두 번의 길이를 다르게 둔다.
+	RollerNotes.Add({0.000f, 1.48f, 1280.0f, 0.060f, 0.160f, 1.15f, EIGToneWaveform::ValueNoise});
+	RollerNotes.Add({0.040f, 1.40f, 3600.0f, 0.025f, 0.220f, 1.30f, EIGToneWaveform::ValueNoise});
+	RollerNotes.Add({0.080f, 1.26f, 185.0f, 0.022f, 0.180f, 1.20f, EIGToneWaveform::Triangle});
+	RollerNotes.Add({1.510f, 0.055f, 780.0f, 0.048f, 0.006f, 2.6f, EIGToneWaveform::ValueNoise});
+	RollerNotes.Add({1.510f, 0.120f, 142.0f, 0.034f, 0.008f, 2.8f, EIGToneWaveform::Sine});
+	RollerNotes.Add({1.700f, 1.76f, 1120.0f, 0.057f, 0.180f, 1.10f, EIGToneWaveform::ValueNoise});
+	RollerNotes.Add({1.760f, 1.66f, 3300.0f, 0.022f, 0.240f, 1.35f, EIGToneWaveform::ValueNoise});
+	RollerNotes.Add({1.780f, 1.52f, 168.0f, 0.020f, 0.220f, 1.25f, EIGToneWaveform::Triangle});
+	RollerNotes.Add({3.490f, 0.070f, 620.0f, 0.043f, 0.008f, 3.0f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(RollerNotes), false);
+	return Wave;
+}

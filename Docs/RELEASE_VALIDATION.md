@@ -55,6 +55,32 @@ Development Editor/Game과 Shipping을 빌드한다. `.git`, `Saved`,
 Win64 바이너리만 원본 런타임 검증용으로 되돌리고, 요약에는 실제
 `buildProjectFile`과 `usingAsciiBuildMirror`를 기록한다.
 
+## 2026-08-12 없는 층 v3.3 자동 사전 검증 현황
+
+이 절은 재관람 스킵과 엔딩 C 「매물」 구현의 dirty 작업 트리 회귀 기록이다.
+아래 결과는 G3~G6이나 출시 승인을 대신하지 않는다.
+
+- `Test-MissingFloor-ReleaseEndingContract.ps1`:
+  `MISSING_FLOOR_RELEASE_ENDING_CONTRACT PASS replay_skip=1 ending_c=1
+  scoped_retry=1 audio=1 runtime_probe=1`.
+- `Test-MissingFloor-M5RevealContract.ps1`: 기존 ImageGen 원본 4장·근접 3D/PBR
+  레이어·공동 리빌·세 엔딩 정적 계약 통과.
+- UE 5.8.1 `IndieGameEditor Win64 Development`: UHT 포함 16액션 재빌드 성공.
+  한글 절대 경로의 UBT 인자 분리를 피하려고 같은 프로젝트 상위 경로를 로컬
+  `subst`로 짧게 매핑했으며 소스 복사·정책 우회·엔진 변경은 하지 않았다.
+- `Run-MissingFloor-Greybox.bat`: 약 51초, C 진입→시간 정지→P5 마스킹 제거→
+  밤4 원자적 롤백→P5 재해결→공동 개방→엔딩 A까지 진행하고
+  `MISSINGFLOOR_GREYBOX PASS`와 M6 6버스 PASS를 함께 기록했다.
+- `Run-MissingFloor-EndingPreview.ps1`: 실제 D3D12 오프스크린 렌더 두 건 통과.
+  - `Saved/Validation/MissingFloorEndingPreview/listing-1920x1080-default.png`
+  - `Saved/Validation/MissingFloorEndingPreview/comment-1280x720-text-200-reduced.png`
+  두 PNG는 요청 해상도와 일치하고, HUD가 보고한 모든 글리프·패널 경계가
+  Canvas 안이다.
+
+남은 승인 항목은 실제 입력으로 포획부터 재시도까지 7.2초 호흡 확인,
+헤드폰·TV·모노의 벽지 롤러 청감, 초견 플레이어의 매물→후기 전환 이해도,
+clean SHA Shipping 캡처와 성능이다.
+
 ## 2026-08-06 자동 사전 검증 현황
 
 이 절은 현재 작업의 위치를 기록할 뿐 아래 G3~G6 합격 조건을 완화하지

@@ -56,6 +56,7 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 	}
 	bHourActive = true;
 	bGoalComplete = false;
+	bFailureEndingSuspended = false;
 	HourElapsedSeconds = 0.0f;
 
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
@@ -113,6 +114,25 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 	OnHourActiveChanged.Broadcast(true);
 }
 
+void AIGNightPhaseDirector::SuspendForFailureEnding()
+{
+	if (!bHourActive || bFailureEndingSuspended)
+	{
+		return;
+	}
+	bFailureEndingSuspended = true;
+	GetWorldTimerManager().ClearTimer(HourTimer);
+}
+
+void AIGNightPhaseDirector::RestartTheHour(const int32 NightIndex)
+{
+	GetWorldTimerManager().ClearTimer(HourTimer);
+	bHourActive = false;
+	bGoalComplete = false;
+	bFailureEndingSuspended = false;
+	BeginTheHour(NightIndex);
+}
+
 void AIGNightPhaseDirector::CompleteNightGoal()
 {
 	if (!bHourActive || bGoalComplete)
@@ -127,7 +147,7 @@ void AIGNightPhaseDirector::CompleteNightGoal()
 
 void AIGNightPhaseDirector::TickHour()
 {
-	if (!bHourActive)
+	if (!bHourActive || bFailureEndingSuspended)
 	{
 		return;
 	}

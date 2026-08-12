@@ -3626,6 +3626,24 @@ bool AIGPrologueWorldScene::OpenMissingFloorCavity()
 	return true;
 }
 
+bool AIGPrologueWorldScene::ResetMissingFloorCavity()
+{
+	if (!MissingFloorCavityWallPanel)
+	{
+		return false;
+	}
+	MissingFloorCavityWallPanel->SetVisibility(true, true);
+	MissingFloorCavityWallPanel->SetHiddenInGame(false, true);
+	MissingFloorCavityWallPanel->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
+	if (MissingFloorCavityWallResidue)
+	{
+		MissingFloorCavityWallResidue->SetVisibility(true, true);
+		MissingFloorCavityWallResidue->SetHiddenInGame(false, true);
+	}
+	bMissingFloorCavityOpen = false;
+	return true;
+}
+
 bool AIGPrologueWorldScene::DropCorridorExtinguisher()
 {
 	if (!CorridorExtinguisher || bCorridorExtinguisherDropped)

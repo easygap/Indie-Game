@@ -35,6 +35,7 @@
 | 1인칭 기상 잔향 | 포획 포옹 원본 재사용 | `T_FPCaptureEmbrace1..3_D` | UI-space translucent recall | 포획 뒤 403호 기상의 3→2→1 역재생 0.68/0.48/0.30/0.16초 | 최대 알파 0.34, 셀 교차 페이드 0, 1280×800 종횡비 변화·소매 절단 0, 잔향 뒤 페이드 끝까지 HUD 점유 |
 | 공동 최종 잔존물 | `SheetFinalCavityRemainsReference_v1.png`, `FinalCavityFrontBlend_v1.png` | `SM_FinalCavityClothingShell`, `SM_FinalCavityBoneInsert`, `SM_FinalCavityTarp`, `SM_FinalCavityBrokenCaster`, `M_SpriteFinalCavity` | continuous 3D + lit masked PBR detail | 밤4 공동 개방 뒤 105~360cm·정면 내적 0.68에서 디테일, 그 밖은 셸 | 120cm 베이 안, 피부·머리카락·피·젖은 조직 0, 두개골→흉곽→신발 판독, 숨은 셸 그림자 유지, 측면 평면 노출 0 |
 | 목한수 최종 대치 | `SheetMokHansooConfrontationReference_v1.png`, `MokHansooFinalFrontBlend_v1.png` | `SM_MokHansooWorkwear`, `SM_MokHansooHeadHands`, `SM_MokHansooGypsumBoard`, `M_SpriteMokFinalUpper` | continuous 3D + upper-body PBR detail | 남쪽 계단참 등장→북쪽 퇴장 2.8초, 105~360cm·정면 내적 0.68에서 얼굴·재킷 보강 | 평균 체형·두 손 파지·95cm 보드·하체·그림자는 3D, 세로 31~39% 알파 감쇠, 근접 `T_SpriteMok_D` 사용 0, 괴물 통과 중 충돌 0 |
+| 엔딩 C 매물 외관 | `TitleBackgroundMissingFloor_v1.png` | `T_TitleBackground_D` + 네이티브 Canvas 한글 | Keep crop + runtime UI | 403호 매물 사진→입주자 후기 전환 | 신규 생성·브랜드 복제·구운 글자 0, 720p·텍스트 200% 안전 영역, 모션 감소 컷 제공 |
 
 ## 블렌딩·거리·성능 계약
 
@@ -71,6 +72,9 @@
   재사용한다. 첫 포획 최대 알파는 0.34이며 5회까지 0.68배로 낮아진다. 잔향이
   먼저 사라져도 회차별 3.0/2.2/1.4/0.4초 기상 페이드가 끝나기 전에는 일반
   HUD를 그리지 않는다.
+- 엔딩 C는 타이틀 외관의 중앙 빌라 구간만 UV 크롭해 재사용한다. 사진에 방
+  번호·앱 로고·매물 문구를 굽지 않고, 403호 칩과 모든 정보는 실제 한글 폰트로
+  런타임에 그린다. UI 텍스처 1장 외 신규 스프라이트·월드 카드·충돌은 없다.
 
 ## 물리·화면 승인
 
