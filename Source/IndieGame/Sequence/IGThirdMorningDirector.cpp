@@ -9742,7 +9742,7 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	};
 
 	TArray<FAudioTrackProbe> Tracks;
-	constexpr int32 ExpectedTrackCount = 9;
+	constexpr int32 ExpectedTrackCount = 15;
 	Tracks.Reserve(ExpectedTrackCount);
 	const auto AddAmbienceTrack =
 		[this, &Tracks](
@@ -9782,6 +9782,34 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	Tracks.Add(FAudioTrackProbe{
 		TEXT("V1.PlasterDustFall"),
 		UIGToneSequenceSoundWave::CreatePlasterDustFall(this),
+		nullptr});
+	// P3 decides a puzzle by ear, so both of its answers and the two ends of
+	// the water's distance range have to survive the same silence-and-clipping
+	// check as the score does. The hammer is the loudest cue in the game and the
+	// most likely to clip, which is exactly why it is measured.
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("P3.WallCavityHollow"),
+		UIGToneSequenceSoundWave::CreateWallCavityResponse(this, true),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("P3.WallCavitySolid"),
+		UIGToneSequenceSoundWave::CreateWallCavityResponse(this, false),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("P3.PipeWaterNear"),
+		UIGToneSequenceSoundWave::CreatePipeWaterFlow(this, 0),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("P3.PipeWaterFar"),
+		UIGToneSequenceSoundWave::CreatePipeWaterFlow(this, 3),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("P3.ValveOpen"),
+		UIGToneSequenceSoundWave::CreateValveOpen(this, 0),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("P5.HammerBreakThrough"),
+		UIGToneSequenceSoundWave::CreateHammerImpact(this, 4),
 		nullptr});
 	UIGToneSequenceSoundWave* EndingBReturnHome =
 		UIGToneSequenceSoundWave::CreateEndingBReturnHomeBed(this);

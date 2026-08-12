@@ -169,6 +169,10 @@ private:
 	FVector ExpectedWakeLocation = FVector::ZeroVector;
 	/** Trail sample the beam-dust step lit up, so it can be cleaned up after. */
 	FVector ProbeDustTrailLocation = FVector::ZeroVector;
+	/** Measured P3 wall discrimination, for the PASS receipt. */
+	float ProbeHollowRingLevel = 0.0f;
+	float ProbeHollowRingSeconds = 0.0f;
+	float ProbeSolidRingSeconds = 0.0f;
 	bool bStageReady = false;
 	bool bProbeRequested = false;
 	FTimerHandle SetupTimer;

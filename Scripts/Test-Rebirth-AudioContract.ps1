@@ -20,6 +20,8 @@ $listener = Read-Source 'Source/IndieGame/Entity/IGListenerEntity.cpp'
 $dust = Read-Source 'Source/IndieGame/Environment/IGDustSubsystem.h'
 $beamDust = Read-Source 'Source/IndieGame/Player/IGBeamDustComponent.cpp'
 $worldScene = Read-Source 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
+$nightThree = Read-Source 'Source/IndieGame/Entity/IGMissingFloorNightThreeDirector.cpp'
+$nightFour = Read-Source 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
 $assertions = 0
 
 function Require-All(
@@ -146,7 +148,7 @@ $assertions++
 # The packaged release probe must render every production generator, reject
 # silent or clipped buffers, and confirm the finite M5 tail before queueing M3.
 Require-All $thirdMorning @(
-	'ExpectedTrackCount = 9',
+	'ExpectedTrackCount = 15',
 	'M0.RoomTone',
 	'M1.StoreJingle',
 	'M1b.DegradedJingle',
@@ -155,6 +157,12 @@ Require-All $thirdMorning @(
 	'M4.WindRope',
 	'M4.TankPressure',
 	'V1.PlasterDustFall',
+	'P3.WallCavityHollow',
+	'P3.WallCavitySolid',
+	'P3.PipeWaterNear',
+	'P3.PipeWaterFar',
+	'P3.ValveOpen',
+	'P5.HammerBreakThrough',
 	'M5.ReturnHome',
 	'RequestedSamplesPerTrack = 4096',
 	'TrackNonZeroSamples > 32',
@@ -326,6 +334,94 @@ Require-All $listener @(
 	'EIGAudioBus::Entity'
 ) '§10.3 dust fall route'
 
+# §21.3 시그니처 SFX: 배관 수류 원근 4단, 밸브 개방, 망치 임팩트. 표에 적힌
+# 파라미터가 실제 합성값이어야 문서가 명세로 남는다.
+Require-All $tone @(
+	'CreatePipeWaterFlow(',
+	'const float Bandwidths[] = {5000.0f, 2400.0f, 1100.0f, 480.0f};',
+	'CreateValveOpen(',
+	'const float RingHz[] = {1800.0f, 1520.0f, 2150.0f};',
+	'CreateHammerImpact(',
+	'0.000f, 0.180f, 90.0f'
+) '§21.3 signature SFX'
+# 원근 4단은 루프여야 벽에 붙어 비교할 시간이 생긴다.
+$flowBody = [regex]::Match(
+	$tone,
+	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreatePipeWaterFlow\(.*?\n\}').Value
+if ($flowBody -notmatch 'ConfigureNotes\(MoveTemp\(FlowNotes\), true') {
+	throw '배관 수류는 루프여야 한다. 원샷이면 벽을 비교할 시간이 없다.'
+}
+$assertions++
+# 망치는 §21.3의 1.4초 건물 반향과 §10.3의 3단 파쇄를 함께 가져야 한다.
+$hammerBody = [regex]::Match(
+	$tone,
+	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreateHammerImpact\(.*?\n\}').Value
+foreach ($needle in @('1.400f', 'const int32 FractureCount = 3 + Stage * 3;')) {
+	if (-not $hammerBody.Contains($needle)) {
+		throw "망치 임팩트에서 $needle 가 사라졌다."
+	}
+	$assertions++
+}
+
+# §7 P3: 판별은 독백이 아니라 벽이 한다. 빈 벽은 실측 mass-air-mass 공명
+# 대역에서 길게 울고, 속이 찬 벽은 짧게 죽는다.
+Require-All $tone @(
+	'CreateWallCavityResponse(',
+	'IGWallCavityHollow',
+	'IGWallCavitySolid',
+	'0.006f, 1.450f, 105.0f'
+) '§7 P3 wall discrimination synthesis'
+$cavityBody = [regex]::Match(
+	$tone,
+	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreateWallCavityResponse\(.*?\n\}').Value
+if ([string]::IsNullOrWhiteSpace($cavityBody)) {
+	throw 'The wall cavity response body could not be located.'
+}
+$cavityHalves = $cavityBody -split 'if \(bHollow\)', 2
+if ($cavityHalves.Count -ne 2) { throw 'The hollow/solid split is missing.' }
+$hollowHalf = ($cavityHalves[1] -split 'else', 2)[0]
+$solidHalf = ($cavityHalves[1] -split 'else', 2)[1]
+$hollowLongest = 0.0
+foreach ($note in [regex]::Matches($hollowHalf, 'WallNotes\.Add\(\{\s*[0-9.]+f,\s*([0-9.]+)f,')) {
+	$hollowLongest = [Math]::Max($hollowLongest, [double]$note.Groups[1].Value)
+}
+$solidLongest = 0.0
+foreach ($note in [regex]::Matches($solidHalf, 'WallNotes\.Add\(\{\s*[0-9.]+f,\s*([0-9.]+)f,')) {
+	$solidLongest = [Math]::Max($solidLongest, [double]$note.Groups[1].Value)
+}
+if ($hollowLongest -lt $solidLongest * 3.0) {
+	throw ('빈 벽은 속이 찬 벽보다 최소 세 배 길게 울어야 한다: ' +
+		"hollow=$hollowLongest solid=$solidLongest")
+}
+$assertions++
+# 여기서 사인파를 빼면 공명이 사라지고 다시 노이즈 두 덩이가 된다.
+if ($hollowHalf -notmatch 'EIGToneWaveform::Sine') {
+	throw '공동 공명은 대역 노이즈가 아니라 실제 공진 모드여야 한다.'
+}
+$assertions++
+Require-All $nightThree @(
+	'void AIGMissingFloorNightThreeDirector::PlayWallListenResponse(',
+	'UIGToneSequenceSoundWave::CreateWallCavityResponse(this, bHollow)',
+	'UIGToneSequenceSoundWave::CreateValveOpen(',
+	'constexpr int32 RiserBedDistanceStep = 2',
+	'constexpr int32 CavityWallDistanceStep = 0',
+	'constexpr int32 SolidWallDistanceStep = 3'
+) '§7 P3 wall discrimination route'
+# 세 경로(밸브 전, 공동 벽, 나머지 벽) 모두가 실제로 소리를 낸다.
+$wallResponseCalls = ([regex]::Matches(
+	$nightThree,
+	'PlayWallListenResponse\(BayIndex, /\*bHollow=\*/')).Count
+if ($wallResponseCalls -ne 3) {
+	throw ('세 청음 경로가 모두 소리를 내야 한다. 하나라도 빠지면 그 벽은 ' +
+		"독백으로만 대답한다. 현재 $wallResponseCalls 개.")
+}
+$assertions++
+Require-All $nightFour @(
+	'UIGToneSequenceSoundWave::CreateHammerImpact(this, StrikeCount - 1)',
+	'UIGToneSequenceSoundWave::CreateValveOpen(',
+	'UIGToneSequenceSoundWave::CreateVentDuctSpinUp(this)'
+) '§21.3 night four impact and controls'
+
 # §11 V1: 빛으로 그의 최근 경로를 읽는다. 밀도는 정확히 두 배까지만 오르고,
 # 포획 리셋은 공기까지 04:30으로 되돌린다.
 Require-All $dust @(
@@ -369,7 +465,7 @@ Require-All $worldScene @(
 ) '§11 V1 night exposure lock'
 
 Write-Host (
-	"REBIRTH_AUDIO_CONTRACT PASS assertions=$assertions generators=9 tracks=6 " +
+	"REBIRTH_AUDIO_CONTRACT PASS assertions=$assertions generators=15 tracks=6 " +
 	'crossfade_seconds=1.6 tank_silence_seconds=6 m5_seconds=45 ' +
 	'reverb_presets=2 dust_density_max=2.0') `
 	-ForegroundColor Green

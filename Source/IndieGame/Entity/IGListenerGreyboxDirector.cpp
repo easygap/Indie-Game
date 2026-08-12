@@ -777,6 +777,92 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
+		// §7 P3 is decided by one audible fact: 속이 찬 벽은 짧게 죽고, 빈 벽은
+		// 길게 운다. Render both answers and compare the energy left in the last
+		// third of each. A thought bubble claiming the difference while the two
+		// walls sound alike would be the puzzle failing silently, and no static
+		// assertion can catch that — only the samples can.
+		// Both answers are measured over the same absolute window — half a second
+		// to one second after the ear lands. A ratio of the two would be
+		// meaningless here: the solid wall has stopped producing samples by then,
+		// so the denominator is zero and any ratio reads as a fake number. What
+		// matters is a fact in two parts. At half a second the cavity must still
+		// be plainly audible, and the solid wall must already be gone.
+		constexpr int32 SampleRateHz = 48000;
+		constexpr int32 WindowStartSample = SampleRateHz / 2;
+		constexpr int32 WindowEndSample = SampleRateHz;
+		// About -44 dBFS: quiet, but unmistakably a note rather than a floor.
+		constexpr float AudibleFloor = 200.0f;
+		float HollowLevel = 0.0f;
+		float SolidLevel = 0.0f;
+		float HollowLength = 0.0f;
+		float SolidLength = 0.0f;
+		for (int32 Pass = 0; Pass < 2; ++Pass)
+		{
+			const bool bHollow = Pass == 0;
+			UIGToneSequenceSoundWave* Response =
+				UIGToneSequenceSoundWave::CreateWallCavityResponse(this, bHollow);
+			if (!Response)
+			{
+				FailProbe(TEXT("wall cavity response failed to synthesize"));
+				return;
+			}
+			const float Length = Response->GetConfiguredDurationSeconds();
+			TArray<uint8> Pcm;
+			Response->OnGeneratePCMAudio(Pcm, WindowEndSample);
+			const int32 SampleCount =
+				Pcm.Num() / static_cast<int32>(sizeof(int16));
+			const int16* Samples =
+				reinterpret_cast<const int16*>(Pcm.GetData());
+			double WindowSum = 0.0;
+			int32 WindowSamples = 0;
+			for (int32 Index = WindowStartSample; Index < SampleCount; ++Index)
+			{
+				WindowSum += FMath::Abs(static_cast<double>(Samples[Index]));
+				++WindowSamples;
+			}
+			// A wave that ended before the window contributes no samples, which
+			// is itself the answer: it is silent there.
+			const float Level = WindowSamples > 0
+				? static_cast<float>(WindowSum / WindowSamples)
+				: 0.0f;
+			if (bHollow)
+			{
+				HollowLevel = Level;
+				HollowLength = Length;
+			}
+			else
+			{
+				SolidLevel = Level;
+				SolidLength = Length;
+			}
+		}
+		if (HollowLevel < AudibleFloor)
+		{
+			FailProbe(FString::Printf(
+				TEXT("cavity is not still ringing at half a second: level=%.1f"),
+				HollowLevel));
+			return;
+		}
+		if (SolidLevel >= AudibleFloor)
+		{
+			FailProbe(FString::Printf(
+				TEXT("solid wall has not died by half a second: level=%.1f"),
+				SolidLevel));
+			return;
+		}
+		if (SolidLength > 0.40f || HollowLength < 1.40f)
+		{
+			FailProbe(FString::Printf(
+				TEXT("wall ring lengths drifted: hollow=%.2fs solid=%.2fs"),
+				HollowLength,
+				SolidLength));
+			return;
+		}
+		ProbeHollowRingLevel = HollowLevel;
+		ProbeHollowRingSeconds = HollowLength;
+		ProbeSolidRingSeconds = SolidLength;
+
 		// Arm the beam over a fresh lane and let it tick once before asserting.
 		const UCameraComponent* Camera = PlayerCharacter->GetFirstPersonCamera();
 		const FVector CameraLocation = Camera
@@ -848,7 +934,11 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			LogTemp,
 			Display,
 			TEXT("MISSINGFLOOR_PERCEPTION PASS: corridor/stairwell reverb, "
+				"cavity still ringing at 0.5s (level=%.0f, %.2fs vs solid %.2fs), "
 				"dust x%.2f over his lane, %d/%d motes lit, dry when dark"),
+			ProbeHollowRingLevel,
+			ProbeHollowRingSeconds,
+			ProbeSolidRingSeconds,
 			LaneDensity,
 			LitMotes,
 			UIGBeamDustComponent::MaxMoteCount);
