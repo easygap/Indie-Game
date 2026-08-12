@@ -280,6 +280,48 @@ void UIGMissingFloorAudioSubsystem::SetTitleMode(const bool bEnabled)
 	}
 }
 
+void UIGMissingFloorAudioSubsystem::SetUserMasterVolume(
+	const float Volume01,
+	const float FadeSeconds)
+{
+	const float Clamped = FMath::Clamp(Volume01, 0.25f, 1.0f);
+	if (FMath::IsNearlyEqual(UserMasterVolume, Clamped, 0.001f))
+	{
+		return;
+	}
+	UserMasterVolume = Clamped;
+	RefreshMix(FadeSeconds);
+}
+
+void UIGMissingFloorAudioSubsystem::PlayCalibrationKnock()
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+	++CalibrationKnockPlayCount;
+	const APlayerController* Controller = GetWorld()->GetFirstPlayerController();
+	const APlayerCameraManager* Camera = Controller
+		? Controller->PlayerCameraManager
+		: nullptr;
+	const FVector Location = Camera
+		? Camera->GetCameraLocation()
+			+ Camera->GetActorForwardVector() * 145.0f
+			+ Camera->GetActorRightVector() * 55.0f
+			+ FVector::UpVector * 285.0f
+		: FVector(145.0f, 55.0f, 285.0f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.78f),
+		Location,
+		0.62f,
+		1.0f,
+		110.0f,
+		1650.0f,
+		EIGAudioBus::Entity,
+		true);
+}
+
 void UIGMissingFloorAudioSubsystem::PlayTruthConfirmation(
 	const int32 ConfirmationIndex)
 {
@@ -416,6 +458,11 @@ bool UIGMissingFloorAudioSubsystem::ValidateContract(
 		OutFailure = TEXT("entity bus is not invariant at 0 dB");
 		return false;
 	}
+	if (UserMasterVolume < 0.25f || UserMasterVolume > 1.0f)
+	{
+		OutFailure = TEXT("user master volume escaped the calibrated range");
+		return false;
+	}
 	OutFailure.Reset();
 	return true;
 }
@@ -479,7 +526,8 @@ void UIGMissingFloorAudioSubsystem::RefreshMix(const float FadeSeconds)
 			World,
 			RuntimeMix,
 			BusSoundClasses[Index],
-			IGMissingFloorMix::DecibelsToLinear(AdditionalDecibels),
+			IGMissingFloorMix::DecibelsToLinear(AdditionalDecibels)
+				* UserMasterVolume,
 			1.0f,
 			FMath::Max(0.0f, FadeSeconds),
 			false);

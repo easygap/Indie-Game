@@ -47,7 +47,7 @@ namespace IGSystemMenu
 
 namespace IGDisplaySettings
 {
-	constexpr int32 RowCount = 8;
+	constexpr int32 RowCount = 9;
 	constexpr int32 WindowModeCount = 3;
 	constexpr int32 ResolutionCount = 3;
 	constexpr int32 QualityCount = 2;
@@ -59,6 +59,22 @@ namespace IGDisplaySettings
 		FIntPoint(2560, 1440)
 	};
 	const float FrameLimits[FrameLimitCount] = {30.0f, 60.0f, 0.0f};
+}
+
+namespace IGAudioCalibration
+{
+	constexpr int32 RowCount = 4;
+	constexpr int32 VolumeStepCount = 7;
+	constexpr int32 BrightnessStepCount = 5;
+	constexpr const TCHAR* ConfigSection = TEXT("IndieGame.AudioOnboarding");
+	constexpr float VolumeValues[VolumeStepCount] =
+	{
+		0.25f, 0.375f, 0.50f, 0.625f, 0.75f, 0.875f, 1.0f
+	};
+	constexpr float GammaValues[BrightnessStepCount] =
+	{
+		1.80f, 2.00f, 2.20f, 2.40f, 2.60f
+	};
 }
 
 AIGPlayerController::AIGPlayerController()
@@ -77,6 +93,7 @@ void AIGPlayerController::BeginPlay()
 	SetInputMode(InputMode);
 	ApplyDefaultInputMapping();
 	BindSaveNotifications();
+	LoadAudioCalibrationSettings();
 
 	if (IsLocalController() && ShouldShowTitleMenu())
 	{
@@ -103,6 +120,13 @@ void AIGPlayerController::BeginPlay()
 	{
 		StartMissingFloorJournalPreviewProbe();
 	}
+	else if (IsLocalController()
+		&& FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGAudioCalibrationPreview")))
+	{
+		StartAudioCalibrationPreviewProbe();
+	}
 }
 
 void AIGPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -124,6 +148,11 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 		TickMissingFloorJournalPreviewProbe();
 		return;
 	}
+	if (bAudioCalibrationPreviewProbe)
+	{
+		TickAudioCalibrationPreviewProbe();
+		return;
+	}
 	if (bJournalInputHeld && !bMissingFloorJournalVisible)
 	{
 		const UIGAccessibilitySubsystem* Accessibility =
@@ -142,9 +171,16 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 	{
 		DismissHeadphoneRecommendation();
 	}
+	if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration
+		&& NextAudioCalibrationKnockTime > 0.0
+		&& FPlatformTime::Seconds() >= NextAudioCalibrationKnockTime)
+	{
+		PlayAudioCalibrationKnock();
+	}
 	if (!bDisplaySettingsAwaitingConfirmation
 		&& !bJournalInputHeld
-		&& !bHeadphoneRecommendationVisible)
+		&& !bHeadphoneRecommendationVisible
+		&& NextAudioCalibrationKnockTime <= 0.0)
 	{
 		SetActorTickEnabled(false);
 		return;
@@ -1130,6 +1166,164 @@ void AIGPlayerController::FailMissingFloorJournalPreviewProbe(
 	FPlatformMisc::RequestExitWithStatus(true, 2);
 }
 
+void AIGPlayerController::StartAudioCalibrationPreviewProbe()
+{
+	const TCHAR* CommandLine = FCommandLine::Get();
+	FParse::Value(
+		CommandLine,
+		TEXT("IGAudioCalibrationExpectedWidth="),
+		AudioCalibrationPreviewExpectedWidth);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGAudioCalibrationExpectedHeight="),
+		AudioCalibrationPreviewExpectedHeight);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGAudioCalibrationScreenshotPath="),
+		AudioCalibrationPreviewScreenshotPath);
+	AudioCalibrationPreviewScreenshotPath.TrimQuotesInline();
+	AudioCalibrationPreviewScreenshotPath = FPaths::ConvertRelativePathToFull(
+		AudioCalibrationPreviewScreenshotPath);
+	bAudioCalibrationPreviewProbe = true;
+	if (AudioCalibrationPreviewExpectedWidth <= 0
+		|| AudioCalibrationPreviewExpectedHeight <= 0
+		|| AudioCalibrationPreviewScreenshotPath.IsEmpty())
+	{
+		FailAudioCalibrationPreviewProbe(TEXT("arguments_missing"));
+		return;
+	}
+
+	bAudioCalibrationPreviewScreenshotRequested = false;
+	bAudioCalibrationPreviewCompilationDrained = false;
+	bAccessibilityMenuVisible = false;
+	AudioCalibrationVolumeStep = 4;
+	AudioCalibrationBrightnessStep = 2;
+	AudioCalibrationReturnMode = EIGSystemMenuMode::Title;
+	bAudioCalibrationSessionActive = true;
+	bAudioCalibrationFirstRun = true;
+	AudioCalibrationSelection = 0;
+	SetInputDevicePresentation(false);
+	SetSystemMenuMode(EIGSystemMenuMode::AudioCalibration);
+	ApplyAudioCalibrationValues();
+	PlayAudioCalibrationKnock();
+	IFileManager::Get().MakeDirectory(
+		*FPaths::GetPath(AudioCalibrationPreviewScreenshotPath),
+		true);
+	const double Now = FPlatformTime::Seconds();
+	AudioCalibrationPreviewNextActionTime = Now + 0.75;
+	AudioCalibrationPreviewDeadline = Now + 8.0;
+	SetActorTickEnabled(true);
+}
+
+void AIGPlayerController::TickAudioCalibrationPreviewProbe()
+{
+	const double Now = FPlatformTime::Seconds();
+	if (Now > AudioCalibrationPreviewDeadline)
+	{
+		FailAudioCalibrationPreviewProbe(TEXT("timeout"));
+		return;
+	}
+	if (Now < AudioCalibrationPreviewNextActionTime)
+	{
+		return;
+	}
+	if (!bAudioCalibrationPreviewCompilationDrained)
+	{
+		FAssetCompilingManager::Get().FinishAllCompilation();
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+		if (GEngine)
+		{
+			GEngine->bEnableOnScreenDebugMessages = false;
+		}
+		ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+		bAudioCalibrationPreviewCompilationDrained = true;
+		AudioCalibrationPreviewNextActionTime = Now + 0.40;
+		AudioCalibrationPreviewDeadline = Now + 8.0;
+		return;
+	}
+	if (!bAudioCalibrationPreviewScreenshotRequested)
+	{
+		const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+		const UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+			? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+			: nullptr;
+		FVector2D CanvasSize;
+		FVector2D BoundsMinimum;
+		FVector2D BoundsMaximum;
+		int32 ElementCount = 0;
+		bool bInsideCanvas = false;
+		uint64 FrameSerial = 0;
+		const bool bLayoutReady = HorrorHUD
+			&& SystemMenuMode == EIGSystemMenuMode::AudioCalibration
+			&& AudioDirector
+			&& FMath::IsNearlyEqual(
+				AudioDirector->GetUserMasterVolume(),
+				IGAudioCalibration::VolumeValues[AudioCalibrationVolumeStep],
+				0.001f)
+			&& AudioDirector->GetCalibrationKnockPlayCount() >= 1
+			&& HorrorHUD->GetLayoutValidationSample(
+				CanvasSize,
+				BoundsMinimum,
+				BoundsMaximum,
+				ElementCount,
+				bInsideCanvas,
+				FrameSerial)
+			&& FMath::Abs(
+				CanvasSize.X - AudioCalibrationPreviewExpectedWidth) <= 1.0f
+			&& FMath::Abs(
+				CanvasSize.Y - AudioCalibrationPreviewExpectedHeight) <= 1.0f
+			&& bInsideCanvas
+			&& ElementCount >= 1
+			&& FrameSerial > 0;
+		if (!bLayoutReady)
+		{
+			AudioCalibrationPreviewNextActionTime = Now + 0.05;
+			return;
+		}
+		FScreenshotRequest::RequestScreenshot(
+			AudioCalibrationPreviewScreenshotPath,
+			true,
+			false);
+		bAudioCalibrationPreviewScreenshotRequested = true;
+		AudioCalibrationPreviewNextActionTime = Now + 0.08;
+		return;
+	}
+	if (!FPaths::FileExists(AudioCalibrationPreviewScreenshotPath))
+	{
+		AudioCalibrationPreviewNextActionTime = Now + 0.05;
+		return;
+	}
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("MISSINGFLOOR_AUDIO_CALIBRATION_PREVIEW PASS "
+			"resolution=%dx%d volume_step=%d brightness_step=%d "
+			"master_gain=%.3f hrtf_knock=1 path=%s"),
+		AudioCalibrationPreviewExpectedWidth,
+		AudioCalibrationPreviewExpectedHeight,
+		AudioCalibrationVolumeStep,
+		AudioCalibrationBrightnessStep,
+		IGAudioCalibration::VolumeValues[AudioCalibrationVolumeStep],
+		*AudioCalibrationPreviewScreenshotPath);
+	bAudioCalibrationPreviewProbe = false;
+	FPlatformMisc::RequestExitWithStatus(true, 0);
+}
+
+void AIGPlayerController::FailAudioCalibrationPreviewProbe(
+	const FString& Reason) const
+{
+	UE_LOG(
+		LogTemp,
+		Error,
+		TEXT("MISSINGFLOOR_AUDIO_CALIBRATION_PREVIEW FAIL reason=%s"),
+		*Reason);
+	FPlatformMisc::RequestExitWithStatus(true, 2);
+}
+
 bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
 	const bool bSuccess,
 	const FString& Reason) const
@@ -1218,6 +1412,9 @@ void AIGPlayerController::ToggleSystemMenu()
 	case EIGSystemMenuMode::Credits:
 		ReturnFromCredits();
 		return;
+	case EIGSystemMenuMode::AudioCalibration:
+		CancelAudioCalibration();
+		return;
 	case EIGSystemMenuMode::DisplaySettings:
 		if (bDisplaySettingsAwaitingConfirmation)
 		{
@@ -1290,12 +1487,17 @@ void AIGPlayerController::CloseAccessibilityMenu()
 				ReturnFromDisplaySettings();
 			}
 		}
+		else if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
+		{
+			CancelAudioCalibration();
+		}
 		return;
 	}
 	bAccessibilityMenuVisible = false;
 	const bool bReturnsToSystemMenu =
 		AccessibilityReturnMode == EIGSystemMenuMode::Title
 		|| AccessibilityReturnMode == EIGSystemMenuMode::Pause
+		|| AccessibilityReturnMode == EIGSystemMenuMode::AudioCalibration
 		|| AccessibilityReturnMode == EIGSystemMenuMode::DisplaySettings;
 	SetPause(bReturnsToSystemMenu || bGameWasPausedBeforeAccessibility);
 	AccessibilityReturnMode = EIGSystemMenuMode::Hidden;
@@ -1482,6 +1684,10 @@ void AIGPlayerController::AdjustAccessibilityLeft()
 		{
 			AdjustDisplaySetting(-1);
 		}
+		else if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
+		{
+			AdjustAudioCalibrationSetting(-1);
+		}
 		return;
 	}
 	ChangeAccessibilitySetting(-1, false);
@@ -1494,6 +1700,10 @@ void AIGPlayerController::AdjustAccessibilityRight()
 		if (SystemMenuMode == EIGSystemMenuMode::DisplaySettings)
 		{
 			AdjustDisplaySetting(1);
+		}
+		else if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
+		{
+			AdjustAudioCalibrationSetting(1);
 		}
 		return;
 	}
@@ -1678,6 +1888,11 @@ void AIGPlayerController::MoveSystemMenuSelection(const int32 Direction)
 		MoveDisplaySettingsSelection(Direction);
 		return;
 	}
+	if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
+	{
+		MoveAudioCalibrationSelection(Direction);
+		return;
+	}
 	if (SystemMenuMode == EIGSystemMenuMode::Hidden
 		|| SystemMenuMode == EIGSystemMenuMode::Credits
 		|| Direction == 0)
@@ -1716,6 +1931,11 @@ void AIGPlayerController::ConfirmSystemMenuSelection()
 	if (SystemMenuMode == EIGSystemMenuMode::DisplaySettings)
 	{
 		ConfirmDisplaySettingsSelection();
+		return;
+	}
+	if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
+	{
+		ConfirmAudioCalibrationSelection();
 		return;
 	}
 	if (!IsSystemMenuRowEnabled(SystemMenuSelection))
@@ -1775,7 +1995,13 @@ void AIGPlayerController::SetSystemMenuMode(const EIGSystemMenuMode NewMode)
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->SetTitleMode(NewMode == EIGSystemMenuMode::Title);
+			const bool bKeepTitleSoundscape =
+				NewMode == EIGSystemMenuMode::Title
+				|| (NewMode == EIGSystemMenuMode::DisplaySettings
+					&& DisplaySettingsReturnMode == EIGSystemMenuMode::Title)
+				|| (NewMode == EIGSystemMenuMode::Credits
+					&& CreditsReturnMode == EIGSystemMenuMode::Title);
+			AudioDirector->SetTitleMode(bKeepTitleSoundscape);
 		}
 	}
 	if (NewMode != EIGSystemMenuMode::Title)
@@ -1807,7 +2033,8 @@ void AIGPlayerController::StartHeadphoneRecommendationIfNeeded()
 	if (!IsLocalController()
 		|| SystemMenuMode != EIGSystemMenuMode::Title
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGFrontendShippingProbe"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloorJournalPreview")))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloorJournalPreview"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGAudioCalibrationPreview")))
 	{
 		return;
 	}
@@ -1824,20 +2051,15 @@ void AIGPlayerController::StartHeadphoneRecommendationIfNeeded()
 	}
 	if (bAlreadyShown)
 	{
+		if (!bAudioCalibrationCompleted)
+		{
+			OpenAudioCalibration(true);
+		}
 		return;
 	}
 
 	bHeadphoneRecommendationVisible = true;
 	HeadphoneRecommendationDeadline = FPlatformTime::Seconds() + 2.5;
-	if (GConfig)
-	{
-		GConfig->SetBool(
-			Section,
-			TEXT("HeadphoneRecommendationShown"),
-			true,
-			GGameUserSettingsIni);
-		GConfig->Flush(false, GGameUserSettingsIni);
-	}
 	SetActorTickEnabled(true);
 	RefreshMenuHud();
 }
@@ -1849,13 +2071,214 @@ void AIGPlayerController::DismissHeadphoneRecommendation()
 		return;
 	}
 	bHeadphoneRecommendationVisible = false;
+	if (GConfig)
+	{
+		GConfig->SetBool(
+			IGAudioCalibration::ConfigSection,
+			TEXT("HeadphoneRecommendationShown"),
+			true,
+			GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+	if (!bAudioCalibrationCompleted)
+	{
+		OpenAudioCalibration(true);
+	}
+	else
+	{
+		RefreshMenuHud();
+	}
+}
+
+void AIGPlayerController::LoadAudioCalibrationSettings()
+{
+	if (GConfig)
+	{
+		GConfig->GetBool(
+			IGAudioCalibration::ConfigSection,
+			TEXT("CalibrationCompleted"),
+			bAudioCalibrationCompleted,
+			GGameUserSettingsIni);
+		GConfig->GetInt(
+			IGAudioCalibration::ConfigSection,
+			TEXT("VolumeStep"),
+			AudioCalibrationVolumeStep,
+			GGameUserSettingsIni);
+		GConfig->GetInt(
+			IGAudioCalibration::ConfigSection,
+			TEXT("BrightnessStep"),
+			AudioCalibrationBrightnessStep,
+			GGameUserSettingsIni);
+	}
+	AudioCalibrationVolumeStep = FMath::Clamp(
+		AudioCalibrationVolumeStep,
+		0,
+		IGAudioCalibration::VolumeStepCount - 1);
+	AudioCalibrationBrightnessStep = FMath::Clamp(
+		AudioCalibrationBrightnessStep,
+		0,
+		IGAudioCalibration::BrightnessStepCount - 1);
+	ApplyAudioCalibrationValues();
+}
+
+void AIGPlayerController::OpenAudioCalibration(const bool bFirstRun)
+{
+	if (!bAudioCalibrationSessionActive)
+	{
+		AudioCalibrationReturnMode =
+			SystemMenuMode == EIGSystemMenuMode::Pause
+				? EIGSystemMenuMode::Pause
+				: SystemMenuMode == EIGSystemMenuMode::DisplaySettings
+					? EIGSystemMenuMode::DisplaySettings
+					: EIGSystemMenuMode::Title;
+		PreviousAudioCalibrationVolumeStep = AudioCalibrationVolumeStep;
+		PreviousAudioCalibrationBrightnessStep = AudioCalibrationBrightnessStep;
+		bAudioCalibrationSessionActive = true;
+	}
+	bAudioCalibrationFirstRun = bFirstRun;
+	AudioCalibrationSelection = 0;
+	SystemMenuStatusText = FText::GetEmpty();
+	bSystemMenuStatusIsError = false;
+	SetSystemMenuMode(EIGSystemMenuMode::AudioCalibration);
+	NextAudioCalibrationKnockTime = FPlatformTime::Seconds() + 0.35;
+	SetActorTickEnabled(true);
+}
+
+void AIGPlayerController::CancelAudioCalibration()
+{
+	if (!bAudioCalibrationSessionActive)
+	{
+		SetSystemMenuMode(AudioCalibrationReturnMode);
+		return;
+	}
+	AudioCalibrationVolumeStep = PreviousAudioCalibrationVolumeStep;
+	AudioCalibrationBrightnessStep = PreviousAudioCalibrationBrightnessStep;
+	ApplyAudioCalibrationValues();
+	bAudioCalibrationSessionActive = false;
+	bAudioCalibrationFirstRun = false;
+	NextAudioCalibrationKnockTime = -1.0;
+	SetSystemMenuMode(AudioCalibrationReturnMode);
+}
+
+void AIGPlayerController::CompleteAudioCalibration()
+{
+	bAudioCalibrationCompleted = true;
+	if (GConfig)
+	{
+		GConfig->SetBool(
+			IGAudioCalibration::ConfigSection,
+			TEXT("CalibrationCompleted"),
+			true,
+			GGameUserSettingsIni);
+		GConfig->SetInt(
+			IGAudioCalibration::ConfigSection,
+			TEXT("VolumeStep"),
+			AudioCalibrationVolumeStep,
+			GGameUserSettingsIni);
+		GConfig->SetInt(
+			IGAudioCalibration::ConfigSection,
+			TEXT("BrightnessStep"),
+			AudioCalibrationBrightnessStep,
+			GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+	bAudioCalibrationSessionActive = false;
+	bAudioCalibrationFirstRun = false;
+	NextAudioCalibrationKnockTime = -1.0;
+	SetSystemMenuMode(AudioCalibrationReturnMode);
+}
+
+void AIGPlayerController::MoveAudioCalibrationSelection(const int32 Direction)
+{
+	if (SystemMenuMode != EIGSystemMenuMode::AudioCalibration || Direction == 0)
+	{
+		return;
+	}
+	AudioCalibrationSelection =
+		(AudioCalibrationSelection
+			+ (Direction < 0 ? IGAudioCalibration::RowCount - 1 : 1))
+		% IGAudioCalibration::RowCount;
 	RefreshMenuHud();
+}
+
+void AIGPlayerController::AdjustAudioCalibrationSetting(const int32 Direction)
+{
+	if (SystemMenuMode != EIGSystemMenuMode::AudioCalibration || Direction == 0)
+	{
+		return;
+	}
+	if (AudioCalibrationSelection == 0)
+	{
+		AudioCalibrationVolumeStep = FMath::Clamp(
+			AudioCalibrationVolumeStep + (Direction < 0 ? -1 : 1),
+			0,
+			IGAudioCalibration::VolumeStepCount - 1);
+		ApplyAudioCalibrationValues();
+		NextAudioCalibrationKnockTime = FPlatformTime::Seconds() + 0.12;
+		SetActorTickEnabled(true);
+	}
+	else if (AudioCalibrationSelection == 1)
+	{
+		AudioCalibrationBrightnessStep = FMath::Clamp(
+			AudioCalibrationBrightnessStep + (Direction < 0 ? -1 : 1),
+			0,
+			IGAudioCalibration::BrightnessStepCount - 1);
+		ApplyAudioCalibrationValues();
+	}
+	RefreshMenuHud();
+}
+
+void AIGPlayerController::ConfirmAudioCalibrationSelection()
+{
+	if (AudioCalibrationSelection <= 1)
+	{
+		AdjustAudioCalibrationSetting(1);
+		return;
+	}
+	if (AudioCalibrationSelection == 2)
+	{
+		PlayAudioCalibrationKnock();
+		return;
+	}
+	CompleteAudioCalibration();
+}
+
+void AIGPlayerController::ApplyAudioCalibrationValues()
+{
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetUserMasterVolume(
+				IGAudioCalibration::VolumeValues[AudioCalibrationVolumeStep]);
+		}
+	}
+	ConsoleCommand(
+		FString::Printf(
+			TEXT("gamma %.2f"),
+			IGAudioCalibration::GammaValues[AudioCalibrationBrightnessStep]),
+		true);
+}
+
+void AIGPlayerController::PlayAudioCalibrationKnock()
+{
+	NextAudioCalibrationKnockTime = -1.0;
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->PlayCalibrationKnock();
+		}
+	}
 }
 
 void AIGPlayerController::OpenDisplaySettings()
 {
 	if (SystemMenuMode != EIGSystemMenuMode::Title
-		&& SystemMenuMode != EIGSystemMenuMode::Pause)
+		&& SystemMenuMode != EIGSystemMenuMode::Pause
+		&& SystemMenuMode != EIGSystemMenuMode::AudioCalibration)
 	{
 		return;
 	}
@@ -1872,7 +2295,10 @@ void AIGPlayerController::ReturnFromDisplaySettings()
 	const EIGSystemMenuMode ReturnMode =
 		DisplaySettingsReturnMode == EIGSystemMenuMode::Pause
 			? EIGSystemMenuMode::Pause
-			: EIGSystemMenuMode::Title;
+			: DisplaySettingsReturnMode == EIGSystemMenuMode::AudioCalibration
+				? EIGSystemMenuMode::AudioCalibration
+				: EIGSystemMenuMode::Title;
+	DisplaySettingsReturnMode = EIGSystemMenuMode::Title;
 	SetSystemMenuMode(ReturnMode);
 }
 
@@ -1935,7 +2361,7 @@ void AIGPlayerController::MoveDisplaySettingsSelection(const int32 Direction)
 	}
 	if (bDisplaySettingsAwaitingConfirmation)
 	{
-		DisplaySettingsSelection = DisplaySettingsSelection == 6 ? 7 : 6;
+		DisplaySettingsSelection = DisplaySettingsSelection == 7 ? 8 : 7;
 		RefreshMenuHud();
 		return;
 	}
@@ -2000,7 +2426,7 @@ void AIGPlayerController::ConfirmDisplaySettingsSelection()
 	}
 	if (bDisplaySettingsAwaitingConfirmation)
 	{
-		if (DisplaySettingsSelection == 6)
+		if (DisplaySettingsSelection == 7)
 		{
 			ConfirmPendingDisplaySettings();
 		}
@@ -2021,6 +2447,11 @@ void AIGPlayerController::ConfirmDisplaySettingsSelection()
 		return;
 	}
 	if (DisplaySettingsSelection == 6)
+	{
+		OpenAudioCalibration(false);
+		return;
+	}
+	if (DisplaySettingsSelection == 7)
 	{
 		ApplyDisplaySettings();
 		return;
@@ -2068,7 +2499,7 @@ void AIGPlayerController::ApplyDisplaySettings()
 	Settings->ApplyNonResolutionSettings();
 	bDisplaySettingsApplied = false;
 	bDisplaySettingsAwaitingConfirmation = true;
-	DisplaySettingsSelection = 6;
+	DisplaySettingsSelection = 7;
 	DisplayConfirmationSecondsRemaining = 10;
 	DisplayConfirmationDeadline = FPlatformTime::Seconds() + 10.0;
 	SetActorTickEnabled(true);
@@ -2318,6 +2749,8 @@ void AIGPlayerController::RefreshMenuHud() const
 			SystemMenuMode != EIGSystemMenuMode::Hidden;
 		Presentation.bTitle = SystemMenuMode == EIGSystemMenuMode::Title;
 		Presentation.bCredits = SystemMenuMode == EIGSystemMenuMode::Credits;
+		Presentation.bAudioCalibration =
+			SystemMenuMode == EIGSystemMenuMode::AudioCalibration;
 		Presentation.bDisplaySettings =
 			SystemMenuMode == EIGSystemMenuMode::DisplaySettings;
 		Presentation.bCanContinue = bCompatibleAutosaveAvailable;
@@ -2331,6 +2764,11 @@ void AIGPlayerController::RefreshMenuHud() const
 		Presentation.bStatusIsError = bSystemMenuStatusIsError;
 		Presentation.SelectedRow = SystemMenuSelection;
 		Presentation.DisplaySelectedRow = DisplaySettingsSelection;
+		Presentation.AudioCalibrationSelectedRow = AudioCalibrationSelection;
+		Presentation.AudioCalibrationVolumeStep = AudioCalibrationVolumeStep;
+		Presentation.AudioCalibrationBrightnessStep =
+			AudioCalibrationBrightnessStep;
+		Presentation.bAudioCalibrationFirstRun = bAudioCalibrationFirstRun;
 		Presentation.WindowModeIndex = DisplayWindowModeIndex;
 		Presentation.ResolutionIndex = DisplayResolutionIndex;
 		Presentation.QualityIndex = DisplayQualityIndex;
@@ -2420,6 +2858,9 @@ bool AIGPlayerController::TryGetMenuRowFromPointer(
 void AIGPlayerController::UpdateMenuPointerHover()
 {
 	int32 Row = INDEX_NONE;
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+	GetViewportSize(ViewportWidth, ViewportHeight);
 	if (bAccessibilityMenuVisible)
 	{
 		if (TryGetMenuRowFromPointer(
@@ -2447,10 +2888,40 @@ void AIGPlayerController::UpdateMenuPointerHover()
 				42.0f,
 				0.055f,
 				Row)
-			&& (!bDisplaySettingsAwaitingConfirmation || Row >= 6)
+			&& (!bDisplaySettingsAwaitingConfirmation || Row >= 7)
 			&& DisplaySettingsSelection != Row)
 		{
 			DisplaySettingsSelection = Row;
+			RefreshMenuHud();
+		}
+		return;
+	}
+	if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
+	{
+		const float CalibrationScale = FMath::Clamp(
+			FMath::Min(
+				ViewportHeight / 1080.0f,
+				ViewportWidth / 1920.0f),
+			0.67f,
+			2.0f);
+		const float PanelHeight = FMath::Min(
+			ViewportHeight * 0.70f,
+			690.0f * CalibrationScale);
+		const float PanelTop =
+			(ViewportHeight - PanelHeight) * 0.5f + 12.0f * CalibrationScale;
+		const float RowStart =
+			PanelTop + PanelHeight - 224.0f * CalibrationScale;
+		if (TryGetMenuRowFromPointer(
+				IGAudioCalibration::RowCount,
+				RowStart,
+				0.0f,
+				42.0f * CalibrationScale,
+				42.0f * CalibrationScale,
+				0.0f,
+				Row)
+			&& AudioCalibrationSelection != Row)
+		{
+			AudioCalibrationSelection = Row;
 			RefreshMenuHud();
 		}
 		return;
@@ -2493,6 +2964,9 @@ bool AIGPlayerController::HandleMenuPointerClick()
 	}
 
 	int32 Row = INDEX_NONE;
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+	GetViewportSize(ViewportWidth, ViewportHeight);
 	if (bAccessibilityMenuVisible)
 	{
 		if (TryGetMenuRowFromPointer(
@@ -2519,10 +2993,39 @@ bool AIGPlayerController::HandleMenuPointerClick()
 			42.0f,
 			0.055f,
 			Row)
-			&& (!bDisplaySettingsAwaitingConfirmation || Row >= 6))
+			&& (!bDisplaySettingsAwaitingConfirmation || Row >= 7))
 		{
 			DisplaySettingsSelection = Row;
 			ConfirmDisplaySettingsSelection();
+		}
+		return true;
+	}
+	if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
+	{
+		const float CalibrationScale = FMath::Clamp(
+			FMath::Min(
+				ViewportHeight / 1080.0f,
+				ViewportWidth / 1920.0f),
+			0.67f,
+			2.0f);
+		const float PanelHeight = FMath::Min(
+			ViewportHeight * 0.70f,
+			690.0f * CalibrationScale);
+		const float PanelTop =
+			(ViewportHeight - PanelHeight) * 0.5f + 12.0f * CalibrationScale;
+		const float RowStart =
+			PanelTop + PanelHeight - 224.0f * CalibrationScale;
+		if (TryGetMenuRowFromPointer(
+			IGAudioCalibration::RowCount,
+			RowStart,
+			0.0f,
+			42.0f * CalibrationScale,
+			42.0f * CalibrationScale,
+			0.0f,
+			Row))
+		{
+			AudioCalibrationSelection = Row;
+			ConfirmAudioCalibrationSelection();
 		}
 		return true;
 	}
@@ -2566,7 +3069,8 @@ bool AIGPlayerController::ShouldShowTitleMenu() const
 	if (FParse::Param(CommandLine, TEXT("IGSkipFrontend"))
 		|| FParse::Param(CommandLine, TEXT("IGChapterTwo"))
 		|| FParse::Param(CommandLine, TEXT("IGChapterThree"))
-		|| FParse::Param(CommandLine, TEXT("IGFrontendShippingProbe")))
+		|| FParse::Param(CommandLine, TEXT("IGFrontendShippingProbe"))
+		|| FParse::Param(CommandLine, TEXT("IGAudioCalibrationPreview")))
 	{
 		return false;
 	}
@@ -2586,6 +3090,7 @@ bool AIGPlayerController::IsSystemMenuRowEnabled(const int32 Row) const
 {
 	if (Row < 0 || Row >= IGSystemMenu::RowCount
 		|| SystemMenuMode == EIGSystemMenuMode::Credits
+		|| SystemMenuMode == EIGSystemMenuMode::AudioCalibration
 		|| SystemMenuMode == EIGSystemMenuMode::DisplaySettings
 		|| SystemMenuMode == EIGSystemMenuMode::Hidden)
 	{

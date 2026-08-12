@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Subsystems/WorldSubsystem.h"
@@ -70,6 +70,15 @@ public:
 	void SetAuthoredSilence(bool bSilent);
 	void SetEntityDistance(float DistanceCentimeters);
 	void SetTitleMode(bool bEnabled);
+	/** 보정한 사용자 이득을 여섯 버스에 같은 비율로 적용한다. */
+	void SetUserMasterVolume(float Volume01, float FadeSeconds = 0.08f);
+	float GetUserMasterVolume() const { return UserMasterVolume; }
+	/** 보정용 위층 노크를 ENTITY 버스와 HRTF 경로로 재생한다. */
+	void PlayCalibrationKnock();
+	int32 GetCalibrationKnockPlayCount() const
+	{
+		return CalibrationKnockPlayCount;
+	}
 	/** Plays one non-diegetic tuning strike when a truth crosses. */
 	void PlayTruthConfirmation(int32 ConfirmationIndex);
 	/** Stops the unresolved finale bed and plays the sole consonant resolution. */
@@ -142,6 +151,8 @@ private:
 	bool bEntityNearPlayer = false;
 	bool bTitleMode = false;
 	bool bMixPushed = false;
+	float UserMasterVolume = 1.0f;
+	int32 CalibrationKnockPlayCount = 0;
 	double NextTitleKnockRealTime = -1.0;
 	double PendingTitleReplyRealTime = -1.0;
 };

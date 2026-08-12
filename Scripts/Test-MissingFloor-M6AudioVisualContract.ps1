@@ -200,7 +200,10 @@ Assert-ContainsAll $hudSource @(
 Assert-ContainsAll $controllerSource @(
 	'HeadphoneRecommendationShown',
 	'HeadphoneRecommendationDeadline = FPlatformTime::Seconds() + 2.5',
-	'AudioDirector->SetTitleMode(NewMode == EIGSystemMenuMode::Title)',
+	'const bool bKeepTitleSoundscape =',
+	'NewMode == EIGSystemMenuMode::DisplaySettings',
+	'NewMode == EIGSystemMenuMode::Credits',
+	'AudioDirector->SetTitleMode(bKeepTitleSoundscape)',
 	'Settings.bMicrophoneNoiseEnabled = !Settings.bMicrophoneNoiseEnabled'
 ) 'M6 title and microphone controller'
 
@@ -249,7 +252,7 @@ Assert-ContainsAll $greyboxSource @(
 	'MISSINGFLOOR_M6_AUDIO PASS'
 ) 'M6 runtime probe'
 Assert-ContainsAll $readme @(
-	'첫 실행에서는 헤드폰 플레이를 한 번 권합니다.',
+	'첫 실행에서는 헤드폰 플레이를 한 번 권한 뒤',
 	'5층의 석고 파편과 밤 4의 고인 물',
 	'선택형 마이크 소음 입력',
 	'음성·파형 저장 및 전송 없음'

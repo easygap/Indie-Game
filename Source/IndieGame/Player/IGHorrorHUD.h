@@ -71,6 +71,7 @@ struct FIGSystemMenuPresentation
 	bool bVisible = false;
 	bool bTitle = false;
 	bool bCredits = false;
+	bool bAudioCalibration = false;
 	bool bDisplaySettings = false;
 	bool bCanContinue = false;
 	bool bConfirmNewGame = false;
@@ -81,6 +82,10 @@ struct FIGSystemMenuPresentation
 	bool bStatusIsError = false;
 	int32 SelectedRow = 0;
 	int32 DisplaySelectedRow = 0;
+	int32 AudioCalibrationSelectedRow = 0;
+	int32 AudioCalibrationVolumeStep = 6;
+	int32 AudioCalibrationBrightnessStep = 2;
+	bool bAudioCalibrationFirstRun = false;
 	int32 WindowModeIndex = 0;
 	int32 ResolutionIndex = 1;
 	int32 QualityIndex = 1;
@@ -292,6 +297,7 @@ private:
 	void InitializeKoreanFont();
 	void InitializeLensDropletTexture();
 	void InitializeDialogueSurfaceTextures();
+	void InitializeAudioCalibrationTexture();
 	void InitializeMissingFloorJournalTextures();
 	void InitializeFirstPersonActionTextures();
 	UFont* MakeRuntimeFont(UFontFace* FontFace, int32 PixelSize, const TCHAR* FontName);
@@ -385,6 +391,7 @@ private:
 		FString& OutRemainder) const;
 	void DrawAccessibilityPanel();
 	void DrawSystemMenuPanel();
+	void DrawAudioCalibrationPanel();
 	void DrawDisplaySettingsPanel();
 	void DrawMissingFloorJournalPanel();
 	UTexture2D* GetMissingFloorJournalThumbnail(int32 ThumbnailType) const;
@@ -409,6 +416,10 @@ private:
 	/** ImageGen-derived, low-contrast optical grain used by dialogue surfaces. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> DialogueFilmTexture;
+
+	/** ImageGen 파생 저조도 벽면. 보정 안내와 눈금은 런타임에서 그린다. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> AudioCalibrationWallTexture;
 
 	/** ImageGen-derived blank ledger paper. All Korean copy remains runtime text. */
 	UPROPERTY(Transient)
@@ -566,6 +577,7 @@ private:
 	bool bMissingFloorJournalVisible = false;
 	bool bSystemMenuIsTitle = false;
 	bool bSystemMenuIsCredits = false;
+	bool bSystemMenuIsAudioCalibration = false;
 	bool bSystemMenuIsDisplaySettings = false;
 	bool bSystemMenuCanContinue = false;
 	bool bSystemMenuConfirmNewGame = false;
@@ -575,6 +587,10 @@ private:
 	bool bDisplaySettingsAwaitingConfirmation = false;
 	bool bSystemMenuStatusIsError = false;
 	int32 DisplaySettingsSelectedRow = 0;
+	int32 AudioCalibrationSelectedRow = 0;
+	int32 AudioCalibrationVolumeStep = 6;
+	int32 AudioCalibrationBrightnessStep = 2;
+	bool bSystemMenuAudioCalibrationFirstRun = false;
 	int32 DisplayWindowModeIndex = 0;
 	int32 DisplayResolutionIndex = 1;
 	int32 DisplayQualityIndex = 1;

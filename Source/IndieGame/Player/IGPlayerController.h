@@ -15,6 +15,7 @@ enum class EIGSystemMenuMode : uint8
 	Hidden,
 	Title,
 	Pause,
+	AudioCalibration,
 	DisplaySettings,
 	Credits
 };
@@ -64,6 +65,15 @@ private:
 	void SetSystemMenuMode(EIGSystemMenuMode NewMode);
 	void StartHeadphoneRecommendationIfNeeded();
 	void DismissHeadphoneRecommendation();
+	void LoadAudioCalibrationSettings();
+	void OpenAudioCalibration(bool bFirstRun);
+	void CancelAudioCalibration();
+	void CompleteAudioCalibration();
+	void MoveAudioCalibrationSelection(int32 Direction);
+	void AdjustAudioCalibrationSetting(int32 Direction);
+	void ConfirmAudioCalibrationSelection();
+	void ApplyAudioCalibrationValues();
+	void PlayAudioCalibrationKnock();
 	void OpenDisplaySettings();
 	void ReturnFromDisplaySettings();
 	void RefreshStagedDisplaySettings();
@@ -117,6 +127,9 @@ private:
 	void StartMissingFloorJournalPreviewProbe();
 	void TickMissingFloorJournalPreviewProbe();
 	void FailMissingFloorJournalPreviewProbe(const FString& Reason) const;
+	void StartAudioCalibrationPreviewProbe();
+	void TickAudioCalibrationPreviewProbe();
+	void FailAudioCalibrationPreviewProbe(const FString& Reason) const;
 	bool WriteFrontendShippingProbeReceipt(
 		bool bSuccess,
 		const FString& Reason) const;
@@ -138,9 +151,15 @@ private:
 	int32 MissingFloorJournalPage = 0;
 	EIGSystemMenuMode SystemMenuMode = EIGSystemMenuMode::Hidden;
 	EIGSystemMenuMode CreditsReturnMode = EIGSystemMenuMode::Title;
+	EIGSystemMenuMode AudioCalibrationReturnMode = EIGSystemMenuMode::Title;
 	EIGSystemMenuMode DisplaySettingsReturnMode = EIGSystemMenuMode::Title;
 	EIGSystemMenuMode AccessibilityReturnMode = EIGSystemMenuMode::Hidden;
 	int32 DisplaySettingsSelection = 0;
+	int32 AudioCalibrationSelection = 0;
+	int32 AudioCalibrationVolumeStep = 6;
+	int32 AudioCalibrationBrightnessStep = 2;
+	int32 PreviousAudioCalibrationVolumeStep = 6;
+	int32 PreviousAudioCalibrationBrightnessStep = 2;
 	int32 DisplayWindowModeIndex = 0;
 	int32 DisplayResolutionIndex = 1;
 	int32 DisplayQualityIndex = 1;
@@ -156,6 +175,9 @@ private:
 	bool bCompatibleAutosaveAvailable = false;
 	bool bNewGameConfirmationArmed = false;
 	bool bHeadphoneRecommendationVisible = false;
+	bool bAudioCalibrationCompleted = false;
+	bool bAudioCalibrationFirstRun = false;
+	bool bAudioCalibrationSessionActive = false;
 	bool bDisplayVSync = true;
 	bool bDisplaySettingsApplied = false;
 	bool bDisplaySettingsAwaitingConfirmation = false;
@@ -165,6 +187,9 @@ private:
 	bool bMissingFloorJournalPreviewProbe = false;
 	bool bMissingFloorJournalPreviewScreenshotRequested = false;
 	bool bMissingFloorJournalPreviewCompilationDrained = false;
+	bool bAudioCalibrationPreviewProbe = false;
+	bool bAudioCalibrationPreviewScreenshotRequested = false;
+	bool bAudioCalibrationPreviewCompilationDrained = false;
 	bool bFrontendDialogueDefaultVerified = false;
 	bool bFrontendDialogueVerified = false;
 	bool bFrontendDialogueSpeakerVerified = false;
@@ -177,16 +202,22 @@ private:
 	int32 FrontendProbePressedEventCount = 0;
 	int32 MissingFloorJournalPreviewExpectedWidth = 0;
 	int32 MissingFloorJournalPreviewExpectedHeight = 0;
+	int32 AudioCalibrationPreviewExpectedWidth = 0;
+	int32 AudioCalibrationPreviewExpectedHeight = 0;
 	uint64 FrontendProbeAwaitFrameSerial = 0;
 	double FrontendProbeNextActionTime = 0.0;
 	double FrontendProbeStepDeadline = 0.0;
 	double MissingFloorJournalPreviewNextActionTime = 0.0;
 	double MissingFloorJournalPreviewDeadline = 0.0;
+	double AudioCalibrationPreviewNextActionTime = 0.0;
+	double AudioCalibrationPreviewDeadline = 0.0;
+	double NextAudioCalibrationKnockTime = -1.0;
 	FVector2D FrontendProbeBoundsMin = FVector2D::ZeroVector;
 	FVector2D FrontendProbeBoundsMax = FVector2D::ZeroVector;
 	FString FrontendProbeDefaultScreenshotPath;
 	FString FrontendProbeScreenshotPath;
 	FString MissingFloorJournalPreviewScreenshotPath;
+	FString AudioCalibrationPreviewScreenshotPath;
 	float PreviousDisplayFrameLimit = 60.0f;
 	double DisplayConfirmationDeadline = 0.0;
 	double JournalInputPressedAt = 0.0;

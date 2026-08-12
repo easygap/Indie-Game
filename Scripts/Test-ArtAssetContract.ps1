@@ -108,6 +108,7 @@ $requiredMaterialTextures = @(
 	'T_WetRungPad_D.png',
 	'T_TankWaterSurface_D.png',
 	'T_P3CabinetPaintedSteel_D.png',
+	'T_AudioCalibrationWall_D.png',
 	'T_HudDialogueFilm_D.png',
 	'T_MissingFloorJournalPaper_D.png',
 	'T_ApartmentWallpaperV2_D.png',
@@ -392,6 +393,12 @@ foreach ($relativePath in $requiredDerived) {
 					if ($meanLuma -lt 12 -or $meanLuma -gt 70 -or
 						$dynamicRange -lt 8 -or $dynamicRange -gt 90) {
 						throw "Dialogue film lost its restrained near-black UI range: $relativePath"
+					}
+				}
+				'T_AudioCalibrationWall_D.png' {
+					if ($meanLuma -lt 18 -or $meanLuma -gt 75 -or
+						$dynamicRange -lt 12 -or $dynamicRange -gt 110) {
+						throw "Calibration wall lost its useful near-black detail range: $relativePath"
 					}
 				}
 				'T_MissingFloorJournalPaper_D.png' {
@@ -1278,6 +1285,7 @@ foreach ($token in @(
 	'T_Note404NotFound_D.uasset',
 	'M_Note404NotFound.uasset',
 	'T_HudDialogueFilm_D.uasset',
+	'T_AudioCalibrationWall_D.uasset',
 	'T_MissingFloorJournalPaper_D.uasset',
 	'T_FPHandKnock0_D.uasset',
 	'T_FPHandKnock3_D.uasset',
@@ -1532,7 +1540,7 @@ if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 2')) {
 	throw 'Missing-floor snapshot schema was not advanced for night-four state.'
 }
 foreach ($token in @(
-	'제작 정사 v3.1',
+	'제작 정사 v3.2',
 	'세척 배수 OPEN',
 	'부자밸브 우회 OPEN',
 	'저수조 이송펌프',
@@ -1542,7 +1550,7 @@ foreach ($token in @(
 	'1:55~2:40 / 7월 31일 다섯째이자 마지막 새벽'
 )) {
 	if (-not $missingFloorStory.Contains($token)) {
-		throw "Missing-floor story v3.1 contract is missing: $token"
+		throw "Missing-floor story v3.2 contract is missing: $token"
 	}
 }
 foreach ($token in @(

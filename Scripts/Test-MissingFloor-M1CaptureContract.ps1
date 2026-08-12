@@ -179,7 +179,7 @@ Assert-ContainsAll $surfaceTextures @(
 ) 'capture texture import settings'
 Assert-ContainsAll $artBuild @(
 	"'SheetListenerCaptureEmbracePhases_v1_RGBA'",
-	"'\[IndieGame\] Imported 10 textures'",
+	"'\[IndieGame\] Imported 11 textures'",
 	"'Content\Prototype\Textures\T_FPCaptureEmbrace0_D.uasset'",
 	"'Content\Prototype\Textures\T_FPCaptureEmbrace3_D.uasset'"
 ) 'targeted capture asset build'

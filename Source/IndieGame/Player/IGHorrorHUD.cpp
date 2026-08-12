@@ -200,7 +200,10 @@ void AIGHorrorHUD::BeginPlay()
 		TEXT("IGFrontendShippingProbe"))
 		|| FParse::Param(
 			FCommandLine::Get(),
-			TEXT("IGMissingFloorJournalPreview"));
+			TEXT("IGMissingFloorJournalPreview"))
+		|| FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGAudioCalibrationPreview"));
 	InitializeKoreanFont();
 
 	// Optional: absent until Scripts/Prepare-AIArt.ps1 has produced it, in
@@ -211,6 +214,7 @@ void AIGHorrorHUD::BeginPlay()
 		nullptr, TEXT("/Game/Prototype/Textures/T_PaperClean_V2_D.T_PaperClean_V2_D"));
 	InitializeLensDropletTexture();
 	InitializeDialogueSurfaceTextures();
+	InitializeAudioCalibrationTexture();
 	InitializeMissingFloorJournalTextures();
 	InitializeFirstPersonActionTextures();
 #if !UE_BUILD_SHIPPING
@@ -353,6 +357,14 @@ void AIGHorrorHUD::InitializeDialogueSurfaceTextures()
 		HudRoundedMaskTexture->NeverStream = true;
 		HudRoundedMaskTexture->UpdateResource();
 	}
+}
+
+void AIGHorrorHUD::InitializeAudioCalibrationTexture()
+{
+	AudioCalibrationWallTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/Prototype/Textures/T_AudioCalibrationWall_D."
+			"T_AudioCalibrationWall_D"));
 }
 
 void AIGHorrorHUD::InitializeMissingFloorJournalTextures()
@@ -1147,6 +1159,7 @@ void AIGHorrorHUD::SetSystemMenuState(
 	bSystemMenuVisible = Presentation.bVisible;
 	bSystemMenuIsTitle = Presentation.bTitle;
 	bSystemMenuIsCredits = Presentation.bCredits;
+	bSystemMenuIsAudioCalibration = Presentation.bAudioCalibration;
 	bSystemMenuIsDisplaySettings = Presentation.bDisplaySettings;
 	SystemMenuSelectedRow = FMath::Clamp(Presentation.SelectedRow, 0, 4);
 	bSystemMenuCanContinue = Presentation.bCanContinue;
@@ -1156,7 +1169,21 @@ void AIGHorrorHUD::SetSystemMenuState(
 	DisplaySettingsSelectedRow = FMath::Clamp(
 		Presentation.DisplaySelectedRow,
 		0,
-		7);
+		8);
+	AudioCalibrationSelectedRow = FMath::Clamp(
+		Presentation.AudioCalibrationSelectedRow,
+		0,
+		3);
+	AudioCalibrationVolumeStep = FMath::Clamp(
+		Presentation.AudioCalibrationVolumeStep,
+		0,
+		6);
+	AudioCalibrationBrightnessStep = FMath::Clamp(
+		Presentation.AudioCalibrationBrightnessStep,
+		0,
+		4);
+	bSystemMenuAudioCalibrationFirstRun =
+		Presentation.bAudioCalibrationFirstRun;
 	DisplayWindowModeIndex = FMath::Clamp(Presentation.WindowModeIndex, 0, 2);
 	DisplayResolutionIndex = FMath::Clamp(Presentation.ResolutionIndex, 0, 2);
 	DisplayQualityIndex = FMath::Clamp(Presentation.QualityIndex, 0, 1);
@@ -3607,6 +3634,215 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 	RecordLayoutValidationRect(PaperOrigin, PaperOrigin + PaperSize);
 }
 
+void AIGHorrorHUD::DrawAudioCalibrationPanel()
+{
+	if (!Canvas)
+	{
+		return;
+	}
+	const bool bKorean = SupportsKorean();
+	const float Scale = FMath::Clamp(
+		FMath::Min(Canvas->ClipY / 1080.0f, Canvas->ClipX / 1920.0f),
+		0.67f,
+		2.0f);
+	const FVector2D PanelSize(
+		FMath::Min(Canvas->ClipX * 0.76f, 980.0f * Scale),
+		FMath::Min(Canvas->ClipY * 0.70f, 690.0f * Scale));
+	const FVector2D PanelOrigin(
+		(Canvas->ClipX - PanelSize.X) * 0.5f,
+		(Canvas->ClipY - PanelSize.Y) * 0.5f + 12.0f * Scale);
+
+	DrawRoundedHudSurface(
+		PanelOrigin,
+		PanelSize,
+		18.0f * Scale,
+		FLinearColor(0.016f, 0.019f, 0.020f, 0.98f));
+	if (AudioCalibrationWallTexture
+		&& AudioCalibrationWallTexture->GetResource())
+	{
+		FCanvasTileItem Wall(
+			PanelOrigin + FVector2D(2.0f, 2.0f) * Scale,
+			AudioCalibrationWallTexture->GetResource(),
+			PanelSize - FVector2D(4.0f, 4.0f) * Scale,
+			FLinearColor(0.60f, 0.62f, 0.63f, 0.34f));
+		Wall.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Wall);
+	}
+	FCanvasTileItem Divider(
+		PanelOrigin + FVector2D(PanelSize.X * 0.50f, 122.0f * Scale),
+		FVector2D(1.0f, PanelSize.Y - 168.0f * Scale),
+		FLinearColor(0.42f, 0.45f, 0.45f, 0.24f));
+	Divider.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Divider);
+
+	DrawCenteredText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "AudioCalibrationTitle", "소리 · 밝기 보정")
+			: FText::FromString(TEXT("AUDIO + BRIGHTNESS CALIBRATION")),
+		PanelOrigin.Y + 30.0f * Scale,
+		IGHorrorHUD::PaleGray,
+		EIGHudTextRole::Objective,
+		1.08f * Scale);
+	DrawCenteredText(
+		bSystemMenuAudioCalibrationFirstRun
+			? bKorean
+				? NSLOCTEXT(
+					"IGHUD", "AudioCalibrationFirstRunSubtitle",
+					"없는 층은 소리로 먼저 드러납니다. 시작 전에 한 번만 맞춰 주세요.")
+				: FText::FromString(
+					TEXT("THE MISSING FLOOR IS HEARD FIRST. TUNE IT ONCE BEFORE PLAY."))
+			: bKorean
+				? NSLOCTEXT(
+					"IGHUD", "AudioCalibrationSubtitle",
+					"플레이 환경이 바뀌었다면 여기서 다시 맞출 수 있습니다.")
+				: FText::FromString(
+					TEXT("RECALIBRATE WHEN YOUR HEADPHONES OR DISPLAY CHANGE.")),
+		PanelOrigin.Y + 74.0f * Scale,
+		IGHorrorHUD::MutedGray,
+		EIGHudTextRole::Hint,
+		0.90f * Scale);
+
+	const float LeftX = PanelOrigin.X + 54.0f * Scale;
+	const float RightX = PanelOrigin.X + PanelSize.X * 0.55f;
+	const float ContentY = PanelOrigin.Y + 144.0f * Scale;
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "AudioCalibrationKnockLabel", "위쪽 노크")
+			: FText::FromString(TEXT("KNOCK ABOVE")),
+		FVector2D(LeftX, ContentY),
+		IGHorrorHUD::ThoughtBlue,
+		EIGHudTextRole::Prompt,
+		Scale);
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT(
+				"IGHUD", "AudioCalibrationKnockInstruction",
+				"노크가 겨우 들리면서\n위쪽에서 온다고 느껴질 정도로 맞추세요.")
+			: FText::FromString(
+				TEXT("LOWER IT UNTIL THE KNOCK IS BARELY AUDIBLE\nAND STILL FEELS ABOVE YOU.")),
+		FVector2D(LeftX, ContentY + 38.0f * Scale),
+		IGHorrorHUD::PaleGray,
+		EIGHudTextRole::Hint,
+		0.86f * Scale);
+
+	const float MeterY = ContentY + 116.0f * Scale;
+	const float MeterGap = 10.0f * Scale;
+	const float MeterWidth = FMath::Min(
+		38.0f * Scale,
+		(PanelSize.X * 0.39f - MeterGap * 6.0f) / 7.0f);
+	for (int32 Step = 0; Step < 7; ++Step)
+	{
+		const bool bFilled = Step <= AudioCalibrationVolumeStep;
+		FCanvasTileItem Bar(
+			FVector2D(LeftX + Step * (MeterWidth + MeterGap), MeterY),
+			FVector2D(MeterWidth, 8.0f * Scale),
+			bFilled
+				? FLinearColor(0.62f, 0.70f, 0.72f, 0.92f)
+				: FLinearColor(0.20f, 0.22f, 0.22f, 0.72f));
+		Bar.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Bar);
+	}
+
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "AudioCalibrationShadowLabel", "어두운 곳의 경계")
+			: FText::FromString(TEXT("SHADOW DETAIL")),
+		FVector2D(RightX, ContentY),
+		IGHorrorHUD::ThoughtBlue,
+		EIGHudTextRole::Prompt,
+		Scale);
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT(
+				"IGHUD", "AudioCalibrationShadowInstruction",
+				"가운데 칸은 겨우 보이고\n왼쪽 칸은 배경에 묻히게 맞추세요.")
+			: FText::FromString(
+				TEXT("THE MIDDLE PATCH SHOULD BE BARELY VISIBLE;\nTHE LEFT PATCH SHOULD DISAPPEAR.")),
+		FVector2D(RightX, ContentY + 38.0f * Scale),
+		IGHorrorHUD::PaleGray,
+		EIGHudTextRole::Hint,
+		0.86f * Scale);
+	const FLinearColor ShadowPatches[] =
+	{
+		FLinearColor(0.006f, 0.007f, 0.008f, 1.0f),
+		FLinearColor(0.018f, 0.020f, 0.021f, 1.0f),
+		FLinearColor(0.042f, 0.045f, 0.046f, 1.0f)
+	};
+	// 첫 칸과 같은 기준 블랙을 아래에 이어 붙인다. 벽면 무늬의 경계로
+	// 첫 칸을 찾는 편법을 막고, 실제로 둘째 계조가 보이는지만 판단하게 한다.
+	FCanvasTileItem ShadowBacking(
+		FVector2D(RightX, ContentY + 100.0f * Scale),
+		FVector2D(242.0f, 70.0f) * Scale,
+		ShadowPatches[0]);
+	ShadowBacking.BlendMode = SE_BLEND_Opaque;
+	Canvas->DrawItem(ShadowBacking);
+	for (int32 PatchIndex = 0; PatchIndex < 3; ++PatchIndex)
+	{
+		FCanvasTileItem Patch(
+			FVector2D(
+				RightX + PatchIndex * 86.0f * Scale,
+				ContentY + 100.0f * Scale),
+			FVector2D(70.0f, 70.0f) * Scale,
+			ShadowPatches[PatchIndex]);
+		Patch.BlendMode = SE_BLEND_Opaque;
+		Canvas->DrawItem(Patch);
+	}
+
+	const FString Labels[] =
+	{
+		bKorean ? TEXT("노크 음량") : TEXT("KNOCK VOLUME"),
+		bKorean ? TEXT("화면 밝기") : TEXT("DISPLAY BRIGHTNESS"),
+		bKorean ? TEXT("노크 다시 듣기") : TEXT("PLAY KNOCK AGAIN"),
+		bSystemMenuAudioCalibrationFirstRun
+			? bKorean ? TEXT("저장하고 타이틀로") : TEXT("SAVE AND CONTINUE")
+			: bKorean ? TEXT("저장하고 돌아가기") : TEXT("SAVE AND BACK")
+	};
+	const float RowStartY = PanelOrigin.Y + PanelSize.Y - 224.0f * Scale;
+	const float RowSpacing = 42.0f * Scale;
+	for (int32 Row = 0; Row < UE_ARRAY_COUNT(Labels); ++Row)
+	{
+		const bool bSelected = Row == AudioCalibrationSelectedRow;
+		FString Label = FString(bSelected ? TEXT(">  ") : TEXT("   ")) + Labels[Row];
+		if (Row == 0 || Row == 1)
+		{
+			const int32 Step = Row == 0
+				? AudioCalibrationVolumeStep
+				: AudioCalibrationBrightnessStep;
+			const int32 Count = Row == 0 ? 7 : 5;
+			FString Dots;
+			for (int32 Dot = 0; Dot < Count; ++Dot)
+			{
+				Dots += Dot == Step ? TEXT("●") : TEXT("○");
+			}
+			Label += FString::Printf(TEXT("    < %s >"), *Dots);
+		}
+		DrawCenteredText(
+			FText::FromString(Label),
+			RowStartY + Row * RowSpacing,
+			bSelected ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray,
+			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
+			0.92f * Scale);
+	}
+	DrawCenteredText(
+		bKorean
+			? bUsingGamepad
+				? NSLOCTEXT(
+					"IGHUD", "AudioCalibrationControlsGamepad",
+					"D-pad 항목·조정  ·  A 선택  ·  B 취소")
+				: NSLOCTEXT(
+					"IGHUD", "AudioCalibrationControlsKeyboard",
+					"방향키/WASD 항목·조정  ·  Enter 선택  ·  Esc 취소  ·  마우스 선택")
+			: FText::FromString(
+				bUsingGamepad
+					? TEXT("D-PAD SELECT + ADJUST  |  A APPLY  |  B CANCEL")
+					: TEXT("ARROWS/WASD ADJUST  |  ENTER APPLY  |  ESC CANCEL  |  MOUSE SELECT")),
+		PanelOrigin.Y + PanelSize.Y - 26.0f * Scale,
+		IGHorrorHUD::MutedGray,
+		EIGHudTextRole::Hint,
+		0.78f * Scale);
+	RecordLayoutValidationRect(PanelOrigin, PanelOrigin + PanelSize);
+}
+
 void AIGHorrorHUD::DrawDisplaySettingsPanel()
 {
 	if (!Canvas)
@@ -3645,6 +3881,7 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 		bKorean ? TEXT("수직 동기화") : TEXT("V-SYNC"),
 		bKorean ? TEXT("프레임 제한") : TEXT("FRAME LIMIT"),
 		bKorean ? TEXT("접근성 설정") : TEXT("ACCESSIBILITY"),
+		bKorean ? TEXT("소리 · 밝기 보정") : TEXT("AUDIO + BRIGHTNESS"),
 		bDisplaySettingsAwaitingConfirmation
 			? bKorean ? TEXT("이 설정 유지") : TEXT("KEEP THESE SETTINGS")
 			: bKorean ? TEXT("변경 적용") : TEXT("APPLY CHANGES"),
@@ -3661,6 +3898,7 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 			? FString(bSystemMenuVSync ? TEXT("켬") : TEXT("끔"))
 			: FString(bSystemMenuVSync ? TEXT("ON") : TEXT("OFF")),
 		FrameLimits[DisplayFrameLimitIndex],
+		FString(),
 		FString(),
 		FString(),
 		FString()
@@ -3789,6 +4027,13 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		FLinearColor(0.004f, 0.006f, 0.007f, 0.985f));
 	Scrim.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem(Scrim);
+	if (bSystemMenuIsAudioCalibration)
+	{
+		// 보정판은 자체 계조와 중앙 구분선을 갖는다. 타이틀 장식선을 뒤에
+		// 남기면 화면 결함이나 네 번째 밝기 칸처럼 보이므로 여기서 분기한다.
+		DrawAudioCalibrationPanel();
+		return;
+	}
 
 	// A single reflected strip is enough to suggest the rooftop tank without
 	// placing a literal spoiler behind the first screen.
@@ -3810,7 +4055,6 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		DrawDisplaySettingsPanel();
 		return;
 	}
-
 	if (bSystemMenuIsCredits)
 	{
 		DrawCenteredText(

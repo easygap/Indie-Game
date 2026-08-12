@@ -238,7 +238,7 @@ Assert-ContainsAll $surfaceTextures @(
 Assert-ContainsAll $artBuild @(
 	'-OnlySource @(',
 	"'SheetFirstPersonKnockPhases_v2_RGBA'",
-	"'\[IndieGame\] Imported 10 textures'",
+	"'\[IndieGame\] Imported 11 textures'",
 	"'Content\Prototype\Textures\T_FPHandKnock0_D.uasset'",
 	"'Content\Prototype\Textures\T_FPHandKnock3_D.uasset'"
 ) 'first-person sprite targeted build'

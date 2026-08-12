@@ -79,6 +79,7 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `DialogueHUDConcept_v1.png` | UI 아트 디렉션 기준 이미지 | 실제 Shipping 캡처의 디버그형 대화창을 낮은 하단 점유율, 분리된 환경음 캡슐, 작은 화자 태그와 습기 낀 smoked-glass 재질로 재설계한 시안. 런타임 텍스트를 굽지 않고 색·여백·질감 기준만 사용 |
 | `TextureHudDialogueFilm.png` | `T_HudDialogueFilm_D` | 대화창 표면의 저대비 charcoal/oxidized-green 미세 필름 스캔. UI 그룹·NoMipmaps·비스트리밍으로 임포트하고 런타임 둥근 마스크 안에서 낮은 알파로만 사용 |
 | `TextureMissingFloorJournalPaper_v1.png` | `T_MissingFloorJournalPaper_D` | 「듣는 것들」 전체 화면의 무문자 장부 종이 표면. 16:9 정면 스캔 질감만 쓰고 모든 한글·출처 카드·썸네일·교차선은 런타임이 그린다. UI 그룹·NoMipmaps·Clamp·비스트리밍으로 임포트 |
+| `TextureAudioCalibrationWall_v1.png` | `T_AudioCalibrationWall_D` | 첫 실행 소리·밝기 보정판의 무문자 청흑색 빌라 벽면. 저대비 광물 결만 낮은 알파로 사용하고 한글·눈금·암부 계조는 전부 런타임 HUD가 그린다. UI 그룹·NoMipmaps·Clamp·비스트리밍으로 임포트 |
 | `ApartmentVisualTarget_v1.png` | 원룸 비주얼 아트 디렉션 기준 이미지 | 실제 Shipping 원룸 캡처의 카메라·동선·가구·HUD는 유지하고, 주황 스탠드와 청록 새벽광, 낡은 벽지·장판의 물성, 국부 습기 흔적만 보강한 목표 시안. 런타임 텍스처로 직접 사용하지 않음 |
 | `TextureApartmentWallpaperVintage.png` | `T_ApartmentWallpaperV2_D` | 2000년대 초 한국 빌라의 저가 아이보리 엠보싱 벽지 알베도. 전용 N/R/A 채널과 `M_Wallpaper_X/Y/Ceil`에 연결 |
 | `MaskApartmentWallPatina.png` | `T_ApartmentWallPatina_M` | 원룸 하부 모서리에 제한한 습기·들뜸 마스크. `M_ApartmentWallPatina`의 불투명도·색·거칠기 변화에 사용하고 충돌 없는 근거리 평면으로 배치 |
@@ -92,7 +93,7 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `SheetMissingFloorHeroPropsReference.png` | `SM_TuningHammer` · `SM_TunerToolCart` · `SM_ComplaintLedger` · `SM_CalendarJournal` | 조율 렌치·공구 카트·민원 원장·달력 일지의 실제 두께·접지·시차를 가진 3D 프롭 기준 |
 
 한 번의 생성에 5분이 걸리므로 낱장 대신 **격자 시트**로 묶어 뽑고 슬라이스합니다.
-현재 133장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·디테일 48장)와
+현재 134장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·디테일 48장 + 최초 실행 보정 배경 1장)와
 증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-06
 추가분은 생성 실패를 그대로 채택하지 않고 슬리퍼 밑창과 빗물 때를 각각
 한 차례 수정 생성했습니다.

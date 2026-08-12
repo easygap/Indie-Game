@@ -105,10 +105,12 @@ $requiredFiles = @(
 	'Docs/Media/dialogue-hud-accessibility-200-1080.png',
 	'Docs/Media/m65-capture-mercy-note.png',
 	'Docs/Media/m65-mercy-note-slide.gif',
+	'Docs/Media/m65-first-run-audio-calibration.png',
 	'Docs/Media/readme-route-preview.gif',
 	'Docs/FEASIBILITY.md',
 	'Docs/IMAGEGEN_PROMPTS_2026-08-05.md',
 	'Docs/IMAGEGEN_PROMPTS_2026-08-12.md',
+	'Docs/IMAGEGEN_PROMPTS_2026-08-12_AUDIO_CALIBRATION.md',
 	'Docs/PERFORMANCE.md',
 	'Docs/RELEASE_VALIDATION.md',
 	'Docs/SAVE_COMPATIBILITY.md',
@@ -142,6 +144,8 @@ $requiredFiles = @(
 	'Scripts/Test-MissingFloor-M5RevealContract.ps1',
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1',
 	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1',
+	'Scripts/Test-MissingFloor-M65AudioCalibrationContract.ps1',
+	'Scripts/Run-MissingFloor-AudioCalibrationPreview.bat',
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
 	'Scripts/RunEditor.bat',
@@ -2398,5 +2402,9 @@ $missingFloorM6AudioVisualContractScript = Join-Path $projectRoot `
 $missingFloorM65MercyNoteContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1'
 & $missingFloorM65MercyNoteContractScript
+
+$missingFloorM65AudioCalibrationContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M65AudioCalibrationContract.ps1'
+& $missingFloorM65AudioCalibrationContractScript
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

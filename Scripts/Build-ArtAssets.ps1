@@ -151,6 +151,7 @@ if ($MissingFloorOnly) {
 if ($HudUiOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
 		-OnlySource @(
+			'TextureAudioCalibrationWall_v1',
 			'SheetFirstPersonKnockPhases_v2_RGBA',
 			'SheetListenerCaptureEmbracePhases_v1_RGBA'
 		)
@@ -300,7 +301,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 		'IG_SUBMERGED_CLOTHING_ONLY'
 	}
 	$targetSuccessPattern = if ($HudUiOnly) {
-		'\[IndieGame\] Imported 10 textures'
+		'\[IndieGame\] Imported 11 textures'
 	}
 	elseif ($ApartmentVisualOnly) {
 		'\[IndieGame\] Apartment visual material update complete'
@@ -322,6 +323,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 	}
 	$targetRelativeAssets = if ($HudUiOnly) {
 		@(
+			'Content\Prototype\Textures\T_AudioCalibrationWall_D.uasset',
 			'Content\Prototype\Textures\T_HudDialogueFilm_D.uasset',
 			'Content\Prototype\Textures\T_MissingFloorJournalPaper_D.uasset',
 			'Content\Prototype\Textures\T_FPHandKnock0_D.uasset',
