@@ -753,7 +753,11 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 			1300.0f));
 		RiserFlow->SetSound(
 			UIGToneSequenceSoundWave::CreateFloodedCorridorWaterBed(this));
-		RiserFlow->AttenuationSettings = IGAudio::MakeAttenuation(this, 120.0f, 900.0f);
+		RiserFlow->AttenuationSettings = IGAudio::MakeAttenuation(
+			this,
+			120.0f,
+			900.0f,
+			EIGAudioBus::Puzzle);
 		RiserFlow->bAllowSpatialization = true;
 		RiserFlow->SetVolumeMultiplier(0.5f);
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =

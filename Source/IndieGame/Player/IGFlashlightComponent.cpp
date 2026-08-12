@@ -6,6 +6,7 @@
 #include "Engine/CollisionProfile.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "Player/IGBeamDustComponent.h"
 
 UIGFlashlightComponent::UIGFlashlightComponent()
 {
@@ -37,6 +38,12 @@ UIGFlashlightComponent::UIGFlashlightComponent()
 	Spill->SetSourceRadius(6.0f);
 	Spill->SetCastShadows(false);
 	Spill->SetVisibility(false);
+
+	// Volumetric scattering above already gives the beam a body in the air.
+	// The motes are the readable half: they glitter, and they cluster where he
+	// has just dragged himself past (§11 V1).
+	BeamDust = CreateDefaultSubobject<UIGBeamDustComponent>(TEXT("BeamDust"));
+	BeamDust->SetupAttachment(this);
 }
 
 void UIGFlashlightComponent::BeginPlay()
@@ -44,6 +51,10 @@ void UIGFlashlightComponent::BeginPlay()
 	Super::BeginPlay();
 	PreviousWorldRotation = GetComponentRotation();
 	SetComponentTickEnabled(false);
+	if (BeamDust && Beam)
+	{
+		BeamDust->SetBeamCone(Beam->OuterConeAngle);
+	}
 	if (const UWorld* World = GetWorld())
 	{
 		if (UGameInstance* GameInstance = World->GetGameInstance())
@@ -92,6 +103,12 @@ void UIGFlashlightComponent::SetOn(const bool bNewOn)
 	SwayOffset = FRotator::ZeroRotator;
 	ImpulseOffset = FRotator::ZeroRotator;
 	Beam->SetRelativeRotation(FRotator::ZeroRotator);
+	if (BeamDust)
+	{
+		// No beam, no motes. Dust that survived the switch-off would be the one
+		// thing visible in a black corridor.
+		BeamDust->ClearBeam();
+	}
 	SetComponentTickEnabled(false);
 }
 
@@ -157,6 +174,17 @@ void UIGFlashlightComponent::TickComponent(
 	const float Flicker = SampleFlicker(DeltaSeconds);
 	Beam->SetIntensity(BeamIntensity * Flicker);
 	Spill->SetIntensity(220.0f * Flicker);
+
+	if (BeamDust)
+	{
+		// Drive from the beam, not from this component: the sway offset lives on
+		// the light, and the dust has to hang in the cone that is actually lit.
+		const FTransform BeamTransform = Beam->GetComponentTransform();
+		BeamDust->UpdateBeam(
+			BeamTransform.GetLocation(),
+			BeamTransform.GetUnitAxis(EAxis::X),
+			Flicker);
+	}
 }
 
 void UIGFlashlightComponent::UpdateSway(const float DeltaSeconds)

@@ -3456,6 +3456,13 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 		// rest, then the stress layer can take it to 0.08 during pursuit.
 		PostProcess->Settings.FilmGrainIntensity = bSealed ? 0.04f : 0.02f;
 		PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;
+		// §11 V1: 자동노출 하한 잠금. Capping the ceiling alone still let the
+		// histogram adapt *down* into an unlit corridor and quietly hand the
+		// player night vision — which is exactly the currency the torch is
+		// supposed to be. Pinning the floor to the ceiling freezes exposure for
+		// the whole hour, so the dark stays as dark as it was authored and the
+		// beam is the only thing that reveals anything.
+		PostProcess->Settings.AutoExposureMinBrightness = bSealed ? 1.30f : -0.5f;
 	}
 
 	// The 공동현관. Shut the leaf first: a swing door only consults its

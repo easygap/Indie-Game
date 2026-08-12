@@ -1622,3 +1622,44 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasterSettle(UObject*
 	Wave->ConfigureNotes(MoveTemp(SettleNotes), false);
 	return Wave;
 }
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasterDustFall(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGPlasterDustFall"));
+	TArray<FIGToneNote> DustNotes;
+
+	// §21.3 fixes this cue at a 6 kHz high pass with an exponential decay over
+	// 0.90 s, and that discipline is right: falling grains answer broadband with
+	// a spectral centroid that climbs as they get finer, and plaster powder is
+	// far finer than sand. Everything here therefore sits above 6 kHz. Anything
+	// lower would be debris, and debris already has its own cue (미장 갈라짐).
+	// Three overlapping bands with high release powers approximate the decay.
+	DustNotes.Add({0.000f, 0.900f, 6200.0f, 0.030f, 0.020f, 3.2f, EIGToneWaveform::ValueNoise});
+	DustNotes.Add({0.040f, 0.800f, 7100.0f, 0.024f, 0.060f, 2.8f, EIGToneWaveform::ValueNoise});
+	DustNotes.Add({0.120f, 0.720f, 8400.0f, 0.016f, 0.100f, 3.0f, EIGToneWaveform::ValueNoise});
+
+	// Individual grains riding the sift. Irregular on purpose — even spacing
+	// would read as a machine ticking somewhere in the building.
+	const float GrainStarts[] = {0.031f, 0.118f, 0.207f, 0.264f, 0.415f, 0.596f, 0.742f};
+	const float GrainBands[] = {6900.0f, 8100.0f, 7300.0f, 9200.0f, 6400.0f, 8700.0f, 7600.0f};
+	for (int32 GrainIndex = 0; GrainIndex < UE_ARRAY_COUNT(GrainStarts); ++GrainIndex)
+	{
+		// 8–20 ms each: one grain of granular synthesis, which is exactly what
+		// a single falling speck is.
+		const float GrainSeconds = 0.008f + 0.012f * ((GrainIndex % 3) * 0.5f);
+		const float GrainAmplitude = 0.018f - 0.0011f * GrainIndex;
+		DustNotes.Add({
+			GrainStarts[GrainIndex],
+			GrainSeconds,
+			GrainBands[GrainIndex],
+			GrainAmplitude,
+			0.010f,
+			1.3f,
+			EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(DustNotes), false);
+	return Wave;
+}

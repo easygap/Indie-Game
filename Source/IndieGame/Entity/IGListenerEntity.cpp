@@ -9,6 +9,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Environment/IGDustSubsystem.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Player/IGPlayerCharacter.h"
@@ -30,6 +31,15 @@ namespace IGListener
 	constexpr float HoldingGain = 1.5f;
 	/** A second sound within this window of the first confirms the prey. */
 	constexpr float ReactionMemorySeconds = 10.0f;
+
+	/**
+	 * Drag distance between audible dust sifts (§10.3 분진 낙하). About two
+	 * corridor bays: often enough that a moving entity keeps shedding evidence,
+	 * rare enough that the sift stays an event.
+	 */
+	constexpr float DustSiftIntervalCentimeters = 260.0f;
+	/** The thinnest cue in the game. It hints; it never announces. */
+	constexpr float DustSiftVolume = 0.42f;
 }
 
 AIGListenerEntity::AIGListenerEntity()
@@ -73,8 +83,11 @@ void AIGListenerEntity::BeginPlay()
 			Body, FAttachmentTransformRules::KeepRelativeTransform);
 		DragLoopComponent->SetSound(
 			UIGToneSequenceSoundWave::CreateEntityDragLoop(this));
-		DragLoopComponent->AttenuationSettings =
-			IGAudio::MakeAttenuation(this, 220.0f, 2400.0f);
+		DragLoopComponent->AttenuationSettings = IGAudio::MakeAttenuation(
+			this,
+			220.0f,
+			2400.0f,
+			EIGAudioBus::Entity);
 		DragLoopComponent->bAllowSpatialization = true;
 		DragLoopComponent->SetVolumeMultiplier(0.0f);
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
@@ -110,6 +123,7 @@ void AIGListenerEntity::Tick(const float DeltaSeconds)
 	UpdatePresentationPose(LastMoveSpeed, DeltaSeconds);
 	UpdateDragLoop(LastMoveSpeed);
 	UpdateThreatPressure();
+	ReportDustTrail();
 	LastMoveSpeed = 0.0f;
 }
 
@@ -556,6 +570,16 @@ void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 	FinaleRoutePoints.Reset();
 	FinaleRouteIndex = 0;
 	bReactingToSound = false;
+	// The hour restarts at 04:30, so the air restarts with it (§5.4). Leaving
+	// the lane behind would let a reset player read a path nobody walked.
+	bDustTrailSeeded = false;
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGDustSubsystem* Dust = World->GetSubsystem<UIGDustSubsystem>())
+		{
+			Dust->ClearDisturbances();
+		}
+	}
 	EnterState(EIGListenerState::Patrolling);
 }
 
@@ -939,6 +963,75 @@ void AIGListenerEntity::UpdateDragLoop(const float CurrentSpeed)
 	DragLoopComponent->SetPitchMultiplier(0.85f + 0.45f * SpeedRatio);
 }
 
+void AIGListenerEntity::ReportDustTrail()
+{
+	// Asleep in the day, and still while he knocks or listens: dust rises from
+	// the drag, so a stationary body raises none.
+	if (bDormant || LastMoveSpeed <= 1.0f)
+	{
+		return;
+	}
+
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	if (!DustSubsystem)
+	{
+		DustSubsystem = World->GetSubsystem<UIGDustSubsystem>();
+		if (!DustSubsystem)
+		{
+			return;
+		}
+	}
+
+	// He crawls, so the plaster comes off low. 40 cm above the floor is where a
+	// torch held at chest height cuts through it.
+	const FVector DragHeight = GetActorLocation() - FVector(0.0f, 0.0f, 18.0f);
+	const float MovedCentimeters = bDustTrailSeeded
+		? static_cast<float>(FVector::Dist(LastDustReportLocation, DragHeight))
+		: 0.0f;
+	if (bDustTrailSeeded && MovedCentimeters < UIGDustSubsystem::MergeDistance)
+	{
+		return;
+	}
+
+	// A burst scrapes more wall than a patrol crawl does, so a chase leaves the
+	// brightest lane — the one the player most needs to read afterwards.
+	const float DragStrength = FMath::Clamp(LastMoveSpeed / 160.0f, 0.45f, 1.0f);
+	DustSubsystem->ReportDisturbance(DragHeight, DragStrength);
+
+	// One audible sift every few meters, never every sample: a continuous hiss
+	// would sit on top of the crawl bed and stop being information. The cue is
+	// the invitation — you hear powder fall somewhere, you raise the torch, and
+	// the lane tells you which way he went.
+	DustSiftCentimeters += MovedCentimeters;
+	if (DustSiftCentimeters >= IGListener::DustSiftIntervalCentimeters)
+	{
+		DustSiftCentimeters = 0.0f;
+		const UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+		// The two authored silences are holes in the mix, not quiet passages.
+		// Nothing crawls into them, and he is holding still through both anyway.
+		if (!AudioDirector || !AudioDirector->IsAuthoredSilence())
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreatePlasterDustFall(this),
+				DragHeight + FVector(0.0f, 0.0f, 24.0f),
+				IGListener::DustSiftVolume,
+				1.0f,
+				190.0f,
+				2200.0f,
+				EIGAudioBus::Entity);
+		}
+	}
+
+	LastDustReportLocation = DragHeight;
+	bDustTrailSeeded = true;
+}
+
 void AIGListenerEntity::UpdateThreatPressure()
 {
 	const AIGPlayerCharacter* Player =
@@ -1004,7 +1097,12 @@ void AIGListenerEntity::BeginCapture(APawn* Player)
 
 	// Not a roar: the calmed reply, from very close. Then the director's
 	// blackout and the half-past-four bed.
-	IGAudio::SpawnOneShotAt(
+	//
+	// The one dry cue in the building (§21.3). Every other knock all night has
+	// arrived wearing the corridor or the stairwell, and by now the player reads
+	// that wetness as distance without being told. Taking it to zero is the
+	// sentence: he is not down the hall any more.
+	IGAudio::SpawnDryOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateWallKnockReply(this),
 		Player ? Player->GetActorLocation() : GetActorLocation(),

@@ -210,7 +210,8 @@ void AIGMissingFloorPuzzleOneDirector::CreateBallastHum()
 	BallastHum->AttenuationSettings = IGAudio::MakeAttenuation(
 		this,
 		IGPuzzleOne::BallastHumInnerRadius,
-		IGPuzzleOne::BallastHumFalloff);
+		IGPuzzleOne::BallastHumFalloff,
+		EIGAudioBus::World);
 	BallastHum->bAllowSpatialization = true;
 	BallastHum->bAutoActivate = false;
 	BallastHum->SetVolumeMultiplier(IGPuzzleOne::BallastHumVolume);

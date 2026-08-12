@@ -7,6 +7,7 @@
 class USpotLightComponent;
 class UPointLightComponent;
 class UIGAccessibilitySubsystem;
+class UIGBeamDustComponent;
 
 /**
  * The handheld light the player carries from chapter two on.
@@ -73,6 +74,10 @@ public:
 	/** Presentation-only darkness cue; switch and availability stay intact. */
 	void TriggerBrownOut(float DurationSeconds);
 
+	/** The suspended plaster dust this beam reveals. See §11 V1. */
+	UFUNCTION(BlueprintPure, Category = "Flashlight")
+	UIGBeamDustComponent* GetBeamDust() const { return BeamDust; }
+
 protected:
 	/** Beam intensity in candelas at full charge. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Flashlight", meta = (ClampMin = "0.0"))
@@ -92,6 +97,14 @@ private:
 	/** Short-range fill so the torch lights the ground at the player's feet. */
 	UPROPERTY(VisibleAnywhere, Category = "Flashlight", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UPointLightComponent> Spill;
+
+	/**
+	 * Airborne plaster dust inside the cone. It belongs to the torch because
+	 * only the torch can reveal it, and it is driven from the beam's own swayed
+	 * transform so the motes hang in the building rather than on the view.
+	 */
+	UPROPERTY(VisibleAnywhere, Category = "Flashlight", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UIGBeamDustComponent> BeamDust;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UIGAccessibilitySubsystem> AccessibilitySubsystem;

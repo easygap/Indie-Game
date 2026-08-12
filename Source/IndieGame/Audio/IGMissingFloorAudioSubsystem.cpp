@@ -7,6 +7,9 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Player/IGPlayerCharacter.h"
+#include "Sound/ReverbEffect.h"
+#include "Sound/SoundAttenuation.h"
 #include "Sound/SoundBase.h"
 #include "Sound/SoundClass.h"
 #include "Sound/SoundMix.h"
@@ -21,6 +24,44 @@ namespace IGMissingFloorMix
 	constexpr float TitleKnockDelaySeconds = 4.0f;
 	constexpr float TitleReplyDelaySeconds = 1.15f;
 	constexpr float TitleCycleSeconds = 12.0f;
+
+	/**
+	 * §10.4 거리 리버브 문법. 두 프리셋은 같은 태그를 공유하므로 뒤에
+	 * 올린 쪽이 앞의 것을 밀어내며, 엔진이 FadeTime으로 섞어 준다.
+	 * 계단을 한 칸 오르는 시간보다 짧아야 공간 전환이 발소리와 맞는다.
+	 */
+	const FName AcousticSpaceReverbTag(TEXT("MissingFloor.AcousticSpace"));
+	constexpr float AcousticSpaceReverbPriority = 1.0f;
+	constexpr float AcousticCrossfadeSeconds = 0.90f;
+	constexpr float AcousticPollIntervalSeconds = 0.20f;
+
+	/**
+	 * 복도 — 1.2m 폭, 2.4m 천장, 석고 마감에 세대문 세 짝. 맨 콘크리트
+	 * 복도의 실측 잔향은 2초에 가깝지만, 이 게임의 시그니처 입력은
+	 * 「둘, 쉬고, 하나」 리듬이다. 1.25초로 당겨야 세 번의 타격이 서로
+	 * 뭉개지지 않고 플레이어가 되받아 칠 수 있다. 현실보다 서사가 먼저다.
+	 */
+	constexpr float CorridorDecayTime = 1.25f;
+	constexpr float CorridorDecayHFRatio = 0.72f;
+
+	/**
+	 * 계단실 — 마감 없는 콘크리트 수직 통로. 흡음이 없어 고역이 거의
+	 * 그대로 남고, 평행한 계단참 사이에서 플러터 에코가 생겨 후미가
+	 * 거칠어진다(Diffusion 낮음). 복도의 두 배 넘게 울리는 이 차이가
+	 * 「내 발소리가 계단에서 훨씬 오래 남는다」는 §5.1의 학습을 만든다.
+	 */
+	constexpr float StairwellDecayTime = 2.70f;
+	constexpr float StairwellDecayHFRatio = 0.95f;
+
+	/** 존재의 소리는 완전히 마르지 않는다. 마르면 같은 방이라는 뜻이다. */
+	constexpr float EntityReverbFloor = 0.22f;
+	constexpr float EntityReverbCeiling = 0.95f;
+	constexpr float PuzzleReverbFloor = 0.15f;
+	constexpr float PuzzleReverbCeiling = 0.80f;
+	constexpr float WorldReverbFloor = 0.10f;
+	constexpr float WorldReverbCeiling = 0.55f;
+	/** 내 몸의 소리는 거리가 항상 0이므로 고정 센드로 공간을 태운다. */
+	constexpr float PlayerManualReverbSend = 0.30f;
 
 	constexpr float BaseDecibels[] =
 	{
@@ -40,6 +81,21 @@ namespace IGMissingFloorMix
 		12, // WORLD
 		8,  // UI: navigation remains responsive under caption churn
 		2   // SCORE: current loop plus a release tail
+	};
+
+	/**
+	 * 어떤 버스가 건물 반향을 타는가. UI와 스코어는 방 안에서 나는 소리가
+	 * 아니므로 SoundClass 단계에서 끈다. FSoundClassProperties의 bReverb
+	 * 기본값이 true라서 반드시 명시해야 한다.
+	 */
+	constexpr bool BusUsesBuildingReverb[] =
+	{
+		true,  // ENTITY
+		true,  // PLAYER
+		true,  // PUZZLE
+		true,  // WORLD
+		false, // UI
+		false  // SCORE
 	};
 
 	const TCHAR* BusNames[] =
@@ -73,6 +129,7 @@ void UIGMissingFloorAudioSubsystem::Initialize(
 {
 	Super::Initialize(Collection);
 	BuildBusGraph();
+	BuildAcousticPresets();
 }
 
 void UIGMissingFloorAudioSubsystem::Deinitialize()
@@ -83,10 +140,19 @@ void UIGMissingFloorAudioSubsystem::Deinitialize()
 		{
 			UGameplayStatics::PopSoundMixModifier(World, RuntimeMix);
 		}
+		if (bAcousticSpaceApplied)
+		{
+			UGameplayStatics::DeactivateReverbEffect(
+				World,
+				IGMissingFloorMix::AcousticSpaceReverbTag);
+		}
 	}
 	StopScore(0.0f);
 	bMixPushed = false;
+	bAcousticSpaceApplied = false;
+	bAcousticSpaceResolved = false;
 	RuntimeMix = nullptr;
+	AcousticPresets.Reset();
 	BusSoundClasses.Reset();
 	for (TArray<FTrackedVoice>& Voices : ActiveVoices)
 	{
@@ -104,6 +170,9 @@ void UIGMissingFloorAudioSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 		bMixPushed = true;
 	}
 	RefreshMix(0.0f);
+	// 첫 프레임부터 복도가 울려 있어야 한다. 아직 한 걸음도 걷지 않은
+	// 플레이어는 밟은 표면이 없으므로 폴링이 값을 줄 수 없다.
+	SetAcousticSpace(AcousticSpace);
 }
 
 void UIGMissingFloorAudioSubsystem::Tick(const float DeltaTime)
@@ -127,6 +196,13 @@ void UIGMissingFloorAudioSubsystem::Tick(const float DeltaTime)
 	{
 		VoicePruneAccumulator = 0.0f;
 		PruneVoices();
+	}
+
+	AcousticPollAccumulator += DeltaTime;
+	if (AcousticPollAccumulator >= IGMissingFloorMix::AcousticPollIntervalSeconds)
+	{
+		AcousticPollAccumulator = 0.0f;
+		PollAcousticSpace();
 	}
 
 	const UWorld* World = GetWorld();
@@ -216,6 +292,103 @@ void UIGMissingFloorAudioSubsystem::SetThreatState(
 	if (!bTitleMode)
 	{
 		SwitchScore(NewState);
+	}
+}
+
+void UIGMissingFloorAudioSubsystem::SetAcousticSpace(
+	const EIGAcousticSpace NewSpace)
+{
+	const int32 SpaceIndex = FMath::Clamp(
+		static_cast<int32>(NewSpace),
+		0,
+		AcousticSpaceCount - 1);
+	const EIGAcousticSpace Clamped = static_cast<EIGAcousticSpace>(SpaceIndex);
+	if (bAcousticSpaceResolved && AcousticSpace == Clamped)
+	{
+		return;
+	}
+	const bool bFirstResolve = !bAcousticSpaceResolved;
+	AcousticSpace = Clamped;
+	bAcousticSpaceResolved = true;
+	// 첫 판정은 즉시 걸어야 시작 프레임이 드라이하게 새지 않는다. 이후
+	// 공간 변화는 계단 한 칸을 오르는 시간 안에 섞인다.
+	ApplyAcousticSpace(
+		bFirstResolve ? 0.0f : IGMissingFloorMix::AcousticCrossfadeSeconds);
+}
+
+EIGAcousticSpace UIGMissingFloorAudioSubsystem::ClassifyAcousticSpace(
+	const EIGFootstepSurface Surface)
+{
+	switch (Surface)
+	{
+	case EIGFootstepSurface::MetalStair:
+		return EIGAcousticSpace::Stairwell;
+	case EIGFootstepSurface::Rooftop:
+		// 옥상은 반사면이 바닥 하나뿐이다. 건물 반향을 태우면 실내가 된다.
+		return EIGAcousticSpace::Open;
+	default:
+		return EIGAcousticSpace::Corridor;
+	}
+}
+
+UReverbEffect* UIGMissingFloorAudioSubsystem::GetAcousticPreset(
+	const EIGAcousticSpace Space) const
+{
+	const int32 SpaceIndex = static_cast<int32>(Space);
+	return AcousticPresets.IsValidIndex(SpaceIndex)
+		? AcousticPresets[SpaceIndex]
+		: nullptr;
+}
+
+void UIGMissingFloorAudioSubsystem::ConfigureReverbSend(
+	FSoundAttenuationSettings& Settings,
+	const EIGAudioBus Bus,
+	const float InnerRadius,
+	const float FalloffDistance)
+{
+	if (!IGMissingFloorMix::BusUsesBuildingReverb[IGMissingFloorMix::ToIndex(Bus)])
+	{
+		Settings.bEnableReverbSend = false;
+		return;
+	}
+
+	Settings.bEnableReverbSend = true;
+
+	if (Bus == EIGAudioBus::Player)
+	{
+		// 내 발소리와 호흡은 청취자와 같은 자리에서 난다. 거리로 젖음을
+		// 구하면 언제나 최솟값이 되어 콘크리트 계단에서도 마른 소리가
+		// 난다. 그래서 센드는 고정하고, 대신 프리셋이 길이를 바꾼다 —
+		// 계단에서 내 소리가 오래 남는다는 사실이 §5.1의 압박이 된다.
+		Settings.ReverbSendMethod = EReverbSendMethod::Manual;
+		Settings.ManualReverbSendLevel =
+			IGMissingFloorMix::PlayerManualReverbSend;
+		return;
+	}
+
+	// 가까울수록 마르고 멀수록 젖는다. 플레이어는 이 한 축으로 거리를 읽고,
+	// 드라이하게 들리는 순간을 「같은 방」으로 배운다.
+	Settings.ReverbSendMethod = EReverbSendMethod::Linear;
+	Settings.ReverbDistanceMin = FMath::Clamp(InnerRadius, 120.0f, 400.0f);
+	Settings.ReverbDistanceMax = FMath::Max(
+		Settings.ReverbDistanceMin + 200.0f,
+		FMath::Max(1.0f, FalloffDistance) * 0.85f);
+	switch (Bus)
+	{
+	case EIGAudioBus::Entity:
+		Settings.ReverbWetLevelMin = IGMissingFloorMix::EntityReverbFloor;
+		Settings.ReverbWetLevelMax = IGMissingFloorMix::EntityReverbCeiling;
+		break;
+	case EIGAudioBus::Puzzle:
+		// 배관과 물은 구조체를 타고 온다. 소품보다 항상 더 젖어 있다.
+		Settings.ReverbWetLevelMin = IGMissingFloorMix::PuzzleReverbFloor;
+		Settings.ReverbWetLevelMax = IGMissingFloorMix::PuzzleReverbCeiling;
+		break;
+	case EIGAudioBus::World:
+	default:
+		Settings.ReverbWetLevelMin = IGMissingFloorMix::WorldReverbFloor;
+		Settings.ReverbWetLevelMax = IGMissingFloorMix::WorldReverbCeiling;
+		break;
 	}
 }
 
@@ -451,6 +624,60 @@ bool UIGMissingFloorAudioSubsystem::ValidateContract(
 			OutFailure = FString::Printf(TEXT("bus %d has no voice cap"), Index);
 			return false;
 		}
+		if (SoundClass->Properties.bReverb
+			!= IGMissingFloorMix::BusUsesBuildingReverb[Index])
+		{
+			OutFailure = FString::Printf(
+				TEXT("bus %d building-reverb routing drifted"), Index);
+			return false;
+		}
+	}
+
+	// §10.4 거리 리버브 문법: 두 프리셋이 존재하고, 계단실이 복도보다
+	// 두 배 이상 길게 울리며 고역을 더 오래 붙잡아야 공간이 구분된다.
+	const UReverbEffect* Corridor =
+		GetAcousticPreset(EIGAcousticSpace::Corridor);
+	const UReverbEffect* Stairwell =
+		GetAcousticPreset(EIGAcousticSpace::Stairwell);
+	if (!Corridor || !Stairwell)
+	{
+		OutFailure = TEXT("acoustic space presets were not constructed");
+		return false;
+	}
+	if (GetAcousticPreset(EIGAcousticSpace::Open))
+	{
+		OutFailure = TEXT("open air must not carry a building reverb preset");
+		return false;
+	}
+	if (Stairwell->DecayTime < Corridor->DecayTime * 2.0f)
+	{
+		OutFailure = TEXT("stairwell does not ring twice the corridor");
+		return false;
+	}
+	if (Stairwell->DecayHFRatio <= Corridor->DecayHFRatio)
+	{
+		OutFailure = TEXT("bare concrete must hold high frequencies longer");
+		return false;
+	}
+	if (Stairwell->Diffusion >= Corridor->Diffusion)
+	{
+		OutFailure = TEXT("stairwell flutter echo must stay grainier");
+		return false;
+	}
+
+	// 존재의 소리는 항상 건물을 태운다. 마르는 순간은 같은 방을 뜻하므로
+	// 하한이 0이면 이 문법이 성립하지 않는다.
+	if (IGMissingFloorMix::EntityReverbFloor <= 0.0f
+		|| IGMissingFloorMix::EntityReverbCeiling
+			<= IGMissingFloorMix::WorldReverbCeiling)
+	{
+		OutFailure = TEXT("entity cues do not ride the building reverb");
+		return false;
+	}
+	if (IGMissingFloorMix::PlayerManualReverbSend <= 0.0f)
+	{
+		OutFailure = TEXT("player body cues must ring the space they stand in");
+		return false;
 	}
 	if (!FMath::IsNearlyEqual(
 		GetEffectiveBusDecibels(EIGAudioBus::Entity), 0.0f, 0.01f))
@@ -486,9 +713,116 @@ void UIGMissingFloorAudioSubsystem::BuildBusGraph()
 			IGMissingFloorMix::BaseDecibels[Index]);
 		SoundClass->Properties.Pitch = 1.0f;
 		SoundClass->Properties.bIsUISound = Index == static_cast<int32>(EIGAudioBus::UI);
+		SoundClass->Properties.bReverb =
+			IGMissingFloorMix::BusUsesBuildingReverb[Index];
+		// 2D 소리의 기본 센드는 0으로 남긴다. 젖음은 거리를 아는 감쇠
+		// 설정에서만 결정되고, 화면에 붙은 소리는 방을 갖지 않는다.
+		SoundClass->Properties.Default2DReverbSendAmount = 0.0f;
 		BusSoundClasses[Index] = SoundClass;
 	}
 	RuntimeMix = NewObject<USoundMix>(this, TEXT("MIX_MISSING_FLOOR_RUNTIME"));
+}
+
+void UIGMissingFloorAudioSubsystem::BuildAcousticPresets()
+{
+	AcousticPresets.SetNum(AcousticSpaceCount);
+
+	// 복도: 석고 마감과 세대문이 고역을 먼저 먹는다. 첫 반사가 9ms면
+	// 1.5m 안쪽 벽까지의 왕복과 맞고, 확산이 높아 후미가 매끄럽다.
+	UReverbEffect* Corridor = NewObject<UReverbEffect>(
+		this,
+		TEXT("REVERB_MISSING_FLOOR_CORRIDOR"));
+	Corridor->bBypassEarlyReflections = false;
+	Corridor->bBypassLateReflections = false;
+	Corridor->ReflectionsDelay = 0.009f;
+	Corridor->ReflectionsGain = 0.28f;
+	Corridor->GainHF = 0.62f;
+	Corridor->LateDelay = 0.015f;
+	Corridor->LateGain = 1.05f;
+	Corridor->DecayTime = IGMissingFloorMix::CorridorDecayTime;
+	Corridor->DecayHFRatio = IGMissingFloorMix::CorridorDecayHFRatio;
+	Corridor->Density = 0.86f;
+	Corridor->Diffusion = 0.80f;
+	Corridor->AirAbsorptionGainHF = 0.986f;
+	Corridor->Gain = 0.32f;
+	AcousticPresets[static_cast<int32>(EIGAcousticSpace::Corridor)] = Corridor;
+
+	// 계단실: 마감이 없다. 고역이 거의 그대로 남고(DecayHFRatio 0.95),
+	// 평행한 참 사이의 플러터 에코 때문에 확산이 낮아 후미가 거칠다.
+	// 첫 반사가 16ms로 늦은 것이 「높은 통로」의 단서다.
+	UReverbEffect* Stairwell = NewObject<UReverbEffect>(
+		this,
+		TEXT("REVERB_MISSING_FLOOR_STAIRWELL"));
+	Stairwell->bBypassEarlyReflections = false;
+	Stairwell->bBypassLateReflections = false;
+	Stairwell->ReflectionsDelay = 0.016f;
+	Stairwell->ReflectionsGain = 0.45f;
+	Stairwell->GainHF = 0.80f;
+	Stairwell->LateDelay = 0.024f;
+	Stairwell->LateGain = 1.32f;
+	Stairwell->DecayTime = IGMissingFloorMix::StairwellDecayTime;
+	Stairwell->DecayHFRatio = IGMissingFloorMix::StairwellDecayHFRatio;
+	Stairwell->Density = 0.95f;
+	Stairwell->Diffusion = 0.58f;
+	Stairwell->AirAbsorptionGainHF = 0.991f;
+	Stairwell->Gain = 0.40f;
+	AcousticPresets[static_cast<int32>(EIGAcousticSpace::Stairwell)] = Stairwell;
+
+	// Open은 의도적으로 비어 있다. 건물 밖은 프리셋이 아니라 프리셋의
+	// 부재로 표현한다.
+	AcousticPresets[static_cast<int32>(EIGAcousticSpace::Open)] = nullptr;
+}
+
+void UIGMissingFloorAudioSubsystem::ApplyAcousticSpace(const float FadeSeconds)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	UReverbEffect* Preset = GetAcousticPreset(AcousticSpace);
+	if (!Preset)
+	{
+		if (bAcousticSpaceApplied)
+		{
+			UGameplayStatics::DeactivateReverbEffect(
+				World,
+				IGMissingFloorMix::AcousticSpaceReverbTag);
+			bAcousticSpaceApplied = false;
+		}
+		return;
+	}
+
+	UGameplayStatics::ActivateReverbEffect(
+		World,
+		Preset,
+		IGMissingFloorMix::AcousticSpaceReverbTag,
+		IGMissingFloorMix::AcousticSpaceReverbPriority,
+		1.0f,
+		FMath::Max(0.0f, FadeSeconds));
+	bAcousticSpaceApplied = true;
+}
+
+void UIGMissingFloorAudioSubsystem::PollAcousticSpace()
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	const APlayerController* Controller = World->GetFirstPlayerController();
+	const AIGPlayerCharacter* Character = Controller
+		? Cast<AIGPlayerCharacter>(Controller->GetPawn())
+		: nullptr;
+	if (!Character)
+	{
+		return;
+	}
+	// 마지막으로 밟은 표면은 끈적하게 유지된다. 계단참에 멈춰 서 있어도
+	// 계단실 반향이 풀리지 않는 것이 옳다 — 공간은 걷지 않아도 그대로다.
+	SetAcousticSpace(
+		ClassifyAcousticSpace(Character->GetLastFootstepSurface()));
 }
 
 void UIGMissingFloorAudioSubsystem::RefreshMix(const float FadeSeconds)

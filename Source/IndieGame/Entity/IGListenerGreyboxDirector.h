@@ -116,6 +116,10 @@ private:
 	{
 		Inactive,
 		AudioVisualContract,
+		/** §10.4 reverb grammar and the §11 V1 airborne-dust world model. */
+		PerceptionContract,
+		/** The torch beam actually populating and thickening over his lane. */
+		BeamDustContract,
 		PuzzleOneContract,
 		SealContract,
 		MaskingContract,
@@ -160,6 +164,8 @@ private:
 	FTimerHandle CaptureTimer;
 	FVector ProbeNoiseLocation = FVector::ZeroVector;
 	FVector ExpectedWakeLocation = FVector::ZeroVector;
+	/** Trail sample the beam-dust step lit up, so it can be cleaned up after. */
+	FVector ProbeDustTrailLocation = FVector::ZeroVector;
 	bool bStageReady = false;
 	bool bProbeRequested = false;
 	FTimerHandle SetupTimer;

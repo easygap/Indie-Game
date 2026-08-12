@@ -25,6 +25,9 @@
 #include "Entity/IGNightOneBeatDirector.h"
 #include "Entity/IGNightPhaseDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
+#include "Environment/IGDustSubsystem.h"
+#include "Player/IGBeamDustComponent.h"
+#include "Player/IGFlashlightComponent.h"
 #include "HAL/PlatformMisc.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
@@ -689,6 +692,166 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("M6 silence or dynamic ducking values drifted"));
 			return;
 		}
+		ProbeStep = EProbeStep::PerceptionContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::PerceptionContract:
+	{
+		UIGMissingFloorAudioSubsystem* AudioDirector =
+			GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+		UIGDustSubsystem* Dust = GetWorld()->GetSubsystem<UIGDustSubsystem>();
+		AIGPlayerCharacter* PlayerCharacter = Player.Get();
+		UIGFlashlightComponent* Torch = PlayerCharacter
+			? PlayerCharacter->GetFlashlight()
+			: nullptr;
+		if (!AudioDirector || !Dust || !Torch)
+		{
+			FailProbe(TEXT("perception subsystems or the torch are missing"));
+			return;
+		}
+
+		// §10.4: only stair treads are the stairwell, only the roof slab is
+		// outside, and everything else in the building is corridor.
+		const bool bSpaceMapMatches =
+			UIGMissingFloorAudioSubsystem::ClassifyAcousticSpace(
+				EIGFootstepSurface::MetalStair) == EIGAcousticSpace::Stairwell
+			&& UIGMissingFloorAudioSubsystem::ClassifyAcousticSpace(
+				EIGFootstepSurface::Rooftop) == EIGAcousticSpace::Open
+			&& UIGMissingFloorAudioSubsystem::ClassifyAcousticSpace(
+				EIGFootstepSurface::Concrete) == EIGAcousticSpace::Corridor
+			&& UIGMissingFloorAudioSubsystem::ClassifyAcousticSpace(
+				EIGFootstepSurface::Vinyl) == EIGAcousticSpace::Corridor
+			&& UIGMissingFloorAudioSubsystem::ClassifyAcousticSpace(
+				EIGFootstepSurface::GypsumDebris) == EIGAcousticSpace::Corridor;
+		AudioDirector->SetAcousticSpace(EIGAcousticSpace::Stairwell);
+		const bool bStairwellApplied =
+			AudioDirector->GetAcousticSpace() == EIGAcousticSpace::Stairwell;
+		AudioDirector->SetAcousticSpace(EIGAcousticSpace::Open);
+		const bool bOpenIsDry =
+			AudioDirector->GetAcousticSpace() == EIGAcousticSpace::Open
+			&& AudioDirector->GetAcousticPreset(EIGAcousticSpace::Open) == nullptr;
+		AudioDirector->SetAcousticSpace(EIGAcousticSpace::Corridor);
+		const bool bPresetsBuilt =
+			AudioDirector->GetAcousticPreset(EIGAcousticSpace::Corridor) != nullptr
+			&& AudioDirector->GetAcousticPreset(EIGAcousticSpace::Stairwell)
+				!= nullptr;
+		if (!bSpaceMapMatches || !bStairwellApplied || !bOpenIsDry
+			|| !bPresetsBuilt)
+		{
+			FailProbe(TEXT("§10.4 acoustic space routing drifted"));
+			return;
+		}
+
+		// §11 V1: one stir doubles the air where it happened, changes nothing a
+		// room away, and merges rather than piling up along a slow crawl.
+		Dust->ClearDisturbances();
+		const FVector Stir = ProbeNoiseLocation;
+		const bool bStartsClean = Dust->GetLiveDisturbanceCount() == 0
+			&& FMath::IsNearlyEqual(
+				Dust->GetDensityMultiplierAt(Stir), 1.0f, 0.001f);
+		Dust->ReportDisturbance(Stir, 1.0f);
+		const bool bDoublesAtStir = FMath::IsNearlyEqual(
+			Dust->GetDensityMultiplierAt(Stir),
+			UIGDustSubsystem::MaxDensityMultiplier,
+			0.02f);
+		const bool bOrdinaryAwayFromStir = FMath::IsNearlyEqual(
+			Dust->GetDensityMultiplierAt(
+				Stir + FVector(UIGDustSubsystem::DisturbanceRadius * 2.0f, 0, 0)),
+			1.0f,
+			0.001f);
+		Dust->ReportDisturbance(
+			Stir + FVector(UIGDustSubsystem::MergeDistance * 0.5f, 0.0f, 0.0f),
+			1.0f);
+		const bool bMergesNearby = Dust->GetLiveDisturbanceCount() == 1;
+		Dust->ReportDisturbance(Stir + FVector(320.0f, 0.0f, 0.0f), 1.0f);
+		const bool bKeepsSeparateLane = Dust->GetLiveDisturbanceCount() == 2;
+		Dust->ClearDisturbances();
+		const bool bResetForgets = Dust->GetLiveDisturbanceCount() == 0;
+		if (!bStartsClean || !bDoublesAtStir || !bOrdinaryAwayFromStir
+			|| !bMergesNearby || !bKeepsSeparateLane || !bResetForgets)
+		{
+			FailProbe(TEXT("§11 V1 airborne dust model drifted"));
+			return;
+		}
+
+		// Arm the beam over a fresh lane and let it tick once before asserting.
+		const UCameraComponent* Camera = PlayerCharacter->GetFirstPersonCamera();
+		const FVector CameraLocation = Camera
+			? Camera->GetComponentLocation()
+			: PlayerCharacter->GetActorLocation();
+		const FVector CameraForward = Camera
+			? Camera->GetForwardVector()
+			: PlayerCharacter->GetActorForwardVector();
+		ProbeDustTrailLocation = CameraLocation + CameraForward * 260.0f;
+		Dust->ReportDisturbance(ProbeDustTrailLocation, 1.0f);
+		Torch->SetAvailable(true);
+		Torch->SetOn(true);
+		ProbeStep = EProbeStep::BeamDustContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::BeamDustContract:
+	{
+		AIGPlayerCharacter* PlayerCharacter = Player.Get();
+		UIGFlashlightComponent* Torch = PlayerCharacter
+			? PlayerCharacter->GetFlashlight()
+			: nullptr;
+		UIGBeamDustComponent* BeamDust = Torch ? Torch->GetBeamDust() : nullptr;
+		UIGDustSubsystem* Dust = GetWorld()->GetSubsystem<UIGDustSubsystem>();
+		if (!Torch || !BeamDust || !Dust)
+		{
+			FailProbe(TEXT("beam dust component is missing from the torch"));
+			return;
+		}
+		if (!Torch->IsOn())
+		{
+			FailProbe(TEXT("the torch would not stay lit for the dust contract"));
+			return;
+		}
+
+		// Ordinary air already carries a cloud; his lane carries twice as much,
+		// and the extra motes are anchored to the lane rather than sprinkled.
+		const int32 LitMotes = BeamDust->GetActiveMoteCount();
+		const float LaneDensity = BeamDust->GetBeamDensityMultiplier();
+		if (LitMotes < UIGBeamDustComponent::BaseMoteCount)
+		{
+			FailProbe(FString::Printf(
+				TEXT("lit beam carries only %d motes"),
+				LitMotes));
+			return;
+		}
+		if (LaneDensity < 1.5f
+			|| LitMotes < UIGBeamDustComponent::BaseMoteCount
+				+ UIGBeamDustComponent::TrailMoteCount / 2)
+		{
+			FailProbe(FString::Printf(
+				TEXT("his lane did not thicken the beam: x%.2f, %d motes"),
+				LaneDensity,
+				LitMotes));
+			return;
+		}
+
+		Torch->SetOn(false);
+		if (BeamDust->GetActiveMoteCount() != 0)
+		{
+			FailProbe(TEXT("motes survived the torch going out"));
+			return;
+		}
+		Torch->SetAvailable(false);
+		Dust->ClearDisturbances();
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_PERCEPTION PASS: corridor/stairwell reverb, "
+				"dust x%.2f over his lane, %d/%d motes lit, dry when dark"),
+			LaneDensity,
+			LitMotes,
+			UIGBeamDustComponent::MaxMoteCount);
+
 		ProbeStep = EProbeStep::PuzzleOneContract;
 		StepDeadlineSeconds = 0.0f;
 		break;

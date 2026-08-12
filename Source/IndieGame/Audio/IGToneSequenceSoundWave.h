@@ -330,6 +330,22 @@ public:
 	 */
 	static UIGToneSequenceSoundWave* CreatePlasterSettle(UObject* Outer);
 
+	/**
+	 * 분진 낙하 (§10.3, parameters fixed by §21.3) — the fine powder his drag
+	 * scrapes off a joint, sifting down onto tile over 0.90 s. Deliberately the
+	 * thinnest cue in the game: broadband hiss high-passed at 6 kHz with an
+	 * exponential decay, and **no low frequency at all**. Powder has no mass, so
+	 * anything lower would turn it into the wall itself moving — that is
+	 * CreatePlasterSettle — or into falling debris, which is 미장 갈라짐.
+	 *
+	 * Being pure high frequency is also why it works: the §10.2 listening window
+	 * drops the low end by 6 dB, so this survives the duck that swallows
+	 * everything else, and it is the one cue that says "he passed here" rather
+	 * than "he is here". It rides BUS_ENTITY, so §10.4 reverb tells the player
+	 * whether the sift is two floors up or in this corridor.
+	 */
+	static UIGToneSequenceSoundWave* CreatePlasterDustFall(UObject* Outer);
+
 private:
 	static float EvaluateWaveform(EIGToneWaveform Waveform, float FrequencyHz, double NoteTimeSeconds);
 	static float EvaluateEnvelope(const FIGToneNote& Note, float NoteProgress01);

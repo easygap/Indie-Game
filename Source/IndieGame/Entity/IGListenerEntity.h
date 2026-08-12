@@ -7,6 +7,7 @@
 
 class UAudioComponent;
 class UCapsuleComponent;
+class UIGDustSubsystem;
 class UMaterialInterface;
 class UStaticMeshComponent;
 
@@ -169,6 +170,13 @@ private:
 	void UpdateDragLoop(float CurrentSpeed);
 	void UpdateThreatPressure();
 
+	/**
+	 * Leaves the plaster dust his drag raises in the air (§11 V1). It is a
+	 * report, not a render: the torch decides whether anyone ever sees it, and
+	 * he does not know he is leaving a trail any more than he knows he is loud.
+	 */
+	void ReportDustTrail();
+
 	void BeginCapture(APawn* Player);
 
 	UPROPERTY(VisibleAnywhere, Category = "Listener|Components")
@@ -198,6 +206,9 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UIGNoiseSubsystem> NoiseSubsystem;
 
+	UPROPERTY(Transient)
+	TObjectPtr<UIGDustSubsystem> DustSubsystem;
+
 	FDelegateHandle NoiseHandle;
 
 	UPROPERTY(EditAnywhere, Category = "Listener|Patrol")
@@ -221,6 +232,9 @@ private:
 	float SearchRetargetSeconds = 0.0f;
 	float StuckSeconds = 0.0f;
 	float LastMoveSpeed = 0.0f;
+	FVector LastDustReportLocation = FVector::ZeroVector;
+	float DustSiftCentimeters = 0.0f;
+	bool bDustTrailSeeded = false;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<APawn> CachedPlayer;

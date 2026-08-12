@@ -1380,7 +1380,11 @@ void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 	WaterMaskBed->SetWorldLocation(FVector(305.0f, 700.0f, 1300.0f));
 	WaterMaskBed->SetSound(
 		UIGToneSequenceSoundWave::CreateFloodedCorridorWaterBed(this));
-	WaterMaskBed->AttenuationSettings = IGAudio::MakeAttenuation(this, 180.0f, 1500.0f);
+	WaterMaskBed->AttenuationSettings = IGAudio::MakeAttenuation(
+		this,
+		180.0f,
+		1500.0f,
+		EIGAudioBus::Puzzle);
 	WaterMaskBed->bAllowSpatialization = true;
 	WaterMaskBed->SetVolumeMultiplier(0.62f);
 	if (UWorld* World = GetWorld())

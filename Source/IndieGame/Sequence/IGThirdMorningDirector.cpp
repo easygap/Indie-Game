@@ -9742,7 +9742,7 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	};
 
 	TArray<FAudioTrackProbe> Tracks;
-	constexpr int32 ExpectedTrackCount = 8;
+	constexpr int32 ExpectedTrackCount = 9;
 	Tracks.Reserve(ExpectedTrackCount);
 	const auto AddAmbienceTrack =
 		[this, &Tracks](
@@ -9776,6 +9776,13 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 		nullptr});
 	AddAmbienceTrack(TEXT("M4.WindRope"), EIGAmbienceMode::RoofWindRope, 0xA400004u);
 	AddAmbienceTrack(TEXT("M4.TankPressure"), EIGAmbienceMode::RoofTankPressure, 0xA400005u);
+	// The thinnest cue in the game still has to render real samples. A dust
+	// sift that renders silence would be indistinguishable from a bug, because
+	// nobody would notice the difference by ear.
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("V1.PlasterDustFall"),
+		UIGToneSequenceSoundWave::CreatePlasterDustFall(this),
+		nullptr});
 	UIGToneSequenceSoundWave* EndingBReturnHome =
 		UIGToneSequenceSoundWave::CreateEndingBReturnHomeBed(this);
 	Tracks.Add(FAudioTrackProbe{
