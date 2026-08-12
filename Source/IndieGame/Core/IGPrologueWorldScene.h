@@ -501,7 +501,7 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Prologue|Atmosphere")
 	TObjectPtr<UDirectionalLightComponent> MoonLight;
 
-	/** Everything on the 4th floor (unit 404 + its corridor) hangs off this. */
+	/** Everything on the 4th floor (unit 403 + its corridor) hangs off this. */
 	UPROPERTY(Transient)
 	TObjectPtr<USceneComponent> UpperFloorRoot;
 

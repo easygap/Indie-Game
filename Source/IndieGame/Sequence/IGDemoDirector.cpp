@@ -140,13 +140,14 @@ void AIGDemoDirector::BuildScript()
 {
 	Steps.Reset();
 
-	constexpr float FloorZ = 900.0f; // unit 404 is on the 4th floor
+	constexpr float FloorZ = 900.0f; // unit 403 is on the 4th floor
 	constexpr float StandingPawnZ = FloorZ + 98.0f;
 	const FVector AlarmSpot(-160, -35, FloorZ + 75);
 	const FVector FridgeFace(122, -20, FloorZ + 105);
 	const FVector FridgeInside(150, -20, FloorZ + 100);
 	const FVector WalletSpot(-150, -185, FloorZ + 80);
 	const FVector DoorSpot(140, -218, FloorZ + 120);
+	const FVector NotFoundNoteSpot(216, -235, FloorZ + 171);
 	const FVector ElevatorSpot(700, -305, FloorZ + 110);
 	const FVector KitchenSpot(168, 130, FloorZ + 110);
 	const FVector NeighbourDoorSpot(-40, -242, FloorZ + 118);
@@ -201,6 +202,12 @@ void AIGDemoDirector::BuildScript()
 	// The matching overshoot settles the pawn near y=-305, squarely across
 	// the threshold and clear of both the opened leaf and corridor walls.
 	Steps.Add(MakeWalk(FVector(143, -360, 0)));
+	// Reproducible close QA for the 403 entrance wall and optional 404 joke. This
+	// still is intentionally not used in the player-facing README: publishing
+	// an easter egg as a feature screenshot would erase the discovery.
+	Steps.Add(MakeWalkLook(FVector(310, -350, 0), NotFoundNoteSpot));
+	Steps.Add(MakeWait(0.8f, NotFoundNoteSpot));
+	Steps.Add(MakeStill(TEXT("prologue-not-found-note")));
 
 	// -- 4F corridor and the elevator ride down ---------------------------
 	// The lift is at the far end, so this is a real walk down the hallway.
@@ -504,9 +511,10 @@ void AIGDemoDirector::RequestStill(const FString& BaseName) const
 		PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
 	}
 
-	if (BaseName == TEXT("prologue-corridor"))
+	if (BaseName == TEXT("prologue-corridor")
+		|| BaseName == TEXT("prologue-not-found-note"))
 	{
-		// The 404 leaf otherwise occupies most of the frame from the authored
+		// The 403 leaf otherwise occupies most of the frame from the authored
 		// landing position and hides the corridor the still is meant to show.
 		if (AIGSwingDoor* Door = HomeDoor.Get())
 		{

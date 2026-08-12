@@ -180,12 +180,20 @@ MASK_MATERIALS = {
 
 PRINT_MATERIALS = {
     "M_NoteFridge": "T_NoteFridge_D",
+    "M_Note404NotFound": "T_Note404NotFound_D",
     "M_LabelWater": "T_LabelWater_D",
     "M_LabelGreenTea": "T_LabelGreenTea_D",
     "M_LabelBarley": "T_LabelBarley_D",
     "M_LabelSoda": "T_LabelSoda_D",
     "M_LabelSoju": "T_LabelSoju_D",
     "M_LabelRamyeon": "T_LabelRamyeon_D",
+}
+
+ENTRANCE_PLATE_MATERIALS = {
+    "M_Plate401": "T_Plate401_D",
+    "M_Plate402": "T_Plate402_D",
+    "M_Plate403": "T_Plate403_D",
+    "M_PlateCommon": "T_PlateCommon_D",
 }
 
 INSTANCED_PRODUCT_MATERIALS = {
@@ -228,6 +236,9 @@ EVIDENCE_MASK_MATERIALS = {
     "M_MissingFloorDustJoint": "T_MissingFloorDustJoint_M",
     "M_MissingFloorCavityScratches": "T_MissingFloorCavityScratches_M",
 }
+
+TWO_SIDED_PRINT_MATERIALS = {"M_Note404NotFound"}
+ALL_PRINT_MATERIALS = {**PRINT_MATERIALS, **ENTRANCE_PLATE_MATERIALS}
 
 
 def require(condition: bool, message: str) -> None:
@@ -360,6 +371,29 @@ def validate_textures() -> int:
             f"Print texture is below inspection resolution: {texture_name}",
         )
         checked += 1
+    for texture_name in sorted(set(ENTRANCE_PLATE_MATERIALS.values())):
+        texture = load(
+            f"/Game/Prototype/Textures/{texture_name}", unreal.Texture2D
+        )
+        require(
+            texture.get_editor_property("srgb"),
+            f"Plate texture must be sRGB: {texture_name}",
+        )
+        require(
+            texture.get_editor_property("address_x") == unreal.TextureAddress.TA_CLAMP
+            and texture.get_editor_property("address_y") == unreal.TextureAddress.TA_CLAMP,
+            f"Plate texture edges must clamp at the authored border: {texture_name}",
+        )
+        require(
+            texture.get_editor_property("filter") == unreal.TextureFilter.TF_DEFAULT,
+            f"Plate texture must inherit the World sampler: {texture_name}",
+        )
+        require(
+            texture.blueprint_get_size_x() >= 128
+            and texture.blueprint_get_size_y() >= 64,
+            f"Plate texture is below authored resolution: {texture_name}",
+        )
+        checked += 1
     return checked
 
 
@@ -471,7 +505,7 @@ def validate_materials() -> tuple[int, int]:
         material_input(material, unreal.MaterialProperty.MP_OPACITY_MASK)
         linked_textures += 1
         checked += 1
-    for name, texture_name in PRINT_MATERIALS.items():
+    for name, texture_name in ALL_PRINT_MATERIALS.items():
         material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
         errors = unreal.MaterialEditingLibrary.recompile_material(material)
         require(not errors, f"Printed material compile failed: {name}: {errors}")
@@ -482,6 +516,11 @@ def validate_materials() -> tuple[int, int]:
         )
         material_input(material, unreal.MaterialProperty.MP_BASE_COLOR)
         material_input(material, unreal.MaterialProperty.MP_ROUGHNESS)
+        if name in TWO_SIDED_PRINT_MATERIALS:
+            require(
+                material.get_editor_property("two_sided"),
+                f"Printed paper lost two-sided rendering: {name}",
+            )
         linked_textures += 1
         checked += 1
     for name in sorted(INSTANCED_PRODUCT_MATERIALS):

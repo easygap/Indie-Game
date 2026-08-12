@@ -4,6 +4,7 @@ param(
 	[switch]$CodeOnly,
 	[switch]$HudUiOnly,
 	[switch]$ApartmentVisualOnly,
+	[switch]$CorridorSignageOnly,
 	[switch]$MissingFloorOnly,
 	[switch]$TankWaterOnly,
 	[switch]$TankInteriorOnly,
@@ -93,18 +94,20 @@ $modeCount = @(
 	$CodeOnly.IsPresent,
 	$HudUiOnly.IsPresent,
 	$ApartmentVisualOnly.IsPresent,
+	$CorridorSignageOnly.IsPresent,
 	$MissingFloorOnly.IsPresent,
 	$TankWaterOnly.IsPresent,
 	$TankInteriorOnly.IsPresent,
 	$SubmergedClothingOnly.IsPresent
 ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($modeCount -gt 1) {
-	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
+	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, CorridorSignageOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
 }
 
 if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	-not $SubmergedClothingOnly -and -not $HudUiOnly -and
-	-not $ApartmentVisualOnly -and -not $MissingFloorOnly) {
+	-not $ApartmentVisualOnly -and -not $CorridorSignageOnly -and
+	-not $MissingFloorOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
 
 	$python = Get-Command python -ErrorAction Stop
@@ -179,6 +182,10 @@ if ($SourceOnly) {
 	return
 }
 
+if ($CorridorSignageOnly) {
+	& (Join-Path $PSScriptRoot 'Create-SignTextures.ps1') -CorridorEntranceOnly
+}
+
 $editorOutput = @(
 	& powershell.exe `
 		-NoProfile `
@@ -247,13 +254,17 @@ if ($CodeOnly) {
 	return
 }
 
-if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly -or
-	$TankInteriorOnly -or $SubmergedClothingOnly) {
+if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
+	$MissingFloorOnly -or $TankWaterOnly -or $TankInteriorOnly -or
+	$SubmergedClothingOnly) {
 	$targetName = if ($HudUiOnly) {
 		'HudUi'
 	}
 	elseif ($ApartmentVisualOnly) {
 		'ApartmentVisual'
+	}
+	elseif ($CorridorSignageOnly) {
+		'CorridorSignage'
 	}
 	elseif ($MissingFloorOnly) {
 		'MissingFloor'
@@ -273,6 +284,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 	elseif ($ApartmentVisualOnly) {
 		'IG_APARTMENT_VISUAL_ONLY'
 	}
+	elseif ($CorridorSignageOnly) {
+		'IG_CORRIDOR_SIGNAGE_ONLY'
+	}
 	elseif ($MissingFloorOnly) {
 		'IG_MISSING_FLOOR_ONLY'
 	}
@@ -290,6 +304,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 	}
 	elseif ($ApartmentVisualOnly) {
 		'\[IndieGame\] Apartment visual material update complete'
+	}
+	elseif ($CorridorSignageOnly) {
+		'\[IndieGame\] Corridor entrance signage material update complete'
 	}
 	elseif ($MissingFloorOnly) {
 		'\[IndieGame\] Missing-floor visual material update complete'
@@ -328,6 +345,18 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 			'Content\Prototype\Materials\M_Wallpaper_Y.uasset',
 			'Content\Prototype\Materials\M_WallpaperCeil.uasset',
 			'Content\Prototype\Materials\M_ApartmentWallPatina.uasset'
+		)
+	}
+	elseif ($CorridorSignageOnly) {
+		@(
+			'Content\Prototype\Textures\T_Note404NotFound_D.uasset',
+			'Content\Prototype\Textures\T_Plate401_D.uasset',
+			'Content\Prototype\Textures\T_Plate402_D.uasset',
+			'Content\Prototype\Textures\T_Plate403_D.uasset',
+			'Content\Prototype\Textures\T_PlateCommon_D.uasset',
+			'Content\Prototype\Materials\M_Note404NotFound.uasset',
+			'Content\Prototype\Materials\M_Plate402.uasset',
+			'Content\Prototype\Materials\M_PlateCommon.uasset'
 		)
 	}
 	elseif ($MissingFloorOnly) {
@@ -432,6 +461,25 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $MissingFloorOnly -or $TankWaterOnly
 		)
 	}
 	elseif ($ApartmentVisualOnly) {
+		@(
+			@{
+				Script = 'generate_surface_textures.py'
+				SuccessPattern = '\[IndieGame\] Imported 5 textures'
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
+	elseif ($CorridorSignageOnly) {
 		@(
 			@{
 				Script = 'generate_surface_textures.py'

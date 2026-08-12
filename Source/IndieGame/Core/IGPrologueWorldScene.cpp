@@ -81,7 +81,7 @@ namespace IGPrologueWorld
 	const FRotator PlayerActorRotation(0.0f, -128.0f, 0.0f);
 	const FRotator PlayerViewRotation(-14.0f, -128.0f, 0.0f);
 
-	// Unit 404 sits on the 4th floor, three slabs above the street.
+	// Unit 403 sits on the 4th floor, three slabs above the street.
 	constexpr float FourthFloorZ = 900.0f;
 	constexpr float MissingFloorRoofZ = 1200.0f;
 	constexpr int32 MissingFloorUpperStepCount = 14;
@@ -102,13 +102,14 @@ namespace IGPrologueWorld
 	const FVector GetUpTargetLocation(-140.0f, 183.0f, FourthFloorZ + 58.0f);
 	const FVector FridgeLocation(155.0f, -20.0f, FourthFloorZ);
 	const FVector HomeDoorLocation(101.0f, -225.0f, FourthFloorZ);
-	// Far end of the hallway, so leaving 404 is a walk rather than a step.
+	// Far end of the hallway, so leaving 403 is a walk rather than a step.
 	const FVector ElevatorLocation(790.0f, -305.0f, FourthFloorZ);
 	const FVector StoreDoorLocation(2405.0f, -457.0f, 6.0f);
 	const FVector CheckoutLocation(2620.0f, -255.0f, 96.0f);
 	const FVector WalletHorizontalLocation(-125.0f, -183.0f, 0.0f);
 
 	const FName PurchaseBagProxyTag(TEXT("REBIRTH.PurchaseBagProxy"));
+	const FName NotFoundEasterEggTag(TEXT("EasterEgg.404NotFound"));
 	const FName CatWaterAftermathTag(TEXT("REBIRTH.CatWaterAftermath.CH02"));
 	const FName CatWaterCapTag(TEXT("REBIRTH.CatWaterAftermath.Cap"));
 	const FName CatWaterCupTag(TEXT("REBIRTH.CatWaterAftermath.Cup"));
@@ -978,9 +979,11 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_StoreWall_X"), TEXT("M_StoreWall_Y"),
 		TEXT("M_MetalUV"), TEXT("M_ShelfSteelUV"),
 		TEXT("M_PosterSale"), TEXT("M_PosterRamyeon"), TEXT("M_PosterFlyer"),
-		TEXT("M_NoteFridge"), TEXT("M_SignToilet"), TEXT("M_SignAutoDoor"),
+		TEXT("M_NoteFridge"), TEXT("M_Note404NotFound"),
+		TEXT("M_SignToilet"), TEXT("M_SignAutoDoor"),
 		TEXT("M_PriceStrip"), TEXT("M_SignMainLit"), TEXT("M_SignBladeLit"),
-		TEXT("M_SignVilla"), TEXT("M_Plate401"), TEXT("M_Plate403"), TEXT("M_Plate404"),
+		TEXT("M_SignVilla"), TEXT("M_Plate401"), TEXT("M_Plate402"),
+		TEXT("M_Plate403"), TEXT("M_PlateCommon"),
 		TEXT("M_ElevatorPanel"), TEXT("M_ClockFace"),
 		TEXT("M_Shutter_X"), TEXT("M_SignLaundry"), TEXT("M_SignHair"),
 		TEXT("M_SignHof"), TEXT("M_SignSuper"), TEXT("M_Banner"),
@@ -1563,7 +1566,7 @@ void AIGPrologueWorldScene::InitializePrologue()
 		.WaitForCompletion();
 	LoadTexturedMaterials();
 
-	// Unit 404 and its corridor live on the 4th floor, three slabs up.
+	// Unit 403 and its corridor live on the 4th floor, three slabs up.
 	// Static mobility is required so the static wall blocks can attach.
 	UpperFloorRoot = NewObject<USceneComponent>(this, TEXT("UpperFloorRoot"));
 	UpperFloorRoot->SetupAttachment(SceneRoot);
@@ -2186,7 +2189,7 @@ void AIGPrologueWorldScene::BuildApartment()
 	// Bathroom door name plate.
 	CreateBlock(FVector(20, -210.6f, 145), FVector(26, 1.5f, 13), TexMat(TEXT("M_SignToilet"), PlasticDarkMaterial), false);
 
-	// Lived-in unit 404: wall AC unit, outlets, a July calendar, range hood.
+	// Lived-in unit 403: wall AC unit, outlets, a July calendar, range hood.
 	CreateBlock(FVector(40, -206, 196), FVector(82, 19, 27), FridgeBodyMaterial, false);
 	CreateBlock(FVector(40, -196.2f, 188), FVector(70, 1.5f, 3), PlasticDarkMaterial, false);
 	CreateBlock(FVector(-70, -212.5f, 32), FVector(7, 2, 11), FridgeInteriorMaterial, false);
@@ -2420,12 +2423,11 @@ void AIGPrologueWorldScene::BuildCorridor()
 			SnackRedMaterial, false, CylinderMesh, FRotator(90, 0, 0));
 	};
 
-	// West to east the landing reads 401, 403, 404. The plates used to be the
-	// other way round, which put 401 next door to 404 and 403 at the far end —
-	// wrong for a Korean walk-up, and chapter two depends on the player having
-	// registered where 403 is.
+	// West to east the landing reads 401, 402, 403. Keeping the ordinary
+	// sequence matters: 403 is Yudam's home, while 404 exists only as the tiny
+	// optional joke beside the last frame and never becomes a horror number.
 	const float NeighborDoorXs[] = {-30.0f, -150.0f};
-	const TCHAR* NeighborPlates[] = {TEXT("M_Plate403"), TEXT("M_Plate401")};
+	const TCHAR* NeighborPlates[] = {TEXT("M_Plate402"), TEXT("M_Plate401")};
 	for (int32 NeighborIndex = 0; NeighborIndex < 2; ++NeighborIndex)
 	{
 		const float DoorX = NeighborDoorXs[NeighborIndex];
@@ -2449,7 +2451,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 			}
 		}
 	}
-	// Our 404 door casing and plate around the real swing door; the leaf
+	// Our 403 door casing and plate around the real swing door; the leaf
 	// itself is the AIGSwingDoor actor, which dresses its own face.
 	CreateBlock(FVector(96, -233, 102), FVector(8, 7, 208), DoorTrim, false);
 	CreateBlock(FVector(190, -233, 102), FVector(8, 7, 208), DoorTrim, false);
@@ -2465,10 +2467,32 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(FVector(142, -225, 209.7f), FVector(88, 22, 0.4f), DoorTrim, false);
 	CreateBlock(
 		FVector(144, -233.5f, 214), FVector(16, 2, 8),
-		TexMat(TEXT("M_Plate404"), FridgeInteriorMaterial), false);
+		TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial), false);
 	CreateBlock(
 		FVector(88, -233.5f, 138), FVector(7, 2.5f, 11),
 		TexMat(TEXT("M_Intercom"), SignWhiteMaterial), false);
+
+	// One dry joke before the building starts lying: a real 76 mm memo sits on
+	// the empty wall where the next unit would continue. It has no collision,
+	// prompt, outline, subtitle or state change; close inspection is the whole
+	// reward. The curled mesh and rough paper material keep it grounded in the
+	// corridor light instead of reading as a flat UI sticker.
+	if (UStaticMesh* StickyNoteMesh = PropMesh(TEXT("SM_StickyNote76mm")))
+	{
+		if (UStaticMeshComponent* NotFoundNote = CreateDecoOnComponent(
+				ActiveParent.Get(),
+				StickyNoteMesh,
+				TexMat(TEXT("M_Note404NotFound"), SignWhiteMaterial),
+				FVector(216.0f, -235.12f, 171.0f),
+				FRotator(0.0f, 90.0f, 0.0f),
+				FVector::OneVector))
+		{
+			NotFoundNote->ComponentTags.AddUnique(
+				IGPrologueWorld::NotFoundEasterEggTag);
+			NotFoundNote->SetCullDistance(520.0f);
+			NotFoundNote->SetAffectDistanceFieldLighting(false);
+		}
+	}
 
 	// Granite skirting, the way real landings finish the stucco to the tile.
 	CreateBlock(FVector(-35, -233.4f, 6), FVector(580, 3.5f, 12), Skirting, false);
@@ -3917,16 +3941,17 @@ void AIGPrologueWorldScene::BuildLobby()
 	// nothing sinks into the 20 cm wall, and everything stays west of X 598 to
 	// clear the common-entrance opening and the swept volume of its leaf.
 	//
-	// Four unit meters and a fifth with no nameplate. The dial that does not
-	// turn is the whole point, so its component is kept: the other four are
-	// given a slow rotation and it is left motionless.
+	// Three unit meters, one clearly labelled common meter and a fifth with no
+	// nameplate. The dial that does not turn is the whole point, so its component
+	// is kept: the other four are given a slow rotation and it is left motionless.
 	CreateBlock(
 		FVector(506, -371.0f, 150), FVector(96, 8, 62),
 		TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial), false);
 	CreateBlock(FVector(506, -366.4f, 150), FVector(98, 1.2f, 64), Metal, false);
 	{
 		const TCHAR* MeterPlateNames[] = {
-			TEXT("M_Plate401"), TEXT("M_Plate403"), TEXT("M_Plate404"), TEXT("M_Plate401")};
+			TEXT("M_Plate401"), TEXT("M_Plate402"),
+			TEXT("M_Plate403"), TEXT("M_PlateCommon")};
 		const float MeterXs[] = {470.0f, 488.0f, 506.0f, 524.0f, 542.0f};
 		for (int32 MeterIndex = 0; MeterIndex < 5; ++MeterIndex)
 		{
@@ -5152,7 +5177,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		}
 	}
 
-	// This morning's paper on the landing outside 404. The delivery-ad sticker
+	// This morning's paper on the landing outside 403. The delivery-ad sticker
 	// that belongs on the door itself is applied after the door is spawned,
 	// further down — testing HomeDoor here silently did nothing, because the
 	// actor does not exist yet at this point in the function.
@@ -5276,7 +5301,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				NSLOCTEXT("IGPrologue", "NoticeL3", "아래와 같이 단수를 실시합니다."),
 				FText::GetEmpty(),
 				NSLOCTEXT("IGPrologue", "NoticeL4", "   일시 :  7월 26일 (금)  04:00 ~ 06:00"),
-				NSLOCTEXT("IGPrologue", "NoticeL5", "   대상 :  전 세대 (401호 ~ 404호)"),
+				NSLOCTEXT("IGPrologue", "NoticeL5", "   대상 :  전 세대 (401호 ~ 403호)"),
 				FText::GetEmpty(),
 				NSLOCTEXT("IGPrologue", "NoticeL6", "점검 중에는 옥상 출입을 삼가 주시기"),
 				NSLOCTEXT("IGPrologue", "NoticeL7", "바랍니다. 불편을 드려 죄송합니다."),
@@ -5717,7 +5742,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 			NSLOCTEXT("IGCH02", "MailboxL2", "“사람이 떨어진 것 같은 쿵 소리.”"),
 			NSLOCTEXT("IGCH02", "MailboxL3", "처리 : 고양이로 추정 · 옥상 잠금 확인"),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "MailboxL4", "404호 연락 불가 · 가족 연락처 확인 요청"),
+			NSLOCTEXT("IGCH02", "MailboxL4", "403호 연락 불가 · 가족 연락처 확인 요청"),
 		});
 
 	OfferingNote = SpawnNote(

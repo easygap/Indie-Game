@@ -119,14 +119,19 @@ DECAL_MATERIALS = {
     "M_PosterRamyeon": {"tex_asset": "T_PosterRamyeon_D", "rough": 0.55, "emissive_scale": 0.06},
     "M_PosterFlyer":   {"tex_asset": "T_PosterFlyer_D", "rough": 0.75, "flutter": True},
     "M_NoteFridge":    {"tex_asset": "T_NoteFridge_D", "rough": 0.86},
+    "M_Note404NotFound": {
+        "tex_asset": "T_Note404NotFound_D", "rough": 0.88, "two_sided": True,
+    },
     "M_SignToilet":    {"tex_asset": "T_SignToilet_D", "rough": 0.4},
     "M_SignAutoDoor":  {"tex_asset": "T_SignAutoDoor_D", "rough": 0.3, "emissive_scale": 0.15},
     "M_PriceStrip":    {"tex_asset": "T_PriceStrip_D", "rough": 0.4, "emissive_scale": 0.03,
                         "tile_u": 2.0},
     "M_SignVilla":     {"tex_asset": "T_SignVilla_D", "rough": 0.4, "emissive_scale": 0.25},
     "M_Plate401":      {"tex_asset": "T_Plate401_D", "rough": 0.35},
+    "M_Plate402":      {"tex_asset": "T_Plate402_D", "rough": 0.35},
     "M_Plate403":      {"tex_asset": "T_Plate403_D", "rough": 0.35},
     "M_Plate404":      {"tex_asset": "T_Plate404_D", "rough": 0.35},
+    "M_PlateCommon":   {"tex_asset": "T_PlateCommon_D", "rough": 0.35},
     "M_ElevatorPanel": {"tex_asset": "T_ElevatorPanel_D", "rough": 0.3, "emissive_scale": 0.8},
     "M_ClockFace":     {"tex_asset": "T_ClockFace_D", "rough": 0.25, "emissive_scale": 1.6},
     "M_SignLaundry":   {"tex_asset": "T_SignLaundry_D", "rough": 0.45, "emissive_scale": 0.05},
@@ -640,6 +645,7 @@ def create_flat_texture_materials(
             unreal.MaterialEditingLibrary.delete_all_material_expressions(material)
         else:
             material = _recreate_material(assets, tools, name)
+        material.set_editor_property("two_sided", bool(spec.get("two_sided", False)))
         texture = _load_texture(source_asset)
 
         uv = None
@@ -1524,6 +1530,21 @@ def run():
         if not assets.save_loaded_assets([wet_step], False):
             raise RuntimeError("Could not save M_WetStep")
         unreal.log("[IndieGame] Wet footprint material update complete")
+        return
+    if os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
+        names = ("M_Note404NotFound", "M_Plate402", "M_PlateCommon")
+        signage = create_flat_texture_materials(
+            assets,
+            tools,
+            {name: DECAL_MATERIALS[name] for name in names},
+            False,
+            update_in_place=True,
+        )
+        if len(signage) != len(names) or not assets.save_loaded_assets(
+            signage, False
+        ):
+            raise RuntimeError("Could not save corridor entrance signage materials")
+        unreal.log("[IndieGame] Corridor entrance signage material update complete")
         return
     if os.environ.get("IG_MISSING_FLOOR_ONLY") == "1":
         world_names = (

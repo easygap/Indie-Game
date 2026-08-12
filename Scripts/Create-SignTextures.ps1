@@ -1,14 +1,17 @@
 ﻿# Renders the Korean signage/poster/label bitmaps used by the prologue into
 # Content/SourceArt as PNGs. generate_surface_textures.py imports everything
-# in that folder afterwards. Pure System.Drawing + system fonts; no external
-# assets are involved.
+# in that folder afterwards. Exact lettering uses System.Drawing and system
+# fonts; selected paper bases come from the versioned SourceArt/AI directory.
 
 [CmdletBinding()]
 param(
     # Rebuild only the two textures that must stay synchronized with the
     # thermal POS receipt. This prevents a small retail-data correction from
     # replacing the already authored poster and neighbourhood art.
-    [switch]$RetailIdentityOnly
+    [switch]$RetailIdentityOnly,
+    # Rebuild only the 403 entrance plates and the 404 Not Found memo. This
+    # keeps a targeted Unreal import from touching unrelated authored signs.
+    [switch]$CorridorEntranceOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -83,6 +86,45 @@ $privateFonts.AddFontFile((Join-Path $env:WINDIR 'Fonts\HMFMPYUN.TTF'))
 $noteFontFamily = $privateFonts.Families | Where-Object { $_.Name -eq 'Pyunji R' } | Select-Object -First 1
 if (-not $noteFontFamily) {
     $noteFontFamily = $malgun
+}
+
+$stickyNotePaper = Join-Path $outDir 'AI\TextureStickyNotePaper_D.png'
+$notFoundPaper = Join-Path $outDir 'AI\TextureStickyNote404Doodle_D.png'
+
+function Write-CorridorEntranceSigns {
+    # The room number stays an ordinary 403. A single handwritten memo occupies
+    # the empty wall where the next door would be, so 404 is a background joke
+    # instead of a horror clue. Exact lettering is rasterised here because image
+    # generation is intentionally not trusted with UI-critical Latin text.
+    New-SignBitmap -Width 512 -Height 512 `
+        -Background ([System.Drawing.Color]::FromArgb(255, 245, 228, 130)) `
+        -BackgroundImagePath $notFoundPaper `
+        -FileName 'T_Note404NotFound_D.png' -Draw {
+        param($g, $w, $h)
+
+        $latinNoteFont = 'Segoe Print'
+        $ink = [System.Drawing.Color]::FromArgb(255, 31, 30, 28)
+        Draw-CenteredText $g '404' $latinNoteFont 72 ([System.Drawing.FontStyle]::Bold) $ink ($w * 0.50) ($h * 0.17)
+        Draw-CenteredText $g 'Not' $latinNoteFont 82 ([System.Drawing.FontStyle]::Regular) $ink ($w * 0.43) ($h * 0.40)
+        Draw-CenteredText $g 'Found' $latinNoteFont 82 ([System.Drawing.FontStyle]::Regular) $ink ($w * 0.53) ($h * 0.59)
+    }
+
+    foreach ($unit in @('401', '402', '403')) {
+        $file = "T_Plate$unit`_D.png"
+        New-SignBitmap -Width 128 -Height 64 -Background $nearWhite -FileName $file -Draw {
+            param($g, $w, $h)
+            Draw-CenteredText $g "${unit}호" $malgun 36 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.5)
+        }
+    }
+    New-SignBitmap -Width 128 -Height 64 -Background $nearWhite -FileName 'T_PlateCommon_D.png' -Draw {
+        param($g, $w, $h)
+        Draw-CenteredText $g '공용' $malgun 32 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.5)
+    }
+}
+
+if ($CorridorEntranceOnly) {
+    Write-CorridorEntranceSigns
+    return
 }
 
 # --- Store fascia: exact fictional POS identity -----------------------------
@@ -169,7 +211,6 @@ New-SignBitmap -Width 512 -Height 352 -Background ([System.Drawing.Color]::FromA
 }
 
 # --- Fridge note (the foreshadowing) --------------------------------------
-$stickyNotePaper = Join-Path $outDir 'AI\TextureStickyNotePaper_D.png'
 New-SignBitmap -Width 512 -Height 512 `
     -Background ([System.Drawing.Color]::FromArgb(255, 245, 228, 130)) `
     -BackgroundImagePath $stickyNotePaper `
@@ -178,6 +219,9 @@ New-SignBitmap -Width 512 -Height 512 `
     Draw-CenteredText $g '물 사 올 것' $noteFontFamily 78 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.50) ($h * 0.38)
     Draw-CenteredText $g '- 나' $noteFontFamily 55 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.67) ($h * 0.67)
 }
+
+# --- 403 entrance easter egg ----------------------------------------------
+Write-CorridorEntranceSigns
 
 # --- Bathroom door plate ---------------------------------------------------
 New-SignBitmap -Width 256 -Height 128 -Background ([System.Drawing.Color]::FromArgb(255, 88, 92, 96)) -FileName 'T_SignToilet_D.png' -Draw {
@@ -200,15 +244,6 @@ New-SignBitmap -Width 320 -Height 96 -Background ([System.Drawing.Color]::FromAr
     param($g, $w, $h)
     Draw-CenteredText $g '달빛빌라' $malgun 52 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.42) ($h * 0.5)
     Draw-CenteredText $g '37-4' $malgun 30 ([System.Drawing.FontStyle]::Regular) ([System.Drawing.Color]::FromArgb(255, 150, 200, 190)) ($w * 0.85) ($h * 0.5)
-}
-
-# --- Unit number plates (4th floor) ----------------------------------------
-foreach ($unit in @('401', '403', '404')) {
-    $file = "T_Plate$unit`_D.png"
-    New-SignBitmap -Width 128 -Height 64 -Background $nearWhite -FileName $file -Draw {
-        param($g, $w, $h)
-        Draw-CenteredText $g "$unit호" $malgun 36 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.5)
-    }
 }
 
 # --- Alarm clock LED face ---------------------------------------------------

@@ -81,6 +81,14 @@ MISSING_FLOOR_TEXTURE_NAMES = {
     "T_SpriteMokFinalUpper_R",
     "T_SpriteMokFinalUpper_A",
 }
+CORRIDOR_SIGNAGE_ONLY = os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1"
+CORRIDOR_SIGNAGE_TEXTURE_NAMES = {
+    "T_Note404NotFound_D",
+    "T_Plate401_D",
+    "T_Plate402_D",
+    "T_Plate403_D",
+    "T_PlateCommon_D",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -491,7 +499,12 @@ def import_textures():
         for entry in os.listdir(SOURCE_ART_DIR)
         if entry.lower().endswith(".png")
         and (
-            (not HUD_UI_ONLY and not APARTMENT_VISUAL_ONLY and not MISSING_FLOOR_ONLY)
+            (
+                not HUD_UI_ONLY
+                and not APARTMENT_VISUAL_ONLY
+                and not MISSING_FLOOR_ONLY
+                and not CORRIDOR_SIGNAGE_ONLY
+            )
             or (
                 HUD_UI_ONLY
                 and os.path.splitext(entry)[0] in HUD_UI_TEXTURE_NAMES
@@ -503,6 +516,10 @@ def import_textures():
             or (
                 MISSING_FLOOR_ONLY
                 and os.path.splitext(entry)[0] in MISSING_FLOOR_TEXTURE_NAMES
+            )
+            or (
+                CORRIDOR_SIGNAGE_ONLY
+                and os.path.splitext(entry)[0] in CORRIDOR_SIGNAGE_TEXTURE_NAMES
             )
         )
     )
@@ -559,8 +576,13 @@ def import_textures():
             texture.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
             texture.set_editor_property("address_y", unreal.TextureAddress.TA_CLAMP)
             texture.set_editor_property("never_stream", True)
-        elif asset_name == "T_NoteFridge_D" or asset_name.startswith("T_Label"):
-            # Printed film and the 76 mm memo are inspected at oblique angles.
+        elif (
+            asset_name in {"T_NoteFridge_D", "T_Note404NotFound_D"}
+            or asset_name.startswith("T_Label")
+            or asset_name.startswith("T_Plate")
+        ):
+            # Printed film, entrance plates and the 76 mm memo are inspected
+            # at oblique angles.
             # Clamp the authored 0/1 borders; the World texture group's default
             # sampler retains project-wide anisotropy without overriding it per asset.
             texture.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)
@@ -585,6 +607,11 @@ def import_textures():
 
 
 if __name__ == "__main__":
-    if not HUD_UI_ONLY and not APARTMENT_VISUAL_ONLY and not MISSING_FLOOR_ONLY:
+    if (
+        not HUD_UI_ONLY
+        and not APARTMENT_VISUAL_ONLY
+        and not MISSING_FLOOR_ONLY
+        and not CORRIDOR_SIGNAGE_ONLY
+    ):
         generate_surface_pngs()
     import_textures()

@@ -44,6 +44,7 @@ $requiredRaw = @(
 	'AI\TextureApartmentWallpaperVintage.png',
 	'AI\MaskApartmentWallPatina.png',
 	'AI\TextureStickyNotePaper_D.png',
+	'AI\TextureStickyNote404Doodle_D.png',
 	'AI\SheetMissingFloorEnvironmentReference.png',
 	'AI\SheetListenerEntityAnatomyReference.png',
 	'AI\TextureMissingFloorDryPlaster.png',
@@ -179,6 +180,13 @@ $requiredDerived = @(
 	$requiredMasks + $requiredOverlays + $requiredMaterialMasks +
 	$requiredMaterialTextures + $requiredPbrMaps
 )
+$requiredEasterEggSigns = @{
+	'T_Note404NotFound_D.png' = @(512, 512)
+	'T_Plate401_D.png' = @(128, 64)
+	'T_Plate402_D.png' = @(128, 64)
+	'T_Plate403_D.png' = @(128, 64)
+	'T_PlateCommon_D.png' = @(128, 64)
+}
 foreach ($relativePath in @($requiredRaw + $requiredDerived)) {
 	$path = Join-Path $sourceArt $relativePath
 	if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
@@ -186,6 +194,39 @@ foreach ($relativePath in @($requiredRaw + $requiredDerived)) {
 	}
 	if ((Get-Item -LiteralPath $path).Length -le 1024) {
 		throw "Art source is unexpectedly small: $relativePath"
+	}
+}
+
+foreach ($entry in $requiredEasterEggSigns.GetEnumerator()) {
+	$relativePath = [string]$entry.Key
+	$path = Join-Path $sourceArt $relativePath
+	if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
+		throw "403/404 entrance sign source is missing: $relativePath"
+	}
+	$image = [System.Drawing.Bitmap]::FromFile($path)
+	try {
+		$expectedWidth = [int]$entry.Value[0]
+		$expectedHeight = [int]$entry.Value[1]
+		if ($image.Width -ne $expectedWidth -or $image.Height -ne $expectedHeight) {
+			throw "403/404 entrance sign must be ${expectedWidth}x${expectedHeight}: $relativePath"
+		}
+		$darkSamples = 0
+		$lightSamples = 0
+		$sampleStep = [Math]::Max(1, [int]($image.Width / 64))
+		for ($y = 0; $y -lt $image.Height; $y += $sampleStep) {
+			for ($x = 0; $x -lt $image.Width; $x += $sampleStep) {
+				$pixel = $image.GetPixel($x, $y)
+				$luma = $pixel.R * 0.2126 + $pixel.G * 0.7152 + $pixel.B * 0.0722
+				if ($luma -lt 96) { $darkSamples++ }
+				if ($luma -gt 180) { $lightSamples++ }
+			}
+		}
+		if ($darkSamples -lt 4 -or $lightSamples -lt 4) {
+			throw "403/404 entrance sign lost its readable ink contrast: $relativePath"
+		}
+	}
+	finally {
+		$image.Dispose()
 	}
 }
 
@@ -406,6 +447,8 @@ $meshScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\generate_meshes.py')
 $directorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Sequence\IGThirdMorningDirector.cpp')
+$demoSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Sequence\IGDemoDirector.cpp')
 $neighborhoodSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Environment\IGNeighborhoodLifeDirector.cpp')
 $prologueSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -440,6 +483,10 @@ $inputConfig = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Config\DefaultInput.ini')
 $buildScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\Build-ArtAssets.ps1')
+$signScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts\Create-SignTextures.ps1')
+$surfaceScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts\generate_surface_textures.py')
 $auditScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\validate_baked_art_assets.py')
 $photoLodContract = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -477,6 +524,43 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
+	'"M_Note404NotFound": {',
+	'"tex_asset": "T_Note404NotFound_D", "rough": 0.88, "two_sided": True,',
+	'"M_Plate402":      {"tex_asset": "T_Plate402_D", "rough": 0.35}',
+	'"M_PlateCommon":   {"tex_asset": "T_PlateCommon_D", "rough": 0.35}',
+	'material.set_editor_property("two_sided", bool(spec.get("two_sided", False)))',
+	'IG_CORRIDOR_SIGNAGE_ONLY',
+	'Corridor entrance signage material update complete'
+)) {
+	if (-not $materialScript.Contains($token)) {
+		throw "403/404 entrance material contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'[switch]$CorridorEntranceOnly',
+	"AI\TextureStickyNote404Doodle_D.png",
+	"-BackgroundImagePath `$notFoundPaper",
+	"Draw-CenteredText `$g '404'",
+	"Draw-CenteredText `$g 'Not'",
+	"Draw-CenteredText `$g 'Found'"
+)) {
+	if (-not $signScript.Contains($token)) {
+		throw "403/404 generated-paper composition contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'CORRIDOR_SIGNAGE_ONLY = os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1"',
+	'CORRIDOR_SIGNAGE_TEXTURE_NAMES',
+	'"T_Note404NotFound_D"',
+	'"T_PlateCommon_D"',
+	'asset_name in {"T_NoteFridge_D", "T_Note404NotFound_D"}',
+	'asset_name.startswith("T_Plate")'
+)) {
+	if (-not $surfaceScript.Contains($token)) {
+		throw "403/404 targeted texture-import contract is missing: $token"
+	}
+}
+foreach ($token in @(
 	'INSTANCED_PRODUCT_MATERIALS',
 	'WRAPPED_LABEL_MATERIALS',
 	'used_with_instanced_static_meshes'
@@ -488,6 +572,16 @@ foreach ($token in @(
 if (-not $materialScript.Contains('material.set_editor_property("two_sided", True)') -or
 	-not $auditScript.Contains('material.get_editor_property("two_sided")')) {
 	throw 'Wrapped product film must be authored and audited as two-sided.'
+}
+foreach ($token in @(
+	'"M_Note404NotFound": "T_Note404NotFound_D"',
+	'ENTRANCE_PLATE_MATERIALS',
+	'TWO_SIDED_PRINT_MATERIALS = {"M_Note404NotFound"}',
+	'Printed paper lost two-sided rendering'
+)) {
+	if (-not $auditScript.Contains($token)) {
+		throw "403/404 baked-material audit contract is missing: $token"
+	}
 }
 if ($meshScript.Contains('set_mesh_u_vs_from_cylinder_projection') -or
 	$meshScript.Contains('set_mesh_uvs_from_cylinder_projection')) {
@@ -508,6 +602,29 @@ foreach ($token in @(
 )) {
 	if (-not $prologueSource.Contains($token)) {
 		throw "Household/retail physical placement contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'const FName NotFoundEasterEggTag(TEXT("EasterEgg.404NotFound"));',
+	'TEXT("M_Plate402"), TEXT("M_Plate401")',
+	'TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial)',
+	'TexMat(TEXT("M_Note404NotFound"), SignWhiteMaterial)',
+	'FVector(216.0f, -235.12f, 171.0f)',
+	'NotFoundNote->SetCullDistance(520.0f);',
+	'TEXT("M_Plate403"), TEXT("M_PlateCommon")'
+)) {
+	if (-not $prologueSource.Contains($token)) {
+		throw "403/404 entrance runtime contract is missing: $token"
+	}
+}
+foreach ($token in @(
+	'NotFoundNoteSpot(216, -235, FloorZ + 171)',
+	'MakeWalkLook(FVector(310, -350, 0), NotFoundNoteSpot)',
+	'MakeStill(TEXT("prologue-not-found-note"))',
+	'BaseName == TEXT("prologue-not-found-note")'
+)) {
+	if (-not $demoSource.Contains($token)) {
+		throw "403/404 entrance capture contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -1131,12 +1248,17 @@ foreach ($token in @(
 	'[switch]$SourceOnly',
 	'[switch]$CodeOnly',
 	'[switch]$HudUiOnly',
+	'[switch]$CorridorSignageOnly',
+	'-CorridorEntranceOnly',
 	'[switch]$TankWaterOnly',
 	'[switch]$TankInteriorOnly',
 	'[switch]$SubmergedClothingOnly',
 	'ART_TARGETED_BUILD PASS',
 	'@($targetRelativeAssets).Count',
 	'IG_HUD_UI_ONLY',
+	'IG_CORRIDOR_SIGNAGE_ONLY',
+	'T_Note404NotFound_D.uasset',
+	'M_Note404NotFound.uasset',
 	'T_HudDialogueFilm_D.uasset',
 	'T_MissingFloorJournalPaper_D.uasset',
 	'T_FPHandKnock0_D.uasset',
@@ -1563,6 +1685,17 @@ foreach ($token in @(
 		throw "Missing-floor play-surface contract is missing: $token"
 	}
 }
+foreach ($token in @(
+	'세대 계량기 3개(401·402·403)',
+	'**403호 정사·404 이스터에그:**',
+	'**`404 / Not Found`**',
+	'상호작용·윤곽선·자막·',
+	'진실·엔딩·04:30과 연결하지 않는다'
+)) {
+	if (-not $missingFloorStory.Contains($token)) {
+		throw "403/404 entrance story boundary is missing: $token"
+	}
+}
 foreach ($forbidden in @(
 	'1F 드레인/에어빼기',
 	'저수조 양수펌프',
@@ -1576,4 +1709,4 @@ foreach ($forbidden in @(
 	}
 }
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=48 masks=9 overlays=23 material_scans=13 pbr_maps=62 meshes=44 photo_meshes=50'
+Write-Host 'ART_ASSET_CONTRACT PASS raw=49 masks=9 overlays=23 signage=5 material_scans=13 pbr_maps=62 meshes=44 photo_meshes=50'
