@@ -108,6 +108,14 @@ private:
 		float MaximumSpacing,
 		float SpacingFraction,
 		int32& OutRow) const;
+	/** Hit tests the exact responsive rectangles drawn by the native front end. */
+	bool TryGetSystemMenuRowFromPointer(int32& OutRow) const;
+	bool TryGetDisplaySettingsRowFromPointer(
+		int32& OutRow,
+		bool& bOutCategoryHit) const;
+	bool TryGetAccessibilityRowFromPointer(
+		int32& OutRow,
+		bool& bOutCategoryHit) const;
 	void StartFrontendShippingProbe();
 	void TickFrontendShippingProbe();
 	void DispatchFrontendProbeKey(const FKey& Key);
@@ -184,6 +192,7 @@ private:
 	bool bSystemMenuStatusIsError = false;
 	bool bPreviousDisplayVSync = true;
 	bool bFrontendShippingProbe = false;
+	bool bFrontendProbeCompilationDrained = false;
 	bool bMissingFloorJournalPreviewProbe = false;
 	bool bMissingFloorJournalPreviewScreenshotRequested = false;
 	bool bMissingFloorJournalPreviewCompilationDrained = false;
@@ -194,6 +203,8 @@ private:
 	bool bFrontendDialogueVerified = false;
 	bool bFrontendDialogueSpeakerVerified = false;
 	bool bFrontendDialogueContinuationVerified = false;
+	bool bFrontendAccessibilityScreenshotRequested = false;
+	bool bFrontendDisplayScreenshotRequested = false;
 	int32 FrontendProbeStep = 0;
 	int32 FrontendProbeExpectedWidth = 0;
 	int32 FrontendProbeExpectedHeight = 0;
@@ -216,6 +227,7 @@ private:
 	FVector2D FrontendProbeBoundsMax = FVector2D::ZeroVector;
 	FString FrontendProbeDefaultScreenshotPath;
 	FString FrontendProbeScreenshotPath;
+	FString FrontendProbeTitleScreenshotPath;
 	FString MissingFloorJournalPreviewScreenshotPath;
 	FString AudioCalibrationPreviewScreenshotPath;
 	float PreviousDisplayFrameLimit = 60.0f;

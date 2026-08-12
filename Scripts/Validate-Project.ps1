@@ -59,7 +59,9 @@ $requiredFiles = @(
 	'Content/SourceArt/AI/TextureApartmentWallpaperVintage.png',
 	'Content/SourceArt/AI/TextureCaptureMercyNotePaper_D.png',
 	'Content/SourceArt/AI/MaskApartmentWallPatina.png',
+	'Content/SourceArt/AI/TitleBackgroundMissingFloor_v1.png',
 	'Content/SourceArt/T_HudDialogueFilm_D.png',
+	'Content/SourceArt/T_TitleBackground_D.png',
 	'Content/SourceArt/T_ApartmentWallpaperV2_D.png',
 	'Content/SourceArt/T_ApartmentWallpaperV2_N.png',
 	'Content/SourceArt/T_ApartmentWallpaperV2_R.png',
@@ -73,6 +75,7 @@ $requiredFiles = @(
 	'Content/Prototype/Textures/T_PaperFolded_V2_D.uasset',
 	'Content/Prototype/Textures/T_PaperOld_V2_D.uasset',
 	'Content/Prototype/Textures/T_HudDialogueFilm_D.uasset',
+	'Content/UI/Textures/T_TitleBackground_D.uasset',
 	'Content/Prototype/Textures/T_ApartmentWallpaperV2_D.uasset',
 	'Content/Prototype/Textures/T_ApartmentWallpaperV2_N.uasset',
 	'Content/Prototype/Textures/T_ApartmentWallpaperV2_R.uasset',
@@ -103,9 +106,17 @@ $requiredFiles = @(
 	'Docs/Media/ch03-tank-reveal.png',
 	'Docs/Media/dialogue-hud-default-1080.png',
 	'Docs/Media/dialogue-hud-accessibility-200-1080.png',
+	'Docs/Media/title-menu-first-run-1080.png',
 	'Docs/Media/m65-capture-mercy-note.png',
 	'Docs/Media/m65-mercy-note-slide.gif',
 	'Docs/Media/m65-first-run-audio-calibration.png',
+	'Docs/Media/settings-display-1080.png',
+	'Docs/Media/settings-accessibility-1080.png',
+	'Source/IndieGame/UI/Fonts/Pretendard-Regular.otf',
+	'Source/IndieGame/UI/Fonts/Pretendard-SemiBold.otf',
+	'Source/IndieGame/UI/Fonts/GowunBatang-Bold.ttf',
+	'Source/IndieGame/UI/Fonts/OFL-Pretendard.txt',
+	'Source/IndieGame/UI/Fonts/OFL-GowunBatang.txt',
 	'Docs/Media/readme-route-preview.gif',
 	'Docs/FEASIBILITY.md',
 	'Docs/IMAGEGEN_PROMPTS_2026-08-05.md',
@@ -127,6 +138,7 @@ $requiredFiles = @(
 	'Scripts/Run-Rebirth-BackgroundRuntimeValidation.ps1',
 	'Scripts/Run-Rebirth-LensDropletCapture.ps1',
 	'Scripts/Run-Rebirth-FrontendShippingProbe.ps1',
+	'Scripts/Run-MissingFloor-SettingsPreview.ps1',
 	'Scripts/Test-Rebirth-NarrativeContract.ps1',
 	'Scripts/Test-Rebirth-ItemContinuityContract.ps1',
 	'Scripts/Test-Rebirth-ChapterTwoTimeEntryContract.ps1',
@@ -153,7 +165,8 @@ $requiredFiles = @(
     'Source/IndieGameEditor.Target.cs',
     'Source/IndieGame/IndieGame.Build.cs',
     'Source/IndieGame/IndieGame.h',
-    'Source/IndieGame/IndieGame.cpp',
+	'Source/IndieGame/IndieGame.cpp',
+	'Source/IndieGame/Player/IGFrontendMenuLayout.h',
 	'Source/IndieGame/Sequence/IGObjectiveProvider.h',
 	'Source/IndieGame/Interaction/IGTimeEntryPuzzle.h',
 	'Source/IndieGame/Interaction/IGTimeEntryPuzzle.cpp',
@@ -195,6 +208,8 @@ foreach ($requiredReadmeToken in @(
 	'Docs/Media/dialogue-hud-default-1080.png',
 	'Docs/Media/readme-route-preview.gif',
 	'Docs/Media/m65-mercy-note-slide.gif',
+	'Docs/Media/settings-display-1080.png',
+	'Docs/Media/settings-accessibility-1080.png',
 	'Docs/Media/prologue-not-found-note.png',
 	'Docs/Media/night4-cavity-open.png',
 	'Docs/Media/night4-mok-confrontation.png',
@@ -375,7 +390,11 @@ foreach ($header in $headers) {
 
 $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
 $koreanSourceFilesWithoutBom = @(
-	Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -Recurse -File -Include '*.h','*.cpp' |
+	# -Include with -LiteralPath is provider-dependent and has admitted binary
+	# font files on some PowerShell versions. Filter FileInfo objects explicitly
+	# before any byte stream is decoded as UTF-8.
+	Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -Recurse -File |
+		Where-Object { $_.Extension -in @('.h', '.cpp') } |
 		ForEach-Object {
 			$sourceFile = $_
 			$bytes = [System.IO.File]::ReadAllBytes($sourceFile.FullName)
@@ -1416,11 +1435,16 @@ foreach ($requiredFrontendShippingHarnessInvariant in @(
 	'"-IGFrontendExpectedWidth=$Width"',
 	'"-IGFrontendExpectedHeight=$Height"',
 	'"-IGFrontendResultPath=$receiptPath"',
+	'"-IGFrontendAccessibilityScreenshotPath=$accessibilityScreenshotPath"',
+	'"-IGFrontendDisplayScreenshotPath=$displayScreenshotPath"',
+	'"-IGFrontendTitleScreenshotPath=$titleScreenshotPath"',
 	'"-IGFrontendDefaultScreenshotPath=$defaultScreenshotPath"',
 	'"-IGFrontendScreenshotPath=$screenshotPath"',
 	"'-RenderOffscreen'",
 	"'-d3d12'",
 	'-WindowStyle Hidden',
+	'-FilePath $launcher',
+	'-WorkingDirectory (Split-Path -Parent $launcher)',
 	'1280; height = 720',
 	'1600; height = 900',
 	'1920; height = 1080',
@@ -1428,14 +1452,20 @@ foreach ($requiredFrontendShippingHarnessInvariant in @(
 	'Assert-ArchiveUnchanged',
 	'Get-PngDimensions',
 	'dialogueScreenshotSha256',
+	'accessibilityScreenshotSha256',
+	'displayScreenshotSha256',
+	'titleScreenshotSha256',
 	'defaultDialogueScreenshotSha256',
 	'keyboard_access=1 gamepad_access=1 dpad_down=1',
-	'gamepad_pause=1 display=1 dialogue=1 dialogue_default=1',
+	'gamepad_pause=1 display=1 title=1 first_run=1',
+	'dialogue=1 dialogue_default=1',
 	'speaker=1 continuation=1 default_scale=100 max_scale=200',
-	'sound_lane=1 samples=10 elements_min=',
+	'sound_lane=1 samples=11 elements_min=',
 	'input_events=11 bounds=',
 	'REBIRTH_FRONTEND_SHIPPING PASS resolutions=4 input_events=44',
-	'layout_samples=40 dialogue_cases=8',
+	'layout_samples=44 dialogue_cases=8 title_cases=4',
+	'schemaVersion = 4',
+	'titleCaseCount = $results.Count',
 	'archiveUnchanged = $true',
 	'layoutSampleCount'
 )) {
@@ -2153,12 +2183,18 @@ foreach ($requiredFrontendProbeControllerInvariant in @(
 	'TEXT("dialogue_max_scale"),',
 	'GetDialogueRenderSample(',
 	'IGFrontendDefaultScreenshotPath=',
+	'IGFrontendAccessibilityScreenshotPath=',
+	'IGFrontendDisplayScreenshotPath=',
+	'IGFrontendTitleScreenshotPath=',
 	'IGFrontendScreenshotPath=',
+	'bFrontendProbeCompilationDrained',
+	'FAssetCompilingManager::Get().FinishAllCompilation()',
+	'GShaderCompilingManager->FinishAllCompilation()',
 	'FScreenshotRequest::RequestScreenshot(',
 	'Settings.CaptionSizeScale = 2.0f',
-	'FrontendProbeLayoutSampleCount != 10',
+	'FrontendProbeLayoutSampleCount != 11',
 	'FrontendProbePressedEventCount != 11',
-	'REBIRTH_FRONTEND PASS contract=3 resolution=%dx%d',
+	'REBIRTH_FRONTEND PASS contract=4 resolution=%dx%d',
 	'FPlatformMisc::RequestExitWithStatus'
 )) {
 	if (-not $playerControllerSource.Contains(

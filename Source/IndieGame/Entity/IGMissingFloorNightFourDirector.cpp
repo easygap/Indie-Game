@@ -1299,6 +1299,28 @@ void AIGMissingFloorNightFourDirector::ActivateControl(
 	{
 		return;
 	}
+
+	// Every control was silent until now, which made the water mask a number
+	// the HUD knew about rather than something the player built. The large
+	// cleaning drain, the small float bypass and the transfer pump motor are
+	// each their own sound (§10.3 밸브 3종), so the roof is assembled by ear.
+	const FVector ControlLocation =
+		Evidence ? Evidence->GetActorLocation() : GetActorLocation();
+	USoundBase* ControlCue = ControlId == IGNightFour::TransferPumpId
+		? static_cast<USoundBase*>(
+			UIGToneSequenceSoundWave::CreateVentDuctSpinUp(this))
+		: static_cast<USoundBase*>(UIGToneSequenceSoundWave::CreateValveOpen(
+			this,
+			ControlId == IGNightFour::CleaningDrainId ? 1 : 2));
+	IGAudio::SpawnOneShotAt(
+		this,
+		ControlCue,
+		ControlLocation,
+		0.78f,
+		1.0f,
+		170.0f,
+		1500.0f,
+		EIGAudioBus::Puzzle);
 	const bool bSafeStep = IGNightFour::SafeOrder().IsValidIndex(OrderIndex)
 		&& IGNightFour::SafeOrder()[OrderIndex] == ControlId;
 	if (!bSafeStep)
@@ -1424,12 +1446,15 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 	}
 
 	const int32 StrikeCount = Narrative->RecordNightFourWallStrike();
+	// §21.3 망치 임팩트. The strike index escalates the §10.3 three-stage
+	// fracture, so the wall audibly goes from bruised to broken through and the
+	// player never needs the counter to know where they are.
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateDoorThud(this),
+		UIGToneSequenceSoundWave::CreateHammerImpact(this, StrikeCount - 1),
 		Evidence ? Evidence->GetActorLocation() : IGNightFour::WallBreakLocation,
 		1.0f,
-		0.78f + static_cast<float>(StrikeCount) * 0.025f,
+		1.0f,
 		160.0f,
 		1400.0f,
 		EIGAudioBus::Puzzle);

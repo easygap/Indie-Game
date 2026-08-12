@@ -52,6 +52,26 @@ namespace IGNightThree
 	constexpr float ListenLoudness = 0.05f;
 	constexpr float ValveLoudness = 0.55f;
 
+	/**
+	 * The three authored wheels ring differently (§10.3 밸브 3종): 0 is the 5F
+	 * shaft inspection valve here, 1 the large rooftop cleaning drain, 2 the
+	 * small float bypass. A player who opened this one in night 3 recognises it
+	 * is *not* what they are turning on the roof in night 4.
+	 */
+	constexpr int32 ShaftValveIndex = 0;
+	/**
+	 * §21.3 원근 4단. Out in the annex the riser comes through finished wall and
+	 * arrives muffled; against the cavity wall there is only air between the
+	 * player's ear and the pipe; against a solid wall the water took the long
+	 * way through mass. The step is the whole distance cue.
+	 */
+	constexpr int32 RiserBedDistanceStep = 2;
+	constexpr int32 CavityWallDistanceStep = 0;
+	constexpr int32 SolidWallDistanceStep = 3;
+	/** Ear against board: close enough that the wall itself dominates. */
+	constexpr float WallListenInnerRadius = 90.0f;
+	constexpr float WallListenFalloff = 620.0f;
+
 	/** Eight seconds of nothing before the wall comes back. */
 	constexpr float AnswerDelaySeconds = 8.0f;
 	constexpr double AnswerPairMinSeconds = 0.18;
@@ -734,10 +754,12 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 	}
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateHatchOpenMetal(this),
+		UIGToneSequenceSoundWave::CreateValveOpen(
+			this,
+			IGNightThree::ShaftValveIndex),
 		IGNightThree::ValveLocation,
 		0.7f,
-		0.8f,
+		1.0f,
 		160.0f,
 		1400.0f,
 		EIGAudioBus::Puzzle);
@@ -751,8 +773,13 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 			310.0f,
 			IGNightThree::WallBayYs[IGNightThree::CavityBayIndex],
 			1300.0f));
+		// From out in the annex the riser is heard through finished wall, so it
+		// arrives at the third band — present, but not yet locatable. Standing
+		// at a wall and listening is what opens the band up (§21.3 원근 4단).
 		RiserFlow->SetSound(
-			UIGToneSequenceSoundWave::CreateFloodedCorridorWaterBed(this));
+			UIGToneSequenceSoundWave::CreatePipeWaterFlow(
+				this,
+				IGNightThree::RiserBedDistanceStep));
 		RiserFlow->AttenuationSettings = IGAudio::MakeAttenuation(
 			this,
 			120.0f,
@@ -777,11 +804,57 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 		3.8f);
 }
 
+void AIGMissingFloorNightThreeDirector::PlayWallListenResponse(
+	const int32 BayIndex,
+	const bool bHollow)
+{
+	const FVector WallLocation =
+		WallListens.IsValidIndex(BayIndex) && WallListens[BayIndex]
+			? WallListens[BayIndex]->GetActorLocation()
+			: GetActorLocation();
+
+	// The wall's own answer. This is the puzzle: a cavity rings on its
+	// mass-air-mass note, a solid wall dies in a fifth of a second. Doha's memo
+	// says 속이 찬 벽은 짧게 죽고 빈 벽은 길게 운다, and now that is literally
+	// what the two walls do.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateWallCavityResponse(this, bHollow),
+		WallLocation,
+		0.92f,
+		1.0f,
+		IGNightThree::WallListenInnerRadius,
+		IGNightThree::WallListenFalloff,
+		EIGAudioBus::Puzzle);
+
+	// And the water, at the band the structure left it in.
+	if (bValveOpen)
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreatePipeWaterFlow(
+				this,
+				bHollow
+					? IGNightThree::CavityWallDistanceStep
+					: IGNightThree::SolidWallDistanceStep),
+			WallLocation,
+			bHollow ? 0.80f : 0.58f,
+			1.0f,
+			IGNightThree::WallListenInnerRadius,
+			IGNightThree::WallListenFalloff,
+			EIGAudioBus::Puzzle);
+	}
+}
+
 void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
 {
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (!bValveOpen)
 	{
+		// Before the valve there is nothing driving the wall, so all three
+		// answer alike — and they answer, rather than being described as
+		// answering. The dead board is why the player goes looking for water.
+		PlayWallListenResponse(BayIndex, /*bHollow=*/false);
 		AIGHorrorHUD::PushThought(
 			this,
 			NSLOCTEXT(
@@ -793,6 +866,7 @@ void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
 	}
 	if (BayIndex == IGNightThree::CavityBayIndex)
 	{
+		PlayWallListenResponse(BayIndex, /*bHollow=*/true);
 		AIGHorrorHUD::PushThought(
 			this,
 			NSLOCTEXT(
@@ -812,6 +886,7 @@ void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
 		}
 		return;
 	}
+	PlayWallListenResponse(BayIndex, /*bHollow=*/false);
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(

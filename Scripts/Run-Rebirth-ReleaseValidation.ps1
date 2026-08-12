@@ -1746,15 +1746,16 @@ function Assert-FrontendShippingProbeEvidence {
 	$summaryArchive = [IO.Path]::GetFullPath(
 		[string]$summary.archiveDirectory).TrimEnd([char[]]@('\', '/'))
 	$summaryResults = @($summary.results)
-	if ([int]$summary.schemaVersion -ne 3 -or
+	if ([int]$summary.schemaVersion -ne 4 -or
 		-not $summaryArchive.Equals(
 			$resolvedArchive,
 			[StringComparison]::OrdinalIgnoreCase) -or
 		[int]$summary.archiveFileCount -le 0 -or
 		[int]$summary.resolutionCount -ne 4 -or
 		[int]$summary.dialogueCaseCount -ne 8 -or
+		[int]$summary.titleCaseCount -ne 4 -or
 		[int]$summary.inputEventCount -ne 44 -or
-		[int]$summary.layoutSampleCount -ne 40 -or
+		[int]$summary.layoutSampleCount -ne 44 -or
 		$summaryResults.Count -ne 4 -or
 		-not [bool]$summary.archiveUnchanged) {
 		throw "Frontend Shipping summary metadata mismatch: $summaryPath"
@@ -1853,17 +1854,56 @@ function Assert-FrontendShippingProbeEvidence {
 				'Frontend Shipping default dialogue screenshot hash mismatch: ' +
 				$resolvedDefaultDialogueScreenshot)
 		}
+		foreach ($settingsCapture in @(
+			[pscustomobject]@{
+				path = [string]$result.accessibilityScreenshotPath
+				hash = [string]$result.accessibilityScreenshotSha256
+				label = 'accessibility settings'
+			},
+			[pscustomobject]@{
+				path = [string]$result.displayScreenshotPath
+				hash = [string]$result.displayScreenshotSha256
+				label = 'display settings'
+			},
+			[pscustomobject]@{
+				path = [string]$result.titleScreenshotPath
+				hash = [string]$result.titleScreenshotSha256
+				label = 'first-run title'
+			}
+		)) {
+			$resolvedSettingsScreenshot = (
+				Resolve-Path -LiteralPath $settingsCapture.path
+			).Path
+			if (-not $resolvedSettingsScreenshot.StartsWith(
+					$evidenceRoot,
+					[StringComparison]::OrdinalIgnoreCase)) {
+				throw (
+					"Frontend Shipping $($settingsCapture.label) screenshot " +
+					"escaped evidence: $resolvedSettingsScreenshot")
+			}
+			$actualSettingsScreenshotHash = (
+				Get-FileHash `
+					-Algorithm SHA256 `
+					-LiteralPath $resolvedSettingsScreenshot
+			).Hash
+			if ($actualSettingsScreenshotHash -ne $settingsCapture.hash) {
+				throw (
+					"Frontend Shipping $($settingsCapture.label) screenshot " +
+					"hash mismatch: $resolvedSettingsScreenshot")
+			}
+		}
 		$receiptText = (
 			Get-Content -Raw -Encoding UTF8 -LiteralPath $resolvedReceipt
 		).Trim()
 		$receiptPattern = (
-			'^REBIRTH_FRONTEND PASS contract=3 resolution=' +
+			'^REBIRTH_FRONTEND PASS contract=4 resolution=' +
 			[regex]::Escape($resolution) +
 			' keyboard_access=1 gamepad_access=1 dpad_down=1 ' +
 			'keyboard_up=1 gamepad_close=1 keyboard_pause=1 ' +
-			'gamepad_pause=1 display=1 dialogue=1 dialogue_default=1 ' +
+			'gamepad_pause=1 display=1 title=1 first_run=1 ' +
+			'dialogue=1 dialogue_default=1 ' +
 			'speaker=1 continuation=1 default_scale=100 max_scale=200 ' +
-			'sound_lane=1 samples=10 elements_min=(?<elements>[0-9]+) ' +
+			'sound_lane=1 samples=11 elements_min=(?<elements>[0-9]+) ' +
 			'input_events=11 bounds=(?<minX>-?[0-9]+),(?<minY>-?[0-9]+),' +
 			'(?<maxX>-?[0-9]+),(?<maxY>-?[0-9]+)$')
 		$receiptMatch = [regex]::Match($receiptText, $receiptPattern)
@@ -1885,6 +1925,8 @@ function Assert-FrontendShippingProbeEvidence {
 			[int]$result.dialogueScreenshotHeight -ne $expectedHeight -or
 			[int]$result.defaultDialogueScreenshotWidth -ne $expectedWidth -or
 			[int]$result.defaultDialogueScreenshotHeight -ne $expectedHeight -or
+			[int]$result.titleScreenshotWidth -ne $expectedWidth -or
+			[int]$result.titleScreenshotHeight -ne $expectedHeight -or
 			$minimumX -ne [int]$result.bounds.minimumX -or
 			$minimumY -ne [int]$result.bounds.minimumY -or
 			$maximumX -ne [int]$result.bounds.maximumX -or

@@ -17,6 +17,7 @@ import unreal
 PROJECT_DIR = unreal.SystemLibrary.get_project_directory()
 SOURCE_ART_DIR = os.path.join(PROJECT_DIR, "Content", "SourceArt")
 TEXTURE_PACKAGE_ROOT = "/Game/Prototype/Textures"
+FRONTEND_TEXTURE_PACKAGE_ROOT = "/Game/UI/Textures"
 HUD_UI_ONLY = os.environ.get("IG_HUD_UI_ONLY") == "1"
 HUD_UI_TEXTURE_NAMES = {
     "T_AudioCalibrationWall_D",
@@ -30,7 +31,10 @@ HUD_UI_TEXTURE_NAMES = {
     "T_FPCaptureEmbrace1_D",
     "T_FPCaptureEmbrace2_D",
     "T_FPCaptureEmbrace3_D",
+    "T_TitleBackground_D",
 }
+FRONTEND_UI_ONLY = os.environ.get("IG_FRONTEND_UI_ONLY") == "1"
+FRONTEND_UI_TEXTURE_NAMES = {"T_TitleBackground_D"}
 APARTMENT_VISUAL_ONLY = os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1"
 APARTMENT_VISUAL_TEXTURE_NAMES = {
     "T_ApartmentWallpaperV2_D",
@@ -503,6 +507,7 @@ def import_textures():
         and (
             (
                 not HUD_UI_ONLY
+                and not FRONTEND_UI_ONLY
                 and not APARTMENT_VISUAL_ONLY
                 and not MISSING_FLOOR_ONLY
                 and not CORRIDOR_SIGNAGE_ONLY
@@ -510,6 +515,10 @@ def import_textures():
             or (
                 HUD_UI_ONLY
                 and os.path.splitext(entry)[0] in HUD_UI_TEXTURE_NAMES
+            )
+            or (
+                FRONTEND_UI_ONLY
+                and os.path.splitext(entry)[0] in FRONTEND_UI_TEXTURE_NAMES
             )
             or (
                 APARTMENT_VISUAL_ONLY
@@ -530,9 +539,14 @@ def import_textures():
 
     tasks = []
     for png_file in png_files:
+        asset_name = os.path.splitext(os.path.basename(png_file))[0]
         task = unreal.AssetImportTask()
         task.filename = png_file
-        task.destination_path = TEXTURE_PACKAGE_ROOT
+        task.destination_path = (
+            FRONTEND_TEXTURE_PACKAGE_ROOT
+            if asset_name in FRONTEND_UI_TEXTURE_NAMES
+            else TEXTURE_PACKAGE_ROOT
+        )
         task.automated = True
         task.replace_existing = True
         task.save = False
@@ -542,7 +556,12 @@ def import_textures():
     imported = []
     for png_file in png_files:
         asset_name = os.path.splitext(os.path.basename(png_file))[0]
-        asset_path = f"{TEXTURE_PACKAGE_ROOT}/{asset_name}"
+        package_root = (
+            FRONTEND_TEXTURE_PACKAGE_ROOT
+            if asset_name in FRONTEND_UI_TEXTURE_NAMES
+            else TEXTURE_PACKAGE_ROOT
+        )
+        asset_path = f"{package_root}/{asset_name}"
         texture = unreal.load_asset(asset_path)
         if texture is None:
             raise RuntimeError(f"Import failed for {asset_path}")
@@ -615,6 +634,7 @@ def import_textures():
 if __name__ == "__main__":
     if (
         not HUD_UI_ONLY
+        and not FRONTEND_UI_ONLY
         and not APARTMENT_VISUAL_ONLY
         and not MISSING_FLOOR_ONLY
         and not CORRIDOR_SIGNAGE_ONLY

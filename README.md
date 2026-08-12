@@ -217,6 +217,21 @@
 - 키보드·마우스와 게임패드 메뉴 조작
 - 720p·1080p·1440p, 창 모드, VSync와 프레임 제한 설정
 
+<table>
+  <tr>
+    <td><img src="Docs/Media/settings-display-1080.png" alt="카테고리와 선택 항목 설명이 있는 화면 설정 실제 게임 화면"></td>
+    <td><img src="Docs/Media/settings-accessibility-1080.png" alt="게임 진행, 움직임, 정보 안내, 자막, 입력으로 나뉜 접근성 설정 실제 게임 화면"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>화면·성능 설정</sub></td>
+    <td align="center"><sub>접근성 설정</sub></td>
+  </tr>
+</table>
+
+설정은 선택한 값만 나열하지 않고, 해당 항목이 공포 연출과 조작에 무엇을
+바꾸는지 같은 화면에서 설명합니다. 접근성 값은 즉시 저장되고, 화면 모드와
+해상도는 적용 뒤 10초 안에 확인하지 않으면 이전 값으로 돌아갑니다.
+
 ## 조작
 
 | 입력 | 동작 | 입력 | 동작 |

@@ -87,6 +87,14 @@ private:
 	void HandleKeyringTaken(AIGMissingFloorEvidence* Evidence);
 	void HandleValveOpened(AIGMissingFloorEvidence* Evidence);
 	void HandleWallListened(int32 BayIndex);
+
+	/**
+	 * Plays what the wall actually sounds like when an ear settles on it: the
+	 * cavity's long mass-air-mass ring or a solid board's dead thud, plus the
+	 * riser water at whatever band the structure left it in. The monologue that
+	 * follows confirms this; it must never be the only thing that says it.
+	 */
+	void PlayWallListenResponse(int32 BayIndex, bool bHollow);
 	void HandleWallKnocked(int32 BayIndex);
 	void HandleImpactMarkExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleAnswerKnock(AIGMissingFloorEvidence* Evidence);

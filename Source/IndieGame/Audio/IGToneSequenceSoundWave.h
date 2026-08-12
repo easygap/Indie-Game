@@ -346,6 +346,52 @@ public:
 	 */
 	static UIGToneSequenceSoundWave* CreatePlasterDustFall(UObject* Outer);
 
+	/**
+	 * 배관 수류, 원근 4단 (§21.3) — the riser running behind the finished wall.
+	 *
+	 * DistanceStep 0..3 is how much building the water had to come through:
+	 * bandwidths 5000 / 2400 / 1100 / 480 Hz. Structure is a low-pass filter, so
+	 * the step *is* the distance, and the player reads it without being told.
+	 * Close water still has audible ticks; far water is only a hum. Looping.
+	 */
+	static UIGToneSequenceSoundWave* CreatePipeWaterFlow(
+		UObject* Outer,
+		int32 DistanceStep);
+
+	/**
+	 * The answer P3 is actually asking for: 속이 찬 벽은 짧게 죽고, 빈 벽은
+	 * 길게 운다.
+	 *
+	 * A cavity wall is two leaves with an air spring between them, and that
+	 * mass-air-mass system resonates — measured near 100–110 Hz in real stud
+	 * walls. Driven by the riser it rings on. A solid wall has no air spring, so
+	 * the same excitation dies almost immediately. This one difference is the
+	 * whole puzzle, and it has to be audible: the thought bubble must confirm
+	 * what the player already heard, never replace it.
+	 */
+	static UIGToneSequenceSoundWave* CreateWallCavityResponse(
+		UObject* Outer,
+		bool bHollow);
+
+	/**
+	 * 밸브 개방 (§21.3) — 1.8 kHz metal ringing plus a 1.2 s ramp of water
+	 * starting to move, over 2.00 s. ValveIndex 0..2 picks one of the three
+	 * authored wheels (§10.3); larger wheels ring lower and fill slower.
+	 */
+	static UIGToneSequenceSoundWave* CreateValveOpen(
+		UObject* Outer,
+		int32 ValveIndex);
+
+	/**
+	 * 망치 임팩트 (§21.3) — a 90 Hz impulse, gypsum fracture, and 1.4 s of the
+	 * building answering, over 1.60 s. StrikeIndex escalates the fracture
+	 * through the §10.3 three stages: the first blows bruise the board, the
+	 * later ones break through it, and the sound has to say which.
+	 */
+	static UIGToneSequenceSoundWave* CreateHammerImpact(
+		UObject* Outer,
+		int32 StrikeIndex);
+
 private:
 	static float EvaluateWaveform(EIGToneWaveform Waveform, float FrequencyHz, double NoteTimeSeconds);
 	static float EvaluateEnvelope(const FIGToneNote& Note, float NoteProgress01);

@@ -1663,3 +1663,199 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasterDustFall(
 	Wave->ConfigureNotes(MoveTemp(DustNotes), false);
 	return Wave;
 }
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePipeWaterFlow(
+	UObject* Outer,
+	const int32 DistanceStep)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGPipeWaterFlow"));
+	TArray<FIGToneNote> FlowNotes;
+
+	// §21.3 원근 4단. Concrete and board are a low-pass filter, so the band the
+	// water arrives in is the distance it travelled. Nothing else needs to say
+	// how far away it is.
+	const int32 Step = FMath::Clamp(DistanceStep, 0, 3);
+	const float Bandwidths[] = {5000.0f, 2400.0f, 1100.0f, 480.0f};
+	const float Levels[] = {0.085f, 0.062f, 0.042f, 0.026f};
+	const float Bandwidth = Bandwidths[Step];
+	const float Level = Levels[Step];
+	constexpr float LoopSeconds = 1.60f;
+
+	// Two overlapping halves so the loop seam never lands on a silence, and a
+	// slow body under them: moving water is never a steady tone.
+	FlowNotes.Add({0.000f, 0.96f, Bandwidth, Level, 0.180f, 0.9f, EIGToneWaveform::ValueNoise});
+	FlowNotes.Add({0.780f, 0.96f, Bandwidth * 0.92f, Level * 0.94f, 0.200f, 0.9f, EIGToneWaveform::ValueNoise});
+	FlowNotes.Add({0.000f, LoopSeconds, Bandwidth * 0.26f, Level * 0.55f, 0.250f, 0.8f, EIGToneWaveform::ValueNoise});
+
+	// Ticks are the sound of water hitting the inside of a pipe, and only the
+	// near steps keep them: through two walls the ticks are gone before the hum.
+	if (Step <= 1)
+	{
+		const float TickStarts[] = {0.113f, 0.402f, 0.667f, 0.941f, 1.284f};
+		for (int32 TickIndex = 0; TickIndex < UE_ARRAY_COUNT(TickStarts); ++TickIndex)
+		{
+			FlowNotes.Add({
+				TickStarts[TickIndex],
+				0.016f,
+				Bandwidth * (0.70f + 0.06f * (TickIndex % 3)),
+				Level * (Step == 0 ? 0.52f : 0.30f),
+				0.010f,
+				1.6f,
+				EIGToneWaveform::ValueNoise});
+		}
+	}
+
+	Wave->ConfigureNotes(MoveTemp(FlowNotes), true, LoopSeconds);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallCavityResponse(
+	UObject* Outer,
+	const bool bHollow)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		bHollow ? TEXT("IGWallCavityHollow") : TEXT("IGWallCavitySolid"));
+	TArray<FIGToneNote> WallNotes;
+
+	// The same excitation both times: an ear settling against board while the
+	// riser drives it from behind. If this differed, the player would be reading
+	// the contact instead of the wall.
+	WallNotes.Add({0.000f, 0.030f, 2600.0f, 0.038f, 0.010f, 1.4f, EIGToneWaveform::ValueNoise});
+
+	if (bHollow)
+	{
+		// 105 Hz is the mass-air-mass resonance of a real cavity stud wall — two
+		// leaves rocking on the air between them. Low release powers keep it
+		// ringing for a second and a half: 빈 벽은 길게 운다.
+		WallNotes.Add({0.006f, 1.450f, 105.0f, 0.130f, 0.014f, 0.95f, EIGToneWaveform::Sine});
+		// The cavity's own axial modes: about 2.4 m tall gives ~71 Hz, and the
+		// shaft-side gap of roughly 40 cm gives ~430 Hz.
+		WallNotes.Add({0.010f, 1.320f, 71.0f, 0.072f, 0.020f, 1.05f, EIGToneWaveform::Sine});
+		WallNotes.Add({0.004f, 0.880f, 215.0f, 0.048f, 0.012f, 1.15f, EIGToneWaveform::Triangle});
+		WallNotes.Add({0.008f, 0.620f, 430.0f, 0.030f, 0.014f, 1.30f, EIGToneWaveform::Sine});
+		// Water heard through nothing but air, arriving with the ring.
+		WallNotes.Add({0.020f, 1.180f, 4200.0f, 0.026f, 0.120f, 1.10f, EIGToneWaveform::ValueNoise});
+	}
+	else
+	{
+		// No air spring, no resonance. One damped board note and it is over in
+		// under a third of a second: 속이 찬 벽은 짧게 죽는다.
+		WallNotes.Add({0.004f, 0.220f, 150.0f, 0.110f, 0.016f, 3.00f, EIGToneWaveform::Sine});
+		WallNotes.Add({0.004f, 0.140f, 320.0f, 0.042f, 0.014f, 3.40f, EIGToneWaveform::Triangle});
+		// Whatever water reaches here came the long way round, through mass.
+		WallNotes.Add({0.018f, 0.300f, 520.0f, 0.020f, 0.140f, 2.40f, EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(WallNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateValveOpen(
+	UObject* Outer,
+	const int32 ValveIndex)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGValveOpen"));
+	TArray<FIGToneNote> ValveNotes;
+
+	// §21.3: 1.8 kHz metal ringing plus a 1.2 s ramp of water starting to move,
+	// 2.00 s total. Bigger wheels ring lower and fill slower — the three
+	// authored valves stay distinguishable by ear alone (§10.3 밸브 3종).
+	const int32 Index = FMath::Clamp(ValveIndex, 0, 2);
+	const float RingHz[] = {1800.0f, 1520.0f, 2150.0f};
+	const float FillSeconds[] = {1.20f, 1.34f, 1.06f};
+	const float Ring = RingHz[Index];
+	const float Fill = FillSeconds[Index];
+
+	// The stem breaking free, then the wheel turning in three dry clicks.
+	ValveNotes.Add({0.000f, 0.048f, 1400.0f, 0.070f, 0.008f, 1.8f, EIGToneWaveform::ValueNoise});
+	ValveNotes.Add({0.000f, 0.340f, Ring, 0.062f, 0.006f, 2.6f, EIGToneWaveform::Sine});
+	ValveNotes.Add({0.000f, 0.520f, Ring * 0.5f, 0.034f, 0.010f, 2.2f, EIGToneWaveform::Triangle});
+	const float ClickStarts[] = {0.185f, 0.372f, 0.548f};
+	for (const float ClickStart : ClickStarts)
+	{
+		ValveNotes.Add({ClickStart, 0.026f, 1100.0f, 0.038f, 0.010f, 1.7f, EIGToneWaveform::ValueNoise});
+		ValveNotes.Add({ClickStart, 0.150f, Ring * 0.92f, 0.026f, 0.008f, 2.8f, EIGToneWaveform::Sine});
+	}
+
+	// Water arriving: the band opens up over the fill as the pipe charges, so
+	// the ramp is heard as pressure building rather than a fade-in.
+	constexpr int32 RampSteps = 6;
+	for (int32 RampIndex = 0; RampIndex < RampSteps; ++RampIndex)
+	{
+		const float Alpha = static_cast<float>(RampIndex) / (RampSteps - 1);
+		const float Start = 0.62f + Fill * Alpha * 0.82f;
+		ValveNotes.Add({
+			Start,
+			Fill * 0.42f,
+			FMath::Lerp(620.0f, 3400.0f, Alpha),
+			FMath::Lerp(0.020f, 0.058f, Alpha),
+			0.220f,
+			1.1f,
+			EIGToneWaveform::ValueNoise});
+	}
+	// Settled flow holding the last of the two seconds.
+	ValveNotes.Add({1.520f, 0.480f, 2600.0f, 0.044f, 0.180f, 1.2f, EIGToneWaveform::ValueNoise});
+	ValveNotes.Add({1.520f, 0.480f, 700.0f, 0.026f, 0.200f, 1.1f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(ValveNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateHammerImpact(
+	UObject* Outer,
+	const int32 StrikeIndex)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGHammerImpact"));
+	TArray<FIGToneNote> HammerNotes;
+
+	// §21.3: a 90 Hz impulse, gypsum fracture, and 1.4 s of the building
+	// answering, over 1.60 s. §10.3 wants the fracture in three stages, and the
+	// stage is the information: the player hears the wall going, not a counter.
+	const int32 Strike = FMath::Max(0, StrikeIndex);
+	const int32 Stage = Strike <= 1 ? 0 : (Strike <= 3 ? 1 : 2);
+	const float StageGain[] = {0.62f, 0.84f, 1.00f};
+	const float Gain = StageGain[Stage];
+
+	// The head landing. Low, and the same every time — the arm does not change.
+	HammerNotes.Add({0.000f, 0.180f, 90.0f, 0.300f, 0.003f, 2.4f, EIGToneWaveform::Sine});
+	HammerNotes.Add({0.000f, 0.090f, 240.0f, 0.120f, 0.004f, 2.8f, EIGToneWaveform::Triangle});
+	HammerNotes.Add({0.000f, 0.022f, 3200.0f, 0.090f * Gain, 0.006f, 1.5f, EIGToneWaveform::ValueNoise});
+
+	// Stage 0: the board bruises and holds. A dull crush, nothing separating.
+	// Stage 1: paper tears and the core starts letting go.
+	// Stage 2: it breaks through — pieces, and the cavity behind them.
+	const int32 FractureCount = 3 + Stage * 3;
+	for (int32 FractureIndex = 0; FractureIndex < FractureCount; ++FractureIndex)
+	{
+		const float Spread = static_cast<float>(FractureIndex) / FractureCount;
+		HammerNotes.Add({
+			0.026f + Spread * (0.140f + 0.120f * Stage),
+			0.020f + 0.014f * (FractureIndex % 3),
+			FMath::Lerp(1400.0f, 4600.0f, FMath::Frac(Spread * 2.7f)),
+			(0.034f + 0.016f * Stage) * (1.0f - Spread * 0.45f),
+			0.008f,
+			1.4f,
+			EIGToneWaveform::ValueNoise});
+	}
+	if (Stage == 2)
+	{
+		// The cavity is open now, so its mass-air-mass note rings free instead
+		// of being muffled by the board that used to close it.
+		HammerNotes.Add({0.060f, 0.900f, 105.0f, 0.090f, 0.014f, 1.10f, EIGToneWaveform::Sine});
+	}
+
+	// 1.4 s of building. Concrete keeps the high end, which is why a hammer at
+	// 04:30 is the loudest mistake available (§5.1 소음 1.0).
+	HammerNotes.Add({0.040f, 1.400f, 170.0f, 0.070f * Gain, 0.030f, 1.20f, EIGToneWaveform::ValueNoise});
+	HammerNotes.Add({0.055f, 1.320f, 900.0f, 0.040f * Gain, 0.060f, 1.35f, EIGToneWaveform::ValueNoise});
+	HammerNotes.Add({0.070f, 1.180f, 2400.0f, 0.024f * Gain, 0.090f, 1.50f, EIGToneWaveform::ValueNoise});
+	// Dust coming off the break, arriving last.
+	HammerNotes.Add({0.320f, 1.280f, 6800.0f, 0.016f * Gain, 0.140f, 2.60f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(HammerNotes), false);
+	return Wave;
+}

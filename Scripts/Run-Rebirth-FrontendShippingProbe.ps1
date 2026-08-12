@@ -118,6 +118,9 @@ function Invoke-FrontendCase {
 	$caseRoot = Join-Path $evidenceRoot $caseName
 	$userDirectory = Join-Path $caseRoot 'User'
 	$receiptPath = Join-Path $caseRoot 'receipt.txt'
+	$accessibilityScreenshotPath = Join-Path $caseRoot 'settings-accessibility.png'
+	$displayScreenshotPath = Join-Path $caseRoot 'settings-display.png'
+	$titleScreenshotPath = Join-Path $caseRoot 'title-first-run.png'
 	$defaultScreenshotPath = Join-Path $caseRoot 'dialogue-default.png'
 	$screenshotPath = Join-Path $caseRoot 'dialogue.png'
 	New-Item -ItemType Directory -Force -Path $userDirectory | Out-Null
@@ -140,6 +143,9 @@ function Invoke-FrontendCase {
 		"-IGFrontendExpectedWidth=$Width",
 		"-IGFrontendExpectedHeight=$Height",
 		"-IGFrontendResultPath=$receiptPath",
+		"-IGFrontendAccessibilityScreenshotPath=$accessibilityScreenshotPath",
+		"-IGFrontendDisplayScreenshotPath=$displayScreenshotPath",
+		"-IGFrontendTitleScreenshotPath=$titleScreenshotPath",
 		"-IGFrontendDefaultScreenshotPath=$defaultScreenshotPath",
 		"-IGFrontendScreenshotPath=$screenshotPath",
 		"-UserDir=$userDirectory"
@@ -148,9 +154,9 @@ function Invoke-FrontendCase {
 		$arguments | ForEach-Object { ConvertTo-ProcessArgument -Value $_ }
 	)
 	$process = Start-Process `
-		-FilePath $shippingExecutable `
+		-FilePath $launcher `
 		-ArgumentList $processArguments `
-		-WorkingDirectory (Split-Path -Parent $shippingExecutable) `
+		-WorkingDirectory (Split-Path -Parent $launcher) `
 		-PassThru `
 		-WindowStyle Hidden
 	try {
@@ -185,12 +191,37 @@ function Invoke-FrontendCase {
 	if (-not (Test-Path -LiteralPath $defaultScreenshotPath -PathType Leaf)) {
 		throw "Frontend Shipping default dialogue screenshot is missing: $defaultScreenshotPath"
 	}
+	if (-not (Test-Path -LiteralPath $titleScreenshotPath -PathType Leaf)) {
+		throw "Frontend Shipping first-run title screenshot is missing: $titleScreenshotPath"
+	}
+	foreach ($settingsScreenshotPath in @(
+		$accessibilityScreenshotPath,
+		$displayScreenshotPath
+	)) {
+		if (-not (Test-Path -LiteralPath $settingsScreenshotPath -PathType Leaf)) {
+			throw "Frontend Shipping settings screenshot is missing: $settingsScreenshotPath"
+		}
+		$settingsDimensions = Get-PngDimensions -Path $settingsScreenshotPath
+		if ($settingsDimensions.width -ne $Width -or
+			$settingsDimensions.height -ne $Height) {
+			throw (
+				'Frontend Shipping settings screenshot dimensions failed: ' +
+				"$caseName path=$settingsScreenshotPath")
+		}
+	}
 	$defaultScreenshotDimensions = Get-PngDimensions -Path $defaultScreenshotPath
 	if ($defaultScreenshotDimensions.width -ne $Width -or
 		$defaultScreenshotDimensions.height -ne $Height) {
 		throw (
 			'Frontend Shipping default dialogue screenshot dimensions failed: ' +
 			"$caseName actual=$($defaultScreenshotDimensions.width)x$($defaultScreenshotDimensions.height)")
+	}
+	$titleScreenshotDimensions = Get-PngDimensions -Path $titleScreenshotPath
+	if ($titleScreenshotDimensions.width -ne $Width -or
+		$titleScreenshotDimensions.height -ne $Height) {
+		throw (
+			'Frontend Shipping first-run title screenshot dimensions failed: ' +
+			"$caseName actual=$($titleScreenshotDimensions.width)x$($titleScreenshotDimensions.height)")
 	}
 	$screenshotDimensions = Get-PngDimensions -Path $screenshotPath
 	if ($screenshotDimensions.width -ne $Width -or
@@ -207,13 +238,14 @@ function Invoke-FrontendCase {
 		Get-Content -Raw -Encoding UTF8 -LiteralPath $receiptPath
 	).Trim()
 	$pattern = (
-		'^REBIRTH_FRONTEND PASS contract=3 ' +
+		'^REBIRTH_FRONTEND PASS contract=4 ' +
 		"resolution=${Width}x${Height} " +
 		'keyboard_access=1 gamepad_access=1 dpad_down=1 ' +
 		'keyboard_up=1 gamepad_close=1 keyboard_pause=1 ' +
-		'gamepad_pause=1 display=1 dialogue=1 dialogue_default=1 ' +
+		'gamepad_pause=1 display=1 title=1 first_run=1 ' +
+		'dialogue=1 dialogue_default=1 ' +
 		'speaker=1 continuation=1 default_scale=100 max_scale=200 ' +
-		'sound_lane=1 samples=10 elements_min=([0-9]+) ' +
+		'sound_lane=1 samples=11 elements_min=([0-9]+) ' +
 		'input_events=11 bounds=(-?[0-9]+),(-?[0-9]+),(-?[0-9]+),(-?[0-9]+)$')
 	$match = [regex]::Match($receipt, $pattern)
 	if (-not $match.Success) {
@@ -239,11 +271,25 @@ function Invoke-FrontendCase {
 			maximumY = $maximumY
 		}
 		inputEvents = 11
-		layoutSamples = 10
+		layoutSamples = 11
 		receipt = $receipt
 		receiptPath = $receiptPath
 		receiptSha256 = (
 			Get-FileHash -Algorithm SHA256 -LiteralPath $receiptPath
+		).Hash
+		accessibilityScreenshotPath = $accessibilityScreenshotPath
+		accessibilityScreenshotSha256 = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $accessibilityScreenshotPath
+		).Hash
+		displayScreenshotPath = $displayScreenshotPath
+		displayScreenshotSha256 = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $displayScreenshotPath
+		).Hash
+		titleScreenshotPath = $titleScreenshotPath
+		titleScreenshotWidth = $titleScreenshotDimensions.width
+		titleScreenshotHeight = $titleScreenshotDimensions.height
+		titleScreenshotSha256 = (
+			Get-FileHash -Algorithm SHA256 -LiteralPath $titleScreenshotPath
 		).Hash
 		dialogueScreenshotPath = $screenshotPath
 		dialogueScreenshotWidth = $screenshotDimensions.width
@@ -281,7 +327,7 @@ Assert-ArchiveUnchanged -Root $archiveRoot -Before $archiveManifestBefore
 
 $summaryPath = Join-Path $evidenceRoot 'summary.json'
 [pscustomobject]@{
-	schemaVersion = 3
+	schemaVersion = 4
 	generatedAtUtc = [DateTime]::UtcNow.ToString('o')
 	archiveDirectory = $archiveRoot
 	archiveFileCount = $archiveManifestBefore.Count
@@ -292,11 +338,12 @@ $summaryPath = Join-Path $evidenceRoot 'summary.json'
 	).Hash
 	resolutionCount = $results.Count
 	dialogueCaseCount = $results.Count * 2
+	titleCaseCount = $results.Count
 	inputEventCount = ($results | Measure-Object -Property inputEvents -Sum).Sum
 	layoutSampleCount = ($results | Measure-Object -Property layoutSamples -Sum).Sum
 	results = $results
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding UTF8
 Write-Host (
 	'REBIRTH_FRONTEND_SHIPPING PASS resolutions=4 input_events=44 ' +
-	"layout_samples=40 dialogue_cases=8 archive_files=$($archiveManifestBefore.Count) " +
+	"layout_samples=44 dialogue_cases=8 title_cases=4 archive_files=$($archiveManifestBefore.Count) " +
 	"summary=$summaryPath") -ForegroundColor Green

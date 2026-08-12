@@ -29,8 +29,15 @@
 | `/Game/Prototype/Textures/T_Label* · T_Snack*` | 직접 제작 (System.Drawing) — 가상 브랜드, 실제 상표 미사용 | 프로젝트 소유 | 2026-07-25 | 원본 | `Scripts/Create-LabelTextures.ps1` | 제품 라벨·봉지 아트 |
 | `/Game/Prototype/Textures/T_Sign* · T_Poster* · T_Note*` | 직접 제작 (System.Drawing + 시스템 폰트) | 프로젝트 소유 | 2026-07-19 | 원본 | `Scripts/Create-SignTextures.ps1` | 한글 간판·포스터 |
 | `/Game/Prototype/Textures/T_(Jangpan·Wallpaper·…)_{D,N,R}` | 직접 제작 (절차 생성) | 프로젝트 소유 | 2026-07-19 | 원본 | `Scripts/generate_surface_textures.py` | 사진 텍스처 폴백 |
+| `Source/IndieGame/UI/Fonts/Pretendard-{Regular,SemiBold}.otf` | orioncactus / Pretendard 1.3.9 | SIL Open Font License 1.1 | 2026-08-12 | 원본 | `Source/IndieGame/UI/Fonts/OFL-Pretendard.txt` | 설정·대화·본문·보조문구. 패키지 실행 파일 옆 `UI/Fonts`에 NonUFS 스테이징 |
+| `Source/IndieGame/UI/Fonts/GowunBatang-Bold.ttf` | Yanghee Ryu / Google Fonts | SIL Open Font License 1.1 | 2026-08-12 | 원본 | `Source/IndieGame/UI/Fonts/OFL-GowunBatang.txt` | 타이틀·장면 제목 전용. 패키지 실행 파일 옆 `UI/Fonts`에 NonUFS 스테이징 |
 
 ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 표기 불요)이며, 원본 zip은 `Content/SourceArt/PhotoZips/`에 증빙으로 보관합니다.
+
+두 한글 서체는 OFL 1.1에 따라 상업적 사용·수정·재배포가 가능하며 폰트 파일과
+라이선스 원문을 함께 배포한다. Pretendard는 내비게이션과 긴 문장의 중립적
+가독성을, 고운바탕 Bold는 「없는 층」 제목의 문학적 긴장만 담당한다. 의미 있는
+본문을 생성 이미지에 굽지 않는 기존 원칙은 그대로 유지한다.
 
 ## 생성형 이미지(ImageGen) 아트워크
 
@@ -512,3 +519,18 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 
 프로젝트 코드의 공개 라이선스는 저장소 소유자가 별도로 선택합니다. 선택 전까지
 저작권 고지만으로 공개 사용 권한을 추정하지 않습니다.
+
+## 2026-08-12 타이틀 환경 키아트
+
+- 도구/모드: OpenAI 내장 ImageGen, `stylized-concept`
+- 보존 원본: `Content/SourceArt/AI/TitleBackgroundMissingFloor_v1.png`
+- 원본 SHA-256:
+  `4831357AA6439F9CF93CC3D5CC4664DDF8EB995D59759E1F319504246CD57D39`
+- 파생: `Content/SourceArt/T_TitleBackground_D.png`, 1920×1080 RGBA
+- 런타임: `/Game/UI/Textures/T_TitleBackground_D`, `TEXTUREGROUP_UI`,
+  `NoMipmaps`, `Clamp`, `NeverStream`
+- 권리/참조: 외부 작품·로고·실존 건물·인물을 입력하지 않은 환경 생성물이다.
+  UI 글자와 브랜드는 포함하지 않는다.
+- 적용 경계: 타이틀/타이틀에서 연 크레딧의 배경만 담당한다. 일시정지는 현재
+  월드 화면을 유지하고, 메뉴·포커스·현지화 문자는 C++ HUD가 소유한다.
+- 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-08-12.md`

@@ -267,6 +267,13 @@ $plan = @(
         Source = 'TextureAudioCalibrationWall_v1'; Target = 'T_AudioCalibrationWall_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
+    # The title key art owns environment and light only. Keeping the generated
+    # source text-free lets the native HUD localize every label, scale type at
+    # runtime, and hide Continue cleanly when no compatible save exists.
+    [pscustomobject]@{
+        Source = 'TitleBackgroundMissingFloor_v1'; Target = 'T_TitleBackground_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1920, 1080)
+    }
     # Apartment vertical-slice art direction. The wallpaper remains a neutral
     # BaseColor scan; N/R/A are derived offline so no generated highlight is
     # baked into the room. The patina sheet is data, not a photographed plane:

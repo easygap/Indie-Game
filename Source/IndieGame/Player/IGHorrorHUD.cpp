@@ -15,6 +15,8 @@
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/PlatformMisc.h"
+#include "HAL/PlatformProcess.h"
+#include "HAL/PlatformTime.h"
 #include "IndieGame.h"
 #include "Misc/FileHelper.h"
 #include "Misc/CommandLine.h"
@@ -23,6 +25,7 @@
 #include "Interaction/IGReadableNote.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGInteractionComponent.h"
+#include "Player/IGFrontendMenuLayout.h"
 #include "Player/IGPlayerController.h"
 #include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGObjectiveProvider.h"
@@ -63,9 +66,10 @@ namespace IGHorrorHUD
 	// Native font sizes per text role. Presentation scale is applied once for the
 	// current resolution and accessibility setting, then reused for measurement
 	// and drawing so Korean wrapping stays pixel-consistent.
-	constexpr int32 LargeFontSize = 22;
-	constexpr int32 MediumFontSize = 19;
-	constexpr int32 SmallFontSize = 14;
+	constexpr int32 LargeFontSize = 24;
+	constexpr int32 FrontendTitleFontSize = 64;
+	constexpr int32 MediumFontSize = 20;
+	constexpr int32 SmallFontSize = 18;
 	constexpr int32 PhoneMetaFontSize = 15;
 
 	const FLinearColor Shadow(0.0f, 0.0f, 0.0f, 0.9f);
@@ -75,6 +79,27 @@ namespace IGHorrorHUD
 	const FLinearColor ThoughtBlue(0.74f, 0.78f, 0.86f, 1.0f);
 	const FLinearColor DialogueIvory(0.88f, 0.87f, 0.81f, 1.0f);
 	const FLinearColor DialogueTeal(0.42f, 0.64f, 0.59f, 1.0f);
+
+	// Title-screen palette: wet concrete, old ivory and one oxidized focus mark.
+	// Keeping these semantic tokens here avoids per-row colour drift.
+	const FLinearColor FrontendInk(0.018f, 0.024f, 0.025f, 1.0f);
+	const FLinearColor FrontendIvory(0.89f, 0.88f, 0.83f, 1.0f);
+	const FLinearColor FrontendMuted(0.55f, 0.57f, 0.54f, 1.0f);
+	const FLinearColor FrontendOxide(0.62f, 0.25f, 0.21f, 1.0f);
+	const FLinearColor FrontendFocus(0.028f, 0.033f, 0.032f, 0.88f);
+	const FLinearColor FrontendGuide(0.46f, 0.48f, 0.45f, 0.34f);
+
+	// 설정 전용 색은 의미 단위로 묶는다. 행마다 임의의 RGB를 넣지 않아야
+	// 선택·경고·완료 상태의 대비를 한 곳에서 조정할 수 있다.
+	const FLinearColor SettingsPanel(0.035f, 0.043f, 0.043f, 0.985f);
+	const FLinearColor SettingsRail(0.024f, 0.030f, 0.030f, 0.97f);
+	const FLinearColor SettingsRaised(0.072f, 0.083f, 0.081f, 0.96f);
+	const FLinearColor SettingsSelected(0.115f, 0.132f, 0.128f, 0.98f);
+	const FLinearColor SettingsDivider(0.22f, 0.24f, 0.23f, 0.52f);
+	const FLinearColor SettingsPrimary(0.90f, 0.91f, 0.87f, 1.0f);
+	const FLinearColor SettingsSecondary(0.61f, 0.64f, 0.61f, 0.96f);
+	const FLinearColor SettingsAccent(0.76f, 0.26f, 0.20f, 1.0f);
+	const FLinearColor SettingsSuccess(0.46f, 0.71f, 0.58f, 1.0f);
 
 	enum class EJournalLane : int32
 	{
@@ -205,6 +230,7 @@ void AIGHorrorHUD::BeginPlay()
 			FCommandLine::Get(),
 			TEXT("IGAudioCalibrationPreview"));
 	InitializeKoreanFont();
+	InitializeFrontendMenuTextures();
 
 	// Optional: absent until Scripts/Prepare-AIArt.ps1 has produced it, in
 	// which case the reading panel falls back to a flat fill.
@@ -356,6 +382,53 @@ void AIGHorrorHUD::InitializeDialogueSurfaceTextures()
 		HudRoundedMaskTexture->AddressY = TA_Clamp;
 		HudRoundedMaskTexture->NeverStream = true;
 		HudRoundedMaskTexture->UpdateResource();
+	}
+}
+
+void AIGHorrorHUD::InitializeFrontendMenuTextures()
+{
+	FrontendTitleBackgroundTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/UI/Textures/T_TitleBackground_D.T_TitleBackground_D"));
+	if (!FrontendTitleBackgroundTexture)
+	{
+		UE_LOG(
+			LogIndieGame,
+			Warning,
+			TEXT("Title key art is unavailable; front end will use its safe fallback."));
+	}
+
+	constexpr int32 ShadeWidth = 256;
+	TArray64<uint8> PixelBytes;
+	PixelBytes.SetNumZeroed(ShadeWidth * sizeof(FColor));
+	FColor* Pixels = reinterpret_cast<FColor*>(PixelBytes.GetData());
+	for (int32 Column = 0; Column < ShadeWidth; ++Column)
+	{
+		const float U = (Column + 0.5f) / ShadeWidth;
+		const float Coverage = FMath::Pow(1.0f - U, 2.15f);
+		Pixels[Column] = FColor(
+			0,
+			0,
+			0,
+			FMath::RoundToInt(255.0f * Coverage));
+	}
+	const FName ShadeName = MakeUniqueObjectName(
+		GetTransientPackage(),
+		UTexture2D::StaticClass(),
+		TEXT("FrontendShade"));
+	FrontendShadeTexture = UTexture2D::CreateTransient(
+		ShadeWidth,
+		1,
+		PF_B8G8R8A8,
+		ShadeName,
+		PixelBytes);
+	if (FrontendShadeTexture)
+	{
+		FrontendShadeTexture->Filter = TF_Bilinear;
+		FrontendShadeTexture->AddressX = TA_Clamp;
+		FrontendShadeTexture->AddressY = TA_Clamp;
+		FrontendShadeTexture->NeverStream = true;
+		FrontendShadeTexture->UpdateResource();
 	}
 }
 
@@ -542,8 +615,48 @@ void AIGHorrorHUD::InitializeLensDropletTexture()
 	}
 }
 
-UFont* AIGHorrorHUD::MakeRuntimeFont(UFontFace* FontFace, const int32 PixelSize, const TCHAR* FontName)
+UFontFace* AIGHorrorHUD::LoadBundledFontFace(
+	const TCHAR* RelativePath,
+	const TCHAR* FontFaceName)
 {
+	FString FontPath = FPaths::Combine(
+		FPlatformProcess::BaseDir(),
+		TEXT("UI/Fonts"),
+		RelativePath);
+	if (!FPaths::FileExists(FontPath))
+	{
+		// Editor targets keep authored binaries beside the module instead of
+		// copying them into the project root. Shipping stages the same files
+		// next to the executable through RuntimeDependencies.
+		FontPath = FPaths::Combine(
+			FPaths::ProjectDir(),
+			TEXT("Source/IndieGame/UI/Fonts"),
+			RelativePath);
+	}
+	TArray<uint8> FontBytes;
+	if (!FPaths::FileExists(FontPath)
+		|| !FFileHelper::LoadFileToArray(FontBytes, *FontPath))
+	{
+		return nullptr;
+	}
+
+	UFontFace* FontFace = NewObject<UFontFace>(this, FontFaceName);
+	FontFace->LoadingPolicy = EFontLoadingPolicy::Inline;
+	FontFace->Hinting = EFontHinting::Default;
+	FontFace->SourceFilename = FontPath;
+	FontFace->FontFaceData = FFontFaceData::MakeFontFaceData(MoveTemp(FontBytes));
+	return FontFace;
+}
+
+UFont* AIGHorrorHUD::MakeRuntimeFont(
+	UFontFace* FontFace,
+	const int32 PixelSize,
+	const TCHAR* FontName)
+{
+	if (!FontFace)
+	{
+		return nullptr;
+	}
 	UFont* RuntimeFont = NewObject<UFont>(this, FontName);
 	RuntimeFont->FontCacheType = EFontCacheType::Runtime;
 	RuntimeFont->LegacyFontSize = PixelSize;
@@ -556,6 +669,52 @@ UFont* AIGHorrorHUD::MakeRuntimeFont(UFontFace* FontFace, const int32 PixelSize,
 
 void AIGHorrorHUD::InitializeKoreanFont()
 {
+	KoreanBodyFontFace = LoadBundledFontFace(
+		TEXT("Pretendard-Regular.otf"),
+		TEXT("KoreanBodyFontFace"));
+	KoreanEmphasisFontFace = LoadBundledFontFace(
+		TEXT("Pretendard-SemiBold.otf"),
+		TEXT("KoreanEmphasisFontFace"));
+	KoreanDisplayFontFace = LoadBundledFontFace(
+		TEXT("GowunBatang-Bold.ttf"),
+		TEXT("KoreanDisplayFontFace"));
+	if (KoreanBodyFontFace && KoreanEmphasisFontFace && KoreanDisplayFontFace)
+	{
+		KoreanFontLarge = MakeRuntimeFont(
+			KoreanDisplayFontFace.Get(),
+			IGHorrorHUD::LargeFontSize,
+			TEXT("KoreanFontLarge"));
+		KoreanFrontendTitleFont = MakeRuntimeFont(
+			KoreanDisplayFontFace.Get(),
+			IGHorrorHUD::FrontendTitleFontSize,
+			TEXT("KoreanFrontendTitleFont"));
+		KoreanFontMedium = MakeRuntimeFont(
+			KoreanEmphasisFontFace.Get(),
+			IGHorrorHUD::MediumFontSize,
+			TEXT("KoreanFontMedium"));
+		KoreanFontSmall = MakeRuntimeFont(
+			KoreanBodyFontFace.Get(),
+			IGHorrorHUD::SmallFontSize,
+			TEXT("KoreanFontSmall"));
+		KoreanPhoneMetaFont = MakeRuntimeFont(
+			KoreanBodyFontFace.Get(),
+			IGHorrorHUD::PhoneMetaFontSize,
+			TEXT("KoreanPhoneMetaFont"));
+
+		// Receipts deliberately retain a denser system face when available;
+		// all navigational and story UI uses the deterministic bundled pair.
+		KoreanReceiptFontFace = KoreanBodyFontFace;
+		KoreanReceiptHeaderFont = MakeRuntimeFont(
+			KoreanEmphasisFontFace.Get(), 21, TEXT("KoreanReceiptHeaderFont"));
+		KoreanReceiptFont = MakeRuntimeFont(
+			KoreanBodyFontFace.Get(), 12, TEXT("KoreanReceiptFont"));
+		UE_LOG(LogIndieGame, Display, TEXT("Bundled Korean HUD type system loaded."));
+		return;
+	}
+
+	// Development fallback only. A packaged build stages the bundled faces via
+	// RuntimeDependencies, while this path keeps the HUD usable in a partial
+	// source checkout and reports the missing asset in the log.
 	FString FontsDirectory = FPlatformMisc::GetEnvironmentVariable(TEXT("WINDIR"));
 	FontsDirectory = FontsDirectory.IsEmpty()
 		? TEXT("C:/Windows/Fonts")
@@ -586,6 +745,10 @@ void AIGHorrorHUD::InitializeKoreanFont()
 
 		KoreanFontLarge = MakeRuntimeFont(
 			FontFace, IGHorrorHUD::LargeFontSize, TEXT("KoreanFontLarge"));
+		KoreanFrontendTitleFont = MakeRuntimeFont(
+			FontFace,
+			IGHorrorHUD::FrontendTitleFontSize,
+			TEXT("KoreanFrontendTitleFont"));
 		KoreanFontMedium = MakeRuntimeFont(
 			FontFace, IGHorrorHUD::MediumFontSize, TEXT("KoreanFontMedium"));
 		KoreanFontSmall = MakeRuntimeFont(
@@ -596,7 +759,7 @@ void AIGHorrorHUD::InitializeKoreanFont()
 			TEXT("KoreanPhoneMetaFont"));
 
 		// Receipt printers use a compact, almost fixed-width bitmap face. Keep
-		// the normal UI on Malgun Gothic, but prefer the narrower Gulim/Dotum
+		// the fallback UI on Malgun Gothic, but prefer the narrower Gulim/Dotum
 		// family for the 80 mm thermal roll. Column positions are still
 		// measured explicitly, so Korean and ASCII remain aligned at 720p.
 		KoreanReceiptFontFace = FontFace;
@@ -649,9 +812,9 @@ UFont* AIGHorrorHUD::GetFontForRole(const EIGHudTextRole TextRole) const
 		case EIGHudTextRole::Objective:
 			return KoreanFontLarge.Get();
 		case EIGHudTextRole::Prompt:
+			return KoreanFontMedium.Get();
 		case EIGHudTextRole::Thought:
 		case EIGHudTextRole::Dialogue:
-			return KoreanFontMedium.Get();
 		case EIGHudTextRole::Speaker:
 		case EIGHudTextRole::Hint:
 		default:
@@ -1156,8 +1319,24 @@ void AIGHorrorHUD::SetAccessibilityMenuState(
 void AIGHorrorHUD::SetSystemMenuState(
 	const FIGSystemMenuPresentation& Presentation)
 {
+	const bool bPresentationChanged = Presentation.bVisible
+		&& (!bSystemMenuVisible
+			|| bSystemMenuIsTitle != Presentation.bTitle
+			|| bSystemMenuIsCredits != Presentation.bCredits
+			|| bSystemMenuIsAudioCalibration != Presentation.bAudioCalibration
+			|| bSystemMenuIsDisplaySettings != Presentation.bDisplaySettings
+			|| bSystemMenuUseTitleBackdrop != Presentation.bUseTitleBackdrop);
+	if (bPresentationChanged)
+	{
+		SystemMenuOpenedAt = FPlatformTime::Seconds();
+	}
+	else if (!Presentation.bVisible)
+	{
+		SystemMenuOpenedAt = -1.0;
+	}
 	bSystemMenuVisible = Presentation.bVisible;
 	bSystemMenuIsTitle = Presentation.bTitle;
+	bSystemMenuUseTitleBackdrop = Presentation.bUseTitleBackdrop;
 	bSystemMenuIsCredits = Presentation.bCredits;
 	bSystemMenuIsAudioCalibration = Presentation.bAudioCalibration;
 	bSystemMenuIsDisplaySettings = Presentation.bDisplaySettings;
@@ -1549,6 +1728,7 @@ bool AIGHorrorHUD::GetLayoutValidationSample(
 	FVector2D& OutBoundsMax,
 	int32& OutElementCount,
 	bool& bOutAllInsideCanvas,
+	bool& bOutAllInsideSettingsContainers,
 	uint64& OutFrameSerial) const
 {
 	if (!bLayoutValidationEnabled || !bLayoutValidationSampleReady)
@@ -1560,6 +1740,8 @@ bool AIGHorrorHUD::GetLayoutValidationSample(
 	OutBoundsMax = LayoutValidationBoundsMax;
 	OutElementCount = LayoutValidationElementCount;
 	bOutAllInsideCanvas = bLayoutValidationAllInsideCanvas;
+	bOutAllInsideSettingsContainers =
+		bLayoutValidationAllInsideSettingsContainers;
 	OutFrameSerial = LayoutValidationFrameSerial;
 	return true;
 }
@@ -1607,6 +1789,7 @@ void AIGHorrorHUD::BeginLayoutValidationSample()
 		TNumericLimits<float>::Lowest());
 	LayoutValidationElementCount = 0;
 	bLayoutValidationAllInsideCanvas = true;
+	bLayoutValidationAllInsideSettingsContainers = true;
 	bLayoutValidationSampleReady = false;
 }
 
@@ -2369,6 +2552,25 @@ void AIGHorrorHUD::DrawLensDroplet(const double CurrentTime)
 	Canvas->DrawItem(Droplet);
 }
 
+void AIGHorrorHUD::ValidateSettingsTextRect(
+	const FVector2D& Minimum,
+	const FVector2D& Maximum,
+	const FVector2D& ContainerMinimum,
+	const FVector2D& ContainerMaximum)
+{
+	if (!bLayoutValidationEnabled)
+	{
+		return;
+	}
+	constexpr float PixelTolerance = 1.5f;
+	bLayoutValidationAllInsideSettingsContainers =
+		bLayoutValidationAllInsideSettingsContainers
+		&& Minimum.X >= ContainerMinimum.X - PixelTolerance
+		&& Minimum.Y >= ContainerMinimum.Y - PixelTolerance
+		&& Maximum.X <= ContainerMaximum.X + PixelTolerance
+		&& Maximum.Y <= ContainerMaximum.Y + PixelTolerance;
+}
+
 void AIGHorrorHUD::DrawFirstPersonKnock(const double CurrentTime)
 {
 	if (!Canvas
@@ -2653,6 +2855,46 @@ float AIGHorrorHUD::MeasureTextWidth(
 	float Height = 0.0f;
 	Canvas->StrLen(Font, Text, Width, Height, true);
 	return Width * FMath::Max(0.5f, TextScale);
+}
+
+float AIGHorrorHUD::MeasureTextHeight(
+	const FString& Text,
+	UFont* Font,
+	const float TextScale) const
+{
+	if (!Canvas || !Font || Text.IsEmpty())
+	{
+		return 0.0f;
+	}
+	float Width = 0.0f;
+	float Height = 0.0f;
+	Canvas->StrLen(Font, Text, Width, Height, true);
+	return Height * FMath::Max(0.5f, TextScale);
+}
+
+float AIGHorrorHUD::GetFittedTextScale(
+	const FText& Text,
+	const EIGHudTextRole TextRole,
+	const float PreferredScale,
+	const float MaximumWidth,
+	const float MinimumScale) const
+{
+	UFont* Font = GetFontForRole(TextRole);
+	if (!Font || Text.IsEmpty() || MaximumWidth <= 0.0f)
+	{
+		return FMath::Max(0.5f, PreferredScale);
+	}
+
+	const float SafePreferredScale = FMath::Max(0.5f, PreferredScale);
+	const float RawWidth = MeasureTextWidth(Text.ToString(), Font, 1.0f);
+	if (RawWidth <= KINDA_SMALL_NUMBER)
+	{
+		return SafePreferredScale;
+	}
+	return FMath::Clamp(
+		MaximumWidth / RawWidth,
+		FMath::Max(0.5f, MinimumScale),
+		SafePreferredScale);
 }
 
 int32 AIGHorrorHUD::FindFittingCaptionPrefix(
@@ -2958,6 +3200,481 @@ void AIGHorrorHUD::DrawNoiseRipple(const double CurrentTime)
 	// packaged frontend probe asserts.
 }
 
+void AIGHorrorHUD::DrawSettingsShell(
+	const IGSettingsMenuLayout::FPanelMetrics& Metrics,
+	const FText& Title,
+	const FText& Subtitle,
+	const FText& ContextLabel)
+{
+	if (!Canvas)
+	{
+		return;
+	}
+
+	const float Scale = Metrics.Scale;
+	DrawRoundedHudSurface(
+		Metrics.PanelPosition + FVector2D(0.0f, 10.0f * Scale),
+		Metrics.PanelSize,
+		Metrics.CornerRadius + 2.0f * Scale,
+		FLinearColor(0.0f, 0.0f, 0.0f, 0.56f));
+	DrawRoundedHudSurface(
+		Metrics.PanelPosition,
+		Metrics.PanelSize,
+		Metrics.CornerRadius,
+		IGHorrorHUD::SettingsPanel);
+	// The rail tint belongs to the body only. Extending it behind the header
+	// and footer creates a false clipping boundary through otherwise valid copy.
+	FCanvasTileItem RailFill(
+		FVector2D(Metrics.PanelPosition.X, Metrics.HeaderBottom),
+		FVector2D(
+			Metrics.RailRight - Metrics.PanelPosition.X,
+			Metrics.FooterTop - Metrics.HeaderBottom),
+		IGHorrorHUD::SettingsRail);
+	RailFill.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(RailFill);
+
+	FCanvasTileItem HeaderLine(
+		FVector2D(Metrics.PanelPosition.X, Metrics.HeaderBottom),
+		FVector2D(Metrics.PanelSize.X, FMath::Max(1.0f, Scale)),
+		IGHorrorHUD::SettingsDivider);
+	HeaderLine.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(HeaderLine);
+	FCanvasTileItem RailLine(
+		FVector2D(Metrics.RailRight, Metrics.HeaderBottom),
+		FVector2D(FMath::Max(1.0f, Scale), Metrics.FooterTop - Metrics.HeaderBottom),
+		IGHorrorHUD::SettingsDivider);
+	RailLine.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(RailLine);
+	FCanvasTileItem FooterLine(
+		FVector2D(Metrics.PanelPosition.X, Metrics.FooterTop),
+		FVector2D(Metrics.PanelSize.X, FMath::Max(1.0f, Scale)),
+		IGHorrorHUD::SettingsDivider);
+	FooterLine.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(FooterLine);
+
+	const float HeaderLeft = Metrics.PanelPosition.X + 32.0f * Scale;
+	const float HeaderRight =
+		Metrics.PanelPosition.X + Metrics.PanelSize.X - 32.0f * Scale;
+	const float HeaderGap = 24.0f * Scale;
+	const float ContextScale = GetFittedTextScale(
+		ContextLabel,
+		EIGHudTextRole::Hint,
+		0.84f * Scale,
+		FMath::Min(280.0f * Scale, Metrics.PanelSize.X * 0.28f),
+		0.64f * Scale);
+	const float ContextWidth = MeasureTextWidth(
+		ContextLabel.ToString(),
+		GetFontForRole(EIGHudTextRole::Hint),
+		ContextScale);
+	const float HeaderTextWidth = FMath::Max(
+		180.0f * Scale,
+		HeaderRight - ContextWidth - HeaderGap - HeaderLeft);
+	const float TitleScale = GetFittedTextScale(
+		Title,
+		EIGHudTextRole::Objective,
+		1.02f * Scale,
+		HeaderTextWidth,
+		0.74f * Scale);
+	const float SubtitleScale = GetFittedTextScale(
+		Subtitle,
+		EIGHudTextRole::Hint,
+		0.84f * Scale,
+		HeaderTextWidth,
+		0.62f * Scale);
+	const FVector2D HeaderContainerMinimum(
+		HeaderLeft,
+		Metrics.PanelPosition.Y + 10.0f * Scale);
+	const FVector2D HeaderContainerMaximum(
+		HeaderLeft + HeaderTextWidth,
+		Metrics.HeaderBottom - 8.0f * Scale);
+	const FVector2D ContextContainerMinimum(
+		HeaderRight - ContextWidth,
+		Metrics.PanelPosition.Y + 10.0f * Scale);
+	const FVector2D ContextContainerMaximum(
+		HeaderRight,
+		Metrics.HeaderBottom - 8.0f * Scale);
+	UFont* TitleFont = GetFontForRole(EIGHudTextRole::Objective);
+	UFont* SubtitleFont = GetFontForRole(EIGHudTextRole::Hint);
+	const float TitleHeight = MeasureTextHeight(
+		Title.ToString(),
+		TitleFont,
+		TitleScale);
+	const float SubtitleHeight = MeasureTextHeight(
+		Subtitle.ToString(),
+		SubtitleFont,
+		SubtitleScale);
+	const float TitleY = Metrics.PanelPosition.Y + 19.0f * Scale;
+	const float SubtitleY = FMath::Max(
+		Metrics.PanelPosition.Y + 64.0f * Scale,
+		TitleY + TitleHeight + 8.0f * Scale);
+	ValidateSettingsTextRect(
+		FVector2D(HeaderLeft, TitleY),
+		FVector2D(
+			HeaderLeft + MeasureTextWidth(
+				Title.ToString(),
+				TitleFont,
+				TitleScale),
+			TitleY + TitleHeight),
+		HeaderContainerMinimum,
+		HeaderContainerMaximum);
+	ValidateSettingsTextRect(
+		FVector2D(HeaderLeft, SubtitleY),
+		FVector2D(
+			HeaderLeft + MeasureTextWidth(
+				Subtitle.ToString(),
+				SubtitleFont,
+				SubtitleScale),
+			SubtitleY + SubtitleHeight),
+		HeaderContainerMinimum,
+		HeaderContainerMaximum);
+	ValidateSettingsTextRect(
+		FVector2D(HeaderRight - ContextWidth, Metrics.PanelPosition.Y + 34.0f * Scale),
+		FVector2D(
+			HeaderRight,
+			Metrics.PanelPosition.Y + 34.0f * Scale
+				+ IGHorrorHUD::SmallFontSize * ContextScale * 1.35f),
+		ContextContainerMinimum,
+		ContextContainerMaximum);
+
+	DrawLeftAlignedText(
+		Title,
+		FVector2D(HeaderLeft, TitleY),
+		IGHorrorHUD::SettingsPrimary,
+		EIGHudTextRole::Objective,
+		TitleScale);
+	DrawLeftAlignedText(
+		Subtitle,
+		FVector2D(
+			HeaderLeft + 1.0f * Scale,
+			SubtitleY),
+		IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		SubtitleScale);
+	DrawRightAlignedText(
+		ContextLabel,
+		FVector2D(
+			HeaderRight,
+			Metrics.PanelPosition.Y + 34.0f * Scale),
+		IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		ContextScale);
+	DrawLeftAlignedText(
+		SupportsKorean()
+			? NSLOCTEXT("IGHUD", "SettingsCategoryHeading", "카테고리")
+			: FText::FromString(TEXT("CATEGORIES")),
+		FVector2D(
+			Metrics.RailLeft + 10.0f * Scale,
+			Metrics.HeaderBottom + 17.0f * Scale),
+		IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		0.75f * Scale);
+	DrawLeftAlignedText(
+		SupportsKorean()
+			? NSLOCTEXT("IGHUD", "SettingsOptionsHeading", "세부 설정")
+			: FText::FromString(TEXT("OPTIONS")),
+		FVector2D(
+			Metrics.ContentLeft,
+			Metrics.HeaderBottom + 17.0f * Scale),
+		IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		0.75f * Scale);
+
+	RecordLayoutValidationRect(
+		Metrics.PanelPosition,
+		Metrics.PanelPosition + Metrics.PanelSize);
+}
+
+void AIGHorrorHUD::DrawSettingsCategoryRow(
+	const IGSettingsMenuLayout::FPanelMetrics& Metrics,
+	const int32 CategoryIndex,
+	const FText& Label,
+	const bool bSelected)
+{
+	const float Scale = Metrics.Scale;
+	const FVector2D Position(
+		Metrics.RailLeft,
+		Metrics.CategoryStartY + CategoryIndex * Metrics.CategoryRowHeight);
+	const FVector2D Size(
+		Metrics.RailRight - Metrics.RailLeft - 14.0f * Scale,
+		Metrics.CategoryRowHeight - 6.0f * Scale);
+	if (bSelected)
+	{
+		DrawRoundedHudSurface(
+			Position,
+			Size,
+			7.0f * Scale,
+			IGHorrorHUD::SettingsRaised);
+		DrawRoundedHudSurface(
+			Position + FVector2D(2.0f * Scale, 8.0f * Scale),
+			FVector2D(3.0f * Scale, Size.Y - 16.0f * Scale),
+			1.5f * Scale,
+			IGHorrorHUD::SettingsAccent);
+	}
+	const float CategoryTextScale = GetFittedTextScale(
+		Label,
+		bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
+		0.94f * Scale,
+		Size.X - 32.0f * Scale,
+		0.64f * Scale);
+	UFont* CategoryFont = GetFontForRole(
+		bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
+	const float CategoryTextWidth = MeasureTextWidth(
+		Label.ToString(),
+		CategoryFont,
+		CategoryTextScale);
+	const float CategoryTextHeight = MeasureTextHeight(
+		Label.ToString(),
+		CategoryFont,
+		CategoryTextScale);
+	const float CategoryTextY = Position.Y
+		+ FMath::Max(0.0f, (Size.Y - CategoryTextHeight) * 0.5f);
+	ValidateSettingsTextRect(
+		FVector2D(Position.X + 16.0f * Scale, CategoryTextY),
+		FVector2D(
+			Position.X + 16.0f * Scale + CategoryTextWidth,
+			CategoryTextY + CategoryTextHeight),
+		Position,
+		Position + Size);
+	DrawLeftAlignedText(
+		Label,
+		FVector2D(Position.X + 16.0f * Scale, CategoryTextY),
+		bSelected
+			? IGHorrorHUD::SettingsPrimary
+			: IGHorrorHUD::SettingsSecondary,
+		bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
+		CategoryTextScale);
+}
+
+void AIGHorrorHUD::DrawSettingsOptionRow(
+	const IGSettingsMenuLayout::FPanelMetrics& Metrics,
+	const int32 LocalRow,
+	const FText& Label,
+	const FText& Value,
+	const bool bSelected,
+	const bool bAdjustable)
+{
+	const float Scale = Metrics.Scale;
+	const FVector2D Position(
+		Metrics.ContentLeft,
+		Metrics.OptionStartY + LocalRow * Metrics.OptionRowHeight);
+	const FVector2D Size(
+		Metrics.ContentRight - Metrics.ContentLeft,
+		Metrics.OptionRowHeight - 7.0f * Scale);
+	if (bSelected)
+	{
+		DrawRoundedHudSurface(
+			Position,
+			Size,
+			8.0f * Scale,
+			IGHorrorHUD::SettingsSelected);
+		DrawRoundedHudSurface(
+			Position + FVector2D(2.0f * Scale, 9.0f * Scale),
+			FVector2D(3.0f * Scale, Size.Y - 18.0f * Scale),
+			1.5f * Scale,
+			IGHorrorHUD::SettingsAccent);
+	}
+	else
+	{
+		FCanvasTileItem Divider(
+			FVector2D(Position.X + 14.0f * Scale, Position.Y + Size.Y),
+			FVector2D(Size.X - 28.0f * Scale, 1.0f),
+			IGHorrorHUD::SettingsDivider);
+		Divider.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Divider);
+	}
+
+	UFont* ValueFont = GetFontForRole(EIGHudTextRole::Hint);
+	const FString ValueText = bAdjustable
+		? FString::Printf(TEXT("−  %s  +"), *Value.ToString())
+		: Value.ToString();
+	const float ValueScale = 0.88f * Scale;
+	const float ValueWidth = Value.IsEmpty() || !ValueFont
+		? 0.0f
+		: MeasureTextWidth(ValueText, ValueFont, ValueScale);
+	const float LabelWidthLimit = FMath::Max(
+		120.0f * Scale,
+		Size.X - ValueWidth - 64.0f * Scale);
+	const float LabelTextScale = GetFittedTextScale(
+		Label,
+		bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
+		0.96f * Scale,
+		LabelWidthLimit,
+		0.62f * Scale);
+	const float LabelWidth = MeasureTextWidth(
+		Label.ToString(),
+		GetFontForRole(
+			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint),
+		LabelTextScale);
+	UFont* LabelFont = GetFontForRole(
+		bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
+	const float LabelHeight = MeasureTextHeight(
+		Label.ToString(),
+		LabelFont,
+		LabelTextScale);
+	const float ValueHeight = MeasureTextHeight(
+		ValueText,
+		ValueFont,
+		ValueScale);
+	const float LabelY = Position.Y
+		+ FMath::Max(0.0f, (Size.Y - LabelHeight) * 0.5f);
+	const float ValueY = Position.Y
+		+ FMath::Max(0.0f, (Size.Y - ValueHeight) * 0.5f);
+	ValidateSettingsTextRect(
+		FVector2D(Position.X + 18.0f * Scale, LabelY),
+		FVector2D(
+			Position.X + 18.0f * Scale + LabelWidth,
+			LabelY + LabelHeight),
+		Position,
+		Position + Size);
+	if (!Value.IsEmpty())
+	{
+		ValidateSettingsTextRect(
+			FVector2D(
+				Position.X + Size.X - 18.0f * Scale - ValueWidth,
+				ValueY),
+			FVector2D(
+				Position.X + Size.X - 18.0f * Scale,
+				ValueY + ValueHeight),
+			Position,
+			Position + Size);
+	}
+	DrawLeftAlignedText(
+		Label,
+		FVector2D(Position.X + 18.0f * Scale, LabelY),
+		bSelected
+			? IGHorrorHUD::SettingsPrimary
+			: IGHorrorHUD::SettingsSecondary,
+		bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
+		LabelTextScale);
+	if (!Value.IsEmpty())
+	{
+		DrawRightAlignedText(
+			FText::FromString(ValueText),
+			FVector2D(
+				Position.X + Size.X - 18.0f * Scale,
+				ValueY),
+			bSelected
+				? IGHorrorHUD::SettingsPrimary
+				: IGHorrorHUD::SettingsSecondary,
+			EIGHudTextRole::Hint,
+			ValueScale);
+	}
+}
+
+void AIGHorrorHUD::DrawSettingsDetailText(
+	const FString& Text,
+	const FVector2D& Position,
+	const float MaximumWidth,
+	const float TextScale,
+	const FLinearColor& Color)
+{
+	UFont* Font = GetFontForRole(EIGHudTextRole::Hint);
+	if (!Font || Text.IsEmpty() || MaximumWidth <= 0.0f)
+	{
+		return;
+	}
+
+	float FitScale = TextScale;
+	TArray<FString> Lines;
+	FString Remainder;
+	for (int32 Attempt = 0; Attempt < 8; ++Attempt)
+	{
+		Lines.Reset();
+		Remainder.Reset();
+		WrapHudText(Text, Font, FitScale, MaximumWidth, 2, Lines, Remainder);
+		if (Remainder.IsEmpty())
+		{
+			break;
+		}
+		FitScale *= 0.90f;
+	}
+	if (!Remainder.IsEmpty())
+	{
+		// At the minimum supported scale, preserve the full explanation by
+		// using a third line instead of clipping or silently dropping copy.
+		Lines.Reset();
+		Remainder.Reset();
+		WrapHudText(Text, Font, FitScale, MaximumWidth, 3, Lines, Remainder);
+	}
+
+	for (int32 Index = 0; Index < Lines.Num(); ++Index)
+	{
+		const float DetailLineHeight = MeasureTextHeight(
+			Lines[Index],
+			Font,
+			FitScale);
+		const FVector2D LinePosition = Position + FVector2D(
+			0.0f,
+			Index * FMath::Max(
+				IGHorrorHUD::SmallFontSize * FitScale * 1.48f,
+				DetailLineHeight + 6.0f * FitScale));
+		const float LineWidth = MeasureTextWidth(
+			Lines[Index],
+			Font,
+			FitScale);
+		ValidateSettingsTextRect(
+			LinePosition,
+			LinePosition + FVector2D(
+				LineWidth,
+				DetailLineHeight),
+			Position,
+			FVector2D(
+				Position.X + MaximumWidth,
+				Position.Y + IGHorrorHUD::SmallFontSize * FitScale * 4.5f));
+		DrawLeftAlignedText(
+			FText::FromString(Lines[Index]),
+			LinePosition,
+			Color,
+			EIGHudTextRole::Hint,
+			FitScale);
+	}
+}
+
+void AIGHorrorHUD::DrawSettingsFooterText(
+	const IGSettingsMenuLayout::FPanelMetrics& Metrics,
+	const FText& Text)
+{
+	const float Scale = Metrics.Scale;
+	const float HorizontalPadding = 26.0f * Scale;
+	const float MaximumWidth = Metrics.PanelSize.X - HorizontalPadding * 2.0f;
+	const float FooterScale = GetFittedTextScale(
+		Text,
+		EIGHudTextRole::Hint,
+		0.82f * Scale,
+		MaximumWidth,
+		0.58f * Scale);
+	const float FooterTextHeight = MeasureTextHeight(
+		Text.ToString(),
+		GetFontForRole(EIGHudTextRole::Hint),
+		FooterScale);
+	const FVector2D FooterTextPosition(
+		Metrics.PanelPosition.X + HorizontalPadding,
+		Metrics.FooterTop + FMath::Max(
+			0.0f,
+			(Metrics.PanelPosition.Y + Metrics.PanelSize.Y
+				- Metrics.FooterTop - FooterTextHeight) * 0.5f));
+	ValidateSettingsTextRect(
+		FooterTextPosition,
+		FooterTextPosition + FVector2D(
+			MeasureTextWidth(
+				Text.ToString(),
+				GetFontForRole(EIGHudTextRole::Hint),
+				FooterScale),
+			FooterTextHeight),
+		FVector2D(
+			Metrics.PanelPosition.X + HorizontalPadding,
+			Metrics.FooterTop),
+		FVector2D(
+			Metrics.PanelPosition.X + Metrics.PanelSize.X - HorizontalPadding,
+			Metrics.PanelPosition.Y + Metrics.PanelSize.Y));
+	DrawLeftAlignedText(
+		Text,
+		FooterTextPosition,
+		IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		FooterScale);
+}
+
 void AIGHorrorHUD::DrawAccessibilityPanel()
 {
 	if (!Canvas)
@@ -2974,6 +3691,9 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 	}
 	const FIGAccessibilitySettings Settings = Accessibility->GetSettings();
 	const bool bKorean = SupportsKorean();
+	const IGSettingsMenuLayout::FPanelMetrics Metrics =
+		IGSettingsMenuLayout::MakePanelMetrics(Canvas->ClipX, Canvas->ClipY);
+	const float Scale = Metrics.Scale;
 	const auto OnOff = [bKorean](const bool bEnabled)
 	{
 		return bKorean
@@ -3048,6 +3768,69 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		FString(),
 		FString()
 	};
+	const FString Descriptions[] =
+	{
+		bKorean
+			? TEXT("막혔을 때 제공되는 도움의 강도를 정합니다. 정답을 즉시 공개하지 않고 단계별 단서를 유지합니다.")
+			: TEXT("SETS HOW MUCH HELP APPEARS WHEN PROGRESS STALLS WITHOUT REVEALING ANSWERS AT ONCE."),
+		bKorean
+			? TEXT("머리 흔들림과 추격 중 카메라 진폭을 낮춥니다. 이동 속도와 판정은 그대로 유지됩니다.")
+			: TEXT("REDUCES HEAD BOB AND CHASE CAMERA AMPLITUDE WITHOUT CHANGING MOVEMENT OR GAMEPLAY."),
+		bKorean
+			? TEXT("손전등과 공포 연출의 빠른 점멸을 완화합니다. 필요한 위험 정보는 밝기 변화 대신 형태로 남깁니다.")
+			: TEXT("SOFTENS RAPID FLASHES WHILE PRESERVING DANGER INFORMATION THROUGH SHAPE AND TIMING."),
+		bKorean
+			? TEXT("공포음이 들린 방향을 화면 가장자리의 절제된 표시로 함께 전달합니다.")
+			: TEXT("ADDS A RESTRAINED SCREEN-EDGE CUE FOR THE DIRECTION OF IMPORTANT HORROR SOUNDS."),
+		bKorean
+			? TEXT("관찰한 P5 단서의 연결을 자동으로 정리합니다. 단서를 발견하는 과정은 건너뛰지 않습니다.")
+			: TEXT("ORGANIZES OBSERVED P5 EVIDENCE AUTOMATICALLY WITHOUT SKIPPING DISCOVERY."),
+		bKorean
+			? TEXT("녹음된 인물 대사를 자막으로 표시합니다. 지운의 내면 독백은 이야기 전달을 위해 항상 유지됩니다.")
+			: TEXT("SHOWS SUBTITLES FOR RECORDED VOICES; STORY-CRITICAL INNER MONOLOGUE REMAINS AVAILABLE."),
+		bKorean
+			? TEXT("노크, 발소리, 기계음처럼 진행에 필요한 비언어음을 별도의 캡션으로 표시합니다.")
+			: TEXT("CAPTIONS IMPORTANT NON-SPEECH AUDIO SUCH AS KNOCKS, FOOTSTEPS, AND MACHINES."),
+		bKorean
+			? TEXT("대사와 소리 캡션의 글자 크기를 함께 조정합니다. 아래 미리 보기에 즉시 반영됩니다.")
+			: TEXT("CHANGES DIALOGUE AND SOUND-CAPTION SIZE WITH AN IMMEDIATE PREVIEW BELOW."),
+		bKorean
+			? TEXT("밝은 배경에서도 읽히도록 자막 뒤 어두운 면의 농도를 조절합니다.")
+			: TEXT("ADJUSTS THE DARK SURFACE BEHIND CAPTIONS FOR LEGIBILITY OVER BRIGHT SCENES."),
+		bKorean
+			? TEXT("자막이 화면 가장자리에 너무 가깝지 않도록 최대 너비와 여백을 조절합니다.")
+			: TEXT("CONTROLS CAPTION WIDTH AND MARGINS SO TEXT STAYS AWAY FROM SCREEN EDGES."),
+		bKorean
+			? TEXT("앉기 키를 한 번 눌러 전환하거나, 누르고 있는 동안만 유지하도록 선택합니다.")
+			: TEXT("CHOOSE BETWEEN TOGGLE CROUCH AND HOLD-TO-CROUCH."),
+		bKorean
+			? TEXT("상호작용을 길게 누르는 대신 한 번 눌러 시작하고 다시 눌러 취소할 수 있습니다.")
+			: TEXT("ALLOWS HOLD INTERACTIONS TO START WITH ONE PRESS AND CANCEL WITH ANOTHER."),
+		bKorean
+			? TEXT("문 열기와 조사처럼 길게 누르는 상호작용의 요구 시간을 조정합니다.")
+			: TEXT("ADJUSTS THE REQUIRED TIME FOR HOLD INTERACTIONS SUCH AS OPENING AND INSPECTING."),
+		bKorean
+			? TEXT("위험, 충돌, 상호작용 피드백에 사용되는 컨트롤러 진동을 켜거나 끕니다.")
+			: TEXT("ENABLES OR DISABLES CONTROLLER VIBRATION FOR DANGER, IMPACTS, AND INTERACTIONS."),
+		bKorean
+			? TEXT("선택 기능입니다. 실제 마이크 소리를 소음 기믹에 사용하며, 끄면 마이크를 열지 않습니다.")
+			: TEXT("OPTIONAL. USES LIVE MICROPHONE NOISE FOR GAMEPLAY; OFF KEEPS THE MICROPHONE CLOSED."),
+		bKorean
+			? TEXT("이 화면의 접근성 항목을 처음 설치했을 때의 값으로 되돌립니다.")
+			: TEXT("RESTORES EVERY ACCESSIBILITY OPTION ON THIS SCREEN TO ITS INSTALL DEFAULT."),
+		bKorean
+			? TEXT("변경 내용은 즉시 저장됩니다. 이전 화면이나 게임으로 돌아갑니다.")
+			: TEXT("CHANGES ARE SAVED IMMEDIATELY. RETURN TO THE PREVIOUS SCREEN OR THE GAME.")
+	};
+	const FString CategoryLabels[] =
+	{
+		bKorean ? TEXT("게임 진행") : TEXT("GAMEPLAY"),
+		bKorean ? TEXT("움직임") : TEXT("MOTION"),
+		bKorean ? TEXT("정보 안내") : TEXT("GUIDANCE"),
+		bKorean ? TEXT("자막") : TEXT("CAPTIONS"),
+		bKorean ? TEXT("입력") : TEXT("INPUT"),
+		bKorean ? TEXT("관리") : TEXT("GENERAL")
+	};
 
 	FCanvasTileItem Scrim(
 		FVector2D::ZeroVector,
@@ -3055,41 +3838,96 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		FLinearColor(0.0f, 0.0f, 0.0f, 0.94f));
 	Scrim.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem(Scrim);
-	DrawCenteredText(
+	DrawSettingsShell(
+		Metrics,
 		bKorean
 			? NSLOCTEXT("IGHUD", "AccessibilityTitle", "접근성 설정")
 			: FText::FromString(TEXT("ACCESSIBILITY")),
-		72.0f,
-		IGHorrorHUD::PaleGray,
-		EIGHudTextRole::Objective);
+		bKorean
+			? NSLOCTEXT(
+				"IGHUD",
+				"AccessibilitySubtitle",
+				"필요한 정보는 더 또렷하게, 공포의 밀도는 그대로 유지합니다.")
+			: FText::FromString(
+				TEXT("CLEARER INFORMATION WITHOUT DILUTING THE HORROR.")),
+		bKorean
+			? NSLOCTEXT("IGHUD", "AccessibilitySavedImmediately", "변경 즉시 저장")
+			: FText::FromString(TEXT("SAVES IMMEDIATELY")));
 
-	const float RowStartY = FMath::Max(96.0f, Canvas->ClipY * 0.15f);
-	const float RowSpacing = FMath::Clamp(Canvas->ClipY * 0.038f, 24.0f, 34.0f);
-	for (int32 Row = 0; Row < UE_ARRAY_COUNT(Labels); ++Row)
+	const int32 ActiveCategory = IGSettingsMenuLayout::FindCategoryForRow(
+		AccessibilitySelectedRow,
+		IGSettingsMenuLayout::AccessibilityCategoryCount,
+		IGSettingsMenuLayout::GetAccessibilityCategory);
+	const IGSettingsMenuLayout::FCategoryRange ActiveRange =
+		IGSettingsMenuLayout::GetAccessibilityCategory(ActiveCategory);
+	for (int32 Category = 0;
+		Category < IGSettingsMenuLayout::AccessibilityCategoryCount;
+		++Category)
 	{
-		const bool bSelected = Row == AccessibilitySelectedRow;
-		FString RowText = Values[Row].IsEmpty()
-			? Labels[Row]
-			: FString::Printf(TEXT("%s    < %s >"), *Labels[Row], *Values[Row]);
-		RowText = FString(bSelected ? TEXT(">  ") : TEXT("   ")) + RowText;
-		DrawCenteredText(
-			FText::FromString(RowText),
-			RowStartY + Row * RowSpacing,
-			bSelected ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray,
-			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
+		DrawSettingsCategoryRow(
+			Metrics,
+			Category,
+			FText::FromString(CategoryLabels[Category]),
+			Category == ActiveCategory);
+	}
+	for (int32 LocalRow = 0; LocalRow < ActiveRange.RowCount; ++LocalRow)
+	{
+		const int32 Row = ActiveRange.FirstRow + LocalRow;
+		DrawSettingsOptionRow(
+			Metrics,
+			LocalRow,
+			FText::FromString(Labels[Row]),
+			FText::FromString(Values[Row]),
+			Row == AccessibilitySelectedRow,
+			Row < 15);
 	}
 
-	// Keep a live sample in the same screen where size, surface opacity and
-	// safe area are changed. The preview is text-only and never mutates the
-	// actual story queue.
-	const float ResolutionScale = FMath::Clamp(
-		Canvas->ClipY / 1080.0f,
-		0.85f,
-		2.0f);
+	const float DetailTop = Metrics.OptionStartY
+		+ ActiveRange.RowCount * Metrics.OptionRowHeight
+		+ 18.0f * Scale;
+	const float DetailBottom = Metrics.FooterTop - 18.0f * Scale;
+	const float DetailHeight = FMath::Min(
+		ActiveCategory == 3 ? 210.0f * Scale : 150.0f * Scale,
+		DetailBottom - DetailTop);
+	if (DetailTop < DetailBottom - 54.0f * Scale)
+	{
+		DrawRoundedHudSurface(
+			FVector2D(Metrics.ContentLeft, DetailTop),
+			FVector2D(
+				Metrics.ContentRight - Metrics.ContentLeft,
+				DetailHeight),
+			8.0f * Scale,
+			IGHorrorHUD::SettingsRaised);
+		DrawLeftAlignedText(
+			bKorean
+				? NSLOCTEXT("IGHUD", "SettingsEffectHeading", "이 설정이 바꾸는 것")
+				: FText::FromString(TEXT("WHAT THIS CHANGES")),
+			FVector2D(
+				Metrics.ContentLeft + 18.0f * Scale,
+				DetailTop + 13.0f * Scale),
+			IGHorrorHUD::SettingsSecondary,
+			EIGHudTextRole::Hint,
+			0.72f * Scale);
+		DrawSettingsDetailText(
+			Descriptions[AccessibilitySelectedRow],
+			FVector2D(
+				Metrics.ContentLeft + 18.0f * Scale,
+				DetailTop + 41.0f * Scale),
+			Metrics.ContentRight - Metrics.ContentLeft - 36.0f * Scale,
+			0.82f * Scale,
+			IGHorrorHUD::SettingsPrimary);
+	}
+
+	// 자막 카테고리에서는 설정 설명만으로 결과를 상상하게 하지 않는다.
+	// 선택한 크기·배경·안전 영역을 같은 화면의 실제 렌더링으로 확인한다.
 	const float PreviewTextScale = GetResolutionTextScale(Settings.CaptionSizeScale);
 	const float PreviewWidth = FMath::Min(
-		Canvas->ClipX * Settings.CaptionSafeAreaScale - 32.0f * ResolutionScale,
-		780.0f * ResolutionScale);
+		(Metrics.ContentRight - Metrics.ContentLeft - 36.0f * Scale)
+			* Settings.CaptionSafeAreaScale,
+		620.0f * Scale);
+	const FText PreviewBodyText = bKorean
+		? NSLOCTEXT("IGHUD", "CaptionPreviewBody", "[위층] 천천히 끌리는 발소리")
+		: FText::FromString(TEXT("[ABOVE] SLOW, DRAGGING FOOTSTEPS"));
 	UFont* PreviewFont = GetFontForRole(EIGHudTextRole::Dialogue);
 	float PreviewRawWidth = 0.0f;
 	float PreviewRawHeight = 19.0f;
@@ -3102,70 +3940,113 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			PreviewRawHeight,
 			true);
 	}
-	const float PreviewBodyHeight = FMath::Max(
+	TArray<FString> PreviewLines;
+	FString PreviewRemainder;
+	WrapHudText(
+		PreviewBodyText.ToString(),
+		PreviewFont,
+		PreviewTextScale,
+		PreviewWidth - 36.0f * Scale,
+		2,
+		PreviewLines,
+		PreviewRemainder);
+	if (PreviewLines.IsEmpty())
+	{
+		PreviewLines.Add(PreviewBodyText.ToString());
+	}
+	const float PreviewLineHeight = FMath::Max(
 		16.0f,
-		PreviewRawHeight * PreviewTextScale);
+		PreviewRawHeight * PreviewTextScale * 1.20f);
+	const float PreviewBodyHeight =
+		PreviewLineHeight * PreviewLines.Num();
 	const float PreviewSpeakerHeight = 14.0f * PreviewTextScale * 0.78f;
 	const float PreviewHeight = FMath::Max(
-		48.0f * ResolutionScale,
-		PreviewSpeakerHeight + PreviewBodyHeight + 23.0f * ResolutionScale);
-	const float PreviewX = (Canvas->ClipX - PreviewWidth) * 0.5f;
-	const float PreviewY = Canvas->ClipY - 148.0f * ResolutionScale;
-	FCanvasTileItem PreviewSurface(
-		FVector2D(PreviewX, PreviewY),
-		FVector2D(PreviewWidth, PreviewHeight),
-		FLinearColor(
-			0.018f,
-			0.021f,
-			0.020f,
-			Settings.CaptionBackgroundOpacity));
-	PreviewSurface.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem(PreviewSurface);
-	RecordLayoutValidationRect(
-		FVector2D(PreviewX, PreviewY),
-		FVector2D(PreviewX + PreviewWidth, PreviewY + PreviewHeight));
-	DrawLeftAlignedText(
-		bKorean
-			? NSLOCTEXT("IGHUD", "CaptionPreviewSpeaker", "미리 보기")
-			: FText::FromString(TEXT("PREVIEW")),
-		FVector2D(
-			PreviewX + 18.0f * ResolutionScale,
-			PreviewY + 7.0f * ResolutionScale),
-		IGHorrorHUD::ThoughtBlue,
-		EIGHudTextRole::Speaker,
-		PreviewTextScale * 0.78f,
-		true);
-	DrawLeftAlignedText(
-		bKorean
-			? NSLOCTEXT("IGHUD", "CaptionPreviewBody", "대사·소리 캡션 예시입니다.")
-			: FText::FromString(TEXT("DIALOGUE + SOUND CAPTION PREVIEW.")),
-		FVector2D(
-			PreviewX + 18.0f * ResolutionScale,
-			PreviewY + 8.0f * ResolutionScale
-				+ PreviewSpeakerHeight + 5.0f * ResolutionScale),
-		IGHorrorHUD::PaleGray,
-		EIGHudTextRole::Dialogue,
-		PreviewTextScale,
-		true);
+		48.0f * Scale,
+		PreviewSpeakerHeight + PreviewBodyHeight + 23.0f * Scale);
+	if (ActiveCategory == 3)
+	{
+		const float PreviewX = Metrics.ContentLeft
+			+ (Metrics.ContentRight - Metrics.ContentLeft - PreviewWidth) * 0.5f;
+		const float PreviewY = FMath::Max(
+			DetailTop + 62.0f * Scale,
+			DetailTop + DetailHeight - PreviewHeight - 12.0f * Scale);
+		ValidateSettingsTextRect(
+			FVector2D(PreviewX, PreviewY),
+			FVector2D(
+				PreviewX + PreviewWidth,
+				PreviewY + PreviewHeight),
+			FVector2D(Metrics.ContentLeft, DetailTop),
+			FVector2D(Metrics.ContentRight, DetailTop + DetailHeight));
+		DrawRoundedHudSurface(
+			FVector2D(PreviewX, PreviewY),
+			FVector2D(PreviewWidth, PreviewHeight),
+			5.0f * Scale,
+			FLinearColor(
+				0.018f,
+				0.021f,
+				0.020f,
+				Settings.CaptionBackgroundOpacity));
+		RecordLayoutValidationRect(
+			FVector2D(PreviewX, PreviewY),
+			FVector2D(PreviewX + PreviewWidth, PreviewY + PreviewHeight));
+		DrawLeftAlignedText(
+			bKorean
+				? NSLOCTEXT("IGHUD", "CaptionPreviewSpeaker", "미리 보기")
+				: FText::FromString(TEXT("PREVIEW")),
+			FVector2D(
+				PreviewX + 18.0f * Scale,
+				PreviewY + 7.0f * Scale),
+			IGHorrorHUD::ThoughtBlue,
+			EIGHudTextRole::Speaker,
+			PreviewTextScale * 0.78f,
+			true);
+		for (int32 LineIndex = 0;
+			LineIndex < PreviewLines.Num();
+			++LineIndex)
+		{
+			const FVector2D PreviewLinePosition(
+				PreviewX + 18.0f * Scale,
+				PreviewY + 8.0f * Scale
+					+ PreviewSpeakerHeight + 5.0f * Scale
+					+ LineIndex * PreviewLineHeight);
+			ValidateSettingsTextRect(
+				PreviewLinePosition,
+				PreviewLinePosition + FVector2D(
+					MeasureTextWidth(
+						PreviewLines[LineIndex],
+						PreviewFont,
+						PreviewTextScale),
+					PreviewRawHeight * PreviewTextScale),
+				FVector2D(PreviewX, PreviewY),
+				FVector2D(
+					PreviewX + PreviewWidth,
+					PreviewY + PreviewHeight));
+			DrawLeftAlignedText(
+				FText::FromString(PreviewLines[LineIndex]),
+				PreviewLinePosition,
+				IGHorrorHUD::SettingsPrimary,
+				EIGHudTextRole::Dialogue,
+				PreviewTextScale,
+				true);
+		}
+	}
 
-	DrawCenteredText(
+	DrawSettingsFooterText(
+		Metrics,
 		bKorean
 			? bUsingGamepad
 				? NSLOCTEXT(
 					"IGHUD",
 					"AccessibilityControlsGamepad",
-					"D-pad 항목·변경  ·  A 선택  ·  B 닫기")
+					"D-pad 이동·값 변경  ·  A 선택  ·  B 닫기")
 				: NSLOCTEXT(
 					"IGHUD",
 					"AccessibilityControlsKeyboard",
-					"방향키 항목·변경  ·  Enter 선택  ·  Esc/F10 닫기")
+					"방향키 이동·값 변경  ·  Enter 선택  ·  Esc/F10 닫기")
 			: FText::FromString(
 				bUsingGamepad
 					? TEXT("D-PAD SELECT + CHANGE  |  A APPLY  |  B CLOSE")
-					: TEXT("ARROWS SELECT + CHANGE  |  ENTER APPLY  |  ESC/F10 CLOSE")),
-		FMath::Max(RowStartY + 16.5f * RowSpacing, Canvas->ClipY - 48.0f),
-		IGHorrorHUD::MutedGray,
-		EIGHudTextRole::Hint);
+					: TEXT("ARROWS SELECT + CHANGE  |  ENTER APPLY  |  ESC/F10 CLOSE")));
 }
 
 UTexture2D* AIGHorrorHUD::GetMissingFloorJournalThumbnail(
@@ -3850,6 +4731,9 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 		return;
 	}
 	const bool bKorean = SupportsKorean();
+	const IGSettingsMenuLayout::FPanelMetrics Metrics =
+		IGSettingsMenuLayout::MakePanelMetrics(Canvas->ClipX, Canvas->ClipY);
+	const float Scale = Metrics.Scale;
 	const FString WindowModes[] =
 	{
 		bKorean ? TEXT("전체 화면") : TEXT("FULLSCREEN"),
@@ -3898,33 +4782,132 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 			? FString(bSystemMenuVSync ? TEXT("켬") : TEXT("끔"))
 			: FString(bSystemMenuVSync ? TEXT("ON") : TEXT("OFF")),
 		FrameLimits[DisplayFrameLimitIndex],
-		FString(),
-		FString(),
+		bKorean ? TEXT("열기") : TEXT("OPEN"),
+		bKorean ? TEXT("열기") : TEXT("OPEN"),
 		FString(),
 		FString()
 	};
+	const FString Descriptions[] =
+	{
+		bKorean
+			? TEXT("전체 화면, 테두리 없는 창, 창 모드 중 출력 방식을 선택합니다. 적용 뒤 10초 동안 결과를 확인할 수 있습니다.")
+			: TEXT("CHOOSE FULLSCREEN, BORDERLESS, OR WINDOWED OUTPUT. YOU HAVE 10 SECONDS TO CONFIRM AFTER APPLYING."),
+		bKorean
+			? TEXT("화면에 출력할 픽셀 수를 정합니다. 디스플레이의 기본 해상도와 같을 때 가장 선명합니다.")
+			: TEXT("SETS THE OUTPUT PIXEL COUNT. MATCHING THE DISPLAY'S NATIVE RESOLUTION GIVES THE SHARPEST IMAGE."),
+		bKorean
+			? TEXT("그림자, 후처리, 반사 품질을 한 번에 조정합니다. 낮음은 GPU 부하와 프레임 흔들림을 줄입니다.")
+			: TEXT("CHANGES SHADOW, POST-PROCESS, AND REFLECTION QUALITY TOGETHER. LOW REDUCES GPU LOAD."),
+		bKorean
+			? TEXT("모니터 주사에 프레임 출력을 맞춰 화면 찢어짐을 줄입니다. 입력 지연은 환경에 따라 소폭 늘 수 있습니다.")
+			: TEXT("SYNCHRONIZES FRAMES TO THE DISPLAY TO REDUCE TEARING, WITH A POSSIBLE SMALL LATENCY COST."),
+		bKorean
+			? TEXT("초당 최대 프레임 수를 정합니다. 안정적인 상한은 발열과 순간적인 프레임 편차를 줄이는 데 도움이 됩니다.")
+			: TEXT("SETS THE MAXIMUM FRAME RATE. A STABLE CAP CAN REDUCE HEAT AND FRAME-TIME VARIANCE."),
+		bKorean
+			? TEXT("자막, 움직임, 소리 방향, 입력 보조처럼 플레이 방식에 영향을 주는 항목을 엽니다.")
+			: TEXT("OPENS CAPTION, MOTION, SOUND-DIRECTION, AND INPUT ASSISTANCE OPTIONS."),
+		bKorean
+			? TEXT("게임의 핵심인 위층 노크가 들리는 크기와 어두운 복도의 기준 밝기를 다시 맞춥니다.")
+			: TEXT("RECALIBRATES THE UPSTAIRS KNOCK LEVEL AND THE REFERENCE BRIGHTNESS FOR DARK CORRIDORS."),
+		bKorean
+			? TEXT("변경한 화면 값을 적용합니다. 화면 모드와 해상도는 확인하기 전까지 임시로 유지됩니다.")
+			: TEXT("APPLIES STAGED DISPLAY VALUES. MODE AND RESOLUTION STAY TEMPORARY UNTIL CONFIRMED."),
+		bKorean
+			? TEXT("적용하지 않은 변경을 버리고 이전 화면으로 돌아갑니다.")
+			: TEXT("DISCARDS UNAPPLIED CHANGES AND RETURNS TO THE PREVIOUS SCREEN.")
+	};
+	const FString CategoryLabels[] =
+	{
+		bKorean ? TEXT("화면") : TEXT("DISPLAY"),
+		bKorean ? TEXT("성능") : TEXT("PERFORMANCE"),
+		bKorean ? TEXT("플레이 보조") : TEXT("PLAY ASSISTS"),
+		bKorean ? TEXT("변경 사항") : TEXT("CHANGES")
+	};
 
-	DrawCenteredText(
+	DrawSettingsShell(
+		Metrics,
 		bKorean
 			? NSLOCTEXT("IGHUD", "DisplaySettingsTitle", "화면 설정")
 			: FText::FromString(TEXT("DISPLAY SETTINGS")),
-		72.0f,
-		IGHorrorHUD::PaleGray,
-		EIGHudTextRole::Objective);
-	DrawCenteredText(
 		bKorean
 			? NSLOCTEXT(
 				"IGHUD",
 				"DisplaySettingsSubtitle",
-				"Windows-v1 지원 범위 안에서 화면과 성능을 조정합니다.")
+				"공포 연출의 가독성과 프레임 안정성을 함께 조정합니다.")
 			: FText::FromString(
-				TEXT("ADJUST DISPLAY AND PERFORMANCE WITHIN WINDOWS-V1 SUPPORT.")),
-		112.0f,
-		IGHorrorHUD::MutedGray,
-		EIGHudTextRole::Hint);
+				TEXT("BALANCE HORROR LEGIBILITY WITH STABLE FRAME DELIVERY.")),
+		bKorean
+			? NSLOCTEXT("IGHUD", "DisplayStagedStatus", "변경 후 적용 필요")
+			: FText::FromString(TEXT("APPLY AFTER CHANGES")));
+
+	const int32 ActiveCategory = IGSettingsMenuLayout::FindCategoryForRow(
+		DisplaySettingsSelectedRow,
+		IGSettingsMenuLayout::DisplayCategoryCount,
+		IGSettingsMenuLayout::GetDisplayCategory);
+	const IGSettingsMenuLayout::FCategoryRange ActiveRange =
+		IGSettingsMenuLayout::GetDisplayCategory(ActiveCategory);
+	for (int32 Category = 0;
+		Category < IGSettingsMenuLayout::DisplayCategoryCount;
+		++Category)
+	{
+		DrawSettingsCategoryRow(
+			Metrics,
+			Category,
+			FText::FromString(CategoryLabels[Category]),
+			Category == ActiveCategory);
+	}
+	for (int32 LocalRow = 0; LocalRow < ActiveRange.RowCount; ++LocalRow)
+	{
+		const int32 Row = ActiveRange.FirstRow + LocalRow;
+		DrawSettingsOptionRow(
+			Metrics,
+			LocalRow,
+			FText::FromString(Labels[Row]),
+			FText::FromString(Values[Row]),
+			Row == DisplaySettingsSelectedRow,
+			Row <= 4);
+	}
+
+	const float DetailTop = Metrics.OptionStartY
+		+ ActiveRange.RowCount * Metrics.OptionRowHeight
+		+ 22.0f * Scale;
+	const float DetailBottom = Metrics.FooterTop - 22.0f * Scale;
+	const float DetailHeight = FMath::Min(
+		150.0f * Scale,
+		DetailBottom - DetailTop);
+	if (DetailTop < DetailBottom - 62.0f * Scale)
+	{
+		DrawRoundedHudSurface(
+			FVector2D(Metrics.ContentLeft, DetailTop),
+			FVector2D(
+				Metrics.ContentRight - Metrics.ContentLeft,
+				DetailHeight),
+			8.0f * Scale,
+			IGHorrorHUD::SettingsRaised);
+		DrawLeftAlignedText(
+			bKorean
+				? NSLOCTEXT("IGHUD", "DisplaySettingEffect", "선택한 항목")
+				: FText::FromString(TEXT("SELECTED OPTION")),
+			FVector2D(
+				Metrics.ContentLeft + 18.0f * Scale,
+				DetailTop + 15.0f * Scale),
+			IGHorrorHUD::SettingsSecondary,
+			EIGHudTextRole::Hint,
+			0.72f * Scale);
+		DrawSettingsDetailText(
+			Descriptions[DisplaySettingsSelectedRow],
+			FVector2D(
+				Metrics.ContentLeft + 18.0f * Scale,
+				DetailTop + 45.0f * Scale),
+			Metrics.ContentRight - Metrics.ContentLeft - 36.0f * Scale,
+			0.84f * Scale,
+			IGHorrorHUD::SettingsPrimary);
+	}
+
 	if (bDisplaySettingsAwaitingConfirmation)
 	{
-		DrawCenteredText(
+		DrawLeftAlignedText(
 			bKorean
 				? FText::Format(
 					NSLOCTEXT(
@@ -3936,48 +4919,42 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 					FText::FromString(
 						TEXT("KEEP THESE DISPLAY SETTINGS? REVERTING IN {0} SECONDS.")),
 					FText::AsNumber(DisplayConfirmationSecondsRemaining)),
-			140.0f,
-			IGHorrorHUD::RedAccent,
-			EIGHudTextRole::Hint);
+			FVector2D(
+				Metrics.ContentLeft + 18.0f * Scale,
+				DetailTop + DetailHeight - 31.0f * Scale),
+			IGHorrorHUD::SettingsAccent,
+			EIGHudTextRole::Hint,
+			0.82f * Scale);
 	}
 	else if (bDisplaySettingsApplied)
 	{
-		DrawCenteredText(
+		DrawLeftAlignedText(
 			bKorean
 				? NSLOCTEXT("IGHUD", "DisplaySettingsApplied", "설정을 적용했습니다.")
 				: FText::FromString(TEXT("SETTINGS APPLIED.")),
-			140.0f,
-			FLinearColor(0.62f, 0.72f, 0.66f, 1.0f),
-			EIGHudTextRole::Hint);
+			FVector2D(
+				Metrics.ContentLeft + 18.0f * Scale,
+				DetailTop + DetailHeight - 31.0f * Scale),
+			IGHorrorHUD::SettingsSuccess,
+			EIGHudTextRole::Hint,
+			0.82f * Scale);
 	}
 	else if (!SystemMenuStatusText.IsEmpty())
 	{
-		DrawCenteredText(
+		DrawLeftAlignedText(
 			SystemMenuStatusText,
-			140.0f,
+			FVector2D(
+				Metrics.ContentLeft + 18.0f * Scale,
+				DetailTop + DetailHeight - 31.0f * Scale),
 			bSystemMenuStatusIsError
-				? IGHorrorHUD::RedAccent
-				: IGHorrorHUD::PaleGray,
-			EIGHudTextRole::Hint);
+				? IGHorrorHUD::SettingsAccent
+				: IGHorrorHUD::SettingsPrimary,
+			EIGHudTextRole::Hint,
+			0.82f * Scale);
 	}
 
-	const float RowStartY = FMath::Max(174.0f, Canvas->ClipY * 0.24f);
-	const float RowSpacing = FMath::Clamp(Canvas->ClipY * 0.055f, 34.0f, 42.0f);
-	for (int32 Row = 0; Row < UE_ARRAY_COUNT(Labels); ++Row)
-	{
-		const bool bSelected = Row == DisplaySettingsSelectedRow;
-		FString RowText = Values[Row].IsEmpty()
-			? Labels[Row]
-			: FString::Printf(TEXT("%s    < %s >"), *Labels[Row], *Values[Row]);
-		RowText = FString(bSelected ? TEXT(">  ") : TEXT("   ")) + RowText;
-		DrawCenteredText(
-			FText::FromString(RowText),
-			RowStartY + Row * RowSpacing,
-			bSelected ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray,
-			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
-	}
-
-	DrawCenteredText(
+	DrawSettingsFooterText(
+		Metrics,
 		bDisplaySettingsAwaitingConfirmation
 			? bUsingGamepad
 				? bKorean
@@ -3999,18 +4976,15 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 				? NSLOCTEXT(
 					"IGHUD",
 					"DisplaySettingsControlsGamepad",
-					"D-pad 항목·변경  ·  A 선택  ·  B/View 취소")
+					"D-pad 이동·값 변경  ·  A 선택  ·  B/View 취소")
 				: NSLOCTEXT(
 					"IGHUD",
 					"DisplaySettingsControlsKeyboard",
-					"방향키/WASD 항목·변경  ·  Enter 선택  ·  Esc 취소  ·  마우스 선택")
+					"방향키/WASD 이동·값 변경  ·  Enter 선택  ·  Esc 취소  ·  마우스 선택")
 			: FText::FromString(
 				bUsingGamepad
 					? TEXT("D-PAD SELECT + CHANGE  |  A APPLY  |  B/VIEW CANCEL")
-					: TEXT("ARROWS/WASD CHANGE  |  ENTER APPLY  |  ESC CANCEL  |  MOUSE SELECT")),
-		FMath::Max(0.0f, Canvas->ClipY - 48.0f),
-		IGHorrorHUD::MutedGray,
-		EIGHudTextRole::Hint);
+					: TEXT("ARROWS/WASD CHANGE  |  ENTER APPLY  |  ESC CANCEL  |  MOUSE SELECT")));
 }
 
 void AIGHorrorHUD::DrawSystemMenuPanel()
@@ -4021,57 +4995,205 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 	}
 
 	const bool bKorean = SupportsKorean();
-	FCanvasTileItem Scrim(
-		FVector2D::ZeroVector,
-		FVector2D(Canvas->ClipX, Canvas->ClipY),
-		FLinearColor(0.004f, 0.006f, 0.007f, 0.985f));
-	Scrim.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem(Scrim);
-	if (bSystemMenuIsAudioCalibration)
+	if (bSystemMenuIsAudioCalibration || bSystemMenuIsDisplaySettings)
 	{
-		// 보정판은 자체 계조와 중앙 구분선을 갖는다. 타이틀 장식선을 뒤에
-		// 남기면 화면 결함이나 네 번째 밝기 칸처럼 보이므로 여기서 분기한다.
-		DrawAudioCalibrationPanel();
+		// These two tools own their complete visual hierarchy and deliberately
+		// avoid inheriting the title screen's floor-datum ornament.
+		FCanvasTileItem ToolScrim(
+			FVector2D::ZeroVector,
+			FVector2D(Canvas->ClipX, Canvas->ClipY),
+			FLinearColor(0.004f, 0.006f, 0.007f, 0.985f));
+		ToolScrim.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(ToolScrim);
+		if (bSystemMenuIsAudioCalibration)
+		{
+			DrawAudioCalibrationPanel();
+		}
+		else
+		{
+			DrawDisplaySettingsPanel();
+		}
 		return;
 	}
 
-	// A single reflected strip is enough to suggest the rooftop tank without
-	// placing a literal spoiler behind the first screen.
-	const float CenterX = Canvas->ClipX * 0.5f;
-	FCanvasTileItem Reflection(
-		FVector2D(CenterX - 0.5f, 0.0f),
-		FVector2D(1.0f, Canvas->ClipY),
-		FLinearColor(0.22f, 0.25f, 0.26f, 0.16f));
-	Reflection.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem(Reflection);
-	FCanvasTileItem Accent(
-		FVector2D(CenterX - 44.0f, 174.0f),
-		FVector2D(88.0f, 1.0f),
-		IGHorrorHUD::RedAccent);
-	Accent.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem(Accent);
-	if (bSystemMenuIsDisplaySettings)
+	const IGFrontendMenuLayout::FMetrics Metrics =
+		IGFrontendMenuLayout::MakeMetrics(Canvas->ClipX, Canvas->ClipY);
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const bool bReducedMotion = Accessibility
+		&& Accessibility->IsReducedCameraMotionEnabled();
+	const double Now = FPlatformTime::Seconds();
+	const float EntranceAlpha = bReducedMotion || SystemMenuOpenedAt < 0.0
+		? 1.0f
+		: IGHorrorHUD::SmoothStep01(static_cast<float>(
+			(Now - SystemMenuOpenedAt) / 0.32));
+
+	auto WithAlpha = [EntranceAlpha](FLinearColor Color, const float Multiplier = 1.0f)
 	{
-		DrawDisplaySettingsPanel();
-		return;
+		Color.A *= EntranceAlpha * Multiplier;
+		return Color;
+	};
+
+	// The title uses one text-free environmental still. Other menu modes retain
+	// the frozen playfield so pausing never destroys the player's spatial memory.
+	if (bSystemMenuUseTitleBackdrop)
+	{
+		FCanvasTileItem Base(
+			FVector2D::ZeroVector,
+			FVector2D(Canvas->ClipX, Canvas->ClipY),
+			IGHorrorHUD::FrontendInk);
+		Canvas->DrawItem(Base);
+		if (FrontendTitleBackgroundTexture
+			&& FrontendTitleBackgroundTexture->GetResource())
+		{
+			const float ScreenAspect = Canvas->ClipX / FMath::Max(Canvas->ClipY, 1.0f);
+			constexpr float SourceAspect = 16.0f / 9.0f;
+			FVector2D Uv0(0.0f, 0.0f);
+			FVector2D Uv1(1.0f, 1.0f);
+			if (ScreenAspect < SourceAspect)
+			{
+				const float VisibleWidth = ScreenAspect / SourceAspect;
+				const float LeftBias = (1.0f - VisibleWidth) * 0.20f;
+				Uv0.X = LeftBias;
+				Uv1.X = LeftBias + VisibleWidth;
+			}
+			else if (ScreenAspect > SourceAspect)
+			{
+				const float VisibleHeight = SourceAspect / ScreenAspect;
+				Uv0.Y = (1.0f - VisibleHeight) * 0.5f;
+				Uv1.Y = Uv0.Y + VisibleHeight;
+			}
+
+			FCanvasTileItem KeyArt(
+				FVector2D::ZeroVector,
+				FrontendTitleBackgroundTexture->GetResource(),
+				FVector2D(Canvas->ClipX, Canvas->ClipY),
+				Uv0,
+				Uv1,
+				FLinearColor(1.0f, 1.0f, 1.0f, EntranceAlpha));
+			KeyArt.BlendMode = SE_BLEND_Translucent;
+			Canvas->DrawItem(KeyArt);
+		}
+
+		FCanvasTileItem ArtTint(
+			FVector2D::ZeroVector,
+			FVector2D(Canvas->ClipX, Canvas->ClipY),
+			FLinearColor(0.01f, 0.014f, 0.015f, 0.16f));
+		ArtTint.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(ArtTint);
 	}
+	else
+	{
+		FCanvasTileItem PauseScrim(
+			FVector2D::ZeroVector,
+			FVector2D(Canvas->ClipX, Canvas->ClipY),
+			FLinearColor(0.008f, 0.011f, 0.012f, 0.68f));
+		PauseScrim.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(PauseScrim);
+	}
+
+	// A single bilinear alpha ramp protects legibility without the visible bands
+	// produced by overlapping rectangles or the cost of a blur/retainer pass.
+	if (FrontendShadeTexture && FrontendShadeTexture->GetResource())
+	{
+		FCanvasTileItem LeftShade(
+			FVector2D::ZeroVector,
+			FrontendShadeTexture->GetResource(),
+			FVector2D(Canvas->ClipX * 0.64f, Canvas->ClipY),
+			FLinearColor(
+				1.0f,
+				1.0f,
+				1.0f,
+				bSystemMenuUseTitleBackdrop ? 0.68f : 0.58f));
+		LeftShade.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(LeftShade);
+	}
+	else
+	{
+		FCanvasTileItem LeftShadeFallback(
+			FVector2D::ZeroVector,
+			FVector2D(Canvas->ClipX * 0.48f, Canvas->ClipY),
+			FLinearColor(0.006f, 0.009f, 0.010f, 0.38f));
+		LeftShadeFallback.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(LeftShadeFallback);
+	}
+
+	const float SupportScale = FMath::Max(0.90f, Metrics.Scale);
+	const float TitleScale = FMath::Max(0.76f, Metrics.Scale);
+	auto DrawDisplayTitle = [
+		this,
+		&WithAlpha](
+			const FText& Text,
+			const FVector2D& Position,
+			const float Scale)
+	{
+		UFont* Font = KoreanFrontendTitleFont
+			? KoreanFrontendTitleFont.Get()
+			: GetFontForRole(EIGHudTextRole::Objective);
+		if (!Canvas || !Font || Text.IsEmpty())
+		{
+			return 0.0f;
+		}
+		const float EffectiveScale = KoreanFrontendTitleFont
+			? Scale
+			: Scale * 2.45f;
+		float Width = 0.0f;
+		float Height = 0.0f;
+		Canvas->StrLen(Font, Text.ToString(), Width, Height, true);
+		FCanvasTextItem Item(
+			Position,
+			Text,
+			Font,
+			WithAlpha(IGHorrorHUD::FrontendIvory));
+		Item.Scale = FVector2D(EffectiveScale);
+		Item.EnableShadow(
+			WithAlpha(FLinearColor(0.0f, 0.0f, 0.0f, 0.82f)),
+			FVector2D(1.0f, 2.0f));
+		if (bLayoutValidationEnabled)
+		{
+			RecordLayoutValidationRect(
+				Position,
+				Position + FVector2D(
+					Width * EffectiveScale,
+					Height * EffectiveScale));
+		}
+		Canvas->DrawItem(Item);
+		return Height * EffectiveScale;
+	};
+
+	const FVector2D HeaderOrigin(Metrics.ContentLeft, Metrics.TitleTop);
 	if (bSystemMenuIsCredits)
 	{
-		DrawCenteredText(
+		DrawLeftAlignedText(
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsContext", "제작 정보 · 2026")
+				: FText::FromString(TEXT("CREDITS · 2026")),
+			HeaderOrigin,
+			WithAlpha(IGHorrorHUD::FrontendMuted),
+			EIGHudTextRole::Hint,
+			0.82f * SupportScale);
+		const FVector2D CreditsTitleOrigin =
+			HeaderOrigin + FVector2D(0.0f, 24.0f * Metrics.Scale);
+		const float CreditsTitleHeight = DrawDisplayTitle(
 			bKorean
 				? NSLOCTEXT("IGHUD", "CreditsTitle", "만든 사람")
 				: FText::FromString(TEXT("CREDITS")),
-			96.0f,
-			IGHorrorHUD::PaleGray,
-			EIGHudTextRole::Objective,
-			1.15f);
-		DrawCenteredText(
+			CreditsTitleOrigin,
+			0.78f * TitleScale);
+		DrawLeftAlignedText(
 			bKorean
 				? NSLOCTEXT("IGHUD", "CreditsGameTitle", "없는 층")
 				: FText::FromString(TEXT("THE MISSING FLOOR")),
-			136.0f,
-			IGHorrorHUD::MutedGray,
-			EIGHudTextRole::Hint);
+			FVector2D(
+				HeaderOrigin.X + 2.0f,
+				CreditsTitleOrigin.Y
+					+ CreditsTitleHeight
+					+ 2.0f * Metrics.Scale),
+			WithAlpha(IGHorrorHUD::FrontendMuted),
+			EIGHudTextRole::Hint,
+			0.82f * SupportScale);
 
 		const FText CreditLines[] =
 		{
@@ -4089,33 +5211,51 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 				: FText::FromString(TEXT("SELECT PROPS    POLY HAVEN · CC0")),
 			FText::FromString(TEXT("Copyright 2026 easygap. All rights reserved."))
 		};
-		const float CreditStartY = FMath::Max(230.0f, Canvas->ClipY * 0.34f);
-		const float CreditSpacing = FMath::Clamp(
-			Canvas->ClipY * 0.058f,
-			32.0f,
-			42.0f);
 		for (int32 Line = 0; Line < UE_ARRAY_COUNT(CreditLines); ++Line)
 		{
-			DrawCenteredText(
+			DrawLeftAlignedText(
 				CreditLines[Line],
-				CreditStartY + Line * CreditSpacing,
-				Line == 0 ? IGHorrorHUD::PaleGray : IGHorrorHUD::MutedGray,
-				Line == 0 ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint);
+				FVector2D(
+					Metrics.ContentLeft,
+					Metrics.MenuTop + Line * 34.0f * SupportScale),
+				WithAlpha(
+					Line == 0
+						? IGHorrorHUD::FrontendIvory
+						: IGHorrorHUD::FrontendMuted),
+				Line == 0
+					? EIGHudTextRole::Prompt
+					: EIGHudTextRole::Hint,
+				Line == 0
+					? SupportScale
+					: SupportScale * 0.94f);
 		}
-		DrawCenteredText(
+		DrawLeftAlignedText(
 			bKorean
 				? bUsingGamepad
 					? NSLOCTEXT("IGHUD", "CreditsBackGamepad", "B  돌아가기")
 					: NSLOCTEXT("IGHUD", "CreditsBackKeyboard", "Esc 또는 Enter  돌아가기")
 				: FText::FromString(
 					bUsingGamepad ? TEXT("B  BACK") : TEXT("ESC OR ENTER  BACK")),
-			FMath::Max(0.0f, Canvas->ClipY - 48.0f),
-			IGHorrorHUD::MutedGray,
-			EIGHudTextRole::Hint);
+			FVector2D(Metrics.ContentLeft, Metrics.FooterTop),
+			WithAlpha(IGHorrorHUD::FrontendMuted),
+			EIGHudTextRole::Hint,
+			0.86f * SupportScale);
 		return;
 	}
 
-	DrawCenteredText(
+	DrawLeftAlignedText(
+		bSystemMenuIsTitle
+			? bKorean
+				? NSLOCTEXT("IGHUD", "TitleContext", "무영로 · 04:30")
+				: FText::FromString(TEXT("MUYEONG-RO · 04:30"))
+			: FText::FromString(TEXT("SYSTEM · PAUSE")),
+		HeaderOrigin,
+		WithAlpha(IGHorrorHUD::FrontendMuted),
+		EIGHudTextRole::Hint,
+		0.82f * SupportScale);
+	const FVector2D MainTitleOrigin =
+		HeaderOrigin + FVector2D(0.0f, 24.0f * Metrics.Scale);
+	const float MainTitleHeight = DrawDisplayTitle(
 		bSystemMenuIsTitle
 			? bKorean
 				? NSLOCTEXT("IGHUD", "MainTitle", "없는 층")
@@ -4123,71 +5263,95 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			: bKorean
 				? NSLOCTEXT("IGHUD", "PauseTitle", "잠시 멈춤")
 				: FText::FromString(TEXT("PAUSED")),
-		92.0f,
-		IGHorrorHUD::PaleGray,
-		EIGHudTextRole::Objective,
-		1.25f);
-	DrawCenteredText(
+		MainTitleOrigin,
+		TitleScale);
+	DrawLeftAlignedText(
 		bSystemMenuIsTitle
-			? bKorean
-				? NSLOCTEXT(
-					"IGHUD",
-					"MainSubtitle",
-					"존재하지 않는 층은 소리로 먼저 드러난다.")
-				: FText::FromString(
-					TEXT("A FLOOR THAT ISN'T THERE IS HEARD FIRST."))
-			: bKorean
-				? NSLOCTEXT(
-					"IGHUD",
-					"PauseSubtitle",
-					"숨을 고르고, 기억을 이어 간다.")
-				: FText::FromString(TEXT("CATCH YOUR BREATH. CONTINUE THE MEMORY.")),
-		142.0f,
-		IGHorrorHUD::MutedGray,
-		EIGHudTextRole::Hint);
+			? FText::FromString(TEXT("THE MISSING FLOOR"))
+			: FText::FromString(TEXT("PAUSED")),
+		FVector2D(
+			HeaderOrigin.X + 2.0f,
+			MainTitleOrigin.Y
+				+ MainTitleHeight
+				+ 2.0f * Metrics.Scale),
+		WithAlpha(IGHorrorHUD::FrontendMuted),
+		EIGHudTextRole::Hint,
+		0.76f * SupportScale);
+
+	TArray<FString> MessageLines;
+	FLinearColor MessageColor = IGHorrorHUD::FrontendIvory;
 	if (bSystemMenuIsTitle && bSystemMenuHeadphoneRecommendation)
 	{
-		DrawCenteredText(
+		MessageLines = {
 			bKorean
-				? NSLOCTEXT(
-					"IGHUD",
-					"HeadphoneRecommendation",
-					"이 게임은 헤드폰으로 듣도록 만들어졌다.  ·  아무 키로 건너뛰기")
-				: FText::FromString(
-					TEXT("THIS GAME IS MADE TO BE HEARD ON HEADPHONES.  ·  ANY KEY TO SKIP")),
-			194.0f,
-			IGHorrorHUD::ThoughtBlue,
-			EIGHudTextRole::Hint);
+				? TEXT("이 게임은 헤드폰으로 듣도록 만들어졌다.")
+				: TEXT("THIS GAME IS MADE TO BE HEARD ON HEADPHONES."),
+			bKorean ? TEXT("아무 키를 누르면 건너뜁니다.") : TEXT("PRESS ANY KEY TO SKIP.")
+		};
+		MessageColor = IGHorrorHUD::ThoughtBlue;
 	}
 	else if (bSystemMenuIsTitle && bSystemMenuConfirmNewGame)
 	{
-		DrawCenteredText(
-			bKorean
-				? NSLOCTEXT(
-					"IGHUD",
-					"NewGameDeleteWarning",
-					"기존 자동 저장이 삭제됩니다. 새 게임을 한 번 더 선택하세요.")
-				: FText::FromString(
-					TEXT("AUTOSAVES WILL BE DELETED. SELECT NEW GAME AGAIN.")),
-			194.0f,
-			IGHorrorHUD::RedAccent,
-			EIGHudTextRole::Hint);
+		MessageLines = {
+			bKorean ? TEXT("자동 저장을 덮어씁니다.") : TEXT("THIS OVERWRITES YOUR AUTOSAVE."),
+			bKorean ? TEXT("다시 선택하면 새 게임 시작") : TEXT("SELECT NEW GAME AGAIN TO START.")
+		};
+		MessageColor = IGHorrorHUD::FrontendOxide;
 	}
 	else if (!SystemMenuStatusText.IsEmpty())
 	{
-		DrawCenteredText(
-			SystemMenuStatusText,
-			194.0f,
-			bSystemMenuStatusIsError
-				? IGHorrorHUD::RedAccent
-				: IGHorrorHUD::PaleGray,
-			EIGHudTextRole::Hint);
+		UFont* HintFont = GetFontForRole(EIGHudTextRole::Hint);
+		FString Remainder;
+		if (HintFont)
+		{
+			WrapHudText(
+				SystemMenuStatusText.ToString(),
+				HintFont,
+				SupportScale,
+				Metrics.ContentWidth,
+				2,
+				MessageLines,
+				Remainder);
+		}
+		if (MessageLines.IsEmpty())
+		{
+			MessageLines.Add(SystemMenuStatusText.ToString());
+		}
+		MessageColor = bSystemMenuStatusIsError
+			? IGHorrorHUD::FrontendOxide
+			: IGHorrorHUD::FrontendIvory;
+	}
+	if (!MessageLines.IsEmpty())
+	{
+		FCanvasTileItem MessageMark(
+			FVector2D(
+				Metrics.ContentLeft - 13.0f * Metrics.Scale,
+				Metrics.MessageTop + 2.0f * Metrics.Scale),
+			FVector2D(
+				FMath::Max(2.0f, 2.0f * Metrics.Scale),
+				MessageLines.Num() * 20.0f * SupportScale),
+			WithAlpha(MessageColor, 0.86f));
+		MessageMark.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(MessageMark);
+		for (int32 Line = 0; Line < MessageLines.Num(); ++Line)
+		{
+			DrawLeftAlignedText(
+				FText::FromString(MessageLines[Line]),
+				FVector2D(
+					Metrics.ContentLeft,
+					Metrics.MessageTop + Line * 21.0f * SupportScale),
+				WithAlpha(MessageColor),
+				EIGHudTextRole::Hint,
+				SupportScale);
+		}
 	}
 
 	const FString TitleRows[] =
 	{
 		bKorean ? TEXT("이어하기") : TEXT("CONTINUE"),
-		bKorean ? TEXT("새 게임") : TEXT("NEW GAME"),
+		bSystemMenuCanContinue
+			? bKorean ? TEXT("새 게임") : TEXT("NEW GAME")
+			: bKorean ? TEXT("게임 시작") : TEXT("START GAME"),
 		bKorean ? TEXT("설정") : TEXT("SETTINGS"),
 		bKorean ? TEXT("제작 정보") : TEXT("CREDITS"),
 		bKorean ? TEXT("게임 종료") : TEXT("QUIT")
@@ -4200,15 +5364,47 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		bKorean ? TEXT("제작 정보") : TEXT("CREDITS"),
 		bKorean ? TEXT("게임 종료") : TEXT("QUIT")
 	};
-	const float RowStartY = FMath::Max(244.0f, Canvas->ClipY * 0.36f);
-	const float RowSpacing = FMath::Clamp(Canvas->ClipY * 0.062f, 36.0f, 46.0f);
+
+	const int32 VisibleRowCount = IGFrontendMenuLayout::GetVisibleActionCount(
+		bSystemMenuIsTitle,
+		bSystemMenuCanContinue);
+	const float GuideX = Metrics.ContentLeft - 20.0f * Metrics.Scale;
+	const float GuideTop = Metrics.MenuTop + Metrics.RowHeight * 0.5f;
+	const float GuideBottom = Metrics.MenuTop
+		+ (VisibleRowCount - 1) * Metrics.GetRowStride()
+		+ Metrics.RowHeight * 0.5f;
+	FCanvasTileItem FloorGuide(
+		FVector2D(GuideX, GuideTop),
+		FVector2D(
+			FMath::Max(1.0f, Metrics.Scale),
+			FMath::Max(1.0f, GuideBottom - GuideTop)),
+		WithAlpha(IGHorrorHUD::FrontendGuide));
+	FloorGuide.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(FloorGuide);
+
 	const int32 LoadRow = bSystemMenuIsTitle ? 0 : 1;
-	for (int32 Row = 0; Row < UE_ARRAY_COUNT(TitleRows); ++Row)
+	for (int32 ActionRow = 0;
+		ActionRow < IGFrontendMenuLayout::ActionCount;
+		++ActionRow)
 	{
-		const bool bEnabled = Row != LoadRow || bSystemMenuCanContinue;
-		const bool bSelected = Row == SystemMenuSelectedRow;
-		FString Label = bSystemMenuIsTitle ? TitleRows[Row] : PauseRows[Row];
-		if (bSystemMenuIsTitle && Row == 1 && bSystemMenuConfirmNewGame)
+		const int32 VisibleSlot =
+			IGFrontendMenuLayout::GetVisibleSlotForAction(
+				ActionRow,
+				bSystemMenuIsTitle,
+				bSystemMenuCanContinue);
+		if (VisibleSlot == INDEX_NONE)
+		{
+			continue;
+		}
+
+		const bool bEnabled =
+			ActionRow != LoadRow || bSystemMenuCanContinue;
+		const bool bSelected = ActionRow == SystemMenuSelectedRow;
+		FString Label =
+			bSystemMenuIsTitle ? TitleRows[ActionRow] : PauseRows[ActionRow];
+		if (bSystemMenuIsTitle
+			&& ActionRow == 1
+			&& bSystemMenuConfirmNewGame)
 		{
 			Label = bKorean
 				? TEXT("새 게임 확인")
@@ -4216,20 +5412,60 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		}
 		if (!bEnabled)
 		{
-			Label += bKorean ? TEXT("  (저장 없음)") : TEXT("  (NO SAVE)");
+			Label += bKorean ? TEXT("  · 저장 없음") : TEXT("  · NO SAVE");
 		}
-		Label = FString(bSelected ? TEXT(">  ") : TEXT("   ")) + Label;
-		DrawCenteredText(
+
+		const FVector2D RowPosition = Metrics.GetRowPosition(VisibleSlot);
+		if (bSelected)
+		{
+			FCanvasTileItem FocusSurface(
+				RowPosition - FVector2D(4.0f * Metrics.Scale, 0.0f),
+				FVector2D(
+					Metrics.ContentWidth + 4.0f * Metrics.Scale,
+					Metrics.RowHeight),
+				WithAlpha(IGHorrorHUD::FrontendFocus));
+			FocusSurface.BlendMode = SE_BLEND_Translucent;
+			Canvas->DrawItem(FocusSurface);
+		}
+
+		const float TickWidth = bSelected
+			? 30.0f * Metrics.Scale
+			: 9.0f * Metrics.Scale;
+		const float TickHeight = bSelected
+			? FMath::Max(2.0f, 2.0f * Metrics.Scale)
+			: FMath::Max(1.0f, Metrics.Scale);
+		FCanvasTileItem FloorTick(
+			FVector2D(
+				GuideX - (bSelected ? 7.0f * Metrics.Scale : 0.0f),
+				RowPosition.Y + Metrics.RowHeight * 0.5f - TickHeight * 0.5f),
+			FVector2D(TickWidth, TickHeight),
+			WithAlpha(
+				bSelected
+					? IGHorrorHUD::FrontendOxide
+					: IGHorrorHUD::FrontendGuide));
+		FloorTick.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(FloorTick);
+
+		const FLinearColor LabelColor = bEnabled
+			? IGHorrorHUD::FrontendIvory
+			: IGHorrorHUD::FrontendMuted;
+		const float DisabledMultiplier = bEnabled ? 1.0f : 0.52f;
+		const float RowTextScale = bSelected
+			? SupportScale
+			: SupportScale * (20.0f / 18.0f);
+		DrawLeftAlignedText(
 			FText::FromString(Label),
-			RowStartY + Row * RowSpacing,
-			!bEnabled
-				? FLinearColor(0.28f, 0.29f, 0.28f, 0.82f)
-				: bSelected
-					? IGHorrorHUD::RedAccent
-					: IGHorrorHUD::PaleGray,
-			bSelected && bEnabled
+			FVector2D(
+				Metrics.ContentLeft + 13.0f * Metrics.Scale,
+				RowPosition.Y + FMath::Max(9.0f, 13.0f * Metrics.Scale)),
+			WithAlpha(LabelColor, DisabledMultiplier),
+			bSelected
 				? EIGHudTextRole::Prompt
-				: EIGHudTextRole::Hint);
+				: EIGHudTextRole::Hint,
+			RowTextScale);
+
+		const FBox2D HitBox = Metrics.GetRowHitBox(VisibleSlot);
+		RecordLayoutValidationRect(HitBox.Min, HitBox.Max);
 	}
 
 	FText SystemControls;
@@ -4238,54 +5474,34 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		SystemControls = bUsingGamepad
 			? bSystemMenuIsTitle
 				? bSystemMenuConfirmNewGame
-					? NSLOCTEXT(
-						"IGHUD",
-						"TitleConfirmControlsGamepad",
-						"A 새 게임 시작  ·  View 취소")
-					: NSLOCTEXT(
-						"IGHUD",
-						"TitleControlsGamepad",
-						"D-pad 항목  ·  A 선택  ·  Menu 접근성")
-				: NSLOCTEXT(
-					"IGHUD",
-					"SystemMenuControlsGamepad",
-					"D-pad 항목  ·  A 선택  ·  View 돌아가기  ·  Menu 접근성")
+					? NSLOCTEXT("IGHUD", "TitleConfirmControlsGamepad", "A 시작  ·  View 취소")
+					: NSLOCTEXT("IGHUD", "TitleControlsGamepad", "D-pad 이동  ·  A 선택  ·  Menu 접근성")
+				: NSLOCTEXT("IGHUD", "SystemMenuControlsGamepad", "D-pad 이동  ·  A 선택  ·  View 돌아가기")
 			: bSystemMenuIsTitle
 				? bSystemMenuConfirmNewGame
-					? NSLOCTEXT(
-						"IGHUD",
-						"TitleConfirmControlsKeyboard",
-						"Enter 새 게임 시작  ·  Esc 취소")
-					: NSLOCTEXT(
-						"IGHUD",
-						"TitleControlsKeyboard",
-						"W/S 또는 방향키 항목  ·  Enter/마우스 선택  ·  F10 접근성")
-				: NSLOCTEXT(
-					"IGHUD",
-					"SystemMenuControlsKeyboard",
-					"W/S 또는 방향키 항목  ·  Enter/마우스 선택  ·  Esc 돌아가기  ·  F10 접근성");
+					? NSLOCTEXT("IGHUD", "TitleConfirmControlsKeyboard", "Enter 시작  ·  Esc 취소")
+					: NSLOCTEXT("IGHUD", "TitleControlsKeyboard", "↑↓ 이동  ·  Enter 선택  ·  F10 접근성")
+				: NSLOCTEXT("IGHUD", "SystemMenuControlsKeyboard", "↑↓ 이동  ·  Enter 선택  ·  Esc 돌아가기");
 	}
 	else
 	{
 		SystemControls = FText::FromString(
 			bUsingGamepad
 				? bSystemMenuIsTitle
-					? bSystemMenuConfirmNewGame
-						? TEXT("A START NEW GAME  |  VIEW CANCEL")
-						: TEXT("D-PAD SELECT  |  A APPLY  |  MENU ACCESSIBILITY")
-					: TEXT("D-PAD SELECT  |  A APPLY  |  VIEW BACK  |  MENU ACCESSIBILITY")
+					? TEXT("D-PAD MOVE  ·  A SELECT  ·  MENU ACCESSIBILITY")
+					: TEXT("D-PAD MOVE  ·  A SELECT  ·  VIEW BACK")
 				: bSystemMenuIsTitle
-					? bSystemMenuConfirmNewGame
-						? TEXT("ENTER START NEW GAME  |  ESC CANCEL")
-						: TEXT("W/S OR ARROWS SELECT  |  ENTER/MOUSE APPLY  |  F10 ACCESSIBILITY")
-					: TEXT("W/S OR ARROWS SELECT  |  ENTER/MOUSE APPLY  |  ESC BACK  |  F10 ACCESSIBILITY"));
+					? TEXT("ARROWS MOVE  ·  ENTER SELECT  ·  F10 ACCESSIBILITY")
+					: TEXT("ARROWS MOVE  ·  ENTER SELECT  ·  ESC BACK"));
 	}
-	DrawCenteredText(
+	DrawLeftAlignedText(
 		SystemControls,
-		FMath::Max(0.0f, Canvas->ClipY - 48.0f),
-		IGHorrorHUD::MutedGray,
-		EIGHudTextRole::Hint);
+		FVector2D(Metrics.ContentLeft, Metrics.FooterTop),
+		WithAlpha(IGHorrorHUD::FrontendMuted),
+		EIGHudTextRole::Hint,
+		0.84f * SupportScale);
 }
+
 
 void AIGHorrorHUD::ResolveInteractionComponent()
 {
@@ -4576,6 +5792,57 @@ void AIGHorrorHUD::DrawLeftAlignedText(
 			Position + FVector2D(
 				TextWidth * SafeTextScale,
 				TextHeight * SafeTextScale));
+	}
+	Canvas->DrawItem(TextItem);
+}
+
+void AIGHorrorHUD::DrawRightAlignedText(
+	const FText& Text,
+	const FVector2D& Position,
+	const FLinearColor& Color,
+	const EIGHudTextRole TextRole,
+	const float TextScale,
+	const bool bUseOutline)
+{
+	if (!Canvas || Text.IsEmpty())
+	{
+		return;
+	}
+	UFont* Font = GetFontForRole(TextRole);
+	if (!Font)
+	{
+		return;
+	}
+
+	const float SafeTextScale = FMath::Max(0.5f, TextScale);
+	float TextWidth = 0.0f;
+	float TextHeight = 0.0f;
+	Canvas->StrLen(Font, Text.ToString(), TextWidth, TextHeight, true);
+	const FVector2D DrawPosition(
+		Position.X - TextWidth * SafeTextScale,
+		Position.Y);
+	FCanvasTextItem TextItem(DrawPosition, Text, Font, Color);
+	TextItem.Scale = FVector2D(SafeTextScale);
+	FLinearColor EffectColor = IGHorrorHUD::Shadow;
+	EffectColor.A *= Color.A;
+	if (bUseOutline)
+	{
+		TextItem.bOutlined = true;
+		TextItem.OutlineColor = EffectColor;
+	}
+	else
+	{
+		TextItem.EnableShadow(EffectColor, FVector2D(1.0f, 1.0f));
+	}
+
+	if (bLayoutValidationEnabled)
+	{
+		const FVector2D Size(
+			TextWidth * SafeTextScale,
+			TextHeight * SafeTextScale);
+		RecordLayoutValidationRect(
+			DrawPosition,
+			DrawPosition + Size);
 	}
 	Canvas->DrawItem(TextItem);
 }

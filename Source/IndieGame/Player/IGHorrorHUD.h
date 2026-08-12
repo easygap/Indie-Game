@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
+#include "Player/IGSettingsMenuLayout.h"
 #include "IGHorrorHUD.generated.h"
 
 class AIGMorningRoutineDirector;
@@ -70,6 +71,8 @@ struct FIGSystemMenuPresentation
 {
 	bool bVisible = false;
 	bool bTitle = false;
+	/** Title key art is also retained when credits were opened from the title. */
+	bool bUseTitleBackdrop = false;
 	bool bCredits = false;
 	bool bAudioCalibration = false;
 	bool bDisplaySettings = false;
@@ -99,9 +102,9 @@ struct FIGSystemMenuPresentation
  * It intentionally avoids widget assets so the first playable build always has
  * interaction feedback, objectives, inner-voice lines and control hints.
  *
- * Korean text renders through a runtime composite font built from a system
- * font (Malgun Gothic and friends); when none is available the HUD falls back
- * to the engine font with ASCII strings.
+ * Korean text renders through bundled runtime composite fonts so typography
+ * and glyph metrics stay identical in Editor and packaged builds. A system
+ * font remains a development-only fallback for partial source checkouts.
  */
 UCLASS()
 class INDIEGAME_API AIGHorrorHUD : public AHUD
@@ -191,6 +194,7 @@ public:
 		FVector2D& OutBoundsMax,
 		int32& OutElementCount,
 		bool& bOutAllInsideCanvas,
+		bool& bOutAllInsideSettingsContainers,
 		uint64& OutFrameSerial) const;
 
 	/** Last lower-third dialogue layout actually drawn by the Shipping probe. */
@@ -295,11 +299,15 @@ private:
 	void ResolveInteractionComponent();
 	void ResolveDirectors();
 	void InitializeKoreanFont();
+	void InitializeFrontendMenuTextures();
 	void InitializeLensDropletTexture();
 	void InitializeDialogueSurfaceTextures();
 	void InitializeAudioCalibrationTexture();
 	void InitializeMissingFloorJournalTextures();
 	void InitializeFirstPersonActionTextures();
+	UFontFace* LoadBundledFontFace(
+		const TCHAR* RelativePath,
+		const TCHAR* FontFaceName);
 	UFont* MakeRuntimeFont(UFontFace* FontFace, int32 PixelSize, const TCHAR* FontName);
 	UFont* GetFontForRole(EIGHudTextRole TextRole) const;
 	FText GetObjectiveText() const;
@@ -317,10 +325,22 @@ private:
 		EIGHudTextRole TextRole,
 		float TextScale = 1.0f,
 		bool bUseOutline = false);
+	void DrawRightAlignedText(
+		const FText& Text,
+		const FVector2D& Position,
+		const FLinearColor& Color,
+		EIGHudTextRole TextRole,
+		float TextScale = 1.0f,
+		bool bUseOutline = false);
 	void BeginLayoutValidationSample();
 	void RecordLayoutValidationRect(
 		const FVector2D& Minimum,
 		const FVector2D& Maximum);
+	void ValidateSettingsTextRect(
+		const FVector2D& Minimum,
+		const FVector2D& Maximum,
+		const FVector2D& ContainerMinimum,
+		const FVector2D& ContainerMaximum);
 	void FinalizeLayoutValidationSample();
 	void DrawCrosshair(const FLinearColor& Color);
 	bool DrawChapterCard(double CurrentTime);
@@ -376,6 +396,13 @@ private:
 	void ActivateAudioCaption(FIGAudioCaptionMessage&& Message, double CurrentTime);
 	void AdvanceAudioCaptionQueue(double CurrentTime);
 	float MeasureTextWidth(const FString& Text, UFont* Font, float TextScale) const;
+	float MeasureTextHeight(const FString& Text, UFont* Font, float TextScale) const;
+	float GetFittedTextScale(
+		const FText& Text,
+		EIGHudTextRole TextRole,
+		float PreferredScale,
+		float MaximumWidth,
+		float MinimumScale = 0.5f) const;
 	int32 FindFittingCaptionPrefix(
 		const FString& Text,
 		UFont* Font,
@@ -393,6 +420,32 @@ private:
 	void DrawSystemMenuPanel();
 	void DrawAudioCalibrationPanel();
 	void DrawDisplaySettingsPanel();
+	void DrawSettingsShell(
+		const IGSettingsMenuLayout::FPanelMetrics& Metrics,
+		const FText& Title,
+		const FText& Subtitle,
+		const FText& ContextLabel);
+	void DrawSettingsCategoryRow(
+		const IGSettingsMenuLayout::FPanelMetrics& Metrics,
+		int32 CategoryIndex,
+		const FText& Label,
+		bool bSelected);
+	void DrawSettingsOptionRow(
+		const IGSettingsMenuLayout::FPanelMetrics& Metrics,
+		int32 LocalRow,
+		const FText& Label,
+		const FText& Value,
+		bool bSelected,
+		bool bAdjustable);
+	void DrawSettingsDetailText(
+		const FString& Text,
+		const FVector2D& Position,
+		float MaximumWidth,
+		float TextScale,
+		const FLinearColor& Color);
+	void DrawSettingsFooterText(
+		const IGSettingsMenuLayout::FPanelMetrics& Metrics,
+		const FText& Text);
 	void DrawMissingFloorJournalPanel();
 	UTexture2D* GetMissingFloorJournalThumbnail(int32 ThumbnailType) const;
 	/** Screen-space bracket that snaps around whatever is currently focused. */
@@ -416,6 +469,14 @@ private:
 	/** ImageGen-derived, low-contrast optical grain used by dialogue surfaces. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> DialogueFilmTexture;
+
+	/** Text-free ImageGen key art; every title/menu glyph stays runtime-localized. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> FrontendTitleBackgroundTexture;
+
+	/** One 256x1 alpha ramp replaces stepped shade strips and extra draw calls. */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> FrontendShadeTexture;
 
 	/** ImageGen 파생 저조도 벽면. 보정 안내와 눈금은 런타임에서 그린다. */
 	UPROPERTY(Transient)
@@ -450,9 +511,23 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> HudRoundedMaskTexture;
 
+	/** Bundled faces keep typography and glyph metrics stable after packaging. */
+	UPROPERTY(Transient)
+	TObjectPtr<UFontFace> KoreanBodyFontFace;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFontFace> KoreanEmphasisFontFace;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UFontFace> KoreanDisplayFontFace;
+
 	/** Per-role fonts rasterized at native size so Hangul stays crisp. */
 	UPROPERTY(Transient)
 	TObjectPtr<UFont> KoreanFontLarge;
+
+	/** Dedicated 64 px display face; scaling the 24 px HUD role looked soft. */
+	UPROPERTY(Transient)
+	TObjectPtr<UFont> KoreanFrontendTitleFont;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UFont> KoreanFontMedium;
@@ -565,6 +640,7 @@ private:
 	int32 LayoutValidationElementCount = 0;
 	uint64 LayoutValidationFrameSerial = 0;
 	bool bLayoutValidationAllInsideCanvas = false;
+	bool bLayoutValidationAllInsideSettingsContainers = false;
 	bool bLayoutValidationSampleReady = false;
 	bool bLayoutValidationEnabled = false;
 	int32 AccessibilitySelectedRow = 0;
@@ -576,6 +652,7 @@ private:
 	bool bSystemMenuVisible = false;
 	bool bMissingFloorJournalVisible = false;
 	bool bSystemMenuIsTitle = false;
+	bool bSystemMenuUseTitleBackdrop = false;
 	bool bSystemMenuIsCredits = false;
 	bool bSystemMenuIsAudioCalibration = false;
 	bool bSystemMenuIsDisplaySettings = false;
@@ -597,5 +674,6 @@ private:
 	int32 DisplayFrameLimitIndex = 1;
 	int32 DisplayConfirmationSecondsRemaining = 0;
 	FText SystemMenuStatusText;
+	double SystemMenuOpenedAt = -1.0;
 	bool bUsingGamepad = false;
 };

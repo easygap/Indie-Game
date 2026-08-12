@@ -148,6 +148,7 @@ Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드�
 | 편의점 반복 재고 | 담배·과자·컵라면·냉장식품·음료 1,122개를 메시/머티리얼별 `UInstancedStaticMeshComponent` 최대 24개로 묶는다. | 런타임에서 `instances=1122`, `batches<=24`, 무충돌, Static mobility와 16~22m start/end 컬링 값을 직접 검사한다. |
 | 작은 프롭의 Lumen 비용 | 위 재고는 직접광·머티리얼·화면 추적은 유지하고 distance-field 장면 기여, 데칼 수신, 내비게이션과 그림자 중복을 줄인다. 몸체처럼 실루엣에 필요한 배치만 그림자를 남긴다. | `REBIRTH_RELEASE PASS store_instancing` 영수증이 없으면 A/B 런타임 검증이 실패한다. |
 | 유휴 CPU | 손전등은 켜진 동안만, 스트레스 컴포넌트는 공포 값·심박 억제 상태가 실제로 진행되는 동안만 Tick한다. 상호작용 탐색은 기존 10~15Hz 타이머를 유지한다. | Component Tick은 기본 활성 상태로 시작할 수 없으며 정적 검증이 `bStartWithTickEnabled=true`를 차단한다. |
+| 설정 HUD | 화면·접근성 설정은 공용 `IGSettingsMenuLayout`에서 해상도별 좌표와 포인터 판정을 계산한다. 색·표면 토큰과 하나의 임시 라운드 마스크를 재사용하며, 메뉴가 닫힌 프레임에는 설정 셋·글리프를 그리지 않는다. | 프런트엔드 계약이 렌더·히트 테스트의 공용 좌표 사용을 검사하고, Shipping 프로브가 720p~1440p 설정 PNG 8장과 키보드·게임패드 경로를 통과해야 한다. 프레임 비용 PASS는 별도 Shipping trace로 판정한다. |
 | 하단 대화·자막 HUD | 별도 Widget 트리와 raw binding을 늘리지 않고 기존 네이티브 HUD 한 경로에서 이벤트로 큐만 갱신한다. 대화 6개·환경음 4개로 메모리를 제한하고, 한글 줄바꿈 결과는 페이지·크기·폭이 달라질 때만 다시 계산한다. 숨김 상태에서는 패널·글리프를 그리지 않는다. | 정적 대화 계약, 720p~1440p 경계 오라클과 실제 D3D12 프런트엔드 프로브가 안전 영역·최대 3줄·두 레인·200% 배율을 통과해야 한다. 성능 PASS는 별도 Shipping trace로 판정한다. |
 | 텍스처·PSO | 텍스처 스트리밍과 component/global-shader PSO precache를 Shipping 설정에 명시한다. VRAM 풀 크기는 장비 실측 전에는 고정하지 않는다. | `DefaultEngine.ini`의 네 설정과 `stat Streaming`, `stat PSOPrecache`, Insights 증거를 함께 확인한다. |
 | 품질 확장성 | Volumetric Fog의 프로젝트 우선순위 고정을 제거해 Low에서는 엔진 scalability가 비활성화하고 High에서는 낮은 해상도 볼륨으로 유지한다. | `DefaultEngine.ini`에 루트 `r.VolumetricFog` 값이 다시 들어오면 정적 검증이 실패한다. |

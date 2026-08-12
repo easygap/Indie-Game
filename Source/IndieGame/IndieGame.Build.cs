@@ -1,4 +1,5 @@
 using UnrealBuildTool;
+using System.IO;
 
 public class IndieGame : ModuleRules
 {
@@ -34,5 +35,24 @@ public class IndieGame : ModuleRules
 		// Optional microphone mode reduces capture buffers to a local envelope;
 		// the platform backend is loaded by the AudioCapture project plugin.
 		PrivateDependencyModuleNames.Add("AudioCaptureCore");
+
+		// Bundle UI typefaces with every target. Loading from the project
+		// directory keeps glyph metrics identical in Editor and packaged builds.
+		string FontsDirectory = Path.Combine(ModuleDirectory, "UI", "Fonts");
+		string[] BundledFontFiles =
+		{
+			"Pretendard-Regular.otf",
+			"Pretendard-SemiBold.otf",
+			"GowunBatang-Bold.ttf",
+			"OFL-Pretendard.txt",
+			"OFL-GowunBatang.txt"
+		};
+		foreach (string FontFile in BundledFontFiles)
+		{
+			RuntimeDependencies.Add(
+				"$(TargetOutputDir)/UI/Fonts/" + FontFile,
+				Path.Combine(FontsDirectory, FontFile),
+				StagedFileType.NonUFS);
+		}
 	}
 }

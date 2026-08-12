@@ -13,6 +13,12 @@ $hudHeader = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGHorrorHUD.h')
 $hudSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGHorrorHUD.cpp')
+$settingsLayout = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGSettingsMenuLayout.h')
+$frontendLayout = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGFrontendMenuLayout.h')
+$moduleRules = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/IndieGame.Build.cs')
 $saveHeader = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Save/IGSaveSubsystem.h')
 $saveSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -45,10 +51,18 @@ $executableMetadataScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/Test-Windows-ExecutableMetadata.ps1')
 $releaseValidationScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/Run-Rebirth-ReleaseValidation.ps1')
+$frontendProbeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/Run-Rebirth-FrontendShippingProbe.ps1')
+$prepareAiArtScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/Prepare-AIArt.ps1')
+$surfaceTextureScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/generate_surface_textures.py')
 $assetPolicy = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Docs/ASSET_POLICY.md')
 $iconPrompt = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Docs/IMAGEGEN_PROMPTS_2026-08-05.md')
+$titlePrompt = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Docs/IMAGEGEN_PROMPTS_2026-08-12.md')
 $iconPngPath = Join-Path $projectRoot 'Build/Windows/ApplicationIcon.png'
 $iconIcoPath = Join-Path $projectRoot 'Build/Windows/Application.ico'
 $iconPngBytes = [IO.File]::ReadAllBytes($iconPngPath)
@@ -141,6 +155,8 @@ Assert-ContainsAll $controllerSource @(
 	'RevertPendingDisplaySettings()',
 	'Params.Key == EKeys::LeftMouseButton',
 	'TryGetMenuRowFromPointer(',
+	'TryGetSystemMenuRowFromPointer(',
+	'IGFrontendMenuLayout::HitTestAction(',
 	'FInputModeGameAndUI',
 	'OnSaveCompleted.AddUniqueDynamic',
 	'OnLoadCompleted.AddUniqueDynamic',
@@ -181,6 +197,7 @@ Assert-ContainsAll $hudHeader @(
 	'SetSystemMenuState',
 	'DrawSystemMenuPanel',
 	'FIGSystemMenuPresentation',
+	'bUseTitleBackdrop',
 	'DrawDisplaySettingsPanel',
 	'DrawAudioCalibrationPanel',
 	'bSystemMenuCanContinue'
@@ -189,19 +206,26 @@ Assert-ContainsAll $hudSource @(
 	'DrawSystemMenuPanel()',
 	'없는 층',
 	'THE MISSING FLOOR',
-	'존재하지 않는 층은 소리로 먼저 드러난다.',
+	'무영로 · 04:30',
 	'이 게임은 헤드폰으로 듣도록 만들어졌다.',
 	'소리 · 밝기 보정',
 	'노크가 겨우 들리면서',
 	'가운데 칸은 겨우 보이고',
 	'노크 다시 듣기',
 	'이어하기',
+	'게임 시작',
 	'새 게임',
-	'기존 자동 저장이 삭제됩니다. 새 게임을 한 번 더 선택하세요.',
+	'자동 저장을 덮어씁니다.',
 	'새 게임 확인',
-	'Enter 새 게임 시작  ·  Esc 취소',
+	'Enter 시작  ·  Esc 취소',
 	'최근 자동 저장 불러오기',
 	'화면 설정',
+	'공포 연출의 가독성과 프레임 안정성을 함께 조정합니다.',
+	'카테고리',
+	'세부 설정',
+	'선택한 항목',
+	'플레이 보조',
+	'변경 사항',
 	'화면 모드',
 	'1280 x 720',
 	'1920 x 1080',
@@ -224,6 +248,71 @@ Assert-ContainsAll $hudSource @(
 	'Poly Haven · CC0',
 	'Copyright 2026 easygap. All rights reserved.'
 ) '한국어 타이틀·메뉴·크레딧 카피'
+Assert-ContainsAll $frontendLayout @(
+	'namespace IGFrontendMenuLayout',
+	'constexpr int32 ActionCount = 5',
+	'MakeMetrics',
+	'FMath::Max(44.0f, 54.0f * Result.Scale)',
+	'HidesContinue',
+	'GetVisibleActionCount',
+	'GetVisibleSlotForAction',
+	'GetActionForVisibleSlot',
+	'HitTestAction',
+	'GetRowHitBox',
+	'ValidateMetrics'
+) '타이틀 렌더링·포인터 공용 레이아웃 계약'
+Assert-ContainsAll $hudSource @(
+	'/Game/UI/Textures/T_TitleBackground_D.T_TitleBackground_D',
+	'FrontendTitleFontSize = 64',
+	'KoreanFrontendTitleFont',
+	'IsReducedCameraMotionEnabled()',
+	'(Now - SystemMenuOpenedAt) / 0.32',
+	'IGFrontendMenuLayout::GetVisibleSlotForAction',
+	'RecordLayoutValidationRect(HitBox.Min, HitBox.Max)'
+) '타이틀 키아트·타이포·동작 감소·포커스 계약'
+Assert-ContainsAll $settingsLayout @(
+	'FPanelMetrics',
+	'MakePanelMetrics',
+	'GetDisplayCategory',
+	'GetAccessibilityCategory',
+	'HitTestSettingsRow',
+	'ValidatePanelMetrics',
+	'FMath::Max(48.0f, 56.0f * Result.Scale)',
+	'FMath::Max(52.0f, 62.0f * Result.Scale)'
+) '설정 렌더링·포인터 공용 레이아웃 계약'
+Assert-ContainsAll $controllerSource @(
+	'TryGetDisplaySettingsRowFromPointer',
+	'TryGetAccessibilityRowFromPointer',
+	'IGSettingsMenuLayout::HitTestSettingsRow',
+	'bFrontendProbeCompilationDrained',
+	'FAssetCompilingManager::Get().FinishAllCompilation()',
+	'GShaderCompilingManager->FinishAllCompilation()',
+	'&& !bCategoryHit',
+	'if (!bCategoryHit)'
+) '설정 카테고리·옵션 포인터 계약'
+Assert-ContainsAll $hudSource @(
+	'LoadBundledFontFace(',
+	'Pretendard-Regular.otf',
+	'Pretendard-SemiBold.otf',
+	'GowunBatang-Bold.ttf',
+	'GetFittedTextScale(',
+	'DrawSettingsDetailText(',
+	'DrawSettingsFooterText(',
+	'ValidateSettingsTextRect(',
+	'bLayoutValidationAllInsideSettingsContainers',
+	'WrapHudText(',
+	'PreviewLines'
+) '번들 한글 타이포·설정 컨테이너 오버플로 계약'
+Assert-ContainsAll $moduleRules @(
+	'BundledFontFiles',
+	'Pretendard-Regular.otf',
+	'Pretendard-SemiBold.otf',
+	'GowunBatang-Bold.ttf',
+	'OFL-Pretendard.txt',
+	'OFL-GowunBatang.txt',
+	'$(TargetOutputDir)/UI/Fonts/',
+	'StagedFileType.NonUFS'
+) 'Shipping 한글 폰트·라이선스 스테이징'
 Assert-True (
 	$hudSource.IndexOf('if (bAccessibilityMenuVisible)') -lt
 	$hudSource.IndexOf('if (bSystemMenuVisible)')
@@ -263,6 +352,7 @@ Assert-ContainsAll $gameConfig @(
 	'UsePakFile=True',
 	'bUseIoStore=True',
 	'bCompressed=True',
+	'+DirectoriesToAlwaysCook=(Path="/Game/UI")',
 	'IncludePrerequisites=True',
 	'IncludeAppLocalPrerequisites=True',
 	'ApplocalPrerequisitesDirectory=(Path="")'
@@ -332,8 +422,40 @@ Assert-ContainsAll $assetPolicy @(
 	'Content/SourceArt/AI/ApplicationIcon_raw.png',
 	'Build/Windows/ApplicationIcon.png',
 	'Build/Windows/Application.ico',
-	'Docs/IMAGEGEN_PROMPTS_2026-08-05.md'
+	'Docs/IMAGEGEN_PROMPTS_2026-08-05.md',
+	'Pretendard 1.3.9',
+	'GowunBatang-Bold.ttf',
+	'SIL Open Font License 1.1',
+	'Content/SourceArt/AI/TitleBackgroundMissingFloor_v1.png',
+	'4831357AA6439F9CF93CC3D5CC4664DDF8EB995D59759E1F319504246CD57D39',
+	'/Game/UI/Textures/T_TitleBackground_D'
 ) '배포 아이콘 출처·라이선스 대장'
+Assert-ContainsAll $titlePrompt @(
+	'타이틀 배경 — 무영로 새벽 빌라',
+	'Content/SourceArt/AI/TitleBackgroundMissingFloor_v1.png',
+	'Content/UI/Textures/T_TitleBackground_D.uasset',
+	'4831357AA6439F9CF93CC3D5CC4664DDF8EB995D59759E1F319504246CD57D39',
+	'leave the left third uncluttered and dark enough for pale runtime text',
+	'absolutely no text, numbers, signage, logos, watermark, UI'
+) '타이틀 ImageGen 생성·경계·최종 프롬프트 기록'
+Assert-ContainsAll $prepareAiArtScript @(
+	"Source = 'TitleBackgroundMissingFloor_v1'",
+	"Target = 'T_TitleBackground_D.png'",
+	'Size = @(1920, 1080)'
+) '타이틀 ImageGen 파생 재현 계약'
+Assert-ContainsAll $surfaceTextureScript @(
+	'FRONTEND_TEXTURE_PACKAGE_ROOT = "/Game/UI/Textures"',
+	'FRONTEND_UI_ONLY',
+	'FRONTEND_UI_TEXTURE_NAMES = {"T_TitleBackground_D"}',
+	'"T_TitleBackground_D"'
+) '타이틀 UI 텍스처 임포트 계약'
+foreach ($relativePath in @(
+	'Content/SourceArt/AI/TitleBackgroundMissingFloor_v1.png',
+	'Content/SourceArt/T_TitleBackground_D.png',
+	'Content/UI/Textures/T_TitleBackground_D.uasset')) {
+	Assert-True (Test-Path -LiteralPath (Join-Path $projectRoot $relativePath)) `
+		"타이틀 에셋이 없다: $relativePath"
+}
 Assert-ContainsAll $iconPrompt @(
 	'Windows application icon',
 	'4시 44분',
@@ -434,12 +556,28 @@ Assert-ContainsAll $releaseValidationScript @(
 	'$resultText -cne $expectedResult',
 	'shippingRuntimeResults = [pscustomobject]$shippingRuntimeResults',
 	'function Assert-ShippingArchiveManifestUnchanged',
+	'accessibilityScreenshotSha256',
+	'displayScreenshotSha256',
 	"'shipping_archive_post_runtime'",
 	'Shipping manifest path escaped the archive',
 	'Shipping archive file hash changed after runtime',
 	'Assert-ShippingArchiveManifestUnchanged',
 	'if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation)'
 ) 'Shipping 패키지 A/B 실제 실행 영수증 검증'
+Assert-ContainsAll $frontendProbeScript @(
+	'-FilePath $launcher',
+	'-WorkingDirectory (Split-Path -Parent $launcher)',
+	'IGFrontendAccessibilityScreenshotPath=',
+	'IGFrontendDisplayScreenshotPath=',
+	'IGFrontendTitleScreenshotPath=',
+	'settings-accessibility.png',
+	'settings-display.png',
+	'title-first-run.png',
+	'accessibilityScreenshotSha256',
+	'displayScreenshotSha256',
+	'titleScreenshotSha256',
+	'Frontend Shipping settings screenshot dimensions failed'
+) 'Shipping 설정 화면 시각 증거'
 
 $forbiddenCreditCodePoints = @(
 	@(67, 104, 97, 116, 71, 80, 84),
@@ -455,24 +593,43 @@ foreach ($codePoints in $forbiddenCreditCodePoints) {
 }
 
 foreach ($height in @(720.0, 900.0, 1080.0, 1440.0)) {
-	$rowStart = [Math]::Max(244.0, $height * 0.36)
-	$rowSpacing = [Math]::Min(46.0, [Math]::Max(36.0, $height * 0.062))
-	$lastMenuBottom = $rowStart + (4.0 * $rowSpacing) + 24.0
-	$footerTop = $height - 48.0
+	$width = $height * (16.0 / 9.0)
+	$menuScale = [Math]::Min(2.0, [Math]::Max(0.67, [Math]::Min(
+		$width / 1920.0,
+		$height / 1080.0)))
+	$rowStart = [Math]::Max(282.0 * $menuScale, $height * 0.34)
+	$rowHeight = [Math]::Max(44.0, 54.0 * $menuScale)
+	$rowGap = 8.0 * $menuScale
+	$rowStride = $rowHeight + $rowGap
+	$lastMenuBottom = $rowStart + (4.0 * $rowStride) + $rowHeight
+	$footerTop = $height - [Math]::Max(38.0, 44.0 * $menuScale)
 	Assert-True ($lastMenuBottom -lt $footerTop) `
 		"시스템 메뉴와 조작 안내가 겹친다: height=$height"
+	Assert-True ($rowHeight -ge 44.0) `
+		"시스템 메뉴 포인터 목표가 44px 미만이다: height=$height"
 
-	$creditStart = [Math]::Max(230.0, $height * 0.34)
-	$creditSpacing = [Math]::Min(42.0, [Math]::Max(32.0, $height * 0.058))
-	$lastCreditBottom = $creditStart + (4.0 * $creditSpacing) + 22.0
+	$supportScale = [Math]::Max(0.90, $menuScale)
+	$creditStart = $rowStart
+	$creditSpacing = 34.0 * $supportScale
+	$lastCreditBottom = $creditStart + (4.0 * $creditSpacing) + (22.0 * $supportScale)
 	Assert-True ($lastCreditBottom -lt $footerTop) `
 		"크레딧과 돌아가기 안내가 겹친다: height=$height"
 
-	$displayStart = [Math]::Max(174.0, $height * 0.24)
-	$displaySpacing = [Math]::Min(42.0, [Math]::Max(34.0, $height * 0.055))
-	$lastDisplayBottom = $displayStart + (7.0 * $displaySpacing) + 24.0
-	Assert-True ($lastDisplayBottom -lt $footerTop) `
-		"화면 설정과 조작 안내가 겹친다: height=$height"
+	$scale = [Math]::Min(2.0, [Math]::Max(0.85, [Math]::Min(
+		$width / 1920.0,
+		$height / 1080.0)))
+	$verticalMargin = [Math]::Max(20.0, 28.0 * $scale)
+	$panelHeight = [Math]::Min(
+		[Math]::Max(420.0, $height - (2.0 * $verticalMargin)),
+		800.0 * $scale)
+	$panelTop = ($height - $panelHeight) * 0.5
+	$headerBottom = $panelTop + 108.0 * $scale
+	$settingsFooterTop = $panelTop + $panelHeight - 64.0 * $scale
+	$optionStart = $headerBottom + 56.0 * $scale
+	$optionSpacing = [Math]::Max(52.0, 62.0 * $scale)
+	$lastOptionBottom = $optionStart + 5.0 * $optionSpacing
+	Assert-True ($lastOptionBottom -lt $settingsFooterTop) `
+		"설정 옵션과 패널 조작 안내가 겹친다: height=$height"
 }
 
 Write-Host (

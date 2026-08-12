@@ -29,7 +29,9 @@
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGFrontendMenuLayout.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGSettingsMenuLayout.h"
 #include "Save/IGSaveSubsystem.h"
 #include "Sequence/IGSecondMorningDirector.h"
 #include "Sequence/IGThirdMorningDirector.h"
@@ -37,17 +39,17 @@
 
 namespace IGAccessibilityMenu
 {
-	constexpr int32 RowCount = 17;
+	constexpr int32 RowCount = IGSettingsMenuLayout::AccessibilityRowCount;
 }
 
 namespace IGSystemMenu
 {
-	constexpr int32 RowCount = 5;
+	constexpr int32 RowCount = IGFrontendMenuLayout::ActionCount;
 }
 
 namespace IGDisplaySettings
 {
-	constexpr int32 RowCount = 9;
+	constexpr int32 RowCount = IGSettingsMenuLayout::DisplayRowCount;
 	constexpr int32 WindowModeCount = 3;
 	constexpr int32 ResolutionCount = 3;
 	constexpr int32 QualityCount = 2;
@@ -338,9 +340,13 @@ void AIGPlayerController::StartFrontendShippingProbe()
 	bFrontendDialogueVerified = false;
 	bFrontendDialogueSpeakerVerified = false;
 	bFrontendDialogueContinuationVerified = false;
+	bFrontendAccessibilityScreenshotRequested = false;
+	bFrontendDisplayScreenshotRequested = false;
+	bFrontendProbeCompilationDrained = false;
 	FrontendProbeAwaitFrameSerial = 0;
 	FrontendProbeDefaultScreenshotPath.Reset();
 	FrontendProbeScreenshotPath.Reset();
+	FrontendProbeTitleScreenshotPath.Reset();
 	FrontendProbeBoundsMin = FVector2D(
 		TNumericLimits<float>::Max(),
 		TNumericLimits<float>::Max());
@@ -349,7 +355,9 @@ void AIGPlayerController::StartFrontendShippingProbe()
 		TNumericLimits<float>::Lowest());
 
 	bAccessibilityMenuVisible = false;
-	AccessibilitySelection = 0;
+	// Start on the five-row caption category: this is the tightest settings
+	// composition and includes the live 200%-scale preview exercised below.
+	AccessibilitySelection = 5;
 	SystemMenuSelection = 0;
 	SetSystemMenuMode(EIGSystemMenuMode::Hidden);
 	SetInputDevicePresentation(false);
@@ -371,6 +379,27 @@ void AIGPlayerController::TickFrontendShippingProbe()
 	}
 	if (Now < FrontendProbeNextActionTime)
 	{
+		return;
+	}
+	if (!bFrontendProbeCompilationDrained)
+	{
+		// Offscreen editor runs can still be compiling materials when the first
+		// settings frame is ready. Drain that work before collecting evidence so
+		// engine progress text never contaminates a product-facing capture.
+		FAssetCompilingManager::Get().FinishAllCompilation();
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+		if (GEngine)
+		{
+			GEngine->bEnableOnScreenDebugMessages = false;
+		}
+		ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+		bFrontendProbeCompilationDrained = true;
+		const double SettledAt = FPlatformTime::Seconds();
+		FrontendProbeNextActionTime = SettledAt + 0.40;
+		FrontendProbeStepDeadline = SettledAt + 8.0;
 		return;
 	}
 	auto WaitForInputProcessing = [this, Now](const int32 NextStep)
@@ -397,16 +426,41 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		AwaitFrontendProbeFrame();
 		return;
 	case 2:
-		if (!TryCaptureFrontendProbeLayout(TEXT("accessibility_keyboard"), 14))
+		if (!bFrontendAccessibilityScreenshotRequested)
 		{
+			if (!TryCaptureFrontendProbeLayout(
+				TEXT("accessibility_keyboard"),
+				14))
+			{
+				return;
+			}
+			FString ScreenshotPath;
+			if (FParse::Value(
+				FCommandLine::Get(),
+				TEXT("IGFrontendAccessibilityScreenshotPath="),
+				ScreenshotPath))
+			{
+				ScreenshotPath.TrimQuotesInline();
+				ScreenshotPath = FPaths::ConvertRelativePathToFull(ScreenshotPath);
+				IFileManager::Get().MakeDirectory(
+					*FPaths::GetPath(ScreenshotPath),
+					true);
+				FScreenshotRequest::RequestScreenshot(ScreenshotPath, true, false);
+			}
+			bFrontendAccessibilityScreenshotRequested = true;
+			// Give the requested capture a complete frame before changing focus
+			// to the other dense category.
+			FrontendProbeNextActionTime = Now + 0.12;
+			FrontendProbeStepDeadline = Now + 4.0;
 			return;
 		}
+		AccessibilitySelection = 9;
 		DispatchFrontendProbeKey(EKeys::Gamepad_DPad_Down);
 		WaitForInputProcessing(3);
 		return;
 	case 3:
 		if (!bAccessibilityMenuVisible
-			|| AccessibilitySelection != 1
+			|| AccessibilitySelection != 10
 			|| !bUsingGamepadForHud)
 		{
 			FailFrontendShippingProbe(TEXT("gamepad_dpad_down"));
@@ -426,7 +480,7 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		return;
 	case 5:
 		if (!bAccessibilityMenuVisible
-			|| AccessibilitySelection != 0
+			|| AccessibilitySelection != 9
 			|| bUsingGamepadForHud)
 		{
 			FailFrontendShippingProbe(TEXT("keyboard_up_return"));
@@ -538,6 +592,10 @@ void AIGPlayerController::TickFrontendShippingProbe()
 			return;
 		}
 		ReleaseFrontendProbeKey(EKeys::Gamepad_FaceButton_Bottom);
+		// Performance has the most simultaneous display rows and is therefore
+		// the strongest packaged screenshot for horizontal text fitting.
+		DisplaySettingsSelection = 2;
+		RefreshMenuHud();
 		FrontendProbeStep = 18;
 		AwaitFrontendProbeFrame();
 		return;
@@ -545,6 +603,23 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		if (!TryCaptureFrontendProbeLayout(TEXT("display_gamepad"), 11))
 		{
 			return;
+		}
+		if (!bFrontendDisplayScreenshotRequested)
+		{
+			FString ScreenshotPath;
+			if (FParse::Value(
+				FCommandLine::Get(),
+				TEXT("IGFrontendDisplayScreenshotPath="),
+				ScreenshotPath))
+			{
+				ScreenshotPath.TrimQuotesInline();
+				ScreenshotPath = FPaths::ConvertRelativePathToFull(ScreenshotPath);
+				IFileManager::Get().MakeDirectory(
+					*FPaths::GetPath(ScreenshotPath),
+					true);
+				FScreenshotRequest::RequestScreenshot(ScreenshotPath, true, false);
+			}
+			bFrontendDisplayScreenshotRequested = true;
 		}
 		DispatchFrontendProbeKey(EKeys::Gamepad_FaceButton_Right);
 		WaitForInputProcessing(19);
@@ -746,6 +821,56 @@ void AIGPlayerController::TickFrontendShippingProbe()
 			FrontendProbeNextActionTime = Now + 0.05;
 			return;
 		}
+		if (!FParse::Value(
+			FCommandLine::Get(),
+			TEXT("IGFrontendTitleScreenshotPath="),
+			FrontendProbeTitleScreenshotPath))
+		{
+			FailFrontendShippingProbe(TEXT("title_screenshot_argument_missing"));
+			return;
+		}
+		FrontendProbeTitleScreenshotPath.TrimQuotesInline();
+		FrontendProbeTitleScreenshotPath = FPaths::ConvertRelativePathToFull(
+			FrontendProbeTitleScreenshotPath);
+		IFileManager::Get().MakeDirectory(
+			*FPaths::GetPath(FrontendProbeTitleScreenshotPath),
+			true);
+		SystemMenuSelection = 0;
+		SetSystemMenuMode(EIGSystemMenuMode::Title);
+		SetInputDevicePresentation(false);
+		FrontendProbeStep = 26;
+		AwaitFrontendProbeFrame();
+		// The normal 320 ms alpha entrance is part of the visual contract. Capture
+		// its settled state while reduced-motion runs remain instant.
+		FrontendProbeNextActionTime = Now + 0.38;
+		FrontendProbeStepDeadline = Now + 5.0;
+		return;
+	case 26:
+		if (SystemMenuMode != EIGSystemMenuMode::Title
+			|| bCompatibleAutosaveAvailable
+			|| SystemMenuSelection != 1)
+		{
+			FailFrontendShippingProbe(TEXT("title_first_run_state"));
+			return;
+		}
+		if (!TryCaptureFrontendProbeLayout(TEXT("title_first_run"), 10))
+		{
+			return;
+		}
+		FScreenshotRequest::RequestScreenshot(
+			FrontendProbeTitleScreenshotPath,
+			true,
+			false);
+		FrontendProbeStep = 27;
+		FrontendProbeNextActionTime = Now + 0.08;
+		FrontendProbeStepDeadline = Now + 5.0;
+		return;
+	case 27:
+		if (!FPaths::FileExists(FrontendProbeTitleScreenshotPath))
+		{
+			FrontendProbeNextActionTime = Now + 0.05;
+			return;
+		}
 		CompleteFrontendShippingProbe();
 		return;
 	default:
@@ -792,12 +917,14 @@ void AIGPlayerController::AwaitFrontendProbeFrame()
 		FVector2D BoundsMax;
 		int32 ElementCount = 0;
 		bool bAllInsideCanvas = false;
+		bool bAllInsideSettingsContainers = false;
 		HorrorHUD->GetLayoutValidationSample(
 			CanvasSize,
 			BoundsMin,
 			BoundsMax,
 			ElementCount,
 			bAllInsideCanvas,
+			bAllInsideSettingsContainers,
 			FrontendProbeAwaitFrameSerial);
 	}
 	const double Now = FPlatformTime::Seconds();
@@ -820,6 +947,7 @@ bool AIGPlayerController::TryCaptureFrontendProbeLayout(
 	FVector2D BoundsMax;
 	int32 ElementCount = 0;
 	bool bAllInsideCanvas = false;
+	bool bAllInsideSettingsContainers = false;
 	uint64 FrameSerial = 0;
 	if (!HorrorHUD->GetLayoutValidationSample(
 		CanvasSize,
@@ -827,6 +955,7 @@ bool AIGPlayerController::TryCaptureFrontendProbeLayout(
 		BoundsMax,
 		ElementCount,
 		bAllInsideCanvas,
+		bAllInsideSettingsContainers,
 		FrameSerial)
 		|| FrameSerial <= FrontendProbeAwaitFrameSerial)
 	{
@@ -851,6 +980,13 @@ bool AIGPlayerController::TryCaptureFrontendProbeLayout(
 			FMath::RoundToInt(BoundsMin.Y),
 			FMath::RoundToInt(BoundsMax.X),
 			FMath::RoundToInt(BoundsMax.Y)));
+		return false;
+	}
+	if (!bAllInsideSettingsContainers)
+	{
+		FailFrontendShippingProbe(FString::Printf(
+			TEXT("%s_container_overflow"),
+			PanelName));
 		return false;
 	}
 	if (ElementCount < MinimumElementCount)
@@ -941,7 +1077,7 @@ bool AIGPlayerController::TryVerifyFrontendDialogueLayout(
 
 void AIGPlayerController::CompleteFrontendShippingProbe()
 {
-	if (FrontendProbeLayoutSampleCount != 10
+	if (FrontendProbeLayoutSampleCount != 11
 		|| FrontendProbeMinimumElementCount < 8
 		|| FrontendProbePressedEventCount != 11
 		|| !bFrontendDialogueDefaultVerified
@@ -1108,6 +1244,7 @@ void AIGPlayerController::TickMissingFloorJournalPreviewProbe()
 		FVector2D BoundsMaximum;
 		int32 ElementCount = 0;
 		bool bInsideCanvas = false;
+		bool bInsideSettingsContainers = false;
 		uint64 FrameSerial = 0;
 		const bool bLayoutReady = HorrorHUD
 			&& HorrorHUD->IsMissingFloorJournalVisible()
@@ -1117,6 +1254,7 @@ void AIGPlayerController::TickMissingFloorJournalPreviewProbe()
 				BoundsMaximum,
 				ElementCount,
 				bInsideCanvas,
+				bInsideSettingsContainers,
 				FrameSerial)
 			&& FMath::Abs(
 				CanvasSize.X - MissingFloorJournalPreviewExpectedWidth) <= 1.0f
@@ -1255,6 +1393,7 @@ void AIGPlayerController::TickAudioCalibrationPreviewProbe()
 		FVector2D BoundsMaximum;
 		int32 ElementCount = 0;
 		bool bInsideCanvas = false;
+		bool bInsideSettingsContainers = false;
 		uint64 FrameSerial = 0;
 		const bool bLayoutReady = HorrorHUD
 			&& SystemMenuMode == EIGSystemMenuMode::AudioCalibration
@@ -1270,6 +1409,7 @@ void AIGPlayerController::TickAudioCalibrationPreviewProbe()
 				BoundsMaximum,
 				ElementCount,
 				bInsideCanvas,
+				bInsideSettingsContainers,
 				FrameSerial)
 			&& FMath::Abs(
 				CanvasSize.X - AudioCalibrationPreviewExpectedWidth) <= 1.0f
@@ -1349,10 +1489,11 @@ bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
 	if (bSuccess)
 	{
 		Receipt = FString::Printf(
-			TEXT("REBIRTH_FRONTEND PASS contract=3 resolution=%dx%d ")
+			TEXT("REBIRTH_FRONTEND PASS contract=4 resolution=%dx%d ")
 			TEXT("keyboard_access=1 gamepad_access=1 dpad_down=1 ")
 			TEXT("keyboard_up=1 gamepad_close=1 keyboard_pause=1 ")
-			TEXT("gamepad_pause=1 display=1 dialogue=1 dialogue_default=1 ")
+			TEXT("gamepad_pause=1 display=1 title=1 first_run=1 ")
+			TEXT("dialogue=1 dialogue_default=1 ")
 			TEXT("speaker=1 continuation=1 default_scale=100 max_scale=200 ")
 			TEXT("sound_lane=1 ")
 			TEXT("samples=%d elements_min=%d ")
@@ -2748,6 +2889,10 @@ void AIGPlayerController::RefreshMenuHud() const
 		Presentation.bVisible =
 			SystemMenuMode != EIGSystemMenuMode::Hidden;
 		Presentation.bTitle = SystemMenuMode == EIGSystemMenuMode::Title;
+		Presentation.bUseTitleBackdrop =
+			SystemMenuMode == EIGSystemMenuMode::Title
+			|| (SystemMenuMode == EIGSystemMenuMode::Credits
+				&& CreditsReturnMode == EIGSystemMenuMode::Title);
 		Presentation.bCredits = SystemMenuMode == EIGSystemMenuMode::Credits;
 		Presentation.bAudioCalibration =
 			SystemMenuMode == EIGSystemMenuMode::AudioCalibration;
@@ -2855,22 +3000,94 @@ bool AIGPlayerController::TryGetMenuRowFromPointer(
 	return true;
 }
 
+bool AIGPlayerController::TryGetSystemMenuRowFromPointer(int32& OutRow) const
+{
+	OutRow = INDEX_NONE;
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+	GetViewportSize(ViewportWidth, ViewportHeight);
+	float PointerX = 0.0f;
+	float PointerY = 0.0f;
+	if (ViewportWidth <= 0
+		|| ViewportHeight <= 0
+		|| !GetMousePosition(PointerX, PointerY))
+	{
+		return false;
+	}
+
+	OutRow = IGFrontendMenuLayout::HitTestAction(
+		IGFrontendMenuLayout::MakeMetrics(ViewportWidth, ViewportHeight),
+		FVector2D(PointerX, PointerY),
+		SystemMenuMode == EIGSystemMenuMode::Title,
+		bCompatibleAutosaveAvailable);
+	return OutRow != INDEX_NONE;
+}
+
+bool AIGPlayerController::TryGetDisplaySettingsRowFromPointer(
+	int32& OutRow,
+	bool& bOutCategoryHit) const
+{
+	OutRow = INDEX_NONE;
+	bOutCategoryHit = false;
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+	GetViewportSize(ViewportWidth, ViewportHeight);
+	float PointerX = 0.0f;
+	float PointerY = 0.0f;
+	if (ViewportWidth <= 0
+		|| ViewportHeight <= 0
+		|| !GetMousePosition(PointerX, PointerY))
+	{
+		return false;
+	}
+	return IGSettingsMenuLayout::HitTestSettingsRow(
+		IGSettingsMenuLayout::MakePanelMetrics(ViewportWidth, ViewportHeight),
+		FVector2D(PointerX, PointerY),
+		DisplaySettingsSelection,
+		IGSettingsMenuLayout::DisplayCategoryCount,
+		IGSettingsMenuLayout::GetDisplayCategory,
+		OutRow,
+		bOutCategoryHit);
+}
+
+bool AIGPlayerController::TryGetAccessibilityRowFromPointer(
+	int32& OutRow,
+	bool& bOutCategoryHit) const
+{
+	OutRow = INDEX_NONE;
+	bOutCategoryHit = false;
+	int32 ViewportWidth = 0;
+	int32 ViewportHeight = 0;
+	GetViewportSize(ViewportWidth, ViewportHeight);
+	float PointerX = 0.0f;
+	float PointerY = 0.0f;
+	if (ViewportWidth <= 0
+		|| ViewportHeight <= 0
+		|| !GetMousePosition(PointerX, PointerY))
+	{
+		return false;
+	}
+	return IGSettingsMenuLayout::HitTestSettingsRow(
+		IGSettingsMenuLayout::MakePanelMetrics(ViewportWidth, ViewportHeight),
+		FVector2D(PointerX, PointerY),
+		AccessibilitySelection,
+		IGSettingsMenuLayout::AccessibilityCategoryCount,
+		IGSettingsMenuLayout::GetAccessibilityCategory,
+		OutRow,
+		bOutCategoryHit);
+}
+
 void AIGPlayerController::UpdateMenuPointerHover()
 {
 	int32 Row = INDEX_NONE;
+	bool bCategoryHit = false;
 	int32 ViewportWidth = 0;
 	int32 ViewportHeight = 0;
 	GetViewportSize(ViewportWidth, ViewportHeight);
 	if (bAccessibilityMenuVisible)
 	{
-		if (TryGetMenuRowFromPointer(
-				IGAccessibilityMenu::RowCount,
-				116.0f,
-				0.18f,
-				28.0f,
-				38.0f,
-				0.047f,
-				Row)
+		if (TryGetAccessibilityRowFromPointer(Row, bCategoryHit)
+			&& !bCategoryHit
 			&& AccessibilitySelection != Row)
 		{
 			AccessibilitySelection = Row;
@@ -2880,14 +3097,8 @@ void AIGPlayerController::UpdateMenuPointerHover()
 	}
 	if (SystemMenuMode == EIGSystemMenuMode::DisplaySettings)
 	{
-		if (TryGetMenuRowFromPointer(
-				IGDisplaySettings::RowCount,
-				174.0f,
-				0.24f,
-				34.0f,
-				42.0f,
-				0.055f,
-				Row)
+		if (TryGetDisplaySettingsRowFromPointer(Row, bCategoryHit)
+			&& !bCategoryHit
 			&& (!bDisplaySettingsAwaitingConfirmation || Row >= 7)
 			&& DisplaySettingsSelection != Row)
 		{
@@ -2929,14 +3140,7 @@ void AIGPlayerController::UpdateMenuPointerHover()
 	if (SystemMenuMode == EIGSystemMenuMode::Title
 		|| SystemMenuMode == EIGSystemMenuMode::Pause)
 	{
-		if (TryGetMenuRowFromPointer(
-				IGSystemMenu::RowCount,
-				244.0f,
-				0.36f,
-				36.0f,
-				46.0f,
-				0.062f,
-				Row)
+		if (TryGetSystemMenuRowFromPointer(Row)
 			&& IsSystemMenuRowEnabled(Row)
 			&& SystemMenuSelection != Row)
 		{
@@ -2964,39 +3168,40 @@ bool AIGPlayerController::HandleMenuPointerClick()
 	}
 
 	int32 Row = INDEX_NONE;
+	bool bCategoryHit = false;
 	int32 ViewportWidth = 0;
 	int32 ViewportHeight = 0;
 	GetViewportSize(ViewportWidth, ViewportHeight);
 	if (bAccessibilityMenuVisible)
 	{
-		if (TryGetMenuRowFromPointer(
-			IGAccessibilityMenu::RowCount,
-			116.0f,
-			0.18f,
-			28.0f,
-			38.0f,
-			0.047f,
-			Row))
+		if (TryGetAccessibilityRowFromPointer(Row, bCategoryHit))
 		{
 			AccessibilitySelection = Row;
-			ChangeAccessibilitySetting(1, true);
+			if (!bCategoryHit)
+			{
+				ChangeAccessibilitySetting(1, true);
+			}
+			else
+			{
+				RefreshMenuHud();
+			}
 		}
 		return true;
 	}
 	if (SystemMenuMode == EIGSystemMenuMode::DisplaySettings)
 	{
-		if (TryGetMenuRowFromPointer(
-			IGDisplaySettings::RowCount,
-			174.0f,
-			0.24f,
-			34.0f,
-			42.0f,
-			0.055f,
-			Row)
+		if (TryGetDisplaySettingsRowFromPointer(Row, bCategoryHit)
 			&& (!bDisplaySettingsAwaitingConfirmation || Row >= 7))
 		{
 			DisplaySettingsSelection = Row;
-			ConfirmDisplaySettingsSelection();
+			if (!bCategoryHit)
+			{
+				ConfirmDisplaySettingsSelection();
+			}
+			else
+			{
+				RefreshMenuHud();
+			}
 		}
 		return true;
 	}
@@ -3029,14 +3234,7 @@ bool AIGPlayerController::HandleMenuPointerClick()
 		}
 		return true;
 	}
-	if (TryGetMenuRowFromPointer(
-		IGSystemMenu::RowCount,
-		244.0f,
-		0.36f,
-		36.0f,
-		46.0f,
-		0.062f,
-		Row)
+	if (TryGetSystemMenuRowFromPointer(Row)
 		&& IsSystemMenuRowEnabled(Row))
 	{
 		if (SystemMenuSelection != Row)
