@@ -1519,6 +1519,52 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
+		// The paper takes about a second to come out from under the door, so the
+		// separation question can only be asked once it has settled. Measuring
+		// mid-slide compares two notes that are both still at the threshold.
+		if (bMercyNetsFired)
+		{
+			if (MercyActor->IsNoteSliding())
+			{
+				if (StepDeadlineSeconds > 6.0f)
+				{
+					FailProbe(TEXT("the note never finished sliding"));
+				}
+				break;
+			}
+			// Both notes at rest: the five-capture note's authored resting spot
+			// is the one the M6.5 contract pins, so compare against that.
+			const float SettledSeparation = FVector::Dist2D(
+				MercyActor->GetNoteLocation(),
+				FVector(-150.0f, -269.5f, 900.12f));
+			if (SettledSeparation < 20.0f)
+			{
+				FailProbe(FString::Printf(
+					TEXT("the two notes rest %.1f cm apart and overlap"),
+					SettledSeparation));
+				return;
+			}
+			UE_LOG(
+				LogTemp,
+				Display,
+				TEXT("MISSINGFLOOR_MERCY PASS: 90s clock, 2-reset hint, "
+					"responses=%d never repeating, note rests %.1f cm clear of "
+					"the five-capture note, stands down on a new source"),
+				MercyActor->GetResponseCount(),
+				SettledSeparation);
+			if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+			{
+				PlayerCharacter->TeleportTo(
+					FVector(-300.0f, -305.0f, 1010.0f),
+					PlayerCharacter->GetActorRotation(),
+					false,
+					true);
+			}
+			ProbeStep = EProbeStep::Night1SightingStage;
+			StepDeadlineSeconds = 0.0f;
+			break;
+		}
+
 		// The reset that got us here was the first; §20.3-1 wants two in a row
 		// with nothing learned in between, so exactly one more must fire it.
 		const int32 HintsBefore = MercyActor->GetResetHintCount();
@@ -1535,14 +1581,34 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		}
 
 		// Alternation: the same nudge twice running would train the player to
-		// ignore it. On night one only the pipes are available, so the rotation
-		// is exercised by asking twice and checking the count, not the kind.
-		const int32 ResponsesBefore = MercyActor->GetResponseCount();
-		if (!MercyActor->ForceWorldResponseForTesting()
-			|| MercyActor->GetResponseCount() != ResponsesBefore + 1
-			|| MercyActor->GetLastResponse() == EIGMercyResponse::None)
+		// ignore it. Asking three times in a row must never repeat, and on a
+		// night where only some responses are available the rotation has to fall
+		// through rather than stall.
+		EIGMercyResponse PreviousKind = MercyActor->GetLastResponse();
+		for (int32 Attempt = 0; Attempt < 3; ++Attempt)
 		{
-			FailProbe(TEXT("the world would not respond when asked"));
+			const int32 ResponsesBefore = MercyActor->GetResponseCount();
+			if (!MercyActor->ForceWorldResponseForTesting()
+				|| MercyActor->GetResponseCount() != ResponsesBefore + 1
+				|| MercyActor->GetLastResponse() == EIGMercyResponse::None)
+			{
+				FailProbe(FString::Printf(
+					TEXT("the world would not respond on attempt %d"),
+					Attempt));
+				return;
+			}
+			if (Attempt > 0 && MercyActor->GetLastResponse() == PreviousKind)
+			{
+				FailProbe(TEXT("the same nudge fired twice running"));
+				return;
+			}
+			PreviousKind = MercyActor->GetLastResponse();
+		}
+
+		// The note is once a night: asking again must not produce a second sheet.
+		if (!MercyActor->IsNoteDelivered())
+		{
+			FailProbe(TEXT("the note never came under the door"));
 			return;
 		}
 
@@ -1561,24 +1627,9 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
-		UE_LOG(
-			LogTemp,
-			Display,
-			TEXT("MISSINGFLOOR_MERCY PASS: 90s clock, 2-reset hint, "
-				"responses=%d, stands down on a new source"),
-			MercyActor->GetResponseCount());
-
-		// On to the night-1 beats: walk into the stair throat and expect the
-		// cameo on the half-landing.
-		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
-		{
-			PlayerCharacter->TeleportTo(
-				FVector(-300.0f, -305.0f, 1010.0f),
-				PlayerCharacter->GetActorRotation(),
-				false,
-				true);
-		}
-		ProbeStep = EProbeStep::Night1SightingStage;
+		// Everything synchronous is proven. The paper is still moving, so the
+		// step re-enters until it settles and then measures the separation.
+		bMercyNetsFired = true;
 		StepDeadlineSeconds = 0.0f;
 		break;
 	}

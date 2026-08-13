@@ -186,7 +186,8 @@ Require-All $mercyHeader @(
 	'static constexpr float StuckResponseSeconds = 90.0f;',
 	'static constexpr int32 ResetsForEnvironmentHint = 2;',
 	'PipeCry',
-	'EarToWall'
+	'EarToWall',
+	'NoteUnderDoor'
 ) '§20.3 safety net thresholds'
 Require-All $mercy @(
 	'void AIGMissingFloorMercyDirector::NotifyCaptureReset()',
@@ -212,11 +213,35 @@ if ($mercy -notmatch 'World->IsPaused\(\)') {
 	throw '일시정지 중에는 90초 시계가 멈춰야 한다(§19.7).'
 }
 $assertions++
-# 같은 넛지를 연달아 두 번 쓰면 플레이어가 무시하도록 학습된다.
-if ($mercy -notmatch 'LastResponse != EIGMercyResponse::EarToWall') {
-	throw '두 응답은 번갈아야 한다. 반복은 메트로놈이 된다.'
+# 같은 넛지를 연달아 두 번 쓰면 플레이어가 무시하도록 학습된다. 세 응답을
+# 라운드 로빈으로 돌리고, 조건이 안 되는 응답은 건너뛴다.
+Require-All $mercy @(
+	'static const EIGMercyResponse Order[] =',
+	'StartIndex = (Index + 1) % OrderCount;',
+	'bool AIGMissingFloorMercyDirector::TryNoteUnderDoor()'
+) '§20.3 response rotation'
+# 문 아래 메모는 밤에 한 번뿐이다. 이웃이지 힌트 자판기가 아니다.
+if ($mercy -notmatch 'if \(bNoteDelivered \|\| bNoteSliding') {
+	throw '문 아래 메모는 밤에 한 번만 밀려야 한다.'
 }
 $assertions++
+# 다섯 번째 포획 메모의 재질을 재사용하면 인쇄된 문장이 반복되고 그 비트의
+# 무게가 소모된다. 형태는 같은 종이, 재질은 백지 접힘이어야 한다.
+# 메시 이름 SM_CaptureMercyNote가 부분 문자열로 걸리지 않도록 재질 경로만 본다.
+if ($mercy -match 'Materials/M_CaptureMercyNote') {
+	throw '90초 메모는 다섯 번째 포획 메모의 인쇄 재질을 쓰지 않는다.'
+}
+$assertions++
+Require-All $mercy @(
+	'M_PaperFolded',
+	'SM_CaptureMercyNote'
+) '§20.3 note material and shape'
+# 다섯 번째 포획 메모와 같은 규율: 상호작용·윤곽선·그림자·데칼 없음.
+Require-All $mercy @(
+	'Note->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);',
+	'Note->SetCastShadow(false);',
+	'Note->SetReceivesDecals(false);'
+) '§20.3 note blending discipline'
 # 정답을 말하지 않는다: 목표 표시나 힌트 문구, 단계 해금이 없어야 한다.
 foreach ($forbidden in @('PushThought', 'PushDialogue', 'SetObjective', 'MarkPuzzleSolved', 'RequestHint')) {
 	if ($mercy.Contains($forbidden)) {
@@ -253,5 +278,5 @@ Require-All $greybox @(
 Write-Host (
 	"MISSINGFLOOR_M8_DIFFICULTY_CONTRACT PASS assertions=$assertions " +
 	'nights=4 modes=4 heatmap_decay=0.5 ending_c_routes=2 ' +
-	'mercy_nets=2 stuck_seconds=90') `
+	'mercy_nets=2 mercy_responses=3 stuck_seconds=90') `
 	-ForegroundColor Green

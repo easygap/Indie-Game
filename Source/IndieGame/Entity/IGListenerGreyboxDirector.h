@@ -184,6 +184,8 @@ private:
 	float SetupRetrySeconds = 0.0f;
 	int32 FailureRetryCaptureCountBefore = 0;
 	bool bNightFourFailureRetryVerified = false;
+	/** Latch so the mercy step fires its nets once and then waits for the paper. */
+	bool bMercyNetsFired = false;
 
 	/** Capture-tour state; inert unless -IGNightCapture is on the command line. */
 	bool bNightCaptureRequested = false;

@@ -16,7 +16,21 @@ enum class EIGMercyResponse : uint8
 	/** 배관이 운다 — the riser carries water where it did not a moment ago. */
 	PipeCry,
 	/** 존재가 필요한 벽에 귀를 댄다 — he stops at the wall that matters. */
-	EarToWall
+	EarToWall,
+	/**
+	 * 문 아래로 메모가 밀린다 — a folded note comes out from under 401.
+	 *
+	 * It carries no legible words, and that is the design rather than a missing
+	 * texture. The five-capture note is the one piece of paper in this game that
+	 * speaks, and it earns that by being rare; a second talking note would spend
+	 * the first one's weight. What this note says is that somebody in 401 is
+	 * awake at half past four and answering — which routes the player to 황순금,
+	 * the third safety net, instead of duplicating her. The nets chain.
+	 *
+	 * Same discipline as the five-capture note: no interaction, no outline, no
+	 * inspect panel, no caption, no objective. You find it by looking down.
+	 */
+	NoteUnderDoor
 };
 
 /**
@@ -72,6 +86,15 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Mercy")
 	float GetSecondsWithoutNewSource() const { return StuckSeconds; }
 
+	UFUNCTION(BlueprintPure, Category = "Mercy")
+	bool IsNoteDelivered() const { return bNoteDelivered; }
+
+	UFUNCTION(BlueprintPure, Category = "Mercy")
+	bool IsNoteSliding() const { return bNoteSliding; }
+
+	/** Where the note is right now. Contract and diagnostics. */
+	FVector GetNoteLocation() const;
+
 	/** Harness hook: runs one net immediately without waiting out the clock. */
 	bool ForceWorldResponseForTesting();
 
@@ -88,6 +111,9 @@ private:
 	EIGMercyResponse FireWorldResponse();
 	bool TryEarToWall();
 	bool TryPipeCry();
+	bool TryNoteUnderDoor();
+	bool InitializeNote();
+	void UpdateNoteSlide(float DeltaSeconds);
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGListenerEntity> Entity;
@@ -95,7 +121,14 @@ private:
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGMissingFloorNightThreeDirector> NightThree;
 
+	/** The folded note that comes out from under 401. Built hidden, once. */
+	UPROPERTY(Transient)
+	TObjectPtr<class UStaticMeshComponent> Note;
+
 	float StuckSeconds = 0.0f;
+	float NoteSlideSeconds = 0.0f;
+	bool bNoteDelivered = false;
+	bool bNoteSliding = false;
 	int32 LastSourceCount = -1;
 	int32 ResetsSinceNewSource = 0;
 	int32 ResponseCount = 0;

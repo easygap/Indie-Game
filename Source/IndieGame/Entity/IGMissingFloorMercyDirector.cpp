@@ -2,7 +2,10 @@
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/CollisionProfile.h"
 #include "Engine/GameInstance.h"
+#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
@@ -25,6 +28,21 @@ namespace IGMercy
 	constexpr float PipeCryFalloff = 2200.0f;
 	/** The shared riser, above the fifth-floor bays. */
 	const FVector RiserLocation(310.0f, 700.0f, 1300.0f);
+
+	/**
+	 * 401's door leaf spans about 92 cm around X = -150. The five-capture note
+	 * comes out at X = -150 and rests at Y = -269.5, so this one leaves from a
+	 * few centimetres over and travels further into the corridor. Both pieces of
+	 * paper can be on the tile at once and neither lands on the other.
+	 */
+	const FVector NoteStartLocation(-146.0f, -239.0f, 900.12f);
+	const FVector NoteRestLocation(-128.0f, -288.0f, 900.12f);
+	constexpr float NoteStartYaw = 2.5f;
+	constexpr float NoteRestYaw = 14.0f;
+	/** Slower than the five-capture note's 0.82 s: nobody is in a hurry. */
+	constexpr float NoteSlideDuration = 0.94f;
+	/** Rubber weatherstrip, then tile, then the paper settling twice. */
+	constexpr float NoteFrictionVolume = 0.34f;
 }
 
 AIGMissingFloorMercyDirector::AIGMissingFloorMercyDirector()
@@ -64,7 +82,104 @@ void AIGMissingFloorMercyDirector::SetHourActive(const bool bActive)
 		StuckSeconds = 0.0f;
 		ResetsSinceNewSource = 0;
 		LastSourceCount = -1;
+		return;
 	}
+	// One note per night. She is a neighbour, not a hint dispenser, and a second
+	// piece of paper on the same night would read as a system rather than a
+	// person. The corridor is swept between nights, so the note goes with it.
+	bNoteDelivered = false;
+	bNoteSliding = false;
+	NoteSlideSeconds = 0.0f;
+	if (Note)
+	{
+		Note->SetWorldLocation(IGMercy::NoteStartLocation);
+		Note->SetWorldRotation(FRotator(0.0f, IGMercy::NoteStartYaw, 0.0f));
+		Note->SetVisibility(false, true);
+		Note->SetHiddenInGame(true, true);
+	}
+}
+
+bool AIGMissingFloorMercyDirector::InitializeNote()
+{
+	if (Note)
+	{
+		return true;
+	}
+	// The five-capture note's paper shape is the right object — an 18 x 11 cm
+	// folded sheet with the front edge lifted — but deliberately not its
+	// material, which carries printed words this note must not repeat.
+	UStaticMesh* NoteMesh = LoadObject<UStaticMesh>(
+		nullptr,
+		TEXT("/Game/Meshes/SM_CaptureMercyNote.SM_CaptureMercyNote"));
+	UMaterialInterface* NoteMaterial = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_PaperFolded.M_PaperFolded"));
+	if (!NoteMesh || !NoteMaterial)
+	{
+		return false;
+	}
+	Note = NewObject<UStaticMeshComponent>(this, TEXT("MercyNoteUnderDoor"));
+	if (!Note)
+	{
+		return false;
+	}
+	Note->SetMobility(EComponentMobility::Movable);
+	Note->SetStaticMesh(NoteMesh);
+	Note->SetMaterial(0, NoteMaterial);
+	// Same blending discipline as the five-capture note: paper this thin casting
+	// a moving shadow smears across the terrazzo, and albedo plus roughness are
+	// already enough to sit it on the floor.
+	Note->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
+	Note->SetGenerateOverlapEvents(false);
+	Note->SetCanEverAffectNavigation(false);
+	Note->SetCastShadow(false);
+	Note->SetReceivesDecals(false);
+	Note->SetCullDistance(850.0f);
+	Note->SetAffectDistanceFieldLighting(false);
+	Note->ComponentTags.AddUnique(FName(TEXT("MissingFloor.MercyNoteUnderDoor")));
+	AddInstanceComponent(Note);
+	Note->RegisterComponent();
+	Note->SetWorldLocation(IGMercy::NoteStartLocation);
+	Note->SetWorldRotation(FRotator(0.0f, IGMercy::NoteStartYaw, 0.0f));
+	Note->SetVisibility(false, true);
+	Note->SetHiddenInGame(true, true);
+	return true;
+}
+
+FVector AIGMissingFloorMercyDirector::GetNoteLocation() const
+{
+	return Note ? Note->GetComponentLocation() : FVector::ZeroVector;
+}
+
+void AIGMissingFloorMercyDirector::UpdateNoteSlide(const float DeltaSeconds)
+{
+	if (!bNoteSliding || !Note)
+	{
+		return;
+	}
+	NoteSlideSeconds += DeltaSeconds;
+	const float Alpha = FMath::Clamp(
+		NoteSlideSeconds / IGMercy::NoteSlideDuration,
+		0.0f,
+		1.0f);
+	// Smoothstep: a hand pushes paper, and a hand starts and stops.
+	const float Eased = FMath::SmoothStep(0.0f, 1.0f, Alpha);
+	Note->SetWorldLocation(FMath::Lerp(
+		IGMercy::NoteStartLocation,
+		IGMercy::NoteRestLocation,
+		Eased));
+	Note->SetWorldRotation(FRotator(
+		0.0f,
+		FMath::Lerp(IGMercy::NoteStartYaw, IGMercy::NoteRestYaw, Eased),
+		0.0f));
+	if (Alpha < 1.0f)
+	{
+		return;
+	}
+	bNoteSliding = false;
+	// Back to the coarse cadence: the clock is ninety seconds long and nothing
+	// else here needs a frame.
+	PrimaryActorTick.TickInterval = IGMercy::TickIntervalSeconds;
 }
 
 void AIGMissingFloorMercyDirector::NotifyCaptureReset()
@@ -93,6 +208,10 @@ void AIGMissingFloorMercyDirector::NotifyCaptureReset()
 void AIGMissingFloorMercyDirector::Tick(const float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	// The paper keeps moving even while the clock stands down: it is already in
+	// the world, and freezing it mid-slide would look like a bug.
+	UpdateNoteSlide(DeltaSeconds);
+
 	const UWorld* World = GetWorld();
 	if (!bHourActive || !World || World->IsPaused())
 	{
@@ -131,22 +250,54 @@ void AIGMissingFloorMercyDirector::Tick(const float DeltaSeconds)
 
 EIGMercyResponse AIGMissingFloorMercyDirector::FireWorldResponse()
 {
-	// Alternate so two consecutive nudges are never the same nudge. The ear to
-	// the wall is the stronger of the two and only exists on night three, so the
-	// pipes carry the rotation everywhere else.
-	const bool bPreferEar = LastResponse != EIGMercyResponse::EarToWall;
+	// Round robin starting just past whatever ran last, so the same nudge never
+	// comes twice running. Two of the three are conditional — the ear to the
+	// wall only exists while P3 is unsolved, and the note is once a night — so
+	// the rotation falls through to the pipes, which the building always has.
+	static const EIGMercyResponse Order[] =
+	{
+		EIGMercyResponse::EarToWall,
+		EIGMercyResponse::NoteUnderDoor,
+		EIGMercyResponse::PipeCry
+	};
+	constexpr int32 OrderCount = UE_ARRAY_COUNT(Order);
+
+	int32 StartIndex = 0;
+	for (int32 Index = 0; Index < OrderCount; ++Index)
+	{
+		if (Order[Index] == LastResponse)
+		{
+			StartIndex = (Index + 1) % OrderCount;
+			break;
+		}
+	}
+
 	EIGMercyResponse Fired = EIGMercyResponse::None;
-	if (bPreferEar && TryEarToWall())
+	for (int32 Offset = 0; Offset < OrderCount && Fired == EIGMercyResponse::None; ++Offset)
 	{
-		Fired = EIGMercyResponse::EarToWall;
-	}
-	else if (TryPipeCry())
-	{
-		Fired = EIGMercyResponse::PipeCry;
-	}
-	else if (!bPreferEar && TryEarToWall())
-	{
-		Fired = EIGMercyResponse::EarToWall;
+		switch (Order[(StartIndex + Offset) % OrderCount])
+		{
+		case EIGMercyResponse::EarToWall:
+			if (TryEarToWall())
+			{
+				Fired = EIGMercyResponse::EarToWall;
+			}
+			break;
+		case EIGMercyResponse::NoteUnderDoor:
+			if (TryNoteUnderDoor())
+			{
+				Fired = EIGMercyResponse::NoteUnderDoor;
+			}
+			break;
+		case EIGMercyResponse::PipeCry:
+			if (TryPipeCry())
+			{
+				Fired = EIGMercyResponse::PipeCry;
+			}
+			break;
+		default:
+			break;
+		}
 	}
 	if (Fired == EIGMercyResponse::None)
 	{
@@ -155,14 +306,54 @@ EIGMercyResponse AIGMissingFloorMercyDirector::FireWorldResponse()
 
 	LastResponse = Fired;
 	++ResponseCount;
+	const TCHAR* FiredName = TEXT("pipe_cry");
+	if (Fired == EIGMercyResponse::EarToWall)
+	{
+		FiredName = TEXT("ear_to_wall");
+	}
+	else if (Fired == EIGMercyResponse::NoteUnderDoor)
+	{
+		FiredName = TEXT("note_under_door");
+	}
 	UE_LOG(
 		LogTemp,
 		Display,
 		TEXT("MISSINGFLOOR_MERCY response=%s count=%d resets=%d"),
-		Fired == EIGMercyResponse::EarToWall ? TEXT("ear_to_wall") : TEXT("pipe_cry"),
+		FiredName,
 		ResponseCount,
 		ResetHintCount);
 	return Fired;
+}
+
+bool AIGMissingFloorMercyDirector::TryNoteUnderDoor()
+{
+	if (bNoteDelivered || bNoteSliding || !InitializeNote())
+	{
+		return false;
+	}
+	bNoteDelivered = true;
+	bNoteSliding = true;
+	NoteSlideSeconds = 0.0f;
+	Note->SetWorldLocation(IGMercy::NoteStartLocation);
+	Note->SetWorldRotation(FRotator(0.0f, IGMercy::NoteStartYaw, 0.0f));
+	Note->SetVisibility(true, true);
+	Note->SetHiddenInGame(false, true);
+	// Every-frame while the paper is in motion, coarse again once it settles.
+	PrimaryActorTick.TickInterval = 0.0f;
+
+	// The sound is the whole message for a player facing the other way: rubber
+	// weatherstrip, then paper on tile. It arrives on the WORLD bus, because a
+	// neighbour pushing a note is the building being ordinary, not a threat.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreatePaperDoorSlide(this),
+		IGMercy::NoteStartLocation,
+		IGMercy::NoteFrictionVolume,
+		1.0f,
+		90.0f,
+		760.0f,
+		EIGAudioBus::World);
+	return true;
 }
 
 bool AIGMissingFloorMercyDirector::TryEarToWall()
