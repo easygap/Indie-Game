@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameplayTagContainer.h"
@@ -50,6 +50,16 @@ public:
 	/** True only when at least one rotating autosave can be loaded by this build. */
 	UFUNCTION(BlueprintCallable, Category = "Save")
 	bool HasCompatibleAutosave() const;
+
+	/**
+	 * §9 「밤 5」: 엔딩 B를 본 세이브가 있는지.
+	 *
+	 * 슬롯이 조용히 늘어나는 근거는 플레이어가 아니라 **세이브**다 — 그 세이브가
+	 * 그 밤을 기억하고 있기 때문에 한 줄이 늘어난다. 그래서 설정 파일에 별도
+	 * 플래그를 심지 않고 최신 호환 자동 저장을 그대로 읽는다. 슬롯을 위한 실제
+	 * 세이브 파일은 만들지 않는다(§14).
+	 */
+	bool HasEndingBAutosave() const;
 
 	/** Invalidates both rotating autosaves after an explicit restart/menu reset. */
 	UFUNCTION(BlueprintCallable, Category = "Save")

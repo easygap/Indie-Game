@@ -250,7 +250,13 @@ Assert-ContainsAll $hudSource @(
 ) '한국어 타이틀·메뉴·크레딧 카피'
 Assert-ContainsAll $frontendLayout @(
 	'namespace IGFrontendMenuLayout',
-	'constexpr int32 ActionCount = 5',
+	# §9 「밤 5」가 여섯 번째 액션이다. 화면에서는 「이어하기」 바로 밑이지만
+	# 액션 목록의 마지막이라, 기존 다섯 액션의 인덱스는 하나도 움직이지 않는다.
+	'constexpr int32 ActionCount = 6',
+	'constexpr int32 NightFiveAction = 5',
+	'constexpr int32 ScreenOrder[ActionCount] = {0, 2, 3, 4, 5, 1}',
+	'HidesNightFive',
+	'IsActionHidden',
 	'MakeMetrics',
 	'FMath::Max(44.0f, 54.0f * Result.Scale)',
 	'HidesContinue',

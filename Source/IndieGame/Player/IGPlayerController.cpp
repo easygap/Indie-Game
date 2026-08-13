@@ -1,6 +1,7 @@
 ﻿#include "Player/IGPlayerController.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
+#include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "AssetCompilingManager.h"
@@ -46,6 +47,28 @@ namespace IGAccessibilityMenu
 namespace IGSystemMenu
 {
 	constexpr int32 RowCount = IGFrontendMenuLayout::ActionCount;
+}
+
+namespace IGNightFive
+{
+	/**
+	 * §9 「밤 5」의 30초. 대부분이 침묵이다 — 그것이 이 비트의 내용이다.
+	 * 두 소리 사이의 9초가 「새 사건도, 갇힌 사람도 암시하지 않는다」를
+	 * 지키는 방식이고, 뒤의 17초는 아무 일도 일어나지 않는다는 것을 확인하는
+	 * 시간이다. 채울 수 있다는 이유로 채우면 이 슬롯은 다른 게임이 된다.
+	 */
+	constexpr float PollSeconds = 0.1f;
+	constexpr float SignalAtSeconds = 3.2f;
+	constexpr float AnswerAtSeconds = 12.6f;
+
+	/** 그녀 자신의 손이므로 가깝고 마른 소리. */
+	constexpr float SignalVolume = 0.86f;
+	constexpr float CloseRadius = 4000.0f;
+	constexpr float CloseFalloff = 6000.0f;
+	/** 복도 끝이므로 작고 젖은 소리. 감쇠는 열어 두고 잔향이 거리를 말한다. */
+	constexpr float AnswerVolume = 0.38f;
+	constexpr float FarRadius = 4000.0f;
+	constexpr float FarFalloff = 6000.0f;
 }
 
 namespace IGDisplaySettings
@@ -98,11 +121,27 @@ void AIGPlayerController::BeginPlay()
 	BindSaveNotifications();
 	LoadAudioCalibrationSettings();
 
+	bNightFiveProbeRequested =
+		FParse::Param(FCommandLine::Get(), TEXT("IGNightFiveProbe"));
+	if (bNightFiveProbeRequested)
+	{
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_NIGHT5_BOOT local=%d title=%d"),
+			IsLocalController() ? 1 : 0,
+			ShouldShowTitleMenu() ? 1 : 0);
+	}
+
 	if (IsLocalController() && ShouldShowTitleMenu())
 	{
 		SystemMenuSelection = 0;
 		SetSystemMenuMode(EIGSystemMenuMode::Title);
 		StartHeadphoneRecommendationIfNeeded();
+		if (bNightFiveProbeRequested)
+		{
+			StartNightFiveProbe();
+		}
 	}
 	else
 	{
@@ -2238,18 +2277,48 @@ void AIGPlayerController::MoveSystemMenuSelection(const int32 Direction)
 	{
 		return;
 	}
+	if (bNightFivePlaying)
+	{
+		// 검정 화면 뒤의 메뉴를 더듬게 두지 않는다.
+		return;
+	}
 	bNewGameConfirmationArmed = false;
 	SystemMenuStatusText = FText::GetEmpty();
 	bSystemMenuStatusIsError = false;
 
-	for (int32 Attempt = 0; Attempt < IGSystemMenu::RowCount; ++Attempt)
+	// 화면 순서로 움직인다. 액션 인덱스 순서는 디스패치의 것이고, 위아래
+	// 키는 눈의 것이다 — 밤 5는 액션 목록의 마지막이지만 화면에서는 이어하기
+	// 바로 밑에 있으므로, 액션 순서로 돌면 선택이 화면을 건너뛴다.
+	const bool bTitleMenu = SystemMenuMode == EIGSystemMenuMode::Title;
+	const int32 VisibleCount = IGFrontendMenuLayout::GetVisibleActionCount(
+		bTitleMenu,
+		bCompatibleAutosaveAvailable,
+		bNightFiveAvailable);
+	if (VisibleCount <= 0)
 	{
-		SystemMenuSelection =
-			(SystemMenuSelection
-				+ (Direction < 0 ? IGSystemMenu::RowCount - 1 : 1))
-			% IGSystemMenu::RowCount;
-		if (IsSystemMenuRowEnabled(SystemMenuSelection))
+		return;
+	}
+	int32 VisibleSlot = IGFrontendMenuLayout::GetVisibleSlotForAction(
+		SystemMenuSelection,
+		bTitleMenu,
+		bCompatibleAutosaveAvailable,
+		bNightFiveAvailable);
+	if (VisibleSlot == INDEX_NONE)
+	{
+		VisibleSlot = 0;
+	}
+	for (int32 Attempt = 0; Attempt < VisibleCount; ++Attempt)
+	{
+		VisibleSlot =
+			(VisibleSlot + (Direction < 0 ? VisibleCount - 1 : 1)) % VisibleCount;
+		const int32 Candidate = IGFrontendMenuLayout::GetActionForVisibleSlot(
+			VisibleSlot,
+			bTitleMenu,
+			bCompatibleAutosaveAvailable,
+			bNightFiveAvailable);
+		if (Candidate != INDEX_NONE && IsSystemMenuRowEnabled(Candidate))
 		{
+			SystemMenuSelection = Candidate;
 			break;
 		}
 	}
@@ -2258,6 +2327,12 @@ void AIGPlayerController::MoveSystemMenuSelection(const int32 Direction)
 
 void AIGPlayerController::ConfirmSystemMenuSelection()
 {
+	if (bNightFivePlaying)
+	{
+		// 30초를 끝까지 들을 의무는 없다. 어떤 확인 입력이든 타이틀로 돌린다.
+		EndNightFive();
+		return;
+	}
 	if (SystemMenuMode == EIGSystemMenuMode::Hidden)
 	{
 		return;
@@ -2312,6 +2387,11 @@ void AIGPlayerController::ConfirmSystemMenuSelection()
 		}
 		return;
 	}
+	if (SystemMenuSelection == IGFrontendMenuLayout::NightFiveAction)
+	{
+		PlayNightFive();
+		return;
+	}
 	if (SystemMenuSelection == 2)
 	{
 		OpenDisplaySettings();
@@ -2356,6 +2436,7 @@ void AIGPlayerController::SetSystemMenuMode(const EIGSystemMenuMode NewMode)
 		|| NewMode == EIGSystemMenuMode::Pause)
 	{
 		bCompatibleAutosaveAvailable = HasCompatibleAutosave();
+	bNightFiveAvailable = HasEndingBAutosave();
 		const int32 LoadRow = NewMode == EIGSystemMenuMode::Title ? 0 : 1;
 		if (!bCompatibleAutosaveAvailable && SystemMenuSelection == LoadRow)
 		{
@@ -2373,7 +2454,10 @@ void AIGPlayerController::StartHeadphoneRecommendationIfNeeded()
 		|| SystemMenuMode != EIGSystemMenuMode::Title
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGFrontendShippingProbe"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloorJournalPreview"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGAudioCalibrationPreview")))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGAudioCalibrationPreview"))
+		// 밤 5 검증은 타이틀 목록 그 자체를 검사한다. 첫 실행 온보딩이 메뉴를
+		// 가져가면 어떤 행도 선택 가능하지 않다.
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGNightFiveProbe")))
 	{
 		return;
 	}
@@ -2984,6 +3068,7 @@ void AIGPlayerController::ContinueLatestAutosave()
 		return;
 	}
 	bCompatibleAutosaveAvailable = HasCompatibleAutosave();
+	bNightFiveAvailable = HasEndingBAutosave();
 	SystemMenuStatusText = NSLOCTEXT(
 		"IGFrontend",
 		"CompatibleAutosaveMissing",
@@ -3063,6 +3148,7 @@ void AIGPlayerController::HandleLoadCompleted(
 		return;
 	}
 	bCompatibleAutosaveAvailable = HasCompatibleAutosave();
+	bNightFiveAvailable = HasEndingBAutosave();
 	SystemMenuStatusText = NSLOCTEXT(
 		"IGFrontend",
 		"LoadFailed",
@@ -3097,6 +3183,9 @@ void AIGPlayerController::RefreshMenuHud() const
 		Presentation.bDisplaySettings =
 			SystemMenuMode == EIGSystemMenuMode::DisplaySettings;
 		Presentation.bCanContinue = bCompatibleAutosaveAvailable;
+		Presentation.bNightFiveAvailable = bNightFiveAvailable;
+		Presentation.bNightFiveSpent = bNightFiveSpent;
+		Presentation.bNightFivePlaying = bNightFivePlaying;
 		Presentation.bConfirmNewGame = bNewGameConfirmationArmed;
 		Presentation.bHeadphoneRecommendation =
 			bHeadphoneRecommendationVisible;
@@ -3217,7 +3306,8 @@ bool AIGPlayerController::TryGetSystemMenuRowFromPointer(int32& OutRow) const
 		IGFrontendMenuLayout::MakeMetrics(ViewportWidth, ViewportHeight),
 		FVector2D(PointerX, PointerY),
 		SystemMenuMode == EIGSystemMenuMode::Title,
-		bCompatibleAutosaveAvailable);
+		bCompatibleAutosaveAvailable,
+		bNightFiveAvailable);
 	return OutRow != INDEX_NONE;
 }
 
@@ -3447,6 +3537,12 @@ bool AIGPlayerController::HandleMenuPointerClick()
 
 bool AIGPlayerController::ShouldShowTitleMenu() const
 {
+	// 밤 5 검증은 타이틀 그 자체를 검사하므로 무인 실행에서도 타이틀이 필요하다.
+	// 프런트엔드 출하 프로브가 이미 같은 예외를 쓰고 있다.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGNightFiveProbe")))
+	{
+		return true;
+	}
 	if (FApp::IsUnattended() || IsRunningCommandlet())
 	{
 		return false;
@@ -3492,9 +3588,360 @@ bool AIGPlayerController::IsSystemMenuRowEnabled(const int32 Row) const
 	{
 		return false;
 	}
+	if (Row == IGFrontendMenuLayout::NightFiveAction)
+	{
+		// 흐려진 뒤에도 고를 수 있다. 없는 것은 엔딩 B가 없을 때뿐이다.
+		return !IGFrontendMenuLayout::HidesNightFive(
+			SystemMenuMode == EIGSystemMenuMode::Title,
+			bNightFiveAvailable);
+	}
 	const int32 LoadRow =
 		SystemMenuMode == EIGSystemMenuMode::Title ? 0 : 1;
 	return Row != LoadRow || bCompatibleAutosaveAvailable;
+}
+
+void AIGPlayerController::RequestNightFiveProbeExit(const bool bFailed)
+{
+	if (NightFiveProbeTicker.IsValid())
+	{
+		FTSTicker::GetCoreTicker().RemoveTicker(NightFiveProbeTicker);
+		NightFiveProbeTicker.Reset();
+	}
+	EndNightFive();
+	FPlatformMisc::RequestExitWithStatus(true, bFailed ? 2 : 0);
+}
+
+void AIGPlayerController::StartNightFiveProbe()
+{
+	// --- 대응이 전단사인지 -------------------------------------------------
+	// 밤 5는 액션 5이면서 화면 자리 1이다. 이 치환이 깨지면 플레이어가 누른
+	// 줄과 실행되는 액션이 달라진다 — 조용히, 그리고 정확히 한 행씩.
+	for (int32 Combination = 0; Combination < 4; ++Combination)
+	{
+		const bool bCanContinue = (Combination & 1) != 0;
+		const bool bNightFive = (Combination & 2) != 0;
+		const int32 VisibleCount = IGFrontendMenuLayout::GetVisibleActionCount(
+			true,
+			bCanContinue,
+			bNightFive);
+		const int32 Expected = IGFrontendMenuLayout::ActionCount
+			- (bCanContinue ? 0 : 1)
+			- (bNightFive ? 0 : 1);
+		if (VisibleCount != Expected)
+		{
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT("MISSINGFLOOR_NIGHT5 FAIL: rows=%d expected=%d "
+					"continue=%d nightfive=%d"),
+				VisibleCount,
+				Expected,
+				bCanContinue ? 1 : 0,
+				bNightFive ? 1 : 0);
+			RequestNightFiveProbeExit(true);
+			return;
+		}
+		for (int32 Slot = 0; Slot < VisibleCount; ++Slot)
+		{
+			const int32 Action = IGFrontendMenuLayout::GetActionForVisibleSlot(
+				Slot,
+				true,
+				bCanContinue,
+				bNightFive);
+			const int32 RoundTrip = IGFrontendMenuLayout::GetVisibleSlotForAction(
+				Action,
+				true,
+				bCanContinue,
+				bNightFive);
+			if (Action == INDEX_NONE || RoundTrip != Slot)
+			{
+				UE_LOG(
+					LogTemp,
+					Error,
+					TEXT("MISSINGFLOOR_NIGHT5 FAIL: slot=%d action=%d back=%d "
+						"continue=%d nightfive=%d"),
+					Slot,
+					Action,
+					RoundTrip,
+					bCanContinue ? 1 : 0,
+					bNightFive ? 1 : 0);
+				RequestNightFiveProbeExit(true);
+				return;
+			}
+		}
+	}
+	// 화면에서 밤 5는 이어하기 바로 밑이다. 그것이 「이어하기 목록에 한 줄」의
+	// 구현이므로 자리 자체를 검사한다.
+	if (IGFrontendMenuLayout::GetVisibleSlotForAction(
+			IGFrontendMenuLayout::NightFiveAction,
+			true,
+			true,
+			true)
+		!= 1)
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_NIGHT5 FAIL: night five is not under continue"));
+		RequestNightFiveProbeExit(true);
+		return;
+	}
+	// 일시정지 메뉴에는 절대 없다. 메타 개입은 본편 바깥이다.
+	if (!IGFrontendMenuLayout::HidesNightFive(false, true))
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_NIGHT5 FAIL: night five reachable while paused"));
+		RequestNightFiveProbeExit(true);
+		return;
+	}
+
+	// --- 30초 자체 ---------------------------------------------------------
+	// 하네스는 세이브를 만들지 않는다(§14). 조회 결과만 덮어써서 그 행이 있는
+	// 세계를 만든다 — 세이브 파일을 위조하는 것과는 다른 일이다.
+	bNightFiveAvailable = HasEndingBAutosave();
+	SystemMenuSelection = IGFrontendMenuLayout::NightFiveAction;
+	NightFiveProbeStep = 0;
+	NightFiveProbeSeconds = 0.0f;
+	NightFiveProbeTicker = FTSTicker::GetCoreTicker().AddTicker(
+		FTickerDelegate::CreateUObject(
+			this,
+			&AIGPlayerController::AdvanceNightFiveProbe));
+}
+
+bool AIGPlayerController::AdvanceNightFiveProbe(const float DeltaSeconds)
+{
+	NightFiveProbeSeconds += DeltaSeconds;
+	switch (NightFiveProbeStep)
+	{
+	case 0:
+		if (!IsSystemMenuRowEnabled(IGFrontendMenuLayout::NightFiveAction))
+		{
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT("MISSINGFLOOR_NIGHT5 FAIL: the row was not selectable"));
+			RequestNightFiveProbeExit(true);
+			return false;
+		}
+		ConfirmSystemMenuSelection();
+		if (!bNightFivePlaying)
+		{
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT("MISSINGFLOOR_NIGHT5 FAIL: confirming did not start it"));
+			RequestNightFiveProbeExit(true);
+			return false;
+		}
+		NightFiveProbeStep = 1;
+		NightFiveProbeSeconds = 0.0f;
+		return true;
+
+	case 1:
+		// 두 소리가 저작된 시각에 나갔는지. 순서가 뒤집히면 대답이 먼저 온다.
+		if (NightFiveProbeSeconds >= 14.0f && NightFiveCuesPlayed < 2)
+		{
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT("MISSINGFLOOR_NIGHT5 FAIL: cues=%d after %.1fs"),
+				NightFiveCuesPlayed,
+				NightFiveProbeSeconds);
+			RequestNightFiveProbeExit(true);
+			return false;
+		}
+		if (NightFiveProbeSeconds < NightFiveTotalSeconds - 1.0f)
+		{
+			if (!bNightFivePlaying)
+			{
+				UE_LOG(
+					LogTemp,
+					Error,
+					TEXT("MISSINGFLOOR_NIGHT5 FAIL: it ended early at %.1fs"),
+					NightFiveProbeSeconds);
+				RequestNightFiveProbeExit(true);
+				return false;
+			}
+			// 아직 재생 중이다. 계속 틱해야 한다 — 여기서 false를 돌려주면
+			// 프로브가 첫 대기에서 스스로 멈춘다.
+			return true;
+		}
+		NightFiveProbeStep = 2;
+		return true;
+
+	default:
+		if (bNightFivePlaying)
+		{
+			if (NightFiveProbeSeconds > NightFiveTotalSeconds + 3.0f)
+			{
+				UE_LOG(
+					LogTemp,
+					Error,
+					TEXT("MISSINGFLOOR_NIGHT5 FAIL: it never returned to the title"));
+				RequestNightFiveProbeExit(true);
+				return false;
+			}
+			// 아직 끝나지 않았다. 마지막 1초를 기다린다.
+			return true;
+		}
+		if (NightFiveCuesPlayed != 2
+			|| !bNightFiveSpent
+			|| !IsSystemMenuRowEnabled(IGFrontendMenuLayout::NightFiveAction))
+		{
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT("MISSINGFLOOR_NIGHT5 FAIL: cues=%d spent=%d selectable=%d"),
+				NightFiveCuesPlayed,
+				bNightFiveSpent ? 1 : 0,
+				IsSystemMenuRowEnabled(IGFrontendMenuLayout::NightFiveAction)
+					? 1
+					: 0);
+			RequestNightFiveProbeExit(true);
+			return false;
+		}
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_NIGHT5 PASS: row under continue in all four "
+				"layouts, never while paused, two cues in %.1fs, dimmed but "
+				"still selectable, no save file written"),
+			NightFiveTotalSeconds);
+		RequestNightFiveProbeExit(false);
+		return false;
+	}
+}
+
+FVector AIGPlayerController::NightFiveListenPoint() const
+{
+	// 타이틀에는 폰이 없다. 카메라 자리에서 재생하면 감쇠는 형식이 되고,
+	// 거리는 §10.4의 리버브 센드가 말한다.
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	GetPlayerViewPoint(ViewLocation, ViewRotation);
+	return ViewLocation;
+}
+
+void AIGPlayerController::PlayNightFive()
+{
+	UWorld* World = GetWorld();
+	if (!World || bNightFivePlaying || !bNightFiveAvailable)
+	{
+		return;
+	}
+	// 로딩이 없다. 레벨도, 세이브도, 새 액터도 만들지 않는다 — 타이틀 위에
+	// 검정 한 장과 두 개의 소리를 올릴 뿐이다(§14: 실제 세이브 파일은 만들지
+	// 않는다).
+	bNightFivePlaying = true;
+	NightFiveSeconds = 0.0f;
+	NightFiveCuesPlayed = 0;
+	// 같은 공간 잔향. 엔딩 B는 별관 복도 안이고, 그 대답은 복도 끝에서 왔다.
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->SetAcousticSpace(EIGAcousticSpace::Corridor);
+	}
+	RefreshMenuHud();
+	NightFiveTicker = FTSTicker::GetCoreTicker().AddTicker(
+		FTickerDelegate::CreateUObject(
+			this,
+			&AIGPlayerController::AdvanceNightFive));
+}
+
+bool AIGPlayerController::AdvanceNightFive(const float DeltaSeconds)
+{
+	UWorld* World = GetWorld();
+	if (!World || !bNightFivePlaying)
+	{
+		EndNightFive();
+		return false;
+	}
+	NightFiveSeconds += DeltaSeconds;
+
+	// 그녀 자신의 손. 게임이 기억한 마지막 입력이 그대로 돌아온다.
+	if (NightFiveCuesPlayed == 0
+		&& NightFiveSeconds >= IGNightFive::SignalAtSeconds)
+	{
+		NightFiveCuesPlayed = 1;
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.0f),
+			NightFiveListenPoint(),
+			IGNightFive::SignalVolume,
+			1.0f,
+			IGNightFive::CloseRadius,
+			IGNightFive::CloseFalloff,
+			EIGAudioBus::Player);
+		AIGHorrorHUD::PushAudioCaption(
+			this,
+			NSLOCTEXT("IGMissingFloor", "NightFiveSignal", "둘 — 쉬고 — 하나"),
+			3.0f);
+		return true;
+	}
+
+	// 복도 끝에서 대답 둘. 새 사건이 아니라 이미 있었던 대답이다.
+	if (NightFiveCuesPlayed == 1
+		&& NightFiveSeconds >= IGNightFive::AnswerAtSeconds)
+	{
+		NightFiveCuesPlayed = 2;
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateWallKnockReply(this),
+			NightFiveListenPoint(),
+			IGNightFive::AnswerVolume,
+			1.0f,
+			IGNightFive::FarRadius,
+			IGNightFive::FarFalloff,
+			EIGAudioBus::Entity);
+		AIGHorrorHUD::PushAudioCaption(
+			this,
+			NSLOCTEXT("IGMissingFloor", "NightFiveAnswer", "복도 끝 — 대답 둘"),
+			3.4f);
+		return true;
+	}
+
+	if (NightFiveSeconds >= NightFiveTotalSeconds)
+	{
+		EndNightFive();
+		return false;
+	}
+	return true;
+}
+
+void AIGPlayerController::EndNightFive()
+{
+	if (NightFiveTicker.IsValid())
+	{
+		FTSTicker::GetCoreTicker().RemoveTicker(NightFiveTicker);
+		NightFiveTicker.Reset();
+	}
+	if (!bNightFivePlaying)
+	{
+		return;
+	}
+	bNightFivePlaying = false;
+	// 한 번 재생하면 흐려진다. 사라지지는 않는다 — 다시 들을 수 있다.
+	bNightFiveSpent = true;
+	NightFiveSeconds = 0.0f;
+	// 타이틀로 복귀한다. 애초에 떠난 적이 없으므로 되돌릴 상태도 없다.
+	SystemMenuSelection = IGFrontendMenuLayout::NightFiveAction;
+	RefreshMenuHud();
+}
+
+bool AIGPlayerController::HasEndingBAutosave() const
+{
+	if (bNightFiveProbeRequested)
+	{
+		// 하네스 우회. 세이브를 만들거나 고치지 않고 **조회 결과만** 덮어써서
+		// 그 행이 있는 세계를 만든다(§14: 실제 세이브 파일은 만들지 않는다).
+		// 이 자리에 두는 이유는 메뉴가 새로 그려질 때마다 조회가 다시 돌기
+		// 때문이다 — 플래그를 한 번 세워 두는 방식은 곧 지워진다.
+		return true;
+	}
+	const UIGSaveSubsystem* SaveSubsystem = GetSaveSubsystem();
+	return SaveSubsystem && SaveSubsystem->HasEndingBAutosave();
 }
 
 UIGAccessibilitySubsystem*

@@ -1,6 +1,7 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
+#include "Containers/Ticker.h"
 #include "GameFramework/PlayerController.h"
 #include "IGPlayerController.generated.h"
 
@@ -146,6 +147,26 @@ private:
 		const FString& Reason) const;
 	bool ShouldShowTitleMenu() const;
 	bool HasCompatibleAutosave() const;
+	bool HasEndingBAutosave() const;
+
+	/**
+	 * §9 「밤 5」 — 메타 개입은 본편 바깥, 엔딩 이후, 이 한 번이다.
+	 *
+	 * 엔딩 B를 본 세이브가 있으면 타이틀의 이어하기 밑에 행 하나가 조용히
+	 * 늘어난다. 고르면 로딩 없이 검정 화면 30초: 그녀 자신의 둘-쉬고-하나,
+	 * 긴 침묵, 그리고 B에서 복도 끝에서 돌아온 대답 둘이 같은 공간 잔향으로
+	 * 다시 온다. 새 사건도, 갇힌 사람도 암시하지 않는다.
+	 *
+	 * 금지된 것을 명시한다: 세이브 파일을 만들거나 고치지 않고, 가짜 크래시를
+	 * 내지 않고, 창 제목을 바꾸지 않는다. 신뢰를 깨는 메타는 전부 제외다.
+	 */
+	void PlayNightFive();
+	bool IsNightFivePlaying() const { return bNightFivePlaying; }
+	bool IsNightFiveAvailable() const { return bNightFiveAvailable; }
+	bool IsNightFiveSpent() const { return bNightFiveSpent; }
+	int32 GetNightFiveCuesPlayed() const { return NightFiveCuesPlayed; }
+	/** 30초. 이 길이가 §9의 약속이다. */
+	static constexpr float NightFiveTotalSeconds = 30.0f;
 	bool IsSystemMenuRowEnabled(int32 Row) const;
 	UIGAccessibilitySubsystem* GetAccessibilitySubsystem() const;
 	UIGSaveSubsystem* GetSaveSubsystem() const;
@@ -184,6 +205,39 @@ private:
 	bool bGameWasPausedBeforeJournal = false;
 	bool bUsingGamepadForHud = false;
 	bool bCompatibleAutosaveAvailable = false;
+
+	/** §9 「밤 5」. 세션 상태다 — 재실행하면 다시 흐려지지 않은 채로 있다. */
+	bool bNightFiveAvailable = false;
+	bool bNightFiveSpent = false;
+	bool bNightFivePlaying = false;
+	float NightFiveSeconds = 0.0f;
+	int32 NightFiveCuesPlayed = 0;
+	/**
+	 * 엔진 티커다. 월드 타이머가 아니다 — 타이틀 메뉴는 월드를 일시정지시키므로
+	 * 월드 타이머로는 이 30초가 **한 프레임도 진행하지 않는다.** 코어 티커는
+	 * 일시정지와 무관하게 돌고, 뒤의 프롤로그 월드를 깨우지도 않는다.
+	 */
+	FTSTicker::FDelegateHandle NightFiveTicker;
+	bool AdvanceNightFive(float DeltaSeconds);
+	void EndNightFive();
+	FVector NightFiveListenPoint() const;
+	/**
+	 * -IGNightFiveProbe. 두 가지를 검사한다.
+	 *
+	 * 하나는 순수 논리다: 액션 인덱스와 화면 자리의 대응이 (이어하기 유무) ×
+	 * (밤 5 유무) 네 조합 모두에서 전단사인지. 밤 5는 액션 목록의 마지막이면서
+	 * 화면에서는 두 번째이므로, 이 대응이 깨지면 다른 행이 눌린다.
+	 *
+	 * 다른 하나는 30초 자체다. 소리 두 개가 저작된 시각에 나가고, 30초에
+	 * 끝나고, 끝난 뒤 행이 흐려지지만 여전히 고를 수 있는지.
+	 */
+	void StartNightFiveProbe();
+	bool AdvanceNightFiveProbe(float DeltaSeconds);
+	void RequestNightFiveProbeExit(bool bFailed);
+	bool bNightFiveProbeRequested = false;
+	int32 NightFiveProbeStep = 0;
+	float NightFiveProbeSeconds = 0.0f;
+	FTSTicker::FDelegateHandle NightFiveProbeTicker;
 	bool bNewGameConfirmationArmed = false;
 	bool bHeadphoneRecommendationVisible = false;
 	bool bAudioCalibrationCompleted = false;

@@ -1343,8 +1343,14 @@ void AIGHorrorHUD::SetSystemMenuState(
 	bSystemMenuIsCredits = Presentation.bCredits;
 	bSystemMenuIsAudioCalibration = Presentation.bAudioCalibration;
 	bSystemMenuIsDisplaySettings = Presentation.bDisplaySettings;
-	SystemMenuSelectedRow = FMath::Clamp(Presentation.SelectedRow, 0, 4);
+	SystemMenuSelectedRow = FMath::Clamp(
+		Presentation.SelectedRow,
+		0,
+		IGFrontendMenuLayout::ActionCount - 1);
 	bSystemMenuCanContinue = Presentation.bCanContinue;
+	bSystemMenuNightFiveAvailable = Presentation.bNightFiveAvailable;
+	bSystemMenuNightFiveSpent = Presentation.bNightFiveSpent;
+	bSystemMenuNightFivePlaying = Presentation.bNightFivePlaying;
 	bSystemMenuConfirmNewGame = Presentation.bConfirmNewGame;
 	bSystemMenuHeadphoneRecommendation =
 		Presentation.bHeadphoneRecommendation;
@@ -5321,6 +5327,22 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 	}
 
 	const bool bKorean = SupportsKorean();
+	// §9 「밤 5」. 로딩 없이 검정 화면. 타이틀 키아트도 메뉴 행도 그리지 않고,
+	// 비언어음 자막 레인만 남긴다 — 30초 동안 화면에 있는 것은 그것뿐이다.
+	// 여기서 검정을 직접 칠하는 이유는 타이틀에는 페이드할 카메라가 없다는 것.
+	if (bSystemMenuNightFivePlaying)
+	{
+		FCanvasTileItem NightScrim(
+			FVector2D::ZeroVector,
+			FVector2D(Canvas->ClipX, Canvas->ClipY),
+			FLinearColor::Black);
+		NightScrim.BlendMode = SE_BLEND_Opaque;
+		Canvas->DrawItem(NightScrim);
+		DrawAudioCaption(
+			GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0,
+			Canvas->ClipY - 24.0f);
+		return;
+	}
 	if (bSystemMenuIsAudioCalibration || bSystemMenuIsDisplaySettings)
 	{
 		// These two tools own their complete visual hierarchy and deliberately
@@ -5680,7 +5702,10 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			: bKorean ? TEXT("게임 시작") : TEXT("START GAME"),
 		bKorean ? TEXT("설정") : TEXT("SETTINGS"),
 		bKorean ? TEXT("제작 정보") : TEXT("CREDITS"),
-		bKorean ? TEXT("게임 종료") : TEXT("QUIT")
+		bKorean ? TEXT("게임 종료") : TEXT("QUIT"),
+		// §9. 있을 수 없는 슬롯. 라벨은 밤 이름 하나뿐이고 아무 설명도 달지
+		// 않는다 — 발견한 사람만 아는 것이 이 30초의 전부다.
+		bKorean ? TEXT("밤 5") : TEXT("NIGHT 5")
 	};
 	const FString PauseRows[] =
 	{
@@ -5688,12 +5713,15 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		bKorean ? TEXT("최근 자동 저장 불러오기") : TEXT("LOAD LATEST AUTOSAVE"),
 		bKorean ? TEXT("설정") : TEXT("SETTINGS"),
 		bKorean ? TEXT("제작 정보") : TEXT("CREDITS"),
-		bKorean ? TEXT("게임 종료") : TEXT("QUIT")
+		bKorean ? TEXT("게임 종료") : TEXT("QUIT"),
+		// 일시정지 메뉴에는 밤 5가 없다. 자리만 채운다.
+		FString()
 	};
 
 	const int32 VisibleRowCount = IGFrontendMenuLayout::GetVisibleActionCount(
 		bSystemMenuIsTitle,
-		bSystemMenuCanContinue);
+		bSystemMenuCanContinue,
+		bSystemMenuNightFiveAvailable);
 	const float GuideX = Metrics.ContentLeft - 20.0f * Metrics.Scale;
 	const float GuideTop = Metrics.MenuTop + Metrics.RowHeight * 0.5f;
 	const float GuideBottom = Metrics.MenuTop
@@ -5717,7 +5745,8 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			IGFrontendMenuLayout::GetVisibleSlotForAction(
 				ActionRow,
 				bSystemMenuIsTitle,
-				bSystemMenuCanContinue);
+				bSystemMenuCanContinue,
+				bSystemMenuNightFiveAvailable);
 		if (VisibleSlot == INDEX_NONE)
 		{
 			continue;
@@ -5726,6 +5755,9 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		const bool bEnabled =
 			ActionRow != LoadRow || bSystemMenuCanContinue;
 		const bool bSelected = ActionRow == SystemMenuSelectedRow;
+		// §9: 한 번 재생하면 흐려진다. 사라지지는 않는다 — 다시 들을 수 있다.
+		const bool bDimmed = ActionRow == IGFrontendMenuLayout::NightFiveAction
+			&& bSystemMenuNightFiveSpent;
 		FString Label =
 			bSystemMenuIsTitle ? TitleRows[ActionRow] : PauseRows[ActionRow];
 		if (bSystemMenuIsTitle
@@ -5775,7 +5807,9 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		const FLinearColor LabelColor = bEnabled
 			? IGHorrorHUD::FrontendIvory
 			: IGHorrorHUD::FrontendMuted;
-		const float DisabledMultiplier = bEnabled ? 1.0f : 0.52f;
+		// 흐려진 밤 5는 여전히 선택 가능하므로 비활성 색이 아니라 밝기만 낮춘다.
+		const float DisabledMultiplier =
+			(bEnabled ? 1.0f : 0.52f) * (bDimmed ? 0.55f : 1.0f);
 		const float RowTextScale = bSelected
 			? SupportScale
 			: SupportScale * (20.0f / 18.0f);

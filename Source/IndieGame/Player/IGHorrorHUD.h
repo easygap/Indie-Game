@@ -77,6 +77,12 @@ struct FIGSystemMenuPresentation
 	bool bAudioCalibration = false;
 	bool bDisplaySettings = false;
 	bool bCanContinue = false;
+	/** §9 「밤 5」: 엔딩 B를 본 세이브가 있을 때만 그 행이 존재한다. */
+	bool bNightFiveAvailable = false;
+	/** 한 번 재생하면 흐려진다. 다시 들을 수는 있다. */
+	bool bNightFiveSpent = false;
+	/** 검정 화면 30초. 재생 중에는 메뉴를 그리지 않는다. */
+	bool bNightFivePlaying = false;
 	bool bConfirmNewGame = false;
 	bool bHeadphoneRecommendation = false;
 	bool bVSync = true;
@@ -692,6 +698,9 @@ private:
 	bool bSystemMenuIsAudioCalibration = false;
 	bool bSystemMenuIsDisplaySettings = false;
 	bool bSystemMenuCanContinue = false;
+	bool bSystemMenuNightFiveAvailable = false;
+	bool bSystemMenuNightFiveSpent = false;
+	bool bSystemMenuNightFivePlaying = false;
 	bool bSystemMenuConfirmNewGame = false;
 	bool bSystemMenuHeadphoneRecommendation = false;
 	bool bSystemMenuVSync = true;

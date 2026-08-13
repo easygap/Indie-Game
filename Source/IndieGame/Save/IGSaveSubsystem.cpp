@@ -253,6 +253,20 @@ bool UIGSaveSubsystem::HasCompatibleAutosave() const
 	return FindNewestCompatibleAutosave(NewestSlot);
 }
 
+bool UIGSaveSubsystem::HasEndingBAutosave() const
+{
+	FString NewestSlot;
+	if (!FindNewestCompatibleAutosave(NewestSlot))
+	{
+		return false;
+	}
+	const UIGSaveGame* Newest = Cast<UIGSaveGame>(
+		UGameplayStatics::LoadGameFromSlot(NewestSlot, LocalUserIndex));
+	return Newest
+		&& Newest->Progress.MissingFloorNarrative.Night.EndingChoice
+			== FName(TEXT("Ending.B"));
+}
+
 bool UIGSaveSubsystem::FindNewestCompatibleAutosave(
 	FString& OutSlotName) const
 {

@@ -162,6 +162,8 @@ $requiredFiles = @(
 	'Scripts/Test-MissingFloor-M3CctvChannelContract.ps1',
 	'Scripts/Test-MissingFloor-M3DoorBeatContract.ps1',
 	'Scripts/Test-MissingFloor-M4PassByContract.ps1',
+	'Scripts/Test-MissingFloor-NightFiveSlotContract.ps1',
+	'Scripts/Run-MissingFloor-NightFiveProbe.ps1',
 	'Scripts/Run-MissingFloor-CctvFeedProbe.ps1',
 	'Scripts/Run-MissingFloor-AudioCalibrationPreview.bat',
 	'Scripts/Build-ArtAssets.ps1',
@@ -2476,5 +2478,9 @@ $missingFloorM3DoorBeatContractScript = Join-Path $projectRoot `
 $missingFloorM4PassByContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M4PassByContract.ps1'
 & $missingFloorM4PassByContractScript
+
+$missingFloorNightFiveSlotContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-NightFiveSlotContract.ps1'
+& $missingFloorNightFiveSlotContractScript
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green
