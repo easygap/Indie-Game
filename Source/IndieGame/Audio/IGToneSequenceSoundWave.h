@@ -438,6 +438,23 @@ public:
 		UObject* Outer,
 		float Loudness);
 
+	/**
+	 * §5.5 기록되지 않는 시간 — a phone take played back through its own speaker.
+	 *
+	 * Built from the recording log rather than captured audio (§14), which is
+	 * what makes the silences exact: a suppressed event contributes no notes at
+	 * all and its duration simply passes. **노크가 있던 자리에 정확히 그 길이만큼의
+	 * 무음.** Nothing is faded or crossfaded over the gap; an edit would be a
+	 * different and much weaker idea than an absence.
+	 *
+	 * Everything sits above 400 Hz. A phone speaker has no low end, so the take
+	 * is audibly a recording — and the knock, which lives at 58~80 Hz, could not
+	 * have survived it even if the rule had let it through.
+	 */
+	static UIGToneSequenceSoundWave* CreateRecordingPlayback(
+		UObject* Outer,
+		const TArray<struct FIGRecordedSound>& Sounds);
+
 private:
 	static float EvaluateWaveform(EIGToneWaveform Waveform, float FrequencyHz, double NoteTimeSeconds);
 	static float EvaluateEnvelope(const FIGToneNote& Note, float NoteProgress01);

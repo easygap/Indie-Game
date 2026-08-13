@@ -61,6 +61,16 @@ protected:
 private:
 	void HandleCarbonRestored(AIGMissingFloorEvidence* Evidence);
 	void HandleCctvExamined(AIGMissingFloorEvidence* Evidence);
+
+	/**
+	 * §5.5 비트 2-1과 2-6, on one prop. During the hour the phone arms itself
+	 * against the door; in the morning the same prop plays the take back and she
+	 * hears her own footsteps and exactly as much silence as there was knocking.
+	 */
+	void HandlePhoneRecorder(AIGMissingFloorEvidence* Evidence);
+
+	/** Keeps the phone's prompt honest about which of the two it is offering. */
+	void RefreshPhonePrompt();
 	void HandleFoamExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
 
@@ -80,6 +90,12 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> CarbonLedger;
+
+	/** §5.5's phone: armed at the door by night, played back in the morning. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> PhoneRecorder;
+
+	bool bPhonePlayedBack = false;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> AgentMessageNote;

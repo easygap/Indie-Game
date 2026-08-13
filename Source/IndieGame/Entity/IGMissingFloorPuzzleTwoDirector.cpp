@@ -11,6 +11,7 @@
 #include "Interaction/IGSwingDoor.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 
 namespace IGPuzzleTwo
@@ -31,6 +32,14 @@ namespace IGPuzzleTwo
 	/** §5.1: frottage is a sustained 0.25 — three times, on purpose. */
 	constexpr float FrottageLoudness = 0.25f;
 	constexpr float FrottageHoldSeconds = 1.2f;
+
+	/**
+	 * §5.5. 비트 2-1에서 유담이 폰 녹음을 켜고 403호 현관문에 대어 둔다. 문
+	 * 안쪽 바닥이므로 복도의 그가 아니라 그녀가 종일 지나는 자리다.
+	 */
+	const FVector PhoneAtDoorLocation(150.0f, -196.0f, 4.0f);
+	/** 폰을 놓는 것은 소리를 내는 행동이다. 발소리보다 조용하지만 0은 아니다. */
+	constexpr float PhonePlacementLoudness = 0.08f;
 
 	const FName CctvBeatId(TEXT("Night2.CCTV"));
 	const FName FoamBeatId(TEXT("Night2.Foam"));
@@ -61,6 +70,9 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		nullptr, TEXT("/Game/Meshes/SM_ComplaintLedger.SM_ComplaintLedger"));
 	UMaterialInterface* LedgerMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
+	// Her own phone, the cracked one CH03 already models.
+	UStaticMesh* PhoneMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_CrackedPhone.SM_CrackedPhone"));
 
 	FActorSpawnParameters SpawnParameters;
 	SpawnParameters.SpawnCollisionHandlingOverride =
@@ -235,6 +247,31 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	FoamGap->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined);
 
+	// §5.5 비트 2-1과 2-6. 같은 물건이 밤에는 녹음을 켜고 아침에는 그것을
+	// 재생한다. 두 번째 상호작용이 이 게임에서 가장 조용한 절망이다.
+	SpawnParameters.Name = TEXT("MissingFloorPhoneRecorder");
+	PhoneRecorder = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator(0.0f, 12.0f, 0.0f), IGPuzzleTwo::PhoneAtDoorLocation),
+		SpawnParameters);
+	if (!PhoneRecorder)
+	{
+		return false;
+	}
+	PhoneRecorder->Configure(
+		PhoneMesh ? PhoneMesh : CubeMesh,
+		nullptr,
+		PhoneMesh ? FVector(100.0f) : FVector(7.0f, 14.5f, 1.6f),
+		NSLOCTEXT("IGMissingFloor", "P2PhoneArmPrompt", "폰 — 녹음"),
+		FText::GetEmpty(),
+		EIGMissingFloorTruth::None,
+		EIGMissingFloorSource::None,
+		0.0f,
+		IGPuzzleTwo::PhonePlacementLoudness);
+	PhoneRecorder->OnExamined.AddUObject(
+		this, &AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder);
+	RefreshPhonePrompt();
+
 	// The night-2 goal is a truth, not a button: listen for T7.
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
@@ -256,6 +293,22 @@ void AIGMissingFloorPuzzleTwoDirector::EndPlay(
 
 void AIGMissingFloorPuzzleTwoDirector::SetHourActive(const bool bHourActive)
 {
+	// §5.5: dawn closes the take. She left it running all night and now there is
+	// something to play — which is the only reason beat 2-6 can exist.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGRecordingSubsystem* Recording =
+			World->GetSubsystem<UIGRecordingSubsystem>())
+		{
+			if (!bHourActive && Recording->IsRecording())
+			{
+				Recording->StopRecording();
+				bPhonePlayedBack = false;
+			}
+		}
+	}
+	RefreshPhonePrompt();
+
 	if (!BoothDoor)
 	{
 		return;
@@ -308,6 +361,95 @@ void AIGMissingFloorPuzzleTwoDirector::HandleAgentNoteRead(
 		Narrative->RegisterTruthSource(
 			EIGMissingFloorTruth::WasStillAlive,
 			EIGMissingFloorSource::AgentMoveOutMessage);
+	}
+}
+
+void AIGMissingFloorPuzzleTwoDirector::RefreshPhonePrompt()
+{
+	if (!PhoneRecorder)
+	{
+		return;
+	}
+	const UWorld* World = GetWorld();
+	const UIGRecordingSubsystem* Recording = World
+		? World->GetSubsystem<UIGRecordingSubsystem>()
+		: nullptr;
+	if (!Recording)
+	{
+		return;
+	}
+	if (Recording->IsRecording())
+	{
+		PhoneRecorder->SetInteractionPrompt(
+			NSLOCTEXT("IGMissingFloor", "P2PhoneRecording", "폰 — 녹음 중"));
+		return;
+	}
+	if (Recording->HasTake() && !bPhonePlayedBack)
+	{
+		PhoneRecorder->SetInteractionPrompt(
+			NSLOCTEXT("IGMissingFloor", "P2PhonePlayPrompt", "폰 — 재생"));
+		return;
+	}
+	PhoneRecorder->SetInteractionPrompt(
+		NSLOCTEXT("IGMissingFloor", "P2PhoneArmPrompt", "폰 — 녹음"));
+}
+
+void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UWorld* World = GetWorld();
+	UIGRecordingSubsystem* Recording = World
+		? World->GetSubsystem<UIGRecordingSubsystem>()
+		: nullptr;
+	if (!Recording)
+	{
+		return;
+	}
+
+	// 비트 2-6. The take exists, so this press is the morning one.
+	if (!Recording->IsRecording() && Recording->HasTake() && !bPhonePlayedBack)
+	{
+		const FVector At = Evidence
+			? Evidence->GetActorLocation()
+			: IGPuzzleTwo::PhoneAtDoorLocation;
+		if (!Recording->PlayBack(At))
+		{
+			return;
+		}
+		bPhonePlayedBack = true;
+		RefreshPhonePrompt();
+		// The rule states itself. One line, and it is about the machine rather
+		// than about her — 기계한테는 없는 일이구나 (§8 비트 2-6).
+		const bool bAnythingRefused = Recording->GetSuppressedCount() > 0;
+		AIGHorrorHUD::PushThought(
+			this,
+			bAnythingRefused
+				? NSLOCTEXT(
+					"IGMissingFloor",
+					"P2PhoneSilence",
+					"내 발소리. 내 숨소리. 그리고 노크가 있던 자리마다… 아무것도."
+					" …기계한테는 없는 일이구나.")
+				: NSLOCTEXT(
+					"IGMissingFloor",
+					"P2PhoneKept",
+					"담겼다. 이번엔 담겼어."),
+			5.0f);
+		return;
+	}
+
+	// 비트 2-1. She sets it against the door and lets it run.
+	if (!Recording->IsRecording())
+	{
+		Recording->StartRecording();
+		bPhonePlayedBack = false;
+		RefreshPhonePrompt();
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"P2PhoneArmed",
+				"문에 대어 둔다. 증거가 필요해."),
+			3.4f);
 	}
 }
 

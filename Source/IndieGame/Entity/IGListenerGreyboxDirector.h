@@ -162,6 +162,8 @@ private:
 		ResetAfterCapture,
 		/** §20.3's two automatic safety nets: the reset hint and the 90 s clock. */
 		MercyNetContract,
+		/** §5.5 기록되지 않는 시간: the recording rule and its one exception. */
+		RecordingRuleContract,
 		Night1SightingStage,
 		Night1SightingRestore,
 		Night1Extinguisher,

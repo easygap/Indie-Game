@@ -36,6 +36,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
 #include "TimerManager.h"
 
@@ -1560,7 +1561,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 					false,
 					true);
 			}
-			ProbeStep = EProbeStep::Night1SightingStage;
+			ProbeStep = EProbeStep::RecordingRuleContract;
 			StepDeadlineSeconds = 0.0f;
 			break;
 		}
@@ -1630,6 +1631,90 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		// Everything synchronous is proven. The paper is still moving, so the
 		// step re-enters until it settles and then measures the separation.
 		bMercyNetsFired = true;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::RecordingRuleContract:
+	{
+		// §5.5. The rule has one job and one exception, and both have to be true
+		// or the whole climax stops meaning anything: her own sounds survive, his
+		// do not, and the gap is exactly as long as what it replaced.
+		UIGRecordingSubsystem* Recording =
+			GetWorld()->GetSubsystem<UIGRecordingSubsystem>();
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!Recording || !Narrative)
+		{
+			FailProbe(TEXT("recording subsystem or narrative missing"));
+			return;
+		}
+		if (Narrative->IsNightFourWallOpened())
+		{
+			FailProbe(TEXT("the wall is already open before night four"));
+			return;
+		}
+
+		// Two of her sounds either side of one of his.
+		Recording->ClearTake();
+		Recording->RecordForTesting(0.5f, 0.15f, /*bFromEntity=*/false);
+		Recording->RecordForTesting(2.0f, 1.00f, /*bFromEntity=*/true);
+		Recording->RecordForTesting(4.0f, 0.15f, /*bFromEntity=*/false);
+		const bool bHerSoundsKept = Recording->GetSurvivingCount() == 2;
+		const bool bHisSoundRefused = Recording->GetSuppressedCount() == 1;
+		// 정확히 그 길이만큼의 무음: a full-loudness knock leaves the longest gap
+		// the table allows, and the tape must account for every second of it.
+		const float Gap = Recording->GetSuppressedSeconds();
+		const bool bGapIsExact = FMath::IsNearlyEqual(Gap, 2.10f, 0.01f);
+		const bool bPlaysBack =
+			Recording->PlayBack(FVector(0.0f, 0.0f, 1000.0f));
+		if (!bHerSoundsKept || !bHisSoundRefused || !bGapIsExact || !bPlaysBack)
+		{
+			FailProbe(FString::Printf(
+				TEXT("§5.5 rule drifted: kept=%d refused=%d gap=%.2fs played=%d"),
+				Recording->GetSurvivingCount(),
+				Recording->GetSuppressedCount(),
+				Gap,
+				bPlaysBack ? 1 : 0));
+			return;
+		}
+
+		// The one exception. Opening the wall in night four lifts the rule, and
+		// the first sound the machine keeps is what ending A reports.
+		Narrative->SetNightIndex(4);
+		Narrative->SetNightFourWallOpened(true);
+		if (!Recording->IsRuleLifted())
+		{
+			FailProbe(TEXT("the wall opened and the rule did not lift"));
+			return;
+		}
+		Recording->ClearTake();
+		Recording->RecordForTesting(0.5f, 1.00f, /*bFromEntity=*/true);
+		const bool bLiftedKeepsHim =
+			Recording->GetSuppressedCount() == 0
+			&& Recording->GetSurvivingCount() == 1;
+		// Put the night back the way the probe found it; later steps own it.
+		Narrative->ResetNightFourForRetry();
+		Narrative->SetNightIndex(1);
+		Recording->ClearTake();
+		if (!bLiftedKeepsHim)
+		{
+			FailProbe(TEXT("the lifted rule still refused his sound"));
+			return;
+		}
+		if (Recording->IsRuleLifted())
+		{
+			FailProbe(TEXT("the rule stayed lifted after the night was reset"));
+			return;
+		}
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_RECORDING PASS: her sounds kept, his refused, "
+				"%.2fs of exact silence, lifted once by the night-four wall"),
+			Gap);
+
+		ProbeStep = EProbeStep::Night1SightingStage;
 		StepDeadlineSeconds = 0.0f;
 		break;
 	}

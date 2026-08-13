@@ -1,5 +1,7 @@
 ﻿#include "Audio/IGToneSequenceSoundWave.h"
 
+#include "Narrative/IGRecordingSubsystem.h"
+
 namespace IGToneSequence
 {
 	constexpr int32 SampleRateHz = 48000;
@@ -1744,6 +1746,74 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasterDustFall(
 	}
 
 	Wave->ConfigureNotes(MoveTemp(DustNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRecordingPlayback(
+	UObject* Outer,
+	const TArray<FIGRecordedSound>& Sounds)
+{
+	if (Sounds.Num() == 0)
+	{
+		return nullptr;
+	}
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGRecordingPlayback"));
+	TArray<FIGToneNote> TakeNotes;
+
+	// Room tone of a cheap microphone left against a door: a thin hiss that runs
+	// the whole take. It keeps playing through the gaps, which is exactly why the
+	// gaps read as silence-on-a-recording rather than as the game stopping.
+	float TakeEnd = 0.0f;
+	for (const FIGRecordedSound& Sound : Sounds)
+	{
+		TakeEnd = FMath::Max(
+			TakeEnd,
+			Sound.OffsetSeconds + Sound.DurationSeconds);
+	}
+	TakeEnd = FMath::Max(TakeEnd, 1.0f);
+	TakeNotes.Add({0.0f, TakeEnd, 5200.0f, 0.012f, 0.020f, 0.4f, EIGToneWaveform::ValueNoise});
+	TakeNotes.Add({0.0f, TakeEnd, 1500.0f, 0.008f, 0.030f, 0.4f, EIGToneWaveform::ValueNoise});
+
+	for (const FIGRecordedSound& Sound : Sounds)
+	{
+		if (Sound.bSuppressed)
+		{
+			// The whole rule, in one skipped iteration. Its duration is already
+			// in TakeEnd, so the timeline keeps the room exactly this long.
+			continue;
+		}
+		// Her own body, through a phone speaker. Band-limited on purpose: the
+		// low thump of a real footfall is not what a small speaker gives back.
+		const float Level = FMath::Clamp(Sound.Loudness, 0.0f, 1.0f);
+		TakeNotes.Add({
+			Sound.OffsetSeconds,
+			0.055f,
+			900.0f,
+			0.045f + 0.075f * Level,
+			0.010f,
+			1.7f,
+			EIGToneWaveform::ValueNoise});
+		TakeNotes.Add({
+			Sound.OffsetSeconds,
+			0.038f,
+			2400.0f,
+			0.026f + 0.050f * Level,
+			0.008f,
+			2.0f,
+			EIGToneWaveform::ValueNoise});
+		// A trace of the body under it, still above the speaker's floor.
+		TakeNotes.Add({
+			Sound.OffsetSeconds,
+			0.070f,
+			430.0f,
+			0.020f + 0.038f * Level,
+			0.012f,
+			2.4f,
+			EIGToneWaveform::Sine});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(TakeNotes), false);
 	return Wave;
 }
 

@@ -470,6 +470,68 @@ Require-All $worldScene @(
 	'PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;'
 ) '§11 V1 night exposure lock'
 
+# §5.5 기록되지 않는 시간. 그 시간의 소리는 어떤 기계에도 담기지 않고, 노크가
+# 있던 자리에는 정확히 그 길이만큼의 무음이 남는다. 규칙은 밤4 벽 개방으로
+# 단 한 번 해제된다.
+$recording = Read-Source 'Source/IndieGame/Narrative/IGRecordingSubsystem.cpp'
+$recordingHeader = Read-Source 'Source/IndieGame/Narrative/IGRecordingSubsystem.h'
+Require-All $recordingHeader @(
+	'bool bSuppressed = false;',
+	'float DurationSeconds = 0.0f;',
+	'bool IsRuleLifted() const;'
+) '§5.5 recording log'
+Require-All $recording @(
+	'Instigator->IsA<AIGListenerEntity>()',
+	'Narrative->IsNightFourWallOpened()'
+) '§5.5 suppression rule'
+# 규칙 해제는 저장본에서 파생돼야 한다. 따로 저장하면 로드 후 어긋난다.
+if ($recording -notmatch '(?s)bool UIGRecordingSubsystem::IsRuleLifted\(\).*?IsNightFourWallOpened') {
+	throw '규칙 해제는 저장된 벽 상태에서 파생돼야 한다.'
+}
+$assertions++
+# 그녀의 소리는 담긴다. 비트 2-6은 자기 소리만 들리는 것으로 성립한다.
+$suppressBody = [regex]::Match(
+	$recording,
+	'(?s)bool UIGRecordingSubsystem::ShouldSuppress\(.*?
+\}').Value
+if ($suppressBody -match 'IsHourSealed|bTheHourSealed') {
+	throw '시간대가 아니라 누가 소리를 냈는지로 판정해야 한다(비트 2-6).'
+}
+$assertions++
+# 무음은 편집이 아니라 부재다. 억압된 이벤트는 노트를 하나도 내지 않는다.
+Require-All $tone @(
+	'CreateRecordingPlayback(',
+	'IGRecordingPlayback',
+	'if (Sound.bSuppressed)'
+) '§5.5 playback synthesis'
+$takeBody = [regex]::Match(
+	$tone,
+	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreateRecordingPlayback\(.*?
+\}').Value
+if ($takeBody -notmatch '(?s)if \(Sound\.bSuppressed\)\s*\{[^}]*continue;') {
+	throw '억압된 소리는 노트를 내지 않고 길이만 남겨야 한다.'
+}
+$assertions++
+# 폰 스피커에는 저역이 없다. 노크가 사는 58~80Hz는 애초에 통과하지 못한다.
+foreach ($band in [regex]::Matches($takeBody, 'TakeNotes\.Add\(\{\s*[^,]+,\s*[^,]+,\s*([0-9.]+)f,')) {
+	if ([double]$band.Groups[1].Value -lt 400.0) {
+		throw "폰 스피커 재생에 저역이 들어갔다: $($band.Groups[1].Value) Hz"
+	}
+	$assertions++
+}
+# 밤2가 심고 아침에 재생한다.
+$puzzleTwoRec = Read-Source 'Source/IndieGame/Entity/IGMissingFloorPuzzleTwoDirector.cpp'
+Require-All $puzzleTwoRec @(
+	'Recording->StartRecording();',
+	'Recording->StopRecording();',
+	'Recording->PlayBack(At)',
+	'기계한테는 없는 일이구나'
+) '§5.5 night two beats'
+Require-All $greybox @(
+	'case EProbeStep::RecordingRuleContract:',
+	'MISSINGFLOOR_RECORDING PASS'
+) '§5.5 runtime probe'
+
 # §11 V5 밤 구간 8지점 히스토그램. 임계는 설계서가 고정한 5%/98%이며, 지점별
 # 밴드는 실측에서 저작한다. 밴드를 먼저 쓰고 통과할 때까지 늘리면 밴드가
 # 느슨하다는 것만 증명된다.
