@@ -185,6 +185,9 @@ private:
 		NightTwoHomeContract,
 		DayTwoContract,
 		NightThreeContract,
+		/** §8 비트 3-7: the learned answer, knocked at nothing, reaching him. */
+		AnswerReachContract,
+		AnswerReachCadence,
 		AnswerPairTap,
 		AnswerFinalTap,
 		AnswerContract,
@@ -202,6 +205,10 @@ private:
 	bool bNightFourFailureRetryVerified = false;
 	/** Latch so the mercy step fires its nets once and then waits for the paper. */
 	bool bMercyNetsFired = false;
+
+	/** §8 비트 3-7's cadence walk: the probe has to leave real gaps between taps. */
+	double AnswerReachTapTwoAt = 0.0;
+	int32 AnswerReachTapsSent = 0;
 
 	/**
 	 * §14 CCTV 채널 5. The structural half of the contract runs anywhere: the

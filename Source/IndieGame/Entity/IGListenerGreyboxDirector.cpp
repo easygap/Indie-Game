@@ -2532,7 +2532,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("sleeping did not begin night 3"));
 			return;
 		}
-		ProbeStep = EProbeStep::NightThreeContract;
+		ProbeStep = EProbeStep::AnswerReachContract;
 		StepDeadlineSeconds = 0.0f;
 		break;
 	}
@@ -2648,6 +2648,108 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 		ProbeStep = EProbeStep::AnswerPairTap;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::AnswerReachContract:
+	{
+		// §8 비트 3-7. P4 teaches 둘-쉬고-하나 on an authored wall; the corridor
+		// asks her to use it with nothing under the cursor. Before this existed
+		// the entity's Waiting state and NotifyAnswerKnock had no caller at all,
+		// so the answer could not leave P4's surface.
+		AIGPlayerCharacter* PlayerCharacter = Player.Get();
+		if (!PlayerCharacter)
+		{
+			FailProbe(TEXT("no pawn to answer with"));
+			return;
+		}
+		// Stand him next to her so the taps are within a knock's earshot, and
+		// make sure he is awake and merely patrolling first.
+		Entity->SetDormant(false);
+		Entity->TeleportTo(
+			PlayerCharacter->GetActorLocation() + FVector(180.0f, 0.0f, 0.0f),
+			Entity->GetActorRotation(),
+			false,
+			true);
+		if (Entity->GetListenerState() == EIGListenerState::Waiting)
+		{
+			FailProbe(TEXT("he was already waiting before she answered"));
+			return;
+		}
+
+		// Out of earshot the cadence must do nothing at all. Two floors up is
+		// the case the guard exists for.
+		const FVector FarAway =
+			PlayerCharacter->GetActorLocation() + FVector(0.0f, 0.0f, 1800.0f);
+		if (PlayerCharacter->OfferAnswerKnock(FarAway))
+		{
+			FailProbe(TEXT("an answer from two floors up reached him"));
+			return;
+		}
+
+		// 둘 — 쉬고 — 하나, at the authored windows. The taps are offered
+		// through the same entry point the knock verb uses.
+		const FVector Here = PlayerCharacter->GetActorLocation();
+		const bool bFirst = PlayerCharacter->OfferAnswerKnock(Here);
+		AnswerReachTapTwoAt =
+			GetWorld()->GetTimeSeconds() + AIGListenerEntity::AnswerPairMinSeconds;
+		if (!bFirst)
+		{
+			FailProbe(TEXT("the first tap of the answer was not taken"));
+			return;
+		}
+		ProbeStep = EProbeStep::AnswerReachCadence;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::AnswerReachCadence:
+	{
+		AIGPlayerCharacter* PlayerCharacter = Player.Get();
+		if (!PlayerCharacter)
+		{
+			FailProbe(TEXT("no pawn to finish the answer with"));
+			return;
+		}
+		const double Now = GetWorld()->GetTimeSeconds();
+		if (Now < AnswerReachTapTwoAt)
+		{
+			break;
+		}
+		const FVector Here = PlayerCharacter->GetActorLocation();
+		if (AnswerReachTapsSent == 0)
+		{
+			PlayerCharacter->OfferAnswerKnock(Here);
+			AnswerReachTapsSent = 1;
+			// The rest: longer than the pair, inside the authored window.
+			AnswerReachTapTwoAt = Now + AIGListenerEntity::AnswerRestMinSeconds
+				+ 0.10;
+			break;
+		}
+		PlayerCharacter->OfferAnswerKnock(Here);
+		if (Entity->GetListenerState() != EIGListenerState::Waiting)
+		{
+			FailProbe(FString::Printf(
+				TEXT("둘-쉬고-하나 did not reach him: state=%d"),
+				static_cast<int32>(Entity->GetListenerState())));
+			return;
+		}
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_ANSWERREACH PASS: the learned answer knocked at "
+				"nothing froze him into Waiting, and the same cadence from two "
+				"floors up did not"));
+
+		// Put the day back exactly as it was: P4's own tap sequence runs later
+		// and its pair interval is 0.65 s at the outside, so nothing of this
+		// check may still be standing between his first and second knock.
+		Entity->ResetToPatrolStart(/*bRaiseAggression=*/false);
+		Entity->SetDormant(true);
+		AnswerReachTapsSent = 0;
+		ProbeStep = EProbeStep::NightThreeContract;
 		StepDeadlineSeconds = 0.0f;
 		break;
 	}

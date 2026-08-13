@@ -103,6 +103,35 @@ public:
 	void NotifyAnswerKnock(const FVector& KnockLocation);
 
 	/**
+	 * 둘-쉬고-하나의 인식기. 플레이어가 아무것도 조준하지 않고 두드릴 때
+	 * 불리며, 세 번째 탭이 박자에 맞으면 NotifyAnswerKnock으로 넘긴다.
+	 *
+	 * §7 P4는 대답하는 법을 가르치고 §8 비트 3-7은 그것으로 복도를 지나가라고
+	 * 한다. 그런데 이 게임에는 대답이 존재에게 닿는 경로가 아예 없었다 —
+	 * Waiting 상태와 NotifyAnswerKnock은 구현돼 있었지만 부르는 사람이 없어서,
+	 * 배운 문법을 P4의 지정된 벽 밖에서는 쓸 수 없었다.
+	 *
+	 * 대답은 공짜가 아니다. 기다림이 끝나면 그는 **대답이 온 자리**를 조사한다.
+	 * 그래서 언제든 두드릴 수 있게 두어도 은신이 무너지지 않는다: 멈추게 하는
+	 * 대가로 자기 위치를 준다.
+	 *
+	 * Returns true when the tap was taken as part of an answer — the caller then
+	 * owns the sound and the feedback, and must not fall through to a door.
+	 */
+	bool TryAnswerKnock(const FVector& KnockLocation);
+
+	/**
+	 * 응답 박자의 유일한 정의. P4의 벽과 복도의 맨손 노크가 같은 창을 써야
+	 * 하므로, 밤3 디렉터도 이 값을 참조한다.
+	 */
+	static constexpr double AnswerPairMinSeconds = 0.18;
+	static constexpr double AnswerPairMaxSeconds = 0.65;
+	static constexpr double AnswerRestMinSeconds = 0.68;
+	static constexpr double AnswerRestMaxSeconds = 1.80;
+	/** 마지막 탭에서 이만큼 지나면 시도가 처음부터 다시 시작된다. */
+	static constexpr double AnswerSequenceResetSeconds = 3.0;
+
+	/**
 	 * Walks him to a spot and lets him hold there, silently, without any sound
 	 * having called him.
 	 *
@@ -283,6 +312,9 @@ private:
 	FVector SearchAnchor = FVector::ZeroVector;
 	FVector SearchTarget = FVector::ZeroVector;
 	FVector AnswerKnockLocation = FVector::ZeroVector;
+
+	/** The player's in-progress answer. Never more than the last three taps. */
+	TArray<double> AnswerTapTimes;
 	TArray<FVector> FinaleRoutePoints;
 	int32 FinaleRouteIndex = 0;
 	float StateSeconds = 0.0f;

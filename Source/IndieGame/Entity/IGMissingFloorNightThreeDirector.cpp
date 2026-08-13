@@ -9,6 +9,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorEvidence.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/PlayerController.h"
@@ -74,10 +75,16 @@ namespace IGNightThree
 
 	/** Eight seconds of nothing before the wall comes back. */
 	constexpr float AnswerDelaySeconds = 8.0f;
-	constexpr double AnswerPairMinSeconds = 0.18;
-	constexpr double AnswerPairMaxSeconds = 0.65;
-	constexpr double AnswerRestMinSeconds = 0.68;
-	constexpr double AnswerRestMaxSeconds = 1.80;
+	// P4의 벽과 복도의 맨손 노크는 같은 박자를 받아야 한다. 정의는 존재가
+	// 가지고 있고 여기서는 참조만 한다 — 두 벌로 두면 언젠가 어긋난다.
+	constexpr double AnswerPairMinSeconds =
+		AIGListenerEntity::AnswerPairMinSeconds;
+	constexpr double AnswerPairMaxSeconds =
+		AIGListenerEntity::AnswerPairMaxSeconds;
+	constexpr double AnswerRestMinSeconds =
+		AIGListenerEntity::AnswerRestMinSeconds;
+	constexpr double AnswerRestMaxSeconds =
+		AIGListenerEntity::AnswerRestMaxSeconds;
 
 	const FName PuzzleThreeId(TEXT("P3"));
 	const FName PuzzleFourId(TEXT("P4"));

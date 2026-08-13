@@ -555,6 +555,65 @@ void AIGListenerEntity::SetPatrolPoints(const TArray<FVector>& Points)
 	PatrolIndex = 0;
 }
 
+bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)
+{
+	const UWorld* World = GetWorld();
+	if (!World || bDormant)
+	{
+		return false;
+	}
+	// Nothing to answer while it is holding her, and the night-four authored
+	// pass must not be divertible by a knock.
+	if (State == EIGListenerState::CaptureHold
+		|| State == EIGListenerState::FinaleLured)
+	{
+		return false;
+	}
+	// Out of earshot the taps are just taps on a wall. Checked before the tap is
+	// recorded so a sequence started two floors away cannot be completed here.
+	FIGNoiseEvent Probe;
+	Probe.Location = KnockLocation;
+	Probe.Loudness = 0.35f;
+	Probe.Radius = Probe.Loudness * UIGNoiseSubsystem::CarryPerLoudness;
+	if (!CanHear(Probe))
+	{
+		return false;
+	}
+
+	const double Now = World->GetTimeSeconds();
+	if (AnswerTapTimes.Num() > 0
+		&& Now - AnswerTapTimes.Last() > AnswerSequenceResetSeconds)
+	{
+		// Too long a gap: this is the beginning of a new attempt, not the end of
+		// the old one. The player owns the silence between taps (§7 P4).
+		AnswerTapTimes.Reset();
+	}
+	AnswerTapTimes.Add(Now);
+	while (AnswerTapTimes.Num() > 3)
+	{
+		AnswerTapTimes.RemoveAt(0);
+	}
+	if (AnswerTapTimes.Num() < 3)
+	{
+		return true;
+	}
+
+	const double PairInterval = AnswerTapTimes[1] - AnswerTapTimes[0];
+	const double RestInterval = AnswerTapTimes[2] - AnswerTapTimes[1];
+	const bool bCadenceMatches =
+		PairInterval >= AnswerPairMinSeconds
+		&& PairInterval <= AnswerPairMaxSeconds
+		&& RestInterval >= AnswerRestMinSeconds
+		&& RestInterval <= AnswerRestMaxSeconds;
+	AnswerTapTimes.Reset();
+	if (bCadenceMatches)
+	{
+		NotifyAnswerKnock(KnockLocation);
+	}
+	// Either way the tap was a knock aimed at him, so the caller keeps it.
+	return true;
+}
+
 void AIGListenerEntity::NotifyAnswerKnock(const FVector& KnockLocation)
 {
 	// The answer only reaches it within ordinary hearing of a knock-loud

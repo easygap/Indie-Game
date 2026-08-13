@@ -16,6 +16,7 @@
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
 #include "EngineUtils.h"
+#include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "Entity/IGMissingFloorNightFourDirector.h"
@@ -1575,6 +1576,29 @@ void AIGPlayerCharacter::Knock()
 	AActor* FocusedActor = InteractionComponent->GetFocusedActor();
 	if (!IsValid(FocusedActor))
 	{
+		// Nothing under the cursor. §7 P4 teaches 둘-쉬고-하나 and §8 비트 3-7
+		// asks her to walk a corridor on it, so the answer cannot require an
+		// authored surface to knock on — she knocks on whatever is beside her.
+		// The tap costs her position either way: the reply buys a pause and then
+		// sends him to the spot the answer came from.
+		if (OfferAnswerKnock(GetActorLocation()))
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
+				GetActorLocation(),
+				0.82f,
+				1.0f,
+				160.0f,
+				1400.0f,
+				EIGAudioBus::Player);
+			if (UIGNoiseSubsystem* Noise =
+				GetWorld()->GetSubsystem<UIGNoiseSubsystem>())
+			{
+				Noise->ReportNoise(GetActorLocation(), 0.30f, this);
+			}
+			ApplyPlayerKnockFeedback();
+		}
 		return;
 	}
 
@@ -1613,8 +1637,29 @@ void AIGPlayerCharacter::Knock()
 		{
 			Noise->ReportNoise(FocusedActor->GetActorLocation(), 0.30f, this);
 		}
+		// A door is a perfectly good thing to answer on, so the cadence counts
+		// here too. Doing it after the noise report keeps the order honest: the
+		// building hears the knock, and then he decides what it meant.
+		OfferAnswerKnock(FocusedActor->GetActorLocation());
 		ApplyPlayerKnockFeedback();
 	}
+}
+
+bool AIGPlayerCharacter::OfferAnswerKnock(const FVector& Where)
+{
+	// Recognition only. Whoever called owns the sound, the noise report and the
+	// feedback, so a knock is never heard twice for one tap.
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+	bool bTaken = false;
+	for (TActorIterator<AIGListenerEntity> It(World); It; ++It)
+	{
+		bTaken = It->TryAnswerKnock(Where) || bTaken;
+	}
+	return bTaken;
 }
 
 void AIGPlayerCharacter::ApplyPlayerKnockFeedback()

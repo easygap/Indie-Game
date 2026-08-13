@@ -43,6 +43,13 @@ public:
 	UIGStressComponent* GetStress() const { return StressComponent; }
 
 	/**
+	 * 둘-쉬고-하나를 들을 수 있는 존재에게 이 탭을 건넨다. 인식만 하며, 소리와
+	 * 소음 보고와 피드백은 부른 쪽이 소유한다 — 한 번의 탭이 두 번 들리지
+	 * 않도록. 아무도 받지 않으면 false.
+	 */
+	bool OfferAnswerKnock(const FVector& Where);
+
+	/**
 	 * Enables the procedural head-bob/breath sway and footstep cadence.
 	 * Kept off while a director owns the camera (lying in bed, getting up).
 	 */

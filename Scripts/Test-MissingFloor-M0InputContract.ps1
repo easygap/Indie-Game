@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -273,6 +273,64 @@ foreach ($relativeAsset in @(
 	Assert-True (Test-Path -LiteralPath (Join-Path $projectRoot $relativeAsset) -PathType Leaf) `
 		"missing first-person knock asset: $relativeAsset"
 }
+
+# --- 응답 노크가 존재에게 닿는 경로 (§7 P4, §8 비트 3-7) --------------------
+# P4는 지정된 벽에서 둘-쉬고-하나를 가르치고, 비트 3-7은 복도에서 그것으로
+# 지나가라고 한다. 그런데 이 게임에는 대답이 존재에게 닿는 경로가 아예 없었다:
+# Waiting 상태와 NotifyAnswerKnock은 구현돼 있었지만 부르는 사람이 없었다.
+Assert-ContainsAll $character @(
+	'if (OfferAnswerKnock(GetActorLocation()))',
+	'bool AIGPlayerCharacter::OfferAnswerKnock(const FVector& Where)',
+	'It->TryAnswerKnock(Where)',
+	'OfferAnswerKnock(FocusedActor->GetActorLocation());'
+) 'answer knock reaches the listener'
+# 인식과 연출을 나눈다. 부른 쪽이 소리를 소유하므로 한 번의 탭이 두 번
+# 들리지 않는다 — 문을 두드리는 경로가 이미 소리를 내고 있다.
+$offerStart = $character.IndexOf(
+	'bool AIGPlayerCharacter::OfferAnswerKnock(const FVector& Where)')
+Assert-True ($offerStart -ge 0) 'the answer recogniser is missing'
+$offerEnd = $character.IndexOf("`r`n}", $offerStart)
+if ($offerEnd -lt 0) { $offerEnd = $character.IndexOf("`n}", $offerStart) }
+Assert-True ($offerEnd -gt $offerStart) 'the answer recogniser has no end brace'
+$offerBlock = $character.Substring($offerStart, $offerEnd - $offerStart)
+Assert-True (-not $offerBlock.Contains('SpawnOneShotAt')) `
+	'the answer recogniser must not play the knock itself'
+Assert-True (-not $offerBlock.Contains('ApplyPlayerKnockFeedback')) `
+	'the answer recogniser must not apply feedback itself'
+
+$listenerHeader = Read-ProjectText 'Source/IndieGame/Entity/IGListenerEntity.h'
+$listener = Read-ProjectText 'Source/IndieGame/Entity/IGListenerEntity.cpp'
+Assert-ContainsAll $listenerHeader @(
+	'bool TryAnswerKnock(const FVector& KnockLocation);',
+	'static constexpr double AnswerPairMinSeconds = 0.18;',
+	'static constexpr double AnswerPairMaxSeconds = 0.65;',
+	'static constexpr double AnswerRestMinSeconds = 0.68;',
+	'static constexpr double AnswerRestMaxSeconds = 1.80;',
+	'static constexpr double AnswerSequenceResetSeconds = 3.0;'
+) 'answer cadence has one definition'
+# 귀에 닿지 않는 박자는 그냥 벽을 두드리는 것이다. 탭을 기록하기 전에 검사해야
+# 두 층 위에서 시작한 시퀀스를 여기서 완성할 수 없다.
+Assert-ContainsAll $listener @(
+	'bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)',
+	'if (!CanHear(Probe))',
+	'NotifyAnswerKnock(KnockLocation);',
+	'EIGListenerState::CaptureHold',
+	'EIGListenerState::FinaleLured'
+) 'answer knock guards'
+# 밤3 디렉터는 같은 창을 참조한다. 두 벌로 두면 언젠가 어긋난다.
+$nightThree = Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorNightThreeDirector.cpp'
+Assert-ContainsAll $nightThree @(
+	'AIGListenerEntity::AnswerPairMinSeconds;',
+	'AIGListenerEntity::AnswerPairMaxSeconds;',
+	'AIGListenerEntity::AnswerRestMinSeconds;',
+	'AIGListenerEntity::AnswerRestMaxSeconds;'
+) 'P4 shares the one cadence definition'
+$greybox = Read-ProjectText 'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
+Assert-ContainsAll $greybox @(
+	'case EProbeStep::AnswerReachContract:',
+	'MISSINGFLOOR_ANSWERREACH PASS',
+	'an answer from two floors up reached him'
+) 'answer reach probe'
 
 Write-Host (
 	'M0 input contract passed ({0} assertions).' -f $assertionCount) `
