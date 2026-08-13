@@ -144,6 +144,10 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		EIGMissingFloorSource::CarbonLedgerOriginal,
 		IGPuzzleTwo::FrottageHoldSeconds,
 		IGPuzzleTwo::FrottageLoudness);
+	// §21.3 프로타주: the only sustained interaction in the game gets the only
+	// sustained cue. Until now the player rubbed for 1.2 s in silence while the
+	// noise bus reported 0.25 — the cost was real and inaudible.
+	CarbonLedger->SetSustainedRubCue(true);
 	CarbonLedger->SetProgressiveStages({
 		NSLOCTEXT(
 			"IGMissingFloor",

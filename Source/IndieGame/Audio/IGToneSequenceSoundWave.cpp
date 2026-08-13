@@ -1589,21 +1589,104 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateAnswerKnockPattern(
 	return Wave;
 }
 
-UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityDragLoop(UObject* Outer)
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityDragLoop(
+	UObject* Outer,
+	const bool bVinyl)
 {
-	UIGToneSequenceSoundWave* Wave =
-		IGToneSequence::NewWave(Outer, TEXT("IGEntityDragLoop"));
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		bVinyl ? TEXT("IGEntityDragLoopVinyl") : TEXT("IGEntityDragLoop"));
 	TArray<FIGToneNote> DragNotes;
 
-	// One crawl cycle: palm plant, weight shift, the long drag of trailing
-	// legs, then a grit tail. Loops at the crawl cadence.
-	DragNotes.Add({0.000f, 0.070f, 66.0f, 0.240f, 0.008f, 2.4f, EIGToneWaveform::Sine});
-	DragNotes.Add({0.000f, 0.050f, 700.0f, 0.050f, 0.030f, 1.5f, EIGToneWaveform::ValueNoise});
-	DragNotes.Add({0.180f, 0.520f, 320.0f, 0.085f, 0.180f, 1.2f, EIGToneWaveform::ValueNoise});
-	DragNotes.Add({0.180f, 0.520f, 92.0f, 0.070f, 0.180f, 1.4f, EIGToneWaveform::ValueNoise});
-	DragNotes.Add({0.740f, 0.180f, 1400.0f, 0.024f, 0.200f, 1.8f, EIGToneWaveform::ValueNoise});
+	if (bVinyl)
+	{
+		// 장판: sheet vinyl laid on screed. The slab is still there but a
+		// millimetre of plastic sits over it, so the rumble goes and the drag
+		// becomes a higher, tighter hiss. The palm plant lands softer.
+		DragNotes.Add({0.000f, 0.060f, 78.0f, 0.130f, 0.010f, 2.8f, EIGToneWaveform::Sine});
+		DragNotes.Add({0.000f, 0.045f, 1100.0f, 0.055f, 0.026f, 1.6f, EIGToneWaveform::ValueNoise});
+		DragNotes.Add({0.180f, 0.520f, 900.0f, 0.078f, 0.180f, 1.2f, EIGToneWaveform::ValueNoise});
+		DragNotes.Add({0.180f, 0.520f, 2200.0f, 0.038f, 0.200f, 1.3f, EIGToneWaveform::ValueNoise});
+		// Stick-slip. Cloth on plastic catches and releases, and that squeak is
+		// the single clearest sign underfoot that he has come in off the tile.
+		DragNotes.Add({0.315f, 0.070f, 1750.0f, 0.030f, 0.060f, 2.2f, EIGToneWaveform::Triangle});
+		DragNotes.Add({0.612f, 0.055f, 2050.0f, 0.022f, 0.070f, 2.4f, EIGToneWaveform::Triangle});
+		DragNotes.Add({0.740f, 0.180f, 2600.0f, 0.020f, 0.200f, 1.8f, EIGToneWaveform::ValueNoise});
+	}
+	else
+	{
+		// One crawl cycle: palm plant, weight shift, the long drag of trailing
+		// legs, then a grit tail. Loops at the crawl cadence.
+		DragNotes.Add({0.000f, 0.070f, 66.0f, 0.240f, 0.008f, 2.4f, EIGToneWaveform::Sine});
+		DragNotes.Add({0.000f, 0.050f, 700.0f, 0.050f, 0.030f, 1.5f, EIGToneWaveform::ValueNoise});
+		DragNotes.Add({0.180f, 0.520f, 320.0f, 0.085f, 0.180f, 1.2f, EIGToneWaveform::ValueNoise});
+		DragNotes.Add({0.180f, 0.520f, 92.0f, 0.070f, 0.180f, 1.4f, EIGToneWaveform::ValueNoise});
+		DragNotes.Add({0.740f, 0.180f, 1400.0f, 0.024f, 0.200f, 1.8f, EIGToneWaveform::ValueNoise});
+	}
 
 	Wave->ConfigureNotes(MoveTemp(DragNotes), true, 1.05f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateFrottageRub(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGFrottageRub"));
+	TArray<FIGToneNote> RubNotes;
+
+	// §21.3 fixes the band at 900~4200 Hz: graphite on paper has no low end and
+	// no pitch, only the grain of the sheet. Three strokes to the loop at about
+	// two and a half a second, which is the pace of a hand pressing hard enough
+	// to lift letters rather than sketching.
+	constexpr float LoopSeconds = 1.20f;
+	const float StrokeStarts[] = {0.000f, 0.405f, 0.798f};
+	for (int32 StrokeIndex = 0; StrokeIndex < UE_ARRAY_COUNT(StrokeStarts); ++StrokeIndex)
+	{
+		const float Start = StrokeStarts[StrokeIndex];
+		// Each stroke swells and dies: the middle of a stroke presses hardest,
+		// and the turn at either end is nearly silent. A flat band would read as
+		// a machine, not a hand.
+		RubNotes.Add({Start, 0.360f, 1200.0f, 0.062f, 0.300f, 1.5f, EIGToneWaveform::ValueNoise});
+		RubNotes.Add({Start + 0.020f, 0.320f, 2600.0f, 0.044f, 0.320f, 1.6f, EIGToneWaveform::ValueNoise});
+		RubNotes.Add({Start + 0.045f, 0.270f, 4200.0f, 0.026f, 0.340f, 1.8f, EIGToneWaveform::ValueNoise});
+		// The sheet's own body under the pressure, at the bottom of the band.
+		RubNotes.Add({Start, 0.300f, 900.0f, 0.034f, 0.280f, 1.4f, EIGToneWaveform::ValueNoise});
+		// The graphite catching on the weave once per stroke, never on the beat.
+		RubNotes.Add({
+			Start + 0.150f + 0.030f * StrokeIndex,
+			0.014f,
+			3400.0f,
+			0.020f,
+			0.010f,
+			1.4f,
+			EIGToneWaveform::ValueNoise});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(RubNotes), true, LoopSeconds);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateAudibleHeartbeat(
+	UObject* Outer,
+	const float Loudness)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGAudibleHeartbeat"));
+	TArray<FIGToneNote> Beat;
+
+	// §21.3: 기존 심박 + 220Hz 로우패스, −6dB, 박동 동기. The timing is exactly
+	// the 2D beat's so the change is heard as the *same* heart, not a new sound.
+	// −6 dB is half the amplitude; the low pass shows up as the 88 Hz partial
+	// leaving, which is the part that made the pulse sound crisp and close.
+	const float Safe = FMath::Clamp(Loudness, 0.0f, 1.0f) * 0.5f;
+	Beat.Add({0.0f, 0.19f, 44.0f, Safe, 0.05f, 2.2f, EIGToneWaveform::Sine});
+	Beat.Add({0.20f, 0.16f, 38.0f, Safe * 0.72f, 0.06f, 2.4f, EIGToneWaveform::Sine});
+	// Conducted through a chest and a wall it loses the transient and gains a
+	// little body: it rings slightly longer than the one inside your head.
+	Beat.Add({0.0f, 0.24f, 62.0f, Safe * 0.26f, 0.09f, 1.9f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(Beat), false);
 	return Wave;
 }
 

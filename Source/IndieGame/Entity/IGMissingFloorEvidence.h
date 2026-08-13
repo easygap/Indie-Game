@@ -61,6 +61,14 @@ public:
 	 */
 	void SetProgressiveStages(TArray<FText> InStageThoughts);
 
+	/**
+	 * Gives this prop an audible cue for the whole length of its hold (§21.3
+	 * 프로타주). Only the carbon ledger uses it: a sustained 0.25 that the player
+	 * cannot hear is a cost they cannot choose, and every other prop here is a
+	 * tap whose noise report already lands with the interaction.
+	 */
+	void SetSustainedRubCue(bool bEnabled);
+
 	UFUNCTION(BlueprintPure, Category = "Evidence")
 	int32 GetCompletedStageCount() const { return CompletedStages; }
 
@@ -70,10 +78,25 @@ public:
 	/** Fires on every completed examination, including repeats. */
 	FIGEvidenceExaminedSignature OnExamined;
 
+	virtual void BeginInteraction_Implementation(
+		const FIGInteractionContext& Context) override;
+	virtual void UpdateInteraction_Implementation(
+		const FIGInteractionContext& Context) override;
 	virtual void CompleteInteraction_Implementation(
 		const FIGInteractionContext& Context) override;
+	virtual void EndInteraction_Implementation(
+		const FIGInteractionContext& Context,
+		EIGInteractionEndReason EndReason) override;
 
 private:
+	void StartRubCue();
+	void StopRubCue();
+
+	UPROPERTY(Transient)
+	TObjectPtr<class UAudioComponent> RubCueComponent;
+
+	bool bSustainedRubCue = false;
+
 	UPROPERTY(VisibleAnywhere, Category = "Evidence")
 	TObjectPtr<UStaticMeshComponent> PresentationMesh;
 

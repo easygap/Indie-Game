@@ -199,6 +199,14 @@ private:
 	void PlayKnockTriple();
 	void PlayPlasterSettle();
 	void UpdateDragLoop(float CurrentSpeed);
+
+	/**
+	 * §10.3 끌림 2종: swaps the crawl bed when he moves between tile and 장판.
+	 * Traced from the floor beneath him with the same authored surface tags the
+	 * §21.2 footstep matrix uses, so the two systems can never disagree about
+	 * what he is dragging himself across.
+	 */
+	void RefreshDragSurface();
 	void UpdateThreatPressure();
 
 	/**
@@ -270,7 +278,10 @@ private:
 	float LastMoveSpeed = 0.0f;
 	FVector LastDustReportLocation = FVector::ZeroVector;
 	float DustSiftCentimeters = 0.0f;
+	float DragSurfacePollSeconds = 0.0f;
 	bool bDustTrailSeeded = false;
+	/** True while the crawl bed is the 장판 variant rather than tile. */
+	bool bDragSurfaceIsVinyl = false;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<APawn> CachedPlayer;

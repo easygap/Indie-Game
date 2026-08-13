@@ -9742,7 +9742,7 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	};
 
 	TArray<FAudioTrackProbe> Tracks;
-	constexpr int32 ExpectedTrackCount = 15;
+	constexpr int32 ExpectedTrackCount = 19;
 	Tracks.Reserve(ExpectedTrackCount);
 	const auto AddAmbienceTrack =
 		[this, &Tracks](
@@ -9810,6 +9810,26 @@ bool AIGThirdMorningDirector::ValidateRebirthAudioQueue(
 	Tracks.Add(FAudioTrackProbe{
 		TEXT("P5.HammerBreakThrough"),
 		UIGToneSequenceSoundWave::CreateHammerImpact(this, 4),
+		nullptr});
+	// The three §21.3 rows that were still standing in for themselves. The two
+	// drag beds are checked separately: a vinyl variant that renders identical
+	// to the concrete one would pass every static assertion and tell the player
+	// nothing about which floor he is on.
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("P2.FrottageRub"),
+		UIGToneSequenceSoundWave::CreateFrottageRub(this),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("V1.AudibleHeartbeat"),
+		UIGToneSequenceSoundWave::CreateAudibleHeartbeat(this, 0.30f),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("Entity.DragConcrete"),
+		UIGToneSequenceSoundWave::CreateEntityDragLoop(this, false),
+		nullptr});
+	Tracks.Add(FAudioTrackProbe{
+		TEXT("Entity.DragVinyl"),
+		UIGToneSequenceSoundWave::CreateEntityDragLoop(this, true),
 		nullptr});
 	UIGToneSequenceSoundWave* EndingBReturnHome =
 		UIGToneSequenceSoundWave::CreateEndingBReturnHomeBed(this);

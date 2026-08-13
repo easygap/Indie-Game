@@ -321,8 +321,15 @@ public:
 	 * Looping crawl bed for the entity: palm plant, a long dry drag of
 	 * cloth-and-weight over concrete, and a plaster grit tail. Volume is
 	 * driven by movement speed so silence means it is holding still.
+	 *
+	 * 끌림 2종 (§10.3): concrete is gritty and carries low. 장판 is thin vinyl
+	 * over screed, so it loses the rumble, hisses higher, and squeaks where the
+	 * cloth sticks and slips. Which floor he is on is a fact about *where* he
+	 * is, and a player who has learned both hears him come inside.
 	 */
-	static UIGToneSequenceSoundWave* CreateEntityDragLoop(UObject* Outer);
+	static UIGToneSequenceSoundWave* CreateEntityDragLoop(
+		UObject* Outer,
+		bool bVinyl = false);
 
 	/**
 	 * Hardened plaster shell settling: two or three dry hairline cracks.
@@ -397,6 +404,39 @@ public:
 	 * 종이 표면, 방향 전환 때의 작은 축 소리를 합성하며 엔딩 C에서만 쓴다.
 	 */
 	static UIGToneSequenceSoundWave* CreateWallpaperSeamRoller(UObject* Outer);
+
+	/**
+	 * 프로타주 문지름 (§21.3) — graphite laid flat and dragged over the carbon
+	 * ledger until the pressed letters come up. Band noise 900~4200 Hz, looping
+	 * for as long as the hold lasts.
+	 *
+	 * §5.1 rates this a sustained 0.25, three times a footstep, and until now it
+	 * made no sound at all: the player rubbed for 1.2 s in silence while the
+	 * noise bus told the one upstairs exactly where they were. A cost the player
+	 * cannot hear is not a cost they can choose.
+	 *
+	 * The design says 입력 속도 연동. The shipped interaction is a hold rather
+	 * than a rubbing gesture, so the hold's own progress drives the intensity —
+	 * the stroke gets more insistent as the date surfaces.
+	 */
+	static UIGToneSequenceSoundWave* CreateFrottageRub(UObject* Outer);
+
+	/**
+	 * 심박 소음화 (§21.3, §5.2) — 자기 몸이 배신하는 소리.
+	 *
+	 * Past stress 0.85 the pulse stops being something the player hears in their
+	 * head and becomes a sound in the room, audible to him within three meters
+	 * (§4.3-5). That transition already reported to the noise bus, but it sounded
+	 * identical, so the most dangerous state in the game had no tell.
+	 *
+	 * This is the ordinary lub-dub on the same beat, 6 dB down with the crisp
+	 * upper partial gone — the 220 Hz low pass of §21.3, realised by dropping the
+	 * partial rather than filtering, because this synth is additive. Played
+	 * spatially so §10.4 lets the corridor answer it.
+	 */
+	static UIGToneSequenceSoundWave* CreateAudibleHeartbeat(
+		UObject* Outer,
+		float Loudness);
 
 private:
 	static float EvaluateWaveform(EIGToneWaveform Waveform, float FrequencyHz, double NoteTimeSeconds);

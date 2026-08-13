@@ -41,6 +41,11 @@ namespace IGListener
 	constexpr float DustSiftIntervalCentimeters = 260.0f;
 	/** The thinnest cue in the game. It hints; it never announces. */
 	constexpr float DustSiftVolume = 0.42f;
+
+	/** How often the floor under him is re-traced while he moves, in seconds. */
+	constexpr float DragSurfacePollInterval = 0.30f;
+	/** Sheet vinyl, tagged by the world scene for the §21.2 footstep matrix. */
+	const FName VinylSurfaceTag(TEXT("Footstep.Vinyl"));
 }
 
 AIGListenerEntity::AIGListenerEntity()
@@ -128,6 +133,17 @@ void AIGListenerEntity::Tick(const float DeltaSeconds)
 	UpdatePresentationLayer();
 	UpdatePresentationPose(LastMoveSpeed, DeltaSeconds);
 	UpdateDragLoop(LastMoveSpeed);
+	// Only while he is actually moving, and only a few times a second: a trace
+	// per frame for a sound that changes at a doorway would be pure waste.
+	if (LastMoveSpeed > 1.0f)
+	{
+		DragSurfacePollSeconds += DeltaSeconds;
+		if (DragSurfacePollSeconds >= IGListener::DragSurfacePollInterval)
+		{
+			DragSurfacePollSeconds = 0.0f;
+			RefreshDragSurface();
+		}
+	}
 	UpdateThreatPressure();
 	ReportDustTrail();
 	LastMoveSpeed = 0.0f;
@@ -1105,6 +1121,48 @@ void AIGListenerEntity::UpdateDragLoop(const float CurrentSpeed)
 		ChaseSpeed > 0.0f ? FMath::Clamp(CurrentSpeed / ChaseSpeed, 0.0f, 1.0f) : 0.0f;
 	DragLoopComponent->SetVolumeMultiplier(SpeedRatio * 0.9f);
 	DragLoopComponent->SetPitchMultiplier(0.85f + 0.45f * SpeedRatio);
+}
+
+void AIGListenerEntity::RefreshDragSurface()
+{
+	const UWorld* World = GetWorld();
+	if (!World || !DragLoopComponent)
+	{
+		return;
+	}
+
+	const FVector Origin = GetActorLocation();
+	FHitResult Hit;
+	FCollisionQueryParams QueryParams(
+		SCENE_QUERY_STAT(IGListenerDragSurface),
+		false,
+		this);
+	bool bVinyl = false;
+	if (World->LineTraceSingleByChannel(
+		Hit,
+		Origin + FVector(0.0f, 0.0f, 12.0f),
+		Origin - FVector(0.0f, 0.0f, 120.0f),
+		ECC_Visibility,
+		QueryParams))
+	{
+		if (const UPrimitiveComponent* Component = Hit.GetComponent())
+		{
+			bVinyl = Component->ComponentHasTag(IGListener::VinylSurfaceTag);
+		}
+	}
+	if (bVinyl == bDragSurfaceIsVinyl)
+	{
+		return;
+	}
+	bDragSurfaceIsVinyl = bVinyl;
+
+	// Swapping the wave mid-loop restarts the crawl cycle, which is the right
+	// seam: the palm plant that lands on the new floor is the one that sounds
+	// different. Volume is left to UpdateDragLoop so a stopped entity stays
+	// silent through the change.
+	DragLoopComponent->SetSound(
+		UIGToneSequenceSoundWave::CreateEntityDragLoop(this, bVinyl));
+	DragLoopComponent->Play();
 }
 
 void AIGListenerEntity::ReportDustTrail()

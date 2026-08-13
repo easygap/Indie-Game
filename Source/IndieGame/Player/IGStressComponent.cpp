@@ -1,5 +1,6 @@
 ﻿#include "Player/IGStressComponent.h"
 
+#include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Camera/CameraComponent.h"
@@ -9,6 +10,16 @@
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
+
+namespace IGStress
+{
+	/**
+	 * §4.3-5 puts the audible pulse at three meters. The cue carries a little
+	 * further than the noise report so the player hears their own heart leak
+	 * before it has reached anyone — the warning has to arrive before the cost.
+	 */
+	constexpr float AudibleHeartbeatCarry = 420.0f;
+}
 
 UIGStressComponent::UIGStressComponent()
 {
@@ -261,7 +272,28 @@ void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 				if (UIGNoiseSubsystem* Noise =
 					World->GetSubsystem<UIGNoiseSubsystem>())
 				{
-					Noise->ReportNoise(Owner->GetActorLocation(), 0.115f, Owner);
+					const FIGNoiseEvent Reported = Noise->ReportNoise(
+						Owner->GetActorLocation(),
+						0.115f,
+						Owner);
+					// §21.3 심박 소음화. Only when the report actually survived
+					// masking: beside the fridge the pulse is swallowed, and
+					// hearing it leak anyway would teach the player that cover
+					// does not work. The mix tells the truth or it teaches a lie.
+					if (Reported.Loudness > 0.0f)
+					{
+						IGAudio::SpawnOneShotAt(
+							this,
+							UIGToneSequenceSoundWave::CreateAudibleHeartbeat(
+								this,
+								Loudness),
+							Owner->GetActorLocation(),
+							1.0f,
+							1.0f,
+							60.0f,
+							IGStress::AudibleHeartbeatCarry,
+							EIGAudioBus::Player);
+					}
 				}
 			}
 		}

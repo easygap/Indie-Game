@@ -148,7 +148,7 @@ $assertions++
 # The packaged release probe must render every production generator, reject
 # silent or clipped buffers, and confirm the finite M5 tail before queueing M3.
 Require-All $thirdMorning @(
-	'ExpectedTrackCount = 15',
+	'ExpectedTrackCount = 19',
 	'M0.RoomTone',
 	'M1.StoreJingle',
 	'M1b.DegradedJingle',
@@ -163,6 +163,10 @@ Require-All $thirdMorning @(
 	'P3.PipeWaterFar',
 	'P3.ValveOpen',
 	'P5.HammerBreakThrough',
+	'P2.FrottageRub',
+	'V1.AudibleHeartbeat',
+	'Entity.DragConcrete',
+	'Entity.DragVinyl',
 	'M5.ReturnHome',
 	'RequestedSamplesPerTrack = 4096',
 	'TrackNonZeroSamples > 32',
@@ -464,8 +468,122 @@ Require-All $worldScene @(
 	'PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;'
 ) '§11 V1 night exposure lock'
 
+# §21.3 프로타주: 밴드 노이즈 900~4200Hz, 지속. 소음 0.25를 내는 유일한 지속
+# 상호작용이므로 유일한 지속 큐를 갖는다. 들리지 않는 비용은 선택할 수 없다.
+Require-All $tone @(
+	'CreateFrottageRub(',
+	'IGFrottageRub',
+	'900.0f',
+	'4200.0f'
+) '§21.3 frottage synthesis'
+$rubBody = [regex]::Match(
+	$tone,
+	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreateFrottageRub\(.*?\n\}').Value
+if ($rubBody -notmatch 'ConfigureNotes\(MoveTemp\(RubNotes\), true') {
+	throw '프로타주는 홀드 내내 이어져야 하므로 루프다.'
+}
+$assertions++
+foreach ($band in [regex]::Matches($rubBody, 'RubNotes\.Add\(\{\s*[^,]+,\s*[0-9.]+f,\s*([0-9.]+)f,')) {
+	$value = [double]$band.Groups[1].Value
+	if ($value -lt 900.0 -or $value -gt 4200.0) {
+		throw "프로타주 대역은 900~4200Hz 안에 있어야 한다: $value Hz"
+	}
+	$assertions++
+}
+if ($rubBody -match 'EIGToneWaveform::(Sine|Triangle|SoftSquare)') {
+	throw '흑연이 종이를 긁는 소리에는 음정이 없다.'
+}
+$assertions++
+$evidence = Read-Source 'Source/IndieGame/Entity/IGMissingFloorEvidence.cpp'
+$puzzleTwo = Read-Source 'Source/IndieGame/Entity/IGMissingFloorPuzzleTwoDirector.cpp'
+Require-All $evidence @(
+	'void AIGMissingFloorEvidence::SetSustainedRubCue(',
+	'UIGToneSequenceSoundWave::CreateFrottageRub(this)',
+	'Context.HoldProgress',
+	'RubCueComponent->FadeOut('
+) '§21.3 frottage route'
+Require-All $puzzleTwo @(
+	'CarbonLedger->SetSustainedRubCue(true);'
+) '§21.3 frottage wiring'
+# 손을 떼면 연필도 멈춘다. 놓아도 계속 울리면 남은 비용을 피할 수 없다.
+if ($evidence -notmatch '(?s)EndInteraction_Implementation\(.*?StopRubCue\(\);') {
+	throw '홀드를 놓으면 문지름이 멈춰야 한다.'
+}
+$assertions++
+
+# §21.3 심박 소음화: 기존 심박 + 220Hz 로우패스, −6dB, 박동 동기.
+Require-All $tone @(
+	'CreateAudibleHeartbeat(',
+	'IGAudibleHeartbeat'
+) '§21.3 audible heartbeat synthesis'
+$audibleBody = [regex]::Match(
+	$tone,
+	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreateAudibleHeartbeat\(.*?\n\}').Value
+if ($audibleBody -notmatch '\* 0\.5f') {
+	throw '심박 소음화는 −6dB, 즉 진폭 절반이어야 한다.'
+}
+$assertions++
+# 220Hz 로우패스는 가산 합성에서 상위 부분음 제거로 실현된다. 88Hz가 남아
+# 있으면 또렷한 심박이 그대로 방에 나가 전이가 들리지 않는다.
+foreach ($partial in [regex]::Matches($audibleBody, 'Beat\.Add\(\{\s*[0-9.]+f,\s*[0-9.]+f,\s*([0-9.]+)f,')) {
+	if ([double]$partial.Groups[1].Value -gt 220.0) {
+		throw ('심박 소음화는 220Hz 위를 남기지 않는다: ' +
+			"$($partial.Groups[1].Value) Hz")
+	}
+	$assertions++
+}
+Require-All $stress @(
+	'UIGToneSequenceSoundWave::CreateAudibleHeartbeat(',
+	'Reported.Loudness > 0.0f',
+	'EIGAudioBus::Player'
+) '§21.3 audible heartbeat route'
+# 험이 삼킨 심박이 들리면 엄폐가 통하지 않는다고 가르치게 된다.
+if ($stress -notmatch '(?s)const FIGNoiseEvent Reported = Noise->ReportNoise\(.*?if \(Reported\.Loudness > 0\.0f\)') {
+	throw '마스킹을 통과한 심박만 들려야 한다.'
+}
+$assertions++
+
+# §10.3 끌림 2종: 콘크리트와 장판. 같은 소리면 어느 바닥인지 알 수 없다.
+Require-All $tone @(
+	'CreateEntityDragLoop(',
+	'IGEntityDragLoopVinyl',
+	'if (bVinyl)'
+) '§10.3 drag variants'
+$dragBody = [regex]::Match(
+	$tone,
+	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreateEntityDragLoop\(.*?\n\}').Value
+$dragHalves = $dragBody -split 'if \(bVinyl\)', 2
+if ($dragHalves.Count -ne 2) { throw '끌림 두 종의 분기를 찾을 수 없다.' }
+$vinylHalf = ($dragHalves[1] -split '\telse\b', 2)[0]
+$concreteHalf = ($dragHalves[1] -split '\telse\b', 2)[1]
+$vinylLowest = 99999.0
+foreach ($n in [regex]::Matches($vinylHalf, 'DragNotes\.Add\(\{\s*[0-9.]+f,\s*[0-9.]+f,\s*([0-9.]+)f,')) {
+	$vinylLowest = [Math]::Min($vinylLowest, [double]$n.Groups[1].Value)
+}
+$concreteLowest = 99999.0
+foreach ($n in [regex]::Matches($concreteHalf, 'DragNotes\.Add\(\{\s*[0-9.]+f,\s*[0-9.]+f,\s*([0-9.]+)f,')) {
+	$concreteLowest = [Math]::Min($concreteLowest, [double]$n.Groups[1].Value)
+}
+# 장판은 슬래브 위 얇은 플라스틱이라 저역 럼블을 잃는다.
+if ($vinylLowest -le $concreteLowest) {
+	throw ('장판 끌림은 콘크리트보다 저역이 얕아야 한다: ' +
+		"vinyl=$vinylLowest concrete=$concreteLowest")
+}
+$assertions++
+Require-All $listener @(
+	'void AIGListenerEntity::RefreshDragSurface()',
+	'const FName VinylSurfaceTag(TEXT("Footstep.Vinyl"));',
+	'UIGToneSequenceSoundWave::CreateEntityDragLoop(this, bVinyl)'
+) '§10.3 drag surface route'
+# 발소리 매트릭스와 같은 태그를 써야 두 시스템이 어긋나지 않는다.
+$playerCharacter = Read-Source 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+if ($playerCharacter -notmatch 'VinylSurfaceTag\(TEXT\("Footstep\.Vinyl"\)\)') {
+	throw '끌림과 발소리가 같은 표면 태그를 공유해야 한다.'
+}
+$assertions++
+
 Write-Host (
-	"REBIRTH_AUDIO_CONTRACT PASS assertions=$assertions generators=15 tracks=6 " +
+	"REBIRTH_AUDIO_CONTRACT PASS assertions=$assertions generators=19 tracks=6 " +
 	'crossfade_seconds=1.6 tank_silence_seconds=6 m5_seconds=45 ' +
 	'reverb_presets=2 dust_density_max=2.0') `
 	-ForegroundColor Green
