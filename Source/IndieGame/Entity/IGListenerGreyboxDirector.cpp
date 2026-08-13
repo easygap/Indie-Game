@@ -693,6 +693,185 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("M6 silence or dynamic ducking values drifted"));
 			return;
 		}
+		ProbeStep = EProbeStep::DifficultyContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::DifficultyContract:
+	{
+		// §20.2 is a table of authored numbers, so the only honest test is to
+		// resolve it and compare. A static text assertion can read the literals
+		// but cannot prove the three axes multiply in the right order.
+		const float ExpectedSensitivity[] = {1.0f, 1100.0f / 900.0f, 1100.0f / 900.0f, 1300.0f / 900.0f};
+		const float ExpectedListen[] = {8.0f, 8.0f, 7.0f, 6.0f};
+		const int32 ExpectedNodes[] = {6, 11, 14, 18};
+		const float ExpectedChase[] = {264.0f, 330.0f, 330.0f, 374.0f};
+		const float ExpectedHold[] = {6.0f, 6.0f, 5.0f, 5.0f};
+		const float ExpectedHeat[] = {0.0f, 0.3f, 0.5f, 0.7f};
+		const bool ExpectedAmbush[] = {false, false, true, true};
+		for (int32 Night = 1; Night <= 4; ++Night)
+		{
+			const FIGListenerTuning Base = IGListenerTuning::Resolve(
+				Night,
+				EIGNightDifficulty::Standard,
+				0);
+			const int32 Index = Night - 1;
+			const bool bRowMatches =
+				FMath::IsNearlyEqual(Base.HearingSensitivity, ExpectedSensitivity[Index], 0.001f)
+				&& FMath::IsNearlyEqual(Base.ListenWindowSeconds, ExpectedListen[Index], 0.001f)
+				&& Base.PatrolNodeCount == ExpectedNodes[Index]
+				&& FMath::IsNearlyEqual(Base.ChaseSpeed, ExpectedChase[Index], 0.01f)
+				&& FMath::IsNearlyEqual(Base.InvestigateHoldSeconds, ExpectedHold[Index], 0.001f)
+				&& FMath::IsNearlyEqual(Base.HeatmapWeight, ExpectedHeat[Index], 0.001f)
+				&& Base.bTierThreeAmbushAllowed == ExpectedAmbush[Index]
+				&& Base.bCaptureEnabled
+				&& Base.bChaseEnabled;
+			if (!bRowMatches)
+			{
+				FailProbe(FString::Printf(
+					TEXT("§20.2 tuning row for night %d drifted"),
+					Night));
+				return;
+			}
+		}
+
+		// The tier is a separate axis that multiplies the night value, not a
+		// replacement for it: night 3 at tier 3 is 7 × 0.5, not 4.
+		const FIGListenerTuning Night3Tier3 = IGListenerTuning::Resolve(
+			3,
+			EIGNightDifficulty::Standard,
+			3);
+		if (!FMath::IsNearlyEqual(Night3Tier3.ListenWindowSeconds, 3.5f, 0.001f))
+		{
+			FailProbe(FString::Printf(
+				TEXT("tier axis is not multiplying the night value: %.2fs"),
+				Night3Tier3.ListenWindowSeconds));
+			return;
+		}
+
+		const FIGListenerTuning Quiet = IGListenerTuning::Resolve(
+			4,
+			EIGNightDifficulty::Quiet,
+			0);
+		const FIGListenerTuning Hasty = IGListenerTuning::Resolve(
+			2,
+			EIGNightDifficulty::Hasty,
+			0);
+		const FIGListenerTuning ListenOnly = IGListenerTuning::Resolve(
+			4,
+			EIGNightDifficulty::ListenOnly,
+			3);
+		const bool bQuietMatches =
+			FMath::IsNearlyEqual(Quiet.HearingSensitivity, (1300.0f / 900.0f) * 0.75f, 0.001f)
+			&& FMath::IsNearlyEqual(Quiet.ChaseSpeed, 374.0f * 0.8f, 0.01f)
+			&& FMath::IsNearlyEqual(Quiet.WaitScale, 1.5f, 0.001f);
+		const bool bHastyMatches =
+			FMath::IsNearlyEqual(Hasty.ListenWindowSeconds, 7.0f, 0.001f)
+			&& FMath::IsNearlyEqual(Hasty.HeatmapWeight, 0.5f, 0.001f);
+		const bool bListenOnlyMatches =
+			!ListenOnly.bChaseEnabled
+			&& !ListenOnly.bCaptureEnabled
+			&& !ListenOnly.bTierThreeAmbushAllowed;
+		if (!bQuietMatches || !bHastyMatches || !bListenOnlyMatches)
+		{
+			FailProbe(TEXT("§20.4 difficulty modifiers drifted"));
+			return;
+		}
+
+		// §5.6 is pure statistics, so it has to be reproducible: same reports in,
+		// same hottest zone out, halved by a night, gone on reset.
+		UIGNoiseSubsystem* Noise = NoiseSubsystem;
+		if (!Noise)
+		{
+			FailProbe(TEXT("noise subsystem missing for the heatmap contract"));
+			return;
+		}
+		Noise->ResetHeatmap();
+		const float PreviousMasking = Noise->GetGlobalMasking();
+		Noise->SetGlobalMasking(0.0f);
+		const FVector ColdSpot = ProbeNoiseLocation + FVector(4000.0f, 0.0f, 0.0f);
+		const FVector WarmSpot = ProbeNoiseLocation;
+		const FVector HotSpot =
+			ProbeNoiseLocation + FVector(UIGNoiseSubsystem::HeatZoneSize * 3.0f, 0.0f, 0.0f);
+		Noise->ReportNoise(WarmSpot, 0.30f, nullptr);
+		// Deliberately past the saturation point: a zone the player has been loud
+		// in fifty times must not out-weigh one they were loud in fifteen times,
+		// or the ambush would chase an outlier instead of a habit.
+		const int32 SaturatingReports = FMath::CeilToInt(
+			UIGNoiseSubsystem::HeatSaturation / 0.5f) + 2;
+		for (int32 Repeat = 0; Repeat < SaturatingReports; ++Repeat)
+		{
+			Noise->ReportNoise(HotSpot, 0.50f, nullptr);
+		}
+		const float WarmHeat = Noise->GetHeatAt(WarmSpot);
+		const float HotHeat = Noise->GetHeatAt(HotSpot);
+		const float ColdHeat = Noise->GetHeatAt(ColdSpot);
+		FVector HottestCenter = FVector::ZeroVector;
+		float HottestHeat = 0.0f;
+		const bool bFoundHottest =
+			Noise->GetHottestZone(HottestCenter, HottestHeat);
+		// The hottest zone must be the one that was hammered, not the first one
+		// touched, or an ambush would sit where the player merely walked once.
+		const bool bHottestIsHot = bFoundHottest
+			&& FVector::Dist2D(HottestCenter, HotSpot)
+				< UIGNoiseSubsystem::HeatZoneSize;
+		const bool bSaturates = HotHeat >= 0.99f;
+		const int32 ZonesBeforeDecay = Noise->GetHeatZoneCount();
+		Noise->DecayHeatmapForNewNight();
+		const float DecayedHot = Noise->GetHeatAt(HotSpot);
+		Noise->ResetHeatmap();
+		const int32 ZonesAfterReset = Noise->GetHeatZoneCount();
+		Noise->SetGlobalMasking(PreviousMasking);
+		if (ColdHeat > 0.0f || WarmHeat <= 0.0f || HotHeat <= WarmHeat
+			|| !bHottestIsHot || !bSaturates
+			|| ZonesBeforeDecay != 2 || ZonesAfterReset != 0
+			|| !FMath::IsNearlyEqual(DecayedHot, HotHeat * 0.5f, 0.01f))
+		{
+			FailProbe(FString::Printf(
+				TEXT("§5.6 heatmap drifted: cold=%.2f warm=%.2f hot=%.2f "
+					"decayed=%.2f zones=%d reset=%d hottest=%d"),
+				ColdHeat,
+				WarmHeat,
+				HotHeat,
+				DecayedHot,
+				ZonesBeforeDecay,
+				ZonesAfterReset,
+				bHottestIsHot ? 1 : 0));
+			return;
+		}
+
+		// And the entity honours the mode it was given, not just the table.
+		AIGListenerEntity* EntityActor = Entity.Get();
+		if (!EntityActor)
+		{
+			FailProbe(TEXT("entity missing for the difficulty contract"));
+			return;
+		}
+		const EIGNightDifficulty RestoreDifficulty =
+			EntityActor->GetDifficulty();
+		EntityActor->SetDifficultyForTesting(EIGNightDifficulty::ListenOnly);
+		const bool bEntityListenOnly =
+			!EntityActor->GetTuning().bCaptureEnabled
+			&& !EntityActor->GetTuning().bChaseEnabled;
+		EntityActor->SetDifficultyForTesting(RestoreDifficulty);
+		const bool bEntityRestored =
+			EntityActor->GetTuning().bCaptureEnabled
+			&& EntityActor->GetDifficulty() == RestoreDifficulty;
+		if (!bEntityListenOnly || !bEntityRestored)
+		{
+			FailProbe(TEXT("the entity does not follow §20.4 at runtime"));
+			return;
+		}
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_DIFFICULTY PASS: §20.2 four nights, "
+				"tier axis multiplies (night3 tier3 = %.2fs), "
+				"quiet/hasty/listen-only honoured, heatmap saturates and halves"),
+			Night3Tier3.ListenWindowSeconds);
+
 		ProbeStep = EProbeStep::PerceptionContract;
 		StepDeadlineSeconds = 0.0f;
 		break;

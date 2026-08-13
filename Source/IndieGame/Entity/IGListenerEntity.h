@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Pawn.h"
+#include "Entity/IGListenerTuning.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "IGListenerEntity.generated.h"
 
@@ -70,6 +71,21 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Listener")
 	void SetAggressionTier(int32 Tier);
+
+	/**
+	 * Re-resolves §20.2 and §20.4 for the night that is starting. Called on
+	 * waking and whenever the tier moves, so a difficulty change mid-run takes
+	 * effect at the next night without touching saves (§20.4).
+	 */
+	void RefreshNightTuning();
+
+	/** The numbers this night is actually running on. */
+	const FIGListenerTuning& GetTuning() const { return Tuning; }
+
+	EIGNightDifficulty GetDifficulty() const { return Difficulty; }
+
+	/** Harness hook: forces a mode for one run without writing it back. */
+	void SetDifficultyForTesting(EIGNightDifficulty NewDifficulty);
 
 	/**
 	 * World-space patrol stops. The entity crawls node to node, knocking and
@@ -161,6 +177,21 @@ private:
 	void FaceDirection(const FVector& Direction, float DeltaSeconds);
 	const FVector* CurrentPatrolTarget() const;
 
+	/**
+	 * §5.6: picks the next patrol stop. With no heatmap weight it is the plain
+	 * round of the route; as the weight rises the stops the player has been
+	 * loud near start winning. Pure statistics, so the same play produces the
+	 * same route.
+	 */
+	void AdvancePatrolIndex();
+
+	/**
+	 * §5.6 tier-3 ambush: goes to the hottest zone and waits there without
+	 * knocking. The knock cycle disappearing is the tell — late in the game a
+	 * quiet building is the dangerous one.
+	 */
+	bool TryBeginAmbush();
+
 	// -- presentation -------------------------------------------------------
 	void BuildGreyboxBody();
 	void UpdatePresentationLayer();
@@ -215,6 +246,11 @@ private:
 	TArray<FVector> PatrolPoints;
 
 	EIGListenerState State = EIGListenerState::Patrolling;
+	FIGListenerTuning Tuning;
+	EIGNightDifficulty Difficulty = EIGNightDifficulty::Standard;
+	/** Set when the ambush node has been chosen for this tier-3 stretch. */
+	FVector AmbushLocation = FVector::ZeroVector;
+	bool bAmbushArmed = false;
 	bool bDormant = false;
 	int32 AggressionTier = 0;
 	int32 PatrolIndex = 0;

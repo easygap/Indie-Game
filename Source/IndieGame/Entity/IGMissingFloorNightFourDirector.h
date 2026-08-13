@@ -62,6 +62,19 @@ public:
 
 	/** Tier-3 capture during night 4 uses the same common-discovery state. */
 	bool ResolveFailureEnding();
+
+	/**
+	 * The §20.4 substitute route to ending C: dawn arrived on night four with
+	 * the wall still closed. 듣기만 하는 밤 has no captures, so the tier never
+	 * reaches three and the ordinary route above can never fire — without this
+	 * the accessibility mode would be missing an ending, and §20.5 requires all
+	 * three to stay reachable in every mode.
+	 */
+	bool ResolveDawnFailureEnding();
+
+	/** Shared tail of both ending-C routes: capture record, staging, cards. */
+	bool CommitFailureEnding(bool bRecordCapture);
+
 	/** 엔딩 C 동안 상호작용을 소비하고, 카드가 완전히 열린 뒤에만 재시도한다. */
 	bool RequestFailureRetry();
 	bool IsFailureEndingActive() const { return bFailureEndingActive; }

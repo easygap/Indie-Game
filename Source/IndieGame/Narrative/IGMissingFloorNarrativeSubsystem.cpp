@@ -315,7 +315,17 @@ bool UIGMissingFloorNarrativeSubsystem::IsFinalChoiceUnlocked() const
 
 void UIGMissingFloorNarrativeSubsystem::SetNightIndex(const int32 NightIndex)
 {
-	Snapshot.Night.NightIndex = FMath::Clamp(NightIndex, 0, 4);
+	const int32 Clamped = FMath::Clamp(NightIndex, 0, 4);
+	if (Clamped != Snapshot.Night.NightIndex)
+	{
+		// §20.2: 공격성 티어는 밤이 끝나면 1로 하강한다. Impatience earned by
+		// last night's captures does not carry in full, or a bad night 2 would
+		// make nights 3 and 4 unplayable. It descends rather than resets: a
+		// player who was never caught still starts at 0.
+		Snapshot.Night.AggressionTier =
+			FMath::Min(Snapshot.Night.AggressionTier, 1);
+	}
+	Snapshot.Night.NightIndex = Clamped;
 }
 
 void UIGMissingFloorNarrativeSubsystem::SetHourSealed(const bool bSealed)

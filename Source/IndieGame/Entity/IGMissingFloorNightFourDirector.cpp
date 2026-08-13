@@ -1623,9 +1623,45 @@ bool AIGMissingFloorNightFourDirector::ResolveFailureEnding()
 	{
 		return false;
 	}
+	return CommitFailureEnding(/*bRecordCapture=*/true);
+}
+
+bool AIGMissingFloorNightFourDirector::ResolveDawnFailureEnding()
+{
+	// §20.4: 듣기만 하는 밤에는 포획이 없으므로 티어가 3에 닿지 않고, 위 경로로는
+	// 엔딩 C에 영원히 도달할 수 없다. 그래서 조건을 밤4의 05:30 벽 미개방으로
+	// 대체한다. 실패의 문이 완전히 닫히면 성공의 무게도 사라진다.
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (bFailureEndingActive || !Narrative
+		|| Narrative->GetNightIndex() != 4
+		|| Narrative->IsNightFourWallOpened()
+		|| !Narrative->GetEndingChoice().IsNone())
+	{
+		return false;
+	}
+	if (!Narrative->SelectEnding(IGNightFour::EndingCId))
+	{
+		return false;
+	}
+	return CommitFailureEnding(/*bRecordCapture=*/false);
+}
+
+bool AIGMissingFloorNightFourDirector::CommitFailureEnding(
+	const bool bRecordCapture)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return false;
+	}
 	bFailureEndingActive = true;
 	bFailureRetryEnabled = false;
-	Narrative->RecordCapture();
+	// The dawn route is not a catch. Recording one there would raise the tier
+	// and inflate the capture count in a mode that has no captures at all.
+	if (bRecordCapture)
+	{
+		Narrative->RecordCapture();
+	}
 	if (UWorld* World = GetWorld())
 	{
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =

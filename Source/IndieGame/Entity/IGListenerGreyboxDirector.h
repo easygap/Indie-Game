@@ -116,6 +116,8 @@ private:
 	{
 		Inactive,
 		AudioVisualContract,
+		/** §20.2 tuning table, §20.4 difficulty modes, §5.6 noise heatmap. */
+		DifficultyContract,
 		/** §10.4 reverb grammar and the §11 V1 airborne-dust world model. */
 		PerceptionContract,
 		/** The torch beam actually populating and thickening over his lane. */

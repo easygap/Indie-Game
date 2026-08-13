@@ -89,7 +89,46 @@ public:
 	/** How far a full-loudness (1.0) sound carries, in centimeters. */
 	static constexpr float CarryPerLoudness = 2600.0f;
 
+	// -- §5.6 적응 청각 -----------------------------------------------------
+	//
+	// 존재는 소음의 누적 히트맵을 가진다. 플레이어가 자주 소리 낸 구역일수록
+	// 순찰 경유 확률이 오르고, 티어3에서는 가장 뜨거운 구역에 미리 가서
+	// 두드리지 않고 기다린다. 구현은 생성형이 아니라 순수 통계다 — 구역별
+	// 카운트와 감쇠뿐이므로 재현 가능하고 검증 가능하다.
+
+	/** 이 지점의 누적 열, 0~1로 정규화된 값. */
+	UFUNCTION(BlueprintPure, Category = "Noise")
+	float GetHeatAt(const FVector& Location) const;
+
+	/**
+	 * 가장 뜨거운 구역의 중심을 돌려준다. 동률이면 먼저 뜨거워진 구역이
+	 * 이기므로 같은 플레이는 같은 매복 지점을 만든다.
+	 */
+	bool GetHottestZone(FVector& OutCenter, float& OutHeat) const;
+
+	/** 밤이 끝나면 절반으로. 어제의 습관이 오늘 완전히 사라지지는 않는다. */
+	void DecayHeatmapForNewNight();
+
+	/** 회차 시작과 포획 리셋이 쓰는 완전 초기화. */
+	void ResetHeatmap();
+
+	int32 GetHeatZoneCount() const { return HeatZones.Num(); }
+
+	/** 구역 한 변의 길이. 복도 한 구간에 대응하는 굵기다. */
+	static constexpr float HeatZoneSize = 400.0f;
+
+	/** 한 구역이 포화되는 누적 소음량. 이보다 뜨거워지지는 않는다. */
+	static constexpr float HeatSaturation = 6.0f;
+
+	/** 밤 단위 감쇠 계수. */
+	static constexpr float HeatNightDecay = 0.5f;
+
 private:
+	/** 좌표를 구역 키로 접는다. 결정적이며 해시 순서에 의존하지 않는다. */
+	static FIntVector ToHeatZoneKey(const FVector& Location);
+	static FVector FromHeatZoneKey(const FIntVector& Key);
+	void AccumulateHeat(const FVector& Location, float Loudness);
+
 	struct FIGHumSource
 	{
 		int32 Handle = 0;
@@ -98,7 +137,18 @@ private:
 		float Masking = 0.0f;
 	};
 
+	struct FIGHeatZone
+	{
+		FIntVector Key = FIntVector::ZeroValue;
+		float Heat = 0.0f;
+		/** 먼저 뜨거워진 구역이 동률에서 이기도록 하는 순번. */
+		int32 Serial = 0;
+	};
+
 	TArray<FIGHumSource> HumSources;
+	/** 배열이라 순회 순서가 고정된다. TMap 해시 순서는 결정적이지 않다. */
+	TArray<FIGHeatZone> HeatZones;
 	int32 NextHumHandle = 1;
+	int32 NextHeatSerial = 1;
 	float GlobalMasking = 0.0f;
 };

@@ -2,6 +2,8 @@
 
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "Entity/IGMissingFloorNightFourDirector.h"
 #include "GameFramework/PlayerController.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -177,6 +179,22 @@ void AIGNightPhaseDirector::ReleaseAtDawn()
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
 		Narrative->SetHourSealed(false);
+	}
+
+	// §20.4: dawn on night four with the wall still closed is the substitute
+	// route to ending C. It is the only way there for 듣기만 하는 밤, which has
+	// no captures to raise the tier, and it is harmless in the other modes —
+	// a player who reached 05:30 without opening the wall has failed either way.
+	for (TActorIterator<AIGMissingFloorNightFourDirector> It(GetWorld()); It; ++It)
+	{
+		if (It->ResolveDawnFailureEnding())
+		{
+			// The failure ending owns the screen from here; the ordinary morning
+			// line would talk over its card.
+			OnHourActiveChanged.Broadcast(false);
+			return;
+		}
+		break;
 	}
 
 	// The release is announced by the world, not by a banner: the entrance

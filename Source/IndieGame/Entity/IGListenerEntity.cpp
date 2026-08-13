@@ -12,6 +12,7 @@
 #include "Environment/IGDustSubsystem.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGStressComponent.h"
 
@@ -99,6 +100,11 @@ void AIGListenerEntity::BeginPlay()
 		}
 		DragLoopComponent->Play();
 	}
+
+	// §20.4: the mode is a user setting, read once when he wakes into the world.
+	// A run started from the harness can override it without writing it back.
+	Difficulty = IGListenerTuning::ResolveActiveDifficulty();
+	RefreshNightTuning();
 
 	EnterState(EIGListenerState::Patrolling);
 }
@@ -244,10 +250,13 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 	case EIGListenerState::Listening:
 		if (StateSeconds >= ListenSecondsForTier())
 		{
-			PatrolIndex = PatrolPoints.Num() > 0
-				? (PatrolIndex + 1) % PatrolPoints.Num()
-				: 0;
-			EnterState(EIGListenerState::Patrolling);
+			// Tier 3 stops walking the route and goes to sit on the player's
+			// habit instead (§5.6). Everything else takes the next stop.
+			if (!TryBeginAmbush())
+			{
+				AdvancePatrolIndex();
+				EnterState(EIGListenerState::Patrolling);
+			}
 		}
 		break;
 
@@ -353,7 +362,11 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		{
 			const float Distance =
 				FVector::Dist(Player->GetActorLocation(), GetActorLocation());
-			if (Distance <= CaptureRadius)
+			// 듣기만 하는 밤: he reaches the sound and holds there, and that is
+			// where it ends. Touching costs nothing, so the night can never be
+			// taken away — the story, the puzzles and all three endings stay
+			// exactly the same (§20.4).
+			if (Distance <= CaptureRadius && Tuning.bCaptureEnabled)
 			{
 				BeginCapture(Player);
 			}
@@ -399,7 +412,7 @@ void AIGListenerEntity::HandleNoise(const FIGNoiseEvent& Event)
 		return; // Already committed; the new location is enough.
 	}
 
-	if (bSecondSound)
+	if (bSecondSound && Tuning.bChaseEnabled)
 	{
 		// A sound that answers twice is a someone.
 		EnterState(EIGListenerState::Chasing);
@@ -424,7 +437,11 @@ bool AIGListenerEntity::CanHear(const FIGNoiseEvent& Event) const
 		// Another floor: the structure eats some of the sound.
 		Distance *= CrossFloorDistancePenalty;
 	}
-	return Distance <= Event.Radius * HearingMultiplier();
+	// §20.2 기본 청취 반경. The night sensitivity scales his ear, not the sound:
+	// a hammer still carries as far as a hammer carries, and the same footstep
+	// simply reaches him from farther away as the nights go on.
+	return Distance
+		<= Event.Radius * HearingMultiplier() * Tuning.HearingSensitivity;
 }
 
 float AIGListenerEntity::HearingMultiplier() const
@@ -442,15 +459,17 @@ float AIGListenerEntity::HearingMultiplier() const
 
 float AIGListenerEntity::ListenSecondsForTier() const
 {
-	static constexpr float Seconds[4] = {8.0f, 6.0f, 5.0f, 4.0f};
-	return Seconds[FMath::Clamp(AggressionTier, 0, 3)];
+	// §20.2 gives the night base and §4.3-7 the tier axis; the tuning table has
+	// already multiplied them, so there is one number left to obey.
+	return Tuning.ListenWindowSeconds;
 }
 
 float AIGListenerEntity::WaitSecondsForTier() const
 {
-	// Hope wears out: each reset it waits less on an answer.
+	// Hope wears out: each reset it waits less on an answer. 조용한 밤 stretches
+	// every one of those waits by half again — more time to answer, same fear.
 	static constexpr float Seconds[4] = {20.0f, 12.0f, 6.0f, 6.0f};
-	return Seconds[FMath::Clamp(AggressionTier, 0, 3)];
+	return Seconds[FMath::Clamp(AggressionTier, 0, 3)] * Tuning.WaitScale;
 }
 
 // -- public controls -------------------------------------------------------
@@ -458,6 +477,44 @@ float AIGListenerEntity::WaitSecondsForTier() const
 void AIGListenerEntity::SetAggressionTier(const int32 Tier)
 {
 	AggressionTier = FMath::Clamp(Tier, 0, 3);
+	// The tier is one of the three axes, so the resolved numbers move with it.
+	RefreshNightTuning();
+}
+
+void AIGListenerEntity::RefreshNightTuning()
+{
+	int32 NightIndex = IGListenerTuning::FirstNight;
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			if (const UIGMissingFloorNarrativeSubsystem* Narrative =
+				GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
+			{
+				NightIndex = Narrative->GetNightIndex();
+			}
+		}
+	}
+	Tuning = IGListenerTuning::Resolve(NightIndex, Difficulty, AggressionTier);
+	ChaseSpeed = Tuning.ChaseSpeed;
+
+	// 듣기만 하는 밤에서는 이미 시작된 추격과 포획도 성립하지 않는다. 모드를
+	// 밤 중간에 바꿔도 다음 판정부터 즉시 지켜져야 한다.
+	if (!Tuning.bChaseEnabled && State == EIGListenerState::Chasing)
+	{
+		EnterState(EIGListenerState::Investigating);
+	}
+	if (!Tuning.bTierThreeAmbushAllowed)
+	{
+		bAmbushArmed = false;
+	}
+}
+
+void AIGListenerEntity::SetDifficultyForTesting(
+	const EIGNightDifficulty NewDifficulty)
+{
+	Difficulty = NewDifficulty;
+	RefreshNightTuning();
 }
 
 void AIGListenerEntity::SetPatrolPoints(const TArray<FVector>& Points)
@@ -517,7 +574,12 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 		if (NoiseSubsystem)
 		{
 			NoiseSubsystem->SetGlobalMasking(0.0f);
+			// §5.6: 밤이 끝나면 히트맵은 절반으로 감쇠한다. 어제의 습관이 오늘
+			// 완전히 사라지지는 않는다 — 조용히 걷기로 바꿨더라도 어제 시끄러웠던
+			// 복도는 여전히 조금 더 위험하다.
+			NoiseSubsystem->DecayHeatmapForNewNight();
 		}
+		bAmbushArmed = false;
 		if (UWorld* World = GetWorld())
 		{
 			if (UIGMissingFloorAudioSubsystem* AudioDirector =
@@ -570,6 +632,7 @@ void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 	FinaleRoutePoints.Reset();
 	FinaleRouteIndex = 0;
 	bReactingToSound = false;
+	bAmbushArmed = false;
 	// The hour restarts at 04:30, so the air restarts with it (§5.4). Leaving
 	// the lane behind would let a reset player read a path nobody walked.
 	bDustTrailSeeded = false;
@@ -580,6 +643,10 @@ void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 			Dust->ClearDisturbances();
 		}
 	}
+	// §5.6: the habit survives the reset. He does not forget where you have been
+	// loud just because the clock went back to half past four — that memory is
+	// the whole point of the heatmap, and it only halves when a night ends.
+	RefreshNightTuning();
 	EnterState(EIGListenerState::Patrolling);
 }
 
@@ -627,6 +694,83 @@ bool AIGListenerEntity::CrawlTowards(
 		StuckSeconds = 0.0f;
 	}
 	return false;
+}
+
+void AIGListenerEntity::AdvancePatrolIndex()
+{
+	const int32 NodeCount = PatrolPoints.Num();
+	if (NodeCount <= 0)
+	{
+		PatrolIndex = 0;
+		return;
+	}
+
+	const int32 NextIndex = (PatrolIndex + 1) % NodeCount;
+	const UWorld* World = GetWorld();
+	UIGNoiseSubsystem* Noise = NoiseSubsystem;
+	if (Tuning.HeatmapWeight <= 0.0f || !Noise || !World || NodeCount < 3)
+	{
+		// 밤1은 히트맵 가중이 0이다. 첫 밤의 순찰은 배울 수 있는 순서여야 한다.
+		PatrolIndex = NextIndex;
+		return;
+	}
+
+	// The route order is the baseline and the heatmap is a bias on top: the next
+	// stop keeps a head start so patrols still read as a round, and a stop only
+	// jumps the queue when the player has genuinely been loud near it.
+	int32 BestIndex = NextIndex;
+	float BestScore = 1.0f;
+	for (int32 Offset = 0; Offset < NodeCount; ++Offset)
+	{
+		const int32 Candidate = (PatrolIndex + 1 + Offset) % NodeCount;
+		if (Candidate == PatrolIndex)
+		{
+			// Standing still is not a patrol.
+			continue;
+		}
+		const float Heat = Noise->GetHeatAt(PatrolPoints[Candidate]);
+		// The in-order stop starts at 1.0; anything else has to out-argue it.
+		const float Score = (Candidate == NextIndex ? 1.0f : 0.0f)
+			+ Heat * Tuning.HeatmapWeight * 2.0f;
+		if (Score > BestScore)
+		{
+			BestScore = Score;
+			BestIndex = Candidate;
+		}
+	}
+	PatrolIndex = BestIndex;
+}
+
+bool AIGListenerEntity::TryBeginAmbush()
+{
+	if (!Tuning.bTierThreeAmbushAllowed || AggressionTier < 3 || bAmbushArmed)
+	{
+		return false;
+	}
+	UIGNoiseSubsystem* Noise = NoiseSubsystem;
+	if (!Noise)
+	{
+		return false;
+	}
+	FVector Hottest = FVector::ZeroVector;
+	float Heat = 0.0f;
+	if (!Noise->GetHottestZone(Hottest, Heat) || Heat < 0.5f)
+	{
+		// Without a habit there is nothing to lie in wait for, and guessing
+		// would make the ambush feel arbitrary instead of earned.
+		return false;
+	}
+
+	// Keep his own floor: the hottest zone is a statistic, and dragging himself
+	// through a slab to reach it is not something the state machine can do.
+	AmbushLocation = FVector(Hottest.X, Hottest.Y, GetActorLocation().Z);
+	bAmbushArmed = true;
+	// Investigating walks him there; arriving hands over to Holding, which is
+	// silent. No knock cycle announces this one.
+	LastHeardLocation = AmbushLocation;
+	bReactingToSound = false;
+	EnterState(EIGListenerState::Investigating);
+	return true;
 }
 
 void AIGListenerEntity::FaceDirection(
