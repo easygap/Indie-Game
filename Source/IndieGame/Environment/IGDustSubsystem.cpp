@@ -113,6 +113,44 @@ void UIGDustSubsystem::ClearDisturbances()
 	Disturbances.Reset();
 }
 
+void UIGDustSubsystem::ReportSettledPrint(
+	const FVector& Location,
+	const float YawDegrees,
+	const EIGDustPrintKind Kind)
+{
+	// Standing still would otherwise stack a hundred prints in one spot and
+	// evict the trail the player is trying to read.
+	for (FIGDustPrint& Existing : SettledPrints)
+	{
+		if (Existing.Kind == Kind
+			&& FVector::DistSquared(Existing.Location, Location)
+				<= PrintMergeDistance * PrintMergeDistance)
+		{
+			Existing.Location = Location;
+			Existing.YawDegrees = YawDegrees;
+			return;
+		}
+	}
+
+	if (SettledPrints.Num() >= MaxSettledPrints)
+	{
+		// Oldest first: the far end of the search fades before where you are.
+		SettledPrints.RemoveAt(0, 1, EAllowShrinking::No);
+	}
+	SettledPrints.Add({Location, YawDegrees, Kind});
+}
+
+void UIGDustSubsystem::CollectSettledPrints(
+	TArray<FIGDustPrint>& OutPrints) const
+{
+	OutPrints = SettledPrints;
+}
+
+void UIGDustSubsystem::ClearSettledPrints()
+{
+	SettledPrints.Reset();
+}
+
 int32 UIGDustSubsystem::GetLiveDisturbanceCount() const
 {
 	PruneExpired();

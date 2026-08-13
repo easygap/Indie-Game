@@ -12,6 +12,7 @@
 #include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
+#include "Environment/IGSettledDustComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/SkyLightComponent.h"
@@ -1944,6 +1945,91 @@ void AIGPrologueWorldScene::BuildApartment()
 		}
 	}
 
+	// §11 V2: 403호는 프롤로그(깨끗) → 밤4(천장 모서리 균열 진행)로 3단계
+	// 노화한다. Every plane is built now and hidden; SetUnit403AgeStage reveals
+	// them. Building them later would make the room pop the first time the story
+	// state changed, and the whole point is that the damage was always coming.
+	//
+	// The cracks start in the two ceiling corners over the wall he is behind. A
+	// player who never looks up never learns it, and one who does gets the only
+	// warning the apartment ever gives: this is spreading toward you.
+	Unit403AgeStageOne.Reset();
+	Unit403AgeStageTwo.Reset();
+	if (PlaneMesh)
+	{
+		UMaterialInterface* Cracks =
+			TexMat(TEXT("M_MissingFloorCavityScratches"), nullptr);
+		UMaterialInterface* DampLift =
+			TexMat(TEXT("M_DecalDampWallpaper"), nullptr);
+		const auto AddAging = [this](
+			TArray<TObjectPtr<UStaticMeshComponent>>& Stage,
+			const FVector& Center,
+			const FVector& Size,
+			UMaterialInterface* Material,
+			const FRotator& Rotation)
+		{
+			if (!Material)
+			{
+				return;
+			}
+			if (UStaticMeshComponent* Plane = CreateBlock(
+				Center,
+				Size,
+				Material,
+				false,
+				PlaneMesh,
+				Rotation))
+			{
+				// V2 contract: 0.15 cm off the surface, no shadow, no collision,
+				// no distance field. The trace only wets what is already there.
+				Plane->SetCastShadow(false);
+				Plane->SetCanEverAffectNavigation(false);
+				Plane->SetAffectDistanceFieldLighting(false);
+				Plane->SetCullDistance(950.0f);
+				Plane->SetHiddenInGame(true);
+				Stage.Add(Plane);
+			}
+		};
+
+		// Stage one: hairline cracks in the north-east ceiling corner, and the
+		// first lift of wallpaper where the damp behind it has started to work.
+		AddAging(
+			Unit403AgeStageOne,
+			FVector(150.0f, 200.0f, 229.85f),
+			FVector(72.0f, 78.0f, 1.0f),
+			Cracks,
+			FRotator::ZeroRotator);
+		AddAging(
+			Unit403AgeStageOne,
+			FVector(189.85f, 196.0f, 196.0f),
+			FVector(58.0f, 46.0f, 1.0f),
+			DampLift,
+			FRotator(90.0f, 0.0f, 0.0f));
+
+		// Stage two: it has crossed the ceiling and come down the corner. 곰팡이
+		// 모서리 is the same damp overlay taken further down the wall, because
+		// mould follows the water and the water has had four more nights.
+		AddAging(
+			Unit403AgeStageTwo,
+			FVector(96.0f, 200.0f, 229.85f),
+			FVector(96.0f, 84.0f, 1.0f),
+			Cracks,
+			FRotator(0.0f, 12.0f, 0.0f));
+		AddAging(
+			Unit403AgeStageTwo,
+			FVector(189.85f, 214.0f, 122.0f),
+			FVector(128.0f, 62.0f, 1.0f),
+			DampLift,
+			FRotator(90.0f, 0.0f, 0.0f));
+		AddAging(
+			Unit403AgeStageTwo,
+			FVector(178.0f, 213.85f, 34.0f),
+			FVector(74.0f, 58.0f, 1.0f),
+			DampLift,
+			FRotator(0.0f, 0.0f, 90.0f));
+	}
+	ApplyUnit403AgeStage();
+
 	// Bed: a real scanned frame when available, greybox otherwise. The
 	// mattress/duvet dressing sits on top either way.
 	if (!PlacePhotoProp(TEXT("old_bed_frame"), FVector(-140, 110, 0), FVector(108, 208, 100), 90.0f))
@@ -2324,6 +2410,68 @@ void AIGPrologueWorldScene::BuildCorridor()
 		CreateBlock(FVector(190, -305, -10), FVector(1040, 160, 20), CorridorFloor),
 		IGPrologueWorld::FootstepConcreteTag);
 	CreateBlock(FVector(190, -305, 250), FVector(1040, 160, 20), CorridorCeil);
+
+	// §11 V2 끌린 자국 (복도 러너). A year of a hand cart and a rolled tarp being
+	// dragged from the stair core to 403's door has worn a lane down the middle
+	// of the hallway. It is the oldest mark in the building and the quietest
+	// clue in it: the route the covering-up took, worn in before she moved in.
+	if (PlaneMesh)
+	{
+		UMaterialInterface* Runner =
+			TexMat(TEXT("M_MissingFloorDragTrails"), nullptr);
+		UMaterialInterface* Rust = TexMat(TEXT("M_DecalRustFasteners"), nullptr);
+		const auto AddCorridorResidue = [this](
+			const FVector& Center,
+			const FVector& Size,
+			UMaterialInterface* Material,
+			const FRotator& Rotation)
+		{
+			if (!Material)
+			{
+				return;
+			}
+			if (UStaticMeshComponent* Plane = CreateBlock(
+				Center,
+				Size,
+				Material,
+				false,
+				PlaneMesh,
+				Rotation))
+			{
+				// V2 contract: 0.15 cm clear of the surface, no shadow, no
+				// collision, out of the distance field.
+				Plane->SetCastShadow(false);
+				Plane->SetCanEverAffectNavigation(false);
+				Plane->SetAffectDistanceFieldLighting(false);
+				Plane->SetCullDistance(1600.0f);
+			}
+		};
+		// Three overlapping segments rather than one long plane: the lane wanders
+		// where the cart was steered, and a single straight stripe down a hallway
+		// reads as a painted line.
+		AddCorridorResidue(
+			FVector(-160.0f, -300.0f, 0.15f),
+			FVector(320.0f, 96.0f, 1.0f),
+			Runner,
+			FRotator(0.0f, 3.0f, 0.0f));
+		AddCorridorResidue(
+			FVector(120.0f, -308.0f, 0.15f),
+			FVector(300.0f, 88.0f, 1.0f),
+			Runner,
+			FRotator(0.0f, -4.0f, 0.0f));
+		AddCorridorResidue(
+			FVector(390.0f, -302.0f, 0.15f),
+			FVector(280.0f, 82.0f, 1.0f),
+			Runner,
+			FRotator(0.0f, 2.0f, 0.0f));
+		// §11 V2 계량기함 녹. The distribution board's steel face has been
+		// weeping down its own door since long before any of this.
+		AddCorridorResidue(
+			FVector(-90.0f, -228.45f, 148.0f),
+			FVector(30.0f, 44.0f, 1.0f),
+			Rust,
+			FRotator(90.0f, 0.0f, 0.0f));
+	}
 
 	// South wall is solid on this floor, with hopper windows onto the alley.
 	// Bare glow planes read as blue rectangles stuck on the wall, so each one
@@ -3322,6 +3470,29 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	IGPrologueWorld::TagFootstepSurface(
 		CreateBlock(FVector(0, 700, 1195), FVector(800, 500, 10), AnnexFloor),
 		IGPrologueWorld::FootstepGypsumTag);
+	// §11 V2 분진 퇴적: this is the one floor in the building deep enough in
+	// plaster dust to hold a print. The field covers the slab exactly, so a
+	// footfall in the stairwell or the corridor is reported and simply not drawn.
+	if (!SettledDust)
+	{
+		SettledDust = NewObject<UIGSettledDustComponent>(
+			this,
+			TEXT("MissingFloorSettledDust"));
+		if (SettledDust)
+		{
+			SettledDust->SetupAttachment(GetRootComponent());
+			SettledDust->RegisterComponent();
+		}
+	}
+	if (SettledDust)
+	{
+		constexpr float AnnexFloorTopZ = 1200.0f;
+		SettledDust->ConfigureField(
+			FBox(
+				FVector(-400.0f, 450.0f, AnnexFloorTopZ),
+				FVector(400.0f, 950.0f, AnnexFloorTopZ)),
+			AnnexFloorTopZ);
+	}
 	CreateBlock(FVector(0, 700, 1445), FVector(800, 500, 10), AnnexCeiling);
 	CreateBlock(FVector(0, 947.5f, 1320), FVector(800, 15, 240), AnnexWallX);
 	// South wall split around the second 90 cm fire door (X=85..175).
@@ -3445,6 +3616,51 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	}
 
 	ActiveParent = nullptr;
+}
+
+void AIGPrologueWorldScene::SetUnit403AgeStage(const int32 Stage)
+{
+	const int32 Clamped = FMath::Clamp(Stage, 0, 2);
+	if (Unit403AgeStage == Clamped)
+	{
+		return;
+	}
+	Unit403AgeStage = Clamped;
+	ApplyUnit403AgeStage();
+}
+
+void AIGPrologueWorldScene::ApplyUnit403AgeStage()
+{
+	// Cumulative, not exclusive: stage two keeps stage one's cracks and adds to
+	// them. Damage does not move house.
+	for (const TObjectPtr<UStaticMeshComponent>& Plane : Unit403AgeStageOne)
+	{
+		if (Plane)
+		{
+			Plane->SetHiddenInGame(Unit403AgeStage < 1);
+		}
+	}
+	for (const TObjectPtr<UStaticMeshComponent>& Plane : Unit403AgeStageTwo)
+	{
+		if (Plane)
+		{
+			Plane->SetHiddenInGame(Unit403AgeStage < 2);
+		}
+	}
+}
+
+int32 AIGPrologueWorldScene::GetUnit403AgingPlaneCount() const
+{
+	int32 Count = 0;
+	if (Unit403AgeStage >= 1)
+	{
+		Count += Unit403AgeStageOne.Num();
+	}
+	if (Unit403AgeStage >= 2)
+	{
+		Count += Unit403AgeStageTwo.Num();
+	}
+	return Count;
 }
 
 void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)

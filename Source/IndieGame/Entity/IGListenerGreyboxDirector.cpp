@@ -26,6 +26,7 @@
 #include "Entity/IGNightPhaseDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "Environment/IGDustSubsystem.h"
+#include "Environment/IGSettledDustComponent.h"
 #include "Player/IGBeamDustComponent.h"
 #include "Player/IGFlashlightComponent.h"
 #include "HAL/PlatformMisc.h"
@@ -1106,6 +1107,73 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("motes survived the torch going out"));
 			return;
 		}
+		// §11 V2 분진 퇴적. The field owns its own extent, so the two facts worth
+		// proving are that a mark inside the fifth-floor slab is drawn and a mark
+		// outside it is silently discarded. Getting that backwards would either
+		// litter the whole building with footprints or draw none at all, and both
+		// look like "the feature is off" from a screenshot.
+		const AIGPrologueWorldScene* SceneActor = WorldScene.Get();
+		const UIGSettledDustComponent* DustField = SceneActor
+			? SceneActor->FindComponentByClass<UIGSettledDustComponent>()
+			: nullptr;
+		if (!DustField || !DustField->IsFieldReady())
+		{
+			FailProbe(TEXT("the fifth-floor settled dust field is missing"));
+			return;
+		}
+		Dust->ClearSettledPrints();
+		const FVector InsideField(0.0f, 700.0f, 1200.0f);
+		const FVector OutsideField(190.0f, -305.0f, 900.0f);
+		Dust->ReportSettledPrint(InsideField, 0.0f, EIGDustPrintKind::Footfall);
+		Dust->ReportSettledPrint(
+			InsideField + FVector(120.0f, 0.0f, 0.0f),
+			90.0f,
+			EIGDustPrintKind::Drag);
+		Dust->ReportSettledPrint(OutsideField, 0.0f, EIGDustPrintKind::Footfall);
+		// Standing still must not evict the trail: a repeat inside the merge
+		// radius replaces its neighbour instead of stacking.
+		Dust->ReportSettledPrint(
+			InsideField + FVector(UIGDustSubsystem::PrintMergeDistance * 0.4f, 0, 0),
+			12.0f,
+			EIGDustPrintKind::Footfall);
+		const int32 ReportedPrints = Dust->GetSettledPrintCount();
+		Dust->ClearSettledPrints();
+		const int32 PrintsAfterReset = Dust->GetSettledPrintCount();
+		if (ReportedPrints != 3 || PrintsAfterReset != 0)
+		{
+			FailProbe(FString::Printf(
+				TEXT("settled dust bookkeeping drifted: reported=%d reset=%d"),
+				ReportedPrints,
+				PrintsAfterReset));
+			return;
+		}
+
+		// §11 V2 403호 3단계 노화: cumulative, and clean in the prologue.
+		AIGPrologueWorldScene* MutableScene = WorldScene.Get();
+		if (!MutableScene)
+		{
+			FailProbe(TEXT("world scene missing for the aging contract"));
+			return;
+		}
+		const int32 RestoreAgeStage = MutableScene->GetUnit403AgeStage();
+		MutableScene->SetUnit403AgeStage(0);
+		const int32 CleanPlanes = MutableScene->GetUnit403AgingPlaneCount();
+		MutableScene->SetUnit403AgeStage(1);
+		const int32 StageOnePlanes = MutableScene->GetUnit403AgingPlaneCount();
+		MutableScene->SetUnit403AgeStage(2);
+		const int32 StageTwoPlanes = MutableScene->GetUnit403AgingPlaneCount();
+		MutableScene->SetUnit403AgeStage(RestoreAgeStage);
+		if (CleanPlanes != 0 || StageOnePlanes <= 0
+			|| StageTwoPlanes <= StageOnePlanes)
+		{
+			FailProbe(FString::Printf(
+				TEXT("403 aging is not cumulative: %d/%d/%d planes"),
+				CleanPlanes,
+				StageOnePlanes,
+				StageTwoPlanes));
+			return;
+		}
+
 		Torch->SetAvailable(false);
 		Dust->ClearDisturbances();
 
@@ -1114,6 +1182,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			Display,
 			TEXT("MISSINGFLOOR_PERCEPTION PASS: corridor/stairwell reverb, "
 				"cavity still ringing at 0.5s (level=%.0f, %.2fs vs solid %.2fs), "
+				"settled dust bounded and 403 aging cumulative, "
 				"dust x%.2f over his lane, %d/%d motes lit, dry when dark"),
 			ProbeHollowRingLevel,
 			ProbeHollowRingSeconds,

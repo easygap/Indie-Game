@@ -19,6 +19,23 @@ struct FIGDustDisturbance
 	double TimeSeconds = 0.0;
 };
 
+/** What pressed the settled dust. Both leave grey-white, in different shapes. */
+enum class EIGDustPrintKind : uint8
+{
+	/** A shoe. Discrete, paired, pointing where the player was going. */
+	Footfall,
+	/** His elbows and trailing weight. Long, smeared, no direction to speak of. */
+	Drag
+};
+
+/** One mark left in dust that has already settled. */
+struct FIGDustPrint
+{
+	FVector Location = FVector::ZeroVector;
+	float YawDegrees = 0.0f;
+	EIGDustPrintKind Kind = EIGDustPrintKind::Footfall;
+};
+
 /**
  * 공기 중 석고 가루 — the building's other memory.
  *
@@ -70,6 +87,40 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Dust")
 	int32 GetLiveDisturbanceCount() const;
 
+	// -- §11 V2 분진 퇴적 ---------------------------------------------------
+	//
+	// The airborne half of the dust says where he passed in the last minute.
+	// This half is the slow record: dust that has already fallen onto the fifth
+	// floor holds a print until the hour restarts. Two timescales of the same
+	// evidence — and the player leaves their own, which is the point. You can
+	// read where you have already searched, and so can nobody, because he is
+	// blind. It is a map you drew for yourself.
+
+	/**
+	 * Presses a mark into the settled dust. Reporters do not need to know where
+	 * dust actually lies; the field that renders these filters by its own
+	 * bounds, so a footfall on bare tile is recorded and simply never drawn.
+	 */
+	void ReportSettledPrint(
+		const FVector& Location,
+		float YawDegrees,
+		EIGDustPrintKind Kind);
+
+	/** Every live print, oldest first, so the renderer can fade the tail. */
+	void CollectSettledPrints(TArray<FIGDustPrint>& OutPrints) const;
+
+	/** Reset returns the hour to 04:30, and the floor with it. */
+	void ClearSettledPrints();
+
+	UFUNCTION(BlueprintPure, Category = "Dust")
+	int32 GetSettledPrintCount() const { return SettledPrints.Num(); }
+
+	/** Ring capacity. About forty paces of fifth-floor searching. */
+	static constexpr int32 MaxSettledPrints = 96;
+
+	/** Marks closer together than this replace rather than stack. */
+	static constexpr float PrintMergeDistance = 26.0f;
+
 	/**
 	 * How long a stir stays readable. Long enough that a player who heard him
 	 * pass can still light the lane and see it; short enough that the corridor
@@ -97,4 +148,7 @@ private:
 
 	/** Mutable so const queries can retire dead samples as they pass them. */
 	mutable TArray<FIGDustDisturbance> Disturbances;
+
+	/** Oldest first. Settled dust does not fade with time, only with the hour. */
+	TArray<FIGDustPrint> SettledPrints;
 };

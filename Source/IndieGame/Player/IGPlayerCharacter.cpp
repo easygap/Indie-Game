@@ -20,6 +20,7 @@
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "Entity/IGMissingFloorNightFourDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
+#include "Environment/IGDustSubsystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "InputActionValue.h"
@@ -77,6 +78,8 @@ namespace IGPlayerNoise
 	constexpr float MicrophoneCalibrationSeconds = 1.50f;
 	constexpr float MicrophoneMinimumThreshold = 0.028f;
 	constexpr float MicrophoneReportCooldownSeconds = 0.28f;
+	/** Capsule centre to sole, so a print lands on the floor and not the knee. */
+	constexpr float FootPrintDropCentimeters = 88.0f;
 	const FName VinylSurfaceTag(TEXT("Footstep.Vinyl"));
 	const FName ConcreteSurfaceTag(TEXT("Footstep.Concrete"));
 	const FName MetalStairSurfaceTag(TEXT("Footstep.MetalStair"));
@@ -1025,6 +1028,26 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 				GetActorLocation(),
 				LastFootstepNoiseLoudness,
 				this);
+		}
+	}
+
+	// §11 V2 분진 퇴적: the fifth floor's settled plaster holds a print. Reported
+	// unconditionally — the dust field discards marks that fall outside itself,
+	// so this stays ignorant of where dust actually lies. Alternating the print
+	// half a shoe left and right of centre makes a walked line read as a pair of
+	// tracks rather than a single smeared stripe.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGDustSubsystem* Dust = World->GetSubsystem<UIGDustSubsystem>())
+		{
+			const float Yaw = GetActorRotation().Yaw;
+			const FVector Side = GetActorRightVector()
+				* ((LastStepIndex % 2 == 0) ? 9.0f : -9.0f);
+			Dust->ReportSettledPrint(
+				GetActorLocation() + Side
+					- FVector(0.0f, 0.0f, IGPlayerNoise::FootPrintDropCentimeters),
+				Yaw,
+				EIGDustPrintKind::Footfall);
 		}
 	}
 

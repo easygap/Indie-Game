@@ -657,6 +657,10 @@ void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 		if (UIGDustSubsystem* Dust = World->GetSubsystem<UIGDustSubsystem>())
 		{
 			Dust->ClearDisturbances();
+			// The floor goes back to 04:30 too. A swept fifth floor is how the
+			// player knows the hour really did restart, and leaving last loop's
+			// tracks would have them searching where they have not been.
+			Dust->ClearSettledPrints();
 		}
 	}
 	// §5.6: the habit survives the reset. He does not forget where you have been
@@ -1203,6 +1207,13 @@ void AIGListenerEntity::ReportDustTrail()
 	// brightest lane — the one the player most needs to read afterwards.
 	const float DragStrength = FMath::Clamp(LastMoveSpeed / 160.0f, 0.45f, 1.0f);
 	DustSubsystem->ReportDisturbance(DragHeight, DragStrength);
+	// §11 V2: the same pass also presses the settled dust. His mark is a smear
+	// across the direction of travel, not a footprint — and it is the one thing
+	// on the fifth floor that says something came through here on its elbows.
+	DustSubsystem->ReportSettledPrint(
+		FVector(DragHeight.X, DragHeight.Y, DragHeight.Z),
+		GetActorRotation().Yaw,
+		EIGDustPrintKind::Drag);
 
 	// One audible sift every few meters, never every sample: a continuous hiss
 	// would sit on top of the crawl bed and stop being information. The cue is

@@ -73,6 +73,13 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 		WorldScene->SetTheHourSealed(true);
 		// The half-landing viewing pocket exists only while the hour does.
 		WorldScene->SetNightStairPocketEnabled(true);
+		// §11 V2 403호 3단계 노화. The prologue and the first night are a flat
+		// she lives in; nights two and three crack the ceiling corner; night
+		// four has the damp down the wall. Driven off the night rather than any
+		// story flag, because the building is not reacting to her — it is just
+		// getting worse, and that is the point.
+		WorldScene->SetUnit403AgeStage(
+			NightIndex >= 4 ? 2 : (NightIndex >= 2 ? 1 : 0));
 	}
 	ApplySealedPresentation(true);
 

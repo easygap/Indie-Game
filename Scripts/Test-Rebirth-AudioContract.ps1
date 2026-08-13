@@ -22,6 +22,7 @@ $beamDust = Read-Source 'Source/IndieGame/Player/IGBeamDustComponent.cpp'
 $worldScene = Read-Source 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
 $nightThree = Read-Source 'Source/IndieGame/Entity/IGMissingFloorNightThreeDirector.cpp'
 $nightFour = Read-Source 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
+$nightPhaseScene = Read-Source 'Source/IndieGame/Entity/IGNightPhaseDirector.cpp'
 $assertions = 0
 
 function Require-All(
@@ -467,6 +468,82 @@ Require-All $worldScene @(
 	'PostProcess->Settings.AutoExposureMinBrightness = bSealed ? 1.30f : -0.5f;',
 	'PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;'
 ) '§11 V1 night exposure lock'
+
+# §11 V2 오염 레이어. 수광 평면은 0.15cm만 띄우고 그림자·충돌을 끈다. 조명색과
+# 접촉 그림자는 월드가 계산하므로 흔적만 주변 재질에 젖어든다.
+$settledDust = Read-Source 'Source/IndieGame/Environment/IGSettledDustComponent.cpp'
+$settledDustHeader = Read-Source 'Source/IndieGame/Environment/IGSettledDustComponent.h'
+Require-All $settledDustHeader @(
+	'static constexpr float SurfaceOffset = 0.15f;',
+	'void ConfigureField('
+) '§11 V2 settled dust contract'
+Require-All $dust @(
+	'enum class EIGDustPrintKind : uint8',
+	'void ReportSettledPrint(',
+	'void ClearSettledPrints();',
+	'static constexpr float PrintMergeDistance = 26.0f;'
+) '§11 V2 settled dust world model'
+Require-All $settledDust @(
+	'M_MissingFloorHandprints',
+	'M_MissingFloorDragTrails',
+	'Layer->SetCastShadow(false);',
+	'Layer->SetReceivesDecals(false);',
+	'Layer->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);',
+	'Layer->bAffectDistanceFieldLighting = false;',
+	'Layer->SetUsingAbsoluteLocation(true);',
+	'FieldFloorZ + SurfaceOffset'
+) '§11 V2 settled dust blending'
+# 발자국이 남는 마스크: 두 종류의 마크가 서로 다른 크기여야 신발과 끌림이
+# 구분된다. 같으면 바닥에 같은 도형만 깔린다.
+if ($settledDustHeader -notmatch 'FootfallLengthCentimeters = 27\.0f' -or
+	$settledDustHeader -notmatch 'DragLengthCentimeters = 62\.0f') {
+	throw '신발 자국과 끌림 자국은 크기가 달라야 구분된다.'
+}
+$assertions++
+# 흰 사각 그림으로 붙이지 않는다: 발광이나 불투명 기본 재질이면 계약 위반이다.
+if ($settledDust -match 'M_(SignWhite|LightPanel|ScreenGlow|PaperClean)') {
+	throw '오염 마크는 저자 잔여물 마스크만 쓴다(§11 V2).'
+}
+$assertions++
+# 리포터는 먼지가 어디 있는지 몰라도 된다. 필드가 자기 범위로 걸러낸다.
+Require-All $listener @(
+	'EIGDustPrintKind::Drag'
+) '§11 V2 entity drag mark'
+$playerPrints = Read-Source 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+Require-All $playerPrints @(
+	'EIGDustPrintKind::Footfall',
+	'FootPrintDropCentimeters'
+) '§11 V2 player footfall mark'
+# 포획 리셋은 공기와 바닥을 함께 04:30으로 되돌린다.
+if ($listener -notmatch 'Dust->ClearSettledPrints\(\);') {
+	throw '포획 리셋은 바닥의 흔적도 지워야 한다(§5.4).'
+}
+$assertions++
+
+# §11 V2 403호 3단계 노화: 프롤로그는 깨끗하고, 누적이며, 밤으로 구동된다.
+Require-All $worldScene @(
+	'void AIGPrologueWorldScene::SetUnit403AgeStage(',
+	'void AIGPrologueWorldScene::ApplyUnit403AgeStage()',
+	'Unit403AgeStageOne',
+	'Unit403AgeStageTwo',
+	'M_MissingFloorCavityScratches',
+	'M_DecalDampWallpaper'
+) '§11 V2 403 aging'
+Require-All $nightPhaseScene @(
+	'WorldScene->SetUnit403AgeStage('
+) '§11 V2 aging wiring'
+# 누적이 아니라 배타면 밤4에서 균열이 사라진다.
+if ($worldScene -notmatch 'Plane->SetHiddenInGame\(Unit403AgeStage < 1\);' -or
+	$worldScene -notmatch 'Plane->SetHiddenInGame\(Unit403AgeStage < 2\);') {
+	throw '403호 노화는 누적이어야 한다. 손상은 이사 가지 않는다.'
+}
+$assertions++
+# 4F 복도 러너와 계량기함 녹.
+Require-All $worldScene @(
+	'§11 V2 끌린 자국 (복도 러너)',
+	'M_MissingFloorDragTrails',
+	'M_DecalRustFasteners'
+) '§11 V2 corridor runner and meter rust'
 
 # §21.3 프로타주: 밴드 노이즈 900~4200Hz, 지속. 소음 0.25를 내는 유일한 지속
 # 상호작용이므로 유일한 지속 큐를 갖는다. 들리지 않는 비용은 선택할 수 없다.

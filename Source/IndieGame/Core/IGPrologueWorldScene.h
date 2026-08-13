@@ -38,6 +38,7 @@ class USkyAtmosphereComponent;
 class USkyLightComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
+class UIGSettledDustComponent;
 class UInstancedStaticMeshComponent;
 class UIGAlarmSoundWave;
 enum class EIGRebirthPurchaseProfile : uint8;
@@ -182,6 +183,22 @@ public:
 	 * shutter across the passage — never as a HUD notice.
 	 */
 	void SetTheHourSealed(bool bSealed);
+
+	/**
+	 * §11 V2 403호 3단계 노화. Stage 0 is the prologue, when the flat is simply
+	 * a flat; stage 2 is night four, with the ceiling corner cracked and the
+	 * damp down the east wall. Nothing here is interactive or story-gated — it
+	 * is the building getting worse while she lives in it, and the only player
+	 * who ever notices is the one who looks up twice.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Missing Floor")
+	void SetUnit403AgeStage(int32 Stage);
+
+	UFUNCTION(BlueprintPure, Category = "Missing Floor")
+	int32 GetUnit403AgeStage() const { return Unit403AgeStage; }
+
+	/** Planes actually revealed at the current stage. Contract and diagnostics. */
+	int32 GetUnit403AgingPlaneCount() const;
 
 	UFUNCTION(BlueprintPure, Category = "Story|Night")
 	bool IsTheHourSealed() const { return bTheHourSealed; }
@@ -388,6 +405,9 @@ private:
 	void InitializePrologue();
 	bool PositionPlayer();
 	void BuildApartment();
+
+	/** Shows the aging planes the current stage has reached, hides the rest. */
+	void ApplyUnit403AgeStage();
 	void BuildCorridor();
 	void BuildChapterTwoOverlay();
 	void BuildLobby();
@@ -651,6 +671,19 @@ private:
 	/** Night 4: the three practical lights on the upper stair/roof/annex circuit. */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UPointLightComponent>> MissingFloorAnnexLights;
+
+	/** §11 V2: the fifth-floor dust that holds footprints and drag marks. */
+	UPROPERTY(Transient)
+	TObjectPtr<UIGSettledDustComponent> SettledDust;
+
+	/** §11 V2: 403호 3단계 노화. Both stages are built hidden and revealed. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> Unit403AgeStageOne;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UStaticMeshComponent>> Unit403AgeStageTwo;
+
+	int32 Unit403AgeStage = 0;
 
 	/** The middle bay's removable gypsum face; studs and evidence remain. */
 	UPROPERTY(Transient)
