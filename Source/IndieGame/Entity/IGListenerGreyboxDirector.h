@@ -111,6 +111,10 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGNightOneBeatDirector> NightOneBeats;
 
+	/** §8 비트 2-1. Owns the door knock, the peephole and the dragging away. */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorNightTwoBeatDirector> NightTwoBeats;
+
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGMissingFloorPuzzleTwoDirector> PuzzleTwo;
 
@@ -168,6 +172,8 @@ private:
 		Night1SightingRestore,
 		Night1Extinguisher,
 		DayNightCycle,
+		/** §8 비트 2-1: the knock at 403's own door, and what it puts on tape. */
+		NightTwoDoorBeatContract,
 		PuzzleTwoContract,
 		/** §14 CCTV 채널 5: the one-shot render target's whole life cycle. */
 		CctvChannelContract,

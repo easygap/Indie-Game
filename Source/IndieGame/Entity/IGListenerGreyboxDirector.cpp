@@ -23,6 +23,7 @@
 #include "Entity/IGMissingFloorNightFourDirector.h"
 #include "Entity/IGMissingFloorMercyDirector.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
+#include "Entity/IGMissingFloorNightTwoBeatDirector.h"
 #include "Entity/IGMissingFloorPuzzleOneDirector.h"
 #include "Entity/IGMissingFloorPuzzleTwoDirector.h"
 #include "Entity/IGNightOneBeatDirector.h"
@@ -286,6 +287,27 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		return false;
 	}
 
+	// 밤2 비트 2-1: the knock at 403's own front door. Handed the same corridor
+	// route, because the figure at the peephole is the real entity on loan and
+	// has to go back to its patrol when the beat lets go of it.
+	FActorSpawnParameters NightTwoBeatParameters;
+	NightTwoBeatParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	NightTwoBeatParameters.Name = TEXT("MissingFloorNightTwoBeatDirector");
+	NightTwoBeats = World->SpawnActor<AIGMissingFloorNightTwoBeatDirector>(
+		AIGMissingFloorNightTwoBeatDirector::StaticClass(),
+		FTransform::Identity,
+		NightTwoBeatParameters);
+	if (!NightTwoBeats
+		|| !NightTwoBeats->Configure(
+			const_cast<AIGPrologueWorldScene*>(Scene),
+			Entity,
+			PlayerCharacter,
+			PatrolPoints))
+	{
+		return false;
+	}
+
 	// 밤2: the management booth and P2. Spawned for every night so free
 	// exploration is never fenced off; the narrative, not the walls, decides
 	// which night the evidence matters.
@@ -465,6 +487,10 @@ void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
 	if (Entity)
 	{
 		Entity->SetDormant(!bActive);
+	}
+	if (NightTwoBeats)
+	{
+		NightTwoBeats->SetHourActive(bActive);
 	}
 	if (PuzzleTwo)
 	{
@@ -1911,16 +1937,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				FailProbe(TEXT("sleeping did not begin night 2"));
 				return;
 			}
-			// Into the booth, whose door the hour has opened.
-			if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
-			{
-				PlayerCharacter->TeleportTo(
-					FVector(170.0f, -150.0f, 92.0f),
-					PlayerCharacter->GetActorRotation(),
-					false,
-					true);
-			}
-			ProbeStep = EProbeStep::PuzzleTwoContract;
+			ProbeStep = EProbeStep::NightTwoDoorBeatContract;
 			StepDeadlineSeconds = 0.0f;
 			break;
 		}
@@ -1932,6 +1949,113 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				bUnsealed ? 1 : 0,
 				bEntityAsleep ? 1 : 0));
 		}
+		break;
+	}
+
+	case EProbeStep::NightTwoDoorBeatContract:
+	{
+		// §8 비트 2-1. The beat has to arm itself on night two without being
+		// asked, put a figure outside 403, and leave the three knocks on the
+		// tape as the refusal §5.5's morning playback is built on.
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		UIGRecordingSubsystem* Recording =
+			GetWorld()->GetSubsystem<UIGRecordingSubsystem>();
+		AIGMissingFloorEvidence* Peephole =
+			NightTwoBeats ? NightTwoBeats->GetPeephole() : nullptr;
+		if (!NightTwoBeats || !Narrative || !Recording || !Peephole)
+		{
+			FailProbe(TEXT("§8 비트 2-1 director or its peephole is missing"));
+			return;
+		}
+		if (NightTwoBeats->HasPlayed())
+		{
+			FailProbe(TEXT("the door beat played before night two armed it"));
+			return;
+		}
+
+		// The phone is the player's verb, so the probe plays the player: arm the
+		// recording, then let the beat run without waiting out its patience.
+		Recording->ClearTake();
+		Recording->StartRecording();
+		NightTwoBeats->AdvanceForTesting();
+
+		if (!NightTwoBeats->HasPlayed()
+			|| NightTwoBeats->GetStage() != EIGNightTwoBeatStage::Spent)
+		{
+			FailProbe(FString::Printf(
+				TEXT("§8 비트 2-1 did not finish: stage=%d knocks=%d"),
+				static_cast<int32>(NightTwoBeats->GetStage()),
+				NightTwoBeats->GetKnockCount()));
+			return;
+		}
+		// One knock to bring her to the door, the triple through it, the drag.
+		if (NightTwoBeats->GetKnockCount() != 3)
+		{
+			FailProbe(FString::Printf(
+				TEXT("§8 비트 2-1 played %d of its 3 cues"),
+				NightTwoBeats->GetKnockCount()));
+			return;
+		}
+		if (!NightTwoBeats->WasRecordingDuringAnswer())
+		{
+			FailProbe(TEXT("the armed phone was not running for the answer"));
+			return;
+		}
+		// The figure was on loan. It must be back on its corridor route, or
+		// night 2's patrol runs a two-point shuffle outside one door all hour.
+		if (NightTwoBeats->IsFigureAtDoor())
+		{
+			FailProbe(TEXT("the figure stayed at the door after the beat"));
+			return;
+		}
+		// §5.5's payoff: his knocks are on the log and every one is refused.
+		// 2.10 s is what the loudness table gives a full-loudness triple, and
+		// the morning gap is exactly that long.
+		const int32 Suppressed = Recording->GetSuppressedCount();
+		const float SuppressedSeconds = Recording->GetSuppressedSeconds();
+		if (Suppressed < 2 || Suppressed != Recording->GetRecordedCount())
+		{
+			FailProbe(FString::Printf(
+				TEXT("the door beat left %d of %d events on the tape"),
+				Recording->GetRecordedCount() - Suppressed,
+				Recording->GetRecordedCount()));
+			return;
+		}
+		if (SuppressedSeconds < 2.10f)
+		{
+			FailProbe(FString::Printf(
+				TEXT("the triple knock left only %.2fs of silence"),
+				SuppressedSeconds));
+			return;
+		}
+		// Once per run. A capture reset must not replay it as a jump scare.
+		if (!Narrative->HasBeatPlayed(FName(TEXT("Night2.DoorKnock"))))
+		{
+			FailProbe(TEXT("the door beat did not book itself"));
+			return;
+		}
+		Recording->StopRecording();
+		Recording->ClearTake();
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_N2DOOR PASS: knock at 403, figure staged and "
+				"released, 3 cues, %d refused events, %.2fs of silence"),
+			Suppressed,
+			SuppressedSeconds);
+
+		// Into the booth, whose door the hour has opened.
+		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+		{
+			PlayerCharacter->TeleportTo(
+				FVector(170.0f, -150.0f, 92.0f),
+				PlayerCharacter->GetActorRotation(),
+				false,
+				true);
+		}
+		ProbeStep = EProbeStep::PuzzleTwoContract;
+		StepDeadlineSeconds = 0.0f;
 		break;
 	}
 

@@ -3583,11 +3583,19 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		FVector(0.0f, 588.0f, 1262.0f),
 		FVector(132.0f, 96.0f, 1.5f),
 		FRotator(2.5f, 6.0f, -3.5f));
-	// A second sheet already pulled off and left where it fell.
+	// A second sheet already pulled off and left where it fell. Two overlapping
+	// quads at different angles rather than one rectangle: a single slab of film
+	// on a dark floor reads as a board somebody leaned there, which is what the
+	// first pass of the CCTV frame showed. Kept clear of the camera's near lane
+	// so the low shape crosses floor, not plastic.
 	AddSheeting(
-		FVector(-210.0f, 624.0f, 1201.6f),
-		FVector(150.0f, 112.0f, 1.2f),
-		FRotator(0.0f, 20.0f, 0.0f));
+		FVector(-296.0f, 842.0f, 1201.6f),
+		FVector(104.0f, 86.0f, 1.2f),
+		FRotator(1.5f, 24.0f, -2.0f));
+	AddSheeting(
+		FVector(-244.0f, 878.0f, 1203.4f),
+		FVector(78.0f, 62.0f, 1.0f),
+		FRotator(-2.5f, -14.0f, 3.0f));
 	// Hung off the bay studs at the far right of the camera's frame, so the shot
 	// has depth on that side instead of ending on a flat gypsum face.
 	AddSheeting(

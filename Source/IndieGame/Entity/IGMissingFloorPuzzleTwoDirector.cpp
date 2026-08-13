@@ -37,8 +37,14 @@ namespace IGPuzzleTwo
 	/**
 	 * §5.5. 비트 2-1에서 유담이 폰 녹음을 켜고 403호 현관문에 대어 둔다. 문
 	 * 안쪽 바닥이므로 복도의 그가 아니라 그녀가 종일 지나는 자리다.
+	 *
+	 * 4층 세계 좌표다. 관리실 프롭들은 1층이라 Z가 작지만 이 폰만은 403호
+	 * 안이므로 슬래브 높이를 더해야 한다 — 처음 넣을 때 그 900을 빠뜨려서
+	 * 폰이 관리실 바닥에 놓여 있었다. 현관문은 (101, -225)에 있고 문 안쪽은
+	 * Y가 0에 가까운 쪽이다.
 	 */
-	const FVector PhoneAtDoorLocation(150.0f, -196.0f, 4.0f);
+	constexpr float FourthFloorZ = 900.0f;
+	const FVector PhoneAtDoorLocation(150.0f, -196.0f, FourthFloorZ + 4.0f);
 	/** 폰을 놓는 것은 소리를 내는 행동이다. 발소리보다 조용하지만 0은 아니다. */
 	constexpr float PhonePlacementLoudness = 0.08f;
 

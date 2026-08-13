@@ -172,13 +172,24 @@ Require-All $scene @(
 	'TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial)',
 	'AddSheeting('
 ) 'beat 2-2 shot list'
+# 경로는 시선을 따라가지 않고 가로지른다. 두 끝이 렌즈에서 같은 방위에 있으면
+# 형체가 카메라를 등지고 멀어지기만 해서 세워 둔 상자로 읽힌다 — 첫 패스가
+# 그랬고, -IGCctvShapeOnly 프레임이 그것을 보여 줬다. 낮은 것은 측면에서만
+# 낮게 읽힌다. 두 끝의 렌즈까지 거리가 같은 것이 이 값들의 요점이다.
 Require-All $channel @(
-	'const FVector ShapeStart(-268.0f, 636.0f, 1213.0f);',
-	'const FVector ShapeEnd(-190.0f, 772.0f, 1213.0f);',
+	'const FVector ShapeStart(-137.0f, 630.0f, 1213.0f);',
+	'const FVector ShapeEnd(-251.0f, 726.0f, 1213.0f);',
 	'constexpr float ShapeEnterProgress = 0.34f;',
 	'constexpr float ShapeExitProgress = 0.82f;',
 	'M_MissingFloorListenerPlasterUV'
 ) 'beat 2-2 shot list'
+# 런타임 컴포넌트는 등록 뒤에 붙인다. SetupAttachment는 생성자용이고, 붙지
+# 않은 컴포넌트는 상대 트랜스폼을 월드로 읽어 형체가 원점으로 날아간다.
+Require-All $channel @(
+	'Mass->RegisterComponent();',
+	'Mass->AttachToComponent(',
+	'FAttachmentTransformRules::KeepRelativeTransform);'
+) 'runtime component attachment'
 
 # 카메라의 조명과 동축은 영구 설치물이다. 비트 동안만 존재하면 밤3의 같은
 # 자리가 다른 장소가 된다.
@@ -270,6 +281,18 @@ Require-All $feedRunner @(
 	"if (`$arguments -notcontains '-RenderOffScreen')",
 	"if (`$arguments -contains '-nullrhi')"
 ) 'offscreen runner guard'
+# 노출과 형체 단독 렌더는 저작 도구다. 이 둘이 없으면 화각 문제를 프레임에서
+# 읽는 대신 좌표를 손으로 계산하게 되고, 두 번 다 틀렸다.
+Require-All $feedRunner @(
+	'[switch]$ShapeOnly,',
+	"'-IGCctvShapeOnly'",
+	"'-IGCctvExposure={0}' -f `$Exposure"
+) 'authoring switches'
+Require-All $channel @(
+	'TEXT("IGCctvShapeOnly")',
+	'PRM_UseShowOnlyList',
+	'TEXT("IGCctvExposure=")'
+) 'authoring switches'
 
 Write-Host (
 	"MISSINGFLOOR_M3_CCTV5_CONTRACT PASS assertions=$assertions " +

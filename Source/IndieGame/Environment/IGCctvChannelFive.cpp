@@ -78,19 +78,26 @@ namespace IGCctvFive
 	const FVector LabelSize(12.8f, 4.8f, 0.5f);
 
 	/**
-	 * 낮은 형체 — 화면 가장저리를 지나가는. Both ends of the path sit on the same
-	 * 60° bearing from the lens, which is 79% of the way to the right edge of a
-	 * 78° frame. The shape therefore rides that edge for the whole crossing
-	 * instead of walking through the middle of the picture, and it climbs from the
-	 * bottom corner into the falloff as it goes: 1.75 m from the lens at the start
-	 * and 3.3 m at the end, where the camera's own light has already given up.
+	 * 낮은 형체 — 화면 가장자리를 지나가는.
 	 *
-	 * It moves away, not toward. Nothing in this shot is a threat display — it is
-	 * a floor with something living on it, which is the only claim §8 makes.
+	 * The path crosses the view rather than running along it, and that is the
+	 * whole reason these numbers look the way they do. The first pass put both
+	 * ends on one bearing from the lens so the shape would hug the right edge;
+	 * the -IGCctvShapeOnly frame showed what that actually produces — a body
+	 * pointed straight away from the camera, seen end-on for the entire crossing
+	 * and reading as an upright box. A low thing only reads as low broadside.
+	 *
+	 * So: constant 2.6 m from the lens, constant height, travelling square across
+	 * the sight line from just right of centre out past the right edge of the
+	 * frame. 90 cm of body at that distance is about 88 of the channel's 352
+	 * columns — wide enough to be a shape, far too coarse to be a person.
+	 *
+	 * It leaves; it never approaches. Nothing in this shot is a threat display —
+	 * it is a floor with something living on it, which is the only claim §8 makes.
 	 */
-	const FVector ShapeStart(-268.0f, 636.0f, 1213.0f);
-	const FVector ShapeEnd(-190.0f, 772.0f, 1213.0f);
-	/** 157 cm over 2.7 s. A crawl, not a run — the chase sounds nothing like this. */
+	const FVector ShapeStart(-137.0f, 630.0f, 1213.0f);
+	const FVector ShapeEnd(-251.0f, 726.0f, 1213.0f);
+	/** 149 cm over 2.7 s. A crawl, not a run — the chase sounds nothing like this. */
 	constexpr float ShapeBobCentimeters = 3.0f;
 	/** Fractions of the live window: it enters late and leaves before the tear. */
 	constexpr float ShapeEnterProgress = 0.34f;
@@ -318,6 +325,17 @@ bool AIGCctvChannelFive::Play()
 	Post.VignetteIntensity = 0.0f;
 	Post.bOverride_FilmGrainIntensity = true;
 	Post.FilmGrainIntensity = 0.0f;
+	// Authoring aid, off in every normal run: render only this actor's own
+	// components so the exported frame isolates the low shape. Reading a 288-line
+	// frame and guessing which bright rectangle is which annex prop is how the
+	// first two passes of this shot were mis-diagnosed.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGCctvShapeOnly")))
+	{
+		Capture->PrimitiveRenderMode =
+			ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
+		Capture->ShowOnlyActors.Reset();
+		Capture->ShowOnlyActors.Add(this);
+	}
 
 	// The low shape, built now and destroyed with the channel, so it is never
 	// standing in the annex for the player to walk up to in night 3. Three masses
@@ -353,8 +371,16 @@ bool AIGCctvChannelFive::Play()
 				{
 					continue;
 				}
-				Mass->SetupAttachment(LowShapePivot);
+				// Register first, then attach. SetupAttachment is a constructor
+				// call; at runtime it leaves the component unparented, and an
+				// unparented component reads its relative transform as world —
+				// which put this whole body at the world origin, out on the
+				// street, unhidden and invisible. The probe still passed, because
+				// "the shape crossed" only knows whether it was shown.
 				Mass->RegisterComponent();
+				Mass->AttachToComponent(
+					LowShapePivot,
+					FAttachmentTransformRules::KeepRelativeTransform);
 				Mass->SetStaticMesh(CubeMesh);
 				Mass->SetMaterial(0, ShapeMaterial);
 				Mass->SetRelativeLocation(Part.Offset);
