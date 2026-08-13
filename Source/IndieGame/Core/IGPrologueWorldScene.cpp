@@ -3731,11 +3731,16 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		FVector(250.0f, 112.0f, 0.30f),
 		TEXT("M_MissingFloorDragTrails"),
 		FRotator(0.0f, 13.0f, 0.0f));
+	// 분진 이음은 열린 바닥 가운데가 아니라 벽과 바닥이 만나는 선에 쌓인다.
+	// 북쪽 벽(Y=940) 아래로 붙여 길고 얇게 눕히면 이음으로 읽히고, 끌림 자국과
+	// 나란해진다 — 앞서는 이 둘이 열린 바닥에서 서로 교차해, 카메라에서 보면
+	// 칠해 놓은 X 한 개로 합쳐졌다. 마스크의 대각선이 가로세로 비에 따라 눕는
+	// 각도가 달라지므로, 같은 계열의 잔흔을 다른 요각으로 겹쳐 두면 안 된다.
 	AddResidue(
-		FVector(170.0f, 862.0f, 1200.26f),
-		FVector(210.0f, 72.0f, 0.32f),
+		FVector(150.0f, 906.0f, 1200.26f),
+		FVector(268.0f, 42.0f, 0.32f),
 		TEXT("M_MissingFloorDustJoint"),
-		FRotator(0.0f, -8.0f, 0.0f));
+		FRotator(0.0f, 0.0f, 0.0f));
 	// This face is deliberately behind bay B. It becomes visible only after
 	// the night-four wall panel is removed, so the reveal cannot leak early.
 	AddResidue(

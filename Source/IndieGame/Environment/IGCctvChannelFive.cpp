@@ -224,6 +224,20 @@ bool AIGCctvChannelFive::IsOnScreen() const
 		|| State == EIGCctvChannelState::Collapsing;
 }
 
+FIntPoint AIGCctvChannelFive::GetExpectedFeedResolution() const
+{
+	// 저작용 배율. 출하 값은 CIF 그대로이고, 진단 실행에서만 같은 화각을 크게
+	// 내보내 프레임 안의 무엇이 무엇인지 눈으로 가린다 — 352×288 썸네일을 보고
+	// 「어느 밝은 모양이 무엇인가」를 추측하는 것은 이미 두 번 틀렸다. 할당과
+	// 계약 검사가 같은 함수를 읽으므로 둘이 어긋날 수 없다.
+	int32 FeedScale = 1;
+	FParse::Value(FCommandLine::Get(), TEXT("IGCctvFeedScale="), FeedScale);
+	FeedScale = FMath::Clamp(FeedScale, 1, 6);
+	return FIntPoint(
+		IGCctvFive::FeedWidth * FeedScale,
+		IGCctvFive::FeedHeight * FeedScale);
+}
+
 FIntPoint AIGCctvChannelFive::GetFeedResolution() const
 {
 	return Feed ? FIntPoint(Feed->SizeX, Feed->SizeY) : FIntPoint::ZeroValue;
@@ -267,7 +281,8 @@ bool AIGCctvChannelFive::Play()
 	Feed->bAutoGenerateMips = false;
 	Feed->AddressX = TA_Clamp;
 	Feed->AddressY = TA_Clamp;
-	Feed->InitAutoFormat(IGCctvFive::FeedWidth, IGCctvFive::FeedHeight);
+	const FIntPoint FeedSize = GetExpectedFeedResolution();
+	Feed->InitAutoFormat(FeedSize.X, FeedSize.Y);
 
 	Capture = NewObject<USceneCaptureComponent2D>(
 		this, TEXT("CctvChannelFiveCapture"));

@@ -2238,13 +2238,19 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("the fifth button did not put a picture on the monitor"));
 			return;
 		}
+		// CIF, 또는 진단 배율을 곱한 CIF. 배율이 없는 실행에서는 정확히 352×288.
 		const FIntPoint Resolution = Channel->GetFeedResolution();
-		if (Resolution != FIntPoint(352, 288))
+		const FIntPoint ExpectedResolution = Channel->GetExpectedFeedResolution();
+		if (Resolution != ExpectedResolution
+			|| ExpectedResolution.X % 352 != 0
+			|| ExpectedResolution.Y % 288 != 0)
 		{
 			FailProbe(FString::Printf(
-				TEXT("channel five is not a CIF channel: %dx%d"),
+				TEXT("channel five is not a CIF channel: %dx%d expected %dx%d"),
 				Resolution.X,
-				Resolution.Y));
+				Resolution.Y,
+				ExpectedResolution.X,
+				ExpectedResolution.Y));
 			return;
 		}
 

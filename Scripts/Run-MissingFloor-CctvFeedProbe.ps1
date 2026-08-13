@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 	§14 CCTV 채널 5의 화면이 실제로 렌더되는지 검증한다.
 
@@ -33,6 +33,9 @@ param(
 	[double]$Exposure = 0,
 	# 낮은 형체만 렌더해서 프레임 안 위치를 확인한다. 판정용이 아니라 저작용.
 	[switch]$ShapeOnly,
+	# 같은 화각을 크게 내보낸다. 출하 해상도는 CIF 그대로다.
+	[ValidateRange(1, 6)]
+	[int]$FeedScale = 1,
 	[ValidateRange(60, 900)]
 	[int]$TimeoutSeconds = 420
 )
@@ -84,6 +87,12 @@ if ($Exposure -gt 0) {
 }
 if ($ShapeOnly) {
 	$arguments += '-IGCctvShapeOnly'
+}
+if ($FeedScale -gt 1) {
+	$arguments += ('-IGCctvFeedScale={0}' -f $FeedScale)
+	# 해상도가 바뀌면 구조 계약의 352x288 검사가 실패하므로 진단 전용이다.
+	Write-Host '진단 배율 실행 — 구조 계약은 이 실행에서 판정하지 않는다' `
+		-ForegroundColor DarkYellow
 }
 
 if ($arguments -notcontains '-RenderOffScreen') {

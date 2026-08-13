@@ -1738,4 +1738,46 @@ foreach ($forbidden in @(
 	}
 }
 
+# --- 5층 분진 잔흔: 농도가 있어야 한다 -------------------------------------
+# 마스크를 불투명도에만 쓰면 남는 것은 「있다/없다」뿐이고, 어두운 바닥 위의
+# 균일한 밝은 판이 된다 — CCTV 정중앙에서 바닥 위에 떠 있는 도장 자국으로
+# 읽혔다. 같은 마스크로 밝기까지 변조해야 얇게 스친 자리가 얇게 보인다.
+$residueMaterialSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/create_textured_materials.py')
+foreach ($needle in @(
+	'density = spec.get("density")',
+	'MaterialExpressionLinearInterpolate',
+	'opacity, "", shade, "Alpha"',
+	'shaded, "", unreal.MaterialProperty.MP_BASE_COLOR')) {
+	if (-not $residueMaterialSource.Contains($needle)) {
+		throw "ART_ASSET_CONTRACT FAIL: residue density is missing: $needle"
+	}
+}
+# 어두운 콘크리트 위의 석고 분진은 살짝 밝은 얼룩이다. 원래 값(0.48~0.68
+# 알베도, 증폭 1.8~2.5)은 바닥의 두 배 밝기에 이진 실루엣이었다.
+foreach ($needle in @(
+	'"color": (0.20, 0.19, 0.175), "mask_gain": 1.15',
+	'"color": (0.26, 0.25, 0.23), "mask_gain": 1.10',
+	'"color": (0.23, 0.22, 0.205), "mask_gain": 1.25',
+	'"density": 0.22',
+	'"density": 0.26',
+	'"density": 0.28',
+	'"density": 0.45')) {
+	if (-not $residueMaterialSource.Contains($needle)) {
+		throw "ART_ASSET_CONTRACT FAIL: residue tuning drifted: $needle"
+	}
+}
+# 같은 계열의 잔흔을 다른 요각으로 열린 바닥에서 겹쳐 두면, 카메라에서 보면
+# 칠해 놓은 X 한 개로 합쳐진다. 분진 이음은 벽선에 붙여 눕힌다.
+$residueSceneSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Core/IGPrologueWorldScene.cpp')
+foreach ($needle in @(
+	'FVector(150.0f, 906.0f, 1200.26f)',
+	'FVector(268.0f, 42.0f, 0.32f)',
+	'FVector(20.0f, 718.0f, 1200.25f)')) {
+	if (-not $residueSceneSource.Contains($needle)) {
+		throw "ART_ASSET_CONTRACT FAIL: residue placement drifted: $needle"
+	}
+}
+
 Write-Host 'ART_ASSET_CONTRACT PASS raw=50 masks=9 overlays=23 signage=6 material_scans=14 pbr_maps=62 meshes=45 photo_meshes=50'

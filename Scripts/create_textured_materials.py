@@ -1,4 +1,4 @@
-"""Create the textured PBR material set for the prologue realism pass.
+﻿"""Create the textured PBR material set for the prologue realism pass.
 
 Requires the textures imported by generate_surface_textures.py. Architecture
 materials sample in world space (per-axis variants) so scaled greybox blocks
@@ -284,21 +284,32 @@ EVIDENCE_MASK_MATERIALS = {
         "tex_asset": "T_EvidenceHandSmear_M", "rough": 0.07,
         "color": (0.021, 0.030, 0.034), "mask_gain": 4.0,
     },
+    # 5층의 분진 잔흔 네 장. 어두운 콘크리트 바닥 위의 석고 분진은 **살짝**
+    # 밝은 얼룩이지 흰 자국이 아니다. 원래 값(0.48~0.68 알베도, 증폭 1.8~2.5)은
+    # 바닥의 두 배 밝기에 이진 실루엣이라, CCTV 프레임에서 바닥 위에 떠 있는
+    # 도장 자국처럼 읽혔다. 증폭을 낮춰 실루엣을 짙은 심지에만 남기고, density로
+    # 농도를 되살린다.
     "M_MissingFloorHandprints": {
         "tex_asset": "T_MissingFloorHandprints_M", "rough": 0.94,
-        "color": (0.52, 0.50, 0.46), "mask_gain": 2.2, "specular": 0.08,
+        "color": (0.23, 0.22, 0.205), "mask_gain": 1.25, "specular": 0.08,
+        "density": 0.28,
     },
     "M_MissingFloorDragTrails": {
         "tex_asset": "T_MissingFloorDragTrails_M", "rough": 0.96,
-        "color": (0.48, 0.46, 0.42), "mask_gain": 2.0, "specular": 0.06,
+        "color": (0.20, 0.19, 0.175), "mask_gain": 1.15, "specular": 0.06,
+        "density": 0.22,
     },
     "M_MissingFloorDustJoint": {
         "tex_asset": "T_MissingFloorDustJoint_M", "rough": 0.98,
-        "color": (0.63, 0.61, 0.56), "mask_gain": 1.8, "specular": 0.04,
+        "color": (0.26, 0.25, 0.23), "mask_gain": 1.10, "specular": 0.04,
+        "density": 0.26,
     },
+    # 긁힌 자국은 분진이 아니라 파인 자리다 — 손끝이 지나간 심지는 남기되
+    # 주변 먼지만 눌러 두면, 밤4에 벽을 열었을 때 읽어야 하는 것이 흐려진다.
     "M_MissingFloorCavityScratches": {
         "tex_asset": "T_MissingFloorCavityScratches_M", "rough": 0.92,
-        "color": (0.68, 0.65, 0.59), "mask_gain": 2.5, "specular": 0.08,
+        "color": (0.34, 0.32, 0.29), "mask_gain": 1.9, "specular": 0.08,
+        "density": 0.45,
     },
 }
 
@@ -801,9 +812,54 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
             base.set_editor_property(
                 "constant", unreal.LinearColor(color[0], color[1], color[2], 1.0)
             )
-            unreal.MaterialEditingLibrary.connect_material_property(
-                base, "", unreal.MaterialProperty.MP_BASE_COLOR
-            )
+            density = spec.get("density")
+            if density is None:
+                unreal.MaterialEditingLibrary.connect_material_property(
+                    base, "", unreal.MaterialProperty.MP_BASE_COLOR
+                )
+            else:
+                # 분진에는 농도가 있다. 마스크를 불투명도에만 쓰면 남는 것은
+                # 「있다/없다」뿐이고, 칠한 것처럼 균일한 회색 판이 된다 —
+                # 5층 바닥의 끌림 자국이 정확히 그렇게 보였다. 같은 마스크로
+                # 밝기까지 변조하면 얇게 스친 자리는 거의 바닥색이고 짙게
+                # 쌓인 자리만 밝아진다. 마스크가 원래 하려던 일이다.
+                thin = _expr(
+                    material, unreal.MaterialExpressionConstant, -760, 320
+                )
+                thin.set_editor_property("r", float(density))
+                one = _expr(
+                    material, unreal.MaterialExpressionConstant, -760, 400
+                )
+                one.set_editor_property("r", 1.0)
+                shade = _expr(
+                    material,
+                    unreal.MaterialExpressionLinearInterpolate,
+                    -560,
+                    300,
+                )
+                unreal.MaterialEditingLibrary.connect_material_expressions(
+                    thin, "", shade, "A"
+                )
+                unreal.MaterialEditingLibrary.connect_material_expressions(
+                    one, "", shade, "B"
+                )
+                # 불투명도와 같은 증폭값을 쓴다. 실루엣과 농도가 어긋나면
+                # 테두리에 밝은 띠가 생긴다.
+                unreal.MaterialEditingLibrary.connect_material_expressions(
+                    opacity, "", shade, "Alpha"
+                )
+                shaded = _expr(
+                    material, unreal.MaterialExpressionMultiply, -380, -80
+                )
+                unreal.MaterialEditingLibrary.connect_material_expressions(
+                    base, "", shaded, "A"
+                )
+                unreal.MaterialEditingLibrary.connect_material_expressions(
+                    shade, "", shaded, "B"
+                )
+                unreal.MaterialEditingLibrary.connect_material_property(
+                    shaded, "", unreal.MaterialProperty.MP_BASE_COLOR
+                )
             specular = _expr(material, unreal.MaterialExpressionConstant, -380, 360)
             specular.set_editor_property("r", spec.get("specular", 0.62))
             unreal.MaterialEditingLibrary.connect_material_property(

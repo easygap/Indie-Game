@@ -92,6 +92,12 @@ public:
 	bool HasFeed() const { return Feed != nullptr; }
 	/** The feed's resolution, or zero when nothing is allocated. */
 	FIntPoint GetFeedResolution() const;
+	/**
+	 * The channel's authored CIF resolution multiplied by any diagnostic scale.
+	 * 1× in every normal run, so the shipping assertion stays exact while a
+	 * -IGCctvFeedScale= run can still export a frame big enough to read.
+	 */
+	FIntPoint GetExpectedFeedResolution() const;
 	/** Current value driven into the material's `Static` parameter. */
 	float GetStaticMix() const { return StaticMix; }
 	/** True while the low shape is on its crossing. */
