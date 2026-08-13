@@ -161,6 +161,7 @@ $requiredFiles = @(
 	'Scripts/Test-MissingFloor-M65AudioCalibrationContract.ps1',
 	'Scripts/Test-MissingFloor-M3CctvChannelContract.ps1',
 	'Scripts/Test-MissingFloor-M3DoorBeatContract.ps1',
+	'Scripts/Test-MissingFloor-M4PassByContract.ps1',
 	'Scripts/Run-MissingFloor-CctvFeedProbe.ps1',
 	'Scripts/Run-MissingFloor-AudioCalibrationPreview.bat',
 	'Scripts/Build-ArtAssets.ps1',
@@ -2471,5 +2472,9 @@ $missingFloorM3CctvChannelContractScript = Join-Path $projectRoot `
 $missingFloorM3DoorBeatContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M3DoorBeatContract.ps1'
 & $missingFloorM3DoorBeatContractScript
+
+$missingFloorM4PassByContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M4PassByContract.ps1'
+& $missingFloorM4PassByContractScript
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

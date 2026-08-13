@@ -452,15 +452,14 @@ void AIGMissingFloorNightTwoBeatDirector::StageFigure()
 	bFigureStaged = true;
 	// 문을 향해 선다. 1-4의 계단 카메오와 같은 장치이고, 같은 이유로 순찰
 	// 두 점을 준다 — 서 있는 것이 아니라 기다리는 것으로 읽혀야 한다.
-	Listener->TeleportTo(
-		IGNightTwo::FigureStagePoint,
-		FRotator(0.0f, 90.0f, 0.0f),
-		false,
-		true);
 	Listener->SetPatrolPoints({
 		IGNightTwo::FigureStagePoint,
 		IGNightTwo::FigureShufflePoint,
 	});
+	// ParkForBeat clears his reaction to the last sound as well as moving him.
+	// Without that he stands outside 403 for one frame and then crawls off toward
+	// whatever he last heard, which for a beat that opens with a knock is common.
+	Listener->ParkForBeat(IGNightTwo::FigureStagePoint, 90.0f);
 }
 
 void AIGMissingFloorNightTwoBeatDirector::ReleaseFigure()

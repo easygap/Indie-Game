@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 	§8 밤2 비트 2-1 「문 하나를 사이에 둔 첫 대면」 계약 검사.
 
@@ -124,8 +124,11 @@ Require-All $beat @(
 ) '비트 2-1 patience'
 
 # --- 형체는 빌린 것 --------------------------------------------------------
+# ParkForBeat는 위치만 옮기지 않고 직전 소리에 대한 반응까지 지운다. 이 비트는
+# 노크로 시작하므로, 지우지 않으면 그가 문 앞에 한 프레임 서 있다가 자기가 들은
+# 자리로 기어 나간다.
 Require-All $beat @(
-	'Listener->TeleportTo(',
+	'Listener->ParkForBeat(IGNightTwo::FigureStagePoint, 90.0f);',
 	'IGNightTwo::FigureStagePoint,',
 	'Listener->SetPatrolPoints(CorridorPatrolPoints);',
 	'Listener->ResetToPatrolStart(/*bRaiseAggression=*/false);'

@@ -93,6 +93,10 @@ private:
 	/** §8 비트 2-5: reaching 403 is what ends night two, not confirming T7. */
 	void HandleNightTwoReturnedHome();
 	void HandleNightThreeSolved();
+	/** §8 비트 3-7: only 403's floor ends night three. */
+	void HandleNightThreeReturnedHome();
+	/** The 05:30 call belongs to dawn, whichever route brought it. */
+	void MakeNightThreeFirstReport();
 	void HandleFifthDawnCompleted();
 	void HandleNightFourResolved();
 	void HandleSleepRequested(class AIGMissingFloorEvidence* Evidence);
@@ -191,6 +195,10 @@ private:
 		AnswerPairTap,
 		AnswerFinalTap,
 		AnswerContract,
+		/** §8 비트 3-7: the learned answer stops him in her corridor. */
+		NightThreePassContract,
+		/** §8 비트 3-7: only 403's floor ends night three. */
+		NightThreeHomeContract,
 		NightFourContract,
 		NightFourFailureRetryContract,
 		NightFourWallContract,
@@ -209,6 +217,7 @@ private:
 	/** §8 비트 3-7's cadence walk: the probe has to leave real gaps between taps. */
 	double AnswerReachTapTwoAt = 0.0;
 	int32 AnswerReachTapsSent = 0;
+	bool bAnswerReachWasDormant = false;
 
 	/**
 	 * §14 CCTV 채널 5. The structural half of the contract runs anywhere: the

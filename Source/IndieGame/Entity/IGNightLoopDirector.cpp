@@ -10,6 +10,7 @@
 #include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorMercyDirector.h"
+#include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Entity/IGMissingFloorNightTwoBeatDirector.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -253,6 +254,13 @@ void AIGNightLoopDirector::FinishReset()
 		if (ReturnBeat)
 		{
 			ReturnBeat->NotifyCaptureReset();
+		}
+		// §8 비트 3-7 owes the same debt, and it also has to put him back in the
+		// corridor: the reset sent him to his patrol start along with her.
+		TActorIterator<AIGMissingFloorNightThreeDirector> PassBeat(World);
+		if (PassBeat)
+		{
+			PassBeat->NotifyCaptureReset();
 		}
 	}
 

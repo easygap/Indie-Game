@@ -144,6 +144,20 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Listener")
 	void BeginObservationHold(const FVector& Target);
 
+	/**
+	 * 저작된 카메오를 위해 그를 한 자리에 세운다 — 위치, 방향, 그리고 **직전
+	 * 소리에 대한 반응을 지운다.**
+	 *
+	 * 마지막 항목이 요점이다. 텔레포트만 하면 그는 여전히 조사 중이고, 다음
+	 * 프레임부터 자기가 들은 자리를 향해 기어가 버린다 — 비트 2-1과 3-7은 둘
+	 * 다 플레이어가 방금 소리를 낸 직후에 그를 세우므로, 지우지 않으면 카메오가
+	 * 시작하자마자 화면 밖으로 걸어 나간다.
+	 *
+	 * 순찰 지점은 부르는 쪽이 먼저 넘긴다. 공격 티어는 건드리지 않는다: 연출은
+	 * 실패가 아니다.
+	 */
+	void ParkForBeat(const FVector& Where, float Yaw);
+
 	/** Returns the entity to its patrol start after a capture reset. */
 	UFUNCTION(BlueprintCallable, Category = "Listener")
 	void ResetToPatrolStart(bool bRaiseAggression);

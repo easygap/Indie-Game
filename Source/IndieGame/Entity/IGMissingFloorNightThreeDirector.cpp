@@ -88,6 +88,28 @@ namespace IGNightThree
 
 	const FName PuzzleThreeId(TEXT("P3"));
 	const FName PuzzleFourId(TEXT("P4"));
+
+	// -- 비트 3-7 「귀환길」 ------------------------------------------------
+	constexpr float FourthFloorZ = 900.0f;
+	/**
+	 * 4층 복도, 계단코어와 403호 문 사이. 복도는 Y -385..-225로 깊이가 160cm뿐이라
+	 * 사람 하나를 지나치는 일이 실제로 좁다 — 그것이 이 비트의 전부다.
+	 * 그녀는 서쪽(계단코어, X=-277.5)에서 내려와 동쪽 403호 문(X=101)으로 간다.
+	 */
+	const FVector ReturnPassPoint(-95.0f, -300.0f, FourthFloorZ);
+	/** 서 있는 것이 아니라 기다리는 것으로 읽히도록 복도를 가로질러 조금 움직인다. */
+	const FVector ReturnShufflePoint(-95.0f, -334.0f, FourthFloorZ);
+	/** 그가 향한 쪽. 남쪽 벽에 귀를 대고 있다 — 1-4의 자세 그대로. */
+	constexpr float ReturnPassYaw = -90.0f;
+	/** 지나쳤다고 인정하는 여유. 몸 하나 폭보다 넉넉하게. */
+	constexpr float PassClearanceCentimeters = 70.0f;
+	/** 403호 실내는 4층 X -190..190, Y -235..235. */
+	const FBox Unit403Interior(
+		FVector(-190.0f, -235.0f, FourthFloorZ - 20.0f),
+		FVector(190.0f, 235.0f, FourthFloorZ + 230.0f));
+	constexpr float ReturnPollSeconds = 0.25f;
+
+	const FName PassByBeatId(TEXT("Night3.PassBy"));
 }
 
 AIGMissingFloorNightThreeDirector::AIGMissingFloorNightThreeDirector()
@@ -95,7 +117,11 @@ AIGMissingFloorNightThreeDirector::AIGMissingFloorNightThreeDirector()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
-bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene)
+bool AIGMissingFloorNightThreeDirector::Configure(
+	AIGPrologueWorldScene* InScene,
+	AIGListenerEntity* InEntity,
+	AIGPlayerCharacter* InPlayer,
+	const TArray<FVector>& InCorridorPatrolPoints)
 {
 	UWorld* World = GetWorld();
 	if (!World || !InScene)
@@ -103,6 +129,9 @@ bool AIGMissingFloorNightThreeDirector::Configure(AIGPrologueWorldScene* InScene
 		return false;
 	}
 	Scene = InScene;
+	Entity = InEntity;
+	Player = InPlayer;
+	CorridorPatrolPoints = InCorridorPatrolPoints;
 
 	UStaticMesh* CubeMesh =
 		LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -697,6 +726,8 @@ void AIGMissingFloorNightThreeDirector::EndPlay(
 {
 	GetWorldTimerManager().ClearTimer(AnswerTimer);
 	GetWorldTimerManager().ClearTimer(AnswerSilenceReleaseTimer);
+	GetWorldTimerManager().ClearTimer(ReturnTimer);
+	ReleaseReturnFigure();
 	if (UWorld* World = GetWorld())
 	{
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
@@ -723,6 +754,14 @@ void AIGMissingFloorNightThreeDirector::SetHourActive(const bool bHourActive)
 	{
 		GetWorldTimerManager().ClearTimer(AnswerSilenceReleaseTimer);
 		EndAnswerSilence();
+		// 새벽은 어떻게 왔든 복도를 비운다. 시간 초과로 왔다면 그를 낮의
+		// 복도에 세워 둔 채로 남기면 안 된다.
+		GetWorldTimerManager().ClearTimer(ReturnTimer);
+		ReleaseReturnFigure();
+		if (ReturnStage != EIGNightThreeReturnStage::Home)
+		{
+			ReturnStage = EIGNightThreeReturnStage::Idle;
+		}
 	}
 	RefreshJournalAvailability(bHourActive);
 	RefreshDistantSeoVisibility();
@@ -1045,9 +1084,9 @@ void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 	}
 	if (APlayerController* Controller = GetWorld()->GetFirstPlayerController())
 	{
-		if (AIGPlayerCharacter* Player = Cast<AIGPlayerCharacter>(Controller->GetPawn()))
+		if (AIGPlayerCharacter* Pawn = Cast<AIGPlayerCharacter>(Controller->GetPawn()))
 		{
-			if (UIGStressComponent* Stress = Player->GetStress())
+			if (UIGStressComponent* Stress = Pawn->GetStress())
 			{
 				Stress->SuppressHeartbeat(
 					IGNightThree::AnswerDelaySeconds + 1.65f,
@@ -1218,6 +1257,161 @@ void AIGMissingFloorNightThreeDirector::HandleTruthConfirmed(
 	{
 		bSolvedAnnounced = true;
 		OnSolved.Broadcast();
+	}
+}
+
+// -- 비트 3-7 「귀환길」 ---------------------------------------------------
+
+FVector AIGMissingFloorNightThreeDirector::GetReturnPassPoint() const
+{
+	return IGNightThree::ReturnPassPoint;
+}
+
+void AIGMissingFloorNightThreeDirector::ArmReturnPass()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || Narrative->GetNightIndex() != 3)
+	{
+		return;
+	}
+	if (ReturnStage != EIGNightThreeReturnStage::Idle)
+	{
+		return;
+	}
+	ReturnStage = EIGNightThreeReturnStage::Passing;
+	bWasWestOfHim = false;
+	StageReturnFigure();
+	// 목표가 바뀐 것을 한 줄로만 말한다. 무엇을 해야 하는지는 방금 배웠다.
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"N3ReturnThought",
+			"대답이 왔다. …이제 내려가야 해."),
+		4.0f);
+	GetWorldTimerManager().SetTimer(
+		ReturnTimer,
+		this,
+		&AIGMissingFloorNightThreeDirector::AdvanceReturn,
+		IGNightThree::ReturnPollSeconds,
+		true);
+}
+
+void AIGMissingFloorNightThreeDirector::StageReturnFigure()
+{
+	AIGListenerEntity* Listener = Entity.Get();
+	if (!Listener || bFigureStaged)
+	{
+		return;
+	}
+	bFigureStaged = true;
+	// 1-4의 계단 카메오와 같은 장치다. 두 점을 주어 복도를 가로질러 조금씩
+	// 움직이게 하면, 세워 둔 프롭이 아니라 자리를 지키는 사람으로 읽힌다.
+	Listener->SetPatrolPoints({
+		IGNightThree::ReturnPassPoint,
+		IGNightThree::ReturnShufflePoint,
+	});
+	// ParkForBeat, not TeleportTo: P4's own three taps just left him
+	// investigating a spot up in the annex, and a teleported-but-still-reacting
+	// pursuer crawls out of the corridor before she ever gets down the stairs.
+	Listener->ParkForBeat(
+		IGNightThree::ReturnPassPoint,
+		IGNightThree::ReturnPassYaw);
+}
+
+void AIGMissingFloorNightThreeDirector::ReleaseReturnFigure()
+{
+	if (!bFigureStaged)
+	{
+		return;
+	}
+	bFigureStaged = false;
+	if (AIGListenerEntity* Listener = Entity.Get())
+	{
+		Listener->SetPatrolPoints(CorridorPatrolPoints);
+		// 연출이었지 실패가 아니다. 공격 티어는 건드리지 않는다.
+		Listener->ResetToPatrolStart(/*bRaiseAggression=*/false);
+	}
+}
+
+bool AIGMissingFloorNightThreeDirector::IsPlayerInsideUnit403() const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	return PlayerCharacter
+		&& IGNightThree::Unit403Interior.IsInsideOrOn(
+			PlayerCharacter->GetActorLocation());
+}
+
+void AIGMissingFloorNightThreeDirector::AdvanceReturn()
+{
+	if (ReturnStage != EIGNightThreeReturnStage::Passing)
+	{
+		GetWorldTimerManager().ClearTimer(ReturnTimer);
+		return;
+	}
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	const AIGListenerEntity* Listener = Entity.Get();
+	if (!PlayerCharacter || !Listener)
+	{
+		return;
+	}
+
+	// 「그가 멈춰 기다리는 옆을 걸어 지나가는」. 서쪽에 있었다가 그가 기다리는
+	// 동안 동쪽으로 넘어가면 그것이 이 비트다. 대답하지 않고 몰래 지나가는
+	// 것도 정당한 해법이고 언제나 그랬다 — 다만 이 비트는 아니다.
+	const float PlayerX = PlayerCharacter->GetActorLocation().X;
+	const float HisX = Listener->GetActorLocation().X;
+	if (PlayerX < HisX - IGNightThree::PassClearanceCentimeters)
+	{
+		bWasWestOfHim = true;
+	}
+	if (!bPassedWhileWaiting
+		&& bWasWestOfHim
+		&& PlayerX > HisX + IGNightThree::PassClearanceCentimeters
+		&& Listener->GetListenerState() == EIGListenerState::Waiting)
+	{
+		bPassedWhileWaiting = true;
+		if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+		{
+			Narrative->MarkBeatPlayed(IGNightThree::PassByBeatId);
+		}
+		// 회피 대상이 애도 대상으로. 이 게임에서 가장 조용한 한 줄이어야 하므로
+		// 설명하지 않는다 — 그가 무엇을 하고 있는지만 말한다.
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"N3PassByThought",
+				"비켜 주는 게 아니야. 기다리는 거야."),
+			4.6f);
+	}
+
+	if (bMustLeaveHomeAgain)
+	{
+		if (!IsPlayerInsideUnit403())
+		{
+			bMustLeaveHomeAgain = false;
+		}
+		return;
+	}
+	if (IsPlayerInsideUnit403())
+	{
+		ReturnStage = EIGNightThreeReturnStage::Home;
+		GetWorldTimerManager().ClearTimer(ReturnTimer);
+		ReleaseReturnFigure();
+		OnReturnedHome.Broadcast();
+	}
+}
+
+void AIGMissingFloorNightThreeDirector::NotifyCaptureReset()
+{
+	if (ReturnStage == EIGNightThreeReturnStage::Passing)
+	{
+		// 리셋은 침대로 되돌린다. 그것을 도착으로 세면 잡히는 것이 목표 달성이
+		// 되므로, 한 번 밖으로 나갔다 와야 한다. 형체는 다시 복도에 세운다.
+		bMustLeaveHomeAgain = true;
+		bFigureStaged = false;
+		StageReturnFigure();
 	}
 }
 

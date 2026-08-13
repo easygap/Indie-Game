@@ -335,7 +335,11 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		FTransform::Identity,
 		NightThreeParameters);
 	if (!NightThree
-		|| !NightThree->Configure(const_cast<AIGPrologueWorldScene*>(Scene)))
+		|| !NightThree->Configure(
+			const_cast<AIGPrologueWorldScene*>(Scene),
+			Entity,
+			PlayerCharacter,
+			PatrolPoints))
 	{
 		return false;
 	}
@@ -395,6 +399,8 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		this, &AIGListenerGreyboxDirector::HandleNightTwoReturnedHome);
 	NightThree->OnSolved.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleNightThreeSolved);
+	NightThree->OnReturnedHome.AddUObject(
+		this, &AIGListenerGreyboxDirector::HandleNightThreeReturnedHome);
 	FifthDawn->OnCompleted.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleFifthDawnCompleted);
 	NightFour->OnResolved.AddUObject(
@@ -484,6 +490,11 @@ UIGMissingFloorNarrativeSubsystem* AIGListenerGreyboxDirector::GetNarrative() co
 
 void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
 {
+	if (!bActive)
+	{
+		// 05:30 on any route: the goal, the timeout, or the walk home.
+		MakeNightThreeFirstReport();
+	}
 	// One boundary, every consequence, in one place: the entity sleeps by
 	// day, the booth locks by day, and the day verbs vanish by night.
 	if (Entity)
@@ -559,16 +570,49 @@ void AIGListenerGreyboxDirector::HandleNightTwoReturnedHome()
 
 void AIGListenerGreyboxDirector::HandleNightThreeSolved()
 {
-	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!NightPhase || !Narrative || Narrative->GetNightIndex() != 3)
+	{
+		return;
+	}
+	// §8 밤3 does not end at the wall. T9 arms 비트 3-7 and he is standing in
+	// the corridor between the stair core and her door; the walk past him is the
+	// rest of the night.
+	if (NightThree)
+	{
+		NightThree->ArmReturnPass();
+		return;
+	}
+	// No director: complete rather than trap her on a floor with no exit.
+	MakeNightThreeFirstReport();
+	NightPhase->CompleteNightGoal();
+}
+
+void AIGListenerGreyboxDirector::HandleNightThreeReturnedHome()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (NightPhase && Narrative && Narrative->GetNightIndex() == 3)
 	{
-		// The call happens as soon as signal returns at 05:30. Night 4 may
-		// disobey a scene-preservation warning, but it never exists because the
-		// protagonist simply forgot to report a voice behind a wall.
-		Narrative->SetFirstReportMade(true);
-		Narrative->MarkBeatPlayed(FName(TEXT("Night3.FirstReport")));
 		NightPhase->CompleteNightGoal();
 	}
+}
+
+void AIGListenerGreyboxDirector::MakeNightThreeFirstReport()
+{
+	// The call happens as soon as signal returns at 05:30, so it belongs to dawn
+	// rather than to arriving home — a player who runs the hour out instead of
+	// getting past him still reported a voice behind a wall. Night 4 may disobey
+	// a scene-preservation warning, but it never exists because the protagonist
+	// simply forgot to make this call.
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative
+		|| Narrative->GetNightIndex() != 3
+		|| Narrative->WasFirstReportMade())
+	{
+		return;
+	}
+	Narrative->SetFirstReportMade(true);
+	Narrative->MarkBeatPlayed(FName(TEXT("Night3.FirstReport")));
 }
 
 void AIGListenerGreyboxDirector::HandleNightFourResolved()
@@ -2665,7 +2709,10 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 		// Stand him next to her so the taps are within a knock's earshot, and
-		// make sure he is awake and merely patrolling first.
+		// make sure he is awake and merely patrolling first. His dormancy is
+		// remembered rather than assumed: this check runs right after the sleep
+		// that begins night three, so "it is still day" is not true here.
+		bAnswerReachWasDormant = Entity->IsDormant();
 		Entity->SetDormant(false);
 		Entity->TeleportTo(
 			PlayerCharacter->GetActorLocation() + FVector(180.0f, 0.0f, 0.0f),
@@ -2747,7 +2794,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		// and its pair interval is 0.65 s at the outside, so nothing of this
 		// check may still be standing between his first and second knock.
 		Entity->ResetToPatrolStart(/*bRaiseAggression=*/false);
-		Entity->SetDormant(true);
+		Entity->SetDormant(bAnswerReachWasDormant);
 		AnswerReachTapsSent = 0;
 		ProbeStep = EProbeStep::NightThreeContract;
 		StepDeadlineSeconds = 0.0f;
@@ -2819,9 +2866,24 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
 		if (bAnswered)
 		{
-			if (NightPhase->IsHourActive())
+			// §8 밤3 does not end at the wall either. T9 arms 비트 3-7 and the
+			// hour has to still be running, with him standing in the corridor.
+			if (!NightPhase->IsHourActive())
 			{
-				FailProbe(TEXT("the answer did not end night 3"));
+				FailProbe(TEXT("the answer released her to dawn from the annex"));
+				return;
+			}
+			if (!NightThree
+				|| NightThree->GetReturnStage()
+					!= EIGNightThreeReturnStage::Passing
+				|| !NightThree->IsFigureInCorridor())
+			{
+				FailProbe(FString::Printf(
+					TEXT("§8 비트 3-7 did not arm on T9: stage=%d corridor=%d"),
+					NightThree
+						? static_cast<int32>(NightThree->GetReturnStage())
+						: -1,
+					NightThree && NightThree->IsFigureInCorridor() ? 1 : 0));
 				return;
 			}
 			if (!Narrative->IsFinalChoiceUnlocked())
@@ -2834,54 +2896,193 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				FailProbe(TEXT("P3 was not booked after the wall was identified"));
 				return;
 			}
-			if (!Narrative->WasFirstReportMade())
+			// Walk her to the west side of him and hand off; the pass itself is
+			// the next step, because freezing him needs three taps in real time.
+			if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 			{
-				FailProbe(TEXT("night 3 ended without the 05:30 first report"));
-				return;
+				const FVector His = NightThree->GetReturnPassPoint();
+				PlayerCharacter->TeleportTo(
+					His - FVector(150.0f, 0.0f, 0.0f) + FVector(0.0f, 0.0f, 92.0f),
+					PlayerCharacter->GetActorRotation(),
+					false,
+					true);
 			}
-			if (!NightFour || !NightFour->ValidateFixtures())
-			{
-				FailProbe(TEXT("night-4 fixtures were not all placed"));
-				return;
-			}
-
-			// Day after the first report: read Mok's repair/eviction notice,
-			// then sleep into night 4. T10 still needs the breaker cut later.
-			AIGMissingFloorEvidence* Eviction = NightFour->GetEvictionNotice();
-			if (!Eviction || Eviction->IsHidden()
-				|| !Eviction->IsInteractionEnabled())
-			{
-				FailProbe(TEXT("the day-four eviction notice was not available"));
-				return;
-			}
-			FIGInteractionContext Context;
-			Context.Interactor = Player.Get();
-			Context.TargetActor = Eviction;
-			Context.HoldProgress = 1.0f;
-			IIGInteractable::Execute_CompleteInteraction(Eviction, Context);
-			if (Narrative->HasTruth(EIGMissingFloorTruth::StillCoveringIt))
-			{
-				FailProbe(TEXT("eviction notice alone confirmed T10"));
-				return;
-			}
-			if (SleepTarget)
-			{
-				Context.TargetActor = SleepTarget;
-				IIGInteractable::Execute_CompleteInteraction(SleepTarget, Context);
-			}
-			if (!NightPhase->IsHourActive() || Narrative->GetNightIndex() != 4)
-			{
-				FailProbe(TEXT("sleeping did not begin night 4"));
-				return;
-			}
-			ProbeStep = EProbeStep::NightFourContract;
+			AnswerReachTapsSent = 0;
+			AnswerReachTapTwoAt = 0.0;
+			ProbeStep = EProbeStep::NightThreePassContract;
 			StepDeadlineSeconds = 0.0f;
 			break;
 		}
 		if (StepDeadlineSeconds > 12.0f)
 		{
 			FailProbe(TEXT("the wall never answered"));
+			return;
 		}
+		break;
+	}
+
+	case EProbeStep::NightThreePassContract:
+	{
+		// §8 비트 3-7. 「그가 멈춰 기다리는 옆을 걸어 지나가는」 — the answer she
+		// was taught minutes ago, used on a thing standing in her way, and then
+		// the walk past it. Nothing forces this; slipping by unheard was always
+		// allowed. It simply is not the beat.
+		AIGPlayerCharacter* PlayerCharacter = Player.Get();
+		if (!PlayerCharacter || !NightThree || !NightPhase)
+		{
+			FailProbe(TEXT("stage lost during the corridor pass"));
+			return;
+		}
+		const double Now = GetWorld()->GetTimeSeconds();
+		if (Now < AnswerReachTapTwoAt)
+		{
+			break;
+		}
+		const FVector Here = PlayerCharacter->GetActorLocation();
+		if (AnswerReachTapsSent < 3)
+		{
+			const bool bTaken = PlayerCharacter->OfferAnswerKnock(Here);
+			UE_LOG(
+				LogTemp,
+				Display,
+				TEXT("MISSINGFLOOR_N3PASS_TAP tap=%d taken=%d dist=%.0f state=%d"),
+				AnswerReachTapsSent + 1,
+				bTaken ? 1 : 0,
+				FVector::Dist(Here, Entity->GetActorLocation()),
+				static_cast<int32>(Entity->GetListenerState()));
+			++AnswerReachTapsSent;
+			// 둘 — 쉬고 — 하나, at the authored windows.
+			AnswerReachTapTwoAt = Now
+				+ (AnswerReachTapsSent == 1
+					? AIGListenerEntity::AnswerPairMinSeconds
+					: AIGListenerEntity::AnswerRestMinSeconds + 0.10);
+			break;
+		}
+		if (Entity->GetListenerState() != EIGListenerState::Waiting)
+		{
+			FailProbe(FString::Printf(
+				TEXT("the answer did not stop him in the corridor: state=%d"),
+				static_cast<int32>(Entity->GetListenerState())));
+			return;
+		}
+
+		// Past him, while he is still listening for the next knock.
+		const FVector His = NightThree->GetReturnPassPoint();
+		PlayerCharacter->TeleportTo(
+			His + FVector(150.0f, 0.0f, 92.0f),
+			PlayerCharacter->GetActorRotation(),
+			false,
+			true);
+		ProbeStep = EProbeStep::NightThreeHomeContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::NightThreeHomeContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		AIGPlayerCharacter* PlayerCharacter = Player.Get();
+		if (!Narrative || !PlayerCharacter || !NightThree || !NightPhase)
+		{
+			FailProbe(TEXT("stage lost on the way home from the annex"));
+			return;
+		}
+		if (!NightThree->HasPassedWhileWaiting())
+		{
+			if (StepDeadlineSeconds > 4.0f)
+			{
+				FailProbe(TEXT("walking past him while he waited did not book 3-7"));
+				return;
+			}
+			break;
+		}
+		if (!Narrative->HasBeatPlayed(FName(TEXT("Night3.PassBy"))))
+		{
+			FailProbe(TEXT("비트 3-7 was not booked once"));
+			return;
+		}
+		// Only her own floor ends the night.
+		if (NightThree->GetReturnStage() != EIGNightThreeReturnStage::Home)
+		{
+			if (!NightPhase->IsHourActive())
+			{
+				FailProbe(TEXT("night 3 ended while she was still in the corridor"));
+				return;
+			}
+			PlayerCharacter->TeleportTo(
+				FVector(60.0f, -120.0f, 992.0f),
+				PlayerCharacter->GetActorRotation(),
+				false,
+				true);
+			if (StepDeadlineSeconds > 6.0f)
+			{
+				FailProbe(TEXT("403 did not close night 3"));
+				return;
+			}
+			break;
+		}
+		if (NightPhase->IsHourActive() || NightThree->IsFigureInCorridor())
+		{
+			if (StepDeadlineSeconds > 6.0f)
+			{
+				FailProbe(FString::Printf(
+					TEXT("§8 비트 3-7 did not close: hour=%d corridor=%d"),
+					NightPhase->IsHourActive() ? 1 : 0,
+					NightThree->IsFigureInCorridor() ? 1 : 0));
+				return;
+			}
+			break;
+		}
+		if (!Narrative->WasFirstReportMade())
+		{
+			FailProbe(TEXT("night 3 ended without the 05:30 first report"));
+			return;
+		}
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_N3PASS PASS: T9 armed the walk home, the learned "
+				"answer stopped him in the corridor, she passed him while he "
+				"waited, and 403 ended the night"));
+
+		if (!NightFour || !NightFour->ValidateFixtures())
+		{
+			FailProbe(TEXT("night-4 fixtures were not all placed"));
+			return;
+		}
+
+		// Day after the first report: read Mok's repair/eviction notice,
+		// then sleep into night 4. T10 still needs the breaker cut later.
+		AIGMissingFloorEvidence* Eviction = NightFour->GetEvictionNotice();
+		if (!Eviction || Eviction->IsHidden()
+			|| !Eviction->IsInteractionEnabled())
+		{
+			FailProbe(TEXT("the day-four eviction notice was not available"));
+			return;
+		}
+		FIGInteractionContext Context;
+		Context.Interactor = Player.Get();
+		Context.TargetActor = Eviction;
+		Context.HoldProgress = 1.0f;
+		IIGInteractable::Execute_CompleteInteraction(Eviction, Context);
+		if (Narrative->HasTruth(EIGMissingFloorTruth::StillCoveringIt))
+		{
+			FailProbe(TEXT("eviction notice alone confirmed T10"));
+			return;
+		}
+		if (SleepTarget)
+		{
+			Context.TargetActor = SleepTarget;
+			IIGInteractable::Execute_CompleteInteraction(SleepTarget, Context);
+		}
+		if (!NightPhase->IsHourActive() || Narrative->GetNightIndex() != 4)
+		{
+			FailProbe(TEXT("sleeping did not begin night 4"));
+			return;
+		}
+		ProbeStep = EProbeStep::NightFourContract;
+		StepDeadlineSeconds = 0.0f;
 		break;
 	}
 

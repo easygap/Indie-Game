@@ -711,6 +711,19 @@ void AIGListenerEntity::BeginFinalePass(
 	EnterState(EIGListenerState::FinaleLured);
 }
 
+void AIGListenerEntity::ParkForBeat(const FVector& Where, const float Yaw)
+{
+	TeleportTo(Where, FRotator(0.0f, Yaw, 0.0f), false, true);
+	SetActorEnableCollision(true);
+	PatrolIndex = 0;
+	// 이 한 줄이 카메오를 성립시킨다. 남겨 두면 그는 조사 중인 상태로 서 있다가
+	// 아까 들은 자리로 기어간다.
+	bReactingToSound = false;
+	bAmbushArmed = false;
+	AnswerTapTimes.Reset();
+	EnterState(EIGListenerState::Patrolling);
+}
+
 void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 {
 	if (bRaiseAggression)

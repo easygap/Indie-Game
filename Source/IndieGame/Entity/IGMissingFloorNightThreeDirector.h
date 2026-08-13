@@ -5,7 +5,9 @@
 #include "Narrative/IGMissingFloorNarrativeTypes.h"
 #include "IGMissingFloorNightThreeDirector.generated.h"
 
+class AIGListenerEntity;
 class AIGMissingFloorEvidence;
+class AIGPlayerCharacter;
 class AIGPrologueWorldScene;
 class AIGReadableNote;
 class AIGSwingDoor;
@@ -14,6 +16,19 @@ class UStaticMeshComponent;
 class UIGMissingFloorNarrativeSubsystem;
 
 DECLARE_MULTICAST_DELEGATE(FIGNightThreeSolvedSignature);
+DECLARE_MULTICAST_DELEGATE(FIGNightThreeReturnedSignature);
+
+/** Where beat 3-7 has got to. */
+UENUM()
+enum class EIGNightThreeReturnStage : uint8
+{
+	/** T9 is not in yet, or this is not night three. */
+	Idle,
+	/** He is in the corridor between the stair core and her door. */
+	Passing,
+	/** Back inside 403. The night's goal is done. */
+	Home
+};
 
 /**
  * 밤3 「조율」 — the night the player climbs to the floor that is not there
@@ -46,8 +61,44 @@ class INDIEGAME_API AIGMissingFloorNightThreeDirector : public AActor
 public:
 	AIGMissingFloorNightThreeDirector();
 
-	/** Spawns the gate, the annex contents and the day papers. */
-	bool Configure(AIGPrologueWorldScene* InScene);
+	/**
+	 * Spawns the gate, the annex contents and the day papers.
+	 *
+	 * Also takes the pursuer, the pawn and the corridor route, because §8 비트
+	 * 3-7 stages the return past him and has to hand the route back afterwards.
+	 */
+	bool Configure(
+		AIGPrologueWorldScene* InScene,
+		AIGListenerEntity* InEntity = nullptr,
+		AIGPlayerCharacter* InPlayer = nullptr,
+		const TArray<FVector>& InCorridorPatrolPoints = TArray<FVector>());
+
+	/**
+	 * 비트 3-7 「귀환길」을 무장한다 — P4의 대답이 돌아온 순간에 불린다.
+	 *
+	 * §8's night three does not end at the wall either. T9 arms the walk home,
+	 * and he is standing in the 4F corridor between the stair core and 403 —
+	 * knocking, in a corridor 160 cm deep. She has just been taught 둘-쉬고-하나
+	 * by P4; answering freezes him into Waiting and she walks past a thing that
+	 * stopped to listen for her. 「회피 대상이 애도 대상으로」.
+	 *
+	 * Nothing forces the answer. Slipping past him unheard is a legitimate
+	 * solution and always was — it simply is not this beat.
+	 */
+	void ArmReturnPass();
+
+	/** 포획 리셋은 침대로 되돌린다. 그것이 도착으로 세어지면 안 된다. */
+	void NotifyCaptureReset();
+
+	/** Fired once, when she is back inside 403. This is what ends night three. */
+	FIGNightThreeReturnedSignature OnReturnedHome;
+
+	EIGNightThreeReturnStage GetReturnStage() const { return ReturnStage; }
+	/** True while he is standing in the corridor on the way home. */
+	bool IsFigureInCorridor() const { return bFigureStaged; }
+	/** True once she has walked past him while he was waiting on an answer. */
+	bool HasPassedWhileWaiting() const { return bPassedWhileWaiting; }
+	FVector GetReturnPassPoint() const;
 
 	/** Day/night boundary: reveals the journal once T7 is known by day. */
 	void SetHourActive(bool bHourActive);
@@ -109,6 +160,10 @@ private:
 	void DeliverWallAnswer();
 	void EndAnswerSilence();
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
+	void AdvanceReturn();
+	void StageReturnFigure();
+	void ReleaseReturnFigure();
+	bool IsPlayerInsideUnit403() const;
 	void RefreshAnswerTargetAvailability();
 	void RefreshJournalAvailability(bool bHourActive);
 	void RefreshDistantSeoVisibility();
@@ -129,6 +184,22 @@ private:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGPrologueWorldScene> Scene;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AIGListenerEntity> Entity;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AIGPlayerCharacter> Player;
+
+	/** §8 비트 3-7. Handed back to him when the beat lets go of the corridor. */
+	TArray<FVector> CorridorPatrolPoints;
+
+	FTimerHandle ReturnTimer;
+	EIGNightThreeReturnStage ReturnStage = EIGNightThreeReturnStage::Idle;
+	bool bFigureStaged = false;
+	bool bPassedWhileWaiting = false;
+	bool bWasWestOfHim = false;
+	bool bMustLeaveHomeAgain = false;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGSwingDoor> StairGate;
