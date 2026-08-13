@@ -291,6 +291,16 @@ bool UIGMissingFloorNarrativeSubsystem::HasSource(
 	return Record && Record->SourceIds.Contains(GetSourceId(Source));
 }
 
+int32 UIGMissingFloorNarrativeSubsystem::GetTotalSourceCount() const
+{
+	int32 Count = 0;
+	for (const FIGMissingFloorTruthRecord& Record : Snapshot.Truths)
+	{
+		Count += Record.SourceIds.Num();
+	}
+	return Count;
+}
+
 int32 UIGMissingFloorNarrativeSubsystem::GetConfirmedTruthCount() const
 {
 	int32 Count = 0;

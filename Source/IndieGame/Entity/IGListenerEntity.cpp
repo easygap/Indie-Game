@@ -497,6 +497,22 @@ void AIGListenerEntity::SetAggressionTier(const int32 Tier)
 	RefreshNightTuning();
 }
 
+void AIGListenerEntity::BeginObservationHold(const FVector& Target)
+{
+	if (bDormant || State == EIGListenerState::CaptureHold
+		|| State == EIGListenerState::FinaleLured)
+	{
+		// Never interrupt a capture or the authored finale pass to be helpful.
+		return;
+	}
+	// Keep his own floor: he crawls, and the state machine cannot drag him
+	// through a slab to reach a spot the mercy net picked.
+	LastHeardLocation =
+		FVector(Target.X, Target.Y, GetActorLocation().Z);
+	bReactingToSound = false;
+	EnterState(EIGListenerState::Investigating);
+}
+
 void AIGListenerEntity::RefreshNightTuning()
 {
 	int32 NightIndex = IGListenerTuning::FirstNight;

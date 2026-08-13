@@ -102,6 +102,19 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Listener")
 	void NotifyAnswerKnock(const FVector& KnockLocation);
 
+	/**
+	 * Walks him to a spot and lets him hold there, silently, without any sound
+	 * having called him.
+	 *
+	 * §20.3's first safety net is a *witnessed* thing, not a hint: he stops in
+	 * front of the wall that matters and puts his ear to it. The player is shown
+	 * where to look and told nothing at all. Deliberately not routed through the
+	 * noise path, so this can never escalate into a chase — a player who is
+	 * already stuck must not be punished for being helped.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Listener")
+	void BeginObservationHold(const FVector& Target);
+
 	/** Returns the entity to its patrol start after a capture reset. */
 	UFUNCTION(BlueprintCallable, Category = "Listener")
 	void ResetToPatrolStart(bool bRaiseAggression);

@@ -123,6 +123,10 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGMissingFloorNightFourDirector> NightFour;
 
+	/** §20.3's two automatic safety nets: the world moving when nothing else is. */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorMercyDirector> Mercy;
+
 	/** Day interactions: the bed that ends the day, 401's door that talks. */
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGMissingFloorEvidence> SleepTarget;
@@ -156,6 +160,8 @@ private:
 		ChaseOnSecondSound,
 		CaptureOnTouch,
 		ResetAfterCapture,
+		/** §20.3's two automatic safety nets: the reset hint and the 90 s clock. */
+		MercyNetContract,
 		Night1SightingStage,
 		Night1SightingRestore,
 		Night1Extinguisher,

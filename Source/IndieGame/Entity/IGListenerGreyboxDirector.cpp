@@ -21,6 +21,7 @@
 #include "Entity/IGMissingFloorEvidence.h"
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "Entity/IGMissingFloorNightFourDirector.h"
+#include "Entity/IGMissingFloorMercyDirector.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Entity/IGMissingFloorPuzzleOneDirector.h"
 #include "Entity/IGMissingFloorPuzzleTwoDirector.h"
@@ -311,6 +312,22 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		return false;
 	}
 
+	// §20.3's two automatic safety nets. Spawned after night three so it can be
+	// handed the one puzzle whose key wall the entity can be seen listening at.
+	FActorSpawnParameters MercyParameters;
+	MercyParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	MercyParameters.Name = TEXT("MissingFloorMercyDirector");
+	Mercy = World->SpawnActor<AIGMissingFloorMercyDirector>(
+		AIGMissingFloorMercyDirector::StaticClass(),
+		FTransform::Identity,
+		MercyParameters);
+	if (!Mercy)
+	{
+		return false;
+	}
+	Mercy->Configure(Entity, NightThree);
+
 	FActorSpawnParameters FifthDawnParameters;
 	FifthDawnParameters.SpawnCollisionHandlingOverride =
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
@@ -454,6 +471,10 @@ void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
 	if (NightFour)
 	{
 		NightFour->SetHourActive(bActive);
+	}
+	if (Mercy)
+	{
+		Mercy->SetHourActive(bActive);
 	}
 	if (SleepTarget)
 	{
@@ -1444,17 +1465,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 					TEXT("MISSINGFLOOR_M65_MERCY_NOTE PASS: "
 						"capture=5 slide=1 world_note=1 ui=0"));
 			}
-			// On to the night-1 beats: walk into the stair throat and expect
-			// the cameo on the half-landing.
-			if (PlayerCharacter)
-			{
-				PlayerCharacter->TeleportTo(
-					FVector(-300.0f, -305.0f, 1010.0f),
-					PlayerCharacter->GetActorRotation(),
-					false,
-					true);
-			}
-			ProbeStep = EProbeStep::Night1SightingStage;
+			ProbeStep = EProbeStep::MercyNetContract;
 			StepDeadlineSeconds = 0.0f;
 			break;
 		}
@@ -1482,6 +1493,93 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 					bInputRestored ? 1 : 0));
 			}
 		}
+		break;
+	}
+
+	case EProbeStep::MercyNetContract:
+	{
+		// §20.3's two automatic nets. The properties worth proving are the ones
+		// that make them mercy rather than noise: they key off learning, not
+		// walking; they stand down the moment something is learned; they never
+		// repeat the same nudge twice running; and they never say the answer.
+		AIGMissingFloorMercyDirector* MercyActor = Mercy.Get();
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!MercyActor || !Narrative)
+		{
+			FailProbe(TEXT("mercy director or narrative missing"));
+			return;
+		}
+		if (!FMath::IsNearlyEqual(
+				AIGMissingFloorMercyDirector::StuckResponseSeconds,
+				90.0f,
+				0.01f)
+			|| AIGMissingFloorMercyDirector::ResetsForEnvironmentHint != 2)
+		{
+			FailProbe(TEXT("§20.3 thresholds drifted from 90 s and 2 resets"));
+			return;
+		}
+
+		// The reset that got us here was the first; §20.3-1 wants two in a row
+		// with nothing learned in between, so exactly one more must fire it.
+		const int32 HintsBefore = MercyActor->GetResetHintCount();
+		MercyActor->NotifyCaptureReset();
+		const int32 HintsAfter = MercyActor->GetResetHintCount();
+		if (HintsAfter != HintsBefore + 1)
+		{
+			FailProbe(FString::Printf(
+				TEXT("two consecutive resets did not add observation material "
+					"(%d -> %d)"),
+				HintsBefore,
+				HintsAfter));
+			return;
+		}
+
+		// Alternation: the same nudge twice running would train the player to
+		// ignore it. On night one only the pipes are available, so the rotation
+		// is exercised by asking twice and checking the count, not the kind.
+		const int32 ResponsesBefore = MercyActor->GetResponseCount();
+		if (!MercyActor->ForceWorldResponseForTesting()
+			|| MercyActor->GetResponseCount() != ResponsesBefore + 1
+			|| MercyActor->GetLastResponse() == EIGMercyResponse::None)
+		{
+			FailProbe(TEXT("the world would not respond when asked"));
+			return;
+		}
+
+		// And the load-bearing property: learning one thing stands both nets
+		// down. Without this a player making progress would still be nudged,
+		// which reads as the game not watching them.
+		Narrative->RegisterTruthSource(
+			EIGMissingFloorTruth::LivedUpstairs,
+			EIGMissingFloorSource::MeterReadingSheet);
+		MercyActor->NotifyCaptureReset();
+		const bool bStandsDownOnProgress =
+			MercyActor->GetResetHintCount() == HintsAfter;
+		if (!bStandsDownOnProgress)
+		{
+			FailProbe(TEXT("a new source did not stand the reset net down"));
+			return;
+		}
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_MERCY PASS: 90s clock, 2-reset hint, "
+				"responses=%d, stands down on a new source"),
+			MercyActor->GetResponseCount());
+
+		// On to the night-1 beats: walk into the stair throat and expect the
+		// cameo on the half-landing.
+		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+		{
+			PlayerCharacter->TeleportTo(
+				FVector(-300.0f, -305.0f, 1010.0f),
+				PlayerCharacter->GetActorRotation(),
+				false,
+				true);
+		}
+		ProbeStep = EProbeStep::Night1SightingStage;
+		StepDeadlineSeconds = 0.0f;
 		break;
 	}
 

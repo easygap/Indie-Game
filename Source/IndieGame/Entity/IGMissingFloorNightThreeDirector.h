@@ -73,6 +73,14 @@ public:
 	AIGReadableNote* GetTunerNotebook() const { return TunerNotebook; }
 	AIGMissingFloorEvidence* GetRiserValve() const { return RiserValve; }
 	AIGMissingFloorEvidence* GetWallListen(int32 BayIndex) const;
+
+	/**
+	 * World position of the one bay with the cavity behind it, for §20.3's
+	 * observation net. Returns false before the fifth floor is dressed, and
+	 * false once P3 is solved — a player who already knows does not need to be
+	 * shown, and showing them anyway would read as the game not listening.
+	 */
+	bool GetCavityWallObservationPoint(FVector& OutLocation) const;
 	AIGMissingFloorEvidence* GetImpactMark() const { return ImpactMark; }
 	AIGMissingFloorEvidence* GetAnswerTarget() const { return AnswerTarget; }
 	AIGReadableNote* GetLabelsNote() const { return LabelsNote; }

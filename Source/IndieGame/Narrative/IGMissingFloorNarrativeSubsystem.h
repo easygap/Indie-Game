@@ -55,6 +55,17 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
 	int32 GetConfirmedTruthCount() const;
 
+	/**
+	 * Every distinct source filed against every truth, added up.
+	 *
+	 * §20.3's two automatic safety nets both key off "no new source": progress in
+	 * this game is not distance covered or doors opened, it is having found one
+	 * more thing that says something. A player who has learned nothing new in
+	 * ninety seconds is stuck no matter how much walking they did.
+	 */
+	UFUNCTION(BlueprintPure, Category = "Missing Floor|Narrative")
+	int32 GetTotalSourceCount() const;
+
 	/** T6 + T7 + T9 — the wall, the life inside it, and the waiting. */
 	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
 	bool IsFinalChoiceUnlocked() const;

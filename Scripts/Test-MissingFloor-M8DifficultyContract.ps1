@@ -178,16 +178,80 @@ if ($dawnBody -match '->RecordCapture\(') {
 }
 $assertions++
 
+# §20.3 좌절 방지 안전망 두 개. 어느 것도 정답을 말하지 않는다. 막힌
+# 플레이어에게 주는 것은 답이 아니라 볼 곳이다.
+$mercy = Read-Source 'Source/IndieGame/Entity/IGMissingFloorMercyDirector.cpp'
+$mercyHeader = Read-Source 'Source/IndieGame/Entity/IGMissingFloorMercyDirector.h'
+Require-All $mercyHeader @(
+	'static constexpr float StuckResponseSeconds = 90.0f;',
+	'static constexpr int32 ResetsForEnvironmentHint = 2;',
+	'PipeCry',
+	'EarToWall'
+) '§20.3 safety net thresholds'
+Require-All $mercy @(
+	'void AIGMissingFloorMercyDirector::NotifyCaptureReset()',
+	'ResetsSinceNewSource < ResetsForEnvironmentHint',
+	'StuckSeconds < StuckResponseSeconds',
+	'Narrative->GetTotalSourceCount()',
+	'EntityActor->BeginObservationHold(Observation)',
+	'UIGToneSequenceSoundWave::CreatePipeWaterFlow('
+) '§20.3 safety net behaviour'
+# 진전은 걸은 거리가 아니라 새 출처다. 다른 기준을 쓰면 두 층을 헤매고도
+# 막히지 않은 것으로 판정된다.
+if ($mercy -notmatch 'SourceCount != LastSourceCount') {
+	throw '안전망은 새 출처를 기준으로 삼아야 한다(§20.3).'
+}
+$assertions++
+# 새 출처가 생기면 두 그물 모두 물러선다.
+if ($mercy -notmatch '(?s)SourceCount != LastSourceCount.*?ResetsSinceNewSource = 0;') {
+	throw '새 출처는 리셋 카운터까지 물러세워야 한다.'
+}
+$assertions++
+# 노트나 설정 중은 막힌 것이 아니다. 압박 시계와 같은 규칙이다.
+if ($mercy -notmatch 'World->IsPaused\(\)') {
+	throw '일시정지 중에는 90초 시계가 멈춰야 한다(§19.7).'
+}
+$assertions++
+# 같은 넛지를 연달아 두 번 쓰면 플레이어가 무시하도록 학습된다.
+if ($mercy -notmatch 'LastResponse != EIGMercyResponse::EarToWall') {
+	throw '두 응답은 번갈아야 한다. 반복은 메트로놈이 된다.'
+}
+$assertions++
+# 정답을 말하지 않는다: 목표 표시나 힌트 문구, 단계 해금이 없어야 한다.
+foreach ($forbidden in @('PushThought', 'PushDialogue', 'SetObjective', 'MarkPuzzleSolved', 'RequestHint')) {
+	if ($mercy.Contains($forbidden)) {
+		throw "안전망은 답을 말하지 않는다. 금지된 호출: $forbidden"
+	}
+	$assertions++
+}
+# 도움을 받는 플레이어가 그 때문에 벌받아서는 안 된다.
+$holdBody = [regex]::Match(
+	$listener,
+	'(?s)void AIGListenerEntity::BeginObservationHold\(.*?\n\}').Value
+if ($holdBody -notmatch 'bReactingToSound = false;') {
+	throw '관찰 연출이 추격으로 번지면 안 된다.'
+}
+$assertions++
+# 다섯 번째 포획 메모는 세 번째 그물이고 별개 비트다. 서로 대신하지 않는다.
+$nightLoop = Read-Source 'Source/IndieGame/Entity/IGNightLoopDirector.cpp'
+Require-All $nightLoop @(
+	'QueueMercyNoteReveal();',
+	'It->NotifyCaptureReset();'
+) '§20.3 reset wiring'
+
 # 런타임 프로브가 표를 실제로 해결해 대조한다.
 Require-All $greybox @(
 	'case EProbeStep::DifficultyContract:',
 	'MISSINGFLOOR_DIFFICULTY PASS',
 	'IGListenerTuning::Resolve(',
 	'EIGNightDifficulty::ListenOnly',
-	'GetHottestZone(HottestCenter, HottestHeat)'
-) 'runtime difficulty probe'
+	'GetHottestZone(HottestCenter, HottestHeat)',
+	'case EProbeStep::MercyNetContract:',
+	'MISSINGFLOOR_MERCY PASS'
+) 'runtime difficulty and mercy probe'
 
 Write-Host (
 	"MISSINGFLOOR_M8_DIFFICULTY_CONTRACT PASS assertions=$assertions " +
-	'nights=4 modes=4 heatmap_decay=0.5 ending_c_routes=2') `
+	'nights=4 modes=4 heatmap_decay=0.5 ending_c_routes=2 ' +
+	'mercy_nets=2 stuck_seconds=90') `
 	-ForegroundColor Green

@@ -727,6 +727,28 @@ AIGMissingFloorEvidence* AIGMissingFloorNightThreeDirector::GetWallListen(
 	return WallListens.IsValidIndex(BayIndex) ? WallListens[BayIndex] : nullptr;
 }
 
+bool AIGMissingFloorNightThreeDirector::GetCavityWallObservationPoint(
+	FVector& OutLocation) const
+{
+	const AIGMissingFloorEvidence* CavityListen =
+		GetWallListen(IGNightThree::CavityBayIndex);
+	if (!CavityListen)
+	{
+		return false;
+	}
+	if (const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		if (Narrative->IsPuzzleSolved(IGNightThree::PuzzleThreeId))
+		{
+			return false;
+		}
+	}
+	// A little out from the face, so he ends up beside the wall rather than
+	// inside it, and the player sees a body against a surface.
+	OutLocation = CavityListen->GetActorLocation() - FVector(70.0f, 0.0f, 0.0f);
+	return true;
+}
+
 void AIGMissingFloorNightThreeDirector::HandleKeyringTaken(
 	AIGMissingFloorEvidence* Evidence)
 {

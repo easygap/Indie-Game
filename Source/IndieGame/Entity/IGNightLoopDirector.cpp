@@ -9,6 +9,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
+#include "Entity/IGMissingFloorMercyDirector.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInterface.h"
@@ -233,6 +234,18 @@ void AIGNightLoopDirector::FinishReset()
 	}
 
 	QueueMercyNoteReveal();
+
+	// §20.3-1: two resets with nothing learned in between and the world adds one
+	// more thing to look at. The fifth-capture note above is the third net and a
+	// separate beat; these two never stand in for each other.
+	if (const UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGMissingFloorMercyDirector> It(World); It; ++It)
+		{
+			It->NotifyCaptureReset();
+			break;
+		}
+	}
 
 	if (!bWakeRecoveryScheduled)
 	{
