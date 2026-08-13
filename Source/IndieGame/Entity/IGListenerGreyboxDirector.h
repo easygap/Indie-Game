@@ -88,6 +88,19 @@ private:
 		int32 Width,
 		int32 Height,
 		const TArray<FColor>& Colors);
+	/**
+	 * Writes one point's PNG from the bitmap that was just measured.
+	 *
+	 * The viewport client saves a screenshot itself only when nothing is bound to
+	 * OnScreenshotCaptured; binding it to count pixels replaces the file write
+	 * entirely. So the sweep had been measuring correctly and quietly leaving the
+	 * eight frames on disk untouched from whatever build wrote them last.
+	 */
+	void WriteHistogramFrame(
+		const TCHAR* PointName,
+		int32 Width,
+		int32 Height,
+		const TArray<FColor>& Colors) const;
 	void HandleNightOneSolved();
 	void HandleNightTwoSolved();
 	/** §8 비트 2-5: reaching 403 is what ends night two, not confirming T7. */

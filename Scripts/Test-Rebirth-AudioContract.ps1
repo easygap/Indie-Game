@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -577,6 +577,30 @@ Require-All $greybox @(
 	'constexpr float ShotTimeoutSeconds = 20.0f;',
 	'no frame arrived for point'
 ) '§11 V5 watchdog'
+# 프레임은 스윕이 직접 쓴다. UGameViewportClient는 OnScreenshotCaptured에
+# **아무것도 바인딩돼 있지 않을 때만** PNG를 저장한다 — 엔진 주석이 「델리게이트가
+# 구독돼 있으면 파일 대신 델리게이트를 쏜다」다. 이 스윕은 픽셀을 재려고 반드시
+# 바인딩하므로, 파일 이름을 넘기는 요청은 조용히 아무 일도 하지 않는다. 그렇게
+# 여덟 프레임이 예전 빌드의 것으로 디스크에 남아 있었다.
+Require-All $greybox @(
+	'void AIGListenerGreyboxDirector::WriteHistogramFrame(',
+	'FImageUtils::SaveImageByExtension(',
+	'const FImageView Frame(Colors.GetData(), Width, Height);',
+	'FScreenshotRequest::RequestScreenshot(/*bInShowUI=*/true);',
+	'MISSINGFLOOR_V5 frame:'
+) '§11 V5 frames are written by the sweep'
+# 측정한 그 비트맵으로 써야 숫자와 그림이 어긋날 수 없다. 판정 전에 쓴다 —
+# 밴드를 벗어난 지점이야말로 누군가 보고 싶어 하는 프레임이다.
+if ($greybox -notmatch 'WriteHistogramFrame\(Point\.Name, Width, Height, Colors\);[\s\S]{0,220}int32 ShadowPixels') {
+	throw '프레임은 측정한 비트맵으로, 판정보다 먼저 기록해야 한다.'
+}
+$assertions++
+# 파일 이름을 넘기는 요청은 델리게이트가 바인딩된 동안 아무 일도 하지 않는다.
+if ($greybox -match 'CaptureShot\(\*FString::Printf\(TEXT\("v5-') {
+	throw 'v5 프레임을 CaptureShot으로 요청하면 델리게이트가 파일 기록을 대체한다.'
+}
+$assertions++
+
 # 저작 패스는 판정하지 않으므로 PASS를 주장해서도 안 된다.
 if ($greybox -notmatch 'MISSINGFLOOR_V5 REPORT') {
 	throw '보고 전용 패스는 PASS가 아니라 REPORT를 남겨야 한다.'

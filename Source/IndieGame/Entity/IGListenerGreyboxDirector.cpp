@@ -7,6 +7,7 @@
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "ImageUtils.h"
 #include "HAL/FileManager.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSwingDoor.h"
@@ -3815,11 +3816,45 @@ void AIGListenerGreyboxDirector::AdvanceHistogramSweep()
 	// A frame is kept for every point so the art review can happen later without
 	// anyone having to run the engine again to look — and the same captured
 	// frame is what gets measured, so the number and the picture always agree.
-	const IGNightHistogram::FPoint& Point =
-		IGNightHistogram::Points[HistogramPointIndex];
+	//
+	// The request carries no filename on purpose. UGameViewportClient writes the
+	// PNG **only when nothing is bound** to OnScreenshotCaptured — the engine's
+	// own comment is «If delegate subscribed, fire it instead of writing out a
+	// file to disk». This sweep must be bound to measure the pixels, so the file
+	// is ours to write, and WriteHistogramFrame does it from the very bitmap the
+	// numbers came from. Passing a path here instead would silently do nothing.
 	bHistogramShotPending = true;
 	HistogramShotWaitSeconds = 0.0f;
-	CaptureShot(*FString::Printf(TEXT("v5-%s"), Point.Name));
+	// bShowUI stays true: the authored bands were measured from UI-composited
+	// frames, and ripple_ring exists precisely to capture a HUD element.
+	FScreenshotRequest::RequestScreenshot(/*bInShowUI=*/true);
+}
+
+void AIGListenerGreyboxDirector::WriteHistogramFrame(
+	const TCHAR* PointName,
+	const int32 Width,
+	const int32 Height,
+	const TArray<FColor>& Colors) const
+{
+	const FString Path = FPaths::ConvertRelativePathToFull(
+		FPaths::Combine(
+			FPaths::ProjectDir(),
+			FString::Printf(TEXT("Docs/Media/v5-%s.png"), PointName)));
+	// The bitmap arrives as BGRA8 in sRGB, alpha already forced to 255 by the
+	// viewport client before it broadcasts.
+	const FImageView Frame(Colors.GetData(), Width, Height);
+	if (!FImageUtils::SaveImageByExtension(*Path, Frame))
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_V5 FAIL: point %s measured but its frame could "
+				"not be written: %s"),
+			PointName,
+			*Path);
+		return;
+	}
+	UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_V5 frame: %s"), *Path);
 }
 
 void AIGListenerGreyboxDirector::HandleHistogramScreenshot(
@@ -3853,6 +3888,10 @@ void AIGListenerGreyboxDirector::HandleHistogramScreenshot(
 		HistogramFailures = IGNightHistogram::PointCount;
 		return;
 	}
+
+	// Written before the verdict: a point that failed its band is exactly the
+	// one somebody will want to look at.
+	WriteHistogramFrame(Point.Name, Width, Height, Colors);
 
 	int32 ShadowPixels = 0;
 	int32 HighlightPixels = 0;
