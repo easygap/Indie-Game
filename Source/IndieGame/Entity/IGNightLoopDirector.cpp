@@ -10,6 +10,7 @@
 #include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorMercyDirector.h"
+#include "Entity/IGMissingFloorNightTwoBeatDirector.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "Materials/MaterialInterface.h"
@@ -244,6 +245,14 @@ void AIGNightLoopDirector::FinishReset()
 		{
 			It->NotifyCaptureReset();
 			break;
+		}
+		// §8 비트 2-5: the reset puts her back in her own bed, and that must not
+		// count as having carried the ledger home. She owes the night one more
+		// trip out of 403 and back.
+		TActorIterator<AIGMissingFloorNightTwoBeatDirector> ReturnBeat(World);
+		if (ReturnBeat)
+		{
+			ReturnBeat->NotifyCaptureReset();
 		}
 	}
 

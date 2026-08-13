@@ -166,8 +166,77 @@ Require-All $greybox @(
 	'the triple knock left only'
 ) 'runtime beat probe'
 
+# --- 비트 2-5 「귀환 추격」 -------------------------------------------------
+# 밤2는 종이가 모순되는 자리가 아니라 403호 문에서 끝난다. T7이 밤을 끝내면
+# 관리실 안에서 새벽으로 풀려나고 이 비트가 통째로 사라진다.
+Require-All $beatHeader @(
+	'void ArmReturnChase();',
+	'void NotifyCaptureReset();',
+	'FIGNightTwoReturnedSignature OnReturnedHome;',
+	'AwaitingExit,',
+	'Chased,',
+	'Home',
+	'static constexpr float ChaseScareAmount = 0.95f;'
+) '비트 2-5 surface'
+Require-All $greybox @(
+	'NightTwoBeats->ArmReturnChase();',
+	'NightTwoBeats->OnReturnedHome.AddUObject(',
+	'void AIGListenerGreyboxDirector::HandleNightTwoReturnedHome()',
+	'NightPhase->CompleteNightGoal();'
+) '비트 2-5 night ending'
+# 포획 리셋은 침대로 되돌린다. 그것이 도착으로 세어지면 잡히는 것이 목표
+# 달성이 된다.
+Require-All $beat @(
+	'void AIGMissingFloorNightTwoBeatDirector::NotifyCaptureReset()',
+	'bMustLeaveHomeAgain = true;',
+	'bMustLeaveHomeAgain = false;'
+) '비트 2-5 capture reset debt'
+$nightLoop = Read-Source 'Source/IndieGame/Entity/IGNightLoopDirector.cpp'
+Require-All $nightLoop @(
+	'TActorIterator<AIGMissingFloorNightTwoBeatDirector> ReturnBeat(World);',
+	'ReturnBeat->NotifyCaptureReset();'
+) '비트 2-5 capture reset wiring'
+
+# 두 번의 소리. 이것이 이 비트의 전부다 — 규칙이 「두 번 대답하는 소리는
+# 누군가다」이므로 전용 추격 코드가 한 줄도 필요하지 않다.
+Require-All $beat @(
+	'constexpr float CollapseSecondImpactSeconds = 0.55f;',
+	'constexpr float CollapseLoudness = 0.95f;',
+	'const FVector CollapseLocation(168.0f, -258.0f, 24.0f);',
+	'constexpr float BoothExitY = -242.0f;',
+	'IGNightTwo::CollapseLoudness,',
+	'nullptr);',
+	'const FName ReturnBeatId(TEXT("Night2.ReturnChase"));'
+) '비트 2-5 collapse'
+$entity = Read-Source 'Source/IndieGame/Entity/IGListenerEntity.cpp'
+Require-All $entity @(
+	'if (bSecondSound && Tuning.bChaseEnabled)',
+	'EnterState(EIGListenerState::Chasing);'
+) 'second sound is a someone'
+
+# 소리의 출처가 눈에 보여야 한다. 영구 프롭이므로 아침에도 그대로 서 있다.
+$scene = Read-Source 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
+Require-All $scene @(
+	'CreateBlock(',
+	'FVector(168, -262, 52), FVector(96, 14, 104),'
+) '비트 2-5 material stack'
+
+Require-All $greyboxHeader @(
+	'NightTwoReturnChaseContract,',
+	'NightTwoHomeContract,'
+) '비트 2-5 probe steps'
+Require-All $greybox @(
+	'case EProbeStep::NightTwoReturnChaseContract:',
+	'case EProbeStep::NightTwoHomeContract:',
+	'MISSINGFLOOR_N2CHASE PASS',
+	'confirming T7 released her to dawn from the booth',
+	'night 2 ended while she was still out of 403',
+	'the collapse did not move the building',
+	'Entity->GetListenerState() != EIGListenerState::Patrolling'
+) '비트 2-5 probe'
+
 Write-Host (
 	"MISSINGFLOOR_M3_DOOR_BEAT_CONTRACT PASS assertions=$assertions " +
-	'cues=3 single=0.55 triple=1.00 drag=0.42 gap_seconds=2.10 scare=0.7 ' +
-	'patience=40|55 plays=1') `
+	'cues=3 single=0.55 triple=1.00 drag=0.42 gap_seconds=2.10 scare=0.7|0.95 ' +
+	'patience=40|55 plays=1 collapse_impacts=2 night_ends_at=403') `
 	-ForegroundColor Green

@@ -391,6 +391,8 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		this, &AIGListenerGreyboxDirector::HandleNightOneSolved);
 	PuzzleTwo->OnSolved.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleNightTwoSolved);
+	NightTwoBeats->OnReturnedHome.AddUObject(
+		this, &AIGListenerGreyboxDirector::HandleNightTwoReturnedHome);
 	NightThree->OnSolved.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleNightThreeSolved);
 	FifthDawn->OnCompleted.AddUObject(
@@ -528,6 +530,25 @@ void AIGListenerGreyboxDirector::HandleNightOneSolved()
 }
 
 void AIGListenerGreyboxDirector::HandleNightTwoSolved()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!NightPhase || !Narrative || Narrative->GetNightIndex() != 2)
+	{
+		return;
+	}
+	// §8 밤2 does not end where the paper contradicts itself; it ends at 403's
+	// door. T7 arms 비트 2-5 instead of releasing her to dawn from inside the
+	// booth, and the walk home decides the night.
+	if (NightTwoBeats)
+	{
+		NightTwoBeats->ArmReturnChase();
+		return;
+	}
+	// No beat director: complete rather than trap her in a night with no exit.
+	NightPhase->CompleteNightGoal();
+}
+
+void AIGListenerGreyboxDirector::HandleNightTwoReturnedHome()
 {
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (NightPhase && Narrative && Narrative->GetNightIndex() == 2)
@@ -2117,19 +2138,28 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("T7 did not confirm after crossing both records"));
 			return;
 		}
-		if (NightPhase->IsHourActive())
+		// §8 밤2 ends at 403's door, not here. T7 arms 비트 2-5 and the hour has
+		// to still be running, or the return chase never happens.
+		if (!NightPhase->IsHourActive())
 		{
-			FailProbe(TEXT("confirming T7 did not end night 2"));
+			FailProbe(TEXT("confirming T7 released her to dawn from the booth"));
 			return;
 		}
-		if (!Entity->IsDormant())
+		if (!NightTwoBeats
+			|| NightTwoBeats->GetReturnStage()
+				!= EIGNightTwoReturnStage::AwaitingExit)
 		{
-			FailProbe(TEXT("dawn after night 2 left the entity awake"));
+			FailProbe(FString::Printf(
+				TEXT("§8 비트 2-5 did not arm on T7: stage=%d"),
+				NightTwoBeats
+					? static_cast<int32>(NightTwoBeats->GetReturnStage())
+					: -1));
 			return;
 		}
 
 		// §14 상시 렌더 금지. Before the press the channel must cost the frame
-		// nothing at all: no render target, no capture, no picture.
+		// nothing at all: no render target, no capture, no picture. Pressed while
+		// she is still at the desk, because that is where the monitor is.
 		AIGCctvChannelFive* Channel = PuzzleTwo->GetCctvChannelFive();
 		if (!Channel)
 		{
@@ -2181,6 +2211,97 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		CctvFeedBrightestLuma = 0.0f;
 		CctvFeedLitFraction = 0.0f;
 		ProbeStep = EProbeStep::CctvChannelContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::NightTwoReturnChaseContract:
+	{
+		// §8 비트 2-5. Leaving the booth has to drop the stack, the building has
+		// to hear it twice — which is what makes the real AI commit to CHASE —
+		// and only arriving back inside 403 may end the night.
+		if (!NightTwoBeats || !NightPhase)
+		{
+			FailProbe(TEXT("§8 비트 2-5 director disappeared"));
+			return;
+		}
+		if (!NightTwoBeats->HasReturnChaseFired())
+		{
+			if (StepDeadlineSeconds > 4.0f)
+			{
+				FailProbe(TEXT("leaving the booth did not drop the material"));
+				return;
+			}
+			break;
+		}
+		if (NightTwoBeats->GetReturnStage() == EIGNightTwoReturnStage::Chased
+			&& !NightPhase->IsHourActive())
+		{
+			FailProbe(TEXT("night 2 ended while she was still out of 403"));
+			return;
+		}
+		// The chase is the real AI reacting to two sounds. Give it a moment to
+		// commit, then check it is hunting rather than still patrolling.
+		if (StepDeadlineSeconds < 1.5f)
+		{
+			break;
+		}
+		const bool bHunting = !Entity->IsDormant()
+			&& Entity->GetListenerState() != EIGListenerState::Patrolling;
+		if (!bHunting)
+		{
+			FailProbe(FString::Printf(
+				TEXT("the collapse did not move the building: state=%d"),
+				static_cast<int32>(Entity->GetListenerState())));
+			return;
+		}
+
+		// Home. Being teleported here by a capture reset would not have counted;
+		// that path owes the night another trip out and back.
+		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+		{
+			PlayerCharacter->TeleportTo(
+				FVector(60.0f, -120.0f, 992.0f),
+				PlayerCharacter->GetActorRotation(),
+				false,
+				true);
+		}
+		ProbeStep = EProbeStep::NightTwoHomeContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::NightTwoHomeContract:
+	{
+		if (!NightTwoBeats || !NightPhase)
+		{
+			FailProbe(TEXT("§8 비트 2-5 director disappeared before dawn"));
+			return;
+		}
+		const bool bHome =
+			NightTwoBeats->GetReturnStage() == EIGNightTwoReturnStage::Home;
+		if (!bHome || NightPhase->IsHourActive() || !Entity->IsDormant())
+		{
+			if (StepDeadlineSeconds > 6.0f)
+			{
+				FailProbe(FString::Printf(
+					TEXT("§8 비트 2-5 did not close: home=%d hour=%d dormant=%d"),
+					bHome ? 1 : 0,
+					NightPhase->IsHourActive() ? 1 : 0,
+					Entity->IsDormant() ? 1 : 0));
+				return;
+			}
+			break;
+		}
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_N2CHASE PASS: T7 armed the return, the booth exit "
+				"dropped the stack, two sounds moved the building, and 403 "
+				"ended the night"));
+
+		ProbeStep = EProbeStep::DayTwoContract;
 		StepDeadlineSeconds = 0.0f;
 		break;
 	}
@@ -2330,7 +2451,18 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			}
 		}
 
-		ProbeStep = EProbeStep::DayTwoContract;
+		// Step out of the booth into the connector. §8 비트 2-5's collapse fires
+		// on the player's own position, so this is the walk home starting, not a
+		// poke at the beat.
+		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+		{
+			PlayerCharacter->TeleportTo(
+				FVector(190.0f, -300.0f, 92.0f),
+				PlayerCharacter->GetActorRotation(),
+				false,
+				true);
+		}
+		ProbeStep = EProbeStep::NightTwoReturnChaseContract;
 		StepDeadlineSeconds = 0.0f;
 		break;
 	}

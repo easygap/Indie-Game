@@ -90,6 +90,8 @@ private:
 		const TArray<FColor>& Colors);
 	void HandleNightOneSolved();
 	void HandleNightTwoSolved();
+	/** §8 비트 2-5: reaching 403 is what ends night two, not confirming T7. */
+	void HandleNightTwoReturnedHome();
 	void HandleNightThreeSolved();
 	void HandleFifthDawnCompleted();
 	void HandleNightFourResolved();
@@ -177,6 +179,10 @@ private:
 		PuzzleTwoContract,
 		/** §14 CCTV 채널 5: the one-shot render target's whole life cycle. */
 		CctvChannelContract,
+		/** §8 비트 2-5: leaving the booth drops the stack and starts the chase. */
+		NightTwoReturnChaseContract,
+		/** §8 비트 2-5: only 403's floor ends night two. */
+		NightTwoHomeContract,
 		DayTwoContract,
 		NightThreeContract,
 		AnswerPairTap,

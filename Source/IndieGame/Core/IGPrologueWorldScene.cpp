@@ -4286,6 +4286,24 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(170, -150, 237), FVector(24, 24, 4), PlasticDarkMaterial, false);
 	CreateLight(FVector(170, -150, 226), 900.0f, 420.0f,
 		FLinearColor(1.0f, 0.95f, 0.85f), false);
+	// §8 비트 2-5's 낙하물. Boards and a paint tin stored against the wall just
+	// outside the booth door, where a caretaker who is quietly building an extra
+	// floor would keep them. Permanent dressing: the crash has to have had a
+	// source the player could have seen on the way in, and the same stack is
+	// still standing in the mornings.
+	CreateBlock(
+		FVector(168, -262, 52), FVector(96, 14, 104),
+		TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial),
+		true, nullptr, FRotator(0, 0, 6.0f));
+	CreateBlock(
+		FVector(196, -258, 34), FVector(52, 12, 68),
+		TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial),
+		true, nullptr, FRotator(0, 0, -9.0f));
+	CreateBlock(
+		FVector(140, -256, 12), FVector(24, 24, 24),
+		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial),
+		true, CylinderMesh);
+
 	// Granite skirting round the lobby, matching the landings upstairs.
 	CreateBlock(FVector(580, -233.4f, 6), FVector(300, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(448.4f, -305, 6), FVector(3.5f, 160, 12), Skirting, false);

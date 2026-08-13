@@ -12,6 +12,22 @@ class UIGMissingFloorNarrativeSubsystem;
 class UIGNoiseSubsystem;
 class UIGRecordingSubsystem;
 
+DECLARE_MULTICAST_DELEGATE(FIGNightTwoReturnedSignature);
+
+/** Where beat 2-5 has got to. Independent of 2-1; they only share the night. */
+UENUM()
+enum class EIGNightTwoReturnStage : uint8
+{
+	/** T7 is not confirmed yet, or this is not night two. */
+	Idle,
+	/** T7 is in. The collapse is waiting for her to step out of the booth. */
+	AwaitingExit,
+	/** 낙하물 dropped, the building heard it twice, and she has to get home. */
+	Chased,
+	/** Back inside 403. The night's goal is done — this is what ends it. */
+	Home
+};
+
 /** Where beat 2-1 has got to. */
 UENUM()
 enum class EIGNightTwoBeatStage : uint8
@@ -76,6 +92,32 @@ public:
 	/** The hour boundary. Night two arms the beat; anything else disarms it. */
 	void SetHourActive(bool bHourActive);
 
+	/**
+	 * 비트 2-5 「귀환 추격」을 무장한다 — T7이 확정된 순간에 불린다.
+	 *
+	 * §8's night two does not end where the paper contradicts itself. It ends at
+	 * 403's door, and the way home is the night's loudest minute: leaving the
+	 * booth drops a stack of stored material, the building hears it twice, and
+	 * two sounds are a someone — so the real AI commits to CHASE with no bespoke
+	 * chase code, exactly as 1-5 earns INVESTIGATE. 【S】0.95, and §10's chase cue
+	 * gets its first use of the game.
+	 *
+	 * Before this existed the night was completed the instant T7 confirmed and the
+	 * player was released straight to dawn from inside the management booth, which
+	 * skipped the whole beat.
+	 */
+	void ArmReturnChase();
+
+	/**
+	 * 포획 리셋은 플레이어를 403호 침대로 되돌린다. 그것이 「집에 도착」으로
+	 * 세어지면 잡히는 것이 목표 달성이 되어 버리므로, 리셋 뒤에는 한 번 밖으로
+	 * 나갔다 와야 다시 집으로 인정한다.
+	 */
+	void NotifyCaptureReset();
+
+	/** Fired once, when she is back inside 403. This is what ends night two. */
+	FIGNightTwoReturnedSignature OnReturnedHome;
+
 	// -- receipts for the probe and the contracts ---------------------------
 	EIGNightTwoBeatStage GetStage() const { return Stage; }
 	bool HasPlayed() const { return bPlayed; }
@@ -86,11 +128,18 @@ public:
 	/** True when the phone was running when the three knocks landed. */
 	bool WasRecordingDuringAnswer() const { return bRecordedAnswer; }
 
+	EIGNightTwoReturnStage GetReturnStage() const { return ReturnStage; }
+	/** True once the collapse has dropped and the building has heard it twice. */
+	bool HasReturnChaseFired() const { return bReturnChaseFired; }
+	/** True while a capture reset is still owed a trip out of 403 and back. */
+	bool IsReturnOwedAnotherTrip() const { return bMustLeaveHomeAgain; }
+
 	/** Harness hook: runs the beat without waiting out its patience timers. */
 	void AdvanceForTesting();
 
-	/** 【S】 for this beat, straight from the §8 table. */
+	/** 【S】 for each beat, straight from the §8 table. */
 	static constexpr float ScareAmount = 0.7f;
+	static constexpr float ChaseScareAmount = 0.95f;
 
 protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -98,6 +147,10 @@ protected:
 private:
 	void AdvanceStage();
 	void EnterStage(EIGNightTwoBeatStage NextStage);
+	void AdvanceReturn();
+	void PlayMaterialCollapse();
+	bool IsPlayerInsideUnit403() const;
+	bool IsPlayerOutsideBooth() const;
 	void PlayFirstKnock();
 	void PlayAnswer();
 	void PlayDragAway();
@@ -124,11 +177,16 @@ private:
 	TArray<FVector> CorridorPatrolPoints;
 
 	FTimerHandle StageTimer;
+	FTimerHandle ReturnTimer;
+	FTimerHandle CollapseTimer;
 	EIGNightTwoBeatStage Stage = EIGNightTwoBeatStage::Idle;
+	EIGNightTwoReturnStage ReturnStage = EIGNightTwoReturnStage::Idle;
 	float StageSeconds = 0.0f;
 	int32 KnockCount = 0;
 	bool bPlayed = false;
 	bool bFigureStaged = false;
 	bool bPeepholeSeen = false;
 	bool bRecordedAnswer = false;
+	bool bReturnChaseFired = false;
+	bool bMustLeaveHomeAgain = false;
 };

@@ -75,6 +75,39 @@ namespace IGNightTwo
 
 	const FName BeatId(TEXT("Night2.DoorKnock"));
 	const FName PeepholeBeatId(TEXT("Night2.Peephole"));
+	const FName ReturnBeatId(TEXT("Night2.ReturnChase"));
+
+	// -- 비트 2-5 「귀환 추격」 ---------------------------------------------
+	/**
+	 * 관리실 문 바로 밖, 연결 복도. 관리실은 1층이라 Z가 작다. 쌓아 둔 자재가
+	 * 무너지는 자리이며, 소리의 출처가 눈에 보이게 BuildLobby가 같은 좌표에
+	 * 판재 더미를 세워 둔다.
+	 */
+	const FVector CollapseLocation(168.0f, -258.0f, 24.0f);
+	/**
+	 * 두 번. 이것이 이 비트의 전부다 — §5의 규칙이 「두 번 대답하는 소리는
+	 * 누군가다」이므로, 무너지는 더미의 첫 조각과 나머지가 실제 AI를 추격으로
+	 * 넘긴다. 전용 추격 코드는 한 줄도 없다. 0.55초는 반응 기억 10초 안이고,
+	 * 한 번의 사고로 들릴 만큼 붙어 있다.
+	 */
+	constexpr float CollapseSecondImpactSeconds = 0.55f;
+	/**
+	 * 0.95는 §8 표의 【S】와 같은 값이다. 반경은 크기 × 2600 cm이므로 2470 cm까지
+	 * 실리고, 층간 감쇠 1.4배를 물어도 4층 복도의 그에게 닿는다. 계산이 아니라
+	 * 그렇게 되도록 고른 값이다 — 이 비트가 확실히 추격이 되어야 한다.
+	 */
+	constexpr float CollapseLoudness = 0.95f;
+	constexpr float CollapseVolume = 1.0f;
+	constexpr float CollapseInnerRadius = 260.0f;
+	constexpr float CollapseFalloff = 2100.0f;
+
+	/** 관리실은 Y -235..-75. 이 선을 넘으면 나선 것이다. */
+	constexpr float BoothExitY = -242.0f;
+	/** 403호 실내는 4층 X -190..190, Y -235..235. */
+	const FBox Unit403Interior(
+		FVector(-190.0f, -235.0f, FourthFloorZ - 20.0f),
+		FVector(190.0f, 235.0f, FourthFloorZ + 230.0f));
+	constexpr float ReturnPollSeconds = 0.25f;
 }
 
 AIGMissingFloorNightTwoBeatDirector::AIGMissingFloorNightTwoBeatDirector()
@@ -143,6 +176,8 @@ void AIGMissingFloorNightTwoBeatDirector::EndPlay(
 	const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(StageTimer);
+	GetWorldTimerManager().ClearTimer(ReturnTimer);
+	GetWorldTimerManager().ClearTimer(CollapseTimer);
 	ReleaseFigure();
 	Super::EndPlay(EndPlayReason);
 }
@@ -180,7 +215,14 @@ void AIGMissingFloorNightTwoBeatDirector::SetHourActive(const bool bHourActive)
 	if (!bHourActive || !bIsNightTwo || bAlreadyPlayed)
 	{
 		// 새벽이 오거나 다른 밤이면 문구멍을 닫고 형체를 순찰로 돌려보낸다.
+		// 귀환 추격도 함께 내린다 — 시간 초과로 새벽이 왔다면 목표는 이미
+		// 끝났고, 낮에 폴링을 계속할 이유가 없다.
 		GetWorldTimerManager().ClearTimer(StageTimer);
+		GetWorldTimerManager().ClearTimer(ReturnTimer);
+		if (ReturnStage != EIGNightTwoReturnStage::Home)
+		{
+			ReturnStage = EIGNightTwoReturnStage::Idle;
+		}
 		if (Peephole)
 		{
 			Peephole->SetInteractionEnabled(false);
@@ -433,6 +475,160 @@ void AIGMissingFloorNightTwoBeatDirector::ReleaseFigure()
 		Listener->SetPatrolPoints(CorridorPatrolPoints);
 		// 연출이었지 실패가 아니다. 공격 티어는 건드리지 않는다.
 		Listener->ResetToPatrolStart(/*bRaiseAggression=*/false);
+	}
+}
+
+// -- 비트 2-5 「귀환 추격」 -------------------------------------------------
+
+void AIGMissingFloorNightTwoBeatDirector::ArmReturnChase()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || Narrative->GetNightIndex() != 2)
+	{
+		return;
+	}
+	if (ReturnStage != EIGNightTwoReturnStage::Idle)
+	{
+		return;
+	}
+	ReturnStage = EIGNightTwoReturnStage::AwaitingExit;
+	// 종이는 손에 있고 밤은 끝나지 않았다. 목표가 바뀐 것을 한 줄로 말한다.
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"N2ReturnThought",
+			"…가져가야 해. 집까지."),
+		4.0f);
+	GetWorldTimerManager().SetTimer(
+		ReturnTimer,
+		this,
+		&AIGMissingFloorNightTwoBeatDirector::AdvanceReturn,
+		IGNightTwo::ReturnPollSeconds,
+		true);
+}
+
+bool AIGMissingFloorNightTwoBeatDirector::IsPlayerOutsideBooth() const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	if (!PlayerCharacter)
+	{
+		return false;
+	}
+	const FVector Where = PlayerCharacter->GetActorLocation();
+	// 1층에서 관리실 남쪽 선을 넘었을 때만. 4층에서의 Y는 아무 의미가 없다.
+	return Where.Z < IGNightTwo::FourthFloorZ * 0.5f
+		&& Where.Y < IGNightTwo::BoothExitY;
+}
+
+bool AIGMissingFloorNightTwoBeatDirector::IsPlayerInsideUnit403() const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	return PlayerCharacter
+		&& IGNightTwo::Unit403Interior.IsInsideOrOn(
+			PlayerCharacter->GetActorLocation());
+}
+
+void AIGMissingFloorNightTwoBeatDirector::AdvanceReturn()
+{
+	switch (ReturnStage)
+	{
+	case EIGNightTwoReturnStage::AwaitingExit:
+		if (IsPlayerOutsideBooth())
+		{
+			PlayMaterialCollapse();
+			ReturnStage = EIGNightTwoReturnStage::Chased;
+		}
+		break;
+
+	case EIGNightTwoReturnStage::Chased:
+		// 리셋으로 침대에 돌아온 것은 도착이 아니다. 한 번 밖으로 나가야
+		// 그 빚이 청산된다.
+		if (bMustLeaveHomeAgain)
+		{
+			if (!IsPlayerInsideUnit403())
+			{
+				bMustLeaveHomeAgain = false;
+			}
+			break;
+		}
+		if (IsPlayerInsideUnit403())
+		{
+			ReturnStage = EIGNightTwoReturnStage::Home;
+			GetWorldTimerManager().ClearTimer(ReturnTimer);
+			if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+			{
+				Narrative->MarkBeatPlayed(IGNightTwo::ReturnBeatId);
+			}
+			OnReturnedHome.Broadcast();
+		}
+		break;
+
+	default:
+		GetWorldTimerManager().ClearTimer(ReturnTimer);
+		break;
+	}
+}
+
+void AIGMissingFloorNightTwoBeatDirector::PlayMaterialCollapse()
+{
+	if (bReturnChaseFired)
+	{
+		return;
+	}
+	bReturnChaseFired = true;
+
+	auto Impact = [this](const bool bSecond)
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			bSecond
+				? UIGToneSequenceSoundWave::CreateLockedRattle(this)
+				: UIGToneSequenceSoundWave::CreateDoorThud(this),
+			IGNightTwo::CollapseLocation,
+			IGNightTwo::CollapseVolume,
+			bSecond ? 0.74f : 0.86f,
+			IGNightTwo::CollapseInnerRadius,
+			IGNightTwo::CollapseFalloff);
+		// 발신자 없음. 건물이 한 일이며, 파문 HUD가 「네가 냈다」고 말해서는
+		// 안 된다 — 1-5의 소화기와 같은 규칙이다.
+		if (UIGNoiseSubsystem* Noise = GetNoise())
+		{
+			Noise->ReportNoise(
+				IGNightTwo::CollapseLocation,
+				IGNightTwo::CollapseLoudness,
+				nullptr);
+		}
+	};
+
+	Impact(/*bSecond=*/false);
+	// 나머지가 무너지는 두 번째 소리. 이 한 번이 조사를 추격으로 바꾼다.
+	FTimerDelegate SecondImpact;
+	SecondImpact.BindLambda([this, Impact]() { Impact(true); });
+	GetWorldTimerManager().SetTimer(
+		CollapseTimer,
+		SecondImpact,
+		IGNightTwo::CollapseSecondImpactSeconds,
+		false);
+
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT("IGMissingFloor", "N2CollapseCaption", "자재 무너짐 — 뒤쪽"),
+		2.4f);
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+		{
+			Stress->ApplyScare(ChaseScareAmount);
+		}
+	}
+}
+
+void AIGMissingFloorNightTwoBeatDirector::NotifyCaptureReset()
+{
+	if (ReturnStage == EIGNightTwoReturnStage::Chased)
+	{
+		bMustLeaveHomeAgain = true;
 	}
 }
 
