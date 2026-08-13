@@ -185,6 +185,7 @@ PRINT_MATERIALS = {
     "M_NoteFridge": "T_NoteFridge_D",
     "M_Note404NotFound": "T_Note404NotFound_D",
     "M_CaptureMercyNote": "T_CaptureMercyNote_D",
+    "M_MercyNoteUnderDoor": "T_MercyNoteUnderDoor_D",
     "M_LabelWater": "T_LabelWater_D",
     "M_LabelGreenTea": "T_LabelGreenTea_D",
     "M_LabelBarley": "T_LabelBarley_D",
@@ -241,7 +242,11 @@ EVIDENCE_MASK_MATERIALS = {
     "M_MissingFloorCavityScratches": "T_MissingFloorCavityScratches_M",
 }
 
-TWO_SIDED_PRINT_MATERIALS = {"M_Note404NotFound", "M_CaptureMercyNote"}
+TWO_SIDED_PRINT_MATERIALS = {
+    "M_Note404NotFound",
+    "M_CaptureMercyNote",
+    "M_MercyNoteUnderDoor",
+}
 ALL_PRINT_MATERIALS = {**PRINT_MATERIALS, **ENTRANCE_PLATE_MATERIALS}
 
 

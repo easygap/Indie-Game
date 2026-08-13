@@ -225,17 +225,40 @@ if ($mercy -notmatch 'if \(bNoteDelivered \|\| bNoteSliding') {
 	throw '문 아래 메모는 밤에 한 번만 밀려야 한다.'
 }
 $assertions++
-# 다섯 번째 포획 메모의 재질을 재사용하면 인쇄된 문장이 반복되고 그 비트의
-# 무게가 소모된다. 형태는 같은 종이, 재질은 백지 접힘이어야 한다.
-# 메시 이름 SM_CaptureMercyNote가 부분 문자열로 걸리지 않도록 재질 경로만 본다.
+# 같은 수첩에서 찢은 종이라 형태와 질감은 공유하되, 인쇄된 문장은 각자의 것이다.
+# 다섯 번째 포획 메모의 재질을 그대로 쓰면 그 비트의 문장이 반복되고 무게가
+# 소모된다. 메시 이름이 부분 문자열로 걸리지 않도록 재질 경로만 본다.
 if ($mercy -match 'Materials/M_CaptureMercyNote') {
 	throw '90초 메모는 다섯 번째 포획 메모의 인쇄 재질을 쓰지 않는다.'
 }
 $assertions++
 Require-All $mercy @(
-	'M_PaperFolded',
+	'M_MercyNoteUnderDoor',
 	'SM_CaptureMercyNote'
 ) '§20.3 note material and shape'
+# 문장은 퍼즐이 아니라 그녀에게로 보낸다. 정답 어휘가 들어오면 계약이 막는다.
+$signTextures = Read-Source 'Scripts/Create-SignTextures.ps1'
+Require-All $signTextures @(
+	"'T_MercyNoteUnderDoor_D.png'",
+	"'낮에 와.'",
+	"'문 열어 둘게.'",
+	'$captureMercyNotePaper'
+) '§20.3 note lettering'
+# 두 메모가 같은 문장을 쓰면 안 된다.
+if ($signTextures -notmatch "'소리를 줄여라\.'") {
+	throw '다섯 번째 포획 메모의 문장이 사라졌다.'
+}
+$assertions++
+$underDoorBlock = [regex]::Match(
+	$signTextures,
+	"(?s)-FileName 'T_MercyNoteUnderDoor_D\.png'.*?
+    \}").Value
+foreach ($forbidden in @('소리를 줄여라', '걔는 눈이 없어', '5층', '벽', '밸브')) {
+	if ($underDoorBlock.Contains($forbidden)) {
+		throw "메모는 답을 말하지 않고 반복하지 않는다. 금지 어휘: $forbidden"
+	}
+	$assertions++
+}
 # 다섯 번째 포획 메모와 같은 규율: 상호작용·윤곽선·그림자·데칼 없음.
 Require-All $mercy @(
 	'Note->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);',

@@ -135,6 +135,21 @@ function Write-CorridorEntranceSigns {
         Draw-CenteredText $g '소리를 줄여라.' $noteFontFamily 92 ([System.Drawing.FontStyle]::Regular) $ballpoint ($w * 0.50) ($h * 0.38)
         Draw-CenteredText $g '걔는 눈이 없어.' $noteFontFamily 92 ([System.Drawing.FontStyle]::Regular) $ballpoint ($w * 0.50) ($h * 0.62)
     }
+
+    # §20.3 세계의 90초 반응. 같은 수첩에서 찢은 종이라 질감과 잉크는 그대로
+    # 두고 문장만 바꾼다. 이 메모는 퍼즐에 대해 아무것도 말하지 않는다 —
+    # 새벽 네시 반에 깨어 있는 사람이 낮에 문을 열어 두겠다고만 한다. 그것이
+    # 세 번째 안전망인 황순금으로 가는 길이고, 답이 아니라 볼 곳이다.
+    New-SignBitmap -Width 1024 -Height 640 `
+        -Background ([System.Drawing.Color]::FromArgb(255, 218, 207, 180)) `
+        -BackgroundImagePath $captureMercyNotePaper `
+        -FileName 'T_MercyNoteUnderDoor_D.png' -Draw {
+        param($g, $w, $h)
+
+        $ballpoint = [System.Drawing.Color]::FromArgb(255, 35, 42, 54)
+        Draw-CenteredText $g '낮에 와.' $noteFontFamily 96 ([System.Drawing.FontStyle]::Regular) $ballpoint ($w * 0.50) ($h * 0.38)
+        Draw-CenteredText $g '문 열어 둘게.' $noteFontFamily 92 ([System.Drawing.FontStyle]::Regular) $ballpoint ($w * 0.50) ($h * 0.62)
+    }
 }
 
 if ($CorridorEntranceOnly) {

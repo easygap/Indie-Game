@@ -89,6 +89,7 @@ MISSING_FLOOR_TEXTURE_NAMES = {
 CORRIDOR_SIGNAGE_ONLY = os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1"
 CORRIDOR_SIGNAGE_TEXTURE_NAMES = {
     "T_CaptureMercyNote_D",
+    "T_MercyNoteUnderDoor_D",
     "T_Note404NotFound_D",
     "T_Plate401_D",
     "T_Plate402_D",
@@ -602,6 +603,7 @@ def import_textures():
                 "T_NoteFridge_D",
                 "T_Note404NotFound_D",
                 "T_CaptureMercyNote_D",
+                "T_MercyNoteUnderDoor_D",
             }
             or asset_name.startswith("T_Label")
             or asset_name.startswith("T_Plate")

@@ -20,15 +20,16 @@ enum class EIGMercyResponse : uint8
 	/**
 	 * 문 아래로 메모가 밀린다 — a folded note comes out from under 401.
 	 *
-	 * It carries no legible words, and that is the design rather than a missing
-	 * texture. The five-capture note is the one piece of paper in this game that
-	 * speaks, and it earns that by being rare; a second talking note would spend
-	 * the first one's weight. What this note says is that somebody in 401 is
-	 * awake at half past four and answering — which routes the player to 황순금,
-	 * the third safety net, instead of duplicating her. The nets chain.
+	 * 「낮에 와.」 「문 열어 둘게.」 Two lines in her handwriting, and neither is
+	 * about the puzzle. Somebody is awake at half past four, she cannot help
+	 * through a door at this hour, and she is telling the player when she can —
+	 * which routes them to 황순금, the third safety net, instead of duplicating
+	 * her. The nets chain, and this note is the link. It also lands exactly on
+	 * §20.3's own promise that she opens the door first in the next day.
 	 *
 	 * Same discipline as the five-capture note: no interaction, no outline, no
-	 * inspect panel, no caption, no objective. You find it by looking down.
+	 * inspect panel, no caption, no objective. You find it by looking down, and
+	 * you read it by walking over and looking at it in the world.
 	 */
 	NoteUnderDoor
 };

@@ -353,6 +353,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 		@(
 			'Content\Meshes\SM_CaptureMercyNote.uasset',
 			'Content\Prototype\Textures\T_CaptureMercyNote_D.uasset',
+			'Content\Prototype\Textures\T_MercyNoteUnderDoor_D.uasset',
 			'Content\Prototype\Textures\T_Note404NotFound_D.uasset',
 			'Content\Prototype\Textures\T_Plate401_D.uasset',
 			'Content\Prototype\Textures\T_Plate402_D.uasset',
@@ -360,6 +361,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 			'Content\Prototype\Textures\T_PlateCommon_D.uasset',
 			'Content\Prototype\Materials\M_Note404NotFound.uasset',
 			'Content\Prototype\Materials\M_CaptureMercyNote.uasset',
+			'Content\Prototype\Materials\M_MercyNoteUnderDoor.uasset',
 			'Content\Prototype\Materials\M_Plate402.uasset',
 			'Content\Prototype\Materials\M_PlateCommon.uasset'
 		)
@@ -493,7 +495,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 			},
 			@{
 				Script = 'generate_surface_textures.py'
-				SuccessPattern = '\[IndieGame\] Imported 6 textures'
+				SuccessPattern = '\[IndieGame\] Imported 7 textures'
 				TargetEnvironment = $true
 			},
 			@{

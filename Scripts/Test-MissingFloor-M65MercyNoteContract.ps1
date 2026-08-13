@@ -186,14 +186,14 @@ Assert-ContainsAll $auditScript @(
 	'"SM_CaptureMercyNote"',
 	'"SM_CaptureMercyNote": 60',
 	'"M_CaptureMercyNote": "T_CaptureMercyNote_D"',
-	'"M_CaptureMercyNote"}'
+	'"M_CaptureMercyNote",'
 ) 'M6.5 baked-asset audit'
 Assert-ContainsAll $buildScript @(
 	'Content\Meshes\SM_CaptureMercyNote.uasset',
 	'Content\Prototype\Textures\T_CaptureMercyNote_D.uasset',
 	'Content\Prototype\Materials\M_CaptureMercyNote.uasset',
 	"SuccessPattern = '\[MESHGEN\] complete: 1/1 meshes'",
-	"SuccessPattern = '\[IndieGame\] Imported 6 textures'"
+	"SuccessPattern = '\[IndieGame\] Imported 7 textures'"
 ) 'M6.5 targeted art build'
 
 Assert-ContainsAll $greyboxHeader @(

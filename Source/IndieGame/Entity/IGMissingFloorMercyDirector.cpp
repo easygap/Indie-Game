@@ -106,14 +106,18 @@ bool AIGMissingFloorMercyDirector::InitializeNote()
 		return true;
 	}
 	// The five-capture note's paper shape is the right object — an 18 x 11 cm
-	// folded sheet with the front edge lifted — but deliberately not its
-	// material, which carries printed words this note must not repeat.
+	// folded sheet with the front edge lifted — and its material is torn from
+	// the same pad: same recycled fibre, same 0.92 roughness, same ballpoint.
+	// Only the sentences differ, which is the whole point. 황순금 has one
+	// notepad, so two notes from her should be indistinguishable as objects and
+	// tell apart only by what she wrote.
 	UStaticMesh* NoteMesh = LoadObject<UStaticMesh>(
 		nullptr,
 		TEXT("/Game/Meshes/SM_CaptureMercyNote.SM_CaptureMercyNote"));
 	UMaterialInterface* NoteMaterial = LoadObject<UMaterialInterface>(
 		nullptr,
-		TEXT("/Game/Prototype/Materials/M_PaperFolded.M_PaperFolded"));
+		TEXT("/Game/Prototype/Materials/M_MercyNoteUnderDoor."
+			"M_MercyNoteUnderDoor"));
 	if (!NoteMesh || !NoteMaterial)
 	{
 		return false;

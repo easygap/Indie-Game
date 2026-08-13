@@ -598,7 +598,10 @@ foreach ($token in @(
 	'"M_Note404NotFound": "T_Note404NotFound_D"',
 	'"M_CaptureMercyNote": "T_CaptureMercyNote_D"',
 	'ENTRANCE_PLATE_MATERIALS',
-	'TWO_SIDED_PRINT_MATERIALS = {"M_Note404NotFound", "M_CaptureMercyNote"}',
+	'TWO_SIDED_PRINT_MATERIALS = {',
+	'"M_Note404NotFound",',
+	'"M_CaptureMercyNote",',
+	'"M_MercyNoteUnderDoor",',
 	'Printed paper lost two-sided rendering'
 )) {
 	if (-not $auditScript.Contains($token)) {
