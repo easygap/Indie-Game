@@ -23,6 +23,7 @@ $worldScene = Read-Source 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
 $nightThree = Read-Source 'Source/IndieGame/Entity/IGMissingFloorNightThreeDirector.cpp'
 $nightFour = Read-Source 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
 $nightPhaseScene = Read-Source 'Source/IndieGame/Entity/IGNightPhaseDirector.cpp'
+$greybox = Read-Source 'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
 $assertions = 0
 
 function Require-All(
@@ -468,6 +469,68 @@ Require-All $worldScene @(
 	'PostProcess->Settings.AutoExposureMinBrightness = bSealed ? 1.30f : -0.5f;',
 	'PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;'
 ) '§11 V1 night exposure lock'
+
+# §11 V5 밤 구간 8지점 히스토그램. 임계는 설계서가 고정한 5%/98%이며, 지점별
+# 밴드는 실측에서 저작한다. 밴드를 먼저 쓰고 통과할 때까지 늘리면 밴드가
+# 느슨하다는 것만 증명된다.
+Require-All $greybox @(
+	'constexpr float ShadowThreshold = 0.05f;',
+	'constexpr float HighlightThreshold = 0.98f;',
+	'TEXT("corridor_dark")',
+	'TEXT("beam_dust")',
+	'TEXT("entity_rim")',
+	'TEXT("cavity_wall")',
+	'TEXT("residue_fifth_floor")',
+	'TEXT("residue_corridor")',
+	'TEXT("chase_post")',
+	'TEXT("ripple_ring")',
+	'MISSINGFLOOR_V5 PASS'
+) '§11 V5 histogram points'
+# 여덟 지점이어야 한다. 설계서가 여덟을 고정했다.
+$v5Points = ([regex]::Matches(
+	$greybox,
+	'TEXT\("(corridor_dark|beam_dust|entity_rim|cavity_wall|residue_fifth_floor|residue_corridor|chase_post|ripple_ring)"\), ESetup::')).Count
+if ($v5Points -ne 8) {
+	throw "§11 V5는 여덟 지점이다. 현재 $v5Points 개."
+}
+$assertions++
+# 뷰포트 백버퍼 직접 읽기는 -RenderOffScreen에서 순수 검정을 돌려준다.
+# 스크린샷 델리게이트가 실제 렌더된 프레임을 주는 유일한 경로다.
+Require-All $greybox @(
+	'UGameViewportClient::OnScreenshotCaptured().AddUObject(',
+	'void AIGListenerGreyboxDirector::HandleHistogramScreenshot('
+) '§11 V5 measurement path'
+if ($greybox -match 'Viewport->ReadPixels\(') {
+	throw '백버퍼 직접 읽기는 오프스크린에서 검정을 돌려준다. 델리게이트를 쓴다.'
+}
+$assertions++
+# 전 프레임 검정은 어두운 프레임이 아니라 깨진 읽기다. 모든 암부 하한을
+# 잘못된 이유로 만족시키므로 반드시 거부해야 한다.
+if ($greybox -notmatch 'Shadow >= 0\.9995f') {
+	throw '전 픽셀 검정 프레임을 거부하지 않으면 거짓 통과가 가능하다.'
+}
+$assertions++
+# 프레임이 오지 않으면 매달리지 말고 진단을 낸다.
+Require-All $greybox @(
+	'constexpr float ShotTimeoutSeconds = 20.0f;',
+	'no frame arrived for point'
+) '§11 V5 watchdog'
+# 저작 패스는 판정하지 않으므로 PASS를 주장해서도 안 된다.
+if ($greybox -notmatch 'MISSINGFLOOR_V5 REPORT') {
+	throw '보고 전용 패스는 PASS가 아니라 REPORT를 남겨야 한다.'
+}
+$assertions++
+# 러너는 창을 띄울 수 있는 인자 조합을 실행 자체로 거부한다.
+$histogramRunner = Read-Source 'Scripts/Run-MissingFloor-NightHistogram.ps1'
+Require-All $histogramRunner @(
+	"'-RenderOffScreen',",
+	"if (`$arguments -notcontains '-RenderOffScreen') {",
+	'-d3d12'
+) '§11 V5 no-window guard'
+if ($histogramRunner -match "'-nullrhi'") {
+	throw '히스토그램 스윕은 -nullrhi로 돌 수 없다. 렌더가 없으면 측정도 없다.'
+}
+$assertions++
 
 # §11 V2 오염 레이어. 수광 평면은 0.15cm만 띄우고 그림자·충돌을 끈다. 조명색과
 # 접촉 그림자는 월드가 계산하므로 흔적만 주변 재질에 젖어든다.

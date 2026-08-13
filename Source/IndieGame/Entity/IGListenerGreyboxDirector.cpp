@@ -13,6 +13,8 @@
 #include "Misc/Paths.h"
 #include "Player/IGHorrorHUD.h"
 #include "Sequence/IGWakeUpDirector.h"
+#include "Engine/GameViewportClient.h"
+#include "Player/IGStressComponent.h"
 #include "UnrealClient.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNightLoopDirector.h"
@@ -69,6 +71,10 @@ void AIGListenerGreyboxDirector::BeginPlay()
 		FParse::Param(FCommandLine::Get(), TEXT("IGNightCapture"));
 	bMercyNoteProbeRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGM65MercyNoteProbe"));
+	bHistogramRequested =
+		FParse::Param(FCommandLine::Get(), TEXT("IGNightHistogram"));
+	bHistogramReportOnly =
+		FParse::Param(FCommandLine::Get(), TEXT("IGNightHistogramReport"));
 
 	// The procedural villa and the player pawn appear over the first frames;
 	// poll briefly instead of assuming a build order.
@@ -87,11 +93,15 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 	{
 		GetWorldTimerManager().ClearTimer(SetupTimer);
 		bStageReady = true;
-		// The capture tour and the probe are mutually exclusive drivers of
-		// the same stage; the tour wins because it needs the screen.
+		// The capture tour, the V5 sweep and the probe are mutually exclusive
+		// drivers of the same stage. The two that need real pixels win.
 		if (bNightCaptureRequested)
 		{
 			StartNightCapture();
+		}
+		else if (bHistogramRequested)
+		{
+			StartHistogramSweep();
 		}
 		else if (bProbeRequested)
 		{
@@ -2392,6 +2402,541 @@ void AIGListenerGreyboxDirector::StartNightCapture()
 		&AIGListenerGreyboxDirector::AdvanceNightCapture,
 		0.04f,
 		true);
+}
+
+namespace IGNightHistogram
+{
+	/** How the point stages itself before the frame is measured. */
+	enum class ESetup : uint8
+	{
+		/** Torch off, entity parked far away. The corridor as authored. */
+		DarkCorridor,
+		/** Torch on, looking down the beam. V1's dust motes live here. */
+		BeamDust,
+		/** Torch off, entity close and lit only by its rim. */
+		EntityRim,
+		/** Torch on, against the fifth-floor cavity wall. */
+		CavityWall,
+		/** Torch on, over the settled dust and drag residue on 5F. */
+		ResidueFifthFloor,
+		/** Torch on, over the corridor runner and the meter box rust. */
+		ResidueCorridor,
+		/** Chase post-process at full pressure. */
+		ChasePost,
+		/** A loud noise report, so the ripple ring is on screen. */
+		RippleRing
+	};
+
+	struct FPoint
+	{
+		const TCHAR* Name = TEXT("");
+		ESetup Setup = ESetup::DarkCorridor;
+		FVector PlayerLocation = FVector::ZeroVector;
+		float PlayerYaw = 0.0f;
+		float PlayerPitch = 0.0f;
+		/** Fraction of pixels below 5% luminance. */
+		float ShadowMinimum = 0.0f;
+		float ShadowMaximum = 1.0f;
+		/** Fraction of pixels above 98% luminance. */
+		float HighlightMaximum = 1.0f;
+		/**
+		 * The HUD is off for every point but one. §11 V4 draws the noise ripple
+		 * as a screen-edge arc, so it is a HUD element by design and measuring it
+		 * with the HUD hidden would measure an empty corridor instead. Everywhere
+		 * else a caption sitting in frame would count its own pixels into both
+		 * tails, so it stays off.
+		 */
+		bool bShowHud = false;
+	};
+
+	/**
+	 * §11 V5's eight night viewpoints, with bands measured on this build at
+	 * 1280x720 and then opened by ±0.10 — never authored first and loosened
+	 * until they passed, which would only have proved the bands were loose.
+	 * Run-to-run spread is about ±0.001, so the margin exists for a different
+	 * GPU's temporal convergence, not for drift in the lighting.
+	 *
+	 * Both bounds carry weight. The floor catches somebody raising the exposure
+	 * or adding a light; the ceiling catches the torch failing or the scene
+	 * going black, which is the failure that nearly passed this sweep silently.
+	 *
+	 * One measured number does not match the design's language: 복도 암부 sits
+	 * at 20% of pixels below 5% luminance, where V1's "주광 0, 암부가 진짜 검게
+	 * 떨어지도록" reads like it should be most of the frame. The band locks what
+	 * actually ships rather than what the sentence implies, and the gap is noted
+	 * in IMPLEMENTATION_STATUS for a human to settle by looking.
+	 */
+	const FPoint Points[] =
+	{
+		{
+			TEXT("corridor_dark"), ESetup::DarkCorridor,
+			FVector(60.0f, -305.0f, 997.0f), 0.0f, -3.0f,
+			0.14f, 0.34f, 0.010f
+		},
+		{
+			TEXT("beam_dust"), ESetup::BeamDust,
+			FVector(-60.0f, -305.0f, 997.0f), 0.0f, -6.0f,
+			0.02f, 0.16f, 0.010f
+		},
+		{
+			TEXT("entity_rim"), ESetup::EntityRim,
+			FVector(120.0f, -305.0f, 997.0f), 180.0f, -4.0f,
+			0.28f, 0.48f, 0.010f
+		},
+		{
+			TEXT("cavity_wall"), ESetup::CavityWall,
+			FVector(120.0f, 700.0f, 1297.0f), 0.0f, -2.0f,
+			0.14f, 0.34f, 0.010f
+		},
+		{
+			TEXT("residue_fifth_floor"), ESetup::ResidueFifthFloor,
+			FVector(60.0f, 760.0f, 1297.0f), -40.0f, -38.0f,
+			0.30f, 0.52f, 0.010f
+		},
+		{
+			TEXT("residue_corridor"), ESetup::ResidueCorridor,
+			FVector(80.0f, -300.0f, 997.0f), 190.0f, -34.0f,
+			0.14f, 0.34f, 0.010f
+		},
+		{
+			TEXT("chase_post"), ESetup::ChasePost,
+			FVector(200.0f, -305.0f, 997.0f), 180.0f, -3.0f,
+			0.24f, 0.44f, 0.010f
+		},
+		{
+			// Down the corridor, not across it: at yaw 90 the player is 70 cm
+			// from the north wall and the frame is a close-up of plaster, which
+			// measured 91% black and told us nothing about the ripple.
+			TEXT("ripple_ring"), ESetup::RippleRing,
+			FVector(-40.0f, -305.0f, 997.0f), 0.0f, -3.0f,
+			0.21f, 0.41f, 0.010f, /*bShowHud=*/true
+		}
+	};
+
+	constexpr int32 PointCount = UE_ARRAY_COUNT(Points);
+
+	/** §11 V5 luminance thresholds. */
+	constexpr float ShadowThreshold = 0.05f;
+	constexpr float HighlightThreshold = 0.98f;
+
+	/**
+	 * Lumen and TSR both need frames to converge, and a temporal history that
+	 * has not settled reads darker than the authored frame. Measuring early
+	 * would quietly pass every shadow floor for the wrong reason.
+	 */
+	constexpr float SettleSeconds = 1.60f;
+	constexpr float TickSeconds = 0.04f;
+
+	/**
+	 * How long a requested frame may take to arrive before the sweep gives up.
+	 * Without this a run that cannot render at all (a -nullrhi invocation, say)
+	 * hangs instead of saying why, and a hang is a worse answer than a failure.
+	 */
+	constexpr float ShotTimeoutSeconds = 20.0f;
+}
+
+void AIGListenerGreyboxDirector::StartHistogramSweep()
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+
+	// Same release as the capture tour: measure a standing player, not the wake
+	// intro's pinned camera.
+	for (TActorIterator<AIGWakeUpDirector> It(World); It; ++It)
+	{
+		It->RestoreStandingCheckpoint();
+		if (!It->IsFreeRoam())
+		{
+			It->RequestStopAlarmFallback();
+			It->CompleteGettingUp();
+		}
+		break;
+	}
+	if (APlayerController* PlayerController = World->GetFirstPlayerController())
+	{
+		PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+		if (AHUD* Hud = PlayerController->GetHUD())
+		{
+			// The HUD is not part of the lighting claim, and a caption sitting in
+			// frame would count its own pixels into both tails.
+			Hud->bShowHUD = false;
+		}
+	}
+	// A strobing fixture would make every measurement a coin toss on which
+	// frame it landed.
+	if (AIGPrologueWorldScene* SceneNow =
+		const_cast<AIGPrologueWorldScene*>(WorldScene.Get()))
+	{
+		SceneNow->SuspendCorridorFlicker(true);
+	}
+
+	HistogramFailures = 0;
+	HistogramMeasured = 0;
+	bHistogramShotPending = false;
+	// The screenshot pipeline hands over the frame it actually captured, which
+	// is the only frame that exists when no swap chain does.
+	HistogramScreenshotHandle =
+		UGameViewportClient::OnScreenshotCaptured().AddUObject(
+			this,
+			&AIGListenerGreyboxDirector::HandleHistogramScreenshot);
+	EnterHistogramPoint(0);
+	GetWorldTimerManager().SetTimer(
+		HistogramTimer,
+		this,
+		&AIGListenerGreyboxDirector::AdvanceHistogramSweep,
+		IGNightHistogram::TickSeconds,
+		true);
+}
+
+void AIGListenerGreyboxDirector::EnterHistogramPoint(const int32 PointIndex)
+{
+	HistogramPointIndex = PointIndex;
+	HistogramPointSeconds = 0.0f;
+	if (!IGNightHistogram::Points || PointIndex < 0
+		|| PointIndex >= IGNightHistogram::PointCount)
+	{
+		return;
+	}
+
+	const IGNightHistogram::FPoint& Point = IGNightHistogram::Points[PointIndex];
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	AIGListenerEntity* EntityActor = Entity.Get();
+	UIGFlashlightComponent* Torch = PlayerCharacter
+		? PlayerCharacter->GetFlashlight()
+		: nullptr;
+	UWorld* World = GetWorld();
+
+	CaptureTeleportPlayer(Point.PlayerLocation, Point.PlayerYaw, Point.PlayerPitch);
+
+	if (APlayerController* PlayerController = World
+		? World->GetFirstPlayerController()
+		: nullptr)
+	{
+		if (AHUD* Hud = PlayerController->GetHUD())
+		{
+			Hud->bShowHUD = Point.bShowHud;
+		}
+	}
+
+	// Park the entity out of frame by default; only two points want it visible.
+	if (EntityActor)
+	{
+		EntityActor->SetDormant(false);
+		CaptureParkEntity(FVector(640.0f, -305.0f, 960.0f), 180.0f);
+	}
+	if (Torch)
+	{
+		Torch->SetAvailable(true);
+		Torch->SetOn(false);
+	}
+	if (UIGMissingFloorAudioSubsystem* AudioDirector = World
+		? World->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+		: nullptr)
+	{
+		AudioDirector->SetThreatState(EIGAudioThreatState::Calm);
+	}
+	if (UIGStressComponent* Stress = PlayerCharacter
+		? PlayerCharacter->GetStress()
+		: nullptr)
+	{
+		Stress->SetThreatPressure(0.0f);
+	}
+
+	switch (Point.Setup)
+	{
+	case IGNightHistogram::ESetup::DarkCorridor:
+		break;
+
+	case IGNightHistogram::ESetup::BeamDust:
+	case IGNightHistogram::ESetup::CavityWall:
+	case IGNightHistogram::ESetup::ResidueFifthFloor:
+	case IGNightHistogram::ESetup::ResidueCorridor:
+		if (Torch)
+		{
+			Torch->SetOn(true);
+		}
+		// The residue and beam points want his lane in the air, otherwise the
+		// two dust systems are measured without the thing they exist to show.
+		if (UIGDustSubsystem* Dust = World
+			? World->GetSubsystem<UIGDustSubsystem>()
+			: nullptr)
+		{
+			const FVector Ahead = Point.PlayerLocation
+				+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 220.0f;
+			Dust->ReportDisturbance(Ahead, 1.0f);
+			Dust->ReportSettledPrint(
+				Ahead,
+				Point.PlayerYaw,
+				EIGDustPrintKind::Drag);
+			Dust->ReportSettledPrint(
+				Point.PlayerLocation
+					+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 120.0f,
+				Point.PlayerYaw,
+				EIGDustPrintKind::Footfall);
+		}
+		break;
+
+	case IGNightHistogram::ESetup::EntityRim:
+		// Close enough to fill frame, far enough not to trip the capture radius.
+		CaptureParkEntity(
+			Point.PlayerLocation
+				+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 260.0f
+				- FVector(0.0f, 0.0f, 39.0f),
+			Point.PlayerYaw + 180.0f);
+		break;
+
+	case IGNightHistogram::ESetup::ChasePost:
+		if (UIGStressComponent* Stress = PlayerCharacter
+			? PlayerCharacter->GetStress()
+			: nullptr)
+		{
+			Stress->SetThreatPressure(0.95f);
+		}
+		if (UIGMissingFloorAudioSubsystem* AudioDirector = World
+			? World->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+			: nullptr)
+		{
+			AudioDirector->SetThreatState(EIGAudioThreatState::Chasing);
+		}
+		break;
+
+	case IGNightHistogram::ESetup::RippleRing:
+		if (UIGNoiseSubsystem* Noise = NoiseSubsystem)
+		{
+			// A hammer-loud report right beside the player: the §5.1 ripple ring
+			// is an edge arc, so it has to be freshly triggered to be in frame.
+			Noise->SetGlobalMasking(0.0f);
+			Noise->ReportNoise(
+				Point.PlayerLocation
+					+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 90.0f,
+				1.0f,
+				PlayerCharacter);
+		}
+		break;
+
+	default:
+		break;
+	}
+}
+
+void AIGListenerGreyboxDirector::AdvanceHistogramSweep()
+{
+	// While a shot is in flight the delegate owns the sweep. Requesting another
+	// would measure one point against another point's frame.
+	if (bHistogramShotPending)
+	{
+		HistogramShotWaitSeconds += IGNightHistogram::TickSeconds;
+		if (HistogramShotWaitSeconds < IGNightHistogram::ShotTimeoutSeconds)
+		{
+			return;
+		}
+		// Nothing is rendering, so nothing can be measured. Say so instead of
+		// waiting forever: a sweep that hangs looks like a slow machine, and a
+		// sweep that fails looks like the missing RHI it actually is.
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_V5 FAIL: no frame arrived for point %s within "
+				"%.0f s. The sweep needs a real RHI — run it with "
+				"-RenderOffScreen -d3d12 and never with -nullrhi."),
+			IGNightHistogram::Points[
+				FMath::Clamp(HistogramPointIndex, 0, IGNightHistogram::PointCount - 1)].Name,
+			IGNightHistogram::ShotTimeoutSeconds);
+		GetWorldTimerManager().ClearTimer(HistogramTimer);
+		UGameViewportClient::OnScreenshotCaptured().Remove(
+			HistogramScreenshotHandle);
+		FPlatformMisc::RequestExit(false);
+		return;
+	}
+	HistogramPointSeconds += IGNightHistogram::TickSeconds;
+	if (HistogramPointSeconds < IGNightHistogram::SettleSeconds)
+	{
+		return;
+	}
+	if (HistogramPointIndex < 0
+		|| HistogramPointIndex >= IGNightHistogram::PointCount)
+	{
+		GetWorldTimerManager().ClearTimer(HistogramTimer);
+		UGameViewportClient::OnScreenshotCaptured().Remove(
+			HistogramScreenshotHandle);
+		return;
+	}
+
+	// A frame is kept for every point so the art review can happen later without
+	// anyone having to run the engine again to look — and the same captured
+	// frame is what gets measured, so the number and the picture always agree.
+	const IGNightHistogram::FPoint& Point =
+		IGNightHistogram::Points[HistogramPointIndex];
+	bHistogramShotPending = true;
+	HistogramShotWaitSeconds = 0.0f;
+	CaptureShot(*FString::Printf(TEXT("v5-%s"), Point.Name));
+}
+
+void AIGListenerGreyboxDirector::HandleHistogramScreenshot(
+	const int32 Width,
+	const int32 Height,
+	const TArray<FColor>& Colors)
+{
+	if (!bHistogramShotPending
+		|| HistogramPointIndex < 0
+		|| HistogramPointIndex >= IGNightHistogram::PointCount)
+	{
+		return;
+	}
+	bHistogramShotPending = false;
+	HistogramShotWaitSeconds = 0.0f;
+
+	const IGNightHistogram::FPoint& Point =
+		IGNightHistogram::Points[HistogramPointIndex];
+	const int32 PixelCount = Colors.Num();
+	if (PixelCount <= 0 || Width <= 0 || Height <= 0)
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_V5 FAIL: point %s captured no pixels; the sweep "
+				"needs a real RHI (-RenderOffScreen -d3d12, never -nullrhi)"),
+			Point.Name);
+		GetWorldTimerManager().ClearTimer(HistogramTimer);
+		UGameViewportClient::OnScreenshotCaptured().Remove(
+			HistogramScreenshotHandle);
+		HistogramFailures = IGNightHistogram::PointCount;
+		return;
+	}
+
+	int32 ShadowPixels = 0;
+	int32 HighlightPixels = 0;
+	for (const FColor& Pixel : Colors)
+	{
+		// Rec. 709 luma on the tonemapped sRGB values: the contract is about
+		// perceived brightness on the player's monitor, not scene radiance
+		// before the film curve, and not any single channel.
+		const float Luma =
+			(0.2126f * Pixel.R + 0.7152f * Pixel.G + 0.0722f * Pixel.B) / 255.0f;
+		if (Luma < IGNightHistogram::ShadowThreshold)
+		{
+			++ShadowPixels;
+		}
+		else if (Luma > IGNightHistogram::HighlightThreshold)
+		{
+			++HighlightPixels;
+		}
+	}
+	const float Shadow = static_cast<float>(ShadowPixels) / PixelCount;
+	const float Highlight = static_cast<float>(HighlightPixels) / PixelCount;
+
+	// A frame that is *entirely* black is not a dark frame, it is a broken read,
+	// and it would satisfy every shadow floor in the table for the wrong reason.
+	// Refusing it is what stopped this sweep from reporting a false pass.
+	if (Shadow >= 0.9995f)
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_V5 FAIL point=%s frame is entirely black "
+				"(%d pixels); nothing rendered, so nothing was measured"),
+			Point.Name,
+			PixelCount);
+		++HistogramFailures;
+	}
+	else
+	{
+		const bool bShadowInBand =
+			Shadow >= Point.ShadowMinimum && Shadow <= Point.ShadowMaximum;
+		const bool bHighlightInBand = Highlight <= Point.HighlightMaximum;
+		++HistogramMeasured;
+		if (bShadowInBand && bHighlightInBand)
+		{
+			UE_LOG(
+				LogTemp,
+				Display,
+				TEXT("MISSINGFLOOR_V5 point=%s shadow=%.4f (%.2f..%.2f) "
+					"highlight=%.4f (max %.3f) pixels=%d OK"),
+				Point.Name,
+				Shadow,
+				Point.ShadowMinimum,
+				Point.ShadowMaximum,
+				Highlight,
+				Point.HighlightMaximum,
+				PixelCount);
+		}
+		else if (bHistogramReportOnly)
+		{
+			// Authoring pass: say what it is, do not judge it.
+			UE_LOG(
+				LogTemp,
+				Display,
+				TEXT("MISSINGFLOOR_V5 point=%s shadow=%.4f (%.2f..%.2f) "
+					"highlight=%.4f (max %.3f) pixels=%d OUT_OF_BAND"),
+				Point.Name,
+				Shadow,
+				Point.ShadowMinimum,
+				Point.ShadowMaximum,
+				Highlight,
+				Point.HighlightMaximum,
+				PixelCount);
+		}
+		else
+		{
+			++HistogramFailures;
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT("MISSINGFLOOR_V5 FAIL point=%s shadow=%.4f (%.2f..%.2f) "
+					"highlight=%.4f (max %.3f) pixels=%d"),
+				Point.Name,
+				Shadow,
+				Point.ShadowMinimum,
+				Point.ShadowMaximum,
+				Highlight,
+				Point.HighlightMaximum,
+				PixelCount);
+		}
+	}
+
+	const int32 NextIndex = HistogramPointIndex + 1;
+	if (NextIndex < IGNightHistogram::PointCount)
+	{
+		EnterHistogramPoint(NextIndex);
+		return;
+	}
+
+	GetWorldTimerManager().ClearTimer(HistogramTimer);
+	UGameViewportClient::OnScreenshotCaptured().Remove(HistogramScreenshotHandle);
+	if (bHistogramReportOnly)
+	{
+		// An authoring pass judges nothing, so it must not claim a pass either.
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_V5 REPORT points=%d — bands are authored from "
+				"these numbers, never the other way round"),
+			HistogramMeasured);
+	}
+	else if (HistogramFailures == 0)
+	{
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_V5 PASS points=%d shadow_threshold=%.2f "
+				"highlight_threshold=%.2f"),
+			HistogramMeasured,
+			IGNightHistogram::ShadowThreshold,
+			IGNightHistogram::HighlightThreshold);
+	}
+	else
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_V5 FAIL points=%d failures=%d"),
+			HistogramMeasured,
+			HistogramFailures);
+	}
+	FPlatformMisc::RequestExit(false);
 }
 
 void AIGListenerGreyboxDirector::CaptureTeleportPlayer(

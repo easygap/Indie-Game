@@ -61,6 +61,33 @@ private:
 	void CaptureParkEntity(const FVector& Location, float Yaw);
 	void CaptureShot(const TCHAR* BaseName) const;
 	void CaptureBeginBurst(const TCHAR* DirectoryName, float Seconds);
+
+	// -- §11 V5 밤 구간 히스토그램 (-IGNightHistogram) ----------------------
+	//
+	// Eight authored night viewpoints, each measured for the fraction of pixels
+	// that fall below 5% luminance and above 98%. The design fixes those bands
+	// per point because the whole V1 lighting rework is a claim about contrast:
+	// darks that fall genuinely black, and no blown highlights anywhere. A
+	// screenshot proves neither. Counting pixels does.
+	//
+	// This is a pre-filter, not the art approval. Ratios inside their band mean
+	// the frame is not broken; whether it is *good* still needs eyes.
+	void StartHistogramSweep();
+	void AdvanceHistogramSweep();
+	void EnterHistogramPoint(int32 PointIndex);
+	/**
+	 * Measures the frame the screenshot pipeline actually captured.
+	 *
+	 * Reading the viewport back buffer directly returns pure black under
+	 * -RenderOffScreen: there is no swap chain to read from, which is exactly
+	 * why no window appears. The screenshot delegate hands over the rendered
+	 * frame instead, and it is the same path that already writes the capture
+	 * tour's PNGs, so it is proven to work headless.
+	 */
+	void HandleHistogramScreenshot(
+		int32 Width,
+		int32 Height,
+		const TArray<FColor>& Colors);
 	void HandleNightOneSolved();
 	void HandleNightTwoSolved();
 	void HandleNightThreeSolved();
@@ -154,6 +181,19 @@ private:
 
 	/** Capture-tour state; inert unless -IGNightCapture is on the command line. */
 	bool bNightCaptureRequested = false;
+	/** §11 V5 sweep; inert unless -IGNightHistogram is on the command line. */
+	bool bHistogramRequested = false;
+	/** Reports measurements without enforcing bands, for authoring them. */
+	bool bHistogramReportOnly = false;
+	int32 HistogramPointIndex = -1;
+	float HistogramPointSeconds = 0.0f;
+	int32 HistogramFailures = 0;
+	int32 HistogramMeasured = 0;
+	/** Set while a point's screenshot is in flight, so the timer stands down. */
+	bool bHistogramShotPending = false;
+	float HistogramShotWaitSeconds = 0.0f;
+	FDelegateHandle HistogramScreenshotHandle;
+	FTimerHandle HistogramTimer;
 	bool bMercyNoteProbeRequested = false;
 	int32 CaptureStepIndex = -1;
 	float CaptureStepSeconds = 0.0f;
