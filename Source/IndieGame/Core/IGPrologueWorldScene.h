@@ -231,6 +231,22 @@ public:
 	/** Night 4 breaker cut; keeps geometry and flashlight independent. */
 	void SetMissingFloorAnnexPower(bool bPowered);
 
+	/**
+	 * §14 CCTV 채널 5's vantage, owned by the world rather than by the beat.
+	 *
+	 * The camera housing is permanent annex dressing because §17 asks the player
+	 * to stand here in 밤3 and recognise the frame they were shown in 밤2. The
+	 * scene capture borrows these three values so the live channel and the prop
+	 * can never disagree about where the shot is taken from.
+	 */
+	UStaticMeshComponent* GetMissingFloorCctvCamera() const
+	{
+		return MissingFloorCctvCamera;
+	}
+	FVector GetMissingFloorCctvCameraLocation() const;
+	FRotator GetMissingFloorCctvCameraRotation() const;
+	float GetMissingFloorCctvFieldOfView() const;
+
 	/** Removes only the cavity-facing gypsum panel, never the structural studs. */
 	bool OpenMissingFloorCavity();
 	/** 밤 4 재시도 때 탈착 패널의 외형과 충돌을 함께 복구한다. */
@@ -628,6 +644,9 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> StairCoreNightGate;
 	/** P1: the fifth meter's dial, which never turns, and its dead breaker. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> FifthMeterDisc;
+
+	/** §14 CCTV 채널 5's housing, high in the annex's south-west corner. */
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> MissingFloorCctvCamera;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> UnnamedBreakerToggle;
 	/** 밤1: the corridor extinguisher, kinematic until its scripted fall. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> CorridorExtinguisher;

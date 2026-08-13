@@ -5,6 +5,7 @@
 #include "Narrative/IGMissingFloorNarrativeTypes.h"
 #include "IGMissingFloorPuzzleTwoDirector.generated.h"
 
+class AIGCctvChannelFive;
 class AIGMissingFloorEvidence;
 class AIGPrologueWorldScene;
 class AIGReadableNote;
@@ -54,6 +55,7 @@ public:
 	AIGMissingFloorEvidence* GetCarbonLedger() const { return CarbonLedger; }
 	AIGReadableNote* GetAgentMessageNote() const { return AgentMessageNote; }
 	AIGMissingFloorEvidence* GetCctvSelector() const { return CctvSelector; }
+	AIGCctvChannelFive* GetCctvChannelFive() const { return CctvChannelFive; }
 
 protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -102,6 +104,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> CctvSelector;
+
+	/** §14's one cut: the render-target channel behind the fifth button. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGCctvChannelFive> CctvChannelFive;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> FoamGap;

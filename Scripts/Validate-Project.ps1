@@ -159,6 +159,8 @@ $requiredFiles = @(
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1',
 	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1',
 	'Scripts/Test-MissingFloor-M65AudioCalibrationContract.ps1',
+	'Scripts/Test-MissingFloor-M3CctvChannelContract.ps1',
+	'Scripts/Run-MissingFloor-CctvFeedProbe.ps1',
 	'Scripts/Run-MissingFloor-AudioCalibrationPreview.bat',
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Test-Rebirth-RouteMatrix.ps1',
@@ -440,6 +442,12 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 # IGMissingFloorFifthDawnDirector는 기본 Tick을 끄고, 재관람 스킵을 누르는
 # 동안과 중도 해제 후 진행률을 되감는 짧은 구간에만 켠다. 완료 또는
 # 되감기 종료 즉시 스스로 비활성화하며 평상시 비용은 발생하지 않는다.
+# IGMissingFloorMercyDirector는 기본 Tick을 끄고, 문 아래로 종이가 밀려
+# 들어오는 0.94초 동안만 켠 뒤 스스로 끈다. 90초 정체 시계는 타이머다.
+# IGCctvChannelFive는 기본 Tick을 끄고, 채널 5가 화면에 있는 6.78초 동안만
+# 켠다. 그 Tick이 초당 12회 씬 캡처와 낮은 형체의 이동을 구동하며, 채널이
+# 죽는 프레임에 렌더타깃·캡처·형체를 해제하고 자신을 비활성화한다. 이것이
+# §14의 상시 렌더 금지를 만족시키는 방식이므로 타이머로 대체할 수 없다.
 #
 # IGListenerEntity is the one deliberate always-on actor tick in the project.
 # 위층 사람 is a pursuer: its state machine, crawl locomotion, drag-loop gain
@@ -460,7 +468,9 @@ $reviewedTickingFiles = @(
 	'IGListenerEntity.cpp',
 	'IGMissingFloorNightFourDirector.cpp',
 	'IGNightLoopDirector.cpp',
-	'IGMissingFloorFifthDawnDirector.cpp'
+	'IGMissingFloorFifthDawnDirector.cpp',
+	'IGMissingFloorMercyDirector.cpp',
+	'IGCctvChannelFive.cpp'
 )
 $unreviewedTickingActors = @($tickingActors | Where-Object {
 	$reviewedTickingFiles -notcontains [System.IO.Path]::GetFileName($_.Path)
@@ -2452,5 +2462,9 @@ $missingFloorM65MercyNoteContractScript = Join-Path $projectRoot `
 $missingFloorM65AudioCalibrationContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M65AudioCalibrationContract.ps1'
 & $missingFloorM65AudioCalibrationContractScript
+
+$missingFloorM3CctvChannelContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M3CctvChannelContract.ps1'
+& $missingFloorM3CctvChannelContractScript
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

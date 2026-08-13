@@ -28,8 +28,11 @@
 #include "Entity/IGNightOneBeatDirector.h"
 #include "Entity/IGNightPhaseDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Environment/IGCctvChannelFive.h"
 #include "Environment/IGDustSubsystem.h"
 #include "Environment/IGSettledDustComponent.h"
+#include "Kismet/KismetRenderingLibrary.h"
 #include "Player/IGBeamDustComponent.h"
 #include "Player/IGFlashlightComponent.h"
 #include "HAL/PlatformMisc.h"
@@ -77,6 +80,8 @@ void AIGListenerGreyboxDirector::BeginPlay()
 		FParse::Param(FCommandLine::Get(), TEXT("IGNightHistogram"));
 	bHistogramReportOnly =
 		FParse::Param(FCommandLine::Get(), TEXT("IGNightHistogramReport"));
+	bCctvFeedProbeRequested =
+		FParse::Param(FCommandLine::Get(), TEXT("IGCctvFeedProbe"));
 
 	// The procedural villa and the player pawn appear over the first frames;
 	// poll briefly instead of assuming a build order.
@@ -646,6 +651,56 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 }
 
 // -- probe -----------------------------------------------------------------
+
+void AIGListenerGreyboxDirector::MeasureCctvFeed(
+	const AIGCctvChannelFive* Channel)
+{
+	// Read the channel's own render target rather than a screenshot of the
+	// monitor. It proves the thing that can actually fail — that the scene
+	// capture rendered the annex — without depending on where the probe's camera
+	// happens to be pointing, and it is the only reading available for a beat
+	// that plays once.
+	UTextureRenderTarget2D* Target = Channel
+		? Channel->GetFeedForTesting()
+		: nullptr;
+	if (!Target)
+	{
+		return;
+	}
+	TArray<FColor> Samples;
+	if (!UKismetRenderingLibrary::ReadRenderTarget(this, Target, Samples, false)
+		|| Samples.Num() == 0)
+	{
+		return;
+	}
+
+	// Rec. 709 luma, and "lit" is any pixel above a twentieth — the annex has one
+	// bulb, so most of this frame is legitimately dark and an average would hide
+	// a black capture behind a correctly dark one.
+	int32 LitPixels = 0;
+	float Brightest = 0.0f;
+	for (const FColor& Sample : Samples)
+	{
+		const float Luma =
+			(0.2126f * Sample.R + 0.7152f * Sample.G + 0.0722f * Sample.B)
+			/ 255.0f;
+		Brightest = FMath::Max(Brightest, Luma);
+		LitPixels += Luma > 0.05f ? 1 : 0;
+	}
+	CctvFeedBrightestLuma = Brightest;
+	CctvFeedLitFraction =
+		static_cast<float>(LitPixels) / static_cast<float>(Samples.Num());
+	bCctvFeedMeasured = true;
+
+	// Numbers say the frame is not black; they cannot say whether the shot reads.
+	// The frame is written out so the composition can be judged by eye later
+	// without re-running an engine for a beat that plays once.
+	UKismetRenderingLibrary::ExportRenderTarget(
+		this,
+		Target,
+		FPaths::ProjectDir() / TEXT("Docs/Media"),
+		TEXT("cctv5-feed.png"));
+}
 
 void AIGListenerGreyboxDirector::StartProbe()
 {
@@ -1949,6 +2004,29 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
+		// §14 상시 렌더 금지. Before the press the channel must cost the frame
+		// nothing at all: no render target, no capture, no picture.
+		AIGCctvChannelFive* Channel = PuzzleTwo->GetCctvChannelFive();
+		if (!Channel)
+		{
+			FailProbe(TEXT("§14 channel five was never built with the booth"));
+			return;
+		}
+		if (Channel->GetState() != EIGCctvChannelState::Idle
+			|| Channel->HasFeed()
+			|| Channel->IsOnScreen()
+			|| Channel->GetCaptureCount() != 0)
+		{
+			FailProbe(FString::Printf(
+				TEXT("§14 상시 렌더 금지 broken before the press: "
+					"state=%d feed=%d onscreen=%d captures=%d"),
+				static_cast<int32>(Channel->GetState()),
+				Channel->HasFeed() ? 1 : 0,
+				Channel->IsOnScreen() ? 1 : 0,
+				Channel->GetCaptureCount()));
+			return;
+		}
+
 		// The one-shot CCTV beat books itself exactly once.
 		Context.TargetActor = Cctv;
 		IIGInteractable::Execute_CompleteInteraction(Cctv, Context);
@@ -1956,6 +2034,176 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		{
 			FailProbe(TEXT("CCTV channel-five beat did not book"));
 			return;
+		}
+		if (!Channel->HasFeed() || !Channel->IsOnScreen())
+		{
+			FailProbe(TEXT("the fifth button did not put a picture on the monitor"));
+			return;
+		}
+		const FIntPoint Resolution = Channel->GetFeedResolution();
+		if (Resolution != FIntPoint(352, 288))
+		{
+			FailProbe(FString::Printf(
+				TEXT("channel five is not a CIF channel: %dx%d"),
+				Resolution.X,
+				Resolution.Y));
+			return;
+		}
+
+		CctvCapturesAtLive = 0;
+		CctvCapturesAtDeath = 0;
+		bCctvShapeSeen = false;
+		bCctvFeedMeasured = false;
+		CctvFeedBrightestLuma = 0.0f;
+		CctvFeedLitFraction = 0.0f;
+		ProbeStep = EProbeStep::CctvChannelContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::CctvChannelContract:
+	{
+		AIGCctvChannelFive* Channel =
+			PuzzleTwo ? PuzzleTwo->GetCctvChannelFive() : nullptr;
+		if (!Channel)
+		{
+			FailProbe(TEXT("channel five disappeared mid-beat"));
+			return;
+		}
+
+		// 화면 가장자리를 지나가는 낮은 형체 — latched, because the crossing is
+		// shorter than the whole live window and the poll must not have to land
+		// inside it.
+		bCctvShapeSeen = bCctvShapeSeen || Channel->IsShapeCrossing();
+		if (Channel->GetState() == EIGCctvChannelState::Live)
+		{
+			CctvCapturesAtLive = Channel->GetCaptureCount();
+			// Read the target while there is still a picture in it. Once is
+			// enough, and the beat is not repeatable so there is no second chance.
+			// 2.80 s past the press is 0.44 through the live window, which is
+			// inside the low shape's crossing. Measuring there means the reading
+			// and the exported frame both contain the thing the beat is about.
+			if (bCctvFeedProbeRequested && !bCctvFeedMeasured
+				&& StepDeadlineSeconds >= 2.80f)
+			{
+				MeasureCctvFeed(Channel);
+			}
+		}
+		if (Channel->GetState() == EIGCctvChannelState::Collapsing
+			&& CctvCapturesAtDeath == 0)
+		{
+			CctvCapturesAtDeath = Channel->GetCaptureCount();
+		}
+		if (!Channel->IsSpent())
+		{
+			// Acquire 0.32 + live 5.60 + collapse 0.86 = 6.78 s of channel.
+			if (StepDeadlineSeconds > 12.0f)
+			{
+				FailProbe(FString::Printf(
+					TEXT("channel five never died: state=%d after %.1fs"),
+					static_cast<int32>(Channel->GetState()),
+					StepDeadlineSeconds));
+				return;
+			}
+			break;
+		}
+
+		// Spent. Everything the beat allocated has to be gone again (§14).
+		if (Channel->HasFeed() || Channel->IsOnScreen()
+			|| Channel->IsShapeCrossing())
+		{
+			FailProbe(FString::Printf(
+				TEXT("§14 the dead channel is still allocated: "
+					"feed=%d onscreen=%d shape=%d"),
+				Channel->HasFeed() ? 1 : 0,
+				Channel->IsOnScreen() ? 1 : 0,
+				Channel->IsShapeCrossing() ? 1 : 0));
+			return;
+		}
+		if (!bCctvShapeSeen)
+		{
+			FailProbe(TEXT("the low shape never crossed the frame"));
+			return;
+		}
+		// 12 fps over the 5.92 s the picture is up is about 71 renders. The band
+		// is wide enough for frame pacing and narrow enough to catch either
+		// failure that matters: a capture stuck off, or one running every frame.
+		const int32 Captures = Channel->GetCaptureCount();
+		if (Captures < 40 || Captures > 110)
+		{
+			FailProbe(FString::Printf(
+				TEXT("channel five captured %d frames; expected about 71 "
+					"(12 fps for 5.92 s)"),
+				Captures));
+			return;
+		}
+		if (CctvCapturesAtDeath != 0 && Captures != CctvCapturesAtDeath)
+		{
+			FailProbe(FString::Printf(
+				TEXT("the capture kept rendering through the collapse: %d -> %d"),
+				CctvCapturesAtDeath,
+				Captures));
+			return;
+		}
+		// 1회 한정, 반복 재생 불가 — enforced by the actor, not only by the beat.
+		if (Channel->Play())
+		{
+			FailProbe(TEXT("channel five played a second time"));
+			return;
+		}
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_CCTV5 PASS: 352x288 allocated on the press, "
+				"%d captures, low shape crossed, released on death, "
+				"second press refused"),
+			Captures);
+
+		if (bCctvFeedProbeRequested)
+		{
+			// The picture itself. Reported separately because it needs a real RHI,
+			// and reported as FAIL rather than silence when the read comes back
+			// black — an all-black capture satisfies every structural check above.
+			const bool bNullRhi =
+				FParse::Param(FCommandLine::Get(), TEXT("nullrhi"));
+			if (bNullRhi)
+			{
+				UE_LOG(
+					LogTemp,
+					Warning,
+					TEXT("MISSINGFLOOR_CCTV5_FEED SKIP: -nullrhi renders no "
+						"scene capture. Re-run with -RenderOffScreen and no "
+						"-nullrhi to measure the picture."));
+			}
+			else if (!bCctvFeedMeasured)
+			{
+				UE_LOG(
+					LogTemp,
+					Error,
+					TEXT("MISSINGFLOOR_CCTV5_FEED FAIL: the render target could "
+						"not be read while the channel was live"));
+			}
+			else if (CctvFeedBrightestLuma < 0.08f || CctvFeedLitFraction < 0.02f)
+			{
+				UE_LOG(
+					LogTemp,
+					Error,
+					TEXT("MISSINGFLOOR_CCTV5_FEED FAIL: the channel rendered "
+						"black. brightest=%.4f lit=%.4f"),
+					CctvFeedBrightestLuma,
+					CctvFeedLitFraction);
+			}
+			else
+			{
+				UE_LOG(
+					LogTemp,
+					Display,
+					TEXT("MISSINGFLOOR_CCTV5_FEED PASS: brightest=%.4f "
+						"lit=%.4f of the frame"),
+					CctvFeedBrightestLuma,
+					CctvFeedLitFraction);
+			}
 		}
 
 		ProbeStep = EProbeStep::DayTwoContract;

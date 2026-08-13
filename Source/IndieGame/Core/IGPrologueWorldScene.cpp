@@ -90,6 +90,28 @@ namespace IGPrologueWorld
 	const FVector MissingFloorRouteStart(-277.5f, 220.0f, MissingFloorRoofZ);
 	const FVector MissingFloorRouteCorner(130.0f, 220.0f, MissingFloorRoofZ);
 	const FVector MissingFloorRouteEnd(130.0f, 452.5f, MissingFloorRoofZ);
+
+	/**
+	 * §14 CCTV 채널 5's vantage — corner-mounted high in the annex, looking
+	 * diagonally across the stalled material toward bay B. 92° is a 2.8 mm lens
+	 * on a third-inch sensor, which is what actually gets installed in a corridor
+	 * this narrow, and it is wide enough that the low shape can cross an edge
+	 * instead of walking through the middle of the picture.
+	 *
+	 * §17 requires the player to recognise this framing by eye in 밤3, so the
+	 * camera prop, the scene capture and the night-3 observation point all read
+	 * these three values. There is exactly one shot and this is it.
+	 */
+	const FVector CctvCameraLocation(-355.0f, 486.0f, 1404.0f);
+	const FRotator CctvCameraRotation(-25.0f, 29.0f, 0.0f);
+	/**
+	 * 78° is a 4 mm lens, not the 2.8 mm the first pass used. The wider glass put
+	 * a third of the frame on the ceiling 36 cm above the housing, which measured
+	 * as a perfectly bright picture and showed nothing. Judged from the exported
+	 * frame at Docs/Media/cctv5-feed.png, not from the focal length.
+	 */
+	constexpr float CctvCameraFieldOfView = 78.0f;
+
 	constexpr float BedsideTableTopZ = 60.0f;
 	constexpr float DeskWorkSurfaceHeight = 74.0f;
 	// The generated mesh audit fixes the continuous chassis at local Z=-0.40 cm.
@@ -3538,6 +3560,136 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	CreateBlock(FVector(120, 880, 1224), FVector(90, 50, 48), Board);
 	CreateBlock(FVector(0, 700, 1436), FVector(10, 10, 8), PlasticDarkMaterial, false);
 
+	// 비닐. §8 비트 2-2's shot list names three things and this is the second:
+	// 자재 더미, 비닐, 낮은 형체. Translucent film over stalled material is what
+	// makes the frame read as a floor somebody stopped building rather than a
+	// corridor somebody swept. Shadow casting stays off — the room has one bulb
+	// and translucent shadows cost more than they say here.
+	UMaterialInterface* Sheeting = TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial);
+	auto AddSheeting = [this, Sheeting](
+		const FVector& Center,
+		const FVector& Size,
+		const FRotator& Rotation)
+	{
+		if (UStaticMeshComponent* Film = CreateBlock(
+				Center, Size, Sheeting, false, nullptr, Rotation))
+		{
+			Film->SetCastShadow(false);
+			Film->SetCanEverAffectNavigation(false);
+		}
+	};
+	// Draped over the tallest stack, slumping off one corner.
+	AddSheeting(
+		FVector(0.0f, 588.0f, 1262.0f),
+		FVector(132.0f, 96.0f, 1.5f),
+		FRotator(2.5f, 6.0f, -3.5f));
+	// A second sheet already pulled off and left where it fell.
+	AddSheeting(
+		FVector(-210.0f, 624.0f, 1201.6f),
+		FVector(150.0f, 112.0f, 1.2f),
+		FRotator(0.0f, 20.0f, 0.0f));
+	// Hung off the bay studs at the far right of the camera's frame, so the shot
+	// has depth on that side instead of ending on a flat gypsum face.
+	AddSheeting(
+		FVector(238.0f, 552.0f, 1318.0f),
+		FVector(1.5f, 148.0f, 232.0f),
+		FRotator(0.0f, 0.0f, 1.5f));
+
+	// §14 CCTV 채널 5's camera, and it is a permanent fixture rather than part of
+	// the beat: §17's payoff table requires the player to stand at this exact
+	// vantage in 밤3 and recognise the framing they were shown in 밤2. If the
+	// camera only existed while the channel was live, that recognition would have
+	// nothing to land on. AIGCctvChannelFive reads MissingFloorCctvCamera's world
+	// transform, so this transform *is* the shot — moving it moves both.
+	// Corner mount flat to the ceiling, then a short arm out to the housing.
+	const FVector CctvMount(-372.0f, 478.0f, 1438.0f);
+	if (UStaticMeshComponent* MountPlate = CreateBlock(
+			CctvMount + FVector(0.0f, 0.0f, 1.0f),
+			FVector(16.0f, 16.0f, 2.0f),
+			RailMetal,
+			false))
+	{
+		MountPlate->SetCanEverAffectNavigation(false);
+	}
+	const FVector CctvArm = IGPrologueWorld::CctvCameraLocation - CctvMount;
+	if (UStaticMeshComponent* Bracket = CreateBlock(
+			CctvMount + CctvArm * 0.5f,
+			FVector(CctvArm.Size(), 2.6f, 2.6f),
+			RailMetal,
+			false,
+			nullptr,
+			CctvArm.Rotation()))
+	{
+		Bracket->SetCanEverAffectNavigation(false);
+	}
+	MissingFloorCctvCamera = CreateBlock(
+		IGPrologueWorld::CctvCameraLocation,
+		FVector(15.0f, 9.0f, 8.5f),
+		PlasticDarkMaterial,
+		false,
+		nullptr,
+		IGPrologueWorld::CctvCameraRotation);
+	if (MissingFloorCctvCamera)
+	{
+		MissingFloorCctvCamera->SetCanEverAffectNavigation(false);
+		// The camera's own illuminator, and it is permanent for the same reason
+		// the housing is: a light that only exists while the channel is live would
+		// make 밤3's vantage a different place than the one 밤2 showed. Every
+		// corridor camera of this class has an IR ring, and it is what gives the
+		// shot its shape — near material readable, the far end of the room gone.
+		// Deliberately not in MissingFloorAnnexLights: the night-four breaker cuts
+		// the ceiling bulb, and this runs off the camera's own supply.
+		CreateLight(
+			IGPrologueWorld::CctvCameraLocation
+				+ IGPrologueWorld::CctvCameraRotation.Vector() * 12.0f,
+			2400.0f,
+			640.0f,
+			FLinearColor(0.62f, 0.66f, 0.72f),
+			false);
+		// The lens housing, so the thing reads as pointed rather than as a box.
+		CreateBlock(
+			IGPrologueWorld::CctvCameraLocation
+				+ IGPrologueWorld::CctvCameraRotation.Vector() * 9.0f,
+			FVector(5.0f, 5.5f, 5.5f),
+			TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial),
+			false,
+			CylinderMesh,
+			IGPrologueWorld::CctvCameraRotation + FRotator(90.0f, 0.0f, 0.0f))
+			->SetCanEverAffectNavigation(false);
+	}
+	// §5.5 물리적 확인의 나머지 절반. One coax leaves this camera and never
+	// reaches the NVR: it runs the ceiling to the stair core and drops straight
+	// to the spare BNC input on the booth monitor. The channel is visible and
+	// unrecorded because of this cable, and the cable is here to be followed.
+	const FVector CoaxRun[] = {
+		CctvMount + FVector(0.0f, 0.0f, 0.2f),
+		FVector(-372.0f, 466.0f, 1438.2f),
+		FVector(-300.0f, 464.0f, 1438.2f),
+		FVector(-277.5f, 461.0f, 1438.2f),
+	};
+	for (int32 CoaxIndex = 0; CoaxIndex + 1 < UE_ARRAY_COUNT(CoaxRun); ++CoaxIndex)
+	{
+		const FVector Start = CoaxRun[CoaxIndex];
+		const FVector End = CoaxRun[CoaxIndex + 1];
+		const FVector Delta = End - Start;
+		const float Length = Delta.Size();
+		if (Length <= KINDA_SMALL_NUMBER)
+		{
+			continue;
+		}
+		if (UStaticMeshComponent* Coax = CreateBlock(
+				(Start + End) * 0.5f,
+				FVector(Length, 1.1f, 1.1f),
+				PlasticDarkMaterial,
+				false,
+				nullptr,
+				Delta.Rotation()))
+		{
+			Coax->SetCastShadow(false);
+			Coax->SetCanEverAffectNavigation(false);
+		}
+	}
+
 	// ImageGen residue arrives as value masks, never as baked lighting. Thin
 	// masked receivers sit on the real wall/floor planes so the flashlight,
 	// contact angle and PBR surface underneath stay coherent. None collides.
@@ -3808,6 +3960,21 @@ bool AIGPrologueWorldScene::ValidateMissingFloorRooftopRoute(
 		}
 	}
 	return true;
+}
+
+FVector AIGPrologueWorldScene::GetMissingFloorCctvCameraLocation() const
+{
+	return IGPrologueWorld::CctvCameraLocation;
+}
+
+FRotator AIGPrologueWorldScene::GetMissingFloorCctvCameraRotation() const
+{
+	return IGPrologueWorld::CctvCameraRotation;
+}
+
+float AIGPrologueWorldScene::GetMissingFloorCctvFieldOfView() const
+{
+	return IGPrologueWorld::CctvCameraFieldOfView;
 }
 
 void AIGPrologueWorldScene::SetMissingFloorAnnexPower(const bool bPowered)

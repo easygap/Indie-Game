@@ -1817,6 +1817,93 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRecordingPlayback(
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCrtChannelSwitch(
+	UObject* Outer,
+	const bool bCollapse)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		bCollapse ? TEXT("IGCrtChannelCollapse") : TEXT("IGCrtChannelAcquire"));
+	TArray<FIGToneNote> SwitchNotes;
+
+	// Korean mains is 60 Hz, so the hum under every tube in this building is 60
+	// and its harmonics — not the 50 a European monitor would give.
+	constexpr float MainsHz = 60.0f;
+	// NTSC horizontal line rate. Mostly felt rather than heard, and that is the
+	// point: it is the difference between a screen and a picture of a screen.
+	constexpr float LineWhineHz = 15734.0f;
+
+	if (!bCollapse)
+	{
+		// Acquire. Snow first and loudest, because the tube shows noise before it
+		// shows anything; the hum rises underneath as the input takes hold.
+		SwitchNotes.Add({0.000f, 0.350f, 9000.0f, 0.185f, 0.004f, 2.6f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.000f, 0.320f, 4200.0f, 0.120f, 0.004f, 2.4f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.000f, 0.260f, 1500.0f, 0.062f, 0.006f, 2.8f, EIGToneWaveform::ValueNoise});
+		// Two horizontal tears while the sync separator hunts.
+		SwitchNotes.Add({0.058f, 0.020f, 2600.0f, 0.090f, 0.002f, 3.4f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.148f, 0.016f, 3300.0f, 0.070f, 0.002f, 3.6f, EIGToneWaveform::ValueNoise});
+		// The hum arrives and stays — it is handed over to the looping bed.
+		SwitchNotes.Add({0.040f, 0.320f, MainsHz, 0.052f, 0.520f, 0.5f, EIGToneWaveform::Sine});
+		SwitchNotes.Add({0.040f, 0.320f, MainsHz * 2.0f, 0.030f, 0.560f, 0.5f, EIGToneWaveform::Sine});
+		SwitchNotes.Add({0.090f, 0.270f, LineWhineHz, 0.012f, 0.600f, 0.6f, EIGToneWaveform::Sine});
+	}
+	else
+	{
+		// Death. The picture is torn away rather than faded: the hiss swells into
+		// the tear, and the hum is the last thing to go because the tube keeps its
+		// charge for a moment after it loses the signal.
+		SwitchNotes.Add({0.000f, 0.240f, 6200.0f, 0.090f, 0.340f, 1.2f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.180f, 0.520f, 9600.0f, 0.205f, 0.030f, 1.9f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.180f, 0.480f, 3800.0f, 0.135f, 0.030f, 1.8f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.180f, 0.400f, 1200.0f, 0.058f, 0.040f, 2.0f, EIGToneWaveform::ValueNoise});
+		// Three tears, closer together each time: the channel is not coming back.
+		SwitchNotes.Add({0.196f, 0.026f, 2200.0f, 0.115f, 0.002f, 3.2f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.352f, 0.022f, 2900.0f, 0.100f, 0.002f, 3.4f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.470f, 0.018f, 3600.0f, 0.082f, 0.002f, 3.6f, EIGToneWaveform::ValueNoise});
+		SwitchNotes.Add({0.000f, 0.760f, MainsHz, 0.048f, 0.060f, 1.1f, EIGToneWaveform::Sine});
+		SwitchNotes.Add({0.000f, 0.700f, MainsHz * 2.0f, 0.026f, 0.060f, 1.3f, EIGToneWaveform::Sine});
+		SwitchNotes.Add({0.000f, 0.560f, LineWhineHz, 0.011f, 0.040f, 1.6f, EIGToneWaveform::Sine});
+		// The four-way split settling back in: one relay-quiet thump of the
+		// deflection yoke, and then the booth is as silent as it was.
+		SwitchNotes.Add({0.690f, 0.130f, 210.0f, 0.040f, 0.020f, 2.6f, EIGToneWaveform::Sine});
+	}
+
+	Wave->ConfigureNotes(MoveTemp(SwitchNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCrtChannelBed(
+	UObject* Outer,
+	const float TotalSeconds)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGCrtChannelBed"));
+	TArray<FIGToneNote> HumNotes;
+
+	const float Seconds = FMath::Clamp(TotalSeconds, 1.0f, 30.0f);
+	constexpr float MainsHz = 60.0f;
+	constexpr float LineWhineHz = 15734.0f;
+
+	// One long note per partial. The 0.25 release power is the synth's flattest
+	// decay, so the bed holds near full for most of the window and only gives up
+	// the last of itself at the end — the tube dimming as the input goes, not a
+	// fade someone applied. Quiet enough that the §10.2 listening duck still owns
+	// the room: this must never compete with what she is trying to hear.
+	HumNotes.Add({0.000f, Seconds, MainsHz, 0.034f, 0.045f, 0.25f, EIGToneWaveform::Sine});
+	HumNotes.Add({0.000f, Seconds, MainsHz * 2.0f, 0.021f, 0.050f, 0.25f, EIGToneWaveform::Sine});
+	HumNotes.Add({0.000f, Seconds, MainsHz * 3.0f, 0.010f, 0.055f, 0.25f, EIGToneWaveform::Sine});
+	HumNotes.Add({0.000f, Seconds, 7400.0f, 0.014f, 0.040f, 0.25f, EIGToneWaveform::ValueNoise});
+	HumNotes.Add({0.000f, Seconds, LineWhineHz, 0.009f, 0.060f, 0.25f, EIGToneWaveform::Sine});
+
+	Wave->ConfigureNotes(MoveTemp(HumNotes), false);
+	// Analog sync was never stable. A third of a percent at 0.6 Hz is under the
+	// threshold of hearing it as vibrato and over the threshold of hearing the
+	// difference between this and a synthesised tone.
+	Wave->ConfigurePitchWow(0.003f, 0.6f);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePipeWaterFlow(
 	UObject* Outer,
 	const int32 DistanceStep)

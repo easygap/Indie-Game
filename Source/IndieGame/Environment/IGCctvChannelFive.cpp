@@ -1,0 +1,615 @@
+﻿#include "Environment/IGCctvChannelFive.h"
+
+#include "Audio/IGAudioHelpers.h"
+#include "Audio/IGToneSequenceSoundWave.h"
+#include "Components/SceneCaptureComponent2D.h"
+#include "Components/StaticMeshComponent.h"
+#include "Core/IGPrologueWorldScene.h"
+#include "Engine/StaticMesh.h"
+#include "Engine/TextureRenderTarget2D.h"
+#include "Engine/World.h"
+#include "Materials/MaterialInstanceDynamic.h"
+#include "Materials/MaterialInterface.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
+
+namespace IGCctvFive
+{
+	/**
+	 * CIF — 352×288. This is not a stand-in for a better number; it is the
+	 * resolution the analog channel this monitor was built for actually carries,
+	 * and it is why the low shape stays a shape. It also keeps the whole feature
+	 * inside §14's render budget: about a tenth of the pixels of a 1080p capture.
+	 */
+	constexpr int32 FeedWidth = 352;
+	constexpr int32 FeedHeight = 288;
+
+	/**
+	 * Twelve captures a second. Analog multiplexers ran 4–12 fps per channel, so
+	 * this is both the authentic cadence and a fifth of the cost of rendering the
+	 * capture every frame. Anything faster would buy nothing the player can see
+	 * through 288 lines of snow.
+	 */
+	constexpr float CaptureIntervalSeconds = 1.0f / 12.0f;
+
+	/** Snow while the tube finds sync, and snow while it loses it for good. */
+	constexpr float AcquireSeconds = 0.32f;
+	constexpr float CollapseSeconds = 0.86f;
+	/** How long the collapse takes to reach full snow — a tear, not a fade. */
+	constexpr float CollapseTearSeconds = 0.30f;
+
+	/** Snow floor while the picture is up: a direct analog feed is never clean. */
+	constexpr float LiveStaticFloor = 0.06f;
+	constexpr float AcquireStaticFloor = 0.18f;
+
+	/**
+	 * Two dropouts during the live window, at seconds 1.45 and 3.90. They are
+	 * authored rather than random so the low shape's crossing is never hidden
+	 * behind one, and so the beat plays the same for every player.
+	 */
+	constexpr float GlitchTimes[] = {1.45f, 3.90f};
+	constexpr float GlitchSeconds = 0.11f;
+	constexpr float GlitchStatic = 0.62f;
+
+	/** The tube's brightness. Emissive, so this is also how much it lights the desk. */
+	constexpr float ScreenGain = 1.15f;
+
+	/**
+	 * Forced adaptation target for the capture. Smaller is brighter, because both
+	 * bounds clamp the same value. Measured against Docs/Media/cctv5-feed.png —
+	 * the first authored guess of 0.62 produced a frame that passed every
+	 * brightness floor and showed nothing but the bulb.
+	 */
+	constexpr float PinnedExposure = 0.045f;
+	constexpr float ExposureBias = 0.85f;
+
+	/** Booth monitor face. The shell BuildLobby erects is 40×10×28 at Z=96. */
+	const FVector ScreenCenter(150.0f, -105.45f, 96.0f);
+	constexpr float ScreenWidth = 34.0f;
+	constexpr float ScreenHeight = 25.5f;
+
+	/**
+	 * §5.5's label, taped across the rear third of the monitor's top case, over
+	 * the input panel. That is where it goes in a real booth — the back of a
+	 * monitor pushed up against a wall is not somewhere anyone can read — and it
+	 * is legible from the front when she leans over the desk.
+	 */
+	const FVector LabelCenter(150.0f, -97.6f, 110.4f);
+	const FVector LabelSize(12.8f, 4.8f, 0.5f);
+
+	/**
+	 * 낮은 형체 — 화면 가장저리를 지나가는. Both ends of the path sit on the same
+	 * 60° bearing from the lens, which is 79% of the way to the right edge of a
+	 * 78° frame. The shape therefore rides that edge for the whole crossing
+	 * instead of walking through the middle of the picture, and it climbs from the
+	 * bottom corner into the falloff as it goes: 1.75 m from the lens at the start
+	 * and 3.3 m at the end, where the camera's own light has already given up.
+	 *
+	 * It moves away, not toward. Nothing in this shot is a threat display — it is
+	 * a floor with something living on it, which is the only claim §8 makes.
+	 */
+	const FVector ShapeStart(-268.0f, 636.0f, 1213.0f);
+	const FVector ShapeEnd(-190.0f, 772.0f, 1213.0f);
+	/** 157 cm over 2.7 s. A crawl, not a run — the chase sounds nothing like this. */
+	constexpr float ShapeBobCentimeters = 3.0f;
+	/** Fractions of the live window: it enters late and leaves before the tear. */
+	constexpr float ShapeEnterProgress = 0.34f;
+	constexpr float ShapeExitProgress = 0.82f;
+
+	/** The monitor is at her elbow, so it is close and quiet on the world bus. */
+	constexpr float MonitorInnerRadius = 90.0f;
+	constexpr float MonitorFalloff = 720.0f;
+	constexpr float SwitchVolume = 0.52f;
+	constexpr float BedVolume = 0.34f;
+}
+
+AIGCctvChannelFive::AIGCctvChannelFive()
+{
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+	USceneComponent* Root =
+		CreateDefaultSubobject<USceneComponent>(TEXT("CctvChannelFiveRoot"));
+	SetRootComponent(Root);
+}
+
+bool AIGCctvChannelFive::Configure(AIGPrologueWorldScene* InScene)
+{
+	UWorld* World = GetWorld();
+	if (!World || !InScene)
+	{
+		return false;
+	}
+	Scene = InScene;
+
+	PlaneMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
+	CubeMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Engine/BasicShapes/Cube.Cube"));
+	if (!PlaneMesh || !CubeMesh)
+	{
+		return false;
+	}
+
+	// Loaded here, at night start, and never on the press. A synchronous load in
+	// the middle of a beat that plays exactly once would be a hitch nobody can
+	// replay to check.
+	ScreenMaterial = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_CctvChannelFive.M_CctvChannelFive"));
+	if (!ScreenMaterial)
+	{
+		return false;
+	}
+
+	// The channel-5 face, hidden under the four-way split until it is pressed.
+	// Roll 90 makes texture V vertical and leaves the plane normal on -Y, facing
+	// whoever is standing at the desk — the same orientation the listener's card
+	// uses, for the same reason.
+	ScreenFace = NewObject<UStaticMeshComponent>(this, TEXT("CctvScreenFace"));
+	if (!ScreenFace)
+	{
+		return false;
+	}
+	ScreenFace->SetupAttachment(GetRootComponent());
+	ScreenFace->RegisterComponent();
+	ScreenFace->SetStaticMesh(PlaneMesh);
+	ScreenFace->SetAbsolute(true, true, true);
+	ScreenFace->SetWorldLocationAndRotation(
+		IGCctvFive::ScreenCenter,
+		FRotator(0.0f, 0.0f, 90.0f));
+	ScreenFace->SetWorldScale3D(
+		FVector(
+			IGCctvFive::ScreenWidth / 100.0f,
+			IGCctvFive::ScreenHeight / 100.0f,
+			1.0f));
+	ScreenFace->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	ScreenFace->SetCanEverAffectNavigation(false);
+	ScreenFace->SetCastShadow(false);
+	ScreenFace->SetHiddenInGame(true);
+
+	ScreenInstance =
+		UMaterialInstanceDynamic::Create(ScreenMaterial, this);
+	if (!ScreenInstance)
+	{
+		return false;
+	}
+	ScreenFace->SetMaterial(0, ScreenInstance);
+	StaticMix = 1.0f;
+	ApplyMaterialParameters();
+
+	// §5.5 물리적 확인. The label is permanent: it must be readable before the
+	// press, so a player who finds it first understands what channel 5 is before
+	// they ever see it, and readable afterwards, when it is the only proof left.
+	if (UMaterialInterface* LabelMaterial = LoadObject<UMaterialInterface>(
+			nullptr,
+			TEXT("/Game/Prototype/Materials/M_SignAux5MonitorOnly."
+				 "M_SignAux5MonitorOnly")))
+	{
+		if (UStaticMeshComponent* Label =
+			NewObject<UStaticMeshComponent>(this, TEXT("CctvAuxLabel")))
+		{
+			Label->SetupAttachment(GetRootComponent());
+			Label->RegisterComponent();
+			Label->SetStaticMesh(CubeMesh);
+			Label->SetMaterial(0, LabelMaterial);
+			Label->SetAbsolute(true, true, true);
+			Label->SetWorldLocation(IGCctvFive::LabelCenter);
+			Label->SetWorldScale3D(IGCctvFive::LabelSize / 100.0f);
+			Label->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Label->SetCanEverAffectNavigation(false);
+			Label->SetCastShadow(false);
+		}
+	}
+
+	// The same greyish-white plaster the entity's body wears, resolved now so the
+	// one crossing this game has cannot discover a missing material.
+	ShapeMaterial = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_MissingFloorListenerPlasterUV."
+			 "M_MissingFloorListenerPlasterUV"));
+	return true;
+}
+
+bool AIGCctvChannelFive::IsOnScreen() const
+{
+	return State == EIGCctvChannelState::Acquiring
+		|| State == EIGCctvChannelState::Live
+		|| State == EIGCctvChannelState::Collapsing;
+}
+
+FIntPoint AIGCctvChannelFive::GetFeedResolution() const
+{
+	return Feed ? FIntPoint(Feed->SizeX, Feed->SizeY) : FIntPoint::ZeroValue;
+}
+
+bool AIGCctvChannelFive::IsShapeCrossing() const
+{
+	return LowShapeParts.Num() > 0
+		&& LowShapeParts[0] != nullptr
+		&& !LowShapeParts[0]->bHiddenInGame;
+}
+
+bool AIGCctvChannelFive::Play()
+{
+	UWorld* World = GetWorld();
+	AIGPrologueWorldScene* SceneActor = Scene.Get();
+	if (!World || !SceneActor || !ScreenFace || !ScreenInstance)
+	{
+		return false;
+	}
+	// 1회 한정. Enforced here as well as by the narrative beat flag, so no future
+	// caller can accidentally give the player a second look.
+	if (bUsed)
+	{
+		return false;
+	}
+	bUsed = true;
+
+	// §14 상시 렌더 금지 — everything the channel costs is allocated on this line
+	// and released again when it dies.
+	Feed = NewObject<UTextureRenderTarget2D>(this, TEXT("CctvChannelFiveFeed"));
+	if (!Feed)
+	{
+		return false;
+	}
+	// RTF_RGBA8_SRGB pairs with the material's Color sampler: SCS_FinalColorLDR
+	// writes gamma-encoded pixels, and the screen has to emit light proportional
+	// to the linear value, not to the encoding.
+	Feed->RenderTargetFormat = RTF_RGBA8_SRGB;
+	Feed->ClearColor = FLinearColor::Black;
+	Feed->bAutoGenerateMips = false;
+	Feed->AddressX = TA_Clamp;
+	Feed->AddressY = TA_Clamp;
+	Feed->InitAutoFormat(IGCctvFive::FeedWidth, IGCctvFive::FeedHeight);
+
+	Capture = NewObject<USceneCaptureComponent2D>(
+		this, TEXT("CctvChannelFiveCapture"));
+	if (!Capture)
+	{
+		ReleaseChannel();
+		return false;
+	}
+	Capture->SetupAttachment(GetRootComponent());
+	Capture->RegisterComponent();
+	Capture->SetAbsolute(true, true, true);
+	Capture->SetWorldLocationAndRotation(
+		SceneActor->GetMissingFloorCctvCameraLocation(),
+		SceneActor->GetMissingFloorCctvCameraRotation());
+	Capture->FOVAngle = SceneActor->GetMissingFloorCctvFieldOfView();
+	Capture->TextureTarget = Feed;
+	Capture->CaptureSource = ESceneCaptureSource::SCS_FinalColorLDR;
+	// Driven by CaptureScene() on a cadence instead. Persisting the rendering
+	// state keeps virtual shadow map caching from thrashing on a view that
+	// appears and disappears; with temporal AA off it costs nothing in ghosting.
+	Capture->bCaptureEveryFrame = false;
+	Capture->bCaptureOnMovement = false;
+	Capture->bAlwaysPersistRenderingState = true;
+	Capture->ShowFlags.SetTemporalAA(false);
+	Capture->ShowFlags.SetMotionBlur(false);
+	Capture->ShowFlags.SetBloom(false);
+	// The annex has one bare bulb and the camera's own illuminator. Pinning the
+	// exposure to a single value is what makes the far end of the corridor stay
+	// black instead of being lifted into readable grey by eye adaptation — the
+	// darkness at the end of that room is the reason the shape is frightening.
+	//
+	// Min and Max both clamp the adaptation target, so a *smaller* value is a
+	// brighter picture. This one was measured against the exported frame, not
+	// reasoned about: -IGCctvExposure= sweeps it without a rebuild.
+	float Exposure = IGCctvFive::PinnedExposure;
+	FParse::Value(FCommandLine::Get(), TEXT("IGCctvExposure="), Exposure);
+	FPostProcessSettings& Post = Capture->PostProcessSettings;
+	Post.bOverride_AutoExposureMinBrightness = true;
+	Post.AutoExposureMinBrightness = Exposure;
+	Post.bOverride_AutoExposureMaxBrightness = true;
+	Post.AutoExposureMaxBrightness = Exposure;
+	// A cheap sensor runs its gain up in a dark room, and the noise that comes
+	// with it is the monitor material's snow.
+	Post.bOverride_AutoExposureBias = true;
+	Post.AutoExposureBias = IGCctvFive::ExposureBias;
+	Post.bOverride_BloomIntensity = true;
+	Post.BloomIntensity = 0.0f;
+	Post.bOverride_MotionBlurAmount = true;
+	Post.MotionBlurAmount = 0.0f;
+	Post.bOverride_SceneFringeIntensity = true;
+	Post.SceneFringeIntensity = 0.0f;
+	// The monitor material owns both of these; doing them twice would read as a
+	// filter over a filter rather than as a screen.
+	Post.bOverride_VignetteIntensity = true;
+	Post.VignetteIntensity = 0.0f;
+	Post.bOverride_FilmGrainIntensity = true;
+	Post.FilmGrainIntensity = 0.0f;
+
+	// The low shape, built now and destroyed with the channel, so it is never
+	// standing in the annex for the player to walk up to in night 3. Three masses
+	// on a pivot: something long and low, with a head end and a hip end. Enough
+	// for a body on all fours through 288 lines, and no more than that — the shot
+	// is not supposed to answer what it is.
+	if (CubeMesh && ShapeMaterial)
+	{
+		LowShapePivot =
+			NewObject<USceneComponent>(this, TEXT("CctvLowShapePivot"));
+		if (LowShapePivot)
+		{
+			LowShapePivot->SetupAttachment(GetRootComponent());
+			LowShapePivot->RegisterComponent();
+			LowShapePivot->SetAbsolute(true, true, true);
+
+			struct FShapePart
+			{
+				const TCHAR* Name;
+				FVector Offset;
+				FVector Size;
+			};
+			static const FShapePart Parts[] = {
+				{TEXT("CctvLowShapeTorso"), FVector(0, 0, 0), FVector(74, 29, 25)},
+				{TEXT("CctvLowShapeHead"), FVector(37, 0, -3), FVector(21, 21, 19)},
+				{TEXT("CctvLowShapeHip"), FVector(-31, 0, 4), FVector(26, 26, 22)},
+			};
+			for (const FShapePart& Part : Parts)
+			{
+				UStaticMeshComponent* Mass =
+					NewObject<UStaticMeshComponent>(this, Part.Name);
+				if (!Mass)
+				{
+					continue;
+				}
+				Mass->SetupAttachment(LowShapePivot);
+				Mass->RegisterComponent();
+				Mass->SetStaticMesh(CubeMesh);
+				Mass->SetMaterial(0, ShapeMaterial);
+				Mass->SetRelativeLocation(Part.Offset);
+				Mass->SetRelativeScale3D(Part.Size / 100.0f);
+				Mass->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+				Mass->SetCanEverAffectNavigation(false);
+				Mass->SetCastShadow(true);
+				Mass->SetHiddenInGame(true);
+				LowShapeParts.Add(Mass);
+			}
+			UpdateShape(0.0f);
+		}
+	}
+
+	ScreenFace->SetHiddenInGame(false);
+	// The bed spans the picture and the tear, so the tube's dim ends underneath
+	// the noise that kills it rather than in silence.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateCrtChannelBed(
+			this,
+			IGCctvFive::AcquireSeconds + LiveSeconds + IGCctvFive::CollapseSeconds),
+		IGCctvFive::ScreenCenter,
+		IGCctvFive::BedVolume,
+		1.0f,
+		IGCctvFive::MonitorInnerRadius,
+		IGCctvFive::MonitorFalloff);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateCrtChannelSwitch(this, false),
+		IGCctvFive::ScreenCenter,
+		IGCctvFive::SwitchVolume,
+		1.0f,
+		IGCctvFive::MonitorInnerRadius,
+		IGCctvFive::MonitorFalloff);
+
+	EnterState(EIGCctvChannelState::Acquiring);
+	SetActorTickEnabled(true);
+	return true;
+}
+
+void AIGCctvChannelFive::EnterState(const EIGCctvChannelState NextState)
+{
+	State = NextState;
+	StateSeconds = 0.0f;
+	switch (State)
+	{
+	case EIGCctvChannelState::Acquiring:
+		StaticMix = 1.0f;
+		// One capture immediately, so the first frame the snow clears onto is the
+		// corridor and not a black target.
+		SinceCaptureSeconds = IGCctvFive::CaptureIntervalSeconds;
+		break;
+
+	case EIGCctvChannelState::Live:
+		StaticMix = IGCctvFive::LiveStaticFloor;
+		break;
+
+	case EIGCctvChannelState::Collapsing:
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateCrtChannelSwitch(this, true),
+			IGCctvFive::ScreenCenter,
+			IGCctvFive::SwitchVolume,
+			1.0f,
+			IGCctvFive::MonitorInnerRadius,
+			IGCctvFive::MonitorFalloff);
+		// The picture is gone the moment the tear starts. Tick stops issuing
+		// captures in this state, so no frame is rendered that nobody will see.
+		for (const TObjectPtr<UStaticMeshComponent>& Mass : LowShapeParts)
+		{
+			if (Mass)
+			{
+				Mass->SetHiddenInGame(true);
+			}
+		}
+		break;
+
+	case EIGCctvChannelState::Spent:
+		StaticMix = 1.0f;
+		if (ScreenFace)
+		{
+			ScreenFace->SetHiddenInGame(true);
+		}
+		ReleaseChannel();
+		SetActorTickEnabled(false);
+		break;
+
+	default:
+		break;
+	}
+	ApplyMaterialParameters();
+}
+
+void AIGCctvChannelFive::ReleaseChannel()
+{
+	if (Capture)
+	{
+		Capture->TextureTarget = nullptr;
+		Capture->DestroyComponent();
+		Capture = nullptr;
+	}
+	for (const TObjectPtr<UStaticMeshComponent>& Mass : LowShapeParts)
+	{
+		if (Mass)
+		{
+			Mass->DestroyComponent();
+		}
+	}
+	LowShapeParts.Reset();
+	if (LowShapePivot)
+	{
+		LowShapePivot->DestroyComponent();
+		LowShapePivot = nullptr;
+	}
+	if (Feed)
+	{
+		// Hand the target back before the material can sample a released
+		// resource; the parameter falls back to the graph's engine black.
+		if (ScreenInstance)
+		{
+			ScreenInstance->SetTextureParameterValue(TEXT("Feed"), nullptr);
+		}
+		Feed->ReleaseResource();
+		Feed = nullptr;
+	}
+}
+
+void AIGCctvChannelFive::ApplyMaterialParameters()
+{
+	if (!ScreenInstance)
+	{
+		return;
+	}
+	ScreenInstance->SetScalarParameterValue(TEXT("Static"), StaticMix);
+	ScreenInstance->SetScalarParameterValue(
+		TEXT("Gain"), IGCctvFive::ScreenGain);
+	ScreenInstance->SetTextureParameterValue(TEXT("Feed"), Feed);
+}
+
+void AIGCctvChannelFive::UpdateShape(const float LiveProgress01)
+{
+	if (!LowShapePivot)
+	{
+		return;
+	}
+	const bool bCrossing =
+		LiveProgress01 >= IGCctvFive::ShapeEnterProgress
+		&& LiveProgress01 <= IGCctvFive::ShapeExitProgress;
+	for (const TObjectPtr<UStaticMeshComponent>& Mass : LowShapeParts)
+	{
+		if (Mass)
+		{
+			Mass->SetHiddenInGame(!bCrossing);
+		}
+	}
+	if (!bCrossing)
+	{
+		return;
+	}
+
+	const float Crossing = FMath::GetMappedRangeValueClamped(
+		FVector2D(IGCctvFive::ShapeEnterProgress, IGCctvFive::ShapeExitProgress),
+		FVector2D(0.0f, 1.0f),
+		LiveProgress01);
+	const FVector Travel = IGCctvFive::ShapeEnd - IGCctvFive::ShapeStart;
+	// A crawl carries the body up and down once per reach. Two and a half cycles
+	// across the crossing is the pace of something moving deliberately, not
+	// hurrying, which is the whole difference between this and the chase.
+	const float Bob = FMath::Sin(Crossing * 2.5f * 2.0f * PI)
+		* IGCctvFive::ShapeBobCentimeters;
+	const FVector Location =
+		IGCctvFive::ShapeStart + Travel * Crossing + FVector(0.0f, 0.0f, Bob);
+	// Facing along the direction of travel, so the head end leads.
+	const float TravelYaw =
+		FMath::RadiansToDegrees(FMath::Atan2(Travel.Y, Travel.X));
+	LowShapePivot->SetWorldLocationAndRotation(
+		Location,
+		FRotator(0.0f, TravelYaw, 0.0f));
+}
+
+void AIGCctvChannelFive::Tick(const float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	StateSeconds += DeltaSeconds;
+
+	switch (State)
+	{
+	case EIGCctvChannelState::Acquiring:
+	{
+		const float Progress = FMath::Clamp(
+			StateSeconds / IGCctvFive::AcquireSeconds, 0.0f, 1.0f);
+		StaticMix = FMath::Lerp(1.0f, IGCctvFive::AcquireStaticFloor, Progress);
+		if (StateSeconds >= IGCctvFive::AcquireSeconds)
+		{
+			EnterState(EIGCctvChannelState::Live);
+			return;
+		}
+		break;
+	}
+
+	case EIGCctvChannelState::Live:
+	{
+		StaticMix = IGCctvFive::LiveStaticFloor;
+		for (const float GlitchTime : IGCctvFive::GlitchTimes)
+		{
+			if (StateSeconds >= GlitchTime
+				&& StateSeconds < GlitchTime + IGCctvFive::GlitchSeconds)
+			{
+				StaticMix = IGCctvFive::GlitchStatic;
+			}
+		}
+		UpdateShape(FMath::Clamp(StateSeconds / LiveSeconds, 0.0f, 1.0f));
+		if (StateSeconds >= LiveSeconds)
+		{
+			EnterState(EIGCctvChannelState::Collapsing);
+			return;
+		}
+		break;
+	}
+
+	case EIGCctvChannelState::Collapsing:
+	{
+		const float Tear = FMath::Clamp(
+			StateSeconds / IGCctvFive::CollapseTearSeconds, 0.0f, 1.0f);
+		StaticMix = FMath::Lerp(IGCctvFive::AcquireStaticFloor, 1.0f, Tear);
+		if (StateSeconds >= IGCctvFive::CollapseSeconds)
+		{
+			EnterState(EIGCctvChannelState::Spent);
+			return;
+		}
+		break;
+	}
+
+	default:
+		SetActorTickEnabled(false);
+		return;
+	}
+
+	// The capture runs only while there is a picture to take.
+	if (Capture && State != EIGCctvChannelState::Collapsing)
+	{
+		SinceCaptureSeconds += DeltaSeconds;
+		if (SinceCaptureSeconds >= IGCctvFive::CaptureIntervalSeconds)
+		{
+			SinceCaptureSeconds = 0.0f;
+			Capture->CaptureScene();
+			++CaptureCount;
+		}
+	}
+	ApplyMaterialParameters();
+}
+
+void AIGCctvChannelFive::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	ReleaseChannel();
+	Super::EndPlay(EndPlayReason);
+}

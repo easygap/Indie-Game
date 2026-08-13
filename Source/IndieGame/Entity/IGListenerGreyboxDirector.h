@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -169,6 +169,8 @@ private:
 		Night1Extinguisher,
 		DayNightCycle,
 		PuzzleTwoContract,
+		/** §14 CCTV 채널 5: the one-shot render target's whole life cycle. */
+		CctvChannelContract,
 		DayTwoContract,
 		NightThreeContract,
 		AnswerPairTap,
@@ -188,6 +190,23 @@ private:
 	bool bNightFourFailureRetryVerified = false;
 	/** Latch so the mercy step fires its nets once and then waits for the paper. */
 	bool bMercyNetsFired = false;
+
+	/**
+	 * §14 CCTV 채널 5. The structural half of the contract runs anywhere: the
+	 * channel must own nothing before the press, allocate one CIF target for the
+	 * beat, cross the low shape through it, and release everything when it dies.
+	 * The pixel half needs a real RHI and is measured only when asked for, because
+	 * a scene capture under NullRHI returns black and black passes any floor —
+	 * which is exactly how the §11 V5 sweep first fooled itself.
+	 */
+	int32 CctvCapturesAtLive = 0;
+	int32 CctvCapturesAtDeath = 0;
+	bool bCctvShapeSeen = false;
+	bool bCctvFeedProbeRequested = false;
+	bool bCctvFeedMeasured = false;
+	float CctvFeedBrightestLuma = 0.0f;
+	float CctvFeedLitFraction = 0.0f;
+	void MeasureCctvFeed(const class AIGCctvChannelFive* Channel);
 
 	/** Capture-tour state; inert unless -IGNightCapture is on the command line. */
 	bool bNightCaptureRequested = false;

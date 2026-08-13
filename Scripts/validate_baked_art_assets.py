@@ -186,6 +186,7 @@ PRINT_MATERIALS = {
     "M_Note404NotFound": "T_Note404NotFound_D",
     "M_CaptureMercyNote": "T_CaptureMercyNote_D",
     "M_MercyNoteUnderDoor": "T_MercyNoteUnderDoor_D",
+    "M_SignAux5MonitorOnly": "T_SignAux5MonitorOnly_D",
     "M_LabelWater": "T_LabelWater_D",
     "M_LabelGreenTea": "T_LabelGreenTea_D",
     "M_LabelBarley": "T_LabelBarley_D",
@@ -248,6 +249,13 @@ TWO_SIDED_PRINT_MATERIALS = {
     "M_MercyNoteUnderDoor",
 }
 ALL_PRINT_MATERIALS = {**PRINT_MATERIALS, **ENTRANCE_PLATE_MATERIALS}
+
+# §14 CCTV 채널 5. The C++ binds the render target and drives the collapse by
+# these exact names, and a silently renamed parameter shows up as a dead black
+# screen in the one beat that cannot be replayed — so the names are a contract.
+CCTV_MONITOR_MATERIAL = "M_CctvChannelFive"
+CCTV_SCALAR_PARAMETERS = {"Static", "Gain"}
+CCTV_TEXTURE_PARAMETERS = {"Feed"}
 
 
 def require(condition: bool, message: str) -> None:
@@ -532,6 +540,41 @@ def validate_materials() -> tuple[int, int]:
             )
         linked_textures += 1
         checked += 1
+    cctv = load(
+        f"/Game/Prototype/Materials/{CCTV_MONITOR_MATERIAL}", unreal.Material
+    )
+    cctv_errors = unreal.MaterialEditingLibrary.recompile_material(cctv)
+    require(
+        not cctv_errors,
+        f"CCTV monitor material compile failed: {cctv_errors}",
+    )
+    cctv_scalars = {
+        str(parameter)
+        for parameter in unreal.MaterialEditingLibrary.get_scalar_parameter_names(cctv)
+    }
+    require(
+        CCTV_SCALAR_PARAMETERS.issubset(cctv_scalars),
+        "CCTV monitor material lost a scalar parameter the C++ drives: "
+        f"expected {sorted(CCTV_SCALAR_PARAMETERS)}, found {sorted(cctv_scalars)}",
+    )
+    cctv_textures = {
+        str(parameter)
+        for parameter in unreal.MaterialEditingLibrary.get_texture_parameter_names(cctv)
+    }
+    require(
+        CCTV_TEXTURE_PARAMETERS.issubset(cctv_textures),
+        "CCTV monitor material lost the render-target parameter: "
+        f"expected {sorted(CCTV_TEXTURE_PARAMETERS)}, found {sorted(cctv_textures)}",
+    )
+    # The tube is the light source in that corner of the booth, so it must stay
+    # unlit and emissive. A lit screen would need the booth lamp to read at all.
+    require(
+        cctv.get_editor_property("shading_model")
+        == unreal.MaterialShadingModel.MSM_UNLIT,
+        "CCTV monitor material is no longer unlit",
+    )
+    material_input(cctv, unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    checked += 1
     for name in sorted(INSTANCED_PRODUCT_MATERIALS):
         material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
         require(

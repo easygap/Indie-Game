@@ -150,6 +150,30 @@ function Write-CorridorEntranceSigns {
         Draw-CenteredText $g '낮에 와.' $noteFontFamily 96 ([System.Drawing.FontStyle]::Regular) $ballpoint ($w * 0.50) ($h * 0.38)
         Draw-CenteredText $g '문 열어 둘게.' $noteFontFamily 92 ([System.Drawing.FontStyle]::Regular) $ballpoint ($w * 0.50) ($h * 0.62)
     }
+
+    # §5.5 저장 불가 규칙의 물리적 근거. 5번은 NVR을 거치지 않고 모니터의
+    # 예비 BNC 입력에만 직결된 채널이라, 화면에는 뜨지만 어디에도 남지 않는다.
+    # 설치업자가 붙인 라벨이 아니라 목한수가 직접 붙인 마스킹 테이프라서
+    # 인쇄체가 아닌 유성펜 글씨이고, 글자는 문서가 지정한 두 줄 그대로다.
+    # 640×240 keeps the 8:3 shape of a 12.8×4.8 cm strip while clearing the print
+    # audit's 512×240 floor. She reads this leaning over the desk, so the marker
+    # strokes have to survive that distance.
+    New-SignBitmap -Width 640 -Height 240 `
+        -Background ([System.Drawing.Color]::FromArgb(255, 231, 224, 205)) `
+        -FileName 'T_SignAux5MonitorOnly_D.png' -Draw {
+        param($g, $w, $h)
+
+        # 테이프 위아래 눌린 자리. 라벨이 스티커가 아니라 붙인 물건으로 읽힌다.
+        $edge = New-Object System.Drawing.SolidBrush(
+            [System.Drawing.Color]::FromArgb(70, 120, 112, 96))
+        $g.FillRectangle($edge, 0, 0, $w, [single]($h * 0.07))
+        $g.FillRectangle($edge, 0, [single]($h * 0.93), $w, [single]($h * 0.07))
+        $edge.Dispose()
+
+        $marker = [System.Drawing.Color]::FromArgb(255, 28, 34, 52)
+        Draw-CenteredText $g 'AUX 5' 'Segoe Print' 85 ([System.Drawing.FontStyle]::Bold) $marker ($w * 0.50) ($h * 0.33)
+        Draw-CenteredText $g 'MONITOR ONLY' 'Segoe Print' 65 ([System.Drawing.FontStyle]::Regular) $marker ($w * 0.50) ($h * 0.71)
+    }
 }
 
 if ($CorridorEntranceOnly) {

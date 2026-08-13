@@ -354,6 +354,38 @@ public:
 	static UIGToneSequenceSoundWave* CreatePlasterDustFall(UObject* Outer);
 
 	/**
+	 * 채널 전환 지직임 (§8 비트 2-2) — an analog tube losing and finding sync.
+	 *
+	 * bCollapse false is the 0.35 s acquire: hiss decaying as the picture locks.
+	 * bCollapse true is the 0.90 s death: hiss swelling, two sync tears, then
+	 * nothing. The channel dies once and cannot be pressed again, so the collapse
+	 * has to sound terminal rather than like a dropout that might come back.
+	 *
+	 * The hum is 60 Hz because the building is on Korean mains, and the thin
+	 * 15.734 kHz line whine is the NTSC horizontal rate this monitor was built
+	 * for. Both are there for the players who can hear them.
+	 */
+	static UIGToneSequenceSoundWave* CreateCrtChannelSwitch(
+		UObject* Outer,
+		bool bCollapse);
+
+	/**
+	 * 모니터 험 (§8 비트 2-2) — what a live tube sounds like when nobody is
+	 * speaking: 60 Hz mains and its harmonics, a breath of hiss, the line whine.
+	 * Very quiet. Playing only while channel 5 is up is deliberate — the 4분할
+	 * monitor has been silent all night, so the hum arriving *with* the picture is
+	 * the ear's confirmation that this input was never on before.
+	 *
+	 * Sized to the beat rather than looped, because a note envelope in this synth
+	 * always returns to zero at the loop point and a hum that pulses once a second
+	 * is worse than no hum. TotalSeconds should span the live window *and* the
+	 * collapse, so the tube's slow dim ends underneath the tearing noise.
+	 */
+	static UIGToneSequenceSoundWave* CreateCrtChannelBed(
+		UObject* Outer,
+		float TotalSeconds);
+
+	/**
 	 * 배관 수류, 원근 4단 (§21.3) — the riser running behind the finished wall.
 	 *
 	 * DistanceStep 0..3 is how much building the water had to come through:

@@ -95,6 +95,7 @@ CORRIDOR_SIGNAGE_TEXTURE_NAMES = {
     "T_Plate402_D",
     "T_Plate403_D",
     "T_PlateCommon_D",
+    "T_SignAux5MonitorOnly_D",
 }
 
 
@@ -604,6 +605,7 @@ def import_textures():
                 "T_Note404NotFound_D",
                 "T_CaptureMercyNote_D",
                 "T_MercyNoteUnderDoor_D",
+                "T_SignAux5MonitorOnly_D",
             }
             or asset_name.startswith("T_Label")
             or asset_name.startswith("T_Plate")

@@ -7,6 +7,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Entity/IGMissingFloorEvidence.h"
+#include "Environment/IGCctvChannelFive.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSwingDoor.h"
 #include "Materials/MaterialInterface.h"
@@ -223,6 +224,25 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		0.06f);
 	CctvSelector->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined);
+
+	// §14 CCTV 채널 5. Spawned with the booth so the monitor material and the AUX
+	// label are resident before the press; the capture and its render target are
+	// not created until the button is actually pushed (상시 렌더 금지).
+	SpawnParameters.Name = TEXT("MissingFloorCctvChannelFive");
+	CctvChannelFive = World->SpawnActor<AIGCctvChannelFive>(
+		AIGCctvChannelFive::StaticClass(),
+		FTransform::Identity,
+		SpawnParameters);
+	if (!CctvChannelFive || !CctvChannelFive->Configure(InScene))
+	{
+		// The beat degrades to its narration rather than failing the whole booth:
+		// a missing baked material must not cost the player P2 and T7.
+		if (CctvChannelFive)
+		{
+			CctvChannelFive->Destroy();
+			CctvChannelFive = nullptr;
+		}
+	}
 
 	// The inner room's door gap: the foam reveal.
 	SpawnParameters.Name = TEXT("MissingFloorFoamGap");
@@ -469,6 +489,10 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 		UIGToneSequenceSoundWave::CreateRelayClick(this),
 		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
 		0.7f);
+	// The picture comes up on the monitor itself. When the channel cannot be
+	// built the thought still lands, because losing the reveal must never leave
+	// the player without the reason to climb in 밤3.
+	const bool bChannelLive = CctvChannelFive && CctvChannelFive->Play();
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
@@ -480,6 +504,19 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 		this,
 		NSLOCTEXT("IGMissingFloor", "P2CctvCaption", "화면 지직임"),
 		1.6f);
+	if (bChannelLive)
+	{
+		// §5.5. The picture is on screen and already unrecoverable: nothing about
+		// channel 5 reaches the recorder, and the label on the case says so. This
+		// is the line that keeps 위험 8 — 화면과 규칙의 모순 — from being possible.
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"P2CctvThought2",
+				"AUX 5 / MONITOR ONLY. 저장은 안 되는 채널. …볼 수만 있다."),
+			4.2f);
+	}
 }
 
 void AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined(

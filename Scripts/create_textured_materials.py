@@ -130,6 +130,12 @@ DECAL_MATERIALS = {
     "M_MercyNoteUnderDoor": {
         "tex_asset": "T_MercyNoteUnderDoor_D", "rough": 0.92, "two_sided": True,
     },
+    # §5.5 채널 5가 저장되지 않는 이유를 손으로 만질 수 있게 하는 라벨. 마스킹
+    # 테이프라 종이보다 살짝 매끈하고, 자체 발광은 없다 — 관리실 형광등과
+    # 손전등만이 이 글자를 읽게 해준다.
+    "M_SignAux5MonitorOnly": {
+        "tex_asset": "T_SignAux5MonitorOnly_D", "rough": 0.74,
+    },
     "M_SignToilet":    {"tex_asset": "T_SignToilet_D", "rough": 0.4},
     "M_SignAutoDoor":  {"tex_asset": "T_SignAutoDoor_D", "rough": 0.3, "emissive_scale": 0.15},
     "M_PriceStrip":    {"tex_asset": "T_PriceStrip_D", "rough": 0.4, "emissive_scale": 0.03,
@@ -1527,6 +1533,317 @@ def create_sky_material(assets, tools):
     return material
 
 
+def create_cctv_monitor_material(assets, tools):
+    """§14 CCTV 채널 5 — the render-target monitor face.
+
+    Three runtime parameters, and the C++ side sets all three by these exact
+    names: `Feed` takes the scene-capture render target, `Static` crossfades to
+    snow, `Gain` is the tube's brightness. The default `Feed` texture is engine
+    black on purpose — if the binding ever fails the channel is simply dead,
+    which is the one wrong state that cannot spoil the reveal.
+
+    The look is not a picture pasted on a plane. It is a small analog tube in a
+    dark booth: the feed is desaturated (a cheap IR sensor has no colour),
+    tinted to phosphor, cut by 144 scanline pairs, crossed by the slow bright
+    sync bar every analog monitor drifts, then vignetted the way a curved tube
+    loses its corners. Emissive-only and unlit, so the screen is the light
+    source and Lumen carries it onto Mok Hansu's desk.
+    """
+    material = _recreate_material(assets, tools, "M_CctvChannelFive")
+    material.set_editor_property(
+        "shading_model", unreal.MaterialShadingModel.MSM_UNLIT
+    )
+    material.set_editor_property("two_sided", False)
+
+    uv = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1800, 0)
+    uv.set_editor_property("u_tiling", 1.0)
+    uv.set_editor_property("v_tiling", 1.0)
+
+    black = unreal.load_asset("/Engine/EngineResources/Black")
+    if black is None:
+        black = unreal.load_asset("/Engine/EngineResources/DefaultTexture")
+    if black is None:
+        raise RuntimeError("Could not load an engine default texture for Feed")
+    feed = _expr(
+        material, unreal.MaterialExpressionTextureSampleParameter2D, -1550, 0
+    )
+    feed.set_editor_property("parameter_name", "Feed")
+    feed.set_editor_property("texture", black)
+    feed.set_editor_property(
+        "sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_COLOR
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        uv, "", feed, "UVs"
+    )
+
+    # A 2.8 mm CCTV lens on an IR sensor has no colour at all, so the feed is
+    # taken to luminance and given back only the tube's own phosphor cast.
+    mono = _expr(material, unreal.MaterialExpressionDesaturation, -1300, 0)
+    full = _expr(material, unreal.MaterialExpressionConstant, -1500, 180)
+    full.set_editor_property("r", 1.0)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        feed, "RGB", mono, ""
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        full, "", mono, "Fraction"
+    )
+    phosphor = _expr(material, unreal.MaterialExpressionConstant3Vector, -1300, 200)
+    phosphor.set_editor_property(
+        "constant", unreal.LinearColor(0.74, 0.86, 0.93, 1.0)
+    )
+    tinted = _expr(material, unreal.MaterialExpressionMultiply, -1080, 60)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        mono, "", tinted, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        phosphor, "", tinted, "B"
+    )
+
+    # 288 visible lines on a CIF channel read as 144 dark/bright pairs.
+    v_mask = _expr(material, unreal.MaterialExpressionComponentMask, -1550, 420)
+    v_mask.set_editor_property("r", False)
+    v_mask.set_editor_property("g", True)
+    v_mask.set_editor_property("b", False)
+    v_mask.set_editor_property("a", False)
+    unreal.MaterialEditingLibrary.connect_material_expressions(uv, "", v_mask, "")
+
+    line_count = _expr(material, unreal.MaterialExpressionConstant, -1550, 560)
+    line_count.set_editor_property("r", 144.0)
+    scan_phase = _expr(material, unreal.MaterialExpressionMultiply, -1380, 460)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        v_mask, "", scan_phase, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        line_count, "", scan_phase, "B"
+    )
+    scan_sine = _expr(material, unreal.MaterialExpressionSine, -1220, 460)
+    scan_sine.set_editor_property("period", 1.0)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_phase, "", scan_sine, ""
+    )
+    scan_half = _expr(material, unreal.MaterialExpressionConstant, -1220, 600)
+    scan_half.set_editor_property("r", 0.5)
+    scan_scaled = _expr(material, unreal.MaterialExpressionMultiply, -1060, 480)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_sine, "", scan_scaled, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_half, "", scan_scaled, "B"
+    )
+    scan_norm = _expr(material, unreal.MaterialExpressionAdd, -900, 480)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_scaled, "", scan_norm, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_half, "", scan_norm, "B"
+    )
+    scan_floor = _expr(material, unreal.MaterialExpressionConstant, -900, 620)
+    scan_floor.set_editor_property("r", 0.72)
+    scan_ceil = _expr(material, unreal.MaterialExpressionConstant, -900, 700)
+    scan_ceil.set_editor_property("r", 1.0)
+    scan_gain = _expr(material, unreal.MaterialExpressionLinearInterpolate, -740, 520)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_floor, "", scan_gain, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_ceil, "", scan_gain, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_norm, "", scan_gain, "Alpha"
+    )
+
+    # The slow sync bar. Nobody in the building ever adjusted the vertical hold.
+    time_expr = _expr(material, unreal.MaterialExpressionTime, -1800, 900)
+    roll_speed = _expr(material, unreal.MaterialExpressionConstant, -1800, 1020)
+    roll_speed.set_editor_property("r", -0.11)
+    roll_drift = _expr(material, unreal.MaterialExpressionMultiply, -1620, 940)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        time_expr, "", roll_drift, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        roll_speed, "", roll_drift, "B"
+    )
+    roll_sum = _expr(material, unreal.MaterialExpressionAdd, -1440, 900)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        v_mask, "", roll_sum, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        roll_drift, "", roll_sum, "B"
+    )
+    roll_wrap = _expr(material, unreal.MaterialExpressionFrac, -1280, 900)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        roll_sum, "", roll_wrap, ""
+    )
+    roll_sine = _expr(material, unreal.MaterialExpressionSine, -1120, 900)
+    roll_sine.set_editor_property("period", 1.0)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        roll_wrap, "", roll_sine, ""
+    )
+    roll_lobe = _expr(material, unreal.MaterialExpressionSaturate, -960, 900)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        roll_sine, "", roll_lobe, ""
+    )
+    roll_tight = _expr(material, unreal.MaterialExpressionPower, -800, 900)
+    roll_tight.set_editor_property("const_exponent", 6.0)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        roll_lobe, "", roll_tight, "Base"
+    )
+    bar_floor = _expr(material, unreal.MaterialExpressionConstant, -800, 1040)
+    bar_floor.set_editor_property("r", 1.0)
+    bar_peak = _expr(material, unreal.MaterialExpressionConstant, -800, 1120)
+    bar_peak.set_editor_property("r", 1.10)
+    bar_gain = _expr(material, unreal.MaterialExpressionLinearInterpolate, -640, 940)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        bar_floor, "", bar_gain, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        bar_peak, "", bar_gain, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        roll_tight, "", bar_gain, "Alpha"
+    )
+
+    tube_gain = _expr(material, unreal.MaterialExpressionMultiply, -480, 700)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scan_gain, "", tube_gain, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        bar_gain, "", tube_gain, "B"
+    )
+    picture = _expr(material, unreal.MaterialExpressionMultiply, -320, 300)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        tinted, "", picture, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        tube_gain, "", picture, "B"
+    )
+
+    # 지직임. Animated value noise, one level: this runs on a 34 cm plane and
+    # the beat is seven seconds long, so it must not cost like a screen effect.
+    snow_scale = _expr(material, unreal.MaterialExpressionConstant, -1800, 1300)
+    snow_scale.set_editor_property("r", 320.0)
+    snow_uv = _expr(material, unreal.MaterialExpressionMultiply, -1620, 1240)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        uv, "", snow_uv, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        snow_scale, "", snow_uv, "B"
+    )
+    snow_rate = _expr(material, unreal.MaterialExpressionConstant, -1800, 1420)
+    snow_rate.set_editor_property("r", 37.0)
+    snow_time = _expr(material, unreal.MaterialExpressionMultiply, -1620, 1400)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        time_expr, "", snow_time, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        snow_rate, "", snow_time, "B"
+    )
+    snow_pos = _expr(material, unreal.MaterialExpressionAppendVector, -1440, 1300)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        snow_uv, "", snow_pos, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        snow_time, "", snow_pos, "B"
+    )
+    snow_noise = _expr(material, unreal.MaterialExpressionNoise, -1240, 1300)
+    snow_noise.set_editor_property(
+        "noise_function", unreal.NoiseFunction.NOISEFUNCTION_VALUE_ALU
+    )
+    snow_noise.set_editor_property("scale", 1.0)
+    snow_noise.set_editor_property("quality", 1)
+    snow_noise.set_editor_property("levels", 1)
+    snow_noise.set_editor_property("turbulence", False)
+    snow_noise.set_editor_property("output_min", 0.02)
+    snow_noise.set_editor_property("output_max", 1.0)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        snow_pos, "", snow_noise, "Position"
+    )
+    snow_tint = _expr(material, unreal.MaterialExpressionConstant3Vector, -1240, 1460)
+    snow_tint.set_editor_property(
+        "constant", unreal.LinearColor(0.86, 0.92, 1.0, 1.0)
+    )
+    snow = _expr(material, unreal.MaterialExpressionMultiply, -1020, 1340)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        snow_noise, "", snow, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        snow_tint, "", snow, "B"
+    )
+
+    static_amount = _expr(
+        material, unreal.MaterialExpressionScalarParameter, -1020, 1500
+    )
+    static_amount.set_editor_property("parameter_name", "Static")
+    static_amount.set_editor_property("default_value", 0.0)
+    signal = _expr(material, unreal.MaterialExpressionLinearInterpolate, -160, 500)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        picture, "", signal, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(snow, "", signal, "B")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        static_amount, "", signal, "Alpha"
+    )
+
+    # A curved tube loses its corners. This is also what keeps the monitor from
+    # lighting the booth like a lightbox instead of a screen.
+    centre = _expr(material, unreal.MaterialExpressionConstant2Vector, -1550, 1700)
+    centre.set_editor_property("r", 0.5)
+    centre.set_editor_property("g", 0.5)
+    radius = _expr(material, unreal.MaterialExpressionDistance, -1360, 1660)
+    unreal.MaterialEditingLibrary.connect_material_expressions(uv, "", radius, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        centre, "", radius, "B"
+    )
+    vignette_slope = _expr(material, unreal.MaterialExpressionConstant, -1360, 1800)
+    vignette_slope.set_editor_property("r", 0.92)
+    vignette_fall = _expr(material, unreal.MaterialExpressionMultiply, -1180, 1700)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        radius, "", vignette_fall, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        vignette_slope, "", vignette_fall, "B"
+    )
+    vignette_raw = _expr(material, unreal.MaterialExpressionOneMinus, -1000, 1700)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        vignette_fall, "", vignette_raw, ""
+    )
+    vignette_clamped = _expr(material, unreal.MaterialExpressionSaturate, -840, 1700)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        vignette_raw, "", vignette_clamped, ""
+    )
+    vignette = _expr(material, unreal.MaterialExpressionPower, -680, 1700)
+    vignette.set_editor_property("const_exponent", 1.6)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        vignette_clamped, "", vignette, "Base"
+    )
+
+    shaded = _expr(material, unreal.MaterialExpressionMultiply, -40, 900)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        signal, "", shaded, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        vignette, "", shaded, "B"
+    )
+    gain = _expr(material, unreal.MaterialExpressionScalarParameter, -40, 1080)
+    gain.set_editor_property("parameter_name", "Gain")
+    gain.set_editor_property("default_value", 1.0)
+    emissive = _expr(material, unreal.MaterialExpressionMultiply, 120, 940)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        shaded, "", emissive, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        gain, "", emissive, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        emissive, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR
+    )
+
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    unreal.log("[IndieGame] Created CCTV monitor material: M_CctvChannelFive")
+    return material
+
+
 def run():
     assets = unreal.get_editor_subsystem(unreal.EditorAssetSubsystem)
     tools = unreal.AssetToolsHelpers.get_asset_tools()
@@ -1544,6 +1861,7 @@ def run():
             "M_Note404NotFound",
             "M_CaptureMercyNote",
             "M_MercyNoteUnderDoor",
+            "M_SignAux5MonitorOnly",
             "M_Plate402",
             "M_PlateCommon",
         )
@@ -1554,9 +1872,13 @@ def run():
             False,
             update_in_place=True,
         )
-        if len(signage) != len(names) or not assets.save_loaded_assets(
-            signage, False
-        ):
+        if len(signage) != len(names):
+            raise RuntimeError("Could not build corridor entrance signage materials")
+        # The channel-5 tube ships in the same pass as its AUX label: the screen
+        # and the reason it is not recorded are one beat, and baking them apart
+        # is how the two end up contradicting each other (§19.9 위험 8).
+        signage.append(create_cctv_monitor_material(assets, tools))
+        if not assets.save_loaded_assets(signage, False):
             raise RuntimeError("Could not save corridor entrance signage materials")
         unreal.log("[IndieGame] Corridor entrance signage material update complete")
         return
