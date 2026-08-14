@@ -1738,31 +1738,43 @@ foreach ($forbidden in @(
 	}
 }
 
-# --- 5층 분진 잔흔: 농도가 있어야 한다 -------------------------------------
+# --- 5층 분진 잔흔: 얇은 자리는 기질로 사라져야 한다 -----------------------
 # 마스크를 불투명도에만 쓰면 남는 것은 「있다/없다」뿐이고, 어두운 바닥 위의
 # 균일한 밝은 판이 된다 — CCTV 정중앙에서 바닥 위에 떠 있는 도장 자국으로
-# 읽혔다. 같은 마스크로 밝기까지 변조해야 얇게 스친 자리가 얇게 보인다.
+# 읽혔다. 그래서 같은 마스크로 밝기까지 변조하는데, **방향이 중요하다.**
+#
+# 처음 판은 알베도를 곱했다. BLEND_MASKED에 부분 투명이 없으니 얇은 자리를
+# 표현할 수단이 알베도뿐인데, 곱셈은 그것을 검정 쪽으로 끌어당겼다. 근접
+# 프레임에서 잔흔이 덮은 픽셀의 중앙값이 바로 인접한 바닥의 0.84배로 나왔다 —
+# 석고 분진이 흙때가 된 것이다. 얇은 가루층은 기질과 가루의 혼합이므로
+# 기질색에서 잔흔색으로 보간해야 한다. A가 기질, B가 잔흔이다. 이 순서가
+# 뒤집히면 두껍게 쌓인 자리가 바닥색이 되고 스친 자리만 밝아진다.
 $residueMaterialSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/create_textured_materials.py')
 foreach ($needle in @(
-	'density = spec.get("density")',
+	'substrate = spec.get("substrate")',
 	'MaterialExpressionLinearInterpolate',
+	'ground, "", shade, "A"',
+	'base, "", shade, "B"',
 	'opacity, "", shade, "Alpha"',
-	'shaded, "", unreal.MaterialProperty.MP_BASE_COLOR')) {
+	'shade, "", unreal.MaterialProperty.MP_BASE_COLOR')) {
 	if (-not $residueMaterialSource.Contains($needle)) {
-		throw "ART_ASSET_CONTRACT FAIL: residue density is missing: $needle"
+		throw "ART_ASSET_CONTRACT FAIL: residue substrate blend is missing: $needle"
 	}
 }
+# 곱셈 방식으로 되돌아가면 얇은 자리가 다시 검정으로 간다.
+if ($residueMaterialSource.Contains('shaded, "", unreal.MaterialProperty.MP_BASE_COLOR')) {
+	throw 'ART_ASSET_CONTRACT FAIL: 잔흔 알베도를 곱하면 얇은 자리가 바닥보다 어두워진다.'
+}
 # 어두운 콘크리트 위의 석고 분진은 살짝 밝은 얼룩이다. 원래 값(0.48~0.68
-# 알베도, 증폭 1.8~2.5)은 바닥의 두 배 밝기에 이진 실루엣이었다.
+# 알베도, 증폭 1.8~2.5)은 바닥의 두 배 밝기에 이진 실루엣이었다. 기질값은
+# 그 면의 실제 재질에서 온다 — 바닥은 콘크리트 다크, 벽은 마른 석고다.
 foreach ($needle in @(
-	'"color": (0.20, 0.19, 0.175), "mask_gain": 1.15',
+	'"color": (0.24, 0.23, 0.21), "mask_gain": 1.15',
 	'"color": (0.26, 0.25, 0.23), "mask_gain": 1.10',
 	'"color": (0.23, 0.22, 0.205), "mask_gain": 1.25',
-	'"density": 0.22',
-	'"density": 0.26',
-	'"density": 0.28',
-	'"density": 0.45')) {
+	'"substrate": (0.124, 0.126, 0.132)',
+	'"substrate": (0.487, 0.474, 0.443)')) {
 	if (-not $residueMaterialSource.Contains($needle)) {
 		throw "ART_ASSET_CONTRACT FAIL: residue tuning drifted: $needle"
 	}

@@ -3316,7 +3316,9 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	// allowed to stand in for this walk.
 	ActiveParent = nullptr;
 
-	UMaterialInterface* AnnexFloor = TexMat(TEXT("M_ConcreteDark_X"), ConcreteDarkMaterial);
+	// 수평 슬래브에는 XY 매핑을 쓴다. _X는 (X, Z) 마스킹이라 Z가 일정한
+	// 바닥에서 텍스처가 한 줄로 잘려 늘어난다 — 별관 바닥이 그 상태였다.
+	UMaterialInterface* AnnexFloor = TexMat(TEXT("M_ConcreteDark_XY"), ConcreteDarkMaterial);
 	UMaterialInterface* AnnexWallX = TexMat(TEXT("M_MissingFloorPlaster_X"), ConcreteMaterial);
 	UMaterialInterface* AnnexWallY = TexMat(TEXT("M_MissingFloorPlaster_Y"), ConcreteMaterial);
 	UMaterialInterface* AnnexCeiling = TexMat(TEXT("M_MissingFloorPlaster_XY"), ConcreteMaterial);

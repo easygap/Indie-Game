@@ -44,6 +44,11 @@ TEXTURED_MATERIALS = {
                          "tint": (0.32, 0.33, 0.36)},
     "M_ConcreteDark_Y": {"tex": "Concrete", "mapping": "YZ", "tile": 260.0,
                          "tint": (0.32, 0.33, 0.36)},
+    # 수평면용. _X는 월드 좌표를 (X, Z)로 마스킹하므로 Z가 일정한 바닥에서는
+    # V가 상수가 되어 텍스처가 한 줄로 잘려 Y 방향으로 무한히 늘어난다.
+    # 5층 별관 바닥이 그 상태였고, 프레임마다 보였던 긴 평행 줄무늬가 그것이다.
+    "M_ConcreteDark_XY": {"tex": "Concrete", "mapping": "XY", "tile": 260.0,
+                          "tint": (0.32, 0.33, 0.36)},
     # --- store -------------------------------------------------------------
     # Shop floors are buffed to a mirror; the photo roughness map is far too
     # matte for that, so this one forces a polished value.
@@ -287,29 +292,44 @@ EVIDENCE_MASK_MATERIALS = {
     # 5층의 분진 잔흔 네 장. 어두운 콘크리트 바닥 위의 석고 분진은 **살짝**
     # 밝은 얼룩이지 흰 자국이 아니다. 원래 값(0.48~0.68 알베도, 증폭 1.8~2.5)은
     # 바닥의 두 배 밝기에 이진 실루엣이라, CCTV 프레임에서 바닥 위에 떠 있는
-    # 도장 자국처럼 읽혔다. 증폭을 낮춰 실루엣을 짙은 심지에만 남기고, density로
-    # 농도를 되살린다.
+    # 도장 자국처럼 읽혔다. 증폭을 낮춰 실루엣을 짙은 심지에만 남기고, 얇은
+    # 자리는 substrate 쪽으로 보내 사라지게 한다.
+    #
+    # substrate는 그 잔흔이 실제로 얹히는 면의 알베도이고, **계산이 아니라
+    # 측정**으로 얻는다. 확산맵 평균과 틴트를 곱해 추정했더니 바닥이 0.058로
+    # 나왔는데 실측은 0.124였다 — 두 배 이상 어긋났고, 그 값으로는 잔흔의 얇은
+    # 자리가 바닥보다 어두워져 석고 분진이 흙때로 읽혔다.
+    #
+    # 재는 방법: 잔흔 하나를 균일 알베도(0.30)로 굽고 근접 시점 프레임에서
+    # 잔흔이 덮은 픽셀과 바로 인접한 바닥의 중앙값 비를 낸다. 비가 r이면
+    # 그 면의 실효 알베도는 0.30 / r이다. 바닥은 r=2.43 → 0.124, 벽은
+    # 손자국 심지(0.23)가 깨끗한 석고의 0.47배로 나와 0.487이었다.
     "M_MissingFloorHandprints": {
         "tex_asset": "T_MissingFloorHandprints_M", "rough": 0.94,
         "color": (0.23, 0.22, 0.205), "mask_gain": 1.25, "specular": 0.08,
-        "density": 0.28,
+        "substrate": (0.487, 0.474, 0.443),
     },
+    # 0.24는 실측 바닥(0.124)의 정확히 두 배다. 그 전의 0.20과 0.22는 둘 다
+    # 바닥보다 어두운 값이었고, 그래서 「한 단계 올려도」 프레임이 달라지지
+    # 않았다 — 어느 쪽이든 분진이 아니라 때였다. 증폭 1.15는 건드리지 않는다:
+    # 실루엣을 짙은 심지에 묶어 두는 그 값이 도장 자국으로 되돌아가지 않게
+    # 하는 장치다.
     "M_MissingFloorDragTrails": {
         "tex_asset": "T_MissingFloorDragTrails_M", "rough": 0.96,
-        "color": (0.20, 0.19, 0.175), "mask_gain": 1.15, "specular": 0.06,
-        "density": 0.22,
+        "color": (0.24, 0.23, 0.21), "mask_gain": 1.15, "specular": 0.06,
+        "substrate": (0.124, 0.126, 0.132),
     },
     "M_MissingFloorDustJoint": {
         "tex_asset": "T_MissingFloorDustJoint_M", "rough": 0.98,
         "color": (0.26, 0.25, 0.23), "mask_gain": 1.10, "specular": 0.04,
-        "density": 0.26,
+        "substrate": (0.124, 0.126, 0.132),
     },
-    # 긁힌 자국은 분진이 아니라 파인 자리다 — 손끝이 지나간 심지는 남기되
-    # 주변 먼지만 눌러 두면, 밤4에 벽을 열었을 때 읽어야 하는 것이 흐려진다.
+    # 긁힌 자국은 분진이 아니라 파인 자리다 — 석고보다 어두운 색이 맞고,
+    # 얇은 자리는 벽으로 사라져야 한다.
     "M_MissingFloorCavityScratches": {
         "tex_asset": "T_MissingFloorCavityScratches_M", "rough": 0.92,
         "color": (0.34, 0.32, 0.29), "mask_gain": 1.9, "specular": 0.08,
-        "density": 0.45,
+        "substrate": (0.487, 0.474, 0.443),
     },
 }
 
@@ -812,25 +832,35 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
             base.set_editor_property(
                 "constant", unreal.LinearColor(color[0], color[1], color[2], 1.0)
             )
-            density = spec.get("density")
-            if density is None:
+            substrate = spec.get("substrate")
+            if substrate is None:
                 unreal.MaterialEditingLibrary.connect_material_property(
                     base, "", unreal.MaterialProperty.MP_BASE_COLOR
                 )
             else:
-                # 분진에는 농도가 있다. 마스크를 불투명도에만 쓰면 남는 것은
-                # 「있다/없다」뿐이고, 칠한 것처럼 균일한 회색 판이 된다 —
-                # 5층 바닥의 끌림 자국이 정확히 그렇게 보였다. 같은 마스크로
-                # 밝기까지 변조하면 얇게 스친 자리는 거의 바닥색이고 짙게
-                # 쌓인 자리만 밝아진다. 마스크가 원래 하려던 일이다.
-                thin = _expr(
-                    material, unreal.MaterialExpressionConstant, -760, 320
+                # 얇은 잔흔은 바닥으로 사라진다. 검정으로 사라지지 않는다.
+                #
+                # 앞선 판은 같은 마스크로 알베도를 곱해서 농도를 만들었다.
+                # BLEND_MASKED에는 부분 투명이 없으니 얇은 자리를 표현할
+                # 방법이 알베도뿐인데, 곱셈은 그것을 **검정 쪽으로** 끌어당겼다.
+                # 프레임에서 잰 결과가 그대로 나왔다 — 잔흔이 덮은 픽셀의
+                # 중앙값이 바로 인접한 바닥의 0.84배, 즉 석고 분진이 아니라
+                # 흙때로 읽혔다.
+                #
+                # 물리적으로 얇은 가루층은 기질과 가루의 혼합이다. 그래서
+                # 기질색에서 잔흔색으로 보간한다. 마스크가 옅은 자리는 기질과
+                # 같아져 사라지고, 짙게 쌓인 심지만 밝아진다. 기질값은 그 면의
+                # 실제 재질에서 온다 — 별관 바닥은 콘크리트 다크(확산맵 선형
+                # 0.180 × 틴트 0.32), 베이 벽은 마른 석고(0.486 × 0.78).
+                ground = _expr(
+                    material, unreal.MaterialExpressionConstant3Vector, -760, 320
                 )
-                thin.set_editor_property("r", float(density))
-                one = _expr(
-                    material, unreal.MaterialExpressionConstant, -760, 400
+                ground.set_editor_property(
+                    "constant",
+                    unreal.LinearColor(
+                        substrate[0], substrate[1], substrate[2], 1.0
+                    ),
                 )
-                one.set_editor_property("r", 1.0)
                 shade = _expr(
                     material,
                     unreal.MaterialExpressionLinearInterpolate,
@@ -838,27 +868,18 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
                     300,
                 )
                 unreal.MaterialEditingLibrary.connect_material_expressions(
-                    thin, "", shade, "A"
+                    ground, "", shade, "A"
                 )
                 unreal.MaterialEditingLibrary.connect_material_expressions(
-                    one, "", shade, "B"
+                    base, "", shade, "B"
                 )
                 # 불투명도와 같은 증폭값을 쓴다. 실루엣과 농도가 어긋나면
                 # 테두리에 밝은 띠가 생긴다.
                 unreal.MaterialEditingLibrary.connect_material_expressions(
                     opacity, "", shade, "Alpha"
                 )
-                shaded = _expr(
-                    material, unreal.MaterialExpressionMultiply, -380, -80
-                )
-                unreal.MaterialEditingLibrary.connect_material_expressions(
-                    base, "", shaded, "A"
-                )
-                unreal.MaterialEditingLibrary.connect_material_expressions(
-                    shade, "", shaded, "B"
-                )
                 unreal.MaterialEditingLibrary.connect_material_property(
-                    shaded, "", unreal.MaterialProperty.MP_BASE_COLOR
+                    shade, "", unreal.MaterialProperty.MP_BASE_COLOR
                 )
             specular = _expr(material, unreal.MaterialExpressionConstant, -380, 360)
             specular.set_editor_property("r", spec.get("specular", 0.62))

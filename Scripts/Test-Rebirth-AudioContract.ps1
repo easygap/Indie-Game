@@ -556,6 +556,96 @@ if ($v5Points -ne 8) {
 	throw "§11 V5는 여덟 지점이다. 현재 $v5Points 개."
 }
 $assertions++
+# 지점 이름이 담고 있다고 주장하는 것을 프레임이 실제로 담고 있는지는 밴드가
+# 증명하지 못한다. 첫 저작에서 residue_fifth_floor는 (60, 760)에서 +X/−Y를 보고
+# 있었고 두 바닥 잔흔은 **카메라 뒤**에 있었다. 찍힌 것은 베이 벽과 슬래브 결
+# 이었고, 끌림 자국 자재를 올려도 바닥 픽셀은 0.04/255만 움직였다. 검정이
+# 만족시켜 버리는 밝기 하한과 같은 종류의 거짓 통과다. 그래서 시점과 잔흔
+# 좌표를 같은 소스에서 읽어 화각 안에 있는지 직접 계산한다.
+$playerCharacterHeader = Read-Source 'Source/IndieGame/Player/IGPlayerCharacter.h'
+$playerCharacterSource = Read-Source 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+$eyeMatch = [regex]::Match(
+	$playerCharacterHeader,
+	'CameraBaseLocation\s*=\s*FVector\(\s*0\.0f,\s*0\.0f,\s*(?<z>-?[\d.]+)f\s*\)')
+if (-not $eyeMatch.Success) {
+	throw '플레이어 카메라의 눈높이 오프셋을 읽을 수 없다.'
+}
+$fovMatch = [regex]::Match(
+	$playerCharacterSource, 'SetFieldOfView\(\s*(?<fov>[\d.]+)f\s*\)')
+if (-not $fovMatch.Success) {
+	throw '플레이어 카메라의 화각을 읽을 수 없다.'
+}
+$histogramRunner = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/Run-MissingFloor-NightHistogram.ps1')
+$resXMatch = [regex]::Match($histogramRunner, '\[int\]\$ResX\s*=\s*(?<v>\d+)')
+$resYMatch = [regex]::Match($histogramRunner, '\[int\]\$ResY\s*=\s*(?<v>\d+)')
+if (-not $resXMatch.Success -or -not $resYMatch.Success) {
+	throw '스윕 해상도를 읽을 수 없다. 상하 화각을 계산할 수 없다.'
+}
+$halfHorizontal = [double]$fovMatch.Groups['fov'].Value / 2.0
+$aspect = [double]$resXMatch.Groups['v'].Value / [double]$resYMatch.Groups['v'].Value
+$halfVertical = [Math]::Atan(
+	[Math]::Tan($halfHorizontal * [Math]::PI / 180.0) / $aspect) * 180.0 / [Math]::PI
+# M_MissingFloorCavityScratches는 여기에 없다. 그 면은 바닥 공동 안, 베이 B의
+# 석고판 뒤에 있고 밤4에 판이 떨어진 뒤에만 보인다 — 어떤 밤 지점도 그것을
+# 담아서는 안 된다. 담기면 폭로가 미리 새는 것이다.
+$residueVantages = @(
+	@{ Point = 'residue_fifth_floor'; Setup = 'ResidueFifthFloor';
+		Materials = @('M_MissingFloorDragTrails', 'M_MissingFloorDustJoint') },
+	@{ Point = 'cavity_wall'; Setup = 'CavityWall';
+		Materials = @('M_MissingFloorHandprints') }
+)
+foreach ($vantage in $residueVantages) {
+	# 패턴은 먼저 변수로 만든다. 메서드 인자 목록 안에서 쉼표는 배열이 아니라
+	# 인자 구분자이므로, 여기서 -f를 직접 쓰면 두 번째 서식 인자가 Match()의
+	# 세 번째 인자로 넘어가고 {1}은 채워지지 않는다.
+	$vantagePattern = ('TEXT\("{0}"\), ESetup::{1},\s*' +
+		'FVector\(\s*(?<x>-?[\d.]+)f,\s*(?<y>-?[\d.]+)f,\s*(?<z>-?[\d.]+)f\s*\),\s*' +
+		'(?<yaw>-?[\d.]+)f,\s*(?<pitch>-?[\d.]+)f') -f $vantage.Point, $vantage.Setup
+	$vantageMatch = [regex]::Match($greybox, $vantagePattern)
+	if (-not $vantageMatch.Success) {
+		throw ('{0} 시점의 위치와 방향을 읽을 수 없다.' -f $vantage.Point)
+	}
+	# 폰 위치가 아니라 눈 위치에서 재야 한다. 둘은 64 cm 차이고, 아래로 38°
+	# 기운 시점에서 그 64 cm는 프레임 중심이 바닥에 닿는 거리를 124 cm에서
+	# 206 cm로 옮긴다 — 처음 화각 계산이 어긋난 지점이 정확히 여기였다.
+	$vantageX = [double]$vantageMatch.Groups['x'].Value
+	$vantageY = [double]$vantageMatch.Groups['y'].Value
+	$vantageEyeZ = [double]$vantageMatch.Groups['z'].Value +
+		[double]$eyeMatch.Groups['z'].Value
+	$vantageYaw = [double]$vantageMatch.Groups['yaw'].Value
+	$vantagePitch = [double]$vantageMatch.Groups['pitch'].Value
+	foreach ($residueMaterial in $vantage.Materials) {
+		$placementPattern = ('AddResidue\(\s*FVector\(\s*(?<x>-?[\d.]+)f,\s*' +
+			'(?<y>-?[\d.]+)f,\s*(?<z>-?[\d.]+)f\s*\),\s*FVector\([^)]*\),\s*' +
+			'TEXT\("{0}"\)') -f $residueMaterial
+		$placement = [regex]::Match($worldScene, $placementPattern)
+		if (-not $placement.Success) {
+			throw "5층 잔흔의 배치를 읽을 수 없다: $residueMaterial"
+		}
+		$toResidueX = [double]$placement.Groups['x'].Value - $vantageX
+		$toResidueY = [double]$placement.Groups['y'].Value - $vantageY
+		$toResidueZ = [double]$placement.Groups['z'].Value - $vantageEyeZ
+		$groundDistance = [Math]::Sqrt(
+			$toResidueX * $toResidueX + $toResidueY * $toResidueY)
+		$bearing = [Math]::Atan2($toResidueY, $toResidueX) * 180.0 / [Math]::PI
+		$lateral = $bearing - $vantageYaw
+		while ($lateral -gt 180.0) { $lateral -= 360.0 }
+		while ($lateral -lt -180.0) { $lateral += 360.0 }
+		$lateral = [Math]::Abs($lateral)
+		$elevation = [Math]::Atan2($toResidueZ, $groundDistance) * 180.0 / [Math]::PI
+		$vertical = [Math]::Abs($elevation - $vantagePitch)
+		if ($lateral -ge $halfHorizontal) {
+			throw ('{0} 시점이 {1}을 좌우 화각 밖에 둔다: {2:N1}° >= {3:N1}°' `
+				-f $vantage.Point, $residueMaterial, $lateral, $halfHorizontal)
+		}
+		if ($vertical -ge $halfVertical) {
+			throw ('{0} 시점이 {1}을 상하 화각 밖에 둔다: {2:N1}° >= {3:N1}°' `
+				-f $vantage.Point, $residueMaterial, $vertical, $halfVertical)
+		}
+		$assertions++
+	}
+}
 # 뷰포트 백버퍼 직접 읽기는 -RenderOffScreen에서 순수 검정을 돌려준다.
 # 스크린샷 델리게이트가 실제 렌더된 프레임을 주는 유일한 경로다.
 Require-All $greybox @(

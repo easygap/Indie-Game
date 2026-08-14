@@ -3537,9 +3537,30 @@ namespace IGNightHistogram
 			0.14f, 0.34f, 0.010f
 		},
 		{
+			// The first stance faced +X/−Y from (60, 760) and put both floor
+			// residues *behind* the camera: the frame was the bay wall and the
+			// slab's own grain, so raising the drag-trail material moved
+			// 0.04/255 of it and the band was satisfied by pixels that had
+			// nothing to do with the residue. A point named for a thing it does
+			// not contain is the same defect as a brightness floor that black
+			// satisfies. From here the camera is 161 cm over the slab
+			// (pawn centre + 64) with a 78° lens, and this framing was checked by
+			// projecting both residue masks through this exact transform before
+			// it was committed: 100% of the drag trail and 99.9% of the dust
+			// joint land inside the frame, the trail right of centre as the
+			// subject and the joint running the north wall line behind it. X is
+			// 208 rather than 215 so the 34 cm capsule clears the bay stud face
+			// at 247: the teleport is bNoCheck, and a pawn that has to resolve
+			// penetration moves before the shot, which would make this frame
+			// unrepeatable for reasons that have nothing to do with lighting.
+			// 밴드는 별관 바닥이 제대로 매핑된 뒤에 다시 쟀다. 이전 0.30..0.52는
+			// M_ConcreteDark_X가 수평 슬래브에서 텍스처를 한 줄로 늘려 밝은
+			// 띠를 만들던 시절의 값이고, 바닥이 실제 콘크리트 분포를 되찾자
+			// 0.6387로 올라갔다. 프레임이 바닥으로 가득 찬 시점이라 암부 비율이
+			// 높은 것이 정상이다.
 			TEXT("residue_fifth_floor"), ESetup::ResidueFifthFloor,
-			FVector(60.0f, 760.0f, 1297.0f), -40.0f, -38.0f,
-			0.30f, 0.52f, 0.010f
+			FVector(208.0f, 600.0f, 1297.0f), 125.0f, -38.0f,
+			0.53f, 0.75f, 0.010f
 		},
 		{
 			TEXT("residue_corridor"), ESetup::ResidueCorridor,
