@@ -200,7 +200,7 @@ Assert-ContainsAll $artMatrix @(
 Assert-ContainsAll $readme @(
 	'게임 전체는 이사 온 **저녁의 입주**에서 시작',
 	'**같은 밤의 04:30 침대**로만 돌아갑니다',
-	'Docs/Media/m1-capture-wake-echo.gif',
+	'Docs/Media/readme/m1-capture-wake-echo.gif',
 	'시야가 돌아오기 전에는 HUD와 조작이 나타나지 않습니다'
 ) 'player-facing readme'
 Assert-ContainsAll $captureRunner @(
@@ -210,7 +210,7 @@ Assert-ContainsAll $captureRunner @(
 	'-ResY=%IG_NIGHT_CAPTURE_RES_Y%'
 ) 'resolution-variable night capture'
 
-$wakeMediaPath = Join-Path $projectRoot 'Docs/Media/m1-capture-wake-echo.gif'
+$wakeMediaPath = Join-Path $projectRoot 'Docs/Media/readme/m1-capture-wake-echo.gif'
 Assert-True (Test-Path -LiteralPath $wakeMediaPath -PathType Leaf) `
 	'wake echo README GIF must exist'
 $wakeMedia = Get-Item -LiteralPath $wakeMediaPath

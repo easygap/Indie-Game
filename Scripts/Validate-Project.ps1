@@ -213,16 +213,23 @@ if ($missing.Count -gt 0) {
 $readme = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'README.md')
 foreach ($requiredReadmeToken in @(
+	# 인라인은 Docs/Media/readme/의 표시용 파생본을 건다. 원본을 그대로 걸면
+	# README를 여는 데 40 MB 가까이 받는다. 원본은 그 자리에 남아 있고,
+	# 자막 가독성 확인용 1080p 링크만 원본을 직접 가리킨다.
 	'Docs/Media/dialogue-hud-default-1080.png',
-	'Docs/Media/readme-route-preview.gif',
-	'Docs/Media/m65-mercy-note-slide.gif',
-	'Docs/Media/settings-display-1080.png',
-	'Docs/Media/settings-accessibility-1080.png',
-	'Docs/Media/prologue-not-found-note.png',
-	'Docs/Media/night4-cavity-open.png',
-	'Docs/Media/night4-mok-confrontation.png',
-	'## 대화와 접근성',
-	'## 직접 플레이하기'
+	'Docs/Media/readme/readme-route-preview.gif',
+	'Docs/Media/readme/m65-mercy-note-slide.gif',
+	'Docs/Media/readme/settings-display-1080.webp',
+	'Docs/Media/readme/settings-accessibility-1080.webp',
+	'Docs/Media/readme/prologue-not-found-note.webp',
+	'Docs/Media/readme/night4-cavity-open.webp',
+	'Docs/Media/readme/night4-mok-confrontation.webp',
+	# 타이틀 화면과 채널 5는 README의 첫 인상과 유일한 관측 호러 컷이다.
+	# 둘 다 다른 캡처로 대체할 수 없으니 참조 자체를 고정한다.
+	'Docs/Media/readme/title-menu-first-run-1080.webp',
+	'Docs/Media/readme/cctv5-feed.webp',
+	'## 접근성',
+	'## 직접 해 보기'
 )) {
 	if (-not $readme.Contains($requiredReadmeToken)) {
 		throw "README product overview is missing: $requiredReadmeToken"
@@ -248,12 +255,12 @@ foreach ($readmeMediaReference in $readmeMediaReferences) {
 	}
 }
 $readmeGif = Get-Item -LiteralPath (
-	Join-Path $projectRoot 'Docs/Media/readme-route-preview.gif')
+	Join-Path $projectRoot 'Docs/Media/readme/readme-route-preview.gif')
 if ($readmeGif.Length -lt 500KB -or $readmeGif.Length -gt 10MB) {
 	throw 'README route preview must stay legible and below the 10 MB review budget.'
 }
 $mercyNoteGif = Get-Item -LiteralPath (
-	Join-Path $projectRoot 'Docs/Media/m65-mercy-note-slide.gif')
+	Join-Path $projectRoot 'Docs/Media/readme/m65-mercy-note-slide.gif')
 if ($mercyNoteGif.Length -lt 500KB -or $mercyNoteGif.Length -gt 10MB) {
 	throw 'README mercy-note preview must stay legible and below the 10 MB review budget.'
 }

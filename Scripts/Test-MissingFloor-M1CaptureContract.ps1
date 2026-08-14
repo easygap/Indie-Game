@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -203,7 +203,9 @@ Assert-ContainsAll $story @(
 	'3.0초 → 2.2초 → 1.4초 → 0.4초'
 ) 'v2.7 capture design supplement'
 Assert-ContainsAll $readme @(
-	'Docs/Media/m1-capture-embrace.gif',
+	# README는 Docs/Media/readme/의 표시용 파생본을 건다. 원본은 아래 자산
+	# 목록에서 따로 확인한다 — 파생본이 있다고 원본이 있는 것은 아니다.
+	'Docs/Media/readme/m1-capture-embrace.gif',
 	'포획은 게임 오버가 아닙니다.',
 	'포획 진동은 1.2초 동안 자연스럽게 감쇠'
 ) 'player-facing capture README'
