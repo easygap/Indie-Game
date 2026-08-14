@@ -108,6 +108,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Player|Audio")
 	float GetLastFootstepNoiseLoudness() const { return LastFootstepNoiseLoudness; }
 
+	/**
+	 * Harness hook for §24's 즉시 차단 19. F9 must not restore inside a sealed
+	 * hour; the probe asks for the restore and then reads which refusal the
+	 * game gave, because silence is also what a broken binding looks like.
+	 */
+	void LoadLatestAutosaveForTesting() { LoadLatestAutosave(); }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

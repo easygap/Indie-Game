@@ -532,6 +532,87 @@ Require-All $greybox @(
 	'MISSINGFLOOR_RECORDING PASS'
 ) '§5.5 runtime probe'
 
+# §24 즉시 차단 19: 봉쇄된 한 시간에는 F9 즉시 로드도 증거 기록 화면도 열리지
+# 않는다. 둘 다 구현돼 있었지만 아무것도 잠그지 않고 있었다. 잠금 없는 규칙은
+# 다음 사람이 지우면 그만이다. 정적 핀은 프로브가 사라지지 않았는지만 보고,
+# 실제 판정은 봉쇄 중에 직접 눌러 보는 런타임 단계가 한다.
+Require-All $greybox @(
+	'case EProbeStep::SealedHourUiContract:',
+	'OpenMissingFloorJournalForTesting()',
+	'LoadLatestAutosaveForTesting()',
+	'MISSINGFLOOR_SEALEDUI PASS'
+) '§24 즉시 차단 19 runtime probe'
+# 거부했다는 사실만으로는 부족하다. 아무 일도 일어나지 않는 것은 입력이
+# 끊어졌을 때의 모습이기도 하다. 어떤 거부를 했는지까지 읽어야 한다.
+if ($greybox -notmatch 'HasDialogueLineForTesting\(\s*[
+\s]*TEXT\("지금은 되돌릴 때가 아니다\."\)') {
+	throw '봉쇄 중 F9 거부는 침묵이 아니라 그 문장으로 확인해야 한다.'
+}
+$assertions++
+# 잠금 자체도 남아 있어야 한다.
+$playerCharacterBody = Read-Source 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+if ($playerCharacterBody -notmatch
+	'Narrative && Narrative->IsHourSealed\(\)[\s\S]{0,400}?MissingFloorLoadLocked') {
+	throw '봉쇄된 시간에 최근 자동 저장 복원을 막는 가드가 없다.'
+}
+$assertions++
+$playerControllerBody = Read-Source 'Source/IndieGame/Player/IGPlayerController.cpp'
+if ($playerControllerBody -notmatch
+	'if \(bMissingFloorJournalVisible \|\| IsMissingFloorNight\(\)\)') {
+	throw '밤에는 증거 기록 화면이 열리지 않아야 한다.'
+}
+$assertions++
+
+# §24 즉시 차단 17: 밤 구간에 목표 텍스트가 노출되지 않는다. 그 한 시간 동안
+# 플레이어는 아무것도 듣지 못하고 대신 들어야 한다(§11 V4). 잠금은 두 겹이다 —
+# 봉쇄 상태가 밤 표시를 켜고, 밤 표시가 목표 줄을 그리지 않는다. 둘 중 하나만
+# 끊겨도 목표 줄이 돌아오므로 양쪽을 다 본다.
+$hudBody = Read-Source 'Source/IndieGame/Player/IGHorrorHUD.cpp'
+if ($hudBody -notmatch
+	'if \(bNightPresentation\)[\s\S]{0,320}?EIGHudTextRole::Objective') {
+	throw '밤 표시 중에 목표 텍스트가 그려지지 않도록 막는 가드가 없다.'
+}
+$assertions++
+$nightPhaseBody = Read-Source 'Source/IndieGame/Entity/IGNightPhaseDirector.cpp'
+if (-not $nightPhaseBody.Contains('Hud->SetNightPresentation(bSealed);')) {
+	throw '봉쇄 상태가 밤 표시를 켜지 않으면 목표 줄이 밤에도 나온다.'
+}
+$assertions++
+Require-All $greybox @('night_presented=%d') '§24 즉시 차단 17 runtime probe'
+
+# §24 즉시 차단 22의 나머지 절반: UI가 색으로만 정보를 전달하지 않는다.
+# 조준 표시는 조사 대상을 물었을 때와 아닐 때 기하가 같고 색만 다르다. 포커스
+# 브래킷이라는 형태 신호가 뒤따르지만 0.18초 늦으므로, 그 사이를 색만으로
+# 버티지 않으려면 두 색이 회색조에서도 갈려야 한다. 상대 휘도로 확인한다.
+$hudColors = @{}
+foreach ($colorName in @('PaleGray', 'RedAccent')) {
+	$colorMatch = [regex]::Match(
+		$hudBody,
+		('const FLinearColor {0}\(\s*(?<r>[\d.]+)f,\s*(?<g>[\d.]+)f,' +
+		 '\s*(?<b>[\d.]+)f') -f $colorName)
+	if (-not $colorMatch.Success) {
+		throw "조준 표시 색을 읽을 수 없다: $colorName"
+	}
+	# 값은 이미 선형이므로 sRGB 역감마를 다시 적용하지 않는다.
+	$hudColors[$colorName] =
+		0.2126 * [double]$colorMatch.Groups['r'].Value +
+		0.7152 * [double]$colorMatch.Groups['g'].Value +
+		0.0722 * [double]$colorMatch.Groups['b'].Value
+}
+$brighter = [Math]::Max($hudColors['PaleGray'], $hudColors['RedAccent'])
+$darker = [Math]::Min($hudColors['PaleGray'], $hudColors['RedAccent'])
+$stateContrast = ($brighter + 0.05) / ($darker + 0.05)
+if ($stateContrast -lt 3.0) {
+	throw ('조준 표시의 두 상태가 회색조에서 갈리지 않는다: 명암비 {0:N2}' -f
+		$stateContrast)
+}
+$assertions++
+# 형태 신호가 아예 사라지면 색만 남는다. 브래킷 자체도 지켜야 한다.
+Require-All $hudBody @(
+	'void AIGHorrorHUD::DrawFocusBracket(',
+	'UpdateFocusBracket(bHasFocus ? Interaction->GetFocusedActor() : nullptr'
+) '§24 즉시 차단 22 형태 신호'
+
 # §11 V5 밤 구간 8지점 히스토그램. 임계는 설계서가 고정한 5%/98%이며, 지점별
 # 밴드는 실측에서 저작한다. 밴드를 먼저 쓰고 통과할 때까지 늘리면 밴드가
 # 느슨하다는 것만 증명된다.

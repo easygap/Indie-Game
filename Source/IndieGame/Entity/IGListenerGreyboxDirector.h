@@ -212,6 +212,8 @@ private:
 		NightThreePassContract,
 		/** §8 비트 3-7: only 403's floor ends night three. */
 		NightThreeHomeContract,
+		/** §24 즉시 차단 19: the sealed hour turns F9 and the journal down. */
+		SealedHourUiContract,
 		NightFourContract,
 		NightFourFailureRetryContract,
 		NightFourWallContract,

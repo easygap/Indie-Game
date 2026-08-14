@@ -13,6 +13,8 @@
 #include "Interaction/IGSwingDoor.h"
 #include "Misc/Paths.h"
 #include "Player/IGHorrorHUD.h"
+#include "Kismet/GameplayStatics.h"
+#include "Player/IGPlayerController.h"
 #include "Sequence/IGWakeUpDirector.h"
 #include "Engine/GameViewportClient.h"
 #include "Player/IGStressComponent.h"
@@ -3088,6 +3090,73 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("sleeping did not begin night 4"));
 			return;
 		}
+		ProbeStep = EProbeStep::SealedHourUiContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::SealedHourUiContract:
+	{
+		// §24 즉시 차단 19. 봉쇄된 한 시간 동안 F9 즉시 로드도, 증거 기록
+		// 화면도 열리지 않는다. 둘 다 구현돼 있었지만 아무것도 그것을 잠그지
+		// 않았고, 잠금 없는 규칙은 다음 사람이 지우면 그만이다.
+		//
+		// 거부했다는 사실만 보지 않는다. 「아무 일도 일어나지 않았다」는 것은
+		// 입력이 끊어졌을 때의 모습이기도 해서, 어떤 거부를 했는지까지 읽는다.
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		AIGPlayerCharacter* PlayerCharacter = Player.Get();
+		AIGPlayerController* PlayerController = PlayerCharacter
+			? Cast<AIGPlayerController>(PlayerCharacter->GetController())
+			: nullptr;
+		AIGHorrorHUD* HorrorHUD = PlayerController
+			? Cast<AIGHorrorHUD>(PlayerController->GetHUD())
+			: nullptr;
+		if (!Narrative || !PlayerCharacter || !PlayerController || !HorrorHUD)
+		{
+			FailProbe(TEXT("sealed-hour UI probe is missing an actor"));
+			return;
+		}
+		if (!Narrative->IsHourSealed())
+		{
+			FailProbe(TEXT("the hour is not sealed; the gate proves nothing"));
+			return;
+		}
+
+		// §24 즉시 차단 17도 같은 한 시간에 걸린다. 목표 텍스트는 밤 표시가
+		// 켜져 있는 동안 그려지지 않으며, 그 밤 표시는 봉쇄 상태가 그대로
+		// 밀어 넣는다. 봉쇄인데 밤 표시가 꺼져 있으면 목표 줄이 다시 나온다.
+		const bool bNightPresented = HorrorHUD->IsNightPresentation();
+
+		PlayerController->OpenMissingFloorJournalForTesting();
+		const bool bJournalStayedShut = !HorrorHUD->IsMissingFloorJournalVisible();
+		// 열렸다면 SetPause(true)가 함께 걸린다. 화면과 시간 두 쪽을 본다.
+		const bool bTimeKeptRunning = !UGameplayStatics::IsGamePaused(this);
+
+		// 큐를 본다. 이 거부는 앞선 대사를 밀어내지 않고 뒤에 서므로, 화면에
+		// 떠 있는 줄만 읽으면 방금 말한 것이 아니라 아까 말한 것을 읽는다.
+		PlayerCharacter->LoadLatestAutosaveForTesting();
+		const bool bRestoreRefused = HorrorHUD->HasDialogueLineForTesting(
+			TEXT("지금은 되돌릴 때가 아니다."));
+		const FString Refusal =
+			HorrorHUD->GetActiveDialogueLineForTesting().ToString();
+
+		UE_LOG(
+			LogTemp,
+			Display,
+			TEXT("MISSINGFLOOR_SEALEDUI journal_shut=%d running=%d ")
+			TEXT("restore_refused=%d night_presented=%d line=%s"),
+			bJournalStayedShut ? 1 : 0,
+			bTimeKeptRunning ? 1 : 0,
+			bRestoreRefused ? 1 : 0,
+			bNightPresented ? 1 : 0,
+			*Refusal);
+		if (!bJournalStayedShut || !bTimeKeptRunning || !bRestoreRefused
+			|| !bNightPresented)
+		{
+			FailProbe(TEXT("MISSINGFLOOR_SEALEDUI FAIL"));
+			return;
+		}
+		UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_SEALEDUI PASS"));
 		ProbeStep = EProbeStep::NightFourContract;
 		StepDeadlineSeconds = 0.0f;
 		break;
@@ -3472,7 +3541,14 @@ namespace IGNightHistogram
 		/** Chase post-process at full pressure. */
 		ChasePost,
 		/** A loud noise report, so the ripple ring is on screen. */
-		RippleRing
+		RippleRing,
+		/**
+		 * Torch on and nothing else. The residue setups also push a dust
+		 * disturbance into the air, which is right when the point exists to
+		 * show dust and wrong when it exists to read a floor material: the
+		 * motes sit between the lens and the surface being judged.
+		 */
+		SurfaceReading
 	};
 
 	struct FPoint
@@ -3579,6 +3655,29 @@ namespace IGNightHistogram
 			TEXT("ripple_ring"), ESetup::RippleRing,
 			FVector(-40.0f, -305.0f, 997.0f), 0.0f, -3.0f,
 			0.21f, 0.41f, 0.010f, /*bShowHud=*/true
+		},
+		{
+			// §11 규칙 2는 「어느 바닥을 고르느냐」를 선택으로 만든다. 그
+			// 선택은 표면이 눈으로 구분될 때에만 존재하므로, 소리가 갈리는
+			// 두 바닥에도 프레임이 있어야 한다. 계단은 X=-277.5 수직통로를
+			// +Y로 오르고, 카메라는 상단 착지에서 -Y로 내려다본다 — 디딤판
+			// 윗면이 프레임을 채우는 유일한 각도다.
+			// -42°는 계단통 전체를 담았지만 디딤판 하나가 화면에서 8px이라
+			// 트레드 무늬를 판정할 수 없었다. -65°는 바로 아래 서너 단을
+			// 크게 잡는다 — 밟기 전에 실제로 내려다보는 각도이기도 하다.
+			TEXT("steel_stair"), ESetup::SurfaceReading,
+			FVector(-277.5f, 190.0f, 1297.0f), 270.0f, -65.0f,
+			0.0f, 1.0f, 0.010f
+		},
+		{
+			// 옥상 route 슬래브의 상단면은 Z=1200이고 서쪽 구간이 가장 넓다.
+			// 계단통과 달리 여기에는 빛을 되돌려 줄 벽이 없다. -38°에서는
+			// 프레임의 87%가 5% 미만이었고 빔은 우하단 모서리에만 걸렸다 —
+			// 밝기 문제가 아니라 시선과 빔이 만나지 않는 구도의 문제다.
+			// 발 앞으로 내리면 빔 안쪽에서 도막을 읽을 수 있다.
+			TEXT("rooftop_deck"), ESetup::SurfaceReading,
+			FVector(0.0f, -40.0f, 1297.0f), 0.0f, -58.0f,
+			0.0f, 1.0f, 0.010f
 		}
 	};
 
@@ -3717,6 +3816,13 @@ void AIGListenerGreyboxDirector::EnterHistogramPoint(const int32 PointIndex)
 	switch (Point.Setup)
 	{
 	case IGNightHistogram::ESetup::DarkCorridor:
+		break;
+
+	case IGNightHistogram::ESetup::SurfaceReading:
+		if (Torch)
+		{
+			Torch->SetOn(true);
+		}
 		break;
 
 	case IGNightHistogram::ESetup::BeamDust:

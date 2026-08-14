@@ -33,6 +33,13 @@ public:
 	/** Re-pushes menu state after the native HUD is constructed or replaced. */
 	void RefreshMenuHud() const;
 
+	/**
+	 * Harness hook for §24's 즉시 차단 19. The sealed hour has to turn the
+	 * evidence journal down, and a probe proves that by asking for it the way
+	 * the key does and then reading the screen.
+	 */
+	void OpenMissingFloorJournalForTesting() { OpenMissingFloorJournal(); }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

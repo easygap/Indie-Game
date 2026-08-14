@@ -314,6 +314,36 @@ public:
 	 */
 	void SetMissingFloorJournalState(bool bVisible, int32 PageIndex);
 	bool IsMissingFloorJournalVisible() const { return bMissingFloorJournalVisible; }
+	/**
+	 * Harness hook: the line currently on screen, so a probe can assert *which*
+	 * refusal the game gave instead of inferring it from an absence. §24's
+	 * 즉시 차단 19 is about the sealed hour turning F9 and the journal down, and
+	 * "nothing happened" is also what a broken binding looks like.
+	 */
+	FText GetActiveDialogueLineForTesting() const
+	{
+		return bHasCurrentDialogue ? CurrentDialogue.Line : FText::GetEmpty();
+	}
+	/**
+	 * PushThought queues; it does not preempt. Reading only the line on screen
+	 * returns whatever was already speaking, so a probe that wants to know
+	 * whether the refusal was *given* has to look at the queue too.
+	 */
+	bool HasDialogueLineForTesting(const FString& Line) const
+	{
+		if (bHasCurrentDialogue && CurrentDialogue.Line.ToString().Equals(Line))
+		{
+			return true;
+		}
+		for (const FIGDialogueMessage& Queued : DialogueQueue)
+		{
+			if (Queued.Line.ToString().Equals(Line))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
 	int32 GetMissingFloorJournalPageCount() const;
 	void SetInputDevicePresentation(bool bInUsingGamepad)
 	{
