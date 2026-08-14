@@ -1,4 +1,5 @@
 ﻿#include "Sequence/IGChapterOneIncidentDirector.h"
+#include "Accessibility/IGAccessibilitySubsystem.h"
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -914,8 +915,20 @@ void AIGChapterOneIncidentDirector::StartFourthFloorCueIfNeeded()
 		return;
 	}
 	WorldScene->SuspendCorridorFlicker(true);
-	CorridorBlinkStep = 0;
+	// 이 큐는 총 두 번 점멸하므로 초당 세 번 한계에는 걸리지 않는다. 그래도
+	// 점멸 감소를 켠 사람에게는 켜고 끄는 과정을 건너뛰고 결과와 소리만
+	// 남긴다 — 복도가 반응했다는 사실이 전달되면 큐는 제 일을 한 것이다.
+	CorridorBlinkStep = IsReducedFlickerEnabled() ? 3 : 0;
 	AdvanceCorridorBlink();
+}
+
+bool AIGChapterOneIncidentDirector::IsReducedFlickerEnabled() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	return Accessibility && Accessibility->IsReducedFlickerEnabled();
 }
 
 void AIGChapterOneIncidentDirector::AdvanceCorridorBlink()

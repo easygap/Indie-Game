@@ -1,5 +1,7 @@
 ﻿#include "Sequence/IGMorningRoutineDirector.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
+
 #include "Audio/IGChapterOnePresenceAudioComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Engine/GameInstance.h"
@@ -18,9 +20,20 @@
 namespace IGMorningDirector
 {
 	// Streetlight failure: intensity multipliers stepped on a fixed cadence.
-	constexpr float FlickerStepSeconds = 0.11f;
+	//
+	// 0.20 s, not the 0.11 s this used to run at. The pattern alternates up and
+	// down, so a step of T produces one opposing pair — one flash — every 2T.
+	// At 0.11 s that is 4.55 flashes a second and four of them inside one
+	// second, over the general flash threshold of three and over §24's 즉시
+	// 차단 22. At 0.20 s it is 2.5 a second. The lamp reads as failing either
+	// way; a dying ballast is not required to strobe.
+	constexpr float FlickerStepSeconds = 0.20f;
 	constexpr float FlickerPattern[] = {0.15f, 1.0f, 0.05f, 0.8f, 0.3f, 0.9f, 0.0f, 0.0f, 0.35f, 0.0f};
 	constexpr int32 FlickerStepCount = UE_ARRAY_COUNT(FlickerPattern);
+	// 두 단계마다 상승·하강 한 쌍이므로 초당 점멸은 1/(2×단계초)다.
+	static_assert(
+		FlickerStepSeconds * 2.0f * 3.0f >= 1.0f,
+		"streetlight failure must stay at or under three flashes a second");
 }
 
 AIGMorningRoutineDirector::AIGMorningRoutineDirector()
@@ -444,6 +457,18 @@ void AIGMorningRoutineDirector::TriggerAlleyLightFailure()
 	}
 
 	bFlickerConsumed = true;
+	// 점멸 감소를 켠 사람에게는 이 비트가 점멸일 필요가 없다. 이 큐가 하는
+	// 일은 골목을 어둡게 만드는 것이고, 그 결과는 그대로 남는다.
+	if (const UIGAccessibilitySubsystem* Accessibility = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr)
+	{
+		if (Accessibility->IsReducedFlickerEnabled())
+		{
+			FlickerLight->SetIntensity(0.0f);
+			return;
+		}
+	}
 	FlickerStepIndex = 0;
 	GetWorldTimerManager().SetTimer(
 		FlickerTimerHandle,

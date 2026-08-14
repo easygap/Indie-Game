@@ -728,6 +728,45 @@ $montageCaptions = @(
 Assert-NoCaptionOverlap $safetyCaptions 10.90 '공통 안전 절차'
 Assert-NoCaptionOverlap $montageCaptions 16.40 '엔딩 B 암전 몽타주'
 
+# --- 광과민: 초당 세 번을 넘는 점멸을 남기지 않는다 -----------------------
+# 설계서 §24의 즉시 차단 22가 3Hz 초과 점멸을 출시 차단으로 잠갔다. 골목
+# 가로등 고장은 0.11초 간격으로 상승·하강을 번갈아 밟고 있었다. 두 단계마다
+# 점멸 한 번이므로 초당 4.55회, 1초 안에 4회다. 한계를 넘는다.
+#
+# 점멸률은 C++ static_assert가 빌드 시점에 잠그므로 여기서는 그 잠금 자체가
+# 사라지지 않았는지와, 점멸을 만드는 모든 곳이 「점멸 감소」를 따르는지를 본다.
+$morningDirector = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGMorningRoutineDirector.cpp')
+Assert-ContainsAll $morningDirector @(
+	'constexpr float FlickerStepSeconds = 0.20f;',
+	'FlickerStepSeconds * 2.0f * 3.0f >= 1.0f',
+	'static_assert('
+) '골목 가로등 점멸률 잠금'
+$morningStep = [regex]::Match(
+	$morningDirector, 'constexpr float FlickerStepSeconds = (?<v>[\d.]+)f;')
+Assert-True $morningStep.Success '골목 가로등 점멸 간격을 읽을 수 없다'
+$flashesPerSecond = 1.0 / (2.0 * [double]$morningStep.Groups['v'].Value)
+Assert-True ($flashesPerSecond -le 3.0) (
+	'골목 가로등이 초당 {0:N2}회 점멸한다. 한계는 3회다.' -f $flashesPerSecond)
+
+# 점멸을 정의하는 파일은 전부 점멸 감소를 참조해야 한다. 호출만 하는 파일은
+# 세지 않는다 — SuspendCorridorFlicker를 부르는 것은 점멸을 만드는 게 아니다.
+$flickerOwners = @(
+	Get-ChildItem -Recurse -File -LiteralPath (
+		Join-Path $projectRoot 'Source/IndieGame') -Filter '*.cpp' |
+		Where-Object {
+			(Get-Content -Raw -Encoding UTF8 -LiteralPath $_.FullName) -match
+				'::[A-Za-z]*(Flicker|Blink)[A-Za-z]*\('
+		}
+)
+Assert-True ($flickerOwners.Count -ge 4) (
+	'점멸을 정의하는 파일이 {0}개뿐이다. 판별식이 깨졌다.' -f $flickerOwners.Count)
+foreach ($flickerOwner in $flickerOwners) {
+	$flickerSource = Get-Content -Raw -Encoding UTF8 -LiteralPath $flickerOwner.FullName
+	Assert-True ($flickerSource.Contains('IsReducedFlickerEnabled')) (
+		'점멸을 만들면서 점멸 감소를 따르지 않는다: {0}' -f $flickerOwner.Name)
+}
+
 Write-Host (
 	"REBIRTH_ACCESSIBILITY_CONTRACT PASS assertions=$assertionCount " +
 	"hints=3 pressure_modes=3 gamepad=1 input_switch=1 captions=1 layout_profiles=4 caption_sequences=2 persistence=1 reduced_motion=1 reduced_flicker=1 toggle_hold=1"

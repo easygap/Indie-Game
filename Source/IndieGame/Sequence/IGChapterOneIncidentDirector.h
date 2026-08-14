@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Interaction/IGInteractableActor.h"
@@ -151,6 +151,9 @@ private:
 	void PlaceAccidentBagAndRetireCarriedPurchase();
 	void RequestReturnCheckpointAutosave() const;
 	void StartFourthFloorCueIfNeeded();
+	/** 점멸 감소가 켜져 있으면 켜고 끄는 과정 없이 결과만 남긴다. */
+	bool IsReducedFlickerEnabled() const;
+
 	void AdvanceCorridorBlink();
 	void CompleteFourthFloorCue();
 	void BeginRebirthEndToEndMemoryBoundary();

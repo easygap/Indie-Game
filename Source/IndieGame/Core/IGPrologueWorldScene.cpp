@@ -1,4 +1,5 @@
 ﻿#include "Core/IGPrologueWorldScene.h"
+#include "Accessibility/IGAccessibilitySubsystem.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
 #include "AssetCompilingManager.h"
@@ -4218,6 +4219,19 @@ void AIGPrologueWorldScene::HandleCorridorFlicker()
 	// within a tenth of a second.
 	if (bCorridorFlickerSuspended || !DegradedCorridorLight)
 	{
+		return;
+	}
+
+	// 떨림 자체(0.86~1.06)는 어두운 쪽이 충분히 밝아 점멸로 치지 않는다.
+	// 5% 확률로 0.12까지 떨어지는 드롭아웃은 점멸이다. 점멸 감소를 켠 사람은
+	// 낡은 형광등 아래를 걷되 그 떨어짐은 겪지 않아야 한다.
+	const bool bReducedFlicker = GetGameInstance()
+		&& GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
+		&& GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
+			->IsReducedFlickerEnabled();
+	if (bReducedFlicker)
+	{
+		DegradedCorridorLight->SetIntensity(DegradedLightBaseIntensity * 0.94f);
 		return;
 	}
 
