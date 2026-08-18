@@ -62,7 +62,7 @@ $evidence =
 $persistenceProbe =
 	Read-ProjectText 'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.cpp'
 $persistenceHarness =
-	Read-ProjectText 'Scripts/Run-Rebirth-PersistenceSpikes.ps1'
+	Read-ProjectText 'Scripts/run_rebirth_savegame_roundtrips.py'
 $materialAuthoring =
 	Read-ProjectText 'Scripts/create_prototype_materials.py'
 
@@ -551,7 +551,7 @@ foreach ($invariant in @(
 }
 foreach ($invariant in @(
 	'IGRebirthCH02TimeCheckpoint',
-	"ch02TimeProcessRestarts = 2",
+	'"ch02TimeProcessRestarts": 2',
 	'complete boundary=2 cat_choices=5 ch02_time=2 p5=4 p3=7 endings=2'
 )) {
 	Assert-Contract ($persistenceHarness.Contains($invariant)) `

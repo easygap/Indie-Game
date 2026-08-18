@@ -405,7 +405,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File Scripts\Run-Rebirth-ReleaseV
 1. 하네스가 UHT/UBT를 포함한 `IndieGameEditor Win64 Development`와
    `IndieGame Win64 Development`를 빌드하고 실행별 원본 로그와 종료 코드를
    보존한다. 경고를 숨기기 위해 로그를 잘라 내지 않는다.
-2. Development 빌드 뒤 `Run-Rebirth-PersistenceSpikes.ps1`이 고유
+2. Development 빌드 뒤 `run_rebirth_savegame_roundtrips.py`가 고유
    `-UserDir`에서 CH02 P1/P2 중단 상태 두 개, P5 조사·확정 네 경계와 P3
    일곱 경계를 각각 별도 쓰기·읽기 프로세스로 검증하고, A/B를 각각 선택
    전 쓰기→공통 발견 커밋→재실행 검증으로 확인한다. 쓰기와 공통 발견

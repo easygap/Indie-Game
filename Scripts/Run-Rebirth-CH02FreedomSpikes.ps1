@@ -11,6 +11,10 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $projectFile = Join-Path $projectRoot 'IndieGame.uproject'
 $resolver = Join-Path $PSScriptRoot 'Resolve-UnrealEditor.ps1'
+$powerShellCore = Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue
+if ($null -eq $powerShellCore) {
+	throw 'PowerShell 7 is required for the UTF-8 CH02 freedom harness.'
+}
 $runId = '{0}_{1}' -f (
 	[DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')),
 	$PID
@@ -28,9 +32,8 @@ else {
 }
 
 $editorOutput = @(
-	& powershell.exe `
+	& $powerShellCore.Source `
 		-NoProfile `
-		-ExecutionPolicy Bypass `
 		-File $resolver `
 		-ProjectPath $projectFile `
 		-Commandlet 2>&1

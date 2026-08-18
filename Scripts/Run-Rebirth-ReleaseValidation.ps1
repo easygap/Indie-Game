@@ -41,7 +41,12 @@ if ($null -eq $powerShellCoreCommand) {
 }
 $powerShellHost = $powerShellCoreCommand.Source
 $persistenceScript =
-	Join-Path $PSScriptRoot 'Run-Rebirth-PersistenceSpikes.ps1'
+	Join-Path $PSScriptRoot 'run_rebirth_savegame_roundtrips.py'
+$pythonCommand = Get-Command 'python.exe' -ErrorAction SilentlyContinue
+if ($null -eq $pythonCommand) {
+	throw 'Python 3 is required for the save-game round-trip harness.'
+}
+$pythonHost = $pythonCommand.Source
 $ch02FreedomScript =
 	Join-Path $PSScriptRoot 'Run-Rebirth-CH02FreedomSpikes.ps1'
 $checkpointAnchorScript =
@@ -2464,16 +2469,16 @@ if (-not $skipEditorRuntimeValidation) {
 		Join-Path $runDirectory 'PersistenceSpikes'
 	Set-ActiveStep -Name 'persistence_spikes' -LogPath $persistenceLog
 	Invoke-NativeChecked `
-		-FilePath $powerShellHost `
+		-FilePath $pythonHost `
 		-Arguments @(
-			'-NoProfile',
-			'-ExecutionPolicy',
-			'Bypass',
-			'-File',
 			$persistenceScript,
-			'-TimeoutSeconds',
+			'--project-root',
+			$projectRoot,
+			'--runtime-command',
+			$editorCommand,
+			'--timeout-seconds',
 			"$RuntimeTimeoutSeconds",
-			'-EvidenceDirectory',
+			'--evidence-directory',
 			$persistenceEvidence
 		) `
 		-Label 'Process-boundary persistence spikes' `
@@ -2694,18 +2699,16 @@ if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation) {
 		-Name 'shipping_persistence_spikes' `
 		-LogPath $shippingPersistenceLog
 	Invoke-NativeChecked `
-		-FilePath $powerShellHost `
+		-FilePath $pythonHost `
 		-Arguments @(
-			'-NoProfile',
-			'-ExecutionPolicy',
-			'Bypass',
-			'-File',
 			$persistenceScript,
-			'-ArchiveDirectory',
+			'--project-root',
+			$projectRoot,
+			'--archive-directory',
 			$ArchiveDirectory,
-			'-TimeoutSeconds',
+			'--timeout-seconds',
 			"$RuntimeTimeoutSeconds",
-			'-EvidenceDirectory',
+			'--evidence-directory',
 			$shippingPersistenceEvidence
 		) `
 		-Label 'Packaged Shipping process-boundary persistence spikes' `

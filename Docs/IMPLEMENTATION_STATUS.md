@@ -1603,7 +1603,7 @@
   - 전체 모드는 UE 5.8 해석, Development Editor/Game 빌드, 별도 프로세스
     저장 스파이크, `Prologue_Morning` Map Check, A/B 무렌더 자동 런타임과
     Win64 Shipping UAT를 순서대로 실행
-  - `Run-Rebirth-PersistenceSpikes.ps1`로 CH02 P1/P2 중단 상태의 4개,
+  - `run_rebirth_savegame_roundtrips.py`로 CH02 P1/P2 중단 상태의 4개,
     P5 네 조사·확정 경계의 8개, P3 일곱 경계의 14개 프로세스, A/B
     선택·공통 발견 커밋·재실행의 6개 프로세스와 CH01 암전 전·후 저장
     원자성 4개, 고양이 선택 다섯 상태의 쓰기·읽기 10개 프로세스에서
@@ -2271,7 +2271,7 @@ REBIRTH 상태로 연결했다.
   - P3 완료, 압박 0, 실수 0
   - P5 진실 4·증거 11·긁힘 3·선택 1
   - 옥상문 자유단 간격 11.0cm
-- `Scripts\Run-Rebirth-PersistenceSpikes.ps1`: 별도 프로세스 46건 통과
+- `Scripts\run_rebirth_savegame_roundtrips.py`: 별도 프로세스 46건 통과
   - P1 `05:31`·압박 2단계와 P2 `05:10`·압박 3단계·직원 호출·04:31
     원승인 열람 상태의 쓰기·재실행 읽기 4건. 표시 복원용 태그와 미해결
     상태, CH02 체크포인트가 정확히 일치하고 읽기 뒤 슬롯 삭제 확인

@@ -133,7 +133,7 @@ $requiredFiles = @(
 	'Scripts/Run-Prologue-Capture.ps1',
 	'Scripts/Run-Rebirth-Greybox.bat',
 	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
-	'Scripts/Run-Rebirth-PersistenceSpikes.ps1',
+	'Scripts/run_rebirth_savegame_roundtrips.py',
 	'Scripts/Run-Rebirth-CH02FreedomSpikes.ps1',
 	'Scripts/Run-Rebirth-CheckpointAnchorSpikes.ps1',
 	'Scripts/Run-Rebirth-BackgroundRuntimeValidation.ps1',
@@ -316,7 +316,6 @@ foreach ($resolverInvariant in @(
 }
 $headlessScripts = @(
 	'Scripts/Build-ArtAssets.ps1',
-	'Scripts/Run-Rebirth-PersistenceSpikes.ps1',
 	'Scripts/Run-Rebirth-CH02FreedomSpikes.ps1',
 	'Scripts/Run-Rebirth-CheckpointAnchorSpikes.ps1',
 	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
@@ -542,7 +541,7 @@ $releaseValidationScriptPath = Join-Path $projectRoot (
 $releaseValidationScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	$releaseValidationScriptPath)
 $persistenceSpikeScriptPath = Join-Path $projectRoot (
-	'Scripts/Run-Rebirth-PersistenceSpikes.ps1')
+	'Scripts/run_rebirth_savegame_roundtrips.py')
 $persistenceSpikeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	$persistenceSpikeScriptPath)
 $ch02FreedomSpikeScriptPath = Join-Path $projectRoot (
@@ -626,6 +625,20 @@ foreach ($surfaceResponseInvariant in @(
 )) {
 	if (-not $surfaceMaterialSource.Contains($surfaceResponseInvariant)) {
 		throw "Layered surface-response invariant is missing: $surfaceResponseInvariant"
+	}
+}
+$saveGameRoundTripText = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/run_rebirth_savegame_roundtrips.py')
+foreach ($saveGameRoundTripInvariant in @(
+	'UnrealEditor-Cmd.exe',
+	'-nullrhi',
+	'-nosound',
+	'-RenderOffscreen'
+)) {
+	if (-not $saveGameRoundTripText.Contains($saveGameRoundTripInvariant)) {
+		throw (
+			'Save-game round-trip headless invariant is missing: ' +
+			$saveGameRoundTripInvariant)
 	}
 }
 foreach ($surfaceAuditInvariant in @(
@@ -1512,17 +1525,6 @@ if ($releaseValidationParseErrors.Count -gt 0) {
 		ForEach-Object { $_.Message }
 	throw "REBIRTH release validation script does not parse: $($parseMessages -join '; ')"
 }
-$persistenceSpikeTokens = $null
-$persistenceSpikeParseErrors = $null
-[void][System.Management.Automation.Language.Parser]::ParseFile(
-	$persistenceSpikeScriptPath,
-	[ref]$persistenceSpikeTokens,
-	[ref]$persistenceSpikeParseErrors)
-if ($persistenceSpikeParseErrors.Count -gt 0) {
-	$parseMessages = $persistenceSpikeParseErrors |
-		ForEach-Object { $_.Message }
-	throw "REBIRTH persistence spike script does not parse: $($parseMessages -join '; ')"
-}
 $backgroundRuntimeTokens = $null
 $backgroundRuntimeParseErrors = $null
 [void][System.Management.Automation.Language.Parser]::ParseFile(
@@ -1883,7 +1885,7 @@ if ($unrealDiagnosticGuardCount -lt 5) {
 }
 foreach ($requiredPersistenceIntegrationInvariant in @(
 	"'persistence_spikes'",
-	'Run-Rebirth-PersistenceSpikes.ps1',
+	'run_rebirth_savegame_roundtrips.py',
 	'Assert-PersistenceSpikeEvidence',
 	'REBIRTH_SPIKE_HARNESS PASS complete boundary=2 cat_choices=5 ch02_time=2 p5=4 p3=7 endings=2',
 	'memoryBoundaryProcessRestarts',
@@ -2010,51 +2012,51 @@ foreach ($requiredChapterThreeAnchorInvariant in @(
 	}
 }
 foreach ($requiredPersistenceHarnessInvariant in @(
-	'[ValidateRange(30, 1800)]',
-	'[string]$ArchiveDirectory',
-	'$usingPackagedShipping',
+	'parser.add_argument("--timeout-seconds"',
+	'parser.add_argument("--archive-directory")',
+	'self.using_packaged_shipping',
 	'IndieGame-Win64-Shipping.exe',
-	'Start-Process',
-	'-WindowStyle Hidden',
-	'"-UserDir=$userDirectory"',
-	'"-IGRebirthPersistenceProbe=$Mode"',
-	'"-IGRebirthProbeResultPath=$resultPath"',
-	'Assert-ArchiveUnchanged',
-	'ArchiveDirectory must be the BuildCookRun archive root containing',
-	"if (`$Mode -eq 'CatChoiceRead')",
-	"`$arguments += '-IGChapterTwo'",
-	"'BoundaryBeforeWrite'",
-	"'BoundaryBeforeRead'",
-	"'BoundaryAfterWrite'",
-	"'BoundaryAfterRead'",
-	"'CatChoiceWrite'",
-	"'CatChoiceRead'",
-	"'CH02TimeWrite'",
-	"'CH02TimeRead'",
-	"'P5Write'",
-	"'P5Read'",
-	"'P3Write'",
-	"'P3Read'",
-	"'EndingWrite'",
-	"'EndingCommit'",
-	"'EndingVerify'",
-	'$checkpoint -le 6',
-	"foreach (`$ending in @('A', 'B'))",
-	'memoryBoundaryProcessRestarts = 2',
-	'catChoiceProcessRestarts = 5',
-	'ch02TimeProcessRestarts = 2',
-	'p5ProcessRestarts = 4',
-	'p3ProcessRestarts = 7',
-	'endingProcessRestarts = 4',
+	'subprocess.run(',
+	'subprocess.CREATE_NO_WINDOW',
+	'f"-UserDir={self.user_directory}"',
+	'f"-IGRebirthPersistenceProbe={mode}"',
+	'f"-IGRebirthProbeResultPath={receipt_path}"',
+	'assert_archive_unchanged(',
+	'Archive root must contain the launcher and Shipping runtime:',
+	'if mode == "CatChoiceRead":',
+	'arguments.append("-IGChapterTwo")',
+	'"BoundaryBeforeWrite"',
+	'"BoundaryBeforeRead"',
+	'"BoundaryAfterWrite"',
+	'"BoundaryAfterRead"',
+	'"CatChoiceWrite"',
+	'"CatChoiceRead"',
+	'"CH02TimeWrite"',
+	'"CH02TimeRead"',
+	'"P5Write"',
+	'"P5Read"',
+	'"P3Write"',
+	'"P3Read"',
+	'"EndingWrite"',
+	'"EndingCommit"',
+	'"EndingVerify"',
+	'for checkpoint in range(7):',
+	'for ending in ("A", "B"):',
+	'"memoryBoundaryProcessRestarts": 2',
+	'"catChoiceProcessRestarts": 5',
+	'"ch02TimeProcessRestarts": 2',
+	'"p5ProcessRestarts": 4',
+	'"p3ProcessRestarts": 7',
+	'"endingProcessRestarts": 4',
 	'SaveSnapshots',
-	'Copy-Item',
-	'saveSnapshotSha256',
-	'receiptSha256',
-	'saveDeleted',
-	'$archiveManifestBefore = @()',
-	'archiveUnchanged = $usingPackagedShipping',
-	'processCount = $results.Count',
-	'Get-FileHash -Algorithm SHA256',
+	'shutil.copy2(',
+	'"saveSnapshotSha256"',
+	'"receiptSha256"',
+	'"saveDeleted"',
+	'self.archive_manifest_before: list[dict[str, object]] = []',
+	'"archiveUnchanged": self.using_packaged_shipping',
+	'"processCount": len(self.results)',
+	'sha256_file(',
 	'REBIRTH_SPIKE_HARNESS PASS complete boundary=2 cat_choices=5 ch02_time=2 p5=4 p3=7 endings=2'
 )) {
 	if (-not $persistenceSpikeScript.Contains(
@@ -2064,11 +2066,17 @@ foreach ($requiredPersistenceHarnessInvariant in @(
 			$requiredPersistenceHarnessInvariant)
 	}
 }
-if ($persistenceSpikeScript.Contains(
-		'$archiveManifestBefore = if ($usingPackagedShipping)')) {
-	throw (
-		'Persistence spike harness must initialize an empty array explicitly; ' +
-		'a PowerShell if-expression collapses @() to null under strict mode.')
+foreach ($forbiddenSaveGameRunnerToken in @(
+	'shell=True',
+	'Invoke-Expression',
+	'powershell.exe',
+	'-ExecutionPolicy'
+)) {
+	if ($persistenceSpikeScript.Contains($forbiddenSaveGameRunnerToken)) {
+		throw (
+			'Save-game round-trip runner contains a forbidden shell/security ' +
+			"token: $forbiddenSaveGameRunnerToken")
+	}
 }
 foreach ($requiredPersistenceProbeInvariant in @(
 	'IGRebirthPersistenceProbe=',

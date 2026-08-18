@@ -20,6 +20,10 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $projectFile = Join-Path $projectRoot 'IndieGame.uproject'
 $resolver = Join-Path $PSScriptRoot 'Resolve-UnrealEditor.ps1'
+$powerShellCore = Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue
+if ($null -eq $powerShellCore) {
+	throw 'PowerShell 7 is required for the UTF-8 art build harness.'
+}
 
 function Invoke-ArtRobocopy {
 	param(
@@ -220,9 +224,8 @@ if ($CorridorSignageOnly) {
 }
 
 $editorOutput = @(
-	& powershell.exe `
+	& $powerShellCore.Source `
 		-NoProfile `
-		-ExecutionPolicy Bypass `
 		-File $resolver `
 		-ProjectPath $projectFile `
 		-Commandlet 2>&1
