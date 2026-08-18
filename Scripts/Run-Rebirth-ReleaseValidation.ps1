@@ -1022,6 +1022,59 @@ function Assert-NoUnexpectedUnrealDiagnostics {
 		}
 	}
 
+	# UE 5.8.0 CL 55116800 ships DataflowToolNode.h with a reflected Date
+	# member initialized from FDateTime::Now(). The engine's own deterministic
+	# member-initialization test can therefore emit this exact paired startup
+	# diagnostic when two test instances cross a clock tick. Keep the exception
+	# pinned to this binary build, require the complete three-line signature
+	# immediately before engine initialization, and never approve a partial or
+	# relocated occurrence.
+	if ($engineBuildVersion -ceq '5.8.0-55116800') {
+		$dataflowClassSignature =
+			'LogClass: Error: StructProperty FDataflowToolNodeSnapshot::Date is not initialized properly even though its struct probably has a custom default constructor. Non deterministic fields should use UPROPERTY(Meta = (IgnoreForMemberInitializationTest)) to avoid errors from this test. Module:DataflowNodes File:Public/Dataflow/DataflowToolNode.h'
+		$dataflowDisplaySignature =
+			'LogClass: Display: 1 Uninitialized script struct members found including 0 object properties'
+		$dataflowAutomationSignature =
+			'LogAutomationTest: Error: LogClass: StructProperty FDataflowToolNodeSnapshot::Date is not initialized properly even though its struct probably has a custom default constructor. Non deterministic fields should use UPROPERTY(Meta = (IgnoreForMemberInitializationTest)) to avoid errors from this test. Module:DataflowNodes File:Public/Dataflow/DataflowToolNode.h'
+		$dataflowClassIndexes = @()
+		$dataflowDisplayIndexes = @()
+		$dataflowAutomationIndexes = @()
+		$engineInitializeIndexes = @()
+		for ($lineIndex = 0; $lineIndex -lt $logLines.Count; $lineIndex++) {
+			if ($logLines[$lineIndex].Contains($dataflowClassSignature)) {
+				$dataflowClassIndexes += $lineIndex
+			}
+			if ($logLines[$lineIndex].Contains($dataflowDisplaySignature)) {
+				$dataflowDisplayIndexes += $lineIndex
+			}
+			if ($logLines[$lineIndex].Contains($dataflowAutomationSignature)) {
+				$dataflowAutomationIndexes += $lineIndex
+			}
+			if ($logLines[$lineIndex].Contains('LogEngine: Initializing Engine...')) {
+				$engineInitializeIndexes += $lineIndex
+			}
+		}
+		if ($dataflowClassIndexes.Count -eq 1 -and
+			$dataflowDisplayIndexes.Count -eq 1 -and
+			$dataflowAutomationIndexes.Count -eq 1 -and
+			$engineInitializeIndexes.Count -ge 1) {
+			$classIndex = $dataflowClassIndexes[0]
+			$displayIndex = $dataflowDisplayIndexes[0]
+			$automationIndex = $dataflowAutomationIndexes[0]
+			$followingEngineInitialize = @(
+				$engineInitializeIndexes | Where-Object { $_ -gt $automationIndex } |
+					Select-Object -First 1)
+			if ($displayIndex -eq ($classIndex + 1) -and
+				$automationIndex -eq ($displayIndex + 1) -and
+				$followingEngineInitialize.Count -eq 1 -and
+				$followingEngineInitialize[0] -le ($automationIndex + 2)) {
+				[void]$knownStartupDiagnostics.Add($classIndex)
+				[void]$knownStartupDiagnostics.Add($automationIndex)
+				Write-Host 'REBIRTH_RELEASE_HARNESS INFO ignored known UE 5.8.0 DataflowNodes Date startup diagnostics count=2'
+			}
+		}
+	}
+
 	$unexpectedDiagnostics = [System.Collections.Generic.List[string]]::new()
 	for ($lineIndex = 0; $lineIndex -lt $logLines.Count; $lineIndex++) {
 		$line = $logLines[$lineIndex]
