@@ -86,6 +86,11 @@ SURFACE_RESPONSE_DEFAULTS = {
         "roughness_detail_scale": 5.4, "ao_strength": 0.84,
         "specular": 0.24,
     },
+    "MovingBoxCardboard": {
+        "normal_strength": 1.08, "roughness_detail_strength": 0.10,
+        "roughness_detail_scale": 4.4, "ao_strength": 0.76,
+        "specular": 0.24,
+    },
     "GraniteTile": {
         "macro_strength": 0.025, "macro_scale": 6.4,
         "normal_strength": 1.10, "roughness_variation": 0.24,
@@ -136,6 +141,10 @@ TEXTURED_MATERIALS = {
                           "rough": 0.88, "ao": True, "tint": (0.82, 0.85, 0.88)},
     "M_VillaStucco_Y":  {"tex": "KoreanVillaStucco", "mapping": "YZ", "tile": 235.0,
                           "rough": 0.88, "ao": True, "tint": (0.82, 0.85, 0.88)},
+    "M_MovingBoxCardboardUV": {
+        "tex": "MovingBoxCardboard", "mapping": "UV", "tile": 2.0,
+        "rough": 0.87, "ao": True,
+    },
     "M_Concrete_XY":    {"tex": "Concrete", "mapping": "XY", "tile": 150.0},
     "M_Concrete_X":     {"tex": "Concrete", "mapping": "XZ", "tile": 150.0},
     "M_Concrete_Y":     {"tex": "Concrete", "mapping": "YZ", "tile": 150.0},
@@ -220,6 +229,10 @@ TEXTURED_MATERIALS = {
 
 # Lit poster/label materials: texture straight onto mesh UVs.
 DECAL_MATERIALS = {
+    "M_ArrivalContract": {
+        "tex_asset": "T_ArrivalContract_D", "rough": 0.82,
+        "two_sided": True,
+    },
     "M_PosterSale":    {"tex_asset": "T_PosterSale_D", "rough": 0.55, "emissive_scale": 0.06},
     "M_PosterRamyeon": {"tex_asset": "T_PosterRamyeon_D", "rough": 0.55, "emissive_scale": 0.06},
     "M_PosterFlyer":   {"tex_asset": "T_PosterFlyer_D", "rough": 0.75, "flutter": True},
@@ -2937,6 +2950,18 @@ def run():
         )
         return
 
+    if os.environ.get("IG_ARRIVAL_PROLOGUE_ONLY") == "1":
+        arrival = create_flat_texture_materials(
+            assets,
+            tools,
+            {"M_ArrivalContract": DECAL_MATERIALS["M_ArrivalContract"]},
+            False,
+        )
+        if len(arrival) != 1 or not assets.save_loaded_assets(arrival, False):
+            raise RuntimeError("Could not save arrival-prologue materials")
+        unreal.log("[IndieGame] Arrival prologue material update complete")
+        return
+
     if os.environ.get("IG_RETAIL_REALISM_ONLY") == "1":
         names = (
             "M_VillaStucco_X",
@@ -3107,6 +3132,20 @@ def run():
             {name: SURFACE_OVERLAY_MATERIALS[name] for name in sprite_names},
             False,
         )
+        # 발자국과 끌림 자국은 UIGSettledDustComponent의 인스턴스 평면으로
+        # 그린다. 생성 재질은 나중에 ISM에서 사용해도 필요한 셰이더 순열이
+        # 자동으로 저장되지 않는다. 이 플래그가 없으면 실행 첫 프레임에 기본
+        # 재질로 대체되고 경고가 발생하므로 실제 배칭 대상 두 재질을 여기서
+        # 다시 컴파일하고 저장한다.
+        for material in missing_floor:
+            if material.get_name() in {
+                "M_MissingFloorHandprints",
+                "M_MissingFloorDragTrails",
+            }:
+                material.set_editor_property(
+                    "used_with_instanced_static_meshes", True
+                )
+                unreal.MaterialEditingLibrary.recompile_material(material)
         if len(missing_floor) != 19 or not assets.save_loaded_assets(
             missing_floor, False
         ):

@@ -86,7 +86,7 @@ void UIGFlashlightComponent::SetOn(const bool bNewOn)
 	{
 		PreviousWorldRotation = GetComponentRotation();
 		Beam->SetIntensity(BeamIntensity);
-		Spill->SetIntensity(220.0f);
+		Spill->SetIntensity(280.0f);
 		SetComponentTickEnabled(true);
 		// Kick the beam so switching on reads as a hand movement.
 		if (!AccessibilitySubsystem
@@ -173,7 +173,7 @@ void UIGFlashlightComponent::TickComponent(
 	UpdateSway(DeltaSeconds);
 	const float Flicker = SampleFlicker(DeltaSeconds);
 	Beam->SetIntensity(BeamIntensity * Flicker);
-	Spill->SetIntensity(220.0f * Flicker);
+	Spill->SetIntensity(280.0f * Flicker);
 
 	if (BeamDust)
 	{

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Sequence/IGObjectiveProvider.h"
 #include "IGListenerGreyboxDirector.generated.h"
 
 class AIGListenerEntity;
@@ -26,12 +27,18 @@ class UIGNoiseSubsystem;
  * and exits with 0/1 for Scripts\Run-MissingFloor-Greybox.bat.
  */
 UCLASS()
-class INDIEGAME_API AIGListenerGreyboxDirector : public AActor
+class INDIEGAME_API AIGListenerGreyboxDirector
+	: public AActor
+	, public IIGObjectiveProvider
 {
 	GENERATED_BODY()
 
 public:
 	AIGListenerGreyboxDirector();
+
+	virtual FText GetObjectiveText() const override;
+	virtual FString GetObjectiveTextAscii() const override;
+	virtual float GetObjectiveProgress() const override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -44,11 +51,20 @@ private:
 	void FailProbe(const FString& Reason);
 	void PassProbe();
 	void RequestExit(bool bFailed);
+	void RunArrivalProbe();
+	void StartArrivalCapture();
+	void AdvanceArrivalCapture();
 
 	/** Emits a synthetic sound near the entity, as the probe's stand-in ear bait. */
 	void EmitProbeNoise();
 
 	class UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
+	void InitializeArrivalSequence();
+	void SpawnArrivalInteractables(UStaticMesh* CubeMesh);
+	void UpdateArrivalSequence();
+	void HandleArrivalEvidence(class AIGMissingFloorEvidence* Evidence);
+	void RequestArrivalAutosave();
+	bool AreArrivalBoxesOpened() const;
 
 	/** Central hour-boundary wiring: dormancy, booth lock, day verbs. */
 	void HandleHourActiveChanged(bool bActive);
@@ -156,6 +172,22 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGMissingFloorEvidence> Unit401Door;
+
+	/** 출시 경로의 안전한 입주 저녁 프롤로그 소품. */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> ArrivalContract;
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> ArrivalParcelBox;
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> ArrivalNotebookBox;
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> ArrivalVoicemailBox;
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> ArrivalStoreBell;
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> ArrivalUnit402Note;
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> ArrivalRoofLock;
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGPlayerCharacter> Player;
@@ -289,6 +321,11 @@ private:
 	float ProbeSolidRingSeconds = 0.0f;
 	bool bStageReady = false;
 	bool bProbeRequested = false;
+	bool bArrivalProbeRequested = false;
+	bool bArrivalCaptureRequested = false;
+	int32 ArrivalCaptureStep = 0;
+	bool bProductionMode = false;
 	FTimerHandle SetupTimer;
+	FTimerHandle ArrivalCaptureTimer;
 	FTimerHandle ProbeTimer;
 };

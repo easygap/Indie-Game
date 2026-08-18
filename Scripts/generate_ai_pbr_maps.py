@@ -42,6 +42,11 @@ SURFACES = (
     SurfaceSpec(
         "T_KoreanVillaStucco", 0.88, 0.76, 0.96, 0.44,
         rough_detail=0.10, ao_depth=0.66),
+    # 무코팅 크라프트지는 확산 반사가 강하다. 상자가 조각처럼 보이지 않는
+    # 범위에서 손전등에 세로 골과 섬유 결이 드러나도록 조정한다.
+    SurfaceSpec(
+        "T_MovingBoxCardboard", 0.87, 0.74, 0.95, 0.34,
+        rough_detail=0.12, ao_depth=0.54),
     # One neutral fibre response is shared by the clean, damp, folded and old
     # paper stocks. Their colour maps keep the individual stains and creases;
     # this companion set supplies only sub-millimetre fibre relief, roughness

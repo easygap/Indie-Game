@@ -439,9 +439,21 @@ void UIGSaveSubsystem::HandleLoadComplete(
 		const FGameplayTag ChapterThree = FGameplayTag::RequestGameplayTag(
 			FName(TEXT("Chapter.CH03")),
 			false);
+		const FGameplayTag MissingFloor = FGameplayTag::RequestGameplayTag(
+			FName(TEXT("Chapter.MissingFloor")),
+			false);
 		const FGameplayTag SavedChapter = LastLoadedSave->Progress.ChapterId;
+		const FIGMissingFloorNarrativeSnapshot& MissingFloorSnapshot =
+			LastLoadedSave->Progress.MissingFloorNarrative;
+		const bool bIsMissingFloorSave =
+			SavedChapter.MatchesTagExact(MissingFloor)
+			|| MissingFloorSnapshot.Night.NightIndex > 0
+			|| MissingFloorSnapshot.Night.CompletedBeats.Num() > 0
+			|| MissingFloorSnapshot.Truths.Num() > 0;
 		const FString TravelOptions =
-			SavedChapter.MatchesTagExact(ChapterThree)
+			bIsMissingFloorSave
+				? TEXT("IGMissingFloor=1?IGIgnoreDirectStart=1?IGResumeSave=1")
+				: SavedChapter.MatchesTagExact(ChapterThree)
 				? TEXT("IGChapterThree=1?IGResumeSave=1")
 				: SavedChapter.MatchesTagExact(ChapterTwo)
 					? TEXT("IGChapterTwo=1?IGResumeSave=1")

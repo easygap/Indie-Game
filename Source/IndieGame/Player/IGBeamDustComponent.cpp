@@ -76,7 +76,7 @@ UIGBeamDustComponent::UIGBeamDustComponent()
 	Motes->ComponentTags.AddUnique(FName(TEXT("MissingFloor.BeamDust")));
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> MoteMeshFinder(
-		TEXT("/Engine/BasicShapes/Cube.Cube"));
+		TEXT("/Engine/BasicShapes/Sphere.Sphere"));
 	static ConstructorHelpers::FObjectFinder<UMaterialInterface> MoteMaterialFinder(
 		IGBeamDust::MoteMaterialPath);
 	if (MoteMeshFinder.Succeeded())
@@ -257,10 +257,15 @@ void UIGBeamDustComponent::TickComponent(
 			IGBeamDust::ScreenSizeAtOneMeter * Meters * Mote.SizeScale,
 			IGBeamDust::MinMoteCentimeters,
 			IGBeamDust::MaxMoteCentimeters);
+		// 엔진 기본 도형의 지름은 100cm다. 센티미터로 계산한 크기를 그대로 스케일에
+		// 넣으면 0.22~1.05cm 분진이 22~105cm 큐브가 된다. 이 큰 인스턴스가 복도를
+		// 채우고 손전등으로 확인해야 할 바닥과 벽을 가리고 있었다. 구체 메시로 각진
+		// 실루엣을 없애고 100으로 나눠 의도한 실제 지름을 복원한다.
+		constexpr float BasicShapeDiameterCentimeters = 100.0f;
 		InstanceTransforms[Index] = FTransform(
 			FQuat::Identity,
 			Mote.Location,
-			FVector(Size));
+			FVector(Size / BasicShapeDiameterCentimeters));
 	}
 
 	// World space rather than component space, even though the two are equal

@@ -57,6 +57,7 @@ $requiredFiles = @(
 	'Content/SourceArt/AI/TextureHudDialogueFilm.png',
 	'Content/SourceArt/AI/ApartmentVisualTarget_v1.png',
 	'Content/SourceArt/AI/TextureApartmentWallpaperVintage.png',
+	'Content/SourceArt/AI/TextureMovingBoxCardboard_v1.png',
 	'Content/SourceArt/AI/TextureCaptureMercyNotePaper_D.png',
 	'Content/SourceArt/AI/MaskApartmentWallPatina.png',
 	'Content/SourceArt/AI/TitleBackgroundMissingFloor_v1.png',
@@ -67,6 +68,10 @@ $requiredFiles = @(
 	'Content/SourceArt/T_ApartmentWallpaperV2_R.png',
 	'Content/SourceArt/T_ApartmentWallpaperV2_A.png',
 	'Content/SourceArt/T_ApartmentWallPatina_M.png',
+	'Content/SourceArt/T_MovingBoxCardboard_D.png',
+	'Content/SourceArt/T_MovingBoxCardboard_N.png',
+	'Content/SourceArt/T_MovingBoxCardboard_R.png',
+	'Content/SourceArt/T_MovingBoxCardboard_A.png',
 	'Content/SourceArt/T_CaptureMercyNote_D.png',
 	'Build/Windows/ApplicationIcon.png',
 	'Build/Windows/Application.ico',
@@ -82,6 +87,11 @@ $requiredFiles = @(
 	'Content/Prototype/Textures/T_ApartmentWallpaperV2_A.uasset',
 	'Content/Prototype/Textures/T_ApartmentWallPatina_M.uasset',
 	'Content/Prototype/Materials/M_ApartmentWallPatina.uasset',
+	'Content/Prototype/Textures/T_MovingBoxCardboard_D.uasset',
+	'Content/Prototype/Textures/T_MovingBoxCardboard_N.uasset',
+	'Content/Prototype/Textures/T_MovingBoxCardboard_R.uasset',
+	'Content/Prototype/Textures/T_MovingBoxCardboard_A.uasset',
+	'Content/Prototype/Materials/M_MovingBoxCardboardUV.uasset',
 	'Content/Prototype/Textures/T_CaptureMercyNote_D.uasset',
 	'Content/Prototype/Materials/M_CaptureMercyNote.uasset',
 	'Content/Meshes/SM_CaptureMercyNote.uasset',
@@ -154,6 +164,9 @@ $requiredFiles = @(
 	'Scripts/create_readme_media.py',
 	'Scripts/Test-ArtAssetContract.ps1',
 	'Scripts/Test-MissingFloor-M0InputContract.ps1',
+	'Scripts/Test-MissingFloor-ProductionEntryContract.ps1',
+	'Scripts/Run-MissingFloor-ArrivalProbe.ps1',
+	'Scripts/Run-MissingFloor-ArrivalCapture.ps1',
 	'Scripts/Test-MissingFloor-M5RevealContract.ps1',
 	'Scripts/Test-MissingFloor-ReleaseEndingContract.ps1',
 	'Scripts/Run-MissingFloor-EndingPreview.ps1',
@@ -2589,6 +2602,10 @@ $artAssetContractScript = Join-Path $projectRoot `
 $missingFloorM0InputContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M0InputContract.ps1'
 & $missingFloorM0InputContractScript
+
+$missingFloorProductionEntryContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-ProductionEntryContract.ps1'
+& $missingFloorProductionEntryContractScript
 
 $missingFloorM1CaptureContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M1CaptureContract.ps1'

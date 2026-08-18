@@ -8,6 +8,7 @@
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Save/IGSaveSubsystem.h"
 #include "TimerManager.h"
 
 namespace IGNightPhase
@@ -121,6 +122,31 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 		true);
 
 	OnHourActiveChanged.Broadcast(true);
+	if (!bRestoringHour)
+	{
+		RequestMissingFloorAutosave(true);
+	}
+}
+
+void AIGNightPhaseDirector::ResumeTheHour(
+	const int32 NightIndex,
+	const float ElapsedSeconds)
+{
+	if (bHourActive)
+	{
+		return;
+	}
+	bRestoringHour = true;
+	BeginTheHour(NightIndex);
+	bRestoringHour = false;
+	HourElapsedSeconds = FMath::Clamp(
+		ElapsedSeconds,
+		0.0f,
+		HourDurationSeconds - IGNightPhase::TickIntervalSeconds);
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->SetNightElapsedSeconds(HourElapsedSeconds);
+	}
 }
 
 void AIGNightPhaseDirector::SuspendForFailureEnding()
@@ -213,6 +239,28 @@ void AIGNightPhaseDirector::ReleaseAtDawn()
 		3.4f);
 
 	OnHourActiveChanged.Broadcast(false);
+	RequestMissingFloorAutosave(false);
+}
+
+void AIGNightPhaseDirector::RequestMissingFloorAutosave(const bool bAtNight)
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UWorld* World = GetWorld();
+	UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	if (!SaveSubsystem || !World)
+	{
+		return;
+	}
+	SaveSubsystem->RequestAutosave(
+		FGameplayTag::RequestGameplayTag(FName(TEXT("Chapter.MissingFloor")), false),
+		World->GetOutermost()->GetFName(),
+		FGameplayTag::RequestGameplayTag(
+			FName(bAtNight
+				? TEXT("Checkpoint.MissingFloor.Night")
+				: TEXT("Checkpoint.MissingFloor.Day")),
+			false));
 }
 
 void AIGNightPhaseDirector::ApplySealedPresentation(const bool bSealed)

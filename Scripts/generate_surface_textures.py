@@ -110,6 +110,14 @@ RETAIL_REALISM_TEXTURE_NAMES = {
     "T_KoreanVillaStucco_R",
     "T_KoreanVillaStucco_A",
 }
+ARRIVAL_PROLOGUE_ONLY = os.environ.get("IG_ARRIVAL_PROLOGUE_ONLY") == "1"
+ARRIVAL_PROLOGUE_TEXTURE_NAMES = {
+    "T_ArrivalContract_D",
+    "T_MovingBoxCardboard_D",
+    "T_MovingBoxCardboard_N",
+    "T_MovingBoxCardboard_R",
+    "T_MovingBoxCardboard_A",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -528,6 +536,7 @@ def import_textures():
                 and not CORRIDOR_SIGNAGE_ONLY
                 and not PROP_RESPONSE_ONLY
                 and not RETAIL_REALISM_ONLY
+                and not ARRIVAL_PROLOGUE_ONLY
             )
             or (
                 HUD_UI_ONLY
@@ -556,6 +565,10 @@ def import_textures():
             or (
                 RETAIL_REALISM_ONLY
                 and os.path.splitext(entry)[0] in RETAIL_REALISM_TEXTURE_NAMES
+            )
+            or (
+                ARRIVAL_PROLOGUE_ONLY
+                and os.path.splitext(entry)[0] in ARRIVAL_PROLOGUE_TEXTURE_NAMES
             )
         )
     )
@@ -624,6 +637,7 @@ def import_textures():
             texture.set_editor_property("never_stream", True)
         elif (
             asset_name in {
+                "T_ArrivalContract_D",
                 "T_NoteFridge_D",
                 "T_Note404NotFound_D",
                 "T_CaptureMercyNote_D",
@@ -667,6 +681,7 @@ if __name__ == "__main__":
         and not CORRIDOR_SIGNAGE_ONLY
         and not PROP_RESPONSE_ONLY
         and not RETAIL_REALISM_ONLY
+        and not ARRIVAL_PROLOGUE_ONLY
     ):
         generate_surface_pngs()
     import_textures()

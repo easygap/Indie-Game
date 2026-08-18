@@ -4,6 +4,7 @@
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -45,6 +46,8 @@
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Save/IGSaveSubsystem.h"
+#include "Materials/MaterialInterface.h"
 #include "TimerManager.h"
 
 namespace IGListenerGreybox
@@ -73,9 +76,16 @@ AIGListenerGreyboxDirector::AIGListenerGreyboxDirector()
 void AIGListenerGreyboxDirector::BeginPlay()
 {
 	Super::BeginPlay();
+	bProductionMode = GetWorld()
+		&& (GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
+			|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor")));
 
 	bProbeRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"));
+	bArrivalProbeRequested =
+		FParse::Param(FCommandLine::Get(), TEXT("IGArrivalProbe"));
+	bArrivalCaptureRequested =
+		FParse::Param(FCommandLine::Get(), TEXT("IGArrivalCapture"));
 	bNightCaptureRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGNightCapture"));
 	bMercyNoteProbeRequested =
@@ -114,6 +124,14 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 		{
 			StartHistogramSweep();
 		}
+		else if (bArrivalCaptureRequested)
+		{
+			StartArrivalCapture();
+		}
+		else if (bArrivalProbeRequested)
+		{
+			RunArrivalProbe();
+		}
 		else if (bProbeRequested)
 		{
 			StartProbe();
@@ -123,7 +141,16 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 	if (SetupRetrySeconds >= IGListenerGreybox::SetupGiveUpSeconds)
 	{
 		GetWorldTimerManager().ClearTimer(SetupTimer);
-		if (bProbeRequested)
+		if (bArrivalCaptureRequested || bArrivalProbeRequested)
+		{
+			UE_LOG(
+				LogTemp,
+				Error,
+				TEXT("MISSINGFLOOR_ARRIVAL FAIL: stage setup timed out capture=%d"),
+				bArrivalCaptureRequested ? 1 : 0);
+			RequestExit(true);
+		}
+		else if (bProbeRequested)
 		{
 			FailProbe(TEXT("stage setup timed out (world scene or player missing)"));
 		}
@@ -251,7 +278,6 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		// broadcast reaches every listener this director wires up.
 		NightPhase->OnHourActiveChanged.AddUObject(
 			this, &AIGListenerGreyboxDirector::HandleHourActiveChanged);
-		NightPhase->BeginTheHour(/*NightIndex=*/1);
 	}
 
 	// P1 lives in the lobby, which the scene has finished building by now.
@@ -463,6 +489,11 @@ bool AIGListenerGreyboxDirector::SetupStage()
 			Unit401Door->OnExamined.AddUObject(
 				this, &AIGListenerGreyboxDirector::HandleUnit401Knocked);
 		}
+
+		if (bProductionMode)
+		{
+			SpawnArrivalInteractables(CubeMesh);
+		}
 	}
 
 	// The initial hour state fired before these actors existed; apply it to
@@ -470,7 +501,37 @@ bool AIGListenerGreyboxDirector::SetupStage()
 	// keeps its natural default and nothing is put to sleep.
 	if (NightPhase)
 	{
-		HandleHourActiveChanged(NightPhase->IsHourActive());
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (bProductionMode && Narrative)
+		{
+			if (Narrative->GetNightIndex() <= 0)
+			{
+				HandleHourActiveChanged(false);
+				InitializeArrivalSequence();
+			}
+			else if (Narrative->IsHourSealed())
+			{
+				NightPhase->ResumeTheHour(
+					Narrative->GetNightIndex(),
+					Narrative->GetNightElapsedSeconds());
+			}
+			else
+			{
+				HandleHourActiveChanged(false);
+				if (APlayerController* Controller = World->GetFirstPlayerController())
+				{
+					if (AIGHorrorHUD* Hud = Cast<AIGHorrorHUD>(Controller->GetHUD()))
+					{
+						Hud->SetNightPresentation(false);
+						Hud->SetObjectiveProvider(NightPhase);
+					}
+				}
+			}
+		}
+		else
+		{
+			NightPhase->BeginTheHour(/*NightIndex=*/1);
+		}
 	}
 
 	UE_LOG(LogTemp, Display,
@@ -480,6 +541,441 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		*PatrolPoints[0].ToCompactString(),
 		Scene->IsTheHourSealed() ? 1 : 0);
 	return true;
+}
+
+void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh)
+{
+	UWorld* World = GetWorld();
+	if (!World || !CubeMesh)
+	{
+		return;
+	}
+
+	UMaterialInterface* Paper = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_PaperClean.M_PaperClean"));
+	UMaterialInterface* Contract = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_ArrivalContract.M_ArrivalContract"));
+	UMaterialInterface* Cardboard = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_MovingBoxCardboardUV.M_MovingBoxCardboardUV"));
+	UMaterialInterface* Metal = LoadObject<UMaterialInterface>(
+		nullptr,
+		TEXT("/Game/Prototype/Materials/M_StainlessUV.M_StainlessUV"));
+	UStaticMesh* MovingBoxMesh = LoadObject<UStaticMesh>(
+		nullptr,
+		TEXT("/Game/Photo/Props/cardboard_box_01/cardboard_box_01_1k/StaticMeshes/cardboard_box_01_1k.cardboard_box_01_1k"),
+		nullptr,
+		LOAD_NoWarn);
+
+	auto SpawnEvidence = [this, World, CubeMesh](
+		const TCHAR* Name,
+		const FVector& Location,
+		const FVector& Size,
+		UStaticMesh* PresentationMesh,
+		UMaterialInterface* Material,
+		const FText& Prompt,
+		const FText& Thought,
+		const float HoldSeconds,
+		const float Loudness)
+	{
+		FActorSpawnParameters Parameters;
+		Parameters.Name = FName(Name);
+		Parameters.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		AIGMissingFloorEvidence* Evidence =
+			World->SpawnActor<AIGMissingFloorEvidence>(
+				AIGMissingFloorEvidence::StaticClass(),
+				FTransform(FRotator::ZeroRotator, Location),
+				Parameters);
+		if (Evidence)
+		{
+			Evidence->Configure(
+				PresentationMesh ? PresentationMesh : CubeMesh,
+				Material,
+				Size,
+				Prompt,
+				Thought,
+				EIGMissingFloorTruth::None,
+				EIGMissingFloorSource::None,
+				HoldSeconds,
+				Loudness);
+			Evidence->OnExamined.AddUObject(
+				this,
+				&AIGListenerGreyboxDirector::HandleArrivalEvidence);
+		}
+		return Evidence;
+	};
+
+	ArrivalContract = SpawnEvidence(
+		TEXT("MissingFloorArrivalContract"),
+		FVector(-85.0f, -178.0f, 978.0f),
+		FVector(21.0f, 29.7f, 0.7f),
+		CubeMesh,
+		Contract ? Contract : Paper,
+		NSLOCTEXT("IGMissingFloor", "ArrivalContractPrompt", "임대차계약서를 확인한다"),
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"ArrivalContractThought",
+			"건축물대장상 4층. 내 방은 403호. 옥상은 공용시설이라고 적혀 있다."),
+		0.7f,
+		0.02f);
+	ArrivalParcelBox = SpawnEvidence(
+		TEXT("MissingFloorArrivalParcelBox"),
+		FVector(20.0f, 70.0f, 924.0f),
+		FVector(48.0f, 38.0f, 48.0f),
+		MovingBoxMesh,
+		Cardboard,
+		NSLOCTEXT("IGMissingFloor", "ArrivalParcelPrompt", "반송된 소포 상자를 연다"),
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"ArrivalParcelThought",
+			"수취인 백도하. 같은 주소인데 호수만 501호다. 이 건물은 4층까지인데."),
+		0.9f,
+		0.12f);
+	ArrivalNotebookBox = SpawnEvidence(
+		TEXT("MissingFloorArrivalNotebookBox"),
+		FVector(82.0f, 145.0f, 918.0f),
+		FVector(56.0f, 42.0f, 36.0f),
+		MovingBoxMesh,
+		Cardboard,
+		NSLOCTEXT("IGMissingFloor", "ArrivalNotebookPrompt", "악기 상자를 연다"),
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"ArrivalNotebookThought",
+			"튜닝 기록. 매일 04:31에 마지막 줄이 끊겨 있다. 다섯 번, 같은 자리에서."),
+		1.0f,
+		0.13f);
+	ArrivalVoicemailBox = SpawnEvidence(
+		TEXT("MissingFloorArrivalVoicemailBox"),
+		FVector(125.0f, 62.0f, 913.0f),
+		FVector(42.0f, 34.0f, 26.0f),
+		MovingBoxMesh,
+		Cardboard,
+		NSLOCTEXT("IGMissingFloor", "ArrivalVoicemailPrompt", "휴대전화 상자를 연다"),
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"ArrivalVoicemailThought",
+			"저장되지 않은 음성메시지 하나. 숨소리 뒤로, 천장을 긁는 소리가 난다."),
+		0.8f,
+		0.09f);
+	ArrivalStoreBell = SpawnEvidence(
+		TEXT("MissingFloorArrivalStoreBell"),
+		FVector(2620.0f, -255.0f, 102.0f),
+		FVector(8.0f, 8.0f, 5.0f),
+		CubeMesh,
+		Metal,
+		NSLOCTEXT("IGMissingFloor", "ArrivalStoreBellPrompt", "계산대 호출벨을 누른다"),
+		FText::GetEmpty(),
+		0.0f,
+		0.10f);
+	ArrivalUnit402Note = SpawnEvidence(
+		TEXT("MissingFloorArrivalUnit402Note"),
+		FVector(-30.0f, -238.0f, 1018.0f),
+		FVector(14.8f, 0.6f, 10.5f),
+		CubeMesh,
+		Paper,
+		NSLOCTEXT("IGMissingFloor", "Arrival402Prompt", "402호 문에 붙은 메모를 읽는다"),
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"Arrival402Thought",
+			"‘새벽에 위에서 끌어도 옥상 문은 열지 마세요.’ 날짜가 지난주다."),
+		0.5f,
+		0.01f);
+	ArrivalRoofLock = SpawnEvidence(
+		TEXT("MissingFloorArrivalRoofLock"),
+		FVector(-277.5f, 213.0f, 1300.0f),
+		FVector(12.0f, 4.0f, 20.0f),
+		CubeMesh,
+		Metal,
+		NSLOCTEXT("IGMissingFloor", "ArrivalRoofLockPrompt", "옥상 잠금장치를 확인한다"),
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"ArrivalRoofLockThought",
+			"잠금장치는 새것인데 문틀 안쪽은 석고 가루로 하얗다. 누가 안에서 두드린다."),
+		0.8f,
+		0.08f);
+}
+
+void AIGListenerGreyboxDirector::InitializeArrivalSequence()
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return;
+	}
+	const bool bFirstEntry = Narrative->MarkBeatPlayed(FName(TEXT("Arrival.Started")));
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		PlayerCharacter->SetCameraMotionEnabled(true);
+	}
+	if (APlayerController* Controller = GetWorld()->GetFirstPlayerController())
+	{
+		if (AIGHorrorHUD* Hud = Cast<AIGHorrorHUD>(Controller->GetHUD()))
+		{
+			Hud->SetNightPresentation(false);
+			Hud->SetObjectiveProvider(this);
+		}
+	}
+	if (bFirstEntry)
+	{
+		AIGHorrorHUD::ShowChapterCard(
+			this,
+			NSLOCTEXT("IGMissingFloor", "ArrivalEyebrow", "입주 첫날 · 20:47"),
+			NSLOCTEXT("IGMissingFloor", "ArrivalTitle", "없는 층"),
+			NSLOCTEXT("IGMissingFloor", "ArrivalSubtitle", "오빠가 마지막으로 보낸 소포의 주소"),
+			4.6f);
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateCardboardDrag(this),
+			Player.IsValid()
+				? Player->GetActorLocation() + FVector(0.0f, 0.0f, 310.0f)
+				: FVector(-40.0f, 60.0f, 1280.0f),
+			0.58f,
+			0.92f,
+			90.0f,
+			900.0f,
+			EIGAudioBus::World);
+		AIGHorrorHUD::PushAudioCaption(
+			this,
+			NSLOCTEXT("IGMissingFloor", "ArrivalDragCaption", "[위층에서 상자를 끄는 소리]"),
+			2.7f);
+		RequestArrivalAutosave();
+	}
+	UpdateArrivalSequence();
+}
+
+bool AIGListenerGreyboxDirector::AreArrivalBoxesOpened() const
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	return Narrative
+		&& Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Parcel")))
+		&& Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Notebook")))
+		&& Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Voicemail")));
+}
+
+void AIGListenerGreyboxDirector::UpdateArrivalSequence()
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || Narrative->GetNightIndex() != 0)
+	{
+		return;
+	}
+	const bool bContract = Narrative->HasBeatPlayed(FName(TEXT("Arrival.Contract")));
+	const bool bBoxes = AreArrivalBoxesOpened();
+	const bool bStore = Narrative->HasBeatPlayed(FName(TEXT("Arrival.Store")));
+	const bool bUnit401 = Narrative->HasBeatPlayed(FName(TEXT("Arrival.Unit401")));
+	const bool bUnit402 = Narrative->HasBeatPlayed(FName(TEXT("Arrival.Unit402")));
+	const bool bRoof = Narrative->HasBeatPlayed(FName(TEXT("Arrival.RoofDoor")));
+	if (ArrivalContract)
+	{
+		ArrivalContract->SetInteractionEnabled(!bContract);
+	}
+	if (ArrivalParcelBox)
+	{
+		ArrivalParcelBox->SetInteractionEnabled(
+			bContract && !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Parcel"))));
+	}
+	if (ArrivalNotebookBox)
+	{
+		ArrivalNotebookBox->SetInteractionEnabled(
+			bContract && !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Notebook"))));
+	}
+	if (ArrivalVoicemailBox)
+	{
+		ArrivalVoicemailBox->SetInteractionEnabled(
+			bContract && !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Voicemail"))));
+	}
+	if (ArrivalStoreBell)
+	{
+		ArrivalStoreBell->SetInteractionEnabled(bBoxes && !bStore);
+	}
+	if (Unit401Door)
+	{
+		Unit401Door->SetInteractionEnabled(bStore && !bUnit401);
+	}
+	if (ArrivalUnit402Note)
+	{
+		ArrivalUnit402Note->SetInteractionEnabled(bStore && !bUnit402);
+	}
+	if (ArrivalRoofLock)
+	{
+		ArrivalRoofLock->SetInteractionEnabled(bUnit401 && bUnit402 && !bRoof);
+	}
+
+	if (bRoof && Narrative->MarkBeatPlayed(FName(TEXT("Arrival.Complete"))))
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ArrivalReadyForBed",
+				"계약서에는 없는 문이다. 오늘은 그만 자자."),
+			3.8f);
+		RequestArrivalAutosave();
+	}
+	if (SleepTarget)
+	{
+		SleepTarget->SetInteractionEnabled(
+			Narrative->HasBeatPlayed(FName(TEXT("Arrival.Complete"))));
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleArrivalEvidence(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || Narrative->GetNightIndex() != 0 || !Evidence)
+	{
+		return;
+	}
+	FName Beat;
+	if (Evidence == ArrivalContract)
+	{
+		Beat = FName(TEXT("Arrival.Contract"));
+	}
+	else if (Evidence == ArrivalParcelBox)
+	{
+		Beat = FName(TEXT("Arrival.Box.Parcel"));
+	}
+	else if (Evidence == ArrivalNotebookBox)
+	{
+		Beat = FName(TEXT("Arrival.Box.Notebook"));
+	}
+	else if (Evidence == ArrivalVoicemailBox)
+	{
+		Beat = FName(TEXT("Arrival.Box.Voicemail"));
+	}
+	else if (Evidence == ArrivalStoreBell)
+	{
+		Beat = FName(TEXT("Arrival.Store"));
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateDoorbellChime(this),
+			Evidence->GetActorLocation(),
+			0.55f);
+		AIGHorrorHUD::PushDialogue(
+			this,
+			NSLOCTEXT("IGMissingFloor", "NarinSpeaker", "한나린"),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ArrivalNarinLine",
+				"403호요? 위층은 없어요. 그래도 새벽마다 천장에서 물건 끄는 소리는 나요."),
+			EIGDialogueChannel::Conversation,
+			0.0f,
+			EIGDialoguePriority::Story);
+	}
+	else if (Evidence == ArrivalUnit402Note)
+	{
+		Beat = FName(TEXT("Arrival.Unit402"));
+	}
+	else if (Evidence == ArrivalRoofLock)
+	{
+		Beat = FName(TEXT("Arrival.RoofDoor"));
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateHatchOpenMetal(this),
+			Evidence->GetActorLocation() + FVector(0.0f, 35.0f, 15.0f),
+			0.44f,
+			0.72f,
+			70.0f,
+			1200.0f,
+			EIGAudioBus::World);
+		AIGHorrorHUD::PushAudioCaption(
+			this,
+			NSLOCTEXT("IGMissingFloor", "ArrivalHammerCaption", "[문 너머, 둔탁한 망치 소리]"),
+			2.5f);
+	}
+	if (!Beat.IsNone() && Narrative->MarkBeatPlayed(Beat))
+	{
+		RequestArrivalAutosave();
+	}
+	UpdateArrivalSequence();
+}
+
+void AIGListenerGreyboxDirector::RequestArrivalAutosave()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UWorld* World = GetWorld();
+	UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	if (SaveSubsystem && World)
+	{
+		SaveSubsystem->RequestAutosave(
+			FGameplayTag::RequestGameplayTag(FName(TEXT("Chapter.MissingFloor")), false),
+			World->GetOutermost()->GetFName(),
+			FGameplayTag::RequestGameplayTag(
+				FName(TEXT("Checkpoint.MissingFloor.Arrival")),
+				false));
+	}
+}
+
+FText AIGListenerGreyboxDirector::GetObjectiveText() const
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!bProductionMode || !Narrative || Narrative->GetNightIndex() != 0)
+	{
+		return FText::GetEmpty();
+	}
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Contract"))))
+	{
+		return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveContract", "책상 위 임대차계약서를 확인한다");
+	}
+	if (!AreArrivalBoxesOpened())
+	{
+		return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveBoxes", "이삿짐 상자 세 개를 확인한다");
+	}
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Store"))))
+	{
+		return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveStore", "골목 편의점에서 이 건물 이야기를 묻는다");
+	}
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Unit401")))
+		|| !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Unit402"))))
+	{
+		return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveNeighbors", "401호와 402호 앞을 확인한다");
+	}
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.RoofDoor"))))
+	{
+		return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveRoof", "계약서에 적힌 옥상 출입문을 확인한다");
+	}
+	return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveSleep", "403호로 돌아가 잠든다");
+}
+
+FString AIGListenerGreyboxDirector::GetObjectiveTextAscii() const
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!bProductionMode || !Narrative || Narrative->GetNightIndex() != 0)
+	{
+		return FString();
+	}
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Contract")))) return TEXT("CHECK THE RENTAL CONTRACT");
+	if (!AreArrivalBoxesOpened()) return TEXT("OPEN ALL THREE MOVING BOXES");
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Store")))) return TEXT("ASK AT THE CONVENIENCE STORE");
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Unit401")))
+		|| !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Unit402")))) return TEXT("CHECK UNITS 401 AND 402");
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.RoofDoor")))) return TEXT("CHECK THE ROOFTOP ACCESS DOOR");
+	return TEXT("RETURN TO UNIT 403 AND SLEEP");
+}
+
+float AIGListenerGreyboxDirector::GetObjectiveProgress() const
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!bProductionMode || !Narrative || Narrative->GetNightIndex() != 0)
+	{
+		return 0.0f;
+	}
+	int32 Completed = 0;
+	for (const TCHAR* Beat : {
+		TEXT("Arrival.Contract"), TEXT("Arrival.Box.Parcel"),
+		TEXT("Arrival.Box.Notebook"), TEXT("Arrival.Box.Voicemail"),
+		TEXT("Arrival.Store"), TEXT("Arrival.Unit401"),
+		TEXT("Arrival.Unit402"), TEXT("Arrival.RoofDoor")})
+	{
+		Completed += Narrative->HasBeatPlayed(FName(Beat)) ? 1 : 0;
+	}
+	return static_cast<float>(Completed) / 8.0f;
 }
 
 UIGMissingFloorNarrativeSubsystem* AIGListenerGreyboxDirector::GetNarrative() const
@@ -652,6 +1148,33 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 	{
 		return;
 	}
+	if (bProductionMode && Narrative->GetNightIndex() == 0)
+	{
+		if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Complete"))))
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT("IGMissingFloor", "ArrivalSleepBlocked", "아직 확인할 게 남았다."),
+				2.6f);
+			return;
+		}
+		Narrative->MarkBeatPlayed(FName(TEXT("Arrival.Slept")));
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateAlarmFirstNote(this),
+			Evidence ? Evidence->GetActorLocation() : Player->GetActorLocation(),
+			0.58f,
+			0.94f,
+			80.0f,
+			650.0f,
+			EIGAudioBus::Player);
+		AIGHorrorHUD::PushAudioCaption(
+			this,
+			NSLOCTEXT("IGMissingFloor", "ArrivalAlarmCaption", "[04:30 알람 — 위층에서 세 번 두드린다]"),
+			2.7f);
+		NightPhase->BeginTheHour(1);
+		return;
+	}
 	if (Narrative->GetNightIndex() == 3
 		&& !Narrative->WasFifthDawnInterludeCompleted())
 	{
@@ -700,7 +1223,7 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
 		0.7f);
 
-	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	const FText Speaker =
 		NSLOCTEXT("IGMissingFloor", "HwangSpeaker", "황순금");
 	if (Narrative && Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
@@ -741,6 +1264,13 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 			EIGDialogueChannel::Conversation,
 			0.0f,
 			EIGDialoguePriority::Story);
+	}
+
+	if (bProductionMode && Narrative && Narrative->GetNightIndex() == 0
+		&& Narrative->MarkBeatPlayed(FName(TEXT("Arrival.Unit401"))))
+	{
+		RequestArrivalAutosave();
+		UpdateArrivalSequence();
 	}
 }
 
@@ -3456,6 +3986,157 @@ void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 	FPlatformMisc::RequestExitWithStatus(false, bFailed ? 1 : 0);
 }
 
+void AIGListenerGreyboxDirector::RunArrivalProbe()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const AIGPrologueWorldScene* Scene = WorldScene.Get();
+	const UStaticMeshComponent* BoxComponent = ArrivalParcelBox
+		? ArrivalParcelBox->GetPresentationMesh()
+		: nullptr;
+	const UMaterialInterface* BoxMaterial = ArrivalParcelBox
+		&& BoxComponent
+		? BoxComponent->GetMaterial(0)
+		: nullptr;
+	const bool bCardboardPbr = BoxMaterial
+		&& BoxMaterial->GetPathName().Contains(TEXT("M_MovingBoxCardboardUV"));
+	const bool bInitialInteractionGate = ArrivalContract
+		&& ArrivalContract->IsInteractionEnabled()
+		&& ArrivalParcelBox && !ArrivalParcelBox->IsInteractionEnabled()
+		&& ArrivalNotebookBox && !ArrivalNotebookBox->IsInteractionEnabled()
+		&& ArrivalVoicemailBox && !ArrivalVoicemailBox->IsInteractionEnabled()
+		&& ArrivalStoreBell && !ArrivalStoreBell->IsInteractionEnabled()
+		&& Unit401Door && !Unit401Door->IsInteractionEnabled()
+		&& ArrivalUnit402Note && !ArrivalUnit402Note->IsInteractionEnabled()
+		&& ArrivalRoofLock && !ArrivalRoofLock->IsInteractionEnabled()
+		&& SleepTarget && !SleepTarget->IsInteractionEnabled();
+	const bool bSafeEvening = bProductionMode
+		&& Narrative
+		&& Narrative->GetNightIndex() == 0
+		&& Narrative->HasBeatPlayed(FName(TEXT("Arrival.Started")))
+		&& !Narrative->IsHourSealed()
+		&& NightPhase && !NightPhase->IsHourActive()
+		&& Scene && !Scene->IsTheHourSealed()
+		&& Entity && Entity->IsDormant();
+	const bool bBoxPlacement = BoxComponent
+		&& BoxComponent->Bounds.Origin.Equals(FVector(20.0f, 70.0f, 924.0f), 2.0f)
+		&& BoxComponent->Bounds.BoxExtent.Equals(FVector(24.0f, 19.0f, 24.0f), 2.0f);
+	if (!bSafeEvening || !bInitialInteractionGate || !bCardboardPbr || !bBoxPlacement)
+	{
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_ARRIVAL FAIL: safe=%d gate=%d cardboard_pbr=%d placement=%d"),
+			bSafeEvening ? 1 : 0,
+			bInitialInteractionGate ? 1 : 0,
+			bCardboardPbr ? 1 : 0,
+			bBoxPlacement ? 1 : 0);
+		RequestExit(true);
+		return;
+	}
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("MISSINGFLOOR_ARRIVAL box mesh=%s actor=%s bounds_origin=%s bounds_extent=%s scale=%s visible=%d registered=%d nanite_disabled=%d"),
+		BoxComponent && BoxComponent->GetStaticMesh()
+			? *BoxComponent->GetStaticMesh()->GetPathName()
+			: TEXT("none"),
+		ArrivalParcelBox ? *ArrivalParcelBox->GetActorLocation().ToCompactString() : TEXT("none"),
+		BoxComponent ? *BoxComponent->Bounds.Origin.ToCompactString() : TEXT("none"),
+		BoxComponent ? *BoxComponent->Bounds.BoxExtent.ToCompactString() : TEXT("none"),
+		BoxComponent ? *BoxComponent->GetComponentScale().ToCompactString() : TEXT("none"),
+		BoxComponent && BoxComponent->IsVisible() ? 1 : 0,
+		BoxComponent && BoxComponent->IsRegistered() ? 1 : 0,
+		BoxComponent && BoxComponent->bDisallowNanite ? 1 : 0);
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1"));
+	RequestExit(false);
+}
+
+void AIGListenerGreyboxDirector::StartArrivalCapture()
+{
+	if (!bProductionMode || !Player.IsValid())
+	{
+		UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_ARRIVAL_CAPTURE FAIL: production stage missing"));
+		RequestExit(true);
+		return;
+	}
+	for (TActorIterator<AIGWakeUpDirector> It(GetWorld()); It; ++It)
+	{
+		It->RestoreStandingCheckpoint();
+		break;
+	}
+	Player->SetCameraMotionEnabled(false);
+	if (GEngine)
+	{
+		GEngine->Exec(GetWorld(), TEXT("DisableAllScreenMessages"));
+	}
+	ArrivalCaptureStep = 0;
+	AdvanceArrivalCapture();
+	GetWorldTimerManager().SetTimer(
+		ArrivalCaptureTimer,
+		this,
+		&AIGListenerGreyboxDirector::AdvanceArrivalCapture,
+		1.4f,
+		true);
+}
+
+void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
+{
+	switch (ArrivalCaptureStep++)
+	{
+	case 0:
+		CaptureTeleportPlayer(FVector(-120.0f, -5.0f, 997.0f), 34.0f, -24.0f);
+		break;
+	case 1:
+	case 2:
+	case 3:
+	case 4:
+	case 5:
+	case 6:
+	case 7:
+		// PSO와 셰이더 준비를 마치고 4.6초짜리 챕터 카드가 완전히 사라질 때까지 기다린다.
+		break;
+	case 8:
+		CaptureShot(TEXT("readme/arrival-moving-boxes"));
+		break;
+	case 9:
+		CaptureTeleportPlayer(FVector(-82.0f, -92.0f, 997.0f), -90.0f, -32.0f);
+		break;
+	case 10:
+	case 11:
+		break;
+	case 12:
+		CaptureShot(TEXT("readme/arrival-contract"));
+		break;
+	case 13:
+	case 14:
+		break;
+	case 15:
+	{
+		GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+		const FString BoxPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(
+			FPaths::ProjectDir(), TEXT("Docs/Media/readme/arrival-moving-boxes.png")));
+		const FString ContractPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(
+			FPaths::ProjectDir(), TEXT("Docs/Media/readme/arrival-contract.png")));
+		if (!IFileManager::Get().FileExists(*BoxPath)
+			|| !IFileManager::Get().FileExists(*ContractPath))
+		{
+			UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_ARRIVAL_CAPTURE FAIL: screenshot write incomplete"));
+			RequestExit(true);
+			return;
+		}
+		UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_ARRIVAL_CAPTURE PASS shots=2 d3d12=1"));
+		RequestExit(false);
+		break;
+	}
+	default:
+		break;
+	}
+}
+
 // -- README/night capture tour ---------------------------------------------
 //
 // README에서 설명하는 시스템을 실제로 찍는 18개 연출 구간이다.
@@ -3600,11 +4281,17 @@ namespace IGNightHistogram
 		{
 			TEXT("beam_dust"), ESetup::BeamDust,
 			FVector(-60.0f, -305.0f, 997.0f), 0.0f, -6.0f,
-			0.02f, 0.16f, 0.010f
+			// 기존 0.02~0.16 범위는 단위 변환 오류로 분진이 22~105cm 밝은
+			// 큐브로 표시되던 프레임에서 측정됐다. 1cm 미만 구체로 고친 뒤 측정값은
+			// 0.2801이며, 보정된 프레임을 중심으로 GPU·시간축 오차 ±0.10을 둔다.
+			0.18f, 0.38f, 0.010f
 		},
 		{
 			TEXT("entity_rim"), ESetup::EntityRim,
-			FVector(120.0f, -305.0f, 997.0f), 180.0f, -4.0f,
+			// 존재는 바닥을 기므로 -4도 시점에서는 실루엣이 화면 아래로 잘리고 빈
+			// 문만 측정됐다. X=330에서 존재를 실제 복도등 바로 아래인 X=70에 두면,
+			// 검수 전용 보조광 없이 장면에 배치된 실등으로 윤곽을 확인할 수 있다.
+			FVector(330.0f, -305.0f, 997.0f), 180.0f, -18.0f,
 			0.28f, 0.48f, 0.010f
 		},
 		{
@@ -3676,7 +4363,10 @@ namespace IGNightHistogram
 			// 밝기 문제가 아니라 시선과 빔이 만나지 않는 구도의 문제다.
 			// 발 앞으로 내리면 빔 안쪽에서 도막을 읽을 수 있다.
 			TEXT("rooftop_deck"), ESetup::SurfaceReading,
-			FVector(0.0f, -40.0f, 1297.0f), 0.0f, -58.0f,
+			// (0,-40)은 360cm 물탱크 받침대 내부라 기존 프레임에는 검은 안쪽 면과
+			// 잘린 손전등 모서리만 보였다. 폭 160cm 서쪽 보행 슬래브에서 정비 통로를
+			// 따라 바라보도록 옮긴다.
+			FVector(-410.0f, -40.0f, 1297.0f), 90.0f, -34.0f,
 			0.0f, 1.0f, 0.010f
 		}
 	};

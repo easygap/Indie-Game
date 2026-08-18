@@ -1064,6 +1064,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		// Aged paper stock for readable notes, and the rental notice.
 		TEXT("M_PaperClean"), TEXT("M_PaperWet"), TEXT("M_PaperFolded"),
 		TEXT("M_PaperOld"), TEXT("M_NoticeRent"), TEXT("M_WetStep"),
+		TEXT("M_MovingBoxCardboardUV"),
 	};
 
 	int32 LoadedCount = 0;
@@ -1616,6 +1617,9 @@ void AIGPrologueWorldScene::InitializePrologue()
 		.Get()
 		.WaitForCompletion();
 	LoadTexturedMaterials();
+	CardboardMaterial = TexMat(
+		TEXT("M_MovingBoxCardboardUV"),
+		CardboardMaterial);
 
 	// Unit 403 and its corridor live on the 4th floor, three slabs up.
 	// Static mobility is required so the static wall blocks can attach.
@@ -1666,7 +1670,17 @@ void AIGPrologueWorldScene::InitializePrologue()
 
 	SpawnChapterTwoInteractables();
 	RefreshPurchaseProfilePresentation();
-	SpawnDirectors();
+	const bool bMissingFloorRuntime =
+		GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
+		|| GetWorld()->URL.HasOption(TEXT("IGListenerGreybox"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"));
+	// 두 스토리가 같은 빌라를 사용한다. 없는 층에서 기존 REBIRTH 디렉터까지
+	// 실행하면 문, HUD, 자동 저장을 서로 갱신하므로 현재 게임의 디렉터만 둔다.
+	if (!bMissingFloorRuntime)
+	{
+		SpawnDirectors();
+	}
 	CreateAmbience();
 
 	// Ordinary street life is a narrative baseline, not decoration. CH01
@@ -1760,6 +1774,9 @@ void AIGPrologueWorldScene::ReconcileLoadedCheckpoint()
 {
 	UWorld* World = GetWorld();
 	if (!World
+		|| World->URL.HasOption(TEXT("IGMissingFloor"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"))
 		|| !World->URL.HasOption(TEXT("IGResumeSave"))
 		|| bChapterTwoActive
 		|| bChapterThreeActive)
@@ -2851,7 +2868,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 			FVector(FixtureX, -305, 234.5f), FVector(21, 21, 2),
 			LightPanelMaterial, false, CylinderMesh));
 		UPointLightComponent* CorridorLight = CreateLight(
-			FVector(FixtureX, -305, 226), 820.0f, 410.0f,
+			FVector(FixtureX, -305, 226), 1020.0f, 410.0f,
 			FLinearColor(0.86f, 0.97f, 1.0f), true, 16.0f);
 		CorridorLight->SetVolumetricScatteringIntensity(0.10f);
 		CorridorLights.Add(CorridorLight);
@@ -3213,7 +3230,7 @@ void AIGPrologueWorldScene::SetFixtureLive(
 	// glowing ring where the lamp used to be.
 	if (UPointLightComponent* Light = FixtureLights[Index])
 	{
-		Light->SetIntensity(bLive ? (bCorridor ? 820.0f : 920.0f) : 0.0f);
+		Light->SetIntensity(bLive ? (bCorridor ? 1020.0f : 920.0f) : 0.0f);
 	}
 	if (UStaticMeshComponent* Disc = FixtureDiscs[Index])
 	{

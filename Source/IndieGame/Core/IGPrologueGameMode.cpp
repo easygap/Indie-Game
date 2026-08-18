@@ -1,4 +1,4 @@
-#include "Core/IGPrologueGameMode.h"
+﻿#include "Core/IGPrologueGameMode.h"
 
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
@@ -61,12 +61,13 @@ void AIGPrologueGameMode::StartPlay()
 		FTransform::Identity,
 		SpawnParameters);
 
-	// The Missing Floor M1 stage: with -IGListenerGreybox the one upstairs
-	// haunts the real 4F corridor (plus its smoke probe when
-	// -IGListenerGreyboxProbe is present). Off the flag, the legacy prologue
-	// is untouched.
+	// 프런트엔드에서 선택한 실제 게임은 "없는 층"으로 시작한다. 기존 그레이박스
+	// 플래그는 야간 장면을 바로 검수할 때만 쓰고, 패키지 사용자는 실행 인자를
+	// 입력하지 않아도 같은 경로로 진입해야 한다.
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"))
-		|| World->URL.HasOption(TEXT("IGListenerGreybox")))
+		|| World->URL.HasOption(TEXT("IGListenerGreybox"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
+		|| World->URL.HasOption(TEXT("IGMissingFloor")))
 	{
 		FActorSpawnParameters GreyboxParameters;
 		GreyboxParameters.Name = TEXT("ListenerGreyboxDirector");

@@ -49,6 +49,7 @@ $requiredRaw = @(
 	'AI\SheetMissingFloorEnvironmentReference.png',
 	'AI\SheetListenerEntityAnatomyReference.png',
 	'AI\TextureMissingFloorDryPlaster.png',
+	'AI\TextureMovingBoxCardboard_v1.png',
 	'AI\TextureKoreanVillaStucco_v1.png',
 	'AI\SheetMissingFloorResidueMasks.png',
 	'AI\SheetMissingFloorDistantCharacters.png',
@@ -114,6 +115,7 @@ $requiredMaterialTextures = @(
 	'T_MissingFloorJournalPaper_D.png',
 	'T_ApartmentWallpaperV2_D.png',
 	'T_MissingFloorDryPlaster_D.png',
+	'T_MovingBoxCardboard_D.png',
 	'T_KoreanVillaStucco_D.png'
 )
 $requiredPbrMaps = @(
@@ -158,6 +160,9 @@ $requiredPbrMaps = @(
 	'T_MissingFloorDryPlaster_N.png',
 	'T_MissingFloorDryPlaster_R.png',
 	'T_MissingFloorDryPlaster_A.png',
+	'T_MovingBoxCardboard_N.png',
+	'T_MovingBoxCardboard_R.png',
+	'T_MovingBoxCardboard_A.png',
 	'T_KoreanVillaStucco_N.png',
 	'T_KoreanVillaStucco_R.png',
 	'T_KoreanVillaStucco_A.png',
@@ -1300,6 +1305,11 @@ foreach ($token in @(
 	'T_HudDialogueFilm_D.uasset',
 	'T_AudioCalibrationWall_D.uasset',
 	'T_MissingFloorJournalPaper_D.uasset',
+	'T_MovingBoxCardboard_D.uasset',
+	'T_MovingBoxCardboard_N.uasset',
+	'T_MovingBoxCardboard_R.uasset',
+	'T_MovingBoxCardboard_A.uasset',
+	'M_MovingBoxCardboardUV.uasset',
 	'T_FPHandKnock0_D.uasset',
 	'T_FPHandKnock3_D.uasset',
 	'T_FPCaptureEmbrace0_D.uasset',
@@ -1384,6 +1394,8 @@ foreach ($token in @(
 # 불가 인물은 고정 스프라이트로 제한하는 적용 경계를 소스 계약으로 잠근다.
 foreach ($token in @(
 	'T_MissingFloorDryPlaster',
+	'MovingBoxCardboard',
+	'M_MovingBoxCardboardUV',
 	'M_MissingFloorListenerPlasterUV',
 	'M_MissingFloorHandprints',
 	'M_SpriteSeo',

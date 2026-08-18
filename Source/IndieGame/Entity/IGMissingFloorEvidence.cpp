@@ -58,13 +58,37 @@ void AIGMissingFloorEvidence::Configure(
 {
 	if (Mesh)
 	{
+		const FVector AuthoredCenter = GetActorLocation();
+		// 가져온 스캔 재질은 Cook 또는 에디터 게임 실행에서 Nanite 셰이더 순열이
+		// 항상 준비된다고 보장할 수 없다. 검증된 대체 LOD를 사용해 증거 소품이
+		// 사라지거나 회색 기본 재질로 바뀌지 않게 한다.
+		PresentationMesh->bDisallowNanite = true;
 		PresentationMesh->SetStaticMesh(Mesh);
-		// Engine primitives are 100 cm, so centimeters divide straight down.
-		PresentationMesh->SetRelativeScale3D(SizeCentimeters / 100.0f);
+		// 엔진 기본 도형과 스캔 소품을 저작된 실제 크기에 맞춘다. 모든 원본 메시를
+		// 중심이 원점인 100cm 큐브로 가정하면 가져온 증거가 뜨거나 바닥을 뚫고,
+		// 그레이박스 크기로 되돌아간다.
+		const FBoxSphereBounds Bounds = Mesh->GetBounds();
+		const FVector MeshSize = Bounds.BoxExtent * 2.0f;
+		if (MeshSize.GetMin() > KINDA_SMALL_NUMBER)
+		{
+			const FVector Scale = SizeCentimeters / MeshSize;
+			PresentationMesh->SetRelativeScale3D(Scale);
+			// PresentationMesh가 액터 루트이므로 루트에 SetRelativeLocation을 호출하면
+			// 액터의 월드 위치가 바뀐다. 저작한 중심은 유지하고, 스케일과 회전을 적용한
+			// 메시 원점 오프셋만 액터 위치에서 보정한다.
+			const FVector WorldOriginOffset = GetActorRotation().RotateVector(
+				Bounds.Origin * Scale);
+			SetActorLocation(AuthoredCenter - WorldOriginOffset, false, nullptr,
+				ETeleportType::TeleportPhysics);
+		}
 	}
 	if (Material)
 	{
-		PresentationMesh->SetMaterial(0, Material);
+		const int32 SlotCount = FMath::Max(PresentationMesh->GetNumMaterials(), 1);
+		for (int32 Slot = 0; Slot < SlotCount; ++Slot)
+		{
+			PresentationMesh->SetMaterial(Slot, Material);
+		}
 	}
 	PresentationMesh->SetMobility(EComponentMobility::Static);
 

@@ -16,6 +16,6 @@ if not defined RESOLVED_UE_EDITOR (
     exit /b 1
 )
 
-rem 없는 층 밤 무대 미리보기: 위층 사람, 그 시간 봉쇄, P1/P2, 낮/밤 순환.
-start "Missing Floor" "%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -windowed -ResX=1600 -ResY=900 -IGListenerGreybox -IGSkipFrontend
+rem 없는 층 본편: 안전한 입주 저녁부터 시작해 첫날 밤과 이후 진행으로 이어진다.
+start "Missing Floor" "%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -windowed -ResX=1600 -ResY=900 -IGMissingFloor -IGIgnoreDirectStart -IGNewGame -IGSkipFrontend
 endlocal

@@ -288,6 +288,12 @@ $plan = @(
         Source = 'TextureKoreanVillaStucco_v1'; Target = 'T_KoreanVillaStucco_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
+    # 입주 상자는 인쇄가 없는 중립적인 스캔만 사용한다. 한글 단서는 HUD에서
+    # 출력해 생성 이미지의 잘못된 글자가 증거로 보이지 않게 한다.
+    [pscustomobject]@{
+        Source = 'TextureMovingBoxCardboard_v1'; Target = 'T_MovingBoxCardboard_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
     [pscustomobject]@{
         Source = 'MaskApartmentWallPatina'; Target = 'T_ApartmentWallPatina_M.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)

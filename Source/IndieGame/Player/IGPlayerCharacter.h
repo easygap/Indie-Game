@@ -119,6 +119,7 @@ protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 	virtual void SetupPlayerInputComponent(UInputComponent* PlayerInputComponent) override;
+	virtual void Landed(const FHitResult& Hit) override;
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 
@@ -136,6 +137,8 @@ private:
 	void EndInteraction();
 	void BeginSprint();
 	void EndSprint();
+	void BeginJump();
+	void EndJump();
 	void BeginCrouchInput();
 	void EndCrouchInput();
 	void ToggleCrouch();

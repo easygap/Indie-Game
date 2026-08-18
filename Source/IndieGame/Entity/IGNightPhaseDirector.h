@@ -43,6 +43,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Night")
 	void BeginTheHour(int32 NightIndex);
 
+	/** 진행 시간을 초기화하지 않고 봉인된 야간 자동 저장을 복원한다. */
+	void ResumeTheHour(int32 NightIndex, float ElapsedSeconds);
+
 	/** 봉인된 건물을 열지 않고 엔딩 C 연출 동안 서사 시간을 멈춘다. */
 	void SuspendForFailureEnding();
 	/** 밤 4 범위의 서사 상태를 되돌린 뒤 같은 밤을 다시 시작한다. */
@@ -96,6 +99,7 @@ private:
 	void TickHour();
 	void ReleaseAtDawn();
 	void ApplySealedPresentation(bool bSealed);
+	void RequestMissingFloorAutosave(bool bAtNight);
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 
 	UPROPERTY(Transient)
@@ -108,5 +112,6 @@ private:
 	bool bHourActive = false;
 	bool bGoalComplete = false;
 	bool bFailureEndingSuspended = false;
+	bool bRestoringHour = false;
 	FTimerHandle HourTimer;
 };

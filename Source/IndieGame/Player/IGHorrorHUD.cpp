@@ -1739,15 +1739,15 @@ void AIGHorrorHUD::DrawHUD()
 			? NSLOCTEXT(
 				"IGHUD",
 				"HintsGamepad",
-				"LS 이동  ·  L3 달리기  ·  R3 앉기  ·  A 상호작용  ·  B 두드리기  ·  X 손전등")
+				"LS 이동  ·  L3 달리기  ·  LB 점프  ·  R3 앉기  ·  A 상호작용  ·  B 두드리기  ·  X 손전등")
 			: NSLOCTEXT(
 				"IGHUD",
 				"HintsKeyboard",
-				"WASD 이동  ·  Shift 달리기  ·  C 앉기  ·  E 상호작용  ·  Q 두드리기  ·  F 손전등")
+				"WASD 이동  ·  Shift 달리기  ·  Space 점프  ·  C 앉기  ·  E 상호작용  ·  Q 두드리기  ·  F 손전등")
 		: FText::FromString(
 			bUsingGamepad
-				? TEXT("LS MOVE  |  L3 SPRINT  |  R3 CROUCH  |  A INTERACT  |  B KNOCK  |  X FLASHLIGHT")
-				: TEXT("WASD MOVE  |  SHIFT SPRINT  |  C CROUCH  |  E INTERACT  |  Q KNOCK  |  F FLASHLIGHT"));
+				? TEXT("LS MOVE  |  L3 SPRINT  |  LB JUMP  |  R3 CROUCH  |  A INTERACT  |  B KNOCK  |  X FLASHLIGHT")
+				: TEXT("WASD MOVE  |  SHIFT SPRINT  |  SPACE JUMP  |  C CROUCH  |  E INTERACT  |  Q KNOCK  |  F FLASHLIGHT"));
 		DrawCenteredText(
 			Hints,
 			FMath::Max(0.0f, Canvas->ClipY - 34.0f),

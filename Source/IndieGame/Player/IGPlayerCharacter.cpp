@@ -126,6 +126,11 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	MovementComponent->MaxAcceleration = IGPlayerNoise::WalkAcceleration;
 	MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::WalkBraking;
 	MovementComponent->NavAgentProps.bCanCrouch = true;
+	MovementComponent->NavAgentProps.bCanJump = true;
+	// 실내의 낮은 짐은 넘되 계단 잠금을 건너뛰거나 1인칭 시점이 가벼워 보이지
+	// 않을 정도로 점프 높이를 제한한다.
+	MovementComponent->JumpZVelocity = 330.0f;
+	MovementComponent->AirControl = 0.08f;
 	MovementComponent->SetCrouchedHalfHeight(48.0f);
 	// CharacterMovement's stock 750,000 push force is intended for heavy
 	// physics gameplay. Against a 200 g slipper or an empty bottle it launches
@@ -1462,6 +1467,10 @@ void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 	PlayerInputComponent->BindAction(
 		TEXT("Sprint"), IE_Released, this, &ThisClass::EndSprint);
 	PlayerInputComponent->BindAction(
+		TEXT("Jump"), IE_Pressed, this, &ThisClass::BeginJump);
+	PlayerInputComponent->BindAction(
+		TEXT("Jump"), IE_Released, this, &ThisClass::EndJump);
+	PlayerInputComponent->BindAction(
 		TEXT("Crouch"), IE_Pressed, this, &ThisClass::BeginCrouchInput);
 	PlayerInputComponent->BindAction(
 		TEXT("Crouch"), IE_Released, this, &ThisClass::EndCrouchInput);
@@ -1496,6 +1505,60 @@ void AIGPlayerCharacter::EndSprint()
 	bSprintInputHeld = false;
 	bSprinting = false;
 	ApplyContextMovementSpeed();
+}
+
+void AIGPlayerCharacter::BeginJump()
+{
+	if (AIGReadableNote::GetOpenNote() || !GetCharacterMovement()->IsMovingOnGround())
+	{
+		return;
+	}
+	bSprintInputHeld = false;
+	bSprinting = false;
+	if (bIsCrouched)
+	{
+		UnCrouch();
+	}
+	ApplyContextMovementSpeed();
+	Jump();
+}
+
+void AIGPlayerCharacter::EndJump()
+{
+	StopJumping();
+}
+
+void AIGPlayerCharacter::Landed(const FHitResult& Hit)
+{
+	const float ImpactSpeed = FMath::Abs(GetVelocity().Z);
+	Super::Landed(Hit);
+	if (ImpactSpeed < 210.0f)
+	{
+		return;
+	}
+
+	const float LandingLoudness = FMath::GetMappedRangeValueClamped(
+		FVector2D(210.0f, 700.0f),
+		FVector2D(0.14f, 0.58f),
+		ImpactSpeed);
+	const EIGFootstepSurface Surface = ResolveFootstepSurface();
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateSurfaceFootstep(this, Surface, 0.82f, 0.82f),
+		Hit.ImpactPoint,
+		FootstepVolume * FMath::Lerp(0.85f, 1.35f, LandingLoudness),
+		0.92f,
+		120.0f,
+		1050.0f,
+		EIGAudioBus::Player);
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(GetActorLocation(), LandingLoudness, this);
+		}
+	}
+	PlayHapticFeedback(FMath::Clamp(LandingLoudness * 0.45f, 0.08f, 0.24f), 0.08f);
 }
 
 void AIGPlayerCharacter::BeginCrouchInput()

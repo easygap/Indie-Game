@@ -81,7 +81,7 @@ public:
 protected:
 	/** Beam intensity in candelas at full charge. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Flashlight", meta = (ClampMin = "0.0"))
-	float BeamIntensity = 5200.0f;
+	float BeamIntensity = 7600.0f;
 
 	/** How fast the beam catches up to the view; lower is heavier in the hand. */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Flashlight", meta = (ClampMin = "0.5"))

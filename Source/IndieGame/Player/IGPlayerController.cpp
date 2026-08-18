@@ -3041,7 +3041,7 @@ void AIGPlayerController::StartNewGame()
 		this,
 		LevelName,
 		true,
-		TEXT("IGIgnoreDirectStart=1?IGNewGame=1"));
+		TEXT("IGMissingFloor=1?IGIgnoreDirectStart=1?IGNewGame=1"));
 }
 
 void AIGPlayerController::ContinueLatestAutosave()

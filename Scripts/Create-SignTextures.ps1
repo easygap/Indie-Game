@@ -11,7 +11,10 @@ param(
     [switch]$RetailIdentityOnly,
     # Rebuild only the 403 entrance plates and the 404 Not Found memo. This
     # keeps a targeted Unreal import from touching unrelated authored signs.
-    [switch]$CorridorEntranceOnly
+    [switch]$CorridorEntranceOnly,
+    # 입주 프롤로그에서 사용하는 한글 임대차계약서만 다시 만든다.
+    # 문서는 허구이며 주민등록번호는 표기하지 않는다.
+    [switch]$ArrivalPrologueOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -82,7 +85,10 @@ $red = [System.Drawing.Color]::FromArgb(255, 198, 40, 32)
 # even when it is not registered as a normal family. Loading it privately gives
 # the fridge note a restrained handwritten shape without rasterising AI text.
 $privateFonts = New-Object System.Drawing.Text.PrivateFontCollection
-$privateFonts.AddFontFile((Join-Path $env:WINDIR 'Fonts\HMFMPYUN.TTF'))
+$pyunjiFontPath = Join-Path $env:WINDIR 'Fonts\HMFMPYUN.TTF'
+if (Test-Path -LiteralPath $pyunjiFontPath -PathType Leaf) {
+    $privateFonts.AddFontFile($pyunjiFontPath)
+}
 $noteFontFamily = $privateFonts.Families | Where-Object { $_.Name -eq 'Pyunji R' } | Select-Object -First 1
 if (-not $noteFontFamily) {
     $noteFontFamily = $malgun
@@ -91,6 +97,125 @@ if (-not $noteFontFamily) {
 $stickyNotePaper = Join-Path $outDir 'AI\TextureStickyNotePaper_D.png'
 $notFoundPaper = Join-Path $outDir 'AI\TextureStickyNote404Doodle_D.png'
 $captureMercyNotePaper = Join-Path $outDir 'AI\TextureCaptureMercyNotePaper_D.png'
+$cleanPaper = Join-Path $outDir 'T_PaperClean_V2_D.png'
+
+function Write-ArrivalContract {
+    # 국내 주택 임대차계약서의 일반적인 구성에 맞춰 제목, 부동산 표시,
+    # 계약 조건, 특약, 서명 순서로 A4 세로 문서를 만든다.
+    # 단서가 되는 문구는 이미지 모델에 맡기지 않고 직접 렌더링하며,
+    # 이름과 주소는 모두 가상 정보만 사용한다.
+    New-SignBitmap -Width 1448 -Height 2048 `
+        -Background ([System.Drawing.Color]::FromArgb(255, 239, 235, 220)) `
+        -BackgroundImagePath $cleanPaper `
+        -FileName 'T_ArrivalContract_D.png' -Draw {
+        param($g, $w, $h)
+
+        $ink = [System.Drawing.Color]::FromArgb(255, 35, 34, 31)
+        $muted = [System.Drawing.Color]::FromArgb(255, 78, 74, 67)
+        $line = New-Object System.Drawing.Pen($ink, 4)
+        $thin = New-Object System.Drawing.Pen($muted, 2)
+        $seal = New-Object System.Drawing.Pen(
+            [System.Drawing.Color]::FromArgb(205, 170, 38, 32), 8)
+        $brush = New-Object System.Drawing.SolidBrush($ink)
+        $mutedBrush = New-Object System.Drawing.SolidBrush($muted)
+        $titleFont = New-Object System.Drawing.Font(
+            $malgun, 82, [System.Drawing.FontStyle]::Bold,
+            [System.Drawing.GraphicsUnit]::Pixel)
+        $headingFont = New-Object System.Drawing.Font(
+            $malgun, 37, [System.Drawing.FontStyle]::Bold,
+            [System.Drawing.GraphicsUnit]::Pixel)
+        $bodyFont = New-Object System.Drawing.Font(
+            $malgun, 31, [System.Drawing.FontStyle]::Regular,
+            [System.Drawing.GraphicsUnit]::Pixel)
+        $smallFont = New-Object System.Drawing.Font(
+            $malgun, 25, [System.Drawing.FontStyle]::Regular,
+            [System.Drawing.GraphicsUnit]::Pixel)
+        $format = New-Object System.Drawing.StringFormat
+        $format.Trimming = [System.Drawing.StringTrimming]::EllipsisCharacter
+
+        try {
+            $titleFormat = New-Object System.Drawing.StringFormat
+            $titleFormat.Alignment = 'Center'
+            $g.DrawString('주택임대차계약서', $titleFont, $brush,
+                [single]($w * 0.5), 86, $titleFormat)
+            $titleFormat.Dispose()
+
+            $g.DrawString('임대인과 임차인은 아래 표시 주택에 관하여 다음과 같이 임대차계약을 체결한다.',
+                $smallFont, $mutedBrush, 104, 205)
+
+            # 부동산 표시.
+            $left = 96; $right = $w - 96; $top = 278; $row = 94
+            $g.DrawRectangle($line, $left, $top, $right - $left, $row * 4)
+            for ($i = 1; $i -lt 4; $i++) {
+                $g.DrawLine($thin, $left, $top + $row * $i, $right, $top + $row * $i)
+            }
+            $labelX = $left + 245
+            $g.DrawLine($thin, $labelX, $top, $labelX, $top + $row * 4)
+            $labels = @('소 재 지', '토지·건물', '임대할 부분', '용    도')
+            $values = @(
+                '서울특별시 은평구 무영로44길 4  달빛빌라 403호',
+                '철근콘크리트조 · 다세대주택 / 건축물대장상 지상 4층',
+                '제4층 403호 전부  29.7㎡',
+                '주거용'
+            )
+            for ($i = 0; $i -lt 4; $i++) {
+                $g.DrawString($labels[$i], $headingFont, $brush, $left + 18, $top + $row * $i + 22)
+                $g.DrawString($values[$i], $bodyFont, $brush, $labelX + 24, $top + $row * $i + 25)
+            }
+
+            # 계약 조건과 지급 항목.
+            $termsTop = 740; $termsRow = 88
+            $g.DrawString('제1조  보증금 및 차임', $headingFont, $brush, $left, $termsTop - 58)
+            $g.DrawRectangle($line, $left, $termsTop, $right - $left, $termsRow * 4)
+            for ($i = 1; $i -lt 4; $i++) {
+                $g.DrawLine($thin, $left, $termsTop + $termsRow * $i, $right, $termsTop + $termsRow * $i)
+            }
+            $g.DrawString('보 증 금', $headingFont, $brush, $left + 20, $termsTop + 20)
+            $g.DrawString('금 오백만원정 (￦ 5,000,000)', $bodyFont, $brush, $left + 230, $termsTop + 24)
+            $g.DrawString('계 약 금', $headingFont, $brush, $left + 20, $termsTop + $termsRow + 20)
+            $g.DrawString('금 오십만원정 — 계약 시 지급함', $bodyFont, $brush, $left + 230, $termsTop + $termsRow + 24)
+            $g.DrawString('잔    금', $headingFont, $brush, $left + 20, $termsTop + $termsRow * 2 + 20)
+            $g.DrawString('금 사백오십만원정 — 2025년 7월 25일', $bodyFont, $brush, $left + 230, $termsTop + $termsRow * 2 + 24)
+            $g.DrawString('차    임', $headingFont, $brush, $left + 20, $termsTop + $termsRow * 3 + 20)
+            $g.DrawString('월 금 사십만원정 / 매월 25일 지급', $bodyFont, $brush, $left + 230, $termsTop + $termsRow * 3 + 24)
+
+            $g.DrawString('제2조  임대차 기간', $headingFont, $brush, $left, 1115)
+            $g.DrawString('2025년 7월 25일부터 2026년 7월 24일까지 (12개월)',
+                $bodyFont, $brush, $left + 42, 1172)
+
+            $g.DrawString('특 약 사 항', $headingFont, $brush, $left, 1260)
+            $specialTop = 1320
+            $g.DrawRectangle($line, $left, $specialTop, $right - $left, 330)
+            $special = @(
+                '1. 현 시설 상태의 임대차이며 임차인은 입주 전 시설을 확인한다.',
+                '2. 건축물대장상 본 건물은 지상 4층이며 옥상은 공용시설이다.',
+                '3. 옥상 창고와 기계실은 임대 목적물에 포함되지 않으며 출입을 금한다.',
+                '4. 관리비 및 공용 전기·수도 사용료는 별도 정산한다.'
+            )
+            for ($i = 0; $i -lt $special.Count; $i++) {
+                $g.DrawString($special[$i], $bodyFont, $brush, $left + 26, $specialTop + 28 + 70 * $i)
+            }
+
+            $g.DrawString('2025년  7월  25일', $headingFont, $brush, 545, 1694)
+            $g.DrawString('임대인  목 한 수    주소  서울 은평구 무영로44길 4',
+                $bodyFont, $brush, $left, 1778)
+            $g.DrawString('임차인  백 유 담    주소  서울 은평구 무영로44길 4, 403호',
+                $bodyFont, $brush, $left, 1848)
+            $g.DrawString('중개인  무영공인중개사사무소  (등록번호·연락처는 게임 내 가상 정보)',
+                $smallFont, $mutedBrush, $left, 1920)
+
+            # 주민번호나 서명을 꾸며내지 않고도 체결된 계약서임을 알 수 있도록
+            # 작은 붉은 도장 두 개만 넣는다.
+            $g.DrawEllipse($seal, 418, 1750, 88, 88)
+            $g.DrawEllipse($seal, 418, 1822, 88, 88)
+        }
+        finally {
+            $format.Dispose(); $smallFont.Dispose(); $bodyFont.Dispose()
+            $headingFont.Dispose(); $titleFont.Dispose(); $mutedBrush.Dispose()
+            $brush.Dispose(); $seal.Dispose(); $thin.Dispose(); $line.Dispose()
+        }
+    }
+}
 
 function Write-CorridorEntranceSigns {
     # The room number stays an ordinary 403. A single handwritten memo occupies
@@ -178,6 +303,11 @@ function Write-CorridorEntranceSigns {
 
 if ($CorridorEntranceOnly) {
     Write-CorridorEntranceSigns
+    return
+}
+
+if ($ArrivalPrologueOnly) {
+    Write-ArrivalContract
     return
 }
 
