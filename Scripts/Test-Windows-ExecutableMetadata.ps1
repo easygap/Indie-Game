@@ -2,7 +2,7 @@
 param(
 	[Parameter(Mandatory = $true)]
 	[string]$Executable,
-	[string]$ExpectedProductName = '4:44 AM',
+	[string]$ExpectedProductName = '없는 층',
 	[string]$ExpectedVersion = '1.0.0',
 	[string]$ExpectedCompanyName = 'easygap',
 	[string]$ExpectedCopyright =

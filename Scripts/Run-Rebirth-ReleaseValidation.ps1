@@ -691,7 +691,7 @@ function Write-ShippingArchiveManifest {
 		executableMetadata = [pscustomobject]@{
 			launcherExecutable = $productExecutables[0].FullName
 			runtimeExecutable = $runtimeExecutables[0].FullName
-			expectedProductName = '4:44 AM'
+			expectedProductName = '없는 층'
 			expectedProjectVersion = '1.0.0'
 			expectedCompanyName = 'easygap'
 			syncLog = $script:shippingExecutableMetadataSyncLogPath

@@ -528,7 +528,7 @@ Assert-ContainsAll $executableMetadataSyncScript @(
 	'WINDOWS_EXECUTABLE_METADATA_SYNC PASS'
 ) 'Shipping 루트 런처 VERSIONINFO 동기화'
 Assert-ContainsAll $executableMetadataScript @(
-	"ExpectedProductName = '4:44 AM'",
+	"ExpectedProductName = '없는 층'",
 	"ExpectedVersion = '1.0.0'",
 	"ExpectedCompanyName = 'easygap'",
 	'FileDescription',

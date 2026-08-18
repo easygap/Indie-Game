@@ -114,7 +114,7 @@ clean SHA Shipping 캡처와 성능이다.
   PASS 영수증을 받았다. 두 실행 전후 파일 수·크기·SHA-256도 모두 같아
   아카이브 변경과 새 파일 생성은 0건이다. 루트 런처 SHA-256은
   `62FEE0CD7F668239E71819B12629EC95933BA0ABDD68EB51C9201767A0182145`이며
-  `4:44 AM / 1.0.0 / easygap`, 기준 아이콘과 AppLocal CRT 계약을 통과했다.
+  `없는 층 / 1.0.0 / easygap`, 기준 아이콘과 AppLocal CRT 계약을 통과했다.
 - 이 실행 전에 clean SHA 자동 종단이 5층 계단참의 벽과 160cm 연결문이
   겹친 실제 캡슐 충돌을 검출했다. 벽·바닥·천장 범위를 분리하고 문 양쪽의
   54cm 캡슐 여유를 컴파일 타임 계약으로 고정한 뒤, 바닥 41지점과
@@ -709,7 +709,7 @@ CH02의 04:31 원승인은 일반 종이 패널을 쓰지 않고 검은 휴대�
    `IndieGame.exe`에 동기화하고 `OriginalFilename`을 루트 파일명으로
    보정한다. 그 뒤 FileDescription·FileVersion·ProductName·ProductVersion·
    CompanyName·LegalCopyright·InternalName·OriginalFilename이
-   `4:44 AM / 1.0.0 / easygap` 계약과 일치하며 엔진 빌드 문자열이 노출되지
+   `없는 층 / 1.0.0 / easygap` 계약과 일치하며 엔진 빌드 문자열이 노출되지
    않는지 검사한다. 내부 게임 EXE와 같은 폴더의 `msvcp140_2.dll`과
    `vcruntime140_1.dll`이 모두 14.50.35719.0 이상인지 확인하고 경로·버전·
    SHA-256을 매니페스트에 기록한다. 같은 `IndieGame.exe`에서 32px 대표
