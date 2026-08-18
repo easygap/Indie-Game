@@ -453,6 +453,18 @@ def build_drink_bottle():
     return bake(mesh, "SM_DrinkBottle")
 
 
+def build_drink_can():
+    """250 mL slim can with rolled top/bottom beads and a recessed lid."""
+    mesh = new_mesh()
+    profile = [
+        (0.0, 0.0), (2.92, 0.0), (3.18, 0.18), (3.28, 0.42),
+        (3.22, 0.68), (3.22, 11.48), (3.28, 11.74),
+        (3.18, 12.02), (2.90, 12.20), (0.0, 12.20),
+    ]
+    revolve(mesh, profile, steps=40)
+    return bake(mesh, "SM_DrinkCan", add_collision=False)
+
+
 def build_cup_noodle():
     """Tapered cup ramyeon with a rolled rim and a domed foil lid."""
     mesh = new_mesh()
@@ -2350,6 +2362,7 @@ BUILDERS = (
     build_bottle_cap,
     build_soju_bottle,
     build_drink_bottle,
+    build_drink_can,
     build_cup_noodle,
     build_cup_sleeve,
     build_cup_lid,
@@ -2417,6 +2430,8 @@ def run():
     builders = BUILDERS
     if os.environ.get("IG_ALARM_CLOCK_ONLY") == "1":
         builders = (build_alarm_clock,)
+    elif os.environ.get("IG_RETAIL_REALISM_ONLY") == "1":
+        builders = (build_drink_can,)
     elif os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
         builders = (build_capture_mercy_note,)
     elif os.environ.get("IG_SUBMERGED_CLOTHING_ONLY") == "1":

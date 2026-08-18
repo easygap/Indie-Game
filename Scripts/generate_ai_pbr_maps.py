@@ -36,6 +36,12 @@ SURFACES = (
     SurfaceSpec(
         "T_ApartmentWallpaperV2", 0.86, 0.72, 0.94, 0.32,
         rough_detail=0.12, ao_depth=0.62),
+    # Exterior cement render is deliberately matte. The generated scan owns
+    # only colour; this conservative relief keeps rain streaks from becoming
+    # deep grooves and remains stable under the moving alley practicals.
+    SurfaceSpec(
+        "T_KoreanVillaStucco", 0.88, 0.76, 0.96, 0.44,
+        rough_detail=0.10, ao_depth=0.66),
     # One neutral fibre response is shared by the clean, damp, folded and old
     # paper stocks. Their colour maps keep the individual stains and creases;
     # this companion set supplies only sub-millimetre fibre relief, roughness

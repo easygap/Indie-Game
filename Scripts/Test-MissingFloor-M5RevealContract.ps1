@@ -155,7 +155,7 @@ Assert-ContainsAll $meshScript @(
 ) 'M5 Geometry Script'
 Assert-ContainsAll $buildScript @(
 	'\[MESHGEN\] complete: 12/12 meshes',
-	'ART_BUILD PASS meshes=39'
+	'ART_BUILD PASS meshes=40'
 ) 'M5 art build'
 
 Assert-ContainsAll $nightFourHeader @(

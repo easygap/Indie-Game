@@ -6,6 +6,7 @@ param(
 	[switch]$ApartmentVisualOnly,
 	[switch]$SurfaceResponseOnly,
 	[switch]$PropResponseOnly,
+	[switch]$RetailRealismOnly,
 	[switch]$CorridorSignageOnly,
 	[switch]$MissingFloorOnly,
 	[switch]$TankWaterOnly,
@@ -98,6 +99,7 @@ $modeCount = @(
 	$ApartmentVisualOnly.IsPresent,
 	$SurfaceResponseOnly.IsPresent,
 	$PropResponseOnly.IsPresent,
+	$RetailRealismOnly.IsPresent,
 	$CorridorSignageOnly.IsPresent,
 	$MissingFloorOnly.IsPresent,
 	$TankWaterOnly.IsPresent,
@@ -105,13 +107,13 @@ $modeCount = @(
 	$SubmergedClothingOnly.IsPresent
 ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($modeCount -gt 1) {
-	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, PropResponseOnly, CorridorSignageOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
+	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, PropResponseOnly, RetailRealismOnly, CorridorSignageOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
 }
 
 if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	-not $SubmergedClothingOnly -and -not $HudUiOnly -and
 	-not $ApartmentVisualOnly -and -not $SurfaceResponseOnly -and
-	-not $PropResponseOnly -and
+	-not $PropResponseOnly -and -not $RetailRealismOnly -and
 	-not $CorridorSignageOnly -and
 	-not $MissingFloorOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
@@ -180,6 +182,18 @@ if ($ApartmentVisualOnly) {
 	}
 }
 
+if ($RetailRealismOnly) {
+	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
+		-OnlySource @('TextureKoreanVillaStucco_v1')
+	$python = Get-Command python -ErrorAction Stop
+	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
+	Write-Host 'ART_BUILD running Korean-villa PBR source-map generation'
+	& $python.Source $pbrGenerator --only T_KoreanVillaStucco --force
+	if ($LASTEXITCODE -ne 0) {
+		throw "Retail-realism PBR source-map generation failed ($LASTEXITCODE)"
+	}
+}
+
 if ($PropResponseOnly) {
 	$python = Get-Command python -ErrorAction Stop
 	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
@@ -197,7 +211,7 @@ if ($SourceOnly) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Art source contract failed ($LASTEXITCODE)"
 	}
-	Write-Host 'ART_SOURCE_BUILD PASS material_scans=12 material_masks=9 overlays=19 pbr_maps=62 no_unreal_process=true'
+	Write-Host 'ART_SOURCE_BUILD PASS material_scans=13 material_masks=9 overlays=19 pbr_maps=65 no_unreal_process=true'
 	return
 }
 
@@ -274,7 +288,7 @@ if ($CodeOnly) {
 }
 
 if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
-	$PropResponseOnly -or
+	$PropResponseOnly -or $RetailRealismOnly -or
 	$CorridorSignageOnly -or
 	$MissingFloorOnly -or $TankWaterOnly -or $TankInteriorOnly -or
 	$SubmergedClothingOnly) {
@@ -289,6 +303,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($PropResponseOnly) {
 		'PropResponse'
+	}
+	elseif ($RetailRealismOnly) {
+		'RetailRealism'
 	}
 	elseif ($CorridorSignageOnly) {
 		'CorridorSignage'
@@ -317,6 +334,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	elseif ($PropResponseOnly) {
 		'IG_PROP_RESPONSE_ONLY'
 	}
+	elseif ($RetailRealismOnly) {
+		'IG_RETAIL_REALISM_ONLY'
+	}
 	elseif ($CorridorSignageOnly) {
 		'IG_CORRIDOR_SIGNAGE_ONLY'
 	}
@@ -343,6 +363,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($PropResponseOnly) {
 		'\[IndieGame\] Prop response material update complete: \d+ materials'
+	}
+	elseif ($RetailRealismOnly) {
+		'\[IndieGame\] Retail realism material update complete: 5 materials'
 	}
 	elseif ($CorridorSignageOnly) {
 		'\[IndieGame\] Corridor entrance signage material update complete'
@@ -397,6 +420,8 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'M_BeddingUV',
 			'M_Brick_X',
 			'M_Brick_Y',
+			'M_VillaStucco_X',
+			'M_VillaStucco_Y',
 			'M_Concrete_XY',
 			'M_Concrete_X',
 			'M_Concrete_Y',
@@ -458,6 +483,20 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Materials\M_MetalFrame.uasset',
 			'Content\Prototype\Materials\M_CarrierBagFilm.uasset',
 			'Content\Prototype\Materials\M_AsphaltWorld.uasset'
+		)
+	}
+	elseif ($RetailRealismOnly) {
+		@(
+			'Content\Meshes\SM_DrinkCan.uasset',
+			'Content\Prototype\Textures\T_KoreanVillaStucco_D.uasset',
+			'Content\Prototype\Textures\T_KoreanVillaStucco_N.uasset',
+			'Content\Prototype\Textures\T_KoreanVillaStucco_R.uasset',
+			'Content\Prototype\Textures\T_KoreanVillaStucco_A.uasset',
+			'Content\Prototype\Materials\M_VillaStucco_X.uasset',
+			'Content\Prototype\Materials\M_VillaStucco_Y.uasset',
+			'Content\Prototype\Materials\M_MarbleFloor_XY.uasset',
+			'Content\Prototype\Materials\M_StainlessUV.uasset',
+			'Content\Prototype\Materials\M_SteelDoorUV.uasset'
 		)
 	}
 	elseif ($CorridorSignageOnly) {
@@ -619,6 +658,30 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			@{
 				Script = 'generate_surface_textures.py'
 				SuccessPattern = '\[IndieGame\] Imported 3 textures'
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
+	elseif ($RetailRealismOnly) {
+		@(
+			@{
+				Script = 'generate_meshes.py'
+				SuccessPattern = '\[MESHGEN\] complete: 1/1 meshes'
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'generate_surface_textures.py'
+				SuccessPattern = '\[IndieGame\] Imported 4 textures'
 				TargetEnvironment = $true
 			},
 			@{
@@ -870,6 +933,7 @@ $requiredAssets = @(
 	'Content\Meshes\SM_InspectionRod.uasset',
 	'Content\Meshes\SM_CrackedPhone.uasset',
 	'Content\Meshes\SM_OfferingWaterBowl.uasset',
+	'Content\Meshes\SM_DrinkCan.uasset',
 	'Content\Meshes\SM_CupSleeve.uasset',
 	'Content\Meshes\SM_LabelSleeve.uasset',
 	'Content\Meshes\SM_StickyNote76mm.uasset',
@@ -926,6 +990,10 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_HudDialogueFilm_D.uasset',
 	'Content\Prototype\Textures\T_MissingFloorJournalPaper_D.uasset',
 	'Content\Prototype\Textures\T_MissingFloorDryPlaster_D.uasset',
+	'Content\Prototype\Textures\T_KoreanVillaStucco_D.uasset',
+	'Content\Prototype\Textures\T_KoreanVillaStucco_N.uasset',
+	'Content\Prototype\Textures\T_KoreanVillaStucco_R.uasset',
+	'Content\Prototype\Textures\T_KoreanVillaStucco_A.uasset',
 	'Content\Prototype\Textures\T_MissingFloorDryPlaster_N.uasset',
 	'Content\Prototype\Textures\T_MissingFloorDryPlaster_R.uasset',
 	'Content\Prototype\Textures\T_MissingFloorDryPlaster_A.uasset',
@@ -1018,6 +1086,8 @@ $requiredAssets = @(
 	'Content\Prototype\Materials\M_MissingFloorPlaster_X.uasset',
 	'Content\Prototype\Materials\M_MissingFloorPlaster_Y.uasset',
 	'Content\Prototype\Materials\M_MissingFloorPlaster_XY.uasset',
+	'Content\Prototype\Materials\M_VillaStucco_X.uasset',
+	'Content\Prototype\Materials\M_VillaStucco_Y.uasset',
 	'Content\Prototype\Materials\M_MissingFloorHandprints.uasset',
 	'Content\Prototype\Materials\M_MissingFloorDragTrails.uasset',
 	'Content\Prototype\Materials\M_MissingFloorDustJoint.uasset',
@@ -1050,4 +1120,4 @@ if ($missing.Count -gt 0) {
 	throw ('Art build finished but required assets are missing: ' + ($missing -join ', '))
 }
 
-Write-Host 'ART_BUILD PASS meshes=39 evidence_masks=8 material_masks=1 environment_overlays=10 material_scans=12 pbr_maps=47 uasset_audit=1'
+Write-Host 'ART_BUILD PASS meshes=40 evidence_masks=8 material_masks=1 environment_overlays=10 material_scans=13 pbr_maps=50 uasset_audit=1'

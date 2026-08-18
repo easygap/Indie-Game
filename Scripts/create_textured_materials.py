@@ -79,6 +79,13 @@ SURFACE_RESPONSE_DEFAULTS = {
         "detail_normal_scale": 4.8, "roughness_detail_strength": 0.12,
         "roughness_detail_scale": 4.8, "specular": 0.28,
     },
+    "KoreanVillaStucco": {
+        "macro_strength": 0.052, "macro_scale": 6.2,
+        "normal_strength": 1.08, "detail_normal_strength": 0.10,
+        "detail_normal_scale": 5.4, "roughness_detail_strength": 0.08,
+        "roughness_detail_scale": 5.4, "ao_strength": 0.84,
+        "specular": 0.24,
+    },
     "GraniteTile": {
         "macro_strength": 0.025, "macro_scale": 6.4,
         "normal_strength": 1.10, "roughness_variation": 0.24,
@@ -125,6 +132,10 @@ TEXTURED_MATERIALS = {
     # (M_AsphaltWorld is built by create_wet_asphalt: dew puddles + mirror wet)
     "M_Brick_X":        {"tex": "Brick", "mapping": "XZ", "tile": 210.0, "rough": 0.9},
     "M_Brick_Y":        {"tex": "Brick", "mapping": "YZ", "tile": 210.0, "rough": 0.9},
+    "M_VillaStucco_X":  {"tex": "KoreanVillaStucco", "mapping": "XZ", "tile": 235.0,
+                          "rough": 0.88, "ao": True, "tint": (0.82, 0.85, 0.88)},
+    "M_VillaStucco_Y":  {"tex": "KoreanVillaStucco", "mapping": "YZ", "tile": 235.0,
+                          "rough": 0.88, "ao": True, "tint": (0.82, 0.85, 0.88)},
     "M_Concrete_XY":    {"tex": "Concrete", "mapping": "XY", "tile": 150.0},
     "M_Concrete_X":     {"tex": "Concrete", "mapping": "XZ", "tile": 150.0},
     "M_Concrete_Y":     {"tex": "Concrete", "mapping": "YZ", "tile": 150.0},
@@ -175,19 +186,19 @@ TEXTURED_MATERIALS = {
     "M_GranitePanel_Y": {"tex": "GranitePanel", "mapping": "YZ", "tile": 24.0,
                          "desaturate": 0.92, "tint": (0.80, 0.80, 0.78), "rough": 0.58},
     "M_MarbleFloor_XY": {"tex": "MarbleFloor", "mapping": "XY", "tile": 130.0,
-                         "desaturate": 0.55, "tint": (1.75, 1.75, 1.72),
-                         "force_rough": 0.10},
+                         "desaturate": 0.55, "tint": (1.35, 1.35, 1.32),
+                         "force_rough": 0.34},
     # Worktops need UV mapping, not world mapping: a world-XY stone smears
     # into stripes the moment it wraps a vertical edge or a splashback.
     "M_CounterStoneUV": {"tex": "MarbleFloor", "mapping": "UV", "tile": 1.3,
                          "desaturate": 0.7, "tint": (2.3, 2.3, 2.25),
                          "force_rough": 0.17},
     "M_StainlessUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
-                         "tint": (1.10, 1.13, 1.16), "metallic": 1.0, "force_rough": 0.21},
+                         "tint": (0.72, 0.75, 0.78), "metallic": 1.0, "force_rough": 0.42},
     "M_CabMirrorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
                          "tint": (1.22, 1.24, 1.28), "metallic": 1.0, "force_rough": 0.14},
     "M_SteelDoorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
-                          "tint": (0.115, 0.12, 0.132), "metallic": 0.2, "force_rough": 0.42},
+                          "tint": (0.22, 0.23, 0.25), "metallic": 0.65, "force_rough": 0.48},
     "M_KitchenGlossUV": {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
                           "desaturate": 1.0, "tint": (1.72, 1.70, 1.64),
                           "metallic": 0.0, "force_rough": 0.13},
@@ -2923,6 +2934,30 @@ def run():
         unreal.log(
             f"[IndieGame] Surface response material update complete: "
             f"{len(surfaces)} materials"
+        )
+        return
+
+    if os.environ.get("IG_RETAIL_REALISM_ONLY") == "1":
+        names = (
+            "M_VillaStucco_X",
+            "M_VillaStucco_Y",
+            "M_MarbleFloor_XY",
+            "M_StainlessUV",
+            "M_SteelDoorUV",
+        )
+        retail = create_textured_materials(
+            assets,
+            tools,
+            {name: TEXTURED_MATERIALS[name] for name in names},
+            update_in_place=True,
+        )
+        if len(retail) != len(names) or not assets.save_loaded_assets(
+            retail, False
+        ):
+            raise RuntimeError("Could not save retail/alley realism materials")
+        unreal.log(
+            f"[IndieGame] Retail realism material update complete: "
+            f"{len(retail)} materials"
         )
         return
 

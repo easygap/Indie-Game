@@ -103,6 +103,13 @@ PROP_RESPONSE_TEXTURE_NAMES = {
     "T_PaperClean_V2_R",
     "T_PaperClean_V2_A",
 }
+RETAIL_REALISM_ONLY = os.environ.get("IG_RETAIL_REALISM_ONLY") == "1"
+RETAIL_REALISM_TEXTURE_NAMES = {
+    "T_KoreanVillaStucco_D",
+    "T_KoreanVillaStucco_N",
+    "T_KoreanVillaStucco_R",
+    "T_KoreanVillaStucco_A",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -520,6 +527,7 @@ def import_textures():
                 and not MISSING_FLOOR_ONLY
                 and not CORRIDOR_SIGNAGE_ONLY
                 and not PROP_RESPONSE_ONLY
+                and not RETAIL_REALISM_ONLY
             )
             or (
                 HUD_UI_ONLY
@@ -544,6 +552,10 @@ def import_textures():
             or (
                 PROP_RESPONSE_ONLY
                 and os.path.splitext(entry)[0] in PROP_RESPONSE_TEXTURE_NAMES
+            )
+            or (
+                RETAIL_REALISM_ONLY
+                and os.path.splitext(entry)[0] in RETAIL_REALISM_TEXTURE_NAMES
             )
         )
     )
@@ -654,6 +666,7 @@ if __name__ == "__main__":
         and not MISSING_FLOOR_ONLY
         and not CORRIDOR_SIGNAGE_ONLY
         and not PROP_RESPONSE_ONLY
+        and not RETAIL_REALISM_ONLY
     ):
         generate_surface_pngs()
     import_textures()

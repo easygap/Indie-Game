@@ -49,6 +49,7 @@ $requiredRaw = @(
 	'AI\SheetMissingFloorEnvironmentReference.png',
 	'AI\SheetListenerEntityAnatomyReference.png',
 	'AI\TextureMissingFloorDryPlaster.png',
+	'AI\TextureKoreanVillaStucco_v1.png',
 	'AI\SheetMissingFloorResidueMasks.png',
 	'AI\SheetMissingFloorDistantCharacters.png',
 	'AI\SheetMissingFloorHeroPropsReference.png',
@@ -112,7 +113,8 @@ $requiredMaterialTextures = @(
 	'T_HudDialogueFilm_D.png',
 	'T_MissingFloorJournalPaper_D.png',
 	'T_ApartmentWallpaperV2_D.png',
-	'T_MissingFloorDryPlaster_D.png'
+	'T_MissingFloorDryPlaster_D.png',
+	'T_KoreanVillaStucco_D.png'
 )
 $requiredPbrMaps = @(
 	'T_WetHoodie_N.png',
@@ -156,6 +158,9 @@ $requiredPbrMaps = @(
 	'T_MissingFloorDryPlaster_N.png',
 	'T_MissingFloorDryPlaster_R.png',
 	'T_MissingFloorDryPlaster_A.png',
+	'T_KoreanVillaStucco_N.png',
+	'T_KoreanVillaStucco_R.png',
+	'T_KoreanVillaStucco_A.png',
 	'T_SpriteListenerFront_N.png',
 	'T_SpriteListenerFront_R.png',
 	'T_SpriteListenerFront_A.png',
@@ -799,6 +804,11 @@ if (-not $meshScript.Contains('SM_OfferingWaterBowl') -or
 	-not $prologueSource.Contains('SM_OfferingWaterBowl')) {
 	throw 'Lobby offering bowl is not generated and loaded as an open vessel'
 }
+if (-not $meshScript.Contains('SM_DrinkCan') -or
+	-not $prologueSource.Contains('SM_DrinkCan') -or
+	-not $prologueSource.Contains('SM_MilkCarton')) {
+	throw 'Korean cooler silhouette variety is missing its can/carton asset contract.'
+}
 foreach ($token in @(
 	'def build_offering_water_bowl',
 	'(12.2, 8.0)',
@@ -1164,7 +1174,7 @@ foreach ($token in @(
 foreach ($token in @(
 	'Content\Meshes\SM_TankExteriorAccessStair.uasset',
 	'Content\Meshes\SM_TankInternalLining.uasset',
-	'ART_BUILD PASS meshes=39'
+	'ART_BUILD PASS meshes=40'
 )) {
 	if (-not $buildScript.Contains($token)) {
 		throw "Exterior access-stair output is not release-gated: $token"
@@ -1792,4 +1802,4 @@ foreach ($needle in @(
 	}
 }
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=50 masks=9 overlays=23 signage=6 material_scans=14 pbr_maps=62 meshes=45 photo_meshes=50'
+Write-Host 'ART_ASSET_CONTRACT PASS raw=51 masks=9 overlays=23 signage=6 material_scans=15 pbr_maps=65 meshes=46 photo_meshes=50'

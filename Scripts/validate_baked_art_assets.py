@@ -26,6 +26,7 @@ from create_textured_materials import (
 
 MESH_NAMES = (
     "SM_AlleyCatRun",
+    "SM_DrinkCan",
     "SM_FirstPersonHoodieSleeve",
     "SM_P3ServiceCabinetShell",
     "SM_P3ServiceManifold",
@@ -115,6 +116,7 @@ PRINT_SURFACE_MESHES = {
 
 PBR_STEMS = {
     "T_ApartmentWallpaperV2": ("D", "N", "R", "A"),
+    "T_KoreanVillaStucco": ("D", "N", "R", "A"),
     "T_PaperClean_V2": ("D", "N", "R", "A"),
     "T_WetHoodie": ("D", "N", "R", "A", "W"),
     "T_AlleyCatTabby": ("D", "N", "R", "A"),
@@ -139,6 +141,8 @@ MATERIAL_TEXTURES = {
     "M_Wallpaper_X": "T_ApartmentWallpaperV2",
     "M_Wallpaper_Y": "T_ApartmentWallpaperV2",
     "M_WallpaperCeil": "T_ApartmentWallpaperV2",
+    "M_VillaStucco_X": "T_KoreanVillaStucco",
+    "M_VillaStucco_Y": "T_KoreanVillaStucco",
     "M_WetHoodieUV": "T_WetHoodie",
     "M_SubmergedHoodieUV": "T_WetHoodie",
     "M_SubmergedPantsUV": "T_WetHoodie",

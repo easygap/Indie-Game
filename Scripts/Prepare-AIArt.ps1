@@ -282,6 +282,12 @@ $plan = @(
         Source = 'TextureApartmentWallpaperVintage'; Target = 'T_ApartmentWallpaperV2_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
+    # 한국 저층 빌라 외벽. 생성본은 조명과 문자를 배제한 BaseColor만
+    # 제공하고, 미세 요철·거칠기·차폐는 아래 PBR 파생 단계가 담당한다.
+    [pscustomobject]@{
+        Source = 'TextureKoreanVillaStucco_v1'; Target = 'T_KoreanVillaStucco_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
     [pscustomobject]@{
         Source = 'MaskApartmentWallPatina'; Target = 'T_ApartmentWallPatina_M.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)

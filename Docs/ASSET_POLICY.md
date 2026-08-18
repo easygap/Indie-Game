@@ -536,3 +536,17 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
   일시정지는 현재 월드 화면을 유지하고, 메뉴·포커스·현지화 문자는 C++ HUD가
   소유한다.
 - 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-08-12.md`
+
+## 2026-08-18 한국 빌라 외벽 스터코
+
+- 도구/모드: OpenAI 내장 ImageGen, `game-asset`
+- 보존 원본: `Content/SourceArt/AI/TextureKoreanVillaStucco_v1.png`
+- 원본 SHA-256:
+  `474A8D005146B499FDB39CBAE62FC17F790EC71E9D833E4864A387DBA959BA57`
+- 파생: `Content/SourceArt/T_KoreanVillaStucco_{D,N,R,A}.png`
+- 런타임: `/Game/Prototype/Textures/T_KoreanVillaStucco_{D,N,R,A}`와
+  `/Game/Prototype/Materials/M_VillaStucco_{X,Y}`
+- 적용 경계: 생성물은 한글·상표·사물·조명·그림자가 없는 외벽 BaseColor
+  원본만 담당한다. N/R/A와 월드 매핑은 재현 가능한 로컬 스크립트가 만들며,
+  UE의 실제 광원과 Lumen이 최종 명암을 계산한다.
+- 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-08-18.md`

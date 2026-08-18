@@ -157,7 +157,7 @@ namespace IGPrologueWorld
 	// handful of pixels, so it can fade before the store itself disappears.
 	constexpr int32 StoreStockCullStartCentimeters = 1600;
 	constexpr int32 StoreStockCullEndCentimeters = 2200;
-	constexpr int32 ExpectedStoreStockInstances = 1122;
+	constexpr int32 ExpectedStoreStockInstances = 932;
 	constexpr int32 MaximumStoreStockBatches = 24;
 
 	enum class EReceiptTimeline : uint8
@@ -1020,6 +1020,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_WallpaperCeil"), TEXT("M_ApartmentWallPatina"),
 		TEXT("M_WoodFurnitureUV"), TEXT("M_BeddingUV"),
 		TEXT("M_AsphaltWorld"), TEXT("M_Brick_X"), TEXT("M_Brick_Y"),
+		TEXT("M_VillaStucco_X"), TEXT("M_VillaStucco_Y"),
 		TEXT("M_Concrete_XY"), TEXT("M_Concrete_X"), TEXT("M_Concrete_Y"),
 		TEXT("M_ConcreteDark_X"), TEXT("M_ConcreteDark_Y"),
 		TEXT("M_StoreTileWorld"), TEXT("M_StoreCeilWorld"),
@@ -4609,6 +4610,10 @@ void AIGPrologueWorldScene::BuildAlley()
 {
 	UMaterialInterface* AsphaltWorld = TexMat(TEXT("M_AsphaltWorld"), AsphaltMaterial);
 	UMaterialInterface* BrickX = TexMat(TEXT("M_Brick_X"), ConcreteMaterial);
+	UMaterialInterface* VillaStuccoX =
+		TexMat(TEXT("M_VillaStucco_X"), ConcreteMaterial);
+	UMaterialInterface* VillaStuccoY =
+		TexMat(TEXT("M_VillaStucco_Y"), ConcreteMaterial);
 	UMaterialInterface* DarkX = TexMat(TEXT("M_ConcreteDark_X"), ConcreteDarkMaterial);
 	UMaterialInterface* DarkY = TexMat(TEXT("M_ConcreteDark_Y"), ConcreteDarkMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
@@ -4620,8 +4625,11 @@ void AIGPrologueWorldScene::BuildAlley()
 	// northern half was missing entirely — from inside, looking out through
 	// the glass showed a hole. Pave that corner and close it with a wall.
 	CreateBlock(FVector(2300, -425, -10), FVector(220, 550, 20), AsphaltWorld);
-	CreateBlock(FVector(2190, -270, 230), FVector(20, 240, 460), BrickX);
-	CreateBlock(FVector(2300, -152, 230), FVector(240, 20, 460), BrickX);
+	// The corner belongs to a patched cement-render annex, not to the opposing
+	// brick shop row. Its two axes use separate world projections so neither
+	// face collapses into the vertical colour stripe seen in the old capture.
+	CreateBlock(FVector(2190, -270, 230), FVector(20, 240, 460), VillaStuccoY);
+	CreateBlock(FVector(2300, -152, 230), FVector(240, 20, 460), VillaStuccoX);
 
 	// Curb stones seat the facades onto the road.
 	CreateBlock(FVector(1040, -410, 4), FVector(2720, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
@@ -4719,8 +4727,8 @@ void AIGPrologueWorldScene::BuildAlley()
 	// it. The previous continuous brick facade intersected the lobby cab and
 	// appeared literally inside its left wall.
 	CreateBlock(FVector(800, -394, 620), FVector(160, 6, 1240), GranitePanelX);
-	CreateBlock(FVector(1015, -385, 230), FVector(270, 20, 460), BrickX);
-	CreateBlock(FVector(1845, -385, 230), FVector(1110, 20, 460), BrickX);
+	CreateBlock(FVector(1015, -385, 230), FVector(270, 20, 460), VillaStuccoX);
+	CreateBlock(FVector(1845, -385, 230), FVector(1110, 20, 460), VillaStuccoX);
 
 	// Side alley running north between the two buildings: unlit, dead-ended,
 	// and just wide enough to notice on the way past.
@@ -5348,17 +5356,47 @@ void AIGPrologueWorldScene::BuildStore()
 				{
 					continue; // the water pickups live on this shelf instead
 				}
-				// Lathed bottles: soda, tea and soju silhouettes alternate.
-				const bool bTallBottle = (DrinkIndex % 3) == 2;
-				UMaterialInterface* DrinkMaterial =
-					(DrinkIndex % 3 == 0) ? BottleGreenMaterial :
-					(DrinkIndex % 3 == 1) ? BottleBrownMaterial : SnackYellowMaterial;
+				// Korean cooler shelves mix PET, glass, slim cans and cartons. The
+				// earlier three-bottle loop made every bay read like a liquor wall.
+				const int32 ProductVariant = FMath::Abs(DrinkIndex) % 5;
+				const bool bTallBottle = ProductVariant == 2;
+				const bool bDrinkCan = ProductVariant == 3;
+				const bool bDrinkCarton = ProductVariant == 4;
+				UMaterialInterface* DrinkMaterial = ProductVariant == 0
+					? BottleGreenMaterial
+					: BottleBrownMaterial;
 				UMaterialInterface* CapMaterial =
 					(DrinkIndex % 2 == 0) ? SnackRedMaterial : FridgeInteriorMaterial;
 				const FVector BottleBase(DrinkRowX, DrinkY, ShelfTopZ);
 				// Bottles face the aisle, so every label reads from the front.
 				const float BottleYaw = -90.0f + (DrinkIndex % 3 - 1) * 7.0f;
-				if (bTallBottle)
+				if (bDrinkCan)
+				{
+					const bool bPlaced = AddStoreStockProp(
+						TEXT("SM_DrinkCan"),
+						BottleBase,
+						TexMat(TEXT("M_LabelSoda"), SnackBlueMaterial),
+						BottleYaw,
+						1.0f,
+						true);
+					ensureMsgf(
+						bPlaced,
+						TEXT("SM_DrinkCan is required for Korean cooler silhouette variety."));
+				}
+				else if (bDrinkCarton)
+				{
+					const bool bPlaced = AddStoreStockProp(
+						TEXT("SM_MilkCarton"),
+						BottleBase,
+						TexMat(TEXT("M_LabelBarley"), FridgeInteriorMaterial),
+						BottleYaw,
+						1.0f,
+						true);
+					ensureMsgf(
+						bPlaced,
+						TEXT("SM_MilkCarton is required for Korean cooler silhouette variety."));
+				}
+				else if (bTallBottle)
 				{
 					if (!AddStoreStockProp(
 							TEXT("SM_SojuBottle"),
@@ -5417,9 +5455,9 @@ void AIGPrologueWorldScene::BuildStore()
 							CapMaterial,
 							false);
 					}
-					const TCHAR* LabelName = (DrinkIndex % 3 == 0)
+					const TCHAR* LabelName = ProductVariant == 0
 						? TEXT("M_LabelGreenTea")
-						: ((DrinkIndex % 2 == 0) ? TEXT("M_LabelBarley") : TEXT("M_LabelSoda"));
+						: TEXT("M_LabelSoda");
 					AddStoreStockBottleLabel(
 						BottleBase, 3.67f, 3.0f, 7.6f, LabelName, BottleYaw);
 				}
@@ -5799,23 +5837,29 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		AIGElevator::FIGElevatorVisuals CabVisuals;
 		CabVisuals.CubeMesh = CubeMesh;
 		CabVisuals.CylinderMesh = CylinderMesh;
-		// The metallic prototype reflected the alley brick with enough fidelity
-		// to look like exposed masonry inside the cab. A rough neutral enamel is
-		// stable under both the cold cabin lights and the predawn exterior.
-		CabVisuals.StainlessMaterial = FridgeBodyMaterial;
+		// Brushed, mid-roughness stainless retains panel direction and contact
+		// shading without becoming a mirror of the exterior Lumen scene.
+		CabVisuals.StainlessMaterial =
+			TexMat(TEXT("M_StainlessUV"), FridgeBodyMaterial);
 		// The apartment-door navy read as an open patch of sky at the end of the
 		// corridor. Neutral lift enamel plus the physical 1.4 cm centre seam keeps
 		// both landing leaves unmistakably closed before the call completes.
-		CabVisuals.DoorMaterial = FridgeBodyMaterial;
+		CabVisuals.DoorMaterial =
+			TexMat(TEXT("M_SteelDoorUV"), FridgeBodyMaterial);
 		// The story specifies no readable mirror in the safe CH01 car. A
 		// brushed rear panel also prevents the outdoor facade/sky reflection
 		// from appearing inside a closed elevator during the hidden transfer.
-		CabVisuals.MirrorMaterial = FridgeBodyMaterial;
+		CabVisuals.MirrorMaterial =
+			TexMat(TEXT("M_StainlessUV"), FridgeBodyMaterial);
 		CabVisuals.FloorMaterial = TexMat(TEXT("M_MarbleFloor_XY"), StoreFloorMaterial);
 		CabVisuals.InlayMaterial = PlasticDarkMaterial;
 		CabVisuals.CopMaterial = TexMat(TEXT("M_LiftCOP"), ScreenGlowMaterial);
 		CabVisuals.HallMaterial = TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial);
-		CabVisuals.DiffuserMaterial = LightPanelMaterial;
+		// The point light below the fixture is the physical emitter. Reusing the
+		// store's emissive panel here double-lit the small cab and clipped both
+		// diffusers to featureless white after exposure adapted to the dark hall.
+		// A matte white lens keeps the panel shape readable without baked light.
+		CabVisuals.DiffuserMaterial = SignWhiteMaterial;
 		Elevator->ConfigurePrototypeVisuals(CabVisuals, 900.0f);
 		Elevator->OnReturnedToFourthFloor.AddUniqueDynamic(
 			this,

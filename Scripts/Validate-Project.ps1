@@ -717,9 +717,9 @@ foreach ($worldContinuityInvariant in @(
 	'FVector(-392.5f, -305, 250), FVector(125, 160, 20)',
 	'FVector(800, -394, 620), FVector(160, 6, 1240)',
 	'FVector(1015, -385, 230), FVector(270, 20, 460)',
-	'CabVisuals.StainlessMaterial = FridgeBodyMaterial',
-	'CabVisuals.DoorMaterial = FridgeBodyMaterial',
-	'CabVisuals.MirrorMaterial = FridgeBodyMaterial'
+	'TexMat(TEXT("M_StainlessUV"), FridgeBodyMaterial)',
+	'CabVisuals.DiffuserMaterial = SignWhiteMaterial',
+	'TexMat(TEXT("M_SteelDoorUV"), FridgeBodyMaterial)'
 )) {
 	if (-not $worldSceneSource.Contains($worldContinuityInvariant)) {
 		throw "World spatial-continuity invariant is missing: $worldContinuityInvariant"
@@ -1013,7 +1013,9 @@ foreach ($requiredStressTickInvariant in @(
 }
 foreach ($requiredStorePerformanceInvariant in @(
 	'Components/InstancedStaticMeshComponent.h',
-	'ExpectedStoreStockInstances = 1122',
+	'ExpectedStoreStockInstances = 932',
+	'SM_DrinkCan is required for Korean cooler silhouette variety.',
+	'SM_MilkCarton is required for Korean cooler silhouette variety.',
 	'MaximumStoreStockBatches = 24',
 	'StoreStockCullStartCentimeters = 1600',
 	'StoreStockCullEndCentimeters = 2200',
@@ -1803,11 +1805,18 @@ foreach ($requiredReleaseValidationInvariant in @(
 	"Write-RunSummary -Status 'BLOCKED'",
 	"-Status 'PARTIAL'",
 	'All automated release stages completed from one clean commit.'
+	"Get-Command 'pwsh.exe'",
+	'PowerShell 7 is required for the UTF-8 Korean release contracts.',
+	'-FilePath $powerShellHost'
 )) {
 	if (-not $releaseValidationScript.Contains(
 			$requiredReleaseValidationInvariant)) {
 		throw "REBIRTH release harness invariant is missing: $requiredReleaseValidationInvariant"
 	}
+}
+if ($releaseValidationScript.Contains("-FilePath 'powershell.exe'") -or
+	$releaseValidationScript.Contains('& powershell.exe')) {
+	throw 'Release harness must not decode Korean UTF-8 contracts with Windows PowerShell 5.1.'
 }
 $shippingPackageGateIndex = $releaseValidationScript.LastIndexOf(
 	"Set-ActiveStep -Name 'shipping_package'")

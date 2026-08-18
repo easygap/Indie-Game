@@ -33,6 +33,13 @@ $buildProjectFile = $projectFile
 $usingAsciiBuildMirror = $false
 $resolverScript = Join-Path $PSScriptRoot 'Resolve-UnrealEditor.ps1'
 $validationScript = Join-Path $PSScriptRoot 'Validate-Project.ps1'
+$powerShellCoreCommand = Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue
+if ($null -eq $powerShellCoreCommand) {
+	throw (
+		'PowerShell 7 is required for the UTF-8 Korean release contracts. ' +
+		'Install PowerShell 7 and rerun this harness with pwsh.exe.')
+}
+$powerShellHost = $powerShellCoreCommand.Source
 $persistenceScript =
 	Join-Path $PSScriptRoot 'Run-Rebirth-PersistenceSpikes.ps1'
 $ch02FreedomScript =
@@ -511,7 +518,7 @@ function Write-ShippingArchiveManifest {
 	$script:shippingExecutableMetadataSyncLogPath =
 		Join-Path $script:runDirectory 'ShippingExecutableMetadataSync.log'
 	Invoke-NativeChecked `
-		-FilePath 'powershell.exe' `
+		-FilePath $powerShellHost `
 		-Arguments @(
 			'-NoProfile',
 			'-ExecutionPolicy',
@@ -536,7 +543,7 @@ function Write-ShippingArchiveManifest {
 	$script:shippingExecutableMetadataLogPath =
 		Join-Path $script:runDirectory 'ShippingExecutableMetadata.log'
 	Invoke-NativeChecked `
-		-FilePath 'powershell.exe' `
+		-FilePath $powerShellHost `
 		-Arguments @(
 			'-NoProfile',
 			'-ExecutionPolicy',
@@ -563,7 +570,7 @@ function Write-ShippingArchiveManifest {
 	$script:shippingApplicationIconLogPath =
 		Join-Path $script:runDirectory 'ShippingApplicationIcon.log'
 	Invoke-NativeChecked `
-		-FilePath 'powershell.exe' `
+		-FilePath $powerShellHost `
 		-Arguments @(
 			'-NoProfile',
 			'-ExecutionPolicy',
@@ -2179,7 +2186,7 @@ if (-not $StaticOnly `
 $staticContractsLog = Join-Path $runDirectory 'StaticContracts.log'
 Set-ActiveStep -Name 'static_contracts' -LogPath $staticContractsLog
 Invoke-NativeChecked `
-	-FilePath 'powershell.exe' `
+	-FilePath $powerShellHost `
 	-Arguments @(
 		'-NoProfile',
 		'-ExecutionPolicy',
@@ -2222,7 +2229,7 @@ Set-ActiveStep `
 $previousErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 $resolvedEditorOutput = @(
-	& powershell.exe `
+	& $powerShellHost `
 		-NoProfile `
 		-ExecutionPolicy Bypass `
 		-File $resolverScript `
@@ -2457,7 +2464,7 @@ if (-not $skipEditorRuntimeValidation) {
 		Join-Path $runDirectory 'PersistenceSpikes'
 	Set-ActiveStep -Name 'persistence_spikes' -LogPath $persistenceLog
 	Invoke-NativeChecked `
-		-FilePath 'powershell.exe' `
+		-FilePath $powerShellHost `
 		-Arguments @(
 			'-NoProfile',
 			'-ExecutionPolicy',
@@ -2486,7 +2493,7 @@ if (-not $skipEditorRuntimeValidation) {
 	$freedomEvidence = Join-Path $runDirectory 'CH02FreedomSpikes'
 	Set-ActiveStep -Name 'ch02_freedom_spikes' -LogPath $freedomLog
 	Invoke-NativeChecked `
-		-FilePath 'powershell.exe' `
+		-FilePath $powerShellHost `
 		-Arguments @(
 			'-NoProfile',
 			'-ExecutionPolicy',
@@ -2514,7 +2521,7 @@ if (-not $skipEditorRuntimeValidation) {
 	$anchorEvidence = Join-Path $runDirectory 'CheckpointAnchorSpikes'
 	Set-ActiveStep -Name 'checkpoint_anchor_spikes' -LogPath $anchorLog
 	Invoke-NativeChecked `
-		-FilePath 'powershell.exe' `
+		-FilePath $powerShellHost `
 		-Arguments @(
 			'-NoProfile',
 			'-ExecutionPolicy',
@@ -2687,7 +2694,7 @@ if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation) {
 		-Name 'shipping_persistence_spikes' `
 		-LogPath $shippingPersistenceLog
 	Invoke-NativeChecked `
-		-FilePath 'powershell.exe' `
+		-FilePath $powerShellHost `
 		-Arguments @(
 			'-NoProfile',
 			'-ExecutionPolicy',
@@ -2726,7 +2733,7 @@ if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation) {
 		-Name 'shipping_frontend_input_hud' `
 		-LogPath $shippingFrontendLog
 	Invoke-NativeChecked `
-		-FilePath 'powershell.exe' `
+		-FilePath $powerShellHost `
 		-Arguments @(
 			'-NoProfile',
 			'-ExecutionPolicy',
