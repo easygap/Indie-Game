@@ -1026,7 +1026,7 @@ foreach ($requiredStressTickInvariant in @(
 }
 foreach ($requiredStorePerformanceInvariant in @(
 	'Components/InstancedStaticMeshComponent.h',
-	'ExpectedStoreStockInstances = 932',
+	'ExpectedStoreStockInstances = 1151',
 	'SM_DrinkCan is required for Korean cooler silhouette variety.',
 	'SM_MilkCarton is required for Korean cooler silhouette variety.',
 	'MaximumStoreStockBatches = 24',

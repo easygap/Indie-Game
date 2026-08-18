@@ -157,7 +157,10 @@ namespace IGPrologueWorld
 	// handful of pixels, so it can fade before the store itself disappears.
 	constexpr int32 StoreStockCullStartCentimeters = 1600;
 	constexpr int32 StoreStockCullEndCentimeters = 2200;
-	constexpr int32 ExpectedStoreStockInstances = 932;
+	// 627 fixed aisle/chilled-food instances plus 524 cooler instances.  The
+	// cooler total counts each PET/glass bottle's body, cap and label as three
+	// render instances while cans and cartons are single instances.
+	constexpr int32 ExpectedStoreStockInstances = 1151;
 	constexpr int32 MaximumStoreStockBatches = 24;
 
 	enum class EReceiptTimeline : uint8
@@ -7168,6 +7171,16 @@ void AIGPrologueWorldScene::StartRebirthEndToEndValidation()
 			StoreStockBatchCount,
 			StoreStockInstanceCount))
 	{
+		UE_LOG(
+			LogIndieGame,
+			Error,
+			TEXT(
+				"REBIRTH_RELEASE FAIL store_instancing instances=%d expected=%d "
+				"batches=%d maximum=%d"),
+			StoreStockInstanceCount,
+			IGPrologueWorld::ExpectedStoreStockInstances,
+			StoreStockBatchCount,
+			IGPrologueWorld::MaximumStoreStockBatches);
 		FailRebirthEndToEndValidation(TEXT("store stock batching contract"));
 		return;
 	}
