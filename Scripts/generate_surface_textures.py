@@ -97,6 +97,12 @@ CORRIDOR_SIGNAGE_TEXTURE_NAMES = {
     "T_PlateCommon_D",
     "T_SignAux5MonitorOnly_D",
 }
+PROP_RESPONSE_ONLY = os.environ.get("IG_PROP_RESPONSE_ONLY") == "1"
+PROP_RESPONSE_TEXTURE_NAMES = {
+    "T_PaperClean_V2_N",
+    "T_PaperClean_V2_R",
+    "T_PaperClean_V2_A",
+}
 
 
 # ---------------------------------------------------------------------------
@@ -513,6 +519,7 @@ def import_textures():
                 and not APARTMENT_VISUAL_ONLY
                 and not MISSING_FLOOR_ONLY
                 and not CORRIDOR_SIGNAGE_ONLY
+                and not PROP_RESPONSE_ONLY
             )
             or (
                 HUD_UI_ONLY
@@ -533,6 +540,10 @@ def import_textures():
             or (
                 CORRIDOR_SIGNAGE_ONLY
                 and os.path.splitext(entry)[0] in CORRIDOR_SIGNAGE_TEXTURE_NAMES
+            )
+            or (
+                PROP_RESPONSE_ONLY
+                and os.path.splitext(entry)[0] in PROP_RESPONSE_TEXTURE_NAMES
             )
         )
     )
@@ -642,6 +653,7 @@ if __name__ == "__main__":
         and not APARTMENT_VISUAL_ONLY
         and not MISSING_FLOOR_ONLY
         and not CORRIDOR_SIGNAGE_ONLY
+        and not PROP_RESPONSE_ONLY
     ):
         generate_surface_pngs()
     import_textures()

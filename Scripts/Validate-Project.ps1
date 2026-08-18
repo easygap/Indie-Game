@@ -130,6 +130,7 @@ $requiredFiles = @(
 	'Scripts/RunGame-Chapter2.bat',
 	'Scripts/RunGame-Chapter3.bat',
 	'Scripts/Resolve-UnrealEditor.ps1',
+	'Scripts/Run-Prologue-Capture.ps1',
 	'Scripts/Run-Rebirth-Greybox.bat',
 	'Scripts/Run-Rebirth-ReleaseValidation.ps1',
 	'Scripts/Run-Rebirth-PersistenceSpikes.ps1',
@@ -595,6 +596,8 @@ $checkoutSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Interaction/IGCheckoutCounter.cpp')
 $demoDirectorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGDemoDirector.cpp')
+$prologueCaptureScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/Run-Prologue-Capture.ps1')
 $elevatorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Interaction/IGElevator.cpp')
 $swingDoorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -643,6 +646,39 @@ foreach ($surfaceBuildInvariant in @(
 )) {
 	if (-not $artBuildSource.Contains($surfaceBuildInvariant)) {
 		throw "Targeted surface-response build is missing: $surfaceBuildInvariant"
+	}
+}
+foreach ($propResponseInvariant in @(
+	'PRINT_RESPONSE_MARKER = "IG_PrintResponse_v1"',
+	'OPTICAL_RESPONSE_MARKER = "IG_OpticalResponse_v1"',
+	'WET_GROUND_RESPONSE_MARKER = "IG_WetGroundResponse_v1"',
+	'def _connect_print_response(material, base_sample, spec):',
+	'def create_optical_prop_materials(assets, tools, update_in_place=False):',
+	'"micro_stem": "T_PaperClean_V2"',
+	'"micro_stem": "T_CarrierBagFilm"',
+	'IG_PROP_RESPONSE_ONLY'
+)) {
+	if (-not $surfaceMaterialSource.Contains($propResponseInvariant)) {
+		throw "Prop-response material invariant is missing: $propResponseInvariant"
+	}
+}
+foreach ($propAuditInvariant in @(
+	'def validate_prop_response_materials()',
+	'Compiled print sample budget exceeded',
+	'Compiled optical-prop sample budget exceeded',
+	'Compiled wet-ground sample budget exceeded'
+)) {
+	if (-not $surfaceAuditSource.Contains($propAuditInvariant)) {
+		throw "Prop-response UAsset audit is missing: $propAuditInvariant"
+	}
+}
+foreach ($propBuildInvariant in @(
+	'[switch]$PropResponseOnly',
+	'IG_PROP_RESPONSE_ONLY',
+	'Prop response material update complete'
+)) {
+	if (-not $artBuildSource.Contains($propBuildInvariant)) {
+		throw "Targeted prop-response build is missing: $propBuildInvariant"
 	}
 }
 foreach ($surfaceLightingInvariant in @(
@@ -732,6 +768,38 @@ if ($worldSceneSource.Contains('FVector(-187.2f, -60, 152)')) {
 if (-not $demoDirectorSource.Contains('aborting spatial-continuity capture') -or
 	$demoDirectorSource.Contains('snapping to waypoint')) {
 	throw 'Demo capture must fail on a blocked threshold instead of teleporting through it.'
+}
+foreach ($requiredCaptureHarnessToken in @(
+	'-IGCapture',
+	'-RenderOffscreen',
+	'-d3d12',
+	'AddMinutes(10)',
+	"Get-Process -Name 'UnrealEditor'",
+	'Demo walkthrough complete; exiting.',
+	'prologue-bedroom.png',
+	'prologue-kitchen.png',
+	'prologue-not-found-note.png',
+	'prologue-corridor.png',
+	'prologue-elevator.png',
+	'prologue-lobby.png',
+	'prologue-villa.png',
+	'prologue-alley.png',
+	'prologue-ramyeon.png',
+	'prologue-store.png'
+)) {
+	if (-not $prologueCaptureScript.Contains($requiredCaptureHarnessToken)) {
+		throw "Prologue capture harness is missing: $requiredCaptureHarnessToken"
+	}
+}
+foreach ($elevatorLightingInvariant in @(
+	'CabLight->SetIntensity(520.0f)',
+	'CabLight->SetAttenuationRadius(300.0f)',
+	'CabLight->SetLightColor(FLinearColor(0.84f, 0.91f, 1.0f))',
+	'FloorFill->SetIntensity(36.0f)'
+)) {
+	if (-not $elevatorSource.Contains($elevatorLightingInvariant)) {
+		throw "Elevator anti-clipping lighting invariant is missing: $elevatorLightingInvariant"
+	}
 }
 
 foreach ($requiredChapterTwoCopy in @(

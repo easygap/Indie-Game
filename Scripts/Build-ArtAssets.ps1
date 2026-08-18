@@ -5,6 +5,7 @@ param(
 	[switch]$HudUiOnly,
 	[switch]$ApartmentVisualOnly,
 	[switch]$SurfaceResponseOnly,
+	[switch]$PropResponseOnly,
 	[switch]$CorridorSignageOnly,
 	[switch]$MissingFloorOnly,
 	[switch]$TankWaterOnly,
@@ -96,6 +97,7 @@ $modeCount = @(
 	$HudUiOnly.IsPresent,
 	$ApartmentVisualOnly.IsPresent,
 	$SurfaceResponseOnly.IsPresent,
+	$PropResponseOnly.IsPresent,
 	$CorridorSignageOnly.IsPresent,
 	$MissingFloorOnly.IsPresent,
 	$TankWaterOnly.IsPresent,
@@ -103,12 +105,13 @@ $modeCount = @(
 	$SubmergedClothingOnly.IsPresent
 ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($modeCount -gt 1) {
-	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, CorridorSignageOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
+	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, PropResponseOnly, CorridorSignageOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
 }
 
 if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	-not $SubmergedClothingOnly -and -not $HudUiOnly -and
 	-not $ApartmentVisualOnly -and -not $SurfaceResponseOnly -and
+	-not $PropResponseOnly -and
 	-not $CorridorSignageOnly -and
 	-not $MissingFloorOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
@@ -174,6 +177,18 @@ if ($ApartmentVisualOnly) {
 		--force
 	if ($LASTEXITCODE -ne 0) {
 		throw "Apartment PBR source-map generation failed ($LASTEXITCODE)"
+	}
+}
+
+if ($PropResponseOnly) {
+	$python = Get-Command python -ErrorAction Stop
+	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
+	Write-Host 'ART_BUILD running paper-fibre PBR source-map generation'
+	& $python.Source $pbrGenerator `
+		--only T_PaperClean_V2 `
+		--force
+	if ($LASTEXITCODE -ne 0) {
+		throw "Paper-fibre PBR source-map generation failed ($LASTEXITCODE)"
 	}
 }
 
@@ -259,6 +274,7 @@ if ($CodeOnly) {
 }
 
 if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
+	$PropResponseOnly -or
 	$CorridorSignageOnly -or
 	$MissingFloorOnly -or $TankWaterOnly -or $TankInteriorOnly -or
 	$SubmergedClothingOnly) {
@@ -270,6 +286,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($SurfaceResponseOnly) {
 		'SurfaceResponse'
+	}
+	elseif ($PropResponseOnly) {
+		'PropResponse'
 	}
 	elseif ($CorridorSignageOnly) {
 		'CorridorSignage'
@@ -295,6 +314,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	elseif ($SurfaceResponseOnly) {
 		'IG_SURFACE_RESPONSE_ONLY'
 	}
+	elseif ($PropResponseOnly) {
+		'IG_PROP_RESPONSE_ONLY'
+	}
 	elseif ($CorridorSignageOnly) {
 		'IG_CORRIDOR_SIGNAGE_ONLY'
 	}
@@ -318,6 +340,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($SurfaceResponseOnly) {
 		'\[IndieGame\] Surface response material update complete: \d+ materials'
+	}
+	elseif ($PropResponseOnly) {
+		'\[IndieGame\] Prop response material update complete: \d+ materials'
 	}
 	elseif ($CorridorSignageOnly) {
 		'\[IndieGame\] Corridor entrance signage material update complete'
@@ -403,6 +428,37 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 		) | ForEach-Object {
 			"Content\Prototype\Materials\$_.uasset"
 		}
+	}
+	elseif ($PropResponseOnly) {
+		@(
+			'Content\Prototype\Textures\T_PaperClean_V2_N.uasset',
+			'Content\Prototype\Textures\T_PaperClean_V2_R.uasset',
+			'Content\Prototype\Textures\T_PaperClean_V2_A.uasset',
+			'Content\Prototype\Materials\M_PaperClean.uasset',
+			'Content\Prototype\Materials\M_PaperWet.uasset',
+			'Content\Prototype\Materials\M_PaperFolded.uasset',
+			'Content\Prototype\Materials\M_PaperOld.uasset',
+			'Content\Prototype\Materials\M_LabelWater.uasset',
+			'Content\Prototype\Materials\M_LabelGreenTea.uasset',
+			'Content\Prototype\Materials\M_LabelBarley.uasset',
+			'Content\Prototype\Materials\M_LabelSoda.uasset',
+			'Content\Prototype\Materials\M_LabelSoju.uasset',
+			'Content\Prototype\Materials\M_LabelRamyeon.uasset',
+			'Content\Prototype\Materials\M_SnackShrimp.uasset',
+			'Content\Prototype\Materials\M_SnackPotato.uasset',
+			'Content\Prototype\Materials\M_SnackSquid.uasset',
+			'Content\Prototype\Materials\M_SnackCorn.uasset',
+			'Content\Prototype\Materials\M_Glass.uasset',
+			'Content\Prototype\Materials\M_BottleGreen.uasset',
+			'Content\Prototype\Materials\M_BottleBrown.uasset',
+			'Content\Prototype\Materials\M_FridgeBody.uasset',
+			'Content\Prototype\Materials\M_FridgeInterior.uasset',
+			'Content\Prototype\Materials\M_PlasticDark.uasset',
+			'Content\Prototype\Materials\M_TrashBag.uasset',
+			'Content\Prototype\Materials\M_MetalFrame.uasset',
+			'Content\Prototype\Materials\M_CarrierBagFilm.uasset',
+			'Content\Prototype\Materials\M_AsphaltWorld.uasset'
+		)
 	}
 	elseif ($CorridorSignageOnly) {
 		@(
@@ -546,6 +602,25 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($SurfaceResponseOnly) {
 		@(
+			@{
+				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
+	elseif ($PropResponseOnly) {
+		@(
+			@{
+				Script = 'generate_surface_textures.py'
+				SuccessPattern = '\[IndieGame\] Imported 3 textures'
+				TargetEnvironment = $true
+			},
 			@{
 				Script = 'create_textured_materials.py'
 				SuccessPattern = $targetSuccessPattern

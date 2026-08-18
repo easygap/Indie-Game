@@ -14,6 +14,9 @@ import unreal
 MATERIAL_ROOT = "/Game/Prototype/Materials"
 TEXTURE_ROOT = "/Game/Prototype/Textures"
 SURFACE_RESPONSE_MARKER = "IG_SurfaceResponse_v1"
+PRINT_RESPONSE_MARKER = "IG_PrintResponse_v1"
+OPTICAL_RESPONSE_MARKER = "IG_OpticalResponse_v1"
+WET_GROUND_RESPONSE_MARKER = "IG_WetGroundResponse_v1"
 
 # A single 1K/2K scan still reads like wallpaper when it is repeated across a
 # whole room.  These restrained, material-family defaults add a second spatial
@@ -250,10 +253,30 @@ DECAL_MATERIALS = {
     # creases, tape, water damage and age.
     # V2 preserves the faulty first paper sheet for provenance while replacing
     # the live materials with the verified, text-free ImageGen paper stock.
-    "M_PaperClean":    {"tex_asset": "T_PaperClean_V2_D", "rough": 0.82},
-    "M_PaperWet":      {"tex_asset": "T_PaperWet_V2_D", "rough": 0.62},
-    "M_PaperFolded":   {"tex_asset": "T_PaperFolded_V2_D", "rough": 0.84},
-    "M_PaperOld":      {"tex_asset": "T_PaperOld_V2_D", "rough": 0.86},
+    "M_PaperClean": {
+        "tex_asset": "T_PaperClean_V2_D", "rough": 0.82,
+        "micro_stem": "T_PaperClean_V2", "normal_strength": 0.24,
+        "rough_low": 0.76, "rough_high": 0.90, "ao": True,
+        "specular": 0.22,
+    },
+    "M_PaperWet": {
+        "tex_asset": "T_PaperWet_V2_D", "rough": 0.62,
+        "micro_stem": "T_PaperClean_V2", "normal_strength": 0.18,
+        "rough_low": 0.48, "rough_high": 0.70, "ao": True,
+        "specular": 0.42,
+    },
+    "M_PaperFolded": {
+        "tex_asset": "T_PaperFolded_V2_D", "rough": 0.84,
+        "micro_stem": "T_PaperClean_V2", "normal_strength": 0.27,
+        "rough_low": 0.78, "rough_high": 0.92, "ao": True,
+        "specular": 0.20,
+    },
+    "M_PaperOld": {
+        "tex_asset": "T_PaperOld_V2_D", "rough": 0.86,
+        "micro_stem": "T_PaperClean_V2", "normal_strength": 0.30,
+        "rough_low": 0.80, "rough_high": 0.94, "ao": True,
+        "specular": 0.18,
+    },
     "M_NoticeRent":    {"tex_asset": "T_NoticeRent_D", "rough": 0.72},
     "M_DoorAd":        {"tex_asset": "T_DoorAd_D", "rough": 0.6},
     "M_Calendar":      {"tex_asset": "T_Calendar_D", "rough": 0.7},
@@ -270,16 +293,56 @@ DECAL_MATERIALS = {
     "M_LiftHall":      {"tex_asset": "T_LiftHall_D", "rough": 0.3, "emissive_scale": 1.4},
     "M_SwitchPlate":   {"tex_asset": "T_SwitchPlate_D", "rough": 0.4, "emissive_scale": 0.1},
     # Product labels: printed plastic film, so fairly smooth and unlit-free.
-    "M_LabelWater":    {"tex_asset": "T_LabelWater_D", "rough": 0.28},
-    "M_LabelGreenTea": {"tex_asset": "T_LabelGreenTea_D", "rough": 0.28},
-    "M_LabelBarley":   {"tex_asset": "T_LabelBarley_D", "rough": 0.28},
-    "M_LabelSoda":     {"tex_asset": "T_LabelSoda_D", "rough": 0.28},
-    "M_LabelSoju":     {"tex_asset": "T_LabelSoju_D", "rough": 0.32},
-    "M_LabelRamyeon":  {"tex_asset": "T_LabelRamyeon_D", "rough": 0.42},
-    "M_SnackShrimp":   {"tex_asset": "T_SnackShrimp_D", "rough": 0.22},
-    "M_SnackPotato":   {"tex_asset": "T_SnackPotato_D", "rough": 0.22},
-    "M_SnackSquid":    {"tex_asset": "T_SnackSquid_D", "rough": 0.22},
-    "M_SnackCorn":     {"tex_asset": "T_SnackCorn_D", "rough": 0.22},
+    "M_LabelWater": {
+        "tex_asset": "T_LabelWater_D", "rough": 0.28,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.06,
+        "rough_low": 0.20, "rough_high": 0.34, "specular": 0.56,
+    },
+    "M_LabelGreenTea": {
+        "tex_asset": "T_LabelGreenTea_D", "rough": 0.28,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.06,
+        "rough_low": 0.20, "rough_high": 0.34, "specular": 0.56,
+    },
+    "M_LabelBarley": {
+        "tex_asset": "T_LabelBarley_D", "rough": 0.28,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.06,
+        "rough_low": 0.20, "rough_high": 0.34, "specular": 0.56,
+    },
+    "M_LabelSoda": {
+        "tex_asset": "T_LabelSoda_D", "rough": 0.28,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.06,
+        "rough_low": 0.20, "rough_high": 0.34, "specular": 0.56,
+    },
+    "M_LabelSoju": {
+        "tex_asset": "T_LabelSoju_D", "rough": 0.32,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.05,
+        "rough_low": 0.24, "rough_high": 0.38, "specular": 0.52,
+    },
+    "M_LabelRamyeon": {
+        "tex_asset": "T_LabelRamyeon_D", "rough": 0.42,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.08,
+        "rough_low": 0.32, "rough_high": 0.50, "specular": 0.48,
+    },
+    "M_SnackShrimp": {
+        "tex_asset": "T_SnackShrimp_D", "rough": 0.22,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.16,
+        "rough_low": 0.14, "rough_high": 0.30, "specular": 0.62,
+    },
+    "M_SnackPotato": {
+        "tex_asset": "T_SnackPotato_D", "rough": 0.22,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.16,
+        "rough_low": 0.14, "rough_high": 0.30, "specular": 0.62,
+    },
+    "M_SnackSquid": {
+        "tex_asset": "T_SnackSquid_D", "rough": 0.22,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.16,
+        "rough_low": 0.14, "rough_high": 0.30, "specular": 0.62,
+    },
+    "M_SnackCorn": {
+        "tex_asset": "T_SnackCorn_D", "rough": 0.22,
+        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.16,
+        "rough_low": 0.14, "rough_high": 0.30, "specular": 0.62,
+    },
     # ImageGen scans are BaseColor inputs on authored geometry, not finished
     # materials. Companion N/R/A/W/M maps make them respond to flashlight,
     # Lumen reflections and contact shadowing without baking light into colour.
@@ -525,6 +588,58 @@ WRAPPED_LABEL_MATERIALS = {
     "M_LabelSoda",
     "M_LabelSoju",
     "M_LabelWater",
+}
+
+# High-visibility fallback materials still used by the authored convenience
+# store props. They remain deliberately inexpensive, but no longer render as
+# flat greybox colours: glass gains grazing opacity, bottles gain a coloured
+# rim, coated steel carries brushed micro-response, and dark plastics retain a
+# readable silhouette without fake emissive light.
+OPTICAL_PROP_MATERIALS = {
+    "M_Glass": {
+        "base": (0.018, 0.026, 0.030),
+        "edge": (0.16, 0.20, 0.21),
+        "rough": 0.065, "specular": 0.68,
+        "opacity_center": 0.055, "opacity_edge": 0.24,
+        "refraction": 1.012, "two_sided": True,
+    },
+    "M_BottleGreen": {
+        "base": (0.025, 0.16, 0.045),
+        "edge": (0.14, 0.50, 0.20),
+        "rough": 0.17, "specular": 0.64,
+    },
+    "M_BottleBrown": {
+        "base": (0.13, 0.040, 0.012),
+        "edge": (0.43, 0.16, 0.035),
+        "rough": 0.21, "specular": 0.60,
+    },
+    "M_FridgeBody": {
+        "base": (0.62, 0.64, 0.64),
+        "micro_stem": "T_MetalBrushed", "micro_tile": 6.0,
+        "normal_strength": 0.18, "rough_low": 0.30,
+        "rough_high": 0.47, "metallic": 0.05, "specular": 0.48,
+    },
+    "M_FridgeInterior": {
+        "base": (0.66, 0.69, 0.70),
+        "edge": (0.82, 0.85, 0.85),
+        "rough": 0.38, "specular": 0.48,
+    },
+    "M_PlasticDark": {
+        "base": (0.020, 0.022, 0.025),
+        "edge": (0.075, 0.080, 0.085),
+        "rough": 0.34, "specular": 0.52,
+    },
+    "M_TrashBag": {
+        "base": (0.025, 0.030, 0.026),
+        "edge": (0.085, 0.095, 0.086),
+        "rough": 0.26, "specular": 0.56,
+    },
+    "M_MetalFrame": {
+        "base": (0.30, 0.32, 0.35),
+        "micro_stem": "T_MetalBrushed", "micro_tile": 4.0,
+        "normal_strength": 0.32, "rough_low": 0.24,
+        "rough_high": 0.43, "metallic": 0.88, "specular": 0.50,
+    },
 }
 
 
@@ -1157,6 +1272,131 @@ def create_textured_materials(assets, tools, specs=None, update_in_place=False):
     return created
 
 
+def _connect_marked_scalar(
+    material, value, marker_name, material_property, x, y
+):
+    """Connect a constant through a persisted version marker.
+
+    The marker is part of the compiled path, so the UAsset audit can prove the
+    live material was migrated rather than merely containing a detached note.
+    """
+    constant = _expr(material, unreal.MaterialExpressionConstant, x, y)
+    constant.set_editor_property("r", float(value))
+    marker = _expr(material, unreal.MaterialExpressionScalarParameter, x, y + 120)
+    marker.set_editor_property("parameter_name", marker_name)
+    marker.set_editor_property("default_value", 1.0)
+    marked = _expr(material, unreal.MaterialExpressionMultiply, x + 190, y + 40)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        constant, "", marked, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        marker, "", marked, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        marked, "", material_property
+    )
+    return marked
+
+
+def _connect_print_response(material, base_sample, spec):
+    """Give paper and printed film a bounded, reusable micro-surface.
+
+    Labels keep their authored colour as BaseColor. A neutral companion normal
+    and roughness map supplies only wrinkle/fibre response, avoiding the common
+    mistake where Korean lettering is interpreted as embossed geometry.
+    """
+    unreal.MaterialEditingLibrary.connect_material_property(
+        base_sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
+    )
+
+    micro_stem = spec.get("micro_stem")
+    if micro_stem:
+        micro_uv = None
+        micro_tile = float(spec.get("micro_tile", 1.0))
+        if abs(micro_tile - 1.0) > 0.001:
+            micro_uv = _expr(
+                material, unreal.MaterialExpressionTextureCoordinate, -1040, 640
+            )
+            micro_uv.set_editor_property("u_tiling", micro_tile)
+            micro_uv.set_editor_property("v_tiling", micro_tile)
+
+        normal = _sample(
+            material,
+            _load_texture(f"{micro_stem}_N"),
+            micro_uv,
+            unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+            680,
+        )
+        normal_source, normal_pin = _strengthen_normal(
+            material,
+            normal,
+            "RGB",
+            float(spec.get("normal_strength", 0.12)),
+            680,
+        )
+        unreal.MaterialEditingLibrary.connect_material_property(
+            normal_source, normal_pin, unreal.MaterialProperty.MP_NORMAL
+        )
+
+        roughness = _sample(
+            material,
+            _load_texture(f"{micro_stem}_R"),
+            micro_uv,
+            unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+            900,
+        )
+        rough_low = _expr(material, unreal.MaterialExpressionConstant, -420, 920)
+        rough_low.set_editor_property(
+            "r", float(spec.get("rough_low", spec.get("rough", 0.6) - 0.06))
+        )
+        rough_high = _expr(material, unreal.MaterialExpressionConstant, -420, 1040)
+        rough_high.set_editor_property(
+            "r", float(spec.get("rough_high", spec.get("rough", 0.6) + 0.06))
+        )
+        rough_mix = _expr(
+            material, unreal.MaterialExpressionLinearInterpolate, -200, 960
+        )
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            rough_low, "", rough_mix, "A"
+        )
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            rough_high, "", rough_mix, "B"
+        )
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            roughness, "R", rough_mix, "Alpha"
+        )
+        unreal.MaterialEditingLibrary.connect_material_property(
+            rough_mix, "", unreal.MaterialProperty.MP_ROUGHNESS
+        )
+
+        if spec.get("ao"):
+            ao = _sample(
+                material,
+                _load_texture(f"{micro_stem}_A"),
+                micro_uv,
+                unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+                1160,
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                ao, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION
+            )
+    else:
+        roughness = _expr(material, unreal.MaterialExpressionConstant, -650, 340)
+        roughness.set_editor_property("r", spec.get("rough", 0.6))
+        unreal.MaterialEditingLibrary.connect_material_property(
+            roughness, "", unreal.MaterialProperty.MP_ROUGHNESS
+        )
+
+    _connect_marked_scalar(
+        material,
+        spec.get("specular", 0.32),
+        PRINT_RESPONSE_MARKER,
+        unreal.MaterialProperty.MP_SPECULAR,
+        -160,
+        1220,
+    )
+
+
 def create_flat_texture_materials(
     assets, tools, specs, emissive_only, update_in_place=False
 ):
@@ -1184,7 +1424,11 @@ def create_flat_texture_materials(
             material = unreal.load_asset(asset_path)
             if material is None:
                 raise RuntimeError(f"Could not load material: {asset_path}")
-            unreal.MaterialEditingLibrary.delete_all_material_expressions(material)
+            # Rooted materials are already referenced by the prologue CDO in
+            # commandlet runs. Appending a replacement graph and reconnecting
+            # the outputs is safe; the compiler prunes the disconnected legacy
+            # nodes. Deleting every expression here can invalidate a rooted
+            # object and crash the editor before the package is saved.
         else:
             material = _recreate_material(assets, tools, name)
         material.set_editor_property("two_sided", bool(spec.get("two_sided", False)))
@@ -1241,14 +1485,7 @@ def create_flat_texture_materials(
             if spec.get("pbr_stem"):
                 _connect_scan_pbr(material, sample, uv, spec)
             else:
-                unreal.MaterialEditingLibrary.connect_material_property(
-                    sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
-                )
-                rough_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 340)
-                rough_constant.set_editor_property("r", spec.get("rough", 0.6))
-                unreal.MaterialEditingLibrary.connect_material_property(
-                    rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
-                )
+                _connect_print_response(material, sample, spec)
 
         if emissive_scale > 0.0:
             scale_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 500)
@@ -1409,7 +1646,198 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
     return created
 
 
-def create_carrier_bag_material(assets, tools):
+def _material_for_layered_update(assets, tools, name, update_in_place):
+    asset_path = f"{MATERIAL_ROOT}/{name}"
+    if update_in_place and assets.does_asset_exist(asset_path):
+        material = unreal.load_asset(asset_path)
+        if material is None:
+            raise RuntimeError(f"Could not load material: {asset_path}")
+        return material
+    return _recreate_material(assets, tools, name)
+
+
+def create_optical_prop_materials(assets, tools, update_in_place=False):
+    """Build the cheap but physically legible glass/metal/plastic fallbacks."""
+    created = []
+    for name, spec in OPTICAL_PROP_MATERIALS.items():
+        material = _material_for_layered_update(
+            assets, tools, name, update_in_place
+        )
+        material.set_editor_property("two_sided", bool(spec.get("two_sided", False)))
+        if "opacity_center" in spec:
+            material.set_editor_property(
+                "blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT
+            )
+            material.set_editor_property(
+                "translucency_lighting_mode",
+                unreal.TranslucencyLightingMode.TLM_SURFACE,
+            )
+
+        base_value = spec["base"]
+        base = _expr(
+            material, unreal.MaterialExpressionConstant3Vector, -760, -100
+        )
+        base.set_editor_property(
+            "constant",
+            unreal.LinearColor(base_value[0], base_value[1], base_value[2], 1.0),
+        )
+        fresnel = None
+        if "edge" in spec:
+            edge_value = spec["edge"]
+            edge = _expr(
+                material, unreal.MaterialExpressionConstant3Vector, -760, 40
+            )
+            edge.set_editor_property(
+                "constant",
+                unreal.LinearColor(edge_value[0], edge_value[1], edge_value[2], 1.0),
+            )
+            fresnel = _expr(material, unreal.MaterialExpressionFresnel, -560, 60)
+            rim_base = _expr(
+                material, unreal.MaterialExpressionLinearInterpolate, -340, -40
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                base, "", rim_base, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                edge, "", rim_base, "B"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                fresnel, "", rim_base, "Alpha"
+            )
+            base_source = rim_base
+        else:
+            base_source = base
+        unreal.MaterialEditingLibrary.connect_material_property(
+            base_source, "", unreal.MaterialProperty.MP_BASE_COLOR
+        )
+
+        micro_stem = spec.get("micro_stem")
+        if micro_stem:
+            micro_uv = _expr(
+                material, unreal.MaterialExpressionTextureCoordinate, -1040, 360
+            )
+            micro_uv.set_editor_property(
+                "u_tiling", float(spec.get("micro_tile", 1.0))
+            )
+            micro_uv.set_editor_property(
+                "v_tiling", float(spec.get("micro_tile", 1.0))
+            )
+            normal = _sample(
+                material,
+                _load_texture(f"{micro_stem}_N"),
+                micro_uv,
+                unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+                360,
+            )
+            normal_source, normal_pin = _strengthen_normal(
+                material,
+                normal,
+                "RGB",
+                float(spec.get("normal_strength", 0.25)),
+                420,
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                normal_source, normal_pin, unreal.MaterialProperty.MP_NORMAL
+            )
+            rough_map = _sample(
+                material,
+                _load_texture(f"{micro_stem}_R"),
+                micro_uv,
+                unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+                720,
+            )
+            rough_low = _expr(
+                material, unreal.MaterialExpressionConstant, -420, 760
+            )
+            rough_low.set_editor_property("r", float(spec["rough_low"]))
+            rough_high = _expr(
+                material, unreal.MaterialExpressionConstant, -420, 880
+            )
+            rough_high.set_editor_property("r", float(spec["rough_high"]))
+            roughness = _expr(
+                material, unreal.MaterialExpressionLinearInterpolate, -200, 800
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                rough_low, "", roughness, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                rough_high, "", roughness, "B"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                rough_map, "R", roughness, "Alpha"
+            )
+        else:
+            roughness = _expr(
+                material, unreal.MaterialExpressionConstant, -240, 760
+            )
+            roughness.set_editor_property("r", float(spec["rough"]))
+        unreal.MaterialEditingLibrary.connect_material_property(
+            roughness, "", unreal.MaterialProperty.MP_ROUGHNESS
+        )
+
+        if "metallic" in spec:
+            metallic = _expr(
+                material, unreal.MaterialExpressionConstant, -240, 980
+            )
+            metallic.set_editor_property("r", float(spec["metallic"]))
+            unreal.MaterialEditingLibrary.connect_material_property(
+                metallic, "", unreal.MaterialProperty.MP_METALLIC
+            )
+        _connect_marked_scalar(
+            material,
+            spec.get("specular", 0.5),
+            OPTICAL_RESPONSE_MARKER,
+            unreal.MaterialProperty.MP_SPECULAR,
+            -80,
+            1100,
+        )
+
+        if "opacity_center" in spec:
+            if fresnel is None:
+                fresnel = _expr(
+                    material, unreal.MaterialExpressionFresnel, -560, 60
+                )
+            opacity_center = _expr(
+                material, unreal.MaterialExpressionConstant, -560, 1240
+            )
+            opacity_center.set_editor_property("r", float(spec["opacity_center"]))
+            opacity_edge = _expr(
+                material, unreal.MaterialExpressionConstant, -560, 1360
+            )
+            opacity_edge.set_editor_property("r", float(spec["opacity_edge"]))
+            opacity = _expr(
+                material, unreal.MaterialExpressionLinearInterpolate, -340, 1300
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                opacity_center, "", opacity, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                opacity_edge, "", opacity, "B"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                fresnel, "", opacity, "Alpha"
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                opacity, "", unreal.MaterialProperty.MP_OPACITY
+            )
+            refraction = _expr(
+                material, unreal.MaterialExpressionConstant, -120, 1440
+            )
+            refraction.set_editor_property("r", float(spec["refraction"]))
+            unreal.MaterialEditingLibrary.connect_material_property(
+                refraction, "", unreal.MaterialProperty.MP_REFRACTION
+            )
+
+        if name in INSTANCED_PRODUCT_MATERIALS:
+            material.set_editor_property("used_with_instanced_static_meshes", True)
+        unreal.MaterialEditingLibrary.layout_material_expressions(material)
+        unreal.MaterialEditingLibrary.recompile_material(material)
+        unreal.log(f"[IndieGame] Created optical prop response: {name}")
+        created.append(material)
+    return created
+
+
+def create_carrier_bag_material(assets, tools, update_in_place=False):
     """Thin printed LDPE without an opaque glass-box silhouette.
 
     The texture supplies wrinkles and fictional pale-blue print. Opacity stays
@@ -1423,7 +1851,9 @@ def create_carrier_bag_material(assets, tools):
         )
         return None
 
-    material = _recreate_material(assets, tools, "M_CarrierBagFilm")
+    material = _material_for_layered_update(
+        assets, tools, "M_CarrierBagFilm", update_in_place
+    )
     material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     material.set_editor_property("two_sided", True)
     sample = _sample(
@@ -1920,10 +2350,12 @@ def create_tank_water_material(assets, tools):
     return material
 
 
-def create_wet_asphalt(assets, tools):
+def create_wet_asphalt(assets, tools, update_in_place=False):
     """Dew-wet alley asphalt: large-scale puddle mask flattens the normal and
     drops roughness to a mirror so Lumen reflects the signs and streetlights."""
-    material = _recreate_material(assets, tools, "M_AsphaltWorld")
+    material = _material_for_layered_update(
+        assets, tools, "M_AsphaltWorld", update_in_place
+    )
 
     base_uv = _make_uv_source(material, "XY", 260.0, 0)
     diffuse = _sample(
@@ -1944,24 +2376,39 @@ def create_wet_asphalt(assets, tools):
         _make_uv_source(material, "XY", 1150.0, 1140),
         unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE, 1140)
     threshold = _expr(material, unreal.MaterialExpressionConstant, -1100, 1320)
-    threshold.set_editor_property("r", 0.42)
+    # Real asphalt roughness commonly sits well above 0.5. The previous 0.42
+    # threshold therefore evaluated to zero across almost the whole scan and
+    # the authored wet alley rendered dry. This higher threshold extracts the
+    # broad darker basins, while a low dew floor keeps the rest merely damp.
+    threshold.set_editor_property("r", 0.78)
     below = _expr(material, unreal.MaterialExpressionSubtract, -900, 1240)
     unreal.MaterialEditingLibrary.connect_material_expressions(threshold, "", below, "A")
     unreal.MaterialEditingLibrary.connect_material_expressions(mask, "R", below, "B")
     sharpen = _expr(material, unreal.MaterialExpressionConstant, -900, 1380)
-    sharpen.set_editor_property("r", 6.0)
+    sharpen.set_editor_property("r", 4.8)
     scaled = _expr(material, unreal.MaterialExpressionMultiply, -740, 1260)
     unreal.MaterialEditingLibrary.connect_material_expressions(below, "", scaled, "A")
     unreal.MaterialEditingLibrary.connect_material_expressions(sharpen, "", scaled, "B")
-    puddle = _expr(material, unreal.MaterialExpressionSaturate, -600, 1260)
-    unreal.MaterialEditingLibrary.connect_material_expressions(scaled, "", puddle, "")
+    puddle_mask = _expr(material, unreal.MaterialExpressionSaturate, -600, 1260)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scaled, "", puddle_mask, ""
+    )
+    dew_floor = _expr(material, unreal.MaterialExpressionConstant, -600, 1430)
+    dew_floor.set_editor_property("r", 0.10)
+    puddle = _expr(material, unreal.MaterialExpressionMax, -420, 1320)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        puddle_mask, "", puddle, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        dew_floor, "", puddle, "B"
+    )
 
     # Base color darkens where wet.
     dark_scale = _expr(material, unreal.MaterialExpressionLinearInterpolate, -420, 120)
     one = _expr(material, unreal.MaterialExpressionConstant, -600, 40)
     one.set_editor_property("r", 1.0)
     wet_dark = _expr(material, unreal.MaterialExpressionConstant, -600, 180)
-    wet_dark.set_editor_property("r", 0.45)
+    wet_dark.set_editor_property("r", 0.62)
     unreal.MaterialEditingLibrary.connect_material_expressions(one, "", dark_scale, "A")
     unreal.MaterialEditingLibrary.connect_material_expressions(wet_dark, "", dark_scale, "B")
     unreal.MaterialEditingLibrary.connect_material_expressions(puddle, "", dark_scale, "Alpha")
@@ -1973,7 +2420,7 @@ def create_wet_asphalt(assets, tools):
 
     # Roughness collapses to a mirror inside puddles.
     mirror = _expr(material, unreal.MaterialExpressionConstant, -420, 820)
-    mirror.set_editor_property("r", 0.03)
+    mirror.set_editor_property("r", 0.075)
     rough_mix = _expr(material, unreal.MaterialExpressionLinearInterpolate, -240, 780)
     unreal.MaterialEditingLibrary.connect_material_expressions(rough, "R", rough_mix, "A")
     unreal.MaterialEditingLibrary.connect_material_expressions(mirror, "", rough_mix, "B")
@@ -1987,9 +2434,31 @@ def create_wet_asphalt(assets, tools):
     normal_mix = _expr(material, unreal.MaterialExpressionLinearInterpolate, -240, 440)
     unreal.MaterialEditingLibrary.connect_material_expressions(normal, "RGB", normal_mix, "A")
     unreal.MaterialEditingLibrary.connect_material_expressions(flat, "", normal_mix, "B")
-    unreal.MaterialEditingLibrary.connect_material_expressions(puddle, "", normal_mix, "Alpha")
+    flatten_scale = _expr(material, unreal.MaterialExpressionConstant, -420, 620)
+    flatten_scale.set_editor_property("r", 0.82)
+    flatten_alpha = _expr(
+        material, unreal.MaterialExpressionMultiply, -240, 600
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        puddle, "", flatten_alpha, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        flatten_scale, "", flatten_alpha, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        flatten_alpha, "", normal_mix, "Alpha"
+    )
     unreal.MaterialEditingLibrary.connect_material_property(
         normal_mix, "", unreal.MaterialProperty.MP_NORMAL)
+
+    _connect_marked_scalar(
+        material,
+        0.58,
+        WET_GROUND_RESPONSE_MARKER,
+        unreal.MaterialProperty.MP_SPECULAR,
+        -40,
+        1500,
+    )
 
     unreal.MaterialEditingLibrary.layout_material_expressions(material)
     unreal.MaterialEditingLibrary.recompile_material(material)
@@ -2457,6 +2926,68 @@ def run():
         )
         return
 
+    if os.environ.get("IG_PROP_RESPONSE_ONLY") == "1":
+        print_names = (
+            "M_PaperClean",
+            "M_PaperWet",
+            "M_PaperFolded",
+            "M_PaperOld",
+            "M_LabelWater",
+            "M_LabelGreenTea",
+            "M_LabelBarley",
+            "M_LabelSoda",
+            "M_LabelSoju",
+            "M_LabelRamyeon",
+            "M_SnackShrimp",
+            "M_SnackPotato",
+            "M_SnackSquid",
+            "M_SnackCorn",
+        )
+        created = create_flat_texture_materials(
+            assets,
+            tools,
+            {name: DECAL_MATERIALS[name] for name in print_names},
+            False,
+            update_in_place=True,
+        )
+        if len(created) != len(print_names):
+            raise RuntimeError(
+                f"Print response material count mismatch: {len(created)} / "
+                f"{len(print_names)}"
+            )
+        created += create_optical_prop_materials(
+            assets, tools, update_in_place=True
+        )
+        carrier_bag = create_carrier_bag_material(
+            assets, tools, update_in_place=True
+        )
+        if carrier_bag is None:
+            raise RuntimeError("Could not update M_CarrierBagFilm")
+        created.append(carrier_bag)
+        created.append(create_wet_asphalt(assets, tools, update_in_place=True))
+        for material in created:
+            name = material.get_name()
+            if name in INSTANCED_PRODUCT_MATERIALS:
+                material.set_editor_property(
+                    "used_with_instanced_static_meshes", True
+                )
+            if name in WRAPPED_LABEL_MATERIALS:
+                material.set_editor_property("two_sided", True)
+            unreal.MaterialEditingLibrary.recompile_material(material)
+        failed = []
+        for material in created:
+            if not assets.save_loaded_asset(material, False):
+                failed.append(material.get_name())
+        if failed:
+            raise RuntimeError(
+                "Could not save prop response materials: " + ", ".join(failed)
+            )
+        unreal.log(
+            f"[IndieGame] Prop response material update complete: "
+            f"{len(created)} materials"
+        )
+        return
+
     if os.environ.get("IG_WET_STEP_ONLY") == "1":
         wet_step = create_wet_step(assets, tools)
         if not assets.save_loaded_assets([wet_step], False):
@@ -2655,6 +3186,9 @@ def run():
     created.append(create_wet_asphalt(assets, tools))
     created.append(create_wet_step(assets, tools))
     created.append(create_sky_material(assets, tools))
+    created += create_optical_prop_materials(
+        assets, tools, update_in_place=True
+    )
     enable_instanced_product_usage(created)
 
     if not assets.save_loaded_assets(created, False):

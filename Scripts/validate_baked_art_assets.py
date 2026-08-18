@@ -13,9 +13,14 @@ if SCRIPT_DIR not in sys.path:
 
 from photo_prop_lod_contract import inspect_photo_prop_lods
 from create_textured_materials import (
+    DECAL_MATERIALS,
+    OPTICAL_PROP_MATERIALS,
+    OPTICAL_RESPONSE_MARKER,
+    PRINT_RESPONSE_MARKER,
     SURFACE_RESPONSE_DEFAULTS,
     SURFACE_RESPONSE_MARKER,
     TEXTURED_MATERIALS,
+    WET_GROUND_RESPONSE_MARKER,
 )
 
 
@@ -110,6 +115,7 @@ PRINT_SURFACE_MESHES = {
 
 PBR_STEMS = {
     "T_ApartmentWallpaperV2": ("D", "N", "R", "A"),
+    "T_PaperClean_V2": ("D", "N", "R", "A"),
     "T_WetHoodie": ("D", "N", "R", "A", "W"),
     "T_AlleyCatTabby": ("D", "N", "R", "A"),
     "T_WaterTankGalvanized": ("D", "N", "R", "A", "W", "M"),
@@ -235,6 +241,26 @@ WRAPPED_LABEL_MATERIALS = {
     "M_LabelSoda",
     "M_LabelSoju",
     "M_LabelWater",
+}
+
+PRINT_RESPONSE_MATERIALS = {
+    name: DECAL_MATERIALS[name]
+    for name in (
+        "M_PaperClean",
+        "M_PaperWet",
+        "M_PaperFolded",
+        "M_PaperOld",
+        "M_LabelWater",
+        "M_LabelGreenTea",
+        "M_LabelBarley",
+        "M_LabelSoda",
+        "M_LabelSoju",
+        "M_LabelRamyeon",
+        "M_SnackShrimp",
+        "M_SnackPotato",
+        "M_SnackSquid",
+        "M_SnackCorn",
+    )
 }
 
 EVIDENCE_MASK_MATERIALS = {
@@ -405,7 +431,12 @@ def validate_textures() -> int:
                 require("GRAYSCALE" in compression.upper(), f"Grayscale compression missing: {name}")
             size_x = texture.blueprint_get_size_x()
             size_y = texture.blueprint_get_size_y()
-            require(size_x >= 1024 and size_y >= 1024, f"Texture below 1K: {name} ({size_x}x{size_y})")
+            minimum_edge = 512 if stem == "T_PaperClean_V2" else 1024
+            require(
+                size_x >= minimum_edge and size_y >= minimum_edge,
+                f"Texture below authored minimum {minimum_edge}: "
+                f"{name} ({size_x}x{size_y})",
+            )
             checked += 1
     for texture_name in EVIDENCE_MASK_MATERIALS.values():
         texture = load(
@@ -556,8 +587,122 @@ def validate_surface_response_materials() -> tuple[int, int]:
     return checked, linked_samples
 
 
+def validate_prop_response_materials() -> tuple[int, int]:
+    """Prove the live paper, film, glass, metal and wet-ground response."""
+    checked = 0
+    linked_samples = 0
+    for name, spec in PRINT_RESPONSE_MATERIALS.items():
+        material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
+        errors = unreal.MaterialEditingLibrary.recompile_material(material)
+        require(not errors, f"Print response compile failed: {name}: {errors}")
+        require(
+            has_scalar_parameter(material, PRINT_RESPONSE_MARKER),
+            f"Print response version marker is missing: {name}",
+        )
+        for material_property in (
+            unreal.MaterialProperty.MP_BASE_COLOR,
+            unreal.MaterialProperty.MP_NORMAL,
+            unreal.MaterialProperty.MP_ROUGHNESS,
+            unreal.MaterialProperty.MP_SPECULAR,
+        ):
+            material_input(material, material_property)
+        used = expression_texture_paths(material)
+        micro_stem = spec["micro_stem"]
+        for suffix in ("N", "R"):
+            expected = f"/Game/Prototype/Textures/{micro_stem}_{suffix}"
+            require(
+                expected in used,
+                f"Print micro-{suffix} is not linked: {name}: {expected}",
+            )
+        if spec.get("ao"):
+            expected = f"/Game/Prototype/Textures/{micro_stem}_A"
+            require(expected in used, f"Print micro-AO is not linked: {name}")
+            material_input(material, unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
+        statistics = unreal.MaterialEditingLibrary.get_statistics(material)
+        pixel_samples = int(
+            statistics.get_editor_property("num_pixel_texture_samples")
+        )
+        require(
+            pixel_samples <= 4,
+            f"Compiled print sample budget exceeded: {name}: {pixel_samples}",
+        )
+        linked_samples += pixel_samples
+        checked += 1
+
+    for name, spec in OPTICAL_PROP_MATERIALS.items():
+        material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
+        errors = unreal.MaterialEditingLibrary.recompile_material(material)
+        require(not errors, f"Optical prop compile failed: {name}: {errors}")
+        require(
+            has_scalar_parameter(material, OPTICAL_RESPONSE_MARKER),
+            f"Optical response version marker is missing: {name}",
+        )
+        for material_property in (
+            unreal.MaterialProperty.MP_BASE_COLOR,
+            unreal.MaterialProperty.MP_ROUGHNESS,
+            unreal.MaterialProperty.MP_SPECULAR,
+        ):
+            material_input(material, material_property)
+        if spec.get("micro_stem"):
+            material_input(material, unreal.MaterialProperty.MP_NORMAL)
+        if "metallic" in spec:
+            material_input(material, unreal.MaterialProperty.MP_METALLIC)
+        if "opacity_center" in spec:
+            require(
+                material.get_editor_property("blend_mode")
+                == unreal.BlendMode.BLEND_TRANSLUCENT,
+                f"Grazing glass lost translucent blending: {name}",
+            )
+            material_input(material, unreal.MaterialProperty.MP_OPACITY)
+            material_input(material, unreal.MaterialProperty.MP_REFRACTION)
+        statistics = unreal.MaterialEditingLibrary.get_statistics(material)
+        pixel_samples = int(
+            statistics.get_editor_property("num_pixel_texture_samples")
+        )
+        require(
+            pixel_samples <= 2,
+            f"Compiled optical-prop sample budget exceeded: {name}: {pixel_samples}",
+        )
+        linked_samples += pixel_samples
+        checked += 1
+
+    asphalt = load(
+        "/Game/Prototype/Materials/M_AsphaltWorld", unreal.Material
+    )
+    asphalt_errors = unreal.MaterialEditingLibrary.recompile_material(asphalt)
+    require(
+        not asphalt_errors,
+        f"Wet-ground material compile failed: {asphalt_errors}",
+    )
+    require(
+        has_scalar_parameter(asphalt, WET_GROUND_RESPONSE_MARKER),
+        "Wet-ground response version marker is missing: M_AsphaltWorld",
+    )
+    for material_property in (
+        unreal.MaterialProperty.MP_BASE_COLOR,
+        unreal.MaterialProperty.MP_NORMAL,
+        unreal.MaterialProperty.MP_ROUGHNESS,
+        unreal.MaterialProperty.MP_SPECULAR,
+    ):
+        material_input(asphalt, material_property)
+    asphalt_statistics = unreal.MaterialEditingLibrary.get_statistics(asphalt)
+    asphalt_samples = int(
+        asphalt_statistics.get_editor_property("num_pixel_texture_samples")
+    )
+    require(
+        asphalt_samples <= 4,
+        f"Compiled wet-ground sample budget exceeded: {asphalt_samples}",
+    )
+    linked_samples += asphalt_samples
+    checked += 1
+    return checked, linked_samples
+
+
 def validate_materials() -> tuple[int, int]:
     checked, linked_textures = validate_surface_response_materials()
+    prop_checked, prop_samples = validate_prop_response_materials()
+    checked += prop_checked
+    linked_textures += prop_samples
     for name, stem in MATERIAL_TEXTURES.items():
         material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
         errors = unreal.MaterialEditingLibrary.recompile_material(material)

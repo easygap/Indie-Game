@@ -36,6 +36,14 @@ SURFACES = (
     SurfaceSpec(
         "T_ApartmentWallpaperV2", 0.86, 0.72, 0.94, 0.32,
         rough_detail=0.12, ao_depth=0.62),
+    # One neutral fibre response is shared by the clean, damp, folded and old
+    # paper stocks. Their colour maps keep the individual stains and creases;
+    # this companion set supplies only sub-millimetre fibre relief, roughness
+    # breakup and shallow occlusion. Keeping text out of the height source is
+    # important for the runtime-drawn Korean thermal receipt.
+    SurfaceSpec(
+        "T_PaperClean_V2", 0.84, 0.72, 0.93, 0.24,
+        rough_detail=0.10, ao_depth=0.48),
     SurfaceSpec("T_WetHoodie", 0.67, 0.48, 0.84, 0.52, wetness=0.92),
     SurfaceSpec("T_AlleyCatTabby", 0.83, 0.68, 0.94, 0.34, rough_detail=0.14),
     SurfaceSpec("T_WaterTankGalvanized", 0.46, 0.25, 0.68, 0.78, wetness=0.72, metallic=True),
