@@ -603,6 +603,60 @@ $slidingDoorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Interaction/IGSlidingDoor.cpp')
 $neighborhoodSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Environment/IGNeighborhoodLifeDirector.cpp')
+$surfaceMaterialSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/create_textured_materials.py')
+$surfaceAuditSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/validate_baked_art_assets.py')
+$artBuildSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts/Build-ArtAssets.ps1')
+
+foreach ($surfaceResponseInvariant in @(
+	'SURFACE_RESPONSE_DEFAULTS',
+	'"macro_strength":',
+	'"detail_normal_strength":',
+	'"roughness_variation":',
+	'"roughness_detail_strength":',
+	'def _texture_exists(assets, name):',
+	'SURFACE_RESPONSE_MARKER = "IG_SurfaceResponse_v1"',
+	'unreal.MaterialProperty.MP_SPECULAR',
+	'IG_SURFACE_RESPONSE_ONLY'
+)) {
+	if (-not $surfaceMaterialSource.Contains($surfaceResponseInvariant)) {
+		throw "Layered surface-response invariant is missing: $surfaceResponseInvariant"
+	}
+}
+foreach ($surfaceAuditInvariant in @(
+	'def validate_surface_response_materials()',
+	'Macro colour blend is missing',
+	'Detail-normal blend is missing',
+	'Roughness variation is missing',
+	'pixel_samples <= 7'
+)) {
+	if (-not $surfaceAuditSource.Contains($surfaceAuditInvariant)) {
+		throw "Surface-response UAsset audit is missing: $surfaceAuditInvariant"
+	}
+}
+foreach ($surfaceBuildInvariant in @(
+	'[switch]$SurfaceResponseOnly',
+	'IG_SURFACE_RESPONSE_ONLY',
+	'Surface response material update complete'
+)) {
+	if (-not $artBuildSource.Contains($surfaceBuildInvariant)) {
+		throw "Targeted surface-response build is missing: $surfaceBuildInvariant"
+	}
+}
+foreach ($surfaceLightingInvariant in @(
+	'PostProcess->Settings.LocalExposureDetailStrength = 1.12f;',
+	'PostProcess->Settings.FilmSlope = 0.90f;',
+	'PostProcess->Settings.AmbientOcclusionIntensity = 0.48f;',
+	'PostProcess->Settings.LumenAmbientOcclusionIntensity = 0.55f;',
+	'Light->ContactShadowLength = bCastShadows ? 0.12f : 0.0f;',
+	'Light->SetSpecularScale(1.0f);'
+)) {
+	if (-not $worldSceneSource.Contains($surfaceLightingInvariant)) {
+		throw "Surface-lighting response invariant is missing: $surfaceLightingInvariant"
+	}
+}
 
 foreach ($spatialContinuityInvariant in @(
 	'GetIntermediateCabBaseZ',

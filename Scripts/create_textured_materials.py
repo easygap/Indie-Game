@@ -13,6 +13,92 @@ import unreal
 
 MATERIAL_ROOT = "/Game/Prototype/Materials"
 TEXTURE_ROOT = "/Game/Prototype/Textures"
+SURFACE_RESPONSE_MARKER = "IG_SurfaceResponse_v1"
+
+# A single 1K/2K scan still reads like wallpaper when it is repeated across a
+# whole room.  These restrained, material-family defaults add a second spatial
+# scale only where the source is non-directional enough to survive it.  The
+# values are deliberately small: they break repetition and wake up highlights
+# under a moving flashlight without turning plaster into rock or cloth into
+# foil.  Each material can override any value in its own spec.
+SURFACE_RESPONSE_DEFAULTS = {
+    "Jangpan": {
+        "macro_strength": 0.045, "macro_scale": 4.6,
+        "normal_strength": 1.10, "specular": 0.34,
+    },
+    "ApartmentWallpaperV2": {
+        "macro_strength": 0.045, "macro_scale": 4.2,
+        "normal_strength": 1.08, "roughness_detail_strength": 0.08,
+        "roughness_detail_scale": 3.1, "ao_strength": 0.82,
+        "specular": 0.28,
+    },
+    "WoodDark": {
+        "normal_strength": 1.12, "roughness_detail_strength": 0.10,
+        "roughness_detail_scale": 3.7, "specular": 0.38,
+    },
+    "Blanket": {
+        "normal_strength": 1.16, "detail_normal_strength": 0.10,
+        "detail_normal_scale": 4.3, "specular": 0.22,
+    },
+    "Brick": {
+        "macro_strength": 0.060, "macro_scale": 5.2,
+        "normal_strength": 1.16, "roughness_detail_strength": 0.10,
+        "roughness_detail_scale": 4.1, "specular": 0.32,
+    },
+    "Concrete": {
+        "macro_strength": 0.075, "macro_scale": 5.4,
+        "normal_strength": 1.18, "detail_normal_strength": 0.16,
+        "detail_normal_scale": 4.7, "roughness_detail_strength": 0.16,
+        "roughness_detail_scale": 4.7, "specular": 0.32,
+    },
+    "Shutter": {
+        "macro_strength": 0.035, "macro_scale": 4.8,
+        "normal_strength": 1.12, "roughness_detail_strength": 0.08,
+        "roughness_detail_scale": 5.1, "specular": 0.40,
+    },
+    "StoreTile": {
+        "macro_strength": 0.025, "macro_scale": 6.0,
+        "normal_strength": 1.08, "roughness_variation": 0.30,
+        "specular": 0.50,
+    },
+    "CeilingTile": {
+        "macro_strength": 0.035, "macro_scale": 5.0,
+        "normal_strength": 1.12, "specular": 0.24,
+    },
+    "MetalBrushed": {
+        "normal_strength": 1.10, "detail_normal_strength": 0.12,
+        "detail_normal_scale": 5.3, "roughness_detail_strength": 0.14,
+        "roughness_detail_scale": 4.9, "specular": 0.50,
+    },
+    "Stucco": {
+        "macro_strength": 0.065, "macro_scale": 5.8,
+        "normal_strength": 1.20, "detail_normal_strength": 0.18,
+        "detail_normal_scale": 4.8, "roughness_detail_strength": 0.12,
+        "roughness_detail_scale": 4.8, "specular": 0.28,
+    },
+    "GraniteTile": {
+        "macro_strength": 0.025, "macro_scale": 6.4,
+        "normal_strength": 1.10, "roughness_variation": 0.24,
+        "specular": 0.46,
+    },
+    "GranitePanel": {
+        "macro_strength": 0.040, "macro_scale": 5.7,
+        "normal_strength": 1.12, "roughness_detail_strength": 0.10,
+        "roughness_detail_scale": 4.3, "specular": 0.42,
+    },
+    "MarbleFloor": {
+        "macro_strength": 0.020, "macro_scale": 7.0,
+        "normal_strength": 1.06, "roughness_variation": 0.22,
+        "specular": 0.50,
+    },
+    "MissingFloorDryPlaster": {
+        "macro_strength": 0.080, "macro_scale": 5.6,
+        "normal_strength": 1.20, "detail_normal_strength": 0.20,
+        "detail_normal_scale": 4.6, "roughness_detail_strength": 0.14,
+        "roughness_detail_scale": 4.6, "ao_strength": 0.88,
+        "specular": 0.22,
+    },
+}
 
 # mapping: XY (floors/ceilings), XZ (walls running along X), YZ (walls along Y),
 #          UV (mesh UVs with a tiling multiplier)
@@ -465,6 +551,152 @@ def _load_texture(name):
     return texture
 
 
+def _texture_exists(assets, name):
+    """Matches _load_texture's photo-first lookup without loading a package."""
+    if name.startswith("T_") and not name.startswith("T_Photo_"):
+        if assets.does_asset_exist(f"{TEXTURE_ROOT}/T_Photo_{name[2:]}"):
+            return True
+    return assets.does_asset_exist(f"{TEXTURE_ROOT}/{name}")
+
+
+def _surface_value(spec, base_name, key, default=None):
+    """Resolve an explicit material override before its family default."""
+    if key in spec:
+        return spec[key]
+    return SURFACE_RESPONSE_DEFAULTS.get(base_name, {}).get(key, default)
+
+
+def _mask_channels(material, source, source_pin, channels, x, y):
+    mask = _expr(material, unreal.MaterialExpressionComponentMask, x, y)
+    mask.set_editor_property("r", "R" in channels)
+    mask.set_editor_property("g", "G" in channels)
+    mask.set_editor_property("b", "B" in channels)
+    mask.set_editor_property("a", "A" in channels)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        source, source_pin, mask, ""
+    )
+    return mask
+
+
+def _strengthen_normal(material, source, source_pin, strength, y_offset):
+    """Scale tangent XY while preserving Z, then renormalize the vector."""
+    if abs(float(strength) - 1.0) < 0.001:
+        return source, source_pin
+    xy = _mask_channels(material, source, source_pin, "RG", -430, y_offset)
+    gain = _expr(material, unreal.MaterialExpressionConstant, -430, y_offset + 130)
+    gain.set_editor_property("r", float(strength))
+    scaled_xy = _expr(material, unreal.MaterialExpressionMultiply, -250, y_offset)
+    unreal.MaterialEditingLibrary.connect_material_expressions(xy, "", scaled_xy, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(gain, "", scaled_xy, "B")
+    z = _mask_channels(material, source, source_pin, "B", -250, y_offset + 150)
+    packed = _expr(material, unreal.MaterialExpressionAppendVector, -60, y_offset + 40)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scaled_xy, "", packed, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(z, "", packed, "B")
+    normalized = _expr(material, unreal.MaterialExpressionNormalize, 130, y_offset + 40)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        packed, "", normalized, ""
+    )
+    return normalized, ""
+
+
+def _blend_detail_normal(
+    material,
+    primary,
+    primary_pin,
+    detail,
+    detail_pin,
+    strength,
+    y_offset,
+):
+    """Blend a weak high-frequency tangent normal over the authored normal."""
+    primary_xy = _mask_channels(
+        material, primary, primary_pin, "RG", -180, y_offset
+    )
+    detail_xy = _mask_channels(
+        material, detail, detail_pin, "RG", -180, y_offset + 150
+    )
+    gain = _expr(material, unreal.MaterialExpressionConstant, 0, y_offset + 260)
+    gain.set_editor_property("r", float(strength))
+    detail_xy_scaled = _expr(
+        material, unreal.MaterialExpressionMultiply, 0, y_offset + 120
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        detail_xy, "", detail_xy_scaled, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        gain, "", detail_xy_scaled, "B"
+    )
+    combined_xy = _expr(material, unreal.MaterialExpressionAdd, 190, y_offset + 40)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        primary_xy, "", combined_xy, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        detail_xy_scaled, "", combined_xy, "B"
+    )
+
+    primary_z = _mask_channels(
+        material, primary, primary_pin, "B", 0, y_offset - 110
+    )
+    detail_z = _mask_channels(
+        material, detail, detail_pin, "B", 0, y_offset + 380
+    )
+    one = _expr(material, unreal.MaterialExpressionConstant, 190, y_offset + 380)
+    one.set_editor_property("r", 1.0)
+    detail_z_weighted = _expr(
+        material, unreal.MaterialExpressionLinearInterpolate, 370, y_offset + 330
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        one, "", detail_z_weighted, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        detail_z, "", detail_z_weighted, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        gain, "", detail_z_weighted, "Alpha"
+    )
+    combined_z = _expr(material, unreal.MaterialExpressionMultiply, 550, y_offset + 250)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        primary_z, "", combined_z, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        detail_z_weighted, "", combined_z, "B"
+    )
+    packed = _expr(material, unreal.MaterialExpressionAppendVector, 550, y_offset + 60)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        combined_xy, "", packed, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        combined_z, "", packed, "B"
+    )
+    normalized = _expr(material, unreal.MaterialExpressionNormalize, 740, y_offset + 60)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        packed, "", normalized, ""
+    )
+    return normalized, ""
+
+
+def _remap_grayscale(material, source, source_pin, low, high, x, y):
+    low_value = _expr(material, unreal.MaterialExpressionConstant, x, y)
+    low_value.set_editor_property("r", float(low))
+    high_value = _expr(material, unreal.MaterialExpressionConstant, x, y + 100)
+    high_value.set_editor_property("r", float(high))
+    remapped = _expr(
+        material, unreal.MaterialExpressionLinearInterpolate, x + 180, y + 40
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        low_value, "", remapped, "A"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        high_value, "", remapped, "B"
+    )
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        source, source_pin, remapped, "Alpha"
+    )
+    return remapped, ""
+
+
 def _make_uv_source(material, mapping, tile, y_offset):
     """Returns an expression producing 2D UVs for the requested mapping."""
     if mapping == "UV":
@@ -534,10 +766,49 @@ def _recreate_material(assets, tools, name):
     return material
 
 
-def create_textured_materials(assets, tools, specs=None):
+def _has_surface_response_marker(material):
+    """Return true when this exact bounded response graph is already active.
+
+    Structural materials may be rooted by the scene CDO while this commandlet
+    is running, so deleting their old expressions can assert inside Unreal.
+    A compiled scalar parameter gives the in-place migration an idempotent,
+    package-persistent marker without touching those live references.
+    """
+    for expression in unreal.MaterialEditingLibrary.get_material_expressions(
+        material
+    ):
+        if not isinstance(
+            expression, unreal.MaterialExpressionScalarParameter
+        ):
+            continue
+        if str(expression.get_editor_property("parameter_name")) == (
+            SURFACE_RESPONSE_MARKER
+        ):
+            return True
+    return False
+
+
+def create_textured_materials(assets, tools, specs=None, update_in_place=False):
     created = []
     for name, spec in (specs or TEXTURED_MATERIALS).items():
-        material = _recreate_material(assets, tools, name)
+        asset_path = f"{MATERIAL_ROOT}/{name}"
+        if update_in_place and assets.does_asset_exist(asset_path):
+            # Most live structural materials are held by the prologue scene
+            # CDO before this commandlet begins.  Deleting their packages can
+            # leave a valid graph only in memory and no .uasset on disk.  Clear
+            # the graph in place so references remain stable and saving is
+            # atomic from the editor's point of view.
+            material = unreal.load_asset(asset_path)
+            if material is None:
+                raise RuntimeError(f"Could not load material: {asset_path}")
+            if _has_surface_response_marker(material):
+                unreal.log(
+                    f"[IndieGame] Surface response already current: {name}"
+                )
+                created.append(material)
+                continue
+        else:
+            material = _recreate_material(assets, tools, name)
         base_name = spec["tex"]
         mapping = spec["mapping"]
         tile = spec["tile"]
@@ -583,13 +854,65 @@ def create_textured_materials(assets, tools, specs=None):
             unreal.MaterialEditingLibrary.connect_material_expressions(
                 tint_constant, "", tinted, "B"
             )
-            unreal.MaterialEditingLibrary.connect_material_property(
-                tinted, "", unreal.MaterialProperty.MP_BASE_COLOR
+            color_source = tinted
+            color_pin = ""
+
+        # A low-frequency copy of the same calibrated scan breaks the visible
+        # wallpaper grid on long walls.  It only changes luminance by a few
+        # percent and is disabled for UV props, where object UVs already give
+        # each asset a unique frame of the texture.
+        macro_strength = float(
+            _surface_value(spec, base_name, "macro_strength", 0.0)
+        )
+        if mapping != "UV" and macro_strength > 0.0:
+            macro_scale = float(
+                _surface_value(spec, base_name, "macro_scale", 5.0)
             )
-        else:
-            unreal.MaterialEditingLibrary.connect_material_property(
-                color_source, color_pin, unreal.MaterialProperty.MP_BASE_COLOR
+            macro_sample = _sample(
+                material,
+                _load_texture(f"T_{base_name}_D"),
+                _make_uv_source(material, mapping, tile * macro_scale, 1480),
+                unreal.MaterialSamplerType.SAMPLERTYPE_COLOR,
+                1480,
             )
+            macro_fraction = _expr(
+                material, unreal.MaterialExpressionConstant, -650, 1660
+            )
+            macro_fraction.set_editor_property("r", 1.0)
+            macro_grey = _expr(
+                material, unreal.MaterialExpressionDesaturation, -450, 1500
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                macro_sample, "RGB", macro_grey, ""
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                macro_fraction, "", macro_grey, "Fraction"
+            )
+            macro_low = 1.0 - macro_strength * 0.5
+            macro_high = 1.0 + macro_strength * 0.5
+            modulation, modulation_pin = _remap_grayscale(
+                material,
+                macro_grey,
+                "",
+                macro_low,
+                macro_high,
+                -250,
+                1510,
+            )
+            macro_blend = _expr(
+                material, unreal.MaterialExpressionMultiply, 120, 100
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                color_source, color_pin, macro_blend, "A"
+            )
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                modulation, modulation_pin, macro_blend, "B"
+            )
+            color_source = macro_blend
+            color_pin = ""
+        unreal.MaterialEditingLibrary.connect_material_property(
+            color_source, color_pin, unreal.MaterialProperty.MP_BASE_COLOR
+        )
 
         normal = _sample(
             material,
@@ -598,19 +921,77 @@ def create_textured_materials(assets, tools, specs=None):
             unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
             420,
         )
+        normal_source, normal_pin = _strengthen_normal(
+            material,
+            normal,
+            "RGB",
+            float(_surface_value(spec, base_name, "normal_strength", 1.0)),
+            420,
+        )
+        detail_normal_strength = float(
+            _surface_value(spec, base_name, "detail_normal_strength", 0.0)
+        )
+        if detail_normal_strength > 0.0:
+            detail_normal_scale = float(
+                _surface_value(spec, base_name, "detail_normal_scale", 4.5)
+            )
+            detail_normal = _sample(
+                material,
+                _load_texture(f"T_{base_name}_N"),
+                _make_uv_source(
+                    material,
+                    mapping,
+                    tile / detail_normal_scale,
+                    1900,
+                ),
+                unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL,
+                1900,
+            )
+            normal_source, normal_pin = _blend_detail_normal(
+                material,
+                normal_source,
+                normal_pin,
+                detail_normal,
+                "RGB",
+                detail_normal_strength,
+                2050,
+            )
         unreal.MaterialEditingLibrary.connect_material_property(
-            normal, "RGB", unreal.MaterialProperty.MP_NORMAL
+            normal_source, normal_pin, unreal.MaterialProperty.MP_NORMAL
         )
 
         rough_asset = f"T_{base_name}_R"
         forced_rough = spec.get("force_rough")
+        rough_map_exists = _texture_exists(assets, rough_asset)
+        rough_source = None
+        rough_pin = ""
         if forced_rough is not None:
-            rough_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 880)
-            rough_constant.set_editor_property("r", forced_rough)
-            unreal.MaterialEditingLibrary.connect_material_property(
-                rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
+            variation = float(
+                _surface_value(spec, base_name, "roughness_variation", 0.0)
             )
-        elif assets.does_asset_exist(f"{TEXTURE_ROOT}/{rough_asset}"):
+            if rough_map_exists and variation > 0.0:
+                rough_sample = _sample(
+                    material,
+                    _load_texture(rough_asset),
+                    _make_uv_source(material, mapping, tile, 840),
+                    unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+                    840,
+                )
+                rough_source, rough_pin = _remap_grayscale(
+                    material,
+                    rough_sample,
+                    "R",
+                    max(0.02, forced_rough * (1.0 - variation)),
+                    min(0.98, forced_rough * (1.0 + variation)),
+                    -420,
+                    900,
+                )
+            else:
+                rough_source = _expr(
+                    material, unreal.MaterialExpressionConstant, -650, 880
+                )
+                rough_source.set_editor_property("r", forced_rough)
+        elif rough_map_exists:
             rough_sample = _sample(
                 material,
                 _load_texture(rough_asset),
@@ -621,29 +1002,119 @@ def create_textured_materials(assets, tools, specs=None):
                 unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
                 840,
             )
-            unreal.MaterialEditingLibrary.connect_material_property(
-                rough_sample, "R", unreal.MaterialProperty.MP_ROUGHNESS
-            )
-        else:
-            rough_constant = _expr(material, unreal.MaterialExpressionConstant, -650, 880)
-            rough_constant.set_editor_property("r", spec.get("rough", 0.8))
-            unreal.MaterialEditingLibrary.connect_material_property(
-                rough_constant, "", unreal.MaterialProperty.MP_ROUGHNESS
-            )
-
-        if spec.get("ao"):
-            ao_asset = f"T_{base_name}_A"
-            if assets.does_asset_exist(f"{TEXTURE_ROOT}/{ao_asset}"):
-                ao_sample = _sample(
+            rough_source = rough_sample
+            rough_pin = "R"
+            target_roughness = spec.get("rough")
+            if target_roughness is not None:
+                span = float(spec.get("roughness_map_span", 0.16))
+                rough_source, rough_pin = _remap_grayscale(
                     material,
-                    _load_texture(ao_asset),
-                    _make_uv_source(material, mapping, tile, 1120),
+                    rough_sample,
+                    "R",
+                    max(0.02, float(target_roughness) - span * 0.5),
+                    min(0.98, float(target_roughness) + span * 0.5),
+                    -420,
+                    900,
+                )
+
+            rough_detail_strength = float(
+                _surface_value(
+                    spec, base_name, "roughness_detail_strength", 0.0
+                )
+            )
+            if rough_detail_strength > 0.0:
+                rough_detail_scale = float(
+                    _surface_value(
+                        spec, base_name, "roughness_detail_scale", 4.5
+                    )
+                )
+                detail_rough = _sample(
+                    material,
+                    _load_texture(rough_asset),
+                    _make_uv_source(
+                        material,
+                        mapping,
+                        tile / rough_detail_scale,
+                        2700,
+                    ),
                     unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
-                    1120,
+                    2700,
                 )
-                unreal.MaterialEditingLibrary.connect_material_property(
-                    ao_sample, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION
+                detail_source = detail_rough
+                detail_pin = "R"
+                if target_roughness is not None:
+                    span = float(spec.get("roughness_map_span", 0.16))
+                    detail_source, detail_pin = _remap_grayscale(
+                        material,
+                        detail_rough,
+                        "R",
+                        max(0.02, float(target_roughness) - span * 0.5),
+                        min(0.98, float(target_roughness) + span * 0.5),
+                        -420,
+                        2770,
+                    )
+                detail_weight = _expr(
+                    material, unreal.MaterialExpressionConstant, 0, 2840
                 )
+                detail_weight.set_editor_property("r", rough_detail_strength)
+                detail_mix = _expr(
+                    material,
+                    unreal.MaterialExpressionLinearInterpolate,
+                    180,
+                    2740,
+                )
+                unreal.MaterialEditingLibrary.connect_material_expressions(
+                    rough_source, rough_pin, detail_mix, "A"
+                )
+                unreal.MaterialEditingLibrary.connect_material_expressions(
+                    detail_source, detail_pin, detail_mix, "B"
+                )
+                unreal.MaterialEditingLibrary.connect_material_expressions(
+                    detail_weight, "", detail_mix, "Alpha"
+                )
+                rough_source = detail_mix
+                rough_pin = ""
+        else:
+            rough_source = _expr(
+                material, unreal.MaterialExpressionConstant, -650, 880
+            )
+            rough_source.set_editor_property("r", spec.get("rough", 0.8))
+        unreal.MaterialEditingLibrary.connect_material_property(
+            rough_source, rough_pin, unreal.MaterialProperty.MP_ROUGHNESS
+        )
+
+        # Use every authored cavity map, including photo-prefixed assets.  AO
+        # is softened rather than multiplied at full strength so fine wallpaper
+        # emboss and plaster pores seat into light without dirty black seams.
+        ao_asset = f"T_{base_name}_A"
+        if _texture_exists(assets, ao_asset):
+            ao_sample = _sample(
+                material,
+                _load_texture(ao_asset),
+                _make_uv_source(material, mapping, tile, 1120),
+                unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
+                1120,
+            )
+            ao_strength = float(
+                _surface_value(
+                    spec,
+                    base_name,
+                    "ao_strength",
+                    1.0 if spec.get("ao") else 0.75,
+                )
+            )
+            ao_source, ao_pin = _remap_grayscale(
+                material,
+                ao_sample,
+                "R",
+                1.0 - ao_strength,
+                1.0,
+                -420,
+                1180,
+            )
+            unreal.MaterialEditingLibrary.connect_material_property(
+                ao_source, ao_pin, unreal.MaterialProperty.MP_AMBIENT_OCCLUSION
+            )
 
         metallic = spec.get("metallic")
         if metallic is not None:
@@ -652,6 +1123,32 @@ def create_textured_materials(assets, tools, specs=None):
             unreal.MaterialEditingLibrary.connect_material_property(
                 metallic_constant, "", unreal.MaterialProperty.MP_METALLIC
             )
+
+        specular_constant = _expr(
+            material, unreal.MaterialExpressionConstant, -650, 1260
+        )
+        specular_constant.set_editor_property(
+            "r", float(_surface_value(spec, base_name, "specular", 0.50))
+        )
+        response_marker = _expr(
+            material, unreal.MaterialExpressionScalarParameter, -650, 1380
+        )
+        response_marker.set_editor_property(
+            "parameter_name", SURFACE_RESPONSE_MARKER
+        )
+        response_marker.set_editor_property("default_value", 1.0)
+        marked_specular = _expr(
+            material, unreal.MaterialExpressionMultiply, -420, 1300
+        )
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            specular_constant, "", marked_specular, "A"
+        )
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            response_marker, "", marked_specular, "B"
+        )
+        unreal.MaterialEditingLibrary.connect_material_property(
+            marked_specular, "", unreal.MaterialProperty.MP_SPECULAR
+        )
 
         unreal.MaterialEditingLibrary.layout_material_expressions(material)
         unreal.MaterialEditingLibrary.recompile_material(material)
@@ -1926,6 +2423,39 @@ def run():
     tools = unreal.AssetToolsHelpers.get_asset_tools()
     if assets is None or tools is None:
         raise RuntimeError("Unreal editor asset services are unavailable")
+
+    if os.environ.get("IG_SURFACE_RESPONSE_ONLY") == "1":
+        surfaces = create_textured_materials(
+            assets, tools, update_in_place=True
+        )
+        if len(surfaces) != len(TEXTURED_MATERIALS):
+            raise RuntimeError(
+                f"Surface material count mismatch: {len(surfaces)} / "
+                f"{len(TEXTURED_MATERIALS)}"
+            )
+        # Only M_StainlessUV from this targeted set is used by an ISM.  The
+        # full-build helper also loads and appends seventeen retail-label
+        # materials, which must not inflate or dirty a surface-only migration.
+        for surface in surfaces:
+            if surface.get_name() in INSTANCED_PRODUCT_MATERIALS:
+                surface.set_editor_property(
+                    "used_with_instanced_static_meshes", True
+                )
+                unreal.MaterialEditingLibrary.recompile_material(surface)
+        failed = []
+        for surface in surfaces:
+            if not assets.save_loaded_asset(surface, False):
+                failed.append(surface.get_name())
+        if failed:
+            raise RuntimeError(
+                "Could not save layered surface-response materials: "
+                + ", ".join(failed)
+            )
+        unreal.log(
+            f"[IndieGame] Surface response material update complete: "
+            f"{len(surfaces)} materials"
+        )
+        return
 
     if os.environ.get("IG_WET_STEP_ONLY") == "1":
         wet_step = create_wet_step(assets, tools)

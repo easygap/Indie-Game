@@ -12,6 +12,11 @@ if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
 from photo_prop_lod_contract import inspect_photo_prop_lods
+from create_textured_materials import (
+    SURFACE_RESPONSE_DEFAULTS,
+    SURFACE_RESPONSE_MARKER,
+    TEXTURED_MATERIALS,
+)
 
 
 MESH_NAMES = (
@@ -303,6 +308,48 @@ def texture_sample_types(material) -> dict[str, str]:
     return sample_types
 
 
+def texture_sample_counts(material) -> dict[str, int]:
+    """Count repeated samples as well as unique linked texture packages."""
+    counts: dict[str, int] = {}
+    expressions = unreal.MaterialEditingLibrary.get_material_expressions(material)
+    for expression in expressions:
+        if not isinstance(expression, unreal.MaterialExpressionTextureSample):
+            continue
+        texture = expression.get_editor_property("texture")
+        if texture is None:
+            continue
+        path = texture_path(texture)
+        counts[path] = counts.get(path, 0) + 1
+    return counts
+
+
+def resolved_surface_texture(name: str) -> str | None:
+    """Mirror create_textured_materials.py's CC0-photo-first lookup."""
+    if name.startswith("T_") and not name.startswith("T_Photo_"):
+        photo = f"/Game/Prototype/Textures/T_Photo_{name[2:]}"
+        if unreal.EditorAssetLibrary.does_asset_exist(photo):
+            return photo
+    normal = f"/Game/Prototype/Textures/{name}"
+    if unreal.EditorAssetLibrary.does_asset_exist(normal):
+        return normal
+    return None
+
+
+def surface_value(spec, base_name, key, default=None):
+    if key in spec:
+        return spec[key]
+    return SURFACE_RESPONSE_DEFAULTS.get(base_name, {}).get(key, default)
+
+
+def has_scalar_parameter(material, parameter_name: str) -> bool:
+    for expression in unreal.MaterialEditingLibrary.get_material_expressions(material):
+        if not isinstance(expression, unreal.MaterialExpressionScalarParameter):
+            continue
+        if str(expression.get_editor_property("parameter_name")) == parameter_name:
+            return True
+    return False
+
+
 def validate_meshes() -> tuple[int, int]:
     subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
     require(subsystem is not None, "StaticMeshEditorSubsystem is unavailable")
@@ -421,9 +468,96 @@ def material_input(material, material_property) -> None:
     require(node is not None, f"Missing material input {material_property}: {material.get_name()}")
 
 
-def validate_materials() -> tuple[int, int]:
+def validate_surface_response_materials() -> tuple[int, int]:
+    """Prove the live architecture has bounded multi-scale PBR response."""
     checked = 0
-    linked_textures = 0
+    linked_samples = 0
+    for name, spec in TEXTURED_MATERIALS.items():
+        material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
+        errors = unreal.MaterialEditingLibrary.recompile_material(material)
+        require(not errors, f"Surface material compile failed: {name}: {errors}")
+        require(
+            has_scalar_parameter(material, SURFACE_RESPONSE_MARKER),
+            f"Surface response version marker is missing: {name}",
+        )
+        for material_property in (
+            unreal.MaterialProperty.MP_BASE_COLOR,
+            unreal.MaterialProperty.MP_NORMAL,
+            unreal.MaterialProperty.MP_ROUGHNESS,
+            unreal.MaterialProperty.MP_SPECULAR,
+        ):
+            material_input(material, material_property)
+
+        base_name = spec["tex"]
+        counts = texture_sample_counts(material)
+        diffuse_path = resolved_surface_texture(f"T_{base_name}_D")
+        normal_path = resolved_surface_texture(f"T_{base_name}_N")
+        require(diffuse_path is not None, f"Surface diffuse is missing: {name}")
+        require(normal_path is not None, f"Surface normal is missing: {name}")
+        expected_diffuse_samples = (
+            2
+            if spec["mapping"] != "UV"
+            and float(surface_value(spec, base_name, "macro_strength", 0.0)) > 0.0
+            else 1
+        )
+        expected_normal_samples = (
+            2
+            if float(
+                surface_value(spec, base_name, "detail_normal_strength", 0.0)
+            ) > 0.0
+            else 1
+        )
+        require(
+            counts.get(diffuse_path, 0) >= expected_diffuse_samples,
+            f"Macro colour blend is missing: {name}",
+        )
+        require(
+            counts.get(normal_path, 0) >= expected_normal_samples,
+            f"Detail-normal blend is missing: {name}",
+        )
+
+        rough_path = resolved_surface_texture(f"T_{base_name}_R")
+        rough_detail_strength = float(
+            surface_value(spec, base_name, "roughness_detail_strength", 0.0)
+        )
+        rough_variation = float(
+            surface_value(spec, base_name, "roughness_variation", 0.0)
+        )
+        if rough_path is not None and (
+            spec.get("force_rough") is None or rough_variation > 0.0
+        ):
+            expected_rough_samples = 2 if rough_detail_strength > 0.0 else 1
+            require(
+                counts.get(rough_path, 0) >= expected_rough_samples,
+                f"Roughness variation is missing: {name}",
+            )
+
+        ao_path = resolved_surface_texture(f"T_{base_name}_A")
+        if ao_path is not None:
+            require(
+                counts.get(ao_path, 0) >= 1,
+                f"Authored cavity map is not linked: {name}",
+            )
+            material_input(material, unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
+
+        # Existing rooted packages can retain disconnected legacy nodes after
+        # an in-place migration.  The shader compiler prunes them, so enforce
+        # the real pixel-shader cost rather than counting every editor node.
+        statistics = unreal.MaterialEditingLibrary.get_statistics(material)
+        pixel_samples = int(
+            statistics.get_editor_property("num_pixel_texture_samples")
+        )
+        require(
+            pixel_samples <= 7,
+            f"Compiled surface sample budget exceeded: {name}: {pixel_samples}",
+        )
+        linked_samples += pixel_samples
+        checked += 1
+    return checked, linked_samples
+
+
+def validate_materials() -> tuple[int, int]:
+    checked, linked_textures = validate_surface_response_materials()
     for name, stem in MATERIAL_TEXTURES.items():
         material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
         errors = unreal.MaterialEditingLibrary.recompile_material(material)

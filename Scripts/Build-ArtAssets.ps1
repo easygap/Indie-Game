@@ -4,6 +4,7 @@ param(
 	[switch]$CodeOnly,
 	[switch]$HudUiOnly,
 	[switch]$ApartmentVisualOnly,
+	[switch]$SurfaceResponseOnly,
 	[switch]$CorridorSignageOnly,
 	[switch]$MissingFloorOnly,
 	[switch]$TankWaterOnly,
@@ -94,6 +95,7 @@ $modeCount = @(
 	$CodeOnly.IsPresent,
 	$HudUiOnly.IsPresent,
 	$ApartmentVisualOnly.IsPresent,
+	$SurfaceResponseOnly.IsPresent,
 	$CorridorSignageOnly.IsPresent,
 	$MissingFloorOnly.IsPresent,
 	$TankWaterOnly.IsPresent,
@@ -101,12 +103,13 @@ $modeCount = @(
 	$SubmergedClothingOnly.IsPresent
 ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($modeCount -gt 1) {
-	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, CorridorSignageOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
+	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, CorridorSignageOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
 }
 
 if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	-not $SubmergedClothingOnly -and -not $HudUiOnly -and
-	-not $ApartmentVisualOnly -and -not $CorridorSignageOnly -and
+	-not $ApartmentVisualOnly -and -not $SurfaceResponseOnly -and
+	-not $CorridorSignageOnly -and
 	-not $MissingFloorOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
 
@@ -255,7 +258,8 @@ if ($CodeOnly) {
 	return
 }
 
-if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
+if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
+	$CorridorSignageOnly -or
 	$MissingFloorOnly -or $TankWaterOnly -or $TankInteriorOnly -or
 	$SubmergedClothingOnly) {
 	$targetName = if ($HudUiOnly) {
@@ -263,6 +267,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 	}
 	elseif ($ApartmentVisualOnly) {
 		'ApartmentVisual'
+	}
+	elseif ($SurfaceResponseOnly) {
+		'SurfaceResponse'
 	}
 	elseif ($CorridorSignageOnly) {
 		'CorridorSignage'
@@ -285,6 +292,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 	elseif ($ApartmentVisualOnly) {
 		'IG_APARTMENT_VISUAL_ONLY'
 	}
+	elseif ($SurfaceResponseOnly) {
+		'IG_SURFACE_RESPONSE_ONLY'
+	}
 	elseif ($CorridorSignageOnly) {
 		'IG_CORRIDOR_SIGNAGE_ONLY'
 	}
@@ -305,6 +315,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 	}
 	elseif ($ApartmentVisualOnly) {
 		'\[IndieGame\] Apartment visual material update complete'
+	}
+	elseif ($SurfaceResponseOnly) {
+		'\[IndieGame\] Surface response material update complete: \d+ materials'
 	}
 	elseif ($CorridorSignageOnly) {
 		'\[IndieGame\] Corridor entrance signage material update complete'
@@ -348,6 +361,48 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 			'Content\Prototype\Materials\M_WallpaperCeil.uasset',
 			'Content\Prototype\Materials\M_ApartmentWallPatina.uasset'
 		)
+	}
+	elseif ($SurfaceResponseOnly) {
+		@(
+			'M_Jangpan',
+			'M_Wallpaper_X',
+			'M_Wallpaper_Y',
+			'M_WallpaperCeil',
+			'M_WoodFurnitureUV',
+			'M_BeddingUV',
+			'M_Brick_X',
+			'M_Brick_Y',
+			'M_Concrete_XY',
+			'M_Concrete_X',
+			'M_Concrete_Y',
+			'M_Shutter_X',
+			'M_ConcreteDark_X',
+			'M_ConcreteDark_Y',
+			'M_ConcreteDark_XY',
+			'M_StoreTileWorld',
+			'M_StoreCeilWorld',
+			'M_StoreWall_X',
+			'M_StoreWall_Y',
+			'M_MetalUV',
+			'M_ShelfSteelUV',
+			'M_Stucco_X',
+			'M_Stucco_Y',
+			'M_StuccoCeil',
+			'M_GraniteTile_XY',
+			'M_GranitePanel_X',
+			'M_GranitePanel_Y',
+			'M_MarbleFloor_XY',
+			'M_CounterStoneUV',
+			'M_StainlessUV',
+			'M_CabMirrorUV',
+			'M_SteelDoorUV',
+			'M_KitchenGlossUV',
+			'M_MissingFloorPlaster_X',
+			'M_MissingFloorPlaster_Y',
+			'M_MissingFloorPlaster_XY'
+		) | ForEach-Object {
+			"Content\Prototype\Materials\$_.uasset"
+		}
 	}
 	elseif ($CorridorSignageOnly) {
 		@(
@@ -477,6 +532,20 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $CorridorSignageOnly -or
 				SuccessPattern = '\[IndieGame\] Imported 5 textures'
 				TargetEnvironment = $true
 			},
+			@{
+				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
+	elseif ($SurfaceResponseOnly) {
+		@(
 			@{
 				Script = 'create_textured_materials.py'
 				SuccessPattern = $targetSuccessPattern

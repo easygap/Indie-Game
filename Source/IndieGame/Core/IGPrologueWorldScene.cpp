@@ -600,11 +600,13 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	PostProcess->Settings.bOverride_LocalExposureMethod = true;
 	PostProcess->Settings.LocalExposureMethod = ELocalExposureMethod::Bilateral;
 	PostProcess->Settings.bOverride_LocalExposureHighlightContrastScale = true;
-	PostProcess->Settings.LocalExposureHighlightContrastScale = 0.82f;
+	PostProcess->Settings.LocalExposureHighlightContrastScale = 0.84f;
 	PostProcess->Settings.bOverride_LocalExposureShadowContrastScale = true;
+	// Preserve readable floor and door silhouettes in the unlit corridor while
+	// local detail enhancement carries the plaster response inside the beam.
 	PostProcess->Settings.LocalExposureShadowContrastScale = 0.76f;
 	PostProcess->Settings.bOverride_LocalExposureDetailStrength = true;
-	PostProcess->Settings.LocalExposureDetailStrength = 1.0f;
+	PostProcess->Settings.LocalExposureDetailStrength = 1.12f;
 	PostProcess->Settings.bOverride_LocalExposureBlurredLuminanceBlend = true;
 	PostProcess->Settings.LocalExposureBlurredLuminanceBlend = 0.52f;
 	PostProcess->Settings.bOverride_LocalExposureBlurredLuminanceKernelSizePercent = true;
@@ -618,6 +620,22 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	PostProcess->Settings.FilmGrainIntensity = 0.02f;
 	PostProcess->Settings.bOverride_ColorSaturation = true;
 	PostProcess->Settings.ColorSaturation = FVector4(0.93f, 0.95f, 1.0f, 1.0f);
+	// A restrained film curve gives PBR roughness and normal changes somewhere
+	// to read.  The toe is kept below the engine default so the unlit corridor
+	// retains material information instead of crushing into a single black,
+	// while the shoulder rolls practicals off before their fixture detail clips.
+	PostProcess->Settings.bOverride_ColorContrast = true;
+	PostProcess->Settings.ColorContrast = FVector4(1.025f, 1.025f, 1.025f, 1.0f);
+	PostProcess->Settings.bOverride_FilmSlope = true;
+	PostProcess->Settings.FilmSlope = 0.90f;
+	PostProcess->Settings.bOverride_FilmToe = true;
+	PostProcess->Settings.FilmToe = 0.53f;
+	PostProcess->Settings.bOverride_FilmShoulder = true;
+	PostProcess->Settings.FilmShoulder = 0.24f;
+	PostProcess->Settings.bOverride_FilmBlackClip = true;
+	PostProcess->Settings.FilmBlackClip = 0.0f;
+	PostProcess->Settings.bOverride_FilmWhiteClip = true;
+	PostProcess->Settings.FilmWhiteClip = 0.035f;
 	// Restrained bloom keeps emissive signage readable instead of hazy.
 	PostProcess->Settings.bOverride_BloomIntensity = true;
 	PostProcess->Settings.BloomIntensity = 0.18f;
@@ -626,9 +644,11 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	PostProcess->Settings.MotionBlurAmount = 0.05f;
 	// Ambient occlusion seats furniture and shelf stock into their corners.
 	PostProcess->Settings.bOverride_AmbientOcclusionIntensity = true;
-	PostProcess->Settings.AmbientOcclusionIntensity = 0.38f;
+	PostProcess->Settings.AmbientOcclusionIntensity = 0.48f;
 	PostProcess->Settings.bOverride_AmbientOcclusionRadius = true;
-	PostProcess->Settings.AmbientOcclusionRadius = 62.0f;
+	PostProcess->Settings.AmbientOcclusionRadius = 48.0f;
+	PostProcess->Settings.bOverride_LumenAmbientOcclusionIntensity = true;
+	PostProcess->Settings.LumenAmbientOcclusionIntensity = 0.55f;
 }
 
 void AIGPrologueWorldScene::BeginPlay()
@@ -741,10 +761,13 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 	const float EffectiveSourceRadius = FMath::Max(SourceRadius, 3.0f);
 	Light->SetSourceRadius(EffectiveSourceRadius);
 	Light->SetSoftSourceRadius(EffectiveSourceRadius * 1.6f);
-	Light->ContactShadowLength = 0.08f;
+	Light->ContactShadowLength = bCastShadows ? 0.12f : 0.0f;
 	Light->ContactShadowLengthInWS = false;
 	Light->ShadowSharpen = 0.0f;
-	Light->SetSpecularScale(0.85f);
+	// Do not mute the BRDF at the light.  Material roughness and specular now
+	// own highlight width/energy, so brushed steel, plastic film and plaster no
+	// longer receive the same flattened response.
+	Light->SetSpecularScale(1.0f);
 	Light->RegisterComponent();
 	Lights.Add(Light);
 	return Light;
