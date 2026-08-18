@@ -1689,6 +1689,7 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'Assert-FrontendShippingProbeEvidence',
 	'REBIRTH_FRONTEND_SHIPPING PASS resolutions=4 input_events=44',
 	'$summaryResults.Count -ne 4',
+	'$result.layoutSamples -ne 11',
 	'Frontend Shipping executable hash mismatch',
 	'[regex]::Escape($resolution)',
 	'Frontend Shipping receipt evidence mismatch',

@@ -564,6 +564,7 @@ Assert-ContainsAll $releaseValidationScript @(
 	'function Assert-ShippingArchiveManifestUnchanged',
 	'accessibilityScreenshotSha256',
 	'displayScreenshotSha256',
+	'$result.layoutSamples -ne 11',
 	"'shipping_archive_post_runtime'",
 	'Shipping manifest path escaped the archive',
 	'Shipping archive file hash changed after runtime',

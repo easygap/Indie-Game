@@ -1808,7 +1808,7 @@ function Assert-FrontendShippingProbeEvidence {
 		$resolution = [string]$result.resolution
 		if (-not $expectedResolutions.Remove($resolution) -or
 			[int]$result.inputEvents -ne 11 -or
-			[int]$result.layoutSamples -ne 10 -or
+			[int]$result.layoutSamples -ne 11 -or
 			[int]$result.minimumElements -lt 8) {
 			throw "Frontend Shipping result contract failed: $resolution"
 		}
