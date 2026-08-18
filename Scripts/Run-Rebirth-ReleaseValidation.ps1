@@ -964,7 +964,7 @@ function Assert-NoUnexpectedUnrealDiagnostics {
 	$knownStartupDiagnostics =
 		[System.Collections.Generic.HashSet[int]]::new()
 	if ($AllowUE58UnifiedErrorStartupNoise -and
-		$engineBuildVersion -match '^5\.8\.1-') {
+		$engineBuildVersion -match '^5\.8\.') {
 		$unifiedErrorStart = -1
 		$engineInitialize = -1
 		for ($lineIndex = 0; $lineIndex -lt $logLines.Count; $lineIndex++) {
@@ -1015,7 +1015,7 @@ function Assert-NoUnexpectedUnrealDiagnostics {
 						[void]$knownStartupDiagnostics.Add($conditionIndex)
 					}
 					Write-Host (
-						'REBIRTH_RELEASE_HARNESS INFO ignored known UE 5.8.1 ' +
+						'REBIRTH_RELEASE_HARNESS INFO ignored known UE 5.8 ' +
 						'UnifiedError startup diagnostics count=15 scope=map_check')
 				}
 			}

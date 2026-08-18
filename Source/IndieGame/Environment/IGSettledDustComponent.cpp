@@ -5,6 +5,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Environment/IGDustSubsystem.h"
+#include "GameFramework/Actor.h"
 #include "Materials/MaterialInterface.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -37,28 +38,39 @@ UIGSettledDustComponent::UIGSettledDustComponent()
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
 
-	Footfalls = CreateMarkLayer(
-		this,
-		TEXT("SettledDustFootfalls"),
+	static ConstructorHelpers::FObjectFinder<UStaticMesh> PlaneFinder(
+		TEXT("/Engine/BasicShapes/Plane.Plane"));
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> FootfallMaterialFinder(
 		IGSettledDust::FootfallMaterialPath);
-	Drags = CreateMarkLayer(
-		this,
-		TEXT("SettledDustDrags"),
+	static ConstructorHelpers::FObjectFinder<UMaterialInterface> DragMaterialFinder(
 		IGSettledDust::DragMaterialPath);
+	MarkPlaneMesh = PlaneFinder.Object;
+	FootfallMaterial = FootfallMaterialFinder.Object;
+	DragMaterial = DragMaterialFinder.Object;
 }
 
 UInstancedStaticMeshComponent* UIGSettledDustComponent::CreateMarkLayer(
-	USceneComponent* Parent,
 	const TCHAR* Name,
-	const TCHAR* MaterialPath)
+	UMaterialInterface* Material)
 {
+	AActor* Owner = GetOwner();
+	if (!Owner)
+	{
+		return nullptr;
+	}
+
+	// This component's class constructor also runs while its CDO is created.
+	// Creating another component there with NewObject asks UE's typed-element
+	// registry to represent an object before the registry exists.  Mark layers
+	// are runtime instance components instead: their actor owns and registers
+	// them after BeginPlay, when the world and registry are both available.
 	UInstancedStaticMeshComponent* Layer =
-		NewObject<UInstancedStaticMeshComponent>(Parent, Name);
+		NewObject<UInstancedStaticMeshComponent>(Owner, Name);
 	if (!Layer)
 	{
 		return nullptr;
 	}
-	Layer->SetupAttachment(Parent);
+	Layer->SetupAttachment(this);
 	Layer->SetMobility(EComponentMobility::Movable);
 	// Marks belong to the floor, not to this component's transform: absolute
 	// space keeps component space equal to world space so the instances stay
@@ -78,32 +90,46 @@ UInstancedStaticMeshComponent* UIGSettledDustComponent::CreateMarkLayer(
 	Layer->SetReceivesDecals(false);
 	Layer->ComponentTags.AddUnique(FName(TEXT("MissingFloor.SettledDust")));
 
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> PlaneFinder(
-		TEXT("/Engine/BasicShapes/Plane.Plane"));
-	if (PlaneFinder.Succeeded())
+	if (MarkPlaneMesh)
 	{
-		Layer->SetStaticMesh(PlaneFinder.Object);
+		Layer->SetStaticMesh(MarkPlaneMesh);
 	}
-	ConstructorHelpers::FObjectFinder<UMaterialInterface> MarkMaterial(MaterialPath);
-	if (MarkMaterial.Succeeded())
+	if (Material)
 	{
-		Layer->SetMaterial(0, MarkMaterial.Object);
+		Layer->SetMaterial(0, Material);
 	}
 	Layer->SetVisibility(false);
+	Owner->AddInstanceComponent(Layer);
+	Layer->RegisterComponent();
 	return Layer;
 }
 
 void UIGSettledDustComponent::BeginPlay()
 {
 	Super::BeginPlay();
+	if (!Footfalls)
+	{
+		Footfalls = CreateMarkLayer(
+			TEXT("SettledDustFootfalls"),
+			FootfallMaterial);
+	}
+	if (!Drags)
+	{
+		Drags = CreateMarkLayer(
+			TEXT("SettledDustDrags"),
+			DragMaterial);
+	}
 	if (Footfalls)
 	{
 		Footfalls->SetWorldTransform(FTransform::Identity);
+		Footfalls->SetVisibility(bFieldConfigured);
 	}
 	if (Drags)
 	{
 		Drags->SetWorldTransform(FTransform::Identity);
+		Drags->SetVisibility(bFieldConfigured);
 	}
+	SetComponentTickEnabled(bFieldConfigured && Footfalls && Drags);
 	if (const UWorld* World = GetWorld())
 	{
 		DustSubsystem = World->GetSubsystem<UIGDustSubsystem>();

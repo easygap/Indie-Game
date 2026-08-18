@@ -5,6 +5,8 @@
 #include "IGSettledDustComponent.generated.h"
 
 class UInstancedStaticMeshComponent;
+class UMaterialInterface;
+class UStaticMesh;
 class UIGDustSubsystem;
 
 /**
@@ -69,10 +71,18 @@ public:
 
 private:
 	void RebuildMarks();
-	static UInstancedStaticMeshComponent* CreateMarkLayer(
-		USceneComponent* Parent,
+	UInstancedStaticMeshComponent* CreateMarkLayer(
 		const TCHAR* Name,
-		const TCHAR* MaterialPath);
+		UMaterialInterface* Material);
+
+	UPROPERTY()
+	TObjectPtr<UStaticMesh> MarkPlaneMesh;
+
+	UPROPERTY()
+	TObjectPtr<UMaterialInterface> FootfallMaterial;
+
+	UPROPERTY()
+	TObjectPtr<UMaterialInterface> DragMaterial;
 
 	UPROPERTY(VisibleAnywhere, Category = "Dust", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInstancedStaticMeshComponent> Footfalls;

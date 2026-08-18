@@ -811,6 +811,8 @@ Require-All $settledDust @(
 	'Layer->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);',
 	'Layer->bAffectDistanceFieldLighting = false;',
 	'Layer->SetUsingAbsoluteLocation(true);',
+	'Owner->AddInstanceComponent(Layer);',
+	'Layer->RegisterComponent();',
 	'FieldFloorZ + SurfaceOffset'
 ) '§11 V2 settled dust blending'
 # 발자국이 남는 마스크: 두 종류의 마크가 서로 다른 크기여야 신발과 끌림이
