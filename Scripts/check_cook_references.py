@@ -18,6 +18,16 @@ and it stops being cooked only when the last material that sampled it has been
 rebuilt to read the page. Before that rebuild all of them still ship, and the
 atlas is pure cost.
 
+The Asset Manager's rules are *parsed*, not pattern-matched. They are the only
+per-asset cook rule Unreal offers, so they are the only thing holding an asset
+that nothing serialized references -- and a rule Unreal cannot read is a log
+line nobody reads and a blank draw in the pak. Every way one can look right
+and hold nothing is checked: a field name that is not a field, a CookRule that
+is not one of the enum values, a `Package.Object` path whose halves disagree,
+an asset that is not in the tree, an AssetBaseClass the named assets are not.
+``--explain-rules`` then re-runs reachability with the rules removed and says,
+one asset at a time, whether the rule is what keeps it.
+
 Two things this deliberately does not do:
 
 * It does not parse Unreal's package format. It scans each package for
@@ -40,6 +50,7 @@ Run with:
     python Scripts/check_cook_references.py --check     # exit 1 on findings
     python Scripts/check_cook_references.py --check \\
         --require-atlas-dropped   # after the editor rebuilt the materials
+    python Scripts/check_cook_references.py --explain-rules
     python Scripts/check_cook_references.py --self-test
     python Scripts/check_cook_references.py --json
 """
@@ -56,6 +67,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+import ue_config  # noqa: E402
 from texture_atlas_contract import (  # noqa: E402
     ATLAS_EXCLUSIONS,
     ATLAS_TEXTURE_ROOT,
@@ -85,15 +97,29 @@ NEVER_COOK_DIRECTORY = re.compile(
     r"^\+?DirectoriesToNeverCook\s*=\s*\(Path\s*=\s*\"([^\"]+)\"\)",
     re.MULTILINE,
 )
-PRIMARY_ASSET_RULE = re.compile(
-    r"^\+?PrimaryAssetTypesToScan\s*=\s*\((.*)\)\s*$", re.MULTILINE
-)
-RULE_DIRECTORY = re.compile(r"\(Path\s*=\s*\"([^\"]+)\"\)")
-# SpecificAssets is a TArray<FSoftObjectPath>: a parenthesised list of quoted
-# `/Game/Package.Object` paths. Matched strictly, so a malformed entry is
-# reported as uncovered rather than quietly counted as covered.
-RULE_SPECIFIC_ASSETS = re.compile(r"SpecificAssets\s*=\s*\(([^)]*)\)")
-RULE_SPECIFIC_ASSET = re.compile(r"\"(/Game/[A-Za-z0-9_/]+\.[A-Za-z0-9_]+)\"")
+PRIMARY_ASSET_SETTING = "PrimaryAssetTypesToScan"
+
+# FPrimaryAssetTypeInfo and FPrimaryAssetRules, as Unreal declares them. A rule
+# is only worth trusting if every field it names is a field that exists: Unreal
+# skips what it cannot map and logs, so a misspelled key is a rule that holds
+# nothing and says so where nobody looks.
+PRIMARY_ASSET_TYPE_FIELDS = frozenset({
+    "PrimaryAssetType", "AssetBaseClass", "bHasBlueprintClasses",
+    "bIsEditorOnly", "Directories", "SpecificAssets", "Rules",
+})
+PRIMARY_ASSET_RULE_FIELDS = frozenset({
+    "Priority", "ChunkId", "bApplyRecursively", "CookRule", "bIsEditorOnly",
+})
+COOK_RULES = frozenset({
+    "Unknown", "NeverCook", "ProductionNeverCook",
+    "DevelopmentAlwaysProductionNeverCook", "DevelopmentAlwaysCook",
+    "AlwaysCook",
+})
+# `/Game/Path/Asset.Object`. Unreal resolves the half after the dot as the
+# object inside the package, so for a top-level asset the two halves are the
+# same word and a mismatch resolves to nothing.
+SOFT_OBJECT_PATH = re.compile(
+    r"^(/Game/[A-Za-z0-9_/]+?/([A-Za-z0-9_]+))\.([A-Za-z0-9_]+)$")
 
 
 class CookAudit:
@@ -109,6 +135,7 @@ class CookAudit:
         self.always_cook: list[str] = []
         self.never_cook: list[str] = []
         self.always_cook_assets: set[str] = set()
+        self.primary_asset_rules: list[PrimaryAssetRule] = []
         self.packages: dict[str, str] = {}      # package path -> file path
         self.unreadable: set[str] = set()       # LFS pointers, not fetched
         self.references: dict[str, set[str]] = {}
@@ -129,6 +156,162 @@ def _read_config(path: str) -> str:
         return handle.read()
 
 
+class PrimaryAssetRule:
+    """One parsed `+PrimaryAssetTypesToScan=` line, and what is wrong with it."""
+
+    def __init__(self, line: int, text: str):
+        self.line = line
+        self.text = text
+        self.name = "?"
+        self.base_class = ""
+        self.cook_rule = ""
+        self.fields: dict = {}
+        self.directories: list[str] = []
+        self.assets: list[str] = []          # full `/Game/Pkg.Object` paths
+        self.packages: list[str] = []        # just `/Game/Pkg`
+        self.problems: list[str] = []
+
+    @property
+    def always_cook(self) -> bool:
+        return self.cook_rule == "AlwaysCook"
+
+
+def _validate_rule_fields(rule: PrimaryAssetRule, fields: dict) -> None:
+    unknown = sorted(set(fields) - PRIMARY_ASSET_TYPE_FIELDS)
+    if unknown:
+        rule.problems.append(
+            "FPrimaryAssetTypeInfo has no field(s) " + ", ".join(unknown)
+            + "; Unreal drops what it cannot map"
+        )
+    for required in ("PrimaryAssetType", "AssetBaseClass", "Rules"):
+        if required not in fields:
+            rule.problems.append(f"the rule names no {required}")
+
+    nested = fields.get("Rules")
+    if not isinstance(nested, dict):
+        rule.problems.append("Rules is not a struct")
+        return
+    unknown = sorted(set(nested) - PRIMARY_ASSET_RULE_FIELDS)
+    if unknown:
+        rule.problems.append(
+            "FPrimaryAssetRules has no field(s) " + ", ".join(unknown))
+    rule.cook_rule = str(nested.get("CookRule", ""))
+    if rule.cook_rule not in COOK_RULES:
+        rule.problems.append(
+            f"CookRule {rule.cook_rule!r} is not an EPrimaryAssetCookRule "
+            "value")
+    for numeric in ("Priority", "ChunkId"):
+        if numeric in nested:
+            try:
+                ue_config.as_int(nested[numeric])
+            except ue_config.ConfigSyntaxError as error:
+                rule.problems.append(f"Rules.{numeric}: {error}")
+    for flag in ("bApplyRecursively", "bIsEditorOnly"):
+        if flag in nested:
+            try:
+                ue_config.as_bool(nested[flag])
+            except ue_config.ConfigSyntaxError as error:
+                rule.problems.append(f"Rules.{flag}: {error}")
+
+
+def _validate_rule_assets(audit: CookAudit, rule: PrimaryAssetRule) -> None:
+    """Every named asset resolves, and is of the class the rule scans for.
+
+    The Asset Manager only registers an asset that is a subclass of
+    AssetBaseClass. A path that resolves to nothing, or to the wrong class,
+    leaves the rule holding nothing at all -- which looks exactly like a rule
+    that works until the pak is opened.
+    """
+    expected_class = rule.base_class.rsplit(".", 1)[-1]
+    for path in rule.assets:
+        match = SOFT_OBJECT_PATH.match(path)
+        if match is None:
+            rule.problems.append(f"{path} is not a /Game/Package.Object path")
+            continue
+        package, asset_name, object_name = match.groups()
+        if object_name != asset_name:
+            rule.problems.append(
+                f"{path} names object {object_name} inside package "
+                f"{asset_name}; a top-level asset has one name"
+            )
+            continue
+        file_path = audit.packages.get(package)
+        if file_path is None:
+            rule.problems.append(f"{path} is not in the tree")
+            continue
+        if package in audit.unreadable:
+            continue  # cannot check the class of a package we cannot open
+        if expected_class:
+            with open(file_path, "rb") as handle:
+                blob = handle.read()
+            if expected_class.encode("ascii") not in blob:
+                rule.problems.append(
+                    f"{path} does not look like a {expected_class}; the rule "
+                    "would register nothing for it"
+                )
+
+
+def _read_primary_asset_rules(audit: CookAudit) -> None:
+    """Parse the Asset Manager rules instead of pattern-matching them."""
+    text = _read_config(audit.engine_config)
+    for line, body in ue_config.ini_entries(text, PRIMARY_ASSET_SETTING):
+        rule = PrimaryAssetRule(line, body)
+        audit.primary_asset_rules.append(rule)
+        try:
+            fields = ue_config.parse_struct(body)
+        except ue_config.ConfigSyntaxError as error:
+            rule.problems.append(f"unparseable: {error}")
+            continue
+
+        rule.fields = fields
+        rule.name = str(fields.get("PrimaryAssetType", "?"))
+        rule.base_class = str(fields.get("AssetBaseClass", ""))
+        _validate_rule_fields(rule, fields)
+
+        try:
+            for entry in ue_config.as_array(fields.get("Directories")):
+                if not isinstance(entry, dict) or "Path" not in entry:
+                    rule.problems.append(
+                        "Directories takes FDirectoryPath structs, "
+                        f"found {entry!r}")
+                    continue
+                rule.directories.append(str(entry["Path"]).rstrip("/"))
+            rule.assets = [
+                str(entry)
+                for entry in ue_config.as_array(fields.get("SpecificAssets"))
+            ]
+        except ue_config.ConfigSyntaxError as error:
+            rule.problems.append(str(error))
+            continue
+
+        _validate_rule_assets(audit, rule)
+        rule.packages = [
+            path.split(".")[0] for path in rule.assets
+            if SOFT_OBJECT_PATH.match(path)
+        ]
+        if not rule.directories and not rule.packages:
+            rule.problems.append("the rule names no directory and no asset")
+
+    # Differential: the rules in a project are written to one shape. A rule
+    # whose field set differs from every other one is usually a rule that was
+    # typed rather than exported, and the difference is the mistake.
+    shapes = [
+        (rule, frozenset(rule.fields)) for rule in audit.primary_asset_rules
+    ]
+    counts: dict[frozenset, int] = {}
+    for _rule, shape in shapes:
+        if shape:
+            counts[shape] = counts.get(shape, 0) + 1
+    if len(counts) > 1:
+        common = max(counts, key=lambda shape: counts[shape])
+        for rule, shape in shapes:
+            if shape and shape != common:
+                rule.problems.append(
+                    "field set differs from the other rules in this file: "
+                    + ", ".join(sorted(shape ^ common))
+                )
+
+
 def _cook_directories(audit: CookAudit) -> None:
     game = _read_config(audit.game_config)
     audit.always_cook = [
@@ -143,15 +326,12 @@ def _cook_directories(audit: CookAudit) -> None:
     # SpecificAssets is the only per-asset cook rule Unreal offers: an asset
     # that nothing serialized references, and that only C++ loads by path,
     # ships because it is named here or it does not ship at all.
-    for body in PRIMARY_ASSET_RULE.findall(_read_config(audit.engine_config)):
-        if "CookRule=AlwaysCook" not in body.replace(" ", ""):
+    _read_primary_asset_rules(audit)
+    for rule in audit.primary_asset_rules:
+        if not rule.always_cook:
             continue
-        audit.always_cook.extend(
-            p.rstrip("/") for p in RULE_DIRECTORY.findall(body)
-        )
-        for group in RULE_SPECIFIC_ASSETS.findall(body):
-            for path in RULE_SPECIFIC_ASSET.findall(group):
-                audit.always_cook_assets.add(path.split(".")[0])
+        audit.always_cook.extend(rule.directories)
+        audit.always_cook_assets.update(rule.packages)
 
     # One entry per directory, in the order the config named them.
     audit.always_cook = list(dict.fromkeys(audit.always_cook))
@@ -249,8 +429,10 @@ def _collect_code_paths(audit: CookAudit) -> None:
 
 def run_audit(project_root: str = PROJECT_ROOT) -> CookAudit:
     audit = CookAudit(project_root)
-    _cook_directories(audit)
+    # Packages first: validating a rule means resolving the assets it names,
+    # which needs to know what is in the tree.
     _collect_packages(audit)
+    _cook_directories(audit)
     _seed_roots(audit)
     _close(audit)
     _collect_code_paths(audit)
@@ -338,12 +520,68 @@ def atlas_entries_loaded_by_code(
     return conflicts
 
 
+def cook_rule_problems(audit: CookAudit) -> list[tuple[PrimaryAssetRule, str]]:
+    """Every reason a parsed Asset Manager rule would not do what it says."""
+    return [
+        (rule, problem)
+        for rule in audit.primary_asset_rules
+        for problem in rule.problems
+    ]
+
+
+def rule_coverage(audit: CookAudit) -> list[dict]:
+    """For each per-asset cook rule, what it actually holds in the build.
+
+    An entry is *load-bearing* when the rule is the only thing cooking it:
+    code loads it by path, and no other cooked package references it. That is
+    the case the rule exists for, and the one worth proving one asset at a
+    time.
+    """
+    coverage = []
+    for rule in audit.primary_asset_rules:
+        if not rule.packages:
+            continue
+        entries = []
+        for package in rule.packages:
+            others = sorted(
+                other for other in audit.cooked
+                if other != package
+                and package in audit.references.get(other, ())
+            )
+            entries.append({
+                "package": package,
+                "cooked": package in audit.cooked,
+                "root": package in audit.roots,
+                "code_sites": audit.code_paths.get(package, []),
+                "other_referrers": others,
+                "load_bearing": bool(audit.code_paths.get(package))
+                and not others,
+            })
+        coverage.append({
+            "type": rule.name,
+            "line": rule.line,
+            "cook_rule": rule.cook_rule,
+            "base_class": rule.base_class,
+            "entries": entries,
+        })
+    return coverage
+
+
 def gate(
     audit: CookAudit,
     require_atlas_dropped: bool = False,
     entries=PRINT_ATLAS_ENTRIES,
 ) -> tuple[int, str]:
     """(exit code, closing line) for --check. Separated so it can be tested."""
+    # A rule Unreal would not parse, or would parse into something other than
+    # what it says, is read off the ini and the tree alone.
+    rule_problems = cook_rule_problems(audit)
+    if rule_problems:
+        return 1, (
+            f"FAIL {len(rule_problems)} problem(s) in the Asset Manager cook "
+            "rules; they would hold less than they claim"
+        )
+
     # An atlas entry that code also loads by path is read off the contract and
     # the source, so this verdict holds whatever the working tree fetched.
     conflicts = atlas_entries_loaded_by_code(audit, entries)
@@ -401,6 +639,28 @@ def _report(audit: CookAudit) -> None:
             "cooked; the reference graph is complete"
         )
 
+    for rule, problem in cook_rule_problems(audit):
+        print(f"  [COOK_RULE] {audit.engine_config}:{rule.line} "
+              f"{rule.name}: {problem}")
+
+    for rule in rule_coverage(audit):
+        held = [e for e in rule["entries"] if e["load_bearing"]]
+        redundant = [e for e in rule["entries"] if e["other_referrers"]]
+        unused = [
+            e for e in rule["entries"]
+            if not e["code_sites"] and not e["other_referrers"]
+        ]
+        print(
+            f"  rule {rule['type']} ({rule['cook_rule']}, "
+            f"{rule['base_class'].rsplit('.', 1)[-1]}) holds "
+            f"{len(rule['entries'])} asset(s): {len(held)} load-bearing, "
+            f"{len(redundant)} also referenced elsewhere, {len(unused)} "
+            "referenced by nothing"
+        )
+        for entry in rule["entries"]:
+            if not entry["cooked"]:
+                print(f"      NOT COOKED {entry['package']}")
+
     conflicts = atlas_entries_loaded_by_code(audit)
     if conflicts:
         print(f"\n{len(conflicts)} atlas entr(y/ies) are also loaded by code:")
@@ -441,12 +701,94 @@ def _report(audit: CookAudit) -> None:
     print(f"  {len(ATLAS_EXCLUSIONS)} texture(s) deliberately off the atlas")
 
 
-def _fixture(root: str, always_cook_asset: str | None, atlas_material_reads:
-             str) -> str:
-    """A four-package project: a map, a material, a texture and a HUD frame.
+def command_explain_rules(audit: CookAudit) -> int:
+    """Walk every per-asset cook rule entry and say what holds it, and why.
 
-    ``atlas_material_reads`` is the package the print material samples, which
-    is what changes when the editor rebuilds it to read an atlas page.
+    The counterfactual is the point: for each asset, re-run reachability with
+    the rules removed and report whether it survives. An entry that survives
+    either way is redundant; one that does not is the rule earning its line.
+    """
+    without = run_audit(audit.project_root)
+    without.always_cook_assets = set()
+    without.roots = set()
+    without.cooked = set()
+    _seed_roots(without)
+    _close(without)
+
+    problems = cook_rule_problems(audit)
+    print(f"COOK RULES  {audit.engine_config}")
+    for rule in audit.primary_asset_rules:
+        print(
+            f"\n  line {rule.line}  {rule.name}  CookRule={rule.cook_rule}  "
+            f"AssetBaseClass={rule.base_class}"
+        )
+        print(f"    parsed fields: {', '.join(sorted(rule.fields))}")
+        if rule.directories:
+            print(f"    directories:   {', '.join(rule.directories)}")
+        for problem in rule.problems:
+            print(f"    PROBLEM  {problem}")
+        if not rule.packages:
+            continue
+        print(f"    {len(rule.packages)} named asset(s):")
+        for package in rule.packages:
+            sites = audit.code_paths.get(package, [])
+            held = package in audit.cooked
+            survives = package in without.cooked
+            if held and not survives:
+                verdict = "HELD BY THIS RULE"
+            elif held and survives:
+                verdict = "cooked anyway (rule redundant here)"
+            else:
+                verdict = "NOT COOKED"
+            loaded = (
+                "loaded by " + ", ".join(sites) if sites
+                else "not loaded by any code path"
+            )
+            print(f"      {verdict:34s} {package.rsplit('/', 1)[-1]}")
+            print(f"        {loaded}")
+
+    held = sum(
+        1 for rule in audit.primary_asset_rules for package in rule.packages
+        if package in audit.cooked and package not in without.cooked
+    )
+    named = sum(len(rule.packages) for rule in audit.primary_asset_rules)
+    print(
+        f"\n{held}/{named} named asset(s) are in the cook only because of "
+        f"these rules; {len(problems)} problem(s) found"
+    )
+    return 1 if problems else 0
+
+
+def hud_texture_rule(assets: str, **overrides: str) -> str:
+    """A well-formed per-asset AlwaysCook rule, with fields swappable.
+
+    The overrides are what the negative half of the self-test uses: each one
+    breaks the rule in a way Unreal reacts to by holding less than the line
+    says, without changing anything a regex would notice.
+    """
+    fields = {
+        "PrimaryAssetType": '"T"',
+        "AssetBaseClass": '"/Script/Engine.Texture2D"',
+        "bHasBlueprintClasses": "False",
+        "bIsEditorOnly": "False",
+        "Directories": "",
+        "SpecificAssets": f"({assets})" if assets else "",
+        "Rules": "(Priority=0,ChunkId=-1,bApplyRecursively=False,"
+                 "CookRule=AlwaysCook)",
+    }
+    for key, value in overrides.items():
+        fields[key] = value
+    body = ",".join(f"{key}={value}" for key, value in fields.items())
+    return f"+{PRIMARY_ASSET_SETTING}=({body})"
+
+
+def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
+    """A small project: a map, a mesh, a print material and three textures.
+
+    ``rule`` is the Asset Manager line to write, or None for a config with no
+    per-asset rule at all. ``atlas_material_reads`` is the package the print
+    material samples, which is what changes when the editor rebuilds it to
+    read an atlas page.
     """
     os.makedirs(os.path.join(root, "Config"), exist_ok=True)
     with open(os.path.join(root, "Config", "DefaultGame.ini"), "w") as handle:
@@ -454,16 +796,10 @@ def _fixture(root: str, always_cook_asset: str | None, atlas_material_reads:
             "[/Script/UnrealEd.ProjectPackagingSettings]\n"
             "+DirectoriesToAlwaysCook=(Path=\"/Game/Prototype/Materials\")\n"
         )
-    specific = f'"{always_cook_asset}.{always_cook_asset.rsplit("/", 1)[-1]}"' \
-        if always_cook_asset else ""
     with open(os.path.join(root, "Config", "DefaultEngine.ini"), "w") as handle:
-        handle.write(
-            "[/Script/Engine.AssetManagerSettings]\n"
-            "+PrimaryAssetTypesToScan=(PrimaryAssetType=\"T\","
-            "AssetBaseClass=\"/Script/Engine.Texture2D\","
-            f"Directories=,SpecificAssets=({specific}),"
-            "Rules=(Priority=0,ChunkId=-1,CookRule=AlwaysCook))\n"
-        )
+        handle.write("[/Script/Engine.AssetManagerSettings]\n")
+        if rule:
+            handle.write(rule + "\n")
 
     def package(relative: str, body: str) -> None:
         path = os.path.join(root, "Content", *relative.split("/"))
@@ -474,11 +810,13 @@ def _fixture(root: str, always_cook_asset: str | None, atlas_material_reads:
     # The map is the only root that is not named by a directory rule, so it
     # carries the one reference that proves maps are seeded.
     package("Maps/Level.umap", "/Game/Meshes/SM_Placed")
-    package("Meshes/SM_Placed.uasset", "leaf")
+    package("Meshes/SM_Placed.uasset", "StaticMesh")
     package("Prototype/Materials/M_Print.uasset", atlas_material_reads)
-    package("Prototype/Textures/T_Print_D.uasset", "leaf")
-    package("Prototype/Textures/T_PrintAtlas0_D.uasset", "leaf")
-    package("Prototype/Textures/T_HudFrame_D.uasset", "leaf")
+    # Real texture packages carry their class name in the export table, which
+    # is what lets the rule's AssetBaseClass be checked against them.
+    package("Prototype/Textures/T_Print_D.uasset", "Texture2D")
+    package("Prototype/Textures/T_PrintAtlas0_D.uasset", "Texture2D")
+    package("Prototype/Textures/T_HudFrame_D.uasset", "Texture2D")
 
     source = os.path.join(root, "Source", "Player")
     os.makedirs(source, exist_ok=True)
@@ -505,6 +843,7 @@ def command_self_test() -> int:
 
     entries = ("T_Print_D",)
     hud = "/Game/Prototype/Textures/T_HudFrame_D"
+    good_rule = hud_texture_rule(f'"{hud}.T_HudFrame_D"')
     with tempfile.TemporaryDirectory() as tmp:
         # 1. Before the rebuild: the material samples its own texture, and
         #    nothing but code names the HUD frame.
@@ -524,14 +863,60 @@ def command_self_test() -> int:
         # 2. After: the material reads the page, and the config names the
         #    frame. Both findings clear, and the texture leaves the cook.
         after = _fixture(
-            os.path.join(tmp, "after"), hud,
+            os.path.join(tmp, "after"), good_rule,
             "/Game/Prototype/Textures/T_PrintAtlas0_D")
         audit = run_audit(after)
+        assert not cook_rule_problems(audit), \
+            f"a well-formed rule was faulted: {cook_rule_problems(audit)}"
         assert not code_only_assets(audit), \
             "an asset named by SpecificAssets is still reported unreachable"
         assert not atlas_status(audit, entries)["still_cooked"], \
             "a texture nothing references any more still looks cooked"
         assert hud in audit.cooked, "the SpecificAssets rule was not parsed"
+        # The rule is load-bearing for that texture, not decoration: with the
+        # per-asset rules taken away it drops straight out of the cook.
+        holding = [
+            entry for rule in rule_coverage(audit)
+            for entry in rule["entries"] if entry["load_bearing"]
+        ]
+        assert [entry["package"] for entry in holding] == [hud], \
+            "the rule was not reported as the only thing cooking the texture"
+
+        # 2b. Every way a rule can look right and hold nothing. Each of these
+        #     passes a regex looking for `CookRule=AlwaysCook` and a quoted
+        #     /Game path, which is why the rule is parsed instead.
+        tampered = {
+            "unparseable": good_rule[:-1],
+            "unknown field": hud_texture_rule(
+                f'"{hud}.T_HudFrame_D"').replace(
+                    "SpecificAssets=", "SpecficAssets="),
+            "misspelled cook rule": hud_texture_rule(
+                f'"{hud}.T_HudFrame_D"',
+                Rules="(Priority=0,ChunkId=-1,CookRule=AlwaysCok)"),
+            "object name mismatch": hud_texture_rule(f'"{hud}.T_HudFrame"'),
+            "asset not in the tree": hud_texture_rule(
+                '"/Game/Prototype/Textures/T_Absent_D.T_Absent_D"'),
+            "wrong AssetBaseClass": hud_texture_rule(
+                f'"{hud}.T_HudFrame_D"',
+                AssetBaseClass='"/Script/Engine.StaticMesh"'),
+            "holds nothing": hud_texture_rule(""),
+            "non-integer priority": hud_texture_rule(
+                f'"{hud}.T_HudFrame_D"',
+                Rules="(Priority=high,ChunkId=-1,CookRule=AlwaysCook)"),
+            "directories not structs": hud_texture_rule(
+                f'"{hud}.T_HudFrame_D"',
+                Directories='("/Game/UI")'),
+        }
+        for name, rule_text in tampered.items():
+            root = _fixture(
+                os.path.join(tmp, "bad_" + name.replace(" ", "_")), rule_text,
+                "/Game/Prototype/Textures/T_PrintAtlas0_D")
+            audit = run_audit(root)
+            assert cook_rule_problems(audit), \
+                f"a rule broken by {name} was accepted"
+            code, message = gate(audit, entries=entries)
+            assert code == 1 and message.startswith("FAIL"), \
+                f"a rule broken by {name} did not fail the gate"
 
         # 3. The conflict the atlas contract exists to prevent: a texture on
         #    a page that code also loads by path.
@@ -544,7 +929,7 @@ def command_self_test() -> int:
         #    its texture looks unreferenced -- which is a hole in the graph,
         #    not a finding, and the gate has to say so instead of failing.
         blinded = _fixture(
-            os.path.join(tmp, "blinded"), hud,
+            os.path.join(tmp, "blinded"), good_rule,
             "/Game/Prototype/Textures/T_Print_D")
         material = os.path.join(
             blinded, "Content", "Prototype", "Materials", "M_Print.uasset")
@@ -567,9 +952,10 @@ def command_self_test() -> int:
             f"a hole in the graph was treated as a verdict: {code} {message}"
 
     print(
-        "PASS cook reference self-test: code-only detection, SpecificAssets "
-        "coverage, atlas drop, the code-load conflict and the unfetched-LFS "
-        "hole all verified"
+        f"PASS cook reference self-test: code-only detection, SpecificAssets "
+        f"coverage and load-bearing, atlas drop before and after the material "
+        f"rebuild, the code-load conflict, the unfetched-LFS hole, and "
+        f"{len(tampered)} ways a cook rule can look right and hold nothing"
     )
     return 0
 
@@ -586,12 +972,18 @@ def main(argv=None) -> int:
              "for use after the editor has rebuilt the print materials")
     parser.add_argument("--self-test", action="store_true",
                         help="run the audit against a synthetic project")
+    parser.add_argument(
+        "--explain-rules", action="store_true",
+        help="walk the Asset Manager cook rules asset by asset and report, "
+             "for each, whether the rule is what keeps it in the cook")
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
         return command_self_test()
 
     audit = run_audit()
+    if arguments.explain_rules:
+        return command_explain_rules(audit)
     conflicts = atlas_entries_loaded_by_code(audit)
     code_only = code_only_assets(audit)
     status = atlas_status(audit)
@@ -606,6 +998,11 @@ def main(argv=None) -> int:
             "code_only": {p: sites for p, sites in code_only},
             "absent": {p: sites for p, sites in missing_code_assets(audit)},
             "atlas": status,
+            "cook_rules": rule_coverage(audit),
+            "cook_rule_problems": [
+                {"line": rule.line, "type": rule.name, "problem": problem}
+                for rule, problem in cook_rule_problems(audit)
+            ],
         }, indent=2))
     else:
         _report(audit)
