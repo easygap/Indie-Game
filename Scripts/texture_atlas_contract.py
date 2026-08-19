@@ -30,13 +30,30 @@ MANIFEST_PATH = os.path.join(ATLAS_DIR, "print_atlas.json")
 ATLAS_TEXTURE_ROOT = "/Game/Prototype/Textures"
 ATLAS_PAGE_PREFIX = "T_PrintAtlas"
 
-MANIFEST_VERSION = 1
+MANIFEST_VERSION = 2
 
 # 2048 is the largest page that still streams in one 8 MB BC7 block on the
 # minimum spec in PERFORMANCE.md. The current print set measures 12.66 Mpx, so
-# it needs four such pages -- which is the floor for that area, not slack in
-# the packer: pages come out 94.6 / 89.9 / 83.4 / 33.9 per cent full.
+# it needs four pages -- which is the floor for that area, not slack in the
+# packer.
+#
+# A page is only as large as its own contents need. Pages are packed at the
+# maximum and then each one is repacked into the smallest power-of-two box
+# that still holds it, so a tail page carrying a third of a full page ships as
+# 2048x1024 rather than as 2048x2048 of mostly nothing. Every page is still a
+# power of two on both axes, which is what the block compressors want.
 PAGE_SIZE = 2048
+
+# Candidate page shapes, smallest area first. The packer walks this list and
+# keeps the first shape a page's contents fit into.
+PAGE_SHAPES = tuple(sorted(
+    (
+        (width, height)
+        for width in (256, 512, 1024, 2048)
+        for height in (256, 512, 1024, 2048)
+    ),
+    key=lambda shape: (shape[0] * shape[1], max(shape)),
+))
 
 # Eight pixels of edge-extended bleed around every entry. At 2048 that keeps
 # neighbours out of the sample down to the 1/32 mip, which is well past the
@@ -142,6 +159,12 @@ def source_texture_path(stem: str) -> str:
     return os.path.join(SOURCE_ART_DIR, f"{stem}.png")
 
 
+def page_dimensions(manifest: dict, page_index: int) -> tuple[int, int]:
+    """(width, height) of one page. Pages are not all the same shape."""
+    page = manifest["pages"][page_index]
+    return (page["width"], page["height"])
+
+
 def load_manifest(path: str = MANIFEST_PATH) -> dict:
     """Reads the packed layout, or raises if it has not been built."""
     if not os.path.isfile(path):
@@ -167,21 +190,8 @@ def try_load_manifest(path: str = MANIFEST_PATH):
 
 
 def validate_manifest(manifest: dict) -> None:
-    """Structural and geometric checks that need no image data."""
-    if manifest.get("version") != MANIFEST_VERSION:
-        raise AtlasContractError(
-            f"Atlas manifest version {manifest.get('version')} "
-            f"!= {MANIFEST_VERSION}"
-        )
-    page_size = manifest.get("page_size")
-    if page_size != PAGE_SIZE:
-        raise AtlasContractError(f"Atlas page size {page_size} != {PAGE_SIZE}")
-    if page_size & (page_size - 1):
-        raise AtlasContractError("Atlas page size must be a power of two")
-    if manifest.get("gutter") != GUTTER:
-        raise AtlasContractError(
-            f"Atlas gutter {manifest.get('gutter')} != {GUTTER}"
-        )
+    """Full check: the geometry, plus the entry set this project contracted."""
+    validate_manifest_geometry(manifest)
 
     entries = manifest.get("entries") or {}
     missing = [name for name in PRINT_ATLAS_ENTRIES if name not in entries]
@@ -196,31 +206,75 @@ def validate_manifest(manifest: dict) -> None:
             "Atlas holds textures outside the contract: " + ", ".join(extra)
         )
 
+
+def validate_manifest_geometry(manifest: dict) -> None:
+    """Shape, bounds, gutters and UV maths, for any set of entries.
+
+    Split out from validate_manifest so the packer's self-test can check the
+    same maths against synthetic fixtures, which are deliberately nothing to
+    do with this project's contracted texture list.
+    """
+    if manifest.get("version") != MANIFEST_VERSION:
+        raise AtlasContractError(
+            f"Atlas manifest version {manifest.get('version')} "
+            f"!= {MANIFEST_VERSION}"
+        )
+    page_size = manifest.get("page_size")
+    if page_size != PAGE_SIZE:
+        raise AtlasContractError(f"Atlas page size {page_size} != {PAGE_SIZE}")
+    if manifest.get("gutter") != GUTTER:
+        raise AtlasContractError(
+            f"Atlas gutter {manifest.get('gutter')} != {GUTTER}"
+        )
+
+    entries = manifest.get("entries") or {}
     pages = manifest.get("pages") or []
     if not pages:
         raise AtlasContractError("Atlas manifest lists no pages")
+    for page in pages:
+        for axis in ("width", "height"):
+            extent = page.get(axis)
+            if not isinstance(extent, int) or extent <= 0:
+                raise AtlasContractError(
+                    f"Atlas page {page.get('index')} has no {axis}"
+                )
+            if extent & (extent - 1):
+                raise AtlasContractError(
+                    f"Atlas page {page.get('index')} {axis} {extent} is not a "
+                    "power of two"
+                )
+            if extent > PAGE_SIZE:
+                raise AtlasContractError(
+                    f"Atlas page {page.get('index')} {axis} {extent} exceeds "
+                    f"the {PAGE_SIZE} maximum"
+                )
 
     occupied: dict[int, list[tuple[str, int, int, int, int]]] = {}
     for name, entry in entries.items():
         page = entry["page"]
         if not 0 <= page < len(pages):
             raise AtlasContractError(f"{name} references page {page}")
+        page_width = pages[page]["width"]
+        page_height = pages[page]["height"]
         x, y = entry["x"], entry["y"]
         width, height = entry["w"], entry["h"]
         if x < 0 or y < 0:
             raise AtlasContractError(f"{name} starts outside page {page}")
         # A page edge needs no gutter: there is no neighbour beyond it and the
         # sampler clamps. Gutters are only ever about the entry next door.
-        if x + width > page_size or y + height > page_size:
+        if x + width > page_width or y + height > page_height:
             raise AtlasContractError(f"{name} overruns page {page}")
         occupied.setdefault(page, []).append((name, x, y, width, height))
 
+        # UVs are normalised against the page the entry actually landed on,
+        # which is not the same size for every page.
         scale = entry["uv_scale"]
         bias = entry["uv_bias"]
-        expected = (width / page_size, height / page_size)
+        expected = (width / page_width, height / page_height)
         if abs(scale[0] - expected[0]) > 1e-9 or abs(scale[1] - expected[1]) > 1e-9:
             raise AtlasContractError(f"{name} UV scale disagrees with its rect")
-        if abs(bias[0] - x / page_size) > 1e-9 or abs(bias[1] - y / page_size) > 1e-9:
+        if abs(bias[0] - x / page_width) > 1e-9 \
+                or abs(bias[1] - y / page_height) > 1e-9:
             raise AtlasContractError(f"{name} UV bias disagrees with its rect")
 
     for page, rects in occupied.items():

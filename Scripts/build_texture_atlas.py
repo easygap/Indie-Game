@@ -39,11 +39,13 @@ from texture_atlas_contract import (  # noqa: E402
     MANIFEST_PATH,
     MANIFEST_VERSION,
     MAX_MIP_LEVELS,
+    PAGE_SHAPES,
     PAGE_SIZE,
     PRINT_ATLAS_ENTRIES,
     page_file_name,
     source_texture_path,
     validate_manifest,
+    validate_manifest_geometry,
 )
 
 LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
@@ -61,9 +63,10 @@ class MaxRectsPage:
     inputs always produce the same page.
     """
 
-    def __init__(self, size: int):
-        self.size = size
-        self.free = [(0, 0, size, size)]
+    def __init__(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        self.free = [(0, 0, width, height)]
         self.used: list[tuple[int, int, int, int]] = []
 
     def insert(self, width: int, height: int):
@@ -121,14 +124,51 @@ class MaxRectsPage:
         self.free = keep
 
     def occupancy(self) -> float:
+        """Share of the page's own area covered by real pixels."""
         area = sum((w - GUTTER * 2) * (h - GUTTER * 2) for _, _, w, h in self.used)
-        return area / float(PAGE_SIZE * PAGE_SIZE)
+        return area / float(
+            (self.width - GUTTER * 2) * (self.height - GUTTER * 2))
 
 
 def _contains(outer, inner) -> bool:
     ox, oy, ow, oh = outer
     ix, iy, iw, ih = inner
     return ox <= ix and oy <= iy and ox + ow >= ix + iw and oy + oh >= iy + ih
+
+
+def _pack_into(sizes, page_width, page_height, gutter=GUTTER):
+    """Packs everything into one page of the given shape, or returns None.
+
+    Packing runs in a page grown by one gutter on every side, and the gutter is
+    then subtracted back off. An entry can therefore sit flush against the page
+    edge -- nothing is next to it there, and the sampler clamps -- while any two
+    entries still end up two gutters apart.
+    """
+    page = MaxRectsPage(page_width + gutter * 2, page_height + gutter * 2)
+    placements = {}
+    for name, width, height in sizes:
+        if width > page_width or height > page_height:
+            return None
+        spot = page.insert(width + gutter * 2, height + gutter * 2)
+        if spot is None:
+            return None
+        placements[name] = (spot[0], spot[1], width, height)
+    return placements, page
+
+
+def _shrink(sizes, gutter=GUTTER):
+    """Repacks one page's contents into the smallest shape that holds them.
+
+    Sorts largest-area first here rather than trusting the caller, so the
+    result depends only on which entries are on the page, never on the order
+    they were handed over.
+    """
+    order = sorted(sizes, key=lambda item: (-(item[1] * item[2]), item[0]))
+    for page_width, page_height in PAGE_SHAPES:
+        result = _pack_into(order, page_width, page_height, gutter)
+        if result is not None:
+            return result
+    return None  # pragma: no cover - the caller only ever shrinks a valid page
 
 
 def pack(sizes, page_size=PAGE_SIZE, gutter=GUTTER):
@@ -138,15 +178,17 @@ def pack(sizes, page_size=PAGE_SIZE, gutter=GUTTER):
     before the door plates fill the gaps, but the *result* is keyed by name, so
     the caller's order does not leak into the layout.
 
-    Packing runs in a page grown by one gutter on every side, and the gutter is
-    then subtracted back off. An entry can therefore sit flush against the page
-    edge -- nothing is next to it there, and the sampler clamps -- while any two
-    entries still end up two gutters apart.
+    Two passes. The first fills full-size pages, which decides how many pages
+    there are and which entries share one. The second repacks each page on its
+    own into the smallest power-of-two shape its contents fit in, so a tail
+    page holding a third of a page's worth ships at a third of the size. The
+    first pass sets the page count, so shrinking can only ever save memory --
+    it can never split a page in two.
     """
     order = sorted(sizes, key=lambda item: (-(item[1] * item[2]), item[0]))
     virtual_size = page_size + gutter * 2
     pages: list[MaxRectsPage] = []
-    placements = {}
+    assigned: list[list[tuple[str, int, int]]] = []
 
     for name, width, height in order:
         padded_w = width + gutter * 2
@@ -156,20 +198,30 @@ def pack(sizes, page_size=PAGE_SIZE, gutter=GUTTER):
                 f"{name} is {width}x{height}; too large for a "
                 f"{page_size} px page"
             )
-        spot = None
+        placed = False
         for page_index, page in enumerate(pages):
-            spot = page.insert(padded_w, padded_h)
-            if spot is not None:
-                placements[name] = (page_index, spot[0], spot[1], width, height)
+            if page.insert(padded_w, padded_h) is not None:
+                assigned[page_index].append((name, width, height))
+                placed = True
                 break
-        if spot is None:
-            page = MaxRectsPage(virtual_size)
-            spot = page.insert(padded_w, padded_h)
-            if spot is None:  # pragma: no cover - guarded by the size check
+        if not placed:
+            page = MaxRectsPage(virtual_size, virtual_size)
+            if page.insert(padded_w, padded_h) is None:  # pragma: no cover
                 raise AtlasContractError(f"{name} did not fit an empty page")
             pages.append(page)
-            placements[name] = (len(pages) - 1, spot[0], spot[1], width, height)
-    return placements, pages
+            assigned.append([(name, width, height)])
+
+    placements = {}
+    shrunk: list[MaxRectsPage] = []
+    for page_index, contents in enumerate(assigned):
+        result = _shrink(contents, gutter)
+        if result is None:  # pragma: no cover - a full page always refits
+            raise AtlasContractError(f"page {page_index} could not be repacked")
+        page_placements, page = result
+        for name, (x, y, width, height) in page_placements.items():
+            placements[name] = (page_index, x, y, width, height)
+        shrunk.append(page)
+    return placements, shrunk
 
 
 # ---------------------------------------------------------------------------
@@ -217,13 +269,17 @@ def collect_sources(entries=PRINT_ATLAS_ENTRIES):
 # Page composition
 # ---------------------------------------------------------------------------
 
-def compose(sources, placements, page_count, page_size=PAGE_SIZE, gutter=GUTTER):
-    """Paints every source into its page, with edge-extended bleed."""
+def compose(sources, placements, page_shapes, gutter=GUTTER):
+    """Paints every source into its page, with edge-extended bleed.
+
+    page_shapes is one (width, height) per page; pages are not all square and
+    not all the same size.
+    """
     from PIL import Image
 
     pages = [
-        Image.new("RGBA", (page_size, page_size), (0, 0, 0, 0))
-        for _ in range(page_count)
+        Image.new("RGBA", shape, (0, 0, 0, 0))
+        for shape in page_shapes
     ]
     for stem, path, width, height, _ in sources:
         page_index, x, y, placed_w, placed_h = placements[stem]
@@ -242,18 +298,26 @@ def _bleed(page, tile, x, y, gutter):
 
     Everything is clipped to the page: an entry flush against the edge simply
     has less bleed on that side, which is what the clamp does anyway.
+
+    Nearest-neighbour throughout. Stretching a one-pixel line with any
+    filtering resamples it, and the gutter then differs from the edge it is
+    supposed to be a copy of -- by one or two in each channel, which is enough
+    to show as a seam once a mip averages across it.
     """
+    from PIL import Image
+
     width, height = tile.size
     page_w, page_h = page.size
 
     left_span = min(gutter, x)
     if left_span:
-        column = tile.crop((0, 0, 1, height)).resize((left_span, height))
+        column = tile.crop((0, 0, 1, height)).resize(
+            (left_span, height), Image.NEAREST)
         page.paste(column, (x - left_span, y))
     right_span = min(gutter, page_w - (x + width))
     if right_span:
         column = tile.crop((width - 1, 0, width, height)).resize(
-            (right_span, height))
+            (right_span, height), Image.NEAREST)
         page.paste(column, (x + width, y))
 
     band_x0 = x - left_span
@@ -261,29 +325,42 @@ def _bleed(page, tile, x, y, gutter):
     top_span = min(gutter, y)
     if top_span:
         band = page.crop((band_x0, y, band_x1, y + 1))
-        page.paste(band.resize((band.width, top_span)), (band_x0, y - top_span))
+        page.paste(band.resize((band.width, top_span), Image.NEAREST),
+                   (band_x0, y - top_span))
     bottom_span = min(gutter, page_h - (y + height))
     if bottom_span:
         band = page.crop((band_x0, y + height - 1, band_x1, y + height))
-        page.paste(band.resize((band.width, bottom_span)), (band_x0, y + height))
+        page.paste(band.resize((band.width, bottom_span), Image.NEAREST),
+                   (band_x0, y + height))
 
 
 # ---------------------------------------------------------------------------
 # Manifest
 # ---------------------------------------------------------------------------
 
+def page_shapes(pages, gutter=GUTTER):
+    """(width, height) of each page, with the packing gutter taken back off."""
+    return [
+        (page.width - gutter * 2, page.height - gutter * 2) for page in pages
+    ]
+
+
 def build_manifest(sources, placements, pages, page_size=PAGE_SIZE, gutter=GUTTER):
+    shapes = page_shapes(pages, gutter)
     entries = {}
     for stem, _, width, height, digest in sources:
         page_index, x, y, _, _ = placements[stem]
+        page_width, page_height = shapes[page_index]
         entries[stem] = {
             "page": page_index,
             "x": x,
             "y": y,
             "w": width,
             "h": height,
-            "uv_scale": [width / page_size, height / page_size],
-            "uv_bias": [x / page_size, y / page_size],
+            # Normalised against this entry's own page, which is not the same
+            # size as every other page.
+            "uv_scale": [width / page_width, height / page_height],
+            "uv_bias": [x / page_width, y / page_height],
             "source_size": [width, height],
             "source_sha256": digest,
         }
@@ -298,6 +375,8 @@ def build_manifest(sources, placements, pages, page_size=PAGE_SIZE, gutter=GUTTE
                 "asset": page_file_name(index)[:-4],
                 "file": os.path.join("Content", "SourceArt", "Atlas",
                                      page_file_name(index)).replace("\\", "/"),
+                "width": shapes[index][0],
+                "height": shapes[index][1],
                 "occupancy": round(page.occupancy(), 4),
             }
             for index, page in enumerate(pages)
@@ -336,7 +415,7 @@ def command_build(write: bool) -> int:
         return 0
 
     os.makedirs(ATLAS_DIR, exist_ok=True)
-    composed = compose(sources, placements, len(pages))
+    composed = compose(sources, placements, page_shapes(pages))
     for index, page in enumerate(composed):
         page.save(os.path.join(ATLAS_DIR, page_file_name(index)), "PNG",
                   optimize=True)
@@ -345,7 +424,8 @@ def command_build(write: bool) -> int:
         handle.write("\n")
 
     for page in manifest["pages"]:
-        print(f"  page {page['index']}: {page['occupancy'] * 100:.1f}% used")
+        print(f"  page {page['index']}: {page['width']}x{page['height']}, "
+              f"{page['occupancy'] * 100:.1f}% used")
     print(f"PASS packed {len(manifest['entries'])} textures into "
           f"{len(manifest['pages'])} page(s)")
     return 0
@@ -372,16 +452,22 @@ def command_self_test() -> int:
         ("T_Fixture_Spill_D", 900, 900),
     ]
     placements, pages = pack(fixtures)
+    shapes = page_shapes(pages)
 
     assert len(placements) == len(fixtures), "every fixture must be placed"
     assert len(pages) >= 2, "the fixture set is designed to need a second page"
+    for index, (width, height) in enumerate(shapes):
+        for extent in (width, height):
+            assert 0 < extent <= PAGE_SIZE and extent & (extent - 1) == 0, (
+                f"page {index} is {width}x{height}, not a power of two")
 
     for name, width, height in fixtures:
         page_index, x, y, placed_w, placed_h = placements[name]
+        page_width, page_height = shapes[page_index]
         assert (placed_w, placed_h) == (width, height), name
         assert x >= 0 and y >= 0, f"{name} starts outside the page"
-        assert x + width <= PAGE_SIZE, f"{name} overruns in X"
-        assert y + height <= PAGE_SIZE, f"{name} overruns in Y"
+        assert x + width <= page_width, f"{name} overruns in X"
+        assert y + height <= page_height, f"{name} overruns in Y"
 
     by_page: dict[int, list] = {}
     for name, (page_index, x, y, width, height) in placements.items():
@@ -413,8 +499,9 @@ def command_self_test() -> int:
                 digest = hashlib.sha256(handle.read()).hexdigest()
             sources.append((name, path, width, height, digest))
 
-        composed = compose(sources, placements, len(pages))
+        composed = compose(sources, placements, shapes)
         manifest = build_manifest(sources, placements, pages)
+        validate_manifest_geometry(manifest)
 
         for index, (name, _, width, height) in enumerate(
                 [(s[0], s[1], s[2], s[3]) for s in sources]):
@@ -430,9 +517,13 @@ def command_self_test() -> int:
                 bleed = page.getpixel((entry["x"] - GUTTER,
                                        entry["y"] + height // 2))
                 assert bleed == colour, f"{name} has no bleed on its left edge"
+            page_width, page_height = shapes[entry["page"]]
             u = entry["uv_bias"][0] + entry["uv_scale"][0] * 0.5
             v = entry["uv_bias"][1] + entry["uv_scale"][1] * 0.5
-            assert page.getpixel((int(u * PAGE_SIZE), int(v * PAGE_SIZE))) == colour, \
+            assert page.size == (page_width, page_height), \
+                f"composed page {entry['page']} is not the manifest's shape"
+            assert page.getpixel(
+                (int(u * page_width), int(v * page_height))) == colour, \
                 f"{name} UV transform does not address its own pixels"
 
     # A realistic print set -- the shipping art is 64..512 px, not 1K -- has to
@@ -448,6 +539,30 @@ def command_self_test() -> int:
     assert len(small_pages) == 1, (
         f"a 48-texture print set should fit one page, took {len(small_pages)}")
     occupancy = small_pages[0].occupancy()
+    small_shape = page_shapes(small_pages)[0]
+
+    # Shrinking: a page that only holds a corner's worth must not ship as a
+    # full 2048 square. This is the assertion the tail-page saving rests on.
+    # Padding is what decides it, not raw area -- every entry carries two
+    # gutters on each axis into the pack.
+    sparse = [(f"T_Sparse{index:02d}_D", 256, 256) for index in range(12)]
+    sparse_placements, sparse_pages = pack(sparse)
+    assert len(sparse_pages) == 1
+    sparse_shape = page_shapes(sparse_pages)[0]
+    padded = sum(
+        (width + GUTTER * 2) * (height + GUTTER * 2)
+        for _, width, height in sparse
+    )
+    assert sparse_shape[0] * sparse_shape[1] < PAGE_SIZE * PAGE_SIZE, (
+        f"a sparse page stayed at {sparse_shape[0]}x{sparse_shape[1]}")
+    assert sparse_shape[0] * sparse_shape[1] >= padded, "page is too small"
+    for name, (page_index, x, y, width, height) in sparse_placements.items():
+        assert x + width <= sparse_shape[0] and y + height <= sparse_shape[1], (
+            f"{name} overruns the shrunk page")
+
+    # Shrinking must not depend on the order the page's contents arrive in.
+    reordered, _ = pack(list(reversed(sparse)))
+    assert reordered == sparse_placements, "shrinking is order-dependent"
 
     # Density: three times that set has to stay within one page of the
     # theoretical floor. This is what catches a packer that fits everything but
@@ -465,7 +580,9 @@ def command_self_test() -> int:
 
     print(f"PASS packer self-test: {len(fixtures)} fixtures, "
           f"{len(pages)} pages, bleed and UV transforms verified; "
-          f"48-texture print set packs to one page at {occupancy:.0%}; "
+          f"48-texture print set packs to one "
+          f"{small_shape[0]}x{small_shape[1]} page at {occupancy:.0%}; "
+          f"a sparse page shrinks to {sparse_shape[0]}x{sparse_shape[1]}; "
           f"{len(dense)} textures pack to {len(dense_pages)} pages "
           f"(floor {floor_pages})")
     return 0

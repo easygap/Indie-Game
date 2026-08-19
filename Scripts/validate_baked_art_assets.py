@@ -439,7 +439,7 @@ def validate_print_atlas() -> int:
         )
         return 0
 
-    for path in imported:
+    for index, path in enumerate(imported):
         texture = load(path, unreal.Texture2D)
         require(
             texture.get_editor_property("address_x") == unreal.TextureAddress.TA_CLAMP,
@@ -449,10 +449,17 @@ def validate_print_atlas() -> int:
             texture.get_editor_property("address_y") == unreal.TextureAddress.TA_CLAMP,
             f"Atlas page wraps in V; entries would bleed across: {path}",
         )
+        # Pages are only as big as their own contents need, so each one is
+        # checked against its own recorded shape. An imported page that is not
+        # the shape the manifest packed means the UV rects address the wrong
+        # pixels.
+        width, height = texture_atlas_contract.page_dimensions(manifest, index)
         require(
-            texture.blueprint_get_size_x() == manifest["page_size"]
-            and texture.blueprint_get_size_y() == manifest["page_size"],
-            f"Atlas page is not {manifest['page_size']} px: {path}",
+            texture.blueprint_get_size_x() == width
+            and texture.blueprint_get_size_y() == height,
+            f"Atlas page is {texture.blueprint_get_size_x()}x"
+            f"{texture.blueprint_get_size_y()}, manifest says {width}x{height}: "
+            f"{path}",
         )
     return len(manifest["entries"])
 
