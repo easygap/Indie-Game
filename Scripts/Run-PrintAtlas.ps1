@@ -168,4 +168,14 @@ if ($importLog) {
 	}
 }
 
+# The point of the atlas is not that the pages exist, it is that the textures
+# they replaced stop being cooked. Until the rebuilt materials are on disk
+# every one of them still ships and the atlas is pure cost, so prove it here
+# rather than believing the material stage's own log line.
+Write-Host 'PRINT_ATLAS verifying the atlassed textures left the cook'
+Invoke-AtlasPython `
+	-Script 'check_cook_references.py' `
+	-Arguments @('--check', '--require-atlas-dropped') `
+	-FailureMessage 'Atlassed textures are still reachable from the cook'
+
 Write-Host 'PRINT_ATLAS PASS atlas packed, imported and wired into the print materials'

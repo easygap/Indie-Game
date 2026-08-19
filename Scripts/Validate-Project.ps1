@@ -2670,8 +2670,27 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Texture atlas packer self-test failed ($LASTEXITCODE)"
 	}
+
+	# What the packaged build will and will not contain. The cooker does not
+	# read C++, so an asset only a LoadObject path names is absent from the pak
+	# and null at runtime -- in the packaged build alone, which is the build
+	# nobody runs while iterating. This catches that here instead.
+	#
+	# The self-test runs first because the audit itself skips on a checkout
+	# that did not fetch LFS, and a gate that can skip needs something that
+	# cannot.
+	$cookReferences = Join-Path $projectRoot 'Scripts/check_cook_references.py'
+	& $python.Source $cookReferences --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Cook reference audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $cookReferences --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "Cook reference audit found unreachable assets ($LASTEXITCODE)"
+	}
 } else {
-	Write-Warning 'python not found; skipped the geometry audit and atlas self-test.'
+	Write-Warning 'python not found; skipped the geometry audit, atlas self-test and cook reference audit.'
 }
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

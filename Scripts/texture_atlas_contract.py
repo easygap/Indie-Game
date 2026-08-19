@@ -2,7 +2,7 @@
 
 Every notice, plate, label, snack bag and shop sign in the game is a separate
 1-channel colour texture on its own material, and each of those is a separate
-draw call and a separate streaming entry. There are fifty-two of them, none of
+draw call and a separate streaming entry. There are forty-nine of them, none of
 them tiles, and most of them are on screen at the same time in the store and on
 the fourth-floor landing. That is exactly the set an atlas is for.
 
@@ -33,9 +33,9 @@ ATLAS_PAGE_PREFIX = "T_PrintAtlas"
 MANIFEST_VERSION = 2
 
 # 2048 is the largest page that still streams in one 8 MB BC7 block on the
-# minimum spec in PERFORMANCE.md. The current print set measures 12.66 Mpx, so
-# it needs four pages -- which is the floor for that area, not slack in the
-# packer.
+# minimum spec in PERFORMANCE.md. The current print set measures 11.82 Mpx of
+# art, which is a three-page floor; it lands on three full pages and a narrow
+# fourth, because gutters and rect shapes cost what perfect packing would not.
 #
 # A page is only as large as its own contents need. Pages are packed at the
 # maximum and then each one is repacked into the smallest power-of-two box
@@ -79,7 +79,6 @@ PRINT_ATLAS_ENTRIES = (
     "T_PlateCommon_D",
     "T_DoorLock_D",
     "T_Intercom_D",
-    "T_MeterBox_D",
     "T_SwitchPlate_D",
     "T_FireBox_D",
     "T_DoorAd_D",
@@ -99,10 +98,8 @@ PRINT_ATLAS_ENTRIES = (
     # Apartment paper.
     "T_ArrivalContract_D",
     "T_NoteFridge_D",
-    "T_PaperClean_V2_D",
     "T_PaperWet_V2_D",
     "T_PaperFolded_V2_D",
-    "T_PaperOld_V2_D",
     # Store interior print.
     "T_PosterSale_D",
     "T_PosterRamyeon_D",
@@ -133,6 +130,15 @@ PRINT_ATLAS_ENTRIES = (
 
 # Textures that must stay off the atlas, with the reason. Kept explicit so a
 # later reader does not "helpfully" add them back.
+#
+# The three the HUD loads by path are the subtle ones. They are ordinary world
+# print materials too, so they look like obvious atlas candidates, and the
+# damage from atlassing them does not show up in the editor at all. A canvas
+# draw samples the whole texture and has no UV transform to point at a rect;
+# worse, LoadObject on a literal path is invisible to the cooker, so the
+# moment their material stops sampling them nothing keeps them in the pak and
+# the HUD draws nothing. Scripts/check_cook_references.py fails if one of them
+# reappears in PRINT_ATLAS_ENTRIES.
 ATLAS_EXCLUSIONS = {
     "T_PriceStrip_D": "tiles along U; an atlas rect cannot wrap",
     "T_SignMain_D": "1K facade hero sign, lit by its own emissive path",
@@ -141,6 +147,9 @@ ATLAS_EXCLUSIONS = {
     "T_HudDialogueFilm_D": "UI group, no mips, not streamed",
     "T_MissingFloorJournalPaper_D": "UI group, no mips, not streamed",
     "T_AudioCalibrationWall_D": "UI group, no mips, not streamed",
+    "T_MeterBox_D": "the journal draws it to the canvas; HUD path load",
+    "T_PaperClean_V2_D": "the receipt panel draws it to the canvas; HUD path load",
+    "T_PaperOld_V2_D": "the reading panel draws it to the canvas; HUD path load",
 }
 
 

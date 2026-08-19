@@ -1204,4 +1204,25 @@ if ($missing.Count -gt 0) {
 	throw ('Art build finished but required assets are missing: ' + ($missing -join ', '))
 }
 
+# Assets existing is not the same as assets shipping. The rebuilt print
+# materials read the atlas pages now, so the textures they replaced should
+# have dropped out of the cook's reference graph; if any is still reachable
+# the material stage did not take, and the atlas cost pages for nothing.
+#
+# Resolved here rather than reused: $python is set inside whichever mode
+# branch ran, and the mode that skips them all would make this a strict-mode
+# crash instead of an audit.
+$auditPython = Get-Command 'python' -ErrorAction SilentlyContinue
+if (-not $auditPython) {
+	$auditPython = Get-Command 'python3' -ErrorAction SilentlyContinue
+}
+if (-not $auditPython) {
+	throw 'python was not found; cannot audit what the cook will contain.'
+}
+& $auditPython.Source (Join-Path $PSScriptRoot 'check_cook_references.py') `
+	--check --require-atlas-dropped
+if ($LASTEXITCODE -ne 0) {
+	throw "Cook reference audit failed after the art build ($LASTEXITCODE)"
+}
+
 Write-Host 'ART_BUILD PASS meshes=40 evidence_masks=8 material_masks=1 environment_overlays=10 material_scans=13 pbr_maps=50 uasset_audit=1'

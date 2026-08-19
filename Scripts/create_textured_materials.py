@@ -960,7 +960,7 @@ def _atlas_binding(spec):
 
 
 def _atlas_uv(material, transform):
-    """UV0 * scale + bias, so one page serves fifty-one pieces of artwork."""
+    """UV0 * scale + bias, so one page serves a page's worth of artwork."""
     scale_u, scale_v, bias_u, bias_v = transform
     coordinate = _expr(
         material, unreal.MaterialExpressionTextureCoordinate, -1400, 0)
