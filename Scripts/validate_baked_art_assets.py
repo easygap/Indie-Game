@@ -1,4 +1,4 @@
-"""Headless validation for generated meshes, PBR textures, and materials."""
+﻿"""Headless validation for generated meshes, PBR textures, and materials."""
 
 from __future__ import annotations
 
@@ -11,6 +11,9 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+import mesh_lod_contract
+import photo_prop_lod_contract
+import texture_atlas_contract
 from photo_prop_lod_contract import inspect_photo_prop_lods
 from create_textured_materials import (
     DECAL_MATERIALS,
@@ -75,37 +78,9 @@ MESH_NAMES = (
     "SM_CalendarJournal",
 )
 
-HERO_MESHES = {
-    "SM_AlleyCatRun",
-    "SM_FirstPersonHoodieSleeve",
-    "SM_HornRimGlasses",
-    "SM_InspectionRod",
-    "SM_CrackedPhone",
-    "SM_CarrierBagCollapsed",
-    "SM_LadderFailureRung",
-    "SM_LadderRungPadLifted",
-    "SM_LadderRungRetainingClips",
-    "SM_P3ValveWheelLarge",
-    "SM_P3ValveWheelSmall",
-    "SM_P3PressureGauge",
-    "SM_OfferingWaterBowl",
-    "SM_CupSleeve",
-    "SM_LabelSleeve",
-    "SM_StickyNote76mm",
-    "SM_CaptureMercyNote",
-    "SM_ListenerEntityCrawl",
-    "SM_FinalCavityClothingShell",
-    "SM_FinalCavityBoneInsert",
-    "SM_FinalCavityTarp",
-    "SM_FinalCavityBrokenCaster",
-    "SM_MokHansooWorkwear",
-    "SM_MokHansooHeadHands",
-    "SM_MokHansooGypsumBoard",
-    "SM_TuningHammer",
-    "SM_TunerToolCart",
-    "SM_ComplaintLedger",
-    "SM_CalendarJournal",
-}
+# Mesh classes, budgets and the LOD curve are the bake contract; do not keep
+# a second copy of them here.
+HERO_MESHES = mesh_lod_contract.HERO_MESHES
 
 PRINT_SURFACE_MESHES = {
     "SM_CupSleeve": 120,
@@ -383,18 +358,44 @@ def has_scalar_parameter(material, parameter_name: str) -> bool:
 
 
 def validate_meshes() -> tuple[int, int]:
+    """Every generated mesh carries its authored LOD chain and stays in budget.
+
+    A single full-density LOD is the failure this checks for: it is invisible
+    in the editor, costs nothing to author, and is paid for on every frame the
+    prop is on screen at any distance.
+    """
     subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
     require(subsystem is not None, "StaticMeshEditorSubsystem is unavailable")
     total_lods = 0
     reduced_meshes = 0
     for name in MESH_NAMES:
         mesh = load(f"/Game/Meshes/{name}", unreal.StaticMesh)
+        mesh_class = mesh_lod_contract.classify(name)
         lod_count = subsystem.get_lod_count(mesh)
         require(lod_count >= 1, f"Mesh has no LOD0: {name}")
+        require(
+            lod_count >= 2,
+            f"Mesh ships a single LOD, including at distance: {name}",
+        )
+        require(
+            lod_count >= mesh_class.lod_count,
+            f"Mesh has {lod_count} LODs, contract wants "
+            f"{mesh_class.lod_count} for class {mesh_class.name}: {name}",
+        )
         total_lods += lod_count
-        if name not in HERO_MESHES:
-            require(lod_count >= 2, f"Non-hero mesh has no reduced LOD: {name}")
-            reduced_meshes += 1
+        reduced_meshes += 1
+
+        triangles = subsystem.get_number_triangles(mesh, 0)
+        require(
+            triangles <= mesh_class.lod0_triangles,
+            f"LOD0 is {triangles} triangles, over the {mesh_class.name} budget "
+            f"of {mesh_class.lod0_triangles}: {name}",
+        )
+        require(
+            subsystem.get_num_uv_channels(mesh, 0) >= 2,
+            f"Static prop has no lightmap UV channel: {name}",
+        )
+
         if name in PRINT_SURFACE_MESHES:
             require(
                 subsystem.get_num_uv_channels(mesh, 0) >= 1,
@@ -407,13 +408,62 @@ def validate_meshes() -> tuple[int, int]:
     return total_lods, reduced_meshes
 
 
+def validate_print_atlas() -> int:
+    """The packed pages are present, imported and clamped.
+
+    An atlas that is half-applied is worse than none: the materials read UV
+    rects out of a page that either is not there or wraps, and every notice in
+    the store samples its neighbour's artwork.
+    """
+    manifest = texture_atlas_contract.try_load_manifest()
+    if manifest is None:
+        unreal.log_warning(
+            "[IndieGame] No print atlas manifest; materials keep their "
+            "individual textures. Run Scripts/build_texture_atlas.py."
+        )
+        return 0
+
+    for page in manifest["pages"]:
+        path = texture_atlas_contract.page_package_path(page["index"])
+        texture = load(path, unreal.Texture2D)
+        require(
+            texture.get_editor_property("address_x") == unreal.TextureAddress.TA_CLAMP,
+            f"Atlas page wraps in U; entries would bleed across: {path}",
+        )
+        require(
+            texture.get_editor_property("address_y") == unreal.TextureAddress.TA_CLAMP,
+            f"Atlas page wraps in V; entries would bleed across: {path}",
+        )
+        require(
+            texture.blueprint_get_size_x() == manifest["page_size"]
+            and texture.blueprint_get_size_y() == manifest["page_size"],
+            f"Atlas page is not {manifest['page_size']} px: {path}",
+        )
+    return len(manifest["entries"])
+
+
 def validate_photo_prop_lods() -> int:
+    """Scanned props obey the same chain and the same budget as the built ones."""
     inspected = inspect_photo_prop_lods()
     for item in inspected:
+        mesh_class = photo_prop_lod_contract.prop_class(str(item["asset_id"]))
         require(
             int(item["lod_count"]) >= 2,
             f"Photo prop has no reduced LOD: {item['path']}",
         )
+        require(
+            int(item["lod_count"]) >= mesh_class.lod_count,
+            f"Photo prop has {item['lod_count']} LODs, contract wants "
+            f"{mesh_class.lod_count}: {item['path']}",
+        )
+        triangles = int(item["triangle_count"])
+        if triangles > 0:
+            require(
+                triangles <= mesh_class.lod0_triangles,
+                f"Scanned LOD0 is {triangles} triangles, over the "
+                f"{mesh_class.name} budget of {mesh_class.lod0_triangles}: "
+                f"{item['path']}",
+            )
     return len(inspected)
 
 
@@ -880,12 +930,14 @@ def main() -> None:
     photo_prop_meshes = validate_photo_prop_lods()
     texture_count = validate_textures()
     material_count, linked_textures = validate_materials()
+    atlas_entries = validate_print_atlas()
     unreal.log_warning(
         "ART_UASSET_AUDIT PASS "
         f"meshes={len(MESH_NAMES)} total_lods={total_lods} "
         f"reduced_meshes={reduced_meshes} photo_meshes={photo_prop_meshes} "
         f"textures={texture_count} "
-        f"materials={material_count} linked_textures={linked_textures}"
+        f"materials={material_count} linked_textures={linked_textures} "
+        f"atlas_entries={atlas_entries}"
     )
 
 

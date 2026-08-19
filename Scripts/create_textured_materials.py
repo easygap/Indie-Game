@@ -7,8 +7,15 @@ objects carry their surface with them.
 """
 
 import os
+import sys
 
 import unreal
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+import texture_atlas_contract  # noqa: E402
 
 
 MATERIAL_ROOT = "/Game/Prototype/Materials"
@@ -922,6 +929,60 @@ def _make_panning_uv(material, tiling, speed_x, speed_y, y_offset):
     return panner
 
 
+_PRINT_ATLAS = texture_atlas_contract.try_load_manifest()
+
+
+def _atlas_page_texture(page_index):
+    """The imported atlas page, or None when the pages are not in the build."""
+    return unreal.load_asset(texture_atlas_contract.page_package_path(page_index))
+
+
+def _atlas_binding(spec):
+    """(page texture, uv transform) when this material can read the atlas.
+
+    Everything about the atlas is optional. A checkout that has not run the
+    packer, or a spec that tiles or carries its own PBR companions, keeps the
+    per-texture path and looks identical -- it just costs its own draw call.
+    """
+    if _PRINT_ATLAS is None:
+        return None
+    if spec.get("tile_u") or spec.get("pbr_stem"):
+        return None
+    stem = spec.get("tex_asset")
+    transform = texture_atlas_contract.atlas_uv_transform(_PRINT_ATLAS, stem)
+    if transform is None:
+        return None
+    page_index = _PRINT_ATLAS["entries"][stem]["page"]
+    page = _atlas_page_texture(page_index)
+    if page is None:
+        return None
+    return page, transform
+
+
+def _atlas_uv(material, transform):
+    """UV0 * scale + bias, so one page serves fifty-one pieces of artwork."""
+    scale_u, scale_v, bias_u, bias_v = transform
+    coordinate = _expr(
+        material, unreal.MaterialExpressionTextureCoordinate, -1400, 0)
+    scale = _expr(material, unreal.MaterialExpressionConstant2Vector, -1400, 150)
+    scale.set_editor_property("r", scale_u)
+    scale.set_editor_property("g", scale_v)
+    scaled = _expr(material, unreal.MaterialExpressionMultiply, -1200, 40)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        coordinate, "", scaled, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scale, "", scaled, "B")
+    bias = _expr(material, unreal.MaterialExpressionConstant2Vector, -1200, 190)
+    bias.set_editor_property("r", bias_u)
+    bias.set_editor_property("g", bias_v)
+    offset = _expr(material, unreal.MaterialExpressionAdd, -1000, 80)
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        scaled, "", offset, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(
+        bias, "", offset, "B")
+    return offset
+
+
 def _sample(material, texture, uv_expression, sampler_type, y_offset):
     sample = _expr(material, unreal.MaterialExpressionTextureSample, -650, y_offset)
     sample.set_editor_property("texture", texture)
@@ -1466,6 +1527,7 @@ def create_flat_texture_materials(
 ):
     created = []
     skipped = []
+    atlassed = []
     for name, spec in specs.items():
         # Artwork arrives in batches — a generated sheet may not have landed
         # yet. Skipping the material is right: the C++ side already falls back
@@ -1475,6 +1537,7 @@ def create_flat_texture_materials(
         if not (
             assets.does_asset_exist(f"{TEXTURE_ROOT}/{source_asset}")
             or assets.does_asset_exist(f"{TEXTURE_ROOT}/T_Photo_{source_asset[2:]}")
+            or _atlas_binding(spec) is not None
         ):
             skipped.append(name)
             continue
@@ -1496,14 +1559,21 @@ def create_flat_texture_materials(
         else:
             material = _recreate_material(assets, tools, name)
         material.set_editor_property("two_sided", bool(spec.get("two_sided", False)))
-        texture = _load_texture(source_asset)
 
         uv = None
-        tile_u = spec.get("tile_u")
-        if tile_u:
-            uv = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1100, 0)
-            uv.set_editor_property("u_tiling", tile_u)
-            uv.set_editor_property("v_tiling", 1.0)
+        binding = _atlas_binding(spec)
+        if binding is not None:
+            texture, transform = binding
+            uv = _atlas_uv(material, transform)
+            atlassed.append(name)
+        else:
+            texture = _load_texture(source_asset)
+            tile_u = spec.get("tile_u")
+            if tile_u:
+                uv = _expr(
+                    material, unreal.MaterialExpressionTextureCoordinate, -1100, 0)
+                uv.set_editor_property("u_tiling", tile_u)
+                uv.set_editor_property("v_tiling", 1.0)
 
         sample = _sample(
             material, texture, uv, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR, 0
@@ -1570,6 +1640,11 @@ def create_flat_texture_materials(
         unreal.log(f"[IndieGame] Created sign material: {name}")
         created.append(material)
 
+    if atlassed:
+        unreal.log_warning(
+            f"[IndieGame] {len(atlassed)} print material(s) read the shared "
+            "atlas page instead of their own texture"
+        )
     if skipped:
         unreal.log_warning(
             f"[IndieGame] Skipped {len(skipped)} material(s) with no artwork yet: "

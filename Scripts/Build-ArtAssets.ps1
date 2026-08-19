@@ -153,6 +153,17 @@ if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	if ($LASTEXITCODE -ne 0) {
 		throw "PBR source-map generation failed ($LASTEXITCODE)"
 	}
+
+	# The print atlas is packed from the finished source art, so it runs after
+	# conditioning and PBR derivation and before the editor imports anything.
+	# create_textured_materials.py reads its manifest to decide whether the
+	# print materials sample a shared page or their own texture.
+	$atlasPacker = Join-Path $PSScriptRoot 'build_texture_atlas.py'
+	Write-Host 'ART_BUILD running build_texture_atlas.py'
+	& $python.Source $atlasPacker
+	if ($LASTEXITCODE -ne 0) {
+		throw "Print atlas packing failed ($LASTEXITCODE)"
+	}
 }
 
 if ($MissingFloorOnly) {
@@ -916,6 +927,10 @@ $pythonStages = @(
 	@{
 		Script = 'generate_surface_textures.py'
 		SuccessPattern = '\[IndieGame\] Imported \d+ textures'
+	},
+	@{
+		Script = 'import_texture_atlas.py'
+		SuccessPattern = 'PRINT_ATLAS_IMPORT PASS'
 	},
 	@{
 		Script = 'create_textured_materials.py'

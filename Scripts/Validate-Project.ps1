@@ -2651,4 +2651,27 @@ $missingFloorNightFiveSlotContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-NightFiveSlotContract.ps1'
 & $missingFloorNightFiveSlotContractScript
 
+# Physical plausibility of the code-authored world, and the offline half of
+# the art contracts. Both run without Unreal, so they gate every commit rather
+# than waiting for an editor pass.
+$python = Get-Command python -ErrorAction SilentlyContinue
+if (-not $python) {
+	$python = Get-Command python3 -ErrorAction SilentlyContinue
+}
+if ($python) {
+	$geometryAudit = Join-Path $projectRoot 'Scripts/audit_world_geometry.py'
+	& $python.Source $geometryAudit --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "World geometry audit found impossible placements ($LASTEXITCODE)"
+	}
+
+	$atlasPacker = Join-Path $projectRoot 'Scripts/build_texture_atlas.py'
+	& $python.Source $atlasPacker --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Texture atlas packer self-test failed ($LASTEXITCODE)"
+	}
+} else {
+	Write-Warning 'python not found; skipped the geometry audit and atlas self-test.'
+}
+
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

@@ -10,8 +10,15 @@ Run with: UnrealEditor-Cmd <uproject> -ExecutePythonScript=.../generate_meshes.p
 
 import math
 import os
+import sys
 
 import unreal
+
+SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
+if SCRIPT_DIR not in sys.path:
+    sys.path.insert(0, SCRIPT_DIR)
+
+import mesh_lod_contract  # noqa: E402
 
 
 MESH_ROOT = "/Game/Meshes"
@@ -49,6 +56,7 @@ NEW_ASSET = unreal.GeometryScript_NewAssetUtils
 NORMALS = find_library("normal")
 QUERIES = find_library("quer")
 UVS = find_library("uv")
+SIMPLIFY = find_library("simplif")
 # MeshBasicEditFunctions is exported to Python under its ScriptName,
 # ``GeometryScript_MeshEdits`` (the C++ class name is not reflected verbatim).
 EDITS = getattr(unreal, "GeometryScript_MeshEdits", None)
@@ -284,62 +292,159 @@ def recompute_normals(mesh, smooth_angle=45.0):
     return mesh
 
 
-HERO_MESHES = {
-    "SM_AlleyCatRun",
-    "SM_FirstPersonHoodieSleeve",
-    "SM_HornRimGlasses",
-    "SM_InspectionRod",
-    "SM_CrackedPhone",
-    "SM_CarrierBagCollapsed",
-    "SM_LadderFailureRung",
-    "SM_LadderRungPadLifted",
-    "SM_LadderRungRetainingClips",
-    "SM_P3ValveWheelLarge",
-    "SM_P3ValveWheelSmall",
-    "SM_P3PressureGauge",
-    "SM_OfferingWaterBowl",
-    "SM_CupSleeve",
-    "SM_LabelSleeve",
-    "SM_StickyNote76mm",
-    "SM_ListenerEntityCrawl",
-    "SM_FinalCavityClothingShell",
-    "SM_FinalCavityBoneInsert",
-    "SM_FinalCavityTarp",
-    "SM_FinalCavityBrokenCaster",
-    "SM_MokHansooWorkwear",
-    "SM_MokHansooHeadHands",
-    "SM_MokHansooGypsumBoard",
-    "SM_TuningHammer",
-    "SM_TunerToolCart",
-    "SM_ComplaintLedger",
-    "SM_CalendarJournal",
-}
+# The budgets, the reduction curve and the class of every mesh live in
+# mesh_lod_contract so the release validator checks the same numbers the bake
+# applied. HERO_MESHES is re-exported because callers already import it here.
+HERO_MESHES = mesh_lod_contract.HERO_MESHES
 
-LARGE_PROP_PREFIXES = (
-    "SM_RooftopWaterTank",
-    "SM_RooftopTank",
-    "SM_TankInternal",
-    "SM_TankAccess",
-    "SM_TankExterior",
-    "SM_RooftopFireDoor",
-    "SM_P3ServiceCabinet",
-)
+
+def retopologise(mesh, asset_name):
+    """Brings LOD0 inside its triangle budget before the asset is created.
+
+    These meshes are booleans of lathes and sweeps: the profile resolution that
+    makes a bottle shoulder read at 30 cm survives into the far LOD as tens of
+    thousands of triangles that never cover a pixel. Simplification runs on the
+    dynamic mesh, before the static mesh exists, so the collision hull and the
+    LOD chain are both derived from the budgeted geometry rather than from a
+    density nobody chose.
+
+    Meshes carrying hand-placed printed artwork keep their UV seams: a label
+    band welded across its seam smears the artwork around the bottle.
+    """
+    if SIMPLIFY is None or QUERIES is None:
+        log(f"  {asset_name} retopology skipped (no simplification library)")
+        return None
+
+    budget = mesh_lod_contract.triangle_budget(asset_name)
+    try:
+        before = QUERIES.get_num_triangles(mesh)
+    except Exception:  # noqa: BLE001 - binding name differs across UE minors
+        before = None
+    if before is None or before <= budget:
+        return before
+
+    options = None
+    for factory in ("GeometryScriptSimplifyMeshOptions",):
+        options_class = getattr(unreal, factory, None)
+        if options_class is not None:
+            options = options_class()
+            break
+    if options is not None:
+        for name, value in (
+            ("method", getattr(
+                getattr(unreal, "EGeometryScriptRemoveMeshSimplificationType", None),
+                "QEM", None)),
+            ("auto_compact", True),
+        ):
+            if value is None:
+                continue
+            try:
+                options.set_editor_property(name, value)
+            except Exception:  # noqa: BLE001
+                pass
+
+    for candidate in ("apply_simplify_to_triangle_count",
+                      "apply_simplify_to_polygon_count"):
+        function = getattr(SIMPLIFY, candidate, None)
+        if function is None:
+            continue
+        try:
+            if options is not None:
+                function(mesh, budget, options)
+            else:
+                function(mesh, budget)
+            after = QUERIES.get_num_triangles(mesh)
+            log(f"  {asset_name} retopology {before} -> {after} tris "
+                f"(budget {budget})")
+            return after
+        except Exception as error:  # noqa: BLE001 - report, keep the mesh
+            log(f"  {asset_name} simplification failed: {error}")
+            return before
+    log(f"  {asset_name} retopology skipped (no usable simplify entry point)")
+    return before
+
+
+def _set_properties(target, values):
+    applied = 0
+    for name, value in values:
+        try:
+            target.set_editor_property(name, value)
+            applied += 1
+        except Exception:  # noqa: BLE001 - property names drift between minors
+            pass
+    return applied
 
 
 def apply_lod_contract(static_mesh, asset_name):
-    """Keep inspection props full-detail; use engine LOD groups elsewhere."""
-    if asset_name in HERO_MESHES:
-        log(f"  {asset_name} LOD0 preserved (story-critical close inspection)")
+    """Builds the authored LOD chain and the lightmap channel.
+
+    Every mesh gets the same treatment, hero props included. "Story-critical
+    close inspection" is a reason to give LOD0 a generous budget, not a reason
+    to render the full-density mesh from across a room — which is what
+    exempting them from LODs entirely had been doing.
+    """
+    subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
+    if subsystem is None:
+        log(f"  {asset_name} LOD chain skipped (no StaticMeshEditorSubsystem)")
         return
-    group = "LargeProp" if asset_name.startswith(LARGE_PROP_PREFIXES) else "SmallProp"
-    try:
-        subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
-        if subsystem is None:
-            raise RuntimeError("StaticMeshEditorSubsystem unavailable")
-        subsystem.set_lod_group(static_mesh, group, True)
-        log(f"  {asset_name} LOD group={group}")
-    except Exception as error:  # noqa: BLE001 - UE minor versions expose different groups
-        log(f"  LOD group skipped for {asset_name}: {error}")
+
+    mesh_class = mesh_lod_contract.classify(asset_name)
+    plan = mesh_lod_contract.lod_plan(asset_name)
+
+    reduction_options = getattr(unreal, "StaticMeshReductionOptions", None)
+    reduction_settings = getattr(unreal, "StaticMeshReductionSettings", None)
+    if reduction_options is not None and reduction_settings is not None:
+        settings = []
+        for _, percent, screen in plan:
+            entry = reduction_settings()
+            _set_properties(entry, (
+                ("percent_triangles", percent),
+                ("screen_size", screen),
+            ))
+            settings.append(entry)
+        options = reduction_options()
+        _set_properties(options, (
+            ("reduction_settings", settings),
+            ("auto_compute_lod_screen_size", False),
+        ))
+        try:
+            subsystem.set_lods(static_mesh, options)
+            log(f"  {asset_name} LOD chain={mesh_class.lod_count} "
+                f"class={mesh_class.name}")
+        except Exception as error:  # noqa: BLE001
+            log(f"  {asset_name} LOD chain failed: {error}")
+    else:
+        # Fall back to the engine group rather than shipping a single LOD.
+        group = "LargeProp" if mesh_class is mesh_lod_contract.LARGE else "SmallProp"
+        try:
+            subsystem.set_lod_group(static_mesh, group, True)
+            log(f"  {asset_name} LOD group={group} (no reduction bindings)")
+        except Exception as error:  # noqa: BLE001
+            log(f"  LOD group skipped for {asset_name}: {error}")
+
+    # Static props in a Lumen scene still bake a lightmap channel; without one
+    # the packer falls back to UV0 and the printed artwork bleeds into it.
+    build_settings = getattr(unreal, "MeshBuildSettings", None)
+    if build_settings is not None:
+        settings = build_settings()
+        _set_properties(settings, (
+            ("recompute_normals", False),
+            ("recompute_tangents", True),
+            ("use_mikk_t_space", True),
+            ("remove_degenerates", True),
+            ("generate_lightmap_u_vs", True),
+            ("src_lightmap_index", 0),
+            ("dst_lightmap_index", 1),
+            ("min_lightmap_resolution", mesh_class.lightmap_resolution),
+        ))
+        try:
+            subsystem.set_lod_build_settings(static_mesh, 0, settings)
+        except Exception as error:  # noqa: BLE001
+            log(f"  {asset_name} lightmap UV settings skipped: {error}")
+    _set_properties(static_mesh, (
+        ("light_map_resolution", mesh_class.lightmap_resolution),
+        ("light_map_coordinate_index", 1),
+    ))
 
 
 def bake(mesh, asset_name, add_collision=True, weld_edges=True):
@@ -349,6 +454,8 @@ def bake(mesh, asset_name, add_collision=True, weld_edges=True):
         weld_options.set_editor_property("tolerance", 0.01)
         weld_options.set_editor_property("only_unique_pairs", False)
         REPAIR.weld_mesh_edges(mesh, weld_options)
+    if not mesh_lod_contract.preserves_uv_seams(asset_name):
+        retopologise(mesh, asset_name)
     recompute_normals(mesh)
 
     options = unreal.GeometryScriptCreateNewStaticMeshAssetOptions()

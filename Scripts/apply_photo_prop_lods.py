@@ -19,6 +19,7 @@ def main() -> None:
     unreal.log_warning(
         "PHOTO_PROP_LOD_BUILD PASS "
         f"meshes={result['meshes']} updated={result['updated']} "
+        f"retopologised={result['retopologised']} "
         f"large={result['large_props']} small={result['small_props']} "
         f"nanite_review={result['nanite_review_candidates']}"
     )

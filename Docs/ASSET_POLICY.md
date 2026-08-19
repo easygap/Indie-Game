@@ -106,6 +106,13 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `TextureComplaintLedgerCarbonPaperBlank.png` | `T_CarbonPaper_{D,N,R,A}` | P2 먹지. 왁스 안료가 눌린 자리에서 얇아지는 광택 차이만 담는다. 눌린 원문 한글은 굽지 않는다. A4 비율 724×1024로 원장 메시에 UV 매핑 |
 | `TextureApartmentEntranceDoorCharcoalSteel.png` | `T_UnitDoorPaintedSteel_{D,N,R,A}` | 세대 현관문 문짝의 무광 도장 강판. 브러시드 스테인리스를 대체하며 밴드·인레이·레버·도어록·도어스코프는 기존 3D 기하를 유지한다. 발치 마모는 타일이 아니라 별도 masked 평면 |
 
+## 아틀라스·LOD·물리 배치 계약
+
+인쇄 아트 51장은 `Content/SourceArt/Atlas/`의 공유 페이지로 묶고, 절차
+메시와 스캔 프롭은 등급별 삼각형 예산과 저작 LOD 체인을 받는다. 코드로
+배치한 월드 지오메트리는 물리적으로 불가능한 배치가 없는지 검사를 통과해야
+한다. 세 계약의 수치·검사·실행 순서는 `ASSET_OPTIMISATION.md`에 있다.
+
 한 번의 생성에 5분이 걸리므로 낱장 대신 **격자 시트**로 묶어 뽑고 슬라이스합니다.
 현재 134장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·디테일 48장 + 최초 실행 보정 배경 1장)와
 증거·생물·설비·인체·사고 프롭 기준 시트를 관리합니다. 2026-08-06
