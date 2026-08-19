@@ -2546,19 +2546,64 @@ void AIGPrologueWorldScene::BuildCorridor()
 			FRotator(90.0f, 0.0f, 0.0f));
 	}
 
-	// South wall is solid on this floor, with hopper windows onto the alley.
-	// Bare glow planes read as blue rectangles stuck on the wall, so each one
-	// gets a reveal, an aluminium frame and a sill like a real opening.
-	CreateBlock(FVector(190, -385, 120), FVector(1040, 20, 240), CorridorWallX);
-	for (const float WindowX : {-120.0f, 60.0f, 300.0f, 520.0f})
+	// South wall with hopper windows onto the alley. The openings are cut out
+	// of the masonry rather than drawn on it: a 20 cm slab with a glass plane
+	// and an aluminium frame buried inside it left the frame standing half a
+	// centimetre proud of solid concrete, which is the "blue rectangle stuck
+	// on the wall" this dressing exists to avoid. Piers, sill course and head
+	// course are separate blocks, so the reveal a player leans into is real
+	// depth and the pane sits in the outer half of it like a real sash.
 	{
-		CreateBlock(FVector(WindowX, -376, 150), FVector(78, 3, 66), WindowDarkMaterial, false);
-		CreateBlock(FVector(WindowX, -377.5f, 184), FVector(88, 6, 5), PlasticDarkMaterial, false);
-		CreateBlock(FVector(WindowX, -377.5f, 116), FVector(88, 6, 5), PlasticDarkMaterial, false);
-		CreateBlock(FVector(WindowX - 41, -377.5f, 150), FVector(5, 6, 66), PlasticDarkMaterial, false);
-		CreateBlock(FVector(WindowX + 41, -377.5f, 150), FVector(5, 6, 66), PlasticDarkMaterial, false);
-		CreateBlock(FVector(WindowX, -377.5f, 150), FVector(78, 5, 3.5f), PlasticDarkMaterial, false);
-		CreateBlock(FVector(WindowX, -379, 111), FVector(94, 10, 5), Skirting, false);
+		const float WindowXs[] = {-120.0f, 60.0f, 300.0f, 520.0f};
+		constexpr float OpeningHalfWidth = 44.0f;
+		constexpr float OpeningBottomZ = 114.0f;
+		constexpr float OpeningTopZ = 186.0f;
+		constexpr float WallWestX = -330.0f;
+		constexpr float WallEastX = 710.0f;
+
+		// Piers: masonry between the openings, plus the two end returns.
+		const int32 WindowCount = static_cast<int32>(UE_ARRAY_COUNT(WindowXs));
+		for (int32 PierIndex = 0; PierIndex < WindowCount + 1; ++PierIndex)
+		{
+			const float PierStartX = (PierIndex == 0)
+				? WallWestX
+				: WindowXs[PierIndex - 1] + OpeningHalfWidth;
+			const float PierEndX = (PierIndex == WindowCount)
+				? WallEastX
+				: WindowXs[PierIndex] - OpeningHalfWidth;
+			CreateBlock(
+				FVector((PierStartX + PierEndX) * 0.5f, -385, 120),
+				FVector(PierEndX - PierStartX, 20, 240),
+				CorridorWallX);
+		}
+
+		for (const float WindowX : WindowXs)
+		{
+			// Sill course under the opening and head course over it.
+			CreateBlock(
+				FVector(WindowX, -385, OpeningBottomZ * 0.5f),
+				FVector(OpeningHalfWidth * 2.0f, 20, OpeningBottomZ),
+				CorridorWallX);
+			CreateBlock(
+				FVector(WindowX, -385, (OpeningTopZ + 240.0f) * 0.5f),
+				FVector(OpeningHalfWidth * 2.0f, 20, 240.0f - OpeningTopZ),
+				CorridorWallX);
+			// The sash sits in the outer half of the reveal, lapping 1 cm into
+			// the masonry on every edge so it is held by the opening. It keeps
+			// collision: these windows never open, and the envelope has to
+			// stay sealed now that the opening is a real hole in the wall.
+			CreateBlock(
+				FVector(WindowX, -390, 150),
+				FVector(90, 3, 74),
+				WindowDarkMaterial);
+			// Aluminium trim ring on the corridor face of the reveal.
+			CreateBlock(FVector(WindowX, -377.5f, 184), FVector(88, 6, 5), PlasticDarkMaterial, false);
+			CreateBlock(FVector(WindowX, -377.5f, 116), FVector(88, 6, 5), PlasticDarkMaterial, false);
+			CreateBlock(FVector(WindowX - 41, -377.5f, 150), FVector(5, 6, 66), PlasticDarkMaterial, false);
+			CreateBlock(FVector(WindowX + 41, -377.5f, 150), FVector(5, 6, 66), PlasticDarkMaterial, false);
+			CreateBlock(FVector(WindowX, -377.5f, 150), FVector(78, 5, 3.5f), PlasticDarkMaterial, false);
+			CreateBlock(FVector(WindowX, -379, 111), FVector(94, 10, 5), Skirting, false);
+		}
 	}
 
 	// East end: elevator door opening (Y -360..-250); west end: dark stairwell.
@@ -2617,8 +2662,11 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// 레버·도어록·도어스코프는 이미 실제 기하이므로 표면만 바꾼다.
 	UMaterialInterface* UnitDoorLeaf =
 		TexMat(TEXT("M_UnitDoorPaintedSteel"), SteelDoor);
+	// IntercomSide is +1 when the intercom hangs east of the leaf. 401 needs
+	// that: 56 cm west of its door is the ten-centimetre return of 403's west
+	// wall, and the plate ended up inside the masonry.
 	auto DressUnitDoor = [this, UnitDoorLeaf, Stainless, Metal](
-		const float DoorX, const float FaceY)
+		const float DoorX, const float FaceY, const float IntercomSide)
 	{
 		CreateBlock(FVector(DoorX, FaceY, 100), FVector(84, 5, 200), UnitDoorLeaf);
 		const float PlateY = FaceY - 2.9f;
@@ -2639,12 +2687,17 @@ void AIGPrologueWorldScene::BuildCorridor()
 		CreateBlock(
 			FVector(DoorX, PlateY - 0.4f, 155), FVector(3, 1.2f, 3),
 			Metal, false, CylinderMesh, FRotator(90, 0, 0));
-		// Doorbell button and the video intercom plate beside the frame.
+		// Doorbell button and the video intercom plate beside the frame. Both
+		// are screwed to the landing face of the wall at Y -235, not to the
+		// leaf: at FaceY + 1 the whole intercom sat inside the masonry and the
+		// button showed a couple of millimetres of itself.
 		CreateBlock(
-			FVector(DoorX - 56, FaceY + 1.0f, 138), FVector(7, 2.5f, 11),
+			FVector(DoorX + IntercomSide * 56.0f, FaceY - 1.75f, 138),
+			FVector(7, 2.5f, 11),
 			TexMat(TEXT("M_Intercom"), SignWhiteMaterial), false);
 		CreateBlock(
-			FVector(DoorX - 56, FaceY - 0.6f, 122), FVector(3, 1.5f, 3),
+			FVector(DoorX + IntercomSide * 56.0f, FaceY - 1.25f, 122),
+			FVector(3, 1.5f, 3),
 			SnackRedMaterial, false, CylinderMesh, FRotator(90, 0, 0));
 	};
 
@@ -2657,14 +2710,16 @@ void AIGPrologueWorldScene::BuildCorridor()
 	{
 		const float DoorX = NeighborDoorXs[NeighborIndex];
 		const int32 FirstDoorComponent = GeometryComponents.Num();
-		DressUnitDoor(DoorX, -234.5f);
+		DressUnitDoor(DoorX, -234.5f, NeighborIndex == 0 ? -1.0f : 1.0f);
 		// Powder-coated casing stays readable at this thin aspect ratio; the
 		// former stucco UV stretched into conspicuous horizontal stripes.
 		CreateBlock(FVector(DoorX - 46, -233, 102), FVector(8, 7, 208), DoorTrim, false);
 		CreateBlock(FVector(DoorX + 46, -233, 102), FVector(8, 7, 208), DoorTrim, false);
 		CreateBlock(FVector(DoorX, -233, 204), FVector(100, 7, 8), DoorTrim, false);
+		// Unit number, on the landing face of the wall above the head trim.
+		// At Y -231.5 the plate was two centimetres deep inside the wall.
 		CreateBlock(
-			FVector(DoorX, -231.5f, 214), FVector(16, 2, 8),
+			FVector(DoorX, -236, 214), FVector(16, 2, 8),
 			TexMat(NeighborPlates[NeighborIndex], FridgeInteriorMaterial), false);
 		if (NeighborIndex == 0)
 		{
@@ -2690,11 +2745,13 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(FVector(99.1f, -225, 105), FVector(1.8f, 22, 210), DoorTrim, false);
 	CreateBlock(FVector(184.4f, -225, 105), FVector(2.8f, 22, 210), DoorTrim, false);
 	CreateBlock(FVector(142, -225, 209.7f), FVector(88, 22, 0.4f), DoorTrim, false);
+	// Both read from the landing, so both have to clear the wall face at
+	// Y -235; at Y -233.5 the plate and the intercom were inside the wall.
 	CreateBlock(
-		FVector(144, -233.5f, 214), FVector(16, 2, 8),
+		FVector(144, -236, 214), FVector(16, 2, 8),
 		TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial), false);
 	CreateBlock(
-		FVector(88, -233.5f, 138), FVector(7, 2.5f, 11),
+		FVector(88, -236.25f, 138), FVector(7, 2.5f, 11),
 		TexMat(TEXT("M_Intercom"), SignWhiteMaterial), false);
 
 	// One dry joke before the building starts lying: a real 76 mm memo sits on
@@ -2720,17 +2777,24 @@ void AIGPrologueWorldScene::BuildCorridor()
 	}
 
 	// Granite skirting, the way real landings finish the stucco to the tile.
-	CreateBlock(FVector(-35, -233.4f, 6), FVector(580, 3.5f, 12), Skirting, false);
-	CreateBlock(FVector(-35, -376.6f, 6), FVector(580, 3.5f, 12), Skirting, false);
-	CreateBlock(FVector(302.5f, -233.4f, 6), FVector(165, 3.5f, 12), Skirting, false);
-	CreateBlock(FVector(582.5f, -233.4f, 6), FVector(215, 3.5f, 12), Skirting, false);
+	// It stands on the landing side of each wall: the north face is at
+	// Y -235 and the south face at Y -375. Authored at -233.4 and -376.6 the
+	// whole 3.5 cm course was inside the wall it was supposed to finish, with
+	// a millimetre and a half showing.
+	CreateBlock(FVector(-35, -236.75f, 6), FVector(580, 3.5f, 12), Skirting, false);
+	CreateBlock(FVector(-35, -373.25f, 6), FVector(580, 3.5f, 12), Skirting, false);
+	CreateBlock(FVector(302.5f, -236.75f, 6), FVector(165, 3.5f, 12), Skirting, false);
+	CreateBlock(FVector(582.5f, -236.75f, 6), FVector(215, 3.5f, 12), Skirting, false);
 	ChapterOneMaskComponents.Add(CreateBlock(
-		FVector(430, -233.4f, 6), FVector(100, 3.5f, 12), Skirting, false));
-	CreateBlock(FVector(455, -376.6f, 6), FVector(470, 3.5f, 12), Skirting, false);
+		FVector(430, -236.75f, 6), FVector(100, 3.5f, 12), Skirting, false));
+	CreateBlock(FVector(455, -373.25f, 6), FVector(470, 3.5f, 12), Skirting, false);
 
-	// Distribution board between the units, plus the fire cabinet.
+	// Distribution board between the units, plus the fire cabinet. The board
+	// is flush-mounted, so its case belongs inside the wall with the door
+	// proud of the plaster. It sits at chest-to-head height: at Z 155 its case
+	// occupied the same patch of wall as 402's intercom.
 	CreateBlock(
-		FVector(-90, -232.4f, 155), FVector(34, 6, 50),
+		FVector(-90, -232.4f, 180), FVector(34, 6, 50),
 		TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial), false);
 	CreateBlock(FVector(-90, -229.2f, 155), FVector(35, 1.2f, 51), Metal, false);
 	CreateBlock(FVector(-75, -228.6f, 155), FVector(3, 1.5f, 6), PlasticDarkMaterial, false);
@@ -2860,8 +2924,9 @@ void AIGPrologueWorldScene::BuildCorridor()
 				FVector(2.6f, 2.6f, 56), PlasticDarkMaterial, false);
 		}
 	}
-	// A tired green exit lamp glows at the stair throat.
-	CreateBlock(FVector(-312, -305, 220), FVector(14, 8, 10),
+	// A tired green exit lamp glows at the stair throat, screwed to the head
+	// of the stair opening rather than hanging a centimetre clear of it.
+	CreateBlock(FVector(-313, -305, 220), FVector(14, 8, 10),
 		TexMat(TEXT("M_ScreenGlow"), ScreenGlowMaterial), false);
 
 	// Ceiling fixtures down the whole hallway: flush round downlights, the way
@@ -3589,10 +3654,12 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	CreateBlock(FVector(-157.5f, 452.5f, 1320), FVector(485, 15, 240), AnnexWallX);
 	CreateBlock(FVector(287.5f, 452.5f, 1320), FVector(225, 15, 240), AnnexWallX);
 	CreateBlock(FVector(130.0f, 452.5f, 1422.5f), FVector(90, 15, 35), AnnexWallX);
+	// Steel casings lapping the opening on the annex side. In the plane of the
+	// wall they were thinner than it and disappeared into it completely.
 	for (const float DoorJambX : {80.0f, 180.0f})
 	{
 		CreateBlock(
-			FVector(DoorJambX, 452.5f, 1305.0f),
+			FVector(DoorJambX, 466.0f, 1305.0f),
 			FVector(10.0f, 12.0f, 210.0f),
 			RailMetal);
 	}
@@ -4532,7 +4599,9 @@ void AIGPrologueWorldScene::BuildLobby()
 	// The meter-reading clipboard's backing, on the free north-wall band east
 	// of the notice board. The note actor itself is spawned later, because
 	// BuildLobby runs before any interactable exists.
-	CreateBlock(FVector(672, -238.5f, 150), FVector(23, 3, 32), Metal, false);
+	// Flat on the wall at the same standoff as the notice board beside it; at
+	// Y -238.5 it hung two centimetres off the plaster.
+	CreateBlock(FVector(672, -237, 150), FVector(23, 3, 32), Metal, false);
 
 	// Lobby fittings: the video intercom by the door, a notice board over the
 	// mailboxes, and the umbrella stand nobody has emptied since the rains.
@@ -4906,18 +4975,25 @@ void AIGPrologueWorldScene::BuildAlley()
 			DarkY, false, CylinderMesh);
 	}
 
-	// Dark upstairs windows; nobody is awake at this hour.
-	const float NorthWindowXs[] = {300, 700, 1200, 1700, 2100};
+	// Dark upstairs windows on the neighbouring block; nobody is awake at this
+	// hour. These belong to the street facade at Y -395, not to the pilotis
+	// back wall at Y -232: authored on the back wall's plane, every one of
+	// them sat 1.6 m inside the building, above a wall that stops at Z 240 and
+	// behind granite that hides it. Each pane now beds 1 cm into the stucco it
+	// is glazed into, and the bays that fell on the villa's own frontage are
+	// gone — that facade already carries its full sash-frame-sill-railing grid
+	// for floors two to four, so a bare pane there was a second window drawn
+	// over the first.
+	const float NorthWindowXs[] = {1000, 1700, 2100};
 	for (int32 WindowIndex = 0; WindowIndex < static_cast<int32>(UE_ARRAY_COUNT(NorthWindowXs)); ++WindowIndex)
 	{
 		const float OffsetZ = (WindowIndex % 2 == 0) ? 300.0f : 310.0f;
 		CreateBlock(
-			FVector(NorthWindowXs[WindowIndex], -236, OffsetZ),
+			FVector(NorthWindowXs[WindowIndex], -396, OffsetZ),
 			FVector(90, 4, 110),
 			WindowDarkMaterial,
 			false);
 	}
-	CreateBlock(FVector(0, -236, 345), FVector(120, 4, 100), WindowDarkMaterial, false);
 
 	// South side: opposing building lined with shuttered shops — the
 	// text-dense storefront wall that makes it read as a Korean back street.
@@ -4991,20 +5067,24 @@ void AIGPrologueWorldScene::BuildAlley()
 		CreateBlock(FVector(330, -652, 44), FVector(34, 34, 30), BottleGreenMaterial, false, SphereMesh);
 		CreateBlock(FVector(362, -655, 14), FVector(24, 24, 26), CoolerBodyMaterial, true, CylinderMesh);
 		CreateBlock(FVector(362, -655, 44), FVector(34, 34, 30), BottleGreenMaterial, false, SphereMesh);
-		// Upstairs: PC-bang sign dark, noraebang sign still glowing pink.
+		// Upstairs: PC-bang sign dark, noraebang sign still glowing pink. Both
+		// boxes bolt back onto the brick at Y -680; at Y -672 they hung a
+		// centimetre off it with nothing carrying the load.
 		CreateBlock(
-			FVector(900, -672, 330), FVector(170, 14, 40),
+			FVector(900, -673, 330), FVector(170, 14, 40),
 			TexMat(TEXT("M_SignPC"), PlasticDarkMaterial), false);
 		CreateBlock(
-			FVector(1500, -672, 330), FVector(190, 14, 40),
+			FVector(1500, -673, 330), FVector(190, 14, 40),
 			TexMat(TEXT("M_SignKaraoke"), PlasticDarkMaterial), false);
 	}
 	const float SouthWindowXs[] = {250, 650, 1150, 1750, 2150};
 	for (int32 WindowIndex = 0; WindowIndex < static_cast<int32>(UE_ARRAY_COUNT(SouthWindowXs)); ++WindowIndex)
 	{
 		const float OffsetZ = (WindowIndex % 2 == 0) ? 320.0f : 330.0f;
+		// Beds 1 cm into the brick face at Y -680 instead of hanging 2 cm
+		// clear of it.
 		CreateBlock(
-			FVector(SouthWindowXs[WindowIndex], -676, OffsetZ),
+			FVector(SouthWindowXs[WindowIndex], -679, OffsetZ),
 			FVector(80, 4, 90),
 			WindowDarkMaterial,
 			false);
@@ -5162,8 +5242,10 @@ void AIGPrologueWorldScene::BuildStore()
 	{
 		for (const float PanelY : {-300.0f, -560.0f})
 		{
+			// Diffuser flush with the ceiling soffit at Z 260. At Z 264 the
+			// whole panel sat inside the 20 cm slab and lit nothing.
 			StoreLightDiscs.Add(CreateBlock(
-				FVector(PanelX, PanelY, 264), FVector(120, 42, 6),
+				FVector(PanelX, PanelY, 257), FVector(120, 42, 6),
 				LightPanelMaterial, false));
 			UPointLightComponent* CeilingLight = CreateLight(
 				FVector(PanelX, PanelY, 238), 2850.0f, 720.0f,
@@ -5191,8 +5273,11 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(FVector(2433, -250, 116), FVector(2, 30, 28), GlassMaterial, false);
 	CreateBlock(FVector(2445, -250, 130), FVector(20, 26, 2),
 		TexMat(TEXT("M_StreetLampGlow"), StreetLampGlowMaterial), false);
-	// Tobacco wall behind the counter.
-	CreateBlock(FVector(2560, -190, 150), FVector(220, 14, 140), PlasticDarkMaterial);
+	// Tobacco wall behind the counter. The cabinet backs onto the north wall
+	// face at Y -180 and the packs stand on its shop-facing side. Authored the
+	// other way round, every pack sat behind its own backing board with three
+	// centimetres of itself inside the building's wall.
+	CreateBlock(FVector(2560, -187, 150), FVector(220, 14, 140), PlasticDarkMaterial);
 	int32 CigaretteIndex = 0;
 	for (const float RackZ : {126.0f, 154.0f, 182.0f})
 	{
@@ -5202,7 +5287,7 @@ void AIGPrologueWorldScene::BuildStore()
 				(CigaretteIndex % 3 == 0) ? SnackRedMaterial :
 				(CigaretteIndex % 3 == 1) ? SnackYellowMaterial : SnackBlueMaterial;
 			AddStoreStockBlock(
-				FVector(RackX, -181, RackZ),
+				FVector(RackX, -198, RackZ),
 				FVector(14, 8, 12),
 				RackMaterial,
 				false);
@@ -5351,12 +5436,16 @@ void AIGPrologueWorldScene::BuildStore()
 	// Ramyeon corner rack by the window bar. A thin back, two uprights and five
 	// shelf plates leave genuine open bays; the former solid cabinet with cups
 	// perched at Z=167.5 was not a plausible convenience-store fixture.
-	CreateBlock(FVector(2452, -684.5f, 86), FVector(70, 3, 160), ShelfSteel);
-	CreateBlock(FVector(2418.5f, -670, 86), FVector(3, 32, 160), Metal);
-	CreateBlock(FVector(2485.5f, -670, 86), FVector(3, 32, 160), Metal);
+	// The whole fixture stands against the wall face at Y -680 instead of
+	// through it: the back panel was buried in the wall and the 32 cm tiers
+	// ran six centimetres into it, so the rear of every cup was inside the
+	// building's south wall.
+	CreateBlock(FVector(2452, -678.5f, 86), FVector(70, 3, 160), ShelfSteel);
+	CreateBlock(FVector(2418.5f, -664, 86), FVector(3, 32, 160), Metal);
+	CreateBlock(FVector(2485.5f, -664, 86), FVector(3, 32, 160), Metal);
 	for (const float TierZ : {16.0f, 46.0f, 76.0f, 106.0f, 136.0f, 166.0f})
 	{
-		CreateBlock(FVector(2452, -670, TierZ), FVector(70, 32, 3), Metal);
+		CreateBlock(FVector(2452, -664, TierZ), FVector(70, 32, 3), Metal);
 		if (TierZ >= 166.0f)
 		{
 			continue;
@@ -5364,7 +5453,7 @@ void AIGPrologueWorldScene::BuildStore()
 		for (float CupX = 2427.0f; CupX <= 2477.0f; CupX += 12.5f)
 		{
 			AddStoreStockCup(
-				FVector(CupX, -670, TierZ + 1.5f),
+				FVector(CupX, -664, TierZ + 1.5f),
 				90.0f);
 		}
 	}
@@ -5391,7 +5480,9 @@ void AIGPrologueWorldScene::BuildStore()
 		{
 			CreateBlock(FVector(2925, BayY, ShelfZ), FVector(44, 68, 3), Metal);
 		}
-		CreateBlock(FVector(2905, BayY, 200), FVector(3, 60, 3), ScreenGlowMaterial, false);
+		// Bay light strip, screwed up under the header of the cooler bank
+		// rather than hovering in the middle of the bay's air.
+		CreateBlock(FVector(2905, BayY, 214.5f), FVector(3, 60, 3), ScreenGlowMaterial, false);
 		int32 DrinkIndex = BayIndex;
 		// Two rows deep and shoulder to shoulder: a stocked drinks cooler is
 		// a solid wall of product, not a few bottles on a rail.
@@ -5541,7 +5632,9 @@ void AIGPrologueWorldScene::BuildStore()
 		else
 		{
 			CreateBlock(FVector(2899, BayY, 110), FVector(4, 66, 196), GlassMaterial);
-			CreateBlock(FVector(2894, BayY + 28.0f, 110), FVector(3, 4, 44), Metal, false);
+			// The handle is fixed to the door leaf; at X 2894 it floated a
+			// centimetre and a half in front of the glass.
+			CreateBlock(FVector(2895.5f, BayY + 28.0f, 110), FVector(3, 4, 44), Metal, false);
 		}
 	}
 	StoreLights.Add(CreateLight(
@@ -5552,9 +5645,10 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(FVector(2445, -545, 88), FVector(52, 104, 4), GlassMaterial, false);
 	CreateBlock(FVector(2445, -545, 84), FVector(56, 108, 3), Metal, false);
 
-	// Tobacco notice over the cigarette wall, entrance mat, CCTV eye.
+	// Tobacco notice over the cigarette wall, entrance mat, CCTV eye. The
+	// notice is stuck to the wall itself, so it has to reach Y -180.
 	CreateBlock(
-		FVector(2560, -182.5f, 228), FVector(140, 2, 12),
+		FVector(2560, -181, 228), FVector(140, 2, 12),
 		TexMat(TEXT("M_TobaccoNotice"), FridgeInteriorMaterial), false);
 	CreateBlock(FVector(2435, -457, 7.2f), FVector(70, 95, 2), PlasticDarkMaterial, false);
 	CreateBlock(FVector(2426, -398, 246), FVector(15, 10, 10), FridgeInteriorMaterial, false);

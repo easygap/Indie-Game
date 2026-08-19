@@ -2121,7 +2121,9 @@ void AIGThirdMorningDirector::BuildApartment()
 
 	// A single ceiling leak and the stain beneath it.
 	CreateBlock(FVector(45, -20, 0.8f), FVector(82, 54, 1.5f), WetStepMaterial, false);
-	CreateBlock(FVector(45, -20, 266), FVector(18, 18, 3), WetStepMaterial, false);
+	// The wet patch belongs on the underside of the slab at Z 260; at Z 266 it
+	// was inside the concrete.
+	CreateBlock(FVector(45, -20, 258.5f), FVector(18, 18, 3), WetStepMaterial, false);
 
 	// Fridge carcass.  The contents are pre-built and merely revealed when the
 	// door moves; no bottle allocations occur during the scare.  The pale
@@ -2353,8 +2355,9 @@ void AIGThirdMorningDirector::BuildApartment()
 	// A real mirror-height comparison point lets the player inspect their own
 	// repaired left sleeve before reaching the body. It is hidden until the
 	// CH03 outfit is actually equipped at the apartment threshold.
+	// Hung on the wall face at Y 210; at Y 214 the glass was inside the wall.
 	CreateBlock(
-		FVector(275, 214, 155),
+		FVector(275, 208, 155),
 		FVector(78, 4, 98),
 		PlasticMaterial,
 		false);
@@ -2414,19 +2417,23 @@ void AIGThirdMorningDirector::BuildApartment()
 	// ending B's epilogue returns here for its single drop of water.
 	CreateBlock(FVector(-55, 185, 42), FVector(85, 66, 84), PlasticMaterial);
 	CreateBlock(FVector(-55, 185, 82.5f), FVector(48, 40, 5), DarkConcreteMaterial, false);
+	// Mixer tap: the column stands on the worktop insert at Z 85 and the spout
+	// runs out of its head over the basin. Previously the column started two
+	// centimetres above the deck and the spout crossed the counter east-west
+	// nine centimetres clear of the column, connected to nothing.
 	CreateBlock(
-		FVector(-55, 205, 100),
+		FVector(-55, 205, 98),
 		FVector(5, 5, 26),
 		MetalMaterial,
 		false,
 		FRotator::ZeroRotator,
 		CylinderMesh);
 	CreateBlock(
-		FVector(-55, 196, 111),
+		FVector(-55, 194, 108),
 		FVector(4, 4, 22),
 		MetalMaterial,
 		false,
-		FRotator(90, 0, 0),
+		FRotator(0, 0, 90),
 		CylinderMesh);
 	// The empty glass cup under the closed tap. It is here in the flood
 	// morning too: the same cup, before and after.
@@ -2494,8 +2501,10 @@ void AIGThirdMorningDirector::BuildFloodedCorridor()
 	for (int32 LightIndex = 0; LightIndex < 3; ++LightIndex)
 	{
 		const float X = 455.0f + LightIndex * 230.0f;
+		// Surface-mounted batten, flush to the soffit at Z 260. At Z 250 the
+		// fitting hung eight centimetres below the ceiling on nothing.
 		CreateBlock(
-			FVector(X, 0, 250),
+			FVector(X, 0, 258),
 			FVector(68, 20, 4),
 			ScreenMaterial,
 			false);
@@ -2623,10 +2632,13 @@ void AIGThirdMorningDirector::BuildP3ServiceCabinet()
 
 	if (!bHasAuthoredP3Cluster)
 	{
-		CreateBlock(FVector(600, -190, 150), FVector(4, 4, 74), MetalMaterial, false);
-		CreateBlock(FVector(650, -190, 150), FVector(4, 4, 74), MetalMaterial, false);
-		CreateBlock(FVector(705, -190, 95), FVector(3, 3, 52), MetalMaterial, false);
-		CreateBlock(FVector(760, -190, 95), FVector(3, 3, 52), MetalMaterial, false);
+		// Fallback risers, clipped to the cabinet's back panel at Y -202. The
+		// authored cluster stands off that panel on its own manifold; without
+		// it these were left hanging ten centimetres clear of everything.
+		CreateBlock(FVector(600, -200, 150), FVector(4, 4, 74), MetalMaterial, false);
+		CreateBlock(FVector(650, -200, 150), FVector(4, 4, 74), MetalMaterial, false);
+		CreateBlock(FVector(705, -200.5f, 95), FVector(3, 3, 52), MetalMaterial, false);
+		CreateBlock(FVector(760, -200.5f, 95), FVector(3, 3, 52), MetalMaterial, false);
 	}
 	P3BleedTubeVisual = CreateBlock(
 		FVector(705, -174, 73),
@@ -2794,8 +2806,11 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 		UpRouteGate->SetVisibility(false);
 		UpRouteGate->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 	}
+	// Sits on the cap of the up-route bulkhead below it. At Z 252, Y -30 the
+	// fitting hung fourteen centimetres above that cap with most of its depth
+	// off the end of it.
 	CreateBlock(
-		FVector(1110, -30, 252),
+		FVector(1110, -42, 238),
 		FVector(62, 18, 4),
 		ScreenMaterial,
 		false);
@@ -2810,7 +2825,7 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 	// removing the dark landing beyond it.  These are static scene components;
 	// there is no per-frame animation or spawning as the loop changes.
 	CreateBlock(
-		FVector(1188, -205, 226),
+		FVector(1197.5f, -205, 226),
 		FVector(5, 42, 22),
 		ScreenMaterial,
 		false);
@@ -2823,7 +2838,7 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 	// The next practical is visible before the player reaches the turn. It
 	// establishes a real upper landing and preserves a dark pocket behind it.
 	CreateBlock(
-		FVector(1085, -365, 382),
+		FVector(1085, -365, 387.5f),
 		FVector(58, 20, 5),
 		ScreenMaterial,
 		false);
@@ -3001,7 +3016,7 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 	// shadowless and local so the fifth floor remains the story's quiet,
 	// low-pressure transition rather than becoming a safe room.
 	CreateBlock(
-		FVector(1415, -420, 397),
+		FVector(1415, -420, 398.5f),
 		FVector(48, 14, 3),
 		ScreenMaterial,
 		false);
@@ -3125,6 +3140,7 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 	// the closed plane used by the 11 cm free-edge measurement.
 	for (const float JambY : {-464.0f, -336.0f})
 	{
+		// physics-audit: intentional hidden collision proxy inside the frame
 		if (UStaticMeshComponent* JambCollision = CreateBlock(
 			FVector(1664.0f, JambY, 357.0f),
 			FVector(4.0f, 8.0f, 234.0f),
@@ -3798,13 +3814,13 @@ void AIGThirdMorningDirector::BuildWaterTank()
 		// Two narrow temple lines preserve the hanging read without duplicating
 		// the action's single fallback frame proxy.
 		CreateBlock(
-			FVector(2331, -184, 668),
+			FVector(2333, -184, 668),
 			FVector(2, 2, 12),
 			PlasticMaterial,
 			false,
 			FRotator(0, -8, 8));
 		CreateBlock(
-			FVector(2339, -184, 668),
+			FVector(2337, -184, 668),
 			FVector(2, 2, 12),
 			PlasticMaterial,
 			false,
@@ -4719,8 +4735,10 @@ void AIGThirdMorningDirector::SpawnClueDocuments()
 		WetPaperMaterial);
 	// The original is kept in a shallow IP65 record box outside the locked
 	// roof door, so it cannot contain information created by the later search.
+	// The box is screwed to the south jamb of that door; at X 1604 it stood
+	// 67 cm above the roof deck with nothing behind or beneath it.
 	CreateBlock(
-		FVector(1604, -486, 326),
+		FVector(1660, -478, 326),
 		FVector(38, 30, 5),
 		DarkConcreteMaterial,
 		false,
@@ -4778,8 +4796,9 @@ void AIGThirdMorningDirector::SpawnClueDocuments()
 			NSLOCTEXT("IGCH03", "RecheckNoticeL3", "확인 완료 전 옥상 출입 금지")
 		},
 		WetPaperMaterial);
+	// Matching enclosure on the north jamb of the same door.
 	CreateBlock(
-		FVector(1604, -314, 326),
+		FVector(1660, -322, 326),
 		FVector(38, 30, 5),
 		DarkConcreteMaterial,
 		false,
