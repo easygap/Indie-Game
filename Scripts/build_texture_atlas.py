@@ -12,6 +12,7 @@ with a UV scale and bias.
 
     python3 Scripts/build_texture_atlas.py             # pack and write
     python3 Scripts/build_texture_atlas.py --check     # verify, change nothing
+    python3 Scripts/build_texture_atlas.py --preflight # can the editor import?
     python3 Scripts/build_texture_atlas.py --self-test # prove the packer
 
 Needs Pillow and the real source art. On a checkout where Git LFS has not been
@@ -37,8 +38,8 @@ from texture_atlas_contract import (  # noqa: E402
     AtlasContractError,
     GUTTER,
     MANIFEST_PATH,
+    GUTTER_SAFE_MIP_LEVELS,
     MANIFEST_VERSION,
-    MAX_MIP_LEVELS,
     PAGE_SHAPES,
     PAGE_SIZE,
     PRINT_ATLAS_ENTRIES,
@@ -368,7 +369,7 @@ def build_manifest(sources, placements, pages, page_size=PAGE_SIZE, gutter=GUTTE
         "version": MANIFEST_VERSION,
         "page_size": page_size,
         "gutter": gutter,
-        "max_mip_levels": MAX_MIP_LEVELS,
+        "gutter_safe_mip_levels": GUTTER_SAFE_MIP_LEVELS,
         "pages": [
             {
                 "index": index,
@@ -388,6 +389,123 @@ def build_manifest(sources, placements, pages, page_size=PAGE_SIZE, gutter=GUTTE
 # ---------------------------------------------------------------------------
 # Commands
 # ---------------------------------------------------------------------------
+
+def command_preflight() -> int:
+    """Answers "will the editor run work?" before anyone opens the editor.
+
+    The atlas stage of the art build spends several minutes in a commandlet
+    before it touches the atlas at all, so every way it can fail is worth
+    finding from a shell in a second: Pillow missing, Git LFS never pulled,
+    a manifest that no longer matches the sources, pages that were never
+    baked or were baked at a different shape.
+    """
+    problems: list[str] = []
+    notes: list[str] = []
+
+    try:
+        from PIL import Image as _Image  # noqa: F401
+        notes.append("Pillow available")
+    except ImportError:
+        problems.append(
+            "Pillow is not installed; the packer cannot read the source art "
+            "(pip install pillow)"
+        )
+
+    pointers = [
+        stem for stem in PRINT_ATLAS_ENTRIES
+        if os.path.isfile(source_texture_path(stem))
+        and _is_lfs_pointer(source_texture_path(stem))
+    ]
+    absent = [
+        stem for stem in PRINT_ATLAS_ENTRIES
+        if not os.path.isfile(source_texture_path(stem))
+    ]
+    if absent:
+        problems.append(
+            f"{len(absent)} source texture(s) are not in the tree: "
+            + ", ".join(absent[:6])
+        )
+    if pointers:
+        problems.append(
+            f"{len(pointers)} source texture(s) are Git LFS pointers; run "
+            "`git lfs pull` first"
+        )
+    if not absent and not pointers:
+        notes.append(f"{len(PRINT_ATLAS_ENTRIES)} source textures present")
+
+    manifest = None
+    if not os.path.isfile(MANIFEST_PATH):
+        problems.append(
+            f"no manifest at {MANIFEST_PATH}; run the packer with no arguments"
+        )
+    else:
+        try:
+            with open(MANIFEST_PATH, "r", encoding="utf-8") as handle:
+                manifest = json.load(handle)
+            validate_manifest(manifest)
+            notes.append(
+                f"manifest v{manifest['version']}: "
+                f"{len(manifest['entries'])} entries on "
+                f"{len(manifest['pages'])} page(s)"
+            )
+        except (AtlasContractError, ValueError) as error:
+            manifest = None
+            problems.append(f"manifest is not usable: {error}")
+
+    if manifest is not None:
+        for page in manifest["pages"]:
+            path = os.path.join(ATLAS_DIR, os.path.basename(page["file"]))
+            if not os.path.isfile(path):
+                problems.append(
+                    f"page {page['index']} has not been baked: {path}"
+                )
+                continue
+            try:
+                from PIL import Image
+                with Image.open(path) as image:
+                    shape = image.size
+            except Exception as error:  # noqa: BLE001
+                problems.append(f"page {page['index']} is unreadable: {error}")
+                continue
+            if shape != (page["width"], page["height"]):
+                problems.append(
+                    f"page {page['index']} on disk is {shape[0]}x{shape[1]}, "
+                    f"manifest says {page['width']}x{page['height']}; re-bake"
+                )
+            else:
+                notes.append(
+                    f"page {page['index']}: {shape[0]}x{shape[1]} "
+                    f"({page['occupancy'] * 100:.1f}% used)"
+                )
+
+    if manifest is not None and not problems:
+        # Everything is present; the last question is whether it is current.
+        # --check reports for itself, which would interleave with this report,
+        # so run it quietly and keep only the verdict.
+        import contextlib
+        import io
+
+        sink = io.StringIO()
+        with contextlib.redirect_stdout(sink):
+            stale = command_build(write=False) != 0
+        if stale:
+            problems.append(
+                "the bake is stale against the current source art; re-run the "
+                "packer with no arguments"
+            )
+        else:
+            notes.append("bake matches the current source art")
+
+    for note in notes:
+        print(f"  ok    {note}")
+    for problem in problems:
+        print(f"  FAIL  {problem}")
+    if problems:
+        print(f"FAIL preflight: {len(problems)} thing(s) block the editor run")
+        return 1
+    print("PASS preflight: the editor can import this atlas")
+    return 0
+
 
 def command_build(write: bool) -> int:
     sources = collect_sources()
@@ -594,10 +712,18 @@ def main(argv=None) -> int:
                         help="verify the committed atlas without rewriting it")
     parser.add_argument("--self-test", action="store_true",
                         help="run the packer against synthetic fixtures")
+    parser.add_argument("--preflight", action="store_true",
+                        help="report whether an editor import would work")
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
         return command_self_test()
+    if arguments.preflight:
+        try:
+            return command_preflight()
+        except AtlasContractError as error:
+            print(f"FAIL {error}")
+            return 1
     try:
         return command_build(write=not arguments.check)
     except AtlasContractError as error:

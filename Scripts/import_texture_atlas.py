@@ -24,7 +24,7 @@ from texture_atlas_contract import (  # noqa: E402
     ATLAS_DIR,
     ATLAS_TEXTURE_ROOT,
     AtlasContractError,
-    MAX_MIP_LEVELS,
+    GUTTER_SAFE_MIP_LEVELS,
     page_asset_name,
     page_file_name,
     try_load_manifest,
@@ -84,8 +84,10 @@ def import_texture_atlas() -> int:
             texture, "address_x", unreal.TextureAddress.TA_CLAMP)
         _set_if_supported(
             texture, "address_y", unreal.TextureAddress.TA_CLAMP)
-        # Stop the mip chain before a texel spans two entries plus their
-        # gutters. Beyond this the artwork is a few pixels on screen anyway.
+        # A full mip chain from the texture group. Unreal has no per-texture
+        # cap on how far it goes, so the 8 px gutter is what keeps neighbours
+        # out of the sample: it survives to mip 3, by which point a notice is
+        # thirty-odd pixels on screen and nothing on it is readable anyway.
         _set_if_supported(texture, "mip_gen_settings",
                           unreal.TextureMipGenSettings.TMGS_FROM_TEXTURE_GROUP)
         _set_if_supported(texture, "num_cinematic_mip_levels", 0)
@@ -100,6 +102,18 @@ def import_texture_atlas() -> int:
             unreal.TextureCompressionSettings.TC_BC7,
         )
         _set_if_supported(texture, "srgb", True)
+
+        # Compression, sRGB and addressing all change how the texture is
+        # built, not just how it is described. Without this the package saves
+        # with the new properties but keeps the platform data it was imported
+        # with, and the change only appears the next time something else
+        # happens to dirty the asset.
+        try:
+            texture.post_edit_change()
+        except Exception:  # noqa: BLE001 - not fatal; the save still lands
+            unreal.log_warning(
+                f"[IndieGame] Atlas: {asset_path} did not rebuild in place"
+            )
         imported.append(texture)
 
     if not asset_subsystem.save_loaded_assets(imported, False):
@@ -108,7 +122,7 @@ def import_texture_atlas() -> int:
     unreal.log_warning(
         "PRINT_ATLAS_IMPORT PASS "
         f"pages={len(imported)} entries={len(manifest['entries'])} "
-        f"max_mips={MAX_MIP_LEVELS}"
+        f"gutter_safe_mips={GUTTER_SAFE_MIP_LEVELS}"
     )
     return len(imported)
 

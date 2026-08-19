@@ -60,8 +60,13 @@ PAGE_SHAPES = tuple(sorted(
 # distance any of this artwork is still legible at.
 GUTTER = 8
 
-# The mip chain has to stop before a texel spans two entries.
-MAX_MIP_LEVELS = 5
+# How far down the mip chain the gutter still separates neighbours. Each mip
+# halves it: 8, 4, 2, 1, and at the fifth level it is half a texel and the
+# entries start averaging into each other. Unreal has no per-texture way to
+# stop a mip chain early, so this is not enforced -- it is the number that
+# says the gutter is big enough. At mip 3 a 2048 page is 256 px and a 256 px
+# notice is 32 px, which is well past anything on it being readable.
+GUTTER_SAFE_MIP_LEVELS = GUTTER.bit_length() - 1
 
 # Entries are packed in this order. Adding a texture goes at the end so the
 # existing pages keep their layout; a reshuffle is a deliberate act.
