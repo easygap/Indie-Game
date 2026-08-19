@@ -225,6 +225,33 @@ TEXTURED_MATERIALS = {
         "tex": "MissingFloorDryPlaster", "mapping": "XY", "tile": 138.0,
         "rough": 0.93, "ao": True, "tint": (0.74, 0.73, 0.69),
     },
+    # 발소리 표면 3종. §11 규칙 2가 「어느 바닥을 고르느냐」를 선택으로 만드는데,
+    # 지금까지 이 셋은 전부 복도 콘크리트로 그려지고 있었다. 소리는 다른데
+    # 그림이 같으면 고를 수가 없다.
+    #
+    # 계단 타일은 55cm에 다이아몬드 16개 = 피치 34mm로, 실제 체커플레이트
+    # 규격 안이다. 거칠기를 콘크리트(0.9+)보다 낮게 두는 것이 핵심이다 —
+    # 손전등이 스칠 때 계단만 반사가 다르고, 그것이 눈으로 읽히는 차이다.
+    "M_MissingFloorSteelStair": {
+        "tex": "MissingFloorSteelStair", "mapping": "XY", "tile": 55.0,
+        "rough": 0.68, "ao": True, "tint": (0.86, 0.87, 0.90),
+    },
+    "M_RooftopWaterproofing_XY": {
+        "tex": "RooftopWaterproofing", "mapping": "XY", "tile": 150.0,
+        "rough": 0.82, "ao": True, "tint": (0.80, 0.82, 0.76),
+    },
+    "M_MissingFloorGypsumDebris_XY": {
+        "tex": "MissingFloorGypsumDebris", "mapping": "XY", "tile": 150.0,
+        "rough": 0.93, "ao": True, "tint": (0.78, 0.77, 0.74),
+    },
+    # 세대 현관문 문짝. 지금까지 브러시드 스테인리스를 쓰고 있었는데, 한국
+    # 빌라 현관문은 무광 도장 강판이라 재질 계열 자체가 다르다. 기하(브러시드
+    # 밴드·인레이·레버·도어록·도어스코프)는 이미 3D이므로 표면만 바꾼다.
+    # metallic 0 — 빛이 만나는 것은 강판이 아니라 그 위의 도장이다.
+    "M_UnitDoorPaintedSteel": {
+        "tex": "UnitDoorPaintedSteel", "mapping": "UV", "tile": 1.0,
+        "rough": 0.74, "ao": True, "metallic": 0.0, "tint": (0.92, 0.93, 0.95),
+    },
 }
 
 # Lit poster/label materials: texture straight onto mesh UVs.
@@ -434,6 +461,19 @@ DECAL_MATERIALS = {
         "tex_asset": "T_MissingFloorDryPlaster_D",
         "pbr_stem": "T_MissingFloorDryPlaster", "tile_u": 2.8,
         "specular": 0.16,
+    },
+    # P1 계량기 문자판. 눈금과 붉은 호까지만 텍스처이고, 지침과 다섯 번째가
+    # 돌지 않는다는 사실은 코드가 소유한다(§ART_MATRIX 원칙 4). 드럼 창은
+    # 비어 있는 채로 들어오며 숫자는 런타임이 그린다.
+    "M_UtilityMeterDial": {
+        "tex_asset": "T_UtilityMeterDial_D", "pbr_stem": "T_UtilityMeterDial",
+        "specular": 0.42,
+    },
+    # P2 먹지. 눌린 원문은 굽지 않는다 — 5회 포획 메모와 같은 규율로,
+    # 종이는 ImageGen이 만들고 그 위의 한글은 Create-SignTextures.ps1이 그린다.
+    "M_CarbonPaper": {
+        "tex_asset": "T_CarbonPaper_D", "pbr_stem": "T_CarbonPaper",
+        "specular": 0.38,
     },
 }
 
@@ -3085,6 +3125,12 @@ def run():
             "M_MissingFloorPlaster_X",
             "M_MissingFloorPlaster_Y",
             "M_MissingFloorPlaster_XY",
+            # 발소리 표면 3종과 현관문 문짝. 셋은 지금까지 복도 콘크리트로,
+            # 문짝은 브러시드 스테인리스로 그려지고 있었다.
+            "M_MissingFloorSteelStair",
+            "M_RooftopWaterproofing_XY",
+            "M_MissingFloorGypsumDebris_XY",
+            "M_UnitDoorPaintedSteel",
         )
         residue_names = (
             "M_MissingFloorHandprints",
@@ -3114,9 +3160,12 @@ def run():
             assets,
             tools,
             {
-                "M_MissingFloorListenerPlasterUV": DECAL_MATERIALS[
-                    "M_MissingFloorListenerPlasterUV"
-                ]
+                name: DECAL_MATERIALS[name]
+                for name in (
+                    "M_MissingFloorListenerPlasterUV",
+                    "M_UtilityMeterDial",
+                    "M_CarbonPaper",
+                )
             },
             False,
         )
@@ -3146,7 +3195,8 @@ def run():
                     "used_with_instanced_static_meshes", True
                 )
                 unreal.MaterialEditingLibrary.recompile_material(material)
-        if len(missing_floor) != 19 or not assets.save_loaded_assets(
+        # 19에서 25로. 발소리 표면 3종과 판독면 2종, 현관문 강판이 더해졌다.
+        if len(missing_floor) != 25 or not assets.save_loaded_assets(
             missing_floor, False
         ):
             raise RuntimeError("Could not save missing-floor visual materials")

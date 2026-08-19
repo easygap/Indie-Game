@@ -1,0 +1,49 @@
+{
+  "stem": "T_MissingFloorSteelStair",
+  "seam_mode": "period",
+  "seam_action": "period crop 1024x1024 (pitch 128x64); crossfade 31x31px into 1024x1024",
+  "flat_field": 1.0,
+  "field_cells": 8,
+  "input_sha256": "32AC7721B96DE37AFB5D0722ECA6BF9BB3B294703627A3999225359949383B18",
+  "output_sha256": "7E8B2B1EC63D8459CFF24F4B647FD365191DC17C7F4197542138C96BF3D9213E",
+  "before": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.483,
+    "luma_stddev": 19.6,
+    "below_25pct": 0.0,
+    "above_65pct": 0.1168,
+    "stipple": 2.361,
+    "field_spread": 1,
+    "field_range": [
+      123,
+      124
+    ],
+    "seam_h": 2.68,
+    "seam_v": 4.81,
+    "seam_h_ratio": 1.17,
+    "seam_v_ratio": 2.21
+  },
+  "after": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.4833,
+    "luma_stddev": 19.36,
+    "below_25pct": 0.0,
+    "above_65pct": 0.1096,
+    "stipple": 2.306,
+    "field_spread": 2,
+    "field_range": [
+      122,
+      124
+    ],
+    "seam_h": 2.32,
+    "seam_v": 2.41,
+    "seam_h_ratio": 0.69,
+    "seam_v_ratio": 0.69
+  }
+}

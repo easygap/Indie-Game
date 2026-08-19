@@ -2455,6 +2455,12 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// troweled stucco on the walls, 600 mm speckled granite tile underfoot,
 	// a dark granite skirting band, and a painted stucco soffit overhead.
 	UMaterialInterface* CorridorFloor = TexMat(TEXT("M_GraniteTile_XY"), ConcreteMaterial);
+	// 철제 계단은 복도 화강석 타일과 다른 물건이다. §11 규칙 2가 발밑을
+	// 선택으로 만드는데, 지금까지 이 계단은 소리만 금속이고 그림은 복도
+	// 바닥과 같았다 — 들리는 거리가 다른 두 표면을 눈으로 구분할 수 없으면
+	// 「어느 바닥을 고르느냐」는 선택이 아니라 우연이 된다.
+	UMaterialInterface* StairSteel =
+		TexMat(TEXT("M_MissingFloorSteelStair"), CorridorFloor);
 	UMaterialInterface* CorridorCeil = TexMat(TEXT("M_StuccoCeil"), ConcreteMaterial);
 	UMaterialInterface* CorridorWallX = TexMat(TEXT("M_Stucco_X"), ConcreteMaterial);
 	UMaterialInterface* CorridorWallY = TexMat(TEXT("M_Stucco_Y"), ConcreteMaterial);
@@ -2607,10 +2613,14 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// with one brushed vertical band inset from the handle edge, small dark
 	// squares punched down that band, a lever, a keypad lock and a peephole —
 	// so that is exactly what gets built here, once per leaf.
-	auto DressUnitDoor = [this, SteelDoor, Stainless, Metal](
+	// 문짝은 브러시드 스테인리스가 아니라 무광 도장 강판이다. 밴드·인레이·
+	// 레버·도어록·도어스코프는 이미 실제 기하이므로 표면만 바꾼다.
+	UMaterialInterface* UnitDoorLeaf =
+		TexMat(TEXT("M_UnitDoorPaintedSteel"), SteelDoor);
+	auto DressUnitDoor = [this, UnitDoorLeaf, Stainless, Metal](
 		const float DoorX, const float FaceY)
 	{
-		CreateBlock(FVector(DoorX, FaceY, 100), FVector(84, 5, 200), SteelDoor);
+		CreateBlock(FVector(DoorX, FaceY, 100), FVector(84, 5, 200), UnitDoorLeaf);
 		const float PlateY = FaceY - 2.9f;
 		// Brushed band down the leaf, with the punched square inlays.
 		CreateBlock(FVector(DoorX + 14, PlateY, 100), FVector(13, 0.8f, 188), Stainless, false);
@@ -2768,7 +2778,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 		IGPrologueWorld::TagFootstepSurface(CreateBlock(
 			FVector(-277.5f, StepY, StepTop * 0.5f),
 			FVector(85, 22, StepTop),
-			CorridorFloor), IGPrologueWorld::FootstepMetalStairTag);
+			StairSteel), IGPrologueWorld::FootstepMetalStairTag);
 		CreateBlock(
 			FVector(-277.5f, StepY + 10.0f, StepTop + 0.8f),
 			FVector(83, 2.5f, 1.6f),
@@ -2781,7 +2791,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	IGPrologueWorld::TagFootstepSurface(CreateBlock(
 		FVector(-277.5f, -125.0f, 63.0f),
 		FVector(85, 28, 18),
-		CorridorFloor), IGPrologueWorld::FootstepMetalStairTag);
+		StairSteel), IGPrologueWorld::FootstepMetalStairTag);
 	CreateBlock(
 		FVector(-332.5f, -165.0f, 120),
 		FVector(15, 120, 240),
@@ -2802,7 +2812,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	{
 		IGPrologueWorld::TagFootstepSurface(CreateBlock(
 			FVector(StepX, -305, -9.0f - StepIndex * 18.0f),
-			FVector(22, 130, 18), CorridorFloor),
+			FVector(22, 130, 18), StairSteel),
 			IGPrologueWorld::FootstepMetalStairTag);
 		// Stair nosing: a darker lip on every tread catches the hall light.
 		CreateBlock(
@@ -2832,7 +2842,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// sighting (STORY_BIBLE_MISSING_FLOOR.md §8 밤1 1-4).
 	IGPrologueWorld::TagFootstepSurface(CreateBlock(
 		FVector(-392.5f, -305, -81), FVector(125, 160, 18),
-		CorridorFloor), IGPrologueWorld::FootstepMetalStairTag);
+		StairSteel), IGPrologueWorld::FootstepMetalStairTag);
 	for (const float RailY : {-243.0f, -367.0f})
 	{
 		CreateBlock(
@@ -3369,7 +3379,14 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	UMaterialInterface* AnnexCeiling = TexMat(TEXT("M_MissingFloorPlaster_XY"), ConcreteMaterial);
 	UMaterialInterface* Stud = TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial);
 	UMaterialInterface* Board = TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial);
+	// 계단과 옥상 바닥은 서로 다른 발소리 표면인데 한 변수를 공유하고
+	// 있었다. 옥상 방수층은 조용하고 철제 계단은 길게 울린다 — 같은
+	// 콘크리트로 그리면 그 차이를 볼 방법이 없다.
 	UMaterialInterface* RoofFloor = TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial);
+	UMaterialInterface* StairSteel =
+		TexMat(TEXT("M_MissingFloorSteelStair"), RoofFloor);
+	UMaterialInterface* RoofDeck =
+		TexMat(TEXT("M_RooftopWaterproofing_XY"), RoofFloor);
 	UMaterialInterface* RoofMetal = TexMat(TEXT("M_WaterTankMetalUV"), MetalFrameMaterial);
 	UMaterialInterface* RailMetal = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
 
@@ -3397,7 +3414,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 				-100.0f + TreadDepth * StepIndex,
 				StairBaseZ + Height * 0.5f),
 			FVector(85.0f, TreadDepth, Height),
-			RoofFloor);
+			StairSteel);
 		IGPrologueWorld::TagFootstepSurface(
 			Step,
 			IGPrologueWorld::FootstepMetalStairTag);
@@ -3406,7 +3423,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	IGPrologueWorld::TagFootstepSurface(CreateBlock(
 		FVector(-277.5f, 208.5f, 1191.0f),
 		FVector(85.0f, 23.0f, 18.0f),
-		RoofFloor), IGPrologueWorld::FootstepMetalStairTag);
+		StairSteel), IGPrologueWorld::FootstepMetalStairTag);
 
 	// Enclose the upper flight. The side walls overlap the existing stub by
 	// 10 cm, so there is no blue-sky seam when looking up from 4F.
@@ -3424,15 +3441,15 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	MissingFloorRooftopRouteFloors.Add(CreateBlock(
 		FVector(-420.0f, -40.0f, 1190.0f),
 		FVector(160.0f, 520.0f, 20.0f),
-		RoofFloor));
+		RoofDeck));
 	MissingFloorRooftopRouteFloors.Add(CreateBlock(
 		FVector(142.5f, -40.0f, 1190.0f),
 		FVector(715.0f, 520.0f, 20.0f),
-		RoofFloor));
+		RoofDeck));
 	MissingFloorRooftopRouteFloors.Add(CreateBlock(
 		FVector(0.0f, 360.0f, 1190.0f),
 		FVector(1000.0f, 280.0f, 20.0f),
-		RoofFloor));
+		RoofDeck));
 	for (UStaticMeshComponent* RouteFloor : MissingFloorRooftopRouteFloors)
 	{
 		IGPrologueWorld::TagFootstepSurface(
@@ -3536,8 +3553,12 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		FVector(110.0f, 12.0f, 15.0f),
 		RailMetal);
 
+	// 석고 파편이 깔린 슬래브. 어두운 콘크리트로 그리면 5층 바닥과 복도가
+	// 같은 물건이 되는데, 이 바닥은 걷기만 해도 크게 들리는 자리다.
 	IGPrologueWorld::TagFootstepSurface(
-		CreateBlock(FVector(0, 700, 1195), FVector(800, 500, 10), AnnexFloor),
+		CreateBlock(
+			FVector(0, 700, 1195), FVector(800, 500, 10),
+			TexMat(TEXT("M_MissingFloorGypsumDebris_XY"), AnnexFloor)),
 		IGPrologueWorld::FootstepGypsumTag);
 	// §11 V2 분진 퇴적: this is the one floor in the building deep enough in
 	// plaster dust to hold a print. The field covers the slab exactly, so a
@@ -4458,10 +4479,18 @@ void AIGPrologueWorldScene::BuildLobby()
 			CreateBlock(
 				FVector(MeterX, -365.4f, 156), FVector(13, 13, 1.2f),
 				GlassMaterial, false);
+			// 문자판. 눈금과 붉은 호는 텍스처가, 지침과 다섯 번째가 돌지
+			// 않는다는 사실은 코드가 소유한다. 회전 원판보다 뒤(Y가 작은
+			// 쪽)에 두고 원판을 줄여, 눈금이 원판 둘레로 보이면서 회전도
+			// 함께 읽히게 한다 — P1은 「다섯째만 안 돈다」가 전부이므로
+			// 원판이 문자판에 가려지면 퍼즐 자체가 사라진다.
+			CreateBlock(
+				FVector(MeterX, -366.6f, 152), FVector(11, 0.8f, 11),
+				TexMat(TEXT("M_UtilityMeterDial"), SignWhiteMaterial), false);
 			// Roll 90 puts the cylinder axis on world Y, so the disc face is
 			// what a reader standing in the lobby actually sees.
 			UStaticMeshComponent* Disc = CreateBlock(
-				FVector(MeterX, -366.0f, 152), FVector(9, 9, 1.6f),
+				FVector(MeterX, -366.0f, 152), FVector(5, 5, 1.6f),
 				PlasticDarkMaterial, false, CylinderMesh, FRotator(0, 0, 90));
 			if (MeterIndex == 4)
 			{
@@ -5736,7 +5765,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	{
 		HomeDoor->ConfigurePrototypeVisuals(
 			CubeMesh,
-			TexMat(TEXT("M_SteelDoorUV"), DoorMaterial),
+			TexMat(TEXT("M_UnitDoorPaintedSteel"), DoorMaterial),
 			// The authored stainless UV is useful on broad lift panels but
 			// compresses into horizontal bands on this 13 cm vertical inlay.
 			MetalFrameMaterial,

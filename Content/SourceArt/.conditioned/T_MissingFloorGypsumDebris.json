@@ -1,0 +1,49 @@
+{
+  "stem": "T_MissingFloorGypsumDebris",
+  "seam_mode": "crossfade",
+  "seam_action": "crossfade 102x102px into 1024x1024",
+  "flat_field": 1.0,
+  "field_cells": 8,
+  "input_sha256": "E582A0E68577D17E9311255D7AFEB77FCCB15F3BBE961BE296B9EA666068822C",
+  "output_sha256": "1D93BC193F2A023BAD6B90BA4739C9B940A648AC79A5D48ABB6F32029597EB41",
+  "before": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.3975,
+    "luma_stddev": 3.91,
+    "below_25pct": 0.0,
+    "above_65pct": 0.0,
+    "stipple": 0.621,
+    "field_spread": 11,
+    "field_range": [
+      98,
+      109
+    ],
+    "seam_h": 3.81,
+    "seam_v": 3.31,
+    "seam_h_ratio": 2.32,
+    "seam_v_ratio": 2.33
+  },
+  "after": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.3963,
+    "luma_stddev": 9.04,
+    "below_25pct": 0.0,
+    "above_65pct": 0.0004,
+    "stipple": 1.917,
+    "field_spread": 21,
+    "field_range": [
+      95,
+      116
+    ],
+    "seam_h": 3.3,
+    "seam_v": 3.48,
+    "seam_h_ratio": 0.95,
+    "seam_v_ratio": 1.01
+  }
+}

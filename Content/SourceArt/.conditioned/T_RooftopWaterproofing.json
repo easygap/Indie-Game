@@ -1,0 +1,49 @@
+{
+  "stem": "T_RooftopWaterproofing",
+  "seam_mode": "crossfade",
+  "seam_action": "crossfade 143x143px into 1024x1024",
+  "flat_field": 1.0,
+  "field_cells": 8,
+  "input_sha256": "2571C38B0FF6431F4108A4F8668033EA4BACA6F8F6021976C1441BD2E4E9234B",
+  "output_sha256": "4403BE460C75429568B6AE430E116EAD744D163EC4092C184D0F9F22CC9E0824",
+  "before": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.4606,
+    "luma_stddev": 7.55,
+    "below_25pct": 0.0,
+    "above_65pct": 0.0,
+    "stipple": 0.415,
+    "field_spread": 30,
+    "field_range": [
+      106,
+      136
+    ],
+    "seam_h": 4.12,
+    "seam_v": 3.62,
+    "seam_h_ratio": 3.11,
+    "seam_v_ratio": 2.88
+  },
+  "after": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.46,
+    "luma_stddev": 7.73,
+    "below_25pct": 0.0,
+    "above_65pct": 0.0,
+    "stipple": 1.783,
+    "field_spread": 28,
+    "field_range": [
+      105,
+      133
+    ],
+    "seam_h": 3.11,
+    "seam_v": 2.98,
+    "seam_h_ratio": 0.86,
+    "seam_v_ratio": 0.89
+  }
+}

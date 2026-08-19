@@ -1,0 +1,49 @@
+{
+  "stem": "T_UtilityMeterDial",
+  "seam_mode": "none",
+  "seam_action": "left alone",
+  "flat_field": 0.6,
+  "field_cells": 8,
+  "input_sha256": "265CBDE79EF3BBAC1F18170FF98C09BA3CB6F36DD4592C0330BA83E54E4EA4DE",
+  "output_sha256": "F806BC68DBE042954C952B56516F8EE9B11157B3B5171B0D8C9CE4663D58AFA6",
+  "before": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.8099,
+    "luma_stddev": 13.22,
+    "below_25pct": 0.0007,
+    "above_65pct": 0.9898,
+    "stipple": 1.171,
+    "field_spread": 25,
+    "field_range": [
+      188,
+      213
+    ],
+    "seam_h": 3.67,
+    "seam_v": 4.09,
+    "seam_h_ratio": 0.64,
+    "seam_v_ratio": 1.99
+  },
+  "after": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.8086,
+    "luma_stddev": 12.62,
+    "below_25pct": 0.0008,
+    "above_65pct": 0.9898,
+    "stipple": 1.176,
+    "field_spread": 22,
+    "field_range": [
+      190,
+      212
+    ],
+    "seam_h": 3.45,
+    "seam_v": 2.66,
+    "seam_h_ratio": 0.6,
+    "seam_v_ratio": 1.3
+  }
+}

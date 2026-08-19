@@ -1,0 +1,49 @@
+{
+  "stem": "T_CarbonPaper",
+  "seam_mode": "none",
+  "seam_action": "left alone",
+  "flat_field": 1.0,
+  "field_cells": 8,
+  "input_sha256": "438D7B8AE5C146607D16B6D539B644195E34B9483DBE498C6E59856782BC6C44",
+  "output_sha256": "D99C396AA777292B9717ED497ED2EF1A7278F785EB108F9FCC3C7C0D6AF204F5",
+  "before": {
+    "size": [
+      724,
+      1024
+    ],
+    "luma_mean": 0.2238,
+    "luma_stddev": 3.7,
+    "below_25pct": 0.9332,
+    "above_65pct": 0.0,
+    "stipple": 0.572,
+    "field_spread": 18,
+    "field_range": [
+      49,
+      67
+    ],
+    "seam_h": 11.8,
+    "seam_v": 8.62,
+    "seam_h_ratio": 9.66,
+    "seam_v_ratio": 6.63
+  },
+  "after": {
+    "size": [
+      724,
+      1024
+    ],
+    "luma_mean": 0.223,
+    "luma_stddev": 5.84,
+    "below_25pct": 0.8653,
+    "above_65pct": 0.0,
+    "stipple": 1.667,
+    "field_spread": 19,
+    "field_range": [
+      49,
+      68
+    ],
+    "seam_h": 23.17,
+    "seam_v": 15.8,
+    "seam_h_ratio": 9.27,
+    "seam_v_ratio": 6.01
+  }
+}

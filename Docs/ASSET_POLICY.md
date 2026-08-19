@@ -98,6 +98,13 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `SheetMissingFloorResidueMasks.png` | `T_MissingFloorHandprints_M` · `T_MissingFloorDragTrails_M` · `T_MissingFloorDustJoint_M` · `T_MissingFloorCavityScratches_M` | 손자국·끌림·분진 이음·공동 긁힘 값 마스크. 실표면에 masked 블렌드 |
 | `SheetMissingFloorDistantCharacters.png` | `T_SpriteSeo_D` · `T_SpriteMok_D` · `T_SpriteHwang_D` · `T_SpriteNarin_D` | 접근 불가 12m 이상 고정 컷용 RGBA 인물. 현재 서일영만 런타임 배치, 나머지는 근접 대용 방지를 위해 미배치 |
 | `SheetMissingFloorHeroPropsReference.png` | `SM_TuningHammer` · `SM_TunerToolCart` · `SM_ComplaintLedger` · `SM_CalendarJournal` | 조율 렌치·공구 카트·민원 원장·달력 일지의 실제 두께·접지·시차를 가진 3D 프롭 기준 |
+| `TextureVillaStairCheckerPlatePaintedSteel.png` | 미사용 (증빙 보존) | v1. 계약은 전부 통과했으나 손전등 프레임에서 디딤판이 매끈한 판으로 보여 폐기. 계조 범위가 11%뿐이라 게인으로도 살아나지 않았다 |
+| `TextureVillaStairCheckerPlatePaintedSteel_v2.png` | `T_MissingFloorSteelStair_{D,N,R,A}` | 도장 체커플레이트 철제 계단 디딤판. `Footstep.MetalStair` 표면이 복도 콘크리트로 그려지던 것을 교체한다. 55cm 타일에 다이아몬드 16개(피치 34mm), 거칠기 0.68로 콘크리트(0.9+)와 손전등 반사가 갈린다 |
+| `TextureRooftopUrethaneWaterproofing.png` | `T_RooftopWaterproofing_{D,N,R,A}` | 옥상 녹색 우레탄 방수 도막. `Footstep.Rooftop` 전용이며 1.5m 타일. 물 고임 자국은 이미지에 굽지 않고 균일 분포로만 둔다 |
+| `TextureRooftopAnnexConcreteGypsumDebris.png` | `T_MissingFloorGypsumDebris_{D,N,R,A}` | 5층 슬래브의 석고 파편. `Footstep.GypsumDebris` 전용. 발자국·끌림은 `UIGSettledDustComponent`가 런타임 ISM으로 그리므로 굽지 않는다 |
+| `TextureUtilityMeterDialFaceBlank.png` | `T_UtilityMeterDial_{D,N,R,A}` | P1 계량기 문자판. 눈금·붉은 호·스핀들 보스만 담고 드럼 창은 비어 있다. 지침과 「다섯 번째가 돌지 않는다」는 `FifthMeterDisc`가 소유한다 |
+| `TextureComplaintLedgerCarbonPaperBlank.png` | `T_CarbonPaper_{D,N,R,A}` | P2 먹지. 왁스 안료가 눌린 자리에서 얇아지는 광택 차이만 담는다. 눌린 원문 한글은 굽지 않는다. A4 비율 724×1024로 원장 메시에 UV 매핑 |
+| `TextureApartmentEntranceDoorCharcoalSteel.png` | `T_UnitDoorPaintedSteel_{D,N,R,A}` | 세대 현관문 문짝의 무광 도장 강판. 브러시드 스테인리스를 대체하며 밴드·인레이·레버·도어록·도어스코프는 기존 3D 기하를 유지한다. 발치 마모는 타일이 아니라 별도 masked 평면 |
 
 한 번의 생성에 5분이 걸리므로 낱장 대신 **격자 시트**로 묶어 뽑고 슬라이스합니다.
 현재 134장의 파생 텍스처(기존 85장 + 없는 층 PBR·마스크·디테일 48장 + 최초 실행 보정 배경 1장)와
@@ -428,6 +435,36 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
   나머지 스프라이트는 원거리 접근 불가 인물만 허용한다.
 - 전체 프롬프트: `Docs/IMAGEGEN_PROMPTS_2026-08-10.md`
 - 배치·거리·LOD 합격표: `Docs/MISSING_FLOOR_ART_MATRIX.md`
+
+### 발소리 표면·퍼즐 판독면·현관문 생성 기록
+
+- 서비스: 로컬 ChatGPT 소프트웨어의 ImageGen (프로젝트 동일 작업공간)
+- 생성일: 2026-08-14
+- 보존 원본: `TextureVillaStairCheckerPlatePaintedSteel.png`,
+  `TextureRooftopUrethaneWaterproofing.png`,
+  `TextureRooftopAnnexConcreteGypsumDebris.png`,
+  `TextureUtilityMeterDialFaceBlank.png`,
+  `TextureComplaintLedgerCarbonPaperBlank.png`,
+  `TextureApartmentEntranceDoorCharcoalSteel.png`
+- 파생: 알베도 6장과 PBR 동반 채널 18장, 머티리얼 6종
+- 신규 파이프라인 단계: `Scripts/condition_ai_tiles.py`. ImageGen 스캔은
+  타일이 될 수 없다 — 생성기는 구도를 만들고, 그 저주파 밝기 얼룩은 타일
+  격자마다 반복되어 조명을 구운 것으로 읽힌다(`MISSING_FLOOR_ART_MATRIX.md`
+  원칙 4가 금지하는 것). 이 단계가 채널별 flat-field로 얼룩과 색 캐스트를
+  함께 지우고, 규칙 패턴은 주기를 찾아 정수배로 자른 뒤 좁은 크로스페이드로,
+  확률적 표면은 넓은 크로스페이드로 이음매를 없앤다. **`generate_ai_pbr_maps.py`
+  보다 먼저 돌아야 한다** — 노멀이 알베도에서 유도되므로 남은 얼룩은 가짜
+  기하가 된다.
+- 게인의 근거: 점묘 억제 프롬프트가 진짜 요철도 함께 눌러서 알베도 표준편차가
+  1.86~3.78로 왔다(승인 에셋 대역 10~12). 노멀에 다이아몬드가 남지 않아
+  `detail_gain`으로 되살렸고, 얼룩 판정은 절대 편차가 아니라 대비 대비
+  편차로 잰다.
+- 검증: 아트 계약(raw 56·scans 20·pbr_maps 80), `ART_TARGETED_BUILD PASS
+  target=MissingFloor assets=71 uasset_audit=1`, V5 8지점 전부 밴드 안,
+  `MISSINGFLOOR_GREYBOX PASS`, `Validate-Project.ps1` 전 계약 무회귀.
+- 승인 경계: 세 바닥이 실제 플레이에서 **눈으로 구분되는지**는 사람의
+  판단이다. 계약은 프레임이 깨지지 않았다는 것까지만 말한다.
+- 전체 프롬프트: `Docs/IMAGEGEN_PROMPTS_2026-08-14.md`
 
 ### M0 1인칭 두드리기 손 생성 기록
 

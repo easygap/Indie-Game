@@ -77,6 +77,16 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		nullptr, TEXT("/Game/Meshes/SM_ComplaintLedger.SM_ComplaintLedger"));
 	UMaterialInterface* LedgerMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
+	// 먹지는 낡은 종이가 아니다. 왁스 안료가 눌린 자리에서 얇아져 광택이
+	// 달라지는 것이 이 물건의 전부이고, 플레이어가 문지르는 동안 보는 것도
+	// 그것이다. 정서본과 같은 재질을 쓰면 「두 기록이 다르다」가 물건 단계에서
+	// 이미 무너진다. 미베이크 환경에서는 기존 종이로 폴백해 진행을 막지 않는다.
+	UMaterialInterface* CarbonMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_CarbonPaper.M_CarbonPaper"));
+	if (!CarbonMaterial)
+	{
+		CarbonMaterial = LedgerMaterial;
+	}
 	// Her own phone, the cracked one CH03 already models.
 	UStaticMesh* PhoneMesh = LoadObject<UStaticMesh>(
 		nullptr, TEXT("/Game/Meshes/SM_CrackedPhone.SM_CrackedPhone"));
@@ -150,7 +160,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	}
 	CarbonLedger->Configure(
 		ComplaintLedgerMesh ? ComplaintLedgerMesh : CubeMesh,
-		ComplaintLedgerMesh ? LedgerMaterial : nullptr,
+		ComplaintLedgerMesh ? CarbonMaterial : nullptr,
 		ComplaintLedgerMesh
 			? FVector(100.0f, 100.0f, 100.0f)
 			: FVector(21.0f, 1.0f, 29.7f),

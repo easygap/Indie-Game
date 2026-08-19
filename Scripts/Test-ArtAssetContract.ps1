@@ -58,6 +58,16 @@ $requiredRaw = @(
 	'AI\SheetListenerEntityCrawlPhases.png',
 	'AI\SheetFinalCavityRemainsReference_v1.png',
 	'AI\SheetMokHansooConfrontationReference_v1.png',
+	# 발소리 표면 3종·P1 문자판·P2 먹지·세대 현관문 표면.
+	# v1은 증빙으로 남는다. 계단 무늬가 게임 조명에서 읽히지 않아 v2로
+	# 재생성했고, 파생은 v2에서만 나온다.
+	'AI\TextureVillaStairCheckerPlatePaintedSteel.png',
+	'AI\TextureVillaStairCheckerPlatePaintedSteel_v2.png',
+	'AI\TextureRooftopUrethaneWaterproofing.png',
+	'AI\TextureRooftopAnnexConcreteGypsumDebris.png',
+	'AI\TextureUtilityMeterDialFaceBlank.png',
+	'AI\TextureComplaintLedgerCarbonPaperBlank.png',
+	'AI\TextureApartmentEntranceDoorCharcoalSteel.png',
 	'AI\FinalCavityFrontBlend_v1.png',
 	'AI\MokHansooFinalFrontBlend_v1.png',
 	'AI\TextureMissingFloorJournalPaper_v1.png'
@@ -117,6 +127,12 @@ $requiredMaterialTextures = @(
 	'T_MissingFloorDryPlaster_D.png',
 	'T_MovingBoxCardboard_D.png',
 	'T_KoreanVillaStucco_D.png'
+	'T_MissingFloorSteelStair_D.png',
+	'T_RooftopWaterproofing_D.png',
+	'T_MissingFloorGypsumDebris_D.png',
+	'T_UtilityMeterDial_D.png',
+	'T_CarbonPaper_D.png',
+	'T_UnitDoorPaintedSteel_D.png'
 )
 $requiredPbrMaps = @(
 	'T_WetHoodie_N.png',
@@ -166,6 +182,24 @@ $requiredPbrMaps = @(
 	'T_KoreanVillaStucco_N.png',
 	'T_KoreanVillaStucco_R.png',
 	'T_KoreanVillaStucco_A.png',
+	'T_MissingFloorSteelStair_N.png',
+	'T_MissingFloorSteelStair_R.png',
+	'T_MissingFloorSteelStair_A.png',
+	'T_RooftopWaterproofing_N.png',
+	'T_RooftopWaterproofing_R.png',
+	'T_RooftopWaterproofing_A.png',
+	'T_MissingFloorGypsumDebris_N.png',
+	'T_MissingFloorGypsumDebris_R.png',
+	'T_MissingFloorGypsumDebris_A.png',
+	'T_UtilityMeterDial_N.png',
+	'T_UtilityMeterDial_R.png',
+	'T_UtilityMeterDial_A.png',
+	'T_CarbonPaper_N.png',
+	'T_CarbonPaper_R.png',
+	'T_CarbonPaper_A.png',
+	'T_UnitDoorPaintedSteel_N.png',
+	'T_UnitDoorPaintedSteel_R.png',
+	'T_UnitDoorPaintedSteel_A.png',
 	'T_SpriteListenerFront_N.png',
 	'T_SpriteListenerFront_R.png',
 	'T_SpriteListenerFront_A.png',
@@ -257,17 +291,23 @@ foreach ($relativePath in $requiredDerived) {
 			$relativePath -like 'T_SpriteListener*_D.png' -or
 			$relativePath -like 'T_FPCaptureEmbrace*_D.png'
 		) { 1024 } else { 512 }
+		# 먹지는 22x30.7cm 원장 아래에 UV로 붙으므로 A4 비율(1:1.414)을
+		# 유지한다. 정사각으로 리샘플하면 종이 결과 접힘이 함께 늘어난다.
 		$expectedWidth = if ($relativePath -eq 'T_MissingFloorJournalPaper_D.png') {
 			1672
 		} elseif ($relativePath -like 'T_SpriteFinalCavity_*' -or
 			$relativePath -like 'T_SpriteMokFinalUpper_*') {
 			1024
+		} elseif ($relativePath -like 'T_CarbonPaper_*') {
+			724
 		} else { $expectedSize }
 		$expectedHeight = if ($relativePath -eq 'T_MissingFloorJournalPaper_D.png') {
 			941
 		} elseif ($relativePath -like 'T_SpriteFinalCavity_*' -or
 			$relativePath -like 'T_SpriteMokFinalUpper_*') {
 			1536
+		} elseif ($relativePath -like 'T_CarbonPaper_*') {
+			1024
 		} else { $expectedSize }
 		if ($image.Width -ne $expectedWidth -or $image.Height -ne $expectedHeight) {
 			throw "Derived art must be ${expectedWidth}x${expectedHeight}: $relativePath"
@@ -339,7 +379,12 @@ foreach ($relativePath in $requiredDerived) {
 				throw "RGBA overlay retained a visible green fringe: $relativePath"
 			}
 		}
-		elseif ($opaqueSamples -lt 12000) {
+		# 재질 스캔은 거의 전부가 불투명해야 한다. 임계를 절대 샘플 수로 두면
+		# 1024x1024를 가정하게 되는데, 8px 스텝에서 724x1024는 전체 샘플이
+		# 11,648개라 완전히 불투명해도 12,000을 넘을 수 없다. 비율로 재면
+		# 같은 뜻을 크기와 무관하게 검사한다(기존 1024 스캔의 12000/16384와
+		# 동일한 기준이다).
+		elseif ($opaqueSamples -lt [int]($colorSamples * 0.732)) {
 			throw "Material scan lost its opaque color field: $relativePath"
 		}
 
@@ -1396,6 +1441,12 @@ foreach ($token in @(
 	'T_MissingFloorDryPlaster',
 	'MovingBoxCardboard',
 	'M_MovingBoxCardboardUV',
+	'M_MissingFloorSteelStair',
+	'M_RooftopWaterproofing_XY',
+	'M_MissingFloorGypsumDebris_XY',
+	'M_UtilityMeterDial',
+	'M_CarbonPaper',
+	'M_UnitDoorPaintedSteel',
 	'M_MissingFloorListenerPlasterUV',
 	'M_MissingFloorHandprints',
 	'M_SpriteSeo',
@@ -1814,4 +1865,4 @@ foreach ($needle in @(
 	}
 }
 
-Write-Host 'ART_ASSET_CONTRACT PASS raw=51 masks=9 overlays=23 signage=6 material_scans=15 pbr_maps=65 meshes=46 photo_meshes=50'
+Write-Host 'ART_ASSET_CONTRACT PASS raw=58 masks=9 overlays=23 signage=6 material_scans=21 pbr_maps=83 meshes=46 photo_meshes=50'
