@@ -991,12 +991,27 @@ def _retire_pre_atlas_samples(material, page):
             continue
         if texture is None or texture == page:
             continue
-        name = str(texture.get_name())
-        if name not in texture_atlas_contract.PRINT_ATLAS_ENTRIES:
+        if not _is_pre_atlas_texture(str(texture.get_name())):
             continue  # a companion normal/roughness map, still sampled
         expression.set_editor_property("texture", page)
         retired += 1
     return retired
+
+
+def _is_pre_atlas_texture(name):
+    """True for a texture an atlas page replaced, under either of its names.
+
+    _load_texture prefers the photo capture, so the sampler a pre-atlas pass
+    left behind may hold T_Photo_Plate401_D rather than T_Plate401_D. Matching
+    only the contracted name would leave that one holding its texture, and the
+    saving would quietly not happen for exactly the assets that have a capture.
+    """
+    if name in texture_atlas_contract.PRINT_ATLAS_ENTRIES:
+        return True
+    if name.startswith("T_Photo_"):
+        return f"T_{name[len('T_Photo_'):]}" in (
+            texture_atlas_contract.PRINT_ATLAS_ENTRIES)
+    return False
 
 
 def _atlas_uv(material, transform):

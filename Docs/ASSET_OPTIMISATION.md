@@ -282,9 +282,45 @@ value  := struct | array | '"' ... '"' | bare | <빈 값>
 텍스처를 지목하지 않는다. 동반 노멀/러프니스 맵은 계약 목록에 없으므로
 건드리지 않는다.
 
+사진 캡처가 있는 텍스처는 남은 샘플러가 `T_Photo_X_D`를 들고 있으므로
+계약 이름만 맞춰서는 놓친다. `_is_pre_atlas_texture()`가 두 이름을 다 본다.
+
 이건 UE 없이는 실행할 수 없으므로 **정적 감시도 같이 둔다.** 페이지와 그
 페이지가 대체한 텍스처를 **동시에** 참조하는 패키지는 `--check`가
 실패시킨다 — 어느 패스가 그 머티리얼을 썼든 걸린다.
+
+### 표적 패스를 양쪽으로 돌려본다 — `--simulate-targeted`
+
+어느 패스가 제자리 갱신인지, 그 패스가 어느 머티리얼을 건드리는지는
+**`create_textured_materials.py`를 `ast`로 파싱해서** 읽는다
+(`Scripts/material_passes.py`). 손으로 적은 목록은 모드가 하나 늘면 그날로
+틀리기 때문이다. 파서는 세 가지 표기를 읽는다: 테이블 이름 그대로,
+`{'M_X': TABLE['M_X']}` 딕셔너리 리터럴, 그리고 몇 줄 위에 선언한 튜플을
+도는 `{name: TABLE[name] for name in names}` 컴프리헨션.
+
+읽어낸 패스 20개 중 제자리 갱신이면서 아틀라스를 아는 것은 셋이고, 그중
+계약 텍스처를 실제로 건드리는 것은 둘이다(`IG_RETAIL_SIGNS_ONLY`는
+`SIGN_MATERIALS`뿐이라 0장).
+
+그 둘을 **재굽기 이전 그래프 위에서** — 지금 이 저장소의 상태 그대로 —
+회수 있는 쪽과 없는 쪽으로 각각 돌린다.
+
+```
+IG_PROP_RESPONSE_ONLY     12장 · retired: drops / not retired: stays
+IG_CORRIDOR_SIGNAGE_ONLY   6장 · retired: drops / not retired: stays
+
+PASS all 18 texture(s) leave the cook when a targeted pass retires the
+     pre-atlas sampler, and stay when it does not
+```
+
+**쌍으로 보는 것이 요점이다.** 회수를 넣으면 18/18이 빠지고, 빼면 18/18이
+남으며 머티리얼 18개가 페이지와 텍스처를 동시에 지목한다. 뒤쪽이 없으면
+앞쪽은 장식이다.
+
+다만 이 쌍이 증명하는 것은 **회수가 결정적이라는 것**이지 회수가 실제로
+동작한다는 것이 아니다. 언리얼이 프로퍼티를 설정하는 것을 정적 검사가 볼
+수는 없다. 대신 `retired: STAYS`가 뜨면 그건 유용한 실패다 — 그 패스가
+아닌 **다른 무언가**가 텍스처를 붙들고 있다는 뜻이니까.
 
 ```
 python3 Scripts/check_cook_references.py                          # 보고
@@ -293,6 +329,7 @@ python3 Scripts/check_cook_references.py --check \
         --require-atlas-dropped                                   # 머티리얼 재굽기 후
 python3 Scripts/check_cook_references.py --explain-rules           # 규칙별 에셋 판정
 python3 Scripts/check_cook_references.py --simulate-rebuild        # 재굽기 후의 델타
+python3 Scripts/check_cook_references.py --simulate-targeted       # 표적 패스 양쪽
 python3 Scripts/check_cook_references.py --self-test              # 검사기 자체 검증
 python3 Scripts/check_cook_references.py --json
 ```
@@ -350,6 +387,7 @@ Scripts/Validate-Project.ps1
   check_cook_references.py --self-test
   check_cook_references.py --check
   check_cook_references.py --simulate-rebuild
+  check_cook_references.py --simulate-targeted
 ```
 
 아틀라스만 다시 돌릴 때는 아트 빌드 전체를 돌릴 이유가 없다.
@@ -385,11 +423,13 @@ Scripts/Run-PrintAtlas.ps1 -SkipPack # 이미 구운 페이지를 쓴다
   C++에서 경로로 부르는 것도 없다. 다만 이것은 참조 그래프를 읽고
   재굽기를 흉내낸 결과이지 실제 쿠킹 로그가 아니다.
 - `_retire_pre_atlas_samples()`는 **UE에서 돌려본 적이 없다.**
-  `update_in_place` 경로에서 끊긴 샘플러가 텍스처를 붙들고 있었다는 사실과
-  그 모드가 49장 중 18장을 건드린다는 사실 쪽은 코드에서 확실하다. 고친
-  것이 실제로 듣는지는 `--check`의 정적 감시(페이지와 옛 텍스처를 동시에
-  참조하는 패키지)가 답하는데, 그 감시는 에디터가 한 번은 돌아야 의미가
-  있다.
+  `update_in_place` 경로에서 끊긴 샘플러가 텍스처를 붙들고 있었다는 사실,
+  그 모드가 49장 중 18장을 건드린다는 사실, 그리고 회수를 빼면 그 18장이
+  전부 쿠킹에 남는다는 사실은 확인했다(`--simulate-targeted`, 파스는
+  빌더 소스에서 `ast`로 읽는다). 확인하지 **못한** 것은 언리얼이 실제로
+  그 프로퍼티를 설정하는지다 — 정적 검사로는 볼 수 없다. 그쪽은 에디터가
+  한 번 돌아간 뒤 `--check`의 정적 감시(페이지와 옛 텍스처를 동시에
+  참조하는 패키지)가 답한다.
 - `IGHudTexture` 규칙은 **언리얼로 파싱해 본 것이 아니다.** 대신 언리얼의
   `ImportText` 문법을 구현해(§4의 `ue_config.py`) 파싱했고, 12장 전부
   경로가 트리의 패키지로 풀리고 `Package.Object` 두 쪽이 일치하고

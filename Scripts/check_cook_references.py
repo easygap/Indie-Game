@@ -38,6 +38,14 @@ material samples instead, a pre-atlas sampler that survived an in-place
 update, or a package reachable only through a texture: each is a page paid for
 and nothing saved, or a shipping bug the atlas caused.
 
+``--simulate-targeted`` narrows that to the passes that update in place, read
+out of the builder's own source, and runs each one both ways. What the pair
+proves is not that the retirement works -- no static check can watch Unreal
+set a property -- but that it is load-bearing: with it every texture the pass
+touches leaves the cook, without it every one stays. A "retired: STAYS" is the
+useful failure, because it means something *other* than the pass is holding
+the texture.
+
 Two things this deliberately does not do:
 
 * It does not parse Unreal's package format. It scans each package for
@@ -62,6 +70,7 @@ Run with:
         --require-atlas-dropped   # after the editor rebuilt the materials
     python Scripts/check_cook_references.py --explain-rules
     python Scripts/check_cook_references.py --simulate-rebuild
+    python Scripts/check_cook_references.py --simulate-targeted
     python Scripts/check_cook_references.py --self-test
     python Scripts/check_cook_references.py --json
 """
@@ -78,6 +87,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+import material_passes  # noqa: E402
 import texture_atlas_contract  # noqa: E402
 import ue_config  # noqa: E402
 from texture_atlas_contract import (  # noqa: E402
@@ -606,6 +616,93 @@ def atlas_stale_samples(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
     return stale
 
 
+def atlas_pages(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict[str, str]:
+    """{stem: page package} from the packed layout, or {} if none is packed.
+
+    Layout only: whether the manifest holds the contracted set is
+    build_texture_atlas.py --check's question, not this one's.
+    """
+    manifest = texture_atlas_contract.try_load_manifest(
+        audit.atlas_manifest, strict=False)
+    if manifest is None:
+        return {}
+    pages = {}
+    for stem in entries:
+        entry = (manifest.get("entries") or {}).get(stem)
+        if entry is not None:
+            pages[stem] = texture_atlas_contract.page_package_path(
+                entry["page"])
+    return pages
+
+
+def _replay(audit: CookAudit, pages: dict[str, str]) -> CookAudit:
+    """A copy of the graph, with the atlas pages present but nothing rewired.
+
+    The pages do not exist on disk until the editor imports them, so the copy
+    has to carry them or nothing can be reachable through one.
+    """
+    after = CookAudit(audit.project_root)
+    after.always_cook = list(audit.always_cook)
+    after.never_cook = list(audit.never_cook)
+    after.always_cook_assets = set(audit.always_cook_assets)
+    after.primary_asset_rules = audit.primary_asset_rules
+    after.packages = dict(audit.packages)
+    after.unreadable = set(audit.unreadable)
+    after.code_paths = audit.code_paths
+    after.references = {
+        package: set(references)
+        for package, references in audit.references.items()
+    }
+    for page in set(pages.values()):
+        after.packages.setdefault(page, "<imported by the atlas stage>")
+        after.references.setdefault(page, set())
+    return after
+
+
+def simulate_targeted_pass(
+    audit: CookAudit,
+    materials: dict[str, str],
+    retire: bool,
+    entries=PRINT_ATLAS_ENTRIES,
+) -> dict:
+    """Run one `IG_*_ONLY` in-place pass over a pre-atlas graph.
+
+    ``materials`` maps a material package to the texture package its spec
+    names. An in-place pass appends the atlas graph and reconnects the
+    outputs, so the material gains an edge to the page either way; ``retire``
+    is whether _retire_pre_atlas_samples() then takes the old edge away.
+
+    Without it the material draws from the page and still names the texture,
+    so the texture still cooks -- the page is paid for and nothing is saved.
+    That is the whole difference this models.
+    """
+    pages = atlas_pages(audit, entries)
+    after = _replay(audit, pages)
+    touched = {}
+    for material, texture in materials.items():
+        stem = texture.rsplit("/", 1)[-1]
+        page = pages.get(stem)
+        if page is None or material not in after.references:
+            continue
+        after.references[material].add(page)
+        if retire:
+            after.references[material].discard(texture)
+        touched[stem] = texture
+
+    _seed_roots(after)
+    _close(after)
+    return {
+        "after": after,
+        "touched": sorted(touched),
+        "kept": sorted(
+            texture for texture in touched.values() if texture in after.cooked),
+        "dropped": sorted(
+            texture for texture in touched.values()
+            if texture in audit.cooked and texture not in after.cooked),
+        "stale": atlas_stale_samples(after, entries),
+    }
+
+
 def simulate_atlas_rebuild(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
     """Re-run reachability as if the editor had rebuilt the print materials.
 
@@ -622,40 +719,13 @@ def simulate_atlas_rebuild(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dic
     """
     # Layout only: which stem landed on which page. Whether the manifest holds
     # the contracted set is build_texture_atlas.py --check's question.
-    manifest = texture_atlas_contract.try_load_manifest(
-        audit.atlas_manifest, strict=False)
-    pages = {}
-    if manifest is not None:
-        for stem in entries:
-            entry = (manifest.get("entries") or {}).get(stem)
-            if entry is not None:
-                pages[stem] = texture_atlas_contract.page_package_path(
-                    entry["page"])
-
-    after = CookAudit(audit.project_root)
-    after.always_cook = list(audit.always_cook)
-    after.never_cook = list(audit.never_cook)
-    after.always_cook_assets = set(audit.always_cook_assets)
-    after.primary_asset_rules = audit.primary_asset_rules
-    after.packages = dict(audit.packages)
-    after.unreadable = set(audit.unreadable)
-    after.code_paths = audit.code_paths
-    after.references = {
-        package: set(references)
-        for package, references in audit.references.items()
-    }
-
-    # The pages do not exist until the editor imports them; the graph has to
-    # carry them for the rebuild to be reachable through.
-    for page in set(pages.values()):
-        after.packages.setdefault(page, "<imported by the atlas stage>")
-        after.references.setdefault(page, set())
+    pages = atlas_pages(audit, entries)
+    after = _replay(audit, pages)
 
     # Only the print materials are rebuilt. An edge from anywhere else -- a
     # mesh's material slot, a map, a data asset -- is one create_textured_
     # materials.py never touches, so the simulation must not touch it either:
     # that texture goes on shipping and the page is spent for nothing.
-    material_root = MATERIAL_ROOT
     rewritten = {}
     stragglers = {}
     for stem in entries:
@@ -666,7 +736,7 @@ def simulate_atlas_rebuild(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dic
         for referrer, references in after.references.items():
             if package not in references:
                 continue
-            if _is_under(referrer, material_root):
+            if _is_under(referrer, MATERIAL_ROOT):
                 references.discard(package)
                 references.add(page)
                 rewritten.setdefault(stem, []).append(referrer)
@@ -1060,6 +1130,109 @@ def command_simulate_rebuild(audit: CookAudit) -> int:
     return 0
 
 
+def exposed_passes(entries=PRINT_ATLAS_ENTRIES) -> list:
+    """In-place build passes that touch a material reading the atlas.
+
+    Read out of create_textured_materials.py rather than listed here, so a
+    mode added later is caught instead of missed.
+    """
+    contracted = set(entries)
+    exposed = []
+    for build_pass in material_passes.material_passes():
+        if not (build_pass.update_in_place and build_pass.atlas_aware):
+            continue
+        textures = {
+            material: stem
+            for material, stem in material_passes.pass_textures(
+                build_pass).items()
+            if stem in contracted
+        }
+        if textures:
+            exposed.append((build_pass, textures))
+    return exposed
+
+
+def command_simulate_targeted(audit: CookAudit) -> int:
+    """Run every exposed in-place pass over the pre-atlas graph, both ways.
+
+    The order that hurts is the one this repository is in right now: the
+    committed materials still sample their own textures, so a targeted pass
+    is the *first* thing to give one an atlas graph. It appends the page and
+    reconnects the outputs, and the pre-atlas sampler is still sitting there
+    holding the texture unless something retires it.
+
+    Reported as a pair, because a fix nobody can see failing is not a fix:
+    with retirement every texture the pass touches has to leave the cook, and
+    without it at least one has to stay.
+    """
+    blind = blind_spots(audit)
+    if blind:
+        print(f"SKIP {len(blind)} cooked package(s) not fetched from LFS. "
+              "Run git lfs pull.")
+        return 0
+    if not atlas_pages(audit):
+        print("SKIP no packed atlas; run Scripts/build_texture_atlas.py")
+        return 0
+
+    exposed = exposed_passes()
+    total = sum(len(textures) for _pass, textures in exposed)
+    print(f"TARGETED PASS SIMULATION  {len(exposed)} in-place pass(es) reach "
+          f"{total} contracted texture(s)")
+    findings = 0
+
+    for build_pass, textures in exposed:
+        packages = {
+            f"{MATERIAL_ROOT}/{material}": f"{ATLAS_TEXTURE_ROOT}/{stem}"
+            for material, stem in textures.items()
+        }
+        absent = sorted(m for m in packages if m not in audit.packages)
+        live = {m: t for m, t in packages.items() if m in audit.packages}
+
+        fixed = simulate_targeted_pass(audit, live, retire=True)
+        broken = simulate_targeted_pass(audit, live, retire=False)
+        print(
+            f"\n  {build_pass.name}  "
+            f"({os.path.basename(material_passes.BUILDER_SOURCE)}:"
+            f"{build_pass.line})  {len(textures)} contracted texture(s)"
+        )
+        if absent:
+            print(f"    {len(absent)} material(s) not built yet: "
+                  + ", ".join(a.rsplit('/', 1)[-1] for a in absent))
+        for material, texture in sorted(live.items()):
+            stem = texture.rsplit("/", 1)[-1]
+            with_fix = "drops" if texture in fixed["dropped"] else "STAYS"
+            without = "stays" if texture in broken["kept"] else "DROPS"
+            flag = ""
+            if with_fix != "drops":
+                flag = "  <-- the retirement did not take"
+                findings += 1
+            elif without != "stays":
+                flag = "  <-- nothing for the retirement to do"
+            print(f"    {stem:28s} retired: {with_fix:5s}   "
+                  f"not retired: {without}{flag}")
+
+        if fixed["stale"]:
+            findings += len(fixed["stale"])
+            print(f"    {len(fixed['stale'])} material(s) would still name "
+                  "both the page and the texture after retirement")
+        if not broken["kept"]:
+            findings += 1
+            print("    NOTHING WOULD BREAK without the retirement -- either "
+                  "this pass no longer updates in place, or the simulation "
+                  "has stopped modelling it")
+        else:
+            print(f"    without the retirement {len(broken['kept'])} of "
+                  f"{len(live)} texture(s) stay in the cook, and "
+                  f"{len(broken['stale'])} material(s) name both")
+
+    if findings:
+        print(f"\nFAIL {findings} finding(s)")
+        return 1
+    print(f"\nPASS all {total} texture(s) leave the cook when a targeted pass "
+          "retires the pre-atlas sampler, and stay when it does not")
+    return 0
+
+
 def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
     """A small project: a map, a mesh, a print material and three textures.
 
@@ -1282,6 +1455,38 @@ def command_self_test() -> int:
         assert result["collateral"] == ["/Game/Meshes/SM_Orphan"], \
             f"a package the rebuild orphans was not reported: {result}"
 
+        # 2e. A targeted in-place pass over the pre-atlas graph: the order
+        #     this repository is actually in. The pass appends the page and
+        #     leaves the old sampler, so retiring it is the whole difference
+        #     between the atlas saving something and costing a page for free.
+        audit = run_audit(before_root)
+        material = f"{MATERIAL_ROOT}/M_Print"
+        live = {material: print_texture}
+        fixed = simulate_targeted_pass(audit, live, retire=True, entries=entries)
+        broken = simulate_targeted_pass(audit, live, retire=False,
+                                        entries=entries)
+        assert fixed["dropped"] == [print_texture] and not fixed["kept"], \
+            f"retiring the sampler did not take the texture out: {fixed}"
+        assert not fixed["stale"], \
+            "a retired material still names the page and the texture"
+        assert broken["kept"] == [print_texture] and not broken["dropped"], \
+            f"the un-retired sampler let the texture go anyway: {broken}"
+        assert broken["stale"], \
+            "a surviving pre-atlas sampler was not seen naming both"
+        assert page in broken["after"].cooked, \
+            "the page did not enter the cook on a targeted pass"
+
+        # 2f. The pass list is read out of the builder, so the shapes it
+        #     relies on have to still be there. Anything it cannot read is an
+        #     exception, not a silently shorter list.
+        parsed = material_passes.material_passes()
+        assert any(p.env is None for p in parsed), "the full pass went missing"
+        assert any(p.update_in_place and p.atlas_aware for p in parsed), \
+            "no in-place atlas-aware pass was found; the parse has drifted"
+        for build_pass in parsed:
+            assert build_pass.materials, \
+                f"{build_pass.name} parsed to no materials at all"
+
         # 3. The conflict the atlas contract exists to prevent: a texture on
         #    a page that code also loads by path.
         audit = run_audit(after)
@@ -1319,7 +1524,8 @@ def command_self_test() -> int:
         f"PASS cook reference self-test: code-only detection, SpecificAssets "
         f"coverage and load-bearing, atlas drop before and after the material "
         f"rebuild, 5 ways the rebuild can save nothing or break something, "
-        f"the code-load conflict, the unfetched-LFS hole, and "
+        f"a targeted in-place pass with and without retiring the sampler it "
+        f"replaced, the code-load conflict, the unfetched-LFS hole, and "
         f"{len(tampered)} ways a cook rule can look right and hold nothing"
     )
     return 0
@@ -1345,6 +1551,10 @@ def main(argv=None) -> int:
         "--simulate-rebuild", action="store_true",
         help="re-run reachability as if the editor had rebuilt the print "
              "materials, and report the whole delta of that rebuild")
+    parser.add_argument(
+        "--simulate-targeted", action="store_true",
+        help="run each in-place IG_*_ONLY pass over the pre-atlas graph, with "
+             "and without retiring the sampler it replaced")
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
@@ -1355,6 +1565,8 @@ def main(argv=None) -> int:
         return command_explain_rules(audit)
     if arguments.simulate_rebuild:
         return command_simulate_rebuild(audit)
+    if arguments.simulate_targeted:
+        return command_simulate_targeted(audit)
     conflicts = atlas_entries_loaded_by_code(audit)
     code_only = code_only_assets(audit)
     status = atlas_status(audit)

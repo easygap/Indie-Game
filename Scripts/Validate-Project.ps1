@@ -2698,6 +2698,15 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "The atlas rebuild would not drop the textures it replaces ($LASTEXITCODE)"
 	}
+
+	# The full pass recreates its materials; the targeted IG_*_ONLY passes
+	# update them in place and leave the pre-atlas sampler behind. This runs
+	# each of those over the pre-atlas graph both ways, so the pass list stays
+	# honest and the exposure stays visible.
+	& $python.Source $cookReferences --simulate-targeted
+	if ($LASTEXITCODE -ne 0) {
+		throw "A targeted material pass would keep its atlassed textures ($LASTEXITCODE)"
+	}
 } else {
 	Write-Warning 'python not found; skipped the geometry audit, atlas self-test and cook reference audit.'
 }
