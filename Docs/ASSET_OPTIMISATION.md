@@ -66,13 +66,19 @@ CreateBlock(...);
 
 ## 2. 텍스처 아틀라스 — `Scripts/build_texture_atlas.py`
 
-호수판·고지문·제품 라벨·상가 간판 51장은 전부 작고, 전부 타일링하지
-않고, 편의점과 4층 복도에서는 대부분이 한 화면에 같이 있다. 그런데 각각이
-자기 텍스처·자기 머티리얼·자기 드로우콜을 들고 있었다.
+호수판·고지문·제품 라벨·상가 간판·임대차계약서 52장은 전부 타일링하지 않고,
+편의점과 4층 복도에서는 대부분이 한 화면에 같이 있다. 그런데 각각이 자기
+텍스처·자기 머티리얼·자기 드로우콜을 들고 있었다.
 
 - 계약: `Scripts/texture_atlas_contract.py` (Pillow도 `unreal`도 안 씀)
 - 페이지: 2048px, 엔트리마다 8px **가장자리 연장** 여백
-- 산출물: `Content/SourceArt/Atlas/T_PrintAtlas*_D.png` + `print_atlas.json`
+- 산출물: `Content/SourceArt/Atlas/T_PrintAtlas0..3_D.png` + `print_atlas.json`
+  원본 12.66Mpx → 2048 페이지 4장, 점유율 94.6 / 89.9 / 83.4 / 33.9%.
+  페이지 수는 면적 하한 그대로다(3장 용량 12.58Mpx < 12.66Mpx).
+  **페이지 PNG는 커밋하지 않는다** — 커밋한 원본에서 스크립트가 결정적으로
+  다시 굽는 파생물이고, 레이아웃과 원본 SHA-256은 `print_atlas.json`이
+  들고 있어 `--check`가 낡은 굽기를 잡는다. `.gitignore`에서 한 줄만 빼면
+  LFS로 커밋하는 쪽으로 바꿀 수 있다.
 - 임포트: `Scripts/import_texture_atlas.py` (Clamp, BC7, 밉 상한)
 - 머티리얼: `create_textured_materials.py`가 매니페스트를 읽어
   `UV0 × scale + bias`로 한 페이지를 샘플한다
@@ -154,10 +160,15 @@ Scripts/Validate-Project.ps1
 
 ## 아직 안 된 것
 
-- 아틀라스 페이지 PNG는 **아직 굽지 않았다.** 원본이 Git LFS에 있어
-  `git lfs pull` 없이는 패커가 돌 수 없다. 패커·계약·임포트·머티리얼
-  경로와 자체 검증은 전부 들어가 있고, LFS가 있는 기계에서
-  `Scripts/build_texture_atlas.py` 한 번이면 페이지와 매니페스트가 나온다.
+- 아틀라스 페이지의 **에디터 임포트는 아직 안 돌렸다.** 페이지는 구워서
+  엔트리 52개를 픽셀 단위로 검증했고 매니페스트는 커밋했지만,
+  `T_PrintAtlas*_D` 텍스처 에셋과 아틀라스를 읽는 머티리얼은 UE에서
+  `Build-ArtAssets.ps1`을 돌려야 생긴다. 그때까지 머티리얼은 예전처럼
+  각자 텍스처를 쓴다(보이는 것은 같고 드로우콜만 는다).
+  `validate_baked_art_assets.py`도 그 상태를 실패가 아니라 경고로 본다.
+- 마지막 페이지가 33.9%만 찬다. 내용 경계가 1904×1952라 2048 아래로는
+  줄지 않고, 줄이려면 마지막 페이지만 원점 쪽으로 다시 채워 2048×1024로
+  굽는 경로가 필요하다. BC7+밉 기준 약 2.8MB짜리 이야기라 지금은 안 했다.
 - 리토폴로지·LOD 계약의 실제 삼각형 수치는 UE 5.8에서
   `Build-ArtAssets.ps1`을 돌려야 확정된다. 예산 자체는 코드에 있고
   검사기가 강제하지만, 어느 메시가 실제로 얼마나 줄었는지는 그 실행의

@@ -423,8 +423,23 @@ def validate_print_atlas() -> int:
         )
         return 0
 
-    for page in manifest["pages"]:
-        path = texture_atlas_contract.page_package_path(page["index"])
+    imported = [
+        texture_atlas_contract.page_package_path(page["index"])
+        for page in manifest["pages"]
+    ]
+    if not all(unreal.EditorAssetLibrary.does_asset_exist(p) for p in imported):
+        # A manifest without imported pages is the ordinary state of a
+        # checkout that has not run the atlas stage of Build-ArtAssets.ps1.
+        # The material builder falls back to the individual textures, so this
+        # is a build that has not been optimised, not a broken one.
+        unreal.log_warning(
+            "[IndieGame] Print atlas manifest present but the pages are not "
+            "imported; materials keep their individual textures. Run "
+            "Scripts/import_texture_atlas.py."
+        )
+        return 0
+
+    for path in imported:
         texture = load(path, unreal.Texture2D)
         require(
             texture.get_editor_property("address_x") == unreal.TextureAddress.TA_CLAMP,

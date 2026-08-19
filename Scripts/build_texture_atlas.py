@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Pack the printed-artwork textures into atlas pages, outside the editor.
 
-Fifty-one small colour textures -- door plates, notices, product labels, shop
-signs -- each carry their own material, their own streaming entry and their own
-draw call. In the store and on the fourth-floor landing most of them are on
-screen together. This packs them into 2048 px pages with edge-extended gutters
+Fifty-two colour textures -- door plates, notices, product labels, shop signs,
+the tenancy contract -- each carry their own material, their own streaming
+entry and their own draw call. In the store and on the fourth-floor landing
+most of them are on screen together. This packs them into 2048 px pages with
+edge-extended gutters
 and writes the layout to ``Content/SourceArt/Atlas/print_atlas.json``; the
 editor scripts import the pages and rebuild those materials to sample one page
 with a UV scale and bias.

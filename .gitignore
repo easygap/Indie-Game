@@ -62,3 +62,11 @@ Desktop.ini
 credentials*.json
 secrets*.ini
 Config/DefaultCrypto.ini
+
+# Packed print-atlas pages. Derived output: build_texture_atlas.py rebuilds
+# them byte-for-byte from the committed source art, and print_atlas.json --
+# which IS committed -- pins the layout and the SHA-256 of every source, so
+# `build_texture_atlas.py --check` catches a stale or divergent bake. Commit
+# the pages through LFS instead if you would rather ship them; deleting this
+# rule is all that takes.
+Content/SourceArt/Atlas/*.png

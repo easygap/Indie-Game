@@ -2,10 +2,9 @@
 
 Every notice, plate, label, snack bag and shop sign in the game is a separate
 1-channel colour texture on its own material, and each of those is a separate
-draw call and a separate streaming entry. There are fifty-one of them, they are
-all small, none of them tiles, and most of them are on screen at the same time
-in the store and on the fourth-floor landing. That is exactly the set an atlas
-is for.
+draw call and a separate streaming entry. There are fifty-two of them, none of
+them tiles, and most of them are on screen at the same time in the store and on
+the fourth-floor landing. That is exactly the set an atlas is for.
 
 This module is imported by three very different callers -- the offline packer,
 the release validator, and the in-editor material builder -- so it must stay
@@ -34,7 +33,9 @@ ATLAS_PAGE_PREFIX = "T_PrintAtlas"
 MANIFEST_VERSION = 1
 
 # 2048 is the largest page that still streams in one 8 MB BC7 block on the
-# minimum spec in PERFORMANCE.md, and it holds the whole print set in two.
+# minimum spec in PERFORMANCE.md. The current print set measures 12.66 Mpx, so
+# it needs four such pages -- which is the floor for that area, not slack in
+# the packer: pages come out 94.6 / 89.9 / 83.4 / 33.9 per cent full.
 PAGE_SIZE = 2048
 
 # Eight pixels of edge-extended bleed around every entry. At 2048 that keeps
