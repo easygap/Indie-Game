@@ -460,9 +460,19 @@ void AIGHorrorHUD::InitializeMissingFloorJournalTextures()
 		nullptr,
 		TEXT("/Game/Prototype/Textures/T_WaterTankGalvanized_D."
 			"T_WaterTankGalvanized_D"));
+	// The capture, not T_MetalBrushed_D. A journal thumbnail stands in for the
+	// place the evidence came from -- the fifth-floor landing, the ground-floor
+	// distribution board -- so it has to be the metal the player saw. Every
+	// metal surface in the game samples T_Photo_MetalBrushed_D, because
+	// create_textured_materials._load_texture takes the CC0 capture over the
+	// procedural fallback; the other three thumbnails already match their
+	// surface, and this one was the odd one out, showing a texture that
+	// appears nowhere in the world. Scripts/check_cook_references.py fails if
+	// the two sides drift apart again.
 	JournalMetalTexture = LoadObject<UTexture2D>(
 		nullptr,
-		TEXT("/Game/Prototype/Textures/T_MetalBrushed_D.T_MetalBrushed_D"));
+		TEXT("/Game/Prototype/Textures/T_Photo_MetalBrushed_D."
+			"T_Photo_MetalBrushed_D"));
 }
 
 void AIGHorrorHUD::InitializeFirstPersonActionTextures()

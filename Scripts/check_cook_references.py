@@ -627,6 +627,71 @@ def replaced_textures(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> set[str]
     return replaced
 
 
+def _capture_pair(package: str) -> str:
+    """The other half of a `T_X` / `T_Photo_X` pair, whichever half this is."""
+    root, _, name = package.rpartition("/")
+    if name.startswith("T_Photo_"):
+        return f"{root}/T_{name[len('T_Photo_'):]}"
+    if name.startswith("T_"):
+        return f"{root}/T_Photo_{name[2:]}"
+    return ""
+
+
+def photo_split_loads(audit: CookAudit) -> list[dict]:
+    """Textures where code and the materials picked different halves of a pair.
+
+    _load_texture takes the CC0 capture over the procedural texture of the
+    same name, so a surface with a capture is the capture everywhere it is
+    drawn through a material. A LoadObject path does no such thing: it names
+    one file. When the two disagree, the same surface has two appearances --
+    the world shows one and the HUD shows the other -- and nothing fails, so
+    the only way to notice is to look.
+
+    Only pairs where both halves exist are reported. A path with no capture
+    beside it is just a path.
+    """
+    findings = []
+    for package in sorted(audit.code_paths):
+        twin = _capture_pair(package)
+        if not twin or twin not in audit.packages:
+            continue
+
+        def referrers(candidate):
+            return sorted(
+                other for other in audit.cooked
+                if other != candidate
+                and candidate in audit.references.get(other, ())
+            )
+
+        mine = referrers(package)
+        theirs = referrers(twin)
+        if theirs and not mine:
+            findings.append({
+                "loaded": package,
+                "drawn": twin,
+                "sites": audit.code_paths[package],
+                "drawn_by": theirs,
+            })
+    return findings
+
+
+def orphan_capture_pairs(audit: CookAudit) -> list[str]:
+    """Halves of a capture pair that nothing references and nothing cooks.
+
+    Not a build problem -- the cook already leaves them out. Reported because
+    they are a trap: the next material or path that lands on the unused name
+    silently gets the half nobody has looked at in a year.
+    """
+    orphans = []
+    for package in sorted(audit.packages):
+        if package in audit.cooked or audit.code_paths.get(package):
+            continue
+        twin = _capture_pair(package)
+        if twin and twin in audit.packages:
+            orphans.append(package)
+    return orphans
+
+
 def atlas_stale_samples(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
     """Packages that reference an atlas page *and* a texture it replaced.
 
@@ -908,6 +973,13 @@ def gate(
             "a texture it replaced; the page is paid for and nothing saved"
         )
 
+    split = photo_split_loads(audit)
+    if split:
+        return 1, (
+            f"FAIL {len(split)} texture(s) are loaded by code from one half of "
+            "a capture pair while the materials draw the other"
+        )
+
     still_cooked = atlas_status(audit, entries)["still_cooked"]
     if require_atlas_dropped and still_cooked:
         return 1, (
@@ -966,6 +1038,23 @@ def _report(audit: CookAudit) -> None:
         print(f"\n{len(conflicts)} atlas entr(y/ies) are also loaded by code:")
         for stem, sites in conflicts:
             print(f"  [ATLAS_CODE_LOAD] {stem}  <- {', '.join(sites)}")
+
+    split = photo_split_loads(audit)
+    if split:
+        print(f"\n{len(split)} texture(s) split across a capture pair:")
+        for item in split:
+            print(f"  [PHOTO_SPLIT] {item['loaded'].rsplit('/', 1)[-1]}")
+            print(f"      loaded by {', '.join(item['sites'])}")
+            print(f"      but every material draws "
+                  f"{item['drawn'].rsplit('/', 1)[-1]} "
+                  f"({len(item['drawn_by'])} referrer(s)); the same surface "
+                  "has two appearances")
+
+    orphans = orphan_capture_pairs(audit)
+    if orphans:
+        print(f"\n{len(orphans)} unused half/halves of a capture pair "
+              "(not cooked, not a build problem, but nothing reads them):")
+        print("  " + ", ".join(o.rsplit("/", 1)[-1] for o in orphans))
 
     findings = code_only_assets(audit)
     if findings:
@@ -1585,6 +1674,44 @@ def command_self_test() -> int:
         assert atlas_photo_shadows(audit, entries) == {"T_Print_D": twin}, \
             "the capture was not reported as shadowing the contracted texture"
 
+        # 2g. A capture pair split between code and the materials. Nothing
+        #     fails: both halves are real textures, both load, and the
+        #     surface simply has two appearances -- one in the world, one
+        #     wherever the HUD draws it.
+        split = tamper("photo_split", {
+            f"Prototype/Textures/T_Photo_HudFrame_D.uasset": "Texture2D",
+            "Prototype/Materials/M_Frame.uasset":
+                f"{ATLAS_TEXTURE_ROOT}/T_Photo_HudFrame_D",
+        })
+        findings = photo_split_loads(split)
+        assert len(findings) == 1 and findings[0]["loaded"] == hud, \
+            f"a capture pair split across code and materials was missed: {findings}"
+        assert findings[0]["drawn"].endswith("T_Photo_HudFrame_D"), \
+            "the half the materials actually draw was misidentified"
+        code, message = gate(split, entries=entries)
+        assert code == 1 and message.startswith("FAIL"), \
+            "a split capture pair did not fail the gate"
+
+        # The same pair with both halves agreeing is not a finding, and a
+        # path with no capture beside it is just a path.
+        agreed = tamper("photo_agreed", {
+            f"Prototype/Textures/T_Photo_HudFrame_D.uasset": "Texture2D",
+            "Prototype/Materials/M_Frame.uasset": hud,
+        })
+        assert not photo_split_loads(agreed), \
+            "a capture pair both sides agree on was reported as split"
+        assert not photo_split_loads(run_audit(before_root)), \
+            "a path with no capture twin was reported as split"
+
+        # The unused half is reported, but only as something to look at: in
+        # the agreed fixture both sides draw the procedural texture, so it is
+        # the capture that nothing reads.
+        orphans = orphan_capture_pairs(agreed)
+        assert f"{ATLAS_TEXTURE_ROOT}/T_Photo_HudFrame_D" in orphans, \
+            "a half nothing references was not reported as unused"
+        assert hud not in orphans, \
+            "a half both sides draw was called unused"
+
         # 2f. The pass list is read out of the builder, so the shapes it
         #     relies on have to still be there. Anything it cannot read is an
         #     exception, not a silently shorter list.
@@ -1635,6 +1762,7 @@ def command_self_test() -> int:
         f"rebuild, 5 ways the rebuild can save nothing or break something, "
         f"a targeted in-place pass three ways (retired, retired by contracted "
         f"name only against a photo capture, not retired), "
+        f"a capture pair split between code and the materials, "
         f"the code-load conflict, the unfetched-LFS hole, and "
         f"{len(tampered)} ways a cook rule can look right and hold nothing"
     )
