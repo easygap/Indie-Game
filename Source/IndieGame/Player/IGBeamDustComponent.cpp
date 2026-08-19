@@ -1,4 +1,4 @@
-#include "Player/IGBeamDustComponent.h"
+﻿#include "Player/IGBeamDustComponent.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"

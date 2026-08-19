@@ -492,12 +492,14 @@ $assertions++
 # 그녀의 소리는 담긴다. 비트 2-6은 자기 소리만 들리는 것으로 성립한다.
 $suppressBody = [regex]::Match(
 	$recording,
-	'(?s)bool UIGRecordingSubsystem::ShouldSuppress\(.*?
-\}').Value
+	'(?s)bool UIGRecordingSubsystem::ShouldSuppress\(.*?\r?\n\}').Value
 if ($suppressBody -match 'IsHourSealed|bTheHourSealed') {
 	throw '시간대가 아니라 누가 소리를 냈는지로 판정해야 한다(비트 2-6).'
 }
 $assertions++
+# 정규식이 체크아웃 줄끝에 묶이면 안 된다. 문자열 안에 실제 줄바꿈을
+# 넣으면 CRLF 클론에서만 매치되고, LF로 받은 클론이나 리눅스 CI에서는
+# 추출이 빈 문자열이 되어 내용과 무관하게 계약이 실패한다.
 # 무음은 편집이 아니라 부재다. 억압된 이벤트는 노트를 하나도 내지 않는다.
 Require-All $tone @(
 	'CreateRecordingPlayback(',
@@ -506,8 +508,7 @@ Require-All $tone @(
 ) '§5.5 playback synthesis'
 $takeBody = [regex]::Match(
 	$tone,
-	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreateRecordingPlayback\(.*?
-\}').Value
+	'(?s)UIGToneSequenceSoundWave\* UIGToneSequenceSoundWave::CreateRecordingPlayback\(.*?\r?\n\}').Value
 if ($takeBody -notmatch '(?s)if \(Sound\.bSuppressed\)\s*\{[^}]*continue;') {
 	throw '억압된 소리는 노트를 내지 않고 길이만 남겨야 한다.'
 }
