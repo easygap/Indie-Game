@@ -4078,8 +4078,18 @@ void AIGPrologueWorldScene::SetNightStairPocketEnabled(const bool bEnabled)
 	};
 	// Configure only repositions the portal boxes, so re-calling it is the
 	// supported way to slide the trigger. Exits stay untouched in both modes.
+	//
+	// The night position is measured against the flight, not guessed. The
+	// portal box is 24 cm half-width and the pawn capsule is 34 cm, so the
+	// furthest west a player can stand is 58 cm east of the portal's centre.
+	// Treads run west from X -341 at 22 cm apart, so -452 puts that line at
+	// -394 and leaves the third tread (centre -385, two risers down at local
+	// Z -36) standing room; the fourth (-407) trips the portal. At -440 the
+	// line was -382 and the pocket was a single step. The far shaft wall is
+	// at X -445, which is where the sighting figure has its ear, so the
+	// figure stays inside the portal box and unreachable in both cases.
 	const FVector UpperTrigger = bEnabled
-		? FVector(-440.0f, -305.0f, 880.0f)
+		? FVector(-452.0f, -305.0f, 880.0f)
 		: FVector(-352.0f, -305.0f, 915.0f);
 	StairTransition->Configure(
 		ToWorld(UpperTrigger),
