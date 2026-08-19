@@ -64,6 +64,7 @@ SINK_HEIGHT_SHARE = 0.25      # ...or a quarter of the object's own height
 EMBED_TOLERANCE = 3.0         # penetration into another solid
 CONTAINMENT_LIMIT = 0.70      # share of a prop's volume swallowed by structure
 FOOTPRINT_EPSILON = 0.5       # XY overlap needed to count as support
+SIMULATED_PENETRATION_TOLERANCE = 0.5  # a physics body inside static collision
 
 # Below this, a box is dressing (a poster, a seam, a price rail, a decal
 # plane): it is meant to sit flush against a surface and cannot "float".
@@ -577,7 +578,17 @@ PLACEMENT_CALLS = {
     #        rotation index, kind)
     "CreateBlock": (0, 1, 2, 3, None, "block"),
     "AddStoreStockBlock": (0, 1, 2, None, 4, "stock"),
+    # (Mesh, Material, Scale, Location, Rotation, MassKg). Its third argument
+    # is a component scale, not centimetres, so the size is recovered from the
+    # engine unit shape it scales.
+    "CreatePhysicsProp": (3, 2, 1, None, 4, "physics"),
 }
+
+# Calls whose "size" argument is a scale of a 100 cm engine shape.
+SCALE_ARGUMENT_CALLS = {"CreatePhysicsProp"}
+
+# Where each call names the static mesh it uses, when it is not CreateBlock.
+MESH_ARGUMENT_INDEX = {"CreatePhysicsProp": 0}
 
 
 def function_bodies(text: str) -> Iterable[tuple[str, int, str]]:
@@ -940,8 +951,15 @@ class BodyScanner:
         # argument is a percentage scale of that mesh's own bounds (a label
         # sleeve is scaled 336%), so the box tells us nothing about the volume
         # and must stay out of the geometric checks.
+        if call_name in SCALE_ARGUMENT_CALLS:
+            size = size * 100.0
+
         note = ""
         mesh_token = "nullptr"
+        if call_name in MESH_ARGUMENT_INDEX:
+            slot = MESH_ARGUMENT_INDEX[call_name]
+            if len(arguments) > slot:
+                mesh_token = arguments[slot].strip()
         if call_name == "CreateBlock" and layout:
             slot = layout["mesh"]
             if len(arguments) > slot:
@@ -1141,6 +1159,34 @@ def audit(boxes: list[Box]) -> list[Finding]:
             findings.extend(_check_support(prop, supports, frame_boxes))
             findings.extend(_check_embedding(prop, structures))
 
+        findings.extend(_check_simulated_start(frame_boxes))
+
+    return findings
+
+
+def _check_simulated_start(frame_boxes: list[Box]) -> list[Finding]:
+    """A simulated body may not start inside something solid.
+
+    Chaos resolves initial penetration by pushing the two apart, so a slipper
+    authored inside the shoe step does not rest on the step -- it is spat out
+    of it in the first frames of the level, in front of the player.
+    """
+    findings = []
+    simulated = [b for b in frame_boxes if b.kind == "physics"]
+    if not simulated:
+        return findings
+    solids = [b for b in frame_boxes if b.kind != "physics" and b.collision]
+    for body in simulated:
+        for solid in solids:
+            depths = boxes_overlap(body, solid, SIMULATED_PENETRATION_TOLERANCE)
+            if depths is None:
+                continue
+            findings.append(Finding(
+                "PENETRATING", "error", body,
+                f"a simulated body starts {min(depths):.1f} cm inside static "
+                f"collision and will be pushed out of it",
+                solid,
+            ))
     return findings
 
 

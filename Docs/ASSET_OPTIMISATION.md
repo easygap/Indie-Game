@@ -14,14 +14,20 @@
 하지 않는다. 플레이어만 "저건 물건이 저렇게 있을 수 없는데"라고 느낀다.
 
 검사기는 UE 없이 `IGPrologueWorldScene.cpp`와 `IGThirdMorningDirector.cpp`의
-배치 호출을 다시 평가해 상자를 복원한다. 범위 for, 카운트 for, 배열 상수,
+배치 호출(`CreateBlock`·`AddStoreStockBlock`·`CreatePhysicsProp`)을 다시
+평가해 상자를 복원한다. 범위 for, 카운트 for, 배열 상수,
 로컬 람다, 삼항 연산자까지 해석해 현재 배치식의 **78.8%**를 복원한다.
 
 | 코드 | 뜻 | 판정 |
 |---|---|---|
 | `FLOATING` | 아래에 받치는 것이 없고 옆·위로도 닿는 것이 없다 | 오류 |
 | `EMBEDDED` | 구조물 안에 완전히 잠겨 어느 면도 표면에 닿지 않는다 | 오류 |
+| `PENETRATING` | 시뮬레이션 바디가 정적 충돌 안에서 시작한다 | 오류 |
 | `SUNK` | 서 있는 바닥면보다 밑동이 제 높이의 1/4 넘게 내려갔다 | 경고 |
+
+`PENETRATING`은 눈에 보이는 겹침이 아니라 **첫 프레임의 튕김**이다. Chaos는
+겹친 두 물체를 밀어내서 푸는데, 신발장 단 속에서 시작한 슬리퍼는 그 위에
+놓이는 것이 아니라 레벨이 열리자마자 밖으로 튀어나온다.
 
 ```
 python3 Scripts/audit_world_geometry.py            # 사람이 읽는 보고

@@ -2434,12 +2434,16 @@ void AIGPrologueWorldScene::BuildApartment()
 	CreateBlock(FVector(-46, -213, 5), FVector(286, 4, 10), Furniture, false);
 
 	// Entryway slippers the player can kick around.
+	// On the 8 cm shoe step, not inside it. At Z 3 both slippers spawned
+	// three centimetres into the step's collision, and a simulated body that
+	// starts inside static geometry does not settle onto it -- Chaos resolves
+	// the penetration by shoving it out, in the first second of the level.
 	CreatePhysicsProp(
 		CubeMesh, PlasticDarkMaterial,
-		FVector(0.09f, 0.26f, 0.03f), FVector(120, -185, 3), FRotator(0, 15, 0), 0.2f);
+		FVector(0.09f, 0.26f, 0.03f), FVector(120, -190, 9.5f), FRotator(0, 15, 0), 0.2f);
 	CreatePhysicsProp(
 		CubeMesh, PlasticDarkMaterial,
-		FVector(0.09f, 0.26f, 0.03f), FVector(148, -192, 3), FRotator(0, -8, 0), 0.2f);
+		FVector(0.09f, 0.26f, 0.03f), FVector(148, -192, 9.5f), FRotator(0, -8, 0), 0.2f);
 
 	ActiveParent = nullptr;
 }
@@ -5167,9 +5171,13 @@ void AIGPrologueWorldScene::BuildAlley()
 			FVector(0.40f, 0.32f, 0.26f), FVector(2320, -585, 14), FRotator(0, 20, 0), 0.8f);
 	}
 	PlacePhotoProp(TEXT("cardboard_box_01"), FVector(1180, -645, 0), FVector(44, 36, 30), -35.0f);
+	// Beside the kerb and clear of the parking cone, not through either.
+	// Turned 65 degrees the box reaches 21.2 cm in X and 22.7 cm in Y, so at
+	// (2255, -640) it had a corner 5.7 cm inside the kerb stone and 11.2 cm
+	// inside the cone -- both of which the solver ejects on the first tick.
 	CreatePhysicsProp(
 		CubeMesh, CardboardMaterial,
-		FVector(0.36f, 0.30f, 0.24f), FVector(2255, -640, 13), FRotator(0, 65, 0), 0.7f);
+		FVector(0.36f, 0.30f, 0.24f), FVector(2240, -633, 13), FRotator(0, 65, 0), 0.7f);
 }
 
 void AIGPrologueWorldScene::BuildStore()
