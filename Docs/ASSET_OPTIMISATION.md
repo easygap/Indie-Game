@@ -284,6 +284,8 @@ value  := struct | array | '"' ... '"' | bare | <빈 값>
 
 사진 캡처가 있는 텍스처는 남은 샘플러가 `T_Photo_X_D`를 들고 있으므로
 계약 이름만 맞춰서는 놓친다. `_is_pre_atlas_texture()`가 두 이름을 다 본다.
+이건 조용한 실패다 — 계약 텍스처 `T_X_D`는 애초에 아무도 참조하지 않으니
+「빠졌다」로 보이고, 실제로 팩에 남는 것은 캡처 쪽이다.
 
 이건 UE 없이는 실행할 수 없으므로 **정적 감시도 같이 둔다.** 페이지와 그
 페이지가 대체한 텍스처를 **동시에** 참조하는 패키지는 `--check`가
@@ -303,19 +305,38 @@ value  := struct | array | '"' ... '"' | bare | <빈 값>
 `SIGN_MATERIALS`뿐이라 0장).
 
 그 둘을 **재굽기 이전 그래프 위에서** — 지금 이 저장소의 상태 그대로 —
-회수 있는 쪽과 없는 쪽으로 각각 돌린다.
+**세 가지**로 돌린다. 두 가지가 아니라 셋인 이유는 회수가 실패하는 방식이
+둘이기 때문이다: 아예 안 하거나, 계약 이름만 알고 하거나.
 
 ```
-IG_PROP_RESPONSE_ONLY     12장 · retired: drops / not retired: stays
-IG_CORRIDOR_SIGNAGE_ONLY   6장 · retired: drops / not retired: stays
+IG_PROP_RESPONSE_ONLY     12장   retired: drops  by name only: drops  not retired: stays
+IG_CORRIDOR_SIGNAGE_ONLY   6장   retired: drops  by name only: drops  not retired: stays
 
 PASS all 18 texture(s) leave the cook when a targeted pass retires the
      pre-atlas sampler, and stay when it does not
 ```
 
-**쌍으로 보는 것이 요점이다.** 회수를 넣으면 18/18이 빠지고, 빼면 18/18이
-남으며 머티리얼 18개가 페이지와 텍스처를 동시에 지목한다. 뒤쪽이 없으면
-앞쪽은 장식이다.
+**셋을 나란히 보는 것이 요점이다.** 회수를 넣으면 18/18이 빠지고, 빼면
+18/18이 남으며 머티리얼 18개가 페이지와 텍스처를 동시에 지목한다. 뒤쪽이
+없으면 앞쪽은 장식이다.
+
+가운데 열은 지금 49장에는 캡처가 하나도 없어서 왼쪽과 같지만, 하나라도
+생기면 갈라진다. `--self-test`의 합성 프로젝트가 그 갈라짐을 붙들고 있다.
+
+```
+  캡처 없음   samples T_Print_D         retired: drops  by name only: drops  not retired: stays
+  캡처 있음   samples T_Photo_Print_D   retired: drops  by name only: STAYS  not retired: stays
+```
+
+시뮬레이션도 `_load_texture`와 같은 규칙으로 **실제로 존재하는 간선**을
+찾는다(`resolved_print_texture`). 없는 간선을 옮기면 아무것도 안 옮기고
+아무것도 안 빠지면서 「절감했다」고 보고하게 되는데, 그게 정확히 캡처가
+있을 때 벌어질 일이었다. `--simulate-rebuild`도 같은 해석을 쓰고,
+`atlas_stale_samples`는 두 이름을 다 센다.
+
+캡처가 있다는 것 자체는 **여전히 결함으로 보고한다.** 쿠킹은 이제 맞게
+모델링되지만, 패커는 `Content/SourceArt/<stem>.png`를 굽는데 머티리얼은
+캡처를 보고 있었으므로 **페이지에 다른 그림이 들어간다.**
 
 다만 이 쌍이 증명하는 것은 **회수가 결정적이라는 것**이지 회수가 실제로
 동작한다는 것이 아니다. 언리얼이 프로퍼티를 설정하는 것을 정적 검사가 볼
@@ -343,10 +364,12 @@ HUD 소스 하나)를 임시 디렉터리에 짓고 확인한다. 머티리얼 �
 전부 잡는 것. SKIP이 특히 중요하다 — 참조 그래프에 구멍이 있으면
 「닿지 않는다」도 「닿는다」도 판정이 아니다.
 
-돌연변이 열둘(문자열 연결 복원, AlwaysCook 파싱, LFS 포인터 감지,
-경로 형태 검사, CookRule 열거 검사, 필드 집합 검사, 구조체 파서, 필드
-검증, 에셋 검증, 맵 시딩, 추이 폐쇄, 블라인드 스폿)을 넣어 전부 잡히는
-것까지 확인했다.
+돌연변이 스물다섯을 넣어 전부 잡히는 것까지 확인했다 — 문자열 연결 복원,
+AlwaysCook 파싱, LFS 포인터 감지, 경로 형태, CookRule 열거, 필드 집합,
+구조체 파서, 필드·에셋 검증, 맵 시딩, 추이 폐쇄, 블라인드 스폿, 패스
+목록 파싱, 제자리 갱신 플래그, 스펙 테이블, 회수 무력화, 그리고 캡처
+관련 넷(`photo_twin`, `resolved_print_texture`, `replaced_textures`,
+`photo_aware` 플래그).
 
 `--require-atlas-dropped`는 아직 아틀라스 텍스처가 쿠킹에 남아 있으면
 실패한다. 커밋된 상태에서는 **당연히 실패한다** — 머티리얼이 아직 다시
@@ -424,12 +447,15 @@ Scripts/Run-PrintAtlas.ps1 -SkipPack # 이미 구운 페이지를 쓴다
   재굽기를 흉내낸 결과이지 실제 쿠킹 로그가 아니다.
 - `_retire_pre_atlas_samples()`는 **UE에서 돌려본 적이 없다.**
   `update_in_place` 경로에서 끊긴 샘플러가 텍스처를 붙들고 있었다는 사실,
-  그 모드가 49장 중 18장을 건드린다는 사실, 그리고 회수를 빼면 그 18장이
-  전부 쿠킹에 남는다는 사실은 확인했다(`--simulate-targeted`, 파스는
-  빌더 소스에서 `ast`로 읽는다). 확인하지 **못한** 것은 언리얼이 실제로
-  그 프로퍼티를 설정하는지다 — 정적 검사로는 볼 수 없다. 그쪽은 에디터가
-  한 번 돌아간 뒤 `--check`의 정적 감시(페이지와 옛 텍스처를 동시에
-  참조하는 패키지)가 답한다.
+  그 모드가 49장 중 18장을 건드린다는 사실, 회수를 빼면 그 18장이 전부
+  쿠킹에 남는다는 사실, 그리고 계약 이름만 아는 회수는 캡처가 있는
+  텍스처에서 아무 일도 하지 않는다는 사실은 확인했다
+  (`--simulate-targeted` 세 열, 파스는 빌더 소스에서 `ast`로 읽는다).
+  확인하지 **못한** 것은 언리얼이 실제로 그 프로퍼티를 설정하는지다 —
+  정적 검사로는 볼 수 없다. 그쪽은 에디터가 한 번 돌아간 뒤 `--check`의
+  정적 감시(페이지와 옛 텍스처를 동시에 참조하는 패키지)가 답한다.
+- 지금 계약 49장에는 `T_Photo_` 캡처가 **하나도 없다.** 캡처 경로는
+  합성 프로젝트로만 검증했고 실제 에셋으로 밟아 본 적은 없다.
 - `IGHudTexture` 규칙은 **언리얼로 파싱해 본 것이 아니다.** 대신 언리얼의
   `ImportText` 문법을 구현해(§4의 `ue_config.py`) 파싱했고, 12장 전부
   경로가 트리의 패키지로 풀리고 `Package.Object` 두 쪽이 일치하고

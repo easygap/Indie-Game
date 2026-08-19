@@ -594,6 +594,39 @@ def atlas_photo_shadows(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
     return shadows
 
 
+def photo_twin(stem: str) -> str:
+    """The `T_Photo_` name create_textured_materials._load_texture prefers."""
+    return f"T_Photo_{stem[2:]}" if stem.startswith("T_") else ""
+
+
+def resolved_print_texture(audit: CookAudit, stem: str) -> str:
+    """The texture package a print material actually samples for this stem.
+
+    _load_texture takes the photo capture over the procedural texture of the
+    same name, so where a capture exists the material never names the
+    contracted texture at all. Simulating the edge that is not there moves
+    nothing, drops nothing, and reports a saving that did not happen -- so
+    every step that touches an edge has to resolve the name first.
+    """
+    twin = photo_twin(stem)
+    if twin:
+        package = f"{ATLAS_TEXTURE_ROOT}/{twin}"
+        if package in audit.packages:
+            return package
+    return f"{ATLAS_TEXTURE_ROOT}/{stem}"
+
+
+def replaced_textures(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> set[str]:
+    """Every texture package a page stands in for, under either name."""
+    replaced = set()
+    for stem in entries:
+        replaced.add(f"{ATLAS_TEXTURE_ROOT}/{stem}")
+        twin = photo_twin(stem)
+        if twin:
+            replaced.add(f"{ATLAS_TEXTURE_ROOT}/{twin}")
+    return replaced
+
+
 def atlas_stale_samples(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
     """Packages that reference an atlas page *and* a texture it replaced.
 
@@ -602,15 +635,18 @@ def atlas_stale_samples(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
     what the in-place update path does if nothing retires it. The material
     draws from the page and the texture still ships: the page is paid for and
     nothing is saved.
+
+    Both names count. A sampler left holding the photo capture is the same
+    defect wearing the name that is easier to miss.
     """
-    contracted = {f"{ATLAS_TEXTURE_ROOT}/{stem}" for stem in entries}
+    replaced = replaced_textures(audit, entries)
     page_prefix = f"{ATLAS_TEXTURE_ROOT}/{texture_atlas_contract.ATLAS_PAGE_PREFIX}"
     stale = {}
     for package in sorted(audit.cooked):
         references = audit.references.get(package, set())
         if not any(other.startswith(page_prefix) for other in references):
             continue
-        left_over = sorted(references & contracted)
+        left_over = sorted(references & replaced)
         if left_over:
             stale[package] = left_over
     return stale
@@ -664,40 +700,47 @@ def simulate_targeted_pass(
     materials: dict[str, str],
     retire: bool,
     entries=PRINT_ATLAS_ENTRIES,
+    photo_aware: bool = True,
 ) -> dict:
     """Run one `IG_*_ONLY` in-place pass over a pre-atlas graph.
 
-    ``materials`` maps a material package to the texture package its spec
-    names. An in-place pass appends the atlas graph and reconnects the
-    outputs, so the material gains an edge to the page either way; ``retire``
-    is whether _retire_pre_atlas_samples() then takes the old edge away.
+    ``materials`` maps a material package to the *contracted stem* its spec
+    names. Which texture the material really samples is resolved here, because
+    _load_texture prefers a photo capture where one exists.
 
-    Without it the material draws from the page and still names the texture,
-    so the texture still cooks -- the page is paid for and nothing is saved.
-    That is the whole difference this models.
+    An in-place pass appends the atlas graph and reconnects the outputs, so
+    the material gains an edge to the page either way. ``retire`` is whether
+    _retire_pre_atlas_samples() then takes the old edge away, and
+    ``photo_aware`` is whether it recognises the capture's name when it does.
+    Those are two separate ways to keep a texture in the cook, and the second
+    one only shows up on the assets that have a capture -- so it is modelled
+    separately rather than folded into the first.
     """
     pages = atlas_pages(audit, entries)
     after = _replay(audit, pages)
-    touched = {}
-    for material, texture in materials.items():
-        stem = texture.rsplit("/", 1)[-1]
+    sampled = {}
+    for material, stem in materials.items():
         page = pages.get(stem)
         if page is None or material not in after.references:
             continue
+        texture = resolved_print_texture(audit, stem)
         after.references[material].add(page)
         if retire:
-            after.references[material].discard(texture)
-        touched[stem] = texture
+            contracted = texture.rsplit("/", 1)[-1] == stem
+            if contracted or photo_aware:
+                after.references[material].discard(texture)
+        sampled[stem] = texture
 
     _seed_roots(after)
     _close(after)
     return {
         "after": after,
-        "touched": sorted(touched),
+        "sampled": sampled,
+        "touched": sorted(sampled),
         "kept": sorted(
-            texture for texture in touched.values() if texture in after.cooked),
+            texture for texture in sampled.values() if texture in after.cooked),
         "dropped": sorted(
-            texture for texture in touched.values()
+            texture for texture in sampled.values()
             if texture in audit.cooked and texture not in after.cooked),
         "stale": atlas_stale_samples(after, entries),
     }
@@ -728,11 +771,15 @@ def simulate_atlas_rebuild(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dic
     # that texture goes on shipping and the page is spent for nothing.
     rewritten = {}
     stragglers = {}
+    sampled = {}
     for stem in entries:
-        package = f"{ATLAS_TEXTURE_ROOT}/{stem}"
         page = pages.get(stem)
         if page is None:
             continue
+        # The edge the rebuild moves is the one that exists, which is the
+        # photo capture wherever there is one.
+        package = resolved_print_texture(audit, stem)
+        sampled[stem] = package
         for referrer, references in after.references.items():
             if package not in references:
                 continue
@@ -748,15 +795,15 @@ def simulate_atlas_rebuild(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dic
 
     dropped = sorted(audit.cooked - after.cooked)
     gained = sorted(after.cooked - audit.cooked)
-    expected = {
-        f"{ATLAS_TEXTURE_ROOT}/{stem}" for stem in entries
-        if stem in pages
-    }
+    # What the rebuild is meant to take out is whatever each material was
+    # sampling, capture or not -- not the contracted name in the abstract.
+    expected = set(sampled.values())
     return {
         "after": after,
         "pages": sorted(set(pages.values())),
         "rewritten": rewritten,
         "stragglers": stragglers,
+        "sampled": sampled,
         "dropped": dropped,
         "gained": gained,
         "atlas_dropped": sorted(expected & set(dropped)),
@@ -1068,7 +1115,10 @@ def command_simulate_rebuild(audit: CookAudit) -> int:
         return 0
 
     for stem in PRINT_ATLAS_ENTRIES:
-        package = f"{ATLAS_TEXTURE_ROOT}/{stem}"
+        # The package that actually carries the edge, which is the photo
+        # capture wherever one exists.
+        package = result["sampled"].get(
+            stem, f"{ATLAS_TEXTURE_ROOT}/{stem}")
         referrers = sorted(
             other for other in audit.cooked
             if package in audit.references.get(other, ())
@@ -1086,7 +1136,10 @@ def command_simulate_rebuild(audit: CookAudit) -> int:
             note = "; " + "; ".join(covered[stem])
             findings += 1
         if stem in shadows:
-            note += f"; shadowed by {shadows[stem].rsplit('/', 1)[-1]}"
+            # Handled by the simulation, still a finding: a page packed from
+            # the procedural source is not the picture the capture was showing.
+            note += (f"; sampled through {shadows[stem].rsplit('/', 1)[-1]}, "
+                     "so the page holds different art")
             findings += 1
         if stragglers:
             note += "; not a print material: " + ", ".join(
@@ -1182,13 +1235,19 @@ def command_simulate_targeted(audit: CookAudit) -> int:
 
     for build_pass, textures in exposed:
         packages = {
-            f"{MATERIAL_ROOT}/{material}": f"{ATLAS_TEXTURE_ROOT}/{stem}"
+            f"{MATERIAL_ROOT}/{material}": stem
             for material, stem in textures.items()
         }
         absent = sorted(m for m in packages if m not in audit.packages)
-        live = {m: t for m, t in packages.items() if m in audit.packages}
+        live = {m: s for m, s in packages.items() if m in audit.packages}
 
+        # Three ways the pass can end, not two. The middle column is the
+        # retirement that only knows the contracted name: it is enough for a
+        # texture with no photo capture and does nothing at all for one that
+        # has one, which is the failure that hides.
         fixed = simulate_targeted_pass(audit, live, retire=True)
+        contract_only = simulate_targeted_pass(
+            audit, live, retire=True, photo_aware=False)
         broken = simulate_targeted_pass(audit, live, retire=False)
         print(
             f"\n  {build_pass.name}  "
@@ -1198,9 +1257,14 @@ def command_simulate_targeted(audit: CookAudit) -> int:
         if absent:
             print(f"    {len(absent)} material(s) not built yet: "
                   + ", ".join(a.rsplit('/', 1)[-1] for a in absent))
-        for material, texture in sorted(live.items()):
-            stem = texture.rsplit("/", 1)[-1]
+        for material, stem in sorted(live.items()):
+            texture = fixed["sampled"].get(stem)
+            if texture is None:
+                continue
+            sampled_name = texture.rsplit("/", 1)[-1]
+            capture = sampled_name != stem
             with_fix = "drops" if texture in fixed["dropped"] else "STAYS"
+            name_only = "drops" if texture in contract_only["dropped"] else "stays"
             without = "stays" if texture in broken["kept"] else "DROPS"
             flag = ""
             if with_fix != "drops":
@@ -1208,13 +1272,24 @@ def command_simulate_targeted(audit: CookAudit) -> int:
                 findings += 1
             elif without != "stays":
                 flag = "  <-- nothing for the retirement to do"
-            print(f"    {stem:28s} retired: {with_fix:5s}   "
-                  f"not retired: {without}{flag}")
+            elif capture and name_only == "drops":
+                flag = "  <-- a capture retired by its contracted name?"
+                findings += 1
+            shown = sampled_name if not capture else f"{sampled_name} (capture)"
+            print(f"    {shown:34s} retired: {with_fix:5s}  "
+                  f"by name only: {name_only:5s}  not retired: {without}{flag}")
 
         if fixed["stale"]:
             findings += len(fixed["stale"])
             print(f"    {len(fixed['stale'])} material(s) would still name "
                   "both the page and the texture after retirement")
+        captures = [s for s, t in fixed["sampled"].items()
+                    if t.rsplit("/", 1)[-1] != s]
+        if captures:
+            missed = len(contract_only["kept"])
+            print(f"    {len(captures)} texture(s) are sampled through a photo "
+                  f"capture; retiring by contracted name alone would leave "
+                  f"{missed} in the cook")
         if not broken["kept"]:
             findings += 1
             print("    NOTHING WOULD BREAK without the retirement -- either "
@@ -1461,7 +1536,7 @@ def command_self_test() -> int:
         #     between the atlas saving something and costing a page for free.
         audit = run_audit(before_root)
         material = f"{MATERIAL_ROOT}/M_Print"
-        live = {material: print_texture}
+        live = {material: "T_Print_D"}
         fixed = simulate_targeted_pass(audit, live, retire=True, entries=entries)
         broken = simulate_targeted_pass(audit, live, retire=False,
                                         entries=entries)
@@ -1475,6 +1550,40 @@ def command_self_test() -> int:
             "a surviving pre-atlas sampler was not seen naming both"
         assert page in broken["after"].cooked, \
             "the page did not enter the cook on a targeted pass"
+
+        # 2e-bis. The same pass, on a texture that has a photo capture. The
+        #     material never names the contracted texture at all -- it names
+        #     the capture -- so a retirement that only knows the contracted
+        #     name is a no-op, and the saving quietly does not happen for
+        #     exactly the assets somebody bothered to photograph.
+        twin = f"{ATLAS_TEXTURE_ROOT}/T_Photo_Print_D"
+        captured = _fixture(
+            os.path.join(tmp, "photo_pass"), good_rule, twin)
+        with open(os.path.join(
+                captured, "Content", "Prototype", "Textures",
+                "T_Photo_Print_D.uasset"), "wb") as handle:
+            handle.write(b"Texture2D")
+        audit = run_audit(captured)
+        assert resolved_print_texture(audit, "T_Print_D") == twin, \
+            "the capture was not resolved as the texture the material samples"
+        live = {material: "T_Print_D"}
+        photo_fixed = simulate_targeted_pass(
+            audit, live, retire=True, entries=entries)
+        name_only = simulate_targeted_pass(
+            audit, live, retire=True, entries=entries, photo_aware=False)
+        not_retired = simulate_targeted_pass(
+            audit, live, retire=False, entries=entries)
+        assert photo_fixed["dropped"] == [twin] and not photo_fixed["stale"], \
+            f"a photo-aware retirement did not take the capture out: {photo_fixed}"
+        assert name_only["kept"] == [twin] and name_only["stale"], \
+            ("retiring by the contracted name alone dropped a capture it "
+             f"cannot name: {name_only}")
+        assert not_retired["kept"] == [twin] and not_retired["stale"], \
+            f"the un-retired capture left the cook anyway: {not_retired}"
+        # And the reporting layer sees it as a shadow, because a page packed
+        # from the procedural source is also the wrong picture.
+        assert atlas_photo_shadows(audit, entries) == {"T_Print_D": twin}, \
+            "the capture was not reported as shadowing the contracted texture"
 
         # 2f. The pass list is read out of the builder, so the shapes it
         #     relies on have to still be there. Anything it cannot read is an
@@ -1524,8 +1633,9 @@ def command_self_test() -> int:
         f"PASS cook reference self-test: code-only detection, SpecificAssets "
         f"coverage and load-bearing, atlas drop before and after the material "
         f"rebuild, 5 ways the rebuild can save nothing or break something, "
-        f"a targeted in-place pass with and without retiring the sampler it "
-        f"replaced, the code-load conflict, the unfetched-LFS hole, and "
+        f"a targeted in-place pass three ways (retired, retired by contracted "
+        f"name only against a photo capture, not retired), "
+        f"the code-load conflict, the unfetched-LFS hole, and "
         f"{len(tampered)} ways a cook rule can look right and hold nothing"
     )
     return 0
