@@ -123,6 +123,17 @@ if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
 
 	$python = Get-Command python -ErrorAction Stop
+	# Conditioning must precede PBR derivation: generate_ai_pbr_maps.py reads
+	# the tangent normal out of the albedo, so a brightness field left in the
+	# albedo becomes a slow swell of fake geometry that lights wrong from every
+	# angle. Removing it afterwards would be too late.
+	$tileConditioner = Join-Path $PSScriptRoot 'condition_ai_tiles.py'
+	Write-Host 'ART_BUILD running condition_ai_tiles.py'
+	& $python.Source $tileConditioner
+	if ($LASTEXITCODE -ne 0) {
+		throw "AI tile conditioning failed ($LASTEXITCODE)"
+	}
+
 	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
 	Write-Host 'ART_BUILD running generate_ai_pbr_maps.py'
 	& $python.Source $pbrGenerator
@@ -140,9 +151,32 @@ if ($MissingFloorOnly) {
 			'ListenerEntityFrontCutout',
 			'SheetListenerEntityCrawlPhases',
 			'FinalCavityFrontBlend_v1',
-			'MokHansooFinalFrontBlend_v1'
+			'MokHansooFinalFrontBlend_v1',
+			'TextureVillaStairCheckerPlatePaintedSteel_v2',
+			'TextureRooftopUrethaneWaterproofing',
+			'TextureRooftopAnnexConcreteGypsumDebris',
+			'TextureUtilityMeterDialFaceBlank',
+			'TextureComplaintLedgerCarbonPaperBlank',
+			'TextureApartmentEntranceDoorCharcoalSteel'
 		)
 	$python = Get-Command python -ErrorAction Stop
+	# No --force here: Prepare-AIArt has just rewritten these albedos from the
+	# ImageGen originals, so their hashes no longer match the sidecars and the
+	# conditioner runs on its own. --force would only matter for a file that is
+	# already conditioned, which is precisely the case it must refuse.
+	$tileConditioner = Join-Path $PSScriptRoot 'condition_ai_tiles.py'
+	Write-Host 'ART_BUILD running missing-floor tile conditioning'
+	& $python.Source $tileConditioner `
+		--only T_MissingFloorSteelStair `
+		--only T_RooftopWaterproofing `
+		--only T_MissingFloorGypsumDebris `
+		--only T_UtilityMeterDial `
+		--only T_CarbonPaper `
+		--only T_UnitDoorPaintedSteel
+	if ($LASTEXITCODE -ne 0) {
+		throw "AI tile conditioning failed ($LASTEXITCODE)"
+	}
+
 	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
 	Write-Host 'ART_BUILD running missing-floor PBR source-map generation'
 	& $python.Source $pbrGenerator `
@@ -154,6 +188,12 @@ if ($MissingFloorOnly) {
 		--only T_SpriteListenerCrawl3 `
 		--only T_SpriteFinalCavity `
 		--only T_SpriteMokFinalUpper `
+		--only T_MissingFloorSteelStair `
+		--only T_RooftopWaterproofing `
+		--only T_MissingFloorGypsumDebris `
+		--only T_UtilityMeterDial `
+		--only T_CarbonPaper `
+		--only T_UnitDoorPaintedSteel `
 		--force
 	if ($LASTEXITCODE -ne 0) {
 		throw "Missing-floor PBR source-map generation failed ($LASTEXITCODE)"
@@ -731,8 +771,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 				TargetEnvironment = $true
 			},
 			@{
+				# 40 + 24: 발소리 표면 3종·문자판·먹지·문짝의 D/N/R/A.
 				Script = 'generate_surface_textures.py'
-				SuccessPattern = '\[IndieGame\] Imported 40 textures'
+				SuccessPattern = '\[IndieGame\] Imported 64 textures'
 				TargetEnvironment = $true
 			},
 			@{

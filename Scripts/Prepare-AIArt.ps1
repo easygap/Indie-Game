@@ -305,6 +305,49 @@ $plan = @(
         Source = 'TextureMissingFloorDryPlaster'; Target = 'T_MissingFloorDryPlaster_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
+    # The footstep surfaces README rule 2 asks the player to tell apart by eye.
+    # Sound already separates them; until now the picture did not, because all
+    # three were rendered with the corridor's concrete. These arrive as square
+    # material scans and are conditioned by condition_ai_tiles.py before any
+    # PBR channel is derived from them — the raw scans do not tile.
+    [pscustomobject]@{
+        Source = 'TextureVillaStairCheckerPlatePaintedSteel_v2'
+        Target = 'T_MissingFloorSteelStair_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureRooftopUrethaneWaterproofing'
+        Target = 'T_RooftopWaterproofing_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureRooftopAnnexConcreteGypsumDebris'
+        Target = 'T_MissingFloorGypsumDebris_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    # The P1 dial face. Kept at 1024 because the player leans into this one:
+    # the fifth meter not turning is the first puzzle in the game. The reading
+    # itself is never in the texture — the drum window ships blank and the
+    # numbers, like every other meaningful glyph in this project, belong to
+    # runtime.
+    [pscustomobject]@{
+        Source = 'TextureUtilityMeterDialFaceBlank'
+        Target = 'T_UtilityMeterDial_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
+    # A4 proportion, not square: this sheet sits under the 22x30.7 cm ledger
+    # and is UV-mapped to it. Resampling it to a square would stretch the paper
+    # fibre and the fold with it, so the non-power-of-two size is deliberate.
+    [pscustomobject]@{
+        Source = 'TextureComplaintLedgerCarbonPaperBlank'
+        Target = 'T_CarbonPaper_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(724, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'TextureApartmentEntranceDoorCharcoalSteel'
+        Target = 'T_UnitDoorPaintedSteel_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
     [pscustomobject]@{
         Source = 'SheetMissingFloorResidueMasks'; Target = 'T_MissingFloorHandprints_M.png'
         Crop = @(0.000, 0.000, 0.500, 0.500); Size = @(512, 512)

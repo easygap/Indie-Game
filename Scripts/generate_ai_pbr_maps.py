@@ -99,6 +99,60 @@ SURFACES = (
     SurfaceSpec(
         "T_SpriteMokFinalUpper", 0.84, 0.68, 0.94, 0.36,
         rough_detail=0.10, ao_depth=0.54),
+    # Painted steel stair treads. The diamond tread is a real 3 mm relief that
+    # no mesh here will ever carry — the stairs are scaled boxes — so the normal
+    # is the only place it can exist.
+    #
+    # Strength came down from 0.88 to 0.62 when v2 replaced v1. That is not a
+    # retreat: 0.88 was propping up a scan with stddev 3.5, and v2 arrives at
+    # 19.6, so the same setting would now emboss the plate into corrugation.
+    # 0.62 matches the dry plaster, which sits at a comparable contrast.
+    #
+    # Roughness stays below the concrete family on purpose. Alkyd paint over
+    # steel is still a dielectric, so metallic remains 0, but it catches a
+    # flashlight in a way troweled concrete cannot. That difference is the
+    # point: README rule 2 asks the player to choose a floor by how loud it is,
+    # and until now the metal stair and the concrete corridor were the same
+    # picture.
+    SurfaceSpec(
+        "T_MissingFloorSteelStair", 0.68, 0.52, 0.86, 0.62,
+        rough_detail=0.14, ao_depth=0.90),
+    # Rooftop urethane membrane. A thick rubbery coat: diffuse, but not as dead
+    # as concrete, and the roller laps are a soft thickness change rather than
+    # cut relief, so the normal stays gentle.
+    SurfaceSpec(
+        "T_RooftopWaterproofing", 0.82, 0.70, 0.92, 0.45,
+        rough_detail=0.14, ao_depth=0.70),
+    # Gypsum debris on a raw slab. The strongest normal of the floors, because
+    # the shards genuinely sit proud of the concrete and the player is meant to
+    # register that this floor is covered in something.
+    SurfaceSpec(
+        "T_MissingFloorGypsumDebris", 0.93, 0.85, 0.97, 0.66,
+        rough_detail=0.16, ao_depth=1.00),
+    # Enamel over stamped metal. Nearly flat and the only surface here with a
+    # real sheen; the graduation ticks are printed, not engraved, so relief
+    # stays minimal or the dial starts to look embossed.
+    SurfaceSpec(
+        "T_UtilityMeterDial", 0.42, 0.30, 0.58, 0.18,
+        rough_detail=0.08, ao_depth=0.40),
+    # Waxed carbon coating. The whole read is that used areas catch light
+    # differently from unused ones, which is a roughness story rather than a
+    # normal one — hence the wide roughness range and the low normal.
+    SurfaceSpec(
+        "T_CarbonPaper", 0.55, 0.38, 0.74, 0.28,
+        rough_detail=0.12, ao_depth=0.50),
+    # Powder coat on a door leaf. Flat is correct here: orange peel is a
+    # sub-millimetre swell, and any more relief turns a maintained door into a
+    # corroded one. Metallic stays 0 — the paint is what the light meets.
+    # rough_detail is high for so flat a surface, and has to be: at 0.10 the
+    # roughness map came back effectively constant and the art contract caught
+    # it. A door with one uniform roughness reads as plastic under a moving
+    # flashlight, which ASSET_STYLE forbids outright — and it is wrong anyway.
+    # Powder coat collects dust in the orange-peel troughs and polishes where
+    # hands pass, so the gloss genuinely varies even when the colour does not.
+    SurfaceSpec(
+        "T_UnitDoorPaintedSteel", 0.74, 0.62, 0.86, 0.30,
+        rough_detail=0.26, ao_depth=0.50),
 )
 
 
