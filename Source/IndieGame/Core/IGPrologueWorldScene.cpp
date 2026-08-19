@@ -2873,20 +2873,35 @@ void AIGPrologueWorldScene::BuildCorridor()
 		FVector(125, 120, 20),
 		CorridorCeil);
 
-	// Down flight: five steps sinking west into darkness. Korean walk-ups have
-	// a black steel balustrade with a flat cap rail and thin square balusters.
-	int32 StepIndex = 0;
-	for (const float StepX : {-230.0f, -252.0f, -274.0f, -296.0f, -318.0f})
+	// Down flight into the throat, sinking west into darkness. Korean walk-ups
+	// have a black steel balustrade with a flat cap rail and thin square
+	// balusters.
+	//
+	// The treads used to be authored from X -219 to -329, which is inside the
+	// corridor: the floor slab reaches X -330, so the whole flight was buried
+	// under it and only the upper half of the balustrade showed — a raked
+	// handrail rising out of flat concrete with no stair beneath it. The 72 cm
+	// to the half-landing was a bare drop off the floor's west edge.
+	//
+	// The throat west of X -330 is where the flight belongs, and four treads
+	// at the authored 18 cm rise land exactly on the half-landing at local
+	// Z -72. Each tread's underside meets the top of the one below, so the
+	// flight is a solid stepped mass standing on the landing and butting the
+	// corridor floor — nothing here is cantilevered and nothing is cut out of
+	// the corridor, so the walk west and the turn north onto the 5F flight are
+	// exactly as they were.
+	for (int32 StepIndex = 0; StepIndex < 4; ++StepIndex)
 	{
+		const float StepX = -341.0f - StepIndex * 22.0f;
+		const float StepTopZ = -18.0f * StepIndex;
 		IGPrologueWorld::TagFootstepSurface(CreateBlock(
-			FVector(StepX, -305, -9.0f - StepIndex * 18.0f),
+			FVector(StepX, -305, StepTopZ - 9.0f),
 			FVector(22, 130, 18), StairSteel),
 			IGPrologueWorld::FootstepMetalStairTag);
 		// Stair nosing: a darker lip on every tread catches the hall light.
 		CreateBlock(
-			FVector(StepX - 10, -305, 0.4f - StepIndex * 18.0f),
+			FVector(StepX - 10, -305, StepTopZ + 0.4f),
 			FVector(3, 128, 1.6f), Skirting, false);
-		++StepIndex;
 	}
 	// Enclose the descending flight beyond the transition volume. Without the
 	// far wall and side returns the sky dome filled the stair throat, making an
@@ -2903,29 +2918,36 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(
 		FVector(-392.5f, -305, 250), FVector(125, 160, 20),
 		CorridorCeil);
-	// The 3.5F half-landing. Flush with the last down-tread (top local -72),
-	// filling what used to be open shaft void. In the legacy chapters the
-	// stair portal fires before a player can reach it, so this slab is only
-	// ever walked during 없는 층 nights — where it is the stage for the first
-	// sighting (STORY_BIBLE_MISSING_FLOOR.md §8 밤1 1-4).
+	// The 3.5F half-landing at local Z -72, filling what used to be open shaft
+	// void. The down flight now stands on it and its lowest tread's underside
+	// meets it, so the landing is both what the stair arrives on and the strip
+	// of floor west of it. In the legacy chapters the stair portal fires
+	// before a player can reach it, so this slab is only ever walked during
+	// 없는 층 nights — where it is the stage for the first sighting
+	// (STORY_BIBLE_MISSING_FLOOR.md §8 밤1 1-4).
 	IGPrologueWorld::TagFootstepSurface(CreateBlock(
 		FVector(-392.5f, -305, -81), FVector(125, 160, 18),
 		StairSteel), IGPrologueWorld::FootstepMetalStairTag);
+	// Balustrade over that flight. Each baluster stands on its own tread and
+	// reaches the cap rail: the old set used a 17 cm rise under an 18 cm
+	// stair and started four centimetres above the treads, so it drifted out
+	// of the flight as it descended and met the rail nowhere.
 	for (const float RailY : {-243.0f, -367.0f})
 	{
 		CreateBlock(
-			FVector(-274, RailY, 60), FVector(120, 5, 5), PlasticDarkMaterial, false,
-			nullptr, FRotator(39, 0, 0));
+			FVector(-383, RailY, 55.6f), FVector(132, 5, 5), PlasticDarkMaterial,
+			false, nullptr, FRotator(39, 0, 0));
 		CreateBlock(
-			FVector(-274, RailY, 32), FVector(118, 3, 3), PlasticDarkMaterial, false,
-			nullptr, FRotator(39, 0, 0));
+			FVector(-383, RailY, 27.6f), FVector(130, 3, 3), PlasticDarkMaterial,
+			false, nullptr, FRotator(39, 0, 0));
+		// Four on the treads and one on the landing at the foot.
 		for (int32 BalusterIndex = 0; BalusterIndex < 5; ++BalusterIndex)
 		{
-			const float BalusterX = -232.0f - BalusterIndex * 21.0f;
-			const float BalusterTop = 58.0f - BalusterIndex * 17.0f;
+			const float BalusterX = -341.0f - BalusterIndex * 22.0f;
+			const float BalusterFootZ = -18.0f * BalusterIndex;
 			CreateBlock(
-				FVector(BalusterX, RailY, BalusterTop - 26.0f),
-				FVector(2.6f, 2.6f, 56), PlasticDarkMaterial, false);
+				FVector(BalusterX, RailY, BalusterFootZ + 45.0f),
+				FVector(2.6f, 2.6f, 90), PlasticDarkMaterial, false);
 		}
 	}
 	// A tired green exit lamp glows at the stair throat, screwed to the head
@@ -5065,12 +5087,16 @@ void AIGPrologueWorldScene::BuildAlley()
 			nullptr, FRotator(12, 0, 0));
 		CreateBlock(FVector(2110, -655, 40), FVector(26, 26, 80), Metal, true, CylinderMesh);
 		CreateBlock(FVector(2136, -652, 40), FVector(26, 26, 80), Metal, true, CylinderMesh);
-		CreateBlock(FVector(1985, -650, 12), FVector(40, 30, 20), FridgeInteriorMaterial);
-		CreateBlock(FVector(1985, -650, 32), FVector(38, 28, 18), FridgeInteriorMaterial);
-		CreateBlock(FVector(330, -652, 14), FVector(24, 24, 26), CoolerBodyMaterial, true, CylinderMesh);
-		CreateBlock(FVector(330, -652, 44), FVector(34, 34, 30), BottleGreenMaterial, false, SphereMesh);
-		CreateBlock(FVector(362, -655, 14), FVector(24, 24, 26), CoolerBodyMaterial, true, CylinderMesh);
-		CreateBlock(FVector(362, -655, 44), FVector(34, 34, 30), BottleGreenMaterial, false, SphereMesh);
+		// Shopfront clutter stands on the road at Z 0 and beside the kerb,
+		// whose face is at Y -657. Authored one or two centimetres up and
+		// seven to ten centimetres back, each of these hovered over the
+		// asphalt with a corner inside the kerb stone.
+		CreateBlock(FVector(1985, -642, 10), FVector(40, 30, 20), FridgeInteriorMaterial);
+		CreateBlock(FVector(1985, -642, 29), FVector(38, 28, 18), FridgeInteriorMaterial);
+		CreateBlock(FVector(330, -645, 13), FVector(24, 24, 26), CoolerBodyMaterial, true, CylinderMesh);
+		CreateBlock(FVector(330, -645, 36), FVector(34, 34, 30), BottleGreenMaterial, false, SphereMesh);
+		CreateBlock(FVector(362, -643, 13), FVector(24, 24, 26), CoolerBodyMaterial, true, CylinderMesh);
+		CreateBlock(FVector(362, -643, 36), FVector(34, 34, 30), BottleGreenMaterial, false, SphereMesh);
 		// Upstairs: PC-bang sign dark, noraebang sign still glowing pink. Both
 		// boxes bolt back onto the brick at Y -680; at Y -672 they hung a
 		// centimetre off it with nothing carrying the load.
@@ -5219,8 +5245,14 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(
 		FVector(2399, -520, 262), FVector(12, 320, 72),
 		TexMat(TEXT("M_SignMainLit"), SignMintMaterial), false);
+	// Blade signs hang off the front of a shop, not through it. Centred on
+	// X 2402 the 28 cm root crossed the fascia and drove 26 cm of the panel
+	// into the ceiling slab, whose west edge oversails the shopfront by
+	// 10 cm. The band of sign inside that eave is hidden and the rest is
+	// not, so from the alley the sign read as sawn through by the building.
+	// It now hangs off the eave's edge at X 2390, above and below it.
 	CreateBlock(
-		FVector(2402, -404, 300), FVector(28, 10, 88),
+		FVector(2376, -404, 300), FVector(28, 10, 88),
 		TexMat(TEXT("M_SignBladeLit"), SignWhiteMaterial), false);
 
 	// Storefront paper: sale poster and the automatic-door sticker.

@@ -65,6 +65,10 @@ EMBED_TOLERANCE = 3.0         # penetration into another solid
 CONTAINMENT_LIMIT = 0.70      # share of a prop's volume swallowed by structure
 FOOTPRINT_EPSILON = 0.5       # XY overlap needed to count as support
 SIMULATED_PENETRATION_TOLERANCE = 0.5  # a physics body inside static collision
+# Both horizontal spans a slab needs before it is something a prop stands on.
+# Below this it is a kerb, a cornice, a handrail -- things props legitimately
+# lap into, and things nothing "sinks" into.
+FLOOR_MIN_SPAN = 60.0
 
 # Below this, a box is dressing (a poster, a seam, a price rail, a decal
 # plane): it is meant to sit flush against a surface and cannot "float".
@@ -1261,6 +1265,15 @@ def _has_overhead_contact(prop: Box, others: list[Box]) -> bool:
     return False
 
 
+def _is_floor_like(box: Box) -> bool:
+    """True for a horizontal slab: thin in Z and broad in both X and Y."""
+    return (
+        box.size[2] <= min(box.size) + 1e-6
+        and box.size[0] >= FLOOR_MIN_SPAN
+        and box.size[1] >= FLOOR_MIN_SPAN
+    )
+
+
 def _fully_swallowed(prop: Box, structure: Box, exposure=0.3) -> bool:
     """True when no part of the prop stands clear of the structure."""
     for axis in range(3):
@@ -1298,12 +1311,21 @@ def _check_embedding(prop: Box, structures: list[Box]) -> list[Finding]:
 
         # Standing well below the surface it rests on, with its body above:
         # the object was dropped through the floor rather than onto it.
+        #
+        # Only a floor-like slab can be sunk into. A kerb, a cornice or a
+        # handrail is thin in a horizontal axis too, and props lap into those
+        # by design -- a railing post passes its own rail, a crate laps the
+        # kerb it stands beside. And a slab lapping another slab is how a
+        # building is built, not an object dropped through a floor, so a
+        # slab-shaped prop is exempt as well.
+        #
         # Trim is bedded into structure on purpose, so the bar is a visible
         # share of the object's own height, not a bare millimetre count.
         top = structure.maximum[2]
         sink = top - prop.minimum[2]
         sink_limit = max(SINK_TOLERANCE, prop.size[2] * SINK_HEIGHT_SHARE)
-        if (structure.size[2] <= STRUCTURE_MAX_THICKNESS
+        if (_is_floor_like(structure)
+                and not _is_floor_like(prop)
                 and sink > sink_limit
                 and prop.maximum[2] > top
                 and contained < CONTAINMENT_LIMIT):
