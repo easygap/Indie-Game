@@ -179,26 +179,35 @@ def page_dimensions(manifest: dict, page_index: int) -> tuple[int, int]:
     return (page["width"], page["height"])
 
 
-def load_manifest(path: str = MANIFEST_PATH) -> dict:
-    """Reads the packed layout, or raises if it has not been built."""
+def load_manifest(path: str = MANIFEST_PATH, strict: bool = True) -> dict:
+    """Reads the packed layout, or raises if it has not been built.
+
+    ``strict`` also checks membership against PRINT_ATLAS_ENTRIES. A caller
+    that only needs the layout -- where each stem landed and on what page --
+    passes False, so it works on any well-formed manifest instead of only on
+    this project's contracted one.
+    """
     if not os.path.isfile(path):
         raise AtlasContractError(
             f"No atlas manifest at {path}. Run Scripts/build_texture_atlas.py."
         )
     with open(path, "r", encoding="utf-8") as handle:
         manifest = json.load(handle)
-    validate_manifest(manifest)
+    if strict:
+        validate_manifest(manifest)
+    else:
+        validate_manifest_geometry(manifest)
     return manifest
 
 
-def try_load_manifest(path: str = MANIFEST_PATH):
+def try_load_manifest(path: str = MANIFEST_PATH, strict: bool = True):
     """Manifest if it is present and valid, otherwise None.
 
     The material builder uses this: a checkout that has not run the packer
     yet still produces a playable build from the individual textures.
     """
     try:
-        return load_manifest(path)
+        return load_manifest(path, strict=strict)
     except (AtlasContractError, ValueError):
         return None
 

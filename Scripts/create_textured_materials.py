@@ -959,6 +959,46 @@ def _atlas_binding(spec):
     return page, transform
 
 
+def _retire_pre_atlas_samples(material, page):
+    """Point any leftover per-texture sampler at the page it was replaced by.
+
+    The in-place update appends a replacement graph and reconnects the
+    outputs; it does not delete the old expressions, because deleting from a
+    material the prologue CDO is holding can invalidate a rooted object and
+    take the editor down before the package saves. Disconnected nodes cost
+    nothing in the compiled shader, so that was harmless -- until the atlas.
+
+    A disconnected UMaterialExpressionTextureSample still holds a hard
+    UTexture2D pointer, and that pointer is still serialized. So a material
+    last touched by a targeted pass keeps its individual texture in the cook
+    even though the page is what it draws: the atlas pays for the page and
+    saves nothing. Retiring the reference needs no deletion -- the dead node
+    can keep its place in the graph as long as it stops naming the texture.
+    """
+    if page is None:
+        return 0
+    retired = 0
+    for expression in unreal.MaterialEditingLibrary.get_material_expressions(
+        material
+    ):
+        if not isinstance(
+            expression, unreal.MaterialExpressionTextureSample
+        ):
+            continue
+        try:
+            texture = expression.get_editor_property("texture")
+        except Exception:  # noqa: BLE001 - a sampler subclass without one
+            continue
+        if texture is None or texture == page:
+            continue
+        name = str(texture.get_name())
+        if name not in texture_atlas_contract.PRINT_ATLAS_ENTRIES:
+            continue  # a companion normal/roughness map, still sampled
+        expression.set_editor_property("texture", page)
+        retired += 1
+    return retired
+
+
 def _atlas_uv(material, transform):
     """UV0 * scale + bias, so one page serves a page's worth of artwork."""
     scale_u, scale_v, bias_u, bias_v = transform
@@ -1528,6 +1568,7 @@ def create_flat_texture_materials(
     created = []
     skipped = []
     atlassed = []
+    retired = 0
     for name, spec in specs.items():
         # Artwork arrives in batches — a generated sheet may not have landed
         # yet. Skipping the material is right: the C++ side already falls back
@@ -1565,6 +1606,10 @@ def create_flat_texture_materials(
         if binding is not None:
             texture, transform = binding
             uv = _atlas_uv(material, transform)
+            # An in-place update leaves the pre-atlas sampler in the graph,
+            # and a disconnected sampler still holds -- and still cooks --
+            # the texture the page replaced.
+            retired += _retire_pre_atlas_samples(material, texture)
             atlassed.append(name)
         else:
             texture = _load_texture(source_asset)
@@ -1644,6 +1689,12 @@ def create_flat_texture_materials(
         unreal.log_warning(
             f"[IndieGame] {len(atlassed)} print material(s) read the shared "
             "atlas page instead of their own texture"
+        )
+    if retired:
+        unreal.log_warning(
+            f"[IndieGame] retired {retired} pre-atlas sampler reference(s); "
+            "without this a targeted in-place pass keeps the replaced "
+            "textures in the cook"
         )
     if skipped:
         unreal.log_warning(

@@ -234,12 +234,65 @@ value  := struct | array | '"' ... '"' | bare | <빈 값>
 없어도 쿠킹된다(여기선 잉여)」/「쿠킹 안 된다」를 답한다. 지금 12/12가
 `HELD BY THIS RULE`이다.
 
+### 아틀라스 49장도 같은 방식으로 — `--simulate-rebuild`
+
+머티리얼 재굽기 뒤의 상태는 에디터를 돌려야 관찰되지만, 재굽기가 바꾸는
+것은 머티리얼마다 **간선 하나**다 — 확산 샘플이 개별 텍스처에서 페이지로
+옮겨간다. 그래서 그 편집을 그래프에 직접 하고 도달성을 다시 계산한다.
+추측이 아니라 재굽기가 하는 일 그대로다.
+
+중요한 출력은 「텍스처가 빠진다」가 아니라 **그 외에 무엇이 빠지고 무엇이
+안 빠지는가**다. 다섯 가지를 본다.
+
+- 메시 슬롯 등 **머티리얼이 아닌 참조자** — 재굽기가 건드리지 않으므로
+  그 텍스처는 계속 실린다. 시뮬레이션도 그 간선을 건드리지 않는다
+  (`/Game/Prototype/Materials` 밖의 참조자는 `stragglers`로 보고)
+- 쿠킹 **규칙이나 AlwaysCook 디렉터리가 덮는** 텍스처 — 페이지 값만 내고
+  절감은 없다
+- `T_Photo_` **쌍둥이** — `_load_texture`가 사진 캡처를 먼저 고르므로,
+  절차 원본으로 구운 페이지는 화면에 다른 그림을 올리고 쿠킹에 남는 것도
+  계약한 쪽이 아니다
+- **살아남은 재굽기 이전 샘플러** (아래)
+- 그 텍스처를 통해서만 닿던 패키지 — 재굽기가 만드는 **부수 피해**
+
+현재 결과: **49/49 빠지고, 그 외에 빠지는 것 없고, 페이지 4장이 들어오고,
+규칙이나 디렉터리가 붙드는 것 없음.**
+
+### `update_in_place`가 남기던 참조
+
+`create_flat_texture_materials(..., update_in_place=True)`는 옛 표현식을
+지우지 않고 새 그래프를 **덧붙인** 뒤 출력만 다시 연결한다(프롤로그 CDO가
+잡고 있는 머티리얼에서 표현식을 지우면 에디터가 죽을 수 있어서 그렇게
+돼 있다). 컴파일된 셰이더에서는 끊긴 노드가 정리되니 아틀라스 전까지는
+무해했다.
+
+그런데 **끊긴 `UMaterialExpressionTextureSample`도 `UTexture2D` 하드
+포인터를 그대로 들고 있고, 그 포인터는 직렬화된다.** 그래서 표적 패스가
+마지막으로 만진 머티리얼은 페이지를 그리면서 개별 텍스처를 쿠킹에 남긴다.
+해당하는 모드는 둘이고 49장 중 18장을 건드린다.
+
+| 모드 | 머티리얼 | 아틀라스 텍스처 |
+|---|---|---|
+| `IG_PROP_RESPONSE_ONLY` | 종이 4 + 라벨 6 + 스낵 4 | 12 |
+| `IG_CORRIDOR_SIGNAGE_ONLY` | 메모 3 + AUX 라벨 + 호수판 2 | 6 |
+
+`_retire_pre_atlas_samples()`가 아틀라스 경로를 타는 머티리얼에서 남은
+계약 텍스처 샘플러를 찾아 **그 `texture`를 페이지로 돌려놓는다.** 표현식을
+지우지 않으므로 CDO 문제도 없고, 죽은 노드는 그대로 끊긴 채 남되 더는
+텍스처를 지목하지 않는다. 동반 노멀/러프니스 맵은 계약 목록에 없으므로
+건드리지 않는다.
+
+이건 UE 없이는 실행할 수 없으므로 **정적 감시도 같이 둔다.** 페이지와 그
+페이지가 대체한 텍스처를 **동시에** 참조하는 패키지는 `--check`가
+실패시킨다 — 어느 패스가 그 머티리얼을 썼든 걸린다.
+
 ```
 python3 Scripts/check_cook_references.py                          # 보고
 python3 Scripts/check_cook_references.py --check                  # 걸리면 1
 python3 Scripts/check_cook_references.py --check \
         --require-atlas-dropped                                   # 머티리얼 재굽기 후
 python3 Scripts/check_cook_references.py --explain-rules           # 규칙별 에셋 판정
+python3 Scripts/check_cook_references.py --simulate-rebuild        # 재굽기 후의 델타
 python3 Scripts/check_cook_references.py --self-test              # 검사기 자체 검증
 python3 Scripts/check_cook_references.py --json
 ```
@@ -296,6 +349,7 @@ Scripts/Validate-Project.ps1
   build_texture_atlas.py --self-test
   check_cook_references.py --self-test
   check_cook_references.py --check
+  check_cook_references.py --simulate-rebuild
 ```
 
 아틀라스만 다시 돌릴 때는 아트 빌드 전체를 돌릴 이유가 없다.
@@ -324,10 +378,18 @@ Scripts/Run-PrintAtlas.ps1 -SkipPack # 이미 구운 페이지를 쓴다
   커밋된 머티리얼이 아직 자기 텍스처를 샘플하기 때문이고, 에디터가
   머티리얼을 다시 구운 뒤에야 빠진다. §4의 검사기가 그때그때의 실제
   숫자를 답한다(지금: `0/49 out of the cook, 49 still in`).
-  빠진 뒤의 상태는 정적으로 확인했다 — 49장 각각을 참조하는 쿠킹 패키지는
-  자기 인쇄 머티리얼 하나뿐이고, 메시·맵·UI·포토 프롭 어느 것도 참조하지
-  않으며, C++에서 경로로 부르는 것도 없다. 다만 이것은 참조 그래프를 읽은
-  결과이지 실제 쿠킹 로그가 아니다.
+  빠진 뒤의 상태는 `--simulate-rebuild`로 확인했다 — **49/49 빠지고,
+  그 외에 빠지는 것 없고, 페이지 4장이 들어오고, 규칙이나 AlwaysCook
+  디렉터리가 붙드는 것도 `T_Photo_` 쌍둥이도 없다.** 49장 각각의 참조자는
+  자기 인쇄 머티리얼 하나뿐이고(메시·맵·UI·포토 프롭 어디에도 없다),
+  C++에서 경로로 부르는 것도 없다. 다만 이것은 참조 그래프를 읽고
+  재굽기를 흉내낸 결과이지 실제 쿠킹 로그가 아니다.
+- `_retire_pre_atlas_samples()`는 **UE에서 돌려본 적이 없다.**
+  `update_in_place` 경로에서 끊긴 샘플러가 텍스처를 붙들고 있었다는 사실과
+  그 모드가 49장 중 18장을 건드린다는 사실 쪽은 코드에서 확실하다. 고친
+  것이 실제로 듣는지는 `--check`의 정적 감시(페이지와 옛 텍스처를 동시에
+  참조하는 패키지)가 답하는데, 그 감시는 에디터가 한 번은 돌아야 의미가
+  있다.
 - `IGHudTexture` 규칙은 **언리얼로 파싱해 본 것이 아니다.** 대신 언리얼의
   `ImportText` 문법을 구현해(§4의 `ue_config.py`) 파싱했고, 12장 전부
   경로가 트리의 패키지로 풀리고 `Package.Object` 두 쪽이 일치하고

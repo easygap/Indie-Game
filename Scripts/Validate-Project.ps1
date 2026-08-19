@@ -2689,6 +2689,15 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Cook reference audit found unreachable assets ($LASTEXITCODE)"
 	}
+
+	# The atlas only saves anything if the textures it replaced stop being
+	# cooked. That cannot be observed until the editor rebuilds the print
+	# materials, so this moves the one edge per material the rebuild moves and
+	# reports the whole delta -- including what would break.
+	& $python.Source $cookReferences --simulate-rebuild
+	if ($LASTEXITCODE -ne 0) {
+		throw "The atlas rebuild would not drop the textures it replaces ($LASTEXITCODE)"
+	}
 } else {
 	Write-Warning 'python not found; skipped the geometry audit, atlas self-test and cook reference audit.'
 }

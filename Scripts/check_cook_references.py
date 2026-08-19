@@ -28,6 +28,16 @@ an asset that is not in the tree, an AssetBaseClass the named assets are not.
 ``--explain-rules`` then re-runs reachability with the rules removed and says,
 one asset at a time, whether the rule is what keeps it.
 
+``--simulate-rebuild`` answers the atlas half the same way, before the editor
+has run. The rebuild changes exactly one edge per material -- the diffuse
+sample moves from the texture to the page -- so the simulation makes that edit
+to the graph and re-runs reachability. What matters in the output is not that
+the textures leave; it is what else does, and what refuses to. A mesh slot
+naming a texture directly, a cook rule covering one, a ``T_Photo_`` twin the
+material samples instead, a pre-atlas sampler that survived an in-place
+update, or a package reachable only through a texture: each is a page paid for
+and nothing saved, or a shipping bug the atlas caused.
+
 Two things this deliberately does not do:
 
 * It does not parse Unreal's package format. It scans each package for
@@ -51,6 +61,7 @@ Run with:
     python Scripts/check_cook_references.py --check \\
         --require-atlas-dropped   # after the editor rebuilt the materials
     python Scripts/check_cook_references.py --explain-rules
+    python Scripts/check_cook_references.py --simulate-rebuild
     python Scripts/check_cook_references.py --self-test
     python Scripts/check_cook_references.py --json
 """
@@ -67,6 +78,7 @@ SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
 if SCRIPT_DIR not in sys.path:
     sys.path.insert(0, SCRIPT_DIR)
 
+import texture_atlas_contract  # noqa: E402
 import ue_config  # noqa: E402
 from texture_atlas_contract import (  # noqa: E402
     ATLAS_EXCLUSIONS,
@@ -121,6 +133,10 @@ COOK_RULES = frozenset({
 SOFT_OBJECT_PATH = re.compile(
     r"^(/Game/[A-Za-z0-9_/]+?/([A-Za-z0-9_]+))\.([A-Za-z0-9_]+)$")
 
+# Where create_textured_materials.py writes. The rebuild rewrites references
+# from here and nowhere else.
+MATERIAL_ROOT = "/Game/Prototype/Materials"
+
 
 class CookAudit:
     """The cook's reachable set, and everything that disagrees with it."""
@@ -132,6 +148,8 @@ class CookAudit:
         self.game_config = os.path.join(project_root, "Config", "DefaultGame.ini")
         self.engine_config = os.path.join(
             project_root, "Config", "DefaultEngine.ini")
+        self.atlas_manifest = os.path.join(
+            project_root, "Content", "SourceArt", "Atlas", "print_atlas.json")
         self.always_cook: list[str] = []
         self.never_cook: list[str] = []
         self.always_cook_assets: set[str] = set()
@@ -520,6 +538,164 @@ def atlas_entries_loaded_by_code(
     return conflicts
 
 
+def atlas_rule_cover(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
+    """Which contracted textures a cook rule or directory would hold anyway.
+
+    The whole saving rests on nothing naming these except the materials that
+    are about to stop naming them. A rule or an always-cook directory that
+    covers one keeps it in the pak after the rebuild, and it is then paying
+    for a page it does not use.
+    """
+    covered = {}
+    for stem in entries:
+        package = f"{ATLAS_TEXTURE_ROOT}/{stem}"
+        reasons = []
+        if package in audit.always_cook_assets:
+            for rule in audit.primary_asset_rules:
+                if package in rule.packages:
+                    reasons.append(
+                        f"named by the {rule.name} rule "
+                        f"({audit.engine_config}:{rule.line})")
+        for directory in audit.always_cook:
+            if _is_under(package, directory):
+                reasons.append(f"inside always-cook directory {directory}")
+        if audit.packages.get(package, "").endswith(".umap"):
+            reasons.append("is a map, which is always a cook root")
+        if reasons:
+            covered[stem] = reasons
+    return covered
+
+
+def atlas_photo_shadows(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
+    """Contracted textures that have a `T_Photo_` twin in the tree.
+
+    create_textured_materials._load_texture prefers the photo capture over the
+    procedural texture of the same name. Where one exists the material samples
+    it, so a page packed from the procedural source would put different art on
+    screen -- and the photo twin, not the contracted one, is what stays cooked.
+    """
+    shadows = {}
+    for stem in entries:
+        if not stem.startswith("T_"):
+            continue
+        twin = f"{ATLAS_TEXTURE_ROOT}/T_Photo_{stem[2:]}"
+        if twin in audit.packages:
+            shadows[stem] = twin
+    return shadows
+
+
+def atlas_stale_samples(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
+    """Packages that reference an atlas page *and* a texture it replaced.
+
+    A material that reads the page has no use for the individual texture, so
+    naming both means the pre-atlas sampler survived the rebuild -- which is
+    what the in-place update path does if nothing retires it. The material
+    draws from the page and the texture still ships: the page is paid for and
+    nothing is saved.
+    """
+    contracted = {f"{ATLAS_TEXTURE_ROOT}/{stem}" for stem in entries}
+    page_prefix = f"{ATLAS_TEXTURE_ROOT}/{texture_atlas_contract.ATLAS_PAGE_PREFIX}"
+    stale = {}
+    for package in sorted(audit.cooked):
+        references = audit.references.get(package, set())
+        if not any(other.startswith(page_prefix) for other in references):
+            continue
+        left_over = sorted(references & contracted)
+        if left_over:
+            stale[package] = left_over
+    return stale
+
+
+def simulate_atlas_rebuild(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
+    """Re-run reachability as if the editor had rebuilt the print materials.
+
+    The rebuild changes exactly one thing per material: the diffuse sample
+    moves from the individual texture to the atlas page. So the simulation is
+    an edit to the graph, not a guess -- for every package that references a
+    contracted texture, swap that edge for an edge to the page the manifest
+    put it on. Everything else about the material, including the companion
+    normal/roughness maps it also samples, is left alone because the rebuild
+    leaves it alone.
+
+    The interesting output is not that the textures leave. It is what *else*
+    leaves, because a collateral drop is a shipping bug the atlas caused.
+    """
+    # Layout only: which stem landed on which page. Whether the manifest holds
+    # the contracted set is build_texture_atlas.py --check's question.
+    manifest = texture_atlas_contract.try_load_manifest(
+        audit.atlas_manifest, strict=False)
+    pages = {}
+    if manifest is not None:
+        for stem in entries:
+            entry = (manifest.get("entries") or {}).get(stem)
+            if entry is not None:
+                pages[stem] = texture_atlas_contract.page_package_path(
+                    entry["page"])
+
+    after = CookAudit(audit.project_root)
+    after.always_cook = list(audit.always_cook)
+    after.never_cook = list(audit.never_cook)
+    after.always_cook_assets = set(audit.always_cook_assets)
+    after.primary_asset_rules = audit.primary_asset_rules
+    after.packages = dict(audit.packages)
+    after.unreadable = set(audit.unreadable)
+    after.code_paths = audit.code_paths
+    after.references = {
+        package: set(references)
+        for package, references in audit.references.items()
+    }
+
+    # The pages do not exist until the editor imports them; the graph has to
+    # carry them for the rebuild to be reachable through.
+    for page in set(pages.values()):
+        after.packages.setdefault(page, "<imported by the atlas stage>")
+        after.references.setdefault(page, set())
+
+    # Only the print materials are rebuilt. An edge from anywhere else -- a
+    # mesh's material slot, a map, a data asset -- is one create_textured_
+    # materials.py never touches, so the simulation must not touch it either:
+    # that texture goes on shipping and the page is spent for nothing.
+    material_root = MATERIAL_ROOT
+    rewritten = {}
+    stragglers = {}
+    for stem in entries:
+        package = f"{ATLAS_TEXTURE_ROOT}/{stem}"
+        page = pages.get(stem)
+        if page is None:
+            continue
+        for referrer, references in after.references.items():
+            if package not in references:
+                continue
+            if _is_under(referrer, material_root):
+                references.discard(package)
+                references.add(page)
+                rewritten.setdefault(stem, []).append(referrer)
+            else:
+                stragglers.setdefault(stem, []).append(referrer)
+
+    _seed_roots(after)
+    _close(after)
+
+    dropped = sorted(audit.cooked - after.cooked)
+    gained = sorted(after.cooked - audit.cooked)
+    expected = {
+        f"{ATLAS_TEXTURE_ROOT}/{stem}" for stem in entries
+        if stem in pages
+    }
+    return {
+        "after": after,
+        "pages": sorted(set(pages.values())),
+        "rewritten": rewritten,
+        "stragglers": stragglers,
+        "dropped": dropped,
+        "gained": gained,
+        "atlas_dropped": sorted(expected & set(dropped)),
+        "atlas_kept": sorted(
+            package for package in expected if package in after.cooked),
+        "collateral": sorted(set(dropped) - expected),
+    }
+
+
 def cook_rule_problems(audit: CookAudit) -> list[tuple[PrimaryAssetRule, str]]:
     """Every reason a parsed Asset Manager rule would not do what it says."""
     return [
@@ -606,6 +782,13 @@ def gate(
         return 1, (
             f"FAIL {len(code_only)} asset(s) only code reaches; they are "
             "absent from the pak and null at runtime"
+        )
+
+    stale = atlas_stale_samples(audit, entries)
+    if stale:
+        return 1, (
+            f"FAIL {len(stale)} material(s) reference both an atlas page and "
+            "a texture it replaced; the page is paid for and nothing saved"
         )
 
     still_cooked = atlas_status(audit, entries)["still_cooked"]
@@ -782,6 +965,101 @@ def hud_texture_rule(assets: str, **overrides: str) -> str:
     return f"+{PRIMARY_ASSET_SETTING}=({body})"
 
 
+def command_simulate_rebuild(audit: CookAudit) -> int:
+    """Report the whole delta of the material rebuild, and fault the surprises.
+
+    Three ways this can be wrong, all of them checked here rather than
+    asserted: something other than a print material references a contracted
+    texture, so the rebuild leaves it cooked; a rule or an always-cook
+    directory covers one, so it ships regardless; or a texture with a
+    `T_Photo_` twin is not actually the one the material samples.
+    """
+    blind = blind_spots(audit)
+    if blind:
+        print(
+            f"SKIP {len(blind)} cooked package(s) not fetched from LFS. A "
+            "texture whose material could not be opened looks unreferenced, "
+            "so every entry would report as dropping. Run git lfs pull."
+        )
+        return 0
+
+    result = simulate_atlas_rebuild(audit)
+    covered = atlas_rule_cover(audit)
+    shadows = atlas_photo_shadows(audit)
+    stale = atlas_stale_samples(audit)
+    findings = 0
+
+    print(f"ATLAS REBUILD SIMULATION  {len(PRINT_ATLAS_ENTRIES)} contracted "
+          f"textures onto {len(result['pages'])} page(s)")
+    if not result["pages"]:
+        # The atlas is optional by design: no manifest means the materials
+        # keep their own textures and the build still ships.
+        print("  SKIP no packed atlas; run Scripts/build_texture_atlas.py")
+        return 0
+
+    for stem in PRINT_ATLAS_ENTRIES:
+        package = f"{ATLAS_TEXTURE_ROOT}/{stem}"
+        referrers = sorted(
+            other for other in audit.cooked
+            if package in audit.references.get(other, ())
+        )
+        stragglers = result["stragglers"].get(stem, [])
+        note = ""
+        if package in result["atlas_dropped"]:
+            verdict = "drops out"
+        elif package not in audit.cooked:
+            verdict = "already out"
+        else:
+            verdict = "STAYS IN"
+            findings += 1
+        if stem in covered:
+            note = "; " + "; ".join(covered[stem])
+            findings += 1
+        if stem in shadows:
+            note += f"; shadowed by {shadows[stem].rsplit('/', 1)[-1]}"
+            findings += 1
+        if stragglers:
+            note += "; not a print material: " + ", ".join(
+                s.rsplit("/", 1)[-1] for s in stragglers)
+            findings += 1
+        print(
+            f"  {verdict:12s} {stem:32s} "
+            f"{len(referrers)} referrer(s){note}"
+        )
+
+    print(
+        f"\n  {len(result['atlas_dropped'])}/{len(PRINT_ATLAS_ENTRIES)} leave "
+        f"the cook, {len(result['atlas_kept'])} stay"
+    )
+    print(f"  pages enter the cook: {len(result['gained'])} package(s)")
+    for package in result["gained"]:
+        print(f"      + {package}")
+    if result["collateral"]:
+        findings += len(result["collateral"])
+        print(f"\n  {len(result['collateral'])} package(s) leave that are not "
+              "contracted textures -- the rebuild would break these:")
+        for package in result["collateral"]:
+            print(f"      - {package}")
+    else:
+        print("  nothing else leaves the cook")
+
+    if stale:
+        findings += len(stale)
+        print(f"\n  {len(stale)} material(s) already name a page and a texture "
+              "it replaced; the pre-atlas sampler survived:")
+        for package, left_over in stale.items():
+            print(f"      {package.rsplit('/', 1)[-1]} -> "
+                  + ", ".join(s.rsplit("/", 1)[-1] for s in left_over))
+
+    if findings:
+        print(f"\nFAIL {findings} finding(s): the rebuild would not do what "
+              "the atlas contract says")
+        return 1
+    print("\nPASS every contracted texture leaves the cook on the rebuild, "
+          "nothing else does, and no rule or directory holds one back")
+    return 0
+
+
 def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
     """A small project: a map, a mesh, a print material and three textures.
 
@@ -817,6 +1095,24 @@ def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
     package("Prototype/Textures/T_Print_D.uasset", "Texture2D")
     package("Prototype/Textures/T_PrintAtlas0_D.uasset", "Texture2D")
     package("Prototype/Textures/T_HudFrame_D.uasset", "Texture2D")
+
+    # A one-entry manifest, so the rebuild simulation has a page to move the
+    # contracted texture onto. Geometry only; membership is the packer's check.
+    atlas = os.path.join(root, "Content", "SourceArt", "Atlas")
+    os.makedirs(atlas, exist_ok=True)
+    with open(os.path.join(atlas, "print_atlas.json"), "w") as handle:
+        json.dump({
+            "version": texture_atlas_contract.MANIFEST_VERSION,
+            "page_size": texture_atlas_contract.PAGE_SIZE,
+            "gutter": texture_atlas_contract.GUTTER,
+            "pages": [{"index": 0, "width": 256, "height": 256}],
+            "entries": {
+                "T_Print_D": {
+                    "page": 0, "x": 0, "y": 0, "w": 128, "h": 128,
+                    "uv_scale": [0.5, 0.5], "uv_bias": [0.0, 0.0],
+                },
+            },
+        }, handle)
 
     source = os.path.join(root, "Source", "Player")
     os.makedirs(source, exist_ok=True)
@@ -918,6 +1214,74 @@ def command_self_test() -> int:
             assert code == 1 and message.startswith("FAIL"), \
                 f"a rule broken by {name} did not fail the gate"
 
+        # 2c. The rebuild simulation, forwards. Before the editor runs, the
+        #     material still samples its own texture, and moving that one edge
+        #     to the page takes the texture out of the cook and nothing else.
+        before_root = os.path.join(tmp, "before")
+        audit = run_audit(before_root)
+        result = simulate_atlas_rebuild(audit, entries)
+        print_texture = f"{ATLAS_TEXTURE_ROOT}/T_Print_D"
+        page = f"{ATLAS_TEXTURE_ROOT}/T_PrintAtlas0_D"
+        assert result["pages"] == [page], \
+            f"the manifest's page was not resolved: {result['pages']}"
+        assert result["atlas_dropped"] == [print_texture], \
+            f"the contracted texture did not leave the cook: {result}"
+        assert not result["atlas_kept"] and not result["collateral"], \
+            f"the rebuild moved more than the one edge: {result}"
+        assert result["gained"] == [page], \
+            f"the page did not enter the cook: {result['gained']}"
+
+        # 2d. Every way the rebuild can fail to save anything, or break
+        #     something. Each is a real shape: a mesh slot naming the texture
+        #     directly, a cook rule covering it, a photo twin the material
+        #     actually samples, the pre-atlas sampler surviving an in-place
+        #     update, and a package reachable only through the texture.
+        def tamper(name, files=None, engine=None):
+            root = _fixture(
+                os.path.join(tmp, "sim_" + name), engine or good_rule,
+                f"{ATLAS_TEXTURE_ROOT}/T_Print_D")
+            for relative, body in (files or {}).items():
+                path = os.path.join(root, "Content", *relative.split("/"))
+                os.makedirs(os.path.dirname(path), exist_ok=True)
+                with open(path, "wb") as handle:
+                    handle.write(body.encode("ascii"))
+            return run_audit(root)
+
+        audit = tamper("mesh_referrer", {
+            "Meshes/SM_Placed.uasset": f"StaticMesh {print_texture}"})
+        result = simulate_atlas_rebuild(audit, entries)
+        assert result["stragglers"].get("T_Print_D") == ["/Game/Meshes/SM_Placed"], \
+            "a referrer the rebuild does not touch was not reported"
+        assert result["atlas_kept"] == [print_texture], \
+            "a texture a mesh also names was reported as leaving the cook"
+
+        audit = tamper("rule_cover", engine=hud_texture_rule(
+            f'"{hud}.T_HudFrame_D","{print_texture}.T_Print_D"'))
+        assert atlas_rule_cover(audit, entries), \
+            "a cook rule covering a contracted texture was not reported"
+
+        audit = tamper("photo_twin", {
+            f"Prototype/Textures/T_Photo_Print_D.uasset": "Texture2D"})
+        assert atlas_photo_shadows(audit, entries) == {
+            "T_Print_D": f"{ATLAS_TEXTURE_ROOT}/T_Photo_Print_D"}, \
+            "a photo twin the material would sample instead was not reported"
+
+        audit = tamper("stale_sample", {
+            "Prototype/Materials/M_Print.uasset": f"{page} {print_texture}"})
+        assert atlas_stale_samples(audit, entries), \
+            "a material naming both a page and its old texture was accepted"
+        code, message = gate(audit, entries=entries)
+        assert code == 1 and message.startswith("FAIL"), \
+            "a surviving pre-atlas sampler did not fail the gate"
+
+        audit = tamper("collateral", {
+            "Prototype/Textures/T_Print_D.uasset":
+                "Texture2D /Game/Meshes/SM_Orphan",
+            "Meshes/SM_Orphan.uasset": "StaticMesh"})
+        result = simulate_atlas_rebuild(audit, entries)
+        assert result["collateral"] == ["/Game/Meshes/SM_Orphan"], \
+            f"a package the rebuild orphans was not reported: {result}"
+
         # 3. The conflict the atlas contract exists to prevent: a texture on
         #    a page that code also loads by path.
         audit = run_audit(after)
@@ -954,7 +1318,8 @@ def command_self_test() -> int:
     print(
         f"PASS cook reference self-test: code-only detection, SpecificAssets "
         f"coverage and load-bearing, atlas drop before and after the material "
-        f"rebuild, the code-load conflict, the unfetched-LFS hole, and "
+        f"rebuild, 5 ways the rebuild can save nothing or break something, "
+        f"the code-load conflict, the unfetched-LFS hole, and "
         f"{len(tampered)} ways a cook rule can look right and hold nothing"
     )
     return 0
@@ -976,6 +1341,10 @@ def main(argv=None) -> int:
         "--explain-rules", action="store_true",
         help="walk the Asset Manager cook rules asset by asset and report, "
              "for each, whether the rule is what keeps it in the cook")
+    parser.add_argument(
+        "--simulate-rebuild", action="store_true",
+        help="re-run reachability as if the editor had rebuilt the print "
+             "materials, and report the whole delta of that rebuild")
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
@@ -984,6 +1353,8 @@ def main(argv=None) -> int:
     audit = run_audit()
     if arguments.explain_rules:
         return command_explain_rules(audit)
+    if arguments.simulate_rebuild:
+        return command_simulate_rebuild(audit)
     conflicts = atlas_entries_loaded_by_code(audit)
     code_only = code_only_assets(audit)
     status = atlas_status(audit)
