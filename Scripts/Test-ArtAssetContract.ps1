@@ -124,6 +124,7 @@ $requiredMaterialTextures = @(
 	'T_HudDialogueFilm_D.png',
 	'T_MissingFloorJournalPaper_D.png',
 	'T_ApartmentWallpaperV2_D.png',
+	'T_ApartmentWallpaperEmboss_D.png',
 	'T_MissingFloorDryPlaster_D.png',
 	'T_MovingBoxCardboard_D.png',
 	'T_KoreanVillaStucco_D.png'

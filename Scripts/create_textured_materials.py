@@ -35,6 +35,15 @@ SURFACE_RESPONSE_DEFAULTS = {
         "roughness_detail_scale": 3.1, "ao_strength": 0.82,
         "specular": 0.28,
     },
+    # 무지 엠보싱 벽지. macro는 꺼 둔다 — 저주파 복사본을 겹치는 장치는
+    # 무늬의 반복을 깨려는 것인데, 이쪽은 깰 무늬가 없고 세로 결만 있어서
+    # 밝기만 흔들리며 결이 흐려진다. 결의 방향성은 노멀이 소유한다.
+    "ApartmentWallpaperEmboss": {
+        "macro_strength": 0.0,
+        "normal_strength": 1.14, "roughness_detail_strength": 0.05,
+        "roughness_detail_scale": 3.1, "ao_strength": 0.86,
+        "specular": 0.30,
+    },
     "WoodDark": {
         "normal_strength": 1.12, "roughness_detail_strength": 0.10,
         "roughness_detail_scale": 3.7, "specular": 0.38,
@@ -131,6 +140,14 @@ TEXTURED_MATERIALS = {
     "M_WallpaperCeil":  {"tex": "ApartmentWallpaperV2", "mapping": "XY", "tile": 220.0,
                          "rough": 0.92, "ao": True, "desaturate": 0.82,
                          "tint": (0.48, 0.48, 0.46)},
+    # 403호 벽지. 주인공 집과 같은 165cm 반복이라 벽에서 밀도가 같고,
+    # 무늬가 없으므로 손전등이 훑을 때 세로 결만 다르게 읽힌다.
+    "M_WallpaperEmboss_X": {"tex": "ApartmentWallpaperEmboss", "mapping": "XZ",
+                            "tile": 165.0, "rough": 0.86, "ao": True,
+                            "tint": (0.74, 0.76, 0.72)},
+    "M_WallpaperEmboss_Y": {"tex": "ApartmentWallpaperEmboss", "mapping": "YZ",
+                            "tile": 165.0, "rough": 0.86, "ao": True,
+                            "tint": (0.74, 0.76, 0.72)},
     "M_WoodFurnitureUV": {"tex": "WoodDark", "mapping": "UV", "tile": 1.0, "rough": 0.55},
     "M_BeddingUV":      {"tex": "Blanket", "mapping": "UV", "tile": 2.0, "rough": 0.95},
     # --- alley -------------------------------------------------------------
@@ -3207,6 +3224,8 @@ def run():
             "M_Wallpaper_X",
             "M_Wallpaper_Y",
             "M_WallpaperCeil",
+            "M_WallpaperEmboss_X",
+            "M_WallpaperEmboss_Y",
         )
         apartment_materials = create_textured_materials(
             assets,

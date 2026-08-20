@@ -1021,6 +1021,9 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 	const TCHAR* MaterialNames[] = {
 		TEXT("M_Jangpan"), TEXT("M_Wallpaper_X"), TEXT("M_Wallpaper_Y"),
 		TEXT("M_WallpaperCeil"), TEXT("M_ApartmentWallPatina"),
+		// 403's paper. TexMat only reads this map, so a material missing from
+		// this list is a material the scene can never reach.
+		TEXT("M_WallpaperEmboss_X"), TEXT("M_WallpaperEmboss_Y"),
 		TEXT("M_WoodFurnitureUV"), TEXT("M_BeddingUV"),
 		TEXT("M_AsphaltWorld"), TEXT("M_Brick_X"), TEXT("M_Brick_Y"),
 		TEXT("M_VillaStucco_X"), TEXT("M_VillaStucco_Y"),
@@ -2900,8 +2903,16 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// boundary; this avoids a hitch exactly where the cut must feel seamless.
 	ActiveParent = UpperFloorRoot;
 
-	UMaterialInterface* RoomWallX = TexMat(TEXT("M_Wallpaper_X"), WallMaterial);
-	UMaterialInterface* RoomWallY = TexMat(TEXT("M_Wallpaper_Y"), WallMaterial);
+	// 403 is papered differently from the player's own flat. It was using the
+	// same floral V2, which quietly said the impossible room is a copy of your
+	// room -- and the whole beat is that it is somebody else's. Plain embossed
+	// vinyl is the other common Korean villa paper, so it reads as a different
+	// household at a glance without reading as a different building. Falls
+	// back to WallMaterial until the art build has produced the texture.
+	UMaterialInterface* RoomWallX =
+		TexMat(TEXT("M_WallpaperEmboss_X"), WallMaterial);
+	UMaterialInterface* RoomWallY =
+		TexMat(TEXT("M_WallpaperEmboss_Y"), WallMaterial);
 	UMaterialInterface* RoomFloor = TexMat(TEXT("M_Jangpan"), FloorMaterial);
 	UMaterialInterface* RoomCeiling = TexMat(TEXT("M_StuccoCeil"), ConcreteMaterial);
 	UMaterialInterface* Furniture = TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial);
