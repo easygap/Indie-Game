@@ -192,8 +192,10 @@ LFS를 받지 않은 체크아웃에서도 이 검증만은 돌아간다. 원본
 - `ABSENT` — 코드가 부르는 경로에 에셋이 아예 없다. 아직 아트 런이 굽지
   않은 것일 수 있어 보고만 하고 실패시키지 않는다.
 
-여기에 실패시키지 않는 보고가 하나 더 있다. 쌍의 **안 쓰는 반쪽**
-(쿠킹 안 되고, 참조도 없고, 코드도 안 부르는 것)은 세어서 이름만 찍는다.
+여기에 실패시키지 않는 보고가 둘 더 있다. 쌍의 **안 쓰는 반쪽**(쿠킹
+안 되고, 참조도 없고, 코드도 안 부르는 것)은 세어서 이름만 찍고,
+`UNUSED_CAPTURE`는 임포트 결과를 아무것도 안 그리는 **캡처 폴더**를
+그 안에 든 스캔 이름과 함께 찍는다.
 
 `CODE_ONLY`로 걸린 HUD 텍스처 12장(노크·포옹 프레임 각 4, 대화 필름
 그레인, 보정 벽, 일지 종이, 브러시드 메탈)은 `DefaultEngine.ini`의
@@ -384,10 +386,49 @@ HUD를 캡처 쪽으로 돌리고 `SpecificAssets`에서 `T_MetalBrushed_D`를 �
 
 `T_Asphalt_*`, `T_Blanket_*`, `T_Brick_*`, `T_CeilingTile_*`,
 `T_Concrete_*`, `T_Jangpan_*`, `T_MetalBrushed_*`, `T_StoreTile_*`,
-`T_WoodDark_*` — 캡처가 이겨서 남은 절차 원본들. 그리고
-`T_Wallpaper_D/N`과 `T_Photo_Wallpaper_D/N`은 **양쪽 다** 죽어 있다:
-머티리얼 스펙이 쓰는 이름은 `ApartmentWallpaperV2`이지 `Wallpaper`가
-아니다. 지우는 것은 에디터 작업이라 손대지 않았다.
+`T_WoodDark_*` — 캡처가 이겨서 남은 절차 원본 25장. 나머지 둘은 캡처인데
+아무것도 못 이긴 쪽이고, 그건 아래 이야기다.
+
+### 벽지 캡처는 벽지가 아니다 — `UNUSED_CAPTURE`
+
+`Content/SourceArt/Photo/Wallpaper/`에 들어 있는 것은 AmbientCG
+**`Plaster003`** — 회벽 스캔이다. 그런데 `import_photo_textures.py`는
+**폴더 이름으로** 에셋 이름을 짓는다.
+
+```python
+plan.append((os.path.join(surface_dir, entry), f"T_Photo_{surface}_{role}"))
+```
+
+그래서 회벽 스캔이 `T_Photo_Wallpaper_{D,N}`이 됐다. 폴더 이름이 그
+캡처가 무엇인지 말하는 **유일한** 근거인데 그 이름이 내용과 다르다.
+
+정작 아파트 벽은 `ApartmentWallpaperV2`를 쓴다 — `Prepare-AIArt.ps1:282`의
+ImageGen `TextureApartmentWallpaperVintage`, 무늬가 있는 한국식 빌라 벽지다.
+회벽 스캔으로는 그 자리를 대신할 수 없다. 그리고 회벽은 이미
+`Photo/Stucco/`의 **`Plaster004`**(같은 라이브러리의 형제)가 맡고 있으므로,
+`Plaster003`은 소비자 없는 중복이다.
+
+히스토리를 봐도 **한 번도 연결된 적이 없다.** 전체 이력에서
+`"tex": "Wallpaper"` 를 찾으면 아무것도 안 나오고, 캡처 폴더와
+`T_ApartmentWallpaperV2` 아트가 같은 커밋(`20025a4`)에 함께 들어왔다.
+나중에 밀려난 것이 아니라 처음부터 배선된 적이 없다.
+
+같은 이름으로 죽어 있는 것이 하나 더 있다.
+`generate_surface_textures.py`의 `SURFACES["Wallpaper"] = build_wallpaper`가
+매 빌드 `T_Wallpaper_D/N`을 굽는데(「pale weave wallpaper」), 이것도
+소비자가 없다. 절차 원본과 캡처 둘 다 살아 있는 스펙 이름이 없는 채로
+계속 만들어지고 있다.
+
+검사기가 이걸 잡는다. 캡처 폴더 14개 중 임포트 결과를 아무 머티리얼도
+안 그리는 것을 찾아, **폴더 안에 실제로 무엇이 있는지까지** 찍는다.
+
+```
+[UNUSED_CAPTURE] SourceArt/Photo/Wallpaper/ holds Plaster003
+    imported as T_Photo_Wallpaper_D every art build; no material samples it
+```
+
+실패시키지는 않는다 — 빌드가 깨진 것이 아니라 죽은 아트다. 무엇을 지울지는
+결정할 일이라 폴더도 `build_wallpaper`도 손대지 않았다.
 
 다만 이 쌍이 증명하는 것은 **회수가 결정적이라는 것**이지 회수가 실제로
 동작한다는 것이 아니다. 언리얼이 프로퍼티를 설정하는 것을 정적 검사가 볼
@@ -415,13 +456,14 @@ HUD 소스 하나)를 임시 디렉터리에 짓고 확인한다. 머티리얼 �
 전부 잡는 것. SKIP이 특히 중요하다 — 참조 그래프에 구멍이 있으면
 「닿지 않는다」도 「닿는다」도 판정이 아니다.
 
-돌연변이 스물여덟을 넣어 전부 잡히는 것까지 확인했다 — 문자열 연결 복원,
+돌연변이 서른하나를 넣어 전부 잡히는 것까지 확인했다 — 문자열 연결 복원,
 AlwaysCook 파싱, LFS 포인터 감지, 경로 형태, CookRule 열거, 필드 집합,
 구조체 파서, 필드·에셋 검증, 맵 시딩, 추이 폐쇄, 블라인드 스폿, 패스
 목록 파싱, 제자리 갱신 플래그, 스펙 테이블, 회수 무력화, 그리고 캡처
 관련 일곱(`photo_twin`, `resolved_print_texture`, `replaced_textures`,
 `photo_aware` 플래그, `_capture_pair`, `photo_split_loads`,
-`orphan_capture_pairs`).
+`orphan_capture_pairs`), 그리고 `unused_capture_folders` 셋(무시하기,
+전부 보고하기, 폴더 내용 안 찍기).
 
 `--require-atlas-dropped`는 아직 아틀라스 텍스처가 쿠킹에 남아 있으면
 실패한다. 커밋된 상태에서는 **당연히 실패한다** — 머티리얼이 아직 다시
@@ -515,6 +557,12 @@ Scripts/Run-PrintAtlas.ps1 -SkipPack # 이미 구운 페이지를 쓴다
   볼 일이다.
 - 쌍의 안 쓰는 반쪽 27장은 **지우지 않았다.** 에디터 작업이고, 무엇을
   버릴지는 결정할 일이다. 쿠킹에는 이미 안 들어간다.
+- `Photo/Wallpaper/`(내용은 `Plaster003`)와
+  `generate_surface_textures.py`의 `build_wallpaper`도 **손대지 않았다.**
+  둘 다 소비자가 없다는 것은 확인했지만, 회벽 스캔 하나를 버릴지
+  이름을 고쳐 살릴지는 아트 쪽 결정이다. 지금은 매 아트 빌드가 쓰지 않을
+  텍스처 다섯 장을 만든다(캡처 `_D`/`_N`, 절차 `_D`/`_N`, 그리고
+  임포트된 `T_Photo_Wallpaper_D`).
 - `IGHudTexture` 규칙은 **언리얼로 파싱해 본 것이 아니다.** 대신 언리얼의
   `ImportText` 문법을 구현해(§4의 `ue_config.py`) 파싱했고, 12장 전부
   경로가 트리의 패키지로 풀리고 `Package.Object` 두 쪽이 일치하고

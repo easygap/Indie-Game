@@ -675,6 +675,47 @@ def photo_split_loads(audit: CookAudit) -> list[dict]:
     return findings
 
 
+def unused_capture_folders(audit: CookAudit) -> list[dict]:
+    """`SourceArt/Photo/<Surface>/` folders whose import nothing draws.
+
+    import_photo_textures.py names the asset after the folder, not after the
+    file inside it, so the folder name is the only thing that says what a
+    capture is. A folder no material consumes is either a mis-file -- the
+    scan inside it is not the surface the name claims -- or art that was
+    superseded and never removed. Both cost an import every art build and
+    leave a plausible-looking name for the next person to reach for.
+    """
+    photo_dir = os.path.join(
+        audit.project_root, "Content", "SourceArt", "Photo")
+    if not os.path.isdir(photo_dir):
+        return []
+    unused = []
+    for surface in sorted(os.listdir(photo_dir)):
+        folder = os.path.join(photo_dir, surface)
+        if not os.path.isdir(folder):
+            continue
+        package = f"{ATLAS_TEXTURE_ROOT}/T_Photo_{surface}_D"
+        if package not in audit.packages:
+            continue  # never imported; nothing to be unused
+        drawn = [
+            other for other in audit.cooked
+            if other != package and package in audit.references.get(other, ())
+        ]
+        if drawn or audit.code_paths.get(package):
+            continue
+        # What is actually inside, so a mis-file reads as one.
+        scans = sorted({
+            entry.split("_2K")[0] for entry in os.listdir(folder)
+            if "_2K" in entry
+        })
+        unused.append({
+            "surface": surface,
+            "package": package,
+            "scans": scans,
+        })
+    return unused
+
+
 def orphan_capture_pairs(audit: CookAudit) -> list[str]:
     """Halves of a capture pair that nothing references and nothing cooks.
 
@@ -1050,11 +1091,28 @@ def _report(audit: CookAudit) -> None:
                   f"({len(item['drawn_by'])} referrer(s)); the same surface "
                   "has two appearances")
 
+    unused = unused_capture_folders(audit)
+    if unused:
+        print(f"\n{len(unused)} capture folder(s) nothing draws:")
+        for item in unused:
+            inside = ", ".join(item["scans"]) or "?"
+            print(f"  [UNUSED_CAPTURE] SourceArt/Photo/{item['surface']}/ "
+                  f"holds {inside}")
+            print(f"      imported as {item['package'].rsplit('/', 1)[-1]} "
+                  "every art build; no material samples it")
+
     orphans = orphan_capture_pairs(audit)
     if orphans:
+        captures = [o for o in orphans if "/T_Photo_" in o]
+        procedural = [o for o in orphans if "/T_Photo_" not in o]
         print(f"\n{len(orphans)} unused half/halves of a capture pair "
               "(not cooked, not a build problem, but nothing reads them):")
-        print("  " + ", ".join(o.rsplit("/", 1)[-1] for o in orphans))
+        if procedural:
+            print(f"  {len(procedural)} procedural half/halves a capture won: "
+                  + ", ".join(o.rsplit("/", 1)[-1] for o in procedural))
+        if captures:
+            print(f"  {len(captures)} capture half/halves nothing won with: "
+                  + ", ".join(o.rsplit("/", 1)[-1] for o in captures))
 
     findings = code_only_assets(audit)
     if findings:
@@ -1451,6 +1509,18 @@ def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
             },
         }, handle)
 
+    # Two capture folders: one whose import a material draws, one whose
+    # contents do not match the name on the folder and which nothing draws.
+    for surface, scan in (("HudFrame", "Metal032"), ("Wallpaper", "Plaster003")):
+        folder = os.path.join(root, "Content", "SourceArt", "Photo", surface)
+        os.makedirs(folder, exist_ok=True)
+        for role in ("_Color.jpg", "_NormalDX.jpg"):
+            with open(os.path.join(folder, f"{scan}_2K-JPG{role}"), "wb") as h:
+                h.write(b"jpeg")
+    # The mis-filed one has been imported, the way an art build imports every
+    # folder it finds -- which is what makes it cost something.
+    package("Prototype/Textures/T_Photo_Wallpaper_D.uasset", "Texture2D")
+
     source = os.path.join(root, "Source", "Player")
     os.makedirs(source, exist_ok=True)
     with open(os.path.join(source, "HUD.cpp"), "w") as handle:
@@ -1712,6 +1782,19 @@ def command_self_test() -> int:
         assert hud not in orphans, \
             "a half both sides draw was called unused"
 
+        # 2h. A capture folder whose import nothing draws. The folder name is
+        #     the only thing that says what the scan is, so a mis-file looks
+        #     exactly like a surface that exists -- until nothing samples it.
+        folders = unused_capture_folders(split)
+        by_surface = {item["surface"]: item for item in folders}
+        assert "Wallpaper" in by_surface, \
+            "a capture folder no material draws was not reported"
+        assert by_surface["Wallpaper"]["scans"] == ["Plaster003"], \
+            ("the report does not say what is inside the folder: "
+             f"{by_surface['Wallpaper']}")
+        assert "HudFrame" not in by_surface, \
+            "a capture folder a material draws was called unused"
+
         # 2f. The pass list is read out of the builder, so the shapes it
         #     relies on have to still be there. Anything it cannot read is an
         #     exception, not a silently shorter list.
@@ -1762,7 +1845,8 @@ def command_self_test() -> int:
         f"rebuild, 5 ways the rebuild can save nothing or break something, "
         f"a targeted in-place pass three ways (retired, retired by contracted "
         f"name only against a photo capture, not retired), "
-        f"a capture pair split between code and the materials, "
+        f"a capture pair split between code and the materials, a capture "
+        f"folder whose import nothing draws, "
         f"the code-load conflict, the unfetched-LFS hole, and "
         f"{len(tampered)} ways a cook rule can look right and hold nothing"
     )
