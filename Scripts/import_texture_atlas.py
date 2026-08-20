@@ -32,13 +32,46 @@ from texture_atlas_contract import (  # noqa: E402
 
 
 def _set_if_supported(texture, name, value):
-    """UE renames a texture property now and then; never fail the import."""
+    """UE renames a texture property now and then; never fail the import.
+
+    Only for settings whose absence costs nothing visible. Anything the atlas
+    depends on goes through _require_property instead.
+    """
     try:
         texture.set_editor_property(name, value)
         return True
     except Exception:  # noqa: BLE001 - property set differs across UE minors
         unreal.log_warning(f"[IndieGame] Atlas: could not set {name}")
         return False
+
+
+def _require_property(texture, name, value, why):
+    """Set a property and read it back, or fail the import saying which.
+
+    Four of these settings are the atlas. Clamped addressing is what keeps one
+    notice from sampling the one packed beside it; BC7 is why the small Korean
+    type on a shared page stays legible at all; sRGB is whether the page is
+    the colour it was painted. Swallowing a failure on any of them produces a
+    run that reports PASS and ships mush -- and it would ship it on exactly
+    the artwork the atlas was built to protect.
+
+    Read-back matters as much as the set: an enum this project has never used
+    before is the likeliest thing to be spelled differently in a given UE
+    minor, and a set that silently does nothing looks identical to one that
+    worked.
+    """
+    try:
+        texture.set_editor_property(name, value)
+    except Exception as error:  # noqa: BLE001 - reported, not hidden
+        raise RuntimeError(
+            f"Atlas page rejected {name}={value} ({why}): {error}"
+        ) from error
+    actual = texture.get_editor_property(name)
+    if actual != value:
+        raise RuntimeError(
+            f"Atlas page kept {name}={actual} instead of {value} ({why}); "
+            "the import would have passed while shipping the wrong page"
+        )
 
 
 def import_texture_atlas() -> int:
@@ -80,10 +113,12 @@ def import_texture_atlas() -> int:
 
         # Clamp: an atlas rect has no wrap. Without this a UV that lands a
         # hair past 1.0 on one entry samples whatever is packed opposite it.
-        _set_if_supported(
-            texture, "address_x", unreal.TextureAddress.TA_CLAMP)
-        _set_if_supported(
-            texture, "address_y", unreal.TextureAddress.TA_CLAMP)
+        _require_property(
+            texture, "address_x", unreal.TextureAddress.TA_CLAMP,
+            "an atlas rect has no wrap")
+        _require_property(
+            texture, "address_y", unreal.TextureAddress.TA_CLAMP,
+            "an atlas rect has no wrap")
         # A full mip chain from the texture group. Unreal has no per-texture
         # cap on how far it goes, so the 8 px gutter is what keeps neighbours
         # out of the sample: it survives to mip 3, by which point a notice is
@@ -96,18 +131,23 @@ def import_texture_atlas() -> int:
         _set_if_supported(texture, "never_stream", False)
         # BC7 keeps the small Korean type on the notices legible; the pages are
         # the only textures in the project where several signs share one block.
-        _set_if_supported(
+        _require_property(
             texture,
             "compression_settings",
             unreal.TextureCompressionSettings.TC_BC7,
+            "several notices share one compression block",
         )
-        _set_if_supported(texture, "srgb", True)
+        _require_property(
+            texture, "srgb", True, "the pages are colour, not data")
 
         # Compression, sRGB and addressing all change how the texture is
-        # built, not just how it is described. Without this the package saves
-        # with the new properties but keeps the platform data it was imported
-        # with, and the change only appears the next time something else
-        # happens to dirty the asset.
+        # built, not just how it is described, so nudge a rebuild before the
+        # save. Best effort only: no other importer in this project calls it
+        # -- import_photo_textures.py and generate_surface_textures.py both
+        # set properties and go straight to save_loaded_assets, and their
+        # textures are correct -- so this is belt over a brace that already
+        # holds. If the method is not exposed in this UE minor, the read-back
+        # above has already proved the properties took.
         try:
             texture.post_edit_change()
         except Exception:  # noqa: BLE001 - not fatal; the save still lands
