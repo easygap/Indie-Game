@@ -58,13 +58,17 @@ if (-not [string]::IsNullOrWhiteSpace($ExplicitEditorPath)) {
 	$candidateRoots.Add($ExplicitEditorPath)
 }
 
-foreach ($root in @(
-	(Join-Path $env:ProgramFiles "Epic Games\UE_$association"),
-	(Join-Path ${env:ProgramFiles(x86)} "Epic Games\UE_$association")
-)) {
-	if (-not [string]::IsNullOrWhiteSpace($root)) {
-		$candidateRoots.Add($root)
+# Both variables are null anywhere that is not Windows, and Join-Path rejects
+# a null -Path outright. Called inside an array literal it threw before the
+# loop body's own emptiness check could run, and before any candidate was
+# tried at all -- so IG_UNREAL_EDITOR, the override this script's own error
+# message tells you to set, could not be used on such a machine. The check has
+# to happen before the join, not after it.
+foreach ($programFiles in @($env:ProgramFiles, ${env:ProgramFiles(x86)})) {
+	if ([string]::IsNullOrWhiteSpace($programFiles)) {
+		continue
 	}
+	$candidateRoots.Add((Join-Path $programFiles "Epic Games\UE_$association"))
 }
 
 foreach ($registryPath in @(

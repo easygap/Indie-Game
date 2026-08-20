@@ -327,6 +327,37 @@ foreach ($resolverInvariant in @(
 		throw "Portable Unreal resolver invariant is missing: $resolverInvariant"
 	}
 }
+# Run it, do not just read it. Every launcher and every art build starts by
+# asking this script where the engine is, so the one thing it must never do is
+# fail in a way that is not its own failure. It used to: Join-Path rejects a
+# null -Path, and on a host with no ProgramFiles the candidate list threw
+# during its own construction -- before the IG_UNREAL_EDITOR override this
+# script's error message recommends had been tried at all.
+#
+# Both outcomes are correct here. A machine with the engine prints its path;
+# a machine without it says so. A third outcome -- some other exception -- is
+# the bug, and only running it can tell those apart.
+#
+# The resolver sets its own $ErrorActionPreference = 'Stop', which turns its
+# closing Write-Error into a terminating error in this scope, so the missing
+# engine arrives as an exception rather than as output. Catch it and read the
+# message either way; the distinction being drawn is which message, not how
+# it travelled.
+$resolverText = ''
+try {
+	$resolverText = (
+		& (Join-Path $projectRoot 'Scripts/Resolve-UnrealEditor.ps1') `
+			-ProjectPath $projectFile -Commandlet 2>&1 | Out-String)
+}
+catch {
+	$resolverText = [string]$_.Exception.Message
+}
+if ($resolverText -notmatch 'UnrealEditor(-Cmd)?\.exe' -and
+	$resolverText -notmatch 'was not found\. Install it or set IG_UNREAL_EDITOR') {
+	throw (
+		'Resolve-UnrealEditor.ps1 failed with something other than its own ' +
+		"missing-engine error: $($resolverText.Trim())")
+}
 $headlessScripts = @(
 	'Scripts/Build-ArtAssets.ps1',
 	'Scripts/Run-Rebirth-CH02FreedomSpikes.ps1',
