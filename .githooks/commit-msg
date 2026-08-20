@@ -1,0 +1,42 @@
+#!/bin/sh
+# 커밋 작성자와 메시지에 이 저장소 소유자 말고 다른 이름이 붙는 것을 막는다.
+#
+# 왜 필요한가: AI 코딩 도구는 컨테이너 전역 git 설정과 자동 트레일러로
+# 자기 이름을 붙인다. Co-Authored-By 는 GitHub 이 contributor 를 세는 기준이라
+# 한 줄만 새어 나가도 저장소 기여자 목록에 이름이 올라간다. 커밋을 만드는
+# 쪽이 무엇이든 여기서 걸린다.
+
+message_file="$1"
+
+if grep -qiE '^Co-Authored-By:.*(claude|anthropic|copilot|cursor|codex)' "$message_file"; then
+	echo >&2 "커밋 거부: Co-Authored-By 에 AI 도구 이름이 들어 있다."
+	echo >&2 "  GitHub 이 이걸 읽고 contributor 목록에 올린다. 그 줄을 지우고 다시 커밋해라."
+	exit 1
+fi
+
+if grep -qiE '^(Claude-Session|Generated-By|AI-Assisted):' "$message_file"; then
+	echo >&2 "커밋 거부: AI 도구 트레일러가 들어 있다."
+	echo >&2 "  해당 줄을 지우고 다시 커밋해라."
+	exit 1
+fi
+
+author_name=$(git var GIT_AUTHOR_IDENT | sed 's/ <.*//')
+author_email=$(git var GIT_AUTHOR_IDENT | sed 's/.*<//; s/>.*//')
+
+case "$author_name" in
+	*[Cc]laude*|*[Aa]nthropic*|*[Cc]opilot*|*[Cc]ursor*)
+		echo >&2 "커밋 거부: 작성자 이름이 '$author_name' 이다."
+		echo >&2 "  git config user.name easygap"
+		exit 1
+		;;
+esac
+
+case "$author_email" in
+	*anthropic.com*|*openai.com*|*noreply@github.com)
+		echo >&2 "커밋 거부: 작성자 메일이 '$author_email' 이다."
+		echo >&2 "  git config user.email 103491329+easygap@users.noreply.github.com"
+		exit 1
+		;;
+esac
+
+exit 0
