@@ -588,6 +588,111 @@ def condition_file(
     return True
 
 
+# --------------------------------------------------------------------------
+# Candidate ranking. A generation session returns a batch of near-identical
+# variants, and the differences that decide which one ships -- speckle, wrap
+# error, how bright it sits, how fine the structure is -- are all invisible
+# side by side on a screen. Measure them instead of squinting.
+# --------------------------------------------------------------------------
+
+# Bands taken from the record in Docs/IMAGEGEN_PROMPTS_2026-08-14.md: six
+# approved scans came in at 0.39-1.37 stipple with the anti-stipple wording,
+# against 6.89 for the older asset. Seam is the module's own 1.3 rule.
+STIPPLE_GOOD = 1.5
+STIPPLE_BAD = 5.0
+SEAM_RATIO_GOOD = 1.3
+# The blob, in 0..255 levels across a 16x16 grid. Brightness alone is not the
+# tell: a pale wallpaper legitimately sits high and the shipping
+# T_ApartmentWallpaperV2_D has 99% of its pixels above 65%. What makes a scan
+# unusable is brightness that *varies* across the frame, because that is the
+# baked composition light this script exists to remove -- and past a point it
+# cannot be removed without taking the material with it.
+FIELD_SPREAD_MAX = 14
+
+
+def rank_candidates(
+    directory: Path,
+    coverage_cm: float | None = None,
+) -> list[dict]:
+    """Measure every image in a folder and score it as a tile candidate.
+
+    ``coverage_cm`` is how much real surface the tile is meant to span. Given
+    it, the detected structure period is reported in millimetres, which is the
+    only way to tell a hairline emboss from panelling: both are "vertical
+    ribs" and they are the same picture until you know the scale.
+    """
+    rows = []
+    for path in sorted(directory.iterdir()):
+        if path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+            continue
+        try:
+            image = Image.open(path)
+        except Exception:  # noqa: BLE001 - a stray non-image in the folder
+            continue
+        stats = measure(image)
+        gray = _luma(image)
+        period = _detect_period(gray, horizontal=True)
+        pitch_mm = None
+        if period and coverage_cm:
+            pitch_mm = round(period / image.size[0] * coverage_cm * 10.0, 2)
+
+        problems = []
+        if stats["stipple"] > STIPPLE_BAD:
+            problems.append("stipple")
+        if (stats["seam_h_ratio"] or 0) > SEAM_RATIO_GOOD:
+            problems.append("seam-h")
+        if (stats["seam_v_ratio"] or 0) > SEAM_RATIO_GOOD:
+            problems.append("seam-v")
+        if stats["field_spread"] > FIELD_SPREAD_MAX:
+            problems.append("blob")
+        rows.append({
+            "name": path.name,
+            "period_px": period,
+            "pitch_mm": pitch_mm,
+            "problems": problems,
+            **stats,
+        })
+
+    # Sort by what cannot be fixed downstream, then by what can. Stipple is a
+    # regenerate-or-accept call; the brightness field and the seam are both
+    # corrected by this script, so they only break ties.
+    rows.sort(key=lambda r: (
+        len(r["problems"]),
+        r["stipple"],
+        max(r["seam_h_ratio"] or 0, r["seam_v_ratio"] or 0),
+    ))
+    return rows
+
+
+def print_ranking(rows: list[dict], coverage_cm: float | None) -> None:
+    pitch_head = "pitch" if coverage_cm else "period"
+    print(
+        f"\n{'#':>2}  {'file':<40} {'size':>10} {'luma':>6} {'sdev':>5} "
+        f"{'stipple':>8} {'blob':>5} {'seam h/v':>10} {pitch_head:>8}  notes"
+    )
+    for index, row in enumerate(rows, start=1):
+        pitch = (f"{row['pitch_mm']}mm" if row["pitch_mm"] is not None
+                 else (f"{row['period_px']}px" if row["period_px"] else "-"))
+        print(
+            f"{index:>2}. {row['name'][:40]:<40} "
+            f"{row['size'][0]:>4}x{row['size'][1]:<5} "
+            f"{row['luma_mean']:>6.3f} {row['luma_stddev']:>5.1f} "
+            f"{row['stipple']:>8.2f} {row['field_spread']:>5} "
+            f"{str(row['seam_h_ratio']) + '/' + str(row['seam_v_ratio']):>10} "
+            f"{pitch:>8}  {', '.join(row['problems']) or 'ok'}"
+        )
+    print(
+        f"\nbands: stipple <={STIPPLE_GOOD} good / >{STIPPLE_BAD} regenerate; "
+        f"seam ratio <={SEAM_RATIO_GOOD}; blob (field spread, levels) "
+        f"<={FIELD_SPREAD_MAX}.\n"
+        "The blob and the seam are corrected by this script, so they break "
+        "ties rather than decide. Stipple does not correct: a denoise strong "
+        "enough to remove it removes the material too.\n"
+        "sdev is expected low before conditioning -- the anti-stipple wording "
+        "flattens real relief as well, and detail_gain puts it back."
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         description="Flat-field and seam conditioning for ImageGen albedo scans"
@@ -612,7 +717,28 @@ def main() -> int:
         action="store_true",
         help="Also write a 2x2 tiling sheet for eye approval",
     )
+    parser.add_argument(
+        "--rank",
+        type=Path,
+        help="Measure every image in this folder and rank them as candidates",
+    )
+    parser.add_argument(
+        "--coverage-cm",
+        type=float,
+        help="Real surface the tile spans, so --rank can report pitch in mm",
+    )
     args = parser.parse_args()
+
+    if args.rank:
+        if not args.rank.is_dir():
+            print(f"[COND] not a folder: {args.rank}", file=sys.stderr)
+            return 1
+        rows = rank_candidates(args.rank, args.coverage_cm)
+        if not rows:
+            print(f"[COND] no images in {args.rank}", file=sys.stderr)
+            return 1
+        print_ranking(rows, args.coverage_cm)
+        return 0
 
     if args.input:
         if not args.input.exists():
