@@ -116,6 +116,7 @@ PRINT_SURFACE_MESHES = {
 
 PBR_STEMS = {
     "T_ApartmentWallpaperV2": ("D", "N", "R", "A"),
+    "T_ApartmentWallpaperEmboss": ("D", "N", "R", "A"),
     "T_KoreanVillaStucco": ("D", "N", "R", "A"),
     "T_MovingBoxCardboard": ("D", "N", "R", "A"),
     "T_PaperClean_V2": ("D", "N", "R", "A"),
@@ -142,6 +143,8 @@ MATERIAL_TEXTURES = {
     "M_Wallpaper_X": "T_ApartmentWallpaperV2",
     "M_Wallpaper_Y": "T_ApartmentWallpaperV2",
     "M_WallpaperCeil": "T_ApartmentWallpaperV2",
+    "M_WallpaperEmboss_X": "T_ApartmentWallpaperEmboss",
+    "M_WallpaperEmboss_Y": "T_ApartmentWallpaperEmboss",
     "M_VillaStucco_X": "T_KoreanVillaStucco",
     "M_VillaStucco_Y": "T_KoreanVillaStucco",
     "M_MovingBoxCardboardUV": "T_MovingBoxCardboard",
@@ -417,9 +420,9 @@ def validate_photo_prop_lods() -> int:
     return len(inspected)
 
 
-def validate_textures() -> int:
+def validate_pbr_textures(pbr_stems) -> int:
     checked = 0
-    for stem, suffixes in PBR_STEMS.items():
+    for stem, suffixes in pbr_stems.items():
         for suffix in suffixes:
             name = f"{stem}_{suffix}"
             texture = load(f"/Game/Prototype/Textures/{name}", unreal.Texture2D)
@@ -444,6 +447,11 @@ def validate_textures() -> int:
                 f"{name} ({size_x}x{size_y})",
             )
             checked += 1
+    return checked
+
+
+def validate_textures() -> int:
+    checked = validate_pbr_textures(PBR_STEMS)
     for texture_name in EVIDENCE_MASK_MATERIALS.values():
         texture = load(
             f"/Game/Prototype/Textures/{texture_name}", unreal.Texture2D
@@ -505,11 +513,13 @@ def material_input(material, material_property) -> None:
     require(node is not None, f"Missing material input {material_property}: {material.get_name()}")
 
 
-def validate_surface_response_materials() -> tuple[int, int]:
+def validate_surface_response_materials(material_specs=None) -> tuple[int, int]:
     """Prove the live architecture has bounded multi-scale PBR response."""
+    if material_specs is None:
+        material_specs = TEXTURED_MATERIALS
     checked = 0
     linked_samples = 0
-    for name, spec in TEXTURED_MATERIALS.items():
+    for name, spec in material_specs.items():
         material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
         errors = unreal.MaterialEditingLibrary.recompile_material(material)
         require(not errors, f"Surface material compile failed: {name}: {errors}")
@@ -875,7 +885,99 @@ def validate_materials() -> tuple[int, int]:
     return checked, linked_textures
 
 
+def validate_apartment_visual_assets() -> None:
+    """Audit only assets owned by the ApartmentVisual targeted build."""
+    pbr_stems = {
+        stem: PBR_STEMS[stem]
+        for stem in (
+            "T_ApartmentWallpaperV2",
+            "T_ApartmentWallpaperEmboss",
+        )
+    }
+    material_names = (
+        "M_Wallpaper_X",
+        "M_Wallpaper_Y",
+        "M_WallpaperCeil",
+        "M_WallpaperEmboss_X",
+        "M_WallpaperEmboss_Y",
+    )
+    material_specs = {
+        name: TEXTURED_MATERIALS[name]
+        for name in material_names
+    }
+
+    texture_count = validate_pbr_textures(pbr_stems)
+    patina_texture_name = MASK_MATERIALS["M_ApartmentWallPatina"]
+    patina_texture = load(
+        f"/Game/Prototype/Textures/{patina_texture_name}", unreal.Texture2D
+    )
+    require(
+        not patina_texture.get_editor_property("srgb"),
+        f"Mask must be linear: {patina_texture_name}",
+    )
+    patina_compression = str(
+        patina_texture.get_editor_property("compression_settings")
+    )
+    require(
+        "MASK" in patina_compression.upper(),
+        f"Mask compression missing: {patina_texture_name}",
+    )
+    require(
+        patina_texture.blueprint_get_size_x() >= 1024
+        and patina_texture.blueprint_get_size_y() >= 1024,
+        f"Texture below authored minimum 1024: {patina_texture_name}",
+    )
+    texture_count += 1
+
+    material_count, _ = validate_surface_response_materials(material_specs)
+    linked_textures = 0
+    for name in material_names:
+        stem = MATERIAL_TEXTURES[name]
+        material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
+        expected = {
+            f"/Game/Prototype/Textures/{stem}_{suffix}"
+            for suffix in pbr_stems[stem]
+        }
+        missing = sorted(expected - expression_texture_paths(material))
+        require(not missing, f"PBR maps are not linked to {name}: {missing}")
+        linked_textures += len(expected)
+
+    patina_material = load(
+        "/Game/Prototype/Materials/M_ApartmentWallPatina", unreal.Material
+    )
+    patina_errors = unreal.MaterialEditingLibrary.recompile_material(
+        patina_material
+    )
+    require(
+        not patina_errors,
+        f"Material compile failed: M_ApartmentWallPatina: {patina_errors}",
+    )
+    expected_mask = f"/Game/Prototype/Textures/{patina_texture_name}"
+    require(
+        expected_mask in expression_texture_paths(patina_material),
+        "Mask texture is not linked to M_ApartmentWallPatina: "
+        f"{expected_mask}",
+    )
+    require(
+        patina_material.get_editor_property("blend_mode")
+        == unreal.BlendMode.BLEND_MASKED,
+        "Masked blend mode missing: M_ApartmentWallPatina",
+    )
+    material_input(patina_material, unreal.MaterialProperty.MP_OPACITY_MASK)
+    material_count += 1
+    linked_textures += 1
+
+    unreal.log_warning(
+        "ART_UASSET_AUDIT PASS target=ApartmentVisual "
+        f"textures={texture_count} materials={material_count} "
+        f"linked_textures={linked_textures}"
+    )
+
+
 def main() -> None:
+    if os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1":
+        validate_apartment_visual_assets()
+        return
     total_lods, reduced_meshes = validate_meshes()
     photo_prop_meshes = validate_photo_prop_lods()
     texture_count = validate_textures()

@@ -3256,7 +3256,7 @@ def run():
             },
             True,
         )
-        if len(apartment_materials) != 4 or not assets.save_loaded_assets(
+        if len(apartment_materials) != 6 or not assets.save_loaded_assets(
             apartment_materials, False
         ):
             raise RuntimeError("Could not save apartment visual materials")

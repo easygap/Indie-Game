@@ -1,0 +1,50 @@
+{
+  "stem": "T_ApartmentWallpaperEmboss",
+  "seam_mode": "period",
+  "seam_action": "source wrap retained (0.29/0.36 <= 1.00); no resample",
+  "flat_field": 1.0,
+  "field_cells": 8,
+  "period_axis": "vertical",
+  "input_sha256": "BB29D037262D9A84F8167C36278C149A5FC097DAF9E4D92C44E72431AF4EABF7",
+  "output_sha256": "1598BC3984AA06C5956127F34D247DF8C723F3FCF91E2D04F23EA192F3020A02",
+  "before": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.6533,
+    "luma_stddev": 6.59,
+    "below_25pct": 0.0,
+    "above_65pct": 0.6368,
+    "stipple": 1.755,
+    "field_spread": 3,
+    "field_range": [
+      165,
+      168
+    ],
+    "seam_h": 1.79,
+    "seam_v": 2.57,
+    "seam_h_ratio": 0.36,
+    "seam_v_ratio": 4.79
+  },
+  "after": {
+    "size": [
+      1024,
+      1024
+    ],
+    "luma_mean": 0.6503,
+    "luma_stddev": 11.14,
+    "below_25pct": 0.0,
+    "above_65pct": 0.586,
+    "stipple": 3.152,
+    "field_spread": 3,
+    "field_range": [
+      164,
+      167
+    ],
+    "seam_h": 3.21,
+    "seam_v": 3.96,
+    "seam_h_ratio": 0.37,
+    "seam_v_ratio": 4.19
+  }
+}

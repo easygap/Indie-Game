@@ -226,9 +226,18 @@ if ($ApartmentVisualOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
 		-OnlySource @(
 			'TextureApartmentWallpaperVintage',
-			'MaskApartmentWallPatina'
+			'MaskApartmentWallPatina',
+			'TextureApartmentWallpaperEmbossedPlainGreyGreen_v1'
 		)
 	$python = Get-Command python -ErrorAction Stop
+	$tileConditioner = Join-Path $PSScriptRoot 'condition_ai_tiles.py'
+	Write-Host 'ART_BUILD running apartment tile conditioning'
+	& $python.Source $tileConditioner `
+		--only T_ApartmentWallpaperEmboss
+	if ($LASTEXITCODE -ne 0) {
+		throw "Apartment tile conditioning failed ($LASTEXITCODE)"
+	}
+
 	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
 	Write-Host 'ART_BUILD running apartment PBR source-map generation'
 	# --only is `action="append"`, so each stem needs its own flag; passing
@@ -696,7 +705,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 		@(
 			@{
 				Script = 'generate_surface_textures.py'
-				SuccessPattern = '\[IndieGame\] Imported 5 textures'
+				SuccessPattern = '\[IndieGame\] Imported 9 textures'
 				TargetEnvironment = $true
 			},
 			@{
@@ -707,7 +716,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			@{
 				Script = 'validate_baked_art_assets.py'
 				SuccessPattern = 'ART_UASSET_AUDIT PASS'
-				TargetEnvironment = $false
+				TargetEnvironment = $true
 			}
 		)
 	}
