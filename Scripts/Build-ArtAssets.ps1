@@ -242,8 +242,11 @@ if ($ApartmentVisualOnly) {
 	$python = Get-Command python -ErrorAction Stop
 	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
 	Write-Host 'ART_BUILD running apartment PBR source-map generation'
+	# --only is `action="append"`, so each stem needs its own flag; passing
+	# both to one flag makes the second an unrecognized positional.
 	& $python.Source $pbrGenerator `
 		--only T_ApartmentWallpaperV2 `
+		--only T_ApartmentWallpaperEmboss `
 		--force
 	if ($LASTEXITCODE -ne 0) {
 		throw "Apartment PBR source-map generation failed ($LASTEXITCODE)"
@@ -478,9 +481,15 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Textures\T_ApartmentWallpaperV2_R.uasset',
 			'Content\Prototype\Textures\T_ApartmentWallpaperV2_A.uasset',
 			'Content\Prototype\Textures\T_ApartmentWallPatina_M.uasset',
+			'Content\Prototype\Textures\T_ApartmentWallpaperEmboss_D.uasset',
+			'Content\Prototype\Textures\T_ApartmentWallpaperEmboss_N.uasset',
+			'Content\Prototype\Textures\T_ApartmentWallpaperEmboss_R.uasset',
+			'Content\Prototype\Textures\T_ApartmentWallpaperEmboss_A.uasset',
 			'Content\Prototype\Materials\M_Wallpaper_X.uasset',
 			'Content\Prototype\Materials\M_Wallpaper_Y.uasset',
 			'Content\Prototype\Materials\M_WallpaperCeil.uasset',
+			'Content\Prototype\Materials\M_WallpaperEmboss_X.uasset',
+			'Content\Prototype\Materials\M_WallpaperEmboss_Y.uasset',
 			'Content\Prototype\Materials\M_ApartmentWallPatina.uasset'
 		)
 	}

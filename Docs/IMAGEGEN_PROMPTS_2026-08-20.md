@@ -117,39 +117,64 @@ Lumen과 VSM이, N/R/A는 `generate_ai_pbr_maps.py`가 소유한다
 
 ### 순서
 
+**배선은 커밋되어 있다**(`Content/SourceArt/AI/`에 원본만 놓으면 된다).
+아래는 무엇이 어디에 들어갔는지의 기록이다.
+
 ```
-1) 파일 배치
-   Content/SourceArt/Raw/TextureApartmentWallpaperEmboss.png   (원본 그대로)
+원본 위치   Content/SourceArt/AI/
+            TextureApartmentWallpaperEmbossedPlainGreyGreen_v1.png
 
-2) Prepare-AIArt.ps1 에 항목 추가
-   Source = 'TextureApartmentWallpaperEmboss'
-   Target = 'T_ApartmentWallpaperEmboss_D.png'
-   Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(2048, 2048)
+1) Prepare-AIArt.ps1            Source/Target 항목, Size 1024x1024
+2) condition_ai_tiles.py        TileSpec: seam="period", blend=0.03,
+                                detail_gain=2.0      ← 3)보다 먼저 돈다
+3) generate_ai_pbr_maps.py      SurfaceSpec: 0.86 / 0.74~0.92,
+                                normal 0.38, rough_detail 0.06, ao 0.55
+4) create_textured_materials.py M_WallpaperEmboss_X / _Y,
+                                SURFACE_RESPONSE_DEFAULTS 항목
+5) IGPrologueWorldScene.cpp     403호가 이 벽지를 쓴다 + LoadTexturedMaterials
+6) Test-ArtAssetContract.ps1    크기 목록
+7) Build-ArtAssets.ps1          --only 추가, ApartmentVisualOnly 필수 목록
 
-3) condition_ai_tiles.py 에 TileSpec 등록  ← 반드시 4)보다 먼저
-   stem="T_ApartmentWallpaperEmboss"
-   detail_gain=2.0        # 종이이지 강판이 아니다. 4절 참고
-   seam="crossfade", blend=0.10
-
-4) generate_ai_pbr_maps.py 에 SurfaceSpec 등록
-   roughness=0.86, roughness_min=0.72, roughness_max=0.94
-   normal_strength=0.32, rough_detail=0.12, ao_depth=0.62
-   (V2와 같은 값에서 시작 — 같은 재질군이다)
-
-5) create_textured_materials.py 에 머티리얼 스펙 추가
-   "M_WallpaperEmboss_X": {"tex": "ApartmentWallpaperEmboss",
-                           "mapping": "XZ", "tile": 165.0, ...}
-   SURFACE_RESPONSE_DEFAULTS 에도 V2와 같은 계열값을 넣는다
-
-6) Test-ArtAssetContract.ps1 의 크기 목록에 T_ApartmentWallpaperEmboss_D.png
-
-7) Scripts/Build-ArtAssets.ps1
-8) Scripts/Validate-Project.ps1
+실행
+   Scripts/Build-ArtAssets.ps1 -ApartmentVisualOnly
+   Scripts/Validate-Project.ps1
 ```
+
+**두 가지를 먼저 확인할 것.**
+
+```
+python3 Scripts/condition_ai_tiles.py --report-only \
+        --only T_ApartmentWallpaperEmboss
+```
+
+- 원본이 1024가 아니면 `Prepare-AIArt.ps1`의 `Size`를 실제 크기로 바꾼다.
+  2048로 왔다면 그대로 2048을 쓰는 편이 낫다 — 165cm에 1024면 6.2px/cm이라
+  6mm 결이 3.7픽셀이고, 2048이면 7.4픽셀이다.
+- 조건화 후 목표는 2026-08-14 실적 대역이다. 얼룩/대비 1.0 이하,
+  이음매 비율 1.4 이하.
+
+### `seam`을 `period`로 두는 이유
+
+세로 결은 **규칙 구조**다. `condition_ai_tiles.py`의 정의 그대로 —
+crossfade는 "stochastic surfaces with no repeating structure"용이고,
+규칙 구조에 쓰면 리듬을 뭉갠다. 철제 계단이 `period`/`blend=0.03`인 이유가
+그대로 적용된다: 결 두 줄이 서로 녹아드는 것이 이음매보다 눈에 띈다.
 
 `condition_ai_tiles.py --report-only --only T_ApartmentWallpaperEmboss` 로
 먼저 재 보면 얼룩과 이음매 수치가 나온다. 조건화 후 목표는 2026-08-14
 실적과 같은 대역이다 — 얼룩/대비 1.0 이하, 이음매 비율 1.4 이하.
+
+### 어느 벽에 붙는가
+
+주인공 집(`BuildApartment`)은 꽃무늬 V2를 그대로 쓰고, **403호**
+(`BuildChapterTwoOverlay`)가 이 벽지를 쓴다. 있을 수 없는 그 방이 같은
+벽지를 쓰고 있었다 — 그건 「내 집의 복사본」이라고 말하는 셈이고, 이
+장면의 요점은 그 반대다. 천장은 원래대로 `M_StuccoCeil`이라 엠보싱
+천장 변형은 만들지 않는다.
+
+`TexMat`은 `LoadTexturedMaterials`의 `MaterialNames[]`로 채운 맵만 읽는다.
+그 목록에 없는 머티리얼은 씬이 영영 닿을 수 없으므로 함께 등록했다.
+아트 빌드 전까지는 `WallMaterial`로 폴백한다.
 
 ### `detail_gain` 을 왜 2.0에서 시작하는가
 

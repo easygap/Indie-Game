@@ -282,6 +282,15 @@ $plan = @(
         Source = 'TextureApartmentWallpaperVintage'; Target = 'T_ApartmentWallpaperV2_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
+    # 두 번째 세대 벽지. 무늬가 없고 세로 엠보싱 결만 있는 비닐 벽지로,
+    # 꽃무늬인 V2와 한눈에 구분된다. 403호가 주인공 집과 같은 벽지를 쓰고
+    # 있었는데, 있을 수 없는 그 방이 자기 집의 복사본으로 보이면 안 된다.
+    # V2와 같은 1024: 같은 벽에 같은 165cm 반복이라 픽셀 밀도를 맞춘다.
+    [pscustomobject]@{
+        Source = 'TextureApartmentWallpaperEmbossedPlainGreyGreen_v1'
+        Target = 'T_ApartmentWallpaperEmboss_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
+    }
     # 한국 저층 빌라 외벽. 생성본은 조명과 문자를 배제한 BaseColor만
     # 제공하고, 미세 요철·거칠기·차폐는 아래 PBR 파생 단계가 담당한다.
     [pscustomobject]@{

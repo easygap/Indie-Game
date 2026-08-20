@@ -149,6 +149,19 @@ TILES: tuple[TileSpec, ...] = (
         "entrance door is supposed to be flat, and the target here is well "
         "under the 10-12 of the weathered surfaces.",
     ),
+    TileSpec(
+        "T_ApartmentWallpaperEmboss",
+        detail_gain=2.0,
+        seam="period",
+        blend=0.03,
+        note="Plain embossed vinyl wallpaper. Period, not crossfade: the rib "
+        "pitch is regular structure and a dissolve would smear two ribs into "
+        "each other exactly the way it would smear the stair diamonds. The "
+        "narrow fade is for the same reason. Gain 2.0 follows the carbon "
+        "paper rather than the door -- this is paper under a vinyl skin, and "
+        "past about 2.4 the ribs stop reading as a pressed sheet and start "
+        "reading as corrugation.",
+    ),
 )
 
 

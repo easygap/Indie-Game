@@ -36,6 +36,15 @@ SURFACES = (
     SurfaceSpec(
         "T_ApartmentWallpaperV2", 0.86, 0.72, 0.94, 0.32,
         rough_detail=0.12, ao_depth=0.62),
+    # The plain embossed sibling. Same paper, same room light, so the same
+    # conservative numbers -- with one difference: the emboss is a real ridge
+    # where the floral print is only ink, so the normal may carry it and the
+    # roughness must not. A vinyl skin is uniformly matte whatever shape it is
+    # pressed into; letting rough_detail follow the ribs would draw them twice
+    # and turn a wall into corduroy under the flashlight.
+    SurfaceSpec(
+        "T_ApartmentWallpaperEmboss", 0.86, 0.74, 0.92, 0.38,
+        rough_detail=0.06, ao_depth=0.55),
     # Exterior cement render is deliberately matte. The generated scan owns
     # only colour; this conservative relief keeps rain streaks from becoming
     # deep grooves and remains stable under the moving alley practicals.
