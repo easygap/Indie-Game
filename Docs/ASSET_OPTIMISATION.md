@@ -392,8 +392,11 @@ HUD를 캡처 쪽으로 돌리고 `SpecificAssets`에서 `T_MetalBrushed_D`를 �
 ### 벽지 캡처는 벽지가 아니다 — `UNUSED_CAPTURE`
 
 `Content/SourceArt/Photo/Wallpaper/`에 들어 있는 것은 AmbientCG
-**`Plaster003`** — 회벽 스캔이다. 그런데 `import_photo_textures.py`는
-**폴더 이름으로** 에셋 이름을 짓는다.
+**`Plaster003`** — 회벽 스캔이다. 파일명이 아니라 **LFS에서 받아 눈으로
+본 것**이다: 흙손 자국이 남은 흰빛 회벽 2048², 무늬도 이음매도 종이결도
+없다. `Photo/Stucco/`의 `Plaster004`와 같은 재질을 색조만 달리한 것이라
+사실상 중복이기도 하다. 그런데 `import_photo_textures.py`는 **폴더
+이름으로** 에셋 이름을 짓는다.
 
 ```python
 plan.append((os.path.join(surface_dir, entry), f"T_Photo_{surface}_{role}"))
@@ -403,10 +406,20 @@ plan.append((os.path.join(surface_dir, entry), f"T_Photo_{surface}_{role}"))
 캡처가 무엇인지 말하는 **유일한** 근거인데 그 이름이 내용과 다르다.
 
 정작 아파트 벽은 `ApartmentWallpaperV2`를 쓴다 — `Prepare-AIArt.ps1:282`의
-ImageGen `TextureApartmentWallpaperVintage`, 무늬가 있는 한국식 빌라 벽지다.
-회벽 스캔으로는 그 자리를 대신할 수 없다. 그리고 회벽은 이미
-`Photo/Stucco/`의 **`Plaster004`**(같은 라이브러리의 형제)가 맡고 있으므로,
-`Plaster003`은 소비자 없는 중복이다.
+ImageGen `TextureApartmentWallpaperVintage`. 이쪽도 열어 보면 **진짜
+벽지**다: 크림색 리넨 바탕에 잔잎·덩굴 무늬가 흩뿌려진, 90~2000년대 한국
+빌라 실내 그대로. 회벽 스캔으로 대신할 수 있는 그림이 아니다.
+
+벽면 네 종류가 이미 전부 임자가 있다는 것도 확인했다.
+
+| 표면 | 아트 | 머티리얼 |
+|---|---|---|
+| 복도 회벽 `Stucco` | 캡처 `Plaster004` | `M_Stucco_X/_Y/Ceil` (3) |
+| 외벽 `KoreanVillaStucco` | ImageGen | `M_VillaStucco_X/_Y` (2) |
+| 5층 마른 석고 `MissingFloorDryPlaster` | ImageGen | 4 |
+| 세대 벽지 `ApartmentWallpaperV2` | ImageGen | `M_Wallpaper_X/_Y/Ceil` (3) |
+
+`Plaster003`이 들어갈 자리가 없다.
 
 히스토리를 봐도 **한 번도 연결된 적이 없다.** 전체 이력에서
 `"tex": "Wallpaper"` 를 찾으면 아무것도 안 나오고, 캡처 폴더와
@@ -416,8 +429,10 @@ ImageGen `TextureApartmentWallpaperVintage`, 무늬가 있는 한국식 빌라 �
 같은 이름으로 죽어 있는 것이 하나 더 있다.
 `generate_surface_textures.py`의 `SURFACES["Wallpaper"] = build_wallpaper`가
 매 빌드 `T_Wallpaper_D/N`을 굽는데(「pale weave wallpaper」), 이것도
-소비자가 없다. 절차 원본과 캡처 둘 다 살아 있는 스펙 이름이 없는 채로
-계속 만들어지고 있다.
+소비자가 없다. 열어 보면 **256×256**에 균일한 회녹색과 흐릿한 얼룩뿐 —
+프로젝트의 다른 표면이 전부 1K~2K인 것과 비교하면 그레이박스 시절의
+자리표시자이지 대안이 아니다. 절차 원본과 캡처 둘 다 살아 있는 스펙
+이름이 없는 채로 계속 만들어지고 있다.
 
 검사기가 이걸 잡는다. 캡처 폴더 14개 중 임포트 결과를 아무 머티리얼도
 안 그리는 것을 찾아, **폴더 안에 실제로 무엇이 있는지까지** 찍는다.
