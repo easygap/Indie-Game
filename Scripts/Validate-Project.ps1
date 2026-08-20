@@ -655,7 +655,11 @@ foreach ($saveGameRoundTripInvariant in @(
 	}
 }
 foreach ($surfaceAuditInvariant in @(
-	'def validate_surface_response_materials()',
+	# Open paren only. This asserts the audit exists, not what it takes: the
+	# closed form went stale the moment a material_specs parameter was added
+	# for the targeted apartment build, and the gate then failed on a function
+	# that was sitting right there.
+	'def validate_surface_response_materials(',
 	'Macro colour blend is missing',
 	'Detail-normal blend is missing',
 	'Roughness variation is missing',
@@ -1234,7 +1238,12 @@ foreach ($requiredChapterThreeRouteInvariant in @(
 	'FVector(1355, -340.0f, 170)',
 	'FVector(1355, -311, 290)',
 	'"The fifth-floor landing must preserve the 160 cm doorway route."',
-	'FVector(1415, -420, 397)',
+	# 398.5, not 397: the fixture is 3 cm deep, so its top sat at 398.5 while
+	# the landing ceiling slab -- FVector(1355, -340.0f, 410) by (290, 76, 20)
+	# -- undersides at 400. It hung 1.5 cm clear of the ceiling it is screwed
+	# to. What this line guards is that the maintenance fixture is still at the
+	# landing, not the gap that used to be under it.
+	'FVector(1415, -420, 398.5f)',
 	'FVector(1415, -420, 386)',
 	'FVector(1570, -420, 305)',
 	'1850.0f',
