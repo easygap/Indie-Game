@@ -82,13 +82,20 @@ if (-not $PSCmdlet.ShouldProcess('Unreal editor', 'import the atlas and rebuild 
 # --- editor ---------------------------------------------------------------
 # Same resolution the art build uses: PowerShell 7 when it is there, because
 # 5.1 writes the engine path back in the system code page.
-$powerShellCore = Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue
+# Looked up without the .exe so the name resolves on both platforms:
+# Get-Command finds pwsh.exe from 'pwsh' on Windows via PATHEXT, and asking
+# for 'pwsh.exe' on Linux finds nothing at all -- which produced a script
+# running under PowerShell announcing that PowerShell was not found.
+$powerShellCore = Get-Command 'pwsh' -CommandType Application -ErrorAction SilentlyContinue |
+	Select-Object -First 1
 if ($powerShellCore) {
 	$resolverShell = $powerShellCore.Source
 } else {
-	$windowsPowerShell = Get-Command 'powershell.exe' -ErrorAction SilentlyContinue
+	$windowsPowerShell = Get-Command 'powershell' -CommandType Application -ErrorAction SilentlyContinue |
+		Select-Object -First 1
 	if (-not $windowsPowerShell) {
-		throw 'PowerShell was not found; cannot resolve the Unreal editor.'
+		throw ('No PowerShell host found on PATH to run Resolve-UnrealEditor.ps1. ' +
+			'This stage needs the Unreal editor, which this project builds on Windows.')
 	}
 	$resolverShell = $windowsPowerShell.Source
 	Write-Host 'PRINT_ATLAS pwsh not found - resolving with Windows PowerShell'
