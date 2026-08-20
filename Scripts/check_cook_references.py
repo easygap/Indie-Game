@@ -109,6 +109,18 @@ GAME_PATH_TEXT = re.compile(r"/Game/[A-Za-z0-9_/]+(?:\.[A-Za-z0-9_]+)?")
 # them as written finds half a path.
 LITERAL_JOIN = re.compile(r'"\s*"')
 
+# `UMaterialInterface* CarbonMaterial = LoadObject<UMaterialInterface>(` --
+# the pointer a path was loaded into, so a null test on it can be found.
+ASSIGNED_LOAD = re.compile(
+    r"\*\s*(?P<name>[A-Za-z_]\w*)\s*=\s*(?:\w+::)?"
+    r"(?:Load\w*|FindObject\w*|StaticLoad\w*)\s*[<(]",
+)
+# Wide enough for the two-line call this project's column limit produces, and
+# for a comment between the load and its fallback; not wide enough to catch a
+# null test on some later, unrelated pointer.
+GUARD_LOOKBEHIND = 400
+GUARD_LOOKAHEAD = 700
+
 LFS_POINTER_MAGIC = b"version https://git-lfs"
 
 ALWAYS_COOK_DIRECTORY = re.compile(
@@ -170,6 +182,11 @@ class CookAudit:
         self.roots: set[str] = set()
         self.cooked: set[str] = set()
         self.code_paths: dict[str, list[str]] = {}  # package path -> sites
+        # Paths whose every load site null-checks the result. A path that is
+        # not in the tree is a defect when the code assumes it loaded and a
+        # decision when the code has a fallback; without this the audit calls
+        # both the same thing and the real one gets lost among the deliberate.
+        self.guarded_code_paths: set[str] = set()
 
 
 def _package_path(audit: CookAudit, file_path: str) -> str:
@@ -437,7 +454,38 @@ def _close(audit: CookAudit) -> None:
     audit.cooked = seen
 
 
+def _is_guarded_load(text: str, end: int) -> bool:
+    """Does the code test the pointer this literal was loaded into?
+
+    Reads backwards from the literal for the identifier it was assigned to,
+    then forwards for a test on that identifier. Deliberately narrow: only an
+    assignment of the form `Type* Name = Load...(` counts, and only the next
+    few lines are searched, because a null test far from the load is not the
+    fallback this is looking for. Anything it cannot read stays unguarded --
+    an unnoticed defect costs more than a noisy line about a real fallback.
+    """
+    head = text[max(0, end - GUARD_LOOKBEHIND):end]
+    # The nearest assignment, not the first in the window. Two loads in one
+    # function put both in range, and taking the first tests the wrong
+    # pointer -- which reads as unguarded whatever the second load's code
+    # actually does.
+    assignments = ASSIGNED_LOAD.findall(head)
+    if not assignments:
+        return False
+    name = re.escape(assignments[-1])
+    tail = text[end:end + GUARD_LOOKAHEAD]
+    return re.search(
+        rf"(?:!\s*{name}\b"                     # if (!Mat)
+        rf"|\b{name}\s*(?:==|!=)\s*(?:nullptr|NULL)"   # Mat == nullptr
+        rf"|\b{name}\s*\?"                      # Mat ? A : B
+        rf"|\bif\s*\(\s*{name}\s*\))",          # if (Mat)
+        tail,
+    ) is not None
+
+
 def _collect_code_paths(audit: CookAudit) -> None:
+    unguarded: set[str] = set()
+    guarded: set[str] = set()
     for directory, _subdirs, files in os.walk(audit.source_dir):
         for name in files:
             if not name.endswith(CODE_SUFFIXES):
@@ -453,6 +501,11 @@ def _collect_code_paths(audit: CookAudit) -> None:
                 sites = audit.code_paths.setdefault(reference, [])
                 if relative not in sites:
                     sites.append(relative)
+                target = guarded if _is_guarded_load(text, match.end()) \
+                    else unguarded
+                target.add(reference)
+    # Guarded only if every site is. One unguarded load is still a crash.
+    audit.guarded_code_paths = guarded - unguarded
 
 
 def run_audit(project_root: str = PROJECT_ROOT) -> CookAudit:
@@ -1124,9 +1177,23 @@ def _report(audit: CookAudit) -> None:
 
     missing = missing_code_assets(audit)
     if missing:
-        print(f"\n{len(missing)} path(s) code loads that are not in the tree:")
-        for package, sites in missing:
-            print(f"  [ABSENT] {package}  <- {', '.join(sites)}")
+        unguarded = [(p, s) for p, s in missing
+                     if p not in audit.guarded_code_paths]
+        guarded = [(p, s) for p, s in missing
+                   if p in audit.guarded_code_paths]
+        if unguarded:
+            print(f"\n{len(unguarded)} path(s) code loads unguarded that are "
+                  "not in the tree:")
+            for package, sites in unguarded:
+                print(f"  [ABSENT] {package}  <- {', '.join(sites)}")
+                print("      the load returns null and nothing checks it")
+        if guarded:
+            print(f"\n{len(guarded)} path(s) code loads that are not in the "
+                  "tree, each behind a null check:")
+            for package, sites in guarded:
+                print(f"  [ABSENT_GUARDED] {package}  <- {', '.join(sites)}")
+                print("      falls back at runtime; built by the art pass, "
+                      "not committed")
 
     status = atlas_status(audit)
     kept = len(status["still_cooked"])
@@ -1532,6 +1599,46 @@ def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
             '    TEXT("/Game/Prototype/Textures/"\n'
             '        "T_HudFrame_D.T_HudFrame_D"));\n'
         )
+    # Two loads of packages that are not in the tree: one the code falls back
+    # from, one it does not. They differ only in the null check, which is the
+    # whole distinction the report draws between them.
+    #
+    # The unguarded load comes first on purpose. Both assignments sit inside
+    # one lookbehind window, so a classifier that takes the first rather than
+    # the nearest tests `Assumed` for the `Fallback` load and calls the
+    # guarded one unguarded. Written the other way round it gets both right
+    # by luck and the ordering is never actually checked.
+    with open(os.path.join(source, "Absent.cpp"), "w") as handle:
+        handle.write(
+            'UMaterialInterface* Assumed = LoadObject<UMaterialInterface>(\n'
+            '    nullptr, TEXT("/Game/Prototype/Materials/M_Gone.M_Gone"));\n'
+            'UMaterialInterface* Fallback = LoadObject<UMaterialInterface>(\n'
+            '    nullptr, TEXT("/Game/Prototype/Materials/M_Late.M_Late"));\n'
+            'if (!Fallback)\n'
+            '{\n'
+            '    Fallback = KnownMaterial;\n'
+            '}\n'
+            'Assumed->SetScalarParameterValue(TEXT("X"), 1.0f);\n'
+        )
+    # The same absent path, loaded a second time with a guard. One careful
+    # caller does not make the careless one safe, so this must stay unguarded.
+    with open(os.path.join(source, "AbsentAgain.cpp"), "w") as handle:
+        handle.write(
+            'UMaterialInterface* Careful = LoadObject<UMaterialInterface>(\n'
+            '    nullptr, TEXT("/Game/Prototype/Materials/M_Gone.M_Gone"));\n'
+            'if (!Careful)\n'
+            '{\n'
+            '    return;\n'
+            '}\n'
+        )
+    # A load passed straight into a call, with no pointer to test. Nothing can
+    # be proved about it, and unprovable has to mean unguarded: the other way
+    # round, every load the scan cannot read turns into a silent reassurance.
+    with open(os.path.join(source, "AbsentInline.cpp"), "w") as handle:
+        handle.write(
+            'Mesh->SetMaterial(0, LoadObject<UMaterialInterface>(\n'
+            '    nullptr, TEXT("/Game/Prototype/Materials/M_Bare.M_Bare")));\n'
+        )
     return root
 
 
@@ -1542,6 +1649,8 @@ def command_self_test() -> int:
     in this repository until an editor has rebuilt the print materials, so
     without this it would ship never having been seen to pass at all.
     """
+    import contextlib
+    import io
     import tempfile
 
     entries = ("T_Print_D",)
@@ -1584,6 +1693,38 @@ def command_self_test() -> int:
         ]
         assert [entry["package"] for entry in holding] == [hud], \
             "the rule was not reported as the only thing cooking the texture"
+
+        # 2a. A path that is not in the tree is a defect when the code
+        #     dereferences the result and a decision when it falls back. The
+        #     two fixture loads differ only in the null check, so anything
+        #     that classifies them alike is reading the literal, not the code.
+        absent = dict(missing_code_assets(audit))
+        late = "/Game/Prototype/Materials/M_Late"
+        gone = "/Game/Prototype/Materials/M_Gone"
+        bare = "/Game/Prototype/Materials/M_Bare"
+        assert set(absent) == {late, gone, bare}, \
+            f"the absent code loads were not all found: {sorted(absent)}"
+        assert late in audit.guarded_code_paths, \
+            "a load with a null check and a fallback was called unguarded"
+        assert gone not in audit.guarded_code_paths, \
+            "a load nothing checks was called guarded"
+        assert bare not in audit.guarded_code_paths, \
+            "a load with no pointer to test was called guarded"
+        assert len(absent[gone]) == 2, \
+            f"a path loaded from two files listed one site: {absent[gone]}"
+        # The report is the only surface anyone reads. A finding the audit
+        # computes and then does not print is the same as no finding at all.
+        printed = io.StringIO()
+        with contextlib.redirect_stdout(printed):
+            _report(audit)
+        rendered = printed.getvalue()
+        for marker in ("[ABSENT] " + gone, "[ABSENT_GUARDED] " + late):
+            assert marker in rendered, \
+                f"the report did not surface {marker}"
+        # Neither is a gate failure: an absent path is the art pass's business,
+        # not the cook's. Asserted so a future gate change has to be deliberate.
+        assert gate(audit, entries=entries)[0] == 0, \
+            "an absent code load failed the gate"
 
         # 2b. Every way a rule can look right and hold nothing. Each of these
         #     passes a regex looking for `CookRule=AlwaysCook` and a quoted
@@ -1847,6 +1988,8 @@ def command_self_test() -> int:
         f"name only against a photo capture, not retired), "
         f"a capture pair split between code and the materials, a capture "
         f"folder whose import nothing draws, "
+        f"an absent path told apart from an absent path with a fallback "
+        f"(nearest pointer, every site, no pointer at all), "
         f"the code-load conflict, the unfetched-LFS hole, and "
         f"{len(tampered)} ways a cook rule can look right and hold nothing"
     )
@@ -1901,7 +2044,13 @@ def main(argv=None) -> int:
             "unreadable": sorted(audit.unreadable),
             "atlas_code_load": {s: sites for s, sites in conflicts},
             "code_only": {p: sites for p, sites in code_only},
-            "absent": {p: sites for p, sites in missing_code_assets(audit)},
+            "absent": {
+                p: {
+                    "sites": sites,
+                    "guarded": p in audit.guarded_code_paths,
+                }
+                for p, sites in missing_code_assets(audit)
+            },
             "atlas": status,
             "cook_rules": rule_coverage(audit),
             "cook_rule_problems": [
