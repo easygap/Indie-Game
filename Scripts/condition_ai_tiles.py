@@ -32,6 +32,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import math
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -151,16 +152,18 @@ TILES: tuple[TileSpec, ...] = (
     ),
     TileSpec(
         "T_ApartmentWallpaperEmboss",
-        detail_gain=2.0,
+        detail_gain=1.7,
         seam="period",
         blend=0.03,
         note="Plain embossed vinyl wallpaper. Period, not crossfade: the rib "
         "pitch is regular structure and a dissolve would smear two ribs into "
         "each other exactly the way it would smear the stair diamonds. The "
-        "narrow fade is for the same reason. Gain 2.0 follows the carbon "
-        "paper rather than the door -- this is paper under a vinyl skin, and "
-        "past about 2.4 the ribs stop reading as a pressed sheet and start "
-        "reading as corrugation.",
+        "narrow fade is for the same reason. Gain 1.7 is measured, not "
+        "reasoned by analogy: the adopted scan arrived at stddev 6.5, which "
+        "is already twice what the 2026-08-14 batch came in at, and a sweep "
+        "puts 1.7 at stddev 10.9 -- the middle of the 10-12 band the approved "
+        "surfaces sit in. 2.0 overshoots to 12.8. Measured on the transit "
+        "copy of the scan, so re-run the sweep if the original differs.",
     ),
 )
 
@@ -508,7 +511,7 @@ def condition_file(
             if force:
                 print(f"[COND] {spec.stem}: already conditioned — --force cannot "
                       f"re-run in place. Regenerate the albedo first:")
-                print(f"       .\Scripts\Prepare-AIArt.ps1 -OnlySource @('<raw stem>')")
+                print(r"       .\Scripts\Prepare-AIArt.ps1 -OnlySource @('<raw stem>')")
             else:
                 print(f"[COND] {spec.stem}: already conditioned, skipping")
             return False
@@ -600,7 +603,15 @@ def condition_file(
 # against 6.89 for the older asset. Seam is the module's own 1.3 rule.
 STIPPLE_GOOD = 1.5
 STIPPLE_BAD = 5.0
-SEAM_RATIO_GOOD = 1.3
+# Wrap error as a fraction of the material's own contrast. The ratio-to-
+# adjacent-line measure that measure() reports cannot be used for ranking a
+# structured texture: on vertical stripes two adjacent *rows* are identical,
+# so its baseline collapses to ~0.05 levels and every candidate scores 20+.
+# Normalising by stddev instead is stable whatever the structure. Calibrated
+# against the conditioned assets that shipped: steel stair 0.12, rooftop 0.40,
+# door 0.62/0.78, villa stucco 0.86/0.93, and the wallpaper this one hangs
+# beside 0.88/1.04. One is the line shipping practice already sits on.
+SEAM_OVER_CONTRAST_MAX = 1.0
 # The blob, in 0..255 levels across a 16x16 grid. Brightness alone is not the
 # tell: a pale wallpaper legitimately sits high and the shipping
 # T_ApartmentWallpaperV2_D has 99% of its pixels above 65%. What makes a scan
@@ -608,6 +619,48 @@ SEAM_RATIO_GOOD = 1.3
 # baked composition light this script exists to remove -- and past a point it
 # cannot be removed without taking the material with it.
 FIELD_SPREAD_MAX = 14
+
+
+def _line_profile(gray: Image.Image, vertical_stripes: bool) -> list[float]:
+    """Column means (or row means), as a 1D signal, in one resize."""
+    width, height = gray.size
+    strip = (gray.resize((width, 1), RESAMPLE_BOX) if vertical_stripes
+             else gray.resize((1, height), RESAMPLE_BOX))
+    # Pillow 11 deprecated getdata and the warning goes to stderr, which the
+    # art build reads as failure. Same fallback field_spread uses.
+    flatten = getattr(strip, "get_flattened_data", None)
+    return list(flatten() if flatten else strip.getdata())
+
+
+def stripe_period(gray: Image.Image, lo: int = 2, hi: int = 120):
+    """Dominant stripe pitch in pixels, by DFT over the line profile.
+
+    _detect_period cannot answer this. It searches a 256 px downsample from
+    lag 7 up, so the finest pitch it can see is about 3% of the frame -- 45 mm
+    on a 165 cm tile. A wallpaper emboss is millimetres, so that detector
+    returns whatever low-frequency drift happens to sit near its floor and
+    reports it as the pattern. Collapsing to a line profile first keeps the
+    stripes and throws away everything that is not one, which makes a plain
+    DFT both cheap and correct.
+
+    Returns (period_px, power, axis) for the stronger axis, or (None, 0, "").
+    """
+    best = (None, 0.0, "")
+    for vertical in (True, False):
+        profile = _line_profile(gray, vertical)
+        count = len(profile)
+        if count < 2 * hi:
+            continue
+        mean = sum(profile) / count
+        centred = [value - mean for value in profile]
+        for period in range(lo, hi + 1):
+            omega = 2.0 * math.pi / period
+            real = sum(v * math.cos(omega * i) for i, v in enumerate(centred))
+            imag = sum(v * math.sin(omega * i) for i, v in enumerate(centred))
+            power = math.hypot(real, imag) / count
+            if power > best[1]:
+                best = (period, power, "vertical" if vertical else "horizontal")
+    return best
 
 
 def rank_candidates(
@@ -631,24 +684,30 @@ def rank_candidates(
             continue
         stats = measure(image)
         gray = _luma(image)
-        period = _detect_period(gray, horizontal=True)
+        period, power, axis = stripe_period(gray)
         pitch_mm = None
         if period and coverage_cm:
-            pitch_mm = round(period / image.size[0] * coverage_cm * 10.0, 2)
+            extent = image.size[0] if axis == "vertical" else image.size[1]
+            pitch_mm = round(period / extent * coverage_cm * 10.0, 2)
+
+        contrast = stats["luma_stddev"] or 0.01
+        seam_h = round(stats["seam_h"] / contrast, 2)
+        seam_v = round(stats["seam_v"] / contrast, 2)
 
         problems = []
         if stats["stipple"] > STIPPLE_BAD:
             problems.append("stipple")
-        if (stats["seam_h_ratio"] or 0) > SEAM_RATIO_GOOD:
-            problems.append("seam-h")
-        if (stats["seam_v_ratio"] or 0) > SEAM_RATIO_GOOD:
-            problems.append("seam-v")
+        if max(seam_h, seam_v) > SEAM_OVER_CONTRAST_MAX:
+            problems.append("seam")
         if stats["field_spread"] > FIELD_SPREAD_MAX:
             problems.append("blob")
         rows.append({
             "name": path.name,
             "period_px": period,
+            "period_power": round(power, 2),
+            "period_axis": axis,
             "pitch_mm": pitch_mm,
+            "seam_over_contrast": [seam_h, seam_v],
             "problems": problems,
             **stats,
         })
@@ -659,7 +718,7 @@ def rank_candidates(
     rows.sort(key=lambda r: (
         len(r["problems"]),
         r["stipple"],
-        max(r["seam_h_ratio"] or 0, r["seam_v_ratio"] or 0),
+        max(r["seam_over_contrast"]),
     ))
     return rows
 
@@ -668,28 +727,35 @@ def print_ranking(rows: list[dict], coverage_cm: float | None) -> None:
     pitch_head = "pitch" if coverage_cm else "period"
     print(
         f"\n{'#':>2}  {'file':<40} {'size':>10} {'luma':>6} {'sdev':>5} "
-        f"{'stipple':>8} {'blob':>5} {'seam h/v':>10} {pitch_head:>8}  notes"
+        f"{'stipple':>8} {'blob':>5} {'seam h/v':>10} {pitch_head:>9} "
+        f"{'/frame':>7}  notes"
     )
     for index, row in enumerate(rows, start=1):
         pitch = (f"{row['pitch_mm']}mm" if row["pitch_mm"] is not None
                  else (f"{row['period_px']}px" if row["period_px"] else "-"))
+        extent = (row["size"][0] if row["period_axis"] == "vertical"
+                  else row["size"][1])
+        count = f"{extent // row['period_px']}" if row["period_px"] else "-"
+        seam = "/".join(str(v) for v in row["seam_over_contrast"])
         print(
             f"{index:>2}. {row['name'][:40]:<40} "
             f"{row['size'][0]:>4}x{row['size'][1]:<5} "
             f"{row['luma_mean']:>6.3f} {row['luma_stddev']:>5.1f} "
             f"{row['stipple']:>8.2f} {row['field_spread']:>5} "
-            f"{str(row['seam_h_ratio']) + '/' + str(row['seam_v_ratio']):>10} "
-            f"{pitch:>8}  {', '.join(row['problems']) or 'ok'}"
+            f"{seam:>10} {pitch:>9} {count:>7}  "
+            f"{', '.join(row['problems']) or 'ok'}"
         )
     print(
         f"\nbands: stipple <={STIPPLE_GOOD} good / >{STIPPLE_BAD} regenerate; "
-        f"seam ratio <={SEAM_RATIO_GOOD}; blob (field spread, levels) "
-        f"<={FIELD_SPREAD_MAX}.\n"
+        f"seam (wrap error / contrast) <={SEAM_OVER_CONTRAST_MAX}; "
+        f"blob (field spread, levels) <={FIELD_SPREAD_MAX}.\n"
         "The blob and the seam are corrected by this script, so they break "
         "ties rather than decide. Stipple does not correct: a denoise strong "
         "enough to remove it removes the material too.\n"
         "sdev is expected low before conditioning -- the anti-stipple wording "
-        "flattens real relief as well, and detail_gain puts it back."
+        "flattens real relief as well, and detail_gain puts it back.\n"
+        "pitch needs --coverage-cm to mean anything: a hairline emboss and "
+        "panelling are the same picture until you know the real scale."
     )
 
 
