@@ -42,6 +42,10 @@ APARTMENT_VISUAL_TEXTURE_NAMES = {
     "T_ApartmentWallpaperV2_R",
     "T_ApartmentWallpaperV2_A",
     "T_ApartmentWallPatina_M",
+    "T_ApartmentWallpaperEmboss_D",
+    "T_ApartmentWallpaperEmboss_N",
+    "T_ApartmentWallpaperEmboss_R",
+    "T_ApartmentWallpaperEmboss_A",
 }
 MISSING_FLOOR_ONLY = os.environ.get("IG_MISSING_FLOOR_ONLY") == "1"
 MISSING_FLOOR_TEXTURE_NAMES = {

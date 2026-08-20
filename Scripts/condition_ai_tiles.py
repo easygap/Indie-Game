@@ -72,6 +72,11 @@ class TileSpec:
                             repeats; right for regular structure, where a
                             crossfade would smear the rhythm
     blend       Crossfade margin as a fraction of the edge.
+    period_axis Expected fine structure for period mode. "vertical" and
+                "horizontal" prevent a smooth orthogonal field from being
+                mistaken for a second pattern axis. "auto" keeps the generic
+                detector used by two-dimensional patterns such as checker
+                plate.
     """
 
     stem: str
@@ -80,6 +85,7 @@ class TileSpec:
     detail_gain: float = 1.0
     seam: str = "crossfade"
     blend: float = 0.12
+    period_axis: str = "auto"
     note: str = ""
 
 
@@ -155,6 +161,7 @@ TILES: tuple[TileSpec, ...] = (
         detail_gain=1.7,
         seam="period",
         blend=0.03,
+        period_axis="vertical",
         note="Plain embossed vinyl wallpaper. Period, not crossfade: the rib "
         "pitch is regular structure and a dissolve would smear two ribs into "
         "each other exactly the way it would smear the stair diamonds. The "
@@ -408,7 +415,12 @@ def _detect_period(gray: Image.Image, horizontal: bool, coarse: int = 256) -> in
     return best_lag
 
 
-def make_seamless(image: Image.Image, mode: str, blend: float) -> tuple[Image.Image, str]:
+def make_seamless(
+    image: Image.Image,
+    mode: str,
+    blend: float,
+    period_axis: str = "auto",
+) -> tuple[Image.Image, str]:
     """Return a wrapping image at the original size, and what was done.
 
     The crossfade must be the LAST operation. Any resample after it re-breaks
@@ -430,16 +442,52 @@ def make_seamless(image: Image.Image, mode: str, blend: float) -> tuple[Image.Im
     working = image
 
     if mode == "period":
+        # A generated tile can already wrap more cleanly than the approved
+        # conditioned surfaces.  In that case any crop, resample, or dissolve
+        # is strictly destructive: it changes a valid rib pitch and can smear
+        # the very structure period mode is meant to protect.  Use the same
+        # wrap/contrast yardstick as --rank and preserve a passing source.
+        source_stats = measure(image)
+        contrast = source_stats["luma_stddev"] or 0.01
+        wrap_h = source_stats["seam_h"] / contrast
+        wrap_v = source_stats["seam_v"] / contrast
+        if max(wrap_h, wrap_v) <= SEAM_OVER_CONTRAST_MAX:
+            return image, (
+                f"source wrap retained ({wrap_h:.2f}/{wrap_v:.2f} <= "
+                f"{SEAM_OVER_CONTRAST_MAX:.2f}); no resample"
+            )
+
         gray = _luma(image)
-        px = _detect_period(gray, True)
-        py = _detect_period(gray, False)
-        if px and py:
-            keep_w = (width // px) * px
-            keep_h = (height // py) * py
-            if keep_w >= px and keep_h >= py:
+        px = _detect_period(gray, True) if period_axis != "horizontal" else None
+        py = _detect_period(gray, False) if period_axis != "vertical" else None
+
+        # _detect_period deliberately ignores sub-3%-of-frame lags.  That is
+        # appropriate for checker plate and panels, but a wallpaper emboss at
+        # 1024 px can be only 8 px wide.  The line-profile DFT used by --rank
+        # sees that scale reliably.  Fall back to its dominant axis instead of
+        # silently degrading period mode into a crossfade-only operation.
+        fine_period, fine_power, fine_axis = stripe_period(gray)
+        if (fine_period and fine_axis == "vertical"
+                and period_axis in ("auto", "vertical")):
+            px = fine_period
+            notes.append(f"fine vertical period {px}px (power {fine_power:.2f})")
+        elif (fine_period and fine_axis == "horizontal"
+              and period_axis in ("auto", "horizontal")):
+            py = fine_period
+            notes.append(f"fine horizontal period {py}px (power {fine_power:.2f})")
+
+        if px or py:
+            keep_w = (width // px) * px if px else width
+            keep_h = (height // py) * py if py else height
+            min_w = px or 1
+            min_h = py or 1
+            if keep_w >= min_w and keep_h >= min_h:
                 working = image.crop((0, 0, keep_w, keep_h))
-                notes.append(f"period crop {keep_w}x{keep_h} (pitch {px}x{py})")
-        if not notes:
+                notes.append(
+                    f"period crop {keep_w}x{keep_h} "
+                    f"(pitch {px or '-'}x{py or '-'})"
+                )
+        else:
             # No trustworthy pitch. Say so rather than crop to a made-up one.
             notes.append("no period found, crossfade only")
 
@@ -528,7 +576,9 @@ def condition_file(
     corrected = flatten_and_boost(
         image, spec.flat_field, spec.field_cells, spec.detail_gain
     )
-    corrected, seam_note = make_seamless(corrected, spec.seam, spec.blend)
+    corrected, seam_note = make_seamless(
+        corrected, spec.seam, spec.blend, spec.period_axis
+    )
     after = measure(corrected)
 
     print(f"       out  luma {after['luma_mean']:.3f}  stipple {after['stipple']:.2f}"
@@ -578,6 +628,7 @@ def condition_file(
                 "seam_action": seam_note,
                 "flat_field": spec.flat_field,
                 "field_cells": spec.field_cells,
+                "period_axis": spec.period_axis,
                 "input_sha256": current,
                 "output_sha256": _digest(path),
                 "before": before,
@@ -774,6 +825,12 @@ def main() -> int:
     parser.add_argument("--input", type=Path, help="Ad-hoc: condition this file")
     parser.add_argument("--output", type=Path, help="Ad-hoc: write here (default: in place)")
     parser.add_argument("--seam", default="crossfade", choices=("none", "crossfade", "period"))
+    parser.add_argument(
+        "--period-axis",
+        default="auto",
+        choices=("auto", "vertical", "horizontal"),
+        help="Expected fine stripe direction for period seam mode",
+    )
     parser.add_argument("--flat-field", type=float, default=1.0)
     parser.add_argument("--field-cells", type=int, default=8)
     parser.add_argument("--blend", type=float, default=0.12)
@@ -820,13 +877,20 @@ def main() -> int:
         if args.report_only:
             return 0
         spec = TileSpec(
-            "adhoc", args.flat_field, args.field_cells,
-            args.detail_gain, args.seam, args.blend,
+            "adhoc",
+            flat_field=args.flat_field,
+            field_cells=args.field_cells,
+            detail_gain=args.detail_gain,
+            seam=args.seam,
+            blend=args.blend,
+            period_axis=args.period_axis,
         )
         out = flatten_and_boost(
             image, spec.flat_field, spec.field_cells, spec.detail_gain
         )
-        out, seam_note = make_seamless(out, spec.seam, spec.blend)
+        out, seam_note = make_seamless(
+            out, spec.seam, spec.blend, spec.period_axis
+        )
         after = measure(out)
         print(f"       out  luma {after['luma_mean']:.3f}  stipple {after['stipple']:.2f}"
               f"  field {after['field_spread']}"

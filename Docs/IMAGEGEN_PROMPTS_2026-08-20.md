@@ -155,7 +155,7 @@ Lumen과 VSM이, N/R/A는 `generate_ai_pbr_maps.py`가 소유한다
 
 1) Prepare-AIArt.ps1            Source/Target 항목, Size 1024x1024
 2) condition_ai_tiles.py        TileSpec: seam="period", blend=0.03,
-                                detail_gain=2.0      ← 3)보다 먼저 돈다
+                                detail_gain=1.7      ← 3)보다 먼저 돈다
 3) generate_ai_pbr_maps.py      SurfaceSpec: 0.86 / 0.74~0.92,
                                 normal 0.38, rough_detail 0.06, ao 0.55
 4) create_textured_materials.py M_WallpaperEmboss_X / _Y,
@@ -242,10 +242,14 @@ crossfade는 "stochastic surfaces with no repeating structure"용이고,
 
 | gain | stddev | stipple |
 |---|---|---|
-| 1.0 | 6.43 | 1.16 |
-| 1.5 | 9.62 | 1.81 |
-| **1.7** | **10.90** | 2.09 |
-| 2.0 | 12.82 | 2.51 |
+| 1.0 | 6.56 | 1.35 |
+| 1.5 | 9.84 | — |
+| **1.7** | **11.14** | **3.15** |
+| 2.0 | 13.11 | — |
+
+전송본으로 먼저 돌린 스윕은 1.5→9.62, 1.7→10.90, 2.0→12.82였다. 원본과
+0.3 이내로 맞았으므로, 후보 선별 단계에서 전송본만 가지고 게인을 정해도
+된다는 뜻이다 — 다만 확정은 원본으로 한다.
 
 승인 대역이 10~12이므로 **1.7**이다. 2.0은 넘친다.
 
@@ -253,6 +257,35 @@ crossfade는 "stochastic surfaces with no repeating structure"용이고,
 현관문 2.6, 먹지 2.0이었다. 이 벽지가 그보다 낮은 것은 재질이 달라서가
 아니라 **스캔이 더 살아서 왔기 때문**이다. 게인은 재질에서 유추할 값이
 아니라 그 장의 stddev에서 나오는 값이라는 뜻이다.
+
+### 4번 원본 반입·빌드 결과
+
+2026-08-20에 built-in ImageGen 출력 9장 중 4번 원본을 다음 경로에 반입했다.
+
+```
+Content/SourceArt/AI/
+TextureApartmentWallpaperEmbossedPlainGreyGreen_v1.png
+SHA-256 DA15F9E65108F0F71D9FC492F3F4244A4DCCAA5CD6857AC8D73999F0747B2E05
+```
+
+전송본이 아니라 1254×1254 RGB 원본을 다시 잰 값은 luma 0.653, stddev 6.56,
+stipple 1.35, blob 4, seam/stddev 0.30/0.38, 세로 주기 10px = 13.16mm다.
+1024 조건화본은 luma 0.650, stddev 11.14, stipple 3.15, blob 3,
+seam/stddev 0.29/0.36, 세로 주기 8px = 12.89mm다. 원본 감김 오차가 승인
+임계 1.0보다 낮아서 리샘플·교차 페이드는 하지 않고 위상과 결을 보존했다.
+
+`Build-ArtAssets.ps1 -ApartmentVisualOnly`는 다음 계약으로 통과했다.
+
+```
+ART_UASSET_AUDIT PASS target=ApartmentVisual
+textures=9 materials=6 linked_textures=21
+ART_TARGETED_BUILD PASS target=ApartmentVisual assets=15 uasset_audit=1
+```
+
+이 과정에서 8px 결을 기존 7-lag 다운샘플 검출기가 놓쳐 crossfade로 보내던
+문제를 고쳤고, 아파트 타깃 검증은 자기 소유 자산만 검사하도록 분리했다.
+따라서 다른 타깃의 미생성 자산이 없어도 이 벽지의 텍스처 설정, PBR 링크,
+재료 컴파일과 샘플 예산을 독립적으로 증명한다.
 
 ---
 
