@@ -46,26 +46,21 @@ STILLS = (
     "prologue-alley.png",
     "prologue-store.png",
     "prologue-not-found-note.png",
-    "m65-first-run-audio-calibration.png",
-    "settings-display-1080.png",
-    "settings-accessibility-1080.png",
-    # 접힌 <details> 안이지만 스포일러를 여는 사람에게는 이 둘이 가장 무겁다.
-    "night4-cavity-open.png",
-    "night4-mok-confrontation.png",
+    # 설정 메뉴·보정 화면·밤 4 스포일러는 README에서 뺐다. 원본은 각자의
+    # 계약이 Docs/Media에 증거로 잡고 있고, 표시용 파생본만 여기서 빠진다.
 )
 
 # 움직임이 설명의 절반인 것만 인라인이므로, 그 하나는 제대로 줄인다.
 # 애니메이션 WebP는 브라우저마다 첫 프레임만 보이는 경우가 있어 GIF로 남긴다.
 ANIMATIONS = (
     ("night-listener-chase.gif", 720, 12),
-    # 포획 연출 두 개도 접히지 않은 표에 있다. 둘 다 짧고 어두워서
-    # 폭을 줄여도 읽히는 것이 줄지 않는다.
     ("m1-capture-embrace.gif", 640, 12),
+    # 기상 잔향은 README에서 뺐지만 파생본 자체는 M1 기상 잔향 계약이
+    # 파일로 잡고 있어 계속 만든다.
     ("m1-capture-wake-echo.gif", 640, 12),
-    # 접힌 <details> 안이라 첫 화면에는 안 걸리지만, 펼친 사람에게는 이 셋이
+    # 접힌 <details> 안이라 첫 화면에는 안 걸리지만, 펼친 사람에게는 이 둘이
     # 문서 무게의 대부분이다. 본문에 적어 둔 용량 표기도 함께 맞춰야 한다.
     ("night1-extinguisher-drop.gif", 640, 12),
-    ("m65-mercy-note-slide.gif", 640, 12),
     ("readme-route-preview.gif", 640, 10),
 )
 

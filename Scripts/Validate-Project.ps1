@@ -228,16 +228,15 @@ $readme = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'README.md')
 foreach ($requiredReadmeToken in @(
 	# 인라인은 Docs/Media/readme/의 표시용 파생본을 건다. 원본을 그대로 걸면
-	# README를 여는 데 40 MB 가까이 받는다. 원본은 그 자리에 남아 있고,
-	# 자막 가독성 확인용 1080p 링크만 원본을 직접 가리킨다.
-	'Docs/Media/dialogue-hud-default-1080.png',
+	# README를 여는 데 40 MB 가까이 받는다. 원본은 Docs/Media에 그대로 있다.
+	# README는 게임을 처음 보는 사람용이라, 설정 메뉴 캡처·밤 4 스포일러·
+	# 개별 기능 시연 같은 개발 증거는 걸지 않는다. 그런 캡처의 계약은
+	# 각자의 검증 스크립트가 따로 잡고 있다.
 	'Docs/Media/readme/readme-route-preview.gif',
-	'Docs/Media/readme/m65-mercy-note-slide.gif',
-	'Docs/Media/readme/settings-display-1080.webp',
-	'Docs/Media/readme/settings-accessibility-1080.webp',
+	'Docs/Media/readme/night-listener-chase.gif',
+	'Docs/Media/readme/arrival-contract.webp',
+	'Docs/Media/readme/hud-noise-ripple.webp',
 	'Docs/Media/readme/prologue-not-found-note.webp',
-	'Docs/Media/readme/night4-cavity-open.webp',
-	'Docs/Media/readme/night4-mok-confrontation.webp',
 	# 타이틀 화면과 채널 5는 README의 첫 인상과 유일한 관측 호러 컷이다.
 	# 둘 다 다른 캡처로 대체할 수 없으니 참조 자체를 고정한다.
 	'Docs/Media/readme/title-menu-first-run-1080.webp',
@@ -273,10 +272,10 @@ $readmeGif = Get-Item -LiteralPath (
 if ($readmeGif.Length -lt 500KB -or $readmeGif.Length -gt 10MB) {
 	throw 'README route preview must stay legible and below the 10 MB review budget.'
 }
-$mercyNoteGif = Get-Item -LiteralPath (
-	Join-Path $projectRoot 'Docs/Media/readme/m65-mercy-note-slide.gif')
-if ($mercyNoteGif.Length -lt 500KB -or $mercyNoteGif.Length -gt 10MB) {
-	throw 'README mercy-note preview must stay legible and below the 10 MB review budget.'
+$chaseGif = Get-Item -LiteralPath (
+	Join-Path $projectRoot 'Docs/Media/readme/night-listener-chase.gif')
+if ($chaseGif.Length -lt 500KB -or $chaseGif.Length -gt 10MB) {
+	throw 'README chase preview must stay legible and below the 10 MB review budget.'
 }
 $readmeMediaRecipe = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/create_readme_media.py')

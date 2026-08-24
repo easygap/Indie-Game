@@ -198,10 +198,13 @@ Assert-ContainsAll $artMatrix @(
 	'1920×1080과 1280×800 D3D12 실렌더'
 ) 'art matrix wake reuse'
 Assert-ContainsAll $readme @(
-	'게임 전체는 이사 온 **저녁의 입주**에서 시작',
-	'**같은 밤의 04:30 침대**로만 돌아갑니다',
-	'Docs/Media/readme/m1-capture-wake-echo.gif',
-	'시야가 돌아오기 전에는 HUD와 조작이 나타나지 않습니다'
+	# README는 플레이어 문서다. 기상 잔향의 HUD 점유 같은 구현 세부는
+	# 이 계약의 소스·상태 문서 단언이 잡고, 문서에는 플레이어에게 한
+	# 약속만 남는다: 입주 저녁에서 시작하고, 잡히면 같은 밤으로 되감기며,
+	# 진행은 잃지 않는다.
+	'입주 첫날 저녁부터 시작합니다',
+	'붙잡히면 같은 밤 04시 30분의 침대로 돌아옵니다',
+	'읽은 기록과 알아낸 것은 그대로 남고'
 ) 'player-facing readme'
 Assert-ContainsAll $captureRunner @(
 	'IG_NIGHT_CAPTURE_RES_X',

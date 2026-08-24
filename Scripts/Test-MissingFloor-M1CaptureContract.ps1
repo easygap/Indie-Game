@@ -205,9 +205,11 @@ Assert-ContainsAll $story @(
 Assert-ContainsAll $readme @(
 	# README는 Docs/Media/readme/의 표시용 파생본을 건다. 원본은 아래 자산
 	# 목록에서 따로 확인한다 — 파생본이 있다고 원본이 있는 것은 아니다.
+	# 진동 감쇠 초 수 같은 구현 수치는 플레이어 문서에 싣지 않는다. 문서가
+	# 약속해야 하는 것은 포획이 벌이 아니라 되감기라는 사실이다.
 	'Docs/Media/readme/m1-capture-embrace.gif',
 	'포획은 게임 오버가 아닙니다.',
-	'포획 진동은 1.2초 동안 자연스럽게 감쇠'
+	'읽은 기록과 알아낸 것은 그대로 남고'
 ) 'player-facing capture README'
 
 $sourceAsset = Join-Path $projectRoot `
