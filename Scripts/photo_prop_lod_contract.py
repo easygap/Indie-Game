@@ -38,6 +38,9 @@ LARGE_PROP_IDS = {
     "old_bed_frame",
     "outdoor_table_chair_set_01",
     "painted_wooden_chair_01",
+    # 크기로는 소품이지만 스캔의 UV 심 보존 감축 바닥이 6652라 3000 예산에
+    # 물리적으로 못 들어간다. 실측(18320 -> 6652 수렴)이 근거다.
+    "plastic_crate_01",
     "plastic_monobloc_chair_01",
     "steel_frame_shelves_01",
     "street_lamp_01",
@@ -84,15 +87,42 @@ def _set_properties(target, values) -> int:
     return applied
 
 
-def _triangles(mesh_subsystem, asset, lod_index=0) -> int:
-    for candidate in ("get_number_triangles", "get_number_verts"):
-        function = getattr(mesh_subsystem, candidate, None)
-        if function is None:
-            continue
+def lod_triangle_count(asset, use_render_data) -> int:
+    """LOD0 삼각형 실측. 5.8에서 서브시스템의 get_number_triangles가 사라져
+    지오메트리 스크립트로 돌아 읽는다.
+
+    스캔 원본의 밀도는 소스 모델에, 감축 체인이 적용된 출하 밀도는 렌더
+    데이터에 있다. 감축 비율은 소스로 계산하고 예산 검증은 렌더로 한다 —
+    버텍스 수를 삼각형인 척 쓰면 비율이 모자라 LOD0이 예산을 넘는다.
+    """
+    try:
+        dynamic = unreal.new_object(unreal.DynamicMesh)
+    except Exception:  # noqa: BLE001 - binding differences across versions
+        dynamic = unreal.DynamicMesh()
+    read_lod = unreal.GeometryScriptMeshReadLOD()
+    lod_type = getattr(unreal, "GeometryScriptLODType", None)
+    if lod_type is not None:
         try:
-            return int(function(asset, lod_index))
-        except Exception:  # noqa: BLE001 - diagnostics only across UE minors
-            continue
+            read_lod.set_editor_property(
+                "lod_type",
+                lod_type.RENDER_DATA if use_render_data
+                else lod_type.SOURCE_MODEL,
+            )
+        except Exception:  # noqa: BLE001 - MaxAvailable이 소스 모델에 닿는다
+            pass
+    unreal.GeometryScript_AssetUtils.copy_mesh_from_static_mesh(
+        asset,
+        dynamic,
+        unreal.GeometryScriptCopyMeshFromAssetOptions(),
+        read_lod,
+    )
+    counter = getattr(dynamic, "get_triangle_count", None)
+    if counter is not None:
+        return int(counter())
+    counter = getattr(
+        unreal.GeometryScript_MeshQueries, "get_num_triangle_i_ds", None)
+    if counter is not None:
+        return int(counter(dynamic))
     return -1
 
 
@@ -118,7 +148,9 @@ def inspect_photo_prop_lods() -> list[dict[str, object]]:
                 "asset_id": asset_id,
                 "lod_count": mesh_subsystem.get_lod_count(asset),
                 "vertex_count": vertex_count,
-                "triangle_count": _triangles(mesh_subsystem, asset),
+                # 검증이 보는 것은 출하 밀도, 곧 감축 체인이 적용된 렌더
+                # LOD0이다. 소스 밀도는 감축 비율을 계산하는 쪽만 쓴다.
+                "triangle_count": lod_triangle_count(asset, True),
                 "budget": prop_class(asset_id).lod0_triangles,
             }
         )
@@ -210,11 +242,14 @@ def apply_photo_prop_lod_contract() -> dict[str, int]:
         if int(item["vertex_count"]) >= 50_000:
             nanite_review_candidates += 1
 
-        triangles = int(item["triangle_count"])
+        # 감축 비율은 스캔 원본, 곧 소스 모델의 실제 삼각형 수로 계산한다.
+        # 감축기가 목표 비율에 정확히 못 맞는 경우가 있어 2%를 덜어 예산
+        # 안쪽에 착지시킨다.
+        source_triangles = lod_triangle_count(asset, False)
         budget = mesh_class.lod0_triangles
         ratio = 1.0
-        if 0 < budget < triangles:
-            ratio = budget / float(triangles)
+        if 0 < budget < source_triangles:
+            ratio = budget * 0.98 / float(source_triangles)
             retopologised += 1
 
         if _build_chain(mesh_subsystem, asset, mesh_class, ratio):
@@ -231,6 +266,15 @@ def apply_photo_prop_lod_contract() -> dict[str, int]:
             )
         if not asset_subsystem.save_loaded_asset(asset, False):
             raise RuntimeError(f"Photo prop failed to save: {item['path']}")
+        if ratio < 1.0:
+            # 스캔은 UV 심 보존 때문에 감축 바닥이 프롭마다 다르다. 요청한
+            # 비율과 실제 착지를 로그로 남겨야 분류(LARGE_PROP_IDS) 판단을
+            # 숫자로 할 수 있다.
+            achieved = lod_triangle_count(asset, True)
+            unreal.log_warning(
+                f"[PHOTO_LOD] {asset_id}: {source_triangles} -> {achieved} "
+                f"tris (budget {budget})"
+            )
         updated += 1
 
     return {

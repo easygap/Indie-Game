@@ -510,6 +510,8 @@ $pbrScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\generate_ai_pbr_maps.py')
 $meshScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\generate_meshes.py')
+$meshContractScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Scripts\mesh_lod_contract.py')
 $directorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Sequence\IGThirdMorningDirector.cpp')
 $demoSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -825,17 +827,31 @@ foreach ($token in @(
 		throw "PBR material blending contract is missing: $token"
 	}
 }
+# 87bd53b가 LOD 특례를 예산 체계로 바꿨다. 예산·분류는 mesh_lod_contract가
+# 소유하고, 베이크 쪽에는 그것을 실제로 적용하는 장치들이 있어야 한다.
+# 옛 'LOD0 preserved' 로그 문자열은 특례와 함께 사라진 게 맞다.
 foreach ($token in @(
 	'HERO_MESHES',
-	'LARGE_PROP_PREFIXES',
+	'LARGE_MESH_PREFIXES',
+	'lod0_triangles',
+	'def classify',
+	'def triangle_budget'
+)) {
+	if (-not $meshContractScript.Contains($token)) {
+		throw "Static-mesh LOD contract is missing: $token"
+	}
+}
+foreach ($token in @(
 	'def apply_lod_contract',
+	'def retopologise',
+	'mesh_lod_contract.triangle_budget',
 	'StaticMeshEditorSubsystem',
+	'set_lods',
 	'set_lod_group',
-	'LOD0 preserved (story-critical close inspection)',
 	'enable_nanite", False'
 )) {
 	if (-not $meshScript.Contains($token)) {
-		throw "Static-mesh LOD contract is missing: $token"
+		throw "Static-mesh LOD chain is not applied at bake time: $token"
 	}
 }
 if ($directorSource.Contains('for (int32 RingIndex = 0; RingIndex < 3; ++RingIndex)')) {
@@ -1455,7 +1471,12 @@ foreach ($token in @(
 	'M_SpriteListenerCrawl0',
 	'M_SpriteListenerCrawl3',
 	'M_SpriteFinalCavity',
-	'M_SpriteMokFinalUpper'
+	'M_SpriteMokFinalUpper',
+	'crack_normal_strength',
+	'cavity_dust',
+	'BreathAmplitude',
+	'TremorAmplitude',
+	'DustAmount'
 )) {
 	if (-not $materialScript.Contains($token)) {
 		throw "Missing-floor material pipeline is missing: $token"
@@ -1497,7 +1518,11 @@ foreach ($token in @(
 	'"SM_ComplaintLedger"',
 	'build_calendar_journal',
 	'"SM_CalendarJournal"',
-	'IG_MISSING_FLOOR_ONLY'
+	'IG_MISSING_FLOOR_ONLY',
+	'fuse_shells',
+	'apply_mesh_self_union',
+	'apply_perlin_noise_to_mesh2',
+	'bake_vertex_occlusion'
 )) {
 	if (-not $meshScript.Contains($token)) {
 		throw "Missing-floor anatomical mesh contract is missing: $token"
@@ -1518,7 +1543,11 @@ foreach ($token in @(
 	'Distance > 160.0f',
 	'Distance > 125.0f',
 	'Facing > 0.60f',
-	'FVector(0.0f, 0.0f, -27.0f)'
+	'FVector(0.0f, 0.0f, -27.0f)',
+	'ListenerShellMid',
+	'TEXT("BreathAmplitude")',
+	'TEXT("TremorAmplitude")',
+	'TargetBreath = 0.0f'
 )) {
 	if (-not $listenerSource.Contains($token)) {
 		throw "Listener release-visual binding is missing: $token"

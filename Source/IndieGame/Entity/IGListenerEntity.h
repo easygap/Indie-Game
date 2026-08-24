@@ -9,6 +9,7 @@
 class UAudioComponent;
 class UCapsuleComponent;
 class UIGDustSubsystem;
+class UMaterialInstanceDynamic;
 class UMaterialInterface;
 class UStaticMeshComponent;
 
@@ -287,6 +288,13 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> ListenerFrontCard;
 
+	/**
+	 * 셸 석고 재질의 인스턴스. 숨과 잔떨림은 재질 WPO가 만들고, 상태 머신은
+	 * 여기로 진폭만 넘긴다. 카드 4단계는 저작된 정지 프레임이라 그대로 둔다.
+	 */
+	UPROPERTY(Transient)
+	TObjectPtr<UMaterialInstanceDynamic> ListenerShellMid;
+
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UMaterialInterface>> ListenerPhaseMaterials;
 
@@ -294,6 +302,9 @@ private:
 	int32 ListenerPhaseIndex = INDEX_NONE;
 	float ListenerPhase = 0.0f;
 	float PresentationSpeed = 0.0f;
+	/** 재질 기본값과 같은 순찰 기준치에서 시작해 상태에 따라 보간된다. */
+	float ShellBreathAmplitude = 0.45f;
+	float ShellTremorAmplitude = 0.1f;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> DragLoopComponent;

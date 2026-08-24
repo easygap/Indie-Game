@@ -57,6 +57,8 @@ NORMALS = find_library("normal")
 QUERIES = find_library("quer")
 UVS = find_library("uv")
 SIMPLIFY = find_library("simplif")
+DEFORM = getattr(unreal, "GeometryScript_MeshDeformers", None)
+BAKE = getattr(unreal, "GeometryScript_Bake", None)
 # MeshBasicEditFunctions is exported to Python under its ScriptName,
 # ``GeometryScript_MeshEdits`` (the C++ class name is not reflected verbatim).
 EDITS = getattr(unreal, "GeometryScript_MeshEdits", None)
@@ -292,10 +294,168 @@ def recompute_normals(mesh, smooth_angle=45.0):
     return mesh
 
 
+def fuse_shells(mesh, asset_name):
+    """겹쳐 놓은 껍질들을 자가 합집합으로 한 장의 닫힌 표면에 녹인다.
+
+    타원체·튜브를 그냥 append한 몸은 스침광 아래에서 부품이 서로 파고드는
+    교차 타원 자국을 드러낸다 — 조립품이라는 자백이다. 합집합이 그 자국을
+    지우고 덩어리를 위상적으로 잇는다. 실패하면 False를 돌려주고 메시는
+    조립 상태 그대로 남는다.
+    """
+    function = getattr(BOOL_LIB, "apply_mesh_self_union", None)
+    options_class = getattr(unreal, "GeometryScriptMeshSelfUnionOptions", None)
+    if function is None or options_class is None:
+        log(f"  {asset_name} self-union skipped (no binding)")
+        return False
+    try:
+        function(mesh, options_class())
+        return True
+    except Exception as error:  # noqa: BLE001 - keep the assembled mesh
+        log(f"  {asset_name} self-union failed: {error}")
+        return False
+
+
+def soften_shell_seams(mesh, asset_name, iterations=5, alpha=0.22):
+    """합집합이 남긴 접합 능선을 몇 번의 스무딩으로 살처럼 잇는다."""
+    function = getattr(DEFORM, "apply_iterative_smoothing_to_mesh", None) \
+        if DEFORM is not None else None
+    options_class = getattr(
+        unreal, "GeometryScriptIterativeMeshSmoothingOptions", None)
+    selection_class = getattr(unreal, "GeometryScriptMeshSelection", None)
+    if function is None or options_class is None or selection_class is None:
+        log(f"  {asset_name} seam smoothing skipped (no binding)")
+        return
+    options = options_class()
+    _set_properties(options, (
+        ("num_iterations", iterations),
+        ("alpha", alpha),
+    ))
+    try:
+        # 빈 선택은 EmptyBehavior 기본값대로 메시 전체다.
+        function(mesh, selection_class(), options)
+    except Exception as error:  # noqa: BLE001
+        log(f"  {asset_name} seam smoothing failed: {error}")
+
+
+def plaster_grain(mesh, asset_name, layers):
+    """법선 방향 펄린 변위로 매끈한 마네킹 피부를 마른 석고로 바꾼다.
+
+    layers는 (진폭 cm, 주파수 1/cm, 시드) 튜플이다. apply_perlin_noise_to_mesh
+    무인자 이름은 주파수를 제곱하던 5.6 호환용이라 2가 붙은 쪽을 쓴다.
+    """
+    function = getattr(DEFORM, "apply_perlin_noise_to_mesh2", None) \
+        if DEFORM is not None else None
+    options_class = getattr(unreal, "GeometryScriptPerlinNoiseOptions", None)
+    layer_class = getattr(unreal, "GeometryScriptPerlinNoiseLayerOptions", None)
+    selection_class = getattr(unreal, "GeometryScriptMeshSelection", None)
+    if (function is None or options_class is None or layer_class is None
+            or selection_class is None):
+        log(f"  {asset_name} plaster grain skipped (no binding)")
+        return
+    for magnitude, frequency, seed in layers:
+        layer = layer_class()
+        _set_properties(layer, (
+            ("magnitude", magnitude),
+            ("frequency", frequency),
+            ("random_seed", seed),
+        ))
+        options = options_class()
+        _set_properties(options, (
+            ("base_layer", layer),
+            ("apply_along_normal", True),
+        ))
+        try:
+            function(mesh, selection_class(), options)
+        except Exception as error:  # noqa: BLE001
+            log(f"  {asset_name} plaster grain failed: {error}")
+            return
+
+
+def bake_vertex_occlusion(mesh, asset_name, occlusion_rays=64):
+    """자기 그림자를 정점색으로 굽는다. R=1이 트인 면, 0이 골이다.
+
+    재질의 cavity_dust가 이 값을 읽어 골에 분진을 앉히고 폐색을 심화한다.
+    실패해도 그대로 두면 되는 폴백이다: 정점색 없는 메시는 흰색으로 읽혀
+    분진이 정확히 0이 된다.
+    """
+    if BAKE is None:
+        log(f"  {asset_name} vertex AO skipped (no bake library)")
+        return False
+    bake_function = getattr(BAKE, "bake_vertex", None)
+    maker = getattr(BAKE, "make_bake_type_ambient_occlusion", None)
+    target_options_class = getattr(
+        unreal, "GeometryScriptBakeTargetMeshOptions", None)
+    source_options_class = getattr(
+        unreal, "GeometryScriptBakeSourceMeshOptions", None)
+    output_class = getattr(unreal, "GeometryScriptBakeOutputType", None)
+    vertex_options_class = getattr(
+        unreal, "GeometryScriptBakeVertexOptions", None)
+    if None in (bake_function, maker, target_options_class,
+                source_options_class, output_class, vertex_options_class):
+        log(f"  {asset_name} vertex AO skipped (incomplete bake bindings)")
+        return False
+    try:
+        output = output_class()
+        # output_mode 기본값 RGBA: AO 한 종이 네 채널에 같이 실린다.
+        output.set_editor_property("rgba", maker(occlusion_rays))
+        bake_function(
+            mesh, xf(), target_options_class(),
+            mesh, xf(), source_options_class(),
+            output, vertex_options_class())
+    except Exception as error:  # noqa: BLE001
+        log(f"  {asset_name} vertex AO bake failed: {error}")
+        return False
+
+    has_colors = getattr(QUERIES, "get_has_vertex_colors", None) \
+        if QUERIES is not None else None
+    if has_colors is None or not has_colors(mesh):
+        log(f"  {asset_name} vertex AO produced no colors")
+        return False
+    # 굽기가 흰 판때기로 끝나지 않았는지 표본으로 확인해 로그에 남긴다.
+    # 이 최소/평균이 곧 골 깊이의 감사 기록이다. 삼각형 ID 공간에는 구멍이
+    # 있을 수 있어 valid 플래그가 거르게 둔다.
+    try:
+        id_space = _triangle_count(mesh) or 0
+        samples = []
+        for triangle_id in range(0, id_space, max(1, id_space // 96)):
+            result = QUERIES.get_triangle_vertex_colors(mesh, triangle_id)
+            colors, valid = result[1:4], result[4]
+            if valid:
+                samples.extend(color.r for color in colors)
+        if samples:
+            log(f"  {asset_name} vertex AO min={min(samples):.3f} "
+                f"avg={sum(samples) / len(samples):.3f} over {len(samples)}")
+    except Exception:  # noqa: BLE001 - stats are a report, not a gate
+        pass
+    return True
+
+
 # The budgets, the reduction curve and the class of every mesh live in
 # mesh_lod_contract so the release validator checks the same numbers the bake
 # applied. HERO_MESHES is re-exported because callers already import it here.
 HERO_MESHES = mesh_lod_contract.HERO_MESHES
+
+
+def _triangle_count(mesh):
+    """5.8에서 get_num_triangles가 사라져 폴백 사슬로 센다.
+
+    get_num_triangle_i_ds는 구멍을 포함한 ID 공간이라 실제보다 클 수 있는데,
+    예산 판정에는 과대평가가 안전한 방향이다: 예산 안이라고 잘못 믿는 대신
+    단순화를 한 번 더 돌게 된다.
+    """
+    for holder, name in (
+        (QUERIES, "get_num_triangles"),
+        (mesh, "get_triangle_count"),
+        (QUERIES, "get_num_triangle_i_ds"),
+    ):
+        function = getattr(holder, name, None) if holder is not None else None
+        if function is None:
+            continue
+        try:
+            return function(mesh) if holder is not mesh else function()
+        except Exception:  # noqa: BLE001 - try the next binding
+            continue
+    return None
 
 
 def retopologise(mesh, asset_name):
@@ -311,16 +471,16 @@ def retopologise(mesh, asset_name):
     Meshes carrying hand-placed printed artwork keep their UV seams: a label
     band welded across its seam smears the artwork around the bottle.
     """
-    if SIMPLIFY is None or QUERIES is None:
+    if SIMPLIFY is None:
         log(f"  {asset_name} retopology skipped (no simplification library)")
         return None
 
     budget = mesh_lod_contract.triangle_budget(asset_name)
-    try:
-        before = QUERIES.get_num_triangles(mesh)
-    except Exception:  # noqa: BLE001 - binding name differs across UE minors
-        before = None
-    if before is None or before <= budget:
+    before = _triangle_count(mesh)
+    if before is None:
+        log(f"  {asset_name} retopology skipped (no triangle count binding)")
+        return None
+    if before <= budget:
         return before
 
     options = None
@@ -353,7 +513,7 @@ def retopologise(mesh, asset_name):
                 function(mesh, budget, options)
             else:
                 function(mesh, budget)
-            after = QUERIES.get_num_triangles(mesh)
+            after = _triangle_count(mesh)
             log(f"  {asset_name} retopology {before} -> {after} tris "
                 f"(budget {budget})")
             return after
@@ -395,6 +555,15 @@ def apply_lod_contract(static_mesh, asset_name):
     reduction_settings = getattr(unreal, "StaticMeshReductionSettings", None)
     if reduction_options is not None and reduction_settings is not None:
         settings = []
+        # set_lods는 넘긴 배열을 LOD0부터의 전체 목록으로 읽는다. 체인만
+        # 넘기면 LOD0까지 첫 항목의 비율로 깎인 채 LOD가 하나 모자라게 된다.
+        # 생성 메시는 retopologise가 이미 예산을 맞췄으므로 LOD0은 100%다.
+        lod0 = reduction_settings()
+        _set_properties(lod0, (
+            ("percent_triangles", 1.0),
+            ("screen_size", 1.0),
+        ))
+        settings.append(lod0)
         for _, percent, screen in plan:
             entry = reduction_settings()
             _set_properties(entry, (
@@ -1029,10 +1198,14 @@ def build_listener_entity_crawl():
     """Anatomical static shell for 「없는 층」의 위층 사람.
 
     The approved ImageGen sheet fixes a real 176 cm adult in a forearm-supported
-    crawl.  This mesh deliberately remains one frozen, disconnected-shell pose:
-    the pawn moves as a whole, so a skeletal pipeline would add cost without
-    improving the silhouette seen in the flashlight.  Unlike the six engine
-    blocks it replaces, every major anatomical chain remains readable.
+    crawl.  This mesh deliberately remains one frozen pose: the pawn moves as a
+    whole, so a skeletal pipeline would add cost without improving the
+    silhouette seen in the flashlight.
+
+    조립 자체는 예전 그대로 타원체와 튜브지만, 완성은 조립품이 아니다:
+    자가 합집합이 부품을 한 장의 닫힌 표면으로 녹이고, 스무딩이 접합 능선을
+    살로 잇고, 펄린 결이 매끈한 마네킹 피부를 마른 석고로 바꾼다. 끝으로
+    정점 AO를 구워 골에 분진이 앉을 자리(재질의 cavity_dust)를 남긴다.
     """
     mesh = new_mesh()
 
@@ -1065,20 +1238,6 @@ def build_listener_entity_crawl():
     )
     for radius, path in arm_paths:
         _append_round_path(mesh, radius, path, sides=16)
-    for side in (-1.0, 1.0):
-        hand_y = side * 25.0
-        ellipsoid(mesh, (18.0, 11.0, 5.0), location=(74.0, hand_y, -21.0),
-                  rotation=(0.0, 0.0, 0.0), steps=24)
-        # Long tuner fingers remain closed plaster geometry. Their unequal
-        # lengths keep the hand from reading as a mitten at capture distance.
-        for finger_index, (finger_y, finger_length) in enumerate((
-                (-3.6, 10.5), (-1.2, 12.0), (1.2, 11.4), (3.6, 9.4))):
-            y = hand_y + side * finger_y
-            z = -21.8 + (finger_index % 2) * 0.25
-            _append_round_path(
-                mesh, 1.15,
-                [(78.0, y, z), (78.0 + finger_length, y, z - 0.35)],
-                sides=10)
 
     # Broken legs trail with different, restrained bends. They remain clothed
     # and continuous from pelvis to foot; no gore or dislocated fantasy pose.
@@ -1099,7 +1258,47 @@ def build_listener_entity_crawl():
     ellipsoid(mesh, (25.0, 12.0, 8.0), location=(-115.0, 5.0, -31.0),
               rotation=(0.0, -7.0, 0.0), steps=24)
 
-    return bake(mesh, "SM_ListenerEntityCrawl", add_collision=False)
+    # 손과 손가락이 오기 전에 큰 덩어리를 먼저 녹이고 결을 얹는다. 손가락은
+    # 반지름 1.15에 서로 0.1cm 간격이라, 결 변위를 함께 받으면 이웃끼리
+    # 붙어 벙어리장갑이 된다. 큰 덩어리에만 결을 얹고 손은 매끈하게 남기는
+    # 배치는 석고가 손끝에서 매끄럽게 굳은 것처럼도 읽힌다.
+    fused = fuse_shells(mesh, "SM_ListenerEntityCrawl")
+    if fused:
+        soften_shell_seams(mesh, "SM_ListenerEntityCrawl")
+        plaster_grain(mesh, "SM_ListenerEntityCrawl", (
+            (0.5, 0.021, 7),    # 넓은 굴곡: 어깨 폭 단위의 낮은 융기
+            (0.16, 0.11, 23),   # 잔 결: 손전등 스침광에 걸리는 마른 요철
+        ))
+
+    for side in (-1.0, 1.0):
+        hand_y = side * 25.0
+        ellipsoid(mesh, (18.0, 11.0, 5.0), location=(74.0, hand_y, -21.0),
+                  rotation=(0.0, 0.0, 0.0), steps=24)
+        # Long tuner fingers remain closed plaster geometry. Their unequal
+        # lengths keep the hand from reading as a mitten at capture distance.
+        for finger_index, (finger_y, finger_length) in enumerate((
+                (-3.6, 10.5), (-1.2, 12.0), (1.2, 11.4), (3.6, 9.4))):
+            y = hand_y + side * finger_y
+            z = -21.8 + (finger_index % 2) * 0.25
+            _append_round_path(
+                mesh, 1.15,
+                [(78.0, y, z), (78.0 + finger_length, y, z - 0.35)],
+                sides=10)
+
+    if fused:
+        # 두 번째 합집합이 손목-손-손가락을 팔에 위상으로 잇는다.
+        fuse_shells(mesh, "SM_ListenerEntityCrawl")
+
+    # 예산까지 먼저 줄이고 나서 정점 AO를 굽는다. 순서가 반대면 단순화가
+    # 구운 색을 다시 뭉갠다. bake()는 예산 안 메시의 재단순화를 건너뛴다.
+    retopologise(mesh, "SM_ListenerEntityCrawl")
+    recompute_normals(mesh)
+    bake_vertex_occlusion(mesh, "SM_ListenerEntityCrawl")
+
+    # 합집합이 끝난 표면에 용접을 다시 돌리면 정점색 오버레이만 다칠 수
+    # 있어, 융합에 성공했을 때는 끈다.
+    return bake(mesh, "SM_ListenerEntityCrawl", add_collision=False,
+                weld_edges=not fused)
 
 
 def build_final_cavity_clothing_shell():

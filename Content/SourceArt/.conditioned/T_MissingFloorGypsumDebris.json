@@ -4,6 +4,7 @@
   "seam_action": "crossfade 102x102px into 1024x1024",
   "flat_field": 1.0,
   "field_cells": 8,
+  "period_axis": "auto",
   "input_sha256": "E582A0E68577D17E9311255D7AFEB77FCCB15F3BBE961BE296B9EA666068822C",
   "output_sha256": "1D93BC193F2A023BAD6B90BA4739C9B940A648AC79A5D48ABB6F32029597EB41",
   "before": {

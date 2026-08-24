@@ -492,10 +492,23 @@ DECAL_MATERIALS = {
         "wet_normal_flatten": 0.36, "minimum_wetness": 0.82,
         "specular": 0.32,
     },
+    # 위층 사람 셸. 벽과 같은 석고 텍스처를 쓰되(§통합 비주얼 규칙: 존재가
+    # 환경에서 태어났다), 사람 쪽만 세 가지가 다르다: 균열 노멀이 벽보다
+    # 세고, 메시에 구운 정점 AO 골에 분진이 앉고, 숨과 잔떨림 WPO가 돈다.
+    # 진폭 파라미터는 IGListenerEntity가 상태에 따라 MID로 조종한다.
     "M_MissingFloorListenerPlasterUV": {
         "tex_asset": "T_MissingFloorDryPlaster_D",
         "pbr_stem": "T_MissingFloorDryPlaster", "tile_u": 2.8,
         "specular": 0.16,
+        "crack_normal_strength": 1.6,
+        "cavity_dust": {
+            "amount": 1.25, "lift": 1.22, "desat": 0.4,
+            "flatten": 0.45, "occlusion": 0.8,
+        },
+        "breath": {
+            "amplitude": 0.45, "rate": 0.22,
+            "tremor": 0.1, "tremor_rate": 7.0,
+        },
     },
     # P1 계량기 문자판. 눈금과 붉은 호까지만 텍스처이고, 지침과 다섯 번째가
     # 돌지 않는다는 사실은 코드가 소유한다(§ART_MATRIX 원칙 4). 드럼 창은
@@ -1696,6 +1709,99 @@ def create_flat_texture_materials(
                 xyz, "", unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET
             )
 
+        # 위층 사람 셸의 미동: 느린 법선 방향 팽창(숨)과 위상이 몸을 타고
+        # 흐르는 잔떨림. 뼈대 없이 정적 메시를 살아 있게 하는 WPO다. 진폭
+        # 둘만 파라미터라서 상태 머신이 MID로 죽이고 살린다 — Waiting에서
+        # 숨이 멎는 것이 대답 노크가 통했다는 몸의 확인이다.
+        if spec.get("breath"):
+            breath = spec["breath"]
+            time_expr = _expr(material, unreal.MaterialExpressionTime, -1300, 1300)
+            breath_rate = _expr(
+                material, unreal.MaterialExpressionConstant, -1300, 1440)
+            breath_rate.set_editor_property("r", float(breath.get("rate", 0.22)))
+            breath_phase = _expr(
+                material, unreal.MaterialExpressionMultiply, -1100, 1320)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                time_expr, "", breath_phase, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                breath_rate, "", breath_phase, "B")
+            breath_wave = _expr(material, unreal.MaterialExpressionSine, -950, 1320)
+            breath_wave.set_editor_property("period", 1.0)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                breath_phase, "", breath_wave, "")
+            breath_amp = _expr(
+                material, unreal.MaterialExpressionScalarParameter, -950, 1460)
+            breath_amp.set_editor_property("parameter_name", "BreathAmplitude")
+            breath_amp.set_editor_property(
+                "default_value", float(breath.get("amplitude", 0.45)))
+            breath_offset = _expr(
+                material, unreal.MaterialExpressionMultiply, -760, 1340)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                breath_wave, "", breath_offset, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                breath_amp, "", breath_offset, "B")
+
+            world_position = _expr(
+                material, unreal.MaterialExpressionWorldPosition, -1300, 1580)
+            ripple_direction = _expr(
+                material, unreal.MaterialExpressionConstant3Vector, -1300, 1720)
+            ripple_direction.set_editor_property(
+                "constant", unreal.LinearColor(0.011, 0.007, 0.013, 0.0))
+            ripple = _expr(
+                material, unreal.MaterialExpressionDotProduct, -1100, 1620)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                world_position, "", ripple, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                ripple_direction, "", ripple, "B")
+            tremor_rate = _expr(
+                material, unreal.MaterialExpressionConstant, -1300, 1860)
+            tremor_rate.set_editor_property(
+                "r", float(breath.get("tremor_rate", 7.0)))
+            tremor_time = _expr(
+                material, unreal.MaterialExpressionMultiply, -1100, 1780)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                time_expr, "", tremor_time, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                tremor_rate, "", tremor_time, "B")
+            tremor_phase = _expr(material, unreal.MaterialExpressionAdd, -950, 1700)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                tremor_time, "", tremor_phase, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                ripple, "", tremor_phase, "B")
+            tremor_wave = _expr(material, unreal.MaterialExpressionSine, -800, 1700)
+            tremor_wave.set_editor_property("period", 1.0)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                tremor_phase, "", tremor_wave, "")
+            tremor_amp = _expr(
+                material, unreal.MaterialExpressionScalarParameter, -800, 1840)
+            tremor_amp.set_editor_property("parameter_name", "TremorAmplitude")
+            tremor_amp.set_editor_property(
+                "default_value", float(breath.get("tremor", 0.1)))
+            tremor_offset = _expr(
+                material, unreal.MaterialExpressionMultiply, -640, 1720)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                tremor_wave, "", tremor_offset, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                tremor_amp, "", tremor_offset, "B")
+
+            vitals = _expr(material, unreal.MaterialExpressionAdd, -500, 1520)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                breath_offset, "", vitals, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                tremor_offset, "", vitals, "B")
+            surface_normal = _expr(
+                material, unreal.MaterialExpressionVertexNormalWS, -500, 1660)
+            vitals_offset = _expr(
+                material, unreal.MaterialExpressionMultiply, -340, 1560)
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                surface_normal, "", vitals_offset, "A")
+            unreal.MaterialEditingLibrary.connect_material_expressions(
+                vitals, "", vitals_offset, "B")
+            unreal.MaterialEditingLibrary.connect_material_property(
+                vitals_offset, "",
+                unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET
+            )
+
         emissive_scale = spec.get("emissive_scale", 0.0)
         if emissive_only:
             dark = _expr(material, unreal.MaterialExpressionConstant3Vector, -650, 300)
@@ -2312,13 +2418,10 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
                 lift_constant, "", lifted_base, "B"
             )
             base_output = lifted_base
-        unreal.MaterialEditingLibrary.connect_material_property(
-            base_output, "", unreal.MaterialProperty.MP_BASE_COLOR
-        )
+        base_output_pin = ""
     else:
-        unreal.MaterialEditingLibrary.connect_material_property(
-            base_sample, "RGB", unreal.MaterialProperty.MP_BASE_COLOR
-        )
+        base_output = base_sample
+        base_output_pin = "RGB"
 
     normal_sample = _sample(
         material,
@@ -2345,9 +2448,13 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
         unreal.MaterialEditingLibrary.connect_material_expressions(flatten_alpha, "", flattened, "Alpha")
         normal_output = flattened
         normal_output_pin = ""
-    unreal.MaterialEditingLibrary.connect_material_property(
-        normal_output, normal_output_pin, unreal.MaterialProperty.MP_NORMAL
-    )
+    # ASSET_STYLE 통합 규칙: 위층 사람만 균열 노멀을 벽보다 세게 받는다.
+    # 벽 재질에는 이 키가 없어 접선 XY가 그대로 지나간다.
+    crack_strength = spec.get("crack_normal_strength")
+    if crack_strength:
+        normal_output, normal_output_pin = _strengthen_normal(
+            material, normal_output, normal_output_pin, crack_strength, 1180
+        )
 
     rough_sample = _sample(
         material,
@@ -2369,9 +2476,6 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
         )
         rough_output = rough_lerp
         rough_output_pin = ""
-    unreal.MaterialEditingLibrary.connect_material_property(
-        rough_output, rough_output_pin, unreal.MaterialProperty.MP_ROUGHNESS
-    )
 
     ao_sample = _sample(
         material,
@@ -2380,8 +2484,129 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
         unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_GRAYSCALE,
         500,
     )
+    ao_output = ao_sample
+    ao_output_pin = "R"
+
+    # 골 분진. 메시에 구운 정점 AO(R, 1=트임 0=골)를 읽어 골에 마른 석고
+    # 가루를 앉힌다: 알베도는 탁하고 밝게, 거칠기는 무광 끝까지, 균열 노멀은
+    # 가루가 메운 만큼 죽이고, 구운 폐색은 A맵 위에 겹쳐 골을 더 깊이
+    # 앉힌다. 색조는 같은 석고 계열에서만 움직인다(§통합 비주얼 규칙).
+    # 정점색이 없는 메시는 흰색으로 읽혀 분진이 정확히 0이 되는 폴백이다.
+    if "cavity_dust" in spec:
+        dust = spec["cavity_dust"]
+        vertex_color = _expr(
+            material, unreal.MaterialExpressionVertexColor, -650, 1400)
+        occlusion = _mask_channels(material, vertex_color, "", "R", -470, 1400)
+        cavity = _expr(material, unreal.MaterialExpressionOneMinus, -300, 1400)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            occlusion, "", cavity, "")
+        dust_amount = _expr(
+            material, unreal.MaterialExpressionScalarParameter, -300, 1540)
+        dust_amount.set_editor_property("parameter_name", "DustAmount")
+        dust_amount.set_editor_property(
+            "default_value", float(dust.get("amount", 1.0)))
+        dust_raw = _expr(material, unreal.MaterialExpressionMultiply, -120, 1440)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            cavity, "", dust_raw, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            dust_amount, "", dust_raw, "B")
+        dust_mask = _expr(material, unreal.MaterialExpressionSaturate, 40, 1440)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            dust_raw, "", dust_mask, "")
+
+        desaturated = _expr(
+            material, unreal.MaterialExpressionDesaturation, -120, 1620)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            base_output, base_output_pin, desaturated, "")
+        desat_fraction = _expr(
+            material, unreal.MaterialExpressionConstant, -300, 1700)
+        desat_fraction.set_editor_property("r", float(dust.get("desat", 0.4)))
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            desat_fraction, "", desaturated, "Fraction")
+        dust_lift = _expr(material, unreal.MaterialExpressionConstant, 40, 1700)
+        dust_lift.set_editor_property("r", float(dust.get("lift", 1.2)))
+        dust_tone = _expr(material, unreal.MaterialExpressionMultiply, 220, 1620)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            desaturated, "", dust_tone, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            dust_lift, "", dust_tone, "B")
+        dusted_base = _expr(
+            material, unreal.MaterialExpressionLinearInterpolate, 400, 1480)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            base_output, base_output_pin, dusted_base, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            dust_tone, "", dusted_base, "B")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            dust_mask, "", dusted_base, "Alpha")
+        base_output = dusted_base
+        base_output_pin = ""
+
+        dust_rough = _expr(material, unreal.MaterialExpressionConstant, 220, 1780)
+        dust_rough.set_editor_property("r", 0.97)
+        dusted_rough = _expr(
+            material, unreal.MaterialExpressionLinearInterpolate, 400, 1720)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            rough_output, rough_output_pin, dusted_rough, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            dust_rough, "", dusted_rough, "B")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            dust_mask, "", dusted_rough, "Alpha")
+        rough_output = dusted_rough
+        rough_output_pin = ""
+
+        fill_scale = _expr(material, unreal.MaterialExpressionConstant, 220, 1860)
+        fill_scale.set_editor_property("r", float(dust.get("flatten", 0.45)))
+        fill_alpha = _expr(material, unreal.MaterialExpressionMultiply, 400, 1860)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            dust_mask, "", fill_alpha, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            fill_scale, "", fill_alpha, "B")
+        filled_flat = _expr(
+            material, unreal.MaterialExpressionConstant3Vector, 400, 1940)
+        filled_flat.set_editor_property(
+            "constant", unreal.LinearColor(0.0, 0.0, 1.0, 1.0))
+        filled_normal = _expr(
+            material, unreal.MaterialExpressionLinearInterpolate, 580, 1780)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            normal_output, normal_output_pin, filled_normal, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            filled_flat, "", filled_normal, "B")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            fill_alpha, "", filled_normal, "Alpha")
+        normal_output = filled_normal
+        normal_output_pin = ""
+
+        seat_one = _expr(material, unreal.MaterialExpressionConstant, 220, 2020)
+        seat_one.set_editor_property("r", 1.0)
+        seat_weight = _expr(material, unreal.MaterialExpressionConstant, 220, 2100)
+        seat_weight.set_editor_property("r", float(dust.get("occlusion", 0.8)))
+        seated = _expr(
+            material, unreal.MaterialExpressionLinearInterpolate, 400, 2020)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            seat_one, "", seated, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            occlusion, "", seated, "B")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            seat_weight, "", seated, "Alpha")
+        seated_ao = _expr(material, unreal.MaterialExpressionMultiply, 580, 2020)
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            ao_output, ao_output_pin, seated_ao, "A")
+        unreal.MaterialEditingLibrary.connect_material_expressions(
+            seated, "", seated_ao, "B")
+        ao_output = seated_ao
+        ao_output_pin = ""
+
     unreal.MaterialEditingLibrary.connect_material_property(
-        ao_sample, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION
+        base_output, base_output_pin, unreal.MaterialProperty.MP_BASE_COLOR
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        normal_output, normal_output_pin, unreal.MaterialProperty.MP_NORMAL
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        rough_output, rough_output_pin, unreal.MaterialProperty.MP_ROUGHNESS
+    )
+    unreal.MaterialEditingLibrary.connect_material_property(
+        ao_output, ao_output_pin, unreal.MaterialProperty.MP_AMBIENT_OCCLUSION
     )
 
     if spec.get("metal_map"):
@@ -2406,7 +2631,7 @@ def _connect_scan_pbr(material, base_sample, uv, spec):
         "normal_pin": normal_output_pin,
         "roughness": rough_output,
         "roughness_pin": rough_output_pin,
-        "ao": ao_sample,
+        "ao": ao_output,
     }
 
 

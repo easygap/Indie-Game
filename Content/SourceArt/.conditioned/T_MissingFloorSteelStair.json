@@ -1,11 +1,12 @@
 {
   "stem": "T_MissingFloorSteelStair",
   "seam_mode": "period",
-  "seam_action": "period crop 1024x1024 (pitch 128x64); crossfade 31x31px into 1024x1024",
+  "seam_action": "source wrap retained (0.14/0.25 <= 1.00); no resample",
   "flat_field": 1.0,
   "field_cells": 8,
+  "period_axis": "auto",
   "input_sha256": "32AC7721B96DE37AFB5D0722ECA6BF9BB3B294703627A3999225359949383B18",
-  "output_sha256": "7E8B2B1EC63D8459CFF24F4B647FD365191DC17C7F4197542138C96BF3D9213E",
+  "output_sha256": "9B03E406E2BE5E163CBDF693D72B9B1EBA212ED43DC4815E7070BD252CA97188",
   "before": {
     "size": [
       1024,
@@ -32,18 +33,18 @@
       1024
     ],
     "luma_mean": 0.4833,
-    "luma_stddev": 19.36,
+    "luma_stddev": 19.59,
     "below_25pct": 0.0,
-    "above_65pct": 0.1096,
-    "stipple": 2.306,
-    "field_spread": 2,
+    "above_65pct": 0.1169,
+    "stipple": 2.361,
+    "field_spread": 1,
     "field_range": [
-      122,
+      123,
       124
     ],
-    "seam_h": 2.32,
-    "seam_v": 2.41,
-    "seam_h_ratio": 0.69,
-    "seam_v_ratio": 0.69
+    "seam_h": 2.67,
+    "seam_v": 4.82,
+    "seam_h_ratio": 1.18,
+    "seam_v_ratio": 2.22
   }
 }

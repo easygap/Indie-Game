@@ -360,6 +360,36 @@ def has_scalar_parameter(material, parameter_name: str) -> bool:
     return False
 
 
+def _lod0_triangle_count(mesh) -> int | None:
+    """소스 모델 LOD0의 삼각형 수. 5.8에서 서브시스템의
+    get_number_triangles가 사라져 지오메트리 스크립트로 돌아 읽는다."""
+    try:
+        dynamic = unreal.new_object(unreal.DynamicMesh)
+    except Exception:  # noqa: BLE001 - binding differences across versions
+        dynamic = unreal.DynamicMesh()
+    read_lod = unreal.GeometryScriptMeshReadLOD()
+    try:
+        read_lod.set_editor_property(
+            "lod_type", unreal.GeometryScriptLODType.SOURCE_MODEL
+        )
+    except Exception:  # noqa: BLE001 - MaxAvailable 기본값도 소스 모델에 닿는다
+        pass
+    unreal.GeometryScript_AssetUtils.copy_mesh_from_static_mesh(
+        mesh,
+        dynamic,
+        unreal.GeometryScriptCopyMeshFromAssetOptions(),
+        read_lod,
+    )
+    counter = getattr(dynamic, "get_triangle_count", None)
+    if counter is not None:
+        return int(counter())
+    queries = unreal.GeometryScript_MeshQueries
+    counter = getattr(queries, "get_num_triangle_i_ds", None)
+    if counter is not None:
+        return int(counter(dynamic))
+    return None
+
+
 def validate_meshes() -> tuple[int, int]:
     """Every generated mesh carries its authored LOD chain and stays in budget.
 
@@ -388,15 +418,26 @@ def validate_meshes() -> tuple[int, int]:
         total_lods += lod_count
         reduced_meshes += 1
 
-        triangles = subsystem.get_number_triangles(mesh, 0)
+        triangles = _lod0_triangle_count(mesh)
+        require(
+            triangles is not None,
+            f"LOD0 triangle count could not be read: {name}",
+        )
         require(
             triangles <= mesh_class.lod0_triangles,
             f"LOD0 is {triangles} triangles, over the {mesh_class.name} budget "
             f"of {mesh_class.lod0_triangles}: {name}",
         )
+        # 라이트맵 UV는 렌더 빌드가 만들어서 소스 모델 채널 수로는 보이지
+        # 않는다. 굽기가 약속하는 것은 설정이므로 그 설정을 검사한다.
+        build_settings = subsystem.get_lod_build_settings(mesh, 0)
         require(
-            subsystem.get_num_uv_channels(mesh, 0) >= 2,
-            f"Static prop has no lightmap UV channel: {name}",
+            bool(build_settings.get_editor_property("generate_lightmap_u_vs")),
+            f"Lightmap UV generation is disabled: {name}",
+        )
+        require(
+            int(mesh.get_editor_property("light_map_coordinate_index")) == 1,
+            f"Lightmap coordinate index is not the generated channel: {name}",
         )
 
         if name in PRINT_SURFACE_MESHES:
@@ -470,6 +511,7 @@ def validate_print_atlas() -> int:
 def validate_photo_prop_lods() -> int:
     """Scanned props obey the same chain and the same budget as the built ones."""
     inspected = inspect_photo_prop_lods()
+    over_budget = []
     for item in inspected:
         mesh_class = photo_prop_lod_contract.prop_class(str(item["asset_id"]))
         require(
@@ -482,13 +524,17 @@ def validate_photo_prop_lods() -> int:
             f"{mesh_class.lod_count}: {item['path']}",
         )
         triangles = int(item["triangle_count"])
-        if triangles > 0:
-            require(
-                triangles <= mesh_class.lod0_triangles,
-                f"Scanned LOD0 is {triangles} triangles, over the "
-                f"{mesh_class.name} budget of {mesh_class.lod0_triangles}: "
-                f"{item['path']}",
+        if triangles > 0 and triangles > mesh_class.lod0_triangles:
+            # 하나씩 끊지 말고 전부 모아서 한 번에 알린다. 스캔의 감축 바닥은
+            # 프롭마다 달라서, 전체 목록이 있어야 분류를 한 번에 정할 수 있다.
+            over_budget.append(
+                f"{item['path']}: {triangles} > {mesh_class.name} "
+                f"{mesh_class.lod0_triangles}"
             )
+    require(
+        not over_budget,
+        "Scanned LOD0 over budget:\n  " + "\n  ".join(over_budget),
+    )
     return len(inspected)
 
 
@@ -1046,6 +1092,72 @@ def validate_apartment_visual_assets() -> None:
     )
 
 
+def validate_listener_shell() -> None:
+    """위층 사람 셸 계약: 메시에 구운 정점 AO와, 그것을 읽는 재질 장치.
+
+    골 분진과 심화 폐색은 정점색이 없으면 조용히 0이 된다. 런타임 폴백으로는
+    옳은 방향이지만, 릴리스 에셋이 그 상태로 나가는 것은 굽기 단계가 죽은
+    채 지나갔다는 뜻이다. 메시가 흰 판때기가 아니라 실제 명암을 가졌는지,
+    재질이 숨·분진 장치를 전부 붙들고 있는지 여기서 같이 잠근다.
+    """
+    mesh = load("/Game/Meshes/SM_ListenerEntityCrawl", unreal.StaticMesh)
+    try:
+        dynamic = unreal.new_object(unreal.DynamicMesh)
+    except Exception:  # noqa: BLE001 - binding differences across versions
+        dynamic = unreal.DynamicMesh()
+    unreal.GeometryScript_AssetUtils.copy_mesh_from_static_mesh(
+        mesh,
+        dynamic,
+        unreal.GeometryScriptCopyMeshFromAssetOptions(),
+        unreal.GeometryScriptMeshReadLOD(),
+    )
+    queries = unreal.GeometryScript_MeshQueries
+    require(
+        bool(queries.get_has_vertex_colors(dynamic)),
+        "Listener shell carries no baked vertex occlusion",
+    )
+    id_space = 0
+    for counter in ("get_num_triangle_i_ds", "get_num_triangles"):
+        function = getattr(queries, counter, None)
+        if function is not None:
+            id_space = int(function(dynamic))
+            break
+    samples = []
+    for triangle_id in range(0, id_space, max(1, id_space // 128)):
+        result = queries.get_triangle_vertex_colors(dynamic, triangle_id)
+        if result[4]:
+            samples.extend(color.r for color in result[1:4])
+    require(
+        len(samples) >= 32,
+        "Listener shell vertex colors could not be sampled",
+    )
+    lowest, highest = min(samples), max(samples)
+    require(
+        lowest <= 0.8 and highest - lowest >= 0.15,
+        "Listener shell vertex occlusion is flat "
+        f"(min={lowest:.3f} max={highest:.3f}); the bake step did not run",
+    )
+
+    material = load(
+        "/Game/Prototype/Materials/M_MissingFloorListenerPlasterUV",
+        unreal.Material,
+    )
+    for parameter_name in ("BreathAmplitude", "TremorAmplitude", "DustAmount"):
+        require(
+            has_scalar_parameter(material, parameter_name),
+            f"Listener plaster lost its vitals parameter: {parameter_name}",
+        )
+    expressions = unreal.MaterialEditingLibrary.get_material_expressions(material)
+    require(
+        any(
+            isinstance(expression, unreal.MaterialExpressionVertexColor)
+            for expression in expressions
+        ),
+        "Listener plaster no longer reads the baked vertex occlusion",
+    )
+    material_input(material, unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET)
+
+
 def main() -> None:
     if os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1":
         validate_apartment_visual_assets()
@@ -1054,6 +1166,7 @@ def main() -> None:
     photo_prop_meshes = validate_photo_prop_lods()
     texture_count = validate_textures()
     material_count, linked_textures = validate_materials()
+    validate_listener_shell()
     atlas_entries = validate_print_atlas()
     unreal.log_warning(
         "ART_UASSET_AUDIT PASS "

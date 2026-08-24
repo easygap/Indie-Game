@@ -938,7 +938,15 @@ void AIGListenerEntity::BuildGreyboxBody()
 					 "M_MissingFloorListenerPlasterUV."
 					 "M_MissingFloorListenerPlasterUV")))
 		{
-			Component->SetMaterial(0, PlasterMaterial);
+			// 석고도 숨을 쉰다. WPO 진폭 파라미터(BreathAmplitude,
+			// TremorAmplitude)를 상태 머신이 조종할 수 있게 셸만 MID로 감싼다.
+			ListenerShellMid =
+				UMaterialInstanceDynamic::Create(PlasterMaterial, Component);
+			Component->SetMaterial(
+				0,
+				ListenerShellMid
+					? static_cast<UMaterialInterface*>(ListenerShellMid)
+					: PlasterMaterial);
 		}
 		ListenerShell = Component;
 		BodyBlocks.Add(Component);
@@ -1155,10 +1163,52 @@ void AIGListenerEntity::UpdatePresentationPose(
 		}
 	}
 
+	// 생체 신호 진폭. 흉곽 팽창과 잔떨림 자체는 셸 재질의 WPO가 만들고,
+	// 여기서는 상태에 맞는 진폭만 정한다. 들을 때는 저도 숨을 죽이고, 쫓을
+	// 때는 거칠어지고, 대답 노크에 얼어붙은 Waiting은 완전한 정지다 — 배운
+	// 답이 통했다는 확인을 몸으로 보여 준다.
+	float TargetBreath = 0.45f;
+	float TargetTremor = 0.1f;
+	switch (State)
+	{
+	case EIGListenerState::Waiting:
+		TargetBreath = 0.0f;
+		TargetTremor = 0.0f;
+		break;
+	case EIGListenerState::Listening:
+	case EIGListenerState::Holding:
+		TargetBreath = 0.16f;
+		TargetTremor = 0.05f;
+		break;
+	case EIGListenerState::Chasing:
+		TargetBreath = 0.8f;
+		TargetTremor = 0.3f;
+		break;
+	default:
+		break;
+	}
+	// 얼어붙는 쪽은 사람이 숨을 삼키는 속도, 풀리는 쪽은 한 호흡.
+	const float InterpSpeed =
+		State == EIGListenerState::Waiting ? 9.0f : 3.0f;
+	ShellBreathAmplitude = FMath::FInterpTo(
+		ShellBreathAmplitude, TargetBreath, DeltaSeconds, InterpSpeed);
+	ShellTremorAmplitude = FMath::FInterpTo(
+		ShellTremorAmplitude, TargetTremor, DeltaSeconds, InterpSpeed);
+	if (ListenerShellMid)
+	{
+		ListenerShellMid->SetScalarParameterValue(
+			TEXT("BreathAmplitude"), ShellBreathAmplitude);
+		ListenerShellMid->SetScalarParameterValue(
+			TEXT("TremorAmplitude"), ShellTremorAmplitude);
+	}
+
 	// The source poses supply elbow/leg changes. These sub-centimetre motions
 	// blend their weight across frames without lifting the crop from the floor.
+	// 카드의 숨 바운스도 같은 진폭을 따른다: 셸이 멎는데 카드만 계속
+	// 오르내리면 1.6m 경계에서 정지의 의미가 새어 버린다.
 	const float TimeSeconds = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0f;
-	const float Breath = FMath::Sin(TimeSeconds * 1.35f);
+	const float BreathScale = ShellBreathAmplitude / 0.45f;
+	const float Breath = FMath::Sin(TimeSeconds * 1.35f) * BreathScale;
 	const float Stride = FMath::Sin(ListenerPhase * HALF_PI);
 	const float WeightShift = Stride * SpeedAlpha;
 	ListenerFrontCard->SetRelativeLocation(FVector(

@@ -4,6 +4,7 @@
   "seam_action": "left alone",
   "flat_field": 1.0,
   "field_cells": 8,
+  "period_axis": "auto",
   "input_sha256": "438D7B8AE5C146607D16B6D539B644195E34B9483DBE498C6E59856782BC6C44",
   "output_sha256": "D99C396AA777292B9717ED497ED2EF1A7278F785EB108F9FCC3C7C0D6AF204F5",
   "before": {

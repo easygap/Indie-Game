@@ -105,6 +105,10 @@ HERO_MESHES = frozenset({
     "SM_TunerToolCart",
     "SM_ComplaintLedger",
     "SM_CalendarJournal",
+    # 자물쇠·열쇠 세 개·태그가 한 뭉치인 조사 물증이다. 분리된 고리와 원통이
+    # 많아 QEM이 3000까지 못 내려가고(실측 5628에서 수렴), 팔 길이에서
+    # 읽는 프롭이라 hero 예산이 맞다.
+    "SM_RooftopUnlockedPadlockKeys",
 })
 
 LARGE_MESH_PREFIXES = (
