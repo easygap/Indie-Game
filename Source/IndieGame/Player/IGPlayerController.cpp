@@ -38,6 +38,13 @@
 #include "Sequence/IGSecondMorningDirector.h"
 #include "Sequence/IGThirdMorningDirector.h"
 #include "ShaderCompiler.h"
+#include "IndieGame.h"
+
+namespace IGInputLocks
+{
+	/** 이 시간을 넘겨 잠금이 남아 있으면 누가 붙들고 있는지 한 번 찍는다. */
+	constexpr double WatchdogSeconds = 12.0;
+}
 
 namespace IGAccessibilityMenu
 {
@@ -176,6 +183,13 @@ void AIGPlayerController::BeginPlay()
 	{
 		StartMissingFloorEndingPreviewProbe();
 	}
+	else if (IsLocalController()
+		&& FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGDisplaySettingsPreview")))
+	{
+		StartDisplaySettingsPreviewProbe();
+	}
 }
 
 void AIGPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
@@ -206,6 +220,23 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 	{
 		TickMissingFloorEndingPreviewProbe();
 		return;
+	}
+	if (bDisplaySettingsPreviewProbe)
+	{
+		TickDisplaySettingsPreviewProbe();
+		return;
+	}
+	if (InputLockWatchdogNextReportTime > 0.0
+		&& FPlatformTime::Seconds() >= InputLockWatchdogNextReportTime)
+	{
+		UE_LOG(
+			LogIndieGame,
+			Warning,
+			TEXT("IG_INPUT_LOCK held for %.0fs by %s"),
+			IGInputLocks::WatchdogSeconds,
+			*DescribeInputLocks());
+		InputLockWatchdogNextReportTime =
+			FPlatformTime::Seconds() + IGInputLocks::WatchdogSeconds;
 	}
 	if (bJournalInputHeld && !bMissingFloorJournalVisible)
 	{
@@ -1516,6 +1547,261 @@ void AIGPlayerController::FailAudioCalibrationPreviewProbe(
 	FPlatformMisc::RequestExitWithStatus(true, 2);
 }
 
+void AIGPlayerController::AddInputLock(
+	const FName Reason,
+	const bool bLockMove,
+	const bool bLockLook)
+{
+	if (Reason.IsNone() || (!bLockMove && !bLockLook))
+	{
+		return;
+	}
+	InputLockReasons.Add(Reason, TPair<bool, bool>(bLockMove, bLockLook));
+	ApplyInputLocks();
+}
+
+void AIGPlayerController::RemoveInputLock(const FName Reason)
+{
+	if (InputLockReasons.Remove(Reason) > 0)
+	{
+		ApplyInputLocks();
+	}
+}
+
+FString AIGPlayerController::DescribeInputLocks() const
+{
+	if (InputLockReasons.IsEmpty())
+	{
+		return TEXT("none");
+	}
+	TArray<FString> Names;
+	Names.Reserve(InputLockReasons.Num());
+	for (const TPair<FName, TPair<bool, bool>>& Entry : InputLockReasons)
+	{
+		Names.Add(FString::Printf(
+			TEXT("%s(%s%s)"),
+			*Entry.Key.ToString(),
+			Entry.Value.Key ? TEXT("move") : TEXT(""),
+			Entry.Value.Value ? TEXT("+look") : TEXT("")));
+	}
+	Names.Sort();
+	return FString::Join(Names, TEXT(", "));
+}
+
+void AIGPlayerController::ApplyInputLocks()
+{
+	bool bMove = false;
+	bool bLook = false;
+	for (const TPair<FName, TPair<bool, bool>>& Entry : InputLockReasons)
+	{
+		bMove |= Entry.Value.Key;
+		bLook |= Entry.Value.Value;
+	}
+	// 카운터를 0으로 되돌린 뒤 필요한 만큼만 다시 올린다. 이렇게 해야 두 번
+	// 걸거나 해제 순서가 엇갈려도 남은 이름과 실제 무시 상태가 어긋나지 않는다.
+	ResetIgnoreMoveInput();
+	ResetIgnoreLookInput();
+	if (bMove)
+	{
+		SetIgnoreMoveInput(true);
+	}
+	if (bLook)
+	{
+		SetIgnoreLookInput(true);
+	}
+	if (InputLockReasons.IsEmpty())
+	{
+		InputLockWatchdogNextReportTime = 0.0;
+	}
+	else if (InputLockWatchdogNextReportTime <= 0.0)
+	{
+		// 잠금이 오래 남아 있으면 누가 붙들고 있는지 로그로 말한다. 조작이
+		// 죽었는데 아무것도 안 찍히는 상태가 이 결함을 추적 불가능하게 만든다.
+		InputLockWatchdogNextReportTime =
+			FPlatformTime::Seconds() + IGInputLocks::WatchdogSeconds;
+		SetActorTickEnabled(true);
+	}
+}
+
+void AIGPlayerController::StartDisplaySettingsPreviewProbe()
+{
+	const TCHAR* CommandLine = FCommandLine::Get();
+	FParse::Value(
+		CommandLine,
+		TEXT("IGDisplaySettingsExpectedWidth="),
+		DisplaySettingsPreviewExpectedWidth);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGDisplaySettingsExpectedHeight="),
+		DisplaySettingsPreviewExpectedHeight);
+	FParse::Value(
+		CommandLine,
+		TEXT("IGDisplaySettingsScreenshotPath="),
+		DisplaySettingsPreviewScreenshotPath);
+	DisplaySettingsPreviewScreenshotPath.TrimQuotesInline();
+	DisplaySettingsPreviewScreenshotPath = FPaths::ConvertRelativePathToFull(
+		DisplaySettingsPreviewScreenshotPath);
+	bDisplaySettingsPreviewProbe = true;
+	if (DisplaySettingsPreviewExpectedWidth <= 0
+		|| DisplaySettingsPreviewExpectedHeight <= 0
+		|| DisplaySettingsPreviewScreenshotPath.IsEmpty())
+	{
+		FailDisplaySettingsPreviewProbe(TEXT("arguments_missing"));
+		return;
+	}
+
+	bDisplaySettingsPreviewScreenshotRequested = false;
+	bDisplaySettingsPreviewCompilationDrained = false;
+	bAccessibilityMenuVisible = false;
+	// 저장된 값을 그대로 읽어 화면에 세운다. 프리뷰가 임의의 값을 보여 주면
+	// 증빙으로 쓸 수 없다.
+	RefreshStagedDisplaySettings();
+	// 어느 줄을 세워 둘지 고를 수 있어야 카테고리별로 증빙을 남길 수 있다.
+	int32 RequestedRow = 0;
+	FParse::Value(CommandLine, TEXT("IGDisplaySettingsRow="), RequestedRow);
+	DisplaySettingsSelection = FMath::Clamp(RequestedRow, 0, 8);
+	SetInputDevicePresentation(false);
+	SetSystemMenuMode(EIGSystemMenuMode::DisplaySettings);
+	// SetSystemMenuMode는 모드만 바꾼다. HUD가 이 화면을 그리려면 표시 상태를
+	// 한 번 밀어 줘야 한다.
+	RefreshMenuHud();
+	IFileManager::Get().MakeDirectory(
+		*FPaths::GetPath(DisplaySettingsPreviewScreenshotPath),
+		true);
+	const double Now = FPlatformTime::Seconds();
+	DisplaySettingsPreviewNextActionTime = Now + 0.75;
+	DisplaySettingsPreviewDeadline = Now + 8.0;
+	SetActorTickEnabled(true);
+}
+
+void AIGPlayerController::TickDisplaySettingsPreviewProbe()
+{
+	const double Now = FPlatformTime::Seconds();
+	if (Now > DisplaySettingsPreviewDeadline)
+	{
+		const AIGHorrorHUD* TimedOutHud = Cast<AIGHorrorHUD>(GetHUD());
+		FVector2D TimedOutCanvas = FVector2D::ZeroVector;
+		FVector2D Unused0;
+		FVector2D Unused1;
+		int32 TimedOutElements = 0;
+		bool bTimedOutInsideCanvas = false;
+		bool bTimedOutInsideContainers = false;
+		uint64 TimedOutSerial = 0;
+		const bool bSampled = TimedOutHud
+			&& TimedOutHud->GetLayoutValidationSample(
+				TimedOutCanvas, Unused0, Unused1, TimedOutElements,
+				bTimedOutInsideCanvas, bTimedOutInsideContainers,
+				TimedOutSerial);
+		UE_LOG(
+			LogTemp,
+			Error,
+			TEXT("MISSINGFLOOR_DISPLAY_SETTINGS_PREVIEW DIAG hud=%d mode=%d "
+				"sampled=%d canvas=%.0fx%.0f elements=%d inside=%d serial=%llu"),
+			TimedOutHud ? 1 : 0,
+			static_cast<int32>(SystemMenuMode),
+			bSampled ? 1 : 0,
+			TimedOutCanvas.X,
+			TimedOutCanvas.Y,
+			TimedOutElements,
+			bTimedOutInsideCanvas ? 1 : 0,
+			TimedOutSerial);
+		FailDisplaySettingsPreviewProbe(TEXT("timeout"));
+		return;
+	}
+	if (Now < DisplaySettingsPreviewNextActionTime)
+	{
+		return;
+	}
+	if (!bDisplaySettingsPreviewCompilationDrained)
+	{
+		FAssetCompilingManager::Get().FinishAllCompilation();
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+		if (GEngine)
+		{
+			GEngine->bEnableOnScreenDebugMessages = false;
+		}
+		ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
+		bDisplaySettingsPreviewCompilationDrained = true;
+		DisplaySettingsPreviewNextActionTime = Now + 0.40;
+		DisplaySettingsPreviewDeadline = Now + 8.0;
+		return;
+	}
+	if (!bDisplaySettingsPreviewScreenshotRequested)
+	{
+		// BeginPlay 시점에는 HUD가 아직 없을 수 있다. 표시 상태를 한 번만
+		// 밀면 그 호출이 통째로 헛돌고, 화면은 영원히 열리지 않는다.
+		RefreshMenuHud();
+		const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+		FVector2D CanvasSize;
+		FVector2D BoundsMinimum;
+		FVector2D BoundsMaximum;
+		int32 ElementCount = 0;
+		bool bInsideCanvas = false;
+		bool bInsideSettingsContainers = false;
+		uint64 FrameSerial = 0;
+		const bool bLayoutReady = HorrorHUD
+			&& SystemMenuMode == EIGSystemMenuMode::DisplaySettings
+			&& HorrorHUD->GetLayoutValidationSample(
+				CanvasSize,
+				BoundsMinimum,
+				BoundsMaximum,
+				ElementCount,
+				bInsideCanvas,
+				bInsideSettingsContainers,
+				FrameSerial)
+			&& FMath::Abs(
+				CanvasSize.X - DisplaySettingsPreviewExpectedWidth) <= 1.0f
+			&& FMath::Abs(
+				CanvasSize.Y - DisplaySettingsPreviewExpectedHeight) <= 1.0f
+			&& bInsideCanvas
+			&& ElementCount >= 1
+			&& FrameSerial > 0;
+		if (!bLayoutReady)
+		{
+			DisplaySettingsPreviewNextActionTime = Now + 0.05;
+			return;
+		}
+		FScreenshotRequest::RequestScreenshot(
+			DisplaySettingsPreviewScreenshotPath,
+			true,
+			false);
+		bDisplaySettingsPreviewScreenshotRequested = true;
+		DisplaySettingsPreviewNextActionTime = Now + 0.08;
+		return;
+	}
+	if (!FPaths::FileExists(DisplaySettingsPreviewScreenshotPath))
+	{
+		DisplaySettingsPreviewNextActionTime = Now + 0.05;
+		return;
+	}
+
+	UE_LOG(
+		LogTemp,
+		Display,
+		TEXT("MISSINGFLOOR_DISPLAY_SETTINGS_PREVIEW PASS "
+			"resolution=%dx%d awaiting_confirmation=%d path=%s"),
+		DisplaySettingsPreviewExpectedWidth,
+		DisplaySettingsPreviewExpectedHeight,
+		bDisplaySettingsAwaitingConfirmation ? 1 : 0,
+		*DisplaySettingsPreviewScreenshotPath);
+	bDisplaySettingsPreviewProbe = false;
+	FPlatformMisc::RequestExitWithStatus(true, 0);
+}
+
+void AIGPlayerController::FailDisplaySettingsPreviewProbe(
+	const FString& Reason) const
+{
+	UE_LOG(
+		LogTemp,
+		Error,
+		TEXT("MISSINGFLOOR_DISPLAY_SETTINGS_PREVIEW FAIL reason=%s"),
+		*Reason);
+	FPlatformMisc::RequestExitWithStatus(true, 2);
+}
+
 void AIGPlayerController::StartMissingFloorEndingPreviewProbe()
 {
 	const TCHAR* CommandLine = FCommandLine::Get();
@@ -2455,6 +2741,7 @@ void AIGPlayerController::StartHeadphoneRecommendationIfNeeded()
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGFrontendShippingProbe"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloorJournalPreview"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGAudioCalibrationPreview"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGDisplaySettingsPreview"))
 		// 밤 5 검증은 타이틀 목록 그 자체를 검사한다. 첫 실행 온보딩이 메뉴를
 		// 가져가면 어떤 행도 선택 가능하지 않다.
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGNightFiveProbe")))
@@ -2835,7 +3122,11 @@ void AIGPlayerController::AdjustDisplaySetting(const int32 Direction)
 	default:
 		return;
 	}
-	bDisplaySettingsApplied = false;
+	// 고른 즉시 적용한다. 값만 바꿔 두고 「변경 적용」 줄을 따로 찾아 눌러야
+	// 반영되던 방식은, 눌러야 하는 줄이 화면 밖에 있으면 아무 일도 일어나지
+	// 않는 것처럼 보인다. 화면을 못 보게 만들 수 있는 것(화면 모드·해상도)만
+	// 적용 뒤 10초 확인을 띄우고, 나머지는 바로 저장한다.
+	ApplyDisplaySettings();
 	SystemMenuStatusText = FText::GetEmpty();
 	bSystemMenuStatusIsError = false;
 	RefreshMenuHud();
@@ -2911,6 +3202,14 @@ void AIGPlayerController::ApplyDisplaySettings()
 		: DisplayWindowModeIndex == 2
 			? EWindowMode::Windowed
 			: EWindowMode::Fullscreen;
+	// 되돌릴 수 있어야 하는 것은 화면을 못 보게 만들 수 있는 둘뿐이다.
+	// 품질·수직 동기화·프레임 제한은 잘못 골라도 화면이 살아 있으므로
+	// 확인을 물을 이유가 없다.
+	const bool bDisplayModeChanged =
+		Settings->GetFullscreenMode() != WindowMode
+		|| Settings->GetScreenResolution()
+			!= IGDisplaySettings::Resolutions[DisplayResolutionIndex];
+
 	Settings->SetFullscreenMode(WindowMode);
 	Settings->SetScreenResolution(
 		IGDisplaySettings::Resolutions[DisplayResolutionIndex]);
@@ -2920,6 +3219,22 @@ void AIGPlayerController::ApplyDisplaySettings()
 		IGDisplaySettings::FrameLimits[DisplayFrameLimitIndex]);
 	Settings->ApplyResolutionSettings(false);
 	Settings->ApplyNonResolutionSettings();
+
+	if (!bDisplayModeChanged)
+	{
+		// 여기서 바로 디스크에 쓴다. 사람이 저장을 찾아 누르지 않아도
+		// 다음 실행에 남아 있어야 한다.
+		Settings->SaveSettings();
+		bDisplaySettingsApplied = true;
+		bDisplaySettingsAwaitingConfirmation = false;
+		DisplayConfirmationSecondsRemaining = 0;
+		SetActorTickEnabled(false);
+		SystemMenuStatusText = FText::GetEmpty();
+		bSystemMenuStatusIsError = false;
+		RefreshMenuHud();
+		return;
+	}
+
 	bDisplaySettingsApplied = false;
 	bDisplaySettingsAwaitingConfirmation = true;
 	DisplaySettingsSelection = 7;
@@ -3562,7 +3877,8 @@ bool AIGPlayerController::ShouldShowTitleMenu() const
 		|| FParse::Param(CommandLine, TEXT("IGChapterTwo"))
 		|| FParse::Param(CommandLine, TEXT("IGChapterThree"))
 		|| FParse::Param(CommandLine, TEXT("IGFrontendShippingProbe"))
-		|| FParse::Param(CommandLine, TEXT("IGAudioCalibrationPreview")))
+		|| FParse::Param(CommandLine, TEXT("IGAudioCalibrationPreview"))
+		|| FParse::Param(CommandLine, TEXT("IGDisplaySettingsPreview")))
 	{
 		return false;
 	}

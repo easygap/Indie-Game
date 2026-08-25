@@ -7,6 +7,7 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Player/IGPlayerController.h"
 #include "Interaction/IGAlarmClock.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGInteractionComponent.h"
@@ -538,7 +539,19 @@ void AIGWakeUpDirector::SetMovementLocked(const bool bLocked)
 		? GetWorld()->GetFirstPlayerController()
 		: nullptr)
 	{
-		PlayerController->SetIgnoreMoveInput(bLocked);
+		if (AIGPlayerController* Controller =
+			Cast<AIGPlayerController>(PlayerController))
+		{
+			const FName Reason(TEXT("WakeUp.Movement"));
+			if (bLocked)
+			{
+				Controller->AddInputLock(Reason, true, false);
+			}
+			else
+			{
+				Controller->RemoveInputLock(Reason);
+			}
+		}
 		bMovementLocked = bLocked;
 	}
 }
@@ -554,7 +567,19 @@ void AIGWakeUpDirector::SetLookLocked(const bool bLocked)
 		? GetWorld()->GetFirstPlayerController()
 		: nullptr)
 	{
-		PlayerController->SetIgnoreLookInput(bLocked);
+		if (AIGPlayerController* Controller =
+			Cast<AIGPlayerController>(PlayerController))
+		{
+			const FName Reason(TEXT("WakeUp.Look"));
+			if (bLocked)
+			{
+				Controller->AddInputLock(Reason, false, true);
+			}
+			else
+			{
+				Controller->RemoveInputLock(Reason);
+			}
+		}
 		bLookInputLocked = bLocked;
 	}
 }

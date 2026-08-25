@@ -141,8 +141,14 @@ Assert-ContainsAll $hud @(
 	'const float SpriteSize = FMath::Max(Canvas->ClipX, Canvas->ClipY);',
 	'FrameTile.BlendMode = SE_BLEND_Translucent;',
 	'Accessibility->IsReducedCameraMotionEnabled()',
-	'DrawFrame(2, Visibility * 0.94f);',
+	# 정지 화면으로 세우는 칸은 손이 있는 마지막 포즈여야 한다. 시트 3번은
+	# 손이 잘려 나간 팔뚝 두 개라 무엇이 닿았는지를 말해 주지 못한다.
+	'DrawFrame(0, Visibility * 0.94f);',
 	'ClosingAnimationEnd = 0.72f',
+	# 시트 순서대로 틀면 팔이 바깥으로 벌어져 화면을 빠져나간다. 포옹은 안으로
+	# 닫히는 동작이므로 뒤에서부터 튼다. v2 원화를 반입하면 이 뒤집기를
+	# 되돌려야 한다 — v2는 좌상부터가 첫 접촉이다.
+	'IGHorrorHUD::CaptureEmbraceFrameCount - 1 - SheetIndex',
 	'DrawFrame(FrameIndex, Visibility);'
 ) 'capture HUD presentation'
 

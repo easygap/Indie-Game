@@ -231,7 +231,10 @@ void AIGHorrorHUD::BeginPlay()
 			TEXT("IGAudioCalibrationPreview"))
 		|| FParse::Param(
 			FCommandLine::Get(),
-			TEXT("IGMissingFloorEndingPreview"));
+			TEXT("IGMissingFloorEndingPreview"))
+		|| FParse::Param(
+			FCommandLine::Get(),
+			TEXT("IGDisplaySettingsPreview"));
 	InitializeKoreanFont();
 	InitializeFrontendMenuTextures();
 
@@ -3044,8 +3047,11 @@ bool AIGHorrorHUD::DrawCaptureEmbrace(const double CurrentTime)
 		static_cast<float>((CurrentTime - CaptureEmbraceStartTime) / Duration),
 		0.0f,
 		1.0f);
-	const float Visibility = IGHorrorHUD::SmoothStep01(NormalizedAge / 0.08f)
-		* (1.0f - IGHorrorHUD::SmoothStep01((NormalizedAge - 0.82f) / 0.18f));
+	// 꼬리 페이드를 두지 않는다. 카메라 암전이 같은 길이로 돌기 때문에 팔을
+	// 0.82부터 지우면 아직 덜 검은 화면에서 팔이 먼저 증발하고, 마지막에
+	// 남는 그림이 빈 복도가 된다. 끝까지 불투명하게 두면 화면이 완전히
+	// 검어지는 프레임에 맞춰 그리기가 멎으므로 잘림이 보이지 않는다.
+	const float Visibility = IGHorrorHUD::SmoothStep01(NormalizedAge / 0.08f);
 
 	// 어떤 화면 비율에서도 정사각 원본을 늘리지 않는다. 두 소매가 화면
 	// 바깥에서 시작하도록 의도적으로 오버스캔한다.
@@ -3083,7 +3089,9 @@ bool AIGHorrorHUD::DrawCaptureEmbrace(const double CurrentTime)
 	if (bReducedMotion)
 	{
 		// 촉각을 대신할 정보는 남기되 팔이 이동하는 느낌은 제거한다.
-		DrawFrame(2, Visibility * 0.94f);
+		// 손이 잘려 나간 칸은 무엇이 닿았는지를 말해 주지 못하므로,
+		// 정지 화면으로 세울 칸은 손이 오므라든 마지막 포즈다.
+		DrawFrame(0, Visibility * 0.94f);
 		return true;
 	}
 
@@ -3092,10 +3100,17 @@ bool AIGHorrorHUD::DrawCaptureEmbrace(const double CurrentTime)
 		NormalizedAge / ClosingAnimationEnd,
 		0.0f,
 		1.0f) * IGHorrorHUD::CaptureEmbraceFrameCount;
-	const int32 FrameIndex = FMath::Clamp(
+	// 시트 순서대로 틀면 팔이 안으로 모이는 게 아니라 바깥으로 벌어져
+	// 화면을 빠져나가고, 마지막 칸은 손이 잘려 나간 팔뚝 두 개다. 포옹은
+	// 안으로 닫히는 동작이므로 뒤에서부터 튼다 — 팔이 옆에서 들어와 올라오고
+	// 벌어졌다가 손이 오므라들며 끝난다. 붙잡고 있을 마지막 포즈도 손이
+	// 있는 칸이 된다.
+	const int32 SheetIndex = FMath::Clamp(
 		FMath::FloorToInt(FramePosition),
 		0,
 		IGHorrorHUD::CaptureEmbraceFrameCount - 1);
+	const int32 FrameIndex =
+		IGHorrorHUD::CaptureEmbraceFrameCount - 1 - SheetIndex;
 	// 포즈 사이 실루엣 차이가 커서 교차 페이드는 팔이 네 개로 보인다.
 	// 장면과의 알파 블렌드는 유지하되 애니메이션 셀은 한 장씩 전환한다.
 	DrawFrame(FrameIndex, Visibility);
@@ -5110,10 +5125,10 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 		bKorean ? TEXT("소리 · 밝기 보정") : TEXT("AUDIO + BRIGHTNESS"),
 		bDisplaySettingsAwaitingConfirmation
 			? bKorean ? TEXT("이 설정 유지") : TEXT("KEEP THESE SETTINGS")
-			: bKorean ? TEXT("변경 적용") : TEXT("APPLY CHANGES"),
+			: bKorean ? TEXT("화면 설정 다시 적용") : TEXT("REAPPLY DISPLAY"),
 		bDisplaySettingsAwaitingConfirmation
 			? bKorean ? TEXT("이전 설정으로 되돌리기") : TEXT("REVERT SETTINGS")
-			: bKorean ? TEXT("변경 취소하고 돌아가기") : TEXT("CANCEL AND BACK")
+			: bKorean ? TEXT("돌아가기") : TEXT("BACK")
 	};
 	const FString Values[] =
 	{
@@ -5132,8 +5147,8 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 	const FString Descriptions[] =
 	{
 		bKorean
-			? TEXT("전체 화면, 테두리 없는 창, 창 모드 중 출력 방식을 선택합니다. 적용 뒤 10초 동안 결과를 확인할 수 있습니다.")
-			: TEXT("CHOOSE FULLSCREEN, BORDERLESS, OR WINDOWED OUTPUT. YOU HAVE 10 SECONDS TO CONFIRM AFTER APPLYING."),
+			? TEXT("전체 화면, 테두리 없는 창, 창 모드 중 출력 방식을 선택합니다. 바꾸면 바로 적용되고, 10초 안에 유지할지 정합니다.")
+			: TEXT("CHOOSE FULLSCREEN, BORDERLESS, OR WINDOWED OUTPUT. IT APPLIES AT ONCE; YOU HAVE 10 SECONDS TO KEEP IT."),
 		bKorean
 			? TEXT("화면에 출력할 픽셀 수를 정합니다. 디스플레이의 기본 해상도와 같을 때 가장 선명합니다.")
 			: TEXT("SETS THE OUTPUT PIXEL COUNT. MATCHING THE DISPLAY'S NATIVE RESOLUTION GIVES THE SHARPEST IMAGE."),
@@ -5153,11 +5168,11 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 			? TEXT("게임의 핵심인 위층 노크가 들리는 크기와 어두운 복도의 기준 밝기를 다시 맞춥니다.")
 			: TEXT("RECALIBRATES THE UPSTAIRS KNOCK LEVEL AND THE REFERENCE BRIGHTNESS FOR DARK CORRIDORS."),
 		bKorean
-			? TEXT("변경한 화면 값을 적용합니다. 화면 모드와 해상도는 확인하기 전까지 임시로 유지됩니다.")
-			: TEXT("APPLIES STAGED DISPLAY VALUES. MODE AND RESOLUTION STAY TEMPORARY UNTIL CONFIRMED."),
+			? TEXT("항목을 바꾸면 그 자리에서 적용되고 저장됩니다. 이 줄은 같은 값을 한 번 더 적용할 때만 쓰입니다.")
+			: TEXT("CHANGES APPLY AND SAVE AS YOU MAKE THEM. THIS ROW ONLY REAPPLIES THE SAME VALUES."),
 		bKorean
-			? TEXT("적용하지 않은 변경을 버리고 이전 화면으로 돌아갑니다.")
-			: TEXT("DISCARDS UNAPPLIED CHANGES AND RETURNS TO THE PREVIOUS SCREEN.")
+			? TEXT("이전 화면으로 돌아갑니다.")
+			: TEXT("RETURNS TO THE PREVIOUS SCREEN.")
 	};
 	const FString CategoryLabels[] =
 	{
@@ -5180,8 +5195,11 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 			: FText::FromString(
 				TEXT("BALANCE HORROR LEGIBILITY WITH STABLE FRAME DELIVERY.")),
 		bKorean
-			? NSLOCTEXT("IGHUD", "DisplayStagedStatus", "변경 후 적용 필요")
-			: FText::FromString(TEXT("APPLY AFTER CHANGES")));
+			? NSLOCTEXT(
+				"IGHUD",
+				"DisplayImmediateStatus",
+				"바꾸는 즉시 적용되고 저장됩니다")
+			: FText::FromString(TEXT("CHANGES APPLY AND SAVE INSTANTLY")));
 
 	const int32 ActiveCategory = IGSettingsMenuLayout::FindCategoryForRow(
 		DisplaySettingsSelectedRow,

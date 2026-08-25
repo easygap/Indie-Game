@@ -14,6 +14,7 @@
 #include "EngineUtils.h"
 #include "Environment/IGNeighborhoodLifeDirector.h"
 #include "GameFramework/PlayerController.h"
+#include "Player/IGPlayerController.h"
 #include "HAL/PlatformMisc.h"
 #include "IndieGame.h"
 #include "Interaction/IGZoneTrigger.h"
@@ -211,8 +212,10 @@ void AIGChapterOneIncidentDirector::EndPlay(
 	if (APlayerController* Controller =
 			GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
 	{
-		Controller->SetIgnoreMoveInput(false);
-		Controller->SetIgnoreLookInput(false);
+		if (AIGPlayerController* Unlocking = Cast<AIGPlayerController>(Controller))
+		{
+			Unlocking->RemoveInputLock(FName(TEXT("CH01.MemoryBoundary")));
+		}
 	}
 	if (WorldScene)
 	{
@@ -1035,8 +1038,10 @@ bool AIGChapterOneIncidentDirector::BeginMemoryBoundary()
 	// and this transient proxy have both been retired.
 	if (APlayerController* Controller = GetWorld()->GetFirstPlayerController())
 	{
-		Controller->SetIgnoreMoveInput(true);
-		Controller->SetIgnoreLookInput(true);
+		if (AIGPlayerController* Locking = Cast<AIGPlayerController>(Controller))
+		{
+			Locking->AddInputLock(FName(TEXT("CH01.MemoryBoundary")));
+		}
 		if (APlayerCameraManager* Camera = Controller->PlayerCameraManager)
 		{
 			Camera->StartCameraFade(

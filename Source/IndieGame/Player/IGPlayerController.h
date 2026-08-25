@@ -40,6 +40,24 @@ public:
 	 */
 	void OpenMissingFloorJournalForTesting() { OpenMissingFloorJournal(); }
 
+	/**
+	 * 이름표를 단 조작 잠금.
+	 *
+	 * `SetIgnoreMoveInput`은 컨트롤러 전역 **누적 카운터**다. 계단 전환,
+	 * CH01 기억 경계, 기상 시퀀스가 각자 자기 불리언으로 그 카운터를 올리고
+	 * 내리는데, 셋 중 하나라도 해제를 건너뛰면 카운터가 0으로 돌아오지
+	 * 않는다. 그때 플레이어에게는 이벤트도 프롬프트도 없이 조작만 죽은
+	 * 화면이 남고, 어느 시스템이 붙들고 있는지 알 방법이 없다.
+	 *
+	 * 이름으로 걸고 이름으로 푼다. 실제 무시 상태는 남은 이름이 있는지로만
+	 * 정해지므로 두 번 걸어도, 순서가 엇갈려도 카운터가 어긋나지 않는다.
+	 * 같은 이름을 두 번 걸면 두 번째는 아무 일도 하지 않는다.
+	 */
+	void AddInputLock(FName Reason, bool bLockMove = true, bool bLockLook = true);
+	void RemoveInputLock(FName Reason);
+	/** 지금 조작을 붙들고 있는 이름들. 진단용. */
+	FString DescribeInputLocks() const;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -146,6 +164,14 @@ private:
 	void StartAudioCalibrationPreviewProbe();
 	void TickAudioCalibrationPreviewProbe();
 	void FailAudioCalibrationPreviewProbe(const FString& Reason) const;
+	/**
+	 * 화면 설정 한 장을 오프스크린으로 찍고 끝난다. 이 화면은 Shipping
+	 * 첫 실행에서만 캡처해 왔는데, 값 하나 고칠 때마다 패키징을 돌릴 수는
+	 * 없다. 오디오 보정 프리뷰와 같은 방식이다.
+	 */
+	void StartDisplaySettingsPreviewProbe();
+	void TickDisplaySettingsPreviewProbe();
+	void FailDisplaySettingsPreviewProbe(const FString& Reason) const;
 	void StartMissingFloorEndingPreviewProbe();
 	void TickMissingFloorEndingPreviewProbe();
 	void FailMissingFloorEndingPreviewProbe(const FString& Reason) const;
@@ -263,6 +289,15 @@ private:
 	bool bAudioCalibrationPreviewProbe = false;
 	bool bAudioCalibrationPreviewScreenshotRequested = false;
 	bool bAudioCalibrationPreviewCompilationDrained = false;
+	/** 이름표 -> (이동을 막는가, 시야를 막는가). 비면 조작이 열려 있다. */
+	TMap<FName, TPair<bool, bool>> InputLockReasons;
+	double InputLockWatchdogNextReportTime = 0.0;
+
+	void ApplyInputLocks();
+
+	bool bDisplaySettingsPreviewProbe = false;
+	bool bDisplaySettingsPreviewScreenshotRequested = false;
+	bool bDisplaySettingsPreviewCompilationDrained = false;
 	bool bMissingFloorEndingPreviewProbe = false;
 	bool bMissingFloorEndingPreviewScreenshotRequested = false;
 	bool bMissingFloorEndingPreviewCompilationDrained = false;
@@ -282,6 +317,8 @@ private:
 	int32 MissingFloorJournalPreviewExpectedHeight = 0;
 	int32 AudioCalibrationPreviewExpectedWidth = 0;
 	int32 AudioCalibrationPreviewExpectedHeight = 0;
+	int32 DisplaySettingsPreviewExpectedWidth = 0;
+	int32 DisplaySettingsPreviewExpectedHeight = 0;
 	int32 MissingFloorEndingPreviewExpectedWidth = 0;
 	int32 MissingFloorEndingPreviewExpectedHeight = 0;
 	uint64 FrontendProbeAwaitFrameSerial = 0;
@@ -291,6 +328,8 @@ private:
 	double MissingFloorJournalPreviewDeadline = 0.0;
 	double AudioCalibrationPreviewNextActionTime = 0.0;
 	double AudioCalibrationPreviewDeadline = 0.0;
+	double DisplaySettingsPreviewNextActionTime = 0.0;
+	double DisplaySettingsPreviewDeadline = 0.0;
 	double MissingFloorEndingPreviewNextActionTime = 0.0;
 	double MissingFloorEndingPreviewDeadline = 0.0;
 	double NextAudioCalibrationKnockTime = -1.0;
@@ -301,6 +340,7 @@ private:
 	FString FrontendProbeTitleScreenshotPath;
 	FString MissingFloorJournalPreviewScreenshotPath;
 	FString AudioCalibrationPreviewScreenshotPath;
+	FString DisplaySettingsPreviewScreenshotPath;
 	FString MissingFloorEndingPreviewScreenshotPath;
 	float MissingFloorEndingPreviewElapsedSeconds = 0.8f;
 	float PreviousDisplayFrameLimit = 60.0f;

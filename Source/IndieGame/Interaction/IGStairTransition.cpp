@@ -1,4 +1,4 @@
-#include "Interaction/IGStairTransition.h"
+﻿#include "Interaction/IGStairTransition.h"
 
 #include "Camera/PlayerCameraManager.h"
 #include "Components/BoxComponent.h"
@@ -6,7 +6,13 @@
 #include "Engine/World.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
+#include "Player/IGPlayerController.h"
 #include "TimerManager.h"
+
+namespace IGStairTransitionLocks
+{
+	const FName Transfer(TEXT("StairTransition"));
+}
 
 AIGStairTransition::AIGStairTransition()
 {
@@ -63,10 +69,10 @@ void AIGStairTransition::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(TransferTimer);
 	GetWorldTimerManager().ClearTimer(CooldownTimer);
-	if (APlayerController* Controller = PendingController.Get())
+	if (AIGPlayerController* Controller =
+		Cast<AIGPlayerController>(PendingController.Get()))
 	{
-		Controller->SetIgnoreMoveInput(false);
-		Controller->SetIgnoreLookInput(false);
+		Controller->RemoveInputLock(IGStairTransitionLocks::Transfer);
 	}
 	Super::EndPlay(EndPlayReason);
 }
@@ -112,8 +118,10 @@ void AIGStairTransition::BeginTransfer(AActor* OtherActor, const bool bGoingDown
 	bPendingGoingDown = bGoingDown;
 	PendingPawn = Pawn;
 	PendingController = Controller;
-	Controller->SetIgnoreMoveInput(true);
-	Controller->SetIgnoreLookInput(true);
+	if (AIGPlayerController* Locking = Cast<AIGPlayerController>(Controller))
+	{
+		Locking->AddInputLock(IGStairTransitionLocks::Transfer);
+	}
 	if (APlayerCameraManager* Camera = Controller->PlayerCameraManager)
 	{
 		Camera->StartCameraFade(
@@ -149,7 +157,16 @@ void AIGStairTransition::CompleteTransfer()
 			nullptr,
 			ETeleportType::TeleportPhysics);
 		Controller->SetControlRotation(TargetRotation);
-		if (APlayerCameraManager* Camera = Controller->PlayerCameraManager)
+	}
+
+	// 해제와 암전 복구는 폰과 무관하다. 0.12초 사이에 폰이 사라졌으면
+	// 텔레포트를 건너뛰는 것은 맞지만, 그 때문에 해제까지 같이 건너뛰면
+	// 이름표가 남아 조작이 죽는다. 게다가 바로 아래에서 PendingController를
+	// 비우므로 EndPlay의 안전망도 그 컨트롤러를 찾지 못한다 — 이벤트도
+	// 프롬프트도 없이 검은 화면에서 멈춘다.
+	if (APlayerController* Releasing = PendingController.Get())
+	{
+		if (APlayerCameraManager* Camera = Releasing->PlayerCameraManager)
 		{
 			Camera->StartCameraFade(
 				1.0f,
@@ -159,8 +176,10 @@ void AIGStairTransition::CompleteTransfer()
 				false,
 				false);
 		}
-		Controller->SetIgnoreMoveInput(false);
-		Controller->SetIgnoreLookInput(false);
+		if (AIGPlayerController* Unlocking = Cast<AIGPlayerController>(Releasing))
+		{
+			Unlocking->RemoveInputLock(IGStairTransitionLocks::Transfer);
+		}
 	}
 
 	PendingPawn.Reset();
