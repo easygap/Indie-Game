@@ -159,9 +159,24 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 		NoiseSubsystem->SetGlobalMasking(0.0f);
 	}
 
+	const EIGListenerState PreviousState = State;
 	State = NewState;
 	StateSeconds = 0.0f;
 	StuckSeconds = 0.0f;
+
+	// 잡는 순간부터는 1인칭 포옹이 이 존재를 대신 그린다. 몸을 그대로 세워
+	// 두면 팔이 화면을 감싸는 동안 같은 것이 복도 바닥에 한 번 더 보인다 —
+	// m1 포획 캡처에 실제로 둘이 같이 찍혀 있었다. 충돌과 소리는 그대로 두고
+	// 그림만 내린다.
+	if (NewState == EIGListenerState::CaptureHold)
+	{
+		SetActorHiddenInGame(true);
+	}
+	else if (PreviousState == EIGListenerState::CaptureHold)
+	{
+		// 낮에는 잠들어 있어야 하므로 휴면 상태를 그대로 따른다.
+		SetActorHiddenInGame(bDormant);
+	}
 
 	if (UWorld* World = GetWorld())
 	{

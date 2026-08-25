@@ -5021,11 +5021,21 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		break;
 	case 9:
 		// Dawn, then Hwang Sun-geum answering through her door.
+		//
+		// 401호 문 앞 47 cm에서 찍고 있었다. 화각이 78도이므로 그 거리에서
+		// 보이는 폭은 76 cm인데 문짝만 84 cm다 — 문틀도, 상인방도, 호수판도
+		// 프레임 밖이라 화면에는 무늬 없는 회색 판과 문구멍 하나만 남았다.
+		// 「401호 문 너머로 대화하는 장면」이라고 걸어 둔 컷이 문으로 읽히지
+		// 않았다. 91 cm까지 물러나면 폭 147 cm·높이 83 cm가 들어와 문틀 양쪽
+		// (X -200..-192, -104..-96)과 상인방(Z 1100~1108)이 잡히고, 위로
+		// 11도 들면 호수판(Z 1110~1118)까지 프레임에 들어온다. 복도가 130 cm
+		// 깊이라 문 전체(208 cm)를 정면으로 담을 방법은 없으므로, 문이라는
+		// 것과 401호라는 것을 말해 주는 위쪽을 택한다.
 		if (NightPhase)
 		{
 			NightPhase->CompleteNightGoal();
 		}
-		CaptureTeleportPlayer(FVector(-150.0f, -284.0f, 997.0f), 90.0f, -6.0f);
+		CaptureTeleportPlayer(FVector(-150.0f, -328.0f, 997.0f), 90.0f, 11.0f);
 		break;
 	case 10:
 		// Portal-free climb: the camera remains inside the real upper stair.
