@@ -1491,6 +1491,24 @@ foreach ($token in @(
 		throw "ASCII targeted-build binary sync is missing: $token"
 	}
 }
+# 타깃 패스의 에셋 회수. 목록에 적힌 파일만 복사하던 시절에는 그 패스가
+# 처음 만든 에셋이 미러에 갇힌 채 PASS가 찍혔다. 폴더째 회수와 도착 확인이
+# 둘 다 있어야 그 침묵이 다시 생기지 않는다.
+foreach ($token in @(
+	'$undeliveredAssets = @($targetRelativeAssets | Where-Object {',
+	'-not (Test-Path -LiteralPath (Join-Path $projectRoot $_) -PathType Leaf)',
+	"-Destination (Join-Path `$projectRoot `$relativeFolder)",
+	'Content\Prototype\Materials\M_MissingFloorSteelStair.uasset',
+	'Content\Prototype\Materials\M_RooftopWaterproofing_XY.uasset',
+	'Content\Prototype\Materials\M_MissingFloorGypsumDebris_XY.uasset',
+	'Content\Prototype\Materials\M_UnitDoorPaintedSteel.uasset',
+	'Content\Prototype\Materials\M_UtilityMeterDial.uasset',
+	'Content\Prototype\Materials\M_CarbonPaper.uasset'
+)) {
+	if (-not $buildScript.Contains($token)) {
+		throw "ASCII targeted-build asset delivery is missing: $token"
+	}
+}
 foreach ($token in @(
 	'build_listener_entity_crawl',
 	'"SM_ListenerEntityCrawl"',

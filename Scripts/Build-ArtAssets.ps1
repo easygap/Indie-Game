@@ -625,6 +625,38 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Meshes\SM_TunerToolCart.uasset',
 			'Content\Meshes\SM_ComplaintLedger.uasset',
 			'Content\Meshes\SM_CalendarJournal.uasset',
+			# 발소리 표면 셋, 현관문 강판, 판독면 둘. e901de5가 레시피와
+			# 호출부만 넣고 이 목록을 놓쳐 한 번도 회수되지 않았다.
+			'Content\Prototype\Textures\T_MissingFloorSteelStair_D.uasset',
+			'Content\Prototype\Textures\T_MissingFloorSteelStair_N.uasset',
+			'Content\Prototype\Textures\T_MissingFloorSteelStair_R.uasset',
+			'Content\Prototype\Textures\T_MissingFloorSteelStair_A.uasset',
+			'Content\Prototype\Textures\T_RooftopWaterproofing_D.uasset',
+			'Content\Prototype\Textures\T_RooftopWaterproofing_N.uasset',
+			'Content\Prototype\Textures\T_RooftopWaterproofing_R.uasset',
+			'Content\Prototype\Textures\T_RooftopWaterproofing_A.uasset',
+			'Content\Prototype\Textures\T_MissingFloorGypsumDebris_D.uasset',
+			'Content\Prototype\Textures\T_MissingFloorGypsumDebris_N.uasset',
+			'Content\Prototype\Textures\T_MissingFloorGypsumDebris_R.uasset',
+			'Content\Prototype\Textures\T_MissingFloorGypsumDebris_A.uasset',
+			'Content\Prototype\Textures\T_UnitDoorPaintedSteel_D.uasset',
+			'Content\Prototype\Textures\T_UnitDoorPaintedSteel_N.uasset',
+			'Content\Prototype\Textures\T_UnitDoorPaintedSteel_R.uasset',
+			'Content\Prototype\Textures\T_UnitDoorPaintedSteel_A.uasset',
+			'Content\Prototype\Textures\T_UtilityMeterDial_D.uasset',
+			'Content\Prototype\Textures\T_UtilityMeterDial_N.uasset',
+			'Content\Prototype\Textures\T_UtilityMeterDial_R.uasset',
+			'Content\Prototype\Textures\T_UtilityMeterDial_A.uasset',
+			'Content\Prototype\Textures\T_CarbonPaper_D.uasset',
+			'Content\Prototype\Textures\T_CarbonPaper_N.uasset',
+			'Content\Prototype\Textures\T_CarbonPaper_R.uasset',
+			'Content\Prototype\Textures\T_CarbonPaper_A.uasset',
+			'Content\Prototype\Materials\M_MissingFloorSteelStair.uasset',
+			'Content\Prototype\Materials\M_RooftopWaterproofing_XY.uasset',
+			'Content\Prototype\Materials\M_MissingFloorGypsumDebris_XY.uasset',
+			'Content\Prototype\Materials\M_UnitDoorPaintedSteel.uasset',
+			'Content\Prototype\Materials\M_UtilityMeterDial.uasset',
+			'Content\Prototype\Materials\M_CarbonPaper.uasset',
 			'Content\Prototype\Textures\T_MissingFloorDryPlaster_D.uasset',
 			'Content\Prototype\Textures\T_MissingFloorDryPlaster_N.uasset',
 			'Content\Prototype\Textures\T_MissingFloorDryPlaster_R.uasset',
@@ -926,11 +958,30 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Process')
 	}
 	if ($usingAsciiMirror) {
-		foreach ($targetRelativeAsset in $targetRelativeAssets) {
-			$sourceAsset = Join-Path $unrealProjectRoot $targetRelativeAsset
-			$targetAsset = Join-Path $projectRoot $targetRelativeAsset
-			Copy-Item -LiteralPath $sourceAsset -Destination $targetAsset -Force
+		# 회수는 폴더째 한다. 목록에 적힌 파일만 복사하면 이번 패스가 처음
+		# 만든 에셋이 미러에 갇힌 채로 PASS가 찍힌다. e901de5의 재질 여섯과
+		# 텍스처 스물넷이 그렇게 새어 나갔고, 씬은 폴백으로 그리면서 아무
+		# 소리도 내지 않았다.
+		foreach ($relativeFolder in @(
+			'Content\Meshes',
+			'Content\Photo\Props',
+			'Content\Prototype\Textures',
+			'Content\Prototype\Materials'
+		)) {
+			Invoke-ArtRobocopy `
+				-Source (Join-Path $unrealProjectRoot $relativeFolder) `
+				-Destination (Join-Path $projectRoot $relativeFolder)
 		}
+	}
+	# 목록은 이제 운반 수단이 아니라 계약이다. 패스가 만들기로 한 것이 실제로
+	# 프로젝트에 도착했는지 확인하고 나서 PASS를 찍는다.
+	$undeliveredAssets = @($targetRelativeAssets | Where-Object {
+		-not (Test-Path -LiteralPath (Join-Path $projectRoot $_) -PathType Leaf)
+	})
+	if ($undeliveredAssets.Count -gt 0) {
+		throw ("Targeted $targetName pass delivered no file for " +
+			"$($undeliveredAssets.Count) contracted asset(s): " +
+			($undeliveredAssets -join ', '))
 	}
 	$targetAudit = if ($HudUiOnly) { 0 } else { 1 }
 	Write-Host "ART_TARGETED_BUILD PASS target=$targetName assets=$(@($targetRelativeAssets).Count) uasset_audit=$targetAudit no_visible_window=true"
@@ -961,6 +1012,13 @@ $pythonStages = @(
 	@{
 		Script = 'validate_baked_art_assets.py'
 		SuccessPattern = 'ART_UASSET_AUDIT PASS'
+	},
+	# 메시가 다시 구워졌으면 바운드도 다시 뽑는다. audit_director_props가
+	# 소품이 책상을 뚫는지 볼 때 쓰는 값이고, 손으로 갱신하게 두면 메시만
+	# 바뀌고 바운드는 옛날 것이 남아 감사가 조용히 틀린 답을 낸다.
+	@{
+		Script = 'export_mesh_bounds.py'
+		SuccessPattern = '\[MESHBOUNDS\] exported \d+ mesh\(es\)'
 	}
 )
 $logRoot = Join-Path $unrealProjectRoot 'Saved\Logs'
@@ -1022,6 +1080,16 @@ if ($usingAsciiMirror) {
 		Invoke-ArtRobocopy `
 			-Source (Join-Path $unrealProjectRoot $relativeFolder) `
 			-Destination (Join-Path $projectRoot $relativeFolder)
+	}
+	# 에디터가 쓴 파일은 콘텐츠 폴더 밖에도 있다. 메시 바운드는 Docs에
+	# 떨어지므로 폴더 회수만으로는 미러에 남는다.
+	$boundsRelative = 'Docs\mesh_bounds.json'
+	$boundsSource = Join-Path $unrealProjectRoot $boundsRelative
+	if (Test-Path -LiteralPath $boundsSource -PathType Leaf) {
+		Copy-Item `
+			-LiteralPath $boundsSource `
+			-Destination (Join-Path $projectRoot $boundsRelative) `
+			-Force
 	}
 }
 

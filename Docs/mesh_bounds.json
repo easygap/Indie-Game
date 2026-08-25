@@ -1,0 +1,772 @@
+{
+  "meshes": {
+    "SM_AlarmClock": {
+      "origin": [
+        0.0,
+        0.0,
+        3.225
+      ],
+      "extent": [
+        6.5,
+        4.25,
+        3.625
+      ]
+    },
+    "SM_AlleyCatRun": {
+      "origin": [
+        -5.875,
+        0.35,
+        24.6
+      ],
+      "extent": [
+        46.125,
+        8.85,
+        24.6
+      ]
+    },
+    "SM_Basket": {
+      "origin": [
+        0.0,
+        0.0,
+        11.0
+      ],
+      "extent": [
+        20.0,
+        15.0,
+        11.0
+      ]
+    },
+    "SM_BottleCap": {
+      "origin": [
+        0.0,
+        0.0,
+        0.8
+      ],
+      "extent": [
+        1.7,
+        1.7,
+        0.8
+      ]
+    },
+    "SM_CalendarJournal": {
+      "origin": [
+        0.0,
+        -0.1775,
+        0.26
+      ],
+      "extent": [
+        10.0,
+        0.6775,
+        13.76
+      ]
+    },
+    "SM_CaptureMercyNote": {
+      "origin": [
+        0.0,
+        0.0,
+        0.17
+      ],
+      "extent": [
+        9.0,
+        5.5,
+        0.135
+      ]
+    },
+    "SM_CarrierBagCollapsed": {
+      "origin": [
+        0.0,
+        0.0,
+        3.4586
+      ],
+      "extent": [
+        6.0,
+        9.0,
+        13.5414
+      ]
+    },
+    "SM_ComplaintLedger": {
+      "origin": [
+        -0.3125,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        11.0625,
+        15.35,
+        1.4
+      ]
+    },
+    "SM_CrackedPhone": {
+      "origin": [
+        0.0,
+        0.0,
+        0.605
+      ],
+      "extent": [
+        3.6,
+        7.3,
+        0.605
+      ]
+    },
+    "SM_CupLid": {
+      "origin": [
+        0.0,
+        0.0,
+        10.84
+      ],
+      "extent": [
+        5.46,
+        5.46,
+        0.14
+      ]
+    },
+    "SM_CupNoodle": {
+      "origin": [
+        0.0,
+        0.0,
+        5.55
+      ],
+      "extent": [
+        5.6,
+        5.6,
+        5.55
+      ]
+    },
+    "SM_CupSleeve": {
+      "origin": [
+        0.0,
+        0.0,
+        3.6
+      ],
+      "extent": [
+        5.36,
+        5.36,
+        3.6
+      ]
+    },
+    "SM_DrinkBottle": {
+      "origin": [
+        0.0,
+        0.0,
+        8.55
+      ],
+      "extent": [
+        3.6,
+        3.6,
+        8.55
+      ]
+    },
+    "SM_DrinkCan": {
+      "origin": [
+        0.0,
+        0.0,
+        6.1
+      ],
+      "extent": [
+        3.28,
+        3.28,
+        6.1
+      ]
+    },
+    "SM_FinalCavityBoneInsert": {
+      "origin": [
+        -4.5,
+        0.0,
+        136.6843
+      ],
+      "extent": [
+        12.0,
+        25.4,
+        37.6843
+      ]
+    },
+    "SM_FinalCavityBrokenCaster": {
+      "origin": [
+        -5.4004,
+        -43.0,
+        15.675
+      ],
+      "extent": [
+        8.5996,
+        7.65,
+        11.325
+      ]
+    },
+    "SM_FinalCavityClothingShell": {
+      "origin": [
+        -5.7305,
+        -0.5,
+        75.0165
+      ],
+      "extent": [
+        25.2305,
+        51.5455,
+        72.0165
+      ]
+    },
+    "SM_FinalCavityTarp": {
+      "origin": [
+        8.75,
+        7.8909,
+        82.9111
+      ],
+      "extent": [
+        11.25,
+        46.8306,
+        77.9111
+      ]
+    },
+    "SM_FirstPersonHoodieSleeve": {
+      "origin": [
+        0.2309,
+        0.0,
+        0.4671
+      ],
+      "extent": [
+        7.0547,
+        6.2,
+        18.4671
+      ]
+    },
+    "SM_HornRimGlasses": {
+      "origin": [
+        0.0,
+        4.1125,
+        0.2225
+      ],
+      "extent": [
+        6.72,
+        6.1875,
+        0.3725
+      ]
+    },
+    "SM_HoseCoupling": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        5.0,
+        4.15,
+        5.4
+      ]
+    },
+    "SM_InspectionRod": {
+      "origin": [
+        3.31,
+        0.0,
+        59.0
+      ],
+      "extent": [
+        3.31,
+        1.22,
+        59.0
+      ]
+    },
+    "SM_KimbapPack": {
+      "origin": [
+        0.0,
+        0.0,
+        2.65
+      ],
+      "extent": [
+        9.0,
+        4.5,
+        2.65
+      ]
+    },
+    "SM_KimchiTub": {
+      "origin": [
+        0.0,
+        0.0,
+        6.3
+      ],
+      "extent": [
+        9.2,
+        9.2,
+        6.3
+      ]
+    },
+    "SM_LabelSleeve": {
+      "origin": [
+        0.0,
+        0.0,
+        0.5
+      ],
+      "extent": [
+        1.0,
+        1.0,
+        0.5
+      ]
+    },
+    "SM_LadderFailureRung": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        10.0,
+        52.5,
+        1.5
+      ]
+    },
+    "SM_LadderRungPadLifted": {
+      "origin": [
+        -0.0231,
+        0.0,
+        2.0912
+      ],
+      "extent": [
+        4.2269,
+        27.0,
+        0.5812
+      ]
+    },
+    "SM_LadderRungRetainingClips": {
+      "origin": [
+        0.0,
+        0.0,
+        1.65
+      ],
+      "extent": [
+        5.1,
+        31.1,
+        1.95
+      ]
+    },
+    "SM_LampShade": {
+      "origin": [
+        0.0,
+        0.0,
+        5.55
+      ],
+      "extent": [
+        23.0,
+        23.0,
+        6.45
+      ]
+    },
+    "SM_LeverHandle": {
+      "origin": [
+        0.0,
+        -4.3,
+        2.5
+      ],
+      "extent": [
+        3.6,
+        7.9,
+        2.5
+      ]
+    },
+    "SM_ListenerEntityCrawl": {
+      "origin": [
+        -22.0406,
+        0.0,
+        2.8248
+      ],
+      "extent": [
+        105.0406,
+        30.5,
+        37.8491
+      ]
+    },
+    "SM_MilkCarton": {
+      "origin": [
+        3.5002,
+        9.2061,
+        0.0
+      ],
+      "extent": [
+        3.5002,
+        9.2076,
+        3.5048
+      ]
+    },
+    "SM_MokHansooGypsumBoard": {
+      "origin": [
+        -23.0,
+        0.0,
+        112.0
+      ],
+      "extent": [
+        1.5,
+        47.5,
+        21.5
+      ]
+    },
+    "SM_MokHansooHeadHands": {
+      "origin": [
+        -7.4684,
+        0.0,
+        145.7336
+      ],
+      "extent": [
+        17.9684,
+        44.9885,
+        41.7336
+      ]
+    },
+    "SM_MokHansooWorkwear": {
+      "origin": [
+        -2.25,
+        0.0,
+        82.2398
+      ],
+      "extent": [
+        20.25,
+        39.0,
+        81.2398
+      ]
+    },
+    "SM_OfferingWaterBowl": {
+      "origin": [
+        0.0,
+        0.0,
+        4.35
+      ],
+      "extent": [
+        12.2,
+        12.2,
+        4.35
+      ]
+    },
+    "SM_P3PressureGauge": {
+      "origin": [
+        0.0,
+        0.0,
+        -1.6552
+      ],
+      "extent": [
+        8.07,
+        8.07,
+        4.1448
+      ]
+    },
+    "SM_P3ServiceCabinetShell": {
+      "origin": [
+        5.7386,
+        58.57,
+        0.0
+      ],
+      "extent": [
+        165.2644,
+        74.57,
+        98.0
+      ]
+    },
+    "SM_P3ServiceManifold": {
+      "origin": [
+        0.0,
+        0.0,
+        -3.4
+      ],
+      "extent": [
+        104.0,
+        8.0,
+        81.4
+      ]
+    },
+    "SM_P3ValveWheelLarge": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        9.0,
+        9.0,
+        1.394
+      ]
+    },
+    "SM_P3ValveWheelSmall": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        6.0,
+        6.0,
+        1.3
+      ]
+    },
+    "SM_RooftopFireDoorFrame": {
+      "origin": [
+        7.0,
+        0.0,
+        4.45
+      ],
+      "extent": [
+        7.2,
+        68.0,
+        121.05
+      ]
+    },
+    "SM_RooftopFireDoorLeaf": {
+      "origin": [
+        1.925,
+        -1.65,
+        0.0
+      ],
+      "extent": [
+        6.275,
+        59.65,
+        115.0
+      ]
+    },
+    "SM_RooftopServiceHose": {
+      "origin": [
+        35.0,
+        -126.5,
+        434.9
+      ],
+      "extent": [
+        153.0,
+        54.5,
+        187.1
+      ]
+    },
+    "SM_RooftopTankPipeCluster": {
+      "origin": [
+        143.0,
+        -119.55,
+        391.0
+      ],
+      "extent": [
+        38.0,
+        14.55,
+        149.0
+      ]
+    },
+    "SM_RooftopUnlockedPadlockKeys": {
+      "origin": [
+        0.57,
+        0.681,
+        -1.4859
+      ],
+      "extent": [
+        2.03,
+        3.241,
+        10.1859
+      ]
+    },
+    "SM_RooftopWaterTankShell": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        157.0,
+        157.0,
+        130.0
+      ]
+    },
+    "SM_SandwichPack": {
+      "origin": [
+        2.25,
+        4.7606,
+        0.0
+      ],
+      "extent": [
+        2.25,
+        4.7611,
+        6.5108
+      ]
+    },
+    "SM_SnackBag": {
+      "origin": [
+        0.0,
+        0.0,
+        3.0
+      ],
+      "extent": [
+        8.2,
+        2.75,
+        12.5
+      ]
+    },
+    "SM_SojuBottle": {
+      "origin": [
+        0.0,
+        0.0,
+        10.6
+      ],
+      "extent": [
+        3.35,
+        3.35,
+        10.6
+      ]
+    },
+    "SM_StickyNote76mm": {
+      "origin": [
+        -0.09,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        0.09,
+        3.8,
+        3.8
+      ]
+    },
+    "SM_Stool": {
+      "origin": [
+        0.0,
+        0.0,
+        26.4
+      ],
+      "extent": [
+        17.5,
+        17.5,
+        26.4
+      ]
+    },
+    "SM_SubmergedHoodieCurl": {
+      "origin": [
+        12.1716,
+        -6.2402,
+        3.7259
+      ],
+      "extent": [
+        51.9371,
+        28.2402,
+        14.7259
+      ]
+    },
+    "SM_SubmergedPantsCurl": {
+      "origin": [
+        -3.8535,
+        20.4347,
+        0.25
+      ],
+      "extent": [
+        46.8595,
+        34.3797,
+        13.25
+      ]
+    },
+    "SM_SubmergedSlippersCurl": {
+      "origin": [
+        45.4291,
+        15.4166,
+        -3.9
+      ],
+      "extent": [
+        17.8172,
+        17.3205,
+        5.4
+      ]
+    },
+    "SM_TankAccessDeck": {
+      "origin": [
+        0.0,
+        0.0,
+        3.0
+      ],
+      "extent": [
+        157.0,
+        157.0,
+        7.0
+      ]
+    },
+    "SM_TankAccessGuardRail": {
+      "origin": [
+        -30.5,
+        3.0,
+        37.5
+      ],
+      "extent": [
+        39.5,
+        113.0,
+        37.5
+      ]
+    },
+    "SM_TankAccessLid": {
+      "origin": [
+        0.0,
+        0.0,
+        5.5
+      ],
+      "extent": [
+        54.0,
+        54.0,
+        8.5
+      ]
+    },
+    "SM_TankExteriorAccessStair": {
+      "origin": [
+        172.5,
+        0.0,
+        230.6301
+      ],
+      "extent": [
+        182.5,
+        105.0,
+        224.3699
+      ]
+    },
+    "SM_TankInternalLadder": {
+      "origin": [
+        -135.3,
+        0.0,
+        488.0
+      ],
+      "extent": [
+        10.3,
+        28.0,
+        102.0
+      ]
+    },
+    "SM_TankInternalLining": {
+      "origin": [
+        0.0,
+        0.0,
+        488.6
+      ],
+      "extent": [
+        147.0,
+        147.0,
+        107.4
+      ]
+    },
+    "SM_TunerToolCart": {
+      "origin": [
+        0.0,
+        0.0,
+        39.4
+      ],
+      "extent": [
+        24.3,
+        18.3,
+        35.6
+      ]
+    },
+    "SM_TuningHammer": {
+      "origin": [
+        2.615,
+        0.0,
+        13.3125
+      ],
+      "extent": [
+        4.135,
+        1.52,
+        13.3125
+      ]
+    },
+    "SM_WaterBottle": {
+      "origin": [
+        0.0,
+        0.0,
+        10.15
+      ],
+      "extent": [
+        3.25,
+        3.25,
+        10.15
+      ]
+    }
+  }
+}
