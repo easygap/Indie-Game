@@ -27,9 +27,10 @@ OUT = os.path.join(MEDIA, "readme")
 # 파일은 그대로 쓴다 — 파생본이 하나 늘 때마다 확인해야 할 것도 하나 늘어난다.
 STILLS = (
     "title-menu-first-run-1080.png",
-    # 입주 첫날 세 장. 원본이 각각 2 MB를 넘어서 README 첫 화면에 그대로
-    # 걸면 그 셋만으로 7 MB다.
-    "prologue-villa.png",
+    # 입주 첫날 두 장. 원본이 각각 2 MB를 넘어서 README 첫 화면에 그대로
+    # 걸면 그 둘만으로 4.5 MB다. prologue-villa는 README를 플레이어 관점으로
+    # 다시 쓰면서 빠졌는데 이 목록에 남아, 아무도 참조하지 않는 파생본을 매번
+    # 만들고 있었다.
     "arrival-contract.png",
     "arrival-moving-boxes.png",
     "m0-knock-contact.png",

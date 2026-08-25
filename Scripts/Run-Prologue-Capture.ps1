@@ -12,9 +12,21 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $projectFile = Join-Path $projectRoot 'IndieGame.uproject'
 $resolver = Join-Path $PSScriptRoot 'Resolve-UnrealEditor.ps1'
+# 리졸버는 PowerShell 7로 돌리는 쪽이 낫다. 5.1은 기본 출력 인코딩이 시스템
+# ANSI 코드페이지라 한글 경로가 섞이면 깨질 수 있다. 다만 PS7이 없다고 캡처
+# 전체를 막을 이유는 없다 — 리졸버가 돌려주는 것은 엔진 설치 경로뿐이고
+# 거기에는 한글이 안 들어간다. Build-ArtAssets.ps1과 같은 처리를 한다.
 $powerShellCore = Get-Command 'pwsh.exe' -ErrorAction SilentlyContinue
-if ($null -eq $powerShellCore) {
-	throw 'PowerShell 7 is required for the UTF-8 capture harness.'
+$usingPowerShellCore = $null -ne $powerShellCore
+if ($usingPowerShellCore) {
+	$resolverShell = $powerShellCore.Source
+} else {
+	$windowsPowerShell = Get-Command 'powershell.exe' -ErrorAction SilentlyContinue
+	if ($null -eq $windowsPowerShell) {
+		throw 'PowerShell을 찾을 수 없어 캡처를 시작할 수 없습니다.'
+	}
+	$resolverShell = $windowsPowerShell.Source
+	Write-Host 'PROLOGUE_CAPTURE pwsh 없음 — Windows PowerShell로 리졸버 실행(UTF-8 고정)'
 }
 $runLog = Join-Path $projectRoot 'Saved\Logs\PrologueCapture.log'
 $mediaRoot = Join-Path $projectRoot 'Docs\Media'
@@ -32,10 +44,17 @@ $expectedCaptures = @(
 )
 
 $editorOutput = @(
-	& $powerShellCore.Source `
-		-NoProfile `
-		-File $resolver `
-		-ProjectPath $projectFile 2>&1
+	if ($usingPowerShellCore) {
+		& $resolverShell `
+			-NoProfile `
+			-File $resolver `
+			-ProjectPath $projectFile 2>&1
+	} else {
+		& $resolverShell `
+			-NoProfile `
+			-ExecutionPolicy Bypass `
+			-Command "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; & '$resolver' -ProjectPath '$projectFile'" 2>&1
+	}
 )
 if ($LASTEXITCODE -ne 0 -or $editorOutput.Count -eq 0) {
 	throw 'Unreal Engine resolution failed.'
