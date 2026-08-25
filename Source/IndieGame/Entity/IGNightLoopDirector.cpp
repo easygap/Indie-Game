@@ -14,6 +14,7 @@
 #include "Entity/IGMissingFloorNightTwoBeatDirector.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "IndieGame.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -266,6 +267,10 @@ void AIGNightLoopDirector::FinishReset()
 
 	if (!bWakeRecoveryScheduled)
 	{
+		// 여기까지 왔다는 것은 폰이나 컨트롤러가 암전 사이에 사라졌다는
+		// 뜻이다. 포획 암전은 bHoldWhenFinished로 걸어 두므로 아무도 풀지
+		// 않으면 화면이 검은 채로 남는다 — 이벤트도 프롬프트도 없이 게임이
+		// 끝난 것처럼 보이는 상태다. 기상 복귀가 그 자리를 정리한다.
 		FinishWakeRecovery();
 	}
 }
@@ -305,17 +310,66 @@ void AIGNightLoopDirector::Tick(const float DeltaSeconds)
 
 void AIGNightLoopDirector::FinishWakeRecovery()
 {
-	if (AIGPlayerCharacter* Character = CapturedPlayer.Get())
+	AIGPlayerCharacter* Character = CapturedPlayer.Get();
+	APlayerController* Controller = Character
+		? Cast<APlayerController>(Character->GetController())
+		: nullptr;
+	if (Character && Controller)
 	{
-		if (APlayerController* Controller =
-			Cast<APlayerController>(Character->GetController()))
-		{
-			Character->EnableInput(Controller);
-		}
+		Character->EnableInput(Controller);
+	}
+	else if (bResetInFlight)
+	{
+		// 암전은 열렸지만 조작을 되돌려 줄 상대가 없다. 화면은 살아 있고
+		// 입력만 죽은 상태로 남지 않게 컨트롤러 쪽에서라도 풀어 둔다.
+		AbortCaptureBlackout(TEXT("wake recovery finished without a pawn"));
 	}
 
 	CapturedPlayer = nullptr;
 	bResetInFlight = false;
+}
+
+void AIGNightLoopDirector::AbortCaptureBlackout(const TCHAR* Reason)
+{
+	UWorld* World = GetWorld();
+	AIGPlayerCharacter* Character = CapturedPlayer.Get();
+	APlayerController* Controller = Character
+		? Cast<APlayerController>(Character->GetController())
+		: nullptr;
+	// 폰이 사라졌어도 화면을 가진 컨트롤러는 남아 있다. 암전은 컨트롤러의
+	// 카메라 매니저가 들고 있으므로 그쪽에서 걷는다.
+	if (!Controller && World)
+	{
+		Controller = World->GetFirstPlayerController();
+	}
+	if (Controller && Controller->PlayerCameraManager)
+	{
+		Controller->PlayerCameraManager->StopCameraFade();
+	}
+	if (Character && Controller)
+	{
+		Character->EnableInput(Controller);
+	}
+	UE_LOG(
+		LogIndieGame,
+		Warning,
+		TEXT("IG_CAPTURE_RESET aborted blackout: %s (controller=%s)"),
+		Reason,
+		Controller ? TEXT("yes") : TEXT("none"));
+}
+
+void AIGNightLoopDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	// 리셋 도중에 디렉터가 사라지면 타이머와 함께 복귀도 사라진다.
+	if (bResetInFlight && EndPlayReason != EEndPlayReason::LevelTransition
+		&& EndPlayReason != EEndPlayReason::EndPlayInEditor
+		&& EndPlayReason != EEndPlayReason::Quit)
+	{
+		AbortCaptureBlackout(TEXT("director destroyed during a capture reset"));
+	}
+	bResetInFlight = false;
+	CapturedPlayer = nullptr;
+	Super::EndPlay(EndPlayReason);
 }
 
 bool AIGNightLoopDirector::IsMercyNoteVisible() const

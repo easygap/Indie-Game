@@ -1,5 +1,6 @@
 ﻿#include "Entity/IGListenerGreyboxDirector.h"
 
+#include "AssetCompilingManager.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -19,6 +20,7 @@
 #include "Sequence/IGWakeUpDirector.h"
 #include "Engine/GameViewportClient.h"
 #include "Player/IGStressComponent.h"
+#include "ShaderCompiler.h"
 #include "UnrealClient.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNightLoopDirector.h"
@@ -4169,6 +4171,14 @@ void AIGListenerGreyboxDirector::StartNightCapture()
 	{
 		PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
 	}
+	// 셰이더가 아직 컴파일 중인 재질은 엔진이 격자로 그린다. 프롤로그 캡처는
+	// 이것을 이미 막고 있었지만 밤 캡처는 막지 않아서, 같은 커밋에서도 실행에
+	// 따라 격자가 찍힌 프레임과 안 찍힌 프레임이 나왔다.
+	FAssetCompilingManager::Get().FinishAllCompilation();
+	if (GShaderCompilingManager)
+	{
+		GShaderCompilingManager->FinishAllCompilation();
+	}
 	// The dying west fixture must not strobe the stair still.
 	if (AIGPrologueWorldScene* SceneNow =
 		const_cast<AIGPrologueWorldScene*>(WorldScene.Get()))
@@ -4890,6 +4900,13 @@ void AIGListenerGreyboxDirector::CaptureParkEntity(
 
 void AIGListenerGreyboxDirector::CaptureShot(const TCHAR* BaseName) const
 {
+	// 첫 프레임들이 렌더된 뒤에 재질·PSO 작업이 다시 쌓인다. 스틸마다 그
+	// 두 번째 물결을 비우고 찍는다.
+	FAssetCompilingManager::Get().FinishAllCompilation();
+	if (GShaderCompilingManager)
+	{
+		GShaderCompilingManager->FinishAllCompilation();
+	}
 	const FString ScreenshotPath = FPaths::ConvertRelativePathToFull(
 		FPaths::Combine(
 			FPaths::ProjectDir(),

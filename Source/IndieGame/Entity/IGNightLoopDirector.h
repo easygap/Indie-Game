@@ -64,6 +64,7 @@ public:
 
 protected:
 	virtual void BeginPlay() override;
+	virtual void EndPlay(EEndPlayReason::Type EndPlayReason) override;
 
 	/** 플레이어를 옮기기 전 포옹 암전 시간(초). */
 	UPROPERTY(EditAnywhere, Category = "NightLoop", meta = (ClampMin = "0.0"))
@@ -73,6 +74,8 @@ private:
 	void HandlePlayerCaptured(APawn* Player);
 	void FinishReset();
 	void FinishWakeRecovery();
+	/** 포획 암전을 걷고 조작을 돌려준다. 정상 복귀가 끊긴 자리에서만 부른다. */
+	void AbortCaptureBlackout(const TCHAR* Reason);
 	bool SpawnCaptureHandprint(AIGPlayerCharacter* Character);
 	bool InitializeMercyNote();
 	void QueueMercyNoteReveal();

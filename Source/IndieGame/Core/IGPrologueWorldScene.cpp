@@ -2865,6 +2865,15 @@ void AIGPrologueWorldScene::BuildCorridor()
 			Skirting,
 			false);
 	}
+	// 계단은 바닥에서 자란 한 덩어리라 마지막 단의 북쪽 면이 통째로 드러난다.
+	// 체커플레이트는 XY로 읽으므로 그 세로 면에서는 무늬가 전혀 변하지 않는다
+	// — 85 x 54 cm가 한 줄로 늘어난 민무늬였다. 실제 철제 계단에서 그 자리는
+	// 디딤판이 아니라 도장 강판 마구리이므로 UV 재질로 덮는다.
+	CreateBlock(
+		FVector(-277.5f, -138.7f, 27.0f),
+		FVector(85, 0.6f, 54),
+		TexMat(TEXT("M_SteelDoorUV"), MetalFrameMaterial),
+		false);
 	// Threshold slab flush with the fourth tread. The former north closure and
 	// hidden portal are gone: BuildFifthFloorAnnex continues this exact shaft
 	// with fourteen physical treads to the roof.
@@ -3488,7 +3497,11 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	UMaterialInterface* AnnexWallX = TexMat(TEXT("M_MissingFloorPlaster_X"), ConcreteMaterial);
 	UMaterialInterface* AnnexWallY = TexMat(TEXT("M_MissingFloorPlaster_Y"), ConcreteMaterial);
 	UMaterialInterface* AnnexCeiling = TexMat(TEXT("M_MissingFloorPlaster_XY"), ConcreteMaterial);
-	UMaterialInterface* Stud = TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial);
+	// 노출된 경량 스터드. 여기에 M_MeterBox를 쓰고 있었는데 그 재질은
+	// 분전반 문짝 도장면이라 「분전반」·「취급주의」 활자가 인쇄돼 있다.
+	// 폭 4 cm 스터드 여섯 개에 그 글자가 잘려 실려서, 손전등이 스치면
+	// 흰색·노란색 획이 세로로 흩어진 노이즈처럼 보였다.
+	UMaterialInterface* Stud = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
 	UMaterialInterface* Board = TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial);
 	// 계단과 옥상 바닥은 서로 다른 발소리 표면인데 한 변수를 공유하고
 	// 있었다. 옥상 방수층은 조용하고 철제 계단은 길게 울린다 — 같은
@@ -3531,6 +3544,15 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 			IGPrologueWorld::FootstepMetalStairTag);
 		MissingFloorUpperStairSteps.Add(Step);
 	}
+	// 4층 계단과 같은 이유로 마지막 단의 북쪽 마구리를 덮는다. 이쪽은
+	// 2.2 m가 통째로 드러나 있어 계단참에서 올려다보면 바로 보인다.
+	// 열네 번째 단은 Y=186에서 끝나므로 그 북쪽 면은 Y=197, 위로는 계단참
+	// 밑면 Z=1182까지다.
+	CreateBlock(
+		FVector(-277.5f, 197.3f, 1072.5f),
+		FVector(85.0f, 0.6f, 219.0f),
+		TexMat(TEXT("M_SteelDoorUV"), MetalFrameMaterial),
+		false);
 	IGPrologueWorld::TagFootstepSurface(CreateBlock(
 		FVector(-277.5f, 208.5f, 1191.0f),
 		FVector(85.0f, 23.0f, 18.0f),
@@ -4775,6 +4797,12 @@ void AIGPrologueWorldScene::BuildLobby()
 	// Lower mouth of the same occluded switchback stair. Five real treads and
 	// a dark return wall make the floor compression happen behind a plausible
 	// 180-degree corner instead of in the open lobby.
+	// 계단 한 단은 바닥에서 자란 한 덩어리다. 디딤면은 화강석 타일을 XY로
+	// 읽어 맞지만, 같은 상자의 챌면은 세로 면이라 그 재질이 높이를 따라
+	// 변하지 않는다 — 타일 한 줄이 18 cm 높이로 늘어난 민무늬 띠가 된다.
+	// 챌면에는 실제 건물이 쓰는 것과 같은 화강석 판재를 YZ로 읽어 3 mm 덧댄다.
+	UMaterialInterface* LobbyRiser =
+		TexMat(TEXT("M_GranitePanel_Y"), ConcreteMaterial);
 	for (int32 LowerStepIndex = 0; LowerStepIndex < 5; ++LowerStepIndex)
 	{
 		const float StepX = -100.0f - LowerStepIndex * 22.0f;
@@ -4783,6 +4811,11 @@ void AIGPrologueWorldScene::BuildLobby()
 			FVector(StepX, -305, StepTop * 0.5f),
 			FVector(22, 112, StepTop),
 			LobbyFloor);
+		CreateBlock(
+			FVector(StepX + 11.3f, -305, StepTop * 0.5f),
+			FVector(0.6f, 112, StepTop),
+			LobbyRiser,
+			false);
 	}
 	CreateBlock(
 		FVector(-214, -305, 48),
@@ -4804,6 +4837,10 @@ void AIGPrologueWorldScene::BuildAlley()
 		TexMat(TEXT("M_VillaStucco_Y"), ConcreteMaterial);
 	UMaterialInterface* DarkX = TexMat(TEXT("M_ConcreteDark_X"), ConcreteDarkMaterial);
 	UMaterialInterface* DarkY = TexMat(TEXT("M_ConcreteDark_Y"), ConcreteDarkMaterial);
+	// 위를 보는 면과 아래를 보는 면. XZ/YZ 변형은 높이를 따라 UV가 변하므로
+	// 수평면에 붙이면 한 줄이 폭 방향으로 통째로 늘어난다.
+	UMaterialInterface* DarkXY =
+		TexMat(TEXT("M_ConcreteDark_XY"), ConcreteDarkMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
 
 	// Asphalt strip from the west dead end to the store front.
@@ -4870,7 +4907,10 @@ void AIGPrologueWorldScene::BuildAlley()
 	{
 		UMaterialInterface* ParkFloor = TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial);
 		CreateBlock(FVector(50, -310, -10), FVector(780, 170, 20), ParkFloor);
-		CreateBlock(FVector(50, -310, 244), FVector(780, 170, 12), DarkX, false);
+		// 7.8 x 1.7 m 필로티 천장. 바닥과 마주 보는 면이므로 바닥과 같은
+		// 축으로 읽어야 한다 — XZ로 읽는 동안 이 면 전체가 콘크리트 한 줄을
+		// 1.7 m 늘여 놓은 민무늬였다.
+		CreateBlock(FVector(50, -310, 244), FVector(780, 170, 12), DarkXY, false);
 		CreateBlock(FVector(50, -232, 120), FVector(780, 16, 240), DarkX);
 		CreateBlock(FVector(-348, -310, 120), FVector(16, 170, 240), DarkY);
 		// Columns on the street line, each with a concrete capital.
@@ -4995,7 +5035,8 @@ void AIGPrologueWorldScene::BuildAlley()
 	}
 
 	// Common entrance dressing: canopy, name plate, keypad, threshold.
-	CreateBlock(FVector(643, -405, 240), FVector(104, 44, 6), DarkX, false);
+	// 캐노피도 눕힌 판이라 수평 축으로 읽는다.
+	CreateBlock(FVector(643, -405, 240), FVector(104, 44, 6), DarkXY, false);
 	CreateBlock(
 		FVector(643, -396.5f, 258), FVector(80, 3, 24),
 		TexMat(TEXT("M_SignVilla"), SignWhiteMaterial), false);
@@ -5270,7 +5311,9 @@ void AIGPrologueWorldScene::BuildStore()
 	// Storefront on the alley: glass the full width so the lit interior — the
 	// counter, the aisles, the cooler glow — is visible from the street, with
 	// a short masonry pier at the north corner.
-	CreateBlock(FVector(2405, -196, 130), FVector(10, 32, 260), StoreWallX);
+	// 정면을 향한 벽면이므로 Y 변형으로 읽는다. StoreWallX는 X를 따라
+	// UV가 변해서, 두께 10 cm짜리 이 기둥에서는 한 줄만 나왔다.
+	CreateBlock(FVector(2405, -196, 130), FVector(10, 32, 260), StoreWallY);
 	CreateBlock(FVector(2405, -300, 106), FVector(8, 175, 200), GlassMaterial);
 	CreateBlock(FVector(2405, -592.5f, 106), FVector(8, 151, 200), GlassMaterial);
 	for (const float ColumnY : {-212.0f, -300.0f, -395.0f, -517.0f, -668.0f})
@@ -5283,7 +5326,7 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(FVector(2405, -295, 12), FVector(12, 200, 24), Metal);
 	CreateBlock(FVector(2405, -590, 12), FVector(12, 150, 24), Metal);
 	CreateBlock(FVector(2405, -531.5f, 216), FVector(14, 297, 22), Metal);
-	CreateBlock(FVector(2405, -531.5f, 245), FVector(10, 297, 36), StoreWallX);
+	CreateBlock(FVector(2405, -531.5f, 245), FVector(10, 297, 36), StoreWallY);
 
 	// Signage: the lettered fascia glows down the whole alley, plus a blade sign.
 	CreateBlock(

@@ -171,6 +171,13 @@ def append_wrapped_label_surface(mesh, rings, segments=64):
     ``rings`` is a bottom-to-top sequence of ``(radius_cm, z_cm, v)``. A seam
     vertex is deliberately duplicated at U=0/1; this is what lets panoramic
     label artwork wrap exactly once without tearing across random triangles.
+
+    U는 각도를 **거꾸로** 따라간다. 언리얼은 왼손 좌표계라 ``(cos, sin)``으로
+    도는 것이 바깥에서 보면 시계 방향이고, 그대로 U를 매기면 밖에 선 사람
+    기준으로 글자가 오른쪽에서 왼쪽으로 흐른다 — 인쇄면 전체가 좌우로
+    뒤집힌다. 편의점 음료 라벨과 컵라면 띠가 실제로 그렇게 나오고 있었다.
+    ``1 - u``로 뒤집으면 U=0.5(아트의 한가운데)는 제자리에 있으므로 호출부가
+    잡아 둔 요각은 그대로 쓸 수 있고, 좌우만 바로 선다.
     """
     if len(rings) < 2:
         raise ValueError("A wrapped label needs at least two profile rings")
@@ -204,7 +211,7 @@ def append_wrapped_label_surface(mesh, rings, segments=64):
             positions.append((cosine * radius, sine * radius, z))
             normals.append((cosine / normal_length, sine / normal_length,
                             normal_z / normal_length))
-            uvs.append((u, v))
+            uvs.append((1.0 - u, v))
 
     for ring_index in range(len(rings) - 1):
         lower = ring_index * ring_stride
@@ -2740,6 +2747,8 @@ def run():
         builders = (build_drink_can,)
     elif os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
         builders = (build_capture_mercy_note,)
+    elif os.environ.get("IG_LABEL_SLEEVE_ONLY") == "1":
+        builders = (build_label_sleeve, build_cup_sleeve)
     elif os.environ.get("IG_SUBMERGED_CLOTHING_ONLY") == "1":
         builders = (
             build_submerged_hoodie_curl,

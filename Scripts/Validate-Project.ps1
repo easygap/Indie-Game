@@ -2775,8 +2775,22 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A director-spawned prop is not configured to contract ($LASTEXITCODE)"
 	}
+
+	# 건축 재질은 월드 좌표를 읽으므로 축이 맞는 면에서만 무늬가 변한다.
+	# 이름도 자리도 크기도 맞는데 면의 방향 하나가 어긋나면 그 면 전체가
+	# 한 줄로 늘어나고, 위 감사 넷은 그것을 보지 않는다.
+	$surfaceProjection = Join-Path $projectRoot 'Scripts/audit_surface_projection.py'
+	& $python.Source $surfaceProjection --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Surface projection audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $surfaceProjection --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A world-projected material is stretched across the face it is on ($LASTEXITCODE)"
+	}
 } else {
-	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit and director prop audit.'
+	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit and surface projection audit.'
 }
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

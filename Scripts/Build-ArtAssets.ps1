@@ -8,6 +8,7 @@ param(
 	[switch]$PropResponseOnly,
 	[switch]$RetailRealismOnly,
 	[switch]$CorridorSignageOnly,
+	[switch]$LabelSleeveOnly,
 	[switch]$MissingFloorOnly,
 	[switch]$TankWaterOnly,
 	[switch]$TankInteriorOnly,
@@ -118,20 +119,21 @@ $modeCount = @(
 	$PropResponseOnly.IsPresent,
 	$RetailRealismOnly.IsPresent,
 	$CorridorSignageOnly.IsPresent,
+	$LabelSleeveOnly.IsPresent,
 	$MissingFloorOnly.IsPresent,
 	$TankWaterOnly.IsPresent,
 	$TankInteriorOnly.IsPresent,
 	$SubmergedClothingOnly.IsPresent
 ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($modeCount -gt 1) {
-	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, PropResponseOnly, RetailRealismOnly, CorridorSignageOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
+	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, PropResponseOnly, RetailRealismOnly, CorridorSignageOnly, LabelSleeveOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
 }
 
 if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	-not $SubmergedClothingOnly -and -not $HudUiOnly -and
 	-not $ApartmentVisualOnly -and -not $SurfaceResponseOnly -and
 	-not $PropResponseOnly -and -not $RetailRealismOnly -and
-	-not $CorridorSignageOnly -and
+	-not $CorridorSignageOnly -and -not $LabelSleeveOnly -and
 	-not $MissingFloorOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
 
@@ -375,7 +377,7 @@ if ($CodeOnly) {
 
 if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	$PropResponseOnly -or $RetailRealismOnly -or
-	$CorridorSignageOnly -or
+	$CorridorSignageOnly -or $LabelSleeveOnly -or
 	$MissingFloorOnly -or $TankWaterOnly -or $TankInteriorOnly -or
 	$SubmergedClothingOnly) {
 	$targetName = if ($HudUiOnly) {
@@ -395,6 +397,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($CorridorSignageOnly) {
 		'CorridorSignage'
+	}
+	elseif ($LabelSleeveOnly) {
+		'LabelSleeve'
 	}
 	elseif ($MissingFloorOnly) {
 		'MissingFloor'
@@ -426,6 +431,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	elseif ($CorridorSignageOnly) {
 		'IG_CORRIDOR_SIGNAGE_ONLY'
 	}
+	elseif ($LabelSleeveOnly) {
+		'IG_LABEL_SLEEVE_ONLY'
+	}
 	elseif ($MissingFloorOnly) {
 		'IG_MISSING_FLOOR_ONLY'
 	}
@@ -455,6 +463,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($CorridorSignageOnly) {
 		'\[IndieGame\] Corridor entrance signage material update complete'
+	}
+	elseif ($LabelSleeveOnly) {
+		'\[MESHGEN\] complete: 2/2 meshes'
 	}
 	elseif ($MissingFloorOnly) {
 		'\[IndieGame\] Missing-floor visual material update complete'
@@ -609,6 +620,12 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Materials\M_CctvChannelFive.uasset',
 			'Content\Prototype\Materials\M_Plate402.uasset',
 			'Content\Prototype\Materials\M_PlateCommon.uasset'
+		)
+	}
+	elseif ($LabelSleeveOnly) {
+		@(
+			'Content\Meshes\SM_LabelSleeve.uasset',
+			'Content\Meshes\SM_CupSleeve.uasset'
 		)
 	}
 	elseif ($MissingFloorOnly) {
@@ -834,6 +851,22 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			},
 			@{
 				Script = 'create_textured_materials.py'
+				SuccessPattern = $targetSuccessPattern
+				TargetEnvironment = $true
+			},
+			@{
+				Script = 'validate_baked_art_assets.py'
+				SuccessPattern = 'ART_UASSET_AUDIT PASS'
+				TargetEnvironment = $false
+			}
+		)
+	}
+	elseif ($LabelSleeveOnly) {
+		@(
+			@{
+				# 인쇄면만 바뀐다. 재질과 텍스처는 그대로이므로 메시만 다시 굽고
+				# uasset 감사로 LOD 계약이 유지되는지 확인한다.
+				Script = 'generate_meshes.py'
 				SuccessPattern = $targetSuccessPattern
 				TargetEnvironment = $true
 			},
