@@ -19,9 +19,18 @@ namespace IGBeamDust
 	 * white speck under TSR does not read as dust — it reads as sensor noise.
 	 * A speck about 2.5 px wide at any depth stays a mote and stops shimmering.
 	 */
-	constexpr float ScreenSizeAtOneMeter = 0.09f;
+	// 0.09는 이 목표를 절반도 못 채우고 있었다. 시야각 78도, 1920px에서
+	// 1px은 0.0406도인데 0.09cm/1m는 0.0516도, 크기 편차까지 넣으면 화면에서
+	// 0.7~2.0px이다. 주석이 피하려던 「센서 노이즈」 구간에 그대로 들어앉아
+	// 있었고, 그래서 손전등을 돌릴 때마다 실 같은 잔상이 남았다.
+	constexpr float ScreenSizeAtOneMeter = 0.165f;
 	constexpr float MinMoteCentimeters = 0.22f;
-	constexpr float MaxMoteCentimeters = 1.05f;
+	// 빔은 5.4m에서 끝난다. 상한이 1.05면 먼 쪽 큰 알갱이만 잘려 각크기가
+	// 다시 줄어드는데, 1.30이면 원뿔 전 구간이 같은 굵기로 읽힌다.
+	constexpr float MaxMoteCentimeters = 1.30f;
+
+	/** 재배치한 알갱이가 제 크기까지 자라는 시간(초). */
+	constexpr float FadeInSeconds = 0.22f;
 
 	/** Slow, aimless air. Fast dust looks like rain or sparks. */
 	constexpr float DriftSpeed = 4.2f;
@@ -252,13 +261,26 @@ void UIGBeamDustComponent::TickComponent(
 			IsInsideBeam(Mote.Location, Origin, Direction, Depth);
 		}
 
+		// 원뿔을 벗어난 알갱이는 매 프레임 새 자리로 순간이동한다. 손전등을
+		// 한 번 휘두르면 수백 개가 한꺼번에 옮겨 가는데, 밝은 점이 제자리에서
+		// 사라지고 다른 자리에서 튀어나오면 TSR 히스토리가 그 사이를 이어
+		// 그린다 — 그것이 공중에 뜬 실이다. 새로 놓인 알갱이를 0에서 키우면
+		// 이을 밝은 점이 애초에 없다.
+		Mote.FadeInSeconds = FMath::Min(
+			Mote.FadeInSeconds + DeltaSeconds,
+			IGBeamDust::FadeInSeconds);
+		const float Emergence = IGBeamDust::FadeInSeconds > 0.0f
+			? FMath::SmoothStep(
+				0.0f, 1.0f, Mote.FadeInSeconds / IGBeamDust::FadeInSeconds)
+			: 1.0f;
+
 		const float Meters = FMath::Max(0.35f, Depth * 0.01f);
 		const float Size = FMath::Clamp(
 			IGBeamDust::ScreenSizeAtOneMeter * Meters * Mote.SizeScale,
 			IGBeamDust::MinMoteCentimeters,
-			IGBeamDust::MaxMoteCentimeters);
+			IGBeamDust::MaxMoteCentimeters) * Emergence;
 		// 엔진 기본 도형의 지름은 100cm다. 센티미터로 계산한 크기를 그대로 스케일에
-		// 넣으면 0.22~1.05cm 분진이 22~105cm 큐브가 된다. 이 큰 인스턴스가 복도를
+		// 넣으면 0.22~1.30cm 분진이 22~130cm 큐브가 된다. 이 큰 인스턴스가 복도를
 		// 채우고 손전등으로 확인해야 할 바닥과 벽을 가리고 있었다. 구체 메시로 각진
 		// 실루엣을 없애고 100으로 나눠 의도한 실제 지름을 복원한다.
 		constexpr float BasicShapeDiameterCentimeters = 100.0f;
@@ -328,7 +350,9 @@ void UIGBeamDustComponent::RespawnMote(
 
 	Mote.Drift = Random.GetUnitVector() * (IGBeamDust::DriftSpeed
 		* FMath::Lerp(0.35f, 1.0f, Random.GetFraction()));
-	Mote.SizeScale = FMath::Lerp(0.55f, 1.6f, Random.GetFraction());
+	// 편차를 좁힌다. 0.55는 위 계수를 올려도 여전히 1px대라 혼자 반짝인다.
+	Mote.SizeScale = FMath::Lerp(0.85f, 1.35f, Random.GetFraction());
+	Mote.FadeInSeconds = 0.0f;
 	Mote.bSeeded = true;
 }
 

@@ -37,6 +37,11 @@ public:
 	 * Builds the interaction surface and authors what examining it means.
 	 * A truth of None files nothing — used for props whose only job is to make
 	 * something happen in the world (the breaker).
+	 *
+	 * SizeCentimeters는 메시를 맞출 **실제 바운딩 박스**다. 100cm 엔진 큐브를
+	 * 가정하고 100으로 나누는 CreateBlock·ConfigurePrototypeVisuals와 다르다.
+	 * 저작된 크기를 그대로 쓰려면 0을 넘겨라 — 여기에 (100,100,100)을 넘기면
+	 * 스케일 1이 아니라 1m 정육면체가 된다.
 	 */
 	void Configure(
 		UStaticMesh* Mesh,
@@ -47,7 +52,13 @@ public:
 		EIGMissingFloorTruth Truth,
 		EIGMissingFloorSource Source,
 		float HoldSeconds,
-		float NoiseLoudness);
+		float NoiseLoudness,
+		/**
+		 * false면 표시용 메시를 그리지 않는다. 씬이 이미 그 자리에 제대로 된
+		 * 소품을 세워 둔 경우, 액터는 상호작용만 맡고 그림은 씬에 맡긴다.
+		 * 충돌은 그대로 남으므로 조준 트레이스는 계속 걸린다.
+		 */
+		bool bPresentationVisible = true);
 
 	/** True once this record has been filed at least once. */
 	UFUNCTION(BlueprintPure, Category = "Evidence")

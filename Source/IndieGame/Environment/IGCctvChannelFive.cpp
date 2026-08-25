@@ -200,7 +200,12 @@ bool AIGCctvChannelFive::Configure(AIGPrologueWorldScene* InScene)
 			Label->SetStaticMesh(CubeMesh);
 			Label->SetMaterial(0, LabelMaterial);
 			Label->SetAbsolute(true, true, true);
-			Label->SetWorldLocation(IGCctvFive::LabelCenter);
+			// 라벨은 모니터 위에 눕는다. 회전을 주지 않으면 윗면의 글자가
+			// 평면 안에서 180도 돌아 앉아, 앞에 선 사람에게 「AUX 5 MONITOR
+			// ONLY」가 거꾸로 읽힌다.
+			Label->SetWorldLocationAndRotation(
+				IGCctvFive::LabelCenter,
+				FRotator(0.0f, 180.0f, 0.0f));
 			Label->SetWorldScale3D(IGCctvFive::LabelSize / 100.0f);
 			Label->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 			Label->SetCanEverAffectNavigation(false);

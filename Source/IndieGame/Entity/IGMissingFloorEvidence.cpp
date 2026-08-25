@@ -54,8 +54,12 @@ void AIGMissingFloorEvidence::Configure(
 	const EIGMissingFloorTruth Truth,
 	const EIGMissingFloorSource Source,
 	const float HoldSeconds,
-	const float NoiseLoudness)
+	const float NoiseLoudness,
+	const bool bPresentationVisible)
 {
+	// 가시성만 끈다. 충돌 프로필은 그대로라 상호작용이 쓰는 가시성 트레이스는
+	// 계속 이 액터에 맞는다.
+	PresentationMesh->SetVisibility(bPresentationVisible);
 	if (Mesh)
 	{
 		const FVector AuthoredCenter = GetActorLocation();
@@ -71,7 +75,11 @@ void AIGMissingFloorEvidence::Configure(
 		const FVector MeshSize = Bounds.BoxExtent * 2.0f;
 		if (MeshSize.GetMin() > KINDA_SMALL_NUMBER)
 		{
-			const FVector Scale = SizeCentimeters / MeshSize;
+			// 0은 「저작된 크기 그대로」다. 이 함수는 100cm 큐브를 가정하지
+			// 않으므로 (100,100,100)으로는 스케일 1을 얻을 수 없다.
+			const FVector Scale = SizeCentimeters.IsNearlyZero()
+				? FVector::OneVector
+				: SizeCentimeters / MeshSize;
 			PresentationMesh->SetRelativeScale3D(Scale);
 			// PresentationMesh가 액터 루트이므로 루트에 SetRelativeLocation을 호출하면
 			// 액터의 월드 위치가 바뀐다. 저작한 중심은 유지하고, 스케일과 회전을 적용한

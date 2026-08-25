@@ -68,13 +68,14 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 	{
 		return false;
 	}
-	// Reuse the material the lobby already put on these fixtures so the
-	// interaction surfaces disappear into the props they belong to.
-	UMaterialInterface* DialMaterial = nullptr;
-	if (const UStaticMeshComponent* Disc = InScene->GetFifthMeterDisc())
-	{
-		DialMaterial = Disc->GetMaterial(0);
-	}
+	// 검침 기록지는 금속 클립보드에 끼운 종이다. 사무실에서 계속 쓰는
+	// 장부이므로 젖은 공지가 아니라 멀쩡한 종이를 쓴다. 예전에는 다섯째
+	// 계량기 원판의 재질을 그대로 넘겨서, A4 한 장이 검은 플라스틱 판으로
+	// 서 있었다.
+	UMaterialInterface* SheetMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PaperClean.M_PaperClean"));
+	// Reuse the material the lobby already put on this fixture so the
+	// interaction surface disappears into the prop it belongs to.
 	UMaterialInterface* ToggleMaterial = nullptr;
 	if (const UStaticMeshComponent* Toggle = InScene->GetUnnamedBreakerToggle())
 	{
@@ -87,6 +88,12 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 
 	// The fifth dial. The thought does the work of the missing nameplate: the
 	// player is told what they are looking at, never what it means.
+	//
+	// 이 액터는 그림을 갖지 않는다. 씬이 다섯 자리 모두에 문자판·유리·회전
+	// 원판을 세워 두는데, 여기에 15cm 판을 하나 더 띄우면 그 셋을 통째로
+	// 덮는다. 덮이는 것이 하필 P1이 보라고 하는 바로 그 계량기다 — 문자판도
+	// 안 보이고, 「다섯째만 안 돈다」를 읽을 원판도 안 보인다. 상호작용만
+	// 맡기고 그림은 씬에 맡긴다.
 	SpawnParameters.Name = TEXT("MissingFloorMeterDial");
 	MeterDialEvidence = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
@@ -98,7 +105,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 	}
 	MeterDialEvidence->Configure(
 		CubeMesh,
-		DialMaterial,
+		nullptr,
 		FVector(15.0f, 3.0f, 15.0f),
 		NSLOCTEXT("IGMissingFloor", "P1MeterPrompt", "계량기"),
 		NSLOCTEXT(
@@ -108,7 +115,8 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		EIGMissingFloorTruth::LivedUpstairs,
 		EIGMissingFloorSource::MeterFifthDial,
 		0.0f,
-		IGPuzzleOne::DialNoiseLoudness);
+		IGPuzzleOne::DialNoiseLoudness,
+		/*bPresentationVisible=*/false);
 	MeterDialEvidence->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleOneDirector::HandleMeterExamined);
 
@@ -134,7 +142,10 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		IGPuzzleOne::BreakerHoldSeconds,
-		IGPuzzleOne::BreakerNoiseLoudness);
+		IGPuzzleOne::BreakerNoiseLoudness,
+		// 씬이 세워 둔 미명칭 토글 위에 겹치는 대리물이다. 그림을 켜 두면
+		// 진짜 토글을 가려, 내려간 것이 올라가는 것도 보이지 않는다.
+		/*bPresentationVisible=*/false);
 	BreakerAction->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown);
 
@@ -152,7 +163,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 	}
 	ReadingSheet->ConfigurePrototypeVisuals(
 		CubeMesh,
-		DialMaterial,
+		SheetMaterial,
 		FVector(21.0f, 1.2f, 29.7f));
 	ReadingSheet->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "P1SheetPrompt", "검침 기록지"));

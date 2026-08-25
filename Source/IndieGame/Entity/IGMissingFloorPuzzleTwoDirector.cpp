@@ -25,9 +25,20 @@ namespace IGPuzzleTwo
 	// Desk top is Z=76.  The 2.8 cm ledger rests at Z=77.5, never at the old
 	// upright-paper centre that made it intersect and appear to float.
 	const FVector FairCopyLocation(120.0f, -103.0f, 77.5f);
-	const FVector CarbonLocation(160.0f, -103.0f, 77.5f);
-	const FVector AgentNoteLocation(205.0f, -103.0f, 80.0f);
-	const FVector CctvLocation(150.0f, -94.0f, 96.0f);
+	// X=160일 때 먹지는 X 148.9~171.1을 차지해서 모니터 받침대(X 144~156,
+	// Z 76~84)를 통과했다. 책이 받침대를 뚫고 지나가는 그림이다. 받침대
+	// 오른쪽으로 빼면 X 160.9~183.1이 되어 받침대와 4.9cm, 대리인 쪽지와
+	// 12.9cm가 남는다. 왼쪽은 정서본과 겹치므로 이쪽뿐이다.
+	const FVector CarbonLocation(172.0f, -103.0f, 77.5f);
+	// 책상에 놓인 종이다. 세워 놓고 중심을 Z=80에 두면 24cm 높이의 절반이
+	// 상판(Z=76) 아래로 들어가 책상에 박힌다 — 위 두 장에서 이미 한 번 고친
+	// 실수다. 눕히고 상판 위에 올린다.
+	const FVector AgentNoteLocation(205.0f, -103.0f, 76.7f);
+	// 채널 선택기는 책상 위 물건이다. Y=-94는 모니터 케이스(Y -105~-95) 뒤로
+	// 3cm 나가 있어서 앞에 선 사람에게는 보이지 않았다. 케이스에 충돌이 없어
+	// 조준 트레이스는 통과해 닿았으므로 프롬프트는 떴고, 결국 보이지 않는
+	// 물건을 누르는 상태였다. 상판(Z=76) 위, 받침대(Y -107~-99) 앞으로 내린다.
+	const FVector CctvLocation(150.0f, -115.0f, 79.0f);
 	const FVector FoamGapLocation(272.0f, -90.0f, 105.0f);
 
 	/** §5.1: frottage is a sustained 0.25 — three times, on purpose. */
@@ -77,6 +88,18 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		nullptr, TEXT("/Game/Meshes/SM_ComplaintLedger.SM_ComplaintLedger"));
 	UMaterialInterface* LedgerMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
+	// 대리인 문자 사본은 어제 뽑은 출력물이다. 낡은 장부 종이가 아니라
+	// 멀쩡한 종이를 쓴다. 재질을 비워 두면 엔진 기본 격자가 나온다.
+	UMaterialInterface* SheetMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PaperClean.M_PaperClean"));
+	// 관리실 문짝과 채널 선택기가 쓰는 무광 검은 플라스틱. 씬이 안쪽 방
+	// 문짝에 이미 같은 재질을 쓴다. 둘 다 재질이 비어 있어서 엔진 기본
+	// 격자로 그려지고 있었다 — 선택기는 모니터 뒤에 숨어 아무도 못 봤고,
+	// 문은 플레이어가 지나다니는 6 x 80 x 204cm짜리였다.
+	UMaterialInterface* DarkPlasticMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PlasticDark.M_PlasticDark"));
+	UMaterialInterface* MetalMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_MetalFrame.M_MetalFrame"));
 	// 먹지는 낡은 종이가 아니다. 왁스 안료가 눌린 자리에서 얇아져 광택이
 	// 달라지는 것이 이 물건의 전부이고, 플레이어가 문지르는 동안 보는 것도
 	// 그것이다. 정서본과 같은 재질을 쓰면 「두 기록이 다르다」가 물건 단계에서
@@ -109,8 +132,8 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	}
 	BoothDoor->ConfigurePrototypeVisuals(
 		CubeMesh,
-		nullptr,
-		nullptr,
+		DarkPlasticMaterial,
+		MetalMaterial,
 		FVector(6.0f, 80.0f, 204.0f));
 	BoothDoor->SetOpenYaw(-95.0f);
 	SetHourActive(false);
@@ -161,8 +184,11 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	CarbonLedger->Configure(
 		ComplaintLedgerMesh ? ComplaintLedgerMesh : CubeMesh,
 		ComplaintLedgerMesh ? CarbonMaterial : nullptr,
+		// 저작된 민원 대장은 22 x 30.7 x 2.8cm로 이미 실제 크기다. 예전에는
+		// 여기에 (100,100,100)을 넘겨서 책이 1m 정육면체로 부풀었고, 관리실
+		// 책상 캡처가 먹지 한 장으로 가득 찼다.
 		ComplaintLedgerMesh
-			? FVector(100.0f, 100.0f, 100.0f)
+			? FVector::ZeroVector
 			: FVector(21.0f, 1.0f, 29.7f),
 		NSLOCTEXT("IGMissingFloor", "P2CarbonPrompt", "먹지 — 문지른다"),
 		NSLOCTEXT(
@@ -201,7 +227,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		return false;
 	}
 	AgentMessageNote->ConfigurePrototypeVisuals(
-		CubeMesh, nullptr, FVector(18.0f, 1.2f, 24.0f));
+		CubeMesh, SheetMaterial, FVector(18.0f, 24.0f, 1.2f));
 	AgentMessageNote->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "P2AgentPrompt", "출력된 문자 사본"));
 	AgentMessageNote->SetNoteText(
@@ -230,7 +256,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	}
 	CctvSelector->Configure(
 		CubeMesh,
-		nullptr,
+		DarkPlasticMaterial,
 		FVector(10.0f, 4.0f, 6.0f),
 		NSLOCTEXT("IGMissingFloor", "P2CctvPrompt", "채널 선택기 — 5"),
 		FText::GetEmpty(),
@@ -279,7 +305,8 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
-		0.05f);
+		0.05f,
+		/*bPresentationVisible=*/false);
 	FoamGap->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined);
 
@@ -294,10 +321,13 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	{
 		return false;
 	}
+	// 저작된 깨진 폰은 이미 실제 크기다. (100.0f)를 넘기면 1m 정육면체가
+	// 되고, 재질을 비우면 엔진 기본 격자가 나온다. 밤4가 같은 메시에 쓰는
+	// 무광 검은 플라스틱을 맞춰 준다.
 	PhoneRecorder->Configure(
 		PhoneMesh ? PhoneMesh : CubeMesh,
-		nullptr,
-		PhoneMesh ? FVector(100.0f) : FVector(7.0f, 14.5f, 1.6f),
+		DarkPlasticMaterial,
+		PhoneMesh ? FVector::ZeroVector : FVector(7.0f, 14.5f, 1.6f),
 		NSLOCTEXT("IGMissingFloor", "P2PhoneArmPrompt", "폰 — 녹음"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,

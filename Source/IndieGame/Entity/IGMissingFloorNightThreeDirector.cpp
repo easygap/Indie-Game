@@ -31,7 +31,9 @@ namespace IGNightThree
 	const FVector AnnexGateHinge(85.0f, 452.5f, 1200.0f);
 
 	// Annex contents.
-	const FVector NotebookLocation(-90.0f, 770.0f, 1246.0f);
+	// 자재 더미 위에 놓인 수첩이다. 세워 놓고 중심을 Z=1246에 두면 22cm
+	// 높이의 절반이 더미 상판(Z=1242) 아래로 들어가 박힌다. 눕혀서 얹는다.
+	const FVector NotebookLocation(-90.0f, 770.0f, 1242.7f);
 	const FVector TuningHammerLocation(-40.0f, 755.0f, 1245.0f);
 	const FVector TunerToolCartLocation(-280.0f, 865.0f, 1201.0f);
 	const FVector ValveLocation(296.0f, 610.0f, 1266.0f);
@@ -40,11 +42,16 @@ namespace IGNightThree
 	constexpr int32 CavityBayIndex = 1;
 
 	// The booth keyring, on the desk's west end.
-	const FVector KeyringLocation(118.0f, -96.0f, 80.0f);
+	// 관리실 책상 위. (118, -96, 80)은 P2 민원 대장 정서본(X 108.6~130.8,
+	// Y -118.3~-87.7) 한가운데였고 상판(Z=76)에도 1cm 박혀 있었다. 서로
+	// 다른 디렉터가 같은 책상에 놓으면서 부딪혔다. 대장 앞쪽 빈자리로 뺀다.
+	const FVector KeyringLocation(118.0f, -126.0f, 81.0f);
 
 	// Day papers: the mover's labels in 403, the forum printout by the
 	// mailboxes, the tally journal at 401's threshold once it is earned.
-	const FVector LabelsLocation(-95.0f, -185.0f, 978.0f);
+	// 같은 이유로 눕힌다. 13cm 높이를 세워 Z=978에 두면 가구 상판(Z=974)
+	// 아래로 들어갔다.
+	const FVector LabelsLocation(-95.0f, -185.0f, 974.6f);
 	const FVector ForumLocation(560.0f, -249.0f, 143.0f);
 	const FVector JournalLocation(-172.0f, -237.5f, 985.0f);
 
@@ -284,8 +291,16 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	{
 		return false;
 	}
+	// 5층 별관에 놓이는 종이와 금속. 비워 두면 엔진 기본 격자가 그대로 보인다.
+	UMaterialInterface* AgedPaperMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
+	UMaterialInterface* FreshPaperMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PaperClean.M_PaperClean"));
+	UMaterialInterface* AnnexMetalMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_MetalFrame.M_MetalFrame"));
+
 	TunerNotebook->ConfigurePrototypeVisuals(
-		CubeMesh, nullptr, FVector(16.0f, 1.4f, 22.0f));
+		CubeMesh, AgedPaperMaterial, FVector(16.0f, 22.0f, 1.4f));
 	TunerNotebook->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "NotebookPrompt", "조율 수첩"));
 	TunerNotebook->SetNoteText(
@@ -323,8 +338,9 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	TuningHammer->Configure(
 		TuningHammerMesh ? TuningHammerMesh : CylinderMesh,
 		TuningHammerMesh ? TuningHammerMaterial : nullptr,
+		// 같은 이유로 0이다. 저작된 조율 렌치는 3 x 3 x 26cm다.
 		TuningHammerMesh
-			? FVector(100.0f, 100.0f, 100.0f)
+			? FVector::ZeroVector
 			: FVector(3.0f, 3.0f, 26.0f),
 		NSLOCTEXT("IGMissingFloor", "TuningHammerPrompt", "조율 렌치"),
 		NSLOCTEXT(
@@ -365,7 +381,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	}
 	RiserValve->Configure(
 		CylinderMesh,
-		nullptr,
+		AnnexMetalMaterial,
 		FVector(16.0f, 16.0f, 5.0f),
 		NSLOCTEXT("IGMissingFloor", "ValvePrompt", "배관 밸브 — 연다"),
 		FText::GetEmpty(),
@@ -397,7 +413,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		EIGMissingFloorTruth::LandingStruggle,
 		EIGMissingFloorSource::LandingImpactMark,
 		0.0f,
-		0.05f);
+		0.05f,
+		/*bPresentationVisible=*/false);
 	ImpactMark->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightThreeDirector::HandleImpactMarkExamined);
 
@@ -431,7 +448,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.8f,
-			IGNightThree::ListenLoudness);
+			IGNightThree::ListenLoudness,
+			/*bPresentationVisible=*/false);
 		Listen->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Listen")));
 		Listen->OnExamined.AddWeakLambda(
 			this,
@@ -463,7 +481,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.0f,
-			IGNightThree::KnockLoudness);
+			IGNightThree::KnockLoudness,
+			/*bPresentationVisible=*/false);
 		Knock->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Knock")));
 		WallKnocks[BayIndex] = Knock;
 	}
@@ -495,7 +514,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
-		IGNightThree::KnockLoudness);
+		IGNightThree::KnockLoudness,
+		/*bPresentationVisible=*/false);
 	AnswerTarget->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Knock")));
 	AnswerTarget->SetInteractionEnabled(false);
 	AnswerTarget->SetActorHiddenInGame(true);
@@ -512,7 +532,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		return false;
 	}
 	LabelsNote->ConfigurePrototypeVisuals(
-		CubeMesh, nullptr, FVector(18.0f, 1.2f, 13.0f));
+		CubeMesh, FreshPaperMaterial, FVector(18.0f, 13.0f, 1.2f));
 	LabelsNote->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "LabelsPrompt", "배송 라벨 뭉치"));
 	LabelsNote->SetNoteText(
@@ -539,7 +559,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		return false;
 	}
 	ForumNote->ConfigurePrototypeVisuals(
-		CubeMesh, nullptr, FVector(19.0f, 1.2f, 26.0f));
+		CubeMesh, FreshPaperMaterial, FVector(19.0f, 1.2f, 26.0f));
 	ForumNote->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "ForumPrompt", "게시글 출력물"));
 	ForumNote->SetNoteText(

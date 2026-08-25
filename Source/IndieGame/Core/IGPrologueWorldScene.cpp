@@ -1029,6 +1029,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_VillaStucco_X"), TEXT("M_VillaStucco_Y"),
 		TEXT("M_Concrete_XY"), TEXT("M_Concrete_X"), TEXT("M_Concrete_Y"),
 		TEXT("M_ConcreteDark_X"), TEXT("M_ConcreteDark_Y"),
+		TEXT("M_ConcreteDark_XY"),
 		TEXT("M_StoreTileWorld"), TEXT("M_StoreCeilWorld"),
 		TEXT("M_StoreWall_X"), TEXT("M_StoreWall_Y"),
 		TEXT("M_MetalUV"), TEXT("M_ShelfSteelUV"),
@@ -1054,14 +1055,22 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_Stucco_X"), TEXT("M_Stucco_Y"), TEXT("M_StuccoCeil"),
 		TEXT("M_GraniteTile_XY"), TEXT("M_GranitePanel_X"), TEXT("M_GranitePanel_Y"),
 		TEXT("M_MarbleFloor_XY"), TEXT("M_StainlessUV"), TEXT("M_CabMirrorUV"),
-		TEXT("M_SteelDoorUV"), TEXT("M_KitchenGlossUV"), TEXT("M_CounterStoneUV"),
-		TEXT("M_DoorLock"), TEXT("M_MeterBox"), TEXT("M_Intercom"),
+		TEXT("M_SteelDoorUV"), TEXT("M_UnitDoorPaintedSteel"),
+		TEXT("M_KitchenGlossUV"), TEXT("M_CounterStoneUV"),
+		TEXT("M_DoorLock"), TEXT("M_MeterBox"), TEXT("M_UtilityMeterDial"),
+		TEXT("M_Intercom"),
 		TEXT("M_LiftCOP"), TEXT("M_LiftHall"), TEXT("M_SwitchPlate"),
 		// 「없는 층」 dry-plaster architecture and authored residue layers.
 		TEXT("M_MissingFloorPlaster_X"), TEXT("M_MissingFloorPlaster_Y"),
 		TEXT("M_MissingFloorPlaster_XY"), TEXT("M_MissingFloorHandprints"),
 		TEXT("M_MissingFloorDragTrails"), TEXT("M_MissingFloorDustJoint"),
 		TEXT("M_MissingFloorCavityScratches"),
+		TEXT("M_DecalDampWallpaper"), TEXT("M_DecalRustFasteners"),
+		// §11 규칙 2가 고르게 만드는 발소리 표면들. 이름이 여기 없으면
+		// 소리만 다르고 그림은 복도 콘크리트 그대로다.
+		TEXT("M_MissingFloorSteelStair"), TEXT("M_RooftopWaterproofing_XY"),
+		TEXT("M_MissingFloorGypsumDebris_XY"),
+		TEXT("M_WaterTankMetalUV"), TEXT("M_TankWaterReveal"),
 		TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
 		TEXT("M_SpriteHwang"), TEXT("M_SpriteNarin"),
 		// Aged paper stock for readable notes, and the rental notice.
@@ -2956,7 +2965,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// A tired green exit lamp glows at the stair throat, screwed to the head
 	// of the stair opening rather than hanging a centimetre clear of it.
 	CreateBlock(FVector(-313, -305, 220), FVector(14, 8, 10),
-		TexMat(TEXT("M_ScreenGlow"), ScreenGlowMaterial), false);
+		ScreenGlowMaterial, false);
 
 	// Ceiling fixtures down the whole hallway: flush round downlights, the way
 	// the reference landing is lit. The far one has a dying ballast and never
@@ -3939,7 +3948,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	CreateBlock(
 		FVector(-389.0f, 700.0f, 1370.0f),
 		FVector(2.0f, 18.0f, 34.0f),
-		TexMat(TEXT("M_SnackRed"), SnackRedMaterial),
+		SnackRedMaterial,
 		false);
 	if (UPointLightComponent* EmergencyPractical = CreateLight(
 		FVector(-356.0f, 700.0f, 1355.0f),
@@ -4474,9 +4483,17 @@ void AIGPrologueWorldScene::BuildLobby()
 	// Desk with the monitor shell; the interactables land on it later, from
 	// the night-2 director, because BuildLobby runs before any actor exists.
 	CreateBlock(FVector(160, -110, 38), FVector(110, 55, 76), ShelfSteel);
+	// 케이스는 검은 플라스틱이고 빛나는 것은 화면뿐이다. 예전에는 발광 재질을
+	// 40x10x28 상자 전체에 발라서, 옆면과 윗면까지 빛나는 하늘색 덩어리가
+	// 책상에 놓여 있었다. 화면은 케이스 앞면(Y=-105)보다 살짝 앞에 세우되
+	// AIGCctvChannelFive가 채널 5 동안 띄우는 렌더 면(Y=-105.45)과는 겹치지
+	// 않게 그 사이에 둔다.
 	CreateBlock(
 		FVector(150, -100, 96), FVector(40, 10, 28),
-		TexMat(TEXT("M_ScreenGlow"), ScreenGlowMaterial), false);
+		PlasticDarkMaterial, false);
+	CreateBlock(
+		FVector(150, -105.2f, 96), FVector(34, 0.3f, 25.5f),
+		ScreenGlowMaterial, false);
 	CreateBlock(FVector(150, -103, 80), FVector(12, 8, 8), PlasticDarkMaterial, false);
 	// The inner room's door leaf, always shut: a dark slab with a hairline
 	// gap the foam reveal peers through. It never opens — that is the point.
@@ -4598,8 +4615,14 @@ void AIGPrologueWorldScene::BuildLobby()
 			// 쪽)에 두고 원판을 줄여, 눈금이 원판 둘레로 보이면서 회전도
 			// 함께 읽히게 한다 — P1은 「다섯째만 안 돈다」가 전부이므로
 			// 원판이 문자판에 가려지면 퍼즐 자체가 사라진다.
+			//
+			// 깊이는 두 면 사이 0.6cm가 전부다. 함체 강판 앞면이 -365.8,
+			// 원판 앞면이 -365.2이고 문자판은 그 사이에 있어야 한다.
+			// -366.6/두께 0.8은 -367.0~-366.2라 강판 안에 통째로 들어가
+			// 있었다 — 재질이 무엇이든 보일 수가 없는 자리였다. 두께를
+			// 0.4로 줄여 양쪽에 0.1cm씩 띄운다.
 			CreateBlock(
-				FVector(MeterX, -366.6f, 152), FVector(11, 0.8f, 11),
+				FVector(MeterX, -365.5f, 152), FVector(11, 0.4f, 11),
 				TexMat(TEXT("M_UtilityMeterDial"), SignWhiteMaterial), false);
 			// Roll 90 puts the cylinder axis on world Y, so the disc face is
 			// what a reader standing in the lobby actually sees.
@@ -4978,7 +5001,7 @@ void AIGPrologueWorldScene::BuildAlley()
 		TexMat(TEXT("M_SignVilla"), SignWhiteMaterial), false);
 	CreateBlock(FVector(692, -394, 115), FVector(10, 4, 16), PlasticDarkMaterial, false);
 	CreateBlock(FVector(695, -395.4f, 118), FVector(3, 1.2f, 3),
-		TexMat(TEXT("M_ScreenGlow"), ScreenGlowMaterial), false);
+		ScreenGlowMaterial, false);
 	CreateBlock(FVector(643, -402, 4), FVector(94, 30, 8), TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial));
 
 	// Wall-mounted AC condenser units.
@@ -5327,13 +5350,13 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(FVector(2500, -268, 101.5f), FVector(12, 9, 5), PlasticDarkMaterial, false);
 	CreateBlock(
 		FVector(2500, -271, 106), FVector(10, 1.5f, 7),
-		TexMat(TEXT("M_ScreenGlow"), ScreenGlowMaterial), false,
+		ScreenGlowMaterial, false,
 		nullptr, FRotator(-28, 0, 0));
 	// Hot-snack warmer glowing at the counter's west end.
 	CreateBlock(FVector(2452, -250, 116), FVector(36, 38, 36), PlasticDarkMaterial);
 	CreateBlock(FVector(2433, -250, 116), FVector(2, 30, 28), GlassMaterial, false);
 	CreateBlock(FVector(2445, -250, 130), FVector(20, 26, 2),
-		TexMat(TEXT("M_StreetLampGlow"), StreetLampGlowMaterial), false);
+		StreetLampGlowMaterial, false);
 	// Tobacco wall behind the counter. The cabinet backs onto the north wall
 	// face at Y -180 and the packs stand on its shop-facing side. Authored the
 	// other way round, every pack sat behind its own backing board with three

@@ -162,7 +162,8 @@ bool AIGMissingFloorNightTwoBeatDirector::Configure(
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
-		0.0f);
+		0.0f,
+		/*bPresentationVisible=*/false);
 	Peephole->OnExamined.AddUObject(
 		this,
 		&AIGMissingFloorNightTwoBeatDirector::HandlePeepholeExamined);

@@ -79,6 +79,8 @@ private:
 		FVector Location = FVector::ZeroVector;
 		FVector Drift = FVector::ZeroVector;
 		float SizeScale = 1.0f;
+		/** 재배치 직후 0에서 자라는 시간(초). 튀어나오는 것을 막는다. */
+		float FadeInSeconds = 0.0f;
 		bool bSeeded = false;
 	};
 
