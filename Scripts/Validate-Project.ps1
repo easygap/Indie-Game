@@ -2746,8 +2746,37 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A targeted material pass would keep its atlassed textures ($LASTEXITCODE)"
 	}
+
+	# 쿠크에 들어 있어도 씬이 이름을 못 부르면 화면에는 없는 것과 같다.
+	# LoadTexturedMaterials()의 배열이 그 관문인데, 이름 한 줄이 빠져도
+	# TexMat은 조용히 폴백을 돌려주므로 컴파일도 쿠크도 통과한다.
+	$sceneMaterials = Join-Path $projectRoot 'Scripts/audit_scene_materials.py'
+	& $python.Source $sceneMaterials --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Scene material audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $sceneMaterials --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A material the scene asks for never reaches it ($LASTEXITCODE)"
+	}
+
+	# 씬이 CreateBlock으로 짓는 것은 위 기하 감사가 좌표까지 읽는다. 밤과
+	# 퍼즐의 소품은 디렉터가 SpawnActor 뒤에 Configure로 붙이므로 그 경로에
+	# 있었고, 크기 인자의 뜻이 함수마다 달라서 조용히 1m 정육면체가 되거나
+	# 재질 없이 엔진 기본 격자로 그려지고 있었다.
+	$directorProps = Join-Path $projectRoot 'Scripts/audit_director_props.py'
+	& $python.Source $directorProps --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Director prop audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $directorProps --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A director-spawned prop is not configured to contract ($LASTEXITCODE)"
+	}
 } else {
-	Write-Warning 'python not found; skipped the geometry audit, atlas self-test and cook reference audit.'
+	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit and director prop audit.'
 }
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

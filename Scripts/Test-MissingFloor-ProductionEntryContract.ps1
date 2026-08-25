@@ -32,7 +32,10 @@ foreach ($token in @(
 foreach ($token in @(
 	'cardboard_box_01_1k.cardboard_box_01_1k',
 	'PresentationMesh->bDisallowNanite = true',
-	'const FVector Scale = SizeCentimeters / MeshSize',
+	# 스케일은 메시의 실제 바운드에서 나온다. 100cm 큐브를 가정하는 순간
+	# 스캔 소품이 그레이박스 크기로 되돌아간다. 0은 「저작된 크기 그대로」다.
+	'? FVector::OneVector',
+	': SizeCentimeters / MeshSize',
 	'PresentationMesh->SetMaterial(Slot, Material)'
 )) {
 	if (-not ($director + $evidence).Contains($token)) {
