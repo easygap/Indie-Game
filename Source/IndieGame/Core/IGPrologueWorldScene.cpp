@@ -4743,18 +4743,35 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(
 		FVector(576, -368.4f, 152), FVector(37, 1.2f, 55),
 		TexMat(TEXT("M_MeterBox"), Metal), false);
+	// 스위치판은 두 인쇄 띠 사이에만 놓인다 — 위로 「분전반」(Z 168.5~173.1),
+	// 아래로 「취급주의」(Z 130.8~133.8). 34 cm 판이 Z 169까지 올라와 위 글자의
+	// 아랫부분을 5 mm 잘라 먹고 있었다. 32 cm로 줄여 두 띠에서 1.3 cm씩 뗀다.
 	CreateBlock(
-		FVector(576, -367.4f, 152), FVector(30, 1.0f, 34),
+		FVector(576, -367.4f, 151.1f), FVector(30, 1.0f, 32),
 		TexMat(TEXT("M_SwitchPlate"), SignWhiteMaterial), false);
-	for (const float ToggleZ : {166.0f, 158.0f, 150.0f, 142.0f})
+	// 스위치판 그림은 **2열** 차단기함이고, 왼쪽 열 맨 아래 슬롯에 주황
+	// 표시점이 찍혀 있다. 토글 다섯을 가운데 한 줄로 세워 두는 바람에 그림과
+	// 어긋났고, 판에 다섯이 8 cm 간격으로 들어가지 못해 다섯째가 문짝으로
+	// 흘러내려 「취급주의」 활자 위에 앉아 있었다. 텍스처에서 실측한 창
+	// 자리에 맞춘다 — 왼쪽 창 X 564.3~574.6, 오른쪽 창 X 577.5~587.8,
+	// 두 창 모두 Z 139.7~162.1.
+	constexpr float BreakerLeftX = 569.4f;
+	constexpr float BreakerRightX = 582.7f;
+	for (const float BreakerX : {BreakerLeftX, BreakerRightX})
 	{
-		CreateBlock(
-			FVector(576, -366.4f, ToggleZ), FVector(4, 2.4f, 5),
-			PlasticDarkMaterial, false);
+		for (const float BreakerZ : {159.0f, 151.0f})
+		{
+			CreateBlock(
+				FVector(BreakerX, -366.4f, BreakerZ), FVector(4, 2.4f, 5),
+				PlasticDarkMaterial, false);
+		}
 	}
 	// The unnamed circuit, visibly thrown down. Kept so P1 can raise it.
+	// 자기 자리는 표시점이 찍힌 왼쪽 열 맨 아래 슬롯(Z 143)이고, 지금은
+	// 거기서 3 cm 내려와 있다. P1이 올리는 3 cm가 정확히 그 슬롯이라
+	// 확인이 「제자리로 돌아왔다」로 읽힌다. 오른쪽 열 맨 아래는 예비 회로다.
 	UnnamedBreakerToggle = CreateBlock(
-		FVector(576, -366.4f, 134), FVector(4, 2.4f, 5),
+		FVector(BreakerLeftX, -366.4f, 140.0f), FVector(4, 2.4f, 5),
 		Stainless, false);
 
 	// The meter-reading clipboard's backing, on the free north-wall band east

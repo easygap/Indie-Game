@@ -25,7 +25,8 @@ namespace IGPuzzleOne
 	 * grows an accessor per prop.
 	 */
 	const FVector FifthMeterFace(542.0f, -364.6f, 152.0f);
-	const FVector BreakerFace(576.0f, -365.6f, 134.0f);
+	// 미명칭 차단기가 내려와 있는 자리. 스위치판 왼쪽 열 맨 아래 슬롯이다.
+	const FVector BreakerFace(569.4f, -365.6f, 140.0f);
 	const FVector ReadingSheetLocation(672.0f, -241.2f, 150.0f);
 
 	/**
