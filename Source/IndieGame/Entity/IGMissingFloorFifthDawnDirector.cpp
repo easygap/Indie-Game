@@ -10,6 +10,7 @@
 #include "Engine/World.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
+#include "IndieGame.h"
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
 #include "Misc/Parse.h"
@@ -541,6 +542,12 @@ void AIGMissingFloorFifthDawnDirector::FinishInterlude(
 		BreathBed->Stop();
 	}
 	SetSensoryHud(false);
+	if (!Player.Get())
+	{
+		// 폰이 사라진 채로 끝났다. 복구가 폰에 묶여 있으면 암전과 이동
+		// 잠금이 그대로 남는다.
+		AbortSlotBlackout(TEXT("slot finished without a pawn"));
+	}
 	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 	{
 		PlayerCharacter->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
@@ -670,9 +677,52 @@ void AIGMissingFloorFifthDawnDirector::PushDirectionCaption(
 	AIGHorrorHUD::PushAudioCaption(this, Caption, Seconds);
 }
 
+void AIGMissingFloorFifthDawnDirector::AbortSlotBlackout(const TCHAR* Reason)
+{
+	UWorld* World = GetWorld();
+	AIGPlayerCharacter* Character = Player.Get();
+	APlayerController* Controller = Character
+		? Cast<APlayerController>(Character->GetController())
+		: nullptr;
+	// 폰이 사라져도 화면을 가진 컨트롤러는 남는다. 암전은 그쪽 카메라
+	// 매니저가 들고 있으므로 거기서 걷는다.
+	if (!Controller && World)
+	{
+		Controller = World->GetFirstPlayerController();
+	}
+	if (Controller && Controller->PlayerCameraManager)
+	{
+		Controller->PlayerCameraManager->StopCameraFade();
+	}
+	if (Character)
+	{
+		if (UCharacterMovementComponent* Movement =
+			Character->GetCharacterMovement())
+		{
+			Movement->SetMovementMode(MOVE_Walking);
+		}
+	}
+	UE_LOG(
+		LogIndieGame,
+		Warning,
+		TEXT("IG_NIGHT5_SLOT aborted blackout: %s (controller=%s)"),
+		Reason,
+		Controller ? TEXT("yes") : TEXT("none"));
+}
+
 void AIGMissingFloorFifthDawnDirector::EndPlay(
 	const EEndPlayReason::Type EndPlayReason)
 {
+	// 슬롯은 이동을 잠그고 bHoldWhenFinished로 암전을 걸어 둔 채 30초를 돈다.
+	// 그 사이에 디렉터가 사라지면 푸는 쪽이 아무도 없다 — 이벤트도 프롬프트도
+	// 없이 검은 화면에 조작만 죽은 상태가 남는다.
+	if (bActive && EndPlayReason != EEndPlayReason::LevelTransition
+		&& EndPlayReason != EEndPlayReason::EndPlayInEditor
+		&& EndPlayReason != EEndPlayReason::Quit)
+	{
+		AbortSlotBlackout(TEXT("director destroyed while the slot was running"));
+	}
+	bActive = false;
 	GetWorldTimerManager().ClearTimer(CueTimerHandle);
 	if (WaterBed)
 	{

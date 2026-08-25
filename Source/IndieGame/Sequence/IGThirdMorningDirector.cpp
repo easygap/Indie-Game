@@ -63,7 +63,14 @@ namespace IGThirdMorning
 	// directly at that stable center so a loaded camera never drops for a frame.
 	constexpr float RestoredCapsuleCenter = StandingCapsuleCenter + 2.0f;
 	constexpr float DefaultWalkSpeed = 300.0f;
-	constexpr float FloodWalkSpeed = 225.0f;
+	// 침수 복도의 걷기 속도는 두 곳이 쓴다. 이 상수를 넣는 SetFloodMovement와,
+	// 발소리 표면이 바뀔 때마다 도는 플레이어의 ApplyContextMovementSpeed다.
+	// 뒤엣것은 ReferenceWalkSpeed(300)에 물 표면 계수 0.78을 곱하므로, 둘이
+	// 다르면 스프린트·앉기·청음을 누를 때마다 걷기 속도가 두 값 사이를
+	// 오간다. 같은 값으로 맞춰 둔다.
+	constexpr float FloodWalkSpeed = 234.0f;
+	// 발소리 표면. 플레이어가 발밑을 라인 트레이스해서 이 이름을 읽는다.
+	const FName FootstepWaterTag(TEXT("Footstep.Water"));
 	constexpr float OpeningLensDropletDelaySeconds = 1.05f;
 	constexpr float OpeningLensDropletDurationSeconds = 3.0f;
 	constexpr float LensDropletCaptureEarlyDelaySeconds = 0.42f;
@@ -2474,7 +2481,18 @@ void AIGThirdMorningDirector::BuildFloodedCorridor()
 {
 	// The wet 4F corridor starts at the apartment threshold and ends at the
 	// stairwell.  Water is visual/non-colliding; the dry floor carries physics.
-	CreateBlock(FVector(675, 0, -10), FVector(650, 440, 20), ConcreteMaterial);
+	//
+	// 발소리는 그 물리 바닥에서 정해진다. 물판은 충돌이 없으므로 발밑
+	// 라인 트레이스가 통과해 이 슬래브를 때리고, 태그가 없으면 콘크리트로
+	// 읽힌다 — 무릎까지 물이 찬 복도에서 마른 복도 소리가 났다. 물 발소리는
+	// 이미 네 음으로 저작돼 있는데(`CreateFootstep`의 Water) 5층 별관
+	// 급수 비트에서만 닿고 있었다. 이 바닥은 침수 복도 전용이므로 여기에
+	// 태그를 건다.
+	if (UStaticMeshComponent* FloodFloor = CreateBlock(
+			FVector(675, 0, -10), FVector(650, 440, 20), ConcreteMaterial))
+	{
+		FloodFloor->ComponentTags.AddUnique(IGThirdMorning::FootstepWaterTag);
+	}
 	CreateBlock(FVector(675, -220, 130), FVector(650, 20, 280), DarkConcreteMaterial);
 	CreateBlock(FVector(675, 220, 130), FVector(650, 20, 280), DarkConcreteMaterial);
 	CreateBlock(FVector(675, 0, 270), FVector(650, 440, 20), DarkConcreteMaterial);

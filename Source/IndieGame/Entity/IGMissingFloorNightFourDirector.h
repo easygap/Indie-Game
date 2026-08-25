@@ -126,6 +126,9 @@ private:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGListenerEntity> Listener;
+	/** 엔딩 C 암전과 이동 잠금을 걷는다. 정상 복귀가 끊긴 자리에서만 부른다. */
+	void AbortFailureBlackout(const TCHAR* Reason);
+
 	TWeakObjectPtr<class AIGPlayerCharacter> FailurePlayer;
 
 	UPROPERTY(Transient)

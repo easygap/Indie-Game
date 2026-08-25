@@ -51,6 +51,9 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+	/** 슬롯 암전과 이동 잠금을 걷는다. 정상 복귀가 끊긴 자리에서만 부른다. */
+	void AbortSlotBlackout(const TCHAR* Reason);
+
 	void FireCue(int32 CueIndex);
 	void ScheduleNextCue();
 	void HandleNextCue();

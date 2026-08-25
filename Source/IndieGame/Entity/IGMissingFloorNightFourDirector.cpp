@@ -10,6 +10,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "IndieGame.h"
 #include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorEvidence.h"
@@ -729,9 +730,51 @@ void AIGMissingFloorNightFourDirector::SetFinaleCapturePreview(
 	UpdateFinaleDetailLayers();
 }
 
+void AIGMissingFloorNightFourDirector::AbortFailureBlackout(const TCHAR* Reason)
+{
+	UWorld* World = GetWorld();
+	AIGPlayerCharacter* Character = FailurePlayer.Get();
+	APlayerController* Controller = Character
+		? Cast<APlayerController>(Character->GetController())
+		: nullptr;
+	if (!Controller && World)
+	{
+		Controller = World->GetFirstPlayerController();
+	}
+	if (Controller && Controller->PlayerCameraManager)
+	{
+		Controller->PlayerCameraManager->StopCameraFade();
+	}
+	if (Character)
+	{
+		if (UCharacterMovementComponent* Movement =
+			Character->GetCharacterMovement())
+		{
+			Movement->SetMovementMode(MOVE_Walking);
+		}
+	}
+	UE_LOG(
+		LogIndieGame,
+		Warning,
+		TEXT("IG_ENDING_C aborted blackout: %s (controller=%s)"),
+		Reason,
+		Controller ? TEXT("yes") : TEXT("none"));
+}
+
 void AIGMissingFloorNightFourDirector::EndPlay(
 	const EEndPlayReason::Type EndPlayReason)
 {
+	// 엔딩 C는 이동을 잠그고 bHoldWhenFinished로 암전을 건 뒤 타이머로 푼다.
+	// ResetFinaleTimers()가 바로 그 타이머를 지우므로, 시퀀스 도중에 이
+	// 디렉터가 사라지면 푸는 쪽이 사라진다.
+	if (bFailureEndingActive && EndPlayReason != EEndPlayReason::LevelTransition
+		&& EndPlayReason != EEndPlayReason::EndPlayInEditor
+		&& EndPlayReason != EEndPlayReason::Quit)
+	{
+		AbortFailureBlackout(
+			TEXT("director destroyed during the failure ending"));
+	}
+	bFailureEndingActive = false;
 	ResetFinaleTimers();
 	if (AIGListenerEntity* ListenerActor = Listener.Get())
 	{
@@ -1862,6 +1905,12 @@ void AIGMissingFloorNightFourDirector::ResetAfterFailureEnding()
 		: nullptr)
 	{
 		Hud->EndMissingFloorFailureEnding();
+	}
+	if (!Character)
+	{
+		// 복구가 폰에 묶여 있다. 폰이 사라진 채로 여기 오면 암전과 이동
+		// 잠금이 그대로 남는다.
+		AbortFailureBlackout(TEXT("failure ending finished without a pawn"));
 	}
 	if (Character)
 	{
