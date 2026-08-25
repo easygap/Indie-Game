@@ -2789,8 +2789,22 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A world-projected material is stretched across the face it is on ($LASTEXITCODE)"
 	}
+
+	# 간판과 명판은 메시 UV를 읽는데 엔진 기본 큐브는 여섯 면이 그 UV를
+	# 나눠 쓴다. 두께가 있는 몸통에 인쇄를 통째로 주면 옆면에도 같은 그림이
+	# 눌려 한 번 더 찍힌다.
+	$printedFaces = Join-Path $projectRoot 'Scripts/audit_printed_faces.py'
+	& $python.Source $printedFaces --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Printed face audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $printedFaces --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A printed material is wrapped around a whole body instead of its face ($LASTEXITCODE)"
+	}
 } else {
-	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit and surface projection audit.'
+	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit and printed face audit.'
 }
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

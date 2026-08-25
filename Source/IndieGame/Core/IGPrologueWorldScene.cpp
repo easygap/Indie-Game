@@ -703,6 +703,64 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateBlock(
 	return Block;
 }
 
+UStaticMeshComponent* AIGPrologueWorldScene::CreatePrintedBlock(
+	const FVector& Center,
+	const FVector& SizeCentimeters,
+	UMaterialInterface* BodyMaterial,
+	UMaterialInterface* PrintMaterial,
+	const FVector& PrintFacing,
+	const bool bEnableCollision,
+	const bool bPrintBothFaces)
+{
+	UStaticMeshComponent* Body =
+		CreateBlock(Center, SizeCentimeters, BodyMaterial, bEnableCollision);
+	if (!Body || !PrintMaterial)
+	{
+		return Body;
+	}
+
+	// 인쇄판은 4 mm다. 이 씬이 게시물·명판·가격표에 이미 쓰는 두께이고,
+	// 그만한 마구리는 어느 각도에서도 두 번째 인쇄로 읽히지 않는다.
+	constexpr float PlateThickness = 0.4f;
+	const FVector Facing = PrintFacing.GetSafeNormal();
+	int32 Axis = 0;
+	for (int32 Index = 1; Index < 3; ++Index)
+	{
+		if (FMath::Abs(Facing[Index]) > FMath::Abs(Facing[Axis]))
+		{
+			Axis = Index;
+		}
+	}
+	if (FMath::Abs(Facing[Axis]) < 0.99f)
+	{
+		// 축에 붙지 않은 방향은 이 방식으로 덮을 수 없다. 예전처럼 몸통에
+		// 인쇄를 주고, 호출부가 알아채도록 이름을 남긴다.
+		Body->SetMaterial(0, PrintMaterial);
+		UE_LOG(
+			LogIndieGame,
+			Warning,
+			TEXT("IG_PRINTED_BLOCK facing is not axis aligned: %s"),
+			*Facing.ToString());
+		return Body;
+	}
+
+	FVector PlateSize = SizeCentimeters;
+	PlateSize[Axis] = PlateThickness;
+	FVector Step = FVector::ZeroVector;
+	Step[Axis] = (SizeCentimeters[Axis] + PlateThickness) * 0.5f
+		* FMath::Sign(Facing[Axis]);
+
+	CreateBlock(Center + Step, PlateSize, PrintMaterial, false);
+	if (bPrintBothFaces)
+	{
+		// 큐브 여섯 면의 UV 손잡이는 모두 같다(Scripts/probe_cube_face_uvs.py로
+		// 실측). 반대쪽 판을 돌릴 필요 없이 같은 자세로 한 장 더 붙이면
+		// 양면 간판이 양쪽에서 똑같이 읽힌다.
+		CreateBlock(Center - Step, PlateSize, PrintMaterial, false);
+	}
+	return Body;
+}
+
 UStaticMeshComponent* AIGPrologueWorldScene::CreatePhysicsProp(
 	UStaticMesh* Mesh,
 	UMaterialInterface* Material,
@@ -2424,9 +2482,11 @@ void AIGPrologueWorldScene::BuildApartment()
 
 	// Entrance wall: video intercom, the switch bank beside it, and the shoe
 	// cabinet that stands against every Korean entryway.
-	CreateBlock(
+	CreatePrintedBlock(
 		FVector(62, -212.5f, 145), FVector(17, 5, 23),
-		TexMat(TEXT("M_Intercom"), SignWhiteMaterial), false);
+		FridgeInteriorMaterial,
+		TexMat(TEXT("M_Intercom"), SignWhiteMaterial),
+		FVector(0, 1, 0));
 	CreateBlock(FVector(62, -214, 145), FVector(20, 4, 26), SignWhiteMaterial, false);
 	CreateBlock(
 		FVector(90, -213.4f, 128), FVector(10, 2, 10),
@@ -2697,9 +2757,11 @@ void AIGPrologueWorldScene::BuildCorridor()
 		// Lever handle on a rose, digital lock above it, peephole at eye level.
 		CreateBlock(FVector(DoorX + 32, PlateY - 1.0f, 95), FVector(4, 2, 12), Metal, false);
 		CreateBlock(FVector(DoorX + 32, PlateY - 3.5f, 95), FVector(3, 9, 3), Metal, false);
-		CreateBlock(
+		CreatePrintedBlock(
 			FVector(DoorX + 32, PlateY - 1.4f, 122), FVector(9, 3.2f, 24),
-			TexMat(TEXT("M_DoorLock"), PlasticDarkMaterial), false);
+			PlasticDarkMaterial,
+			TexMat(TEXT("M_DoorLock"), PlasticDarkMaterial),
+			FVector(0, -1, 0));
 		CreateBlock(
 			FVector(DoorX, PlateY - 0.4f, 155), FVector(3, 1.2f, 3),
 			Metal, false, CylinderMesh, FRotator(90, 0, 0));
@@ -2809,14 +2871,20 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// is flush-mounted, so its case belongs inside the wall with the door
 	// proud of the plaster. It sits at chest-to-head height: at Z 155 its case
 	// occupied the same patch of wall as 402's intercom.
+	// 케이스는 민무늬 강판이고 「분전반」은 문짝에만 인쇄된다. 케이스에
+	// 직접 주면 6 cm 옆면에도 같은 글자가 눌려 찍힌다.
+	CreateBlock(FVector(-90, -232.4f, 180), FVector(34, 6, 50), Metal, false);
+	// 문짝과 손잡이는 케이스와 같은 높이여야 한다. 케이스만 Z 155에서 180으로
+	// 올라가고 이 둘이 남아, 문이 상자 아래로 25 cm 흘러내려 있었다.
 	CreateBlock(
-		FVector(-90, -232.4f, 180), FVector(34, 6, 50),
-		TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial), false);
-	CreateBlock(FVector(-90, -229.2f, 155), FVector(35, 1.2f, 51), Metal, false);
-	CreateBlock(FVector(-75, -228.6f, 155), FVector(3, 1.5f, 6), PlasticDarkMaterial, false);
-	CreateBlock(
+		FVector(-90, -229.2f, 180), FVector(35, 1.2f, 51),
+		TexMat(TEXT("M_MeterBox"), Metal), false);
+	CreateBlock(FVector(-75, -228.6f, 180), FVector(3, 1.5f, 6), PlasticDarkMaterial, false);
+	CreatePrintedBlock(
 		FVector(236, -371, 140), FVector(26, 9, 34),
-		TexMat(TEXT("M_FireBox"), SnackRedMaterial), false);
+		SnackRedMaterial,
+		TexMat(TEXT("M_FireBox"), SnackRedMaterial),
+		FVector(0, 1, 0));
 	// The extinguisher is the one corridor prop authored to fall (밤1 beat
 	// 1-5). A physics body from birth, but kinematic until the scripted drop:
 	// visually identical to the old static block and free at rest.
@@ -4617,9 +4685,10 @@ void AIGPrologueWorldScene::BuildLobby()
 	// Three unit meters, one clearly labelled common meter and a fifth with no
 	// nameplate. The dial that does not turn is the whole point, so its component
 	// is kept: the other four are given a slow rotation and it is left motionless.
-	CreateBlock(
-		FVector(506, -371.0f, 150), FVector(96, 8, 62),
-		TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial), false);
+	// 계량기함은 분전반이 아니다. 여기 케이스가 「분전반」 도장면을 쓰고
+	// 있어서 8 cm 옆면마다 그 글자가 눌려 찍혔다. 신원은 아래 401·402·403·
+	// 공용 명판이 이미 말한다.
+	CreateBlock(FVector(506, -371.0f, 150), FVector(96, 8, 62), Metal, false);
 	CreateBlock(FVector(506, -366.4f, 150), FVector(98, 1.2f, 64), Metal, false);
 	{
 		const TCHAR* MeterPlateNames[] = {
@@ -4670,10 +4739,10 @@ void AIGPrologueWorldScene::BuildLobby()
 
 	// The 두꺼비집, east of the cabinet and clear of the entrance opening.
 	// The fifth toggle is the one that is off.
+	CreateBlock(FVector(576, -372.0f, 152), FVector(36, 6, 54), Metal, false);
 	CreateBlock(
-		FVector(576, -372.0f, 152), FVector(36, 6, 54),
-		TexMat(TEXT("M_MeterBox"), ConcreteDarkMaterial), false);
-	CreateBlock(FVector(576, -368.4f, 152), FVector(37, 1.2f, 55), Metal, false);
+		FVector(576, -368.4f, 152), FVector(37, 1.2f, 55),
+		TexMat(TEXT("M_MeterBox"), Metal), false);
 	CreateBlock(
 		FVector(576, -367.4f, 152), FVector(30, 1.0f, 34),
 		TexMat(TEXT("M_SwitchPlate"), SignWhiteMaterial), false);
@@ -4697,13 +4766,17 @@ void AIGPrologueWorldScene::BuildLobby()
 
 	// Lobby fittings: the video intercom by the door, a notice board over the
 	// mailboxes, and the umbrella stand nobody has emptied since the rains.
-	CreateBlock(
+	CreatePrintedBlock(
 		FVector(672, -381, 145), FVector(16, 5, 22),
-		TexMat(TEXT("M_Intercom"), SignWhiteMaterial), false);
+		FridgeInteriorMaterial,
+		TexMat(TEXT("M_Intercom"), SignWhiteMaterial),
+		FVector(0, 1, 0));
 	CreateBlock(FVector(672, -383.5f, 145), FVector(19, 3, 25), Stainless, false);
-	CreateBlock(
+	CreatePrintedBlock(
 		FVector(600, -239.5f, 196), FVector(84, 3, 44),
-		TexMat(TEXT("M_NoticeA4"), SignWhiteMaterial), false);
+		FridgeInteriorMaterial,
+		TexMat(TEXT("M_NoticeA4"), SignWhiteMaterial),
+		FVector(0, -1, 0));
 	CreateBlock(FVector(600, -237, 196), FVector(90, 3, 50), Metal, false);
 	CreateBlock(FVector(468, -252, 24), FVector(26, 26, 48), Metal, true, CylinderMesh);
 
@@ -4934,9 +5007,11 @@ void AIGPrologueWorldScene::BuildAlley()
 		// Stair-core door at the back of the bay and a wall-mounted hose reel.
 		CreateBlock(FVector(-120, -241, 100), FVector(88, 6, 200), DarkX, false);
 		CreateBlock(FVector(-84, -244.5f, 96), FVector(4, 2, 14), Metal, false);
-		CreateBlock(
+		CreatePrintedBlock(
 			FVector(210, -240, 130), FVector(34, 12, 40),
-			TexMat(TEXT("M_FireBox"), SnackRedMaterial), false);
+			SnackRedMaterial,
+			TexMat(TEXT("M_FireBox"), SnackRedMaterial),
+			FVector(0, -1, 0));
 		// A single sodium bulkhead keeps the bay from being a black hole.
 		CreateBlock(FVector(-30, -244, 214), FVector(22, 14, 12), Metal, false);
 		UPointLightComponent* PilotisLamp = CreateLight(
@@ -5037,9 +5112,11 @@ void AIGPrologueWorldScene::BuildAlley()
 	// Common entrance dressing: canopy, name plate, keypad, threshold.
 	// 캐노피도 눕힌 판이라 수평 축으로 읽는다.
 	CreateBlock(FVector(643, -405, 240), FVector(104, 44, 6), DarkXY, false);
-	CreateBlock(
+	CreatePrintedBlock(
 		FVector(643, -396.5f, 258), FVector(80, 3, 24),
-		TexMat(TEXT("M_SignVilla"), SignWhiteMaterial), false);
+		PlasticDarkMaterial,
+		TexMat(TEXT("M_SignVilla"), SignWhiteMaterial),
+		FVector(0, -1, 0));
 	CreateBlock(FVector(692, -394, 115), FVector(10, 4, 16), PlasticDarkMaterial, false);
 	CreateBlock(FVector(695, -395.4f, 118), FVector(3, 1.2f, 3),
 		ScreenGlowMaterial, false);
@@ -5185,12 +5262,18 @@ void AIGPrologueWorldScene::BuildAlley()
 		// Upstairs: PC-bang sign dark, noraebang sign still glowing pink. Both
 		// boxes bolt back onto the brick at Y -680; at Y -672 they hung a
 		// centimetre off it with nothing carrying the load.
-		CreateBlock(
+		// 벽에 볼트로 붙은 광고판이라 인쇄는 골목 쪽 한 면뿐이다. 14 cm
+		// 몸통에 직접 주면 위아래 마구리에도 같은 상호가 눌려 찍힌다.
+		CreatePrintedBlock(
 			FVector(900, -673, 330), FVector(170, 14, 40),
-			TexMat(TEXT("M_SignPC"), PlasticDarkMaterial), false);
-		CreateBlock(
+			PlasticDarkMaterial,
+			TexMat(TEXT("M_SignPC"), PlasticDarkMaterial),
+			FVector(0, 1, 0));
+		CreatePrintedBlock(
 			FVector(1500, -673, 330), FVector(190, 14, 40),
-			TexMat(TEXT("M_SignKaraoke"), PlasticDarkMaterial), false);
+			PlasticDarkMaterial,
+			TexMat(TEXT("M_SignKaraoke"), PlasticDarkMaterial),
+			FVector(0, 1, 0));
 	}
 	const float SouthWindowXs[] = {250, 650, 1150, 1750, 2150};
 	for (int32 WindowIndex = 0; WindowIndex < static_cast<int32>(UE_ARRAY_COUNT(SouthWindowXs)); ++WindowIndex)
@@ -5329,18 +5412,28 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(FVector(2405, -531.5f, 245), FVector(10, 297, 36), StoreWallY);
 
 	// Signage: the lettered fascia glows down the whole alley, plus a blade sign.
-	CreateBlock(
+	// 3.2 m짜리 발광 파사드. 몸통까지 발광 인쇄로 두면 골목에서 올려다볼 때
+	// 밑면 12 x 320 cm가 상호를 한 번 더 눌러 찍은 띠로 보인다. 실제 채널
+	// 간판이 그렇듯 함체는 어둡고 앞면만 빛난다.
+	CreatePrintedBlock(
 		FVector(2399, -520, 262), FVector(12, 320, 72),
-		TexMat(TEXT("M_SignMainLit"), SignMintMaterial), false);
+		PlasticDarkMaterial,
+		TexMat(TEXT("M_SignMainLit"), SignMintMaterial),
+		FVector(-1, 0, 0));
 	// Blade signs hang off the front of a shop, not through it. Centred on
 	// X 2402 the 28 cm root crossed the fascia and drove 26 cm of the panel
 	// into the ceiling slab, whose west edge oversails the shopfront by
 	// 10 cm. The band of sign inside that eave is hidden and the rest is
 	// not, so from the alley the sign read as sawn through by the building.
 	// It now hangs off the eave's edge at X 2390, above and below it.
-	CreateBlock(
+	// 돌출 간판은 골목 양쪽에서 읽으므로 두 면 모두 인쇄한다.
+	CreatePrintedBlock(
 		FVector(2376, -404, 300), FVector(28, 10, 88),
-		TexMat(TEXT("M_SignBladeLit"), SignWhiteMaterial), false);
+		PlasticDarkMaterial,
+		TexMat(TEXT("M_SignBladeLit"), SignWhiteMaterial),
+		FVector(0, 1, 0),
+		false,
+		true);
 
 	// Storefront paper: sale poster and the automatic-door sticker.
 	CreateBlock(

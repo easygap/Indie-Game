@@ -272,6 +272,25 @@ private:
 		UStaticMesh* MeshOverride = nullptr,
 		const FRotator& Rotation = FRotator::ZeroRotator,
 		USceneComponent* Parent = nullptr);
+	/**
+	 * 인쇄면을 몸통에서 떼어 낸 블록. 몸통을 돌려준다.
+	 *
+	 * 엔진 큐브는 여섯 면이 같은 UV를 쓴다. 그래서 두꺼운 몸통에 인쇄 재질을
+	 * 그대로 주면 정면뿐 아니라 옆면·윗면·뒷면에도 같은 글자가 눌려 찍힌다.
+	 * 소화전함 9 cm 마구리에 「소화전」이 한 번 더 나오고, 계량기함 6 cm
+	 * 옆면에 「분전반」이 세로로 눌려 있던 것이 그것이다.
+	 *
+	 * PrintFacing은 월드 단위축이어야 한다. bPrintBothFaces는 돌출 간판처럼
+	 * 양쪽에서 읽는 것에 쓴다.
+	 */
+	UStaticMeshComponent* CreatePrintedBlock(
+		const FVector& Center,
+		const FVector& SizeCentimeters,
+		UMaterialInterface* BodyMaterial,
+		UMaterialInterface* PrintMaterial,
+		const FVector& PrintFacing,
+		bool bEnableCollision = false,
+		bool bPrintBothFaces = false);
 	UStaticMeshComponent* CreatePhysicsProp(
 		UStaticMesh* Mesh,
 		UMaterialInterface* Material,

@@ -466,6 +466,8 @@ class _FakeBox:
         self.rotation = _FakeRotation(rotation)
         self.function = "SelfTest"
         self.frame = "SceneRoot"
+        # 스캐너가 저작 메시에 붙이는 표식. 인쇄면 감사가 이것을 읽는다.
+        self.note = ""
 
 
 def _self_test() -> int:

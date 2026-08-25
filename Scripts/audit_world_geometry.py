@@ -581,6 +581,10 @@ PLACEMENT_CALLS = {
     # name: (center index, size index, material index, collision index,
     #        rotation index, kind)
     "CreateBlock": (0, 1, 2, 3, None, "block"),
+    # (Center, Size, BodyMaterial, PrintMaterial, PrintFacing, bCollision,
+    #  bPrintBothFaces). 몸통은 CreateBlock과 같은 상자이고, 인쇄판은 그
+    #  안에서 4 mm 드레싱으로 붙는다 — 드레싱은 이 감사가 어차피 봐준다.
+    "CreatePrintedBlock": (0, 1, 2, 5, None, "block"),
     "AddStoreStockBlock": (0, 1, 2, None, 4, "stock"),
     # (Mesh, Material, Scale, Location, Rotation, MassKg). Its third argument
     # is a component scale, not centimetres, so the size is recovered from the
