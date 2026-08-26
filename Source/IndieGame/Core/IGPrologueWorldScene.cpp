@@ -3735,7 +3735,12 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 				RailMetal);
 		}
 	};
-	AddRail(FVector(-277.5f, 160.0f, 0.0f), FVector(-180.0f, 160.0f, 0.0f));
+	// 남쪽 난간은 계단탑 동쪽 벽면(X=-215)에서 시작해 물탱크 받침대 서쪽
+	// 모서리(X=-180)까지 35 cm를 메운다. X=-277.5는 계단 한복판이었다 —
+	// 그 자리에서 시작하면 가로대 둘이 동쪽 벽을 뚫고 들어가 계단 위를
+	// 가로지르고, 기둥 하나가 열두 번째 디딤판 16 cm 위에 떠서 통로 85 cm
+	// 중 42.5 cm를 막았다. 캡슐 지름이 68 cm이므로 옥상으로 올라갈 수 없었다.
+	AddRail(FVector(-215.0f, 160.0f, 0.0f), FVector(-180.0f, 160.0f, 0.0f));
 	AddRail(FVector(-277.5f, 280.0f, 0.0f), FVector(70.0f, 280.0f, 0.0f));
 	AddRail(FVector(190.0f, 160.0f, 0.0f), FVector(190.0f, 452.5f, 0.0f));
 	AddRail(FVector(70.0f, 280.0f, 0.0f), FVector(70.0f, 452.5f, 0.0f));
