@@ -2829,8 +2829,22 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A light source is sealed inside solid geometry ($LASTEXITCODE)"
 	}
+
+	# 스캔 소품의 맞춤 상자는 메시의 로컬 축에 먹는다. 상자를 월드 기준으로
+	# 적으면 요각에서 가로세로가 뒤집히고, 아무것도 실패하지 않은 채 침대가
+	# 벽 안으로 들어간다. 원본 glTF 바운드로 최종 크기를 직접 계산한다.
+	$photoPropFit = Join-Path $projectRoot 'Scripts/audit_photo_prop_fit.py'
+	& $python.Source $photoPropFit --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Photo prop fit audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $photoPropFit --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A scanned prop lands inside the structure it stands against ($LASTEXITCODE)"
+	}
 } else {
-	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit, footstep surface audit and light placement audit.'
+	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit, footstep surface audit, light placement audit and photo prop fit audit.'
 }
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

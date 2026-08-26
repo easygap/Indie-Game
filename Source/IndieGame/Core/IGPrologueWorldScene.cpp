@@ -2169,7 +2169,18 @@ void AIGPrologueWorldScene::BuildApartment()
 
 	// Bed: a real scanned frame when available, greybox otherwise. The
 	// mattress/duvet dressing sits on top either way.
-	if (!PlacePhotoProp(TEXT("old_bed_frame"), FVector(-140, 110, 0), FVector(108, 208, 100), 90.0f))
+	//
+	// 원본 메시는 90(폭) x 200(길이) x 120(높이)이고 머리판은 로컬 -Y 쪽에
+	// 있다. 요각 90도는 길이를 월드 X로 눕혀서 침대가 -X 벽을 33 cm 파고들게
+	// 하고, 같은 자리에 놓인 이불(94 x 194, Y를 따라 눕는다)과도 직각이
+	// 됐다. 요각 180도면 길이가 Y를 따르고 머리판이 북쪽으로 간다 — 대체
+	// 상자가 머리판을 Y 211에 두는 것과 같은 방향이다.
+	//
+	// 높이 한도도 100에서 130으로 올렸다. 종횡비를 지키는 맞춤이라 셋 중
+	// 가장 빡빡한 값이 배율을 정하는데, 100은 120 높이에 걸려 침대를 83%로
+	// 줄여 놓았다. 130이면 배율이 길이(208/200)에서 잡혀 94 x 208이 되고,
+	// 이불 94 x 194가 프레임 위에 정확히 얹힌다.
+	if (!PlacePhotoProp(TEXT("old_bed_frame"), FVector(-140, 110, 0), FVector(108, 208, 130), 180.0f))
 	{
 		CreateBlock(FVector(-140, 110, 20), FVector(100, 200, 40), Furniture);
 		CreateBlock(FVector(-140, 211, 55), FVector(100, 8, 110), Furniture);
@@ -2267,19 +2278,20 @@ void AIGPrologueWorldScene::BuildApartment()
 			}
 		}
 	}
-	// 옷장. 맞춤 상자는 메시의 로컬 축에 먹이고 요각은 그 뒤에 돌아가므로,
-	// 요각 90도에서 로컬 Y가 월드 X가 된다. (40, 84)를 그대로 주면 월드에서
-	// 84 cm 깊이 40 cm 폭이 되어 벽에서 방 안으로 84 cm를 튀어나온다 — 그
-	// 자리가 협탁과 스탠드 자리다. 스탠드 메시가 옷장에 먹혀 안 보이고,
-	// 방의 유일한 온색 광원인 (-164, -45, 101)도 옷장 안에 들어가 있었다.
-	// 두 값을 바꿔 월드에서 40 깊이 · 80 폭이 되게 한다. 대체 상자가 원래
-	// 적어 두고 있던 모양(35 x 80)이 그거다.
+	// 옷장. `FindPhotoPropMesh`가 이 에셋만 일부러 nullptr을 돌려준다 —
+	// 원본이 몸통을 스켈레탈로만 들여와서 정적 항목이 문짝 둘뿐이기
+	// 때문이다. 그래서 실제로 사는 것은 언제나 아래 상자다. 언젠가 몸통이
+	// 제대로 들어오면 같은 자리 같은 크기로 대체되도록 맞춤 상자와 요각을
+	// 상자에 맞춰 둔다.
 	//
-	// 자리도 옮긴다. 서쪽 벽에서 비어 있는 구간은 책상 끝(Y -145)과 협탁
-	// 앞(Y -62) 사이 83 cm뿐이다. Y -104에 놓으면 Y -144..-64로 양쪽에
-	// 1~2 cm를 남기고 들어간다. 사진 소품은 종횡비를 지키느라 지정 상자보다
-	// 작아질 뿐이므로, 이 상자 안에 들어가는 것은 어느 쪽으로 계산해도 같다.
-	if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -104, 0), FVector(80, 40, 186), 90.0f))
+	// 자리를 옮겼다. 원래 (-172, -70)은 Y -110..-30을 먹어서 협탁
+	// (Y -62..-8)과 32 cm 겹쳐 있었고, 그 겹친 자리에 스탠드 메시와 방의
+	// 유일한 온색 광원 (-164, -45, 101)이 같이 들어가 있었다. 사진 소품이
+	// 없는 체크아웃에서는 침실의 하나뿐인 등이 상자 안에서 켜진다.
+	// 서쪽 벽에서 비어 있는 구간은 책상 끝(Y -145)과 협탁 앞(Y -62) 사이
+	// 83 cm뿐이다. Y -104에 폭 80으로 놓으면 Y -144..-64로 양쪽에 1~2 cm를
+	// 남기고 들어간다.
+	if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -104, 0), FVector(40, 80, 186), 0.0f))
 	{
 		CreateBlock(FVector(-170, -104, 90), FVector(40, 80, 180), Furniture);
 	}
@@ -5054,7 +5066,11 @@ void AIGPrologueWorldScene::BuildAlley()
 		PilotisLamp->SetVolumetricScatteringIntensity(0.65f);
 		// Rubbish bags and a bicycle nobody has moved in months.
 		PlacePhotoProp(TEXT("trashbag"), FVector(-286, -262, 0), FVector(58, 58, 56), 20.0f);
-		PlacePhotoProp(TEXT("cardboard_box_01"), FVector(-244, -256, 0), FVector(46, 38, 32), -35.0f);
+		// -35도로 돌리면 상자가 X로 45 cm, Y로 47 cm를 차지한다. (-244, -256)은
+		// 계단 옆 12 cm 벽(X -250..-238) 한가운데였고 북쪽 벽(Y -240..-224)에도
+		// 걸쳐 있었다 — 벽에 꿰인 상자였다. 화강암 기둥 받침(Y -401..-355)과
+		// 쓰레기봉투(Y -291.9까지) 사이 빈 바닥으로 내렸다.
+		PlacePhotoProp(TEXT("cardboard_box_01"), FVector(-300, -322, 0), FVector(46, 38, 32), -35.0f);
 	}
 	// The north facade is split by a service gap, so the alley reads as a
 	// junction rather than one long tube. The neighbouring block starts where
@@ -5398,7 +5414,10 @@ void AIGPrologueWorldScene::BuildAlley()
 			CubeMesh, CardboardMaterial,
 			FVector(0.40f, 0.32f, 0.26f), FVector(2320, -585, 14), FRotator(0, 20, 0), 0.8f);
 	}
-	PlacePhotoProp(TEXT("cardboard_box_01"), FVector(1180, -645, 0), FVector(44, 36, 30), -35.0f);
+	// 이 상자도 -35도라 Y로 45 cm를 차지한다. Y -645에서는 뒤쪽 모서리가
+	// 연석(Y -673..-657, 높이 12 cm) 안으로 10 cm 들어가 연석에 잠겨 있었다.
+	// 아래 물리 상자에 이미 같은 계산을 적어 둔 자리다.
+	PlacePhotoProp(TEXT("cardboard_box_01"), FVector(1180, -630, 0), FVector(44, 36, 30), -35.0f);
 	// Beside the kerb and clear of the parking cone, not through either.
 	// Turned 65 degrees the box reaches 21.2 cm in X and 22.7 cm in Y, so at
 	// (2255, -640) it had a corner 5.7 cm inside the kerb stone and 11.2 cm
