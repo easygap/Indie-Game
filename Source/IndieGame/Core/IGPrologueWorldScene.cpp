@@ -4615,9 +4615,31 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(
 		FVector(150, -100, 96), FVector(40, 10, 28),
 		PlasticDarkMaterial, false);
-	CreateBlock(
-		FVector(150, -105.2f, 96), FVector(34, 0.3f, 25.5f),
-		ScreenGlowMaterial, false);
+	// 화면은 4분할이다. 「채널이 4분할로 돌아간다」고 서사가 두 번 말하는데
+	// 발광 판 하나로 두면 균일한 하늘색 사각형이라 그 말이 화면에 없다.
+	// 분할선을 앞에 덧대는 대신 발광면 자체를 넷으로 쪼갠다 — 채널 5의
+	// 렌더 면(Y=-105.45)과 케이스 앞면(Y=-105) 사이가 0.25 cm뿐이라
+	// 그 틈에 판을 하나 더 세울 자리가 없다. 8 mm 틈으로 케이스의 검은
+	// 앞면이 비치면서 그것이 그대로 분할선이 된다.
+	{
+		constexpr float ScreenWidth = 34.0f;
+		constexpr float ScreenHeight = 25.5f;
+		constexpr float MullionWidth = 0.8f;
+		const float QuadrantWidth = (ScreenWidth - MullionWidth) * 0.5f;
+		const float QuadrantHeight = (ScreenHeight - MullionWidth) * 0.5f;
+		const float OffsetX = (QuadrantWidth + MullionWidth) * 0.5f;
+		const float OffsetZ = (QuadrantHeight + MullionWidth) * 0.5f;
+		for (const float SideX : {-1.0f, 1.0f})
+		{
+			for (const float SideZ : {-1.0f, 1.0f})
+			{
+				CreateBlock(
+					FVector(150 + SideX * OffsetX, -105.2f, 96 + SideZ * OffsetZ),
+					FVector(QuadrantWidth, 0.3f, QuadrantHeight),
+					ScreenGlowMaterial, false);
+			}
+		}
+	}
 	CreateBlock(FVector(150, -103, 80), FVector(12, 8, 8), PlasticDarkMaterial, false);
 	// The inner room's door leaf, always shut: a dark slab with a hairline
 	// gap the foam reveal peers through. It never opens — that is the point.
