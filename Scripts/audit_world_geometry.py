@@ -289,7 +289,10 @@ _NAMESPACE_QUALIFIER = re.compile(r"\b(?:IGPrologueWorld|IGThirdMorning)::(\w+)"
 
 
 def to_python(expression: str) -> str:
-    text = expression.strip()
+    # 소스는 긴 식을 다음 줄로 넘겨 쓴다. 줄바꿈과 들여쓰기를 그대로 두면
+    # 파이썬 파서가 「unexpected indent」로 죽어서, 값 하나가 안 풀리고
+    # 그 이름을 쓰는 배치가 줄줄이 감사 밖으로 빠진다.
+    text = re.sub(r"\s+", " ", expression).strip()
     for source, target in _QUALIFIED_REPLACEMENTS.items():
         text = text.replace(source, target)
     # The builders keep their shared dimensions in a file-level namespace; those
@@ -599,6 +602,13 @@ CONST_ARRAY = re.compile(
     r"\b(?:static\s+)?(?:const|constexpr)\s+(?:float|double|int32|FVector)\s+"
     r"(?P<name>\w+)\s*\[\s*\w*\s*\]\s*=\s*\{(?P<values>[^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\s*;"
 )
+# `for (const float WindowX : WindowXs)` — 값을 중괄호로 바로 적지 않고
+# 위에서 선언한 배열을 도는 꼴. 이걸 못 읽으면 그 안의 배치가 전부
+# 감사 밖으로 빠진다 — 가로변 창 네 짝이 그 상태였다.
+RANGE_FOR_ARRAY = re.compile(
+    r"\bfor\s*\(\s*(?:const\s+)?(?:float|double|int32|auto)\s*&?\s*"
+    r"(?P<name>\w+)\s*:\s*(?P<array>\w+)\s*\)"
+)
 ACTIVE_PARENT = re.compile(r"\bActiveParent\s*=\s*(?P<value>[\w:]+)\s*;")
 
 PLACEMENT_CALLS = {
@@ -791,7 +801,8 @@ class BodyScanner:
         # again by the recursive call, with the outer value already bound.
         # Lambdas are the same idea: skip the definition, walk it per call.
         loops = []
-        for pattern, loop_kind in ((RANGE_FOR, "loop"), (COUNT_FOR, "count")):
+        for pattern, loop_kind in ((RANGE_FOR, "loop"), (COUNT_FOR, "count"),
+                                   (RANGE_FOR_ARRAY, "array-loop")):
             for match in pattern.finditer(text, start, end):
                 block = _block_after(text, match.end())
                 if block is not None:
@@ -848,7 +859,13 @@ class BodyScanner:
         events.sort(key=lambda item: item[0])
 
         for _, kind, payload in events:
-            if kind == "loop":
+            if kind == "array-loop":
+                match, block = payload
+                values = scope.get(match.group("array"))
+                if isinstance(values, list):
+                    self._iterate(
+                        block, match.group("name"), values, scope, depth)
+            elif kind == "loop":
                 match, block = payload
                 name = match.group("name")
                 values = []
@@ -1504,6 +1521,16 @@ void AIGSelfTestScene::Build()
 	AddPanel(FVector(0, 0, 50), FVector(40, 10, 100), WallPaint, false);
 	AddPanel(FVector(300, 0, 50), FVector(40, 10, 100), DoorSkin, true,
 		nullptr, Turned);
+	const float ShelfXs[] = {10.0f, 60.0f, 110.0f};
+	for (const float ShelfX : ShelfXs)
+	{
+		const float ShelfZ = 20.0f + ShelfX * 0.1f;
+		CreateBlock(
+			FVector(ShelfX, 400.0f, ShelfZ),
+			FVector(30, 12, 3),
+			ShelfBoard,
+			false);
+	}
 	auto AddBar = [this](const FVector& Start, const FVector& End)
 	{
 		const FVector Delta = End - Start;
@@ -1553,6 +1580,15 @@ def self_test() -> int:
     if abs(evaluate("FMath::RadiansToDegrees(FMath::Atan2(1, 0))", {})
            - 90.0) > 1e-6:
         failures.append("Atan2/RadiansToDegrees가 안 풀린다")
+    # 소스는 긴 식을 다음 줄로 넘겨 쓴다. 줄바꿈이 그대로 남으면 파이썬
+    # 파서가 죽어서 값 하나가 통째로 안 풀린다.
+    wrapped_value = "-150.0f" + chr(10) + "\t\t\t\t+ 25.0f"
+    try:
+        if abs(evaluate(wrapped_value, {}) + 125.0) > 1e-6:
+            failures.append("다음 줄로 이어진 값이 틀리게 풀린다")
+    except Unresolved:
+        failures.append("다음 줄로 이어진 값이 안 풀린다")
+
     if as_vec(evaluate("End - Start",
                        {"Start": Vec3(1, 1, 1), "End": Vec3(4, 5, 1)})).x != 3.0:
         failures.append("이미 벡터인 초기값을 못 읽는다")
@@ -1573,6 +1609,11 @@ def self_test() -> int:
                             + str(wall.size))
         if abs(door.size[0] - 10.0) > 0.01 or abs(door.size[1] - 40.0) > 0.01:
             failures.append("넘긴 회전이 상자에 안 먹었다: " + str(door.size))
+    shelves = [box for box in result.boxes if box.material == "ShelfBoard"]
+    if len(shelves) != 3:
+        failures.append("이름 붙인 배열을 도는 반복문을 놓친다 ("
+                        + str(len(shelves)) + "개)")
+
     bars = [box for box in result.boxes if box.material == "RailMetal"]
     if len(bars) != 1:
         failures.append("두 점으로 놓는 헬퍼를 놓친다")
