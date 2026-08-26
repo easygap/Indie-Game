@@ -70,7 +70,21 @@ namespace IGThirdMorning
 	// 오간다. 같은 값으로 맞춰 둔다.
 	constexpr float FloodWalkSpeed = 234.0f;
 	// 발소리 표면. 플레이어가 발밑을 라인 트레이스해서 이 이름을 읽는다.
+	// 태그가 없으면 콘크리트로 떨어진다. 소리만 바뀌는 게 아니라
+	// UIGMissingFloorAudioSubsystem이 이 표면으로 반향 공간까지 고르므로,
+	// 옥상과 철계단은 태그가 없으면 실내 복도 반향을 쓰게 된다.
+	const FName FootstepVinylTag(TEXT("Footstep.Vinyl"));
+	const FName FootstepMetalStairTag(TEXT("Footstep.MetalStair"));
+	const FName FootstepRooftopTag(TEXT("Footstep.Rooftop"));
 	const FName FootstepWaterTag(TEXT("Footstep.Water"));
+
+	void TagFootstepSurface(UStaticMeshComponent* Component, const FName Tag)
+	{
+		if (Component && !Component->ComponentHasTag(Tag))
+		{
+			Component->ComponentTags.Add(Tag);
+		}
+	}
 	constexpr float OpeningLensDropletDelaySeconds = 1.05f;
 	constexpr float OpeningLensDropletDurationSeconds = 3.0f;
 	constexpr float LensDropletCaptureEarlyDelaySeconds = 0.42f;
@@ -2096,7 +2110,10 @@ AIGZoneTrigger* AIGThirdMorningDirector::SpawnZone(
 void AIGThirdMorningDirector::BuildApartment()
 {
 	// 6.8 m x 4.4 m one-room, scaled like the established 404 set.
-	CreateBlock(FVector(0, 0, -10), FVector(700, 440, 20), RoomFloorMaterial);
+	// 장판 바닥이므로 프롤로그의 같은 방과 같은 발소리를 쓴다.
+	IGThirdMorning::TagFootstepSurface(
+		CreateBlock(FVector(0, 0, -10), FVector(700, 440, 20), RoomFloorMaterial),
+		IGThirdMorning::FootstepVinylTag);
 	CreateBlock(FVector(0, -220, 130), FVector(700, 20, 280), WallMaterial);
 	CreateBlock(FVector(0, 220, 130), FVector(700, 20, 280), WallMaterial);
 	CreateBlock(FVector(-350, 0, 130), FVector(20, 440, 280), WallMaterial);
@@ -3258,10 +3275,12 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 
 	// Wide roof: the absence of traffic and animals is legible because there
 	// is room for the player to wait and hear nothing.
-	CreateBlock(
-		FVector(2360, -400, IGThirdMorning::RoofFloorZ - 10),
-		FVector(1450, 1180, 20),
-		ConcreteMaterial);
+	IGThirdMorning::TagFootstepSurface(
+		CreateBlock(
+			FVector(2360, -400, IGThirdMorning::RoofFloorZ - 10),
+			FVector(1450, 1180, 20),
+			ConcreteMaterial),
+		IGThirdMorning::FootstepRooftopTag);
 	CreateBlock(FVector(2360, -990, 290), FVector(1450, 20, 100), DarkConcreteMaterial);
 	CreateBlock(FVector(2360, 190, 290), FVector(1450, 20, 100), DarkConcreteMaterial);
 	CreateBlock(FVector(3085, -400, 290), FVector(20, 1180, 100), DarkConcreteMaterial);
@@ -3700,6 +3719,11 @@ void AIGThirdMorningDirector::BuildWaterTank()
 			FVector(1915.0f + StepIndex * 20.0f, -300, IGThirdMorning::RoofFloorZ + Height * 0.5f),
 			FVector(22, 105, Height),
 			TankMetal);
+		// 저작 계단이 있으면 이 블록은 숨지만 충돌은 그대로 남는다.
+		// 발소리 판정은 Visibility 채널 트레이스라 숨긴 뒤에도 이 태그를 읽는다.
+		IGThirdMorning::TagFootstepSurface(
+			StairCollision,
+			IGThirdMorning::FootstepMetalStairTag);
 		if (bHasAuthoredExteriorStair && StairCollision)
 		{
 			StairCollision->SetVisibility(false, true);
@@ -3738,7 +3762,9 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	// Start the top platform where the last tread ends. The previous overlap
 	// buried that tread under a 40 cm lip even though every authored rise was
 	// intended to stay at 20 cm.
-	CreateBlock(FVector(2308.5f, -300, 610), FVector(87, 220, 20), TankMetal);
+	IGThirdMorning::TagFootstepSurface(
+		CreateBlock(FVector(2308.5f, -300, 610), FVector(87, 220, 20), TankMetal),
+		IGThirdMorning::FootstepMetalStairTag);
 
 	// A compact two-sided guardrail makes the top landing physically legible.
 	// The approach edge remains open, while invisible side volumes preserve the

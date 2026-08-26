@@ -2803,8 +2803,21 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A printed material is wrapped around a whole body instead of its face ($LASTEXITCODE)"
 	}
+
+	# 발소리 표면 태그는 소리만 정하는 게 아니라 반향 공간까지 고른다.
+	# 옥상 슬래브 하나가 태그를 빼먹으면 탁 트인 옥상이 복도로 울린다.
+	$footstepSurfaces = Join-Path $projectRoot 'Scripts/audit_footstep_surfaces.py'
+	& $python.Source $footstepSurfaces --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Footstep surface audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $footstepSurfaces --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A walkable surface is missing its footstep tag ($LASTEXITCODE)"
+	}
 } else {
-	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit and printed face audit.'
+	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit and footstep surface audit.'
 }
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green
