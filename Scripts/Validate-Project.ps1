@@ -2699,6 +2699,13 @@ if (-not $python) {
 }
 if ($python) {
 	$geometryAudit = Join-Path $projectRoot 'Scripts/audit_world_geometry.py'
+	# 이 스캐너는 감사 여섯 개가 같이 쓴다. 람다 인자와 회전이 안 풀리면
+	# 상자가 대각선 길이짜리 정육면체로 부풀어 조용히 거짓 양성을 쏟는다.
+	& $python.Source $geometryAudit --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "World geometry scanner self-test failed ($LASTEXITCODE)"
+	}
+
 	& $python.Source $geometryAudit --check
 	if ($LASTEXITCODE -ne 0) {
 		throw "World geometry audit found impossible placements ($LASTEXITCODE)"

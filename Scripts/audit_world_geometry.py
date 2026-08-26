@@ -96,6 +96,8 @@ CREATE_BLOCK_LAYOUT = {
     "IGThirdMorningDirector.cpp": {"mesh": 5, "rotation": 4, "movable": 6},
 }
 
+IDENTIFIER = re.compile(r"\b[A-Za-z_]\w*\b")
+
 STRUCTURE_MATERIAL_HINTS = (
     "wall", "floor", "ceil", "slab", "jangpan", "concrete", "asphalt",
     "stucco", "brick", "tile", "waterproof", "roof", "plaster", "gypsum",
@@ -155,6 +157,17 @@ class Vec3:
 
     def __neg__(self):
         return Vec3(-self.x, -self.y, -self.z)
+
+    def Size(self):  # noqa: N802 - mirrors the engine method name
+        return math.sqrt(self.x * self.x + self.y * self.y + self.z * self.z)
+
+    def Size2D(self):  # noqa: N802
+        return math.sqrt(self.x * self.x + self.y * self.y)
+
+    def GetSafeNormal(self):  # noqa: N802
+        length = self.Size()
+        return Vec3(0.0) if length < 1e-8 else Vec3(
+            self.x / length, self.y / length, self.z / length)
 
     def as_tuple(self):
         return (self.x, self.y, self.z)
@@ -234,6 +247,11 @@ _BUILTINS = {
     "ZERO_ROT": Rot3(),
     "ZERO_VEC": Vec3(0.0),
     "UE_ARRAY_COUNT": len,
+    "atan2": lambda y, x: math.atan2(y, x),
+    "degrees": math.degrees,
+    "radians": math.radians,
+    # 난간과 배관처럼 두 점 사이에 놓는 물건은 이 세 개로 자리를 잡는다.
+    "lerp": lambda a, b, t: a + (b - a) * t,
 }
 
 _QUALIFIED_REPLACEMENTS = {
@@ -252,6 +270,12 @@ _QUALIFIED_REPLACEMENTS = {
     "FMath::CeilToFloat": "ceil",
     "FMath::Clamp": "clamp",
     "FMath::RoundToFloat": "round",
+    "FMath::CeilToInt": "ceil",
+    "FMath::FloorToInt": "floor",
+    "FMath::Atan2": "atan2",
+    "FMath::RadiansToDegrees": "degrees",
+    "FMath::DegreesToRadians": "radians",
+    "FMath::Lerp": "lerp",
     "UE_PI": repr(math.pi),
     "PI": repr(math.pi),
 }
@@ -668,13 +692,38 @@ def _lambda_body_offset(text: str, offset: int) -> int:
     return offset
 
 
-def _lambda_parameters(parameter_text: str) -> list[str | None]:
-    """Names a lambda's parameters, or None where the name cannot be read."""
+def _lambda_parameters(parameter_text: str) -> list[tuple]:
+    """(이름, 기본값) 쌍. 이름을 못 읽으면 이름 자리가 None이다."""
     names: list[str | None] = []
     for parameter in split_arguments(parameter_text):
-        identifiers = re.findall(r"\b[A-Za-z_]\w*\b", parameter)
-        names.append(identifiers[-1] if identifiers else None)
+        # 기본값이 붙은 인자는 `= ` 앞까지가 이름이다. 통째로 읽으면
+        # `const FRotator& Rotation = FRotator::ZeroRotator`에서 마지막
+        # 식별자인 ZeroRotator를 이름으로 잡고, 정작 Rotation은 어디에도
+        # 묶이지 않는다. 그러면 람다 안의 회전이 안 풀려 상자가 대각선
+        # 길이짜리 정육면체로 부푼다.
+        declaration, _, default = parameter.partition("=")
+        identifiers = re.findall(IDENTIFIER, declaration)
+        names.append((identifiers[-1] if identifiers else None,
+                      default.strip() or None))
     return names
+
+
+def _balanced_value(text: str, start: int) -> str:
+    """괄호 밖의 첫 `;` 또는 `,`까지를 한 값으로 읽는다."""
+    depth = 0
+    index = start
+    while index < len(text):
+        character = text[index]
+        if character in "([{":
+            depth += 1
+        elif character in ")]}":
+            if depth == 0:
+                break
+            depth -= 1
+        elif character in ";," and depth == 0:
+            break
+        index += 1
+    return text[start:index]
 
 
 def _block_after(text: str, offset: int) -> tuple[int, int] | None:
@@ -716,11 +765,16 @@ class BodyScanner:
         self.function = ""
         self.lambdas: dict[str, tuple[list, tuple[int, int]]] = {}
         self.exempt_lines: dict[int, str] = {}
+        # 람다 인자의 **원문**. 배치 함수는 재질과 충돌 플래그, 메시 이름을
+        # 평가하지 않고 글자로 읽으므로, 헬퍼 안에서는 파라미터 이름만
+        # 보인다. 호출부가 준 글자로 바꿔 주어야 재질과 충돌 여부가 잡힌다.
+        self.text_bindings: dict[str, str] = {}
 
     def run(self, function_name: str, span: tuple[int, int], frame: str):
         self.function = function_name
         self.frame = frame
         self.lambdas = {}
+        self.text_bindings = {}
         self.walk(span[0], span[1], dict(self.file_scope))
 
     def walk(self, start: int, end: int, scope: dict, depth: int = 0):
@@ -756,6 +810,17 @@ class BodyScanner:
 
         def inside_skipped(offset: int) -> bool:
             return any(low <= offset < high for low, high in skip)
+
+        # 람다는 이벤트를 모으기 전에 등록해 둔다. 예전에는 이벤트를 다 모은
+        # 뒤에 등록했기 때문에, 같은 블록에서 정의하고 바로 부르는 람다는
+        # 호출부가 이벤트로 잡히지 않았다. 옥상 난간처럼 헬퍼 하나로 만드는
+        # 물건이 통째로 감사 밖에 있었다.
+        for match in LAMBDA_DEF.finditer(text, start, end):
+            body = _block_after(text, _lambda_body_offset(text, match.end()))
+            if body is not None:
+                self.lambdas.setdefault(
+                    match.group("name"),
+                    (_lambda_parameters(match.group("params")), body))
 
         for name, (params, block) in self.lambdas.items():
             for match in re.finditer(rf"\b{name}\s*\(", text[start:end]):
@@ -829,15 +894,29 @@ class BodyScanner:
             elif kind == "vector":
                 name = payload.group("name")
                 value = payload.group("value")
-                expression = value if value.strip().startswith("FVector") \
-                    else f"FVector({value})"
-                try:
-                    scope[name] = as_vec(evaluate(expression, scope))
-                except Unresolved:
-                    scope.pop(name, None)
+                # 값 자체가 이미 벡터인 경우가 있다 — `End - Start`,
+                # `(Start + End) * 0.5f`처럼. 무조건 FVector()로 감싸면
+                # 벡터를 스칼라 생성자에 넣는 꼴이 되어 통째로 풀리지 않는다.
+                scope.pop(name, None)
+                for expression in (
+                        value,
+                        value if value.strip().startswith("FVector")
+                        else f"FVector({value})"):
+                    try:
+                        scope[name] = as_vec(evaluate(expression, scope))
+                        break
+                    except Unresolved:
+                        continue
             elif kind == "rotator":
                 name = payload.group("name")
                 value = payload.group("value").strip()
+                # 정규식의 값 부분이 욕심을 부려 닫는 괄호까지 삼킨다.
+                # `const FRotator R(0, 90, 0);`이 `0, 90, 0)`로 잡히고,
+                # 그것을 FRotator()로 감싸면 괄호가 하나 남아 못 읽는다.
+                # 회전이 안 풀리면 감사는 상자를 대각선 길이짜리 정육면체로
+                # 부풀리므로, 저작 메시 하나가 방 안 소품을 통째로 삼킨다.
+                while value.endswith(")") and value.count(")") > value.count("("):
+                    value = value[:-1].rstrip()
                 expression = value if value.startswith("FRotator") \
                     else f"FRotator({value})"
                 try:
@@ -874,19 +953,39 @@ class BodyScanner:
             return
         arguments = split_arguments(argument_text)
         nested = dict(scope)
-        for index, parameter in enumerate(parameters):
-            if parameter is None or index >= len(arguments):
+        text_nested = dict(self.text_bindings)
+        for index, (parameter, default) in enumerate(parameters):
+            if parameter is None:
                 continue
+            # 호출부가 인자를 생략하면 기본값이 그 자리에 온다. 예전에는
+            # 그냥 비워 두어서, 기본값이 붙은 회전 인자를 쓰는 헬퍼의 상자가
+            # 전부 「회전을 모름」이 되어 대각선 길이짜리 정육면체로 부풀었다.
+            # 그 정육면체 하나가 방 안 소품을 통째로 삼킨다.
+            source = arguments[index] if index < len(arguments) else default
+            if source is None:
+                text_nested.pop(parameter, None)
+                nested.pop(parameter, None)
+                continue
+            text_nested[parameter] = source.strip()
             try:
-                nested[parameter] = evaluate(arguments[index], scope)
+                nested[parameter] = evaluate(source, scope)
             except Unresolved:
                 nested.pop(parameter, None)
-        self.walk(block[0], block[1], nested, depth + 1)
+        previous = self.text_bindings
+        self.text_bindings = text_nested
+        try:
+            self.walk(block[0], block[1], nested, depth + 1)
+        finally:
+            self.text_bindings = previous
 
     def _declare_float(self, match, scope: dict):
         name = match.group("name")
+        # 정규식의 값 부분은 쉼표에서 끊긴다 — `const float A = 1, B = 2;`를
+        # 갈라 읽어야 하기 때문이다. 그래서 인자가 둘인 함수 호출이 통째로
+        # 잘려 나갔다. 괄호 깊이를 세면 둘 다 된다.
+        value = _balanced_value(self.text, match.start("value"))
         try:
-            scope[name] = evaluate(match.group("value"), scope)
+            scope[name] = evaluate(value, scope)
         except Unresolved:
             scope.pop(name, None)
             return
@@ -912,7 +1011,10 @@ class BodyScanner:
         except Unresolved:
             self.result.unresolved += 1
             return
-        arguments = split_arguments(argument_text)
+        # 헬퍼 안에서는 인자가 파라미터 이름으로만 보인다. 호출부가 준
+        # 원문으로 바꿔 두면 재질 이름과 충돌 플래그가 제대로 읽힌다.
+        arguments = [self.text_bindings.get(part.strip(), part)
+                     for part in split_arguments(argument_text)]
         (center_index, size_index, material_index, collision_index,
          rotation_index, kind) = PLACEMENT_CALLS[call_name]
         try:
@@ -1354,6 +1456,137 @@ def _check_embedding(prop: Box, structures: list[Box]) -> list[Finding]:
     return findings
 
 
+def scan_text(text: str) -> ScanResult:
+    """파일 대신 문자열을 훑는다. 자기 검사가 쓴다."""
+    stripped = strip_comments(text)
+    line_starts = [0]
+    for index, character in enumerate(stripped):
+        if character == "\n":
+            line_starts.append(index + 1)
+
+    def line_of(offset: int) -> int:
+        low, high = 0, len(line_starts) - 1
+        while low < high:
+            middle = (low + high + 1) // 2
+            if line_starts[middle] <= offset:
+                low = middle
+            else:
+                high = middle - 1
+        return low + 1
+
+    result = ScanResult()
+    scanner = BodyScanner(
+        "IGPrologueWorldScene.cpp", stripped, line_of, result,
+        _file_scope_constants(stripped))
+    for function_name, brace, _body in function_bodies(stripped):
+        end = _block_after(stripped, brace)
+        if end:
+            scanner.run(function_name, end, "SceneRoot")
+    return result
+
+
+# 자기 검사용 최소 빌더. 헬퍼 람다를 정의한 자리에서 바로 부르고, 회전
+# 인자는 한 번은 넘기고 한 번은 생략한다 — 예전 스캐너가 통째로 놓치던 모양.
+SELF_TEST_SOURCE = """
+void AIGSelfTestScene::Build()
+{
+	const FRotator Turned(0.0f, 90.0f, 0.0f);
+	auto AddPanel = [this](
+		const FVector& Center,
+		const FVector& Size,
+		UMaterialInterface* Material,
+		const bool bCollide = true,
+		UStaticMesh* Mesh = nullptr,
+		const FRotator& Rotation = FRotator::ZeroRotator)
+	{
+		CreateBlock(Center, Size, Material, bCollide, Mesh, Rotation);
+	};
+	AddPanel(FVector(0, 0, 50), FVector(40, 10, 100), WallPaint, false);
+	AddPanel(FVector(300, 0, 50), FVector(40, 10, 100), DoorSkin, true,
+		nullptr, Turned);
+	auto AddBar = [this](const FVector& Start, const FVector& End)
+	{
+		const FVector Delta = End - Start;
+		const float Length = Delta.Size2D();
+		const FVector Midpoint = (Start + End) * 0.5f;
+		const float Yaw = FMath::RadiansToDegrees(FMath::Atan2(Delta.Y, Delta.X));
+		CreateBlock(
+			FVector(Midpoint.X, Midpoint.Y, 120.0f),
+			FVector(Length, 4.0f, 4.0f),
+			RailMetal,
+			true,
+			nullptr,
+			FRotator(0.0f, Yaw, 0.0f));
+	};
+	AddBar(FVector(0.0f, 0.0f, 0.0f), FVector(0.0f, 200.0f, 0.0f));
+}
+"""
+
+
+def self_test() -> int:
+    failures = []
+
+    names = _lambda_parameters(
+        "const FVector& Center, const bool bCollide = true, "
+        "const FRotator& Rotation = FRotator::ZeroRotator")
+    if [name for name, _ in names] != ["Center", "bCollide", "Rotation"]:
+        failures.append("기본값이 붙은 인자의 이름을 잘못 읽는다: "
+                        + str([name for name, _ in names]))
+    if names[2][1] != "FRotator::ZeroRotator":
+        failures.append("기본값 자체를 안 들고 온다")
+
+    source = "const float Yaw = FMath::Atan2(D.Y, D.X); const float A = 1;"
+    if _balanced_value(source, source.index("FMath")) \
+            != "FMath::Atan2(D.Y, D.X)":
+        failures.append("괄호 안 쉼표에서 값이 끊긴다")
+
+    rotator = "const FRotator Turned(0.0f, 90.0f, 0.0f);"
+    match = CONST_ROTATOR.search(rotator)
+    value = match.group("value").strip()
+    while value.endswith(")") and value.count(")") > value.count("("):
+        value = value[:-1].rstrip()
+    if as_rot(evaluate(f"FRotator({value})", {})).yaw != 90.0:
+        failures.append("생성자 꼴 FRotator 선언이 안 풀린다")
+
+    if abs(evaluate("Delta.Size2D()", {"Delta": Vec3(3, 4, 12)}) - 5.0) > 1e-6:
+        failures.append("Vec3.Size2D가 없다")
+    if abs(evaluate("FMath::RadiansToDegrees(FMath::Atan2(1, 0))", {})
+           - 90.0) > 1e-6:
+        failures.append("Atan2/RadiansToDegrees가 안 풀린다")
+    if as_vec(evaluate("End - Start",
+                       {"Start": Vec3(1, 1, 1), "End": Vec3(4, 5, 1)})).x != 3.0:
+        failures.append("이미 벡터인 초기값을 못 읽는다")
+
+    result = scan_text(SELF_TEST_SOURCE)
+    panels = [box for box in result.boxes if box.material in
+              ("WallPaint", "DoorSkin")]
+    if len(panels) != 2:
+        failures.append("같은 블록에서 정의하고 바로 부른 람다를 놓친다 ("
+                        + str(len(panels)) + "개)")
+    else:
+        wall = next(box for box in panels if box.material == "WallPaint")
+        door = next(box for box in panels if box.material == "DoorSkin")
+        if wall.collision or not door.collision:
+            failures.append("람다로 넘긴 충돌 플래그를 안 읽는다")
+        if abs(wall.size[0] - 40.0) > 0.01 or abs(wall.size[1] - 10.0) > 0.01:
+            failures.append("회전 인자를 생략한 상자가 부풀었다: "
+                            + str(wall.size))
+        if abs(door.size[0] - 10.0) > 0.01 or abs(door.size[1] - 40.0) > 0.01:
+            failures.append("넘긴 회전이 상자에 안 먹었다: " + str(door.size))
+    bars = [box for box in result.boxes if box.material == "RailMetal"]
+    if len(bars) != 1:
+        failures.append("두 점으로 놓는 헬퍼를 놓친다")
+    elif abs(bars[0].size[1] - 200.0) > 0.01 or abs(bars[0].size[0] - 4.0) > 0.01:
+        failures.append("길이·요각을 계산하는 헬퍼의 상자가 틀렸다: "
+                        + str(bars[0].size))
+
+    for failure in failures:
+        print("  자기 검사 실패: " + failure)
+    print("WORLD GEOMETRY SELF-TEST " + ("FAIL" if failures else "PASS")
+          + " boxes=" + str(len(result.boxes)))
+    return 1 if failures else 0
+
+
 # ---------------------------------------------------------------------------
 # Entry point
 # ---------------------------------------------------------------------------
@@ -1365,7 +1598,12 @@ def main(argv=None):
                         help="exit 1 when any finding is reported")
     parser.add_argument("--coverage", action="store_true",
                         help="report unresolved placement expressions")
+    parser.add_argument("--self-test", action="store_true",
+                        help="check the scanner itself, without the sources")
     arguments = parser.parse_args(argv)
+
+    if arguments.self_test:
+        return self_test()
 
     all_boxes: list[Box] = []
     resolved = unresolved = 0

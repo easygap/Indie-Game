@@ -4329,6 +4329,9 @@ void AIGThirdMorningDirector::BuildP5AccidentEvidence()
 	{
 		for (int32 Segment = 0; Segment < 5; ++Segment)
 		{
+			// physics-audit: intentional 탱크에서 늘어뜨린 급수 호스다.
+			// 다섯 토막이 비스듬히 매달려 내려오는 것이 이 물건의 자세이고,
+			// 받쳐 줄 바닥은 처음부터 없다.
 			CreateBlock(
 				Tank + FVector(
 					180.0f - Segment * 55.0f,

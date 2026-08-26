@@ -3236,8 +3236,10 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// the otherwise dead corridor one believable warm source.
 	AddOverlay(FVector(380, 216, 157), FVector(14, 4, 22), DarkGloss, false);
 	AddOverlay(FVector(380, 206, 157), FVector(4, 18, 4), DarkGloss, false);
+	// 갓 윗면은 팔 밑면(Z=155)에 닿아야 한다. Z 143이면 갓이 Z 133..153이라
+	// 팔과 2 cm 떠서, 벽등 갓만 공중에 매달린 꼴이었다.
 	UStaticMeshComponent* LampShade = AddOverlay(
-		FVector(380, 197, 143), FVector(24, 24, 20),
+		FVector(380, 197, 145), FVector(24, 24, 20),
 		LampShadeMaterial, false, ConeMesh);
 	if (LampShade)
 	{
@@ -3766,8 +3768,11 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	// 중 42.5 cm를 막았다. 캡슐 지름이 68 cm이므로 옥상으로 올라갈 수 없었다.
 	AddRail(FVector(-215.0f, 160.0f, 0.0f), FVector(-180.0f, 160.0f, 0.0f));
 	AddRail(FVector(-277.5f, 280.0f, 0.0f), FVector(70.0f, 280.0f, 0.0f));
-	AddRail(FVector(190.0f, 160.0f, 0.0f), FVector(190.0f, 452.5f, 0.0f));
-	AddRail(FVector(70.0f, 280.0f, 0.0f), FVector(70.0f, 452.5f, 0.0f));
+	// 북쪽 끝은 부속동 남벽의 바깥면(Y=445)에서 멈춘다. Y 452.5는 그 벽의
+	// 중심선이라, 마지막 기둥이 두께 15 cm 벽 한가운데에 통째로 파묻혀
+	// 보이지도 않는 물건이 되고 가로대는 벽으로 7.5 cm 들어갔다.
+	AddRail(FVector(190.0f, 160.0f, 0.0f), FVector(190.0f, 445.0f, 0.0f));
+	AddRail(FVector(70.0f, 280.0f, 0.0f), FVector(70.0f, 445.0f, 0.0f));
 
 	// Door frames make both openings legible even before their interactive
 	// leaves are spawned by the night-three director.
