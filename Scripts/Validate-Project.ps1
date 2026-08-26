@@ -2816,8 +2816,21 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A walkable surface is missing its footstep tag ($LASTEXITCODE)"
 	}
+
+	# 광원도 가구와 같은 리터럴 좌표로 놓는다. 옆 가구가 자라면 그 안으로
+	# 들어가는데, 방이 어두워질 뿐 아무것도 실패하지 않는다.
+	$lightPlacement = Join-Path $projectRoot 'Scripts/audit_light_placement.py'
+	& $python.Source $lightPlacement --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Light placement audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $lightPlacement --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A light source is sealed inside solid geometry ($LASTEXITCODE)"
+	}
 } else {
-	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit and footstep surface audit.'
+	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit, footstep surface audit and light placement audit.'
 }
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

@@ -2267,9 +2267,21 @@ void AIGPrologueWorldScene::BuildApartment()
 			}
 		}
 	}
-	if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -70, 0), FVector(40, 84, 186), 90.0f))
+	// 옷장. 맞춤 상자는 메시의 로컬 축에 먹이고 요각은 그 뒤에 돌아가므로,
+	// 요각 90도에서 로컬 Y가 월드 X가 된다. (40, 84)를 그대로 주면 월드에서
+	// 84 cm 깊이 40 cm 폭이 되어 벽에서 방 안으로 84 cm를 튀어나온다 — 그
+	// 자리가 협탁과 스탠드 자리다. 스탠드 메시가 옷장에 먹혀 안 보이고,
+	// 방의 유일한 온색 광원인 (-164, -45, 101)도 옷장 안에 들어가 있었다.
+	// 두 값을 바꿔 월드에서 40 깊이 · 80 폭이 되게 한다. 대체 상자가 원래
+	// 적어 두고 있던 모양(35 x 80)이 그거다.
+	//
+	// 자리도 옮긴다. 서쪽 벽에서 비어 있는 구간은 책상 끝(Y -145)과 협탁
+	// 앞(Y -62) 사이 83 cm뿐이다. Y -104에 놓으면 Y -144..-64로 양쪽에
+	// 1~2 cm를 남기고 들어간다. 사진 소품은 종횡비를 지키느라 지정 상자보다
+	// 작아질 뿐이므로, 이 상자 안에 들어가는 것은 어느 쪽으로 계산해도 같다.
+	if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -104, 0), FVector(80, 40, 186), 90.0f))
 	{
-		CreateBlock(FVector(-172, -70, 90), FVector(35, 80, 180), Furniture);
+		CreateBlock(FVector(-170, -104, 90), FVector(40, 80, 180), Furniture);
 	}
 
 	// Eye-level dressing gives the room a personal history without blocking a
