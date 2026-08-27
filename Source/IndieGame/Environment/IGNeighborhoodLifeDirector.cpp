@@ -1,4 +1,4 @@
-#include "Environment/IGNeighborhoodLifeDirector.h"
+﻿#include "Environment/IGNeighborhoodLifeDirector.h"
 
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -611,7 +611,10 @@ void AIGNeighborhoodLifeDirector::LaunchVehicleEvent()
 		// Keep the pooled traffic in the carriageway. The player walks the
 		// Y=-457 storefront edge; the old +38 cm motorcycle lane grazed the
 		// capsule even though the visual has no collision.
-		(bMotorcycle ? 0.0f : -55.0f);
+		// 승용차는 폭 172 cm다. -55에서는 차체가 Y -696까지 나가 점포
+		// 플린스(Y -677)를 19 cm 파고든 채 골목 전체를 달렸다. -36이면
+		// 차체 바깥면이 정확히 플린스 면에 닿고, 캡슐과도 14 cm 남는다.
+		(bMotorcycle ? 0.0f : -36.0f);
 	const FVector Start = (bReverse ? RoadEnd : RoadStart) + SideOffset;
 	const FVector End = (bReverse ? RoadStart : RoadEnd) + SideOffset;
 	const float Speed = bMotorcycle

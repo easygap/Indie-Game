@@ -1767,9 +1767,14 @@ void AIGPrologueWorldScene::InitializePrologue()
 		NeighborhoodParameters);
 	if (NeighborhoodLifeDirector)
 	{
+		// 골목은 양끝이 막혀 있다 — 서쪽은 X -340..-320 막다른 벽, 동쪽은
+		// X 2398 편의점 정면이다. 예전 구간(-360..2390)은 차체 길이를 세지
+		// 않아서, 승용차가 벽에 반쯤 걸친 채 생겨나 벽을 뚫고 나왔고
+		// 반대편에서는 코가 X 2597까지 들어가 과자 매대 사이에 섰다.
+		// 스폰 자리를 벽 뒤로 완전히 물리고, 끝은 정면 앞에서 끊는다.
 		NeighborhoodLifeDirector->ConfigureNeighborhood(
-			GetActorTransform().TransformPosition(FVector(-360.0f, -555.0f, -5.0f)),
-			GetActorTransform().TransformPosition(FVector(2390.0f, -555.0f, -5.0f)),
+			GetActorTransform().TransformPosition(FVector(-540.0f, -555.0f, -5.0f)),
+			GetActorTransform().TransformPosition(FVector(2190.0f, -555.0f, -5.0f)),
 			4040444);
 	}
 
