@@ -2030,7 +2030,7 @@ void AIGPrologueWorldScene::BuildApartment()
 
 	// Shell: interior 380 x 430 cm (about 5 pyeong), 230 cm ceiling.
 	IGPrologueWorld::TagFootstepSurface(
-		CreateBlock(FVector(0, 0, -10), FVector(440, 490, 20), Jangpan),
+		CreateBlock(FVector(0, 10, -10), FVector(440, 470, 20), Jangpan),
 		IGPrologueWorld::FootstepVinylTag);
 	CreateBlock(FVector(0, 0, 240), FVector(440, 490, 20), CeilHome);
 	CreateBlock(FVector(-200, 0, 115), FVector(20, 490, 230), WallY);
@@ -2723,7 +2723,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// into conspicuous horizontal bands when the player looks into the car.
 	CreateBlock(FVector(710, -250.5f, 105), FVector(20, 1, 210), LiftStone, false);
 	CreateBlock(FVector(710, -359.5f, 105), FVector(20, 1, 210), LiftStone, false);
-	CreateBlock(FVector(710, -305, 210.5f), FVector(20, 110, 1), LiftStone, false);
+	CreateBlock(FVector(710, -305, 209.5f), FVector(20, 110, 1), LiftStone, false);
 	CreateBlock(
 		FVector(699, -305, 216), FVector(2, 130, 12),
 		LiftStone, false);
@@ -2974,12 +2974,12 @@ void AIGPrologueWorldScene::BuildCorridor()
 		FVector(85, 28, 18),
 		StairSteel), IGPrologueWorld::FootstepMetalStairTag);
 	CreateBlock(
-		FVector(-332.5f, -165.0f, 120),
-		FVector(15, 120, 240),
+		FVector(-332.5f, -160.0f, 120),
+		FVector(15, 110, 240),
 		ConcreteDarkMaterial);
 	CreateBlock(
-		FVector(-222.5f, -165.0f, 120),
-		FVector(15, 120, 240),
+		FVector(-222.5f, -160.0f, 120),
+		FVector(15, 110, 240),
 		ConcreteDarkMaterial);
 	CreateBlock(
 		FVector(-277.5f, -165.0f, 250),
@@ -3159,9 +3159,9 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 	// 403 is a spatial echo of 404, shifted east. The geometry is sparse on
 	// purpose: the open doorway frames the same bed/nightstand silhouette,
 	// while darkness lets the player's memory complete the room.
-	AddOverlay(FVector(430, 0, -10), FVector(440, 450, 20), RoomFloor);
-	AddOverlay(FVector(430, 0, 240), FVector(440, 450, 20), RoomCeiling);
-	AddOverlay(FVector(430, 225, 115), FVector(440, 20, 230), RoomWallX);
+	AddOverlay(FVector(435, 0, -10), FVector(430, 450, 20), RoomFloor);
+	AddOverlay(FVector(435, 0, 240), FVector(430, 450, 20), RoomCeiling);
+	AddOverlay(FVector(435, 225, 115), FVector(430, 20, 230), RoomWallX);
 	AddOverlay(FVector(210, 0, 115), FVector(20, 450, 230), RoomWallY);
 	AddOverlay(FVector(650, 0, 115), FVector(20, 450, 230), RoomWallY);
 	AddOverlay(FVector(384, -233, 102), FVector(8, 7, 208), DoorTrim, false);
@@ -3213,22 +3213,22 @@ void AIGPrologueWorldScene::BuildChapterTwoOverlay()
 			nullptr,
 			FRotator(0.0f, 90.0f, 18.0f));
 	}
-	AddOverlay(FVector(365, 28, 28), FVector(55, 55, 56), Furniture);
+	AddOverlay(FVector(380, 185, 28), FVector(55, 55, 56), Furniture);
 
 	// Black horn-rim glasses at real scale (about 14 cm across).
-	for (const float LensX : {343.5f, 351.5f})
+	for (const float LensX : {365.5f, 373.5f})
 	{
-		AddOverlay(FVector(LensX, 21, 57.4f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
-		AddOverlay(FVector(LensX, 21, 61.2f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
-		AddOverlay(FVector(LensX - 2.75f, 21, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
-		AddOverlay(FVector(LensX + 2.75f, 21, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
+		AddOverlay(FVector(LensX, 181, 57.4f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
+		AddOverlay(FVector(LensX, 181, 61.2f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
+		AddOverlay(FVector(LensX - 2.75f, 181, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
+		AddOverlay(FVector(LensX + 2.75f, 181, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
 	}
-	AddOverlay(FVector(347.5f, 21, 59.3f), FVector(2.1f, 0.8f, 0.8f), DarkGloss, false);
+	AddOverlay(FVector(369.5f, 181, 59.3f), FVector(2.1f, 0.8f, 0.8f), DarkGloss, false);
 	AddOverlay(
-		FVector(338.3f, 24, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
+		FVector(360.3f, 184, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
 		nullptr, FRotator(0, -18, 0));
 	AddOverlay(
-		FVector(356.7f, 24, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
+		FVector(378.7f, 184, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
 		nullptr, FRotator(0, 18, 0));
 
 	// The small nightstand already carries the alarm, memo and glasses. A wall
@@ -3674,8 +3674,8 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		FVector(715.0f, 520.0f, 20.0f),
 		RoofDeck));
 	MissingFloorRooftopRouteFloors.Add(CreateBlock(
-		FVector(0.0f, 360.0f, 1190.0f),
-		FVector(1000.0f, 280.0f, 20.0f),
+		FVector(0.0f, 335.0f, 1190.0f),
+		FVector(1000.0f, 230.0f, 20.0f),
 		RoofDeck));
 	for (UStaticMeshComponent* RouteFloor : MissingFloorRooftopRouteFloors)
 	{
@@ -4572,7 +4572,7 @@ void AIGPrologueWorldScene::BuildLobby()
 
 	// Interior X 450..710, Y -375..-235, height 240 — directly under the lift.
 	CreateBlock(FVector(580, -305, -10), FVector(300, 180, 20), LobbyFloor);
-	CreateBlock(FVector(580, -305, 250), FVector(300, 180, 20), LobbyCeil);
+	CreateBlock(FVector(580, -303, 250), FVector(300, 176, 20), LobbyCeil);
 	CreateBlock(FVector(580, -225, 120), FVector(300, 20, 240), LobbyWallX);
 	// Split the west wall around a real stair-core doorway. The old solid
 	// slab forced a player standing inside the lobby to walk back outdoors
@@ -4707,7 +4707,7 @@ void AIGPrologueWorldScene::BuildLobby()
 	}
 	CreateBlock(FVector(710, -250.5f, 105), FVector(20, 1, 210), LiftStone, false);
 	CreateBlock(FVector(710, -359.5f, 105), FVector(20, 1, 210), LiftStone, false);
-	CreateBlock(FVector(710, -305, 210.5f), FVector(20, 110, 1), LiftStone, false);
+	CreateBlock(FVector(710, -305, 209.5f), FVector(20, 110, 1), LiftStone, false);
 	CreateBlock(
 		FVector(699, -305, 216), FVector(2, 130, 12),
 		LiftStone, false);
@@ -4876,20 +4876,20 @@ void AIGPrologueWorldScene::BuildLobby()
 	// through the authored 12 cm lift-door gap.
 	constexpr float SecondFloorZ = 300.0f;
 	CreateBlock(
-		FVector(580, -305, SecondFloorZ - 10),
-		FVector(300, 180, 20),
+		FVector(580, -303, SecondFloorZ - 10),
+		FVector(300, 176, 20),
 		TexMat(TEXT("M_Concrete_XY"), ConcreteDarkMaterial));
 	CreateBlock(
-		FVector(580, -305, SecondFloorZ + 250),
-		FVector(300, 180, 20),
+		FVector(580, -303, SecondFloorZ + 250),
+		FVector(300, 176, 20),
 		LobbyCeil);
 	CreateBlock(
 		FVector(580, -225, SecondFloorZ + 120),
 		FVector(300, 20, 240),
 		LobbyWallX);
 	CreateBlock(
-		FVector(440, -305, SecondFloorZ + 120),
-		FVector(20, 160, 240),
+		FVector(440, -310, SecondFloorZ + 120),
+		FVector(20, 150, 240),
 		LobbyWallY);
 
 	// East wall and reveals around the actual 2F lift opening.
@@ -4990,7 +4990,7 @@ void AIGPrologueWorldScene::BuildAlley()
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
 
 	// Asphalt strip from the west dead end to the store front.
-	CreateBlock(FVector(1040, -537.5f, -10), FVector(2720, 305, 20), AsphaltWorld);
+	CreateBlock(FVector(1040, -542.5f, -10), FVector(2720, 295, 20), AsphaltWorld);
 
 	// The shop is deeper than the alley is wide, so the ground in front of its
 	// northern half was missing entirely — from inside, looking out through
@@ -4999,7 +4999,7 @@ void AIGPrologueWorldScene::BuildAlley()
 	// The corner belongs to a patched cement-render annex, not to the opposing
 	// brick shop row. Its two axes use separate world projections so neither
 	// face collapses into the vertical colour stripe seen in the old capture.
-	CreateBlock(FVector(2190, -270, 230), FVector(20, 240, 460), VillaStuccoY);
+	CreateBlock(FVector(2190, -276, 230), FVector(20, 228, 460), VillaStuccoY);
 	CreateBlock(FVector(2300, -152, 230), FVector(240, 20, 460), VillaStuccoX);
 
 	// Curb stones seat the facades onto the road.
@@ -5052,11 +5052,17 @@ void AIGPrologueWorldScene::BuildAlley()
 	// a Korean villa from the alley instead of a wall with a door in it.
 	{
 		UMaterialInterface* ParkFloor = TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial);
-		CreateBlock(FVector(50, -310, -10), FVector(780, 170, 20), ParkFloor);
+		// 로비 연결통로와 로비 바닥이 같은 높이로 이 슬래브 위에 한 장 더
+		// 깔려 있었다. 같은 평면에 두 면을 겹치면 깊이 버퍼가 둘을 갈라내지
+		// 못해 걷는 내내 두 재질이 번갈아 이긴다. 실내 바닥이 덮는 자리를
+		// 비우고 주차면만 남긴다.
+		CreateBlock(FVector(-214.5f, -310, -10), FVector(251, 170, 20), ParkFloor);
+		CreateBlock(FVector(170.5f, -380, -10), FVector(519, 30, 20), ParkFloor);
+		CreateBlock(FVector(170.5f, -235, -10), FVector(519, 20, 20), ParkFloor);
 		// 7.8 x 1.7 m 필로티 천장. 바닥과 마주 보는 면이므로 바닥과 같은
 		// 축으로 읽어야 한다 — XZ로 읽는 동안 이 면 전체가 콘크리트 한 줄을
 		// 1.7 m 늘여 놓은 민무늬였다.
-		CreateBlock(FVector(50, -310, 244), FVector(780, 170, 12), DarkXY, false);
+		CreateBlock(FVector(50, -308, 244), FVector(780, 166, 12), DarkXY, false);
 		CreateBlock(FVector(50, -232, 120), FVector(780, 16, 240), DarkX);
 		CreateBlock(FVector(-348, -310, 120), FVector(16, 170, 240), DarkY);
 		// Columns on the street line, each with a concrete capital.
@@ -5115,8 +5121,12 @@ void AIGPrologueWorldScene::BuildAlley()
 	{
 		const float GapCenterX = 1220.0f;
 		CreateBlock(FVector(GapCenterX, -250, -10), FVector(140, 290, 20), AsphaltWorld);
-		CreateBlock(FVector(GapCenterX - 78, -250, 230), FVector(16, 290, 460), DarkY);
-		CreateBlock(FVector(GapCenterX + 78, -250, 230), FVector(16, 290, 460), DarkY);
+		// 골목 벽은 파사드 뒤(Y -375)에서 시작한다. 예전에는 거리면까지
+		// 나와 파사드 끝 20 cm를 그대로 물었고, 두 벽의 거리면과 골목면이
+		// 같은 평면이라 어귀 전체가 서로 깜빡였다. 어귀 리빌은 파사드의
+		// 마구리가 맡는다.
+		CreateBlock(FVector(GapCenterX - 78, -240, 230), FVector(16, 270, 460), DarkY);
+		CreateBlock(FVector(GapCenterX + 78, -240, 230), FVector(16, 270, 460), DarkY);
 		CreateBlock(FVector(GapCenterX, -110, 230), FVector(140, 20, 460), DarkX);
 		// Drain channel, gas meter cluster and a dead wall lamp.
 		CreateBlock(FVector(GapCenterX, -250, 0.8f), FVector(24, 280, 2), Metal, false);
@@ -5366,7 +5376,7 @@ void AIGPrologueWorldScene::BuildAlley()
 	}
 
 	// West dead end.
-	CreateBlock(FVector(-330, -537.5f, 250), FVector(20, 305, 500), DarkY);
+	CreateBlock(FVector(-330, -542.5f, 250), FVector(20, 295, 500), DarkY);
 
 	// Streetlights; the middle one is wired to fail as the player passes.
 	// A scanned lamp post stands in when the import exists.
@@ -5466,8 +5476,8 @@ void AIGPrologueWorldScene::BuildStore()
 
 	// Shell: a real convenience-store footprint (540 x 500 interior).
 	CreateBlock(FVector(2680, -430, 2), FVector(544, 504, 8), Tile);
-	CreateBlock(FVector(2680, -170, 130), FVector(560, 20, 260), StoreWallX);
-	CreateBlock(FVector(2680, -690, 130), FVector(560, 20, 260), StoreWallX);
+	CreateBlock(FVector(2675, -170, 130), FVector(550, 20, 260), StoreWallX);
+	CreateBlock(FVector(2675, -690, 130), FVector(550, 20, 260), StoreWallX);
 	CreateBlock(FVector(2960, -430, 130), FVector(20, 540, 260), StoreWallY);
 	CreateBlock(FVector(2680, -430, 270), FVector(580, 540, 20), StoreCeil);
 
@@ -5761,7 +5771,7 @@ void AIGPrologueWorldScene::BuildStore()
 	// East wall: the walk-up reach-in cooler bank — six framed glass doors,
 	// each bay lit and stocked; bay two stands open for restocking, and that
 	// is where the last bottled water waits.
-	CreateBlock(FVector(2955, -430, 116), FVector(10, 480, 220), ShelfSteel);
+	CreateBlock(FVector(2948.5f, -430, 116), FVector(3, 480, 220), ShelfSteel);
 	CreateBlock(FVector(2925, -676, 116), FVector(60, 12, 220), ShelfSteel);
 	CreateBlock(FVector(2925, -184, 116), FVector(60, 12, 220), ShelfSteel);
 	CreateBlock(FVector(2925, -430, 222), FVector(60, 480, 12), ShelfSteel);

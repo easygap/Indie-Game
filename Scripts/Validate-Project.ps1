@@ -2850,8 +2850,22 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A scanned prop lands inside the structure it stands against ($LASTEXITCODE)"
 	}
+
+	# 나중에 세운 상자가 이미 있던 상자의 면과 소수점까지 같은 평면에 놓이면
+	# 깊이 버퍼가 둘을 갈라내지 못한다. 파고든 깊이가 0이라 기하 감사도
+	# 못 보고, 화면에서는 카메라가 움직일 때마다 두 재질이 번갈아 이긴다.
+	$coplanarSurfaces = Join-Path $projectRoot 'Scripts/audit_coplanar_surfaces.py'
+	& $python.Source $coplanarSurfaces --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Coplanar surface audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $coplanarSurfaces --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "Two drawn surfaces share a plane and will fight for depth ($LASTEXITCODE)"
+	}
 } else {
-	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit, footstep surface audit, light placement audit and photo prop fit audit.'
+	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit, footstep surface audit, light placement audit, photo prop fit audit and coplanar surface audit.'
 }
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green
