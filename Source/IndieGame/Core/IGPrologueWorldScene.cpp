@@ -2888,9 +2888,13 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// Y -235 and the south face at Y -375. Authored at -233.4 and -376.6 the
 	// whole 3.5 cm course was inside the wall it was supposed to finish, with
 	// a millimetre and a half showing.
-	CreateBlock(FVector(-35, -236.75f, 6), FVector(580, 3.5f, 12), Skirting, false);
+	// 북쪽 굽도리는 벽이 있는 구간에만 붙는다. X -325..255 한 줄로 깔던
+	// 예전 배치는 계단 개구부(X -325..-230)를 95 cm, 404호 현관(X 98..186)을
+	// 88 cm 가로질러 문지방 위로 3.5 cm 턱이 지나갔고, 열리는 문짝이 그것을
+	// 쓸고 나갔다. X 220..385 줄과도 35 cm 겹쳐 있었다.
+	CreateBlock(FVector(-66, -236.75f, 6), FVector(328, 3.5f, 12), Skirting, false);
+	CreateBlock(FVector(285.5f, -236.75f, 6), FVector(199, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(-35, -373.25f, 6), FVector(580, 3.5f, 12), Skirting, false);
-	CreateBlock(FVector(302.5f, -236.75f, 6), FVector(165, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(582.5f, -236.75f, 6), FVector(215, 3.5f, 12), Skirting, false);
 	ChapterOneMaskComponents.Add(CreateBlock(
 		FVector(430, -236.75f, 6), FVector(100, 3.5f, 12), Skirting, false));
@@ -5432,7 +5436,11 @@ void AIGPrologueWorldScene::BuildAlley()
 	}
 
 	// Utility poles with junction boxes for the Korean-alley silhouette.
-	for (const float PoleX : {600.0f, 1600.0f})
+	// X 600은 공동현관(힌지 X 604, Y -385) 문짝이 그리는 호 안이었다. 밖으로
+	// 95도 열리면 문짝이 이 4.5 m 전신주를 6 cm 물고 지나간다. 힌지에서 37 cm
+	// 밖에 안 되는 자리다. 호 밖(110 cm)이면서 현관 디딤판(X 596..690)도
+	// 비켜나는 X 500으로 옮긴다.
+	for (const float PoleX : {500.0f, 1600.0f})
 	{
 		CreateBlock(
 			FVector(PoleX, -422, 225), FVector(14, 14, 450),
