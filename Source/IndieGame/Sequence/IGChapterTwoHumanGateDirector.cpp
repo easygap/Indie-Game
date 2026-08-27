@@ -149,12 +149,15 @@ void AIGChapterTwoHumanGateDirector::Configure(
 
 	NightShiftStickerProxy->SetStaticMesh(CubeMesh);
 	NightShiftStickerProxy->SetMaterial(0, PanelMaterial);
-	NightShiftStickerProxy->SetRelativeLocation(FVector(58.0f, -235.8f, 1053.0f));
+	// 복도 쪽 벽면은 Y=-235다. 스티커 뒷면이 -235.2, 표시등 뒷면이 -236.5라
+	// 각각 2 mm와 1.5 cm 떠 있었다. 벨 앞까지 걸어와 누르는 물건이므로
+	// 둘 다 벽에 붙인다.
+	NightShiftStickerProxy->SetRelativeLocation(FVector(58.0f, -235.6f, 1053.0f));
 	NightShiftStickerProxy->SetRelativeScale3D(FVector(0.28f, 0.012f, 0.16f));
 
 	Door402IndicatorLens->SetStaticMesh(CubeMesh);
 	Door402IndicatorLens->SetMaterial(0, LitMaterial);
-	Door402IndicatorLens->SetRelativeLocation(FVector(58.0f, -237.2f, 1036.0f));
+	Door402IndicatorLens->SetRelativeLocation(FVector(58.0f, -235.7f, 1036.0f));
 	Door402IndicatorLens->SetRelativeScale3D(FVector(0.035f, 0.014f, 0.035f));
 	Door402IndicatorLight->SetRelativeLocation(
 		FVector(58.0f, -245.0f, 1036.0f));

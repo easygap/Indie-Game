@@ -115,8 +115,12 @@ void AIGSecondMorningDirector::Configure(
 	{
 		P2Shutter->SetStaticMesh(InCubeMesh);
 		P2Shutter->SetMaterial(0, InBodyMaterial);
-		P2Shutter->SetRelativeLocation(FVector(2405.0f, -457.0f, 230.0f));
-		P2Shutter->SetRelativeScale3D(FVector(1.2f, 0.06f, 0.2f));
+		// 셔터는 자동문(Y -515..-395) 앞을 가로막는 판이다. 폭 1.2 m를 X에
+		// 주는 바람에 문을 6 cm만 덮은 채 상점 정면을 꿰뚫고, 골목과 매장
+		// 양쪽으로 53 cm씩 삐져나와 있었다. 상인방·파사드·간판 함체 셋과도
+		// 겹친다. 폭을 Y로 돌리고 유리선 안쪽(X 2416)에 세운다.
+		P2Shutter->SetRelativeLocation(FVector(2416.0f, -455.0f, 230.0f));
+		P2Shutter->SetRelativeScale3D(FVector(0.06f, 1.2f, 0.2f));
 		P2Shutter->SetCollisionProfileName(
 			UCollisionProfile::BlockAll_ProfileName);
 	}
@@ -1693,10 +1697,10 @@ void AIGSecondMorningDirector::SetP2ShutterStage(
 		return;
 	}
 	const float Height = 20.0f + FMath::Clamp(PressureStage, 0, 3) * 5.0f;
-	P2Shutter->SetRelativeScale3D(FVector(1.2f, 0.06f, Height / 100.0f));
+	P2Shutter->SetRelativeScale3D(FVector(0.06f, 1.2f, Height / 100.0f));
 	P2Shutter->SetRelativeLocation(FVector(
-		2405.0f,
-		-457.0f,
+		2416.0f,
+		-455.0f,
 		240.0f - Height * 0.5f));
 	P2Shutter->SetVisibility(true, true);
 	P2Shutter->SetCollisionEnabled(ECollisionEnabled::QueryAndPhysics);
