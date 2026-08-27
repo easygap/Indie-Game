@@ -5302,9 +5302,16 @@ void AIGPrologueWorldScene::BuildAlley()
 			// Frame jambs and the fascia sign with its phone-number strip.
 			CreateBlock(FVector(Shop.X - HalfWidth - 6, -677, 100), FVector(12, 10, 200), DarkX, false);
 			CreateBlock(FVector(Shop.X + HalfWidth + 6, -677, 100), FVector(12, 10, 200), DarkX, false);
-			CreateBlock(
+			// 간판 텍스처를 16 cm 몸통에 통째로 주면 엔진 큐브의 여섯 면이
+			// 같은 UV를 나눠 쓰는 탓에 옆면·밑면·뒷면에도 상호가 한 번 더
+			// 눌려 찍힌다. 편의점 파사드에서 이미 고친 것과 같은 자리다.
+			// 함체는 민무늬로 두고 인쇄는 골목을 보는 앞면에만 붙인다.
+			CreatePrintedBlock(
 				FVector(Shop.X, -672, 222), FVector(Shop.Width + 24, 16, 42),
-				TexMat(Shop.Sign, PlasticDarkMaterial), false);
+				PlasticDarkMaterial,
+				TexMat(Shop.Sign, PlasticDarkMaterial),
+				FVector(0, 1, 0),
+				false);
 			CreateBlock(FVector(Shop.X, -670, 197), FVector(Shop.Width - 30, 2, 9),
 				FridgeInteriorMaterial, false);
 			// Striped awning over the entrance.

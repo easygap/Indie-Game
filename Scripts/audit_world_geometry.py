@@ -651,6 +651,71 @@ RANGE_FOR_ARRAY = re.compile(
 )
 ACTIVE_PARENT = re.compile(r"\bActiveParent\s*=\s*(?P<value>[\w:]+)\s*;")
 
+# 골목 점포 넷은 `struct FShopSpec { float X; float Width; ... };`를 세워
+# 리터럴 배열로 적고, 그 원소를 인덱스로 꺼내 쓴다. 이 세 조각 중 하나라도
+# 못 읽으면 그 안의 배치가 통째로 감사 밖으로 빠진다 — 점포 간판, 차양,
+# 돌출 간판 열일곱 개가 그 상태였다.
+STRUCT_DECL = re.compile(
+    r"\bstruct\s+(?P<name>\w+)\s*\{(?P<body>[^{}]*)\}\s*;")
+STRUCT_ARRAY = re.compile(
+    r"\bconst\s+(?P<type>\w+)\s+(?P<name>\w+)\s*\[\s*\w*\s*\]\s*=\s*"
+    r"\{(?P<values>[^{}]*(?:\{[^{}]*\}[^{}]*)*)\}\s*;")
+# `const FShopSpec& Shop = Shops[ShopIndex];`
+RECORD_ALIAS = re.compile(
+    r"\bconst\s+(?P<type>\w+)\s*&\s*(?P<name>\w+)\s*=\s*"
+    r"(?P<value>[^;{}]+?)\s*;")
+
+
+def _struct_fields(text: str) -> dict:
+    """구조체 이름 -> 선언 순서대로의 필드 이름."""
+    table = {}
+    for match in STRUCT_DECL.finditer(text):
+        fields = []
+        for declaration in match.group("body").split(";"):
+            identifiers = re.findall(IDENTIFIER, declaration)
+            if identifiers:
+                fields.append(identifiers[-1])
+        if fields:
+            table[match.group("name")] = fields
+    return table
+
+
+class Record:
+    """구조체 리터럴 하나.
+
+    값과 원문을 함께 들고 있어야 한다. 좌표는 평가한 값으로 쓰지만,
+    재질은 감사가 `TexMat(TEXT("M_X"), Fallback)` 꼴을 글자로 읽기
+    때문에 원문 그대로 돌려주어야 이름이 잡힌다.
+    """
+
+    def __init__(self, fields: dict, texts: dict):
+        self.__dict__.update(fields)
+        object.__setattr__(self, "_source_text", texts)
+
+    def source_text(self) -> dict:
+        return self.__dict__["_source_text"]
+
+    def __repr__(self):
+        shown = {k: v for k, v in self.__dict__.items()
+                 if k != "_source_text"}
+        return "Record(%s)" % shown
+
+
+def _expand_record_fields(argument: str, scope: dict) -> str:
+    """`Shop.Sign`처럼 구조체 필드를 가리키는 조각을 원문으로 되돌린다."""
+    if "." not in argument:
+        return argument
+    for name, value in scope.items():
+        if not isinstance(value, Record):
+            continue
+        for field, cell in value.source_text().items():
+            argument = re.sub(
+                r"\b" + re.escape(name) + r"\." + re.escape(field) + r"\b",
+                cell.replace("\\", "\\\\"),
+                argument)
+    return argument
+
+
 PLACEMENT_CALLS = {
     # name: (center index, size index, material index, collision index,
     #        rotation index, kind)
@@ -826,6 +891,7 @@ class BodyScanner:
         self.line_of = line_of
         self.result = result
         self.file_scope = file_scope
+        self.structs = _struct_fields(text)
         self.frame = "SceneRoot"
         self.function = ""
         self.lambdas: dict[str, tuple[list, tuple[int, int]]] = {}
@@ -900,6 +966,8 @@ class BodyScanner:
             (CONST_VECTOR_ASSIGN, "vector"),
             (CONST_VECTOR_CTOR, "vector"),
             (CONST_ROTATOR, "rotator"),
+            (STRUCT_ARRAY, "record-array"),
+            (RECORD_ALIAS, "record"),
             (ACTIVE_PARENT, "parent"),
         ):
             for match in pattern.finditer(text, start, end):
@@ -948,6 +1016,10 @@ class BodyScanner:
                     _lambda_parameters(match.group("params")), block)
             elif kind == "invoke":
                 self._invoke(payload[0], payload[1], scope, depth)
+            elif kind == "record-array":
+                self._declare_record_array(payload, scope)
+            elif kind == "record":
+                self._declare_record(payload, scope)
             elif kind == "float":
                 self._declare_float(payload, scope)
             elif kind == "array":
@@ -1050,6 +1122,41 @@ class BodyScanner:
         finally:
             self.text_bindings = previous
 
+    def _declare_record_array(self, match, scope: dict):
+        """구조체 리터럴 배열을 Record 목록으로 묶는다."""
+        fields = self.structs.get(match.group("type"))
+        if not fields:
+            return
+        records = []
+        for raw in split_arguments(match.group("values")):
+            raw = raw.strip()
+            if not (raw.startswith("{") and raw.endswith("}")):
+                return
+            values = {}
+            texts = {}
+            for name, cell in zip(fields, split_arguments(raw[1:-1])):
+                texts[name] = cell.strip()
+                try:
+                    values[name] = evaluate(cell, scope)
+                except Unresolved:
+                    # 재질과 텍스처 이름은 글자 그대로 쓰인다. 평가하지
+                    # 못해도 원문을 들고 있어야 재질 자리가 비지 않는다.
+                    values[name] = cell.strip()
+            records.append(Record(values, texts))
+        if records:
+            scope[match.group("name")] = records
+
+    def _declare_record(self, match, scope: dict):
+        """`const FShopSpec& Shop = Shops[ShopIndex];` 같은 별칭."""
+        if match.group("type") not in self.structs:
+            return
+        try:
+            value = evaluate(match.group("value"), scope)
+        except Unresolved:
+            return
+        if isinstance(value, Record):
+            scope[match.group("name")] = value
+
     def _declare_float(self, match, scope: dict):
         name = match.group("name")
         # 정규식의 값 부분은 쉼표에서 끊긴다 — `const float A = 1, B = 2;`를
@@ -1087,6 +1194,10 @@ class BodyScanner:
         # 원문으로 바꿔 두면 재질 이름과 충돌 플래그가 제대로 읽힌다.
         arguments = [self.text_bindings.get(part.strip(), part)
                      for part in split_arguments(argument_text)]
+        # 구조체 필드도 마찬가지다. `TexMat(Shop.Sign, ...)`을 글자 그대로
+        # 두면 재질을 읽는 감사 셋이 그 상자를 「이름을 못 푼 것」으로
+        # 넘긴다 — 점포 간판 넷이 인쇄면 검사 밖에 있었다.
+        arguments = [_expand_record_fields(part, scope) for part in arguments]
         (center_index, size_index, material_index, collision_index,
          rotation_index, kind) = PLACEMENT_CALLS[call_name]
         try:
@@ -1654,6 +1765,31 @@ def self_test() -> int:
         failures.append("인자 안에 들어앉은 삼항을 못 읽는다")
     if first != 2.0:
         failures.append("첫 인자의 삼항에 앞 인자가 딸려 들어간다")
+
+    # 지역 구조체 배열을 인덱스로 도는 배치. 셋 중 하나만 못 읽어도
+    # 그 안의 상자가 통째로 감사 밖으로 빠진다 — 골목 점포 넷의 기둥과
+    # 간판, 차양이 그 상태였고, 열리자마자 인쇄면 결함 넷이 나왔다.
+    record_source = (
+        "void AIGTest::Build()\n{\n"
+        "\tstruct FShopSpec { float X; float Width; const TCHAR* Sign; };\n"
+        "\tconst FShopSpec Shops[] = {\n"
+        "\t\t{400.0f, 150.0f, TEXT(\"M_SignA\")},\n"
+        "\t\t{900.0f, 128.0f, TEXT(\"M_SignB\")},\n"
+        "\t};\n"
+        "\tfor (int32 ShopIndex = 0; ShopIndex < 2; ++ShopIndex)\n\t{\n"
+        "\t\tconst FShopSpec& Shop = Shops[ShopIndex];\n"
+        "\t\tCreateBlock(FVector(Shop.X, 0, 0), "
+        "FVector(Shop.Width, 16, 42), TexMat(Shop.Sign, Fallback));\n"
+        "\t}\n}\n")
+    record_result = scan_text(record_source)
+    if len(record_result.boxes) != 2:
+        failures.append("구조체 배열을 도는 배치를 못 읽는다 (%d개)"
+                        % len(record_result.boxes))
+    elif record_result.boxes[1].center[0] != 900.0 \
+            or record_result.boxes[1].size[0] != 128.0:
+        failures.append("구조체 필드를 좌표와 크기로 못 푼다")
+    elif "M_SignB" not in record_result.boxes[1].material:
+        failures.append("구조체 필드가 재질 자리에서 원문으로 안 돌아온다")
 
     if abs(evaluate("Delta.Size2D()", {"Delta": Vec3(3, 4, 12)}) - 5.0) > 1e-6:
         failures.append("Vec3.Size2D가 없다")
