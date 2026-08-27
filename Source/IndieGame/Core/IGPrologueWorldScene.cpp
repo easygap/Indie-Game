@@ -5708,13 +5708,23 @@ void AIGPrologueWorldScene::BuildStore()
 
 	// South wall: chilled open showcase (kimbap/sandwich) flanked by scanned
 	// steel racks with crate/bottle stock, plus the ramyeon corner and poster.
-	CreateBlock(FVector(2700, -662, 90), FVector(240, 36, 170), ShelfSteel);
+	// 오픈 쇼케이스는 통짜가 아니라 껍데기다. 240 x 36 x 170 상자 하나로
+	// 두는 바람에 선반 셋과 가격표, 조명, 그리고 그 위의 김밥·샌드위치
+	// 스물넷이 전부 강철 덩어리 안에 밀봉돼 있었다. 통로를 보는 앞면
+	// (Y = -644)만 열고 나머지 다섯 면을 6 cm 판으로 두른다.
+	CreateBlock(FVector(2700, -677, 90), FVector(240, 6, 170), ShelfSteel);
+	CreateBlock(FVector(2583, -659, 90), FVector(6, 30, 170), ShelfSteel);
+	CreateBlock(FVector(2817, -659, 90), FVector(6, 30, 170), ShelfSteel);
+	CreateBlock(FVector(2700, -659, 172), FVector(228, 30, 6), ShelfSteel);
+	CreateBlock(FVector(2700, -659, 8), FVector(228, 30, 6), ShelfSteel);
 	for (const float TierZ : {70.0f, 105.0f, 140.0f})
 	{
-		CreateBlock(FVector(2694, -654, TierZ), FVector(228, 26, 3), Metal, false);
-		CreateBlock(FVector(2688, -646.5f, TierZ + 3), FVector(228, 3, 5), FridgeInteriorMaterial, false);
+		// 선반과 가격표는 안쪽 폭(X 2586..2814)에 맞춘다. 통짜였을 때는
+		// 왼쪽 끝이 몸통 바깥면까지 나가 있어도 보이지 않았다.
+		CreateBlock(FVector(2700, -654, TierZ), FVector(228, 26, 3), Metal, false);
+		CreateBlock(FVector(2700, -646.5f, TierZ + 3), FVector(228, 3, 5), FridgeInteriorMaterial, false);
 	}
-	CreateBlock(FVector(2700, -652, 166), FVector(230, 20, 3), LightPanelMaterial, false);
+	CreateBlock(FVector(2700, -652, 166), FVector(228, 20, 3), LightPanelMaterial, false);
 	int32 ChilledIndex = 0;
 	for (const float TierZ : {71.5f, 106.5f, 141.5f})
 	{

@@ -603,23 +603,43 @@ FUNCTION_PATTERN = re.compile(
 )
 
 CONST_FLOAT = re.compile(
-    r"\b(?:static\s+)?(?:const|constexpr)\s+(?:float|double|int32)\s+"
+    r"\b(?:static\s+)?(?:const|constexpr)\s+(?:float|double|int32|bool)\s+"
     r"(?P<name>\w+)\s*=\s*(?P<value>[^;{},]+)\s*[;,]"
 )
 # `const float A = 1.0f, B = 2.0f;` continues after the first declarator.
 CONST_FLOAT_CONTINUED = re.compile(r",\s*(?P<name>\w+)\s*=\s*(?P<value>[^;{},]+)")
+# `int32 ChilledIndex = 0;` — 루프 안에서 ++로 올리는 수동 카운터. const가
+# 아니라 여태 스코프에 들어오지 못했고, _iterate는 이미 스코프에 있는 이름만
+# 카운터로 잡기 때문에 그 카운터를 쓰는 배치가 통째로 빠졌다. 정수 리터럴로
+# 시작하는 선언만 본다. 여는 괄호 뒤는 for 머리이므로 뺀다.
+MUTABLE_INT = re.compile(
+    r"(?<![(,])\b(?:int32|int)\s+(?P<name>\w+)\s*=\s*(?P<value>-?\d+)\s*;"
+)
 # `for (const float LegX : {-164.0f, -36.0f})` — the builders lay out repeated
 # legs, treads, rails and shelves this way, and skipping them would hide most
 # of the small parts from the audit.
+# 값 목록을 중괄호로 바로 적는 범위 for. FVector도 이렇게 돈다 — 계량기함
+# 두 짝이 `for (const FVector& UnitCenter : {FVector(...), FVector(...)})`인데
+# 타입 목록에 FVector가 없어 그 안의 배치가 빠져 있었다.
 RANGE_FOR = re.compile(
-    r"\bfor\s*\(\s*(?:const\s+)?(?:float|double|int32|auto)\s*&?\s*"
-    r"(?P<name>\w+)\s*:\s*\{(?P<values>[^{}]*)\}\s*\)"
+    r"\bfor\s*\(\s*(?:const\s+)?(?:float|double|int32|FVector|auto)\s*&?\s*"
+    r"(?P<name>\w+)\s*:\s*\{(?P<values>[^{}]*(?:\([^()]*\)[^{}]*)*)\}\s*\)"
 )
 # `for (int32 Index = 0; Index < 14; ++Index)` — treads, balusters, shelves.
 COUNT_FOR = re.compile(
     r"\bfor\s*\(\s*(?:const\s+)?(?:int32|int|uint32|size_t)\s+(?P<name>\w+)"
     r"\s*=\s*(?P<init>[^;]+);\s*(?P=name)\s*<\s*(?P<limit>[^;]+);"
     r"\s*(?:\+\+\s*(?P=name)|(?P=name)\s*\+\+)\s*\)"
+)
+# `for (float SnackX = 2500.0f; SnackX <= 2780.0f; SnackX += 14.0f)` — 진열대는
+# 개수가 아니라 간격으로 채운다. 정수 카운터만 보던 탓에 편의점 매대와 담배
+# 진열대, 화강석 줄눈, 필로티 기둥이 통째로 감사 밖에 있었다. 조건에 붙은
+# 가드(`!bRamyeonBay &&`)는 평가하지 않고 그냥 돈다 — 분기를 모르는 채로는
+# 도는 쪽이 더 많은 상자를 보게 한다.
+STEP_FOR = re.compile(
+    r"\bfor\s*\(\s*(?:const\s+)?(?:float|double)\s+(?P<name>\w+)\s*=\s*"
+    r"(?P<init>[^;]+);(?P<guard>[^;]*?)(?P=name)\s*(?P<op><=|<)\s*"
+    r"(?P<limit>[^;]+);\s*(?P=name)\s*\+=\s*(?P<step>[^)]+)\)"
 )
 # `auto DressUnitDoor = [captures](const float DoorX, const float FaceY)` —
 # the builders factor repeated dressing (doors, meters, shelf bays) this way.
@@ -923,6 +943,7 @@ class BodyScanner:
         # Lambdas are the same idea: skip the definition, walk it per call.
         loops = []
         for pattern, loop_kind in ((RANGE_FOR, "loop"), (COUNT_FOR, "count"),
+                                   (STEP_FOR, "step"),
                                    (RANGE_FOR_ARRAY, "array-loop")):
             for match in pattern.finditer(text, start, end):
                 block = _block_after(text, match.end())
@@ -962,6 +983,7 @@ class BodyScanner:
 
         for pattern, kind in (
             (CONST_FLOAT, "float"),
+            (MUTABLE_INT, "float"),
             (CONST_ARRAY, "array"),
             (CONST_VECTOR_ASSIGN, "vector"),
             (CONST_VECTOR_CTOR, "vector"),
@@ -1010,6 +1032,29 @@ class BodyScanner:
                     limit = first + MAX_LOOP_ITERATIONS
                 self._iterate(
                     block, name, list(range(first, limit)), scope, depth)
+            elif kind == "step":
+                match, block = payload
+                try:
+                    value = float(evaluate(match.group("init"), scope))
+                    limit = float(evaluate(match.group("limit"), scope))
+                    step = float(evaluate(match.group("step"), scope))
+                except (Unresolved, TypeError, ValueError):
+                    continue
+                if step == 0.0:
+                    continue
+                values = []
+                while len(values) < MAX_LOOP_ITERATIONS:
+                    if step > 0.0:
+                        if value > limit + (1e-6 if match.group("op") == "<=" else 0.0):
+                            break
+                        if match.group("op") == "<" and value >= limit:
+                            break
+                    else:
+                        if value < limit - (1e-6 if match.group("op") == "<=" else 0.0):
+                            break
+                    values.append(value)
+                    value += step
+                self._iterate(block, match.group("name"), values, scope, depth)
             elif kind == "lambda":
                 match, block = payload
                 self.lambdas[match.group("name")] = (
@@ -1353,6 +1398,11 @@ def scan_source(relative_path: str) -> ScanResult:
             exempt_lines[number] = (marker.group("why") or "").strip()
 
     for function_name, brace, body in function_bodies(text):
+        # 배치 헬퍼 자신의 몸통은 배치가 아니다. `CreatePrintedBlock`이
+        # 자기 안에서 부르는 CreateBlock은 인자가 그 함수의 파라미터라
+        # 영원히 안 풀리고, 못 푼 자리로만 세어져 커버리지를 깎는다.
+        if function_name.split("::")[-1] in PLACEMENT_CALLS:
+            continue
         scanner.exempt_lines = exempt_lines
         scanner.run(function_name, (brace, brace + len(body)), "SceneRoot")
 
@@ -1790,6 +1840,45 @@ def self_test() -> int:
         failures.append("구조체 필드를 좌표와 크기로 못 푼다")
     elif "M_SignB" not in record_result.boxes[1].material:
         failures.append("구조체 필드가 재질 자리에서 원문으로 안 돌아온다")
+
+    # 진열대는 개수가 아니라 간격으로 채운다. 정수 카운터만 보던 탓에
+    # 편의점 매대가 통째로 감사 밖에 있었다. 조건에 붙은 가드는 평가하지
+    # 않고 그냥 돈다.
+    step_source = (
+        "void AIGTest::Build()\n{\n"
+        "\tfor (float ItemX = 100.0f; !bGuard && ItemX <= 160.0f; "
+        "ItemX += 20.0f)\n\t{\n"
+        "\t\tCreateBlock(FVector(ItemX, 0, 0), FVector(4, 4, 4), Mat);\n"
+        "\t}\n}\n")
+    step_result = scan_text(step_source)
+    if [box.center[0] for box in step_result.boxes] != [100.0, 120.0, 140.0, 160.0]:
+        failures.append("실수 증분 for 루프를 제대로 못 돈다 (%s)"
+                        % [box.center[0] for box in step_result.boxes])
+
+    # 루프 밖에서 선언하고 안에서 ++로 올리는 카운터. const가 아니라
+    # 스코프에 들어오지 못하면 그것을 쓰는 배치가 통째로 빠진다.
+    counter_source = (
+        "void AIGTest::Build()\n{\n"
+        "\tint32 Tally = 0;\n"
+        "\tfor (const float Where : {0.0f, 50.0f})\n\t{\n"
+        "\t\tCreateBlock(FVector(Where, 0, 0), "
+        "(Tally % 2) == 0 ? FVector(9, 9, 9) : FVector(13, 13, 13), Mat);\n"
+        "\t\t++Tally;\n\t}\n}\n")
+    counter_result = scan_text(counter_source)
+    if [round(box.size[0]) for box in counter_result.boxes] != [9, 13]:
+        failures.append("루프 안에서 올리는 수동 카운터를 못 따라간다 (%s)"
+                        % [round(box.size[0]) for box in counter_result.boxes])
+
+    # 값 목록을 중괄호로 적는 범위 for에 FVector도 온다.
+    vector_loop = scan_text(
+        "void AIGTest::Build()\n{\n"
+        "\tfor (const FVector& Where : "
+        "{FVector(10, 20, 30), FVector(40, 50, 60)})\n\t{\n"
+        "\t\tCreateBlock(Where, FVector(4, 4, 4), Mat);\n"
+        "\t}\n}\n")
+    if len(vector_loop.boxes) != 2:
+        failures.append("FVector 목록을 도는 범위 for를 못 읽는다 (%d개)"
+                        % len(vector_loop.boxes))
 
     if abs(evaluate("Delta.Size2D()", {"Delta": Vec3(3, 4, 12)}) - 5.0) > 1e-6:
         failures.append("Vec3.Size2D가 없다")
