@@ -339,7 +339,47 @@ def _convert_ternaries(text: str) -> str:
                         f" else ({_convert_ternaries(when_false)}))"
                     )
             break
-    return text
+    if "?" not in text:
+        return text
+    # 깊이 0에 삼항이 없다면 괄호 안에 들어앉은 것이다. `FRotator(0,
+    # StepIndex % 2 == 0 ? -12.0f : 12.0f, 0)`이 그 꼴이고, 여태 통째로
+    # 못 읽어 그 회전을 쓰는 상자가 전부 판정에서 빠졌다. 인자를 최상위
+    # 쉼표로 가른 다음 하나씩 다시 본다 — 가르지 않으면 조건 자리에
+    # 앞 인자까지 딸려 들어간다.
+    pieces = []
+    index = 0
+    while index < len(text):
+        character = text[index]
+        if character not in "([{":
+            pieces.append(character)
+            index += 1
+            continue
+        close = _matching_bracket(text, index)
+        if close is None:
+            pieces.append(text[index:])
+            break
+        inner = text[index + 1:close]
+        arguments = split_arguments(inner)
+        pieces.append(character)
+        pieces.append(
+            ", ".join(_convert_ternaries(one) for one in arguments)
+            if arguments else inner)
+        pieces.append(text[close])
+        index = close + 1
+    return "".join(pieces)
+
+
+def _matching_bracket(text: str, start: int) -> int | None:
+    """start의 여는 괄호와 짝이 되는 닫는 괄호 위치."""
+    depth = 0
+    for index in range(start, len(text)):
+        if text[index] in "([{":
+            depth += 1
+        elif text[index] in ")]}":
+            depth -= 1
+            if depth == 0:
+                return index
+    return None
 
 
 def evaluate(expression: str, scope: dict) -> object:
@@ -1599,6 +1639,21 @@ def self_test() -> int:
     if not isinstance(hoisted.get("Facing"), Rot3) \
             or hoisted["Facing"].yaw != 29.0:
         failures.append("파일 스코프 FRotator 상수를 걷지 않는다")
+
+    # 괄호 안에 들어앉은 삼항. 여태 깊이 0만 봐서 `FRotator(0, cond ? a : b,
+    # 0)` 꼴이 통째로 안 읽혔고, 그 회전을 쓰는 상자는 전부 판정에서 빠졌다.
+    try:
+        nested = as_rot(evaluate(
+            "FRotator(0, StepIndex % 2 == 0 ? -12.0f : 12.0f, 0)",
+            {"StepIndex": 1})).yaw
+        first = as_vec(evaluate(
+            "FVector(A ? 1 : 2, 3, 4)", {"A": False})).x
+    except Unresolved:
+        nested = first = None
+    if nested != 12.0:
+        failures.append("인자 안에 들어앉은 삼항을 못 읽는다")
+    if first != 2.0:
+        failures.append("첫 인자의 삼항에 앞 인자가 딸려 들어간다")
 
     if abs(evaluate("Delta.Size2D()", {"Delta": Vec3(3, 4, 12)}) - 5.0) > 1e-6:
         failures.append("Vec3.Size2D가 없다")
