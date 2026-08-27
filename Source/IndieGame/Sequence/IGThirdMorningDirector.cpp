@@ -2756,8 +2756,15 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 	// corridor and stair landing look connected while being impassable.
 	CreateBlock(FVector(975, -227.5f, 130), FVector(20, 305, 280), DarkConcreteMaterial);
 	CreateBlock(FVector(975, 227.5f, 130), FVector(20, 305, 280), DarkConcreteMaterial);
+	// 위 방화벽은 Z -10에서 끝나는데 내려가는 단은 -165까지 내려간다.
+	// 그 밑으로 아래 계단참 바닥까지 뚫린 틈이 남아 있었다. 방화벽
+	// 좌표는 CH03 경로 계약이 잠가 두었으므로 밑동을 따로 세운다.
+	CreateBlock(FVector(975, 227.5f, -105), FVector(20, 305, 190), DarkConcreteMaterial);
 	CreateBlock(FVector(975, 0, 245), FVector(20, 150, 70), DarkConcreteMaterial);
-	CreateBlock(FVector(1210, 180, 20), FVector(20, 500, 520), DarkConcreteMaterial);
+	// 이 벽은 계단실 샤프트의 동쪽 면이다. Y를 430까지 끌고 가는 바람에
+	// 아래 계단참 통로(Y 327..437)를 가로질러, 루프 존이 서 있는 동쪽
+	// 끝까지 7 cm만 남기고 막혀 있었다. 통로 남쪽 벽선에서 끊는다.
+	CreateBlock(FVector(1210, 128.5f, 20), FVector(20, 397, 520), DarkConcreteMaterial);
 	// Enclose the upward flight all the way to the unfinished fifth-floor
 	// landing. The former shell stopped after the first tread, exposing the
 	// sky as a flat blue rectangle and making an ordinary stairwell read like
@@ -2804,8 +2811,15 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 	}
 	CreateBlock(FVector(1265, 382, -190), FVector(560, 130, 20), ConcreteMaterial);
 	CreateBlock(FVector(1265, 447, -55), FVector(560, 20, 290), DarkConcreteMaterial);
-	CreateBlock(FVector(1265, 317, -55), FVector(560, 20, 290), DarkConcreteMaterial);
+	// 남쪽 벽을 계단 폭(X 985..1185) 밖에서 시작한다. 예전에는 X 985부터
+	// 깔려 내려오는 단 열째·열한째를 통째로 덮었다. 계단이 바닥 두 단을
+	// 남기고 벽으로 막히는 셈이라, 세 번 도는 P4 루프의 존까지 걸어갈
+	// 방법이 아예 없었다.
+	CreateBlock(FVector(1365, 317, -55), FVector(360, 20, 290), DarkConcreteMaterial);
 	CreateBlock(FVector(1545, 382, -55), FVector(20, 150, 290), DarkConcreteMaterial);
+	// 아래 계단참 통로의 천장. 벽 셋이 Z 90에서 끝나 있어서 통로에 서면
+	// 위가 그대로 뚫려 있었다.
+	CreateBlock(FVector(1270, 382, 180), FVector(570, 150, 180), DarkConcreteMaterial);
 
 	// The third loop makes the lower route physically unreadable: a waist-high
 	// sheet of water occupies the first tread while the opposite gate opens.
