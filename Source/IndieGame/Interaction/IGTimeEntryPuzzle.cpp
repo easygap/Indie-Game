@@ -583,12 +583,16 @@ void AIGTimeEntryPuzzle::BuildPosHousing(
 		PosUniformScale) != nullptr;
 	if (!bUsesAuthoredHousing)
 	{
+		// 앞면이 X=2.5였다. 표시부는 배킹 2.02, 숫자 2.27, 렌즈 2.49로
+		// 그 안에 통째로 들어앉는다 — 저작 메시가 없을 때 이 폴백은 자기
+		// 화면을 몸통으로 덮고 렌즈와 0.1 mm 차이로 깜빡였다. 알람 쪽
+		// 폴백(앞면 2.0)처럼 표시부 뒤에서 끝낸다.
 		AddPresentationPart(
 			TEXT("PosFallbackHousing"),
 			CubeMesh,
 			BodyMaterial,
-			FVector(-20.0f, 0.0f, 0.0f),
-			FVector(45.0f, 50.0f, 36.0f));
+			FVector(-20.3f, 0.0f, 0.0f),
+			FVector(44.4f, 50.0f, 36.0f));
 	}
 
 	AddPresentationPart(
