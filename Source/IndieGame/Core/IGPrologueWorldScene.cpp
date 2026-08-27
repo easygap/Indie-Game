@@ -128,7 +128,11 @@ namespace IGPrologueWorld
 	const FVector HomeDoorLocation(101.0f, -225.0f, FourthFloorZ);
 	// Far end of the hallway, so leaving 403 is a walk rather than a step.
 	const FVector ElevatorLocation(790.0f, -305.0f, FourthFloorZ);
-	const FVector StoreDoorLocation(2405.0f, -457.0f, 6.0f);
+	// 자동문 짝은 열리면 고정 유리(X 2401..2409) 옆으로 물러난다. 문을
+	// 유리와 같은 X 2405에 두면 짝이 유리 **안으로** 들어가 그 구간만
+	// 유리가 두 겹이 되고 짝의 알루미늄 틀이 유리 속에 박혀 보인다.
+	// 8 cm 안쪽 레일로 물려 유리 뒤를 지나가게 한다.
+	const FVector StoreDoorLocation(2413.0f, -457.0f, 6.0f);
 	const FVector CheckoutLocation(2620.0f, -255.0f, 96.0f);
 	const FVector WalletHorizontalLocation(-125.0f, -183.0f, 0.0f);
 
@@ -5995,8 +5999,10 @@ void AIGPrologueWorldScene::BuildStore()
 	CreateBlock(
 		FVector(2434, -404, 241), FVector(7, 7, 10),
 		PlasticDarkMaterial, false, CylinderMesh, FRotator(48, 35, 0));
+	// 자동문 오른쪽 짝이 물러나 서는 자리(X 2410..2416, Y -402..-342)를
+	// 비켜 세운다. X 2420이면 짝이 통을 지나간다.
 	CreateBlock(
-		FVector(2420, -398, 24), FVector(22, 22, 46),
+		FVector(2432, -398, 24), FVector(22, 22, 46),
 		PlasticDarkMaterial, true, CylinderMesh);
 	PlacePhotoProp(
 		TEXT("outdoor_table_chair_set_01"), FVector(2350, -600, 0),
