@@ -116,6 +116,17 @@ namespace IGThirdMorning
 	constexpr float RoofDoorHoldSeconds = 2.4f;
 	constexpr float RoofDoorReturnSeconds = 0.18f;
 	const FVector TankCenter(2500.0f, -300.0f, 0.0f);
+	// 실종 전단은 붙일 면에 닿아야 한다. 예전 X 1178은 계단 난간
+	// (X 1170..1178) 안으로 1.5 cm 들어간 채 동쪽 벽에서 21.5 cm 떠 있었다.
+	// 벽에 붙이되 Z는 165로 내린다 — 188이면 벽 조명함(Z 215..237)을 문다.
+	// P3를 푼 뒤 자리는 그대로다. 계단 표지판 면판(X 989.8) 앞 0.7 cm이라
+	// 이미 붙어 있고, 표지판 글자와도 겹치지 않는다.
+	const FVector SearchPosterLocation(1198.5f, -185.0f, 165.0f);
+	const FVector SearchPosterSolvedLocation(992.0f, -84.0f, 150.0f);
+	// 펄럭여 내려앉은 영수증이 멈추는 자리. 롤 -18도인 24 x 13 x 1.2 판은
+	// 월드 Z 두께가 5.16 cm라 중심이 2.58이어야 바닥에 닿는다. Z 9는 6.4 cm
+	// 떠 있었고, Y -25는 첫 단(Y -60..-30) 안으로 1.4 cm 물려 있었다.
+	const FVector P4ReceiptRestLocation(1060.0f, -22.0f, 2.58f);
 	const FVector TankHatchOffset(-96.0f, 0.0f, 0.0f);
 	const FVector TankLidOpenOffset(36.9f, 0.0f, 49.5f);
 	constexpr float TankShellBottomZ = 340.0f;
@@ -1082,8 +1093,8 @@ void AIGThirdMorningDirector::ApplyChapterThreeWorldState()
 	{
 		SearchPosterAction->SetActorLocation(ToWorld(
 			bP3Solved
-				? FVector(992.0f, -84.0f, 150.0f)
-				: FVector(1178.0f, -185.0f, 188.0f)));
+				? IGThirdMorning::SearchPosterSolvedLocation
+				: IGThirdMorning::SearchPosterLocation));
 	}
 	for (AIGZoneTrigger* LoopZone : StairLoopZones)
 	{
@@ -2990,6 +3001,8 @@ void AIGThirdMorningDirector::BuildLoopingStairwell()
 		Drip->SetVisibility(false);
 		StairLatinSignParts.Add(Drip);
 	}
+	// 아래 UpdateP4ReceiptHint가 이 조각을 계단참으로 펄럭여 내린다.
+	// 여기는 시작 자세이므로 단 위 68 cm에 떠 있는 것이 맞다.
 	P4ReceiptFragment = CreateBlock(
 		FVector(1090, -250, 190),
 		FVector(24, 13, 1.2f),
@@ -3127,7 +3140,7 @@ void AIGThirdMorningDirector::BuildFifthFloorAndRoof()
 	// after a successful drain it settles against the landing wall.
 	SearchPosterAction = SpawnAction(
 		EIGChapterThreeAction::EvidenceSearchPoster,
-		FVector(1178.0f, -185.0f, 188.0f),
+		IGThirdMorning::SearchPosterLocation,
 		FVector(3, 66, 92),
 		PaperMaterial,
 		NSLOCTEXT(
@@ -5544,7 +5557,7 @@ void AIGThirdMorningDirector::CompleteP3()
 	if (SearchPosterAction)
 	{
 		SearchPosterAction->SetActorLocation(
-			ToWorld(FVector(992.0f, -84.0f, 150.0f)));
+			ToWorld(IGThirdMorning::SearchPosterSolvedLocation));
 	}
 	if (P3FloorDrainAction)
 	{
@@ -6746,7 +6759,8 @@ void AIGThirdMorningDirector::ApplyP4PresentationState()
 		P4ReceiptFragment->SetVisibility(P4HintStage >= 2);
 		if (P4HintStage >= 2)
 		{
-			P4ReceiptFragment->SetRelativeLocation(FVector(1060, -25, 9));
+			P4ReceiptFragment->SetRelativeLocation(
+				IGThirdMorning::P4ReceiptRestLocation);
 			P4ReceiptFragment->SetRelativeRotation(FRotator(0, 0, -18));
 		}
 	}
@@ -6785,7 +6799,7 @@ void AIGThirdMorningDirector::UpdateP4ReceiptHint()
 	}
 	P4ReceiptHintAlpha = FMath::Min(1.0f, P4ReceiptHintAlpha + 0.05f / 1.35f);
 	const FVector Start(1090, -250, 190);
-	const FVector End(1060, -25, 9);
+	const FVector End = IGThirdMorning::P4ReceiptRestLocation;
 	FVector Location = FMath::Lerp(Start, End, P4ReceiptHintAlpha);
 	Location.Z += FMath::Sin(P4ReceiptHintAlpha * PI * 3.0f) * 5.0f;
 	P4ReceiptFragment->SetRelativeLocation(Location);
