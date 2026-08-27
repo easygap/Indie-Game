@@ -694,6 +694,21 @@ def _file_scope_constants(text: str) -> dict:
                 scope[match.group("name")] = as_vec(evaluate(expression, scope))
             except Unresolved:
                 pass
+    # 파일 스코프 회전은 여태 한 번도 걷지 않았다. 못 읽은 회전은 상자를
+    # 대각선 길이짜리 정육면체로 부풀리고 `unknown-rotation`을 달아 감사
+    # 판정에서 통째로 빼기 때문에, 이름 하나가 빠지면 그 자리는 검사되지
+    # 않는 것과 같다. CCTV 카메라 회전이 그 상태였다.
+    for match in CONST_ROTATOR.finditer(body):
+        value = match.group("value").strip()
+        # 값 부분이 닫는 괄호까지 삼킨다. 본문 스캐너와 같은 손질이다.
+        while value.endswith(")") and value.count(")") > value.count("("):
+            value = value[:-1].rstrip()
+        expression = value if value.startswith("FRotator") \
+            else f"FRotator({value})"
+        try:
+            scope[match.group("name")] = as_rot(evaluate(expression, scope))
+        except Unresolved:
+            pass
     return scope
 
 
@@ -1574,6 +1589,16 @@ def self_test() -> int:
         value = value[:-1].rstrip()
     if as_rot(evaluate(f"FRotator({value})", {})).yaw != 90.0:
         failures.append("생성자 꼴 FRotator 선언이 안 풀린다")
+
+    # 파일 스코프 회전을 걷지 않으면, 그것을 쓰는 상자는 회전을 못 읽어
+    # 대각선 길이짜리 정육면체가 되고 감사 판정에서 통째로 빠진다.
+    hoisted = _file_scope_constants(
+        "namespace IGTest\n{\n"
+        "\tconst FVector Where(1.0f, 2.0f, 3.0f);\n"
+        "\tconst FRotator Facing(-25.0f, 29.0f, 0.0f);\n}\n")
+    if not isinstance(hoisted.get("Facing"), Rot3) \
+            or hoisted["Facing"].yaw != 29.0:
+        failures.append("파일 스코프 FRotator 상수를 걷지 않는다")
 
     if abs(evaluate("Delta.Size2D()", {"Delta": Vec3(3, 4, 12)}) - 5.0) > 1e-6:
         failures.append("Vec3.Size2D가 없다")
