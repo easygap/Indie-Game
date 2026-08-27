@@ -88,6 +88,43 @@ ENGINE_UNIT_MESHES = frozenset(
     {"nullptr", "CubeMesh", "PlaneMesh", "CylinderMesh", "SphereMesh", "ConeMesh"}
 )
 
+# 저작 메시를 쓰는 상자는 크기 인자가 배율이라 상자를 세울 수 없었다. 실제
+# 크기는 소스가 아니라 구운 에셋에 있고, `Scripts/export_mesh_bounds.py`가
+# 그것을 여기로 뽑아 둔다. 이 표가 있으면 배율에 곱해 진짜 상자가 나온다.
+MESH_BOUNDS_RELATIVE = os.path.join("Docs", "mesh_bounds.json")
+# `WaterBottleMesh = IGThirdMorning::LoadMesh(TEXT("/Game/Meshes/SM_X.SM_X"));`
+# 이나 `Mesh = PropMesh(TEXT("SM_X"));` 꼴로 이름이 붙는다.
+MESH_BINDING = re.compile(
+    r"(?P<name>\w+)\s*=\s*[^;]*?(?:/Game/[\w/]*?(?P<path>SM_\w+)\."
+    r"|(?:PropMesh|LoadMesh)\(\s*TEXT\(\s*\"(?P<short>SM_\w+)\")")
+
+
+def load_mesh_bounds() -> dict:
+    path = os.path.join(PROJECT_ROOT, MESH_BOUNDS_RELATIVE)
+    try:
+        with open(path, "r", encoding="utf-8") as handle:
+            return json.load(handle).get("meshes", {})
+    except (OSError, ValueError):
+        return {}
+
+
+MESH_BOUNDS = load_mesh_bounds()
+
+
+def _authored_mesh_name(token: str, bindings: dict):
+    """메시 인자가 가리키는 에셋 이름. 삼항이면 저작 메시 쪽을 고른다."""
+    for part in re.split(r"[?:]", token):
+        part = part.strip().replace(".Get()", "")
+        inline = re.search(r'TEXT\(\s*"(SM_\w+)"', part)
+        if inline:
+            return inline.group(1)
+        if re.fullmatch(r"\w+", part):
+            if part in bindings:
+                return bindings[part]
+            if part.startswith("SM_"):
+                return part
+    return None
+
 # CreateBlock's tail differs between the two builders.
 #   AIGPrologueWorldScene: center, size, material, collision, mesh, rotation, parent
 #   AIGThirdMorningDirector: center, size, material, collision, rotation, mesh, movable
@@ -198,21 +235,33 @@ class Rot3:
         return f"R(p={self.pitch:g}, y={self.yaw:g}, r={self.roll:g})"
 
 
+def _rotation_basis(rot: Rot3) -> tuple:
+    """Unreal's rotation order is Roll (X), then Pitch (Y), then Yaw (Z)."""
+    cp, sp = _cos_sin(rot.pitch)
+    cy, sy = _cos_sin(rot.yaw)
+    cr, sr = _cos_sin(rot.roll)
+    return (
+        (cp * cy, sr * sp * cy - cr * sy, cr * sp * cy + sr * sy),
+        (cp * sy, sr * sp * sy + cr * cy, cr * sp * sy - sr * cy),
+        (-sp, sr * cp, cr * cp),
+    )
+
+
+def rotate_vector(vector: Vec3, rot: Rot3) -> Vec3:
+    """메시 바운드 원점처럼 피벗에서 밀린 오프셋을 월드 축으로 돌린다."""
+    if rot.is_identity():
+        return Vec3(vector.x, vector.y, vector.z)
+    basis = _rotation_basis(rot)
+    local = (vector.x, vector.y, vector.z)
+    return Vec3(*[sum(row[i] * local[i] for i in range(3)) for row in basis])
+
+
 def rotated_extent(size: Vec3, rot: Rot3) -> Vec3:
     """Axis-aligned full size of a box after an FRotator, in world axes."""
     if rot.is_identity():
         return Vec3(size.x, size.y, size.z)
 
-    cp, sp = _cos_sin(rot.pitch)
-    cy, sy = _cos_sin(rot.yaw)
-    cr, sr = _cos_sin(rot.roll)
-
-    # Unreal's rotation order is Roll (X), then Pitch (Y), then Yaw (Z).
-    basis = (
-        (cp * cy, sr * sp * cy - cr * sy, cr * sp * cy + sr * sy),
-        (cp * sy, sr * sp * sy + cr * cy, cr * sp * sy - sr * cy),
-        (-sp, sr * cp, cr * cp),
-    )
+    basis = _rotation_basis(rot)
     half = (size.x / 2.0, size.y / 2.0, size.z / 2.0)
     out = []
     for row in basis:
@@ -552,6 +601,11 @@ class Box:
     material: str
     note: str = ""
     exempt: str = ""
+    # 구운 바운드로 크기를 푼 저작 메시의 에셋 이름. 그 상자는 크기는
+    # 믿을 수 있어도 **속이 꽉 찼다고 믿을 수는 없다** — 물탱크 셸도
+    # 서비스 캐비닛도 껍데기라, AABB를 구조물로 쓰면 그 안의 물건이
+    # 전부 파묻힌 것으로 잡힌다.
+    mesh: str = ""
 
     @property
     def minimum(self):
@@ -912,6 +966,10 @@ class BodyScanner:
         self.result = result
         self.file_scope = file_scope
         self.structs = _struct_fields(text)
+        self.mesh_bindings = {
+            match.group("name"): match.group("path") or match.group("short")
+            for match in MESH_BINDING.finditer(text)
+        }
         self.frame = "SceneRoot"
         self.function = ""
         self.lambdas: dict[str, tuple[list, tuple[int, int]]] = {}
@@ -1314,7 +1372,26 @@ class BodyScanner:
 
         base_mesh = re.sub(r"\s*\?.*$", "", mesh_token).strip()
         base_mesh = base_mesh.replace(".Get()", "")
-        if not note:
+        # 저작 메시는 크기 인자가 배율이다. 구운 바운드를 알면 그 배율에
+        # 곱해 진짜 상자가 나오고, 그때부터 이 상자도 판정 대상이 된다.
+        # 바운드 원점은 피벗에서 밀린 값이므로 회전을 태워 중심에 더한다.
+        bounds = None
+        asset = None
+        if base_mesh not in ENGINE_UNIT_MESHES or (
+                abs(size.x - 100.0) < 1e-6 and abs(size.y - 100.0) < 1e-6
+                and abs(size.z - 100.0) < 1e-6):
+            asset = _authored_mesh_name(mesh_token, self.mesh_bindings)
+            bounds = MESH_BOUNDS.get(asset) if asset else None
+        if bounds is not None and rotation_known:
+            scale = (size.x / 100.0, size.y / 100.0, size.z / 100.0)
+            size = Vec3(*[bounds["extent"][i] * 2.0 * scale[i]
+                          for i in range(3)])
+            shift = rotate_vector(
+                Vec3(*[bounds["origin"][i] * scale[i] for i in range(3)]),
+                rotation)
+            center = Vec3(center.x + shift.x, center.y + shift.y,
+                          center.z + shift.z)
+        elif not note:
             if base_mesh == "PlaneMesh":
                 note = "plane"
             elif base_mesh not in ENGINE_UNIT_MESHES:
@@ -1325,6 +1402,8 @@ class BodyScanner:
                 # size", so the block is an authored mesh even where the
                 # override reached CreateBlock through a local.
                 note = "authored"
+        if bounds is not None and base_mesh == "PlaneMesh" and not note:
+            note = "plane"
 
         if rotation_known:
             world_size = rotated_extent(size, rotation)
@@ -1357,6 +1436,7 @@ class BodyScanner:
             material=material,
             note=note,
             exempt=self._exemption(line),
+            mesh=(asset or "") if bounds is not None else "",
         ))
         self.result.resolved += 1
 
@@ -1486,7 +1566,10 @@ def audit(boxes: list[Box]) -> list[Finding]:
         by_frame.setdefault(box.frame, []).append(box)
 
     for frame, frame_boxes in by_frame.items():
-        structures = [b for b in frame_boxes if b.is_structure()]
+        # 저작 메시의 AABB는 바깥 한계이지 고체가 아니다. 구조물로 쓰면
+        # 속이 빈 물탱크 셸이 그 안의 인체와 사다리를 통째로 삼킨다.
+        structures = [
+            b for b in frame_boxes if b.is_structure() and not b.mesh]
         props = [
             b for b in checkable
             if b.frame == frame and not b.is_structure()
@@ -1499,7 +1582,11 @@ def audit(boxes: list[Box]) -> list[Finding]:
         ]
 
         for prop in props:
-            findings.extend(_check_support(prop, supports, frame_boxes))
+            # 시뮬레이션 물체는 떨어져서 자리를 잡는다. 저작 좌표는 시작
+            # 자세이지 놓인 자리가 아니다 — movable 블록과 같은 이유이고,
+            # 파고든 것은 _check_simulated_start가 더 엄한 눈으로 본다.
+            if prop.kind != "physics":
+                findings.extend(_check_support(prop, supports, frame_boxes))
             findings.extend(_check_embedding(prop, structures))
 
         findings.extend(_check_simulated_start(frame_boxes))
@@ -1879,6 +1966,30 @@ def self_test() -> int:
     if len(vector_loop.boxes) != 2:
         failures.append("FVector 목록을 도는 범위 for를 못 읽는다 (%d개)"
                         % len(vector_loop.boxes))
+
+    # 저작 메시는 크기 인자가 배율이다. 구운 바운드를 알면 진짜 상자가
+    # 나오고 그때부터 판정 대상이 된다. 바운드 원점은 피벗에서 밀린
+    # 값이라 중심에 더해야 한다.
+    MESH_BOUNDS["SM_SelfTestProp"] = {
+        "origin": [0.0, 0.0, 10.0], "extent": [3.0, 4.0, 10.0]}
+    try:
+        bound_result = scan_text(
+            "void AIGTest::Build()\n{\n"
+            "\tProp = LoadMesh(TEXT(\"SM_SelfTestProp\"));\n"
+            "\tCreateBlock(FVector(0, 0, 0), FVector(200.0f), Mat, "
+            "false, Prop);\n}\n")
+    finally:
+        MESH_BOUNDS.pop("SM_SelfTestProp", None)
+    if len(bound_result.boxes) != 1:
+        failures.append("저작 메시 상자를 세우지 못한다")
+    elif tuple(round(v, 1) for v in bound_result.boxes[0].size) != (12.0, 16.0, 40.0):
+        failures.append("구운 바운드에 배율을 곱하지 않는다 (%s)"
+                        % (bound_result.boxes[0].size,))
+    elif round(bound_result.boxes[0].center[2], 1) != 20.0:
+        failures.append("바운드 원점을 중심에 더하지 않는다 (%s)"
+                        % (bound_result.boxes[0].center,))
+    elif bound_result.boxes[0].mesh != "SM_SelfTestProp":
+        failures.append("저작 메시 상자에 이름표가 남지 않는다")
 
     if abs(evaluate("Delta.Size2D()", {"Delta": Vec3(3, 4, 12)}) - 5.0) > 1e-6:
         failures.append("Vec3.Size2D가 없다")

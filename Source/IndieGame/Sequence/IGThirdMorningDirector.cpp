@@ -2565,6 +2565,8 @@ void AIGThirdMorningDirector::BuildP3ServiceCabinet()
 		&& P3PressureGaugeMesh;
 	if (bHasAuthoredP3Cluster)
 	{
+		// physics-audit: intentional 아래 else의 블록아웃이 같은 봉투를
+		// 그린다. 둘은 배타적이라 화면에 함께 나오지 않는다.
 		CreateBlock(
 			FVector(675, -196, 132),
 			FVector(100, 100, 100),
@@ -3746,6 +3748,8 @@ void AIGThirdMorningDirector::BuildWaterTank()
 	}
 	if (bHasAuthoredExteriorStair)
 	{
+		// physics-audit: intentional 위 계단 블록은 저작 계단이 있으면
+		// 숨는 충돌 대역이다. 그 안에 이 가로대가 들어가는 것이 맞다.
 		CreateBlock(
 			FVector(2235, -300, 578.5f),
 			FVector(100.0f),

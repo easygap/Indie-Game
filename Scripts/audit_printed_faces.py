@@ -135,7 +135,9 @@ def audit_boxes(boxes, bindings, print_materials, source_label):
             continue
         # 저작 메시는 자기 UV를 들고 있다. 여섯 면이 같은 UV인 것은 엔진
         # 기본 큐브의 성질이므로 그쪽만 본다.
-        if box.note == "authored":
+        # 저작 메시는 자기 UV를 들고 있다. 구운 바운드로 크기를 풀면
+        # note 는 비지만 이름표는 남으므로, 둘 중 하나만 봐도 놓친다.
+        if box.note == "authored" or getattr(box, "mesh", ""):
             counts["authored_mesh"] += 1
             continue
         counts["printed"] += 1

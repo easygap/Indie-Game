@@ -126,6 +126,10 @@ def drawable(box, hidden: set) -> bool:
         # 저작 메시는 크기 인자가 배율이라 상자가 뜻이 없고, 못 읽은
         # 회전은 자리 자체가 불확실하다.
         return False
+    if getattr(box, "exempt", ""):
+        # 기하 감사와 같은 표시를 읽는다. 서로 배타적인 분기가 같은
+        # 봉투를 그리는 자리는 둘 다 세면 늘 겹친 것으로 나온다.
+        return False
     return axis_aligned(box) and box.line not in hidden
 
 
