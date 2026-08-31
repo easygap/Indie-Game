@@ -4126,6 +4126,105 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				bNotebookRestored ? 1 : 0));
 			return;
 		}
+		// 시작 여부는 IsActive가 아니라 엔딩 이름으로 본다. 앞 단계들이
+		// 느리게 흐르면 87초가 이미 지나 스스로 끝나 있을 수도 있고, 그건
+		// 결함이 아니라 정상 종료다.
+		if (!Epilogue || Epilogue->GetEndingId() != FName(TEXT("Ending.A")))
+		{
+			FailProbe(TEXT("epilogue did not start with the ending choice"));
+			return;
+		}
+		ProbeStep = EProbeStep::EpilogueContract;
+		StepDeadlineSeconds = 0.0f;
+		break;
+	}
+
+	case EProbeStep::EpilogueContract:
+	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (!Narrative || !Epilogue)
+		{
+			FailProbe(TEXT("epilogue contract lost its fixtures"));
+			return;
+		}
+		// 87초를 기다리지 않고 남은 큐를 전부 흘린다. 끝나면 액터가 스스로
+		// 비활성이 되고 HUD의 마지막 카드도 걷혀 있어야 한다.
+		if (Epilogue->IsActive() && !Epilogue->CompleteImmediatelyForProbe())
+		{
+			FailProbe(TEXT("epilogue did not finish when its cues were flushed"));
+			return;
+		}
+		if (Epilogue->IsActive())
+		{
+			FailProbe(TEXT("epilogue stayed active after its last cue"));
+			return;
+		}
+		// 몽타주 · 공방 · 가을 · 보도 · 마지막 카드.
+		if (Epilogue->GetPlayedSceneCount() != 5)
+		{
+			FailProbe(FString::Printf(
+				TEXT("epilogue played %d scenes, expected 5"),
+				Epilogue->GetPlayedSceneCount()));
+			return;
+		}
+		if (APlayerController* Controller = GetWorld()->GetFirstPlayerController())
+		{
+			if (AIGHorrorHUD* Hud = Cast<AIGHorrorHUD>(Controller->GetHUD()))
+			{
+				if (Hud->IsMissingFloorEpilogueVisible())
+				{
+					FailProbe(TEXT("epilogue left its last card on screen"));
+					return;
+				}
+			}
+		}
+
+		// §22.3: 목격은 서로 독립이고, 어떤 교차에도 들어가지 않는다.
+		const int32 TruthsBefore = Narrative->GetConfirmedTruthCount();
+		const EIGMissingFloorWitness Witnesses[] = {
+			EIGMissingFloorWitness::SeoSleepingPills,
+			EIGMissingFloorWitness::HwangWaterBowl,
+			EIGMissingFloorWitness::BoothSoundproofing,
+			EIGMissingFloorWitness::RooftopCigarettePack,
+		};
+		for (const EIGMissingFloorWitness Witness : Witnesses)
+		{
+			Narrative->RecordWitness(Witness);
+			if (!Narrative->HasWitness(Witness))
+			{
+				FailProbe(TEXT("an optional sighting did not persist"));
+				return;
+			}
+		}
+		if (Narrative->GetWitnessCount() != UE_ARRAY_COUNT(Witnesses))
+		{
+			FailProbe(FString::Printf(
+				TEXT("witness count %d, expected %d"),
+				Narrative->GetWitnessCount(),
+				static_cast<int32>(UE_ARRAY_COUNT(Witnesses))));
+			return;
+		}
+		// 같은 것을 두 번 본다고 두 번 적히지 않는다.
+		if (Narrative->RecordWitness(EIGMissingFloorWitness::HwangWaterBowl))
+		{
+			FailProbe(TEXT("a sighting was recorded twice"));
+			return;
+		}
+		if (Narrative->GetConfirmedTruthCount() != TruthsBefore)
+		{
+			FailProbe(TEXT("optional sightings changed the confirmed truths"));
+			return;
+		}
+		// 저장을 한 바퀴 돌려도 살아남고, 모르는 이름은 복원에서 버려진다.
+		FIGMissingFloorNarrativeSnapshot WitnessReceipt = Narrative->GetSnapshot();
+		WitnessReceipt.Night.Witnesses.Add(FName(TEXT("Seen.NotAThingThisBuildKnows")));
+		Narrative->RestoreSnapshot(WitnessReceipt);
+		if (Narrative->GetWitnessCount() != UE_ARRAY_COUNT(Witnesses)
+			|| !Narrative->HasWitness(EIGMissingFloorWitness::BoothSoundproofing))
+		{
+			FailProbe(TEXT("witness restore dropped or kept the wrong names"));
+			return;
+		}
 		PassProbe();
 		break;
 	}

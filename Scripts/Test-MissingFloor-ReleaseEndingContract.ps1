@@ -328,6 +328,15 @@ Assert-ContainsAll $puzzleTwoSource @(
 	'RecordWitness(EIGMissingFloorWitness::BoothSoundproofing)'
 ) '문틈 목격'
 
+Assert-ContainsAll $greyboxSource @(
+	'EProbeStep::EpilogueContract',
+	'Epilogue->GetPlayedSceneCount() != 5',
+	'Epilogue->CompleteImmediatelyForProbe()',
+	'Hud->IsMissingFloorEpilogueVisible()',
+	'Narrative->GetConfirmedTruthCount() != TruthsBefore',
+	'Seen.NotAThingThisBuildKnows'
+) '에필로그 런타임 프로브'
+
 # 어느 목격도 진행을 잠그지 않는다. 스테이지 유효성 검사가 이것들을
 # 묻지 않는 것이 「없어도 되는 것」이라는 설계의 표현이다.
 foreach ($optional in @('WaterBowl', 'SleepingPills', 'CigarettePack')) {

@@ -274,6 +274,8 @@ private:
 		NightFourFailureRetryContract,
 		NightFourWallContract,
 		NightFourEndingContract,
+		/** §35: 선택 뒤의 87초와, 진행을 잠그지 않는 목격 넷. */
+		EpilogueContract,
 		Done
 	};
 
