@@ -737,6 +737,16 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildAutumnLines() const
 		"IGMissingFloor",
 		"EpilogueAutumn1",
 		"5층이 뜯겨 나가고 있다. 크레인이 하루 종일 골목을 막는다."));
+	// 402호 문 너머의 없던 소리를 들어 본 회차만, 그 집이 다시 찬 것을
+	// 알아본다. 못 들었으면 그냥 창문 하나가 더 밝을 뿐이다.
+	if (Narrative
+		&& Narrative->HasWitness(EIGMissingFloorWitness::Unit402Silence))
+	{
+		Lines.Add(NSLOCTEXT(
+			"IGMissingFloor",
+			"EpilogueAutumn1Vacancy",
+			"402호에 불이 들어와 있다. 냉장고 도는 소리가 복도까지 난다."));
+	}
 	if (Narrative
 		&& Narrative->HasWitness(EIGMissingFloorWitness::HwangWaterBowl))
 	{

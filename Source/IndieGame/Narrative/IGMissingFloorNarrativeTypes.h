@@ -126,7 +126,13 @@ enum class EIGMissingFloorWitness : uint8
 	/** 편의점 계산대의 야간 근무표. 나린이 그 새벽마다 서 있었다. */
 	StoreNightRoster = 8,
 	/** 401호 문 너머 라디오. 황순금이 벽에게 틀어 주던 소리. */
-	Unit401DoorRadio = 9
+	Unit401DoorRadio = 9,
+	/** 402호 문 너머의 공기. 냉장고 험이 없다 — 전기가 끊긴 집이다. */
+	Unit402Silence = 10,
+	/** 옥상 철문 안쪽의 실제 바람. 「물탱크 바람 소리」의 반증. */
+	RoofDoorWind = 11,
+	/** 관리실 안쪽 방에서 새는 기계 험. 쓰는 방이라는 뜻이다. */
+	BoothInnerRoomHum = 12
 };
 
 /** One truth and the provenance behind it. Confirmation is always derived. */

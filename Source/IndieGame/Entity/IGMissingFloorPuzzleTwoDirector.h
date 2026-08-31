@@ -76,6 +76,7 @@ private:
 	void HandleFoamExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleWallCalendarExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleRecorderBayExamined(AIGMissingFloorEvidence* Evidence);
+	void HandleInnerRoomListenExamined(AIGMissingFloorEvidence* Evidence);
 	UFUNCTION()
 	void HandleBoardReceiptsRead(class AIGReadableNote* Note, bool bOpened);
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
@@ -126,6 +127,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> RecorderBay;
+
+	/** 같은 문에서 보는 것과 듣는 것. 문틈은 눈이고 이쪽은 귀다. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> InnerRoomListen;
 
 	FDelegateHandle TruthHandle;
 	bool bSolvedAnnounced = false;

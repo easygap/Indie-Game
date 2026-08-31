@@ -1654,6 +1654,22 @@ void AIGMissingFloorNightFourDirector::BuildConfrontationReplyLines(
 				"녹화기 하드는 언제 빼셨어요. 자리에 먼지 자국만"
 				" 남아 있던데."),
 		},
+		{
+			EIGMissingFloorWitness::BoothInnerRoomHum,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyInnerRoom",
+				"창고라고 하셨죠. 창고에서 뭐가 계속 돌아가요."
+				" 거기서 주무시죠."),
+		},
+		{
+			EIGMissingFloorWitness::RoofDoorWind,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyWind",
+				"물탱크 바람 소리라고 하셨는데, 옥상에서 바람 들어 봤어요."
+				" 바람은 박자가 없어요."),
+		},
 	};
 
 	const FReplyEntry Humans[] =

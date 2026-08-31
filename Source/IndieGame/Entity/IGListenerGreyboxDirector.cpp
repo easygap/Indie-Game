@@ -757,6 +757,76 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 		Unit401Radio->OnExamined.AddUObject(
 			this, &AIGListenerGreyboxDirector::HandleUnit401RadioExamined);
 	}
+
+	// 402호 문 너머. 401호와 같은 오프셋으로 세운다 — 두 문 앞에서 같은
+	// 동작을 하고 다른 것을 듣는 것이 이 목격의 전부다.
+	Unit402Listen = SpawnListeningVolume(
+		CubeMesh,
+		TEXT("MissingFloorWitnessUnit402Listen"),
+		FVector(-30.0f, -246.0f, 1010.0f),
+		FVector(30.0f, 12.0f, 40.0f),
+		NSLOCTEXT(
+			"IGMissingFloor", "WitnessUnit402Prompt", "402호 문 — 귀를 기울인다"));
+	if (Unit402Listen)
+	{
+		Unit402Listen->OnExamined.AddUObject(
+			this, &AIGListenerGreyboxDirector::HandleUnit402ListenExamined);
+	}
+
+	// 옥상 철문 안쪽. 계단탑 문(힌지 -320, 220)을 지나 옥상으로 나선 자리다.
+	RoofDoorListen = SpawnListeningVolume(
+		CubeMesh,
+		TEXT("MissingFloorWitnessRoofDoorListen"),
+		FVector(-300.0f, 250.0f, 1290.0f),
+		FVector(40.0f, 40.0f, 60.0f),
+		NSLOCTEXT(
+			"IGMissingFloor", "WitnessRoofWindPrompt", "옥상 문 — 바람을 듣는다"));
+	if (RoofDoorListen)
+	{
+		RoofDoorListen->OnExamined.AddUObject(
+			this, &AIGListenerGreyboxDirector::HandleRoofDoorListenExamined);
+	}
+}
+
+AIGMissingFloorEvidence* AIGListenerGreyboxDirector::SpawnListeningVolume(
+	UStaticMesh* CubeMesh,
+	const TCHAR* ActorName,
+	const FVector& Location,
+	const FVector& Extent,
+	const FText& Prompt)
+{
+	UWorld* World = GetWorld();
+	if (!World || !CubeMesh)
+	{
+		return nullptr;
+	}
+	FActorSpawnParameters Parameters;
+	Parameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	Parameters.Name = ActorName;
+	AIGMissingFloorEvidence* Volume = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, Location),
+		Parameters);
+	if (!Volume)
+	{
+		return nullptr;
+	}
+	// 소음 0.03은 귀를 대는 값이다(§5.1의 엿듣기). 그림은 두지 않는다 —
+	// 여기 있는 것은 물건이 아니라 소리다.
+	Volume->Configure(
+		CubeMesh,
+		nullptr,
+		Extent,
+		Prompt,
+		FText::GetEmpty(),
+		EIGMissingFloorTruth::None,
+		EIGMissingFloorSource::None,
+		1.0f,
+		0.03f,
+		/*bPresentationVisible=*/false);
+	Volume->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Listen")));
+	return Volume;
 }
 
 void AIGListenerGreyboxDirector::HandleStoreRosterExamined(
@@ -766,6 +836,74 @@ void AIGListenerGreyboxDirector::HandleStoreRosterExamined(
 	{
 		Narrative->RecordWitness(EIGMissingFloorWitness::StoreNightRoster);
 	}
+}
+
+void AIGListenerGreyboxDirector::HandleUnit402ListenExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return;
+	}
+	Narrative->RecordWitness(EIGMissingFloorWitness::Unit402Silence);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateVacantUnitTone(this),
+		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
+		0.58f,
+		1.0f,
+		90.0f,
+		380.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"WitnessUnit402Caption",
+			"[문 너머] 공기뿐. 냉장고도 안 돈다"),
+		2.8f);
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"WitnessUnit402Thought",
+			"우리 집에선 늘 나던 그 소리가 없다. 전기를 끊고 나갔네."),
+		4.4f);
+}
+
+void AIGListenerGreyboxDirector::HandleRoofDoorListenExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return;
+	}
+	Narrative->RecordWitness(EIGMissingFloorWitness::RoofDoorWind);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateRoofDoorGust(this),
+		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
+		0.66f,
+		1.0f,
+		150.0f,
+		900.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"WitnessRoofWindCaption",
+			"[바깥] 바람이 느리게 부풀었다 죽는다"),
+		3.0f);
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"WitnessRoofWindThought",
+			"바람은 박자가 없다. 이걸 그 소리라고 하신 거였어."),
+		4.6f);
 }
 
 void AIGListenerGreyboxDirector::HandleUnit401RadioExamined(
@@ -4385,6 +4523,9 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			EIGMissingFloorWitness::AnnexWorkGlove,
 			EIGMissingFloorWitness::StoreNightRoster,
 			EIGMissingFloorWitness::Unit401DoorRadio,
+			EIGMissingFloorWitness::Unit402Silence,
+			EIGMissingFloorWitness::RoofDoorWind,
+			EIGMissingFloorWitness::BoothInnerRoomHum,
 		};
 		for (const EIGMissingFloorWitness Witness : Witnesses)
 		{

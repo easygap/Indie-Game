@@ -330,13 +330,16 @@ Assert-ContainsAll $narrativeTypes @(
 	'AnnexWorkGlove = 7',
 	'StoreNightRoster = 8',
 	'Unit401DoorRadio = 9',
+	'Unit402Silence = 10',
+	'RoofDoorWind = 11',
+	'BoothInnerRoomHum = 12',
 	'TArray<FName> Witnesses;'
 ) '선택적 목격 정의'
 
 # 정규화 상한이 열거형의 마지막을 따라가야 한다. 뒤처지면 새로 넣은 목격이
 # 복원에서 조용히 버려진다 — 저장은 되는데 다음 실행에 사라지는 모양이다.
 Assert-ContainsAll $narrativeSource @(
-	'Raw <= static_cast<uint8>(EIGMissingFloorWitness::Unit401DoorRadio);'
+	'Raw <= static_cast<uint8>(EIGMissingFloorWitness::BoothInnerRoomHum);'
 ) '목격 정규화 상한'
 
 Assert-ContainsAll $narrativeSource @(
@@ -350,6 +353,42 @@ Assert-ContainsAll $narrativeSource @(
 	'Seen.StoreNightRoster',
 	'Seen.Unit401DoorRadio'
 ) '선택적 목격 직렬화'
+
+# 소리로만 확인되는 목격은 `Heard.` 접두사를 쓴다. 저장 파일을 열어 본
+# 사람이 무엇을 보고 무엇을 들었는지까지 구분할 수 있어야 한다.
+Assert-ContainsAll $narrativeSource @(
+	'Heard.Unit402Silence',
+	'Heard.RoofDoorWind',
+	'Heard.BoothInnerRoomHum'
+) '소리 목격 직렬화'
+
+# 셋 다 그림 없이 부피만 세우고, 각자 자기 큐를 낸다.
+Assert-ContainsAll $greyboxSource @(
+	'AIGListenerGreyboxDirector::SpawnListeningVolume(',
+	'CreateVacantUnitTone(this)',
+	'CreateRoofDoorGust(this)',
+	'RecordWitness(EIGMissingFloorWitness::Unit402Silence)',
+	'RecordWitness(EIGMissingFloorWitness::RoofDoorWind)'
+) '소리 목격 판정'
+Assert-ContainsAll $puzzleTwoSource @(
+	'CreateFoamedRoomHum(this)',
+	'RecordWitness(EIGMissingFloorWitness::BoothInnerRoomHum)'
+) '안쪽 방 청음'
+
+# 402호의 요점은 없는 소리다. 저역을 넣으면 큐의 뜻이 사라지므로, 이
+# 함수에는 200Hz 아래 성분이 하나도 없어야 한다.
+$vacantBody = Get-MethodBody $toneSource `
+	'UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateVacantUnitTone(' `
+	'Vacant unit tone'
+$vacantBands = @([regex]::Matches($vacantBody, '(?<value>[0-9]+(?:\.[0-9]+)?)f\b') |
+	ForEach-Object { [double]$_.Groups['value'].Value } |
+	Where-Object { $_ -ge 20.0 })
+foreach ($band in $vacantBands) {
+	if ($band -lt 150.0) {
+		throw ("402호의 목격은 없는 저역이 내용이다. 메인즈 험 대역이 " +
+			"들어왔다: $band Hz.")
+	}
+}
 
 # 밤2 셋(문틈·달력·녹화기), 밤3 둘(장갑·담뱃갑), 낮 둘(물그릇·약봉투).
 Assert-ContainsAll $puzzleTwoSource @(
@@ -369,8 +408,13 @@ Assert-ContainsAll $nightFourSource @(
 Assert-ContainsAll $epilogueSource @(
 	'HasWitness(EIGMissingFloorWitness::RecorderEmptyBay)',
 	'HasWitness(EIGMissingFloorWitness::StoreNightRoster)',
-	'HasWitness(EIGMissingFloorWitness::Unit401DoorRadio)'
+	'HasWitness(EIGMissingFloorWitness::Unit401DoorRadio)',
+	'HasWitness(EIGMissingFloorWitness::Unit402Silence)'
 ) '새 목격의 보도 회수'
+Assert-ContainsAll $nightFourSource @(
+	'EIGMissingFloorWitness::BoothInnerRoomHum',
+	'EIGMissingFloorWitness::RoofDoorWind'
+) '소리 목격의 대치 회수'
 
 # 낮 목격 둘. 근무표는 계산대 상판, 라디오는 401호 문 앞의 소리 판정이다.
 Assert-ContainsAll $greyboxSource @(
@@ -549,4 +593,4 @@ foreach ($optional in @('WaterBowl', 'SleepingPills', 'CigarettePack')) {
 	}
 }
 
-Write-Host 'MISSING_FLOOR_RELEASE_ENDING_CONTRACT PASS replay_skip=1 ending_c=1 scoped_retry=1 audio=1 runtime_probe=1 epilogue=2 witnesses=9'
+Write-Host 'MISSING_FLOOR_RELEASE_ENDING_CONTRACT PASS replay_skip=1 ending_c=1 scoped_retry=1 audio=1 runtime_probe=1 epilogue=2 witnesses=12'

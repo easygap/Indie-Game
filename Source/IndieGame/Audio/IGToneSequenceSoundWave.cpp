@@ -1776,6 +1776,62 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRooftopTankSlosh(
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateVacantUnitTone(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGVacantUnitTone"));
+	TArray<FIGToneNote> Notes;
+	// 방의 공기. 아주 넓고 아주 작다 — 벽이 있다는 것 말고는 아무 정보가
+	// 없는 소리다.
+	Notes.Add({0.00f, 3.20f, 640.0f, 0.012f, 0.50f, 0.8f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.00f, 3.20f, 180.0f, 0.009f, 0.55f, 0.8f, EIGToneWaveform::ValueNoise});
+	// 문틈으로 드는 복도 공기. 이것만 있고 그 아래가 비어 있다.
+	Notes.Add({0.35f, 1.40f, 2100.0f, 0.007f, 0.40f, 1.2f, EIGToneWaveform::ValueNoise});
+	Notes.Add({1.95f, 1.05f, 1750.0f, 0.005f, 0.45f, 1.3f, EIGToneWaveform::ValueNoise});
+	// 60Hz도 120Hz도 없다. 그 부재가 이 큐의 전부이므로 저역에 아무것도
+	// 넣지 않는다 — 여기에 한 줄이라도 더하면 큐의 뜻이 사라진다.
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRoofDoorGust(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGRoofDoorGust"));
+	TArray<FIGToneNote> Notes;
+	// 돌풍 둘. 길이가 서로 다르고 정점도 어긋난다 — 바람에는 박자가 없다는
+	// 것이 이 큐가 하는 유일한 말이다.
+	Notes.Add({0.00f, 1.90f, 900.0f, 0.070f, 0.42f, 1.1f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.10f, 1.70f, 320.0f, 0.048f, 0.45f, 1.2f, EIGToneWaveform::ValueNoise});
+	Notes.Add({1.65f, 2.30f, 1150.0f, 0.055f, 0.38f, 1.0f, EIGToneWaveform::ValueNoise});
+	Notes.Add({1.80f, 2.10f, 260.0f, 0.040f, 0.44f, 1.1f, EIGToneWaveform::ValueNoise});
+	// 철문 틈에서 나는 얇은 휘파람. 돌풍이 셀 때만 선다.
+	Notes.Add({0.55f, 0.80f, 2650.0f, 0.016f, 0.30f, 1.6f, EIGToneWaveform::Sine});
+	Notes.Add({2.25f, 0.95f, 2410.0f, 0.014f, 0.32f, 1.6f, EIGToneWaveform::Sine});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	Wave->ConfigurePitchWow(0.0090f, 0.23f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateFoamedRoomHum(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGFoamedRoomHum"));
+	TArray<FIGToneNote> Notes;
+	// 92Hz와 배음 둘. 계란판이 고역을 먹으므로 이 위로는 아무것도 없다.
+	Notes.Add({0.00f, 4.00f, 92.0f, 0.052f, 0.35f, 0.9f, EIGToneWaveform::Sine});
+	Notes.Add({0.00f, 4.00f, 184.0f, 0.021f, 0.40f, 0.9f, EIGToneWaveform::Sine});
+	Notes.Add({0.00f, 4.00f, 276.0f, 0.008f, 0.45f, 1.0f, EIGToneWaveform::Triangle});
+	// 기계가 한 번 부하를 받는다. 사람이 쓰는 방이라는 유일한 신호다.
+	Notes.Add({2.10f, 0.70f, 92.0f, 0.018f, 0.20f, 1.4f, EIGToneWaveform::Sine});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	Wave->ConfigurePitchWow(0.0018f, 0.09f);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePoliceLineTapePull(
 	UObject* Outer)
 {

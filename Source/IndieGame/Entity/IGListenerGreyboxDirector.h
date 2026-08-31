@@ -139,6 +139,15 @@ private:
 	void HandleCigarettePackExamined(class AIGMissingFloorEvidence* Evidence);
 	void HandleStoreRosterExamined(class AIGMissingFloorEvidence* Evidence);
 	void HandleUnit401RadioExamined(class AIGMissingFloorEvidence* Evidence);
+	void HandleUnit402ListenExamined(class AIGMissingFloorEvidence* Evidence);
+	void HandleRoofDoorListenExamined(class AIGMissingFloorEvidence* Evidence);
+	/** 소리 목격은 전부 같은 모양이다 — 부피만 세우고 그림은 두지 않는다. */
+	class AIGMissingFloorEvidence* SpawnListeningVolume(
+		class UStaticMesh* CubeMesh,
+		const TCHAR* ActorName,
+		const FVector& Location,
+		const FVector& Extent,
+		const FText& Prompt);
 	/** 에필로그가 끝나면 게임은 타이틀로 돌아간다(§9). */
 	void HandleEpilogueCompleted();
 	void HandleSleepRequested(class AIGMissingFloorEvidence* Evidence);
@@ -197,6 +206,13 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGMissingFloorEvidence> Unit401Radio;
+
+	/** 소리로만 확인되는 목격 셋. 전부 부피만 있고 그림은 없다. */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> Unit402Listen;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> RoofDoorListen;
 
 	/**
 	 * §13 13행의 심기. 중고 거래 글 「달빛」에 오빠의 공구가 세트로 올라와

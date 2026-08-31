@@ -58,6 +58,11 @@ namespace IGPuzzleTwo
 	 * 영수증(X 188..204) 사이로, 상판 앞 모서리(Y -137.5)에서 2.5 cm 남는다.
 	 */
 	const FVector RecorderBayLocation(168.0f, -128.0f, 82.0f);
+	/**
+	 * §22.3 안쪽 방 청음. 문짝은 X 205..275, Y -87..-82이고 문틈 판정은
+	 * X 270..274다. 그 문 앞에 서는 자리로, 문짝에서 1 cm 떨어뜨린다.
+	 */
+	const FVector InnerRoomListenLocation(248.0f, -93.0f, 140.0f);
 
 	/** §5.1: frottage is a sustained 0.25 — three times, on purpose. */
 	constexpr float FrottageLoudness = 0.25f;
@@ -414,6 +419,34 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 			this, &AIGMissingFloorPuzzleTwoDirector::HandleRecorderBayExamined);
 	}
 
+	// 같은 문에서 눈과 귀가 다른 것을 준다. 문틈은 계란판을 보여 주고,
+	// 여기서는 그 너머에서 뭔가 돌고 있다는 것만 들린다.
+	SpawnParameters.Name = TEXT("MissingFloorInnerRoomListen");
+	InnerRoomListen = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGPuzzleTwo::InnerRoomListenLocation),
+		SpawnParameters);
+	if (InnerRoomListen)
+	{
+		InnerRoomListen->Configure(
+			CubeMesh,
+			nullptr,
+			FVector(40.0f, 10.0f, 60.0f),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"P2InnerRoomListenPrompt",
+				"안쪽 방 문 — 귀를 댄다"),
+			FText::GetEmpty(),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			1.0f,
+			0.03f,
+			/*bPresentationVisible=*/false);
+		InnerRoomListen->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Listen")));
+		InnerRoomListen->OnExamined.AddUObject(
+			this, &AIGMissingFloorPuzzleTwoDirector::HandleInnerRoomListenExamined);
+	}
+
 	// §5.5 비트 2-1과 2-6. 같은 물건이 밤에는 녹음을 켜고 아침에는 그것을
 	// 재생한다. 두 번째 상호작용이 이 게임에서 가장 조용한 절망이다.
 	SpawnParameters.Name = TEXT("MissingFloorPhoneRecorder");
@@ -705,6 +738,40 @@ void AIGMissingFloorPuzzleTwoDirector::HandleWallCalendarExamined(
 	{
 		Narrative->RecordWitness(EIGMissingFloorWitness::BoothWallCalendar);
 	}
+}
+
+void AIGMissingFloorPuzzleTwoDirector::HandleInnerRoomListenExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return;
+	}
+	Narrative->RecordWitness(EIGMissingFloorWitness::BoothInnerRoomHum);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateFoamedRoomHum(this),
+		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
+		0.60f,
+		1.0f,
+		80.0f,
+		360.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"P2InnerRoomCaption",
+			"[문 너머, 낮게] 뭔가 계속 돌고 있다"),
+		3.0f);
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"P2InnerRoomThought",
+			"창고라면서요. 창고에서 뭐가 돌아가요."),
+		4.4f);
 }
 
 void AIGMissingFloorPuzzleTwoDirector::HandleRecorderBayExamined(
