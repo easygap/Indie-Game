@@ -1133,6 +1133,92 @@ void AIGHorrorHUD::ResumeDialoguePresentation(const double CurrentTime)
 	DialogueOccludedAt = -1.0;
 }
 
+namespace
+{
+	// §10.5. 고도가 먼저다. 훅 자체가 「위에서 나는 소리」라서, 위아래가
+	// 조금이라도 서면 좌우보다 그쪽을 말해야 한다.
+	constexpr float SoundBearingElevationDegrees = 25.0f;
+	// 화면 안이라고 볼 각. 이 안쪽은 눈이 이미 알고 있으므로 적지 않는다.
+	constexpr float SoundBearingOnScreenDegrees = 50.0f;
+	constexpr float SoundBearingBehindDegrees = 130.0f;
+	constexpr float SoundBearingMinimumDistance = 40.0f;
+}
+
+FText AIGHorrorHUD::MakeSoundBearingTag(
+	const UObject* WorldContext,
+	const FVector& SourceLocation)
+{
+	const UWorld* World = GEngine && WorldContext
+		? GEngine->GetWorldFromContextObject(
+			WorldContext,
+			EGetWorldErrorMode::ReturnNull)
+		: nullptr;
+	APlayerController* PlayerController =
+		World ? World->GetFirstPlayerController() : nullptr;
+	if (!PlayerController)
+	{
+		return FText::GetEmpty();
+	}
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	PlayerController->GetPlayerViewPoint(ViewLocation, ViewRotation);
+
+	const FVector ToSource = SourceLocation - ViewLocation;
+	if (ToSource.SizeSquared()
+		< SoundBearingMinimumDistance * SoundBearingMinimumDistance)
+	{
+		// 발밑에서 난 소리에 방위를 붙이면 고개만 돌려도 딱지가 뒤집힌다.
+		return FText::GetEmpty();
+	}
+
+	const float Elevation = FMath::RadiansToDegrees(
+		FMath::Asin(FMath::Clamp(
+			ToSource.GetSafeNormal().Z, -1.0f, 1.0f)));
+	if (FMath::Abs(Elevation) >= SoundBearingElevationDegrees)
+	{
+		return Elevation > 0.0f
+			? NSLOCTEXT("IGHUD", "SoundBearingAbove", "위")
+			: NSLOCTEXT("IGHUD", "SoundBearingBelow", "아래");
+	}
+
+	const float RelativeYaw = FMath::FindDeltaAngleDegrees(
+		ViewRotation.Yaw,
+		ToSource.Rotation().Yaw);
+	const float AbsoluteYaw = FMath::Abs(RelativeYaw);
+	if (AbsoluteYaw <= SoundBearingOnScreenDegrees)
+	{
+		return FText::GetEmpty();
+	}
+	if (AbsoluteYaw >= SoundBearingBehindDegrees)
+	{
+		return NSLOCTEXT("IGHUD", "SoundBearingBehind", "뒤");
+	}
+	return RelativeYaw > 0.0f
+		? NSLOCTEXT("IGHUD", "SoundBearingRight", "오른쪽")
+		: NSLOCTEXT("IGHUD", "SoundBearingLeft", "왼쪽");
+}
+
+void AIGHorrorHUD::PushAudioCaptionAt(
+	const UObject* WorldContext,
+	const FText& Caption,
+	const float DurationSeconds,
+	const FVector& SourceLocation)
+{
+	const FText Bearing = MakeSoundBearingTag(WorldContext, SourceLocation);
+	if (Bearing.IsEmpty())
+	{
+		PushAudioCaption(WorldContext, Caption, DurationSeconds);
+		return;
+	}
+	PushAudioCaption(
+		WorldContext,
+		FText::Format(
+			NSLOCTEXT("IGHUD", "SoundCaptionWithBearing", "[{0}] {1}"),
+			Bearing,
+			Caption),
+		DurationSeconds);
+}
+
 void AIGHorrorHUD::PushAudioCaption(
 	const UObject* WorldContext,
 	const FText& Caption,

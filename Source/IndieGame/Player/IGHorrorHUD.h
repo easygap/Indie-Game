@@ -171,6 +171,28 @@ public:
 		float MinimumDurationSeconds = 0.0f,
 		EIGDialoguePriority Priority = EIGDialoguePriority::Story);
 
+	/**
+	 * 소리가 난 자리를 아는 자막. §10.5는 자막 레인에 방위를 병기하라고
+	 * 적어 두었는데, 그동안은 대사에 「뒤쪽」을 손으로 써 넣는 것이
+	 * 전부였다. 손으로 쓴 방위는 플레이어가 돌아서면 그대로 틀린다.
+	 *
+	 * 화면 안에 있는 소리에는 방위를 붙이지 않는다. 보이는 것을 굳이
+	 * 적으면 읽을 것만 늘어난다.
+	 */
+	static void PushAudioCaptionAt(
+		const UObject* WorldContext,
+		const FText& Caption,
+		float DurationSeconds,
+		const FVector& SourceLocation);
+
+	/**
+	 * 시점 기준 방위 딱지. 붙일 것이 없으면 빈 문자열이다.
+	 * 위아래가 이 게임의 정체성이라 고도가 좌우를 이긴다(§10.5).
+	 */
+	static FText MakeSoundBearingTag(
+		const UObject* WorldContext,
+		const FVector& SourceLocation);
+
 	/** Shows a non-dialogue sound caption when the accessibility option is on. */
 	static void PushAudioCaption(
 		const UObject* WorldContext,

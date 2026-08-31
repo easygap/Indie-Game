@@ -1130,10 +1130,11 @@ void AIGMissingFloorNightFourDirector::PlayDistantReply()
 		220.0f,
 		2400.0f,
 		EIGAudioBus::Entity);
-	AIGHorrorHUD::PushAudioCaption(
+	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT("IGMissingFloor", "FinalRevealKnockCaption", "멀리서, 두 번의 노크"),
-		1.8f);
+		1.8f,
+		KnockLocation);
 }
 
 void AIGMissingFloorNightFourDirector::PresentMokHansoo()
@@ -1228,12 +1229,13 @@ void AIGMissingFloorNightFourDirector::BeginEntityPass()
 			});
 	}
 	AIGHorrorHUD::PushFearDirection(this, EntityStart, 1.5f);
-	AIGHorrorHUD::PushAudioCaption(
+	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor", "FinaleDragCaption",
 			"석고 가루를 긁는 무거운 끌림 소리"),
-		2.3f);
+		2.3f,
+		EntityStart);
 	GetWorldTimerManager().SetTimer(
 		BlackoutTimer,
 		this,

@@ -8412,13 +8412,14 @@ void AIGThirdMorningDirector::PlayDelayedSplash()
 		45.0f,
 		720.0f);
 	AIGHorrorHUD::PushFearDirection(this, CueLocation, 0.9f);
-	AIGHorrorHUD::PushAudioCaption(
+	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT(
 			"IGCH03",
 			"RearSplashCaption",
-			"[뒤쪽에서 물이 튀는 소리]"),
-		2.0f);
+			"물이 튀는 소리"),
+		2.0f,
+		CueLocation);
 }
 
 void AIGThirdMorningDirector::PlayMetalEcho(

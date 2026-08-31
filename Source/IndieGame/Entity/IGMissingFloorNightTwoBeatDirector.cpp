@@ -340,10 +340,11 @@ void AIGMissingFloorNightTwoBeatDirector::PlayFirstKnock()
 		IGNightTwo::KnockInnerRadius,
 		IGNightTwo::KnockFalloff,
 		EIGAudioBus::Entity);
-	AIGHorrorHUD::PushAudioCaption(
+	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT("IGMissingFloor", "N2DoorKnockCaption", "현관문 — 노크"),
-		2.0f);
+		2.0f,
+		IGNightTwo::KnockLocation);
 	// 계기는 소리가 아니라 위치다. 사흘째 벽에서 들리던 것이 이번엔 문이다.
 	AIGHorrorHUD::PushThought(
 		this,
@@ -391,10 +392,11 @@ void AIGMissingFloorNightTwoBeatDirector::PlayAnswer()
 		IGNightTwo::KnockInnerRadius,
 		IGNightTwo::KnockFalloff,
 		EIGAudioBus::Entity);
-	AIGHorrorHUD::PushAudioCaption(
+	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT("IGMissingFloor", "N2TripleCaption", "문 너머 — 노크 3연"),
-		2.4f);
+		2.4f,
+		IGNightTwo::KnockLocation);
 	// 1.0은 §21.2의 3연 값이고, §5.5의 표가 그것을 2.10초의 무음으로 옮긴다.
 	// 아침에 그녀가 듣는 공백의 길이는 여기서 정해진다.
 	if (UIGNoiseSubsystem* Noise = GetNoise())
@@ -420,10 +422,11 @@ void AIGMissingFloorNightTwoBeatDirector::PlayDragAway()
 		IGNightTwo::KnockInnerRadius,
 		IGNightTwo::KnockFalloff,
 		EIGAudioBus::Entity);
-	AIGHorrorHUD::PushAudioCaption(
+	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT("IGMissingFloor", "N2DragCaption", "끌리는 소리 — 멀어짐"),
-		2.6f);
+		2.6f,
+		IGNightTwo::FigureStagePoint);
 	if (UIGNoiseSubsystem* Noise = GetNoise())
 	{
 		Noise->ReportNoise(
@@ -611,10 +614,11 @@ void AIGMissingFloorNightTwoBeatDirector::PlayMaterialCollapse()
 		IGNightTwo::CollapseSecondImpactSeconds,
 		false);
 
-	AIGHorrorHUD::PushAudioCaption(
+	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "N2CollapseCaption", "자재 무너짐 — 뒤쪽"),
-		2.4f);
+		NSLOCTEXT("IGMissingFloor", "N2CollapseCaption", "자재 무너짐"),
+		2.4f,
+		IGNightTwo::CollapseLocation);
 	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 	{
 		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())

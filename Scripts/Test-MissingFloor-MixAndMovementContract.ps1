@@ -624,6 +624,79 @@ if ($story -notmatch '스피커 플레이도 막지 않는다') {
 	throw 'The §10.5 speakers-allowed rule was removed.'
 }
 
+# --- 자막 방위 딱지 (§10.5) -------------------------------------------------
+#
+# 「자막 모드는 소리 방위를 병기한다」가 그동안은 대사에 「뒤쪽」을 손으로
+# 써 넣는 것이 전부였다. 손으로 쓴 방위는 플레이어가 돌아서면 그대로 틀린다.
+
+$hudSourceForBearing = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGHorrorHUD.cpp')
+$bearingBody = [regex]::Match(
+	$hudSourceForBearing,
+	'FText AIGHorrorHUD::MakeSoundBearingTag\((?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $bearingBody.Success) {
+	throw 'MakeSoundBearingTag could not be isolated.'
+}
+$bearingText = $bearingBody.Groups['body'].Value
+
+# 훅이 「위에서 나는 소리」다. 고도가 좌우보다 먼저 결정되지 않으면 이 게임의
+# 정체성이 자막에서 사라진다.
+$elevationAt = $bearingText.IndexOf('SoundBearingElevationDegrees')
+$yawAt = $bearingText.IndexOf('FindDeltaAngleDegrees')
+$assertionCount++
+if ($elevationAt -lt 0 -or $yawAt -lt 0) {
+	throw 'Bearing must weigh both elevation and yaw (§10.5).'
+}
+$assertionCount++
+if ($elevationAt -gt $yawAt) {
+	throw 'Elevation must decide before yaw; up and down are the hook (§10.5).'
+}
+
+# 보이는 소리에 딱지를 붙이면 읽을 것만 늘어난다.
+$assertionCount++
+if ($bearingText -notmatch
+	'AbsoluteYaw <= SoundBearingOnScreenDegrees\)\s*\r?\n\s*\{\s*\r?\n\s*return FText::GetEmpty\(\);') {
+	throw 'Sounds already on screen must carry no bearing tag (§10.5).'
+}
+
+foreach ($word in @('"위"', '"아래"', '"뒤"', '"왼쪽"', '"오른쪽"')) {
+	$assertionCount++
+	if (-not $bearingText.Contains($word)) {
+		throw "The bearing vocabulary is incomplete: $word"
+	}
+}
+
+# 딱지를 붙이는 자리에서 문장이 방위를 또 말하면 「[뒤] 뒤쪽에서 물이 튀는
+# 소리」가 된다. 실제로 두 자리가 그렇게 되어 있었다.
+$bearingWords = @('뒤쪽', '앞쪽', '왼쪽', '오른쪽', '위층', '아래층', '위에서', '아래에서')
+$spatialCallCount = 0
+$sourceRoot = Join-Path $projectRoot 'Source/IndieGame'
+foreach ($file in Get-ChildItem -Path $sourceRoot -Filter '*.cpp' -Recurse) {
+	$text = Get-Content -Raw -Encoding UTF8 -LiteralPath $file.FullName
+	foreach ($call in [regex]::Matches(
+		$text, '(?<!void )AIGHorrorHUD::PushAudioCaptionAt\((?<args>[\s\S]{0,400}?)\);')) {
+		$spatialCallCount++
+		foreach ($literal in [regex]::Matches(
+			$call.Groups['args'].Value, '"(?<text>[^"]*)"')) {
+			foreach ($word in $bearingWords) {
+				$assertionCount++
+				if ($literal.Groups['text'].Value.Contains($word)) {
+					throw (
+						'A located caption must not also spell out the direction: ' +
+						('{0} in {1}' -f $word, $file.Name))
+				}
+			}
+		}
+	}
+}
+$assertionCount++
+if ($spatialCallCount -lt 7) {
+	throw (
+		'The §10.5 bearing lane is barely wired: only {0} located captions.' -f
+			$spatialCallCount)
+}
+
 Write-Host (
 	'MISSING_FLOOR_MIX_MOVEMENT_CONTRACT PASS buses={0} spaces={1} states={2} assertions={3}' -f `
 		$busRows.Count, $reverbRows.Count, $movementRows.Count, $assertionCount) `
