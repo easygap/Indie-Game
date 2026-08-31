@@ -556,29 +556,42 @@ void UIGMissingFloorAudioSubsystem::PlayEndingATuningResolution()
 	}
 }
 
-float UIGMissingFloorAudioSubsystem::GetEffectiveBusDecibels(
+float UIGMissingFloorAudioSubsystem::GetBusDuckingDecibels(
 	const EIGAudioBus Bus) const
 {
-	const int32 BusIndex = IGMissingFloorMix::ToIndex(Bus);
-	float Decibels = IGMissingFloorMix::BaseDecibels[BusIndex];
+	// §21.1 더킹 열의 전부다. ENTITY는 여기에 분기가 없고, 그것이
+	// 「존재의 소리는 절대 눌리지 않는다」의 구현이다(§24 즉시 차단 20).
 	if (Bus == EIGAudioBus::Score && bAuthoredSilence)
 	{
 		return IGMissingFloorMix::SilentDecibels;
 	}
 	if (Bus == EIGAudioBus::World && bAuthoredSilence)
 	{
-		return -24.0f;
+		// WORLD starts at -8 dB; another -16 lands on the authored
+		// -24 dB silence floor while player breath remains untouched.
+		return -16.0f;
 	}
 	if (Bus == EIGAudioBus::Player && bEntityNearPlayer)
 	{
-		Decibels -= 4.0f;
+		return -4.0f;
 	}
-	else if (Bus == EIGAudioBus::World
-		&& (bPlayerListening || bEntityListening))
+	if (Bus == EIGAudioBus::World && (bPlayerListening || bEntityListening))
 	{
-		Decibels -= 6.0f;
+		return -6.0f;
 	}
-	return Decibels;
+	return 0.0f;
+}
+
+float UIGMissingFloorAudioSubsystem::GetEffectiveBusDecibels(
+	const EIGAudioBus Bus) const
+{
+	const int32 BusIndex = IGMissingFloorMix::ToIndex(Bus);
+	const float Ducking = GetBusDuckingDecibels(Bus);
+	if (Ducking <= IGMissingFloorMix::SilentDecibels)
+	{
+		return IGMissingFloorMix::SilentDecibels;
+	}
+	return IGMissingFloorMix::BaseDecibels[BusIndex] + Ducking;
 }
 
 int32 UIGMissingFloorAudioSubsystem::GetVoiceCap(const EIGAudioBus Bus) const
@@ -836,26 +849,7 @@ void UIGMissingFloorAudioSubsystem::RefreshMix(const float FadeSeconds)
 	for (int32 Index = 0; Index < BusCount; ++Index)
 	{
 		const EIGAudioBus Bus = static_cast<EIGAudioBus>(Index);
-		float AdditionalDecibels = 0.0f;
-		if (Bus == EIGAudioBus::Score && bAuthoredSilence)
-		{
-			AdditionalDecibels = IGMissingFloorMix::SilentDecibels;
-		}
-		else if (Bus == EIGAudioBus::World && bAuthoredSilence)
-		{
-			// WORLD starts at -8 dB; another -16 lands on the authored
-			// -24 dB silence floor while player breath remains untouched.
-			AdditionalDecibels = -16.0f;
-		}
-		else if (Bus == EIGAudioBus::Player && bEntityNearPlayer)
-		{
-			AdditionalDecibels = -4.0f;
-		}
-		else if (Bus == EIGAudioBus::World
-			&& (bPlayerListening || bEntityListening))
-		{
-			AdditionalDecibels = -6.0f;
-		}
+		const float AdditionalDecibels = GetBusDuckingDecibels(Bus);
 		UGameplayStatics::SetSoundMixClassOverride(
 			World,
 			RuntimeMix,

@@ -347,7 +347,198 @@ Assert-Number (ConvertTo-Cell $vinylRow[0][2]) (ConvertTo-Cell $crouchRow[4]) `
 Assert-Number (ConvertTo-Cell $vinylRow[0][3]) (ConvertTo-Cell $sprintRow[4]) `
 	'§18.2 달리기 소음 vs §21.2 장판'
 
+
+# --- §21.1 버스와 우선순위 --------------------------------------------------
+#
+# 값 자체는 M6 오디오 계약이 이미 코드 쪽에서 잠그고 있다. 여기서 더하는 것은
+# 셋이다.
+#
+#   1. **문서 쪽 대조.** M6 계약은 `'0.0f,   // ENTITY'`처럼 코드 리터럴만
+#      보므로 표가 바뀌어도 아무것도 실패하지 않는다. 표를 파싱해 맞춘다
+#   2. **§24 즉시 차단 20.** 존재의 소리는 어떤 것에도 눌리지 않는다.
+#      두 믹스 경로 어디에도 ENTITY를 낮추는 분기가 없어야 한다
+#   3. **두 경로의 합치.** 더킹 규칙이 RefreshMix(실제 적용)와
+#      GetEffectiveBusDecibels(질의·영수증) 두 곳에 적혀 있다. 한쪽만 고치면
+#      들리는 믹스와 계약이 보고하는 믹스가 갈라진다
+
+$busSection = Get-Section $story '### 21\.1 버스와 우선순위' '### 21\.2' `
+	'§21.1 버스와 우선순위'
+$busRows = Get-TableRows $busSection
+
+$assertionCount++
+if ($busRows.Count -ne 6) {
+	throw "§21.1 must list six buses, found $($busRows.Count)."
+}
+
+# 표의 순서가 EIGAudioBus의 순서이자 BaseDecibels의 인덱스다.
+$busBaseDecibels = @([regex]::Matches(
+	(Get-Section $audioSource 'constexpr float BaseDecibels\[\] =\s*\{' '\};' `
+		'BaseDecibels'),
+	'(?<value>-?[0-9]+(?:\.[0-9]+)?)f') |
+	ForEach-Object { [double]$_.Groups['value'].Value })
+$assertionCount++
+if ($busBaseDecibels.Count -ne 6) {
+	throw "BaseDecibels must hold six levels, found $($busBaseDecibels.Count)."
+}
+
+for ($busIndex = 0; $busIndex -lt 6; $busIndex++) {
+	$row = $busRows[$busIndex]
+	if ($row.Count -lt 4) {
+		throw "§21.1 row '$($row[0])' is missing columns."
+	}
+	$busName = $row[0].Trim('`')
+	$assertionCount++
+	if (-not $audioSource.Contains("TEXT(""$busName"")")) {
+		throw "§21.1 names a bus the code does not build: $busName"
+	}
+	# 표는 사람 표기라 유니코드 빼기(−)와 `dB` 접미사를 쓴다.
+	$levelCell = $row[2].Replace([char]0x2212, '-').Replace('dB', '').Trim()
+	$assertionCount++
+	if ($levelCell -notmatch '^-?[0-9]+(?:\.[0-9]+)?$') {
+		throw "§21.1 '$busName' has an unreadable level: '$($row[2])'"
+	}
+	Assert-Number ([double]$levelCell) $busBaseDecibels[$busIndex] `
+		"§21.1 '$busName' 기본"
+}
+
+# §24 즉시 차단 20 — 존재의 소리는 절대 눌리지 않는다. 두 믹스 경로 어느
+# 쪽에도 ENTITY를 낮추는 분기가 있으면 안 된다.
+$duckingBody = Get-Section $audioSource `
+	'float UIGMissingFloorAudioSubsystem::GetBusDuckingDecibels\(' `
+	'float UIGMissingFloorAudioSubsystem::GetEffectiveBusDecibels' `
+	'GetBusDuckingDecibels'
+$assertionCount++
+if ($duckingBody -match 'Bus\s*==\s*EIGAudioBus::Entity') {
+	throw '§24 즉시 차단 20: the entity bus must never be ducked.'
+}
+$assertionCount++
+if (-not $story.Contains('**존재의 소리는 절대 눌리지 않는다.**')) {
+	throw 'The §21.1 first principle sentence was removed.'
+}
+
+# 더킹 규칙은 한 함수에만 있어야 한다. 예전에는 RefreshMix(실제 적용)와
+# GetEffectiveBusDecibels(질의·영수증)에 같은 규칙이 두 벌로 적혀 있었고,
+# 한쪽만 조율하면 들리는 믹스와 계약이 보고하는 믹스가 갈라진다 — 그 차이는
+# 귀로만 발견된다.
+foreach ($duck in @('-4.0f', '-6.0f', '-16.0f')) {
+	$assertionCount++
+	if (-not $duckingBody.Contains($duck)) {
+		throw "The ducking rule lost a step: $duck"
+	}
+}
+foreach ($condition in @(
+	'bEntityNearPlayer',
+	'bPlayerListening || bEntityListening',
+	'bAuthoredSilence')) {
+	$assertionCount++
+	if (-not $duckingBody.Contains($condition)) {
+		throw "The ducking rule lost a condition: $condition"
+	}
+}
+
+# 두 소비자가 그 함수를 부르는지. 어느 쪽이든 자기 계산을 다시 쓰기 시작하면
+# 두 벌이던 시절로 돌아간다.
+$refreshMixBody = Get-Section $audioSource `
+	'void UIGMissingFloorAudioSubsystem::RefreshMix\(const float FadeSeconds\)' `
+	'void UIGMissingFloorAudioSubsystem::PruneVoices' 'RefreshMix'
+$effectiveBody = Get-Section $audioSource `
+	'float UIGMissingFloorAudioSubsystem::GetEffectiveBusDecibels\(' `
+	'int32 UIGMissingFloorAudioSubsystem::GetVoiceCap' 'GetEffectiveBusDecibels'
+foreach ($consumer in @(
+	@{ Name = 'RefreshMix'; Body = $refreshMixBody },
+	@{ Name = 'GetEffectiveBusDecibels'; Body = $effectiveBody })) {
+	$assertionCount++
+	if (-not $consumer.Body.Contains('GetBusDuckingDecibels(Bus)')) {
+		throw ($consumer.Name + ' must read the single ducking rule (§21.1).')
+	}
+	foreach ($duck in @('-4.0f', '-6.0f', '-16.0f')) {
+		$assertionCount++
+		if ($consumer.Body.Contains($duck)) {
+			throw ($consumer.Name + " re-states a ducking step: $duck")
+		}
+	}
+}
+
+# §21.4의 침묵 바닥. WORLD는 기본 -8에서 -16이 더 내려가 -24에 닿는다.
+# 리터럴이 아니라 두 값의 합이므로, 어느 쪽이 움직여도 바닥이 어긋난다.
+$assertionCount++
+$worldSilence = $busBaseDecibels[3] + (-16.0)
+if ([Math]::Abs($worldSilence - (-24.0)) -gt 0.0005) {
+	throw ("The authored -24 dB silence floor no longer falls out of the " +
+		"world bus: $worldSilence.")
+}
+$assertionCount++
+if (-not $duckingBody.Contains('-24 dB silence floor')) {
+	throw 'The silence-floor rationale was removed from the ducking rule.'
+}
+
+# PLAYER 더킹의 「존재 6m 이내」. 표의 문장과 상수가 같은 거리를 말해야 한다.
+$assertionCount++
+if (-not $busRows[1][3].Contains('6m')) {
+	throw '§21.1 PLAYER ducking lost its authored six-metre distance.'
+}
+Assert-Number 600.0 (Get-Constant $audioSource 'constexpr float EntityNearDistance') `
+	'§21.1 PLAYER 더킹 거리'
+
+# SCORE는 침묵 구간에서 −∞다. 코드의 −96dB이 그 무한대의 실현이다.
+$assertionCount++
+if (-not $busRows[5][3].Contains('−∞')) {
+	throw '§21.1 SCORE ducking lost its authored silence.'
+}
+Assert-Number -96.0 (Get-Constant $audioSource 'constexpr float SilentDecibels') `
+	'§21.1 SCORE 침묵'
+
+# PUZZLE과 UI는 더킹이 없다. 표의 「—」가 코드에도 분기 없음으로 남아야 한다.
+foreach ($quietIndex in @(2, 4)) {
+	$assertionCount++
+	if ($busRows[$quietIndex][3].Trim() -ne '—') {
+		throw ("§21.1 '" + $busRows[$quietIndex][0] +
+			"' gained a ducking rule this contract does not model.")
+	}
+}
+foreach ($undockedBus in @('EIGAudioBus::Puzzle', 'EIGAudioBus::UI')) {
+	$assertionCount++
+	if ($refreshMixBody -match [regex]::Escape("Bus == $undockedBus")) {
+		throw "A ducking branch appeared for an undocked bus: $undockedBus"
+	}
+}
+
+# 동시 발음 상한. 표 아래 문장이 네 버스의 값을 적어 두었다.
+$voiceCaps = @([regex]::Matches(
+	(Get-Section $audioSource 'constexpr int32 VoiceCaps\[\] =\s*\{' '\};' 'VoiceCaps'),
+	'(?<value>[0-9]+)\s*,') |
+	ForEach-Object { [int]$_.Groups['value'].Value })
+$assertionCount++
+if ($voiceCaps.Count -lt 4) {
+	throw 'VoiceCaps could not be read.'
+}
+$authoredCaps = [regex]::Match(
+	$story, '동시 발음 상한: ENTITY (?<entity>[0-9]+), PLAYER (?<player>[0-9]+), PUZZLE (?<puzzle>[0-9]+), WORLD (?<world>[0-9]+)')
+$assertionCount++
+if (-not $authoredCaps.Success) {
+	throw 'The §21.1 voice-cap sentence could not be read.'
+}
+Assert-Number ([double]$authoredCaps.Groups['entity'].Value) ([double]$voiceCaps[0]) `
+	'§21.1 ENTITY 동시 발음'
+Assert-Number ([double]$authoredCaps.Groups['player'].Value) ([double]$voiceCaps[1]) `
+	'§21.1 PLAYER 동시 발음'
+Assert-Number ([double]$authoredCaps.Groups['puzzle'].Value) ([double]$voiceCaps[2]) `
+	'§21.1 PUZZLE 동시 발음'
+Assert-Number ([double]$authoredCaps.Groups['world'].Value) ([double]$voiceCaps[3]) `
+	'§21.1 WORLD 동시 발음'
+
+# 상한을 넘겨 밀어낼 때는 페이드다. 컷은 금지 — 잘린 소리는 그 자체로
+# 사건처럼 들린다.
+$assertionCount++
+if (-not $audioSource.Contains('Oldest->FadeOut(')) {
+	throw 'Voices over the cap must fade, never cut (§21.1).'
+}
+$assertionCount++
+if (-not $story.Contains('**컷 금지**')) {
+	throw 'The §21.1 no-cut rule was removed.'
+}
+
 Write-Host (
-	'MISSING_FLOOR_MIX_MOVEMENT_CONTRACT PASS spaces={0} states={1} assertions={2}' -f `
-		$reverbRows.Count, $movementRows.Count, $assertionCount) `
+	'MISSING_FLOOR_MIX_MOVEMENT_CONTRACT PASS buses={0} spaces={1} states={2} assertions={3}' -f `
+		$busRows.Count, $reverbRows.Count, $movementRows.Count, $assertionCount) `
 	-ForegroundColor Green

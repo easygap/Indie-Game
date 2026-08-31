@@ -153,6 +153,15 @@ public:
 	bool IsTitleModeActive() const { return bTitleMode; }
 
 	/** Effective dB including state ducking; silence reports -96 dB. */
+	/**
+	 * §21.1 더킹. 이 함수가 그 표의 유일한 구현이다.
+	 *
+	 * 예전에는 같은 규칙이 RefreshMix와 GetEffectiveBusDecibels 두 곳에
+	 * 적혀 있었다. 한쪽만 조율하면 들리는 믹스와 계약이 보고하는 믹스가
+	 * 갈라지고, 그 차이는 귀로만 발견된다.
+	 */
+	float GetBusDuckingDecibels(EIGAudioBus Bus) const;
+
 	float GetEffectiveBusDecibels(EIGAudioBus Bus) const;
 	int32 GetVoiceCap(EIGAudioBus Bus) const;
 	USoundClass* GetBusSoundClass(EIGAudioBus Bus) const;

@@ -1738,6 +1738,10 @@ v2.3 감사 당시 빌드에는 레거시 「4시 44분」의 `RequestHint` 액�
   여유가 아니라 게임의 실패다.
 - 동시 발음 상한: ENTITY 4, PLAYER 6, PUZZLE 6, WORLD 12. 초과 시 가장 오래된
   것부터 페이드 아웃한다 — **컷 금지**.
+- 더킹 열은 `GetBusDuckingDecibels` 하나가 구현한다. 그 함수에 ENTITY 분기가
+  없다는 사실이 위 대원칙의 구현이며, §24 즉시 차단 20이 잠그는 것도 그것이다.
+  `Test-MissingFloor-MixAndMovementContract.ps1`이 이 표의 여섯 값과 상한 넷을
+  코드와 대조하고, 규칙이 두 벌로 갈라지지 않는지도 본다.
 
 ### 21.2 발소리 매트릭스
 
