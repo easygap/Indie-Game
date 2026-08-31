@@ -404,6 +404,25 @@ void AIGHorrorHUD::InitializeFrontendMenuTextures()
 			TEXT("Title key art is unavailable; front end will use its safe fallback."));
 	}
 
+	// §9 에필로그의 세 정지 화면. 없으면 그 장면은 글자만 남는다.
+	EpilogueWorkshopTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/UI/Textures/T_EpilogueWorkshop_D.T_EpilogueWorkshop_D"));
+	EpilogueAutumnTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/UI/Textures/T_EpilogueAutumn_D.T_EpilogueAutumn_D"));
+	EpilogueServiceBayTexture = LoadObject<UTexture2D>(
+		nullptr,
+		TEXT("/Game/UI/Textures/T_EpilogueServiceBay_D.T_EpilogueServiceBay_D"));
+	if (!EpilogueWorkshopTexture || !EpilogueAutumnTexture
+		|| !EpilogueServiceBayTexture)
+	{
+		UE_LOG(
+			LogIndieGame,
+			Warning,
+			TEXT("Epilogue stills are unavailable; those scenes draw text only."));
+	}
+
 	constexpr int32 ShadeWidth = 256;
 	TArray64<uint8> PixelBytes;
 	PixelBytes.SetNumZeroed(ShadeWidth * sizeof(FColor));
@@ -1595,6 +1614,16 @@ void AIGHorrorHUD::DrawHUD()
 		FinalizeLayoutValidationSample();
 		return;
 	}
+	if (DrawMissingFloorEpilogue(CurrentTime))
+	{
+		// 막간과 같은 규칙이다. 화면은 에필로그가 통째로 갖되, 환경음 자막은
+		// 그리는 것을 허락한다 — 몽타주 구간에서는 그것이 유일한 그림이다.
+		SuspendDialoguePresentation(CurrentTime);
+		DrawAudioCaption(CurrentTime, Canvas->ClipY - 24.0f);
+		LastHudDrawTime = CurrentTime;
+		FinalizeLayoutValidationSample();
+		return;
+	}
 	if (DrawMissingFloorFailureEnding(CurrentTime))
 	{
 		SuspendDialoguePresentation(CurrentTime);
@@ -2078,6 +2107,206 @@ void AIGHorrorHUD::DrawSensoryInterludeSkip()
 			1.5f * Scale,
 			FLinearColor(0.63f, 0.21f, 0.18f, 0.96f));
 	}
+}
+
+void AIGHorrorHUD::BeginMissingFloorEpilogueScene(
+	const EIGMissingFloorEpilogueScene Scene,
+	const FText& Heading,
+	const TArray<FText>& BodyLines,
+	const FText& Footnote)
+{
+	MissingFloorEpilogueScene = Scene;
+	MissingFloorEpilogueHeading = Heading;
+	MissingFloorEpilogueBodyLines = BodyLines;
+	MissingFloorEpilogueFootnote = Footnote;
+	MissingFloorEpilogueSceneStartedAt = GetWorld()
+		? GetWorld()->GetTimeSeconds()
+		: 0.0;
+}
+
+void AIGHorrorHUD::EndMissingFloorEpilogue()
+{
+	MissingFloorEpilogueScene = EIGMissingFloorEpilogueScene::None;
+	MissingFloorEpilogueHeading = FText::GetEmpty();
+	MissingFloorEpilogueBodyLines.Reset();
+	MissingFloorEpilogueFootnote = FText::GetEmpty();
+	MissingFloorEpilogueSceneStartedAt = 0.0;
+}
+
+bool AIGHorrorHUD::DrawMissingFloorEpilogue(const double CurrentTime)
+{
+	if (!Canvas
+		|| MissingFloorEpilogueScene == EIGMissingFloorEpilogueScene::None)
+	{
+		return false;
+	}
+
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const float UserTextScale = Accessibility
+		? Accessibility->GetCaptionSizeScale()
+		: 1.0f;
+	const bool bReducedMotion = Accessibility
+		&& Accessibility->IsReducedCameraMotionEnabled();
+	const float Scale = FMath::Clamp(
+		FMath::Min(Canvas->ClipY / 1080.0f, Canvas->ClipX / 1920.0f),
+		0.62f,
+		1.35f);
+	const float TypeScale = Scale * FMath::Clamp(UserTextScale, 0.85f, 2.0f);
+	const float Elapsed = FMath::Max(
+		static_cast<float>(CurrentTime - MissingFloorEpilogueSceneStartedAt),
+		0.0f);
+	// 장면이 바뀌는 속도가 감정의 속도다. 모션 감소에서는 이동만 없애고
+	// 페이드는 남긴다 — 컷으로 갈리면 몽타주가 점멸로 읽힌다.
+	const float Entrance = IGHorrorHUD::SmoothStep01(Elapsed / 1.15f);
+
+	FCanvasTileItem Blackout(
+		FVector2D::ZeroVector,
+		FVector2D(Canvas->ClipX, Canvas->ClipY),
+		FLinearColor(0.004f, 0.005f, 0.005f, 1.0f));
+	Canvas->DrawItem(Blackout);
+
+	if (MissingFloorEpilogueScene == EIGMissingFloorEpilogueScene::Montage)
+	{
+		// 소리만 지나가는 구간이다. 자막을 켠 플레이어에게만 글자가 있다.
+		return true;
+	}
+
+	if (MissingFloorEpilogueScene == EIGMissingFloorEpilogueScene::Card)
+	{
+		// 마지막 한 줄. 다른 어떤 것도 같은 화면에 두지 않는다.
+		const FText Card = MissingFloorEpilogueBodyLines.Num() > 0
+			? MissingFloorEpilogueBodyLines[0]
+			: FText::GetEmpty();
+		if (!Card.IsEmpty())
+		{
+			DrawCenteredText(
+				Card,
+				Canvas->ClipY * 0.5f - 22.0f * TypeScale,
+				FLinearColor(0.88f, 0.87f, 0.83f, Entrance),
+				EIGHudTextRole::Prompt,
+				1.06f * TypeScale);
+			RecordLayoutValidationRect(
+				FVector2D(Canvas->ClipX * 0.10f, Canvas->ClipY * 0.5f - 34.0f * TypeScale),
+				FVector2D(Canvas->ClipX * 0.90f, Canvas->ClipY * 0.5f + 34.0f * TypeScale));
+		}
+		return true;
+	}
+
+	const float SafeInset = FMath::Max(30.0f * Scale, Canvas->ClipX * 0.072f);
+	const float ContentLeft = SafeInset;
+	const float ContentWidth = Canvas->ClipX - SafeInset * 2.0f;
+
+	// 정지 화면은 있으면 얹고 없으면 넘어간다. 에필로그의 뜻은 문장에
+	// 있으므로 텍스처가 아직 임포트되지 않은 빌드에서도 장면이 성립한다.
+	UTexture2D* SceneTexture = nullptr;
+	switch (MissingFloorEpilogueScene)
+	{
+	case EIGMissingFloorEpilogueScene::Workshop:
+		SceneTexture = EpilogueWorkshopTexture;
+		break;
+	case EIGMissingFloorEpilogueScene::Autumn:
+		SceneTexture = EpilogueAutumnTexture;
+		break;
+	case EIGMissingFloorEpilogueScene::ServiceBay:
+		SceneTexture = EpilogueServiceBayTexture;
+		break;
+	default:
+		break;
+	}
+
+	float PenY = Canvas->ClipY * 0.16f;
+	if (SceneTexture && SceneTexture->GetResource())
+	{
+		// 판을 원본 비례로 맞춘다. 고정 높이를 쓰면 세로 사진이 가로로
+		// 눌려 건물이 납작해지는데, 그건 이 화면에서 가장 눈에 띄는 거짓말이다.
+		const float SourceWidth =
+			FMath::Max(static_cast<float>(SceneTexture->GetSizeX()), 1.0f);
+		const float SourceHeight =
+			FMath::Max(static_cast<float>(SceneTexture->GetSizeY()), 1.0f);
+		const float SourceAspect = SourceWidth / SourceHeight;
+		const float MaximumHeight = FMath::Clamp(
+			Canvas->ClipY * 0.46f,
+			190.0f * Scale,
+			560.0f * Scale);
+		float PlateWidth = ContentWidth;
+		float PlateHeight = PlateWidth / SourceAspect;
+		if (PlateHeight > MaximumHeight)
+		{
+			PlateHeight = MaximumHeight;
+			PlateWidth = PlateHeight * SourceAspect;
+		}
+		const float PlateLeft = ContentLeft + (ContentWidth - PlateWidth) * 0.5f;
+		// 아주 느린 밀기. 사진이 아니라 기억이라는 신호이고, 모션 감소에서는
+		// 그 이동만 0이 된다.
+		const float Drift = bReducedMotion
+			? 0.0f
+			: (1.0f - Entrance) * 16.0f * Scale;
+		FCanvasTileItem Plate(
+			FVector2D(PlateLeft, PenY - Drift),
+			SceneTexture->GetResource(),
+			FVector2D(PlateWidth, PlateHeight),
+			FVector2D(0.0f, 0.0f),
+			FVector2D(1.0f, 1.0f),
+			FLinearColor(0.82f, 0.83f, 0.80f, Entrance));
+		Plate.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Plate);
+		RecordLayoutValidationRect(
+			FVector2D(PlateLeft, PenY - Drift),
+			FVector2D(PlateLeft + PlateWidth, PenY - Drift + PlateHeight));
+		PenY += PlateHeight + 40.0f * Scale;
+	}
+	else
+	{
+		PenY = Canvas->ClipY * 0.30f;
+	}
+
+	if (!MissingFloorEpilogueHeading.IsEmpty())
+	{
+		DrawLeftAlignedText(
+			MissingFloorEpilogueHeading,
+			FVector2D(ContentLeft, PenY),
+			FLinearColor(0.56f, 0.55f, 0.51f, 0.92f * Entrance),
+			EIGHudTextRole::Speaker,
+			0.76f * TypeScale);
+		PenY += 40.0f * FMath::Max(Scale, TypeScale * 0.72f);
+	}
+
+	const float LineStride = 42.0f * FMath::Max(Scale, TypeScale * 0.74f);
+	for (const FText& Line : MissingFloorEpilogueBodyLines)
+	{
+		if (Line.IsEmpty())
+		{
+			PenY += LineStride * 0.55f;
+			continue;
+		}
+		DrawLeftAlignedText(
+			Line,
+			FVector2D(ContentLeft, PenY),
+			FLinearColor(0.88f, 0.87f, 0.83f, Entrance),
+			EIGHudTextRole::Dialogue,
+			0.90f * TypeScale);
+		PenY += LineStride;
+	}
+
+	if (!MissingFloorEpilogueFootnote.IsEmpty())
+	{
+		PenY += 12.0f * Scale;
+		DrawLeftAlignedText(
+			MissingFloorEpilogueFootnote,
+			FVector2D(ContentLeft, PenY),
+			FLinearColor(0.62f, 0.61f, 0.57f, 0.90f * Entrance),
+			EIGHudTextRole::Hint,
+			0.74f * TypeScale);
+		PenY += 34.0f * FMath::Max(Scale, TypeScale * 0.70f);
+	}
+
+	RecordLayoutValidationRect(
+		FVector2D(ContentLeft, Canvas->ClipY * 0.16f),
+		FVector2D(ContentLeft + ContentWidth, FMath::Min(PenY, Canvas->ClipY)));
+	return true;
 }
 
 bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)

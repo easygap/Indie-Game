@@ -534,6 +534,8 @@ $missingFloorNarrativeSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Narrative\IGMissingFloorNarrativeSubsystem.cpp')
 $missingFloorNarrativeHeader = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Narrative\IGMissingFloorNarrativeSubsystem.h')
+$missingFloorNarrativeTypes = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source\IndieGame\Narrative\IGMissingFloorNarrativeTypes.h')
 $missingFloorStory = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Docs\STORY_BIBLE_MISSING_FLOOR.md')
 $puzzleTwoSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -1660,8 +1662,27 @@ foreach ($token in @(
 		throw "Missing-floor v2 persistence contract is missing: $token"
 	}
 }
-if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 2')) {
-	throw 'Missing-floor snapshot schema was not advanced for night-four state.'
+# v3 — §22.3 선택적 목격. 진실 표와 섞이지 않는 별도 이름 공간으로 저장하고,
+# 이 빌드가 모르는 이름은 복원에서 버린다. 목격이 게이트에 참여하지 않는다는
+# 것이 계약의 요점이라 RecordWitness는 진실을 다시 계산하지 않는다.
+foreach ($token in @(
+	'EIGMissingFloorWitness',
+	'RecordWitness',
+	'HasWitness',
+	'Snapshot.Night.Witnesses',
+	'Seen.SeoSleepingPills',
+	'Seen.HwangWaterBowl',
+	'Seen.BoothSoundproofing',
+	'Seen.RooftopCigarettePack'
+)) {
+	if (-not $missingFloorNarrativeSource.Contains($token) -and
+		-not $missingFloorNarrativeHeader.Contains($token) -and
+		-not $missingFloorNarrativeTypes.Contains($token)) {
+		throw "Missing-floor v3 witness contract is missing: $token"
+	}
+}
+if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 3')) {
+	throw 'Missing-floor snapshot schema was not advanced for optional witnesses.'
 }
 foreach ($token in @(
 	'제작 정사 v3.2',

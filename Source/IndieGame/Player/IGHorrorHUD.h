@@ -38,6 +38,28 @@ enum class EIGDialogueChannel : uint8
 	Device
 };
 
+/**
+ * §9 에필로그의 한 장면. 디렉터가 시각표를 들고, HUD는 지금 어느 장면인지만
+ * 받아 그린다. 화면은 카메라 페이드가 이미 검게 만들어 두었으므로 여기서
+ * 하는 일은 그 검정 위에 무엇을 얹느냐가 전부다.
+ */
+enum class EIGMissingFloorEpilogueScene : uint8
+{
+	None,
+	/** 소리만 지나간다. 글자도 그림도 없다. */
+	Montage,
+	/** 에필로그 1 — 도하의 공방. 화면은 손과 현만(엔딩 A). */
+	Workshop,
+	/** 에필로그 2 — 가을의 달빛빌라(엔딩 A). */
+	Autumn,
+	/** 마지막 신 — 비어 있는 서비스 베이(엔딩 B). */
+	ServiceBay,
+	/** 두 엔딩 공통. 목격한 만큼 문장이 선명해진다(§22.3). */
+	News,
+	/** 마지막 카드 한 줄. */
+	Card
+};
+
 /** Higher-priority lines may briefly interrupt and then resume a lower one. */
 enum class EIGDialoguePriority : uint8
 {
@@ -304,6 +326,31 @@ public:
 		return bMissingFloorFailureEndingVisible;
 	}
 
+	/**
+	 * §9 에필로그의 장면 하나를 건다. 디렉터가 장면이 바뀔 때마다 부르고,
+	 * 흐른 시간은 HUD가 직접 잰다 — 실패 엔딩과 같은 규칙이라 프레임마다
+	 * 상태를 밀어 넣는 경로가 하나도 늘지 않는다.
+	 */
+	void BeginMissingFloorEpilogueScene(
+		EIGMissingFloorEpilogueScene Scene,
+		const FText& Heading,
+		const TArray<FText>& BodyLines,
+		const FText& Footnote);
+	void EndMissingFloorEpilogue();
+	bool IsMissingFloorEpilogueVisible() const
+	{
+		return MissingFloorEpilogueScene != EIGMissingFloorEpilogueScene::None;
+	}
+	EIGMissingFloorEpilogueScene GetMissingFloorEpilogueScene() const
+	{
+		return MissingFloorEpilogueScene;
+	}
+	/** 계약 스크립트가 지금 화면의 문장을 그대로 읽는다. */
+	const TArray<FText>& GetMissingFloorEpilogueLinesForTesting() const
+	{
+		return MissingFloorEpilogueBodyLines;
+	}
+
 	/** Native, asset-independent accessibility panel driven by the controller. */
 	void SetAccessibilityMenuState(bool bVisible, int32 SelectedRow);
 	/** Native title, pause and credits presentation shared by packaged builds. */
@@ -420,6 +467,8 @@ private:
 	/** 재관람 전용 우회 안내. 자막은 기존 하단 안전 영역을 그대로 사용한다. */
 	void DrawSensoryInterludeSkip();
 	bool DrawMissingFloorFailureEnding(double CurrentTime);
+	/** §9 에필로그가 HUD 전체 프레임을 점유하는 동안 true를 반환한다. */
+	bool DrawMissingFloorEpilogue(double CurrentTime);
 	/**
 	 * One expanding arc at the screen edge, sized by how far the sound the
 	 * player just made actually carries (§5.1). No numbers, no meter: the ring
@@ -544,6 +593,19 @@ private:
 	/** ImageGen 파생 저조도 벽면. 보정 안내와 눈금은 런타임에서 그린다. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> AudioCalibrationWallTexture;
+
+	/**
+	 * §9 에필로그의 세 정지 화면. 없으면 글자만 남는다 — 에필로그의 뜻은
+	 * 문장에 있으므로 그림이 빠져도 장면이 무너지지 않아야 한다.
+	 */
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> EpilogueWorkshopTexture;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> EpilogueAutumnTexture;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UTexture2D> EpilogueServiceBayTexture;
 
 	/** ImageGen-derived blank ledger paper. All Korean copy remains runtime text. */
 	UPROPERTY(Transient)
@@ -719,6 +781,12 @@ private:
 	bool bMissingFloorFailureEndingVisible = false;
 	bool bMissingFloorFailureRetryEnabled = false;
 	double MissingFloorFailureEndingStartedAt = 0.0;
+	EIGMissingFloorEpilogueScene MissingFloorEpilogueScene =
+		EIGMissingFloorEpilogueScene::None;
+	double MissingFloorEpilogueSceneStartedAt = 0.0;
+	FText MissingFloorEpilogueHeading;
+	TArray<FText> MissingFloorEpilogueBodyLines;
+	FText MissingFloorEpilogueFootnote;
 	bool bAccessibilityMenuVisible = false;
 	bool bSystemMenuVisible = false;
 	bool bMissingFloorJournalVisible = false;

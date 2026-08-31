@@ -34,6 +34,15 @@ public:
 	void RefreshMenuHud() const;
 
 	/**
+	 * §9 에필로그가 끝난 자리에서 타이틀을 연다.
+	 *
+	 * 엔딩 뒤에는 이어서 걸어 다닐 세계가 없다. 일시정지가 아니라 타이틀인
+	 * 이유도 그것이다 — 엔딩 B를 본 세이브라면 「밤 5」 행이 여기서 처음
+	 * 보인다.
+	 */
+	void ShowTitleAfterEnding();
+
+	/**
 	 * Harness hook for §24's 즉시 차단 19. The sealed hour has to turn the
 	 * evidence journal down, and a probe proves that by asking for it the way
 	 * the key does and then reading the screen.

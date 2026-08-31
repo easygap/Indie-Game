@@ -36,6 +36,9 @@
 | 공동 최종 잔존물 | `SheetFinalCavityRemainsReference_v1.png`, `FinalCavityFrontBlend_v1.png` | `SM_FinalCavityClothingShell`, `SM_FinalCavityBoneInsert`, `SM_FinalCavityTarp`, `SM_FinalCavityBrokenCaster`, `M_SpriteFinalCavity` | continuous 3D + lit masked PBR detail | 밤4 공동 개방 뒤 105~360cm·정면 내적 0.68에서 디테일, 그 밖은 셸 | 120cm 베이 안, 피부·머리카락·피·젖은 조직 0, 두개골→흉곽→신발 판독, 숨은 셸 그림자 유지, 측면 평면 노출 0 |
 | 목한수 최종 대치 | `SheetMokHansooConfrontationReference_v1.png`, `MokHansooFinalFrontBlend_v1.png` | `SM_MokHansooWorkwear`, `SM_MokHansooHeadHands`, `SM_MokHansooGypsumBoard`, `M_SpriteMokFinalUpper` | continuous 3D + upper-body PBR detail | 남쪽 계단참 등장→북쪽 퇴장 2.8초, 105~360cm·정면 내적 0.68에서 얼굴·재킷 보강 | 평균 체형·두 손 파지·95cm 보드·하체·그림자는 3D, 세로 31~39% 알파 감쇠, 근접 `T_SpriteMok_D` 사용 0, 괴물 통과 중 충돌 0 |
 | 엔딩 C 매물 외관 | `TitleBackgroundMissingFloor_v1.png` | `T_TitleBackground_D` + 네이티브 Canvas 한글 | Keep crop + runtime UI | 403호 매물 사진→입주자 후기 전환 | 신규 생성·브랜드 복제·구운 글자 0, 720p·텍스트 200% 안전 영역, 모션 감소 컷 제공 |
+| 에필로그 1 공방 (§9) | `EpilogueWorkshop_v1.png` | `T_EpilogueWorkshop_D` + 런타임 한글 | Keep + runtime UI | 엔딩 A 17.6~45초 정지 화면 | 손과 현만, 얼굴·상체 0, 구운 글자 0, 원본 3:2 유지 |
+| 에필로그 2 가을 (§9) | `EpilogueAutumn_v1.png` | `T_EpilogueAutumn_D` + 런타임 한글 | Keep + runtime UI | 엔딩 A 45~61초 정지 화면 | 간판·상호 0, 401호 창턱 라디오 1개, 원본 2:3 유지 |
+| 마지막 신 서비스 베이 (§9) | `EpilogueServiceBay_v1.png` | `T_EpilogueServiceBay_D` + 런타임 한글 | Keep + runtime UI | 엔딩 B 17.6~45초 정지 화면 | 사람·유해·카트 0, 방수포 자국과 캐스터 자국만, 원본 3:2 유지 |
 
 ## 블렌딩·거리·성능 계약
 
@@ -65,6 +68,11 @@
 - `SM_ListenerEntityCrawl`, 조율 렌치, 원장, 일지는 서사 근접 판독 때문에
   LOD0를 보존한다. 카트는 SmallProp LOD 그룹을 쓰며 화면 점유율 2% 아래에서
   단순화한다. 불법 5층 구조물은 반복 블록 재질을 공유하고 개별 Tick이 없다.
+- 에필로그 세 장은 전체 화면을 덮는 UI 판이라 월드 아틀라스가 아니라
+  `/Game/UI/Textures`로 들어간다. 타이틀 키아트와 같은 경로이며, HUD가
+  **원본 비례로** 그린다 — 고정 높이로 늘이면 세로 사진이 눌려 건물이
+  납작해지고, 그것이 이 화면에서 가장 눈에 띄는 거짓말이 된다. 텍스처가
+  없으면 그 장면은 글자만 남는다.
 - 일반 스프라이트 알파, 흔적 값 마스크, 석고 PBR은 1024px 이하 파생본을 쓰고,
   M5 세로형 정면 디테일만 1024×1536을 허용한다. 원본 시트는 SourceArt 증빙이며
   런타임에 직접 로드하지 않는다.

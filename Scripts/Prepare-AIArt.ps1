@@ -274,6 +274,22 @@ $plan = @(
         Source = 'TitleBackgroundMissingFloor_v1'; Target = 'T_TitleBackground_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1920, 1080)
     }
+    # §9 에필로그의 세 정지 화면. 타이틀 키아트와 같은 규칙이다 — 그림은
+    # 장소와 빛만 갖고, 한글은 전부 런타임 HUD가 그린다. 원본 비례를 그대로
+    # 두는 것도 계약이다: HUD가 판을 원본 비례로 맞추므로 여기서 정사각형에
+    # 욱여넣으면 화면에서 다시 늘어난다.
+    [pscustomobject]@{
+        Source = 'EpilogueWorkshop_v1'; Target = 'T_EpilogueWorkshop_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1536, 1024)
+    }
+    [pscustomobject]@{
+        Source = 'EpilogueAutumn_v1'; Target = 'T_EpilogueAutumn_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1536)
+    }
+    [pscustomobject]@{
+        Source = 'EpilogueServiceBay_v1'; Target = 'T_EpilogueServiceBay_D.png'
+        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1536, 1024)
+    }
     # Apartment vertical-slice art direction. The wallpaper remains a neutral
     # BaseColor scan; N/R/A are derived offline so no generated highlight is
     # baked into the room. The patina sheet is data, not a photographed plane:

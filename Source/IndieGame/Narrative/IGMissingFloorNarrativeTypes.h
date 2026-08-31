@@ -94,6 +94,31 @@ enum class EIGMissingFloorSource : uint8
 	AnswerRhythmJournal = 24
 };
 
+/**
+ * 선택적 목격 (§22.3). 진실을 열지 않고 게이트에도 참여하지 않는다.
+ *
+ * 확인한 만큼 유담의 독백과 목한수 대치 문장, 엔딩 뉴스 자막이 구체화될
+ * 뿐이다. 그래서 여기 있는 것들은 `EIGMissingFloorSource`와 같은 표에
+ * 들어가지 않는다 — 한 줄이라도 섞이면 「본 사람만 풀 수 있는 퍼즐」이
+ * 되고, 그건 §7의 공정성 약속을 깬다.
+ *
+ * 수집률·업적·완료 퍼센트는 없다(§23). 무엇을 놓쳤는지도 알려 주지
+ * 않는다. 이름으로 직렬화하므로 뒤에 덧붙이는 것은 언제든 안전하다.
+ */
+UENUM(BlueprintType)
+enum class EIGMissingFloorWitness : uint8
+{
+	None = 0,
+	/** 골목 건너편에 서 있던 서일영이 두고 간 약봉투. */
+	SeoSleepingPills = 1,
+	/** 401호 문 앞 창턱의 물그릇. 황순금이 벽에게 놓아 두던 것. */
+	HwangWaterBowl = 2,
+	/** 관리실 안쪽 방 문틈에 덧댄 방음재. */
+	BoothSoundproofing = 3,
+	/** 옥상 물탱크 옆, 눌러 끈 담배 여섯 개비. */
+	RooftopCigarettePack = 4
+};
+
 /** One truth and the provenance behind it. Confirmation is always derived. */
 USTRUCT(BlueprintType)
 struct INDIEGAME_API FIGMissingFloorTruthRecord
@@ -178,6 +203,14 @@ struct INDIEGAME_API FIGMissingFloorNightState
 	/** None, Ending.A, Ending.B or Ending.C. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	FName EndingChoice;
+
+	/**
+	 * 확인한 선택적 목격, 이름으로(§22.3). 진행에 어떤 게이트도 걸지
+	 * 않으므로 비어 있는 옛 저장은 그대로 유효하다 — 그 회차는 유담이
+	 * 아무것도 더 못 본 회차일 뿐이다.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	TArray<FName> Witnesses;
 };
 
 /**

@@ -573,6 +573,9 @@ void AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined(
 	{
 		return;
 	}
+	// §22.3. 이 문틈은 진실을 열지 않는다 — 열어야 할 진실이 없다. 대신
+	// 본 사람의 엔딩 자막에서 「듣지 않은 사람」이 이름을 얻는다.
+	Narrative->RecordWitness(EIGMissingFloorWitness::BoothSoundproofing);
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(

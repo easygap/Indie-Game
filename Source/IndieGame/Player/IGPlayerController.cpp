@@ -3850,6 +3850,16 @@ bool AIGPlayerController::HandleMenuPointerClick()
 	return true;
 }
 
+void AIGPlayerController::ShowTitleAfterEnding()
+{
+	if (!IsLocalController())
+	{
+		return;
+	}
+	SystemMenuSelection = 0;
+	SetSystemMenuMode(EIGSystemMenuMode::Title);
+}
+
 bool AIGPlayerController::ShouldShowTitleMenu() const
 {
 	// 밤 5 검증은 타이틀 그 자체를 검사하므로 무인 실행에서도 타이틀이 필요하다.

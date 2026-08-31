@@ -61,6 +61,7 @@ private:
 	class UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 	void InitializeArrivalSequence();
 	void SpawnArrivalInteractables(UStaticMesh* CubeMesh);
+	void SpawnOptionalWitnesses(UStaticMesh* CubeMesh);
 	void UpdateArrivalSequence();
 	void HandleArrivalEvidence(class AIGMissingFloorEvidence* Evidence);
 	void RequestArrivalAutosave();
@@ -128,6 +129,12 @@ private:
 	void MakeNightThreeFirstReport();
 	void HandleFifthDawnCompleted();
 	void HandleNightFourResolved();
+	/** §22.3 선택적 목격 셋. 진실도 게이트도 건드리지 않는다. */
+	void HandleWaterBowlExamined(class AIGMissingFloorEvidence* Evidence);
+	void HandleSleepingPillsExamined(class AIGMissingFloorEvidence* Evidence);
+	void HandleCigarettePackExamined(class AIGMissingFloorEvidence* Evidence);
+	/** 에필로그가 끝나면 게임은 타이틀로 돌아간다(§9). */
+	void HandleEpilogueCompleted();
 	void HandleSleepRequested(class AIGMissingFloorEvidence* Evidence);
 	void HandleUnit401Knocked(class AIGMissingFloorEvidence* Evidence);
 
@@ -161,6 +168,23 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGMissingFloorNightFourDirector> NightFour;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEpilogueDirector> Epilogue;
+
+	/**
+	 * §22.3의 선택적 목격 프롭. 어느 것도 진행을 잠그지 않으므로 생성에
+	 * 실패해도 스테이지는 유효하다 — ValidateFixtures가 이것들을 묻지 않는
+	 * 이유이며, 그 사실 자체가 「없어도 되는 것」이라는 설계의 표현이다.
+	 */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> WaterBowl;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> SleepingPills;
+
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGMissingFloorEvidence> CigarettePack;
 
 	/** §20.3's two automatic safety nets: the world moving when nothing else is. */
 	UPROPERTY(Transient)

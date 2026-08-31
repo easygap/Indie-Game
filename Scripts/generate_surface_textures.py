@@ -32,9 +32,17 @@ HUD_UI_TEXTURE_NAMES = {
     "T_FPCaptureEmbrace2_D",
     "T_FPCaptureEmbrace3_D",
     "T_TitleBackground_D",
+    "T_EpilogueWorkshop_D",
+    "T_EpilogueAutumn_D",
+    "T_EpilogueServiceBay_D",
 }
 FRONTEND_UI_ONLY = os.environ.get("IG_FRONTEND_UI_ONLY") == "1"
-FRONTEND_UI_TEXTURE_NAMES = {"T_TitleBackground_D"}
+FRONTEND_UI_TEXTURE_NAMES = {
+    "T_TitleBackground_D",
+    "T_EpilogueWorkshop_D",
+    "T_EpilogueAutumn_D",
+    "T_EpilogueServiceBay_D",
+}
 APARTMENT_VISUAL_ONLY = os.environ.get("IG_APARTMENT_VISUAL_ONLY") == "1"
 APARTMENT_VISUAL_TEXTURE_NAMES = {
     "T_ApartmentWallpaperV2_D",

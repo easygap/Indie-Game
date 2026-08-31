@@ -5,6 +5,7 @@
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
@@ -24,6 +25,7 @@
 #include "UnrealClient.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNightLoopDirector.h"
+#include "Entity/IGMissingFloorEpilogueDirector.h"
 #include "Entity/IGMissingFloorEvidence.h"
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "Entity/IGMissingFloorNightFourDirector.h"
@@ -404,6 +406,21 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		return false;
 	}
 
+	FActorSpawnParameters EpilogueParameters;
+	EpilogueParameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	EpilogueParameters.Name = TEXT("MissingFloorEpilogueDirector");
+	Epilogue = World->SpawnActor<AIGMissingFloorEpilogueDirector>(
+		AIGMissingFloorEpilogueDirector::StaticClass(),
+		FTransform::Identity,
+		EpilogueParameters);
+	if (!Epilogue || !AIGMissingFloorEpilogueDirector::ValidateTimelines())
+	{
+		return false;
+	}
+	Epilogue->OnCompleted.AddUObject(
+		this, &AIGListenerGreyboxDirector::HandleEpilogueCompleted);
+
 	// Night 4: the persisted three-control cleaning circuit, five physical
 	// wall strikes and the two spatial mourning choices.
 	FActorSpawnParameters NightFourParameters;
@@ -494,6 +511,8 @@ bool AIGListenerGreyboxDirector::SetupStage()
 				this, &AIGListenerGreyboxDirector::HandleUnit401Knocked);
 		}
 
+		SpawnOptionalWitnesses(CubeMesh);
+
 		if (bProductionMode)
 		{
 			SpawnArrivalInteractables(CubeMesh);
@@ -545,6 +564,135 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		*PatrolPoints[0].ToCompactString(),
 		Scene->IsTheHourSealed() ? 1 : 0);
 	return true;
+}
+
+void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
+{
+	UWorld* World = GetWorld();
+	if (!World || !CubeMesh)
+	{
+		return;
+	}
+
+	UMaterialInterface* CeramicMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_StainlessUV.M_StainlessUV"));
+	UMaterialInterface* PaperMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PaperClean.M_PaperClean"));
+	UMaterialInterface* CardboardMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
+
+	FActorSpawnParameters Parameters;
+	Parameters.SpawnCollisionHandlingOverride =
+		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+
+	// 401호 문선 서쪽 복도 바닥. 4층 슬래브는 Z=900이고 그릇 높이는 7 cm이라
+	// 중심은 903.5다. X는 401호 문선(X -200..-192)과 계단 개구부(X -230까지)
+	// 사이의 빈 30 cm에 넣고, Y는 굽도리 앞면(-238.5)에서 1.5 cm 띄운다 —
+	// 처음에는 문선을 1 cm 물고 벽 안에 들어가 있었다.
+	Parameters.Name = TEXT("MissingFloorWitnessWaterBowl");
+	WaterBowl = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, FVector(-212.0f, -249.0f, 903.5f)),
+		Parameters);
+	if (WaterBowl)
+	{
+		WaterBowl->Configure(
+			CubeMesh,
+			CeramicMaterial,
+			FVector(18.0f, 18.0f, 7.0f),
+			NSLOCTEXT("IGMissingFloor", "WitnessBowlPrompt", "물그릇"),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"WitnessBowlThought",
+				"물이 새로 담겨 있다. 고양이는 이 층에 안 올라온다."),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			0.9f,
+			0.04f);
+		WaterBowl->OnExamined.AddUObject(
+			this, &AIGListenerGreyboxDirector::HandleWaterBowlExamined);
+	}
+
+	// 골목 이쪽 보도. 서일영은 Y=-835 건너편에 한 번 서고, 이것은 그가
+	// 서 있던 자리가 아니라 지나가며 떨어뜨린 것이다. 노면은 Z=0이고
+	// 봉투는 눕혀 4 cm이므로 중심은 2다.
+	Parameters.Name = TEXT("MissingFloorWitnessSleepingPills");
+	SleepingPills = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator(0.0f, 18.0f, 0.0f), FVector(-40.0f, -400.0f, 2.0f)),
+		Parameters);
+	if (SleepingPills)
+	{
+		SleepingPills->Configure(
+			CubeMesh,
+			PaperMaterial,
+			FVector(15.0f, 9.0f, 4.0f),
+			NSLOCTEXT("IGMissingFloor", "WitnessPillsPrompt", "떨어진 약봉투"),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"WitnessPillsThought",
+				"조제일이 작년 팔월부터다. 매달 끊기지 않고."),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			0.9f,
+			0.05f);
+		SleepingPills->OnExamined.AddUObject(
+			this, &AIGListenerGreyboxDirector::HandleSleepingPillsExamined);
+	}
+
+	// 옥상 탱크 기초 위. 기초는 (0,-25) 중심에 360×360×100이라 윗면이
+	// Z=1300이고 X는 -180..180이다. 탱크 몸통(X -153..153)을 벗어난
+	// 동쪽 턱 27 cm 위에 눕힌다 — 앉으면 딱 무릎 옆이 되는 자리다.
+	Parameters.Name = TEXT("MissingFloorWitnessCigarettePack");
+	CigarettePack = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator(0.0f, -34.0f, 0.0f), FVector(168.0f, -25.0f, 1301.1f)),
+		Parameters);
+	if (CigarettePack)
+	{
+		CigarettePack->Configure(
+			CubeMesh,
+			CardboardMaterial,
+			FVector(8.5f, 5.5f, 2.2f),
+			NSLOCTEXT("IGMissingFloor", "WitnessPackPrompt", "눌러 끈 담배"),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"WitnessPackThought",
+				"여섯 개비가 같은 자리에 눌려 있다. 오래 앉아 있었네."),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			0.9f,
+			0.04f);
+		CigarettePack->OnExamined.AddUObject(
+			this, &AIGListenerGreyboxDirector::HandleCigarettePackExamined);
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleWaterBowlExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->RecordWitness(EIGMissingFloorWitness::HwangWaterBowl);
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleSleepingPillsExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->RecordWitness(EIGMissingFloorWitness::SeoSleepingPills);
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleCigarettePackExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->RecordWitness(EIGMissingFloorWitness::RooftopCigarettePack);
+	}
 }
 
 void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh)
@@ -1130,7 +1278,39 @@ void AIGListenerGreyboxDirector::HandleNightFourResolved()
 	// 이 완료 경로에서 의도적으로 제외한다.
 	Narrative->SetSecondReportMade(true);
 	Narrative->MarkBeatPlayed(FName(TEXT("Night4.SecondReport")));
+	// 시간을 먼저 푼다. 에필로그는 87초 동안 화면과 이동을 가져가므로,
+	// 그 사이에 추격이 살아 있으면 애도 장면 뒤에서 포획이 일어난다.
 	NightPhase->CompleteNightGoal();
+
+	if (Epilogue)
+	{
+		Epilogue->StartEpilogue(Player.Get(), Narrative->GetEndingChoice());
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleEpilogueCompleted()
+{
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	APlayerController* Controller = PlayerCharacter
+		? Cast<APlayerController>(PlayerCharacter->GetController())
+		: nullptr;
+	if (!Controller)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			Controller = World->GetFirstPlayerController();
+		}
+	}
+	if (AIGPlayerController* IGController = Cast<AIGPlayerController>(Controller))
+	{
+		// 타이틀이 자기 배경을 그리므로 암전은 여기서 걷는다. 이동 잠금은
+		// 남겨 둔다 — 뒤에서 걸어 다니는 사람이 있으면 타이틀이 아니다.
+		if (IGController->PlayerCameraManager)
+		{
+			IGController->PlayerCameraManager->StopCameraFade();
+		}
+		IGController->ShowTitleAfterEnding();
+	}
 }
 
 void AIGListenerGreyboxDirector::HandleFifthDawnCompleted()

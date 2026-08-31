@@ -470,6 +470,47 @@ public:
 		UObject* Outer,
 		float Loudness);
 
+	// --- 없는 층: 엔딩 에필로그 (§9) ---------------------------------------
+
+	/**
+	 * 폴리스라인 테이프가 롤에서 당겨져 풀리는 소리. 몽타주의 첫 소리이며,
+	 * 이 장면에서 처음으로 유담이 아닌 사람들이 건물에 들어온다.
+	 */
+	static UIGToneSequenceSoundWave* CreatePoliceLineTapePull(UObject* Outer);
+
+	/** 들것 바퀴가 복도 타일 이음매를 넘어간다. 네 번, 점점 멀어진다. */
+	static UIGToneSequenceSoundWave* CreateGurneyWheels(UObject* Outer);
+
+	/** 현장 사진 셔터 세 번. 미러 슬랩과 얇은 모터 감김. */
+	static UIGToneSequenceSoundWave* CreateCameraShutterTriple(UObject* Outer);
+
+	/** 빗자루가 석고 조각을 쓸어 모은다. 마른 알갱이가 앞으로 밀리는 소리. */
+	static UIGToneSequenceSoundWave* CreateDebrisSweep(UObject* Outer);
+
+	/**
+	 * 에필로그 1의 스코어. M-조율이 이 작품에서 유일하게 끝까지 간다.
+	 *
+	 * -30센트에서 시작해 여덟 타건에 걸쳐 220 Hz 정음으로 올라오고,
+	 * 마지막에 열린 5도(A-E)를 한 번 누른 뒤 놓는다. 게임 내내 닿지
+	 * 못하던 음이 여기서만 닿는 것이 §10.1의 계약이다.
+	 */
+	static UIGToneSequenceSoundWave* CreateEpilogueWorkshopScore(UObject* Outer);
+
+	/**
+	 * 에필로그 2의 베드. 크레인 유압의 아주 먼 저역과, 401호 창턱
+	 * 라디오에서 새어 나오는 대역 제한 신호. 말은 만들지 않는다.
+	 */
+	static UIGToneSequenceSoundWave* CreateEpilogueAutumnBed(UObject* Outer);
+
+	/** 열쇠 두 개가 중개사 반납함 철판 바닥에 떨어진다. */
+	static UIGToneSequenceSoundWave* CreateKeyDropMetalBox(UObject* Outer);
+
+	/**
+	 * 계단 난간을 두 번. 응답 노크와 같은 손이지만 벽이 아니라 강관이라
+	 * 저역 대신 금속 배음이 남는다. 이 게임의 마지막 입력의 소리다.
+	 */
+	static UIGToneSequenceSoundWave* CreateRailingKnockTwo(UObject* Outer);
+
 	/**
 	 * §5.5 기록되지 않는 시간 — a phone take played back through its own speaker.
 	 *

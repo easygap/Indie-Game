@@ -166,6 +166,28 @@ namespace IGMissingFloorNarrative
 	 * Serialized evidence names. Strings, not enum values, so appending to
 	 * EIGMissingFloorSource can never reinterpret an existing save.
 	 */
+	/**
+	 * 선택적 목격의 직렬화 이름(§22.3). 증거 이름과 접두사 공간을 나눠 쓴다 —
+	 * 저장 파일을 열어 본 사람이 무엇이 퍼즐이고 무엇이 그냥 본 것인지
+	 * 구분할 수 있어야 한다.
+	 */
+	static const TCHAR* WitnessName(const EIGMissingFloorWitness Witness)
+	{
+		switch (Witness)
+		{
+		case EIGMissingFloorWitness::SeoSleepingPills:
+			return TEXT("Seen.SeoSleepingPills");
+		case EIGMissingFloorWitness::HwangWaterBowl:
+			return TEXT("Seen.HwangWaterBowl");
+		case EIGMissingFloorWitness::BoothSoundproofing:
+			return TEXT("Seen.BoothSoundproofing");
+		case EIGMissingFloorWitness::RooftopCigarettePack:
+			return TEXT("Seen.RooftopCigarettePack");
+		default:
+			return nullptr;
+		}
+	}
+
 	static const TCHAR* SourceName(const EIGMissingFloorSource Source)
 	{
 		switch (Source)
@@ -244,6 +266,35 @@ FName UIGMissingFloorNarrativeSubsystem::GetSourceId(
 {
 	const TCHAR* Name = IGMissingFloorNarrative::SourceName(Source);
 	return Name ? FName(Name) : NAME_None;
+}
+
+FName UIGMissingFloorNarrativeSubsystem::GetWitnessId(
+	const EIGMissingFloorWitness Witness)
+{
+	const TCHAR* Name = IGMissingFloorNarrative::WitnessName(Witness);
+	return Name ? FName(Name) : NAME_None;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::RecordWitness(
+	const EIGMissingFloorWitness Witness)
+{
+	const FName WitnessId = GetWitnessId(Witness);
+	if (WitnessId.IsNone() || Snapshot.Night.Witnesses.Contains(WitnessId))
+	{
+		return false;
+	}
+	Snapshot.Night.Witnesses.Add(WitnessId);
+	// 진실을 다시 계산하지 않는다. 목격은 어떤 교차에도 들어가지 않으므로
+	// 여기서 RecomputeConfirmations를 부르면 「본 것이 진실을 열 수도 있다」는
+	// 잘못된 인상을 코드에 남긴다.
+	return true;
+}
+
+bool UIGMissingFloorNarrativeSubsystem::HasWitness(
+	const EIGMissingFloorWitness Witness) const
+{
+	const FName WitnessId = GetWitnessId(Witness);
+	return !WitnessId.IsNone() && Snapshot.Night.Witnesses.Contains(WitnessId);
 }
 
 bool UIGMissingFloorNarrativeSubsystem::RegisterTruthSource(
@@ -643,6 +694,34 @@ void UIGMissingFloorNarrativeSubsystem::NormalizeSnapshot()
 				&Snapshot.Truths[Snapshot.Truths.Add(MoveTemp(NewRecord))];
 		}
 		AnswerRecord->SourceIds.AddUnique(VoicemailSourceId);
+	}
+
+	// 이 빌드가 모르는 목격 이름과 중복은 버린다. 문장 하나가 늘어나는
+	// 일이라 손해는 작지만, 모르는 이름을 남겨 두면 나중에 그 이름을 다른
+	// 뜻으로 다시 쓸 때 옛 저장이 조용히 그 문장을 켠다.
+	{
+		TSet<FName> SeenWitnesses;
+		for (int32 Index = Snapshot.Night.Witnesses.Num() - 1; Index >= 0; --Index)
+		{
+			const FName Candidate = Snapshot.Night.Witnesses[Index];
+			bool bRecognized = false;
+			for (uint8 Raw = 1;
+				Raw <= static_cast<uint8>(EIGMissingFloorWitness::RooftopCigarettePack);
+				++Raw)
+			{
+				if (Candidate == GetWitnessId(static_cast<EIGMissingFloorWitness>(Raw)))
+				{
+					bRecognized = true;
+					break;
+				}
+			}
+			if (!bRecognized || SeenWitnesses.Contains(Candidate))
+			{
+				Snapshot.Night.Witnesses.RemoveAt(Index);
+				continue;
+			}
+			SeenWitnesses.Add(Candidate);
+		}
 	}
 
 	Snapshot.Night.NightIndex = FMath::Clamp(Snapshot.Night.NightIndex, 0, 4);

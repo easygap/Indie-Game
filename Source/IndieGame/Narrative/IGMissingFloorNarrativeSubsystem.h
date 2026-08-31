@@ -70,6 +70,28 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
 	bool IsFinalChoiceUnlocked() const;
 
+	// -- 선택적 목격 (§22.3) -----------------------------------------------
+
+	/** The serialized name for one optional sighting. */
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	static FName GetWitnessId(EIGMissingFloorWitness Witness);
+
+	/**
+	 * 본 것을 적어 둔다. 처음 본 것이면 true.
+	 *
+	 * 진실도 게이트도 건드리지 않으므로 `RegisterTruthSource`와 달리
+	 * 반환값에 진행이 걸리지 않는다. 호출부는 두 번 적히지 않게만 쓰면 된다.
+	 */
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	bool RecordWitness(EIGMissingFloorWitness Witness);
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	bool HasWitness(EIGMissingFloorWitness Witness) const;
+
+	/** 몇 개를 봤는지. 플레이어에게 보여 주는 숫자가 아니라 문장 선택용이다. */
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	int32 GetWitnessCount() const { return Snapshot.Night.Witnesses.Num(); }
+
 	// -- the hour's persistent runtime facts (§5.4) ------------------------
 
 	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
@@ -192,8 +214,14 @@ public:
 	/** Fires once, when a truth first crosses. */
 	FIGMissingFloorTruthSignature OnTruthConfirmed;
 
-	/** Current snapshot schema. Bumped only with a matching migration. */
-	static constexpr int32 SnapshotSchemaVersion = 2;
+	/**
+	 * Current snapshot schema. Bumped only with a matching migration.
+	 *
+	 * 3 — §22.3 선택적 목격이 밤 상태에 덧붙었다. 마이그레이션이 따로 없는
+	 * 것이 마이그레이션이다: v2 저장은 아무것도 못 본 회차로 읽히고, 그게
+	 * 실제로 그 회차의 사실이다.
+	 */
+	static constexpr int32 SnapshotSchemaVersion = 3;
 
 private:
 	/** Rebuilds bConfirmed on every record from its sources alone. */

@@ -1749,6 +1749,182 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasterDustFall(
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePoliceLineTapePull(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEpiloguePoliceLineTape"));
+	TArray<FIGToneNote> Notes;
+	// 롤이 도는 동안 접착면이 계속 뜯긴다 — 끊기지 않는 마찰이 먼저고,
+	// 그 위에 롤 축의 얇은 떨림이 얹힌다.
+	Notes.Add({0.000f, 1.35f, 3100.0f, 0.052f, 0.060f, 1.1f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.040f, 1.24f, 1450.0f, 0.030f, 0.080f, 1.2f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.060f, 1.18f, 214.0f, 0.014f, 0.120f, 1.4f, EIGToneWaveform::Triangle});
+	// 끝에서 손으로 끊는다.
+	Notes.Add({1.36f, 0.075f, 4200.0f, 0.085f, 0.008f, 2.9f, EIGToneWaveform::ValueNoise});
+	Notes.Add({1.36f, 0.140f, 620.0f, 0.036f, 0.012f, 2.4f, EIGToneWaveform::ValueNoise});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateGurneyWheels(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEpilogueGurneyWheels"));
+	TArray<FIGToneNote> Notes;
+	// 작은 캐스터의 연속 구름. 타일 이음매를 네 번 넘고, 넘을 때마다
+	// 조금씩 작아진다 — 멀어지는 것은 속도가 아니라 거리다.
+	Notes.Add({0.000f, 3.10f, 1750.0f, 0.030f, 0.140f, 1.0f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.000f, 3.10f, 118.0f, 0.020f, 0.180f, 1.0f, EIGToneWaveform::Sine});
+	const float SeamTimes[] = {0.42f, 1.16f, 1.94f, 2.71f};
+	const float SeamGains[] = {1.00f, 0.82f, 0.64f, 0.47f};
+	for (int32 Index = 0; Index < 4; ++Index)
+	{
+		const float Start = SeamTimes[Index];
+		const float Gain = SeamGains[Index];
+		Notes.Add({Start, 0.055f, 96.0f, 0.090f * Gain, 0.006f, 2.6f, EIGToneWaveform::Sine});
+		Notes.Add({Start, 0.038f, 2600.0f, 0.048f * Gain, 0.006f, 3.1f, EIGToneWaveform::ValueNoise});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCameraShutterTriple(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEpilogueCameraShutter"));
+	TArray<FIGToneNote> Notes;
+	for (const float Start : {0.00f, 0.86f, 1.79f})
+	{
+		// 미러 슬랩, 셔터막, 그리고 감기 모터의 짧은 회전.
+		Notes.Add({Start, 0.030f, 1250.0f, 0.115f, 0.004f, 3.4f, EIGToneWaveform::ValueNoise});
+		Notes.Add({Start + 0.012f, 0.026f, 3400.0f, 0.080f, 0.004f, 3.6f, EIGToneWaveform::ValueNoise});
+		Notes.Add({Start + 0.044f, 0.150f, 320.0f, 0.036f, 0.010f, 2.2f, EIGToneWaveform::SoftSquare});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateDebrisSweep(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEpilogueDebrisSweep"));
+	TArray<FIGToneNote> Notes;
+	// 세 번 쓴다. 획마다 앞으로 밀리는 알갱이가 늘어 대역이 낮아진다.
+	const float StrokeStarts[] = {0.00f, 1.05f, 2.02f};
+	const float StrokeBands[] = {5200.0f, 4400.0f, 3700.0f};
+	for (int32 Index = 0; Index < 3; ++Index)
+	{
+		const float Start = StrokeStarts[Index];
+		Notes.Add({Start, 0.62f, StrokeBands[Index], 0.062f, 0.070f, 1.6f, EIGToneWaveform::ValueNoise});
+		Notes.Add({Start + 0.05f, 0.50f, 880.0f, 0.024f, 0.090f, 1.8f, EIGToneWaveform::ValueNoise});
+		// 획 끝에서 조각이 무더기에 부딪힌다.
+		Notes.Add({Start + 0.58f, 0.070f, 1900.0f, 0.040f, 0.008f, 2.8f, EIGToneWaveform::ValueNoise});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEpilogueWorkshopScore(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEpilogueWorkshopScore"));
+	constexpr int32 StrikeCount = 8;
+	constexpr float StrikeSpacing = 1.70f;
+	TArray<FIGToneNote> Notes;
+	// CreateTuningMotif과 같은 걸음으로 시작하되, 여기서는 마지막 타건이
+	// 0센트에 닿는다. 게임 내내 -30에서 -16까지만 오던 그 음이다.
+	for (int32 Strike = 0; Strike < StrikeCount; ++Strike)
+	{
+		const float Progress =
+			static_cast<float>(Strike) / static_cast<float>(StrikeCount - 1);
+		const float Cents = FMath::Lerp(-30.0f, 0.0f, Progress);
+		const float Frequency = 220.0f * FMath::Pow(2.0f, Cents / 1200.0f);
+		const float Start = Strike * StrikeSpacing;
+		// 조율이 끝나 갈수록 세게 치지 않는다. 확인만 하면 되기 때문이다.
+		const float Amplitude = FMath::Lerp(0.082f, 0.058f, Progress);
+		Notes.Add({Start, 1.18f, Frequency, Amplitude, 0.025f, 2.0f, EIGToneWaveform::Triangle});
+		Notes.Add({Start, 0.34f, Frequency * 2.0f, Amplitude * 0.21f, 0.030f, 2.8f, EIGToneWaveform::Triangle});
+	}
+
+	// 마지막 타건 뒤에 손을 떼고 한 번 눌러 본다 — 열린 5도, 길게.
+	const float ChordStart = StrikeCount * StrikeSpacing + 0.65f;
+	Notes.Add({ChordStart, 5.20f, 220.00f, 0.052f, 0.055f, 1.3f, EIGToneWaveform::Triangle});
+	Notes.Add({ChordStart, 5.20f, 329.63f, 0.034f, 0.070f, 1.3f, EIGToneWaveform::Triangle});
+	Notes.Add({ChordStart, 4.60f, 440.00f, 0.021f, 0.090f, 1.5f, EIGToneWaveform::Triangle});
+	Notes.Add({ChordStart, 3.40f, 110.00f, 0.026f, 0.120f, 1.4f, EIGToneWaveform::Sine});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	// 나무 몸통과 사람 손이라 아주 작게 흔들린다. 기계로 들리면 안 된다.
+	Wave->ConfigurePitchWow(0.0016f, 0.11f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEpilogueAutumnBed(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEpilogueAutumnBed"));
+	constexpr float LoopLength = 12.0f;
+	TArray<FIGToneNote> Notes;
+	// 크레인 유압. 골목 하나 건너에서 나는 소리라 저역만 남는다.
+	Notes.Add({0.0f, LoopLength, 38.0f, 0.055f, 0.30f, 0.7f, EIGToneWaveform::Sine});
+	Notes.Add({0.0f, LoopLength, 260.0f, 0.014f, 0.35f, 0.9f, EIGToneWaveform::ValueNoise});
+	// 붐이 한 번 내려앉는다.
+	Notes.Add({4.30f, 1.10f, 62.0f, 0.048f, 0.060f, 1.8f, EIGToneWaveform::Sine});
+	Notes.Add({4.30f, 0.35f, 740.0f, 0.020f, 0.020f, 2.6f, EIGToneWaveform::ValueNoise});
+	// 401호 창턱의 라디오. 대역을 좁혀 말이 되지 않게 둔다.
+	for (int32 Phrase = 0; Phrase < 5; ++Phrase)
+	{
+		const float Start = 0.90f + Phrase * 2.15f;
+		const float Frequency = 430.0f + static_cast<float>(Phrase % 3) * 55.0f;
+		Notes.Add({Start, 1.15f, Frequency, 0.017f, 0.140f, 1.5f, EIGToneWaveform::ValueNoise});
+		Notes.Add({Start + 0.28f, 0.62f, Frequency * 1.5f, 0.008f, 0.180f, 1.7f, EIGToneWaveform::ValueNoise});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopLength);
+	Wave->ConfigurePitchWow(0.0030f, 0.06f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateKeyDropMetalBox(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEpilogueKeyDropBox"));
+	TArray<FIGToneNote> Notes;
+	// 투입구를 지나 얇은 철판 바닥에 닿고, 링이 한 번 더 튄다.
+	Notes.Add({0.000f, 0.055f, 2900.0f, 0.070f, 0.004f, 3.2f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.030f, 0.320f, 1180.0f, 0.062f, 0.006f, 2.0f, EIGToneWaveform::Triangle});
+	Notes.Add({0.030f, 0.280f, 1770.0f, 0.034f, 0.006f, 2.2f, EIGToneWaveform::Triangle});
+	Notes.Add({0.034f, 0.400f, 176.0f, 0.038f, 0.008f, 1.9f, EIGToneWaveform::Sine});
+	Notes.Add({0.155f, 0.190f, 2340.0f, 0.026f, 0.005f, 2.8f, EIGToneWaveform::Triangle});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRailingKnockTwo(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGEpilogueRailingKnockTwo"));
+	TArray<FIGToneNote> Notes;
+	// 「둘」의 간격은 §7 P4와 같은 0.34초다. 응답 노크를 배운 손이
+	// 그대로 치는 것이므로 박자를 새로 만들지 않는다.
+	for (const float Start : {0.00f, 0.34f})
+	{
+		Notes.Add({Start, 0.030f, 1900.0f, 0.075f, 0.004f, 3.0f, EIGToneWaveform::ValueNoise});
+		// 강관은 벽과 달리 배음이 오래 남는다.
+		Notes.Add({Start, 0.620f, 486.0f, 0.056f, 0.005f, 1.6f, EIGToneWaveform::Triangle});
+		Notes.Add({Start, 0.520f, 1312.0f, 0.024f, 0.005f, 1.8f, EIGToneWaveform::Triangle});
+		Notes.Add({Start, 0.240f, 92.0f, 0.030f, 0.006f, 2.4f, EIGToneWaveform::Sine});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRecordingPlayback(
 	UObject* Outer,
 	const TArray<FIGRecordedSound>& Sounds)
