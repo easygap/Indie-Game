@@ -538,6 +538,92 @@ if (-not $story.Contains('**컷 금지**')) {
 	throw 'The §21.1 no-cut rule was removed.'
 }
 
+# --- 출력 방식 (§10.5) ------------------------------------------------------
+#
+# 훅이 「위에서 나는 소리」라 기본은 바이노럴이다. 그런데 바이노럴을 스피커로
+# 틀면 좌우가 서로 새어 위아래가 오히려 뭉개진다. 스피커를 막지 않기로 한
+# 이상, 스피커로 듣는다고 말할 자리가 있어야 한다.
+
+$helperSource = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Audio/IGAudioHelpers.cpp')
+
+# 감쇠가 알고리즘을 박아 두면 설정이 있어도 아무 일도 일어나지 않는다.
+$assertionCount++
+if ($helperSource -match 'SpatializationAlgorithm\s*=\s*SPATIALIZATION_HRTF') {
+	throw 'Attenuation must not hard-code HRTF; it reads the output mode (§10.5).'
+}
+$assertionCount++
+if (-not $helperSource.Contains(
+	'Settings.SpatializationAlgorithm = GetSpatializationAlgorithm()')) {
+	throw 'Attenuation must take its algorithm from the output mode (§10.5).'
+}
+
+# 두 방식이 실제로 다른 알고리즘으로 갈라지는가. 갈라지지 않으면 화면의
+# 글자만 바뀌고 소리는 그대로다.
+$algorithmBody = [regex]::Match(
+	$helperSource,
+	'ESoundSpatializationAlgorithm GetSpatializationAlgorithm\(\)(?<body>[\s\S]*?)\r?\n\t\}')
+$assertionCount++
+if (-not $algorithmBody.Success) {
+	throw 'GetSpatializationAlgorithm could not be isolated.'
+}
+foreach ($branch in @('SPATIALIZATION_HRTF', 'SPATIALIZATION_Default')) {
+	$assertionCount++
+	if (-not $algorithmBody.Groups['body'].Value.Contains($branch)) {
+		throw "Output mode must pick a distinct algorithm: $branch"
+	}
+}
+
+# 새로 나는 소리만 바꾸면 이미 돌고 있는 환경음 루프가 옛 방식으로 남는다.
+$outputBody = [regex]::Match(
+	$audioSource,
+	'void UIGMissingFloorAudioSubsystem::SetHeadphoneOutput\(const bool bHeadphones\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $outputBody.Success) {
+	throw 'SetHeadphoneOutput could not be isolated.'
+}
+foreach ($piece in @(
+	'IGAudio::SetOutputMode(',
+	'ActiveVoices[BusIndex]',
+	'AdjustAttenuation(')) {
+	$assertionCount++
+	if (-not $outputBody.Groups['body'].Value.Contains($piece)) {
+		throw "Switching output must re-apply to live voices: $piece"
+	}
+}
+
+# 기본은 헤드폰이다. §10.5가 스피커를 막지 않는 것이지 권하는 것이 아니다.
+$audioHeader = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Audio/IGMissingFloorAudioSubsystem.h')
+$assertionCount++
+if (-not $audioHeader.Contains('bool bHeadphoneOutput = true;')) {
+	throw 'Headphones must remain the default output mode (§10.5).'
+}
+$controllerSource = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGPlayerController.cpp')
+foreach ($half in @(
+	@{ Name = 'LoadAudioCalibrationSettings'; Call = 'GConfig->GetBool(' },
+	@{ Name = 'CompleteAudioCalibration'; Call = 'GConfig->SetBool(' })) {
+	$halfBody = [regex]::Match(
+		$controllerSource,
+		('void AIGPlayerController::{0}\(\)' -f $half.Name) +
+			'(?<body>[\s\S]*?)\r?\n\}')
+	$assertionCount++
+	if (-not $halfBody.Success) {
+		throw ('{0} could not be isolated.' -f $half.Name)
+	}
+	$assertionCount++
+	if ($halfBody.Groups['body'].Value -notmatch
+		([regex]::Escape($half.Call) + '\s*\r?\n\s*IGAudioCalibration::ConfigSection,' +
+			'\s*\r?\n\s*TEXT\("HeadphoneOutput"\)')) {
+		throw ('The output mode must persist to user settings: {0} (§10.5).' -f $half.Name)
+	}
+}
+$assertionCount++
+if ($story -notmatch '스피커 플레이도 막지 않는다') {
+	throw 'The §10.5 speakers-allowed rule was removed.'
+}
+
 Write-Host (
 	'MISSING_FLOOR_MIX_MOVEMENT_CONTRACT PASS buses={0} spaces={1} states={2} assertions={3}' -f `
 		$busRows.Count, $reverbRows.Count, $movementRows.Count, $assertionCount) `

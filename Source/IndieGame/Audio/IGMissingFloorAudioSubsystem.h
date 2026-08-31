@@ -87,6 +87,14 @@ public:
 	 */
 	void RegisterComponent(UAudioComponent* Component, EIGAudioBus Bus);
 
+	/**
+	 * §10.5. 헤드폰과 스피커를 오간다. 새로 나는 소리만 바꾸면 이미 돌고
+	 * 있는 환경음 루프가 옛 방식으로 남아 설정이 반만 듣는 것처럼 된다.
+	 * 그래서 살아 있는 목소리를 훑어 다시 건다.
+	 */
+	void SetHeadphoneOutput(bool bHeadphones);
+	bool IsHeadphoneOutput() const { return bHeadphoneOutput; }
+
 	void SetThreatState(EIGAudioThreatState NewState);
 
 	/**
@@ -212,6 +220,8 @@ private:
 		static_cast<int32>(EIGAcousticSpace::Count);
 
 	TArray<FTrackedVoice> ActiveVoices[BusCount];
+
+	bool bHeadphoneOutput = true;
 	uint64 NextVoiceSerial = 1;
 	float VoicePruneAccumulator = 0.0f;
 	float AcousticPollAccumulator = 0.0f;

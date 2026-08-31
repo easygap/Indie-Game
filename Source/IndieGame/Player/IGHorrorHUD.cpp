@@ -1418,6 +1418,7 @@ void AIGHorrorHUD::SetSystemMenuState(
 		4);
 	bSystemMenuAudioCalibrationFirstRun =
 		Presentation.bAudioCalibrationFirstRun;
+	bSystemMenuHeadphoneOutput = Presentation.bHeadphoneOutput;
 	DisplayWindowModeIndex = FMath::Clamp(Presentation.WindowModeIndex, 0, 2);
 	DisplayResolutionIndex = FMath::Clamp(Presentation.ResolutionIndex, 0, 2);
 	DisplayQualityIndex = FMath::Clamp(Presentation.QualityIndex, 0, 1);
@@ -5277,6 +5278,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 	{
 		bKorean ? TEXT("노크 음량") : TEXT("KNOCK VOLUME"),
 		bKorean ? TEXT("화면 밝기") : TEXT("DISPLAY BRIGHTNESS"),
+		bKorean ? TEXT("듣는 방식") : TEXT("LISTENING ON"),
 		bKorean ? TEXT("노크 다시 듣기") : TEXT("PLAY KNOCK AGAIN"),
 		bSystemMenuAudioCalibrationFirstRun
 			? bKorean ? TEXT("저장하고 타이틀로") : TEXT("SAVE AND CONTINUE")
@@ -5301,12 +5303,40 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 			}
 			Label += FString::Printf(TEXT("    < %s >"), *Dots);
 		}
+		else if (Row == 2)
+		{
+			Label += FString::Printf(
+				TEXT("    < %s >"),
+				bSystemMenuHeadphoneOutput
+					? (bKorean ? TEXT("헤드폰") : TEXT("HEADPHONES"))
+					: (bKorean ? TEXT("스피커") : TEXT("SPEAKERS")));
+		}
 		DrawCenteredText(
 			FText::FromString(Label),
 			RowStartY + Row * RowSpacing,
 			bSelected ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray,
 			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
 			0.92f * Scale);
+	}
+	if (AudioCalibrationSelectedRow == 2)
+	{
+		DrawCenteredText(
+			bKorean
+				? bSystemMenuHeadphoneOutput
+					? NSLOCTEXT(
+						"IGHUD", "AudioCalibrationOutputHeadphones",
+						"위아래에서 나는 소리를 그대로 씁니다. 이 게임이 기대하는 방식입니다.")
+					: NSLOCTEXT(
+						"IGHUD", "AudioCalibrationOutputSpeakers",
+						"스피커에서는 위아래 구분이 흐려집니다. 자막을 켜면 방향을 함께 적습니다.")
+				: FText::FromString(
+					bSystemMenuHeadphoneOutput
+						? TEXT("FULL VERTICAL IMAGING. THIS IS WHAT THE GAME EXPECTS.")
+						: TEXT("SPEAKERS BLUR UP AND DOWN. SUBTITLES WILL NAME THE DIRECTION.")),
+			PanelOrigin.Y + PanelSize.Y - 52.0f * Scale,
+			IGHorrorHUD::PaleGray,
+			EIGHudTextRole::Hint,
+			0.78f * Scale);
 	}
 	DrawCenteredText(
 		bKorean

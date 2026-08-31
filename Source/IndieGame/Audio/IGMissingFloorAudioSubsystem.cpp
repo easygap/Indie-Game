@@ -236,6 +236,38 @@ void UIGMissingFloorAudioSubsystem::PrepareSound(
 	}
 }
 
+void UIGMissingFloorAudioSubsystem::SetHeadphoneOutput(const bool bHeadphones)
+{
+	bHeadphoneOutput = bHeadphones;
+	IGAudio::SetOutputMode(
+		bHeadphones
+			? IGAudio::EIGOutputMode::Headphones
+			: IGAudio::EIGOutputMode::Speakers);
+
+	const ESoundSpatializationAlgorithm Algorithm =
+		IGAudio::GetSpatializationAlgorithm();
+	for (int32 BusIndex = 0; BusIndex < BusCount; ++BusIndex)
+	{
+		for (FTrackedVoice& Voice : ActiveVoices[BusIndex])
+		{
+			UAudioComponent* Component = Voice.Component.Get();
+			if (!Component)
+			{
+				continue;
+			}
+			// 감쇠 개체는 소리마다 새로 만든 것이라 여기서 고쳐도 남의
+			// 소리에 번지지 않는다.
+			USoundAttenuation* Attenuation = Component->AttenuationSettings;
+			if (!Attenuation)
+			{
+				continue;
+			}
+			Attenuation->Attenuation.SpatializationAlgorithm = Algorithm;
+			Component->AdjustAttenuation(Attenuation->Attenuation);
+		}
+	}
+}
+
 void UIGMissingFloorAudioSubsystem::RegisterComponent(
 	UAudioComponent* Component,
 	const EIGAudioBus Bus)

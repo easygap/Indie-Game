@@ -1,4 +1,4 @@
-#include "Audio/IGAudioHelpers.h"
+﻿#include "Audio/IGAudioHelpers.h"
 
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Components/AudioComponent.h"
@@ -11,6 +11,11 @@ namespace IGAudio
 {
 	namespace
 	{
+		// 단일 플레이어 게임이라 전역 하나로 충분하다. 새로 만드는 감쇠는
+		// 즉시 이 값을 읽고, 이미 울고 있는 소리는 오디오 감독이 훑어서
+		// 다시 걸어 준다.
+		EIGOutputMode ActiveOutputMode = EIGOutputMode::Headphones;
+
 		UAudioComponent* SpawnOneShotInternal(
 			const UObject* WorldContext,
 			USoundBase* Sound,
@@ -69,6 +74,23 @@ namespace IGAudio
 		}
 	}
 
+	void SetOutputMode(const EIGOutputMode Mode)
+	{
+		ActiveOutputMode = Mode;
+	}
+
+	EIGOutputMode GetOutputMode()
+	{
+		return ActiveOutputMode;
+	}
+
+	ESoundSpatializationAlgorithm GetSpatializationAlgorithm()
+	{
+		return ActiveOutputMode == EIGOutputMode::Headphones
+			? SPATIALIZATION_HRTF
+			: SPATIALIZATION_Default;
+	}
+
 	USoundAttenuation* MakeAttenuation(
 		UObject* Outer,
 		const float InnerRadius,
@@ -84,7 +106,9 @@ namespace IGAudio
 		// Resonance Audio is selected project-wide. Plugin spatialization gives
 		// the knock/pipe/entity contract its required binaural elevation cues;
 		// platforms without the plugin still fall back to UE's normal panning.
-		Settings.SpatializationAlgorithm = SPATIALIZATION_HRTF;
+		// 스피커를 고르면 평범한 패닝으로 내린다 — 바이노럴을 스피커로 틀면
+		// 좌우가 서로 새어 위아래가 오히려 뭉개진다.
+		Settings.SpatializationAlgorithm = GetSpatializationAlgorithm();
 		Settings.AttenuationShapeExtents = FVector(FMath::Max(1.0f, InnerRadius), 0.0f, 0.0f);
 		Settings.FalloffDistance = FMath::Max(1.0f, FalloffDistance);
 		Settings.DistanceAlgorithm = EAttenuationDistanceModel::NaturalSound;

@@ -1,7 +1,8 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
+#include "Sound/SoundAttenuation.h"
 
 class UAudioComponent;
 class USoundAttenuation;
@@ -10,6 +11,24 @@ class USoundBase;
 /** Small runtime audio utilities shared by prologue actors. */
 namespace IGAudio
 {
+	/**
+	 * §10.5. 이 게임의 훅은 「위에서 나는 소리」라서 기본이 바이노럴이다.
+	 * 그런데 바이노럴을 스피커로 들으면 좌우가 서로 새어 상이 무너진다.
+	 * 스피커도 막지 않기로 한 이상, 스피커로 듣는다고 말할 자리가 있어야
+	 * 한다.
+	 */
+	enum class EIGOutputMode : uint8
+	{
+		Headphones,
+		Speakers
+	};
+
+	INDIEGAME_API void SetOutputMode(EIGOutputMode Mode);
+	INDIEGAME_API EIGOutputMode GetOutputMode();
+
+	/** 지금 출력 방식에 맞는 정위 알고리즘. */
+	INDIEGAME_API ESoundSpatializationAlgorithm GetSpatializationAlgorithm();
+
 	/**
 	 * Creates a transient natural-falloff attenuation object.
 	 *

@@ -208,7 +208,8 @@ Assert-ContainsAll $controllerSource @(
 ) 'M6 title and microphone controller'
 
 Assert-ContainsAll $audioHelpers @(
-	'Settings.SpatializationAlgorithm = SPATIALIZATION_HRTF',
+	'Settings.SpatializationAlgorithm = GetSpatializationAlgorithm()',
+	'EIGOutputMode ActiveOutputMode = EIGOutputMode::Headphones',
 	'AudioDirector->PrepareSound(Sound, Bus)',
 	'AudioDirector->RegisterComponent(Component, Bus)'
 ) 'M6 spatial helper'

@@ -266,6 +266,9 @@ private:
 	int32 AudioCalibrationBrightnessStep = 2;
 	int32 PreviousAudioCalibrationVolumeStep = 6;
 	int32 PreviousAudioCalibrationBrightnessStep = 2;
+	/** §10.5. 기본은 헤드폰이다. 스피커도 막지 않되 말은 하게 한다. */
+	bool bHeadphoneOutput = true;
+	bool bPreviousHeadphoneOutput = true;
 	int32 DisplayWindowModeIndex = 0;
 	int32 DisplayResolutionIndex = 1;
 	int32 DisplayQualityIndex = 1;

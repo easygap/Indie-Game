@@ -98,7 +98,8 @@ namespace IGDisplaySettings
 
 namespace IGAudioCalibration
 {
-	constexpr int32 RowCount = 4;
+	// 음량, 밝기, 출력 방식, 노크 다시 듣기, 저장.
+	constexpr int32 RowCount = 5;
 	constexpr int32 VolumeStepCount = 7;
 	constexpr int32 BrightnessStepCount = 5;
 	constexpr const TCHAR* ConfigSection = TEXT("IndieGame.AudioOnboarding");
@@ -2885,6 +2886,11 @@ void AIGPlayerController::LoadAudioCalibrationSettings()
 			TEXT("BrightnessStep"),
 			AudioCalibrationBrightnessStep,
 			GGameUserSettingsIni);
+		GConfig->GetBool(
+			IGAudioCalibration::ConfigSection,
+			TEXT("HeadphoneOutput"),
+			bHeadphoneOutput,
+			GGameUserSettingsIni);
 	}
 	AudioCalibrationVolumeStep = FMath::Clamp(
 		AudioCalibrationVolumeStep,
@@ -2909,6 +2915,7 @@ void AIGPlayerController::OpenAudioCalibration(const bool bFirstRun)
 					: EIGSystemMenuMode::Title;
 		PreviousAudioCalibrationVolumeStep = AudioCalibrationVolumeStep;
 		PreviousAudioCalibrationBrightnessStep = AudioCalibrationBrightnessStep;
+		bPreviousHeadphoneOutput = bHeadphoneOutput;
 		bAudioCalibrationSessionActive = true;
 	}
 	bAudioCalibrationFirstRun = bFirstRun;
@@ -2929,6 +2936,7 @@ void AIGPlayerController::CancelAudioCalibration()
 	}
 	AudioCalibrationVolumeStep = PreviousAudioCalibrationVolumeStep;
 	AudioCalibrationBrightnessStep = PreviousAudioCalibrationBrightnessStep;
+	bHeadphoneOutput = bPreviousHeadphoneOutput;
 	ApplyAudioCalibrationValues();
 	bAudioCalibrationSessionActive = false;
 	bAudioCalibrationFirstRun = false;
@@ -2955,6 +2963,11 @@ void AIGPlayerController::CompleteAudioCalibration()
 			IGAudioCalibration::ConfigSection,
 			TEXT("BrightnessStep"),
 			AudioCalibrationBrightnessStep,
+			GGameUserSettingsIni);
+		GConfig->SetBool(
+			IGAudioCalibration::ConfigSection,
+			TEXT("HeadphoneOutput"),
+			bHeadphoneOutput,
 			GGameUserSettingsIni);
 		GConfig->Flush(false, GGameUserSettingsIni);
 	}
@@ -3001,17 +3014,27 @@ void AIGPlayerController::AdjustAudioCalibrationSetting(const int32 Direction)
 			IGAudioCalibration::BrightnessStepCount - 1);
 		ApplyAudioCalibrationValues();
 	}
+	else if (AudioCalibrationSelection == 2)
+	{
+		// 둘 중 하나라 좌우 어느 쪽이든 뒤집힌다.
+		bHeadphoneOutput = !bHeadphoneOutput;
+		ApplyAudioCalibrationValues();
+		// 바꾼 직후에 노크를 한 번 들려준다. 귀로 확인할 수 없는 음향
+		// 설정은 화면에 글자만 바뀌는 것과 같다.
+		NextAudioCalibrationKnockTime = FPlatformTime::Seconds() + 0.18;
+		SetActorTickEnabled(true);
+	}
 	RefreshMenuHud();
 }
 
 void AIGPlayerController::ConfirmAudioCalibrationSelection()
 {
-	if (AudioCalibrationSelection <= 1)
+	if (AudioCalibrationSelection <= 2)
 	{
 		AdjustAudioCalibrationSetting(1);
 		return;
 	}
-	if (AudioCalibrationSelection == 2)
+	if (AudioCalibrationSelection == 3)
 	{
 		PlayAudioCalibrationKnock();
 		return;
@@ -3021,6 +3044,10 @@ void AIGPlayerController::ConfirmAudioCalibrationSelection()
 
 void AIGPlayerController::ApplyAudioCalibrationValues()
 {
+	IGAudio::SetOutputMode(
+		bHeadphoneOutput
+			? IGAudio::EIGOutputMode::Headphones
+			: IGAudio::EIGOutputMode::Speakers);
 	if (UWorld* World = GetWorld())
 	{
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
@@ -3028,6 +3055,7 @@ void AIGPlayerController::ApplyAudioCalibrationValues()
 		{
 			AudioDirector->SetUserMasterVolume(
 				IGAudioCalibration::VolumeValues[AudioCalibrationVolumeStep]);
+			AudioDirector->SetHeadphoneOutput(bHeadphoneOutput);
 		}
 	}
 	ConsoleCommand(
@@ -3596,6 +3624,7 @@ void AIGPlayerController::RefreshMenuHud() const
 		Presentation.AudioCalibrationBrightnessStep =
 			AudioCalibrationBrightnessStep;
 		Presentation.bAudioCalibrationFirstRun = bAudioCalibrationFirstRun;
+		Presentation.bHeadphoneOutput = bHeadphoneOutput;
 		Presentation.WindowModeIndex = DisplayWindowModeIndex;
 		Presentation.ResolutionIndex = DisplayResolutionIndex;
 		Presentation.QualityIndex = DisplayQualityIndex;
