@@ -332,6 +332,30 @@ if ($recordWitnessCode.Contains('RecomputeConfirmations')) {
 	throw 'RecordWitness must not touch truth confirmation.'
 }
 
+# §22.3은 세 자리에서 문장이 구체화된다고 적었다 — 유담의 독백, 목한수
+# 대치, 엔딩 뉴스 자막. 대치가 마지막으로 남아 있던 자리다. 못 본 회차에는
+# 유담이 아무 말도 하지 않는다: 없는 말을 쥐여 주지 않는 것이 이 절의 규칙이다.
+Assert-ContainsAll $nightFourSource @(
+	'FText AIGMissingFloorNightFourDirector::GetConfrontationReplyLine() const',
+	'HasWitness(EIGMissingFloorWitness::BoothSoundproofing)',
+	'HasWitness(EIGMissingFloorWitness::RooftopCigarettePack)',
+	'HasWitness(EIGMissingFloorWitness::HwangWaterBowl)',
+	'HasWitness(EIGMissingFloorWitness::SeoSleepingPills)',
+	'return FText::GetEmpty();'
+) '목한수 대치 문장 분기'
+# 그의 애원은 본 것과 무관하게 같아야 한다. 달라지는 것은 유담 쪽이다.
+$mokLineBody = [regex]::Match(
+	$nightFourSource,
+	'"MokHansooFinalLine",(?<body>[\s\S]{0,200}?)\);')
+if (-not $mokLineBody.Success -or
+	$mokLineBody.Groups['body'].Value.Contains('HasWitness')) {
+	throw 'The Mok plea must not branch on what the player happened to see.'
+}
+# 존재가 먼저 들어오면 대치가 대화가 아니라 배경이 된다.
+Assert-ContainsAll $nightFourSource @(
+	'bHasReply ? 7.1f : 3.35f'
+) '대치 두 줄의 자리'
+
 Assert-ContainsAll $epilogueSource @(
 	'HasWitness(EIGMissingFloorWitness::HwangWaterBowl)',
 	'HasWitness(EIGMissingFloorWitness::BoothSoundproofing)',

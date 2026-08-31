@@ -94,6 +94,13 @@ private:
 	void HandleTransferPump(AIGMissingFloorEvidence* Evidence);
 	void HandleWallStrike(AIGMissingFloorEvidence* Evidence);
 	/** 선택이 열리는 프레임에 한 번. 양쪽을 다 보는 값을 낮춘다(§22.4). */
+	/**
+	 * §22.3. 목한수 앞에서 유담이 무엇을 말할 수 있는가는 그 회차에 무엇을
+	 * 봤느냐로 정해진다. 아무것도 못 봤으면 아무 말도 하지 않는다 — 없는
+	 * 말을 쥐여 주지 않는 것이 이 절의 규칙이다.
+	 */
+	FText GetConfrontationReplyLine() const;
+
 	void RequestEndingChoiceAutosave();
 	void HandleEndingA(AIGMissingFloorEvidence* Evidence);
 	void HandleEndingB(AIGMissingFloorEvidence* Evidence);

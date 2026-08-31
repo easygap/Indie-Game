@@ -1175,11 +1175,29 @@ void AIGMissingFloorNightFourDirector::PresentMokHansoo()
 		EIGDialogueChannel::Conversation,
 		3.0f,
 		EIGDialoguePriority::Critical);
+
+	// §22.3. 그의 말은 언제나 같다 — 애원은 본 것과 무관하다. 달라지는 것은
+	// 유담이 그 앞에서 무엇을 댈 수 있느냐다. 아무것도 못 본 회차는 침묵이
+	// 대답이고, 그것도 이 장면에서 성립한다.
+	const FText ReplyLine = GetConfrontationReplyLine();
+	const bool bHasReply = !ReplyLine.IsEmpty();
+	if (bHasReply)
+	{
+		AIGHorrorHUD::PushDialogue(
+			this,
+			NSLOCTEXT("IGMissingFloor", "YudamName", "백유담"),
+			ReplyLine,
+			EIGDialogueChannel::Conversation,
+			3.4f,
+			EIGDialoguePriority::Critical);
+	}
+	// 대답이 있으면 그가 지나가기 전에 두 줄이 다 끝나야 한다. 존재가 먼저
+	// 들어오면 대치가 대화가 아니라 배경이 된다.
 	GetWorldTimerManager().SetTimer(
 		EntityPassTimer,
 		this,
 		&AIGMissingFloorNightFourDirector::BeginEntityPass,
-		3.35f,
+		bHasReply ? 7.1f : 3.35f,
 		false);
 }
 
@@ -1573,6 +1591,52 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 		BeginCavityReveal();
 	}
 	RefreshPresentation();
+}
+
+FText AIGMissingFloorNightFourDirector::GetConfrontationReplyLine() const
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return FText::GetEmpty();
+	}
+
+	// 순서는 그를 겨냥하는 정도다. 방음재는 「못 들었다」는 그의 말을 그
+	// 자리에서 무너뜨리므로 다른 무엇보다 먼저다.
+	if (Narrative->HasWitness(EIGMissingFloorWitness::BoothSoundproofing))
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"ConfrontationReplyFoam",
+			"관리실 안쪽 방, 문틈까지 계란판이던데요. 안 들린 게 아니라"
+			" 안 들리게 하신 거죠.");
+	}
+	if (Narrative->HasWitness(EIGMissingFloorWitness::RooftopCigarettePack))
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"ConfrontationReplyPack",
+			"옥상 탱크 옆에 담배가 여섯 개비 눌려 있어요. 그 사람"
+			" 거기 앉아서 쉬었어요.");
+	}
+	if (Narrative->HasWitness(EIGMissingFloorWitness::HwangWaterBowl))
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"ConfrontationReplyBowl",
+			"401호 앞 물그릇, 아직도 물이 새로 담겨 있어요. 그분은"
+			" 아직 대답하고 계세요.");
+	}
+	if (Narrative->HasWitness(EIGMissingFloorWitness::SeoSleepingPills))
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"ConfrontationReplyPills",
+			"서일영씨는 작년 팔월부터 약을 드세요. 아무도 안 믿은 게"
+			" 아니라, 아저씨가 안 믿게 하신 거고요.");
+	}
+	// 못 본 회차에는 댈 것이 없다. 침묵도 대답이다.
+	return FText::GetEmpty();
 }
 
 void AIGMissingFloorNightFourDirector::RequestEndingChoiceAutosave()
