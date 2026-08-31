@@ -147,6 +147,9 @@ private:
 	void HandleValveOpened(AIGMissingFloorEvidence* Evidence);
 	void HandleWallListened(int32 BayIndex);
 	void HandlePlasterDatingExamined(AIGMissingFloorEvidence* Evidence);
+	UFUNCTION()
+	void HandleAnnexRecognitionZone(class AIGZoneTrigger* Zone);
+	void HandleTuningHammerExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleTankAuditionExamined(AIGMissingFloorEvidence* Evidence);
 
 	/**
@@ -244,6 +247,10 @@ private:
 	/** T8 두 번째 출처. 갈증으로 죽은 사람의 벽 하나 옆에 물 2톤이 있었다. */
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> TankAudition;
+
+	/** §13 12행의 회수. 채널 5에서 본 화각에 직접 서는 자리. */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGZoneTrigger> AnnexRecognitionZone;
 
 
 	UPROPERTY(Transient)

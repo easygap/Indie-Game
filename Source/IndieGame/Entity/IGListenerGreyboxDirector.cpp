@@ -513,7 +513,45 @@ bool AIGListenerGreyboxDirector::SetupStage()
 
 		SpawnOptionalWitnesses(CubeMesh);
 
-		if (bProductionMode)
+	// §13 13행. 낮에 폰으로 보는 글이라 종이가 아니라 알림 화면으로 띄운다.
+	// 진실 표에 들어가지 않는다 — 이건 출처가 아니라 심기다.
+	{
+		FActorSpawnParameters ListingParameters;
+		ListingParameters.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		ListingParameters.Name = TEXT("MissingFloorUsedListingNote");
+		UsedListingNote = World->SpawnActor<AIGReadableNote>(
+			AIGReadableNote::StaticClass(),
+			FTransform(
+				FRotator(0.0f, -12.0f, 0.0f),
+				FVector(-64.0f, -180.0f, 974.8f)),
+			ListingParameters);
+		if (UsedListingNote)
+		{
+			UMaterialInterface* PhoneMaterial = LoadObject<UMaterialInterface>(
+				nullptr,
+				TEXT("/Game/Prototype/Materials/M_PlasticDark.M_PlasticDark"));
+			UsedListingNote->ConfigurePrototypeVisuals(
+				CubeMesh, PhoneMaterial, FVector(7.0f, 14.0f, 1.6f));
+			UsedListingNote->SetPhoneNotificationPresentation();
+			UsedListingNote->SetInteractionPrompt(
+				NSLOCTEXT("IGMissingFloor", "UsedListingPrompt", "휴대전화 — 중고 거래"));
+			UsedListingNote->SetNoteText(
+				NSLOCTEXT("IGMissingFloor", "UsedListingTitle", "달빛  ·  동네 중고 거래"),
+				{
+					NSLOCTEXT("IGMissingFloor", "UsedListing1", "피아노 조율 공구 일괄 (튜닝해머 외 11점)"),
+					NSLOCTEXT("IGMissingFloor", "UsedListing2", "무영동  ·  직거래만  ·  30,000원"),
+					FText::GetEmpty(),
+					NSLOCTEXT("IGMissingFloor", "UsedListing3", "「세입자가 두고 간 짐 정리합니다. 상태 좋아요.」"),
+					FText::GetEmpty(),
+					NSLOCTEXT("IGMissingFloor", "UsedListing4", "작년 8월 12일  ·  거래 완료"),
+				});
+			UsedListingNote->OnReadStateChanged.AddDynamic(
+				this, &AIGListenerGreyboxDirector::HandleUsedListingRead);
+		}
+	}
+
+	if (bProductionMode)
 		{
 			SpawnArrivalInteractables(CubeMesh);
 		}
@@ -1043,6 +1081,31 @@ void AIGListenerGreyboxDirector::HandleArrivalEvidence(
 	UpdateArrivalSequence();
 }
 
+void AIGListenerGreyboxDirector::HandleUsedListingRead(
+	AIGReadableNote* Note,
+	const bool bOpened)
+{
+	if (!bOpened)
+	{
+		return;
+	}
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative
+		|| !Narrative->MarkBeatPlayed(FName(TEXT("Day.UsedListing"))))
+	{
+		return;
+	}
+	// 진실을 열지 않는다. 열두 점이 팔렸다는 사실은 5층에 하나만 남은
+	// 렌치를 만났을 때 비로소 뜻이 생긴다(§13 13행).
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"UsedListingThought",
+			"세입자가 두고 간 짐. …그 세입자는 지금 어디 있는데."),
+		4.4f);
+}
+
 FText AIGListenerGreyboxDirector::GetNarinCounterLine() const
 {
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
@@ -1066,10 +1129,12 @@ FText AIGListenerGreyboxDirector::GetNarinCounterLine() const
 			"NarinLineMidWeek",
 			"얼굴이 많이 상하셨네요. 그 집 전에 살던 분들도 딱 이맘때 나갔어요.");
 	}
+	// §13 6행의 심기. 「그들이 들은 것 = 지금 내가 듣는 것」이 밤1의 회수라,
+	// 두 사람이 금방 나갔다는 사실이 첫 밤 앞에 놓여 있어야 한다.
 	return NSLOCTEXT(
 		"IGMissingFloor",
 		"ArrivalNarinLine",
-		"403호요? 위층은 없어요. 그래도 새벽마다 천장에서 물건 끄는 소리는 나요.");
+		"403호요? 위층은 없어요. 올해만 두 분 나가셨는데 둘 다 두 달을 못 채우셨어요.");
 }
 
 void AIGListenerGreyboxDirector::RequestArrivalAutosave()

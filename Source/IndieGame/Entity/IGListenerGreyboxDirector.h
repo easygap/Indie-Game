@@ -64,6 +64,8 @@ private:
 	void SpawnOptionalWitnesses(UStaticMesh* CubeMesh);
 	/** 편의점 카운터의 나린. 아는 것이 늘면 하는 말이 달라진다. */
 	FText GetNarinCounterLine() const;
+	UFUNCTION()
+	void HandleUsedListingRead(class AIGReadableNote* Note, bool bOpened);
 	void UpdateArrivalSequence();
 	void HandleArrivalEvidence(class AIGMissingFloorEvidence* Evidence);
 	void RequestArrivalAutosave();
@@ -187,6 +189,13 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGMissingFloorEvidence> CigarettePack;
+
+	/**
+	 * §13 13행의 심기. 중고 거래 글 「달빛」에 오빠의 공구가 세트로 올라와
+	 * 있다. 회수는 밤3의 자재 더미 위, 홀로 남은 조율 렌치다.
+	 */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGReadableNote> UsedListingNote;
 
 	/** §20.3's two automatic safety nets: the world moving when nothing else is. */
 	UPROPERTY(Transient)

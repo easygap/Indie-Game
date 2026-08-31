@@ -15,6 +15,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSwingDoor.h"
+#include "Interaction/IGZoneTrigger.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
@@ -51,6 +52,13 @@ namespace IGNightThree
 	 * 탱크가 이미 그리고 있다.
 	 */
 	const FVector TankAuditionLocation(0.0f, 140.0f, 1360.0f);
+	/**
+	 * §13 12행. 채널 5는 「도면에 없는 복도, 천장 전구 하나, 바닥을 지나가는
+	 * 낮은 형체」를 보여 준다. 그 화각에 실제로 서는 자리는 별관 철문을
+	 * 지나 복도가 시작되는 지점이다. 부피만 있고 그리는 것이 없다.
+	 */
+	const FVector AnnexRecognitionCenter(120.0f, 520.0f, 1290.0f);
+	const FVector AnnexRecognitionExtent(150.0f, 60.0f, 100.0f);
 	const float WallBayYs[3] = {560.0f, 700.0f, 840.0f};
 	constexpr int32 CavityBayIndex = 1;
 
@@ -364,6 +372,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		EIGMissingFloorSource::None,
 		0.0f,
 		0.06f);
+	TuningHammer->OnExamined.AddUObject(
+		this, &AIGMissingFloorNightThreeDirector::HandleTuningHammerExamined);
 
 	// A close prop must preserve parallax, contact shadow and the gap beneath
 	// its shelves.  The ImageGen sheet is only the shape reference; the runtime
@@ -555,6 +565,20 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		/*bPresentationVisible=*/false);
 	PlasterDating->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined);
+
+	// §13 12행의 회수. 밤2에 모니터로 본 화각에 직접 서는 순간이다.
+	SpawnParameters.Name = TEXT("MissingFloorAnnexRecognitionZone");
+	AnnexRecognitionZone = World->SpawnActor<AIGZoneTrigger>(
+		AIGZoneTrigger::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGNightThree::AnnexRecognitionCenter),
+		SpawnParameters);
+	if (!AnnexRecognitionZone)
+	{
+		return false;
+	}
+	AnnexRecognitionZone->SetZoneExtent(IGNightThree::AnnexRecognitionExtent);
+	AnnexRecognitionZone->OnZoneTriggered.AddDynamic(
+		this, &AIGMissingFloorNightThreeDirector::HandleAnnexRecognitionZone);
 
 	// T8의 두 번째 출처. 일지가 두드린 횟수를 세었다면 이쪽은 그 옆에
 	// 무엇이 있었는지를 말한다.
@@ -996,6 +1020,54 @@ void AIGMissingFloorNightThreeDirector::PlayWallListenResponse(
 			IGNightThree::WallListenFalloff,
 			EIGAudioBus::Puzzle);
 	}
+}
+
+void AIGMissingFloorNightThreeDirector::HandleTuningHammerExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	// §13 13행의 회수. 중고 거래 글을 본 회차에만 이 한 줄이 붙는다 —
+	// 못 본 사람에게는 그냥 오빠가 떨어뜨린 렌치이고, 그것도 맞는 말이다.
+	if (!Narrative
+		|| !Narrative->HasBeatPlayed(FName(TEXT("Day.UsedListing")))
+		|| !Narrative->MarkBeatPlayed(FName(TEXT("Night3.HammerListing"))))
+	{
+		return;
+	}
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"TuningHammerListingThought",
+			"열두 점을 삼만 원에 넘기면서, 이건 두고 갔네. 여기 떨어져 있어서."),
+		5.0f);
+}
+
+void AIGMissingFloorNightThreeDirector::HandleAnnexRecognitionZone(
+	AIGZoneTrigger* Zone)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return;
+	}
+	// 채널 5를 안 눌렀으면 회수할 것이 없다. 못 본 사람에게 「그때 그
+	// 화면」이라고 말하면 있지도 않은 기억을 지어내는 셈이다.
+	if (!Narrative->HasBeatPlayed(FName(TEXT("Night2.CCTV"))))
+	{
+		return;
+	}
+	if (!Narrative->MarkBeatPlayed(FName(TEXT("Night3.AnnexRecognition"))))
+	{
+		return;
+	}
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"AnnexRecognitionThought",
+			"…이 각도다. 전구 하나, 왼쪽으로 꺾이는 복도. 화면에서 본 그대로."),
+		4.8f);
 }
 
 void AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined(

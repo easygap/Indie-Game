@@ -346,6 +346,34 @@ Assert-ContainsAll $narrativeSource @(
 
 # §13: 심는 자리가 없으면 엔딩 A의 제보 자막은 어디서 왔는지 알 수 없는
 # 문장이 된다. 나린의 마지막 날 대사가 그 심기다.
+# §13 장부의 나머지 세 줄. 심기와 회수가 같은 커밋에 없으면 어느 쪽이든
+# 반쪽이 되므로 한 검사에서 짝으로 본다.
+$nightThreeSource = Read-ProjectText `
+	'Source/IndieGame/Entity/IGMissingFloorNightThreeDirector.cpp'
+
+# 6행 — 세입자 두 명의 단기 퇴거(프롤로그) → 그들이 들은 것(밤1).
+Assert-ContainsAll $greyboxSource @(
+	'올해만 두 분 나가셨는데 둘 다 두 달을 못 채우셨어요.'
+) '단기 퇴거 심기'
+
+# 12행 — 채널 5의 낮은 형체(밤2) → 같은 화각에 직접 서기(밤3).
+Assert-ContainsAll $nightThreeSource @(
+	'AnnexRecognitionZone',
+	'HasBeatPlayed(FName(TEXT("Night2.CCTV")))',
+	'Night3.AnnexRecognition'
+) '채널 5 회수'
+
+# 13행 — 중고 거래 글(낮) → 세트에서 홀로 남은 렌치(밤3).
+Assert-ContainsAll $greyboxSource @(
+	'SetPhoneNotificationPresentation();',
+	'피아노 조율 공구 일괄 (튜닝해머 외 11점)',
+	'Day.UsedListing'
+) '중고 매물 심기'
+Assert-ContainsAll $nightThreeSource @(
+	'HasBeatPlayed(FName(TEXT("Day.UsedListing")))',
+	'Night3.HammerListing'
+) '중고 매물 회수'
+
 Assert-ContainsAll $greyboxSource @(
 	'FText AIGListenerGreyboxDirector::GetNarinCounterLine() const',
 	'…안 물어볼게요. 대신 저 새벽에 여기 있어요. 뭐 들리면 적어 둘게요.',
