@@ -150,6 +150,7 @@ private:
 	UFUNCTION()
 	void HandleAnnexRecognitionZone(class AIGZoneTrigger* Zone);
 	void HandleTuningHammerExamined(AIGMissingFloorEvidence* Evidence);
+	void HandleWorkGloveExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleTankAuditionExamined(AIGMissingFloorEvidence* Evidence);
 
 	/**
@@ -258,6 +259,10 @@ private:
 	/** §13 12행의 회수. 채널 5에서 본 화각에 직접 서는 자리. */
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGZoneTrigger> AnnexRecognitionZone;
+
+	/** §22.3 선택적 목격. 자재 더미 위에 남은 큰 손의 장갑 한 짝. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> WorkGlove;
 
 
 	UPROPERTY(Transient)

@@ -36,6 +36,13 @@ namespace IGNightThree
 	// 높이의 절반이 더미 상판(Z=1242) 아래로 들어가 박힌다. 눕혀서 얹는다.
 	const FVector NotebookLocation(-90.0f, 770.0f, 1242.7f);
 	const FVector TuningHammerLocation(-40.0f, 755.0f, 1245.0f);
+	/**
+	 * §22.3 작업 장갑 한 짝. 자재 더미는 두 단이다 — 보드 단이 X -150..-10,
+	 * 윗면 Z=1230이고 그 위에 스터드 단(X -120..-60, 윗면 Z=1242)이 얹혀
+	 * 있다. 수첩과 렌치는 스터드 단 위에 있으므로, 장갑은 보드 단이 드러난
+	 * 서쪽 턱에 둔다. 스터드 단과 3 cm 떨어진다.
+	 */
+	const FVector WorkGloveLocation(-135.0f, 768.0f, 1231.2f);
 	const FVector TunerToolCartLocation(-280.0f, 865.0f, 1201.0f);
 	const FVector ValveLocation(296.0f, 610.0f, 1266.0f);
 	const FVector ImpactMarkLocation(-10.0f, 585.0f, 1264.0f);
@@ -372,6 +379,34 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		0.06f);
 	TuningHammer->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightThreeDirector::HandleTuningHammerExamined);
+
+	// §22.3. 도하의 손은 이 크기가 아니다. 진실을 열지는 않는다 — 누구
+	// 것인지는 이미 T5가 말하고, 이건 그 사람이 여기 있었다는 감각이다.
+	SpawnParameters.Name = TEXT("MissingFloorWorkGlove");
+	WorkGlove = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(
+			FRotator(0.0f, 24.0f, 0.0f),
+			IGNightThree::WorkGloveLocation),
+		SpawnParameters);
+	if (WorkGlove)
+	{
+		WorkGlove->Configure(
+			CubeMesh,
+			AgedPaperMaterial,
+			FVector(24.0f, 11.0f, 2.4f),
+			NSLOCTEXT("IGMissingFloor", "WorkGlovePrompt", "작업 장갑 한 짝"),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"WorkGloveThought",
+				"석고 가루가 굳었다. 오빠 손엔 이게 두 치수는 크다."),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			0.9f,
+			0.05f);
+		WorkGlove->OnExamined.AddUObject(
+			this, &AIGMissingFloorNightThreeDirector::HandleWorkGloveExamined);
+	}
 
 	// A close prop must preserve parallax, contact shadow and the gap beneath
 	// its shelves.  The ImageGen sheet is only the shape reference; the runtime
@@ -1029,6 +1064,15 @@ void AIGMissingFloorNightThreeDirector::PlayWallListenResponse(
 			IGNightThree::WallListenInnerRadius,
 			IGNightThree::WallListenFalloff,
 			EIGAudioBus::Puzzle);
+	}
+}
+
+void AIGMissingFloorNightThreeDirector::HandleWorkGloveExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->RecordWitness(EIGMissingFloorWitness::AnnexWorkGlove);
 	}
 }
 

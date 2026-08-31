@@ -116,7 +116,13 @@ enum class EIGMissingFloorWitness : uint8
 	/** 관리실 안쪽 방 문틈에 덧댄 방음재. */
 	BoothSoundproofing = 3,
 	/** 옥상 물탱크 옆, 눌러 끈 담배 여섯 개비. */
-	RooftopCigarettePack = 4
+	RooftopCigarettePack = 4,
+	/** 관리실 벽 달력. 7월 26일에 동그라미, 그 주 나머지가 비었다. */
+	BoothWallCalendar = 5,
+	/** CCTV 녹화기의 빈 하드 베이. 채널 5가 남지 않는 진짜 이유. */
+	RecorderEmptyBay = 6,
+	/** 5층 자재 더미 위의 작업 장갑 한 짝. 큰 손 것이다. */
+	AnnexWorkGlove = 7
 };
 
 /** One truth and the provenance behind it. Confirmation is always derived. */

@@ -1611,6 +1611,22 @@ FText AIGMissingFloorNightFourDirector::GetConfrontationReplyLine() const
 			"관리실 안쪽 방, 문틈까지 계란판이던데요. 안 들린 게 아니라"
 			" 안 들리게 하신 거죠.");
 	}
+	if (Narrative->HasWitness(EIGMissingFloorWitness::BoothWallCalendar))
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"ConfrontationReplyCalendar",
+			"관리실 달력, 26일에만 동그라미던데요. 그 주는 아예"
+			" 안 넘기셨어요.");
+	}
+	if (Narrative->HasWitness(EIGMissingFloorWitness::AnnexWorkGlove))
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"ConfrontationReplyGlove",
+			"5층 자재 위에 장갑 한 짝이 있어요. 오빠 손엔 두 치수"
+			" 큰 거요.");
+	}
 	if (Narrative->HasWitness(EIGMissingFloorWitness::RooftopCigarettePack))
 	{
 		return NSLOCTEXT(

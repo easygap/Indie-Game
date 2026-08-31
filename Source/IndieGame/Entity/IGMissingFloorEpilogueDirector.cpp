@@ -837,6 +837,25 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 			"전 세입자 서모씨는 변호인을 통해 출석 의사를 밝혔다"));
 	}
 
+	// 채널 5가 어디에도 남지 않은 이유는 초자연이 아니었다. 본 회차에만
+	// 보도가 그 사실을 댄다 — 못 본 회차에도 사건은 같다(§9).
+	if (Narrative
+		&& Narrative->HasWitness(EIGMissingFloorWitness::RecorderEmptyBay))
+	{
+		Lines.Add(NSLOCTEXT(
+			"IGMissingFloor",
+			"EpilogueNews6Recorder",
+			"건물 녹화 장치는 저장 디스크가 빠진 채로 발견됐다"));
+	}
+	else if (Narrative
+		&& Narrative->HasWitness(EIGMissingFloorWitness::BoothWallCalendar))
+	{
+		Lines.Add(NSLOCTEXT(
+			"IGMissingFloor",
+			"EpilogueNews6Calendar",
+			"관리 일지는 7월 26일 이후 한 주가 통째로 비어 있었다"));
+	}
+
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueNews5",

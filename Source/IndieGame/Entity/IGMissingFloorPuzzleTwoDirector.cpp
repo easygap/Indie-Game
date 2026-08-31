@@ -47,6 +47,17 @@ namespace IGPuzzleTwo
 	 * 눕혀서 얹는다. 세우면 절반이 상판 아래로 들어간다.
 	 */
 	const FVector BoardReceiptsLocation(196.0f, -126.0f, 76.6f);
+	/**
+	 * §22.3 관리실 달력. 북벽 안쪽 면이 Y=-85이다. 동쪽은 벽이 아니라
+	 * 안쪽 방 문짝(X 205..275)이라 처음에 거기 걸었다가 문을 뚫었다.
+	 * 책상(X 105..215) 서쪽, 서벽(X 45..60)과도 떨어진 빈 벽에 건다.
+	 */
+	const FVector WallCalendarLocation(82.0f, -85.6f, 150.0f);
+	/**
+	 * §22.3 녹화기. 상판(Z=76) 앞줄의 빈자리다 — 먹지(Y -118 위쪽)와
+	 * 영수증(X 188..204) 사이로, 상판 앞 모서리(Y -137.5)에서 2.5 cm 남는다.
+	 */
+	const FVector RecorderBayLocation(168.0f, -128.0f, 82.0f);
 
 	/** §5.1: frottage is a sustained 0.25 — three times, on purpose. */
 	constexpr float FrottageLoudness = 0.25f;
@@ -353,6 +364,56 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	BoardReceipts->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead);
 
+	// §22.3. 둘 다 진실 표에 들어가지 않는다 — 밤2를 통과하는 데는 필요
+	// 없고, 본 회차에만 목한수 앞에서 댈 것이 늘어난다.
+	SpawnParameters.Name = TEXT("MissingFloorWallCalendar");
+	WallCalendar = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGPuzzleTwo::WallCalendarLocation),
+		SpawnParameters);
+	if (WallCalendar)
+	{
+		WallCalendar->Configure(
+			CubeMesh,
+			SheetMaterial,
+			FVector(30.0f, 1.2f, 42.0f),
+			NSLOCTEXT("IGMissingFloor", "P2CalendarPrompt", "벽 달력"),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"P2CalendarThought",
+				"26일에만 동그라미. 그 주 나머지 칸은 아예 안 넘겼다."),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			0.9f,
+			0.04f);
+		WallCalendar->OnExamined.AddUObject(
+			this, &AIGMissingFloorPuzzleTwoDirector::HandleWallCalendarExamined);
+	}
+
+	SpawnParameters.Name = TEXT("MissingFloorRecorderBay");
+	RecorderBay = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator(0.0f, 4.0f, 0.0f), IGPuzzleTwo::RecorderBayLocation),
+		SpawnParameters);
+	if (RecorderBay)
+	{
+		RecorderBay->Configure(
+			CubeMesh,
+			DarkPlasticMaterial,
+			FVector(24.0f, 14.0f, 12.0f),
+			NSLOCTEXT("IGMissingFloor", "P2RecorderPrompt", "녹화기"),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"P2RecorderThought",
+				"하드 베이가 비었다. 뺀 자리에 먼지 자국만 남아 있어."),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			0.9f,
+			0.06f);
+		RecorderBay->OnExamined.AddUObject(
+			this, &AIGMissingFloorPuzzleTwoDirector::HandleRecorderBayExamined);
+	}
+
 	// §5.5 비트 2-1과 2-6. 같은 물건이 밤에는 녹음을 켜고 아침에는 그것을
 	// 재생한다. 두 번째 상호작용이 이 게임에서 가장 조용한 절망이다.
 	SpawnParameters.Name = TEXT("MissingFloorPhoneRecorder");
@@ -634,6 +695,24 @@ void AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead(
 				"P2ReceiptsThought",
 				"같은 보드를 이틀에 나눠 샀는데, 장부에는 하루치만 있다."),
 			4.6f);
+	}
+}
+
+void AIGMissingFloorPuzzleTwoDirector::HandleWallCalendarExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->RecordWitness(EIGMissingFloorWitness::BoothWallCalendar);
+	}
+}
+
+void AIGMissingFloorPuzzleTwoDirector::HandleRecorderBayExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->RecordWitness(EIGMissingFloorWitness::RecorderEmptyBay);
 	}
 }
 

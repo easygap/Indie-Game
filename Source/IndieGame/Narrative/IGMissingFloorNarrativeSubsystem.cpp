@@ -183,6 +183,12 @@ namespace IGMissingFloorNarrative
 			return TEXT("Seen.BoothSoundproofing");
 		case EIGMissingFloorWitness::RooftopCigarettePack:
 			return TEXT("Seen.RooftopCigarettePack");
+		case EIGMissingFloorWitness::BoothWallCalendar:
+			return TEXT("Seen.BoothWallCalendar");
+		case EIGMissingFloorWitness::RecorderEmptyBay:
+			return TEXT("Seen.RecorderEmptyBay");
+		case EIGMissingFloorWitness::AnnexWorkGlove:
+			return TEXT("Seen.AnnexWorkGlove");
 		default:
 			return nullptr;
 		}
@@ -707,7 +713,7 @@ void UIGMissingFloorNarrativeSubsystem::NormalizeSnapshot()
 			const FName Candidate = Snapshot.Night.Witnesses[Index];
 			bool bRecognized = false;
 			for (uint8 Raw = 1;
-				Raw <= static_cast<uint8>(EIGMissingFloorWitness::RooftopCigarettePack);
+				Raw <= static_cast<uint8>(EIGMissingFloorWitness::AnnexWorkGlove);
 				++Raw)
 			{
 				if (Candidate == GetWitnessId(static_cast<EIGMissingFloorWitness>(Raw)))

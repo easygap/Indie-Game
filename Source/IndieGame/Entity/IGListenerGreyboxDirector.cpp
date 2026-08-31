@@ -4288,6 +4288,9 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			EIGMissingFloorWitness::HwangWaterBowl,
 			EIGMissingFloorWitness::BoothSoundproofing,
 			EIGMissingFloorWitness::RooftopCigarettePack,
+			EIGMissingFloorWitness::BoothWallCalendar,
+			EIGMissingFloorWitness::RecorderEmptyBay,
+			EIGMissingFloorWitness::AnnexWorkGlove,
 		};
 		for (const EIGMissingFloorWitness Witness : Witnesses)
 		{

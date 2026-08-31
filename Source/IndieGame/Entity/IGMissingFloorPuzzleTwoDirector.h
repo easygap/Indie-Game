@@ -74,6 +74,8 @@ private:
 	/** Keeps the phone's prompt honest about which of the two it is offering. */
 	void RefreshPhonePrompt();
 	void HandleFoamExamined(AIGMissingFloorEvidence* Evidence);
+	void HandleWallCalendarExamined(AIGMissingFloorEvidence* Evidence);
+	void HandleRecorderBayExamined(AIGMissingFloorEvidence* Evidence);
 	UFUNCTION()
 	void HandleBoardReceiptsRead(class AIGReadableNote* Note, bool bOpened);
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
@@ -117,6 +119,13 @@ private:
 	/** T5 첫 번째 출처. 같은 품목이 두 날짜로 두 번 실려 왔다. */
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGReadableNote> BoardReceipts;
+
+	/** §22.3 선택적 목격 둘. 진실을 열지 않고 문장만 구체화한다. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> WallCalendar;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> RecorderBay;
 
 	FDelegateHandle TruthHandle;
 	bool bSolvedAnnounced = false;

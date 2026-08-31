@@ -198,6 +198,8 @@ $narrativeTypes = Read-ProjectText `
 	'Source/IndieGame/Narrative/IGMissingFloorNarrativeTypes.h'
 $puzzleTwoSource = Read-ProjectText `
 	'Source/IndieGame/Entity/IGMissingFloorPuzzleTwoDirector.cpp'
+$nightThreeSource = Read-ProjectText `
+	'Source/IndieGame/Entity/IGMissingFloorNightThreeDirector.cpp'
 
 Assert-ContainsAll $story @(
 	'## 35. v3.4 — 엔딩 에필로그와 선택적 목격',
@@ -307,15 +309,45 @@ Assert-ContainsAll $narrativeTypes @(
 	'HwangWaterBowl = 2',
 	'BoothSoundproofing = 3',
 	'RooftopCigarettePack = 4',
+	'BoothWallCalendar = 5',
+	'RecorderEmptyBay = 6',
+	'AnnexWorkGlove = 7',
 	'TArray<FName> Witnesses;'
 ) '선택적 목격 정의'
+
+# 정규화 상한이 열거형의 마지막을 따라가야 한다. 뒤처지면 새로 넣은 목격이
+# 복원에서 조용히 버려진다 — 저장은 되는데 다음 실행에 사라지는 모양이다.
+Assert-ContainsAll $narrativeSource @(
+	'Raw <= static_cast<uint8>(EIGMissingFloorWitness::AnnexWorkGlove);'
+) '목격 정규화 상한'
 
 Assert-ContainsAll $narrativeSource @(
 	'Seen.SeoSleepingPills',
 	'Seen.HwangWaterBowl',
 	'Seen.BoothSoundproofing',
-	'Seen.RooftopCigarettePack'
+	'Seen.RooftopCigarettePack',
+	'Seen.BoothWallCalendar',
+	'Seen.RecorderEmptyBay',
+	'Seen.AnnexWorkGlove'
 ) '선택적 목격 직렬화'
+
+# 밤2 셋(문틈·달력·녹화기), 밤3 둘(장갑·담뱃갑), 낮 둘(물그릇·약봉투).
+Assert-ContainsAll $puzzleTwoSource @(
+	'RecordWitness(EIGMissingFloorWitness::BoothWallCalendar)',
+	'RecordWitness(EIGMissingFloorWitness::RecorderEmptyBay)'
+) '밤2 목격'
+Assert-ContainsAll $nightThreeSource @(
+	'RecordWitness(EIGMissingFloorWitness::AnnexWorkGlove)'
+) '밤3 목격'
+
+# 새 목격 셋도 반드시 회수가 있어야 한다 — 회수 없는 심기 금지(§13).
+Assert-ContainsAll $nightFourSource @(
+	'HasWitness(EIGMissingFloorWitness::BoothWallCalendar)',
+	'HasWitness(EIGMissingFloorWitness::AnnexWorkGlove)'
+) '새 목격의 대치 회수'
+Assert-ContainsAll $epilogueSource @(
+	'HasWitness(EIGMissingFloorWitness::RecorderEmptyBay)'
+) '새 목격의 보도 회수'
 
 # 목격은 어떤 교차에도 들어가지 않는다. RecordWitness가 진실을 다시
 # 계산하면 「본 것이 진실을 열 수도 있다」가 코드에 남는다.
@@ -396,8 +428,6 @@ Assert-ContainsAll $narrativeSource @(
 # 문장이 된다. 나린의 마지막 날 대사가 그 심기다.
 # §13 장부의 나머지 세 줄. 심기와 회수가 같은 커밋에 없으면 어느 쪽이든
 # 반쪽이 되므로 한 검사에서 짝으로 본다.
-$nightThreeSource = Read-ProjectText `
-	'Source/IndieGame/Entity/IGMissingFloorNightThreeDirector.cpp'
 
 # 6행 — 세입자 두 명의 단기 퇴거(프롤로그) → 그들이 들은 것(밤1).
 Assert-ContainsAll $greyboxSource @(
@@ -445,4 +475,4 @@ foreach ($optional in @('WaterBowl', 'SleepingPills', 'CigarettePack')) {
 	}
 }
 
-Write-Host 'MISSING_FLOOR_RELEASE_ENDING_CONTRACT PASS replay_skip=1 ending_c=1 scoped_retry=1 audio=1 runtime_probe=1 epilogue=2 witnesses=4'
+Write-Host 'MISSING_FLOOR_RELEASE_ENDING_CONTRACT PASS replay_skip=1 ending_c=1 scoped_retry=1 audio=1 runtime_probe=1 epilogue=2 witnesses=7'
