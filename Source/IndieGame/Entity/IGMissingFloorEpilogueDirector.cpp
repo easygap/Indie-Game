@@ -238,6 +238,13 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 	}
 	FiredCueMask |= 1u << CueIndex;
 
+	// 큐가 흐르는 동안 월드가 사라질 수 있다. 아래 두 스코어가 오디오
+	// 서브시스템을 월드에서 찾으므로 여기서 한 번만 확인한다.
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
 	AIGPlayerCharacter* PlayerCharacter = Player.Get();
 	APlayerController* Controller = PlayerCharacter
 		? Cast<APlayerController>(PlayerCharacter->GetController())
@@ -313,7 +320,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				ScoreBed->bAutoDestroy = false;
 				ScoreBed->SetVolumeMultiplier(0.86f);
 				if (UIGMissingFloorAudioSubsystem* AudioDirector =
-					GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 				{
 					AudioDirector->RegisterComponent(ScoreBed, EIGAudioBus::Score);
 				}
@@ -343,7 +350,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				ScoreBed->bAutoDestroy = false;
 				ScoreBed->SetVolumeMultiplier(0.62f);
 				if (UIGMissingFloorAudioSubsystem* AudioDirector =
-					GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 				{
 					AudioDirector->RegisterComponent(ScoreBed, EIGAudioBus::World);
 				}
