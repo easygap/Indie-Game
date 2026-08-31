@@ -87,6 +87,34 @@ public:
 
 	void ResetToDefaults();
 
+	// -- 시점 (§18.3) ------------------------------------------------------
+	//
+	// 1인칭인데 감도를 못 바꾸는 게임은 손이 맞지 않는 사람에게 그 자리에서
+	// 끝난다. 마우스와 패드는 곡선이 달라 값을 따로 둔다 — 하나로 묶으면
+	// 한쪽을 맞추는 순간 다른 쪽이 어긋난다.
+
+	/**
+	 * 조작 화면에서 동사 목록보다 위에 오는 시점 행의 수. 화면과 컨트롤러가
+	 * 같은 값을 봐야 행 번호가 어긋나지 않는다.
+	 */
+	static constexpr int32 LookRowCount = 3;
+
+	static constexpr float MinimumLookSensitivity = 0.40f;
+	static constexpr float MaximumLookSensitivity = 2.00f;
+	static constexpr float LookSensitivityStep = 0.10f;
+
+	float GetMouseSensitivity() const { return MouseSensitivity; }
+	float GetGamepadSensitivity() const { return GamepadSensitivity; }
+	bool IsLookInverted() const { return bInvertLookY; }
+
+	/** 단계로 움직인다. 화면이 값을 직접 쓰지 않고 이 함수만 부른다. */
+	void AdjustMouseSensitivity(int32 Direction);
+	void AdjustGamepadSensitivity(int32 Direction);
+	void ToggleInvertLookY();
+
+	/** 시점 값도 기본값과 다른가. 화면의 `*` 표시가 이걸 읽는다. */
+	bool IsDefaultLookSettings() const;
+
 	/** 이 키는 어떤 경우에도 다시 묶을 수 없다. */
 	static bool IsReservedKey(const FKey& Key);
 
@@ -97,6 +125,13 @@ private:
 	void ApplyAllBindings() const;
 	static FString MakeOverrideKeyName(int32 ActionIndex, bool bGamepad);
 
+	void LoadLookSettings();
+	void SaveLookSettings() const;
+
 	/** 액션 이름 + 장치 → 덮어쓴 키. 비어 있으면 기본값이다. */
 	TMap<FString, FKey> Overrides;
+
+	float MouseSensitivity = 1.0f;
+	float GamepadSensitivity = 1.0f;
+	bool bInvertLookY = false;
 };

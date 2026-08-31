@@ -3963,8 +3963,9 @@ void AIGPlayerController::MoveKeyBindingSelection(const int32 Direction)
 	{
 		return;
 	}
-	// 마지막 행은 「전부 기본값으로」다. 목록보다 하나 길다.
-	const int32 RowCount = UIGInputBindingSubsystem::GetActionCount() + 1;
+	// 시점 셋이 위에, 동사 목록이 가운데, 「전부 기본값으로」가 마지막이다.
+	const int32 RowCount = UIGInputBindingSubsystem::LookRowCount
+		+ UIGInputBindingSubsystem::GetActionCount() + 1;
 	KeyBindingSelection =
 		(KeyBindingSelection + Direction + RowCount) % RowCount;
 	KeyBindingStatusText = FText::GetEmpty();
@@ -3978,6 +3979,33 @@ void AIGPlayerController::MoveKeyBindingColumn(const int32 Direction)
 		|| bKeyBindingCapturing
 		|| Direction == 0)
 	{
+		return;
+	}
+	// 시점 행에는 고를 칸이 없다. 좌우가 곧 값이다.
+	if (KeyBindingSelection < UIGInputBindingSubsystem::LookRowCount)
+	{
+		UIGInputBindingSubsystem* Bindings = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGInputBindingSubsystem>()
+			: nullptr;
+		if (!Bindings)
+		{
+			return;
+		}
+		switch (KeyBindingSelection)
+		{
+		case 0:
+			Bindings->AdjustMouseSensitivity(Direction);
+			break;
+		case 1:
+			Bindings->AdjustGamepadSensitivity(Direction);
+			break;
+		default:
+			Bindings->ToggleInvertLookY();
+			break;
+		}
+		KeyBindingStatusText = FText::GetEmpty();
+		bKeyBindingStatusIsError = false;
+		RefreshMenuHud();
 		return;
 	}
 	bKeyBindingColumnGamepad = Direction > 0;
@@ -3995,7 +4023,28 @@ void AIGPlayerController::ConfirmKeyBindingSelection()
 	{
 		return;
 	}
-	if (KeyBindingSelection >= UIGInputBindingSubsystem::GetActionCount())
+	const int32 ActionIndex =
+		KeyBindingSelection - UIGInputBindingSubsystem::LookRowCount;
+	if (ActionIndex < 0)
+	{
+		// 감도는 좌우로 맞춘다. 반전은 켜고 끄는 것뿐이라 확인으로도 뒤집는다.
+		if (KeyBindingSelection == 2)
+		{
+			Bindings->ToggleInvertLookY();
+			KeyBindingStatusText = FText::GetEmpty();
+		}
+		else
+		{
+			KeyBindingStatusText = NSLOCTEXT(
+				"IGHUD",
+				"KeyBindingsUseArrows",
+				"이 행은 좌우로 맞춥니다.");
+		}
+		bKeyBindingStatusIsError = false;
+		RefreshMenuHud();
+		return;
+	}
+	if (ActionIndex >= UIGInputBindingSubsystem::GetActionCount())
 	{
 		Bindings->ResetToDefaults();
 		KeyBindingStatusText = NSLOCTEXT(
@@ -4044,7 +4093,7 @@ bool AIGPlayerController::CaptureKeyBindingInput(const FInputKeyEventArgs& Param
 	}
 	FText Failure;
 	if (Bindings->TryRebind(
-		KeyBindingSelection,
+		KeyBindingSelection - UIGInputBindingSubsystem::LookRowCount,
 		bKeyBindingColumnGamepad,
 		Params.Key,
 		Failure))

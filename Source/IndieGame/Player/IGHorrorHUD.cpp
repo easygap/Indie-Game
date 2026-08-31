@@ -5659,11 +5659,79 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 		EIGHudTextRole::Prompt,
 		1.05f * Scale);
 
+	// 시점 셋. 동사 목록보다 위에 둔다 — 1인칭에서 손에 가장 먼저 걸리는
+	// 것이 감도이고, 여기서 못 맞추면 그 뒤의 어떤 키 배열도 소용없다.
+	const float LookRowStride = 28.0f * Scale;
+	const float LookFirstY = Metrics.TitleTop + 62.0f * Scale;
+	const float ValueX = Metrics.ContentLeft + 300.0f * Scale;
+	FNumberFormattingOptions TwoDecimals;
+	TwoDecimals.MinimumFractionalDigits = 2;
+	TwoDecimals.MaximumFractionalDigits = 2;
+	for (int32 Row = 0; Row < UIGInputBindingSubsystem::LookRowCount; ++Row)
+	{
+		const bool bSelected = Row == SystemMenuKeyBindingSelection;
+		const float RowY = LookFirstY + Row * LookRowStride;
+		FText Label;
+		FText Value;
+		switch (Row)
+		{
+		case 0:
+			Label = bKorean
+				? NSLOCTEXT("IGHUD", "LookMouse", "마우스 감도")
+				: FText::FromString(TEXT("MOUSE SENSITIVITY"));
+			Value = FText::AsNumber(Bindings->GetMouseSensitivity(), &TwoDecimals);
+			break;
+		case 1:
+			Label = bKorean
+				? NSLOCTEXT("IGHUD", "LookPad", "패드 시점 감도")
+				: FText::FromString(TEXT("GAMEPAD LOOK SENSITIVITY"));
+			Value = FText::AsNumber(Bindings->GetGamepadSensitivity(), &TwoDecimals);
+			break;
+		default:
+			Label = bKorean
+				? NSLOCTEXT("IGHUD", "LookInvert", "시점 상하 반전")
+				: FText::FromString(TEXT("INVERT LOOK Y"));
+			Value = Bindings->IsLookInverted()
+				? (bKorean
+					? NSLOCTEXT("IGHUD", "LookInvertOn", "켬")
+					: FText::FromString(TEXT("ON")))
+				: (bKorean
+					? NSLOCTEXT("IGHUD", "LookInvertOff", "끔")
+					: FText::FromString(TEXT("OFF")));
+			break;
+		}
+		DrawLeftAlignedText(
+			bSelected ? FText::FromString(TEXT(">")) : FText::GetEmpty(),
+			FVector2D(Metrics.ContentLeft - 16.0f * Scale, RowY),
+			IGHorrorHUD::SettingsAccent,
+			EIGHudTextRole::Hint,
+			0.88f * Scale);
+		DrawLeftAlignedText(
+			Label,
+			FVector2D(Metrics.ContentLeft, RowY),
+			bSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
+			EIGHudTextRole::Hint,
+			0.88f * Scale);
+		// 고른 행에만 꺾쇠를 붙여 좌우로 움직이는 행임을 알린다.
+		DrawLeftAlignedText(
+			bSelected
+				? FText::Format(
+					NSLOCTEXT("IGHUD", "LookValueSelected", "‹ {0} ›"),
+					Value)
+				: Value,
+			FVector2D(ValueX, RowY),
+			bSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
+			EIGHudTextRole::Hint,
+			0.88f * Scale);
+	}
+
 	// 열 머리글. 지금 고른 칸을 밝게 둔다 — 색만으로 알리지 않기 위해
 	// 고른 칸에는 꺾쇠를 함께 그린다(§24 즉시 차단 22).
 	const float ColumnKeyboardX = Metrics.ContentLeft + 300.0f * Scale;
 	const float ColumnGamepadX = Metrics.ContentLeft + 470.0f * Scale;
-	const float HeaderY = Metrics.TitleTop + 62.0f * Scale;
+	const float HeaderY = LookFirstY
+		+ UIGInputBindingSubsystem::LookRowCount * LookRowStride
+		+ 16.0f * Scale;
 	DrawLeftAlignedText(
 		MakeBindingColumnHeader(bKorean, false, bSystemMenuKeyBindingColumnGamepad),
 		FVector2D(ColumnKeyboardX, HeaderY),
@@ -5688,7 +5756,9 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 	{
 		const FIGBindableActionInfo& Info =
 			UIGInputBindingSubsystem::GetActionInfo(Row);
-		const bool bSelected = Row == SystemMenuKeyBindingSelection;
+		const bool bSelected =
+			Row + UIGInputBindingSubsystem::LookRowCount
+				== SystemMenuKeyBindingSelection;
 		const float RowY = FirstRowY + Row * RowStride;
 		// 선택 표시는 색이 아니라 모양이다.
 		DrawLeftAlignedText(
@@ -5750,8 +5820,9 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 	}
 
 	// 마지막 행: 전부 기본값으로.
-	const int32 ResetRow = ActionCount;
-	const float ResetY = FirstRowY + ResetRow * RowStride + 8.0f * Scale;
+	const int32 ResetRow =
+		ActionCount + UIGInputBindingSubsystem::LookRowCount;
+	const float ResetY = FirstRowY + ActionCount * RowStride + 8.0f * Scale;
 	const bool bResetSelected = SystemMenuKeyBindingSelection == ResetRow;
 	DrawLeftAlignedText(
 		bResetSelected ? FText::FromString(TEXT(">")) : FText::GetEmpty(),
@@ -5770,11 +5841,27 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 
 	// 고른 행의 설명. §18.1이 그 동사에 대해 말하는 것을 그대로 보여 준다.
 	const float DetailY = ResetY + 34.0f * Scale;
-	if (SystemMenuKeyBindingSelection < ActionCount)
+	const int32 DetailAction =
+		SystemMenuKeyBindingSelection - UIGInputBindingSubsystem::LookRowCount;
+	if (SystemMenuKeyBindingSelection < UIGInputBindingSubsystem::LookRowCount)
 	{
 		DrawLeftAlignedText(
-			UIGInputBindingSubsystem::GetActionInfo(
-				SystemMenuKeyBindingSelection).Description,
+			bKorean
+				? NSLOCTEXT(
+					"IGHUD",
+					"LookDetail",
+					"마우스와 패드는 곡선이 달라 따로 맞춥니다. 좌우로 0.10씩.")
+				: FText::FromString(
+					TEXT("MOUSE AND PAD TUNE SEPARATELY. LEFT/RIGHT BY 0.10.")),
+			FVector2D(Metrics.ContentLeft, DetailY),
+			IGHorrorHUD::SettingsSecondary,
+			EIGHudTextRole::Hint,
+			0.82f * Scale);
+	}
+	else if (DetailAction >= 0 && DetailAction < ActionCount)
+	{
+		DrawLeftAlignedText(
+			UIGInputBindingSubsystem::GetActionInfo(DetailAction).Description,
 			FVector2D(Metrics.ContentLeft, DetailY),
 			IGHorrorHUD::SettingsSecondary,
 			EIGHudTextRole::Hint,
@@ -5811,11 +5898,11 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 				? NSLOCTEXT(
 					"IGHUD",
 					"KeyBindingsControlsPad",
-					"D-pad 상하 이동 · 좌우 칸 · A 바꾸기 · B 돌아가기")
+					"D-pad 상하 이동 · 좌우 값과 칸 · A 바꾸기 · B 돌아가기")
 				: NSLOCTEXT(
 					"IGHUD",
 					"KeyBindingsControlsKeys",
-					"방향키 상하 이동 · 좌우 칸 · Enter 바꾸기 · Esc 돌아가기")
+					"방향키 상하 이동 · 좌우 값과 칸 · Enter 바꾸기 · Esc 돌아가기")
 			: FText::FromString(
 				bPadHints
 					? TEXT("D-PAD MOVE  |  A REBIND  |  B BACK")

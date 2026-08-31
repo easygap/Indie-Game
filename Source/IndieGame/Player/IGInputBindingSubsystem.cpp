@@ -104,6 +104,7 @@ void UIGInputBindingSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
 	LoadOverrides();
+	LoadLookSettings();
 	ApplyAllBindings();
 }
 
@@ -235,8 +236,106 @@ bool UIGInputBindingSubsystem::TryRebind(
 void UIGInputBindingSubsystem::ResetToDefaults()
 {
 	Overrides.Reset();
+	MouseSensitivity = 1.0f;
+	GamepadSensitivity = 1.0f;
+	bInvertLookY = false;
 	SaveOverrides();
+	SaveLookSettings();
 	ApplyAllBindings();
+}
+
+void UIGInputBindingSubsystem::AdjustMouseSensitivity(const int32 Direction)
+{
+	MouseSensitivity = FMath::Clamp(
+		FMath::GridSnap(
+			MouseSensitivity + Direction * LookSensitivityStep,
+			LookSensitivityStep),
+		MinimumLookSensitivity,
+		MaximumLookSensitivity);
+	SaveLookSettings();
+}
+
+void UIGInputBindingSubsystem::AdjustGamepadSensitivity(const int32 Direction)
+{
+	GamepadSensitivity = FMath::Clamp(
+		FMath::GridSnap(
+			GamepadSensitivity + Direction * LookSensitivityStep,
+			LookSensitivityStep),
+		MinimumLookSensitivity,
+		MaximumLookSensitivity);
+	SaveLookSettings();
+}
+
+void UIGInputBindingSubsystem::ToggleInvertLookY()
+{
+	bInvertLookY = !bInvertLookY;
+	SaveLookSettings();
+}
+
+bool UIGInputBindingSubsystem::IsDefaultLookSettings() const
+{
+	return FMath::IsNearlyEqual(MouseSensitivity, 1.0f)
+		&& FMath::IsNearlyEqual(GamepadSensitivity, 1.0f)
+		&& !bInvertLookY;
+}
+
+void UIGInputBindingSubsystem::LoadLookSettings()
+{
+	MouseSensitivity = 1.0f;
+	GamepadSensitivity = 1.0f;
+	bInvertLookY = false;
+	if (!GConfig)
+	{
+		return;
+	}
+	float Stored = 1.0f;
+	if (GConfig->GetFloat(
+		IGInputBinding::ConfigSection,
+		TEXT("MouseSensitivity"),
+		Stored,
+		GGameUserSettingsIni))
+	{
+		MouseSensitivity = FMath::Clamp(
+			Stored, MinimumLookSensitivity, MaximumLookSensitivity);
+	}
+	if (GConfig->GetFloat(
+		IGInputBinding::ConfigSection,
+		TEXT("GamepadSensitivity"),
+		Stored,
+		GGameUserSettingsIni))
+	{
+		GamepadSensitivity = FMath::Clamp(
+			Stored, MinimumLookSensitivity, MaximumLookSensitivity);
+	}
+	GConfig->GetBool(
+		IGInputBinding::ConfigSection,
+		TEXT("InvertLookY"),
+		bInvertLookY,
+		GGameUserSettingsIni);
+}
+
+void UIGInputBindingSubsystem::SaveLookSettings() const
+{
+	if (!GConfig)
+	{
+		return;
+	}
+	GConfig->SetFloat(
+		IGInputBinding::ConfigSection,
+		TEXT("MouseSensitivity"),
+		MouseSensitivity,
+		GGameUserSettingsIni);
+	GConfig->SetFloat(
+		IGInputBinding::ConfigSection,
+		TEXT("GamepadSensitivity"),
+		GamepadSensitivity,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGInputBinding::ConfigSection,
+		TEXT("InvertLookY"),
+		bInvertLookY,
+		GGameUserSettingsIni);
+	GConfig->Flush(false, GGameUserSettingsIni);
 }
 
 void UIGInputBindingSubsystem::LoadOverrides()

@@ -131,6 +131,8 @@ private:
 	void Look(const FInputActionValue& Value);
 	void MoveForward(float Value);
 	void MoveRight(float Value);
+	/** §18.3. 지금 쓰는 장치의 시점 감도. 마우스와 패드를 따로 둔다. */
+	float GetLookSensitivity() const;
 	void Turn(float Value);
 	void LookUp(float Value);
 	void BeginInteraction();

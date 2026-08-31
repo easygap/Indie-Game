@@ -189,6 +189,111 @@ Assert-ContainsAll $hudSource @(
 	'bSystemMenuIsKeyBindings'
 ) '재설정 화면 렌더'
 
+# --- 5. 시점 감도와 상하 반전 -----------------------------------------------
+#
+# 1인칭에서 감도를 못 바꾸면 손이 맞지 않는 사람은 그 자리에서 끝난다.
+# 마우스와 패드는 곡선이 달라 값이 둘이어야 한다 — 하나로 묶으면 한쪽을
+# 맞추는 순간 다른 쪽이 어긋난다.
+
+Assert-ContainsAll $bindingSource @(
+	'AdjustMouseSensitivity',
+	'AdjustGamepadSensitivity',
+	'ToggleInvertLookY'
+) '시점 조절 진입점'
+
+foreach ($axis in @('Mouse', 'Gamepad')) {
+	$adjustBody = [regex]::Match(
+		$bindingSource,
+		('void UIGInputBindingSubsystem::Adjust{0}Sensitivity\(' -f $axis) +
+			'const int32 Direction\)(?<body>[\s\S]*?)\r?\n\}')
+	$assertionCount++
+	if (-not $adjustBody.Success) {
+		throw "Adjust${axis}Sensitivity could not be isolated."
+	}
+	$assertionCount++
+	if ($adjustBody.Groups['body'].Value -notmatch
+		('{0}Sensitivity\s*=\s*FMath::Clamp' -f $axis)) {
+		throw "Adjust${axis}Sensitivity must clamp to the declared range."
+	}
+	$assertionCount++
+	if (-not $adjustBody.Groups['body'].Value.Contains('LookSensitivityStep')) {
+		throw "Adjust${axis}Sensitivity must move by the declared step."
+	}
+}
+
+# 저장한 값도 다시 조인다. 손으로 고친 ini가 화면을 못 쓰게 만들면 안 된다.
+$lookLoadBody = [regex]::Match(
+	$bindingSource,
+	'void UIGInputBindingSubsystem::LoadLookSettings\(\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $lookLoadBody.Success) {
+	throw 'LoadLookSettings could not be isolated.'
+}
+$assertionCount++
+if (([regex]::Matches(
+		$lookLoadBody.Groups['body'].Value, 'FMath::Clamp')).Count -lt 2) {
+	throw 'Stored look sensitivities must be re-clamped on load.'
+}
+
+# 되돌리기가 키만 되돌리고 감도를 남기면 「전부 기본값으로」가 거짓말이 된다.
+$resetBody = [regex]::Match(
+	$bindingSource,
+	'void UIGInputBindingSubsystem::ResetToDefaults\(\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $resetBody.Success) {
+	throw 'ResetToDefaults could not be isolated.'
+}
+foreach ($restored in @(
+	'MouseSensitivity = 1.0f',
+	'GamepadSensitivity = 1.0f',
+	'bInvertLookY = false')) {
+	$assertionCount++
+	if (-not $resetBody.Groups['body'].Value.Contains($restored)) {
+		throw "Reset-all must also restore look settings: $restored"
+	}
+}
+
+# 값이 실제로 시점에 걸리는가. 설정만 있고 카메라가 안 읽으면 아무 일도
+# 일어나지 않는 화면이 된다.
+$characterSource = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGPlayerCharacter.cpp')
+Assert-ContainsAll $characterSource @(
+	'AddControllerYawInput(Value * GetLookSensitivity())',
+	'IsLookInverted()'
+) '시점 적용'
+
+# Turn/LookUp은 마우스와 스틱을 같은 축으로 받는다. 장치를 안 가리면 한쪽
+# 값이 다른 장치에도 걸린다.
+$sensitivityBody = [regex]::Match(
+	$characterSource,
+	'float AIGPlayerCharacter::GetLookSensitivity\(\) const(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $sensitivityBody.Success) {
+	throw 'GetLookSensitivity could not be isolated.'
+}
+foreach ($branch in @(
+	'IsUsingGamepadForHud()',
+	'GetGamepadSensitivity()',
+	'GetMouseSensitivity()')) {
+	$assertionCount++
+	if (-not $sensitivityBody.Groups['body'].Value.Contains($branch)) {
+		throw "Look sensitivity must pick per device: $branch"
+	}
+}
+
+# 화면의 행 번호가 시점 셋만큼 밀려 있는가. 여기가 어긋나면 조사를 고르고
+# 두드리기가 바뀐다.
+$assertionCount++
+if ($controllerSource -notmatch
+	'TryRebind\(\s*\r?\n?\s*KeyBindingSelection - UIGInputBindingSubsystem::LookRowCount') {
+	throw 'Rebind must offset the screen row by the look rows.'
+}
+$assertionCount++
+if ($hudSource -notmatch
+	'Row \+ UIGInputBindingSubsystem::LookRowCount\s*\r?\n?\s*== SystemMenuKeyBindingSelection') {
+	throw 'Binding rows must be drawn with the look-row offset.'
+}
+
 Write-Host (
-	'MISSING_FLOOR_INPUT_BINDING_CONTRACT PASS actions={0} assertions={1}' -f `
-		$entries.Count, $assertionCount) -ForegroundColor Green
+	'MISSING_FLOOR_INPUT_BINDING_CONTRACT PASS actions={0} look={1} assertions={2}' -f `
+		$entries.Count, 3, $assertionCount) -ForegroundColor Green

@@ -34,7 +34,9 @@
 #include "Interaction/IGReadableNote.h"
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGInputBindingSubsystem.h"
 #include "Player/IGInteractionComponent.h"
+#include "Player/IGPlayerController.h"
 #include "Player/IGStressComponent.h"
 #include "Sequence/IGWakeUpDirector.h"
 #include "Save/IGSaveSubsystem.h"
@@ -1997,14 +1999,40 @@ void AIGPlayerCharacter::MoveRight(const float Value)
 	AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y), Value);
 }
 
+float AIGPlayerCharacter::GetLookSensitivity() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGInputBindingSubsystem* Controls = GameInstance
+		? GameInstance->GetSubsystem<UIGInputBindingSubsystem>()
+		: nullptr;
+	if (!Controls)
+	{
+		return 1.0f;
+	}
+	// Turn/LookUp은 마우스와 스틱을 같은 축으로 받으므로 축만 봐서는 어느
+	// 장치인지 알 수 없다. 게임이 이미 들고 있는 장치 판정을 그대로 쓴다.
+	const AIGPlayerController* IGController =
+		Cast<AIGPlayerController>(GetController());
+	const bool bGamepad = IGController && IGController->IsUsingGamepadForHud();
+	return bGamepad
+		? Controls->GetGamepadSensitivity()
+		: Controls->GetMouseSensitivity();
+}
+
 void AIGPlayerCharacter::Turn(const float Value)
 {
-	AddControllerYawInput(Value);
+	AddControllerYawInput(Value * GetLookSensitivity());
 }
 
 void AIGPlayerCharacter::LookUp(const float Value)
 {
-	AddControllerPitchInput(Value);
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGInputBindingSubsystem* Controls = GameInstance
+		? GameInstance->GetSubsystem<UIGInputBindingSubsystem>()
+		: nullptr;
+	// 상하 반전은 축 매핑이 이미 -1을 걸고 있으므로 여기서 한 번 더 뒤집는다.
+	const float Invert = Controls && Controls->IsLookInverted() ? -1.0f : 1.0f;
+	AddControllerPitchInput(Value * GetLookSensitivity() * Invert);
 }
 
 void AIGPlayerCharacter::BeginInteraction()
