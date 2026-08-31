@@ -97,20 +97,26 @@ public:
 	 * 조작 화면에서 동사 목록보다 위에 오는 시점 행의 수. 화면과 컨트롤러가
 	 * 같은 값을 봐야 행 번호가 어긋나지 않는다.
 	 */
-	static constexpr int32 LookRowCount = 3;
+	static constexpr int32 LookRowCount = 4;
 
 	static constexpr float MinimumLookSensitivity = 0.40f;
 	static constexpr float MaximumLookSensitivity = 2.00f;
 	static constexpr float LookSensitivityStep = 0.10f;
+	// §18.3. 좌우와 상하를 같은 감도로 두면 한쪽이 늘 어긋난다. 폭이 좁은
+	// 것은 이게 취향이 아니라 보정이기 때문이다.
+	static constexpr float MinimumVerticalLookScale = 0.70f;
+	static constexpr float MaximumVerticalLookScale = 1.30f;
 
 	float GetMouseSensitivity() const { return MouseSensitivity; }
 	float GetGamepadSensitivity() const { return GamepadSensitivity; }
 	bool IsLookInverted() const { return bInvertLookY; }
+	float GetVerticalLookScale() const { return VerticalLookScale; }
 
 	/** 단계로 움직인다. 화면이 값을 직접 쓰지 않고 이 함수만 부른다. */
 	void AdjustMouseSensitivity(int32 Direction);
 	void AdjustGamepadSensitivity(int32 Direction);
 	void ToggleInvertLookY();
+	void AdjustVerticalLookScale(int32 Direction);
 
 	/** 시점 값도 기본값과 다른가. 화면의 `*` 표시가 이걸 읽는다. */
 	bool IsDefaultLookSettings() const;
@@ -134,4 +140,5 @@ private:
 	float MouseSensitivity = 1.0f;
 	float GamepadSensitivity = 1.0f;
 	bool bInvertLookY = false;
+	float VerticalLookScale = 1.0f;
 };

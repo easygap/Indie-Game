@@ -5852,6 +5852,12 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 				: FText::FromString(TEXT("GAMEPAD LOOK SENSITIVITY"));
 			Value = FText::AsNumber(Bindings->GetGamepadSensitivity(), &TwoDecimals);
 			break;
+		case 2:
+			Label = bKorean
+				? NSLOCTEXT("IGHUD", "LookVertical", "상하 감도 배율")
+				: FText::FromString(TEXT("VERTICAL LOOK SCALE"));
+			Value = FText::AsNumber(Bindings->GetVerticalLookScale(), &TwoDecimals);
+			break;
 		default:
 			Label = bKorean
 				? NSLOCTEXT("IGHUD", "LookInvert", "시점 상하 반전")
@@ -6015,9 +6021,9 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 				? NSLOCTEXT(
 					"IGHUD",
 					"LookDetail",
-					"마우스와 패드는 곡선이 달라 따로 맞춥니다. 좌우로 0.10씩.")
+					"마우스와 패드는 곡선이 달라 따로 맞춥니다. 상하는 좌우에 곱해집니다.")
 				: FText::FromString(
-					TEXT("MOUSE AND PAD TUNE SEPARATELY. LEFT/RIGHT BY 0.10.")),
+					TEXT("MOUSE AND PAD TUNE SEPARATELY; VERTICAL MULTIPLIES THE HORIZONTAL.")),
 			FVector2D(Metrics.ContentLeft, DetailY),
 			IGHorrorHUD::SettingsSecondary,
 			EIGHudTextRole::Hint,

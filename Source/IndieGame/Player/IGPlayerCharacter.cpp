@@ -37,6 +37,7 @@
 #include "Player/IGInputBindingSubsystem.h"
 #include "Player/IGInteractionComponent.h"
 #include "Player/IGPlayerController.h"
+#include "GameFramework/PlayerInput.h"
 #include "Player/IGStressComponent.h"
 #include "Sequence/IGWakeUpDirector.h"
 #include "Save/IGSaveSubsystem.h"
@@ -67,6 +68,15 @@ namespace IGPlayerNoise
 	constexpr float CrouchTransitionSpeedScale = 0.5f;
 	constexpr float KnockInputLockSeconds = 0.9f;
 	constexpr float KnockSequenceResetSeconds = 1.8f;
+	// §18.3 패드 시점. 안쪽은 스틱이 가운데로 안 돌아오는 만큼을 버리고,
+	// 바깥쪽은 대각선에서 원을 벗어나는 만큼을 접는다. 지수 2.2는 작은
+	// 기울임을 더 작게 만들어 조준 없이 둘러보는 손에 맞춘다.
+	constexpr float PadInnerDeadzone = 0.18f;
+	constexpr float PadOuterDeadzone = 0.92f;
+	constexpr float PadResponseExponent = 2.2f;
+	// 초당 회전 상한. 스틱은 미는 동안 프레임마다 같은 값이 들어와서, 이걸
+	// 안 걸면 프레임률이 높은 기계에서 그만큼 빨리 돈다.
+	constexpr float PadMaximumTurnRateDegrees = 140.0f;
 	constexpr float KnockCameraKickDegrees = 0.4f;
 	constexpr float KnockCameraReturnSeconds = 0.18f;
 	constexpr float CaptureCameraKickDegrees = 3.2f;
@@ -2028,28 +2038,106 @@ float AIGPlayerCharacter::GetLookSensitivity() const
 	}
 	// Turn/LookUp은 마우스와 스틱을 같은 축으로 받으므로 축만 봐서는 어느
 	// 장치인지 알 수 없다. 게임이 이미 들고 있는 장치 판정을 그대로 쓴다.
-	const AIGPlayerController* IGController =
-		Cast<AIGPlayerController>(GetController());
-	const bool bGamepad = IGController && IGController->IsUsingGamepadForHud();
-	return bGamepad
+	return IsUsingGamepadLook()
 		? Controls->GetGamepadSensitivity()
 		: Controls->GetMouseSensitivity();
 }
 
+float AIGPlayerCharacter::ShapeGamepadLookAxis(const float RawStick)
+{
+	const float Magnitude = FMath::Abs(RawStick);
+	if (Magnitude <= IGPlayerNoise::PadInnerDeadzone)
+	{
+		return 0.0f;
+	}
+	const float Normalized = FMath::Clamp(
+		(Magnitude - IGPlayerNoise::PadInnerDeadzone)
+			/ (IGPlayerNoise::PadOuterDeadzone - IGPlayerNoise::PadInnerDeadzone),
+		0.0f,
+		1.0f);
+	return FMath::Sign(RawStick)
+		* FMath::Pow(Normalized, IGPlayerNoise::PadResponseExponent);
+}
+
+bool AIGPlayerCharacter::ApplyGamepadLook(const FKey& StickAxis, const bool bYaw)
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	const UWorld* World = GetWorld();
+	if (!PlayerController || !PlayerController->PlayerInput || !World)
+	{
+		return false;
+	}
+	// Turn/LookUp 축은 마우스와 스틱을 함께 받아서 들어온 값만으로는 스틱을
+	// 되돌릴 수 없다. 데드존은 원시 스틱 값에 걸어야 하므로 직접 읽는다.
+	const float Shaped = ShapeGamepadLookAxis(
+		PlayerController->PlayerInput->GetKeyValue(StickAxis));
+	if (FMath::IsNearlyZero(Shaped))
+	{
+		return true;
+	}
+	// bEnableLegacyInputScales=False라서 여기 넣는 값이 곧 각도다.
+	const float Degrees = Shaped
+		* IGPlayerNoise::PadMaximumTurnRateDegrees
+		* World->GetDeltaSeconds()
+		* GetLookSensitivity();
+	if (bYaw)
+	{
+		AddControllerYawInput(Degrees);
+	}
+	else
+	{
+		// 축 매핑이 이미 -1.2를 걸어 두었으므로 부호를 여기서 맞춘다.
+		AddControllerPitchInput(-Degrees * GetVerticalLookScale());
+	}
+	return true;
+}
+
 void AIGPlayerCharacter::Turn(const float Value)
 {
+	if (IsUsingGamepadLook())
+	{
+		ApplyGamepadLook(EKeys::Gamepad_RightX, /*bYaw=*/true);
+		return;
+	}
 	AddControllerYawInput(Value * GetLookSensitivity());
 }
 
 void AIGPlayerCharacter::LookUp(const float Value)
 {
+	if (IsUsingGamepadLook())
+	{
+		ApplyGamepadLook(EKeys::Gamepad_RightY, /*bYaw=*/false);
+		return;
+	}
+	// 상하 반전은 축 매핑이 이미 -1을 걸고 있으므로 여기서 한 번 더 뒤집는다.
+	AddControllerPitchInput(
+		Value * GetLookSensitivity() * GetVerticalLookScale()
+			* (IsLookInverted() ? -1.0f : 1.0f));
+}
+
+bool AIGPlayerCharacter::IsUsingGamepadLook() const
+{
+	const AIGPlayerController* IGController =
+		Cast<AIGPlayerController>(GetController());
+	return IGController && IGController->IsUsingGamepadForHud();
+}
+
+bool AIGPlayerCharacter::IsLookInverted() const
+{
 	const UGameInstance* GameInstance = GetGameInstance();
 	const UIGInputBindingSubsystem* Controls = GameInstance
 		? GameInstance->GetSubsystem<UIGInputBindingSubsystem>()
 		: nullptr;
-	// 상하 반전은 축 매핑이 이미 -1을 걸고 있으므로 여기서 한 번 더 뒤집는다.
-	const float Invert = Controls && Controls->IsLookInverted() ? -1.0f : 1.0f;
-	AddControllerPitchInput(Value * GetLookSensitivity() * Invert);
+	return Controls && Controls->IsLookInverted();
+}
+
+float AIGPlayerCharacter::GetVerticalLookScale() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGInputBindingSubsystem* Controls = GameInstance
+		? GameInstance->GetSubsystem<UIGInputBindingSubsystem>()
+		: nullptr;
+	return Controls ? Controls->GetVerticalLookScale() : 1.0f;
 }
 
 void AIGPlayerCharacter::BeginInteraction()

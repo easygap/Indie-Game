@@ -272,13 +272,134 @@ if (-not $sensitivityBody.Success) {
 	throw 'GetLookSensitivity could not be isolated.'
 }
 foreach ($branch in @(
-	'IsUsingGamepadForHud()',
+	'IsUsingGamepadLook()',
 	'GetGamepadSensitivity()',
 	'GetMouseSensitivity()')) {
 	$assertionCount++
 	if (-not $sensitivityBody.Groups['body'].Value.Contains($branch)) {
 		throw "Look sensitivity must pick per device: $branch"
 	}
+}
+# 장치 판정 자체는 게임이 이미 들고 있는 값을 봐야 한다. 여기가 따로 놀면
+# 화면은 패드 안내를 보여 주는데 시점은 마우스 감도로 도는 일이 생긴다.
+$deviceBody = [regex]::Match(
+	$characterSource,
+	'bool AIGPlayerCharacter::IsUsingGamepadLook\(\) const(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $deviceBody.Success) {
+	throw 'IsUsingGamepadLook could not be isolated.'
+}
+$assertionCount++
+if (-not $deviceBody.Groups['body'].Value.Contains('IsUsingGamepadForHud()')) {
+	throw 'The look device must follow the HUD device judgement.'
+}
+
+# --- §18.3 패드 시점 문법 ---------------------------------------------------
+#
+# 데드존·응답 곡선·최대 회전은 문서가 숫자까지 적어 둔 것이고, 그동안
+# 코드에는 한 줄도 없었다.
+
+$story = Read-ProjectText 'Docs/STORY_BIBLE_MISSING_FLOOR.md'
+$padRow = [regex]::Match(
+	$story,
+	'데드존 내측 (?<inner>[0-9.]+) 외측 (?<outer>[0-9.]+), 응답 곡선 지수 (?<curve>[0-9.]+), 최대 회전 (?<rate>[0-9]+)')
+$assertionCount++
+if (-not $padRow.Success) {
+	throw 'The §18.3 gamepad look row could not be read.'
+}
+$padValues = @{
+	'PadInnerDeadzone' = $padRow.Groups['inner'].Value
+	'PadOuterDeadzone' = $padRow.Groups['outer'].Value
+	'PadResponseExponent' = $padRow.Groups['curve'].Value
+	'PadMaximumTurnRateDegrees' = $padRow.Groups['rate'].Value
+}
+foreach ($name in $padValues.Keys) {
+	$declared = [regex]::Match(
+		$characterSource,
+		('constexpr float {0} = (?<value>[0-9.]+)f;' -f $name))
+	$assertionCount++
+	if (-not $declared.Success) {
+		throw "The §18.3 gamepad constant is missing: $name"
+	}
+	$assertionCount++
+	if ([double]$declared.Groups['value'].Value -ne [double]$padValues[$name]) {
+		throw (
+			'{0} is {1} but §18.3 says {2}.' -f
+				$name, $declared.Groups['value'].Value, $padValues[$name])
+	}
+}
+
+# 데드존은 원시 스틱에 걸어야 한다. 들어온 축 값에 걸면 마우스가 섞여 있어
+# 값을 되돌릴 수 없다.
+$shapeBody = [regex]::Match(
+	$characterSource,
+	'float AIGPlayerCharacter::ShapeGamepadLookAxis\(const float RawStick\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $shapeBody.Success) {
+	throw 'ShapeGamepadLookAxis could not be isolated.'
+}
+foreach ($piece in @(
+	'IGPlayerNoise::PadInnerDeadzone',
+	'IGPlayerNoise::PadOuterDeadzone',
+	'FMath::Pow(Normalized, IGPlayerNoise::PadResponseExponent)')) {
+	$assertionCount++
+	if (-not $shapeBody.Groups['body'].Value.Contains($piece)) {
+		throw "The stick curve must use the declared §18.3 shape: $piece"
+	}
+}
+$applyBody = [regex]::Match(
+	$characterSource,
+	'bool AIGPlayerCharacter::ApplyGamepadLook\((?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $applyBody.Success) {
+	throw 'ApplyGamepadLook could not be isolated.'
+}
+$assertionCount++
+if (-not $applyBody.Groups['body'].Value.Contains('PlayerInput->GetKeyValue(StickAxis)')) {
+	throw 'The deadzone must read the raw stick, not the blended axis (§18.3).'
+}
+# 초당 회전 상한. DeltaSeconds가 빠지면 프레임률이 곧 감도가 된다.
+$assertionCount++
+if (-not $applyBody.Groups['body'].Value.Contains('World->GetDeltaSeconds()')) {
+	throw 'The pad turn rate must be measured per second (§18.3).'
+}
+$assertionCount++
+if (-not $applyBody.Groups['body'].Value.Contains(
+	'IGPlayerNoise::PadMaximumTurnRateDegrees')) {
+	throw 'The pad turn rate cap is not applied (§18.3).'
+}
+# 각도 그대로 넣는다는 전제가 설정에 남아 있는가.
+$assertionCount++
+if ($inputConfig -notmatch 'bEnableLegacyInputScales=False') {
+	throw 'Legacy input scales must stay off or the turn-rate cap breaks (§18.3).'
+}
+
+# 수직 별도 배율. 문서가 폭까지 적어 두었다.
+$verticalRow = [regex]::Match(
+	$story, '수직 별도 배율 (?<min>[0-9]+\.[0-9]+)~(?<max>[0-9]+\.[0-9]+)')
+$assertionCount++
+if (-not $verticalRow.Success) {
+	throw 'The §18.3 vertical look scale row could not be read.'
+}
+foreach ($bound in @(
+	@{ Name = 'MinimumVerticalLookScale'; Value = $verticalRow.Groups['min'].Value },
+	@{ Name = 'MaximumVerticalLookScale'; Value = $verticalRow.Groups['max'].Value })) {
+	$declared = [regex]::Match(
+		$bindingHeader, ('{0} = (?<value>[0-9.]+)f;' -f $bound.Name))
+	$assertionCount++
+	if (-not $declared.Success) {
+		throw ('The vertical look bound is missing: {0}' -f $bound.Name)
+	}
+	$assertionCount++
+	if ([double]$declared.Groups['value'].Value -ne [double]$bound.Value) {
+		throw (
+			'{0} is {1} but §18.3 says {2}.' -f
+				$bound.Name, $declared.Groups['value'].Value, $bound.Value)
+	}
+}
+$assertionCount++
+if (-not $characterSource.Contains('GetVerticalLookScale()')) {
+	throw 'The vertical scale must reach the pitch input (§18.3).'
 }
 
 # 화면의 행 번호가 시점 셋만큼 밀려 있는가. 여기가 어긋나면 조사를 고르고
@@ -294,6 +415,15 @@ if ($hudSource -notmatch
 	throw 'Binding rows must be drawn with the look-row offset.'
 }
 
+# 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
+$lookRowMatch = [regex]::Match(
+	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
+$assertionCount++
+if (-not $lookRowMatch.Success) {
+	throw 'LookRowCount could not be read.'
+}
+$lookRowCount = [int]$lookRowMatch.Groups['count'].Value
+
 Write-Host (
 	'MISSING_FLOOR_INPUT_BINDING_CONTRACT PASS actions={0} look={1} assertions={2}' -f `
-		$entries.Count, 3, $assertionCount) -ForegroundColor Green
+		$entries.Count, $lookRowCount, $assertionCount) -ForegroundColor Green

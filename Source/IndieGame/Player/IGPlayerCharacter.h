@@ -134,6 +134,17 @@ private:
 	void Look(const FInputActionValue& Value);
 	void MoveForward(float Value);
 	void MoveRight(float Value);
+	/** §18.3. 지금 시점을 미는 것이 스틱인가. */
+	bool IsUsingGamepadLook() const;
+	bool IsLookInverted() const;
+	float GetVerticalLookScale() const;
+
+	/** §18.3 데드존과 응답 곡선. 원시 스틱 값을 -1~1로 다시 편다. */
+	static float ShapeGamepadLookAxis(float RawStick);
+
+	/** 스틱 하나를 읽어 초당 회전 상한 안에서 시점을 민다. */
+	bool ApplyGamepadLook(const FKey& StickAxis, bool bYaw);
+
 	/** §18.3. 지금 쓰는 장치의 시점 감도. 마우스와 패드를 따로 둔다. */
 	float GetLookSensitivity() const;
 	void Turn(float Value);

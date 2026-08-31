@@ -4118,6 +4118,9 @@ void AIGPlayerController::MoveKeyBindingColumn(const int32 Direction)
 		case 1:
 			Bindings->AdjustGamepadSensitivity(Direction);
 			break;
+		case 2:
+			Bindings->AdjustVerticalLookScale(Direction);
+			break;
 		default:
 			Bindings->ToggleInvertLookY();
 			break;
@@ -4147,7 +4150,7 @@ void AIGPlayerController::ConfirmKeyBindingSelection()
 	if (ActionIndex < 0)
 	{
 		// 감도는 좌우로 맞춘다. 반전은 켜고 끄는 것뿐이라 확인으로도 뒤집는다.
-		if (KeyBindingSelection == 2)
+		if (KeyBindingSelection == 3)
 		{
 			Bindings->ToggleInvertLookY();
 			KeyBindingStatusText = FText::GetEmpty();

@@ -238,6 +238,7 @@ void UIGInputBindingSubsystem::ResetToDefaults()
 	Overrides.Reset();
 	MouseSensitivity = 1.0f;
 	GamepadSensitivity = 1.0f;
+	VerticalLookScale = 1.0f;
 	bInvertLookY = false;
 	SaveOverrides();
 	SaveLookSettings();
@@ -266,6 +267,17 @@ void UIGInputBindingSubsystem::AdjustGamepadSensitivity(const int32 Direction)
 	SaveLookSettings();
 }
 
+void UIGInputBindingSubsystem::AdjustVerticalLookScale(const int32 Direction)
+{
+	VerticalLookScale = FMath::Clamp(
+		FMath::GridSnap(
+			VerticalLookScale + Direction * LookSensitivityStep,
+			LookSensitivityStep),
+		MinimumVerticalLookScale,
+		MaximumVerticalLookScale);
+	SaveLookSettings();
+}
+
 void UIGInputBindingSubsystem::ToggleInvertLookY()
 {
 	bInvertLookY = !bInvertLookY;
@@ -276,6 +288,7 @@ bool UIGInputBindingSubsystem::IsDefaultLookSettings() const
 {
 	return FMath::IsNearlyEqual(MouseSensitivity, 1.0f)
 		&& FMath::IsNearlyEqual(GamepadSensitivity, 1.0f)
+		&& FMath::IsNearlyEqual(VerticalLookScale, 1.0f)
 		&& !bInvertLookY;
 }
 
@@ -283,6 +296,7 @@ void UIGInputBindingSubsystem::LoadLookSettings()
 {
 	MouseSensitivity = 1.0f;
 	GamepadSensitivity = 1.0f;
+	VerticalLookScale = 1.0f;
 	bInvertLookY = false;
 	if (!GConfig)
 	{
@@ -307,6 +321,15 @@ void UIGInputBindingSubsystem::LoadLookSettings()
 		GamepadSensitivity = FMath::Clamp(
 			Stored, MinimumLookSensitivity, MaximumLookSensitivity);
 	}
+	if (GConfig->GetFloat(
+		IGInputBinding::ConfigSection,
+		TEXT("VerticalLookScale"),
+		Stored,
+		GGameUserSettingsIni))
+	{
+		VerticalLookScale = FMath::Clamp(
+			Stored, MinimumVerticalLookScale, MaximumVerticalLookScale);
+	}
 	GConfig->GetBool(
 		IGInputBinding::ConfigSection,
 		TEXT("InvertLookY"),
@@ -329,6 +352,11 @@ void UIGInputBindingSubsystem::SaveLookSettings() const
 		IGInputBinding::ConfigSection,
 		TEXT("GamepadSensitivity"),
 		GamepadSensitivity,
+		GGameUserSettingsIni);
+	GConfig->SetFloat(
+		IGInputBinding::ConfigSection,
+		TEXT("VerticalLookScale"),
+		VerticalLookScale,
 		GGameUserSettingsIni);
 	GConfig->SetBool(
 		IGInputBinding::ConfigSection,
