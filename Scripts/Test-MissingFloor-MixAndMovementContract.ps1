@@ -697,6 +697,88 @@ if ($spatialCallCount -lt 7) {
 			$spatialCallCount)
 }
 
+# --- 사용자가 줄일 수 있는 버스 (§21.1) -------------------------------------
+#
+# 대원칙은 「존재의 소리는 절대 눌리지 않는다」다. 더킹에 ENTITY 분기가 없는
+# 것과 같은 이유로, 사용자 음량에도 ENTITY 분기가 없어야 한다. 놓친 노크가
+# 믹스의 여유처럼 보이면 그건 게임의 실패다.
+
+$scaleBody = [regex]::Match(
+	$audioSource,
+	'float UIGMissingFloorAudioSubsystem::GetBusUserScale\(const EIGAudioBus Bus\) const(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $scaleBody.Success) {
+	throw 'GetBusUserScale could not be isolated.'
+}
+$scaleText = $scaleBody.Groups['body'].Value
+foreach ($locked in @('Entity', 'Player', 'Puzzle', 'Ui')) {
+	$assertionCount++
+	if ($scaleText -match ('EIGAudioBus::{0}\b' -f $locked)) {
+		throw "The user must not be able to turn down BUS_$locked (§21.1)."
+	}
+}
+foreach ($open in @('Score', 'World')) {
+	$assertionCount++
+	if ($scaleText -notmatch ('EIGAudioBus::{0}\b' -f $open)) {
+		throw "BUS_$open should be user-adjustable (§21.1)."
+	}
+}
+
+# 배율이 실제로 믹스에 걸리는가.
+$refreshBody = [regex]::Match(
+	$audioSource,
+	'void UIGMissingFloorAudioSubsystem::RefreshMix\(const float FadeSeconds\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $refreshBody.Success) {
+	throw 'RefreshMix could not be isolated.'
+}
+$assertionCount++
+if (-not $refreshBody.Groups['body'].Value.Contains('GetBusUserScale(Bus)')) {
+	throw 'The per-bus user scale must reach the running mix (§21.1).'
+}
+
+# 음악은 0까지, 환경음은 바닥까지. 건물이 내는 소리 자체가 단서라서 끌 수 없다.
+$scoreSetter = [regex]::Match(
+	$audioSource,
+	'void UIGMissingFloorAudioSubsystem::SetScoreUserVolume\((?<body>[\s\S]*?)\r?\n\}')
+$ambienceSetter = [regex]::Match(
+	$audioSource,
+	'void UIGMissingFloorAudioSubsystem::SetAmbienceUserVolume\((?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $scoreSetter.Success -or -not $ambienceSetter.Success) {
+	throw 'The score and ambience setters could not be isolated.'
+}
+$assertionCount++
+if ($scoreSetter.Groups['body'].Value -notmatch
+	'FMath::Clamp\(Volume01, 0\.0f, 1\.0f\)') {
+	throw 'Music must be allowed to reach silence (§21.1).'
+}
+$assertionCount++
+if ($ambienceSetter.Groups['body'].Value -notmatch
+	'FMath::Clamp\(Volume01, MinimumAmbienceVolume, 1\.0f\)') {
+	throw 'Ambience must keep its floor; the building itself is a clue (§21.1).'
+}
+$assertionCount++
+if ($audioHeader -notmatch 'MinimumAmbienceVolume = 0\.40f') {
+	throw 'The ambience floor moved without the contract following (§21.1).'
+}
+
+# 화면의 단계표가 그 범위와 같은 말을 하는가.
+$assertionCount++
+if ($controllerSource -notmatch
+	'MusicValues\[MusicStepCount\] =\s*\r?\n\s*\{\s*\r?\n\s*0\.0f,') {
+	throw 'The music step table must start at silence (§21.1).'
+}
+$assertionCount++
+if ($controllerSource -notmatch
+	'AmbienceValues\[AmbienceStepCount\] =\s*\r?\n\s*\{\s*\r?\n\s*0\.40f,') {
+	throw 'The ambience step table must start at the declared floor (§21.1).'
+}
+$assertionCount++
+if ($story -notmatch '존재의 소리는 절대 눌리지 않는다') {
+	throw 'The §21.1 first principle was removed.'
+}
+
 Write-Host (
 	'MISSING_FLOOR_MIX_MOVEMENT_CONTRACT PASS buses={0} spaces={1} states={2} assertions={3}' -f `
 		$busRows.Count, $reverbRows.Count, $movementRows.Count, $assertionCount) `

@@ -98,8 +98,31 @@ namespace IGDisplaySettings
 
 namespace IGAudioCalibration
 {
-	// 음량, 밝기, 출력 방식, 노크 다시 듣기, 저장.
-	constexpr int32 RowCount = 5;
+	// 행을 번호로 세다가 하나 끼우면 밝기가 출력 방식이 된다. 이름을 준다.
+	enum ERow : int32
+	{
+		Master = 0,
+		Music,
+		Ambience,
+		Output,
+		Brightness,
+		TestKnock,
+		Done,
+		Count
+	};
+	constexpr int32 RowCount = ERow::Count;
+	constexpr int32 MusicStepCount = 5;
+	constexpr int32 AmbienceStepCount = 5;
+	// 음악은 0까지 내려간다. 작가가 얹은 것이라 없어도 사건은 남는다.
+	constexpr float MusicValues[MusicStepCount] =
+	{
+		0.0f, 0.25f, 0.50f, 0.75f, 1.0f
+	};
+	// 환경음은 바닥이 있다. 건물이 내는 소리 자체가 단서다(§21.1).
+	constexpr float AmbienceValues[AmbienceStepCount] =
+	{
+		0.40f, 0.55f, 0.70f, 0.85f, 1.0f
+	};
 	constexpr int32 VolumeStepCount = 7;
 	constexpr int32 BrightnessStepCount = 5;
 	constexpr const TCHAR* ConfigSection = TEXT("IndieGame.AudioOnboarding");
@@ -2891,7 +2914,23 @@ void AIGPlayerController::LoadAudioCalibrationSettings()
 			TEXT("HeadphoneOutput"),
 			bHeadphoneOutput,
 			GGameUserSettingsIni);
+		GConfig->GetInt(
+			IGAudioCalibration::ConfigSection,
+			TEXT("MusicStep"),
+			AudioCalibrationMusicStep,
+			GGameUserSettingsIni);
+		GConfig->GetInt(
+			IGAudioCalibration::ConfigSection,
+			TEXT("AmbienceStep"),
+			AudioCalibrationAmbienceStep,
+			GGameUserSettingsIni);
 	}
+	AudioCalibrationMusicStep = FMath::Clamp(
+		AudioCalibrationMusicStep, 0, IGAudioCalibration::MusicStepCount - 1);
+	AudioCalibrationAmbienceStep = FMath::Clamp(
+		AudioCalibrationAmbienceStep,
+		0,
+		IGAudioCalibration::AmbienceStepCount - 1);
 	AudioCalibrationVolumeStep = FMath::Clamp(
 		AudioCalibrationVolumeStep,
 		0,
@@ -2916,6 +2955,8 @@ void AIGPlayerController::OpenAudioCalibration(const bool bFirstRun)
 		PreviousAudioCalibrationVolumeStep = AudioCalibrationVolumeStep;
 		PreviousAudioCalibrationBrightnessStep = AudioCalibrationBrightnessStep;
 		bPreviousHeadphoneOutput = bHeadphoneOutput;
+		PreviousAudioCalibrationMusicStep = AudioCalibrationMusicStep;
+		PreviousAudioCalibrationAmbienceStep = AudioCalibrationAmbienceStep;
 		bAudioCalibrationSessionActive = true;
 	}
 	bAudioCalibrationFirstRun = bFirstRun;
@@ -2937,6 +2978,8 @@ void AIGPlayerController::CancelAudioCalibration()
 	AudioCalibrationVolumeStep = PreviousAudioCalibrationVolumeStep;
 	AudioCalibrationBrightnessStep = PreviousAudioCalibrationBrightnessStep;
 	bHeadphoneOutput = bPreviousHeadphoneOutput;
+	AudioCalibrationMusicStep = PreviousAudioCalibrationMusicStep;
+	AudioCalibrationAmbienceStep = PreviousAudioCalibrationAmbienceStep;
 	ApplyAudioCalibrationValues();
 	bAudioCalibrationSessionActive = false;
 	bAudioCalibrationFirstRun = false;
@@ -2969,6 +3012,16 @@ void AIGPlayerController::CompleteAudioCalibration()
 			TEXT("HeadphoneOutput"),
 			bHeadphoneOutput,
 			GGameUserSettingsIni);
+		GConfig->SetInt(
+			IGAudioCalibration::ConfigSection,
+			TEXT("MusicStep"),
+			AudioCalibrationMusicStep,
+			GGameUserSettingsIni);
+		GConfig->SetInt(
+			IGAudioCalibration::ConfigSection,
+			TEXT("AmbienceStep"),
+			AudioCalibrationAmbienceStep,
+			GGameUserSettingsIni);
 		GConfig->Flush(false, GGameUserSettingsIni);
 	}
 	bAudioCalibrationSessionActive = false;
@@ -2996,25 +3049,42 @@ void AIGPlayerController::AdjustAudioCalibrationSetting(const int32 Direction)
 	{
 		return;
 	}
-	if (AudioCalibrationSelection == 0)
+	const int32 Step = Direction < 0 ? -1 : 1;
+	if (AudioCalibrationSelection == IGAudioCalibration::Master)
 	{
 		AudioCalibrationVolumeStep = FMath::Clamp(
-			AudioCalibrationVolumeStep + (Direction < 0 ? -1 : 1),
+			AudioCalibrationVolumeStep + Step,
 			0,
 			IGAudioCalibration::VolumeStepCount - 1);
 		ApplyAudioCalibrationValues();
 		NextAudioCalibrationKnockTime = FPlatformTime::Seconds() + 0.12;
 		SetActorTickEnabled(true);
 	}
-	else if (AudioCalibrationSelection == 1)
+	else if (AudioCalibrationSelection == IGAudioCalibration::Music)
+	{
+		AudioCalibrationMusicStep = FMath::Clamp(
+			AudioCalibrationMusicStep + Step,
+			0,
+			IGAudioCalibration::MusicStepCount - 1);
+		ApplyAudioCalibrationValues();
+	}
+	else if (AudioCalibrationSelection == IGAudioCalibration::Ambience)
+	{
+		AudioCalibrationAmbienceStep = FMath::Clamp(
+			AudioCalibrationAmbienceStep + Step,
+			0,
+			IGAudioCalibration::AmbienceStepCount - 1);
+		ApplyAudioCalibrationValues();
+	}
+	else if (AudioCalibrationSelection == IGAudioCalibration::Brightness)
 	{
 		AudioCalibrationBrightnessStep = FMath::Clamp(
-			AudioCalibrationBrightnessStep + (Direction < 0 ? -1 : 1),
+			AudioCalibrationBrightnessStep + Step,
 			0,
 			IGAudioCalibration::BrightnessStepCount - 1);
 		ApplyAudioCalibrationValues();
 	}
-	else if (AudioCalibrationSelection == 2)
+	else if (AudioCalibrationSelection == IGAudioCalibration::Output)
 	{
 		// 둘 중 하나라 좌우 어느 쪽이든 뒤집힌다.
 		bHeadphoneOutput = !bHeadphoneOutput;
@@ -3029,12 +3099,12 @@ void AIGPlayerController::AdjustAudioCalibrationSetting(const int32 Direction)
 
 void AIGPlayerController::ConfirmAudioCalibrationSelection()
 {
-	if (AudioCalibrationSelection <= 2)
+	if (AudioCalibrationSelection < IGAudioCalibration::TestKnock)
 	{
 		AdjustAudioCalibrationSetting(1);
 		return;
 	}
-	if (AudioCalibrationSelection == 3)
+	if (AudioCalibrationSelection == IGAudioCalibration::TestKnock)
 	{
 		PlayAudioCalibrationKnock();
 		return;
@@ -3056,6 +3126,11 @@ void AIGPlayerController::ApplyAudioCalibrationValues()
 			AudioDirector->SetUserMasterVolume(
 				IGAudioCalibration::VolumeValues[AudioCalibrationVolumeStep]);
 			AudioDirector->SetHeadphoneOutput(bHeadphoneOutput);
+			AudioDirector->SetScoreUserVolume(
+				IGAudioCalibration::MusicValues[AudioCalibrationMusicStep]);
+			AudioDirector->SetAmbienceUserVolume(
+				IGAudioCalibration::AmbienceValues[
+					AudioCalibrationAmbienceStep]);
 		}
 	}
 	ConsoleCommand(
@@ -3625,6 +3700,8 @@ void AIGPlayerController::RefreshMenuHud() const
 			AudioCalibrationBrightnessStep;
 		Presentation.bAudioCalibrationFirstRun = bAudioCalibrationFirstRun;
 		Presentation.bHeadphoneOutput = bHeadphoneOutput;
+		Presentation.AudioCalibrationMusicStep = AudioCalibrationMusicStep;
+		Presentation.AudioCalibrationAmbienceStep = AudioCalibrationAmbienceStep;
 		Presentation.WindowModeIndex = DisplayWindowModeIndex;
 		Presentation.ResolutionIndex = DisplayResolutionIndex;
 		Presentation.QualityIndex = DisplayQualityIndex;

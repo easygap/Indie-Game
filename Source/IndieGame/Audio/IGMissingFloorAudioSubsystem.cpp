@@ -498,6 +498,46 @@ void UIGMissingFloorAudioSubsystem::SetUserMasterVolume(
 	RefreshMix(FadeSeconds);
 }
 
+float UIGMissingFloorAudioSubsystem::GetBusUserScale(const EIGAudioBus Bus) const
+{
+	// 이 switch에 ENTITY 분기가 없다는 사실이 §21.1 대원칙의 구현이다.
+	switch (Bus)
+	{
+	case EIGAudioBus::Score:
+		return ScoreUserVolume;
+	case EIGAudioBus::World:
+		return AmbienceUserVolume;
+	default:
+		return 1.0f;
+	}
+}
+
+void UIGMissingFloorAudioSubsystem::SetScoreUserVolume(
+	const float Volume01,
+	const float FadeSeconds)
+{
+	const float Clamped = FMath::Clamp(Volume01, 0.0f, 1.0f);
+	if (FMath::IsNearlyEqual(ScoreUserVolume, Clamped, 0.001f))
+	{
+		return;
+	}
+	ScoreUserVolume = Clamped;
+	RefreshMix(FadeSeconds);
+}
+
+void UIGMissingFloorAudioSubsystem::SetAmbienceUserVolume(
+	const float Volume01,
+	const float FadeSeconds)
+{
+	const float Clamped = FMath::Clamp(Volume01, MinimumAmbienceVolume, 1.0f);
+	if (FMath::IsNearlyEqual(AmbienceUserVolume, Clamped, 0.001f))
+	{
+		return;
+	}
+	AmbienceUserVolume = Clamped;
+	RefreshMix(FadeSeconds);
+}
+
 void UIGMissingFloorAudioSubsystem::PlayCalibrationKnock()
 {
 	if (!GetWorld())
@@ -887,7 +927,8 @@ void UIGMissingFloorAudioSubsystem::RefreshMix(const float FadeSeconds)
 			RuntimeMix,
 			BusSoundClasses[Index],
 			IGMissingFloorMix::DecibelsToLinear(AdditionalDecibels)
-				* UserMasterVolume,
+				* UserMasterVolume
+				* GetBusUserScale(Bus),
 			1.0f,
 			FMath::Max(0.0f, FadeSeconds),
 			false);

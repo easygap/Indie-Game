@@ -1505,6 +1505,10 @@ void AIGHorrorHUD::SetSystemMenuState(
 	bSystemMenuAudioCalibrationFirstRun =
 		Presentation.bAudioCalibrationFirstRun;
 	bSystemMenuHeadphoneOutput = Presentation.bHeadphoneOutput;
+	SystemMenuAudioCalibrationMusicStep = FMath::Clamp(
+		Presentation.AudioCalibrationMusicStep, 0, 4);
+	SystemMenuAudioCalibrationAmbienceStep = FMath::Clamp(
+		Presentation.AudioCalibrationAmbienceStep, 0, 4);
 	DisplayWindowModeIndex = FMath::Clamp(Presentation.WindowModeIndex, 0, 2);
 	DisplayResolutionIndex = FMath::Clamp(Presentation.ResolutionIndex, 0, 2);
 	DisplayQualityIndex = FMath::Clamp(Presentation.QualityIndex, 0, 1);
@@ -5363,23 +5367,27 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 	const FString Labels[] =
 	{
 		bKorean ? TEXT("노크 음량") : TEXT("KNOCK VOLUME"),
-		bKorean ? TEXT("화면 밝기") : TEXT("DISPLAY BRIGHTNESS"),
+		bKorean ? TEXT("음악") : TEXT("MUSIC"),
+		bKorean ? TEXT("환경음") : TEXT("AMBIENCE"),
 		bKorean ? TEXT("듣는 방식") : TEXT("LISTENING ON"),
+		bKorean ? TEXT("화면 밝기") : TEXT("DISPLAY BRIGHTNESS"),
 		bKorean ? TEXT("노크 다시 듣기") : TEXT("PLAY KNOCK AGAIN"),
 		bSystemMenuAudioCalibrationFirstRun
 			? bKorean ? TEXT("저장하고 타이틀로") : TEXT("SAVE AND CONTINUE")
 			: bKorean ? TEXT("저장하고 돌아가기") : TEXT("SAVE AND BACK")
 	};
-	const float RowStartY = PanelOrigin.Y + PanelSize.Y - 224.0f * Scale;
+	const float RowStartY = PanelOrigin.Y + PanelSize.Y - 308.0f * Scale;
 	const float RowSpacing = 42.0f * Scale;
 	for (int32 Row = 0; Row < UE_ARRAY_COUNT(Labels); ++Row)
 	{
 		const bool bSelected = Row == AudioCalibrationSelectedRow;
 		FString Label = FString(bSelected ? TEXT(">  ") : TEXT("   ")) + Labels[Row];
-		if (Row == 0 || Row == 1)
+		if (Row == 0 || Row == 1 || Row == 2 || Row == 4)
 		{
-			const int32 Step = Row == 0
-				? AudioCalibrationVolumeStep
+			const int32 Step =
+				Row == 0 ? AudioCalibrationVolumeStep
+				: Row == 1 ? SystemMenuAudioCalibrationMusicStep
+				: Row == 2 ? SystemMenuAudioCalibrationAmbienceStep
 				: AudioCalibrationBrightnessStep;
 			const int32 Count = Row == 0 ? 7 : 5;
 			FString Dots;
@@ -5389,7 +5397,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 			}
 			Label += FString::Printf(TEXT("    < %s >"), *Dots);
 		}
-		else if (Row == 2)
+		else if (Row == 3)
 		{
 			Label += FString::Printf(
 				TEXT("    < %s >"),
@@ -5404,7 +5412,21 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
 			0.92f * Scale);
 	}
-	if (AudioCalibrationSelectedRow == 2)
+	if (AudioCalibrationSelectedRow == 1 || AudioCalibrationSelectedRow == 2)
+	{
+		DrawCenteredText(
+			bKorean
+				? NSLOCTEXT(
+					"IGHUD", "AudioCalibrationBusNote",
+					"존재가 내는 소리는 줄지 않습니다. 놓친 노크는 설정으로 되돌릴 수 없습니다.")
+				: FText::FromString(
+					TEXT("THE PRESENCE NEVER GETS QUIETER. A MISSED KNOCK CANNOT BE UNDONE.")),
+			PanelOrigin.Y + PanelSize.Y - 52.0f * Scale,
+			IGHorrorHUD::PaleGray,
+			EIGHudTextRole::Hint,
+			0.78f * Scale);
+	}
+	if (AudioCalibrationSelectedRow == 3)
 	{
 		DrawCenteredText(
 			bKorean

@@ -127,6 +127,8 @@ struct FIGSystemMenuPresentation
 	int32 AudioCalibrationBrightnessStep = 2;
 	bool bAudioCalibrationFirstRun = false;
 	bool bHeadphoneOutput = true;
+	int32 AudioCalibrationMusicStep = 4;
+	int32 AudioCalibrationAmbienceStep = 4;
 	int32 WindowModeIndex = 0;
 	int32 ResolutionIndex = 1;
 	int32 QualityIndex = 1;
@@ -852,6 +854,8 @@ private:
 	int32 AudioCalibrationBrightnessStep = 2;
 	bool bSystemMenuAudioCalibrationFirstRun = false;
 	bool bSystemMenuHeadphoneOutput = true;
+	int32 SystemMenuAudioCalibrationMusicStep = 4;
+	int32 SystemMenuAudioCalibrationAmbienceStep = 4;
 	int32 DisplayWindowModeIndex = 0;
 	int32 DisplayResolutionIndex = 1;
 	int32 DisplayQualityIndex = 1;

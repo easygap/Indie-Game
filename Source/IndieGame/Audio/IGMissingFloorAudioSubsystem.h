@@ -134,6 +134,24 @@ public:
 	/** 보정한 사용자 이득을 여섯 버스에 같은 비율로 적용한다. */
 	void SetUserMasterVolume(float Volume01, float FadeSeconds = 0.08f);
 	float GetUserMasterVolume() const { return UserMasterVolume; }
+
+	/**
+	 * §21.1 대원칙: 존재의 소리는 절대 눌리지 않는다. 그래서 사용자 손이
+	 * 닿는 버스는 SCORE와 WORLD 둘뿐이다. ENTITY·PLAYER·PUZZLE을 줄일 수
+	 * 있게 두면 놓친 노크가 믹스의 여유처럼 보이지만, 그건 게임의 실패다.
+	 *
+	 * 음악은 0까지 내려간다 — 작가가 얹은 것이라 없어도 사건은 남는다.
+	 * 환경음은 바닥이 있다 — 건물이 내는 소리 자체가 단서다.
+	 */
+	static constexpr float MinimumAmbienceVolume = 0.40f;
+
+	void SetScoreUserVolume(float Volume01, float FadeSeconds = 0.08f);
+	void SetAmbienceUserVolume(float Volume01, float FadeSeconds = 0.08f);
+	float GetScoreUserVolume() const { return ScoreUserVolume; }
+	float GetAmbienceUserVolume() const { return AmbienceUserVolume; }
+
+	/** 버스별 사용자 배율. 손댈 수 없는 버스는 언제나 1이다. */
+	float GetBusUserScale(EIGAudioBus Bus) const;
 	/** 보정용 위층 노크를 ENTITY 버스와 HRTF 경로로 재생한다. */
 	void PlayCalibrationKnock();
 	int32 GetCalibrationKnockPlayCount() const
@@ -238,6 +256,8 @@ private:
 	bool bTitleMode = false;
 	bool bMixPushed = false;
 	float UserMasterVolume = 1.0f;
+	float ScoreUserVolume = 1.0f;
+	float AmbienceUserVolume = 1.0f;
 	int32 CalibrationKnockPlayCount = 0;
 	double NextTitleKnockRealTime = -1.0;
 	double PendingTitleReplyRealTime = -1.0;
