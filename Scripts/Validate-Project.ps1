@@ -171,6 +171,7 @@ $requiredFiles = @(
 	'Scripts/Test-MissingFloor-ReleaseEndingContract.ps1',
 	'Scripts/Test-MissingFloor-ReleaseGateContract.ps1',
 	'Scripts/Test-MissingFloor-SignatureSfxContract.ps1',
+	'Scripts/Test-MissingFloor-TuningTableContract.ps1',
 	'Scripts/Run-MissingFloor-EndingPreview.ps1',
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1',
 	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1',
@@ -2676,6 +2677,10 @@ $missingFloorReleaseGateContractScript = Join-Path $projectRoot `
 $missingFloorSignatureSfxContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-SignatureSfxContract.ps1'
 & $missingFloorSignatureSfxContractScript
+
+$missingFloorTuningTableContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-TuningTableContract.ps1'
+& $missingFloorTuningTableContractScript
 
 $missingFloorM6AudioVisualContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1'
