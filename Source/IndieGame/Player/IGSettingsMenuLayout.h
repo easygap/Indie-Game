@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 
@@ -11,7 +11,8 @@
  */
 namespace IGSettingsMenuLayout
 {
-	constexpr int32 DisplayRowCount = 9;
+	/** 다섯 설정 + 접근성 + 소리·밝기 + 조작 + 적용/돌아가기 두 줄. */
+	constexpr int32 DisplayRowCount = 10;
 	constexpr int32 AccessibilityRowCount = 17;
 	constexpr int32 DisplayCategoryCount = 4;
 	constexpr int32 AccessibilityCategoryCount = 6;

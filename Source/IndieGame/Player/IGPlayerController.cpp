@@ -32,6 +32,7 @@
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGInputBindingSubsystem.h"
 #include "Player/IGFrontendMenuLayout.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGSettingsMenuLayout.h"
@@ -362,6 +363,10 @@ bool AIGPlayerController::InputKey(const FInputKeyEventArgs& Params)
 		&& Params.Event == IE_Pressed)
 	{
 		++FrontendProbePressedEventCount;
+	}
+	if (CaptureKeyBindingInput(Params))
+	{
+		return true;
 	}
 	const bool bGamepad = Params.IsGamepad();
 	const float AxisThreshold = bGamepad ? 0.30f : 0.01f;
@@ -2063,6 +2068,17 @@ void AIGPlayerController::ToggleSystemMenu()
 		// 읽고 넘어가는 화면이라 확인과 취소가 같은 뜻이다. 뒤로 갈 데가 없다.
 		DismissContentNotice();
 		return;
+	case EIGSystemMenuMode::KeyBindings:
+		if (bKeyBindingCapturing)
+		{
+			// 대기 중의 취소는 화면을 닫는 것이 아니라 그 한 칸을 포기하는 것이다.
+			bKeyBindingCapturing = false;
+			KeyBindingStatusText = FText::GetEmpty();
+			RefreshMenuHud();
+			return;
+		}
+		CloseKeyBindings();
+		return;
 	case EIGSystemMenuMode::AudioCalibration:
 		CancelAudioCalibration();
 		return;
@@ -2375,6 +2391,12 @@ void AIGPlayerController::AdjustAccessibilityLeft()
 		{
 			AdjustAudioCalibrationSetting(-1);
 		}
+		else if (SystemMenuMode == EIGSystemMenuMode::KeyBindings)
+		{
+			// 좌우는 값이 아니라 칸을 고른다. 키보드와 패드를 같은 화면에
+			// 나란히 두고, 어느 쪽을 바꾸는지 손이 먼저 알게 한다.
+			MoveKeyBindingColumn(-1);
+		}
 		return;
 	}
 	ChangeAccessibilitySetting(-1, false);
@@ -2391,6 +2413,12 @@ void AIGPlayerController::AdjustAccessibilityRight()
 		else if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
 		{
 			AdjustAudioCalibrationSetting(1);
+		}
+		else if (SystemMenuMode == EIGSystemMenuMode::KeyBindings)
+		{
+			// 좌우는 값이 아니라 칸을 고른다. 키보드와 패드를 같은 화면에
+			// 나란히 두고, 어느 쪽을 바꾸는지 손이 먼저 알게 한다.
+			MoveKeyBindingColumn(1);
 		}
 		return;
 	}
@@ -2580,6 +2608,11 @@ void AIGPlayerController::MoveSystemMenuSelection(const int32 Direction)
 		MoveAudioCalibrationSelection(Direction);
 		return;
 	}
+	if (SystemMenuMode == EIGSystemMenuMode::KeyBindings)
+	{
+		MoveKeyBindingSelection(Direction);
+		return;
+	}
 	if (SystemMenuMode == EIGSystemMenuMode::Hidden
 		|| SystemMenuMode == EIGSystemMenuMode::Credits
 		|| Direction == 0)
@@ -2654,6 +2687,11 @@ void AIGPlayerController::ConfirmSystemMenuSelection()
 	if (SystemMenuMode == EIGSystemMenuMode::ContentNotice)
 	{
 		DismissContentNotice();
+		return;
+	}
+	if (SystemMenuMode == EIGSystemMenuMode::KeyBindings)
+	{
+		ConfirmKeyBindingSelection();
 		return;
 	}
 	if (SystemMenuMode == EIGSystemMenuMode::DisplaySettings)
@@ -3099,7 +3137,7 @@ void AIGPlayerController::MoveDisplaySettingsSelection(const int32 Direction)
 	}
 	if (bDisplaySettingsAwaitingConfirmation)
 	{
-		DisplaySettingsSelection = DisplaySettingsSelection == 7 ? 8 : 7;
+		DisplaySettingsSelection = DisplaySettingsSelection == 8 ? 9 : 8;
 		RefreshMenuHud();
 		return;
 	}
@@ -3168,7 +3206,7 @@ void AIGPlayerController::ConfirmDisplaySettingsSelection()
 	}
 	if (bDisplaySettingsAwaitingConfirmation)
 	{
-		if (DisplaySettingsSelection == 7)
+		if (DisplaySettingsSelection == 8)
 		{
 			ConfirmPendingDisplaySettings();
 		}
@@ -3194,6 +3232,11 @@ void AIGPlayerController::ConfirmDisplaySettingsSelection()
 		return;
 	}
 	if (DisplaySettingsSelection == 7)
+	{
+		OpenKeyBindings();
+		return;
+	}
+	if (DisplaySettingsSelection == 8)
 	{
 		ApplyDisplaySettings();
 		return;
@@ -3523,6 +3566,13 @@ void AIGPlayerController::RefreshMenuHud() const
 		Presentation.bCredits = SystemMenuMode == EIGSystemMenuMode::Credits;
 		Presentation.bContentNotice =
 			SystemMenuMode == EIGSystemMenuMode::ContentNotice;
+		Presentation.bKeyBindings =
+			SystemMenuMode == EIGSystemMenuMode::KeyBindings;
+		Presentation.KeyBindingSelection = KeyBindingSelection;
+		Presentation.bKeyBindingCapturing = bKeyBindingCapturing;
+		Presentation.bKeyBindingColumnGamepad = bKeyBindingColumnGamepad;
+		Presentation.KeyBindingStatus = KeyBindingStatusText;
+		Presentation.bKeyBindingStatusIsError = bKeyBindingStatusIsError;
 		Presentation.bAudioCalibration =
 			SystemMenuMode == EIGSystemMenuMode::AudioCalibration;
 		Presentation.bDisplaySettings =
@@ -3884,6 +3934,136 @@ namespace IGContentNotice
 {
 	const TCHAR* ConfigSection = TEXT("IndieGame.Onboarding");
 	const TCHAR* ShownKey = TEXT("ContentNoticeShown");
+}
+
+void AIGPlayerController::OpenKeyBindings()
+{
+	KeyBindingsReturnMode = SystemMenuMode;
+	KeyBindingSelection = 0;
+	bKeyBindingCapturing = false;
+	bKeyBindingColumnGamepad = bUsingGamepadForHud;
+	KeyBindingStatusText = FText::GetEmpty();
+	bKeyBindingStatusIsError = false;
+	SetSystemMenuMode(EIGSystemMenuMode::KeyBindings);
+}
+
+void AIGPlayerController::CloseKeyBindings()
+{
+	bKeyBindingCapturing = false;
+	KeyBindingStatusText = FText::GetEmpty();
+	SetSystemMenuMode(
+		KeyBindingsReturnMode == EIGSystemMenuMode::KeyBindings
+			? EIGSystemMenuMode::Title
+			: KeyBindingsReturnMode);
+}
+
+void AIGPlayerController::MoveKeyBindingSelection(const int32 Direction)
+{
+	if (SystemMenuMode != EIGSystemMenuMode::KeyBindings || bKeyBindingCapturing)
+	{
+		return;
+	}
+	// 마지막 행은 「전부 기본값으로」다. 목록보다 하나 길다.
+	const int32 RowCount = UIGInputBindingSubsystem::GetActionCount() + 1;
+	KeyBindingSelection =
+		(KeyBindingSelection + Direction + RowCount) % RowCount;
+	KeyBindingStatusText = FText::GetEmpty();
+	bKeyBindingStatusIsError = false;
+	RefreshMenuHud();
+}
+
+void AIGPlayerController::MoveKeyBindingColumn(const int32 Direction)
+{
+	if (SystemMenuMode != EIGSystemMenuMode::KeyBindings
+		|| bKeyBindingCapturing
+		|| Direction == 0)
+	{
+		return;
+	}
+	bKeyBindingColumnGamepad = Direction > 0;
+	KeyBindingStatusText = FText::GetEmpty();
+	bKeyBindingStatusIsError = false;
+	RefreshMenuHud();
+}
+
+void AIGPlayerController::ConfirmKeyBindingSelection()
+{
+	UIGInputBindingSubsystem* Bindings = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGInputBindingSubsystem>()
+		: nullptr;
+	if (!Bindings)
+	{
+		return;
+	}
+	if (KeyBindingSelection >= UIGInputBindingSubsystem::GetActionCount())
+	{
+		Bindings->ResetToDefaults();
+		KeyBindingStatusText = NSLOCTEXT(
+			"IGHUD", "KeyBindingsReset", "전부 기본값으로 되돌렸습니다.");
+		bKeyBindingStatusIsError = false;
+		RefreshMenuHud();
+		return;
+	}
+	bKeyBindingCapturing = true;
+	KeyBindingStatusText = bKeyBindingColumnGamepad
+		? NSLOCTEXT(
+			"IGHUD", "KeyBindingsAwaitPad", "쓸 버튼을 누르세요. B로 취소.")
+		: NSLOCTEXT(
+			"IGHUD", "KeyBindingsAwaitKey", "쓸 키를 누르세요. Esc로 취소.");
+	bKeyBindingStatusIsError = false;
+	RefreshMenuHud();
+}
+
+bool AIGPlayerController::CaptureKeyBindingInput(const FInputKeyEventArgs& Params)
+{
+	if (!bKeyBindingCapturing
+		|| SystemMenuMode != EIGSystemMenuMode::KeyBindings
+		|| Params.IsSimulatedInput()
+		|| Params.Event != IE_Pressed)
+	{
+		return false;
+	}
+	// 취소는 캡처보다 먼저 본다. 취소 키를 새 바인딩으로 삼으면 그 화면에서
+	// 나갈 수 없다.
+	if (Params.Key == EKeys::Escape || Params.Key == EKeys::Gamepad_FaceButton_Right)
+	{
+		bKeyBindingCapturing = false;
+		KeyBindingStatusText = FText::GetEmpty();
+		bKeyBindingStatusIsError = false;
+		RefreshMenuHud();
+		return true;
+	}
+
+	UIGInputBindingSubsystem* Bindings = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGInputBindingSubsystem>()
+		: nullptr;
+	if (!Bindings)
+	{
+		bKeyBindingCapturing = false;
+		return true;
+	}
+	FText Failure;
+	if (Bindings->TryRebind(
+		KeyBindingSelection,
+		bKeyBindingColumnGamepad,
+		Params.Key,
+		Failure))
+	{
+		bKeyBindingCapturing = false;
+		KeyBindingStatusText = FText::Format(
+			NSLOCTEXT("IGHUD", "KeyBindingsBound", "「{0}」으로 바꿨습니다."),
+			Params.Key.GetDisplayName());
+		bKeyBindingStatusIsError = false;
+	}
+	else
+	{
+		// 거절해도 대기 상태로 남는다. 다시 누르면 되는 것이지, 처음부터
+		// 다시 들어와야 하는 것이 아니다.
+		KeyBindingStatusText = Failure;
+		bKeyBindingStatusIsError = true;
+	}
+	RefreshMenuHud();
+	return true;
 }
 
 void AIGPlayerController::ShowContentNoticeIfNeeded()

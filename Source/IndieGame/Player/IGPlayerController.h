@@ -24,7 +24,9 @@ enum class EIGSystemMenuMode : uint8
 	 * 화면으로 세운 자리. 첫 실행에 한 번 뜨고, 무엇이 나오는지와 그것을
 	 * 어느 설정으로 줄일 수 있는지를 같은 화면에서 말한다.
 	 */
-	ContentNotice
+	ContentNotice,
+	/** §19.8 키 재설정. 설정 화면에서 들어가고 그리로 돌아간다. */
+	KeyBindings
 };
 
 /** Owns local-player input context setup and future player-facing UI coordination. */
@@ -55,6 +57,15 @@ public:
 	 */
 	void ShowContentNoticeIfNeeded();
 	void DismissContentNotice();
+
+	/** §19.8 키 재설정 화면. 열림·이동·바인딩 대기·되돌리기. */
+	void OpenKeyBindings();
+	void CloseKeyBindings();
+	void MoveKeyBindingSelection(int32 Direction);
+	void MoveKeyBindingColumn(int32 Direction);
+	void ConfirmKeyBindingSelection();
+	/** 대기 중이면 눌린 키를 받아 본다. 처리했으면 true. */
+	bool CaptureKeyBindingInput(const struct FInputKeyEventArgs& Params);
 
 	/**
 	 * Harness hook for §24's 즉시 차단 19. The sealed hour has to turn the
@@ -238,6 +249,13 @@ private:
 	int32 SystemMenuSelection = 0;
 	int32 MissingFloorJournalPage = 0;
 	EIGSystemMenuMode SystemMenuMode = EIGSystemMenuMode::Hidden;
+	EIGSystemMenuMode KeyBindingsReturnMode = EIGSystemMenuMode::Title;
+	int32 KeyBindingSelection = 0;
+	/** 참이면 다음 입력이 새 키다. 화면이 「누르세요」로 바뀐다. */
+	bool bKeyBindingCapturing = false;
+	bool bKeyBindingColumnGamepad = false;
+	FText KeyBindingStatusText;
+	bool bKeyBindingStatusIsError = false;
 	EIGSystemMenuMode CreditsReturnMode = EIGSystemMenuMode::Title;
 	EIGSystemMenuMode AudioCalibrationReturnMode = EIGSystemMenuMode::Title;
 	EIGSystemMenuMode DisplaySettingsReturnMode = EIGSystemMenuMode::Title;

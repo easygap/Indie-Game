@@ -98,6 +98,13 @@ struct FIGSystemMenuPresentation
 	bool bCredits = false;
 	/** 첫 실행 콘텐츠 고지. 제작 정보와 같은 전체 화면 계층을 쓴다. */
 	bool bContentNotice = false;
+	/** §19.8 키 재설정 화면. 행·칸·대기 상태는 컨트롤러가 소유한다. */
+	bool bKeyBindings = false;
+	int32 KeyBindingSelection = 0;
+	bool bKeyBindingCapturing = false;
+	bool bKeyBindingColumnGamepad = false;
+	FText KeyBindingStatus;
+	bool bKeyBindingStatusIsError = false;
 	bool bAudioCalibration = false;
 	bool bDisplaySettings = false;
 	bool bCanContinue = false;
@@ -469,6 +476,8 @@ private:
 	/** 재관람 전용 우회 안내. 자막은 기존 하단 안전 영역을 그대로 사용한다. */
 	void DrawSensoryInterludeSkip();
 	bool DrawMissingFloorFailureEnding(double CurrentTime);
+	/** §19.8 키 재설정 목록. 설정 화면과 같은 계층을 쓴다. */
+	void DrawKeyBindingsPanel();
 	/** §9 에필로그가 HUD 전체 프레임을 점유하는 동안 true를 반환한다. */
 	bool DrawMissingFloorEpilogue(double CurrentTime);
 	/**
@@ -796,6 +805,12 @@ private:
 	bool bSystemMenuUseTitleBackdrop = false;
 	bool bSystemMenuIsCredits = false;
 	bool bSystemMenuIsContentNotice = false;
+	bool bSystemMenuIsKeyBindings = false;
+	int32 SystemMenuKeyBindingSelection = 0;
+	bool bSystemMenuKeyBindingCapturing = false;
+	bool bSystemMenuKeyBindingColumnGamepad = false;
+	FText SystemMenuKeyBindingStatus;
+	bool bSystemMenuKeyBindingStatusIsError = false;
 	bool bSystemMenuIsAudioCalibration = false;
 	bool bSystemMenuIsDisplaySettings = false;
 	bool bSystemMenuCanContinue = false;

@@ -1,4 +1,5 @@
 ﻿#include "Player/IGHorrorHUD.h"
+#include "Player/IGInputBindingSubsystem.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "CanvasItem.h"
@@ -1359,6 +1360,11 @@ void AIGHorrorHUD::SetSystemMenuState(
 			|| bSystemMenuIsTitle != Presentation.bTitle
 			|| bSystemMenuIsCredits != Presentation.bCredits
 			|| bSystemMenuIsContentNotice != Presentation.bContentNotice
+			|| bSystemMenuIsKeyBindings != Presentation.bKeyBindings
+			|| SystemMenuKeyBindingSelection != Presentation.KeyBindingSelection
+			|| bSystemMenuKeyBindingCapturing != Presentation.bKeyBindingCapturing
+			|| bSystemMenuKeyBindingColumnGamepad
+				!= Presentation.bKeyBindingColumnGamepad
 			|| bSystemMenuIsAudioCalibration != Presentation.bAudioCalibration
 			|| bSystemMenuIsDisplaySettings != Presentation.bDisplaySettings
 			|| bSystemMenuUseTitleBackdrop != Presentation.bUseTitleBackdrop);
@@ -1375,6 +1381,12 @@ void AIGHorrorHUD::SetSystemMenuState(
 	bSystemMenuUseTitleBackdrop = Presentation.bUseTitleBackdrop;
 	bSystemMenuIsCredits = Presentation.bCredits;
 	bSystemMenuIsContentNotice = Presentation.bContentNotice;
+	bSystemMenuIsKeyBindings = Presentation.bKeyBindings;
+	SystemMenuKeyBindingSelection = Presentation.KeyBindingSelection;
+	bSystemMenuKeyBindingCapturing = Presentation.bKeyBindingCapturing;
+	bSystemMenuKeyBindingColumnGamepad = Presentation.bKeyBindingColumnGamepad;
+	SystemMenuKeyBindingStatus = Presentation.KeyBindingStatus;
+	bSystemMenuKeyBindingStatusIsError = Presentation.bKeyBindingStatusIsError;
 	bSystemMenuIsAudioCalibration = Presentation.bAudioCalibration;
 	bSystemMenuIsDisplaySettings = Presentation.bDisplaySettings;
 	SystemMenuSelectedRow = FMath::Clamp(
@@ -5358,6 +5370,7 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 		bKorean ? TEXT("프레임 제한") : TEXT("FRAME LIMIT"),
 		bKorean ? TEXT("접근성 설정") : TEXT("ACCESSIBILITY"),
 		bKorean ? TEXT("소리 · 밝기 보정") : TEXT("AUDIO + BRIGHTNESS"),
+		bKorean ? TEXT("조작 · 키 다시 묶기") : TEXT("CONTROLS + REBINDING"),
 		bDisplaySettingsAwaitingConfirmation
 			? bKorean ? TEXT("이 설정 유지") : TEXT("KEEP THESE SETTINGS")
 			: bKorean ? TEXT("화면 설정 다시 적용") : TEXT("REAPPLY DISPLAY"),
@@ -5374,6 +5387,7 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 			? FString(bSystemMenuVSync ? TEXT("켬") : TEXT("끔"))
 			: FString(bSystemMenuVSync ? TEXT("ON") : TEXT("OFF")),
 		FrameLimits[DisplayFrameLimitIndex],
+		bKorean ? TEXT("열기") : TEXT("OPEN"),
 		bKorean ? TEXT("열기") : TEXT("OPEN"),
 		bKorean ? TEXT("열기") : TEXT("OPEN"),
 		FString(),
@@ -5402,6 +5416,9 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 		bKorean
 			? TEXT("게임의 핵심인 위층 노크가 들리는 크기와 어두운 복도의 기준 밝기를 다시 맞춥니다.")
 			: TEXT("RECALIBRATES THE UPSTAIRS KNOCK LEVEL AND THE REFERENCE BRIGHTNESS FOR DARK CORRIDORS."),
+		bKorean
+			? TEXT("달리기·앉기·두드리기 같은 동사를 다른 키로 옮깁니다. Esc와 F10은 나가는 길이라 고정입니다.")
+			: TEXT("MOVES SPRINT, CROUCH, KNOCK AND THE REST ONTO OTHER KEYS. ESC AND F10 STAY FIXED."),
 		bKorean
 			? TEXT("항목을 바꾸면 그 자리에서 적용되고 저장됩니다. 이 줄은 같은 값을 한 번 더 적용할 때만 쓰입니다.")
 			: TEXT("CHANGES APPLY AND SAVE AS YOU MAKE THEM. THIS ROW ONLY REAPPLIES THE SAME VALUES."),
@@ -5582,6 +5599,238 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 					: TEXT("ARROWS/WASD CHANGE  |  ENTER APPLY  |  ESC CANCEL  |  MOUSE SELECT")));
 }
 
+namespace
+{
+	FText MakeBindingColumnHeader(
+		const bool bKorean,
+		const bool bGamepadColumn,
+		const bool bSelectedIsGamepad)
+	{
+		// 고른 칸에 꺾쇠를 붙인다. 색맹 프로필에서도 어느 칸인지 읽힌다.
+		const bool bSelected = bGamepadColumn == bSelectedIsGamepad;
+		const FText Base = bGamepadColumn
+			? (bKorean
+				? NSLOCTEXT("IGHUD", "KeyBindingsColumnPad", "게임패드")
+				: FText::FromString(TEXT("GAMEPAD")))
+			: (bKorean
+				? NSLOCTEXT("IGHUD", "KeyBindingsColumnKeys", "키보드")
+				: FText::FromString(TEXT("KEYBOARD")));
+		return bSelected
+			? FText::Format(
+				NSLOCTEXT("IGHUD", "KeyBindingsColumnActive", "[ {0} ]"), Base)
+			: Base;
+	}
+}
+
+void AIGHorrorHUD::DrawKeyBindingsPanel()
+{
+	if (!Canvas)
+	{
+		return;
+	}
+	const bool bKorean = SupportsKorean();
+	const bool bPadHints = bUsingGamepad;
+	const IGFrontendMenuLayout::FMetrics Metrics =
+		IGFrontendMenuLayout::MakeMetrics(Canvas->ClipX, Canvas->ClipY);
+	const float Scale = Metrics.Scale;
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGInputBindingSubsystem* Bindings = GameInstance
+		? GameInstance->GetSubsystem<UIGInputBindingSubsystem>()
+		: nullptr;
+	if (!Bindings)
+	{
+		return;
+	}
+
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "KeyBindingsContext", "설정 · 조작")
+			: FText::FromString(TEXT("SETTINGS · CONTROLS")),
+		FVector2D(Metrics.ContentLeft, Metrics.TitleTop),
+		IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		0.82f * Scale);
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "KeyBindingsTitle", "키 다시 묶기")
+			: FText::FromString(TEXT("REBIND CONTROLS")),
+		FVector2D(Metrics.ContentLeft, Metrics.TitleTop + 26.0f * Scale),
+		IGHorrorHUD::SettingsPrimary,
+		EIGHudTextRole::Prompt,
+		1.05f * Scale);
+
+	// 열 머리글. 지금 고른 칸을 밝게 둔다 — 색만으로 알리지 않기 위해
+	// 고른 칸에는 꺾쇠를 함께 그린다(§24 즉시 차단 22).
+	const float ColumnKeyboardX = Metrics.ContentLeft + 300.0f * Scale;
+	const float ColumnGamepadX = Metrics.ContentLeft + 470.0f * Scale;
+	const float HeaderY = Metrics.TitleTop + 62.0f * Scale;
+	DrawLeftAlignedText(
+		MakeBindingColumnHeader(bKorean, false, bSystemMenuKeyBindingColumnGamepad),
+		FVector2D(ColumnKeyboardX, HeaderY),
+		bSystemMenuKeyBindingColumnGamepad
+			? IGHorrorHUD::SettingsSecondary
+			: IGHorrorHUD::SettingsAccent,
+		EIGHudTextRole::Hint,
+		0.84f * Scale);
+	DrawLeftAlignedText(
+		MakeBindingColumnHeader(bKorean, true, bSystemMenuKeyBindingColumnGamepad),
+		FVector2D(ColumnGamepadX, HeaderY),
+		bSystemMenuKeyBindingColumnGamepad
+			? IGHorrorHUD::SettingsAccent
+			: IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		0.84f * Scale);
+
+	const int32 ActionCount = UIGInputBindingSubsystem::GetActionCount();
+	const float RowStride = 30.0f * Scale;
+	const float FirstRowY = HeaderY + 26.0f * Scale;
+	for (int32 Row = 0; Row < ActionCount; ++Row)
+	{
+		const FIGBindableActionInfo& Info =
+			UIGInputBindingSubsystem::GetActionInfo(Row);
+		const bool bSelected = Row == SystemMenuKeyBindingSelection;
+		const float RowY = FirstRowY + Row * RowStride;
+		// 선택 표시는 색이 아니라 모양이다.
+		DrawLeftAlignedText(
+			bSelected
+				? FText::FromString(TEXT(">"))
+				: FText::GetEmpty(),
+			FVector2D(Metrics.ContentLeft - 16.0f * Scale, RowY),
+			IGHorrorHUD::SettingsAccent,
+			EIGHudTextRole::Hint,
+			0.88f * Scale);
+		DrawLeftAlignedText(
+			Info.Label,
+			FVector2D(Metrics.ContentLeft, RowY),
+			bSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
+			EIGHudTextRole::Hint,
+			0.88f * Scale);
+
+		for (int32 Column = 0; Column < 2; ++Column)
+		{
+			const bool bGamepadColumn = Column == 1;
+			const FKey Bound = Bindings->GetBoundKey(Row, bGamepadColumn);
+			const bool bCapturingHere = bSystemMenuKeyBindingCapturing
+				&& bSelected
+				&& bGamepadColumn == bSystemMenuKeyBindingColumnGamepad;
+			FText Shown;
+			if (bCapturingHere)
+			{
+				Shown = bKorean
+					? NSLOCTEXT("IGHUD", "KeyBindingsPressNow", "[ 누르세요 ]")
+					: FText::FromString(TEXT("[ PRESS ]"));
+			}
+			else if (!Bound.IsValid())
+			{
+				// 빈 칸은 「없음」이라고 적는다. 비워 두면 고장으로 읽힌다.
+				Shown = bKorean
+					? NSLOCTEXT("IGHUD", "KeyBindingsNone", "없음")
+					: FText::FromString(TEXT("NONE"));
+			}
+			else
+			{
+				Shown = Bound.GetDisplayName();
+			}
+			const bool bOverridden = !Bindings->IsDefaultBinding(Row, bGamepadColumn);
+			DrawLeftAlignedText(
+				bOverridden
+					? FText::Format(
+						NSLOCTEXT("IGHUD", "KeyBindingsChanged", "{0} *"),
+						Shown)
+					: Shown,
+				FVector2D(bGamepadColumn ? ColumnGamepadX : ColumnKeyboardX, RowY),
+				bCapturingHere
+					? IGHorrorHUD::SettingsAccent
+					: bSelected
+						? IGHorrorHUD::SettingsPrimary
+						: IGHorrorHUD::SettingsSecondary,
+				EIGHudTextRole::Hint,
+				0.88f * Scale);
+		}
+	}
+
+	// 마지막 행: 전부 기본값으로.
+	const int32 ResetRow = ActionCount;
+	const float ResetY = FirstRowY + ResetRow * RowStride + 8.0f * Scale;
+	const bool bResetSelected = SystemMenuKeyBindingSelection == ResetRow;
+	DrawLeftAlignedText(
+		bResetSelected ? FText::FromString(TEXT(">")) : FText::GetEmpty(),
+		FVector2D(Metrics.ContentLeft - 16.0f * Scale, ResetY),
+		IGHorrorHUD::SettingsAccent,
+		EIGHudTextRole::Hint,
+		0.88f * Scale);
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT("IGHUD", "KeyBindingsResetRow", "전부 기본값으로")
+			: FText::FromString(TEXT("RESET ALL TO DEFAULTS")),
+		FVector2D(Metrics.ContentLeft, ResetY),
+		bResetSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		0.88f * Scale);
+
+	// 고른 행의 설명. §18.1이 그 동사에 대해 말하는 것을 그대로 보여 준다.
+	const float DetailY = ResetY + 34.0f * Scale;
+	if (SystemMenuKeyBindingSelection < ActionCount)
+	{
+		DrawLeftAlignedText(
+			UIGInputBindingSubsystem::GetActionInfo(
+				SystemMenuKeyBindingSelection).Description,
+			FVector2D(Metrics.ContentLeft, DetailY),
+			IGHorrorHUD::SettingsSecondary,
+			EIGHudTextRole::Hint,
+			0.82f * Scale);
+	}
+	if (!SystemMenuKeyBindingStatus.IsEmpty())
+	{
+		DrawLeftAlignedText(
+			SystemMenuKeyBindingStatus,
+			FVector2D(Metrics.ContentLeft, DetailY + 24.0f * Scale),
+			bSystemMenuKeyBindingStatusIsError
+				? IGHorrorHUD::SettingsAccent
+				: IGHorrorHUD::SettingsSuccess,
+			EIGHudTextRole::Hint,
+			0.82f * Scale);
+	}
+
+	DrawLeftAlignedText(
+		bKorean
+			? NSLOCTEXT(
+				"IGHUD",
+				"KeyBindingsFixedNote",
+				"Esc와 F10은 고정입니다 — 일시정지와 접근성으로 돌아갈 길은 남겨 둡니다.")
+			: FText::FromString(
+				TEXT("ESC AND F10 STAY FIXED SO YOU CAN ALWAYS GET BACK OUT.")),
+		FVector2D(Metrics.ContentLeft, DetailY + 48.0f * Scale),
+		IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		0.78f * Scale);
+
+	DrawLeftAlignedText(
+		bKorean
+			? bPadHints
+				? NSLOCTEXT(
+					"IGHUD",
+					"KeyBindingsControlsPad",
+					"D-pad 상하 이동 · 좌우 칸 · A 바꾸기 · B 돌아가기")
+				: NSLOCTEXT(
+					"IGHUD",
+					"KeyBindingsControlsKeys",
+					"방향키 상하 이동 · 좌우 칸 · Enter 바꾸기 · Esc 돌아가기")
+			: FText::FromString(
+				bPadHints
+					? TEXT("D-PAD MOVE  |  A REBIND  |  B BACK")
+					: TEXT("ARROWS MOVE  |  ENTER REBIND  |  ESC BACK")),
+		FVector2D(Metrics.ContentLeft, Metrics.FooterTop),
+		IGHorrorHUD::SettingsSecondary,
+		EIGHudTextRole::Hint,
+		0.84f * Scale);
+	RecordLayoutValidationRect(
+		FVector2D(Metrics.ContentLeft, Metrics.TitleTop),
+		FVector2D(
+			Metrics.ContentLeft + Metrics.ContentWidth,
+			FMath::Min(Metrics.FooterTop + 24.0f, Canvas->ClipY)));
+}
+
 void AIGHorrorHUD::DrawSystemMenuPanel()
 {
 	if (!Canvas)
@@ -5604,6 +5853,17 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		DrawAudioCaption(
 			GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0,
 			Canvas->ClipY - 24.0f);
+		return;
+	}
+	if (bSystemMenuIsKeyBindings)
+	{
+		FCanvasTileItem BindingScrim(
+			FVector2D::ZeroVector,
+			FVector2D(Canvas->ClipX, Canvas->ClipY),
+			FLinearColor(0.004f, 0.006f, 0.007f, 0.985f));
+		BindingScrim.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(BindingScrim);
+		DrawKeyBindingsPanel();
 		return;
 	}
 	if (bSystemMenuIsAudioCalibration || bSystemMenuIsDisplaySettings)
