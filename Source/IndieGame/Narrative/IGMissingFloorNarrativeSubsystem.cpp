@@ -533,6 +533,7 @@ void UIGMissingFloorNarrativeSubsystem::ResetNightFourForRetry()
 	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.PowerCut")));
 	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.FinalReveal")));
 	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.FinalConfrontation")));
+	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.ChoiceOffered")));
 	Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.SecondReport")));
 }
 

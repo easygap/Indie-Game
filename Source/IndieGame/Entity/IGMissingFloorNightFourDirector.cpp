@@ -24,6 +24,7 @@
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
+#include "Save/IGSaveSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGStressComponent.h"
 
@@ -39,6 +40,8 @@ namespace IGNightFour
 	const FName PowerCutBeat(TEXT("Night4.PowerCut"));
 	const FName FinalRevealBeat(TEXT("Night4.FinalReveal"));
 	const FName FinalConfrontationBeat(TEXT("Night4.FinalConfrontation"));
+	/** §22.4: 선택 직전 한 번. 양쪽을 다 보는 값이 여기서 정해진다. */
+	const FName ChoiceOfferedBeat(TEXT("Night4.ChoiceOffered"));
 	constexpr float FailureCaptureSeconds = 1.2f;
 	constexpr float FailureListingDelaySeconds = 1.24f;
 	constexpr float FailureRetryDelaySeconds = 7.2f;
@@ -1572,6 +1575,24 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 	RefreshPresentation();
 }
 
+void AIGMissingFloorNightFourDirector::RequestEndingChoiceAutosave()
+{
+	UGameInstance* GameInstance = GetGameInstance();
+	UWorld* World = GetWorld();
+	UIGSaveSubsystem* SaveSubsystem = GameInstance
+		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
+		: nullptr;
+	if (!SaveSubsystem || !World)
+	{
+		return;
+	}
+	SaveSubsystem->RequestAutosave(
+		FGameplayTag::RequestGameplayTag(FName(TEXT("Chapter.MissingFloor")), false),
+		World->GetOutermost()->GetFName(),
+		FGameplayTag::RequestGameplayTag(
+			FName(TEXT("Checkpoint.MissingFloor.EndingChoice")), false));
+}
+
 void AIGMissingFloorNightFourDirector::HandleEndingA(
 	AIGMissingFloorEvidence* Evidence)
 {
@@ -2028,6 +2049,13 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 	EndingATarget->SetInteractionEnabled(bCanChoose);
 	EndingBTarget->SetActorHiddenInGame(!bCanChoose);
 	EndingBTarget->SetInteractionEnabled(bCanChoose);
+	if (bCanChoose && Narrative->MarkBeatPlayed(IGNightFour::ChoiceOfferedBeat))
+	{
+		// §22.4 리플레이 유인 2. 두 결말은 애도의 방식만 다르고 사실은
+		// 같다(§9). 그 차이를 보려고 밤 4를 통째로 다시 하게 만들면
+		// 「다시 오는 이유는 더 잘하기 위해서」라는 전제가 무너진다.
+		RequestEndingChoiceAutosave();
+	}
 	if (EndingHammerVisual)
 	{
 		const bool bShowHammer = bCanChoose

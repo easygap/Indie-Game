@@ -328,6 +328,22 @@ Assert-ContainsAll $puzzleTwoSource @(
 	'RecordWitness(EIGMissingFloorWitness::BoothSoundproofing)'
 ) '문틈 목격'
 
+# §22.4 리플레이 유인 2. 선택이 열리는 프레임에 자동 저장 한 번.
+$tagConfig = Read-ProjectText 'Config/DefaultGameplayTags.ini'
+Assert-ContainsAll $tagConfig @(
+	'Tag="Checkpoint.MissingFloor.EndingChoice"'
+) '엔딩 선택 체크포인트 태그'
+Assert-ContainsAll $nightFourSource @(
+	'ChoiceOfferedBeat(TEXT("Night4.ChoiceOffered"))',
+	'Narrative->MarkBeatPlayed(IGNightFour::ChoiceOfferedBeat)',
+	'RequestEndingChoiceAutosave();',
+	'Checkpoint.MissingFloor.EndingChoice'
+) '엔딩 선택 자동 저장'
+# 재도전은 선택을 되돌리므로 저장 지점도 다시 찍혀야 한다.
+Assert-ContainsAll $narrativeSource @(
+	'Snapshot.Night.CompletedBeats.Remove(FName(TEXT("Night4.ChoiceOffered")));'
+) '재도전 시 선택 저장 재무장'
+
 # §13: 심는 자리가 없으면 엔딩 A의 제보 자막은 어디서 왔는지 알 수 없는
 # 문장이 된다. 나린의 마지막 날 대사가 그 심기다.
 Assert-ContainsAll $greyboxSource @(

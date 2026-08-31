@@ -93,6 +93,8 @@ private:
 	void HandleFloatBypass(AIGMissingFloorEvidence* Evidence);
 	void HandleTransferPump(AIGMissingFloorEvidence* Evidence);
 	void HandleWallStrike(AIGMissingFloorEvidence* Evidence);
+	/** 선택이 열리는 프레임에 한 번. 양쪽을 다 보는 값을 낮춘다(§22.4). */
+	void RequestEndingChoiceAutosave();
 	void HandleEndingA(AIGMissingFloorEvidence* Evidence);
 	void HandleEndingB(AIGMissingFloorEvidence* Evidence);
 	void HandleNightFourCapture(APawn* Player);
