@@ -605,7 +605,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		CubeMesh,
 		nullptr,
 		FVector(40.0f, 10.0f, 40.0f),
-		NSLOCTEXT("IGMissingFloor", "TankAuditionPrompt", "물탱크 — 귀를 댄다"),
+		NSLOCTEXT("IGMissingFloor", "TankAuditionPrompt", "저수조 — 귀를 대고 표찰을 읽는다"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -1091,13 +1091,15 @@ void AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined(
 	Narrative->RegisterTruthSource(
 		EIGMissingFloorTruth::WallSealedThatDay,
 		EIGMissingFloorSource::FreshPlasterDating);
+	// 기록 화면의 「두 겹의 마감」 카드와 같은 사실이어야 한다. 카드는
+	// 「안쪽 보드와 바깥 실란트의 굳은 정도가 다르다」로 적힌다.
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"PlasterDatingThought",
-			"이음선만 색이 다르다. 여긴 작년 여름에 한 번 더 발랐어."),
-		4.4f);
+			"안쪽 보드는 삭았는데 바깥 실란트만 덜 굳었다. 나중에 한 겹 더 쳤어."),
+		4.6f);
 }
 
 void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
@@ -1137,18 +1139,20 @@ void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
 	const bool bKnowsTally = Narrative->HasSource(
 		EIGMissingFloorTruth::FiveNightsOfThirst,
 		EIGMissingFloorSource::KnockTallyJournal);
+	// 귀가 「가득 찼다」를 말하고, 뺨 옆의 표찰이 그 양을 말한다. 기록
+	// 화면의 카드가 「용량 2,000 L / 만수」로 적히는 근거가 둘 다 여기 있다.
 	AIGHorrorHUD::PushThought(
 		this,
 		bKnowsTally
 			? NSLOCTEXT(
 				"IGMissingFloor",
 				"TankAuditionThoughtCrossed",
-				"가득 찼네. …벽 하나 옆에 2톤이 있었는데.")
+				"만수 표찰, 2,000 L. …벽 하나 옆에 이게 있었는데.")
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"TankAuditionThought",
-				"가득 찼다. 이 밑으로 관이 내려가고, 그 관은 그 벽을 지난다."),
-		bKnowsTally ? 5.0f : 4.4f);
+				"만수 표찰, 2,000 L. 이 밑으로 관이 내려가고, 그 관은 그 벽을 지난다."),
+		bKnowsTally ? 5.0f : 4.6f);
 }
 
 void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
