@@ -145,6 +145,8 @@ void AIGPlayerController::BeginPlay()
 	{
 		SystemMenuSelection = 0;
 		SetSystemMenuMode(EIGSystemMenuMode::Title);
+		// 고지가 먼저다. 무엇이 나오는지 모른 채로 소리부터 맞추게 할 수 없다.
+		ShowContentNoticeIfNeeded();
 		StartHeadphoneRecommendationIfNeeded();
 		if (bNightFiveProbeRequested)
 		{
@@ -2057,6 +2059,10 @@ void AIGPlayerController::ToggleSystemMenu()
 	case EIGSystemMenuMode::Credits:
 		ReturnFromCredits();
 		return;
+	case EIGSystemMenuMode::ContentNotice:
+		// 읽고 넘어가는 화면이라 확인과 취소가 같은 뜻이다. 뒤로 갈 데가 없다.
+		DismissContentNotice();
+		return;
 	case EIGSystemMenuMode::AudioCalibration:
 		CancelAudioCalibration();
 		return;
@@ -2643,6 +2649,11 @@ void AIGPlayerController::ConfirmSystemMenuSelection()
 	if (SystemMenuMode == EIGSystemMenuMode::Credits)
 	{
 		ReturnFromCredits();
+		return;
+	}
+	if (SystemMenuMode == EIGSystemMenuMode::ContentNotice)
+	{
+		DismissContentNotice();
 		return;
 	}
 	if (SystemMenuMode == EIGSystemMenuMode::DisplaySettings)
@@ -3510,6 +3521,8 @@ void AIGPlayerController::RefreshMenuHud() const
 			|| (SystemMenuMode == EIGSystemMenuMode::Credits
 				&& CreditsReturnMode == EIGSystemMenuMode::Title);
 		Presentation.bCredits = SystemMenuMode == EIGSystemMenuMode::Credits;
+		Presentation.bContentNotice =
+			SystemMenuMode == EIGSystemMenuMode::ContentNotice;
 		Presentation.bAudioCalibration =
 			SystemMenuMode == EIGSystemMenuMode::AudioCalibration;
 		Presentation.bDisplaySettings =
@@ -3865,6 +3878,69 @@ bool AIGPlayerController::HandleMenuPointerClick()
 		ConfirmSystemMenuSelection();
 	}
 	return true;
+}
+
+namespace IGContentNotice
+{
+	const TCHAR* ConfigSection = TEXT("IndieGame.Onboarding");
+	const TCHAR* ShownKey = TEXT("ContentNoticeShown");
+}
+
+void AIGPlayerController::ShowContentNoticeIfNeeded()
+{
+	if (!IsLocalController()
+		|| SystemMenuMode != EIGSystemMenuMode::Title
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGFrontendShippingProbe"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloorJournalPreview"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGAudioCalibrationPreview"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGDisplaySettingsPreview"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGNightFiveProbe")))
+	{
+		return;
+	}
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGContentNoticePreview")))
+	{
+		// 캡처용 강제 표시. 저장값을 읽지도 쓰지도 않는다.
+		SetSystemMenuMode(EIGSystemMenuMode::ContentNotice);
+		return;
+	}
+
+	bool bAlreadyShown = false;
+	if (GConfig)
+	{
+		GConfig->GetBool(
+			IGContentNotice::ConfigSection,
+			IGContentNotice::ShownKey,
+			bAlreadyShown,
+			GGameUserSettingsIni);
+	}
+	if (bAlreadyShown)
+	{
+		return;
+	}
+	SetSystemMenuMode(EIGSystemMenuMode::ContentNotice);
+}
+
+void AIGPlayerController::DismissContentNotice()
+{
+	if (SystemMenuMode != EIGSystemMenuMode::ContentNotice)
+	{
+		return;
+	}
+	if (GConfig
+		&& !FParse::Param(FCommandLine::Get(), TEXT("IGContentNoticePreview")))
+	{
+		GConfig->SetBool(
+			IGContentNotice::ConfigSection,
+			IGContentNotice::ShownKey,
+			true,
+			GGameUserSettingsIni);
+		GConfig->Flush(false, GGameUserSettingsIni);
+	}
+	SystemMenuSelection = 0;
+	SetSystemMenuMode(EIGSystemMenuMode::Title);
+	// 고지를 닫고 나서야 소리 맞추기로 넘어간다.
+	StartHeadphoneRecommendationIfNeeded();
 }
 
 void AIGPlayerController::ShowTitleAfterEnding()

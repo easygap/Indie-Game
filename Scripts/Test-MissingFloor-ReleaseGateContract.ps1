@@ -88,6 +88,9 @@ $nightFourSource = Read-ProjectText `
 	'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
 $greyboxSource = Read-ProjectText `
 	'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
+$controllerSource = Read-ProjectText 'Source/IndieGame/Player/IGPlayerController.cpp'
+$controllerHeader = Read-ProjectText 'Source/IndieGame/Player/IGPlayerController.h'
+$hudSource = Read-ProjectText 'Source/IndieGame/Player/IGHorrorHUD.cpp'
 
 # --- §24 6번: P4는 배운 뒤에만 물어본다 ------------------------------------
 #
@@ -228,6 +231,54 @@ if (-not $greyboxSource.Contains('FifthDawn->StartInterlude(Player.Get())')) {
 	throw 'The sleep path must route night three into the interlude.'
 }
 
+
+# --- 첫 실행 콘텐츠 고지 ----------------------------------------------------
+#
+# 2026 접근성 논의의 결론은 「일반 경고는 사용자가 아니라 책임을 보호한다」다.
+# 그래서 이 화면은 점멸이 있다고만 말하지 않는다: 무엇이 나오는지, 3Hz 상한을
+# 지켰다는 사실, 그리고 그것을 어느 설정으로 줄일 수 있는지를 같은 화면에서
+# 말하고, 그 자리에서 F10으로 넘어갈 수 있다.
+Assert-ContainsAll $controllerHeader @(
+	'void ShowContentNoticeIfNeeded();',
+	'void DismissContentNotice();',
+	'ContentNotice'
+) '콘텐츠 고지 진입점'
+
+Assert-ContainsAll $controllerSource @(
+	'ContentNoticeShown',
+	'SetSystemMenuMode(EIGSystemMenuMode::ContentNotice)',
+	'IGContentNoticePreview'
+) '콘텐츠 고지 상태'
+
+# 고지가 소리 맞추기보다 먼저다. 무엇이 나오는지 모른 채로 첫 화면을
+# 지나가게 할 수 없다.
+$noticeIndex = $controllerSource.IndexOf('ShowContentNoticeIfNeeded();')
+$headphoneIndex = $controllerSource.IndexOf('StartHeadphoneRecommendationIfNeeded();')
+if ($noticeIndex -lt 0 -or $headphoneIndex -lt 0 -or $noticeIndex -gt $headphoneIndex) {
+	throw 'The content notice must come before the audio onboarding.'
+}
+
+# 화면이 실제로 세 가지를 말하는지. 하나라도 빠지면 일반 경고로 되돌아간다.
+Assert-ContainsAll $hudSource @(
+	'"NoticeSensory"',
+	'"NoticeThemes"',
+	'"NoticeControls"',
+	'3Hz를 넘는 점멸과 전대역 플래시는 쓰지 않았습니다.',
+	'흔들림 감소와 점멸 감소를 켜면',
+	'듣기만 하는 밤'
+) '콘텐츠 고지 본문'
+
+# 그 자리에서 설정으로 갈 수 있어야 한다. 읽고 나서 찾아 헤매면 소용없다.
+Assert-ContainsAll $hudSource @(
+	'F10  접근성 설정 열기'
+) '고지에서 설정으로'
+$accessibilityToggle = Get-MethodBody $controllerSource `
+	'void AIGPlayerController::ToggleAccessibilityMenu()' `
+	'Accessibility toggle'
+if (-not $accessibilityToggle.Contains('AccessibilityReturnMode = SystemMenuMode')) {
+	throw 'Opening accessibility from the notice must return to the notice.'
+}
+
 Write-Host (
-	'MISSING_FLOOR_RELEASE_GATE_CONTRACT PASS blockers=6,10,14 assertions={0}' -f `
+	'MISSING_FLOOR_RELEASE_GATE_CONTRACT PASS blockers=6,10,12,14 assertions={0}' -f `
 		$assertionCount) -ForegroundColor Green

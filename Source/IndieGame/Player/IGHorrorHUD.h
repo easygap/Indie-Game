@@ -96,6 +96,8 @@ struct FIGSystemMenuPresentation
 	/** Title key art is also retained when credits were opened from the title. */
 	bool bUseTitleBackdrop = false;
 	bool bCredits = false;
+	/** 첫 실행 콘텐츠 고지. 제작 정보와 같은 전체 화면 계층을 쓴다. */
+	bool bContentNotice = false;
 	bool bAudioCalibration = false;
 	bool bDisplaySettings = false;
 	bool bCanContinue = false;
@@ -793,6 +795,7 @@ private:
 	bool bSystemMenuIsTitle = false;
 	bool bSystemMenuUseTitleBackdrop = false;
 	bool bSystemMenuIsCredits = false;
+	bool bSystemMenuIsContentNotice = false;
 	bool bSystemMenuIsAudioCalibration = false;
 	bool bSystemMenuIsDisplaySettings = false;
 	bool bSystemMenuCanContinue = false;

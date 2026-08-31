@@ -1358,6 +1358,7 @@ void AIGHorrorHUD::SetSystemMenuState(
 		&& (!bSystemMenuVisible
 			|| bSystemMenuIsTitle != Presentation.bTitle
 			|| bSystemMenuIsCredits != Presentation.bCredits
+			|| bSystemMenuIsContentNotice != Presentation.bContentNotice
 			|| bSystemMenuIsAudioCalibration != Presentation.bAudioCalibration
 			|| bSystemMenuIsDisplaySettings != Presentation.bDisplaySettings
 			|| bSystemMenuUseTitleBackdrop != Presentation.bUseTitleBackdrop);
@@ -1373,6 +1374,7 @@ void AIGHorrorHUD::SetSystemMenuState(
 	bSystemMenuIsTitle = Presentation.bTitle;
 	bSystemMenuUseTitleBackdrop = Presentation.bUseTitleBackdrop;
 	bSystemMenuIsCredits = Presentation.bCredits;
+	bSystemMenuIsContentNotice = Presentation.bContentNotice;
 	bSystemMenuIsAudioCalibration = Presentation.bAudioCalibration;
 	bSystemMenuIsDisplaySettings = Presentation.bDisplaySettings;
 	SystemMenuSelectedRow = FMath::Clamp(
@@ -5773,6 +5775,132 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 	};
 
 	const FVector2D HeaderOrigin(Metrics.ContentLeft, Metrics.TitleTop);
+	if (bSystemMenuIsContentNotice)
+	{
+		// 일반 경고는 사용자가 아니라 책임을 보호한다. 그래서 「점멸이
+		// 있습니다」로 끝내지 않고 **무엇이 나오는지**와 **그것을 어느
+		// 설정으로 줄일 수 있는지**를 같은 화면에서 말한다.
+		DrawLeftAlignedText(
+			bKorean
+				? NSLOCTEXT("IGHUD", "NoticeContext", "플레이 전에")
+				: FText::FromString(TEXT("BEFORE YOU PLAY")),
+			HeaderOrigin,
+			WithAlpha(IGHorrorHUD::FrontendMuted),
+			EIGHudTextRole::Hint,
+			0.82f * SupportScale);
+		const FVector2D NoticeTitleOrigin =
+			HeaderOrigin + FVector2D(0.0f, 24.0f * Metrics.Scale);
+		DrawDisplayTitle(
+			bKorean
+				? NSLOCTEXT("IGHUD", "NoticeTitle", "이 게임에 나오는 것")
+				: FText::FromString(TEXT("WHAT THIS GAME CONTAINS")),
+			NoticeTitleOrigin,
+			0.78f * TitleScale);
+
+		struct FNoticeLine
+		{
+			FText Text;
+			bool bHeading;
+		};
+		const FNoticeLine NoticeLines[] =
+		{
+			{bKorean
+				? NSLOCTEXT("IGHUD", "NoticeSensory", "감각")
+				: FText::FromString(TEXT("SENSORY")), true},
+			{bKorean
+				? NSLOCTEXT(
+					"IGHUD", "NoticeSensory1",
+					"암전, 갑작스러운 접근, 화면 흔들림과 조명 점멸이 있습니다.")
+				: FText::FromString(
+					TEXT("BLACKOUTS, SUDDEN APPROACH, CAMERA SHAKE AND FLICKER.")), false},
+			{bKorean
+				? NSLOCTEXT(
+					"IGHUD", "NoticeSensory2",
+					"3Hz를 넘는 점멸과 전대역 플래시는 쓰지 않았습니다.")
+				: FText::FromString(
+					TEXT("NO FLASHING ABOVE 3HZ AND NO FULL-SCREEN FLASH.")), false},
+			{bKorean
+				? NSLOCTEXT("IGHUD", "NoticeThemes", "소재")
+				: FText::FromString(TEXT("THEMES")), true},
+			{bKorean
+				? NSLOCTEXT(
+					"IGHUD", "NoticeThemes1",
+					"장기간 은폐된 유해를 연상시키는 장면이 나옵니다. 직접적인"
+					" 신체 훼손 묘사는 없습니다.")
+				: FText::FromString(
+					TEXT("LONG-CONCEALED REMAINS ARE IMPLIED. NO GRAPHIC GORE.")), false},
+			{bKorean
+				? NSLOCTEXT(
+					"IGHUD", "NoticeThemes2",
+					"층간소음, 무단증축, 산업재해 은폐를 다룹니다. 실제 사건이나"
+					" 인물과는 무관합니다.")
+				: FText::FromString(
+					TEXT("NOISE DISPUTES, ILLEGAL BUILDING, A COVERED-UP DEATH."
+						" NOT BASED ON REAL EVENTS.")), false},
+			{bKorean
+				? NSLOCTEXT("IGHUD", "NoticeControls", "줄일 수 있는 것")
+				: FText::FromString(TEXT("WHAT YOU CAN TURN DOWN")), true},
+			{bKorean
+				? NSLOCTEXT(
+					"IGHUD", "NoticeControls1",
+					"흔들림 감소와 점멸 감소를 켜면 카메라 떨림과 임의 암전이"
+					" 사라집니다. 판정은 그대로입니다.")
+				: FText::FromString(
+					TEXT("REDUCED SHAKE AND REDUCED FLICKER REMOVE BOTH."
+						" GAMEPLAY IS UNCHANGED.")), false},
+			{bKorean
+				? NSLOCTEXT(
+					"IGHUD", "NoticeControls2",
+					"쫓기는 압박이 부담스러우면 난이도에서 「듣기만 하는 밤」을"
+					" 고르세요. 결말은 전부 같습니다.")
+				: FText::FromString(
+					TEXT("PICK THE LISTENING-ONLY NIGHT IF PURSUIT IS TOO MUCH."
+						" EVERY ENDING STAYS REACHABLE.")), false},
+		};
+
+		float NoticePenY = Metrics.MenuTop - 18.0f * SupportScale;
+		for (const FNoticeLine& Line : NoticeLines)
+		{
+			if (Line.bHeading)
+			{
+				NoticePenY += 10.0f * SupportScale;
+			}
+			DrawLeftAlignedText(
+				Line.Text,
+				FVector2D(Metrics.ContentLeft, NoticePenY),
+				WithAlpha(
+					Line.bHeading
+						? IGHorrorHUD::FrontendIvory
+						: IGHorrorHUD::FrontendMuted),
+				Line.bHeading ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
+				(Line.bHeading ? 0.94f : 0.88f) * SupportScale);
+			NoticePenY += (Line.bHeading ? 30.0f : 27.0f) * SupportScale;
+		}
+
+		DrawLeftAlignedText(
+			bKorean
+				? bUsingGamepad
+					? NSLOCTEXT(
+						"IGHUD", "NoticeControlsGamepad",
+						"A  계속  ·  Y  접근성 설정 열기")
+					: NSLOCTEXT(
+						"IGHUD", "NoticeControlsKeyboard",
+						"Enter  계속  ·  F10  접근성 설정 열기")
+				: FText::FromString(
+					bUsingGamepad
+						? TEXT("A  CONTINUE  |  Y  ACCESSIBILITY")
+						: TEXT("ENTER  CONTINUE  |  F10  ACCESSIBILITY")),
+			FVector2D(Metrics.ContentLeft, Metrics.FooterTop),
+			WithAlpha(IGHorrorHUD::FrontendIvory),
+			EIGHudTextRole::Hint,
+			0.86f * SupportScale);
+		RecordLayoutValidationRect(
+			FVector2D(Metrics.ContentLeft, HeaderOrigin.Y),
+			FVector2D(
+				Metrics.ContentLeft + Metrics.ContentWidth,
+				FMath::Min(Metrics.FooterTop + 24.0f, Canvas->ClipY)));
+		return;
+	}
 	if (bSystemMenuIsCredits)
 	{
 		DrawLeftAlignedText(

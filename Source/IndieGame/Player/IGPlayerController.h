@@ -18,7 +18,13 @@ enum class EIGSystemMenuMode : uint8
 	Pause,
 	AudioCalibration,
 	DisplaySettings,
-	Credits
+	Credits,
+	/**
+	 * §24 즉시 차단 12의 광과민 항목과 「플레이 전에 알아 두실 것」을 실제
+	 * 화면으로 세운 자리. 첫 실행에 한 번 뜨고, 무엇이 나오는지와 그것을
+	 * 어느 설정으로 줄일 수 있는지를 같은 화면에서 말한다.
+	 */
+	ContentNotice
 };
 
 /** Owns local-player input context setup and future player-facing UI coordination. */
@@ -41,6 +47,14 @@ public:
 	 * 보인다.
 	 */
 	void ShowTitleAfterEnding();
+
+	/**
+	 * §24 즉시 차단 12 · 「플레이 전에 알아 두실 것」. 첫 실행에 한 번만
+	 * 뜨고, 무엇이 나오는지와 그것을 어느 설정으로 줄일 수 있는지를 같은
+	 * 화면에서 말한다. 일반 경고는 사용자가 아니라 책임을 보호한다.
+	 */
+	void ShowContentNoticeIfNeeded();
+	void DismissContentNotice();
 
 	/**
 	 * Harness hook for §24's 즉시 차단 19. The sealed hour has to turn the
