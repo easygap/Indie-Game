@@ -1684,6 +1684,72 @@ foreach ($token in @(
 if (-not $missingFloorNarrativeHeader.Contains('SnapshotSchemaVersion = 3')) {
 	throw 'Missing-floor snapshot schema was not advanced for optional witnesses.'
 }
+
+# §12: 표에 올라온 출처는 전부 세계 어딘가에서 실제로 적혀야 한다.
+#
+# 이 검사가 없는 동안 세 출처(자재 반입 영수증, 새 벽 미장 시기, 탱크 물소리)가
+# 규칙표와 이름표에만 있고 프롭이 없었다. 저널 미리보기 프로브가 화면용으로
+# 같은 이름을 넣고 있어서 전수 검색으로도 있는 것처럼 보였다. 그래서 여기서는
+# **프로브와 표 자신을 제외한** 실제 게임플레이 파일만 센다.
+$sourceEnumBody = [regex]::Match(
+	$missingFloorNarrativeTypes,
+	'enum class EIGMissingFloorSource : uint8\s*\{(?<body>[\s\S]*?)\};')
+if (-not $sourceEnumBody.Success) {
+	throw 'Missing-floor evidence source enum not found.'
+}
+$sourceNames = [regex]::Matches(
+	$sourceEnumBody.Groups['body'].Value,
+	'(?m)^\s*(?<name>[A-Za-z][A-Za-z0-9]*)\s*=\s*\d+') |
+	ForEach-Object { $_.Groups['name'].Value } |
+	Where-Object { $_ -ne 'None' }
+if ($sourceNames.Count -lt 20) {
+	throw "Evidence source scan found only $($sourceNames.Count) entries."
+}
+$gameplayFiles = @(
+	Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source\IndieGame\Entity') `
+		-Filter '*.cpp' -File
+	Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source\IndieGame\Core') `
+		-Filter '*.cpp' -File
+)
+$gameplayText = ($gameplayFiles | ForEach-Object {
+	Get-Content -Raw -Encoding UTF8 -LiteralPath $_.FullName
+}) -join "`n"
+$unplacedSources = @()
+foreach ($sourceName in $sourceNames) {
+	if (-not $gameplayText.Contains("EIGMissingFloorSource::$sourceName")) {
+		$unplacedSources += $sourceName
+	}
+}
+if ($unplacedSources.Count -gt 0) {
+	throw ("Evidence sources with no prop in the world: " +
+		($unplacedSources -join ', '))
+}
+
+# 같은 이유로 진실도 센다. 열 개 모두 규칙표에 있어야 하고, §24 즉시 차단
+# 21이 「진실 10개 도달 가능」을 출시 조건으로 걸고 있다.
+$truthEnumBody = [regex]::Match(
+	$missingFloorNarrativeTypes,
+	'enum class EIGMissingFloorTruth : uint8\s*\{(?<body>[\s\S]*?)\};')
+if (-not $truthEnumBody.Success) {
+	throw 'Missing-floor truth enum not found.'
+}
+$truthNames = [regex]::Matches(
+	$truthEnumBody.Groups['body'].Value,
+	'(?m)^\s*(?<name>[A-Za-z][A-Za-z0-9]*)\s*=\s*\d+') |
+	ForEach-Object { $_.Groups['name'].Value } |
+	Where-Object { $_ -ne 'None' }
+if ($truthNames.Count -ne 10) {
+	throw "Expected ten truths, found $($truthNames.Count)."
+}
+foreach ($truthName in $truthNames) {
+	if (-not $missingFloorNarrativeSource.Contains("EIGMissingFloorTruth::$truthName")) {
+		throw "Truth missing from the crossing table: $truthName"
+	}
+	if (-not $gameplayText.Contains("EIGMissingFloorTruth::$truthName")) {
+		throw "Truth has no gameplay path: $truthName"
+	}
+}
+
 foreach ($token in @(
 	'제작 정사 v3.2',
 	'세척 배수 OPEN',

@@ -146,6 +146,8 @@ private:
 	void HandleKeyringTaken(AIGMissingFloorEvidence* Evidence);
 	void HandleValveOpened(AIGMissingFloorEvidence* Evidence);
 	void HandleWallListened(int32 BayIndex);
+	void HandlePlasterDatingExamined(AIGMissingFloorEvidence* Evidence);
+	void HandleTankAuditionExamined(AIGMissingFloorEvidence* Evidence);
 
 	/**
 	 * Plays what the wall actually sounds like when an ear settles on it: the
@@ -234,6 +236,15 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> AnswerTarget;
+
+	/** T5 두 번째 출처. 새 벽이 언제 발라졌는지는 벽 자신이 말한다. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> PlasterDating;
+
+	/** T8 두 번째 출처. 갈증으로 죽은 사람의 벽 하나 옆에 물 2톤이 있었다. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> TankAudition;
+
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> LabelsNote;

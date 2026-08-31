@@ -1749,6 +1749,33 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasterDustFall(
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateRooftopTankSlosh(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGRooftopTankSlosh"));
+	// 4.4초에 한 번 왕복한다. 가득 찬 탱크일수록 느리게 오간다.
+	constexpr float LoopLength = 8.8f;
+	TArray<FIGToneNote> Notes;
+	// 수면 아래에서 움직이는 덩어리. 대역이 아주 좁고 끊기지 않는다.
+	Notes.Add({0.0f, LoopLength, 33.0f, 0.085f, 0.40f, 0.7f, EIGToneWaveform::Sine});
+	Notes.Add({0.0f, LoopLength, 210.0f, 0.016f, 0.45f, 0.8f, EIGToneWaveform::ValueNoise});
+	for (int32 Sway = 0; Sway < 2; ++Sway)
+	{
+		const float Start = Sway * 4.4f;
+		// 밀려갔다 돌아오는 물. 올라갈 때가 길고 내려올 때가 짧다.
+		Notes.Add({Start + 0.30f, 2.10f, 128.0f, 0.030f, 0.55f, 1.1f, EIGToneWaveform::ValueNoise});
+		Notes.Add({Start + 2.20f, 1.40f, 96.0f, 0.024f, 0.35f, 1.4f, EIGToneWaveform::ValueNoise});
+		// 돌아온 물이 강판을 친다. 판이 얇아 배음이 남는다.
+		Notes.Add({Start + 3.55f, 0.075f, 340.0f, 0.052f, 0.010f, 2.6f, EIGToneWaveform::ValueNoise});
+		Notes.Add({Start + 3.55f, 0.760f, 152.0f, 0.040f, 0.008f, 1.5f, EIGToneWaveform::Triangle});
+		Notes.Add({Start + 3.55f, 0.540f, 421.0f, 0.017f, 0.008f, 1.7f, EIGToneWaveform::Triangle});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopLength);
+	Wave->ConfigurePitchWow(0.0024f, 0.045f);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePoliceLineTapePull(
 	UObject* Outer)
 {

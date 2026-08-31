@@ -40,6 +40,13 @@ namespace IGPuzzleTwo
 	// 물건을 누르는 상태였다. 상판(Z=76) 위, 받침대(Y -107~-99) 앞으로 내린다.
 	const FVector CctvLocation(150.0f, -115.0f, 79.0f);
 	const FVector FoamGapLocation(272.0f, -90.0f, 105.0f);
+	/**
+	 * 자재 반입 영수증 두 장. 관리실 상판(X 105..215, Y -137.5..-82.5, Z=76)
+	 * 앞쪽 오른편의 빈자리다 — 대리인 쪽지(X 196..214, Y -115..-91)와는
+	 * Y로 갈라지고, 정서본·먹지·받침대는 전부 X 105..183 안쪽에 있다.
+	 * 눕혀서 얹는다. 세우면 절반이 상판 아래로 들어간다.
+	 */
+	const FVector BoardReceiptsLocation(196.0f, -126.0f, 76.6f);
 
 	/** §5.1: frottage is a sustained 0.25 — three times, on purpose. */
 	constexpr float FrottageLoudness = 0.25f;
@@ -310,6 +317,42 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	FoamGap->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined);
 
+	// T5의 첫 번째 출처(§12). 목한수의 이중 서류 습관은 밤2 관리실에서
+	// 심고 밤4·엔딩에서 그를 잡는 증거가 된다(§13).
+	SpawnParameters.Name = TEXT("MissingFloorBoardReceipts");
+	BoardReceipts = World->SpawnActor<AIGReadableNote>(
+		AIGReadableNote::StaticClass(),
+		FTransform(
+			FRotator(0.0f, -7.0f, 0.0f),
+			IGPuzzleTwo::BoardReceiptsLocation),
+		SpawnParameters);
+	if (!BoardReceipts)
+	{
+		return false;
+	}
+	BoardReceipts->ConfigurePrototypeVisuals(
+		CubeMesh, SheetMaterial, FVector(16.0f, 9.0f, 1.2f));
+	BoardReceipts->SetInteractionPrompt(
+		NSLOCTEXT("IGMissingFloor", "P2ReceiptsPrompt", "자재 반입 영수증"));
+	BoardReceipts->SetNoteText(
+		NSLOCTEXT("IGMissingFloor", "P2ReceiptsTitle", "자재 반입 영수증 (2매)"),
+		{
+			NSLOCTEXT("IGMissingFloor", "P2Receipt1", "무영건재  ·  무영로 27-3 달빛빌라"),
+			FText::GetEmpty(),
+			NSLOCTEXT("IGMissingFloor", "P2Receipt2", "7/26   석고보드 9.5T   12장     현금"),
+			NSLOCTEXT("IGMissingFloor", "P2Receipt3", "       경량스터드 3.6m  8본     현금"),
+			FText::GetEmpty(),
+			NSLOCTEXT("IGMissingFloor", "P2Receipt4", "7/27   석고보드 9.5T   12장     현금"),
+			NSLOCTEXT("IGMissingFloor", "P2Receipt5", "       미장몰탈 20kg    4포     현금"),
+			FText::GetEmpty(),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"P2Receipt6",
+				"관리비 지출 대장에는 7/26분 한 건만 올라 있다."),
+		});
+	BoardReceipts->OnReadStateChanged.AddDynamic(
+		this, &AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead);
+
 	// §5.5 비트 2-1과 2-6. 같은 물건이 밤에는 녹음을 켜고 아침에는 그것을
 	// 재생한다. 두 번째 상호작용이 이 게임에서 가장 조용한 절망이다.
 	SpawnParameters.Name = TEXT("MissingFloorPhoneRecorder");
@@ -565,6 +608,35 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 	}
 }
 
+void AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead(
+	AIGReadableNote* Note,
+	const bool bOpened)
+{
+	// 펼친 순간에 적는다. 두 날짜가 같은 종이에 있으므로 볼 것은 다 봤다.
+	if (!bOpened)
+	{
+		return;
+	}
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return;
+	}
+	Narrative->RegisterTruthSource(
+		EIGMissingFloorTruth::WallSealedThatDay,
+		EIGMissingFloorSource::BoardDeliveryReceipt);
+	if (Narrative->MarkBeatPlayed(FName(TEXT("Night2.BoardReceipts"))))
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"P2ReceiptsThought",
+				"같은 보드를 이틀에 나눠 샀는데, 장부에는 하루치만 있다."),
+			4.6f);
+	}
+}
+
 void AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined(
 	AIGMissingFloorEvidence* Evidence)
 {
@@ -603,6 +675,7 @@ bool AIGMissingFloorPuzzleTwoDirector::ValidateFixtures() const
 		&& CarbonLedger != nullptr
 		&& AgentMessageNote != nullptr
 		&& CctvSelector != nullptr
+		&& BoardReceipts != nullptr
 		&& FoamGap != nullptr;
 }
 

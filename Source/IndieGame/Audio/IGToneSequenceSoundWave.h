@@ -398,6 +398,16 @@ public:
 		int32 DistanceStep);
 
 	/**
+	 * 옥상 물탱크의 출렁임 — 강판 안에서 2톤이 아주 느리게 오간다.
+	 *
+	 * 배관 수류와 다른 소리다. 관 속의 물은 계속 흐르지만 탱크의 물은
+	 * 밀렸다가 돌아오며, 돌아오는 끝에서 벽을 한 번 친다. 주기가 4초를
+	 * 넘는 것이 요점이다 — 이 느림이 「가득 차 있다」는 뜻이고, 그것이
+	 * §13의 「물 2톤 옆의 갈증」을 만든다. Looping.
+	 */
+	static UIGToneSequenceSoundWave* CreateRooftopTankSlosh(UObject* Outer);
+
+	/**
 	 * The answer P3 is actually asking for: 속이 찬 벽은 짧게 죽고, 빈 벽은
 	 * 길게 운다.
 	 *

@@ -74,6 +74,8 @@ private:
 	/** Keeps the phone's prompt honest about which of the two it is offering. */
 	void RefreshPhonePrompt();
 	void HandleFoamExamined(AIGMissingFloorEvidence* Evidence);
+	UFUNCTION()
+	void HandleBoardReceiptsRead(class AIGReadableNote* Note, bool bOpened);
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
 
 	UFUNCTION()
@@ -111,6 +113,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> FoamGap;
+
+	/** T5 첫 번째 출처. 같은 품목이 두 날짜로 두 번 실려 왔다. */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGReadableNote> BoardReceipts;
 
 	FDelegateHandle TruthHandle;
 	bool bSolvedAnnounced = false;

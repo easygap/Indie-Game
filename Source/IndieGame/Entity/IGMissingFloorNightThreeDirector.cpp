@@ -38,6 +38,19 @@ namespace IGNightThree
 	const FVector TunerToolCartLocation(-280.0f, 865.0f, 1201.0f);
 	const FVector ValveLocation(296.0f, 610.0f, 1266.0f);
 	const FVector ImpactMarkLocation(-10.0f, 585.0f, 1264.0f);
+	/**
+	 * T5 「새 벽 미장 시기」. 공동이 아닌 첫 베이(Y 560)에 둔다 — 벽 전체가
+	 * 한 번에 발린 새 벽이므로 어느 칸에서 읽어도 같은 사실이고, 공동 칸에만
+	 * 두면 「여기가 그 벽이다」를 공짜로 주어 P3가 무너진다. 귀·주먹 판정은
+	 * Z 1277..1303에 있으므로 바닥 쪽 이음선 높이로 내린다.
+	 */
+	const FVector PlasterDatingLocation(247.0f, 560.0f, 1220.0f);
+	/**
+	 * T8 「탱크 물소리 청음」. 탱크 몸통은 Y -178..128이고 점검 통로는 그
+	 * 북쪽이다. 통로 쪽 면에서 7 cm 떨어뜨려 판정만 세운다 — 그림은 씬의
+	 * 탱크가 이미 그리고 있다.
+	 */
+	const FVector TankAuditionLocation(0.0f, 140.0f, 1360.0f);
 	const float WallBayYs[3] = {560.0f, 700.0f, 840.0f};
 	constexpr int32 CavityBayIndex = 1;
 
@@ -517,6 +530,57 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		IGNightThree::KnockLoudness,
 		/*bPresentationVisible=*/false);
 	AnswerTarget->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Knock")));
+
+	// T5의 두 번째 출처. 영수증이 「언제 실어 왔는가」라면 이쪽은 「언제
+	// 발랐는가」다. 둘이 같은 주를 가리켜야 은폐가 확정된다(§12).
+	SpawnParameters.Name = TEXT("MissingFloorPlasterDating");
+	PlasterDating = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGNightThree::PlasterDatingLocation),
+		SpawnParameters);
+	if (!PlasterDating)
+	{
+		return false;
+	}
+	PlasterDating->Configure(
+		CubeMesh,
+		nullptr,
+		FVector(3.0f, 20.0f, 26.0f),
+		NSLOCTEXT("IGMissingFloor", "PlasterDatingPrompt", "새 벽 — 이음선"),
+		FText::GetEmpty(),
+		EIGMissingFloorTruth::None,
+		EIGMissingFloorSource::None,
+		1.0f,
+		IGNightThree::ListenLoudness,
+		/*bPresentationVisible=*/false);
+	PlasterDating->OnExamined.AddUObject(
+		this, &AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined);
+
+	// T8의 두 번째 출처. 일지가 두드린 횟수를 세었다면 이쪽은 그 옆에
+	// 무엇이 있었는지를 말한다.
+	SpawnParameters.Name = TEXT("MissingFloorTankAudition");
+	TankAudition = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGNightThree::TankAuditionLocation),
+		SpawnParameters);
+	if (!TankAudition)
+	{
+		return false;
+	}
+	TankAudition->Configure(
+		CubeMesh,
+		nullptr,
+		FVector(40.0f, 10.0f, 40.0f),
+		NSLOCTEXT("IGMissingFloor", "TankAuditionPrompt", "물탱크 — 귀를 댄다"),
+		FText::GetEmpty(),
+		EIGMissingFloorTruth::None,
+		EIGMissingFloorSource::None,
+		1.0f,
+		IGNightThree::ListenLoudness,
+		/*bPresentationVisible=*/false);
+	TankAudition->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Listen")));
+	TankAudition->OnExamined.AddUObject(
+		this, &AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined);
 	AnswerTarget->SetInteractionEnabled(false);
 	AnswerTarget->SetActorHiddenInGame(true);
 
@@ -932,6 +996,77 @@ void AIGMissingFloorNightThreeDirector::PlayWallListenResponse(
 			IGNightThree::WallListenFalloff,
 			EIGAudioBus::Puzzle);
 	}
+}
+
+void AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return;
+	}
+	Narrative->RegisterTruthSource(
+		EIGMissingFloorTruth::WallSealedThatDay,
+		EIGMissingFloorSource::FreshPlasterDating);
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"PlasterDatingThought",
+			"이음선만 색이 다르다. 여긴 작년 여름에 한 번 더 발랐어."),
+		4.4f);
+}
+
+void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	UWorld* World = GetWorld();
+	if (!Narrative || !World)
+	{
+		return;
+	}
+	Narrative->RegisterTruthSource(
+		EIGMissingFloorTruth::FiveNightsOfThirst,
+		EIGMissingFloorSource::TankWaterAudition);
+
+	// 4.4초 주기가 이 큐의 전부다. 느리게 오간다는 것이 가득 찼다는 뜻이고,
+	// 그 사실이 §13의 「물 2톤 옆의 갈증」을 만든다.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateRooftopTankSlosh(this),
+		IGNightThree::TankAuditionLocation,
+		0.62f,
+		1.0f,
+		120.0f,
+		900.0f,
+		EIGAudioBus::Puzzle);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"TankAuditionCaption",
+			"[안쪽] 물이 아주 느리게 오간다"),
+		3.0f);
+
+	// 일지를 이미 읽었다면 두 사실이 여기서 맞물린다. 안 읽었으면 그냥
+	// 가득 찬 탱크다 — 순서를 강제하지 않는 것이 §7의 자유 경로다.
+	const bool bKnowsTally = Narrative->HasSource(
+		EIGMissingFloorTruth::FiveNightsOfThirst,
+		EIGMissingFloorSource::KnockTallyJournal);
+	AIGHorrorHUD::PushThought(
+		this,
+		bKnowsTally
+			? NSLOCTEXT(
+				"IGMissingFloor",
+				"TankAuditionThoughtCrossed",
+				"가득 찼네. …벽 하나 옆에 2톤이 있었는데.")
+			: NSLOCTEXT(
+				"IGMissingFloor",
+				"TankAuditionThought",
+				"가득 찼다. 이 밑으로 관이 내려가고, 그 관은 그 벽을 지난다."),
+		bKnowsTally ? 5.0f : 4.4f);
 }
 
 void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
@@ -1533,6 +1668,8 @@ bool AIGMissingFloorNightThreeDirector::ValidateFixtures() const
 		&& WallKnocks.Num() == 3
 		&& ImpactMark != nullptr
 		&& AnswerTarget != nullptr
+		&& PlasterDating != nullptr
+		&& TankAudition != nullptr
 		&& LabelsNote != nullptr
 		&& ForumNote != nullptr
 		&& JournalNote != nullptr;
