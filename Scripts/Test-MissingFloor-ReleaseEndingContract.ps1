@@ -28,6 +28,22 @@ function Assert-ContainsAll {
 	}
 }
 
+function Get-MethodBody {
+	# 주석은 걷어 내고 실행문만 본다. 주석 처리한 코드와 살아 있는 코드를
+	# 문자열 포함으로 구분할 수 없다.
+	param(
+		[Parameter(Mandatory = $true)][string]$Text,
+		[Parameter(Mandatory = $true)][string]$Signature,
+		[Parameter(Mandatory = $true)][string]$Label
+	)
+	$escaped = [regex]::Escape($Signature)
+	$match = [regex]::Match($Text, "$escaped(?<body>[\s\S]*?)\r?\n\}")
+	if (-not $match.Success) {
+		throw "$Label could not be isolated."
+	}
+	return [regex]::Replace($match.Groups['body'].Value, '//[^\r\n]*', '')
+}
+
 $story = Read-ProjectText 'Docs/STORY_BIBLE_MISSING_FLOOR.md'
 $fifthDawnHeader = Read-ProjectText `
 	'Source/IndieGame/Entity/IGMissingFloorFifthDawnDirector.h'
@@ -342,8 +358,9 @@ Assert-ContainsAll $nightThreeSource @(
 
 # 새 목격 셋도 반드시 회수가 있어야 한다 — 회수 없는 심기 금지(§13).
 Assert-ContainsAll $nightFourSource @(
-	'HasWitness(EIGMissingFloorWitness::BoothWallCalendar)',
-	'HasWitness(EIGMissingFloorWitness::AnnexWorkGlove)'
+	'EIGMissingFloorWitness::BoothWallCalendar',
+	'EIGMissingFloorWitness::AnnexWorkGlove',
+	'EIGMissingFloorWitness::RecorderEmptyBay'
 ) '새 목격의 대치 회수'
 Assert-ContainsAll $epilogueSource @(
 	'HasWitness(EIGMissingFloorWitness::RecorderEmptyBay)'
@@ -368,13 +385,43 @@ if ($recordWitnessCode.Contains('RecomputeConfirmations')) {
 # 대치, 엔딩 뉴스 자막. 대치가 마지막으로 남아 있던 자리다. 못 본 회차에는
 # 유담이 아무 말도 하지 않는다: 없는 말을 쥐여 주지 않는 것이 이 절의 규칙이다.
 Assert-ContainsAll $nightFourSource @(
-	'FText AIGMissingFloorNightFourDirector::GetConfrontationReplyLine() const',
-	'HasWitness(EIGMissingFloorWitness::BoothSoundproofing)',
-	'HasWitness(EIGMissingFloorWitness::RooftopCigarettePack)',
-	'HasWitness(EIGMissingFloorWitness::HwangWaterBowl)',
-	'HasWitness(EIGMissingFloorWitness::SeoSleepingPills)',
-	'return FText::GetEmpty();'
+	'void AIGMissingFloorNightFourDirector::BuildConfrontationReplyLines(',
+	'EIGMissingFloorWitness::BoothSoundproofing',
+	'EIGMissingFloorWitness::BoothWallCalendar',
+	'EIGMissingFloorWitness::AnnexWorkGlove',
+	'EIGMissingFloorWitness::RecorderEmptyBay',
+	'EIGMissingFloorWitness::RooftopCigarettePack',
+	'EIGMissingFloorWitness::HwangWaterBowl',
+	'EIGMissingFloorWitness::SeoSleepingPills'
 ) '목한수 대치 문장 분기'
+
+# 세 줄이 상한이다. 그 이상은 목격이 아니라 목록 낭독이 된다.
+Assert-ContainsAll $nightFourSource @(
+	'ConfrontationReplyLimit = 3'
+) '대치 줄 수 상한'
+$replyBuilder = Get-MethodBody $nightFourSource `
+	'void AIGMissingFloorNightFourDirector::BuildConfrontationReplyLines(' `
+	'Confrontation reply builder'
+# 서류는 최대 둘. 셋을 연달아 대면 사람이 아니라 조서가 된다.
+$assertionCountLocal = 0
+if (-not $replyBuilder.Contains('FMath::Min(HeldDocuments.Num(), 2)')) {
+	throw 'The confrontation must cap consecutive document lines at two.'
+}
+# 사람 줄은 서류 뒤에 놓인다 — 증거로 시작해 사람으로 끝나야 이 장면이
+# 고발이 아니라 애도가 된다.
+$humanIndex = $replyBuilder.IndexOf('HeldHumans[0]')
+$documentIndex = $replyBuilder.IndexOf('OutLines.Add(HeldDocuments[Index]);')
+if ($humanIndex -lt 0 -or $documentIndex -lt 0 -or $humanIndex -lt $documentIndex) {
+	throw 'A human line must follow the document lines in the confrontation.'
+}
+# 아무것도 못 본 회차는 한 줄도 없다.
+if (-not $replyBuilder.Contains('OutLines.Reset();')) {
+	throw 'The confrontation must start from an empty reply list.'
+}
+# 존재의 통과가 댄 줄 수만큼 뒤로 밀린다.
+Assert-ContainsAll $nightFourSource @(
+	'ReplyLines.Num() * IGNightFour::ConfrontationReplyStrideSeconds'
+) '대치 줄 수에 따른 통과 지연'
 # 그의 애원은 본 것과 무관하게 같아야 한다. 달라지는 것은 유담 쪽이다.
 $mokLineBody = [regex]::Match(
 	$nightFourSource,
@@ -385,8 +432,8 @@ if (-not $mokLineBody.Success -or
 }
 # 존재가 먼저 들어오면 대치가 대화가 아니라 배경이 된다.
 Assert-ContainsAll $nightFourSource @(
-	'bHasReply ? 7.1f : 3.35f'
-) '대치 두 줄의 자리'
+	'EntityPassBaseSeconds = 3.35f'
+) '대치 없는 회차의 통과'
 
 Assert-ContainsAll $epilogueSource @(
 	'HasWitness(EIGMissingFloorWitness::HwangWaterBowl)',

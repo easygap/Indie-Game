@@ -98,8 +98,12 @@ private:
 	 * §22.3. 목한수 앞에서 유담이 무엇을 말할 수 있는가는 그 회차에 무엇을
 	 * 봤느냐로 정해진다. 아무것도 못 봤으면 아무 말도 하지 않는다 — 없는
 	 * 말을 쥐여 주지 않는 것이 이 절의 규칙이다.
+	 *
+	 * 최대 세 줄이다. 그 이상은 목격이 아니라 목록 낭독이 된다. 앞은 그를
+	 * 겨냥하는 서류이고 **마지막 줄은 가능하면 사람**이다 — 증거로 시작해
+	 * 사람으로 끝나야 이 장면이 고발이 아니라 애도가 된다.
 	 */
-	FText GetConfrontationReplyLine() const;
+	void BuildConfrontationReplyLines(TArray<FText>& OutLines) const;
 
 	void RequestEndingChoiceAutosave();
 	void HandleEndingA(AIGMissingFloorEvidence* Evidence);

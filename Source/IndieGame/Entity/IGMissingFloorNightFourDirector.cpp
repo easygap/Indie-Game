@@ -42,6 +42,12 @@ namespace IGNightFour
 	const FName FinalConfrontationBeat(TEXT("Night4.FinalConfrontation"));
 	/** §22.4: 선택 직전 한 번. 양쪽을 다 보는 값이 여기서 정해진다. */
 	const FName ChoiceOfferedBeat(TEXT("Night4.ChoiceOffered"));
+	/** §22.3. 세 줄이 상한이다. 그 이상은 목격이 아니라 목록 낭독이 된다. */
+	constexpr int32 ConfrontationReplyLimit = 3;
+	/** 한 줄이 화면에 머무는 최소 시간과, 그만큼 뒤로 밀리는 통과. */
+	constexpr float ConfrontationReplySeconds = 2.8f;
+	constexpr float ConfrontationReplyStrideSeconds = 3.05f;
+	constexpr float EntityPassBaseSeconds = 3.35f;
 	constexpr float FailureCaptureSeconds = 1.2f;
 	constexpr float FailureListingDelaySeconds = 1.24f;
 	constexpr float FailureRetryDelaySeconds = 7.2f;
@@ -1179,25 +1185,27 @@ void AIGMissingFloorNightFourDirector::PresentMokHansoo()
 	// §22.3. 그의 말은 언제나 같다 — 애원은 본 것과 무관하다. 달라지는 것은
 	// 유담이 그 앞에서 무엇을 댈 수 있느냐다. 아무것도 못 본 회차는 침묵이
 	// 대답이고, 그것도 이 장면에서 성립한다.
-	const FText ReplyLine = GetConfrontationReplyLine();
-	const bool bHasReply = !ReplyLine.IsEmpty();
-	if (bHasReply)
+	TArray<FText> ReplyLines;
+	BuildConfrontationReplyLines(ReplyLines);
+	for (const FText& ReplyLine : ReplyLines)
 	{
 		AIGHorrorHUD::PushDialogue(
 			this,
 			NSLOCTEXT("IGMissingFloor", "YudamName", "백유담"),
 			ReplyLine,
 			EIGDialogueChannel::Conversation,
-			3.4f,
+			IGNightFour::ConfrontationReplySeconds,
 			EIGDialoguePriority::Critical);
 	}
-	// 대답이 있으면 그가 지나가기 전에 두 줄이 다 끝나야 한다. 존재가 먼저
-	// 들어오면 대치가 대화가 아니라 배경이 된다.
+	// 그가 지나가기 전에 댄 줄이 다 끝나야 한다. 존재가 먼저 들어오면
+	// 대치가 대화가 아니라 배경이 된다. 세 줄이면 12.5초짜리 장면이 되는데,
+	// 그건 볼 것을 다 본 회차가 받는 값이다.
 	GetWorldTimerManager().SetTimer(
 		EntityPassTimer,
 		this,
 		&AIGMissingFloorNightFourDirector::BeginEntityPass,
-		bHasReply ? 7.1f : 3.35f,
+		IGNightFour::EntityPassBaseSeconds
+			+ ReplyLines.Num() * IGNightFour::ConfrontationReplyStrideSeconds,
 		false);
 }
 
@@ -1593,66 +1601,132 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 	RefreshPresentation();
 }
 
-FText AIGMissingFloorNightFourDirector::GetConfrontationReplyLine() const
+void AIGMissingFloorNightFourDirector::BuildConfrontationReplyLines(
+	TArray<FText>& OutLines) const
 {
+	OutLines.Reset();
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (!Narrative)
 	{
-		return FText::GetEmpty();
+		return;
 	}
 
-	// 순서는 그를 겨냥하는 정도다. 방음재는 「못 들었다」는 그의 말을 그
-	// 자리에서 무너뜨리므로 다른 무엇보다 먼저다.
-	if (Narrative->HasWitness(EIGMissingFloorWitness::BoothSoundproofing))
+	// 두 묶음으로 나눈다. 앞 묶음은 그가 한 일을 가리키고, 뒤 묶음은 그 일이
+	// 누구에게 일어났는지를 가리킨다. 순서는 각 묶음 안에서 그를 겨냥하는
+	// 정도이자, 사람 쪽에서는 도하와 가까운 정도다.
+	struct FReplyEntry
 	{
-		return NSLOCTEXT(
-			"IGMissingFloor",
-			"ConfrontationReplyFoam",
-			"관리실 안쪽 방, 문틈까지 계란판이던데요. 안 들린 게 아니라"
-			" 안 들리게 하신 거죠.");
-	}
-	if (Narrative->HasWitness(EIGMissingFloorWitness::BoothWallCalendar))
+		EIGMissingFloorWitness Witness;
+		FText Line;
+	};
+
+	const FReplyEntry Documents[] =
 	{
-		return NSLOCTEXT(
-			"IGMissingFloor",
-			"ConfrontationReplyCalendar",
-			"관리실 달력, 26일에만 동그라미던데요. 그 주는 아예"
-			" 안 넘기셨어요.");
-	}
-	if (Narrative->HasWitness(EIGMissingFloorWitness::AnnexWorkGlove))
+		{
+			EIGMissingFloorWitness::BoothSoundproofing,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyFoam",
+				"관리실 안쪽 방, 문틈까지 계란판이던데요. 안 들린 게 아니라"
+				" 안 들리게 하신 거죠."),
+		},
+		{
+			EIGMissingFloorWitness::BoothWallCalendar,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyCalendar",
+				"관리실 달력, 26일에만 동그라미던데요. 그 주는 아예"
+				" 안 넘기셨어요."),
+		},
+		{
+			EIGMissingFloorWitness::AnnexWorkGlove,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyGlove",
+				"5층 자재 위에 장갑 한 짝이 있어요. 오빠 손엔 두 치수"
+				" 큰 거요."),
+		},
+		{
+			EIGMissingFloorWitness::RecorderEmptyBay,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyRecorder",
+				"녹화기 하드는 언제 빼셨어요. 자리에 먼지 자국만"
+				" 남아 있던데."),
+		},
+	};
+
+	const FReplyEntry Humans[] =
 	{
-		return NSLOCTEXT(
-			"IGMissingFloor",
-			"ConfrontationReplyGlove",
-			"5층 자재 위에 장갑 한 짝이 있어요. 오빠 손엔 두 치수"
-			" 큰 거요.");
-	}
-	if (Narrative->HasWitness(EIGMissingFloorWitness::RooftopCigarettePack))
+		{
+			EIGMissingFloorWitness::RooftopCigarettePack,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyPack",
+				"옥상 탱크 옆에 담배가 여섯 개비 눌려 있어요. 그 사람"
+				" 거기 앉아서 쉬었어요."),
+		},
+		{
+			EIGMissingFloorWitness::HwangWaterBowl,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyBowl",
+				"401호 앞 물그릇, 아직도 물이 새로 담겨 있어요. 그분은"
+				" 아직 대답하고 계세요."),
+		},
+		{
+			EIGMissingFloorWitness::SeoSleepingPills,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"ConfrontationReplyPills",
+				"서일영씨는 작년 팔월부터 약을 드세요. 아무도 안 믿은 게"
+				" 아니라, 아저씨가 안 믿게 하신 거고요."),
+		},
+	};
+
+	TArray<FText> HeldDocuments;
+	for (const FReplyEntry& Entry : Documents)
 	{
-		return NSLOCTEXT(
-			"IGMissingFloor",
-			"ConfrontationReplyPack",
-			"옥상 탱크 옆에 담배가 여섯 개비 눌려 있어요. 그 사람"
-			" 거기 앉아서 쉬었어요.");
+		if (Narrative->HasWitness(Entry.Witness))
+		{
+			HeldDocuments.Add(Entry.Line);
+		}
 	}
-	if (Narrative->HasWitness(EIGMissingFloorWitness::HwangWaterBowl))
+	TArray<FText> HeldHumans;
+	for (const FReplyEntry& Entry : Humans)
 	{
-		return NSLOCTEXT(
-			"IGMissingFloor",
-			"ConfrontationReplyBowl",
-			"401호 앞 물그릇, 아직도 물이 새로 담겨 있어요. 그분은"
-			" 아직 대답하고 계세요.");
+		if (Narrative->HasWitness(Entry.Witness))
+		{
+			HeldHumans.Add(Entry.Line);
+		}
 	}
-	if (Narrative->HasWitness(EIGMissingFloorWitness::SeoSleepingPills))
+
+	// 서류는 최대 둘까지만 댄다. 셋을 연달아 대면 사람이 아니라 조서가 된다.
+	const int32 DocumentQuota = FMath::Min(HeldDocuments.Num(), 2);
+	for (int32 Index = 0; Index < DocumentQuota; ++Index)
 	{
-		return NSLOCTEXT(
-			"IGMissingFloor",
-			"ConfrontationReplyPills",
-			"서일영씨는 작년 팔월부터 약을 드세요. 아무도 안 믿은 게"
-			" 아니라, 아저씨가 안 믿게 하신 거고요.");
+		OutLines.Add(HeldDocuments[Index]);
 	}
-	// 못 본 회차에는 댈 것이 없다. 침묵도 대답이다.
-	return FText::GetEmpty();
+	if (HeldHumans.Num() > 0)
+	{
+		OutLines.Add(HeldHumans[0]);
+	}
+	// 셋을 봤으면 셋을 말한다. 남은 자리는 서류 먼저, 그다음 사람으로
+	// 채운다 — 이 순서라야 마지막 줄이 계속 사람 쪽에 남는다.
+	for (int32 Index = DocumentQuota;
+		Index < HeldDocuments.Num()
+			&& OutLines.Num() < IGNightFour::ConfrontationReplyLimit;
+		++Index)
+	{
+		OutLines.Add(HeldDocuments[Index]);
+	}
+	for (int32 Index = 1;
+		Index < HeldHumans.Num()
+			&& OutLines.Num() < IGNightFour::ConfrontationReplyLimit;
+		++Index)
+	{
+		OutLines.Add(HeldHumans[Index]);
+	}
 }
 
 void AIGMissingFloorNightFourDirector::RequestEndingChoiceAutosave()
