@@ -68,6 +68,14 @@ namespace IGPlayerNoise
 	constexpr float CrouchTransitionSpeedScale = 0.5f;
 	constexpr float KnockInputLockSeconds = 0.9f;
 	constexpr float KnockSequenceResetSeconds = 1.8f;
+	// §18.3 헤드밥 진폭. 자세마다 다르다 — 앉은 걸음이 선 걸음만큼 흔들리면
+	// 화면이 자세를 말해 주지 않는다.
+	constexpr float WalkBobAmplitude = 1.1f;
+	constexpr float CrouchBobAmplitude = 0.5f;
+	constexpr float SprintBobAmplitude = 2.4f;
+	// 동작 감소에서 줄이되 0으로 만들지 않는다. 발걸음 리듬은 소음 학습의
+	// 시각 보조라서, 없애면 편의가 아니라 정보를 뺏는 것이 된다.
+	constexpr float ReducedMotionBobScale = 0.25f;
 	// §18.3 패드 시점. 안쪽은 스틱이 가운데로 안 돌아오는 만큼을 버리고,
 	// 바깥쪽은 대각선에서 원을 벗어나는 만큼을 접는다. 지수 2.2는 작은
 	// 기울임을 더 작게 만들어 조준 없이 둘러보는 손에 맞춘다.
@@ -922,15 +930,18 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	FVector TargetOffset = FVector::ZeroVector;
 	if (bWalking)
 	{
-		if (!bReducedMotion)
-		{
-			// One full sine cycle spans two footsteps (left/right).
-			const float StepPhase =
-				(TraveledDistanceAccum / StepDistance) * UE_PI;
-			TargetOffset.Z +=
-				-FMath::Abs(FMath::Sin(StepPhase)) * BobAmplitude * SpeedScale;
-			TargetOffset.Y += FMath::Sin(StepPhase) * 0.8f * SpeedScale;
-		}
+		// 동작 감소에서도 남는다(§18.3). 다른 흔들림은 전부 꺼지지만 이
+		// 하나는 화면이 발걸음을 세는 자리라서 줄이기만 한다.
+		const float BobScale = bReducedMotion
+			? IGPlayerNoise::ReducedMotionBobScale
+			: 1.0f;
+		// One full sine cycle spans two footsteps (left/right).
+		const float StepPhase =
+			(TraveledDistanceAccum / StepDistance) * UE_PI;
+		TargetOffset.Z += -FMath::Abs(FMath::Sin(StepPhase))
+			* GetHeadBobAmplitude() * SpeedScale * BobScale;
+		TargetOffset.Y +=
+			FMath::Sin(StepPhase) * 0.8f * SpeedScale * BobScale;
 	}
 
 	if (!bReducedMotion && !bHoldingBreath)
@@ -2041,6 +2052,18 @@ float AIGPlayerCharacter::GetLookSensitivity() const
 	return IsUsingGamepadLook()
 		? Controls->GetGamepadSensitivity()
 		: Controls->GetMouseSensitivity();
+}
+
+float AIGPlayerCharacter::GetHeadBobAmplitude() const
+{
+	// 자세는 앉기가 먼저다. 앉은 채로 달릴 수는 없다.
+	if (bIsCrouched)
+	{
+		return IGPlayerNoise::CrouchBobAmplitude;
+	}
+	return bSprinting
+		? IGPlayerNoise::SprintBobAmplitude
+		: IGPlayerNoise::WalkBobAmplitude;
 }
 
 float AIGPlayerCharacter::ShapeGamepadLookAxis(const float RawStick)

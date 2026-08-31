@@ -139,6 +139,9 @@ private:
 	bool IsLookInverted() const;
 	float GetVerticalLookScale() const;
 
+	/** §18.3 헤드밥 진폭. 걷기·앉기·달리기가 각각 다르다. */
+	float GetHeadBobAmplitude() const;
+
 	/** §18.3 데드존과 응답 곡선. 원시 스틱 값을 -1~1로 다시 편다. */
 	static float ShapeGamepadLookAxis(float RawStick);
 
@@ -223,13 +226,16 @@ private:
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> FlashlightInputAction;
 
-	/** Vertical bob amplitude at full walk speed, in centimeters. */
-	UPROPERTY(EditDefaultsOnly, Category = "Player|Camera", meta = (AllowPrivateAccess = "true", ClampMin = "0.0", Units = "cm"))
-	float BobAmplitude = 2.1f;
-
-	/** Distance covered by one footstep, in centimeters. */
+	/**
+	 * Distance covered by one footstep, in centimeters.
+	 *
+	 * §18.3이 헤드밥 주기를 0.52초로 적어 두었고, 헤드밥은 발걸음과 같은
+	 * 위상을 쓴다 — 둘이 어긋나면 화면이 세는 걸음과 귀가 세는 걸음이
+	 * 달라진다. 한 주기는 좌우 두 걸음이므로 기준 보행 속도 300cm/s에서
+	 * 0.52 × 300 ÷ 2 = 78cm다.
+	 */
 	UPROPERTY(EditDefaultsOnly, Category = "Player|Camera", meta = (AllowPrivateAccess = "true", ClampMin = "10.0", Units = "cm"))
-	float StepDistance = 74.0f;
+	float StepDistance = 78.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Player|Camera", meta = (AllowPrivateAccess = "true", ClampMin = "0.0", ClampMax = "1.0"))
 	float FootstepVolume = 0.34f;

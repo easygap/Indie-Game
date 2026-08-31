@@ -415,6 +415,125 @@ if ($hudSource -notmatch
 	throw 'Binding rows must be drawn with the look-row offset.'
 }
 
+# --- 헤드밥 (§18.3) ---------------------------------------------------------
+#
+# 문서가 자세별 진폭과 주기를 적어 두었다. 그동안 코드에는 진폭이 하나뿐이었고,
+# 동작 감소에서는 아예 0이 됐다 — 문서가 「0으로 만들지 않는다」고 못 박은
+# 바로 그 자리다.
+
+$bobRow = [regex]::Match(
+	$story,
+	'헤드밥 진폭: 걷기 (?<walk>[0-9.]+)cm\(주기 (?<period>[0-9.]+)s\), 앉기 (?<crouch>[0-9.]+)cm, 달리기 (?<sprint>[0-9.]+)cm')
+$assertionCount++
+if (-not $bobRow.Success) {
+	throw 'The §18.3 head bob row could not be read.'
+}
+$bobValues = @{
+	'WalkBobAmplitude' = $bobRow.Groups['walk'].Value
+	'CrouchBobAmplitude' = $bobRow.Groups['crouch'].Value
+	'SprintBobAmplitude' = $bobRow.Groups['sprint'].Value
+}
+foreach ($name in $bobValues.Keys) {
+	$declared = [regex]::Match(
+		$characterSource,
+		('constexpr float {0} = (?<value>[0-9.]+)f;' -f $name))
+	$assertionCount++
+	if (-not $declared.Success) {
+		throw "The §18.3 head bob constant is missing: $name"
+	}
+	$assertionCount++
+	if ([double]$declared.Groups['value'].Value -ne [double]$bobValues[$name]) {
+		throw (
+			'{0} is {1} but §18.3 says {2}.' -f
+				$name, $declared.Groups['value'].Value, $bobValues[$name])
+	}
+}
+
+# 자세를 실제로 가르는가. 상수만 세 개 두고 하나만 쓰면 표만 맞는다.
+$amplitudeBody = [regex]::Match(
+	$characterSource,
+	'float AIGPlayerCharacter::GetHeadBobAmplitude\(\) const(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $amplitudeBody.Success) {
+	throw 'GetHeadBobAmplitude could not be isolated.'
+}
+foreach ($stance in @('bIsCrouched', 'bSprinting')) {
+	$assertionCount++
+	if (-not $amplitudeBody.Groups['body'].Value.Contains($stance)) {
+		throw "The head bob must read the stance: $stance"
+	}
+}
+foreach ($name in $bobValues.Keys) {
+	$assertionCount++
+	if (-not $amplitudeBody.Groups['body'].Value.Contains(
+		('IGPlayerNoise::{0}' -f $name))) {
+		throw "The head bob amplitude is declared but unused: $name"
+	}
+}
+
+# 주기는 보폭에서 나온다. 헤드밥과 발소리가 같은 위상을 쓰기 때문이다.
+$characterHeader = Read-ProjectText 'Source/IndieGame/Player/IGPlayerCharacter.h'
+$strideMatch = [regex]::Match(
+	$characterHeader, 'float StepDistance = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $strideMatch.Success) {
+	throw 'StepDistance could not be read.'
+}
+$referenceMatch = [regex]::Match(
+	$characterSource, 'constexpr float ReferenceWalkSpeed = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $referenceMatch.Success) {
+	throw 'ReferenceWalkSpeed could not be read.'
+}
+$expectedStride =
+	[double]$bobRow.Groups['period'].Value * [double]$referenceMatch.Groups['value'].Value / 2.0
+$assertionCount++
+if ([Math]::Abs([double]$strideMatch.Groups['value'].Value - $expectedStride) -gt 0.5) {
+	throw (
+		'StepDistance is {0} but §18.3 period {1}s at {2}cm/s wants {3}.' -f
+			$strideMatch.Groups['value'].Value,
+			$bobRow.Groups['period'].Value,
+			$referenceMatch.Groups['value'].Value,
+			$expectedStride)
+}
+
+# 동작 감소가 헤드밥을 0으로 만들면 안 된다. 다른 흔들림과 같은 가드 안에
+# 들어 있으면 그렇게 된다.
+$motionBody = [regex]::Match(
+	$characterSource,
+	'void AIGPlayerCharacter::UpdateCameraMotion\(const float DeltaSeconds\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $motionBody.Success) {
+	throw 'UpdateCameraMotion could not be isolated.'
+}
+$motionText = $motionBody.Groups['body'].Value
+$assertionCount++
+if ($motionText -notmatch
+	'const float BobScale = bReducedMotion\s*\r?\n?\s*\?\s*IGPlayerNoise::ReducedMotionBobScale') {
+	throw 'Reduced motion must scale the head bob, not remove it (§18.3).'
+}
+$assertionCount++
+if ($motionText -notmatch
+	'if \(bWalking\)\s*\r?\n\s*\{\s*\r?\n(?![\s\S]{0,200}?if \(!bReducedMotion\))') {
+	throw 'The head bob must not sit inside a reduced-motion guard (§18.3).'
+}
+$scaleMatch = [regex]::Match(
+	$characterSource, 'constexpr float ReducedMotionBobScale = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $scaleMatch.Success) {
+	throw 'ReducedMotionBobScale is missing.'
+}
+$assertionCount++
+if ([double]$scaleMatch.Groups['value'].Value -ne 0.25) {
+	throw (
+		'ReducedMotionBobScale is {0} but §18.3 says 0.25.' -f
+			$scaleMatch.Groups['value'].Value)
+}
+$assertionCount++
+if ($story -notmatch '\*\*0으로 만들지 않는다\*\*') {
+	throw 'The §18.3 rule that the bob never reaches zero was removed.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
