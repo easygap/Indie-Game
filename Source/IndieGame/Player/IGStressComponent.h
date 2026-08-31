@@ -117,6 +117,8 @@ private:
 	void UpdateHeartbeat(float DeltaSeconds);
 	void PlayHeartbeat(float EffectiveStress);
 	void UpdateTremor(float DeltaSeconds);
+	/** §18.3. 접근성의 멀미 완화 비네트 세기. 없으면 0이다. */
+	float GetComfortVignetteStrength() const;
 	void UpdatePostProcess();
 
 	UPROPERTY(Transient)

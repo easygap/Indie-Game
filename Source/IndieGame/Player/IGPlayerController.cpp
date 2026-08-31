@@ -2565,6 +2565,12 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 			68.0f,
 			100.0f);
 		break;
+	case IGSettingsMenuLayout::ComfortVignette:
+		Settings.ComfortVignetteStrength = FMath::Clamp(
+			Settings.ComfortVignetteStrength + (Direction < 0 ? -0.25f : 0.25f),
+			0.0f,
+			1.0f);
+		break;
 	case IGSettingsMenuLayout::DirectionalFearCues:
 		Settings.bDirectionalFearCues = !Settings.bDirectionalFearCues;
 		break;

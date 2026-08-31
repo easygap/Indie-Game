@@ -4430,6 +4430,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean ? TEXT("카메라 흔들림 감소") : TEXT("REDUCED CAMERA MOTION"),
 		bKorean ? TEXT("손전등 점멸 감소") : TEXT("REDUCED FLASHLIGHT FLICKER"),
 		bKorean ? TEXT("시야각") : TEXT("FIELD OF VIEW"),
+		bKorean ? TEXT("주변부 비네트") : TEXT("EDGE VIGNETTE"),
 		bKorean ? TEXT("공포음 방향 표시") : TEXT("FEAR SOUND DIRECTION"),
 		bKorean ? TEXT("P5 단서 자동 연결") : TEXT("AUTO-CONNECT EVIDENCE"),
 		bKorean ? TEXT("대사 음성 자막") : TEXT("VOICE SUBTITLES"),
@@ -4454,6 +4455,9 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		FString::Printf(
 			TEXT("%d°"),
 			FMath::RoundToInt(Settings.FieldOfViewDegrees)),
+		FString::Printf(
+			TEXT("%d%%"),
+			FMath::RoundToInt(Settings.ComfortVignetteStrength * 100.0f)),
 		OnOff(Settings.bDirectionalFearCues),
 		OnOff(Settings.bAutoConnectEvidence),
 		OnOff(Settings.bSubtitlesEnabled),
@@ -4498,6 +4502,9 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean
 			? TEXT("1인칭 시야각을 68도에서 100도 사이로 조절합니다. 좁으면 압박이 커지고 넓히면 멀미가 줄어듭니다.")
 			: TEXT("SETS THE FIRST-PERSON FIELD OF VIEW BETWEEN 68 AND 100 DEGREES."),
+		bKorean
+			? TEXT("화면 가장자리를 어둡게 눌러 시야 주변의 흐름을 줄입니다. 멀미가 있으면 시야각과 함께 씁니다.")
+			: TEXT("DARKENS THE SCREEN EDGES TO CALM PERIPHERAL FLOW. USE IT ALONGSIDE FIELD OF VIEW."),
 		bKorean
 			? TEXT("공포음이 들린 방향을 화면 가장자리의 절제된 표시로 함께 전달합니다.")
 			: TEXT("ADDS A RESTRAINED SCREEN-EDGE CUE FOR THE DIRECTION OF IMPORTANT HORROR SOUNDS."),

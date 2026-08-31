@@ -13,7 +13,7 @@ namespace IGSettingsMenuLayout
 {
 	/** 다섯 설정 + 접근성 + 소리·밝기 + 조작 + 적용/돌아가기 두 줄. */
 	constexpr int32 DisplayRowCount = 10;
-	constexpr int32 AccessibilityRowCount = 19;
+	constexpr int32 AccessibilityRowCount = 20;
 
 	/**
 	 * 접근성 행 번호. 화면과 컨트롤러와 묶음 범위 셋이 같은 숫자를 봐야 한다.
@@ -25,6 +25,7 @@ namespace IGSettingsMenuLayout
 		ReducedCameraMotion,
 		ReducedFlicker,
 		FieldOfView,
+		ComfortVignette,
 		DirectionalFearCues,
 		AutoConnectEvidence,
 		Subtitles,
@@ -131,7 +132,7 @@ namespace IGSettingsMenuLayout
 		switch (Category)
 		{
 		case 0: return {HintMode, 1};              // Gameplay.
-		case 1: return {ReducedCameraMotion, 3};   // Motion.
+		case 1: return {ReducedCameraMotion, 4};   // Motion.
 		case 2: return {DirectionalFearCues, 2};   // Guidance.
 		case 3: return {Subtitles, 6};             // Captions.
 		case 4: return {ToggleCrouch, 5};          // Input.

@@ -1,4 +1,5 @@
-﻿#include "Player/IGStressComponent.h"
+﻿#include "Accessibility/IGAccessibilitySubsystem.h"
+#include "Player/IGStressComponent.h"
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -19,6 +20,9 @@ namespace IGStress
 	 * before it has reached anyone — the warning has to arrive before the cost.
 	 */
 	constexpr float AudibleHeartbeatCarry = 420.0f;
+	// §18.3 멀미 완화 비네트의 최대 세기. 공포의 바닥값 0.28보다 살짝 위에
+	// 두어 「끝까지 올렸는데 아무 차이가 없다」가 되지 않게 한다.
+	constexpr float ComfortVignetteCeiling = 0.34f;
 }
 
 UIGStressComponent::UIGStressComponent()
@@ -319,6 +323,17 @@ void UIGStressComponent::UpdateTremor(const float DeltaSeconds)
 	Tremor.Roll = FMath::Sin(TremorTime * 11.9f + 2.4f) * Amount * 0.6f;
 }
 
+float UIGStressComponent::GetComfortVignetteStrength() const
+{
+	const AActor* Owner = GetOwner();
+	const UWorld* World = Owner ? Owner->GetWorld() : nullptr;
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	return Accessibility ? Accessibility->GetComfortVignetteStrength() : 0.0f;
+}
+
 void UIGStressComponent::UpdatePostProcess()
 {
 	if (!FearPostProcess)
@@ -330,8 +345,14 @@ void UIGStressComponent::UpdatePostProcess()
 	// vignette on a calm walk just looks like a broken camera.
 	const float Ramp = FMath::GetMappedRangeValueClamped(
 		FVector2D(0.25f, 1.0f), FVector2D(0.0f, 1.0f), Stress);
-	FearPostProcess->BlendWeight = Ramp;
-	if (Ramp <= 0.0f)
+	// §18.3 멀미 완화 비네트는 공포와 무관하게 늘 서 있다. 같은 후처리를
+	// 쓰되 둘이 만나면 큰 쪽을 남긴다 — 편하라고 넣은 것이 공포의 터널
+	// 시야를 지워서는 안 된다. 설정이 0이면 아래는 예전과 한 글자도 다르게
+	// 돌지 않는다.
+	const float Comfort = GetComfortVignetteStrength();
+	const float Weight = FMath::Max(Ramp, Comfort);
+	FearPostProcess->BlendWeight = Weight;
+	if (Weight <= 0.0f)
 	{
 		return;
 	}
@@ -339,7 +360,9 @@ void UIGStressComponent::UpdatePostProcess()
 	FPostProcessSettings& Settings = FearPostProcess->Settings;
 
 	Settings.bOverride_VignetteIntensity = true;
-	Settings.VignetteIntensity = FMath::Lerp(0.28f, 0.72f, Ramp);
+	Settings.VignetteIntensity = FMath::Max(
+		FMath::Lerp(0.28f, 0.72f, Ramp),
+		Comfort * IGStress::ComfortVignetteCeiling);
 
 	// Colour drains toward grey as fear rises — tunnel vision is partly a
 	// loss of colour discrimination, and it reads instantly on screen.

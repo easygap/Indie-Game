@@ -38,6 +38,18 @@ struct INDIEGAME_API FIGAccessibilitySettings
 		meta = (ClampMin = "68.0", ClampMax = "100.0"))
 	float FieldOfViewDegrees = 78.0f;
 
+	/**
+	 * §18.3 멀미 완화 비네트. 시야각과 둘 중 하나를 고르는 것이 아니라
+	 * 함께 쓴다 — 화각을 넓히면 주변부가 빨라져서 오히려 힘든 손도 있다.
+	 * 기본은 0이다. 의도한 화면은 비네트가 없는 쪽이다.
+	 */
+	UPROPERTY(
+		EditAnywhere,
+		BlueprintReadWrite,
+		Category = "Accessibility",
+		meta = (ClampMin = "0.00", ClampMax = "1.00"))
+	float ComfortVignetteStrength = 0.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bDirectionalFearCues = false;
 
@@ -207,6 +219,12 @@ public:
 	float GetCaptionDurationScale() const
 	{
 		return EffectiveSettings.CaptionDurationScale;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Motion")
+	float GetComfortVignetteStrength() const
+	{
+		return EffectiveSettings.ComfortVignetteStrength;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Motion")

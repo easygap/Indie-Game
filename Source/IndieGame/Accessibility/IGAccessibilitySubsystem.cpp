@@ -21,6 +21,8 @@ namespace IGAccessibility
 	// 손전등 원뿔이 화면 밖으로 밀려 무엇을 비추는지 안 보인다.
 	constexpr float MinimumFieldOfView = 68.0f;
 	constexpr float MaximumFieldOfView = 100.0f;
+	constexpr float MinimumComfortVignette = 0.0f;
+	constexpr float MaximumComfortVignette = 1.0f;
 
 	bool ParseHintMode(const FString& Value, EIGHintMode& OutMode)
 	{
@@ -131,6 +133,12 @@ FIGAccessibilitySettings UIGAccessibilitySubsystem::Sanitize(
 			: 1.0f,
 		IGAccessibility::MinimumCaptionDuration,
 		IGAccessibility::MaximumCaptionDuration);
+	Result.ComfortVignetteStrength = FMath::Clamp(
+		FMath::IsFinite(Result.ComfortVignetteStrength)
+			? Result.ComfortVignetteStrength
+			: 0.0f,
+		IGAccessibility::MinimumComfortVignette,
+		IGAccessibility::MaximumComfortVignette);
 	Result.FieldOfViewDegrees = FMath::Clamp(
 		FMath::IsFinite(Result.FieldOfViewDegrees)
 			? Result.FieldOfViewDegrees
@@ -250,6 +258,11 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		GGameUserSettingsIni);
 	GConfig->GetFloat(
 		IGAccessibility::ConfigSection,
+		TEXT("ComfortVignetteStrength"),
+		PersistedSettings.ComfortVignetteStrength,
+		GGameUserSettingsIni);
+	GConfig->GetFloat(
+		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
 		PersistedSettings.HoldDurationScale,
 		GGameUserSettingsIni);
@@ -342,6 +355,11 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		IGAccessibility::ConfigSection,
 		TEXT("FieldOfViewDegrees"),
 		PersistedSettings.FieldOfViewDegrees,
+		GGameUserSettingsIni);
+	GConfig->SetFloat(
+		IGAccessibility::ConfigSection,
+		TEXT("ComfortVignetteStrength"),
+		PersistedSettings.ComfortVignetteStrength,
 		GGameUserSettingsIni);
 	GConfig->SetFloat(
 		IGAccessibility::ConfigSection,

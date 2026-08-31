@@ -447,7 +447,7 @@ Assert-ContainsAll $hudSource @(
 	'DrawSettingsFooterText('
 ) '긴 한글·200% 미리 보기 내부 경계 계약'
 Assert-ContainsAll $settingsLayout @(
-	'AccessibilityRowCount = 19',
+	'AccessibilityRowCount = 20',
 	'AccessibilityCategoryCount = 6',
 	'case 3: return {Subtitles, 6}',
 	'case 4: return {ToggleCrouch, 5}',
@@ -461,6 +461,7 @@ Assert-ContainsAll $settingsLayout @(
 	'enum EAccessibilityRow : int32',
 	'CloseMenu + 1 == AccessibilityRowCount',
 	'FieldOfView,',
+	'ComfortVignette,',
 	'CaptionDuration,'
 ) '접근성 행 이름과 행 수의 일치'
 
@@ -480,7 +481,7 @@ foreach ($entry in [regex]::Matches(
 	$rowNames.Groups['body'].Value, '(?m)^\s*(?<name>[A-Za-z]+)')) {
 	$orderedNames += $entry.Groups['name'].Value
 }
-Assert-True ($orderedNames.Count -eq 19) '접근성 행 이름 열아홉 개'
+Assert-True ($orderedNames.Count -eq 20) '접근성 행 이름 스무 개'
 $expectedFirst = 0
 foreach ($range in $categoryRanges) {
 	$firstName = $range.Groups['first'].Value
@@ -489,7 +490,69 @@ foreach ($range in $categoryRanges) {
 		'접근성 묶음이 이어 붙는다: {0}' -f $firstName)
 	$expectedFirst += [int]$range.Groups['count'].Value
 }
-Assert-True ($expectedFirst -eq 19) '접근성 묶음이 행 전부를 덮는다'
+Assert-True ($expectedFirst -eq 20) '접근성 묶음이 행 전부를 덮는다'
+# --- 멀미 완화 비네트 (§18.3) ------------------------------------------------
+#
+# 공포의 터널 시야와 같은 후처리를 쓴다. 둘이 만나면 큰 쪽이 남아야 한다 —
+# 편하라고 넣은 것이 공포가 전하는 정보를 지우면 안 되고, 반대로 공포가
+# 낮다고 편의 비네트가 사라져도 안 된다.
+
+$stressSource = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGStressComponent.cpp')
+$postBody = [regex]::Match(
+	$stressSource,
+	'void UIGStressComponent::UpdatePostProcess\(\)(?<body>[\s\S]*?)\r?\n\}')
+Assert-True $postBody.Success 'UpdatePostProcess를 떼어낼 수 있다'
+$postText = $postBody.Groups['body'].Value
+
+Assert-True (
+	$postText -match
+		'FearPostProcess->BlendWeight = Weight;') `
+	'편의 비네트가 서 있으면 후처리도 선다'
+Assert-True (
+	$postText -match
+		'const float Weight = FMath::Max\(Ramp, Comfort\);') `
+	'공포와 편의 중 큰 쪽이 후처리 무게를 정한다'
+Assert-True (
+	$postText -match
+		'Settings.VignetteIntensity = FMath::Max\(\s*\r?\n\s*FMath::Lerp\(0\.28f, 0\.72f, Ramp\),') `
+	'비네트 세기도 큰 쪽이 남는다'
+
+# 설정이 0이면 예전과 똑같이 돌아야 한다. Ramp만으로 조기 반환하던 자리가
+# Weight로 바뀌었으므로 그 관계가 유지되는지 본다.
+Assert-True ($postText -match 'if \(Weight <= 0\.0f\)') `
+	'둘 다 0이면 후처리를 건드리지 않는다'
+
+Assert-ContainsAll $header @(
+	'float ComfortVignetteStrength = 0.0f;',
+	'GetComfortVignetteStrength() const'
+) '멀미 완화 비네트 설정'
+
+# 기본은 꺼짐이다. 의도한 화면은 비네트가 없는 쪽이다.
+Assert-True ($header -match 'float ComfortVignetteStrength = 0\.0f;') `
+	'멀미 완화 비네트의 기본은 꺼짐'
+
+foreach ($half in @(
+	@{ Name = 'LoadPersistedSettings'; Call = 'GConfig->GetFloat(' },
+	@{ Name = 'SavePersistedSettings'; Call = 'GConfig->SetFloat(' })) {
+	$halfBody = [regex]::Match(
+		$source,
+		('void UIGAccessibilitySubsystem::{0}\(\)( const)?' -f $half.Name) +
+			'(?<body>[\s\S]*?)\r?\n\}')
+	Assert-True $halfBody.Success ('{0}을 떼어낼 수 있다' -f $half.Name)
+	Assert-True (
+		$halfBody.Groups['body'].Value -match
+			([regex]::Escape($half.Call) + '\s*\r?\n\s*IGAccessibility::ConfigSection,' +
+				'\s*\r?\n\s*TEXT\("ComfortVignetteStrength"\)')) (
+		'{0}이 ComfortVignetteStrength를 다룬다' -f $half.Name)
+}
+
+# §18.3이 비네트를 접근성에 두라고 말한 자리가 남아 있는가.
+$storyText = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Docs/STORY_BIBLE_MISSING_FLOOR.md')
+Assert-True ($storyText -match '주변부 비네트 강화') `
+	'§18.3의 비네트 약속이 남아 있다'
+
 # --- 시야각과 자막 표시 시간 -------------------------------------------------
 #
 # 설정만 있고 아무 데도 안 걸리는 항목은 화면에 숫자만 바뀌는 줄이 된다.
