@@ -40,12 +40,10 @@ namespace IGNightThree
 	const FVector ValveLocation(296.0f, 610.0f, 1266.0f);
 	const FVector ImpactMarkLocation(-10.0f, 585.0f, 1264.0f);
 	/**
-	 * T5 「새 벽 미장 시기」. 공동이 아닌 첫 베이(Y 560)에 둔다 — 벽 전체가
-	 * 한 번에 발린 새 벽이므로 어느 칸에서 읽어도 같은 사실이고, 공동 칸에만
-	 * 두면 「여기가 그 벽이다」를 공짜로 주어 P3가 무너진다. 귀·주먹 판정은
-	 * Z 1277..1303에 있으므로 바닥 쪽 이음선 높이로 내린다.
+	 * T5 「새 벽 미장 시기」의 높이. 귀·주먹 판정이 Z 1277..1303을 쓰므로
+	 * 바닥 쪽 이음선으로 내린다. 칸 좌표는 WallBayYs를 그대로 쓴다.
 	 */
-	const FVector PlasterDatingLocation(247.0f, 560.0f, 1220.0f);
+	constexpr float PlasterDatingZ = 1220.0f;
 	/**
 	 * T8 「탱크 물소리 청음」. 탱크 몸통은 Y -178..128이고 점검 통로는 그
 	 * 북쪽이다. 통로 쪽 면에서 7 cm 떨어뜨려 판정만 세운다 — 그림은 씬의
@@ -543,28 +541,40 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 
 	// T5의 두 번째 출처. 영수증이 「언제 실어 왔는가」라면 이쪽은 「언제
 	// 발랐는가」다. 둘이 같은 주를 가리켜야 은폐가 확정된다(§12).
-	SpawnParameters.Name = TEXT("MissingFloorPlasterDating");
-	PlasterDating = World->SpawnActor<AIGMissingFloorEvidence>(
-		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator::ZeroRotator, IGNightThree::PlasterDatingLocation),
-		SpawnParameters);
-	if (!PlasterDating)
+	PlasterDatings.SetNum(3);
+	for (int32 BayIndex = 0; BayIndex < 3; ++BayIndex)
 	{
-		return false;
+		SpawnParameters.Name = *FString::Printf(
+			TEXT("MissingFloorPlasterDating%d"), BayIndex);
+		AIGMissingFloorEvidence* Dating =
+			World->SpawnActor<AIGMissingFloorEvidence>(
+				AIGMissingFloorEvidence::StaticClass(),
+				FTransform(
+					FRotator::ZeroRotator,
+					FVector(
+						247.0f,
+						IGNightThree::WallBayYs[BayIndex],
+						IGNightThree::PlasterDatingZ)),
+				SpawnParameters);
+		if (!Dating)
+		{
+			return false;
+		}
+		Dating->Configure(
+			CubeMesh,
+			nullptr,
+			FVector(3.0f, 20.0f, 26.0f),
+			NSLOCTEXT("IGMissingFloor", "PlasterDatingPrompt", "새 벽 — 이음선"),
+			FText::GetEmpty(),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			1.0f,
+			IGNightThree::ListenLoudness,
+			/*bPresentationVisible=*/false);
+		Dating->OnExamined.AddUObject(
+			this, &AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined);
+		PlasterDatings[BayIndex] = Dating;
 	}
-	PlasterDating->Configure(
-		CubeMesh,
-		nullptr,
-		FVector(3.0f, 20.0f, 26.0f),
-		NSLOCTEXT("IGMissingFloor", "PlasterDatingPrompt", "새 벽 — 이음선"),
-		FText::GetEmpty(),
-		EIGMissingFloorTruth::None,
-		EIGMissingFloorSource::None,
-		1.0f,
-		IGNightThree::ListenLoudness,
-		/*bPresentationVisible=*/false);
-	PlasterDating->OnExamined.AddUObject(
-		this, &AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined);
 
 	// §13 12행의 회수. 밤2에 모니터로 본 화각에 직접 서는 순간이다.
 	SpawnParameters.Name = TEXT("MissingFloorAnnexRecognitionZone");
@@ -1740,7 +1750,7 @@ bool AIGMissingFloorNightThreeDirector::ValidateFixtures() const
 		&& WallKnocks.Num() == 3
 		&& ImpactMark != nullptr
 		&& AnswerTarget != nullptr
-		&& PlasterDating != nullptr
+		&& PlasterDatings.Num() == 3
 		&& TankAudition != nullptr
 		&& LabelsNote != nullptr
 		&& ForumNote != nullptr

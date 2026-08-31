@@ -240,9 +240,16 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> AnswerTarget;
 
-	/** T5 두 번째 출처. 새 벽이 언제 발라졌는지는 벽 자신이 말한다. */
+	/**
+	 * T5 두 번째 출처. 새 벽이 언제 발라졌는지는 벽 자신이 말한다.
+	 *
+	 * 세 칸 전부에 둔다. 벽 전체가 한 번에 발린 새 벽이라 어느 칸에서 읽어도
+	 * 같은 사실이고, 공동 칸에만 두면 「여기가 그 벽이다」를 공짜로 주어
+	 * P3가 무너진다. 반대로 한 칸에만 두면 기록 화면이 말하는 자리와
+	 * 실제로 읽는 자리가 어긋난다.
+	 */
 	UPROPERTY(Transient)
-	TObjectPtr<AIGMissingFloorEvidence> PlasterDating;
+	TArray<TObjectPtr<AIGMissingFloorEvidence>> PlasterDatings;
 
 	/** T8 두 번째 출처. 갈증으로 죽은 사람의 벽 하나 옆에 물 2톤이 있었다. */
 	UPROPERTY(Transient)
