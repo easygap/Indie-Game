@@ -418,7 +418,9 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
-		1.0f,
+		// §18.4 망치 스윙 차징 0.8초. 뒤의 1.0은 §5.1 소음 크기다 — 같은
+		// 자리에 붙어 있어서 한 번 헷갈리면 조용히 어긋난다.
+		0.8f,
 		1.0f);
 	WallBreakTarget->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightFourDirector::HandleWallStrike);

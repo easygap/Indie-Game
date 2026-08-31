@@ -534,6 +534,187 @@ if ($story -notmatch '\*\*0으로 만들지 않는다\*\*') {
 	throw 'The §18.3 rule that the bob never reaches zero was removed.'
 }
 
+# --- §18.4 상호작용 손맛 -----------------------------------------------------
+#
+# 조준 반경부터 입력 버퍼까지 열한 줄이 숫자로 적혀 있다. 대부분은 코드와
+# 맞았지만 망치 차징이 0.8이 아니라 1.0이었고, 서랍은 만들어진 적이 없었다.
+
+$interactionHeader = Read-ProjectText 'Source/IndieGame/Player/IGInteractionComponent.h'
+$hudSource = Read-ProjectText 'Source/IndieGame/Player/IGHorrorHUD.cpp'
+
+# 조준: 스윕 반경과 최대 거리.
+$reachRow = [regex]::Match(
+	$story, '반경 (?<radius>[0-9]+)cm 스윕 보정[\s\S]{0,80}?최대 거리 (?<distance>[0-9]+)cm')
+$assertionCount++
+if (-not $reachRow.Success) {
+	throw 'The §18.4 reach row could not be read.'
+}
+foreach ($field in @(
+	@{ Name = 'FocusSweepRadius'; Value = $reachRow.Groups['radius'].Value },
+	@{ Name = 'TraceDistance'; Value = $reachRow.Groups['distance'].Value })) {
+	$declared = [regex]::Match(
+		$interactionHeader, ('float {0} = (?<value>[0-9.]+)f;' -f $field.Name))
+	$assertionCount++
+	if (-not $declared.Success) {
+		throw ('The §18.4 reach field is missing: {0}' -f $field.Name)
+	}
+	$assertionCount++
+	if ([double]$declared.Groups['value'].Value -ne [double]$field.Value) {
+		throw (
+			'{0} is {1} but §18.4 says {2}.' -f
+				$field.Name, $declared.Groups['value'].Value, $field.Value)
+	}
+}
+
+# 브래킷: 지연과 형성 시간. 즉시 팝인은 금지다.
+$bracketRow = [regex]::Match(
+	$story, '대상 진입 후 (?<delay>[0-9]+)ms 지연 뒤 (?<reveal>[0-9]+)ms에 걸쳐 맺힌다')
+$assertionCount++
+if (-not $bracketRow.Success) {
+	throw 'The §18.4 bracket row could not be read.'
+}
+foreach ($field in @(
+	@{ Name = 'FocusAcquireDelaySeconds'; Ms = $bracketRow.Groups['delay'].Value },
+	@{ Name = 'FocusAcquireRevealSeconds'; Ms = $bracketRow.Groups['reveal'].Value })) {
+	$declared = [regex]::Match(
+		$hudSource, ('constexpr float {0} = (?<value>[0-9.]+)f;' -f $field.Name))
+	$assertionCount++
+	if (-not $declared.Success) {
+		throw ('The §18.4 bracket field is missing: {0}' -f $field.Name)
+	}
+	$expectedSeconds = [double]$field.Ms / 1000.0
+	$assertionCount++
+	if ([Math]::Abs([double]$declared.Groups['value'].Value - $expectedSeconds) -gt 0.0005) {
+		throw (
+			'{0} is {1}s but §18.4 says {2}ms.' -f
+				$field.Name, $declared.Groups['value'].Value, $field.Ms)
+	}
+}
+$assertionCount++
+if ($story -notmatch '즉시 팝인 금지') {
+	throw 'The §18.4 no-popin rule was removed.'
+}
+
+# 홀드 진행은 브래킷이 닫히는 것이다. 링·숫자·퍼센트는 금지다.
+$assertionCount++
+if ($hudSource -notmatch
+	'DrawFocusBracket\(\s*\r?\n?\s*IGHorrorHUD::RedAccent,\s*\r?\n?\s*HoldProgress\)') {
+	throw 'Hold progress must be drawn as the bracket closing (§18.4).'
+}
+foreach ($banned in @('DrawHoldRing', 'HoldPercentText', 'DrawHoldGauge')) {
+	$assertionCount++
+	if ($hudSource.Contains($banned)) {
+		throw "Ring gauges, numbers and percentages are banned (§18.4): $banned"
+	}
+}
+$assertionCount++
+if ($story -notmatch '숫자·퍼센트·링 게이지 전부 금지') {
+	throw 'The §18.4 gauge ban was removed.'
+}
+
+# 홀드 시간. 문서가 부르는 이름과 코드의 자리를 짝지어 둔다.
+$holdRow = [regex]::Match(
+	$story,
+	'홀드 시간: 문 조용히 열기 (?<door>[0-9.]+)s[\s\S]{0,60}?망치 스윙\s*\r?\n?\s*차징 (?<hammer>[0-9.]+)s, 엔딩 A의 조율 렌치 되돌리기 (?<wrench>[0-9.]+)s')
+$assertionCount++
+if (-not $holdRow.Success) {
+	throw 'The §18.4 hold-time row could not be read.'
+}
+$doorHold = [regex]::Match(
+	(Read-ProjectText 'Source/IndieGame/Interaction/IGSwingDoor.h'),
+	'float QuietOpenHoldSeconds = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $doorHold.Success) {
+	throw 'QuietOpenHoldSeconds could not be read.'
+}
+$assertionCount++
+if ([double]$doorHold.Groups['value'].Value -ne [double]$holdRow.Groups['door'].Value) {
+	throw (
+		'QuietOpenHoldSeconds is {0} but §18.4 says {1}.' -f
+			$doorHold.Groups['value'].Value, $holdRow.Groups['door'].Value)
+}
+
+$nightFour = Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
+foreach ($target in @(
+	@{ Prompt = 'WallBreakPrompt'; Value = $holdRow.Groups['hammer'].Value; Name = '망치 스윙 차징' },
+	@{ Prompt = 'EndingAPrompt'; Value = $holdRow.Groups['wrench'].Value; Name = '조율 렌치 되돌리기' })) {
+	# HoldSeconds는 NoiseLoudness 바로 앞에 온다. 두 숫자가 붙어 있어서
+	# 자리를 세지 않고 읽으면 소음 크기를 홀드 시간으로 착각한다.
+	$configured = [regex]::Match(
+		$nightFour,
+		[regex]::Escape($target.Prompt) +
+			'[\s\S]{0,400}?EIGMissingFloorSource::None,\s*\r?\n(?:\s*//[^\r\n]*\r?\n)*\s*(?<hold>[0-9.]+)f,\s*\r?\n\s*(?<noise>[0-9.]+)f\);')
+	$assertionCount++
+	if (-not $configured.Success) {
+		throw ('The hold time could not be read: {0}' -f $target.Prompt)
+	}
+	$assertionCount++
+	if ([double]$configured.Groups['hold'].Value -ne [double]$target.Value) {
+		throw (
+			'{0} holds {1}s but §18.4 says {2}s.' -f
+				$target.Name, $configured.Groups['hold'].Value, $target.Value)
+	}
+}
+
+# 프로타주는 홀드 내내 소리가 난다. 들리지 않는 비용은 고를 수 없는 비용이다.
+$assertionCount++
+if (-not (Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorEvidence.h').Contains(
+	'void SetSustainedRubCue(bool bEnabled);')) {
+	throw 'Frottage must sound for the whole hold (§18.4).'
+}
+
+# 서랍은 만들어진 적이 없다. 표에 되살아나면 다음 사람이 찾다가 시간을 버린다.
+$assertionCount++
+if ($story -match '홀드 시간:[^\r\n]*서랍') {
+	throw 'The §18.4 hold list names a drawer that no interaction implements.'
+}
+
+# 되감기와 입력 버퍼.
+$rewindRow = [regex]::Match($story, '진행도는 (?<scale>[0-9.]+)배 속도로 되감긴다')
+$bufferRow = [regex]::Match($story, '입력 버퍼 (?<ms>[0-9]+)ms')
+$assertionCount++
+if (-not $rewindRow.Success -or -not $bufferRow.Success) {
+	throw 'The §18.4 rewind or buffer row could not be read.'
+}
+$rewindDeclared = [regex]::Match(
+	$interactionHeader, 'float HoldRewindSpeedScale = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $rewindDeclared.Success) {
+	throw 'HoldRewindSpeedScale could not be read.'
+}
+$assertionCount++
+if ([double]$rewindDeclared.Groups['value'].Value -ne [double]$rewindRow.Groups['scale'].Value) {
+	throw (
+		'HoldRewindSpeedScale is {0} but §18.4 says {1}.' -f
+			$rewindDeclared.Groups['value'].Value, $rewindRow.Groups['scale'].Value)
+}
+$bufferDeclared = [regex]::Match(
+	$interactionHeader, 'float InputBufferSeconds = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $bufferDeclared.Success) {
+	throw 'InputBufferSeconds could not be read.'
+}
+$bufferExpected = [double]$bufferRow.Groups['ms'].Value / 1000.0
+$bufferActual = [double]$bufferDeclared.Groups['value'].Value
+$assertionCount++
+if ([Math]::Abs($bufferActual - $bufferExpected) -gt 0.0005) {
+	throw (
+		'InputBufferSeconds is {0}s but §18.4 says {1}ms.' -f
+			$bufferDeclared.Groups['value'].Value, $bufferRow.Groups['ms'].Value)
+}
+
+# 소음은 접촉 프레임에 보고한다. 문이 걸쇠를 넘는 순간이지 문이 다 열린
+# 뒤가 아니다.
+$assertionCount++
+if (-not (Read-ProjectText 'Source/IndieGame/Interaction/IGSwingDoor.cpp').Contains(
+	'void AIGSwingDoor::ReportSwingNoise(const float Loudness) const')) {
+	throw 'The door must report its noise from a contact-frame helper (§18.4).'
+}
+$assertionCount++
+if ($story -notmatch '\*\*물리 접촉 프레임에\*\*') {
+	throw 'The §18.4 contact-frame noise rule was removed.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
