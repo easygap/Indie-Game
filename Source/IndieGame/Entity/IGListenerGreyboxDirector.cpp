@@ -704,6 +704,98 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 		CigarettePack->OnExamined.AddUObject(
 			this, &AIGListenerGreyboxDirector::HandleCigarettePackExamined);
 	}
+
+	// 편의점 계산대 상판. 몸통(Z 6..96) 위에 강판 상판이 Z 96..99로 얹혀
+	// 있다. 금전등록기(X 2596..2644)와 서쪽 소품(X 2494..2506) 사이의 빈
+	// 자리에 클립보드를 눕힌다.
+	Parameters.Name = TEXT("MissingFloorWitnessStoreRoster");
+	StoreRoster = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator(0.0f, -9.0f, 0.0f), FVector(2558.0f, -246.0f, 99.6f)),
+		Parameters);
+	if (StoreRoster)
+	{
+		StoreRoster->Configure(
+			CubeMesh,
+			PaperMaterial,
+			FVector(21.0f, 30.0f, 1.2f),
+			NSLOCTEXT("IGMissingFloor", "WitnessRosterPrompt", "야간 근무표"),
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"WitnessRosterThought",
+				"한 칸만 계속 같은 이름이다. 00시부터 06시까지, 매일."),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			0.9f,
+			0.04f);
+		StoreRoster->OnExamined.AddUObject(
+			this, &AIGListenerGreyboxDirector::HandleStoreRosterExamined);
+	}
+
+	// 401호 문 너머. 부피만 세우고 그림은 두지 않는다 — 여기 있는 것은
+	// 물건이 아니라 소리다. 문 판정(Y -238.5..-235.5)보다 복도 쪽에 둔다.
+	Parameters.Name = TEXT("MissingFloorWitnessUnit401Radio");
+	Unit401Radio = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, FVector(-150.0f, -246.0f, 1010.0f)),
+		Parameters);
+	if (Unit401Radio)
+	{
+		Unit401Radio->Configure(
+			CubeMesh,
+			nullptr,
+			FVector(30.0f, 12.0f, 40.0f),
+			NSLOCTEXT(
+				"IGMissingFloor", "WitnessRadioPrompt", "401호 문 — 귀를 기울인다"),
+			FText::GetEmpty(),
+			EIGMissingFloorTruth::None,
+			EIGMissingFloorSource::None,
+			1.0f,
+			0.03f,
+			/*bPresentationVisible=*/false);
+		Unit401Radio->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Listen")));
+		Unit401Radio->OnExamined.AddUObject(
+			this, &AIGListenerGreyboxDirector::HandleUnit401RadioExamined);
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleStoreRosterExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->RecordWitness(EIGMissingFloorWitness::StoreNightRoster);
+	}
+}
+
+void AIGListenerGreyboxDirector::HandleUnit401RadioExamined(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return;
+	}
+	Narrative->RecordWitness(EIGMissingFloorWitness::Unit401DoorRadio);
+
+	// 문 너머의 소리는 이미 §10.3에 있다. 말이 되지 않는 대역이라 무엇을
+	// 트는지는 끝까지 알 수 없고, 그것이 이 큐의 요점이다.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateMuffledPrayerRadio(this),
+		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
+		0.46f,
+		1.0f,
+		90.0f,
+		420.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"WitnessRadioThought",
+			"라디오를 켜 두셨네. 사람 소리가 나야 잠이 온다고 하시더니."),
+		4.2f);
 }
 
 void AIGListenerGreyboxDirector::HandleWaterBowlExamined(
@@ -4291,6 +4383,8 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			EIGMissingFloorWitness::BoothWallCalendar,
 			EIGMissingFloorWitness::RecorderEmptyBay,
 			EIGMissingFloorWitness::AnnexWorkGlove,
+			EIGMissingFloorWitness::StoreNightRoster,
+			EIGMissingFloorWitness::Unit401DoorRadio,
 		};
 		for (const EIGMissingFloorWitness Witness : Witnesses)
 		{

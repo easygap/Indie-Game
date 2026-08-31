@@ -328,13 +328,15 @@ Assert-ContainsAll $narrativeTypes @(
 	'BoothWallCalendar = 5',
 	'RecorderEmptyBay = 6',
 	'AnnexWorkGlove = 7',
+	'StoreNightRoster = 8',
+	'Unit401DoorRadio = 9',
 	'TArray<FName> Witnesses;'
 ) '선택적 목격 정의'
 
 # 정규화 상한이 열거형의 마지막을 따라가야 한다. 뒤처지면 새로 넣은 목격이
 # 복원에서 조용히 버려진다 — 저장은 되는데 다음 실행에 사라지는 모양이다.
 Assert-ContainsAll $narrativeSource @(
-	'Raw <= static_cast<uint8>(EIGMissingFloorWitness::AnnexWorkGlove);'
+	'Raw <= static_cast<uint8>(EIGMissingFloorWitness::Unit401DoorRadio);'
 ) '목격 정규화 상한'
 
 Assert-ContainsAll $narrativeSource @(
@@ -344,7 +346,9 @@ Assert-ContainsAll $narrativeSource @(
 	'Seen.RooftopCigarettePack',
 	'Seen.BoothWallCalendar',
 	'Seen.RecorderEmptyBay',
-	'Seen.AnnexWorkGlove'
+	'Seen.AnnexWorkGlove',
+	'Seen.StoreNightRoster',
+	'Seen.Unit401DoorRadio'
 ) '선택적 목격 직렬화'
 
 # 밤2 셋(문틈·달력·녹화기), 밤3 둘(장갑·담뱃갑), 낮 둘(물그릇·약봉투).
@@ -363,8 +367,31 @@ Assert-ContainsAll $nightFourSource @(
 	'EIGMissingFloorWitness::RecorderEmptyBay'
 ) '새 목격의 대치 회수'
 Assert-ContainsAll $epilogueSource @(
-	'HasWitness(EIGMissingFloorWitness::RecorderEmptyBay)'
+	'HasWitness(EIGMissingFloorWitness::RecorderEmptyBay)',
+	'HasWitness(EIGMissingFloorWitness::StoreNightRoster)',
+	'HasWitness(EIGMissingFloorWitness::Unit401DoorRadio)'
 ) '새 목격의 보도 회수'
+
+# 낮 목격 둘. 근무표는 계산대 상판, 라디오는 401호 문 앞의 소리 판정이다.
+Assert-ContainsAll $greyboxSource @(
+	'RecordWitness(EIGMissingFloorWitness::StoreNightRoster)',
+	'RecordWitness(EIGMissingFloorWitness::Unit401DoorRadio)',
+	'CreateMuffledPrayerRadio(this)'
+) '낮 목격'
+
+# §13의 나린 제보는 목격과 무관하게 남아야 한다. 근무표를 본 회차는 그
+# 근거가 선명해질 뿐, 못 본 회차에도 제보 자체는 보도에 있다.
+$newsBody = Get-MethodBody $epilogueSource `
+	'TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const' `
+	'Epilogue news'
+# 따옴표와 쉼표까지 붙여서 본다. `EpilogueNews5`만 찾으면
+# `EpilogueNews5Roster`가 그것을 품고 있어, 폴백을 지워도 검사가 통과한다 —
+# 실제로 회귀를 넣어 보고 통과하는 것을 확인한 뒤에 고쳤다.
+foreach ($narinToken in @('"EpilogueNews5Roster",', '"EpilogueNews5",')) {
+	if (-not $newsBody.Contains($narinToken)) {
+		throw "The Narin report must survive in both readings: $narinToken"
+	}
+}
 
 # 목격은 어떤 교차에도 들어가지 않는다. RecordWitness가 진실을 다시
 # 계산하면 「본 것이 진실을 열 수도 있다」가 코드에 남는다.
@@ -522,4 +549,4 @@ foreach ($optional in @('WaterBowl', 'SleepingPills', 'CigarettePack')) {
 	}
 }
 
-Write-Host 'MISSING_FLOOR_RELEASE_ENDING_CONTRACT PASS replay_skip=1 ending_c=1 scoped_retry=1 audio=1 runtime_probe=1 epilogue=2 witnesses=7'
+Write-Host 'MISSING_FLOOR_RELEASE_ENDING_CONTRACT PASS replay_skip=1 ending_c=1 scoped_retry=1 audio=1 runtime_probe=1 epilogue=2 witnesses=9'

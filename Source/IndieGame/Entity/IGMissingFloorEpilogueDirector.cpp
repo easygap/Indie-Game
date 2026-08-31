@@ -745,10 +745,6 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildAutumnLines() const
 			"IGMissingFloor",
 			"EpilogueAutumn2Seen",
 			"401호 창턱, 물그릇이 있던 자리에 작은 라디오가 놓여 있다."));
-		Lines.Add(NSLOCTEXT(
-			"IGMissingFloor",
-			"EpilogueAutumn3Seen",
-			"창밖을 향해 돌려놓았다. 이번에는 대답을 기다리지 않는 소리다."));
 	}
 	else
 	{
@@ -756,6 +752,23 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildAutumnLines() const
 			"IGMissingFloor",
 			"EpilogueAutumn2",
 			"401호 창턱에 작은 라디오가 창밖을 향해 놓여 있다."));
+	}
+	// 문 너머로 그 소리를 들어 본 적이 있으면 알아본다. 없으면 그냥
+	// 창밖을 향해 놓인 라디오이고, 그것도 같은 그림이다.
+	if (Narrative
+		&& Narrative->HasWitness(EIGMissingFloorWitness::Unit401DoorRadio))
+	{
+		Lines.Add(NSLOCTEXT(
+			"IGMissingFloor",
+			"EpilogueAutumn3Radio",
+			"문 너머로 듣던 그 소리다. 이번에는 창밖을 향해 있다."));
+	}
+	else
+	{
+		Lines.Add(NSLOCTEXT(
+			"IGMissingFloor",
+			"EpilogueAutumn3Seen",
+			"창밖을 향해 돌려놓았다. 이번에는 대답을 기다리지 않는 소리다."));
 	}
 	return Lines;
 }
@@ -856,10 +869,23 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 			"관리 일지는 7월 26일 이후 한 주가 통째로 비어 있었다"));
 	}
 
-	Lines.Add(NSLOCTEXT(
-		"IGMissingFloor",
-		"EpilogueNews5",
-		"인근 편의점 야간 근무자의 제보가 최초 시각 특정에 쓰였다"));
+	// §13의 회수는 목격과 무관하게 남는다. 근무표를 본 회차에만 그 제보가
+	// 무엇으로 뒷받침됐는지까지 말한다.
+	if (Narrative
+		&& Narrative->HasWitness(EIGMissingFloorWitness::StoreNightRoster))
+	{
+		Lines.Add(NSLOCTEXT(
+			"IGMissingFloor",
+			"EpilogueNews5Roster",
+			"편의점 야간 근무표가 그 새벽들의 시각을 특정했다"));
+	}
+	else
+	{
+		Lines.Add(NSLOCTEXT(
+			"IGMissingFloor",
+			"EpilogueNews5",
+			"인근 편의점 야간 근무자의 제보가 최초 시각 특정에 쓰였다"));
+	}
 	return Lines;
 }
 

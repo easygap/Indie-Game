@@ -189,6 +189,10 @@ namespace IGMissingFloorNarrative
 			return TEXT("Seen.RecorderEmptyBay");
 		case EIGMissingFloorWitness::AnnexWorkGlove:
 			return TEXT("Seen.AnnexWorkGlove");
+		case EIGMissingFloorWitness::StoreNightRoster:
+			return TEXT("Seen.StoreNightRoster");
+		case EIGMissingFloorWitness::Unit401DoorRadio:
+			return TEXT("Seen.Unit401DoorRadio");
 		default:
 			return nullptr;
 		}
@@ -713,7 +717,7 @@ void UIGMissingFloorNarrativeSubsystem::NormalizeSnapshot()
 			const FName Candidate = Snapshot.Night.Witnesses[Index];
 			bool bRecognized = false;
 			for (uint8 Raw = 1;
-				Raw <= static_cast<uint8>(EIGMissingFloorWitness::AnnexWorkGlove);
+				Raw <= static_cast<uint8>(EIGMissingFloorWitness::Unit401DoorRadio);
 				++Raw)
 			{
 				if (Candidate == GetWitnessId(static_cast<EIGMissingFloorWitness>(Raw)))

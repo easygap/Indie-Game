@@ -122,7 +122,11 @@ enum class EIGMissingFloorWitness : uint8
 	/** CCTV 녹화기의 빈 하드 베이. 채널 5가 남지 않는 진짜 이유. */
 	RecorderEmptyBay = 6,
 	/** 5층 자재 더미 위의 작업 장갑 한 짝. 큰 손 것이다. */
-	AnnexWorkGlove = 7
+	AnnexWorkGlove = 7,
+	/** 편의점 계산대의 야간 근무표. 나린이 그 새벽마다 서 있었다. */
+	StoreNightRoster = 8,
+	/** 401호 문 너머 라디오. 황순금이 벽에게 틀어 주던 소리. */
+	Unit401DoorRadio = 9
 };
 
 /** One truth and the provenance behind it. Confirmation is always derived. */
