@@ -62,6 +62,8 @@ private:
 	void InitializeArrivalSequence();
 	void SpawnArrivalInteractables(UStaticMesh* CubeMesh);
 	void SpawnOptionalWitnesses(UStaticMesh* CubeMesh);
+	/** 편의점 카운터의 나린. 아는 것이 늘면 하는 말이 달라진다. */
+	FText GetNarinCounterLine() const;
 	void UpdateArrivalSequence();
 	void HandleArrivalEvidence(class AIGMissingFloorEvidence* Evidence);
 	void RequestArrivalAutosave();

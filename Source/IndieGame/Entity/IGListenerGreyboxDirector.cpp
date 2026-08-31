@@ -1010,10 +1010,7 @@ void AIGListenerGreyboxDirector::HandleArrivalEvidence(
 		AIGHorrorHUD::PushDialogue(
 			this,
 			NSLOCTEXT("IGMissingFloor", "NarinSpeaker", "한나린"),
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"ArrivalNarinLine",
-				"403호요? 위층은 없어요. 그래도 새벽마다 천장에서 물건 끄는 소리는 나요."),
+			GetNarinCounterLine(),
 			EIGDialogueChannel::Conversation,
 			0.0f,
 			EIGDialoguePriority::Story);
@@ -1044,6 +1041,35 @@ void AIGListenerGreyboxDirector::HandleArrivalEvidence(
 		RequestArrivalAutosave();
 	}
 	UpdateArrivalSequence();
+}
+
+FText AIGListenerGreyboxDirector::GetNarinCounterLine() const
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const int32 NightIndex = Narrative ? Narrative->GetNightIndex() : 0;
+
+	// §13 포어섀도 장부. 나린의 「안 물어볼게요」는 엔딩 A 뉴스 자막의
+	// 제보로 회수된다 — 회수만 있고 심는 자리가 없으면 그 자막은 어디서
+	// 왔는지 알 수 없는 문장이 된다.
+	if (NightIndex >= 3
+		|| (Narrative && Narrative->HasTruth(EIGMissingFloorTruth::StillCoveringIt)))
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"NarinLineLastDay",
+			"…안 물어볼게요. 대신 저 새벽에 여기 있어요. 뭐 들리면 적어 둘게요.");
+	}
+	if (NightIndex >= 1)
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"NarinLineMidWeek",
+			"얼굴이 많이 상하셨네요. 그 집 전에 살던 분들도 딱 이맘때 나갔어요.");
+	}
+	return NSLOCTEXT(
+		"IGMissingFloor",
+		"ArrivalNarinLine",
+		"403호요? 위층은 없어요. 그래도 새벽마다 천장에서 물건 끄는 소리는 나요.");
 }
 
 void AIGListenerGreyboxDirector::RequestArrivalAutosave()
@@ -1179,6 +1205,17 @@ void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
 	if (Unit401Door)
 	{
 		Unit401Door->SetInteractionEnabled(!bActive);
+	}
+	if (ArrivalStoreBell)
+	{
+		// 프롤로그가 끝난 뒤에도 편의점은 낮마다 열려 있다. 입주 시퀀스가
+		// 밤 0에서만 돌기 때문에 그 뒤로는 아무도 이 문을 다시 켜 주지
+		// 않았고, 나린은 첫날 한 마디만 하고 사라진 사람이 되어 있었다.
+		const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		if (Narrative && Narrative->GetNightIndex() >= 1)
+		{
+			ArrivalStoreBell->SetInteractionEnabled(!bActive);
+		}
 	}
 }
 

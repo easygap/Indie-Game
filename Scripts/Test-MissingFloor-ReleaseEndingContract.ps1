@@ -328,6 +328,14 @@ Assert-ContainsAll $puzzleTwoSource @(
 	'RecordWitness(EIGMissingFloorWitness::BoothSoundproofing)'
 ) '문틈 목격'
 
+# §13: 심는 자리가 없으면 엔딩 A의 제보 자막은 어디서 왔는지 알 수 없는
+# 문장이 된다. 나린의 마지막 날 대사가 그 심기다.
+Assert-ContainsAll $greyboxSource @(
+	'FText AIGListenerGreyboxDirector::GetNarinCounterLine() const',
+	'…안 물어볼게요. 대신 저 새벽에 여기 있어요. 뭐 들리면 적어 둘게요.',
+	'ArrivalStoreBell->SetInteractionEnabled(!bActive);'
+) '나린 포어섀도'
+
 Assert-ContainsAll $greyboxSource @(
 	'EProbeStep::EpilogueContract',
 	'Epilogue->GetPlayedSceneCount() != 5',
