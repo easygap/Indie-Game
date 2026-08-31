@@ -233,6 +233,30 @@ Assert-ContainsAll $epilogueHeader @(
 	'int32 GetPlayedSceneCount() const'
 ) '에필로그 검증 훅'
 
+# §34.2와 같은 규칙. 초회차는 다 보고, 두 번째부터 우회가 열린다.
+# §22.4의 선택 직전 자동 저장이 하는 일이 여기서 완성된다.
+Assert-ContainsAll $epilogueHeader @(
+	'bool BeginReplaySkipInput();',
+	'bool EndReplaySkipInput();',
+	'bool IsReplaySkipAvailable() const'
+) '에필로그 재관람 우회'
+Assert-ContainsAll $epilogueSource @(
+	'EpilogueExperienced',
+	'HasExperiencedEpilogueProfile() || bReplayForcedForSession',
+	'ReplaySkipDurationSeconds = 2.0f',
+	'UsesToggleSkipInput()',
+	'SkipToFinalCard();'
+) '에필로그 우회 조건'
+# 건너뛰어도 마지막 카드는 원래 길이대로 남는다. 그 한 문장이 결론이다.
+Assert-ContainsAll $epilogueSource @(
+	'const int32 CardIndex = CueCount - 2;',
+	'FireCue(CardIndex);',
+	'FMath::Max(CardHoldSeconds, 1.0f)'
+) '우회 뒤 마지막 카드'
+Assert-ContainsAll $controllerSource @(
+	'for (TActorIterator<AIGMissingFloorEpilogueDirector> It(World); It; ++It)'
+) '에필로그 우회 입력'
+
 # 엔딩 C는 자기 화면과 재도전을 소유한다. 실패가 애도로 이어지면 §9의
 # 세 결말이 섞이므로 StartEpilogue는 A/B만 받는다.
 Assert-ContainsAll $epilogueSource @(

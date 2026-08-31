@@ -33,6 +33,7 @@ class INDIEGAME_API AIGMissingFloorEpilogueDirector : public AActor
 
 public:
 	AIGMissingFloorEpilogueDirector();
+	virtual void Tick(float DeltaSeconds) override;
 
 	/**
 	 * 선택된 엔딩의 시각표를 시작한다. Ending.A와 Ending.B만 받는다 —
@@ -42,6 +43,18 @@ public:
 
 	bool IsActive() const { return bActive; }
 	FName GetEndingId() const { return ActiveEndingId; }
+
+	/**
+	 * §34.2와 같은 규칙의 재관람 전용 우회. 초회차는 87초를 다 본다 — 이
+	 * 장면이 게임의 대가이고, 건너뛸 수 있게 만드는 순간 대가가 아니게 된다.
+	 *
+	 * 두 번째부터 여는 이유는 §22.4다. 선택 직전 자동 저장으로 반대쪽
+	 * 엔딩을 보러 오는 사람에게, 이미 본 몽타주를 다시 앉혀 두면 그 저장
+	 * 지점이 하는 일이 없다.
+	 */
+	bool BeginReplaySkipInput();
+	bool EndReplaySkipInput();
+	bool IsReplaySkipAvailable() const { return bReplaySkipAvailable; }
 
 	/** 지금까지 재생된 장면 수. 계약 스크립트와 프로브가 읽는다. */
 	int32 GetPlayedSceneCount() const { return PlayedSceneCount; }
@@ -78,6 +91,13 @@ private:
 
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 	void StopBeds();
+	/** 우회가 끝나면 마지막 카드로 건너뛴다. 카드는 원래 길이대로 머문다. */
+	void SkipToFinalCard();
+	void UpdateSkipHud() const;
+	float GetReplaySkipDurationSeconds() const;
+	bool UsesToggleSkipInput() const;
+	bool HasExperiencedEpilogueProfile() const;
+	void PersistEpilogueExperience() const;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> ScoreBed;
@@ -89,6 +109,11 @@ private:
 	uint32 FiredCueMask = 0;
 	int32 NextCueIndex = 1;
 	int32 PlayedSceneCount = 0;
+	float ReplaySkipProgress = 0.0f;
 	bool bActive = false;
 	bool bEndingA = false;
+	bool bReplaySkipAvailable = false;
+	bool bReplaySkipInputActive = false;
+	bool bReplaySkipRewinding = false;
+	bool bReplayForcedForSession = false;
 };

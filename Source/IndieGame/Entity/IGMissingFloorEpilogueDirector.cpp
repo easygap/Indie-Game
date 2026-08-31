@@ -1,5 +1,6 @@
 ﻿#include "Entity/IGMissingFloorEpilogueDirector.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -10,6 +11,9 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "IndieGame.h"
+#include "Misc/CommandLine.h"
+#include "Misc/ConfigCacheIni.h"
+#include "Misc/Parse.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
@@ -61,11 +65,204 @@ namespace IGEpilogue
 	/** 몽타주 네 소리는 방 안이 아니라 기억 속이라 거리를 두지 않는다. */
 	constexpr float MontageInnerRadius = 4000.0f;
 	constexpr float MontageFalloff = 6000.0f;
+
+	/** §34.2와 같은 값. 두 초를 눌러야 넘어간다. */
+	constexpr float ReplaySkipDurationSeconds = 2.0f;
+	constexpr float ReplaySkipRewindMultiplier = 2.4f;
+	constexpr const TCHAR* ProfileSection = TEXT("IndieGame.MissingFloorProfile");
+	constexpr const TCHAR* ExperiencedKey = TEXT("EpilogueExperienced");
 }
 
 AIGMissingFloorEpilogueDirector::AIGMissingFloorEpilogueDirector()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	// 홀드 진행률을 그리는 동안에만 깨운다. 시각표 자체는 타이머가 민다.
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+}
+
+void AIGMissingFloorEpilogueDirector::Tick(const float DeltaSeconds)
+{
+	Super::Tick(DeltaSeconds);
+	if (!bActive || !bReplaySkipAvailable)
+	{
+		SetActorTickEnabled(false);
+		return;
+	}
+
+	const float RequiredSeconds = GetReplaySkipDurationSeconds();
+	const float SafeDelta = FMath::Max(DeltaSeconds, 0.0f);
+	if (bReplaySkipInputActive)
+	{
+		ReplaySkipProgress = FMath::Min(
+			ReplaySkipProgress + SafeDelta / RequiredSeconds,
+			1.0f);
+	}
+	else if (bReplaySkipRewinding)
+	{
+		ReplaySkipProgress = FMath::Max(
+			ReplaySkipProgress
+				- SafeDelta * IGEpilogue::ReplaySkipRewindMultiplier / RequiredSeconds,
+			0.0f);
+		bReplaySkipRewinding = ReplaySkipProgress > 0.0f;
+	}
+
+	UpdateSkipHud();
+	if (ReplaySkipProgress >= 1.0f)
+	{
+		SkipToFinalCard();
+		return;
+	}
+	if (!bReplaySkipInputActive && !bReplaySkipRewinding)
+	{
+		SetActorTickEnabled(false);
+	}
+}
+
+bool AIGMissingFloorEpilogueDirector::BeginReplaySkipInput()
+{
+	if (!bActive || !bReplaySkipAvailable)
+	{
+		return false;
+	}
+	if (UsesToggleSkipInput())
+	{
+		// 토글 모드에서는 누르는 순간 확정한다. 홀드가 힘든 사람에게
+		// 「계속 누르고 있기」를 요구하지 않는 것이 §19.8의 계약이다.
+		ReplaySkipProgress = 1.0f;
+		bReplaySkipInputActive = false;
+		bReplaySkipRewinding = false;
+		SkipToFinalCard();
+		return true;
+	}
+	bReplaySkipInputActive = true;
+	bReplaySkipRewinding = false;
+	SetActorTickEnabled(true);
+	UpdateSkipHud();
+	return true;
+}
+
+bool AIGMissingFloorEpilogueDirector::EndReplaySkipInput()
+{
+	if (!bActive || !bReplaySkipAvailable || !bReplaySkipInputActive)
+	{
+		return false;
+	}
+	bReplaySkipInputActive = false;
+	bReplaySkipRewinding = ReplaySkipProgress > 0.0f;
+	SetActorTickEnabled(bReplaySkipRewinding);
+	UpdateSkipHud();
+	return true;
+}
+
+void AIGMissingFloorEpilogueDirector::SkipToFinalCard()
+{
+	UWorld* World = GetWorld();
+	if (!bActive || !World)
+	{
+		return;
+	}
+	const int32 CueCount = bEndingA
+		? static_cast<int32>(UE_ARRAY_COUNT(IGEpilogue::EndingATimes))
+		: static_cast<int32>(UE_ARRAY_COUNT(IGEpilogue::EndingBTimes));
+	const int32 CardIndex = CueCount - 2;
+	const int32 EndIndex = CueCount - 1;
+
+	GetWorldTimerManager().ClearTimer(CueTimerHandle);
+	bReplaySkipInputActive = false;
+	bReplaySkipRewinding = false;
+	ReplaySkipProgress = 0.0f;
+	SetActorTickEnabled(false);
+	UpdateSkipHud();
+
+	// 지나친 큐는 재생하지 않고 소비만 한다. 몰아서 발화시키면 몽타주
+	// 네 소리가 한 프레임에 겹쳐 터진다.
+	for (int32 Index = 0; Index < CardIndex; ++Index)
+	{
+		FiredCueMask |= 1u << Index;
+	}
+	StopBeds();
+
+	// 건너뛴 회차도 마지막 카드는 본다. 그 한 문장이 이 장면의 결론이라
+	// 카드까지 지우면 엔딩을 안 본 것이 된다. 체류도 원래 길이 그대로다.
+	FireCue(CardIndex);
+	NextCueIndex = EndIndex;
+	const float CardHoldSeconds = bEndingA
+		? IGEpilogue::EndingATimes[EndIndex] - IGEpilogue::EndingATimes[CardIndex]
+		: IGEpilogue::EndingBTimes[EndIndex] - IGEpilogue::EndingBTimes[CardIndex];
+	World->GetTimerManager().SetTimer(
+		CueTimerHandle,
+		this,
+		&AIGMissingFloorEpilogueDirector::HandleNextCue,
+		FMath::Max(CardHoldSeconds, 1.0f),
+		false);
+}
+
+void AIGMissingFloorEpilogueDirector::UpdateSkipHud() const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	const APlayerController* Controller = PlayerCharacter
+		? Cast<APlayerController>(PlayerCharacter->GetController())
+		: nullptr;
+	if (AIGHorrorHUD* Hud = Controller
+		? Cast<AIGHorrorHUD>(Controller->GetHUD())
+		: nullptr)
+	{
+		Hud->SetSensoryInterludeSkipState(
+			bActive && bReplaySkipAvailable,
+			bActive ? ReplaySkipProgress : 0.0f,
+			bActive && bReplaySkipInputActive,
+			GetReplaySkipDurationSeconds(),
+			UsesToggleSkipInput());
+	}
+}
+
+float AIGMissingFloorEpilogueDirector::GetReplaySkipDurationSeconds() const
+{
+	const UIGAccessibilitySubsystem* Accessibility = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	const float DurationScale = Accessibility
+		? Accessibility->GetHoldDurationScale()
+		: 1.0f;
+	return FMath::Max(
+		IGEpilogue::ReplaySkipDurationSeconds * DurationScale,
+		0.25f);
+}
+
+bool AIGMissingFloorEpilogueDirector::UsesToggleSkipInput() const
+{
+	const UIGAccessibilitySubsystem* Accessibility = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	return Accessibility && Accessibility->UsesToggleHoldInteractions();
+}
+
+bool AIGMissingFloorEpilogueDirector::HasExperiencedEpilogueProfile() const
+{
+	bool bExperienced = false;
+	if (GConfig)
+	{
+		GConfig->GetBool(
+			IGEpilogue::ProfileSection,
+			IGEpilogue::ExperiencedKey,
+			bExperienced,
+			GGameUserSettingsIni);
+	}
+	return bExperienced;
+}
+
+void AIGMissingFloorEpilogueDirector::PersistEpilogueExperience() const
+{
+	if (!GConfig)
+	{
+		return;
+	}
+	GConfig->SetBool(
+		IGEpilogue::ProfileSection,
+		IGEpilogue::ExperiencedKey,
+		true,
+		GGameUserSettingsIni);
+	GConfig->Flush(false, GGameUserSettingsIni);
 }
 
 bool AIGMissingFloorEpilogueDirector::StartEpilogue(
@@ -89,6 +286,14 @@ bool AIGMissingFloorEpilogueDirector::StartEpilogue(
 	FiredCueMask = 0;
 	NextCueIndex = 1;
 	PlayedSceneCount = 0;
+	ReplaySkipProgress = 0.0f;
+	bReplaySkipInputActive = false;
+	bReplaySkipRewinding = false;
+	bReplayForcedForSession =
+		FParse::Param(FCommandLine::Get(), TEXT("IGEpilogueReplay"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"));
+	bReplaySkipAvailable =
+		HasExperiencedEpilogueProfile() || bReplayForcedForSession;
 	bActive = true;
 	StartWorldSeconds = GetWorld()->GetTimeSeconds();
 
@@ -123,6 +328,9 @@ bool AIGMissingFloorEpilogueDirector::StartEpilogue(
 
 	FireCue(0);
 	ScheduleNextCue();
+	UpdateSkipHud();
+	// 안내만 떠 있을 때는 정적이다. 홀드하거나 되감을 때만 Tick을 켠다.
+	SetActorTickEnabled(false);
 	return true;
 }
 
@@ -643,8 +851,16 @@ void AIGMissingFloorEpilogueDirector::FinishEpilogue()
 		return;
 	}
 	bActive = false;
+	bReplaySkipInputActive = false;
+	bReplaySkipRewinding = false;
+	SetActorTickEnabled(false);
 	GetWorldTimerManager().ClearTimer(CueTimerHandle);
 	StopBeds();
+	UpdateSkipHud();
+	if (!bReplayForcedForSession)
+	{
+		PersistEpilogueExperience();
+	}
 
 	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 	{

@@ -11,6 +11,7 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Entity/IGMissingFloorEpilogueDirector.h"
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "InputCoreTypes.h"
 #include "InputKeyEventArgs.h"
@@ -2170,6 +2171,15 @@ void AIGPlayerController::BeginJournalInput()
 				return;
 			}
 		}
+		// 에필로그도 같은 손짓을 쓴다. 두 장면이 동시에 살아 있는 경로는
+		// 없으므로 순서만 정하면 충돌하지 않는다.
+		for (TActorIterator<AIGMissingFloorEpilogueDirector> It(World); It; ++It)
+		{
+			if (It->BeginReplaySkipInput())
+			{
+				return;
+			}
+		}
 	}
 	if (IsMissingFloorNight())
 	{
@@ -2202,6 +2212,13 @@ void AIGPlayerController::EndJournalInput()
 	if (UWorld* World = GetWorld())
 	{
 		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
+		{
+			if (It->EndReplaySkipInput())
+			{
+				return;
+			}
+		}
+		for (TActorIterator<AIGMissingFloorEpilogueDirector> It(World); It; ++It)
 		{
 			if (It->EndReplaySkipInput())
 			{

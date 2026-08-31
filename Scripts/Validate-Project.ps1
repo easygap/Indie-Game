@@ -496,6 +496,10 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 # IGMissingFloorFifthDawnDirector는 기본 Tick을 끄고, 재관람 스킵을 누르는
 # 동안과 중도 해제 후 진행률을 되감는 짧은 구간에만 켠다. 완료 또는
 # 되감기 종료 즉시 스스로 비활성화하며 평상시 비용은 발생하지 않는다.
+# IGMissingFloorEpilogueDirector는 같은 이유로 같은 방식이다. 87초 시각표는
+# 타이머가 밀고, Tick은 재관람 우회를 누르는 동안과 중도 해제 뒤 진행률을
+# 되감는 구간에만 켜진다. 마지막 카드로 건너뛰거나 되감기가 끝나면 스스로
+# 비활성화한다.
 # IGMissingFloorMercyDirector는 기본 Tick을 끄고, 문 아래로 종이가 밀려
 # 들어오는 0.94초 동안만 켠 뒤 스스로 끈다. 90초 정체 시계는 타이머다.
 # IGCctvChannelFive는 기본 Tick을 끄고, 채널 5가 화면에 있는 6.78초 동안만
@@ -523,6 +527,7 @@ $reviewedTickingFiles = @(
 	'IGMissingFloorNightFourDirector.cpp',
 	'IGNightLoopDirector.cpp',
 	'IGMissingFloorFifthDawnDirector.cpp',
+	'IGMissingFloorEpilogueDirector.cpp',
 	'IGMissingFloorMercyDirector.cpp',
 	'IGCctvChannelFive.cpp'
 )

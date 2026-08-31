@@ -2171,6 +2171,7 @@ bool AIGHorrorHUD::DrawMissingFloorEpilogue(const double CurrentTime)
 	if (MissingFloorEpilogueScene == EIGMissingFloorEpilogueScene::Montage)
 	{
 		// 소리만 지나가는 구간이다. 자막을 켠 플레이어에게만 글자가 있다.
+		DrawSensoryInterludeSkip();
 		return true;
 	}
 
@@ -2180,6 +2181,8 @@ bool AIGHorrorHUD::DrawMissingFloorEpilogue(const double CurrentTime)
 		const FText Card = MissingFloorEpilogueBodyLines.Num() > 0
 			? MissingFloorEpilogueBodyLines[0]
 			: FText::GetEmpty();
+		// 마지막 카드에는 우회 안내도 두지 않는다. 여기까지 왔으면 남은
+		// 것은 한 문장뿐이고, 그 옆에 버튼을 놓을 이유가 없다.
 		if (!Card.IsEmpty())
 		{
 			DrawCenteredText(
@@ -2306,6 +2309,7 @@ bool AIGHorrorHUD::DrawMissingFloorEpilogue(const double CurrentTime)
 	RecordLayoutValidationRect(
 		FVector2D(ContentLeft, Canvas->ClipY * 0.16f),
 		FVector2D(ContentLeft + ContentWidth, FMath::Min(PenY, Canvas->ClipY)));
+	DrawSensoryInterludeSkip();
 	return true;
 }
 
