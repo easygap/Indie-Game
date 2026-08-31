@@ -715,6 +715,157 @@ if ($story -notmatch '\*\*물리 접촉 프레임에\*\*') {
 	throw 'The §18.4 contact-frame noise rule was removed.'
 }
 
+# --- §18.5 두드리기의 손맛 ---------------------------------------------------
+#
+# 이 게임의 시그니처 입력이다. 여섯 줄 전부 이미 맞았지만, 맞았다고 두면
+# 다음에 누가 옮긴다. 특히 마지막 한 줄은 P4의 소름이 걸려 있다.
+
+# 타격 프레임의 화면 흔들림.
+$kickRow = [regex]::Match($story, '화면 미세\s*\r?\n?\s*흔들림 (?<degrees>[0-9.]+)도')
+$assertionCount++
+if (-not $kickRow.Success) {
+	throw 'The §18.5 knock camera kick row could not be read.'
+}
+$kickDeclared = [regex]::Match(
+	$characterSource, 'constexpr float KnockCameraKickDegrees = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $kickDeclared.Success) {
+	throw 'KnockCameraKickDegrees could not be read.'
+}
+$assertionCount++
+if ([double]$kickDeclared.Groups['value'].Value -ne [double]$kickRow.Groups['degrees'].Value) {
+	throw (
+		'KnockCameraKickDegrees is {0} but §18.5 says {1}.' -f
+			$kickDeclared.Groups['value'].Value, $kickRow.Groups['degrees'].Value)
+}
+
+# 세 번째 탭 이후의 입력 잠금.
+$lockRow = [regex]::Match($story, '세 번째 탭 이후 (?<seconds>[0-9.]+)초 입력 잠금')
+$assertionCount++
+if (-not $lockRow.Success) {
+	throw 'The §18.5 input lock row could not be read.'
+}
+$lockDeclared = [regex]::Match(
+	$characterSource, 'constexpr float KnockInputLockSeconds = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $lockDeclared.Success) {
+	throw 'KnockInputLockSeconds could not be read.'
+}
+$assertionCount++
+if ([double]$lockDeclared.Groups['value'].Value -ne [double]$lockRow.Groups['seconds'].Value) {
+	throw (
+		'KnockInputLockSeconds is {0} but §18.5 says {1}.' -f
+			$lockDeclared.Groups['value'].Value, $lockRow.Groups['seconds'].Value)
+}
+# 세 번째다. 두 번이나 네 번이면 §7 P4의 「둘-쉬고-하나」와 어긋난다.
+$tapBody = [regex]::Match(
+	$characterSource,
+	'void AIGPlayerCharacter::RegisterKnockSequenceTap\(\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $tapBody.Success) {
+	throw 'RegisterKnockSequenceTap could not be isolated.'
+}
+$assertionCount++
+if ($tapBody.Groups['body'].Value -notmatch 'KnockSequenceTapCount >= 3') {
+	throw 'The lock must arm on the third tap (§18.5).'
+}
+$assertionCount++
+if (-not $tapBody.Groups['body'].Value.Contains(
+	'KnockInputLockedUntil = Now + IGPlayerNoise::KnockInputLockSeconds')) {
+	throw 'The third tap must actually arm the input lock (§18.5).'
+}
+
+# 진동: 내 노크는 0.06s/강도 0.35 단발.
+$hapticRow = [regex]::Match(
+	$story, '내 노크는 (?<seconds>[0-9.]+)s/강도 (?<intensity>[0-9.]+) 단발')
+$assertionCount++
+if (-not $hapticRow.Success) {
+	throw 'The §18.5 haptic row could not be read.'
+}
+$feedbackBody = [regex]::Match(
+	$characterSource,
+	'void AIGPlayerCharacter::ApplyPlayerKnockFeedback\(\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $feedbackBody.Success) {
+	throw 'ApplyPlayerKnockFeedback could not be isolated.'
+}
+$expectedHaptic = 'PlayHapticFeedback({0}f, {1}f);' -f `
+	$hapticRow.Groups['intensity'].Value, $hapticRow.Groups['seconds'].Value
+$assertionCount++
+if (-not $feedbackBody.Groups['body'].Value.Contains($expectedHaptic)) {
+	throw ('The knock haptic must match §18.5: {0}' -f $expectedHaptic)
+}
+
+# **벽에서 돌아오는 응답 노크에는 진동이 없다.** 이 한 줄이 P4의 소름을
+# 만든다 — 내 손이 아닌 것이 내 손처럼 느껴지면 그 장면은 끝이다.
+foreach ($replyPath in @(
+	'Source/IndieGame/Entity/IGListenerEntity.cpp',
+	'Source/IndieGame/Audio/IGMissingFloorAudioSubsystem.cpp')) {
+	$replySource = Read-ProjectText $replyPath
+	foreach ($buzz in @(
+		'PlayHapticFeedback',
+		'PlayDynamicForceFeedback',
+		'ClientPlayForceFeedback')) {
+		$assertionCount++
+		if ($replySource.Contains($buzz)) {
+			throw (
+				'The wall''s reply knock must never buzz the pad (§18.5): {0} in {1}' -f
+					$buzz, $replyPath)
+		}
+	}
+}
+$assertionCount++
+if ($story -notmatch '\*\*벽에서 돌아오는 응답 노크에는 진동이\s*\r?\n?\s*없다\*\*') {
+	throw 'The §18.5 silent-reply rule was removed.'
+}
+
+# 입력→발음 지연 40ms 이하. 타이머를 끼우면 그 자리에서 깨진다.
+$latencyRow = [regex]::Match($story, '입력→발음 지연 \*\*(?<ms>[0-9]+)ms 이하\*\*')
+$assertionCount++
+if (-not $latencyRow.Success) {
+	throw 'The §18.5 latency row could not be read.'
+}
+$knockBody = [regex]::Match(
+	$characterSource,
+	'void AIGPlayerCharacter::Knock\(\)(?<body>[\s\S]*?)\r?\n\}\r?\n\r?\nbool AIGPlayerCharacter::OfferAnswerKnock')
+$assertionCount++
+if (-not $knockBody.Success) {
+	throw 'Knock could not be isolated.'
+}
+$knockText = $knockBody.Groups['body'].Value
+$assertionCount++
+if (-not $knockText.Contains('IGAudio::SpawnOneShotAt(')) {
+	throw 'The knock must make its sound in the same call as the input (§18.5).'
+}
+foreach ($delay in @('SetTimer', 'FTimerDelegate', 'Delay(')) {
+	$assertionCount++
+	if ($knockText.Contains($delay)) {
+		throw "Nothing may sit between the tap and the sound (§18.5): $delay"
+	}
+}
+
+# 단발 탭만. 자동 연타도, 정답을 대신 쳐 주는 것도 없다.
+$assertionCount++
+if ($story -notmatch '자동 연타·자동 정답 재생 금지') {
+	throw 'The §18.5 no-autofire rule was removed.'
+}
+foreach ($auto in @('AutoKnock', 'RepeatKnock', 'PlayKnockPattern(')) {
+	$assertionCount++
+	if ($characterSource.Contains($auto)) {
+		throw "The knock is a single tap; nothing may play it for the player (§18.5): $auto"
+	}
+}
+
+# 실패해도 벽의 잔향만 돌아온다. 실패 문구도 붉은 표시도 없다.
+$assertionCount++
+if ($story -notmatch '실패 시 실패 문구·붉은 표시 없음') {
+	throw 'The §18.5 no-failure-message rule was removed.'
+}
+$assertionCount++
+if ($knockText -match 'PushThought|PushDialogue|PushAudioCaption') {
+	throw 'A missed knock must say nothing (§18.5).'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
