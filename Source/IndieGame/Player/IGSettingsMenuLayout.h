@@ -13,7 +13,37 @@ namespace IGSettingsMenuLayout
 {
 	/** 다섯 설정 + 접근성 + 소리·밝기 + 조작 + 적용/돌아가기 두 줄. */
 	constexpr int32 DisplayRowCount = 10;
-	constexpr int32 AccessibilityRowCount = 17;
+	constexpr int32 AccessibilityRowCount = 19;
+
+	/**
+	 * 접근성 행 번호. 화면과 컨트롤러와 묶음 범위 셋이 같은 숫자를 봐야 한다.
+	 * 번호로만 세면 한 줄 끼울 때 「밝기」가 「듣는 방식」이 된다.
+	 */
+	enum EAccessibilityRow : int32
+	{
+		HintMode = 0,
+		ReducedCameraMotion,
+		ReducedFlicker,
+		FieldOfView,
+		DirectionalFearCues,
+		AutoConnectEvidence,
+		Subtitles,
+		SoundCaptions,
+		CaptionSize,
+		CaptionBackground,
+		CaptionSafeArea,
+		CaptionDuration,
+		ToggleCrouch,
+		ToggleHold,
+		HoldDuration,
+		Haptics,
+		MicrophoneNoise,
+		ResetDefaults,
+		CloseMenu
+	};
+	static_assert(
+		CloseMenu + 1 == AccessibilityRowCount,
+		"접근성 행 이름과 행 수가 어긋났다");
 	constexpr int32 DisplayCategoryCount = 4;
 	constexpr int32 AccessibilityCategoryCount = 6;
 
@@ -100,12 +130,12 @@ namespace IGSettingsMenuLayout
 	{
 		switch (Category)
 		{
-		case 0: return {0, 1};  // Gameplay.
-		case 1: return {1, 2};  // Motion.
-		case 2: return {3, 2};  // Guidance.
-		case 3: return {5, 5};  // Captions.
-		case 4: return {10, 5}; // Input.
-		case 5: return {15, 2}; // General actions.
+		case 0: return {HintMode, 1};              // Gameplay.
+		case 1: return {ReducedCameraMotion, 3};   // Motion.
+		case 2: return {DirectionalFearCues, 2};   // Guidance.
+		case 3: return {Subtitles, 6};             // Captions.
+		case 4: return {ToggleCrouch, 5};          // Input.
+		case 5: return {ResetDefaults, 2};         // General actions.
 		default: return {0, 0};
 		}
 	}

@@ -2518,7 +2518,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		return;
 	}
 
-	if (AccessibilitySelection == 15)
+	if (AccessibilitySelection == IGSettingsMenuLayout::ResetDefaults)
 	{
 		if (bConfirm)
 		{
@@ -2532,7 +2532,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		RefreshMenuHud();
 		return;
 	}
-	if (AccessibilitySelection == 16)
+	if (AccessibilitySelection == IGSettingsMenuLayout::CloseMenu)
 	{
 		if (bConfirm)
 		{
@@ -2544,7 +2544,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 	FIGAccessibilitySettings Settings = Accessibility->GetSettings();
 	switch (AccessibilitySelection)
 	{
-	case 0:
+	case IGSettingsMenuLayout::HintMode:
 	{
 		constexpr int32 HintModeCount = 3;
 		const int32 Current = static_cast<int32>(Settings.HintMode);
@@ -2553,59 +2553,71 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 			% HintModeCount);
 		break;
 	}
-	case 1:
+	case IGSettingsMenuLayout::ReducedCameraMotion:
 		Settings.bReducedCameraMotion = !Settings.bReducedCameraMotion;
 		break;
-	case 2:
+	case IGSettingsMenuLayout::ReducedFlicker:
 		Settings.bReducedFlicker = !Settings.bReducedFlicker;
 		break;
-	case 3:
+	case IGSettingsMenuLayout::FieldOfView:
+		Settings.FieldOfViewDegrees = FMath::Clamp(
+			Settings.FieldOfViewDegrees + (Direction < 0 ? -2.0f : 2.0f),
+			68.0f,
+			100.0f);
+		break;
+	case IGSettingsMenuLayout::DirectionalFearCues:
 		Settings.bDirectionalFearCues = !Settings.bDirectionalFearCues;
 		break;
-	case 4:
+	case IGSettingsMenuLayout::AutoConnectEvidence:
 		Settings.bAutoConnectEvidence = !Settings.bAutoConnectEvidence;
 		break;
-	case 5:
+	case IGSettingsMenuLayout::Subtitles:
 		Settings.bSubtitlesEnabled = !Settings.bSubtitlesEnabled;
 		break;
-	case 6:
+	case IGSettingsMenuLayout::SoundCaptions:
 		Settings.bSoundCaptionsEnabled = !Settings.bSoundCaptionsEnabled;
 		break;
-	case 7:
+	case IGSettingsMenuLayout::CaptionSize:
 		Settings.CaptionSizeScale = FMath::Clamp(
 			Settings.CaptionSizeScale + (Direction < 0 ? -0.10f : 0.10f),
 			0.85f,
 			2.0f);
 		break;
-	case 8:
+	case IGSettingsMenuLayout::CaptionBackground:
 		Settings.CaptionBackgroundOpacity = FMath::Clamp(
 			Settings.CaptionBackgroundOpacity
 				+ (Direction < 0 ? -0.10f : 0.10f),
 			0.0f,
 			1.0f);
 		break;
-	case 9:
+	case IGSettingsMenuLayout::CaptionSafeArea:
 		Settings.CaptionSafeAreaScale = FMath::Clamp(
 			Settings.CaptionSafeAreaScale + (Direction < 0 ? -0.05f : 0.05f),
 			0.80f,
 			1.0f);
 		break;
-	case 10:
+	case IGSettingsMenuLayout::CaptionDuration:
+		Settings.CaptionDurationScale = FMath::Clamp(
+			Settings.CaptionDurationScale + (Direction < 0 ? -0.25f : 0.25f),
+			0.75f,
+			2.0f);
+		break;
+	case IGSettingsMenuLayout::ToggleCrouch:
 		Settings.bToggleCrouch = !Settings.bToggleCrouch;
 		break;
-	case 11:
+	case IGSettingsMenuLayout::ToggleHold:
 		Settings.bToggleHoldInteractions = !Settings.bToggleHoldInteractions;
 		break;
-	case 12:
+	case IGSettingsMenuLayout::HoldDuration:
 		Settings.HoldDurationScale = FMath::Clamp(
 			Settings.HoldDurationScale + (Direction < 0 ? -0.25f : 0.25f),
 			0.25f,
 			1.0f);
 		break;
-	case 13:
+	case IGSettingsMenuLayout::Haptics:
 		Settings.bHapticsEnabled = !Settings.bHapticsEnabled;
 		break;
-	case 14:
+	case IGSettingsMenuLayout::MicrophoneNoise:
 		Settings.bMicrophoneNoiseEnabled = !Settings.bMicrophoneNoiseEnabled;
 		break;
 	default:
@@ -2616,6 +2628,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		Cast<AIGPlayerCharacter>(GetPawn()))
 	{
 		PlayerCharacter->RefreshMicrophoneCaptureMode();
+		PlayerCharacter->RefreshFieldOfView();
 	}
 	RefreshMenuHud();
 }

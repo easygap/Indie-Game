@@ -99,6 +99,9 @@ public:
 	/** Applies the persisted/command-line microphone mode immediately. */
 	void RefreshMicrophoneCaptureMode();
 
+	/** 접근성 설정의 시야각을 카메라에 건다. 설정이 바뀔 때마다 부른다. */
+	void RefreshFieldOfView();
+
 	UFUNCTION(BlueprintPure, Category = "Player|Audio")
 	bool IsMicrophoneCaptureRunning() const { return bMicrophoneCaptureRunning; }
 

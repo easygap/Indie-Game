@@ -964,6 +964,15 @@ void AIGHorrorHUD::ShowDialogue(
 	EnqueueDialogue(MoveTemp(Message), CurrentTime);
 }
 
+float AIGHorrorHUD::GetCaptionDurationScale() const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	return Accessibility ? Accessibility->GetCaptionDurationScale() : 1.0f;
+}
+
 float AIGHorrorHUD::CalculateDialogueDuration(
 	const FString& Line,
 	const float MinimumDurationSeconds) const
@@ -980,7 +989,10 @@ float AIGHorrorHUD::CalculateDialogueDuration(
 		1.15f + VisibleGlyphs / IGHorrorHUD::DialogueGlyphsPerSecond,
 		IGHorrorHUD::DialogueMinimumSeconds,
 		IGHorrorHUD::DialogueMaximumSeconds);
-	return FMath::Max(ReadingDuration, MinimumDurationSeconds);
+	// 배율은 상한 뒤에 곱한다. 안에서 곱하면 길게 잡아 봐야 상한에서
+	// 잘려 설정이 아무 일도 안 하는 것처럼 보인다.
+	return FMath::Max(ReadingDuration, MinimumDurationSeconds)
+		* GetCaptionDurationScale();
 }
 
 void AIGHorrorHUD::ActivateDialogue(
@@ -1258,7 +1270,8 @@ void AIGHorrorHUD::ShowAudioCaption(
 		return;
 	}
 	const double CurrentTime = World->GetTimeSeconds();
-	const float ClampedDuration = FMath::Max(0.8f, DurationSeconds);
+	const float ClampedDuration =
+		FMath::Max(0.8f, DurationSeconds) * GetCaptionDurationScale();
 	if (!CurrentAudioCaption.IsEmpty()
 		&& CurrentTime < AudioCaptionEndTime
 		&& CurrentAudioCaption.ToString().Equals(Caption.ToString()))
@@ -4416,6 +4429,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean ? TEXT("힌트 난이도") : TEXT("HINT MODE"),
 		bKorean ? TEXT("카메라 흔들림 감소") : TEXT("REDUCED CAMERA MOTION"),
 		bKorean ? TEXT("손전등 점멸 감소") : TEXT("REDUCED FLASHLIGHT FLICKER"),
+		bKorean ? TEXT("시야각") : TEXT("FIELD OF VIEW"),
 		bKorean ? TEXT("공포음 방향 표시") : TEXT("FEAR SOUND DIRECTION"),
 		bKorean ? TEXT("P5 단서 자동 연결") : TEXT("AUTO-CONNECT EVIDENCE"),
 		bKorean ? TEXT("대사 음성 자막") : TEXT("VOICE SUBTITLES"),
@@ -4423,6 +4437,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean ? TEXT("대사·캡션 크기") : TEXT("DIALOGUE + CAPTION SIZE"),
 		bKorean ? TEXT("메시지 배경 농도") : TEXT("MESSAGE BACKGROUND"),
 		bKorean ? TEXT("자막 안전 영역") : TEXT("CAPTION SAFE AREA"),
+		bKorean ? TEXT("자막 표시 시간") : TEXT("CAPTION DURATION"),
 		bKorean ? TEXT("앉기 입력 방식") : TEXT("CROUCH INPUT"),
 		bKorean ? TEXT("길게 누르기 방식") : TEXT("HOLD INPUT"),
 		bKorean ? TEXT("홀드 길이") : TEXT("HOLD DURATION"),
@@ -4436,6 +4451,9 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		HintMode,
 		OnOff(Settings.bReducedCameraMotion),
 		OnOff(Settings.bReducedFlicker),
+		FString::Printf(
+			TEXT("%d°"),
+			FMath::RoundToInt(Settings.FieldOfViewDegrees)),
 		OnOff(Settings.bDirectionalFearCues),
 		OnOff(Settings.bAutoConnectEvidence),
 		OnOff(Settings.bSubtitlesEnabled),
@@ -4449,6 +4467,9 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		FString::Printf(
 			TEXT("%d%%"),
 			FMath::RoundToInt(Settings.CaptionSafeAreaScale * 100.0f)),
+		FString::Printf(
+			TEXT("%d%%"),
+			FMath::RoundToInt(Settings.CaptionDurationScale * 100.0f)),
 		bKorean
 			? (Settings.bToggleCrouch ? TEXT("토글") : TEXT("누르는 동안"))
 			: (Settings.bToggleCrouch ? TEXT("TOGGLE") : TEXT("HOLD")),
@@ -4475,6 +4496,9 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			? TEXT("손전등과 공포 연출의 빠른 점멸을 완화합니다. 필요한 위험 정보는 밝기 변화 대신 형태로 남깁니다.")
 			: TEXT("SOFTENS RAPID FLASHES WHILE PRESERVING DANGER INFORMATION THROUGH SHAPE AND TIMING."),
 		bKorean
+			? TEXT("1인칭 시야각을 68도에서 100도 사이로 조절합니다. 좁으면 압박이 커지고 넓히면 멀미가 줄어듭니다.")
+			: TEXT("SETS THE FIRST-PERSON FIELD OF VIEW BETWEEN 68 AND 100 DEGREES."),
+		bKorean
 			? TEXT("공포음이 들린 방향을 화면 가장자리의 절제된 표시로 함께 전달합니다.")
 			: TEXT("ADDS A RESTRAINED SCREEN-EDGE CUE FOR THE DIRECTION OF IMPORTANT HORROR SOUNDS."),
 		bKorean
@@ -4495,6 +4519,9 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean
 			? TEXT("자막이 화면 가장자리에 너무 가깝지 않도록 최대 너비와 여백을 조절합니다.")
 			: TEXT("CONTROLS CAPTION WIDTH AND MARGINS SO TEXT STAYS AWAY FROM SCREEN EDGES."),
+		bKorean
+			? TEXT("자막과 소리 캡션이 화면에 머무는 시간을 조절합니다. 읽는 속도가 다른 사람을 위해 최대 두 배까지 늘립니다.")
+			: TEXT("KEEPS SUBTITLES AND SOUND CAPTIONS ON SCREEN LONGER, UP TO TWICE THE DEFAULT."),
 		bKorean
 			? TEXT("앉기 키를 한 번 눌러 전환하거나, 누르고 있는 동안만 유지하도록 선택합니다.")
 			: TEXT("CHOOSE BETWEEN TOGGLE CROUCH AND HOLD-TO-CROUCH."),

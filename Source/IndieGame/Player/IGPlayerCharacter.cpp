@@ -279,6 +279,9 @@ void AIGPlayerCharacter::BeginPlay()
 	}
 
 	RefreshMicrophoneCaptureMode();
+	// 저장된 시야각을 첫 프레임부터 건다. 설정을 켜 봐야 적용되면
+	// 「저장이 안 됐다」로 읽힌다.
+	RefreshFieldOfView();
 	SetActorTickEnabled(true);
 }
 
@@ -1997,6 +2000,20 @@ void AIGPlayerCharacter::MoveRight(const float Value)
 
 	const FRotator YawRotation(0.0f, Controller->GetControlRotation().Yaw, 0.0f);
 	AddMovementInput(FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y), Value);
+}
+
+void AIGPlayerCharacter::RefreshFieldOfView()
+{
+	if (!FirstPersonCamera)
+	{
+		return;
+	}
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	FirstPersonCamera->SetFieldOfView(
+		Accessibility ? Accessibility->GetFieldOfViewDegrees() : 78.0f);
 }
 
 float AIGPlayerCharacter::GetLookSensitivity() const

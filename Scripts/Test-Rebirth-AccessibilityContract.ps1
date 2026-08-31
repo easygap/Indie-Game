@@ -447,12 +447,136 @@ Assert-ContainsAll $hudSource @(
 	'DrawSettingsFooterText('
 ) '긴 한글·200% 미리 보기 내부 경계 계약'
 Assert-ContainsAll $settingsLayout @(
-	'AccessibilityRowCount = 17',
+	'AccessibilityRowCount = 19',
 	'AccessibilityCategoryCount = 6',
-	'case 3: return {5, 5}',
-	'case 4: return {10, 5}',
+	'case 3: return {Subtitles, 6}',
+	'case 4: return {ToggleCrouch, 5}',
 	'HitTestSettingsRow'
 ) '접근성 카테고리·포인터 공용 계약'
+
+# 행 이름이 생기면서 숫자와 이름이 갈라질 수 있다. 마지막 이름이 행 수와
+# 맞는지는 static_assert가 컴파일 때 보고, 여기서는 그 그물이 남아 있는지를
+# 본다 — 지워지면 다음에 한 줄 끼울 때 밝기가 시야각이 된다.
+Assert-ContainsAll $settingsLayout @(
+	'enum EAccessibilityRow : int32',
+	'CloseMenu + 1 == AccessibilityRowCount',
+	'FieldOfView,',
+	'CaptionDuration,'
+) '접근성 행 이름과 행 수의 일치'
+
+# 묶음 여섯 개가 빈틈도 겹침도 없이 행 전부를 덮는가. 숫자를 손으로 맞추다
+# 한 행이 어느 묶음에도 안 들어가면 그 줄은 화면에서 사라진다.
+$categoryRanges = [regex]::Matches(
+	$settingsLayout,
+	'case \d: return \{(?<first>[A-Za-z]+), (?<count>\d+)\}')
+Assert-True ($categoryRanges.Count -eq 6) '접근성 묶음 여섯 개'
+$rowNames = [regex]::Match(
+	$settingsLayout,
+	'enum EAccessibilityRow : int32\s*?
+\s*\{(?<body>[\s\S]*?)\}')
+Assert-True $rowNames.Success '접근성 행 이름 목록'
+$orderedNames = @()
+foreach ($entry in [regex]::Matches(
+	$rowNames.Groups['body'].Value, '(?m)^\s*(?<name>[A-Za-z]+)')) {
+	$orderedNames += $entry.Groups['name'].Value
+}
+Assert-True ($orderedNames.Count -eq 19) '접근성 행 이름 열아홉 개'
+$expectedFirst = 0
+foreach ($range in $categoryRanges) {
+	$firstName = $range.Groups['first'].Value
+	$actualFirst = [array]::IndexOf($orderedNames, $firstName)
+	Assert-True ($actualFirst -eq $expectedFirst) (
+		'접근성 묶음이 이어 붙는다: {0}' -f $firstName)
+	$expectedFirst += [int]$range.Groups['count'].Value
+}
+Assert-True ($expectedFirst -eq 19) '접근성 묶음이 행 전부를 덮는다'
+# --- 시야각과 자막 표시 시간 -------------------------------------------------
+#
+# 설정만 있고 아무 데도 안 걸리는 항목은 화면에 숫자만 바뀌는 줄이 된다.
+# 둘 다 실제로 걸리는 자리를 짚는다.
+
+Assert-ContainsAll $header @(
+	'float FieldOfViewDegrees = 78.0f;',
+	'float CaptionDurationScale = 1.0f;',
+	'GetFieldOfViewDegrees() const',
+	'GetCaptionDurationScale() const'
+) '시야각·자막 시간 설정'
+
+# 손으로 고친 ini가 화면을 못 쓰게 만들면 안 된다.
+$sanitize = [regex]::Match(
+	$source,
+	'FIGAccessibilitySettings UIGAccessibilitySubsystem::Sanitize\((?<body>[\s\S]*?)\r?\n\}')
+Assert-True $sanitize.Success 'Sanitize를 떼어낼 수 있다'
+foreach ($field in @('FieldOfViewDegrees', 'CaptionDurationScale')) {
+	Assert-True (
+		$sanitize.Groups['body'].Value -match
+			("Result.{0} = FMath::Clamp" -f $field)) (
+		'저장본을 다시 조인다: {0}' -f $field)
+}
+
+# 열쇠 이름은 불러오기와 저장 두 곳에 있다. 파일 전체를 보면 한쪽을 통째로
+# 빼도 통과하므로 함수 본문을 떼어내고 각각 본다.
+foreach ($half in @(
+	@{ Name = 'LoadPersistedSettings'; Call = 'GConfig->GetFloat(' },
+	@{ Name = 'SavePersistedSettings'; Call = 'GConfig->SetFloat(' })) {
+	$halfBody = [regex]::Match(
+		$source,
+		('void UIGAccessibilitySubsystem::{0}\(\)( const)?' -f $half.Name) +
+			'(?<body>[\s\S]*?)\r?\n\}')
+	Assert-True $halfBody.Success ('{0}을 떼어낼 수 있다' -f $half.Name)
+	foreach ($key in @('FieldOfViewDegrees', 'CaptionDurationScale')) {
+		Assert-True (
+			$halfBody.Groups['body'].Value -match
+				([regex]::Escape($half.Call) + '\s*\r?\n\s*IGAccessibility::ConfigSection,' +
+					'\s*\r?\n\s*TEXT\("' + $key + '"\)')) (
+			'{0}이 {1}을 다룬다' -f $half.Name, $key)
+	}
+}
+
+# 시야각이 카메라에 걸리는가. 첫 프레임부터 걸려야 한다 — 설정을 열어 봐야
+# 적용되면 「저장이 안 됐다」로 읽힌다.
+$fovBody = [regex]::Match(
+	$character,
+	'void AIGPlayerCharacter::RefreshFieldOfView\(\)(?<body>[\s\S]*?)\r?\n\}')
+Assert-True $fovBody.Success 'RefreshFieldOfView를 떼어낼 수 있다'
+Assert-True (
+	$fovBody.Groups['body'].Value.Contains('GetFieldOfViewDegrees()')) `
+	'시야각이 설정에서 나온다'
+Assert-True (
+	$fovBody.Groups['body'].Value.Contains('FirstPersonCamera->SetFieldOfView(')) `
+	'시야각이 1인칭 카메라에 걸린다'
+$beginPlay = [regex]::Match(
+	$character,
+	'void AIGPlayerCharacter::BeginPlay\(\)(?<body>[\s\S]*?)\r?\n\}')
+Assert-True $beginPlay.Success 'BeginPlay를 떼어낼 수 있다'
+Assert-True (
+	$beginPlay.Groups['body'].Value.Contains('RefreshFieldOfView()')) `
+	'저장된 시야각이 첫 프레임부터 걸린다'
+
+# 자막 시간은 대사와 소리 캡션 두 갈래 모두에 걸려야 한다. 한쪽만 걸리면
+# 대사는 늘어나는데 캡션은 그대로라서 고장으로 읽힌다.
+$dialogueDuration = [regex]::Match(
+	$hudSource,
+	'float AIGHorrorHUD::CalculateDialogueDuration\((?<body>[\s\S]*?)\r?\n\}')
+Assert-True $dialogueDuration.Success 'CalculateDialogueDuration을 떼어낼 수 있다'
+Assert-True (
+	$dialogueDuration.Groups['body'].Value.Contains('GetCaptionDurationScale()')) `
+	'대사 자막이 표시 시간 배율을 읽는다'
+$audioCaption = [regex]::Match(
+	$hudSource,
+	'void AIGHorrorHUD::ShowAudioCaption\((?<body>[\s\S]*?)\r?\n\}')
+Assert-True $audioCaption.Success 'ShowAudioCaption을 떼어낼 수 있다'
+Assert-True (
+	$audioCaption.Groups['body'].Value.Contains('GetCaptionDurationScale()')) `
+	'소리 캡션이 표시 시간 배율을 읽는다'
+
+# 배율은 마지막에 곱한다. ReadingDuration에만 곱하면 부르는 쪽이 정한 최소
+# 표시 시간이 배율을 지나쳐, 짧은 줄에서는 설정이 아무 일도 안 한다.
+Assert-True (
+	$dialogueDuration.Groups['body'].Value -match
+		'FMath::Max\(ReadingDuration, MinimumDurationSeconds\)\s*\r?\n?\s*\* GetCaptionDurationScale\(\)') `
+	'표시 시간 배율이 최소 표시 시간에도 걸린다'
+
 Assert-ContainsAll $inputConfig @(
 	'ActionName="AccessibilityMenu"',
 	'Key=F10',

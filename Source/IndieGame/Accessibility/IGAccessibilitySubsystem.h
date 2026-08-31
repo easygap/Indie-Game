@@ -27,6 +27,17 @@ struct INDIEGAME_API FIGAccessibilitySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bReducedFlicker = false;
 
+	/**
+	 * 1인칭 시야각. 좁은 화면에서 멀미가 나는 사람이 있고, 반대로 넓히면
+	 * 복도가 실제보다 멀어 보여 압박이 준다. 어느 쪽이든 손에 맡긴다.
+	 */
+	UPROPERTY(
+		EditAnywhere,
+		BlueprintReadWrite,
+		Category = "Accessibility",
+		meta = (ClampMin = "68.0", ClampMax = "100.0"))
+	float FieldOfViewDegrees = 78.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bDirectionalFearCues = false;
 
@@ -55,6 +66,17 @@ struct INDIEGAME_API FIGAccessibilitySettings
 		Category = "Accessibility",
 		meta = (ClampMin = "0.00", ClampMax = "1.00"))
 	float CaptionBackgroundOpacity = 0.82f;
+
+	/**
+	 * 자막이 화면에 머무는 시간의 배율. 읽는 속도는 사람마다 다르고,
+	 * 이 게임은 소리를 글로 옮긴 줄이 정보의 전부인 구간이 있다.
+	 */
+	UPROPERTY(
+		EditAnywhere,
+		BlueprintReadWrite,
+		Category = "Accessibility",
+		meta = (ClampMin = "0.75", ClampMax = "2.00"))
+	float CaptionDurationScale = 1.0f;
 
 	/** Width/height fraction reserved as the caption-safe display rectangle. */
 	UPROPERTY(
@@ -179,6 +201,18 @@ public:
 	float GetCaptionBackgroundOpacity() const
 	{
 		return EffectiveSettings.CaptionBackgroundOpacity;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Captions")
+	float GetCaptionDurationScale() const
+	{
+		return EffectiveSettings.CaptionDurationScale;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Motion")
+	float GetFieldOfViewDegrees() const
+	{
+		return EffectiveSettings.FieldOfViewDegrees;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Subtitles")

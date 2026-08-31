@@ -1,4 +1,4 @@
-#include "Accessibility/IGAccessibilitySubsystem.h"
+﻿#include "Accessibility/IGAccessibilitySubsystem.h"
 
 #include "Misc/CommandLine.h"
 #include "Misc/ConfigCacheIni.h"
@@ -15,6 +15,12 @@ namespace IGAccessibility
 	constexpr float MaximumCaptionBackgroundOpacity = 1.0f;
 	constexpr float MinimumCaptionSafeArea = 0.80f;
 	constexpr float MaximumCaptionSafeArea = 1.0f;
+	constexpr float MinimumCaptionDuration = 0.75f;
+	constexpr float MaximumCaptionDuration = 2.0f;
+	// 68도는 검수 스틸이 이미 쓰고 있던 값이고, 100도를 넘기면 1인칭
+	// 손전등 원뿔이 화면 밖으로 밀려 무엇을 비추는지 안 보인다.
+	constexpr float MinimumFieldOfView = 68.0f;
+	constexpr float MaximumFieldOfView = 100.0f;
 
 	bool ParseHintMode(const FString& Value, EIGHintMode& OutMode)
 	{
@@ -119,6 +125,18 @@ FIGAccessibilitySettings UIGAccessibilitySubsystem::Sanitize(
 			: 1.0f,
 		IGAccessibility::MinimumHoldScale,
 		IGAccessibility::MaximumHoldScale);
+	Result.CaptionDurationScale = FMath::Clamp(
+		FMath::IsFinite(Result.CaptionDurationScale)
+			? Result.CaptionDurationScale
+			: 1.0f,
+		IGAccessibility::MinimumCaptionDuration,
+		IGAccessibility::MaximumCaptionDuration);
+	Result.FieldOfViewDegrees = FMath::Clamp(
+		FMath::IsFinite(Result.FieldOfViewDegrees)
+			? Result.FieldOfViewDegrees
+			: 78.0f,
+		IGAccessibility::MinimumFieldOfView,
+		IGAccessibility::MaximumFieldOfView);
 	Result.CaptionSizeScale = FMath::Clamp(
 		FMath::IsFinite(Result.CaptionSizeScale)
 			? Result.CaptionSizeScale
@@ -222,6 +240,16 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		GGameUserSettingsIni);
 	GConfig->GetFloat(
 		IGAccessibility::ConfigSection,
+		TEXT("CaptionDurationScale"),
+		PersistedSettings.CaptionDurationScale,
+		GGameUserSettingsIni);
+	GConfig->GetFloat(
+		IGAccessibility::ConfigSection,
+		TEXT("FieldOfViewDegrees"),
+		PersistedSettings.FieldOfViewDegrees,
+		GGameUserSettingsIni);
+	GConfig->GetFloat(
+		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
 		PersistedSettings.HoldDurationScale,
 		GGameUserSettingsIni);
@@ -304,6 +332,16 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		IGAccessibility::ConfigSection,
 		TEXT("MicrophoneNoiseEnabled"),
 		PersistedSettings.bMicrophoneNoiseEnabled,
+		GGameUserSettingsIni);
+	GConfig->SetFloat(
+		IGAccessibility::ConfigSection,
+		TEXT("CaptionDurationScale"),
+		PersistedSettings.CaptionDurationScale,
+		GGameUserSettingsIni);
+	GConfig->SetFloat(
+		IGAccessibility::ConfigSection,
+		TEXT("FieldOfViewDegrees"),
+		PersistedSettings.FieldOfViewDegrees,
 		GGameUserSettingsIni);
 	GConfig->SetFloat(
 		IGAccessibility::ConfigSection,

@@ -532,6 +532,8 @@ private:
 	void AdvanceDialogueQueue(double CurrentTime);
 	void SuspendDialoguePresentation(double CurrentTime);
 	void ResumeDialoguePresentation(double CurrentTime);
+	/** 접근성 설정의 자막 표시 시간 배율. 없으면 1이다. */
+	float GetCaptionDurationScale() const;
 	float CalculateDialogueDuration(
 		const FString& Line,
 		float MinimumDurationSeconds) const;
