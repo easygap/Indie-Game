@@ -174,6 +174,7 @@ $requiredFiles = @(
 	'Scripts/Test-MissingFloor-TuningTableContract.ps1',
 	'Scripts/Test-MissingFloor-MixAndMovementContract.ps1',
 	'Scripts/Test-MissingFloor-InputBindingContract.ps1',
+	'Scripts/Test-MissingFloor-BibleContract.ps1',
 	'Scripts/Run-MissingFloor-EndingPreview.ps1',
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1',
 	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1',
@@ -2691,6 +2692,10 @@ $missingFloorMixMovementContractScript = Join-Path $projectRoot `
 $missingFloorInputBindingContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-InputBindingContract.ps1'
 & $missingFloorInputBindingContractScript
+
+$missingFloorBibleContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-BibleContract.ps1'
+& $missingFloorBibleContractScript
 
 $missingFloorM6AudioVisualContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1'
