@@ -779,6 +779,116 @@ if ($story -notmatch '존재의 소리는 절대 눌리지 않는다') {
 	throw 'The §21.1 first principle was removed.'
 }
 
+# --- §21.4 침묵과 더킹 --------------------------------------------------------
+#
+# 여기 숫자는 §21.1 표의 기본값과 **더해져야** 맞는다. 두 자리를 따로 읽으면
+# 한쪽만 옮겨도 아무 데서도 안 걸린다 — 계산해서 본다.
+
+$hudSourceForMix = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGHorrorHUD.cpp')
+
+# 침묵 2회에서 WORLD가 내려가는 바닥.
+$silenceRow = [regex]::Match(
+	$story,
+	'침묵 2회\(§10\.2\)는 볼륨 페이드가 아니라 \*\*버스 정지\*\*다: `BUS_SCORE` −∞,\s*\r?\n?\s*`BUS_WORLD` (?<floor>-?−?[0-9]+)dB')
+$assertionCount++
+if (-not $silenceRow.Success) {
+	throw 'The §21.4 silence floor could not be read.'
+}
+# 문서는 전각 마이너스를 쓴다. 숫자만 떼어 부호를 붙인다.
+$silenceFloor = -[double]($silenceRow.Groups['floor'].Value -replace '[^0-9]', '')
+
+# §21.1 표의 WORLD 기본값.
+$worldBaseRow = [regex]::Match(
+	$story, '\| `BUS_WORLD` \| [^|]+ \| (?<base>-?−?[0-9]+) \|')
+$assertionCount++
+if (-not $worldBaseRow.Success) {
+	throw 'The §21.1 WORLD base could not be read.'
+}
+$worldBase = -[double]($worldBaseRow.Groups['base'].Value -replace '[^0-9]', '')
+
+# 코드의 더킹 값.
+$duckBody = [regex]::Match(
+	$audioSource,
+	'float UIGMissingFloorAudioSubsystem::GetBusDuckingDecibels\(\s*\r?\n?\s*const EIGAudioBus Bus\) const(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $duckBody.Success) {
+	throw 'GetBusDuckingDecibels could not be isolated.'
+}
+$silenceDuck = [regex]::Match(
+	$duckBody.Groups['body'].Value,
+	'Bus == EIGAudioBus::World && bAuthoredSilence\)[\s\S]{0,400}?return (?<value>-?[0-9.]+)f;')
+$assertionCount++
+if (-not $silenceDuck.Success) {
+	throw 'The authored-silence ducking for WORLD could not be read.'
+}
+$assertionCount++
+if (($worldBase + [double]$silenceDuck.Groups['value'].Value) -ne $silenceFloor) {
+	throw (
+		'WORLD lands at {0}dB in silence ({1} base {2} duck) but §21.4 says {3}dB.' -f
+			($worldBase + [double]$silenceDuck.Groups['value'].Value),
+			$worldBase, $silenceDuck.Groups['value'].Value, $silenceFloor)
+}
+
+# 침묵에서도 플레이어 호흡은 남는다. PLAYER에 침묵 분기가 생기면 그 약속이
+# 깨진다 — 숨소리까지 사라지면 그건 침묵이 아니라 음소거다.
+$assertionCount++
+if ($duckBody.Groups['body'].Value -match
+	'Bus == EIGAudioBus::Player && bAuthoredSilence') {
+	throw 'Authored silence must leave the player breathing (§21.4).'
+}
+$assertionCount++
+if ($story -notmatch '플레이어 호흡만 남긴다') {
+	throw 'The §21.4 breathing rule was removed.'
+}
+
+# LISTENING 창의 WORLD −6dB가 「지금 들리고 있다」의 유일한 신호다.
+$listenRow = [regex]::Match(
+	$story,
+	'LISTENING 창의 `BUS_WORLD` (?<value>-?−?[0-9]+)dB이 "지금 들리고 있다"를 알리는 \*\*유일한')
+$assertionCount++
+if (-not $listenRow.Success) {
+	throw 'The §21.4 listening-window row could not be read.'
+}
+$listenDuck = -[double]($listenRow.Groups['value'].Value -replace '[^0-9]', '')
+$listenDeclared = [regex]::Match(
+	$duckBody.Groups['body'].Value,
+	'bPlayerListening \|\| bEntityListening\)\)[\s\S]{0,200}?return (?<value>-?[0-9.]+)f;')
+$assertionCount++
+if (-not $listenDeclared.Success) {
+	throw 'The listening ducking could not be read.'
+}
+$assertionCount++
+if ([double]$listenDeclared.Groups['value'].Value -ne $listenDuck) {
+	throw (
+		'The listening window ducks WORLD by {0}dB but §21.4 says {1}dB.' -f
+			$listenDeclared.Groups['value'].Value, $listenDuck)
+}
+# 유일한 신호다. 화면이 같은 말을 하면 믹스가 상태를 말한다는 문장이 거짓이
+# 된다 — UI 대신 믹스로 알리기로 한 자리다.
+foreach ($banned in @(
+	'DrawListeningIndicator', 'ListeningIcon', 'bDrawListeningState')) {
+	$assertionCount++
+	if ($hudSourceForMix.Contains($banned)) {
+		throw "The listening window is told by the mix, not the HUD (§21.4): $banned"
+	}
+}
+$assertionCount++
+if ($story -notmatch 'UI 대신 믹스가 상태를 말한다') {
+	throw 'The §21.4 mix-over-UI rule was removed.'
+}
+
+# 스팅 상한과 전대역 폭음 금지는 §10.4에서 이어받은 규칙이다. 값을 재는
+# 것은 §21.5의 실측이고, 여기서는 규칙이 두 자리에 살아 있는지만 본다.
+$assertionCount++
+if ($story -notmatch '스팅 상한 직전 베드 \+6dB, 전대역 폭음 금지\(§10\.4 계승\)') {
+	throw 'The §21.4 sting ceiling was removed.'
+}
+$assertionCount++
+if ($story -notmatch '스팅은 직전 베드 \+6dB 상한 유지\. 전대역 폭음 금지 유지\.') {
+	throw 'The §10.4 sting ceiling this section inherits was removed.'
+}
+
 Write-Host (
 	'MISSING_FLOOR_MIX_MOVEMENT_CONTRACT PASS buses={0} spaces={1} states={2} assertions={3}' -f `
 		$busRows.Count, $reverbRows.Count, $movementRows.Count, $assertionCount) `
