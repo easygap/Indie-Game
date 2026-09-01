@@ -2273,6 +2273,127 @@ for ($index = 0; $index -lt $versionSections.Count; $index++) {
 	}
 }
 
+# --- §12 진실 게이트 · §13 포어섀도 장부 ----------------------------------------
+#
+# 앞 절들과 성격이 다르다. 여기 걸린 것은 숫자가 아니라 **인과**다 — 무엇이
+# 확정돼야 무엇이 열리는가, 심은 것이 회수되는가.
+
+$narrativeSource = Read-ProjectText 'Source/IndieGame/Narrative/IGMissingFloorNarrativeSubsystem.cpp'
+
+# 12 — 최종 선택 게이트는 T6·T7·T9 확정 + 벽 개방이다.
+$gateRow = [regex]::Match(
+	$story, '최종 선택 게이트: (?<truths>T[0-9]+(?:·T[0-9]+)*) 확정 \+ 벽 개방')
+$assertionCount++
+if (-not $gateRow.Success) {
+	throw 'The §12 final-choice gate could not be read.'
+}
+$gateTruths = $gateRow.Groups['truths'].Value -split '·'
+$assertionCount++
+if ($gateTruths.Count -ne 3) {
+	throw (
+		'The §12 gate names {0} truths; the code checks three.' -f $gateTruths.Count)
+}
+# 표에서 그 태그의 열거형 이름을 끌어온다. 태그와 이름을 두 번 적지 않는다.
+$truthNames = @{
+	'T6' = 'SomeoneInTheWall'
+	'T7' = 'WasStillAlive'
+	'T9' = 'WaitingForAnAnswer'
+}
+$unlockBody = [regex]::Match(
+	$narrativeSource,
+	'bool UIGMissingFloorNarrativeSubsystem::IsFinalChoiceUnlocked\(\) const(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $unlockBody.Success) {
+	throw 'IsFinalChoiceUnlocked could not be isolated.'
+}
+foreach ($tag in $gateTruths) {
+	$assertionCount++
+	if (-not $truthNames.ContainsKey($tag)) {
+		throw "The §12 gate names a truth this contract does not know: $tag"
+	}
+	$assertionCount++
+	if (-not $unlockBody.Groups['body'].Value.Contains(
+		('EIGMissingFloorTruth::{0}' -f $truthNames[$tag]))) {
+		throw "The final choice must require $tag ($($truthNames[$tag]))."
+	}
+}
+# 세 개뿐이다. 하나를 더 걸면 게이트가 문서보다 좁아진다.
+$gateChecks = ([regex]::Matches(
+	$unlockBody.Groups['body'].Value, 'HasTruth\(')).Count
+$assertionCount++
+if ($gateChecks -ne $gateTruths.Count) {
+	throw (
+		'The final choice checks {0} truths but §12 names {1}.' -f
+			$gateChecks, $gateTruths.Count)
+}
+
+# 벽은 게이트가 열린 뒤에만 부술 수 있고, 선택은 벽이 열린 뒤에만 뜬다.
+# 순서가 뒤집히면 진실을 모으지 않고도 엔딩에 닿는다.
+$nightFourForGate = Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
+$assertionCount++
+if ($nightFourForGate -notmatch
+	'const bool bCanBreak = bNightFour\s*\r?\n\s*&& Narrative->IsFinalChoiceUnlocked\(\)') {
+	throw 'The wall must stay shut until the §12 gate opens.'
+}
+$assertionCount++
+if ($nightFourForGate -notmatch
+	'const bool bCanChoose = bNightFour\s*\r?\n\s*&& bWallOpened') {
+	throw 'The ending choice must wait for the wall (§12).'
+}
+# 첫 신고 없이 선택이 뜨면 §24 즉시 차단 14가 깨진다.
+$assertionCount++
+if ($nightFourForGate -notmatch
+	'&& Narrative->WasFirstReportMade\(\)') {
+	throw 'The ending choice must wait for the first report (§12, §24-14).'
+}
+
+# 13 — 심은 것은 반드시 회수된다. 표의 네 칸이 다 차 있어야 그 원칙이 읽힌다.
+$ledgerTable = [regex]::Match(
+	$story,
+	'## 13\. 포어섀도 장부[^\r\n]*\r?\n(?<body>[\s\S]*?)\r?\n\r?\n회수 없는 심기')
+$assertionCount++
+if (-not $ledgerTable.Success) {
+	throw 'The §13 foreshadow ledger could not be read.'
+}
+$ledgerRows = 0
+foreach ($row in [regex]::Matches(
+	$ledgerTable.Groups['body'].Value,
+	'(?m)^\| (?<plant>[^|]+?) \| (?<where>[^|]+?) \| (?<payoff>[^|]+?) \| (?<when>[^|]+?) \|')) {
+	$fields = @('plant', 'where', 'payoff', 'when')
+	if ($row.Groups['plant'].Value.Trim() -eq '심기') {
+		continue
+	}
+	$ledgerRows++
+	foreach ($field in $fields) {
+		$assertionCount++
+		$value = $row.Groups[$field].Value.Trim()
+		if ($value.Length -lt 2 -or $value -match '^-+$') {
+			throw (
+				'A §13 ledger row has an empty {0}: {1}' -f
+					$field, $row.Groups['plant'].Value.Trim())
+		}
+	}
+}
+$assertionCount++
+if ($ledgerRows -lt 16) {
+	throw "The §13 ledger lists $ledgerRows plantings; sixteen were authored."
+}
+$assertionCount++
+if ($story -notmatch '회수 없는 심기, 심기 없는 회수 금지 원칙 유지') {
+	throw 'The §13 plant-and-payoff rule was removed.'
+}
+
+# 표에 오른 출처는 전부 세계에 실물이 있어야 한다. 그 약속이 사라지면
+# 도달 불가인 진실이 다시 생긴다 — 실제로 T5와 T8이 그랬다.
+$assertionCount++
+if ($story -notmatch '\*\*표에 오른 출처는 전부 세계에 실물이 있어야 한다\.\*\*') {
+	throw 'The §12 every-source-is-real rule was removed.'
+}
+$assertionCount++
+if ($story -notmatch '`Test-ArtAssetContract\.ps1`이 열거형을 읽어 게임플레이 파일과 대조한다') {
+	throw 'The §12 source-reachability contract lost its name.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
