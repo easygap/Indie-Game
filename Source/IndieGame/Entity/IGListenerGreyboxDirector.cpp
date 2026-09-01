@@ -61,9 +61,10 @@ namespace IGListenerGreybox
 	// same constant the corridor was built with.
 	constexpr float FourthFloorZ = 900.0f;
 	constexpr float EntityHalfHeight = 58.0f;
-	// The 404 fridge hum, first of the §5.1 masking pockets. Placeholder
-	// until night-one dressing registers real machines (M2).
-	const FVector FridgeHumLocation(155.0f, -20.0f, FourthFloorZ + 60.0f);
+	// 404 냉장고 험. §5.1의 첫 마스킹 주머니다. 자리는 냉장고에게
+	// 묻는다 — 좌표를 여기 다시 적으면 냉장고만 옮겨지고 험은 옛
+	// 자리에 남는다. 기계 몸통 한가운데 높이만 여기서 정한다.
+	constexpr float FridgeHumHeightOffset = 60.0f;
 	constexpr float FridgeHumRadius = 200.0f;
 	constexpr float FridgeHumMasking = 0.2f;
 
@@ -246,7 +247,8 @@ bool AIGListenerGreyboxDirector::SetupStage()
 	ExpectedWakeLocation = PlayerCharacter->GetActorLocation();
 
 	NoiseSubsystem->RegisterHumSource(
-		IGListenerGreybox::FridgeHumLocation,
+		Scene->GetFridgeLocation()
+			+ FVector(0.0f, 0.0f, IGListenerGreybox::FridgeHumHeightOffset),
 		IGListenerGreybox::FridgeHumRadius,
 		IGListenerGreybox::FridgeHumMasking);
 
@@ -2538,10 +2540,14 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("global masking failed to swallow a 0.3 sound"));
 			return;
 		}
-		if (NoiseSubsystem->GetMaskingAt(
-			IGListenerGreybox::FridgeHumLocation) <= 0.0f)
+		// 험의 중심이 아니라 냉장고에 서서 잰다. 플레이어는 좌표를
+		// 보고 숨지 않는다 — 기계를 보고 숨는다. 둘이 갈라지면
+		// 여기서 걸린다.
+		if (!WorldScene.IsValid()
+			|| NoiseSubsystem->GetMaskingAt(
+				WorldScene->GetFridgeLocation()) <= 0.0f)
 		{
-			FailProbe(TEXT("fridge hum pocket reports no masking"));
+			FailProbe(TEXT("fridge hum pocket does not cover the fridge"));
 			return;
 		}
 

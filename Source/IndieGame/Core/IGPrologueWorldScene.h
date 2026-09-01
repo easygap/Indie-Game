@@ -262,6 +262,13 @@ public:
 	bool IsCorridorExtinguisherDropped() const { return bCorridorExtinguisherDropped; }
 	FVector GetCorridorExtinguisherLocation() const;
 
+	/**
+	 * 냉장고가 실제로 서 있는 자리. §5.1의 험 존이 여기 붙는다.
+	 * 좌표를 다른 파일에 한 번 더 적으면 냉장고만 옮겨지고 험은
+	 * 옛 자리에서 계속 운다.
+	 */
+	FVector GetFridgeLocation() const;
+
 private:
 	// --- assembly helpers -------------------------------------------------
 	UStaticMeshComponent* CreateBlock(

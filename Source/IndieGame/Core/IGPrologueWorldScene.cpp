@@ -4408,6 +4408,15 @@ FVector AIGPrologueWorldScene::GetCorridorExtinguisherLocation() const
 		: GetActorTransform().TransformPosition(FVector(232.0f, -364.0f, 926.0f));
 }
 
+FVector AIGPrologueWorldScene::GetFridgeLocation() const
+{
+	// 프롭이 세워지기 전에 물어보는 자리가 있어 작성 좌표를 함께 둔다.
+	// 스폰도 이 값을 쓰므로 둘은 갈라질 수 없다.
+	return Fridge
+		? Fridge->GetActorLocation()
+		: IGPrologueWorld::FridgeLocation;
+}
+
 void AIGPrologueWorldScene::SetStoreNorthLightsLive(const bool bLive)
 {
 	// BuildStore appends in X-major/Y-minor order. Indices 0 and 2 are the

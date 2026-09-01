@@ -1303,6 +1303,71 @@ if ($story -notmatch '4층 보일러실\(§6\)에는 아직 험 존이 없다') 
 	throw 'The §5.1 note about the boiler room was removed.'
 }
 
+# 험은 기계를 따라다녀야 한다. 냉장고 좌표가 두 벌이면 하나만 움직인다 —
+# 세계 장면이 냉장고를 옮겨도 험은 옛 자리에서 계속 울고, 플레이어가 배운
+# 「기계 옆이 안전하다」가 빈 벽을 가리킨다.
+$greyboxSource = Read-ProjectText `
+	'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
+$fridgeSceneHeader = Read-ProjectText 'Source/IndieGame/Core/IGPrologueWorldScene.h'
+$fridgeSceneSource = Read-ProjectText 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
+
+$assertionCount++
+if ($greyboxSource -match 'FridgeHumLocation\s*\(') {
+	throw 'The fridge hum took a coordinate of its own again (§5.1).'
+}
+$humCall = [regex]::Match(
+	$greyboxSource, 'RegisterHumSource\((?<args>[\s\S]{0,240}?)\);')
+$assertionCount++
+if (-not $humCall.Success) {
+	throw 'The fridge hum registration could not be read.'
+}
+$assertionCount++
+if ($humCall.Groups['args'].Value -notmatch 'GetFridgeLocation\(\)') {
+	throw 'The fridge hum stopped asking the fridge where it stands (§5.1).'
+}
+# 높이만 험이 정한다. 기계 몸통 한가운데를 바닥에서 재는 값이라 자리와는
+# 다른 사실이다.
+$assertionCount++
+if ($humCall.Groups['args'].Value -notmatch 'FridgeHumHeightOffset') {
+	throw 'The fridge hum lost the authored body height (§5.1).'
+}
+$assertionCount++
+if ($fridgeSceneHeader -notmatch 'FVector GetFridgeLocation\(\) const;') {
+	throw 'The world scene stopped telling anyone where the fridge stands.'
+}
+$fridgeAccessor = [regex]::Match(
+	$fridgeSceneSource,
+	'FVector AIGPrologueWorldScene::GetFridgeLocation\(\) const\r?\n\{(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $fridgeAccessor.Success) {
+	throw 'GetFridgeLocation could not be read.'
+}
+$assertionCount++
+if ($fridgeAccessor.Groups['body'].Value -notmatch 'Fridge->GetActorLocation\(\)') {
+	throw 'GetFridgeLocation stopped reading the prop it names.'
+}
+$assertionCount++
+if ($fridgeAccessor.Groups['body'].Value -notmatch 'IGPrologueWorld::FridgeLocation') {
+	throw 'GetFridgeLocation lost the authored fallback.'
+}
+# 폴백과 스폰이 같은 상수를 써야 프롭이 서기 전에 물어봐도 거짓말이 아니다.
+$assertionCount++
+if ($fridgeSceneSource -notmatch
+	'SpawnActor<AIGFridge>\([\s\S]{0,200}?IGPrologueWorld::FridgeLocation') {
+	throw 'The fridge stopped spawning at the constant its accessor falls back to.'
+}
+# 런타임 프로브는 험의 중심이 아니라 냉장고에 서서 잰다. 둘이 갈라지면
+# 정적 검사가 아니라 여기서 걸린다.
+$assertionCount++
+if ($greyboxSource -notmatch
+	'GetMaskingAt\(\r?\n?\s*WorldScene->GetFridgeLocation\(\)\)') {
+	throw 'The masking probe stopped measuring at the fridge itself (§5.1).'
+}
+$assertionCount++
+if ($story -notmatch '\*\*험은 기계를 따라다닌다\.\*\*') {
+	throw 'The §5.1 rule that a hum rides its machine was removed.'
+}
+
 # 노크 3연 동안의 전역 마스킹.
 $bangRow = [regex]::Match(
 	$story, '노크 3연 동안은 모든 플레이어 소음이 -(?<value>[0-9.]+) 마스킹된다')
