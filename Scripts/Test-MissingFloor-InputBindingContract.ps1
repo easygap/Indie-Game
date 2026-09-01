@@ -866,6 +866,180 @@ if ($knockText -match 'PushThought|PushDialogue|PushAudioCaption') {
 	throw 'A missed knock must say nothing (§18.5).'
 }
 
+# --- §18.6 햅틱 계약 ---------------------------------------------------------
+#
+# 여섯 줄짜리 표다. 셋은 이미 있었고 셋은 없었다 — CHASE 진입, 심박,
+# 낙하물·충돌.
+
+$hapticRows = @{}
+foreach ($row in [regex]::Matches(
+	$story,
+	'(?m)^\| (?<event>[^|]+?) \| (?<intensity>[^|]+?) \| (?<length>[^|]+?) \|\s*$')) {
+	$hapticRows[$row.Groups['event'].Value.Trim()] = @{
+		Intensity = $row.Groups['intensity'].Value.Trim()
+		Length = $row.Groups['length'].Value.Trim()
+	}
+}
+foreach ($event in @(
+	'내 노크', '발소리(달리기 한정)', '낙하물·충돌',
+	'CHASE 진입', '포획', '심박(스트레스 0.85+)')) {
+	$assertionCount++
+	if (-not $hapticRows.ContainsKey($event)) {
+		throw "The §18.6 haptic table lost a row: $event"
+	}
+}
+
+# 표의 숫자를 코드 상수와 짝짓는다.
+$hapticConstants = @(
+	@{ Event = '내 노크'; Call = 'PlayHapticFeedback(0.35f, 0.06f);' },
+	@{ Event = '발소리(달리기 한정)'; Call = 'PlayHapticFeedback(0.12f, 0.04f);' })
+foreach ($pair in $hapticConstants) {
+	$row = $hapticRows[$pair.Event]
+	$expected = 'PlayHapticFeedback({0}f, {1}f);' -f `
+		$row.Intensity, ($row.Length -replace 's$', '')
+	$assertionCount++
+	if ($expected -ne $pair.Call) {
+		throw (
+			'The §18.6 row moved without the code following: {0} wants {1}' -f
+				$pair.Event, $expected)
+	}
+	$assertionCount++
+	if (-not $characterSource.Contains($pair.Call)) {
+		throw ('The §18.6 haptic is missing: {0}' -f $pair.Event)
+	}
+}
+
+# 달리기 한정이라고 적혀 있다. 걸을 때도 울리면 표가 거짓말이 된다.
+$assertionCount++
+if ($characterSource -notmatch
+	'if \(bSprinting && !bIsCrouched\)\s*\r?\n\s*\{\s*\r?\n\s*PlayHapticFeedback\(0\.12f, 0\.04f\);') {
+	throw 'The footstep haptic is sprint-only (§18.6).'
+}
+
+# 나머지 넷은 이름 붙인 상수로 둔다. 표를 옮기면 여기서 잡힌다.
+$namedHaptics = @(
+	@{ Name = 'ImpactHapticIntensity'; Value = '0.55' },
+	@{ Name = 'ImpactHapticSeconds'; Value = '0.20' },
+	@{ Name = 'ChaseHapticIntensity'; Value = '0.25' },
+	@{ Name = 'ChaseHapticFadeInSeconds'; Value = '0.40' },
+	@{ Name = 'HeartbeatHapticIntensity'; Value = '0.10' },
+	@{ Name = 'CaptureHapticIntensity'; Value = '0.70' })
+foreach ($named in $namedHaptics) {
+	$declared = [regex]::Match(
+		$characterSource,
+		('constexpr float {0} = (?<value>[0-9.]+)f;' -f $named.Name))
+	$assertionCount++
+	if (-not $declared.Success) {
+		throw ('The §18.6 haptic constant is missing: {0}' -f $named.Name)
+	}
+	$assertionCount++
+	if ([double]$declared.Groups['value'].Value -ne [double]$named.Value) {
+		throw (
+			'{0} is {1} but §18.6 says {2}.' -f
+				$named.Name, $declared.Groups['value'].Value, $named.Value)
+	}
+}
+
+# 표의 문자열과 상수를 맞대 본다. 표만 고치고 코드를 두면 조용히 어긋난다.
+$assertionCount++
+if ($hapticRows['낙하물·충돌'].Intensity -ne '0.55' -or
+	$hapticRows['낙하물·충돌'].Length -ne '0.20s') {
+	throw 'The §18.6 impact row moved; the code constants did not follow.'
+}
+$assertionCount++
+if ($hapticRows['CHASE 진입'].Intensity -notmatch '^0\.25' -or
+	$hapticRows['CHASE 진입'].Length -notmatch '0\.4s') {
+	throw 'The §18.6 chase row moved; the code constants did not follow.'
+}
+$assertionCount++
+if ($hapticRows['포획'].Intensity -notmatch '^0\.70') {
+	throw 'The §18.6 capture row moved; the code constants did not follow.'
+}
+$assertionCount++
+if ($hapticRows['심박(스트레스 0.85+)'].Intensity -notmatch '^0\.10') {
+	throw 'The §18.6 heartbeat row moved; the code constants did not follow.'
+}
+
+# CHASE는 지속이다. 페이드인이 있고, 끝날 때 반드시 멈춘다 — 안 멈추면
+# 추격이 끝났는데 패드만 계속 우는 상태가 남는다.
+$chaseBody = [regex]::Match(
+	$characterSource,
+	'void AIGPlayerCharacter::UpdateChaseHaptic\(const float DeltaSeconds\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $chaseBody.Success) {
+	throw 'UpdateChaseHaptic could not be isolated.'
+}
+foreach ($piece in @(
+	'IGPlayerNoise::ChaseHapticFadeInSeconds',
+	'EDynamicForceFeedbackAction::Update',
+	'EDynamicForceFeedbackAction::Start')) {
+	$assertionCount++
+	if (-not $chaseBody.Groups['body'].Value.Contains($piece)) {
+		throw "The chase haptic must ramp and hold (§18.6): $piece"
+	}
+}
+$stopBody = [regex]::Match(
+	$characterSource,
+	'void AIGPlayerCharacter::StopChaseHaptic\(\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $stopBody.Success) {
+	throw 'StopChaseHaptic could not be isolated.'
+}
+$assertionCount++
+if (-not $stopBody.Groups['body'].Value.Contains(
+	'EDynamicForceFeedbackAction::Stop')) {
+	throw 'Leaving the chase must stop the sustained buzz (§18.6).'
+}
+# 진동 전체 끄기를 켜 두었는데 지속 진동만 살아남으면 안 된다.
+$assertionCount++
+if (-not $chaseBody.Groups['body'].Value.Contains('AreHapticsEnabled()')) {
+	throw 'The sustained chase haptic must honour the haptics-off option (§18.6).'
+}
+
+# 심박은 소리를 만드는 자리에서 함께 낸다. 임계값도 한 번만 적는다.
+$stressSourceForHaptics = Read-ProjectText 'Source/IndieGame/Player/IGStressComponent.cpp'
+$beatBody = [regex]::Match(
+	$stressSourceForHaptics,
+	'void UIGStressComponent::PlayHeartbeat\(const float EffectiveStress\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $beatBody.Success) {
+	throw 'PlayHeartbeat could not be isolated.'
+}
+$assertionCount++
+if (-not $beatBody.Groups['body'].Value.Contains('PlayHeartbeatHaptic()')) {
+	throw 'The heartbeat haptic must fire where the beat is made (§18.6).'
+}
+$thresholdDeclared = [regex]::Match(
+	$stressSourceForHaptics,
+	'constexpr float HeartbeatHapticStressThreshold = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $thresholdDeclared.Success) {
+	throw 'HeartbeatHapticStressThreshold could not be read.'
+}
+$assertionCount++
+if ([double]$thresholdDeclared.Groups['value'].Value -ne 0.85) {
+	throw (
+		'HeartbeatHapticStressThreshold is {0} but §18.6 says 0.85.' -f
+			$thresholdDeclared.Groups['value'].Value)
+}
+
+# 전체 OFF 옵션이 살아 있는가.
+$assertionCount++
+if ($story -notmatch '전체 OFF 옵션을 제공하되') {
+	throw 'The §18.6 haptics-off promise was removed.'
+}
+$hapticGate = [regex]::Match(
+	$characterSource,
+	'void AIGPlayerCharacter::PlayHapticFeedback\((?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $hapticGate.Success) {
+	throw 'PlayHapticFeedback could not be isolated.'
+}
+$assertionCount++
+if (-not $hapticGate.Groups['body'].Value.Contains('AreHapticsEnabled()')) {
+	throw 'Every haptic must pass the off switch (§18.6).'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')

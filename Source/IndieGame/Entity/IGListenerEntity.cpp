@@ -14,6 +14,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Kismet/GameplayStatics.h"
 #include "Player/IGStressComponent.h"
 
 namespace IGListener
@@ -210,6 +211,16 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 				break;
 			}
 			AudioDirector->SetThreatState(AudioState);
+			// §18.6 CHASE 진입. 소리가 상태를 바꾸는 자리에서 손도 함께
+			// 바꾼다 — 둘을 떼어 두면 추격이 끝났는데 패드만 계속 우는
+			// 상태가 만들어진다.
+			if (AIGPlayerCharacter* PlayerCharacter =
+				Cast<AIGPlayerCharacter>(
+					UGameplayStatics::GetPlayerPawn(this, 0)))
+			{
+				PlayerCharacter->SetChaseHaptic(
+					AudioState == EIGAudioThreatState::Chasing);
+			}
 		}
 	}
 

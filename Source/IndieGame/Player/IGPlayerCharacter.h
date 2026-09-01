@@ -99,6 +99,15 @@ public:
 	/** Applies the persisted/command-line microphone mode immediately. */
 	void RefreshMicrophoneCaptureMode();
 
+	/** §18.6 낙하물·충돌. 연출된 충격에만 붙는다. */
+	void PlayImpactHaptic() const;
+
+	/** §18.6 심박. 스트레스가 높을 때 럽과 덥에 하나씩. */
+	void PlayHeartbeatHaptic() const;
+
+	/** §18.6 CHASE 진입. 지속 진동을 페이드인으로 올리고 내린다. */
+	void SetChaseHaptic(bool bActive);
+
 	/** 접근성 설정의 시야각을 카메라에 건다. 설정이 바뀔 때마다 부른다. */
 	void RefreshFieldOfView();
 
@@ -175,6 +184,8 @@ private:
 	void FinishHoldBreath(bool bForcedRelease);
 	void ApplyPlayerKnockFeedback();
 	void RegisterKnockSequenceTap();
+	void StopChaseHaptic();
+	void UpdateChaseHaptic(float DeltaSeconds);
 	void PlayHapticFeedback(float Intensity, float DurationSeconds) const;
 	/** Samples how dark it is where the player stands, for the stress model. */
 	float SampleAmbientDarkness() const;
@@ -256,6 +267,9 @@ private:
 	float AppliedCrouchCameraCompensation = 0.0f;
 	float KnockCameraKick = 0.0f;
 	float CaptureFeedbackDurationSeconds = 0.0f;
+	bool bChaseHapticActive = false;
+	float ChaseHapticAlpha = 0.0f;
+	int32 ChaseForceFeedbackHandle = 0;
 	float CaptureFeedbackRemainingSeconds = 0.0f;
 	uint64 CaptureForceFeedbackHandle = 0;
 	double LastKnockInputSeconds = -1.0;

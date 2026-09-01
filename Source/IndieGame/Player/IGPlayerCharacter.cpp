@@ -89,6 +89,15 @@ namespace IGPlayerNoise
 	constexpr float KnockCameraReturnSeconds = 0.18f;
 	constexpr float CaptureCameraKickDegrees = 3.2f;
 	constexpr float CaptureHapticIntensity = 0.70f;
+	// §18.6 햅틱 계약. 표의 여섯 줄 중 셋이 여기 있다.
+	constexpr float ImpactHapticIntensity = 0.55f;
+	constexpr float ImpactHapticSeconds = 0.20f;
+	constexpr float ChaseHapticIntensity = 0.25f;
+	constexpr float ChaseHapticFadeInSeconds = 0.40f;
+	constexpr float HeartbeatHapticIntensity = 0.10f;
+	// 심박 진동은 스트레스가 이만큼 올라야 붙는다. 늘 울리면 그건 정보가
+	// 아니라 배경이 된다.
+	constexpr float HeartbeatHapticStressThreshold = 0.85f;
 	/** Quietest and loudest footfall reported to the noise bus (§5.1). */
 	constexpr float MinimumFootstepLoudness = 0.06f;
 	constexpr float MaximumFootstepLoudness = 0.18f;
@@ -457,6 +466,7 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 	UpdateCrouchTransition(DeltaSeconds);
 	UpdateFootsteps(DeltaSeconds);
 	UpdateCaptureFeedback(DeltaSeconds);
+	UpdateChaseHaptic(DeltaSeconds);
 	UpdateCameraMotion(DeltaSeconds);
 	UpdateCarriedItem(DeltaSeconds);
 	UpdateOutfitPresentation(DeltaSeconds);
@@ -1790,6 +1800,109 @@ void AIGPlayerCharacter::RegisterKnockSequenceTap()
 		KnockSequenceTapCount = 0;
 		KnockInputLockedUntil = Now + IGPlayerNoise::KnockInputLockSeconds;
 	}
+}
+
+void AIGPlayerCharacter::PlayImpactHaptic() const
+{
+	// §18.6 낙하물·충돌. 연출된 충격에만 붙는다 — 플레이어 자신의 착지는
+	// 발소리 크기의 작은 펄스이고 표의 이 줄이 아니다.
+	PlayHapticFeedback(
+		IGPlayerNoise::ImpactHapticIntensity,
+		IGPlayerNoise::ImpactHapticSeconds);
+}
+
+void AIGPlayerCharacter::PlayHeartbeatHaptic() const
+{
+	// §18.6 심박. 「0.10 ×2, 박동 동기」 — 럽과 덥에 하나씩이다. 길이는
+	// 심박음의 음표 길이를 그대로 쓴다. 따로 적어 두면 소리와 진동이
+	// 어긋나도 아무도 모른다.
+	PlayHapticFeedback(IGPlayerNoise::HeartbeatHapticIntensity, 0.16f);
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	FTimerHandle DubHandle;
+	World->GetTimerManager().SetTimer(
+		DubHandle,
+		FTimerDelegate::CreateWeakLambda(
+			const_cast<AIGPlayerCharacter*>(this),
+			[this]()
+			{
+				PlayHapticFeedback(
+					IGPlayerNoise::HeartbeatHapticIntensity, 0.13f);
+			}),
+		0.20f,
+		false);
+}
+
+void AIGPlayerCharacter::SetChaseHaptic(const bool bActive)
+{
+	if (bChaseHapticActive == bActive)
+	{
+		return;
+	}
+	bChaseHapticActive = bActive;
+	if (!bActive)
+	{
+		StopChaseHaptic();
+		return;
+	}
+	// 페이드인은 Tick이 올린다. 추격이 시작되는 순간 손이 먼저 놀라면
+	// 소리보다 진동이 먼저 말해 버린다.
+	ChaseHapticAlpha = 0.0f;
+	SetActorTickEnabled(true);
+}
+
+void AIGPlayerCharacter::StopChaseHaptic()
+{
+	bChaseHapticActive = false;
+	ChaseHapticAlpha = 0.0f;
+	APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	if (PlayerController && ChaseForceFeedbackHandle > 0)
+	{
+		PlayerController->PlayDynamicForceFeedback(
+			0.0f, 0.0f, true, true, true, true,
+			EDynamicForceFeedbackAction::Stop,
+			ChaseForceFeedbackHandle);
+		ChaseForceFeedbackHandle = 0;
+	}
+}
+
+void AIGPlayerCharacter::UpdateChaseHaptic(const float DeltaSeconds)
+{
+	if (!bChaseHapticActive)
+	{
+		return;
+	}
+	if (AccessibilitySubsystem && !AccessibilitySubsystem->AreHapticsEnabled())
+	{
+		StopChaseHaptic();
+		return;
+	}
+	APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	if (!PlayerController)
+	{
+		return;
+	}
+	ChaseHapticAlpha = FMath::Clamp(
+		ChaseHapticAlpha
+			+ DeltaSeconds / IGPlayerNoise::ChaseHapticFadeInSeconds,
+		0.0f,
+		1.0f);
+	const float Intensity =
+		IGPlayerNoise::ChaseHapticIntensity * ChaseHapticAlpha;
+	if (ChaseForceFeedbackHandle > 0)
+	{
+		PlayerController->PlayDynamicForceFeedback(
+			Intensity, -1.0f, true, true, true, true,
+			EDynamicForceFeedbackAction::Update,
+			ChaseForceFeedbackHandle);
+		return;
+	}
+	ChaseForceFeedbackHandle = PlayerController->PlayDynamicForceFeedback(
+		Intensity, -1.0f, true, true, true, true,
+		EDynamicForceFeedbackAction::Start);
 }
 
 void AIGPlayerCharacter::PlayHapticFeedback(

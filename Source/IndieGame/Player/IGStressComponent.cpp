@@ -11,6 +11,7 @@
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
+#include "Player/IGPlayerCharacter.h"
 
 namespace IGStress
 {
@@ -23,6 +24,8 @@ namespace IGStress
 	// §18.3 멀미 완화 비네트의 최대 세기. 공포의 바닥값 0.28보다 살짝 위에
 	// 두어 「끝까지 올렸는데 아무 차이가 없다」가 되지 않게 한다.
 	constexpr float ComfortVignetteCeiling = 0.34f;
+	// §18.6. 표의 「스트레스 0.85+」를 여기 한 번만 적는다.
+	constexpr float HeartbeatHapticStressThreshold = 0.85f;
 }
 
 UIGStressComponent::UIGStressComponent()
@@ -230,6 +233,17 @@ void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 	Beat.Add({0.0f, 0.16f, 44.0f, Loudness, 0.04f, 2.6f, EIGToneWaveform::Sine});
 	Beat.Add({0.0f, 0.10f, 88.0f, Loudness * 0.35f, 0.05f, 3.0f, EIGToneWaveform::Sine});
 	Beat.Add({0.20f, 0.13f, 38.0f, Loudness * 0.72f, 0.05f, 2.8f, EIGToneWaveform::Sine});
+
+	// §18.6 심박 진동. 소리를 만드는 자리에서 함께 낸다 — 따로 두면 둘이
+	// 어긋나도 아무도 모른다.
+	if (SafeStress >= IGStress::HeartbeatHapticStressThreshold)
+	{
+		if (const AIGPlayerCharacter* PlayerCharacter =
+			Cast<AIGPlayerCharacter>(GetOwner()))
+		{
+			PlayerCharacter->PlayHeartbeatHaptic();
+		}
+	}
 
 	UIGToneSequenceSoundWave* Heartbeat = NewObject<UIGToneSequenceSoundWave>(this);
 	Heartbeat->ConfigureNotes(MoveTemp(Beat), false);

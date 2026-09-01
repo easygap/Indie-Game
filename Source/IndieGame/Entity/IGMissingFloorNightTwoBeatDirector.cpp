@@ -619,6 +619,12 @@ void AIGMissingFloorNightTwoBeatDirector::PlayMaterialCollapse()
 		NSLOCTEXT("IGMissingFloor", "N2CollapseCaption", "자재 무너짐"),
 		2.4f,
 		IGNightTwo::CollapseLocation);
+	// §18.6 낙하물·충돌. 건물이 무너뜨린 것이지 그녀가 낸 소리가 아니라서
+	// 손에는 한 번만 온다.
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		PlayerCharacter->PlayImpactHaptic();
+	}
 	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 	{
 		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
