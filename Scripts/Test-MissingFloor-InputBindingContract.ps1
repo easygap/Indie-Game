@@ -1122,6 +1122,193 @@ if ($story -notmatch '초견 5명 중 4명 이상이 튜토리얼 텍스트 없�
 	throw 'The §18.7 playtest criterion was removed.'
 }
 
+# --- §19 UI·UX 계약 ----------------------------------------------------------
+#
+# 화면 계층부터 합격식까지 열한 절이다. 여기서는 숫자와 「없어야 하는 것」을
+# 본다. §19.6.1·19.6.2는 각자 자기 자리에서 이미 잠겨 있다.
+
+$settingsLayoutSource = Read-ProjectText 'Source/IndieGame/Player/IGSettingsMenuLayout.h'
+$hudSource = Read-ProjectText 'Source/IndieGame/Player/IGHorrorHUD.cpp'
+
+# 19.1 — 밤에는 기록을 열 수 없다. 이 게임 UX의 중심 결정이다.
+$assertionCount++
+if ($story -notmatch '\*\*열 수 없음\*\*') {
+	throw 'The §19.1 night journal lock was removed.'
+}
+$assertionCount++
+if (-not $controllerSource.Contains('지금은 그럴 때가 아니다')) {
+	throw 'The §19.1 refusal line is missing.'
+}
+
+# 19.2 — 기록은 Tab 홀드로 연다. 스치는 손에 전체 화면이 열리면 안 된다.
+$journalRow = [regex]::Match($story, '열기 `Tab` 홀드 (?<seconds>[0-9.]+)s')
+$assertionCount++
+if (-not $journalRow.Success) {
+	throw 'The §19.2 journal hold row could not be read.'
+}
+$journalDeclared = [regex]::Match(
+	$controllerSource,
+	'const double JournalHoldSeconds = (?<value>[0-9.]+) \*')
+$assertionCount++
+if (-not $journalDeclared.Success) {
+	throw 'JournalHoldSeconds could not be read.'
+}
+$assertionCount++
+if ([double]$journalDeclared.Groups['value'].Value -ne [double]$journalRow.Groups['seconds'].Value) {
+	throw (
+		'JournalHoldSeconds is {0} but §19.2 says {1}.' -f
+			$journalDeclared.Groups['value'].Value, $journalRow.Groups['seconds'].Value)
+}
+# 필터·검색·정답 하이라이트는 없다. 빈칸을 보여 주면 세계가 체크리스트가 된다.
+$assertionCount++
+if ($story -notmatch '필터·검색·정답 하이라이트·미확인 항목 회색 슬롯 없음') {
+	throw 'The §19.2 no-checklist rule was removed.'
+}
+foreach ($banned in @('JournalFilter', 'JournalSearch', 'DrawJournalHighlight')) {
+	$assertionCount++
+	if ($hudSource.Contains($banned)) {
+		throw "The journal must not become a checklist (§19.2): $banned"
+	}
+}
+
+# 19.4 — 낮의 힌트는 정답이 아니라 한 줄이다.
+$assertionCount++
+if (-not $controllerSource.Contains('401호에 물어볼 수 있다')) {
+	throw 'The §19.4 daytime hint line is missing.'
+}
+
+# 19.5 — 기상 연출이 짧아지는 것 자체가 정보다.
+$wakeRow = [regex]::Match(
+	$story,
+	'기상 연출 길이: 1회차 (?<first>[0-9.]+)s, 2회차 (?<second>[0-9.]+)s, 3~4회차 (?<third>[0-9.]+)s, 5회차부터 (?<fifth>[0-9.]+)s')
+$assertionCount++
+if (-not $wakeRow.Success) {
+	throw 'The §19.5 wake ladder could not be read.'
+}
+$loopSource = Read-ProjectText 'Source/IndieGame/Entity/IGNightLoopDirector.cpp'
+$wakeBody = [regex]::Match(
+	$loopSource,
+	'float AIGNightLoopDirector::GetWakeFadeInSeconds\(\) const(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $wakeBody.Success) {
+	throw 'GetWakeFadeInSeconds could not be isolated.'
+}
+$wakeSteps = @()
+foreach ($step in [regex]::Matches(
+	$wakeBody.Groups['body'].Value, 'return (?<value>[0-9.]+)f;')) {
+	$wakeSteps += [double]$step.Groups['value'].Value
+}
+$expectedWake = @(
+	[double]$wakeRow.Groups['first'].Value,
+	[double]$wakeRow.Groups['second'].Value,
+	[double]$wakeRow.Groups['third'].Value,
+	[double]$wakeRow.Groups['fifth'].Value)
+$assertionCount++
+if ($wakeSteps.Count -ne $expectedWake.Count) {
+	throw (
+		'The wake ladder has {0} steps but §19.5 lists {1}.' -f
+			$wakeSteps.Count, $expectedWake.Count)
+}
+for ($index = 0; $index -lt $expectedWake.Count; $index++) {
+	$assertionCount++
+	if ($wakeSteps[$index] -ne $expectedWake[$index]) {
+		throw (
+			'Wake step {0} is {1}s but §19.5 says {2}s.' -f
+				$index, $wakeSteps[$index], $expectedWake[$index])
+	}
+}
+# 짧아지기만 해야 한다. 중간이 길어지면 「그가 성급해졌다」가 뒤집힌다.
+for ($index = 1; $index -lt $wakeSteps.Count; $index++) {
+	$assertionCount++
+	if ($wakeSteps[$index] -ge $wakeSteps[$index - 1]) {
+		throw 'The wake ladder must only ever get shorter (§19.5).'
+	}
+}
+# 다섯 번째 포획에만 문 아래 메모가 온다.
+$mercyRow = [regex]::Match($story, '(?<count>[0-9]+)회 연속 포획에 한해')
+$assertionCount++
+if (-not $mercyRow.Success) {
+	throw 'The §19.5 mercy-note threshold could not be read.'
+}
+$mercyDeclared = [regex]::Match(
+	$loopSource, 'constexpr int32 MercyNoteCaptureThreshold = (?<value>[0-9]+);')
+$assertionCount++
+if (-not $mercyDeclared.Success) {
+	throw 'MercyNoteCaptureThreshold could not be read.'
+}
+$assertionCount++
+if ([int]$mercyDeclared.Groups['value'].Value -ne [int]$mercyRow.Groups['count'].Value) {
+	throw (
+		'MercyNoteCaptureThreshold is {0} but §19.5 says {1}.' -f
+			$mercyDeclared.Groups['value'].Value, $mercyRow.Groups['count'].Value)
+}
+# 게임오버 화면·재시도 버튼·사망 카운터는 없다.
+foreach ($banned in @('GameOver', 'RetryButton', 'DeathCount')) {
+	$assertionCount++
+	if ($hudSource.Contains($banned)) {
+		throw "A reset is not a failure screen (§19.5): $banned"
+	}
+}
+
+# 19.7 — 화면 설정은 명시적으로 적용한 뒤 10초 확인한다.
+$confirmRow = [regex]::Match($story, '(?<seconds>[0-9]+)초\s*\r?\n?\s*확인하며, 응답이 없으면')
+$assertionCount++
+if (-not $confirmRow.Success) {
+	throw 'The §19.7 confirmation window could not be read.'
+}
+$assertionCount++
+if ($controllerSource -notmatch
+	('DisplayConfirmationSecondsRemaining = {0};' -f $confirmRow.Groups['seconds'].Value)) {
+	throw ('The display confirmation window must be {0}s (§19.7).' -f $confirmRow.Groups['seconds'].Value)
+}
+# 확인 창은 「이 설정 유지」에 커서를 둔다. 행을 하나 끼웠더니 조작 행을
+# 가리키고 있었다 — 그래서 번호 대신 이름으로 적는다.
+$assertionCount++
+if (-not $controllerSource.Contains(
+	'DisplaySettingsSelection = IGSettingsMenuLayout::ApplyOrKeep;')) {
+	throw 'The confirmation window must land on the keep row (§19.7).'
+}
+$assertionCount++
+if ($controllerSource -match 'DisplaySettingsSelection == [0-9]') {
+	throw 'Display rows must be compared by name, not by number (§19.7).'
+}
+$assertionCount++
+if ($settingsLayoutSource -notmatch 'enum EDisplayRow : int32') {
+	throw 'The display row names are missing (§19.7).'
+}
+$assertionCount++
+if ($settingsLayoutSource -notmatch 'BackOrRevert \+ 1 == DisplayRowCount') {
+	throw 'The display row names must stay tied to the row count (§19.7).'
+}
+# 720p에서도 포인터 행이 44px 아래로 내려가지 않는다.
+$rowHeightRow = [regex]::Match(
+	$story, '포인터 행 높이는 (?<pixels>[0-9]+)px 미만으로 줄이지 않는다')
+$assertionCount++
+if (-not $rowHeightRow.Success) {
+	throw 'The §19.7 minimum row height could not be read.'
+}
+foreach ($field in @('CategoryRowHeight', 'OptionRowHeight')) {
+	$declared = [regex]::Match(
+		$settingsLayoutSource,
+		('Result.{0} = FMath::Max\((?<floor>[0-9.]+)f,' -f $field))
+	$assertionCount++
+	if (-not $declared.Success) {
+		throw ('The settings row floor is missing: {0}' -f $field)
+	}
+	$assertionCount++
+	if ([double]$declared.Groups['floor'].Value -lt [double]$rowHeightRow.Groups['pixels'].Value) {
+		throw (
+			'{0} can fall to {1}px but §19.7 says at least {2}px.' -f
+				$field, $declared.Groups['floor'].Value, $rowHeightRow.Groups['pixels'].Value)
+	}
+}
+
+# 19.8 — 파문 링은 동작 감소에서도 끄지 않는다. 연출이 아니라 정보다.
+$assertionCount++
+if ($story -notmatch '소음 파문 링은 동작 감소에서도 \*\*끄지 않는다\*\*') {
+	throw 'The §19.8 ripple rule was removed.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')

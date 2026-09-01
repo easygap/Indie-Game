@@ -13,6 +13,28 @@ namespace IGSettingsMenuLayout
 {
 	/** 다섯 설정 + 접근성 + 소리·밝기 + 조작 + 적용/돌아가기 두 줄. */
 	constexpr int32 DisplayRowCount = 10;
+
+	/**
+	 * 화면 설정 행 번호. 접근성 쪽과 같은 이유로 이름을 준다 — 조작 행을
+	 * 하나 끼웠더니 확인 창이 「이 설정 유지」 대신 그 행에 커서를 올려
+	 * 두고 있었다.
+	 */
+	enum EDisplayRow : int32
+	{
+		WindowMode = 0,
+		Resolution,
+		Quality,
+		VSync,
+		FrameLimit,
+		AccessibilityPanel,
+		AudioCalibrationPanel,
+		KeyBindingsPanel,
+		ApplyOrKeep,
+		BackOrRevert
+	};
+	static_assert(
+		BackOrRevert + 1 == DisplayRowCount,
+		"화면 설정 행 이름과 행 수가 어긋났다");
 	constexpr int32 AccessibilityRowCount = 20;
 
 	/**

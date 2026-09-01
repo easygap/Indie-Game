@@ -709,7 +709,7 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		ReleaseFrontendProbeKey(EKeys::Gamepad_FaceButton_Bottom);
 		// Performance has the most simultaneous display rows and is therefore
 		// the strongest packaged screenshot for horizontal text fitting.
-		DisplaySettingsSelection = 2;
+		DisplaySettingsSelection = IGSettingsMenuLayout::Quality;
 		RefreshMenuHud();
 		FrontendProbeStep = 18;
 		AwaitFrontendProbeFrame();
@@ -3259,7 +3259,10 @@ void AIGPlayerController::MoveDisplaySettingsSelection(const int32 Direction)
 	}
 	if (bDisplaySettingsAwaitingConfirmation)
 	{
-		DisplaySettingsSelection = DisplaySettingsSelection == 8 ? 9 : 8;
+		DisplaySettingsSelection =
+			DisplaySettingsSelection == IGSettingsMenuLayout::ApplyOrKeep
+				? IGSettingsMenuLayout::BackOrRevert
+				: IGSettingsMenuLayout::ApplyOrKeep;
 		RefreshMenuHud();
 		return;
 	}
@@ -3328,7 +3331,7 @@ void AIGPlayerController::ConfirmDisplaySettingsSelection()
 	}
 	if (bDisplaySettingsAwaitingConfirmation)
 	{
-		if (DisplaySettingsSelection == 8)
+		if (DisplaySettingsSelection == IGSettingsMenuLayout::ApplyOrKeep)
 		{
 			ConfirmPendingDisplaySettings();
 		}
@@ -3343,22 +3346,22 @@ void AIGPlayerController::ConfirmDisplaySettingsSelection()
 		AdjustDisplaySetting(1);
 		return;
 	}
-	if (DisplaySettingsSelection == 5)
+	if (DisplaySettingsSelection == IGSettingsMenuLayout::AccessibilityPanel)
 	{
 		ToggleAccessibilityMenu();
 		return;
 	}
-	if (DisplaySettingsSelection == 6)
+	if (DisplaySettingsSelection == IGSettingsMenuLayout::AudioCalibrationPanel)
 	{
 		OpenAudioCalibration(false);
 		return;
 	}
-	if (DisplaySettingsSelection == 7)
+	if (DisplaySettingsSelection == IGSettingsMenuLayout::KeyBindingsPanel)
 	{
 		OpenKeyBindings();
 		return;
 	}
-	if (DisplaySettingsSelection == 8)
+	if (DisplaySettingsSelection == IGSettingsMenuLayout::ApplyOrKeep)
 	{
 		ApplyDisplaySettings();
 		return;
@@ -3430,7 +3433,7 @@ void AIGPlayerController::ApplyDisplaySettings()
 
 	bDisplaySettingsApplied = false;
 	bDisplaySettingsAwaitingConfirmation = true;
-	DisplaySettingsSelection = 7;
+	DisplaySettingsSelection = IGSettingsMenuLayout::ApplyOrKeep;
 	DisplayConfirmationSecondsRemaining = 10;
 	DisplayConfirmationDeadline = FPlatformTime::Seconds() + 10.0;
 	SetActorTickEnabled(true);
