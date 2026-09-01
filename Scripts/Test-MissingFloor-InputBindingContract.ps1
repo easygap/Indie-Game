@@ -1587,6 +1587,151 @@ if ($accessibilityContract -notmatch 'Width = 3840\.0; Height = 2160\.0') {
 	throw 'The layout check must reach 4K, which §19.9 names.'
 }
 
+# --- §22 재미의 구조 ----------------------------------------------------------
+#
+# 이 절은 대부분 설계 철학이지만, 「만들지 않기로 한 것」이 구체적이다.
+# 없는 것으로 지켜지는 규칙은 생기는 순간 조용히 깨진다.
+
+$sceneSource = Read-ProjectText 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
+$nightFourSource = Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
+$frontendLayout = Read-ProjectText 'Source/IndieGame/Player/IGFrontendMenuLayout.h'
+
+# 22.3 — 수집률 UI·업적 팝업·완료 퍼센트 없음.
+$assertionCount++
+if ($story -notmatch '수집률 UI·업적 팝업·완료 퍼센트 없음') {
+	throw 'The §22.3 no-collection-UI rule was removed.'
+}
+foreach ($banned in @(
+	'CollectionRate', 'AchievementPopup', 'CompletionPercent',
+	'DrawCollectionProgress')) {
+	$assertionCount++
+	if ($hudSource.Contains($banned)) {
+		throw "Discoveries are witnessed, not collected (§22.3): $banned"
+	}
+}
+# 무엇을 놓쳤는지 알려 주지 않는다. 회색 슬롯이 곧 체크리스트다.
+$assertionCount++
+if ($story -notmatch '무엇을 놓쳤는지 알려 주지 않는다') {
+	throw 'The §22.3 no-missing-list rule was removed.'
+}
+
+# 발견의 보상은 문장이다. 문서가 인용한 줄이 실제로 나가는 줄이어야 한다.
+$rewardRow = [regex]::Match(
+	$story,
+	'약봉투를 봤다면 밤4의\s*\r?\n?\s*대치에서 유담이 한 줄을 더 말한다: "(?<line>[^"]+)"')
+$assertionCount++
+if (-not $rewardRow.Success) {
+	throw 'The §22.3 reward line could not be read.'
+}
+# 문서는 줄을 접어 적고 코드는 문자열을 이어 붙인다. 공백을 지우고 견준다.
+$documentedLine = $rewardRow.Groups['line'].Value -replace '\s', ''
+$pillsBody = [regex]::Match(
+	$nightFourSource,
+	'EIGMissingFloorWitness::SeoSleepingPills,(?<body>[\s\S]{0,600}?)\r?\n\t\t\},')
+$assertionCount++
+if (-not $pillsBody.Success) {
+	throw 'The sleeping-pills reply could not be isolated.'
+}
+# 앞의 둘은 NSLOCTEXT의 네임스페이스와 키다. 대사는 그 뒤부터다.
+$codeLine = (
+	[regex]::Matches($pillsBody.Groups['body'].Value, '"(?<part>[^"]*)"') |
+		Select-Object -Skip 2 |
+		ForEach-Object { $_.Groups['part'].Value }) -join ''
+$codeLine = $codeLine -replace '\s', ''
+$assertionCount++
+if ($codeLine -ne $documentedLine) {
+	throw (
+		'The §22.3 reward line differs from what night four says: doc "{0}" code "{1}"' -f
+			$documentedLine, $codeLine)
+}
+# 그 줄이 목격에 걸려 있어야 보상이지, 늘 나오면 보상이 아니다.
+$assertionCount++
+if (-not $nightFourSource.Contains('BuildConfrontationReplyLines')) {
+	throw 'The extra line must hang off the witness list (§22.3).'
+}
+
+# 403호 정사와 404 이스터에그. 문패 셋과 벽의 메모.
+# 재질 목록에만 이름이 있는 것과 문에 실제로 붙는 것은 다르다. 이웃 둘은
+# 배치 배열에서, 403은 자기 자리를 그리는 호출에서 확인한다.
+$neighbourPlates = [regex]::Match(
+	$sceneSource,
+	'const TCHAR\* NeighborPlates\[\] = \{(?<body>[^}]*)\};')
+$assertionCount++
+if (-not $neighbourPlates.Success) {
+	throw 'The §22.3 neighbour nameplates are not placed.'
+}
+foreach ($plate in @('M_Plate401', 'M_Plate402')) {
+	$assertionCount++
+	if (-not $neighbourPlates.Groups['body'].Value.Contains($plate)) {
+		throw "The §22.3 neighbour nameplate is missing: $plate"
+	}
+}
+$assertionCount++
+if ($sceneSource -notmatch 'TexMat\(TEXT\("M_Plate403"\)') {
+	throw 'The §22.3 403 nameplate is not drawn on its own door.'
+}
+$assertionCount++
+if (-not $sceneSource.Contains('M_Note404NotFound')) {
+	throw 'The §22.3 404 memo is missing.'
+}
+# 상호작용·윤곽선·자막·업적·기록 카드·독백·효과음·별도 광원 전부 없다.
+# 그래서 이 소품이 §0의 숫자 절제를 깨는 공포 기호가 되지 않는다.
+$eggBlock = [regex]::Match(
+	$sceneSource,
+	'M_Note404NotFound(?<body>[\s\S]{0,900}?)\r?\n\t\}')
+$assertionCount++
+if (-not $eggBlock.Success) {
+	throw 'The 404 memo block could not be isolated.'
+}
+foreach ($banned in @(
+	'SetCollisionProfileName(UCollisionProfile::BlockAll',
+	'PushThought', 'PushAudioCaption', 'SpawnOneShotAt',
+	'PointLightComponent', 'AIGInteractable')) {
+	$assertionCount++
+	if ($eggBlock.Groups['body'].Value.Contains($banned)) {
+		throw "The 404 memo stays a background prop (§22.3): $banned"
+	}
+}
+$assertionCount++
+if ($story -notmatch '상호작용·윤곽선·자막·\s*\r?\n?\s*업적·기록 카드·독백·효과음·별도 광원은 없고') {
+	throw 'The §22.3 easter-egg restraint list was removed.'
+}
+
+# 22.4 — 「밤 5」는 엔딩 B를 본 세이브에만, 타이틀에서만 보인다.
+$assertionCount++
+if ($story -notmatch '「밤 5」 슬롯\(엔딩 B 한정, §9\)') {
+	throw 'The §22.4 night-five gate was removed.'
+}
+$assertionCount++
+if ($frontendLayout -notmatch '밤 5는 타이틀에서만, 그리고 엔딩 B를 본 세이브가 있을 때만 보인다') {
+	throw 'The night-five gate must stay written where the menu is laid out (§22.4).'
+}
+# 선택 직전 자동 저장이 있어야 양쪽을 보는 비용이 낮다.
+$assertionCount++
+if ($story -notmatch '선택 직전 자동 저장이 있어') {
+	throw 'The §22.4 pre-choice autosave promise was removed.'
+}
+# 정의만 남고 호출이 사라지면 이름은 그대로인데 저장은 안 된다. 부르는
+# 자리를 따로 센다 — 정의 한 번, 호출 한 번 이상.
+$autosaveUses = ([regex]::Matches(
+	$nightFourSource, 'RequestEndingChoiceAutosave\(\)')).Count
+$assertionCount++
+if ($autosaveUses -lt 2) {
+	throw 'The ending choice must actually call its autosave, not just declare it (§22.4).'
+}
+
+# 2회차 전용 컷·숨겨진 층·진 엔딩은 만들지 않는다.
+$assertionCount++
+if ($story -notmatch '2회차 전용 컷·숨겨진 층·진 엔딩은 만들지 않는다') {
+	throw 'The §22.4 no-new-game-plus rule was removed.'
+}
+foreach ($banned in @('NewGamePlus', 'TrueEnding', 'HiddenFloor')) {
+	$assertionCount++
+	if ($nightFourSource.Contains($banned) -or $hudSource.Contains($banned)) {
+		throw "This story ends once (§22.4): $banned"
+	}
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
