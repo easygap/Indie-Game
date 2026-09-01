@@ -1942,6 +1942,136 @@ if ($story -notmatch '\*\*일부러 깨서 잡히는 것까지 확인한 뒤\*\*
 	throw 'The §24 break-it-first rule was removed.'
 }
 
+# --- §26 제품 감사 계약 -------------------------------------------------------
+#
+# 26.2 첫 12분, 26.3 오디오 제작, 26.4 UI·조작. 26.5 성능 예산은 실측이라
+# 합격식 문서가 맡는다.
+
+$audioHeaderFor26 = Read-ProjectText 'Source/IndieGame/Audio/IGMissingFloorAudioSubsystem.h'
+$uprojectText = Read-ProjectText 'IndieGame.uproject'
+
+# 26.3-2 — 버스 이름은 §21.1의 여섯이다. 두 절이 같은 것을 다르게 부르면
+# 어느 쪽을 고쳐야 하는지 알 수 없다.
+$busNameRow = [regex]::Match(
+	$story,
+	'`BUS_ENTITY / PLAYER / PUZZLE / WORLD / UI / SCORE`')
+$assertionCount++
+if (-not $busNameRow.Success) {
+	throw 'The §26.3 bus names no longer match §21.1.'
+}
+$busEnum = [regex]::Match(
+	$audioHeaderFor26,
+	'enum class EIGAudioBus : uint8\s*\r?\n\{(?<body>[\s\S]*?)\}')
+$assertionCount++
+if (-not $busEnum.Success) {
+	throw 'The audio bus enum could not be read.'
+}
+foreach ($bus in @('Entity', 'Player', 'Puzzle', 'World', 'UI', 'Score')) {
+	$assertionCount++
+	if ($busEnum.Groups['body'].Value -notmatch ('(?m)^\s*' + $bus + ',')) {
+		throw "The §26.3 bus name is not in the enum: $bus"
+	}
+}
+# 옛 이름이 되살아나면 두 절이 다시 갈라진다.
+foreach ($stale in @('BUS_ROOM', 'BUS_VOICE', 'BUS_SILENCE')) {
+	$assertionCount++
+	if ($story -match [regex]::Escape($stale)) {
+		throw "The §26.3 bus list drifted back to a pre-implementation name: $stale"
+	}
+}
+
+# 26.3-6 — 베타 기능은 출시 필수 경로에 두지 않는다.
+$assertionCount++
+if ($story -notmatch '\*\*안정판 우선\.\*\* Audio Gameplay Volumes처럼 Beta인 기능은 출시 필수 경로에') {
+	throw 'The §26.3 stable-first rule was removed.'
+}
+foreach ($beta in @('AudioGameplayVolume', 'AudioGameplayVolumes')) {
+	$assertionCount++
+	if ($uprojectText -match [regex]::Escape($beta)) {
+		throw "A beta audio plugin reached the shipping path (§26.3-6): $beta"
+	}
+}
+
+# 26.4 — 공통 시스템 UI를 새 프레임워크로 전면 이식하지 않는다.
+$assertionCount++
+if ($story -notmatch '공통 시스템 UI를 새 프레임워크로 전면 이식하지 않는다') {
+	throw 'The §26.4 no-CommonUI-port rule was removed.'
+}
+$assertionCount++
+if ($uprojectText -match '"CommonUI"') {
+	throw 'The native HUD path must stay; CommonUI was enabled (§26.4).'
+}
+
+# 26.4 재페이지 — 글자를 키우면 카드가 줄지, 카드가 작아지지 않는다.
+$pageRow = [regex]::Match(
+	$story,
+	'(?<small>[0-9]+)~(?<smallMax>[0-9]+)%는 레인당 (?<three>[0-9]+)장, (?<midMin>[0-9]+)~(?<midMax>[0-9]+)%는 (?<two>[0-9]+)장, (?<bigMin>[0-9]+)~(?<bigMax>[0-9]+)%는 (?<one>[0-9]+)장')
+$assertionCount++
+if (-not $pageRow.Success) {
+	throw 'The §26.4 repagination row could not be read.'
+}
+# 문서의 경계는 퍼센트, 코드의 경계는 배율이다. 116%는 1.15 초과, 151%는
+# 1.50 초과로 옮겨진다.
+$midThreshold = ([double]$pageRow.Groups['smallMax'].Value) / 100.0
+$bigThreshold = ([double]$pageRow.Groups['midMax'].Value) / 100.0
+$ladderSites = [regex]::Matches(
+	$hudSource,
+	'const int32 CardsPerLanePerPage = UserTextScale > (?<big>[0-9.]+)f\s*\r?\n\s*\? (?<one>[0-9]+)\s*\r?\n\s*: UserTextScale > (?<mid>[0-9.]+)f \? (?<two>[0-9]+) : (?<three>[0-9]+);')
+$assertionCount++
+if ($ladderSites.Count -lt 2) {
+	throw 'The repagination ladder must stay in both the page count and the layout.'
+}
+foreach ($site in $ladderSites) {
+	$assertionCount++
+	if ([double]$site.Groups['big'].Value -ne $bigThreshold) {
+		throw (
+			'Repagination drops to one card above {0} but §26.4 says {1}.' -f
+				$site.Groups['big'].Value, $bigThreshold)
+	}
+	$assertionCount++
+	if ([double]$site.Groups['mid'].Value -ne $midThreshold) {
+		throw (
+			'Repagination drops to two cards above {0} but §26.4 says {1}.' -f
+				$site.Groups['mid'].Value, $midThreshold)
+	}
+	foreach ($pair in @(
+		@{ Group = 'one'; Expected = $pageRow.Groups['one'].Value },
+		@{ Group = 'two'; Expected = $pageRow.Groups['two'].Value },
+		@{ Group = 'three'; Expected = $pageRow.Groups['three'].Value })) {
+		$assertionCount++
+		if ($site.Groups[$pair.Group].Value -ne $pair.Expected) {
+			throw (
+				'Repagination shows {0} cards where §26.4 says {1}.' -f
+					$site.Groups[$pair.Group].Value, $pair.Expected)
+		}
+	}
+}
+$assertionCount++
+if ($story -notmatch '확대를 카드 안 축소로 상쇄하지 않는다') {
+	throw 'The §26.4 no-shrink-to-fit rule was removed.'
+}
+
+# 26.4 — 생성 이미지의 글자가 정보가 되는 경로는 0이다.
+$assertionCount++
+if ($story -notmatch '생성 이미지의 글자\s*\r?\n?\s*환각이 정보가 되는 경로는 0이다') {
+	throw 'The §26.4 no-hallucinated-text rule was removed.'
+}
+
+# 26.2 — 첫 12분에는 튜토리얼 팝업이 없고 밤 HUD가 0이다. §23이 같은 것을
+# 금지하고 있으므로 여기서는 표가 그 약속을 계속 말하는지만 본다.
+$assertionCount++
+if ($story -notmatch '튜토리얼 팝업 대신 서로 다른 물리 반응') {
+	throw 'The §26.2 no-tutorial-popup promise was removed.'
+}
+$assertionCount++
+if ($story -notmatch '정보 대사 2문장 상한') {
+	throw 'The §26.2 two-sentence cap was removed.'
+}
+$assertionCount++
+if ($story -notmatch '강제 컷신 대신 첫 자율 공포 판단, 밤 HUD 0') {
+	throw 'The §26.2 night-HUD-zero promise was removed.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
