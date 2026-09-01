@@ -8,6 +8,7 @@
 #include "Components/AudioComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "Entity/IGReplaySkip.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "IndieGame.h"
@@ -22,8 +23,8 @@
 namespace IGFifthDawn
 {
 	constexpr float DurationSeconds = 160.0f;
-	constexpr float ReplaySkipDurationSeconds = 2.0f;
-	constexpr float ReplaySkipRewindMultiplier = 2.4f;
+	constexpr float ReplaySkipDurationSeconds = IGReplaySkip::HoldSeconds;
+	constexpr float ReplaySkipRewindMultiplier = IGReplaySkip::RewindMultiplier;
 	constexpr const TCHAR* ProfileSection = TEXT("IndieGame.MissingFloorProfile");
 	constexpr const TCHAR* ExperiencedKey = TEXT("FifthDawnExperienced");
 	// 7/27 start, water shift, 7/28, 7/29 call/reply, 7/30, 7/31,

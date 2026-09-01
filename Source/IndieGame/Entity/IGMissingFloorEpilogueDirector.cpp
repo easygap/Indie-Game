@@ -8,6 +8,7 @@
 #include "Components/AudioComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "Entity/IGReplaySkip.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "IndieGame.h"
@@ -66,9 +67,9 @@ namespace IGEpilogue
 	constexpr float MontageInnerRadius = 4000.0f;
 	constexpr float MontageFalloff = 6000.0f;
 
-	/** §34.2와 같은 값. 두 초를 눌러야 넘어간다. */
-	constexpr float ReplaySkipDurationSeconds = 2.0f;
-	constexpr float ReplaySkipRewindMultiplier = 2.4f;
+	/** §34.2의 손동작. 값은 IGReplaySkip이 든다. */
+	constexpr float ReplaySkipDurationSeconds = IGReplaySkip::HoldSeconds;
+	constexpr float ReplaySkipRewindMultiplier = IGReplaySkip::RewindMultiplier;
 	constexpr const TCHAR* ProfileSection = TEXT("IndieGame.MissingFloorProfile");
 	constexpr const TCHAR* ExperiencedKey = TEXT("EpilogueExperienced");
 }

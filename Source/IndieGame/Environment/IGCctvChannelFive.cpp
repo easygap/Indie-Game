@@ -65,8 +65,9 @@ namespace IGCctvFive
 
 	/** Booth monitor face. The shell BuildLobby erects is 40×10×28 at Z=96. */
 	const FVector ScreenCenter(150.0f, -105.45f, 96.0f);
-	constexpr float ScreenWidth = 34.0f;
-	constexpr float ScreenHeight = 25.5f;
+	// 화면을 세운 것은 씬이다. 렌더 면은 그 치수를 받아 쓴다.
+	constexpr float ScreenWidth = AIGPrologueWorldScene::CctvScreenWidth;
+	constexpr float ScreenHeight = AIGPrologueWorldScene::CctvScreenHeight;
 
 	/**
 	 * §5.5's label, taped across the rear third of the monitor's top case, over

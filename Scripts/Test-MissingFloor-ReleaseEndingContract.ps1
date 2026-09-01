@@ -84,7 +84,7 @@ Assert-ContainsAll $fifthDawnHeader @(
 	'bReplaySkipRewinding'
 ) 'Fifth-dawn replay header'
 Assert-ContainsAll $fifthDawnSource @(
-	'ReplaySkipDurationSeconds = 2.0f',
+	'ReplaySkipDurationSeconds = IGReplaySkip::HoldSeconds',
 	'FifthDawnExperienced',
 	'GetHoldDurationScale()',
 	'UsesToggleHoldInteractions()',
@@ -261,7 +261,7 @@ Assert-ContainsAll $epilogueHeader @(
 Assert-ContainsAll $epilogueSource @(
 	'EpilogueExperienced',
 	'HasExperiencedEpilogueProfile() || bReplayForcedForSession',
-	'ReplaySkipDurationSeconds = 2.0f',
+	'ReplaySkipDurationSeconds = IGReplaySkip::HoldSeconds',
 	'UsesToggleSkipInput()',
 	'SkipToFinalCard();'
 ) '에필로그 우회 조건'

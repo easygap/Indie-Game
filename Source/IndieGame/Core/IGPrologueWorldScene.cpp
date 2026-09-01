@@ -4644,8 +4644,8 @@ void AIGPrologueWorldScene::BuildLobby()
 	// 그 틈에 판을 하나 더 세울 자리가 없다. 8 mm 틈으로 케이스의 검은
 	// 앞면이 비치면서 그것이 그대로 분할선이 된다.
 	{
-		constexpr float ScreenWidth = 34.0f;
-		constexpr float ScreenHeight = 25.5f;
+		constexpr float ScreenWidth = AIGPrologueWorldScene::CctvScreenWidth;
+		constexpr float ScreenHeight = AIGPrologueWorldScene::CctvScreenHeight;
 		constexpr float MullionWidth = 0.8f;
 		const float QuadrantWidth = (ScreenWidth - MullionWidth) * 0.5f;
 		const float QuadrantHeight = (ScreenHeight - MullionWidth) * 0.5f;

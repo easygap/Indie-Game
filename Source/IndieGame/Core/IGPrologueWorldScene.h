@@ -125,6 +125,17 @@ public:
 	 */
 	static constexpr float FourthFloorZ = 900.0f;
 
+	/**
+	 * 로비 CCTV 모니터 화면의 실치수(cm).
+	 *
+	 * 케이스와 4분할 발광면은 씬이 세우고, 채널 5의 렌더 면은
+	 * AIGCctvChannelFive가 세운다. 같은 화면이다. 치수를 각자 적어
+	 * 두면 모니터를 키웠을 때 채널 5만 옛 크기로 남아, 화면 안에
+	 * 화면이 뜬다.
+	 */
+	static constexpr float CctvScreenWidth = 34.0f;
+	static constexpr float CctvScreenHeight = 25.5f;
+
 	AIGPrologueWorldScene();
 
 protected:

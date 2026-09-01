@@ -99,9 +99,6 @@ namespace IGPlayerNoise
 	constexpr float ChaseHapticIntensity = 0.25f;
 	constexpr float ChaseHapticFadeInSeconds = 0.40f;
 	constexpr float HeartbeatHapticIntensity = 0.10f;
-	// 심박 진동은 스트레스가 이만큼 올라야 붙는다. 늘 울리면 그건 정보가
-	// 아니라 배경이 된다.
-	constexpr float HeartbeatHapticStressThreshold = 0.85f;
 	/** Quietest and loudest footfall reported to the noise bus (§5.1). */
 	constexpr float MinimumFootstepLoudness = 0.06f;
 	constexpr float MaximumFootstepLoudness = 0.18f;
