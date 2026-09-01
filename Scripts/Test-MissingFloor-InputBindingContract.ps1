@@ -1040,6 +1040,88 @@ if (-not $hapticGate.Groups['body'].Value.Contains('AreHapticsEnabled()')) {
 	throw 'Every haptic must pass the off switch (§18.6).'
 }
 
+# --- §18.7 조작감 합격식 ------------------------------------------------------
+#
+# 다섯 줄 중 하나는 사람을 앉혀 놓고 봐야 하는 것이고(초견 5명), 하나는
+# 실측이다(입력→소리 지연). 나머지 셋은 여기서 본다. 홀드 편차는 숫자를
+# 실제로 돌려 봐야 해서 audit_hold_timing.py가 따로 맡는다.
+
+# 다섯 동사가 독립 액션으로 있는가. 조사의 별칭으로 살면 §24 즉시 차단 16이다.
+$verbKeys = @{}
+foreach ($mapping in [regex]::Matches(
+	$inputConfig,
+	'ActionMappings=\(ActionName="(?<action>[^"]+)"[^)]*?Key=(?<key>[A-Za-z_0-9]+)')) {
+	$action = $mapping.Groups['action'].Value
+	if (-not $verbKeys.ContainsKey($action)) {
+		$verbKeys[$action] = @()
+	}
+	$verbKeys[$action] += $mapping.Groups['key'].Value
+}
+$acceptanceVerbs = @('Crouch', 'Sprint', 'Knock', 'Listen', 'HoldBreath')
+foreach ($verb in $acceptanceVerbs) {
+	$assertionCount++
+	if (-not $verbKeys.ContainsKey($verb)) {
+		throw "The §18.7 acceptance verb has no independent action: $verb"
+	}
+}
+# 조사와 키를 나눠 쓰면 그건 별칭이다.
+$interactKeys = $verbKeys['Interact']
+foreach ($verb in $acceptanceVerbs) {
+	foreach ($key in $verbKeys[$verb]) {
+		$assertionCount++
+		if ($interactKeys -contains $key) {
+			throw "The §18.7 verb shares a key with Interact: $verb on $key"
+		}
+	}
+}
+
+# 패드만으로도, 키보드만으로도 완주할 수 있어야 한다. 장치별로 훑는다.
+# 엿듣기는 키보드에서 벽 조준 중 조사 홀드로 대신하는 것이 설계이고,
+# 그 예외는 재설정 표의 설명에 적혀 있어야 한다 — 말 없이 비어 있으면
+# 빠뜨린 것과 구분되지 않는다.
+foreach ($verb in $acceptanceVerbs) {
+	$hasPad = @($verbKeys[$verb] | Where-Object { $_ -like 'Gamepad_*' }).Count -gt 0
+	$hasKeyboard = @($verbKeys[$verb] | Where-Object { $_ -notlike 'Gamepad_*' }).Count -gt 0
+	$assertionCount++
+	if (-not $hasPad) {
+		throw "The §18.7 pad-only playthrough is broken: $verb has no gamepad key"
+	}
+	$assertionCount++
+	if (-not $hasKeyboard -and $verb -ne 'Listen') {
+		throw "The §18.7 keyboard-only playthrough is broken: $verb has no key"
+	}
+}
+$assertionCount++
+if ($bindingSource -notmatch 'DescListen[^)]*패드 전용 독립 입력') {
+	throw 'The keyboard route for 엿듣기 must stay written down (§18.7).'
+}
+$assertionCount++
+if ($story -notmatch '패드만으로 프롤로그~밤1 완주, 마우스·키보드만으로 동일 완주') {
+	throw 'The §18.7 both-devices criterion was removed.'
+}
+$assertionCount++
+if ($story -notmatch '`Interact` 별칭이 남아 있지 않다') {
+	throw 'The §18.7 no-alias criterion was removed.'
+}
+
+# 홀드 편차는 숫자를 돌려서 본다. 계약은 그 감사가 실제로 걸려 있는지만
+# 확인한다 — 스크립트만 있고 아무도 안 부르면 없는 것과 같다.
+$validateScript = Read-ProjectText 'Scripts/Validate-Project.ps1'
+$assertionCount++
+if (-not $validateScript.Contains('Scripts/audit_hold_timing.py')) {
+	throw 'The §18.7 hold-timing audit is not wired into validation.'
+}
+$assertionCount++
+if ($story -notmatch '60fps·30fps 양쪽에서 홀드 완료 시간 편차 ±3% 이내') {
+	throw 'The §18.7 hold deviation window was removed.'
+}
+
+# 사람이 봐야 하는 줄은 자동으로 못 본다. 지워지지만 않게 지킨다.
+$assertionCount++
+if ($story -notmatch '초견 5명 중 4명 이상이 튜토리얼 텍스트 없이') {
+	throw 'The §18.7 playtest criterion was removed.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')

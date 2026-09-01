@@ -2854,6 +2854,20 @@ if ($python) {
 		throw "A walkable surface is missing its footstep tag ($LASTEXITCODE)"
 	}
 
+	# §18.7은 홀드 완료 편차를 ±3%로 걸어 두었다. 눈으로 읽어서는 지킬 수
+	# 없는 줄이라 실제로 돌려 본다 — 짧은 홀드를 새로 적어 넣으면 여기서
+	# 걸린다.
+	$holdTiming = Join-Path $projectRoot 'Scripts/audit_hold_timing.py'
+	& $python.Source $holdTiming --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Hold timing audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $holdTiming --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A hold completes outside the §18.7 window ($LASTEXITCODE)"
+	}
+
 	# 광원도 가구와 같은 리터럴 좌표로 놓는다. 옆 가구가 자라면 그 안으로
 	# 들어가는데, 방이 어두워질 뿐 아무것도 실패하지 않는다.
 	$lightPlacement = Join-Path $projectRoot 'Scripts/audit_light_placement.py'
