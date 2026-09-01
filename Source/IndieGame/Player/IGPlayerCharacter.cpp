@@ -306,6 +306,17 @@ void AIGPlayerCharacter::BeginPlay()
 	}
 
 	RefreshMicrophoneCaptureMode();
+	// §19.8 노크 진동 대체는 소음 버스를 타고 온다. 응답 노크 코드에
+	// 손을 대지 않으므로 §18.5의 무진동 규칙은 그대로 서 있다.
+	if (UWorld* NoiseWorld = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise =
+			NoiseWorld->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			ForeignNoiseHandle = Noise->OnNoiseReported.AddUObject(
+				this, &AIGPlayerCharacter::HandleForeignNoise);
+		}
+	}
 	// 저장된 시야각을 첫 프레임부터 건다. 설정을 켜 봐야 적용되면
 	// 「저장이 안 됐다」로 읽힌다.
 	RefreshFieldOfView();
@@ -315,6 +326,14 @@ void AIGPlayerCharacter::BeginPlay()
 void AIGPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	StopMicrophoneCapture();
+	if (const UWorld* NoiseWorld = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise =
+			NoiseWorld->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->OnNoiseReported.Remove(ForeignNoiseHandle);
+		}
+	}
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -1788,8 +1807,15 @@ void AIGPlayerCharacter::RegisterKnockSequenceTap()
 	}
 
 	const double Now = World->GetTimeSeconds();
+	// §19.8 인지 지원에서 판정창이 넓어진다. 리듬을 못 맞추는 손에게
+	// 「둘, 쉬고, 하나」가 통과할 수 없는 벽이 되면 안 된다.
+	const float WindowScale = AccessibilitySubsystem
+		? AccessibilitySubsystem->GetKnockWindowScale()
+		: 1.0f;
+	const float ResetWindow =
+		IGPlayerNoise::KnockSequenceResetSeconds * WindowScale;
 	if (LastKnockInputSeconds < 0.0
-		|| Now - LastKnockInputSeconds > IGPlayerNoise::KnockSequenceResetSeconds)
+		|| Now - LastKnockInputSeconds > ResetWindow)
 	{
 		KnockSequenceTapCount = 0;
 	}
@@ -1800,6 +1826,31 @@ void AIGPlayerCharacter::RegisterKnockSequenceTap()
 		KnockSequenceTapCount = 0;
 		KnockInputLockedUntil = Now + IGPlayerNoise::KnockInputLockSeconds;
 	}
+}
+
+void AIGPlayerCharacter::HandleForeignNoise(const FIGNoiseEvent& Event)
+{
+	// §19.8 노크 진동 대체. 내가 낸 소리는 이미 손에 오고, 여기서 다루는
+	// 것은 건물이 낸 쪽이다.
+	if (Event.Instigator.Get() == this || Event.Loudness <= 0.0f)
+	{
+		return;
+	}
+	if (!AccessibilitySubsystem
+		|| !AccessibilitySubsystem->UsesKnockHapticSubstitute())
+	{
+		return;
+	}
+	PlayKnockSubstituteHaptic(Event.Loudness);
+}
+
+void AIGPlayerCharacter::PlayKnockSubstituteHaptic(const float Loudness) const
+{
+	// 소리 크기를 그대로 세기로 옮긴다. 멀리서 난 것과 문 밖의 것이 같은
+	// 세기로 오면 대체 채널이 거리를 지워 버린다.
+	PlayHapticFeedback(
+		FMath::Clamp(Loudness * 0.45f, 0.10f, 0.45f),
+		IGPlayerNoise::ImpactHapticSeconds);
 }
 
 void AIGPlayerCharacter::PlayImpactHaptic() const

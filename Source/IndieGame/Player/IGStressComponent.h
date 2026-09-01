@@ -117,6 +117,9 @@ private:
 	void UpdateHeartbeat(float DeltaSeconds);
 	void PlayHeartbeat(float EffectiveStress);
 	void UpdateTremor(float DeltaSeconds);
+	/** §19.8. 심박 경고가 켜져 있을 때 비네트가 부푸는 배율. */
+	float GetHeartbeatWarningScale() const;
+
 	/** §18.3. 접근성의 멀미 완화 비네트 세기. 없으면 0이다. */
 	float GetComfortVignetteStrength() const;
 	void UpdatePostProcess();

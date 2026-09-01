@@ -23,6 +23,11 @@ namespace IGAccessibility
 	constexpr float MaximumFieldOfView = 100.0f;
 	constexpr float MinimumComfortVignette = 0.0f;
 	constexpr float MaximumComfortVignette = 1.0f;
+	// §19.8 표의 두 배율. 문서에 적힌 숫자를 여기 한 번만 적는다.
+	constexpr float KnockWindowAssistScale = 1.6f;
+	// 인지 지원에서 시간 압박을 푼다. 0으로 만들지 않고 아주 길게 둔다 —
+	// 세계가 아무 반응도 하지 않으면 그건 압박 해제가 아니라 고장이다.
+	constexpr float RelaxedPressureIntervalSeconds = 200.0f;
 
 	bool ParseHintMode(const FString& Value, EIGHintMode& OutMode)
 	{
@@ -97,8 +102,19 @@ FVector UIGAccessibilitySubsystem::GetP4HintThresholds() const
 	}
 }
 
+float UIGAccessibilitySubsystem::GetKnockWindowScale() const
+{
+	return EffectiveSettings.bCognitiveAssist
+		? IGAccessibility::KnockWindowAssistScale
+		: 1.0f;
+}
+
 float UIGAccessibilitySubsystem::GetPressureRiseIntervalSeconds() const
 {
+	if (EffectiveSettings.bCognitiveAssist)
+	{
+		return IGAccessibility::RelaxedPressureIntervalSeconds;
+	}
 	switch (EffectiveSettings.HintMode)
 	{
 	case EIGHintMode::Story:
@@ -246,6 +262,26 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		TEXT("MicrophoneNoiseEnabled"),
 		PersistedSettings.bMicrophoneNoiseEnabled,
 		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("KnockHapticSubstitute"),
+		PersistedSettings.bKnockHapticSubstitute,
+		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("KnockRippleSubstitute"),
+		PersistedSettings.bKnockRippleSubstitute,
+		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("HeartbeatWarning"),
+		PersistedSettings.bHeartbeatWarning,
+		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("CognitiveAssist"),
+		PersistedSettings.bCognitiveAssist,
+		GGameUserSettingsIni);
 	GConfig->GetFloat(
 		IGAccessibility::ConfigSection,
 		TEXT("CaptionDurationScale"),
@@ -345,6 +381,26 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		IGAccessibility::ConfigSection,
 		TEXT("MicrophoneNoiseEnabled"),
 		PersistedSettings.bMicrophoneNoiseEnabled,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("KnockHapticSubstitute"),
+		PersistedSettings.bKnockHapticSubstitute,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("KnockRippleSubstitute"),
+		PersistedSettings.bKnockRippleSubstitute,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("HeartbeatWarning"),
+		PersistedSettings.bHeartbeatWarning,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("CognitiveAssist"),
+		PersistedSettings.bCognitiveAssist,
 		GGameUserSettingsIni);
 	GConfig->SetFloat(
 		IGAccessibility::ConfigSection,

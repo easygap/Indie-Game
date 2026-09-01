@@ -760,6 +760,8 @@ private:
 	float RippleLoudness = 0.0f;
 	double RippleStartTime = 0.0;
 	double RippleEndTime = -1.0;
+	/** §19.8. 이 링이 내가 낸 소리인가, 건물이 낸 소리인가. */
+	bool bRippleIsForeign = false;
 
 	double LensDropletStartTime = 0.0;
 	double LensDropletEndTime = -1.0;

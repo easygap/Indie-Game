@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "GameFramework/Character.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "IGPlayerCharacter.generated.h"
 
 namespace Audio
@@ -99,6 +100,12 @@ public:
 	/** Applies the persisted/command-line microphone mode immediately. */
 	void RefreshMicrophoneCaptureMode();
 
+	/**
+	 * §19.8 노크 진동 대체. 존재가 낸 소리를 손으로 옮긴다.
+	 * §18.5의 무진동 규칙은 기본값에서 그대로다 — 켠 사람만 받는다.
+	 */
+	void PlayKnockSubstituteHaptic(float Loudness) const;
+
 	/** §18.6 낙하물·충돌. 연출된 충격에만 붙는다. */
 	void PlayImpactHaptic() const;
 
@@ -184,6 +191,8 @@ private:
 	void FinishHoldBreath(bool bForcedRelease);
 	void ApplyPlayerKnockFeedback();
 	void RegisterKnockSequenceTap();
+	void HandleForeignNoise(const FIGNoiseEvent& Event);
+	FDelegateHandle ForeignNoiseHandle;
 	void StopChaseHaptic();
 	void UpdateChaseHaptic(float DeltaSeconds);
 	void PlayHapticFeedback(float Intensity, float DurationSeconds) const;

@@ -26,6 +26,10 @@ namespace IGStress
 	constexpr float ComfortVignetteCeiling = 0.34f;
 	// §18.6. 표의 「스트레스 0.85+」를 여기 한 번만 적는다.
 	constexpr float HeartbeatHapticStressThreshold = 0.85f;
+	// §19.8 심박 경고. 같은 임계에서 비네트가 이만큼까지 부풀었다 돌아온다.
+	constexpr float HeartbeatWarningVignetteScale = 1.4f;
+	// 맥동은 심박 속도를 따라간다. 경고가 제 박자로 뛰지 않으면 그건
+	// 심박이 아니라 그냥 화면이 흔들리는 것이다.
 }
 
 UIGStressComponent::UIGStressComponent()
@@ -337,6 +341,35 @@ void UIGStressComponent::UpdateTremor(const float DeltaSeconds)
 	Tremor.Roll = FMath::Sin(TremorTime * 11.9f + 2.4f) * Amount * 0.6f;
 }
 
+float UIGStressComponent::GetHeartbeatWarningScale() const
+{
+	// §19.8. 켜져 있고 임계를 넘었을 때만 부푼다. 그 밖에서는 1이라서
+	// 아래 계산이 예전과 한 글자도 다르게 돌지 않는다.
+	const AActor* Owner = GetOwner();
+	const UWorld* World = Owner ? Owner->GetWorld() : nullptr;
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	if (!Accessibility
+		|| !Accessibility->UsesHeartbeatWarning()
+		|| Stress < IGStress::HeartbeatHapticStressThreshold
+		|| !World)
+	{
+		return 1.0f;
+	}
+	// 심박음이 쓰는 것과 같은 곡선이다. 따로 적으면 경고가 제 박자를
+	// 벗어나고, 그러면 심박이 아니라 그냥 흔들리는 화면이 된다.
+	const float WarningBeatsPerMinute =
+		FMath::Lerp(RestingBPM, PanicBPM, FMath::Pow(Stress, 0.85f));
+	const float BeatsPerSecond =
+		FMath::Max(WarningBeatsPerMinute, 1.0f) / 60.0f;
+	const float Phase = FMath::Frac(World->GetTimeSeconds() * BeatsPerSecond);
+	// 한 박에 한 번 부풀었다 돌아온다.
+	const float Pulse = 0.5f - 0.5f * FMath::Cos(Phase * 2.0f * UE_PI);
+	return FMath::Lerp(1.0f, IGStress::HeartbeatWarningVignetteScale, Pulse);
+}
+
 float UIGStressComponent::GetComfortVignetteStrength() const
 {
 	const AActor* Owner = GetOwner();
@@ -376,7 +409,8 @@ void UIGStressComponent::UpdatePostProcess()
 	Settings.bOverride_VignetteIntensity = true;
 	Settings.VignetteIntensity = FMath::Max(
 		FMath::Lerp(0.28f, 0.72f, Ramp),
-		Comfort * IGStress::ComfortVignetteCeiling);
+		Comfort * IGStress::ComfortVignetteCeiling)
+		* GetHeartbeatWarningScale();
 
 	// Colour drains toward grey as fear rises — tunnel vision is partly a
 	// loss of colour discrimination, and it reads instantly on screen.

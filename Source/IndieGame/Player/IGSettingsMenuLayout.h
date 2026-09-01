@@ -35,7 +35,7 @@ namespace IGSettingsMenuLayout
 	static_assert(
 		BackOrRevert + 1 == DisplayRowCount,
 		"화면 설정 행 이름과 행 수가 어긋났다");
-	constexpr int32 AccessibilityRowCount = 20;
+	constexpr int32 AccessibilityRowCount = 24;
 
 	/**
 	 * 접근성 행 번호. 화면과 컨트롤러와 묶음 범위 셋이 같은 숫자를 봐야 한다.
@@ -49,6 +49,10 @@ namespace IGSettingsMenuLayout
 		FieldOfView,
 		ComfortVignette,
 		DirectionalFearCues,
+		KnockRippleSubstitute,
+		KnockHapticSubstitute,
+		HeartbeatWarning,
+		CognitiveAssist,
 		AutoConnectEvidence,
 		Subtitles,
 		SoundCaptions,
@@ -155,7 +159,7 @@ namespace IGSettingsMenuLayout
 		{
 		case 0: return {HintMode, 1};              // Gameplay.
 		case 1: return {ReducedCameraMotion, 4};   // Motion.
-		case 2: return {DirectionalFearCues, 2};   // Guidance.
+		case 2: return {DirectionalFearCues, 6};   // Guidance.
 		case 3: return {Subtitles, 6};             // Captions.
 		case 4: return {ToggleCrouch, 5};          // Input.
 		case 5: return {ResetDefaults, 2};         // General actions.

@@ -301,8 +301,20 @@ void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
 	// Only the player's own sounds get a ring. The bus also carries the
 	// entity's knocks and any scripted bait, and telling the player "you made
 	// that sound" when they did not would teach the wrong rule.
+	//
+	// §19.8 노크 시각 대체를 켜면 그 규칙이 뒤집힌다. 소리를 못 듣는 손에게
+	// 존재의 노크는 아무것도 아닌 것이 되므로, 링을 그리되 **두께로** 나눠
+	// 내 소리와 구분한다 — 색으로만 나누면 색각에서 다시 사라진다.
 	const APawn* OwningPawn = GetOwningPawn();
-	if (!OwningPawn || Event.Instigator.Get() != OwningPawn)
+	const bool bMine = OwningPawn && Event.Instigator.Get() == OwningPawn;
+	const UIGAccessibilitySubsystem* RippleAccessibility =
+		GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
+			: nullptr;
+	const bool bSubstituting = !bMine
+		&& RippleAccessibility
+		&& RippleAccessibility->UsesKnockRippleSubstitute();
+	if (!bMine && !bSubstituting)
 	{
 		return;
 	}
@@ -337,6 +349,7 @@ void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
 	RippleLoudness = Event.Loudness;
 	RippleStartTime = Now;
 	RippleEndTime = Now + IGHorrorHUD::NoiseRippleDurationSeconds;
+	bRippleIsForeign = !bMine;
 }
 
 void AIGHorrorHUD::InitializeDialogueSurfaceTextures()
@@ -3895,9 +3908,13 @@ void AIGHorrorHUD::DrawNoiseRipple(const double CurrentTime)
 			const float EndTaper = FMath::Sin(T * UE_PI);
 			FCanvasLineItem Line(Previous, Point);
 			Line.SetColor(RippleColor);
+			// §19.8. 존재가 낸 소리는 내 소리보다 가늘게 그린다. 색이
+			// 아니라 두께로 나눠야 색각에서도 남는다.
+			const float ForeignScale = bRippleIsForeign ? 0.45f : 1.0f;
 			Line.LineThickness = FMath::Max(
 				1.0f,
-				IGHorrorHUD::NoiseRippleMaximumThickness * EndTaper);
+				IGHorrorHUD::NoiseRippleMaximumThickness * EndTaper
+					* ForeignScale);
 			Canvas->DrawItem(Line);
 		}
 		Previous = Point;
@@ -4432,6 +4449,10 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean ? TEXT("시야각") : TEXT("FIELD OF VIEW"),
 		bKorean ? TEXT("주변부 비네트") : TEXT("EDGE VIGNETTE"),
 		bKorean ? TEXT("공포음 방향 표시") : TEXT("FEAR SOUND DIRECTION"),
+		bKorean ? TEXT("노크 시각 대체") : TEXT("KNOCK AS A RING"),
+		bKorean ? TEXT("노크 진동 대체") : TEXT("KNOCK AS VIBRATION"),
+		bKorean ? TEXT("심박 경고") : TEXT("HEARTBEAT WARNING"),
+		bKorean ? TEXT("인지 지원") : TEXT("COGNITIVE ASSIST"),
 		bKorean ? TEXT("P5 단서 자동 연결") : TEXT("AUTO-CONNECT EVIDENCE"),
 		bKorean ? TEXT("대사 음성 자막") : TEXT("VOICE SUBTITLES"),
 		bKorean ? TEXT("핵심 소리 캡션") : TEXT("SOUND CAPTIONS"),
@@ -4459,6 +4480,10 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			TEXT("%d%%"),
 			FMath::RoundToInt(Settings.ComfortVignetteStrength * 100.0f)),
 		OnOff(Settings.bDirectionalFearCues),
+		OnOff(Settings.bKnockRippleSubstitute),
+		OnOff(Settings.bKnockHapticSubstitute),
+		OnOff(Settings.bHeartbeatWarning),
+		OnOff(Settings.bCognitiveAssist),
 		OnOff(Settings.bAutoConnectEvidence),
 		OnOff(Settings.bSubtitlesEnabled),
 		OnOff(Settings.bSoundCaptionsEnabled),
@@ -4508,6 +4533,18 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		bKorean
 			? TEXT("공포음이 들린 방향을 화면 가장자리의 절제된 표시로 함께 전달합니다.")
 			: TEXT("ADDS A RESTRAINED SCREEN-EDGE CUE FOR THE DIRECTION OF IMPORTANT HORROR SOUNDS."),
+		bKorean
+			? TEXT("존재가 낸 소리에도 파문 링을 그립니다. 내가 낸 소리와는 색이 아니라 링 두께로 구분합니다.")
+			: TEXT("DRAWS A RING FOR THE PRESENCE TOO, TOLD APART BY THICKNESS RATHER THAN COLOUR."),
+		bKorean
+			? TEXT("존재가 낸 소리를 패드 진동으로 함께 전달합니다. 멀리서 난 소리는 약하게 옵니다.")
+			: TEXT("SENDS THE PRESENCE'S SOUNDS TO THE PAD AS VIBRATION, WEAKER WITH DISTANCE."),
+		bKorean
+			? TEXT("스트레스가 높아지면 화면 가장자리가 심박에 맞춰 맥동합니다. 심박음을 듣지 못해도 위험이 보입니다.")
+			: TEXT("PULSES THE SCREEN EDGE IN TIME WITH THE HEARTBEAT SO DANGER STAYS VISIBLE."),
+		bKorean
+			? TEXT("퍼즐의 시간 압박을 풀고 노크 판정창을 넓힙니다. 리듬을 맞추기 어려운 손을 위한 선택지입니다.")
+			: TEXT("RELAXES PUZZLE TIME PRESSURE AND WIDENS THE KNOCK WINDOW."),
 		bKorean
 			? TEXT("관찰한 P5 단서의 연결을 자동으로 정리합니다. 단서를 발견하는 과정은 건너뛰지 않습니다.")
 			: TEXT("ORGANIZES OBSERVED P5 EVIDENCE AUTOMATICALLY WITHOUT SKIPPING DISCOVERY."),

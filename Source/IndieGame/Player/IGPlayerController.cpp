@@ -2574,6 +2574,18 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 	case IGSettingsMenuLayout::DirectionalFearCues:
 		Settings.bDirectionalFearCues = !Settings.bDirectionalFearCues;
 		break;
+	case IGSettingsMenuLayout::KnockRippleSubstitute:
+		Settings.bKnockRippleSubstitute = !Settings.bKnockRippleSubstitute;
+		break;
+	case IGSettingsMenuLayout::KnockHapticSubstitute:
+		Settings.bKnockHapticSubstitute = !Settings.bKnockHapticSubstitute;
+		break;
+	case IGSettingsMenuLayout::HeartbeatWarning:
+		Settings.bHeartbeatWarning = !Settings.bHeartbeatWarning;
+		break;
+	case IGSettingsMenuLayout::CognitiveAssist:
+		Settings.bCognitiveAssist = !Settings.bCognitiveAssist;
+		break;
 	case IGSettingsMenuLayout::AutoConnectEvidence:
 		Settings.bAutoConnectEvidence = !Settings.bAutoConnectEvidence;
 		break;

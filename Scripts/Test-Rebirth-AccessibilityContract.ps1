@@ -447,7 +447,7 @@ Assert-ContainsAll $hudSource @(
 	'DrawSettingsFooterText('
 ) '긴 한글·200% 미리 보기 내부 경계 계약'
 Assert-ContainsAll $settingsLayout @(
-	'AccessibilityRowCount = 20',
+	'AccessibilityRowCount = 24',
 	'AccessibilityCategoryCount = 6',
 	'case 3: return {Subtitles, 6}',
 	'case 4: return {ToggleCrouch, 5}',
@@ -481,7 +481,7 @@ foreach ($entry in [regex]::Matches(
 	$rowNames.Groups['body'].Value, '(?m)^\s*(?<name>[A-Za-z]+)')) {
 	$orderedNames += $entry.Groups['name'].Value
 }
-Assert-True ($orderedNames.Count -eq 20) '접근성 행 이름 스무 개'
+Assert-True ($orderedNames.Count -eq 24) '접근성 행 이름 스물넷'
 $expectedFirst = 0
 foreach ($range in $categoryRanges) {
 	$firstName = $range.Groups['first'].Value
@@ -490,7 +490,149 @@ foreach ($range in $categoryRanges) {
 		'접근성 묶음이 이어 붙는다: {0}' -f $firstName)
 	$expectedFirst += [int]$range.Groups['count'].Value
 }
-Assert-True ($expectedFirst -eq 20) '접근성 묶음이 행 전부를 덮는다'
+Assert-True ($expectedFirst -eq 24) '접근성 묶음이 행 전부를 덮는다'
+# --- §19.8 소리의 대체 채널 ---------------------------------------------------
+#
+# 표 여덟 줄 중 넷이 비어 있었다. 소리를 못 듣는 손에게 존재의 노크는
+# 아무것도 아닌 것이 되므로, 같은 정보를 다른 통로로 준다.
+
+$storyText = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Docs/STORY_BIBLE_MISSING_FLOOR.md')
+Assert-ContainsAll $header @(
+	'bool bKnockHapticSubstitute = false;',
+	'bool bKnockRippleSubstitute = false;',
+	'bool bHeartbeatWarning = false;',
+	'bool bCognitiveAssist = false;'
+) '§19.8 대체 채널 설정'
+
+# 넷 다 기본은 꺼짐이다. 표의 「기본」 열이 그렇게 적혀 있다.
+$substituteRows = @(
+	@{ Name = '노크 진동 대체'; Field = 'bKnockHapticSubstitute' },
+	@{ Name = '노크 시각 대체'; Field = 'bKnockRippleSubstitute' },
+	@{ Name = '심박 경고'; Field = 'bHeartbeatWarning' },
+	@{ Name = '인지 지원'; Field = 'bCognitiveAssist' })
+foreach ($row in $substituteRows) {
+	$tableRow = [regex]::Match(
+		$storyText, ('\| {0} \| (?<default>[^|]+?) \|' -f [regex]::Escape($row.Name)))
+	Assert-True $tableRow.Success ('§19.8 표에 {0} 줄이 있다' -f $row.Name)
+	Assert-True ($tableRow.Groups['default'].Value.Trim() -eq 'OFF') (
+		'{0}의 기본은 꺼짐이다' -f $row.Name)
+	Assert-True ($header -match ('{0} = false;' -f $row.Field)) (
+		'{0}이 코드에서도 꺼짐으로 시작한다' -f $row.Field)
+}
+
+# 켜고 끄는 자리와 저장이 있어야 게임 중 즉시 적용·유지가 성립한다(§19.9).
+foreach ($row in $substituteRows) {
+	Assert-True ($controllerSource -match ('Settings.{0} = !Settings.{0};' -f $row.Field)) (
+		'{0}을 화면에서 켜고 끌 수 있다' -f $row.Field)
+}
+foreach ($half in @(
+	@{ Name = 'LoadPersistedSettings'; Call = 'GConfig->GetBool(' },
+	@{ Name = 'SavePersistedSettings'; Call = 'GConfig->SetBool(' })) {
+	$halfBody = [regex]::Match(
+		$source,
+		('void UIGAccessibilitySubsystem::{0}\(\)( const)?' -f $half.Name) +
+			'(?<body>[\s\S]*?)\r?\n\}')
+	Assert-True $halfBody.Success ('{0}을 떼어낼 수 있다' -f $half.Name)
+	foreach ($key in @(
+		'KnockHapticSubstitute', 'KnockRippleSubstitute',
+		'HeartbeatWarning', 'CognitiveAssist')) {
+		Assert-True (
+			$halfBody.Groups['body'].Value -match
+				([regex]::Escape($half.Call) + '\s*\r?\n\s*IGAccessibility::ConfigSection,' +
+					'\s*\r?\n\s*TEXT\("' + $key + '"\)')) (
+			'{0}이 {1}을 다룬다' -f $half.Name, $key)
+	}
+}
+
+# 노크 시각 대체는 색이 아니라 두께로 나눈다. 색으로만 나누면 색각에서
+# 다시 사라져서, 대체 채널이 또 하나의 벽이 된다.
+$noiseBody = [regex]::Match(
+	$hudSource,
+	'void AIGHorrorHUD::HandleNoiseReported\(const FIGNoiseEvent& Event\)(?<body>[\s\S]*?)\r?\n\}')
+Assert-True $noiseBody.Success 'HandleNoiseReported를 떼어낼 수 있다'
+Assert-True (
+	$noiseBody.Groups['body'].Value.Contains('UsesKnockRippleSubstitute()')) `
+	'존재의 소리에 링을 그릴지 설정이 정한다'
+Assert-True ($hudSource -match 'bRippleIsForeign \? [0-9.]+f : 1\.0f') `
+	'존재의 링은 두께로 구분한다'
+Assert-True ($storyText -match '색이 아니라 두께로 구분') `
+	'§19.8의 두께 구분 규칙이 남아 있다'
+
+# 노크 진동 대체는 소음 버스를 탄다. 응답 노크 코드에 손을 대면 §18.5의
+# 무진동 규칙이 무너진다.
+Assert-True ($character -match 'OnNoiseReported.AddUObject\(\s*\r?\n?\s*this, &AIGPlayerCharacter::HandleForeignNoise\)') `
+	'대체 진동은 소음 버스에서 온다'
+$foreignBody = [regex]::Match(
+	$character,
+	'void AIGPlayerCharacter::HandleForeignNoise\(const FIGNoiseEvent& Event\)(?<body>[\s\S]*?)\r?\n\}')
+Assert-True $foreignBody.Success 'HandleForeignNoise를 떼어낼 수 있다'
+Assert-True (
+	$foreignBody.Groups['body'].Value.Contains('Event.Instigator.Get() == this')) `
+	'내가 낸 소리는 대체 진동에서 걸러진다'
+Assert-True (
+	$foreignBody.Groups['body'].Value.Contains('UsesKnockHapticSubstitute()')) `
+	'대체 진동은 켠 사람만 받는다'
+# 거리가 지워지면 대체 채널이 정보를 반만 옮긴다.
+$substituteBody = [regex]::Match(
+	$character,
+	'void AIGPlayerCharacter::PlayKnockSubstituteHaptic\(const float Loudness\) const(?<body>[\s\S]*?)\r?\n\}')
+Assert-True $substituteBody.Success 'PlayKnockSubstituteHaptic를 떼어낼 수 있다'
+Assert-True ($substituteBody.Groups['body'].Value.Contains('Loudness')) `
+	'대체 진동의 세기가 소리 크기를 따라간다'
+
+# 심박 경고는 표의 배율과 임계를 그대로 쓴다.
+$warningRow = [regex]::Match(
+	$storyText, '스트레스 (?<threshold>[0-9.]+) 도달 시 비네트 맥동 ×(?<scale>[0-9.]+)')
+Assert-True $warningRow.Success '§19.8 심박 경고 줄을 읽을 수 있다'
+$stressForWarning = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGStressComponent.cpp')
+$scaleDeclared = [regex]::Match(
+	$stressForWarning,
+	'constexpr float HeartbeatWarningVignetteScale = (?<value>[0-9.]+)f;')
+Assert-True $scaleDeclared.Success 'HeartbeatWarningVignetteScale을 읽을 수 있다'
+Assert-True (
+	[double]$scaleDeclared.Groups['value'].Value -eq [double]$warningRow.Groups['scale'].Value) (
+	'심박 경고 배율이 {0}인데 §19.8은 {1}이라고 적었다' -f
+		$scaleDeclared.Groups['value'].Value, $warningRow.Groups['scale'].Value)
+$warningBody = [regex]::Match(
+	$stressForWarning,
+	'float UIGStressComponent::GetHeartbeatWarningScale\(\) const(?<body>[\s\S]*?)\r?\n\}')
+Assert-True $warningBody.Success 'GetHeartbeatWarningScale를 떼어낼 수 있다'
+Assert-True (
+	$warningBody.Groups['body'].Value.Contains(
+		'IGStress::HeartbeatHapticStressThreshold')) `
+	'심박 경고가 진동과 같은 임계를 쓴다'
+# 꺼져 있으면 1이라서 나머지 계산이 예전과 똑같이 돈다.
+Assert-True ($warningBody.Groups['body'].Value -match 'return 1\.0f;') `
+	'심박 경고가 꺼져 있으면 비네트가 그대로다'
+
+# 인지 지원: 판정창 ×1.6과 시간 압박 해제.
+$windowRow = [regex]::Match($storyText, '노크 판정창 ×(?<scale>[0-9.]+)')
+Assert-True $windowRow.Success '§19.8 노크 판정창 줄을 읽을 수 있다'
+$windowDeclared = [regex]::Match(
+	$source, 'constexpr float KnockWindowAssistScale = (?<value>[0-9.]+)f;')
+Assert-True $windowDeclared.Success 'KnockWindowAssistScale을 읽을 수 있다'
+Assert-True (
+	[double]$windowDeclared.Groups['value'].Value -eq [double]$windowRow.Groups['scale'].Value) (
+	'노크 판정창 배율이 {0}인데 §19.8은 {1}이라고 적었다' -f
+		$windowDeclared.Groups['value'].Value, $windowRow.Groups['scale'].Value)
+Assert-True (
+	$character -match 'IGPlayerNoise::KnockSequenceResetSeconds \* WindowScale') `
+	'넓어진 판정창이 실제로 걸린다'
+$pressureBody = [regex]::Match(
+	$source,
+	'float UIGAccessibilitySubsystem::GetPressureRiseIntervalSeconds\(\) const(?<body>[\s\S]*?)\r?\n\}')
+Assert-True $pressureBody.Success 'GetPressureRiseIntervalSeconds를 떼어낼 수 있다'
+Assert-True ($pressureBody.Groups['body'].Value.Contains('bCognitiveAssist')) `
+	'인지 지원이 시간 압박을 푼다'
+# 0으로 만들지 않는다. 세계가 아무 반응도 안 하면 그건 해제가 아니라 고장이다.
+$relaxed = [regex]::Match(
+	$source, 'constexpr float RelaxedPressureIntervalSeconds = (?<value>[0-9.]+)f;')
+Assert-True $relaxed.Success 'RelaxedPressureIntervalSeconds를 읽을 수 있다'
+Assert-True ([double]$relaxed.Groups['value'].Value -gt 0.0) `
+	'시간 압박 해제는 세계를 멈추는 것이 아니다'
+
 # --- 멀미 완화 비네트 (§18.3) ------------------------------------------------
 #
 # 공포의 터널 시야와 같은 후처리를 쓴다. 둘이 만나면 큰 쪽이 남아야 한다 —

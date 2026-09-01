@@ -53,6 +53,34 @@ struct INDIEGAME_API FIGAccessibilitySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bDirectionalFearCues = false;
 
+	/**
+	 * §19.8 노크 진동 대체. 존재가 내는 소리를 패드 진동으로 옮긴다.
+	 *
+	 * §18.5는 벽에서 돌아오는 응답 노크에 진동을 붙이지 말라고 했고 그건
+	 * 기본값으로 지켜진다. 이 설정은 그 규칙을 뒤집는 것이 아니라, 소리를
+	 * 못 듣는 손에게 같은 정보를 다른 통로로 주는 것이다. 켠 사람만 받는다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bKnockHapticSubstitute = false;
+
+	/**
+	 * §19.8 노크 시각 대체. 파문 링을 존재의 소리에도 그린다.
+	 * 내 소리와는 **두께로** 구분한다 — 색만으로 나누면 색각에서 사라진다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bKnockRippleSubstitute = false;
+
+	/** §19.8 심박 경고. 스트레스가 임계에 닿으면 비네트가 맥동한다. */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bHeartbeatWarning = false;
+
+	/**
+	 * §19.8 인지 지원. 퍼즐의 시간 압박을 풀고 노크 판정창을 넓힌다.
+	 * 힌트 모드는 같은 묶음이지만 자기 행을 따로 가진다(§19.4).
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bCognitiveAssist = false;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bAutoConnectEvidence = false;
 
@@ -220,6 +248,34 @@ public:
 	{
 		return EffectiveSettings.CaptionDurationScale;
 	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Audio")
+	bool UsesKnockHapticSubstitute() const
+	{
+		return EffectiveSettings.bKnockHapticSubstitute;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Audio")
+	bool UsesKnockRippleSubstitute() const
+	{
+		return EffectiveSettings.bKnockRippleSubstitute;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Motion")
+	bool UsesHeartbeatWarning() const
+	{
+		return EffectiveSettings.bHeartbeatWarning;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Guidance")
+	bool UsesCognitiveAssist() const
+	{
+		return EffectiveSettings.bCognitiveAssist;
+	}
+
+	/** §19.8. 인지 지원에서 노크 판정창이 넓어지는 배율. */
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Guidance")
+	float GetKnockWindowScale() const;
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Motion")
 	float GetComfortVignetteStrength() const
