@@ -2394,6 +2394,214 @@ if ($story -notmatch '`Test-ArtAssetContract\.ps1`이 열거형을 읽어 게임
 	throw 'The §12 source-reachability contract lost its name.'
 }
 
+# --- §5.1 소음 모델 · §17 기믹 배치표 -------------------------------------------
+#
+# §5.1은 값이 코드에 흩어져 있고, §17은 「몇 개인가」와 「없는가」다.
+
+$noiseHeader = Read-ProjectText 'Source/IndieGame/Entity/IGNoiseSubsystem.h'
+$doorHeaderFor5 = Read-ProjectText 'Source/IndieGame/Interaction/IGSwingDoor.h'
+$entitySourceFor5 = Read-ProjectText 'Source/IndieGame/Entity/IGListenerEntity.cpp'
+$stressForNoise = Read-ProjectText 'Source/IndieGame/Player/IGStressComponent.cpp'
+
+# 문 여닫기 두 값. 조용히 여는 쪽이 더 조용해야 홀드가 값을 한다.
+$doorRow = [regex]::Match(
+	$story, '\| 문 여닫기\(천천히/그냥\) \| (?<quiet>[0-9.]+) / (?<normal>[0-9.]+) \|')
+$assertionCount++
+if (-not $doorRow.Success) {
+	throw 'The §5.1 door row could not be read.'
+}
+foreach ($pair in @(
+	@{ Field = 'QuietSwingLoudness'; Expected = $doorRow.Groups['quiet'].Value },
+	@{ Field = 'NormalSwingLoudness'; Expected = $doorRow.Groups['normal'].Value })) {
+	$declared = [regex]::Match(
+		$doorHeaderFor5, ('float {0} = (?<value>[0-9.]+)f;' -f $pair.Field))
+	$assertionCount++
+	if (-not $declared.Success) {
+		throw ('The §5.1 door loudness is missing: {0}' -f $pair.Field)
+	}
+	$assertionCount++
+	if ([double]$declared.Groups['value'].Value -ne [double]$pair.Expected) {
+		throw (
+			'{0} is {1} but §5.1 says {2}.' -f
+				$pair.Field, $declared.Groups['value'].Value, $pair.Expected)
+	}
+}
+$assertionCount++
+if ([double](
+	[regex]::Match($doorHeaderFor5, 'float QuietSwingLoudness = (?<v>[0-9.]+)f;').Groups['v'].Value) -ge
+	[double](
+	[regex]::Match($doorHeaderFor5, 'float NormalSwingLoudness = (?<v>[0-9.]+)f;').Groups['v'].Value)) {
+	throw 'Opening a door slowly must be the quieter option (§5.1).'
+}
+
+# 앉아 이동의 소음.
+$crouchRow = [regex]::Match(
+	$story, '\| 정지·앉아 이동 \| (?<value>[0-9.]+) \|')
+$assertionCount++
+if (-not $crouchRow.Success) {
+	throw 'The §5.1 crouch row could not be read.'
+}
+$crouchDeclared = [regex]::Match(
+	$characterSource, 'constexpr float CrouchFootstepLoudness = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $crouchDeclared.Success) {
+	throw 'CrouchFootstepLoudness could not be read.'
+}
+$assertionCount++
+if ([double]$crouchDeclared.Groups['value'].Value -ne [double]$crouchRow.Groups['value'].Value) {
+	throw (
+		'CrouchFootstepLoudness is {0} but §5.1 says {1}.' -f
+			$crouchDeclared.Groups['value'].Value, $crouchRow.Groups['value'].Value)
+}
+
+# 험 존: 반경 2m, 마스킹 0.2. 지금 서 있는 둘이 같은 값을 써야 한다.
+$humRow = [regex]::Match(
+	$story, '험 존\(반경 (?<radius>[0-9]+)m\)은 소음을 -(?<masking>[0-9.]+) 마스킹한다')
+$assertionCount++
+if (-not $humRow.Success) {
+	throw 'The §5.1 hum-zone row could not be read.'
+}
+$expectedRadius = [double]$humRow.Groups['radius'].Value * 100.0
+$humZones = 0
+foreach ($file in @(
+	'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp',
+	'Source/IndieGame/Entity/IGNightOneBeatDirector.cpp')) {
+	$text = Read-ProjectText $file
+	$radius = [regex]::Match($text, 'HumRadius = (?<value>[0-9.]+)f;')
+	$masking = [regex]::Match($text, 'HumMasking = (?<value>[0-9.]+)f;')
+	$assertionCount++
+	if (-not $radius.Success -or -not $masking.Success) {
+		throw "A §5.1 hum zone lost its radius or masking: $file"
+	}
+	$humZones++
+	$assertionCount++
+	if ([double]$radius.Groups['value'].Value -ne $expectedRadius) {
+		throw (
+			'A hum zone reaches {0}cm but §5.1 says {1}cm.' -f
+				$radius.Groups['value'].Value, $expectedRadius)
+	}
+	$assertionCount++
+	if ([double]$masking.Groups['value'].Value -ne [double]$humRow.Groups['masking'].Value) {
+		throw (
+			'A hum zone masks {0} but §5.1 says {1}.' -f
+				$masking.Groups['value'].Value, $humRow.Groups['masking'].Value)
+	}
+}
+$assertionCount++
+if ($humZones -ne 2) {
+	throw "§5.1 says two hum zones stand; found $humZones."
+}
+# 보일러실에는 아직 없다. 문서가 그 사실을 말하고 있어야 다음 사람이
+# 「기계가 있으니 가려지겠지」로 읽지 않는다.
+$assertionCount++
+if ($story -notmatch '4층 보일러실\(§6\)에는 아직 험 존이 없다') {
+	throw 'The §5.1 note about the boiler room was removed.'
+}
+
+# 노크 3연 동안의 전역 마스킹.
+$bangRow = [regex]::Match(
+	$story, '노크 3연 동안은 모든 플레이어 소음이 -(?<value>[0-9.]+) 마스킹된다')
+$assertionCount++
+if (-not $bangRow.Success) {
+	throw 'The §5.1 knock-masking row could not be read.'
+}
+$bangDeclared = [regex]::Match(
+	$entitySourceFor5, 'constexpr float BangMasking = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $bangDeclared.Success) {
+	throw 'BangMasking could not be read.'
+}
+$assertionCount++
+if ([double]$bangDeclared.Groups['value'].Value -ne [double]$bangRow.Groups['value'].Value) {
+	throw (
+		'BangMasking is {0} but §5.1 says {1}.' -f
+			$bangDeclared.Groups['value'].Value, $bangRow.Groups['value'].Value)
+}
+
+# 심박은 반경이 계약이다. 소음값 × 전달거리가 3m에 닿는지 계산해서 본다.
+$heartRow = [regex]::Match(
+	$story, '3m를 채우는 값이 (?<loudness>[0-9.]+)이고 코드가 그것을 쓴다')
+$assertionCount++
+if (-not $heartRow.Success) {
+	throw 'The §5.1 heartbeat note could not be read.'
+}
+$carry = [regex]::Match(
+	$noiseHeader, 'CarryPerLoudness = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $carry.Success) {
+	throw 'CarryPerLoudness could not be read.'
+}
+$assertionCount++
+if (-not $stressForNoise.Contains(
+	($heartRow.Groups['loudness'].Value + 'f,'))) {
+	throw (
+		'The heartbeat must report {0} to reach three meters (§5.1).' -f
+			$heartRow.Groups['loudness'].Value)
+}
+$heartReach = [double]$heartRow.Groups['loudness'].Value * [double]$carry.Groups['value'].Value
+$assertionCount++
+if ($heartReach -lt 290.0 -or $heartReach -gt 310.0) {
+	throw (
+		'The heartbeat carries {0}cm; §5.1 wants about three meters.' -f $heartReach)
+}
+
+# --- §17 기믹 배치표 -----------------------------------------------------------
+$adopted = [regex]::Match(
+	$story, '### 17\.1 채택 — (?<count>[0-9]+)종\r?\n(?<body>[\s\S]*?)\r?\n### 17\.2')
+$assertionCount++
+if (-not $adopted.Success) {
+	throw 'The §17.1 adoption table could not be read.'
+}
+$adoptedRows = 0
+foreach ($row in [regex]::Matches(
+	$adopted.Groups['body'].Value, '(?m)^\| (?<gimmick>[^|]+?) \| (?<lineage>[^|]+?) \|')) {
+	if ($row.Groups['gimmick'].Value.Trim() -eq '기믹' -or
+		$row.Groups['gimmick'].Value -match '^-+$') {
+		continue
+	}
+	$adoptedRows++
+}
+$assertionCount++
+if ($adoptedRows -ne [int]$adopted.Groups['count'].Value) {
+	throw (
+		'§17.1 says {0} adopted gimmicks but lists {1}.' -f
+			$adopted.Groups['count'].Value, $adoptedRows)
+}
+# 기믹은 한 비트에 1회다. 그 원칙이 사라지면 표는 그냥 목록이 된다.
+$assertionCount++
+if ($story -notmatch '\*\*기믹은 게임의 정체성\(소리\)을 통과해야만 채택된다\.\*\*') {
+	throw 'The §17 adoption principle was removed.'
+}
+$assertionCount++
+if ($story -notmatch '한 밤에 신규 기믹 등장은 최대 1개') {
+	throw 'The §17.4 density rule was removed.'
+}
+# 메타는 두 곳뿐이다 — 실시간 시계와 밤 5.
+$assertionCount++
+if ($story -notmatch '메타는 §17\.1의 두 곳뿐') {
+	throw 'The §17.3 two-metas-only rule was removed.'
+}
+$assertionCount++
+if ($story -notmatch '세이브 조작·가짜 크래시 금지') {
+	throw 'The §17.1 no-save-tampering rule was removed.'
+}
+foreach ($banned in @('DeleteSaveThreat', 'FakeCrash', 'CorruptSaveEffect')) {
+	$assertionCount++
+	if ($hudSource.Contains($banned) -or $controllerSource.Contains($banned)) {
+		throw "§17 forbids breaking the player's trust: $banned"
+	}
+}
+# 바디캠 회피의 이유는 남되, FOV는 §18.3에서 열렸다. 두 절이 갈라지면
+# 어느 쪽이 지금 규칙인지 알 수 없다.
+$assertionCount++
+if ($story -match 'FOV 78 고정 유지') {
+	throw 'The §17.3 bodycam row still says the FOV is fixed; §18.3 opened it.'
+}
+$assertionCount++
+if ($story -notmatch '기본 FOV 78 유지\(§18\.3에서 68~100으로 열되 기본값은 그대로\)') {
+	throw 'The §17.3 bodycam row must point at the §18.3 range.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
