@@ -1309,6 +1309,188 @@ if ($story -notmatch '소음 파문 링은 동작 감소에서도 \*\*끄지 않
 	throw 'The §19.8 ripple rule was removed.'
 }
 
+# --- §20 난이도 설계 ----------------------------------------------------------
+#
+# §20.2 튜닝 테이블은 자기 계약이 따로 본다. 여기서는 안전망 셋과 난이도
+# 네 모드를 본다. 둘 다 문서가 숫자를 적어 둔 자리다.
+
+$mercyHeader = Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorMercyDirector.h'
+$mercySource = Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorMercyDirector.cpp'
+$tuningSource = Read-ProjectText 'Source/IndieGame/Entity/IGListenerTuning.cpp'
+
+# 20.3-1 — 2회 연속 리셋에 환경 힌트 하나.
+$resetRow = [regex]::Match(
+	$story, '\*\*관찰 재료 증가\*\*[^\r\n]*?(?<count>[0-9]+)회 연속 리셋 시 환경 힌트 (?<hints>[0-9]+)개')
+$assertionCount++
+if (-not $resetRow.Success) {
+	throw 'The §20.3-1 reset-hint row could not be read.'
+}
+$resetDeclared = [regex]::Match(
+	$mercyHeader,
+	'static constexpr int32 ResetsForEnvironmentHint = (?<value>[0-9]+);')
+$assertionCount++
+if (-not $resetDeclared.Success) {
+	throw 'ResetsForEnvironmentHint could not be read.'
+}
+$assertionCount++
+if ([int]$resetDeclared.Groups['value'].Value -ne [int]$resetRow.Groups['count'].Value) {
+	throw (
+		'ResetsForEnvironmentHint is {0} but §20.3 says {1}.' -f
+			$resetDeclared.Groups['value'].Value, $resetRow.Groups['count'].Value)
+}
+# 새 출처를 얻으면 세는 것이 처음으로 돌아가야 한다. 안 그러면 잘 하고 있는
+# 플레이어에게도 언젠가 힌트가 켜진다. 같은 줄이 여러 곳에 있으므로 새 출처를
+# 확인하는 자리에서 함께 도는지를 본다.
+$assertionCount++
+if ($mercySource -notmatch
+	'SourceCount != LastSourceCount\)[\s\S]{0,400}?LastSourceCount = SourceCount;\s*\r?\n\s*StuckSeconds = 0\.0f;\s*\r?\n\s*ResetsSinceNewSource = 0;') {
+	throw 'Learning something must stand both nets down together (§20.3-1).'
+}
+
+# 20.3-2 — 새 출처 없이 90초가 지나면 세계가 먼저 움직인다.
+$stuckRow = [regex]::Match(
+	$story, '새 출처 없이 (?<seconds>[0-9]+)초가 지나면')
+$assertionCount++
+if (-not $stuckRow.Success) {
+	throw 'The §20.3-2 ninety-second row could not be read.'
+}
+$stuckDeclared = [regex]::Match(
+	$mercyHeader,
+	'static constexpr float StuckResponseSeconds = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $stuckDeclared.Success) {
+	throw 'StuckResponseSeconds could not be read.'
+}
+$assertionCount++
+if ([double]$stuckDeclared.Groups['value'].Value -ne [double]$stuckRow.Groups['seconds'].Value) {
+	throw (
+		'StuckResponseSeconds is {0} but §20.3 says {1}.' -f
+			$stuckDeclared.Groups['value'].Value, $stuckRow.Groups['seconds'].Value)
+}
+# 메뉴를 열어 둔 것은 막힌 것이 아니다. 시계가 거기서 멈춰야 한다(§19.7).
+$assertionCount++
+if (-not $mercySource.Contains('World->IsPaused()')) {
+	throw 'The stuck clock must stop while the game is paused (§20.3-2).'
+}
+
+# 안전망은 볼 곳을 줄 뿐 답을 말하지 않는다.
+$assertionCount++
+if ($story -notmatch '\*\*막힌 플레이어에게 주는 것은\s*\r?\n?\s*답이 아니라 볼 곳이다\.\*\*') {
+	throw 'The §20.3 no-answers rule was removed.'
+}
+
+# --- §20.4 난이도 네 모드 -----------------------------------------------------
+#
+# 이름부터 세계의 언어다. 「쉬움/보통/어려움」으로 부르지 않는다.
+$assertionCount++
+if ($story -notmatch '"쉬움/보통/어려움"이라 부르지 않는다') {
+	throw 'The §20.4 naming rule was removed.'
+}
+foreach ($mode in @('조용한 밤', '성급한 밤', '듣기만 하는 밤')) {
+	$assertionCount++
+	if (-not $tuningSource.Contains($mode) -and -not $mercyHeader.Contains($mode)) {
+		$tuningHeader = Read-ProjectText 'Source/IndieGame/Entity/IGListenerTuning.h'
+		if (-not $tuningHeader.Contains($mode)) {
+			throw "The §20.4 difficulty mode is missing: $mode"
+		}
+	}
+}
+
+# 조용한 밤의 세 배율. 문서가 표에 적어 둔 값 그대로다.
+$quietRow = [regex]::Match(
+	$story,
+	'청취 반경 ×(?<hearing>[0-9.]+), CHASE 속도 ×(?<chase>[0-9.]+), WAITING 시간 ×(?<wait>[0-9.]+)')
+$assertionCount++
+if (-not $quietRow.Success) {
+	throw 'The §20.4 quiet-night row could not be read.'
+}
+$quietBody = [regex]::Match(
+	$tuningSource,
+	'case EIGNightDifficulty::Quiet:(?<body>[\s\S]*?)break;')
+$assertionCount++
+if (-not $quietBody.Success) {
+	throw 'The quiet-night branch could not be isolated.'
+}
+foreach ($pair in @(
+	@{ Line = ('Tuning.HearingSensitivity *= {0}f;' -f $quietRow.Groups['hearing'].Value); Name = '청취 반경' },
+	@{ Line = ('Tuning.ChaseSpeed *= {0}f;' -f $quietRow.Groups['chase'].Value); Name = 'CHASE 속도' },
+	@{ Line = ('Tuning.WaitScale = {0}f;' -f $quietRow.Groups['wait'].Value); Name = 'WAITING 시간' })) {
+	$assertionCount++
+	if (-not $quietBody.Groups['body'].Value.Contains($pair.Line)) {
+		throw ('The quiet night must follow §20.4: {0} ({1})' -f $pair.Name, $pair.Line)
+	}
+}
+
+# 성급한 밤의 세 축.
+$hastyRow = [regex]::Match(
+	$story,
+	'티어 초기값 (?<tier>[0-9]+), 히트맵 가중 \+(?<heatmap>[0-9.]+), LISTENING −(?<listen>[0-9]+)s')
+$assertionCount++
+if (-not $hastyRow.Success) {
+	throw 'The §20.4 hasty-night row could not be read.'
+}
+$hastyBody = [regex]::Match(
+	$tuningSource,
+	'case EIGNightDifficulty::Hasty:(?<body>[\s\S]*?)break;')
+$assertionCount++
+if (-not $hastyBody.Success) {
+	throw 'The hasty-night branch could not be isolated.'
+}
+$assertionCount++
+if (-not $hastyBody.Groups['body'].Value.Contains(
+	('Tuning.HeatmapWeight + {0}f' -f $hastyRow.Groups['heatmap'].Value))) {
+	throw 'The hasty night must raise the heatmap weight by the §20.4 amount.'
+}
+$assertionCount++
+if (-not $hastyBody.Groups['body'].Value.Contains(
+	('NightListenWindow[Night] - {0}.0f' -f $hastyRow.Groups['listen'].Value))) {
+	throw 'The hasty night must shorten LISTENING by the §20.4 amount.'
+}
+
+# 듣기만 하는 밤: 포획도 추격도 없다. 매복도 함께 꺼진다 — 잡을 수 없는
+# 매복은 압박이 아니라 연출이다.
+$listenBody = [regex]::Match(
+	$tuningSource,
+	'case EIGNightDifficulty::ListenOnly:(?<body>[\s\S]*?)break;')
+$assertionCount++
+if (-not $listenBody.Success) {
+	throw 'The listen-only branch could not be isolated.'
+}
+foreach ($off in @(
+	'Tuning.bChaseEnabled = false;',
+	'Tuning.bCaptureEnabled = false;')) {
+	$assertionCount++
+	if (-not $listenBody.Groups['body'].Value.Contains($off)) {
+		throw "The listen-only night must not chase or capture (§20.4): $off"
+	}
+}
+# 포획이 없으니 엔딩 C의 보통 경로가 영영 안 열린다. 대체 경로가 있어야
+# §20.5의 「모든 모드에서 엔딩 셋 도달」이 성립한다.
+$nightFourHeader = Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.h'
+$assertionCount++
+if (-not $nightFourHeader.Contains('bool ResolveDawnFailureEnding();')) {
+	throw 'The listen-only night needs its substitute route to ending C (§20.4).'
+}
+$assertionCount++
+if ($story -notmatch '엔딩 C의 도달 조건을 \*\*밤4의 05:30\s*\r?\n?\s*벽 미개방\*\*으로 대체한다') {
+	throw 'The §20.4 substitute ending-C condition was removed.'
+}
+$assertionCount++
+if ($story -notmatch '「듣기만 하는 밤」으로 진실 10개 전부 확정 가능, 엔딩 A·B·C 전부 도달 가능') {
+	throw 'The §20.5 all-modes-reachable criterion was removed.'
+}
+
+# 마이크는 난이도가 아니다. 밸런스 기준은 항상 꺼진 상태다.
+$assertionCount++
+if ($story -notmatch '\*\*마이크 모드는 난이도가 아니다\*\*') {
+	throw 'The §20.4 microphone rule was removed.'
+}
+$accessibilityHeaderForMic = Read-ProjectText 'Source/IndieGame/Accessibility/IGAccessibilitySubsystem.h'
+$assertionCount++
+if ($accessibilityHeaderForMic -notmatch 'bool bMicrophoneNoiseEnabled = false;') {
+	throw 'The microphone must stay off by default; it is the balance baseline (§20.4).'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
