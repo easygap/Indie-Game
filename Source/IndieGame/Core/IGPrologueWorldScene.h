@@ -116,6 +116,15 @@ class INDIEGAME_API AIGPrologueWorldScene : public AActor
 	GENERATED_BODY()
 
 public:
+	/**
+	 * 403호가 앉은 4층 슬래브의 월드 Z. 도로에서 세 층 위다.
+	 *
+	 * 밤 디렉터들이 이 숫자를 각자 다시 적고 있었다. 씬의 좌표 이름공간이
+	 * .cpp 안에 있어 밖에서 볼 수 없었기 때문인데, 그 상태로 슬래브를 옮기면
+	 * 문·노크·순찰 높이가 옛 층에 남는다. 건물의 사실은 건물이 하나만 든다.
+	 */
+	static constexpr float FourthFloorZ = 900.0f;
+
 	AIGPrologueWorldScene();
 
 protected:

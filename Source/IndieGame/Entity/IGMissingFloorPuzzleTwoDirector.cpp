@@ -77,7 +77,7 @@ namespace IGPuzzleTwo
 	 * 폰이 관리실 바닥에 놓여 있었다. 현관문은 (101, -225)에 있고 문 안쪽은
 	 * Y가 0에 가까운 쪽이다.
 	 */
-	constexpr float FourthFloorZ = 900.0f;
+	constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;
 	const FVector PhoneAtDoorLocation(150.0f, -196.0f, FourthFloorZ + 4.0f);
 	/** 폰을 놓는 것은 소리를 내는 행동이다. 발소리보다 조용하지만 0은 아니다. */
 	constexpr float PhonePlacementLoudness = 0.08f;

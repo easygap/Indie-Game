@@ -83,8 +83,8 @@ namespace IGPrologueWorld
 	const FRotator PlayerActorRotation(0.0f, -128.0f, 0.0f);
 	const FRotator PlayerViewRotation(-14.0f, -128.0f, 0.0f);
 
-	// Unit 403 sits on the 4th floor, three slabs above the street.
-	constexpr float FourthFloorZ = 900.0f;
+	// 403호가 앉은 층. 값은 클래스가 든다.
+	constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;
 	constexpr float MissingFloorRoofZ = 1200.0f;
 	constexpr int32 MissingFloorUpperStepCount = 14;
 	constexpr float MissingFloorRouteLengthCentimeters = 640.0f;

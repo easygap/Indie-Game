@@ -123,7 +123,7 @@ namespace IGNightThree
 	const FName PuzzleFourId(TEXT("P4"));
 
 	// -- 비트 3-7 「귀환길」 ------------------------------------------------
-	constexpr float FourthFloorZ = 900.0f;
+	constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;
 	/**
 	 * 4층 복도, 계단코어와 403호 문 사이. 복도는 Y -385..-225로 깊이가 160cm뿐이라
 	 * 사람 하나를 지나치는 일이 실제로 좁다 — 그것이 이 비트의 전부다.

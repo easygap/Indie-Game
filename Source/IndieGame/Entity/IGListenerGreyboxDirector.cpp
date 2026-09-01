@@ -56,10 +56,8 @@
 
 namespace IGListenerGreybox
 {
-	// 4F floor slab height in the prologue villa (IGPrologueWorldScene's
-	// FourthFloorZ). The stage traces nothing: greybox placement rides the
-	// same constant the corridor was built with.
-	constexpr float FourthFloorZ = 900.0f;
+	// 복도를 세운 것과 같은 상수를 쓴다. 이제 주석이 아니라 코드가 그렇다.
+	constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;
 	constexpr float EntityHalfHeight = 58.0f;
 	// 404 냉장고 험. §5.1의 첫 마스킹 주머니다. 자리는 냉장고에게
 	// 묻는다 — 좌표를 여기 다시 적으면 냉장고만 옮겨지고 험은 옛

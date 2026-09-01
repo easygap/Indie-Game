@@ -53,8 +53,10 @@ function Require-All(
 
 # --- 좌표. 노크는 403호 현관문에서 난다 -------------------------------------
 # 현관문은 (101, -225, 900)이고 남쪽 벽이 Y=-225이므로 복도는 그 반대쪽이다.
+# 슬래브 높이는 씬이 들고 이 파일들은 받아 쓴다. 한동안 여기서 900을 직접
+# 요구했는데, 좌표를 지키려던 줄이 다섯 벌 중복을 대신 지키고 있었다.
 Require-All $beat @(
-	'constexpr float FourthFloorZ = 900.0f;',
+	'constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;',
 	'const FVector DoorLocation(101.0f, -225.0f, FourthFloorZ);',
 	'const FVector KnockLocation(101.0f, -232.0f, FourthFloorZ + 112.0f);',
 	'const FVector PeepholeLocation(101.0f, -220.0f, FourthFloorZ + 150.0f);',
@@ -66,7 +68,7 @@ Require-All $beat @(
 # §5.5의 폰은 관리실이 아니라 403호 안에 있다. 처음 넣을 때 슬래브 높이를
 # 빠뜨려서 9미터 아래 관리실 바닥에 놓여 있었다.
 Require-All $puzzleTwo @(
-	'constexpr float FourthFloorZ = 900.0f;',
+	'constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;',
 	'const FVector PhoneAtDoorLocation(150.0f, -196.0f, FourthFloorZ + 4.0f);'
 ) '§5.5 phone placement'
 

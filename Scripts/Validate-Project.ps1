@@ -521,6 +521,49 @@ if ($mixedLineEndingFiles.Count -gt 0) {
 			($mixedLineEndingFiles -join ', '))
 }
 
+# 4층 슬래브 높이는 건물이 하나만 든다. 다섯 파일이 각자 900을 적어 두고
+# 있었고, 밤 2 디렉터 주석은 그걸 규칙처럼 적어 두기까지 했다 — 「씬의 좌표
+# 이름공간은 .cpp 안에 있어서 모든 밤 디렉터가 같은 규칙으로 다시 적는다」.
+#
+# 그 상태로 슬래브를 옮기면 문·노크·문구멍·순찰 높이가 옛 층에 남는다.
+# 컴파일도 되고 화면도 뜨는데 사람만 공중에 서 있다.
+$floorHeightLiterals = @()
+$floorHeightDerived = 0
+foreach ($sourceFile in
+	Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source/IndieGame') `
+		-Recurse -File |
+		Where-Object { $_.Extension -in @('.h', '.cpp') }) {
+	$text = [System.Text.Encoding]::UTF8.GetString(
+		[System.IO.File]::ReadAllBytes($sourceFile.FullName))
+	foreach ($assignment in [regex]::Matches(
+		$text, 'FourthFloorZ\s*=\s*(?<value>[^;]+);')) {
+		$value = $assignment.Groups['value'].Value.Trim()
+		if ($value -eq 'AIGPrologueWorldScene::FourthFloorZ') {
+			$floorHeightDerived++
+			continue
+		}
+		$floorHeightLiterals += (
+			'{0} = {1}' -f
+				$sourceFile.FullName.Substring($projectRoot.Length + 1), $value)
+	}
+}
+if ($floorHeightLiterals.Count -ne 1) {
+	throw (
+		'The 4F slab height must be authored once and derived everywhere else; found {0}: {1}' -f
+			$floorHeightLiterals.Count, ($floorHeightLiterals -join ' | '))
+}
+if ($floorHeightLiterals[0] -notmatch
+	'IGPrologueWorldScene\.h = 900\.0f$') {
+	throw (
+		'The 4F slab height left the scene that owns it: {0}' -f
+			$floorHeightLiterals[0])
+}
+if ($floorHeightDerived -lt 5) {
+	throw (
+		'Only {0} places derive the 4F slab height; five files did.' -f
+			$floorHeightDerived)
+}
+
 $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -Recurse -Include '*.h','*.cpp' |
     Select-String -Pattern 'PrimaryActorTick\.bCanEverTick\s*=\s*true'
 # Reviewed exceptions. Every entry sets bStartWithTickEnabled = false; the

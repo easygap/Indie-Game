@@ -19,10 +19,10 @@ namespace IGNightTwo
 {
 	/**
 	 * 4층 세계 좌표. 현관문은 (101, -225)에 있고 남쪽 벽이 Y=-225이므로 집
-	 * 안쪽은 Y가 0에 가까운 쪽, 복도는 그 반대쪽이다. 씬의 좌표 이름공간은
-	 * .cpp 안에 있어서 모든 밤 디렉터가 같은 규칙으로 다시 적는다.
+	 * 안쪽은 Y가 0에 가까운 쪽, 복도는 그 반대쪽이다. 층 높이는 씬이 들고
+	 * 있고, 문·노크·문구멍은 그 위에서 잰다.
 	 */
-	constexpr float FourthFloorZ = 900.0f;
+	constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;
 	const FVector DoorLocation(101.0f, -225.0f, FourthFloorZ);
 	/** 노크는 복도 쪽 문짝에서 난다. 주먹 높이. */
 	const FVector KnockLocation(101.0f, -232.0f, FourthFloorZ + 112.0f);
