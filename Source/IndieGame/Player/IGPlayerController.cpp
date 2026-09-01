@@ -3642,6 +3642,12 @@ void AIGPlayerController::HandleSaveCompleted(
 	static_cast<void>(SlotName);
 	if (bSuccess)
 	{
+		// §19.7. 수동 슬롯이 없는 게임이라 저장됐다는 사실을 어디선가는
+		// 말해야 한다. 점 하나 0.8초, 그 이상은 §23이 금지한 상시 표시다.
+		if (AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			HorrorHUD->ShowSaveIndicator();
+		}
 		return;
 	}
 	const FText FailureText = NSLOCTEXT(

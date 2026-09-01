@@ -56,6 +56,11 @@ namespace IGHorrorHUD
 	 * The noise ripple (§5.1). One slot, deliberately short, with a minimum
 	 * gap so a walking player gets a pulse per few steps rather than a strobe.
 	 */
+	// §19.7 저장 표시. 점 하나 0.8초다. §23이 금지한 것은 「상시 표시」이지
+	// 저장됐다는 사실 자체가 아니다 — 수동 슬롯이 없는 게임에서 아무 표시도
+	// 없으면 「저장이 됐나」를 물을 데가 없다.
+	constexpr double SaveIndicatorSeconds = 0.8;
+	constexpr float SaveIndicatorRadius = 3.0f;
 	constexpr double NoiseRippleDurationSeconds = 0.85;
 	constexpr double NoiseRippleRetriggerSeconds = 0.34;
 	/** Arc geometry: segment count, sweep at full carry, and stroke weight. */
@@ -1401,6 +1406,47 @@ void AIGHorrorHUD::PushLensDroplet(
 	}
 }
 
+void AIGHorrorHUD::ShowSaveIndicator()
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	SaveIndicatorEndTime =
+		World->GetTimeSeconds() + IGHorrorHUD::SaveIndicatorSeconds;
+}
+
+void AIGHorrorHUD::DrawSaveIndicator(const double CurrentTime)
+{
+	if (!Canvas || CurrentTime >= SaveIndicatorEndTime)
+	{
+		return;
+	}
+	// 마지막 4분의 1만 흐려진다. 깜빡이면 그건 알림이고, 이건 알림이
+	// 아니라 흔적이다.
+	const double Remaining = SaveIndicatorEndTime - CurrentTime;
+	const float Alpha = static_cast<float>(FMath::Clamp(
+		Remaining / (IGHorrorHUD::SaveIndicatorSeconds * 0.25), 0.0, 1.0));
+	const float Scale = FMath::Clamp(
+		FMath::Min(Canvas->ClipX / 1920.0f, Canvas->ClipY / 1080.0f),
+		0.67f,
+		2.0f);
+	const float Radius = IGHorrorHUD::SaveIndicatorRadius * Scale;
+	// 오른쪽 아래 구석. 브래킷도 자막도 쓰지 않는 자리다.
+	const FVector2D Centre(
+		Canvas->ClipX - 42.0f * Scale,
+		Canvas->ClipY - 42.0f * Scale);
+	FLinearColor DotColour = IGHorrorHUD::MutedGray;
+	DotColour.A *= Alpha;
+	FCanvasTileItem Dot(
+		Centre - FVector2D(Radius, Radius),
+		FVector2D(Radius * 2.0f, Radius * 2.0f),
+		DotColour);
+	Dot.BlendMode = SE_BLEND_Translucent;
+	Canvas->DrawItem(Dot);
+}
+
 void AIGHorrorHUD::ShowLensDroplet(const float DurationSeconds)
 {
 	const UWorld* World = GetWorld();
@@ -1819,6 +1865,7 @@ void AIGHorrorHUD::DrawHUD()
 	}
 	DrawFearDirection(CurrentTime);
 	DrawNoiseRipple(CurrentTime);
+	DrawSaveIndicator(CurrentTime);
 
 	// Objective line. The hour shows none: during 없는 층's night the player
 	// is told nothing and has to listen instead (§11 V4).

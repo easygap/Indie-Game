@@ -290,6 +290,8 @@ public:
 		EIGDialoguePriority Priority);
 	void ShowAudioCaption(const FText& Caption, float DurationSeconds);
 	void ShowFearDirection(const FVector& WorldLocation, float DurationSeconds);
+	/** §19.7. 저장됐다는 흔적 하나. 0.8초 뒤에 사라진다. */
+	void ShowSaveIndicator();
 	void ShowLensDroplet(float DurationSeconds);
 	void PresentChapterCard(
 		const FText& Eyebrow,
@@ -759,6 +761,8 @@ private:
 	float RippleRadiusCentimeters = 0.0f;
 	float RippleLoudness = 0.0f;
 	double RippleStartTime = 0.0;
+	void DrawSaveIndicator(double CurrentTime);
+	double SaveIndicatorEndTime = -1.0;
 	double RippleEndTime = -1.0;
 	/** §19.8. 이 링이 내가 낸 소리인가, 건물이 낸 소리인가. */
 	bool bRippleIsForeign = false;

@@ -1732,6 +1732,121 @@ foreach ($banned in @('NewGamePlus', 'TrueEnding', 'HiddenFloor')) {
 	}
 }
 
+# --- §23 몰입 계약 ------------------------------------------------------------
+#
+# 열 줄짜리 금지 표다. 「몰입을 만드는 것은 추가가 아니라 제거」이므로 여기
+# 걸리는 것은 전부 **없어야** 지켜진다. 없는 것은 grep으로 지킬 수 없으니
+# 생기면 거절하는 쪽으로 건다.
+
+$immersionRows = @()
+$immersionTable = [regex]::Match(
+	$story,
+	'## 23\. 몰입 계약[^\r\n]*\r?\n(?<body>[\s\S]*?)\r?\n\r?\n몰입을 만드는 것은')
+$assertionCount++
+if (-not $immersionTable.Success) {
+	throw 'The §23 prohibition table could not be read.'
+}
+foreach ($row in [regex]::Matches(
+	$immersionTable.Groups['body'].Value, '(?m)^\| (?<ban>[^|]+?) \| (?<why>[^|]+?) \|\s*$')) {
+	$ban = $row.Groups['ban'].Value.Trim()
+	if ($ban -eq '금지' -or $ban -match '^-+$') {
+		continue
+	}
+	$immersionRows += $ban
+}
+$assertionCount++
+if ($immersionRows.Count -ne 10) {
+	throw (
+		'The §23 table has {0} rows; it is supposed to have ten.' -f
+			$immersionRows.Count)
+}
+# 표의 각 줄이 실제로 그 문장인지도 본다. 하나를 조용히 갈아 끼우면 나머지
+# 검사들이 무엇을 지키는지 알 수 없게 된다.
+foreach ($expected in @(
+	'포획 리셋·낮밤 전환의 로딩 화면',
+	'튜토리얼 팝업·키 안내 오버레이',
+	'퍼센트·게이지·카운터',
+	'업적 토스트',
+	'사망 카운터·재시도 버튼',
+	'자동 저장 아이콘 상시 표시',
+	'밤 중 기록 열람',
+	'밤 중 `F9` 즉시 로드',
+	'존재를 설명하는 컷신',
+	'상표·실존 인물·실존 사건')) {
+	$assertionCount++
+	if ($immersionRows -notcontains $expected) {
+		throw "The §23 table lost a row: $expected"
+	}
+}
+$assertionCount++
+if ($story -notmatch '몰입을 만드는 것은 추가가 아니라 \*\*제거\*\*다') {
+	throw 'The §23 first principle was removed.'
+}
+
+# 화면에 생기면 안 되는 것들. 이름이 하나라도 나타나면 표가 거짓이 된다.
+foreach ($banned in @(
+	@{ Symbol = 'DrawLoadingScreen'; Row = '로딩 화면' },
+	@{ Symbol = 'ShowLoadingScreen'; Row = '로딩 화면' },
+	@{ Symbol = 'DrawTutorialPopup'; Row = '튜토리얼 팝업' },
+	@{ Symbol = 'DrawKeyPromptOverlay'; Row = '키 안내 오버레이' },
+	@{ Symbol = 'DrawProgressGauge'; Row = '퍼센트·게이지·카운터' },
+	@{ Symbol = 'DrawAchievementToast'; Row = '업적 토스트' },
+	@{ Symbol = 'DrawDeathCounter'; Row = '사망 카운터' },
+	@{ Symbol = 'DrawEntityCutscene'; Row = '존재를 설명하는 컷신' })) {
+	$assertionCount++
+	if ($hudSource.Contains($banned.Symbol)) {
+		throw (
+			'§23 forbids this and the HUD grew it: {0} ({1})' -f
+				$banned.Symbol, $banned.Row)
+	}
+}
+
+# 자동 저장 아이콘은 상시 표시가 금지된 것이지 표시 자체가 금지된 것은
+# 아니다. §19.7이 점 하나 0.8초를 약속했고, 그게 없으면 수동 슬롯도 없는
+# 게임에서 저장됐는지 물어볼 데가 없다.
+$dotRow = [regex]::Match(
+	$story, '저장\s*\r?\n?\s*표시는 화면 구석 점 하나 (?<seconds>[0-9.]+)초')
+$assertionCount++
+if (-not $dotRow.Success) {
+	throw 'The §19.7 save dot could not be read.'
+}
+$dotDeclared = [regex]::Match(
+	$hudSource, 'constexpr double SaveIndicatorSeconds = (?<value>[0-9.]+);')
+$assertionCount++
+if (-not $dotDeclared.Success) {
+	throw 'SaveIndicatorSeconds could not be read.'
+}
+$assertionCount++
+if ([double]$dotDeclared.Groups['value'].Value -ne [double]$dotRow.Groups['seconds'].Value) {
+	throw (
+		'The save dot lasts {0}s but §19.7 says {1}s.' -f
+			$dotDeclared.Groups['value'].Value, $dotRow.Groups['seconds'].Value)
+}
+# 저장이 성공했을 때만 남는다. 실패는 이미 문장으로 말하고 있다.
+$saveHandler = [regex]::Match(
+	$controllerSource,
+	'void AIGPlayerController::HandleSaveCompleted\((?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $saveHandler.Success) {
+	throw 'HandleSaveCompleted could not be isolated.'
+}
+$assertionCount++
+if (-not $saveHandler.Groups['body'].Value.Contains('ShowSaveIndicator()')) {
+	throw 'A successful save must leave its mark (§19.7).'
+}
+# 사라져야 상시 표시가 아니다.
+$dotDraw = [regex]::Match(
+	$hudSource,
+	'void AIGHorrorHUD::DrawSaveIndicator\(const double CurrentTime\)(?<body>[\s\S]*?)\r?\n\}')
+$assertionCount++
+if (-not $dotDraw.Success) {
+	throw 'DrawSaveIndicator could not be isolated.'
+}
+$assertionCount++
+if (-not $dotDraw.Groups['body'].Value.Contains('CurrentTime >= SaveIndicatorEndTime')) {
+	throw 'The save dot must go away; §23 forbids an always-on icon.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
