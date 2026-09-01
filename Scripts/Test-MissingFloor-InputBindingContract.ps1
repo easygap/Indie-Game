@@ -1847,6 +1847,101 @@ if (-not $dotDraw.Groups['body'].Value.Contains('CurrentTime >= SaveIndicatorEnd
 	throw 'The save dot must go away; §23 forbids an always-on icon.'
 }
 
+# --- §24 즉시 차단 22개 -------------------------------------------------------
+#
+# 이 절이 스스로 경고한 것이 있다. 「선언과 구현이 갈라져도 아무도 모르는
+# 상태가 결함 자체보다 위험하다」. 실제로 잠금 표가 스물둘 중 열여섯만 세고
+# 있었고, 빠진 여섯 중 넷은 이미 계약이 보고 있었는데 표만 몰랐다.
+
+# 차단 항목이 스물둘인가.
+$blockerList = [regex]::Match(
+	$story,
+	'### 즉시 차단 22개\r?\n(?<body>[\s\S]*?)\r?\n### 즉시 차단 항목이 잠긴 자리')
+$assertionCount++
+if (-not $blockerList.Success) {
+	throw 'The §24 blocker list could not be read.'
+}
+$blockerNumbers = @()
+foreach ($item in [regex]::Matches(
+	$blockerList.Groups['body'].Value, '(?m)^(?<number>[0-9]+)\. ')) {
+	$blockerNumbers += [int]$item.Groups['number'].Value
+}
+$assertionCount++
+if ($blockerNumbers.Count -ne 22) {
+	throw (
+		'The §24 list has {0} blockers; the heading says 22.' -f
+			$blockerNumbers.Count)
+}
+# 번호가 1부터 22까지 빠짐없이 이어지는가. 하나를 지우면 뒤가 당겨져
+# 세는 것만으로는 못 잡는다.
+for ($index = 0; $index -lt 22; $index++) {
+	$assertionCount++
+	if ($blockerNumbers[$index] -ne ($index + 1)) {
+		throw (
+			'The §24 blocker numbering breaks at {0}.' -f $blockerNumbers[$index])
+	}
+}
+
+# 잠금 표가 스물둘을 빠짐없이 덮는가.
+$lockTable = [regex]::Match(
+	$story,
+	'### 즉시 차단 항목이 잠긴 자리\r?\n(?<body>[\s\S]*?)\r?\n\r?\n스물둘이 전부')
+$assertionCount++
+if (-not $lockTable.Success) {
+	throw 'The §24 lock table could not be read.'
+}
+$covered = @{}
+$namedScripts = @{}
+foreach ($row in [regex]::Matches(
+	$lockTable.Groups['body'].Value, '(?m)^\| (?<items>[^|]+?) \| (?<where>[^|]+?) \|\s*$')) {
+	$items = $row.Groups['items'].Value.Trim()
+	if ($items -eq '항목' -or $items -match '^-+$') {
+		continue
+	}
+	foreach ($number in [regex]::Matches($items, '[0-9]+')) {
+		$covered[[int]$number.Value] = $true
+	}
+	foreach ($script in [regex]::Matches(
+		$row.Groups['where'].Value, '`(?<name>Test-[A-Za-z0-9-]+\.ps1)`')) {
+		$namedScripts[$script.Groups['name'].Value] = $true
+	}
+}
+for ($number = 1; $number -le 22; $number++) {
+	$assertionCount++
+	if (-not $covered.ContainsKey($number)) {
+		throw "The §24 lock table does not say what watches blocker $number."
+	}
+}
+
+# 표가 이름을 댄 스크립트는 실제로 있어야 한다. 없는 이름을 적어 두면
+# 「잠겼다」가 「잠긴 줄 알았다」가 된다.
+foreach ($name in $namedScripts.Keys) {
+	$assertionCount++
+	if (-not (Test-Path (Join-Path $projectRoot (Join-Path 'Scripts' $name)))) {
+		throw "The §24 lock table names a script that does not exist: $name"
+	}
+}
+$assertionCount++
+if ($namedScripts.Count -lt 8) {
+	throw 'The §24 lock table stopped naming the scripts that watch it.'
+}
+
+# 20번은 이 세션에 잠근 자리다. 표가 그 사실을 잊지 않게 한다.
+$assertionCount++
+if ($story -notmatch '`Test-MissingFloor-MixAndMovementContract\.ps1` — 더킹에 ENTITY 분기가 없음') {
+	throw 'Blocker 20 lost the contract that watches it.'
+}
+$assertionCount++
+if ($story -notmatch '선언과 구현이 갈라져도 아무도 모르는 상태가 결함 자체보다\s*\r?\n?위험하다') {
+	throw 'The §24 warning this table exists to answer was removed.'
+}
+
+# 「일부러 깨서 잡히는 것까지 확인한 뒤에 넣는다」가 이 저장소의 방식이다.
+$assertionCount++
+if ($story -notmatch '\*\*일부러 깨서 잡히는 것까지 확인한 뒤\*\* 넣는다') {
+	throw 'The §24 break-it-first rule was removed.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')

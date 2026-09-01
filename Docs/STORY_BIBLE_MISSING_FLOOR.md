@@ -2124,13 +2124,22 @@ v2.3 감사 당시 빌드에는 레거시 「4시 44분」의 `RequestHint` 액�
 
 | 항목 | 잠근 스크립트 |
 |---|---|
+| 1 · 2 · 3 · 4 · 5 · 13 | 기하 감사와 사람 검수 |
 | 6 · 10 · 14 | `Test-MissingFloor-ReleaseGateContract.ps1` |
-| 16 | `Test-MissingFloor-M0InputContract.ps1` |
-| 17 · 19 · 22 | `Test-Rebirth-AudioContract.ps1`, `Test-Rebirth-AccessibilityContract.ps1` |
-| 18 | `Test-MissingFloor-ReleaseEndingContract.ps1` |
-| 21 | `Test-ArtAssetContract.ps1` — 출처·진실 열거형을 게임플레이 파일과 대조 |
-| 1~5 · 13 | 기하 감사와 사람 검수 |
+| 7 · 15 | `Test-ArtAssetContract.ps1` — P3·P5 설비 프롭과 재질 |
+| 8 | `Test-MissingFloor-M3CctvChannelContract.ps1` |
+| 9 | `Test-Rebirth-ItemContinuityContract.ps1` |
+| 11 · 18 | `Test-MissingFloor-ReleaseEndingContract.ps1` |
 | 12 | 정적 검사 대상 아님. 실측 증거로만 닫힌다 |
+| 16 | `Test-MissingFloor-M0InputContract.ps1`, `Test-MissingFloor-InputBindingContract.ps1` |
+| 17 · 19 · 22 | `Test-Rebirth-AudioContract.ps1`, `Test-Rebirth-AccessibilityContract.ps1` |
+| 20 | `Test-MissingFloor-MixAndMovementContract.ps1` — 더킹에 ENTITY 분기가 없음 |
+| 21 | `Test-ArtAssetContract.ps1` — 출처·진실 열거형을 게임플레이 파일과 대조 |
+
+스물둘이 전부 이 표에 있어야 한다. 2026-08-31에 세어 보니 열여섯만 있었고,
+빠진 여섯 중 넷은 **이미 계약이 보고 있었는데 표만 몰랐다.** 그 상태는
+「아무도 안 보고 있다」와 화면에서 구분되지 않는다. 그래서 표가 스물둘을
+빠짐없이 세는지, 여기 적은 스크립트가 실제로 있는지도 계약이 본다.
 
 계약은 전부 **일부러 깨서 잡히는 것까지 확인한 뒤** 넣는다. 주석 처리한
 호출을 문자열 포함으로는 구분할 수 없어 통과해 버린 검사가 실제로 있었고,
