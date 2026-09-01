@@ -485,6 +485,42 @@ if ($koreanSourceFilesWithoutBom.Count -gt 0) {
 	throw "C++ source files containing Korean literals must use UTF-8 BOM: $($koreanSourceFilesWithoutBom -join ', ')"
 }
 
+# 한 파일 안에서 줄바꿈이 섞이면 사람 눈에는 안 보이는데 도구는 걸린다. 문자열
+# 바늘이 안 맞아 패치가 조용히 빗나가고, 편집기마다 다른 줄에 커서를 놓는다.
+# 저장소에 들어가는 형태는 `.gitattributes`의 `text=auto`가 LF로 맞춰 주기
+# 때문에 git diff에는 아무것도 안 뜬다. 작업 트리는 아무도 안 보고 있었다.
+#
+# 갓 받아 온 클론은 어느 OS에서든 한 가지로 통일돼 있다. 여기서 섞였다는 것은
+# 도구가 다른 줄바꿈으로 덧썼다는 뜻이다.
+$lineEndingExtensions = @(
+	'.h', '.cpp', '.cs', '.ps1', '.py', '.md', '.ini', '.json', '.bat',
+	'.txt', '.uproject')
+$mixedLineEndingFiles = @(
+	@(Get-ChildItem -LiteralPath $projectRoot -File) + @(
+		@('Source', 'Scripts', 'Docs', 'Config') | ForEach-Object {
+			$searchRoot = Join-Path $projectRoot $_
+			if (Test-Path -LiteralPath $searchRoot -PathType Container) {
+				Get-ChildItem -LiteralPath $searchRoot -Recurse -File
+			}
+		}) |
+		Where-Object { $_.Extension -in $lineEndingExtensions } |
+		ForEach-Object {
+			$candidate = $_
+			$text = [System.Text.Encoding]::UTF8.GetString(
+				[System.IO.File]::ReadAllBytes($candidate.FullName))
+			$carriageReturns = [regex]::Matches($text, "`r`n").Count
+			$lineFeeds = [regex]::Matches($text, "`n").Count
+			if ($carriageReturns -gt 0 -and $lineFeeds -gt $carriageReturns) {
+				$candidate.FullName.Substring($projectRoot.Length + 1)
+			}
+		}
+)
+if ($mixedLineEndingFiles.Count -gt 0) {
+	throw (
+		'Line endings are mixed inside these files: {0}' -f
+			($mixedLineEndingFiles -join ', '))
+}
+
 $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -Recurse -Include '*.h','*.cpp' |
     Select-String -Pattern 'PrimaryActorTick\.bCanEverTick\s*=\s*true'
 # Reviewed exceptions. Every entry sets bStartWithTickEnabled = false; the
