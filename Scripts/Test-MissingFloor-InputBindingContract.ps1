@@ -2602,6 +2602,80 @@ if ($story -notmatch '기본 FOV 78 유지\(§18\.3에서 68~100으로 열되 �
 	throw 'The §17.3 bodycam row must point at the §18.3 range.'
 }
 
+# --- §14 구현 매핑 --------------------------------------------------------------
+#
+# 이 절은 설계를 실제 클래스로 잇는 지도다. 이름이 틀리면 지도가 아니라
+# 미로가 된다 — 실제로 여섯 개가 틀려 있었다. 셋은 접두사, 둘은 만들지 않은
+# 컴포넌트, 하나는 바뀐 시그니처.
+
+$mappingSection = [regex]::Match(
+	$story, '## 14\. 구현 매핑[^\r\n]*\r?\n(?<body>[\s\S]*?)\r?\n## 15\.')
+$assertionCount++
+if (-not $mappingSection.Success) {
+	throw 'The §14 implementation map could not be read.'
+}
+# 헤더 파일 전체에서 선언된 타입 이름을 한 번만 모은다.
+$declaredTypes = @{}
+foreach ($file in Get-ChildItem -Path (Join-Path $projectRoot 'Source/IndieGame') `
+	-Filter '*.h' -Recurse) {
+	$text = Get-Content -Raw -Encoding UTF8 -LiteralPath $file.FullName
+	foreach ($type in [regex]::Matches(
+		$text, 'class(?: INDIEGAME_API)? (?<name>[AUF]IG[A-Za-z0-9]+)')) {
+		$declaredTypes[$type.Groups['name'].Value] = $true
+	}
+}
+$assertionCount++
+if ($declaredTypes.Count -lt 20) {
+	throw 'The type sweep found too few classes to trust (§14).'
+}
+# 절이 백틱으로 감싼 타입 이름은 전부 실제로 있어야 한다. 만들지 않기로 한
+# 것은 이름이 아니라 문장으로 적는다 — 그래야 「어디 있지」로 시간을 안 쓴다.
+$mappedTypes = 0
+foreach ($mention in [regex]::Matches(
+	$mappingSection.Groups['body'].Value, '`(?<name>[AUF]IG[A-Za-z0-9]+)`')) {
+	$name = $mention.Groups['name'].Value
+	$mappedTypes++
+	$assertionCount++
+	if (-not $declaredTypes.ContainsKey($name)) {
+		throw "§14 maps to a class that does not exist: $name"
+	}
+}
+$assertionCount++
+if ($mappedTypes -lt 10) {
+	throw '§14 stopped naming the classes it maps to.'
+}
+
+# 만들지 않기로 한 둘은 이름으로 남기지 않는다. 백틱 안에 있으면 위 검사가
+# 잡지만, 왜 안 만들었는지가 사라지면 다음 사람이 다시 만들려 한다.
+$assertionCount++
+if ($mappingSection.Groups['body'].Value -notmatch
+	'두드리기와 엿듣기는 \*\*컴포넌트로 나누지 않았다\.\*\*') {
+	throw 'The §14 note about the two components that were never built was removed.'
+}
+
+# 소음 API는 반경을 받지 않는다. 부르는 쪽이 크기와 거리를 따로 정하면
+# 「시끄러울수록 멀리 간다」가 깨진다.
+$assertionCount++
+if ($mappingSection.Groups['body'].Value -notmatch
+	'`ReportNoise\(Location,\s*\r?\n?\s*Loudness, Instigator\)`') {
+	throw 'The §14 noise API signature drifted from the code.'
+}
+$reportSignature = [regex]::Match(
+	$noiseHeader,
+	'FIGNoiseEvent ReportNoise\((?<args>[\s\S]{0,240}?)\);')
+$assertionCount++
+if (-not $reportSignature.Success) {
+	throw 'ReportNoise could not be read from the header.'
+}
+$assertionCount++
+if ($reportSignature.Groups['args'].Value -match 'Radius') {
+	throw 'ReportNoise must derive its radius from loudness, not take one (§14).'
+}
+$assertionCount++
+if ($story -notmatch '반경은 인자가 아니라 \*\*소음값에서 나온다\*\*') {
+	throw 'The §14 derived-radius rule was removed.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
