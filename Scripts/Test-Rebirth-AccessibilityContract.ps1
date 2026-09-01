@@ -914,7 +914,10 @@ $layoutProfiles = @(
 	@{ Width = 1280.0; Height = 720.0 },
 	@{ Width = 1600.0; Height = 900.0 },
 	@{ Width = 1920.0; Height = 1080.0 },
-	@{ Width = 2560.0; Height = 1440.0 }
+	@{ Width = 2560.0; Height = 1440.0 },
+	# §19.9가 4K까지 이름을 대 놓았다. 배율 상한이 2.0이라 여기서 처음
+	# 상한에 걸리는데, 걸린 뒤에도 안전 영역이 남는지는 재 봐야 안다.
+	@{ Width = 3840.0; Height = 2160.0 }
 )
 foreach ($profile in $layoutProfiles) {
 	$width = $profile.Width
@@ -1098,5 +1101,5 @@ foreach ($flickerOwner in $flickerOwners) {
 
 Write-Host (
 	"REBIRTH_ACCESSIBILITY_CONTRACT PASS assertions=$assertionCount " +
-	"hints=3 pressure_modes=3 gamepad=1 input_switch=1 captions=1 layout_profiles=4 caption_sequences=2 persistence=1 reduced_motion=1 reduced_flicker=1 toggle_hold=1"
+	"hints=3 pressure_modes=3 gamepad=1 input_switch=1 captions=1 layout_profiles=$($layoutProfiles.Count) caption_sequences=2 persistence=1 reduced_motion=1 reduced_flicker=1 toggle_hold=1"
 ) -ForegroundColor Green

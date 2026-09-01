@@ -1491,6 +1491,102 @@ if ($accessibilityHeaderForMic -notmatch 'bool bMicrophoneNoiseEnabled = false;'
 	throw 'The microphone must stay off by default; it is the balance baseline (§20.4).'
 }
 
+# --- 합격식 현황표 ------------------------------------------------------------
+#
+# 바이블의 네 합격식은 스무 줄이고, MISSING_FLOOR_ACCEPTANCE.md가 그 스무 줄을
+# 표로 다시 센다. 두 자리가 어긋나면 「자동으로 못 보는 줄」이 조용히 사라진다 —
+# 그게 이 문서가 막으려는 유일한 사고다.
+
+$acceptanceDoc = Read-ProjectText 'Docs/MISSING_FLOOR_ACCEPTANCE.md'
+$bibleLineCount = 0
+foreach ($section in @('18.7', '19.9', '20.5', '21.5')) {
+	$body = [regex]::Match(
+		$story,
+		'### ' + [regex]::Escape($section) +
+			'[^\r\n]*\r?\n(?<body>[\s\S]*?)(?=\r?\n###|\r?\n---|\r?\n## )')
+	$assertionCount++
+	if (-not $body.Success) {
+		throw "The §$section acceptance section could not be read."
+	}
+	# 최상위 항목만 센다. 들여쓴 줄은 같은 줄의 부연이다.
+	$items = [regex]::Matches($body.Groups['body'].Value, '(?m)^- ')
+	$assertionCount++
+	if ($items.Count -lt 1) {
+		throw "The §$section acceptance section lost every line."
+	}
+	$bibleLineCount += $items.Count
+}
+
+# 표의 행을 센다. 각 절의 표에서 머리글과 정렬 줄을 뺀 나머지다.
+$docLineCount = 0
+foreach ($section in @('18.7', '19.9', '20.5', '21.5')) {
+	$table = [regex]::Match(
+		$acceptanceDoc,
+		'## §' + [regex]::Escape($section) +
+			'[^\r\n]*\r?\n(?<body>[\s\S]*?)(?=\r?\n## |\r?\n---)')
+	$assertionCount++
+	if (-not $table.Success) {
+		throw "The acceptance sheet is missing §$section."
+	}
+	$rows = [regex]::Matches(
+		$table.Groups['body'].Value, '(?m)^\| (?!줄 \|)(?!---)[^|]+\|')
+	$docLineCount += $rows.Count
+}
+$assertionCount++
+if ($docLineCount -ne $bibleLineCount) {
+	throw (
+		'The acceptance sheet lists {0} lines but the bible has {1}.' -f
+			$docLineCount, $bibleLineCount)
+}
+
+# 표가 「사람」을 지우고 전부 계약으로 바꿔 놓으면, 아직 못 본 것을 봤다고
+# 적은 것이 된다. 사람이 필요한 줄이 남아 있는지 본다.
+# 표에서 「사람」을 하나씩 계약으로 바꿔 놓으면, 아직 못 본 것을 봤다고
+# 적은 것이 된다. 표가 스스로 밝힌 수와 실제 행 수를 맞대 본다.
+$humanRows = ([regex]::Matches(
+	$acceptanceDoc, '(?m)^\|[^|]+\|[^|]*\*\*사람\*\*[^|]*\|')).Count
+$assertionCount++
+if ($humanRows -lt 1) {
+	throw 'The acceptance sheet must keep naming the lines a person has to check.'
+}
+$statedHuman = [regex]::Match($acceptanceDoc, '나머지 \*\*(?<count>[^*]+)\*\*은 사람이 필요하다')
+$assertionCount++
+if (-not $statedHuman.Success) {
+	throw 'The acceptance sheet no longer says how many lines need a person.'
+}
+$humanWords = @{ '열둘' = 12; '열셋' = 13; '열넷' = 14; '열다섯' = 15 }
+$assertionCount++
+if (-not $humanWords.ContainsKey($statedHuman.Groups['count'].Value)) {
+	throw 'The acceptance sheet states a count this check cannot read.'
+}
+$assertionCount++
+if ($humanRows -ne $humanWords[$statedHuman.Groups['count'].Value]) {
+	throw (
+		'The sheet says {0} lines need a person but {1} rows are marked.' -f
+			$statedHuman.Groups['count'].Value, $humanRows)
+}
+$assertionCount++
+if ($acceptanceDoc -notmatch '자동으로 볼 수 없다는 것과\s*\r?\n?안 봐도 된다는 것은 다르다') {
+	throw 'The acceptance sheet lost the rule that keeps its own rows honest.'
+}
+
+# 감사를 이름으로 걸어 두었으니 그 감사가 실제로 있어야 한다.
+$assertionCount++
+if (-not (Test-Path (Join-Path $projectRoot 'Scripts/audit_hold_timing.py'))) {
+	throw 'The acceptance sheet names an audit that does not exist.'
+}
+
+# §19.9는 4K까지 이름을 댄다. 레이아웃 검증이 거기까지 가는지 본다.
+$assertionCount++
+if ($story -notmatch '720p·1080p·1440p·4K에서 파문 링과 브래킷이 안전 영역 안에 들어온다') {
+	throw 'The §19.9 resolution criterion was removed.'
+}
+$accessibilityContract = Read-ProjectText 'Scripts/Test-Rebirth-AccessibilityContract.ps1'
+$assertionCount++
+if ($accessibilityContract -notmatch 'Width = 3840\.0; Height = 2160\.0') {
+	throw 'The layout check must reach 4K, which §19.9 names.'
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
