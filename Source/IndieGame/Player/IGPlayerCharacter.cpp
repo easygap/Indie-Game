@@ -64,6 +64,10 @@ namespace IGPlayerNoise
 	constexpr float CrouchBraking = 1500.0f;
 	constexpr float SprintAcceleration = 1400.0f;
 	constexpr float SprintBraking = 900.0f;
+	// §27.3. 듣는 동안은 거의 서 있다. 멈추는 것도 빨라야 소리를 놓치지
+	// 않는다 — 제동이 네 상태 중 가장 세다.
+	constexpr float ListenAcceleration = 800.0f;
+	constexpr float ListenBraking = 1600.0f;
 	constexpr float CrouchTransitionSeconds = 0.35f;
 	constexpr float CrouchTransitionSpeedScale = 0.5f;
 	constexpr float KnockInputLockSeconds = 0.9f;
@@ -769,8 +773,9 @@ void AIGPlayerCharacter::ApplyContextMovementSpeed()
 	{
 		MovementComponent->MaxWalkSpeed =
 			IGPlayerNoise::ListenSpeed * TransitionScale * SurfaceScale;
-		MovementComponent->MaxAcceleration = 800.0f;
-		MovementComponent->BrakingDecelerationWalking = 1600.0f;
+		MovementComponent->MaxAcceleration = IGPlayerNoise::ListenAcceleration;
+		MovementComponent->BrakingDecelerationWalking =
+			IGPlayerNoise::ListenBraking;
 		return;
 	}
 	if (bSprinting && !bIsCrouched)

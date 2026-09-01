@@ -1,6 +1,6 @@
-﻿#include "Accessibility/IGAccessibilitySubsystem.h"
-#include "Player/IGStressComponent.h"
+﻿#include "Player/IGStressComponent.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"

@@ -2072,6 +2072,170 @@ if ($story -notmatch '강제 컷신 대신 첫 자율 공포 판단, 밤 HUD 0')
 	throw 'The §26.2 night-HUD-zero promise was removed.'
 }
 
+# --- §27 M0 입력 계약 실행 보완 -----------------------------------------------
+#
+# 이 절은 스스로 「수치나 우선순위가 충돌하면 이 절을 M0의 최신 계약으로
+# 사용한다」고 적었다. 그러니 §18과 겹치는 값은 서로 같아야 하고, §18이
+# 다루지 않는 줄은 여기서만 지켜진다.
+
+# 27.3 — 이동 네 상태. 걷기·앉기·달리기는 §18.2와 겹치고, 듣기는 여기에만
+# 있다. 하필 그 행만 코드에 숫자가 박혀 있었다.
+$movementSection27 = [regex]::Match(
+	$story,
+	'### 27\.3 이동 상태 계약\r?\n(?<body>[\s\S]*?)\r?\n### 27\.4')
+$assertionCount++
+if (-not $movementSection27.Success) {
+	throw 'The §27.3 movement table could not be read.'
+}
+$stateConstants = @{
+	'걷기' = @('WalkAcceleration', 'WalkBraking')
+	'앉기' = @('CrouchAcceleration', 'CrouchBraking')
+	'달리기' = @('SprintAcceleration', 'SprintBraking')
+	'듣기' = @('ListenAcceleration', 'ListenBraking')
+}
+$stateSpeeds = @{
+	'걷기' = 'ReferenceWalkSpeed'
+	'앉기' = 'CrouchSpeed'
+	'달리기' = 'SprintSpeed'
+	'듣기' = 'ListenSpeed'
+}
+$seenStates = 0
+foreach ($row in [regex]::Matches(
+	$movementSection27.Groups['body'].Value,
+	'(?m)^\| (?<state>[^|]+?) \| (?<speed>[0-9]+) \| (?<accel>[0-9]+) \| (?<brake>[0-9]+) \|')) {
+	$state = $row.Groups['state'].Value.Trim()
+	$assertionCount++
+	if (-not $stateConstants.ContainsKey($state)) {
+		throw "The §27.3 table grew a state this contract does not know: $state"
+	}
+	$seenStates++
+	$fields = @(
+		@{ Name = $stateSpeeds[$state]; Expected = $row.Groups['speed'].Value },
+		@{ Name = $stateConstants[$state][0]; Expected = $row.Groups['accel'].Value },
+		@{ Name = $stateConstants[$state][1]; Expected = $row.Groups['brake'].Value })
+	foreach ($field in $fields) {
+		$declared = [regex]::Match(
+			$characterSource,
+			('constexpr float {0} = (?<value>[0-9.]+)f;' -f $field.Name))
+		$assertionCount++
+		if (-not $declared.Success) {
+			throw ('The §27.3 movement constant is missing: {0}' -f $field.Name)
+		}
+		$assertionCount++
+		if ([double]$declared.Groups['value'].Value -ne [double]$field.Expected) {
+			throw (
+				'{0} is {1} but §27.3 says {2}.' -f
+					$field.Name, $declared.Groups['value'].Value, $field.Expected)
+		}
+	}
+}
+$assertionCount++
+if ($seenStates -ne 4) {
+	throw "The §27.3 table lists $seenStates states; it is supposed to list four."
+}
+# 듣는 동안 제동이 가장 세다. 그게 「멈추는 것도 빨라야 소리를 놓치지 않는다」의
+# 구현이고, 네 상태 중 유일하게 걷기보다 큰 값이다.
+$listenBraking = [regex]::Match(
+	$characterSource, 'constexpr float ListenBraking = (?<value>[0-9.]+)f;')
+$walkBraking = [regex]::Match(
+	$characterSource, 'constexpr float WalkBraking = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $listenBraking.Success -or -not $walkBraking.Success) {
+	throw 'The listen and walk braking could not be compared.'
+}
+$assertionCount++
+if ([double]$listenBraking.Groups['value'].Value -le [double]$walkBraking.Groups['value'].Value) {
+	throw 'Listening must stop faster than walking (§27.3).'
+}
+# 듣기 상태가 그 상수를 실제로 쓴다. 숫자를 도로 박아 넣으면 표와 코드가
+# 다시 갈라진다.
+$assertionCount++
+if ($characterSource -notmatch
+	'MovementComponent->MaxAcceleration = IGPlayerNoise::ListenAcceleration;') {
+	throw 'The listening state must use its named acceleration (§27.3).'
+}
+$assertionCount++
+if ($characterSource -notmatch
+	'MovementComponent->BrakingDecelerationWalking =\s*\r?\n?\s*IGPlayerNoise::ListenBraking;') {
+	throw 'The listening state must use its named braking (§27.3).'
+}
+
+# 27.2 — 동사 태그가 조준 대상에서 입력을 가른다.
+foreach ($verb in @('MissingFloor.Verb.Knock', 'MissingFloor.Verb.Listen')) {
+	$assertionCount++
+	if ($story -notmatch [regex]::Escape($verb)) {
+		throw "The §27.2 verb tag was removed from the doc: $verb"
+	}
+}
+$verbTagPlaced = @{ 'Knock' = 0; 'Listen' = 0 }
+$verbTagRead = @{ 'Knock' = 0; 'Listen' = 0 }
+foreach ($file in Get-ChildItem -Path (Join-Path $projectRoot 'Source/IndieGame') `
+	-Filter '*.cpp' -Recurse) {
+	$text = Get-Content -Raw -Encoding UTF8 -LiteralPath $file.FullName
+	foreach ($placed in [regex]::Matches(
+		$text,
+		'Tags\.AddUnique\(FName\(TEXT\("MissingFloor\.Verb\.(?<verb>Knock|Listen)"\)\)\)')) {
+		$verbTagPlaced[$placed.Groups['verb'].Value]++
+	}
+	foreach ($use in [regex]::Matches(
+		$text, 'MissingFloor\.Verb\.(?<verb>Knock|Listen)"')) {
+		$verbTagRead[$use.Groups['verb'].Value]++
+	}
+}
+foreach ($verb in @('Knock', 'Listen')) {
+	$assertionCount++
+	if ($verbTagPlaced[$verb] -lt 1) {
+		throw "The §27.2 verb tag is never placed on anything: $verb"
+	}
+	# 붙인 자리도 같은 문자열이라 전체에서 빼야 읽는 자리만 남는다.
+	$actualReads = $verbTagRead[$verb] - $verbTagPlaced[$verb]
+	$assertionCount++
+	if ($actualReads -lt 1) {
+		throw "The §27.2 verb tag is placed but nothing reads it: $verb"
+	}
+}
+# 일반 노크는 문에만 허용한다. 병·종이·버튼을 두드리는 우발 입력을 막는 줄이다.
+$assertionCount++
+if ($story -notmatch '`Interaction\.Door` 물성을 가진 문에만 허용해') {
+	throw 'The §27.2 door-only knock rule was removed.'
+}
+$assertionCount++
+if ($characterSource -notmatch 'FName\(TEXT\("Interaction\.Door"\)\)') {
+	throw 'The ordinary knock must still be limited to doors (§27.2).'
+}
+# Q는 어떤 경로에서도 Interact의 별칭이 아니다(§24 즉시 차단 16).
+$assertionCount++
+if ($story -notmatch 'Q는 어떤 경로에서도 `Interact`의 별칭이 아니다') {
+	throw 'The §27.2 no-alias rule was removed.'
+}
+
+# 27.5 — 응답음은 플레이어 피드백 함수를 통하지 않는다. §18.5가 같은 것을
+# 다른 말로 잠갔고, 이 절은 그 이유를 적어 둔 자리다.
+$assertionCount++
+if ($story -notmatch '응답음은 플레이어 피드백\s*\r?\n?함수를 통하지 않으므로 카메라 킥과 진동이 없다') {
+	throw 'The §27.5 silent-reply rule was removed.'
+}
+# 잠금은 노크만 잠근다. 이동·시점·숨 참기를 빼앗으면 그건 벌이다.
+$assertionCount++
+if ($story -notmatch '노크 액션만 0\.9초 잠근다\. 이동·시점·숨 참기·취소는\s*\r?\n?계속 가능하다') {
+	throw 'The §27.5 lock must not take the camera or movement.'
+}
+# 잠금은 Knock의 첫 관문에서만 되돌린다. 다른 동사의 진입점에 같은 검사가
+# 생기면 그건 전체 입력 잠금이고, §27.5가 금지한 것이다.
+$assertionCount++
+if ($characterSource -notmatch
+	'CurrentWorld->GetTimeSeconds\(\) < KnockInputLockedUntil\)\s*\r?\n\s*\{\s*\r?\n\s*return;') {
+	throw 'The knock lock must turn the knock away and nothing else (§27.5).'
+}
+# 한 번 걸고 한 번 읽는다. 세 번째 자리가 생기면 무엇이 잠기는지 알 수 없다.
+$lockUses = ([regex]::Matches($characterSource, 'KnockInputLockedUntil')).Count
+$assertionCount++
+if ($lockUses -ne 2) {
+	throw (
+		'KnockInputLockedUntil appears {0} times; it is set once and read once (§27.5).' -f
+			$lockUses)
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
