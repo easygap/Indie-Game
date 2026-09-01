@@ -36,6 +36,7 @@ $beat = Read-Source 'Source/IndieGame/Entity/IGMissingFloorNightTwoBeatDirector.
 $greybox = Read-Source 'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
 $greyboxHeader = Read-Source 'Source/IndieGame/Entity/IGListenerGreyboxDirector.h'
 $puzzleTwo = Read-Source 'Source/IndieGame/Entity/IGMissingFloorPuzzleTwoDirector.cpp'
+$sceneHeader = Read-Source 'Source/IndieGame/Core/IGPrologueWorldScene.h'
 $recording = Read-Source 'Source/IndieGame/Narrative/IGRecordingSubsystem.cpp'
 $assertions = 0
 
@@ -52,18 +53,35 @@ function Require-All(
 }
 
 # --- 좌표. 노크는 403호 현관문에서 난다 -------------------------------------
-# 현관문은 (101, -225, 900)이고 남쪽 벽이 Y=-225이므로 복도는 그 반대쪽이다.
-# 슬래브 높이는 씬이 들고 이 파일들은 받아 쓴다. 한동안 여기서 900을 직접
-# 요구했는데, 좌표를 지키려던 줄이 다섯 벌 중복을 대신 지키고 있었다.
+# 문은 씬이 세우고 이 비트는 문에서 잰다. 슬래브 높이도 씬이 든다. 한동안
+# 여기서 절대 좌표를 통째로 요구했는데, 그러면 문을 옮겼을 때 계약이 옛
+# 자리를 지킨다 — 노크가 벽에서 나고 문구멍이 복도를 보는 상태를 통과시킨다.
+Require-All $sceneHeader @(
+	'static constexpr float FourthFloorZ',
+	'static constexpr float HomeDoorX',
+	'static constexpr float HomeDoorY'
+) '현관문의 주인'
 Require-All $beat @(
 	'constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;',
-	'const FVector DoorLocation(101.0f, -225.0f, FourthFloorZ);',
-	'const FVector KnockLocation(101.0f, -232.0f, FourthFloorZ + 112.0f);',
-	'const FVector PeepholeLocation(101.0f, -220.0f, FourthFloorZ + 150.0f);',
-	'const FVector FigureStagePoint(101.0f, -272.0f, FourthFloorZ);',
+	'AIGPrologueWorldScene::HomeDoorX',
+	'AIGPrologueWorldScene::HomeDoorY',
 	'const FVector FigureShufflePoint(139.0f, -276.0f, FourthFloorZ);',
 	'const FVector DragDepartPoint(-120.0f, -278.0f, FourthFloorZ)'
 ) '비트 2-1 coordinates'
+
+# 문에서 재는 세 점. 값과 방향을 함께 본다 — 복도는 Y가 작아지는 쪽이므로
+# 노크와 형체는 빼고 문구멍은 더한다. 부호가 뒤집히면 노크는 집 안에서 나고
+# 문구멍은 복도를 본다.
+Require-All $beat @(
+	'constexpr float KnockCorridorOffset = 7.0f;',
+	'constexpr float KnockFistHeight = 112.0f;',
+	'DoorLocation + FVector(0.0f, -KnockCorridorOffset, KnockFistHeight)',
+	'constexpr float PeepholeInsideOffset = 5.0f;',
+	'constexpr float PeepholeEyeHeight = 150.0f;',
+	'DoorLocation + FVector(0.0f, PeepholeInsideOffset, PeepholeEyeHeight)',
+	'constexpr float FigureStandOffset = 47.0f;',
+	'DoorLocation + FVector(0.0f, -FigureStandOffset, 0.0f)'
+) '문에서 재는 세 점'
 
 # §5.5의 폰은 관리실이 아니라 403호 안에 있다. 처음 넣을 때 슬래브 높이를
 # 빠뜨려서 9미터 아래 관리실 바닥에 놓여 있었다.

@@ -125,7 +125,10 @@ namespace IGPrologueWorld
 	const FVector AlarmHorizontalLocation(-160.0f, -35.0f, 0.0f);
 	const FVector GetUpTargetLocation(-140.0f, 183.0f, FourthFloorZ + 58.0f);
 	const FVector FridgeLocation(155.0f, -20.0f, FourthFloorZ);
-	const FVector HomeDoorLocation(101.0f, -225.0f, FourthFloorZ);
+	const FVector HomeDoorLocation(
+		AIGPrologueWorldScene::HomeDoorX,
+		AIGPrologueWorldScene::HomeDoorY,
+		FourthFloorZ);
 	// Far end of the hallway, so leaving 403 is a walk rather than a step.
 	const FVector ElevatorLocation(790.0f, -305.0f, FourthFloorZ);
 	// 자동문 짝은 열리면 고정 유리(X 2401..2409) 옆으로 물러난다. 문을

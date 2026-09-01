@@ -126,6 +126,17 @@ public:
 	static constexpr float FourthFloorZ = 900.0f;
 
 	/**
+	 * 403호 현관문이 선 자리(cm). 남쪽 벽이 Y=-225라 집 안은 Y가
+	 * 0에 가까운 쪽, 복도는 그 반대쪽이다.
+	 *
+	 * 성분으로 내는 것은 FVector의 세 인자 생성자가 constexpr이
+	 * 아니어서다. 밤 2가 이 문에서 노크·문구멍·인물 자리를 재므로
+	 * 정적 초기화 순서에 걸리지 않는 값이어야 한다.
+	 */
+	static constexpr float HomeDoorX = 101.0f;
+	static constexpr float HomeDoorY = -225.0f;
+
+	/**
 	 * 로비 CCTV 모니터 화면의 실치수(cm).
 	 *
 	 * 케이스와 4분할 발광면은 씬이 세우고, 채널 5의 렌더 면은

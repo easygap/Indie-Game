@@ -23,13 +23,27 @@ namespace IGNightTwo
 	 * 있고, 문·노크·문구멍은 그 위에서 잰다.
 	 */
 	constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;
-	const FVector DoorLocation(101.0f, -225.0f, FourthFloorZ);
+	const FVector DoorLocation(
+		AIGPrologueWorldScene::HomeDoorX,
+		AIGPrologueWorldScene::HomeDoorY,
+		FourthFloorZ);
+	// 아래 셋은 문에서 잰다. 예전에는 절대 좌표를 적고 관계는 주석에만
+	// 두었는데, 그러면 문을 옮겼을 때 노크가 벽에서 나고 문구멍이
+	// 복도를 본다. 복도는 Y가 작아지는 쪽이다.
 	/** 노크는 복도 쪽 문짝에서 난다. 주먹 높이. */
-	const FVector KnockLocation(101.0f, -232.0f, FourthFloorZ + 112.0f);
+	constexpr float KnockCorridorOffset = 7.0f;
+	constexpr float KnockFistHeight = 112.0f;
+	const FVector KnockLocation =
+		DoorLocation + FVector(0.0f, -KnockCorridorOffset, KnockFistHeight);
 	/** 문구멍은 문 안쪽, 눈높이. */
-	const FVector PeepholeLocation(101.0f, -220.0f, FourthFloorZ + 150.0f);
+	constexpr float PeepholeInsideOffset = 5.0f;
+	constexpr float PeepholeEyeHeight = 150.0f;
+	const FVector PeepholeLocation =
+		DoorLocation + FVector(0.0f, PeepholeInsideOffset, PeepholeEyeHeight);
 	/** 그가 서는 자리 — 문에서 47 cm, 복도 안. */
-	const FVector FigureStagePoint(101.0f, -272.0f, FourthFloorZ);
+	constexpr float FigureStandOffset = 47.0f;
+	const FVector FigureStagePoint =
+		DoorLocation + FVector(0.0f, -FigureStandOffset, 0.0f);
 	/** 두 점 사이를 오가게 둔다. 서 있는 사람이 아니라 기다리는 사람이 된다. */
 	const FVector FigureShufflePoint(139.0f, -276.0f, FourthFloorZ);
 	/** 끌려가는 소리는 계단코어 쪽으로 멀어진다. */
