@@ -814,17 +814,25 @@ if (-not $lockTable.Success) {
 }
 $covered = @{}
 $namedScripts = @{}
+$scriptsFor = @{}
+$reasonFor = @{}
 foreach ($row in [regex]::Matches(
 	$lockTable.Groups['body'].Value, '(?m)^\| (?<items>[^|]+?) \| (?<where>[^|]+?) \|\s*$')) {
 	$items = $row.Groups['items'].Value.Trim()
 	if ($items -eq '항목' -or $items -match '^-+$') {
 		continue
 	}
+	$where = $row.Groups['where'].Value.Trim()
+	$rowScripts = [regex]::Matches($where, '`(?<name>Test-[A-Za-z0-9-]+\.ps1)`')
 	foreach ($number in [regex]::Matches($items, '[0-9]+')) {
-		$covered[[int]$number.Value] = $true
+		$key = [int]$number.Value
+		$covered[$key] = $true
+		$scriptsFor[$key] = $rowScripts.Count
+		if ($rowScripts.Count -eq 0) {
+			$reasonFor[$key] = $where
+		}
 	}
-	foreach ($script in [regex]::Matches(
-		$row.Groups['where'].Value, '`(?<name>Test-[A-Za-z0-9-]+\.ps1)`')) {
+	foreach ($script in $rowScripts) {
 		$namedScripts[$script.Groups['name'].Value] = $true
 	}
 }
@@ -846,6 +854,45 @@ foreach ($name in $namedScripts.Keys) {
 $assertionCount++
 if ($namedScripts.Count -lt 8) {
 	throw 'The §24 lock table stopped naming the scripts that watch it.'
+}
+
+# 여기가 뚫려 있었다. 표가 스물둘을 세는지도 보고 이름 댄 스크립트가 실재하는지도
+# 봤지만, **한 줄이 스크립트 이름을 잃고 산문으로 바뀌는 것**은 못 잡았다. 9번의
+# `Test-Rebirth-ItemContinuityContract.ps1`을 「정적 검사 대상 아님」으로 바꿔도
+# 줄 수는 스물둘 그대로고 남은 이름들이 다 실재하니 통과했다.
+#
+# 세는 것과 번호마다 보는 것은 다르다. 스크립트 없이 닫히는 번호는 정해져 있고,
+# 여기에 하나가 더 들어오려면 이 목록을 같이 고쳐야 한다.
+$manualBlockers = @(1, 2, 3, 4, 5, 12, 13)
+$manualReasons = @{
+	'기하 감사와 사람 검수' = $true
+	'정적 검사 대상 아님. 실측 증거로만 닫힌다' = $true
+}
+$assertionCount++
+$manualActual = (@($reasonFor.Keys | Sort-Object) -join ' ')
+if ($manualActual -ne ($manualBlockers -join ' ')) {
+	throw (
+		'The §24 blockers that close without a contract changed: {0} (expected {1}).' -f
+			$manualActual, ($manualBlockers -join ' '))
+}
+# 빈 칸이나 새 변명으로 계약을 피해 가지 못하게 이유까지 못 박는다.
+foreach ($number in $manualBlockers) {
+	$assertionCount++
+	if (-not $manualReasons.ContainsKey($reasonFor[$number])) {
+		throw (
+			'Blocker {0} closes without a contract for an unrecorded reason: {1}' -f
+				$number, $reasonFor[$number])
+	}
+}
+# 나머지 열다섯은 반드시 스크립트를 대야 한다.
+for ($number = 1; $number -le 22; $number++) {
+	if ($manualBlockers -contains $number) {
+		continue
+	}
+	$assertionCount++
+	if ($scriptsFor[$number] -lt 1) {
+		throw "The §24 lock table stopped naming what watches blocker $number."
+	}
 }
 
 # 20번은 이 세션에 잠근 자리다. 표가 그 사실을 잊지 않게 한다.
