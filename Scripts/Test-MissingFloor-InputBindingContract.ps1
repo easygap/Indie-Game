@@ -2236,6 +2236,43 @@ if ($lockUses -ne 2) {
 			$lockUses)
 }
 
+# --- 버전별 실행 기록이 자기 계약을 대는가 --------------------------------------
+#
+# §24가 적어 둔 이유가 여기에도 그대로 걸린다. 실제로 §27~§32는 계약이 다섯
+# 개나 있는데 그 이름을 아무 데도 대지 않고 있었다. 계약이 있는 것과, 있다는
+# 사실을 문서를 읽는 사람이 아는 것은 다른 일이다.
+
+$versionSections = [regex]::Matches(
+	$story, '(?m)^## (?<number>2[7-9]|3[0-5])\. ')
+$assertionCount++
+if ($versionSections.Count -ne 9) {
+	throw (
+		'Expected nine version sections (§27~§35), found {0}.' -f
+			$versionSections.Count)
+}
+for ($index = 0; $index -lt $versionSections.Count; $index++) {
+	$start = $versionSections[$index].Index
+	$end = if ($index + 1 -lt $versionSections.Count) {
+		$versionSections[$index + 1].Index
+	} else {
+		$story.Length
+	}
+	$body = $story.Substring($start, $end - $start)
+	$number = $versionSections[$index].Groups['number'].Value
+	$named = [regex]::Matches($body, 'Test-[A-Za-z0-9-]+\.ps1')
+	$assertionCount++
+	if ($named.Count -lt 1) {
+		throw "§$number records what was built but never says what watches it."
+	}
+	foreach ($script in $named) {
+		$assertionCount++
+		if (-not (Test-Path (
+			Join-Path $projectRoot (Join-Path 'Scripts' $script.Value)))) {
+			throw "§$number names a contract that does not exist: $($script.Value)"
+		}
+	}
+}
+
 # 시점 행 수는 화면과 컨트롤러가 함께 보는 값이다. 여기서도 코드에서 읽는다.
 $lookRowMatch = [regex]::Match(
 	$bindingHeader, 'LookRowCount = (?<count>[0-9]+);')
