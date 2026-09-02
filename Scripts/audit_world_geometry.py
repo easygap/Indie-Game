@@ -2088,6 +2088,11 @@ def main(argv=None):
         print(f"WORLD GEOMETRY AUDIT  boxes={len(all_boxes)} "
               f"coverage={coverage:.1f}% ({resolved}/{total}) "
               f"exempt={len(exempt)}")
+        if unresolved:
+            # 비율만 적으면 상자가 늘 때 분모도 같이 늘어 못 보는 수가
+            # 늘어난 것이 안 보인다. 다른 감사들과 같은 말로 개수를 적는다.
+            print(f"  자리를 풀지 못한 상자 {unresolved}건 — 좌표가 트랜스폼"
+                  f" 지역 변수나 포인터 삼항에 걸려 계산할 수 없었다")
         for box in exempt:
             print(f"  exempt  {box.label()}: {box.exempt}")
         if arguments.coverage and examples:

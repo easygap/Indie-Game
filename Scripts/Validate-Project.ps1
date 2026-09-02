@@ -2878,10 +2878,13 @@ if ($python) {
 		throw "World geometry scanner self-test failed ($LASTEXITCODE)"
 	}
 
-	& $python.Source $geometryAudit --check
+	$worldGeometryOutput = & $python.Source $geometryAudit --check
+	$worldGeometryOutput | ForEach-Object { Write-Host $_ }
 	if ($LASTEXITCODE -ne 0) {
 		throw "World geometry audit found impossible placements ($LASTEXITCODE)"
 	}
+	Assert-AuditBlindSpot $worldGeometryOutput '자리를 풀지 못한 상자 (?<count>\d+)건' 56 `
+		'좌표가 트랜스폼 지역 변수나 포인터 삼항에 걸려 자리를 풀지 못한 상자'
 
 	$atlasPacker = Join-Path $projectRoot 'Scripts/build_texture_atlas.py'
 	& $python.Source $atlasPacker --self-test
@@ -3069,10 +3072,13 @@ if ($python) {
 		throw "Photo prop fit audit self-test failed ($LASTEXITCODE)"
 	}
 
-	& $python.Source $photoPropFit --check
+	$photoPropOutput = & $python.Source $photoPropFit --check
+	$photoPropOutput | ForEach-Object { Write-Host $_ }
 	if ($LASTEXITCODE -ne 0) {
 		throw "A scanned prop lands inside the structure it stands against ($LASTEXITCODE)"
 	}
+	Assert-AuditBlindSpot $photoPropOutput '건너뛴 원본 (?<count>\d+)종' 6 `
+		'메시가 여럿이라 크기를 못 재는 사진 원본'
 
 	# 나중에 세운 상자가 이미 있던 상자의 면과 소수점까지 같은 평면에 놓이면
 	# 깊이 버퍼가 둘을 갈라내지 못한다. 파고든 깊이가 0이라 기하 감사도
