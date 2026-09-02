@@ -126,7 +126,7 @@ namespace IGAudio
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->RegisterComponent(Component, EIGAudioBus::World);
+			AudioDirector->RegisterPersistentBed(Component, EIGAudioBus::World);
 		}
 		Component->Play();
 		return Component;

@@ -1649,6 +1649,35 @@ $assertionCount++
 if ($story -notmatch '\*\*보일러는 방이 아니라 복도 벽장이다\.\*\*') {
 	throw 'The §5.1 note about the boiler cupboard was removed.'
 }
+# 늘 우는 소리는 오래됐다는 이유로 밀리면 안 된다. 보이스 상한은 한 번 울고
+# 마는 소리가 쌓이는 걸 막으려고 있는데, 험은 무대 설치 때 걸려서 serial이
+# 제일 낮다 — 상한에 닿는 순간 맨 먼저 밀리고 퇴출은 페이드아웃이라 안
+# 돌아온다. 마스킹이 제일 필요한 순간에 엄폐가 조용해진다.
+$audioSubsystem = Read-ProjectText `
+	'Source/IndieGame/Audio/IGMissingFloorAudioSubsystem.cpp'
+$assertionCount++
+if ($audioSubsystem -notmatch 'if \(Voices\[Index\]\.bPersistent\)') {
+	throw 'Voice eviction stopped skipping persistent beds (§21).'
+}
+# 밀 수 있는 게 하나도 없을 때 빠져나가는 길. 없으면 반복문이 안 끝난다.
+$assertionCount++
+if ($audioSubsystem -notmatch 'if \(OldestIndex == INDEX_NONE\)') {
+	throw 'The voice eviction loop lost its no-candidate exit (§21).'
+}
+# 험과 물소리는 베드로 건다. 자리는 세되 밀리지는 않는다.
+foreach ($bed in @(
+	@{ File = 'Source/IndieGame/Audio/IGAudioHelpers.cpp'; What = '험 소리' },
+	@{ File = 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
+		What = '밤4 물소리 베드' })) {
+	$bedText = Read-ProjectText $bed.File
+	$assertionCount++
+	if ($bedText -notmatch 'RegisterPersistentBed\(') {
+		throw (
+			'{0}이(가) 더 이상 베드로 걸리지 않는다. 상한에 닿으면 밀린다 (§21).' -f
+				$bed.What)
+	}
+}
+
 # §4.3 규칙 7의 「최대 3」. 코드 다섯 군데가 각자 맨 숫자로 적고 있어서
 # 한 군데만 고쳐도 컴파일이 되고, 대기 시간 표는 티어로 색인하니 상한이
 # 표보다 커지면 배열 밖을 읽는다. 문서가 말한 수를 세 곳이 같이 쓰는지 본다.

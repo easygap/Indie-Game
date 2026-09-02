@@ -272,6 +272,14 @@ void UIGMissingFloorAudioSubsystem::RegisterComponent(
 	UAudioComponent* Component,
 	const EIGAudioBus Bus)
 {
+	RegisterVoice(Component, Bus, /*bPersistent=*/false);
+}
+
+void UIGMissingFloorAudioSubsystem::RegisterVoice(
+	UAudioComponent* Component,
+	const EIGAudioBus Bus,
+	const bool bPersistent)
+{
 	if (!Component)
 	{
 		return;
@@ -293,13 +301,24 @@ void UIGMissingFloorAudioSubsystem::RegisterComponent(
 	const int32 VoiceCap = GetVoiceCap(Bus);
 	while (Voices.Num() >= VoiceCap && Voices.Num() > 0)
 	{
-		int32 OldestIndex = 0;
-		for (int32 Index = 1; Index < Voices.Num(); ++Index)
+		int32 OldestIndex = INDEX_NONE;
+		for (int32 Index = 0; Index < Voices.Num(); ++Index)
 		{
-			if (Voices[Index].Serial < Voices[OldestIndex].Serial)
+			if (Voices[Index].bPersistent)
+			{
+				continue;
+			}
+			if (OldestIndex == INDEX_NONE
+				|| Voices[Index].Serial < Voices[OldestIndex].Serial)
 			{
 				OldestIndex = Index;
 			}
+		}
+		if (OldestIndex == INDEX_NONE)
+		{
+			// 남은 게 전부 늘 우는 소리다. 밀 수 있는 게 없으니 새 소리를
+			// 얹지 않고 물러난다 — 여기서 계속 돌면 멈추지 않는다.
+			return;
 		}
 		if (UAudioComponent* Oldest = Voices[OldestIndex].Component.Get())
 		{
@@ -308,7 +327,14 @@ void UIGMissingFloorAudioSubsystem::RegisterComponent(
 		Voices.RemoveAt(OldestIndex);
 	}
 
-	Voices.Add({Component, NextVoiceSerial++});
+	Voices.Add({Component, NextVoiceSerial++, bPersistent});
+}
+
+void UIGMissingFloorAudioSubsystem::RegisterPersistentBed(
+	UAudioComponent* Component,
+	const EIGAudioBus Bus)
+{
+	RegisterVoice(Component, Bus, /*bPersistent=*/true);
 }
 
 void UIGMissingFloorAudioSubsystem::SetThreatState(

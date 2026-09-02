@@ -88,6 +88,15 @@ public:
 	void RegisterComponent(UAudioComponent* Component, EIGAudioBus Bus);
 
 	/**
+	 * 밤 내내 우는 소리를 건다. 자리는 세지만 퇴출 대상은 아니다.
+	 *
+	 * 상한은 한 번 울고 마는 소리가 쌓이는 걸 막으려고 있다. 험이나 물소리는
+	 * 그 대상이 아니다 — 오래됐다는 이유로 밀리면, 복도가 시끄러워진 순간에
+	 * 엄폐가 조용해지고 퇴출은 페이드아웃이라 그 밤 내내 안 돌아온다.
+	 */
+	void RegisterPersistentBed(UAudioComponent* Component, EIGAudioBus Bus);
+
+	/**
 	 * §10.5. 헤드폰과 스피커를 오간다. 새로 나는 소리만 바꾸면 이미 돌고
 	 * 있는 환경음 루프가 옛 방식으로 남아 설정이 반만 듣는 것처럼 된다.
 	 * 그래서 살아 있는 목소리를 훑어 다시 건다.
@@ -203,10 +212,14 @@ private:
 	{
 		TWeakObjectPtr<UAudioComponent> Component;
 		uint64 Serial = 0;
+		/** 늘 우는 소리. 자리는 차지하되 오래됐다고 밀리지는 않는다. */
+		bool bPersistent = false;
 	};
 
 	static constexpr int32 BusCount = static_cast<int32>(EIGAudioBus::Count);
 
+	void RegisterVoice(
+		UAudioComponent* Component, EIGAudioBus Bus, bool bPersistent);
 	void BuildBusGraph();
 	void BuildAcousticPresets();
 	void ApplyAcousticSpace(float FadeSeconds);

@@ -1521,7 +1521,7 @@ void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->RegisterComponent(
+			AudioDirector->RegisterPersistentBed(
 				WaterMaskBed,
 				EIGAudioBus::Puzzle);
 		}
