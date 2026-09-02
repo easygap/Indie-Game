@@ -3130,6 +3130,27 @@ if ($python) {
 		throw "An authored constant is written in two places ($LASTEXITCODE)"
 	}
 
+	# 끊어진 접근성 설정은 화면으로 안 보인다. 메뉴에 뜨고 켜지고 저장되고,
+	# 다시 켜면 켜져 있다. 바뀌는 게 없다는 것만 다르다.
+	$accessibilityReach =
+		Join-Path $projectRoot 'Scripts/audit_accessibility_reach.py'
+	& $python.Source $accessibilityReach --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Accessibility reach audit self-test failed ($LASTEXITCODE)"
+	}
+
+	$accessibilityReachOutput = & $python.Source $accessibilityReach --check
+	$accessibilityReachOutput | ForEach-Object { Write-Host $_ }
+	if ($LASTEXITCODE -ne 0) {
+		throw "An accessibility setting changes nothing a player can feel ($LASTEXITCODE)"
+	}
+
+	# 아무도 안 부르는 접근자. 설정 자체는 다른 경로로 살아 있어서 고장은
+	# 아니지만, 이 수가 늘면 쓰지도 않는 문을 계속 세우고 있다는 뜻이다.
+	Assert-AuditBlindSpot $accessibilityReachOutput `
+		'아무도 안 부르는 접근자 (?<count>\d+)개' 3 `
+		'설정을 읽지만 아무도 부르지 않는 접근자'
+
 	# 합성기는 음을 그냥 더하고 ±1.0에서 자른다. 겹친 음의 합이 1을 넘으면
 	# 파형이 int16으로 굳기 전에 깎이고, 그 뒤로는 버스를 줄이든 감쇠를 걸든
 	# 되돌릴 방법이 없다.
