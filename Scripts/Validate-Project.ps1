@@ -543,15 +543,45 @@ if (-not $stageSetupBody.Success -or -not $stageTeardownBody.Success) {
 if ($stageSetupBody.Groups['body'].Value -notmatch 'DestroyPartialStage\(\);') {
 	throw 'The greybox stage setup no longer clears what a failed attempt left behind.'
 }
-$stageSpawned = @(
+# 셋업이 직접 세우는 것과, 셋업이 부르는 헬퍼가 세우는 것을 함께 센다.
+# 증인 다섯은 지금 마지막 실패 경로보다 뒤에 있지만, 그 사이에 실패가 하나
+# 생기면 이름이 살아남아 재시도를 막는다.
+# 셋업이 부르는 스폰 헬퍼는 둘이다. 셋업 본문만 보면 이 열둘을 놓친다.
+$stageHelperBodies = ''
+foreach ($stageHelperName in @('SpawnOptionalWitnesses', 'SpawnArrivalInteractables')) {
+	$stageHelperBody = [regex]::Match(
+		$greyboxStageSource,
+		'void AIGListenerGreyboxDirector::' + $stageHelperName +
+			'\([^)]*\)\r?\n\{(?<body>[\s\S]*?)\r?\n\}')
+	if (-not $stageHelperBody.Success) {
+		throw "The greybox spawner $stageHelperName could not be read."
+	}
+	$stageHelperBodies += $stageHelperBody.Groups['body'].Value
+}
+# 셋을 넘어 더 부르기 시작하면 위 목록으로는 부족해진다.
+$stageHelperCalls = @(
 	[regex]::Matches(
 		$stageSetupBody.Groups['body'].Value,
-		'(?m)^\s*(?<name>[A-Za-z_][A-Za-z0-9_]*) = World->SpawnActor<') |
+		'(?m)^\s*(?<name>Spawn[A-Za-z0-9_]*)\(') |
 		ForEach-Object { $_.Groups['name'].Value } |
 		Sort-Object -Unique)
-if ($stageSpawned.Count -lt 15) {
+foreach ($stageHelper in $stageHelperCalls) {
+	if ($stageHelper -notin @('SpawnOptionalWitnesses', 'SpawnArrivalInteractables')) {
+		throw (
+			'The greybox stage setup calls {0}; the teardown audit does not follow it.' -f
+				$stageHelper)
+	}
+}
+# 람다로 세우는 것(SpawnEvidence)도 같은 이름 규칙을 쓰므로 함께 센다.
+$stageSpawned = @(
+	[regex]::Matches(
+		$stageSetupBody.Groups['body'].Value + $stageHelperBodies,
+		'(?m)^\s*(?<name>[A-Za-z_][A-Za-z0-9_]*) = (?:World->SpawnActor<|SpawnEvidence\()') |
+		ForEach-Object { $_.Groups['name'].Value } |
+		Sort-Object -Unique)
+if ($stageSpawned.Count -lt 27) {
 	throw (
-		'The greybox stage setup spawns {0} actors; fifteen were authored.' -f
+		'The greybox stage builds {0} actors; twenty-seven were authored.' -f
 			$stageSpawned.Count)
 }
 foreach ($stageActor in $stageSpawned) {

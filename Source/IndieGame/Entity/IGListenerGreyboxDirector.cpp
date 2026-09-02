@@ -169,7 +169,17 @@ void AIGListenerGreyboxDirector::DestroyPartialStage()
 		NightOneBeats.Get(), NightTwoBeats.Get(), PuzzleTwo.Get(),
 		NightThree.Get(), Mercy.Get(), FifthDawn.Get(), Epilogue.Get(),
 		NightFour.Get(), SleepTarget.Get(), Unit401Door.Get(),
-		UsedListingNote.Get()};
+		UsedListingNote.Get(),
+		// SpawnOptionalWitnesses가 세우는 다섯. 지금은 마지막 실패 경로보다
+		// 뒤에 있어 새어 나갈 수 없지만, 그 사이에 실패가 하나 생기면 이름이
+		// 살아남아 재시도를 막는다.
+		WaterBowl.Get(), SleepingPills.Get(), CigarettePack.Get(),
+		StoreRoster.Get(), Unit401Radio.Get(),
+		// SpawnArrivalInteractables가 세우는 일곱. 그 안의 람다도 이름을
+		// 붙여 스폰하므로 남으면 재시도가 같은 이름에 막힌다.
+		ArrivalContract.Get(), ArrivalParcelBox.Get(), ArrivalNotebookBox.Get(),
+		ArrivalVoicemailBox.Get(), ArrivalStoreBell.Get(),
+		ArrivalUnit402Note.Get(), ArrivalRoofLock.Get()};
 	for (AActor* Actor : Built)
 	{
 		if (IsValid(Actor))
@@ -192,6 +202,18 @@ void AIGListenerGreyboxDirector::DestroyPartialStage()
 	SleepTarget = nullptr;
 	Unit401Door = nullptr;
 	UsedListingNote = nullptr;
+	WaterBowl = nullptr;
+	SleepingPills = nullptr;
+	CigarettePack = nullptr;
+	StoreRoster = nullptr;
+	Unit401Radio = nullptr;
+	ArrivalContract = nullptr;
+	ArrivalParcelBox = nullptr;
+	ArrivalNotebookBox = nullptr;
+	ArrivalVoicemailBox = nullptr;
+	ArrivalStoreBell = nullptr;
+	ArrivalUnit402Note = nullptr;
+	ArrivalRoofLock = nullptr;
 
 	// 험은 액터가 아니라 구독이다. 지우지 않으면 시도마다 하나씩 쌓인다.
 	if (FridgeHumHandle != INDEX_NONE)
