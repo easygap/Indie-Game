@@ -22,6 +22,12 @@ namespace IGFridge
 	constexpr float BodyDepth = 72.0f;   // Y: side-to-side width
 	constexpr float BodyHeight = 158.0f; // Z
 	constexpr float PanelThickness = 6.0f;
+
+	// §5.1 서랍·캐비닛 행. 이 게임에서 그 행을 쓰는 건 냉장고 문 하나다.
+	// 닫는 쪽이 조용한 건 고무 패킹이 소리를 먹기 때문이고, 그래서
+	// 열어 두고 도망치는 것과 닫고 도망치는 것의 값이 다르다.
+	constexpr float OpenLoudness = 0.2f;
+	constexpr float CloseLoudness = 0.15f;
 }
 
 AIGFridge::AIGFridge()
@@ -447,7 +453,7 @@ void AIGFridge::BeginDoorSwing(const bool bOpen)
 		{
 			Noise->ReportNoise(
 				DoorPivot->GetComponentLocation(),
-				bOpen ? 0.2f : 0.15f,
+				bOpen ? IGFridge::OpenLoudness : IGFridge::CloseLoudness,
 				this);
 		}
 	}

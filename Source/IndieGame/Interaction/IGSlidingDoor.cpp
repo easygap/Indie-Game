@@ -1,4 +1,4 @@
-#include "Interaction/IGSlidingDoor.h"
+﻿#include "Interaction/IGSlidingDoor.h"
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -11,6 +11,14 @@
 #include "Engine/StaticMesh.h"
 #include "GameFramework/Pawn.h"
 #include "TimerManager.h"
+
+namespace IGSlidingDoor
+{
+	// §5.1: 레일을 긁으며 가는 소리라 여닫이문 조용히 열기보다 크다.
+	// 미닫이에는 「천천히」가 없다 — 레일이 소리를 만드는 것이지
+	// 손이 만드는 게 아니다.
+	constexpr float SlideLoudness = 0.22f;
+}
 
 AIGSlidingDoor::AIGSlidingDoor()
 {
@@ -270,7 +278,7 @@ void AIGSlidingDoor::SetDoorOpen(const bool bInOpen)
 	{
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
-			Noise->ReportNoise(GetActorLocation(), 0.22f, this);
+			Noise->ReportNoise(GetActorLocation(), IGSlidingDoor::SlideLoudness, this);
 		}
 	}
 }

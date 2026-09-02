@@ -81,8 +81,8 @@ namespace IGNightThree
 	const FVector ForumLocation(560.0f, -249.0f, 143.0f);
 	const FVector JournalLocation(-172.0f, -237.5f, 985.0f);
 
-	/** §5.1: a fist on gypsum carries; leaning an ear does not. */
-	constexpr float KnockLoudness = 0.30f;
+	// 주먹이 석고보드를 때리는 값은 플레이어 쪽이 든다 —
+	// AIGPlayerCharacter::KnockLoudness. 귀를 대는 건 소리를 안 낸다.
 	constexpr float ListenLoudness = 0.05f;
 	constexpr float ValveLoudness = 0.55f;
 
@@ -537,7 +537,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.0f,
-			IGNightThree::KnockLoudness,
+			AIGPlayerCharacter::KnockLoudness,
 			/*bPresentationVisible=*/false);
 		Knock->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Knock")));
 		WallKnocks[BayIndex] = Knock;
@@ -570,7 +570,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
-		IGNightThree::KnockLoudness,
+		AIGPlayerCharacter::KnockLoudness,
 		/*bPresentationVisible=*/false);
 	AnswerTarget->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Knock")));
 
@@ -823,7 +823,7 @@ bool AIGMissingFloorNightThreeDirector::TryPlayerKnock(
 		{
 			Noise->ReportNoise(
 				FocusedActor->GetActorLocation(),
-				IGNightThree::KnockLoudness,
+				AIGPlayerCharacter::KnockLoudness,
 				NoiseInstigator);
 		}
 	}

@@ -1524,10 +1524,77 @@ if ($walkStated -lt [double]$walkLow.Groups['value'].Value `
 			$walkLow.Groups['value'].Value,
 			$walkHigh.Groups['value'].Value)
 }
-# 서랍은 아직 없다. 값만 적고 만든 척하면 다음 사람이 찾으러 간다.
-$assertionCount++
-if ($story -notmatch '\*\*여닫는 서랍은 아직 없다\.\*\*') {
-	throw '§5.1의 서랍 행이 만들지 않았다는 사실을 잃었다.'
+# 표에 적힌 값이 실제로 보고되는 값인지 본다. 한동안 절반이 호출부에 맨
+# 숫자로 박혀 있었고, 그래서 냉장고 문이 서랍·캐비닛 값을 쓰는 동안 표는
+# 그 행을 「아직 없다」고 적어 두고 있었다. 이름이 없으면 아무도 모른다.
+$noiseTableRows = @(
+	@{ Row = '미닫이문'; Column = 1
+		File = 'Source/IndieGame/Interaction/IGSlidingDoor.cpp'
+		Name = 'SlideLoudness' },
+	@{ Row = '서랍·캐비닛'; Pattern = '서랍·캐비닛\(열기/닫기\)'; Column = 1
+		File = 'Source/IndieGame/Interaction/IGFridge.cpp'
+		Name = 'OpenLoudness' },
+	@{ Row = '서랍·캐비닛'; Pattern = '서랍·캐비닛\(열기/닫기\)'; Column = 2
+		File = 'Source/IndieGame/Interaction/IGFridge.cpp'
+		Name = 'CloseLoudness' },
+	@{ Row = '노크'; Column = 1
+		File = 'Source/IndieGame/Player/IGPlayerCharacter.h'
+		Name = 'KnockLoudness' },
+	@{ Row = '엘리베이터 호출'; Column = 1
+		File = 'Source/IndieGame/Interaction/IGElevator.cpp'
+		Name = 'CallLoudness' },
+	@{ Row = '소품 집기'; Column = 1
+		File = 'Source/IndieGame/Interaction/IGPickupItem.cpp'
+		Name = 'PickupLoudness' },
+	@{ Row = '쪽지 넘기기·홀드 놓침'; Column = 1
+		File = 'Source/IndieGame/Interaction/IGReadableNote.cpp'
+		Name = 'PageLoudness' },
+	@{ Row = '쪽지 넘기기·홀드 놓침'; Column = 1
+		File = 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+		Name = 'ForcedReleaseLoudness' })
+foreach ($entry in $noiseTableRows) {
+	$rowMatch = [regex]::Match(
+		$story,
+		'\| ' + $(if ($entry.ContainsKey('Pattern')) { $entry.Pattern } else { $entry.Row }) +
+			' \| (?<first>[0-9.]+)(?: / (?<second>[0-9.]+))? \|')
+	$assertionCount++
+	if (-not $rowMatch.Success) {
+		throw ('§5.1 소리 표에서 {0} 행을 못 읽었다.' -f $entry.Row)
+	}
+	$stated = if ($entry.Column -eq 2) {
+		$rowMatch.Groups['second'].Value } else { $rowMatch.Groups['first'].Value }
+	$assertionCount++
+	if ([string]::IsNullOrEmpty($stated)) {
+		throw ('§5.1 소리 표의 {0} 행이 값을 잃었다.' -f $entry.Row)
+	}
+	$ownerText = Read-ProjectText $entry.File
+	$constant = [regex]::Match(
+		$ownerText, $entry.Name + ' = (?<value>[0-9.]+)f;')
+	$assertionCount++
+	if (-not $constant.Success) {
+		throw ('{0}이(가) 사라졌다 (§5.1 {1}).' -f $entry.Name, $entry.Row)
+	}
+	$assertionCount++
+	if ([double]$constant.Groups['value'].Value -ne [double]$stated) {
+		throw (
+			'§5.1은 {0}을(를) {1}로 적는데 {2}는 {3}이다.' -f
+				$entry.Row, $stated, $entry.Name,
+				$constant.Groups['value'].Value)
+	}
+}
+# 이 값들이 다시 이름 없는 숫자로 돌아가면 표가 또 조용히 어긋난다.
+foreach ($file in @(
+	'Source/IndieGame/Interaction/IGElevator.cpp',
+	'Source/IndieGame/Interaction/IGFridge.cpp',
+	'Source/IndieGame/Interaction/IGPickupItem.cpp',
+	'Source/IndieGame/Interaction/IGReadableNote.cpp',
+	'Source/IndieGame/Interaction/IGSlidingDoor.cpp')) {
+	$text = Read-ProjectText $file
+	$assertionCount++
+	if ($text -match 'ReportNoise\([^;]*?,\s*[0-9]+\.[0-9]+f\s*,') {
+		throw (
+			'{0} reports noise with a bare number again (§5.1).' -f $file)
+	}
 }
 
 # 험 존: 반경 2m, 마스킹 0.2. 지금 서 있는 둘이 같은 값을 써야 한다.

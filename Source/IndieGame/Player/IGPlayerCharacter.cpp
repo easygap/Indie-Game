@@ -103,6 +103,9 @@ namespace IGPlayerNoise
 	constexpr float MinimumFootstepLoudness = 0.06f;
 	constexpr float MaximumFootstepLoudness = 0.18f;
 	constexpr float CrouchFootstepLoudness = 0.05f;
+	// §5.1: 홀드를 놓쳐서 손이 미끄러지는 소리. 쪽지 넘기는 것과 같은
+	// 크기지만 다른 행동이라 각자 든다.
+	constexpr float ForcedReleaseLoudness = 0.08f;
 	constexpr float SprintFootstepLoudness = 0.50f;
 	constexpr float ExhaustedSprintFootstepLoudness = 0.70f;
 	constexpr float MicrophonePollSeconds = 0.08f;
@@ -1715,7 +1718,8 @@ void AIGPlayerCharacter::Knock()
 			if (UIGNoiseSubsystem* Noise =
 				GetWorld()->GetSubsystem<UIGNoiseSubsystem>())
 			{
-				Noise->ReportNoise(GetActorLocation(), 0.30f, this);
+				Noise->ReportNoise(
+					GetActorLocation(), AIGPlayerCharacter::KnockLoudness, this);
 			}
 			ApplyPlayerKnockFeedback();
 		}
@@ -1755,7 +1759,10 @@ void AIGPlayerCharacter::Knock()
 			EIGAudioBus::Player);
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
-			Noise->ReportNoise(FocusedActor->GetActorLocation(), 0.30f, this);
+			Noise->ReportNoise(
+				FocusedActor->GetActorLocation(),
+				AIGPlayerCharacter::KnockLoudness,
+				this);
 		}
 		// A door is a perfectly good thing to answer on, so the cadence counts
 		// here too. Doing it after the noise report keeps the order honest: the
@@ -2098,7 +2105,10 @@ void AIGPlayerCharacter::FinishHoldBreath(const bool bForcedRelease)
 		{
 			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 			{
-				Noise->ReportNoise(GetActorLocation(), 0.08f, this);
+				Noise->ReportNoise(
+					GetActorLocation(),
+					IGPlayerNoise::ForcedReleaseLoudness,
+					this);
 			}
 		}
 	}

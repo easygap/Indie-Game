@@ -16,6 +16,12 @@
 #include "Player/IGPlayerCharacter.h"
 #include "TimerManager.h"
 
+namespace IGPickup
+{
+	// §5.1: 집어 드는 소리. 내려놓는 게 아니라 드는 쪽이라 짧다.
+	constexpr float PickupLoudness = 0.14f;
+}
+
 AIGPickupItem::AIGPickupItem()
 {
 	PrimaryActorTick.bCanEverTick = false;
@@ -436,7 +442,7 @@ bool AIGPickupItem::FinishPickup(
 		{
 			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 			{
-				Noise->ReportNoise(GetActorLocation(), 0.14f, Character);
+				Noise->ReportNoise(GetActorLocation(), IGPickup::PickupLoudness, Character);
 			}
 		}
 	}

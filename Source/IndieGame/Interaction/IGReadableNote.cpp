@@ -6,6 +6,12 @@
 #include "Engine/CollisionProfile.h"
 #include "Engine/StaticMesh.h"
 
+namespace IGReadableNote
+{
+	// §5.1: 종이 한 장. 게임에서 가장 조용한 조작이다.
+	constexpr float PageLoudness = 0.08f;
+}
+
 TWeakObjectPtr<AIGReadableNote> AIGReadableNote::OpenNote;
 
 AIGReadableNote* AIGReadableNote::GetOpenNote()
@@ -100,7 +106,7 @@ void AIGReadableNote::CompleteInteraction_Implementation(const FIGInteractionCon
 	{
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
-			Noise->ReportNoise(GetActorLocation(), 0.08f, Context.Interactor);
+			Noise->ReportNoise(GetActorLocation(), IGReadableNote::PageLoudness, Context.Interactor);
 		}
 	}
 }

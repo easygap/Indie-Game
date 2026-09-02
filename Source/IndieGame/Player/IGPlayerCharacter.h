@@ -27,6 +27,14 @@ class INDIEGAME_API AIGPlayerCharacter : public ACharacter
 	GENERATED_BODY()
 
 public:
+	/**
+	 * §5.1 노크. 주먹이 석고보드를 때리는 값이다.
+	 *
+	 * 밤3의 벽 노크도 같은 값을 쓴다 — 같은 동작이라 상수가 둘일 이유가
+	 * 없고, 둘이면 한쪽만 조정했을 때 같은 주먹이 밤마다 다르게 들린다.
+	 */
+	static constexpr float KnockLoudness = 0.30f;
+
 	AIGPlayerCharacter();
 	virtual ~AIGPlayerCharacter() override;
 	virtual void Tick(float DeltaSeconds) override;

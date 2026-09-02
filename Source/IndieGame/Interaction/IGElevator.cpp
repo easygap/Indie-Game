@@ -25,6 +25,10 @@ namespace IGElevator
 	constexpr float CabHeight = 230.0f;
 	constexpr float WallThickness = 10.0f;
 	constexpr float DoorHeight = 210.0f;
+
+	// §5.1: 호출 버튼을 누르면 승강로 전체가 한 번 운다. 문 여닫기보다는
+	// 작고 소품 집는 것보다는 크다.
+	constexpr float CallLoudness = 0.18f;
 }
 
 AIGElevator::AIGElevator()
@@ -555,7 +559,7 @@ void AIGElevator::CompleteInteraction_Implementation(const FIGInteractionContext
 	{
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
-			Noise->ReportNoise(GetActorLocation(), 0.18f, Context.Interactor);
+			Noise->ReportNoise(GetActorLocation(), IGElevator::CallLoudness, Context.Interactor);
 		}
 	}
 
