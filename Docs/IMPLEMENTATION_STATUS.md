@@ -12,6 +12,69 @@
 > 새 사건 집필이 아니라 같은 clean SHA의 패키징·성능·초견·장비별 승인 증거다.
 > 공간·오디오·상호작용·세이브·검증 하네스는 새 정사가 계승한다.
 
+## 없는 층 — 상자 435개가 예산 부족으로 검사 밖에 있었다 (2026-09-01)
+
+앞 커밋에서 사각지대 490을 천장으로 박았다. 그 숫자를 줄여 봤다.
+
+### 490 중 420이 한 줄이었다
+
+못 푸는 상자를 이름별로 세니 이렇게 나왔다.
+
+```
+420  SnackMaterial   IGPrologueWorldScene.cpp:5721
+ 16  Material        IGThirdMorningDirector.cpp:4000
+ 15  Pane            IGPrologueWorldScene.cpp:5206
+  4  OldPaint        IGPrologueWorldScene.cpp:3162
+```
+
+편의점 매대의 과자 봉지다. 재질이 이렇게 묶여 있다.
+
+```cpp
+UMaterialInterface* SnackMaterial = TexMat(
+    SnackLabels[FMath::Abs(SnackIndex) % 4],
+    (SnackIndex % 3 == 0) ? SnackRedMaterial :
+    (SnackIndex % 3 == 1) ? SnackYellowMaterial : SnackBlueMaterial);
+```
+
+리졸버는 오른쪽 식의 식별자를 하나씩 재귀로 풀어 본다. 무한 재귀를 막으려고
+`seen`이 다섯 개까지만 늘어난다. 그런데 이 식의 식별자는 순서대로
+`TexMat` · `SnackLabels` · `FMath` · `Abs` — **재질이 아닌 이름 넷이 예산을
+먼저 다 쓴다.** 정작 답인 `SnackRedMaterial`에 닿기 전에 포기한다.
+
+### 묶인 적 있는 이름에만 예산을 쓴다
+
+```python
+bound_names = {binding_name for _, binding_name, _ in bindings}
+for identifier in IDENTIFIER.findall(latest[1]):
+    if identifier == name or identifier not in bound_names:
+        continue
+```
+
+함수 이름도 배열 이름도 어차피 못 푼다. 건너뛰면 예산이 재질에 닿는다.
+
+```
+전  boxes=3403 planar=262 hidden=30 unresolved=490 findings=0
+후  boxes=3403 planar=262 hidden=30 unresolved=55  findings=0
+```
+
+`SnackMaterial → M_SnackRed`, `Pane → M_WindowGlow`. 435개가 검사 안으로
+들어왔고 새 발견은 없었다. 전부 UV를 읽는 프롭 재질이라 월드 투영 대상이
+아니었다 — `planar`가 262 그대로인 것이 그 뜻이다.
+
+**늘어난 자리가 없었다는 것도 결과다.** 못 보고 있었을 뿐 그 안이 성했다.
+
+인쇄 면 감사가 같은 리졸버를 쓰므로 함께 내려갔다. 천장 둘을 55로 고쳤다 —
+앞 커밋의 「줄었으면 천장도 내려라」가 시켜서 한 일이다.
+
+### 처음 세운 가설은 틀렸다
+
+`OldPaint`가 3195행에서 묶이는데 상자는 3162행(람다 본문)으로 보고되길래,
+「이 줄 이전의 바인딩만 찾아서 못 잡는다」로 봤다. 뒤도 보게 고쳤더니 자기
+검사의 「선언 순서」 항목이 깨졌고, 얻은 것은 네 건뿐이었다.
+
+되돌렸다. 자기 검사가 지키던 규칙이 맞다 — 선언보다 먼저 쓰인 이름을 그
+재질로 치면 안 된다. 남은 네 건은 그 규칙의 값이고, 55건 안에 있다.
+
 ## 없는 층 — 감사가 못 보는 자리가 늘어도 초록불이었다 (2026-09-01)
 
 기하 감사들은 자기 사각지대를 스스로 보고한다. 정직한 출력이다.

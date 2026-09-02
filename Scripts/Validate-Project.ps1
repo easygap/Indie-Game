@@ -2974,7 +2974,7 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A world-projected material is stretched across the face it is on ($LASTEXITCODE)"
 	}
-	Assert-AuditBlindSpot $surfaceProjectionOutput 'unresolved=(?<count>\d+)' 490 `
+	Assert-AuditBlindSpot $surfaceProjectionOutput 'unresolved=(?<count>\d+)' 55 `
 		'호출부가 리터럴도 지역 변수도 아니라 재질을 풀지 못한 상자'
 
 	# 간판과 명판은 메시 UV를 읽는데 엔진 기본 큐브는 여섯 면이 그 UV를
@@ -2991,7 +2991,7 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A printed material is wrapped around a whole body instead of its face ($LASTEXITCODE)"
 	}
-	Assert-AuditBlindSpot $printedFacesOutput 'unresolved=(?<count>\d+)' 490 `
+	Assert-AuditBlindSpot $printedFacesOutput 'unresolved=(?<count>\d+)' 55 `
 		'인쇄 재질을 풀지 못한 상자'
 
 	# 발소리 표면 태그는 소리만 정하는 게 아니라 반향 공간까지 고른다.

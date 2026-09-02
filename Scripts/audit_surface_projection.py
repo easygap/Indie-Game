@@ -204,8 +204,14 @@ def resolve_material(bindings: list, expression: str, line: int,
     if named:
         return named.group(1)
     # 삼항이나 다른 변수로 넘긴 자리는 첫 번째로 풀리는 이름을 쓴다.
+    #
+    # 묶인 적 없는 이름은 건너뛴다. `TexMat(SnackLabels[...], A ? B : C)` 같은
+    # 식에는 함수 이름과 배열 이름과 FMath까지 섞여 있는데, 그것들이 `seen`
+    # 예산을 먼저 다 쓰면 정작 재질인 B와 C에 닿기 전에 포기하게 된다. 실제로
+    # 상자 420개가 그 이유로 검사 밖에 있었다.
+    bound_names = {binding_name for _, binding_name, _ in bindings}
     for identifier in IDENTIFIER.findall(latest[1]):
-        if identifier == name:
+        if identifier == name or identifier not in bound_names:
             continue
         resolved = resolve_material(bindings, identifier, latest[0], seen)
         if resolved:
