@@ -1538,40 +1538,57 @@ if (-not $humRow.Success) {
 	throw 'The §5.1 hum-zone row could not be read.'
 }
 $expectedRadius = [double]$humRow.Groups['radius'].Value * 100.0
+# 파일이 아니라 상수를 센다. 한 파일이 험을 둘 이상 들 수 있고, 실제로
+# 그레이박스 디렉터가 냉장고와 보일러 둘을 든다.
 $humZones = 0
 foreach ($file in @(
 	'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp',
 	'Source/IndieGame/Entity/IGNightOneBeatDirector.cpp')) {
 	$text = Read-ProjectText $file
-	$radius = [regex]::Match($text, 'HumRadius = (?<value>[0-9.]+)f;')
-	$masking = [regex]::Match($text, 'HumMasking = (?<value>[0-9.]+)f;')
-	$assertionCount++
-	if (-not $radius.Success -or -not $masking.Success) {
-		throw "A §5.1 hum zone lost its radius or masking: $file"
-	}
-	$humZones++
-	$assertionCount++
-	if ([double]$radius.Groups['value'].Value -ne $expectedRadius) {
-		throw (
-			'A hum zone reaches {0}cm but §5.1 says {1}cm.' -f
-				$radius.Groups['value'].Value, $expectedRadius)
-	}
-	$assertionCount++
-	if ([double]$masking.Groups['value'].Value -ne [double]$humRow.Groups['masking'].Value) {
-		throw (
-			'A hum zone masks {0} but §5.1 says {1}.' -f
-				$masking.Groups['value'].Value, $humRow.Groups['masking'].Value)
+	foreach ($radius in [regex]::Matches(
+		$text, '(?<name>[A-Za-z]+)HumRadius = (?<value>[0-9.]+)f;')) {
+		$humZones++
+		$masking = [regex]::Match(
+			$text, $radius.Groups['name'].Value + 'HumMasking = (?<value>[0-9.]+)f;')
+		$assertionCount++
+		if (-not $masking.Success) {
+			throw (
+				'§5.1 hum zone {0} has a radius but no masking.' -f
+					$radius.Groups['name'].Value)
+		}
+		$assertionCount++
+		if ([double]$radius.Groups['value'].Value -ne $expectedRadius) {
+			throw (
+				'{0} hum reaches {1}cm but §5.1 says {2}cm.' -f
+					$radius.Groups['name'].Value,
+					$radius.Groups['value'].Value, $expectedRadius)
+		}
+		$assertionCount++
+		if ([double]$masking.Groups['value'].Value -ne [double]$humRow.Groups['masking'].Value) {
+			throw (
+				'{0} hum masks {1} but §5.1 says {2}.' -f
+					$radius.Groups['name'].Value,
+					$masking.Groups['value'].Value, $humRow.Groups['masking'].Value)
+		}
 	}
 }
 $assertionCount++
-if ($humZones -ne 2) {
-	throw "§5.1 says two hum zones stand; found $humZones."
+if ($humZones -ne 3) {
+	throw "§5.1 says three hum zones stand; found $humZones."
 }
-# 보일러실에는 아직 없다. 문서가 그 사실을 말하고 있어야 다음 사람이
-# 「기계가 있으니 가려지겠지」로 읽지 않는다.
+# 보일러는 방이 아니라 벽장이다. 문서가 그 사실을 말하고 있어야 다음 사람이
+# §6에서 없는 방을 찾으러 가지 않는다.
 $assertionCount++
-if ($story -notmatch '4층 보일러실\(§6\)에는 아직 험 존이 없다') {
-	throw 'The §5.1 note about the boiler room was removed.'
+if ($story -notmatch '\*\*보일러는 방이 아니라 복도 벽장이다\.\*\*') {
+	throw 'The §5.1 note about the boiler cupboard was removed.'
+}
+# 벽장 자리는 씬이 든다. 험이 좌표를 따로 적으면 벽장만 옮겨진다.
+$boilerGreybox = Read-ProjectText `
+	'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
+$assertionCount++
+if ($boilerGreybox -notmatch
+	'AIGPrologueWorldScene::GetBoilerCupboardLocation\(\)') {
+	throw 'The boiler hum stopped asking the cupboard where it stands (§5.1).'
 }
 
 # 험은 기계를 따라다녀야 한다. 냉장고 좌표가 두 벌이면 하나만 움직인다 —

@@ -66,6 +66,12 @@ namespace IGListenerGreybox
 	constexpr float FridgeHumRadius = 200.0f;
 	constexpr float FridgeHumMasking = 0.2f;
 
+	// §5.1의 세 번째 험. 복도 동쪽 끝 설비 벽장이고, 자리는 벽장에게 묻는다.
+	// 반경과 마스킹은 다른 둘과 같아야 한다 — 기계마다 다르면 플레이어가
+	// 배운 「기계 옆이 안전하다」가 기계마다 다른 규칙이 된다.
+	constexpr float BoilerHumRadius = 200.0f;
+	constexpr float BoilerHumMasking = 0.2f;
+
 	constexpr float SetupRetryIntervalSeconds = 0.3f;
 	constexpr float SetupGiveUpSeconds = 6.0f;
 	constexpr float ProbePollSeconds = 0.25f;
@@ -216,17 +222,21 @@ void AIGListenerGreyboxDirector::DestroyPartialStage()
 	ArrivalRoofLock = nullptr;
 
 	// 험은 액터가 아니라 구독이다. 지우지 않으면 시도마다 하나씩 쌓인다.
-	if (FridgeHumHandle != INDEX_NONE)
+	if (UWorld* World = GetWorld())
 	{
-		if (UWorld* World = GetWorld())
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
-			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+			for (int32* Handle : {&FridgeHumHandle, &BoilerHumHandle})
 			{
-				Noise->UnregisterHumSource(FridgeHumHandle);
+				if (*Handle != INDEX_NONE)
+				{
+					Noise->UnregisterHumSource(*Handle);
+				}
 			}
 		}
-		FridgeHumHandle = INDEX_NONE;
 	}
+	FridgeHumHandle = INDEX_NONE;
+	BoilerHumHandle = INDEX_NONE;
 }
 
 bool AIGListenerGreyboxDirector::SetupStage()
@@ -322,6 +332,10 @@ bool AIGListenerGreyboxDirector::SetupStage()
 			+ FVector(0.0f, 0.0f, IGListenerGreybox::FridgeHumHeightOffset),
 		IGListenerGreybox::FridgeHumRadius,
 		IGListenerGreybox::FridgeHumMasking);
+	BoilerHumHandle = NoiseSubsystem->RegisterHumSource(
+		AIGPrologueWorldScene::GetBoilerCupboardLocation(),
+		IGListenerGreybox::BoilerHumRadius,
+		IGListenerGreybox::BoilerHumMasking);
 
 	// A resumed session hands the pursuer back at the impatience it had earned.
 	if (const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())

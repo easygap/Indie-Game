@@ -260,6 +260,9 @@ private:
 	/** 404 냉장고 험. 실패한 시도가 남긴 것을 걷어 낼 수 있어야 한다. */
 	int32 FridgeHumHandle = INDEX_NONE;
 
+	/** 복도 동쪽 끝 설비 벽장의 험. 위와 같은 이유로 손잡이를 든다. */
+	int32 BoilerHumHandle = INDEX_NONE;
+
 	/**
 	 * 지난 시도가 만들다 만 것을 치운다.
 	 *

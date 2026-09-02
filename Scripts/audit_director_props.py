@@ -115,14 +115,24 @@ AUTHORED_SIZE_IDIOM = re.compile(
 # RAW_SCALE 계열의 자리를 풀 수 있게 되면서 처음 보였다. 둘 다 벽에 붙은
 # 장식 상호작용물이고, 벽 장식과 어느 쪽이 물러나야 하는지는 화면에서 정할
 # 일이다.
+#
+# 키는 소품 이름이다. 줄 번호로 잡았더니 그 위에 코드를 한 줄 넣는 것만으로
+# 목록이 어긋났고, 같은 겹침이 「더 이상 안 걸린다」와 「발견」을 동시에
+# 말했다.
 CARRIED_OVERLAPS = {
-    "Source/IndieGame/Core/IGPrologueWorldScene.cpp:6412":
+    "BathroomDoor":
         "화장실 문짝(70x5x200)이 벽걸이 에어컨과 현관 장식에 걸린다."
         " 문 윗단과 에어컨 아랫단이 17.5 cm 겹친다",
-    "Source/IndieGame/Core/IGPrologueWorldScene.cpp:6423":
+    "Window":
         "창문 장식판이 창틀 가로대·세로대와 같은 자리를 쓴다."
         " 창틀 안에 끼우려던 것인지 창틀을 대신하려던 것인지 화면에서 정한다",
 }
+
+
+def carried_owner(finding) -> str | None:
+    """발견이 미결로 적어 둔 소품의 것인지 본다. 상세의 첫 낱말이 이름이다."""
+    name = finding.detail.split("이 ", 1)[0].strip()
+    return name if name in CARRIED_OVERLAPS else None
 
 
 @dataclass(frozen=True)
@@ -903,9 +913,10 @@ def main(argv=None) -> int:
      placed, unplaced, mesh_count) = run(PROJECT_ROOT)
     # 미결로 적어 둔 자리의 발견은 실패로 세지 않는다. 대신 매번 화면에 남고,
     # 목록에만 남아 있고 실제로는 안 걸리는 항목도 실패로 본다.
-    carried_seen = {f.site for f in findings if f.site in CARRIED_OVERLAPS}
+    carried_seen = {
+        owner for owner in (carried_owner(f) for f in findings) if owner}
     stale_carried = set(CARRIED_OVERLAPS) - carried_seen
-    findings = [f for f in findings if f.site not in CARRIED_OVERLAPS]
+    findings = [f for f in findings if carried_owner(f) is None]
 
     if arguments.json:
         print(json.dumps({
@@ -940,10 +951,10 @@ def main(argv=None) -> int:
             # 침묵하지 않는다. 대조하지 못한 자리는 통과가 아니라 미검사다.
             print(f"  대조하지 못한 호출부 {unresolved}건 — 이 호출부를 만든 "
                   f"SpawnActor<>를 같은 파일에서 찾지 못했다")
-        for site in sorted(carried_seen):
-            print(f"  미결 {site}\n       {CARRIED_OVERLAPS[site]}")
-        for site in sorted(set(CARRIED_OVERLAPS) - carried_seen):
-            print(f"  미결 목록의 {site} 은(는) 더 이상 걸리지 않는다. 지워라")
+        for owner in sorted(carried_seen):
+            print(f"  미결 {owner}\n       {CARRIED_OVERLAPS[owner]}")
+        for owner in sorted(set(CARRIED_OVERLAPS) - carried_seen):
+            print(f"  미결 목록의 {owner} 은(는) 더 이상 걸리지 않는다. 지워라")
         if stale_carried:
             return 1
         if not findings:

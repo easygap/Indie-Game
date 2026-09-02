@@ -128,6 +128,11 @@ namespace IGPrologueWorld
 	// 401호 안, 북향 강철 현관문 뒤. 챕터 1의 기도 라디오와 챕터 2의
 	// 401 라디오가 같은 물건이라 자리도 하나다.
 	const FVector Radio401Location(-150.0f, -174.0f, 1028.0f);
+	// 설비 벽장 앞면. 분전반 문짝(-229.2)보다 조금 더 복도로 나온다 —
+	// 보일러는 분전반보다 두껍다.
+	constexpr float BoilerCupboardX = 580.0f;
+	constexpr float BoilerCupboardZ = 150.0f;
+	constexpr float BoilerCupboardFaceY = -240.0f;
 	const FVector HomeDoorLocation(
 		AIGPrologueWorldScene::HomeDoorX,
 		AIGPrologueWorldScene::HomeDoorY,
@@ -2923,6 +2928,30 @@ void AIGPrologueWorldScene::BuildCorridor()
 		FVector(-90, -229.2f, 180), FVector(35, 1.2f, 51),
 		TexMat(TEXT("M_MeterBox"), Metal), false);
 	CreateBlock(FVector(-75, -228.6f, 180), FVector(3, 1.5f, 6), PlasticDarkMaterial, false);
+
+	// 동쪽 끝 설비 벽장. §5.1의 세 번째 험이 여기서 난다 — 복도의 엄폐가
+	// 서쪽 분전반 하나뿐이라 동쪽 절반이 통째로 비어 있었다. 문도 창도 없는
+	// X 475~690 구간이라 402호 문선과도 엘리베이터 문틀과도 안 겹친다.
+	//
+	// 방이 아니라 벽장인 것은 §6에 4층 보일러실이라는 공간이 없기 때문이다.
+	// 배관 샤프트 설명에 이름이 한 번 나올 뿐이고, 없는 방을 새로 지어
+	// 붙이면 §1이 지키는 동선 축이 흔들린다.
+	// 값은 이 파일의 이름공간에 있다. 기하 감사가 호출부의 리터럴과 이
+	// 파일의 상수만 풀기 때문이다 — 헤더의 클래스 상수로 두었더니 세 상자가
+	// 감사 밖으로 빠져 사각지대가 56에서 59로 늘었고 검증기가 잡았다.
+	const float CupboardX = IGPrologueWorld::BoilerCupboardX;
+	const float CupboardZ = IGPrologueWorld::BoilerCupboardZ;
+	CreateBlock(
+		FVector(CupboardX, -234.0f, CupboardZ),
+		FVector(62, 12, 92), Metal, false);
+	CreateBlock(
+		FVector(CupboardX, -239.4f, CupboardZ),
+		FVector(60, 1.2f, 90), Metal, false);
+	// 손잡이는 문짝 오른쪽. 분전반과 같은 높이에 두어 복도의 금속이 한 줄로
+	// 읽힌다.
+	CreateBlock(
+		FVector(CupboardX + 24.0f, -240.4f, 180),
+		FVector(3, 1.5f, 6), PlasticDarkMaterial, false);
 	CreatePrintedBlock(
 		FVector(236, -371, 140), FVector(26, 9, 34),
 		SnackRedMaterial,
@@ -4412,6 +4441,16 @@ FVector AIGPrologueWorldScene::GetCorridorExtinguisherLocation() const
 	return CorridorExtinguisher
 		? CorridorExtinguisher->GetComponentLocation()
 		: GetActorTransform().TransformPosition(FVector(232.0f, -364.0f, 926.0f));
+}
+
+FVector AIGPrologueWorldScene::GetBoilerCupboardLocation()
+{
+	// 벽장 앞면에서 복도 쪽으로 조금 나온 자리. 험은 기계에서 나오지
+	// 벽 속에서 나오지 않는다.
+	return FVector(
+		IGPrologueWorld::BoilerCupboardX,
+		IGPrologueWorld::BoilerCupboardFaceY,
+		IGPrologueWorld::FourthFloorZ + IGPrologueWorld::BoilerCupboardZ);
 }
 
 FVector AIGPrologueWorldScene::GetRadio401Location()
