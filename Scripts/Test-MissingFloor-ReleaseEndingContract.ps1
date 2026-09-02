@@ -121,6 +121,37 @@ Assert-ContainsAll $nightFourHeader @(
 	'CompleteFailurePresentationForProbe()',
 	'IsFailureRetryEnabled()'
 ) 'Ending C director header'
+# §34.3 타임라인의 나머지 둘은 HUD에 있다. 사진과 요약이 밀리기 시작하는
+# 시각과 미는 데 걸리는 시간이고, 문서의 「3.27초 이후」는 그 둘을 더한
+# 값이다. 한쪽만 고치면 화면은 그대로인데 문서가 거짓말을 한다.
+$endingCScroll = [regex]::Match(
+	$hudSource,
+	'SmoothStep01\(\(Elapsed - (?<start>[0-9.]+)f\) / (?<span>[0-9.]+)f\)')
+if (-not $endingCScroll.Success) {
+	throw '엔딩 C 카드가 밀리는 시각을 읽지 못했다 (§34.3)'
+}
+$endingCStart = [double]$endingCScroll.Groups['start'].Value
+$endingCSpan = [double]$endingCScroll.Groups['span'].Value
+$endingCReveal = [math]::Round($endingCStart + $endingCSpan, 2)
+if ($story -notmatch ([regex]::Escape($endingCStart.ToString('0.00')) + '초부터')) {
+	throw "§34.3이 미는 시작 시각 $endingCStart 초를 잃었다"
+}
+if ($story -notmatch ([regex]::Escape($endingCReveal.ToString('0.00')) + '초 이후')) {
+	throw "§34.3의 후기 노출 시각이 $endingCReveal 초와 어긋난다"
+}
+
+# 모션 감소는 미는 대신 끊어 붙인다. 그 시각이 시작보다 이르면 아직 안 민
+# 화면이 튀고, 완료보다 늦으면 밀린 뒤에 또 튄다.
+$endingCSnap = [regex]::Match(
+	$hudSource, 'Elapsed >= (?<at>[0-9.]+)f \? 1\.0f : 0\.0f')
+if (-not $endingCSnap.Success) {
+	throw '모션 감소에서 엔딩 C 카드가 끊어 붙는 시각을 읽지 못했다 (§34.3)'
+}
+$endingCSnapAt = [double]$endingCSnap.Groups['at'].Value
+if ($endingCSnapAt -le $endingCStart -or $endingCSnapAt -ge $endingCReveal) {
+	throw "모션 감소 전환 $endingCSnapAt 초가 $endingCStart~$endingCReveal 밖이다 (§34.3)"
+}
+
 Assert-ContainsAll $nightFourSource @(
 	'FailureCaptureSeconds = 1.2f',
 	'FailureListingDelaySeconds = 1.24f',
