@@ -1379,6 +1379,101 @@ if ([double]$crouchDeclared.Groups['value'].Value -ne [double]$crouchRow.Groups[
 			$crouchDeclared.Groups['value'].Value, $crouchRow.Groups['value'].Value)
 }
 
+# §5.1 소음표. 이 아홉 줄이 게임의 핵심 모델인데 절반만 지켜지고 있었다 —
+# 앉기·달리기·심박은 계약이 보고 문 여닫기·낙하물·두꺼비집·프로타주는
+# 아무도 안 봤다. 표 한 칸을 조용히 고치면 압박 곡선이 문서와 다른 게임이
+# 된다는 것은 §20.2 튜닝 테이블에서 이미 배운 일이다.
+$noiseSources = @{
+	Character = Read-ProjectText 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+	SwingDoor = Read-ProjectText 'Source/IndieGame/Interaction/IGSwingDoor.h'
+	NightOne = Read-ProjectText 'Source/IndieGame/Entity/IGNightOneBeatDirector.cpp'
+	PuzzleOne = Read-ProjectText `
+		'Source/IndieGame/Entity/IGMissingFloorPuzzleOneDirector.cpp'
+	PuzzleTwo = Read-ProjectText `
+		'Source/IndieGame/Entity/IGMissingFloorPuzzleTwoDirector.cpp'
+	NightThree = Read-ProjectText `
+		'Source/IndieGame/Entity/IGMissingFloorNightThreeDirector.cpp'
+}
+# 표의 행 → 그 값을 드는 상수. 한 행이 두 값을 적으면 상수도 둘이다.
+#
+# 문 여닫기와 정지·앉아 이동은 위 블록이 이미 본다. 문은 두 값 중 어느 쪽이
+# 조용해야 하는지까지 보므로 여기로 옮기면 그 규칙이 사라진다 — 같은 값을
+# 두 군데서 보는 것이 이 저장소가 계속 고쳐 온 결함이기도 하다.
+$noiseRows = @(
+	@{ Row = '달리기'; Where = 'Character'; Names = @('SprintFootstepLoudness') },
+	@{ Row = '낙하물·부딪힘'; Where = 'NightOne'; Names = @('ImpactLoudness') },
+	@{ Row = '두꺼비집·밸브'; Where = 'PuzzleOne'; Names = @('BreakerNoiseLoudness') },
+	@{ Row = '두꺼비집·밸브'; Where = 'NightThree'; Names = @('ValveLoudness') },
+	@{ Row = '프로타주'; Where = 'PuzzleTwo'; Names = @('FrottageLoudness') }
+)
+foreach ($noiseRow in $noiseRows) {
+	$rowMatch = [regex]::Match(
+		$story,
+		'(?m)^\| ' + [regex]::Escape($noiseRow.Row) +
+			'[^|]*\| (?<values>[^|]+?) \|')
+	$assertionCount++
+	if (-not $rowMatch.Success) {
+		throw ('§5.1 소음표에서 「{0}」 행이 사라졌다.' -f $noiseRow.Row)
+	}
+	$rowValues = @(
+		[regex]::Matches($rowMatch.Groups['values'].Value, '[0-9]+(?:\.[0-9]+)?') |
+			ForEach-Object { [double]$_.Value })
+	$assertionCount++
+	if ($rowValues.Count -lt $noiseRow.Names.Count) {
+		throw (
+			'§5.1의 「{0}」 행이 값 {1}개를 적었는데 코드는 {2}개를 든다.' -f
+				$noiseRow.Row, $rowValues.Count, $noiseRow.Names.Count)
+	}
+	for ($nameIndex = 0; $nameIndex -lt $noiseRow.Names.Count; $nameIndex++) {
+		$constantName = $noiseRow.Names[$nameIndex]
+		$constant = [regex]::Match(
+			$noiseSources[$noiseRow.Where],
+			'\b' + $constantName + ' = (?<value>[0-9.]+)f;')
+		$assertionCount++
+		if (-not $constant.Success) {
+			throw ('§5.1의 「{0}」을 드는 {1}을 찾지 못했다.' -f
+				$noiseRow.Row, $constantName)
+		}
+		$assertionCount++
+		if ([double]$constant.Groups['value'].Value -ne $rowValues[$nameIndex]) {
+			throw (
+				'§5.1의 「{0}」은 {1}인데 {2}은 {3}이다.' -f
+					$noiseRow.Row, $rowValues[$nameIndex], $constantName,
+					$constant.Groups['value'].Value)
+		}
+	}
+}
+# 걷기만 코드가 밴드다. 표의 한 값이 그 안에 있어야 한다 — 표면마다 다른
+# 발소리를 한 줄로 적은 것이라 밖으로 나가면 표가 거짓말이 된다.
+$walkRow = [regex]::Match($story, '(?m)^\| 걷기 \| (?<value>[0-9.]+) \|')
+$assertionCount++
+if (-not $walkRow.Success) {
+	throw '§5.1 소음표에서 걷기 행이 사라졌다.'
+}
+$walkStated = [double]$walkRow.Groups['value'].Value
+$walkLow = [regex]::Match(
+	$noiseSources['Character'], 'MinimumFootstepLoudness = (?<value>[0-9.]+)f;')
+$walkHigh = [regex]::Match(
+	$noiseSources['Character'], 'MaximumFootstepLoudness = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $walkLow.Success -or -not $walkHigh.Success) {
+	throw '걷기 발소리 밴드를 읽지 못했다 (§5.1).'
+}
+$assertionCount++
+if ($walkStated -lt [double]$walkLow.Groups['value'].Value `
+	-or $walkStated -gt [double]$walkHigh.Groups['value'].Value) {
+	throw (
+		'§5.1의 걷기 {0}이 코드 밴드({1}~{2}) 밖이다.' -f
+			$walkStated,
+			$walkLow.Groups['value'].Value,
+			$walkHigh.Groups['value'].Value)
+}
+# 서랍은 아직 없다. 값만 적고 만든 척하면 다음 사람이 찾으러 간다.
+$assertionCount++
+if ($story -notmatch '\*\*여닫는 서랍은 아직 없다\.\*\*') {
+	throw '§5.1의 서랍 행이 만들지 않았다는 사실을 잃었다.'
+}
+
 # 험 존: 반경 2m, 마스킹 0.2. 지금 서 있는 둘이 같은 값을 써야 한다.
 $humRow = [regex]::Match(
 	$story, '험 존\(반경 (?<radius>[0-9]+)m\)은 소음을 -(?<masking>[0-9.]+) 마스킹한다')
