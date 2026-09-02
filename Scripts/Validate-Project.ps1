@@ -452,6 +452,35 @@ foreach ($header in $headers) {
     }
 }
 
+# 감사들은 못 보는 자리를 스스로 보고한다. 그 숫자가 늘어나는 것은 검사가
+# 조용히 눈이 머는 것인데, findings=0은 그대로라 화면에서 구분되지 않는다.
+# 지금 값을 천장으로 박아 두고 넘으면 막는다. 줄었으면 천장도 같이 내린다 —
+# 낡은 천장은 「여기까지는 못 봐도 된다」로 읽힌다.
+function Assert-AuditBlindSpot {
+	param(
+		[Parameter(Mandatory = $true)][AllowNull()]$Output,
+		[Parameter(Mandatory = $true)][string]$Pattern,
+		[Parameter(Mandatory = $true)][int]$Ceiling,
+		[Parameter(Mandatory = $true)][string]$What
+	)
+	# 보고 줄이 아예 없으면 못 보는 것이 하나도 없다는 뜻이다.
+	$blindMatch = [regex]::Match(($Output | Out-String), $Pattern)
+	$blindCount = 0
+	if ($blindMatch.Success) {
+		$blindCount = [int]$blindMatch.Groups['count'].Value
+	}
+	if ($blindCount -gt $Ceiling) {
+		throw (
+			'감사가 못 보는 자리가 늘었다 — {0}: {1}건(천장 {2}건)' -f
+				$What, $blindCount, $Ceiling)
+	}
+	if ($blindCount -lt $Ceiling) {
+		throw (
+			'감사가 더 많이 보게 됐다 — {0}: {1}건. 천장을 {1}로 내려라(지금 {2})' -f
+				$What, $blindCount, $Ceiling)
+	}
+}
+
 $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
 $koreanSourceFilesWithoutBom = @(
 	# -Include with -LiteralPath is provider-dependent and has admitted binary
@@ -2921,10 +2950,15 @@ if ($python) {
 		throw "Director prop audit self-test failed ($LASTEXITCODE)"
 	}
 
-	& $python.Source $directorProps --check
+	$directorPropsOutput = & $python.Source $directorProps --check
+	$directorPropsOutput | ForEach-Object { Write-Host $_ }
 	if ($LASTEXITCODE -ne 0) {
 		throw "A director-spawned prop is not configured to contract ($LASTEXITCODE)"
 	}
+	Assert-AuditBlindSpot $directorPropsOutput '자리를 풀지 못한 소품 (?<count>\d+)건' 2 `
+		'크기나 좌표가 리터럴이 아니라 자리를 풀지 못한 소품'
+	Assert-AuditBlindSpot $directorPropsOutput '대조하지 못한 호출부 (?<count>\d+)건' 7 `
+		'SpawnActor를 같은 파일에서 찾지 못해 대조 못 한 호출부'
 
 	# 건축 재질은 월드 좌표를 읽으므로 축이 맞는 면에서만 무늬가 변한다.
 	# 이름도 자리도 크기도 맞는데 면의 방향 하나가 어긋나면 그 면 전체가
@@ -2935,10 +2969,13 @@ if ($python) {
 		throw "Surface projection audit self-test failed ($LASTEXITCODE)"
 	}
 
-	& $python.Source $surfaceProjection --check
+	$surfaceProjectionOutput = & $python.Source $surfaceProjection --check
+	$surfaceProjectionOutput | ForEach-Object { Write-Host $_ }
 	if ($LASTEXITCODE -ne 0) {
 		throw "A world-projected material is stretched across the face it is on ($LASTEXITCODE)"
 	}
+	Assert-AuditBlindSpot $surfaceProjectionOutput 'unresolved=(?<count>\d+)' 490 `
+		'호출부가 리터럴도 지역 변수도 아니라 재질을 풀지 못한 상자'
 
 	# 간판과 명판은 메시 UV를 읽는데 엔진 기본 큐브는 여섯 면이 그 UV를
 	# 나눠 쓴다. 두께가 있는 몸통에 인쇄를 통째로 주면 옆면에도 같은 그림이
@@ -2949,10 +2986,13 @@ if ($python) {
 		throw "Printed face audit self-test failed ($LASTEXITCODE)"
 	}
 
-	& $python.Source $printedFaces --check
+	$printedFacesOutput = & $python.Source $printedFaces --check
+	$printedFacesOutput | ForEach-Object { Write-Host $_ }
 	if ($LASTEXITCODE -ne 0) {
 		throw "A printed material is wrapped around a whole body instead of its face ($LASTEXITCODE)"
 	}
+	Assert-AuditBlindSpot $printedFacesOutput 'unresolved=(?<count>\d+)' 490 `
+		'인쇄 재질을 풀지 못한 상자'
 
 	# 발소리 표면 태그는 소리만 정하는 게 아니라 반향 공간까지 고른다.
 	# 옥상 슬래브 하나가 태그를 빼먹으면 탁 트인 옥상이 복도로 울린다.
