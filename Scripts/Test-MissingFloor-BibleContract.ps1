@@ -851,6 +851,36 @@ foreach ($hudText in $hudTexts) {
 	}
 }
 
+# §19.2와 §19.5도 같은 자로 잰다. 저널에 검색을 붙이는 사람은 `JournalSearch`
+# 라고 이름 짓지 않고, 실패 화면을 만드는 사람은 `RetryButton`이라고 짓지
+# 않는다. 화면에 나가는 말을 본다.
+#
+# 「사망」과 「실패」는 일부러 뺐다. 이 게임에는 시신 발견과 신고가 있고 저장
+# 실패 피드백도 있다 — 서사가 정당하게 쓸 말을 금지하면 다음 사람이 검사를
+# 피하려고 문장을 비튼다.
+#
+# 「다시 시작」도 안 막는다. 엔딩 C가 「밤 4를 다시 시작할 수 있다」라고
+# 말하는 것과 「재시도」 버튼을 다는 것의 차이가 §19.5의 전부다.
+$forbiddenWords = @(
+	@{ Word = '검색'; Section = '19.2'; Why = '저널이 체크리스트가 된다' },
+	@{ Word = '필터'; Section = '19.2'; Why = '저널이 체크리스트가 된다' },
+	@{ Word = '미확인'; Section = '19.2'; Why = '빈칸을 보여 주면 세계가 목록이 된다' },
+	@{ Word = '게임 오버'; Section = '19.5'; Why = '리셋은 실패가 아니다' },
+	@{ Word = '게임오버'; Section = '19.5'; Why = '리셋은 실패가 아니다' },
+	@{ Word = '재시도'; Section = '19.5'; Why = '리셋은 실패가 아니다' },
+	@{ Word = '다시 시도'; Section = '19.5'; Why = '리셋은 실패가 아니다' })
+foreach ($hudText in $hudTexts) {
+	$drawn = $hudText.Groups['body'].Value
+	foreach ($forbidden in $forbiddenWords) {
+		$assertionCount++
+		if ($drawn.Contains($forbidden.Word)) {
+			throw (
+				'§{0}이 금지하는 말이 화면에 나간다 — {1}: 「{2}」 ({3})' -f
+					$forbidden.Section, $forbidden.Why, $forbidden.Word, $drawn)
+		}
+	}
+}
+
 # 화면에 생기면 안 되는 것들. 이름이 하나라도 나타나면 표가 거짓이 된다.
 foreach ($banned in @(
 	@{ Symbol = 'DrawLoadingScreen'; Row = '로딩 화면' },
