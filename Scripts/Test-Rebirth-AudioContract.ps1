@@ -514,7 +514,14 @@ if ($takeBody -notmatch '(?s)if \(Sound\.bSuppressed\)\s*\{[^}]*continue;') {
 }
 $assertions++
 # 폰 스피커에는 저역이 없다. 노크가 사는 58~80Hz는 애초에 통과하지 못한다.
-foreach ($band in [regex]::Matches($takeBody, 'TakeNotes\.Add\(\{\s*[^,]+,\s*[^,]+,\s*([0-9.]+)f,')) {
+$takeBands = [regex]::Matches($takeBody, 'TakeNotes\.Add\(\{\s*[^,]+,\s*[^,]+,\s*([0-9.]+)f,')
+# 한 음도 못 잡으면 아래 반복문이 한 번도 안 돌고, 이 블록은 아무것도
+# 지키지 않은 채 통과한다. 노트 표기가 바뀌는 것만으로 그렇게 된다.
+if ($takeBands.Count -lt 3) {
+	throw "녹음 재생의 노트를 $($takeBands.Count)개만 읽었다. 대역을 볼 수 없다."
+}
+$assertions++
+foreach ($band in $takeBands) {
 	if ([double]$band.Groups[1].Value -lt 400.0) {
 		throw "폰 스피커 재생에 저역이 들어갔다: $($band.Groups[1].Value) Hz"
 	}
@@ -885,7 +892,12 @@ if ($rubBody -notmatch 'ConfigureNotes\(MoveTemp\(RubNotes\), true') {
 	throw '프로타주는 홀드 내내 이어져야 하므로 루프다.'
 }
 $assertions++
-foreach ($band in [regex]::Matches($rubBody, 'RubNotes\.Add\(\{\s*[^,]+,\s*[0-9.]+f,\s*([0-9.]+)f,')) {
+$rubBands = [regex]::Matches($rubBody, 'RubNotes\.Add\(\{\s*[^,]+,\s*[0-9.]+f,\s*([0-9.]+)f,')
+if ($rubBands.Count -lt 2) {
+	throw "프로타주의 노트를 $($rubBands.Count)개만 읽었다. 대역을 볼 수 없다."
+}
+$assertions++
+foreach ($band in $rubBands) {
 	$value = [double]$band.Groups[1].Value
 	if ($value -lt 900.0 -or $value -gt 4200.0) {
 		throw "프로타주 대역은 900~4200Hz 안에 있어야 한다: $value Hz"
@@ -927,7 +939,12 @@ if ($audibleBody -notmatch '\* 0\.5f') {
 $assertions++
 # 220Hz 로우패스는 가산 합성에서 상위 부분음 제거로 실현된다. 88Hz가 남아
 # 있으면 또렷한 심박이 그대로 방에 나가 전이가 들리지 않는다.
-foreach ($partial in [regex]::Matches($audibleBody, 'Beat\.Add\(\{\s*[0-9.]+f,\s*[0-9.]+f,\s*([0-9.]+)f,')) {
+$audiblePartials = [regex]::Matches($audibleBody, 'Beat\.Add\(\{\s*[0-9.]+f,\s*[0-9.]+f,\s*([0-9.]+)f,')
+if ($audiblePartials.Count -lt 2) {
+	throw "심박 소음화의 부분음을 $($audiblePartials.Count)개만 읽었다. 상한을 볼 수 없다."
+}
+$assertions++
+foreach ($partial in $audiblePartials) {
 	if ([double]$partial.Groups[1].Value -gt 220.0) {
 		throw ('심박 소음화는 220Hz 위를 남기지 않는다: ' +
 			"$($partial.Groups[1].Value) Hz")
