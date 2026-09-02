@@ -152,6 +152,7 @@ $requiredFiles = @(
 	'Scripts/Run-MissingFloor-SettingsPreview.ps1',
 	'Scripts/Test-Rebirth-NarrativeContract.ps1',
 	'Scripts/Test-Rebirth-ItemContinuityContract.ps1',
+	'Scripts/Test-Rebirth-EvidenceContract.ps1',
 	'Scripts/Test-Rebirth-ChapterTwoTimeEntryContract.ps1',
 	'Scripts/Test-Rebirth-AudioContract.ps1',
 	'Scripts/Test-Rebirth-AccessibilityContract.ps1',
@@ -178,6 +179,7 @@ $requiredFiles = @(
 	'Scripts/Run-MissingFloor-EndingPreview.ps1',
 	'Scripts/Test-MissingFloor-M6AudioVisualContract.ps1',
 	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1',
+	'Scripts/Test-MissingFloor-M8DifficultyContract.ps1',
 	'Scripts/Test-MissingFloor-M65AudioCalibrationContract.ps1',
 	'Scripts/Test-MissingFloor-M3CctvChannelContract.ps1',
 	'Scripts/Test-MissingFloor-M3DoorBeatContract.ps1',
@@ -548,6 +550,23 @@ if ($mixedLineEndingFiles.Count -gt 0) {
 	throw (
 		'Line endings are mixed inside these files: {0}' -f
 			($mixedLineEndingFiles -join ', '))
+}
+
+# 파일만 있고 아무도 안 부르는 계약. M8 난이도(108개 단언)와 REBIRTH 증거
+# (113개)가 그랬다 — 통과도 하는데 검증기가 부르질 않아 그냥 안 돌고 있었다.
+# 저장소 목록에는 계약이 있고, 화면에서는 「본다」와 구분되지 않는다.
+$registeredChecks = Get-Content -Raw -Encoding UTF8 -LiteralPath $PSCommandPath
+$unregisteredChecks = @(
+	Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Scripts') -File |
+		Where-Object {
+			($_.Name -like 'Test-*.ps1') -or ($_.Name -like 'audit_*.py')
+		} |
+		Where-Object { -not $registeredChecks.Contains($_.Name) } |
+		ForEach-Object { $_.Name })
+if ($unregisteredChecks.Count -gt 0) {
+	throw (
+		'검증기가 부르지 않는 검사가 있다: {0}' -f
+			($unregisteredChecks -join ', '))
 }
 
 # 그레이박스 셋업은 액터를 열다섯 개 순서대로 세우고 중간 어디서든 false로
@@ -2762,6 +2781,10 @@ $itemContinuityContractScript = Join-Path $projectRoot `
 	'Scripts/Test-Rebirth-ItemContinuityContract.ps1'
 & $itemContinuityContractScript
 
+$rebirthEvidenceContractScript = Join-Path $projectRoot `
+	'Scripts/Test-Rebirth-EvidenceContract.ps1'
+& $rebirthEvidenceContractScript
+
 $chapterTwoTimeEntryContractScript = Join-Path $projectRoot `
 	'Scripts/Test-Rebirth-ChapterTwoTimeEntryContract.ps1'
 & $chapterTwoTimeEntryContractScript
@@ -2841,6 +2864,12 @@ $missingFloorM6AudioVisualContractScript = Join-Path $projectRoot `
 $missingFloorM65MercyNoteContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M65MercyNoteContract.ps1'
 & $missingFloorM65MercyNoteContractScript
+
+# §20 난이도 네 모드와 자비 안전망. 파일은 있었는데 아무도 부르지
+# 않아서 108개 단언이 그냥 안 돌고 있었다.
+$missingFloorM8DifficultyContractScript = Join-Path $projectRoot `
+	'Scripts/Test-MissingFloor-M8DifficultyContract.ps1'
+& $missingFloorM8DifficultyContractScript
 
 $missingFloorM65AudioCalibrationContractScript = Join-Path $projectRoot `
 	'Scripts/Test-MissingFloor-M65AudioCalibrationContract.ps1'
