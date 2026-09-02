@@ -870,11 +870,13 @@ Require-All $worldScene @(
 
 # §21.3 프로타주: 밴드 노이즈 900~4200Hz, 지속. 소음 0.25를 내는 유일한 지속
 # 상호작용이므로 유일한 지속 큐를 갖는다. 들리지 않는 비용은 선택할 수 없다.
+# 맨 float은 이 파일에 스물네 번 나온다. 밴드 끝이 어느 음에 붙는지
+# 까지 적힌 줄을 본다.
 Require-All $tone @(
 	'CreateFrottageRub(',
 	'IGFrottageRub',
-	'900.0f',
-	'4200.0f'
+	'RubNotes.Add({Start, 0.300f, 900.0f,',
+	'RubNotes.Add({Start + 0.045f, 0.270f, 4200.0f,'
 ) '§21.3 frottage synthesis'
 $rubBody = [regex]::Match(
 	$tone,

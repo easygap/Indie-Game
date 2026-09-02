@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 Set-StrictMode -Version Latest
@@ -121,8 +121,9 @@ Assert-ContainsAll $toneHeader @(
 Assert-ContainsAll $toneSource @(
 	'const float Cents = -30.0f + Strike * 2.0f',
 	'if (bResolvedEndingA)',
-	'329.63f',
-	'440.00f',
+	# 두 음은 이름이 있다. 맨 숫자로 찾으면 다른 화음에서도 걸린다.
+	'constexpr float NoteE4 = 329.63f;',
+	'constexpr float NoteA4 = 440.00f;',
 	'44.0f, 0.095f',
 	'180.0f, 0.027f',
 	'constexpr float Beat = 60.0f / 118.0f',

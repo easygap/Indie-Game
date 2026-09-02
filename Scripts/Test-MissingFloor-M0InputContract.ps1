@@ -225,9 +225,17 @@ Assert-ContainsAll $story @(
 Assert-ContainsAll $prepareArt @(
 	"Source = 'SheetFirstPersonKnockPhases_v2_RGBA'; Target = 'T_FPHandKnock0_D.png'",
 	"Source = 'SheetFirstPersonKnockPhases_v2_RGBA'; Target = 'T_FPHandKnock3_D.png'",
-	'ContentScale = 0.63',
 	"Mode = 'PreserveAlphaGreenDespill'"
 ) 'first-person sprite extraction'
+
+# 0.63은 이 파일에 네 번 나온다 — 노크 4단이 다 같은 값을 쓰기 때문이다.
+# 값만 찾으면 한 장이 다른 배율로 바뀌어도 통과한다. 장마다 짝지어 본다.
+foreach ($phase in 0..3) {
+	$knockPattern = "T_FPHandKnock$($phase)_D.png'\s*\r?\n\s*Crop = " +
+		"[^\r\n]*Size = @\(768, 768\)\s*\r?\n\s*ContentScale = 0\.63;"
+	Assert-True ($prepareArt -match $knockPattern) `
+		"first-person knock phase $phase must extract at 768 with 0.63 scale"
+}
 Assert-ContainsAll $surfaceTextures @(
 	'"T_FPHandKnock0_D"',
 	'"T_FPHandKnock3_D"',

@@ -173,9 +173,17 @@ Assert-ContainsAll $replyBlock @(
 Assert-ContainsAll $prepareArt @(
 	"Source = 'SheetListenerCaptureEmbracePhases_v1_RGBA'; Target = 'T_FPCaptureEmbrace0_D.png'",
 	"Source = 'SheetListenerCaptureEmbracePhases_v1_RGBA'; Target = 'T_FPCaptureEmbrace3_D.png'",
-	'Size = @(1024, 1024)',
 	"Mode = 'PreserveAlphaGreenDespill'"
 ) 'capture sprite extraction'
+
+# 1024 시트는 여럿이라 크기만으로는 이 스프라이트를 못 짚는다.
+# 네 장이 각각 1024로 뽑히는지 대상 이름과 짝지어 본다.
+foreach ($phase in 0..3) {
+	$sizePattern = "T_FPCaptureEmbrace$($phase)_D.png'\s*\r?\n\s*" +
+		"Crop = [^\r\n]*Size = @\(1024, 1024\)"
+	Assert-True ($prepareArt -match $sizePattern) `
+		"capture embrace phase $phase must extract at 1024"
+}
 Assert-ContainsAll $surfaceTextures @(
 	'"T_FPCaptureEmbrace0_D"',
 	'"T_FPCaptureEmbrace3_D"',
