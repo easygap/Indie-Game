@@ -186,6 +186,22 @@ def resolve_material(bindings: list, expression: str, line: int,
 
     name = expression.strip()
     if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
+        # `TexMat(이름, 폴백)`에서 재질을 정하는 것은 첫 인자다. 그것이
+        # 리터럴이 아니면 어느 재질인지 정말 알 수 없다 — 폴백으로 대신
+        # 답하면 그 자리에 없는 매핑을 보고하게 된다.
+        if name.startswith("TexMat("):
+            return None
+        # 호출부에 삼항을 그대로 적은 자리. 바인딩의 오른쪽 식과 같은 규칙으로
+        # 푼다 — 첫 번째로 풀리는 이름을 쓴다. 한쪽 가지만 보는 셈이지만,
+        # 아무것도 안 보는 것보다 낫다.
+        seen = set() if seen is None else seen
+        bound_names = {binding_name for _, binding_name, _ in bindings}
+        for identifier in IDENTIFIER.findall(name):
+            if identifier not in bound_names:
+                continue
+            resolved = resolve_material(bindings, identifier, line, seen)
+            if resolved:
+                return resolved
         return None
 
     seen = set() if seen is None else seen
