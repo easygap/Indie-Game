@@ -2955,7 +2955,7 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A director-spawned prop is not configured to contract ($LASTEXITCODE)"
 	}
-	Assert-AuditBlindSpot $directorPropsOutput '자리를 풀지 못한 소품 (?<count>\d+)건' 2 `
+	Assert-AuditBlindSpot $directorPropsOutput '자리를 풀지 못한 소품 (?<count>\d+)건' 0 `
 		'크기나 좌표가 리터럴이 아니라 자리를 풀지 못한 소품'
 	Assert-AuditBlindSpot $directorPropsOutput '대조하지 못한 호출부 (?<count>\d+)건' 0 `
 		'SpawnActor를 같은 파일에서 찾지 못해 대조 못 한 호출부'
