@@ -1582,6 +1582,120 @@ $assertionCount++
 if ($story -notmatch '\*\*보일러는 방이 아니라 복도 벽장이다\.\*\*') {
 	throw 'The §5.1 note about the boiler cupboard was removed.'
 }
+# §4.3 규칙 7의 「최대 3」. 코드 다섯 군데가 각자 맨 숫자로 적고 있어서
+# 한 군데만 고쳐도 컴파일이 되고, 대기 시간 표는 티어로 색인하니 상한이
+# 표보다 커지면 배열 밖을 읽는다. 문서가 말한 수를 세 곳이 같이 쓰는지 본다.
+$rule7 = [regex]::Match($story, '공격성 티어 \+1, 최대 (?<max>\d+)\)')
+$assertionCount++
+if (-not $rule7.Success) {
+	throw 'The §4.3 rule 7 aggression cap could not be read.'
+}
+$aggressionMax = [int]$rule7.Groups['max'].Value
+foreach ($file in @(
+	'Source/IndieGame/Entity/IGListenerEntity.cpp',
+	'Source/IndieGame/Entity/IGListenerTuning.cpp',
+	'Source/IndieGame/Narrative/IGMissingFloorNarrativeSubsystem.cpp')) {
+	$text = Read-ProjectText $file
+	$clamps = [regex]::Matches(
+		$text, 'Clamp\(\s*(?:Snapshot\.Night\.)?AggressionTier[^,]*,\s*0,\s*(?<max>\d+)\)')
+	$assertionCount++
+	if ($clamps.Count -eq 0) {
+		throw "§4.3 rule 7: no aggression clamp left in $file."
+	}
+	foreach ($clamp in $clamps) {
+		$assertionCount++
+		if ([int]$clamp.Groups['max'].Value -ne $aggressionMax) {
+			throw (
+				'§4.3 rule 7 caps aggression at {0} but {1} clamps to {2}.' -f
+					$aggressionMax, $file, $clamp.Groups['max'].Value)
+		}
+	}
+}
+# 대기 시간 표는 티어로 색인한다. 상한이 3이면 자리가 넷 있어야 한다.
+$entitySource = Read-ProjectText 'Source/IndieGame/Entity/IGListenerEntity.cpp'
+$waitTable = [regex]::Match(
+	$entitySource, 'float Seconds\[(?<size>\d+)\] = \{(?<body>[^}]*)\}')
+$assertionCount++
+if (-not $waitTable.Success) {
+	throw 'The §4.3 rule 7 wait table could not be read.'
+}
+$assertionCount++
+if ([int]$waitTable.Groups['size'].Value -ne ($aggressionMax + 1)) {
+	throw (
+		'§4.3 rule 7 caps aggression at {0}, so the wait table needs {1} rows; it has {2}.' -f
+			$aggressionMax, ($aggressionMax + 1), $waitTable.Groups['size'].Value)
+}
+# 「기다림은 회차마다 짧아진다」 — 표가 올라가면 규칙이 거짓말이 된다.
+$waitSeconds = @($waitTable.Groups['body'].Value -split ',' | ForEach-Object {
+	[double]($_ -replace '[^0-9.]', '') })
+for ($i = 1; $i -lt $waitSeconds.Count; $i++) {
+	$assertionCount++
+	if ($waitSeconds[$i] -gt $waitSeconds[$i - 1]) {
+		throw (
+			'§4.3 rule 7 says the wait shortens each reset, but tier {0} waits {1}s after {2}s.' -f
+				$i, $waitSeconds[$i], $waitSeconds[$i - 1])
+	}
+}
+
+# §4.3 규칙 2는 플레이어가 배울 순서를 약속한다. 값이 전부 맞아도 순서가
+# 뒤집힐 수 있고, 실제로 뒤집혀 있었다 — 표는 달리기 0.5 낙하물 0.6인데
+# 규칙 문장은 낙하물이 먼저였다. 약속을 문서에서 읽어서 상수로 확인한다.
+$rule2 = [regex]::Match(
+	$story, '\*\*소리에는 반경이 있다\.\*\* (?<chain>[^.]+)\.')
+$assertionCount++
+if (-not $rule2.Success) {
+	throw 'The §4.3 rule 2 loudness chain could not be read.'
+}
+$loudnessOwner = @{
+	'발소리' = @{
+		File = 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+		Name = 'MaximumFootstepLoudness' }
+	'문 여닫이' = @{
+		File = 'Source/IndieGame/Interaction/IGSwingDoor.h'
+		Name = 'NormalSwingLoudness' }
+	'달리기' = @{
+		File = 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+		Name = 'SprintFootstepLoudness' }
+	'낙하물' = @{
+		File = 'Source/IndieGame/Entity/IGNightOneBeatDirector.cpp'
+		Name = 'ImpactLoudness' }
+}
+$chainTerms = @($rule2.Groups['chain'].Value -split '<' | ForEach-Object {
+	$_.Trim() })
+$assertionCount++
+if ($chainTerms.Count -lt 3) {
+	throw (
+		'§4.3 rule 2 promises an ordering of {0} things; that is not a chain.' -f
+			$chainTerms.Count)
+}
+$previousName = ''
+$previousValue = -1.0
+foreach ($term in $chainTerms) {
+	$assertionCount++
+	if (-not $loudnessOwner.ContainsKey($term)) {
+		throw (
+			'§4.3 rule 2 names "{0}", which no constant answers to.' -f $term)
+	}
+	$owner = $loudnessOwner[$term]
+	$ownerText = Read-ProjectText $owner.File
+	$match = [regex]::Match(
+		$ownerText, $owner.Name + ' = (?<value>[0-9.]+)f;')
+	$assertionCount++
+	if (-not $match.Success) {
+		throw ('{0} lost its loudness constant (§4.3 rule 2).' -f $owner.Name)
+	}
+	$value = [double]$match.Groups['value'].Value
+	$assertionCount++
+	if ($value -le $previousValue) {
+		throw (
+			'§4.3 rule 2 puts {0} above {1}, but {2}={3} and {4}={5}.' -f
+				$term, $previousName, $owner.Name, $value,
+				$previousName, $previousValue)
+	}
+	$previousName = $term
+	$previousValue = $value
+}
+
 # 험이 소리를 내는지, 그리고 그 소리가 마스킹과 같은 자리에서 같은 거리까지
 # 가는지 본다. 마스킹만 등록하고 소리를 안 내던 시절이 있었다 — 통과하는
 # 계약과 배울 수 없는 규칙이 한동안 같이 서 있었다.
