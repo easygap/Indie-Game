@@ -6,6 +6,7 @@
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
@@ -237,6 +238,17 @@ void AIGListenerGreyboxDirector::DestroyPartialStage()
 	}
 	FridgeHumHandle = INDEX_NONE;
 	BoilerHumHandle = INDEX_NONE;
+	// 소리도 같이 걷는다. 남겨 두면 다음 시도에서 같은 자리에 하나 더 얹혀
+	// 마스킹은 그대로인데 소리만 두 배가 된다.
+	for (TObjectPtr<UAudioComponent>* Loop : {&FridgeHumLoop, &BoilerHumLoop})
+	{
+		if (*Loop)
+		{
+			(*Loop)->Stop();
+			(*Loop)->DestroyComponent();
+			*Loop = nullptr;
+		}
+	}
 }
 
 bool AIGListenerGreyboxDirector::SetupStage()
@@ -327,15 +339,32 @@ bool AIGListenerGreyboxDirector::SetupStage()
 	}
 	ExpectedWakeLocation = PlayerCharacter->GetActorLocation();
 
-	FridgeHumHandle = NoiseSubsystem->RegisterHumSource(
+	// 자리를 먼저 잡아 두고 마스킹과 소리가 같은 값을 읽는다. 각자 계산하면
+	// 한쪽만 옮겨도 조용히 어긋난다.
+	const FVector FridgeHumLocation =
 		Scene->GetFridgeLocation()
-			+ FVector(0.0f, 0.0f, IGListenerGreybox::FridgeHumHeightOffset),
+			+ FVector(0.0f, 0.0f, IGListenerGreybox::FridgeHumHeightOffset);
+	FridgeHumHandle = NoiseSubsystem->RegisterHumSource(
+		FridgeHumLocation,
 		IGListenerGreybox::FridgeHumRadius,
 		IGListenerGreybox::FridgeHumMasking);
+	FridgeHumLoop = IGAudio::SpawnHumLoopAt(
+		this,
+		TEXT("GreyboxFridgeHum"),
+		FridgeHumLocation,
+		IGListenerGreybox::FridgeHumRadius);
+
+	const FVector BoilerHumLocation =
+		AIGPrologueWorldScene::GetBoilerCupboardLocation();
 	BoilerHumHandle = NoiseSubsystem->RegisterHumSource(
-		AIGPrologueWorldScene::GetBoilerCupboardLocation(),
+		BoilerHumLocation,
 		IGListenerGreybox::BoilerHumRadius,
 		IGListenerGreybox::BoilerHumMasking);
+	BoilerHumLoop = IGAudio::SpawnHumLoopAt(
+		this,
+		TEXT("GreyboxBoilerHum"),
+		BoilerHumLocation,
+		IGListenerGreybox::BoilerHumRadius);
 
 	// A resumed session hands the pursuer back at the impatience it had earned.
 	if (const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())

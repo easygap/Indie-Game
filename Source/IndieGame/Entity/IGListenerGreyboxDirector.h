@@ -263,6 +263,13 @@ private:
 	/** 복도 동쪽 끝 설비 벽장의 험. 위와 같은 이유로 손잡이를 든다. */
 	int32 BoilerHumHandle = INDEX_NONE;
 
+	/** 험 둘이 실제로 내는 소리. 마스킹과 같은 반경까지만 들린다. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> FridgeHumLoop;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> BoilerHumLoop;
+
 	/**
 	 * 지난 시도가 만들다 만 것을 치운다.
 	 *

@@ -44,6 +44,20 @@ namespace IGAudio
 		bool bForceDry = false);
 
 	/**
+	 * 험 존이 내는 소리를 그 자리에 건다.
+	 *
+	 * 마스킹 반경을 그대로 받아서 들리는 끝과 가려지는 끝을 한 값으로 맞춘다.
+	 * 둘이 어긋나면 소리는 나는데 안 가려지는 띠가 생기고, 그 띠를 밟은
+	 * 플레이어는 §5.1이 가르치려는 「기계 옆이 안전지대다」를 틀린 규칙으로
+	 * 배운다.
+	 */
+	INDIEGAME_API UAudioComponent* SpawnHumLoopAt(
+		AActor* Owner,
+		FName ComponentName,
+		const FVector& Location,
+		float MaskingRadius);
+
+	/**
 	 * Fire-and-forget spatialized one-shot. Returns the auto-destroying
 	 * component, or nullptr when the world or sound is unavailable.
 	 */

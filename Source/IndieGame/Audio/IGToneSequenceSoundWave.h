@@ -512,6 +512,15 @@ public:
 	 */
 	static UIGToneSequenceSoundWave* CreateFoamedRoomHum(UObject* Outer);
 
+	/**
+	 * 험 존이 서 있는 자리에서 도는 기계 소리.
+	 *
+	 * 냉장고·배전반·보일러가 같은 소리로 운다. 셋이 반경과 마스킹을 같이
+	 * 쓰는 것과 같은 이유다 — 기계마다 다르게 울면 규칙 하나를 배우는 데
+	 * 소리 셋을 외워야 한다.
+	 */
+	static UIGToneSequenceSoundWave* CreateMachineHumLoop(UObject* Outer);
+
 	// --- 없는 층: 엔딩 에필로그 (§9) ---------------------------------------
 
 	/**

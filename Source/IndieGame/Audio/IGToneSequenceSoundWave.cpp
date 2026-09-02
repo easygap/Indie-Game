@@ -1832,6 +1832,27 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateFoamedRoomHum(
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateMachineHumLoop(
+	UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGMachineHumLoop"));
+	constexpr float LoopSeconds = 3.60f;
+	TArray<FIGToneNote> Notes;
+	// 상용 전원 60Hz와 배음 둘. 엔딩 B가 냉장고를 이 음으로 깔아 놨으니
+	// 배전반과 보일러도 같은 배선에 물린 소리로 들린다.
+	Notes.Add({0.00f, LoopSeconds, 60.0f, 0.052f, 0.30f, 0.20f, EIGToneWaveform::Sine});
+	Notes.Add({0.00f, LoopSeconds, 120.0f, 0.026f, 0.30f, 0.22f, EIGToneWaveform::Sine});
+	Notes.Add({0.00f, LoopSeconds, 180.0f, 0.011f, 0.30f, 0.25f, EIGToneWaveform::Triangle});
+	// 압축기가 한 번 부하를 문다. 순수 사인만 깔면 기계가 아니라 이명으로
+	// 들려서 플레이어가 소리를 껐는지 의심한다.
+	Notes.Add({1.90f, 1.05f, 60.0f, 0.020f, 0.35f, 1.30f, EIGToneWaveform::Sine});
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopSeconds);
+	// 모터는 정확한 주파수로 안 돈다. 얕게 흔들어야 기계로 읽힌다.
+	Wave->ConfigurePitchWow(0.0021f, 0.07f);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePoliceLineTapePull(
 	UObject* Outer)
 {

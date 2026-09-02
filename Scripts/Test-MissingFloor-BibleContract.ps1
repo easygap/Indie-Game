@@ -1582,6 +1582,46 @@ $assertionCount++
 if ($story -notmatch '\*\*보일러는 방이 아니라 복도 벽장이다\.\*\*') {
 	throw 'The §5.1 note about the boiler cupboard was removed.'
 }
+# 험이 소리를 내는지, 그리고 그 소리가 마스킹과 같은 자리에서 같은 거리까지
+# 가는지 본다. 마스킹만 등록하고 소리를 안 내던 시절이 있었다 — 통과하는
+# 계약과 배울 수 없는 규칙이 한동안 같이 서 있었다.
+$humRegisterPattern = 'RegisterHumSource\(\s*(?<loc>[A-Za-z:_]+),\s*' +
+	'(?<radius>[A-Za-z:_]+)HumRadius,'
+$humLoopPattern = 'SpawnHumLoopAt\(\s*this,\s*TEXT\("[^"]+"\),\s*' +
+	'(?<loc>[A-Za-z:_]+),\s*(?<radius>[A-Za-z:_]+)HumRadius\)'
+foreach ($file in @(
+	'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp',
+	'Source/IndieGame/Entity/IGNightOneBeatDirector.cpp')) {
+	$text = Read-ProjectText $file
+	$registered = @([regex]::Matches($text, $humRegisterPattern) | ForEach-Object {
+		'{0}|{1}' -f $_.Groups['loc'].Value, $_.Groups['radius'].Value })
+	$sounded = @([regex]::Matches($text, $humLoopPattern) | ForEach-Object {
+		'{0}|{1}' -f $_.Groups['loc'].Value, $_.Groups['radius'].Value })
+	$assertionCount++
+	if ($registered.Count -eq 0) {
+		throw "§5.1 hum registrations became unreadable in $file."
+	}
+	$registeredKey = (($registered | Sort-Object) -join ' ')
+	$soundedKey = (($sounded | Sort-Object) -join ' ')
+	$assertionCount++
+	if ($registeredKey -ne $soundedKey) {
+		throw (
+			'§5.1 hums mask at [{0}] but sound at [{1}] in {2}.' -f
+				($registered -join ', '), ($sounded -join ', '), $file)
+	}
+}
+# 감쇠 거리는 마스킹 반경에서 빼서 쓴다. 여기에 숫자를 박으면 소리는 나는데
+# 안 가려지는 띠가 생기고, 그 띠에서 배운 규칙은 틀린 규칙이다.
+$audioHelpers = Read-ProjectText 'Source/IndieGame/Audio/IGAudioHelpers.cpp'
+$assertionCount++
+if ($audioHelpers -notmatch 'MaskingRadius - HumBodyRadius') {
+	throw 'The §5.1 hum loop stopped deriving its falloff from the masking radius.'
+}
+$assertionCount++
+if ($story -notmatch '\*\*험은 들려야 험이다\.\*\*') {
+	throw 'The §5.1 note about hums being audible was removed.'
+}
+
 # 벽장 자리는 씬이 든다. 험이 좌표를 따로 적으면 벽장만 옮겨진다.
 $boilerGreybox = Read-ProjectText `
 	'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
@@ -1603,20 +1643,28 @@ $assertionCount++
 if ($greyboxSource -match 'FridgeHumLocation\s*\(') {
 	throw 'The fridge hum took a coordinate of its own again (§5.1).'
 }
-$humCall = [regex]::Match(
-	$greyboxSource, 'RegisterHumSource\((?<args>[\s\S]{0,240}?)\);')
+# 험은 좌표를 지역 변수로 잡아 두고 마스킹과 소리가 같이 읽는다. 그 변수가
+# 어디서 나왔는지를 본다 — 등록 인자만 보면 이름 하나로 무엇이든 넣을 수 있다.
+$humBinding = [regex]::Match(
+	$greyboxSource,
+	'const FVector FridgeHumLocation =(?<expr>[\s\S]{0,200}?);')
 $assertionCount++
-if (-not $humCall.Success) {
+if (-not $humBinding.Success) {
 	throw 'The fridge hum registration could not be read.'
 }
 $assertionCount++
-if ($humCall.Groups['args'].Value -notmatch 'GetFridgeLocation\(\)') {
+if ($humBinding.Groups['expr'].Value -notmatch 'GetFridgeLocation\(\)') {
 	throw 'The fridge hum stopped asking the fridge where it stands (§5.1).'
+}
+$assertionCount++
+if ($greyboxSource -notmatch
+	'RegisterHumSource\(\s*FridgeHumLocation,') {
+	throw 'The fridge hum no longer registers at the location it bound (§5.1).'
 }
 # 높이만 험이 정한다. 기계 몸통 한가운데를 바닥에서 재는 값이라 자리와는
 # 다른 사실이다.
 $assertionCount++
-if ($humCall.Groups['args'].Value -notmatch 'FridgeHumHeightOffset') {
+if ($humBinding.Groups['expr'].Value -notmatch 'FridgeHumHeightOffset') {
 	throw 'The fridge hum lost the authored body height (§5.1).'
 }
 $assertionCount++

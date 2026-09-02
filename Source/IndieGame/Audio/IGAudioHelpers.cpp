@@ -1,6 +1,7 @@
 ﻿#include "Audio/IGAudioHelpers.h"
 
 #include "Audio/IGMissingFloorAudioSubsystem.h"
+#include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Engine/World.h"
 #include "Kismet/GameplayStatics.h"
@@ -15,6 +16,13 @@ namespace IGAudio
 		// 즉시 이 값을 읽고, 이미 울고 있는 소리는 오디오 감독이 훑어서
 		// 다시 걸어 준다.
 		EIGOutputMode ActiveOutputMode = EIGOutputMode::Headphones;
+
+		// 기계 몸통 안에서는 세기가 그대로고, 거기서부터 마스킹이 0이 되는
+		// 자리까지 떨어진다.
+		constexpr float HumBodyRadius = 25.0f;
+
+		// 험은 배경이다. 이 위로 올리면 발소리를 가리는 게 아니라 덮는다.
+		constexpr float HumVolumeMultiplier = 0.34f;
 
 		UAudioComponent* SpawnOneShotInternal(
 			const UObject* WorldContext,
@@ -89,6 +97,39 @@ namespace IGAudio
 		return ActiveOutputMode == EIGOutputMode::Headphones
 			? SPATIALIZATION_HRTF
 			: SPATIALIZATION_Default;
+	}
+
+	UAudioComponent* SpawnHumLoopAt(
+		AActor* Owner,
+		const FName ComponentName,
+		const FVector& Location,
+		const float MaskingRadius)
+	{
+		UWorld* World = Owner ? Owner->GetWorld() : nullptr;
+		if (!World || MaskingRadius <= HumBodyRadius)
+		{
+			return nullptr;
+		}
+		UAudioComponent* Component =
+			NewObject<UAudioComponent>(Owner, ComponentName);
+		Component->RegisterComponent();
+		Component->SetWorldLocation(Location);
+		Component->SetSound(
+			UIGToneSequenceSoundWave::CreateMachineHumLoop(Owner));
+		Component->AttenuationSettings = MakeAttenuation(
+			Owner,
+			HumBodyRadius,
+			MaskingRadius - HumBodyRadius,
+			EIGAudioBus::World);
+		Component->bAllowSpatialization = true;
+		Component->SetVolumeMultiplier(HumVolumeMultiplier);
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterComponent(Component, EIGAudioBus::World);
+		}
+		Component->Play();
+		return Component;
 	}
 
 	USoundAttenuation* MakeAttenuation(

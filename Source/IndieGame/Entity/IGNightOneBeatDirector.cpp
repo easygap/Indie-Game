@@ -2,6 +2,7 @@
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "Components/AudioComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
@@ -102,6 +103,13 @@ bool AIGNightOneBeatDirector::Configure(
 			IGNightOne::BreakerPanelHumLocation,
 			IGNightOne::BreakerPanelHumRadius,
 			IGNightOne::BreakerPanelHumMasking);
+		// 이 비트의 탈출구는 귀로 찾는 것이다. 배전반이 조용하면 플레이어는
+		// 여기 설 이유를 붙잡히고 나서야 안다.
+		BreakerPanelHumLoop = IGAudio::SpawnHumLoopAt(
+			this,
+			TEXT("NightOneBreakerHum"),
+			IGNightOne::BreakerPanelHumLocation,
+			IGNightOne::BreakerPanelHumRadius);
 	}
 
 	// Both zones deliberately carry no story tag: the tag would self-consume
@@ -162,6 +170,12 @@ void AIGNightOneBeatDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			}
 		}
 		BreakerPanelHumHandle = 0;
+	}
+	if (BreakerPanelHumLoop)
+	{
+		BreakerPanelHumLoop->Stop();
+		BreakerPanelHumLoop->DestroyComponent();
+		BreakerPanelHumLoop = nullptr;
 	}
 	if (bSightingStaged && !bSightingCompleted)
 	{

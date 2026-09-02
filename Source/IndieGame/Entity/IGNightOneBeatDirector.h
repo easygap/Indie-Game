@@ -89,6 +89,10 @@ private:
 	TArray<FVector> CorridorPatrolPoints;
 
 	int32 BreakerPanelHumHandle = 0;
+
+	/** 배전반이 내는 소리. 마스킹과 같은 반경까지만 들린다. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> BreakerPanelHumLoop;
 	bool bSightingStaged = false;
 	bool bSightingCompleted = false;
 	bool bExtinguisherBeatFired = false;
