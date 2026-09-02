@@ -257,6 +257,18 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UIGNoiseSubsystem> NoiseSubsystem;
 
+	/** 404 냉장고 험. 실패한 시도가 남긴 것을 걷어 낼 수 있어야 한다. */
+	int32 FridgeHumHandle = INDEX_NONE;
+
+	/**
+	 * 지난 시도가 만들다 만 것을 치운다.
+	 *
+	 * 스폰에 이름을 지정하므로 같은 이름이 살아 있으면 다음 시도의 스폰이
+	 * 실패한다. 치우지 않으면 재시도가 영영 통과하지 못한 채 6초 뒤
+	 * 「월드 씬이나 플레이어가 없다」로 끝난다.
+	 */
+	void DestroyPartialStage();
+
 	enum class EProbeStep : uint8
 	{
 		Inactive,

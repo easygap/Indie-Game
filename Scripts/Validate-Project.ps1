@@ -521,6 +521,48 @@ if ($mixedLineEndingFiles.Count -gt 0) {
 			($mixedLineEndingFiles -join ', '))
 }
 
+# 그레이박스 셋업은 액터를 열다섯 개 순서대로 세우고 중간 어디서든 false로
+# 빠진다. 빠지면 0.3초 뒤 처음부터 다시 도는데, 스폰에 이름을 지정하므로
+# 만들다 만 액터가 살아 있으면 같은 이름 때문에 다음 스폰이 실패한다. 그러면
+# 재시도가 영영 통과하지 못하고 6초 뒤 「월드 씬이나 플레이어가 없다」로
+# 끝난다 — 실제 이유와 다른 말이다.
+#
+# 그래서 세우는 목록과 치우는 목록이 같아야 한다. 새 디렉터를 하나 더 세우면
+# 여기서 걸린다.
+$greyboxStageSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp')
+$stageSetupBody = [regex]::Match(
+	$greyboxStageSource,
+	'bool AIGListenerGreyboxDirector::SetupStage\(\)\r?\n\{(?<body>[\s\S]*?)\r?\n\}')
+$stageTeardownBody = [regex]::Match(
+	$greyboxStageSource,
+	'void AIGListenerGreyboxDirector::DestroyPartialStage\(\)\r?\n\{(?<body>[\s\S]*?)\r?\n\}')
+if (-not $stageSetupBody.Success -or -not $stageTeardownBody.Success) {
+	throw 'The greybox stage setup or its teardown could not be read.'
+}
+if ($stageSetupBody.Groups['body'].Value -notmatch 'DestroyPartialStage\(\);') {
+	throw 'The greybox stage setup no longer clears what a failed attempt left behind.'
+}
+$stageSpawned = @(
+	[regex]::Matches(
+		$stageSetupBody.Groups['body'].Value,
+		'(?m)^\s*(?<name>[A-Za-z_][A-Za-z0-9_]*) = World->SpawnActor<') |
+		ForEach-Object { $_.Groups['name'].Value } |
+		Sort-Object -Unique)
+if ($stageSpawned.Count -lt 15) {
+	throw (
+		'The greybox stage setup spawns {0} actors; fifteen were authored.' -f
+			$stageSpawned.Count)
+}
+foreach ($stageActor in $stageSpawned) {
+	if ($stageTeardownBody.Groups['body'].Value -notmatch
+		('(?m)^\s*' + [regex]::Escape($stageActor) + ' = nullptr;')) {
+		throw (
+			'The greybox stage builds {0} but never clears it; a failed attempt would block the retry.' -f
+				$stageActor)
+	}
+}
+
 $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -Recurse -Include '*.h','*.cpp' |
     Select-String -Pattern 'PrimaryActorTick\.bCanEverTick\s*=\s*true'
 # Reviewed exceptions. Every entry sets bStartWithTickEnabled = false; the

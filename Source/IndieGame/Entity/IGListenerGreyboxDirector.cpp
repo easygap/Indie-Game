@@ -160,6 +160,53 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 	}
 }
 
+void AIGListenerGreyboxDirector::DestroyPartialStage()
+{
+	// 세우는 순서의 역순일 필요는 없다. 서로를 붙들고 있지 않고, 각자
+	// EndPlay에서 자기 것만 정리한다.
+	AActor* const Built[] = {
+		Entity.Get(), NightLoop.Get(), NightPhase.Get(), PuzzleOne.Get(),
+		NightOneBeats.Get(), NightTwoBeats.Get(), PuzzleTwo.Get(),
+		NightThree.Get(), Mercy.Get(), FifthDawn.Get(), Epilogue.Get(),
+		NightFour.Get(), SleepTarget.Get(), Unit401Door.Get(),
+		UsedListingNote.Get()};
+	for (AActor* Actor : Built)
+	{
+		if (IsValid(Actor))
+		{
+			Actor->Destroy();
+		}
+	}
+	Entity = nullptr;
+	NightLoop = nullptr;
+	NightPhase = nullptr;
+	PuzzleOne = nullptr;
+	NightOneBeats = nullptr;
+	NightTwoBeats = nullptr;
+	PuzzleTwo = nullptr;
+	NightThree = nullptr;
+	Mercy = nullptr;
+	FifthDawn = nullptr;
+	Epilogue = nullptr;
+	NightFour = nullptr;
+	SleepTarget = nullptr;
+	Unit401Door = nullptr;
+	UsedListingNote = nullptr;
+
+	// 험은 액터가 아니라 구독이다. 지우지 않으면 시도마다 하나씩 쌓인다.
+	if (FridgeHumHandle != INDEX_NONE)
+	{
+		if (UWorld* World = GetWorld())
+		{
+			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+			{
+				Noise->UnregisterHumSource(FridgeHumHandle);
+			}
+		}
+		FridgeHumHandle = INDEX_NONE;
+	}
+}
+
 bool AIGListenerGreyboxDirector::SetupStage()
 {
 	UWorld* World = GetWorld();
@@ -167,6 +214,10 @@ bool AIGListenerGreyboxDirector::SetupStage()
 	{
 		return false;
 	}
+
+	// 이 함수는 중간 어디서든 false로 빠진다. 빠진 자리까지 세운 것을
+	// 남겨 두면 다음 시도가 같은 이름으로 스폰하다 실패한다.
+	DestroyPartialStage();
 
 	if (!WorldScene.IsValid())
 	{
@@ -244,7 +295,7 @@ bool AIGListenerGreyboxDirector::SetupStage()
 	}
 	ExpectedWakeLocation = PlayerCharacter->GetActorLocation();
 
-	NoiseSubsystem->RegisterHumSource(
+	FridgeHumHandle = NoiseSubsystem->RegisterHumSource(
 		Scene->GetFridgeLocation()
 			+ FVector(0.0f, 0.0f, IGListenerGreybox::FridgeHumHeightOffset),
 		IGListenerGreybox::FridgeHumRadius,
