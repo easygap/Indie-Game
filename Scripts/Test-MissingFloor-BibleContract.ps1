@@ -425,6 +425,66 @@ $acceptanceDoc = Read-ProjectText 'Docs/MISSING_FLOOR_ACCEPTANCE.md'
 # 지킬 수 있는 줄이 아니다. 지켜지는 이유는 **두 파일이 서로를 모른다**는
 # 것이다 — 난이도는 사용자 설정 ini에 있고 세이브는 스냅샷이며, 어느 쪽도
 # 상대를 읽지 않는다. 그 분리가 살아 있는지를 본다.
+# §5.7 마이크 소음의 상한. §20.5는 「마이크 ON/OFF 간 소음 판정 차이가
+# §20.2를 벗어나지 않는다」고 요구하는데, 실측으로만 볼 수 있는 것은 문턱이
+# 방 소리를 제대로 무시하는지까지다. **상한이 달리기보다 낮다**는 것은
+# 숫자로 볼 수 있고, 그게 이 줄이 지키려는 균형이다.
+$characterForMic = Read-ProjectText 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
+$micBand = [regex]::Match(
+	$characterForMic,
+	'const float Loudness = FMath::Lerp\(\s*(?<floor>[0-9.]+)f,\s*(?<ceiling>[0-9.]+)f,')
+$assertionCount++
+if (-not $micBand.Success) {
+	throw 'The microphone loudness band could not be read (§5.7).'
+}
+$micFloor = [double]$micBand.Groups['floor'].Value
+$micCeiling = [double]$micBand.Groups['ceiling'].Value
+
+$sprintLoudness = [regex]::Match(
+	$characterForMic, 'constexpr float SprintFootstepLoudness = (?<value>[0-9.]+)f;')
+$walkFloorLoudness = [regex]::Match(
+	$characterForMic, 'constexpr float MinimumFootstepLoudness = (?<value>[0-9.]+)f;')
+$walkCeilingLoudness = [regex]::Match(
+	$characterForMic, 'constexpr float MaximumFootstepLoudness = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $sprintLoudness.Success -or -not $walkFloorLoudness.Success `
+	-or -not $walkCeilingLoudness.Success) {
+	throw 'The footstep loudness band could not be read (§5.1).'
+}
+
+# 마이크를 켜서 달리기보다 시끄러워질 수 있으면, 마이크 없는 플레이어가
+# 불리해진다 — §5.7이 그 반대를 약속한다.
+$assertionCount++
+if ($micCeiling -ge [double]$sprintLoudness.Groups['value'].Value) {
+	throw (
+		'마이크 상한 {0}이 달리기 {1} 이상이다. 마이크를 켜면 더 시끄러워진다 (§5.7).' -f
+			$micCeiling, $sprintLoudness.Groups['value'].Value)
+}
+# 바닥이 걷기 밴드 안에 있어야 「켜 두면 늘 들킨다」가 되지 않는다.
+$assertionCount++
+if ($micFloor -lt [double]$walkFloorLoudness.Groups['value'].Value `
+	-or $micFloor -gt [double]$walkCeilingLoudness.Groups['value'].Value) {
+	throw (
+		'마이크 바닥 {0}이 걷기 밴드({1}~{2}) 밖이다 (§5.7).' -f
+			$micFloor,
+			$walkFloorLoudness.Groups['value'].Value,
+			$walkCeilingLoudness.Groups['value'].Value)
+}
+# 쿨다운이 없으면 폴링 주기마다 보고해 발소리보다 촘촘해진다.
+$assertionCount++
+if ($characterForMic -notmatch
+	'MicrophoneReportCooldown = IGPlayerNoise::MicrophoneReportCooldownSeconds;') {
+	throw 'The microphone report cooldown was removed (§5.7).'
+}
+$assertionCount++
+if ($story -notmatch '\*\*비명이 상한인\s*\r?\n?\s*0\.35\*\*') {
+	throw 'The §5.7 microphone ceiling drifted from the code.'
+}
+$assertionCount++
+if ($story -notmatch '\*\*상한이 달리기\(0\.50\)보다 낮은 것이 이 기능의 균형점이다\.\*\*') {
+	throw 'The §5.7 reason the microphone ceiling sits below sprinting was removed.'
+}
+
 $tuningForDifficulty = Read-ProjectText 'Source/IndieGame/Entity/IGListenerTuning.cpp'
 $narrativeTypesForDifficulty = Read-ProjectText `
 	'Source/IndieGame/Narrative/IGMissingFloorNarrativeTypes.h'
