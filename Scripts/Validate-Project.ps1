@@ -3130,6 +3130,28 @@ if ($python) {
 		throw "An authored constant is written in two places ($LASTEXITCODE)"
 	}
 
+	# 합성기는 음을 그냥 더하고 ±1.0에서 자른다. 겹친 음의 합이 1을 넘으면
+	# 파형이 int16으로 굳기 전에 깎이고, 그 뒤로는 버스를 줄이든 감쇠를 걸든
+	# 되돌릴 방법이 없다.
+	$toneHeadroom = Join-Path $projectRoot 'Scripts/audit_tone_headroom.py'
+	& $python.Source $toneHeadroom --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Tone headroom audit self-test failed ($LASTEXITCODE)"
+	}
+
+	$toneHeadroomOutput = & $python.Source $toneHeadroom --check
+	$toneHeadroomOutput | ForEach-Object { Write-Host $_ }
+	if ($LASTEXITCODE -ne 0) {
+		throw "A generated waveform clips before it reaches the mix ($LASTEXITCODE)"
+	}
+
+	# 반복문 안에서 음을 만들거나 진폭이 실행 중에 정해지는 생성기는 못 읽는다.
+	# 못 읽은 것을 통과로 세지 않으니, 이 수가 늘면 판정 못 하는 파형이 늘어난
+	# 것이다.
+	Assert-AuditBlindSpot $toneHeadroomOutput `
+		'판정을 못 하는 생성기 (?<count>\d+)개' 44 `
+		'음을 다 못 읽어서 깎임 여부를 판정 못 한 생성기'
+
 	# 설계값을 맨 숫자로 찾는 계약. 3300줄 문서에서 0.6은 열일곱 번 나오므로
 	# 그런 줄은 절이 통째로 사라져도 통과한다.
 	$weakNeedles = Join-Path $projectRoot 'Scripts/audit_weak_needles.py'
