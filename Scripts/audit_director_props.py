@@ -71,9 +71,12 @@ SOURCE_ROOT = os.path.join("Source", "IndieGame")
 
 CONFIGURE_NAMES = ("Configure", "ConfigurePrototypeVisuals")
 
-# void AClass::Configure( / void AClass::ConfigurePrototypeVisuals(
+# void/bool AClass::Configure( / ...ConfigurePrototypeVisuals(
+# 디렉터의 Configure는 성공 여부를 돌려주므로 bool이다. void만 보면 그
+# 일곱은 서명을 못 읽고, 호출부가 「대조하지 못함」으로 남는다 — 무관한
+# 호출을 미검사로 세는 셈이다.
 DEFINITION_PATTERN = re.compile(
-    r"\bvoid\s+(?P<owner>A\w+)::(?P<name>"
+    r"\b(?:void|bool)\s+(?P<owner>A\w+)::(?P<name>"
     + "|".join(CONFIGURE_NAMES)
     + r")\s*\(")
 # Ptr = ...SpawnActor<AClass>(
@@ -666,8 +669,18 @@ void AFakeNote::ConfigurePrototypeVisuals(
 }
 '''
 
+# 좌표만 받는 디렉터 Configure. bool을 돌려주고 시각 인자가 없다 —
+# 서명으로 읽되 소품 설정이 아니므로 「무관」으로 세야 한다.
+SELF_TEST_STAGE = '''
+bool AFakeStageDirector::Configure(AFakeScene* Scene)
+{
+	Stage = Scene;
+	return Stage != nullptr;
+}
+'''
+
 SELF_TEST_CALLS = '''
-bool AFakeDirector::Configure()
+bool AFakeDirector::BuildStage()
 {
 	Ledger = World->SpawnActor<AFakeEvidence>(
 		AFakeEvidence::StaticClass(), FTransform(), Parameters);
@@ -711,11 +724,14 @@ def _self_test() -> int:
     sources = {
         "Fake/Evidence.cpp": SELF_TEST_EVIDENCE,
         "Fake/Note.cpp": SELF_TEST_NOTE,
+        "Fake/Stage.cpp": SELF_TEST_STAGE,
         "Fake/Director.cpp": SELF_TEST_CALLS,
     }
     signatures, non_visual = parse_signatures(sources)
     check("시그니처 수", len(signatures), 2)
-    check("시각 설정이 아닌 것", non_visual, set())
+    # bool을 돌려주는 Configure도 읽는다. 시각 인자가 없으면 서명이 아니라
+    # 「무관」이다 — 그 호출부를 미검사로 세면 사각지대가 부풀어 보인다.
+    check("시각 설정이 아닌 것", non_visual, {("AFakeStageDirector", "Configure")})
 
     evidence = signatures[("AFakeEvidence", "Configure")]
     check("바운드 계열 분류", evidence.semantics, TARGET_BOUNDS)

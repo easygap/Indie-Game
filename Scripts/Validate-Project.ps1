@@ -2957,7 +2957,7 @@ if ($python) {
 	}
 	Assert-AuditBlindSpot $directorPropsOutput '자리를 풀지 못한 소품 (?<count>\d+)건' 2 `
 		'크기나 좌표가 리터럴이 아니라 자리를 풀지 못한 소품'
-	Assert-AuditBlindSpot $directorPropsOutput '대조하지 못한 호출부 (?<count>\d+)건' 7 `
+	Assert-AuditBlindSpot $directorPropsOutput '대조하지 못한 호출부 (?<count>\d+)건' 0 `
 		'SpawnActor를 같은 파일에서 찾지 못해 대조 못 한 호출부'
 
 	# 건축 재질은 월드 좌표를 읽으므로 축이 맞는 면에서만 무늬가 변한다.

@@ -12,6 +12,60 @@
 > 새 사건 집필이 아니라 같은 clean SHA의 패키징·성능·초견·장비별 승인 증거다.
 > 공간·오디오·상호작용·세이브·검증 하네스는 새 정사가 계승한다.
 
+## 없는 층 — 디렉터의 Configure는 bool을 돌려준다 (2026-09-01)
+
+디렉터 소품 감사의 남은 사각지대 「대조하지 못한 호출부 7건」을 봤다. 일곱이
+전부 이것이었다.
+
+```
+AIGMissingFloorPuzzleOneDirector::Configure
+AIGNightOneBeatDirector::Configure
+AIGMissingFloorNightTwoBeatDirector::Configure
+AIGMissingFloorPuzzleTwoDirector::Configure
+AIGMissingFloorNightThreeDirector::Configure
+AIGMissingFloorNightFourDirector::Configure
+AIGCctvChannelFive::Configure
+```
+
+소품 설정이 아니라 디렉터를 씬에 잇는 호출이다. 감사에는 그런 것을 「무관」으로
+빼는 목록이 이미 있는데, 이 일곱은 거기 못 들어갔다. 서명 패턴이 이랬다.
+
+```python
+r"void\s+(?P<owner>A\w+)::(?P<name>" + ...
+```
+
+**디렉터의 Configure는 성공 여부를 돌려주므로 `bool`이다.** 패턴이 못 읽으니
+서명도 없고 무관 목록에도 못 들어가, 호출부가 「미검사」로 남았다. 사각지대
+일곱 중 일곱이 사각지대가 아니었던 셈이다.
+
+`void|bool`로 넓혔다. 7 → 0.
+
+### 자기 검사가 빈 집합을 우연히 지키고 있었다
+
+고치자 자기 검사가 깨졌다. 「시각 설정이 아닌 것」 항목이 빈 집합을 기대하는데
+호출부 픽스처의 `bool AFakeDirector::Configure()`가 이제 읽히기 때문이다.
+
+그 기대가 맞았던 것은 규칙을 지켜서가 아니라 **패턴이 그 픽스처를 못 봐서**다.
+기대값만 바꾸면 다음에도 같은 일이 난다.
+
+픽스처의 함수 이름을 `BuildStage`로 바꾸고, 좌표만 받는 디렉터 Configure를
+따로 세웠다. 이제 이 항목이 「bool도 읽는다」와 「시각 인자가 없으면 무관으로
+센다」를 함께 지킨다. `void`만 보게 되돌리면 자기 검사가 잡는다 — 예전에는
+안 잡았다.
+
+### 앞 커밋에서 남긴 범위 위험은 재 보니 없었다
+
+리졸버가 이름만 보고 바인딩을 찾으므로 다른 함수의 같은 이름을 집어 올 수
+있다고 적었다. 세어 봤다.
+
+여러 함수가 각자 묶는 이름이 31개, 그중 상자가 쓰는 것이 11개. `Metal` 하나가
+상자 154개에 네 함수에서 묶인다. 그런데 실제로 **다른 함수의 바인딩이 뽑힌
+상자는 2건**이고, 둘 다 정답이었다 — 같은 멤버를 1700행에서 다시 대입한
+자리라 최신 값이 맞다.
+
+위험은 원리로는 있지만 이 코드베이스에는 없다. 검사를 걸면 그 2건이 매번
+거짓 경고가 된다. 안 걸었다.
+
 ## 없는 층 — 남은 55 중 24는 호출부에 그대로 적힌 삼항이었다 (2026-09-01)
 
 55를 다시 갈랐다.
