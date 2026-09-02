@@ -144,6 +144,11 @@ void AIGMissingFloorNightFourDirector::Tick(const float DeltaSeconds)
 	}
 }
 
+FVector AIGMissingFloorNightFourDirector::GetWallBreakLocation()
+{
+	return IGNightFour::WallBreakLocation;
+}
+
 bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 {
 	UWorld* World = GetWorld();
@@ -1479,9 +1484,12 @@ void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 				// The moving riser calls the listener to itself first. The local
 				// 0.40 mask then turns each 1.0 hammer report into the authored
 				// 0.60 effective loudness without deleting the sound.
-				Noise->ReportNoise(FVector(310.0f, 700.0f, 1300.0f), 0.55f, this);
+				Noise->ReportNoise(
+					AIGPrologueWorldScene::GetSharedRiserLocation(),
+					0.55f,
+					this);
 				WaterMaskHumHandle = Noise->RegisterHumSource(
-					FVector(246.0f, 700.0f, 1300.0f),
+					IGNightFour::WallBreakLocation,
 					720.0f,
 					0.40f);
 			}

@@ -38,6 +38,11 @@ AIGNightLoopDirector::AIGNightLoopDirector()
 	PrimaryActorTick.bStartWithTickEnabled = false;
 }
 
+FVector AIGNightLoopDirector::GetMercyNoteRestLocation()
+{
+	return IGNightLoop::MercyNoteRestLocation;
+}
+
 void AIGNightLoopDirector::BeginPlay()
 {
 	Super::BeginPlay();

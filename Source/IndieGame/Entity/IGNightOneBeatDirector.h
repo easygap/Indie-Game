@@ -35,6 +35,9 @@ class INDIEGAME_API AIGNightOneBeatDirector : public AActor
 	GENERATED_BODY()
 
 public:
+	static FVector GetSightingZoneCenter();
+	static FVector GetSightingStagePoint();
+	static FVector GetSightingShufflePoint();
 	AIGNightOneBeatDirector();
 
 	/** Arms both beat zones against an already-built corridor. */

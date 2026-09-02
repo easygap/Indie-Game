@@ -2649,7 +2649,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				&& !NightLoop->IsMercyNoteSliding()
 				&& FVector::Dist(
 					NightLoop->GetMercyNoteLocation(),
-					FVector(-150.0f, -269.5f, 900.12f)) <= 1.0f);
+					AIGNightLoopDirector::GetMercyNoteRestLocation()) <= 1.0f);
 		if (bPlayerBackAtBed
 			&& bTierRaised
 			&& bCaptureHandprintLeft
@@ -2736,7 +2736,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			// is the one the M6.5 contract pins, so compare against that.
 			const float SettledSeparation = FVector::Dist2D(
 				MercyActor->GetNoteLocation(),
-				FVector(-150.0f, -269.5f, 900.12f));
+				AIGNightLoopDirector::GetMercyNoteRestLocation());
 			if (SettledSeparation < 20.0f)
 			{
 				FailProbe(FString::Printf(
@@ -2755,7 +2755,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 			{
 				PlayerCharacter->TeleportTo(
-					FVector(-300.0f, -305.0f, 1010.0f),
+					AIGNightOneBeatDirector::GetSightingZoneCenter(),
 					PlayerCharacter->GetActorRotation(),
 					false,
 					true);
@@ -2924,7 +2924,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		const bool bOnLanding =
 			FVector::Dist(
 				Entity->GetActorLocation(),
-				FVector(-445.0f, -305.0f, 888.0f)) <= 250.0f;
+				AIGNightOneBeatDirector::GetSightingStagePoint()) <= 250.0f;
 		if (bStaged && bOnLanding)
 		{
 			// Descend past the figure: step into the moved portal line.
@@ -4254,7 +4254,9 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 		if (!NightFour->IsWaterMaskPlaying()
-			|| NoiseSubsystem->GetMaskingAt(FVector(246.0f, 700.0f, 1300.0f)) < 0.39f)
+			|| NoiseSubsystem->GetMaskingAt(
+				AIGMissingFloorNightFourDirector::GetWallBreakLocation())
+				< 0.39f)
 		{
 			FailProbe(TEXT("P5 did not create its audible 0.40 wall mask"));
 			return;
@@ -4280,7 +4282,8 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				|| !NightPhase->IsFailureEndingSuspended()
 				|| NightFour->IsWaterMaskPlaying()
 				|| NoiseSubsystem->GetMaskingAt(
-					FVector(246.0f, 700.0f, 1300.0f)) > 0.01f)
+					AIGMissingFloorNightFourDirector::GetWallBreakLocation())
+					> 0.01f)
 			{
 				FailProbe(TEXT("ending C did not suspend the hour and remove its mask"));
 				return;
@@ -5565,7 +5568,7 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 	case 0:
 		// The night card over the 403 bedroom, seconds into the hour.
 		CaptureParkEntity(FVector(540.0f, -305.0f, 960.0f), 180.0f);
-		CaptureTeleportPlayer(FVector(-48.0f, 60.0f, 997.0f), -128.0f, -6.0f);
+		CaptureTeleportPlayer(AIGPrologueWorldScene::GetPlayerStartLocation(), -128.0f, -6.0f);
 		break;
 	case 1:
 		// The one upstairs mid-knock, dead ahead down the corridor. The
@@ -5580,13 +5583,13 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		if (Entity)
 		{
 			Entity->TeleportTo(
-				FVector(-445.0f, -305.0f, 888.0f),
+				AIGNightOneBeatDirector::GetSightingStagePoint(),
 				FRotator(0.0f, 180.0f, 0.0f),
 				false,
 				true);
 			Entity->SetPatrolPoints({
-				FVector(-445.0f, -305.0f, 888.0f),
-				FVector(-445.0f, -255.0f, 888.0f),
+				AIGNightOneBeatDirector::GetSightingStagePoint(),
+				AIGNightOneBeatDirector::GetSightingShufflePoint(),
 			});
 		}
 		// The landing sits 1.8 m below the throat eye line at 1.5 m out, so

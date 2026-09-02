@@ -63,6 +63,21 @@ AIGNightOneBeatDirector::AIGNightOneBeatDirector()
 	PrimaryActorTick.bCanEverTick = false;
 }
 
+FVector AIGNightOneBeatDirector::GetSightingZoneCenter()
+{
+	return IGNightOne::SightingZoneCenter;
+}
+
+FVector AIGNightOneBeatDirector::GetSightingStagePoint()
+{
+	return IGNightOne::SightingStagePoint;
+}
+
+FVector AIGNightOneBeatDirector::GetSightingShufflePoint()
+{
+	return IGNightOne::SightingShufflePoint;
+}
+
 bool AIGNightOneBeatDirector::Configure(
 	AIGPrologueWorldScene* InScene,
 	AIGListenerEntity* InEntity,

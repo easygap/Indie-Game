@@ -8,6 +8,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Entity/IGListenerEntity.h"
+#include "Core/IGPrologueWorldScene.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 
@@ -27,7 +28,7 @@ namespace IGMercy
 	constexpr float PipeCryInnerRadius = 220.0f;
 	constexpr float PipeCryFalloff = 2200.0f;
 	/** The shared riser, above the fifth-floor bays. */
-	const FVector RiserLocation(310.0f, 700.0f, 1300.0f);
+	const FVector RiserLocation = AIGPrologueWorldScene::GetSharedRiserLocation();
 
 	/**
 	 * 401's door leaf spans about 92 cm around X = -150. The five-capture note

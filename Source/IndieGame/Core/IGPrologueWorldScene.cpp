@@ -4411,6 +4411,11 @@ FVector AIGPrologueWorldScene::GetCorridorExtinguisherLocation() const
 		: GetActorTransform().TransformPosition(FVector(232.0f, -364.0f, 926.0f));
 }
 
+FVector AIGPrologueWorldScene::GetPlayerStartLocation()
+{
+	return IGPrologueWorld::PlayerLocation;
+}
+
 FVector AIGPrologueWorldScene::GetFridgeLocation() const
 {
 	// 프롭이 세워지기 전에 물어보는 자리가 있어 작성 좌표를 함께 둔다.

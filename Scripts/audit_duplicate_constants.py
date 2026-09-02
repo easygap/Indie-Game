@@ -40,6 +40,16 @@ DECLARATION = re.compile(
     r"(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*=\s*(?P<value>[^;]+);")
 NUMERIC = re.compile(r"^-?[0-9][0-9]*(?:\.[0-9]+)?f?$")
 
+# 이름을 붙인 자리와, 다른 데 적힌 같은 숫자. 냉장고 험·벽 파괴 지점·공용
+# 라이저가 전부 이 모양이었다.
+COMPONENTS = r"\s*(?P<x>-?[0-9.]+)f?\s*,\s*(?P<y>-?[0-9.]+)f?\s*,\s*(?P<z>-?[0-9.]+)f?\s*"
+VECTOR_DECLARATION = re.compile(
+    r"const\s+FVector\s+(?P<name>[A-Za-z_][A-Za-z0-9_]*)\s*\(" + COMPONENTS + r"\)")
+VECTOR_LITERAL = re.compile(r"FVector\s*\(" + COMPONENTS + r"\)")
+# 자리를 뜻하는 이름만 본다. 방향과 크기까지 세면 상자 반칸이 파일마다
+# 겹쳐서 못 쓰게 된다.
+PLACE_SUFFIXES = ("Location", "Point", "Origin", "Center", "Spot")
+
 # 이름과 값이 같지만 서로 다른 사실인 것들. 하나로 묶으면 오히려 틀린다.
 REVIEWED = {
     "SampleRateHz":
@@ -146,6 +156,44 @@ def find_reauthored(documents, rules=None):
     return findings
 
 
+# 찾았지만 아직 안 고친 것. 면제가 아니라 **미결**이다 — 면제는 「이대로가
+# 맞다」이고 이건 「사람이 정해야 한다」다. 그래서 실패로 세지는 않되 매번
+# 화면에 남긴다. 조용히 사라지는 것이 제일 나쁘다.
+CARRIED = {
+    "Radio401LocalLocation":
+        "401호 라디오가 두 좌표계로 적혀 있다. 챕터 2 게이트는 지역 좌표에"
+        " ToWorld를 걸고, 챕터 1 프레즌스 컴포넌트는 같은 숫자를 월드 좌표로"
+        " 바로 쓴다. 씬이 원점에 있어서 지금은 값이 같다 — 씬을 옮기면 한쪽"
+        " 라디오만 따라간다. 어느 좌표계가 맞는지는 배치가 정할 일이라 남긴다",
+}
+
+
+def find_copied_points(documents):
+    """이름을 붙인 자리가 다른 데서 숫자로 다시 적힌 것."""
+    named = {}
+    for path, text in sorted(documents.items()):
+        for match in VECTOR_DECLARATION.finditer(text):
+            name = match.group("name")
+            if not name.endswith(PLACE_SUFFIXES):
+                continue
+            triple = tuple(match.group(axis) for axis in ("x", "y", "z"))
+            named.setdefault(triple, (name, path, match.start()))
+
+    findings = []
+    for path, text in sorted(documents.items()):
+        for match in VECTOR_LITERAL.finditer(text):
+            triple = tuple(match.group(axis) for axis in ("x", "y", "z"))
+            if triple not in named:
+                continue
+            name, owner, offset = named[triple]
+            if path == owner and match.start() <= offset <= match.end():
+                continue
+            findings.append(
+                "  %s 의 자리가 %s 에서 숫자로 다시 적혔다. %s 를 써라"
+                % (name, path, name))
+    return sorted(set(findings))
+
+
 def read_sources():
     documents = {}
     for path in sorted(SOURCE_ROOT.rglob("*")):
@@ -173,14 +221,30 @@ def run_check():
 
     findings.extend(find_reauthored(documents))
 
+    carried = []
+    for finding in find_copied_points(documents):
+        owner = next((name for name in CARRIED if name in finding), None)
+        if owner is None:
+            findings.append(finding)
+        else:
+            carried.append((owner, finding))
+
+    # 미결로 적어 두었는데 실제로는 없어진 것도 지운다. 남아 있으면 다음
+    # 사람이 「아직 안 고친 게 있구나」로 읽고 찾으러 간다.
+    for name in sorted(set(CARRIED) - {owner for owner, _ in carried}):
+        findings.append(
+            "  %s 은(는) 더 이상 두 군데에 없다. 미결 목록에서 지워라" % name)
+
     declarations = sum(len(v) for v in collect(documents).values())
     print("DUPLICATE CONSTANT AUDIT  declarations=%d duplicated=%d "
-          "reviewed=%d owned=%d findings=%d"
+          "reviewed=%d owned=%d carried=%d findings=%d"
           % (declarations, len(duplicates), len(REVIEWED),
-             len(DERIVED_ONLY), len(findings)))
+             len(DERIVED_ONLY), len(carried), len(findings)))
     for name in sorted(REVIEWED):
         if name in {n for n, _ in duplicates}:
             print("  면제 %-24s %s" % (name, REVIEWED[name]))
+    for name in sorted({owner for owner, _ in carried}):
+        print("  미결 %-24s %s" % (name, CARRIED[name]))
     if findings:
         print()
         print("같은 사실이 두 군데에 적혀 있다:")

@@ -137,6 +137,28 @@ public:
 	static constexpr float HomeDoorY = -225.0f;
 
 	/**
+	 * 5층 베이 위를 지나는 공용 라이저.
+	 *
+	 * 밤 4의 망치가 「움직이는 라이저가 먼저 자기를 부른다」고
+	 * 소리를 내는 자리이자, §32 자비 디렉터의 배관 울음이 나는
+	 * 자리다. 둘이 같은 배관이어야 그 울음이 「이 건물에 물이 있고
+	 * 움직인다」는 같은 말을 한다.
+	 */
+	static constexpr float SharedRiserX = 310.0f;
+	static constexpr float SharedRiserY = 700.0f;
+	static constexpr float SharedRiserZ = 1300.0f;
+	static FVector GetSharedRiserLocation()
+	{
+		return FVector(SharedRiserX, SharedRiserY, SharedRiserZ);
+	}
+
+	/**
+	 * 플레이어가 처음 눈뜨는 자리. 캡처 투어가 여기로 보내는데, 좌표를
+	 * 투어 쪽에 적어 두면 침대를 옮겼을 때 투어만 옛 방을 찍는다.
+	 */
+	static FVector GetPlayerStartLocation();
+
+	/**
 	 * 로비 CCTV 모니터 화면의 실치수(cm).
 	 *
 	 * 케이스와 4분할 발광면은 씬이 세우고, 채널 5의 렌더 면은

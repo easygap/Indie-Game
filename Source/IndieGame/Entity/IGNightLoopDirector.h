@@ -25,6 +25,7 @@ class INDIEGAME_API AIGNightLoopDirector : public AActor
 public:
 	AIGNightLoopDirector();
 	virtual void Tick(float DeltaSeconds) override;
+	static FVector GetMercyNoteRestLocation();
 
 	/** 포획된 플레이어가 다시 눈을 뜨는 403호 침대 옆 위치. */
 	UFUNCTION(BlueprintCallable, Category = "NightLoop")

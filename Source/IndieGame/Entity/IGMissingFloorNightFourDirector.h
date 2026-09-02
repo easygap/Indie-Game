@@ -42,6 +42,12 @@ public:
 	AIGMissingFloorEvidence* GetFloatBypass() const { return FloatBypass; }
 	AIGMissingFloorEvidence* GetTransferPump() const { return TransferPump; }
 	AIGMissingFloorEvidence* GetWallBreakTarget() const { return WallBreakTarget; }
+	/**
+	 * 벽이 열리는 자리. 그레이박스 프로브가 여기 마스킹을 재는데,
+	 * 좌표를 프로브 쪽에 적어 두면 벽을 옮겼을 때 옛 자리를 재면서
+	 * 통과한다.
+	 */
+	static FVector GetWallBreakLocation();
 	AIGMissingFloorEvidence* GetEndingATarget() const { return EndingATarget; }
 	AIGMissingFloorEvidence* GetEndingBTarget() const { return EndingBTarget; }
 
