@@ -2922,6 +2922,19 @@ if ($python) {
 		throw "An authored constant is written in two places ($LASTEXITCODE)"
 	}
 
+	# 설계값을 맨 숫자로 찾는 계약. 3300줄 문서에서 0.6은 열일곱 번 나오므로
+	# 그런 줄은 절이 통째로 사라져도 통과한다.
+	$weakNeedles = Join-Path $projectRoot 'Scripts/audit_weak_needles.py'
+	& $python.Source $weakNeedles --self-test
+	if ($LASTEXITCODE -ne 0) {
+		throw "Weak needle audit self-test failed ($LASTEXITCODE)"
+	}
+
+	& $python.Source $weakNeedles --check
+	if ($LASTEXITCODE -ne 0) {
+		throw "A contract pins a design value with a bare number ($LASTEXITCODE)"
+	}
+
 	# 광원도 가구와 같은 리터럴 좌표로 놓는다. 옆 가구가 자라면 그 안으로
 	# 들어가는데, 방이 어두워질 뿐 아무것도 실패하지 않는다.
 	$lightPlacement = Join-Path $projectRoot 'Scripts/audit_light_placement.py'

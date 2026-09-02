@@ -203,9 +203,9 @@ Assert-ContainsAll $imageGenRecord @(
 ) 'capture ImageGen prompt record'
 Assert-ContainsAll $story @(
 	'## 28. v2.7',
-	'1.2초',
-	'3.2°',
-	'0.70',
+	# 세 값을 맨 숫자로 찾으면 문서 아무 데나 있어도 통과한다.
+	'붙잡힌 접촉은 한 번 크게 오고 1.2초에 풀린다',
+	'카메라 피치 최대 3.2°와 전 모터 진동 0.70을 0까지 감쇠한다',
 	'3.0초 → 2.2초 → 1.4초 → 0.4초'
 ) 'v2.7 capture design supplement'
 Assert-ContainsAll $readme @(
