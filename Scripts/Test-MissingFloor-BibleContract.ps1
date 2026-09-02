@@ -825,6 +825,32 @@ if ($story -notmatch '몰입을 만드는 것은 추가가 아니라 \*\*제거\
 	throw 'The §23 first principle was removed.'
 }
 
+# 아래 이름 목록은 의도를 적어 둔 것이지 관문이 아니다. 진행률을 넣는 사람은
+# `DrawProgressGauge`라고 쓰지 않는다 — 다른 이름을 짓거나 그냥 글자에 %를
+# 적는다. 관문은 화면에 나가는 글자여야 한다.
+#
+# HUD가 그리는 문구를 전부 훑어 퍼센트·진행률 분수가 섞였는지 본다. §24의
+# 17번(밤 구간에 게이지·퍼센트 노출)이 여기서 닫힌다.
+$hudTexts = [regex]::Matches($hudSource, 'NSLOCTEXT\(\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*"(?<body>[^"]*)"')
+$assertionCount++
+if ($hudTexts.Count -lt 100) {
+	throw (
+		'HUD 문구를 {0}개만 읽었다. 퍼센트를 볼 수 없다 (§23).' -f $hudTexts.Count)
+}
+foreach ($hudText in $hudTexts) {
+	$drawn = $hudText.Groups['body'].Value
+	$assertionCount++
+	if ($drawn -match '%' -or $drawn -match '퍼센트') {
+		throw (
+			'§23은 퍼센트를 금지하는데 화면 문구에 들어갔다: {0}' -f $drawn)
+	}
+	$assertionCount++
+	if ($drawn -match '[0-9]+\s*/\s*[0-9]+') {
+		throw (
+			'§23은 진행률 카운터를 금지하는데 화면 문구가 분수를 쓴다: {0}' -f $drawn)
+	}
+}
+
 # 화면에 생기면 안 되는 것들. 이름이 하나라도 나타나면 표가 거짓이 된다.
 foreach ($banned in @(
 	@{ Symbol = 'DrawLoadingScreen'; Row = '로딩 화면' },
