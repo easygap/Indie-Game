@@ -2463,6 +2463,70 @@ foreach ($requiredSaveCompatibilityInvariant in @(
 		throw "Save compatibility contract is missing: $requiredSaveCompatibilityInvariant"
 	}
 }
+# 문서의 중심 주장은 「지원 범위 v1·v2·v3」과 「현재 코드는 3」이다. 위
+# 열 줄은 그 문장들이 남아 있는지만 보고, 번호가 코드와 같은지는 안 본다.
+# 번호를 올리면 문서는 그대로 v1~v3을 주장하고 픽스처 셋은 현재 버전을
+# 덮지 않게 된다 — 출시 게이트가 자기가 못 덮는 범위를 덮는다고 말한다.
+#
+# IGSaveGame.h가 「CurrentSchemaVersion must stay 3, which the compatibility
+# contract pins」라고 적어 두었는데, 그 계약이 여기 없었다.
+$saveSchemaSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Save/IGSaveGame.h')
+$rebirthSchemaSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Narrative/IGRebirthNarrativeSubsystem.cpp')
+
+$statedExternal = [regex]::Match(
+	$saveCompatibilityContract,
+	'`UIGSaveGame::CurrentSchemaVersion=(?<version>[0-9]+)`')
+if (-not $statedExternal.Success) {
+	throw 'The save compatibility contract no longer states the external schema version.'
+}
+$declaredExternal = [regex]::Match(
+	$saveSchemaSource, 'CurrentSchemaVersion = (?<version>[0-9]+);')
+if (-not $declaredExternal.Success) {
+	throw 'UIGSaveGame::CurrentSchemaVersion could not be read.'
+}
+if ($declaredExternal.Groups['version'].Value -ne $statedExternal.Groups['version'].Value) {
+	throw (
+		'세이브 스키마가 코드 v{0}, 문서 v{1}이다. 호환성 문서가 못 덮는 범위를 덮는다고 말한다.' -f
+			$declaredExternal.Groups['version'].Value,
+			$statedExternal.Groups['version'].Value)
+}
+
+# 지원 범위의 맨 끝이 현재 버전이어야 한다. 픽스처는 그 범위대로 만든다.
+$claimedRange = [regex]::Match(
+	$saveCompatibilityContract, '지원 주장 범위: 외부 스키마 (?<list>[^\r\n]+)')
+if (-not $claimedRange.Success) {
+	throw 'The save compatibility contract no longer states its supported range.'
+}
+$claimedVersions = @(
+	[regex]::Matches($claimedRange.Groups['list'].Value, 'v(?<n>[0-9]+)') |
+		ForEach-Object { [int]$_.Groups['n'].Value } |
+		Sort-Object)
+if ($claimedVersions[-1] -ne [int]$declaredExternal.Groups['version'].Value) {
+	throw (
+		'지원 범위가 v{0}까지인데 코드는 v{1}이다. 픽스처가 현재 버전을 덮지 않는다.' -f
+			$claimedVersions[-1], $declaredExternal.Groups['version'].Value)
+}
+
+# 내부 REBIRTH 스냅샷도 문서가 번호를 댄다. 줄바꿈을 넘어 읽는다.
+$statedInternal = [regex]::Match(
+	$saveCompatibilityContract, '내부 REBIRTH\s*스냅샷 스키마 (?<version>[0-9]+)')
+if (-not $statedInternal.Success) {
+	throw 'The save compatibility contract no longer states the REBIRTH snapshot schema.'
+}
+$declaredInternal = [regex]::Match(
+	$rebirthSchemaSource, 'SnapshotSchemaVersion = (?<version>[0-9]+);')
+if (-not $declaredInternal.Success) {
+	throw 'IGRebirthState::SnapshotSchemaVersion could not be read.'
+}
+if ($declaredInternal.Groups['version'].Value -ne $statedInternal.Groups['version'].Value) {
+	throw (
+		'REBIRTH 스냅샷 스키마가 코드 {0}, 문서 {1}이다.' -f
+			$declaredInternal.Groups['version'].Value,
+			$statedInternal.Groups['version'].Value)
+}
+
 foreach ($requiredFeasibilityInvariant in @(
 	'`Choice→ActualStateRestored→Found0731→CommonDiscoveryCard→BranchCoda`',
 	'`ActualStateRestored→Found0731→CommonDiscoveryCard` 세 이벤트',
