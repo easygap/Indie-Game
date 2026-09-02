@@ -420,6 +420,68 @@ if ($accessibilityHeaderForMic -notmatch 'bool bMicrophoneNoiseEnabled = false;'
 # 그게 이 문서가 막으려는 유일한 사고다.
 
 $acceptanceDoc = Read-ProjectText 'Docs/MISSING_FLOOR_ACCEPTANCE.md'
+
+# §20.5의 「난이도 변경이 진행 중 세이브를 깨지 않는다」는 값을 대조해서
+# 지킬 수 있는 줄이 아니다. 지켜지는 이유는 **두 파일이 서로를 모른다**는
+# 것이다 — 난이도는 사용자 설정 ini에 있고 세이브는 스냅샷이며, 어느 쪽도
+# 상대를 읽지 않는다. 그 분리가 살아 있는지를 본다.
+$tuningForDifficulty = Read-ProjectText 'Source/IndieGame/Entity/IGListenerTuning.cpp'
+$narrativeTypesForDifficulty = Read-ProjectText `
+	'Source/IndieGame/Narrative/IGMissingFloorNarrativeTypes.h'
+$saveGameForDifficulty = Read-ProjectText 'Source/IndieGame/Save/IGSaveGame.h'
+$entityForDifficulty = Read-ProjectText 'Source/IndieGame/Entity/IGListenerEntity.cpp'
+
+# 1. 난이도는 사용자 설정 ini에만 적힌다.
+$saveDifficulty = [regex]::Match(
+	$tuningForDifficulty,
+	'void SavePersistedDifficulty\([\s\S]*?\r?\n\t\}')
+$assertionCount++
+if (-not $saveDifficulty.Success) {
+	throw 'SavePersistedDifficulty could not be read.'
+}
+$assertionCount++
+if ($saveDifficulty.Value -notmatch 'GGameUserSettingsIni') {
+	throw 'The night difficulty stopped living in the user settings file (§20.5).'
+}
+
+# 2. 스냅샷과 세이브 구조체에는 난이도가 없다. 있으면 난이도를 바꾸는 순간
+#    저장된 값과 고른 값이 갈라지고, 어느 쪽이 맞는지 아무도 모른다.
+foreach ($persisted in @(
+	@{ Name = '서사 스냅샷'; Text = $narrativeTypesForDifficulty },
+	@{ Name = '세이브 게임'; Text = $saveGameForDifficulty })) {
+	$assertionCount++
+	if ($persisted.Text -match 'Difficulty') {
+		throw (
+			'{0}이 난이도를 들고 있다. 난이도는 세이브 밖에 있어야 한다 (§20.5).' -f
+				$persisted.Name)
+	}
+}
+
+# 3. 존재는 난이도를 저장하지 않고 매번 다시 읽는다. 캐시해 두면 진행 중
+#    바꾼 값이 다음 밤까지 안 먹는다.
+$assertionCount++
+if ($entityForDifficulty -notmatch
+	'Difficulty = IGListenerTuning::ResolveActiveDifficulty\(\);') {
+	throw 'The listener stopped resolving the night difficulty at spawn (§20.5).'
+}
+
+# 4. 명령줄 덮어쓰기는 되쓰지 않는다. 검증 한 번이 플레이어가 고른 값을
+#    바꿔 버리면 그게 곧 「세이브를 깨는」 일이다.
+$resolveDifficulty = [regex]::Match(
+	$tuningForDifficulty,
+	'EIGNightDifficulty ResolveActiveDifficulty\([\s\S]*?\r?\n\t\}')
+$assertionCount++
+if (-not $resolveDifficulty.Success) {
+	throw 'ResolveActiveDifficulty could not be read.'
+}
+$assertionCount++
+if ($resolveDifficulty.Value -match 'SavePersistedDifficulty') {
+	throw 'A validation run would write back the difficulty it overrode (§20.5).'
+}
+$assertionCount++
+if ($acceptanceDoc -notmatch '난이도와 세이브는 서로를\s*모른다') {
+	throw 'The acceptance sheet lost the reason this line is a contract (§20.5).'
+}
 $bibleLineCount = 0
 foreach ($section in @('18.7', '19.9', '20.5', '21.5')) {
 	$body = [regex]::Match(
@@ -461,10 +523,8 @@ if ($docLineCount -ne $bibleLineCount) {
 			$docLineCount, $bibleLineCount)
 }
 
-# 표가 「사람」을 지우고 전부 계약으로 바꿔 놓으면, 아직 못 본 것을 봤다고
-# 적은 것이 된다. 사람이 필요한 줄이 남아 있는지 본다.
-# 표에서 「사람」을 하나씩 계약으로 바꿔 놓으면, 아직 못 본 것을 봤다고
-# 적은 것이 된다. 표가 스스로 밝힌 수와 실제 행 수를 맞대 본다.
+# 표에서 「사람」을 하나씩 계약으로 바꿔 놓으면, 아직 못 본 것을 봤다고 적은
+# 것이 된다. 표가 스스로 밝힌 수와 실제 행 수를 맞대 본다.
 $humanRows = ([regex]::Matches(
 	$acceptanceDoc, '(?m)^\|[^|]+\|[^|]*\*\*사람\*\*[^|]*\|')).Count
 $assertionCount++
