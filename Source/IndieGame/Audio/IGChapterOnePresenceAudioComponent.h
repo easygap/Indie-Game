@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
@@ -43,9 +43,13 @@ private:
 	UFUNCTION()
 	void HandleStoryStateChanged(FGameplayTag StateTag, bool bAdded);
 
-	/** Just inside 401, behind the north-facing steel entry door. */
+	/**
+	 * 401호 안, 북향 강철 현관문 뒤. 기본값은 생성자에서 씬이 든
+	 * 자리로 채운다 — 챕터 2가 같은 라디오를 소리 내므로 숫자를
+	 * 여기 다시 적으면 둘이 갈라진다. 배치에서 만지는 것은 그대로다.
+	 */
 	UPROPERTY(EditAnywhere, Category = "Chapter One Presence|Placement")
-	FVector PrayerRadioWorldLocation = FVector(-150.0f, -174.0f, 1028.0f);
+	FVector PrayerRadioWorldLocation = FVector::ZeroVector;
 
 	/** Behind the convenience-store counter, toward the implied stock room. */
 	UPROPERTY(EditAnywhere, Category = "Chapter One Presence|Placement")

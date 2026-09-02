@@ -4,6 +4,7 @@
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
+#include "Core/IGPrologueWorldScene.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "GameFramework/Actor.h"
@@ -21,6 +22,7 @@ namespace IGChapterOnePresence
 UIGChapterOnePresenceAudioComponent::UIGChapterOnePresenceAudioComponent()
 {
 	PrimaryComponentTick.bCanEverTick = false;
+	PrayerRadioWorldLocation = AIGPrologueWorldScene::GetRadio401Location();
 }
 
 void UIGChapterOnePresenceAudioComponent::BeginPlay()

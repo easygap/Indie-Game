@@ -8,6 +8,7 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Core/IGPrologueWorldScene.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
@@ -23,7 +24,6 @@
 
 namespace IGChapterTwoHumanGate
 {
-	const FVector Radio401LocalLocation(-150.0f, -174.0f, 1028.0f);
 	const FVector Doorbell401LocalLocation(-206.0f, -237.0f, 1022.0f);
 	const FVector Doorbell402LocalLocation(58.0f, -237.0f, 1022.0f);
 	const FVector LobbyLocalLocation(580.0f, -305.0f, 110.0f);
@@ -849,8 +849,11 @@ void AIGChapterTwoHumanGateDirector::Start401Radio()
 	{
 		AudioDirector->RegisterComponent(Radio401Component, EIGAudioBus::World);
 	}
+	// 라디오만 월드다. 초인종과 로비는 이 디렉터가 놓는 것이라
+	// 자기 트랜스폼을 그대로 쓰지만, 라디오는 챕터 1도 같은 것을
+	// 소리 내므로 건물이 든다.
 	Radio401Component->SetWorldLocation(
-		ToWorld(IGChapterTwoHumanGate::Radio401LocalLocation));
+		AIGPrologueWorldScene::GetRadio401Location());
 	Radio401Component->Play();
 }
 

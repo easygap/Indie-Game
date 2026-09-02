@@ -125,6 +125,9 @@ namespace IGPrologueWorld
 	const FVector AlarmHorizontalLocation(-160.0f, -35.0f, 0.0f);
 	const FVector GetUpTargetLocation(-140.0f, 183.0f, FourthFloorZ + 58.0f);
 	const FVector FridgeLocation(155.0f, -20.0f, FourthFloorZ);
+	// 401호 안, 북향 강철 현관문 뒤. 챕터 1의 기도 라디오와 챕터 2의
+	// 401 라디오가 같은 물건이라 자리도 하나다.
+	const FVector Radio401Location(-150.0f, -174.0f, 1028.0f);
 	const FVector HomeDoorLocation(
 		AIGPrologueWorldScene::HomeDoorX,
 		AIGPrologueWorldScene::HomeDoorY,
@@ -4409,6 +4412,11 @@ FVector AIGPrologueWorldScene::GetCorridorExtinguisherLocation() const
 	return CorridorExtinguisher
 		? CorridorExtinguisher->GetComponentLocation()
 		: GetActorTransform().TransformPosition(FVector(232.0f, -364.0f, 926.0f));
+}
+
+FVector AIGPrologueWorldScene::GetRadio401Location()
+{
+	return IGPrologueWorld::Radio401Location;
 }
 
 FVector AIGPrologueWorldScene::GetPlayerStartLocation()
