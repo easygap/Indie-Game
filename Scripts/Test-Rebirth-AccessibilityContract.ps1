@@ -707,6 +707,35 @@ Assert-ContainsAll $header @(
 	'GetCaptionDurationScale() const'
 ) '시야각·자막 시간 설정'
 
+# 시야각은 기본값만 계약이 보고 있었다. 문서가 여는 폭(68~100)과 코드의
+# 경계가 서로를 모르면, 한쪽만 넓혀도 조용히 다른 게임이 된다.
+$fovRange = [regex]::Match($storyText, '(?<low>[0-9]+)~(?<high>[0-9]+)으로 열되')
+Assert-True $fovRange.Success '문서가 시야각을 여는 폭을 적고 있다'
+$fovLow = [regex]::Match($source, 'MinimumFieldOfView = (?<value>[0-9.]+)f;')
+$fovHigh = [regex]::Match($source, 'MaximumFieldOfView = (?<value>[0-9.]+)f;')
+Assert-True ($fovLow.Success -and $fovHigh.Success) `
+	'코드가 시야각 경계를 들고 있다'
+Assert-True (
+	[double]$fovLow.Groups['value'].Value -eq [double]$fovRange.Groups['low'].Value) (
+	'시야각 하한이 문서 {0}, 코드 {1}이다' -f
+		$fovRange.Groups['low'].Value, $fovLow.Groups['value'].Value)
+Assert-True (
+	[double]$fovHigh.Groups['value'].Value -eq [double]$fovRange.Groups['high'].Value) (
+	'시야각 상한이 문서 {0}, 코드 {1}이다' -f
+		$fovRange.Groups['high'].Value, $fovHigh.Groups['value'].Value)
+
+# 기본값이 경계 밖이면 처음 켠 사람이 저장도 안 한 값으로 시작하고, 설정을
+# 한 번 만지는 순간 화면이 튄다.
+$fovDefault = [regex]::Match($header, 'float FieldOfViewDegrees = (?<value>[0-9.]+)f;')
+Assert-True $fovDefault.Success '시야각 기본값을 읽을 수 있다'
+Assert-True (
+	[double]$fovDefault.Groups['value'].Value -ge [double]$fovLow.Groups['value'].Value `
+	-and [double]$fovDefault.Groups['value'].Value -le [double]$fovHigh.Groups['value'].Value) (
+	'시야각 기본값 {0}이 경계 {1}~{2} 밖이다' -f
+		$fovDefault.Groups['value'].Value,
+		$fovLow.Groups['value'].Value,
+		$fovHigh.Groups['value'].Value)
+
 # 손으로 고친 ini가 화면을 못 쓰게 만들면 안 된다.
 $sanitize = [regex]::Match(
 	$source,
