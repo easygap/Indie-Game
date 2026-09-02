@@ -71,6 +71,30 @@ SCALAR = re.compile(
 # 최상위 정의의 시작. 들여쓰기 없이 시작하면서 `::이름(`을 가진 줄이다.
 DEFINITION = re.compile(r"^[A-Za-z][^\n]*?::(\w+)\s*\(", re.MULTILINE)
 LOOP_HEAD = re.compile(r"^[ \t]+(?:for|while)\s*\(", re.MULTILINE)
+# 펼칠 수 있는 반복문 하나. 0에서 시작해 상한까지 하나씩 올라가는 것만 본다.
+COUNTED_LOOP = re.compile(
+    r"^[ 	]+for\s*\(\s*(?:const\s+)?int32\s+(?P<name>\w+)\s*=\s*0\s*;"
+    r"\s*(?P=name)\s*<\s*(?P<bound>[\w.()]+)\s*;"
+    r"\s*\+\+(?P=name)\s*\)",
+    re.MULTILINE)
+INTEGER = re.compile(
+    r"^\s*(?:constexpr|const)\s+int32\s+(\w+)\s*=\s*(\d+)\s*;",
+    re.MULTILINE)
+FLOAT_ARRAY = re.compile(
+    r"^\s*(?:constexpr|const|static constexpr)\s+float\s+(\w+)\[\]?\w*\]?"
+    r"\s*=\s*\{([^}]*)\}\s*;",
+    re.MULTILINE)
+INDEXED = re.compile(r"^(\w+)\[([^\]]+)\]$")
+# 값이 리터럴이 아니어도 되는 지역 바인딩. 선언 순서대로 풀어야 앞의 것이
+# 뒤의 것에 쓰인다.
+LOCAL_FLOAT = re.compile(
+    r"^[ \t]*(?:constexpr|const)\s+float\s+(\w+)\s*=\s*([^;]+);",
+    re.MULTILINE)
+ARRAY_COUNT = re.compile(r"^UE_ARRAY_COUNT\(\s*(\w+)\s*\)$")
+# 인덱스로 갈라지는 삼항. 인덱스가 정해지면 답도 하나다.
+TERNARY = re.compile(
+    r"^(?P<left>[^?]+?)\s*(?P<op>==|!=|<=|>=|<|>)\s*(?P<right>[^?]+?)"
+    r"\s*\?\s*(?P<yes>[^:]+?)\s*:\s*(?P<no>.+)$")
 
 
 class Note:
@@ -114,26 +138,51 @@ class Generator:
         return "안 풀린 진폭 %d" % self.unresolved
 
 
-def to_float(token, scalars):
-    """리터럴, 이름, 그리고 그 둘로 된 덧뺄셈·곱셈 식을 푼다.
+def to_float(token, scalars, arrays=None):
+    """리터럴, 이름, 배열 색인, 그리고 그 셋으로 된 덧뺄셈·곱셈 식을 푼다.
 
     이름은 같은 함수 안의 것이 먼저고, 없으면 파일 위쪽 네임스페이스 상수를
-    본다. 타이밍과 주파수를 그쪽에 모아 두는 생성기가 많다.
+    본다. 타이밍과 주파수를 그쪽에 모아 두는 생성기가 많다. 반복문을 펼칠
+    때는 반복 변수가 스칼라 표에 그때의 값으로 들어온다.
     """
     token = token.strip()
     if NUMBER.match(token):
         return float(token.rstrip("f"))
     if token in scalars:
         return scalars[token]
+    if arrays:
+        counted = ARRAY_COUNT.match(token)
+        if counted and counted.group(1) in arrays:
+            return float(len(arrays[counted.group(1)]))
+        indexed = INDEXED.match(token)
+        if indexed and indexed.group(1) in arrays:
+            position = to_float(indexed.group(2), scalars, arrays)
+            row = arrays[indexed.group(1)]
+            if position is None or position != int(position):
+                return None
+            index = int(position)
+            return row[index] if 0 <= index < len(row) else None
+
+    ternary = TERNARY.match(token)
+    if ternary:
+        left = to_float(ternary.group("left"), scalars, arrays)
+        right = to_float(ternary.group("right"), scalars, arrays)
+        if left is not None and right is not None:
+            operators = {"==": left == right, "!=": left != right,
+                         "<=": left <= right, ">=": left >= right,
+                         "<": left < right, ">": left > right}
+            branch = "yes" if operators[ternary.group("op")] else "no"
+            return to_float(ternary.group(branch), scalars, arrays)
+        return None
 
     # 덧뺄셈을 먼저 가른다. 부호로 시작하는 리터럴은 위에서 이미 걸렀다.
     terms = re.split(r"(?<=[\w)f])\s*([+-])\s*", token)
     if len(terms) > 1:
-        total = to_float(terms[0], scalars)
+        total = to_float(terms[0], scalars, arrays)
         if total is None:
             return None
         for index in range(1, len(terms) - 1, 2):
-            value = to_float(terms[index + 1], scalars)
+            value = to_float(terms[index + 1], scalars, arrays)
             if value is None:
                 return None
             total += value if terms[index] == "+" else -value
@@ -142,12 +191,39 @@ def to_float(token, scalars):
     if "*" in token:
         value = 1.0
         for part in token.split("*"):
-            resolved = to_float(part, scalars)
+            resolved = to_float(part, scalars, arrays)
             if resolved is None:
                 return None
             value *= resolved
         return value
     return None
+
+
+def unrollable_loops(body: str, scalars, arrays=None):
+    """펼칠 수 있는 반복문. 변수 이름과 횟수와 본문 구간을 돌려준다."""
+    found = []
+    for head in COUNTED_LOOP.finditer(body):
+        bound = to_float(head.group("bound"), scalars, arrays)
+        if bound is None or bound != int(bound) or not 0 < bound <= 64:
+            continue
+        opening = body.find("{", head.end())
+        if opening < 0:
+            continue
+        depth = 0
+        for index in range(opening, len(body)):
+            if body[index] == "{":
+                depth += 1
+            elif body[index] == "}":
+                depth -= 1
+                if depth == 0:
+                    inner = body[opening:index]
+                    # 안에 또 반복문이 있으면 손대지 않는다. 겹친 것까지
+                    # 펼치려다 잘못 펼치면 조용히 틀린 값을 믿게 된다.
+                    if not LOOP_HEAD.search(inner):
+                        found.append(
+                            (head.group("name"), int(bound), opening, index))
+                    break
+    return found
 
 
 def loop_spans(body: str):
@@ -189,11 +265,56 @@ def parse_source(relative: str) -> list[Generator]:
         scalars = dict(file_scalars)
         scalars.update({m.group(1): float(m.group(2).rstrip("f"))
                         for m in SCALAR.finditer(body)})
+        scalars.update({m.group(1): float(m.group(2))
+                        for m in INTEGER.finditer(body)})
+        arrays = {}
+        for row in FLOAT_ARRAY.finditer(body):
+            values = [to_float(cell, scalars)
+                      for cell in row.group(2).split(",") if cell.strip()]
+            if values and all(value is not None for value in values):
+                arrays[row.group(1)] = values
+
+        # 펼칠 수 있는 반복문은 먼저 펼친다. 남은 반복문 구간만 못 본 것으로
+        # 센다.
+        unrolled = unrollable_loops(body, scalars, arrays)
+        opened = set()
+        for variable, count, low, high in unrolled:
+            opened.add((low, high))
+            inner = body[low:high]
+            for step in range(count):
+                stepped = dict(scalars)
+                stepped[variable] = float(step)
+                # 지역 바인딩을 선언 순서대로 푼다. 시작 시각을 인덱스로
+                # 계산해 두고 그 이름으로 음을 넣는 생성기가 대부분이다.
+                # 자리를 보고 그 음보다 앞선 것만 쓴다 — 본문 전체를 걷어다
+                # 쓰면 뒤에 선언된 이름까지 보이고, C++는 그렇게 안 읽는다.
+                bindings = [(b.start(), b.group(1), b.group(2))
+                            for b in LOCAL_FLOAT.finditer(inner)]
+                for match in NOTE.finditer(inner):
+                    local = dict(stepped)
+                    for at, bound_name, expression in bindings:
+                        if at >= match.start():
+                            break
+                        value = to_float(expression, local, arrays)
+                        if value is not None:
+                            local[bound_name] = value
+                    fields = [to_float(match.group(i), local, arrays)
+                              for i in range(1, 7)]
+                    if any(field is None for field in fields):
+                        generator.unresolved += 1
+                        continue
+                    generator.notes.append(Note(*fields, match.group(7)))
+
         for match in NOTE.finditer(body):
+            inside_open = any(low <= match.start() <= high
+                              for low, high in opened)
+            if inside_open:
+                continue
             if any(low <= match.start() <= high for low, high in spans):
                 generator.looped_notes += 1
                 continue
-            fields = [to_float(match.group(i), scalars) for i in range(1, 7)]
+            fields = [to_float(match.group(i), scalars, arrays)
+                      for i in range(1, 7)]
             if any(field is None for field in fields):
                 generator.unresolved += 1
                 continue
@@ -396,14 +517,59 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSelfTestScaled(
 	return Wave;
 }
 
-UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSelfTestLooped(
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSelfTestUnrolled(
+	UObject* Outer)
+{
+	constexpr int32 StepCount = 4;
+	constexpr float StepStarts[] = {0.00f, 0.25f, 0.50f, 0.75f};
+	TArray<FIGToneNote> Notes;
+	Notes.Add({0.00f, 0.50f, 300.0f, 0.20f, 0.10f, 1.0f, EIGToneWaveform::Sine});
+	for (int32 Index = 0; Index < StepCount; ++Index)
+	{
+		Notes.Add({StepStarts[Index], 0.20f, 400.0f + Index * 50.0f, 0.10f, 0.10f, 1.0f, EIGToneWaveform::Sine});
+	}
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSelfTestBindings(
+	UObject* Outer)
+{
+	constexpr float Rungs[] = {110.0f, 220.0f, 330.0f};
+	TArray<FIGToneNote> Notes;
+	for (int32 Step = 0; Step < UE_ARRAY_COUNT(Rungs); ++Step)
+	{
+		const float Start = 0.10f + Step * 0.25f;
+		const float Weight = Step == 1 ? 0.30f : 0.10f;
+		Notes.Add({Start, 0.20f, Rungs[Step], Weight, 0.10f, 1.0f, EIGToneWaveform::Sine});
+	}
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSelfTestRebound(
 	UObject* Outer)
 {
 	TArray<FIGToneNote> Notes;
-	Notes.Add({0.00f, 0.50f, 300.0f, 0.20f, 0.10f, 1.0f, EIGToneWaveform::Sine});
-	for (int32 Index = 0; Index < 4; ++Index)
+	for (int32 Step = 0; Step < 2; ++Step)
 	{
-		Notes.Add({0.10f, 0.20f, 400.0f, 0.10f, 0.10f, 1.0f, EIGToneWaveform::Sine});
+		{
+			const float Gap = 0.10f;
+			Notes.Add({Gap, 0.05f, 300.0f, 0.10f, 0.10f, 1.0f, EIGToneWaveform::Sine});
+		}
+		{
+			const float Gap = 0.60f;
+			Notes.Add({Gap, 0.05f, 300.0f, 0.10f, 0.10f, 1.0f, EIGToneWaveform::Sine});
+		}
+	}
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSelfTestOpaqueLoop(
+	UObject* Outer)
+{
+	TArray<FIGToneNote> Notes;
+	for (const FIGToneNote& Source : Borrowed)
+	{
+		Notes.Add({Source.StartSeconds, 0.20f, 400.0f, 0.10f, 0.10f, 1.0f, EIGToneWaveform::Sine});
 	}
 	return Wave;
 }
@@ -428,7 +594,8 @@ def self_test() -> int:
     by_name = {g.name: g for g in generators}
     expected = {"CreateSelfTestQuiet", "CreateSelfTestClipping",
                 "CreateSelfTestPhased", "CreateSelfTestScaled",
-                "CreateSelfTestLooped"}
+                "CreateSelfTestUnrolled", "CreateSelfTestOpaqueLoop",
+                "CreateSelfTestBindings", "CreateSelfTestRebound"}
     if set(by_name) != expected:
         print("TONE HEADROOM SELF-TEST FAIL")
         print("  생성기를 %s로 읽었다" % sorted(by_name))
@@ -468,19 +635,59 @@ def self_test() -> int:
         if abs(scaled.notes[1].frequency - 110.0) > 1e-6:
             failures.append("NoteA2를 %.2f로 읽었다" % scaled.notes[1].frequency)
 
-    # 반복문 안의 음만 못 본다. 밖에 있는 음까지 같이 버리면 안 된다.
-    looped = by_name["CreateSelfTestLooped"]
-    if looped.looped_notes != 1:
-        failures.append("반복문 안의 음을 %d개로 셌다" % looped.looped_notes)
-    if len(looped.notes) != 1:
-        failures.append("반복문 밖의 음을 %d개로 셌다" % len(looped.notes))
+    # 횟수가 정해진 반복문은 펼친다. 밖의 하나에 안의 넷이 붙어 다섯이다.
+    unrolled = by_name["CreateSelfTestUnrolled"]
+    if unrolled.blind:
+        failures.append("펼칠 수 있는 반복문을 못 본 것으로 셌다 (%s)"
+                        % unrolled.blind_reason)
+    if len(unrolled.notes) != 5:
+        failures.append("펼친 뒤 음이 %d개다 (다섯이어야 한다)"
+                        % len(unrolled.notes))
+    else:
+        # 펼친 값이 맞는지 본다. 개수만 맞고 값이 틀리면 더 나쁘다 —
+        # 틀린 값으로 「안 깎인다」를 증명하게 된다.
+        starts = sorted(note.start for note in unrolled.notes)
+        if starts != [0.0, 0.0, 0.25, 0.50, 0.75]:
+            failures.append("배열 색인을 %s로 펼쳤다" % starts)
+        pitches = sorted(note.frequency for note in unrolled.notes)
+        if pitches != [300.0, 400.0, 450.0, 500.0, 550.0]:
+            failures.append("반복 변수가 든 식을 %s로 펼쳤다" % pitches)
+
+    # 지역 바인딩과 배열 길이와 인덱스 삼항. 셋 다 값까지 맞아야 한다 —
+    # 개수만 맞고 값이 틀리면 틀린 값으로 「안 깎인다」를 증명하게 된다.
+    bound = by_name["CreateSelfTestBindings"]
+    if bound.blind:
+        failures.append("UE_ARRAY_COUNT 반복문을 못 본 것으로 셌다 (%s)"
+                        % bound.blind_reason)
+    elif len(bound.notes) != 3:
+        failures.append("배열 길이를 %d번으로 읽었다" % len(bound.notes))
+    else:
+        starts = sorted(note.start for note in bound.notes)
+        if [round(value, 6) for value in starts] != [0.10, 0.35, 0.60]:
+            failures.append("지역 바인딩을 %s로 풀었다" % starts)
+        weights = sorted(note.amplitude for note in bound.notes)
+        if [round(value, 6) for value in weights] != [0.10, 0.10, 0.30]:
+            failures.append("인덱스 삼항을 %s로 풀었다" % weights)
+
+    # 같은 이름을 두 블록이 각자 쓰면 음마다 자기 앞의 값을 써야 한다.
+    # 자리를 안 보면 뒤엣값이 앞의 음까지 덮는다.
+    rebound = by_name["CreateSelfTestRebound"]
+    rebound_starts = sorted(round(note.start, 6) for note in rebound.notes)
+    if rebound_starts != [0.10, 0.10, 0.60, 0.60]:
+        failures.append("같은 이름을 다시 쓴 자리를 %s로 풀었다"
+                        % rebound_starts)
+
+    # 범위 기반 반복문은 몇 번 도는지 모른다. 못 본 것으로 세야 한다.
+    opaque = by_name["CreateSelfTestOpaqueLoop"]
+    if not opaque.blind:
+        failures.append("몇 번 도는지 모르는 반복문을 다 본 것처럼 셌다")
 
     # 못 읽은 음이 있으면 조용하더라도 통과 쪽에 세우면 안 된다. 나머지가
     # 조용하다는 근거가 없다.
     rows = measure(generators)
     proven = {row[0].name for row in rows
               if row[1] < CLIP_LEVEL and not row[0].blind}
-    if "CreateSelfTestLooped" in proven:
+    if "CreateSelfTestOpaqueLoop" in proven:
         failures.append("반복문 때문에 못 읽은 생성기를 통과로 셌다")
     if "CreateSelfTestQuiet" not in proven:
         failures.append("다 읽은 조용한 생성기를 통과로 안 셌다")
@@ -490,7 +697,8 @@ def self_test() -> int:
         print("\n".join("  " + f for f in failures))
         return 1
     print("TONE HEADROOM SELF-TEST PASS  quiet=상한 clipping=걸림 "
-          "phased=실측통과 scaled=풀림 looped=반복문만빠짐")
+          "phased=실측통과 scaled=풀림 unrolled=값까지맞음 "
+          "bindings=값까지맞음 rebound=자리별로맞음 opaque_loop=못봄")
     return 0
 
 
