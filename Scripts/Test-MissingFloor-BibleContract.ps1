@@ -1630,6 +1630,25 @@ if ($heartReach -lt 290.0 -or $heartReach -gt 310.0) {
 		'The heartbeat carries {0}cm; §5.1 wants about three meters.' -f $heartReach)
 }
 
+# 소리는 소음보다 멀리 가야 한다. 경고가 비용보다 먼저 오는 순서가 이 규칙의
+# 전부이고, 뒤집히면 자기 심장이 자기를 판 것을 뒤늦게 알게 된다.
+$heartbeatAudible = [regex]::Match(
+	$stressForNoise, 'AudibleHeartbeatCarry = (?<value>[0-9.]+)f;')
+$assertionCount++
+if (-not $heartbeatAudible.Success) {
+	throw 'AudibleHeartbeatCarry could not be read (§5.1).'
+}
+$assertionCount++
+if ([double]$heartbeatAudible.Groups['value'].Value -le $heartReach) {
+	throw (
+		'심박 소리가 {0}cm인데 소음이 {1}cm까지 간다. 경고가 비용보다 먼저 와야 한다 (§5.1).' -f
+			$heartbeatAudible.Groups['value'].Value, $heartReach)
+}
+$assertionCount++
+if ($story -notmatch '\*\*심박 소리는 소음보다 멀리 간다\.\*\*') {
+	throw 'The §5.1 rule that the heartbeat cue outruns its cost was removed.'
+}
+
 # --- §17 기믹 배치표 -----------------------------------------------------------
 $adopted = [regex]::Match(
 	$story, '### 17\.1 채택 — (?<count>[0-9]+)종\r?\n(?<body>[\s\S]*?)\r?\n### 17\.2')
