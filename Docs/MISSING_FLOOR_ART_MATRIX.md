@@ -40,6 +40,15 @@
 | 에필로그 2 가을 (§9) | `EpilogueAutumn_v1.png` | `T_EpilogueAutumn_D` + 런타임 한글 | Keep + runtime UI | 엔딩 A 45~61초 정지 화면 | 간판·상호 0, 401호 창턱 라디오 1개, 원본 2:3 유지 |
 | 마지막 신 서비스 베이 (§9) | `EpilogueServiceBay_v1.png` | `T_EpilogueServiceBay_D` + 런타임 한글 | Keep + runtime UI | 엔딩 B 17.6~45초 정지 화면 | 사람·유해·카트 0, 방수포 자국과 캐스터 자국만, 원본 3:2 유지 |
 
+## 2026-09-08 생성 메시 갱신
+
+| 대상 | 새 원본 | 새 런타임 에셋 | 바뀐 점 |
+|---|---|---|---|
+| 위층 사람 셸 | `SheetListenerEntityAnatomyReference.png` 좌하 칸 → TRELLIS.2 | `SM_ListenerEntityCrawl` (12000 삼각형, 정점 AO) | 타원체 조립을 생성 형상으로. 정면 레이어·석고 재질·WPO 계약은 그대로. 접지 오프셋은 메시 바운드에서 계산 |
+| 목한수 최종 대치 | `SheetMokHansooConfrontationReference_v1.png` 좌상 칸 → TRELLIS.2 | `SM_MokHansooFigure` | 작업복·머리손·석고보드 세 조각과 `M_SpriteMokFinalUpper` 카드를 통짜 하나가 대체. 조각과 카드는 메시가 없을 때의 폴백 |
+| 공동 최종 잔존물 | `SheetFinalCavityRemainsReference_v1.png` 좌상 칸 → TRELLIS.2 | `SM_FinalCavityRemains` | 옷·뼈·방수포·캐스터 네 조각과 `M_SpriteFinalCavity` 카드를 통짜 하나가 대체. 앞끝 X -31, 깊이 68 |
+| 골목 고양이 | `SheetAlleyCatPoseReference.png` 우상 칸 → TRELLIS.2 | `SM_AlleyCatRun` | 복셀 리메시로 털 조각을 녹인 8000 삼각형. 구운 털 색 인스턴스 사용 |
+
 ## 블렌딩·거리·성능 계약
 
 - 건식 석고는 D/N/R/A를 한 재질에서 샘플하고 X/Y/XY 세 방향 인스턴스로

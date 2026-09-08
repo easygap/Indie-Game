@@ -1,0 +1,31 @@
+{
+  "name": "SM_ListenerEntityCrawl",
+  "mesh_class": "hero",
+  "fbx": "SM_ListenerEntityCrawl.fbx",
+  "textures": {
+    "D": "SM_ListenerEntityCrawl_D.png",
+    "N": "SM_ListenerEntityCrawl_N.png",
+    "ORM": "SM_ListenerEntityCrawl_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 12000,
+  "bounds_m": {
+    "min": [
+      -0.9515,
+      -0.5874,
+      -0.0004
+    ],
+    "max": [
+      0.9442,
+      0.5866,
+      0.9718
+    ]
+  },
+  "origin": "bottom",
+  "blender": "5.2.0 LTS",
+  "notes": "위층 사람 기어가는 자세. TRELLIS.2(trellis1024-s56, 정면 3/4 기준 셀)에서 생성해 12000 삼각형으로 다듬음. 정점색에 AO. 머리가 +X.",
+  "generated_from": "../Generated/ListenerEntityCrawl/trellis1024-s56/raw/pbr_00001_.glb",
+  "vertex_ao": true
+}

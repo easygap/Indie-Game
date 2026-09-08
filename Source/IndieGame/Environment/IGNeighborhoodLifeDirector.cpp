@@ -300,7 +300,12 @@ void AIGNeighborhoodLifeDirector::InitializePools()
 		const FRotator& Rotation)
 	{
 		UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(this, Name);
-		ConfigureVisual(Part, Mesh, Material ? Material : DarkMaterial.Get());
+		// TRELLIS.2에서 다듬은 고양이는 기준 시트의 줄무늬를 구운 재질을 슬롯에
+		// 들고 온다. 타일 털 재질을 덮어씌우면 스마트 UV 섬마다 무늬가 끊긴다.
+		const bool bKeepsOwnMaterial = Mesh == AlleyCatMesh;
+		ConfigureVisual(
+			Part, Mesh,
+			bKeepsOwnMaterial ? nullptr : (Material ? Material : DarkMaterial.Get()));
 		Part->AttachToComponent(CatTraceRoot, FAttachmentTransformRules::KeepRelativeTransform);
 		Part->SetRelativeLocation(Location);
 		Part->SetRelativeRotation(Rotation);

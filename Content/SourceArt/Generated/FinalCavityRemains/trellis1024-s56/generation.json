@@ -1,0 +1,140 @@
+{
+  "name": "FinalCavityRemains",
+  "trial": "trellis1024-s56",
+  "status": "Generated",
+  "source": "Content/SourceArt/Generated/FinalCavityRemains/source-front.png",
+  "sourceSha256": "d73504d5b60252a3b23ddc6489bdab15c773b4404986cf5b24d08c969191955a",
+  "route": "trellis",
+  "resolution": 1024,
+  "seed": 56,
+  "postprocess": "pbr",
+  "decimateFaces": 200000,
+  "textureSize": 2048,
+  "server": {
+    "url": "http://127.0.0.1:8199",
+    "version": "0.34.6",
+    "device": "cuda:0 NVIDIA GeForce RTX 3060 : cudaMallocAsync"
+  },
+  "startedAt": "2026-09-08T05:27:25.487814+00:00",
+  "license": "TRELLIS.2 / Pixal3D weights: Comfy-Org repackage, MIT/permissive; DINOv3, MoGe, BiRefNet: see lunia_z SourceArt/Manifests/ComfyNative.20260908.json",
+  "runtimeReady": false,
+  "promptId": "ca5a8f35-30ff-4a6e-a22b-c05647f3a70b",
+  "elapsedSeconds": 315.4,
+  "finishedAt": "2026-09-08T05:32:40.921300+00:00",
+  "files": [
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/trellis1024-s56/raw/base-color_00001_.png",
+      "bytes": 5188702,
+      "sha256": "2db5e394c022076a3d87fe47cc328e992dc8c48c65a206fae278476721602bef"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/trellis1024-s56/raw/cleaned-colored_00001_.glb",
+      "bytes": 5826396,
+      "sha256": "d372f2b15bf883f45e81449b3d5954611acdbd53f7f453b0b40988fc890dc02a"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/trellis1024-s56/raw/colored_00001_.glb",
+      "bytes": 359637672,
+      "sha256": "8f46b976c8f685791e2a64935a2dd579e2abba4429a2cdaf3d88bdd36ac2e8b1"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/trellis1024-s56/raw/conditioning_00001_.png",
+      "bytes": 719269,
+      "sha256": "c42955bd6a287687102db703acd89584b74d3c867bee5d13646b833ae1bdc11e"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/trellis1024-s56/raw/metallic_00001_.png",
+      "bytes": 21586,
+      "sha256": "5f8bf1711b47d3d8b436e42ccc17251ba10499d7bd3f75bc48adabff3bb0014d"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/trellis1024-s56/raw/pbr_00001_.glb",
+      "bytes": 12497664,
+      "sha256": "e3e305bcec0abc9cf9ddde832bccca6de056dd72cd3ec6fba5ab67cbb40d7345"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/trellis1024-s56/raw/roughness_00001_.png",
+      "bytes": 1952072,
+      "sha256": "17ea9ba1b8b01fbeee45cdd6c3f45a0d16189846d81964bfeec64b237a349805"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/trellis1024-s56/raw/shape_00001_.glb",
+      "bytes": 287884612,
+      "sha256": "bb5ebc0d906e0528887ca87778c49bb6bfb524712965a59affb76a8b7c8ac45d"
+    }
+  ],
+  "outputs": {
+    "5": {
+      "images": [
+        {
+          "filename": "conditioning_00001_.png",
+          "subfolder": "ig3d\\FinalCavityRemains\\trellis1024-s56",
+          "type": "output"
+        }
+      ]
+    },
+    "28": {
+      "3d": [
+        {
+          "filename": "shape_00001_.glb",
+          "subfolder": "ig3d\\FinalCavityRemains\\trellis1024-s56",
+          "type": "output"
+        }
+      ]
+    },
+    "33": {
+      "3d": [
+        {
+          "filename": "colored_00001_.glb",
+          "subfolder": "ig3d\\FinalCavityRemains\\trellis1024-s56",
+          "type": "output"
+        }
+      ]
+    },
+    "38": {
+      "3d": [
+        {
+          "filename": "cleaned-colored_00001_.glb",
+          "subfolder": "ig3d\\FinalCavityRemains\\trellis1024-s56",
+          "type": "output"
+        }
+      ]
+    },
+    "44": {
+      "images": [
+        {
+          "filename": "metallic_00001_.png",
+          "subfolder": "ig3d\\FinalCavityRemains\\trellis1024-s56",
+          "type": "output"
+        }
+      ]
+    },
+    "43": {
+      "images": [
+        {
+          "filename": "base-color_00001_.png",
+          "subfolder": "ig3d\\FinalCavityRemains\\trellis1024-s56",
+          "type": "output"
+        }
+      ]
+    },
+    "45": {
+      "images": [
+        {
+          "filename": "roughness_00001_.png",
+          "subfolder": "ig3d\\FinalCavityRemains\\trellis1024-s56",
+          "type": "output"
+        }
+      ]
+    },
+    "42": {
+      "3d": [
+        {
+          "filename": "pbr_00001_.glb",
+          "subfolder": "ig3d\\FinalCavityRemains\\trellis1024-s56",
+          "type": "output"
+        }
+      ]
+    }
+  }
+}

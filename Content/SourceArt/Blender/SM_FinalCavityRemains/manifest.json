@@ -1,0 +1,31 @@
+{
+  "name": "SM_FinalCavityRemains",
+  "mesh_class": "hero",
+  "fbx": "SM_FinalCavityRemains.fbx",
+  "textures": {
+    "D": "SM_FinalCavityRemains_D.png",
+    "N": "SM_FinalCavityRemains_N.png",
+    "ORM": "SM_FinalCavityRemains_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 12000,
+  "bounds_m": {
+    "min": [
+      -0.5141,
+      -0.3212,
+      -0.0223
+    ],
+    "max": [
+      0.5093,
+      0.387,
+      1.4202
+    ]
+  },
+  "origin": "bottom",
+  "blender": "5.2.0 LTS",
+  "notes": "밤4 공동 최종 잔존물(웅크린 유해와 옷). TRELLIS.2(trellis1024-s56, 정면 기준 셀)에서 생성, 뒤로 늘어진 깊이를 절반으로 누르고 벽감 뒤를 잘라 12000 삼각형으로 다듬음. 정면 -Y(앞끝 Y -31), 원점 바닥.",
+  "generated_from": "../Generated/FinalCavityRemains/trellis1024-s56/raw/pbr_00001_.glb",
+  "vertex_ao": false
+}

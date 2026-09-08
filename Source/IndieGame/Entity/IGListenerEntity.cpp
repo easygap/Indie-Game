@@ -951,10 +951,15 @@ void AIGListenerEntity::BuildGreyboxBody()
 		Component->AttachToComponent(
 			Body, FAttachmentTransformRules::KeepRelativeTransform);
 		Component->SetStaticMesh(ListenerMesh);
-		// The capsule origin is 58 cm above the floor. The authored shell's
-		// lowest shoe is Z=-31, so -27 is the exact contact offset; leaving the
-		// identity transform made the whole person visibly float.
-		Component->SetRelativeLocation(FVector(0.0f, 0.0f, -27.0f));
+		// The capsule origin is 58 cm above the floor. 접지 오프셋은 메시의
+		// 가장 낮은 점에서 계산한다 — 예전 절차 셸은 발끝이 Z -31이라 -27을
+		// 박아 두었는데, TRELLIS.2에서 다듬은 셸은 원점이 바닥 중심이라 그
+		// 값을 그대로 쓰면 58 cm 떠 버린다.
+		constexpr float CapsuleOriginAboveFloor = 58.0f;
+		const FBoxSphereBounds MeshBounds = ListenerMesh->GetBounds();
+		const float LowestZ = MeshBounds.Origin.Z - MeshBounds.BoxExtent.Z;
+		Component->SetRelativeLocation(
+			FVector(0.0f, 0.0f, -CapsuleOriginAboveFloor - LowestZ));
 		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Component->SetCanEverAffectNavigation(false);
 		Component->SetCastShadow(true);

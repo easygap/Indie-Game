@@ -1563,7 +1563,10 @@ foreach ($token in @(
 	'Distance > 160.0f',
 	'Distance > 125.0f',
 	'Facing > 0.60f',
-	'FVector(0.0f, 0.0f, -27.0f)',
+	# 접지 오프셋은 메시 바운드에서 계산한다. 절차 셸(-31)과 TRELLIS.2에서
+	# 다듬은 셸(0)이 같은 코드로 바닥에 닿는다.
+	'CapsuleOriginAboveFloor = 58.0f',
+	'-CapsuleOriginAboveFloor - LowestZ',
 	'ListenerShellMid',
 	'TEXT("BreathAmplitude")',
 	'TEXT("TremorAmplitude")',

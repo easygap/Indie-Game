@@ -1,0 +1,31 @@
+{
+  "name": "SM_MokHansooFigure",
+  "mesh_class": "hero",
+  "fbx": "SM_MokHansooFigure.fbx",
+  "textures": {
+    "D": "SM_MokHansooFigure_D.png",
+    "N": "SM_MokHansooFigure_N.png",
+    "ORM": "SM_MokHansooFigure_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 12000,
+  "bounds_m": {
+    "min": [
+      -0.3351,
+      -0.2162,
+      -0.0052
+    ],
+    "max": [
+      0.3377,
+      0.2137,
+      1.7203
+    ]
+  },
+  "origin": "bottom",
+  "blender": "5.2.0 LTS",
+  "notes": "목한수 최종 대치 전신(석고보드 든 자세). TRELLIS.2(trellis1024-s56, 정면 기준 셀)에서 생성해 12000 삼각형으로 다듬음. 정면 -Y, 원점 바닥 중심.",
+  "generated_from": "../Generated/MokHansoo/trellis1024-s56/raw/pbr_00001_.glb",
+  "vertex_ao": false
+}

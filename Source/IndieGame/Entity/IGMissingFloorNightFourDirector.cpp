@@ -499,6 +499,13 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 	UStaticMesh* MokWorkwearMesh = LoadMesh(TEXT("SM_MokHansooWorkwear"));
 	UStaticMesh* MokHeadHandsMesh = LoadMesh(TEXT("SM_MokHansooHeadHands"));
 	UStaticMesh* MokBoardMesh = LoadMesh(TEXT("SM_MokHansooGypsumBoard"));
+	// TRELLIS.2에서 기준 시트 그대로 뽑아 다듬은 통짜 유해와 목한수. 있으면
+	// 이것이 정식이고, 옷·뼈·방수포·캐스터 네 조각과 정면 디테일 카드는
+	// 절차 셸을 사람으로 읽히게 하던 장치라 만들지 않는다. 구운 색을 가진
+	// 한 메시 앞에서 카드는 겹쳐 보일 뿐이다. 둘 다 정면이 -Y, 원점은 바닥
+	// 중심이다.
+	UStaticMesh* CavityFigureMesh = LoadMesh(TEXT("SM_FinalCavityRemains"));
+	UStaticMesh* MokFigureMesh = LoadMesh(TEXT("SM_MokHansooFigure"));
 	UStaticMesh* TuningHammerMesh = LoadMesh(TEXT("SM_TuningHammer"));
 	UStaticMesh* PhoneMesh = LoadMesh(TEXT("SM_CrackedPhone"));
 	UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(
@@ -538,7 +545,10 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 			return nullptr;
 		}
 		Visual->SetStaticMesh(Mesh);
-		Visual->SetMaterial(0, Material);
+		if (Material)
+		{
+			Visual->SetMaterial(0, Material);
+		}
 		Visual->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Visual->SetGenerateOverlapEvents(false);
 		Visual->SetCanEverAffectNavigation(false);
@@ -551,52 +561,85 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 		return Visual;
 	};
 
+	bCavityFigureAuthored = CavityFigureMesh != nullptr;
+	bMokFigureAuthored = MokFigureMesh != nullptr;
+
 	CavityRevealVisuals.Reset();
-	CavityRevealVisuals.Add(AddVisual(
-		TEXT("FinalCavityClothing"), ClothingMesh, DryClothMaterial,
-		IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
-	CavityRevealVisuals.Add(AddVisual(
-		TEXT("FinalCavityBoneInsert"), BoneMesh, BoneMaterial,
-		IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
-	CavityRevealVisuals.Add(AddVisual(
-		TEXT("FinalCavityTarp"), TarpMesh, TarpMaterial,
-		IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
-	CavityRevealVisuals.Add(AddVisual(
-		TEXT("FinalCavityCaster"), CasterMesh, MetalMaterial,
-		IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+	if (bCavityFigureAuthored)
+	{
+		// 절차 셸은 -X를 보고 앉아 있었다(디테일 법선 (-1,0,0)). 정면 -Y인
+		// 생성 메시는 yaw -90으로 같은 쪽을 본다.
+		CavityRevealVisuals.Add(AddVisual(
+			TEXT("FinalCavityRemains"), CavityFigureMesh, nullptr,
+			IGNightFour::CavityVisualOrigin, FRotator(0.0f, -90.0f, 0.0f)));
+	}
+	else
+	{
+		CavityRevealVisuals.Add(AddVisual(
+			TEXT("FinalCavityClothing"), ClothingMesh, DryClothMaterial,
+			IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+		CavityRevealVisuals.Add(AddVisual(
+			TEXT("FinalCavityBoneInsert"), BoneMesh, BoneMaterial,
+			IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+		CavityRevealVisuals.Add(AddVisual(
+			TEXT("FinalCavityTarp"), TarpMesh, TarpMaterial,
+			IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+		CavityRevealVisuals.Add(AddVisual(
+			TEXT("FinalCavityCaster"), CasterMesh, MetalMaterial,
+			IGNightFour::CavityVisualOrigin, FRotator::ZeroRotator));
+	}
 
 	MokVisuals.Reset();
-	MokVisuals.Add(AddVisual(
-		TEXT("MokHansooWorkwear"), MokWorkwearMesh, WorkwearMaterial,
-		IGNightFour::MokStartLocation, IGNightFour::MokRotation));
-	MokVisuals.Add(AddVisual(
-		TEXT("MokHansooHeadHands"), MokHeadHandsMesh, BoneMaterial,
-		IGNightFour::MokStartLocation, IGNightFour::MokRotation));
-	MokVisuals.Add(AddVisual(
-		TEXT("MokHansooGypsumBoard"), MokBoardMesh, BoardMaterial,
-		IGNightFour::MokStartLocation, IGNightFour::MokRotation));
-
-	CavityDetailCard = AddVisual(
-		TEXT("FinalCavityDetailCard"), PlaneMesh, CavityDetailMaterial,
-		IGNightFour::CavityDetailCenter,
-		IGNightFour::DetailCardRotation(
-			FVector(0.0f, 1.0f, 0.0f),
-			IGNightFour::CavityDetailNormal));
-	if (CavityDetailCard)
+	if (bMokFigureAuthored)
 	{
-		CavityDetailCard->SetWorldScale3D(FVector(1.19f, 1.78f, 1.0f));
-		CavityDetailCard->SetCastShadow(false);
+		// 절차 작업복은 -X가 정면이라 MokRotation(yaw -90)으로 +Y를 봤다.
+		// 정면 -Y인 생성 메시는 yaw 180으로 같은 +Y를 본다.
+		MokVisuals.Add(AddVisual(
+			TEXT("MokHansooFigure"), MokFigureMesh, nullptr,
+			IGNightFour::MokStartLocation, FRotator(0.0f, 180.0f, 0.0f)));
 	}
-	MokDetailCard = AddVisual(
-		TEXT("MokHansooDetailCard"), PlaneMesh, MokDetailMaterial,
-		IGNightFour::MokStartLocation + IGNightFour::MokDetailOffset,
-		IGNightFour::DetailCardRotation(
-			FVector(1.0f, 0.0f, 0.0f),
-			IGNightFour::MokDetailNormal));
-	if (MokDetailCard)
+	else
 	{
-		MokDetailCard->SetWorldScale3D(FVector(1.21f, 1.82f, 1.0f));
-		MokDetailCard->SetCastShadow(false);
+		MokVisuals.Add(AddVisual(
+			TEXT("MokHansooWorkwear"), MokWorkwearMesh, WorkwearMaterial,
+			IGNightFour::MokStartLocation, IGNightFour::MokRotation));
+		MokVisuals.Add(AddVisual(
+			TEXT("MokHansooHeadHands"), MokHeadHandsMesh, BoneMaterial,
+			IGNightFour::MokStartLocation, IGNightFour::MokRotation));
+		MokVisuals.Add(AddVisual(
+			TEXT("MokHansooGypsumBoard"), MokBoardMesh, BoardMaterial,
+			IGNightFour::MokStartLocation, IGNightFour::MokRotation));
+	}
+
+	CavityDetailCard = nullptr;
+	MokDetailCard = nullptr;
+	if (!bCavityFigureAuthored)
+	{
+		CavityDetailCard = AddVisual(
+			TEXT("FinalCavityDetailCard"), PlaneMesh, CavityDetailMaterial,
+			IGNightFour::CavityDetailCenter,
+			IGNightFour::DetailCardRotation(
+				FVector(0.0f, 1.0f, 0.0f),
+				IGNightFour::CavityDetailNormal));
+		if (CavityDetailCard)
+		{
+			CavityDetailCard->SetWorldScale3D(FVector(1.19f, 1.78f, 1.0f));
+			CavityDetailCard->SetCastShadow(false);
+		}
+	}
+	if (!bMokFigureAuthored)
+	{
+		MokDetailCard = AddVisual(
+			TEXT("MokHansooDetailCard"), PlaneMesh, MokDetailMaterial,
+			IGNightFour::MokStartLocation + IGNightFour::MokDetailOffset,
+			IGNightFour::DetailCardRotation(
+				FVector(1.0f, 0.0f, 0.0f),
+				IGNightFour::MokDetailNormal));
+		if (MokDetailCard)
+		{
+			MokDetailCard->SetWorldScale3D(FVector(1.21f, 1.82f, 1.0f));
+			MokDetailCard->SetCastShadow(false);
+		}
 	}
 
 	EndingHammerVisual = AddVisual(
@@ -606,14 +649,24 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 		TEXT("NightFourEndingPhone"), PhoneMesh, WorkwearMaterial,
 		IGNightFour::EndingPhoneRest, FRotator(0.0f, -8.0f, 0.0f));
 
-	return CavityRevealVisuals.Num() == 4
-		&& !CavityRevealVisuals.Contains(nullptr)
-		&& MokVisuals.Num() == 3
-		&& !MokVisuals.Contains(nullptr)
-		&& CavityDetailCard
-		&& MokDetailCard
+	return HasFinaleFigures()
 		&& EndingHammerVisual
 		&& EndingPhoneVisual;
+}
+
+bool AIGMissingFloorNightFourDirector::HasFinaleFigures() const
+{
+	// 생성 메시면 통짜 하나와 카드 없음, 절차 셸이면 조각 넷·셋과 카드 둘.
+	const bool bCavityComplete = bCavityFigureAuthored
+		? CavityRevealVisuals.Num() == 1
+		: CavityRevealVisuals.Num() == 4 && CavityDetailCard != nullptr;
+	const bool bMokComplete = bMokFigureAuthored
+		? MokVisuals.Num() == 1
+		: MokVisuals.Num() == 3 && MokDetailCard != nullptr;
+	return bCavityComplete
+		&& !CavityRevealVisuals.Contains(nullptr)
+		&& bMokComplete
+		&& !MokVisuals.Contains(nullptr);
 }
 
 void AIGMissingFloorNightFourDirector::SetCavityRevealVisible(
@@ -889,10 +942,7 @@ bool AIGMissingFloorNightFourDirector::ValidateFixtures() const
 		&& EndingATarget
 		&& EndingBTarget
 		&& Listener.IsValid()
-		&& CavityRevealVisuals.Num() == 4
-		&& MokVisuals.Num() == 3
-		&& CavityDetailCard
-		&& MokDetailCard
+		&& HasFinaleFigures()
 		&& EndingHammerVisual
 		&& EndingPhoneVisual;
 }

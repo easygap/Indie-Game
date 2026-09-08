@@ -1,0 +1,31 @@
+{
+  "name": "SM_AlleyCatRun",
+  "mesh_class": "hero",
+  "fbx": "SM_AlleyCatRun.fbx",
+  "textures": {
+    "D": "SM_AlleyCatRun_D.png",
+    "N": "SM_AlleyCatRun_N.png",
+    "ORM": "SM_AlleyCatRun_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 8000,
+  "bounds_m": {
+    "min": [
+      -0.4238,
+      -0.1417,
+      0.0017
+    ],
+    "max": [
+      0.423,
+      0.144,
+      0.4688
+    ]
+  },
+  "origin": "bottom",
+  "blender": "5.2.0 LTS",
+  "notes": "골목 고등어태비. TRELLIS.2(trellis1024-s56, 정면 3/4 기준 셀)에서 생성, 복셀 리메시로 털 조각을 녹이고 8000 삼각형으로 다듬음. 머리가 +X, 구운 털 색을 MI로 씀.",
+  "generated_from": "../Generated/AlleyCatRun/trellis1024-s56/raw/pbr_00001_.glb",
+  "vertex_ao": false
+}

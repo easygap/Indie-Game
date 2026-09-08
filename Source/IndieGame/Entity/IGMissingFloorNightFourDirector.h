@@ -194,6 +194,13 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> MokDetailCard;
 
+	/** 생성 통짜 메시가 잡혔는지. 카드와 조각 수 계약이 여기에 따라 갈린다. */
+	bool bCavityFigureAuthored = false;
+	bool bMokFigureAuthored = false;
+
+	/** 유해·목한수 표현이 빠짐없이 세워졌는지. 생성 메시와 절차 셸의 계약이 다르다. */
+	bool HasFinaleFigures() const;
+
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> EndingHammerVisual;
 
