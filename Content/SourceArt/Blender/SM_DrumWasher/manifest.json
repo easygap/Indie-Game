@@ -1,0 +1,31 @@
+{
+  "name": "SM_DrumWasher",
+  "mesh_class": "prop",
+  "fbx": "SM_DrumWasher.fbx",
+  "textures": {
+    "D": "SM_DrumWasher_D.png",
+    "N": "SM_DrumWasher_N.png",
+    "ORM": "SM_DrumWasher_ORM.png"
+  },
+  "slots": [
+    "Baked",
+    "Glass"
+  ],
+  "triangles": 2216,
+  "bounds_m": {
+    "min": [
+      -0.04,
+      -0.27,
+      0.12
+    ],
+    "max": [
+      0.32,
+      0.27,
+      0.81
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "드럼세탁기 앞면 54 x 68, 포트홀 42. 앞면 -X, 원점 씬 (133.4, 70, 0). 하부장 캐비닛 안에 들어간다."
+}

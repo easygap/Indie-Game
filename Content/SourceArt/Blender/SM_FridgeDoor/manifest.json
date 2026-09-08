@@ -1,0 +1,29 @@
+{
+  "name": "SM_FridgeDoor",
+  "mesh_class": "prop",
+  "fbx": "SM_FridgeDoor.fbx",
+  "textures": {
+    "D": "SM_FridgeDoor_D.png",
+    "N": "SM_FridgeDoor_N.png",
+    "ORM": "SM_FridgeDoor_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 440,
+  "bounds_m": {
+    "min": [
+      -0.06,
+      0.0,
+      -0.73
+    ],
+    "max": [
+      0.102,
+      0.72,
+      0.79
+    ]
+  },
+  "origin": "bottom-center",
+  "blender": "5.2.0 LTS",
+  "notes": "403호 냉장고 문짝. 원점은 힌지 축의 피벗 높이(Z 79). X -6..0, Y 0..72, Z -73..79."
+}

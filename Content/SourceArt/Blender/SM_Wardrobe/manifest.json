@@ -1,0 +1,30 @@
+{
+  "name": "SM_Wardrobe",
+  "mesh_class": "prop",
+  "fbx": "SM_Wardrobe.fbx",
+  "textures": {
+    "D": "SM_Wardrobe_D.png",
+    "N": "SM_Wardrobe_N.png",
+    "ORM": "SM_Wardrobe_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1220,
+  "bounds_m": {
+    "min": [
+      -0.2,
+      -0.41,
+      0.0
+    ],
+    "max": [
+      0.2358,
+      0.41,
+      1.8
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "403호 옷장 40 x 80 x 180. 앞면 +X(서쪽 벽에 등), 원점 바닥 중심 (-170,-104,0)."
+}

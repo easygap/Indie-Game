@@ -119,10 +119,43 @@ void AIGFridge::ConfigurePrototypeVisuals(
 
 	using namespace IGFridge;
 
-	DoorMesh->SetStaticMesh(CubeMesh);
-	DoorMesh->SetMaterial(0, BodyMaterial);
-	HandleMesh->SetStaticMesh(CubeMesh);
-	HandleMesh->SetMaterial(0, HandleMaterial);
+	// Blender 냉장고(Scripts/blender/build_fridge.py)가 있으면 본체와 문짝은
+	// 그 메시다. 껍데기 다섯 판, 문 상세, 선반·서랍·냉기 패널이 메시 안에
+	// 있고 재질도 메시가 들고 온다. 내용물(김치통·우유·소주·반찬통)과 실내등,
+	// 문 열림 로직은 그대로다. 문짝 원점이 힌지 축의 피벗 높이라 DoorPivot에
+	// 상대 변환 없이 붙는다.
+	UStaticMesh* AuthoredBody = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_FridgeBody.SM_FridgeBody"));
+	UStaticMesh* AuthoredDoor = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_FridgeDoor.SM_FridgeDoor"));
+	const bool bAuthored = AuthoredBody != nullptr && AuthoredDoor != nullptr;
+
+	if (bAuthored)
+	{
+		DoorMesh->SetStaticMesh(AuthoredDoor);
+		DoorMesh->SetRelativeLocation(FVector::ZeroVector);
+		DoorMesh->SetRelativeScale3D(FVector::OneVector);
+		HandleMesh->SetStaticMesh(nullptr);
+		HandleMesh->SetVisibility(false, true);
+
+		UStaticMeshComponent* BodyMesh = NewObject<UStaticMeshComponent>(
+			this, TEXT("FridgeBodyAuthored"));
+		BodyMesh->SetupAttachment(FridgeRoot);
+		BodyMesh->SetStaticMesh(AuthoredBody);
+		BodyMesh->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+		BodyMesh->SetGenerateOverlapEvents(false);
+		BodyMesh->SetCanEverAffectNavigation(false);
+		BodyMesh->SetMobility(EComponentMobility::Movable);
+		BodyMesh->RegisterComponent();
+		ShellMeshes.Add(BodyMesh);
+	}
+	else
+	{
+		DoorMesh->SetStaticMesh(CubeMesh);
+		DoorMesh->SetMaterial(0, BodyMaterial);
+		HandleMesh->SetStaticMesh(CubeMesh);
+		HandleMesh->SetMaterial(0, HandleMaterial);
+	}
 
 	struct FPanelSpec
 	{
@@ -149,6 +182,10 @@ void AIGFridge::ConfigurePrototypeVisuals(
 	int32 PanelIndex = 0;
 	for (const FPanelSpec& Panel : Panels)
 	{
+		if (bAuthored)
+		{
+			break;
+		}
 		UStaticMeshComponent* PanelMesh = NewObject<UStaticMeshComponent>(
 			this,
 			*FString::Printf(TEXT("FridgePanel%d"), PanelIndex++));
@@ -193,8 +230,13 @@ void AIGFridge::ConfigurePrototypeVisuals(
 	// --- interior: what an actual studio fridge looks like inside ---------
 	// Glass shelves with steel front trim; the middle shelf anchors the
 	// rolling empty bottle. Bottom crisper drawer with a clear front.
+	// 저작 본체는 이 모든 것을 메시로 들고 있다.
 	for (const float ShelfZ : {BodyHeight * 0.50f, BodyHeight * 0.26f})
 	{
+		if (bAuthored)
+		{
+			break;
+		}
 		AddDetail(FridgeRoot, GlassMaterial,
 			FVector(2.0f, 0.0f, ShelfZ),
 			FVector(BodyWidth - PanelThickness * 2.5f, BodyDepth - PanelThickness * 2.0f, 1.6f));
@@ -202,39 +244,42 @@ void AIGFridge::ConfigurePrototypeVisuals(
 			FVector(-BodyWidth * 0.5f + PanelThickness + 2.0f, 0.0f, ShelfZ),
 			FVector(2.0f, BodyDepth - PanelThickness * 2.0f, 2.4f));
 	}
-	AddDetail(FridgeRoot, InteriorMaterial,
-		FVector(4.0f, 0.0f, 18.0f), FVector(BodyWidth - 18.0f, BodyDepth - 16.0f, 24.0f));
-	AddDetail(FridgeRoot, GlassMaterial,
-		FVector(-BodyWidth * 0.5f + PanelThickness + 3.0f, 0.0f, 19.0f),
-		FVector(1.6f, BodyDepth - 18.0f, 22.0f));
-	AddDetail(FridgeRoot, MetalMaterial,
-		FVector(-BodyWidth * 0.5f + PanelThickness + 3.0f, 0.0f, 31.0f),
-		FVector(2.0f, BodyDepth - 22.0f, 2.0f));
-
-	// Back cooling panel with vent slits, and the interior lamp housing.
-	AddDetail(FridgeRoot, InteriorMaterial,
-		FVector(BodyWidth * 0.5f - PanelThickness - 2.0f, 0.0f, BodyHeight * 0.62f),
-		FVector(3.5f, BodyDepth - 26.0f, 52.0f));
-	for (int32 SlitIndex = 0; SlitIndex < 3; ++SlitIndex)
+	if (!bAuthored)
 	{
-		AddDetail(FridgeRoot, HandleMaterial,
-			FVector(BodyWidth * 0.5f - PanelThickness - 4.0f, 0.0f,
-				BodyHeight * 0.55f + SlitIndex * 7.0f),
-			FVector(0.8f, BodyDepth - 34.0f, 1.4f));
-	}
-	AddDetail(FridgeRoot, InteriorMaterial,
-		FVector(2.0f, 0.0f, BodyHeight - PanelThickness - 3.0f),
-		FVector(18.0f, 12.0f, 3.5f));
+		AddDetail(FridgeRoot, InteriorMaterial,
+			FVector(4.0f, 0.0f, 18.0f), FVector(BodyWidth - 18.0f, BodyDepth - 16.0f, 24.0f));
+		AddDetail(FridgeRoot, GlassMaterial,
+			FVector(-BodyWidth * 0.5f + PanelThickness + 3.0f, 0.0f, 19.0f),
+			FVector(1.6f, BodyDepth - 18.0f, 22.0f));
+		AddDetail(FridgeRoot, MetalMaterial,
+			FVector(-BodyWidth * 0.5f + PanelThickness + 3.0f, 0.0f, 31.0f),
+			FVector(2.0f, BodyDepth - 22.0f, 2.0f));
 
-	// Door pockets on the inside face of the door.
-	for (const float PocketZ : {-42.0f, 8.0f})
-	{
-		AddDetail(DoorPivot, InteriorMaterial,
-			FVector(2.4f, BodyDepth * 0.5f, PocketZ),
-			FVector(9.0f, BodyDepth - 18.0f, 2.0f));
-		AddDetail(DoorPivot, InteriorMaterial,
-			FVector(6.8f, BodyDepth * 0.5f, PocketZ + 6.0f),
-			FVector(1.6f, BodyDepth - 18.0f, 9.0f));
+		// Back cooling panel with vent slits, and the interior lamp housing.
+		AddDetail(FridgeRoot, InteriorMaterial,
+			FVector(BodyWidth * 0.5f - PanelThickness - 2.0f, 0.0f, BodyHeight * 0.62f),
+			FVector(3.5f, BodyDepth - 26.0f, 52.0f));
+		for (int32 SlitIndex = 0; SlitIndex < 3; ++SlitIndex)
+		{
+			AddDetail(FridgeRoot, HandleMaterial,
+				FVector(BodyWidth * 0.5f - PanelThickness - 4.0f, 0.0f,
+					BodyHeight * 0.55f + SlitIndex * 7.0f),
+				FVector(0.8f, BodyDepth - 34.0f, 1.4f));
+		}
+		AddDetail(FridgeRoot, InteriorMaterial,
+			FVector(2.0f, 0.0f, BodyHeight - PanelThickness - 3.0f),
+			FVector(18.0f, 12.0f, 3.5f));
+
+		// Door pockets on the inside face of the door.
+		for (const float PocketZ : {-42.0f, 8.0f})
+		{
+			AddDetail(DoorPivot, InteriorMaterial,
+				FVector(2.4f, BodyDepth * 0.5f, PocketZ),
+				FVector(9.0f, BodyDepth - 18.0f, 2.0f));
+			AddDetail(DoorPivot, InteriorMaterial,
+				FVector(6.8f, BodyDepth * 0.5f, PocketZ + 6.0f),
+				FVector(1.6f, BodyDepth - 18.0f, 9.0f));
+		}
 	}
 
 	// Leftovers with no water anywhere. The tub, carton and soju are authored
@@ -297,6 +342,12 @@ void AIGFridge::ConfigurePrototypeVisuals(
 	// Gochujang tube standing in the door pocket.
 	AddDetail(DoorPivot, AccentRedMaterial,
 		FVector(4.0f, BodyDepth * 0.5f - 12.0f, 14.0f), FVector(4.5f, 4.5f, 13.0f));
+
+	if (bAuthored)
+	{
+		// 문 상세·힌지·통풍 슬릿은 저작 메시가 들고 있다.
+		return;
+	}
 
 	const float DoorFrontX = -PanelThickness - 0.6f;
 	// Inset face plate with a shadow seam, and the rubber gasket outline.

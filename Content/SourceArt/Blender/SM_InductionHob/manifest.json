@@ -1,0 +1,29 @@
+{
+  "name": "SM_InductionHob",
+  "mesh_class": "prop",
+  "fbx": "SM_InductionHob.fbx",
+  "textures": {
+    "D": "SM_InductionHob_D.png",
+    "N": "SM_InductionHob_N.png",
+    "ORM": "SM_InductionHob_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1392,
+  "bounds_m": {
+    "min": [
+      -0.23,
+      -0.25,
+      0.0
+    ],
+    "max": [
+      0.23,
+      0.25,
+      0.0158
+    ]
+  },
+  "origin": "bottom-center",
+  "blender": "5.2.0 LTS",
+  "notes": "인덕션 46 x 50 x 1.4. 원점 상판 위 중심(씬 (160,128,87))."
+}

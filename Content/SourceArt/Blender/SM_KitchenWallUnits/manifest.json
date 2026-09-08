@@ -1,0 +1,31 @@
+{
+  "name": "SM_KitchenWallUnits",
+  "mesh_class": "large",
+  "fbx": "SM_KitchenWallUnits.fbx",
+  "textures": {
+    "D": "SM_KitchenWallUnits_D.png",
+    "N": "SM_KitchenWallUnits_N.png",
+    "ORM": "SM_KitchenWallUnits_ORM.png",
+    "E": "SM_KitchenWallUnits_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 476,
+  "bounds_m": {
+    "min": [
+      -0.185,
+      -0.88,
+      1.399
+    ],
+    "max": [
+      0.16,
+      0.94,
+      2.12
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 5.0,
+  "blender": "5.2.0 LTS",
+  "notes": "403호 상부장 32 x 176 x 68(Z 144..212). 앞면 -X, 원점 (174,128,0). LED 띠는 발광 텍스처."
+}

@@ -1,0 +1,30 @@
+{
+  "name": "SM_KitchenBaseRun",
+  "mesh_class": "large",
+  "fbx": "SM_KitchenBaseRun.fbx",
+  "textures": {
+    "D": "SM_KitchenBaseRun_D.png",
+    "N": "SM_KitchenBaseRun_N.png",
+    "ORM": "SM_KitchenBaseRun_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 794,
+  "bounds_m": {
+    "min": [
+      -0.31,
+      -0.88,
+      0.0
+    ],
+    "max": [
+      0.29,
+      0.88,
+      1.06
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "403호 하부장 런 56 x 176 x 87(상판 포함). 앞면 -X, 원점 (162,128,0). 싱크 자리 Y 160..205 뚫림."
+}

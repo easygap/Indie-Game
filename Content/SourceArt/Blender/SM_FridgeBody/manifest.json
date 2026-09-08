@@ -1,0 +1,30 @@
+{
+  "name": "SM_FridgeBody",
+  "mesh_class": "large",
+  "fbx": "SM_FridgeBody.fbx",
+  "textures": {
+    "D": "SM_FridgeBody_D.png",
+    "N": "SM_FridgeBody_N.png",
+    "ORM": "SM_FridgeBody_ORM.png"
+  },
+  "slots": [
+    "Baked",
+    "Glass"
+  ],
+  "triangles": 1064,
+  "bounds_m": {
+    "min": [
+      -0.34,
+      -0.37,
+      0.0
+    ],
+    "max": [
+      0.33,
+      0.36,
+      1.58
+    ]
+  },
+  "origin": "bottom-center",
+  "blender": "5.2.0 LTS",
+  "notes": "403호 냉장고 본체 66 x 72 x 158. 앞면 -X(AIGFridge 좌표계), 원점 바닥 중심. Glass 슬롯(선반·야채칸 앞판)."
+}

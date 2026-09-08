@@ -1,0 +1,30 @@
+{
+  "name": "SM_RangeHood",
+  "mesh_class": "prop",
+  "fbx": "SM_RangeHood.fbx",
+  "textures": {
+    "D": "SM_RangeHood_D.png",
+    "N": "SM_RangeHood_N.png",
+    "ORM": "SM_RangeHood_ORM.png",
+    "E": "SM_RangeHood_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 296,
+  "bounds_m": {
+    "min": [
+      -0.18,
+      -0.26,
+      1.462
+    ],
+    "max": [
+      0.18,
+      0.26,
+      2.12
+    ]
+  },
+  "origin": "bottom-center",
+  "blender": "5.2.0 LTS",
+  "notes": "레인지 후드. 원점 (172,128,0), 앞면 -X. 몸체 Z 155..181, 연통 188..212."
+}

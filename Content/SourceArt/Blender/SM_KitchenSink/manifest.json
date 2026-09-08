@@ -1,0 +1,29 @@
+{
+  "name": "SM_KitchenSink",
+  "mesh_class": "prop",
+  "fbx": "SM_KitchenSink.fbx",
+  "textures": {
+    "D": "SM_KitchenSink_D.png",
+    "N": "SM_KitchenSink_N.png",
+    "ORM": "SM_KitchenSink_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 3544,
+  "bounds_m": {
+    "min": [
+      -0.27,
+      -0.275,
+      -0.26
+    ],
+    "max": [
+      0.27,
+      0.275,
+      0.281
+    ]
+  },
+  "origin": "bottom-center",
+  "blender": "5.2.0 LTS",
+  "notes": "싱크 볼과 구즈넥 수전. 원점은 림 윗면 중심(씬 (160,182,87.4)). 볼은 Z -26..0, 수전 Z 0..26.5."
+}
