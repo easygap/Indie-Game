@@ -283,6 +283,11 @@ private:
 	float CrouchCameraCompensationStart = 0.0f;
 	float AppliedCrouchCameraCompensation = 0.0f;
 	float KnockCameraKick = 0.0f;
+	/** 착지 직후 시점이 내려앉는 깊이(cm). 무릎이 접히는 만큼이고 곧 되돌아온다. */
+	float LandingDip = 0.0f;
+	/** 달릴 때 열리는 시야각(도). 접근성 시야각 위에 얹는다. */
+	float SprintFovOffset = 0.0f;
+	float BaseFieldOfView = 78.0f;
 	float CaptureFeedbackDurationSeconds = 0.0f;
 	bool bChaseHapticActive = false;
 	float ChaseHapticAlpha = 0.0f;

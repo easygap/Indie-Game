@@ -91,6 +91,11 @@ namespace IGPlayerNoise
 	constexpr float PadMaximumTurnRateDegrees = 140.0f;
 	constexpr float KnockCameraKickDegrees = 0.4f;
 	constexpr float KnockCameraReturnSeconds = 0.18f;
+	// 달릴 때 시야각이 조금 열리고, 착지 때 시점이 무릎만큼 내려앉는다. 속도감과
+	// 무게감은 여기서 온다. 둘 다 동작 감소에서는 0이다.
+	constexpr float SprintFieldOfViewBoost = 5.0f;
+	constexpr float LandingDipMinCentimeters = 0.6f;
+	constexpr float LandingDipMaxCentimeters = 3.2f;
 	constexpr float CaptureCameraKickDegrees = 3.2f;
 	constexpr float CaptureHapticIntensity = 0.70f;
 	// §18.6 햅틱 계약. 표의 여섯 줄 중 셋이 여기 있다.
@@ -1007,6 +1012,13 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	}
 	InteractPunch = FMath::FInterpTo(InteractPunch, 0.0f, DeltaSeconds, 7.0f);
 
+	// 착지 후 내려앉음. 걸음 흔들림과 달리 동작 감소에서는 줄이지 않고 뺀다.
+	if (!bReducedMotion && LandingDip > KINDA_SMALL_NUMBER)
+	{
+		TargetOffset.Z -= LandingDip;
+	}
+	LandingDip = FMath::FInterpTo(LandingDip, 0.0f, DeltaSeconds, 9.0f);
+
 	FVector CameraLocationWithoutCrouch = FirstPersonCamera->GetRelativeLocation();
 	CameraLocationWithoutCrouch.Z -= AppliedCrouchCameraCompensation;
 	FVector SmoothedLocation = FMath::VInterpTo(
@@ -1052,6 +1064,15 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	{
 		FirstPersonCamera->SetRelativeRotation(CameraRotation);
 	}
+
+	// 달릴 때 시야각이 열린다. 접근성 시야각 위에 얹고, 걸음이 실제로 달리기
+	// 속도에 닿았을 때만 연다. 동작 감소에서는 열지 않는다.
+	const float TargetFovOffset =
+		(!bReducedMotion && bSprinting && bWalking && SpeedScale > 0.85f)
+			? IGPlayerNoise::SprintFieldOfViewBoost
+			: 0.0f;
+	SprintFovOffset = FMath::FInterpTo(SprintFovOffset, TargetFovOffset, DeltaSeconds, 5.0f);
+	FirstPersonCamera->SetFieldOfView(BaseFieldOfView + SprintFovOffset);
 }
 
 void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
@@ -1592,6 +1613,14 @@ void AIGPlayerCharacter::Landed(const FHitResult& Hit)
 {
 	const float ImpactSpeed = FMath::Abs(GetVelocity().Z);
 	Super::Landed(Hit);
+	// 소리가 안 날 만큼 가벼운 착지도 시점은 내려앉는다. 카메라가 되돌아오는
+	// 것은 UpdateCameraMotion이 한다.
+	LandingDip = FMath::GetMappedRangeValueClamped(
+		FVector2D(120.0f, 700.0f),
+		FVector2D(
+			IGPlayerNoise::LandingDipMinCentimeters,
+			IGPlayerNoise::LandingDipMaxCentimeters),
+		ImpactSpeed);
 	if (ImpactSpeed < 210.0f)
 	{
 		return;
@@ -2209,8 +2238,9 @@ void AIGPlayerCharacter::RefreshFieldOfView()
 	const UIGAccessibilitySubsystem* Accessibility = GameInstance
 		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
 		: nullptr;
-	FirstPersonCamera->SetFieldOfView(
-		Accessibility ? Accessibility->GetFieldOfViewDegrees() : 78.0f);
+	BaseFieldOfView = Accessibility ? Accessibility->GetFieldOfViewDegrees() : 78.0f;
+	// 달리기로 열린 만큼은 그대로 얹는다. 설정을 바꾸는 순간 시야가 튀지 않는다.
+	FirstPersonCamera->SetFieldOfView(BaseFieldOfView + SprintFovOffset);
 }
 
 float AIGPlayerCharacter::GetLookSensitivity() const
