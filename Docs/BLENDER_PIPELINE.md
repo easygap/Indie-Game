@@ -19,8 +19,15 @@
 에셋은 게임 클래스를 참조하지 않는다. 게임 모듈이 없는 콘텐츠 전용 프로젝트
 `%LOCALAPPDATA%\IndieGame\ArtImport`는 22초에 부팅하고, 거기서 만든 uasset을
 `Content/`에 복사하면 그대로 쓰인다. `Import-BlenderAssets.ps1`이 이 흐름을
-전부 자동으로 한다. 게임 화면 캡처는 여전히 못 하므로 에셋 확인은 Blender
-미리보기 렌더로 한다.
+전부 자동으로 한다.
+
+2026-09-08 오후에 Smart App Control을 껐고 그때부터 `-game` 캡처
+(`Run-Prologue-Capture.ps1`, `Run-MissingFloor-NightCapture.bat`)가 다시 돈다.
+반입은 그래도 이 흐름을 쓴다 — 게임 모듈을 다시 빌드하지 않아도 되고 한글
+경로와도 무관하다. 다만 반입은 `-nullrhi`라 재질 컴파일 실패를 못 본다. 첫
+캡처에서 마스터 재질 `M_IGBakedProp`이 Normal·ORM 기본 텍스처가 없어 컴파일에
+실패했고 새 메시 전부가 기본 회색으로 찍혔다. 캡처 뒤에는 로그에서
+`Failed to compile Material`을 꼭 찾아봐라.
 
 ## 도구 위치
 

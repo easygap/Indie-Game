@@ -102,10 +102,68 @@ def _connect_property(expression, pin, material_property):
     unreal.MaterialEditingLibrary.connect_material_property(expression, pin, material_property)
 
 
+def _linear_default_texture():
+    """Linear Color 샘플러에 끼울 기본 텍스처. 엔진 노이즈가 sRGB가 아니면 그것,
+    아니면 우리가 반입한 ORM 하나."""
+    candidate = unreal.load_asset("/Engine/EngineMaterials/Good64x64TilingNoiseHighFreq")
+    if candidate is not None and not candidate.get_editor_property("srgb"):
+        return candidate
+    for asset_path in unreal.EditorAssetLibrary.list_assets(TEXTURE_ROOT, recursive=False):
+        if asset_path.split("/")[-1].split(".")[0].endswith("_ORM"):
+            texture = unreal.load_asset(asset_path)
+            if texture is not None and not texture.get_editor_property("srgb"):
+                return texture
+    return None
+
+
+def _normal_default_texture():
+    candidate = unreal.load_asset("/Engine/EngineMaterials/DefaultNormal")
+    if candidate is not None and not candidate.get_editor_property("srgb"):
+        return candidate
+    for asset_path in unreal.EditorAssetLibrary.list_assets(TEXTURE_ROOT, recursive=False):
+        if asset_path.split("/")[-1].split(".")[0].endswith("_N"):
+            texture = unreal.load_asset(asset_path)
+            if texture is not None and not texture.get_editor_property("srgb"):
+                return texture
+    return None
+
+
+def fill_master_defaults(material):
+    """Normal·ORM 텍스처 파라미터에 기본 텍스처를 준다.
+
+    비워 두면 엔진이 sRGB DefaultTexture를 끼우고, 샘플러 타입(Normal / Linear
+    Color)과 맞지 않아 마스터가 컴파일에 실패한다. 게임은 그때 기본 회색 재질로
+    그려서 인스턴스 전부가 회색이 된다 — 2026-09-08 프롤로그 캡처에서 그랬다.
+    """
+    normal_default = _normal_default_texture()
+    linear_default = _linear_default_texture()
+    changed = False
+    for expression in unreal.MaterialEditingLibrary.get_material_expressions(material):
+        if not isinstance(expression, unreal.MaterialExpressionTextureSampleParameter2D):
+            continue
+        name = str(expression.get_editor_property("parameter_name"))
+        current = expression.get_editor_property("texture")
+        if name == "Normal" and normal_default is not None and current is not normal_default:
+            expression.set_editor_property("texture", normal_default)
+            changed = True
+        elif name == "ORM" and linear_default is not None and current is not linear_default:
+            expression.set_editor_property("texture", linear_default)
+            changed = True
+    if normal_default is None or linear_default is None:
+        raise RuntimeError("마스터 재질 기본 텍스처를 찾지 못했다 (Normal/ORM)")
+    return changed
+
+
 def ensure_master_material():
     path = f"{MATERIAL_ROOT}/{MASTER_NAME}"
     existing = unreal.load_asset(path)
     if existing is not None:
+        # 기본 텍스처가 비어 있던 첫 판을 제자리에서 고친다. 새로 만들면 인스턴스
+        # 참조가 흔들린다.
+        if fill_master_defaults(existing):
+            unreal.MaterialEditingLibrary.recompile_material(existing)
+            unreal.EditorAssetLibrary.save_asset(path, False)
+            log(f"master material defaults filled: {path}")
         # 마커가 있으면 이미 이 버전으로 만든 것이다. 재질을 매번 새로 만들면
         # 인스턴스 참조가 흔들리고 셰이더도 다시 컴파일된다.
         for expression in unreal.MaterialEditingLibrary.get_material_expressions(existing) if hasattr(unreal.MaterialEditingLibrary, "get_material_expressions") else []:
@@ -178,6 +236,7 @@ def ensure_master_material():
     _connect(emissive_strength, "", glow, "B")
     _connect_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
 
+    fill_master_defaults(material)
     unreal.MaterialEditingLibrary.recompile_material(material)
     unreal.EditorAssetLibrary.save_asset(path, False)
     log(f"master material created: {path}")
