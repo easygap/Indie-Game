@@ -127,6 +127,11 @@ def audit_boxes(boxes, bindings, print_materials, source_label):
     counts = {"printed": 0, "unresolved": 0, "authored_mesh": 0}
     for box in boxes:
         expression = (box.material or "").strip()
+        # nullptr 재질에 저작 메시가 있는 자리는 메시의 구운 재질이다. 인쇄
+        # 재질이 아니고, 못 푼 것도 아니다.
+        if expression == "nullptr" and (box.note == "authored" or getattr(box, "mesh", "")):
+            counts["authored_mesh"] += 1
+            continue
         name = projection.resolve_material(bindings, expression, box.line)
         if not name:
             counts["unresolved"] += 1
@@ -245,6 +250,13 @@ def _self_test() -> int:
     unknown = projection._FakeBox(9, "LoopVariable", (0, 0, 140), (26, 9, 34))
     findings, counts = audit_boxes([unknown], bindings, materials, "Fake.cpp")
     check("못 푼 재질", (findings, counts["unresolved"]), ([], 1))
+
+    # nullptr 재질에 저작 메시가 있으면 구운 재질이다. 못 푼 것으로 세지 않는다.
+    baked_prop = projection._FakeBox(9, "nullptr", (0, 0, 140), (26, 9, 34))
+    baked_prop.mesh = "SM_Demo"
+    findings, counts = audit_boxes([baked_prop], bindings, materials, "Fake.cpp")
+    check("nullptr 저작 메시",
+          (findings, counts["authored_mesh"], counts["unresolved"]), ([], 1, 0))
 
     if failures:
         for failure in failures:

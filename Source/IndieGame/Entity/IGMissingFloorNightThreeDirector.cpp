@@ -78,7 +78,9 @@ namespace IGNightThree
 	// 같은 이유로 눕힌다. 13cm 높이를 세워 Z=978에 두면 가구 상판(Z=974)
 	// 아래로 들어갔다.
 	const FVector LabelsLocation(-95.0f, -185.0f, 974.6f);
-	const FVector ForumLocation(560.0f, -249.0f, 143.0f);
+	// 출력물은 우편함 앞에 붙는다. 우편함 메시(SM_MailboxUnit)는 투입구 턱까지
+	// Y -248.9로 나오므로, 두께 1.2의 종이 뒷면이 그 앞에 오는 -249.6이다.
+	const FVector ForumLocation(560.0f, -249.6f, 143.0f);
 	const FVector JournalLocation(-172.0f, -237.5f, 985.0f);
 
 	// 주먹이 석고보드를 때리는 값은 플레이어 쪽이 든다 —

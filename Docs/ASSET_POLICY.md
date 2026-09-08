@@ -26,6 +26,9 @@
 | `/Game/Prototype/Textures/T_Photo_WoodDark_*` | ambientCG.com — Wood067 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 가구 목재 |
 | `/Game/Photo/Props/*` (15종: old_bed_frame, side_table_01, metal_office_desk, painted_wooden_chair_01, modern_wooden_cabinet, desk_lamp_arm_01, electric_stove, street_lamp_01, trashbag, cardboard_box_01, steel_frame_shelves_01, CashRegister_01, plastic_crate_01, utility_box_01, wine_bottles_01) | polyhaven.com (포토그래메트리 스캔) | CC0 1.0 | 2026-07-19 | 원본(glTF, 1K 텍스처) | `Content/SourceArt/PhotoProps/` | 실물 스캔 소품 |
 | `/Game/Meshes/SM_*` (56종: 기존 49종 + M5 공동 잔존물 4종·목한수 근접 대치 3종) | 직접 제작 (UE5 Geometry Script 절차 모델링) | 프로젝트 소유 | 2026-08-05 | 원본 | `Scripts/generate_meshes.py` | 회전체·베벨·불리언·스윕. 생활 소품·생물·설비·인체·사고 프롭과 M5의 건조한 의복/골격/방수포/캐스터·목한수 작업복/머리와 손/석고보드를 ImageGen 비율 기준과 실제 치수 계약에 맞춰 절차 메시로 재구성 |
+| `/Game/Meshes/SM_UnitDoorLeaf·L, SM_UnitDoorHardware·L, SM_UnitDoorFrame, SM_FireExtinguisherBox, SM_FireExtinguisher, SM_MailboxUnit, SM_CeilingLightRing·Dome, SM_FridgeBody·Door, SM_KitchenBaseRun, SM_DrumWasher, SM_KitchenWallUnits, SM_RangeHood, SM_Microwave, SM_KitchenSink, SM_InductionHob, SM_Wardrobe, SM_WallAirConditioner, SM_TrafficCone, SM_StoreCoolerBank·Door, SM_StoreGondola, SM_StoreCounter, SM_CardTerminal, SM_HotSnackWarmer, SM_ChestFreezer, SM_OpenShowcase, SM_RamyeonRack, SM_ApartmentWindow, SM_VenetianBlind, SM_VideoIntercom, SM_WallSwitch, SM_ShoeCabinet, SM_VillaWindow, SM_UtilityPole` (39종) | 직접 제작 (Blender 5.2 헤드리스 절차 모델링, Cycles 베이크) | 프로젝트 소유 | 2026-09-04 | 원본 | `Content/SourceArt/Blender/<이름>/`, `Scripts/blender/build_*.py` | 실제 치수·베벨·UCX 충돌·구운 D/N/ORM. `Docs/BLENDER_PIPELINE.md` |
+| `/Game/Meshes/SM_ListenerEntityCrawl, SM_AlleyCatRun, SM_MokHansooFigure, SM_FinalCavityRemains` | 직접 제작 (기준 시트 한 칸 → ComfyUI 네이티브 TRELLIS.2 형상 생성 → Blender 다듬기) | 프로젝트 소유. TRELLIS.2 가중치 MIT(Microsoft, Comfy-Org 재포장), DINOv3 Meta 제한 허가, BiRefNet MIT | 2026-09-08 | 원본 | `Content/SourceArt/Generated/<이름>/<시도>/generation.json`, `Scripts/generate_3d_comfy.py`, `Scripts/blender/refine_generated.py` | 입력은 우리 기준 시트뿐. Hunyuan3D는 한국 제외 라이선스라 쓰지 않는다 |
+| `/Game/Prototype/Textures/T_<Blender 에셋>_{D,N,ORM,E}` · `/Game/Prototype/Materials/M_IGBakedProp, MI_*` | 직접 제작 (Cycles 베이크, UE 마스터 재질 인스턴스) | 프로젝트 소유 | 2026-09-04 | 원본 | `Scripts/import_blender_assets.py` | 에셋마다 한 세트. ORM은 AO·거칠기·금속성 채널 |
 | `/Game/Prototype/Textures/T_Label* · T_Snack*` | 직접 제작 (System.Drawing) — 가상 브랜드, 실제 상표 미사용 | 프로젝트 소유 | 2026-07-25 | 원본 | `Scripts/Create-LabelTextures.ps1` | 제품 라벨·봉지 아트 |
 | `/Game/Prototype/Textures/T_Sign* · T_Poster* · T_Note*` | 직접 제작 (System.Drawing + 시스템 폰트) | 프로젝트 소유 | 2026-07-19 | 원본 | `Scripts/Create-SignTextures.ps1` | 한글 간판·포스터 |
 | `/Game/Prototype/Textures/T_(Jangpan·Wallpaper·…)_{D,N,R}` | 직접 제작 (절차 생성) | 프로젝트 소유 | 2026-07-19 | 원본 | `Scripts/generate_surface_textures.py` | 사진 텍스처 폴백 |
@@ -105,6 +108,10 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `TextureUtilityMeterDialFaceBlank.png` | `T_UtilityMeterDial_{D,N,R,A}` | P1 계량기 문자판. 눈금·붉은 호·스핀들 보스만 담고 드럼 창은 비어 있다. 지침과 「다섯 번째가 돌지 않는다」는 `FifthMeterDisc`가 소유한다 |
 | `TextureComplaintLedgerCarbonPaperBlank.png` | `T_CarbonPaper_{D,N,R,A}` | P2 먹지. 왁스 안료가 눌린 자리에서 얇아지는 광택 차이만 담는다. 눌린 원문 한글은 굽지 않는다. A4 비율 724×1024로 원장 메시에 UV 매핑 |
 | `TextureApartmentEntranceDoorCharcoalSteel.png` | `T_UnitDoorPaintedSteel_{D,N,R,A}` | 세대 현관문 문짝의 무광 도장 강판. 브러시드 스테인리스를 대체하며 밴드·인레이·레버·도어록·도어스코프는 기존 3D 기하를 유지한다. 발치 마모는 타일이 아니라 별도 masked 평면 |
+| `SheetVillaCorridorFixturesReference.png` | 직접 텍스처로 사용하지 않음 | 세대 현관문·우편함 3x3·소화전함·천장 LED 등의 비례·재질 기준. Blender 절차 메시로 재구성 (2026-09-04) |
+| `SheetOneroomKitchenAppliancesReference.png` | 직접 텍스처로 사용하지 않음 | 소형 냉장고·빌트인 주방·전자레인지·인터폰 기준. `SM_FridgeBody·Door`, 주방 7종으로 재구성 |
+| `SheetStoreFixturesReference.png` | 직접 텍스처로 사용하지 않음 | 편의점 음료 냉장고·곤돌라·평대 냉동고 기준. `build_store_fixtures.py` 7종으로 재구성 (2026-09-08) |
+| `SheetApplianceControlPanels.png` | `panels/{DoorLockKeypad,MicrowavePanel,WasherPanel,IntercomFace}.png` | 도어락 키패드·전자레인지·세탁기·인터폰 앞면 정면 텍스처. 세탁기·전자레인지 메시에 `image_quad`로 붙여 굽는다. 한글은 헤드라인급이라 검수만 했다 |
 
 ## 아틀라스·LOD·물리 배치 계약
 

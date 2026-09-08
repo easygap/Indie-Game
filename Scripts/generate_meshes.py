@@ -1204,6 +1204,12 @@ def build_first_person_hoodie_sleeve():
 def build_listener_entity_crawl():
     """Anatomical static shell for 「없는 층」의 위층 사람.
 
+    2026-09-08부터 정식 에셋은 여기가 아니라 TRELLIS.2 생성 → Blender 다듬기
+    경로(Scripts/generate_3d_comfy.py, Scripts/blender/refine_generated.py)다.
+    이 빌더는 생성 산출물이 없을 때의 폴백이며 Content/Meshes의
+    SM_ListenerEntityCrawl을 덮어쓰지 않도록 아트 빌드에서 부르지 않는다.
+    같은 사정이 SM_AlleyCatRun, SM_MokHansoo*, SM_FinalCavity*에도 있다.
+
     The approved ImageGen sheet fixes a real 176 cm adult in a forearm-supported
     crawl.  This mesh deliberately remains one frozen pose: the pawn moves as a
     whole, so a skeletal pipeline would add cost without improving the
@@ -2770,14 +2776,35 @@ def run():
             build_complaint_ledger,
             build_calendar_journal,
         )
+    # Blender/TRELLIS.2 경로가 정식이 된 메시는 여기서 다시 굽지 않는다.
+    # 다시 구우면 Content/Meshes의 생성 에셋을 타원체 조립으로 덮어쓴다.
+    # 판정은 소스 폴더에 manifest가 있느냐다(Scripts/Import-BlenderAssets.ps1).
+    blender_root = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "Content", "SourceArt", "Blender"))
+    superseded = {
+        "build_alley_cat_run": "SM_AlleyCatRun",
+        "build_listener_entity_crawl": "SM_ListenerEntityCrawl",
+        "build_final_cavity_clothing_shell": "SM_FinalCavityRemains",
+        "build_final_cavity_bone_insert": "SM_FinalCavityRemains",
+        "build_final_cavity_tarp": "SM_FinalCavityRemains",
+        "build_final_cavity_broken_caster": "SM_FinalCavityRemains",
+        "build_mok_hansoo_workwear": "SM_MokHansooFigure",
+        "build_mok_hansoo_head_hands": "SM_MokHansooFigure",
+        "build_mok_hansoo_gypsum_board": "SM_MokHansooFigure",
+    }
     built = 0
+    skipped = 0
     for builder in builders:
+        replacement = superseded.get(builder.__name__)
+        if replacement and os.path.isfile(os.path.join(blender_root, replacement, "manifest.json")):
+            log(f"skip {builder.__name__}: {replacement} comes from Content/SourceArt/Blender")
+            skipped += 1
+            continue
         try:
             builder()
             built += 1
         except Exception as error:  # noqa: BLE001 - report and keep going
             log(f"FAILED {builder.__name__}: {error}")
-    log(f"complete: {built}/{len(builders)} meshes")
+    log(f"complete: {built}/{len(builders)} meshes ({skipped} superseded by Blender)")
 
 
 if __name__ == "__main__":

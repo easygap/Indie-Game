@@ -14,14 +14,26 @@
     },
     "SM_AlleyCatRun": {
       "origin": [
-        -5.875,
-        0.35,
-        24.6
+        -0.0405,
+        0.1183,
+        23.524
       ],
       "extent": [
-        46.125,
-        8.85,
-        24.6
+        42.3417,
+        14.2864,
+        23.3532
+      ]
+    },
+    "SM_ApartmentWindow": {
+      "origin": [
+        0.0,
+        -1.75,
+        50.0
+      ],
+      "extent": [
+        67.0,
+        4.25,
+        49.5
       ]
     },
     "SM_Basket": {
@@ -72,6 +84,18 @@
         0.135
       ]
     },
+    "SM_CardTerminal": {
+      "origin": [
+        0.0,
+        -0.4661,
+        5.2329
+      ],
+      "extent": [
+        6.0,
+        4.9661,
+        5.2329
+      ]
+    },
     "SM_CarrierBagCollapsed": {
       "origin": [
         0.0,
@@ -82,6 +106,42 @@
         6.0,
         9.0,
         13.5414
+      ]
+    },
+    "SM_CeilingLightDome": {
+      "origin": [
+        0.0,
+        0.0,
+        -3.65
+      ],
+      "extent": [
+        11.4,
+        11.4,
+        1.65
+      ]
+    },
+    "SM_CeilingLightRing": {
+      "origin": [
+        0.0,
+        0.0,
+        -1.5
+      ],
+      "extent": [
+        13.2,
+        13.2,
+        1.5
+      ]
+    },
+    "SM_ChestFreezer": {
+      "origin": [
+        0.0,
+        0.7,
+        43.5
+      ],
+      "extent": [
+        29.0,
+        55.7,
+        43.5
       ]
     },
     "SM_ComplaintLedger": {
@@ -168,6 +228,18 @@
         6.1
       ]
     },
+    "SM_DrumWasher": {
+      "origin": [
+        14.0,
+        -0.0,
+        46.5
+      ],
+      "extent": [
+        18.0,
+        27.0,
+        34.5
+      ]
+    },
     "SM_FinalCavityBoneInsert": {
       "origin": [
         -4.5,
@@ -204,6 +276,18 @@
         72.0165
       ]
     },
+    "SM_FinalCavityRemains": {
+      "origin": [
+        -0.2417,
+        3.1282,
+        69.6075
+      ],
+      "extent": [
+        51.1712,
+        35.252,
+        71.833
+      ]
+    },
     "SM_FinalCavityTarp": {
       "origin": [
         8.75,
@@ -216,6 +300,30 @@
         77.9111
       ]
     },
+    "SM_FireExtinguisher": {
+      "origin": [
+        1.32,
+        -1.22,
+        24.175
+      ],
+      "extent": [
+        8.88,
+        8.78,
+        24.175
+      ]
+    },
+    "SM_FireExtinguisherBox": {
+      "origin": [
+        0.0,
+        -0.7948,
+        17.0
+      ],
+      "extent": [
+        13.0,
+        5.2948,
+        17.0
+      ]
+    },
     "SM_FirstPersonHoodieSleeve": {
       "origin": [
         0.2309,
@@ -226,6 +334,30 @@
         7.0547,
         6.2,
         18.4671
+      ]
+    },
+    "SM_FridgeBody": {
+      "origin": [
+        -0.5,
+        -0.5,
+        79.0
+      ],
+      "extent": [
+        33.5,
+        36.5,
+        79.0
+      ]
+    },
+    "SM_FridgeDoor": {
+      "origin": [
+        2.1,
+        36.0,
+        3.0
+      ],
+      "extent": [
+        8.1,
+        36.0,
+        76.0
       ]
     },
     "SM_HornRimGlasses": {
@@ -250,6 +382,30 @@
         5.0,
         4.15,
         5.4
+      ]
+    },
+    "SM_HotSnackWarmer": {
+      "origin": [
+        -1.05,
+        -0.0,
+        18.0
+      ],
+      "extent": [
+        19.05,
+        19.0,
+        18.0
+      ]
+    },
+    "SM_InductionHob": {
+      "origin": [
+        0.0,
+        0.0,
+        0.79
+      ],
+      "extent": [
+        23.0,
+        25.0,
+        0.79
       ]
     },
     "SM_InspectionRod": {
@@ -286,6 +442,42 @@
         9.2,
         9.2,
         6.3
+      ]
+    },
+    "SM_KitchenBaseRun": {
+      "origin": [
+        -1.0,
+        -0.0,
+        53.0
+      ],
+      "extent": [
+        30.0,
+        88.0,
+        53.0
+      ]
+    },
+    "SM_KitchenSink": {
+      "origin": [
+        0.0,
+        0.0,
+        1.0499
+      ],
+      "extent": [
+        27.0,
+        27.5,
+        27.0499
+      ]
+    },
+    "SM_KitchenWallUnits": {
+      "origin": [
+        -1.25,
+        3.0,
+        175.95
+      ],
+      "extent": [
+        17.25,
+        91.0,
+        36.05
       ]
     },
     "SM_LabelSleeve": {
@@ -362,14 +554,38 @@
     },
     "SM_ListenerEntityCrawl": {
       "origin": [
-        -22.0406,
-        0.0,
-        2.8248
+        -0.3674,
+        -0.0428,
+        48.4524
       ],
       "extent": [
-        105.0406,
-        30.5,
-        37.8491
+        94.7841,
+        58.7019,
+        48.4924
+      ]
+    },
+    "SM_MailboxUnit": {
+      "origin": [
+        0.0,
+        -6.9579,
+        33.0
+      ],
+      "extent": [
+        48.0,
+        6.9579,
+        33.0
+      ]
+    },
+    "SM_Microwave": {
+      "origin": [
+        -2.0422,
+        -0.0,
+        13.0
+      ],
+      "extent": [
+        23.0422,
+        17.0,
+        13.0
       ]
     },
     "SM_MilkCarton": {
@@ -382,6 +598,18 @@
         3.5002,
         9.2076,
         3.5048
+      ]
+    },
+    "SM_MokHansooFigure": {
+      "origin": [
+        0.1299,
+        -0.1244,
+        85.7542
+      ],
+      "extent": [
+        33.6426,
+        21.498,
+        86.2754
       ]
     },
     "SM_MokHansooGypsumBoard": {
@@ -430,6 +658,18 @@
         12.2,
         12.2,
         4.35
+      ]
+    },
+    "SM_OpenShowcase": {
+      "origin": [
+        0.0,
+        -0.5,
+        85.0
+      ],
+      "extent": [
+        120.0,
+        19.5,
+        85.0
       ]
     },
     "SM_P3PressureGauge": {
@@ -490,6 +730,30 @@
         6.0,
         6.0,
         1.3
+      ]
+    },
+    "SM_RamyeonRack": {
+      "origin": [
+        0.0,
+        -0.0,
+        80.75
+      ],
+      "extent": [
+        35.0,
+        16.0,
+        80.75
+      ]
+    },
+    "SM_RangeHood": {
+      "origin": [
+        0.0,
+        -0.0,
+        179.1
+      ],
+      "extent": [
+        18.0,
+        26.0,
+        32.9
       ]
     },
     "SM_RooftopFireDoorFrame": {
@@ -576,6 +840,18 @@
         6.5108
       ]
     },
+    "SM_ShoeCabinet": {
+      "origin": [
+        0.0,
+        0.4,
+        56.5
+      ],
+      "extent": [
+        42.0,
+        17.4,
+        56.5
+      ]
+    },
     "SM_SnackBag": {
       "origin": [
         0.0,
@@ -622,6 +898,54 @@
         17.5,
         17.5,
         26.4
+      ]
+    },
+    "SM_StoreCoolerBank": {
+      "origin": [
+        -3.35,
+        -0.0,
+        113.0
+      ],
+      "extent": [
+        28.35,
+        250.0,
+        113.0
+      ]
+    },
+    "SM_StoreCoolerDoor": {
+      "origin": [
+        -1.35,
+        40.0,
+        106.0
+      ],
+      "extent": [
+        5.35,
+        40.0,
+        106.0
+      ]
+    },
+    "SM_StoreCounter": {
+      "origin": [
+        0.0,
+        -0.6,
+        46.5
+      ],
+      "extent": [
+        112.0,
+        32.6,
+        46.5
+      ]
+    },
+    "SM_StoreGondola": {
+      "origin": [
+        0.0,
+        -0.0,
+        85.0
+      ],
+      "extent": [
+        152.0,
+        25.5,
+        85.0
       ]
     },
     "SM_SubmergedHoodieCurl": {
@@ -732,6 +1056,18 @@
         107.4
       ]
     },
+    "SM_TrafficCone": {
+      "origin": [
+        0.0,
+        -0.0,
+        24.0
+      ],
+      "extent": [
+        15.0,
+        15.0,
+        24.0
+      ]
+    },
     "SM_TunerToolCart": {
       "origin": [
         0.0,
@@ -754,6 +1090,150 @@
         4.135,
         1.52,
         13.3125
+      ]
+    },
+    "SM_UnitDoorFrame": {
+      "origin": [
+        0.0,
+        -0.0,
+        105.0
+      ],
+      "extent": [
+        51.0,
+        3.5,
+        105.0
+      ]
+    },
+    "SM_UnitDoorHardware": {
+      "origin": [
+        27.5532,
+        -6.125,
+        113.0
+      ],
+      "extent": [
+        8.9468,
+        3.625,
+        21.0
+      ]
+    },
+    "SM_UnitDoorHardwareL": {
+      "origin": [
+        -27.5532,
+        -6.125,
+        113.0
+      ],
+      "extent": [
+        8.9468,
+        3.625,
+        21.0
+      ]
+    },
+    "SM_UnitDoorLeaf": {
+      "origin": [
+        -0.575,
+        -0.175,
+        100.0
+      ],
+      "extent": [
+        42.575,
+        2.675,
+        100.0
+      ]
+    },
+    "SM_UnitDoorLeafL": {
+      "origin": [
+        0.575,
+        -0.175,
+        100.0
+      ],
+      "extent": [
+        42.575,
+        2.675,
+        100.0
+      ]
+    },
+    "SM_UtilityPole": {
+      "origin": [
+        0.0,
+        -0.0,
+        225.0
+      ],
+      "extent": [
+        60.0,
+        10.4,
+        225.0
+      ]
+    },
+    "SM_VenetianBlind": {
+      "origin": [
+        0.0,
+        -0.1,
+        -42.0
+      ],
+      "extent": [
+        67.0,
+        3.6,
+        42.0
+      ]
+    },
+    "SM_VideoIntercom": {
+      "origin": [
+        0.0,
+        1.89,
+        15.5
+      ],
+      "extent": [
+        10.0,
+        1.89,
+        15.5
+      ]
+    },
+    "SM_VillaWindow": {
+      "origin": [
+        0.0,
+        -5.5,
+        56.75
+      ],
+      "extent": [
+        56.0,
+        5.5,
+        66.25
+      ]
+    },
+    "SM_WallAirConditioner": {
+      "origin": [
+        0.0,
+        0.3646,
+        13.5
+      ],
+      "extent": [
+        41.0,
+        9.8646,
+        13.5
+      ]
+    },
+    "SM_WallSwitch": {
+      "origin": [
+        0.0,
+        1.0025,
+        5.0
+      ],
+      "extent": [
+        5.0,
+        1.0025,
+        5.0
+      ]
+    },
+    "SM_Wardrobe": {
+      "origin": [
+        1.7922,
+        -0.0,
+        90.0
+      ],
+      "extent": [
+        21.7922,
+        41.0,
+        90.0
       ]
     },
     "SM_WaterBottle": {

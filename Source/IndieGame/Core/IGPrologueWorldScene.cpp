@@ -695,7 +695,12 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateBlock(
 		Parent ? Parent : (ActiveParent ? ActiveParent.Get() : SceneRoot.Get());
 	Block->SetupAttachment(ResolvedParent);
 	Block->SetStaticMesh(MeshOverride ? MeshOverride : CubeMesh.Get());
-	Block->SetMaterial(0, Material);
+	// Blender에서 구운 메시는 재질 인스턴스를 슬롯에 들고 온다. 그 메시에
+	// nullptr를 주면 「메시 것을 써라」다. 회색 기본 재질로 바꾸지 않는다.
+	if (Material)
+	{
+		Block->SetMaterial(0, Material);
+	}
 	Block->SetRelativeLocation(Center);
 	Block->SetRelativeRotation(Rotation);
 	Block->SetRelativeScale3D(SizeCentimeters / 100.0f);
@@ -789,7 +794,10 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreatePhysicsProp(
 		*FString::Printf(TEXT("PhysProp_%d"), BlockCounter++));
 	Prop->SetupAttachment(ActiveParent ? ActiveParent.Get() : SceneRoot.Get());
 	Prop->SetStaticMesh(Mesh);
-	Prop->SetMaterial(0, Material);
+	if (Material)
+	{
+		Prop->SetMaterial(0, Material);
+	}
 	Prop->SetRelativeLocation(Location);
 	Prop->SetRelativeRotation(Rotation);
 	Prop->SetRelativeScale3D(Scale);
@@ -2311,8 +2319,18 @@ void AIGPrologueWorldScene::BuildApartment()
 	// 서쪽 벽에서 비어 있는 구간은 책상 끝(Y -145)과 협탁 앞(Y -62) 사이
 	// 83 cm뿐이다. Y -104에 폭 80으로 놓으면 Y -144..-64로 양쪽에 1~2 cm를
 	// 남기고 들어간다.
-	if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -104, 0), FVector(40, 80, 186), 0.0f))
+	// 옷장은 Blender 메시(Scripts/blender/build_apartment_props.py)가 정식이다.
+	// 같은 40 x 80 x 180 봉투에 문 둘·손잡이·플린스가 들어 있고 앞면이 +X다.
+	UStaticMesh* WardrobeMesh = PropMesh(TEXT("SM_Wardrobe"));
+	if (WardrobeMesh)
 	{
+		CreateBlock(
+			FVector(-170, -104, 0), FVector(100, 100, 100),
+			nullptr, true, WardrobeMesh, FRotator::ZeroRotator);
+	}
+	else if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -104, 0), FVector(40, 80, 186), 0.0f))
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 		CreateBlock(FVector(-170, -104, 90), FVector(40, 80, 180), Furniture);
 	}
 
@@ -2373,92 +2391,198 @@ void AIGPrologueWorldScene::BuildApartment()
 	UMaterialInterface* CounterStone = TexMat(TEXT("M_CounterStoneUV"), StoreFloorMaterial);
 	UMaterialInterface* Stainless = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
 
-	// Carcass, recessed toe kick and the splashback upstand.
-	CreateBlock(FVector(162, 128, 46), FVector(56, 176, 72), Gloss);
-	CreateBlock(FVector(166, 128, 5), FVector(48, 176, 10), PlasticDarkMaterial);
-	CreateBlock(FVector(187, 128, 96), FVector(6, 176, 20), CounterStone, false);
-	// Worktop, split around the sink cut-out at Y 160..205.
-	CreateBlock(FVector(161, 99, 84.5f), FVector(60, 122, 5), CounterStone);
-	CreateBlock(FVector(161, 211, 84.5f), FVector(60, 14, 5), CounterStone);
-	for (const float RailY : {160.0f, 205.0f})
+	// 주방 일곱 점은 Blender 메시(Scripts/blender/build_kitchen.py)가 정식이다.
+	// 상자 좌표를 그대로 원점으로 받도록 저작했다: 앞면 -X, 원점은 각 자리의
+	// 바닥 중심. 메시가 하나라도 없으면 그 자리만 예전 상자로 내려간다.
+	UStaticMesh* KitchenRunMesh = PropMesh(TEXT("SM_KitchenBaseRun"));
+	UStaticMesh* WasherMesh = PropMesh(TEXT("SM_DrumWasher"));
+	UStaticMesh* SinkMesh = PropMesh(TEXT("SM_KitchenSink"));
+	UStaticMesh* HobMesh = PropMesh(TEXT("SM_InductionHob"));
+	UStaticMesh* WallUnitsMesh = PropMesh(TEXT("SM_KitchenWallUnits"));
+	UStaticMesh* RangeHoodMesh = PropMesh(TEXT("SM_RangeHood"));
+	UStaticMesh* MicrowaveMesh = PropMesh(TEXT("SM_Microwave"));
+
+	if (KitchenRunMesh)
 	{
-		CreateBlock(FVector(161, RailY, 84.5f), FVector(60, 4, 5), CounterStone, false);
+		// 캐비닛·걸레받이·상판(싱크 자리 뚫림)·백스플래시·문 둘이 한 메시다.
+		CreateBlock(
+			FVector(162, 128, 0), FVector(100, 100, 100),
+			nullptr, true, KitchenRunMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		// Carcass, recessed toe kick and the splashback upstand.
+		CreateBlock(FVector(162, 128, 46), FVector(56, 176, 72), Gloss);
+		CreateBlock(FVector(166, 128, 5), FVector(48, 176, 10), PlasticDarkMaterial);
+		CreateBlock(FVector(187, 128, 96), FVector(6, 176, 20), CounterStone, false);
+		// Worktop, split around the sink cut-out at Y 160..205.
+		CreateBlock(FVector(161, 99, 84.5f), FVector(60, 122, 5), CounterStone);
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(161, 211, 84.5f), FVector(60, 14, 5), CounterStone);
+		for (const float RailY : {160.0f, 205.0f})
+		{
+			CreateBlock(FVector(161, RailY, 84.5f), FVector(60, 4, 5), CounterStone, false);
+		}
+		// Cabinet fronts under the hob and the sink; the groove is the handle.
+		for (const float DoorY : {129.0f, 186.0f})
+		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(133.2f, DoorY, 46), FVector(1.8f, 54, 68), Gloss, false);
+			CreateBlock(FVector(132.0f, DoorY, 78), FVector(1.4f, 50, 1.6f), PlasticDarkMaterial, false);
+		}
 	}
 
 	// Drum washer built into the south end of the run.
-	CreateBlock(FVector(162, 70, 46), FVector(56, 58, 72), Gloss);
-	CreateBlock(FVector(133.4f, 70, 76), FVector(1.8f, 54, 11), PlasticDarkMaterial, false);
-	CreateBlock(
-		FVector(133.2f, 70, 44), FVector(42, 42, 4),
-		Stainless, false, CylinderMesh, FRotator(90, 0, 0));
-	CreateBlock(
-		FVector(132.0f, 70, 44), FVector(33, 33, 3),
-		GlassMaterial, false, CylinderMesh, FRotator(90, 0, 0));
-	CreateBlock(FVector(133.6f, 46, 44), FVector(2, 4, 14), Stainless, false);
-
-	// Cabinet fronts under the hob and the sink; the groove is the handle.
-	for (const float DoorY : {129.0f, 186.0f})
+	if (WasherMesh)
 	{
-		CreateBlock(FVector(133.2f, DoorY, 46), FVector(1.8f, 54, 68), Gloss, false);
-		CreateBlock(FVector(132.0f, DoorY, 78), FVector(1.4f, 50, 1.6f), PlasticDarkMaterial, false);
+		// 앞판·포트홀·드럼·조작 패널. 드럼은 캐비닛 속으로 들어간다.
+		CreateBlock(
+			FVector(133.4f, 70, 0), FVector(100, 100, 100),
+			nullptr, false, WasherMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(162, 70, 46), FVector(56, 58, 72), Gloss);
+		CreateBlock(FVector(133.4f, 70, 76), FVector(1.8f, 54, 11), PlasticDarkMaterial, false);
+		CreateBlock(
+			FVector(133.2f, 70, 44), FVector(42, 42, 4),
+			Stainless, false, CylinderMesh, FRotator(90, 0, 0));
+		CreateBlock(
+			FVector(132.0f, 70, 44), FVector(33, 33, 3),
+			GlassMaterial, false, CylinderMesh, FRotator(90, 0, 0));
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(133.6f, 46, 44), FVector(2, 4, 14), Stainless, false);
 	}
 
 	// Inset stainless sink: a real basin with walls, a drain and a rim flange.
-	CreateBlock(FVector(160, 182, 63), FVector(46, 47, 2), Stainless);
-	for (const float BasinY : {159.5f, 204.5f})
+	if (SinkMesh)
 	{
-		CreateBlock(FVector(160, BasinY, 75), FVector(46, 2, 26), Stainless, false);
+		// 원점은 림 윗면 중심. 볼은 상판 구멍으로 26 cm 내려가고 수전이 같이 온다.
+		CreateBlock(
+			FVector(160, 182, 87.4f), FVector(100, 100, 100),
+			nullptr, false, SinkMesh, FRotator::ZeroRotator);
 	}
-	CreateBlock(FVector(137.5f, 182, 75), FVector(2, 47, 26), Stainless, false);
-	CreateBlock(FVector(182.5f, 182, 75), FVector(2, 47, 26), Stainless, false);
-	CreateBlock(FVector(160, 182, 87.4f), FVector(54, 55, 1.4f), Stainless, false);
-	CreateBlock(
-		FVector(160, 182, 64.4f), FVector(9, 9, 1),
-		PlasticDarkMaterial, false, CylinderMesh);
-	// Gooseneck mixer tap: column, arc and spout, with the lever on the side.
-	CreateBlock(FVector(178, 182, 100), FVector(4.4f, 4.4f, 26), Stainless, false, CylinderMesh);
-	CreateBlock(
-		FVector(169, 182, 113), FVector(4.4f, 4.4f, 20),
-		Stainless, false, CylinderMesh, FRotator(90, 0, 0));
-	CreateBlock(FVector(160, 182, 107), FVector(3.2f, 3.2f, 14), Stainless, false, CylinderMesh);
-	CreateBlock(FVector(181, 182, 112), FVector(3, 9, 3), Stainless, false);
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(160, 182, 63), FVector(46, 47, 2), Stainless);
+		for (const float BasinY : {159.5f, 204.5f})
+		{
+			CreateBlock(FVector(160, BasinY, 75), FVector(46, 2, 26), Stainless, false);
+		}
+		CreateBlock(FVector(137.5f, 182, 75), FVector(2, 47, 26), Stainless, false);
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(182.5f, 182, 75), FVector(2, 47, 26), Stainless, false);
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(160, 182, 87.4f), FVector(54, 55, 1.4f), Stainless, false);
+		CreateBlock(
+			FVector(160, 182, 64.4f), FVector(9, 9, 1),
+			PlasticDarkMaterial, false, CylinderMesh);
+		// Gooseneck mixer tap: column, arc and spout, with the lever on the side.
+		CreateBlock(FVector(178, 182, 100), FVector(4.4f, 4.4f, 26), Stainless, false, CylinderMesh);
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(
+			FVector(169, 182, 113), FVector(4.4f, 4.4f, 20),
+			Stainless, false, CylinderMesh, FRotator(90, 0, 0));
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(160, 182, 107), FVector(3.2f, 3.2f, 14), Stainless, false, CylinderMesh);
+		CreateBlock(FVector(181, 182, 112), FVector(3, 9, 3), Stainless, false);
+	}
 
 	// Induction hob: black glass, two element rings and the touch strip.
-	CreateBlock(FVector(160, 128, 87.8f), FVector(46, 50, 1.4f), PlasticDarkMaterial, false);
-	for (const FVector2D& Ring : {FVector2D(150, 116), FVector2D(170, 140)})
+	if (HobMesh)
 	{
 		CreateBlock(
-			FVector(Ring.X, Ring.Y, 88.6f), FVector(19, 19, 0.4f),
-			ConcreteDarkMaterial, false, CylinderMesh);
+			FVector(160, 128, 87), FVector(100, 100, 100),
+			nullptr, false, HobMesh, FRotator::ZeroRotator);
 	}
-	CreateBlock(FVector(141, 128, 88.6f), FVector(6, 30, 0.4f), ConcreteDarkMaterial, false);
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(160, 128, 87.8f), FVector(46, 50, 1.4f), PlasticDarkMaterial, false);
+		for (const FVector2D& Ring : {FVector2D(150, 116), FVector2D(170, 140)})
+		{
+			CreateBlock(
+				FVector(Ring.X, Ring.Y, 88.6f), FVector(19, 19, 0.4f),
+				ConcreteDarkMaterial, false, CylinderMesh);
+		}
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(141, 128, 88.6f), FVector(6, 30, 0.4f), ConcreteDarkMaterial, false);
+	}
 
 	// --- Wall units: carcass, gloss doors, valance with a live LED strip ----
-	CreateBlock(FVector(174, 128, 178), FVector(32, 176, 68), Gloss);
-	for (const float DoorY : {70.0f, 195.0f})
+	if (WallUnitsMesh)
 	{
-		CreateBlock(FVector(157.4f, DoorY, 178), FVector(1.8f, 54, 64), Gloss, false);
-		CreateBlock(FVector(156.2f, DoorY, 148), FVector(1.4f, 50, 1.6f), PlasticDarkMaterial, false);
+		// LED 띠는 구운 발광 텍스처다.
+		CreateBlock(
+			FVector(174, 128, 0), FVector(100, 100, 100),
+			nullptr, true, WallUnitsMesh, FRotator::ZeroRotator);
 	}
-	CreateBlock(FVector(158, 128, 143), FVector(5, 176, 5), Gloss, false);
-	CreateBlock(FVector(156.6f, 128, 142), FVector(2, 168, 1.6f), LightPanelMaterial, false);
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(174, 128, 178), FVector(32, 176, 68), Gloss);
+		for (const float DoorY : {70.0f, 195.0f})
+		{
+			CreateBlock(FVector(157.4f, DoorY, 178), FVector(1.8f, 54, 64), Gloss, false);
+			CreateBlock(FVector(156.2f, DoorY, 148), FVector(1.4f, 50, 1.6f), PlasticDarkMaterial, false);
+		}
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(158, 128, 143), FVector(5, 176, 5), Gloss, false);
+		CreateBlock(FVector(156.6f, 128, 142), FVector(2, 168, 1.6f), LightPanelMaterial, false);
+	}
 	// Range hood between the wall units, over the hob.
-	CreateBlock(FVector(172, 128, 168), FVector(36, 52, 26), Stainless, false);
-	CreateBlock(FVector(166, 128, 151), FVector(24, 52, 9), Stainless, false);
-	CreateBlock(FVector(154.5f, 128, 151), FVector(1.5f, 46, 4), PlasticDarkMaterial, false);
-	CreateBlock(FVector(178, 128, 200), FVector(18, 26, 24), Stainless, false);
+	if (RangeHoodMesh)
+	{
+		CreateBlock(
+			FVector(172, 128, 0), FVector(100, 100, 100),
+			nullptr, false, RangeHoodMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(172, 128, 168), FVector(36, 52, 26), Stainless, false);
+		CreateBlock(FVector(166, 128, 151), FVector(24, 52, 9), Stainless, false);
+		CreateBlock(FVector(154.5f, 128, 151), FVector(1.5f, 46, 4), PlasticDarkMaterial, false);
+		CreateBlock(FVector(178, 128, 200), FVector(18, 26, 24), Stainless, false);
+	}
 
 	// Microwave on the counter, next to the hob.
-	CreateBlock(FVector(166, 47, 101), FVector(42, 34, 26), Stainless, false);
-	CreateBlock(FVector(144.6f, 43, 101), FVector(1.4f, 22, 20), GlassMaterial, false);
-	CreateBlock(FVector(144.6f, 60, 101), FVector(1.4f, 9, 20), PlasticDarkMaterial, false);
+	if (MicrowaveMesh)
+	{
+		// 상판 윗면(Z 87)에 발이 닿는다.
+		CreateBlock(
+			FVector(166, 47, 87), FVector(100, 100, 100),
+			nullptr, false, MicrowaveMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(166, 47, 101), FVector(42, 34, 26), Stainless, false);
+		CreateBlock(FVector(144.6f, 43, 101), FVector(1.4f, 22, 20), GlassMaterial, false);
+		CreateBlock(FVector(144.6f, 60, 101), FVector(1.4f, 9, 20), PlasticDarkMaterial, false);
+	}
 
 	// Bathroom door name plate.
 	CreateBlock(FVector(20, -210.6f, 145), FVector(26, 1.5f, 13), TexMat(TEXT("M_SignToilet"), PlasticDarkMaterial), false);
 
 	// Lived-in unit 403: wall AC unit, outlets, a July calendar, range hood.
-	CreateBlock(FVector(40, -206, 196), FVector(82, 19, 27), FridgeBodyMaterial, false);
-	CreateBlock(FVector(40, -196.2f, 188), FVector(70, 1.5f, 3), PlasticDarkMaterial, false);
+	// 에어컨은 Blender 메시. 같은 82 x 19 x 27 봉투, 앞면 +Y, 원점 바닥 중심.
+	UStaticMesh* WallAcMesh = PropMesh(TEXT("SM_WallAirConditioner"));
+	if (WallAcMesh)
+	{
+		CreateBlock(
+			FVector(40, -206, 182.5f), FVector(100, 100, 100),
+			nullptr, false, WallAcMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(40, -206, 196), FVector(82, 19, 27), FridgeBodyMaterial, false);
+		CreateBlock(FVector(40, -196.2f, 188), FVector(70, 1.5f, 3), PlasticDarkMaterial, false);
+	}
 	CreateBlock(FVector(-70, -212.5f, 32), FVector(7, 2, 11), FridgeInteriorMaterial, false);
 	CreateBlock(FVector(186.5f, 40, 32), FVector(2, 7, 11), FridgeInteriorMaterial, false);
 	// Hang the calendar on the clear wall directly above the desk. The old
@@ -2509,39 +2633,105 @@ void AIGPrologueWorldScene::BuildApartment()
 	UnderCabinet->SetVolumetricScatteringIntensity(0.2f);
 
 	// Window frame and cross bars turn the glow plane into a real window.
-	CreateBlock(FVector(-100, 212, 196), FVector(130, 5, 7), PlasticDarkMaterial, false);
-	CreateBlock(FVector(-100, 212, 104), FVector(130, 5, 7), PlasticDarkMaterial, false);
-	CreateBlock(FVector(-163, 212, 150), FVector(7, 5, 99), PlasticDarkMaterial, false);
-	CreateBlock(FVector(-37, 212, 150), FVector(7, 5, 99), PlasticDarkMaterial, false);
-	CreateBlock(FVector(-100, 212, 150), FVector(124, 4, 5), PlasticDarkMaterial, false);
-	CreateBlock(FVector(-100, 212, 150), FVector(5, 4, 92), PlasticDarkMaterial, false);
+	// 창틀·블라인드·인터폰·스위치·신발장은 Blender 메시
+	// (Scripts/blender/build_apartment_fixtures.py)다. 창틀은 미닫이 두 짝과
+	// 만나는 살까지 기하이고 유리는 없다 — 달빛 발광판이 그 뒤에 그대로 선다.
+	// 원점은 창 개구부 아래 중심이고 틀 뒷면이 북쪽 벽면(Y 215)에 닿는다.
+	UStaticMesh* WindowMesh = PropMesh(TEXT("SM_ApartmentWindow"));
+	if (WindowMesh)
+	{
+		CreateBlock(
+			FVector(-100, 212.5f, 100), FVector(100, 100, 100),
+			nullptr, false, WindowMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(-100, 212, 196), FVector(130, 5, 7), PlasticDarkMaterial, false);
+		CreateBlock(FVector(-100, 212, 104), FVector(130, 5, 7), PlasticDarkMaterial, false);
+		CreateBlock(FVector(-163, 212, 150), FVector(7, 5, 99), PlasticDarkMaterial, false);
+		CreateBlock(FVector(-37, 212, 150), FVector(7, 5, 99), PlasticDarkMaterial, false);
+		CreateBlock(FVector(-100, 212, 150), FVector(124, 4, 5), PlasticDarkMaterial, false);
+		CreateBlock(FVector(-100, 212, 150), FVector(5, 4, 92), PlasticDarkMaterial, false);
+	}
 	// Venetian blind, drawn up into its stack: the headrail, the pulled-up
 	// slat bundle and the cord. Leaving it up keeps the moonlight beam.
-	CreateBlock(FVector(-100, 207, 202), FVector(134, 7, 8), SignWhiteMaterial, false);
-	for (const float SlatZ : {188.0f, 191.5f, 195.0f})
+	// 메시 원점은 헤드레일 윗면 중심이고 줄은 아래로 84 cm 내려온다.
+	UStaticMesh* BlindMesh = PropMesh(TEXT("SM_VenetianBlind"));
+	if (BlindMesh)
 	{
-		CreateBlock(FVector(-100, 206.5f, SlatZ), FVector(130, 6, 2), SignWhiteMaterial, false);
+		CreateBlock(
+			FVector(-100, 207, 206), FVector(100, 100, 100),
+			nullptr, false, BlindMesh, FRotator::ZeroRotator);
 	}
-	CreateBlock(FVector(-36, 205, 160), FVector(1.2f, 1.2f, 76), SignWhiteMaterial, false);
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(-100, 207, 202), FVector(134, 7, 8), SignWhiteMaterial, false);
+		for (const float SlatZ : {188.0f, 191.5f, 195.0f})
+		{
+			CreateBlock(FVector(-100, 206.5f, SlatZ), FVector(130, 6, 2), SignWhiteMaterial, false);
+		}
+		CreateBlock(FVector(-36, 205, 160), FVector(1.2f, 1.2f, 76), SignWhiteMaterial, false);
+	}
 
 	// Entrance wall: video intercom, the switch bank beside it, and the shoe
 	// cabinet that stands against every Korean entryway.
-	CreatePrintedBlock(
-		FVector(62, -212.5f, 145), FVector(17, 5, 23),
-		FridgeInteriorMaterial,
-		TexMat(TEXT("M_Intercom"), SignWhiteMaterial),
-		FVector(0, 1, 0));
-	CreateBlock(FVector(62, -214, 145), FVector(20, 4, 26), SignWhiteMaterial, false);
-	CreateBlock(
-		FVector(90, -213.4f, 128), FVector(10, 2, 10),
-		TexMat(TEXT("M_SwitchPlate"), SignWhiteMaterial), false);
-	CreateBlock(FVector(48, -198, 55), FVector(80, 32, 110), Gloss);
-	for (const float ShelfZ : {28.0f, 82.0f})
+	// 인터폰과 스위치는 남쪽 벽면(Y -215)에 붙는 메시다. 원점이 벽면 바닥 중심,
+	// 앞면 +Y. 인터폰 앞면은 생성 시트의 패널 그림을 구운 것이다.
+	UStaticMesh* IntercomMesh = PropMesh(TEXT("SM_VideoIntercom"));
+	if (IntercomMesh)
 	{
-		CreateBlock(FVector(48, -181.6f, ShelfZ), FVector(76, 1.6f, 52), Gloss, false);
-		CreateBlock(FVector(48, -180.6f, ShelfZ + 26), FVector(70, 1.2f, 1.6f), PlasticDarkMaterial, false);
+		CreateBlock(
+			FVector(62, -215, 130), FVector(100, 100, 100),
+			nullptr, false, IntercomMesh, FRotator::ZeroRotator);
 	}
-	CreateBlock(FVector(48, -198, 111.5f), FVector(84, 34, 3), Furniture, false);
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreatePrintedBlock(
+			FVector(62, -212.5f, 145), FVector(17, 5, 23),
+			FridgeInteriorMaterial,
+			TexMat(TEXT("M_Intercom"), SignWhiteMaterial),
+			FVector(0, 1, 0));
+		CreateBlock(FVector(62, -214, 145), FVector(20, 4, 26), SignWhiteMaterial, false);
+	}
+	// 이름은 SwitchPlate가 아니다 — M_SwitchPlate가 읽는 간판 텍스처 T_SwitchPlate_D와 겹친다.
+	UStaticMesh* SwitchMesh = PropMesh(TEXT("SM_WallSwitch"));
+	if (SwitchMesh)
+	{
+		CreateBlock(
+			FVector(90, -215, 123), FVector(100, 100, 100),
+			nullptr, false, SwitchMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(
+			FVector(90, -213.4f, 128), FVector(10, 2, 10),
+			TexMat(TEXT("M_SwitchPlate"), SignWhiteMaterial), false);
+	}
+	// 신발장은 유광 흰 문 넷에 손가락 홈, 상판이 벽면까지 닿는 메시다. 원점
+	// 바닥 중심, 문이 +Y(방 쪽).
+	UStaticMesh* ShoeCabinetMesh = PropMesh(TEXT("SM_ShoeCabinet"));
+	if (ShoeCabinetMesh)
+	{
+		CreateBlock(
+			FVector(48, -198, 0), FVector(100, 100, 100),
+			nullptr, true, ShoeCabinetMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(48, -198, 55), FVector(80, 32, 110), Gloss);
+		for (const float ShelfZ : {28.0f, 82.0f})
+		{
+			CreateBlock(FVector(48, -181.6f, ShelfZ), FVector(76, 1.6f, 52), Gloss, false);
+			CreateBlock(FVector(48, -180.6f, ShelfZ + 26), FVector(70, 1.2f, 1.6f), PlasticDarkMaterial, false);
+		}
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(48, -198, 111.5f), FVector(84, 34, 3), Furniture, false);
+	}
 
 	// Baseboard trim along the interior walls.
 	CreateBlock(FVector(0, 213, 5), FVector(378, 4, 10), Furniture, false);
@@ -2782,33 +2972,71 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// 레버·도어록·도어스코프는 이미 실제 기하이므로 표면만 바꾼다.
 	UMaterialInterface* UnitDoorLeaf =
 		TexMat(TEXT("M_UnitDoorPaintedSteel"), SteelDoor);
+	// 문짝의 정식 경로는 Blender에서 만든 SM_UnitDoorLeaf다
+	// (Scripts/blender/build_unit_door.py). 띠·인레이·도어스코프·힌지·스위프가
+	// 한 메시에 실제 기하로 들어 있고, 원점은 바닥 중심, 앞면은 -Y다. 레버와
+	// 도어락은 원점이 같은 SM_UnitDoorHardware다. 문짝 앞으로 7 cm 넘게 나오는
+	// 철물을 문짝 바운드에서 떼어 놓아야 문에 붙인 종이(밤3 일지)가 감사에서
+	// 문짝을 뚫지 않는다. 메시가 없을 때만 예전 상자 조립으로 내려간다.
+	UStaticMesh* UnitDoorLeafMesh = PropMesh(TEXT("SM_UnitDoorLeaf"));
+	UStaticMesh* UnitDoorHardwareMesh = PropMesh(TEXT("SM_UnitDoorHardware"));
+	UStaticMesh* UnitDoorFrameMesh = PropMesh(TEXT("SM_UnitDoorFrame"));
 	// IntercomSide is +1 when the intercom hangs east of the leaf. 401 needs
 	// that: 56 cm west of its door is the ten-centimetre return of 403's west
 	// wall, and the plate ended up inside the masonry.
-	auto DressUnitDoor = [this, UnitDoorLeaf, Stainless, Metal](
+	auto DressUnitDoor = [this, UnitDoorLeaf, UnitDoorLeafMesh, UnitDoorHardwareMesh,
+			Stainless, Metal](
 		const float DoorX, const float FaceY, const float IntercomSide)
 	{
-		CreateBlock(FVector(DoorX, FaceY, 100), FVector(84, 5, 200), UnitDoorLeaf);
-		const float PlateY = FaceY - 2.9f;
-		// Brushed band down the leaf, with the punched square inlays.
-		CreateBlock(FVector(DoorX + 14, PlateY, 100), FVector(13, 0.8f, 188), Stainless, false);
-		for (const float InlayZ : {36.0f, 68.0f, 100.0f, 132.0f, 164.0f})
+		if (UnitDoorLeafMesh)
 		{
+			// 크기 100은 배율 1이다. 상자가 아니라 실제 치수의 메시다.
 			CreateBlock(
-				FVector(DoorX + 14, PlateY - 0.6f, InlayZ), FVector(5, 0.6f, 5),
-				PlasticDarkMaterial, false);
+				FVector(DoorX, FaceY, 0), FVector(100, 100, 100),
+				nullptr, true, UnitDoorLeafMesh, FRotator::ZeroRotator);
+			// 레버·도어락은 같은 자리에 놓는 충돌 없는 메시다. 레버는 손이 닿는
+			// 프롬프트용이라 충돌이 없어도 된다.
+			if (UnitDoorHardwareMesh)
+			{
+				CreateBlock(
+					FVector(DoorX, FaceY, 0), FVector(100, 100, 100),
+					nullptr, false, UnitDoorHardwareMesh, FRotator::ZeroRotator);
+			}
+			else
+			{
+				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+				CreateBlock(FVector(DoorX + 32, FaceY - 3.9f, 95), FVector(4, 2, 12), Metal, false);
+				CreateBlock(FVector(DoorX + 32, FaceY - 6.4f, 95), FVector(3, 9, 3), Metal, false);
+			}
 		}
-		// Lever handle on a rose, digital lock above it, peephole at eye level.
-		CreateBlock(FVector(DoorX + 32, PlateY - 1.0f, 95), FVector(4, 2, 12), Metal, false);
-		CreateBlock(FVector(DoorX + 32, PlateY - 3.5f, 95), FVector(3, 9, 3), Metal, false);
-		CreatePrintedBlock(
-			FVector(DoorX + 32, PlateY - 1.4f, 122), FVector(9, 3.2f, 24),
-			PlasticDarkMaterial,
-			TexMat(TEXT("M_DoorLock"), PlasticDarkMaterial),
-			FVector(0, -1, 0));
-		CreateBlock(
-			FVector(DoorX, PlateY - 0.4f, 155), FVector(3, 1.2f, 3),
-			Metal, false, CylinderMesh, FRotator(90, 0, 0));
+		else
+		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(DoorX, FaceY, 100), FVector(84, 5, 200), UnitDoorLeaf);
+			const float PlateY = FaceY - 2.9f;
+			// Brushed band down the leaf, with the punched square inlays.
+			CreateBlock(FVector(DoorX + 14, PlateY, 100), FVector(13, 0.8f, 188), Stainless, false);
+			for (const float InlayZ : {36.0f, 68.0f, 100.0f, 132.0f, 164.0f})
+			{
+				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+				CreateBlock(
+					FVector(DoorX + 14, PlateY - 0.6f, InlayZ), FVector(5, 0.6f, 5),
+					PlasticDarkMaterial, false);
+			}
+			// Lever handle on a rose, digital lock above it, peephole at eye level.
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(DoorX + 32, PlateY - 1.0f, 95), FVector(4, 2, 12), Metal, false);
+			CreateBlock(FVector(DoorX + 32, PlateY - 3.5f, 95), FVector(3, 9, 3), Metal, false);
+			CreatePrintedBlock(
+				FVector(DoorX + 32, PlateY - 1.4f, 122), FVector(9, 3.2f, 24),
+				PlasticDarkMaterial,
+				TexMat(TEXT("M_DoorLock"), PlasticDarkMaterial),
+				FVector(0, -1, 0));
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(
+				FVector(DoorX, PlateY - 0.4f, 155), FVector(3, 1.2f, 3),
+				Metal, false, CylinderMesh, FRotator(90, 0, 0));
+		}
 		// Doorbell button and the video intercom plate beside the frame. Both
 		// are screwed to the landing face of the wall at Y -235, not to the
 		// leaf: at FaceY + 1 the whole intercom sat inside the masonry and the
@@ -2833,11 +3061,22 @@ void AIGPrologueWorldScene::BuildCorridor()
 		const float DoorX = NeighborDoorXs[NeighborIndex];
 		const int32 FirstDoorComponent = GeometryComponents.Num();
 		DressUnitDoor(DoorX, -234.5f, NeighborIndex == 0 ? -1.0f : 1.0f);
-		// Powder-coated casing stays readable at this thin aspect ratio; the
-		// former stucco UV stretched into conspicuous horizontal stripes.
-		CreateBlock(FVector(DoorX - 46, -233, 102), FVector(8, 7, 208), DoorTrim, false);
-		CreateBlock(FVector(DoorX + 46, -233, 102), FVector(8, 7, 208), DoorTrim, false);
-		CreateBlock(FVector(DoorX, -233, 204), FVector(100, 7, 8), DoorTrim, false);
+		if (UnitDoorFrameMesh)
+		{
+			// 문선·머리·스톱 립이 한 메시다. 원점은 개구부 바닥 중심.
+			CreateBlock(
+				FVector(DoorX, -233, 0), FVector(100, 100, 100),
+				nullptr, false, UnitDoorFrameMesh, FRotator::ZeroRotator);
+		}
+		else
+		{
+			// Powder-coated casing stays readable at this thin aspect ratio; the
+			// former stucco UV stretched into conspicuous horizontal stripes.
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(DoorX - 46, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+			CreateBlock(FVector(DoorX + 46, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+			CreateBlock(FVector(DoorX, -233, 204), FVector(100, 7, 8), DoorTrim, false);
+		}
 		// Unit number, on the landing face of the wall above the head trim.
 		// At Y -231.5 the plate was two centimetres deep inside the wall.
 		CreateBlock(
@@ -2855,9 +3094,19 @@ void AIGPrologueWorldScene::BuildCorridor()
 	}
 	// Our 403 door casing and plate around the real swing door; the leaf
 	// itself is the AIGSwingDoor actor, which dresses its own face.
-	CreateBlock(FVector(96, -233, 102), FVector(8, 7, 208), DoorTrim, false);
-	CreateBlock(FVector(190, -233, 102), FVector(8, 7, 208), DoorTrim, false);
-	CreateBlock(FVector(143, -233, 206), FVector(102, 7, 8), DoorTrim, false);
+	if (UnitDoorFrameMesh)
+	{
+		CreateBlock(
+			FVector(143, -233, 0), FVector(100, 100, 100),
+			nullptr, false, UnitDoorFrameMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(96, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+		CreateBlock(FVector(190, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+		CreateBlock(FVector(143, -233, 206), FVector(102, 7, 8), DoorTrim, false);
+	}
 	// The actual 404 opening also needs its three inside returns capped. The
 	// south-wall material is authored for the broad wall face and streaks when
 	// seen edge-on through this 20 cm reveal.
@@ -2952,22 +3201,58 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(
 		FVector(CupboardX + 24.0f, -240.4f, 180),
 		FVector(3, 1.5f, 6), PlasticDarkMaterial, false);
-	CreatePrintedBlock(
-		FVector(236, -371, 140), FVector(26, 9, 34),
-		SnackRedMaterial,
-		TexMat(TEXT("M_FireBox"), SnackRedMaterial),
-		FVector(0, 1, 0));
+	// 소화전함은 Blender 메시(Scripts/blender/build_corridor_fixtures.py)가
+	// 정식이다. 문짝·창·손잡이·「소화전」 글자가 실제 기하다. 원점이 바닥
+	// 중심, 앞면이 -Y라 남쪽 벽(Y -375)에 등을 대려면 180도 돌리고 원점을
+	// 벽에서 4.5 cm 띄운다.
+	UStaticMesh* FireBoxMesh = PropMesh(TEXT("SM_FireExtinguisherBox"));
+	if (FireBoxMesh)
+	{
+		CreateBlock(
+			FVector(236, -370.5f, 123), FVector(100, 100, 100),
+			nullptr, false, FireBoxMesh, FRotator(0, 180, 0));
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreatePrintedBlock(
+			FVector(236, -371, 140), FVector(26, 9, 34),
+			SnackRedMaterial,
+			TexMat(TEXT("M_FireBox"), SnackRedMaterial),
+			FVector(0, 1, 0));
+	}
 	// The extinguisher is the one corridor prop authored to fall (밤1 beat
 	// 1-5). A physics body from birth, but kinematic until the scripted drop:
 	// visually identical to the old static block and free at rest.
-	CorridorExtinguisher = CreatePhysicsProp(
-		CylinderMesh,
-		SnackRedMaterial,
-		FVector(0.15f, 0.15f, 0.48f),
-		FVector(232, -364, 26),
-		FRotator::ZeroRotator,
-		6.0f);
-	if (CorridorExtinguisher)
+	// 소화기도 같은 빌더의 메시다. 본체·헤드 두 볼록 껍데기를 충돌로 들고
+	// 오므로 떨어질 때 구르는 것도 실제 형상대로다.
+	UStaticMesh* FireExtinguisherMesh = PropMesh(TEXT("SM_FireExtinguisher"));
+	if (FireExtinguisherMesh)
+	{
+		CorridorExtinguisher = CreatePhysicsProp(
+			FireExtinguisherMesh,
+			nullptr,
+			FVector(1.0f, 1.0f, 1.0f),
+			FVector(232, -364, 0.5f),
+			FRotator::ZeroRotator,
+			6.0f);
+		if (CorridorExtinguisher)
+		{
+			CorridorExtinguisher->SetSimulatePhysics(false);
+		}
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CorridorExtinguisher = CreatePhysicsProp(
+			CylinderMesh,
+			SnackRedMaterial,
+			FVector(0.15f, 0.15f, 0.48f),
+			FVector(232, -364, 26),
+			FRotator::ZeroRotator,
+			6.0f);
+	}
+	if (CorridorExtinguisher && !FireExtinguisherMesh)
 	{
 		CorridorExtinguisher->SetSimulatePhysics(false);
 		// Valve stub rides the body so the silhouette survives the fall.
@@ -3119,16 +3404,34 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// Ceiling fixtures down the whole hallway: flush round downlights, the way
 	// the reference landing is lit. The far one has a dying ballast and never
 	// stops shimmering.
+	// 등은 Blender 메시 둘(Scripts/blender/build_ceiling_light.py)이다. 테와
+	// 확산 돔이 따로라, 죽어 가는 등이 돔의 재질을 바꾸는 예전 방식이 그대로
+	// 통한다. 둘 다 원점이 천장 접촉면이라 천장 아랫면 Z 240에 놓는다.
+	UStaticMesh* CeilingLightRingMesh = PropMesh(TEXT("SM_CeilingLightRing"));
+	UStaticMesh* CeilingLightDomeMesh = PropMesh(TEXT("SM_CeilingLightDome"));
 	for (const float FixtureX : {-180.0f, 60.0f, 300.0f, 540.0f})
 	{
-		CreateBlock(
-			FVector(FixtureX, -305, 237), FVector(26, 26, 4),
-			Stainless, false, CylinderMesh);
-		// Keep the emissive disc: putting a fixture out means darkening this
-		// too, or a lit ring hangs on a black ceiling.
-		CorridorLightDiscs.Add(CreateBlock(
-			FVector(FixtureX, -305, 234.5f), FVector(21, 21, 2),
-			LightPanelMaterial, false, CylinderMesh));
+		if (CeilingLightRingMesh && CeilingLightDomeMesh)
+		{
+			CreateBlock(
+				FVector(FixtureX, -305, 240), FVector(100, 100, 100),
+				nullptr, false, CeilingLightRingMesh, FRotator::ZeroRotator);
+			CorridorLightDiscs.Add(CreateBlock(
+				FVector(FixtureX, -305, 240), FVector(100, 100, 100),
+				LightPanelMaterial, false, CeilingLightDomeMesh, FRotator::ZeroRotator));
+		}
+		else
+		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(
+				FVector(FixtureX, -305, 237), FVector(26, 26, 4),
+				Stainless, false, CylinderMesh);
+			// Keep the emissive disc: putting a fixture out means darkening this
+			// too, or a lit ring hangs on a black ceiling.
+			CorridorLightDiscs.Add(CreateBlock(
+				FVector(FixtureX, -305, 234.5f), FVector(21, 21, 2),
+				LightPanelMaterial, false, CylinderMesh));
+		}
 		UPointLightComponent* CorridorLight = CreateLight(
 			FVector(FixtureX, -305, 226), 1020.0f, 410.0f,
 			FLinearColor(0.86f, 0.97f, 1.0f), true, 16.0f);
@@ -3750,6 +4053,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	}
 	else
 	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 		CreateBlock(
 			TankCenter + FVector(0.0f, 0.0f, 1430.0f),
 			FVector(306.0f, 306.0f, 260.0f),
@@ -4793,19 +5097,35 @@ void AIGPrologueWorldScene::BuildLobby()
 		TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial), false);
 
 	// Mailboxes for the whole building on the north wall.
-	CreateBlock(FVector(528, -237, 151), FVector(96, 4, 66), ShelfSteel, false);
-	for (const float BoxZ : {131.0f, 151.0f, 171.0f})
+	// 우편함은 Blender 메시(Scripts/blender/build_lobby_mailboxes.py) 하나다.
+	// 뒷판·상자 아홉·투입구·차양·캠록·이름표가 실제 기하이고, 원점은 벽면의
+	// 바닥 중심(뒷판 아랫변 Z 118)이며 앞면이 -Y다.
+	UStaticMesh* MailboxMesh = PropMesh(TEXT("SM_MailboxUnit"));
+	if (MailboxMesh)
 	{
-		for (const float BoxX : {500.0f, 528.0f, 556.0f})
+		CreateBlock(
+			FVector(528, -235, 118), FVector(100, 100, 100),
+			nullptr, false, MailboxMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(528, -237, 151), FVector(96, 4, 66), ShelfSteel, false);
+		for (const float BoxZ : {131.0f, 151.0f, 171.0f})
 		{
-			CreateBlock(FVector(BoxX, -241.5f, BoxZ), FVector(26, 9, 18), Metal, false);
-			CreateBlock(
-				FVector(BoxX, -246.3f, BoxZ + 4), FVector(18, 1.2f, 2.5f),
-				PlasticDarkMaterial, false);
-			// Cam-lock keyhole.
-			CreateBlock(
-				FVector(BoxX + 8, -246.5f, BoxZ - 4), FVector(2.4f, 1.2f, 2.4f),
-				PlasticDarkMaterial, false, CylinderMesh, FRotator(90, 0, 0));
+			for (const float BoxX : {500.0f, 528.0f, 556.0f})
+			{
+				CreateBlock(FVector(BoxX, -241.5f, BoxZ), FVector(26, 9, 18), Metal, false);
+				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+				CreateBlock(
+					FVector(BoxX, -246.3f, BoxZ + 4), FVector(18, 1.2f, 2.5f),
+					PlasticDarkMaterial, false);
+				// Cam-lock keyhole.
+				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+				CreateBlock(
+					FVector(BoxX + 8, -246.5f, BoxZ - 4), FVector(2.4f, 1.2f, 2.4f),
+					PlasticDarkMaterial, false, CylinderMesh, FRotator(90, 0, 0));
+			}
 		}
 	}
 
@@ -4931,14 +5251,30 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(468, -252, 24), FVector(26, 26, 48), Metal, true, CylinderMesh);
 
 	// Lobby fluorescents: one over the mailboxes, one at the lift doors.
+	// 복도와 같은 Blender 등 메시 둘. 돔 슬롯은 예전처럼 씬이 재질을 건다.
+	UStaticMesh* LobbyLightRingMesh = PropMesh(TEXT("SM_CeilingLightRing"));
+	UStaticMesh* LobbyLightDomeMesh = PropMesh(TEXT("SM_CeilingLightDome"));
 	for (const float FixtureX : {510.0f, 660.0f})
 	{
-		CreateBlock(
-			FVector(FixtureX, -305, 237), FVector(28, 28, 4),
-			Stainless, false, CylinderMesh);
-		LobbyLightDiscs.Add(CreateBlock(
-			FVector(FixtureX, -305, 234.5f), FVector(23, 23, 2),
-			LightPanelMaterial, false, CylinderMesh));
+		if (LobbyLightRingMesh && LobbyLightDomeMesh)
+		{
+			CreateBlock(
+				FVector(FixtureX, -305, 240), FVector(100, 100, 100),
+				nullptr, false, LobbyLightRingMesh, FRotator::ZeroRotator);
+			LobbyLightDiscs.Add(CreateBlock(
+				FVector(FixtureX, -305, 240), FVector(100, 100, 100),
+				LightPanelMaterial, false, LobbyLightDomeMesh, FRotator::ZeroRotator));
+		}
+		else
+		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(
+				FVector(FixtureX, -305, 237), FVector(28, 28, 4),
+				Stainless, false, CylinderMesh);
+			LobbyLightDiscs.Add(CreateBlock(
+				FVector(FixtureX, -305, 234.5f), FVector(23, 23, 2),
+				LightPanelMaterial, false, CylinderMesh));
+		}
 		UPointLightComponent* LobbyLight = CreateLight(
 			FVector(FixtureX, -305, 226), 920.0f, 400.0f,
 			FLinearColor(0.87f, 0.98f, 1.0f), true, 16.0f);
@@ -5221,8 +5557,20 @@ void AIGPrologueWorldScene::BuildAlley()
 			FVector(58, 58, 56), 40.0f);
 		PlacePhotoProp(TEXT("cardboard_box_01"), FVector(GapCenterX + 30, -172, 0),
 			FVector(46, 38, 32), -25.0f);
-		CreateBlock(FVector(GapCenterX + 40, -300, 24), FVector(30, 30, 48),
-			TexMat(TEXT("M_ConeOrange"), SnackRedMaterial), true, ConeMesh);
+		// 콘은 Blender 메시(Scripts/blender/build_alley_props.py). 원점이 바닥이라
+		// 엔진 원뿔의 중심 Z 24 대신 Z 0에 놓는다.
+		if (UStaticMesh* SideConeMesh = PropMesh(TEXT("SM_TrafficCone")))
+		{
+			CreateBlock(
+				FVector(GapCenterX + 40, -300, 0), FVector(100, 100, 100),
+				nullptr, true, SideConeMesh, FRotator::ZeroRotator);
+		}
+		else
+		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(GapCenterX + 40, -300, 24), FVector(30, 30, 48),
+				TexMat(TEXT("M_ConeOrange"), SnackRedMaterial), true, ConeMesh);
+		}
 		// One failing lamp deep inside: barely enough to show it dead-ends.
 		UPointLightComponent* SideLamp = CreateLight(
 			FVector(GapCenterX + 50, -172, 206), 150.0f, 300.0f,
@@ -5234,6 +5582,11 @@ void AIGPrologueWorldScene::BuildAlley()
 	// dark aluminium with a black railing across the lower half and a stone
 	// sill under them — that combination is most of what makes the facade
 	// read. One flat on the third floor is faintly awake.
+	// 창틀·창턱·난간은 Blender 메시(SM_VillaWindow, build_villa_window.py) 하나를
+	// 열다섯 자리에 놓는다. 미닫이 두 짝의 프로파일과 물끊기까지 기하다. 유리
+	// 판은 그대로 상자다 — 깨어 있는 집 하나의 발광이 그 판이다. 원점은 벽면
+	// (Y -395)의 창 개구부 바닥 중심.
+	UStaticMesh* VillaWindowMesh = PropMesh(TEXT("SM_VillaWindow"));
 	for (const float WindowZ : {390.0f, 690.0f, 990.0f})
 	{
 		for (const float WindowX : {-260.0f, -100.0f, 60.0f, 220.0f, 380.0f})
@@ -5243,13 +5596,22 @@ void AIGPrologueWorldScene::BuildAlley()
 					? WindowGlowMaterial
 					: WindowDarkMaterial;
 			CreateBlock(FVector(WindowX, -396, WindowZ), FVector(96, 4, 116), Pane, false);
+			if (VillaWindowMesh)
+			{
+				CreateBlock(
+					FVector(WindowX, -395, WindowZ - 60), FVector(100, 100, 100),
+					nullptr, false, VillaWindowMesh, FRotator::ZeroRotator);
+				continue;
+			}
 			// Aluminium frame: head, cill, two jambs and the sliding mullion.
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 			CreateBlock(FVector(WindowX, -397.5f, WindowZ + 60), FVector(104, 5, 6), PlasticDarkMaterial, false);
 			CreateBlock(FVector(WindowX, -397.5f, WindowZ - 60), FVector(104, 5, 6), PlasticDarkMaterial, false);
 			CreateBlock(FVector(WindowX - 50, -397.5f, WindowZ), FVector(6, 5, 116), PlasticDarkMaterial, false);
 			CreateBlock(FVector(WindowX + 50, -397.5f, WindowZ), FVector(6, 5, 116), PlasticDarkMaterial, false);
 			CreateBlock(FVector(WindowX, -397.5f, WindowZ), FVector(4, 5, 112), PlasticDarkMaterial, false);
 			// Stone sill with a drip edge.
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 			CreateBlock(
 				FVector(WindowX, -400, WindowZ - 66), FVector(112, 12, 7),
 				TexMat(TEXT("M_Concrete_X"), ConcreteMaterial), false);
@@ -5258,6 +5620,7 @@ void AIGPrologueWorldScene::BuildAlley()
 			CreateBlock(FVector(WindowX, -401, WindowZ - 34), FVector(108, 3, 3), PlasticDarkMaterial, false);
 			for (int32 BarIndex = -4; BarIndex <= 4; ++BarIndex)
 			{
+				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 				CreateBlock(
 					FVector(WindowX + BarIndex * 12.0f, -401, WindowZ - 34),
 					FVector(2.2f, 2.2f, 60), PlasticDarkMaterial, false);
@@ -5314,12 +5677,28 @@ void AIGPrologueWorldScene::BuildAlley()
 	CreateBlock(FVector(1750, -700, 566), FVector(58, 8, 10), AlarmMaterial, false);
 
 	// Parking cones and the AC drain pipes running to the street.
-	CreateBlock(
-		FVector(2280, -640, 24), FVector(30, 30, 48),
-		TexMat(TEXT("M_ConeOrange"), SnackRedMaterial), true, ConeMesh);
-	CreateBlock(
-		FVector(1180, -430, 24), FVector(30, 30, 48),
-		TexMat(TEXT("M_ConeOrange"), SnackRedMaterial), true, ConeMesh);
+	UStaticMesh* ParkingConeMesh = PropMesh(TEXT("SM_TrafficCone"));
+	if (ParkingConeMesh)
+	{
+		// 둥근 콘이라 돌릴 이유가 없고, 돌리면 감사 상자가 커져 옆의 물리
+		// 상자(X 2240)를 1 cm 문다.
+		CreateBlock(
+			FVector(2280, -640, 0), FVector(100, 100, 100),
+			nullptr, true, ParkingConeMesh, FRotator::ZeroRotator);
+		CreateBlock(
+			FVector(1180, -430, 0), FVector(100, 100, 100),
+			nullptr, true, ParkingConeMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(
+			FVector(2280, -640, 24), FVector(30, 30, 48),
+			TexMat(TEXT("M_ConeOrange"), SnackRedMaterial), true, ConeMesh);
+		CreateBlock(
+			FVector(1180, -430, 24), FVector(30, 30, 48),
+			TexMat(TEXT("M_ConeOrange"), SnackRedMaterial), true, ConeMesh);
+	}
 	for (const float PipeX : {350.0f, 1100.0f})
 	{
 		CreateBlock(
@@ -5508,11 +5887,24 @@ void AIGPrologueWorldScene::BuildAlley()
 	// 95도 열리면 문짝이 이 4.5 m 전신주를 6 cm 물고 지나간다. 힌지에서 37 cm
 	// 밖에 안 되는 자리다. 호 밖(110 cm)이면서 현관 디딤판(X 596..690)도
 	// 비켜나는 X 500으로 옮긴다.
+	// 전주는 Blender 메시(SM_UtilityPole, build_alley_props.py)다. 위로 가늘어지는
+	// 콘크리트 전주에 완철 둘과 애자, 번호판. 분전함은 그대로 스캔 소품이 붙는다.
+	UStaticMesh* PoleMesh = PropMesh(TEXT("SM_UtilityPole"));
 	for (const float PoleX : {500.0f, 1600.0f})
 	{
-		CreateBlock(
-			FVector(PoleX, -422, 225), FVector(14, 14, 450),
-			DarkY, true, CylinderMesh);
+		if (PoleMesh)
+		{
+			CreateBlock(
+				FVector(PoleX, -422, 0), FVector(100, 100, 100),
+				nullptr, true, PoleMesh, FRotator::ZeroRotator);
+		}
+		else
+		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(
+				FVector(PoleX, -422, 225), FVector(14, 14, 450),
+				DarkY, true, CylinderMesh);
+		}
 		if (!PlacePhotoProp(
 			TEXT("utility_box_01"), FVector(PoleX, -428, 330), FVector(52, 42, 66), 90.0f, false))
 		{
@@ -5655,22 +6047,53 @@ void AIGPrologueWorldScene::BuildStore()
 
 	// Long service counter against the north wall: laminate body, steel top,
 	// kick recess, seams, card terminal, hot-snack warmer, tobacco wall.
-	CreateBlock(FVector(2560, -250, 51), FVector(220, 60, 90), FridgeBodyMaterial);
-	CreateBlock(FVector(2560, -250, 97.5f), FVector(224, 64, 3), Metal);
-	CreateBlock(FVector(2560, -276, 5), FVector(216, 8, 10), PlasticDarkMaterial, false);
-	CreateBlock(FVector(2560, -282.2f, 94), FVector(220, 2, 4), PlasticDarkMaterial, false);
-	CreateBlock(FVector(2452, -281.2f, 50), FVector(1.5f, 2, 84), PlasticDarkMaterial, false);
-	CreateBlock(FVector(2668, -281.2f, 50), FVector(1.5f, 2, 84), PlasticDarkMaterial, false);
-	CreateBlock(FVector(2500, -268, 101.5f), FVector(12, 9, 5), PlasticDarkMaterial, false);
-	CreateBlock(
-		FVector(2500, -271, 106), FVector(10, 1.5f, 7),
-		ScreenGlowMaterial, false,
-		nullptr, FRotator(-28, 0, 0));
-	// Hot-snack warmer glowing at the counter's west end.
-	CreateBlock(FVector(2452, -250, 116), FVector(36, 38, 36), PlasticDarkMaterial);
-	CreateBlock(FVector(2433, -250, 116), FVector(2, 30, 28), GlassMaterial, false);
-	CreateBlock(FVector(2445, -250, 130), FVector(20, 26, 2),
-		StreetLampGlowMaterial, false);
+	// 계산대는 Blender 메시(Scripts/blender/build_store_fixtures.py) 하나다. 몸통·
+	// 상판·발치 홈·카드 단말기·서쪽 끝 온장고가 들어 있고 원점은 바닥 중심
+	// (매장 바닥 윗면 Z 6). 담배 진열장과 담뱃갑은 그대로 상자다.
+	UStaticMesh* CounterMesh = PropMesh(TEXT("SM_StoreCounter"));
+	if (CounterMesh)
+	{
+		CreateBlock(
+			FVector(2560, -250, 6), FVector(100, 100, 100),
+			nullptr, true, CounterMesh, FRotator::ZeroRotator);
+		// 카드 단말기와 온장고는 상판 위(Z 99)에 따로 놓는 메시다. 계산대 바운드가
+		// 상판에서 끝나야 밤3 감독이 상판에 눕히는 근무표가 계산대 안에 든 것으로
+		// 잡히지 않는다.
+		if (UStaticMesh* TerminalMesh = PropMesh(TEXT("SM_CardTerminal")))
+		{
+			CreateBlock(
+				FVector(2500, -268, 99), FVector(100, 100, 100),
+				nullptr, false, TerminalMesh, FRotator::ZeroRotator);
+		}
+		if (UStaticMesh* WarmerMesh = PropMesh(TEXT("SM_HotSnackWarmer")))
+		{
+			CreateBlock(
+				FVector(2452, -250, 99), FVector(100, 100, 100),
+				nullptr, true, WarmerMesh, FRotator::ZeroRotator);
+		}
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2560, -250, 51), FVector(220, 60, 90), FridgeBodyMaterial);
+		CreateBlock(FVector(2560, -250, 97.5f), FVector(224, 64, 3), Metal);
+		CreateBlock(FVector(2560, -276, 5), FVector(216, 8, 10), PlasticDarkMaterial, false);
+		CreateBlock(FVector(2560, -282.2f, 94), FVector(220, 2, 4), PlasticDarkMaterial, false);
+		CreateBlock(FVector(2452, -281.2f, 50), FVector(1.5f, 2, 84), PlasticDarkMaterial, false);
+		CreateBlock(FVector(2668, -281.2f, 50), FVector(1.5f, 2, 84), PlasticDarkMaterial, false);
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2500, -268, 101.5f), FVector(12, 9, 5), PlasticDarkMaterial, false);
+		CreateBlock(
+			FVector(2500, -271, 106), FVector(10, 1.5f, 7),
+			ScreenGlowMaterial, false,
+			nullptr, FRotator(-28, 0, 0));
+		// Hot-snack warmer glowing at the counter's west end.
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2452, -250, 116), FVector(36, 38, 36), PlasticDarkMaterial);
+		CreateBlock(FVector(2433, -250, 116), FVector(2, 30, 28), GlassMaterial, false);
+		CreateBlock(FVector(2445, -250, 130), FVector(20, 26, 2),
+			StreetLampGlowMaterial, false);
+	}
 	// Tobacco wall behind the counter. The cabinet backs onto the north wall
 	// face at Y -180 and the packs stand on its shop-facing side. Authored the
 	// other way round, every pack sat behind its own backing board with three
@@ -5699,14 +6122,28 @@ void AIGPrologueWorldScene::BuildStore()
 	// The 174 cm run is a common chest-height fixture: the 120 cm product tier
 	// has a real 150 cm shelf above it, so cup ramyeon reads as shelved stock
 	// from a standing player's approach instead of an item on a display table.
+	// 곤돌라는 Blender 메시(SM_StoreGondola) 한 대씩이다. 등판·베이스·기둥·5단
+	// 선반·앞턱·가격 레일이 들어 있고 원점은 바닥 중심. 선반 윗면이 아래
+	// TierHeights + 1.5와 같아서 봉지·컵 배치는 그대로다.
+	UStaticMesh* GondolaMesh = PropMesh(TEXT("SM_StoreGondola"));
 	for (const float GondolaY : {-365.0f, -555.0f})
 	{
-		// Spine and structure.
-		CreateBlock(FVector(2640, GondolaY, 86), FVector(300, 8, 172), ShelfSteel);
-		CreateBlock(FVector(2640, GondolaY, 8), FVector(292, 46, 16), PlasticDarkMaterial);
-		CreateBlock(FVector(2488, GondolaY, 87), FVector(6, 50, 174), Metal);
-		CreateBlock(FVector(2792, GondolaY, 87), FVector(6, 50, 174), Metal);
-		CreateBlock(FVector(2640, GondolaY, 174), FVector(304, 50, 4), Metal, false);
+		if (GondolaMesh)
+		{
+			CreateBlock(
+				FVector(2640, GondolaY, 6), FVector(100, 100, 100),
+				nullptr, true, GondolaMesh, FRotator::ZeroRotator);
+		}
+		else
+		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			// Spine and structure.
+			CreateBlock(FVector(2640, GondolaY, 86), FVector(300, 8, 172), ShelfSteel);
+			CreateBlock(FVector(2640, GondolaY, 8), FVector(292, 46, 16), PlasticDarkMaterial);
+			CreateBlock(FVector(2488, GondolaY, 87), FVector(6, 50, 174), Metal);
+			CreateBlock(FVector(2792, GondolaY, 87), FVector(6, 50, 174), Metal);
+			CreateBlock(FVector(2640, GondolaY, 174), FVector(304, 50, 4), Metal, false);
+		}
 
 		const float TierHeights[] = {30.0f, 60.0f, 90.0f, 120.0f, 150.0f};
 		const TCHAR* SnackLabels[] = {
@@ -5720,12 +6157,17 @@ void AIGPrologueWorldScene::BuildStore()
 			{
 				const float TierZ = TierHeights[TierIndex];
 				const float ShelfY = GondolaY + FaceSign * 13.0f;
-				// Shelf plate, its raised front lip and the price rail.
-				CreateBlock(FVector(2640, ShelfY, TierZ), FVector(298, 22, 3), Metal);
-				CreateBlock(FVector(2640, GondolaY + FaceSign * 23.5f, TierZ + 3.5f),
-					FVector(298, 2, 5), Metal, false);
-				CreateBlock(FVector(2640, GondolaY + FaceSign * 24.5f, TierZ + 2.0f),
-					FVector(296, 2, 7), FridgeInteriorMaterial, false);
+				// Shelf plate, its raised front lip and the price rail. 메시가
+				// 있으면 선반은 메시 안에 있다.
+				if (!GondolaMesh)
+				{
+					// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+					CreateBlock(FVector(2640, ShelfY, TierZ), FVector(298, 22, 3), Metal);
+					CreateBlock(FVector(2640, GondolaY + FaceSign * 23.5f, TierZ + 3.5f),
+						FVector(298, 2, 5), Metal, false);
+					CreateBlock(FVector(2640, GondolaY + FaceSign * 24.5f, TierZ + 2.0f),
+						FVector(296, 2, 7), FridgeInteriorMaterial, false);
+				}
 
 				// The CH01 approach side of the first gondola reserves the bay
 				// between the 120 cm and 150 cm shelves for cup ramyeon. The upper
@@ -5793,19 +6235,35 @@ void AIGPrologueWorldScene::BuildStore()
 	// 두는 바람에 선반 셋과 가격표, 조명, 그리고 그 위의 김밥·샌드위치
 	// 스물넷이 전부 강철 덩어리 안에 밀봉돼 있었다. 통로를 보는 앞면
 	// (Y = -644)만 열고 나머지 다섯 면을 6 cm 판으로 두른다.
-	CreateBlock(FVector(2700, -677, 90), FVector(240, 6, 170), ShelfSteel);
-	CreateBlock(FVector(2583, -659, 90), FVector(6, 30, 170), ShelfSteel);
-	CreateBlock(FVector(2817, -659, 90), FVector(6, 30, 170), ShelfSteel);
-	CreateBlock(FVector(2700, -659, 172), FVector(228, 30, 6), ShelfSteel);
-	CreateBlock(FVector(2700, -659, 8), FVector(228, 30, 6), ShelfSteel);
-	for (const float TierZ : {70.0f, 105.0f, 140.0f})
+	// 쇼케이스는 Blender 메시(SM_OpenShowcase) 하나다. 껍데기·라이너·선반 셋·
+	// 가격표·캐노피 LED가 들어 있고 앞면이 +Y, 원점은 바닥 중심. 선반 윗면이
+	// 아래 TierZ + 1.5와 같아서 김밥·샌드위치 배치는 그대로다.
+	UStaticMesh* ShowcaseMesh = PropMesh(TEXT("SM_OpenShowcase"));
+	if (ShowcaseMesh)
 	{
-		// 선반과 가격표는 안쪽 폭(X 2586..2814)에 맞춘다. 통짜였을 때는
-		// 왼쪽 끝이 몸통 바깥면까지 나가 있어도 보이지 않았다.
-		CreateBlock(FVector(2700, -654, TierZ), FVector(228, 26, 3), Metal, false);
-		CreateBlock(FVector(2700, -646.5f, TierZ + 3), FVector(228, 3, 5), FridgeInteriorMaterial, false);
+		CreateBlock(
+			FVector(2700, -660, 6), FVector(100, 100, 100),
+			nullptr, true, ShowcaseMesh, FRotator::ZeroRotator);
 	}
-	CreateBlock(FVector(2700, -652, 166), FVector(228, 20, 3), LightPanelMaterial, false);
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2700, -677, 90), FVector(240, 6, 170), ShelfSteel);
+		CreateBlock(FVector(2583, -659, 90), FVector(6, 30, 170), ShelfSteel);
+		CreateBlock(FVector(2817, -659, 90), FVector(6, 30, 170), ShelfSteel);
+		CreateBlock(FVector(2700, -659, 172), FVector(228, 30, 6), ShelfSteel);
+		CreateBlock(FVector(2700, -659, 8), FVector(228, 30, 6), ShelfSteel);
+		for (const float TierZ : {70.0f, 105.0f, 140.0f})
+		{
+			// 선반과 가격표는 안쪽 폭(X 2586..2814)에 맞춘다. 통짜였을 때는
+			// 왼쪽 끝이 몸통 바깥면까지 나가 있어도 보이지 않았다.
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(2700, -654, TierZ), FVector(228, 26, 3), Metal, false);
+			CreateBlock(FVector(2700, -646.5f, TierZ + 3), FVector(228, 3, 5), FridgeInteriorMaterial, false);
+		}
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2700, -652, 166), FVector(228, 20, 3), LightPanelMaterial, false);
+	}
 	int32 ChilledIndex = 0;
 	for (const float TierZ : {71.5f, 106.5f, 141.5f})
 	{
@@ -5848,12 +6306,29 @@ void AIGPrologueWorldScene::BuildStore()
 	// through it: the back panel was buried in the wall and the 32 cm tiers
 	// ran six centimetres into it, so the rear of every cup was inside the
 	// building's south wall.
-	CreateBlock(FVector(2452, -678.5f, 86), FVector(70, 3, 160), ShelfSteel);
-	CreateBlock(FVector(2418.5f, -664, 86), FVector(3, 32, 160), Metal);
-	CreateBlock(FVector(2485.5f, -664, 86), FVector(3, 32, 160), Metal);
+	// 라면 선반은 Blender 메시(SM_RamyeonRack)다. 등판·기둥·6단이 들어 있고
+	// 원점은 바닥 중심. 단 윗면이 아래 TierZ + 1.5와 같다.
+	UStaticMesh* RackMesh = PropMesh(TEXT("SM_RamyeonRack"));
+	if (RackMesh)
+	{
+		CreateBlock(
+			FVector(2452, -664, 6), FVector(100, 100, 100),
+			nullptr, true, RackMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2452, -678.5f, 86), FVector(70, 3, 160), ShelfSteel);
+		CreateBlock(FVector(2418.5f, -664, 86), FVector(3, 32, 160), Metal);
+		CreateBlock(FVector(2485.5f, -664, 86), FVector(3, 32, 160), Metal);
+	}
 	for (const float TierZ : {16.0f, 46.0f, 76.0f, 106.0f, 136.0f, 166.0f})
 	{
-		CreateBlock(FVector(2452, -664, TierZ), FVector(70, 32, 3), Metal);
+		if (!RackMesh)
+		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(2452, -664, TierZ), FVector(70, 32, 3), Metal);
+		}
 		if (TierZ >= 166.0f)
 		{
 			continue;
@@ -5869,12 +6344,28 @@ void AIGPrologueWorldScene::BuildStore()
 	// East wall: the walk-up reach-in cooler bank — six framed glass doors,
 	// each bay lit and stocked; bay two stands open for restocking, and that
 	// is where the last bottled water waits.
-	CreateBlock(FVector(2948.5f, -430, 116), FVector(3, 480, 220), ShelfSteel);
-	CreateBlock(FVector(2925, -676, 116), FVector(60, 12, 220), ShelfSteel);
-	CreateBlock(FVector(2925, -184, 116), FVector(60, 12, 220), ShelfSteel);
-	CreateBlock(FVector(2925, -430, 222), FVector(60, 480, 12), ShelfSteel);
-	CreateBlock(FVector(2925, -430, 16), FVector(60, 480, 20), ShelfSteel);
-
+	// 냉장고는 Blender 메시(SM_StoreCoolerBank) 하나다. 껍데기·헤더 라이트·
+	// 칸마다 라이너·선반 셋·가격표·LED·유리문이 들어 있고, 두 번째 칸은 문이
+	// 없다. 그 칸의 문짝은 SM_StoreCoolerDoor를 힌지(문틀 바깥선)에 놓고 통로
+	// 쪽으로 120도 젖힌다. 선반 윗면이 아래 ShelfTopZ와 같아서 음료 배치는
+	// 그대로다. 열린 칸은 선반만 충돌이라 안쪽 생수에 손이 닿는다.
+	UStaticMesh* CoolerMesh = PropMesh(TEXT("SM_StoreCoolerBank"));
+	UStaticMesh* CoolerDoorMesh = PropMesh(TEXT("SM_StoreCoolerDoor"));
+	if (CoolerMesh)
+	{
+		CreateBlock(
+			FVector(2925, -430, 6), FVector(100, 100, 100),
+			nullptr, true, CoolerMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2948.5f, -430, 116), FVector(3, 480, 220), ShelfSteel);
+		CreateBlock(FVector(2925, -676, 116), FVector(60, 12, 220), ShelfSteel);
+		CreateBlock(FVector(2925, -184, 116), FVector(60, 12, 220), ShelfSteel);
+		CreateBlock(FVector(2925, -430, 222), FVector(60, 480, 12), ShelfSteel);
+		CreateBlock(FVector(2925, -430, 16), FVector(60, 480, 20), ShelfSteel);
+	}
 	const float BayCenters[] = {-630.0f, -552.0f, -474.0f, -396.0f, -318.0f, -240.0f};
 	const int32 OpenBayIndex = 1; // y = -552: the open, half-restocked bay
 	for (int32 BayIndex = 0; BayIndex < 6; ++BayIndex)
@@ -5883,14 +6374,19 @@ void AIGPrologueWorldScene::BuildStore()
 		// Interior of the bay: liner, three shelves, light strip, drinks. The
 		// liner stays off pure white so the bays do not blow out under the
 		// ceiling fluorescents and wash the product labels away.
-		CreateBlock(FVector(2948, BayY, 116), FVector(6, 72, 210), FridgeBodyMaterial, false);
-		for (const float ShelfZ : {60.0f, 105.0f, 150.0f})
+		if (!CoolerMesh)
 		{
-			CreateBlock(FVector(2925, BayY, ShelfZ), FVector(44, 68, 3), Metal);
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(2948, BayY, 116), FVector(6, 72, 210), FridgeBodyMaterial, false);
+			for (const float ShelfZ : {60.0f, 105.0f, 150.0f})
+			{
+				CreateBlock(FVector(2925, BayY, ShelfZ), FVector(44, 68, 3), Metal);
+			}
+			// Bay light strip, screwed up under the header of the cooler bank
+			// rather than hovering in the middle of the bay's air.
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+			CreateBlock(FVector(2905, BayY, 214.5f), FVector(3, 60, 3), ScreenGlowMaterial, false);
 		}
-		// Bay light strip, screwed up under the header of the cooler bank
-		// rather than hovering in the middle of the bay's air.
-		CreateBlock(FVector(2905, BayY, 214.5f), FVector(3, 60, 3), ScreenGlowMaterial, false);
 		int32 DrinkIndex = BayIndex;
 		// Two rows deep and shoulder to shoulder: a stocked drinks cooler is
 		// a solid wall of product, not a few bottles on a rail.
@@ -6013,11 +6509,16 @@ void AIGPrologueWorldScene::BuildStore()
 			}
 			}
 		}
+		if (CoolerMesh)
+		{
+			continue;
+		}
 		// Price strip on every shelf edge.
 		for (const float StripZ : {63.0f, 108.0f, 153.0f})
 		{
 			// Real label rails are only about four centimetres high. A dark
 			// carrier breaks up the former eight-centimetre glowing white band.
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 			CreateBlock(
 				FVector(2902.6f, BayY, StripZ), FVector(2.2f, 66, 6),
 				PlasticDarkMaterial, false);
@@ -6025,33 +6526,57 @@ void AIGPrologueWorldScene::BuildStore()
 				FVector(2901.2f, BayY, StripZ), FVector(0.8f, 62, 4.2f),
 				PriceStrip, false);
 		}
-
 		// Door frame; the open bay's leaf swings wide on its hinge.
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 		CreateBlock(FVector(2900, BayY - 37.0f, 110), FVector(8, 6, 214), Metal);
 		CreateBlock(FVector(2900, BayY + 37.0f, 110), FVector(8, 6, 214), Metal);
 		CreateBlock(FVector(2900, BayY, 214), FVector(8, 80, 8), Metal);
 		CreateBlock(FVector(2900, BayY, 8), FVector(8, 80, 8), Metal);
 		if (BayIndex == OpenBayIndex)
 		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 			CreateBlock(
 				FVector(2878, BayY - 62.0f, 110), FVector(4, 66, 196),
 				GlassMaterial, true, nullptr, FRotator(0, -64, 0));
 		}
 		else
 		{
+			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 			CreateBlock(FVector(2899, BayY, 110), FVector(4, 66, 196), GlassMaterial);
 			// The handle is fixed to the door leaf; at X 2894 it floated a
 			// centimetre and a half in front of the glass.
 			CreateBlock(FVector(2895.5f, BayY + 28.0f, 110), FVector(3, 4, 44), Metal, false);
 		}
 	}
+	if (CoolerMesh && CoolerDoorMesh)
+	{
+		// 열린 칸(BayCenters[OpenBayIndex] = -552) 문짝. 힌지는 남쪽 문틀 바깥선
+		// Y -592이고 통로로 120도 젖혀 남쪽 옆 칸 문 앞에 겹쳐 선다. 생수를
+		// 꺼내는 칸 앞은 비어 있다. 반복문 밖에 두는 것은 감사가 조건을 읽지
+		// 않고 여섯 칸 전부에 문짝을 세우기 때문이다.
+		CreateBlock(
+			FVector(2900, -592, 6), FVector(100, 100, 100),
+			nullptr, true, CoolerDoorMesh, FRotator(0, 120, 0));
+	}
 	StoreLights.Add(CreateLight(
 		FVector(2890, -430, 190), 320.0f, 480.0f, FLinearColor(0.75f, 0.85f, 1.0f), false, 8.0f));
 
 	// Ice-cream chest freezer against the west glass, south of the door.
-	CreateBlock(FVector(2445, -545, 46), FVector(58, 110, 80), FridgeBodyMaterial);
-	CreateBlock(FVector(2445, -545, 88), FVector(52, 104, 4), GlassMaterial, false);
-	CreateBlock(FVector(2445, -545, 84), FVector(56, 108, 3), Metal, false);
+	// 평대 냉동고는 Blender 메시(SM_ChestFreezer)다. 원점 바닥 중심, 긴 축 Y.
+	UStaticMesh* FreezerMesh = PropMesh(TEXT("SM_ChestFreezer"));
+	if (FreezerMesh)
+	{
+		CreateBlock(
+			FVector(2445, -545, 6), FVector(100, 100, 100),
+			nullptr, true, FreezerMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2445, -545, 46), FVector(58, 110, 80), FridgeBodyMaterial);
+		CreateBlock(FVector(2445, -545, 88), FVector(52, 104, 4), GlassMaterial, false);
+		CreateBlock(FVector(2445, -545, 84), FVector(56, 108, 3), Metal, false);
+	}
 
 	// Tobacco notice over the cigarette wall, entrance mat, CCTV eye. The
 	// notice is stuck to the wall itself, so it has to reach Y -180.
@@ -6267,17 +6792,28 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		SpawnParameters);
 	if (HomeDoor)
 	{
-		HomeDoor->ConfigurePrototypeVisuals(
-			CubeMesh,
-			TexMat(TEXT("M_UnitDoorPaintedSteel"), DoorMaterial),
-			// The authored stainless UV is useful on broad lift panels but
-			// compresses into horizontal bands on this 13 cm vertical inlay.
-			MetalFrameMaterial,
-			FVector(7, 84, 204));
-		HomeDoor->SetLeverMesh(
-			PropMesh(TEXT("SM_LeverHandle")),
-			MetalFrameMaterial,
-			FVector(7, 84, 204));
+		// 403호 문짝은 이웃 문과 같은 Blender 메시의 왼손 변형이다. 힌지가
+		// 액터 원점, 문짝이 +Y, 바깥면이 -X인 이 액터의 관례에 맞춰 돈다.
+		UStaticMesh* HomeDoorLeafMesh = PropMesh(TEXT("SM_UnitDoorLeafL"));
+		if (HomeDoorLeafMesh)
+		{
+			HomeDoor->ConfigureAuthoredLeaf(
+				HomeDoorLeafMesh, PropMesh(TEXT("SM_UnitDoorHardwareL")), FVector(5, 84, 200));
+		}
+		else
+		{
+			HomeDoor->ConfigurePrototypeVisuals(
+				CubeMesh,
+				TexMat(TEXT("M_UnitDoorPaintedSteel"), DoorMaterial),
+				// The authored stainless UV is useful on broad lift panels but
+				// compresses into horizontal bands on this 13 cm vertical inlay.
+				MetalFrameMaterial,
+				FVector(7, 84, 204));
+			HomeDoor->SetLeverMesh(
+				PropMesh(TEXT("SM_LeverHandle")),
+				MetalFrameMaterial,
+				FVector(7, 84, 204));
+		}
 		// Korean entrance doors open outward — and it keeps the hallway clear.
 		HomeDoor->SetOpenYaw(-95.0f);
 
@@ -6292,7 +6828,9 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		CreateDecoOnComponent(
 			HomeDoor->GetDoorPivot(), CubeMesh,
 			TexMat(TEXT("M_DoorAd"), SignWhiteMaterial),
-			FVector(-8.4f, 24.0f, 78.0f), FRotator::ZeroRotator,
+			// 저작 문짝은 5 cm 두께라 바깥면이 X -2.5다. 상자 문짝은 7 cm.
+			FVector(HomeDoorLeafMesh ? -2.95f : -8.4f, 24.0f, 78.0f),
+			FRotator::ZeroRotator,
 			FVector(0.008f, 0.17f, 0.17f));
 	}
 

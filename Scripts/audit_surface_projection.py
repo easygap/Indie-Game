@@ -384,6 +384,12 @@ def audit_boxes(boxes, bindings, specs, baked, source_label):
               "no_dominant": 0}
     for box in boxes:
         expression = (box.material or "").strip()
+        # nullptr 재질에 저작 메시가 있는 자리는 메시가 자기 구운 재질(MI)을
+        # 쓴다. 투영 재질이 아니므로 UV 쪽으로 센다. 메시 없는 nullptr는 엔진
+        # 기본 재질이 드러나는 자리라 그대로 못 푼 것으로 남긴다.
+        if expression == "nullptr" and (box.note == "authored" or getattr(box, "mesh", "")):
+            counts["uv_or_prop"] += 1
+            continue
         name = resolve_material(bindings, expression, box.line)
         if not name:
             counts["unresolved"] += 1
@@ -490,6 +496,8 @@ class _FakeBox:
         self.frame = "SceneRoot"
         # 스캐너가 저작 메시에 붙이는 표식. 인쇄면 감사가 이것을 읽는다.
         self.note = ""
+        # 스캐너가 메시 인자에서 푼 에셋 이름. 구운 바운드로 놓은 소품이 든다.
+        self.mesh = ""
 
 
 def _self_test() -> int:
@@ -589,6 +597,15 @@ def _self_test() -> int:
     unknown = _FakeBox(1, "LoopVariable", (0, 0, 244), (780, 170, 12))
     findings, counts = audit_boxes([unknown], bindings, specs, baked, "Fake.cpp")
     check("못 푼 재질", (findings, counts["unresolved"]), ([], 1))
+
+    # nullptr 재질이라도 저작 메시가 있으면 메시의 구운 재질이다. 못 푼 것이
+    # 아니라 UV 재질로 센다. 메시 없는 nullptr는 그대로 못 푼 것이다.
+    baked_prop = _FakeBox(1, "nullptr", (0, 0, 100), (84, 5, 200))
+    baked_prop.mesh = "SM_Demo"
+    bare = _FakeBox(2, "nullptr", (0, 0, 100), (84, 5, 200))
+    findings, counts = audit_boxes([baked_prop, bare], bindings, specs, baked, "Fake.cpp")
+    check("nullptr 저작 메시",
+          (findings, counts["uv_or_prop"], counts["unresolved"]), ([], 1, 1))
 
     if failures:
         for failure in failures:

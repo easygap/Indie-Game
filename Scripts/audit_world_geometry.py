@@ -606,6 +606,12 @@ class Box:
     # 서비스 캐비닛도 껍데기라, AABB를 구조물로 쓰면 그 안의 물건이
     # 전부 파묻힌 것으로 잡힌다.
     mesh: str = ""
+    # 배치 인자 그대로의 원점·크기와 엔진 단위 메시 이름. 감사는 안 쓰고
+    # Blender 배치 렌더(Scripts/blender/render_scene_layout.py)가 읽는다 —
+    # 회전·구운 바운드로 부풀린 AABB로는 메시를 제자리에 다시 세울 수 없다.
+    location: tuple[float, float, float] | None = None
+    local_size: tuple[float, float, float] | None = None
+    shape: str = ""
 
     @property
     def minimum(self):
@@ -1375,6 +1381,10 @@ class BodyScanner:
         # 저작 메시는 크기 인자가 배율이다. 구운 바운드를 알면 그 배율에
         # 곱해 진짜 상자가 나오고, 그때부터 이 상자도 판정 대상이 된다.
         # 바운드 원점은 피벗에서 밀린 값이므로 회전을 태워 중심에 더한다.
+        frame_offset = FRAME_OFFSETS.get(self.frame, (0.0, 0.0, 0.0))
+        placement = (center.x + frame_offset[0], center.y + frame_offset[1],
+                     center.z + frame_offset[2])
+        local_size = (size.x, size.y, size.z)
         bounds = None
         asset = None
         if base_mesh not in ENGINE_UNIT_MESHES or (
@@ -1437,6 +1447,9 @@ class BodyScanner:
             note=note,
             exempt=self._exemption(line),
             mesh=(asset or "") if bounds is not None else "",
+            location=placement,
+            local_size=local_size,
+            shape=base_mesh if base_mesh in ENGINE_UNIT_MESHES else "",
         ))
         self.result.resolved += 1
 
@@ -2057,6 +2070,8 @@ def main(argv=None):
                         help="report unresolved placement expressions")
     parser.add_argument("--self-test", action="store_true",
                         help="check the scanner itself, without the sources")
+    parser.add_argument("--export-layout", metavar="PATH",
+                        help="풀린 상자 전부를 JSON으로 적는다 (Blender 배치 렌더용)")
     arguments = parser.parse_args(argv)
 
     if arguments.self_test:
@@ -2073,6 +2088,19 @@ def main(argv=None):
         examples.extend(result.unresolved_examples)
 
     findings = audit(all_boxes)
+
+    if arguments.export_layout:
+        payload = [{
+            "source": box.source, "line": box.line, "function": box.function,
+            "frame": box.frame, "center": box.center, "size": box.size,
+            "location": box.location, "local_size": box.local_size,
+            "rotation": box.rotation, "material": box.material, "mesh": box.mesh,
+            "shape": box.shape, "collision": box.collision, "note": box.note,
+            "exempt": box.exempt,
+        } for box in all_boxes]
+        with open(arguments.export_layout, "w", encoding="utf-8") as handle:
+            json.dump({"boxes": payload}, handle, ensure_ascii=False)
+        print(f"layout -> {arguments.export_layout} ({len(payload)} boxes)")
 
     if arguments.json:
         print(json.dumps({
