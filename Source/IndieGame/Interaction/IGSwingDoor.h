@@ -74,6 +74,17 @@ public:
 	 */
 	void SetLeverMesh(UStaticMesh* LeverMesh, UMaterialInterface* Material, const FVector& PanelSize);
 
+	/**
+	 * Blender에서 구운 왼손 문짝(SM_UnitDoorLeafL)을 통째로 쓴다. 그 메시는
+	 * 원점이 바닥 중심, 앞면이 -Y, 힌지가 +X 쪽이라 yaw -90으로 놓으면 힌지
+	 * 축이 이 액터의 원점에, 문짝은 +Y로, 바깥면은 -X로 온다. 레버·도어락은
+	 * 원점이 같은 SM_UnitDoorHardwareL이라 손잡이 컴포넌트에 문짝과 같은
+	 * 자세로 달아 함께 돌린다. 상세 블록은 만들지 않는다.
+	 * ConfigurePrototypeVisuals 대신 부른다.
+	 */
+	void ConfigureAuthoredLeaf(
+		UStaticMesh* LeafMesh, UStaticMesh* HardwareMesh, const FVector& PanelSize);
+
 	UFUNCTION(BlueprintPure, Category = "Door")
 	bool IsOpen() const { return bOpen; }
 

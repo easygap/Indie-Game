@@ -1,0 +1,30 @@
+{
+  "name": "SM_FireExtinguisherBox",
+  "mesh_class": "prop",
+  "fbx": "SM_FireExtinguisherBox.fbx",
+  "textures": {
+    "D": "SM_FireExtinguisherBox_D.png",
+    "N": "SM_FireExtinguisherBox_N.png",
+    "ORM": "SM_FireExtinguisherBox_ORM.png"
+  },
+  "slots": [
+    "Baked",
+    "Glass"
+  ],
+  "triangles": 2552,
+  "bounds_m": {
+    "min": [
+      -0.13,
+      -0.0609,
+      0.0
+    ],
+    "max": [
+      0.13,
+      0.045,
+      0.34
+    ]
+  },
+  "origin": "bottom-center",
+  "blender": "5.2.0 LTS",
+  "notes": "복도 남쪽 벽의 소화전함 26 x 9 x 34. 앞면 -Y, 원점 바닥 중심. Glass 슬롯 있음."
+}

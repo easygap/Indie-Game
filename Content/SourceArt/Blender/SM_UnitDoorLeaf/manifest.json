@@ -1,0 +1,30 @@
+{
+  "name": "SM_UnitDoorLeaf",
+  "mesh_class": "hero",
+  "fbx": "SM_UnitDoorLeaf.fbx",
+  "textures": {
+    "D": "SM_UnitDoorLeaf_D.png",
+    "N": "SM_UnitDoorLeaf_N.png",
+    "ORM": "SM_UnitDoorLeaf_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1060,
+  "bounds_m": {
+    "min": [
+      -0.4315,
+      -0.0285,
+      0.0
+    ],
+    "max": [
+      0.42,
+      0.025,
+      2.0
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "세대 현관문 문짝(R 힌지). 앞면 -Y, 원점 바닥 중심. 판 앞으로 4 mm 안쪽만 나온다. 레버·도어락은 같은 원점의 SM_UnitDoorHardware, 문틀은 SM_UnitDoorFrame."
+}

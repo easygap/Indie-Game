@@ -1,0 +1,29 @@
+{
+  "name": "SM_CeilingLightDome",
+  "mesh_class": "prop",
+  "fbx": "SM_CeilingLightDome.fbx",
+  "textures": {
+    "D": "SM_CeilingLightDome_D.png",
+    "N": "SM_CeilingLightDome_N.png",
+    "ORM": "SM_CeilingLightDome_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 640,
+  "bounds_m": {
+    "min": [
+      -0.114,
+      -0.114,
+      -0.053
+    ],
+    "max": [
+      0.114,
+      0.114,
+      -0.02
+    ]
+  },
+  "origin": "bottom-center",
+  "blender": "5.2.0 LTS",
+  "notes": "천장 등 확산 돔. 테 안쪽 지름 22.8. 재질 슬롯은 씬이 M_LightPanel로 덮어쓴다."
+}

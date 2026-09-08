@@ -1,0 +1,29 @@
+{
+  "name": "SM_CeilingLightRing",
+  "mesh_class": "prop",
+  "fbx": "SM_CeilingLightRing.fbx",
+  "textures": {
+    "D": "SM_CeilingLightRing_D.png",
+    "N": "SM_CeilingLightRing_N.png",
+    "ORM": "SM_CeilingLightRing_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1536,
+  "bounds_m": {
+    "min": [
+      -0.132,
+      -0.132,
+      -0.03
+    ],
+    "max": [
+      0.132,
+      0.132,
+      0.0
+    ]
+  },
+  "origin": "bottom-center",
+  "blender": "5.2.0 LTS",
+  "notes": "천장 등 테. 원점은 천장 접촉면 중심, 아래로 3 cm."
+}

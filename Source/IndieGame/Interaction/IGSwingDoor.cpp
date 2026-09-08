@@ -213,6 +213,29 @@ void AIGSwingDoor::SetLeverMesh(
 	HandleMesh->SetRelativeScale3D(FVector::OneVector);
 }
 
+void AIGSwingDoor::ConfigureAuthoredLeaf(
+	UStaticMesh* LeafMesh, UStaticMesh* HardwareMesh, const FVector& PanelSize)
+{
+	if (!LeafMesh)
+	{
+		return;
+	}
+
+	DoorMesh->SetStaticMesh(LeafMesh);
+	DoorMesh->SetRelativeLocation(FVector(0.0f, PanelSize.Y * 0.5f, 0.0f));
+	DoorMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
+	DoorMesh->SetRelativeScale3D(FVector::OneVector);
+	// 레버·도어락은 문짝과 원점이 같은 별도 메시다. 문짝과 같은 자세로 달면
+	// 같은 축으로 돈다. 구운 재질을 쓰므로 상자 손잡이의 덮개 재질은 비운다.
+	// 철물 메시가 없으면 상자 손잡이도 비운다 — 문짝 메시와 맞지 않는다.
+	HandleMesh->EmptyOverrideMaterials();
+	HandleMesh->SetStaticMesh(HardwareMesh);
+	HandleMesh->SetRelativeLocation(DoorMesh->GetRelativeLocation());
+	HandleMesh->SetRelativeRotation(DoorMesh->GetRelativeRotation());
+	HandleMesh->SetRelativeScale3D(FVector::OneVector);
+	HandleMesh->SetVisibility(HardwareMesh != nullptr, true);
+}
+
 void AIGSwingDoor::SetRequirements(TArray<FIGDoorRequirement>&& InRequirements)
 {
 	Requirements = MoveTemp(InRequirements);
