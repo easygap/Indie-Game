@@ -1,0 +1,30 @@
+{
+  "name": "SM_ShoeCabinet",
+  "mesh_class": "prop",
+  "fbx": "SM_ShoeCabinet.fbx",
+  "textures": {
+    "D": "SM_ShoeCabinet_D.png",
+    "N": "SM_ShoeCabinet_N.png",
+    "ORM": "SM_ShoeCabinet_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 452,
+  "bounds_m": {
+    "min": [
+      -0.42,
+      -0.17,
+      0.0
+    ],
+    "max": [
+      0.42,
+      0.178,
+      1.13
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "403호 현관 신발장 84 x 34 x 113. 원점 바닥 중심(씬 (48, -198, 0)), 문이 +Y(방 쪽). 유광 흰 문 넷, 손가락 홈."
+}

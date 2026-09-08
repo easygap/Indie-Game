@@ -1,0 +1,31 @@
+{
+  "name": "SM_StoreCoolerDoor",
+  "mesh_class": "prop",
+  "fbx": "SM_StoreCoolerDoor.fbx",
+  "textures": {
+    "D": "SM_StoreCoolerDoor_D.png",
+    "N": "SM_StoreCoolerDoor_N.png",
+    "ORM": "SM_StoreCoolerDoor_ORM.png"
+  },
+  "slots": [
+    "Baked",
+    "Glass"
+  ],
+  "triangles": 272,
+  "bounds_m": {
+    "min": [
+      -0.067,
+      0.0,
+      0.0
+    ],
+    "max": [
+      0.04,
+      0.8,
+      2.12
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "음료 냉장고 열린 칸의 문짝. 원점은 힌지 축 바닥(문틀 바깥선, 씬 X 2900 문틀 중심면). 닫힌 자세는 문짝이 +Y로 80 cm, 유리는 -X. yaw 120으로 통로 쪽에 젖혀 놓는다."
+}

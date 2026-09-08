@@ -1,0 +1,31 @@
+{
+  "name": "SM_CardTerminal",
+  "mesh_class": "prop",
+  "fbx": "SM_CardTerminal.fbx",
+  "textures": {
+    "D": "SM_CardTerminal_D.png",
+    "N": "SM_CardTerminal_N.png",
+    "ORM": "SM_CardTerminal_ORM.png",
+    "E": "SM_CardTerminal_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 112,
+  "bounds_m": {
+    "min": [
+      -0.06,
+      -0.0543,
+      0.0
+    ],
+    "max": [
+      0.06,
+      0.045,
+      0.1047
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 3.0,
+  "blender": "5.2.0 LTS",
+  "notes": "계산대 카드 단말기 12 x 11 x 11. 원점 상판 윗면 중심(씬 (2500, -268, 99)), 화면 -Y. 충돌 없음."
+}

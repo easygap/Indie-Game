@@ -1,0 +1,32 @@
+{
+  "name": "SM_StoreCoolerBank",
+  "mesh_class": "large",
+  "fbx": "SM_StoreCoolerBank.fbx",
+  "textures": {
+    "D": "SM_StoreCoolerBank_D.png",
+    "N": "SM_StoreCoolerBank_N.png",
+    "ORM": "SM_StoreCoolerBank_ORM.png",
+    "E": "SM_StoreCoolerBank_E.png"
+  },
+  "slots": [
+    "Baked",
+    "Glass"
+  ],
+  "triangles": 3396,
+  "bounds_m": {
+    "min": [
+      -0.317,
+      -2.5,
+      0.0
+    ],
+    "max": [
+      0.25,
+      2.5,
+      2.26
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 4.0,
+  "blender": "5.2.0 LTS",
+  "notes": "편의점 동쪽 벽 6칸 음료 냉장고. 앞면 -X, 원점은 발자국 바닥 중심(씬 (2925, -430, 6)). 선반 윗면은 씬 Z 61.5/106.5/151.5. 두 번째 칸(씬 Y -552)은 문이 없고 SM_StoreCoolerDoor를 힌지 (2900, -592, 6)에 yaw 120으로 놓는다. 열린 칸은 선반만 충돌."
+}

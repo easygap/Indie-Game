@@ -1,0 +1,482 @@
+"""편의점 집기. 씬(BuildStore)의 상자 조립을 실제 집기 메시로 바꾼다.
+
+기준: Content/SourceArt/AI/SheetStoreFixturesReference.png (음료 냉장고, 곤돌라,
+평대 냉동고). 좌표계는 씬 그대로(cm → m)이고, 선반 상판 높이는 씬이 상품을
+올려놓는 값을 정확히 지킨다 — 병·컵·봉지는 씬 코드가 그 높이에 그대로 놓는다.
+원점은 각 집기 발자국의 바닥 중심이고 Z 0이 매장 바닥 윗면(씬 Z 6)이다.
+
+    SM_StoreCoolerBank  동쪽 벽 6칸 워크인 음료 냉장고. 두 번째 칸은 문이 없다(열린 칸)
+    SM_StoreCoolerDoor  열린 칸의 문짝. 원점이 힌지 축(문틀 바깥선 바닥)
+    SM_StoreGondola     양면 곤돌라 5단, 두 대
+    SM_StoreCounter     계산대 몸통·상판·발치 홈. 바운드가 상판 윗면(씬 Z 99)에서 끝난다
+    SM_CardTerminal     상판 위 카드 단말기. 원점 상판 윗면 (2500, -268, 99)
+    SM_HotSnackWarmer   서쪽 끝 온장고. 원점 상판 윗면 (2452, -250, 99), 앞면 -X
+    SM_ChestFreezer     서쪽 유리벽 앞 아이스크림 평대 냉동고
+    SM_OpenShowcase     남쪽 벽 오픈 쇼케이스(김밥·샌드위치)
+    SM_RamyeonRack      창가 라면 코너 선반
+
+    blender -b --factory-startup --python Scripts/blender/build_store_fixtures.py -- <out_dir> [cooler|door|gondola|counter|freezer|showcase|rack ...]
+"""
+
+import math
+import os
+import sys
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+if HERE not in sys.path:
+    sys.path.insert(0, HERE)
+
+import ig_blender_lib as ig  # noqa: E402
+
+FLOOR_Z = 6.0   # 매장 바닥 윗면(씬 cm)
+
+
+def mats():
+    return {
+        "black": ig.mat_painted_steel("BlackFrame", (0.02, 0.02, 0.022), roughness=0.42, wear=0.12, bump=0.04),
+        "grey": ig.mat_painted_steel("LightGreySteel", (0.70, 0.70, 0.68), roughness=0.48, wear=0.18),
+        "white": ig.mat_painted_steel("WhiteEnamel", (0.86, 0.86, 0.84), roughness=0.30, wear=0.10, bump=0.02),
+        "liner": ig.mat_plastic("Liner", (0.72, 0.73, 0.72), roughness=0.55),
+        "laminate": ig.mat_plastic("Laminate", (0.60, 0.58, 0.54), roughness=0.38, bump=0.01),
+        "dark": ig.mat_plastic("DarkPlastic", (0.02, 0.02, 0.022), roughness=0.5),
+        "price": ig.mat_plastic("PriceRail", (0.90, 0.90, 0.88), roughness=0.35),
+        "steel": ig.mat_metal("Stainless", (0.78, 0.78, 0.77), roughness=0.36, streak=0.1),
+        "chrome": ig.mat_metal("Chrome", (0.86, 0.86, 0.86), roughness=0.2, streak=0.05, anisotropic=False),
+        "alu": ig.mat_metal("Aluminium", (0.62, 0.62, 0.62), roughness=0.4, streak=0.08),
+        "glass": ig.mat_glass("Glass"),
+        "header": ig.mat_emissive("HeaderLight", (1.0, 0.98, 0.94), strength=2.6),
+        "led": ig.mat_emissive("LedStrip", (0.9, 0.95, 1.0), strength=4.0),
+        "heat": ig.mat_emissive("HeatLamp", (1.0, 0.42, 0.10), strength=5.0),
+        "screen": ig.mat_emissive("Screen", (0.30, 0.55, 0.85), strength=3.0),
+    }
+
+
+def local(origin_cm):
+    """씬 cm 좌표를 이 에셋의 로컬 m로 바꾸는 함수를 만든다."""
+    ox, oy = origin_cm
+
+    def convert(x, y, z):
+        return ((x - ox) / 100.0, (y - oy) / 100.0, (z - FLOOR_Z) / 100.0)
+    return convert
+
+
+def span(lo_cm, hi_cm):
+    """씬 cm 구간 → (중심 m, 길이 m). Z에는 쓰지 말 것(바닥 기준이 다르다)."""
+    return ((lo_cm + hi_cm) * 0.5 / 100.0, (hi_cm - lo_cm) / 100.0)
+
+
+# --------------------------------------------------------------------------
+# 음료 냉장고
+# --------------------------------------------------------------------------
+
+BAY_CENTERS = [-630.0, -552.0, -474.0, -396.0, -318.0, -240.0]   # 씬 Y
+OPEN_BAY = 1
+COOLER_ORIGIN = (2925.0, -430.0)
+DOOR_W = 0.80      # 문짝 바깥 폭(문틀 포함)
+DOOR_H = 2.12      # 바닥에서 문틀 윗선까지
+FRONT_X = -0.25    # 문틀 중심면(씬 X 2900)
+
+
+def cooler_door_parts(m, y0, name_prefix, x0=0.0, with_handle=True):
+    """문짝 하나. y0은 힌지 쪽 바깥선(로컬 Y), 문짝은 +Y로 뻗고 유리는 -X를 본다.
+    x0이 문틀 중심면이다(문짝 에셋은 0, 냉장고 안에서는 FRONT_X)."""
+    parts = []
+    jamb_w, rail_h, depth = 0.06, 0.04, 0.08
+    z0, z1 = 0.0, DOOR_H
+    # 검정 아노다이징 알루미늄 문틀: 세로 둘, 가로 둘.
+    for y in (y0 + jamb_w * 0.5, y0 + DOOR_W - jamb_w * 0.5):
+        parts.append(ig.box(f"{name_prefix}_jamb", (depth, jamb_w, z1 - z0),
+                            location=(x0, y, (z0 + z1) * 0.5), bevel=0.004, segments=1, material=m["black"]))
+    for z in (z0 + rail_h * 0.5, z1 - rail_h * 0.5):
+        parts.append(ig.box(f"{name_prefix}_rail", (depth, DOOR_W - jamb_w * 2.0, rail_h),
+                            location=(x0, y0 + DOOR_W * 0.5, z), bevel=0.004, segments=1, material=m["black"]))
+    # 유리. 문틀보다 1 cm 앞(-X)에 든다. 두께 1 cm짜리 진짜 판이다.
+    parts.append(ig.box(f"{name_prefix}_glass", (0.01, DOOR_W - jamb_w * 2.0 + 0.02, z1 - z0 - rail_h * 2.0 + 0.02),
+                        location=(x0 - 0.01, y0 + DOOR_W * 0.5, (z0 + z1) * 0.5), material=m["glass"]))
+    if with_handle:
+        # 세로 크롬 손잡이. 자유단(+Y) 쪽, 씬이 두던 자리(칸 중심 +28)와 같다.
+        hy = y0 + DOOR_W - 0.12
+        parts.append(ig.cylinder(f"{name_prefix}_handle", 0.012, 0.44, location=(x0 - 0.055, hy, 1.04),
+                                 segments=16, material=m["chrome"]))
+        for z in (0.84, 1.24):
+            parts.append(ig.box(f"{name_prefix}_handle_foot", (0.03, 0.02, 0.02),
+                                location=(x0 - 0.04, hy, z), material=m["chrome"]))
+    return parts
+
+
+def build_cooler(out_root):
+    ig.reset_scene()
+    m = mats()
+    L = local(COOLER_ORIGIN)
+    parts, groups = [], []
+    half_w = 2.40                       # 씬 Y -670..-190
+    x_back, x_front = 0.25, -0.30       # 뒷판 앞면(씬 2950), 앞면 최전방
+    top = 2.20
+
+    # 캐비닛 껍데기: 뒷판, 양 끝판, 지붕, 하부 그릴 받침.
+    back = ig.box("back", (0.05, half_w * 2.0, top), location=(x_back - 0.025, 0.0, top * 0.5),
+                  material=m["black"])
+    parts.append(back)
+    ends = []
+    # 끝판 바깥선은 정확히 씬 벽면(Y -680 / -180)에 닿는다.
+    for y in (-half_w - 0.05, half_w + 0.05):
+        end = ig.box("end", (0.55, 0.10, top), location=(-0.025, y, top * 0.5), bevel=0.005, segments=1,
+                     material=m["black"])
+        parts.append(end)
+        ends.append(end)
+    roof = ig.box("roof", (0.55, half_w * 2.0 + 0.20, 0.06), location=(-0.025, 0.0, top + 0.03), bevel=0.004,
+                  segments=1, material=m["black"])
+    parts.append(roof)
+    # 상단 라이트 박스: 문틀 윗선(2.12)과 지붕 윗면(2.26) 사이, 앞면 전체가 빛나는 유백색 판.
+    header = ig.box("header_box", (0.14, half_w * 2.0, 0.14), location=(x_front + 0.07, 0.0, 2.19),
+                    material=m["black"])
+    parts.append(header)
+    header_face = ig.box("header_face", (0.004, half_w * 2.0 - 0.02, 0.11), location=(x_front + 0.002, 0.0, 2.19),
+                         material=m["header"])
+    parts.append(header_face)
+    # 바닥 그릴: 검정 몸통에 가로 슬랫.
+    base = ig.box("base", (0.53, half_w * 2.0, 0.20), location=(-0.015, 0.0, 0.10), material=m["dark"])
+    parts.append(base)
+    for z in (0.05, 0.10, 0.15):
+        parts.append(ig.box("louvre", (0.012, half_w * 2.0 - 0.04, 0.018), location=(x_front + 0.006, 0.0, z),
+                            material=m["black"]))
+    groups.append([back])
+    groups.append([ends[0]])
+    groups.append([ends[1]])
+    groups.append([roof, header])
+    groups.append([base])
+
+    # 칸마다 라이너, 선반 셋, 가격표, LED, 문.
+    for index, bay_y in enumerate(BAY_CENTERS):
+        cy = (bay_y - COOLER_ORIGIN[1]) / 100.0
+        bay_parts = []
+        liner = ig.box("liner", (0.03, 0.72, 1.90), location=(x_back - 0.065, cy, 0.20 + 0.95), material=m["liner"])
+        bay_parts.append(liner)
+        for y in (cy - 0.36 - 0.015, cy + 0.36 + 0.015):
+            bay_parts.append(ig.box("bay_wall", (0.40, 0.03, 1.90), location=(0.0, y, 0.20 + 0.95),
+                                    material=m["liner"]))
+        shelves = []
+        for shelf_z in (60.0, 105.0, 150.0):
+            zc = (shelf_z - FLOOR_Z) / 100.0            # 판 중심. 윗면이 씬 +1.5
+            plate = ig.box("shelf", (0.44, 0.68, 0.03), location=(0.0, cy, zc), bevel=0.003, segments=1,
+                           material=m["grey"])
+            shelves.append(plate)
+            # 가격표: 어두운 캐리어에 흰 띠. 씬 X 2902.6 / 2901.2.
+            bay_parts.append(ig.box("carrier", (0.022, 0.66, 0.06), location=(-0.224, cy, zc + 0.03),
+                                    material=m["dark"]))
+            bay_parts.append(ig.box("strip", (0.008, 0.62, 0.042), location=(-0.238, cy, zc + 0.03),
+                                    material=m["price"]))
+        bay_parts.extend(shelves)
+        # 칸 조명: 헤더 밑에 붙은 LED 바.
+        bay_parts.append(ig.box("bay_led", (0.03, 0.60, 0.02), location=(-0.20, cy, 2.10), material=m["led"]))
+        parts.extend(bay_parts)
+        if index == OPEN_BAY:
+            # 열린 칸: 문틀 세로대만 남기고(문짝은 SM_StoreCoolerDoor) 선반마다 충돌.
+            for plate in shelves:
+                groups.append([plate])
+            groups.append([liner])
+        else:
+            door = cooler_door_parts(m, cy - DOOR_W * 0.5, f"door{index}", x0=FRONT_X)
+            parts.extend(door)
+            groups.append(door + [liner])
+    # 문 사이 세로 멀리언. 칸 경계(칸 중심 ±39)에 6 cm.
+    for y in [(BAY_CENTERS[0] - COOLER_ORIGIN[1]) / 100.0 - 0.40] + \
+             [((a + b) * 0.5 - COOLER_ORIGIN[1]) / 100.0 for a, b in zip(BAY_CENTERS, BAY_CENTERS[1:])] + \
+             [(BAY_CENTERS[-1] - COOLER_ORIGIN[1]) / 100.0 + 0.40]:
+        parts.append(ig.box("mullion", (0.08, 0.06, DOOR_H), location=(FRONT_X, y, DOOR_H * 0.5), bevel=0.004,
+                            segments=1, material=m["black"]))
+    return ig.build_asset(
+        "SM_StoreCoolerBank", "large", parts, out_root,
+        collision_parts=groups,
+        notes=("편의점 동쪽 벽 6칸 음료 냉장고. 앞면 -X, 원점은 발자국 바닥 중심(씬 (2925, -430, 6)). "
+               "선반 윗면은 씬 Z 61.5/106.5/151.5. 두 번째 칸(씬 Y -552)은 문이 없고 "
+               "SM_StoreCoolerDoor를 힌지 (2900, -592, 6)에 yaw 120으로 놓는다. 열린 칸은 선반만 충돌."),
+        texture_size=2048, preview_yaw=60.0)
+
+
+def build_cooler_door(out_root):
+    ig.reset_scene()
+    m = mats()
+    parts = cooler_door_parts(m, 0.0, "door")
+    return ig.build_asset(
+        "SM_StoreCoolerDoor", "prop", parts, out_root,
+        collision_parts=[parts],
+        notes=("음료 냉장고 열린 칸의 문짝. 원점은 힌지 축 바닥(문틀 바깥선, 씬 X 2900 문틀 중심면). "
+               "닫힌 자세는 문짝이 +Y로 80 cm, 유리는 -X. yaw 120으로 통로 쪽에 젖혀 놓는다."),
+        texture_size=1024)
+
+
+# --------------------------------------------------------------------------
+# 곤돌라
+# --------------------------------------------------------------------------
+
+TIER_Z = (30.0, 60.0, 90.0, 120.0, 150.0)   # 씬 Z, 판 중심
+
+
+def build_gondola(out_root):
+    ig.reset_scene()
+    m = mats()
+    parts, groups = [], []
+    half_len = 1.52
+    # 등판(슬롯 있는 강판), 킥 베이스, 양 끝 기둥, 상판 캡.
+    spine = ig.box("spine", (3.00, 0.08, 1.56), location=(0.0, 0.0, 0.12 + 0.78), material=m["grey"])
+    parts.append(spine)
+    # 등판의 슬롯 줄: 실제 곤돌라는 5 cm 간격의 가로 슬롯이 나 있다.
+    cutters = []
+    for x in [-1.40 + i * 0.10 for i in range(29)]:
+        for z in (0.36, 0.66, 0.96, 1.26, 1.56):
+            cutters.append(ig.box("slot", (0.05, 0.12, 0.012), location=(x, 0.0, z)))
+    ig.boolean(spine, ig.join(cutters, "slots"), "DIFFERENCE")
+    base = ig.box("base", (2.92, 0.46, 0.12), location=(0.0, 0.0, 0.06), bevel=0.004, segments=1,
+                  material=m["dark"])
+    parts.append(base)
+    uprights = []
+    for x in (-half_len + 0.03, half_len - 0.03):
+        up = ig.box("upright", (0.06, 0.50, 1.68), location=(x, 0.0, 0.84), bevel=0.004, segments=1,
+                    material=m["grey"])
+        parts.append(up)
+        uprights.append(up)
+    cap = ig.box("cap", (3.04, 0.50, 0.04), location=(0.0, 0.0, 1.68), bevel=0.004, segments=1,
+                 material=m["grey"])
+    parts.append(cap)
+    groups.append([spine, base] + uprights + [cap])
+
+    # 양면 선반 5단. 판 윗면이 씬 Z +1.5(31.5/61.5/…)가 되도록 판 중심을 씬 값에 맞춘다.
+    for face in (-1.0, 1.0):
+        for tier in TIER_Z:
+            zc = (tier - FLOOR_Z) / 100.0
+            plate = ig.box("plate", (2.98, 0.22, 0.03), location=(0.0, face * 0.13, zc), bevel=0.003,
+                           segments=1, material=m["grey"])
+            parts.append(plate)
+            groups.append([plate])
+            # 앞턱(올림 립)과 흰 가격 레일.
+            parts.append(ig.box("lip", (2.98, 0.02, 0.05), location=(0.0, face * 0.235, zc + 0.035),
+                                material=m["grey"]))
+            parts.append(ig.box("rail", (2.96, 0.02, 0.07), location=(0.0, face * 0.245, zc + 0.02),
+                                bevel=0.003, segments=1, material=m["price"]))
+            # 선반 밑 브래킷 둘.
+            for x in (-1.20, 1.20):
+                parts.append(ig.box("bracket", (0.02, 0.20, 0.03), location=(x, face * 0.12, zc - 0.03),
+                                    material=m["grey"]))
+    return ig.build_asset(
+        "SM_StoreGondola", "large", parts, out_root,
+        collision_parts=groups,
+        notes=("편의점 양면 곤돌라. 원점 바닥 중심(씬 (2640, Y, 6)), 길이 X 304, 깊이 Y 50, 높이 170. "
+               "선반 윗면 씬 Z 31.5/61.5/91.5/121.5/151.5, 상품은 씬 코드가 Y ±11에 놓는다."),
+        texture_size=2048)
+
+
+# --------------------------------------------------------------------------
+# 계산대
+# --------------------------------------------------------------------------
+
+def build_counter(out_root):
+    ig.reset_scene()
+    m = mats()
+    L = local((2560.0, -250.0))
+    parts, groups = [], []
+    # 몸통: 라미네이트. 앞(-Y) 아래는 8 cm 물러난 발치 홈.
+    body = ig.box("body", (2.20, 0.52, 0.80), location=(0.0, 0.04, 0.10 + 0.40), bevel=0.004, segments=1,
+                  material=m["laminate"])
+    parts.append(body)
+    kick = ig.box("kick", (2.16, 0.44, 0.10), location=(0.0, 0.08, 0.05), material=m["dark"])
+    parts.append(kick)
+    # 앞판: 몸통 앞면에 붙는 마감판(세로 이음 둘).
+    front = ig.box("front_panel", (2.20, 0.02, 0.80), location=(0.0, -0.23, 0.50), bevel=0.003, segments=1,
+                   material=m["laminate"])
+    parts.append(front)
+    for x in (-1.08, 0.0, 1.08):
+        cutter = ig.box("seam", (0.006, 0.05, 0.84), location=(x, -0.24, 0.50))
+        ig.boolean(front, cutter, "DIFFERENCE")
+    # 스테인리스 상판, 앞뒤로 2 cm 넘친다. 윗면 씬 Z 99.
+    top = ig.box("top", (2.24, 0.64, 0.03), location=(0.0, 0.0, 0.915), bevel=0.004, segments=2,
+                 material=m["steel"])
+    parts.append(top)
+    edge = ig.box("edge_trim", (2.24, 0.02, 0.04), location=(0.0, -0.322, 0.88), bevel=0.003, segments=1,
+                  material=m["dark"])
+    parts.append(edge)
+    groups.append([body, kick, front, top, edge])
+    return ig.build_asset(
+        "SM_StoreCounter", "large", parts, out_root,
+        collision_parts=groups,
+        notes=("편의점 계산대. 앞면(손님 쪽) -Y, 원점 바닥 중심(씬 (2560, -250, 6)). 상판 윗면 씬 Z 99이고 "
+               "바운드도 거기서 끝난다 — 상판 위 클립보드가 계산대 안에 든 것으로 잡히지 않는다. "
+               "카드 단말기는 SM_CardTerminal, 온장고는 SM_HotSnackWarmer, 담배 진열장은 씬 상자 그대로."),
+        texture_size=2048)
+
+
+def build_terminal(out_root):
+    """카드 단말기. 원점은 상판 윗면 중심(씬 (2500, -268, 99)), 화면이 손님 쪽 -Y."""
+    ig.reset_scene()
+    m = mats()
+    parts = []
+    parts.append(ig.box("terminal", (0.12, 0.09, 0.05), location=(0.0, 0.0, 0.025), bevel=0.004, segments=1,
+                        material=m["dark"]))
+    # 화면 머리는 몸통 앞(-Y) 위에서 28도 젖혀진다.
+    tx, ty, tz = 0.0, -0.03, 0.07
+    parts.append(ig.box("terminal_head", (0.10, 0.02, 0.07), location=(tx, ty, tz),
+                        rotation=(-math.radians(28.0), 0.0, 0.0), bevel=0.002, segments=1, material=m["dark"]))
+    parts.append(ig.box("terminal_screen", (0.08, 0.002, 0.05), location=(tx, ty - 0.010, tz + 0.005),
+                        rotation=(-math.radians(28.0), 0.0, 0.0), material=m["screen"]))
+    parts.append(ig.box("keypad", (0.08, 0.05, 0.004), location=(0.0, 0.015, 0.052), material=m["dark"]))
+    return ig.build_asset(
+        "SM_CardTerminal", "prop", parts, out_root,
+        collision_parts=[],
+        notes="계산대 카드 단말기 12 x 11 x 11. 원점 상판 윗면 중심(씬 (2500, -268, 99)), 화면 -Y. 충돌 없음.",
+        texture_size=512)
+
+
+def build_warmer(out_root):
+    """온장고. 원점은 상판 윗면 중심(씬 (2452, -250, 99)), 유리문이 -X(출입구 쪽)."""
+    ig.reset_scene()
+    m = mats()
+    parts = []
+    wx, wy, wz = 0.0, 0.0, 0.18
+    warmer = ig.box("warmer", (0.36, 0.38, 0.36), location=(wx, wy, wz), bevel=0.006, segments=2,
+                    material=m["dark"])
+    parts.append(warmer)
+    # 앞면을 파고 유리문·발열등·트레이를 넣는다.
+    cavity = ig.box("warmer_cavity", (0.30, 0.30, 0.28), location=(wx - 0.05, wy, wz))
+    ig.boolean(warmer, cavity, "DIFFERENCE")
+    parts.append(ig.box("warmer_glass", (0.006, 0.30, 0.28), location=(wx - 0.18, wy, wz), material=m["glass"]))
+    parts.append(ig.box("warmer_lamp", (0.20, 0.26, 0.015), location=(wx - 0.07, wy, wz + 0.125),
+                        material=m["heat"]))
+    for z in (wz - 0.10, wz + 0.01):
+        parts.append(ig.box("warmer_tray", (0.26, 0.28, 0.01), location=(wx - 0.05, wy, z), material=m["steel"]))
+    parts.append(ig.cylinder("warmer_handle", 0.006, 0.16, location=(wx - 0.195, wy + 0.13, wz),
+                             segments=12, material=m["chrome"]))
+    return ig.build_asset(
+        "SM_HotSnackWarmer", "prop", parts, out_root,
+        collision_parts=[[warmer]],
+        notes="계산대 서쪽 끝 온장고 38 x 38 x 36. 원점 상판 윗면 중심(씬 (2452, -250, 99)), 유리문 -X.",
+        texture_size=1024, preview_yaw=60.0)
+
+
+# --------------------------------------------------------------------------
+# 평대 냉동고
+# --------------------------------------------------------------------------
+
+def build_freezer(out_root):
+    ig.reset_scene()
+    m = mats()
+    parts = []
+    body = ig.box("body", (0.58, 1.10, 0.74), location=(0.0, 0.0, 0.06 + 0.37), bevel=0.012, segments=3,
+                  material=m["white"])
+    parts.append(body)
+    parts.append(ig.box("plinth", (0.54, 1.06, 0.06), location=(0.0, 0.0, 0.03), material=m["dark"]))
+    # 윗테와 두 장의 슬라이딩 유리 뚜껑(살짝 겹친다).
+    rim = ig.box("rim", (0.58, 1.10, 0.04), location=(0.0, 0.0, 0.82), bevel=0.004, segments=1,
+                 material=m["alu"])
+    parts.append(rim)
+    cavity = ig.box("rim_cut", (0.50, 1.02, 0.06), location=(0.0, 0.0, 0.82))
+    ig.boolean(rim, cavity, "DIFFERENCE")
+    parts.append(ig.box("lid_a", (0.50, 0.53, 0.008), location=(0.0, -0.26, 0.835), material=m["glass"]))
+    parts.append(ig.box("lid_b", (0.50, 0.53, 0.008), location=(0.0, 0.26, 0.845), material=m["glass"]))
+    for y in (-0.26, 0.26):
+        parts.append(ig.box("lid_frame", (0.50, 0.53, 0.012), location=(0.0, y, 0.84 if y < 0 else 0.85),
+                            material=m["alu"]))
+        cut = ig.box("lid_frame_cut", (0.46, 0.49, 0.02), location=(0.0, y, 0.845))
+        ig.boolean(parts[-1], cut, "DIFFERENCE")
+    parts.append(ig.box("lid_grip", (0.46, 0.03, 0.02), location=(0.0, 0.01, 0.86), material=m["alu"]))
+    # 온도 조절부: 한쪽 끝 아래 검정 패널과 작은 표시창.
+    parts.append(ig.box("control", (0.10, 0.06, 0.05), location=(0.0, 0.53, 0.20), bevel=0.003, segments=1,
+                        material=m["dark"]))
+    parts.append(ig.box("control_led", (0.03, 0.004, 0.015), location=(0.0, 0.562, 0.21), material=m["screen"]))
+    parts.append(ig.box("lock", (0.03, 0.01, 0.03), location=(0.0, 0.556, 0.80), material=m["chrome"]))
+    return ig.build_asset(
+        "SM_ChestFreezer", "prop", parts, out_root,
+        collision_parts=[parts],
+        notes="편의점 아이스크림 평대 냉동고 58 x 110 x 86. 원점 바닥 중심(씬 (2445, -545, 6)). 긴 축이 Y.",
+        texture_size=1024)
+
+
+# --------------------------------------------------------------------------
+# 오픈 쇼케이스
+# --------------------------------------------------------------------------
+
+def build_showcase(out_root):
+    ig.reset_scene()
+    m = mats()
+    L = local((2700.0, -660.0))
+    parts = []
+    # 껍데기: 등판(벽 쪽 -Y), 양 옆, 지붕, 바닥. 앞(+Y)이 열려 있다.
+    back = ig.box("back", (2.40, 0.06, 1.70), location=(0.0, -0.17, 0.85), bevel=0.004, segments=1,
+                  material=m["white"])
+    parts.append(back)
+    for x in (-1.17, 1.17):
+        parts.append(ig.box("side", (0.06, 0.34, 1.70), location=(x, 0.0, 0.85), bevel=0.004, segments=1,
+                            material=m["white"]))
+    parts.append(ig.box("roof", (2.28, 0.34, 0.06), location=(0.0, 0.0, 1.67), material=m["white"]))
+    parts.append(ig.box("floor", (2.28, 0.34, 0.06), location=(0.0, 0.0, 0.03), material=m["white"]))
+    # 앞 캐노피: 지붕 앞에 살짝 내려온 띠, 그 밑에 LED.
+    parts.append(ig.box("canopy", (2.28, 0.03, 0.12), location=(0.0, 0.16, 1.58), bevel=0.003, segments=1,
+                        material=m["white"]))
+    parts.append(ig.box("led", (2.24, 0.03, 0.012), location=(0.0, 0.12, 1.595), material=m["led"]))
+    # 라이너: 안쪽 벽은 스테인리스.
+    parts.append(ig.box("liner", (2.28, 0.01, 1.58), location=(0.0, -0.135, 0.85), material=m["steel"]))
+    # 선반 셋과 가격표. 판 윗면 씬 71.5/106.5/141.5.
+    for tier in (70.0, 105.0, 140.0):
+        zc = (tier - FLOOR_Z) / 100.0
+        parts.append(ig.box("shelf", (2.28, 0.26, 0.03), location=(0.0, 0.06, zc), bevel=0.003, segments=1,
+                            material=m["steel"]))
+        parts.append(ig.box("price", (2.28, 0.03, 0.05), location=(0.0, 0.135, zc + 0.03), material=m["price"]))
+    # 하단 그릴.
+    for z in (0.10, 0.16):
+        parts.append(ig.box("grille", (2.20, 0.01, 0.02), location=(0.0, 0.175, z), material=m["dark"]))
+    return ig.build_asset(
+        "SM_OpenShowcase", "large", parts, out_root,
+        collision_parts=[[p for p in parts if p.name.startswith(("back", "side", "roof", "floor", "canopy"))]],
+        notes=("편의점 남쪽 벽 오픈 쇼케이스 240 x 40 x 170. 앞면 +Y(통로 쪽), 원점 바닥 중심(씬 (2700, -660, 6)). "
+               "선반 윗면 씬 Z 71.5/106.5/141.5, 김밥·샌드위치는 씬 코드가 Y -655에 놓는다."),
+        texture_size=2048, preview_yaw=210.0)
+
+
+# --------------------------------------------------------------------------
+# 라면 선반
+# --------------------------------------------------------------------------
+
+def build_rack(out_root):
+    ig.reset_scene()
+    m = mats()
+    parts = []
+    parts.append(ig.box("back", (0.70, 0.03, 1.60), location=(0.0, -0.145, 0.80), material=m["grey"]))
+    for x in (-0.335, 0.335):
+        parts.append(ig.box("upright", (0.03, 0.32, 1.60), location=(x, 0.0, 0.80), bevel=0.003, segments=1,
+                            material=m["grey"]))
+    for tier in (16.0, 46.0, 76.0, 106.0, 136.0, 166.0):
+        zc = (tier - FLOOR_Z) / 100.0
+        parts.append(ig.box("tier", (0.70, 0.32, 0.03), location=(0.0, 0.0, zc), bevel=0.003, segments=1,
+                            material=m["grey"]))
+        if tier < 166.0:
+            parts.append(ig.box("lip", (0.70, 0.015, 0.04), location=(0.0, 0.1525, zc + 0.02),
+                                material=m["price"]))
+    return ig.build_asset(
+        "SM_RamyeonRack", "prop", parts, out_root,
+        collision_parts=[parts],
+        notes=("편의점 창가 라면 선반 70 x 32 x 162. 앞면 +Y, 원점 바닥 중심(씬 (2452, -664, 6)). "
+               "단 윗면 씬 Z 17.5/47.5/…/167.5, 컵은 씬 코드가 놓는다."),
+        texture_size=1024, preview_yaw=210.0)
+
+
+BUILDERS = {
+    "cooler": build_cooler,
+    "door": build_cooler_door,
+    "gondola": build_gondola,
+    "counter": build_counter,
+    "terminal": build_terminal,
+    "warmer": build_warmer,
+    "freezer": build_freezer,
+    "showcase": build_showcase,
+    "rack": build_rack,
+}
+
+
+def main():
+    out_root = ig.out_root_from_argv()
+    only = [a for a in sys.argv[sys.argv.index("--") + 2:]] if "--" in sys.argv else []
+    for key, builder in BUILDERS.items():
+        if not only or key in only:
+            builder(out_root)
+
+
+main()

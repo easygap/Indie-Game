@@ -1,0 +1,30 @@
+{
+  "name": "SM_WallSwitch",
+  "mesh_class": "prop",
+  "fbx": "SM_WallSwitch.fbx",
+  "textures": {
+    "D": "SM_WallSwitch_D.png",
+    "N": "SM_WallSwitch_N.png",
+    "ORM": "SM_WallSwitch_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 196,
+  "bounds_m": {
+    "min": [
+      -0.05,
+      0.0,
+      0.0
+    ],
+    "max": [
+      0.05,
+      0.0201,
+      0.1
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "403호 현관 2구 스위치 10 x 1.8 x 10. 원점 벽면 바닥 중심(씬 (90, -215, 123)), 앞면 +Y. 충돌 없음."
+}

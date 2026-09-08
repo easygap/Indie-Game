@@ -1,0 +1,30 @@
+{
+  "name": "SM_UtilityPole",
+  "mesh_class": "large",
+  "fbx": "SM_UtilityPole.fbx",
+  "textures": {
+    "D": "SM_UtilityPole_D.png",
+    "N": "SM_UtilityPole_N.png",
+    "ORM": "SM_UtilityPole_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1736,
+  "bounds_m": {
+    "min": [
+      -0.6,
+      -0.104,
+      0.0
+    ],
+    "max": [
+      0.6,
+      0.104,
+      4.5
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "골목 콘크리트 전신주 20 x 20 x 450. 원점 바닥 중심(씬 (X, -422, 0)). 완철은 골목 방향(X). 분전함은 씬의 스캔 소품 utility_box_01이 그대로 붙는다. 충돌은 기둥만."
+}

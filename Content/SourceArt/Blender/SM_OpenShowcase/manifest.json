@@ -1,0 +1,31 @@
+{
+  "name": "SM_OpenShowcase",
+  "mesh_class": "large",
+  "fbx": "SM_OpenShowcase.fbx",
+  "textures": {
+    "D": "SM_OpenShowcase_D.png",
+    "N": "SM_OpenShowcase_N.png",
+    "ORM": "SM_OpenShowcase_ORM.png",
+    "E": "SM_OpenShowcase_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 416,
+  "bounds_m": {
+    "min": [
+      -1.2,
+      -0.2,
+      0.0
+    ],
+    "max": [
+      1.2,
+      0.19,
+      1.7
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 4.0,
+  "blender": "5.2.0 LTS",
+  "notes": "편의점 남쪽 벽 오픈 쇼케이스 240 x 40 x 170. 앞면 +Y(통로 쪽), 원점 바닥 중심(씬 (2700, -660, 6)). 선반 윗면 씬 Z 71.5/106.5/141.5, 김밥·샌드위치는 씬 코드가 Y -655에 놓는다."
+}

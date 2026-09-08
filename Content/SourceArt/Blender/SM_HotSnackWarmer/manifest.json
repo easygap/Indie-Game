@@ -1,0 +1,32 @@
+{
+  "name": "SM_HotSnackWarmer",
+  "mesh_class": "prop",
+  "fbx": "SM_HotSnackWarmer.fbx",
+  "textures": {
+    "D": "SM_HotSnackWarmer_D.png",
+    "N": "SM_HotSnackWarmer_N.png",
+    "ORM": "SM_HotSnackWarmer_ORM.png",
+    "E": "SM_HotSnackWarmer_E.png"
+  },
+  "slots": [
+    "Baked",
+    "Glass"
+  ],
+  "triangles": 216,
+  "bounds_m": {
+    "min": [
+      -0.201,
+      -0.19,
+      0.0
+    ],
+    "max": [
+      0.18,
+      0.19,
+      0.36
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 5.0,
+  "blender": "5.2.0 LTS",
+  "notes": "계산대 서쪽 끝 온장고 38 x 38 x 36. 원점 상판 윗면 중심(씬 (2452, -250, 99)), 유리문 -X."
+}

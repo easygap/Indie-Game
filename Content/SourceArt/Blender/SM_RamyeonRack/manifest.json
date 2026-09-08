@@ -1,0 +1,30 @@
+{
+  "name": "SM_RamyeonRack",
+  "mesh_class": "prop",
+  "fbx": "SM_RamyeonRack.fbx",
+  "textures": {
+    "D": "SM_RamyeonRack_D.png",
+    "N": "SM_RamyeonRack_N.png",
+    "ORM": "SM_RamyeonRack_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 424,
+  "bounds_m": {
+    "min": [
+      -0.35,
+      -0.16,
+      0.0
+    ],
+    "max": [
+      0.35,
+      0.16,
+      1.615
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "편의점 창가 라면 선반 70 x 32 x 162. 앞면 +Y, 원점 바닥 중심(씬 (2452, -664, 6)). 단 윗면 씬 Z 17.5/47.5/…/167.5, 컵은 씬 코드가 놓는다."
+}

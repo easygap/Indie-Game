@@ -1,0 +1,30 @@
+{
+  "name": "SM_VillaWindow",
+  "mesh_class": "prop",
+  "fbx": "SM_VillaWindow.fbx",
+  "textures": {
+    "D": "SM_VillaWindow_D.png",
+    "N": "SM_VillaWindow_N.png",
+    "ORM": "SM_VillaWindow_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 924,
+  "bounds_m": {
+    "min": [
+      -0.56,
+      -0.11,
+      -0.095
+    ],
+    "max": [
+      0.56,
+      0.0,
+      1.23
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "빌라 파사드 창(2~4층 열다섯 자리 공용). 원점은 벽면 Y -395의 창 개구부 바닥 중심, 앞면 -Y. 틀 5 cm, 창턱 12 cm, 난간 8 cm 돌출. 유리는 씬의 WindowDark/WindowGlow 판이 맡는다. 충돌 없음."
+}

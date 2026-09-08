@@ -1,0 +1,30 @@
+{
+  "name": "SM_ApartmentWindow",
+  "mesh_class": "prop",
+  "fbx": "SM_ApartmentWindow.fbx",
+  "textures": {
+    "D": "SM_ApartmentWindow_D.png",
+    "N": "SM_ApartmentWindow_N.png",
+    "ORM": "SM_ApartmentWindow_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 752,
+  "bounds_m": {
+    "min": [
+      -0.67,
+      -0.06,
+      0.005
+    ],
+    "max": [
+      0.67,
+      0.025,
+      0.995
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "403호 북쪽 벽 미닫이 창틀 130 x 5 x 99. 원점 (-100, 212.5, 100) 창틀 아래 중심(틀 뒷면이 벽면 Y 215에 닿는다), 실내 쪽 -Y. 유리는 넣지 않았다 — 달빛 발광판이 그 뒤(Y 214)에 그대로 선다. 충돌 없음."
+}
