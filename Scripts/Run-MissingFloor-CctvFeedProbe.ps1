@@ -133,7 +133,8 @@ $feed = Select-String -Path $runLog -Pattern 'MISSINGFLOOR_CCTV5_FEED'
 if (-not $feed) {
 	throw "화면 판정이 아예 실행되지 않았습니다. 로그: $runLog"
 }
-Write-Host $feed[-1].Line -ForegroundColor (
+# 인자 괄호 안의 if는 Windows PowerShell 5.1이 명령으로 읽는다. $( )로 감싼다.
+Write-Host $feed[-1].Line -ForegroundColor $(
 	if ($feed[-1].Line -match 'PASS') { 'Green' } else { 'Red' })
 if ($feed[-1].Line -notmatch 'PASS') {
 	throw "채널 5가 그림을 그리지 못했습니다. 로그: $runLog"
