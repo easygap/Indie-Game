@@ -12,7 +12,31 @@ enum class EIGToneWaveform : uint8
 	SoftSquare,
 	Triangle,
 	/** Band-limited value noise; Frequency acts as the noise bandwidth in Hz. */
-	ValueNoise
+	ValueNoise,
+	/** 매 샘플 독립 잡음, 전대역. 긁힘·바람·거친 표면의 재료. Frequency는 안 쓴다. */
+	WhiteNoise,
+	/**
+	 * 공진 대역통과를 지난 백색 잡음. Frequency가 중심(≤7kHz), Resonance 0~1이
+	 * Q 2~40. 발소리 몸통·천 스침·숨·바람 휘파람은 전부 이것으로 만든다.
+	 */
+	BandNoise,
+	/** 부드럽게 포화된 사인. 저역 타격·심박·드론의 몸통. 사인보다 배음이 조금 있다. */
+	Sub,
+	/**
+	 * 성긴 알갱이. Frequency가 초당 밀도, 알갱이 하나는 짧게 꺼지는 잡음이다.
+	 * 석고 부스러기·모래·불티·전기 잡음.
+	 */
+	Crackle,
+	/**
+	 * 카플러스-스트롱 공명체. Frequency가 음높이(≥40Hz), Resonance 0~1이 울림
+	 * 길이. 노크의 나무·석고 몸통, 금속 난간 울림, 튕긴 줄.
+	 */
+	Pluck,
+	/**
+	 * FM 목소리. Frequency가 기본음, Resonance가 변조 깊이(0~1 → 지수 0~7).
+	 * 으르렁·신음·숨 섞인 목소리. 사람 소리라기보다 몸에서 나는 소리.
+	 */
+	Growl
 };
 
 /** Physical floor families used by the §21.2 stealth/noise matrix. */
@@ -41,6 +65,11 @@ struct FIGToneNote
 	float AttackFraction = 0.02f;
 	float ReleasePower = 1.0f;
 	EIGToneWaveform Waveform = EIGToneWaveform::Sine;
+	/**
+	 * 파형별 두 번째 손잡이 0~1. BandNoise는 Q, Pluck은 울림 길이, Growl은 변조
+	 * 깊이. 나머지는 안 읽는다. 여덟째 자리라 일곱 자리 초기화도 그대로 된다.
+	 */
+	float Resonance = 0.0f;
 };
 
 /**
@@ -69,6 +98,14 @@ public:
 	void ConfigureNotes(TArray<FIGToneNote>&& InNotes, bool bInLooping, float LoopSeconds = 0.0f);
 	/** Applies a small integrated pitch drift without changing sequence timing. */
 	void ConfigurePitchWow(float DepthRatio, float RateHz);
+	/**
+	 * 방 울림. 음의 합에 피드백 지연 하나를 건다 — 짧은 지연(8~40ms)에 되먹임
+	 * 0.3~0.6이면 노크와 타격이 벽 사이에서 되울리는 것처럼 들린다. 되먹임 고리
+	 * 안의 저역 필터(Damping 0~1, 클수록 밝음)가 고역부터 죽인다. 최종 합은
+	 * 음의 합 × (1 + Mix ÷ (1 − Feedback))을 넘지 않는다. audit_tone_headroom.py가
+	 * 이 곱을 같이 센다. 유한 파형은 꼬리가 60dB 죽을 때까지 길어진다.
+	 */
+	void ConfigureRoomTail(float DelaySeconds, float Feedback, float Damping, float Mix);
 	/** Finite authored length, including the protected release tail. */
 	float GetConfiguredDurationSeconds() const { return Duration; }
 	/** True when ConfigureNotes installed an indefinitely repeating pattern. */
@@ -586,7 +623,20 @@ public:
 		const TArray<struct FIGRecordedSound>& Sounds);
 
 private:
+	/** 상태가 있는 파형(BandNoise·Pluck)의 음별 작업 기억. 렌더 스레드만 만진다. */
+	struct FNoteRenderState
+	{
+		float FilterLow = 0.0f;
+		float FilterBand = 0.0f;
+		TArray<float> Delay;
+		int32 DelayIndex = 0;
+		double LastNoteTime = -1.0;
+		uint32 NoiseState = 0u;
+	};
+
 	static float EvaluateWaveform(EIGToneWaveform Waveform, float FrequencyHz, double NoteTimeSeconds);
+	float EvaluateStatefulWaveform(
+		const FIGToneNote& Note, FNoteRenderState& State, double NoteTimeSeconds, int32 NoteIndex);
 	static float EvaluateEnvelope(const FIGToneNote& Note, float NoteProgress01);
 
 	// Immutable after ConfigureNotes; read from the audio render thread.
@@ -595,7 +645,15 @@ private:
 	int64 TotalSampleCount = 0;
 	float PitchWowDepthRatio = 0.0f;
 	float PitchWowRateHz = 0.0f;
+	int32 TailDelaySamples = 0;
+	float TailFeedback = 0.0f;
+	float TailDamping = 1.0f;
+	float TailMix = 0.0f;
 
-	// Render-thread-owned sample cursor.
+	// Render-thread-owned sample cursor and working memory.
 	uint64 GeneratedSampleCount = 0;
+	TArray<FNoteRenderState> NoteStates;
+	TArray<float> TailBuffer;
+	int32 TailIndex = 0;
+	float TailLow = 0.0f;
 };

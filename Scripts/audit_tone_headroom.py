@@ -64,7 +64,13 @@ BOUND_STEP_SECONDS = 0.001
 NUMBER = re.compile(r"^[-+]?(?:\d+\.?\d*|\.\d+)f?$")
 NOTE = re.compile(
     r"\{\s*([^,{}]+?),\s*([^,{}]+?),\s*([^,{}]+?),\s*([^,{}]+?),"
-    r"\s*([^,{}]+?),\s*([^,{}]+?),\s*EIGToneWaveform::(\w+)\s*\}")
+    r"\s*([^,{}]+?),\s*([^,{}]+?),\s*EIGToneWaveform::(\w+)"
+    r"(?:\s*,\s*[^,{}]+?)?\s*\}")
+# 파형 하나에 거는 방 울림. 음의 합 × (1 + Mix ÷ (1 − Feedback))까지 커진다.
+ROOM_TAIL = re.compile(
+    r"ConfigureRoomTail\(\s*([^,]+?),\s*([^,]+?),\s*([^,]+?),\s*([^)]+?)\s*\)")
+# 상태가 있어서 파이썬으로 똑같이 못 돌리는 파형. |파형| <= 1은 코드가 보장한다.
+BOUNDED_ONLY = {"WhiteNoise", "BandNoise", "Crackle", "Pluck", "Growl"}
 SCALAR = re.compile(
     r"^\s*(?:constexpr|const)\s+float\s+(\w+)\s*=\s*"
     r"([-+]?(?:\d+\.?\d*|\.\d+)f?)\s*;", re.MULTILINE)
@@ -119,6 +125,8 @@ class Generator:
         self.notes: list[Note] = []
         self.unresolved = 0
         self.looped_notes = 0
+        # 방 울림의 최대 배율. 없으면 1.
+        self.tail_gain = 1.0
 
     @property
     def site(self) -> str:
@@ -319,6 +327,16 @@ def parse_source(relative: str) -> list[Generator]:
                 generator.unresolved += 1
                 continue
             generator.notes.append(Note(*fields, match.group(7)))
+        tail = ROOM_TAIL.search(body)
+        if tail:
+            feedback = to_float(tail.group(2), scalars, arrays)
+            mix = to_float(tail.group(4), scalars, arrays)
+            if feedback is None or mix is None:
+                generator.unresolved += 1
+            else:
+                feedback = min(max(feedback, 0.0), 0.85)
+                mix = min(max(mix, 0.0), 1.0)
+                generator.tail_gain = 1.0 + mix / (1.0 - feedback)
         if generator.notes or generator.blind:
             generators.append(generator)
     return generators
@@ -355,6 +373,9 @@ def waveform(kind: str, frequency: float, seconds: float) -> float:
                 + 0.10 * math.sin(5.0 * radians))
     if kind == "Triangle":
         return 2.0 * abs(2.0 * (phase - math.floor(phase + 0.5))) - 1.0
+    if kind in BOUNDED_ONLY:
+        # 상태 파형은 코드가 ±1로 묶는다. 최악값으로 센다.
+        return 1.0
     if kind == "ValueNoise":
         cursor = seconds * max(40.0, frequency)
         cell = int(math.floor(cursor))
@@ -423,11 +444,14 @@ def measure(generators):
         if not generator.notes:
             results.append((generator, 0.0, "빈 표"))
             continue
-        bound = envelope_bound(generator)
+        bound = envelope_bound(generator) * generator.tail_gain
         if bound < CLIP_LEVEL:
             results.append((generator, bound, "상한"))
+        elif any(n.waveform in BOUNDED_ONLY for n in generator.notes):
+            # 상태 파형이 섞이면 실측을 못 한다. 상한이 곧 판정이다.
+            results.append((generator, bound, "상한"))
         else:
-            results.append((generator, true_peak(generator), "실측"))
+            results.append((generator, true_peak(generator) * generator.tail_gain, "실측"))
     return results
 
 

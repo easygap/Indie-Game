@@ -32,6 +32,15 @@ namespace IGToneSequence
 		return (static_cast<float>(Hash) / 2147483648.0f) - 1.0f;
 	}
 
+	/** xorshift32. 잡음 파형의 샘플별 난수. 상태는 음마다 따로 든다. */
+	float NextWhite(uint32& State)
+	{
+		State ^= State << 13;
+		State ^= State >> 17;
+		State ^= State << 5;
+		return (static_cast<float>(State) / 2147483648.0f) - 1.0f;
+	}
+
 	UIGToneSequenceSoundWave* NewWave(UObject* Outer, const TCHAR* BaseName)
 	{
 		return NewObject<UIGToneSequenceSoundWave>(
@@ -59,6 +68,20 @@ void UIGToneSequenceSoundWave::ConfigureNotes(
 {
 	Notes = MoveTemp(InNotes);
 	GeneratedSampleCount = 0;
+	// 상태 파형의 작업 기억은 여기서, 게임 스레드에서 미리 잡는다. 렌더 스레드는
+	// 채우기만 한다.
+	NoteStates.Reset();
+	NoteStates.SetNum(Notes.Num());
+	for (int32 NoteIndex = 0; NoteIndex < Notes.Num(); ++NoteIndex)
+	{
+		FNoteRenderState& State = NoteStates[NoteIndex];
+		State.NoiseState = 0x9E3779B9u ^ (static_cast<uint32>(NoteIndex + 1) * 2654435761u);
+		if (Notes[NoteIndex].Waveform == EIGToneWaveform::Pluck)
+		{
+			const float Frequency = FMath::Max(Notes[NoteIndex].FrequencyHz, 40.0f);
+			State.Delay.SetNumZeroed(FMath::Max(2, FMath::RoundToInt(IGToneSequence::SampleRateHz / Frequency)));
+		}
+	}
 
 	float LastNoteEndSeconds = 0.0f;
 	for (const FIGToneNote& Note : Notes)
@@ -93,6 +116,30 @@ void UIGToneSequenceSoundWave::ConfigurePitchWow(
 {
 	PitchWowDepthRatio = FMath::Clamp(DepthRatio, 0.0f, 0.02f);
 	PitchWowRateHz = FMath::Clamp(RateHz, 0.0f, 4.0f);
+}
+
+void UIGToneSequenceSoundWave::ConfigureRoomTail(
+	const float DelaySeconds,
+	const float Feedback,
+	const float Damping,
+	const float Mix)
+{
+	TailDelaySamples = FMath::Clamp(
+		FMath::RoundToInt(DelaySeconds * IGToneSequence::SampleRateHz), 8, IGToneSequence::SampleRateHz / 4);
+	TailFeedback = FMath::Clamp(Feedback, 0.0f, 0.85f);
+	TailDamping = FMath::Clamp(Damping, 0.02f, 1.0f);
+	TailMix = FMath::Clamp(Mix, 0.0f, 1.0f);
+	TailBuffer.SetNumZeroed(TailDelaySamples);
+	TailIndex = 0;
+	TailLow = 0.0f;
+	if (!bLooping && TailMix > 0.0f && TailFeedback > 0.0f)
+	{
+		// 꼬리가 60dB 죽을 때까지 유한 파형을 늘린다. 안 늘리면 울림이 잘린다.
+		const float Repeats = FMath::Log2(0.001f) / FMath::Log2(TailFeedback);
+		const float TailSeconds = FMath::Clamp(Repeats * DelaySeconds, 0.0f, 3.0f);
+		TotalSampleCount += static_cast<int64>(TailSeconds * IGToneSequence::SampleRateHz);
+		Duration += TailSeconds;
+	}
 }
 
 float UIGToneSequenceSoundWave::EvaluateWaveform(
@@ -130,8 +177,125 @@ float UIGToneSequenceSoundWave::EvaluateWaveform(
 			Smooth);
 	}
 
+	case EIGToneWaveform::WhiteNoise:
+	{
+		// 샘플 하나마다 다른 해시. 상태 없이 시간만으로 같은 잡음이 다시 나온다.
+		const uint32 Sample = static_cast<uint32>(NoteTimeSeconds * IGToneSequence::SampleRateHz);
+		return IGToneSequence::HashToSigned(Sample * 7u + 3u);
+	}
+
+	case EIGToneWaveform::Sub:
+	{
+		// 1.8배 밀어 넣은 사인의 tanh. 최대치는 정확히 1이다.
+		constexpr float Drive = 1.8f;
+		constexpr float Normalize = 1.0f / 0.9468f; // tanh(1.8)
+		return FMath::Tanh(Drive * FMath::Sin(Radians)) * Normalize;
+	}
+
+	case EIGToneWaveform::Crackle:
+	{
+		// 초당 Frequency개의 칸. 칸마다 해시로 켜질지 정하고, 켜진 칸은 앞쪽에서
+		// 잡음이 터졌다가 세제곱으로 꺼진다.
+		const double Cursor = NoteTimeSeconds * FMath::Max(1.0f, FrequencyHz);
+		const uint32 Cell = static_cast<uint32>(FMath::FloorToDouble(Cursor));
+		const float Gate = IGToneSequence::HashToSigned(Cell * 13u + 5u);
+		if (Gate < 0.25f)
+		{
+			return 0.0f;
+		}
+		const float Fraction = static_cast<float>(Cursor - FMath::FloorToDouble(Cursor));
+		const float Decay = FMath::Cube(1.0f - Fraction);
+		const uint32 Sample = static_cast<uint32>(NoteTimeSeconds * IGToneSequence::SampleRateHz);
+		return Decay * IGToneSequence::HashToSigned(Sample * 11u + Cell);
+	}
+
+	case EIGToneWaveform::Growl:
+		// 상태 없는 FM. Resonance는 상태 파형 경로에서 읽으므로 여기서는 깊이 3.
+		return FMath::Sin(Radians + 3.0f * FMath::Sin(Radians * 1.47f));
+
 	default:
 		return 0.0f;
+	}
+}
+
+float UIGToneSequenceSoundWave::EvaluateStatefulWaveform(
+	const FIGToneNote& Note,
+	FNoteRenderState& State,
+	const double NoteTimeSeconds,
+	const int32 NoteIndex)
+{
+	// 루프가 돌아 음이 처음부터 다시 시작하면 기억도 비운다.
+	if (NoteTimeSeconds < State.LastNoteTime)
+	{
+		State.FilterLow = 0.0f;
+		State.FilterBand = 0.0f;
+		State.DelayIndex = 0;
+		State.NoiseState = 0x9E3779B9u ^ (static_cast<uint32>(NoteIndex + 1) * 2654435761u);
+		for (float& Sample : State.Delay)
+		{
+			Sample = 0.0f;
+		}
+	}
+	const bool bFirstSample = State.LastNoteTime < 0.0 || NoteTimeSeconds < State.LastNoteTime;
+	State.LastNoteTime = NoteTimeSeconds;
+	const float Resonance = FMath::Clamp(Note.Resonance, 0.0f, 1.0f);
+
+	switch (Note.Waveform)
+	{
+	case EIGToneWaveform::BandNoise:
+	{
+		// 체임벌린 상태변수 필터의 대역 출력. 중심은 7kHz 아래로 묶어야 안정하다.
+		const float Center = FMath::Clamp(Note.FrequencyHz, 30.0f, 7000.0f);
+		const float Q = FMath::Lerp(2.0f, 40.0f, Resonance);
+		const float F = 2.0f * FMath::Sin(UE_PI * Center / IGToneSequence::SampleRateHz);
+		const float White = IGToneSequence::NextWhite(State.NoiseState);
+		State.FilterLow += F * State.FilterBand;
+		const float High = White - State.FilterLow - State.FilterBand / Q;
+		State.FilterBand += F * High;
+		// Q가 클수록 출력이 커진다. 1.2/√Q로 눌러 대개 ±1 안에 두고, 넘치면 자른다.
+		return FMath::Clamp(State.FilterBand * 1.2f / FMath::Sqrt(Q), -1.0f, 1.0f);
+	}
+
+	case EIGToneWaveform::Pluck:
+	{
+		if (State.Delay.Num() < 2)
+		{
+			return 0.0f;
+		}
+		if (bFirstSample)
+		{
+			// 줄을 튕긴다: 지연선을 잡음으로 채운다.
+			for (float& Sample : State.Delay)
+			{
+				Sample = IGToneSequence::NextWhite(State.NoiseState);
+			}
+		}
+		const int32 Length = State.Delay.Num();
+		const int32 NextIndex = (State.DelayIndex + 1) % Length;
+		const float Current = State.Delay[State.DelayIndex];
+		// 이웃 둘의 평균이 저역 필터, 감쇠가 울림 길이. 둘 다 1 미만이라 커지지 않는다.
+		const float Decay = FMath::Lerp(0.90f, 0.998f, Resonance);
+		State.Delay[State.DelayIndex] = (Current + State.Delay[NextIndex]) * 0.5f * Decay;
+		State.DelayIndex = NextIndex;
+		return Current;
+	}
+
+	case EIGToneWaveform::Growl:
+	{
+		// 반송파에 1.47배 변조파. 깊이는 Resonance. 숨 섞인 소리로 잡음을 조금 얹는다.
+		const double Cycles = NoteTimeSeconds * Note.FrequencyHz;
+		const float Phase = static_cast<float>(Cycles - FMath::FloorToDouble(Cycles));
+		const float Radians = IGToneSequence::TwoPi * Phase;
+		const double ModCycles = Cycles * 1.47;
+		const float ModPhase = static_cast<float>(ModCycles - FMath::FloorToDouble(ModCycles));
+		const float Index = Resonance * 7.0f;
+		const float Voice = FMath::Sin(Radians + Index * FMath::Sin(IGToneSequence::TwoPi * ModPhase));
+		const float Breath = IGToneSequence::NextWhite(State.NoiseState) * 0.12f;
+		return FMath::Clamp(Voice * 0.88f + Breath, -1.0f, 1.0f);
+	}
+
+	default:
+		return EvaluateWaveform(Note.Waveform, Note.FrequencyHz, NoteTimeSeconds);
 	}
 }
 
@@ -186,8 +350,9 @@ int32 UIGToneSequenceSoundWave::OnGeneratePCMAudio(TArray<uint8>& OutAudio, cons
 		}
 
 		float Mixed = 0.0f;
-		for (const FIGToneNote& Note : Notes)
+		for (int32 NoteIndex = 0; NoteIndex < Notes.Num(); ++NoteIndex)
 		{
+			const FIGToneNote& Note = Notes[NoteIndex];
 			const double NoteTime = PatternSeconds - Note.StartSeconds;
 			if (NoteTime < 0.0 || NoteTime >= Note.DurationSeconds)
 			{
@@ -210,9 +375,24 @@ int32 UIGToneSequenceSoundWave::OnGeneratePCMAudio(TArray<uint8>& OutAudio, cons
 					* (1.0 - FMath::Cos(AngularRate * Note.StartSeconds));
 				WaveTime += PatternOffset - NoteStartOffset;
 			}
-			Mixed += Note.Amplitude
-				* EvaluateEnvelope(Note, Progress)
-				* EvaluateWaveform(Note.Waveform, Note.FrequencyHz, WaveTime);
+			const bool bStateful =
+				Note.Waveform == EIGToneWaveform::BandNoise
+				|| Note.Waveform == EIGToneWaveform::Pluck
+				|| Note.Waveform == EIGToneWaveform::Growl;
+			const float Sample = bStateful && NoteStates.IsValidIndex(NoteIndex)
+				? EvaluateStatefulWaveform(Note, NoteStates[NoteIndex], WaveTime, NoteIndex)
+				: EvaluateWaveform(Note.Waveform, Note.FrequencyHz, WaveTime);
+			Mixed += Note.Amplitude * EvaluateEnvelope(Note, Progress) * Sample;
+		}
+
+		// 방 울림. 지연선 하나에 되먹임과 저역 필터. 음의 합 위에 Mix만큼 얹는다.
+		if (TailMix > 0.0f && TailBuffer.Num() > 0)
+		{
+			const float Delayed = TailBuffer[TailIndex];
+			TailLow += (Delayed - TailLow) * TailDamping;
+			TailBuffer[TailIndex] = Mixed + TailFeedback * TailLow;
+			TailIndex = (TailIndex + 1) % TailBuffer.Num();
+			Mixed += TailMix * TailLow;
 		}
 
 		OutputSamples[OutputIndex] = static_cast<int16>(
