@@ -5957,11 +5957,12 @@ void AIGPrologueWorldScene::BuildAlley()
 		{
 			CreateBlock(FVector(X1 - 18, -790, 205), FVector(36, 80, 55), Metal, false);
 		}
-		// 벽등 하나. 갓은 상자, 빛은 아래로.
+		// 벽등 하나. 갓은 상자, 빛은 아래로. 700/260으로는 막벽 앞 2 m만 밝아 캡처가
+		// 검게 나왔다. 골목 가로등(2400/760)의 3/4쯤으로 올려 계량기함과 계단까지 닿게 한다.
 		CreateBlock(FVector(X0 + 8, EndY + 120, 320), FVector(16, 24, 12), PlasticDarkMaterial, false);
 		CreateBlock(FVector(X0 + 8, EndY + 120, 312), FVector(12, 20, 2), StreetLampGlowMaterial, false);
 		CreateLight(
-			FVector(X0 + 30, EndY + 120, 300), 700.0f, 260.0f,
+			FVector(X0 + 30, EndY + 120, 300), 1800.0f, 620.0f,
 			FLinearColor(1.0f, 0.85f, 0.62f), true, 14.0f);
 		// 입구 쓰레기: 스캔 소품이 있으면 그것, 없으면 상자.
 		if (!PlacePhotoProp(TEXT("trashbag"), FVector(X0 + 34, -728, 0), FVector(56, 56, 54), TrashYaw))
