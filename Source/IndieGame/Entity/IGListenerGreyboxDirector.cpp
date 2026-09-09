@@ -2050,7 +2050,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		const float ExpectedSensitivity[] = {1.0f, 1100.0f / 900.0f, 1100.0f / 900.0f, 1300.0f / 900.0f};
 		const float ExpectedListen[] = {8.0f, 8.0f, 7.0f, 6.0f};
 		const int32 ExpectedNodes[] = {6, 11, 14, 18};
-		const float ExpectedChase[] = {264.0f, 330.0f, 330.0f, 374.0f};
+		const float ExpectedChase[] = {330.0f, 462.0f, 462.0f, 506.0f};
 		const float ExpectedHold[] = {6.0f, 6.0f, 5.0f, 5.0f};
 		const float ExpectedHeat[] = {0.0f, 0.3f, 0.5f, 0.7f};
 		const bool ExpectedAmbush[] = {false, false, true, true};
@@ -2108,7 +2108,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			3);
 		const bool bQuietMatches =
 			FMath::IsNearlyEqual(Quiet.HearingSensitivity, (1300.0f / 900.0f) * 0.75f, 0.001f)
-			&& FMath::IsNearlyEqual(Quiet.ChaseSpeed, 374.0f * 0.8f, 0.01f)
+			&& FMath::IsNearlyEqual(Quiet.ChaseSpeed, 506.0f * 0.8f, 0.01f)
 			&& FMath::IsNearlyEqual(Quiet.WaitScale, 1.5f, 0.001f);
 		const bool bHastyMatches =
 			FMath::IsNearlyEqual(Hasty.ListenWindowSeconds, 7.0f, 0.001f)

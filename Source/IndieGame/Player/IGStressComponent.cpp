@@ -28,6 +28,9 @@ namespace IGStress
 	constexpr float HeartbeatHapticStressThreshold = 0.85f;
 	// §19.8 심박 경고. 같은 임계에서 비네트가 이만큼까지 부풀었다 돌아온다.
 	constexpr float HeartbeatWarningVignetteScale = 1.4f;
+	// §5.2 숨 참기 반동. 놓으면 이만큼 동안 심박이 1.5배로 뛴다.
+	constexpr float BreathReboundSeconds = 4.0f;
+	constexpr float BreathReboundScale = 1.5f;
 	// 맥동은 심박 속도를 따라간다. 경고가 제 박자로 뛰지 않으면 그건
 	// 심박이 아니라 그냥 화면이 흔들리는 것이다.
 }
@@ -91,6 +94,31 @@ void UIGStressComponent::SetDarkness(const float InDarkness)
 	RefreshTickState();
 }
 
+void UIGStressComponent::BeginBreathHold(const float MaximumSeconds)
+{
+	bBreathHeld = true;
+	HeartbeatReboundRemaining = 0.0f;
+	// 한도보다 조금 길게 걸어 둔다. 놓는 쪽이 끊는다.
+	SuppressHeartbeat(FMath::Max(MaximumSeconds, 0.5f) + 1.0f, false);
+}
+
+void UIGStressComponent::EndBreathHold(const bool bRebound)
+{
+	if (!bBreathHeld)
+	{
+		return;
+	}
+	bBreathHeld = false;
+	HeartbeatSuppressionRemaining = 0.0f;
+	bPlayHeartbeatOnSuppressionRelease = false;
+	BeatPhase = 0.0f;
+	if (bRebound)
+	{
+		HeartbeatReboundRemaining = IGStress::BreathReboundSeconds;
+	}
+	RefreshTickState();
+}
+
 void UIGStressComponent::SuppressHeartbeat(
 	const float DurationSeconds,
 	const bool bPlayOneBeatOnRelease)
@@ -143,7 +171,8 @@ void UIGStressComponent::RefreshTickState()
 		|| Darkness > KINDA_SMALL_NUMBER
 		|| ThreatPressure > KINDA_SMALL_NUMBER
 		|| ScareCharge > KINDA_SMALL_NUMBER
-		|| HeartbeatSuppressionRemaining > KINDA_SMALL_NUMBER;
+		|| HeartbeatSuppressionRemaining > KINDA_SMALL_NUMBER
+		|| HeartbeatReboundRemaining > KINDA_SMALL_NUMBER;
 	if (IsComponentTickEnabled() != bNeedsTick)
 	{
 		SetComponentTickEnabled(bNeedsTick);
@@ -206,14 +235,25 @@ void UIGStressComponent::UpdateHeartbeat(const float DeltaSeconds)
 		}
 	}
 
+	// 숨을 놓은 반동. 참았던 만큼 심장이 몰아친다 — 그동안은 낮은 스트레스에서도
+	// 들리고, 0.85 위에서는 반동이 그대로 소음으로 샌다.
+	float ReboundAlpha = 0.0f;
+	if (HeartbeatReboundRemaining > 0.0f)
+	{
+		HeartbeatReboundRemaining = FMath::Max(0.0f, HeartbeatReboundRemaining - DeltaSeconds);
+		ReboundAlpha = HeartbeatReboundRemaining / IGStress::BreathReboundSeconds;
+	}
+
 	// Below a threshold you simply do not hear your own pulse.
-	if (Stress < 0.18f)
+	if (Stress < 0.18f && ReboundAlpha <= 0.0f)
 	{
 		BeatPhase = 0.0f;
 		return;
 	}
 
-	const float BeatsPerMinute = FMath::Lerp(RestingBPM, PanicBPM, FMath::Pow(Stress, 0.85f));
+	const float PulseStress = FMath::Max(Stress, 0.18f + 0.22f * ReboundAlpha);
+	const float BeatsPerMinute = FMath::Lerp(RestingBPM, PanicBPM, FMath::Pow(PulseStress, 0.85f))
+		* (1.0f + 0.22f * ReboundAlpha);
 	const float SecondsPerBeat = 60.0f / FMath::Max(BeatsPerMinute, 1.0f);
 
 	BeatPhase += DeltaSeconds;
@@ -222,18 +262,22 @@ void UIGStressComponent::UpdateHeartbeat(const float DeltaSeconds)
 		return;
 	}
 	BeatPhase -= SecondsPerBeat;
-	PlayHeartbeat(Stress);
+	HeartbeatReboundScaleNow = 1.0f + (IGStress::BreathReboundScale - 1.0f) * ReboundAlpha;
+	PlayHeartbeat(PulseStress);
+	HeartbeatReboundScaleNow = 1.0f;
 }
 
 void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 {
+	const float ReboundScale = HeartbeatReboundScaleNow;
 	// One heartbeat is a lub-dub: a low thump, then a slightly higher,
 	// quieter one about a fifth of a beat later. Both are short noise-shaped
 	// sines so they read as a body sound rather than a drum.
 	TArray<FIGToneNote> Beat;
 	const float SafeStress = FMath::Clamp(EffectiveStress, 0.18f, 1.0f);
 	const float Loudness = FMath::GetMappedRangeValueClamped(
-		FVector2D(0.18f, 1.0f), FVector2D(0.06f, 0.30f), SafeStress);
+		FVector2D(0.18f, 1.0f), FVector2D(0.06f, 0.30f), SafeStress)
+		* FMath::Clamp(ReboundScale, 1.0f, IGStress::BreathReboundScale);
 	Beat.Add({0.0f, 0.16f, 44.0f, Loudness, 0.04f, 2.6f, EIGToneWaveform::Sine});
 	Beat.Add({0.0f, 0.10f, 88.0f, Loudness * 0.35f, 0.05f, 3.0f, EIGToneWaveform::Sine});
 	Beat.Add({0.20f, 0.13f, 38.0f, Loudness * 0.72f, 0.05f, 2.8f, EIGToneWaveform::Sine});
@@ -294,9 +338,12 @@ void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 				if (UIGNoiseSubsystem* Noise =
 					World->GetSubsystem<UIGNoiseSubsystem>())
 				{
+					// 반동 중에는 새는 소음도 그만큼 크다. 숨을 참은 값을 치른다.
 					const FIGNoiseEvent Reported = Noise->ReportNoise(
 						Owner->GetActorLocation(),
-						0.115f,
+						ReboundScale > 1.0f
+							? 0.115f * FMath::Clamp(ReboundScale, 1.0f, IGStress::BreathReboundScale)
+							: 0.115f,
 						Owner);
 					// §21.3 심박 소음화. Only when the report actually survived
 					// masking: beside the fridge the pulse is swallowed, and

@@ -37,7 +37,7 @@ Require-All $tuning @(
 	'constexpr float NightHearingRadius[] = {900.0f, 1100.0f, 1100.0f, 1300.0f};',
 	'constexpr float NightListenWindow[] = {8.0f, 8.0f, 7.0f, 6.0f};',
 	'constexpr int32 NightPatrolNodes[] = {6, 11, 14, 18};',
-	'constexpr float NightChaseMultiplier[] = {2.4f, 3.0f, 3.0f, 3.4f};',
+	'constexpr float NightChaseMultiplier[] = {3.0f, 4.2f, 4.2f, 4.6f};',
 	'constexpr float NightInvestigateHold[] = {6.0f, 6.0f, 5.0f, 5.0f};',
 	'constexpr float NightHeatmapWeight[] = {0.0f, 0.3f, 0.5f, 0.7f};',
 	'constexpr bool NightAmbushAllowed[] = {false, false, true, true};'

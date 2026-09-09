@@ -12,17 +12,18 @@ namespace IGListenerTuning
 		constexpr float NightHearingRadius[] = {900.0f, 1100.0f, 1100.0f, 1300.0f};
 		constexpr float NightListenWindow[] = {8.0f, 8.0f, 7.0f, 6.0f};
 		constexpr int32 NightPatrolNodes[] = {6, 11, 14, 18};
-		constexpr float NightChaseMultiplier[] = {2.4f, 3.0f, 3.0f, 3.4f};
+		constexpr float NightChaseMultiplier[] = {3.0f, 4.2f, 4.2f, 4.6f};
 		constexpr float NightInvestigateHold[] = {6.0f, 6.0f, 5.0f, 5.0f};
 		constexpr float NightHeatmapWeight[] = {0.0f, 0.3f, 0.5f, 0.7f};
 		constexpr bool NightAmbushAllowed[] = {false, false, true, true};
 
 		/**
-		 * CHASE 속도 배율의 기준은 기는 속도다(§4.5 CrawlSpeed 110). 밤4의
-		 * ×3.4는 374cm/s로, 걷기 300보다 빠르고 달리기 460보다 느리다 —
-		 * 달리면 언제나 벗어날 수 있지만 달린 소음이 그를 부른 것이므로
-		 * (§18.2 달리기 소음 0.50) 대가는 이미 치렀다. 배율의 기준을
-		 * 걷기(300)로 잡으면 밤1부터 720cm/s가 되어 규칙을 배울 밤이 없다.
+		 * CHASE 속도 배율의 기준은 기는 속도다(§4.5 CrawlSpeed 110). 밤1의 ×3.0은
+		 * 330cm/s로 걷기 300보다 빠르고 달리기 460보다 느리다 — 첫 밤은 달리면
+		 * 벗어난다. 밤2부터는 462·462·506으로 달리기와 같거나 빠르다. 예전 값
+		 * (264·330·330·374)은 W만 누르고 있어도 절대 못 잡는 추격이라 추격 상태가
+		 * 이 게임에서 유일하게 음악이 붙는 상태인데도 아무 무게가 없었다. 이제는
+		 * 뛰어서 거리를 버는 게 아니라 험 옆이나 문 너머로 소리를 끊어야 산다.
 		 */
 		constexpr float CrawlSpeedBase = 110.0f;
 

@@ -70,6 +70,14 @@ public:
 	 */
 	void SuppressHeartbeat(float DurationSeconds, bool bPlayOneBeatOnRelease);
 
+	/**
+	 * §5.2 숨 참기. 참는 동안 심박은 소리도 소음도 아니다. 놓으면 1.5배 반동이
+	 * 몇 초 온다 — 스트레스 0.85 위에서는 그 반동이 그대로 새는 소음이다.
+	 */
+	void BeginBreathHold(float MaximumSeconds);
+	void EndBreathHold(bool bRebound);
+	bool IsBreathHeld() const { return bBreathHeld; }
+
 	/** Current breaths per minute, for the pawn's breath sway. */
 	UFUNCTION(BlueprintPure, Category = "Stress")
 	float GetBreathsPerMinute() const;
@@ -138,6 +146,11 @@ private:
 	float BeatPhase = 0.0f;
 	float HeartbeatSuppressionRemaining = 0.0f;
 	bool bPlayHeartbeatOnSuppressionRelease = false;
+	bool bBreathHeld = false;
+	/** 숨을 놓은 뒤 반동이 남은 시간. 심박이 커지고 빨라진다. */
+	float HeartbeatReboundRemaining = 0.0f;
+	/** 지금 만드는 박동에 걸 반동 배율. UpdateHeartbeat이 정하고 PlayHeartbeat이 읽는다. */
+	float HeartbeatReboundScaleNow = 1.0f;
 	float TremorTime = 0.0f;
 	FRotator Tremor = FRotator::ZeroRotator;
 };

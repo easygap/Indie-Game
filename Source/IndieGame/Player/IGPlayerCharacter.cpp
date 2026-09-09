@@ -2153,6 +2153,12 @@ void AIGPlayerCharacter::BeginHoldBreath()
 	}
 	bHoldingBreath = true;
 	BreathHeldSeconds = 0.0f;
+	// 설명은 「심박을 4초까지 지운다」였는데 실제로는 카메라 숨 흔들림만
+	// 멈췄다. 심장은 계속 뛰고 계속 샜다. 이제 정말로 지운다.
+	if (StressComponent)
+	{
+		StressComponent->BeginBreathHold(IGPlayerNoise::MaximumBreathHoldSeconds);
+	}
 }
 
 void AIGPlayerCharacter::EndHoldBreath()
@@ -2169,6 +2175,11 @@ void AIGPlayerCharacter::FinishHoldBreath(const bool bForcedRelease)
 	const float HeldSeconds = BreathHeldSeconds;
 	bHoldingBreath = false;
 	BreathHeldSeconds = 0.0f;
+	// 1초 넘게 참았으면 놓는 순간 1.5배 반동이 온다(§5.2). 잠깐 탭한 것은 반동 없이.
+	if (StressComponent)
+	{
+		StressComponent->EndBreathHold(HeldSeconds >= 1.0f);
+	}
 
 	// The recoil is camera-first so accessibility can suppress it. A forced
 	// four-second release also becomes a small real sound for the pursuer.

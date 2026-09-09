@@ -202,7 +202,7 @@ protected:
 	UPROPERTY(EditAnywhere, Category = "Listener|Movement", meta = (ClampMin = "0.0"))
 	float InvestigateSpeed = 240.0f;
 
-	/** Burst speed. Faster than the player walks; the point of the rules. */
+	/** Burst speed. 밤2부터 달리기와 같거나 빠르다. 뛰어서 벗어나는 게 아니라 소리를 끊어야 한다. */
 	UPROPERTY(EditAnywhere, Category = "Listener|Movement", meta = (ClampMin = "0.0"))
 	float ChaseSpeed = 460.0f;
 
@@ -224,6 +224,8 @@ private:
 	void TickState(float DeltaSeconds);
 	void HandleNoise(const FIGNoiseEvent& Event);
 	bool CanHear(const FIGNoiseEvent& Event) const;
+	/** 대답 노크가 그에게 닿는가. 거리와 험 마스킹을 소음과 같은 귀로 잰다. */
+	bool CanHearAnswerFrom(const FVector& KnockLocation) const;
 	float HearingMultiplier() const;
 	float ListenSecondsForTier() const;
 	float WaitSecondsForTier() const;
@@ -340,6 +342,12 @@ private:
 
 	/** The player's in-progress answer. Never more than the last three taps. */
 	TArray<double> AnswerTapTimes;
+	/**
+	 * 이 밤에 대답이 통한 횟수. 두 번째부터 기다림이 짧아지고 네 번째부터는
+	 * 대답이 오지 않는다. 같은 박자를 6초마다 두드리면 밤새 안 잡히던 구멍을
+	 * 막는다. 포획 리셋에는 남고 밤이 바뀔 때 0이 된다.
+	 */
+	int32 AnswersThisNight = 0;
 	TArray<FVector> FinaleRoutePoints;
 	int32 FinaleRouteIndex = 0;
 	float StateSeconds = 0.0f;

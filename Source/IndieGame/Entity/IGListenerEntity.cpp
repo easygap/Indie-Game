@@ -23,7 +23,8 @@ namespace IGListener
 	// window to move; keep these in step with CreateWallKnockTriple.
 	constexpr float BangSeconds = 2.1f;
 	constexpr float BangMasking = 0.3f;
-	constexpr float HoldSeconds = 6.0f;
+	/** 한 밤에 대답이 통하는 횟수. 그 뒤로는 벽의 잔향만 돌아온다. */
+	constexpr int32 AnswersPerNight = 3;
 	constexpr float SearchSeconds = 12.0f;
 	constexpr float SearchRadius = 350.0f;
 	constexpr float ChaseGiveUpSeconds = 8.0f;
@@ -310,7 +311,9 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		break;
 
 	case EIGListenerState::Holding:
-		if (StateSeconds >= IGListener::HoldSeconds)
+		// §20.2 「INVESTIGATE 도착 청취」. 표는 밤마다 6·6·5·5초라고 적어 두었는데
+		// 실제로는 상수 6초만 읽고 있었다.
+		if (StateSeconds >= FMath::Max(Tuning.InvestigateHoldSeconds, 0.5f))
 		{
 			EnterState(EIGListenerState::Searching);
 		}
@@ -387,10 +390,14 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		break;
 	}
 
-	// Touching the player ends the night from any moving pursuit state.
-	if (State == EIGListenerState::Investigating
-		|| State == EIGListenerState::Chasing
-		|| State == EIGListenerState::Searching)
+	// Touching the player ends the night. 예전엔 조사·추격·수색 셋에서만 잡았다.
+	// 두드리는 2.1초, 듣는 8초, 서서 기다리는 6초 동안 110cm 안에 서 있어도
+	// 아무 일이 없었다 — 그의 팔이 닿는 자리는 상태를 가리지 않는다. 대답 뒤의
+	// 기다림(Waiting)만 약속이라 예외다.
+	if (!bDormant
+		&& State != EIGListenerState::Waiting
+		&& State != EIGListenerState::CaptureHold
+		&& State != EIGListenerState::FinaleLured)
 	{
 		if (!CachedPlayer.IsValid())
 		{
@@ -510,8 +517,12 @@ float AIGListenerEntity::WaitSecondsForTier() const
 {
 	// Hope wears out: each reset it waits less on an answer. 조용한 밤 stretches
 	// every one of those waits by half again — more time to answer, same fear.
+	// 한 밤 안에서도 두 번째 대답은 0.6배, 세 번째는 0.35배만 기다린다.
 	static constexpr float Seconds[4] = {20.0f, 12.0f, 6.0f, 6.0f};
-	return Seconds[FMath::Clamp(AggressionTier, 0, 3)] * Tuning.WaitScale;
+	static constexpr float AnswerDecay[3] = {1.0f, 0.6f, 0.35f};
+	const int32 AnswerIndex = FMath::Clamp(AnswersThisNight - 1, 0, 2);
+	return Seconds[FMath::Clamp(AggressionTier, 0, 3)] * Tuning.WaitScale
+		* AnswerDecay[AnswerIndex];
 }
 
 // -- public controls -------------------------------------------------------
@@ -597,13 +608,15 @@ bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)
 	}
 	// Out of earshot the taps are just taps on a wall. Checked before the tap is
 	// recorded so a sequence started two floors away cannot be completed here.
-	FIGNoiseEvent Probe;
-	Probe.Location = KnockLocation;
-	Probe.Loudness = 0.35f;
-	Probe.Radius = Probe.Loudness * UIGNoiseSubsystem::CarryPerLoudness;
-	if (!CanHear(Probe))
+	if (!CanHearAnswerFrom(KnockLocation))
 	{
 		return false;
+	}
+	// 이미 기다리는 중이면 탭은 받되 기다림을 늘리지 않는다. 같은 박자를 6초마다
+	// 두드리면 밤새 얼어 있던 구멍이 여기였다.
+	if (State == EIGListenerState::Waiting)
+	{
+		return true;
 	}
 
 	const double Now = World->GetTimeSeconds();
@@ -640,18 +653,47 @@ bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)
 	return true;
 }
 
-void AIGListenerEntity::NotifyAnswerKnock(const FVector& KnockLocation)
+bool AIGListenerEntity::CanHearAnswerFrom(const FVector& KnockLocation) const
 {
 	// The answer only reaches it within ordinary hearing of a knock-loud
-	// sound; whispering the code from another floor does nothing.
+	// sound; whispering the code from another floor does nothing. 험도 대답을
+	// 가린다 — 냉장고 옆에서 친 노크가 그에게는 닿는데 같은 노크의 소음은
+	// 험에 삼켜지던 모순을 없앤다. 소음과 대답은 같은 귀로 듣는다.
+	// 그의 노크 3연이 거는 전역 마스킹(-0.3)은 뺀다. 그 창에 친 대답도 대답이다 —
+	// 기계 옆의 험만 대답을 삼킨다.
+	const float Masking = NoiseSubsystem
+		? FMath::Max(0.0f, NoiseSubsystem->GetMaskingAt(KnockLocation) - NoiseSubsystem->GetGlobalMasking())
+		: 0.0f;
 	FIGNoiseEvent Probe;
 	Probe.Location = KnockLocation;
-	Probe.Loudness = 0.35f;
+	Probe.Loudness = FMath::Max(0.0f, 0.35f - Masking);
 	Probe.Radius = Probe.Loudness * UIGNoiseSubsystem::CarryPerLoudness;
 	if (!CanHear(Probe))
 	{
+		return false;
+	}
+	return true;
+}
+
+void AIGListenerEntity::NotifyAnswerKnock(const FVector& KnockLocation)
+{
+	if (!CanHearAnswerFrom(KnockLocation))
+	{
 		return;
 	}
+	// 한 밤에 세 번. 네 번째부터 대답은 오지 않고 벽의 잔향만 남는다 — 그리고
+	// 그는 그 자리를 들었다.
+	if (AnswersThisNight >= IGListener::AnswersPerNight)
+	{
+		LastHeardLocation = KnockLocation;
+		bReactingToSound = true;
+		if (State != EIGListenerState::Chasing)
+		{
+			EnterState(EIGListenerState::Investigating);
+		}
+		return;
+	}
+	++AnswersThisNight;
 
 	AnswerKnockLocation = KnockLocation;
 	EnterState(EIGListenerState::Waiting);
@@ -697,6 +739,7 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 			NoiseSubsystem->DecayHeatmapForNewNight();
 		}
 		bAmbushArmed = false;
+		AnswersThisNight = 0;
 		if (UWorld* World = GetWorld())
 		{
 			if (UIGMissingFloorAudioSubsystem* AudioDirector =
@@ -1450,6 +1493,12 @@ void AIGListenerEntity::UpdateThreatPressure()
 		break;
 	case EIGListenerState::Searching:
 		Pressure = 0.25f * FMath::Clamp(1.0f - Distance / 900.0f, 0.0f, 1.0f);
+		break;
+	case EIGListenerState::Listening:
+	case EIGListenerState::Banging:
+		// 순찰 중이라도 6m 안에서 두드리고 듣는 그는 압박이다. 예전엔 코앞에서
+		// 노크 3연을 쳐도 심장이 잠잠했다.
+		Pressure = 0.35f * FMath::Clamp(1.0f - Distance / 600.0f, 0.0f, 1.0f);
 		break;
 	default:
 		break;
