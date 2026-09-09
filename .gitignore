@@ -70,3 +70,7 @@ Config/DefaultCrypto.ini
 # the pages through LFS instead if you would rather ship them; deleting this
 # rule is all that takes.
 Content/SourceArt/Atlas/*.png
+
+# Blender 자동 백업
+*.blend1
+*.blend2
