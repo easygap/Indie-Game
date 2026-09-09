@@ -1,4 +1,4 @@
-#include "Player/IGInteractionComponent.h"
+﻿#include "Player/IGInteractionComponent.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "DrawDebugHelpers.h"

@@ -5,6 +5,7 @@
 #include "AssetCompilingManager.h"
 #include "Audio/IGAlarmSoundWave.h"
 #include "Audio/IGAmbienceSoundWave.h"
+#include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
@@ -1667,20 +1668,20 @@ UAudioComponent* AIGPrologueWorldScene::CreateAmbientBed(
 	Bed->SetSound(Sound);
 	Bed->SetVolumeMultiplier(Volume);
 	Bed->bAutoActivate = false;
-	Bed->bOverrideAttenuation = true;
-	Bed->AttenuationOverrides.bAttenuate = true;
-	Bed->AttenuationOverrides.bSpatialize = true;
-	Bed->AttenuationOverrides.AttenuationShapeExtents = FVector(InnerRadius, 0.0f, 0.0f);
-	Bed->AttenuationOverrides.FalloffDistance = FalloffDistance;
-	Bed->AttenuationOverrides.DistanceAlgorithm = EAttenuationDistanceModel::NaturalSound;
-	Bed->AttenuationOverrides.dBAttenuationAtMax = -60.0f;
+	// 손으로 쓴 AttenuationOverrides는 헤드폰/스피커 전환이 훑는 목록에 안 들고
+	// 리버브 센드도 없었다. 다른 소리와 같은 감쇠를 쓴다. 늘 우는 베드는 보이스
+	// 상한에서 밀려나면 그 밤 내내 안 돌아오므로 상시 베드로 건다.
+	Bed->AttenuationSettings = IGAudio::MakeAttenuation(
+		this, InnerRadius, FalloffDistance, EIGAudioBus::World);
+	Bed->bAllowSpatialization = true;
 	Bed->RegisterComponent();
 	if (UWorld* World = GetWorld())
 	{
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->RegisterComponent(Bed, EIGAudioBus::World);
+			AudioDirector->PrepareSound(Sound, EIGAudioBus::World);
+			AudioDirector->RegisterPersistentBed(Bed, EIGAudioBus::World);
 		}
 	}
 	Bed->Play();

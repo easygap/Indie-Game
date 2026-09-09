@@ -213,6 +213,12 @@ void UIGMissingFloorAudioSubsystem::Tick(const float DeltaTime)
 		bEntityNearPlayer = false;
 		RefreshMix();
 	}
+	// 거리 보고가 끊기면(잠들었거나 사라졌거나) 압박 층도 내려간다.
+	if (PresenceAlpha > 0.0f && World
+		&& World->GetTimeSeconds() - LastEntityDistanceUpdateSeconds > 1.5f)
+	{
+		FadePresenceLayer(0.0f, 1.2f);
+	}
 }
 
 TStatId UIGMissingFloorAudioSubsystem::GetStatId() const
@@ -492,6 +498,87 @@ void UIGMissingFloorAudioSubsystem::SetEntityDistance(
 	{
 		RefreshMix();
 	}
+	UpdatePresenceLayer(DistanceCentimeters);
+}
+
+void UIGMissingFloorAudioSubsystem::UpdatePresenceLayer(const float DistanceCentimeters)
+{
+	UWorld* World = GetWorld();
+	if (!World || bTitleMode)
+	{
+		return;
+	}
+	// 14m 밖에서 0, 3m 안에서 1. 1.6제곱이라 멀리서는 거의 없고 가까워질수록
+	// 급하게 차오른다. 추격 중에는 거리와 무관하게 절반은 깔린다.
+	float Target = FMath::Pow(
+		FMath::Clamp((1400.0f - DistanceCentimeters) / 1100.0f, 0.0f, 1.0f), 1.6f);
+	if (ThreatState == EIGAudioThreatState::Chasing)
+	{
+		Target = FMath::Max(Target, 0.5f);
+	}
+	if (Target <= 0.001f && !PresenceComponent)
+	{
+		return;
+	}
+	if (!PresenceComponent)
+	{
+		UIGToneSequenceSoundWave* Layer = UIGToneSequenceSoundWave::CreatePresenceLayer(this);
+		PrepareSound(Layer, EIGAudioBus::Score);
+		PresenceComponent = UGameplayStatics::CreateSound2D(
+			World, Layer, 0.0f, 1.0f, 0.0f, nullptr, false, true);
+		if (!PresenceComponent)
+		{
+			return;
+		}
+		PresenceComponent->SetUISound(false);
+		RegisterPersistentBed(PresenceComponent, EIGAudioBus::Score);
+		PresenceComponent->Play();
+	}
+	FadePresenceLayer(Target, 0.35f);
+}
+
+void UIGMissingFloorAudioSubsystem::FadePresenceLayer(const float Target, const float Seconds)
+{
+	const float Clamped = FMath::Clamp(Target, 0.0f, 1.0f);
+	if (FMath::IsNearlyEqual(PresenceAlpha, Clamped, 0.01f))
+	{
+		return;
+	}
+	PresenceAlpha = Clamped;
+	if (PresenceComponent)
+	{
+		PresenceComponent->AdjustVolume(Seconds, Clamped * 0.9f);
+	}
+}
+
+void UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVector& Location)
+{
+	if (!GetWorld() || bTitleMode)
+	{
+		return;
+	}
+	UIGToneSequenceSoundWave* Wave = nullptr;
+	float Volume = 1.0f;
+	switch (Kind)
+	{
+	case EIGStinger::CloseCall:
+		Wave = UIGToneSequenceSoundWave::CreateCloseCallStinger(this);
+		Volume = 0.95f;
+		break;
+	case EIGStinger::ChaseStart:
+		Wave = UIGToneSequenceSoundWave::CreateEntityChaseScream(this);
+		Volume = 1.0f;
+		break;
+	case EIGStinger::Capture:
+		Wave = UIGToneSequenceSoundWave::CreateCaptureLunge(this);
+		Volume = 1.0f;
+		break;
+	}
+	if (!Wave)
+	{
+		return;
+	}
+	IGAudio::SpawnOneShotAt(this, Wave, Location, Volume, 1.0f, 240.0f, 2600.0f, EIGAudioBus::Entity);
 }
 
 void UIGMissingFloorAudioSubsystem::SetTitleMode(const bool bEnabled)

@@ -594,9 +594,10 @@ if ($stageSetupBody.Groups['body'].Value -notmatch 'DestroyPartialStage\(\);') {
 # 셋업이 직접 세우는 것과, 셋업이 부르는 헬퍼가 세우는 것을 함께 센다.
 # 증인 다섯은 지금 마지막 실패 경로보다 뒤에 있지만, 그 사이에 실패가 하나
 # 생기면 이름이 살아남아 재시도를 막는다.
-# 셋업이 부르는 스폰 헬퍼는 둘이다. 셋업 본문만 보면 이 열둘을 놓친다.
+# 셋업이 부르는 스폰 헬퍼는 셋이다. 셋업 본문만 보면 이 열둘을 놓친다. 밤 베드는
+# 액터가 아니라 이름 붙인 컴포넌트라 teardown이 DestroyComponent로 걷는다.
 $stageHelperBodies = ''
-foreach ($stageHelperName in @('SpawnOptionalWitnesses', 'SpawnArrivalInteractables')) {
+foreach ($stageHelperName in @('SpawnOptionalWitnesses', 'SpawnArrivalInteractables', 'SpawnNightAmbienceBeds')) {
 	$stageHelperBody = [regex]::Match(
 		$greyboxStageSource,
 		'void AIGListenerGreyboxDirector::' + $stageHelperName +
@@ -614,7 +615,7 @@ $stageHelperCalls = @(
 		ForEach-Object { $_.Groups['name'].Value } |
 		Sort-Object -Unique)
 foreach ($stageHelper in $stageHelperCalls) {
-	if ($stageHelper -notin @('SpawnOptionalWitnesses', 'SpawnArrivalInteractables')) {
+	if ($stageHelper -notin @('SpawnOptionalWitnesses', 'SpawnArrivalInteractables', 'SpawnNightAmbienceBeds')) {
 		throw (
 			'The greybox stage setup calls {0}; the teardown audit does not follow it.' -f
 				$stageHelper)

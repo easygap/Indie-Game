@@ -56,6 +56,17 @@ enum class EIGAcousticSpace : uint8
 	Count UMETA(Hidden)
 };
 
+/** 존재가 낼 수 있는 놀람 셋. 전부 그의 버스를 타고 그의 자리에서 난다. */
+enum class EIGStinger : uint8
+{
+	/** 코앞에서 마주쳤다. 3.2m 안, 시야 안, 25초 쿨다운. */
+	CloseCall,
+	/** 추격이 시작됐다. 비명 뒤에 온다. */
+	ChaseStart,
+	/** 덮쳤다. 드라이 노크 둘 바로 앞. */
+	Capture
+};
+
 /**
  * Runtime mix and score director for The Missing Floor.
  *
@@ -139,6 +150,10 @@ public:
 	void SetPlayerListening(bool bListening);
 	void SetAuthoredSilence(bool bSilent);
 	void SetEntityDistance(float DistanceCentimeters);
+	/** 놀람 하나. 존재 버스, 그의 자리에서. */
+	void PlayStinger(EIGStinger Kind, const FVector& Location);
+	/** 압박 층의 지금 볼륨 0~1. 계약과 프로브가 읽는다. */
+	float GetPresenceAlpha() const { return PresenceAlpha; }
 	void SetTitleMode(bool bEnabled);
 	/** 보정한 사용자 이득을 여섯 버스에 같은 비율로 적용한다. */
 	void SetUserMasterVolume(float Volume01, float FadeSeconds = 0.08f);
@@ -246,6 +261,16 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> ScoreComponent;
+	/**
+	 * 존재 거리로 켜지는 압박 층. 14m 밖에서 0, 3m 안에서 1. 순찰 중에는 음악이
+	 * 없다는 §10.2의 원칙은 그대로다 — 이건 음악이 아니라 그가 가까이 있다는
+	 * 몸의 감각이다. 2D, 스코어 버스, 상시 베드.
+	 */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> PresenceComponent;
+	float PresenceAlpha = 0.0f;
+	void UpdatePresenceLayer(float DistanceCentimeters);
+	void FadePresenceLayer(float Target, float Seconds);
 
 	static constexpr int32 AcousticSpaceCount =
 		static_cast<int32>(EIGAcousticSpace::Count);

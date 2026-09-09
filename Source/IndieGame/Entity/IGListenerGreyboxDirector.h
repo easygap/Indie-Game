@@ -270,6 +270,16 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> BoilerHumLoop;
 
+	/** 밤의 환경 베드 셋: 4층 복도, 계단실, 5층. 험 반경 밖이 무음이던 것을 채운다. */
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UAudioComponent>> NightAmbienceBeds;
+	/** 밤 사이 위에서 한 번씩 나는 건물 소리. 45~110초마다. */
+	FTimerHandle SettleTimerHandle;
+	int32 SettleCounter = 0;
+	void SpawnNightAmbienceBeds();
+	void ScheduleNextSettle();
+	void PlaySettleEvent();
+
 	/**
 	 * 지난 시도가 만들다 만 것을 치운다.
 	 *

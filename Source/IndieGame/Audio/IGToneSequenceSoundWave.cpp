@@ -474,9 +474,13 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateDoorThud(UObject* Oute
 {
 	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGDoorThud"));
 	TArray<FIGToneNote> ThudNotes;
-	ThudNotes.Add({0.00f, 0.13f, 74.0f, 0.320f, 0.010f, 3.0f, EIGToneWaveform::Sine});
-	ThudNotes.Add({0.00f, 0.06f, 520.0f, 0.060f, 0.050f, 2.0f, EIGToneWaveform::ValueNoise});
+	// 문짝이 문틀을 만나는 저역, 판이 우는 대역 잡음, 걸쇠가 물리는 금속 딸깍.
+	ThudNotes.Add({0.00f, 0.004f, 3200.0f, 0.140f, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+	ThudNotes.Add({0.00f, 0.13f, 74.0f, 0.300f, 0.010f, 3.0f, EIGToneWaveform::Sub});
+	ThudNotes.Add({0.00f, 0.09f, 520.0f, 0.110f, 0.05f, 2.0f, EIGToneWaveform::BandNoise, 0.30f});
+	ThudNotes.Add({0.03f, 0.14f, 1240.0f, 0.070f, 0.01f, 2.4f, EIGToneWaveform::Pluck, 0.30f});
 	Wave->ConfigureNotes(MoveTemp(ThudNotes), false);
+	Wave->ConfigureRoomTail(0.016f, 0.32f, 0.30f, 0.16f);
 	return Wave;
 }
 
@@ -484,10 +488,14 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateLockedRattle(UObject* 
 {
 	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGLockedRattle"));
 	TArray<FIGToneNote> RattleNotes;
-	RattleNotes.Add({0.00f, 0.05f, 950.0f, 0.150f, 0.05f, 1.0f, EIGToneWaveform::ValueNoise});
-	RattleNotes.Add({0.09f, 0.05f, 900.0f, 0.170f, 0.05f, 1.0f, EIGToneWaveform::ValueNoise});
-	RattleNotes.Add({0.18f, 0.07f, 870.0f, 0.150f, 0.05f, 1.0f, EIGToneWaveform::ValueNoise});
-	RattleNotes.Add({0.18f, 0.09f, 92.0f, 0.180f, 0.02f, 2.5f, EIGToneWaveform::Sine});
+	// 손잡이가 걸쇠에 걸려 세 번 덜컹. 금속은 튕긴 줄, 문짝은 저역.
+	RattleNotes.Add({0.00f, 0.05f, 950.0f, 0.100f, 0.05f, 1.0f, EIGToneWaveform::ValueNoise});
+	RattleNotes.Add({0.00f, 0.09f, 2100.0f, 0.090f, 0.01f, 2.0f, EIGToneWaveform::Pluck, 0.30f});
+	RattleNotes.Add({0.09f, 0.05f, 900.0f, 0.110f, 0.05f, 1.0f, EIGToneWaveform::ValueNoise});
+	RattleNotes.Add({0.09f, 0.09f, 1900.0f, 0.090f, 0.01f, 2.0f, EIGToneWaveform::Pluck, 0.30f});
+	RattleNotes.Add({0.18f, 0.07f, 870.0f, 0.100f, 0.05f, 1.0f, EIGToneWaveform::ValueNoise});
+	RattleNotes.Add({0.18f, 0.09f, 92.0f, 0.180f, 0.02f, 2.5f, EIGToneWaveform::Sub});
+	RattleNotes.Add({0.18f, 0.10f, 1700.0f, 0.100f, 0.01f, 2.0f, EIGToneWaveform::Pluck, 0.34f});
 	Wave->ConfigureNotes(MoveTemp(RattleNotes), false);
 	return Wave;
 }
@@ -1582,43 +1590,55 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSurfaceFootstep(
 
 	switch (Surface)
 	{
+	// 걸음 하나는 셋이다: 뒤꿈치가 닿는 밀리초의 트랜지언트(백색 잡음), 밑창이
+	// 눌리는 몸통(대역 잡음), 표면이 내는 꼬리. 예전엔 사인 하나에 값잡음 하나라
+	// 「붕」 소리에 가까웠다.
 	case EIGFootstepSurface::Vinyl:
-		Notes.Add({0.000f, 0.080f, 62.0f * Pitch, 0.42f * Gain, 0.010f, 3.2f, EIGToneWaveform::Sine});
-		Notes.Add({0.000f, 0.052f, 520.0f * Pitch, 0.20f * Gain, 0.040f, 2.4f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.000f, 0.006f, 3000.0f, 0.26f * Gain, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+		Notes.Add({0.000f, 0.080f, 62.0f * Pitch, 0.30f * Gain, 0.010f, 3.2f, EIGToneWaveform::Sub});
+		Notes.Add({0.002f, 0.070f, 900.0f * Pitch, 0.22f * Gain, 0.05f, 2.4f, EIGToneWaveform::BandNoise, 0.35f});
+		Notes.Add({0.012f, 0.060f, 2600.0f * Pitch, 0.09f * Gain, 0.10f, 2.0f, EIGToneWaveform::BandNoise, 0.50f});
 		break;
 
 	case EIGFootstepSurface::Concrete:
-		Notes.Add({0.000f, 0.095f, 57.0f * Pitch, 0.46f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sine});
-		Notes.Add({0.000f, 0.115f, 880.0f * Pitch, 0.25f * Gain, 0.025f, 2.0f, EIGToneWaveform::ValueNoise});
-		Notes.Add({0.050f, 0.170f, 310.0f * Pitch, 0.075f * Gain, 0.080f, 2.2f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.000f, 0.005f, 4000.0f, 0.28f * Gain, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+		Notes.Add({0.000f, 0.095f, 57.0f * Pitch, 0.34f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sub});
+		Notes.Add({0.001f, 0.110f, 1400.0f * Pitch, 0.22f * Gain, 0.04f, 2.2f, EIGToneWaveform::BandNoise, 0.25f});
+		Notes.Add({0.030f, 0.180f, 420.0f * Pitch, 0.10f * Gain, 0.08f, 2.0f, EIGToneWaveform::BandNoise, 0.45f});
+		Notes.Add({0.020f, 0.120f, 900.0f, 0.08f * Gain, 0.10f, 1.8f, EIGToneWaveform::Crackle});
 		break;
 
 	case EIGFootstepSurface::MetalStair:
-		Notes.Add({0.000f, 0.070f, 72.0f * Pitch, 0.44f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sine});
-		Notes.Add({0.000f, 0.055f, 1900.0f * Pitch, 0.26f * Gain, 0.010f, 2.2f, EIGToneWaveform::ValueNoise});
-		Notes.Add({0.018f, 0.400f, 1480.0f * Pitch, 0.17f * Gain, 0.020f, 2.7f, EIGToneWaveform::Sine});
-		Notes.Add({0.025f, 0.360f, 2780.0f * Pitch, 0.075f * Gain, 0.020f, 3.0f, EIGToneWaveform::Sine});
+		Notes.Add({0.000f, 0.005f, 4500.0f, 0.28f * Gain, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+		Notes.Add({0.000f, 0.070f, 72.0f * Pitch, 0.30f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sub});
+		Notes.Add({0.000f, 0.050f, 2500.0f * Pitch, 0.16f * Gain, 0.02f, 2.0f, EIGToneWaveform::BandNoise, 0.30f});
+		// 디딤판이 운다. 튕긴 줄이 금속판에 가장 가깝다.
+		Notes.Add({0.006f, 0.420f, 1480.0f * Pitch, 0.14f * Gain, 0.010f, 2.2f, EIGToneWaveform::Pluck, 0.62f});
+		Notes.Add({0.006f, 0.360f, 2780.0f * Pitch, 0.06f * Gain, 0.010f, 2.6f, EIGToneWaveform::Pluck, 0.50f});
+		Notes.Add({0.010f, 0.250f, 210.0f * Pitch, 0.08f * Gain, 0.05f, 2.4f, EIGToneWaveform::BandNoise, 0.55f});
 		break;
 
 	case EIGFootstepSurface::Rooftop:
-		Notes.Add({0.000f, 0.085f, 52.0f * Pitch, 0.50f * Gain, 0.010f, 3.4f, EIGToneWaveform::Sine});
-		Notes.Add({0.000f, 0.060f, 300.0f * Pitch, 0.17f * Gain, 0.040f, 2.6f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.000f, 0.005f, 2500.0f, 0.14f * Gain, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+		Notes.Add({0.000f, 0.085f, 52.0f * Pitch, 0.38f * Gain, 0.010f, 3.4f, EIGToneWaveform::Sub});
+		Notes.Add({0.002f, 0.090f, 380.0f * Pitch, 0.18f * Gain, 0.06f, 2.2f, EIGToneWaveform::BandNoise, 0.30f});
 		break;
 
 	case EIGFootstepSurface::GypsumDebris:
-		Notes.Add({0.000f, 0.075f, 64.0f * Pitch, 0.43f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sine});
-		// Three fixed micro-bursts become three audible variants through the
-		// deterministic per-step pitch hash, without runtime random allocation.
-		Notes.Add({0.000f, 0.045f, 1150.0f * Pitch, 0.25f * Gain, 0.010f, 2.0f, EIGToneWaveform::ValueNoise});
-		Notes.Add({0.038f, 0.050f, 2450.0f / Pitch, 0.23f * Gain, 0.010f, 2.2f, EIGToneWaveform::ValueNoise});
-		Notes.Add({0.078f, 0.060f, 760.0f * Pitch, 0.20f * Gain, 0.010f, 2.5f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.000f, 0.005f, 4000.0f, 0.22f * Gain, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+		Notes.Add({0.000f, 0.075f, 64.0f * Pitch, 0.28f * Gain, 0.010f, 3.0f, EIGToneWaveform::Sub});
+		// 부스러기는 알갱이다. 밀도 700/s의 알갱이가 0.16초 동안 갈린다.
+		Notes.Add({0.000f, 0.160f, 700.0f, 0.26f * Gain, 0.02f, 1.6f, EIGToneWaveform::Crackle});
+		Notes.Add({0.010f, 0.090f, 1900.0f * Pitch, 0.14f * Gain, 0.05f, 2.0f, EIGToneWaveform::BandNoise, 0.30f});
+		Notes.Add({0.050f, 0.140f, 1200.0f, 0.10f * Gain, 0.10f, 2.2f, EIGToneWaveform::Crackle});
 		break;
 
 	case EIGFootstepSurface::Water:
-		Notes.Add({0.000f, 0.100f, 49.0f * Pitch, 0.38f * Gain, 0.010f, 2.8f, EIGToneWaveform::Sine});
-		Notes.Add({0.000f, 0.150f, 560.0f * Pitch, 0.31f * Gain, 0.020f, 1.9f, EIGToneWaveform::ValueNoise});
-		Notes.Add({0.025f, 0.180f, 1420.0f * Pitch, 0.13f * Gain, 0.020f, 2.7f, EIGToneWaveform::Sine});
-		Notes.Add({0.090f, 0.100f, 2400.0f / Pitch, 0.065f * Gain, 0.020f, 3.0f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.000f, 0.100f, 49.0f * Pitch, 0.26f * Gain, 0.010f, 2.8f, EIGToneWaveform::Sub});
+		Notes.Add({0.000f, 0.160f, 1200.0f * Pitch, 0.24f * Gain, 0.03f, 1.8f, EIGToneWaveform::BandNoise, 0.20f});
+		Notes.Add({0.030f, 0.200f, 600.0f * Pitch, 0.14f * Gain, 0.10f, 1.8f, EIGToneWaveform::BandNoise, 0.35f});
+		Notes.Add({0.060f, 0.220f, 260.0f, 0.12f * Gain, 0.10f, 1.8f, EIGToneWaveform::Crackle});
+		Notes.Add({0.020f, 0.120f, 3200.0f / Pitch, 0.08f * Gain, 0.05f, 2.4f, EIGToneWaveform::BandNoise, 0.50f});
 		break;
 	}
 
@@ -1687,6 +1707,10 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCavityDrone(
 	TArray<FIGToneNote> Notes;
 	Notes.Add({0.0f, LoopLength, 44.0f, 0.095f, 0.35f, 0.8f, EIGToneWaveform::Sine});
 	Notes.Add({0.0f, LoopLength, 180.0f, 0.027f, 0.30f, 0.9f, EIGToneWaveform::ValueNoise});
+	// 벽 사이 공간의 목울림과 좁은 대역의 숨. 사인과 값잡음만으로는 이명이었다.
+	Notes.Add({0.0f, LoopLength, 33.0f, 0.050f, 0.40f, 0.8f, EIGToneWaveform::Growl, 0.25f});
+	Notes.Add({0.6f, 3.4f, 210.0f, 0.030f, 0.60f, 1.0f, EIGToneWaveform::BandNoise, 0.85f});
+	Notes.Add({4.4f, 3.2f, 236.0f, 0.026f, 0.60f, 1.0f, EIGToneWaveform::BandNoise, 0.85f});
 	for (const float Tick : {1.30f, 3.85f, 6.70f})
 	{
 		Notes.Add({Tick, 0.035f, 980.0f + Tick * 41.0f, 0.055f, 0.010f, 3.2f, EIGToneWaveform::Sine});
@@ -1711,13 +1735,22 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateChaseScore(
 	{
 		const float Start = Index * Beat;
 		const float Accent = Index % 4 == 0 ? 1.0f : 0.72f;
-		Notes.Add({Start, Beat * 0.54f, 52.0f, 0.15f * Accent, 0.025f, 2.4f, EIGToneWaveform::Sine});
+		Notes.Add({Start, Beat * 0.54f, 52.0f, 0.15f * Accent, 0.025f, 2.4f, EIGToneWaveform::Sub});
 		Notes.Add({Start, 0.040f, 520.0f, 0.055f * Accent, 0.010f, 3.2f, EIGToneWaveform::ValueNoise});
+		// 뒷박의 쇳소리와 앞박의 타격 접촉. 사인 펄스만으로는 심박이지 추격이 아니었다.
+		Notes.Add({Start + Beat * 0.5f, 0.050f, 5200.0f, 0.045f, 0.05f, 2.0f, EIGToneWaveform::BandNoise, 0.60f});
+		Notes.Add({Start, 0.006f, 3000.0f, 0.060f * Accent, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
 	}
 	for (const float Frequency : {220.0f, 223.0f, 227.0f})
 	{
 		Notes.Add({Beat * 0.50f, LoopLength - Beat * 0.50f, Frequency, 0.035f, 0.12f, 1.1f, EIGToneWaveform::Triangle});
 	}
+	// 목울림 드론과 넷째·여덟째 박의 튕긴 불협. 조율 안 된 피아노를 주먹으로 친다.
+	Notes.Add({0.0f, LoopLength, 41.0f, 0.060f, 0.30f, 0.8f, EIGToneWaveform::Growl, 0.35f});
+	Notes.Add({Beat * 3.0f, 0.60f, 220.0f, 0.070f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
+	Notes.Add({Beat * 3.0f, 0.60f, 233.0f, 0.060f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
+	Notes.Add({Beat * 7.0f, 0.60f, 227.0f, 0.070f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
+	Notes.Add({Beat * 7.0f, 0.60f, 247.0f, 0.060f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
 	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopLength);
 	Wave->ConfigurePitchWow(0.0025f, 0.21f);
 	return Wave;
@@ -1736,15 +1769,22 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockTriple(
 	// click, which is what real drywall does to a fist.
 	const float Click = FMath::Lerp(0.085f, 0.012f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
 	const float Body = FMath::Lerp(0.360f, 0.300f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
+	// 주먹이 석고보드를 치면: 관절 접촉의 밀리초, 판이 흔들리는 저역, 스터드가
+	// 울리는 나무 공명. 먹먹할수록 접촉과 공명이 먼저 죽는다.
+	const float Stud = FMath::Lerp(0.150f, 0.050f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
 	for (int32 KnockIndex = 0; KnockIndex < 3; ++KnockIndex)
 	{
 		const float Start = 0.62f * KnockIndex;
-		KnockNotes.Add({Start, 0.110f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sine});
-		KnockNotes.Add({Start, 0.060f, 176.0f, 0.130f, 0.006f, 2.0f, EIGToneWaveform::Sine});
+		KnockNotes.Add({Start, 0.110f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sub});
+		KnockNotes.Add({Start, 0.060f, 176.0f, 0.090f, 0.006f, 2.0f, EIGToneWaveform::Sine});
 		KnockNotes.Add({Start, 0.030f, 1150.0f, Click, 0.020f, 1.2f, EIGToneWaveform::ValueNoise});
+		KnockNotes.Add({Start, 0.004f, 3800.0f, Click, 0.050f, 1.0f, EIGToneWaveform::WhiteNoise});
+		KnockNotes.Add({Start, 0.220f, 196.0f, Stud, 0.004f, 2.2f, EIGToneWaveform::Pluck, 0.42f});
 	}
 
 	Wave->ConfigureNotes(MoveTemp(KnockNotes), false);
+	// 복도 벽 사이의 되울림. 21ms 지연이면 7m 남짓 건너편 벽이다.
+	Wave->ConfigureRoomTail(0.021f, 0.40f, 0.35f, 0.24f);
 	return Wave;
 }
 
@@ -1758,10 +1798,14 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockSingle(
 	const float Muffle = FMath::Clamp(Muffle01, 0.0f, 1.0f);
 	const float Click = FMath::Lerp(0.085f, 0.012f, Muffle);
 	const float Body = FMath::Lerp(0.360f, 0.300f, Muffle);
-	KnockNotes.Add({0.0f, 0.110f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sine});
-	KnockNotes.Add({0.0f, 0.060f, 176.0f, 0.130f, 0.006f, 2.0f, EIGToneWaveform::Sine});
+	const float Stud = FMath::Lerp(0.150f, 0.050f, Muffle);
+	KnockNotes.Add({0.0f, 0.110f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sub});
+	KnockNotes.Add({0.0f, 0.060f, 176.0f, 0.090f, 0.006f, 2.0f, EIGToneWaveform::Sine});
 	KnockNotes.Add({0.0f, 0.030f, 1150.0f, Click, 0.020f, 1.2f, EIGToneWaveform::ValueNoise});
+	KnockNotes.Add({0.0f, 0.004f, 3800.0f, Click, 0.050f, 1.0f, EIGToneWaveform::WhiteNoise});
+	KnockNotes.Add({0.0f, 0.220f, 196.0f, Stud, 0.004f, 2.2f, EIGToneWaveform::Pluck, 0.42f});
 	Wave->ConfigureNotes(MoveTemp(KnockNotes), false);
+	Wave->ConfigureRoomTail(0.021f, 0.40f, 0.35f, 0.24f);
 	return Wave;
 }
 
@@ -1776,12 +1820,16 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockReply(UObject
 	for (int32 KnockIndex = 0; KnockIndex < 2; ++KnockIndex)
 	{
 		const float Start = 0.42f * KnockIndex;
-		ReplyNotes.Add({Start, 0.100f, 58.0f, 0.250f, 0.005f, 2.8f, EIGToneWaveform::Sine});
-		ReplyNotes.Add({Start, 0.050f, 176.0f, 0.080f, 0.008f, 2.0f, EIGToneWaveform::Sine});
+		ReplyNotes.Add({Start, 0.100f, 58.0f, 0.250f, 0.005f, 2.8f, EIGToneWaveform::Sub});
+		ReplyNotes.Add({Start, 0.050f, 176.0f, 0.060f, 0.008f, 2.0f, EIGToneWaveform::Sine});
 		ReplyNotes.Add({Start, 0.024f, 1000.0f, 0.030f, 0.030f, 1.4f, EIGToneWaveform::ValueNoise});
+		ReplyNotes.Add({Start, 0.003f, 3600.0f, 0.040f, 0.050f, 1.0f, EIGToneWaveform::WhiteNoise});
+		ReplyNotes.Add({Start, 0.200f, 196.0f, 0.090f, 0.004f, 2.2f, EIGToneWaveform::Pluck, 0.38f});
 	}
 
 	Wave->ConfigureNotes(MoveTemp(ReplyNotes), false);
+	// 포획 노크는 드라이로 재생되지만(§21.3) 파형 자체의 스터드 울림은 남는다 —
+	// 방이 없다는 뜻이지 벽이 없다는 뜻은 아니다. 방 울림은 걸지 않는다.
 	return Wave;
 }
 
@@ -1797,15 +1845,19 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateAnswerKnockPattern(
 	// 0.73 s of silence, then the single settling knock.
 	const float Click = FMath::Lerp(0.075f, 0.010f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
 	const float Body = FMath::Lerp(0.330f, 0.270f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
+	const float Stud = FMath::Lerp(0.140f, 0.045f, FMath::Clamp(Muffle01, 0.0f, 1.0f));
 	const float Starts[] = {0.0f, 0.42f, 1.15f};
 	for (const float Start : Starts)
 	{
-		PatternNotes.Add({Start, 0.105f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sine});
-		PatternNotes.Add({Start, 0.055f, 176.0f, 0.110f, 0.006f, 2.0f, EIGToneWaveform::Sine});
+		PatternNotes.Add({Start, 0.105f, 58.0f, Body, 0.004f, 2.6f, EIGToneWaveform::Sub});
+		PatternNotes.Add({Start, 0.055f, 176.0f, 0.080f, 0.006f, 2.0f, EIGToneWaveform::Sine});
 		PatternNotes.Add({Start, 0.028f, 1100.0f, Click, 0.020f, 1.2f, EIGToneWaveform::ValueNoise});
+		PatternNotes.Add({Start, 0.004f, 3600.0f, Click, 0.050f, 1.0f, EIGToneWaveform::WhiteNoise});
+		PatternNotes.Add({Start, 0.210f, 196.0f, Stud, 0.004f, 2.2f, EIGToneWaveform::Pluck, 0.40f});
 	}
 
 	Wave->ConfigureNotes(MoveTemp(PatternNotes), false);
+	Wave->ConfigureRoomTail(0.018f, 0.36f, 0.30f, 0.20f);
 	return Wave;
 }
 
@@ -1832,6 +1884,7 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityDragLoop(
 		DragNotes.Add({0.315f, 0.070f, 1750.0f, 0.030f, 0.060f, 2.2f, EIGToneWaveform::Triangle});
 		DragNotes.Add({0.612f, 0.055f, 2050.0f, 0.022f, 0.070f, 2.4f, EIGToneWaveform::Triangle});
 		DragNotes.Add({0.740f, 0.180f, 2600.0f, 0.020f, 0.200f, 1.8f, EIGToneWaveform::ValueNoise});
+		DragNotes.Add({0.180f, 0.520f, 1600.0f, 0.050f, 0.180f, 1.2f, EIGToneWaveform::BandNoise, 0.30f});
 	}
 	else
 	{
@@ -1842,9 +1895,182 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityDragLoop(
 		DragNotes.Add({0.180f, 0.520f, 320.0f, 0.085f, 0.180f, 1.2f, EIGToneWaveform::ValueNoise});
 		DragNotes.Add({0.180f, 0.520f, 92.0f, 0.070f, 0.180f, 1.4f, EIGToneWaveform::ValueNoise});
 		DragNotes.Add({0.740f, 0.180f, 1400.0f, 0.024f, 0.200f, 1.8f, EIGToneWaveform::ValueNoise});
+		DragNotes.Add({0.180f, 0.520f, 240.0f, 0.060f, 0.180f, 1.3f, EIGToneWaveform::BandNoise, 0.40f});
+		DragNotes.Add({0.200f, 0.500f, 500.0f, 0.045f, 0.200f, 1.2f, EIGToneWaveform::Crackle});
 	}
 
 	Wave->ConfigureNotes(MoveTemp(DragNotes), true, 1.05f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityCrawlStep(
+	UObject* Outer,
+	const bool bVinyl)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(
+		Outer,
+		bVinyl ? TEXT("IGEntityCrawlStepVinyl") : TEXT("IGEntityCrawlStep"));
+	TArray<FIGToneNote> Notes;
+	if (bVinyl)
+	{
+		// 장판: 손바닥이 미끄러지며 찍, 무릎이 눌리는 낮은 톡.
+		Notes.Add({0.000f, 0.060f, 78.0f, 0.220f, 0.008f, 2.6f, EIGToneWaveform::Sub});
+		Notes.Add({0.000f, 0.035f, 1100.0f, 0.110f, 0.05f, 1.8f, EIGToneWaveform::BandNoise, 0.25f});
+		Notes.Add({0.040f, 0.140f, 1750.0f, 0.050f, 0.20f, 1.6f, EIGToneWaveform::Pluck, 0.40f});
+		Notes.Add({0.170f, 0.050f, 96.0f, 0.140f, 0.010f, 2.8f, EIGToneWaveform::Sub});
+	}
+	else
+	{
+		// 타일: 손바닥이 치고, 살이 끌리고, 모래가 갈리고, 무릎이 닿는다.
+		Notes.Add({0.000f, 0.060f, 74.0f, 0.240f, 0.008f, 2.6f, EIGToneWaveform::Sub});
+		Notes.Add({0.000f, 0.035f, 900.0f, 0.120f, 0.05f, 1.8f, EIGToneWaveform::BandNoise, 0.25f});
+		Notes.Add({0.040f, 0.160f, 1500.0f, 0.070f, 0.20f, 1.4f, EIGToneWaveform::BandNoise, 0.30f});
+		Notes.Add({0.170f, 0.050f, 92.0f, 0.150f, 0.010f, 2.8f, EIGToneWaveform::Sub});
+		Notes.Add({0.180f, 0.100f, 600.0f, 0.060f, 0.20f, 1.4f, EIGToneWaveform::Crackle});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityBreathLoop(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGEntityBreathLoop"));
+	constexpr float LoopSeconds = 3.2f;
+	TArray<FIGToneNote> Notes;
+	// 들이쉬는 숨은 높고 길게 차오르고, 내쉬는 숨은 낮고 목이 울린다. 마지막에
+	// 젖은 딸깍 하나. 사람의 숨인데 사람의 숨이 아니다.
+	Notes.Add({0.00f, 1.10f, 620.0f, 0.090f, 0.60f, 1.2f, EIGToneWaveform::BandNoise, 0.30f});
+	Notes.Add({1.30f, 1.50f, 380.0f, 0.110f, 0.30f, 1.0f, EIGToneWaveform::BandNoise, 0.35f});
+	Notes.Add({1.35f, 1.20f, 58.0f, 0.085f, 0.40f, 1.0f, EIGToneWaveform::Growl, 0.30f});
+	Notes.Add({2.75f, 0.03f, 2400.0f, 0.045f, 0.10f, 1.0f, EIGToneWaveform::WhiteNoise});
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopSeconds);
+	Wave->ConfigurePitchWow(0.006f, 0.19f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityAlertVocal(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGEntityAlertVocal"));
+	TArray<FIGToneNote> Notes;
+	// 날카로운 들숨(어택이 긴 잡음), 그 뒤 낮은 으르렁 둘과 목의 덜컹.
+	Notes.Add({0.00f, 0.35f, 900.0f, 0.200f, 0.85f, 0.6f, EIGToneWaveform::BandNoise, 0.40f});
+	Notes.Add({0.30f, 0.60f, 70.0f, 0.240f, 0.15f, 1.6f, EIGToneWaveform::Growl, 0.55f});
+	Notes.Add({0.30f, 0.50f, 105.0f, 0.110f, 0.20f, 1.6f, EIGToneWaveform::Growl, 0.40f});
+	Notes.Add({0.35f, 0.50f, 40.0f, 0.090f, 0.20f, 1.4f, EIGToneWaveform::Crackle});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateEntityChaseScream(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGEntityChaseScream"));
+	TArray<FIGToneNote> Notes;
+	// 으르렁이 네 단으로 올라가고, 잡음이 밀려오고, 0.55초에 저역이 떨어지며
+	// 불협 세 줄이 튕긴다. 추격이 시작됐다는 것을 몸이 먼저 안다.
+	Notes.Add({0.00f, 0.30f, 62.0f, 0.140f, 0.10f, 1.0f, EIGToneWaveform::Growl, 0.50f});
+	Notes.Add({0.20f, 0.30f, 71.0f, 0.160f, 0.10f, 1.0f, EIGToneWaveform::Growl, 0.60f});
+	Notes.Add({0.40f, 0.35f, 82.0f, 0.180f, 0.10f, 1.0f, EIGToneWaveform::Growl, 0.70f});
+	Notes.Add({0.60f, 0.80f, 88.0f, 0.180f, 0.10f, 1.4f, EIGToneWaveform::Growl, 0.80f});
+	Notes.Add({0.00f, 0.90f, 1800.0f, 0.140f, 0.70f, 1.0f, EIGToneWaveform::BandNoise, 0.30f});
+	Notes.Add({0.55f, 0.35f, 44.0f, 0.260f, 0.01f, 2.8f, EIGToneWaveform::Sub});
+	Notes.Add({0.55f, 0.90f, 220.0f, 0.060f, 0.01f, 1.6f, EIGToneWaveform::Pluck, 0.80f});
+	Notes.Add({0.55f, 0.90f, 233.0f, 0.060f, 0.01f, 1.6f, EIGToneWaveform::Pluck, 0.80f});
+	Notes.Add({0.55f, 0.90f, 247.0f, 0.060f, 0.01f, 1.6f, EIGToneWaveform::Pluck, 0.80f});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	Wave->ConfigureRoomTail(0.024f, 0.35f, 0.30f, 0.18f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCloseCallStinger(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGCloseCallStinger"));
+	TArray<FIGToneNote> Notes;
+	// 백색 타격 한 방, 떨어지는 저역, 불협 세 줄, 뒤따르는 잡음 밀물. 0.8초.
+	Notes.Add({0.00f, 0.06f, 3600.0f, 0.220f, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+	Notes.Add({0.00f, 0.50f, 46.0f, 0.300f, 0.01f, 2.4f, EIGToneWaveform::Sub});
+	Notes.Add({0.00f, 0.70f, 233.0f, 0.070f, 0.01f, 1.6f, EIGToneWaveform::Pluck, 0.75f});
+	Notes.Add({0.00f, 0.70f, 247.0f, 0.070f, 0.01f, 1.6f, EIGToneWaveform::Pluck, 0.75f});
+	Notes.Add({0.00f, 0.70f, 262.0f, 0.070f, 0.01f, 1.6f, EIGToneWaveform::Pluck, 0.75f});
+	Notes.Add({0.05f, 0.60f, 1400.0f, 0.120f, 0.50f, 1.2f, EIGToneWaveform::BandNoise, 0.35f});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCaptureLunge(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGCaptureLunge"));
+	TArray<FIGToneNote> Notes;
+	// 덮치는 순간: 타격, 저역, 천이 스치고, 목이 운다. 0.6초. 그 뒤가 드라이 노크 둘이다.
+	Notes.Add({0.00f, 0.05f, 2600.0f, 0.240f, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+	Notes.Add({0.00f, 0.40f, 38.0f, 0.340f, 0.01f, 2.6f, EIGToneWaveform::Sub});
+	Notes.Add({0.02f, 0.35f, 700.0f, 0.160f, 0.10f, 1.6f, EIGToneWaveform::BandNoise, 0.30f});
+	Notes.Add({0.05f, 0.30f, 80.0f, 0.140f, 0.10f, 1.6f, EIGToneWaveform::Growl, 0.50f});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePresenceLayer(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGPresenceLayer"));
+	constexpr float LoopSeconds = 6.0f;
+	TArray<FIGToneNote> Notes;
+	// 36Hz 저역과 가는 휘파람, 그 사이 느린 목울림. 소리 자체는 작고 볼륨은
+	// 오디오 감독이 존재 거리로 올린다.
+	Notes.Add({0.0f, LoopSeconds, 36.0f, 0.100f, 0.50f, 0.4f, EIGToneWaveform::Sub});
+	Notes.Add({0.0f, LoopSeconds, 2400.0f, 0.028f, 0.50f, 0.4f, EIGToneWaveform::BandNoise, 0.90f});
+	Notes.Add({1.0f, 4.0f, 48.0f, 0.060f, 0.50f, 0.8f, EIGToneWaveform::Growl, 0.25f});
+	Notes.Add({0.0f, LoopSeconds, 120.0f, 0.020f, 0.50f, 0.5f, EIGToneWaveform::BandNoise, 0.60f});
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopSeconds);
+	Wave->ConfigurePitchWow(0.004f, 0.09f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSettlePipeKnock(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGSettlePipeKnock"));
+	TArray<FIGToneNote> Notes;
+	// 배관이 열을 먹고 한 번 튄다. 금속 공명 하나와 저역, 접촉.
+	Notes.Add({0.00f, 0.004f, 3000.0f, 0.120f, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+	Notes.Add({0.00f, 0.50f, 180.0f, 0.240f, 0.005f, 2.2f, EIGToneWaveform::Pluck, 0.55f});
+	Notes.Add({0.00f, 0.12f, 55.0f, 0.200f, 0.010f, 2.6f, EIGToneWaveform::Sub});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	Wave->ConfigureRoomTail(0.030f, 0.45f, 0.40f, 0.28f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSettleTimberCreak(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGSettleTimberCreak"));
+	TArray<FIGToneNote> Notes;
+	// 목재가 뒤틀리며 운다. 좁은 대역 둘이 엇갈리고 낮은 목울림이 받친다.
+	Notes.Add({0.00f, 0.35f, 420.0f, 0.140f, 0.30f, 1.2f, EIGToneWaveform::BandNoise, 0.85f});
+	Notes.Add({0.05f, 0.40f, 610.0f, 0.100f, 0.40f, 1.2f, EIGToneWaveform::BandNoise, 0.85f});
+	Notes.Add({0.10f, 0.30f, 250.0f, 0.080f, 0.30f, 1.0f, EIGToneWaveform::Growl, 0.20f});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSettleFarDoorSlam(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGSettleFarDoorSlam"));
+	TArray<FIGToneNote> Notes;
+	// 멀리서 문이 닫힌다. 접촉은 짧고 저역이 길고 건물이 되운다.
+	Notes.Add({0.00f, 0.006f, 2200.0f, 0.140f, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+	Notes.Add({0.00f, 0.22f, 52.0f, 0.280f, 0.010f, 2.6f, EIGToneWaveform::Sub});
+	Notes.Add({0.01f, 0.15f, 300.0f, 0.130f, 0.05f, 2.0f, EIGToneWaveform::BandNoise, 0.30f});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	Wave->ConfigureRoomTail(0.038f, 0.50f, 0.30f, 0.26f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSettlePlasterTick(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGSettlePlasterTick"));
+	TArray<FIGToneNote> Notes;
+	// 석고가 갈라지며 알갱이가 떨어진다. 짧다.
+	Notes.Add({0.00f, 0.03f, 4000.0f, 0.100f, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+	Notes.Add({0.00f, 0.20f, 500.0f, 0.160f, 0.05f, 1.6f, EIGToneWaveform::Crackle});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
 	return Wave;
 }
 

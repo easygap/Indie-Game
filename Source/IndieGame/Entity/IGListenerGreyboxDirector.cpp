@@ -1,6 +1,7 @@
 ﻿#include "Entity/IGListenerGreyboxDirector.h"
 
 #include "AssetCompilingManager.h"
+#include "Audio/IGAmbienceSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -167,6 +168,129 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 	}
 }
 
+void AIGListenerGreyboxDirector::SpawnNightAmbienceBeds()
+{
+	UWorld* World = GetWorld();
+	AIGPrologueWorldScene* Scene = WorldScene.Get();
+	if (!World || !Scene || NightAmbienceBeds.Num() > 0)
+	{
+		return;
+	}
+	UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+
+	// 복도 베드는 조명 기구들의 한가운데. 계단실은 반층 참, 5층은 복도 위 한 층.
+	FVector CorridorCenter = FVector::ZeroVector;
+	const int32 FixtureCount = Scene->GetCorridorFixtureCount();
+	for (int32 Index = 0; Index < FixtureCount; ++Index)
+	{
+		CorridorCenter += Scene->GetCorridorFixtureLocation(Index);
+	}
+	if (FixtureCount > 0)
+	{
+		CorridorCenter /= static_cast<float>(FixtureCount);
+	}
+	else
+	{
+		CorridorCenter = FVector(200.0f, -305.0f, IGListenerGreybox::FourthFloorZ + 120.0f);
+	}
+	struct FBedSpec
+	{
+		const TCHAR* Name;
+		EIGAmbienceMode Mode;
+		FVector Location;
+		float Volume;
+		float InnerRadius;
+		float Falloff;
+		uint32 Seed;
+	};
+	const FBedSpec Specs[] = {
+		{TEXT("NightBedCorridor"), EIGAmbienceMode::CorridorNight,
+			FVector(CorridorCenter.X, CorridorCenter.Y, IGListenerGreybox::FourthFloorZ + 140.0f),
+			0.55f, 700.0f, 1900.0f, 0x7A11C0DEu},
+		{TEXT("NightBedStairwell"), EIGAmbienceMode::Stairwell,
+			FVector(-445.0f, -305.0f, IGListenerGreybox::FourthFloorZ - 30.0f),
+			0.60f, 260.0f, 1100.0f, 0x51A1B2C3u},
+		{TEXT("NightBedUpperFloor"), EIGAmbienceMode::UpperFloor,
+			FVector(CorridorCenter.X, CorridorCenter.Y, IGListenerGreybox::FourthFloorZ + 420.0f),
+			0.50f, 500.0f, 1500.0f, 0x9C0FFEE1u},
+	};
+	for (const FBedSpec& Spec : Specs)
+	{
+		UIGAmbienceSoundWave* Wave = NewObject<UIGAmbienceSoundWave>(this);
+		Wave->Configure(Spec.Mode, Spec.Seed);
+		UAudioComponent* Bed = NewObject<UAudioComponent>(this, Spec.Name);
+		Bed->RegisterComponent();
+		Bed->SetWorldLocation(Spec.Location);
+		Bed->SetSound(Wave);
+		Bed->SetVolumeMultiplier(Spec.Volume);
+		Bed->AttenuationSettings = IGAudio::MakeAttenuation(
+			this, Spec.InnerRadius, Spec.Falloff, EIGAudioBus::World);
+		Bed->bAllowSpatialization = true;
+		if (AudioDirector)
+		{
+			AudioDirector->PrepareSound(Wave, EIGAudioBus::World);
+			AudioDirector->RegisterPersistentBed(Bed, EIGAudioBus::World);
+		}
+		Bed->Play();
+		NightAmbienceBeds.Add(Bed);
+	}
+}
+
+void AIGListenerGreyboxDirector::ScheduleNextSettle()
+{
+	// 45~110초. 규칙적이면 시계가 되고 시계는 무섭지 않다.
+	const float Delay = FMath::FRandRange(45.0f, 110.0f);
+	GetWorldTimerManager().SetTimer(
+		SettleTimerHandle, this, &AIGListenerGreyboxDirector::PlaySettleEvent, Delay, false);
+}
+
+void AIGListenerGreyboxDirector::PlaySettleEvent()
+{
+	ScheduleNextSettle();
+	UWorld* World = GetWorld();
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	// 밤에만. 낮에 그는 자고 건물도 잔다.
+	if (!World || !PlayerCharacter || !Entity || Entity->IsDormant())
+	{
+		return;
+	}
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		if (AudioDirector->IsAuthoredSilence())
+		{
+			return;
+		}
+	}
+	// 위에서 난다. 훅이 「위에서 나는 소리」다(§10.5). 방위는 매번 다르게.
+	const FVector Location = PlayerCharacter->GetActorLocation()
+		+ FVector(FMath::FRandRange(-260.0f, 260.0f), FMath::FRandRange(-260.0f, 260.0f), FMath::FRandRange(240.0f, 330.0f));
+	UIGToneSequenceSoundWave* Wave = nullptr;
+	FText Caption;
+	switch (SettleCounter++ % 4)
+	{
+	case 0:
+		Wave = UIGToneSequenceSoundWave::CreateSettlePipeKnock(this);
+		Caption = NSLOCTEXT("IGNight", "SettlePipe", "위 — 배관이 튄다");
+		break;
+	case 1:
+		Wave = UIGToneSequenceSoundWave::CreateSettleTimberCreak(this);
+		Caption = NSLOCTEXT("IGNight", "SettleCreak", "위 — 나무가 뒤틀린다");
+		break;
+	case 2:
+		Wave = UIGToneSequenceSoundWave::CreateSettlePlasterTick(this);
+		Caption = NSLOCTEXT("IGNight", "SettleTick", "위 — 석고가 갈라진다");
+		break;
+	default:
+		Wave = UIGToneSequenceSoundWave::CreateSettleFarDoorSlam(this);
+		Caption = NSLOCTEXT("IGNight", "SettleSlam", "멀리 — 문이 닫힌다");
+		break;
+	}
+	IGAudio::SpawnOneShotAt(this, Wave, Location, 0.62f, 1.0f, 180.0f, 1700.0f, EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaptionAt(this, Caption, 2.0f, Location);
+}
+
 void AIGListenerGreyboxDirector::DestroyPartialStage()
 {
 	// 세우는 순서의 역순일 필요는 없다. 서로를 붙들고 있지 않고, 각자
@@ -238,6 +362,19 @@ void AIGListenerGreyboxDirector::DestroyPartialStage()
 	}
 	FridgeHumHandle = INDEX_NONE;
 	BoilerHumHandle = INDEX_NONE;
+
+	// 밤 베드 셋과 건물 소리 시계. 이름 붙인 컴포넌트라 남기면 재시도의 NewObject가
+	// 같은 이름에 막힌다.
+	GetWorldTimerManager().ClearTimer(SettleTimerHandle);
+	for (UAudioComponent* Bed : NightAmbienceBeds)
+	{
+		if (IsValid(Bed))
+		{
+			Bed->Stop();
+			Bed->DestroyComponent();
+		}
+	}
+	NightAmbienceBeds.Reset();
 	// 소리도 같이 걷는다. 남겨 두면 다음 시도에서 같은 자리에 하나 더 얹혀
 	// 마스킹은 그대로인데 소리만 두 배가 된다.
 	for (TObjectPtr<UAudioComponent>* Loop : {&FridgeHumLoop, &BoilerHumLoop})
@@ -365,6 +502,11 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		TEXT("GreyboxBoilerHum"),
 		BoilerHumLocation,
 		IGListenerGreybox::BoilerHumRadius);
+
+	// 험 반경 2m 밖의 복도는 통째로 무음이었다. 복도·계단실·5층에 베드를 깔고
+	// 건물이 밤 사이 한 번씩 소리를 내게 한다.
+	SpawnNightAmbienceBeds();
+	ScheduleNextSettle();
 
 	// A resumed session hands the pursuer back at the impatience it had earned.
 	if (const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())

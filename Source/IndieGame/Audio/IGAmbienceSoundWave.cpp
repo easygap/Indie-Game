@@ -1,4 +1,4 @@
-#include "Audio/IGAmbienceSoundWave.h"
+﻿#include "Audio/IGAmbienceSoundWave.h"
 
 namespace IGAmbience
 {
@@ -36,7 +36,23 @@ void UIGAmbienceSoundWave::Configure(const EIGAmbienceMode InMode, const uint32 
 	BrownAccumulator = 0.0f;
 	DoorNoiseLow180 = 0.0f;
 	DoorNoiseLow320 = 0.0f;
+	BandLowA = BandBandA = BandLowB = BandBandB = BandLowC = BandBandC = 0.0f;
 	GeneratedSampleCount = 0;
+}
+
+float UIGAmbienceSoundWave::BandPass(
+	const float Input,
+	float& Low,
+	float& Band,
+	const float CenterHz,
+	const float Q) const
+{
+	// 체임벌린 상태변수 필터. 톤 합성기의 BandNoise와 같은 식이다.
+	const float F = 2.0f * FMath::Sin(UE_PI * FMath::Clamp(CenterHz, 30.0f, 7000.0f) / IGAmbience::SampleRateHz);
+	Low += F * Band;
+	const float High = Input - Low - Band / FMath::Max(Q, 0.5f);
+	Band += F * High;
+	return FMath::Clamp(Band * 1.2f / FMath::Sqrt(FMath::Max(Q, 0.5f)), -1.0f, 1.0f);
 }
 
 float UIGAmbienceSoundWave::NextWhiteSample()
@@ -161,6 +177,63 @@ int32 UIGAmbienceSoundWave::OnGeneratePCMAudio(TArray<uint8>& OutAudio, const in
 				+ 0.012f * PressurePulse
 					* IGAmbience::StableSine(72.0f, SampleIndex)
 				+ 0.004f * IGAmbience::StableSine(144.0f, SampleIndex);
+			break;
+		}
+
+		case EIGAmbienceMode::CorridorNight:
+		{
+			// 복도는 비어 있어도 조용하지 않다. 안정기가 떨고, 벽 사이 공기가 260Hz
+			// 언저리에서 숨을 쉬고, 멀리 도로가 한 번씩 지나가고, 창틀이 아주 가끔 운다.
+			const float Flutter = 1.0f + 0.22f * IGAmbience::StableSine(0.9f, SampleIndex);
+			const float Ballast = Flutter * (
+				0.0055f * IGAmbience::StableSine(120.0f, SampleIndex)
+				+ 0.0018f * IGAmbience::StableSine(240.0f, SampleIndex)
+				+ 0.0006f * IGAmbience::StableSine(360.0f, SampleIndex));
+			const float AirSwell = 0.7f + 0.3f * IGAmbience::StableSine(0.031f, SampleIndex);
+			const float Air = BandPass(White, BandLowA, BandBandA, 260.0f, 3.0f) * 0.045f * AirSwell;
+			const float Traffic = FMath::Max(0.0f, IGAmbience::StableSine(0.019f, SampleIndex) - 0.55f) / 0.45f;
+			const float Whistle = FMath::Square(FMath::Max(0.0f, IGAmbience::StableSine(0.037f, SampleIndex) - 0.78f) / 0.22f);
+			Output = Ballast
+				+ Air
+				+ Brown * (0.018f + 0.030f * Traffic)
+				+ BandPass(White, BandLowB, BandBandB, 2900.0f, 25.0f) * 0.006f * Whistle
+				+ White * 0.0015f;
+			break;
+		}
+
+		case EIGAmbienceMode::Stairwell:
+		{
+			// 마감 없는 콘크리트 통. 190Hz와 380Hz 언저리가 울리고, 샤프트를 타는 바람이
+			// 한 번씩 올라오고, 발밑에 34Hz가 깔린다.
+			const float Gust = FMath::Square(FMath::Clamp(
+				0.45f + 0.35f * IGAmbience::StableSine(0.041f, SampleIndex)
+					+ 0.20f * IGAmbience::StableSine(0.013f, SampleIndex),
+				0.0f,
+				1.0f));
+			Output = BandPass(White, BandLowA, BandBandA, 190.0f, 6.0f) * 0.060f
+				+ BandPass(White, BandLowB, BandBandB, 380.0f, 8.0f) * 0.028f
+				+ BandPass(White, BandLowC, BandBandC, 1100.0f, 4.0f) * 0.020f * Gust
+				+ Brown * 0.020f
+				+ 0.010f * IGAmbience::StableSine(34.0f, SampleIndex);
+			break;
+		}
+
+		case EIGAmbienceMode::UpperFloor:
+		{
+			// 불법 증축층. 벽이 다 없는 자리로 바람이 먼지를 밀고, 목재가 아주 가끔
+			// 뒤틀리고, 40Hz가 느리게 맥박 친다.
+			const float Gust = FMath::Square(FMath::Clamp(
+				0.50f + 0.34f * IGAmbience::StableSine(0.047f, SampleIndex)
+					+ 0.22f * IGAmbience::StableSine(0.011f, SampleIndex),
+				0.0f,
+				1.0f));
+			const float CreakGate = FMath::Square(FMath::Clamp(
+				(IGAmbience::StableSine(0.053f, SampleIndex) - 0.80f) / 0.20f, 0.0f, 1.0f));
+			const float Pulse = 0.6f + 0.4f * IGAmbience::StableSine(0.09f, SampleIndex);
+			Output = BandPass(White, BandLowA, BandBandA, 700.0f, 2.0f) * 0.030f * Gust
+				+ Brown * (0.024f + 0.020f * Gust)
+				+ BandPass(White, BandLowB, BandBandB, 1500.0f, 30.0f) * 0.018f * CreakGate
+				+ 0.014f * Pulse * IGAmbience::StableSine(40.0f, SampleIndex);
 			break;
 		}
 

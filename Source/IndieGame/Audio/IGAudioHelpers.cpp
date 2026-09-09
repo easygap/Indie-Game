@@ -154,6 +154,21 @@ namespace IGAudio
 		Settings.FalloffDistance = FMath::Max(1.0f, FalloffDistance);
 		Settings.DistanceAlgorithm = EAttenuationDistanceModel::NaturalSound;
 		Settings.dBAttenuationAtMax = -60.0f;
+		// 벽 너머의 소리는 먹먹하고 작다. 엔진 오클루전은 청자와 음원 사이에
+		// 트레이스 하나를 긋는다. 예전엔 두 층 위 콘크리트 너머의 노크가 같은 방의
+		// 노크와 같은 스펙트럼으로 왔다 — 거리는 볼륨과 리버브가 말했지만 벽은
+		// 아무도 말하지 않았다.
+		Settings.bEnableOcclusion = true;
+		Settings.OcclusionTraceChannel = ECC_Visibility;
+		Settings.OcclusionLowPassFilterFrequency = 900.0f;
+		Settings.OcclusionVolumeAttenuation = 0.55f;
+		Settings.OcclusionInterpolationTime = 0.18f;
+		// 공기가 고역을 먹는다. 멀수록 둔해진다.
+		Settings.bAttenuateWithLPF = true;
+		Settings.LPFRadiusMin = FMath::Max(1.0f, InnerRadius);
+		Settings.LPFRadiusMax = Settings.FalloffDistance;
+		Settings.LPFFrequencyAtMin = 20000.0f;
+		Settings.LPFFrequencyAtMax = 2600.0f;
 		// §10.4: volume tells the player a sound is far. Reverb tells them it is
 		// far *through the building* — and the moment it goes dry, it is in the
 		// room with them.

@@ -335,6 +335,39 @@ public:
 	static UIGToneSequenceSoundWave* CreateTrappedBreathBed(UObject* Outer);
 
 	/**
+	 * 기는 한 걸음: 손바닥이 바닥을 치고 무릎이 끌린다. 끌림 루프 위에 박자마다
+	 * 얹는 유한 소리. 장판은 찍찍거리고 타일은 모래가 갈린다. 변주는 피치 배수로.
+	 */
+	static UIGToneSequenceSoundWave* CreateEntityCrawlStep(UObject* Outer, bool bVinyl);
+
+	/** 그의 숨. 3.2초 루프, 들이쉬고 목이 울리고 내쉰다. 가까울수록 커진다. */
+	static UIGToneSequenceSoundWave* CreateEntityBreathLoop(UObject* Outer);
+
+	/** 무엇을 들었을 때: 날카롭게 들이쉬고 낮게 으르렁. 조사가 시작되는 소리. */
+	static UIGToneSequenceSoundWave* CreateEntityAlertVocal(UObject* Outer);
+
+	/** 추격 진입: 올라가는 으르렁, 잡음 밀물, 저역 타격, 불협 클러스터. 1.5초. */
+	static UIGToneSequenceSoundWave* CreateEntityChaseScream(UObject* Outer);
+
+	/** 코앞에서 마주쳤을 때의 스팅어. 타격·저역 낙하·불협 세 줄·잡음 밀물. */
+	static UIGToneSequenceSoundWave* CreateCloseCallStinger(UObject* Outer);
+
+	/** 포획 직전의 덮침. 저역과 천 스침, 목소리. 뒤에 드라이 노크 둘이 온다. */
+	static UIGToneSequenceSoundWave* CreateCaptureLunge(UObject* Outer);
+
+	/**
+	 * 압박 층. 36Hz 저역과 2.4kHz 가는 휘파람, 느린 목울림. 6초 루프. 소리 자체는
+	 * 작고 오디오 감독이 존재 거리로 볼륨을 올린다 — 14m 밖에서 0, 3m 안에서 1.
+	 */
+	static UIGToneSequenceSoundWave* CreatePresenceLayer(UObject* Outer);
+
+	/** 건물 소리 넷. 밤 사이 위쪽에서 무작위로 한 번씩 난다. */
+	static UIGToneSequenceSoundWave* CreateSettlePipeKnock(UObject* Outer);
+	static UIGToneSequenceSoundWave* CreateSettleTimberCreak(UObject* Outer);
+	static UIGToneSequenceSoundWave* CreateSettleFarDoorSlam(UObject* Outer);
+	static UIGToneSequenceSoundWave* CreateSettlePlasterTick(UObject* Outer);
+
+	/**
 	 * Three deliberate knuckle knocks on a stud wall, evenly spaced. The
 	 * entity's idle cycle: it knocks, then listens. Muffle01 rolls off the
 	 * contact click for playback through a closed wall (1 = fully entombed).

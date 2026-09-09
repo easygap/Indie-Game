@@ -2,6 +2,7 @@
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGAudioRenderProbe.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "AssetCompilingManager.h"
@@ -190,6 +191,10 @@ void AIGPlayerController::BeginPlay()
 		RefreshMenuHud();
 	}
 
+	if (IsLocalController() && IGAudioRenderProbe::RunIfRequested(this))
+	{
+		return;
+	}
 	if (IsLocalController()
 		&& FParse::Param(
 			FCommandLine::Get(),
