@@ -132,6 +132,8 @@ public:
 	 * 단계에서 이 값을 시점에 얹는다.
 	 */
 	FRotator GetCameraFeelRotation() const { return CameraFeelRotation; }
+	/** 놀람의 카메라 킥. 아래로 꺾이고 살짝 기운다. 노크 킥보다 크고 느리게 돌아온다. */
+	void PlayScareKick(float Degrees);
 
 	UFUNCTION(BlueprintPure, Category = "Player|Audio")
 	bool IsMicrophoneCaptureRunning() const { return bMicrophoneCaptureRunning; }
@@ -280,6 +282,7 @@ private:
 
 	FVector CameraBaseLocation = FVector(0.0f, 0.0f, 64.0f);
 	FRotator CameraFeelRotation = FRotator::ZeroRotator;
+	float ScareCameraKick = 0.0f;
 	float TraveledDistanceAccum = 0.0f;
 	float BreathTime = 0.0f;
 	float SprintActiveSeconds = 0.0f;

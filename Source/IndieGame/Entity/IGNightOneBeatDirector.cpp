@@ -12,7 +12,9 @@
 #include "Interaction/IGStairTransition.h"
 #include "Interaction/IGZoneTrigger.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGStressComponent.h"
 #include "TimerManager.h"
 
 namespace IGNightOne
@@ -237,6 +239,29 @@ void AIGNightOneBeatDirector::HandleStairTransitionCompleted(const bool bGoingDo
 	// the lobby later must not resurrect it.
 	if (bSightingStaged && !bSightingCompleted && bGoingDown)
 	{
+		// 내려가며 그를 지나치는 순간 그가 고개를 든다. 이미 본 형상의 상태 변화
+		// (STORY_DIRECTION §7) — 아무 소리 없이 지나가던 카메오에 놀람이 생긴다.
+		if (AIGListenerEntity* Listener = Entity.Get())
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateEntityAlertVocal(this),
+				Listener->GetActorLocation() + FVector(0.0f, 0.0f, 30.0f),
+				0.85f,
+				0.96f,
+				220.0f,
+				2200.0f,
+				EIGAudioBus::Entity);
+			AIGHorrorHUD::PushFearDirection(this, Listener->GetActorLocation());
+		}
+		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+		{
+			if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+			{
+				Stress->ApplyScare(0.5f);
+			}
+			PlayerCharacter->PlayScareKick(1.6f);
+		}
 		RestoreSightingEntity();
 	}
 }
@@ -322,6 +347,84 @@ void AIGNightOneBeatDirector::PlayExtinguisherImpact()
 	{
 		Noise->ReportNoise(Impact, IGNightOne::ImpactLoudness, nullptr);
 	}
+	// 쇠통이 떨어지는데 몸이 가만히 있을 수는 없다. 그리고 2.2초 뒤, 등 뒤의
+	// 등이 죽는다 — 시야 밖에서 꺼지는 조명(STORY_DIRECTION §7 허용).
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+		{
+			Stress->ApplyScare(0.35f);
+		}
+		PlayerCharacter->PlayScareKick(1.2f);
+	}
+	AIGHorrorHUD::PushFearDirection(this, Impact);
+	if (!bFixtureDeathFired)
+	{
+		GetWorldTimerManager().SetTimer(
+			FixtureDeathTimer,
+			this,
+			&AIGNightOneBeatDirector::KillFixtureBehindPlayer,
+			2.2f,
+			false);
+	}
+}
+
+void AIGNightOneBeatDirector::KillFixtureBehindPlayer()
+{
+	if (bFixtureDeathFired)
+	{
+		return;
+	}
+	AIGPrologueWorldScene* WorldScene = Scene.Get();
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	if (!WorldScene || !PlayerCharacter)
+	{
+		return;
+	}
+	// 등 뒤, 가장 가까운 등. 시야 안의 등을 죽이면 「원인이 보이는 놀람」이 된다.
+	const FVector PlayerLocation = PlayerCharacter->GetActorLocation();
+	const FVector View = PlayerCharacter->GetControlRotation().Vector().GetSafeNormal2D();
+	int32 Best = INDEX_NONE;
+	float BestDistance = TNumericLimits<float>::Max();
+	for (int32 Index = 0; Index < WorldScene->GetCorridorFixtureCount(); ++Index)
+	{
+		const FVector Fixture = WorldScene->GetCorridorFixtureLocation(Index);
+		FVector ToFixture = Fixture - PlayerLocation;
+		ToFixture.Z = 0.0f;
+		const float Distance = ToFixture.Size();
+		if (Distance < 60.0f || Distance > 900.0f
+			|| FVector::DotProduct(View, ToFixture / Distance) > 0.15f)
+		{
+			continue;
+		}
+		if (Distance < BestDistance)
+		{
+			BestDistance = Distance;
+			Best = Index;
+		}
+	}
+	if (Best == INDEX_NONE)
+	{
+		return;
+	}
+	bFixtureDeathFired = true;
+	const FVector FixtureLocation = WorldScene->GetCorridorFixtureLocation(Best);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateFluorescentBallastSnap(this),
+		FixtureLocation,
+		1.0f,
+		1.0f,
+		200.0f,
+		1600.0f,
+		EIGAudioBus::World);
+	WorldScene->SetFixtureLive(Best, false, true);
+	AIGHorrorHUD::PushFearDirection(this, FixtureLocation);
+	if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+	{
+		Stress->ApplyScare(0.30f);
+	}
+	PlayerCharacter->PlayScareKick(0.7f);
 }
 
 UIGMissingFloorNarrativeSubsystem* AIGNightOneBeatDirector::GetNarrative() const

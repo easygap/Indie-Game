@@ -703,6 +703,12 @@ void AIGPlayerCharacter::SetCameraMotionEnabled(const bool bEnabled)
 	}
 }
 
+void AIGPlayerCharacter::PlayScareKick(const float Degrees)
+{
+	ScareCameraKick = FMath::Max(ScareCameraKick, FMath::Clamp(Degrees, 0.0f, 4.0f));
+	SetCameraMotionEnabled(true);
+}
+
 void AIGPlayerCharacter::PlayCaptureFeedback(const float DurationSeconds)
 {
 	CaptureFeedbackDurationSeconds = FMath::Max(DurationSeconds, 0.05f);
@@ -1057,6 +1063,12 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	{
 		CameraRotation.Pitch -= KnockCameraKick;
 	}
+	if (!bReducedMotion && ScareCameraKick > KINDA_SMALL_NUMBER)
+	{
+		CameraRotation.Pitch -= ScareCameraKick;
+		CameraRotation.Roll += ScareCameraKick * 0.35f;
+	}
+	ScareCameraKick = FMath::FInterpTo(ScareCameraKick, 0.0f, DeltaSeconds, 7.0f);
 	if (!bReducedMotion && CaptureFeedbackRemainingSeconds > 0.0f)
 	{
 		const float CaptureAlpha = CaptureFeedbackRemainingSeconds

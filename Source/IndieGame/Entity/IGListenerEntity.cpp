@@ -106,6 +106,32 @@ void AIGListenerEntity::BeginPlay()
 				EIGAudioBus::Entity);
 		}
 		DragLoopComponent->Play();
+
+		// 숨은 늘 쉰다. 멈춰 있어도 가까우면 들린다 — 끌림이 0인 자리에서 그가
+		// 거기 있다는 것을 알려 주는 유일한 소리다.
+		BreathLoopComponent = NewObject<UAudioComponent>(this);
+		BreathLoopComponent->RegisterComponent();
+		BreathLoopComponent->AttachToComponent(
+			Body, FAttachmentTransformRules::KeepRelativeTransform);
+		BreathLoopComponent->SetRelativeLocation(FVector(30.0f, 0.0f, 20.0f));
+		BreathLoopComponent->SetSound(
+			UIGToneSequenceSoundWave::CreateEntityBreathLoop(this));
+		BreathLoopComponent->AttenuationSettings = IGAudio::MakeAttenuation(
+			this,
+			160.0f,
+			1500.0f,
+			EIGAudioBus::Entity);
+		BreathLoopComponent->bAllowSpatialization = true;
+		BreathLoopComponent->SetVolumeMultiplier(0.0f);
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->PrepareSound(BreathLoopComponent->Sound, EIGAudioBus::Entity);
+			AudioDirector->RegisterPersistentBed(
+				BreathLoopComponent,
+				EIGAudioBus::Entity);
+		}
+		BreathLoopComponent->Play();
 	}
 
 	// §20.4: the mode is a user setting, read once when he wakes into the world.
@@ -221,6 +247,54 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 			{
 				PlayerCharacter->SetChaseHaptic(
 					AudioState == EIGAudioThreatState::Chasing);
+			}
+		}
+	}
+
+	// 상태가 바뀌는 소리. 예전엔 조사도 추격도 소리 없이 시작됐다 — 음악이
+	// 바뀌는 것 말고는 그가 무엇을 들었는지 알 길이 없었다.
+	if (!bDormant)
+	{
+		const bool bWasIdle =
+			PreviousState == EIGListenerState::Patrolling
+			|| PreviousState == EIGListenerState::Banging
+			|| PreviousState == EIGListenerState::Listening
+			|| PreviousState == EIGListenerState::Waiting;
+		if (NewState == EIGListenerState::Investigating && bWasIdle)
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateEntityAlertVocal(this),
+				GetActorLocation() + FVector(30.0f, 0.0f, 30.0f),
+				0.9f,
+				1.0f,
+				220.0f,
+				2400.0f,
+				EIGAudioBus::Entity);
+		}
+		else if (NewState == EIGListenerState::Chasing && PreviousState != EIGListenerState::Chasing)
+		{
+			if (UWorld* World = GetWorld())
+			{
+				if (UIGMissingFloorAudioSubsystem* AudioDirector =
+					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+				{
+					AudioDirector->PlayStinger(
+						EIGStinger::ChaseStart, GetActorLocation() + FVector(30.0f, 0.0f, 30.0f));
+				}
+			}
+			if (AIGPlayerCharacter* PlayerCharacter =
+				Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+			{
+				// 비명은 몸으로도 온다. 가까울수록 크게.
+				const float Distance = FVector::Dist(
+					PlayerCharacter->GetActorLocation(), GetActorLocation());
+				const float Near = FMath::Clamp(1.0f - Distance / 1600.0f, 0.0f, 1.0f);
+				if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+				{
+					Stress->ApplyScare(0.35f + 0.30f * Near);
+				}
+				PlayerCharacter->PlayScareKick(0.8f + 1.2f * Near);
 			}
 		}
 	}
@@ -1223,6 +1297,24 @@ void AIGListenerEntity::UpdatePresentationPose(
 		const float FramesPerSecond = FMath::Lerp(1.6f, 6.0f, SpeedAlpha);
 		ListenerPhase = FMath::Fmod(
 			ListenerPhase + DeltaSeconds * FramesPerSecond, 4.0f);
+		// 팔꿈치가 바닥을 치는 자세(0과 2)마다 한 걸음. 끌림 루프는 속도만 말하고
+		// 걸음은 박자를 말한다. 변주는 걸음 번호 해시의 피치로.
+		const int32 StepIndex = FMath::FloorToInt(ListenerPhase * 0.5f);
+		if (StepIndex != LastCrawlStepIndex && SpeedAlpha > 0.08f && !bDormant)
+		{
+			LastCrawlStepIndex = StepIndex;
+			const uint32 StepHash = static_cast<uint32>(StateSeconds * 37.0f + ListenerPhase * 1000.0f) * 2654435761u;
+			const float Pitch = 0.94f + 0.12f * ((StepHash >> 8) & 0xFF) / 255.0f;
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, bDragSurfaceIsVinyl),
+				GetActorLocation() + FVector(20.0f, 0.0f, -40.0f),
+				0.35f + 0.55f * SpeedAlpha,
+				Pitch,
+				200.0f,
+				2200.0f,
+				EIGAudioBus::Entity);
+		}
 	}
 
 	if (ListenerPhaseMaterials.Num() == 4)
@@ -1508,6 +1600,79 @@ void AIGListenerEntity::UpdateThreatPressure()
 		// The component decays pressure on its own; only pushes are sent.
 		Stress->SetThreatPressure(Pressure);
 	}
+	UpdateBreathLoop(Distance);
+	TryCloseCallStinger(Player, Distance);
+}
+
+void AIGListenerEntity::UpdateBreathLoop(const float Distance)
+{
+	if (!BreathLoopComponent)
+	{
+		return;
+	}
+	float Target = 0.0f;
+	if (!bDormant)
+	{
+		switch (State)
+		{
+		case EIGListenerState::Chasing: Target = 0.85f; break;
+		case EIGListenerState::Investigating: Target = 0.45f; break;
+		case EIGListenerState::Holding:
+		case EIGListenerState::Searching: Target = 0.34f; break;
+		case EIGListenerState::Listening: Target = 0.26f; break;
+		case EIGListenerState::Banging:
+		case EIGListenerState::Patrolling: Target = 0.20f; break;
+		case EIGListenerState::Waiting: Target = 0.10f; break;
+		default: Target = 0.0f; break;
+		}
+	}
+	if (!FMath::IsNearlyEqual(Target, BreathVolumeTarget, 0.02f))
+	{
+		BreathVolumeTarget = Target;
+		BreathLoopComponent->AdjustVolume(0.6f, Target);
+	}
+	// 추격 중엔 숨이 빠르다. 루프 속도는 못 바꾸니 피치로.
+	BreathLoopComponent->SetPitchMultiplier(State == EIGListenerState::Chasing ? 1.22f : 1.0f);
+}
+
+void AIGListenerEntity::TryCloseCallStinger(const AIGPlayerCharacter* Player, const float Distance)
+{
+	// 코앞에서 마주쳤다: 3.2m 안, 시야 안, 그가 깨어서 움직이거나 듣는 중. 25초에
+	// 한 번. 「이미 본 형상의 위치 변화」(STORY_DIRECTION §7)를 소리로 찍는다.
+	UWorld* World = GetWorld();
+	if (!World || !Player || bDormant || Distance > 320.0f)
+	{
+		return;
+	}
+	if (State == EIGListenerState::CaptureHold
+		|| State == EIGListenerState::FinaleLured
+		|| State == EIGListenerState::Waiting)
+	{
+		return;
+	}
+	const double Now = World->GetTimeSeconds();
+	if (Now - LastCloseCallSeconds < 25.0)
+	{
+		return;
+	}
+	FVector ToHim = GetActorLocation() - Player->GetActorLocation();
+	ToHim.Z = 0.0f;
+	const FVector View = Player->GetControlRotation().Vector().GetSafeNormal2D();
+	if (FVector::DotProduct(View, ToHim.GetSafeNormal()) < 0.55f)
+	{
+		return;
+	}
+	LastCloseCallSeconds = Now;
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->PlayStinger(EIGStinger::CloseCall, GetActorLocation() + FVector(0.0f, 0.0f, 40.0f));
+	}
+	if (UIGStressComponent* Stress = Player->GetStress())
+	{
+		Stress->ApplyScare(0.45f);
+	}
+	const_cast<AIGPlayerCharacter*>(Player)->PlayScareKick(1.4f);
 }
 
 void AIGListenerEntity::BeginCapture(APawn* Player)
@@ -1523,6 +1688,19 @@ void AIGListenerEntity::BeginCapture(APawn* Player)
 		if (UIGStressComponent* Stress = Character->GetStress())
 		{
 			Stress->ApplyScare(1.0f);
+		}
+	}
+
+	// 덮치는 순간의 저역과 천 스침. 그 뒤가 「노크 둘」이다 — 포효는 아니지만
+	// 붙잡히는 것이 아무 소리 없이 지나가서도 안 된다.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->PlayStinger(
+				EIGStinger::Capture,
+				Player ? Player->GetActorLocation() : GetActorLocation());
 		}
 	}
 

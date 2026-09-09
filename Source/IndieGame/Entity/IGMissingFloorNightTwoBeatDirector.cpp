@@ -383,6 +383,8 @@ void AIGMissingFloorNightTwoBeatDirector::PlayFirstKnock()
 		{
 			Stress->ApplyScare(ScareAmount);
 		}
+		// 우리 문이다. 스트레스만 오르고 화면은 가만히 있을 수 없다.
+		PlayerCharacter->PlayScareKick(1.3f);
 	}
 
 	KnockCount = 1;

@@ -6,6 +6,7 @@
 #include "Entity/IGNoiseSubsystem.h"
 #include "IGListenerEntity.generated.h"
 
+class AIGPlayerCharacter;
 class UAudioComponent;
 class UCapsuleComponent;
 class UIGDustSubsystem;
@@ -360,6 +361,17 @@ private:
 	bool bDustTrailSeeded = false;
 	/** True while the crawl bed is the 장판 variant rather than tile. */
 	bool bDragSurfaceIsVinyl = false;
+
+	/** 그의 숨. 상태와 거리로 볼륨이 정해진다. 자는 동안은 0. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> BreathLoopComponent;
+	float BreathVolumeTarget = 0.0f;
+	/** 기는 걸음 소리의 마지막 박자 칸. 네 자세 한 바퀴에 두 걸음. */
+	int32 LastCrawlStepIndex = -1;
+	/** 코앞에서 마주친 스팅어의 마지막 시각. 25초에 한 번. */
+	double LastCloseCallSeconds = -1000.0;
+	void UpdateBreathLoop(float Distance);
+	void TryCloseCallStinger(const AIGPlayerCharacter* Player, float Distance);
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<APawn> CachedPlayer;

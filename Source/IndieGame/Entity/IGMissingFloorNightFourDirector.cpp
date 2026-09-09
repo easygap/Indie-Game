@@ -25,6 +25,7 @@
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
 #include "Save/IGSaveSubsystem.h"
+#include "Kismet/GameplayStatics.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGStressComponent.h"
 
@@ -1105,6 +1106,25 @@ void AIGMissingFloorNightFourDirector::AdvanceCavityReveal()
 				"IGMissingFloor", "FinalRevealSkull",
 				"머리뼈가 옷깃 안으로 기울어 있다. 세워 둔 모형이 아니다."),
 			3.0f);
+		// 알아보는 순간 공동 안에서 석고가 갈라져 떨어진다. 글만 있던 단계에 소리.
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateSettlePlasterTick(this),
+			IGNightFour::CavityDetailCenter,
+			0.9f,
+			0.9f,
+			160.0f,
+			1200.0f,
+			EIGAudioBus::Puzzle);
+		if (AIGPlayerCharacter* PlayerCharacter =
+			Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+		{
+			if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+			{
+				Stress->ApplyScare(0.3f);
+			}
+			PlayerCharacter->PlayScareKick(0.8f);
+		}
 	}
 	else if (FinalRevealStage == 1)
 	{

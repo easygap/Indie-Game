@@ -1662,6 +1662,25 @@ void AIGMissingFloorNightThreeDirector::AdvanceReturn()
 		{
 			Narrative->MarkBeatPlayed(IGNightThree::PassByBeatId);
 		}
+		// 스치는 순간 그가 숨을 들이쉰다. 움직이지는 않는다 — 기다리는 중이다.
+		// 글 한 줄뿐이던 비트에 몸이 생긴다.
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateEntityAlertVocal(this),
+			Listener->GetActorLocation() + FVector(0.0f, 0.0f, 30.0f),
+			0.6f,
+			0.92f,
+			200.0f,
+			1800.0f,
+			EIGAudioBus::Entity);
+		if (AIGPlayerCharacter* MutablePlayer = Player.Get())
+		{
+			if (UIGStressComponent* Stress = MutablePlayer->GetStress())
+			{
+				Stress->ApplyScare(0.4f);
+			}
+			MutablePlayer->PlayScareKick(1.0f);
+		}
 		// 회피 대상이 애도 대상으로. 이 게임에서 가장 조용한 한 줄이어야 하므로
 		// 설명하지 않는다 — 그가 무엇을 하고 있는지만 말한다.
 		AIGHorrorHUD::PushThought(

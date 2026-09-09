@@ -78,6 +78,10 @@ private:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGPlayerCharacter> Player;
+	/** 소화기 뒤 복도 등이 한 번 죽는다. 한 밤에 한 번. */
+	FTimerHandle FixtureDeathTimer;
+	bool bFixtureDeathFired = false;
+	void KillFixtureBehindPlayer();
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGZoneTrigger> SightingZone;
