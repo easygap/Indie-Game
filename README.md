@@ -204,6 +204,17 @@
   </tr>
 </table>
 
+<table>
+  <tr>
+    <td width="50%"><img src="Docs/Media/readme/prologue-alley-passage.webp" alt="상가 사이로 난 좁은 샛길. 계단 위 철문에서 끝난다"></td>
+    <td width="50%"><img src="Docs/Media/readme/prologue-store-counter.webp" alt="편의점 계산대와 그 뒤의 담배 진열장"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>골목에서 새는 길은 다 막다른 길입니다</sub></td>
+    <td align="center"><sub>계산은 카운터에서</sub></td>
+  </tr>
+</table>
+
 <details>
 <summary>원룸에서 편의점까지 낮 동선</summary>
 

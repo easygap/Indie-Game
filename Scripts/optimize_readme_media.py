@@ -48,6 +48,10 @@ STILLS = (
     "prologue-alley.png",
     "prologue-ramyeon.png",
     "prologue-not-found-note.png",
+    # 샛길과 계산대. 골목이 복도가 아니라는 것과 편의점이 편의점이라는 것을
+    # 이 둘이 보여 준다.
+    "prologue-alley-passage.png",
+    "prologue-store-counter.png",
     # 편의점 음료 매대는 라면 매대와 같은 말을 해서 뺐다. 원본은 낮 동선
     # GIF의 마지막 프레임으로 계속 쓰인다.
     # 계단참 목격 컷은 뺐다. 원본부터 거의 검은 화면이라 GitHub에서는 빈
@@ -68,6 +72,8 @@ LEGACY_OBJECTIVE = frozenset((
     "prologue-alley.png",
     "prologue-ramyeon.png",
     "prologue-not-found-note.png",
+    "prologue-alley-passage.png",
+    "prologue-store-counter.png",
     # 낮 동선 GIF도 같은 프롤로그 캡처를 이어 붙인 것이라 같이 자른다.
     "readme-route-preview.gif",
 ))

@@ -39,8 +39,10 @@ $expectedCaptures = @(
 	'prologue-lobby.png',
 	'prologue-villa.png',
 	'prologue-alley.png',
+	'prologue-alley-passage.png',
 	'prologue-ramyeon.png',
-	'prologue-store.png'
+	'prologue-store.png',
+	'prologue-store-counter.png'
 )
 
 $editorOutput = @(

@@ -268,6 +268,11 @@ void AIGDemoDirector::BuildScript()
 	Steps.Add(MakeStill(TEXT("prologue-alley")));
 	Steps.Add(MakeWalk(FVector(1000, -537, 0)));
 	Steps.Add(MakeWait(1.5f, LampSpot));         // the streetlight dies overhead
+	// 서쪽 샛길. 골목 한가운데서 남쪽으로 꺾어 계단 위 철문까지 내려다본다.
+	// X 1180 주차 콘은 Y -430이라 이 걸음선(Y -537→-480)에 안 걸린다.
+	Steps.Add(MakeWalkLook(FVector(1300, -480, 0), FVector(1300, -1100, 100)));
+	Steps.Add(MakeWait(1.0f, FVector(1300, -1100, 100)));
+	Steps.Add(MakeStill(TEXT("prologue-alley-passage")));
 	Steps.Add(MakeWalkLook(FVector(1520, -520, 0), StoreFar));
 	Steps.Add(MakeWalk(FVector(2080, -490, 0)));
 	Steps.Add(MakeWalk(FVector(2330, -460, 0))); // sliding door senses us
@@ -286,6 +291,13 @@ void AIGDemoDirector::BuildScript()
 	Steps.Add(MakeStill(TEXT("prologue-store")));
 	Steps.Add(MakeWalkLook(FVector(2848, -532, 0), CoolerSpot));
 	Steps.Add(MakeInteract(WaterBottle.Get(), 2.2f, CoolerSpot));
+	// 계산대와 그 뒤 담배 진열장. 곤돌라(X 2488..2792, Y -390..-340)를 가로지르면
+	// 걸음이 막히므로 동쪽 끝을 돌아 나온 자리에서 비스듬히 본다. 곤돌라와 계산대
+	// 사이 58 cm 틈은 캡슐보다 좁다.
+	Steps.Add(MakeWalk(FVector(2900, -430, 0)));
+	Steps.Add(MakeWalkLook(FVector(2838, -335, 0), FVector(2560, -195, 125)));
+	Steps.Add(MakeWait(1.0f, FVector(2560, -195, 125)));
+	Steps.Add(MakeStill(TEXT("prologue-store-counter")));
 	// Reach the register around the open east ends of the gondola and
 	// counter. The 62 cm slot between them is narrower than the capsule.
 	Steps.Add(MakeWalk(FVector(2900, -430, 0)));
