@@ -163,6 +163,12 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	MovementComponent->MaxWalkSpeedCrouched = IGPlayerNoise::CrouchSpeed;
 	MovementComponent->MaxAcceleration = IGPlayerNoise::WalkAcceleration;
 	MovementComponent->BrakingDecelerationWalking = IGPlayerNoise::WalkBraking;
+	// 제동은 §18.2의 제동값만 건다. 기본 지면 마찰 8에 제동 마찰 배율 2가 곱해져
+	// 속도 × 16이 먼저 걸리는데, 달리기 460cm/s에서 그 값은 7360cm/s²라 문서가
+	// 정한 900/1200/1500은 옆에서 아무 일도 못 했다. 「달린 대가가 코너에서
+	// 청구된다」는 제동 마찰을 0으로 떼어야 실제로 청구된다.
+	MovementComponent->bUseSeparateBrakingFriction = true;
+	MovementComponent->BrakingFriction = 0.0f;
 	MovementComponent->NavAgentProps.bCanCrouch = true;
 	MovementComponent->NavAgentProps.bCanJump = true;
 	// 실내의 낮은 짐은 넘되 계단 잠금을 건너뛰거나 1인칭 시점이 가벼워 보이지
@@ -329,6 +335,9 @@ void AIGPlayerCharacter::BeginPlay()
 	// 저장된 시야각을 첫 프레임부터 건다. 설정을 켜 봐야 적용되면
 	// 「저장이 안 됐다」로 읽힌다.
 	RefreshFieldOfView();
+	// 걸음 흔들림·숨·착지 내려앉음은 켜 주는 사람이 있어야 돌았다. 감독이
+	// 안 켜 준 진입 경로(챕터 직행, 밤 루프 기상)는 화면이 굳은 채였다.
+	SetCameraMotionEnabled(true);
 	SetActorTickEnabled(true);
 }
 
@@ -957,10 +966,14 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	const float GroundSpeed = GetVelocity().Size2D();
 	const bool bWalking =
 		MovementComponent && MovementComponent->IsMovingOnGround() && GroundSpeed > 20.0f;
+	// 자세의 목표 속도로 잰다. MaxWalkSpeed로 나누면 앉은 걸음은 상한이 160인데
+	// 분모가 300이라 진폭이 절반이고, 엿듣기 걸음(80)은 걷기 진폭이 통째로
+	// 나온다. 발소리(UpdateFootsteps)와 같은 실측 기준이어야 한다.
+	const float StanceSpeed = bIsCrouched
+		? IGPlayerNoise::CrouchSpeed
+		: (bSprinting ? IGPlayerNoise::SprintSpeed : IGPlayerNoise::ReferenceWalkSpeed);
 	const float SpeedScale = FMath::Clamp(
-		GroundSpeed / FMath::Max(MovementComponent ? MovementComponent->MaxWalkSpeed : 300.0f, 1.0f),
-		0.0f,
-		1.0f);
+		GroundSpeed / FMath::Max(StanceSpeed, 1.0f), 0.0f, 1.0f);
 	const bool bReducedMotion = AccessibilitySubsystem
 		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled();
 
@@ -992,9 +1005,11 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 		const float BreathsPerMinute =
 			StressComponent ? StressComponent->GetBreathsPerMinute() : 13.0f;
 		const float BreathHz = BreathsPerMinute / 60.0f;
+		// 0.55~1.35cm는 서 있기만 해도 화면이 출렁여 멀미로 읽혔다. 공포가
+		// 올라올 때 빨라지는 것이 정보지, 깊이가 정보는 아니다.
 		const float BreathDepth = StressComponent
-			? FMath::Lerp(0.55f, 1.35f, StressComponent->GetStress())
-			: 0.55f;
+			? FMath::Lerp(0.30f, 0.85f, StressComponent->GetStress())
+			: 0.30f;
 		TargetOffset.Z +=
 			FMath::Sin(BreathTime * 2.0f * UE_PI * BreathHz)
 			* BreathDepth
@@ -1019,15 +1034,12 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	}
 	LandingDip = FMath::FInterpTo(LandingDip, 0.0f, DeltaSeconds, 9.0f);
 
-	FVector CameraLocationWithoutCrouch = FirstPersonCamera->GetRelativeLocation();
-	CameraLocationWithoutCrouch.Z -= AppliedCrouchCameraCompensation;
-	FVector SmoothedLocation = FMath::VInterpTo(
-		CameraLocationWithoutCrouch,
-		CameraBaseLocation + TargetOffset,
-		DeltaSeconds,
-		10.0f);
-	SmoothedLocation.Z += CrouchCameraCompensation;
-	FirstPersonCamera->SetRelativeLocation(SmoothedLocation);
+	// 보간 없이 그대로 건다. 10/s 보간은 걸음 주파수(1.9~2.9Hz)의 저역 필터라
+	// §18.3의 진폭을 걷기 64%, 달리기 47%로 깎아 화면에 냈다. 각 성분은 이미
+	// 제 감쇠를 갖고 있어 여기서 한 번 더 부드럽게 할 이유가 없다.
+	FirstPersonCamera->SetRelativeLocation(
+		CameraBaseLocation + TargetOffset
+			+ FVector(0.0f, 0.0f, CrouchCameraCompensation));
 	AppliedCrouchCameraCompensation = CrouchCameraCompensation;
 
 	// Fear tremor rides on the camera's own rotation rather than the control
@@ -1056,13 +1068,17 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 		DeltaSeconds,
 		IGPlayerNoise::KnockCameraKickDegrees
 			/ IGPlayerNoise::KnockCameraReturnSeconds);
+	// 컴포넌트 상대 회전은 bUsePawnControlRotation이 GetCameraView에서 폰 제어
+	// 회전으로 덮어써 한 번도 화면에 나온 적이 없다. 노크 킥 0.4도도, 포획 킥
+	// 3.2도도, 공포 떨림도 전부 여기서 죽어 있었다. 값은 모디파이어가 읽는다.
 	if (bReducedMotion)
 	{
 		FirstPersonCamera->SetRelativeRotation(FRotator::ZeroRotator);
+		CameraFeelRotation = FRotator::ZeroRotator;
 	}
 	else
 	{
-		FirstPersonCamera->SetRelativeRotation(CameraRotation);
+		CameraFeelRotation = CameraRotation;
 	}
 
 	// 달릴 때 시야각이 열린다. 접근성 시야각 위에 얹고, 걸음이 실제로 달리기
@@ -1594,7 +1610,8 @@ void AIGPlayerCharacter::BeginJump()
 	{
 		return;
 	}
-	bSprintInputHeld = false;
+	// 공중에서는 달리기 속도를 내리되 Shift가 눌려 있다는 사실은 남긴다.
+	// 지우면 착지 뒤 IE_Pressed가 다시 오지 않아 걷기로 굳는다.
 	bSprinting = false;
 	if (bIsCrouched)
 	{
@@ -1613,6 +1630,8 @@ void AIGPlayerCharacter::Landed(const FHitResult& Hit)
 {
 	const float ImpactSpeed = FMath::Abs(GetVelocity().Z);
 	Super::Landed(Hit);
+	// Shift를 쥔 채 뛰어내렸으면 땅에 닿는 순간 다시 달린다.
+	RefreshSprintState();
 	// 소리가 안 날 만큼 가벼운 착지도 시점은 내려앉는다. 카메라가 되돌아오는
 	// 것은 UpdateCameraMotion이 한다.
 	LandingDip = FMath::GetMappedRangeValueClamped(
@@ -1748,7 +1767,7 @@ void AIGPlayerCharacter::Knock()
 				GetWorld()->GetSubsystem<UIGNoiseSubsystem>())
 			{
 				Noise->ReportNoise(
-					GetActorLocation(), AIGPlayerCharacter::KnockLoudness, this);
+					KnockLocation, AIGPlayerCharacter::KnockLoudness, this);
 			}
 			ApplyPlayerKnockFeedback();
 		}
@@ -2202,8 +2221,11 @@ void AIGPlayerCharacter::Move(const FInputActionValue& Value)
 void AIGPlayerCharacter::Look(const FInputActionValue& Value)
 {
 	const FVector2D LookInput = Value.Get<FVector2D>();
-	AddControllerYawInput(LookInput.X);
-	AddControllerPitchInput(LookInput.Y);
+	const float Sensitivity = GetLookSensitivity();
+	AddControllerYawInput(LookInput.X * Sensitivity);
+	AddControllerPitchInput(
+		LookInput.Y * Sensitivity * GetVerticalLookScale()
+			* (IsLookInverted() ? -1.0f : 1.0f));
 }
 
 void AIGPlayerCharacter::MoveForward(const float Value)
@@ -2315,8 +2337,10 @@ bool AIGPlayerCharacter::ApplyGamepadLook(const FKey& StickAxis, const bool bYaw
 	}
 	else
 	{
-		// 축 매핑이 이미 -1.2를 걸어 두었으므로 부호를 여기서 맞춘다.
-		AddControllerPitchInput(-Degrees * GetVerticalLookScale());
+		// 축 매핑이 이미 -1.2를 걸어 두었으므로 부호를 여기서 맞춘다. 반전은
+		// 마우스와 같은 설정을 읽는다 — 패드만 안 뒤집히면 설정이 거짓말이다.
+		AddControllerPitchInput(
+			-Degrees * GetVerticalLookScale() * (IsLookInverted() ? -1.0f : 1.0f));
 	}
 	return true;
 }

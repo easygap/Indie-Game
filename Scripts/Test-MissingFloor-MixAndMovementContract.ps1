@@ -304,6 +304,41 @@ if (-not ($sprintBraking -lt $walkBraking -and $sprintBraking -lt $crouchBraking
 	throw 'Sprint braking must stay the lowest of the three (§18.2).'
 }
 
+# 제동값은 제동 마찰을 떼어야 걸린다. 기본 지면 마찰 8×2가 속도에 곱해져 먼저
+# 깎으면 세 값은 대조만 되고 화면에는 나오지 않는다.
+foreach ($friction in @(
+	'MovementComponent->bUseSeparateBrakingFriction = true;',
+	'MovementComponent->BrakingFriction = 0.0f;')) {
+	$assertionCount++
+	if (-not $characterSource.Contains($friction)) {
+		throw "The §18.2 braking values need the braking friction detached: $friction"
+	}
+}
+$assertionCount++
+if (-not $story.Contains('제동 마찰을 0으로 떼어야')) {
+	throw 'The §18.2 braking-friction sentence was removed.'
+}
+
+# 손맛 회전은 카메라 매니저 모디파이어로 얹는다. 컴포넌트 상대 회전은 폰 제어
+# 회전에 덮여 화면에 안 나온다.
+$controllerSource = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGPlayerController.cpp')
+$assertionCount++
+if (-not $controllerSource.Contains(
+	'PlayerCameraManager->AddNewCameraModifier(UIGCameraFeelModifier::StaticClass())')) {
+	throw 'The camera feel modifier must be registered on the camera manager (§18.3).'
+}
+$modifierSource = Get-Content -Raw -Encoding UTF8 (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGCameraFeelModifier.cpp')
+$assertionCount++
+if (-not $modifierSource.Contains('GetCameraFeelRotation()')) {
+	throw 'The camera feel modifier must read the pawn feel rotation (§18.3).'
+}
+$assertionCount++
+if (-not $story.Contains('UIGCameraFeelModifier')) {
+	throw 'The §18.3 camera modifier sentence was removed.'
+}
+
 # 앉기 전환은 즉시가 아니다. 은신 결정에도 비용이 있어야 그 결정이 플레이다.
 Assert-Number 0.35 (Get-Constant $characterSource 'constexpr float CrouchTransitionSeconds') `
 	'§18.2 앉기 전환 시간'

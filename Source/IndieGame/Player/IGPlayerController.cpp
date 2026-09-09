@@ -31,6 +31,7 @@
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
+#include "Player/IGCameraFeelModifier.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGInputBindingSubsystem.h"
 #include "Player/IGFrontendMenuLayout.h"
@@ -151,6 +152,12 @@ void AIGPlayerController::BeginPlay()
 	FInputModeGameOnly InputMode;
 	SetInputMode(InputMode);
 	ApplyDefaultInputMapping();
+	// 손맛 회전(노크·포획 킥, 공포 떨림)은 카메라 매니저 단계에서 얹는다.
+	// 카메라 컴포넌트의 상대 회전은 폰 제어 회전에 덮여 화면에 안 나온다.
+	if (PlayerCameraManager)
+	{
+		PlayerCameraManager->AddNewCameraModifier(UIGCameraFeelModifier::StaticClass());
+	}
 	BindSaveNotifications();
 	LoadAudioCalibrationSettings();
 

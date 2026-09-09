@@ -125,6 +125,13 @@ public:
 
 	/** 접근성 설정의 시야각을 카메라에 건다. 설정이 바뀔 때마다 부른다. */
 	void RefreshFieldOfView();
+	/**
+	 * 이번 프레임의 손맛 회전(노크 킥·포획 킥·공포 떨림). 카메라 컴포넌트에
+	 * 상대 회전을 주면 bUsePawnControlRotation이 GetCameraView에서 폰 제어
+	 * 회전으로 덮어써 화면에 안 나온다. UIGCameraFeelModifier가 카메라 매니저
+	 * 단계에서 이 값을 시점에 얹는다.
+	 */
+	FRotator GetCameraFeelRotation() const { return CameraFeelRotation; }
 
 	UFUNCTION(BlueprintPure, Category = "Player|Audio")
 	bool IsMicrophoneCaptureRunning() const { return bMicrophoneCaptureRunning; }
@@ -272,6 +279,7 @@ private:
 	TWeakObjectPtr<AActor> CarriedActor;
 
 	FVector CameraBaseLocation = FVector(0.0f, 0.0f, 64.0f);
+	FRotator CameraFeelRotation = FRotator::ZeroRotator;
 	float TraveledDistanceAccum = 0.0f;
 	float BreathTime = 0.0f;
 	float SprintActiveSeconds = 0.0f;
