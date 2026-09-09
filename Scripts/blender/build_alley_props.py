@@ -83,7 +83,81 @@ def build_pole(out_root):
         texture_size=1024)
 
 
-BUILDERS = {"cone": build_cone, "pole": build_pole}
+def build_gas_meter(out_root):
+    """가스 계량기함. 벽에 붙는 회색 강판 함에 계량기 창, 위아래 배관. 원점은 벽면 바닥 중심, 앞면 -Y."""
+    ig.reset_scene()
+    steel = ig.mat_painted_steel("MeterBoxSteel", (0.62, 0.64, 0.62), roughness=0.5, wear=0.35, bump=0.03)
+    dark = ig.mat_plastic("MeterDark", (0.03, 0.03, 0.03), roughness=0.5)
+    glass = ig.mat_gloss("MeterGlass", (0.02, 0.02, 0.025), roughness=0.15)
+    yellow = ig.mat_plastic("PipeYellow", (0.85, 0.65, 0.10), roughness=0.5)
+    parts = []
+    box = ig.box("box", (0.40, 0.20, 0.50), location=(0.0, -0.10, 0.25), bevel=0.004, segments=2, material=steel)
+    parts.append(box)
+    parts.append(ig.box("door_seam", (0.34, 0.004, 0.42), location=(0.0, -0.202, 0.26), material=dark))
+    parts.append(ig.box("window", (0.14, 0.004, 0.08), location=(0.06, -0.204, 0.34), material=glass))
+    parts.append(ig.cylinder("latch", 0.012, 0.01, location=(-0.12, -0.205, 0.22), rotation=(math.pi * 0.5, 0.0, 0.0),
+                             segments=12, material=dark))
+    for x in (-0.12, 0.10):
+        parts.append(ig.cylinder(f"pipe_{int((x + 1) * 100)}", 0.017, 0.60, location=(x, -0.06, 0.80), segments=14,
+                                 material=yellow))
+        parts.append(ig.cylinder(f"pipe_low_{int((x + 1) * 100)}", 0.017, 0.10, location=(x, -0.06, -0.05), segments=14,
+                                 material=yellow))
+    return ig.build_asset(
+        "SM_GasMeterBox", "prop", parts, out_root, collision_parts=[[box]],
+        notes="샛길 가스 계량기함 40 x 20 x 50, 위로 60 cm 배관. 원점 벽면 바닥 중심, 앞면 -Y.", texture_size=512)
+
+
+def build_ac_outdoor(out_root):
+    """에어컨 실외기. 앞면(-Y)에 팬 그릴, 옆에 배관 구멍. 벽걸이 받침 둘. 원점은 벽면 바닥 중심."""
+    ig.reset_scene()
+    shell = ig.mat_painted_steel("AcShell", (0.80, 0.80, 0.78), roughness=0.45, wear=0.25, bump=0.02)
+    dark = ig.mat_plastic("AcDark", (0.04, 0.04, 0.04), roughness=0.55)
+    steel = ig.mat_metal("Bracket", (0.45, 0.46, 0.47), roughness=0.5, streak=0.1)
+    parts = []
+    body = ig.box("body", (0.80, 0.30, 0.55), location=(0.0, -0.15 - 0.06, 0.275), bevel=0.006, segments=2, material=shell)
+    parts.append(body)
+    # 팬 그릴: 동심 링 여섯과 가운데 허브.
+    for index in range(6):
+        parts.append(ig.torus(f"ring{index}", 0.05 + index * 0.035, 0.004, location=(-0.16, -0.36 - 0.006, 0.28),
+                              rotation=(math.pi * 0.5, 0.0, 0.0), major_segments=40, minor_segments=6, material=dark))
+    parts.append(ig.cylinder("hub", 0.03, 0.01, location=(-0.16, -0.362, 0.28), rotation=(math.pi * 0.5, 0.0, 0.0),
+                             segments=20, material=dark))
+    # 오른쪽 루버.
+    for z in (0.10, 0.17, 0.24, 0.31, 0.38, 0.45):
+        parts.append(ig.box(f"louvre_{int(z * 100)}", (0.28, 0.006, 0.02), location=(0.22, -0.363, z), material=dark))
+    # 벽 받침 둘.
+    for x in (-0.28, 0.28):
+        parts.append(ig.box(f"bracket_{int((x + 1) * 100)}", (0.04, 0.34, 0.04), location=(x, -0.17, -0.02), material=steel))
+        parts.append(ig.box(f"strut_{int((x + 1) * 100)}", (0.04, 0.04, 0.30), location=(x, -0.02, -0.15), material=steel))
+    parts.append(ig.cylinder("pipe", 0.012, 0.30, location=(0.36, -0.06, 0.10), segments=12, material=dark))
+    return ig.build_asset(
+        "SM_AcOutdoorUnit", "prop", parts, out_root, collision_parts=[[body]],
+        notes="벽걸이 에어컨 실외기 80 x 36 x 55, 받침 포함. 원점 벽면 바닥 중심, 팬이 -Y.", texture_size=1024)
+
+
+def build_convex_mirror(out_root):
+    """골목 볼록거울. 주황 테두리, 금속 거울면(루멘 반사), 벽 브래킷. 원점은 벽면 거울 중심."""
+    ig.reset_scene()
+    orange = ig.mat_plastic("MirrorRim", (0.90, 0.35, 0.05), roughness=0.5, bump=0.01)
+    mirror = ig.mat_metal("MirrorFace", (0.92, 0.92, 0.92), roughness=0.04, streak=0.0, anisotropic=False)
+    steel = ig.mat_metal("MirrorSteel", (0.40, 0.41, 0.42), roughness=0.5, streak=0.1)
+    parts = []
+    parts.append(ig.box("bracket", (0.06, 0.30, 0.06), location=(0.0, -0.15, 0.0), material=steel))
+    parts.append(ig.cylinder("joint", 0.03, 0.06, location=(0.0, -0.31, 0.0), segments=16, material=steel))
+    rim = ig.torus("rim", 0.29, 0.02, location=(0.0, -0.36, 0.0), rotation=(math.pi * 0.5, 0.0, 0.0),
+                   major_segments=48, minor_segments=10, material=orange)
+    parts.append(rim)
+    # 볼록면: 얕은 돔.
+    dome = ig.lathe("dome", [(0.0, 0.05), (0.12, 0.045), (0.22, 0.03), (0.285, 0.0)], segments=48,
+                    location=(0.0, -0.36, 0.0), rotation=(math.pi * 0.5, 0.0, 0.0), material=mirror)
+    parts.append(dome)
+    return ig.build_asset(
+        "SM_ConvexMirror", "prop", parts, out_root, collision_parts=[],
+        notes="골목 볼록거울 지름 62, 벽에서 40 cm. 원점은 벽면의 거울 중심 높이, 거울면 -Y. 충돌 없음.", texture_size=512)
+
+
+BUILDERS = {"cone": build_cone, "pole": build_pole, "meter": build_gas_meter, "ac": build_ac_outdoor,
+            "mirror": build_convex_mirror}
 
 
 def main():

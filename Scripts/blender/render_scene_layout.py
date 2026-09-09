@@ -50,10 +50,18 @@ VIEWS = {
     "plan_apartment": ((0.0, 0.0, 1650.0), (0.0, 0.0, 900.0), 55.0, 1125.0),
     "plan_store": ((2680.0, -430.0, 850.0), (2680.0, -430.0, 0.0), 55.0, 255.0),
     "plan_lobby": ((520.0, -305.0, 700.0), (520.0, -305.0, 0.0), 55.0, 235.0),
+    "plan_alley_west": ((400.0, -540.0, 2400.0), (400.0, -540.0, 0.0), 60.0, 900.0),
+    "plan_alley_east": ((1900.0, -540.0, 2400.0), (1900.0, -540.0, 0.0), 60.0, 900.0),
     "corridor_401": ((-60.0, -330.0, 1055.0), (-150.0, -234.0, 1000.0), 70.0),
     "lobby_mailbox": ((528.0, -335.0, 160.0), (528.0, -236.0, 150.0), 70.0),
     "alley_facade": ((60.0, -600.0, 180.0), (60.0, -395.0, 600.0), 80.0),
     "alley_pole": ((260.0, -620.0, 170.0), (500.0, -422.0, 300.0), 70.0),
+    # 샛길 둘: 입구에서 안쪽을 보는 컷과 평면.
+    "alley_passage_west": ((1300.0, -560.0, 160.0), (1300.0, -1300.0, 120.0), 70.0),
+    "alley_passage_east": ((1720.0, -560.0, 160.0), (1720.0, -1000.0, 110.0), 70.0),
+    "plan_alley_passages": ((1500.0, -900.0, 2200.0), (1500.0, -900.0, 0.0), 60.0, 900.0),
+    "alley_passage_mouth_west": ((1520.0, -470.0, 170.0), (1240.0, -690.0, 210.0), 70.0),
+    "alley_passage_mouth_east": ((1420.0, -460.0, 170.0), (1760.0, -690.0, 230.0), 70.0),
 }
 
 EMISSIVE_HINTS = ("Glow", "Light", "Screen", "Panel", "Neon", "Sign", "Lamp", "Fluor", "Led")
@@ -315,10 +323,14 @@ def render_view(name, out_dir):
     light = ig._link(bpy.data.objects.new(f"__head_{name}", light_data))
     light.location = cam.location + Vector((0.0, 0.0, 0.3))
     if z_cut is not None:
-        # 평면도는 헤드라이트 대신 위에서 고르게 비춘다.
+        # 평면도는 헤드라이트 대신 위에서 고르게 비춘다. 하늘은 어둡게 두어
+        # 지붕 없는 상자 윗면이 배경과 같은 회색으로 묻히지 않게 한다.
         light_data.type = "SUN"
         light_data.energy = 3.0
         light.rotation_euler = (0.0, 0.0, 0.0)
+        scene.world.node_tree.nodes["Background"].inputs[1].default_value = 0.08
+    else:
+        scene.world.node_tree.nodes["Background"].inputs[1].default_value = 1.0
     scene.render.filepath = os.path.join(out_dir, f"{name}.png")
     bpy.ops.render.render(write_still=True)
     bpy.data.objects.remove(light, do_unlink=True)

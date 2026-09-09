@@ -1,5 +1,17 @@
 {
   "meshes": {
+    "SM_AcOutdoorUnit": {
+      "origin": [
+        0.0,
+        -18.4732,
+        12.5
+      ],
+      "extent": [
+        40.0,
+        18.4732,
+        42.5
+      ]
+    },
     "SM_AlarmClock": {
       "origin": [
         0.0,
@@ -154,6 +166,18 @@
         11.0625,
         15.35,
         1.4
+      ]
+    },
+    "SM_ConvexMirror": {
+      "origin": [
+        0.0,
+        -20.5,
+        -0.0
+      ],
+      "extent": [
+        31.0,
+        20.5,
+        31.0
       ]
     },
     "SM_CrackedPhone": {
@@ -358,6 +382,18 @@
         8.1,
         36.0,
         76.0
+      ]
+    },
+    "SM_GasMeterBox": {
+      "origin": [
+        0.0,
+        -10.5,
+        50.0
+      ],
+      "extent": [
+        20.0,
+        10.5,
+        60.0
       ]
     },
     "SM_HornRimGlasses": {

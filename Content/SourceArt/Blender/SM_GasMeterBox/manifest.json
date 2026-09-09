@@ -1,0 +1,30 @@
+{
+  "name": "SM_GasMeterBox",
+  "mesh_class": "prop",
+  "fbx": "SM_GasMeterBox.fbx",
+  "textures": {
+    "D": "SM_GasMeterBox_D.png",
+    "N": "SM_GasMeterBox_N.png",
+    "ORM": "SM_GasMeterBox_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 384,
+  "bounds_m": {
+    "min": [
+      -0.2,
+      -0.21,
+      -0.1
+    ],
+    "max": [
+      0.2,
+      0.0,
+      1.1
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "샛길 가스 계량기함 40 x 20 x 50, 위로 60 cm 배관. 원점 벽면 바닥 중심, 앞면 -Y."
+}

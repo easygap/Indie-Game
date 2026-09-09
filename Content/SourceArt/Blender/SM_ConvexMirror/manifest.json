@@ -1,0 +1,30 @@
+{
+  "name": "SM_ConvexMirror",
+  "mesh_class": "prop",
+  "fbx": "SM_ConvexMirror.fbx",
+  "textures": {
+    "D": "SM_ConvexMirror_D.png",
+    "N": "SM_ConvexMirror_N.png",
+    "ORM": "SM_ConvexMirror_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1272,
+  "bounds_m": {
+    "min": [
+      -0.31,
+      -0.41,
+      -0.31
+    ],
+    "max": [
+      0.31,
+      0.0,
+      0.31
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "골목 볼록거울 지름 62, 벽에서 40 cm. 원점은 벽면의 거울 중심 높이, 거울면 -Y. 충돌 없음."
+}

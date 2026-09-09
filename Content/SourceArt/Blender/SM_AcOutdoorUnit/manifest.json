@@ -1,0 +1,30 @@
+{
+  "name": "SM_AcOutdoorUnit",
+  "mesh_class": "prop",
+  "fbx": "SM_AcOutdoorUnit.fbx",
+  "textures": {
+    "D": "SM_AcOutdoorUnit_D.png",
+    "N": "SM_AcOutdoorUnit_N.png",
+    "ORM": "SM_AcOutdoorUnit_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 3228,
+  "bounds_m": {
+    "min": [
+      -0.4,
+      -0.3695,
+      -0.3
+    ],
+    "max": [
+      0.4,
+      0.0,
+      0.55
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "벽걸이 에어컨 실외기 80 x 36 x 55, 받침 포함. 원점 벽면 바닥 중심, 팬이 -Y."
+}

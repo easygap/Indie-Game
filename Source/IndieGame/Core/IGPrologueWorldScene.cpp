@@ -5424,9 +5424,12 @@ void AIGPrologueWorldScene::BuildAlley()
 	CreateBlock(FVector(2190, -276, 230), FVector(20, 228, 460), VillaStuccoY);
 	CreateBlock(FVector(2300, -152, 230), FVector(240, 20, 460), VillaStuccoX);
 
-	// Curb stones seat the facades onto the road.
+	// Curb stones seat the facades onto the road. 남쪽 연석은 샛길 입구 두 곳(X 1210..1390,
+	// 1640..1800)을 건너뛴다. 한 줄로 두면 샛길로 들어서는 발밑에 12 cm 턱이 걸린다.
 	CreateBlock(FVector(1040, -410, 4), FVector(2720, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
-	CreateBlock(FVector(1040, -665, 4), FVector(2720, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
+	CreateBlock(FVector(445, -665, 4), FVector(1530, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
+	CreateBlock(FVector(1515, -665, 4), FVector(250, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
+	CreateBlock(FVector(2100, -665, 4), FVector(600, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
 
 	// Manhole covers and the drainage channel running down the alley center.
 	// Keep the first cover clear of the villa threshold and CH02 offering.
@@ -5682,8 +5685,9 @@ void AIGPrologueWorldScene::BuildAlley()
 
 
 	// A red church cross on a far rooftop keeps watch over the district.
-	CreateBlock(FVector(1750, -700, 545), FVector(10, 8, 96), AlarmMaterial, false);
-	CreateBlock(FVector(1750, -700, 566), FVector(58, 8, 10), AlarmMaterial, false);
+	// X 1750은 동쪽 샛길 입구 위 빈 하늘이라 동쪽 토막 지붕선(X 2000)으로 옮겼다.
+	CreateBlock(FVector(2000, -700, 545), FVector(10, 8, 96), AlarmMaterial, false);
+	CreateBlock(FVector(2000, -700, 566), FVector(58, 8, 10), AlarmMaterial, false);
 
 	// Parking cones and the AC drain pipes running to the street.
 	UStaticMesh* ParkingConeMesh = PropMesh(TEXT("SM_TrafficCone"));
@@ -5738,10 +5742,19 @@ void AIGPrologueWorldScene::BuildAlley()
 	// South side: opposing building lined with shuttered shops — the
 	// text-dense storefront wall that makes it read as a Korean back street.
 	// Masonry, not flat render: brick above a dark painted plinth.
-	CreateBlock(FVector(1040, -690, 310), FVector(2720, 20, 380), BrickX);
-	CreateBlock(FVector(1040, -688, 60), FVector(2720, 22, 120), DarkX);
-	CreateBlock(FVector(1040, -687, 122), FVector(2720, 24, 8),
-		TexMat(TEXT("M_Concrete_X"), ConcreteMaterial), false);
+	// 27 m를 한 판으로 두면 골목이 아니라 복도다. 두 자리(X 1210..1390, 1640..1800)를
+	// 샛길로 터서 상가를 세 토막으로 나눈다. 샛길 안쪽은 아래에서 짓는다.
+	const float FacadeX0[] = {-320.0f, 1390.0f, 1800.0f};
+	const float FacadeX1[] = {1210.0f, 1640.0f, 2400.0f};
+	for (int32 SegmentIndex = 0; SegmentIndex < 3; ++SegmentIndex)
+	{
+		const float CenterX = (FacadeX0[SegmentIndex] + FacadeX1[SegmentIndex]) * 0.5f;
+		const float Length = FacadeX1[SegmentIndex] - FacadeX0[SegmentIndex];
+		CreateBlock(FVector(CenterX, -690, 310), FVector(Length, 20, 380), BrickX);
+		CreateBlock(FVector(CenterX, -688, 60), FVector(Length, 22, 120), DarkX);
+		CreateBlock(FVector(CenterX, -687, 122), FVector(Length, 24, 8),
+			TexMat(TEXT("M_Concrete_X"), ConcreteMaterial), false);
+	}
 	{
 		// Four individualized storefronts: varied widths, awnings, blade
 		// signs, a display window, an A-frame board, gas bottles, planters —
@@ -5834,7 +5847,8 @@ void AIGPrologueWorldScene::BuildAlley()
 			TexMat(TEXT("M_SignKaraoke"), PlasticDarkMaterial),
 			FVector(0, 1, 0));
 	}
-	const float SouthWindowXs[] = {250, 650, 1150, 1750, 2150};
+	// 1750은 동쪽 샛길 자리라 1900으로 옮겼다. 1850 전신주와 겹치지 않는다.
+	const float SouthWindowXs[] = {250, 650, 1150, 1900, 2150};
 	for (int32 WindowIndex = 0; WindowIndex < static_cast<int32>(UE_ARRAY_COUNT(SouthWindowXs)); ++WindowIndex)
 	{
 		const float OffsetZ = (WindowIndex % 2 == 0) ? 320.0f : 330.0f;
@@ -5889,6 +5903,120 @@ void AIGPrologueWorldScene::BuildAlley()
 		{
 			FlickerStreetlight = LampLight;
 		}
+	}
+
+	// --- 샛길 둘 ---------------------------------------------------------
+	// 집에서 편의점까지 가는 길에 옆으로 새는 자리가 하나도 없었다. 남쪽 상가
+	// 사이로 좁은 샛길을 둘 낸다. 서쪽 것은 7 m 들어가 계단 위 철문으로 끝나고,
+	// 동쪽 것은 4 m에서 쇠창살 문에 막힌다. 둘 다 막다른 길이라 동선은 그대로다.
+	// 공통 껍데기는 람다 하나로 짓고, 끝 처리는 리터럴 좌표로 따로 적는다 — 반복문
+	// 안에서 if/else로 갈랐을 때 감사가 두 가지를 다 세워 유령 계단·유령 문이 생겼다.
+	UMaterialInterface* BrickY = TexMat(TEXT("M_Brick_Y"), ConcreteMaterial);
+	UStaticMesh* GasMeterMesh = PropMesh(TEXT("SM_GasMeterBox"));
+	UStaticMesh* AcOutdoorMesh = PropMesh(TEXT("SM_AcOutdoorUnit"));
+	UStaticMesh* ConvexMirrorMesh = PropMesh(TEXT("SM_ConvexMirror"));
+	UStaticMesh* PassageDoorMesh = PropMesh(TEXT("SM_UnitDoorLeaf"));
+	auto BuildPassageShell = [this, AsphaltWorld, BrickX, BrickY, Metal, DarkY, GasMeterMesh, AcOutdoorMesh](
+		const float X0, const float X1, const float EndY, const float TrashYaw)
+	{
+		const float CenterX = (X0 + X1) * 0.5f;
+		const float Width = X1 - X0;
+		const float Depth = -700.0f - EndY;
+		const float MidY = (-700.0f + EndY) * 0.5f;
+		// 바닥은 도로와 같은 아스팔트, 양옆은 벽돌 벽, 끝은 벽돌 막벽. 골목 아스팔트가
+		// Y -690에서 끝나므로 바닥은 거기까지 끌어와 맞댄다. 벽은 상가 뒷면(-700)부터.
+		CreateBlock(
+			FVector(CenterX, (EndY - 690.0f) * 0.5f, -10), FVector(Width, -690.0f - EndY, 20), AsphaltWorld);
+		CreateBlock(FVector(X0 - 10, MidY, 230), FVector(20, Depth, 460), BrickY);
+		CreateBlock(FVector(X1 + 10, MidY, 230), FVector(20, Depth, 460), BrickY);
+		CreateBlock(FVector(CenterX, EndY - 10, 230), FVector(Width + 40, 20, 460), BrickX);
+		// 배수구 덮개와 홈통.
+		CreateBlock(FVector(CenterX, -740, 0.6f), FVector(50, 30, 1.2f), Metal, false);
+		CreateBlock(FVector(X1 - 8, MidY, 230), FVector(10, 10, 460), DarkY, false, CylinderMesh);
+		// 가스 계량기함 둘(왼쪽 벽 가슴 높이)과 실외기(오른쪽 벽). 뒷면은 벽 안으로 5 mm.
+		for (const float MeterY : {-760.0f, -820.0f})
+		{
+			if (GasMeterMesh)
+			{
+				CreateBlock(
+					FVector(X0 - 0.5f, MeterY, 130), FVector(100, 100, 100),
+					nullptr, false, GasMeterMesh, FRotator(0, -90, 0));
+			}
+			else
+			{
+				CreateBlock(FVector(X0 + 10, MeterY, 150), FVector(20, 40, 50), Metal, false);
+			}
+		}
+		if (AcOutdoorMesh)
+		{
+			CreateBlock(
+				FVector(X1 + 0.5f, -790, 180), FVector(100, 100, 100),
+				nullptr, false, AcOutdoorMesh, FRotator(0, 90, 0));
+		}
+		else
+		{
+			CreateBlock(FVector(X1 - 18, -790, 205), FVector(36, 80, 55), Metal, false);
+		}
+		// 벽등 하나. 갓은 상자, 빛은 아래로.
+		CreateBlock(FVector(X0 + 8, EndY + 120, 320), FVector(16, 24, 12), PlasticDarkMaterial, false);
+		CreateBlock(FVector(X0 + 8, EndY + 120, 312), FVector(12, 20, 2), StreetLampGlowMaterial, false);
+		CreateLight(
+			FVector(X0 + 30, EndY + 120, 300), 700.0f, 260.0f,
+			FLinearColor(1.0f, 0.85f, 0.62f), true, 14.0f);
+		// 입구 쓰레기: 스캔 소품이 있으면 그것, 없으면 상자.
+		if (!PlacePhotoProp(TEXT("trashbag"), FVector(X0 + 34, -728, 0), FVector(56, 56, 54), TrashYaw))
+		{
+			CreateBlock(FVector(X0 + 34, -728, 26), FVector(50, 50, 52), PlasticDarkMaterial, true);
+		}
+	};
+	BuildPassageShell(1210.0f, 1390.0f, -1400.0f, 40.0f);
+	BuildPassageShell(1640.0f, 1800.0f, -1100.0f, 65.0f);
+
+	// 서쪽 샛길(X 1210..1390, 끝 Y -1400): 안쪽 끝 계단 여섯 단 위에 철문. 계단은 통째
+	// 상자를 층층이 쌓아 발판 판정이 실제 단과 같다. 계단참 윗면 Z 102.
+	for (int32 Step = 0; Step < 6; ++Step)
+	{
+		const float Rise = 17.0f * (Step + 1);
+		CreateBlock(
+			FVector(1300, -1194.0f - 28.0f * Step, Rise * 0.5f),
+			FVector(180, 28, Rise),
+			TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial));
+	}
+	CreateBlock(FVector(1300, -1374, 51), FVector(180, 52, 102),
+		TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial));
+	if (PassageDoorMesh)
+	{
+		// 문짝 원점은 바닥 중심, 앞면 -Y. 계단참에 서서 남쪽을 보므로 앞면이 +Y다.
+		CreateBlock(
+			FVector(1300, -1396, 102), FVector(100, 100, 100),
+			nullptr, true, PassageDoorMesh, FRotator(0, 180, 0));
+	}
+	else
+	{
+		CreateBlock(FVector(1300, -1398, 202), FVector(84, 4, 200), DarkX);
+	}
+	if (ConvexMirrorMesh)
+	{
+		// 입구 모퉁이의 볼록거울. 서쪽 토막 동쪽 끝 벽면(Y -680)에 걸어 샛길 입구 위로
+		// 내밀고 거울면은 북동쪽을 본다. 원점이 벽면의 거울 중심 높이라 5 mm만 묻는다.
+		// 가운데 토막 서쪽 끝은 세로 간판(X 1404)이 차지해 그쪽엔 못 건다.
+		CreateBlock(
+			FVector(1196, -680.5f, 240), FVector(100, 100, 100),
+			nullptr, false, ConvexMirrorMesh, FRotator(0, 145, 0));
+	}
+
+	// 동쪽 샛길(X 1640..1800, 끝 Y -1100): Y -1040에 쇠창살 문. 세로대 여덟, 가로대 둘,
+	// 잠금 사슬 자리의 작은 판. 문 너머 상자 더미.
+	for (float BarX = 1650.0f; BarX <= 1790.0f; BarX += 20.0f)
+	{
+		CreateBlock(FVector(BarX, -1040, 100), FVector(2.5f, 2.5f, 200), Metal, true);
+	}
+	CreateBlock(FVector(1720, -1040, 6), FVector(150, 3, 3), Metal, false);
+	CreateBlock(FVector(1720, -1040, 196), FVector(150, 3, 3), Metal, false);
+	CreateBlock(FVector(1720, -1042, 120), FVector(24, 1.5f, 16), PlasticDarkMaterial, false);
+	if (!PlacePhotoProp(TEXT("cardboard_box_01"), FVector(1690, -1070, 0), FVector(50, 40, 40), 15.0f))
+	{
+		CreateBlock(FVector(1690, -1070, 20), FVector(50, 40, 40), PlasticDarkMaterial, false);
 	}
 
 	// Utility poles with junction boxes for the Korean-alley silhouette.
