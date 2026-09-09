@@ -1,0 +1,30 @@
+{
+  "name": "SM_SnackBoxC",
+  "mesh_class": "prop",
+  "fbx": "SM_SnackBoxC.fbx",
+  "textures": {
+    "D": "SM_SnackBoxC_D.png",
+    "N": "SM_SnackBoxC_N.png",
+    "ORM": "SM_SnackBoxC_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 56,
+  "bounds_m": {
+    "min": [
+      -0.09,
+      -0.0309,
+      0.0
+    ],
+    "max": [
+      0.09,
+      0.03,
+      0.24
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "과자 상자 3/4. 18 x 6 x 24, 원점 바닥 중심, 앞면 -Y."
+}

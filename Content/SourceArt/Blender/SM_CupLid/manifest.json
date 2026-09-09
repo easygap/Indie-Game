@@ -1,0 +1,26 @@
+{
+  "name": "SM_CupLid",
+  "mesh_class": "prop",
+  "fbx": "SM_CupLid.fbx",
+  "textures": {},
+  "slots": [
+    "Paper"
+  ],
+  "triangles": 200,
+  "bounds_m": {
+    "min": [
+      -0.059,
+      -0.072,
+      0.096
+    ],
+    "max": [
+      0.059,
+      0.059,
+      0.0976
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "컵라면 종이 뚜껑과 탭. 컵 원점과 같아 컵 자리에 그대로 놓는다(Z 9.6). 평면 UV, 씬의 M_StainlessUV."
+}

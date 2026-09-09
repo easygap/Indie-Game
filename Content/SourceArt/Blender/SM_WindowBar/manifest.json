@@ -1,0 +1,30 @@
+{
+  "name": "SM_WindowBar",
+  "mesh_class": "prop",
+  "fbx": "SM_WindowBar.fbx",
+  "textures": {
+    "D": "SM_WindowBar_D.png",
+    "N": "SM_WindowBar_N.png",
+    "ORM": "SM_WindowBar_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 372,
+  "bounds_m": {
+    "min": [
+      -0.17,
+      -0.36,
+      0.0
+    ],
+    "max": [
+      0.17,
+      0.36,
+      1.05
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "창가 취식대 34 x 72 x 105. 원점 바닥 중심(씬 (2433, -634, 6)), 유리 쪽이 -X. 상판 윗면 씬 Z 111."
+}

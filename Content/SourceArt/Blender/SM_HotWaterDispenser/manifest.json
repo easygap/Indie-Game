@@ -1,0 +1,31 @@
+{
+  "name": "SM_HotWaterDispenser",
+  "mesh_class": "prop",
+  "fbx": "SM_HotWaterDispenser.fbx",
+  "textures": {
+    "D": "SM_HotWaterDispenser_D.png",
+    "N": "SM_HotWaterDispenser_N.png",
+    "ORM": "SM_HotWaterDispenser_ORM.png",
+    "E": "SM_HotWaterDispenser_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 340,
+  "bounds_m": {
+    "min": [
+      -0.15,
+      -0.195,
+      0.0
+    ],
+    "max": [
+      0.15,
+      0.18,
+      0.44
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 3.0,
+  "blender": "5.2.0 LTS",
+  "notes": "라면 온수기 30 x 36 x 44. 원점 바닥 중심, 꼭지가 -Y."
+}

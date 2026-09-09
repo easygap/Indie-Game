@@ -467,10 +467,14 @@ def import_asset(source_dir, manifest, master):
     textures = {}
     for role, filename in manifest["textures"].items():
         textures[role] = import_texture(os.path.join(source_dir, filename), f"T_{name[3:]}_{role}", role)
-    instance = create_instance(f"MI_{name[3:]}", master, textures,
-                               manifest.get("emissive_strength", 1.0))
     mesh = import_fbx(os.path.join(source_dir, manifest["fbx"]), name)
-    slots = assign_materials(mesh, instance)
+    if textures:
+        instance = create_instance(f"MI_{name[3:]}", master, textures,
+                                   manifest.get("emissive_strength", 1.0))
+        slots = assign_materials(mesh, instance)
+    else:
+        # 구운 텍스처가 없는 메시(raw_uv). 재질은 씬이 UV0에 직접 씌운다.
+        slots = [str(s.material_slot_name) for s in mesh.static_materials]
     apply_lod_contract(mesh, name, mesh_class_for(manifest))
     unreal.EditorAssetLibrary.save_asset(f"{MESH_ROOT}/{name}", False)
     for texture in textures.values():

@@ -1,0 +1,26 @@
+{
+  "name": "SM_CupSleeve",
+  "mesh_class": "prop",
+  "fbx": "SM_CupSleeve.fbx",
+  "textures": {},
+  "slots": [
+    "Paper"
+  ],
+  "triangles": 512,
+  "bounds_m": {
+    "min": [
+      -0.0549,
+      -0.0549,
+      0.0
+    ],
+    "max": [
+      0.0549,
+      0.0549,
+      0.074
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "컵라면 라벨 슬리브. 컵 Z 1.6..9.0을 감싼다(로컬 0..7.4). U 한 바퀴, V는 UE에서 위가 0. M_LabelRamyeon이 읽는다."
+}

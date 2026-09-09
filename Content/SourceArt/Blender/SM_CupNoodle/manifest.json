@@ -1,0 +1,26 @@
+{
+  "name": "SM_CupNoodle",
+  "mesh_class": "prop",
+  "fbx": "SM_CupNoodle.fbx",
+  "textures": {},
+  "slots": [
+    "Foam"
+  ],
+  "triangles": 1052,
+  "bounds_m": {
+    "min": [
+      -0.058,
+      -0.058,
+      0.0
+    ],
+    "max": [
+      0.058,
+      0.058,
+      0.096
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "컵라면 발포 컵. 위 지름 11, 아래 7.5, 높이 9.6. 원점 바닥 중심. 재질은 씬의 CupNoodleMaterial(UV 원통)."
+}

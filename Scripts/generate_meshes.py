@@ -2790,6 +2790,10 @@ def run():
         "build_mok_hansoo_workwear": "SM_MokHansooFigure",
         "build_mok_hansoo_head_hands": "SM_MokHansooFigure",
         "build_mok_hansoo_gypsum_board": "SM_MokHansooFigure",
+        # 컵라면 세 조각은 Blender에서 다시 만들었다(build_store_products.py).
+        "build_cup_noodle": "SM_CupNoodle",
+        "build_cup_sleeve": "SM_CupSleeve",
+        "build_cup_lid": "SM_CupLid",
     }
     built = 0
     skipped = 0

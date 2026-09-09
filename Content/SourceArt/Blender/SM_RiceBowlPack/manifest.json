@@ -1,0 +1,31 @@
+{
+  "name": "SM_RiceBowlPack",
+  "mesh_class": "prop",
+  "fbx": "SM_RiceBowlPack.fbx",
+  "textures": {
+    "D": "SM_RiceBowlPack_D.png",
+    "N": "SM_RiceBowlPack_N.png",
+    "ORM": "SM_RiceBowlPack_ORM.png"
+  },
+  "slots": [
+    "Baked",
+    "Glass"
+  ],
+  "triangles": 696,
+  "bounds_m": {
+    "min": [
+      -0.093,
+      -0.046,
+      0.0
+    ],
+    "max": [
+      0.093,
+      0.046,
+      0.04
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "즉석밥 3개 묶음 14 x 9 x 4. 원점 바닥 중심. 비닐 포장은 Glass 슬롯."
+}

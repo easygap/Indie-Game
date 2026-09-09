@@ -39,10 +39,11 @@ $builders = [ordered]@{
 	'fridge' = @('SM_FridgeBody', 'SM_FridgeDoor')
 	'kitchen' = @('SM_KitchenBaseRun', 'SM_DrumWasher', 'SM_KitchenWallUnits', 'SM_RangeHood', 'SM_Microwave', 'SM_KitchenSink', 'SM_InductionHob')
 	'apartment_props' = @('SM_Wardrobe', 'SM_WallAirConditioner')
-	'alley_props' = @('SM_TrafficCone', 'SM_UtilityPole')
+	'alley_props' = @('SM_TrafficCone', 'SM_UtilityPole', 'SM_GasMeterBox', 'SM_AcOutdoorUnit', 'SM_ConvexMirror')
 	'store_fixtures' = @('SM_StoreCoolerBank', 'SM_StoreCoolerDoor', 'SM_StoreGondola', 'SM_StoreCounter', 'SM_CardTerminal', 'SM_HotSnackWarmer', 'SM_ChestFreezer', 'SM_OpenShowcase', 'SM_RamyeonRack')
 	'apartment_fixtures' = @('SM_ApartmentWindow', 'SM_VenetianBlind', 'SM_VideoIntercom', 'SM_WallSwitch', 'SM_ShoeCabinet')
 	'villa_window' = @('SM_VillaWindow')
+	'store_products' = @('SM_CupNoodle', 'SM_CupSleeve', 'SM_CupLid', 'SM_SnackBoxA', 'SM_SnackBoxB', 'SM_SnackBoxC', 'SM_SnackBoxD', 'SM_TriangleKimbapA', 'SM_TriangleKimbapB', 'SM_TriangleKimbapC', 'SM_TriangleKimbapD', 'SM_RiceBowlPack', 'SM_TobaccoCabinet', 'SM_WindowBar', 'SM_HotWaterDispenser', 'SM_TrashBin')
 }
 
 $selected = @()

@@ -670,12 +670,14 @@ def mat_image_uv(name, image_path, uv_layer="ImageUV", roughness=0.45, metallic=
 
 
 def image_quad(name, size, location, material, rotation=(0.0, 0.0, 0.0), uv_layer="ImageUV",
-               thickness=0.0008):
+               thickness=0.0008, uv_rect=(0.0, 0.0, 1.0, 1.0)):
     """이미지를 붙일 얇은 판. 앞면(-Y)에 0..1 UV를 ImageUV 층으로 준다.
-    size는 (폭 X, 높이 Z)."""
+    size는 (폭 X, 높이 Z). uv_rect=(u0, v0, u1, v1)이면 아틀라스의 그 칸만 쓴다
+    (v는 아래가 0, PIL 좌표계와 반대)."""
     ob = box(name, (size[0], thickness, size[1]), location=location, rotation=rotation, material=material)
     me = ob.data
     layer = me.uv_layers.new(name=uv_layer)
+    u0, v0, u1, v1 = uv_rect
     for poly in me.polygons:
         n = poly.normal
         for li in poly.loop_indices:
@@ -684,8 +686,17 @@ def image_quad(name, size, location, material, rotation=(0.0, 0.0, 0.0), uv_laye
             v = co.z / size[1] + 0.5
             if n.y > 0.5:
                 u = 1.0 - u
-            layer.data[li].uv = (u, v)
+            layer.data[li].uv = (u0 + (u1 - u0) * u, v0 + (v1 - v0) * v)
     return ob
+
+
+def atlas_rect(columns, rows, index):
+    """PIL로 그린 아틀라스(왼쪽 위가 0)의 index번째 칸을 Blender UV 사각형으로."""
+    col, row = index % columns, index // columns
+    u0, u1 = col / columns, (col + 1) / columns
+    v1 = 1.0 - row / rows
+    v0 = 1.0 - (row + 1) / rows
+    return (u0, v0, u1, v1)
 
 
 def mat_glass(name="Glass"):
@@ -1261,7 +1272,7 @@ def finalize_slots(ob):
 
 def build_asset(asset_name, mesh_class, parts, out_root, collision_parts=None,
                 notes="", texture_size=None, preview=True, sharp_angle=30.0,
-                uv_margin=0.004, extra_export=(), preview_yaw=30.0):
+                uv_margin=0.004, extra_export=(), preview_yaw=30.0, raw_uv=False):
     """빌더의 마지막 공통 단계.
 
     parts: 결합할 오브젝트 목록(재질 붙어 있어야 함)
@@ -1306,12 +1317,16 @@ def build_asset(asset_name, mesh_class, parts, out_root, collision_parts=None,
     mirror_y(ob)
     for hull in hulls:
         mirror_y(hull)
-    uv_smart(ob, margin=uv_margin)
-
-    size = texture_size or TEXTURE_SIZE[mesh_class]
-    textures = bake_textures(ob, asset_name, out_dir, size=size)
-
-    slots = finalize_slots(ob)
+    if raw_uv:
+        # 라벨을 감는 슬리브처럼 UE 쪽 재질이 UV0을 직접 읽는 메시. 스마트 UV도
+        # 굽기도 하지 않고 빌더가 편 UV 그대로 내보낸다. 재질은 씬이 준다.
+        textures = {}
+        slots = [slot.material.name if slot.material else "Baked" for slot in ob.material_slots] or ["Baked"]
+    else:
+        uv_smart(ob, margin=uv_margin)
+        size = texture_size or TEXTURE_SIZE[mesh_class]
+        textures = bake_textures(ob, asset_name, out_dir, size=size)
+        slots = finalize_slots(ob)
     fbx_path = os.path.join(out_dir, f"{asset_name}.fbx")
     export_fbx(fbx_path, [ob] + hulls + list(extra_export))
     manifest = write_manifest(out_dir, asset_name, mesh_class, fbx_path, textures, ob, slots, notes,

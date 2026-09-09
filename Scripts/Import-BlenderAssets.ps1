@@ -130,11 +130,13 @@ $missing = @()
 foreach ($manifestPath in Get-ChildItem -LiteralPath $sourceRoot -Recurse -Filter 'manifest.json') {
 	$manifest = Get-Content -Raw -Encoding UTF8 -LiteralPath $manifestPath.FullName | ConvertFrom-Json
 	if ($Only.Count -gt 0 -and $Only -notcontains $manifest.name) { continue }
-	$expected = @(
-		"Content\Meshes\$($manifest.name).uasset",
-		"Content\Prototype\Materials\MI_$($manifest.name.Substring(3)).uasset"
-	)
-	foreach ($role in $manifest.textures.PSObject.Properties.Name) {
+	$expected = @("Content\Meshes\$($manifest.name).uasset")
+	# 구운 텍스처가 없는 메시(raw_uv)는 인스턴스도 없다. 재질은 씬이 UV0에 준다.
+	$roles = @($manifest.textures.PSObject.Properties.Name)
+	if ($roles.Count -gt 0) {
+		$expected += "Content\Prototype\Materials\MI_$($manifest.name.Substring(3)).uasset"
+	}
+	foreach ($role in $roles) {
 		$expected += "Content\Prototype\Textures\T_$($manifest.name.Substring(3))_$role.uasset"
 	}
 	foreach ($relative in $expected) {

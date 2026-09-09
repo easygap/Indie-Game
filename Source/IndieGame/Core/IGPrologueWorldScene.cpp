@@ -1233,7 +1233,11 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateProp(
 		*FString::Printf(TEXT("Prop_%d"), BlockCounter++));
 	Prop->SetupAttachment(ActiveParent ? ActiveParent.Get() : SceneRoot.Get());
 	Prop->SetStaticMesh(Mesh);
-	Prop->SetMaterial(0, Material);
+	// nullptr는 메시 재질 그대로. CreateBlock과 같은 규칙이다.
+	if (Material)
+	{
+		Prop->SetMaterial(0, Material);
+	}
 	Prop->SetRelativeLocation(BaseLocation);
 	Prop->SetRelativeRotation(FRotator(0.0f, YawDegrees, 0.0f));
 	Prop->SetRelativeScale3D(FVector(UniformScale));
@@ -1284,7 +1288,12 @@ bool AIGPrologueWorldScene::AddStoreStockInstance(
 				StoreStockBatches.Num()));
 		Batch->SetupAttachment(ResolvedParent);
 		Batch->SetStaticMesh(Mesh);
-		Batch->SetMaterial(0, Material);
+		// nullptr는 「메시가 가진 재질 그대로」다. 구운 상품(과자 상자·삼각김밥)은
+		// 자기 인스턴스를 들고 오므로 덮어쓰면 기본 회색이 된다.
+		if (Material)
+		{
+			Batch->SetMaterial(0, Material);
+		}
 		Batch->SetMobility(EComponentMobility::Static);
 		Batch->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 		Batch->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -6014,13 +6023,41 @@ void AIGPrologueWorldScene::BuildStore()
 		TexMat(TEXT("M_SignAutoDoor"), SignWhiteMaterial), false);
 
 	// Window-side snack bar with stools, looking out at the dark alley.
-	CreateBlock(FVector(2424, -634, 101), FVector(16, 72, 5),
-		TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial));
-	if (!CreateProp(TEXT("SM_Stool"), FVector(2442, -634, 2), PlasticDarkMaterial, 0.0f, 1.0f, true))
+	// 취식대는 Blender 메시(SM_WindowBar, build_store_products.py)다. 16 cm 선반이
+	// 아니라 34 cm 목재 상판이라 온수기가 올라간다. 스툴은 상판 동쪽으로 물렸고,
+	// 예전 두 번째 스툴 자리(Y -586)는 평대 냉동고(Y -600..-490) 안이었다.
+	UStaticMesh* WindowBarMesh = PropMesh(TEXT("SM_WindowBar"));
+	if (WindowBarMesh)
 	{
-		CreateBlock(FVector(2442, -634, 31), FVector(24, 24, 62), PlasticDarkMaterial, true, CylinderMesh);
+		CreateBlock(
+			FVector(2433, -634, 6), FVector(100, 100, 100),
+			nullptr, true, WindowBarMesh, FRotator::ZeroRotator);
+		// 온수기: 상판 윗면(Z 111) 북쪽 끝, 꼭지가 통로 쪽(+X).
+		if (UStaticMesh* DispenserMesh = PropMesh(TEXT("SM_HotWaterDispenser")))
+		{
+			CreateBlock(
+				FVector(2433, -618, 111), FVector(100, 100, 100),
+				nullptr, true, DispenserMesh, FRotator(0, 90, 0));
+		}
 	}
-	CreateProp(TEXT("SM_Stool"), FVector(2442, -586, 2), PlasticDarkMaterial, 18.0f, 1.0f, true);
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2424, -634, 101), FVector(16, 72, 5),
+			TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial));
+	}
+	if (!CreateProp(TEXT("SM_Stool"), FVector(2464, -655, 2), PlasticDarkMaterial, 0.0f, 1.0f, true))
+	{
+		CreateBlock(FVector(2464, -655, 31), FVector(24, 24, 62), PlasticDarkMaterial, true, CylinderMesh);
+	}
+	CreateProp(TEXT("SM_Stool"), FVector(2464, -616, 2), PlasticDarkMaterial, 18.0f, 1.0f, true);
+	// 쓰레기통: 남동쪽 구석, 열린 냉장고 문짝(Y -632 북쪽)이 안 닿는 자리. 투입구는 매장 쪽(+Y).
+	if (UStaticMesh* TrashBinMesh = PropMesh(TEXT("SM_TrashBin")))
+	{
+		CreateBlock(
+			FVector(2860, -662, 6), FVector(100, 100, 100),
+			nullptr, true, TrashBinMesh, FRotator(0, 180, 0));
+	}
 
 	// Warm spill onto the pavement in front of the entrance.
 	UPointLightComponent* SpillLight = CreateLight(
@@ -6098,21 +6135,35 @@ void AIGPrologueWorldScene::BuildStore()
 	// face at Y -180 and the packs stand on its shop-facing side. Authored the
 	// other way round, every pack sat behind its own backing board with three
 	// centimetres of itself inside the building's wall.
-	CreateBlock(FVector(2560, -187, 150), FVector(220, 14, 140), PlasticDarkMaterial);
-	int32 CigaretteIndex = 0;
-	for (const float RackZ : {126.0f, 154.0f, 182.0f})
+	// 진열장은 Blender 메시(SM_TobaccoCabinet)다. 기운 선반 넷에 가상 브랜드
+	// 담뱃갑 136개, 위에 청소년 판매 금지 띠. 원점은 벽면 바닥 중심.
+	UStaticMesh* TobaccoMesh = PropMesh(TEXT("SM_TobaccoCabinet"));
+	if (TobaccoMesh)
 	{
-		for (float RackX = 2470.0f; RackX <= 2650.0f; RackX += 24.0f)
+		CreateBlock(
+			FVector(2560, -180, 80), FVector(100, 100, 100),
+			nullptr, true, TobaccoMesh, FRotator::ZeroRotator);
+	}
+	else
+	{
+		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+		CreateBlock(FVector(2560, -187, 150), FVector(220, 14, 140), PlasticDarkMaterial);
+		int32 CigaretteIndex = 0;
+		for (const float RackZ : {126.0f, 154.0f, 182.0f})
 		{
-			UMaterialInterface* RackMaterial =
-				(CigaretteIndex % 3 == 0) ? SnackRedMaterial :
-				(CigaretteIndex % 3 == 1) ? SnackYellowMaterial : SnackBlueMaterial;
-			AddStoreStockBlock(
-				FVector(RackX, -198, RackZ),
-				FVector(14, 8, 12),
-				RackMaterial,
-				false);
-			++CigaretteIndex;
+			for (float RackX = 2470.0f; RackX <= 2650.0f; RackX += 24.0f)
+			{
+				UMaterialInterface* RackMaterial =
+					(CigaretteIndex % 3 == 0) ? SnackRedMaterial :
+					(CigaretteIndex % 3 == 1) ? SnackYellowMaterial : SnackBlueMaterial;
+				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
+				AddStoreStockBlock(
+					FVector(RackX, -198, RackZ),
+					FVector(14, 8, 12),
+					RackMaterial,
+					false);
+				++CigaretteIndex;
+			}
 		}
 	}
 
@@ -6177,12 +6228,46 @@ void AIGPrologueWorldScene::BuildStore()
 					FMath::IsNearlyEqual(GondolaY, -365.0f)
 					&& FaceSign < 0.0f
 					&& TierIndex == 3;
+				// 두 번째 곤돌라는 봉지만이 아니다. 1·3단은 과자 상자, 안쪽 5단은
+				// 즉석밥 묶음. 편의점 매대가 봉지 한 종류로만 차 있으면 창고처럼 읽힌다.
+				const bool bSecondGondola = FMath::IsNearlyEqual(GondolaY, -555.0f);
+				const bool bBoxTier = bSecondGondola && (TierIndex == 0 || TierIndex == 2);
+				const bool bRiceTier = bSecondGondola && TierIndex == 4 && FaceSign < 0.0f;
+				if (bBoxTier)
+				{
+					static const TCHAR* BoxNames[] = {
+						TEXT("SM_SnackBoxA"), TEXT("SM_SnackBoxB"),
+						TEXT("SM_SnackBoxC"), TEXT("SM_SnackBoxD")};
+					int32 BoxIndex = TierIndex + (FaceSign > 0.0f ? 1 : 0);
+					for (float BoxX = 2506.0f; BoxX <= 2776.0f; BoxX += 20.0f)
+					{
+						// 상자 앞면은 -Y다. 통로가 -Y 쪽 면이면 그대로, +Y 면이면 돌린다.
+						AddStoreStockProp(
+							BoxNames[BoxIndex % 4],
+							FVector(BoxX, GondolaY + FaceSign * 11.0f, TierZ + 1.5f),
+							nullptr,
+							FaceSign > 0.0f ? 180.0f : 0.0f,
+							1.0f,
+							true);
+						++BoxIndex;
+					}
+				}
+				if (bRiceTier)
+				{
+					for (float PackX = 2508.0f; PackX <= 2772.0f; PackX += 16.0f)
+					{
+						AddStoreStockProp(
+							TEXT("SM_RiceBowlPack"),
+							FVector(PackX, GondolaY - 11.0f, TierZ + 1.5f),
+							nullptr, 0.0f, 1.0f, true);
+					}
+				}
 
 				// Bags stand on the tier, backs to the spine, faces to the
 				// aisle — packed shoulder to shoulder the way a stocked shelf
 				// actually looks, not spaced out like a museum case.
 				for (float SnackX = 2500.0f;
-					!bRamyeonBay && SnackX <= 2780.0f;
+					!bRamyeonBay && !bBoxTier && !bRiceTier && SnackX <= 2780.0f;
 					SnackX += 14.0f)
 				{
 					UMaterialInterface* SnackMaterial = TexMat(
@@ -6267,6 +6352,23 @@ void AIGPrologueWorldScene::BuildStore()
 	int32 ChilledIndex = 0;
 	for (const float TierZ : {71.5f, 106.5f, 141.5f})
 	{
+		// 맨 위 단은 삼각김밥 줄이다. 포장 앞면(-Y)이 통로(+Y)를 보게 돌린다.
+		if (TierZ > 140.0f)
+		{
+			static const TCHAR* KimbapNames[] = {
+				TEXT("SM_TriangleKimbapA"), TEXT("SM_TriangleKimbapB"),
+				TEXT("SM_TriangleKimbapC"), TEXT("SM_TriangleKimbapD")};
+			int32 KimbapIndex = 0;
+			for (float ItemX = 2596.0f; ItemX <= 2804.0f; ItemX += 12.0f)
+			{
+				AddStoreStockProp(
+					KimbapNames[KimbapIndex % 4],
+					FVector(ItemX, -655, TierZ),
+					nullptr, 180.0f, 1.0f, true);
+				++KimbapIndex;
+			}
+			continue;
+		}
 		for (float ItemX = 2600.0f; ItemX <= 2790.0f; ItemX += 27.0f)
 		{
 			// Kimbap trays lie flat; sandwich wedges stand on their long edge.

@@ -1,0 +1,31 @@
+{
+  "name": "SM_TobaccoCabinet",
+  "mesh_class": "large",
+  "fbx": "SM_TobaccoCabinet.fbx",
+  "textures": {
+    "D": "SM_TobaccoCabinet_D.png",
+    "N": "SM_TobaccoCabinet_N.png",
+    "ORM": "SM_TobaccoCabinet_ORM.png",
+    "E": "SM_TobaccoCabinet_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 5188,
+  "bounds_m": {
+    "min": [
+      -1.1,
+      -0.201,
+      0.0
+    ],
+    "max": [
+      1.1,
+      0.0,
+      1.4
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 4.0,
+  "blender": "5.2.0 LTS",
+  "notes": "계산대 뒤 담배 진열장 220 x 20 x 140. 원점은 벽면 바닥 중심(씬 (2560, -180, 80)), 앞면 -Y. 담뱃갑은 가상 브랜드 여덟 종, 위에 청소년 판매 금지 띠."
+}
