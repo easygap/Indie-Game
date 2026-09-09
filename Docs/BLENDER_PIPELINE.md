@@ -81,6 +81,13 @@ Blender 원본이 없는 메시(스캔 소품, 예전 지오메트리 스크립�
 바운드 상자로만 서고, 감독이 스폰하는 소품(쪽지·병)은 CreateBlock이 아니라
 안 보인다. 금속은 하늘이 없으면 검게 죽으므로 월드를 밝은 회색으로 둔다.
 
+### raw_uv 메시
+
+`build_asset(..., raw_uv=True)`는 스마트 UV도 굽기도 하지 않고 빌더가 편 UV0을 그대로
+내보낸다. 반입 스크립트는 텍스처가 없는 manifest를 보면 MI를 만들지 않고 재질을 씬에
+맡긴다. 라벨을 원통으로 감는 슬리브, 씬의 UV 재질을 읽는 뚜껑처럼 UE 재질이 UV0을 직접
+읽어야 하는 것에만 쓴다. 상품 앞면 그림은 이 경로가 아니라 image_quad로 붙여 굽는다.
+
 ## 좌표와 원점 규약
 
 - 빌더는 **UE 좌표로** 그린다. m 단위, X·Y·Z가 UE의 cm/100이다.
@@ -132,6 +139,9 @@ Blender 원본이 없는 메시(스캔 소품, 예전 지오메트리 스크립�
   위층 사람처럼 정점색 AO를 읽는 재질은 `--vertex-ao`.
 - 축이 헷갈리면 `--probe`(주축·양끝 높이)와 `--views`(정면·측면·위 세 장)로
   본 뒤 정한다. 생성물은 입력 그림에 따라 눕거나 대각선으로 나온다.
+  기는 자세는 프로브가 찍는 양끝 높이 중 높은 쪽이 머리다. 그 끝을 +X로 두고
+  반입 뒤 `Docs/mesh_bounds.json`의 extent에서 X가 긴 축인지 다시 본다 — 한 번
+  `--yaw -90`을 잘못 걸어 몸이 복도를 가로질러 놓인 채 들어간 적이 있다.
 
 ## 지금까지 바꾼 것
 
@@ -149,7 +159,11 @@ Blender 원본이 없는 메시(스캔 소품, 예전 지오메트리 스크립�
 | SM_StoreCoolerBank / Door, SM_StoreGondola, SM_StoreCounter, SM_CardTerminal, SM_HotSnackWarmer, SM_ChestFreezer, SM_OpenShowcase, SM_RamyeonRack | 절차 | BuildStore. 선반 윗면 높이가 씬 상품 배치와 같다. 열린 칸 문짝은 힌지 원점에 yaw 120. 단말기·온장고는 상판 위(Z 99) 별도 메시라 계산대 바운드가 상판에서 끝난다 |
 | SM_VillaWindow | 절차 | 골목 빌라 파사드 창 열다섯 자리. 유리 판은 씬 상자 |
 | SM_UtilityPole | 절차 | 골목 전주 둘. 분전함은 스캔 소품 |
-| SM_ListenerEntityCrawl | 생성 | 위층 사람. 정점 AO, 석고 재질은 그대로 |
+| SM_GasMeterBox / SM_AcOutdoorUnit / SM_ConvexMirror | 절차 | 골목 샛길 둘의 벽 소품. 거울면은 금속이라 루멘이 비춘다 |
+| SM_CupNoodle / Sleeve / Lid | 절차, raw_uv | 컵라면. 슬리브는 U 한 바퀴·V 위가 0으로 M_LabelRamyeon을 그대로 읽고, 뚜껑은 평면 UV로 M_StainlessUV. 굽지 않고 씬이 재질을 준다 |
+| SM_SnackBoxA~D, SM_TriangleKimbapA~D, SM_RiceBowlPack | 절차 | 편의점 상품. 앞면은 `create_store_product_art.py`의 가상 브랜드 아틀라스를 image_quad(uv_rect)로 붙여 굽는다 |
+| SM_TobaccoCabinet, SM_WindowBar, SM_HotWaterDispenser, SM_TrashBin | 절차 | 계산대 뒤 담배 진열장(담뱃갑 136), 창가 취식대, 온수기, 2구 쓰레기통 |
+| SM_ListenerEntityCrawl | 생성 | 위층 사람. 해부 시트의 옆모습 칸에서 뽑았다(앞모습 3/4 칸은 네 발 짐승처럼 읽혔다). 폰의 앞이 +X라 머리가 +X에 와야 한다. 프로브에서 높은 끝이 이미 +X면 `--yaw 0`, 길이는 `--length 190`. 정점 AO, 석고 재질은 그대로 |
 | SM_AlleyCatRun | 생성 | 골목 고양이. 구운 털 색을 MI로 쓴다 |
 | SM_MokHansooFigure | 생성 | 밤4 목한수 통짜. 조각 셋과 카드를 대체 |
 | SM_FinalCavityRemains | 생성 | 밤4 공동 유해 통짜. 조각 넷과 카드를 대체 |

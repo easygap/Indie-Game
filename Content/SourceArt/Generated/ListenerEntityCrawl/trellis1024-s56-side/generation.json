@@ -1,0 +1,142 @@
+{
+  "name": "ListenerEntityCrawl",
+  "trial": "trellis1024-s56-side",
+  "status": "Generated",
+  "source": "Content/SourceArt/Generated/ListenerEntityCrawl/source-side.png",
+  "sourceSha256": "76fdb01c5f40371bc2f75e8266b5f90aa1b1aff1c735e94a308898fde29b135b",
+  "route": "trellis",
+  "resolution": 1024,
+  "seed": 56,
+  "postprocess": "pbr",
+  "decimateFaces": 200000,
+  "textureSize": 2048,
+  "server": {
+    "url": "http://127.0.0.1:8199",
+    "version": "0.34.6",
+    "device": "cuda:0 NVIDIA GeForce RTX 3060 : cudaMallocAsync"
+  },
+  "startedAt": "2026-09-08T08:40:53.372594+00:00",
+  "license": "TRELLIS.2 / Pixal3D weights: Comfy-Org repackage, MIT/permissive; DINOv3, MoGe, BiRefNet: see lunia_z SourceArt/Manifests/ComfyNative.20260908.json",
+  "runtimeReady": false,
+  "promptId": "1b9332f2-b1f6-4169-b689-c30194f10457",
+  "elapsedSeconds": 718.4,
+  "finishedAt": "2026-09-08T08:52:51.836368+00:00",
+  "files": [
+    {
+      "path": "Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/base-color_00001_.png",
+      "bytes": 4877107,
+      "sha256": "ca5c9e8ab0cf4a2213a87de593b05ae2cf1d86f12ea37516fdd715ccdcc7cda2"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/cleaned-colored_00001_.glb",
+      "bytes": 5908600,
+      "sha256": "c45599eaf40f9b2df3803a1120c0da3659c34cad18dc95fd318103486461e7e0"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/colored_00001_.glb",
+      "bytes": 143288648,
+      "sha256": "f8482bc4ed80929759b09d5f6ab73a4fb5c7c320cece2c6322026c593bd7881f",
+      "pruned": true
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/conditioning_00001_.png",
+      "bytes": 339472,
+      "sha256": "a0e7a45384b186bc73ef762b40d33578876b6070888812ddb3111f6b9d5da79a"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/metallic_00001_.png",
+      "bytes": 18399,
+      "sha256": "6dc3277b226df31b8118d0fc56260cd63be1f76f9b358e7ce4fb08a161cfa0bb"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/pbr_00001_.glb",
+      "bytes": 11613852,
+      "sha256": "49781e23c639050c4383b01ecd86756677b4b94d9b14132da7cbf527479786d9"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/roughness_00001_.png",
+      "bytes": 1550724,
+      "sha256": "5600189fdfdd5404c4bd615e984afde120ac354baf21952362bb5dafe23782bd"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/shape_00001_.glb",
+      "bytes": 114554524,
+      "sha256": "e7f8c0738bc90dd2dbde4d80fb4235b27e19f0fc0cb3001890d94514144fabf0",
+      "pruned": true
+    }
+  ],
+  "outputs": {
+    "5": {
+      "images": [
+        {
+          "filename": "conditioning_00001_.png",
+          "subfolder": "ig3d\\ListenerEntityCrawl\\trellis1024-s56-side",
+          "type": "output"
+        }
+      ]
+    },
+    "28": {
+      "3d": [
+        {
+          "filename": "shape_00001_.glb",
+          "subfolder": "ig3d\\ListenerEntityCrawl\\trellis1024-s56-side",
+          "type": "output"
+        }
+      ]
+    },
+    "33": {
+      "3d": [
+        {
+          "filename": "colored_00001_.glb",
+          "subfolder": "ig3d\\ListenerEntityCrawl\\trellis1024-s56-side",
+          "type": "output"
+        }
+      ]
+    },
+    "38": {
+      "3d": [
+        {
+          "filename": "cleaned-colored_00001_.glb",
+          "subfolder": "ig3d\\ListenerEntityCrawl\\trellis1024-s56-side",
+          "type": "output"
+        }
+      ]
+    },
+    "44": {
+      "images": [
+        {
+          "filename": "metallic_00001_.png",
+          "subfolder": "ig3d\\ListenerEntityCrawl\\trellis1024-s56-side",
+          "type": "output"
+        }
+      ]
+    },
+    "43": {
+      "images": [
+        {
+          "filename": "base-color_00001_.png",
+          "subfolder": "ig3d\\ListenerEntityCrawl\\trellis1024-s56-side",
+          "type": "output"
+        }
+      ]
+    },
+    "45": {
+      "images": [
+        {
+          "filename": "roughness_00001_.png",
+          "subfolder": "ig3d\\ListenerEntityCrawl\\trellis1024-s56-side",
+          "type": "output"
+        }
+      ]
+    },
+    "42": {
+      "3d": [
+        {
+          "filename": "pbr_00001_.glb",
+          "subfolder": "ig3d\\ListenerEntityCrawl\\trellis1024-s56-side",
+          "type": "output"
+        }
+      ]
+    }
+  }
+}

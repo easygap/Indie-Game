@@ -13,19 +13,20 @@
   "triangles": 12000,
   "bounds_m": {
     "min": [
-      -0.9515,
-      -0.5874,
-      -0.0004
+      -0.9495,
+      -0.4701,
+      -0.0098
     ],
     "max": [
-      0.9442,
-      0.5866,
-      0.9718
+      0.9505,
+      0.4705,
+      0.84
     ]
   },
   "origin": "bottom",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "위층 사람 기어가는 자세. TRELLIS.2(trellis1024-s56, 정면 3/4 기준 셀)에서 생성해 12000 삼각형으로 다듬음. 정점색에 AO. 머리가 +X.",
-  "generated_from": "../Generated/ListenerEntityCrawl/trellis1024-s56/raw/pbr_00001_.glb",
+  "notes": "위층 사람 기는 자세. 해부 기준 시트 좌상(옆모습) 칸에서 TRELLIS.2로 뽑았다. 생성물이 이미 머리 +X라 돌리지 않고 길이 190만 맞춤. 앞모습 3/4 칸 판은 네 발 짐승처럼 읽혀 바꿨다. 정점 AO, 석고 재질은 그대로.",
+  "generated_from": "../Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/pbr_00001_.glb",
   "vertex_ao": true
 }
