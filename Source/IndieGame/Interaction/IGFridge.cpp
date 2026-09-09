@@ -453,7 +453,8 @@ void AIGFridge::Tick(const float DeltaSeconds)
 
 bool AIGFridge::CanInteract_Implementation(AActor* Interactor) const
 {
-	return Super::CanInteract_Implementation(Interactor) && !DoorAnimation.bActive;
+	// 문이 도는 동안도 초점은 남긴다. BeginDoorSwing이 움직이는 중 입력을 흘린다.
+	return Super::CanInteract_Implementation(Interactor);
 }
 
 FText AIGFridge::GetInteractionPrompt_Implementation(AActor* Interactor) const
@@ -476,7 +477,28 @@ void AIGFridge::BeginDoorSwing(const bool bOpen)
 		return;
 	}
 
+	if (!bOpen)
+	{
+		// 회전하는 자식 컴포넌트는 스윕을 못 한다. 문짝이 지나갈 자리에 사람이
+		// 서 있으면 닫지 않는다 — 118도를 0.85초에 도는 판이 캡슐을 밀어낸다.
+		const APlayerController* PlayerController =
+			GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+		const APawn* Pawn = PlayerController ? PlayerController->GetPawn() : nullptr;
+		FVector ClosestPoint = FVector::ZeroVector;
+		const float DistanceToLeaf = Pawn
+			? DoorMesh->GetDistanceToCollision(Pawn->GetActorLocation(), ClosestPoint)
+			: -1.0f;
+		if (DistanceToLeaf >= 0.0f && DistanceToLeaf < 55.0f)
+		{
+			return;
+		}
+	}
 	bDoorOpen = bOpen;
+	// 열린 문짝은 지나다닐 수 있고, 닫힌 문짝만 막는다. 여닫이문과 같은 규칙.
+	DoorMesh->SetCollisionProfileName(
+		bOpen
+			? UCollisionProfile::NoCollision_ProfileName
+			: UCollisionProfile::BlockAll_ProfileName);
 	GetWorldTimerManager().ClearTimer(InspectionTimerHandle);
 	DoorAnimation.Begin(
 		DoorPivot->GetRelativeRotation().Yaw,

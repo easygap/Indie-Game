@@ -139,7 +139,7 @@ private:
 
 	/** Clamped at runtime to 10-15 Hz. Default is 12.5 Hz. */
 	UPROPERTY(EditAnywhere, Category = "Interaction|Trace", meta = (ClampMin = "0.0667", ClampMax = "0.1", Units = "s"))
-	float FocusUpdateInterval = 0.08f;
+	float FocusUpdateInterval = 0.0333f;
 
 	/** Grace window for a tap that lands while focus or the prior hold is settling. */
 	UPROPERTY(EditAnywhere, Category = "Interaction|Input", meta = (ClampMin = "0.0", ClampMax = "0.25", Units = "s"))

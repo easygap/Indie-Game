@@ -236,19 +236,57 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateDoorChime(UObject* Out
 	return Wave;
 }
 
-UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateDoorCreak(UObject* Outer)
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateDoorCreak(UObject* Outer, const bool bClosing)
 {
 	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGDoorCreak"));
 	TArray<FIGToneNote> CreakNotes;
-	const float StepFrequencies[] = {338.0f, 296.0f, 318.0f, 262.0f, 228.0f, 189.0f, 161.0f};
+	// 열릴 때는 내려가고 닫힐 때는 같은 경첩이 거꾸로 운다.
+	const float OpenFrequencies[] = {338.0f, 296.0f, 318.0f, 262.0f, 228.0f, 189.0f, 161.0f};
+	const float CloseFrequencies[] = {161.0f, 189.0f, 228.0f, 262.0f, 318.0f, 296.0f, 338.0f};
 	float StartSeconds = 0.0f;
-	for (const float Frequency : StepFrequencies)
+	for (int32 StepIndex = 0; StepIndex < 7; ++StepIndex)
 	{
+		const float Frequency = bClosing ? CloseFrequencies[StepIndex] : OpenFrequencies[StepIndex];
 		CreakNotes.Add({StartSeconds, 0.12f, Frequency, 0.048f, 0.25f, 1.2f, EIGToneWaveform::SoftSquare});
 		CreakNotes.Add({StartSeconds, 0.12f, Frequency * 3.1f, 0.016f, 0.25f, 1.2f, EIGToneWaveform::ValueNoise});
 		StartSeconds += 0.075f;
 	}
 	Wave->ConfigureNotes(MoveTemp(CreakNotes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePickupRustle(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGPickupRustle"));
+	TArray<FIGToneNote> Notes;
+	// 손가락이 닿는 스침 둘, 들어 올리며 나는 낮은 툭 하나.
+	Notes.Add({0.000f, 0.070f, 2400.0f, 0.110f, 0.20f, 1.6f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.050f, 0.090f, 3100.0f, 0.090f, 0.30f, 1.8f, EIGToneWaveform::ValueNoise});
+	Notes.Add({0.075f, 0.060f, 150.0f, 0.160f, 0.02f, 3.0f, EIGToneWaveform::Sine});
+	Notes.Add({0.075f, 0.040f, 900.0f, 0.070f, 0.05f, 2.2f, EIGToneWaveform::ValueNoise});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateSwitchClick(UObject* Outer, const bool bOn)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGSwitchClick"));
+	TArray<FIGToneNote> Notes;
+	if (bOn)
+	{
+		// 플라스틱 슬라이드가 걸리는 짧은 딸깍. 밝은 클릭 뒤 작은 몸통 울림.
+		Notes.Add({0.000f, 0.012f, 4200.0f, 0.240f, 0.05f, 1.5f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.004f, 0.045f, 1900.0f, 0.120f, 0.05f, 2.6f, EIGToneWaveform::SoftSquare});
+		Notes.Add({0.006f, 0.060f, 260.0f, 0.090f, 0.05f, 2.8f, EIGToneWaveform::Sine});
+	}
+	else
+	{
+		// 끌 때는 아래로 미는 둔탁한 톡. 몸통이 조금 더 길게 운다.
+		Notes.Add({0.000f, 0.014f, 2600.0f, 0.180f, 0.05f, 1.5f, EIGToneWaveform::ValueNoise});
+		Notes.Add({0.004f, 0.050f, 1200.0f, 0.100f, 0.05f, 2.6f, EIGToneWaveform::SoftSquare});
+		Notes.Add({0.006f, 0.080f, 190.0f, 0.110f, 0.05f, 2.8f, EIGToneWaveform::Sine});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
 	return Wave;
 }
 

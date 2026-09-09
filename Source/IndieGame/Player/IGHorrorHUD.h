@@ -146,6 +146,8 @@ struct FIGSystemMenuPresentation
  * and glyph metrics stay identical in Editor and packaged builds. A system
  * font remains a development-only fallback for partial source checkouts.
  */
+enum class EIGBindableAction : uint8;
+
 UCLASS()
 class INDIEGAME_API AIGHorrorHUD : public AHUD
 {
@@ -601,6 +603,8 @@ private:
 	void DrawMissingFloorJournalPanel();
 	UTexture2D* GetMissingFloorJournalThumbnail(int32 ThumbnailType) const;
 	/** Screen-space bracket that snaps around whatever is currently focused. */
+	/** 지금 묶인 키의 짧은 이름. 프롬프트와 힌트 줄이 읽는다. */
+	FText GetBoundKeyLabel(EIGBindableAction Action, bool bGamepad) const;
 	void UpdateFocusBracket(AActor* FocusedActor, float DeltaSeconds);
 	void DrawFocusBracket(const FLinearColor& Color, float Progress);
 

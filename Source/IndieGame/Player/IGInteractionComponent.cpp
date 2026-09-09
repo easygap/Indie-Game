@@ -11,8 +11,15 @@
 
 namespace IGInteraction
 {
-	constexpr float MinUpdateInterval = 1.0f / 15.0f;
+	// 10~15Hz로 훑으면 시선이 지나간 뒤 60~100ms 뒤에 브래킷이 따라와 프롬프트가
+	// 늦게 켜지고 늦게 꺼진다. 30Hz면 한 프레임 반이다.
+	constexpr float MinUpdateInterval = 1.0f / 60.0f;
 	constexpr float MaxUpdateInterval = 1.0f / 10.0f;
+	// 스윕 후보 점수. 시선에서 벗어난 거리에 앞뒤 거리를 8:1로 더한다 — 멀리 있는
+	// 정중앙 소품이 코앞의 살짝 빗나간 소품을 이기지 않게. 지금 초점인 것은 조금
+	// 봐준다. 둘이 엇비슷할 때 프레임마다 번갈아 잡히면 브래킷이 떤다.
+	constexpr float SweepDistanceWeight = 0.125f;
+	constexpr float SweepStickyBonus = 6.0f;
 }
 
 UIGInteractionComponent::UIGInteractionComponent()
@@ -358,7 +365,8 @@ void UIGInteractionComponent::RefreshFocus()
 			QueryParams);
 
 		const FVector ViewDirection = ViewRotation.Vector();
-		float BestDeviation = TNumericLimits<float>::Max();
+		const AActor* CurrentFocus = FocusedActor.Get();
+		float BestScore = TNumericLimits<float>::Max();
 		for (const FHitResult& SweepHit : SweepHits)
 		{
 			AActor* SweptActor = ResolveInteractable(SweepHit, OwnerActor);
@@ -368,13 +376,20 @@ void UIGInteractionComponent::RefreshFocus()
 			}
 
 			// Perpendicular distance from the aim ray: the nearer the centre
-			// of the screen, the stronger the claim on focus.
+			// of the screen, the stronger the claim on focus. 앞뒤 거리도 조금
+			// 더하고, 지금 초점인 것은 조금 봐준다.
 			const FVector ToHit = SweepHit.ImpactPoint - TraceStart;
 			const float AlongRay = FVector::DotProduct(ToHit, ViewDirection);
 			const float Deviation = (ToHit - ViewDirection * AlongRay).Size();
-			if (Deviation < BestDeviation)
+			float Score = Deviation
+				+ FMath::Max(AlongRay, 0.0f) * IGInteraction::SweepDistanceWeight;
+			if (SweptActor == CurrentFocus)
 			{
-				BestDeviation = Deviation;
+				Score -= IGInteraction::SweepStickyBonus;
+			}
+			if (Score < BestScore)
+			{
+				BestScore = Score;
 				Candidate = SweptActor;
 				CandidateHit = SweepHit;
 			}

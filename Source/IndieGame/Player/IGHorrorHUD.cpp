@@ -1720,6 +1720,68 @@ void AIGHorrorHUD::SetMorningDirector(AIGMorningRoutineDirector* InMorningDirect
 	SetObjectiveProvider(InMorningDirector);
 }
 
+FText AIGHorrorHUD::GetBoundKeyLabel(
+	const EIGBindableAction Action,
+	const bool bGamepad) const
+{
+	const UGameInstance* GameInstance = GetGameInstance();
+	const UIGInputBindingSubsystem* Bindings = GameInstance
+		? GameInstance->GetSubsystem<UIGInputBindingSubsystem>()
+		: nullptr;
+	const FKey Key = Bindings
+		? Bindings->GetBoundKey(static_cast<int32>(Action), bGamepad)
+		: FKey();
+	if (!Key.IsValid())
+	{
+		return NSLOCTEXT("IGHUD", "KeyLabelNone", "없음");
+	}
+	// 패드는 Xbox 배열의 짧은 이름으로. 「Gamepad Face Button Bottom」은 힌트 줄에
+	// 못 들어간다. 키보드는 자주 쓰는 긴 이름만 줄인다.
+	struct FShortLabel
+	{
+		FKey Key;
+		const TCHAR* Label;
+	};
+	static const FShortLabel ShortLabels[] = {
+		{EKeys::Gamepad_FaceButton_Bottom, TEXT("A")},
+		{EKeys::Gamepad_FaceButton_Right, TEXT("B")},
+		{EKeys::Gamepad_FaceButton_Left, TEXT("X")},
+		{EKeys::Gamepad_FaceButton_Top, TEXT("Y")},
+		{EKeys::Gamepad_LeftShoulder, TEXT("LB")},
+		{EKeys::Gamepad_RightShoulder, TEXT("RB")},
+		{EKeys::Gamepad_LeftTrigger, TEXT("LT")},
+		{EKeys::Gamepad_RightTrigger, TEXT("RT")},
+		{EKeys::Gamepad_LeftThumbstick, TEXT("L3")},
+		{EKeys::Gamepad_RightThumbstick, TEXT("R3")},
+		{EKeys::Gamepad_DPad_Up, TEXT("D↑")},
+		{EKeys::Gamepad_DPad_Down, TEXT("D↓")},
+		{EKeys::Gamepad_DPad_Left, TEXT("D←")},
+		{EKeys::Gamepad_DPad_Right, TEXT("D→")},
+		{EKeys::Gamepad_Special_Left, TEXT("View")},
+		{EKeys::Gamepad_Special_Right, TEXT("Menu")},
+		{EKeys::LeftShift, TEXT("Shift")},
+		{EKeys::RightShift, TEXT("R-Shift")},
+		{EKeys::LeftControl, TEXT("Ctrl")},
+		{EKeys::RightControl, TEXT("R-Ctrl")},
+		{EKeys::LeftAlt, TEXT("Alt")},
+		{EKeys::SpaceBar, TEXT("Space")},
+		{EKeys::LeftMouseButton, TEXT("LMB")},
+		{EKeys::RightMouseButton, TEXT("RMB")},
+		{EKeys::MiddleMouseButton, TEXT("MMB")},
+		{EKeys::ThumbMouseButton, TEXT("M4")},
+		{EKeys::ThumbMouseButton2, TEXT("M5")},
+		{EKeys::CapsLock, TEXT("Caps")},
+	};
+	for (const FShortLabel& Short : ShortLabels)
+	{
+		if (Short.Key == Key)
+		{
+			return FText::FromString(Short.Label);
+		}
+	}
+	return Key.GetDisplayName();
+}
+
 void AIGHorrorHUD::DrawHUD()
 {
 	Super::DrawHUD();
@@ -1917,23 +1979,37 @@ void AIGHorrorHUD::DrawHUD()
 			const bool bListenVerb = FocusedActor
 				&& FocusedActor->ActorHasTag(
 					FName(TEXT("MissingFloor.Verb.Listen")));
+			// 키 이름은 지금 묶인 키다. 재설정 화면이 있는데 프롬프트가 「E」로
+			// 굳어 있으면 키를 바꾼 사람은 화면이 시키는 대로 눌러도 아무 일이 없다.
+			// 엿듣기는 키보드에서 E 홀드가 문맥 전환되므로 Interact 키를 보인다.
+			const EIGBindableAction PromptAction = bKnockVerb
+				? EIGBindableAction::Knock
+				: (bListenVerb && bUsingGamepad)
+					? EIGBindableAction::Listen
+					: EIGBindableAction::Interact;
+			const FText KeyLabel = GetBoundKeyLabel(PromptAction, bUsingGamepad);
 			const FText PromptFormat = bKnockVerb
 				? bUsingGamepad
-					? NSLOCTEXT("IGHUD", "KnockPromptFormatGamepad", "[ B ]  {0}")
-					: NSLOCTEXT("IGHUD", "KnockPromptFormatKeyboard", "[ Q ]  {0}")
+					? NSLOCTEXT("IGHUD", "KnockPromptFormatGamepad", "[ {1} ]  {0}")
+					: NSLOCTEXT("IGHUD", "KnockPromptFormatKeyboard", "[ {1} ]  {0}")
 				: bListenVerb
 					? bUsingGamepad
-						? NSLOCTEXT("IGHUD", "ListenPromptFormatGamepad", "[ RT ]  {0}")
-						: NSLOCTEXT("IGHUD", "ListenPromptFormatKeyboard", "[ E ]  {0}")
+						? NSLOCTEXT("IGHUD", "ListenPromptFormatGamepad", "[ {1} ]  {0}")
+						: NSLOCTEXT("IGHUD", "ListenPromptFormatKeyboard", "[ {1} ]  {0}")
 					: bUsingGamepad
-						? NSLOCTEXT("IGHUD", "PromptFormatGamepad", "[ A ]  {0}")
-						: NSLOCTEXT("IGHUD", "PromptFormatKeyboard", "[ E ]  {0}");
+						? NSLOCTEXT("IGHUD", "PromptFormatGamepad", "[ {1} ]  {0}")
+						: NSLOCTEXT("IGHUD", "PromptFormatKeyboard", "[ {1} ]  {0}");
 			const FText Prompt = FText::Format(
 				PromptFormat,
-				FocusedPrompt);
+				FocusedPrompt,
+				KeyLabel);
+			// 브래킷이 큰 대상(문·냉장고)을 감싸면 글자를 뚫고 지나간다. 그 아래로 내린다.
+			const float PromptTop = FMath::Max(
+				(Canvas->ClipY * 0.5f) + 54.0f,
+				FocusBracketAlpha > 0.01f ? FocusBracketMax.Y + 14.0f : 0.0f);
 			DrawCenteredText(
 				Prompt,
-				(Canvas->ClipY * 0.5f) + 54.0f,
+				PromptTop,
 				IGHorrorHUD::RedAccent,
 				EIGHudTextRole::Prompt);
 		}
@@ -1954,20 +2030,28 @@ void AIGHorrorHUD::DrawHUD()
 	// Control hints.
 	if (!bDialogueVisible && !bAudioCaptionVisible)
 	{
-		const FText Hints = SupportsKorean()
-		? bUsingGamepad
-			? NSLOCTEXT(
-				"IGHUD",
-				"HintsGamepad",
-				"LS 이동  ·  L3 달리기  ·  LB 점프  ·  R3 앉기  ·  A 상호작용  ·  B 두드리기  ·  X 손전등")
-			: NSLOCTEXT(
-				"IGHUD",
-				"HintsKeyboard",
-				"WASD 이동  ·  Shift 달리기  ·  Space 점프  ·  C 앉기  ·  E 상호작용  ·  Q 두드리기  ·  F 손전등")
-		: FText::FromString(
-			bUsingGamepad
-				? TEXT("LS MOVE  |  L3 SPRINT  |  LB JUMP  |  R3 CROUCH  |  A INTERACT  |  B KNOCK  |  X FLASHLIGHT")
-				: TEXT("WASD MOVE  |  SHIFT SPRINT  |  SPACE JUMP  |  C CROUCH  |  E INTERACT  |  Q KNOCK  |  F FLASHLIGHT"));
+		// 힌트 줄도 지금 묶인 키를 읽는다. 이동만 고정이다 — 축은 재설정 밖이다.
+		const FText Hints = FText::Format(
+			SupportsKorean()
+				? bUsingGamepad
+					? NSLOCTEXT(
+						"IGHUD",
+						"HintsGamepad",
+						"LS 이동  ·  {0} 달리기  ·  {1} 점프  ·  {2} 앉기  ·  {3} 상호작용  ·  {4} 두드리기  ·  {5} 손전등")
+					: NSLOCTEXT(
+						"IGHUD",
+						"HintsKeyboard",
+						"WASD 이동  ·  {0} 달리기  ·  {1} 점프  ·  {2} 앉기  ·  {3} 상호작용  ·  {4} 두드리기  ·  {5} 손전등")
+				: FText::FromString(
+					bUsingGamepad
+						? TEXT("LS MOVE  |  {0} SPRINT  |  {1} JUMP  |  {2} CROUCH  |  {3} INTERACT  |  {4} KNOCK  |  {5} FLASHLIGHT")
+						: TEXT("WASD MOVE  |  {0} SPRINT  |  {1} JUMP  |  {2} CROUCH  |  {3} INTERACT  |  {4} KNOCK  |  {5} FLASHLIGHT")),
+			GetBoundKeyLabel(EIGBindableAction::Sprint, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::Jump, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::Crouch, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::Knock, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::Flashlight, bUsingGamepad));
 		DrawCenteredText(
 			Hints,
 			FMath::Max(0.0f, Canvas->ClipY - 34.0f),

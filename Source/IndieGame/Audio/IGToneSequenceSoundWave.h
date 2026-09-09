@@ -79,8 +79,14 @@ public:
 	/** "Ding-dong" two-tone convenience-store entrance chime. */
 	static UIGToneSequenceSoundWave* CreateDoorChime(UObject* Outer);
 
-	/** Short descending squeak for a swinging hinge. */
-	static UIGToneSequenceSoundWave* CreateDoorCreak(UObject* Outer);
+	/** Short descending squeak for a swinging hinge. 닫힐 때는 오르는 삐걱. */
+	static UIGToneSequenceSoundWave* CreateDoorCreak(UObject* Outer, bool bClosing = false);
+
+	/** 물건을 손에 드는 소리: 천·비닐 스침 두 번과 가벼운 툭. */
+	static UIGToneSequenceSoundWave* CreatePickupRustle(UObject* Outer);
+
+	/** 손전등 슬라이드 스위치. 켤 때는 위로 딸깍, 끌 때는 아래로 둔탁하게. */
+	static UIGToneSequenceSoundWave* CreateSwitchClick(UObject* Outer, bool bOn);
 
 	/** Low thud used when a door settles shut. */
 	static UIGToneSequenceSoundWave* CreateDoorThud(UObject* Outer);

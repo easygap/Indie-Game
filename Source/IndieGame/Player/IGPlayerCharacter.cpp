@@ -630,17 +630,21 @@ void AIGPlayerCharacter::ToggleFlashlight()
 {
 	if (!Flashlight || !Flashlight->IsAvailable())
 	{
+		// 아직 손전등이 없다. 주머니를 더듬는 만큼만 고개가 숙는다.
+		InteractPunch = FMath::Max(InteractPunch, 0.3f);
+		SetCameraMotionEnabled(true);
 		return;
 	}
 
 	const bool bNowOn = Flashlight->Toggle();
-	// The click is audible either way — a dead cell still clicks.
+	// The click is audible either way — a dead cell still clicks. 바코드
+	// 스캐너 삐 소리를 높여 쓰던 것을 진짜 슬라이드 스위치 소리로 바꿨다.
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateScannerBeep(this),
+		UIGToneSequenceSoundWave::CreateSwitchClick(this, bNowOn),
 		GetActorLocation(),
-		0.18f,
-		bNowOn ? 2.4f : 2.0f,
+		0.34f,
+		1.0f,
 		60.0f,
 		320.0f,
 		EIGAudioBus::Player);
@@ -1752,12 +1756,38 @@ void AIGPlayerCharacter::Knock()
 		// authored surface to knock on — she knocks on whatever is beside her.
 		// The tap costs her position either way: the reply buys a pause and then
 		// sends him to the spot the answer came from.
+		FVector KnockLocation = GetActorLocation();
+		bool bSurfaceInReach = false;
 		if (OfferAnswerKnock(GetActorLocation()))
+		{
+			bSurfaceInReach = true;
+		}
+		else if (FirstPersonCamera)
+		{
+			// 그가 없는 낮과 프롤로그에서도 Q는 손이 닿는 벽을 두드린다. 화면 아래
+			// 힌트가 첫 프레임부터 「Q 두드리기」를 걸어 두는데 아무 일도 없으면
+			// 키가 고장 난 줄 안다. 팔 길이(120cm) 안에 막는 면이 있어야 한다.
+			const FVector ViewLocation = FirstPersonCamera->GetComponentLocation();
+			const FVector ViewDirection = GetControlRotation().Vector();
+			FHitResult Surface;
+			FCollisionQueryParams SurfaceParams(SCENE_QUERY_STAT(IGPlayerKnockSurface), false, this);
+			if (CurrentWorld->LineTraceSingleByChannel(
+					Surface,
+					ViewLocation,
+					ViewLocation + ViewDirection * 120.0f,
+					ECC_Visibility,
+					SurfaceParams))
+			{
+				bSurfaceInReach = true;
+				KnockLocation = Surface.ImpactPoint;
+			}
+		}
+		if (bSurfaceInReach)
 		{
 			IGAudio::SpawnOneShotAt(
 				this,
 				UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
-				GetActorLocation(),
+				KnockLocation,
 				0.82f,
 				1.0f,
 				160.0f,
@@ -2447,7 +2477,10 @@ void AIGPlayerCharacter::BeginInteraction()
 			}
 		}
 
-		// Reaching out reads as a small forward dip of the head.
+		// Reaching out reads as a small forward dip of the head. 잡을 것이 없어도
+		// 손은 나간다 — 아무 반응이 없으면 키가 죽은 줄 안다.
+		InteractPunch = FMath::Max(InteractPunch, 0.45f);
+		SetCameraMotionEnabled(true);
 		if (FocusedActor)
 		{
 			InteractPunch = 1.0f;

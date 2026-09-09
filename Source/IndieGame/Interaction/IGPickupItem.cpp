@@ -427,10 +427,17 @@ bool AIGPickupItem::FinishPickup(
 
 	if (bPlayFeedback)
 	{
+		// 예전엔 발소리를 1.6배로 올려 썼다. 손에 드는 소리는 손 소리여야 하고,
+		// 내 손 소리는 다른 손 소리(노크·가방)와 같은 버스를 탄다.
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateFootstep(this, 1.6f, 0.55f),
-			GetActorLocation());
+			UIGToneSequenceSoundWave::CreatePickupRustle(this),
+			GetActorLocation(),
+			0.6f,
+			1.0f,
+			90.0f,
+			700.0f,
+			EIGAudioBus::Player);
 		if (!ThoughtOnPickup.IsEmpty())
 		{
 			AIGHorrorHUD::PushThought(this, ThoughtOnPickup, 3.4f);

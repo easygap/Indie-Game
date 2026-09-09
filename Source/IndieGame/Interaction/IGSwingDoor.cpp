@@ -318,7 +318,10 @@ const FIGDoorRequirement* AIGSwingDoor::FindUnmetRequirement() const
 
 bool AIGSwingDoor::CanInteract_Implementation(AActor* Interactor) const
 {
-	return Super::CanInteract_Implementation(Interactor) && !DoorAnimation.bActive;
+	// 움직이는 동안도 초점을 놓지 않는다. 놓으면 1.8초 동안 프롬프트가 꺼지고
+	// 조준점이 회색으로 돌아갔다가 반대 동사로 튀어 올라온다. 입력은 아래에서
+	// 애니메이션 중이면 그냥 흘린다.
+	return Super::CanInteract_Implementation(Interactor);
 }
 
 FText AIGSwingDoor::GetInteractionPrompt_Implementation(AActor* Interactor) const
@@ -354,6 +357,10 @@ float AIGSwingDoor::GetInteractionHoldDuration_Implementation(AActor* Interactor
 void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContext& Context)
 {
 	Super::CompleteInteraction_Implementation(Context);
+	if (DoorAnimation.bActive)
+	{
+		return;
+	}
 
 	if (!bOpen)
 	{
@@ -376,10 +383,10 @@ void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContex
 	}
 
 	// Reaching completion means the hold ran its course (or a director/capture
-	// tour called this directly): the careful, quiet swing.
+	// tour called this directly): the careful, quiet swing. 닫힐 때도 경첩은 운다.
 	BeginSwing(
 		!bOpen,
-		!bOpen,
+		true,
 		false,
 		QuietSwingLoudness,
 		QuietSwingDurationScale);
@@ -398,7 +405,7 @@ void AIGSwingDoor::EndInteraction_Implementation(
 	{
 		return;
 	}
-	if (QuietOpenHoldSeconds <= 0.0f)
+	if (QuietOpenHoldSeconds <= 0.0f || DoorAnimation.bActive)
 	{
 		return;
 	}
@@ -408,7 +415,7 @@ void AIGSwingDoor::EndInteraction_Implementation(
 		return;
 	}
 
-	BeginSwing(!bOpen, !bOpen, false, NormalSwingLoudness, 1.0f);
+	BeginSwing(!bOpen, true, false, NormalSwingLoudness, 1.0f);
 }
 
 void AIGSwingDoor::ForceOpenState(const bool bInOpen)
@@ -469,12 +476,13 @@ bool AIGSwingDoor::BeginSwing(
 
 	if (bPlayCreak)
 	{
-		// A slow leaf creaks more softly than a shoved one.
+		// A slow leaf creaks more softly than a shoved one. 닫힐 때는 반대로
+		// 내려가는 삐걱이고, 열릴 때보다 조금 작다 — 걸쇠 소리가 뒤에 따로 온다.
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateDoorCreak(this),
+			UIGToneSequenceSoundWave::CreateDoorCreak(this, !bOpen),
 			DoorMesh->GetComponentLocation(),
-			DurationScale > 1.0f ? 0.45f : 0.8f);
+			(DurationScale > 1.0f ? 0.45f : 0.8f) * (bOpen ? 1.0f : 0.7f));
 	}
 
 	// One report per committed swing, at the start of motion: this funnel is
