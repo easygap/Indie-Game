@@ -72,6 +72,7 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 	bHourActive = true;
 	bGoalComplete = false;
 	bFailureEndingSuspended = false;
+	bHourPaused = false;
 	HourElapsedSeconds = 0.0f;
 
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
@@ -195,6 +196,10 @@ void AIGNightPhaseDirector::CompleteNightGoal()
 void AIGNightPhaseDirector::TickHour()
 {
 	if (!bHourActive || bFailureEndingSuspended)
+	{
+		return;
+	}
+	if (bHourPaused)
 	{
 		return;
 	}

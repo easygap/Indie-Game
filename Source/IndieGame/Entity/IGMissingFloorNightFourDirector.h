@@ -7,6 +7,7 @@
 class AIGMissingFloorEvidence;
 class AIGPrologueWorldScene;
 class AIGListenerEntity;
+class AIGMissingFloorFifthDawnDirector;
 class APawn;
 class UAudioComponent;
 class UIGMissingFloorNarrativeSubsystem;
@@ -52,6 +53,15 @@ public:
 	AIGMissingFloorEvidence* GetEndingBTarget() const { return EndingBTarget; }
 
 	bool WasHydraulicAlarmTriggered() const { return bHydraulicAlarmTriggered; }
+	/**
+	 * 막간 「다섯 번째 새벽」은 여기서 돈다. 벽이 열리고 오빠를 본 직후 눈을
+	 * 감기고, 다섯 새벽을 산 뒤 눈을 뜨면 공동 너머의 노크와 목한수가 온다.
+	 * 밤3 아침의 브리핑이던 것이 본 것의 결과가 된다(§8 막간).
+	 */
+	void SetFifthDawn(AIGMissingFloorFifthDawnDirector* InFifthDawn);
+	/** 막간이 끝났다. 그레이박스 감독이 OnCompleted를 여기로 넘긴다. */
+	void HandleInterludeCompleted();
+	bool IsAwaitingInterlude() const { return bAwaitingInterlude; }
 	bool IsWaterMaskPlaying() const;
 	bool IsFinalRevealPlaying() const { return bFinalRevealActive; }
 	bool IsFinalConfrontationComplete() const
@@ -131,6 +141,8 @@ private:
 	void UpdateCavityReveal(float DeltaSeconds);
 	void AdvanceCavityReveal();
 	void BeginSilenceBeat();
+	void BeginInterludeInsideTheWall();
+	void ResumeAfterInterlude();
 	void PlayDistantReply();
 	void PresentMokHansoo();
 	void BeginEntityPass();
@@ -148,6 +160,9 @@ private:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGListenerEntity> Listener;
+
+	UPROPERTY(Transient)
+	TWeakObjectPtr<AIGMissingFloorFifthDawnDirector> FifthDawn;
 	/** 엔딩 C 암전과 이동 잠금을 걷는다. 정상 복귀가 끊긴 자리에서만 부른다. */
 	void AbortFailureBlackout(const TCHAR* Reason);
 
@@ -228,6 +243,7 @@ private:
 	bool bFailureRetryEnabled = false;
 	bool bControlLockoutActive = false;
 	bool bEvictionAnnounced = false;
+	bool bAwaitingInterlude = false;
 	int32 FinalRevealStage = INDEX_NONE;
 	float RevealAttentionSeconds = 0.0f;
 	float RevealStageElapsedSeconds = 0.0f;
@@ -242,4 +258,5 @@ private:
 	FTimerHandle FailureListingTimer;
 	FTimerHandle FailureRetryTimer;
 	FTimerHandle ControlLockoutTimer;
+	FTimerHandle InterludeTimer;
 };

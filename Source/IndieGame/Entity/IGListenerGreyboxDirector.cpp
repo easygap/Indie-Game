@@ -710,6 +710,7 @@ bool AIGListenerGreyboxDirector::SetupStage()
 		this, &AIGListenerGreyboxDirector::HandleNightThreeReturnedHome);
 	FifthDawn->OnCompleted.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleFifthDawnCompleted);
+	NightFour->SetFifthDawn(FifthDawn);
 	NightFour->OnResolved.AddUObject(
 		this, &AIGListenerGreyboxDirector::HandleNightFourResolved);
 
@@ -1977,13 +1978,12 @@ void AIGListenerGreyboxDirector::HandleEpilogueCompleted()
 
 void AIGListenerGreyboxDirector::HandleFifthDawnCompleted()
 {
-	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	if (!NightPhase || !Narrative || NightPhase->IsHourActive()
-		|| Narrative->GetNightIndex() != 3)
+	// 막간은 밤4의 벽 안에서 돈다(§8 막간, 2026-09-10). 여기서는 밤4에
+	// 넘겨줄 뿐이다 — 밤3의 잠자리는 보통 밤처럼 밤4로 간다.
+	if (NightFour)
 	{
-		return;
+		NightFour->HandleInterludeCompleted();
 	}
-	NightPhase->BeginTheHour(4);
 }
 
 void AIGListenerGreyboxDirector::HandleSleepRequested(
@@ -2010,36 +2010,23 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 		return;
 	}
 	if (Narrative->GetNightIndex() == 3
-		&& !Narrative->WasFifthDawnInterludeCompleted())
+		&& !Narrative->WasFifthDawnInterludeCompleted()
+		&& bProbeRequested)
 	{
-		if (bProbeRequested)
+		// 계약 연습. 막간 자체는 밤4의 벽 안에서 돈다(§8 막간). 프로브는
+		// 여기서 한 번 돌려 시각표·입력·즉시 종료를 확인하고 완료 표시를
+		// 남긴다 — 그래서 밤4의 리빌은 프로브에서 막간을 건너뛴다.
+		if (!FifthDawn
+			|| !FifthDawn->ValidateTimeline()
+			|| !FifthDawn->StartInterlude(Player.Get())
+			|| !FifthDawn->RegisterPlayerKnock()
+			|| !FifthDawn->SetPlayerListening(true)
+			|| !FifthDawn->SetPlayerListening(false)
+			|| !FifthDawn->CompleteImmediatelyForProbe())
 		{
-			// Exercise the real fade/audio/input/save plumbing, then finish in the
-			// same frame so CI does not idle for 160 seconds before night 4.
-			if (!FifthDawn
-				|| !FifthDawn->ValidateTimeline()
-				|| !FifthDawn->StartInterlude(Player.Get())
-				|| !FifthDawn->RegisterPlayerKnock()
-				|| !FifthDawn->SetPlayerListening(true)
-				|| !FifthDawn->SetPlayerListening(false)
-				|| !FifthDawn->CompleteImmediatelyForProbe())
-			{
-				FailProbe(TEXT("fifth-dawn start/input/finish contract failed"));
-				return;
-			}
+			FailProbe(TEXT("fifth-dawn start/input/finish contract failed"));
 			return;
 		}
-		if (FifthDawn && FifthDawn->IsActive())
-		{
-			return;
-		}
-		if (FifthDawn && FifthDawn->StartInterlude(Player.Get()))
-		{
-			return;
-		}
-		// A missing presentation must not strand a save between nights. The
-		// validation gate still fails the build through ValidateTimeline.
-		Narrative->SetFifthDawnInterludeCompleted(true);
 	}
 	const int32 NextNight =
 		FMath::Clamp(Narrative->GetNightIndex() + 1, 1, 4);

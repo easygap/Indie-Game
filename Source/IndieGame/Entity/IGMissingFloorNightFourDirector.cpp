@@ -15,6 +15,8 @@
 #include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorEvidence.h"
+#include "Entity/IGMissingFloorFifthDawnDirector.h"
+#include "Entity/IGMissingFloorMercyDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "Entity/IGNightLoopDirector.h"
 #include "Entity/IGNightPhaseDirector.h"
@@ -1215,6 +1217,119 @@ void AIGMissingFloorNightFourDirector::BeginSilenceBeat()
 			"FinalRevealShoes",
 			"한쪽 발이 안으로 꺾였다. 방수포, 카트 바퀴. 오빠다."),
 		5.0f);
+	const UIGMissingFloorNarrativeSubsystem* NarrativeNow = GetNarrative();
+	if (FifthDawn.IsValid() && NarrativeNow
+		&& !NarrativeNow->WasFifthDawnInterludeCompleted())
+	{
+		// 오빠를 본 직후에 그 다섯 새벽을 산다. 독백 한 줄을 읽을 3초를 두고
+		// 눈을 감긴다. 노크와 목한수는 눈을 뜬 뒤에 온다.
+		GetWorldTimerManager().SetTimer(
+			InterludeTimer,
+			this,
+			&AIGMissingFloorNightFourDirector::BeginInterludeInsideTheWall,
+			3.0f,
+			false);
+		return;
+	}
+	GetWorldTimerManager().SetTimer(
+		DistantReplyTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::PlayDistantReply,
+		1.05f,
+		false);
+	GetWorldTimerManager().SetTimer(
+		MokRevealTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::PresentMokHansoo,
+		2.35f,
+		false);
+}
+
+void AIGMissingFloorNightFourDirector::SetFifthDawn(
+	AIGMissingFloorFifthDawnDirector* InFifthDawn)
+{
+	FifthDawn = InFifthDawn;
+}
+
+void AIGMissingFloorNightFourDirector::BeginInterludeInsideTheWall()
+{
+	AIGMissingFloorFifthDawnDirector* FifthDawnActor = FifthDawn.Get();
+	AIGPlayerCharacter* PlayerCharacter =
+		Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
+	UWorld* World = GetWorld();
+	if (!FifthDawnActor || !PlayerCharacter || !World || bAwaitingInterlude)
+	{
+		ResumeAfterInterlude();
+		return;
+	}
+	// 막간의 베드는 침묵 위에서 못 산다. 침묵은 막간이 걷고, 눈을 뜨면
+	// 다시 건다. 시계와 안전망도 선다 — 벽 안의 2분 40초는 이 밤의 시간이
+	// 아니다.
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->SetAuthoredSilence(false);
+	}
+	for (TActorIterator<AIGNightPhaseDirector> It(World); It; ++It)
+	{
+		It->SetHourPaused(true);
+		break;
+	}
+	for (TActorIterator<AIGMissingFloorMercyDirector> It(World); It; ++It)
+	{
+		It->SetHourActive(false);
+		break;
+	}
+	if (!FifthDawnActor->StartInterlude(PlayerCharacter))
+	{
+		for (TActorIterator<AIGNightPhaseDirector> It(World); It; ++It)
+		{
+			It->SetHourPaused(false);
+			break;
+		}
+		for (TActorIterator<AIGMissingFloorMercyDirector> It(World); It; ++It)
+		{
+			It->SetHourActive(true);
+			break;
+		}
+		ResumeAfterInterlude();
+		return;
+	}
+	bAwaitingInterlude = true;
+}
+
+void AIGMissingFloorNightFourDirector::HandleInterludeCompleted()
+{
+	if (!bAwaitingInterlude)
+	{
+		return;
+	}
+	bAwaitingInterlude = false;
+	if (UWorld* World = GetWorld())
+	{
+		for (TActorIterator<AIGNightPhaseDirector> It(World); It; ++It)
+		{
+			It->SetHourPaused(false);
+			break;
+		}
+		for (TActorIterator<AIGMissingFloorMercyDirector> It(World); It; ++It)
+		{
+			It->SetHourActive(true);
+			break;
+		}
+		// 눈을 뜬 자리의 정적. 목한수가 나타나며 걷는다.
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetAuthoredSilence(true);
+		}
+	}
+	ResumeAfterInterlude();
+}
+
+void AIGMissingFloorNightFourDirector::ResumeAfterInterlude()
+{
+	// 공동 너머의 노크 둘, 그리고 목한수.
 	GetWorldTimerManager().SetTimer(
 		DistantReplyTimer,
 		this,

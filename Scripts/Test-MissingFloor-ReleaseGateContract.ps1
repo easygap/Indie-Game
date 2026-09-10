@@ -216,19 +216,25 @@ Assert-ContainsAll $finishEndingBody @(
 	'Narrative->WasFirstReportMade()'
 ) 'Ending requires the first report'
 
-# 밤3 다음 잠자리는 막간으로 간다. 막간이 밤4를 여는 유일한 경로이므로
-# 그 사이의 하루가 화면 밖에서 그냥 사라지지 않는다.
+# 막간은 밤4의 벽 안에서 돈다(2026-09-10). 벽이 열리고 오빠를 본 직후에
+# 다섯 새벽을 살고, 눈을 뜨면 공동 너머의 노크와 목한수가 온다. 밤3의
+# 잠자리는 보통 밤처럼 밤4로 간다. 막간이 도는 동안 05:30은 서 있는다.
 $fifthDawnBody = Get-MethodBody $greyboxSource `
 	'void AIGListenerGreyboxDirector::HandleFifthDawnCompleted()' `
 	'Fifth-dawn completion'
 Assert-ContainsAll $fifthDawnBody @(
-	'Narrative->GetNightIndex() != 3',
-	'NightPhase->BeginTheHour(4);'
-) 'Night four entry'
+	'NightFour->HandleInterludeCompleted();'
+) 'Interlude hand-off'
+Assert-ContainsAll $nightFourSource @(
+	'WasFifthDawnInterludeCompleted()',
+	'FifthDawnActor->StartInterlude(PlayerCharacter)',
+	'It->SetHourPaused(true);',
+	'void AIGMissingFloorNightFourDirector::HandleInterludeCompleted()'
+) 'Interlude inside the wall'
 
 $assertionCount++
 if (-not $greyboxSource.Contains('FifthDawn->StartInterlude(Player.Get())')) {
-	throw 'The sleep path must route night three into the interlude.'
+	throw 'The probe must still exercise the interlude timeline.'
 }
 
 

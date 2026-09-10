@@ -62,6 +62,9 @@ public:
 	 * 에필로그가 제 암전을 갖고 오므로 두 번 깜빡이면 안 된다.
 	 */
 	void SuppressNextMorningPresentation() { bMorningPresentationSuppressed = true; }
+	/** 벽 안의 2분 40초는 이 밤의 시간이 아니다. 막간 동안 05:30이 서 있는다. */
+	void SetHourPaused(bool bPaused) { bHourPaused = bPaused; }
+	bool IsHourPaused() const { return bHourPaused; }
 
 	UFUNCTION(BlueprintPure, Category = "Night")
 	bool IsHourActive() const { return bHourActive; }
@@ -121,6 +124,7 @@ private:
 	bool bFailureEndingSuspended = false;
 	bool bRestoringHour = false;
 	bool bMorningPresentationSuppressed = false;
+	bool bHourPaused = false;
 	FTimerHandle HourTimer;
 	FTimerHandle DawnTimer;
 };
