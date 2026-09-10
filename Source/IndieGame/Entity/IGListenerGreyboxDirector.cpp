@@ -900,7 +900,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessBowlThought",
-				"물이 새로 담겨 있다. 고양이는 이 층에 안 올라온다."),
+				"물이 새로 담겨 있다. 고양이가 4층까지 올라올 리가 없는데."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -927,7 +927,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessPillsThought",
-				"조제일이 작년 팔월부터다. 매달 끊기지 않고."),
+				"조제일이 작년 8월부터다. 한 달도 안 빠지고 매달."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -954,7 +954,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessPackThought",
-				"여섯 개비가 같은 자리에 눌려 있다. 오래 앉아 있었네."),
+				"여섯 개비가 같은 자리에 눌려 있다. 여기 오래 앉아 있었구나."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -981,7 +981,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessRosterThought",
-				"한 칸만 계속 같은 이름이다. 00시부터 06시까지, 매일."),
+				"새벽 칸만 계속 같은 이름이다. 0시부터 6시, 매일."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -1126,7 +1126,7 @@ void AIGListenerGreyboxDirector::HandleUnit402ListenExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"WitnessUnit402Thought",
-			"우리 집에선 늘 나던 그 소리가 없다. 전기를 끊고 나갔네."),
+			"냉장고 소리가 없다. 전기까지 끊고 나갔구나."),
 		4.4f);
 }
 
@@ -1160,7 +1160,7 @@ void AIGListenerGreyboxDirector::HandleRoofDoorListenExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"WitnessRoofWindThought",
-			"바람은 박자가 없다. 이걸 그 소리라고 하신 거였어."),
+			"바람 소리엔 박자가 없다. 이걸 그 소리라고 우기신 거야."),
 		4.6f);
 }
 
@@ -1190,7 +1190,7 @@ void AIGListenerGreyboxDirector::HandleUnit401RadioExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"WitnessRadioThought",
-			"라디오를 켜 두셨네. 사람 소리가 나야 잠이 온다고 하시더니."),
+			"라디오를 켜 두셨다. 사람 소리가 나야 잠이 온다고 하시더니."),
 		4.2f);
 }
 
@@ -1296,7 +1296,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalContractThought",
-			"건축물대장상 4층. 내 방은 403호. 옥상은 공용시설이라고 적혀 있다."),
+			"대장에는 4층까지다. 옥상은 공용. 내 방은 403호."),
 		0.7f,
 		0.02f);
 	ArrivalParcelBox = SpawnEvidence(
@@ -1309,7 +1309,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalParcelThought",
-			"수취인 백도하. 같은 주소인데 호수만 501호다. 이 건물은 4층까지인데."),
+			"받는 사람 백도하. 주소는 여기, 호수는 501호. 5층이 어디 있다고."),
 		0.9f,
 		0.12f);
 	ArrivalNotebookBox = SpawnEvidence(
@@ -1322,7 +1322,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalNotebookThought",
-			"튜닝 기록. 매일 04:31에 마지막 줄이 끊겨 있다. 다섯 번, 같은 자리에서."),
+			"조율 기록. 마지막 다섯 장이 전부 새벽 4시 31분에서 끊긴다. 같은 시간, 같은 자리."),
 		1.0f,
 		0.13f);
 	ArrivalVoicemailBox = SpawnEvidence(
@@ -1335,7 +1335,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalVoicemailThought",
-			"저장되지 않은 음성메시지 하나. 숨소리 뒤로, 천장을 긁는 소리가 난다."),
+			"저장 안 된 음성메시지. 「문 두드리면 알지? 둘, 하나.」 그 뒤로 숨소리, 천장 긁는 소리."),
 		0.8f,
 		0.09f);
 	ArrivalStoreBell = SpawnEvidence(
@@ -1358,7 +1358,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"Arrival402Thought",
-			"‘새벽에 위에서 끌어도 옥상 문은 열지 마세요.’ 날짜가 지난주다."),
+			"새벽에 위에서 끄는 소리 나도 옥상 문 열지 마세요 — 지난주 날짜다."),
 		0.5f,
 		0.01f);
 	ArrivalRoofLock = SpawnEvidence(
@@ -1371,7 +1371,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalRoofLockThought",
-			"잠금장치는 새것인데 문틀 안쪽은 석고 가루로 하얗다. 누가 안에서 두드린다."),
+			"자물쇠는 새것이다. 문틀 안쪽에 석고 가루가 하얗게 앉았다. 안에서 뭘 하는 걸까."),
 		0.8f,
 		0.08f);
 }
@@ -1489,7 +1489,7 @@ void AIGListenerGreyboxDirector::UpdateArrivalSequence()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"ArrivalReadyForBed",
-				"계약서에는 없는 문이다. 오늘은 그만 자자."),
+				"계약서엔 없는 문이다. 오늘은 여기까지."),
 			3.8f);
 		RequestArrivalAutosave();
 	}
@@ -1590,7 +1590,7 @@ void AIGListenerGreyboxDirector::HandleUsedListingRead(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"UsedListingThought",
-			"세입자가 두고 간 짐. …그 세입자는 지금 어디 있는데."),
+			"두고 간 짐이라니. 그 세입자는 어디 갔는데."),
 		4.4f);
 }
 
@@ -1608,21 +1608,21 @@ FText AIGListenerGreyboxDirector::GetNarinCounterLine() const
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"NarinLineLastDay",
-			"…안 물어볼게요. 대신 저 새벽에 여기 있어요. 뭐 들리면 적어 둘게요.");
+			"안 물어볼게요. 저 새벽엔 여기 있으니까, 뭐 들리면 적어 둘게요.");
 	}
 	if (NightIndex >= 1)
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"NarinLineMidWeek",
-			"얼굴이 많이 상하셨네요. 그 집 전에 살던 분들도 딱 이맘때 나갔어요.");
+			"얼굴이 왜 그래요. 잠 못 주무셨죠. 전에 살던 분들도 딱 이맘때 그랬는데.");
 	}
 	// §13 6행의 심기. 「그들이 들은 것 = 지금 내가 듣는 것」이 밤1의 회수라,
 	// 두 사람이 금방 나갔다는 사실이 첫 밤 앞에 놓여 있어야 한다.
 	return NSLOCTEXT(
 		"IGMissingFloor",
 		"ArrivalNarinLine",
-		"403호요? 위층은 없어요. 올해만 두 분 나가셨는데 둘 다 두 달을 못 채우셨어요.");
+		"403호요? 거기 위에는 아무것도 없어요. 올해만 두 분 나갔는데, 둘 다 두 달을 못 채우셨어요.");
 }
 
 void AIGListenerGreyboxDirector::RequestArrivalAutosave()
@@ -2008,7 +2008,7 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"Hwang401AfterT7",
-				"들었냐. 종이는 눌린 대로 남는다. …벽도 그렇다."),
+				"들었냐. 벽도 종이랑 같아. 눌린 건 남아."),
 			EIGDialogueChannel::Conversation,
 			0.0f,
 			EIGDialoguePriority::Story);
@@ -2021,7 +2021,7 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"Hwang401HintP2",
-				"관리실 대장은 두 벌이다. 위엣장은 볼펜이 쓰고, 아랫장은 힘이 쓴다."),
+				"관리실 대장 말이다. 볼펜으로 쓴 거 말고, 밑에 깔린 종이를 봐. 눌린 건 못 지워."),
 			EIGDialogueChannel::Conversation,
 			0.0f,
 			EIGDialoguePriority::Story);
@@ -2034,7 +2034,7 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"Hwang401Greeting",
-				"새로 온 사람이구나. …네가 뭘 듣는지부터 말해라."),
+				"새로 왔구나. 밤에 뭐 들려? 그것부터 말해 봐."),
 			EIGDialogueChannel::Conversation,
 			0.0f,
 			EIGDialoguePriority::Story);

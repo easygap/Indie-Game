@@ -533,7 +533,7 @@ Require-All $puzzleTwoRec @(
 	'Recording->StartRecording();',
 	'Recording->StopRecording();',
 	'Recording->PlayBack(At)',
-	'기계한테는 없는 일이구나'
+	'노크가 있던 자리는 전부 비어 있다'
 ) '§5.5 night two beats'
 Require-All $greybox @(
 	'case EProbeStep::RecordingRuleContract:',

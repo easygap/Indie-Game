@@ -575,7 +575,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"EpilogueAutumnFootnote",
-					"그 뒤로 이 건물의 새벽은 조용하다."));
+					"네시 반 알람은 지웠다."));
 			return;
 
 		case 8:
@@ -594,7 +594,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				{NSLOCTEXT(
 					"IGMissingFloor",
 					"EpilogueCardA",
-					"들어 주는 일에는 노크 두 번이면 충분했다.")},
+					"조율이 끝난 방")},
 				FText::GetEmpty());
 			return;
 
@@ -698,7 +698,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 			{NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueCardB",
-				"없는 층은 비었지만, 대답은 남았다.")},
+				"같이 있던 밤")},
 			FText::GetEmpty());
 		return;
 
@@ -772,14 +772,14 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildAutumnLines() const
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueAutumn3Radio",
-			"문 너머로 듣던 그 소리다. 이번에는 창밖을 향해 있다."));
+			"문 너머로 듣던 그 소리다. 창밖을 향해 틀어 놨다."));
 	}
 	else
 	{
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueAutumn3Seen",
-			"창밖을 향해 돌려놓았다. 이번에는 대답을 기다리지 않는 소리다."));
+			"창밖을 향해 돌려놓았다. 골목까지 들린다."));
 	}
 	return Lines;
 }
@@ -823,10 +823,6 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 		"IGMissingFloor",
 		"EpilogueNews1",
 		"무영로 다세대주택 벽체에서 남성 유해 발견 … 실종 1년 만"));
-	Lines.Add(NSLOCTEXT(
-		"IGMissingFloor",
-		"EpilogueNews2",
-		"건물주 목모씨, 사체은닉·산업안전보건법 위반 혐의 조사"));
 
 	// §13의 회수다. 나린의 제보는 어느 회차에도 빠지지 않는다.
 	if (Narrative
@@ -835,14 +831,14 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueNews3Seen",
-			"관리실 안쪽 방은 방음 시공돼 있었다 … \"듣지 않았다\"는 진술과 배치"));
+			"관리실 안쪽 방은 방음 시공돼 있었다"));
 	}
 	else
 	{
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueNews3",
-			"허위 민원 대장과 두 날짜의 자재 영수증이 확보됐다"));
+			"민원 대장 두 벌과 이틀치 자재 영수증이 확보됐다"));
 	}
 
 	if (Narrative
@@ -851,7 +847,7 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueNews4Seen",
-			"최초 신고자였던 전 세입자 서모씨는 1년째 수면제를 처방받아 왔다"));
+			"전 세입자 서모씨는 「그 뒤로 새벽마다 깼다」고 말했다"));
 	}
 	else
 	{

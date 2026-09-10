@@ -365,7 +365,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayFirstKnock()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2DoorKnockThought",
-			"…벽이 아니야. 우리 문이야."),
+			"벽이 아니다. 우리 집 문이다."),
 		4.2f);
 
 	// §5.5가 거부할 것이 생기는 순간이다. 발신자가 존재여야 하므로 소음
@@ -517,7 +517,7 @@ void AIGMissingFloorNightTwoBeatDirector::ArmReturnChase()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2ReturnThought",
-			"…가져가야 해. 집까지."),
+			"이거 들고 집까지 가야 한다."),
 		4.0f);
 	GetWorldTimerManager().SetTimer(
 		ReturnTimer,
@@ -681,7 +681,7 @@ void AIGMissingFloorNightTwoBeatDirector::HandlePeepholeExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2PeepholeThought2",
-			"경찰은 소리를 안 믿는다. …폰. 문에 대어 두면 담기겠지."),
+			"경찰한테 소리를 어떻게 설명해. 폰. 문에 대 두면 담기겠지."),
 		4.6f);
 }
 

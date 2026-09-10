@@ -269,10 +269,10 @@ Assert-ContainsAll $epilogueSource @(
 	'EIGMissingFloorEpilogueScene::ServiceBay',
 	'EIGMissingFloorEpilogueScene::News',
 	'EIGMissingFloorEpilogueScene::Card',
-	'들어 주는 일에는 노크 두 번이면 충분했다.',
-	'없는 층은 비었지만, 대답은 남았다.',
+	'조율이 끝난 방',
+	'같이 있던 밤',
 	'업라이트 1대 — 의뢰인: 백유담 (동생 집들이 선물)',
-	'그 뒤로 이 건물의 새벽은 조용하다.',
+	'네시 반 알람은 지웠다.',
 	'인근 편의점 야간 근무자의 제보가 최초 시각 특정에 쓰였다'
 ) '에필로그 타임라인과 카피'
 
@@ -580,7 +580,7 @@ Assert-ContainsAll $narrativeSource @(
 
 # 6행 — 세입자 두 명의 단기 퇴거(프롤로그) → 그들이 들은 것(밤1).
 Assert-ContainsAll $greyboxSource @(
-	'올해만 두 분 나가셨는데 둘 다 두 달을 못 채우셨어요.'
+	'둘 다 두 달을 못 채우셨어요.'
 ) '단기 퇴거 심기'
 
 # 12행 — 채널 5의 낮은 형체(밤2) → 같은 화각에 직접 서기(밤3).
@@ -603,7 +603,7 @@ Assert-ContainsAll $nightThreeSource @(
 
 Assert-ContainsAll $greyboxSource @(
 	'FText AIGListenerGreyboxDirector::GetNarinCounterLine() const',
-	'…안 물어볼게요. 대신 저 새벽에 여기 있어요. 뭐 들리면 적어 둘게요.',
+	'안 물어볼게요. 저 새벽엔 여기 있으니까, 뭐 들리면 적어 둘게요.',
 	'ArrivalStoreBell->SetInteractionEnabled(!bActive);'
 ) '나린 포어섀도'
 

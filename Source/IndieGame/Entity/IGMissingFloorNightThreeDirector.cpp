@@ -337,13 +337,13 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			NSLOCTEXT("IGMissingFloor", "Notebook1", "월 — 서초 라이브홀, 마감 02:30. 첫차 전 귀가."),
 			NSLOCTEXT("IGMissingFloor", "Notebook2", "수 — 대치 학원 업라이트 4대. 밤 작업."),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "Notebook3", "공명이 있는 벽은 비어 있는 벽이다."),
-			NSLOCTEXT("IGMissingFloor", "Notebook4", "속이 찬 벽은 짧게 죽고, 빈 벽은 길게 운다."),
+			NSLOCTEXT("IGMissingFloor", "Notebook3", "벽 공명 — 속이 빈 벽은 낮은 음이 길게 남는다."),
+			NSLOCTEXT("IGMissingFloor", "Notebook4", "찬 벽은 바로 죽는다. 손가락 마디로 두드려 볼 것."),
 			FText::GetEmpty(),
 			NSLOCTEXT("IGMissingFloor", "Notebook5", "여백마다 같은 낙서 — ●● ○ ●"),
-			NSLOCTEXT("IGMissingFloor", "Notebook6", "…아빠 노크다. 유담이 방문에 하던 그거."),
+			NSLOCTEXT("IGMissingFloor", "Notebook6", "아빠 노크다. 내 방문에 하던 그거."),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "Notebook7", "뒷장 적금 표: 「유담 피아노」 — 칸이 거의 다 지워져 있다."),
+			NSLOCTEXT("IGMissingFloor", "Notebook7", "뒷장에 적금 표. 「유담 피아노」. 칸이 거의 다 채워졌다."),
 		});
 	TunerNotebook->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorNightThreeDirector::HandleNotebookRead);
@@ -374,7 +374,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"TuningHammerThought",
-			"오빠가 쓰던 조율 렌치다. …끌려갈 때 여기 떨어졌어."),
+			"오빠 조율 렌치다. 왜 여기 떨어져 있어."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
@@ -401,7 +401,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WorkGloveThought",
-				"석고 가루가 굳었다. 오빠 손엔 이게 두 치수는 크다."),
+				"석고 가루가 굳어 있다. 오빠 손에 이 장갑은 두 치수는 크다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -467,7 +467,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ImpactThought",
-			"모서리가 검게 물들어 있다. …누가 여기 머리부터 넘어졌다."),
+			"모서리가 검게 물들었다. 바닥에도 같은 얼룩이 있다."),
 		EIGMissingFloorTruth::LandingStruggle,
 		EIGMissingFloorSource::LandingImpactMark,
 		0.0f,
@@ -679,7 +679,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"Labels3",
-				"* 다섯 장 전부 같은 손글씨 주소. 호수는 끝내 없다."),
+				"* 5장 모두 같은 손글씨. 호수 칸은 전부 비어 있다."),
 		});
 	LabelsNote->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorNightThreeDirector::HandleLabelsRead);
@@ -1023,7 +1023,7 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ValveThought",
-			"물이 내려간다. …이제 벽들이 서로 달라졌다."),
+			"물이 내려간다. 이제 벽에 귀를 대 보자."),
 		3.8f);
 }
 
@@ -1095,7 +1095,7 @@ void AIGMissingFloorNightThreeDirector::HandleTuningHammerExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"TuningHammerListingThought",
-			"열두 점을 삼만 원에 넘기면서, 이건 두고 갔네. 여기 떨어져 있어서."),
+			"열두 점을 삼만 원에 팔면서 이것만 못 팔았구나. 여기 떨어져 있어서."),
 		5.0f);
 }
 
@@ -1122,7 +1122,7 @@ void AIGMissingFloorNightThreeDirector::HandleAnnexRecognitionZone(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"AnnexRecognitionThought",
-			"…이 각도다. 전구 하나, 왼쪽으로 꺾이는 복도. 화면에서 본 그대로."),
+			"화면에서 본 복도다. 전구 하나, 왼쪽으로 꺾인다."),
 		4.8f);
 }
 
@@ -1144,7 +1144,7 @@ void AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"PlasterDatingThought",
-			"안쪽 보드는 삭았는데 바깥 실란트만 덜 굳었다. 나중에 한 겹 더 쳤어."),
+			"안쪽 보드는 삭았는데 바깥 실란트는 아직 말랑하다. 나중에 한 겹 더 발랐다."),
 		4.6f);
 }
 
@@ -1193,11 +1193,11 @@ void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
 			? NSLOCTEXT(
 				"IGMissingFloor",
 				"TankAuditionThoughtCrossed",
-				"만수 표찰, 2,000 L. …벽 하나 옆에 이게 있었는데.")
+				"만수. 2,000리터. 벽 하나 너머에 이게 있었는데.")
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"TankAuditionThought",
-				"만수 표찰, 2,000 L. 이 밑으로 관이 내려가고, 그 관은 그 벽을 지난다."),
+				"만수, 2,000리터. 관이 이 밑으로 내려간다."),
 		bKnowsTally ? 5.0f : 4.6f);
 }
 
@@ -1215,7 +1215,7 @@ void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"ListenSilent",
-				"…조용하다. 세 벽이 전부 똑같이 조용하다."),
+				"조용하다. 세 벽 다 똑같다."),
 			3.2f);
 		return;
 	}
@@ -1227,7 +1227,7 @@ void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"ListenCavity",
-				"바로 뒤에서 흐른다. …이 벽만 속이 비었다."),
+				"바로 뒤에서 흐른다. 이 벽만 속이 비었다."),
 			4.0f);
 		if (Narrative)
 		{
@@ -1274,7 +1274,7 @@ void AIGMissingFloorNightThreeDirector::HandleWallKnocked(const int32 BayIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"KnockCavity",
-				"…길게 운다. 속이 빈 소리다."),
+				"길게 운다. 속이 비었다."),
 			3.8f);
 		if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 		{
@@ -1574,7 +1574,7 @@ void AIGMissingFloorNightThreeDirector::ArmReturnPass()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N3ReturnThought",
-			"대답이 왔다. …이제 내려가야 해."),
+			"대답이 왔다. 내려가자."),
 		4.0f);
 	GetWorldTimerManager().SetTimer(
 		ReturnTimer,
@@ -1688,7 +1688,7 @@ void AIGMissingFloorNightThreeDirector::AdvanceReturn()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"N3PassByThought",
-				"비켜 주는 게 아니야. 기다리는 거야."),
+				"나를 안 본다. 뭘 기다리는 것 같다."),
 			4.6f);
 	}
 

@@ -112,7 +112,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P1MeterThought",
-			"…다섯 개다. 이 집은 네 세대인데."),
+			"다섯 개다. 네 집인데 계량기가 다섯 개."),
 		EIGMissingFloorTruth::LivedUpstairs,
 		EIGMissingFloorSource::MeterFifthDial,
 		0.0f,
@@ -182,7 +182,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P1SheetNote",
-				"* 다섯 번째 칸은 2024년 7월 이후 계속 0. 검침 불필요."),
+				"(공란)  24.07~ 0  검침 생략"),
 		});
 	ReadingSheet->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorPuzzleOneDirector::HandleSheetRead);
@@ -252,7 +252,7 @@ void AIGMissingFloorPuzzleOneDirector::HandleMeterExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P1DialStill",
-					"…다섯 번째만 명판이 없어. 바늘도 죽어 있고."),
+					"다섯 번째만 이름표가 없다. 바늘도 안 돈다."),
 				3.8f);
 		}
 	}
@@ -301,7 +301,7 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 
 	AIGHorrorHUD::PushThought(
 		this,
-		NSLOCTEXT("IGMissingFloor", "P1BallastThought", "…위에서 불이 들어왔어."),
+		NSLOCTEXT("IGMissingFloor", "P1BallastThought", "위에서 불이 들어왔다."),
 		4.0f);
 
 	OnSolved.Broadcast();

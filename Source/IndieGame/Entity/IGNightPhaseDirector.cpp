@@ -235,7 +235,7 @@ void AIGNightPhaseDirector::ReleaseAtDawn()
 	// confirmation UI, not thought).
 	AIGHorrorHUD::PushThought(
 		this,
-		NSLOCTEXT("IGMissingFloor", "MorningCame", "…열린다. 아침이네."),
+		NSLOCTEXT("IGMissingFloor", "MorningCame", "문이 열린다. 아침이다."),
 		3.4f);
 
 	OnHourActiveChanged.Broadcast(false);
