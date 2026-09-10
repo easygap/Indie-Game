@@ -1984,8 +1984,7 @@ void AIGHorrorHUD::DrawHUD()
 	// is told nothing and has to listen instead (§11 V4).
 	if (bNightPresentation)
 	{
-		// Gated here rather than inside GetObjectiveText, whose exact body the
-		// release gate pins. The hour shows no objective — only the time.
+		// 목표 줄은 없다. 시각만(§5.4). GetObjectiveText 본문은 게이트가 잡는다.
 		DrawNightClock();
 	}
 	else if (SupportsKorean())
