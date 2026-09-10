@@ -92,6 +92,13 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Recording")
 	bool IsRuleLifted() const;
 
+	/**
+	 * 그가 낸 소리를 테이프에 직접 올린다. 소음 버스를 거치지 않는다 — 그가
+	 * 자기 노크를 듣고 자기를 쫓거나 열지도를 데우면 안 된다. 순찰 노크가
+	 * 테이프에 구멍을 남기는 것은 이 길 하나뿐이다.
+	 */
+	void RecordEntitySound(const FVector& Location, float Loudness, AActor* Instigator);
+
 	// -- receipts for the probe and the contracts ---------------------------
 	int32 GetRecordedCount() const { return Recorded.Num(); }
 	int32 GetSuppressedCount() const;

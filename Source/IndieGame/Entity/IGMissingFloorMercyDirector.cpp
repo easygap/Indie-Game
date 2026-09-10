@@ -11,6 +11,8 @@
 #include "Core/IGPrologueWorldScene.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Kismet/GameplayStatics.h"
+#include "Player/IGHorrorHUD.h"
 
 namespace IGMercy
 {
@@ -44,6 +46,8 @@ namespace IGMercy
 	constexpr float NoteSlideDuration = 0.94f;
 	/** Rubber weatherstrip, then tile, then the paper settling twice. */
 	constexpr float NoteFrictionVolume = 0.34f;
+	/** 종이 위로 이만큼 다가오면 글씨가 읽힌다. */
+	constexpr float NoteReadDistance = 150.0f;
 }
 
 AIGMissingFloorMercyDirector::AIGMissingFloorMercyDirector()
@@ -90,6 +94,7 @@ void AIGMissingFloorMercyDirector::SetHourActive(const bool bActive)
 	// person. The corridor is swept between nights, so the note goes with it.
 	bNoteDelivered = false;
 	bNoteSliding = false;
+	bNoteRead = false;
 	NoteSlideSeconds = 0.0f;
 	if (Note)
 	{
@@ -216,6 +221,25 @@ void AIGMissingFloorMercyDirector::Tick(const float DeltaSeconds)
 	// The paper keeps moving even while the clock stands down: it is already in
 	// the world, and freezing it mid-slide would look like a bug.
 	UpdateNoteSlide(DeltaSeconds);
+	if (bNoteDelivered && !bNoteSliding && !bNoteRead && Note)
+	{
+		// 종이는 읽을 수 있어야 종이다. 다가와서 내려다보면 그 글씨가 보인다 —
+		// 규칙을 설명하는 쪽지가 아니라 잠 못 자는 옆집 노인의 쪽지.
+		const APawn* Pawn = UGameplayStatics::GetPlayerPawn(this, 0);
+		if (Pawn
+			&& FVector::DistSquared(Pawn->GetActorLocation(), Note->GetComponentLocation())
+				< FMath::Square(IGMercy::NoteReadDistance))
+		{
+			bNoteRead = true;
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGMissingFloor",
+					"MercyNoteText",
+					"볼펜 글씨. 「발소리 좀. 잠 못 잔다. 401」"),
+				4.4f);
+		}
+	}
 
 	const UWorld* World = GetWorld();
 	if (!bHourActive || !World || World->IsPaused())

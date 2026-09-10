@@ -491,6 +491,10 @@ void AIGMissingFloorPuzzleTwoDirector::EndPlay(
 	{
 		Narrative->OnTruthConfirmed.Remove(TruthHandle);
 	}
+	if (UWorld* World = GetWorld())
+	{
+		World->GetTimerManager().ClearTimer(CctvThoughtTimer);
+	}
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -621,9 +625,11 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 		}
 		bPhonePlayedBack = true;
 		RefreshPhonePrompt();
-		// The rule states itself. One line, and it is about the machine rather
-		// than about her — 기계한테는 없는 일이구나 (§8 비트 2-6).
+		// 거부된 자리가 있으면 그 공백이 대사다. 거부된 게 없는 테이프는 둘로
+		// 갈린다 — 규칙이 풀린 뒤라면 담긴 것이고, 아니면 그가 다녀간 뒤에
+		// 켠 것이다. 후자에 「담겼다」를 주면 규칙이 거짓말이 된다.
 		const bool bAnythingRefused = Recording->GetSuppressedCount() > 0;
+		const bool bRuleLifted = Recording->IsRuleLifted();
 		AIGHorrorHUD::PushThought(
 			this,
 			bAnythingRefused
@@ -631,10 +637,15 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 					"IGMissingFloor",
 					"P2PhoneSilence",
 					"내 발소리. 내 숨소리. 노크가 있던 자리는 전부 비어 있다.")
-				: NSLOCTEXT(
-					"IGMissingFloor",
-					"P2PhoneKept",
-					"담겼다. 이번엔 담겼어."),
+				: bRuleLifted
+					? NSLOCTEXT(
+						"IGMissingFloor",
+						"P2PhoneKept",
+						"담겼다. 이번엔 담겼어.")
+					: NSLOCTEXT(
+						"IGMissingFloor",
+						"P2PhoneNothing",
+						"내 발소리. 내 숨소리. 그게 다다."),
 			5.0f);
 		return;
 	}
@@ -675,30 +686,49 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 	// built the thought still lands, because losing the reveal must never leave
 	// the player without the reason to climb in 밤3.
 	const bool bChannelLive = CctvChannelFive && CctvChannelFive->Play();
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"P2CctvThought1",
-			"복도가 하나 더 있다. 전구 하나, 왼쪽으로 꺾인다."),
-		4.4f);
 	AIGHorrorHUD::PushAudioCaption(
 		this,
 		NSLOCTEXT("IGMissingFloor", "P2CctvCaption", "화면 지직임"),
 		1.6f);
-	if (bChannelLive)
+	if (!bChannelLive)
 	{
-		// §5.5. The picture is on screen and already unrecoverable: nothing about
-		// channel 5 reaches the recorder, and the label on the case says so. This
-		// is the line that keeps 위험 8 — 화면과 규칙의 모순 — from being possible.
 		AIGHorrorHUD::PushThought(
 			this,
 			NSLOCTEXT(
 				"IGMissingFloor",
-				"P2CctvThought2",
-				"AUX 5 / MONITOR ONLY. 저장은 안 되는 채널. 보기만 하라는 거다."),
-			4.2f);
+				"P2CctvThought1",
+				"복도가 하나 더 있다. 전구 하나, 왼쪽으로 꺾인다."),
+			4.4f);
+		return;
 	}
+	// 화면이 살아 있는 동안은 글이 없다. 보는 동안 읽게 하면 둘 다 놓친다.
+	// 스노우 0.32초, 화면 5.60초, 찢어짐 0.86초가 지나고 숨 한 번 뒤에
+	// 남은 것만 말한다 — 낮게 지나간 것은 본 사람의 몫으로 남긴다.
+	GetWorldTimerManager().SetTimer(
+		CctvThoughtTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGMissingFloor",
+					"P2CctvThought1",
+					"복도가 하나 더 있다. 전구 하나, 왼쪽으로 꺾인다."),
+				4.4f);
+			// §5.5. The picture is on screen and already unrecoverable: nothing
+			// about channel 5 reaches the recorder, and the label on the case
+			// says so. This is the line that keeps 위험 8 — 화면과 규칙의 모순 —
+			// from being possible.
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGMissingFloor",
+					"P2CctvThought2",
+					"AUX 5 / MONITOR ONLY. 저장은 안 되는 채널. 보기만 하라는 거다."),
+				4.2f);
+		}),
+		0.32f + AIGCctvChannelFive::LiveSeconds + 0.86f + 0.25f,
+		false);
 }
 
 void AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead(

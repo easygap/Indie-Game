@@ -152,6 +152,8 @@ private:
 	void HandleEpilogueCompleted();
 	void HandleSleepRequested(class AIGMissingFloorEvidence* Evidence);
 	void HandleUnit401Knocked(class AIGMissingFloorEvidence* Evidence);
+	/** 401호 문 너머의 말. 진행 상태마다 한 줄, 답이 아니라 어디를 볼지. */
+	FText GetHwangDoorLine() const;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGListenerEntity> Entity;

@@ -13,6 +13,7 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/IGStressComponent.h"
@@ -1402,6 +1403,16 @@ void AIGListenerEntity::PlayKnockTriple()
 		300.0f,
 		3600.0f,
 		EIGAudioBus::Entity);
+	// §5.5. 밤2의 대본 노크만 테이프에 구멍을 내고 있었다. 그가 순찰 중에
+	// 두드리는 것도 같은 소리다 — 어느 밤에 켜 둔 폰이든 그의 자리는 빈다.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGRecordingSubsystem* Recording =
+			World->GetSubsystem<UIGRecordingSubsystem>())
+		{
+			Recording->RecordEntitySound(GetActorLocation(), 0.55f, this);
+		}
+	}
 }
 
 void AIGListenerEntity::PlayPlasterSettle()

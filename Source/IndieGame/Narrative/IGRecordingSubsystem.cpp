@@ -103,6 +103,22 @@ void UIGRecordingSubsystem::ClearTake()
 	TakeSeconds = 0.0f;
 }
 
+void UIGRecordingSubsystem::RecordEntitySound(
+	const FVector& Location,
+	const float Loudness,
+	AActor* Instigator)
+{
+	FIGNoiseEvent Event;
+	Event.Location = Location;
+	Event.Loudness = Loudness;
+	Event.Instigator = Instigator;
+	if (const UWorld* World = GetWorld())
+	{
+		Event.TimeSeconds = World->GetRealTimeSeconds();
+	}
+	HandleNoiseReported(Event);
+}
+
 bool UIGRecordingSubsystem::ShouldSuppress(const FIGNoiseEvent& Event) const
 {
 	if (IsRuleLifted())

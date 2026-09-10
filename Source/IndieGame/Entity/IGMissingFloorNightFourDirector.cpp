@@ -11,6 +11,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "IndieGame.h"
+#include "Interaction/IGReadableNote.h"
 #include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorEvidence.h"
@@ -62,6 +63,10 @@ namespace IGNightFour
 	// Ground-floor transfer-pump selector, inside the management booth.
 	// A wall-mounted selector above a floor-seated pump assembly in the booth.
 	const FVector TransferPumpLocation(63.0f, -170.0f, 112.0f);
+	// 선택반 옆에 붙은 절차서. 같은 벽면, 같은 높이.
+	const FVector ProcedureSheetLocation(63.0f, -206.0f, 112.0f);
+	/** 순서를 틀리면 인터록이 이만큼 선다(§7 P5). */
+	constexpr float ControlLockoutSeconds = 10.0f;
 	const FVector WallBreakLocation(246.0f, 700.0f, 1300.0f);
 	const FVector EndingALocation(223.0f, 665.0f, 1220.0f);
 	const FVector EndingBLocation(165.0f, 765.0f, 1220.0f);
@@ -337,6 +342,34 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		0.22f);
 	TransferPump->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightFourDirector::HandleTransferPump);
+
+	// 순서는 현장에 붙어 있다. 2019년에 세척 회로를 만든 사람이 선택반 옆에
+	// 붙여 둔 절차서 — 옥상 둘을 먼저, 펌프는 마지막. 안 읽고 돌리면 관이
+	// 운다. 손잡이 이름표만 보고 맞히는 것과 절차를 읽고 하는 것은 다른
+	// 일이고, 밤4는 후자를 요구한다.
+	SpawnParameters.Name = TEXT("MissingFloorPumpProcedureSheet");
+	ProcedureSheet = World->SpawnActor<AIGReadableNote>(
+		AIGReadableNote::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGNightFour::ProcedureSheetLocation),
+		SpawnParameters);
+	if (!ProcedureSheet)
+	{
+		return false;
+	}
+	ProcedureSheet->ConfigurePrototypeVisuals(
+		CubeMesh, PaperMaterial, FVector(1.2f, 16.0f, 22.0f));
+	ProcedureSheet->SetInteractionPrompt(
+		NSLOCTEXT("IGMissingFloor", "ProcedureSheetPrompt", "저수조 세척 절차서"));
+	ProcedureSheet->SetNoteText(
+		NSLOCTEXT("IGMissingFloor", "ProcedureSheetTitle", "저수조 세척 절차 (2019.03)"),
+		{
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet1", "1. 옥상 세척 배수 밸브 개방"),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet2", "2. 옥상 부자밸브 우회 개방"),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet3", "3. 관리실 이송펌프 선택반 → 수동"),
+			FText::GetEmpty(),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet4", "※ 배수 전 우회 개방 금지 (월류)"),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet5", "※ 관 미개방 시 펌프 기동 금지 (역지변 · 인터록 10초)"),
+		});
 
 	// P5 is a real 2019 cleaning circuit. These non-interactive pieces make the
 	// two wheels read as valves attached to a tank manifold, rather than sprites
@@ -1463,6 +1496,20 @@ void AIGMissingFloorNightFourDirector::ActivateControl(
 	}
 
 	const int32 OrderIndex = Narrative->GetNightFourControlOrder().Num();
+	if (bControlLockoutActive || Narrative->HasNightFourControl(ControlId))
+	{
+		return;
+	}
+	// 틀린 손잡이는 기록에 남지 않는다. 여섯 순서가 전부 같은 곳에 닿으면
+	// 순서는 퍼즐이 아니라 요금이다 — 틀리면 소리가 나고, 인터록이 서고,
+	// 다시 해야 한다.
+	const bool bSafeStep = IGNightFour::SafeOrder().IsValidIndex(OrderIndex)
+		&& IGNightFour::SafeOrder()[OrderIndex] == ControlId;
+	if (!bSafeStep)
+	{
+		HandleControlMisorder(ControlId, Evidence);
+		return;
+	}
 	if (!Narrative->ActivateNightFourControl(ControlId))
 	{
 		return;
@@ -1489,44 +1536,77 @@ void AIGMissingFloorNightFourDirector::ActivateControl(
 		170.0f,
 		1500.0f,
 		EIGAudioBus::Puzzle);
-	const bool bSafeStep = IGNightFour::SafeOrder().IsValidIndex(OrderIndex)
-		&& IGNightFour::SafeOrder()[OrderIndex] == ControlId;
-	if (!bSafeStep)
-	{
-		bHydraulicAlarmTriggered = true;
-		if (UWorld* World = GetWorld())
-		{
-			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
-			{
-				Noise->ReportNoise(
-					Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
-					0.70f,
-					this);
-			}
-		}
-		IGAudio::SpawnOneShotAt(
-			this,
-			UIGToneSequenceSoundWave::CreateDoorThud(this),
-			Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
-			0.9f,
-			1.0f,
-			180.0f,
-			1800.0f,
-			EIGAudioBus::Puzzle);
-		AIGHorrorHUD::PushThought(
-			this,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"P5PressureAlarm",
-				"닫힌 관에 압력이 걸렸다. 인터록이 멈췄다. 들었겠지."),
-			3.8f);
-	}
 
 	if (Evidence)
 	{
 		Evidence->SetInteractionEnabled(false);
 	}
 	StartWaterMaskIfReady();
+	RefreshPresentation();
+}
+
+void AIGMissingFloorNightFourDirector::HandleControlMisorder(
+	const FName ControlId,
+	AIGMissingFloorEvidence* Evidence)
+{
+	bHydraulicAlarmTriggered = true;
+	const FVector At = Evidence ? Evidence->GetActorLocation() : GetActorLocation();
+	// 두 가지 잘못이 두 가지 소리를 낸다. 배수 전에 우회를 열면 탱크가
+	// 넘치고, 관이 안 열린 채 펌프를 돌리면 역지변이 쾅 닫힌다. 둘 다
+	// 0.70 — 그가 듣는다.
+	const bool bOverflow = ControlId == IGNightFour::FloatBypassId;
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(At, 0.70f, this);
+		}
+	}
+	IGAudio::SpawnOneShotAt(
+		this,
+		bOverflow
+			? static_cast<USoundBase*>(
+				UIGToneSequenceSoundWave::CreateRooftopTankSlosh(this))
+			: static_cast<USoundBase*>(UIGToneSequenceSoundWave::CreateDoorThud(this)),
+		At,
+		0.9f,
+		1.0f,
+		180.0f,
+		1800.0f,
+		EIGAudioBus::Puzzle);
+	AIGHorrorHUD::PushThought(
+		this,
+		bOverflow
+			? NSLOCTEXT(
+				"IGMissingFloor",
+				"P5OverflowAlarm",
+				"넘친다. 배수부터 열었어야 했다.")
+			: NSLOCTEXT(
+				"IGMissingFloor",
+				"P5PressureAlarm",
+				"역지변이 쾅 닫혔다. 관이 안 열려 있다. 들었겠지."),
+		3.8f);
+	// 인터록이 선다. 그동안은 어느 손잡이도 안 돈다.
+	bControlLockoutActive = true;
+	for (AIGMissingFloorEvidence* Control :
+		{CleaningDrain.Get(), FloatBypass.Get(), TransferPump.Get()})
+	{
+		if (Control)
+		{
+			Control->SetInteractionEnabled(false);
+		}
+	}
+	GetWorldTimerManager().SetTimer(
+		ControlLockoutTimer,
+		this,
+		&AIGMissingFloorNightFourDirector::ReleaseControlLockout,
+		IGNightFour::ControlLockoutSeconds,
+		false);
+}
+
+void AIGMissingFloorNightFourDirector::ReleaseControlLockout()
+{
+	bControlLockoutActive = false;
 	RefreshPresentation();
 }
 
@@ -2245,7 +2325,7 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 			EIGMissingFloorTruth::StillCoveringIt,
 			EIGMissingFloorSource::EvictionWarning));
 
-	auto RefreshControl = [bNightFour, Narrative](
+	auto RefreshControl = [bNightFour, Narrative, bLockout = bControlLockoutActive](
 		AIGMissingFloorEvidence* Control,
 		const FName ControlId)
 	{
@@ -2255,7 +2335,7 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 		}
 		const bool bActivated = Narrative->HasNightFourControl(ControlId);
 		Control->SetActorHiddenInGame(false);
-		Control->SetInteractionEnabled(bNightFour && !bActivated);
+		Control->SetInteractionEnabled(bNightFour && !bActivated && !bLockout);
 	};
 	RefreshControl(CleaningDrain, IGNightFour::CleaningDrainId);
 	RefreshControl(FloatBypass, IGNightFour::FloatBypassId);

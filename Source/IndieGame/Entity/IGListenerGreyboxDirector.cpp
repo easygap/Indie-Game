@@ -1504,7 +1504,29 @@ void AIGListenerGreyboxDirector::HandleArrivalEvidence(
 	AIGMissingFloorEvidence* Evidence)
 {
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	if (!Narrative || Narrative->GetNightIndex() != 0 || !Evidence)
+	if (!Narrative || !Evidence)
+	{
+		return;
+	}
+	if (Evidence == ArrivalStoreBell)
+	{
+		// 편의점은 낮마다 열려 있고 나린의 말은 아는 것에 따라 갈린다. 입주
+		// 시퀀스는 밤 0에만 돌지만 벨은 그 뒤로도 사람을 부른다 — 밤 1 이후의
+		// 두 대사가 여기 갇혀서 한 번도 안 나오고 있었다.
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateDoorbellChime(this),
+			Evidence->GetActorLocation(),
+			0.55f);
+		AIGHorrorHUD::PushDialogue(
+			this,
+			NSLOCTEXT("IGMissingFloor", "NarinSpeaker", "한나린"),
+			GetNarinCounterLine(),
+			EIGDialogueChannel::Conversation,
+			0.0f,
+			EIGDialoguePriority::Story);
+	}
+	if (Narrative->GetNightIndex() != 0)
 	{
 		return;
 	}
@@ -1528,18 +1550,6 @@ void AIGListenerGreyboxDirector::HandleArrivalEvidence(
 	else if (Evidence == ArrivalStoreBell)
 	{
 		Beat = FName(TEXT("Arrival.Store"));
-		IGAudio::SpawnOneShotAt(
-			this,
-			UIGToneSequenceSoundWave::CreateDoorbellChime(this),
-			Evidence->GetActorLocation(),
-			0.55f);
-		AIGHorrorHUD::PushDialogue(
-			this,
-			NSLOCTEXT("IGMissingFloor", "NarinSpeaker", "한나린"),
-			GetNarinCounterLine(),
-			EIGDialogueChannel::Conversation,
-			0.0f,
-			EIGDialoguePriority::Story);
 	}
 	else if (Evidence == ArrivalUnit402Note)
 	{
@@ -1730,6 +1740,10 @@ void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
 	if (Entity)
 	{
 		Entity->SetDormant(!bActive);
+	}
+	if (PuzzleOne)
+	{
+		PuzzleOne->SetHourActive(bActive);
 	}
 	if (NightTwoBeats)
 	{
@@ -1986,6 +2000,78 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 	NightPhase->BeginTheHour(NextNight);
 }
 
+FText AIGListenerGreyboxDirector::GetHwangDoorLine() const
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401Greeting",
+			"새로 왔구나. 밤에 뭐 들려? 그것부터 말해 봐.");
+	}
+	// §7 난이도 보정의 낮 1단계. 퍼즐마다 한 줄씩, 답이 아니라 어디를 볼지만.
+	// 가장 앞선 상태부터 본다 — 뒤의 밤에 앞의 밤 힌트를 되풀이하지 않도록.
+	const int32 NightIndex = Narrative->GetNightIndex();
+	const bool bAlive = Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive);
+	const bool bInWall = Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall);
+	const bool bAnswered = Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
+	if (bAnswered && !Narrative->IsNightFourWallOpened())
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401HintP5",
+			"내일 아침에 사람 온대. 벽 다시 바른다고. 물 내릴 거면 오늘 밤이야. 순서는 관리실에 붙어 있더라.");
+	}
+	if (bInWall && !bAnswered)
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401HintP4",
+			"나도 두드려 줬었어, 그날. 그랬더니 조용해지더라. 사람인가 싶었지.");
+	}
+	if (bAlive && !bInWall && NightIndex >= 3)
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401HintP3",
+			"관리실에 열쇠 뭉치 걸려 있더라. 옥상이랑 창고. 위에 올라가서 벽에 귀 대 봐.");
+	}
+	if (bAlive)
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401AfterT7",
+			"들었냐. 벽도 종이랑 같아. 눌린 건 남아.");
+	}
+	if (NightIndex >= 2)
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401HintP2",
+			"관리실 대장 말이다. 볼펜으로 쓴 거 말고, 밑에 깔린 종이를 봐. 눌린 건 못 지워.");
+	}
+	if (NightIndex == 1
+		&& !Narrative->HasTruth(EIGMissingFloorTruth::LivedUpstairs))
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401HintP1",
+			"1층 계량기함부터 열어 봐. 관리실 검침표도.");
+	}
+	if (NightIndex >= 1)
+	{
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401Neutral",
+			"잠은 좀 잤냐. 얼굴이 그게 뭐야.");
+	}
+	return NSLOCTEXT(
+		"IGMissingFloor",
+		"Hwang401Greeting",
+		"새로 왔구나. 밤에 뭐 들려? 그것부터 말해 봐.");
+}
+
 void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 	AIGMissingFloorEvidence* Evidence)
 {
@@ -2000,45 +2086,13 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	const FText Speaker =
 		NSLOCTEXT("IGMissingFloor", "HwangSpeaker", "황순금");
-	if (Narrative && Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
-	{
-		AIGHorrorHUD::PushDialogue(
-			this,
-			Speaker,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"Hwang401AfterT7",
-				"들었냐. 벽도 종이랑 같아. 눌린 건 남아."),
-			EIGDialogueChannel::Conversation,
-			0.0f,
-			EIGDialoguePriority::Story);
-	}
-	else if (Narrative && Narrative->GetNightIndex() >= 2)
-	{
-		AIGHorrorHUD::PushDialogue(
-			this,
-			Speaker,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"Hwang401HintP2",
-				"관리실 대장 말이다. 볼펜으로 쓴 거 말고, 밑에 깔린 종이를 봐. 눌린 건 못 지워."),
-			EIGDialogueChannel::Conversation,
-			0.0f,
-			EIGDialoguePriority::Story);
-	}
-	else
-	{
-		AIGHorrorHUD::PushDialogue(
-			this,
-			Speaker,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"Hwang401Greeting",
-				"새로 왔구나. 밤에 뭐 들려? 그것부터 말해 봐."),
-			EIGDialogueChannel::Conversation,
-			0.0f,
-			EIGDialoguePriority::Story);
-	}
+	AIGHorrorHUD::PushDialogue(
+		this,
+		Speaker,
+		GetHwangDoorLine(),
+		EIGDialogueChannel::Conversation,
+		0.0f,
+		EIGDialoguePriority::Story);
 
 	if (bProductionMode && Narrative && Narrative->GetNightIndex() == 0
 		&& Narrative->MarkBeatPlayed(FName(TEXT("Arrival.Unit401"))))

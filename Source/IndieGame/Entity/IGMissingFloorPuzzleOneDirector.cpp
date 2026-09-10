@@ -187,12 +187,24 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 	ReadingSheet->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorPuzzleOneDirector::HandleSheetRead);
 
+	// 밤1의 목표는 회로가 아니라 T1이다. 회로는 확인이고, 확인은 두 기록이
+	// 맞물린 뒤에야 뜻이 생긴다.
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		TruthHandle = Narrative->OnTruthConfirmed.AddUObject(
+			this, &AIGMissingFloorPuzzleOneDirector::HandleTruthConfirmed);
+	}
+
 	CreateBallastHum();
 	return true;
 }
 
 void AIGMissingFloorPuzzleOneDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->OnTruthConfirmed.Remove(TruthHandle);
+	}
 	if (BallastHum)
 	{
 		BallastHum->Stop();
@@ -265,6 +277,28 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 	{
 		return;
 	}
+	if (!bHourActive)
+	{
+		// 낮의 투입. 계전기가 바로 되돌려서 딸깍 소리 하나로 끝난다. 위는
+		// 그대로 조용하고, 회로는 밤에 다시 올릴 수 있다.
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateRelayClick(this),
+			IGPuzzleOne::BreakerFace,
+			0.8f,
+			1.0f,
+			90.0f,
+			900.0f,
+			EIGAudioBus::Puzzle);
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"P1BreakerDaytime",
+				"올리자마자 떨어진다. 계전기가 안 물린다."),
+			3.4f);
+		return;
+	}
 	bBreakerThrown = true;
 
 	// Raise the toggle so the world shows what was done, then let the sound
@@ -299,11 +333,50 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 		Narrative->MarkPuzzleSolved(IGPuzzleOne::PuzzleId);
 	}
 
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const bool bKnowsWhoseCircuit = Narrative
+		&& Narrative->HasTruth(EIGMissingFloorTruth::LivedUpstairs);
 	AIGHorrorHUD::PushThought(
 		this,
-		NSLOCTEXT("IGMissingFloor", "P1BallastThought", "위에서 불이 들어왔다."),
+		bKnowsWhoseCircuit
+			? NSLOCTEXT("IGMissingFloor", "P1BallastThought", "위에서 불이 들어왔다.")
+			: NSLOCTEXT(
+				"IGMissingFloor",
+				"P1BallastUnread",
+				"위에서 불이 들어왔다. 어느 집 전기인지는 계량기함이 알겠지."),
 		4.0f);
 
+	AnnounceSolvedIfReady();
+}
+
+void AIGMissingFloorPuzzleOneDirector::SetHourActive(const bool bActive)
+{
+	bHourActive = bActive;
+}
+
+void AIGMissingFloorPuzzleOneDirector::HandleTruthConfirmed(
+	const EIGMissingFloorTruth Truth)
+{
+	if (Truth == EIGMissingFloorTruth::LivedUpstairs)
+	{
+		AnnounceSolvedIfReady();
+	}
+}
+
+void AIGMissingFloorPuzzleOneDirector::AnnounceSolvedIfReady()
+{
+	// 불을 켰어도 그 위에 뭐가 있는지 모르면 밤은 안 끝난다. 계량기 다섯과
+	// 검침표 다섯 칸이 맞물려야 「위층」이 된다.
+	if (bSolvedAnnounced || !bBreakerThrown)
+	{
+		return;
+	}
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || !Narrative->HasTruth(EIGMissingFloorTruth::LivedUpstairs))
+	{
+		return;
+	}
+	bSolvedAnnounced = true;
 	OnSolved.Broadcast();
 }
 

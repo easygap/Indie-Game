@@ -87,6 +87,12 @@ namespace IGNightThree
 	// AIGPlayerCharacter::KnockLoudness. 귀를 대는 건 소리를 안 낸다.
 	constexpr float ListenLoudness = 0.05f;
 	constexpr float ValveLoudness = 0.55f;
+	/**
+	 * 주먹으로 벽을 읽는 값. 밸브보다 조용하면 급한 길이 조용한 길이 된다
+	 * (§7 신중한 자에게는 물이, 급한 자에게는 추격이). 대답 노크는 손가락
+	 * 마디 값 그대로다.
+	 */
+	constexpr float WallEchoKnockLoudness = 0.48f;
 
 	/**
 	 * The three authored wheels ring differently (§10.3 밸브 3종): 0 is the 5F
@@ -539,7 +545,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.0f,
-			AIGPlayerCharacter::KnockLoudness,
+			IGNightThree::WallEchoKnockLoudness,
 			/*bPresentationVisible=*/false);
 		Knock->Tags.AddUnique(FName(TEXT("MissingFloor.Verb.Knock")));
 		WallKnocks[BayIndex] = Knock;
@@ -567,7 +573,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"AnswerPrompt",
-			"벽 — 두드린다"),
+			"벽 — 신호를 보낸다"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -823,9 +829,12 @@ bool AIGMissingFloorNightThreeDirector::TryPlayerKnock(
 	{
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
+			// 대답 노크는 손가락 마디, 벽을 읽는 주먹은 그보다 크다.
 			Noise->ReportNoise(
 				FocusedActor->GetActorLocation(),
-				AIGPlayerCharacter::KnockLoudness,
+				FocusedActor == AnswerTarget
+					? AIGPlayerCharacter::KnockLoudness
+					: IGNightThree::WallEchoKnockLoudness,
 				NoiseInstigator);
 		}
 	}
@@ -1222,12 +1231,23 @@ void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
 	if (BayIndex == IGNightThree::CavityBayIndex)
 	{
 		PlayWallListenResponse(BayIndex, /*bHollow=*/true);
+		// 수첩을 안 읽었으면 소리가 다르다는 것까지만 안다. 그게 무슨 뜻인지는
+		// 오빠가 적어 놓은 줄이 말해 준다 — 빠진 조각이 있다는 것은 알려야 한다.
+		const bool bKnowsCriterion = Narrative
+			&& Narrative->HasSource(
+				EIGMissingFloorTruth::SomeoneInTheWall,
+				EIGMissingFloorSource::PipeAuditionCriterion);
 		AIGHorrorHUD::PushThought(
 			this,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"ListenCavity",
-				"바로 뒤에서 흐른다. 이 벽만 속이 비었다."),
+			bKnowsCriterion
+				? NSLOCTEXT(
+					"IGMissingFloor",
+					"ListenCavity",
+					"바로 뒤에서 흐른다. 이 벽만 속이 비었다.")
+				: NSLOCTEXT(
+					"IGMissingFloor",
+					"ListenCavityUnread",
+					"바로 뒤에서 흐른다. 이 벽만 소리가 다르다. 왜 다른 거지."),
 			4.0f);
 		if (Narrative)
 		{
@@ -1269,14 +1289,24 @@ void AIGMissingFloorNightThreeDirector::HandleWallKnocked(const int32 BayIndex)
 
 	if (BayIndex == IGNightThree::CavityBayIndex)
 	{
+		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+		const bool bKnowsCriterion = Narrative
+			&& Narrative->HasSource(
+				EIGMissingFloorTruth::SomeoneInTheWall,
+				EIGMissingFloorSource::PipeAuditionCriterion);
 		AIGHorrorHUD::PushThought(
 			this,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"KnockCavity",
-				"길게 운다. 속이 비었다."),
+			bKnowsCriterion
+				? NSLOCTEXT(
+					"IGMissingFloor",
+					"KnockCavity",
+					"길게 운다. 속이 비었다.")
+				: NSLOCTEXT(
+					"IGMissingFloor",
+					"KnockCavityUnread",
+					"길게 운다. 다른 두 벽하고 다르다. 오빠라면 이게 뭔지 알았을 텐데."),
 			3.8f);
-		if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+		if (Narrative)
 		{
 			Narrative->RegisterTruthSource(
 				EIGMissingFloorTruth::SomeoneInTheWall,
@@ -1753,6 +1783,19 @@ void AIGMissingFloorNightThreeDirector::RefreshAnswerTargetAvailability()
 		&& RhythmClueCount >= 2;
 	AnswerTarget->SetActorHiddenInGame(!bReady);
 	AnswerTarget->SetInteractionEnabled(bReady);
+	if (bReady && !bAnswerTargetAnnounced && bHourCurrentlyActive)
+	{
+		// 새 동사가 생겼다는 것은 알려야 한다. 같은 벽에 「두드린다」가 둘이면
+		// 지금이 리듬인지 잔향 시험인지 알 길이 없다.
+		bAnswerTargetAnnounced = true;
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"AnswerTargetReady",
+				"두 군데서 같은 박자다. 둘, 쉬고, 하나. 이 벽에."),
+			4.6f);
+	}
 }
 
 void AIGMissingFloorNightThreeDirector::RefreshJournalAvailability(

@@ -119,6 +119,9 @@ private:
 	void EnableFailureRetry();
 	void ResetAfterFailureEnding();
 	void ActivateControl(FName ControlId, AIGMissingFloorEvidence* Evidence);
+	/** 순서가 틀렸다. 어느 쪽이 틀렸느냐로 소리가 갈리고, 인터록이 선다. */
+	void HandleControlMisorder(FName ControlId, AIGMissingFloorEvidence* Evidence);
+	void ReleaseControlLockout();
 	void StartWaterMaskIfReady();
 	bool BuildFinaleVisuals();
 	void SetCavityRevealVisible(bool bVisible);
@@ -178,6 +181,10 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> EquipmentVisuals;
 
+	/** 세척 회로의 순서표. 회로를 만든 사람이 펌프 선택반 옆에 붙여 둔 것. */
+	UPROPERTY(Transient)
+	TObjectPtr<class AIGReadableNote> ProcedureSheet;
+
 	/** Four separate material groups, all authored 3D and sharing one origin. */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> CavityRevealVisuals;
@@ -219,6 +226,7 @@ private:
 	bool bMokPresentationVisible = false;
 	bool bFailureEndingActive = false;
 	bool bFailureRetryEnabled = false;
+	bool bControlLockoutActive = false;
 	int32 FinalRevealStage = INDEX_NONE;
 	float RevealAttentionSeconds = 0.0f;
 	float RevealStageElapsedSeconds = 0.0f;
@@ -232,4 +240,5 @@ private:
 	FTimerHandle BlackoutRestoreTimer;
 	FTimerHandle FailureListingTimer;
 	FTimerHandle FailureRetryTimer;
+	FTimerHandle ControlLockoutTimer;
 };

@@ -290,5 +290,6 @@ private:
 	bool bAnswerPending = false;
 	bool bAnswerDelivered = false;
 	bool bSolvedAnnounced = false;
+	bool bAnswerTargetAnnounced = false;
 	bool bHourCurrentlyActive = true;
 };

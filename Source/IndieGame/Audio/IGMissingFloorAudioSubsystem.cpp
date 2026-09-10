@@ -7,6 +7,7 @@
 #include "Engine/World.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Sound/ReverbEffect.h"
 #include "Sound/SoundAttenuation.h"
@@ -1208,6 +1209,11 @@ void UIGMissingFloorAudioSubsystem::PlayTitleReply()
 		1700.0f,
 		EIGAudioBus::Entity,
 		true);
+	// 자막만 켜고 듣는 사람에게도 네시 반은 있어야 한다(§10.5).
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		NSLOCTEXT("IGMissingFloor", "TitleReplyCaption", "[벽 너머 — 대답 둘]"),
+		2.2f);
 }
 
 FVector UIGMissingFloorAudioSubsystem::ResolveTitleCueLocation(

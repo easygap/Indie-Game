@@ -103,6 +103,8 @@ private:
 	TObjectPtr<AIGMissingFloorEvidence> PhoneRecorder;
 
 	bool bPhonePlayedBack = false;
+	/** 채널 5가 찢어진 뒤에야 글이 온다. 보는 동안은 읽게 하지 않는다. */
+	FTimerHandle CctvThoughtTimer;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> AgentMessageNote;

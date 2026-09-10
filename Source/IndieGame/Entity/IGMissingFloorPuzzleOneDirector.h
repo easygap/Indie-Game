@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
+#include "Narrative/IGMissingFloorNarrativeTypes.h"
 #include "IGMissingFloorPuzzleOneDirector.generated.h"
 
 class AIGMissingFloorEvidence;
@@ -43,10 +44,19 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Puzzle")
 	bool HasBreakerBeenThrown() const { return bBreakerThrown; }
 
+	/**
+	 * 낮에는 계전기가 곧장 되돌려서 아무 일도 없다(§7 P1). 위가 켜지는
+	 * 것은 그 시간에만이다.
+	 */
+	void SetHourActive(bool bActive);
+
 	/** Release probes: all three fixtures resolved and placed. */
 	bool ValidateFixtures() const;
 
-	/** Fired once, when the breaker goes up — the night-1 goal. */
+	/**
+	 * 회로가 올라가고 T1까지 맞물렸을 때 한 번. 불만 켜고 계량기를 안 본
+	 * 밤은 끝나지 않는다 — 퍼즐은 두 기록의 교차지 버튼이 아니다(§7).
+	 */
 	FIGPuzzleOneSolvedSignature OnSolved;
 
 protected:
@@ -60,6 +70,8 @@ private:
 	UFUNCTION()
 	void HandleSheetRead(AIGReadableNote* Note, bool bOpened);
 	void CreateBallastHum();
+	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
+	void AnnounceSolvedIfReady();
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 
 	UPROPERTY(Transient)
@@ -80,4 +92,7 @@ private:
 
 	bool bBreakerThrown = false;
 	bool bBallastHumAudible = false;
+	bool bHourActive = false;
+	bool bSolvedAnnounced = false;
+	FDelegateHandle TruthHandle;
 };
