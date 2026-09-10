@@ -196,21 +196,29 @@ Assert-ContainsAll $controller @(
 
 Assert-True $swingDoor.Contains('float QuietOpenHoldSeconds = 1.4f;') `
 	'quiet door hold must be 1.4 seconds'
-# 값은 플레이어가 든다. 밤3이 자기 사본을 두면 같은 주먹이 밤마다 다르게
-# 들리므로, 여기서는 「자기 것을 안 든다」와 「플레이어 것을 읽는다」를 본다.
+# 값은 플레이어가 든다. 대답 노크 두 자리(대상 구성, 보고)는 플레이어 것을
+# 읽고, 벽을 읽는 주먹은 제 값을 따로 든다 — 밸브(0.55)보다는 조용하고
+# 손가락 마디(0.30)보다는 크게. 급한 길이 조용한 길이면 밸브를 돌릴 이유가
+# 없다(§7 신중한 자에게는 물이, 급한 자에게는 추격이).
 Assert-True $characterHeader.Contains(
 	'static constexpr float KnockLoudness = 0.30f;') `
 	'P4 knock must use the authored 0.30 noise cost'
 Assert-True (-not $nightThree.Contains('constexpr float KnockLoudness =')) `
 	'night three must not keep its own copy of the knock cost'
+Assert-True $nightThree.Contains('constexpr float WallEchoKnockLoudness = 0.48f;') `
+	'the fist that reads the wall must cost 0.48'
 # 주석은 빼고 센다. 상수를 어디로 옮겼는지 주석에 적어 두는 게 정상인데,
 # 그것까지 세면 자리 수가 코드와 안 맞는다.
 $nightThreeCode = ($nightThree -split "`n" | Where-Object {
 	$_ -notmatch '^\s*//' }) -join "`n"
 $nightThreeKnockUses =
 	([regex]::Matches($nightThreeCode, 'AIGPlayerCharacter::KnockLoudness')).Count
-Assert-True ($nightThreeKnockUses -eq 3) `
-	"night three has three knock sites; $nightThreeKnockUses read the shared cost"
+Assert-True ($nightThreeKnockUses -eq 2) `
+	"night three has two answer-knock sites; $nightThreeKnockUses read the shared cost"
+$nightThreeEchoUses =
+	([regex]::Matches($nightThreeCode, 'IGNightThree::WallEchoKnockLoudness')).Count
+Assert-True ($nightThreeEchoUses -eq 2) `
+	"night three has two wall-echo sites; $nightThreeEchoUses read the fist cost"
 
 $singleKnockBlock = Get-Block $toneSequence `
 	'UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallKnockSingle(' `
