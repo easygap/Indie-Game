@@ -225,6 +225,57 @@ void AIGNightOneBeatDirector::StageSighting()
 		IGNightOne::SightingShufflePoint,
 	});
 
+	// 형체가 있기 전에 소리가 있어야 한다. 계단참에서 기는 걸음 둘, 그리고
+	// 계단 입구의 등이 죽는다 — 내려가면 통로 끝이 실루엣이 된다. 첫 목격이
+	// 소리 없는 텔레포트였다.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false),
+		IGNightOne::SightingStagePoint + FVector(0.0f, 0.0f, 20.0f),
+		0.7f,
+		1.0f,
+		200.0f,
+		1600.0f,
+		EIGAudioBus::Entity);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "SightingCrawlCaption", "기는 소리"),
+		2.0f,
+		IGNightOne::SightingStagePoint);
+	GetWorldTimerManager().SetTimer(
+		SightingStepTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false),
+				IGNightOne::SightingShufflePoint + FVector(0.0f, 0.0f, 20.0f),
+				0.6f,
+				1.0f,
+				200.0f,
+				1600.0f,
+				EIGAudioBus::Entity);
+		}),
+		0.85f,
+		false);
+	SightingThroatFixture = INDEX_NONE;
+	float NearestSquared = FMath::Square(260.0f);
+	for (int32 Index = 0; Index < WorldScene->GetCorridorFixtureCount(); ++Index)
+	{
+		const float DistanceSquared = FVector::DistSquared2D(
+			WorldScene->GetCorridorFixtureLocation(Index),
+			IGNightOne::SightingZoneCenter);
+		if (DistanceSquared < NearestSquared)
+		{
+			NearestSquared = DistanceSquared;
+			SightingThroatFixture = Index;
+		}
+	}
+	if (SightingThroatFixture != INDEX_NONE)
+	{
+		WorldScene->SetFixtureLive(SightingThroatFixture, false, true);
+	}
+
 	GetWorldTimerManager().SetTimer(
 		SightingFallbackTimer,
 		this,
@@ -284,6 +335,11 @@ void AIGNightOneBeatDirector::RestoreSightingEntity()
 	}
 	if (AIGPrologueWorldScene* WorldScene = Scene.Get())
 	{
+		if (SightingThroatFixture != INDEX_NONE)
+		{
+			WorldScene->SetFixtureLive(SightingThroatFixture, true, true);
+			SightingThroatFixture = INDEX_NONE;
+		}
 		WorldScene->SuspendCorridorFlicker(false);
 	}
 }

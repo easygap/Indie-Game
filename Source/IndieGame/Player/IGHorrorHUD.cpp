@@ -991,6 +991,26 @@ float AIGHorrorHUD::GetCaptionDurationScale() const
 	return Accessibility ? Accessibility->GetCaptionDurationScale() : 1.0f;
 }
 
+float AIGHorrorHUD::EstimateDialogueSeconds(
+	const FText& Line,
+	const float MinimumDurationSeconds)
+{
+	int32 VisibleGlyphs = 0;
+	for (const TCHAR Character : Line.ToString())
+	{
+		if (!FChar::IsWhitespace(Character))
+		{
+			++VisibleGlyphs;
+		}
+	}
+	return FMath::Max(
+		FMath::Clamp(
+			1.15f + VisibleGlyphs / IGHorrorHUD::DialogueGlyphsPerSecond,
+			IGHorrorHUD::DialogueMinimumSeconds,
+			IGHorrorHUD::DialogueMaximumSeconds),
+		MinimumDurationSeconds);
+}
+
 float AIGHorrorHUD::CalculateDialogueDuration(
 	const FString& Line,
 	const float MinimumDurationSeconds) const

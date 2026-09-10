@@ -57,6 +57,11 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Night")
 	void CompleteNightGoal();
+	/**
+	 * 다음 새벽은 눈을 감기지도, 아침 독백을 하지도 않는다. 엔딩 길에서
+	 * 에필로그가 제 암전을 갖고 오므로 두 번 깜빡이면 안 된다.
+	 */
+	void SuppressNextMorningPresentation() { bMorningPresentationSuppressed = true; }
 
 	UFUNCTION(BlueprintPure, Category = "Night")
 	bool IsHourActive() const { return bHourActive; }
@@ -98,6 +103,8 @@ protected:
 private:
 	void TickHour();
 	void ReleaseAtDawn();
+	/** 검은 반 초 뒤. 공동현관 잠금이 풀리는 소리, 눈을 뜨는 시간, 독백. */
+	void FinishDawnPresentation();
 	void ApplySealedPresentation(bool bSealed);
 	void RequestMissingFloorAutosave(bool bAtNight);
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
@@ -113,5 +120,7 @@ private:
 	bool bGoalComplete = false;
 	bool bFailureEndingSuspended = false;
 	bool bRestoringHour = false;
+	bool bMorningPresentationSuppressed = false;
 	FTimerHandle HourTimer;
+	FTimerHandle DawnTimer;
 };

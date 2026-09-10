@@ -22,6 +22,7 @@
 #include "Player/IGPlayerController.h"
 #include "Sequence/IGWakeUpDirector.h"
 #include "Engine/GameViewportClient.h"
+#include "GameFramework/CharacterMovementComponent.h"
 #include "Player/IGStressComponent.h"
 #include "ShaderCompiler.h"
 #include "UnrealClient.h"
@@ -1868,6 +1869,43 @@ void AIGListenerGreyboxDirector::MakeNightThreeFirstReport()
 	}
 	Narrative->SetFirstReportMade(true);
 	Narrative->MarkBeatPlayed(FName(TEXT("Night3.FirstReport")));
+	// 신고는 불리언이 아니다. 새벽 독백이 지나간 뒤 폰이 한 번 울리고 접수
+	// 문자가 온다 — 밤4의 두 번째 신고와 엔딩 A의 근거가 이 한 줄이다.
+	if (!bProbeRequested)
+	{
+		GetWorldTimerManager().SetTimer(
+			ReportTimer,
+			this,
+			&AIGListenerGreyboxDirector::PlayFirstReportReceipt,
+			5.5f,
+			false);
+	}
+}
+
+void AIGListenerGreyboxDirector::PlayFirstReportReceipt()
+{
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreatePhoneVibrationUnfinished(this),
+			PlayerCharacter->GetActorLocation(),
+			0.5f,
+			1.0f,
+			60.0f,
+			400.0f,
+			EIGAudioBus::Player);
+	}
+	AIGHorrorHUD::PushDialogue(
+		this,
+		NSLOCTEXT("IGMissingFloor", "ReportSpeaker", "112"),
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"FirstReportReceipt",
+			"[문자신고 접수] 접수되었습니다. 담당자 확인 후 연락드리겠습니다."),
+		EIGDialogueChannel::Device,
+		0.0f,
+		EIGDialoguePriority::Story);
 }
 
 void AIGListenerGreyboxDirector::HandleNightFourResolved()
@@ -1884,9 +1922,29 @@ void AIGListenerGreyboxDirector::HandleNightFourResolved()
 	Narrative->MarkBeatPlayed(FName(TEXT("Night4.SecondReport")));
 	// 시간을 먼저 푼다. 에필로그는 87초 동안 화면과 이동을 가져가므로,
 	// 그 사이에 추격이 살아 있으면 애도 장면 뒤에서 포획이 일어난다.
+	NightPhase->SuppressNextMorningPresentation();
 	NightPhase->CompleteNightGoal();
 
-	if (Epilogue)
+	if (bProbeRequested)
+	{
+		StartEpilogueAfterGesture();
+		return;
+	}
+	// 렌치가 제자리에 놓이는 0.85초와 그 독백 한 줄은 카메라가 살아 있을 때
+	// 봐야 한다. 같은 프레임에 에필로그가 화면을 검게 칠하면 선택은 했는데
+	// 한 것을 못 본다.
+	GetWorldTimerManager().SetTimer(
+		EpilogueStartTimer,
+		this,
+		&AIGListenerGreyboxDirector::StartEpilogueAfterGesture,
+		3.4f,
+		false);
+}
+
+void AIGListenerGreyboxDirector::StartEpilogueAfterGesture()
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (Epilogue && Narrative)
 	{
 		Epilogue->StartEpilogue(Player.Get(), Narrative->GetEndingChoice());
 	}
@@ -1932,7 +1990,8 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 	AIGMissingFloorEvidence* Evidence)
 {
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	if (!NightPhase || !Narrative || NightPhase->IsHourActive())
+	if (!NightPhase || !Narrative || NightPhase->IsHourActive()
+		|| GetWorldTimerManager().IsTimerActive(NightStartTimer))
 	{
 		return;
 	}
@@ -1947,20 +2006,7 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 			return;
 		}
 		Narrative->MarkBeatPlayed(FName(TEXT("Arrival.Slept")));
-		IGAudio::SpawnOneShotAt(
-			this,
-			UIGToneSequenceSoundWave::CreateAlarmFirstNote(this),
-			Evidence ? Evidence->GetActorLocation() : Player->GetActorLocation(),
-			0.58f,
-			0.94f,
-			80.0f,
-			650.0f,
-			EIGAudioBus::Player);
-		AIGHorrorHUD::PushAudioCaption(
-			this,
-			NSLOCTEXT("IGMissingFloor", "ArrivalAlarmCaption", "[04:30 알람 — 위층에서 세 번 두드린다]"),
-			2.7f);
-		NightPhase->BeginTheHour(1);
+		BeginNightAfterSleep(1);
 		return;
 	}
 	if (Narrative->GetNightIndex() == 3
@@ -1997,7 +2043,138 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 	}
 	const int32 NextNight =
 		FMath::Clamp(Narrative->GetNightIndex() + 1, 1, 4);
-	NightPhase->BeginTheHour(NextNight);
+	BeginNightAfterSleep(NextNight);
+}
+
+void AIGListenerGreyboxDirector::BeginNightAfterSleep(const int32 NightIndex)
+{
+	PendingNightIndex = NightIndex;
+	if (bProbeRequested)
+	{
+		// 프로브는 잠든 프레임에 밤이 서 있어야 한다.
+		WakeIntoNight();
+		return;
+	}
+	// 눕는 순간 눈을 감긴다. 눕고 나서도 서 있던 자리에 그대로 서서 카드를
+	// 보는 것은 잠이 아니라 로딩이었다. 눈을 뜨면 침대이고 알람이 울린다.
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	APlayerController* Controller = PlayerCharacter
+		? Cast<APlayerController>(PlayerCharacter->GetController())
+		: nullptr;
+	if (Controller && Controller->PlayerCameraManager)
+	{
+		Controller->PlayerCameraManager->StartCameraFade(
+			0.0f,
+			1.0f,
+			0.6f,
+			FLinearColor::Black,
+			/*bShouldFadeAudio=*/false,
+			/*bHoldWhenFinished=*/true);
+	}
+	GetWorldTimerManager().SetTimer(
+		NightStartTimer,
+		this,
+		&AIGListenerGreyboxDirector::WakeIntoNight,
+		0.75f,
+		false);
+}
+
+void AIGListenerGreyboxDirector::WakeIntoNight()
+{
+	if (!NightPhase)
+	{
+		return;
+	}
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	APlayerController* Controller = PlayerCharacter
+		? Cast<APlayerController>(PlayerCharacter->GetController())
+		: nullptr;
+	if (!bProbeRequested && PlayerCharacter && NightLoop
+		&& NightLoop->HasWakeTransform())
+	{
+		// 포획 뒤에 깨는 자리와 같은 자리다. 밤은 언제나 침대에서 시작한다.
+		const FTransform& Wake = NightLoop->GetWakeTransform();
+		PlayerCharacter->TeleportTo(
+			Wake.GetLocation(), Wake.Rotator(), false, true);
+		if (UCharacterMovementComponent* Movement =
+			PlayerCharacter->GetCharacterMovement())
+		{
+			Movement->StopMovementImmediately();
+		}
+		if (Controller)
+		{
+			Controller->SetControlRotation(Wake.Rotator());
+		}
+	}
+	NightPhase->BeginTheHour(PendingNightIndex);
+	const FVector At = PlayerCharacter
+		? PlayerCharacter->GetActorLocation()
+		: GetActorLocation();
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateAlarmFirstNote(this),
+		At,
+		0.58f,
+		0.94f,
+		80.0f,
+		650.0f,
+		EIGAudioBus::Player);
+	AIGHorrorHUD::PushAudioCaption(
+		this,
+		PendingNightIndex == 1
+			? NSLOCTEXT("IGMissingFloor", "ArrivalAlarmCaption", "[04:30 알람 — 위층에서 세 번 두드린다]")
+			: NSLOCTEXT("IGMissingFloor", "NightAlarmCaption", "[04:30 알람]"),
+		2.7f);
+	if (bProbeRequested)
+	{
+		return;
+	}
+	if (Controller && Controller->PlayerCameraManager)
+	{
+		Controller->PlayerCameraManager->StartCameraFade(
+			1.0f,
+			0.0f,
+			1.4f,
+			FLinearColor::Black,
+			/*bShouldFadeAudio=*/false,
+			/*bHoldWhenFinished=*/false);
+	}
+	// 밤은 방향으로 시작한다. 밤2만 여섯 초 뒤에 문을 두드렸고 나머지는
+	// 카드 뒤에 아무것도 없었다.
+	GetWorldTimerManager().SetTimer(
+		NightSettleTimer,
+		this,
+		&AIGListenerGreyboxDirector::PlayNightOpeningSettle,
+		6.0f,
+		false);
+}
+
+void AIGListenerGreyboxDirector::PlayNightOpeningSettle()
+{
+	if (!NightPhase || !NightPhase->IsHourActive())
+	{
+		return;
+	}
+	// 플레이어 기준이 아니라 403호 천장의 정해진 자리다. 걸어가 볼 수 있는
+	// 소리라야 장소가 된다.
+	const FVector Bed = NightLoop && NightLoop->HasWakeTransform()
+		? NightLoop->GetWakeTransform().GetLocation()
+		: (Player.IsValid() ? Player->GetActorLocation() : GetActorLocation());
+	const FVector Above = Bed + FVector(40.0f, 0.0f, 300.0f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateSettleTimberCreak(this),
+		Above,
+		0.62f,
+		1.0f,
+		160.0f,
+		1400.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "NightOpeningCreak", "나무가 뒤틀린다"),
+		2.2f,
+		Above);
 }
 
 FText AIGListenerGreyboxDirector::GetHwangDoorLine() const

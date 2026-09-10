@@ -101,5 +101,8 @@ private:
 	bool bSightingCompleted = false;
 	bool bExtinguisherBeatFired = false;
 	FTimerHandle SightingFallbackTimer;
+	FTimerHandle SightingStepTimer;
+	/** 계단 입구 위의 등. 그가 계단참에 있는 동안 죽어 있고, 끝나면 돌아온다. */
+	int32 SightingThroatFixture = INDEX_NONE;
 	FTimerHandle ImpactTimer;
 };

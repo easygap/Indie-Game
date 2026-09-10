@@ -291,5 +291,7 @@ private:
 	bool bAnswerDelivered = false;
 	bool bSolvedAnnounced = false;
 	bool bAnswerTargetAnnounced = false;
+	bool bJournalAnnounced = false;
+	bool bSeoAnnounced = false;
 	bool bHourCurrentlyActive = true;
 };

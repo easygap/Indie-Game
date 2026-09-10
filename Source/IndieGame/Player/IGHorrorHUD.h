@@ -197,6 +197,14 @@ public:
 		const UObject* WorldContext,
 		const FVector& SourceLocation);
 
+	/**
+	 * 한 줄이 화면에 머무는 시간. 큐를 쌓는 쪽이 장면 길이를 잴 때 쓴다 —
+	 * 접근성 배율은 빼고 잰다.
+	 */
+	static float EstimateDialogueSeconds(
+		const FText& Line,
+		float MinimumDurationSeconds = 0.0f);
+
 	/** Shows a non-dialogue sound caption when the accessibility option is on. */
 	static void PushAudioCaption(
 		const UObject* WorldContext,

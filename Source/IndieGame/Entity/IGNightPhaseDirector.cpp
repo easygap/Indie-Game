@@ -1,5 +1,8 @@
 ﻿#include "Entity/IGNightPhaseDirector.h"
 
+#include "Audio/IGAudioHelpers.h"
+#include "Audio/IGToneSequenceSoundWave.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -15,6 +18,15 @@ namespace IGNightPhase
 {
 	/** How often the hour is sampled. Coarse on purpose: nothing needs frames. */
 	constexpr float TickIntervalSeconds = 0.25f;
+	/**
+	 * 새벽은 한 번 눈을 감는다. 스무 분의 밤이 독백 한 줄로 끝나면 밤과 낮이
+	 * 같은 화면이라 끝났다는 감각이 몸에 안 온다.
+	 */
+	constexpr float DawnFadeOutSeconds = 0.45f;
+	constexpr float DawnBlackSeconds = 0.55f;
+	constexpr float DawnFadeInSeconds = 0.9f;
+	/** 공동현관 유리문의 전자 잠금. 문 자체는 (604, -385)에 서 있다. */
+	const FVector EntranceLatchLocation(604.0f, -385.0f, 100.0f);
 }
 
 AIGNightPhaseDirector::AIGNightPhaseDirector()
@@ -230,6 +242,69 @@ void AIGNightPhaseDirector::ReleaseAtDawn()
 		break;
 	}
 
+	OnHourActiveChanged.Broadcast(false);
+	RequestMissingFloorAutosave(false);
+
+	if (bMorningPresentationSuppressed)
+	{
+		bMorningPresentationSuppressed = false;
+		return;
+	}
+	// 세계가 먼저 바뀐다(위의 브로드캐스트). 눈은 그 뒤에 감긴다 — 검은
+	// 화면 아래서 밤의 베드가 죽고 그가 잠들고, 눈을 뜨면 공동현관 잠금이
+	// 풀리는 소리가 아래서 올라온다.
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	APlayerController* Controller = PlayerCharacter
+		? Cast<APlayerController>(PlayerCharacter->GetController())
+		: nullptr;
+	if (Controller && Controller->PlayerCameraManager)
+	{
+		Controller->PlayerCameraManager->StartCameraFade(
+			0.0f,
+			1.0f,
+			IGNightPhase::DawnFadeOutSeconds,
+			FLinearColor::Black,
+			/*bShouldFadeAudio=*/false,
+			/*bHoldWhenFinished=*/true);
+	}
+	GetWorldTimerManager().SetTimer(
+		DawnTimer,
+		this,
+		&AIGNightPhaseDirector::FinishDawnPresentation,
+		IGNightPhase::DawnBlackSeconds,
+		false);
+}
+
+void AIGNightPhaseDirector::FinishDawnPresentation()
+{
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	APlayerController* Controller = PlayerCharacter
+		? Cast<APlayerController>(PlayerCharacter->GetController())
+		: nullptr;
+	if (Controller && Controller->PlayerCameraManager)
+	{
+		Controller->PlayerCameraManager->StartCameraFade(
+			1.0f,
+			0.0f,
+			IGNightPhase::DawnFadeInSeconds,
+			FLinearColor::Black,
+			/*bShouldFadeAudio=*/false,
+			/*bHoldWhenFinished=*/false);
+	}
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateRelayClick(this),
+		IGNightPhase::EntranceLatchLocation,
+		0.9f,
+		0.7f,
+		300.0f,
+		3200.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "DawnLatchCaption", "공동현관 잠금이 풀린다"),
+		2.2f,
+		IGNightPhase::EntranceLatchLocation);
 	// The release is announced by the world, not by a banner: the entrance
 	// simply opens again. One inner-voice line is allowed (§7 forbids
 	// confirmation UI, not thought).
@@ -237,9 +312,6 @@ void AIGNightPhaseDirector::ReleaseAtDawn()
 		this,
 		NSLOCTEXT("IGMissingFloor", "MorningCame", "문이 열린다. 아침이다."),
 		3.4f);
-
-	OnHourActiveChanged.Broadcast(false);
-	RequestMissingFloorAutosave(false);
 }
 
 void AIGNightPhaseDirector::RequestMissingFloorAutosave(const bool bAtNight)

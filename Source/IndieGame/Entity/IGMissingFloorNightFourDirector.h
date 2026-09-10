@@ -227,6 +227,7 @@ private:
 	bool bFailureEndingActive = false;
 	bool bFailureRetryEnabled = false;
 	bool bControlLockoutActive = false;
+	bool bEvictionAnnounced = false;
 	int32 FinalRevealStage = INDEX_NONE;
 	float RevealAttentionSeconds = 0.0f;
 	float RevealStageElapsedSeconds = 0.0f;

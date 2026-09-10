@@ -130,7 +130,6 @@ private:
 	float NoteSlideSeconds = 0.0f;
 	bool bNoteDelivered = false;
 	bool bNoteSliding = false;
-	bool bNoteRead = false;
 	int32 LastSourceCount = -1;
 	int32 ResetsSinceNewSource = 0;
 	int32 ResponseCount = 0;

@@ -411,6 +411,13 @@ bool AIGMissingFloorFifthDawnDirector::RegisterPlayerKnock()
 	{
 		return false;
 	}
+	if (ElapsedSeconds >= IGFifthDawn::CueTimes[8])
+	{
+		// 7월 31일 뒤. 손은 움직이는데 소리가 안 난다 — 그가 마지막에 겪은
+		// 것을 손가락으로 겪는다. 입력은 먹고, 벽은 답하지 않는다.
+		++PlayerKnockCount;
+		return true;
+	}
 	const float Muffle = FMath::Clamp(0.18f + PlayerKnockCount * 0.075f, 0.18f, 0.90f);
 	++PlayerKnockCount;
 	IGAudio::SpawnOneShotAt(

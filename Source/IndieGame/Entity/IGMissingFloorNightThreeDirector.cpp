@@ -1813,6 +1813,26 @@ void AIGMissingFloorNightThreeDirector::RefreshJournalAvailability(
 	JournalNote->SetActorHiddenInGame(!bEarned);
 	JournalNote->SetActorEnableCollision(bEarned);
 	JournalNote->SetInteractionEnabled(bEarned);
+	if (bEarned && !bJournalAnnounced)
+	{
+		// 그냥 나타나는 물건은 없다. 401호 문 밑으로 밀려 나오는 소리와 함께 —
+		// 자비 쪽지와 같은 손, 같은 종이. 그 노인이 건네는 것이다.
+		bJournalAnnounced = true;
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreatePaperDoorSlide(this),
+			IGNightThree::JournalLocation,
+			0.4f,
+			1.0f,
+			90.0f,
+			900.0f,
+			EIGAudioBus::World);
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "JournalSlideCaption", "401호 문 밑 — 종이가 밀려 나온다"),
+			2.4f,
+			IGNightThree::JournalLocation);
+	}
 }
 
 void AIGMissingFloorNightThreeDirector::RefreshDistantSeoVisibility()
@@ -1828,6 +1848,27 @@ void AIGMissingFloorNightThreeDirector::RefreshDistantSeoVisibility()
 		&& Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive)
 		&& !Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
 	DistantSeo->SetVisibility(bShow, true);
+	if (bShow && !bSeoAnnounced)
+	{
+		// 골목 건너에 사람이 서 있다. 눈이 먼저 가게 발소리 하나.
+		bSeoAnnounced = true;
+		const FVector At = DistantSeo->GetComponentLocation();
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateSurfaceFootstep(
+				this, EIGFootstepSurface::Concrete, 0.9f, 0.7f),
+			At,
+			0.55f,
+			1.0f,
+			300.0f,
+			2600.0f,
+			EIGAudioBus::World);
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "DistantSeoCaption", "골목 건너 — 발소리"),
+			2.0f,
+			At);
+	}
 }
 
 UIGMissingFloorNarrativeSubsystem*

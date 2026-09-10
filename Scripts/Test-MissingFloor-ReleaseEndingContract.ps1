@@ -522,7 +522,8 @@ if (-not $replyBuilder.Contains('OutLines.Reset();')) {
 }
 # 존재의 통과가 댄 줄 수만큼 뒤로 밀린다.
 Assert-ContainsAll $nightFourSource @(
-	'ReplyLines.Num() * IGNightFour::ConfrontationReplyStrideSeconds'
+	'ReplySeconds += AIGHorrorHUD::EstimateDialogueSeconds(',
+	'IGNightFour::EntityPassBaseSeconds + ReplySeconds'
 ) '대치 줄 수에 따른 통과 지연'
 # 그의 애원은 본 것과 무관하게 같아야 한다. 달라지는 것은 유담 쪽이다.
 $mokLineBody = [regex]::Match(

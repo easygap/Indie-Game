@@ -30,6 +30,8 @@ public:
 	/** 포획된 플레이어가 다시 눈을 뜨는 403호 침대 옆 위치. */
 	UFUNCTION(BlueprintCallable, Category = "NightLoop")
 	void SetWakeTransform(const FTransform& Transform);
+	bool HasWakeTransform() const { return bWakeTransformSet; }
+	const FTransform& GetWakeTransform() const { return WakeTransform; }
 
 	UFUNCTION(BlueprintCallable, Category = "NightLoop")
 	void RegisterEntity(AIGListenerEntity* Entity);

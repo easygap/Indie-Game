@@ -48,7 +48,6 @@ namespace IGNightFour
 	constexpr int32 ConfrontationReplyLimit = 3;
 	/** 한 줄이 화면에 머무는 최소 시간과, 그만큼 뒤로 밀리는 통과. */
 	constexpr float ConfrontationReplySeconds = 2.8f;
-	constexpr float ConfrontationReplyStrideSeconds = 3.05f;
 	constexpr float EntityPassBaseSeconds = 3.35f;
 	constexpr float FailureCaptureSeconds = 1.2f;
 	constexpr float FailureListingDelaySeconds = 1.24f;
@@ -68,6 +67,8 @@ namespace IGNightFour
 	/** 순서를 틀리면 인터록이 이만큼 선다(§7 P5). */
 	constexpr float ControlLockoutSeconds = 10.0f;
 	const FVector WallBreakLocation(246.0f, 700.0f, 1300.0f);
+	/** 401호 안. 망치 소리에 그 노인이 아래에서 답하는 자리. */
+	const FVector Unit401ReplyLocation(-146.0f, -239.0f, 960.0f);
 	const FVector EndingALocation(223.0f, 665.0f, 1220.0f);
 	const FVector EndingBLocation(165.0f, 765.0f, 1220.0f);
 	const FVector CavityVisualOrigin(276.0f, 700.0f, 1200.0f);
@@ -1309,14 +1310,20 @@ void AIGMissingFloorNightFourDirector::PresentMokHansoo()
 			EIGDialoguePriority::Critical);
 	}
 	// 그가 지나가기 전에 댄 줄이 다 끝나야 한다. 존재가 먼저 들어오면
-	// 대치가 대화가 아니라 배경이 된다. 세 줄이면 12.5초짜리 장면이 되는데,
-	// 그건 볼 것을 다 본 회차가 받는 값이다.
+	// 대치가 대화가 아니라 배경이 된다. 줄마다 실제로 화면에 머무는 시간을
+	// 잰다 — 한 줄에 3.05초를 곱하던 값은 마흔 글자짜리 줄이 5초를 쓰는
+	// 것을 몰랐고, 세 줄이면 그가 대화 중간에 들어왔다.
+	float ReplySeconds = 0.0f;
+	for (const FText& ReplyLine : ReplyLines)
+	{
+		ReplySeconds += AIGHorrorHUD::EstimateDialogueSeconds(
+			ReplyLine, IGNightFour::ConfrontationReplySeconds);
+	}
 	GetWorldTimerManager().SetTimer(
 		EntityPassTimer,
 		this,
 		&AIGMissingFloorNightFourDirector::BeginEntityPass,
-		IGNightFour::EntityPassBaseSeconds
-			+ ReplyLines.Num() * IGNightFour::ConfrontationReplyStrideSeconds,
+		IGNightFour::EntityPassBaseSeconds + ReplySeconds,
 		false);
 }
 
@@ -1731,6 +1738,52 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 			NSLOCTEXT(
 				"IGMissingFloor", "NightFourPowerCut", "전기가 나갔다. 목한수다."),
 			3.5f);
+		// 차단기는 내리는 소리가 있다. 남쪽 층계참에서 딸깍, 그리고 멀어지는
+		// 발소리 넷 — 그가 왔다 갔다는 것을 화면 없이 안다. 밤4에서 그의
+		// 유일한 개입이 독백 한 줄이었다.
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateRelayClick(this),
+			IGNightFour::MokStartLocation + FVector(0.0f, 0.0f, 60.0f),
+			0.9f,
+			0.8f,
+			260.0f,
+			2600.0f,
+			EIGAudioBus::World);
+		AIGHorrorHUD::PushFearDirection(this, IGNightFour::MokStartLocation, 1.2f);
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "BreakerCutCaption", "차단기 내리는 소리"),
+			2.0f,
+			IGNightFour::MokStartLocation);
+		for (int32 Step = 0; Step < 4; ++Step)
+		{
+			const FVector StepAt = FMath::Lerp(
+				IGNightFour::MokStartLocation,
+				IGNightFour::MokExitLocation,
+				(Step + 1) / 4.0f) + FVector(0.0f, 0.0f, -30.0f * Step);
+			FTimerHandle StepTimer;
+			GetWorldTimerManager().SetTimer(
+				StepTimer,
+				FTimerDelegate::CreateWeakLambda(this, [this, StepAt, Step]()
+				{
+					IGAudio::SpawnOneShotAt(
+						this,
+						UIGToneSequenceSoundWave::CreateSurfaceFootstep(
+							this,
+							EIGFootstepSurface::Concrete,
+							0.92f,
+							0.6f - 0.1f * Step),
+						StepAt,
+						0.62f - 0.1f * Step,
+						1.0f,
+						200.0f,
+						1800.0f,
+						EIGAudioBus::World);
+				}),
+				0.9f + 0.55f * Step,
+				false);
+		}
 	}
 	else if (StrikeCount < 5)
 	{
@@ -1743,6 +1796,26 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 					? NSLOCTEXT("IGMissingFloor", "NightFourStrikeSecond", "안쪽이 비었다. 소리가 다르다.")
 					: NSLOCTEXT("IGMissingFloor", "NightFourStrikeFourth", "손이 저리다. 한 번만 더."),
 			2.2f);
+		if (StrikeCount == 4)
+		{
+			// 401호가 듣고 있다. 망치 소리에 그 노인이 아래에서 답한다 — 둘,
+			// 쉬고, 하나. 7월 29일에 한 번 했던 것을 다시. 이 밤에 사람 쪽에서
+			// 오는 유일한 소리다.
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.72f),
+				IGNightFour::Unit401ReplyLocation,
+				0.8f,
+				1.0f,
+				400.0f,
+				4200.0f,
+				EIGAudioBus::World);
+			AIGHorrorHUD::PushAudioCaptionAt(
+				this,
+				NSLOCTEXT("IGMissingFloor", "Unit401ReplyCaption", "둘, 쉬고, 하나"),
+				2.6f,
+				IGNightFour::Unit401ReplyLocation);
+		}
 	}
 
 	if (StrikeCount >= 5)
@@ -2319,6 +2392,26 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 	const bool bShowEviction = !bHourCurrentlyActive
 		&& Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
 	EvictionNotice->SetActorHiddenInGame(!bShowEviction);
+	if (bShowEviction && !bEvictionAnnounced)
+	{
+		// 밤사이 벽에 붙은 종이. 붙이는 것은 못 봤어도 그 자리가 달라졌다는
+		// 것은 들려야 한다.
+		bEvictionAnnounced = true;
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreatePickupRustle(this),
+			IGNightFour::EvictionNoticeLocation,
+			0.5f,
+			1.0f,
+			120.0f,
+			1100.0f,
+			EIGAudioBus::World);
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "EvictionPostedCaption", "4층 복도 — 종이 소리"),
+			2.0f,
+			IGNightFour::EvictionNoticeLocation);
+	}
 	EvictionNotice->SetInteractionEnabled(
 		bShowEviction
 		&& !Narrative->HasSource(

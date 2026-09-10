@@ -151,6 +151,15 @@ private:
 	/** 에필로그가 끝나면 게임은 타이틀로 돌아간다(§9). */
 	void HandleEpilogueCompleted();
 	void HandleSleepRequested(class AIGMissingFloorEvidence* Evidence);
+	/** 눕는다 → 검은 화면 → 침대에서 네시 반. 자는 동안은 보여 주지 않는다. */
+	void BeginNightAfterSleep(int32 NightIndex);
+	void WakeIntoNight();
+	/** 카드가 걷힌 뒤 403호 천장의 정해진 자리에서 건물이 한 번 운다. */
+	void PlayNightOpeningSettle();
+	/** 렌치가 놓이고 독백이 읽힌 뒤에야 화면이 검어진다. */
+	void StartEpilogueAfterGesture();
+	/** 신호가 돌아온 폰에 접수 문자가 온다. 새벽 독백 뒤에. */
+	void PlayFirstReportReceipt();
 	void HandleUnit401Knocked(class AIGMissingFloorEvidence* Evidence);
 	/** 401호 문 너머의 말. 진행 상태마다 한 줄, 답이 아니라 어디를 볼지. */
 	FText GetHwangDoorLine() const;
@@ -277,6 +286,11 @@ private:
 	TArray<TObjectPtr<UAudioComponent>> NightAmbienceBeds;
 	/** 밤 사이 위에서 한 번씩 나는 건물 소리. 45~110초마다. */
 	FTimerHandle SettleTimerHandle;
+	FTimerHandle NightStartTimer;
+	FTimerHandle NightSettleTimer;
+	FTimerHandle EpilogueStartTimer;
+	FTimerHandle ReportTimer;
+	int32 PendingNightIndex = 1;
 	int32 SettleCounter = 0;
 	void SpawnNightAmbienceBeds();
 	void ScheduleNextSettle();
