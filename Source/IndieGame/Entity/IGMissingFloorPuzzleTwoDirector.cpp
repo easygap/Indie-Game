@@ -6,7 +6,10 @@
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
+#include "Components/AudioComponent.h"
 #include "Entity/IGMissingFloorEvidence.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "Environment/IGCctvChannelFive.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSwingDoor.h"
@@ -58,6 +61,18 @@ namespace IGPuzzleTwo
 	 * 영수증(X 188..204) 사이로, 상판 앞 모서리(Y -137.5)에서 2.5 cm 남는다.
 	 */
 	const FVector RecorderBayLocation(168.0f, -128.0f, 82.0f);
+	/**
+	 * 1층 배관 밸브. 펌프 흡입관(X 75, Y -147) 위, 책상 서쪽. 열면 관에 물이
+	 * 흐르고 그 소리가 책상을 덮는다 — 밸브라는 동사를 여기서 처음 배운다.
+	 * 밤3의 5층 밸브와 밤4의 세 손잡이가 같은 손이다(§7 P2, 2026-09-10).
+	 */
+	const FVector BoothValveLocation(75.0f, -128.0f, 52.0f);
+	constexpr float BoothValveHoldSeconds = 0.8f;
+	constexpr float BoothValveLoudness = 0.55f;
+	/** 책상 둘레의 마스킹. 문지르기 0.25가 이 안에서 삼켜진다. */
+	const FVector BoothMaskCenter(160.0f, -108.0f, 80.0f);
+	constexpr float BoothMaskRadius = 420.0f;
+	constexpr float BoothMaskAmount = 0.30f;
 	/**
 	 * §22.3 안쪽 방 청음. 문짝은 X 205..275, Y -87..-82이고 문틈 판정은
 	 * X 270..274다. 그 문 앞에 서는 자리로, 문짝에서 1 cm 떨어뜨린다.
@@ -333,6 +348,30 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	FoamGap->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined);
 
+	// 1층 배관 밸브. 밸브라는 동사의 첫 수업이다 — 물이 흐르면 책상의 소리가
+	// 묻힌다. 밤3의 5층 밸브, 밤4의 세 손잡이가 같은 손으로 이어진다.
+	SpawnParameters.Name = TEXT("MissingFloorBoothRiserValve");
+	BoothRiserValve = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGPuzzleTwo::BoothValveLocation),
+		SpawnParameters);
+	if (!BoothRiserValve)
+	{
+		return false;
+	}
+	BoothRiserValve->Configure(
+		CubeMesh,
+		MetalMaterial,
+		FVector(12.0f, 12.0f, 5.0f),
+		NSLOCTEXT("IGMissingFloor", "BoothValvePrompt", "배관 밸브 — 연다"),
+		FText::GetEmpty(),
+		EIGMissingFloorTruth::None,
+		EIGMissingFloorSource::None,
+		IGPuzzleTwo::BoothValveHoldSeconds,
+		IGPuzzleTwo::BoothValveLoudness);
+	BoothRiserValve->OnExamined.AddUObject(
+		this, &AIGMissingFloorPuzzleTwoDirector::HandleBoothValveOpened);
+
 	// T5의 첫 번째 출처(§12). 목한수의 이중 서류 습관은 밤2 관리실에서
 	// 심고 밤4·엔딩에서 그를 잡는 증거가 된다(§13).
 	SpawnParameters.Name = TEXT("MissingFloorBoardReceipts");
@@ -498,6 +537,7 @@ void AIGMissingFloorPuzzleTwoDirector::EndPlay(
 	{
 		World->GetTimerManager().ClearTimer(CctvThoughtTimer);
 	}
+	CloseBoothValve();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -519,6 +559,11 @@ void AIGMissingFloorPuzzleTwoDirector::SetHourActive(const bool bHourActive)
 		}
 	}
 	RefreshPhonePrompt();
+	if (!bHourActive)
+	{
+		// 낮에 그가 도로 잠근다.
+		CloseBoothValve();
+	}
 
 	if (!BoothDoor)
 	{
@@ -564,6 +609,104 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCarbonRestored(
 	{
 		bSolvedAnnounced = true;
 		OnSolved.Broadcast();
+	}
+}
+
+void AIGMissingFloorPuzzleTwoDirector::HandleBoothValveOpened(
+	AIGMissingFloorEvidence* Evidence)
+{
+	UWorld* World = GetWorld();
+	if (bBoothValveOpen || !World)
+	{
+		return;
+	}
+	bBoothValveOpen = true;
+	if (Evidence)
+	{
+		Evidence->SetInteractionPrompt(
+			NSLOCTEXT("IGMissingFloor", "BoothValveOpenPrompt", "배관 밸브 — 열려 있다"));
+		Evidence->SetInteractionEnabled(false);
+	}
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateValveOpen(this, 0),
+		IGPuzzleTwo::BoothValveLocation,
+		0.7f,
+		1.0f,
+		160.0f,
+		1400.0f,
+		EIGAudioBus::Puzzle);
+
+	// 관에 물이 흐른다. 흡입관 옆에서는 가까이, 책상에서는 한 단 멀리.
+	BoothRiserFlow = NewObject<UAudioComponent>(this, TEXT("BoothRiserFlowBed"));
+	if (BoothRiserFlow)
+	{
+		BoothRiserFlow->RegisterComponent();
+		BoothRiserFlow->SetWorldLocation(
+			IGPuzzleTwo::BoothValveLocation + FVector(0.0f, -15.0f, -20.0f));
+		BoothRiserFlow->SetSound(
+			UIGToneSequenceSoundWave::CreatePipeWaterFlow(this, 1));
+		BoothRiserFlow->AttenuationSettings = IGAudio::MakeAttenuation(
+			this,
+			120.0f,
+			900.0f,
+			EIGAudioBus::Puzzle);
+		BoothRiserFlow->bAllowSpatialization = true;
+		BoothRiserFlow->SetVolumeMultiplier(0.5f);
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterComponent(BoothRiserFlow, EIGAudioBus::Puzzle);
+		}
+		BoothRiserFlow->Play();
+	}
+	// 책상 둘레가 물소리 아래로 들어간다. 문지르기 0.25는 여기서 삼켜지고,
+	// 소음 파문도 안 뜬다 — 그게 수업이다.
+	if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+	{
+		BoothValveHumHandle = Noise->RegisterHumSource(
+			IGPuzzleTwo::BoothMaskCenter,
+			IGPuzzleTwo::BoothMaskRadius,
+			IGPuzzleTwo::BoothMaskAmount);
+	}
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT(
+			"IGMissingFloor",
+			"BoothValveThought",
+			"관에서 물소리. 책상까지 울린다."),
+		3.6f);
+}
+
+void AIGMissingFloorPuzzleTwoDirector::CloseBoothValve()
+{
+	if (!bBoothValveOpen)
+	{
+		return;
+	}
+	bBoothValveOpen = false;
+	if (BoothRiserFlow)
+	{
+		BoothRiserFlow->Stop();
+		BoothRiserFlow->DestroyComponent();
+		BoothRiserFlow = nullptr;
+	}
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			if (BoothValveHumHandle != INDEX_NONE)
+			{
+				Noise->UnregisterHumSource(BoothValveHumHandle);
+			}
+		}
+	}
+	BoothValveHumHandle = INDEX_NONE;
+	if (BoothRiserValve)
+	{
+		BoothRiserValve->SetInteractionPrompt(
+			NSLOCTEXT("IGMissingFloor", "BoothValvePrompt", "배관 밸브 — 연다"));
+		BoothRiserValve->SetInteractionEnabled(true);
 	}
 }
 

@@ -2144,6 +2144,43 @@ void AIGListenerGreyboxDirector::WakeIntoNight()
 		&AIGListenerGreyboxDirector::PlayNightOpeningSettle,
 		6.0f,
 		false);
+	if (PendingNightIndex == 1)
+	{
+		// 밤1, 위에서 누가 일한다. 옥상 탱크 매니폴드에서 전동 드릴이 다섯 번
+		// 돌다 멈춘다 — 목한수의 첫 흔적. 밤4의 한 마디를 두 밤의 노동으로 번다.
+		GetWorldTimerManager().SetTimer(
+			RoofDriverTimer,
+			this,
+			&AIGListenerGreyboxDirector::PlayRoofDriverBeat,
+			42.0f,
+			false);
+	}
+}
+
+void AIGListenerGreyboxDirector::PlayRoofDriverBeat()
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!NightPhase || !NightPhase->IsHourActive() || !Narrative
+		|| !Narrative->MarkBeatPlayed(FName(TEXT("Night1.RoofDriver"))))
+	{
+		return;
+	}
+	// 옥상 매니폴드(5, 140, 1300) 위. 4층 복도에서 3미터 위다.
+	const FVector RoofManifold(5.0f, 140.0f, 1330.0f);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateCordlessDriverRun(this),
+		RoofManifold,
+		0.7f,
+		1.0f,
+		400.0f,
+		4200.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "RoofDriverCaption", "전동 드릴. 다섯 번 돌다 멈춘다"),
+		3.0f,
+		RoofManifold);
 }
 
 void AIGListenerGreyboxDirector::PlayNightOpeningSettle()
@@ -2232,7 +2269,7 @@ FText AIGListenerGreyboxDirector::GetHwangDoorLine() const
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401HintP2",
-			"관리실 대장 말이다. 볼펜으로 쓴 거 말고, 밑에 깔린 종이를 봐. 눌린 건 못 지워.");
+			"관리실 대장 말이다. 볼펜으로 쓴 거 말고, 밑에 깔린 종이를 봐. 눌린 건 못 지워. 펌프 옆 밸브 틀어 놓고 해. 물소리 위로는 걔가 못 들어.");
 	}
 	if (NightIndex == 1
 		&& !Narrative->HasTruth(EIGMissingFloorTruth::LivedUpstairs))
@@ -3693,6 +3730,24 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		FIGInteractionContext Context;
 		Context.Interactor = Player.Get();
 		Context.HoldProgress = 1.0f;
+
+		// The booth's own valve: water on the riser masks the desk, which is
+		// the verb night 3 and night 4 build on. Open it first, the way a
+		// careful player would, and prove the rub is swallowed where she sits.
+		AIGMissingFloorEvidence* BoothValve = PuzzleTwo->GetBoothRiserValve();
+		if (!BoothValve || !BoothValve->IsInteractionEnabled())
+		{
+			FailProbe(TEXT("the booth riser valve was not available on night 2"));
+			return;
+		}
+		Context.TargetActor = BoothValve;
+		IIGInteractable::Execute_CompleteInteraction(BoothValve, Context);
+		if (!PuzzleTwo->IsBoothValveOpen()
+			|| NoiseSubsystem->GetMaskingAt(Carbon->GetActorLocation()) < 0.29f)
+		{
+			FailProbe(TEXT("the booth valve did not put water over the desk"));
+			return;
+		}
 
 		// Two passes of frottage restore nothing yet...
 		Context.TargetActor = Carbon;

@@ -792,6 +792,11 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildServiceBayLines() const
 		"IGMissingFloor",
 		"EpilogueServiceBay1",
 		"방수포도 카트도 치워졌다. 콘크리트에 자국만 남았다."));
+	// B의 마지막 그림. 벽 앞에 앉아 있던 한 시간 사이에 그는 나갔다.
+	Lines.Add(NSLOCTEXT(
+		"IGMissingFloor",
+		"EpilogueServiceBay1b",
+		"관리실 창은 그날 밤부터 어두웠다."));
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueServiceBay2",
@@ -823,6 +828,19 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 		"IGMissingFloor",
 		"EpilogueNews1",
 		"무영로 다세대주택 벽체에서 남성 유해 발견 … 실종 1년 만"));
+	// 같은 사실, 다른 마지막 그림(§9). 05:30에 바로 신고한 A는 그를 방음한
+	// 방에서 만나고, 한 시간을 벽 앞에 앉아 있던 B는 빈 방을 만난다. 그의
+	// 처분은 여기서도 확정하지 않는다.
+	Lines.Add(
+		ActiveEndingId == FName(TEXT("Ending.B"))
+			? NSLOCTEXT(
+				"IGMissingFloor",
+				"EpilogueNewsMokB",
+				"관리실 안쪽 방은 비어 있었다. 건물주와는 연락이 닿지 않는다")
+			: NSLOCTEXT(
+				"IGMissingFloor",
+				"EpilogueNewsMokA",
+				"건물주는 관리실 안쪽 방에서 경찰을 맞았다"));
 
 	// §13의 회수다. 나린의 제보는 어느 회차에도 빠지지 않는다.
 	if (Narrative

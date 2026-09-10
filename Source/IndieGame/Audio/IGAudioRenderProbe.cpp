@@ -130,6 +130,7 @@ namespace IGAudioRenderProbe
 			{TEXT("settle_creak"), [](UObject* O) { return W::CreateSettleTimberCreak(O); }, 0.0f},
 			{TEXT("settle_slam"), [](UObject* O) { return W::CreateSettleFarDoorSlam(O); }, 0.0f},
 			{TEXT("settle_tick"), [](UObject* O) { return W::CreateSettlePlasterTick(O); }, 0.0f},
+			{TEXT("mok_driver"), [](UObject* O) { return W::CreateCordlessDriverRun(O); }, 0.0f},
 			{TEXT("hum_machine"), [](UObject* O) { return W::CreateMachineHumLoop(O); }, 3.6f},
 			{TEXT("bed_room"), [](UObject* O) { return Ambience(O, EIGAmbienceMode::RoomTone); }, 6.0f},
 			{TEXT("bed_corridor"), [](UObject* O) { return Ambience(O, EIGAmbienceMode::CorridorNight); }, 8.0f},

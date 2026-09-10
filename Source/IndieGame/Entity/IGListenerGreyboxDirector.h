@@ -156,6 +156,8 @@ private:
 	void WakeIntoNight();
 	/** 카드가 걷힌 뒤 403호 천장의 정해진 자리에서 건물이 한 번 운다. */
 	void PlayNightOpeningSettle();
+	/** 밤1, 옥상에서 전동 드릴이 다섯 번 돌다 멈춘다. 목한수의 첫 흔적. */
+	void PlayRoofDriverBeat();
 	/** 렌치가 놓이고 독백이 읽힌 뒤에야 화면이 검어진다. */
 	void StartEpilogueAfterGesture();
 	/** 신호가 돌아온 폰에 접수 문자가 온다. 새벽 독백 뒤에. */
@@ -288,6 +290,7 @@ private:
 	FTimerHandle SettleTimerHandle;
 	FTimerHandle NightStartTimer;
 	FTimerHandle NightSettleTimer;
+	FTimerHandle RoofDriverTimer;
 	FTimerHandle EpilogueStartTimer;
 	FTimerHandle ReportTimer;
 	int32 PendingNightIndex = 1;

@@ -2716,6 +2716,54 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateWallCavityResponse(
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCordlessDriverRun(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave =
+		IGToneSequence::NewWave(Outer, TEXT("IGCordlessDriverRun"));
+	TArray<FIGToneNote> DriverNotes;
+
+	// 다섯 번의 나사. 방아쇠 딸깍, 165Hz 모터에 배음과 2.4kHz 기어 대역 잡음,
+	// 끝에서 부하로 128Hz까지 처지고, 놓으면 딸깍. 옥상 콘크리트 위 10.9초.
+	// 다섯 번을 다 적었다 — 정적 헤드룸 감사가 읽을 수 있게.
+	DriverNotes.Add({0.000f, 0.030f, 1600.0f, 0.040f, 0.005f, 2.0f, EIGToneWaveform::ValueNoise});
+	DriverNotes.Add({0.000f, 1.400f, 165.0f, 0.048f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({0.000f, 1.400f, 330.0f, 0.020f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({0.000f, 1.400f, 2400.0f, 0.018f, 0.080f, 1.2f, EIGToneWaveform::BandNoise, 0.55f});
+	DriverNotes.Add({0.980f, 0.490f, 128.0f, 0.036f, 0.200f, 2.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({1.400f, 0.040f, 1200.0f, 0.036f, 0.005f, 2.2f, EIGToneWaveform::ValueNoise});
+
+	DriverNotes.Add({2.100f, 0.030f, 1600.0f, 0.040f, 0.005f, 2.0f, EIGToneWaveform::ValueNoise});
+	DriverNotes.Add({2.100f, 1.100f, 165.0f, 0.048f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({2.100f, 1.100f, 330.0f, 0.020f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({2.100f, 1.100f, 2400.0f, 0.018f, 0.080f, 1.2f, EIGToneWaveform::BandNoise, 0.55f});
+	DriverNotes.Add({2.870f, 0.390f, 128.0f, 0.036f, 0.200f, 2.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({3.200f, 0.040f, 1200.0f, 0.036f, 0.005f, 2.2f, EIGToneWaveform::ValueNoise});
+
+	DriverNotes.Add({4.300f, 0.030f, 1600.0f, 0.040f, 0.005f, 2.0f, EIGToneWaveform::ValueNoise});
+	DriverNotes.Add({4.300f, 1.700f, 165.0f, 0.048f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({4.300f, 1.700f, 330.0f, 0.020f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({4.300f, 1.700f, 2400.0f, 0.018f, 0.080f, 1.2f, EIGToneWaveform::BandNoise, 0.55f});
+	DriverNotes.Add({5.490f, 0.600f, 128.0f, 0.036f, 0.200f, 2.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({6.000f, 0.040f, 1200.0f, 0.036f, 0.005f, 2.2f, EIGToneWaveform::ValueNoise});
+
+	DriverNotes.Add({6.900f, 0.030f, 1600.0f, 0.040f, 0.005f, 2.0f, EIGToneWaveform::ValueNoise});
+	DriverNotes.Add({6.900f, 0.900f, 165.0f, 0.048f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({6.900f, 0.900f, 330.0f, 0.020f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({6.900f, 0.900f, 2400.0f, 0.018f, 0.080f, 1.2f, EIGToneWaveform::BandNoise, 0.55f});
+	DriverNotes.Add({7.530f, 0.320f, 128.0f, 0.036f, 0.200f, 2.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({7.800f, 0.040f, 1200.0f, 0.036f, 0.005f, 2.2f, EIGToneWaveform::ValueNoise});
+
+	DriverNotes.Add({9.400f, 0.030f, 1600.0f, 0.040f, 0.005f, 2.0f, EIGToneWaveform::ValueNoise});
+	DriverNotes.Add({9.400f, 1.500f, 165.0f, 0.048f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({9.400f, 1.500f, 330.0f, 0.020f, 0.060f, 1.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({9.400f, 1.500f, 2400.0f, 0.018f, 0.080f, 1.2f, EIGToneWaveform::BandNoise, 0.55f});
+	DriverNotes.Add({10.450f, 0.530f, 128.0f, 0.036f, 0.200f, 2.4f, EIGToneWaveform::SoftSquare});
+	DriverNotes.Add({10.900f, 0.040f, 1200.0f, 0.036f, 0.005f, 2.2f, EIGToneWaveform::ValueNoise});
+
+	Wave->ConfigureNotes(MoveTemp(DriverNotes), false);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateValveOpen(
 	UObject* Outer,
 	const int32 ValveIndex)

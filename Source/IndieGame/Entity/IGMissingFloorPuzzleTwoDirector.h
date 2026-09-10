@@ -6,6 +6,7 @@
 #include "IGMissingFloorPuzzleTwoDirector.generated.h"
 
 class AIGCctvChannelFive;
+class UAudioComponent;
 class AIGMissingFloorEvidence;
 class AIGPrologueWorldScene;
 class AIGReadableNote;
@@ -60,6 +61,8 @@ public:
 	AIGReadableNote* GetAgentMessageNote() const { return AgentMessageNote; }
 	AIGMissingFloorEvidence* GetCctvSelector() const { return CctvSelector; }
 	AIGCctvChannelFive* GetCctvChannelFive() const { return CctvChannelFive; }
+	AIGMissingFloorEvidence* GetBoothRiserValve() const { return BoothRiserValve; }
+	bool IsBoothValveOpen() const { return bBoothValveOpen; }
 
 protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -80,6 +83,13 @@ private:
 	/** 부동산 문자 사본은 밤3부터 책상에 있다. 밤2의 책상에는 없다. */
 	void RefreshAgentNoteAvailability();
 	void HandleFoamExamined(AIGMissingFloorEvidence* Evidence);
+	/**
+	 * 1층 배관 밸브. 열면 관에 물이 흐르고 그 소리가 책상을 덮는다 — 밸브라는
+	 * 동사의 첫 수업. 밤3의 5층 밸브와 밤4의 세 손잡이가 같은 손이다(§7 P2).
+	 */
+	void HandleBoothValveOpened(AIGMissingFloorEvidence* Evidence);
+	/** 낮에 그가 도로 잠근다. 물도 마스킹도 같이 걷힌다. */
+	void CloseBoothValve();
 	void HandleWallCalendarExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleRecorderBayExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleInnerRoomListenExamined(AIGMissingFloorEvidence* Evidence);
@@ -124,6 +134,15 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> FoamGap;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> BoothRiserValve;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> BoothRiserFlow;
+
+	int32 BoothValveHumHandle = INDEX_NONE;
+	bool bBoothValveOpen = false;
 
 	/** T5 첫 번째 출처. 같은 품목이 두 날짜로 두 번 실려 왔다. */
 	UPROPERTY(Transient)

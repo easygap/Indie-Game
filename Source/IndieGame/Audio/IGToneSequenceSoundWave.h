@@ -366,6 +366,12 @@ public:
 	static UIGToneSequenceSoundWave* CreateSettleTimberCreak(UObject* Outer);
 	static UIGToneSequenceSoundWave* CreateSettleFarDoorSlam(UObject* Outer);
 	static UIGToneSequenceSoundWave* CreateSettlePlasterTick(UObject* Outer);
+	/**
+	 * 옥상의 전동 드릴. 다섯 번 돌다 멈춘다, 11초. 밤1에 위에서 누가 일한다는
+	 * 것을 처음 듣는다 — 목한수의 첫 흔적이고, 밤4의 한 마디를 두 밤의
+	 * 노동으로 번다.
+	 */
+	static UIGToneSequenceSoundWave* CreateCordlessDriverRun(UObject* Outer);
 
 	/**
 	 * Three deliberate knuckle knocks on a stud wall, evenly spaced. The
