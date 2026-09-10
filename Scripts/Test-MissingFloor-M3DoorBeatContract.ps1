@@ -190,8 +190,9 @@ Require-All $greybox @(
 ) 'runtime beat probe'
 
 # --- 비트 2-5 「귀환 추격」 -------------------------------------------------
-# 밤2는 종이가 모순되는 자리가 아니라 403호 문에서 끝난다. T7이 밤을 끝내면
-# 관리실 안에서 새벽으로 풀려나고 이 비트가 통째로 사라진다.
+# 밤2는 종이가 모순되는 자리가 아니라 403호 문에서 끝난다. 원문 복원이 밤을
+# 끝내면 관리실 안에서 새벽으로 풀려나고 이 비트가 통째로 사라진다. T7은
+# 밤3의 열쇠 고리 옆에서 닫힌다(2026-09-10).
 Require-All $beatHeader @(
 	'void ArmReturnChase();',
 	'void NotifyCaptureReset();',
@@ -252,7 +253,7 @@ Require-All $greybox @(
 	'case EProbeStep::NightTwoReturnChaseContract:',
 	'case EProbeStep::NightTwoHomeContract:',
 	'MISSINGFLOOR_N2CHASE PASS',
-	'confirming T7 released her to dawn from the booth',
+	'restoring the original released her to dawn from the booth',
 	'night 2 ended while she was still out of 403',
 	'the collapse did not move the building',
 	'Entity->GetListenerState() != EIGListenerState::Patrolling'

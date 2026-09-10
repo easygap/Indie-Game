@@ -47,7 +47,11 @@ public:
 	/** Day locks the booth; the hour opens it. */
 	void SetHourActive(bool bHourActive);
 
-	/** Fired once, when T7 crosses — the night-2 goal. */
+	/**
+	 * Fired once, when the carbon original is restored — the night-2 goal.
+	 * T7 itself waits for night 3: the realtor's message turns up beside the
+	 * keyring, so the date contradiction closes in the same night as the answer.
+	 */
 	FIGPuzzleTwoSolvedSignature OnSolved;
 
 	/** Probe queries. */
@@ -73,6 +77,8 @@ private:
 
 	/** Keeps the phone's prompt honest about which of the two it is offering. */
 	void RefreshPhonePrompt();
+	/** 부동산 문자 사본은 밤3부터 책상에 있다. 밤2의 책상에는 없다. */
+	void RefreshAgentNoteAvailability();
 	void HandleFoamExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleWallCalendarExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleRecorderBayExamined(AIGMissingFloorEvidence* Evidence);

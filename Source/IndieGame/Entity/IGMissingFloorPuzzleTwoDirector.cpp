@@ -475,7 +475,10 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		this, &AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder);
 	RefreshPhonePrompt();
 
-	// The night-2 goal is a truth, not a button: listen for T7.
+	// T7 lands on night 3, when the realtor's message is found beside the
+	// keyring. The night-2 goal is the restored original, and the note stays
+	// off the desk until then.
+	RefreshAgentNoteAvailability();
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
 		TruthHandle = Narrative->OnTruthConfirmed.AddUObject(
@@ -500,6 +503,7 @@ void AIGMissingFloorPuzzleTwoDirector::EndPlay(
 
 void AIGMissingFloorPuzzleTwoDirector::SetHourActive(const bool bHourActive)
 {
+	RefreshAgentNoteAvailability();
 	// §5.5: dawn closes the take. She left it running all night and now there is
 	// something to play — which is the only reason beat 2-6 can exist.
 	if (UWorld* World = GetWorld())
@@ -553,6 +557,27 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCarbonRestored(
 	{
 		Narrative->MarkPuzzleSolved(IGPuzzleTwo::PuzzleId);
 	}
+	// 밤2의 목표는 원문 복원이다. 날짜의 모순은 밤3에 열쇠를 집으며 닫힌다 —
+	// T7이 둘째 밤에 닫히면 게임의 정점이 둘째 밤에 오고, 셋째·넷째 밤은
+	// 집행이 된다. 여기서는 그가 민원을 지웠다는 것까지만 안다.
+	if (!bSolvedAnnounced)
+	{
+		bSolvedAnnounced = true;
+		OnSolved.Broadcast();
+	}
+}
+
+void AIGMissingFloorPuzzleTwoDirector::RefreshAgentNoteAvailability()
+{
+	if (!AgentMessageNote)
+	{
+		return;
+	}
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const bool bPresent = Narrative && Narrative->GetNightIndex() >= 3;
+	AgentMessageNote->SetActorHiddenInGame(!bPresent);
+	AgentMessageNote->SetActorEnableCollision(bPresent);
+	AgentMessageNote->SetInteractionEnabled(bPresent);
 }
 
 void AIGMissingFloorPuzzleTwoDirector::HandleAgentNoteRead(
@@ -835,12 +860,13 @@ void AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined(
 void AIGMissingFloorPuzzleTwoDirector::HandleTruthConfirmed(
 	const EIGMissingFloorTruth Truth)
 {
-	if (bSolvedAnnounced || Truth != EIGMissingFloorTruth::WasStillAlive)
+	if (Truth != EIGMissingFloorTruth::WasStillAlive)
 	{
 		return;
 	}
-	bSolvedAnnounced = true;
-	OnSolved.Broadcast();
+	// 날짜가 닫혔다. 말하지 않는다 — 26일에 뺐다는 방에서 27일부터 두드렸다는
+	// 것은 두 종이를 나란히 본 사람이 스스로 말할 문장이다(§16). 밤2를 끝내는
+	// 일도 이제 여기 없다. 원문 복원이 그 밤을 끝낸다.
 }
 
 bool AIGMissingFloorPuzzleTwoDirector::ValidateFixtures() const

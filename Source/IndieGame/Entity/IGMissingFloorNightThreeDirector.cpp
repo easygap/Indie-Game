@@ -968,6 +968,23 @@ void AIGMissingFloorNightThreeDirector::HandleKeyringTaken(
 		this,
 		FGameplayTag::RequestGameplayTag(
 			FName(TEXT("State.MissingFloor.HasStairKey")), false));
+	// 고리 옆, 밤3의 책상에 부동산 문자 사본이 뽑혀 있다. 밤2에는 없던
+	// 종이다. T7은 이 종이가 닫는다 — 열쇠만 집고 나가면 밤4의 망치가 안 열린다.
+	if (const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		if (!Narrative->HasSource(
+			EIGMissingFloorTruth::WasStillAlive,
+			EIGMissingFloorSource::AgentMoveOutMessage))
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGMissingFloor",
+					"KeyringPaperThought",
+					"고리 옆에 문자 뽑아 놓은 종이가 있다. 어제는 없었는데."),
+				3.8f);
+		}
+	}
 }
 
 void AIGMissingFloorNightThreeDirector::HandleValveOpened(
@@ -1845,7 +1862,7 @@ void AIGMissingFloorNightThreeDirector::RefreshDistantSeoVisibility()
 	const bool bShow =
 		!bHourCurrentlyActive
 		&& Narrative
-		&& Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive)
+		&& Narrative->IsPuzzleSolved(FName(TEXT("P2")))
 		&& !Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
 	DistantSeo->SetVisibility(bShow, true);
 	if (bShow && !bSeoAnnounced)

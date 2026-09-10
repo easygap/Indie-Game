@@ -155,7 +155,7 @@ namespace IGHorrorHUD
 				TEXT("관리실 책상 · 7/27~7/31"), EJournalThumbnail::Document},
 			{TEXT("Office.AgentMoveOutMessage"), EJournalLane::Administration,
 				TEXT("중개인 문자"), TEXT("5층 짐 뺐습니다. 7/26."),
-				TEXT("관리실 휴대폰 · 밤 2"), EJournalThumbnail::Metal},
+				TEXT("관리실 열쇠 고리 옆 · 밤 3"), EJournalThumbnail::Metal},
 			{TEXT("Office.EvictionWarning"), EJournalLane::Administration,
 				TEXT("퇴거 요구서"), TEXT("내일 오전 7시 누수 보수. 403호 퇴거 요망."),
 				TEXT("4층 복도 · 낮 3"), EJournalThumbnail::Document},

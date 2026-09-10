@@ -2193,6 +2193,14 @@ FText AIGListenerGreyboxDirector::GetHwangDoorLine() const
 	const bool bAlive = Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive);
 	const bool bInWall = Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall);
 	const bool bAnswered = Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
+	if (bAnswered && !bAlive)
+	{
+		// 대답은 받았는데 날짜를 안 닫았다. 밤4의 망치는 T7 없이 안 열린다.
+		return NSLOCTEXT(
+			"IGMissingFloor",
+			"Hwang401HintT7",
+			"관리실 열쇠 고리 옆에 부동산 문자 뽑아 놓은 거 있더라. 날짜를 봐. 방 뺐다는 날.");
+	}
 	if (bAnswered && !Narrative->IsNightFourWallOpened())
 	{
 		return NSLOCTEXT(
@@ -2207,7 +2215,8 @@ FText AIGListenerGreyboxDirector::GetHwangDoorLine() const
 			"Hwang401HintP4",
 			"나도 두드려 줬었어, 그날. 그랬더니 조용해지더라. 사람인가 싶었지.");
 	}
-	if (bAlive && !bInWall && NightIndex >= 3)
+	if (!bInWall && NightIndex >= 2
+		&& Narrative->IsPuzzleSolved(FName(TEXT("P2"))))
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
@@ -3714,21 +3723,25 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
-		// Crossing with the agent's message confirms T7 and, since this is
-		// night 2, ends the night through the goal exit.
-		Context.TargetActor = AgentNote;
-		IIGInteractable::Execute_CompleteInteraction(AgentNote, Context);
-		IIGInteractable::Execute_CompleteInteraction(AgentNote, Context);
-		if (!Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
+		// The realtor's message is not on this desk yet. It turns up beside the
+		// keyring on night 3, so the date contradiction closes in the same night
+		// as the answer; night 2 ends on the restored original alone.
+		if (!AgentNote->IsHidden() || AgentNote->IsInteractionEnabled())
 		{
-			FailProbe(TEXT("T7 did not confirm after crossing both records"));
+			FailProbe(TEXT("the realtor's message must wait for night 3"));
 			return;
 		}
-		// §8 밤2 ends at 403's door, not here. T7 arms 비트 2-5 and the hour has
-		// to still be running, or the return chase never happens.
+		if (Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
+		{
+			FailProbe(TEXT("T7 confirmed on night 2"));
+			return;
+		}
+		// §8 밤2 ends at 403's door, not here. The restored original arms 비트
+		// 2-5 and the hour has to still be running, or the return chase never
+		// happens.
 		if (!NightPhase->IsHourActive())
 		{
-			FailProbe(TEXT("confirming T7 released her to dawn from the booth"));
+			FailProbe(TEXT("restoring the original released her to dawn from the booth"));
 			return;
 		}
 		if (!NightTwoBeats
@@ -3736,7 +3749,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				!= EIGNightTwoReturnStage::AwaitingExit)
 		{
 			FailProbe(FString::Printf(
-				TEXT("§8 비트 2-5 did not arm on T7: stage=%d"),
+				TEXT("§8 비트 2-5 did not arm on the restored original: stage=%d"),
 				NightTwoBeats
 					? static_cast<int32>(NightTwoBeats->GetReturnStage())
 					: -1));
@@ -4080,9 +4093,11 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("day papers unresolved"));
 			return;
 		}
-		if (Journal->IsHidden())
+		// The journal is earned by T7, and T7 now closes on night 3 — so on day
+		// two 황순금 has not handed it over yet.
+		if (!Journal->IsHidden())
 		{
-			FailProbe(TEXT("journal stayed hidden after T7 by day"));
+			FailProbe(TEXT("journal appeared before T7"));
 			return;
 		}
 
@@ -4092,20 +4107,10 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		Context.TargetActor = Forum;
 		IIGInteractable::Execute_CompleteInteraction(Forum, Context);
 		IIGInteractable::Execute_CompleteInteraction(Forum, Context);
-		Context.TargetActor = Journal;
-		IIGInteractable::Execute_CompleteInteraction(Journal, Context);
-		IIGInteractable::Execute_CompleteInteraction(Journal, Context);
 
 		if (Narrative->HasTruth(EIGMissingFloorTruth::TenantIdentity))
 		{
 			FailProbe(TEXT("T2 confirmed from the labels alone"));
-			return;
-		}
-		if (!Narrative->HasSource(
-			EIGMissingFloorTruth::FiveNightsOfThirst,
-			EIGMissingFloorSource::KnockTallyJournal))
-		{
-			FailProbe(TEXT("journal read did not file the tally record"));
 			return;
 		}
 
@@ -4158,6 +4163,23 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		if (Gate->IsLocked() || AnnexGate->IsLocked())
 		{
 			FailProbe(TEXT("the two labelled keys did not release both gates"));
+			return;
+		}
+		// The realtor's message waits beside the keyring. Two reads: open, close.
+		AIGReadableNote* AgentNote =
+			PuzzleTwo ? PuzzleTwo->GetAgentMessageNote() : nullptr;
+		if (!AgentNote || AgentNote->IsHidden()
+			|| !AgentNote->IsInteractionEnabled())
+		{
+			FailProbe(TEXT("the realtor's message did not appear on night 3"));
+			return;
+		}
+		Context.TargetActor = AgentNote;
+		IIGInteractable::Execute_CompleteInteraction(AgentNote, Context);
+		IIGInteractable::Execute_CompleteInteraction(AgentNote, Context);
+		if (!Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
+		{
+			FailProbe(TEXT("T7 did not confirm after crossing both records"));
 			return;
 		}
 
@@ -4594,6 +4616,27 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		if (!NightFour || !NightFour->ValidateFixtures())
 		{
 			FailProbe(TEXT("night-4 fixtures were not all placed"));
+			return;
+		}
+
+		// Day three: T7 closed last night, so 황순금 hands the journal over now.
+		AIGReadableNote* Journal = NightThree->GetJournalNote();
+		if (!Journal || Journal->IsHidden())
+		{
+			FailProbe(TEXT("journal stayed hidden after T7 by day"));
+			return;
+		}
+		FIGInteractionContext DayContext;
+		DayContext.Interactor = Player.Get();
+		DayContext.HoldProgress = 1.0f;
+		DayContext.TargetActor = Journal;
+		IIGInteractable::Execute_CompleteInteraction(Journal, DayContext);
+		IIGInteractable::Execute_CompleteInteraction(Journal, DayContext);
+		if (!Narrative->HasSource(
+			EIGMissingFloorTruth::FiveNightsOfThirst,
+			EIGMissingFloorSource::KnockTallyJournal))
+		{
+			FailProbe(TEXT("journal read did not file the tally record"));
 			return;
 		}
 
