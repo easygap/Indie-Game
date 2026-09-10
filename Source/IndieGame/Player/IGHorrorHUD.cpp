@@ -1437,6 +1437,37 @@ void AIGHorrorHUD::ShowSaveIndicator()
 		World->GetTimeSeconds() + IGHorrorHUD::SaveIndicatorSeconds;
 }
 
+void AIGHorrorHUD::DrawNightClock()
+{
+	const UWorld* World = GetWorld();
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	if (!Canvas || !Narrative)
+	{
+		return;
+	}
+	// 1200초가 한 시간이다. 04:30에서 시작해 05:30에 문이 열린다.
+	const float Elapsed = FMath::Clamp(Narrative->GetNightElapsedSeconds(), 0.0f, 1200.0f);
+	const int32 TotalMinutes = 4 * 60 + 30 + FMath::FloorToInt(Elapsed / 20.0f);
+	const FText ClockText = FText::FromString(FString::Printf(
+		TEXT("%02d:%02d"), TotalMinutes / 60, TotalMinutes % 60));
+	const float Scale = FMath::Clamp(
+		FMath::Min(Canvas->ClipX / 1920.0f, Canvas->ClipY / 1080.0f),
+		0.67f,
+		2.0f);
+	FLinearColor Colour = IGHorrorHUD::MutedGray;
+	Colour.A *= 0.7f;
+	DrawLeftAlignedText(
+		ClockText,
+		FVector2D(42.0f * Scale, Canvas->ClipY - 60.0f * Scale),
+		Colour,
+		EIGHudTextRole::Objective,
+		GetResolutionTextScale(0.85f),
+		false);
+}
+
 void AIGHorrorHUD::DrawSaveIndicator(const double CurrentTime)
 {
 	if (!Canvas || CurrentTime >= SaveIndicatorEndTime)
@@ -1953,8 +1984,9 @@ void AIGHorrorHUD::DrawHUD()
 	// is told nothing and has to listen instead (§11 V4).
 	if (bNightPresentation)
 	{
-		// Intentionally empty: gated here rather than inside GetObjectiveText,
-		// whose exact body the release gate pins.
+		// Gated here rather than inside GetObjectiveText, whose exact body the
+		// release gate pins. The hour shows no objective — only the time.
+		DrawNightClock();
 	}
 	else if (SupportsKorean())
 	{

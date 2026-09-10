@@ -75,8 +75,14 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 	bHourPaused = false;
 	HourElapsedSeconds = 0.0f;
 
+	// 같은 번호의 밤이 다시 오면 카드가 그것을 안다. 못 채운 밤의 되풀이와
+	// 엔딩 C의 재시도가 여기 걸린다. 저장에서 이어 붙이는 것은 되풀이가 아니다.
+	bool bRepeatedNight = false;
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
+		bRepeatedNight = !bRestoringHour
+			&& NightIndex >= 1
+			&& Narrative->GetNightIndex() == NightIndex;
 		Narrative->SetNightIndex(NightIndex);
 		Narrative->SetHourSealed(true);
 		Narrative->SetNightElapsedSeconds(0.0f);
@@ -121,7 +127,9 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 	{
 		AIGHorrorHUD::ShowChapterCard(
 			this,
-			NSLOCTEXT("IGMissingFloor", "NightCardEyebrow", "새벽 네시 반"),
+			bRepeatedNight
+				? NSLOCTEXT("IGMissingFloor", "NightCardEyebrowAgain", "다시, 새벽 네시 반")
+				: NSLOCTEXT("IGMissingFloor", "NightCardEyebrow", "새벽 네시 반"),
 			NightTitle,
 			FText::GetEmpty(),
 			4.2f);
@@ -188,9 +196,19 @@ void AIGNightPhaseDirector::CompleteNightGoal()
 		return;
 	}
 	bGoalComplete = true;
+	// 채운 밤은 기록에 남는다. 못 채운 밤은 다음 저녁에 다시 온다(§5.4).
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->MarkBeatPlayed(GoalBeatId(Narrative->GetNightIndex()));
+	}
 	// The goal and the timeout share one exit so morning is always the same
 	// world state, whichever way the player got there.
 	ReleaseAtDawn();
+}
+
+FName AIGNightPhaseDirector::GoalBeatId(const int32 NightIndex)
+{
+	return FName(*FString::Printf(TEXT("Night%d.Goal"), NightIndex));
 }
 
 void AIGNightPhaseDirector::TickHour()

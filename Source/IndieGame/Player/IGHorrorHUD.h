@@ -774,6 +774,12 @@ private:
 	float RippleLoudness = 0.0f;
 	double RippleStartTime = 0.0;
 	void DrawSaveIndicator(double CurrentTime);
+	/**
+	 * 밤의 시각. 목표 줄은 없지만 05:30이 온다는 것은 몸이 알아야 한다 —
+	 * 잡혀도 시계는 계속 가고, 그 값이 곧 포획의 값이다(§5.4). 답도
+	 * 게이지도 아니고 손목의 시계다. 왼쪽 아래, 저장 점의 반대편.
+	 */
+	void DrawNightClock();
 	double SaveIndicatorEndTime = -1.0;
 	double RippleEndTime = -1.0;
 	/** §19.8. 이 링이 내가 낸 소리인가, 건물이 낸 소리인가. */

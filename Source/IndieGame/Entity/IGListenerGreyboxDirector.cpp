@@ -2028,8 +2028,18 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 			return;
 		}
 	}
-	const int32 NextNight =
-		FMath::Clamp(Narrative->GetNightIndex() + 1, 1, 4);
+	const int32 CurrentNight = Narrative->GetNightIndex();
+	int32 NextNight = FMath::Clamp(CurrentNight + 1, 1, 4);
+	const bool bGoalMet = CurrentNight < 1
+		|| Narrative->HasBeatPlayed(AIGNightPhaseDirector::GoalBeatId(CurrentNight));
+	if (!bGoalMet)
+	{
+		// 못 채운 밤은 다음 저녁에 같은 밤이 온다. 그는 한 티어 더 급하다 —
+		// 잡히는 값이 죽음이 아니라 시간이려면 시간이 정말로 사라져야 한다(§5.4).
+		// 밤4의 05:30은 여기 오지 않는다. 벽이 닫힌 새벽은 엔딩 C가 갖는다.
+		NextNight = CurrentNight;
+		Narrative->SetAggressionTier(Narrative->GetAggressionTier() + 1);
+	}
 	BeginNightAfterSleep(NextNight);
 }
 
