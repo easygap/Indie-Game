@@ -85,7 +85,7 @@ Require-None $channel @(
 	'bCaptureEveryFrame = true'
 ) '§14 상시 렌더 금지'
 
-# CIF. 아날로그 채널의 실제 해상도이며, 낮은 형체가 형체로 남는 이유다.
+# CIF. 아날로그 채널의 실제 해상도다. 전구 하나가 전구로 남고 나머지는 어둠이다.
 Require-All $channel @(
 	'constexpr int32 FeedWidth = 352;',
 	'constexpr int32 FeedHeight = 288;',
@@ -166,30 +166,27 @@ Require-All $channel @(
 	'Capture->FOVAngle = SceneActor->GetMissingFloorCctvFieldOfView();'
 ) '§17 single source of framing'
 
-# 화면에 있어야 하는 세 가지: 자재 더미, 비닐, 낮은 형체.
+# 화면에 있어야 하는 것: 자재 더미, 비닐, 전구 하나. 그리고 지나가는 것은
+# 없다. 형체 세 상자는 지웠다(2026-09-10) — 그는 화면에 안 나오고(§4.6)
+# 소리로만 온다. 화면이 살아 있는 동안 복도가 한 번 운다.
 Require-All $scene @(
 	'CreateBlock(FVector(0, 590, 1230), FVector(120, 80, 60), Board);',
 	'TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial)',
 	'AddSheeting('
 ) 'beat 2-2 shot list'
-# 경로는 시선을 따라가지 않고 가로지른다. 두 끝이 렌즈에서 같은 방위에 있으면
-# 형체가 카메라를 등지고 멀어지기만 해서 세워 둔 상자로 읽힌다 — 첫 패스가
-# 그랬고, -IGCctvShapeOnly 프레임이 그것을 보여 줬다. 낮은 것은 측면에서만
-# 낮게 읽힌다. 두 끝의 렌즈까지 거리가 같은 것이 이 값들의 요점이다.
 Require-All $channel @(
-	'const FVector ShapeStart(-137.0f, 630.0f, 1213.0f);',
-	'const FVector ShapeEnd(-251.0f, 726.0f, 1213.0f);',
-	'constexpr float ShapeEnterProgress = 0.34f;',
-	'constexpr float ShapeExitProgress = 0.82f;',
-	'M_MissingFloorListenerPlasterUV'
-) 'beat 2-2 shot list'
-# 런타임 컴포넌트는 등록 뒤에 붙인다. SetupAttachment는 생성자용이고, 붙지
-# 않은 컴포넌트는 상대 트랜스폼을 월드로 읽어 형체가 원점으로 날아간다.
-Require-All $channel @(
-	'Mass->RegisterComponent();',
-	'Mass->AttachToComponent(',
-	'FAttachmentTransformRules::KeepRelativeTransform);'
-) 'runtime component attachment'
+	'constexpr float LiveSoundProgress = 0.46f;',
+	'CreateEntityCrawlStep(this, false)'
+) 'beat 2-2 the corridor sounds'
+Require-All $channelHeader @(
+	'bool HasLiveSoundPlayed() const'
+) 'beat 2-2 probe receipt'
+foreach ($forbidden in @('LowShape', 'IsShapeCrossing', 'IGCctvShapeOnly')) {
+	if ($channel.Contains($forbidden)) {
+		throw "채널 5에 형체가 다시 들어왔다: $forbidden"
+	}
+	$assertions++
+}
 
 # 카메라의 조명과 동축은 영구 설치물이다. 비트 동안만 존재하면 밤3의 같은
 # 자리가 다른 장소가 된다.
@@ -269,7 +266,7 @@ Require-All $greybox @(
 	'MISSINGFLOOR_CCTV5_FEED FAIL',
 	'MISSINGFLOOR_CCTV5_FEED SKIP',
 	'§14 상시 렌더 금지 broken before the press',
-	'the low shape never crossed the frame',
+	'the corridor never sounded while the picture was up',
 	'channel five played a second time',
 	'FParse::Param(FCommandLine::Get(), TEXT("nullrhi"))',
 	'ReadRenderTarget(',
@@ -281,16 +278,12 @@ Require-All $feedRunner @(
 	"if (`$arguments -notcontains '-RenderOffScreen')",
 	"if (`$arguments -contains '-nullrhi')"
 ) 'offscreen runner guard'
-# 노출과 형체 단독 렌더는 저작 도구다. 이 둘이 없으면 화각 문제를 프레임에서
-# 읽는 대신 좌표를 손으로 계산하게 되고, 두 번 다 틀렸다.
+# 노출 저작 스위치. 이게 없으면 화각 문제를 프레임에서 읽는 대신 좌표를
+# 손으로 계산하게 된다.
 Require-All $feedRunner @(
-	'[switch]$ShapeOnly,',
-	"'-IGCctvShapeOnly'",
 	"'-IGCctvExposure={0}' -f `$Exposure"
 ) 'authoring switches'
 Require-All $channel @(
-	'TEXT("IGCctvShapeOnly")',
-	'PRM_UseShowOnlyList',
 	'TEXT("IGCctvExposure=")'
 ) 'authoring switches'
 

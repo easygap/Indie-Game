@@ -385,7 +385,7 @@ private:
 	 */
 	int32 CctvCapturesAtLive = 0;
 	int32 CctvCapturesAtDeath = 0;
-	bool bCctvShapeSeen = false;
+	bool bCctvLiveSoundHeard = false;
 	bool bCctvFeedProbeRequested = false;
 	bool bCctvFeedMeasured = false;
 	float CctvFeedBrightestLuma = 0.0f;

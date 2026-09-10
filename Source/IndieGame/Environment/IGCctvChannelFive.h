@@ -33,9 +33,10 @@ enum class EIGCctvChannelState : uint8
  *
  * The desk monitor in the management booth is a four-way split, and the channel
  * selector has a fifth button. Pressing it shows a live picture of a corridor
- * that is not on any drawing: stalled material, plastic sheeting, and a low
- * shape crossing the edge of the frame. Then the channel tears and the split
- * comes back, once and for all (§8 비트 2-2).
+ * that is not on any drawing: stalled material, plastic sheeting, one bulb —
+ * and nothing moving. The corridor sounds once while the picture is up; the
+ * picture itself stays empty (§4.6 그를 보여 주지 않는다). Then the channel
+ * tears and the split comes back, once and for all (§8 비트 2-2).
  *
  * This is the first *visual* proof the fifth floor exists, and the reason the
  * player climbs in night 3. §19.3 is explicit that lifting the observation-horror
@@ -45,8 +46,8 @@ enum class EIGCctvChannelState : uint8
  * §14 requires the render budget to be protected — 상시 렌더 금지. Nothing here
  * exists until Play() is called: the render target is allocated on the press, the
  * capture renders about twelve frames a second for the seconds it is live, and
- * the target, the capture and the crawling shape are all released the moment the
- * channel dies. Between beats this actor holds one hidden plane.
+ * the target and the capture are both released the moment the channel dies.
+ * Between beats this actor holds one hidden plane.
  *
  * It also has to agree with §5.5. Channel 5 is wired straight into a spare BNC
  * input on the monitor with nothing looped through to the NVR, so it can be
@@ -100,8 +101,8 @@ public:
 	FIntPoint GetExpectedFeedResolution() const;
 	/** Current value driven into the material's `Static` parameter. */
 	float GetStaticMix() const { return StaticMix; }
-	/** True while the low shape is on its crossing. */
-	bool IsShapeCrossing() const;
+	/** True once the corridor sounded while the picture was up. Probe receipt. */
+	bool HasLiveSoundPlayed() const { return bLiveSoundPlayed; }
 	/**
 	 * Harness hook: the live target, so a probe can read the picture instead of
 	 * inferring it. Null outside the beat, which is the point of §14's budget.
@@ -113,7 +114,7 @@ public:
 private:
 	void EnterState(EIGCctvChannelState NextState);
 	void ReleaseChannel();
-	void UpdateShape(float LiveProgress01);
+	void UpdateLiveSound(float LiveProgress01);
 	void ApplyMaterialParameters();
 
 	virtual void Tick(float DeltaSeconds) override;
@@ -138,22 +139,6 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UTextureRenderTarget2D> Feed;
 
-	/**
-	 * 낮은 형체 — 회백색, and built from lit masses rather than from the entity's
-	 * sprite cards. Those cards are authored for one head-on angle under a torch;
-	 * seen from a ceiling corner under an IR lamp they resolve to a bright
-	 * artifact, which on 288 lines reads as a rendering bug instead of a body.
-	 * Exists only while the channel is live.
-	 */
-	UPROPERTY(Transient)
-	TObjectPtr<USceneComponent> LowShapePivot;
-
-	UPROPERTY(Transient)
-	TArray<TObjectPtr<UStaticMeshComponent>> LowShapeParts;
-
-	UPROPERTY(Transient)
-	TObjectPtr<UMaterialInterface> ShapeMaterial;
-
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMesh> PlaneMesh;
 
@@ -166,4 +151,5 @@ private:
 	float StaticMix = 1.0f;
 	int32 CaptureCount = 0;
 	bool bUsed = false;
+	bool bLiveSoundPlayed = false;
 };

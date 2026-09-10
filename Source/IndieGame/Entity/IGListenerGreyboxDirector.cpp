@@ -3798,7 +3798,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 
 		CctvCapturesAtLive = 0;
 		CctvCapturesAtDeath = 0;
-		bCctvShapeSeen = false;
+		bCctvLiveSoundHeard = false;
 		bCctvFeedMeasured = false;
 		CctvFeedBrightestLuma = 0.0f;
 		CctvFeedLitFraction = 0.0f;
@@ -3908,18 +3908,17 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
-		// 화면 가장자리를 지나가는 낮은 형체 — latched, because the crossing is
-		// shorter than the whole live window and the poll must not have to land
-		// inside it.
-		bCctvShapeSeen = bCctvShapeSeen || Channel->IsShapeCrossing();
+		// 화면이 살아 있는 동안 복도가 한 번 운다 — latched, because the poll
+		// must not have to land on the frame it fired.
+		bCctvLiveSoundHeard = bCctvLiveSoundHeard || Channel->HasLiveSoundPlayed();
 		if (Channel->GetState() == EIGCctvChannelState::Live)
 		{
 			CctvCapturesAtLive = Channel->GetCaptureCount();
 			// Read the target while there is still a picture in it. Once is
 			// enough, and the beat is not repeatable so there is no second chance.
-			// 2.80 s past the press is 0.44 through the live window, which is
-			// inside the low shape's crossing. Measuring there means the reading
-			// and the exported frame both contain the thing the beat is about.
+			// 2.80 s past the press is 0.44 through the live window: the bulb has
+			// settled and the first dropout is over, so the reading and the
+			// exported frame are the corridor as the player sees it.
 			if (bCctvFeedProbeRequested && !bCctvFeedMeasured
 				&& StepDeadlineSeconds >= 2.80f)
 			{
@@ -3946,20 +3945,18 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		}
 
 		// Spent. Everything the beat allocated has to be gone again (§14).
-		if (Channel->HasFeed() || Channel->IsOnScreen()
-			|| Channel->IsShapeCrossing())
+		if (Channel->HasFeed() || Channel->IsOnScreen())
 		{
 			FailProbe(FString::Printf(
 				TEXT("§14 the dead channel is still allocated: "
-					"feed=%d onscreen=%d shape=%d"),
+					"feed=%d onscreen=%d"),
 				Channel->HasFeed() ? 1 : 0,
-				Channel->IsOnScreen() ? 1 : 0,
-				Channel->IsShapeCrossing() ? 1 : 0));
+				Channel->IsOnScreen() ? 1 : 0));
 			return;
 		}
-		if (!bCctvShapeSeen)
+		if (!bCctvLiveSoundHeard)
 		{
-			FailProbe(TEXT("the low shape never crossed the frame"));
+			FailProbe(TEXT("the corridor never sounded while the picture was up"));
 			return;
 		}
 		// 12 fps over the 5.92 s the picture is up is about 71 renders. The band
@@ -3993,7 +3990,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			LogTemp,
 			Display,
 			TEXT("MISSINGFLOOR_CCTV5 PASS: 352x288 allocated on the press, "
-				"%d captures, low shape crossed, released on death, "
+				"%d captures, the corridor sounded once, released on death, "
 				"second press refused"),
 			Captures);
 

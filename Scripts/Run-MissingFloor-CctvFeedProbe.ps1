@@ -31,8 +31,6 @@ param(
 	# 지정하지 않으면 코드에 저작된 값을 쓴다.
 	[ValidateRange(0.001, 4.0)]
 	[double]$Exposure = 0,
-	# 낮은 형체만 렌더해서 프레임 안 위치를 확인한다. 판정용이 아니라 저작용.
-	[switch]$ShapeOnly,
 	# 같은 화각을 크게 내보낸다. 출하 해상도는 CIF 그대로다.
 	[ValidateRange(1, 6)]
 	[int]$FeedScale = 1,
@@ -84,9 +82,6 @@ $arguments = @(
 )
 if ($Exposure -gt 0) {
 	$arguments += ('-IGCctvExposure={0}' -f $Exposure)
-}
-if ($ShapeOnly) {
-	$arguments += '-IGCctvShapeOnly'
 }
 if ($FeedScale -gt 1) {
 	$arguments += ('-IGCctvFeedScale={0}' -f $FeedScale)

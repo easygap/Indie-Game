@@ -584,7 +584,7 @@ Assert-ContainsAll $greyboxSource @(
 	'둘 다 두 달을 못 채우셨어요.'
 ) '단기 퇴거 심기'
 
-# 12행 — 채널 5의 낮은 형체(밤2) → 같은 화각에 직접 서기(밤3).
+# 12행 — 채널 5의 빈 복도(밤2) → 같은 화각에 직접 서기(밤3).
 Assert-ContainsAll $nightThreeSource @(
 	'AnnexRecognitionZone',
 	'HasBeatPlayed(FName(TEXT("Night2.CCTV")))',

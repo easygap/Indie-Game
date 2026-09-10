@@ -12,6 +12,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
+#include "Player/IGHorrorHUD.h"
 
 namespace IGCctvFive
 {
@@ -79,30 +80,18 @@ namespace IGCctvFive
 	const FVector LabelSize(12.8f, 4.8f, 0.5f);
 
 	/**
-	 * 낮은 형체 — 화면 가장자리를 지나가는.
-	 *
-	 * The path crosses the view rather than running along it, and that is the
-	 * whole reason these numbers look the way they do. The first pass put both
-	 * ends on one bearing from the lens so the shape would hug the right edge;
-	 * the -IGCctvShapeOnly frame showed what that actually produces — a body
-	 * pointed straight away from the camera, seen end-on for the entire crossing
-	 * and reading as an upright box. A low thing only reads as low broadside.
-	 *
-	 * So: constant 2.6 m from the lens, constant height, travelling square across
-	 * the sight line from just right of centre out past the right edge of the
-	 * frame. 90 cm of body at that distance is about 88 of the channel's 352
-	 * columns — wide enough to be a shape, far too coarse to be a person.
-	 *
-	 * It leaves; it never approaches. Nothing in this shot is a threat display —
-	 * it is a floor with something living on it, which is the only claim §8 makes.
+	 * 화면에는 아무것도 지나가지 않는다. 대신 화면이 살아 있는 동안 건물이
+	 * 소리를 낸다 — 위에서, 기는 걸음 하나. 빈 복도를 보면서 그 복도가 비어
+	 * 있지 않다는 것을 귀로 안다. 형체 세 상자를 지우고 나서야 이 컷이 §4.6
+	 * (그를 보여 주지 않는다)과 §5.5(그 시간은 기계에 담기지 않는다)와 같은
+	 * 말을 하게 됐다. 밤3에 같은 화각에 직접 서는 회수는 복도와 전구로 남는다.
 	 */
-	const FVector ShapeStart(-137.0f, 630.0f, 1213.0f);
-	const FVector ShapeEnd(-251.0f, 726.0f, 1213.0f);
-	/** 149 cm over 2.7 s. A crawl, not a run — the chase sounds nothing like this. */
-	constexpr float ShapeBobCentimeters = 3.0f;
-	/** Fractions of the live window: it enters late and leaves before the tear. */
-	constexpr float ShapeEnterProgress = 0.34f;
-	constexpr float ShapeExitProgress = 0.82f;
+	constexpr float LiveSoundProgress = 0.46f;
+	/** 부속동 복도, 카메라가 보는 그 자리. */
+	const FVector LiveSoundLocation(-190.0f, 680.0f, 1213.0f);
+	constexpr float LiveSoundVolume = 0.55f;
+	constexpr float LiveSoundInnerRadius = 300.0f;
+	constexpr float LiveSoundFalloff = 4200.0f;
 
 	/** The monitor is at her elbow, so it is close and quiet on the world bus. */
 	constexpr float MonitorInnerRadius = 90.0f;
@@ -214,12 +203,6 @@ bool AIGCctvChannelFive::Configure(AIGPrologueWorldScene* InScene)
 		}
 	}
 
-	// The same greyish-white plaster the entity's body wears, resolved now so the
-	// one crossing this game has cannot discover a missing material.
-	ShapeMaterial = LoadObject<UMaterialInterface>(
-		nullptr,
-		TEXT("/Game/Prototype/Materials/M_MissingFloorListenerPlasterUV."
-			 "M_MissingFloorListenerPlasterUV"));
 	return true;
 }
 
@@ -249,13 +232,6 @@ FIntPoint AIGCctvChannelFive::GetFeedResolution() const
 	return Feed ? FIntPoint(Feed->SizeX, Feed->SizeY) : FIntPoint::ZeroValue;
 }
 
-bool AIGCctvChannelFive::IsShapeCrossing() const
-{
-	return LowShapeParts.Num() > 0
-		&& LowShapeParts[0] != nullptr
-		&& !LowShapeParts[0]->bHiddenInGame;
-}
-
 bool AIGCctvChannelFive::Play()
 {
 	UWorld* World = GetWorld();
@@ -271,6 +247,7 @@ bool AIGCctvChannelFive::Play()
 		return false;
 	}
 	bUsed = true;
+	bLiveSoundPlayed = false;
 
 	// §14 상시 렌더 금지 — everything the channel costs is allocated on this line
 	// and released again when it dies.
@@ -346,75 +323,8 @@ bool AIGCctvChannelFive::Play()
 	Post.VignetteIntensity = 0.0f;
 	Post.bOverride_FilmGrainIntensity = true;
 	Post.FilmGrainIntensity = 0.0f;
-	// Authoring aid, off in every normal run: render only this actor's own
-	// components so the exported frame isolates the low shape. Reading a 288-line
-	// frame and guessing which bright rectangle is which annex prop is how the
-	// first two passes of this shot were mis-diagnosed.
-	if (FParse::Param(FCommandLine::Get(), TEXT("IGCctvShapeOnly")))
-	{
-		Capture->PrimitiveRenderMode =
-			ESceneCapturePrimitiveRenderMode::PRM_UseShowOnlyList;
-		Capture->ShowOnlyActors.Reset();
-		Capture->ShowOnlyActors.Add(this);
-	}
-
-	// The low shape, built now and destroyed with the channel, so it is never
-	// standing in the annex for the player to walk up to in night 3. Three masses
-	// on a pivot: something long and low, with a head end and a hip end. Enough
-	// for a body on all fours through 288 lines, and no more than that — the shot
-	// is not supposed to answer what it is.
-	if (CubeMesh && ShapeMaterial)
-	{
-		LowShapePivot =
-			NewObject<USceneComponent>(this, TEXT("CctvLowShapePivot"));
-		if (LowShapePivot)
-		{
-			LowShapePivot->SetupAttachment(GetRootComponent());
-			LowShapePivot->RegisterComponent();
-			LowShapePivot->SetAbsolute(true, true, true);
-
-			struct FShapePart
-			{
-				const TCHAR* Name;
-				FVector Offset;
-				FVector Size;
-			};
-			static const FShapePart Parts[] = {
-				{TEXT("CctvLowShapeTorso"), FVector(0, 0, 0), FVector(74, 29, 25)},
-				{TEXT("CctvLowShapeHead"), FVector(37, 0, -3), FVector(21, 21, 19)},
-				{TEXT("CctvLowShapeHip"), FVector(-31, 0, 4), FVector(26, 26, 22)},
-			};
-			for (const FShapePart& Part : Parts)
-			{
-				UStaticMeshComponent* Mass =
-					NewObject<UStaticMeshComponent>(this, Part.Name);
-				if (!Mass)
-				{
-					continue;
-				}
-				// Register first, then attach. SetupAttachment is a constructor
-				// call; at runtime it leaves the component unparented, and an
-				// unparented component reads its relative transform as world —
-				// which put this whole body at the world origin, out on the
-				// street, unhidden and invisible. The probe still passed, because
-				// "the shape crossed" only knows whether it was shown.
-				Mass->RegisterComponent();
-				Mass->AttachToComponent(
-					LowShapePivot,
-					FAttachmentTransformRules::KeepRelativeTransform);
-				Mass->SetStaticMesh(CubeMesh);
-				Mass->SetMaterial(0, ShapeMaterial);
-				Mass->SetRelativeLocation(Part.Offset);
-				Mass->SetRelativeScale3D(Part.Size / 100.0f);
-				Mass->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-				Mass->SetCanEverAffectNavigation(false);
-				Mass->SetCastShadow(true);
-				Mass->SetHiddenInGame(true);
-				LowShapeParts.Add(Mass);
-			}
-			UpdateShape(0.0f);
-		}
-	}
+	// 형체는 없다. 복도, 자재, 비닐, 전구 하나 — 카메라가 보는 것은 그게 다다.
+	// 지나가는 것은 소리로만 온다(UpdateLiveSound).
 
 	ScreenFace->SetHiddenInGame(false);
 	// The bed spans the picture and the tear, so the tube's dim ends underneath
@@ -471,13 +381,6 @@ void AIGCctvChannelFive::EnterState(const EIGCctvChannelState NextState)
 			IGCctvFive::MonitorFalloff);
 		// The picture is gone the moment the tear starts. Tick stops issuing
 		// captures in this state, so no frame is rendered that nobody will see.
-		for (const TObjectPtr<UStaticMeshComponent>& Mass : LowShapeParts)
-		{
-			if (Mass)
-			{
-				Mass->SetHiddenInGame(true);
-			}
-		}
 		break;
 
 	case EIGCctvChannelState::Spent:
@@ -504,19 +407,6 @@ void AIGCctvChannelFive::ReleaseChannel()
 		Capture->DestroyComponent();
 		Capture = nullptr;
 	}
-	for (const TObjectPtr<UStaticMeshComponent>& Mass : LowShapeParts)
-	{
-		if (Mass)
-		{
-			Mass->DestroyComponent();
-		}
-	}
-	LowShapeParts.Reset();
-	if (LowShapePivot)
-	{
-		LowShapePivot->DestroyComponent();
-		LowShapePivot = nullptr;
-	}
 	if (Feed)
 	{
 		// Hand the target back before the material can sample a released
@@ -542,45 +432,29 @@ void AIGCctvChannelFive::ApplyMaterialParameters()
 	ScreenInstance->SetTextureParameterValue(TEXT("Feed"), Feed);
 }
 
-void AIGCctvChannelFive::UpdateShape(const float LiveProgress01)
+void AIGCctvChannelFive::UpdateLiveSound(const float LiveProgress01)
 {
-	if (!LowShapePivot)
+	if (bLiveSoundPlayed || LiveProgress01 < IGCctvFive::LiveSoundProgress)
 	{
 		return;
 	}
-	const bool bCrossing =
-		LiveProgress01 >= IGCctvFive::ShapeEnterProgress
-		&& LiveProgress01 <= IGCctvFive::ShapeExitProgress;
-	for (const TObjectPtr<UStaticMeshComponent>& Mass : LowShapeParts)
-	{
-		if (Mass)
-		{
-			Mass->SetHiddenInGame(!bCrossing);
-		}
-	}
-	if (!bCrossing)
-	{
-		return;
-	}
-
-	const float Crossing = FMath::GetMappedRangeValueClamped(
-		FVector2D(IGCctvFive::ShapeEnterProgress, IGCctvFive::ShapeExitProgress),
-		FVector2D(0.0f, 1.0f),
-		LiveProgress01);
-	const FVector Travel = IGCctvFive::ShapeEnd - IGCctvFive::ShapeStart;
-	// A crawl carries the body up and down once per reach. Two and a half cycles
-	// across the crossing is the pace of something moving deliberately, not
-	// hurrying, which is the whole difference between this and the chase.
-	const float Bob = FMath::Sin(Crossing * 2.5f * 2.0f * PI)
-		* IGCctvFive::ShapeBobCentimeters;
-	const FVector Location =
-		IGCctvFive::ShapeStart + Travel * Crossing + FVector(0.0f, 0.0f, Bob);
-	// Facing along the direction of travel, so the head end leads.
-	const float TravelYaw =
-		FMath::RadiansToDegrees(FMath::Atan2(Travel.Y, Travel.X));
-	LowShapePivot->SetWorldLocationAndRotation(
-		Location,
-		FRotator(0.0f, TravelYaw, 0.0f));
+	bLiveSoundPlayed = true;
+	// 화면은 비어 있고 소리는 그 복도에서 난다. 자막은 방위를 붙인다 — 위.
+	// 관리실은 1층이라 거리가 멀고, 멀어서 맞다.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false),
+		IGCctvFive::LiveSoundLocation,
+		IGCctvFive::LiveSoundVolume,
+		1.0f,
+		IGCctvFive::LiveSoundInnerRadius,
+		IGCctvFive::LiveSoundFalloff,
+		EIGAudioBus::Entity);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "CctvLiveSoundCaption", "기는 소리"),
+		2.0f,
+		IGCctvFive::LiveSoundLocation);
 }
 
 void AIGCctvChannelFive::Tick(const float DeltaSeconds)
@@ -614,7 +488,7 @@ void AIGCctvChannelFive::Tick(const float DeltaSeconds)
 				StaticMix = IGCctvFive::GlitchStatic;
 			}
 		}
-		UpdateShape(FMath::Clamp(StateSeconds / LiveSeconds, 0.0f, 1.0f));
+		UpdateLiveSound(FMath::Clamp(StateSeconds / LiveSeconds, 0.0f, 1.0f));
 		if (StateSeconds >= LiveSeconds)
 		{
 			EnterState(EIGCctvChannelState::Collapsing);

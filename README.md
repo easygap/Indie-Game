@@ -175,7 +175,7 @@
 <table>
   <tr>
     <td width="50%"><img src="Docs/Media/readme/p2-booth-desk.webp" alt="관리실 책상의 모니터와 다섯 번째 채널 선택기"></td>
-    <td width="50%"><img src="Docs/Media/readme/cctv5-feed.webp" alt="채널 5 화면. 도면에 없는 복도, 천장 전구 하나, 바닥을 지나가는 낮은 형체"></td>
+    <td width="50%"><img src="Docs/Media/readme/cctv5-feed.webp" alt="채널 5 화면. 도면에 없는 복도, 천장 전구 하나, 그리고 아무것도 없다"></td>
   </tr>
   <tr>
     <td align="center"><sub>AUX 5 — 모니터 전용</sub></td>
