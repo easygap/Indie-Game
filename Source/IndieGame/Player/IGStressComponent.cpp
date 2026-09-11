@@ -480,7 +480,8 @@ void UIGStressComponent::UpdatePostProcess()
 	Settings.SceneFringeIntensity = FMath::Lerp(0.0f, 0.8f, Ramp);
 
 	Settings.bOverride_FilmGrainIntensity = true;
-	Settings.FilmGrainIntensity = FMath::Lerp(0.04f, 0.08f, Ramp);
+	// 밤 기본 0.16 위에 얹히는 값. 그레인 텍스처가 실제로 돌게 된 뒤의 눈금이다.
+	Settings.FilmGrainIntensity = FMath::Lerp(0.16f, 0.30f, Ramp);
 
 	// Focus pulls in: the far end of the corridor goes soft.
 	Settings.bOverride_DepthOfFieldFocalDistance = true;

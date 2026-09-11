@@ -1,0 +1,687 @@
+{
+  "sample_rate": 48000,
+  "license": "CC0 1.0 (OpenGameArt rubberduck, Kenney, Owlish Media)",
+  "sounds": [
+    {
+      "name": "Foot_Concrete_0",
+      "file": "Foot_Concrete_0.wav",
+      "loop": false,
+      "seconds": 0.103,
+      "sources": [
+        "kenney_impact/Audio/footstep_concrete_000.ogg"
+      ],
+      "note": "복도 화강석 타일"
+    },
+    {
+      "name": "Foot_Concrete_1",
+      "file": "Foot_Concrete_1.wav",
+      "loop": false,
+      "seconds": 0.105,
+      "sources": [
+        "kenney_impact/Audio/footstep_concrete_001.ogg"
+      ],
+      "note": "복도 화강석 타일"
+    },
+    {
+      "name": "Foot_Concrete_2",
+      "file": "Foot_Concrete_2.wav",
+      "loop": false,
+      "seconds": 0.11,
+      "sources": [
+        "kenney_impact/Audio/footstep_concrete_002.ogg"
+      ],
+      "note": "복도 화강석 타일"
+    },
+    {
+      "name": "Foot_Concrete_3",
+      "file": "Foot_Concrete_3.wav",
+      "loop": false,
+      "seconds": 0.108,
+      "sources": [
+        "kenney_impact/Audio/footstep_concrete_003.ogg"
+      ],
+      "note": "복도 화강석 타일"
+    },
+    {
+      "name": "Foot_Concrete_4",
+      "file": "Foot_Concrete_4.wav",
+      "loop": false,
+      "seconds": 0.111,
+      "sources": [
+        "kenney_impact/Audio/footstep_concrete_004.ogg"
+      ],
+      "note": "복도 화강석 타일"
+    },
+    {
+      "name": "Foot_Vinyl_0",
+      "file": "Foot_Vinyl_0.wav",
+      "loop": false,
+      "seconds": 0.155,
+      "sources": [
+        "kenney_impact/Audio/footstep_carpet_000.ogg"
+      ],
+      "note": "403호 장판. 카펫 녹음을 눌러 비닐 위 맨발처럼"
+    },
+    {
+      "name": "Foot_Vinyl_1",
+      "file": "Foot_Vinyl_1.wav",
+      "loop": false,
+      "seconds": 0.142,
+      "sources": [
+        "kenney_impact/Audio/footstep_carpet_001.ogg"
+      ],
+      "note": "403호 장판. 카펫 녹음을 눌러 비닐 위 맨발처럼"
+    },
+    {
+      "name": "Foot_Vinyl_2",
+      "file": "Foot_Vinyl_2.wav",
+      "loop": false,
+      "seconds": 0.142,
+      "sources": [
+        "kenney_impact/Audio/footstep_carpet_002.ogg"
+      ],
+      "note": "403호 장판. 카펫 녹음을 눌러 비닐 위 맨발처럼"
+    },
+    {
+      "name": "Foot_Vinyl_3",
+      "file": "Foot_Vinyl_3.wav",
+      "loop": false,
+      "seconds": 0.089,
+      "sources": [
+        "kenney_impact/Audio/footstep_carpet_003.ogg"
+      ],
+      "note": "403호 장판. 카펫 녹음을 눌러 비닐 위 맨발처럼"
+    },
+    {
+      "name": "Foot_Vinyl_4",
+      "file": "Foot_Vinyl_4.wav",
+      "loop": false,
+      "seconds": 0.089,
+      "sources": [
+        "kenney_impact/Audio/footstep_carpet_004.ogg"
+      ],
+      "note": "403호 장판. 카펫 녹음을 눌러 비닐 위 맨발처럼"
+    },
+    {
+      "name": "Foot_MetalStair_0",
+      "file": "Foot_MetalStair_0.wav",
+      "loop": false,
+      "seconds": 1.497,
+      "sources": [
+        "kenney_impact/Audio/impactPlate_light_000.ogg"
+      ],
+      "note": "철제 계단. 얇은 판 충격을 낮춰 계단실 울림"
+    },
+    {
+      "name": "Foot_MetalStair_1",
+      "file": "Foot_MetalStair_1.wav",
+      "loop": false,
+      "seconds": 1.621,
+      "sources": [
+        "kenney_impact/Audio/impactPlate_light_001.ogg"
+      ],
+      "note": "철제 계단. 얇은 판 충격을 낮춰 계단실 울림"
+    },
+    {
+      "name": "Foot_MetalStair_2",
+      "file": "Foot_MetalStair_2.wav",
+      "loop": false,
+      "seconds": 1.433,
+      "sources": [
+        "kenney_impact/Audio/impactPlate_light_002.ogg"
+      ],
+      "note": "철제 계단. 얇은 판 충격을 낮춰 계단실 울림"
+    },
+    {
+      "name": "Foot_MetalStair_3",
+      "file": "Foot_MetalStair_3.wav",
+      "loop": false,
+      "seconds": 1.486,
+      "sources": [
+        "kenney_impact/Audio/impactPlate_light_003.ogg"
+      ],
+      "note": "철제 계단. 얇은 판 충격을 낮춰 계단실 울림"
+    },
+    {
+      "name": "Foot_MetalStair_4",
+      "file": "Foot_MetalStair_4.wav",
+      "loop": false,
+      "seconds": 1.588,
+      "sources": [
+        "kenney_impact/Audio/impactPlate_light_004.ogg"
+      ],
+      "note": "철제 계단. 얇은 판 충격을 낮춰 계단실 울림"
+    },
+    {
+      "name": "Foot_Water_0",
+      "file": "Foot_Water_0.wav",
+      "loop": false,
+      "seconds": 0.235,
+      "sources": [
+        "oga_100_cc0_sfx2/sfx100v2_footstep_wet_01.ogg"
+      ],
+      "note": "밤4 고인 물"
+    },
+    {
+      "name": "Foot_Water_1",
+      "file": "Foot_Water_1.wav",
+      "loop": false,
+      "seconds": 0.348,
+      "sources": [
+        "oga_100_cc0_sfx2/sfx100v2_footstep_wet_02.ogg"
+      ],
+      "note": "밤4 고인 물"
+    },
+    {
+      "name": "Foot_Water_2",
+      "file": "Foot_Water_2.wav",
+      "loop": false,
+      "seconds": 0.332,
+      "sources": [
+        "oga_100_cc0_sfx2/sfx100v2_footstep_wet_03.ogg"
+      ],
+      "note": "밤4 고인 물"
+    },
+    {
+      "name": "Foot_Gypsum_0",
+      "file": "Foot_Gypsum_0.wav",
+      "loop": false,
+      "seconds": 0.169,
+      "sources": [
+        "kenney_impact/Audio/footstep_snow_000.ogg"
+      ],
+      "note": "5층 석고 파편. 눈 밟는 소리를 올려 바삭하게"
+    },
+    {
+      "name": "Foot_Gypsum_1",
+      "file": "Foot_Gypsum_1.wav",
+      "loop": false,
+      "seconds": 0.169,
+      "sources": [
+        "kenney_impact/Audio/footstep_snow_001.ogg"
+      ],
+      "note": "5층 석고 파편. 눈 밟는 소리를 올려 바삭하게"
+    },
+    {
+      "name": "Foot_Gypsum_2",
+      "file": "Foot_Gypsum_2.wav",
+      "loop": false,
+      "seconds": 0.174,
+      "sources": [
+        "kenney_impact/Audio/footstep_snow_002.ogg"
+      ],
+      "note": "5층 석고 파편. 눈 밟는 소리를 올려 바삭하게"
+    },
+    {
+      "name": "Foot_Gypsum_3",
+      "file": "Foot_Gypsum_3.wav",
+      "loop": false,
+      "seconds": 0.173,
+      "sources": [
+        "kenney_impact/Audio/footstep_snow_003.ogg"
+      ],
+      "note": "5층 석고 파편. 눈 밟는 소리를 올려 바삭하게"
+    },
+    {
+      "name": "Foot_Gypsum_4",
+      "file": "Foot_Gypsum_4.wav",
+      "loop": false,
+      "seconds": 0.17,
+      "sources": [
+        "kenney_impact/Audio/footstep_snow_004.ogg"
+      ],
+      "note": "5층 석고 파편. 눈 밟는 소리를 올려 바삭하게"
+    },
+    {
+      "name": "Foot_Rooftop_0",
+      "file": "Foot_Rooftop_0.wav",
+      "loop": false,
+      "seconds": 0.116,
+      "sources": [
+        "kenney_impact/Audio/footstep_concrete_001.ogg"
+      ],
+      "note": "옥상 우레탄 방수층. 콘크리트를 낮고 둔하게"
+    },
+    {
+      "name": "Foot_Rooftop_1",
+      "file": "Foot_Rooftop_1.wav",
+      "loop": false,
+      "seconds": 0.122,
+      "sources": [
+        "kenney_impact/Audio/footstep_concrete_002.ogg"
+      ],
+      "note": "옥상 우레탄 방수층. 콘크리트를 낮고 둔하게"
+    },
+    {
+      "name": "Foot_Rooftop_2",
+      "file": "Foot_Rooftop_2.wav",
+      "loop": false,
+      "seconds": 0.12,
+      "sources": [
+        "kenney_impact/Audio/footstep_concrete_003.ogg"
+      ],
+      "note": "옥상 우레탄 방수층. 콘크리트를 낮고 둔하게"
+    },
+    {
+      "name": "Door_Steel_Open",
+      "file": "Door_Steel_Open.wav",
+      "loop": false,
+      "seconds": 0.59,
+      "sources": [
+        "oga_100_cc0_wood_metal/metal_open_01.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Door_Steel_Close",
+      "file": "Door_Steel_Close.wav",
+      "loop": false,
+      "seconds": 0.548,
+      "sources": [
+        "oga_100_cc0_wood_metal/metal_close_01.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Door_Steel_Slam",
+      "file": "Door_Steel_Slam.wav",
+      "loop": false,
+      "seconds": 1.3,
+      "sources": [
+        "oga_100_cc0_wood_metal/metal_slam_01.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Door_Creak_0",
+      "file": "Door_Creak_0.wav",
+      "loop": false,
+      "seconds": 0.421,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_squeak_01.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Door_Creak_1",
+      "file": "Door_Creak_1.wav",
+      "loop": false,
+      "seconds": 0.346,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_squeak_02.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Door_Wood_Open",
+      "file": "Door_Wood_Open.wav",
+      "loop": false,
+      "seconds": 0.353,
+      "sources": [
+        "oga_100_cc0_sfx/door_open.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Door_Wood_Close",
+      "file": "Door_Wood_Close.wav",
+      "loop": false,
+      "seconds": 0.752,
+      "sources": [
+        "oga_100_cc0_sfx/door_close_02.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Lock_Rattle",
+      "file": "Lock_Rattle.wav",
+      "loop": false,
+      "seconds": 0.431,
+      "sources": [
+        "oga_100_cc0_wood_metal/keys_03.ogg"
+      ],
+      "note": "잠긴 문 손잡이"
+    },
+    {
+      "name": "Lock_Open",
+      "file": "Lock_Open.wav",
+      "loop": false,
+      "seconds": 0.674,
+      "sources": [
+        "oga_100_cc0_wood_metal/lock_open_01.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Knock_Plaster_0",
+      "file": "Knock_Plaster_0.wav",
+      "loop": false,
+      "seconds": 0.425,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_hit_02.ogg"
+      ],
+      "note": "주먹으로 석고보드. 나무 타격을 낮추고 고역을 먹였다"
+    },
+    {
+      "name": "Knock_Plaster_1",
+      "file": "Knock_Plaster_1.wav",
+      "loop": false,
+      "seconds": 0.193,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_hit_05.ogg"
+      ],
+      "note": "주먹으로 석고보드. 나무 타격을 낮추고 고역을 먹였다"
+    },
+    {
+      "name": "Knock_Plaster_2",
+      "file": "Knock_Plaster_2.wav",
+      "loop": false,
+      "seconds": 0.431,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_hit_08.ogg"
+      ],
+      "note": "주먹으로 석고보드. 나무 타격을 낮추고 고역을 먹였다"
+    },
+    {
+      "name": "Knock_Steel_0",
+      "file": "Knock_Steel_0.wav",
+      "loop": false,
+      "seconds": 0.353,
+      "sources": [
+        "oga_100_cc0_wood_metal/metal_hit_02.ogg"
+      ],
+      "note": "현관 철문"
+    },
+    {
+      "name": "Knock_Steel_1",
+      "file": "Knock_Steel_1.wav",
+      "loop": false,
+      "seconds": 0.333,
+      "sources": [
+        "oga_100_cc0_wood_metal/metal_hit_04.ogg"
+      ],
+      "note": "현관 철문"
+    },
+    {
+      "name": "Knock_Steel_2",
+      "file": "Knock_Steel_2.wav",
+      "loop": false,
+      "seconds": 0.275,
+      "sources": [
+        "oga_100_cc0_wood_metal/metal_hit_05.ogg"
+      ],
+      "note": "현관 철문"
+    },
+    {
+      "name": "Entity_KnockTriple",
+      "file": "Entity_KnockTriple.wav",
+      "loop": false,
+      "seconds": 2.584,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_hit_02.ogg",
+        "oga_100_cc0_wood_metal/wood_hit_05.ogg",
+        "oga_100_cc0_wood_metal/wood_hit_08.ogg"
+      ],
+      "note": "그의 노크 셋. 0.62초 간격, CreateWallKnockTriple과 같다"
+    },
+    {
+      "name": "Entity_KnockTriple_Muffled",
+      "file": "Entity_KnockTriple_Muffled.wav",
+      "loop": false,
+      "seconds": 2.584,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_hit_02.ogg",
+        "oga_100_cc0_wood_metal/wood_hit_05.ogg",
+        "oga_100_cc0_wood_metal/wood_hit_08.ogg"
+      ],
+      "note": "벽 너머로 듣는 같은 노크"
+    },
+    {
+      "name": "Entity_CrawlStep_0",
+      "file": "Entity_CrawlStep_0.wav",
+      "loop": false,
+      "seconds": 0.468,
+      "sources": [
+        "oga_owlish/Impacts/scrape1.wav",
+        "kenney_impact/Audio/impactPunch_medium_000.ogg"
+      ],
+      "note": "팔꿈치가 닿고 몸이 끌린다. 긁힘 위에 둔탁한 타격"
+    },
+    {
+      "name": "Entity_CrawlStep_1",
+      "file": "Entity_CrawlStep_1.wav",
+      "loop": false,
+      "seconds": 0.665,
+      "sources": [
+        "oga_owlish/Impacts/scrape2.wav",
+        "kenney_impact/Audio/impactPunch_medium_001.ogg"
+      ],
+      "note": "팔꿈치가 닿고 몸이 끌린다. 긁힘 위에 둔탁한 타격"
+    },
+    {
+      "name": "Entity_CrawlStep_2",
+      "file": "Entity_CrawlStep_2.wav",
+      "loop": false,
+      "seconds": 4.565,
+      "sources": [
+        "oga_owlish/Impacts/scrape3.wav",
+        "kenney_impact/Audio/impactPunch_medium_002.ogg"
+      ],
+      "note": "팔꿈치가 닿고 몸이 끌린다. 긁힘 위에 둔탁한 타격"
+    },
+    {
+      "name": "Entity_Breath_Loop",
+      "file": "Entity_Breath_Loop.wav",
+      "loop": true,
+      "seconds": 6.0,
+      "sources": [
+        "oga_owlish/Human/breath-male.wav"
+      ],
+      "note": "숨. 남자 숨을 낮춰서"
+    },
+    {
+      "name": "Entity_Scream",
+      "file": "Entity_Scream.wav",
+      "loop": false,
+      "seconds": 3.07,
+      "sources": [
+        "oga_owlish/Human/SCREAM.wav"
+      ],
+      "note": "추격 시작. 사람 비명을 낮춰 복도에 울린다"
+    },
+    {
+      "name": "Entity_Alert",
+      "file": "Entity_Alert.wav",
+      "loop": false,
+      "seconds": 7.199,
+      "sources": [
+        "oga_owlish/Human/gasp1.wav"
+      ],
+      "note": "소리를 들었다. 숨을 들이켠다"
+    },
+    {
+      "name": "Entity_Grab",
+      "file": "Entity_Grab.wav",
+      "loop": false,
+      "seconds": 3.448,
+      "sources": [
+        "oga_owlish/Impacts/shouldergrab.wav",
+        "oga_owlish/Human/freakedbreath.wav"
+      ],
+      "note": "덮침. 붙잡는 손과 거친 숨"
+    },
+    {
+      "name": "Stinger_CloseCall",
+      "file": "Stinger_CloseCall.wav",
+      "loop": false,
+      "seconds": 1.65,
+      "sources": [
+        "oga_owlish/Impacts/hit.wav",
+        "oga_owlish/Scifi/blackhole1.wav"
+      ],
+      "note": "코앞에서 마주쳤다"
+    },
+    {
+      "name": "Stinger_ChaseStart",
+      "file": "Stinger_ChaseStart.wav",
+      "loop": false,
+      "seconds": 1.8,
+      "sources": [
+        "kenney_impact/Audio/impactMetal_heavy_001.ogg",
+        "oga_owlish/Ambience/earthquake.wav"
+      ],
+      "note": "추격이 시작됐다"
+    },
+    {
+      "name": "Bed_City_Night",
+      "file": "Bed_City_Night.wav",
+      "loop": true,
+      "seconds": 24.0,
+      "sources": [
+        "oga_100_cc0_sfx2/sfx100v2_loop_highway.ogg"
+      ],
+      "note": "먼 도로. 창 너머 서울 새벽"
+    },
+    {
+      "name": "Bed_Corridor",
+      "file": "Bed_Corridor.wav",
+      "loop": true,
+      "seconds": 20.0,
+      "sources": [
+        "oga_100_cc0_sfx2/sfx100v2_loop_ambient_02.ogg",
+        "oga_100_cc0_sfx2/sfx100v2_air_01.ogg"
+      ],
+      "note": "복도 베드. 공기와 문틈 바람"
+    },
+    {
+      "name": "Hum_Machine",
+      "file": "Hum_Machine.wav",
+      "loop": true,
+      "seconds": 8.0,
+      "sources": [
+        "oga_100_cc0_sfx2/sfx100v2_loop_machine_02.ogg"
+      ],
+      "note": "냉장고·배전반 험"
+    },
+    {
+      "name": "Wind_Gap",
+      "file": "Wind_Gap.wav",
+      "loop": true,
+      "seconds": 10.0,
+      "sources": [
+        "oga_100_cc0_sfx2/sfx100v2_air_02.ogg"
+      ],
+      "note": "옥상 문틈"
+    },
+    {
+      "name": "Ballast_Tick",
+      "file": "Ballast_Tick.wav",
+      "loop": false,
+      "seconds": 0.219,
+      "sources": [
+        "oga_100_cc0_sfx/switch_02.ogg"
+      ],
+      "note": "죽어 가는 형광등 안정기"
+    },
+    {
+      "name": "Extinguisher_Drop",
+      "file": "Extinguisher_Drop.wav",
+      "loop": false,
+      "seconds": 1.695,
+      "sources": [
+        "oga_100_cc0_wood_metal/metal_falling_02.ogg"
+      ],
+      "note": "복도 소화기 낙하"
+    },
+    {
+      "name": "Phone_Vibrate",
+      "file": "Phone_Vibrate.wav",
+      "loop": false,
+      "seconds": 12.076,
+      "sources": [
+        "oga_owlish/Technology/Phone_vibrate.wav"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Paper_Turn_0",
+      "file": "Paper_Turn_0.wav",
+      "loop": false,
+      "seconds": 0.349,
+      "sources": [
+        "oga_owlish/Paper/pageturn1.wav"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Paper_Turn_1",
+      "file": "Paper_Turn_1.wav",
+      "loop": false,
+      "seconds": 1.133,
+      "sources": [
+        "oga_owlish/Paper/pageturn2.wav"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Hammer_Hit_0",
+      "file": "Hammer_Hit_0.wav",
+      "loop": false,
+      "seconds": 1.118,
+      "sources": [
+        "oga_100_cc0_wood_metal/hammer_02.ogg"
+      ],
+      "note": "밤4 망치"
+    },
+    {
+      "name": "Hammer_Hit_1",
+      "file": "Hammer_Hit_1.wav",
+      "loop": false,
+      "seconds": 1.11,
+      "sources": [
+        "oga_100_cc0_wood_metal/hammer_03.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Settle_Creak_0",
+      "file": "Settle_Creak_0.wav",
+      "loop": false,
+      "seconds": 0.192,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_cracking_01.ogg"
+      ],
+      "note": "건물이 뒤틀린다"
+    },
+    {
+      "name": "Settle_Creak_1",
+      "file": "Settle_Creak_1.wav",
+      "loop": false,
+      "seconds": 0.232,
+      "sources": [
+        "oga_100_cc0_wood_metal/wood_cracking_03.ogg"
+      ],
+      "note": ""
+    },
+    {
+      "name": "Player_Breath_Scared",
+      "file": "Player_Breath_Scared.wav",
+      "loop": true,
+      "seconds": 5.0,
+      "sources": [
+        "oga_owlish/Human/scared-breathing.wav"
+      ],
+      "note": "숨 참기 직전, 심장 위에"
+    },
+    {
+      "name": "Player_Gasp",
+      "file": "Player_Gasp.wav",
+      "loop": false,
+      "seconds": 5.039,
+      "sources": [
+        "oga_owlish/Human/gasp1.wav"
+      ],
+      "note": ""
+    }
+  ]
+}

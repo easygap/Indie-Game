@@ -9,6 +9,7 @@
 #include "Entity/IGMissingFloorNightFourDirector.h"
 #include "GameFramework/PlayerController.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Save/IGSaveSubsystem.h"
@@ -102,6 +103,18 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 			NightIndex >= 4 ? 2 : (NightIndex >= 2 ? 1 : 0));
 	}
 	ApplySealedPresentation(true);
+
+	// 그 시간의 복도는 어둡다. 손전등은 이사 짐에서 꺼내 머리맡에 둔 것이고,
+	// 눈을 뜨면 손이 먼저 그것을 찾는다. 밤을 여는 모든 길(잠·되풀이·저장
+	// 복원·캡처)이 여기를 지나므로 이 한 자리에서 준다.
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		if (UIGFlashlightComponent* Torch = PlayerCharacter->GetFlashlight())
+		{
+			Torch->SetAvailable(true);
+			Torch->SetOn(true);
+		}
+	}
 
 	// The one allowed piece of framing UI: the night card, mirroring the
 	// legacy chapter cards. Everything after it is world and sound.

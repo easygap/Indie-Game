@@ -13,6 +13,8 @@ class UIGDustSubsystem;
 class UMaterialInstanceDynamic;
 class UMaterialInterface;
 class UStaticMeshComponent;
+class USkeletalMeshComponent;
+class UAnimSequence;
 
 /** What the one upstairs is doing. See STORY_BIBLE_MISSING_FLOOR.md §4.5. */
 UENUM(BlueprintType)
@@ -41,6 +43,16 @@ enum class EIGListenerState : uint8
 };
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FIGPlayerCapturedSignature, APawn* /*Player*/);
+
+/** 스켈레탈 몸이 재생하는 동작. rig_crawler.py의 액션 넷과 같은 이름이다. */
+enum class EIGListenerBodyAnim : uint8
+{
+	None,
+	Crawl,
+	Listen,
+	Bang,
+	Lunge
+};
 
 /**
  * 위층 사람 — the one upstairs. Blind; hunts entirely by sound through the
@@ -254,6 +266,16 @@ private:
 
 	// -- presentation -------------------------------------------------------
 	void BuildGreyboxBody();
+	/**
+	 * 리깅된 몸. Scripts/blender/rig_crawler.py가 만든 SK_ListenerCrawler와
+	 * 동작 넷(Crawl·Listen·Bang·Lunge)을 싣는다. 있으면 정적 셸과 스프라이트
+	 * 카드는 만들지 않는다 — 카드는 정면에서만 사람이었고 옆에서는 판이었다.
+	 */
+	bool BuildSkeletalBody();
+	void PlayBodyAnim(EIGListenerBodyAnim Anim, bool bLoop, float Rate);
+	void UpdateSkeletalPose(float SpeedAlpha, float BodyRate, float DeltaSeconds);
+	/** 기는 주기 재생 배율. 순찰 속도에서 1.0, 추격에서 상한. */
+	float ComputeCrawlRate(float Speed) const;
 	void UpdatePresentationLayer();
 	void UpdatePresentationPose(float CurrentSpeed, float DeltaSeconds);
 	void PlayKnockTriple();
@@ -290,6 +312,26 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> ListenerFrontCard;
+
+	/** 리깅된 몸. 이것이 있으면 위 둘은 null이다. */
+	UPROPERTY(Transient)
+	TObjectPtr<USkeletalMeshComponent> ListenerSkeletal;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequence> CrawlAnim;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequence> ListenAnim;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequence> BangAnim;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UAnimSequence> LungeAnim;
+
+	EIGListenerBodyAnim ActiveBodyAnim = EIGListenerBodyAnim::None;
+	/** 추격 중 두 팔 거리 안에 들어오면 덮치는 동작으로 바꾼다. */
+	bool bLungeArmed = false;
 
 	/**
 	 * 셸 석고 재질의 인스턴스. 숨과 잔떨림은 재질 WPO가 만들고, 상태 머신은

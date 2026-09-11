@@ -12,6 +12,34 @@ class USoundBase;
 namespace IGAudio
 {
 	/**
+	 * 녹음 샘플 뱅크. /Game/Audio/S_<Name>. 없으면 nullptr를 돌려주고 부르는
+	 * 쪽이 합성기로 내려간다 — 그래서 샘플이 하나도 없어도 게임은 예전 소리로
+	 * 돈다. 원본은 Content/SourceArt/Audio(CC0), 반입은 Import-AudioSamples.ps1.
+	 */
+	INDIEGAME_API USoundBase* Sample(const TCHAR* Name);
+	/** S_<Prefix>_<0..Count-1> 가운데 해시로 하나. 같은 걸음이 같은 소리를 내지 않게. */
+	INDIEGAME_API USoundBase* SampleVariant(const TCHAR* Prefix, int32 Count, uint32 Hash);
+	/** 샘플이 있으면 샘플, 없으면 합성기. 호출부의 한 줄이 그대로 남는다. */
+	template <typename FactoryType>
+	USoundBase* SampleOr(const TCHAR* Name, FactoryType&& Factory)
+	{
+		if (USoundBase* Found = Sample(Name))
+		{
+			return Found;
+		}
+		return Factory();
+	}
+	template <typename FactoryType>
+	USoundBase* SampleVariantOr(const TCHAR* Prefix, int32 Count, uint32 Hash, FactoryType&& Factory)
+	{
+		if (USoundBase* Found = SampleVariant(Prefix, Count, Hash))
+		{
+			return Found;
+		}
+		return Factory();
+	}
+
+	/**
 	 * §10.5. 이 게임의 훅은 「위에서 나는 소리」라서 기본이 바이노럴이다.
 	 * 그런데 바이노럴을 스피커로 들으면 좌우가 서로 새어 상이 무너진다.
 	 * 스피커도 막지 않기로 한 이상, 스피커로 듣는다고 말할 자리가 있어야

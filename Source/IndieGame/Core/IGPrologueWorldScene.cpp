@@ -19,6 +19,7 @@
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Components/PostProcessComponent.h"
+#include "Engine/Texture2D.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
@@ -637,6 +638,24 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	PostProcess->Settings.VignetteIntensity = 0.17f;
 	PostProcess->Settings.bOverride_FilmGrainIntensity = true;
 	PostProcess->Settings.FilmGrainIntensity = 0.02f;
+	// 5.x의 그레인은 텍스처가 있어야 돈다. 비워 두면 세기를 아무리 올려도
+	// 아무 일이 없다 — 지금까지 이 값들은 전부 헛돌고 있었다.
+	{
+		static ConstructorHelpers::FObjectFinder<UTexture2D> GrainFinder(
+			TEXT("/Engine/EngineResources/FilmGrains/Marcie_Grain_v1_1024_M5_555_A0.Marcie_Grain_v1_1024_M5_555_A0"));
+		if (GrainFinder.Succeeded())
+		{
+			PostProcess->Settings.bOverride_FilmGrainTexture = true;
+			PostProcess->Settings.FilmGrainTexture = GrainFinder.Object;
+			// 어둠에 알갱이가 살고 하이라이트는 깨끗하다.
+			PostProcess->Settings.bOverride_FilmGrainIntensityShadows = true;
+			PostProcess->Settings.FilmGrainIntensityShadows = 1.0f;
+			PostProcess->Settings.bOverride_FilmGrainIntensityMidtones = true;
+			PostProcess->Settings.FilmGrainIntensityMidtones = 0.55f;
+			PostProcess->Settings.bOverride_FilmGrainIntensityHighlights = true;
+			PostProcess->Settings.FilmGrainIntensityHighlights = 0.18f;
+		}
+	}
 	PostProcess->Settings.bOverride_ColorSaturation = true;
 	PostProcess->Settings.ColorSaturation = FVector4(0.93f, 0.95f, 1.0f, 1.0f);
 	// A restrained film curve gives PBR roughness and normal changes somewhere
@@ -1108,6 +1127,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_WallpaperEmboss_X"), TEXT("M_WallpaperEmboss_Y"),
 		TEXT("M_WoodFurnitureUV"), TEXT("M_BeddingUV"),
 		TEXT("M_AsphaltWorld"), TEXT("M_Brick_X"), TEXT("M_Brick_Y"),
+		TEXT("M_VillaBrick_X"), TEXT("M_VillaBrick_Y"),
 		TEXT("M_VillaStucco_X"), TEXT("M_VillaStucco_Y"),
 		TEXT("M_Concrete_XY"), TEXT("M_Concrete_X"), TEXT("M_Concrete_Y"),
 		TEXT("M_ConcreteDark_X"), TEXT("M_ConcreteDark_Y"),
@@ -1135,6 +1155,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_SkyDawn"),
 		// Villa surfaces and fittings from the reference photos.
 		TEXT("M_Stucco_X"), TEXT("M_Stucco_Y"), TEXT("M_StuccoCeil"),
+		TEXT("M_StuccoDado_X"), TEXT("M_StuccoDado_Y"),
 		TEXT("M_GraniteTile_XY"), TEXT("M_GranitePanel_X"), TEXT("M_GranitePanel_Y"),
 		TEXT("M_MarbleFloor_XY"), TEXT("M_StainlessUV"), TEXT("M_CabMirrorUV"),
 		TEXT("M_SteelDoorUV"), TEXT("M_UnitDoorPaintedSteel"),
@@ -1148,6 +1169,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_MissingFloorDragTrails"), TEXT("M_MissingFloorDustJoint"),
 		TEXT("M_MissingFloorCavityScratches"),
 		TEXT("M_DecalDampWallpaper"), TEXT("M_DecalRustFasteners"),
+		TEXT("M_DecalRainGrime"),
 		// §11 규칙 2가 고르게 만드는 발소리 표면들. 이름이 여기 없으면
 		// 소리만 다르고 그림은 복도 콘크리트 그대로다.
 		TEXT("M_MissingFloorSteelStair"), TEXT("M_RooftopWaterproofing_XY"),
@@ -2974,6 +2996,54 @@ void AIGPrologueWorldScene::BuildCorridor()
 		FVector(430, -225, 105), FVector(100, 20, 210), CorridorWallX));
 	CreateBlock(FVector(0, -225, 235), FVector(440, 20, 10), CorridorWallX);
 
+	// 허리 아래의 진한 페인트. 오래된 빌라 복도는 바닥에서 1 m까지 유성 페인트를
+	// 따로 칠하고 그 위를 몰딩 한 줄로 끊는다. 걸레질 자국이 남는 자리이고,
+	// 손전등이 벽을 훑을 때 위아래가 다른 반사로 읽힌다. 판은 벽면에서 4 mm.
+	{
+		UMaterialInterface* DadoX = TexMat(TEXT("M_StuccoDado_X"), Skirting);
+		constexpr float DadoTop = 100.0f;
+		constexpr float DadoThickness = 0.8f;
+		// 남쪽 벽은 창이 114 cm부터라 허리 아래가 통째로 이어진다.
+		CreateBlock(
+			FVector(190, -375.0f + DadoThickness * 0.5f, DadoTop * 0.5f),
+			FVector(1040, DadoThickness, DadoTop), DadoX, false);
+		CreateBlock(
+			FVector(190, -375.0f + 1.4f, DadoTop + 1.5f),
+			FVector(1040, 2.8f, 3.0f), PlasticDarkMaterial, false);
+		// 북쪽 벽은 세 문(401·402·403)의 문선 사이만. 구간을 쌍으로 적으면
+		// 지오메트리 감사가 못 읽으니 람다로 하나씩 부른다.
+		const auto AddNorthDado = [this, DadoX](const float X0, const float X1)
+		{
+			const float SpanCenter = (X0 + X1) * 0.5f;
+			const float SpanWidth = X1 - X0;
+			CreateBlock(
+				FVector(SpanCenter, -235.0f - DadoThickness * 0.5f, DadoTop * 0.5f),
+				FVector(SpanWidth, DadoThickness, DadoTop), DadoX, false);
+			CreateBlock(
+				FVector(SpanCenter, -235.0f - 1.4f, DadoTop + 1.5f),
+				FVector(SpanWidth, 2.8f, 3.0f), PlasticDarkMaterial, false);
+		};
+		AddNorthDado(-320.0f, -200.0f);
+		AddNorthDado(-100.0f, -78.0f);
+		AddNorthDado(18.0f, 94.0f);
+		AddNorthDado(194.0f, 700.0f);
+
+		// 천장 밑 전선관. 관리인이 나중에 단 인터폰과 등의 배선은 벽 속이 아니라
+		// 벽 위를 지난다. 강관 하나가 북쪽 벽 꼭대기를 따라 달리고, 등 자리마다
+		// 정션박스가 하나씩 붙는다.
+		CreateBlock(
+			FVector(190, -238.0f, 229), FVector(3, 3, 1040),
+			Metal, false, CylinderMesh, FRotator(90, 0, 0));
+		for (const float BoxX : {-180.0f, 60.0f, 300.0f, 540.0f})
+		{
+			CreateBlock(FVector(BoxX, -239.5f, 229), FVector(10, 7, 10), PlasticDarkMaterial, false);
+			// 박스에서 등으로 올라가는 짧은 관.
+			CreateBlock(
+				FVector(BoxX, -272.0f, 238.0f), FVector(2.2f, 2.2f, 66),
+				Metal, false, CylinderMesh, FRotator(0, 0, 90));
+		}
+	}
+
 	// Neighbouring unit doors. The reference landing is a charcoal steel slab
 	// with one brushed vertical band inset from the handle edge, small dark
 	// squares punched down that band, a lever, a keypad lock and a peephole —
@@ -3410,6 +3480,12 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// of the stair opening rather than hanging a centimetre clear of it.
 	CreateBlock(FVector(-313, -305, 220), FVector(14, 8, 10),
 		ScreenGlowMaterial, false);
+	// 비상구 등은 실제 빛이다. 밤에 복도 등이 죽으면 계단 입구를 가리키는
+	// 유일한 표지가 되고, 그 초록이 서쪽 벽에 남는다.
+	UPointLightComponent* ExitLamp = CreateLight(
+		FVector(-313, -305, 213), 22.0f, 340.0f,
+		FLinearColor(0.30f, 1.0f, 0.42f), false, 5.0f);
+	ExitLamp->SetVolumetricScatteringIntensity(0.4f);
 
 	// Ceiling fixtures down the whole hallway: flush round downlights, the way
 	// the reference landing is lit. The far one has a dying ballast and never
@@ -3813,13 +3889,83 @@ void AIGPrologueWorldScene::SetFixtureLive(
 
 	// A fixture is the light AND the disc: kill both or the ceiling keeps a
 	// glowing ring where the lamp used to be.
+	const float Scale = NightFixtureScale(Index, bCorridor);
+	const bool bShines = bLive && Scale > 0.0f;
 	if (UPointLightComponent* Light = FixtureLights[Index])
 	{
-		Light->SetIntensity(bLive ? (bCorridor ? 1020.0f : 920.0f) : 0.0f);
+		Light->SetIntensity(bShines ? (bCorridor ? 1020.0f : 920.0f) * Scale : 0.0f);
 	}
 	if (UStaticMeshComponent* Disc = FixtureDiscs[Index])
 	{
-		Disc->SetMaterial(0, bLive ? LightPanelMaterial : PlasticDarkMaterial);
+		Disc->SetMaterial(0, bShines ? LightPanelMaterial : PlasticDarkMaterial);
+	}
+}
+
+float AIGPrologueWorldScene::NightFixtureScale(
+	const int32 Index,
+	const bool bCorridor) const
+{
+	if (!bTheHourSealed)
+	{
+		return 1.0f;
+	}
+	// 서쪽(계단 입구)의 죽어 가는 등이 0번이다. 그것만 남고, 그것도 3분의 1이다.
+	if (bCorridor)
+	{
+		return Index == 0 ? 0.32f : 0.0f;
+	}
+	// 로비는 우편함 위 하나. 계량기함과 관리실은 손전등으로 읽는다.
+	return Index == 0 ? 0.45f : 0.0f;
+}
+
+void AIGPrologueWorldScene::ApplyNightAtmosphere(const bool bSealed)
+{
+	// 등. SetFixtureLive가 밤 배율을 곱한다. 새벽에는 전부 낮의 밝기로 돌아온다.
+	for (int32 Index = 0; Index < CorridorLights.Num(); ++Index)
+	{
+		SetFixtureLive(Index, true, true);
+	}
+	for (int32 Index = 0; Index < LobbyLights.Num(); ++Index)
+	{
+		SetFixtureLive(Index, true, false);
+	}
+	if (HeightFog)
+	{
+		// 실내 공기. 손전등 원뿔이 서고 복도 끝이 흐려진다. 높이 감쇠를 거의
+		// 없애 4층과 1층이 같은 공기를 갖게 한다. 새벽에는 골목 안개로 되돌린다.
+		HeightFog->SetFogDensity(bSealed ? 0.08f : 0.012f);
+		HeightFog->SetFogHeightFalloff(bSealed ? 0.02f : 0.4f);
+		HeightFog->SetFogInscatteringColor(
+			bSealed
+				? FLinearColor(0.010f, 0.012f, 0.018f)
+				: FLinearColor(0.030f, 0.042f, 0.085f));
+		HeightFog->SetVolumetricFogScatteringDistribution(bSealed ? 0.35f : 0.55f);
+		HeightFog->SetVolumetricFogExtinctionScale(bSealed ? 1.8f : 1.0f);
+	}
+	if (PostProcess)
+	{
+		// 카메라 룩. 밤은 어둠을 들어 올리지 않고, 가장자리가 흐려지고 색이 빠진다.
+		// 그림자는 차갑고 손전등의 하이라이트는 따뜻하다.
+		FPostProcessSettings& Look = PostProcess->Settings;
+		Look.bOverride_SceneFringeIntensity = true;
+		Look.SceneFringeIntensity = bSealed ? 0.45f : 0.0f;
+		Look.VignetteIntensity = bSealed ? 0.46f : 0.17f;
+		Look.ColorSaturation = bSealed
+			? FVector4(0.80f, 0.86f, 1.0f, 1.0f)
+			: FVector4(0.93f, 0.95f, 1.0f, 1.0f);
+		Look.BloomIntensity = bSealed ? 0.34f : 0.18f;
+		Look.bOverride_ColorGainShadows = true;
+		Look.ColorGainShadows = bSealed
+			? FVector4(0.86f, 0.96f, 1.12f, 1.0f)
+			: FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+		Look.bOverride_ColorGainHighlights = true;
+		Look.ColorGainHighlights = bSealed
+			? FVector4(1.06f, 1.0f, 0.92f, 1.0f)
+			: FVector4(1.0f, 1.0f, 1.0f, 1.0f);
+		Look.bOverride_ColorCorrectionShadowsMax = true;
+		Look.ColorCorrectionShadowsMax = 0.09f;
+		Look.LocalExposureShadowContrastScale = bSealed ? 0.92f : 0.76f;
+		Look.LocalExposureHighlightContrastScale = bSealed ? 0.90f : 0.84f;
 	}
 }
 
@@ -4502,7 +4648,7 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 	{
 		// Night never lifts the corridor into grey. Film grain is restrained at
 		// rest, then the stress layer can take it to 0.08 during pursuit.
-		PostProcess->Settings.FilmGrainIntensity = bSealed ? 0.04f : 0.02f;
+		PostProcess->Settings.FilmGrainIntensity = bSealed ? 0.16f : 0.06f;
 		PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;
 		// §11 V1: 자동노출 하한 잠금. Capping the ceiling alone still let the
 		// histogram adapt *down* into an unlit corridor and quietly hand the
@@ -4512,6 +4658,7 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 		// beam is the only thing that reveals anything.
 		PostProcess->Settings.AutoExposureMinBrightness = bSealed ? 1.30f : -0.5f;
 	}
+	ApplyNightAtmosphere(bSealed);
 
 	// The 공동현관. Shut the leaf first: a swing door only consults its
 	// requirements while closed, so sealing an open door is a no-op and the
@@ -4932,9 +5079,11 @@ void AIGPrologueWorldScene::HandleCorridorFlicker()
 		&& GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
 		&& GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>()
 			->IsReducedFlickerEnabled();
+	const float NightScale = NightFixtureScale(0, true);
 	if (bReducedFlicker)
 	{
-		DegradedCorridorLight->SetIntensity(DegradedLightBaseIntensity * 0.94f);
+		DegradedCorridorLight->SetIntensity(
+			DegradedLightBaseIntensity * 0.94f * NightScale);
 		return;
 	}
 
@@ -4942,9 +5091,13 @@ void AIGPrologueWorldScene::HandleCorridorFlicker()
 	Hash ^= Hash >> 15;
 	const float Uniform = (Hash & 0xFFFF) / 65535.0f;
 	const float DropoutRoll = ((Hash >> 16) & 0xFFFF) / 65535.0f;
+	// 밤에는 낙하가 잦고 더 깊다. 안정기가 다 된 등은 어둠 속에서 더 자주 죽는다.
+	const float DropoutChance = bTheHourSealed ? 0.09f : 0.05f;
+	const float DropoutFloor = bTheHourSealed ? 0.06f : 0.12f;
 	const float Multiplier =
-		DropoutRoll < 0.05f ? 0.12f : (0.86f + 0.20f * Uniform);
-	DegradedCorridorLight->SetIntensity(DegradedLightBaseIntensity * Multiplier);
+		DropoutRoll < DropoutChance ? DropoutFloor : (0.86f + 0.20f * Uniform);
+	DegradedCorridorLight->SetIntensity(
+		DegradedLightBaseIntensity * Multiplier * NightScale);
 }
 
 void AIGPrologueWorldScene::BuildLobby()
@@ -5440,26 +5593,21 @@ void AIGPrologueWorldScene::BuildAlley()
 	CreateBlock(FVector(1520, -560, 1.5f), FVector(72, 72, 3), Metal, true, CylinderMesh);
 	CreateBlock(FVector(1040, -537, 0.8f), FVector(2720, 26, 2), Metal, false);
 
-	// North side: the villa rises four storeys in granite cladding panels —
-	// the grey speckled stone every newer Korean walk-up is faced with, not
-	// brick. Band between the pilotis (0..240) and the 4F corridor wall
-	// (900..1140), then a parapet above.
+	// North side: the villa rises four storeys in red brick — README와 타이틀이
+	// 말하는 「붉은 벽돌 빌라」다. 화강석 판은 1층 필로티 기둥과 승강기 벽에만
+	// 남는다. Band between the pilotis (0..240) and the 4F corridor wall
+	// (900..1140), then a parapet above. 벽돌은 줄눈이 텍스처에 있으므로 판
+	// 이음 홈을 따로 세우지 않는다.
 	UMaterialInterface* GranitePanelX = TexMat(TEXT("M_GranitePanel_X"), ConcreteMaterial);
-	CreateBlock(FVector(190, -385, 570), FVector(1060, 20, 660), GranitePanelX);
-	CreateBlock(FVector(190, -385, 1190), FVector(1060, 20, 100), GranitePanelX);
-	// Panel joints: the recessed grid lines that make cladding read as stone
-	// panels rather than a painted slab.
-	for (float JointZ = 330.0f; JointZ < 1240.0f; JointZ += 95.0f)
+	UMaterialInterface* VillaBrickX = TexMat(TEXT("M_VillaBrick_X"), GranitePanelX);
+	CreateBlock(FVector(190, -385, 570), FVector(1060, 20, 660), VillaBrickX);
+	CreateBlock(FVector(190, -385, 1190), FVector(1060, 20, 100), VillaBrickX);
+	// 층 사이 콘크리트 띠. 벽돌 빌라는 슬래브 선이 밖으로 드러난다.
+	for (const float BandZ : {540.0f, 840.0f})
 	{
 		CreateBlock(
-			FVector(190, -395.6f, JointZ), FVector(1060, 2.4f, 1.3f),
-			DarkX, false);
-	}
-	for (float JointX = -245.0f; JointX <= 665.0f; JointX += 190.0f)
-	{
-		CreateBlock(
-			FVector(JointX, -395.6f, 700), FVector(1.3f, 2.4f, 1000),
-			DarkX, false);
+			FVector(190, -396.5f, BandZ), FVector(1060, 3.0f, 14.0f),
+			TexMat(TEXT("M_Concrete_X"), ConcreteMaterial), false);
 	}
 	// Coping band at the parapet and a black roof railing above it.
 	CreateBlock(
@@ -5538,7 +5686,9 @@ void AIGPrologueWorldScene::BuildAlley()
 	// own thin granite enclosure, then start the neighbouring brick block after
 	// it. The previous continuous brick facade intersected the lobby cab and
 	// appeared literally inside its left wall.
-	CreateBlock(FVector(800, -394, 620), FVector(160, 6, 1240), GranitePanelX);
+	// 승강기 벽도 같은 벽돌이다. 화강석 판의 알갱이는 24 cm 반복에서 이 높이로
+	// 서면 손바닥만 한 조각으로 읽혔다.
+	CreateBlock(FVector(800, -394, 620), FVector(160, 6, 1240), VillaBrickX);
 	CreateBlock(FVector(1015, -385, 230), FVector(270, 20, 460), VillaStuccoX);
 	CreateBlock(FVector(1845, -385, 230), FVector(1110, 20, 460), VillaStuccoX);
 
@@ -5639,6 +5789,84 @@ void AIGPrologueWorldScene::BuildAlley()
 					FVector(2.2f, 2.2f, 60), PlasticDarkMaterial, false);
 			}
 		}
+	}
+
+	// 창 아래 실외기. 빌라 파사드에서 가장 먼저 눈에 걸리는 것이고, 층마다
+	// 다른 자리에 달려 있어야 「한 집 한 집이 따로 산다」로 읽힌다. 메시는
+	// 골목 샛길에 쓰던 SM_AcOutdoorUnit(build_alley_props.py). 원점은 바닥 중심,
+	// 앞면 -Y라 파사드 앞 브래킷 위에 그대로 선다.
+	if (UStaticMesh* FacadeAcMesh = PropMesh(TEXT("SM_AcOutdoorUnit")))
+	{
+		for (const FVector& Spot : {
+			FVector(-100.0f, -416.0f, 300.0f), FVector(220.0f, -416.0f, 600.0f),
+			FVector(380.0f, -416.0f, 300.0f), FVector(-260.0f, -416.0f, 900.0f)})
+		{
+			CreateBlock(Spot, FVector(100, 100, 100), nullptr, false, FacadeAcMesh, FRotator::ZeroRotator);
+			// 앵글 브래킷 두 개가 벽에 박혀 있다.
+			for (const float BracketDx : {-30.0f, 30.0f})
+			{
+				CreateBlock(
+					FVector(Spot.X + BracketDx, -406.0f, Spot.Z - 3.0f), FVector(4, 40, 4),
+					PlasticDarkMaterial, false);
+				CreateBlock(
+					FVector(Spot.X + BracketDx, -412.0f, Spot.Z - 20.0f), FVector(4, 4, 36),
+					PlasticDarkMaterial, false, nullptr, FRotator(-38, 0, 0));
+			}
+			// 실외기 밑에서 떨어진 물이 벽돌에 남긴 자국.
+			CreateBlock(
+				FVector(Spot.X, -395.4f, Spot.Z - 40.0f), FVector(70, 0.8f, 70),
+				TexMat(TEXT("M_DecalRainGrime"), nullptr), false);
+		}
+	}
+	// 도시가스 배관. 노란 강관이 1층에서 옥상까지 오르고 층마다 세대로 꺾인다.
+	{
+		UMaterialInterface* GasYellow = SnackYellowMaterial;
+		CreateBlock(
+			FVector(470, -399.0f, 640), FVector(4.5f, 4.5f, 1200),
+			GasYellow, false, CylinderMesh);
+		for (const float BranchZ : {330.0f, 630.0f, 930.0f})
+		{
+			CreateBlock(
+				FVector(425, -399.0f, BranchZ), FVector(3.2f, 3.2f, 90),
+				GasYellow, false, CylinderMesh, FRotator(90, 0, 0));
+			// 세대 가스 계량기. 골목 샛길과 같은 메시.
+			if (UStaticMesh* FacadeMeter = PropMesh(TEXT("SM_GasMeterBox")))
+			{
+				CreateBlock(
+					FVector(380, -397.0f, BranchZ - 26.0f), FVector(100, 100, 100),
+					nullptr, false, FacadeMeter, FRotator::ZeroRotator);
+			}
+		}
+		// 벽에 고정하는 U볼트 밴드.
+		for (float ClampZ = 120.0f; ClampZ < 1200.0f; ClampZ += 180.0f)
+		{
+			CreateBlock(FVector(470, -397.5f, ClampZ), FVector(8, 6, 3), Metal, false);
+		}
+	}
+
+	// 전주에서 파사드로 건너오는 전선. 한국 골목의 하늘은 전선이 반이다.
+	{
+		const auto AddWire = [this](const FVector& From, const FVector& To, const float Thickness)
+		{
+			const FVector Delta = To - From;
+			const float Length = Delta.Size();
+			// 원기둥의 Z축을 두 점 사이에 눕힌다. FRotator(90, 0, 0)이 X축을 따라
+			// 눕히는 것과 같은 규약이라 피치는 수평 거리와 높이차의 atan2, 요는
+			// 뒤집은 방향이다. MakeFromZ와 같은 자세지만 지오메트리 감사가 읽는다.
+			const float Pitch = FMath::RadiansToDegrees(FMath::Atan2(Delta.Size2D(), Delta.Z));
+			const float Yaw = FMath::RadiansToDegrees(FMath::Atan2(-Delta.Y, -Delta.X));
+			CreateBlock(
+				(From + To) * 0.5f, FVector(Thickness, Thickness, Length),
+				PlasticDarkMaterial, false, CylinderMesh, FRotator(Pitch, Yaw, 0.0f));
+		};
+		// 전주 완철(Z 약 430)에서 3층 벽 앵커로, 그리고 두 전주 사이.
+		AddWire(FVector(500, -432, 432), FVector(300, -400, 704), 1.6f);
+		AddWire(FVector(500, -432, 424), FVector(640, -400, 760), 1.4f);
+		AddWire(FVector(500, -434, 440), FVector(1600, -434, 452), 1.6f);
+		AddWire(FVector(500, -430, 418), FVector(1600, -430, 428), 1.2f);
+		// 벽 앵커: 애자 하나씩.
+		CreateBlock(FVector(300, -398, 704), FVector(6, 6, 6), PlasticDarkMaterial, false);
+		CreateBlock(FVector(640, -398, 760), FVector(6, 6, 6), PlasticDarkMaterial, false);
 	}
 
 	// Rain downspouts pin the facade to the ground.

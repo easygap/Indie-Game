@@ -162,12 +162,12 @@ Assert-ContainsAll $worldSource @(
 	'TEXT("Footstep.Rooftop")',
 	'TEXT("Footstep.GypsumDebris")',
 	'EmergencyPractical->SetVolumetricScatteringIntensity(0.14f)',
-	'FilmGrainIntensity = bSealed ? 0.04f : 0.02f',
+	'FilmGrainIntensity = bSealed ? 0.16f : 0.06f',
 	'AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f'
 ) 'M6 world surface and night visual'
 Assert-ContainsAll $stressSource @(
 	'Settings.bOverride_FilmGrainIntensity = true',
-	'Settings.FilmGrainIntensity = FMath::Lerp(0.04f, 0.08f, Ramp)'
+	'Settings.FilmGrainIntensity = FMath::Lerp(0.16f, 0.30f, Ramp)'
 ) 'M6 pursuit post process'
 
 Assert-ContainsAll $accessibilityHeader @(

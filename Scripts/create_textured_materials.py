@@ -122,6 +122,14 @@ SURFACE_RESPONSE_DEFAULTS = {
         "normal_strength": 1.06, "roughness_variation": 0.22,
         "specular": 0.50,
     },
+    # 빌라 파사드 적벽돌. 줄눈이 노멀에 있으니 세기를 조금 올리고, 큰 얼룩으로
+    # 층마다 색이 조금씩 다른 벽돌 로트를 흉내 낸다.
+    "VillaBrick": {
+        "macro_strength": 0.070, "macro_scale": 4.4,
+        "normal_strength": 1.22, "roughness_detail_strength": 0.10,
+        "roughness_detail_scale": 4.0, "ao_strength": 0.88,
+        "specular": 0.30,
+    },
     "MissingFloorDryPlaster": {
         "macro_strength": 0.080, "macro_scale": 5.6,
         "normal_strength": 1.20, "detail_normal_strength": 0.20,
@@ -172,6 +180,12 @@ TEXTURED_MATERIALS = {
     # (M_AsphaltWorld is built by create_wet_asphalt: dew puddles + mirror wet)
     "M_Brick_X":        {"tex": "Brick", "mapping": "XZ", "tile": 210.0, "rough": 0.9},
     "M_Brick_Y":        {"tex": "Brick", "mapping": "YZ", "tile": 210.0, "rough": 0.9},
+    # 빌라 파사드. Bricks059(ambientCG, CC0) 2K 한 장이 벽돌 약 아홉 줄, 190 cm.
+    # 표준 벽돌 190×57 mm에 줄눈 10 mm를 더한 높이로 맞췄다.
+    "M_VillaBrick_X":   {"tex": "VillaBrick", "mapping": "XZ", "tile": 190.0, "rough": 0.92,
+                         "ao": True, "tint": (0.86, 0.80, 0.76)},
+    "M_VillaBrick_Y":   {"tex": "VillaBrick", "mapping": "YZ", "tile": 190.0, "rough": 0.92,
+                         "ao": True, "tint": (0.86, 0.80, 0.76)},
     "M_VillaStucco_X":  {"tex": "KoreanVillaStucco", "mapping": "XZ", "tile": 235.0,
                           "rough": 0.88, "ao": True, "tint": (0.82, 0.85, 0.88)},
     "M_VillaStucco_Y":  {"tex": "KoreanVillaStucco", "mapping": "YZ", "tile": 235.0,
@@ -219,6 +233,13 @@ TEXTURED_MATERIALS = {
                          "tint": (1.05, 1.02, 0.90)},
     "M_StuccoCeil":     {"tex": "Stucco", "mapping": "XY", "tile": 185.0, "rough": 0.95,
                          "tint": (0.94, 0.93, 0.86)},
+    # 복도 허리 아래의 어두운 페인트. 오래된 빌라 복도는 허리 높이까지 진한
+    # 유성 페인트를 따로 칠한다 — 걸레질 자국이 남는 자리다. 같은 스투코 위에
+    # 색만 다르고 유광에 가깝다.
+    "M_StuccoDado_X":   {"tex": "Stucco", "mapping": "XZ", "tile": 185.0, "force_rough": 0.62,
+                         "tint": (0.42, 0.47, 0.44)},
+    "M_StuccoDado_Y":   {"tex": "Stucco", "mapping": "YZ", "tile": 185.0, "force_rough": 0.62,
+                         "tint": (0.42, 0.47, 0.44)},
     # The terrazzo scans are confetti at their native scale; 화강석 is the same
     # material read at a tenth the chip size with the colour taken out, so the
     # repeat is tightened hard and the chroma is desaturated away.

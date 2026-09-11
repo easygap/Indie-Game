@@ -768,6 +768,15 @@ private:
 	bool bCorridorFlickerSuspended = false;
 	bool bTheHourSealed = false;
 
+	/**
+	 * 밤의 등 배율. 그 시간에는 복도 등 넷 중 서쪽 하나만 떨리며 남고 로비는
+	 * 우편함 위 하나만 남는다. SetFixtureLive가 다시 켤 때도 이 배율을 곱하므로
+	 * 연출이 밤에 등을 되살려도 낮의 밝기로 돌아오지 않는다.
+	 */
+	float NightFixtureScale(int32 Index, bool bCorridor) const;
+	/** 등·안개·카메라 룩을 그 시간에 맞추거나 새벽으로 되돌린다. */
+	void ApplyNightAtmosphere(bool bSealed);
+
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> FlickerStreetlight;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> DegradedCorridorLight;
 	UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> StoreLights;

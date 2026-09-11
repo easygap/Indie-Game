@@ -1,5 +1,7 @@
 ﻿#include "Player/IGFlashlightComponent.h"
 
+#include "IndieGame.h"
+
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
@@ -18,23 +20,27 @@ UIGFlashlightComponent::UIGFlashlightComponent()
 	Beam = CreateDefaultSubobject<USpotLightComponent>(TEXT("FlashlightBeam"));
 	Beam->SetupAttachment(this);
 	Beam->SetMobility(EComponentMobility::Movable);
-	// A cheap torch: warm, tight hot spot with a soft outer falloff.
-	Beam->SetInnerConeAngle(15.0f);
+	// 싸구려 LED 손전등. 차갑고 희며, 가운데 핫스팟이 좁고 바깥은 부드럽게 죽는다.
+	Beam->SetInnerConeAngle(13.0f);
 	Beam->SetOuterConeAngle(34.0f);
 	Beam->SetAttenuationRadius(2600.0f);
-	Beam->SetLightColor(FLinearColor(1.0f, 0.90f, 0.74f));
+	Beam->SetLightColor(FLinearColor(0.90f, 0.95f, 1.0f));
 	Beam->SetSourceRadius(1.4f);
 	Beam->SetSoftSourceRadius(3.0f);
 	Beam->SetCastShadows(true);
-	Beam->SetVolumetricScatteringIntensity(1.5f);
+	// 실내 공기가 서 있을 때 원뿔이 보여야 한다. 손전등만 볼류메트릭 그림자를 진다.
+	Beam->SetVolumetricScatteringIntensity(2.2f);
+	Beam->bCastVolumetricShadow = true;
 	Beam->SetVisibility(false);
 
 	Spill = CreateDefaultSubobject<UPointLightComponent>(TEXT("FlashlightSpill"));
 	Spill->SetupAttachment(this);
 	Spill->SetMobility(EComponentMobility::Movable);
 	Spill->SetRelativeLocation(FVector(24.0f, 0.0f, -14.0f));
-	Spill->SetAttenuationRadius(240.0f);
-	Spill->SetLightColor(FLinearColor(1.0f, 0.88f, 0.70f));
+	// 스필은 발밑과 문틀을 읽게 하는 빛이다. 손전등 한 자루가 복도 전체를
+	// 밝히면 안 되지만 코앞은 보여야 한다.
+	Spill->SetAttenuationRadius(480.0f);
+	Spill->SetLightColor(FLinearColor(0.92f, 0.95f, 1.0f));
 	Spill->SetSourceRadius(6.0f);
 	Spill->SetCastShadows(false);
 	Spill->SetVisibility(false);
@@ -80,13 +86,14 @@ void UIGFlashlightComponent::SetOn(const bool bNewOn)
 	}
 
 	bOn = bShouldBeOn;
+	UE_LOG(LogIndieGame, Display, TEXT("Flashlight %s (available=%d)"), bOn ? TEXT("on") : TEXT("off"), bAvailable ? 1 : 0);
 	Beam->SetVisibility(bOn);
 	Spill->SetVisibility(bOn);
 	if (bOn)
 	{
 		PreviousWorldRotation = GetComponentRotation();
 		Beam->SetIntensity(BeamIntensity);
-		Spill->SetIntensity(280.0f);
+		Spill->SetIntensity(520.0f);
 		SetComponentTickEnabled(true);
 		// Kick the beam so switching on reads as a hand movement.
 		if (!AccessibilitySubsystem
@@ -173,7 +180,7 @@ void UIGFlashlightComponent::TickComponent(
 	UpdateSway(DeltaSeconds);
 	const float Flicker = SampleFlicker(DeltaSeconds);
 	Beam->SetIntensity(BeamIntensity * Flicker);
-	Spill->SetIntensity(280.0f * Flicker);
+	Spill->SetIntensity(520.0f * Flicker);
 
 	if (BeamDust)
 	{

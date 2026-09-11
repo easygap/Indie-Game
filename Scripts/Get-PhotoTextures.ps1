@@ -32,6 +32,9 @@ $surfaces = [ordered]@{
     'GranitePanel'= @('Terrazzo018', 'Marble016', 'Concrete031')
     'Stucco'      = @('Plaster004', 'Plaster006', 'PaintedPlaster014')
     'MarbleFloor' = @('Marble016', 'Marble006', 'Terrazzo004')
+    # 빌라 파사드. README와 타이틀이 말하는 붉은 벽돌이다. 화강석 판은 1층
+    # 기단과 승강기 벽에만 남는다. Bricks059가 회색 줄눈의 적벽돌에 가장 가깝다.
+    'VillaBrick'  = @('Bricks059', 'Bricks085', 'Bricks101')
 }
 
 $report = @()

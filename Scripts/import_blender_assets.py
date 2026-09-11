@@ -160,7 +160,13 @@ def ensure_master_material():
     if existing is not None:
         # 기본 텍스처가 비어 있던 첫 판을 제자리에서 고친다. 새로 만들면 인스턴스
         # 참조가 흔들린다.
-        if fill_master_defaults(existing):
+        changed = fill_master_defaults(existing)
+        # 스켈레탈 메시(위층 사람)도 이 마스터를 입는다. 사용 플래그가 없으면
+        # 에디터는 경고만 내고 그리지만 패키지 빌드는 기본 회색으로 그린다.
+        if not existing.get_editor_property("used_with_skeletal_mesh"):
+            existing.set_editor_property("used_with_skeletal_mesh", True)
+            changed = True
+        if changed:
             unreal.MaterialEditingLibrary.recompile_material(existing)
             unreal.EditorAssetLibrary.save_asset(path, False)
             log(f"master material defaults filled: {path}")
@@ -237,6 +243,7 @@ def ensure_master_material():
     _connect_property(glow, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR)
 
     fill_master_defaults(material)
+    material.set_editor_property("used_with_skeletal_mesh", True)
     unreal.MaterialEditingLibrary.recompile_material(material)
     unreal.EditorAssetLibrary.save_asset(path, False)
     log(f"master material created: {path}")
@@ -335,6 +342,137 @@ def import_fbx(path, name):
     return mesh
 
 
+def import_skeletal_fbx(path, name):
+    """뼈대·동작이 든 FBX. 메시는 /Game/Meshes/<name>, 스켈레톤은 그 옆에
+    <name>_Skeleton, 동작은 테이크마다 AnimSequence로 들어온다.
+
+    rig_crawler.py가 Blender 액션 전부를 테이크로 굽는다(bake_anim_use_all_actions).
+    예전 FBX 임포터는 테이크 이름으로 AnimSequence를 만들고, 그 이름은
+    `<Armature>|<Action>` 을 정리한 것이라 반입 뒤 A_<이름>_<Action>으로 바꾼다.
+    """
+    use_legacy_fbx_importer()
+    tools = unreal.AssetToolsHelpers.get_asset_tools()
+    asset_path = f"{MESH_ROOT}/{name}"
+    for stale in list_animations_for(name):
+        unreal.EditorAssetLibrary.delete_asset(stale)
+    for suffix in ("", "_Skeleton", "_PhysicsAsset"):
+        if unreal.EditorAssetLibrary.does_asset_exist(asset_path + suffix):
+            unreal.EditorAssetLibrary.delete_asset(asset_path + suffix)
+    task = unreal.AssetImportTask()
+    task.filename = path
+    task.destination_path = MESH_ROOT
+    task.destination_name = name
+    task.automated = True
+    task.replace_existing = True
+    task.save = False
+    options = unreal.FbxImportUI()
+    _set(options, (
+        ("import_mesh", True),
+        ("import_as_skeletal", True),
+        ("import_animations", True),
+        ("import_materials", False),
+        ("import_textures", False),
+        ("create_physics_asset", False),
+        ("mesh_type_to_import", unreal.FBXImportType.FBXIT_SKELETAL_MESH),
+    ))
+    sk = options.skeletal_mesh_import_data
+    _set(sk, (
+        ("import_morph_targets", False),
+        ("update_skeleton_reference_pose", False),
+        ("use_t0_as_ref_pose", False),
+        ("preserve_smoothing_groups", True),
+        ("import_meshes_in_bone_hierarchy", True),
+        ("normal_import_method", unreal.FBXNormalImportMethod.FBXNIM_IMPORT_NORMALS_AND_TANGENTS),
+        ("normal_generation_method", unreal.FBXNormalGenerationMethod.MIKK_T_SPACE),
+        ("compute_weighted_normals", True),
+        ("convert_scene", True),
+        ("force_front_x_axis", False),
+        ("import_uniform_scale", 1.0),
+        ("vertex_color_import_option", unreal.VertexColorImportOption.REPLACE),
+    ))
+    anim = options.anim_sequence_import_data
+    _set(anim, (
+        ("animation_length", unreal.FBXAnimationLengthImportType.FBXALIT_EXPORTED_TIME),
+        ("import_bone_tracks", True),
+        ("import_custom_attribute", False),
+        ("remove_redundant_keys", False),
+        ("convert_scene", True),
+        ("use_default_sample_rate", False),
+        ("custom_sample_rate", 30),
+    ))
+    task.options = options
+    tools.import_asset_tasks([task])
+    mesh = unreal.load_asset(asset_path)
+    if mesh is None:
+        raise RuntimeError(f"skeletal fbx import failed: {path}")
+    return mesh
+
+
+def list_animations_for(name):
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    registry.scan_paths_synchronous([MESH_ROOT], True)
+    found = []
+    short = name[3:]
+    for data in registry.get_assets_by_path(MESH_ROOT, recursive=False):
+        asset_name = str(data.asset_name)
+        if str(data.asset_class_path.asset_name) != "AnimSequence":
+            continue
+        if asset_name.startswith(f"A_{short}_") or asset_name.startswith(name):
+            found.append(f"{MESH_ROOT}/{asset_name}")
+    return found
+
+
+def rename_animations(name, expected):
+    """테이크 이름을 A_<이름>_<Action>으로 정리하고, 없는 동작은 실패로 잡는다."""
+    short = name[3:]
+    registry = unreal.AssetRegistryHelpers.get_asset_registry()
+    registry.scan_paths_synchronous([MESH_ROOT], True)
+    renamed = {}
+    takes = []
+    for data in registry.get_assets_by_path(MESH_ROOT, recursive=False):
+        if str(data.asset_class_path.asset_name) != "AnimSequence":
+            continue
+        takes.append(str(data.asset_name))
+    log(f"  animation takes: {takes}")
+    for asset_name in takes:
+        if not asset_name.startswith(name):
+            continue
+        for action in expected:
+            if asset_name.endswith(action):
+                target = f"{MESH_ROOT}/A_{short}_{action}"
+                source = f"{MESH_ROOT}/{asset_name}"
+                if source != target:
+                    if unreal.EditorAssetLibrary.does_asset_exist(target):
+                        unreal.EditorAssetLibrary.delete_asset(target)
+                    unreal.EditorAssetLibrary.rename_asset(source, target)
+                renamed[action] = target
+                break
+        else:
+            log(f"  unmatched animation take kept: {asset_name}")
+    missing = [a for a in expected if a not in renamed]
+    if missing:
+        raise RuntimeError(f"{name}: animations missing after import: {missing}")
+    for action, target in renamed.items():
+        sequence = unreal.load_asset(target)
+        length = sequence.get_editor_property("sequence_length") if sequence else -1.0
+        log(f"  anim {action} -> {target} ({length:.2f}s)")
+        unreal.EditorAssetLibrary.save_asset(target, False)
+    return renamed
+
+
+def assign_skeletal_materials(mesh, instance):
+    glass = unreal.load_asset(GLASS_MATERIAL)
+    materials = list(mesh.get_editor_property("materials"))
+    slots = []
+    for slot in materials:
+        slot_name = str(slot.get_editor_property("material_slot_name"))
+        slots.append(slot_name)
+        slot.set_editor_property(
+            "material_interface", glass if slot_name == "Glass" and glass is not None else instance)
+    mesh.set_editor_property("materials", materials)
+    return slots
+
+
 def mesh_class_for(manifest):
     name = manifest["name"]
     wanted = manifest.get("mesh_class")
@@ -423,20 +561,29 @@ def export_bounds(output):
     registry = unreal.AssetRegistryHelpers.get_asset_registry()
     registry.scan_paths_synchronous([MESH_ROOT], True)
     exported = {}
+    skeletal = {}
     for data in registry.get_assets_by_path(MESH_ROOT, recursive=True):
         asset = data.get_asset()
-        if not isinstance(asset, unreal.StaticMesh):
+        if isinstance(asset, unreal.StaticMesh):
+            target = exported
+        elif isinstance(asset, unreal.SkeletalMesh):
+            target = skeletal
+        else:
             continue
         b = asset.get_bounds()
-        exported[str(data.asset_name)] = {
+        target[str(data.asset_name)] = {
             "origin": [round(b.origin.x, 4), round(b.origin.y, 4), round(b.origin.z, 4)],
             "extent": [round(b.box_extent.x, 4), round(b.box_extent.y, 4), round(b.box_extent.z, 4)],
         }
     os.makedirs(os.path.dirname(output), exist_ok=True)
+    payload = {"meshes": dict(sorted(exported.items()))}
+    if skeletal:
+        # 정적 감사는 "meshes"만 읽는다. 스켈레탈은 폰이 들고 다니므로 따로 적는다.
+        payload["skeletal_meshes"] = dict(sorted(skeletal.items()))
     with open(output, "w", encoding="utf-8") as handle:
-        json.dump({"meshes": dict(sorted(exported.items()))}, handle, indent=2, ensure_ascii=False)
+        json.dump(payload, handle, indent=2, ensure_ascii=False)
         handle.write("\n")
-    log(f"bounds exported: {len(exported)} meshes -> {output}")
+    log(f"bounds exported: {len(exported)} meshes, {len(skeletal)} skeletal -> {output}")
 
 
 # --------------------------------------------------------------------------
@@ -467,6 +614,23 @@ def import_asset(source_dir, manifest, master):
     textures = {}
     for role, filename in manifest["textures"].items():
         textures[role] = import_texture(os.path.join(source_dir, filename), f"T_{name[3:]}_{role}", role)
+    if manifest.get("skeletal"):
+        mesh = import_skeletal_fbx(os.path.join(source_dir, manifest["fbx"]), name)
+        instance = create_instance(f"MI_{name[3:]}", master, textures,
+                                   manifest.get("emissive_strength", 1.0))
+        slots = assign_skeletal_materials(mesh, instance)
+        unreal.EditorAssetLibrary.save_asset(f"{MESH_ROOT}/{name}", False)
+        skeleton = mesh.get_editor_property("skeleton")
+        if skeleton is not None:
+            unreal.EditorAssetLibrary.save_loaded_asset(skeleton, False)
+        rename_animations(name, list(manifest.get("animations", {}).keys()))
+        for texture in textures.values():
+            unreal.EditorAssetLibrary.save_loaded_asset(texture, False)
+        b = mesh.get_bounds()
+        log(f"  {name} skeletal slots={slots} bounds=({b.origin.x - b.box_extent.x:.1f},"
+            f"{b.origin.y - b.box_extent.y:.1f},{b.origin.z - b.box_extent.z:.1f})..("
+            f"{b.origin.x + b.box_extent.x:.1f},{b.origin.y + b.box_extent.y:.1f},{b.origin.z + b.box_extent.z:.1f})")
+        return name
     mesh = import_fbx(os.path.join(source_dir, manifest["fbx"]), name)
     if textures:
         instance = create_instance(f"MI_{name[3:]}", master, textures,

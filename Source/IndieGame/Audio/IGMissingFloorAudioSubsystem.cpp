@@ -558,20 +558,26 @@ void UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVe
 	{
 		return;
 	}
-	UIGToneSequenceSoundWave* Wave = nullptr;
+	USoundBase* Wave = nullptr;
 	float Volume = 1.0f;
 	switch (Kind)
 	{
 	case EIGStinger::CloseCall:
-		Wave = UIGToneSequenceSoundWave::CreateCloseCallStinger(this);
+		Wave = IGAudio::SampleOr(
+			TEXT("Stinger_CloseCall"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateCloseCallStinger(this); });
 		Volume = 0.95f;
 		break;
 	case EIGStinger::ChaseStart:
-		Wave = UIGToneSequenceSoundWave::CreateEntityChaseScream(this);
+		Wave = IGAudio::SampleOr(
+			TEXT("Entity_Scream"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityChaseScream(this); });
 		Volume = 1.0f;
 		break;
 	case EIGStinger::Capture:
-		Wave = UIGToneSequenceSoundWave::CreateCaptureLunge(this);
+		Wave = IGAudio::SampleOr(
+			TEXT("Entity_Grab"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateCaptureLunge(this); });
 		Volume = 1.0f;
 		break;
 	}
@@ -671,7 +677,9 @@ void UIGMissingFloorAudioSubsystem::PlayCalibrationKnock()
 		: FVector(145.0f, 55.0f, 285.0f);
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.78f),
+		IGAudio::SampleOr(
+			TEXT("Entity_KnockTriple_Muffled"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.78f); }),
 		Location,
 		0.62f,
 		1.0f,
@@ -1175,7 +1183,9 @@ void UIGMissingFloorAudioSubsystem::PlayTitleKnockCycle()
 	}
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.72f),
+		IGAudio::SampleOr(
+			TEXT("Entity_KnockTriple_Muffled"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.72f); }),
 		ResolveTitleCueLocation(false),
 		0.72f,
 		1.0f,

@@ -12,6 +12,53 @@ namespace IGAudio
 {
 	namespace
 	{
+		/** 한 번 찾은 샘플은 붙들어 둔다. 없던 것도 기억해 매번 디스크를 안 본다. */
+		TMap<FName, TStrongObjectPtr<USoundBase>>& SampleCache()
+		{
+			static TMap<FName, TStrongObjectPtr<USoundBase>> Cache;
+			return Cache;
+		}
+		TSet<FName>& MissingSamples()
+		{
+			static TSet<FName> Missing;
+			return Missing;
+		}
+	}
+
+	USoundBase* Sample(const TCHAR* Name)
+	{
+		const FName Key(Name);
+		if (const TStrongObjectPtr<USoundBase>* Cached = SampleCache().Find(Key))
+		{
+			return Cached->Get();
+		}
+		if (MissingSamples().Contains(Key))
+		{
+			return nullptr;
+		}
+		const FString Path = FString::Printf(TEXT("/Game/Audio/S_%s.S_%s"), Name, Name);
+		USoundBase* Loaded = LoadObject<USoundBase>(nullptr, *Path);
+		if (!Loaded)
+		{
+			MissingSamples().Add(Key);
+			return nullptr;
+		}
+		SampleCache().Add(Key, TStrongObjectPtr<USoundBase>(Loaded));
+		return Loaded;
+	}
+
+	USoundBase* SampleVariant(const TCHAR* Prefix, const int32 Count, const uint32 Hash)
+	{
+		if (Count <= 0)
+		{
+			return nullptr;
+		}
+		const int32 Index = static_cast<int32>((Hash >> 12) % static_cast<uint32>(Count));
+		return Sample(*FString::Printf(TEXT("%s_%d"), Prefix, Index));
+	}
+
+	namespace
+	{
 		// 단일 플레이어 게임이라 전역 하나로 충분하다. 새로 만드는 감쇠는
 		// 즉시 이 값을 읽고, 이미 울고 있는 소리는 오디오 감독이 훑어서
 		// 다시 걸어 준다.

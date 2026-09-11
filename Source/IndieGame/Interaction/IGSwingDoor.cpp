@@ -290,7 +290,9 @@ void AIGSwingDoor::Tick(const float DeltaSeconds)
 		{
 			IGAudio::SpawnOneShotAt(
 				this,
-				UIGToneSequenceSoundWave::CreateDoorThud(this),
+				IGAudio::SampleOr(
+					TEXT("Door_Steel_Close"),
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateDoorThud(this); }),
 				DoorMesh->GetComponentLocation(),
 				0.9f);
 		}
@@ -368,7 +370,9 @@ void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContex
 		{
 			IGAudio::SpawnOneShotAt(
 				this,
-				UIGToneSequenceSoundWave::CreateLockedRattle(this),
+				IGAudio::SampleOr(
+					TEXT("Lock_Rattle"),
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateLockedRattle(this); }),
 				HandleMesh->GetComponentLocation(),
 				0.9f);
 			// Yanking a sealed door is the loudest thing a locked door does.
@@ -480,9 +484,13 @@ bool AIGSwingDoor::BeginSwing(
 		// 내려가는 삐걱이고, 열릴 때보다 조금 작다 — 걸쇠 소리가 뒤에 따로 온다.
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateDoorCreak(this, !bOpen),
+			IGAudio::SampleOr(
+				bOpen ? TEXT("Door_Creak_0") : TEXT("Door_Creak_1"),
+				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateDoorCreak(this, !bOpen); }),
 			DoorMesh->GetComponentLocation(),
-			(DurationScale > 1.0f ? 0.45f : 0.8f) * (bOpen ? 1.0f : 0.7f));
+			(DurationScale > 1.0f ? 0.45f : 0.8f) * (bOpen ? 1.0f : 0.7f),
+			// 천천히 열면 낮고 길게 운다.
+			DurationScale > 1.0f ? 0.82f : 1.0f);
 	}
 
 	// One report per committed swing, at the start of motion: this funnel is

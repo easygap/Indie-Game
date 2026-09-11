@@ -59,15 +59,17 @@ namespace IGPlayerNoise
 	constexpr float ListenCommitSeconds = 0.8f;
 	constexpr float MaximumBreathHoldSeconds = 4.0f;
 	constexpr float WalkAcceleration = 1200.0f;
-	constexpr float WalkBraking = 1200.0f;
+	// 키를 놓으면 서야 한다. 1200은 걷기에서 37cm를 미끄러졌고, 문 앞에서
+	// 멈추려다 문에 닿는 조작감이 그것이었다. 2000이면 0.15초, 22cm.
+	constexpr float WalkBraking = 2000.0f;
 	constexpr float CrouchAcceleration = 900.0f;
-	constexpr float CrouchBraking = 1500.0f;
+	constexpr float CrouchBraking = 2200.0f;
 	constexpr float SprintAcceleration = 1400.0f;
 	constexpr float SprintBraking = 900.0f;
 	// §27.3. 듣는 동안은 거의 서 있다. 멈추는 것도 빨라야 소리를 놓치지
 	// 않는다 — 제동이 네 상태 중 가장 세다.
 	constexpr float ListenAcceleration = 800.0f;
-	constexpr float ListenBraking = 1600.0f;
+	constexpr float ListenBraking = 2600.0f;
 	constexpr float CrouchTransitionSeconds = 0.35f;
 	constexpr float CrouchTransitionSpeedScale = 0.5f;
 	constexpr float KnockInputLockSeconds = 0.9f;
@@ -294,6 +296,9 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	Flashlight = CreateDefaultSubobject<UIGFlashlightComponent>(TEXT("Flashlight"));
 	Flashlight->SetupAttachment(FirstPersonCamera);
 	Flashlight->SetRelativeLocation(FVector(12.0f, 14.0f, -12.0f));
+	// 손에 든 손전등은 눈보다 낮고 조금 아래를 본다. 그래야 서너 걸음 앞 바닥이
+	// 원뿔 안에 들어온다 — 수평으로 쏘면 빛이 복도 끝에서야 닿는다.
+	Flashlight->SetRelativeRotation(FRotator(-3.5f, 1.5f, 0.0f));
 
 	StressComponent = CreateDefaultSubobject<UIGStressComponent>(TEXT("Stress"));
 }
@@ -1123,16 +1128,32 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 		0.42f,
 		1.0f,
 		FMath::Clamp(LastFootstepNoiseLoudness / 0.72f, 0.0f, 1.0f));
+	// 녹음이 있으면 녹음. 표면마다 셋~다섯 벌을 걸음 해시로 고른다. 합성기는
+	// 피치를 안에서 걸고, 녹음은 재생 피치로 건다.
+	const TCHAR* SamplePrefix = TEXT("Foot_Concrete");
+	int32 SampleCount = 5;
+	switch (Surface)
+	{
+	case EIGFootstepSurface::Vinyl: SamplePrefix = TEXT("Foot_Vinyl"); break;
+	case EIGFootstepSurface::MetalStair: SamplePrefix = TEXT("Foot_MetalStair"); break;
+	case EIGFootstepSurface::Rooftop: SamplePrefix = TEXT("Foot_Rooftop"); SampleCount = 3; break;
+	case EIGFootstepSurface::GypsumDebris: SamplePrefix = TEXT("Foot_Gypsum"); break;
+	case EIGFootstepSurface::Water: SamplePrefix = TEXT("Foot_Water"); SampleCount = 3; break;
+	default: break;
+	}
+	USoundBase* FootSample = IGAudio::SampleVariant(SamplePrefix, SampleCount, StepHash);
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateSurfaceFootstep(
-			this,
-			Surface,
-			PitchVariation,
-			1.0f),
+		FootSample
+			? FootSample
+			: static_cast<USoundBase*>(UIGToneSequenceSoundWave::CreateSurfaceFootstep(
+				this,
+				Surface,
+				PitchVariation,
+				1.0f)),
 		GetActorLocation() - FVector(0.0f, 0.0f, 80.0f),
 		FootstepVolume * AudibleLevel * (0.72f + 0.28f * SpeedScale),
-		1.0f,
+		FootSample ? PitchVariation : 1.0f,
 		120.0f,
 		900.0f,
 		EIGAudioBus::Player);

@@ -1830,7 +1830,9 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 	// player never needs the counter to know where they are.
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateHammerImpact(this, StrikeCount - 1),
+		IGAudio::SampleVariantOr(
+			TEXT("Hammer_Hit"), 2, static_cast<uint32>(StrikeCount) * 2654435761u,
+			[this, StrikeCount]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateHammerImpact(this, StrikeCount - 1); }),
 		Evidence ? Evidence->GetActorLocation() : IGNightFour::WallBreakLocation,
 		1.0f,
 		1.0f,

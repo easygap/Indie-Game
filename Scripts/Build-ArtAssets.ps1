@@ -523,6 +523,8 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'M_BeddingUV',
 			'M_Brick_X',
 			'M_Brick_Y',
+			'M_VillaBrick_X',
+			'M_VillaBrick_Y',
 			'M_VillaStucco_X',
 			'M_VillaStucco_Y',
 			'M_Concrete_XY',
@@ -541,6 +543,8 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'M_Stucco_X',
 			'M_Stucco_Y',
 			'M_StuccoCeil',
+			'M_StuccoDado_X',
+			'M_StuccoDado_Y',
 			'M_GraniteTile_XY',
 			'M_GranitePanel_X',
 			'M_GranitePanel_Y',
@@ -782,6 +786,13 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($SurfaceResponseOnly) {
 		@(
+			# 사진 텍스처(T_Photo_*)가 먼저 있어야 재질이 그것을 고른다. 지금까지는
+			# 손으로 한 번 넣고 잊는 단계였다.
+			@{
+				Script = 'import_photo_textures.py'
+				SuccessPattern = '\[IndieGame\] Imported \d+ photo textures'
+				TargetEnvironment = $false
+			},
 			@{
 				Script = 'create_textured_materials.py'
 				SuccessPattern = $targetSuccessPattern

@@ -62,6 +62,15 @@ private:
 	UFUNCTION()
 	void HandleExtinguisherZone(AIGZoneTrigger* Zone);
 
+	/**
+	 * 1-6 402호의 노크. 소화기 비트 뒤에 402호 문 앞을 지나면 문 안쪽에서
+	 * 두 번 두드린다. 402호는 빈집이다 — 그가 어디에나 있을 수 있다는 것을
+	 * 형체 없이 알려 주는 한 번뿐인 소리. 추격도 조사도 부르지 않는다.
+	 */
+	UFUNCTION()
+	void HandleUnit402KnockZone(AIGZoneTrigger* Zone);
+	void PlayUnit402SecondKnock();
+
 	UFUNCTION()
 	void HandleStairTransitionCompleted(bool bGoingDown);
 
@@ -88,6 +97,10 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGZoneTrigger> ExtinguisherZone;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGZoneTrigger> Unit402KnockZone;
+	FTimerHandle Unit402KnockTimer;
 
 	/** The route the entity returns to once its cameo on the landing ends. */
 	TArray<FVector> CorridorPatrolPoints;

@@ -1,11 +1,15 @@
 ﻿#include "Entity/IGListenerEntity.h"
 
+#include "IndieGame.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Animation/AnimSequence.h"
+#include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
@@ -115,8 +119,9 @@ void AIGListenerEntity::BeginPlay()
 		BreathLoopComponent->AttachToComponent(
 			Body, FAttachmentTransformRules::KeepRelativeTransform);
 		BreathLoopComponent->SetRelativeLocation(FVector(30.0f, 0.0f, 20.0f));
-		BreathLoopComponent->SetSound(
-			UIGToneSequenceSoundWave::CreateEntityBreathLoop(this));
+		BreathLoopComponent->SetSound(IGAudio::SampleOr(
+			TEXT("Entity_Breath_Loop"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityBreathLoop(this); }));
 		BreathLoopComponent->AttenuationSettings = IGAudio::MakeAttenuation(
 			this,
 			160.0f,
@@ -192,6 +197,10 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 	State = NewState;
 	StateSeconds = 0.0f;
 	StuckSeconds = 0.0f;
+	if (NewState != EIGListenerState::Chasing)
+	{
+		bLungeArmed = false;
+	}
 
 	// 잡는 순간부터는 1인칭 포옹이 이 존재를 대신 그린다. 몸을 그대로 세워
 	// 두면 팔이 화면을 감싸는 동안 같은 것이 복도 바닥에 한 번 더 보인다 —
@@ -265,7 +274,9 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 		{
 			IGAudio::SpawnOneShotAt(
 				this,
-				UIGToneSequenceSoundWave::CreateEntityAlertVocal(this),
+				IGAudio::SampleOr(
+					TEXT("Entity_Alert"),
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityAlertVocal(this); }),
 				GetActorLocation() + FVector(30.0f, 0.0f, 30.0f),
 				0.9f,
 				1.0f,
@@ -490,6 +501,11 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 			// where it ends. Touching costs nothing, so the night can never be
 			// taken away — the story, the puzzles and all three endings stay
 			// exactly the same (§20.4).
+			// 두 팔 길이 안. 덮치는 동작이 먼저 오고 그 끝에 포옹이 온다.
+			if (State == EIGListenerState::Chasing)
+			{
+				bLungeArmed = Distance <= CaptureRadius * 2.3f;
+			}
 			if (Distance <= CaptureRadius && Tuning.bCaptureEnabled)
 			{
 				BeginCapture(Player);
@@ -1053,8 +1069,136 @@ const FVector* AIGListenerEntity::CurrentPatrolTarget() const
 
 // -- presentation ----------------------------------------------------------
 
+bool AIGListenerEntity::BuildSkeletalBody()
+{
+	USkeletalMesh* Mesh = LoadObject<USkeletalMesh>(
+		nullptr, TEXT("/Game/Meshes/SK_ListenerCrawler.SK_ListenerCrawler"));
+	if (!Mesh)
+	{
+		return false;
+	}
+	const auto LoadAnim = [](const TCHAR* Path)
+	{
+		return LoadObject<UAnimSequence>(nullptr, Path);
+	};
+	CrawlAnim = LoadAnim(TEXT("/Game/Meshes/A_ListenerCrawler_Crawl.A_ListenerCrawler_Crawl"));
+	ListenAnim = LoadAnim(TEXT("/Game/Meshes/A_ListenerCrawler_Listen.A_ListenerCrawler_Listen"));
+	BangAnim = LoadAnim(TEXT("/Game/Meshes/A_ListenerCrawler_Bang.A_ListenerCrawler_Bang"));
+	LungeAnim = LoadAnim(TEXT("/Game/Meshes/A_ListenerCrawler_Lunge.A_ListenerCrawler_Lunge"));
+	if (!CrawlAnim || !ListenAnim)
+	{
+		// 기는 동작 없는 뼈대는 서 있는 조각이다. 정적 셸이 낫다.
+		UE_LOG(LogIndieGame, Warning, TEXT("SK_ListenerCrawler animations missing; static shell fallback"));
+		CrawlAnim = nullptr;
+		ListenAnim = nullptr;
+		return false;
+	}
+
+	USkeletalMeshComponent* Component =
+		NewObject<USkeletalMeshComponent>(this, TEXT("ListenerSkeletalBody"));
+	Component->RegisterComponent();
+	Component->AttachToComponent(
+		Body, FAttachmentTransformRules::KeepRelativeTransform);
+	Component->SetSkeletalMesh(Mesh);
+	// 메시 원점은 바닥 중심, 머리가 +X. 캡슐 원점은 바닥에서 58cm.
+	Component->SetRelativeLocation(FVector(0.0f, 0.0f, -58.0f));
+	Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Component->SetCanEverAffectNavigation(false);
+	Component->SetCastShadow(true);
+	// 기는 동작이 바운드 밖으로 팔을 뻗는다. 잘리면 손이 사라진다.
+	Component->SetBoundsScale(1.8f);
+	// 화면 밖에서도 박자를 지킨다. 발소리가 동작 위상에서 나오기 때문이다.
+	Component->VisibilityBasedAnimTickOption =
+		EVisibilityBasedAnimTickOption::AlwaysTickPose;
+	Component->SetAnimationMode(EAnimationMode::AnimationSingleNode);
+	ListenerSkeletal = Component;
+	PlayBodyAnim(EIGListenerBodyAnim::Listen, true, 1.0f);
+	return true;
+}
+
+void AIGListenerEntity::PlayBodyAnim(
+	const EIGListenerBodyAnim Anim,
+	const bool bLoop,
+	const float Rate)
+{
+	if (!ListenerSkeletal)
+	{
+		return;
+	}
+	UAnimSequence* Sequence = nullptr;
+	switch (Anim)
+	{
+	case EIGListenerBodyAnim::Crawl: Sequence = CrawlAnim; break;
+	case EIGListenerBodyAnim::Listen: Sequence = ListenAnim; break;
+	case EIGListenerBodyAnim::Bang: Sequence = BangAnim ? BangAnim.Get() : ListenAnim.Get(); break;
+	case EIGListenerBodyAnim::Lunge: Sequence = LungeAnim ? LungeAnim.Get() : CrawlAnim.Get(); break;
+	default: break;
+	}
+	if (!Sequence)
+	{
+		return;
+	}
+	if (ActiveBodyAnim != Anim)
+	{
+		ListenerSkeletal->PlayAnimation(Sequence, bLoop);
+		ActiveBodyAnim = Anim;
+	}
+	ListenerSkeletal->SetPlayRate(Rate);
+}
+
+float AIGListenerEntity::ComputeCrawlRate(const float Speed) const
+{
+	// Crawl 한 주기는 1.2초. 순찰 속도(110)에서 1.0, 추격에서는 2.8까지만 —
+	// 그 위는 팔이 떨리는 것으로 보이지 빨라 보이지 않는다.
+	const float Reference = FMath::Max(CrawlSpeed, 1.0f);
+	return FMath::Clamp(0.35f + 0.65f * (Speed / Reference), 0.35f, 2.8f);
+}
+
+void AIGListenerEntity::UpdateSkeletalPose(
+	const float SpeedAlpha,
+	const float BodyRate,
+	const float DeltaSeconds)
+{
+	if (!ListenerSkeletal)
+	{
+		return;
+	}
+	switch (State)
+	{
+	case EIGListenerState::Banging:
+		// 노크 소리와 같은 2.1초짜리 동작. 한 번 재생하고 듣기로 넘어간다.
+		PlayBodyAnim(EIGListenerBodyAnim::Bang, false, 1.0f);
+		return;
+	case EIGListenerState::Chasing:
+		if (bLungeArmed)
+		{
+			PlayBodyAnim(EIGListenerBodyAnim::Lunge, false, 1.0f);
+			return;
+		}
+		break;
+	case EIGListenerState::Waiting:
+		// 대답에 얼어붙는다. 숨도 멈춘 것처럼 보이도록 재생을 세운다.
+		PlayBodyAnim(EIGListenerBodyAnim::Listen, true, 0.0f);
+		return;
+	default:
+		break;
+	}
+	if (SpeedAlpha > 0.03f)
+	{
+		PlayBodyAnim(EIGListenerBodyAnim::Crawl, true, BodyRate);
+		return;
+	}
+	// 멈춰 있다. 추격 중이라 거칠면 숨이 빠르다.
+	const float ListenRate = State == EIGListenerState::Chasing ? 1.8f : 1.0f;
+	PlayBodyAnim(EIGListenerBodyAnim::Listen, true, ListenRate);
+}
+
 void AIGListenerEntity::BuildGreyboxBody()
 {
+	if (BuildSkeletalBody())
+	{
+		return;
+	}
 	// The release path is one authored static crawl pose built from the
 	// ImageGen anatomy sheet. It keeps contact shadow, flashlight parallax and
 	// a continuous human silhouette; the primitive assembly below is a safe
@@ -1280,7 +1424,8 @@ void AIGListenerEntity::UpdatePresentationPose(
 	const float CurrentSpeed,
 	const float DeltaSeconds)
 {
-	if (!ListenerShell || !ListenerFrontCard)
+	const bool bSkeletal = ListenerSkeletal != nullptr;
+	if (!bSkeletal && (!ListenerShell || !ListenerFrontCard))
 	{
 		return;
 	}
@@ -1293,9 +1438,13 @@ void AIGListenerEntity::UpdatePresentationPose(
 			PresentationSpeed, CurrentSpeed, DeltaSeconds, 7.5f);
 	const float SpeedAlpha = FMath::Clamp(
 		PresentationSpeed / FMath::Max(ChaseSpeed, 1.0f), 0.0f, 1.0f);
+	const float BodyRate = bSkeletal ? ComputeCrawlRate(PresentationSpeed) : 0.0f;
 	if (SpeedAlpha > 0.01f)
 	{
-		const float FramesPerSecond = FMath::Lerp(1.6f, 6.0f, SpeedAlpha);
+		// 스켈레탈은 1.2초 주기에 팔꿈치가 두 번 닿는다. 위상 4가 한 주기다.
+		const float FramesPerSecond = bSkeletal
+			? BodyRate * (4.0f / 1.2f)
+			: FMath::Lerp(1.6f, 6.0f, SpeedAlpha);
 		ListenerPhase = FMath::Fmod(
 			ListenerPhase + DeltaSeconds * FramesPerSecond, 4.0f);
 		// 팔꿈치가 바닥을 치는 자세(0과 2)마다 한 걸음. 끌림 루프는 속도만 말하고
@@ -1308,7 +1457,9 @@ void AIGListenerEntity::UpdatePresentationPose(
 			const float Pitch = 0.94f + 0.12f * ((StepHash >> 8) & 0xFF) / 255.0f;
 			IGAudio::SpawnOneShotAt(
 				this,
-				UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, bDragSurfaceIsVinyl),
+				IGAudio::SampleVariantOr(
+					TEXT("Entity_CrawlStep"), 3, StepHash,
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, bDragSurfaceIsVinyl); }),
 				GetActorLocation() + FVector(20.0f, 0.0f, -40.0f),
 				0.35f + 0.55f * SpeedAlpha,
 				Pitch,
@@ -1316,6 +1467,12 @@ void AIGListenerEntity::UpdatePresentationPose(
 				2200.0f,
 				EIGAudioBus::Entity);
 		}
+	}
+
+	if (bSkeletal)
+	{
+		UpdateSkeletalPose(SpeedAlpha, BodyRate, DeltaSeconds);
+		return;
 	}
 
 	if (ListenerPhaseMaterials.Num() == 4)
@@ -1396,7 +1553,9 @@ void AIGListenerEntity::PlayKnockTriple()
 {
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.0f),
+		IGAudio::SampleOr(
+			TEXT("Entity_KnockTriple"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.0f); }),
 		GetActorLocation() + FVector(0.0f, 0.0f, 40.0f),
 		1.0f,
 		1.0f,

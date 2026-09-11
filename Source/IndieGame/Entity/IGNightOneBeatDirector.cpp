@@ -22,6 +22,14 @@ namespace IGNightOne
 	// Beat ids in the persistent night state: once played, never replayed.
 	const FName SightingBeatId(TEXT("Night1.Sighting"));
 	const FName ExtinguisherBeatId(TEXT("Night1.Extinguisher"));
+	const FName Unit402KnockBeatId(TEXT("Night1.Unit402Knock"));
+
+	/** 402호 문 앞 복도. 문은 X -30, 복도 면 Y -235. */
+	const FVector Unit402KnockZoneCenter(-30.0f, -300.0f, 1010.0f);
+	const FVector Unit402KnockZoneExtent(70.0f, 62.0f, 110.0f);
+	/** 노크는 문 안쪽 40 cm에서 난다. 문짝이 먹은 소리다. */
+	const FVector Unit402KnockSource(-30.0f, -200.0f, 1000.0f);
+	constexpr float Unit402SecondKnockSeconds = 0.74f;
 
 	/**
 	 * The stair-throat trigger, at the 4F mouth of the down flight. The
@@ -147,6 +155,18 @@ bool AIGNightOneBeatDirector::Configure(
 	ExtinguisherZone->OnZoneTriggered.AddDynamic(
 		this, &AIGNightOneBeatDirector::HandleExtinguisherZone);
 
+	SpawnParameters.Name = TEXT("Night1Unit402KnockZone");
+	Unit402KnockZone = World->SpawnActor<AIGZoneTrigger>(
+		AIGZoneTrigger::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGNightOne::Unit402KnockZoneCenter),
+		SpawnParameters);
+	if (Unit402KnockZone)
+	{
+		Unit402KnockZone->SetZoneExtent(IGNightOne::Unit402KnockZoneExtent);
+		Unit402KnockZone->OnZoneTriggered.AddDynamic(
+			this, &AIGNightOneBeatDirector::HandleUnit402KnockZone);
+	}
+
 	// The cameo ends the moment the player actually descends: the stair
 	// teleport completing is the one reliable "they walked past it" signal.
 	for (TActorIterator<AIGStairTransition> It(World); It; ++It)
@@ -162,6 +182,7 @@ void AIGNightOneBeatDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(SightingFallbackTimer);
 	GetWorldTimerManager().ClearTimer(ImpactTimer);
+	GetWorldTimerManager().ClearTimer(Unit402KnockTimer);
 	if (BreakerPanelHumHandle != 0)
 	{
 		if (UWorld* World = GetWorld())
@@ -230,7 +251,9 @@ void AIGNightOneBeatDirector::StageSighting()
 	// 소리 없는 텔레포트였다.
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false),
+		IGAudio::SampleVariantOr(
+			TEXT("Entity_CrawlStep"), 3, 0x51u,
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false); }),
 		IGNightOne::SightingStagePoint + FVector(0.0f, 0.0f, 20.0f),
 		0.7f,
 		1.0f,
@@ -248,7 +271,9 @@ void AIGNightOneBeatDirector::StageSighting()
 		{
 			IGAudio::SpawnOneShotAt(
 				this,
-				UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false),
+				IGAudio::SampleVariantOr(
+					TEXT("Entity_CrawlStep"), 3, 0x9Bu,
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false); }),
 				IGNightOne::SightingShufflePoint + FVector(0.0f, 0.0f, 20.0f),
 				0.6f,
 				1.0f,
@@ -344,6 +369,65 @@ void AIGNightOneBeatDirector::RestoreSightingEntity()
 	}
 }
 
+// -- 1-6 402호의 노크 ------------------------------------------------------
+
+void AIGNightOneBeatDirector::HandleUnit402KnockZone(AIGZoneTrigger* Zone)
+{
+	// 소화기 비트를 겪은 뒤에만. 그 전에는 복도가 아직 규칙을 가르치는 중이고,
+	// 규칙을 배우기 전의 놀람은 정보가 아니라 소음이다.
+	if (!bExtinguisherBeatFired)
+	{
+		return;
+	}
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || !Narrative->MarkBeatPlayed(IGNightOne::Unit402KnockBeatId))
+	{
+		return;
+	}
+	const auto Knock = [this]()
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			IGAudio::SampleVariantOr(
+				TEXT("Knock_Plaster"), 3, static_cast<uint32>(GetWorld()->GetTimeSeconds() * 977.0f),
+				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.6f); }),
+			IGNightOne::Unit402KnockSource,
+			0.7f,
+			0.78f,
+			140.0f,
+			1100.0f,
+			EIGAudioBus::World);
+	};
+	Knock();
+	GetWorldTimerManager().SetTimer(
+		Unit402KnockTimer,
+		this,
+		&AIGNightOneBeatDirector::PlayUnit402SecondKnock,
+		IGNightOne::Unit402SecondKnockSeconds,
+		false);
+	AIGHorrorHUD::PushFearDirection(this, IGNightOne::Unit402KnockSource);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "Unit402KnockCaption", "402호 안쪽 — 노크 둘"),
+		2.2f,
+		IGNightOne::Unit402KnockSource);
+}
+
+void AIGNightOneBeatDirector::PlayUnit402SecondKnock()
+{
+	IGAudio::SpawnOneShotAt(
+		this,
+		IGAudio::SampleVariantOr(
+			TEXT("Knock_Plaster"), 3, 0x3Fu,
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.6f); }),
+		IGNightOne::Unit402KnockSource,
+		0.62f,
+		0.74f,
+		140.0f,
+		1100.0f,
+		EIGAudioBus::World);
+}
+
 // -- 1-5 forced encounter --------------------------------------------------
 
 void AIGNightOneBeatDirector::HandleExtinguisherZone(AIGZoneTrigger* Zone)
@@ -384,18 +468,25 @@ void AIGNightOneBeatDirector::PlayExtinguisherImpact()
 
 	// A steel cylinder on granite tile: the low body thud and the thin
 	// rattling ring, composed from the existing factories.
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreateDoorThud(this),
-		Impact,
-		1.0f,
-		0.82f);
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreateLockedRattle(this),
-		Impact,
-		0.8f,
-		0.68f);
+	if (USoundBase* Drop = IGAudio::Sample(TEXT("Extinguisher_Drop")))
+	{
+		IGAudio::SpawnOneShotAt(this, Drop, Impact, 1.0f, 1.0f, 200.0f, 2400.0f, EIGAudioBus::World);
+	}
+	else
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateDoorThud(this),
+			Impact,
+			1.0f,
+			0.82f);
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateLockedRattle(this),
+			Impact,
+			0.8f,
+			0.68f);
+	}
 
 	// No instigator: the building did this, and the ripple HUD must not tell
 	// the player "you made that sound".
@@ -467,7 +558,9 @@ void AIGNightOneBeatDirector::KillFixtureBehindPlayer()
 	const FVector FixtureLocation = WorldScene->GetCorridorFixtureLocation(Best);
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateFluorescentBallastSnap(this),
+		IGAudio::SampleOr(
+			TEXT("Ballast_Tick"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateFluorescentBallastSnap(this); }),
 		FixtureLocation,
 		1.0f,
 		1.0f,

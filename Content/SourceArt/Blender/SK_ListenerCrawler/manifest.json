@@ -1,0 +1,54 @@
+{
+  "name": "SK_ListenerCrawler",
+  "mesh_class": "hero",
+  "fbx": "SK_ListenerCrawler.fbx",
+  "textures": {
+    "D": "SK_ListenerCrawler_D.png",
+    "N": "SK_ListenerCrawler_N.png",
+    "ORM": "SK_ListenerCrawler_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 14000,
+  "bounds_m": {
+    "min": [
+      -0.949,
+      -0.4698,
+      0.0012
+    ],
+    "max": [
+      0.9481,
+      0.4694,
+      0.8349
+    ]
+  },
+  "origin": "bottom",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "위층 사람의 기는 몸. 옆모습 칸 생성물을 복셀 리메시로 한 표면으로 녹이고, 거리 웨이트로 리깅해 Crawl/Listen/Bang/Lunge를 짰다. 머리 +X, 원점 바닥 중심.",
+  "skeletal": true,
+  "animations": {
+    "Crawl": {
+      "frames": 36,
+      "fps": 30,
+      "loop": true
+    },
+    "Listen": {
+      "frames": 90,
+      "fps": 30,
+      "loop": true
+    },
+    "Bang": {
+      "frames": 63,
+      "fps": 30,
+      "loop": false
+    },
+    "Lunge": {
+      "frames": 24,
+      "fps": 30,
+      "loop": false
+    }
+  },
+  "generated_from": "../Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/pbr_00001_.glb"
+}

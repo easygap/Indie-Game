@@ -143,6 +143,57 @@ Blender 원본이 없는 메시(스캔 소품, 예전 지오메트리 스크립�
   반입 뒤 `Docs/mesh_bounds.json`의 extent에서 X가 긴 축인지 다시 본다 — 한 번
   `--yaw -90`을 잘못 걸어 몸이 복도를 가로질러 놓인 채 들어간 적이 있다.
 
+## 리깅된 인물 — 위층 사람
+
+정적 셸 하나에 정면 스프라이트 카드를 겹치던 위층 사람은 2026-09-11부터
+뼈대와 동작이 있는 스켈레탈 메시(`SK_ListenerCrawler`)다. 카드는 정면에서만
+사람이었고 옆에서는 판이었으며, 셸은 기는데 미끄러졌다.
+
+```powershell
+blender -b --factory-startup --python Scripts\blender\rig_crawler.py -- `
+    --glb Content\SourceArt\Generated\ListenerEntityCrawl\trellis1024-s56-side\raw\pbr_00001_.glb `
+    --name SK_ListenerCrawler --length 190 --yaw 0 --voxel-remesh 0.007
+powershell -File Scripts\Import-BlenderAssets.ps1 -Only SK_ListenerCrawler
+```
+
+`rig_crawler.py`가 하는 일은 refine_generated.py와 같은 앞부분(회전·치수·
+원점) 뒤에 넷이다.
+
+- **복셀 리메시 7 mm.** TRELLIS.2가 석고 껍질을 얇은 조각 수백 장으로
+  만들어 놓아서 예전 셸은 깨진 조각상처럼 보였다. 한 표면으로 녹인 뒤
+  스무딩 세 번, 14000 삼각형까지 데시메이트. 색·노멀·거칠기는 고밀도에서
+  굽는다.
+- **뼈 자리는 정점 통계로.** 기는 자세라 T 포즈 규칙이 없다. 머리는 +X 끝
+  23 cm, 어깨는 목에서 20 cm 뒤, 팔꿈치·주먹은 몸통 폭 밖의 바닥 정점
+  군집에서, 다리는 발끝에서 전신의 46%에 골반을 두고 좌우 군집으로.
+  세로에 가까운 뼈(머리·손)는 롤을 +X에 맞춘다 — Z 정렬은 거기서 퇴화한다.
+- **거리 웨이트.** Blender 자동 웨이트(열 확산)는 리메시 껍질에서 「failed
+  to find solution」으로 거의 모든 정점을 비운 채 돌아왔다. 뼈마다 두께
+  반지름을 두고 표면에서 뼈 표면까지의 거리로 가우시안(4.5 cm)을 걸어
+  최대 넷을 섞는다. 예측 가능하고 매번 같다.
+- **동작 넷.** Crawl(36프레임 루프, 팔 뻗기·당기기가 반 주기 어긋나고 미는
+  다리 반대로 골반이 구른다), Listen(90프레임 루프, 숨과 고개), Bang(63
+  프레임, `CreateWallKnockTriple`과 같은 0.62초 간격의 세 타격), Lunge(24
+  프레임, 덮침). 이동은 폰이 하므로 전부 제자리다.
+
+FBX는 뼈대+메시+액션 전부를 테이크로 굽고(`bake_anim_use_all_actions`),
+`import_blender_assets.py`가 manifest의 `"skeletal": true`를 보고 예전 FBX
+임포터로 스켈레탈 반입한 뒤 테이크를 `A_ListenerCrawler_<Action>`으로
+이름 붙인다. 마스터 재질 `M_IGBakedProp`에는 `used_with_skeletal_mesh`가
+켜져 있어야 한다 — 없으면 에디터는 경고만 내고 그리지만 패키지는 회색으로
+그린다. 반입 스크립트가 켠다.
+
+게임 쪽은 `AIGListenerEntity::BuildSkeletalBody`가 메시와 동작 넷을 싣고,
+상태에 따라 재생 배율만 바꾼다(순찰 1.0, 추격 2.8 상한). 두드릴 때 Bang,
+대답에 얼면 Listen을 0배속으로 세우고, 추격 중 두 팔 거리 안에 들어오면
+Lunge. 스켈레탈 에셋이 없으면 예전 셸+카드로 내려간다.
+
+미리보기: `SK_ListenerCrawler_bones.png`(뼈 자리), `_crawl_f01~f28.png`(기는
+네 프레임), `_lunge.png`, `_bang.png`. 상대 경로 `--out`은 Blender가 드라이브
+루트 기준으로 풀어 `C:\Saved`에 렌더를 쓰니 절대 경로로 준다.
+`out_root_from_argv`는 `--` 뒤 첫 인자를 폴더로 읽는데 여기는 그 인자가
+`--glb`라 저장소 루트에 `--glb` 폴더가 생긴 적이 있다. 이제 기본값을 따로 둔다.
+
 ## 지금까지 바꾼 것
 
 | 에셋 | 경로 | 씬 |
@@ -163,7 +214,8 @@ Blender 원본이 없는 메시(스캔 소품, 예전 지오메트리 스크립�
 | SM_CupNoodle / Sleeve / Lid | 절차, raw_uv | 컵라면. 슬리브는 U 한 바퀴·V 위가 0으로 M_LabelRamyeon을 그대로 읽고, 뚜껑은 평면 UV로 M_StainlessUV. 굽지 않고 씬이 재질을 준다 |
 | SM_SnackBoxA~D, SM_TriangleKimbapA~D, SM_RiceBowlPack | 절차 | 편의점 상품. 앞면은 `create_store_product_art.py`의 가상 브랜드 아틀라스를 image_quad(uv_rect)로 붙여 굽는다 |
 | SM_TobaccoCabinet, SM_WindowBar, SM_HotWaterDispenser, SM_TrashBin | 절차 | 계산대 뒤 담배 진열장(담뱃갑 136), 창가 취식대, 온수기, 2구 쓰레기통 |
-| SM_ListenerEntityCrawl | 생성 | 위층 사람. 해부 시트의 옆모습 칸에서 뽑았다(앞모습 3/4 칸은 네 발 짐승처럼 읽혔다). 폰의 앞이 +X라 머리가 +X에 와야 한다. 프로브에서 높은 끝이 이미 +X면 `--yaw 0`, 길이는 `--length 190`. 정점 AO, 석고 재질은 그대로 |
+| SK_ListenerCrawler | 생성+리깅 | 위층 사람의 기는 몸. 위 「리깅된 인물」. Crawl·Listen·Bang·Lunge |
+| SM_ListenerEntityCrawl | 생성 | 위층 사람(정적 폴백). 해부 시트의 옆모습 칸에서 뽑았다(앞모습 3/4 칸은 네 발 짐승처럼 읽혔다). 폰의 앞이 +X라 머리가 +X에 와야 한다. 프로브에서 높은 끝이 이미 +X면 `--yaw 0`, 길이는 `--length 190`. 정점 AO, 석고 재질은 그대로 |
 | SM_AlleyCatRun | 생성 | 골목 고양이. 구운 털 색을 MI로 쓴다 |
 | SM_MokHansooFigure | 생성 | 밤4 목한수 통짜. 조각 셋과 카드를 대체 |
 | SM_FinalCavityRemains | 생성 | 밤4 공동 유해 통짜. 조각 넷과 카드를 대체 |

@@ -267,7 +267,7 @@ void AIGListenerGreyboxDirector::PlaySettleEvent()
 	// 위에서 난다. 훅이 「위에서 나는 소리」다(§10.5). 방위는 매번 다르게.
 	const FVector Location = PlayerCharacter->GetActorLocation()
 		+ FVector(FMath::FRandRange(-260.0f, 260.0f), FMath::FRandRange(-260.0f, 260.0f), FMath::FRandRange(240.0f, 330.0f));
-	UIGToneSequenceSoundWave* Wave = nullptr;
+	USoundBase* Wave = nullptr;
 	FText Caption;
 	switch (SettleCounter++ % 4)
 	{
@@ -276,7 +276,9 @@ void AIGListenerGreyboxDirector::PlaySettleEvent()
 		Caption = NSLOCTEXT("IGNight", "SettlePipe", "위 — 배관이 튄다");
 		break;
 	case 1:
-		Wave = UIGToneSequenceSoundWave::CreateSettleTimberCreak(this);
+		Wave = IGAudio::SampleVariantOr(
+			TEXT("Settle_Creak"), 2, static_cast<uint32>(SettleCounter) * 2654435761u,
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateSettleTimberCreak(this); });
 		Caption = NSLOCTEXT("IGNight", "SettleCreak", "위 — 나무가 뒤틀린다");
 		break;
 	case 2:
@@ -1889,7 +1891,9 @@ void AIGListenerGreyboxDirector::PlayFirstReportReceipt()
 	{
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreatePhoneVibrationUnfinished(this),
+			IGAudio::SampleOr(
+				TEXT("Phone_Vibrate"),
+				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreatePhoneVibrationUnfinished(this); }),
 			PlayerCharacter->GetActorLocation(),
 			0.5f,
 			1.0f,
@@ -2135,6 +2139,17 @@ void AIGListenerGreyboxDirector::WakeIntoNight()
 			FLinearColor::Black,
 			/*bShouldFadeAudio=*/false,
 			/*bHoldWhenFinished=*/false);
+	}
+	if (PendingNightIndex == 1)
+	{
+		// 첫 밤에만. 이 게임에서 손전등이 있다는 것을 배우는 자리는 여기 하나다.
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"NightTorchThought",
+				"손전등. 이사 짐에서 꺼내 둔 게 머리맡에 있다. F로 켜고 끈다."),
+			4.5f);
 	}
 	// 밤은 방향으로 시작한다. 밤2만 여섯 초 뒤에 문을 두드렸고 나머지는
 	// 카드 뒤에 아무것도 없었다.
