@@ -25,6 +25,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "403호 냉장고 본체 66 x 72 x 158. 앞면 -X(AIGFridge 좌표계), 원점 바닥 중심. Glass 슬롯(선반·야채칸 앞판)."
 }

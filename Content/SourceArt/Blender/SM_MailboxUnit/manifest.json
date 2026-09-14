@@ -24,6 +24,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "로비 북쪽 벽 우편함 3x3. 원점은 벽면 바닥 중심, 앞면 -Y. 씬 위치 (528, -235, 118)."
 }

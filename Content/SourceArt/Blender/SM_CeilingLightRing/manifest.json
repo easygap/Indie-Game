@@ -24,6 +24,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "천장 등 테. 원점은 천장 접촉면 중심, 아래로 3 cm."
 }

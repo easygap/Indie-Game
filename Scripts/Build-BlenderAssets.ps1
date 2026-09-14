@@ -23,7 +23,10 @@ New-Item -ItemType Directory -Force -Path $outRoot | Out-Null
 $candidates = @()
 if ($env:IG_BLENDER) { $candidates += $env:IG_BLENDER }
 $candidates += Join-Path $env:LOCALAPPDATA 'Programs\Blender-5.2\Blender Foundation\Blender 5.2\blender.exe'
-$candidates += Get-ChildItem -Path (Join-Path $env:ProgramFiles 'Blender Foundation') -Filter 'blender.exe' -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+$installedBlenderRoot = Join-Path $env:ProgramFiles 'Blender Foundation'
+if (Test-Path -LiteralPath $installedBlenderRoot -PathType Container) {
+	$candidates += Get-ChildItem -LiteralPath $installedBlenderRoot -Filter 'blender.exe' -Recurse -ErrorAction SilentlyContinue | ForEach-Object { $_.FullName }
+}
 $blender = $candidates | Where-Object { $_ -and (Test-Path -LiteralPath $_ -PathType Leaf) } | Select-Object -First 1
 if (-not $blender) {
 	throw 'blender.exe를 찾지 못했다. IG_BLENDER를 설정하거나 MSI를 %LOCALAPPDATA%\Programs\Blender-5.2에 풀어라.'
@@ -61,11 +64,19 @@ if ($selected.Count -eq 0) {
 
 $logRoot = Join-Path $projectRoot 'Saved\Logs'
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
+$colorCheckLog = Join-Path $logRoot 'BlenderBaseColorCheck.log'
+& $blender -b --factory-startup --python-exit-code 1 `
+	--python (Join-Path $builderRoot 'check_base_color_bake.py') `
+	-- (Join-Path $projectRoot 'Saved\BaseColorBakeCheck') *> $colorCheckLog
+if ($LASTEXITCODE -ne 0 -or @(Select-String -LiteralPath $colorCheckLog -Pattern '^BASE_COLOR_BAKE PASS').Count -ne 2) {
+	throw "금속 색 보존 검사 실패: $colorCheckLog"
+}
+Write-Host 'BASE_COLOR_BAKE PASS direct=1 from_high=1'
 foreach ($builder in $selected) {
 	$script = Join-Path $builderRoot "build_$builder.py"
 	$logPath = Join-Path $logRoot ('Blender_{0}_{1}.log' -f $builder, (Get-Date -Format 'yyyyMMdd_HHmmss'))
 	Write-Host "BLENDER_BUILD running build_$builder.py"
-	& $blender -b --factory-startup --python $script -- $outRoot 2>&1 | Tee-Object -FilePath $logPath | Where-Object { $_ -match '^\[IGBL\]|Error|Traceback' } | ForEach-Object { Write-Host "  $_" }
+	& $blender -b --factory-startup --python-exit-code 1 --python $script -- $outRoot 2>&1 | Tee-Object -FilePath $logPath | Where-Object { $_ -match '^\[IGBL\]|Error|Traceback' } | ForEach-Object { Write-Host "  $_" }
 	if ($LASTEXITCODE -ne 0) {
 		throw "Blender 빌더 실패 ($LASTEXITCODE): build_$builder.py, 로그 $logPath"
 	}

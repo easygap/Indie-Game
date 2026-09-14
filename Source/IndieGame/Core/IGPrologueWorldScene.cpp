@@ -6352,7 +6352,7 @@ void AIGPrologueWorldScene::BuildStore()
 	Fixture(TEXT("SM_StoreCounter"), FVector(2590, -200, 6));
 	StoreCashRegisterVisual = Fixture(TEXT("SM_RetailPOS"), FVector(2608, -190, 99), 0, false);
 	Fixture(TEXT("SM_CardTerminal"), FVector(2665, -216, 99), 0, false);
-	Fixture(TEXT("SM_HotSnackWarmer"), FVector(2500, -198, 99));
+	Fixture(TEXT("SM_HotSnackWarmer"), FVector(2510, -198, 99));
 	Fixture(TEXT("SM_TobaccoCabinet"), FVector(2590, -50, 80));
 	for (const float X : {2535.0f, 2645.0f})
 	{

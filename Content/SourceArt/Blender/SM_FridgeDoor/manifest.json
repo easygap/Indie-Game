@@ -24,6 +24,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "403호 냉장고 문짝. 원점은 힌지 축의 피벗 높이(Z 79). X -6..0, Y 0..72, Z -73..79."
 }

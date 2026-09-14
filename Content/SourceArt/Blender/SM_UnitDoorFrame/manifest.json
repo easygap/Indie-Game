@@ -24,6 +24,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "세대 현관문 문틀. 개구부 86 x 202, 문선 8 x 7. 원점은 개구부 바닥 중심."
 }

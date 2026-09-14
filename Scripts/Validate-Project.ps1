@@ -3232,6 +3232,18 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Two drawn surfaces share a plane and will fight for depth ($LASTEXITCODE)"
 	}
+
+	# 검은 금속이 모두 오류인 것은 아니다. 색 손실 후보를 추려 사람이 볼 목록을 남긴다.
+	$metalBaseColor = Join-Path $projectRoot 'Scripts/audit_metal_base_color.py'
+	$metalBaseColorReport = Join-Path $projectRoot 'Saved/MetalBaseColorAudit.json'
+	& $python.Source $metalBaseColor --output $metalBaseColorReport
+	if ($LASTEXITCODE -ne 0) {
+		throw "금속 색 손실 후보 검사 실패 ($LASTEXITCODE)"
+	}
+	$metalBaseColorCandidates = @(Get-Content -Raw -Encoding UTF8 -LiteralPath $metalBaseColorReport | ConvertFrom-Json)
+	if ($metalBaseColorCandidates.Count -gt 0) {
+		Write-Warning ("금속 색 손실 후보 {0}개를 화면에서 확인해야 한다: {1}" -f $metalBaseColorCandidates.Count, $metalBaseColorReport)
+	}
 } else {
 	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit, footstep surface audit, light placement audit, photo prop fit audit and coplanar surface audit.'
 }

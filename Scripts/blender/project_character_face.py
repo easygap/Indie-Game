@@ -21,7 +21,12 @@ def apply(mesh, filename):
     uv = mesh.data.uv_layers.new(name='FacePhoto')
     projected = np.column_stack((.5+positions[:,0]*1455/(height*1024),61/1536+positions[:,2]*1455/(height*1536)))
     uv.data.foreach_set('uv', projected.ravel())
-    weight = np.clip((-normals[:,1]-.15)/.55,0,1)*np.clip((positions[:,2]/height-.835)/.05,0,1)
+    facing = np.clip((-normals[:,1]-.15)/.55,0,1)
+    face_height = np.clip((positions[:,2]/height-.835)/.05,0,1)
+    # 뒤로 묶은 머리의 앞면도 법선 조건을 통과한다. 머리 앞쪽 2.5cm 구간에서
+    # 사진을 섞고, 중심 뒤로는 원래 머리카락 색을 유지한다.
+    front_depth = np.clip((-.015-positions[:,1])/.025,0,1)
+    weight = facing * face_height * front_depth
     colors = np.column_stack((weight,weight,weight,np.ones_like(weight)))
     mask = mesh.data.color_attributes.new(name='FacePhotoWeight', type='FLOAT_COLOR', domain='CORNER')
     mask.data.foreach_set('color', colors.ravel())

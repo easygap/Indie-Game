@@ -10,7 +10,7 @@
     SM_StoreGondola     양면 곤돌라 5단, 두 대
     SM_StoreCounter     계산대 몸통·상판·발치 홈. 바운드가 상판 윗면(씬 Z 99)에서 끝난다
     SM_CardTerminal     상판 위 카드 단말기. 원점 상판 윗면 (2500, -268, 99)
-    SM_HotSnackWarmer   서쪽 끝 온장고. 원점 상판 윗면 (2452, -250, 99), 앞면 -X
+    SM_HotSnackWarmer   계산대 온장고. 원점 상판 윗면 (2510, -198, 99), 앞면 -Y
     SM_ChestFreezer     서쪽 유리벽 앞 아이스크림 평대 냉동고
     SM_OpenShowcase     남쪽 벽 오픈 쇼케이스(김밥·샌드위치)
     SM_RamyeonRack      창가 라면 코너 선반
@@ -245,29 +245,53 @@ def build_terminal(out_root):
 
 
 def build_warmer(out_root):
-    """온장고. 원점은 상판 윗면 중심(씬 (2452, -250, 99)), 유리문이 -X(출입구 쪽)."""
+    """SMAD 35L 제품 사진의 유리 케이스·철망·받침 구조. 출처는 검수 문서에 남긴다."""
     ig.reset_scene()
     m = mats()
-    parts = []
-    wx, wy, wz = 0.0, 0.0, 0.18
-    warmer = ig.box("warmer", (0.36, 0.38, 0.36), location=(wx, wy, wz), bevel=0.006, segments=2,
-                    material=m["dark"])
-    parts.append(warmer)
-    # 앞면을 파고 유리문·발열등·트레이를 넣는다.
-    cavity = ig.box("warmer_cavity", (0.30, 0.30, 0.28), location=(wx - 0.05, wy, wz))
-    ig.boolean(warmer, cavity, "DIFFERENCE")
-    parts.append(ig.box("warmer_glass", (0.006, 0.30, 0.28), location=(wx - 0.18, wy, wz), material=m["glass"]))
-    parts.append(ig.box("warmer_lamp", (0.20, 0.26, 0.015), location=(wx - 0.07, wy, wz + 0.125),
-                        material=m["heat"]))
-    for z in (wz - 0.10, wz + 0.01):
-        parts.append(ig.box("warmer_tray", (0.26, 0.28, 0.01), location=(wx - 0.05, wy, z), material=m["steel"]))
-    parts.append(ig.cylinder("warmer_handle", 0.006, 0.16, location=(wx - 0.195, wy + 0.13, wz),
-                             segments=12, material=m["chrome"]))
+    # 새벽에는 비어 있고 전원도 꺼져 있다. 유리 안에 불투명 몸통을 겹치지 않는다.
+    parts = [ig.box("스테인리스받침", (.550, .340, .082), (0, 0, .059),
+                    bevel=.002, segments=2, material=m["steel"])]
+    for x in (-.240, .240):
+        for y in (-.140, .140):
+            parts.append(ig.cylinder("고무발", .013, .018, (x, y, .009), segments=12, material=m["dark"]))
+    parts.append(ig.box("상부유리", (.554, .350, .006), (0, 0, .307), material=m["glass"]))
+    for x in (-.275, .275):
+        parts.append(ig.box("측면유리", (.004, .342, .206), (x, 0, .202), material=m["glass"]))
+    for y in (-.1715, .1715):
+        parts.append(ig.box("유리문", (.544, .004, .204), (0, y, .202), material=m["glass"]))
+        parts.append(ig.cylinder("문손잡이", .010, .007, (0, math.copysign(.177, y), .132),
+                                 rotation=(math.pi/2, 0, 0), segments=16, bevel=.001, material=m["chrome"]))
+        for z in (.125, .282):
+            parts.append(ig.box("문경첩", (.014, .012, .021), (-.264, y, z),
+                                bevel=.001, material=m["chrome"]))
+    for x in (-.258, .258):
+        for y in (-.153, .153):
+            parts.append(ig.box("유리고정쇠", (.010, .010, .024), (x, y, .292), material=m["chrome"]))
+            parts.append(ig.cylinder("고정나사", .0035, .002, (x, y, .310), segments=10, material=m["chrome"]))
+    # 선반은 철망 한 장과 양쪽 지지대로 구성한다. 가열부는 그 아래에 들어간다.
+    for x in (-.251, .251):
+        parts.append(ig.box("선반지지대", (.006, .300, .012), (x, 0, .113), material=m["steel"]))
+    for y in (-.145, .145):
+        parts.append(ig.cylinder("선반테두리", .0025, .506, (0, y, .121),
+                                 rotation=(0, math.pi/2, 0), segments=8, material=m["chrome"]))
+    for index in range(27):
+        parts.append(ig.cylinder("철망세로", .0013, .290, (-.247 + index*.019, 0, .121),
+                                 rotation=(math.pi/2, 0, 0), segments=6, material=m["chrome"]))
+    for index in range(9):
+        parts.append(ig.cylinder("철망가로", .0013, .500, (0, -.132 + index*.033, .119),
+                                 rotation=(0, math.pi/2, 0), segments=6, material=m["chrome"]))
+    # 전원 스위치와 온도 조절 손잡이는 직원이 서는 +Y 면에 둔다.
+    parts.append(ig.box("스위치테두리", (.026, .005, .017), (-.204, .172, .061), material=m["dark"]))
+    switch_mat = ig.mat_plastic("꺼진스위치", (.17, .025, .015), roughness=.42, bump=0)
+    parts.append(ig.box("전원스위치", (.018, .003, .011), (-.204, .176, .061), material=switch_mat))
+    parts.append(ig.cylinder("온도조절손잡이", .015, .010, (-.151, .175, .061),
+                             rotation=(math.pi/2, 0, 0), segments=20, bevel=.001, material=m["dark"]))
+    parts.append(ig.box("손잡이눈금", (.0015, .001, .008), (-.151, .1805, .065), material=m["price"]))
     return ig.build_asset(
         "SM_HotSnackWarmer", "prop", parts, out_root,
-        collision_parts=[[warmer]],
-        notes="계산대 서쪽 끝 온장고 38 x 38 x 36. 원점 상판 윗면 중심(씬 (2452, -250, 99)), 유리문 -X.",
-        texture_size=1024, preview_yaw=60.0)
+        collision_parts=[parts],
+        notes="SMAD 35L 제품 사진을 참고한 55.4 x 36.2 x 31.1cm 온장고. 유리 케이스·철망 선반·고무발. 앞면 -Y, 조절부 +Y. 새벽에는 전원이 꺼진 빈 상태.",
+        texture_size=1024, preview_yaw=30.0)
 
 
 # --------------------------------------------------------------------------

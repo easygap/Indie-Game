@@ -5,28 +5,27 @@
   "textures": {
     "D": "SM_HotSnackWarmer_D.png",
     "N": "SM_HotSnackWarmer_N.png",
-    "ORM": "SM_HotSnackWarmer_ORM.png",
-    "E": "SM_HotSnackWarmer_E.png"
+    "ORM": "SM_HotSnackWarmer_ORM.png"
   },
   "slots": [
     "Baked",
     "Glass"
   ],
-  "triangles": 216,
+  "triangles": 2416,
   "bounds_m": {
     "min": [
-      -0.201,
-      -0.19,
+      -0.277,
+      -0.1805,
       0.0
     ],
     "max": [
-      0.18,
-      0.19,
-      0.36
+      0.277,
+      0.181,
+      0.311
     ]
   },
   "origin": "bottom-center",
-  "emissive_strength": 5.0,
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "계산대 서쪽 끝 온장고 38 x 38 x 36. 원점 상판 윗면 중심(씬 (2452, -250, 99)), 유리문 -X."
+  "notes": "SMAD 35L 제품 사진을 참고한 55.4 x 36.2 x 31.1cm 온장고. 유리 케이스·철망 선반·고무발. 앞면 -Y, 조절부 +Y. 새벽에는 전원이 꺼진 빈 상태."
 }

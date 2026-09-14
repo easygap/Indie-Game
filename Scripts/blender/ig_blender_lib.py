@@ -859,7 +859,8 @@ def bake_textures(ob, asset_name, out_dir, size=1024, ao_samples=AO_SAMPLES):
     outputs = {}
 
     base = _new_image(f"{asset_name}_D", size, srgb=True)
-    _bake(ob, "DIFFUSE", base, materials, samples=1, pass_filter={"COLOR"})
+    # 확산색 패스는 금속성 1인 면을 검게 굽는다. 재질 입력의 색을 그대로 저장한다.
+    _bake_input_via_emit(ob, base, materials, "Base Color")
     outputs["D"] = os.path.join(out_dir, f"{asset_name}_D.png")
     _save(base, outputs["D"])
 
@@ -1007,7 +1008,8 @@ def bake_from_high(low, high, asset_name, out_dir, size=2048, ao_samples=AO_SAMP
     common = {"source": high, "cage_extrusion": cage_extrusion, "max_ray_distance": max_ray_distance}
 
     base = _new_image(f"{asset_name}_D", size, srgb=True)
-    _bake(low, "DIFFUSE", base, low_materials, samples=1, pass_filter={"COLOR"}, **common)
+    _bake_input_via_emit(low, base, low_materials, "Base Color",
+                         source_materials=high_materials, **common)
     outputs["D"] = os.path.join(out_dir, f"{asset_name}_D.png")
     _save(base, outputs["D"])
 
@@ -1192,10 +1194,15 @@ def export_fbx(path, objects):
 
 def render_preview(ob, path, flashlight=False, size=(1280, 960), extra_objects=(),
                    camera_yaw_deg=30.0, camera_pitch_deg=10.0, distance_scale=1.45):
-    """EEVEE로 한 장. flashlight=True면 카메라 옆 스팟 하나만 켜서
-    손전등 아래 거칠기·노멀 반응을 본다."""
+    """유리가 있으면 Cycles로 내부까지 확인한다. 손전등은 카메라 옆 스팟을 쓴다."""
     scene = bpy.context.scene
-    scene.render.engine = "BLENDER_EEVEE"
+    has_glass = any(mat and mat.get("ig_kind") == "glass" for mat in ob.data.materials)
+    scene.render.engine = "CYCLES" if has_glass else "BLENDER_EEVEE"
+    if has_glass:
+        scene.cycles.device = "CPU"
+        scene.cycles.samples = 32
+        scene.cycles.use_denoising = True
+        scene.cycles.transmission_bounces = 8
     scene.render.resolution_x, scene.render.resolution_y = size
     scene.render.resolution_percentage = 100
     scene.render.film_transparent = False

@@ -1,0 +1,170 @@
+[
+  {
+    "name": "SM_AcOutdoorUnit",
+    "metal_pixels": 3607,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_ApartmentWindow",
+    "metal_pixels": 789,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_CeilingLightRing",
+    "metal_pixels": 35411,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_ChestFreezer",
+    "metal_pixels": 5027,
+    "black_fraction": 0.9998,
+    "generated": null
+  },
+  {
+    "name": "SM_ConvexMirror",
+    "metal_pixels": 14094,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_DrumWasher",
+    "metal_pixels": 13497,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_FireExtinguisher",
+    "metal_pixels": 2100,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_FireExtinguisherBox",
+    "metal_pixels": 353,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_FridgeBody",
+    "metal_pixels": 350,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_HotSnackWarmer",
+    "metal_pixels": 8235,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_HotWaterDispenser",
+    "metal_pixels": 38252,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_KitchenSink",
+    "metal_pixels": 33915,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_MailboxUnit",
+    "metal_pixels": 238,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_Microwave",
+    "metal_pixels": 38527,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_OpenShowcase",
+    "metal_pixels": 7591,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_RangeHood",
+    "metal_pixels": 34649,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_RetailPOS",
+    "metal_pixels": 599,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_ServiceBell",
+    "metal_pixels": 17148,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_StoreCoolerBank",
+    "metal_pixels": 247,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_StoreCoolerDoor",
+    "metal_pixels": 766,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_StoreGondola",
+    "metal_pixels": 7650,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_TobaccoCabinet",
+    "metal_pixels": 564,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_UnitDoorHardware",
+    "metal_pixels": 10120,
+    "black_fraction": 0.9999,
+    "generated": null
+  },
+  {
+    "name": "SM_UnitDoorHardwareL",
+    "metal_pixels": 10177,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_UnitDoorLeaf",
+    "metal_pixels": 4138,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_UnitDoorLeafL",
+    "metal_pixels": 4158,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_VenetianBlind",
+    "metal_pixels": 246,
+    "black_fraction": 1.0,
+    "generated": null
+  },
+  {
+    "name": "SM_Wardrobe",
+    "metal_pixels": 317,
+    "black_fraction": 1.0,
+    "generated": null
+  }
+]

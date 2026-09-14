@@ -501,7 +501,7 @@ FText AIGMorningRoutineDirector::GetObjectiveText() const
 	switch (Phase)
 	{
 	case EIGMorningPhase::CheckFridge:
-		return NSLOCTEXT("IGMorning", "ObjFridge", "목이 마르다 — 마실 물을 해결하자");
+		return NSLOCTEXT("IGMorning", "ObjFridge", "마실 물을 구하자");
 	case EIGMorningPhase::TakeWallet:
 		return NSLOCTEXT(
 			"IGMorning",
@@ -514,7 +514,7 @@ FText AIGMorningRoutineDirector::GetObjectiveText() const
 	case EIGMorningPhase::PayAtCounter:
 		return NSLOCTEXT("IGMorning", "ObjPay", "카운터에서 계산하자");
 	case EIGMorningPhase::Complete:
-		return NSLOCTEXT("IGMorning", "ObjDone", "물을 샀다. …이제 집으로 돌아가자");
+		return NSLOCTEXT("IGMorning", "ObjDone", "집으로 돌아가자");
 	case EIGMorningPhase::Inactive:
 	default:
 		return FText::GetEmpty();
@@ -526,7 +526,7 @@ FString AIGMorningRoutineDirector::GetObjectiveTextAscii() const
 	switch (Phase)
 	{
 	case EIGMorningPhase::CheckFridge:
-		return TEXT("Thirsty - find a way to get drinking water");
+		return TEXT("Find drinking water");
 	case EIGMorningPhase::TakeWallet:
 		return TEXT("Optionally take the wallet, then leave");
 	case EIGMorningPhase::GoToStore:
@@ -536,7 +536,7 @@ FString AIGMorningRoutineDirector::GetObjectiveTextAscii() const
 	case EIGMorningPhase::PayAtCounter:
 		return TEXT("Pay at the counter");
 	case EIGMorningPhase::Complete:
-		return TEXT("Bought water. ...Head back home");
+		return TEXT("Head back home");
 	case EIGMorningPhase::Inactive:
 	default:
 		return FString();

@@ -25,6 +25,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 5.0,
   "blender": "5.2.0 LTS",
   "notes": "레인지 후드. 원점 (172,128,0), 앞면 -X. 몸체 Z 155..181, 연통 188..212."
 }

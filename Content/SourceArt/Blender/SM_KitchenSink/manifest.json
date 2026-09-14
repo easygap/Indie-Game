@@ -24,6 +24,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "싱크 볼과 구즈넥 수전. 원점은 림 윗면 중심(씬 (160,182,87.4)). 볼은 Z -26..0, 수전 Z 0..26.5."
 }

@@ -24,6 +24,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "천장 등 확산 돔. 테 안쪽 지름 22.8. 재질 슬롯은 씬이 M_LightPanel로 덮어쓴다."
 }

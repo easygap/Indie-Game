@@ -24,6 +24,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "인덕션 46 x 50 x 1.4. 원점 상판 위 중심(씬 (160,128,87))."
 }

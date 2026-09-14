@@ -25,6 +25,7 @@
     ]
   },
   "origin": "bottom-center",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
   "notes": "밤1에 떨어지는 소화기. 반지름 7.5, 높이 48 안. 원점 바닥 중심, 라벨 정면 -Y. 물리 소품이라 충돌은 본체·헤드 두 껍데기."
 }
