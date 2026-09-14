@@ -181,7 +181,7 @@ foreach ($invariant in @(
 }
 foreach ($invariant in @(
 	'PropMesh(TEXT("SM_AlarmClock"))',
-	'StoreCashRegisterVisual = PlacePhotoProp(',
+	'StoreCashRegisterVisual = Fixture(TEXT("SM_RetailPOS")',
 	'StoreCashRegisterVisual->GetStaticMesh()',
 	'StoreCashRegisterVisual->SetVisibility(false, true)',
 	'StoreCashRegisterVisual->SetHiddenInGame(true, true)',

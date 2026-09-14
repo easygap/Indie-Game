@@ -249,60 +249,9 @@ def build_rice_pack(out_root):
 # --------------------------------------------------------------------------
 
 def build_tobacco_cabinet(out_root):
-    ig.reset_scene()
-    m = mats()
-    parts = []
-    w, d, h = 2.20, 0.20, 1.40      # 씬: 벽면 Y -180에 붙어 Z 80..220
-    # 뒷판·양옆·위아래 — 짙은 회색 강판.
-    parts.append(ig.box("back", (w, 0.02, h), location=(0.0, -0.01, h * 0.5), material=m["grey"]))
-    for x in (-w * 0.5 + 0.01, w * 0.5 - 0.01):
-        parts.append(ig.box("side", (0.02, d, h), location=(x, -d * 0.5, h * 0.5), bevel=0.002, segments=1,
-                            material=m["grey"]))
-    parts.append(ig.box("top", (w, d, 0.02), location=(0.0, -d * 0.5, h - 0.01), material=m["grey"]))
-    parts.append(ig.box("bottom", (w, d, 0.02), location=(0.0, -d * 0.5, 0.01), material=m["grey"]))
-    # 위 청소년 판매 금지 띠(가로 180, 세로 24).
-    parts.append(ig.image_quad("sign", (1.80, 0.24), (0.0, -d - 0.0006, h - 0.15), m["sign"]))
-    parts.append(ig.box("sign_board", (1.84, 0.006, 0.28), location=(0.0, -d + 0.002, h - 0.15), material=m["white"]))
-    # 선반 넷: 10도 앞으로 기운 판, 앞턱, 밑면 LED. 담뱃갑 34개씩 두 줄(앞줄만 그림).
-    pack_w, pack_d, pack_h = 0.055, 0.022, 0.088
-    pitch = 0.0625
-    # 담뱃갑 몸통 색은 앞면 그림의 바탕색과 같다(create_store_product_art.py의 PACKS 순서).
-    pack_colors = ((0.86, 0.87, 0.90), (0.16, 0.22, 0.40), (0.10, 0.35, 0.55), (0.92, 0.92, 0.92),
-                   (0.15, 0.40, 0.25), (0.70, 0.12, 0.12), (0.10, 0.10, 0.12), (0.95, 0.80, 0.30))
-    pack_materials = [ig.mat_plastic(f"pack{i}", c, roughness=0.45, bump=0.0) for i, c in enumerate(pack_colors)]
-    for row, z in enumerate((0.16, 0.44, 0.72, 1.00)):
-        tilt = math.radians(10.0)
-        shelf = ig.box("shelf", (w - 0.06, d - 0.02, 0.012), location=(0.0, -d * 0.5, z), rotation=(tilt, 0.0, 0.0),
-                       material=m["grey"])
-        parts.append(shelf)
-        parts.append(ig.box("lip", (w - 0.06, 0.006, 0.03), location=(0.0, -d + 0.012, z + 0.02),
-                            rotation=(tilt, 0.0, 0.0), material=m["dark"]))
-        parts.append(ig.box("led", (w - 0.10, 0.012, 0.006), location=(0.0, -d + 0.02, z - 0.012), material=m["led"]))
-        for col in range(34):
-            x = -w * 0.5 + 0.07 + col * pitch
-            design = (col * 5 + row * 3) % 8
-            base = pack_materials[design]
-            for depth in (0, 1):
-                y = -d + 0.03 + depth * (pack_d + 0.004)
-                zc = z + 0.02 + pack_h * 0.5 + (0.03 if depth else 0.0)
-                pack = ig.box(f"pack_{row}_{col}_{depth}", (pack_w, pack_d, pack_h), location=(x, y, zc + 0.008),
-                              rotation=(tilt, 0.0, 0.0), material=base)
-                parts.append(pack)
-                if depth == 0:
-                    parts.append(ig.image_quad(f"packface_{row}_{col}", (pack_w - 0.003, pack_h - 0.003),
-                                               (x, y - pack_d * 0.5 - 0.0006 + 0.0006 * math.sin(tilt), zc + 0.008),
-                                               m["packs"], rotation=(tilt, 0.0, 0.0), uv_rect=ig.atlas_rect(4, 2, design)))
-    return ig.build_asset(
-        "SM_TobaccoCabinet", "large", parts, out_root,
-        collision_parts=[[parts[0], parts[1], parts[2], parts[3], parts[4]]],
-        notes=("계산대 뒤 담배 진열장 220 x 20 x 140. 원점은 벽면 바닥 중심(씬 (2560, -180, 80)), 앞면 -Y. "
-               "담뱃갑은 가상 브랜드 여덟 종, 위에 청소년 판매 금지 띠."),
-        texture_size=2048)
+    from build_retail_refresh import tobacco
+    tobacco(out_root)
 
-
-# --------------------------------------------------------------------------
-# 창가 취식대·온수기·쓰레기통
-# --------------------------------------------------------------------------
 
 def build_window_bar(out_root):
     ig.reset_scene()
@@ -393,4 +342,5 @@ def main():
             builder(out_root)
 
 
-main()
+if __name__ == "__main__":
+    main()

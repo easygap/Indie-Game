@@ -681,7 +681,7 @@ void AIGMissingFloorNightTwoBeatDirector::HandlePeepholeExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2PeepholeThought2",
-			"경찰한테 소리를 어떻게 설명해. 폰. 문에 대 두면 담기겠지."),
+			"폰으로 찍자. 문에서 조금 떨어져서."),
 		4.6f);
 }
 

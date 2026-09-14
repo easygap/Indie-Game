@@ -136,6 +136,7 @@ if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
 	-not $CorridorSignageOnly -and -not $LabelSleeveOnly -and
 	-not $MissingFloorOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1')
+	& (Join-Path $PSScriptRoot 'Create-RetailGraphics.ps1')
 
 	$python = Get-Command python -ErrorAction Stop
 	# Conditioning must precede PBR derivation: generate_ai_pbr_maps.py reads

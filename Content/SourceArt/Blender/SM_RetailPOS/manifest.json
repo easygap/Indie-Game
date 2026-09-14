@@ -1,0 +1,30 @@
+{
+  "name": "SM_RetailPOS",
+  "mesh_class": "prop",
+  "fbx": "SM_RetailPOS.fbx",
+  "textures": {
+    "D": "SM_RetailPOS_D.png",
+    "N": "SM_RetailPOS_N.png",
+    "ORM": "SM_RetailPOS_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 928,
+  "bounds_m": {
+    "min": [
+      -0.33,
+      -0.1915,
+      0.0
+    ],
+    "max": [
+      0.33,
+      0.19,
+      0.4621
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "한국 매장용 터치 POS. 금전함·고객표시기·감열 프린터. 직원 화면은 +Y."
+}

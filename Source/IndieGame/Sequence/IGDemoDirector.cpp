@@ -158,12 +158,12 @@ void AIGDemoDirector::BuildScript()
 	const FVector VillaFacadeSpot(240, -390, 620);
 	const FVector StoreFar(2400, -457, 240);
 	const FVector LampSpot(1000, -565, 340);
-	const FVector CoolerSpot(2925, -552, 125);
+	const FVector CoolerSpot(3085, -552, 118);
 	// Close on the stocked upper shelf bay. The frame must include the tier,
 	// price rail and cap underside so a cup can never masquerade as a display
 	// object perched on top of the gondola.
-	const FVector RamyeonSpot(2620, -377, 127);
-	const FVector RegisterSpot(2620, -262, 102);
+	const FVector RamyeonSpot(2702, -409, 125);
+	const FVector RegisterSpot(2650, -205, 106);
 	const FVector StoreDoorSpot(2405, -457, 150);
 
 	// -- waking up ---------------------------------------------------------
@@ -268,41 +268,44 @@ void AIGDemoDirector::BuildScript()
 	Steps.Add(MakeStill(TEXT("prologue-alley")));
 	Steps.Add(MakeWalk(FVector(1000, -537, 0)));
 	Steps.Add(MakeWait(1.5f, LampSpot));         // the streetlight dies overhead
-	// 서쪽 샛길. 골목 한가운데서 남쪽으로 꺾어 계단 위 철문까지 내려다본다.
-	// X 1180 주차 콘은 Y -430이라 이 걸음선(Y -537→-480)에 안 걸린다.
-	Steps.Add(MakeWalkLook(FVector(1300, -480, 0), FVector(1300, -1100, 100)));
-	Steps.Add(MakeWait(1.0f, FVector(1300, -1100, 100)));
+	// 세 통로를 모두 걸어서 통과한다. 충돌에 막히면 UpdateWalk가 실패로 끝낸다.
+	Steps.Add(MakeWalk(FVector(1300, -530, 0)));
+	Steps.Add(MakeWalk(FVector(1300, -990, 0)));
+	Steps.Add(MakeWalkLook(FVector(1300, -1360, 0), FVector(2045, -1468.5f, 151)));
+	Steps.Add(MakeWait(1.0f, FVector(2045, -1468.5f, 151)));
 	Steps.Add(MakeStill(TEXT("prologue-alley-passage")));
-	Steps.Add(MakeWalkLook(FVector(1520, -520, 0), StoreFar));
-	Steps.Add(MakeWalk(FVector(2080, -490, 0)));
+	Steps.Add(MakeWalk(FVector(1738, -1360, 0)));
+	Steps.Add(MakeWalk(FVector(1738, -1030, 0)));
+	Steps.Add(MakeWalk(FVector(1738, -530, 0)));
+	Steps.Add(MakeWalk(FVector(2310, -530, 0)));
+	Steps.Add(MakeWalk(FVector(2310, -1030, 0)));
+	Steps.Add(MakeWalk(FVector(2310, -1360, 0)));
+	Steps.Add(MakeWalk(FVector(2050, -1360, 0)));
+	Steps.Add(MakeWait(1.0f, FVector(2045, -1468.5f, 151)));
+	Steps.Add(MakeWalk(FVector(2310, -1360, 0)));
+	Steps.Add(MakeWalk(FVector(2310, -1030, 0)));
+	Steps.Add(MakeWalk(FVector(2310, -530, 0)));
 	Steps.Add(MakeWalk(FVector(2330, -460, 0))); // sliding door senses us
 	Steps.Add(MakeWait(1.2f, StoreDoorSpot));    // let both glass leaves clear
 
 	// -- the store ---------------------------------------------------------
 	// Continue well past the kick rail. The former shallow target completed
 	// at the door plane, where the capsule could remain caught on the sill.
-	Steps.Add(MakeWalk(FVector(2515, -457, 0)));
-	Steps.Add(MakeWalkLook(FVector(2620, -450, 0), RamyeonSpot));
+	Steps.Add(MakeWalk(FVector(2515, -470, 0)));
+	Steps.Add(MakeWalkLook(FVector(2710, -470, 0), RamyeonSpot));
 	Steps.Add(MakeWait(1.1f, RamyeonSpot));
 	Steps.Add(MakeStill(TEXT("prologue-ramyeon")));
-	Steps.Add(MakeWalkLook(FVector(2640, -460, 0), FVector(2900, -430, 140)));
-	Steps.Add(MakeWalkLook(FVector(2800, -470, 0), CoolerSpot));
-	Steps.Add(MakeWait(0.9f, CoolerSpot));       // settle, then frame the cooler
+	Steps.Add(MakeWalkLook(FVector(2910, -470, 0), CoolerSpot));
+	Steps.Add(MakeWait(0.9f, CoolerSpot));
 	Steps.Add(MakeStill(TEXT("prologue-store")));
-	Steps.Add(MakeWalkLook(FVector(2848, -532, 0), CoolerSpot));
+	Steps.Add(MakeWalkLook(FVector(2995, -552, 0), CoolerSpot));
 	Steps.Add(MakeInteract(WaterBottle.Get(), 2.2f, CoolerSpot));
-	// 계산대와 그 뒤 담배 진열장. 곤돌라(X 2488..2792, Y -390..-340)를 가로지르면
-	// 걸음이 막히므로 동쪽 끝을 돌아 나온 자리에서 비스듬히 본다. 곤돌라와 계산대
-	// 사이 58 cm 틈은 캡슐보다 좁다.
-	Steps.Add(MakeWalk(FVector(2900, -430, 0)));
-	Steps.Add(MakeWalkLook(FVector(2850, -260, 0), FVector(2560, -215, 120)));
-	Steps.Add(MakeWait(1.0f, FVector(2560, -215, 120)));
+	Steps.Add(MakeWalk(FVector(2930, -460, 0)));
+	Steps.Add(MakeWalk(FVector(2930, -285, 0)));
+	Steps.Add(MakeWalkLook(FVector(2760, -285, 0), FVector(2590, -130, 151)));
+	Steps.Add(MakeWait(1.0f, FVector(2590, -130, 151)));
 	Steps.Add(MakeStill(TEXT("prologue-store-counter")));
-	// Reach the register around the open east ends of the gondola and
-	// counter. The 62 cm slot between them is narrower than the capsule.
-	Steps.Add(MakeWalk(FVector(2900, -430, 0)));
-	Steps.Add(MakeWalk(FVector(2840, -195, 0)));
-	Steps.Add(MakeWalkLook(FVector(2665, -250, 0), RegisterSpot));
+	Steps.Add(MakeWalkLook(FVector(2670, -285, 0), RegisterSpot));
 	Steps.Add(MakeInteract(Checkout.Get(), 3.4f, RegisterSpot));
 	Steps.Add(MakeWait(2.6f, StoreDoorSpot));    // ...the chime rings by itself
 	Steps.Add(MakeWait(3.0f, StoreDoorSpot));

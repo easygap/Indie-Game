@@ -1,0 +1,145 @@
+{
+  "name": "NarinClerk",
+  "trial": "front-v2",
+  "status": "Generated",
+  "source": "Content/SourceArt/AI/NarinFront_20260914.png",
+  "sourceSha256": "9e1c79b404dde50bbc33c8ebf1f1512f5a511e9ed998669754b6e9f421bb1f8a",
+  "route": "trellis",
+  "resolution": 1024,
+  "seed": 56,
+  "postprocess": "pbr",
+  "decimateFaces": 200000,
+  "textureSize": 2048,
+  "server": {
+    "url": "http://127.0.0.1:8199",
+    "version": "0.34.6",
+    "device": "cuda:0 NVIDIA GeForce RTX 3060 : cudaMallocAsync"
+  },
+  "startedAt": "2026-09-14T03:29:25.662247+00:00",
+  "license": "TRELLIS.2 / Pixal3D weights: Comfy-Org repackage, MIT/permissive; DINOv3, MoGe, BiRefNet: see lunia_z SourceArt/Manifests/ComfyNative.20260908.json",
+  "runtimeReady": false,
+  "promptId": "fa44592a-4598-4fce-b6c1-e3115599c02f",
+  "elapsedSeconds": 90.5,
+  "finishedAt": "2026-09-14T03:30:56.144102+00:00",
+  "files": [
+    {
+      "path": "Content/SourceArt/Generated/NarinClerk/front-v2/raw/base-color_00001_.png",
+      "bytes": 3151463,
+      "sha256": "6012503f06144b1c73ac4f58a633392e6f8b29994111e734e2a057c4e496b986"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinClerk/front-v2/raw/cleaned-colored_00001_.glb",
+      "bytes": 6007244,
+      "sha256": "f832f27ce3441056cfb2925eddfba5a948e75bdcd25c44eb7be84470b60f15f8"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinClerk/front-v2/raw/colored_00001_.glb",
+      "bytes": 92121572,
+      "sha256": "252cfd29d88ac76f2ec7b4a76f40f750f370724873cd40cb97fb9d4b79496396"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinClerk/front-v2/raw/conditioning_00001_.png",
+      "bytes": 351775,
+      "sha256": "0ed7c5dda7d18c54e8ec1b351b07ee47ae7724611f221e7e49a884d7980b6965"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinClerk/front-v2/raw/metallic_00001_.png",
+      "bytes": 54224,
+      "sha256": "2849366807e692a22d678163a40515834a1b10817522842e21b7dc5ca9dc76fd"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinClerk/front-v2/raw/pbr_00001_.glb",
+      "bytes": 8587920,
+      "sha256": "d74ecde816ad34a73a72f4560f5936de85c3c5af5473f264e59764bbeec57595"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinClerk/front-v2/raw/roughness_00001_.png",
+      "bytes": 434363,
+      "sha256": "618e8daf0d99a2d3d6a4bc71ad111cd218d716d8e9aef4629586f014dea78dd8"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinClerk/front-v2/raw/shape_00001_.glb",
+      "bytes": 74223112,
+      "sha256": "f0aec02e01d30c29903be78ef66409e5c844d17e025e7cf7fcff25c1fd76c046"
+    }
+  ],
+  "outputs": {
+    "5": {
+      "images": [
+        {
+          "filename": "conditioning_00001_.png",
+          "subfolder": "ig3d\\NarinClerk\\front-v2",
+          "type": "output"
+        }
+      ]
+    },
+    "28": {
+      "3d": [
+        {
+          "filename": "shape_00001_.glb",
+          "subfolder": "ig3d\\NarinClerk\\front-v2",
+          "type": "output"
+        }
+      ]
+    },
+    "33": {
+      "3d": [
+        {
+          "filename": "colored_00001_.glb",
+          "subfolder": "ig3d\\NarinClerk\\front-v2",
+          "type": "output"
+        }
+      ]
+    },
+    "38": {
+      "3d": [
+        {
+          "filename": "cleaned-colored_00001_.glb",
+          "subfolder": "ig3d\\NarinClerk\\front-v2",
+          "type": "output"
+        }
+      ]
+    },
+    "43": {
+      "images": [
+        {
+          "filename": "base-color_00001_.png",
+          "subfolder": "ig3d\\NarinClerk\\front-v2",
+          "type": "output"
+        }
+      ]
+    },
+    "44": {
+      "images": [
+        {
+          "filename": "metallic_00001_.png",
+          "subfolder": "ig3d\\NarinClerk\\front-v2",
+          "type": "output"
+        }
+      ]
+    },
+    "45": {
+      "images": [
+        {
+          "filename": "roughness_00001_.png",
+          "subfolder": "ig3d\\NarinClerk\\front-v2",
+          "type": "output"
+        }
+      ]
+    },
+    "42": {
+      "3d": [
+        {
+          "filename": "pbr_00001_.glb",
+          "subfolder": "ig3d\\NarinClerk\\front-v2",
+          "type": "output"
+        }
+      ]
+    }
+  },
+  "retainedFiles": [
+    "Content/SourceArt/Generated/NarinClerk/front-v2/raw/pbr_00001_.glb"
+  ],
+  "archiveNote": "files와 outputs는 생성 당시 기록이다. 재작업에 쓰는 최종 PBR GLB, 원화, 워크플로만 저장소에 보관하며 중간 메시와 추출 맵은 Saved/RejectedRetail/NarinRawIntermediates에 두었다.",
+  "runtimeAsset": "Content/Meshes/SK_NarinClerk.uasset"
+}

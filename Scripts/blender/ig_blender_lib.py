@@ -1137,6 +1137,31 @@ def collision_box(name, size, location, index, rotation=(0.0, 0.0, 0.0)):
     return ob
 
 
+def ensure_primary_uv(ob, name="UVMap"):
+    """구운 텍스처의 좌표를 FBX의 첫 UV 채널로 내보낸다.
+
+    Blender의 active_render는 FBX 채널 순서를 바꾸지 않는다. 이미지 원화용
+    ImageUV가 먼저 생긴 메시도 UE의 TextureCoordinate(0)와 맞아야 한다.
+    """
+    layers = ob.data.uv_layers
+    if name not in layers or layers[0].name == name:
+        return False
+    snapshots = []
+    for layer in layers:
+        values = [0.0] * (len(layer.data) * 2)
+        layer.data.foreach_get("uv", values)
+        snapshots.append((layer.name, values))
+    snapshots.sort(key=lambda item: item[0] != name)
+    while layers:
+        layers.remove(layers[0])
+    for layer_name, values in snapshots:
+        layer = layers.new(name=layer_name)
+        layer.data.foreach_set("uv", values)
+    layers.active = layers[name]
+    layers[name].active_render = True
+    return True
+
+
 def export_fbx(path, objects):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     bpy.context.view_layer.update()
@@ -1340,7 +1365,8 @@ def finalize_slots(ob):
 
 def build_asset(asset_name, mesh_class, parts, out_root, collision_parts=None,
                 notes="", texture_size=None, preview=True, sharp_angle=30.0,
-                uv_margin=0.004, extra_export=(), preview_yaw=30.0, raw_uv=False):
+                uv_margin=0.004, extra_export=(), preview_yaw=30.0, raw_uv=False,
+                mirror_print_for_ue=False):
     """빌더의 마지막 공통 단계.
 
     parts: 결합할 오브젝트 목록(재질 붙어 있어야 함)
@@ -1395,6 +1421,19 @@ def build_asset(asset_name, mesh_class, parts, out_root, collision_parts=None,
         size = texture_size or TEXTURE_SIZE[mesh_class]
         textures = bake_textures(ob, asset_name, out_dir, size=size)
         slots = finalize_slots(ob)
+        ensure_primary_uv(ob)
+    if mirror_print_for_ue:
+        # UE에서 -Y 면을 바라볼 때의 화면 오른쪽은 Blender와 반대다.
+        # 구운 UV는 보존하고 좌우 정점·면 방향을 함께 바꿔 인쇄를 읽게 한다.
+        for item in [ob] + hulls:
+            for vertex in item.data.vertices:
+                vertex.co.x = -vertex.co.x
+            bm = bmesh.new()
+            bm.from_mesh(item.data)
+            bmesh.ops.reverse_faces(bm, faces=bm.faces)
+            bm.to_mesh(item.data)
+            bm.free()
+            item.data.update()
     fbx_path = os.path.join(out_dir, f"{asset_name}.fbx")
     export_fbx(fbx_path, [ob] + hulls + list(extra_export))
     manifest = write_manifest(out_dir, asset_name, mesh_class, fbx_path, textures, ob, slots, notes,

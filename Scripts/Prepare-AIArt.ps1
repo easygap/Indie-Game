@@ -45,17 +45,8 @@ $patchesWater = @(
 
 $plan = @(
     [pscustomobject]@{
-        Source = 'LabelWater_raw'; Target = 'T_LabelWater_D.png'
-        Crop = @(0.045, 0.185, 0.910, 0.575); Size = @(1024, 416)
-        Patches = $patchesWater
-    }
-    [pscustomobject]@{
         Source = 'LabelRamyeon_raw'; Target = 'T_LabelRamyeon_D.png'
         Crop = @(0.009, 0.125, 0.986, 0.771); Size = @(1024, 250)
-    }
-    [pscustomobject]@{
-        Source = 'SignMain_raw'; Target = 'T_SignMain_D.png'
-        Crop = @(0.030, 0.360, 0.940, 0.280); Size = @(1024, 256)
     }
     # Grid sheets: one generation carries four or six designs, which is the
     # only way to get twenty textures out of a tool that takes five minutes a
@@ -75,22 +66,6 @@ $plan = @(
     [pscustomobject]@{
         Source = 'SheetSnacks'; Target = 'T_SnackCorn_D.png'
         Crop = @(0.592, 0.515, 0.335, 0.476); Size = @(512, 640)
-    }
-    [pscustomobject]@{
-        Source = 'SheetBottles'; Target = 'T_LabelGreenTea_D.png'
-        Crop = @(0.022, 0.011, 0.956, 0.231); Size = @(1024, 416)
-    }
-    [pscustomobject]@{
-        Source = 'SheetBottles'; Target = 'T_LabelBarley_D.png'
-        Crop = @(0.022, 0.263, 0.956, 0.229); Size = @(1024, 416)
-    }
-    [pscustomobject]@{
-        Source = 'SheetBottles'; Target = 'T_LabelSoda_D.png'
-        Crop = @(0.022, 0.506, 0.956, 0.230); Size = @(1024, 416)
-    }
-    [pscustomobject]@{
-        Source = 'SheetBottles'; Target = 'T_LabelSoju_D.png'
-        Crop = @(0.022, 0.754, 0.956, 0.232); Size = @(1024, 416)
     }
     [pscustomobject]@{
         Source = 'SheetSigns'; Target = 'T_SignLaundry_D.png'

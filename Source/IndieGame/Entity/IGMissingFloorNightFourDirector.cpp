@@ -73,12 +73,12 @@ namespace IGNightFour
 	const FVector Unit401ReplyLocation(-146.0f, -239.0f, 960.0f);
 	const FVector EndingALocation(223.0f, 665.0f, 1220.0f);
 	const FVector EndingBLocation(165.0f, 765.0f, 1220.0f);
-	const FVector CavityVisualOrigin(276.0f, 700.0f, 1200.0f);
+	const FVector CavityVisualOrigin(327.0f, 700.0f, 1200.0f);
 	const FVector MokStartLocation(130.0f, 470.0f, 1195.0f);
 	const FVector MokExitLocation(130.0f, 865.0f, 1195.0f);
 	const FRotator MokRotation(0.0f, -90.0f, 0.0f);
 	const FVector EndingHammerStart(218.0f, 660.0f, 1205.0f);
-	const FVector EndingHammerRest(263.0f, 686.0f, 1276.0f);
+	const FVector EndingHammerRest(286.0f, 708.0f, 1268.0f);
 	const FVector EndingPhoneRest(205.0f, 753.0f, 1204.0f);
 	const FVector CavityDetailCenter(244.0f, 700.0f, 1290.0f);
 	const FVector MokDetailOffset(0.0f, 16.0f, 113.0f);
@@ -100,9 +100,9 @@ namespace IGNightFour
 	static const FVector& RevealTarget(const int32 Stage)
 	{
 		static const FVector Targets[] = {
-			CavityVisualOrigin + FVector(-13.0f, 0.0f, 161.0f),
-			CavityVisualOrigin + FVector(-14.0f, 0.0f, 118.0f),
-			CavityVisualOrigin + FVector(-10.0f, 35.0f, 18.0f),
+			CavityVisualOrigin + FVector(-20.0f, 0.0f, 130.0f),
+			CavityVisualOrigin + FVector(-23.0f, 0.0f, 95.0f),
+			CavityVisualOrigin + FVector(-43.0f, 22.0f, 15.0f),
 		};
 		return Targets[FMath::Clamp(Stage, 0, 2)];
 	}
@@ -289,7 +289,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"EvictionNoticeThought",
-			"내일 아침 7시 누수 보수. 그 전에 벽을 한 겹 더 치겠다는 소리다."),
+			"내일 아침 일곱 시부터 공사라고? 아직 안쪽도 못 봤는데."),
 		EIGMissingFloorTruth::StillCoveringIt,
 		EIGMissingFloorSource::EvictionWarning,
 		0.0f,
@@ -305,7 +305,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"CleaningDrainThought",
-			"배출 길이 먼저 열렸다. 탱크 물이 세척관으로 내려간다."),
+			"물이 빠지기 시작했다."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.8f,
@@ -321,7 +321,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"FloatBypassThought",
-			"수위 부자가 막던 급수관을 우회했다."),
+			"여기로 돌리면 부자가 올라가도 급수가 멈추지 않는다."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.8f,
@@ -338,7 +338,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"TransferPumpThought",
-			"1층 저수조에서 옥상으로 물이 올라간다."),
+			"펌프가 돈다. 관을 타고 물이 올라간다."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		1.0f,
@@ -536,11 +536,8 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 	UStaticMesh* MokWorkwearMesh = LoadMesh(TEXT("SM_MokHansooWorkwear"));
 	UStaticMesh* MokHeadHandsMesh = LoadMesh(TEXT("SM_MokHansooHeadHands"));
 	UStaticMesh* MokBoardMesh = LoadMesh(TEXT("SM_MokHansooGypsumBoard"));
-	// TRELLIS.2에서 기준 시트 그대로 뽑아 다듬은 통짜 유해와 목한수. 있으면
-	// 이것이 정식이고, 옷·뼈·방수포·캐스터 네 조각과 정면 디테일 카드는
-	// 절차 셸을 사람으로 읽히게 하던 장치라 만들지 않는다. 구운 색을 가진
-	// 한 메시 앞에서 카드는 겹쳐 보일 뿐이다. 둘 다 정면이 -Y, 원점은 바닥
-	// 중심이다.
+	// 유해와 목한수는 베이크된 3D 메시를 쓴다. 방수포와 카트 바퀴는 별도 소품이다.
+	// 인물 앞에 정면 카드를 겹치지 않는다. 원점은 바닥 중심, 정면은 -Y다.
 	UStaticMesh* CavityFigureMesh = LoadMesh(TEXT("SM_FinalCavityRemains"));
 	UStaticMesh* MokFigureMesh = LoadMesh(TEXT("SM_MokHansooFigure"));
 	UStaticMesh* TuningHammerMesh = LoadMesh(TEXT("SM_TuningHammer"));
@@ -550,7 +547,7 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 
 	UMaterialInterface* DryClothMaterial = LoadMaterial(TEXT("M_ConcreteDark"));
 	UMaterialInterface* BoneMaterial = LoadMaterial(TEXT("M_PaperOld"));
-	UMaterialInterface* TarpMaterial = LoadMaterial(TEXT("M_WindowDark"));
+	UMaterialInterface* TarpMaterial = LoadMaterial(TEXT("M_PlasticDark"));
 	UMaterialInterface* MetalMaterial = LoadMaterial(TEXT("M_P3CabinetMetalUV"));
 	UMaterialInterface* WorkwearMaterial = LoadMaterial(TEXT("M_PlasticDark"));
 	UMaterialInterface* BoardMaterial = LoadMaterial(TEXT("M_MissingFloorPlaster_XY"));
@@ -609,6 +606,18 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 		CavityRevealVisuals.Add(AddVisual(
 			TEXT("FinalCavityRemains"), CavityFigureMesh, nullptr,
 			IGNightFour::CavityVisualOrigin, FRotator(0.0f, -90.0f, 0.0f)));
+		// 접은 방수포는 발밑에 눕힌다. 두께는 2.7cm이며 공동의 뒷벽 안쪽에 맞춘다.
+		UStaticMeshComponent* FoldedTarp = AddVisual(
+			TEXT("FinalCavityTarp"), TarpMesh, TarpMaterial,
+			FVector(390.0f, 690.0f, 1200.4f), FRotator(90.0f, 0.0f, 0.0f));
+		if (FoldedTarp)
+		{
+			FoldedTarp->SetWorldScale3D(FVector(0.12f, 0.8f, 0.65f));
+		}
+		CavityRevealVisuals.Add(FoldedTarp);
+		CavityRevealVisuals.Add(AddVisual(
+			TEXT("FinalCavityCaster"), CasterMesh, MetalMaterial,
+			IGNightFour::CavityVisualOrigin + FVector(0.0f, 0.0f, -4.35f), FRotator::ZeroRotator));
 	}
 	else
 	{
@@ -693,9 +702,9 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 
 bool AIGMissingFloorNightFourDirector::HasFinaleFigures() const
 {
-	// 생성 메시면 통짜 하나와 카드 없음, 절차 셸이면 조각 넷·셋과 카드 둘.
+	// 유해·방수포·바퀴를 확인한다. 구형 인물의 경우에만 정면 보조 카드가 필요하다.
 	const bool bCavityComplete = bCavityFigureAuthored
-		? CavityRevealVisuals.Num() == 1
+		? CavityRevealVisuals.Num() == 3
 		: CavityRevealVisuals.Num() == 4 && CavityDetailCard != nullptr;
 	const bool bMokComplete = bMokFigureAuthored
 		? MokVisuals.Num() == 1
@@ -1410,7 +1419,7 @@ void AIGMissingFloorNightFourDirector::PresentMokHansoo()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"MokHansooFinalLine",
-			"덮어야 돼요. 이거… 말해도 아무도 안 믿어요."),
+			"그만해요. 거기 손대지 마. 내가… 내가 처리한다고 했잖아요."),
 		EIGDialogueChannel::Conversation,
 		3.0f,
 		EIGDialoguePriority::Critical);
@@ -1708,11 +1717,11 @@ void AIGMissingFloorNightFourDirector::HandleControlMisorder(
 			? NSLOCTEXT(
 				"IGMissingFloor",
 				"P5OverflowAlarm",
-				"넘친다. 배수부터 열었어야 했다.")
+				"물이 넘친다. 배수를 안 열었다.")
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"P5PressureAlarm",
-				"역지변이 쾅 닫혔다. 관이 안 열려 있다. 들었겠지."),
+				"관에서 크게 소리가 났다. 펌프부터 끄자."),
 		3.8f);
 	// 인터록이 선다. 그동안은 어느 손잡이도 안 돈다.
 	bControlLockoutActive = true;
@@ -1784,7 +1793,7 @@ void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 
 	WaterMaskBed = NewObject<UAudioComponent>(this, TEXT("NightFourWaterMask"));
 	WaterMaskBed->RegisterComponent();
-	WaterMaskBed->SetWorldLocation(FVector(305.0f, 700.0f, 1300.0f));
+	WaterMaskBed->SetWorldLocation(FVector(310.0f, 746.0f, 1300.0f));
 	WaterMaskBed->SetSound(
 		UIGToneSequenceSoundWave::CreateFloodedCorridorWaterBed(this));
 	WaterMaskBed->AttenuationSettings = IGAudio::MakeAttenuation(
@@ -1815,7 +1824,7 @@ void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P5MaskReady",
-				"올라가는 물과 내려가는 물. 두 관이 벽 양쪽에서 운다."),
+				"물이 도는 동안은 벽 두드리는 소리가 묻힌다."),
 			4.0f);
 	}
 }
@@ -2181,11 +2190,11 @@ void AIGMissingFloorNightFourDirector::FinishEnding(const FName EndingId)
 			? NSLOCTEXT(
 				"IGMissingFloor",
 				"EndingAChoiceThought",
-				"렌치를 오른손 옆에 놓는다. 사람들을 부르자.")
+				"여기 내려놓자. 밖에 나가서 사람을 불러야 해.")
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"EndingBChoiceThought",
-				"폰을 끈다. 신호 돌아올 때까지 여기 있는다."),
+				"조금만 더 여기 있을게."),
 		5.0f);
 	RefreshPresentation();
 	if (!bResolvedBroadcast)

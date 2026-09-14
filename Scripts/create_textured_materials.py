@@ -1,4 +1,4 @@
-﻿"""Create the textured PBR material set for the prologue realism pass.
+"""Create the textured PBR material set for the prologue realism pass.
 
 Requires the textures imported by generate_surface_textures.py. Architecture
 materials sample in world space (per-axis variants) so scaled greybox blocks
@@ -212,12 +212,12 @@ TEXTURED_MATERIALS = {
     # Shop floors are buffed to a mirror; the photo roughness map is far too
     # matte for that, so this one forces a polished value.
     "M_StoreTileWorld": {"tex": "StoreTile", "mapping": "XY", "tile": 60.0,
-                         "force_rough": 0.28},
-    "M_StoreCeilWorld": {"tex": "CeilingTile", "mapping": "XY", "tile": 120.0, "rough": 0.8},
+                         "force_rough": 0.31, "retail_finish": "floor"},
+    "M_StoreCeilWorld": {"tex": "CeilingTile", "mapping": "XY", "tile": 60.0, "rough": 0.8, "retail_finish": "ceiling"},
     "M_StoreWall_X":    {"tex": "Concrete", "mapping": "XZ", "tile": 150.0,
-                         "tint": (1.25, 1.25, 1.22)},
+                         "tint": (1.25, 1.25, 1.22), "retail_finish": "wall"},
     "M_StoreWall_Y":    {"tex": "Concrete", "mapping": "YZ", "tile": 150.0,
-                         "tint": (1.25, 1.25, 1.22)},
+                         "tint": (1.25, 1.25, 1.22), "retail_finish": "wall"},
     "M_MetalUV":        {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
                          "metallic": 0.85},
     "M_ShelfSteelUV":   {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
@@ -278,6 +278,7 @@ TEXTURED_MATERIALS = {
         "tex": "MissingFloorDryPlaster", "mapping": "YZ", "tile": 138.0,
         "rough": 0.91, "ao": True, "tint": (0.78, 0.76, 0.71),
     },
+    "M_GypsumBoard": {"tex": "MissingFloorDryPlaster", "mapping": "UV", "tile": 1.0, "retail_finish": "gypsum"},
     "M_MissingFloorPlaster_XY": {
         "tex": "MissingFloorDryPlaster", "mapping": "XY", "tile": 138.0,
         "rough": 0.93, "ao": True, "tint": (0.74, 0.73, 0.69),
@@ -313,6 +314,12 @@ TEXTURED_MATERIALS = {
 
 # Lit poster/label materials: texture straight onto mesh UVs.
 DECAL_MATERIALS = {
+    "M_RetailTobaccoAd": {"tex_asset": "T_RetailTobaccoAd_D", "rough": 0.6},
+    **{f"M_RetailPrice{sku}": {"tex_asset": f"T_RetailPrice{sku}_D", "rough": 0.7}
+       for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit")},
+    "M_LabelWater1L": {"tex_asset": "T_LabelWater1L_D", "rough": 0.55},
+    "M_LabelWater2L": {"tex_asset": "T_LabelWater2L_D", "rough": 0.55},
+    "M_NeighborhoodDelivery": {"tex_asset": "T_NeighborhoodDelivery_D", "rough": 0.85},
     "M_ArrivalContract": {
         "tex_asset": "T_ArrivalContract_D", "rough": 0.82,
         "two_sided": True,
@@ -695,6 +702,9 @@ SIGN_MATERIALS = {
 # generated assets; without the persisted usage flag the editor substitutes
 # its grey default material at runtime even though the texture graph is valid.
 INSTANCED_PRODUCT_MATERIALS = {
+    "M_GypsumBoard",
+    *(f"M_RetailPrice{sku}" for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit")),
+    "M_RetailPET",
     "M_BottleBrown",
     "M_BottleGreen",
     "M_CupNoodle",
@@ -705,6 +715,8 @@ INSTANCED_PRODUCT_MATERIALS = {
     "M_LabelSoda",
     "M_LabelSoju",
     "M_LabelWater",
+    "M_LabelWater1L",
+    "M_LabelWater2L",
     "M_SnackBlue",
     "M_SnackCorn",
     "M_SnackPotato",
@@ -722,6 +734,8 @@ WRAPPED_LABEL_MATERIALS = {
     "M_LabelSoda",
     "M_LabelSoju",
     "M_LabelWater",
+    "M_LabelWater1L",
+    "M_LabelWater2L",
 }
 
 # High-visibility fallback materials still used by the authored convenience
@@ -730,6 +744,12 @@ WRAPPED_LABEL_MATERIALS = {
 # rim, coated steel carries brushed micro-response, and dark plastics retain a
 # readable silhouette without fake emissive light.
 OPTICAL_PROP_MATERIALS = {
+    "M_RetailPET": {
+        "base": (0.18, 0.23, 0.25), "edge": (0.62, 0.69, 0.72),
+        "rough": 0.14, "specular": 0.58,
+        "opacity_center": 0.23, "opacity_edge": 0.64,
+        "refraction": 1.02, "two_sided": False,
+    },
     "M_Glass": {
         "base": (0.018, 0.026, 0.030),
         "edge": (0.16, 0.20, 0.21),
@@ -1150,6 +1170,11 @@ def create_textured_materials(assets, tools, specs=None, update_in_place=False):
     created = []
     for name, spec in (specs or TEXTURED_MATERIALS).items():
         asset_path = f"{MATERIAL_ROOT}/{name}"
+        if spec.get("retail_finish"):
+            import retail_surface_contract
+            material = _material_for_layered_update(assets, tools, name, True)
+            created.append(retail_surface_contract.author(material, spec["retail_finish"]))
+            continue
         if update_in_place and assets.does_asset_exist(asset_path):
             # Most live structural materials are held by the prologue scene
             # CDO before this commandlet begins.  Deleting their packages can
@@ -3449,6 +3474,8 @@ def run():
             "M_PaperFolded",
             "M_PaperOld",
             "M_LabelWater",
+    "M_LabelWater1L",
+    "M_LabelWater2L",
             "M_LabelGreenTea",
             "M_LabelBarley",
             "M_LabelSoda",

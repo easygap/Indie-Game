@@ -299,7 +299,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionThirdDawn",
-				"[7월 29일] 벽 가까이에서 손이 움직인다"),
+				"[7월 29일] 벽을 긁는 소리"),
 			2.8f);
 		break;
 	case 4:
@@ -343,7 +343,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionFourthDawn",
-				"[7월 30일] 숨 사이가 길어진다"),
+				"[7월 30일] 느리고 약한 숨소리"),
 			2.8f);
 		break;
 	case 7:
@@ -388,7 +388,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionBreathOnly",
-				"[가까이] 숨 하나만 남는다"),
+				"[가까이] 희미한 숨소리"),
 			3.2f);
 		break;
 	case 10:

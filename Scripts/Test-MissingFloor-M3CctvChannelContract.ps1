@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
 	§14 CCTV 채널 5 계약 검사.
 
@@ -170,7 +170,11 @@ Require-All $channel @(
 # 없다. 형체 세 상자는 지웠다(2026-09-10) — 그는 화면에 안 나오고(§4.6)
 # 소리로만 온다. 화면이 살아 있는 동안 복도가 한 번 운다.
 Require-All $scene @(
-	'CreateBlock(FVector(0, 590, 1230), FVector(120, 80, 60), Board);',
+	'StackBoards(FVector(0, 590, 1200), FVector(120, 80, 0), 40);',
+	'StackBoards(FVector(-80, 780, 1200), FVector(140, 60, 0), 15);',
+	'StackBoards(FVector(120, 880, 1200), FVector(90, 50, 0), 30);',
+	'BoardStack->AddInstance(',
+	'TexMat(TEXT("M_GypsumBoard"), ConcreteMaterial)',
 	'TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial)',
 	'AddSheeting('
 ) 'beat 2-2 shot list'
@@ -213,7 +217,7 @@ Require-All $channel @(
 ) '§5.5 AUX label placement'
 Require-All $puzzleTwo @(
 	'CctvChannelFive->Play()',
-	'AUX 5 / MONITOR ONLY. 저장은 안 되는 채널'
+	'저장은 안 되는 채널이다. 화면부터 기억해 두자.'
 ) '§5.5 AUX label reading'
 
 # --- 오디오 ----------------------------------------------------------------

@@ -854,6 +854,20 @@ def _replay(audit: CookAudit, pages: dict[str, str]) -> CookAudit:
     return after
 
 
+def targeted_pre_atlas_graph(audit: CookAudit, materials: dict[str, str],
+                             entries=PRINT_ATLAS_ENTRIES) -> CookAudit:
+    """이미 반입한 저장소에서도 교체 전 샘플러를 재현해 부분 갱신을 검사한다."""
+    before = _replay(audit, atlas_pages(audit, entries))
+    for material, stem in materials.items():
+        if material in before.references:
+            # 공용 페이지를 쓰는 현재 그래프에서는 옛 텍스처가 이미 빠져 있다.
+            # 이 재현용 간선만 되돌리고, 다른 패키지가 잡은 참조는 보존한다.
+            before.references[material].add(resolved_print_texture(audit, stem))
+    _seed_roots(before)
+    _close(before)
+    return before
+
+
 def simulate_targeted_pass(
     audit: CookAudit,
     materials: dict[str, str],
@@ -1459,10 +1473,11 @@ def command_simulate_targeted(audit: CookAudit) -> int:
         # retirement that only knows the contracted name: it is enough for a
         # texture with no photo capture and does nothing at all for one that
         # has one, which is the failure that hides.
-        fixed = simulate_targeted_pass(audit, live, retire=True)
+        before = targeted_pre_atlas_graph(audit, live)
+        fixed = simulate_targeted_pass(before, live, retire=True)
         contract_only = simulate_targeted_pass(
-            audit, live, retire=True, photo_aware=False)
-        broken = simulate_targeted_pass(audit, live, retire=False)
+            before, live, retire=True, photo_aware=False)
+        broken = simulate_targeted_pass(before, live, retire=False)
         print(
             f"\n  {build_pass.name}  "
             f"({os.path.basename(material_passes.BUILDER_SOURCE)}:"
@@ -1850,6 +1865,14 @@ def command_self_test() -> int:
             "a surviving pre-atlas sampler was not seen naming both"
         assert page in broken["after"].cooked, \
             "the page did not enter the cook on a targeted pass"
+
+        # 이미 반입한 그래프에서도 같은 결함을 재현해야 한다.
+        migrated = targeted_pre_atlas_graph(fixed["after"], live, entries)
+        migrated_fixed = simulate_targeted_pass(migrated, live, True, entries)
+        migrated_broken = simulate_targeted_pass(migrated, live, False, entries)
+        assert migrated_fixed["dropped"] == [print_texture]
+        assert migrated_broken["kept"] == [print_texture]
+        assert not migrated_fixed["stale"] and migrated_broken["stale"]
 
         # 2e-bis. The same pass, on a texture that has a photo capture. The
         #     material never names the contracted texture at all -- it names

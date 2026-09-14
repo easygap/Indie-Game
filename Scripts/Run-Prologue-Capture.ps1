@@ -125,6 +125,9 @@ if (-not (Select-String `
 }
 
 $missing = [Collections.Generic.List[string]]::new()
+if (Select-String -LiteralPath $runLog -Pattern 'missing usage flag|Failed to compile Material|Demo walkthrough failed' -Quiet) {
+	throw "실제 화면에서 재질 또는 이동 오류가 발생했다: $runLog"
+}
 $stale = [Collections.Generic.List[string]]::new()
 foreach ($captureName in $expectedCaptures) {
 	$path = Join-Path $mediaRoot $captureName

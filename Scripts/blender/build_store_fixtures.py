@@ -214,95 +214,13 @@ TIER_Z = (30.0, 60.0, 90.0, 120.0, 150.0)   # 씬 Z, 판 중심
 
 
 def build_gondola(out_root):
-    ig.reset_scene()
-    m = mats()
-    parts, groups = [], []
-    half_len = 1.52
-    # 등판(슬롯 있는 강판), 킥 베이스, 양 끝 기둥, 상판 캡.
-    spine = ig.box("spine", (3.00, 0.08, 1.56), location=(0.0, 0.0, 0.12 + 0.78), material=m["grey"])
-    parts.append(spine)
-    # 등판의 슬롯 줄: 실제 곤돌라는 5 cm 간격의 가로 슬롯이 나 있다.
-    cutters = []
-    for x in [-1.40 + i * 0.10 for i in range(29)]:
-        for z in (0.36, 0.66, 0.96, 1.26, 1.56):
-            cutters.append(ig.box("slot", (0.05, 0.12, 0.012), location=(x, 0.0, z)))
-    ig.boolean(spine, ig.join(cutters, "slots"), "DIFFERENCE")
-    base = ig.box("base", (2.92, 0.46, 0.12), location=(0.0, 0.0, 0.06), bevel=0.004, segments=1,
-                  material=m["dark"])
-    parts.append(base)
-    uprights = []
-    for x in (-half_len + 0.03, half_len - 0.03):
-        up = ig.box("upright", (0.06, 0.50, 1.68), location=(x, 0.0, 0.84), bevel=0.004, segments=1,
-                    material=m["grey"])
-        parts.append(up)
-        uprights.append(up)
-    cap = ig.box("cap", (3.04, 0.50, 0.04), location=(0.0, 0.0, 1.68), bevel=0.004, segments=1,
-                 material=m["grey"])
-    parts.append(cap)
-    groups.append([spine, base] + uprights + [cap])
+    from build_retail_refresh import gondola
+    gondola(out_root)
 
-    # 양면 선반 5단. 판 윗면이 씬 Z +1.5(31.5/61.5/…)가 되도록 판 중심을 씬 값에 맞춘다.
-    for face in (-1.0, 1.0):
-        for tier in TIER_Z:
-            zc = (tier - FLOOR_Z) / 100.0
-            plate = ig.box("plate", (2.98, 0.22, 0.03), location=(0.0, face * 0.13, zc), bevel=0.003,
-                           segments=1, material=m["grey"])
-            parts.append(plate)
-            groups.append([plate])
-            # 앞턱(올림 립)과 흰 가격 레일.
-            parts.append(ig.box("lip", (2.98, 0.02, 0.05), location=(0.0, face * 0.235, zc + 0.035),
-                                material=m["grey"]))
-            parts.append(ig.box("rail", (2.96, 0.02, 0.07), location=(0.0, face * 0.245, zc + 0.02),
-                                bevel=0.003, segments=1, material=m["price"]))
-            # 선반 밑 브래킷 둘.
-            for x in (-1.20, 1.20):
-                parts.append(ig.box("bracket", (0.02, 0.20, 0.03), location=(x, face * 0.12, zc - 0.03),
-                                    material=m["grey"]))
-    return ig.build_asset(
-        "SM_StoreGondola", "large", parts, out_root,
-        collision_parts=groups,
-        notes=("편의점 양면 곤돌라. 원점 바닥 중심(씬 (2640, Y, 6)), 길이 X 304, 깊이 Y 50, 높이 170. "
-               "선반 윗면 씬 Z 31.5/61.5/91.5/121.5/151.5, 상품은 씬 코드가 Y ±11에 놓는다."),
-        texture_size=2048)
-
-
-# --------------------------------------------------------------------------
-# 계산대
-# --------------------------------------------------------------------------
 
 def build_counter(out_root):
-    ig.reset_scene()
-    m = mats()
-    L = local((2560.0, -250.0))
-    parts, groups = [], []
-    # 몸통: 라미네이트. 앞(-Y) 아래는 8 cm 물러난 발치 홈.
-    body = ig.box("body", (2.20, 0.52, 0.80), location=(0.0, 0.04, 0.10 + 0.40), bevel=0.004, segments=1,
-                  material=m["laminate"])
-    parts.append(body)
-    kick = ig.box("kick", (2.16, 0.44, 0.10), location=(0.0, 0.08, 0.05), material=m["dark"])
-    parts.append(kick)
-    # 앞판: 몸통 앞면에 붙는 마감판(세로 이음 둘).
-    front = ig.box("front_panel", (2.20, 0.02, 0.80), location=(0.0, -0.23, 0.50), bevel=0.003, segments=1,
-                   material=m["laminate"])
-    parts.append(front)
-    for x in (-1.08, 0.0, 1.08):
-        cutter = ig.box("seam", (0.006, 0.05, 0.84), location=(x, -0.24, 0.50))
-        ig.boolean(front, cutter, "DIFFERENCE")
-    # 스테인리스 상판, 앞뒤로 2 cm 넘친다. 윗면 씬 Z 99.
-    top = ig.box("top", (2.24, 0.64, 0.03), location=(0.0, 0.0, 0.915), bevel=0.004, segments=2,
-                 material=m["steel"])
-    parts.append(top)
-    edge = ig.box("edge_trim", (2.24, 0.02, 0.04), location=(0.0, -0.322, 0.88), bevel=0.003, segments=1,
-                  material=m["dark"])
-    parts.append(edge)
-    groups.append([body, kick, front, top, edge])
-    return ig.build_asset(
-        "SM_StoreCounter", "large", parts, out_root,
-        collision_parts=groups,
-        notes=("편의점 계산대. 앞면(손님 쪽) -Y, 원점 바닥 중심(씬 (2560, -250, 6)). 상판 윗면 씬 Z 99이고 "
-               "바운드도 거기서 끝난다 — 상판 위 클립보드가 계산대 안에 든 것으로 잡히지 않는다. "
-               "카드 단말기는 SM_CardTerminal, 온장고는 SM_HotSnackWarmer, 담배 진열장은 씬 상자 그대로."),
-        texture_size=2048)
+    from build_retail_refresh import counter
+    counter(out_root)
 
 
 def build_terminal(out_root):
@@ -479,4 +397,5 @@ def main():
             builder(out_root)
 
 
-main()
+if __name__ == "__main__":
+    main()

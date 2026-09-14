@@ -1,0 +1,30 @@
+{
+  "name": "SM_RetailCupBeef",
+  "mesh_class": "prop",
+  "fbx": "SM_RetailCupBeef.fbx",
+  "textures": {
+    "D": "SM_RetailCupBeef_D.png",
+    "N": "SM_RetailCupBeef_N.png",
+    "ORM": "SM_RetailCupBeef_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 2564,
+  "bounds_m": {
+    "min": [
+      -0.073,
+      -0.08,
+      0.0
+    ],
+    "max": [
+      0.073,
+      0.073,
+      0.0668
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "86g 사발면 14.6×14.6×6.68cm. 흰 성형 용기와 인쇄 종이뚜껑. 2줄 진열에 맞춘 실제 비례."
+}

@@ -13,19 +13,20 @@
   "triangles": 12000,
   "bounds_m": {
     "min": [
-      -0.5141,
-      -0.3212,
-      -0.0223
+      -0.3809,
+      -0.4862,
+      0.0011
     ],
     "max": [
-      0.5093,
-      0.387,
+      0.3802,
+      0.485,
       1.4202
     ]
   },
   "origin": "bottom",
+  "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "밤4 공동 최종 잔존물(웅크린 유해와 옷). TRELLIS.2(trellis1024-s56, 정면 기준 셀)에서 생성, 뒤로 늘어진 깊이를 절반으로 누르고 벽감 뒤를 잘라 12000 삼각형으로 다듬음. 정면 -Y(앞끝 Y -31), 원점 바닥.",
-  "generated_from": "../Generated/FinalCavityRemains/trellis1024-s56/raw/pbr_00001_.glb",
+  "notes": "기존 다면 원화에서 흰 배경의 단일 정면을 다시 만들었다. 작업복과 두개골이 끊기지 않는 형상을 확인한 뒤 3mm 복셀로 잔조각을 연결하고 12000 삼각형으로 줄였다. 뼈와 천은 비금속이며, 방수포와 바퀴는 게임에서 별도 배치한다.",
+  "generated_from": "../Generated/FinalCavityRemains/front-20260914/raw/pbr_00001_.glb",
   "vertex_ao": false
 }

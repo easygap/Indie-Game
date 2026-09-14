@@ -10,11 +10,11 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 336,
+  "triangles": 356,
   "bounds_m": {
     "min": [
       -1.12,
-      -0.332,
+      -0.32,
       0.0
     ],
     "max": [
@@ -26,5 +26,5 @@
   "origin": "bottom-center",
   "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "편의점 계산대. 앞면(손님 쪽) -Y, 원점 바닥 중심(씬 (2560, -250, 6)). 상판 윗면 씬 Z 99이고 바운드도 거기서 끝난다 — 상판 위 클립보드가 계산대 안에 든 것으로 잡히지 않는다. 카드 단말기는 SM_CardTerminal, 온장고는 SM_HotSnackWarmer, 담배 진열장은 씬 상자 그대로."
+  "notes": "계산대 224×64×93cm. 고객은 -Y, 상판 높이는 월드 99cm. 회녹색 라미네이트와 도장 전면."
 }

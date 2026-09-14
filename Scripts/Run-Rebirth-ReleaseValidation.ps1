@@ -1142,7 +1142,7 @@ function Assert-ReleaseLog {
 		'REBIRTH_GREYBOX PASS',
 		'REBIRTH_RELEASE PASS s2_roof_door',
 		'REBIRTH_RELEASE PASS collision_route',
-		'REBIRTH_RELEASE PASS store_instancing instances=1151',
+		'REBIRTH_RELEASE PASS store_instancing instances=1301',
 		'REBIRTH_RELEASE PASS audio_synthesis tracks=19 invalid=0 clipped=0',
 		'REBIRTH_RELEASE PASS audio_queue',
 		'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 presentations=2 cases=12 duplicates=0',

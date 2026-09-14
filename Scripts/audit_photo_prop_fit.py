@@ -77,7 +77,7 @@ CALL = re.compile(
     r'PlacePhotoProp(?P<exact>ExactSize)?\(\s*\n?\s*TEXT\("(?P<asset>\w+)"\)'
     r'\s*,\s*\n?\s*FVector\((?P<location>[^)]*)\)'
     r'\s*,\s*\n?\s*FVector\((?P<fit>[^)]*)\)'
-    r'\s*,\s*\n?\s*(?P<yaw>-?[\d.]+)f',
+    r'\s*,\s*\n?\s*(?P<yaw>-?[\d.]+)f?(?=\s*[,\)])',
     re.S)
 
 
@@ -280,8 +280,18 @@ def self_test() -> int:
 
     calls = list(placements(open(
         os.path.join(ROOT, SCENE_SOURCE), encoding="utf-8-sig").read()))
-    if len(calls) < 15:
-        failures.append("배치 호출을 너무 적게 찾았다 (" + str(len(calls)) + ")")
+    fixture = """
+    PlacePhotoProp(TEXT("crate"), FVector(1, 2, 3), FVector(4, 5, 6), 0);
+    PlacePhotoPropExactSize(TEXT("bed"), FVector(7, 8, 9), FVector(10, 11, 12), -90.0f, false);
+    PlacePhotoProp(TEXT("bag"), FVector(1, 2, 3), FVector(4, 5, 6), 12.5);
+    """
+    parsed = list(placements(fixture))
+    if [call["yaw"] for call in parsed] != [0.0, -90.0, 12.5]:
+        failures.append("정수·실수·f 접미사가 붙은 요각을 같은 방식으로 읽지 못했다")
+    if len(parsed) != 3 or not parsed[1]["exact"]:
+        failures.append("두 배치 함수의 크기 지정 방식을 구별하지 못했다")
+    if not calls:
+        failures.append("월드에서 사진 소품 배치를 하나도 찾지 못했다")
     if not any(call["exact"] for call in calls):
         failures.append("PlacePhotoPropExactSize 호출을 못 찾았다")
 

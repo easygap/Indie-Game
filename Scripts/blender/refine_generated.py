@@ -50,6 +50,7 @@ def parse_args():
     parser.add_argument("--texture-size", type=int, default=0)
     parser.add_argument("--vertex-ao", action="store_true")
     parser.add_argument("--organic", action="store_true", help="사람·생물의 면 노멀과 비금속 반사를 정리한다")
+    parser.add_argument("--front-photo", help="정면 원본으로 눈과 피부의 색을 보완한다")
     parser.add_argument("--smooth-iterations", type=int, default=0, help="데시메이트 전 스무딩 횟수")
     parser.add_argument("--voxel-remesh", type=float, default=0.0,
                         help="데시메이트 전 복셀 리메시 크기(m). 털·얇은 조각으로 깨진 표면을 한 덩어리로 녹인다")
@@ -211,6 +212,9 @@ def main():
     high.data.update()
     if args.organic:
         ig.prepare_organic_source(high)
+    if args.front_photo:
+        from project_character_face import apply
+        apply(high, os.path.abspath(args.front_photo))
     # 생성 메시에 딸려 온 배경(벽감·받침)을 평면으로 잘라내고 구멍을 메운다.
     for axis, value, keep_below in ((1, args.clip_y_max, True), (1, args.clip_y_min, False)):
         if value is None:
@@ -274,12 +278,13 @@ def main():
     bpy.data.objects.remove(high, do_unlink=True)
     bpy.data.meshes.remove(high_mesh)
 
-    # 구운 결과로 미리보기(반전 상태라 좌우가 바뀌어 보인다. 확인용이다).
+    # FBX용 Y 반전 상태에서는 카메라도 반대쪽에 놓아 정면을 확인한다.
     ig.preview_material_from_bakes(low, textures)
-    ig.render_preview(low, os.path.join(out_dir, f"{name}_preview.png"))
-    ig.render_preview(low, os.path.join(out_dir, f"{name}_preview_torch.png"), flashlight=True)
+    ig.render_preview(low, os.path.join(out_dir, f"{name}_preview.png"), camera_yaw_deg=180)
+    ig.render_preview(low, os.path.join(out_dir, f"{name}_preview_torch.png"), flashlight=True, camera_yaw_deg=180)
 
     slots = ig.finalize_slots(low)
+    ig.ensure_primary_uv(low)
     fbx_path = os.path.join(out_dir, f"{name}.fbx")
     ig.export_fbx(fbx_path, [low])
     manifest = ig.write_manifest(out_dir, name, args.mesh_class, fbx_path, textures, low, slots,

@@ -780,6 +780,7 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> FlickerStreetlight;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> DegradedCorridorLight;
 	UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> StoreLights;
+	UPROPERTY(Transient) TObjectPtr<class AIGStoreClerk> StoreClerk;
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> JingleComponent;
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> DistantAlarmComponent;
 

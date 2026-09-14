@@ -17,6 +17,7 @@ param(
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
+$Only = @($Only | ForEach-Object { $_ -split ',' } | Where-Object { $_ })
 
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $sourceRoot = Join-Path $projectRoot 'Content\SourceArt\Blender'
@@ -132,7 +133,7 @@ foreach ($manifestPath in Get-ChildItem -LiteralPath $sourceRoot -Recurse -Filte
 	if ($Only.Count -gt 0 -and $Only -notcontains $manifest.name) { continue }
 	$expected = @("Content\Meshes\$($manifest.name).uasset")
 	# 구운 텍스처가 없는 메시(raw_uv)는 인스턴스도 없다. 재질은 씬이 UV0에 준다.
-	$roles = @($manifest.textures.PSObject.Properties.Name)
+	$roles = @($manifest.textures.PSObject.Properties | ForEach-Object { $_.Name })
 	if ($roles.Count -gt 0) {
 		$expected += "Content\Prototype\Materials\MI_$($manifest.name.Substring(3)).uasset"
 	}

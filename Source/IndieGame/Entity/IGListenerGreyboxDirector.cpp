@@ -324,7 +324,7 @@ void AIGListenerGreyboxDirector::DestroyPartialStage()
 		NightOneBeats.Get(), NightTwoBeats.Get(), PuzzleTwo.Get(),
 		NightThree.Get(), Mercy.Get(), FifthDawn.Get(), Epilogue.Get(),
 		NightFour.Get(), SleepTarget.Get(), Unit401Door.Get(),
-		UsedListingNote.Get(),
+		UsedListingNote.Get(), NeighborhoodDeliveryNote.Get(),
 		// SpawnOptionalWitnesses가 세우는 다섯. 지금은 마지막 실패 경로보다
 		// 뒤에 있어 새어 나갈 수 없지만, 그 사이에 실패가 하나 생기면 이름이
 		// 살아남아 재시도를 막는다.
@@ -357,6 +357,8 @@ void AIGListenerGreyboxDirector::DestroyPartialStage()
 	SleepTarget = nullptr;
 	Unit401Door = nullptr;
 	UsedListingNote = nullptr;
+	NeighborhoodDeliveryNote = nullptr;
+	GetWorldTimerManager().ClearTimer(NeighborhoodSoundTimer);
 	WaterBowl = nullptr;
 	SleepingPills = nullptr;
 	CigarettePack = nullptr;
@@ -906,6 +908,24 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 	Parameters.SpawnCollisionHandlingOverride =
 		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
+	// 뒤편 통로에서도 입주 조사를 시작할 수 있다. 안내문은 본 줄거리의 필수 조건이 아니다.
+	Parameters.Name = TEXT("NeighborhoodDeliveryNote");
+	NeighborhoodDeliveryNote = World->SpawnActor<AIGReadableNote>(AIGReadableNote::StaticClass(),
+		FTransform(FRotator::ZeroRotator, FVector(2045, -1468.5f, 151)), Parameters);
+	if (NeighborhoodDeliveryNote)
+	{
+		NeighborhoodDeliveryNote->ConfigurePrototypeVisuals(CubeMesh,
+			LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_NeighborhoodDelivery.M_NeighborhoodDelivery")),
+			FVector(36, 0.5, 48));
+		NeighborhoodDeliveryNote->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "DeliveryPrompt", "택배 배송 안내"));
+		NeighborhoodDeliveryNote->SetNoteText(NSLOCTEXT("IGMissingFloor", "DeliveryTitle", "택배 기사님께"), {
+			NSLOCTEXT("IGMissingFloor", "Delivery1", "달빛빌라 옥탑"),
+			NSLOCTEXT("IGMissingFloor", "Delivery2", "부재 시 앞쪽 새벽24 무영로점에 맡겨 주세요."),
+			NSLOCTEXT("IGMissingFloor", "Delivery3", "장기 보관은 어렵습니다. 수령인에게 연락 부탁드립니다."),
+			NSLOCTEXT("IGMissingFloor", "Delivery4", "달빛빌라 관리실  목한수") });
+		NeighborhoodDeliveryNote->OnReadStateChanged.AddDynamic(this, &AIGListenerGreyboxDirector::HandleNeighborhoodDeliveryRead);
+	}
+
 	// 401호 문선 서쪽 복도 바닥. 4층 슬래브는 Z=900이고 그릇 높이는 7 cm이라
 	// 중심은 903.5다. X는 401호 문선(X -200..-192)과 계단 개구부(X -230까지)
 	// 사이의 빈 30 cm에 넣고, Y는 굽도리 앞면(-238.5)에서 1.5 cm 띄운다 —
@@ -925,7 +945,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessBowlThought",
-				"물이 새로 담겨 있다. 고양이가 4층까지 올라올 리가 없는데."),
+				"물그릇 밑에 신문지를 깔아 뒀다. 누가 여기서 고양이를 돌보나 보다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -952,7 +972,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessPillsThought",
-				"조제일이 작년 8월부터다. 한 달도 안 빠지고 매달."),
+				"같은 병원 약봉지다. 작년 여름 것부터 모아 두셨네."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -979,7 +999,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessPackThought",
-				"여섯 개비가 같은 자리에 눌려 있다. 여기 오래 앉아 있었구나."),
+				"재떨이가 없어서 바닥에 끈 건가. 끝마다 눌린 자국이 있다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -994,7 +1014,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 	Parameters.Name = TEXT("MissingFloorWitnessStoreRoster");
 	StoreRoster = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator(0.0f, -9.0f, 0.0f), FVector(2558.0f, -246.0f, 99.6f)),
+		FTransform(FRotator(0.0f, -9.0f, 0.0f), FVector(2548.0f, -193.0f, 99.6f)),
 		Parameters);
 	if (StoreRoster)
 	{
@@ -1006,7 +1026,7 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessRosterThought",
-				"새벽 칸만 계속 같은 이름이다. 0시부터 6시, 매일."),
+				"나린 씨 이름은 전부 야간에 적혀 있다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -1144,14 +1164,14 @@ void AIGListenerGreyboxDirector::HandleUnit402ListenExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"WitnessUnit402Caption",
-			"[문 너머] 공기뿐. 냉장고도 안 돈다"),
+			"[문 안은 조용하다]"),
 		2.8f);
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"WitnessUnit402Thought",
-			"냉장고 소리가 없다. 전기까지 끊고 나갔구나."),
+			"벨이 안 울린다. 문틈에 끼워 둔 우편도 그대로고."),
 		4.4f);
 }
 
@@ -1185,7 +1205,7 @@ void AIGListenerGreyboxDirector::HandleRoofDoorListenExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"WitnessRoofWindThought",
-			"바람 소리엔 박자가 없다. 이걸 그 소리라고 우기신 거야."),
+			"바람은 창틀에서 난다. 어젯밤 천장에서 들은 소리하고는 다르다."),
 		4.6f);
 }
 
@@ -1215,7 +1235,7 @@ void AIGListenerGreyboxDirector::HandleUnit401RadioExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"WitnessRadioThought",
-			"라디오를 켜 두셨다. 사람 소리가 나야 잠이 온다고 하시더니."),
+			"문 안에서 라디오가 들린다. 주무시는 줄 알았는데."),
 		4.2f);
 }
 
@@ -1321,7 +1341,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalContractThought",
-			"대장에는 4층까지다. 옥상은 공용. 내 방은 403호."),
+			"403호. 계약서에 적힌 건 여기까지다. 옥상은 같이 쓴다고 했고."),
 		0.7f,
 		0.02f);
 	ArrivalParcelBox = SpawnEvidence(
@@ -1334,7 +1354,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalParcelThought",
-			"받는 사람 백도하. 주소는 여기, 호수는 501호. 5층이 어디 있다고."),
+			"백도하, 달빛빌라 501호. 오빠가 쓰던 주소가 맞다."),
 		0.9f,
 		0.12f);
 	ArrivalNotebookBox = SpawnEvidence(
@@ -1347,7 +1367,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalNotebookThought",
-			"조율 기록. 마지막 다섯 장이 전부 새벽 4시 31분에서 끊긴다. 같은 시간, 같은 자리."),
+			"오빠 수첩이다. 마지막 며칠은 조율 예약 대신 새벽에 들은 소리를 적어 놨다."),
 		1.0f,
 		0.13f);
 	ArrivalVoicemailBox = SpawnEvidence(
@@ -1360,15 +1380,15 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalVoicemailThought",
-			"저장 안 된 음성메시지. 「문 두드리면 알지? 둘, 하나.」 그 뒤로 숨소리, 천장 긁는 소리."),
+			"마지막으로 온 음성메시지다. 「문 두드리면 알지? 두 번, 쉬고 한 번.」 뒤에서 뭔가 긁힌다."),
 		0.8f,
 		0.09f);
 	ArrivalStoreBell = SpawnEvidence(
 		TEXT("MissingFloorArrivalStoreBell"),
-		FVector(2620.0f, -255.0f, 102.0f),
-		FVector(8.0f, 8.0f, 5.0f),
-		CubeMesh,
-		Metal,
+		FVector(2690.0f, -216.0f, 101.55f),
+		FVector(8.6f, 8.6f, 5.1f),
+		LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_ServiceBell.SM_ServiceBell")),
+		nullptr,
 		NSLOCTEXT("IGMissingFloor", "ArrivalStoreBellPrompt", "계산대 호출벨을 누른다"),
 		FText::GetEmpty(),
 		0.0f,
@@ -1383,7 +1403,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"Arrival402Thought",
-			"새벽에 위에서 끄는 소리 나도 옥상 문 열지 마세요 — 지난주 날짜다."),
+			"「밤에 위에서 소리가 나도 올라가지 마세요.」 402호 사람이 붙였나?"),
 		0.5f,
 		0.01f);
 	ArrivalRoofLock = SpawnEvidence(
@@ -1396,7 +1416,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalRoofLockThought",
-			"자물쇠는 새것이다. 문틀 안쪽에 석고 가루가 하얗게 앉았다. 안에서 뭘 하는 걸까."),
+			"자물쇠가 채워져 있다. 옥상은 같이 쓴다더니."),
 		0.8f,
 		0.08f);
 }
@@ -1478,43 +1498,44 @@ void AIGListenerGreyboxDirector::UpdateArrivalSequence()
 	if (ArrivalParcelBox)
 	{
 		ArrivalParcelBox->SetInteractionEnabled(
-			bContract && !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Parcel"))));
+			!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Parcel"))));
 	}
 	if (ArrivalNotebookBox)
 	{
 		ArrivalNotebookBox->SetInteractionEnabled(
-			bContract && !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Notebook"))));
+			!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Notebook"))));
 	}
 	if (ArrivalVoicemailBox)
 	{
 		ArrivalVoicemailBox->SetInteractionEnabled(
-			bContract && !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Voicemail"))));
+			!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Voicemail"))));
 	}
 	if (ArrivalStoreBell)
 	{
-		ArrivalStoreBell->SetInteractionEnabled(bBoxes && !bStore);
+		ArrivalStoreBell->SetInteractionEnabled(true);
 	}
 	if (Unit401Door)
 	{
-		Unit401Door->SetInteractionEnabled(bStore && !bUnit401);
+		Unit401Door->SetInteractionEnabled(!bUnit401);
 	}
 	if (ArrivalUnit402Note)
 	{
-		ArrivalUnit402Note->SetInteractionEnabled(bStore && !bUnit402);
+		ArrivalUnit402Note->SetInteractionEnabled(!bUnit402);
 	}
 	if (ArrivalRoofLock)
 	{
-		ArrivalRoofLock->SetInteractionEnabled(bUnit401 && bUnit402 && !bRoof);
+		ArrivalRoofLock->SetInteractionEnabled(!bRoof);
 	}
 
-	if (bRoof && Narrative->MarkBeatPlayed(FName(TEXT("Arrival.Complete"))))
+	if (bContract && bBoxes && bStore && bUnit401 && bUnit402 && bRoof
+		&& Narrative->MarkBeatPlayed(FName(TEXT("Arrival.Complete"))))
 	{
 		AIGHorrorHUD::PushThought(
 			this,
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"ArrivalReadyForBed",
-				"계약서엔 없는 문이다. 오늘은 여기까지."),
+				"내일 관리인부터 만나 봐야겠다. 오늘은 좀 자자."),
 			3.8f);
 		RequestArrivalAutosave();
 	}
@@ -1535,21 +1556,31 @@ void AIGListenerGreyboxDirector::HandleArrivalEvidence(
 	}
 	if (Evidence == ArrivalStoreBell)
 	{
-		// 편의점은 낮마다 열려 있고 나린의 말은 아는 것에 따라 갈린다. 입주
-		// 시퀀스는 밤 0에만 돌지만 벨은 그 뒤로도 사람을 부른다 — 밤 1 이후의
-		// 두 대사가 여기 갇혀서 한 번도 안 나오고 있었다.
-		IGAudio::SpawnOneShotAt(
-			this,
-			UIGToneSequenceSoundWave::CreateDoorbellChime(this),
-			Evidence->GetActorLocation(),
-			0.55f);
-		AIGHorrorHUD::PushDialogue(
-			this,
+		const double Now = GetWorld()->GetTimeSeconds();
+		if (Now - LastCounterTalkAt < 7.0) { return; }
+		LastCounterTalkAt = Now;
+		IGAudio::SpawnOneShotAt(this,
+			UIGToneSequenceSoundWave::CreateDoorbellChime(this), Evidence->GetActorLocation(), 0.22f);
+		const bool bDeliveryQuestion = Narrative->HasBeatPlayed(FName(TEXT("Neighborhood.Delivery")))
+			&& !Narrative->HasBeatPlayed(FName(TEXT("Neighborhood.DeliveryDiscussed")));
+		AIGHorrorHUD::PushDialogue(this,
+			NSLOCTEXT("IGMissingFloor", "YudamCounterSpeaker", "백유담"),
+			bDeliveryQuestion
+				? NSLOCTEXT("IGMissingFloor", "NarinDeliveryQuestion", "뒤편 안내문 보고 왔어요. 백도하 이름으로 온 택배도 여기 맡긴 적 있나요?")
+				: (Narrative->GetNightIndex() == 0
+					? (Narrative->HasBeatPlayed(FName(TEXT("Arrival.Store")))
+						? NSLOCTEXT("IGMissingFloor", "NarinRepeatQuestion", "혹시 생각나는 게 더 있으세요?")
+						: NSLOCTEXT("IGMissingFloor", "NarinFirstQuestion", "달빛빌라 403호에 이사 왔어요. 백도하라는 사람 아세요? 제 오빠예요."))
+					: NSLOCTEXT("IGMissingFloor", "NarinLaterQuestion", "저 왔어요. 혹시 그 뒤로 뭐 들으신 건 없어요?")),
+			EIGDialogueChannel::Conversation, 0.0f, EIGDialoguePriority::Story);
+		AIGHorrorHUD::PushDialogue(this,
 			NSLOCTEXT("IGMissingFloor", "NarinSpeaker", "한나린"),
-			GetNarinCounterLine(),
-			EIGDialogueChannel::Conversation,
-			0.0f,
-			EIGDialoguePriority::Story);
+			GetNarinCounterLine(), EIGDialogueChannel::Conversation, 0.0f, EIGDialoguePriority::Story);
+		if (bDeliveryQuestion)
+		{
+			Narrative->MarkBeatPlayed(FName(TEXT("Neighborhood.DeliveryDiscussed")));
+			RequestArrivalAutosave();
+		}
 	}
 	if (Narrative->GetNightIndex() != 0)
 	{
@@ -1625,39 +1656,69 @@ void AIGListenerGreyboxDirector::HandleUsedListingRead(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"UsedListingThought",
-			"두고 간 짐이라니. 그 세입자는 어디 갔는데."),
+			"오빠 공구랑 같은 모델이다. 작년 여름에 팔렸네."),
 		4.4f);
+}
+
+void AIGListenerGreyboxDirector::HandleNeighborhoodDeliveryRead(AIGReadableNote* Note, bool bOpened)
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative) { return; }
+	if (bOpened)
+	{
+		if (Narrative->MarkBeatPlayed(FName(TEXT("Neighborhood.Delivery")))) { RequestArrivalAutosave(); }
+		return;
+	}
+	if (!Narrative->MarkBeatPlayed(FName(TEXT("Neighborhood.RearDoor")))) { return; }
+	RequestArrivalAutosave();
+	GetWorldTimerManager().SetTimer(NeighborhoodSoundTimer, FTimerDelegate::CreateWeakLambda(this, [this]()
+	{
+		const FVector Door(1510, -1475, 108);
+		if (!Player.IsValid() || FVector::DistSquared(Player->GetActorLocation(), Door) > FMath::Square(1200.f)) { return; }
+		USoundBase* Sound = LoadObject<USoundBase>(nullptr, TEXT("/Game/Audio/S_Door_Steel_Close.S_Door_Steel_Close"));
+		IGAudio::SpawnOneShotAt(this, Sound, Door, 0.36f, 0.87f, 100.f, 1700.f, EIGAudioBus::World);
+		AIGHorrorHUD::PushAudioCaptionAt(this,
+			NSLOCTEXT("IGMissingFloor", "RearDoorCaption", "[뒤편 건물, 철문 닫히는 소리]"), 2.5f, Door);
+	}), 1.4f, false);
 }
 
 FText AIGListenerGreyboxDirector::GetNarinCounterLine() const
 {
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	const int32 NightIndex = Narrative ? Narrative->GetNightIndex() : 0;
+	if (Narrative && Narrative->HasBeatPlayed(FName(TEXT("Neighborhood.Delivery")))
+		&& !Narrative->HasBeatPlayed(FName(TEXT("Neighborhood.DeliveryDiscussed"))))
+	{
+		return NSLOCTEXT("IGMissingFloor", "NarinDeliveryAnswer",
+			"작년 여름에 몇 번 맡겼어요. 마지막 건 건물주 아저씨가 찾아가셨고요. 오빠분이 부탁했다고 하던데요.");
+	}
 
-	// §13 포어섀도 장부. 나린의 「안 물어볼게요」는 엔딩 A 뉴스 자막의
-	// 제보로 회수된다 — 회수만 있고 심는 자리가 없으면 그 자막은 어디서
-	// 왔는지 알 수 없는 문장이 된다.
+
+	// 마지막 방문의 대화는 이후 나린이 진술하게 되는 계기다.
 	if (NightIndex >= 3
 		|| (Narrative && Narrative->HasTruth(EIGMissingFloorTruth::StillCoveringIt)))
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"NarinLineLastDay",
-			"안 물어볼게요. 저 새벽엔 여기 있으니까, 뭐 들리면 적어 둘게요.");
+			"아직은요. 저 오늘도 밤새 있으니까, 무슨 일 있으면 바로 이쪽으로 오세요.");
 	}
 	if (NightIndex >= 1)
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"NarinLineMidWeek",
-			"얼굴이 왜 그래요. 잠 못 주무셨죠. 전에 살던 분들도 딱 이맘때 그랬는데.");
+			"아직 소식 없으세요? 저도 단골들한테 물어봤는데, 최근에 봤다는 사람은 없더라고요.");
 	}
-	// §13 6행의 심기. 「그들이 들은 것 = 지금 내가 듣는 것」이 밤1의 회수라,
-	// 두 사람이 금방 나갔다는 사실이 첫 밤 앞에 놓여 있어야 한다.
+	if (Narrative && Narrative->HasBeatPlayed(FName(TEXT("Arrival.Store"))))
+	{
+		return NSLOCTEXT("IGMissingFloor", "NarinRepeatAnswer", "지금은 그 정도예요. 다른 손님들한테도 한번 물어볼게요.");
+	}
+	// 이전 세입자들도 오래 살지 못했다는 사실만 먼저 알린다.
 	return NSLOCTEXT(
 		"IGMissingFloor",
 		"ArrivalNarinLine",
-		"403호요? 거기 위에는 아무것도 없어요. 올해만 두 분 나갔는데, 둘 다 두 달을 못 채우셨어요.");
+		"아, 늘 큰 가방 들고 오시던 분요? 한동안 안 보이시던데. 403호는 올해 벌써 세 번째 이사네요.");
 }
 
 void AIGListenerGreyboxDirector::RequestArrivalAutosave()
@@ -1684,6 +1745,10 @@ FText AIGListenerGreyboxDirector::GetObjectiveText() const
 	if (!bProductionMode || !Narrative || Narrative->GetNightIndex() != 0)
 	{
 		return FText::GetEmpty();
+	}
+	if (GetObjectiveProgress() < 0.5f)
+	{
+		return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveExplore", "짐을 풀고, 빌라와 편의점을 둘러본다");
 	}
 	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Contract"))))
 	{
@@ -1716,6 +1781,7 @@ FString AIGListenerGreyboxDirector::GetObjectiveTextAscii() const
 	{
 		return FString();
 	}
+	if (GetObjectiveProgress() < 0.5f) return TEXT("UNPACK AND EXPLORE THE NEIGHBORHOOD");
 	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Contract")))) return TEXT("CHECK THE RENTAL CONTRACT");
 	if (!AreArrivalBoxesOpened()) return TEXT("OPEN ALL THREE MOVING BOXES");
 	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Store")))) return TEXT("ASK AT THE CONVENIENCE STORE");
@@ -2169,7 +2235,7 @@ void AIGListenerGreyboxDirector::WakeIntoNight()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"NightTorchThought",
-				"손전등. 이사 짐에서 꺼내 둔 게 머리맡에 있다. F로 켜고 끈다."),
+				"손전등은 머리맡에 꺼내 뒀다."),
 			4.5f);
 	}
 	// 밤은 방향으로 시작한다. 밤2만 여섯 초 뒤에 문을 두드렸고 나머지는
@@ -2255,7 +2321,7 @@ FText AIGListenerGreyboxDirector::GetHwangDoorLine() const
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401Greeting",
-			"새로 왔구나. 밤에 뭐 들려? 그것부터 말해 봐.");
+			"403호 새로 왔어요? 신발장 문은 살살 닫아 줘요. 밤에는 여기 다 울려.");
 	}
 	// §7 난이도 보정의 낮 1단계. 퍼즐마다 한 줄씩, 답이 아니라 어디를 볼지만.
 	// 가장 앞선 상태부터 본다 — 뒤의 밤에 앞의 밤 힌트를 되풀이하지 않도록.
@@ -2269,21 +2335,21 @@ FText AIGListenerGreyboxDirector::GetHwangDoorLine() const
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401HintT7",
-			"관리실 열쇠 고리 옆에 부동산 문자 뽑아 놓은 거 있더라. 날짜를 봐. 방 뺐다는 날.");
+			"부동산에서 짐 뺐다고 연락한 날이 있을 거예요. 관리인이 문자까지 인쇄해 두더라고.");
 	}
 	if (bAnswered && !Narrative->IsNightFourWallOpened())
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401HintP5",
-			"내일 아침에 사람 온대. 벽 다시 바른다고. 물 내릴 거면 오늘 밤이야. 순서는 관리실에 붙어 있더라.");
+			"내일 아침 공사한대요. 또 막기 전에 안에 뭐가 있나 봐야 할 것 아니에요.");
 	}
 	if (bInWall && !bAnswered)
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401HintP4",
-			"나도 두드려 줬었어, 그날. 그랬더니 조용해지더라. 사람인가 싶었지.");
+			"벽 두드렸더니 한 번 대답이 왔어요. 사람이 있나 싶어서 다시 했는데, 그 뒤로는 조용하고.");
 	}
 	if (!bInWall && NightIndex >= 2
 		&& Narrative->IsPuzzleSolved(FName(TEXT("P2"))))
@@ -2291,21 +2357,21 @@ FText AIGListenerGreyboxDirector::GetHwangDoorLine() const
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401HintP3",
-			"관리실에 열쇠 뭉치 걸려 있더라. 옥상이랑 창고. 위에 올라가서 벽에 귀 대 봐.");
+			"관리인 없어요? 열쇠는 늘 책상 옆에 걸어 둬요. 못 들어가게 하면 나한테 말해요.");
 	}
 	if (bAlive)
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401AfterT7",
-			"들었냐. 벽도 종이랑 같아. 눌린 건 남아.");
+			"그날도 들었어요. 사람이 없다는데, 나는 분명히 들었다니까.");
 	}
 	if (NightIndex >= 2)
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401HintP2",
-			"관리실 대장 말이다. 볼펜으로 쓴 거 말고, 밑에 깔린 종이를 봐. 눌린 건 못 지워. 펌프 옆 밸브 틀어 놓고 해. 물소리 위로는 걔가 못 들어.");
+			"소리 난다고 전화한 게 몇 번인데, 배관이라고만 해요. 대장에 뭐라고 썼는지 좀 봐 줘요.");
 	}
 	if (NightIndex == 1
 		&& !Narrative->HasTruth(EIGMissingFloorTruth::LivedUpstairs))
@@ -2313,19 +2379,19 @@ FText AIGListenerGreyboxDirector::GetHwangDoorLine() const
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401HintP1",
-			"1층 계량기함부터 열어 봐. 관리실 검침표도.");
+			"전기 나갔으면 1층 계량기함 봐요. 검침표도 거기 붙어 있어요.");
 	}
 	if (NightIndex >= 1)
 	{
 		return NSLOCTEXT(
 			"IGMissingFloor",
 			"Hwang401Neutral",
-			"잠은 좀 잤냐. 얼굴이 그게 뭐야.");
+			"잠은 좀 잤어요? 물이라도 한 잔 마시고 가요.");
 	}
 	return NSLOCTEXT(
 		"IGMissingFloor",
 		"Hwang401Greeting",
-		"새로 왔구나. 밤에 뭐 들려? 그것부터 말해 봐.");
+		"403호 새로 왔어요? 신발장 문은 살살 닫아 줘요. 밤에는 여기 다 울려.");
 }
 
 void AIGListenerGreyboxDirector::HandleUnit401Knocked(
@@ -5250,13 +5316,13 @@ void AIGListenerGreyboxDirector::RunArrivalProbe()
 		&& BoxMaterial->GetPathName().Contains(TEXT("M_MovingBoxCardboardUV"));
 	const bool bInitialInteractionGate = ArrivalContract
 		&& ArrivalContract->IsInteractionEnabled()
-		&& ArrivalParcelBox && !ArrivalParcelBox->IsInteractionEnabled()
-		&& ArrivalNotebookBox && !ArrivalNotebookBox->IsInteractionEnabled()
-		&& ArrivalVoicemailBox && !ArrivalVoicemailBox->IsInteractionEnabled()
-		&& ArrivalStoreBell && !ArrivalStoreBell->IsInteractionEnabled()
-		&& Unit401Door && !Unit401Door->IsInteractionEnabled()
-		&& ArrivalUnit402Note && !ArrivalUnit402Note->IsInteractionEnabled()
-		&& ArrivalRoofLock && !ArrivalRoofLock->IsInteractionEnabled()
+		&& ArrivalParcelBox && ArrivalParcelBox->IsInteractionEnabled()
+		&& ArrivalNotebookBox && ArrivalNotebookBox->IsInteractionEnabled()
+		&& ArrivalVoicemailBox && ArrivalVoicemailBox->IsInteractionEnabled()
+		&& ArrivalStoreBell && ArrivalStoreBell->IsInteractionEnabled()
+		&& Unit401Door && Unit401Door->IsInteractionEnabled()
+		&& ArrivalUnit402Note && ArrivalUnit402Note->IsInteractionEnabled()
+		&& ArrivalRoofLock && ArrivalRoofLock->IsInteractionEnabled()
 		&& SleepTarget && !SleepTarget->IsInteractionEnabled();
 	const bool bSafeEvening = bProductionMode
 		&& Narrative
@@ -5297,10 +5363,32 @@ void AIGListenerGreyboxDirector::RunArrivalProbe()
 		BoxComponent && BoxComponent->IsRegistered() ? 1 : 0,
 		BoxComponent && BoxComponent->bDisallowNanite ? 1 : 0);
 
+	HandleArrivalEvidence(ArrivalRoofLock);
+	const bool bRoofFirstSafe = !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Complete"))) && !SleepTarget->IsInteractionEnabled();
+	HandleArrivalEvidence(ArrivalStoreBell);
+	HandleUnit401Knocked(Unit401Door);
+	HandleArrivalEvidence(ArrivalUnit402Note);
+	HandleArrivalEvidence(ArrivalVoicemailBox);
+	HandleArrivalEvidence(ArrivalNotebookBox);
+	HandleArrivalEvidence(ArrivalParcelBox);
+	const bool bLastClueRequired = !SleepTarget->IsInteractionEnabled();
+	HandleArrivalEvidence(ArrivalContract);
+	HandleNeighborhoodDeliveryRead(NeighborhoodDeliveryNote, true);
+	const bool bDeliverySaved = Narrative->HasBeatPlayed(FName(TEXT("Neighborhood.Delivery")))
+		&& GetNarinCounterLine().EqualTo(NSLOCTEXT("IGMissingFloor", "NarinDeliveryAnswer",
+			"작년 여름에 몇 번 맡겼어요. 마지막 건 건물주 아저씨가 찾아가셨고요. 오빠분이 부탁했다고 하던데요."));
+	if (!bRoofFirstSafe || !bLastClueRequired || !SleepTarget->IsInteractionEnabled() || !bDeliverySaved)
+	{
+		UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_ARRIVAL FAIL free_order=%d last_clue=%d sleep=%d delivery=%d"),
+			bRoofFirstSafe, bLastClueRequired, SleepTarget->IsInteractionEnabled(), bDeliverySaved);
+		RequestExit(true);
+		return;
+	}
+
 	UE_LOG(
 		LogTemp,
 		Display,
-		TEXT("MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1"));
+		TEXT("MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1"));
 	RequestExit(false);
 }
 
@@ -5334,6 +5422,38 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	// 실제 시작 단계의 조명과 인물이 유지된 상태에서 매장과 뒷길을 검토한다.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGRetailCapture")))
+	{
+		switch (ArrivalCaptureStep++)
+		{
+		case 0: CaptureTeleportPlayer(FVector(2000, -460, 98), 0, 10); break;
+		case 10: CaptureShot(TEXT("retail-exterior")); break;
+		case 11:
+			CaptureTeleportPlayer(FVector(2590, -290, 104), 90, -3);
+			if (GEngine && FParse::Param(FCommandLine::Get(), TEXT("IGRetailMetrics")))
+				GEngine->Exec(GetWorld(), TEXT("csvprofile start"));
+			break;
+		case 15: CaptureShot(TEXT("retail-counter")); break;
+		case 16: CaptureTeleportPlayer(FVector(2710, -275, 104), -90, -18); break;
+		case 20: CaptureShot(TEXT("retail-stock")); break;
+		case 21: CaptureTeleportPlayer(FVector(2930, -460, 104), -10, -12); break;
+		case 25: CaptureShot(TEXT("retail-cooler")); break;
+		case 26: CaptureTeleportPlayer(FVector(2050, -1380, 98), -90, -9); break;
+		case 30: CaptureShot(TEXT("retail-delivery-lane")); break;
+		case 31:
+			if (GEngine && FParse::Param(FCommandLine::Get(), TEXT("IGRetailMetrics")))
+				GEngine->Exec(GetWorld(), TEXT("csvprofile stop"));
+			break;
+		case 33:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("RETAIL_CAPTURE PASS shots=%d production=1 d3d12=1"), bCaptureMetricsOnly ? 0 : 5);
+			RequestExit(false);
+			break;
+		default: break;
+		}
+		return;
+	}
 	switch (ArrivalCaptureStep++)
 	{
 	case 0:
@@ -6292,7 +6412,8 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		CaptureTeleportPlayer(FVector(-150.0f, -328.0f, 997.0f), 90.0f, 11.0f);
 		break;
 	case 10:
-		// Portal-free climb: the camera remains inside the real upper stair.
+		// 밤 3의 조명과 HUD로 옥상과 설비실을 검수한다.
+		if (NightPhase) { NightPhase->BeginTheHour(3); NightPhase->SetHourPaused(true); }
 		if (Entity)
 		{
 			Entity->SetDormant(true);
@@ -6321,8 +6442,8 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		CaptureTeleportPlayer(FVector(130.0f, 350.0f, 1297.0f), 90.0f, -6.0f);
 		break;
 	case 13:
-		// Night-four roof hardware: both valves must sit on the tank, not hover
-		// over the lane or masquerade as four unrelated puzzle switches.
+		// 밤 4의 전원 상태에서 물탱크 밸브와 최종 장면을 확인한다.
+		if (NightPhase) { NightPhase->RestartTheHour(4); NightPhase->SetHourPaused(true); }
 		CaptureTeleportPlayer(FVector(5.0f, 350.0f, 1297.0f), -90.0f, -4.0f);
 		break;
 	case 14:
@@ -6335,7 +6456,7 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		{
 			NightFour->SetFinaleCapturePreview(false, false);
 		}
-		CaptureTeleportPlayer(FVector(100.0f, 700.0f, 1297.0f), 0.0f, -5.0f);
+		CaptureTeleportPlayer(FVector(50.0f, 700.0f, 1297.0f), 0.0f, -22.0f);
 		break;
 	case 16:
 		// Close enough to read the board grip and tired workwear as real 3D,
@@ -6567,11 +6688,11 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 		}
 		break;
 	case 10:
-		if (ActionA(0.9f))
+		if (ActionA(4.8f))
 		{
 			CaptureShot(TEXT("night3-roof-stair"));
 		}
-		if (StepDone(1.5f))
+		if (StepDone(5.4f))
 		{
 			EnterCaptureStep(11);
 		}
@@ -6597,11 +6718,11 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 		}
 		break;
 	case 13:
-		if (ActionA(0.9f))
+		if (ActionA(4.8f))
 		{
 			CaptureShot(TEXT("night4-p5-roof-controls"));
 		}
-		if (StepDone(1.5f))
+		if (StepDone(5.4f))
 		{
 			EnterCaptureStep(14);
 		}

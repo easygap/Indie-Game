@@ -1,0 +1,151 @@
+{
+  "name": "FinalCavityRemains",
+  "trial": "front-20260914",
+  "status": "Generated",
+  "source": "Content/SourceArt/AI/FinalCavityFront_20260914.png",
+  "sourceSha256": "c547030edb04f13ace325577e9204063bf857e3e4bb5849cedd09119f013d4cf",
+  "route": "trellis",
+  "resolution": 1024,
+  "seed": 56,
+  "postprocess": "pbr",
+  "decimateFaces": 200000,
+  "textureSize": 2048,
+  "server": {
+    "url": "http://127.0.0.1:8199",
+    "version": "0.34.6",
+    "device": "cuda:0 NVIDIA GeForce RTX 3060 : cudaMallocAsync"
+  },
+  "startedAt": "2026-09-14T05:32:52.996638+00:00",
+  "license": "TRELLIS.2 / Pixal3D weights: Comfy-Org repackage, MIT/permissive; DINOv3, MoGe, BiRefNet: see lunia_z SourceArt/Manifests/ComfyNative.20260908.json",
+  "runtimeReady": false,
+  "promptId": "baa3d1b9-9091-42f7-81a3-6ae922afc770",
+  "elapsedSeconds": 317.4,
+  "finishedAt": "2026-09-14T05:38:10.428801+00:00",
+  "files": [
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/base-color_00001_.png",
+      "bytes": 4791357,
+      "sha256": "bc2c0acc4c86a1202d36cb17496383af5feb06f2bbe9680c512ef591b3934d50"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/cleaned-colored_00001_.glb",
+      "bytes": 5966872,
+      "sha256": "294f5736c910557aa07f37680511aa675f3f4e586cde02361ff8180c617b1ee0"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/colored_00001_.glb",
+      "bytes": 443978100,
+      "sha256": "f9e75aa127cab51f058c8a55caa03307c8e4e155c83e4fa01a6eb11f29f0f54e",
+      "pruned": true
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/conditioning_00001_.png",
+      "bytes": 829039,
+      "sha256": "b84de5e321feba90a7f953d718887cf6de02bb8772be02173b0ed9a97add4783"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/metallic_00001_.png",
+      "bytes": 2484845,
+      "sha256": "cc416a1ab872d84b2fd6d7819df0511e6e7f9312c78c2c61c93e754146b5dced"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/pbr_00001_.glb",
+      "bytes": 14228576,
+      "sha256": "39e7df4589157de73be7cf4f41df54069d95ee1dbdd37dad688202df3b99223d"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/roughness_00001_.png",
+      "bytes": 2460003,
+      "sha256": "44fac67c610fc06f101a75b5ce47e0f26a1f299b045e63e86c9312d171a4ce7b"
+    },
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/shape_00001_.glb",
+      "bytes": 356375588,
+      "sha256": "65917dd6f7c12f48275d74438d10ee059a84b786d575da495b6be8a761c22088",
+      "pruned": true
+    }
+  ],
+  "outputs": {
+    "5": {
+      "images": [
+        {
+          "filename": "conditioning_00001_.png",
+          "subfolder": "ig3d\\FinalCavityRemains\\front-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "28": {
+      "3d": [
+        {
+          "filename": "shape_00001_.glb",
+          "subfolder": "ig3d\\FinalCavityRemains\\front-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "33": {
+      "3d": [
+        {
+          "filename": "colored_00001_.glb",
+          "subfolder": "ig3d\\FinalCavityRemains\\front-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "38": {
+      "3d": [
+        {
+          "filename": "cleaned-colored_00001_.glb",
+          "subfolder": "ig3d\\FinalCavityRemains\\front-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "43": {
+      "images": [
+        {
+          "filename": "base-color_00001_.png",
+          "subfolder": "ig3d\\FinalCavityRemains\\front-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "45": {
+      "images": [
+        {
+          "filename": "roughness_00001_.png",
+          "subfolder": "ig3d\\FinalCavityRemains\\front-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "44": {
+      "images": [
+        {
+          "filename": "metallic_00001_.png",
+          "subfolder": "ig3d\\FinalCavityRemains\\front-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "42": {
+      "3d": [
+        {
+          "filename": "pbr_00001_.glb",
+          "subfolder": "ig3d\\FinalCavityRemains\\front-20260914",
+          "type": "output"
+        }
+      ]
+    }
+  },
+  "retainedFiles": [
+    {
+      "path": "Content/SourceArt/Generated/FinalCavityRemains/front-20260914/raw/pbr_00001_.glb",
+      "bytes": 14228576,
+      "sha256": "39e7df4589157de73be7cf4f41df54069d95ee1dbdd37dad688202df3b99223d"
+    }
+  ],
+  "archiveNote": "files와 outputs는 생성 당시의 이력이다. 중간 결과는 Saved/RejectedRetail/CavityIntermediateCache로 옮겼으며 재현에 쓰는 PBR GLB만 소스에 남겼다.",
+  "runtimeAsset": "Content/SourceArt/Blender/SM_FinalCavityRemains/manifest.json"
+}

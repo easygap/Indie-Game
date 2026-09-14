@@ -1,4 +1,5 @@
 ﻿#include "Core/IGPrologueWorldScene.h"
+#include "Environment/IGStoreClerk.h"
 #include "Accessibility/IGAccessibilitySubsystem.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
@@ -146,7 +147,7 @@ namespace IGPrologueWorld
 	// 유리가 두 겹이 되고 짝의 알루미늄 틀이 유리 속에 박혀 보인다.
 	// 8 cm 안쪽 레일로 물려 유리 뒤를 지나가게 한다.
 	const FVector StoreDoorLocation(2413.0f, -457.0f, 6.0f);
-	const FVector CheckoutLocation(2620.0f, -255.0f, 96.0f);
+	const FVector CheckoutLocation(2650.0f, -205.0f, 96.0f);
 	const FVector WalletHorizontalLocation(-125.0f, -183.0f, 0.0f);
 
 	const FName PurchaseBagProxyTag(TEXT("REBIRTH.PurchaseBagProxy"));
@@ -177,7 +178,7 @@ namespace IGPrologueWorld
 	// 627 fixed aisle/chilled-food instances plus 524 cooler instances.  The
 	// cooler total counts each PET/glass bottle's body, cap and label as three
 	// render instances while cans and cartons are single instances.
-	constexpr int32 ExpectedStoreStockInstances = 1151;
+	constexpr int32 ExpectedStoreStockInstances = 1301;
 	constexpr int32 MaximumStoreStockBatches = 24;
 
 	enum class EReceiptTimeline : uint8
@@ -896,6 +897,11 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateDecoOnComponent(
 		*FString::Printf(TEXT("Deco_%d"), BlockCounter++));
 	Deco->SetupAttachment(Parent);
 	Deco->SetStaticMesh(Mesh);
+	// 물병 띠는 공용 페이지 높이의 1/8만 쓴다. 가까운 글자의 밉이 먼저 내려가지 않게 한다.
+	if (Mesh->GetFName() == FName(TEXT("SM_LabelSleeve")))
+	{
+		Deco->StreamingDistanceMultiplier = 8.0f;
+	}
 	Deco->SetMaterial(0, Material);
 	Deco->SetRelativeLocation(RelativeLocation);
 	Deco->SetRelativeRotation(RelativeRotation);
@@ -1165,7 +1171,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_LiftCOP"), TEXT("M_LiftHall"), TEXT("M_SwitchPlate"),
 		// 「없는 층」 dry-plaster architecture and authored residue layers.
 		TEXT("M_MissingFloorPlaster_X"), TEXT("M_MissingFloorPlaster_Y"),
-		TEXT("M_MissingFloorPlaster_XY"), TEXT("M_MissingFloorHandprints"),
+		TEXT("M_MissingFloorPlaster_XY"), TEXT("M_GypsumBoard"), TEXT("M_MissingFloorHandprints"),
 		TEXT("M_MissingFloorDragTrails"), TEXT("M_MissingFloorDustJoint"),
 		TEXT("M_MissingFloorCavityScratches"),
 		TEXT("M_DecalDampWallpaper"), TEXT("M_DecalRustFasteners"),
@@ -1180,7 +1186,10 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		// Aged paper stock for readable notes, and the rental notice.
 		TEXT("M_PaperClean"), TEXT("M_PaperWet"), TEXT("M_PaperFolded"),
 		TEXT("M_PaperOld"), TEXT("M_NoticeRent"), TEXT("M_WetStep"),
-		TEXT("M_MovingBoxCardboardUV"),
+		TEXT("M_MovingBoxCardboardUV"), TEXT("M_RetailPET"), TEXT("M_LabelWater1L"), TEXT("M_LabelWater2L"),
+		TEXT("M_RetailPricePotato"), TEXT("M_RetailPriceShrimp"), TEXT("M_RetailPriceCorn"),
+		TEXT("M_RetailPriceCupBeef"), TEXT("M_RetailPriceCupKimchi"), TEXT("M_RetailPriceBiscuit"),
+		TEXT("M_RetailTobaccoAd"),
 	};
 
 	int32 LoadedCount = 0;
@@ -1311,6 +1320,11 @@ bool AIGPrologueWorldScene::AddStoreStockInstance(
 				StoreStockBatches.Num()));
 		Batch->SetupAttachment(ResolvedParent);
 		Batch->SetStaticMesh(Mesh);
+		// 물병 띠는 공용 페이지 높이의 1/8만 쓴다. 가까운 글자의 밉이 먼저 내려가지 않게 한다.
+		if (Mesh->GetFName() == FName(TEXT("SM_LabelSleeve")))
+		{
+			Batch->StreamingDistanceMultiplier = 8.0f;
+		}
 		// nullptr는 「메시가 가진 재질 그대로」다. 구운 상품(과자 상자·삼각김밥)은
 		// 자기 인스턴스를 들고 오므로 덮어쓰면 기본 회색이 된다.
 		if (Material)
@@ -3920,6 +3934,7 @@ float AIGPrologueWorldScene::NightFixtureScale(
 
 void AIGPrologueWorldScene::ApplyNightAtmosphere(const bool bSealed)
 {
+	if (StoreClerk) { StoreClerk->SetActorHiddenInGame(bSealed); }
 	// 등. SetFixtureLive가 밤 배율을 곱한다. 새벽에는 전부 낮의 밝기로 돌아온다.
 	for (int32 Index = 0; Index < CorridorLights.Num(); ++Index)
 	{
@@ -4103,7 +4118,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	// 폭 4 cm 스터드 여섯 개에 그 글자가 잘려 실려서, 손전등이 스치면
 	// 흰색·노란색 획이 세로로 흩어진 노이즈처럼 보였다.
 	UMaterialInterface* Stud = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
-	UMaterialInterface* Board = TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial);
+	UMaterialInterface* Board = TexMat(TEXT("M_GypsumBoard"), ConcreteMaterial);
 	// 계단과 옥상 바닥은 서로 다른 발소리 표면인데 한 변수를 공유하고
 	// 있었다. 옥상 방수층은 조용하고 철제 계단은 길게 울린다 — 같은
 	// 콘크리트로 그리면 그 차이를 볼 방법이 없다.
@@ -4332,6 +4347,10 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	CreateBlock(FVector(-157.5f, 452.5f, 1320), FVector(485, 15, 240), AnnexWallX);
 	CreateBlock(FVector(287.5f, 452.5f, 1320), FVector(225, 15, 240), AnnexWallX);
 	CreateBlock(FVector(130.0f, 452.5f, 1422.5f), FVector(90, 15, 35), AnnexWallX);
+	// 문 개구부의 절단면에는 그 면에 맞는 방향으로 석고 결을 붙인다.
+	CreateBlock(FVector(85.05f, 452.5f, 1320), FVector(.1f, 15, 240), AnnexWallY, false);
+	CreateBlock(FVector(174.95f, 452.5f, 1320), FVector(.1f, 15, 240), AnnexWallY, false);
+	CreateBlock(FVector(130, 452.5f, 1404.95f), FVector(90, 15, .1f), AnnexCeiling, false);
 	// Steel casings lapping the opening on the annex side. In the plane of the
 	// wall they were thinner than it and disappeared into it completely.
 	for (const float DoorJambX : {80.0f, 180.0f})
@@ -4361,16 +4380,39 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	}
 	// The riser: two tonnes of water passing behind bay B on its way down.
 	CreateBlock(
-		FVector(310, 700, 1320), FVector(24, 24, 240),
+		FVector(310, 750, 1320), FVector(24, 24, 240),
 		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial), false,
 		CylinderMesh);
 
-	// Stopped-construction dressing: pallet stacks, boards, a bare hanging
-	// bulb block so the room reads without a flashlight.
-	CreateBlock(FVector(0, 590, 1230), FVector(120, 80, 60), Board);
-	CreateBlock(FVector(-80, 780, 1215), FVector(140, 60, 30), Board);
-	CreateBlock(FVector(-90, 770, 1236), FVector(60, 40, 12), Stud, false);
-	CreateBlock(FVector(120, 880, 1224), FVector(90, 50, 48), Board);
+	// 석고보드 절단 자재. 장당 12mm 간격으로 쌓고 아래에는 각목 받침을 댄다.
+	UInstancedStaticMeshComponent* BoardStack = NewObject<UInstancedStaticMeshComponent>(this, TEXT("AnnexGypsumStack"));
+	BoardStack->SetupAttachment(ActiveParent.Get() ? ActiveParent.Get() : GetRootComponent());
+	BoardStack->SetStaticMesh(CubeMesh);
+	BoardStack->SetMaterial(0, Board);
+	BoardStack->SetMobility(EComponentMobility::Static);
+	BoardStack->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+	BoardStack->SetGenerateOverlapEvents(false);
+	BoardStack->SetCanEverAffectNavigation(false);
+	BoardStack->SetCullDistances(1400, 2000);
+	BoardStack->SetComponentTickEnabled(false);
+	const auto StackBoards = [this, BoardStack](FVector Base, FVector Footprint, int32 Count)
+	{
+		for (const float Side : {-.36f, 0.f, .36f})
+		{
+			CreateBlock(Base + FVector(Footprint.X * Side, 0, 6), FVector(10, Footprint.Y * .94f, 12),
+				TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial));
+		}
+		for (int32 Layer = 0; Layer < Count; ++Layer)
+		{
+			BoardStack->AddInstance(FTransform(FRotator::ZeroRotator,
+				Base + FVector(0, 0, 12.57f + Layer * 1.2f), FVector(Footprint.X, Footprint.Y, 1.14f) / 100.f));
+		}
+	};
+	StackBoards(FVector(0, 590, 1200), FVector(120, 80, 0), 40);
+	StackBoards(FVector(-80, 780, 1200), FVector(140, 60, 0), 15);
+	StackBoards(FVector(120, 880, 1200), FVector(90, 50, 0), 30);
+	AddInstanceComponent(BoardStack);
+	BoardStack->RegisterComponent();
 	CreateBlock(FVector(0, 700, 1436), FVector(10, 10, 8), PlasticDarkMaterial, false);
 
 	// 비닐. §8 비트 2-2's shot list names three things and this is the second:
@@ -4391,11 +4433,11 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 			Film->SetCanEverAffectNavigation(false);
 		}
 	};
-	// Draped over the tallest stack, slumping off one corner.
+	// physics-audit: intentional ISM 판재 40장의 상단 Z=1259.94에 얹힌 보호 비닐. 정적 배치 검사는 ISM 지지면을 읽지 못한다.
 	AddSheeting(
-		FVector(0.0f, 588.0f, 1262.0f),
-		FVector(132.0f, 96.0f, 1.5f),
-		FRotator(2.5f, 6.0f, -3.5f));
+		FVector(0.0f, 590.0f, 1259.99f),
+		FVector(112.0f, 74.0f, 0.08f),
+		FRotator(0.0f, 2.0f, 0.0f));
 	// A second sheet already pulled off and left where it fell. Two overlapping
 	// quads at different angles rather than one rectangle: a single slab of film
 	// on a dark floor reads as a board somebody leaned there, which is what the
@@ -4403,17 +4445,17 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	// so the low shape crosses floor, not plastic.
 	AddSheeting(
 		FVector(-296.0f, 842.0f, 1201.6f),
-		FVector(104.0f, 86.0f, 1.2f),
+		FVector(104.0f, 86.0f, 0.06f),
 		FRotator(1.5f, 24.0f, -2.0f));
 	AddSheeting(
 		FVector(-244.0f, 878.0f, 1203.4f),
-		FVector(78.0f, 62.0f, 1.0f),
+		FVector(78.0f, 62.0f, 0.06f),
 		FRotator(-2.5f, -14.0f, 3.0f));
 	// Hung off the bay studs at the far right of the camera's frame, so the shot
 	// has depth on that side instead of ending on a flat gypsum face.
 	AddSheeting(
 		FVector(238.0f, 552.0f, 1318.0f),
-		FVector(1.5f, 148.0f, 232.0f),
+		FVector(0.06f, 148.0f, 232.0f),
 		FRotator(0.0f, 0.0f, 1.5f));
 
 	// §14 CCTV 채널 5's camera, and it is a permanent fixture rather than part of
@@ -4554,10 +4596,9 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		FVector(268.0f, 42.0f, 0.32f),
 		TEXT("M_MissingFloorDustJoint"),
 		FRotator(0.0f, 0.0f, 0.0f));
-	// This face is deliberately behind bay B. It becomes visible only after
-	// the night-four wall panel is removed, so the reveal cannot leak early.
+	// 자국은 공동의 뒷벽에 붙인다. 앞쪽 석고판이 떨어져도 빈 공간에 인쇄가 남지 않는다.
 	AddResidue(
-		FVector(266.0f, 700.0f, 1322.0f),
+		FVector(389.65f, 700.0f, 1322.0f),
 		FVector(0.28f, 104.0f, 150.0f),
 		TEXT("M_MissingFloorCavityScratches"),
 		FRotator::ZeroRotator);
@@ -5571,19 +5612,19 @@ void AIGPrologueWorldScene::BuildAlley()
 	// The shop is deeper than the alley is wide, so the ground in front of its
 	// northern half was missing entirely — from inside, looking out through
 	// the glass showed a hole. Pave that corner and close it with a wall.
-	CreateBlock(FVector(2300, -425, -10), FVector(220, 550, 20), AsphaltWorld);
+	CreateBlock(FVector(2300, -365, -10), FVector(220, 650, 20), AsphaltWorld);
 	// The corner belongs to a patched cement-render annex, not to the opposing
 	// brick shop row. Its two axes use separate world projections so neither
 	// face collapses into the vertical colour stripe seen in the old capture.
-	CreateBlock(FVector(2190, -276, 230), FVector(20, 228, 460), VillaStuccoY);
-	CreateBlock(FVector(2300, -152, 230), FVector(240, 20, 460), VillaStuccoX);
+	CreateBlock(FVector(2190, -215, 230), FVector(20, 350, 460), VillaStuccoY);
+	CreateBlock(FVector(2300, -30, 230), FVector(240, 20, 460), VillaStuccoX);
 
 	// Curb stones seat the facades onto the road. 남쪽 연석은 샛길 입구 두 곳(X 1210..1390,
 	// 1640..1800)을 건너뛴다. 한 줄로 두면 샛길로 들어서는 발밑에 12 cm 턱이 걸린다.
 	CreateBlock(FVector(1040, -410, 4), FVector(2720, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
 	CreateBlock(FVector(445, -665, 4), FVector(1530, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
 	CreateBlock(FVector(1515, -665, 4), FVector(250, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
-	CreateBlock(FVector(2100, -665, 4), FVector(600, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
+	CreateBlock(FVector(2000, -665, 4), FVector(320, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
 
 	// Manhole covers and the drainage channel running down the alley center.
 	// Keep the first cover clear of the villa threshold and CH02 offering.
@@ -5973,8 +6014,8 @@ void AIGPrologueWorldScene::BuildAlley()
 	// Masonry, not flat render: brick above a dark painted plinth.
 	// 27 m를 한 판으로 두면 골목이 아니라 복도다. 두 자리(X 1210..1390, 1640..1800)를
 	// 샛길로 터서 상가를 세 토막으로 나눈다. 샛길 안쪽은 아래에서 짓는다.
-	const float FacadeX0[] = {-320.0f, 1390.0f, 1800.0f};
-	const float FacadeX1[] = {1210.0f, 1640.0f, 2400.0f};
+	const float FacadeX0[] = {-320.0f, 1390.0f, 1840.0f};
+	const float FacadeX1[] = {1210.0f, 1640.0f, 2160.0f};
 	for (int32 SegmentIndex = 0; SegmentIndex < 3; ++SegmentIndex)
 	{
 		const float CenterX = (FacadeX0[SegmentIndex] + FacadeX1[SegmentIndex]) * 0.5f;
@@ -6134,120 +6175,57 @@ void AIGPrologueWorldScene::BuildAlley()
 		}
 	}
 
-	// --- 샛길 둘 ---------------------------------------------------------
-	// 집에서 편의점까지 가는 길에 옆으로 새는 자리가 하나도 없었다. 남쪽 상가
-	// 사이로 좁은 샛길을 둘 낸다. 서쪽 것은 7 m 들어가 계단 위 철문으로 끝나고,
-	// 동쪽 것은 4 m에서 쇠창살 문에 막힌다. 둘 다 막다른 길이라 동선은 그대로다.
-	// 공통 껍데기는 람다 하나로 짓고, 끝 처리는 리터럴 좌표로 따로 적는다 — 반복문
-	// 안에서 if/else로 갈랐을 때 감사가 두 가지를 다 세워 유령 계단·유령 문이 생겼다.
+	// 상가 사이 두 샛길이 뒤편 배송 골목으로 이어진다. 편의점 옆길까지 한 바퀴 돌 수 있다.
 	UMaterialInterface* BrickY = TexMat(TEXT("M_Brick_Y"), ConcreteMaterial);
-	UStaticMesh* GasMeterMesh = PropMesh(TEXT("SM_GasMeterBox"));
-	UStaticMesh* AcOutdoorMesh = PropMesh(TEXT("SM_AcOutdoorUnit"));
-	UStaticMesh* ConvexMirrorMesh = PropMesh(TEXT("SM_ConvexMirror"));
-	UStaticMesh* PassageDoorMesh = PropMesh(TEXT("SM_UnitDoorLeaf"));
-	auto BuildPassageShell = [this, AsphaltWorld, BrickX, BrickY, Metal, DarkY, GasMeterMesh, AcOutdoorMesh](
-		const float X0, const float X1, const float EndY, const float TrashYaw)
+	const auto Passage = [this, AsphaltWorld, BrickY](float X0, float X1)
 	{
-		const float CenterX = (X0 + X1) * 0.5f;
-		const float Width = X1 - X0;
-		const float Depth = -700.0f - EndY;
-		const float MidY = (-700.0f + EndY) * 0.5f;
-		// 바닥은 도로와 같은 아스팔트, 양옆은 벽돌 벽, 끝은 벽돌 막벽. 골목 아스팔트가
-		// Y -690에서 끝나므로 바닥은 거기까지 끌어와 맞댄다. 벽은 상가 뒷면(-700)부터.
-		CreateBlock(
-			FVector(CenterX, (EndY - 690.0f) * 0.5f, -10), FVector(Width, -690.0f - EndY, 20), AsphaltWorld);
-		CreateBlock(FVector(X0 - 10, MidY, 230), FVector(20, Depth, 460), BrickY);
-		CreateBlock(FVector(X1 + 10, MidY, 230), FVector(20, Depth, 460), BrickY);
-		CreateBlock(FVector(CenterX, EndY - 10, 230), FVector(Width + 40, 20, 460), BrickX);
-		// 배수구 덮개와 홈통.
-		CreateBlock(FVector(CenterX, -740, 0.6f), FVector(50, 30, 1.2f), Metal, false);
-		CreateBlock(FVector(X1 - 8, MidY, 230), FVector(10, 10, 460), DarkY, false, CylinderMesh);
-		// 가스 계량기함 둘(왼쪽 벽 가슴 높이)과 실외기(오른쪽 벽). 뒷면은 벽 안으로 5 mm.
-		for (const float MeterY : {-760.0f, -820.0f})
-		{
-			if (GasMeterMesh)
-			{
-				CreateBlock(
-					FVector(X0 - 0.5f, MeterY, 130), FVector(100, 100, 100),
-					nullptr, false, GasMeterMesh, FRotator(0, -90, 0));
-			}
-			else
-			{
-				CreateBlock(FVector(X0 + 10, MeterY, 150), FVector(20, 40, 50), Metal, false);
-			}
-		}
-		if (AcOutdoorMesh)
-		{
-			CreateBlock(
-				FVector(X1 + 0.5f, -790, 180), FVector(100, 100, 100),
-				nullptr, false, AcOutdoorMesh, FRotator(0, 90, 0));
-		}
-		else
-		{
-			CreateBlock(FVector(X1 - 18, -790, 205), FVector(36, 80, 55), Metal, false);
-		}
-		// 벽등 하나. 갓은 상자, 빛은 아래로. 700/260으로는 막벽 앞 2 m만 밝아 캡처가
-		// 검게 나왔다. 골목 가로등(2400/760)의 3/4쯤으로 올려 계량기함과 계단까지 닿게 한다.
-		CreateBlock(FVector(X0 + 8, EndY + 120, 320), FVector(16, 24, 12), PlasticDarkMaterial, false);
-		CreateBlock(FVector(X0 + 8, EndY + 120, 312), FVector(12, 20, 2), StreetLampGlowMaterial, false);
-		CreateLight(
-			FVector(X0 + 30, EndY + 120, 300), 1800.0f, 620.0f,
-			FLinearColor(1.0f, 0.85f, 0.62f), true, 14.0f);
-		// 입구 쓰레기: 스캔 소품이 있으면 그것, 없으면 상자.
-		if (!PlacePhotoProp(TEXT("trashbag"), FVector(X0 + 34, -728, 0), FVector(56, 56, 54), TrashYaw))
-		{
-			CreateBlock(FVector(X0 + 34, -728, 26), FVector(50, 50, 52), PlasticDarkMaterial, true);
-		}
+		CreateBlock(FVector((X0 + X1) * .5f, -960, -10), FVector(X1 - X0, 560, 20), AsphaltWorld);
+		CreateBlock(FVector(X0 - 10, -965, 230), FVector(20, 530, 460), BrickY);
+		CreateBlock(FVector(X1 + 10, -965, 230), FVector(20, 530, 460), BrickY);
 	};
-	BuildPassageShell(1210.0f, 1390.0f, -1400.0f, 40.0f);
-	BuildPassageShell(1640.0f, 1800.0f, -1100.0f, 65.0f);
-
-	// 서쪽 샛길(X 1210..1390, 끝 Y -1400): 안쪽 끝 계단 여섯 단 위에 철문. 계단은 통째
-	// 상자를 층층이 쌓아 발판 판정이 실제 단과 같다. 계단참 윗면 Z 102.
-	for (int32 Step = 0; Step < 6; ++Step)
+	Passage(1210, 1390);
+	Passage(1640, 1840);
+	// 후면 길과 편의점 옆길. 경계는 눈에 보이는 건물 벽이며 보행 바닥에 턱을 두지 않는다.
+	CreateBlock(FVector(1830, -1360, -10), FVector(1240, 240, 20), AsphaltWorld);
+	CreateBlock(FVector(2310, -965, -10), FVector(260, 550, 20), AsphaltWorld);
+	CreateBlock(FVector(1190, -1350, 230), FVector(20, 260, 460), BrickY);
+	CreateBlock(FVector(1830, -1490, 230), FVector(1300, 20, 460), BrickX);
+	CreateBlock(FVector(2450, -1160, 230), FVector(20, 620, 460), VillaStuccoY);
+	CreateBlock(FVector(2170, -960, 230), FVector(20, 560, 460), BrickY);
+	CreateBlock(FVector(1515, -1240, 230), FVector(250, 20, 460), BrickX);
+	CreateBlock(FVector(2000, -1240, 230), FVector(320, 20, 460), BrickX);
+	// 뒷벽의 20cm 측면도 벽돌 줄눈이 이어지도록 해당 면의 축으로 마감한다.
+	for (const float CapX : {1389.9f, 1640.1f, 1839.9f, 2160.1f})
 	{
-		const float Rise = 17.0f * (Step + 1);
-		CreateBlock(
-			FVector(1300, -1194.0f - 28.0f * Step, Rise * 0.5f),
-			FVector(180, 28, Rise),
-			TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial));
+		CreateBlock(FVector(CapX, -1240, 230), FVector(.2f, 20, 460), BrickY, false);
 	}
-	CreateBlock(FVector(1300, -1374, 51), FVector(180, 52, 102),
-		TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial));
-	if (PassageDoorMesh)
+	// 실외기와 계량기는 벽에 붙이고 발밑의 이동 폭을 비워 둔다.
+	for (const FVector& P : {FVector(1209, -830, 135), FVector(1639, -880, 135), FVector(2169, -1050, 135)})
 	{
-		// 문짝 원점은 바닥 중심, 앞면 -Y. 계단참에 서서 남쪽을 보므로 앞면이 +Y다.
-		CreateBlock(
-			FVector(1300, -1396, 102), FVector(100, 100, 100),
-			nullptr, true, PassageDoorMesh, FRotator(0, 180, 0));
+		if (UStaticMesh* Meter = PropMesh(TEXT("SM_GasMeterBox")))
+			CreateBlock(P, FVector(100), nullptr, false, Meter, FRotator(0, -90, 0));
 	}
-	else
+	for (const FVector& P : {FVector(1460, -1488, 230), FVector(2040, -1488, 230)})
 	{
-		CreateBlock(FVector(1300, -1398, 202), FVector(84, 4, 200), DarkX);
+		if (UStaticMesh* Ac = PropMesh(TEXT("SM_AcOutdoorUnit")))
+			CreateBlock(P, FVector(100), nullptr, false, Ac, FRotator(0, 180, 0));
 	}
-	if (ConvexMirrorMesh)
+	for (const FVector& P : {FVector(1226, -1060, 300), FVector(1824, -1100, 300), FVector(2196, -1060, 300)})
 	{
-		// 입구 모퉁이의 볼록거울. 서쪽 토막 동쪽 끝 벽면(Y -680)에 걸어 샛길 입구 위로
-		// 내밀고 거울면은 북동쪽을 본다. 원점이 벽면의 거울 중심 높이라 5 mm만 묻는다.
-		// 가운데 토막 서쪽 끝은 세로 간판(X 1404)이 차지해 그쪽엔 못 건다.
-		CreateBlock(
-			FVector(1196, -680.5f, 240), FVector(100, 100, 100),
-			nullptr, false, ConvexMirrorMesh, FRotator(0, 145, 0));
+		CreateBlock(P, FVector(16, 28, 12), PlasticDarkMaterial, false);
+		CreateBlock(P - FVector(0, 0, 7), FVector(12, 22, 2), StreetLampGlowMaterial, false);
+		CreateLight(P - FVector(0, 0, 15), 850, 540, FLinearColor(1, .85f, .65f), false, 16);
 	}
-
-	// 동쪽 샛길(X 1640..1800, 끝 Y -1100): Y -1040에 쇠창살 문. 세로대 여덟, 가로대 둘,
-	// 잠금 사슬 자리의 작은 판. 문 너머 상자 더미.
-	for (float BarX = 1650.0f; BarX <= 1790.0f; BarX += 20.0f)
-	{
-		CreateBlock(FVector(BarX, -1040, 100), FVector(2.5f, 2.5f, 200), Metal, true);
-	}
-	CreateBlock(FVector(1720, -1040, 6), FVector(150, 3, 3), Metal, false);
-	CreateBlock(FVector(1720, -1040, 196), FVector(150, 3, 3), Metal, false);
-	CreateBlock(FVector(1720, -1042, 120), FVector(24, 1.5f, 16), PlasticDarkMaterial, false);
-	if (!PlacePhotoProp(TEXT("cardboard_box_01"), FVector(1690, -1070, 0), FVector(50, 40, 40), 15.0f))
-	{
-		CreateBlock(FVector(1690, -1070, 20), FVector(50, 40, 40), PlasticDarkMaterial, false);
-	}
+	CreateLight(FVector(1800, -1390, 340), 1400, 800, FLinearColor(.93f, .94f, 1), true, 24);
+	// 세탁소 후문과 상가 공용 게시판. 인물의 말을 확인하러 다시 찾을 수 있는 장소다.
+	CreateBlock(FVector(1510, -1477, 105), FVector(92, 5, 210), TexMat(TEXT("M_Shutter_X"), Metal), true);
+	CreateBlock(FVector(2045, -1475, 151), FVector(116, 8, 86), PlasticDarkMaterial, false);
+	CreateBlock(FVector(2045, -1470, 151), FVector(108, 2, 78), TexMat(TEXT("M_PaperClean"), SignWhiteMaterial), false);
+	PlacePhotoProp(TEXT("plastic_crate_01"), FVector(1560, -1447, 0), FVector(42, 32, 26), 0);
+	PlacePhotoProp(TEXT("cardboard_box_01"), FVector(1580, -1430, 27), FVector(28, 26, 21), 0);
+	PlacePhotoProp(TEXT("trashbag"), FVector(2390, -1435, 0), FVector(42, 42, 45), 0);
+	if (UStaticMesh* Mirror = PropMesh(TEXT("SM_ConvexMirror")))
+		CreateBlock(FVector(1196, -680.5f, 240), FVector(100), nullptr, false, Mirror, FRotator(0, 145, 0));
 
 	// Utility poles with junction boxes for the Korean-alley silhouette.
 	// X 600은 공동현관(힌지 X 604, Y -385) 문짝이 그리는 호 안이었다. 밖으로
@@ -6314,770 +6292,185 @@ void AIGPrologueWorldScene::BuildAlley()
 void AIGPrologueWorldScene::BuildStore()
 {
 	UMaterialInterface* Tile = TexMat(TEXT("M_StoreTileWorld"), StoreFloorMaterial);
-	UMaterialInterface* StoreWallX = TexMat(TEXT("M_StoreWall_X"), ConcreteMaterial);
-	UMaterialInterface* StoreWallY = TexMat(TEXT("M_StoreWall_Y"), ConcreteMaterial);
-	UMaterialInterface* StoreCeil = TexMat(TEXT("M_StoreCeilWorld"), ConcreteMaterial);
-	UMaterialInterface* ShelfSteel = TexMat(TEXT("M_ShelfSteelUV"), CoolerBodyMaterial);
+	UMaterialInterface* Wall = TexMat(TEXT("M_StoreWall_X"), ConcreteMaterial);
+	UMaterialInterface* Ceiling = TexMat(TEXT("M_StoreCeilWorld"), ConcreteMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
-	UMaterialInterface* PriceStrip = TexMat(TEXT("M_PriceStrip"), FridgeInteriorMaterial);
-
-	// Shell: a real convenience-store footprint (540 x 500 interior).
-	CreateBlock(FVector(2680, -430, 2), FVector(544, 504, 8), Tile);
-	CreateBlock(FVector(2675, -170, 130), FVector(550, 20, 260), StoreWallX);
-	CreateBlock(FVector(2675, -690, 130), FVector(550, 20, 260), StoreWallX);
-	CreateBlock(FVector(2960, -430, 130), FVector(20, 540, 260), StoreWallY);
-	CreateBlock(FVector(2680, -430, 270), FVector(580, 540, 20), StoreCeil);
-
-	// Storefront on the alley: glass the full width so the lit interior — the
-	// counter, the aisles, the cooler glow — is visible from the street, with
-	// a short masonry pier at the north corner.
-	// 정면을 향한 벽면이므로 Y 변형으로 읽는다. StoreWallX는 X를 따라
-	// UV가 변해서, 두께 10 cm짜리 이 기둥에서는 한 줄만 나왔다.
-	CreateBlock(FVector(2405, -196, 130), FVector(10, 32, 260), StoreWallY);
-	CreateBlock(FVector(2405, -300, 106), FVector(8, 175, 200), GlassMaterial);
-	CreateBlock(FVector(2405, -592.5f, 106), FVector(8, 151, 200), GlassMaterial);
-	for (const float ColumnY : {-212.0f, -300.0f, -395.0f, -517.0f, -668.0f})
+	UMaterialInterface* Pet = TexMat(TEXT("M_RetailPET"), GlassMaterial);
+	// 실내 700×770cm. 계산대 앞 110cm, 진열대 사이 162cm를 비운다.
+	CreateBlock(FVector(2760, -435, 2), FVector(720, 790, 8), Tile);
+	CreateBlock(FVector(2750, -40, 130), FVector(720, 20, 260), Wall);
+	CreateBlock(FVector(2750, -830, 130), FVector(720, 20, 260), Wall);
+	CreateBlock(FVector(3120, -435, 130), FVector(20, 810, 260), TexMat(TEXT("M_StoreWall_Y"), ConcreteMaterial));
+	CreateBlock(FVector(2760, -435, 270), FVector(720, 810, 20), Ceiling);
+	// 간판 함체와 천장 슬래브를 겹치지 않는다. 유리 출입구는 기존 자동문과 맞춘다.
+	for (const float Y : {-52.0f, -824.0f})
 	{
-		CreateBlock(FVector(2405, ColumnY, 105), FVector(14, 14, 210), Metal);
+		CreateBlock(FVector(2405, Y, 130), FVector(10, 20, 260), Wall);
 	}
-	// Kick rails stop at the automatic-door jambs. A continuous 24 cm bar
-	// across the entrance looked plausible from afar but acted like a curb and
-	// could catch the character capsule at the threshold.
-	CreateBlock(FVector(2405, -295, 12), FVector(12, 200, 24), Metal);
-	CreateBlock(FVector(2405, -590, 12), FVector(12, 150, 24), Metal);
-	CreateBlock(FVector(2405, -531.5f, 216), FVector(14, 297, 22), Metal);
-	CreateBlock(FVector(2405, -531.5f, 245), FVector(10, 297, 36), StoreWallY);
-
-	// Signage: the lettered fascia glows down the whole alley, plus a blade sign.
-	// 3.2 m짜리 발광 파사드. 몸통까지 발광 인쇄로 두면 골목에서 올려다볼 때
-	// 밑면 12 x 320 cm가 상호를 한 번 더 눌러 찍은 띠로 보인다. 실제 채널
-	// 간판이 그렇듯 함체는 어둡고 앞면만 빛난다.
-	CreatePrintedBlock(
-		FVector(2399, -520, 262), FVector(12, 320, 72),
-		PlasticDarkMaterial,
-		TexMat(TEXT("M_SignMainLit"), SignMintMaterial),
-		FVector(-1, 0, 0));
-	// Blade signs hang off the front of a shop, not through it. Centred on
-	// X 2402 the 28 cm root crossed the fascia and drove 26 cm of the panel
-	// into the ceiling slab, whose west edge oversails the shopfront by
-	// 10 cm. The band of sign inside that eave is hidden and the rest is
-	// not, so from the alley the sign read as sawn through by the building.
-	// It now hangs off the eave's edge at X 2390, above and below it.
-	// 돌출 간판은 골목 양쪽에서 읽으므로 두 면 모두 인쇄한다.
-	CreatePrintedBlock(
-		FVector(2376, -404, 300), FVector(28, 10, 88),
-		PlasticDarkMaterial,
-		TexMat(TEXT("M_SignBladeLit"), SignWhiteMaterial),
-		FVector(0, 1, 0),
-		false,
-		true);
-
-	// Storefront paper: sale poster and the automatic-door sticker.
-	CreateBlock(
-		FVector(2400.2f, -560, 130), FVector(1.5f, 58, 80),
-		TexMat(TEXT("M_PosterSale"), SignWhiteMaterial), false);
-	CreateBlock(
-		FVector(2400.2f, -628, 118), FVector(1.5f, 42, 21),
-		TexMat(TEXT("M_SignAutoDoor"), SignWhiteMaterial), false);
-
-	// Window-side snack bar with stools, looking out at the dark alley.
-	// 취식대는 Blender 메시(SM_WindowBar, build_store_products.py)다. 16 cm 선반이
-	// 아니라 34 cm 목재 상판이라 온수기가 올라간다. 스툴은 상판 동쪽으로 물렸고,
-	// 예전 두 번째 스툴 자리(Y -586)는 평대 냉동고(Y -600..-490) 안이었다.
-	UStaticMesh* WindowBarMesh = PropMesh(TEXT("SM_WindowBar"));
-	if (WindowBarMesh)
+	CreateBlock(FVector(2405, -227, 108), FVector(8, 328, 204), GlassMaterial);
+	CreateBlock(FVector(2405, -665, 108), FVector(8, 288, 204), GlassMaterial);
+	for (const float Y : {-65.0f, -230.0f, -395.0f, -517.0f, -660.0f, -810.0f})
 	{
-		CreateBlock(
-			FVector(2433, -634, 6), FVector(100, 100, 100),
-			nullptr, true, WindowBarMesh, FRotator::ZeroRotator);
-		// 온수기: 상판 윗면(Z 111) 북쪽 끝, 꼭지가 통로 쪽(+X).
-		if (UStaticMesh* DispenserMesh = PropMesh(TEXT("SM_HotWaterDispenser")))
-		{
-			CreateBlock(
-				FVector(2433, -618, 111), FVector(100, 100, 100),
-				nullptr, true, DispenserMesh, FRotator(0, 90, 0));
-		}
+		CreateBlock(FVector(2405, Y, 110), FVector(12, 8, 208), Metal);
 	}
-	else
-	{
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2424, -634, 101), FVector(16, 72, 5),
-			TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial));
-	}
-	if (!CreateProp(TEXT("SM_Stool"), FVector(2464, -655, 2), PlasticDarkMaterial, 0.0f, 1.0f, true))
-	{
-		CreateBlock(FVector(2464, -655, 31), FVector(24, 24, 62), PlasticDarkMaterial, true, CylinderMesh);
-	}
-	CreateProp(TEXT("SM_Stool"), FVector(2464, -616, 2), PlasticDarkMaterial, 18.0f, 1.0f, true);
-	// 쓰레기통: 남동쪽 구석, 열린 냉장고 문짝(Y -632 북쪽)이 안 닿는 자리. 투입구는 매장 쪽(+Y).
-	if (UStaticMesh* TrashBinMesh = PropMesh(TEXT("SM_TrashBin")))
-	{
-		CreateBlock(
-			FVector(2860, -662, 6), FVector(100, 100, 100),
-			nullptr, true, TrashBinMesh, FRotator(0, 180, 0));
-	}
-
-	// Warm spill onto the pavement in front of the entrance.
-	UPointLightComponent* SpillLight = CreateLight(
-		FVector(2340, -457, 225), 1050.0f, 660.0f, FLinearColor(1.0f, 0.95f, 0.85f), true, 22.0f);
-	SpillLight->SetVolumetricScatteringIntensity(0.45f);
-
-	// Interior fluorescents in a 2x2 grid over the enlarged sales floor.
-	for (const float PanelX : {2540.0f, 2820.0f})
-	{
-		for (const float PanelY : {-300.0f, -560.0f})
-		{
-			// Diffuser flush with the ceiling soffit at Z 260. At Z 264 the
-			// whole panel sat inside the 20 cm slab and lit nothing.
-			StoreLightDiscs.Add(CreateBlock(
-				FVector(PanelX, PanelY, 257), FVector(120, 42, 6),
-				LightPanelMaterial, false));
-			UPointLightComponent* CeilingLight = CreateLight(
-				FVector(PanelX, PanelY, 238), 2850.0f, 720.0f,
-				FLinearColor(1.0f, 0.98f, 0.92f), true, 28.0f);
-			CeilingLight->SetVolumetricScatteringIntensity(0.16f);
-			StoreLights.Add(CeilingLight);
-		}
-	}
-
-	// Long service counter against the north wall: laminate body, steel top,
-	// kick recess, seams, card terminal, hot-snack warmer, tobacco wall.
-	// 계산대는 Blender 메시(Scripts/blender/build_store_fixtures.py) 하나다. 몸통·
-	// 상판·발치 홈·카드 단말기·서쪽 끝 온장고가 들어 있고 원점은 바닥 중심
-	// (매장 바닥 윗면 Z 6). 담배 진열장과 담뱃갑은 그대로 상자다.
-	UStaticMesh* CounterMesh = PropMesh(TEXT("SM_StoreCounter"));
-	if (CounterMesh)
-	{
-		CreateBlock(
-			FVector(2560, -250, 6), FVector(100, 100, 100),
-			nullptr, true, CounterMesh, FRotator::ZeroRotator);
-		// 카드 단말기와 온장고는 상판 위(Z 99)에 따로 놓는 메시다. 계산대 바운드가
-		// 상판에서 끝나야 밤3 감독이 상판에 눕히는 근무표가 계산대 안에 든 것으로
-		// 잡히지 않는다.
-		if (UStaticMesh* TerminalMesh = PropMesh(TEXT("SM_CardTerminal")))
-		{
-			CreateBlock(
-				FVector(2500, -268, 99), FVector(100, 100, 100),
-				nullptr, false, TerminalMesh, FRotator::ZeroRotator);
-		}
-		if (UStaticMesh* WarmerMesh = PropMesh(TEXT("SM_HotSnackWarmer")))
-		{
-			CreateBlock(
-				FVector(2452, -250, 99), FVector(100, 100, 100),
-				nullptr, true, WarmerMesh, FRotator::ZeroRotator);
-		}
-	}
-	else
-	{
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2560, -250, 51), FVector(220, 60, 90), FridgeBodyMaterial);
-		CreateBlock(FVector(2560, -250, 97.5f), FVector(224, 64, 3), Metal);
-		CreateBlock(FVector(2560, -276, 5), FVector(216, 8, 10), PlasticDarkMaterial, false);
-		CreateBlock(FVector(2560, -282.2f, 94), FVector(220, 2, 4), PlasticDarkMaterial, false);
-		CreateBlock(FVector(2452, -281.2f, 50), FVector(1.5f, 2, 84), PlasticDarkMaterial, false);
-		CreateBlock(FVector(2668, -281.2f, 50), FVector(1.5f, 2, 84), PlasticDarkMaterial, false);
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2500, -268, 101.5f), FVector(12, 9, 5), PlasticDarkMaterial, false);
-		CreateBlock(
-			FVector(2500, -271, 106), FVector(10, 1.5f, 7),
-			ScreenGlowMaterial, false,
-			nullptr, FRotator(-28, 0, 0));
-		// Hot-snack warmer glowing at the counter's west end.
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2452, -250, 116), FVector(36, 38, 36), PlasticDarkMaterial);
-		CreateBlock(FVector(2433, -250, 116), FVector(2, 30, 28), GlassMaterial, false);
-		CreateBlock(FVector(2445, -250, 130), FVector(20, 26, 2),
-			StreetLampGlowMaterial, false);
-	}
-	// Tobacco wall behind the counter. The cabinet backs onto the north wall
-	// face at Y -180 and the packs stand on its shop-facing side. Authored the
-	// other way round, every pack sat behind its own backing board with three
-	// centimetres of itself inside the building's wall.
-	// 진열장은 Blender 메시(SM_TobaccoCabinet)다. 기운 선반 넷에 가상 브랜드
-	// 담뱃갑 136개, 위에 청소년 판매 금지 띠. 원점은 벽면 바닥 중심.
-	UStaticMesh* TobaccoMesh = PropMesh(TEXT("SM_TobaccoCabinet"));
-	if (TobaccoMesh)
-	{
-		CreateBlock(
-			FVector(2560, -180, 80), FVector(100, 100, 100),
-			nullptr, true, TobaccoMesh, FRotator::ZeroRotator);
-	}
-	else
-	{
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2560, -187, 150), FVector(220, 14, 140), PlasticDarkMaterial);
-		int32 CigaretteIndex = 0;
-		for (const float RackZ : {126.0f, 154.0f, 182.0f})
-		{
-			for (float RackX = 2470.0f; RackX <= 2650.0f; RackX += 24.0f)
-			{
-				UMaterialInterface* RackMaterial =
-					(CigaretteIndex % 3 == 0) ? SnackRedMaterial :
-					(CigaretteIndex % 3 == 1) ? SnackYellowMaterial : SnackBlueMaterial;
-				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-				AddStoreStockBlock(
-					FVector(RackX, -198, RackZ),
-					FVector(14, 8, 12),
-					RackMaterial,
-					false);
-				++CigaretteIndex;
-			}
-		}
-	}
-
-	// Two double-sided gondolas built like real shop fixtures: a central back
-	// panel, a kick base, and cantilevered shelf tiers on each face. Product
-	// stands *on* a tier inside the bay instead of perching on the top cap.
-	// The 174 cm run is a common chest-height fixture: the 120 cm product tier
-	// has a real 150 cm shelf above it, so cup ramyeon reads as shelved stock
-	// from a standing player's approach instead of an item on a display table.
-	// 곤돌라는 Blender 메시(SM_StoreGondola) 한 대씩이다. 등판·베이스·기둥·5단
-	// 선반·앞턱·가격 레일이 들어 있고 원점은 바닥 중심. 선반 윗면이 아래
-	// TierHeights + 1.5와 같아서 봉지·컵 배치는 그대로다.
-	UStaticMesh* GondolaMesh = PropMesh(TEXT("SM_StoreGondola"));
-	for (const float GondolaY : {-365.0f, -555.0f})
-	{
-		if (GondolaMesh)
-		{
-			CreateBlock(
-				FVector(2640, GondolaY, 6), FVector(100, 100, 100),
-				nullptr, true, GondolaMesh, FRotator::ZeroRotator);
-		}
-		else
-		{
-			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-			// Spine and structure.
-			CreateBlock(FVector(2640, GondolaY, 86), FVector(300, 8, 172), ShelfSteel);
-			CreateBlock(FVector(2640, GondolaY, 8), FVector(292, 46, 16), PlasticDarkMaterial);
-			CreateBlock(FVector(2488, GondolaY, 87), FVector(6, 50, 174), Metal);
-			CreateBlock(FVector(2792, GondolaY, 87), FVector(6, 50, 174), Metal);
-			CreateBlock(FVector(2640, GondolaY, 174), FVector(304, 50, 4), Metal, false);
-		}
-
-		const float TierHeights[] = {30.0f, 60.0f, 90.0f, 120.0f, 150.0f};
-		const TCHAR* SnackLabels[] = {
-			TEXT("M_SnackShrimp"), TEXT("M_SnackPotato"),
-			TEXT("M_SnackSquid"), TEXT("M_SnackCorn")};
-
-		for (const float FaceSign : {-1.0f, 1.0f})
-		{
-			int32 SnackIndex = static_cast<int32>(GondolaY * 0.1f + FaceSign);
-			for (int32 TierIndex = 0; TierIndex < UE_ARRAY_COUNT(TierHeights); ++TierIndex)
-			{
-				const float TierZ = TierHeights[TierIndex];
-				const float ShelfY = GondolaY + FaceSign * 13.0f;
-				// Shelf plate, its raised front lip and the price rail. 메시가
-				// 있으면 선반은 메시 안에 있다.
-				if (!GondolaMesh)
-				{
-					// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-					CreateBlock(FVector(2640, ShelfY, TierZ), FVector(298, 22, 3), Metal);
-					CreateBlock(FVector(2640, GondolaY + FaceSign * 23.5f, TierZ + 3.5f),
-						FVector(298, 2, 5), Metal, false);
-					CreateBlock(FVector(2640, GondolaY + FaceSign * 24.5f, TierZ + 2.0f),
-						FVector(296, 2, 7), FridgeInteriorMaterial, false);
-				}
-
-				// The CH01 approach side of the first gondola reserves the bay
-				// between the 120 cm and 150 cm shelves for cup ramyeon. The upper
-				// shelf remains visible in profile and makes the storage relationship
-				// unambiguous from the aisle.
-				const bool bRamyeonBay =
-					FMath::IsNearlyEqual(GondolaY, -365.0f)
-					&& FaceSign < 0.0f
-					&& TierIndex == 3;
-				// 두 번째 곤돌라는 봉지만이 아니다. 1·3단은 과자 상자, 안쪽 5단은
-				// 즉석밥 묶음. 편의점 매대가 봉지 한 종류로만 차 있으면 창고처럼 읽힌다.
-				const bool bSecondGondola = FMath::IsNearlyEqual(GondolaY, -555.0f);
-				const bool bBoxTier = bSecondGondola && (TierIndex == 0 || TierIndex == 2);
-				const bool bRiceTier = bSecondGondola && TierIndex == 4 && FaceSign < 0.0f;
-				if (bBoxTier)
-				{
-					static const TCHAR* BoxNames[] = {
-						TEXT("SM_SnackBoxA"), TEXT("SM_SnackBoxB"),
-						TEXT("SM_SnackBoxC"), TEXT("SM_SnackBoxD")};
-					int32 BoxIndex = TierIndex + (FaceSign > 0.0f ? 1 : 0);
-					for (float BoxX = 2506.0f; BoxX <= 2776.0f; BoxX += 20.0f)
-					{
-						// 상자 앞면은 -Y다. 통로가 -Y 쪽 면이면 그대로, +Y 면이면 돌린다.
-						AddStoreStockProp(
-							BoxNames[BoxIndex % 4],
-							FVector(BoxX, GondolaY + FaceSign * 11.0f, TierZ + 1.5f),
-							nullptr,
-							FaceSign > 0.0f ? 180.0f : 0.0f,
-							1.0f,
-							true);
-						++BoxIndex;
-					}
-				}
-				if (bRiceTier)
-				{
-					for (float PackX = 2508.0f; PackX <= 2772.0f; PackX += 16.0f)
-					{
-						AddStoreStockProp(
-							TEXT("SM_RiceBowlPack"),
-							FVector(PackX, GondolaY - 11.0f, TierZ + 1.5f),
-							nullptr, 0.0f, 1.0f, true);
-					}
-				}
-
-				// Bags stand on the tier, backs to the spine, faces to the
-				// aisle — packed shoulder to shoulder the way a stocked shelf
-				// actually looks, not spaced out like a museum case.
-				for (float SnackX = 2500.0f;
-					!bRamyeonBay && !bBoxTier && !bRiceTier && SnackX <= 2780.0f;
-					SnackX += 14.0f)
-				{
-					UMaterialInterface* SnackMaterial = TexMat(
-						SnackLabels[FMath::Abs(SnackIndex) % 4],
-						(SnackIndex % 3 == 0) ? SnackRedMaterial :
-						(SnackIndex % 3 == 1) ? SnackYellowMaterial : SnackBlueMaterial);
-					if (!AddStoreStockProp(
-						TEXT("SM_SnackBag"),
-						// The bag mesh carries a crimped bottom seal, so its
-						// pivot sits slightly below the body.
-						FVector(SnackX, GondolaY + FaceSign * 11.0f, TierZ + 6.8f),
-						SnackMaterial,
-						FaceSign > 0.0f ? 90.0f : -90.0f,
-						0.48f,
-						true))
-					{
-						AddStoreStockBlock(
-							FVector(SnackX, GondolaY + FaceSign * 11.0f, TierZ + 9.5f),
-							FVector(15, 12, 16), SnackMaterial, true);
-					}
-					++SnackIndex;
-				}
-			}
-		}
-	}
-
-	// Two dense rows of cups occupy the enclosed 120--150 cm bay on the
-	// player-facing side. The 11 cm cups rest on the 121.5 cm shelf surface and
-	// leave 17.4 cm below the next shelf. The staggered back row reads as stocked
-	// depth without intersecting either the spine or price rail.
-	constexpr float RamyeonShelfSurfaceZ = 121.5f;
-	for (int32 RowIndex = 0; RowIndex < 2; ++RowIndex)
-	{
-		const float RowY = RowIndex == 0 ? -379.0f : -368.7f;
-		const float StartX = RowIndex == 0 ? 2504.0f : 2512.0f;
-		const float EndX = RowIndex == 0 ? 2776.0f : 2768.0f;
-		for (float CupX = StartX; CupX <= EndX; CupX += 16.0f)
-		{
-			// A cup ramyeon is three materials, not one. The foam cup, the
-			// printed band and foil lid remain aligned as one retail unit.
-			AddStoreStockCup(
-				FVector(CupX, RowY, RamyeonShelfSurfaceZ),
-				-90.0f);
-		}
-	}
-
-	// South wall: chilled open showcase (kimbap/sandwich) flanked by scanned
-	// steel racks with crate/bottle stock, plus the ramyeon corner and poster.
-	// 오픈 쇼케이스는 통짜가 아니라 껍데기다. 240 x 36 x 170 상자 하나로
-	// 두는 바람에 선반 셋과 가격표, 조명, 그리고 그 위의 김밥·샌드위치
-	// 스물넷이 전부 강철 덩어리 안에 밀봉돼 있었다. 통로를 보는 앞면
-	// (Y = -644)만 열고 나머지 다섯 면을 6 cm 판으로 두른다.
-	// 쇼케이스는 Blender 메시(SM_OpenShowcase) 하나다. 껍데기·라이너·선반 셋·
-	// 가격표·캐노피 LED가 들어 있고 앞면이 +Y, 원점은 바닥 중심. 선반 윗면이
-	// 아래 TierZ + 1.5와 같아서 김밥·샌드위치 배치는 그대로다.
-	UStaticMesh* ShowcaseMesh = PropMesh(TEXT("SM_OpenShowcase"));
-	if (ShowcaseMesh)
-	{
-		CreateBlock(
-			FVector(2700, -660, 6), FVector(100, 100, 100),
-			nullptr, true, ShowcaseMesh, FRotator::ZeroRotator);
-	}
-	else
-	{
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2700, -677, 90), FVector(240, 6, 170), ShelfSteel);
-		CreateBlock(FVector(2583, -659, 90), FVector(6, 30, 170), ShelfSteel);
-		CreateBlock(FVector(2817, -659, 90), FVector(6, 30, 170), ShelfSteel);
-		CreateBlock(FVector(2700, -659, 172), FVector(228, 30, 6), ShelfSteel);
-		CreateBlock(FVector(2700, -659, 8), FVector(228, 30, 6), ShelfSteel);
-		for (const float TierZ : {70.0f, 105.0f, 140.0f})
-		{
-			// 선반과 가격표는 안쪽 폭(X 2586..2814)에 맞춘다. 통짜였을 때는
-			// 왼쪽 끝이 몸통 바깥면까지 나가 있어도 보이지 않았다.
-			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-			CreateBlock(FVector(2700, -654, TierZ), FVector(228, 26, 3), Metal, false);
-			CreateBlock(FVector(2700, -646.5f, TierZ + 3), FVector(228, 3, 5), FridgeInteriorMaterial, false);
-		}
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2700, -652, 166), FVector(228, 20, 3), LightPanelMaterial, false);
-	}
-	int32 ChilledIndex = 0;
-	for (const float TierZ : {71.5f, 106.5f, 141.5f})
-	{
-		// 맨 위 단은 삼각김밥 줄이다. 포장 앞면(-Y)이 통로(+Y)를 보게 돌린다.
-		if (TierZ > 140.0f)
-		{
-			static const TCHAR* KimbapNames[] = {
-				TEXT("SM_TriangleKimbapA"), TEXT("SM_TriangleKimbapB"),
-				TEXT("SM_TriangleKimbapC"), TEXT("SM_TriangleKimbapD")};
-			int32 KimbapIndex = 0;
-			for (float ItemX = 2596.0f; ItemX <= 2804.0f; ItemX += 12.0f)
-			{
-				AddStoreStockProp(
-					KimbapNames[KimbapIndex % 4],
-					FVector(ItemX, -655, TierZ),
-					nullptr, 180.0f, 1.0f, true);
-				++KimbapIndex;
-			}
-			continue;
-		}
-		for (float ItemX = 2600.0f; ItemX <= 2790.0f; ItemX += 27.0f)
-		{
-			// Kimbap trays lie flat; sandwich wedges stand on their long edge.
-			const bool bKimbap = (ChilledIndex % 2) == 0;
-			const bool bPlaced = bKimbap
-				? AddStoreStockProp(
-					TEXT("SM_KimbapPack"),
-					FVector(ItemX, -655, TierZ),
-					FridgeInteriorMaterial,
-					90.0f)
-				: AddStoreStockProp(
-					TEXT("SM_SandwichPack"),
-					FVector(ItemX, -655, TierZ),
-					SnackYellowMaterial,
-					90.0f);
-			if (!bPlaced)
-			{
-				AddStoreStockBlock(
-					FVector(ItemX, -655, TierZ + (bKimbap ? 4.0f : 3.0f)),
-					bKimbap ? FVector(9, 8, 8) : FVector(13, 9, 6),
-					bKimbap ? FridgeInteriorMaterial : SnackYellowMaterial,
-					true);
-			}
-			++ChilledIndex;
-		}
-	}
-	PlacePhotoProp(TEXT("steel_frame_shelves_01"), FVector(2530, -660, 6), FVector(105, 48, 170), 180.0f);
-	PlacePhotoProp(TEXT("plastic_crate_01"), FVector(2560, -620, 6), FVector(44, 34, 28), 15.0f);
-	PlacePhotoProp(TEXT("wine_bottles_01"), FVector(2510, -628, 6), FVector(40, 30, 36), 200.0f);
-	CreateBlock(
-		FVector(2470, -678.5f, 200), FVector(70, 1.5f, 48),
-		TexMat(TEXT("M_PosterRamyeon"), SignWhiteMaterial), false);
-	// Ramyeon corner rack by the window bar. A thin back, two uprights and five
-	// shelf plates leave genuine open bays; the former solid cabinet with cups
-	// perched at Z=167.5 was not a plausible convenience-store fixture.
-	// The whole fixture stands against the wall face at Y -680 instead of
-	// through it: the back panel was buried in the wall and the 32 cm tiers
-	// ran six centimetres into it, so the rear of every cup was inside the
-	// building's south wall.
-	// 라면 선반은 Blender 메시(SM_RamyeonRack)다. 등판·기둥·6단이 들어 있고
-	// 원점은 바닥 중심. 단 윗면이 아래 TierZ + 1.5와 같다.
-	UStaticMesh* RackMesh = PropMesh(TEXT("SM_RamyeonRack"));
-	if (RackMesh)
-	{
-		CreateBlock(
-			FVector(2452, -664, 6), FVector(100, 100, 100),
-			nullptr, true, RackMesh, FRotator::ZeroRotator);
-	}
-	else
-	{
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2452, -678.5f, 86), FVector(70, 3, 160), ShelfSteel);
-		CreateBlock(FVector(2418.5f, -664, 86), FVector(3, 32, 160), Metal);
-		CreateBlock(FVector(2485.5f, -664, 86), FVector(3, 32, 160), Metal);
-	}
-	for (const float TierZ : {16.0f, 46.0f, 76.0f, 106.0f, 136.0f, 166.0f})
-	{
-		if (!RackMesh)
-		{
-			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-			CreateBlock(FVector(2452, -664, TierZ), FVector(70, 32, 3), Metal);
-		}
-		if (TierZ >= 166.0f)
-		{
-			continue;
-		}
-		for (float CupX = 2427.0f; CupX <= 2477.0f; CupX += 12.5f)
-		{
-			AddStoreStockCup(
-				FVector(CupX, -664, TierZ + 1.5f),
-				90.0f);
-		}
-	}
-
-	// East wall: the walk-up reach-in cooler bank — six framed glass doors,
-	// each bay lit and stocked; bay two stands open for restocking, and that
-	// is where the last bottled water waits.
-	// 냉장고는 Blender 메시(SM_StoreCoolerBank) 하나다. 껍데기·헤더 라이트·
-	// 칸마다 라이너·선반 셋·가격표·LED·유리문이 들어 있고, 두 번째 칸은 문이
-	// 없다. 그 칸의 문짝은 SM_StoreCoolerDoor를 힌지(문틀 바깥선)에 놓고 통로
-	// 쪽으로 120도 젖힌다. 선반 윗면이 아래 ShelfTopZ와 같아서 음료 배치는
-	// 그대로다. 열린 칸은 선반만 충돌이라 안쪽 생수에 손이 닿는다.
-	UStaticMesh* CoolerMesh = PropMesh(TEXT("SM_StoreCoolerBank"));
-	UStaticMesh* CoolerDoorMesh = PropMesh(TEXT("SM_StoreCoolerDoor"));
-	if (CoolerMesh)
-	{
-		CreateBlock(
-			FVector(2925, -430, 6), FVector(100, 100, 100),
-			nullptr, true, CoolerMesh, FRotator::ZeroRotator);
-	}
-	else
-	{
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2948.5f, -430, 116), FVector(3, 480, 220), ShelfSteel);
-		CreateBlock(FVector(2925, -676, 116), FVector(60, 12, 220), ShelfSteel);
-		CreateBlock(FVector(2925, -184, 116), FVector(60, 12, 220), ShelfSteel);
-		CreateBlock(FVector(2925, -430, 222), FVector(60, 480, 12), ShelfSteel);
-		CreateBlock(FVector(2925, -430, 16), FVector(60, 480, 20), ShelfSteel);
-	}
-	const float BayCenters[] = {-630.0f, -552.0f, -474.0f, -396.0f, -318.0f, -240.0f};
-	const int32 OpenBayIndex = 1; // y = -552: the open, half-restocked bay
-	for (int32 BayIndex = 0; BayIndex < 6; ++BayIndex)
-	{
-		const float BayY = BayCenters[BayIndex];
-		// Interior of the bay: liner, three shelves, light strip, drinks. The
-		// liner stays off pure white so the bays do not blow out under the
-		// ceiling fluorescents and wash the product labels away.
-		if (!CoolerMesh)
-		{
-			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-			CreateBlock(FVector(2948, BayY, 116), FVector(6, 72, 210), FridgeBodyMaterial, false);
-			for (const float ShelfZ : {60.0f, 105.0f, 150.0f})
-			{
-				CreateBlock(FVector(2925, BayY, ShelfZ), FVector(44, 68, 3), Metal);
-			}
-			// Bay light strip, screwed up under the header of the cooler bank
-			// rather than hovering in the middle of the bay's air.
-			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-			CreateBlock(FVector(2905, BayY, 214.5f), FVector(3, 60, 3), ScreenGlowMaterial, false);
-		}
-		int32 DrinkIndex = BayIndex;
-		// Two rows deep and shoulder to shoulder: a stocked drinks cooler is
-		// a solid wall of product, not a few bottles on a rail.
-		for (const float ShelfTopZ : {61.5f, 106.5f, 151.5f})
-		{
-			for (float DrinkRowX : {2925.0f, 2941.0f})
-			{
-			for (float DrinkY = BayY - 30.0f; DrinkY <= BayY + 30.0f; DrinkY += 9.0f)
-			{
-				if (BayIndex == OpenBayIndex && FMath::IsNearlyEqual(ShelfTopZ, 106.5f))
-				{
-					continue; // the water pickups live on this shelf instead
-				}
-				// Korean cooler shelves mix PET, glass, slim cans and cartons. The
-				// earlier three-bottle loop made every bay read like a liquor wall.
-				const int32 ProductVariant = FMath::Abs(DrinkIndex) % 5;
-				const bool bTallBottle = ProductVariant == 2;
-				const bool bDrinkCan = ProductVariant == 3;
-				const bool bDrinkCarton = ProductVariant == 4;
-				UMaterialInterface* DrinkMaterial = ProductVariant == 0
-					? BottleGreenMaterial
-					: BottleBrownMaterial;
-				UMaterialInterface* CapMaterial =
-					(DrinkIndex % 2 == 0) ? SnackRedMaterial : FridgeInteriorMaterial;
-				const FVector BottleBase(DrinkRowX, DrinkY, ShelfTopZ);
-				// Bottles face the aisle, so every label reads from the front.
-				const float BottleYaw = -90.0f + (DrinkIndex % 3 - 1) * 7.0f;
-				if (bDrinkCan)
-				{
-					const bool bPlaced = AddStoreStockProp(
-						TEXT("SM_DrinkCan"),
-						BottleBase,
-						TexMat(TEXT("M_LabelSoda"), SnackBlueMaterial),
-						BottleYaw,
-						1.0f,
-						true);
-					ensureMsgf(
-						bPlaced,
-						TEXT("SM_DrinkCan is required for Korean cooler silhouette variety."));
-				}
-				else if (bDrinkCarton)
-				{
-					const bool bPlaced = AddStoreStockProp(
-						TEXT("SM_MilkCarton"),
-						BottleBase,
-						TexMat(TEXT("M_LabelBarley"), FridgeInteriorMaterial),
-						BottleYaw,
-						1.0f,
-						true);
-					ensureMsgf(
-						bPlaced,
-						TEXT("SM_MilkCarton is required for Korean cooler silhouette variety."));
-				}
-				else if (bTallBottle)
-				{
-					if (!AddStoreStockProp(
-							TEXT("SM_SojuBottle"),
-							BottleBase,
-							BottleGreenMaterial,
-							BottleYaw))
-					{
-						AddStoreStockBlock(
-							BottleBase + FVector(0.0f, 0.0f, 10.6f),
-							FVector(6.7f, 6.7f, 21.2f),
-							BottleGreenMaterial,
-							true);
-					}
-					if (!AddStoreStockProp(
-							TEXT("SM_BottleCap"),
-							BottleBase + FVector(0, 0, 21.0f),
-							CapMaterial,
-							0.0f,
-							1.0f,
-							false))
-					{
-						AddStoreStockBlock(
-							BottleBase + FVector(0.0f, 0.0f, 21.8f),
-							FVector(3.4f, 3.4f, 1.6f),
-							CapMaterial,
-							false);
-					}
-					AddStoreStockBottleLabel(BottleBase, 3.42f, 3.0f, 7.0f,
-						TEXT("M_LabelSoju"), BottleYaw);
-				}
-				else
-				{
-					if (!AddStoreStockProp(
-							TEXT("SM_DrinkBottle"),
-							BottleBase,
-							DrinkMaterial,
-							BottleYaw))
-					{
-						AddStoreStockBlock(
-							BottleBase + FVector(0.0f, 0.0f, 8.55f),
-							FVector(7.2f, 7.2f, 17.1f),
-							DrinkMaterial,
-							true);
-					}
-					if (!AddStoreStockProp(
-							TEXT("SM_BottleCap"),
-							BottleBase + FVector(0, 0, 16.9f),
-							CapMaterial,
-							0.0f,
-							1.0f,
-							false))
-					{
-						AddStoreStockBlock(
-							BottleBase + FVector(0.0f, 0.0f, 17.7f),
-							FVector(3.4f, 3.4f, 1.6f),
-							CapMaterial,
-							false);
-					}
-					const TCHAR* LabelName = ProductVariant == 0
-						? TEXT("M_LabelGreenTea")
-						: TEXT("M_LabelSoda");
-					AddStoreStockBottleLabel(
-						BottleBase, 3.67f, 3.0f, 7.6f, LabelName, BottleYaw);
-				}
-				++DrinkIndex;
-			}
-			}
-		}
-		if (CoolerMesh)
-		{
-			continue;
-		}
-		// Price strip on every shelf edge.
-		for (const float StripZ : {63.0f, 108.0f, 153.0f})
-		{
-			// Real label rails are only about four centimetres high. A dark
-			// carrier breaks up the former eight-centimetre glowing white band.
-			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-			CreateBlock(
-				FVector(2902.6f, BayY, StripZ), FVector(2.2f, 66, 6),
-				PlasticDarkMaterial, false);
-			CreateBlock(
-				FVector(2901.2f, BayY, StripZ), FVector(0.8f, 62, 4.2f),
-				PriceStrip, false);
-		}
-		// Door frame; the open bay's leaf swings wide on its hinge.
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2900, BayY - 37.0f, 110), FVector(8, 6, 214), Metal);
-		CreateBlock(FVector(2900, BayY + 37.0f, 110), FVector(8, 6, 214), Metal);
-		CreateBlock(FVector(2900, BayY, 214), FVector(8, 80, 8), Metal);
-		CreateBlock(FVector(2900, BayY, 8), FVector(8, 80, 8), Metal);
-		if (BayIndex == OpenBayIndex)
-		{
-			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-			CreateBlock(
-				FVector(2878, BayY - 62.0f, 110), FVector(4, 66, 196),
-				GlassMaterial, true, nullptr, FRotator(0, -64, 0));
-		}
-		else
-		{
-			// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-			CreateBlock(FVector(2899, BayY, 110), FVector(4, 66, 196), GlassMaterial);
-			// The handle is fixed to the door leaf; at X 2894 it floated a
-			// centimetre and a half in front of the glass.
-			CreateBlock(FVector(2895.5f, BayY + 28.0f, 110), FVector(3, 4, 44), Metal, false);
-		}
-	}
-	if (CoolerMesh && CoolerDoorMesh)
-	{
-		// 열린 칸(BayCenters[OpenBayIndex] = -552) 문짝. 힌지는 남쪽 문틀 바깥선
-		// Y -592이고 통로로 120도 젖혀 남쪽 옆 칸 문 앞에 겹쳐 선다. 생수를
-		// 꺼내는 칸 앞은 비어 있다. 반복문 밖에 두는 것은 감사가 조건을 읽지
-		// 않고 여섯 칸 전부에 문짝을 세우기 때문이다.
-		CreateBlock(
-			FVector(2900, -592, 6), FVector(100, 100, 100),
-			nullptr, true, CoolerDoorMesh, FRotator(0, 120, 0));
-	}
-	StoreLights.Add(CreateLight(
-		FVector(2890, -430, 190), 320.0f, 480.0f, FLinearColor(0.75f, 0.85f, 1.0f), false, 8.0f));
-
-	// Ice-cream chest freezer against the west glass, south of the door.
-	// 평대 냉동고는 Blender 메시(SM_ChestFreezer)다. 원점 바닥 중심, 긴 축 Y.
-	UStaticMesh* FreezerMesh = PropMesh(TEXT("SM_ChestFreezer"));
-	if (FreezerMesh)
-	{
-		CreateBlock(
-			FVector(2445, -545, 6), FVector(100, 100, 100),
-			nullptr, true, FreezerMesh, FRotator::ZeroRotator);
-	}
-	else
-	{
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(2445, -545, 46), FVector(58, 110, 80), FridgeBodyMaterial);
-		CreateBlock(FVector(2445, -545, 88), FVector(52, 104, 4), GlassMaterial, false);
-		CreateBlock(FVector(2445, -545, 84), FVector(56, 108, 3), Metal, false);
-	}
-
-	// Tobacco notice over the cigarette wall, entrance mat, CCTV eye. The
-	// notice is stuck to the wall itself, so it has to reach Y -180.
-	CreateBlock(
-		FVector(2560, -181, 228), FVector(140, 2, 12),
-		TexMat(TEXT("M_TobaccoNotice"), FridgeInteriorMaterial), false);
-	CreateBlock(FVector(2435, -457, 7.2f), FVector(70, 95, 2), PlasticDarkMaterial, false);
+	CreateBlock(FVector(2405, -227, 12), FVector(12, 328, 12), Metal);
+	CreateBlock(FVector(2405, -665, 12), FVector(12, 288, 12), Metal);
+	CreateBlock(FVector(2405, -435, 227), FVector(12, 770, 34), TexMat(TEXT("M_StoreWall_Y"), ConcreteMaterial));
+	CreatePrintedBlock(FVector(2392, -435, 276), FVector(12, 770, 96),
+		PlasticDarkMaterial, TexMat(TEXT("M_SignMainLit"), SignMintMaterial), FVector(-1, 0, 0));
+	CreatePrintedBlock(FVector(2358, -108, 322), FVector(48, 8, 96),
+		PlasticDarkMaterial, TexMat(TEXT("M_SignBladeLit"), SignWhiteMaterial), FVector(0, 1, 0), false, true);
+	CreateBlock(FVector(2384, -108, 344), FVector(20, 3, 3), Metal, false);
+	CreatePrintedBlock(FVector(2399, -585, 134), FVector(1, 50, 69),
+		SignWhiteMaterial, TexMat(TEXT("M_PosterSale"), SignWhiteMaterial), FVector(-1, 0, 0), false);
+	CreateBlock(FVector(2438, -457, 7), FVector(64, 94, 1.4f), PlasticDarkMaterial, false);
 	CreateBlock(FVector(2426, -398, 246), FVector(15, 10, 10), FridgeInteriorMaterial, false);
-	CreateBlock(
-		FVector(2434, -404, 241), FVector(7, 7, 10),
-		PlasticDarkMaterial, false, CylinderMesh, FRotator(48, 35, 0));
-	// 자동문 오른쪽 짝이 물러나 서는 자리(X 2410..2416, Y -402..-342)를
-	// 비켜 세운다. X 2420이면 짝이 통을 지나간다.
-	CreateBlock(
-		FVector(2432, -398, 24), FVector(22, 22, 46),
-		PlasticDarkMaterial, true, CylinderMesh);
-	PlacePhotoProp(
-		TEXT("outdoor_table_chair_set_01"), FVector(2350, -600, 0),
-		FVector(170, 170, 110), 25.0f);
-	PlacePhotoProp(
-		TEXT("plastic_monobloc_chair_01"), FVector(2296, -556, 0),
-		FVector(55, 55, 85), 160.0f);
-
-	// Stacked hand baskets by the counter's west end (authored hollow shells).
-	if (CreateProp(TEXT("SM_Basket"), FVector(2445, -305, 6), SnackRedMaterial, -8.0f, 1.0f, true))
+	CreateBlock(FVector(2434, -404, 241), FVector(7, 7, 10), PlasticDarkMaterial, false, CylinderMesh, FRotator(48, 35, 0));
+	// 실내 LED 네 줄. 밝은 매장은 정상적인 생활 공간의 기준점이다.
+	for (const float X : {2540.0f, 2920.0f})
 	{
-		CreateProp(TEXT("SM_Basket"), FVector(2446, -306, 27), SnackRedMaterial, 12.0f);
-		CreateProp(TEXT("SM_Basket"), FVector(2444, -304, 48), SnackRedMaterial, -3.0f);
+		for (const float Y : {-250.0f, -650.0f})
+		{
+			StoreLightDiscs.Add(CreateBlock(FVector(X, Y, 257), FVector(180, 7, 4), LightPanelMaterial, false));
+			UPointLightComponent* Light = CreateLight(FVector(X, Y, 239), 3650, 850,
+				FLinearColor(1, .985f, .955f), true, 38);
+			Light->SetVolumetricScatteringIntensity(0.02f);
+			StoreLights.Add(Light);
+		}
 	}
-	else if (PlacePhotoProp(TEXT("plastic_crate_01"), FVector(2445, -305, 6), FVector(44, 34, 28), -8.0f))
+	CreateLight(FVector(2340, -457, 225), 1150, 650, FLinearColor(1, .96f, .87f), true, 28);
+	// 집기는 자체 재질을 유지한다. 인쇄 좌표는 FBX UV0에 있다.
+	const auto Fixture = [this](const TCHAR* Name, const FVector& Position, float Yaw = 0, bool Collision = true) -> UStaticMeshComponent*
 	{
-		PlacePhotoProp(TEXT("plastic_crate_01"), FVector(2446, -306, 34), FVector(42, 32, 27), 12.0f);
-	}
-	else
+		if (UStaticMesh* Mesh = PropMesh(Name))
+		{
+			return CreateBlock(Position, FVector(100), nullptr, Collision, Mesh, FRotator(0, Yaw, 0));
+		}
+		return nullptr;
+	};
+	StoreClerk = GetWorld()->SpawnActor<AIGStoreClerk>(AIGStoreClerk::StaticClass(), FVector(2590, -128, 6), FRotator::ZeroRotator);
+	Fixture(TEXT("SM_StoreCounter"), FVector(2590, -200, 6));
+	StoreCashRegisterVisual = Fixture(TEXT("SM_RetailPOS"), FVector(2608, -190, 99), 0, false);
+	Fixture(TEXT("SM_CardTerminal"), FVector(2665, -216, 99), 0, false);
+	Fixture(TEXT("SM_HotSnackWarmer"), FVector(2500, -198, 99));
+	Fixture(TEXT("SM_TobaccoCabinet"), FVector(2590, -50, 80));
+	for (const float X : {2535.0f, 2645.0f})
 	{
-		CreateBlock(FVector(2445, -305, 17), FVector(40, 30, 22), SnackRedMaterial);
-		CreateBlock(FVector(2445, -305, 39), FVector(38, 28, 20), SnackRedMaterial);
+		CreatePrintedBlock(FVector(X, -67.4f, 203), FVector(99, .15f, 25.5f),
+			PlasticDarkMaterial, TexMat(TEXT("M_RetailTobaccoAd"), SignWhiteMaterial), FVector(0, -1, 0), false);
 	}
-
+	CreatePrintedBlock(FVector(2590, -51, 228), FVector(140, 1, 12),
+		SignWhiteMaterial, TexMat(TEXT("M_TobaccoNotice"), SignWhiteMaterial), FVector(0, -1, 0), false);
+	// 계산대 옆 직원 출입문. 호출을 듣고 나오는 방향을 공간으로 보여 준다.
+	Fixture(TEXT("SM_UnitDoorLeaf"), FVector(2925, -53, 6), 0, false);
+	Fixture(TEXT("SM_UnitDoorHardware"), FVector(2925, -56, 6), 0, false);
+	// 품목별 구획과 앞줄 맞춤. 같은 상품은 3~4개 폭으로 묶고 뒤에 재고를 둔다.
+	const TCHAR* Bags[] = {TEXT("SM_RetailPotato"), TEXT("SM_RetailShrimp"), TEXT("SM_RetailCorn")};
+	const TCHAR* BagPrices[] = {TEXT("M_RetailPricePotato"), TEXT("M_RetailPriceShrimp"), TEXT("M_RetailPriceCorn")};
+	for (int32 Run = 0; Run < 2; ++Run)
+	{
+		const float Y = Run == 0 ? -380.0f : -620.0f;
+		Fixture(TEXT("SM_StoreGondola"), FVector(2710, Y, 6));
+		for (const float Side : {-1.0f, 1.0f})
+		{
+			for (int32 Tier = 0; Tier < 5; ++Tier)
+			{
+				const float Z = 31.5f + Tier * 30.0f;
+				const bool Cups = Run == 0 && (Tier == 2 || Tier == 3);
+				const bool Boxes = Run == 1 && (Tier == 0 || Tier == 2);
+				const int32 Count = Cups ? 14 : (Boxes ? 11 : 12);
+				const float Pitch = Cups ? 16.0f : (Boxes ? 21.0f : 19.0f);
+				for (int32 Column = 0; Column < Count; ++Column)
+				{
+					const float X = 2710.0f + (Column - (Count - 1) * .5f) * Pitch;
+					const TCHAR* SKU = Cups ? (Column < 7 ? TEXT("SM_RetailCupBeef") : TEXT("SM_RetailCupKimchi"))
+						: Boxes ? TEXT("SM_RetailBiscuit") : Bags[(Column / 4 + Tier + Run) % 3];
+					const bool bPricePosition = Cups ? (Column == 3 || Column == 10)
+						: Boxes ? (Column == 2 || Column == 8) : (Column % 4 == 1);
+					if (bPricePosition)
+					{
+						const TCHAR* Price = Cups ? (Column < 7 ? TEXT("M_RetailPriceCupBeef") : TEXT("M_RetailPriceCupKimchi"))
+							: Boxes ? TEXT("M_RetailPriceBiscuit") : BagPrices[(Column / 4 + Tier + Run) % 3];
+						AddStoreStockBlock(FVector(X, Y + Side * 38.8f, Z - 1.5f), FVector(20, .2f, 5),
+							TexMat(Price, SignWhiteMaterial), false, FRotator::ZeroRotator);
+					}
+					for (int32 Depth = 0; Depth < 2; ++Depth)
+					{
+						// 한두 개 빠진 자리는 앞줄에 남긴다. 무작위 회전으로 진열을 흐트러뜨리지 않는다.
+						if (Depth == 0 && Column == 9 && Tier == 1 && Run == 1 && Side < 0) continue;
+						AddStoreStockProp(SKU, FVector(X, Y + Side * (Depth == 0 ? 28.0f : 11.5f), Z),
+							nullptr, Side > 0 ? 180 : 0, 1, true);
+					}
+				}
+			}
+		}
+	}
+	Fixture(TEXT("SM_StoreCoolerBank"), FVector(3085, -430, 6));
+	Fixture(TEXT("SM_StoreCoolerDoor"), FVector(3060, -592, 6), 120);
+	const float BayCenters[] = {-630, -552, -474, -396, -318, -240};
+	for (int32 Bay = 0; Bay < 6; ++Bay)
+	{
+		for (int32 Tier = 0; Tier < 3; ++Tier)
+		{
+			if (Bay == 1 && Tier == 1) continue;
+			const float Z = 61.5f + Tier * 45.0f;
+			for (int32 Column = 0; Column < 7; ++Column)
+			{
+				for (int32 Depth = 0; Depth < 2; ++Depth)
+				{
+					const FVector P(3081.0f + Depth * 12.0f, BayCenters[Bay] - 27.0f + Column * 9.0f, Z);
+					// 냉장고도 한 칸에 같은 종류를 모은다. 우유·소주·생수를 한 줄씩 섞지 않는다.
+					if (Bay <= 2)
+					{
+						AddStoreStockProp(TEXT("SM_WaterBottle"), P, Pet, 0, 1, true);
+						AddStoreStockProp(TEXT("SM_BottleCap"), P + FVector(0, 0, 20.1f), FridgeInteriorMaterial, 0, 1, false);
+						AddStoreStockBottleLabel(P, 3.32f, 7.2f, 5.5f, TEXT("M_LabelWater"), 0);
+					}
+					else if (Bay == 3)
+					{
+						AddStoreStockProp(TEXT("SM_WaterBottle"), P, Pet, 0, 1, true);
+						AddStoreStockProp(TEXT("SM_BottleCap"), P + FVector(0, 0, 20.1f), FridgeInteriorMaterial, 0, 1, false);
+						AddStoreStockBottleLabel(P, 3.32f, 7.2f, 5.5f, TEXT("M_LabelSoda"), 0);
+					}
+					else
+					{
+						AddStoreStockProp(TEXT("SM_WaterBottle"), P, BottleBrownMaterial, 0, 1, true);
+						AddStoreStockProp(TEXT("SM_BottleCap"), P + FVector(0, 0, 20.1f), FridgeInteriorMaterial, 0, 1, false);
+						AddStoreStockBottleLabel(P, 3.32f, 7.2f, 5.5f, Bay == 4 ? TEXT("M_LabelBarley") : TEXT("M_LabelGreenTea"), 0);
+					}
+				}
+			}
+		}
+	}
+	StoreLights.Add(CreateLight(FVector(3050, -430, 195), 380, 490, FLinearColor(.91f, .97f, 1), false, 20));
+	Fixture(TEXT("SM_OpenShowcase"), FVector(2820, -800, 6));
+	for (int32 Tier = 0; Tier < 3; ++Tier)
+	{
+		const TCHAR* Kimbap[] = {TEXT("SM_TriangleKimbapA"), TEXT("SM_TriangleKimbapB"), TEXT("SM_TriangleKimbapC"), TEXT("SM_TriangleKimbapD")};
+		for (int32 Column = 0; Column < 16; ++Column)
+		{
+			AddStoreStockProp(Kimbap[(Column / 4 + Tier) % 4], FVector(2722 + Column * 13, -795, 71.5f + Tier * 35),
+				nullptr, 180, 1, true);
+		}
+	}
+	Fixture(TEXT("SM_ChestFreezer"), FVector(2445, -545, 6));
+	Fixture(TEXT("SM_WindowBar"), FVector(2433, -730, 6));
+	Fixture(TEXT("SM_HotWaterDispenser"), FVector(2433, -710, 111), 90);
+	CreateProp(TEXT("SM_Stool"), FVector(2468, -751, 6), PlasticDarkMaterial, 0, 1, true);
+	CreateProp(TEXT("SM_Stool"), FVector(2468, -710, 6), PlasticDarkMaterial, 0, 1, true);
+	Fixture(TEXT("SM_TrashBin"), FVector(3030, -799, 6), 180);
+	for (int32 Basket = 0; Basket < 5; ++Basket)
+	{
+		CreateProp(TEXT("SM_Basket"), FVector(2442, -320, 6 + Basket * 3.0f), SnackBlueMaterial, 0, 1, Basket == 0);
+	}
 	FinalizeStoreStockBatches();
+	int32 RetailBatches = 0;
+	int32 RetailInstances = 0;
+	const bool bRetailValid = ValidateStoreStockBatches(RetailBatches, RetailInstances);
+	UE_LOG(LogTemp, Display, TEXT("RETAIL_STOCK %s instances=%d batches=%d"),
+		bRetailValid ? TEXT("PASS") : TEXT("FAIL"), RetailInstances, RetailBatches);
 }
+
 
 void AIGPrologueWorldScene::BuildSkyAndFog()
 {
@@ -7488,7 +6881,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			WaterProfiles[WaterIndex];
 		AIGPickupItem* WaterBottle = World->SpawnActor<AIGPickupItem>(
 			AIGPickupItem::StaticClass(),
-			FTransform(FRotator::ZeroRotator, FVector(2925, WaterY, 106.5f)),
+			FTransform(FRotator::ZeroRotator, FVector(3085, WaterY, 106.5f)),
 			SpawnParameters);
 		if (WaterBottle)
 		{
@@ -7512,16 +6905,16 @@ void AIGPrologueWorldScene::SpawnInteractables()
 					"IGPrologue", "WaterProfileB", "한강수 1L × 1 고르기"));
 				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
 					"IGPrologue", "WaterProfileBThought", "이거 하나면 되겠다.");
-				ProfileScale = FVector(1.12f, 1.12f, 1.35f);
-				WaterBottle->CarryOffset = FVector(36.0f, 15.0f, -31.0f);
+				ProfileScale = FVector(1.30f, 1.30f, 1.20f);
+				WaterBottle->CarryOffset = FVector(43.0f, 17.0f, -40.0f);
 				break;
 			case EIGRebirthPurchaseProfile::ProfileC2LX2:
 				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
 					"IGPrologue", "WaterProfileC", "맑은산 2L × 2 고르기"));
 				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
 					"IGPrologue", "WaterProfileCThought", "무겁지만 한 번에 가져가자.");
-				ProfileScale = FVector(1.34f, 1.34f, 1.72f);
-				WaterBottle->CarryOffset = FVector(39.0f, 16.0f, -42.0f);
+				ProfileScale = FVector(1.60f, 1.60f, 1.57f);
+				WaterBottle->CarryOffset = FVector(49.0f, 20.0f, -51.0f);
 				bHasSecondBottle = true;
 				break;
 			default:
@@ -7531,15 +6924,15 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			// filling the view; the mesh pivot is at the bottle's base.
 			if (PurchaseProfile == EIGRebirthPurchaseProfile::ProfileA500MlX2)
 			{
-				WaterBottle->CarryOffset = FVector(34.0f, 15.0f, -26.0f);
+				WaterBottle->CarryOffset = FVector(40.0f, 16.0f, -35.0f);
 			}
-			WaterBottle->CarryRotation = FRotator(-12.0f, -14.0f, 0.0f);
+			WaterBottle->CarryRotation = FRotator(-8.0f, -14.0f, 0.0f);
 			// Not simulated on the shelf: a lathed bottle standing on a wire
 			// shelf topples the instant physics settles, and this one is a
 			// pickup target rather than a kickable prop.
 			WaterBottle->ConfigurePrototypeVisuals(
 				PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
-				GlassMaterial, ProfileScale, false);
+				TexMat(TEXT("M_RetailPET"), GlassMaterial), ProfileScale, false);
 			CreateDecoOnComponent(
 				WaterBottle->GetMeshComponent(),
 				PropMesh(TEXT("SM_BottleCap"), CylinderMesh), SnackBlueMaterial,
@@ -7550,15 +6943,15 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			CreateDecoOnComponent(
 				WaterBottle->GetMeshComponent(),
 				PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
-				TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
-				FVector(0, 0, 7.2f), FRotator(0.0f, -90.0f, 0.0f),
+				TexMat(PurchaseProfile == EIGRebirthPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGRebirthPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
+				FVector(0, 0, 7.2f), FRotator::ZeroRotator,
 				FVector(3.30f, 3.30f, 5.5f));
 			if (bHasSecondBottle)
 			{
 				UStaticMeshComponent* SecondBottle = CreateDecoOnComponent(
 					WaterBottle->GetMeshComponent(),
 					PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
-					GlassMaterial,
+					TexMat(TEXT("M_RetailPET"), GlassMaterial),
 					FVector(0, 8.0f, 0),
 					FRotator(0, 7.0f, 0),
 					FVector::OneVector);
@@ -7572,9 +6965,9 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				CreateDecoOnComponent(
 					SecondBottle,
 					PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
-					TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
+					TexMat(PurchaseProfile == EIGRebirthPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGRebirthPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
 					FVector(0, 0, 7.2f),
-					FRotator(0.0f, -90.0f, 0.0f),
+					FRotator::ZeroRotator,
 					FVector(3.30f, 3.30f, 5.5f));
 			}
 			AddStaticPurchaseBagProxy(WaterBottle, PurchaseProfile);
@@ -7604,15 +6997,8 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	{
 		Checkout->ConfigurePrototypeVisuals(CubeMesh, PlasticDarkMaterial, ScreenGlowMaterial);
 
-		// A scanned cash register stands in for the greybox cluster; the
-		// hidden blocks keep providing the interaction collision.
-		StoreCashRegisterVisual = PlacePhotoProp(
-			TEXT("CashRegister_01"),
-			FVector(2620, -253, 99), FVector(48, 44, 40), 180.0f, false);
-		if (StoreCashRegisterVisual)
-		{
-			Checkout->SetVisualsHidden(true);
-		}
+		// 터치 POS는 BuildStore에서 상판 위에 배치한다.
+		Checkout->SetVisualsHidden(true);
 	}
 
 	// Progress volumes: stepping outside, mid-alley beat, entering the store.
@@ -7735,7 +7121,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 	// The actual CH01 transaction and the CH02 death overlay share the
 	// selected product data. Only the narrative timestamp differs.
 	ChapterOneReceipt = SpawnNote(
-		FVector(2582, -252, 100.5f),
+		FVector(2563, -216, 100.5f),
 		FRotator::ZeroRotator,
 		FVector(8.5f, 15.0f, 0.25f),
 		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
@@ -7753,7 +7139,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 	}
 
 	ExistingReceipt = SpawnNote(
-		FVector(2582, -252, 100.5f),
+		FVector(2563, -216, 100.5f),
 		FRotator::ZeroRotator,
 		FVector(8.5f, 15.0f, 0.25f),
 		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
@@ -7771,7 +7157,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 	}
 
 	DuplicateReceipt = SpawnNote(
-		FVector(2600, -252, 100.8f),
+		FVector(2581, -216, 100.8f),
 		FRotator(0, 0, 4),
 		FVector(8.5f, 15.0f, 0.25f),
 		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
@@ -7880,7 +7266,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 			ChapterTwoProfiles[WaterIndex];
 		AIGPickupItem* WaterBottle = World->SpawnActor<AIGPickupItem>(
 			AIGPickupItem::StaticClass(),
-			FTransform(FRotator::ZeroRotator, FVector(2925, WaterY, 106.5f)),
+			FTransform(FRotator::ZeroRotator, FVector(3085, WaterY, 106.5f)),
 			SpawnParameters);
 		if (!WaterBottle)
 		{
@@ -7898,20 +7284,20 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		case EIGRebirthPurchaseProfile::ProfileA500MlX2:
 			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
 				"IGCH02", "SecondWaterProfileA", "같은 새벽샘물 확인하기"));
-			WaterBottle->CarryOffset = FVector(34.0f, 15.0f, -26.0f);
+			WaterBottle->CarryOffset = FVector(40.0f, 16.0f, -35.0f);
 			bHasSecondBottle = true;
 			break;
 		case EIGRebirthPurchaseProfile::ProfileB1LX1:
 			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
 				"IGCH02", "SecondWaterProfileB", "같은 한강수 확인하기"));
-			WaterBottle->CarryOffset = FVector(36.0f, 15.0f, -31.0f);
-			ProfileScale = FVector(1.12f, 1.12f, 1.35f);
+			WaterBottle->CarryOffset = FVector(43.0f, 17.0f, -40.0f);
+			ProfileScale = FVector(1.30f, 1.30f, 1.20f);
 			break;
 		case EIGRebirthPurchaseProfile::ProfileC2LX2:
 			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
 				"IGCH02", "SecondWaterProfileC", "같은 맑은산 두 병 확인하기"));
-			WaterBottle->CarryOffset = FVector(39.0f, 16.0f, -42.0f);
-			ProfileScale = FVector(1.34f, 1.34f, 1.72f);
+			WaterBottle->CarryOffset = FVector(49.0f, 20.0f, -51.0f);
+			ProfileScale = FVector(1.60f, 1.60f, 1.57f);
 			bHasSecondBottle = true;
 			break;
 		default:
@@ -7919,10 +7305,10 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		}
 		WaterBottle->ThoughtOnPickup =
 			NSLOCTEXT("IGCH02", "SecondWaterThought", "같은 자리. 내가 골랐던 물.");
-		WaterBottle->CarryRotation = FRotator(-12.0f, -14.0f, 0.0f);
+		WaterBottle->CarryRotation = FRotator(-8.0f, -14.0f, 0.0f);
 		WaterBottle->ConfigurePrototypeVisuals(
 			PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
-			GlassMaterial, ProfileScale, false);
+			TexMat(TEXT("M_RetailPET"), GlassMaterial), ProfileScale, false);
 		CreateDecoOnComponent(
 			WaterBottle->GetMeshComponent(),
 			PropMesh(TEXT("SM_BottleCap"), CylinderMesh), SnackBlueMaterial,
@@ -7930,15 +7316,15 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		CreateDecoOnComponent(
 			WaterBottle->GetMeshComponent(),
 			PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
-			TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
-			FVector(0, 0, 7.2f), FRotator(0.0f, -90.0f, 0.0f),
+			TexMat(PurchaseProfile == EIGRebirthPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGRebirthPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
+			FVector(0, 0, 7.2f), FRotator::ZeroRotator,
 			FVector(3.30f, 3.30f, 5.5f));
 		if (bHasSecondBottle)
 		{
 			UStaticMeshComponent* SecondBottle = CreateDecoOnComponent(
 				WaterBottle->GetMeshComponent(),
 				PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
-				GlassMaterial,
+				TexMat(TEXT("M_RetailPET"), GlassMaterial),
 				FVector(0, 8.0f, 0),
 				FRotator(0, 7.0f, 0),
 				FVector::OneVector);
@@ -7952,9 +7338,9 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 			CreateDecoOnComponent(
 				SecondBottle,
 				PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
-				TexMat(TEXT("M_LabelWater"), WaterBlueMaterial),
+				TexMat(PurchaseProfile == EIGRebirthPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGRebirthPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
 				FVector(0, 0, 7.2f),
-				FRotator(0.0f, -90.0f, 0.0f),
+				FRotator::ZeroRotator,
 				FVector(3.30f, 3.30f, 5.5f));
 		}
 		AddStaticPurchaseBagProxy(WaterBottle, PurchaseProfile);
@@ -8425,15 +7811,15 @@ void AIGPrologueWorldScene::CreateAmbience()
 	RecordedBed(TEXT("Bed_City_Night"), EIGAmbienceMode::StreetWind, 0x5D2E77B1u,
 		FVector(1040, -457, 240), 0.16f, 0.85f, 900.0f, 2600.0f);
 	RecordedBed(TEXT("Hum_Machine"), EIGAmbienceMode::StoreBuzz, 0x3C91D4E5u,
-		FVector(2595, -457, 250), 0.10f, 0.5f, 320.0f, 950.0f);
+		FVector(3070, -430, 220), 0.08f, 0.4f, 220.0f, 650.0f);
 
-	// The store jingle: cheerful, looping, and completely indifferent.
+	// 천장 스피커. 계산대 대화와 냉장고 소리가 묻히지 않게 작게 튼다.
 	JingleComponent = CreateAmbientBed(
 		UIGToneSequenceSoundWave::CreateStoreJingle(this),
-		FVector(2600, -457, 252),
-		0.45f,
-		260.0f,
-		1700.0f);
+		FVector(2740, -240, 249),
+		0.12f,
+		170.0f,
+		650.0f);
 }
 
 void AIGPrologueWorldScene::SpawnDemoDirectorIfRequested()

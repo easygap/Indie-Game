@@ -66,6 +66,8 @@ private:
 	FText GetNarinCounterLine() const;
 	UFUNCTION()
 	void HandleUsedListingRead(class AIGReadableNote* Note, bool bOpened);
+	UFUNCTION()
+	void HandleNeighborhoodDeliveryRead(class AIGReadableNote* Note, bool bOpened);
 	void UpdateArrivalSequence();
 	void HandleArrivalEvidence(class AIGMissingFloorEvidence* Evidence);
 	void RequestArrivalAutosave();
@@ -233,6 +235,10 @@ private:
 	 */
 	UPROPERTY(Transient)
 	TObjectPtr<class AIGReadableNote> UsedListingNote;
+	UPROPERTY()
+	TObjectPtr<class AIGReadableNote> NeighborhoodDeliveryNote;
+	FTimerHandle NeighborhoodSoundTimer;
+	double LastCounterTalkAt = -100.0;
 
 	/** §20.3's two automatic safety nets: the world moving when nothing else is. */
 	UPROPERTY(Transient)

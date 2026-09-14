@@ -149,7 +149,7 @@ Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드�
 |---|---|---|
 | 정적 메시 LOD | `generate_meshes.py`가 근접 조사용 hero를 제외한 제작 메시를 `SmallProp`/`LargeProp` LOD 그룹으로 빌드한다. LOD 전환은 고정 거리 대신 화면 점유율을 따른다. | `validate_baked_art_assets.py`에서 모든 non-hero 메시가 LOD 2개 이상이어야 한다. |
 | 사진측량 프롭 LOD | 수입된 50개 Static Mesh를 크기 용도에 따라 `SmallProp`/`LargeProp`으로 분류하고, 기존 LOD가 없을 때만 축소 LOD를 빌드·저장한다. 2026-08-06 적용 결과 50개를 갱신했다. | UAsset 감사에서 50개 모두 LOD 2개 이상이어야 한다. 5만 vertex 이상은 Nanite 검토 대상으로만 기록하며 자동 전환하지 않는다. |
-| 편의점 반복 재고 | 담배·과자·컵라면·냉장식품·PET·유리병·캔·팩 음료 1,151개를 메시/머티리얼별 `UInstancedStaticMeshComponent` 22개 배치(상한 24개)로 묶는다. | 런타임에서 `instances=1151`, `batches<=24`, 무충돌, Static mobility와 16~22m start/end 컬링 값을 직접 검사한다. |
+| 편의점 반복 재고 | 과자·컵라면·삼각김밥·PET 음료·가격표 1,301개를 메시/머티리얼별 `UInstancedStaticMeshComponent` 23개 배치(상한 24개)로 묶는다. | 런타임에서 `instances=1301`, `batches<=24`, 무충돌, Static mobility와 16~22m start/end 컬링 값을 직접 검사한다. |
 | 작은 프롭의 Lumen 비용 | 위 재고는 직접광·머티리얼·화면 추적은 유지하고 distance-field 장면 기여, 데칼 수신, 내비게이션과 그림자 중복을 줄인다. 몸체처럼 실루엣에 필요한 배치만 그림자를 남긴다. | `REBIRTH_RELEASE PASS store_instancing` 영수증이 없으면 A/B 런타임 검증이 실패한다. |
 | 유휴 CPU | 손전등은 켜진 동안만, 스트레스 컴포넌트는 공포 값·심박 억제 상태가 실제로 진행되는 동안만 Tick한다. 상호작용 탐색은 기존 10~15Hz 타이머를 유지한다. | Component Tick은 기본 활성 상태로 시작할 수 없으며 정적 검증이 `bStartWithTickEnabled=true`를 차단한다. |
 | 설정 HUD | 화면·접근성 설정은 공용 `IGSettingsMenuLayout`에서 해상도별 좌표와 포인터 판정을 계산한다. 색·표면 토큰과 하나의 임시 라운드 마스크를 재사용하며, 메뉴가 닫힌 프레임에는 설정 셋·글리프를 그리지 않는다. | 프런트엔드 계약이 렌더·히트 테스트의 공용 좌표 사용을 검사하고, Shipping 프로브가 720p~1440p 설정 PNG 8장과 키보드·게임패드 경로를 통과해야 한다. 프레임 비용 PASS는 별도 Shipping trace로 판정한다. |

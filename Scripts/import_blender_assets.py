@@ -95,23 +95,22 @@ def _expr(material, cls, x, y):
 
 
 def _connect(a, a_pin, b, b_pin):
-    unreal.MaterialEditingLibrary.connect_material_expressions(a, a_pin, b, b_pin)
+    if not unreal.MaterialEditingLibrary.connect_material_expressions(a, a_pin, b, b_pin):
+        raise RuntimeError(f"재질 노드 연결 실패: {a.get_name()}.{a_pin} -> {b.get_name()}.{b_pin}")
 
 
 def _connect_property(expression, pin, material_property):
-    unreal.MaterialEditingLibrary.connect_material_property(expression, pin, material_property)
+    if not unreal.MaterialEditingLibrary.connect_material_property(expression, pin, material_property):
+        raise RuntimeError(f"재질 출력 연결 실패: {expression.get_name()}.{pin} -> {material_property}")
 
 
 def _linear_default_texture():
-    """Linear Color 샘플러에 끼울 기본 텍스처. 엔진 노이즈가 sRGB가 아니면 그것,
-    아니면 우리가 반입한 ORM 하나."""
-    candidate = unreal.load_asset("/Engine/EngineMaterials/Good64x64TilingNoiseHighFreq")
-    if candidate is not None and not candidate.get_editor_property("srgb"):
-        return candidate
-    for asset_path in unreal.EditorAssetLibrary.list_assets(TEXTURE_ROOT, recursive=False):
+    """기본값도 실제 ORM을 쓴다. 흑백 노이즈는 R을 G·B에도 복제해 천을 금속으로 만든다."""
+    for asset_path in sorted(unreal.EditorAssetLibrary.list_assets(TEXTURE_ROOT, recursive=False)):
         if asset_path.split("/")[-1].split(".")[0].endswith("_ORM"):
             texture = unreal.load_asset(asset_path)
-            if texture is not None and not texture.get_editor_property("srgb"):
+            if (texture is not None and not texture.get_editor_property("srgb")
+                    and texture.get_editor_property("compression_settings") == unreal.TextureCompressionSettings.TC_MASKS):
                 return texture
     return None
 
@@ -134,6 +133,8 @@ def fill_master_defaults(material):
     비워 두면 엔진이 sRGB DefaultTexture를 끼우고, 샘플러 타입(Normal / Linear
     Color)과 맞지 않아 마스터가 컴파일에 실패한다. 게임은 그때 기본 회색 재질로
     그려서 인스턴스 전부가 회색이 된다 — 2026-09-08 프롤로그 캡처에서 그랬다.
+    ORM 자리에 흑백 노이즈를 넣으면 컴파일은 통과하지만 금속성까지 AO로 바뀐다.
+    2026-09-14 발견 장면의 Metallic 버퍼에서 확인했으므로 Masks 타입을 유지한다.
     """
     normal_default = _normal_default_texture()
     linear_default = _linear_default_texture()
@@ -143,12 +144,19 @@ def fill_master_defaults(material):
             continue
         name = str(expression.get_editor_property("parameter_name"))
         current = expression.get_editor_property("texture")
-        if name == "Normal" and normal_default is not None and current is not normal_default:
-            expression.set_editor_property("texture", normal_default)
-            changed = True
-        elif name == "ORM" and linear_default is not None and current is not linear_default:
-            expression.set_editor_property("texture", linear_default)
-            changed = True
+        expected = {
+            "Normal": (normal_default, unreal.MaterialSamplerType.SAMPLERTYPE_NORMAL),
+            "ORM": (linear_default, unreal.MaterialSamplerType.SAMPLERTYPE_MASKS),
+        }.get(name)
+        if expected is not None:
+            texture, sampler = expected
+            if texture is not None and current != texture:
+                expression.set_editor_property("texture", texture)
+                changed = True
+            # 텍스처를 바꾸면 엔진이 샘플러를 다시 고른다. 마지막에 채널 보존 여부를 확인한다.
+            if expression.get_editor_property("sampler_type") != sampler:
+                expression.set_editor_property("sampler_type", sampler)
+                changed = True
     if normal_default is None or linear_default is None:
         raise RuntimeError("마스터 재질 기본 텍스처를 찾지 못했다 (Normal/ORM)")
     return changed
@@ -161,6 +169,9 @@ def ensure_master_material():
         # 기본 텍스처가 비어 있던 첫 판을 제자리에서 고친다. 새로 만들면 인스턴스
         # 참조가 흔들린다.
         changed = fill_master_defaults(existing)
+        if not existing.get_editor_property("used_with_instanced_static_meshes"):
+            existing.set_editor_property("used_with_instanced_static_meshes", True)
+            changed = True
         # 스켈레탈 메시(위층 사람)도 이 마스터를 입는다. 사용 플래그가 없으면
         # 에디터는 경고만 내고 그리지만 패키지 빌드는 기본 회색으로 그린다.
         if not existing.get_editor_property("used_with_skeletal_mesh"):
@@ -217,7 +228,7 @@ def ensure_master_material():
 
     orm = _expr(material, unreal.MaterialExpressionTextureSampleParameter2D, -700, 600)
     orm.set_editor_property("parameter_name", "ORM")
-    orm.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+    orm.set_editor_property("sampler_type", unreal.MaterialSamplerType.SAMPLERTYPE_MASKS)
     _connect_property(orm, "R", unreal.MaterialProperty.MP_AMBIENT_OCCLUSION)
     rough_scale = _expr(material, unreal.MaterialExpressionScalarParameter, -700, 800)
     rough_scale.set_editor_property("parameter_name", "RoughnessScale")
@@ -244,6 +255,7 @@ def ensure_master_material():
 
     fill_master_defaults(material)
     material.set_editor_property("used_with_skeletal_mesh", True)
+    material.set_editor_property("used_with_instanced_static_meshes", True)
     unreal.MaterialEditingLibrary.recompile_material(material)
     unreal.EditorAssetLibrary.save_asset(path, False)
     log(f"master material created: {path}")
@@ -475,7 +487,8 @@ def rename_animations(name, expected):
         if not asset_name.startswith(name):
             continue
         for action in expected:
-            if asset_name.endswith(action):
+            # 테이크가 하나인 FBX는 Unreal이 액션 이름 대신 _Anim을 붙인다.
+            if asset_name.endswith(action) or (len(expected) == 1 and asset_name == f"{name}_Anim"):
                 target = f"{MESH_ROOT}/A_{short}_{action}"
                 source = f"{MESH_ROOT}/{asset_name}"
                 if source != target:
@@ -649,13 +662,15 @@ def guard_name_collision(name):
                 f"텍스처와 이름이 겹친다. 에셋 이름을 바꿔라.")
 
 
-def import_asset(source_dir, manifest, master):
+def import_asset(source_dir, manifest):
     name = manifest["name"]
     log(f"importing {name}")
     guard_name_collision(name)
     textures = {}
     for role, filename in manifest["textures"].items():
         textures[role] = import_texture(os.path.join(source_dir, filename), f"T_{name[3:]}_{role}", role)
+    # 첫 반입에서도 마스터가 올바른 ORM 기본값을 고를 수 있도록 텍스처를 먼저 만든다.
+    master = ensure_master_material() if textures else None
     if manifest.get("skeletal"):
         mesh = import_skeletal_fbx(os.path.join(source_dir, manifest["fbx"]), name)
         instance = create_instance(f"MI_{name[3:]}", master, textures,
@@ -711,8 +726,7 @@ def main():
     if not manifests:
         raise RuntimeError("no manifests found")
 
-    master = ensure_master_material()
-    imported = [import_asset(source_dir, manifest, master) for source_dir, manifest in manifests]
+    imported = [import_asset(source_dir, manifest) for source_dir, manifest in manifests]
 
     bounds_out = os.environ.get("IG_BOUNDS_OUT")
     if bounds_out:

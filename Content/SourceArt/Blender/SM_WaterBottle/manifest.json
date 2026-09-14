@@ -1,0 +1,26 @@
+{
+  "name": "SM_WaterBottle",
+  "mesh_class": "prop",
+  "fbx": "SM_WaterBottle.fbx",
+  "textures": {},
+  "slots": [
+    "도장강판"
+  ],
+  "triangles": 2588,
+  "bounds_m": {
+    "min": [
+      -0.033,
+      -0.033,
+      0.0
+    ],
+    "max": [
+      0.033,
+      0.033,
+      0.201
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "500mL PET 몸통 지름 6.6cm, 높이 20.1cm. 목 위에 별도 마개. 가로 성형 리브와 둥근 어깨."
+}

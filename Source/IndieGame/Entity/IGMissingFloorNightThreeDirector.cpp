@@ -340,16 +340,16 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	TunerNotebook->SetNoteText(
 		NSLOCTEXT("IGMissingFloor", "NotebookTitle", "조율 수첩 — 백도하"),
 		{
-			NSLOCTEXT("IGMissingFloor", "Notebook1", "월 — 서초 라이브홀, 마감 02:30. 첫차 전 귀가."),
-			NSLOCTEXT("IGMissingFloor", "Notebook2", "수 — 대치 학원 업라이트 4대. 밤 작업."),
+			NSLOCTEXT("IGMissingFloor", "Notebook1", "월  서초 공연장  ·  공연 끝나고 조율 02:30"),
+			NSLOCTEXT("IGMissingFloor", "Notebook2", "수  대치동 학원  ·  업라이트 네 대  ·  22시 이후 출입"),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "Notebook3", "벽 공명 — 속이 빈 벽은 낮은 음이 길게 남는다."),
-			NSLOCTEXT("IGMissingFloor", "Notebook4", "찬 벽은 바로 죽는다. 손가락 마디로 두드려 볼 것."),
+			NSLOCTEXT("IGMissingFloor", "Notebook3", "옥탑 벽 확인: 빈 곳은 낮게 울리고 소리가 오래 감."),
+			NSLOCTEXT("IGMissingFloor", "Notebook4", "기둥 있는 쪽은 짧고 둔함. 배관 멈추면 다시 확인."),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "Notebook5", "여백마다 같은 낙서 — ●● ○ ●"),
-			NSLOCTEXT("IGMissingFloor", "Notebook6", "아빠 노크다. 내 방문에 하던 그거."),
+			NSLOCTEXT("IGMissingFloor", "Notebook5", "●●  —  ●"),
+			NSLOCTEXT("IGMissingFloor", "Notebook6", "토요일 11시  ·  유담 연습실 예약"),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "Notebook7", "뒷장에 적금 표. 「유담 피아노」. 칸이 거의 다 채워졌다."),
+			NSLOCTEXT("IGMissingFloor", "Notebook7", "유담 피아노 적금  180만 / 200만"),
 		});
 	TunerNotebook->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorNightThreeDirector::HandleNotebookRead);
@@ -407,7 +407,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WorkGloveThought",
-				"석고 가루가 굳어 있다. 오빠 손에 이 장갑은 두 치수는 크다."),
+				"장갑에 석고가 굳어 있다. 오빠가 쓰던 건 이것보다 작았는데."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -680,12 +680,12 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		NSLOCTEXT("IGMissingFloor", "LabelsTitle", "공방 창고에서 온 상자"),
 		{
 			NSLOCTEXT("IGMissingFloor", "Labels1", "받는 사람: 백도하"),
-			NSLOCTEXT("IGMissingFloor", "Labels2", "무영로 27-3 달빛빌라 5"),
+			NSLOCTEXT("IGMissingFloor", "Labels2", "무영로 27-3  달빛빌라 옥탑"),
 			FText::GetEmpty(),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"Labels3",
-				"* 5장 모두 같은 손글씨. 호수 칸은 전부 비어 있다."),
+				"배송 요청: 부재 시 앞쪽 편의점 보관"),
 		});
 	LabelsNote->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorNightThreeDirector::HandleLabelsRead);
@@ -706,11 +706,11 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	ForumNote->SetNoteText(
 		NSLOCTEXT("IGMissingFloor", "ForumTitle", "층간소음 카페 — 인쇄본"),
 		{
-			NSLOCTEXT("IGMissingFloor", "Forum1", "6/30 새벽마다 위에서 끌고 두드리는 소리. 미치겠다."),
-			NSLOCTEXT("IGMissingFloor", "Forum2", "7/12 관리인은 위층이 없다고 한다. 없는 층이 뭘 끄나."),
+			NSLOCTEXT("IGMissingFloor", "Forum1", "6/30  새벽 네 시만 되면 위에서 뭘 질질 끕니다. 자다가 매번 깨요."),
+			NSLOCTEXT("IGMissingFloor", "Forum2", "7/12  관리인은 창고라 사람이 없대요. 그럼 이 소리는 어디서 나는 건가요?"),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "Forum3", "7/26 03:12 오늘은 올라가 본다. 얼굴이나 보자."),
-			NSLOCTEXT("IGMissingFloor", "Forum4", "└ 댓글 12 — 전부 「참지 마세요」."),
+			NSLOCTEXT("IGMissingFloor", "Forum3", "7/26  03:12  또 시작됐네요. 오늘은 직접 올라가 보려고요."),
+			NSLOCTEXT("IGMissingFloor", "Forum4", "댓글  ·  혼자 가서 싸우진 마시고, 일단 녹음해 두세요."),
 		});
 	ForumNote->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorNightThreeDirector::HandleForumRead);
@@ -741,13 +741,13 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	JournalNote->SetNoteText(
 		NSLOCTEXT("IGMissingFloor", "JournalTitle", "황순금의 일지"),
 		{
-			NSLOCTEXT("IGMissingFloor", "Journal1", "7/27 쿵 다섯. 벽이 운다."),
-			NSLOCTEXT("IGMissingFloor", "Journal2", "7/28 쿵 다섯. 어제보다 힘이 없다."),
-			NSLOCTEXT("IGMissingFloor", "Journal3", "7/29 벽이 하도 울어서 나도 두드려줬다. 그랬더니 조용하데. 사람인가."),
-			NSLOCTEXT("IGMissingFloor", "Journal4", "7/30 쿵 넷."),
-			NSLOCTEXT("IGMissingFloor", "Journal5", "7/31 오늘은 세 번뿐."),
+			NSLOCTEXT("IGMissingFloor", "Journal1", "7/27  네 시 반쯤 또 깸. 위에서 다섯 번. 관리실 전화 안 받음."),
+			NSLOCTEXT("IGMissingFloor", "Journal2", "7/28  어제랑 같은 소리. 오늘은 좀 작았음."),
+			NSLOCTEXT("IGMissingFloor", "Journal3", "7/29  벽을 두드려 봄. 저쪽에서도 한 번. 사람 있는 것 아닌지 다시 물어볼 것."),
+			NSLOCTEXT("IGMissingFloor", "Journal4", "7/30  네 번 들음. 수도 틀자 안 들림."),
+			NSLOCTEXT("IGMissingFloor", "Journal5", "7/31  오늘은 세 번. 귀가 먹은 건지."),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "Journal6", "그 뒤로는 빈 칸이다."),
+			NSLOCTEXT("IGMissingFloor", "Journal6", "8/1"),
 		});
 	JournalNote->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorNightThreeDirector::HandleJournalRead);
@@ -1121,7 +1121,7 @@ void AIGMissingFloorNightThreeDirector::HandleTuningHammerExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"TuningHammerListingThought",
-			"열두 점을 삼만 원에 팔면서 이것만 못 팔았구나. 여기 떨어져 있어서."),
+			"목록에 있던 공구다. 이것까지 팔지는 못했네."),
 		5.0f);
 }
 
@@ -1170,7 +1170,7 @@ void AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"PlasterDatingThought",
-			"안쪽 보드는 삭았는데 바깥 실란트는 아직 말랑하다. 나중에 한 겹 더 발랐다."),
+			"안쪽 보드는 낡았는데, 바깥 실란트엔 손톱 자국이 난다. 최근에 다시 막았나?"),
 		4.6f);
 }
 
@@ -1219,11 +1219,11 @@ void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
 			? NSLOCTEXT(
 				"IGMissingFloor",
 				"TankAuditionThoughtCrossed",
-				"만수. 2,000리터. 벽 하나 너머에 이게 있었는데.")
+				"탱크가 가득 찼다. 벽 바로 뒤로 관이 지나간다.")
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"TankAuditionThought",
-				"만수, 2,000리터. 관이 이 밑으로 내려간다."),
+				"이 밑으로 급수관이 내려간다."),
 		bKnowsTally ? 5.0f : 4.6f);
 }
 
@@ -1735,7 +1735,7 @@ void AIGMissingFloorNightThreeDirector::AdvanceReturn()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"N3PassByThought",
-				"나를 안 본다. 뭘 기다리는 것 같다."),
+				"날 지나쳤다. 지금은 소리 내지 말자."),
 			4.6f);
 	}
 

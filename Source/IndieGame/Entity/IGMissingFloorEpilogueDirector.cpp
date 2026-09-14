@@ -509,7 +509,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"EpilogueWorkshopFootnote",
-					"조율대 위에 업라이트 한 대가 그대로 있다"));
+					"공방 벽에 업라이트 한 대가 그대로 서 있다"));
 			return;
 
 		case 6:
@@ -615,7 +615,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueServiceBayHeading",
-				"수습이 끝난 날, 서비스 베이"),
+				"수습이 끝난 날, 옥상 설비실"),
 			BuildServiceBayLines(),
 			NSLOCTEXT(
 				"IGMissingFloor",
@@ -717,16 +717,16 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildWorkshopLines() const
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueWorkshop1",
-		"미완의 작업지가 조율대에 그대로 눌려 있다."));
+		"오빠가 쓰던 작업지가 아직 여기 있다."));
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueWorkshop2",
-		"업라이트 1대 — 의뢰인: 백유담 (동생 집들이 선물)"));
+		"업라이트 1대  ·  백유담  ·  집들이 전 전달"));
 	Lines.Add(FText::GetEmpty());
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueWorkshop3",
-		"렌치를 잡는다. 오빠가 쥐던 자리에 손이 그대로 맞는다."));
+		"렌치를 잡아 본다. 손잡이 한쪽이 닳아 있다."));
 	return Lines;
 }
 
@@ -800,7 +800,7 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildServiceBayLines() const
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueServiceBay2",
-		"두 번의 새벽을 벽 밖에서 같이 앉아 있었다."));
+		"새벽이 두 번 지날 때까지 그 옆에 있었다."));
 	if (Narrative
 		&& Narrative->HasWitness(EIGMissingFloorWitness::RooftopCigarettePack))
 	{
@@ -813,7 +813,7 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildServiceBayLines() const
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueServiceBay4",
-		"403호 열쇠는 연장하지 않았다."));
+		"방을 빼고 403호 열쇠를 돌려줬다."));
 	return Lines;
 }
 
@@ -836,11 +836,11 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 			? NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueNewsMokB",
-				"관리실 안쪽 방은 비어 있었다. 건물주와는 연락이 닿지 않는다")
+				"건물주 목씨 소재 파악 중… 관리실 비운 채 연락 끊겨")
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueNewsMokA",
-				"건물주는 관리실 안쪽 방에서 경찰을 맞았다"));
+				"경찰, 건물주 목씨 상대로 사건 경위 조사"));
 
 	// §13의 회수다. 나린의 제보는 어느 회차에도 빠지지 않는다.
 	if (Narrative
@@ -902,14 +902,14 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueNews5Roster",
-			"편의점 야간 근무표가 그 새벽들의 시각을 특정했다"));
+			"인근 편의점 직원은 사건 당일 야간 근무 중 들은 소리를 진술했다"));
 	}
 	else
 	{
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueNews5",
-			"인근 편의점 야간 근무자의 제보가 최초 시각 특정에 쓰였다"));
+			"인근 편의점 직원의 목격 진술을 토대로 당시 행적을 확인 중이다"));
 	}
 	return Lines;
 }

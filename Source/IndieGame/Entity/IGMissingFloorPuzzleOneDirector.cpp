@@ -112,7 +112,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P1MeterThought",
-			"다섯 개다. 네 집인데 계량기가 다섯 개."),
+			"집은 네 군데인데 계량기는 다섯 개다. 하나는 어디 거지?"),
 		EIGMissingFloorTruth::LivedUpstairs,
 		EIGMissingFloorSource::MeterFifthDial,
 		0.0f,
@@ -343,7 +343,7 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"P1BallastUnread",
-				"위에서 불이 들어왔다. 어느 집 전기인지는 계량기함이 알겠지."),
+				"천장 쪽에서 전기 들어가는 소리가 났다."),
 		4.0f);
 
 	AnnounceSolvedIfReady();

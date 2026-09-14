@@ -11,11 +11,11 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 5188,
+  "triangles": 5280,
   "bounds_m": {
     "min": [
       -1.1,
-      -0.201,
+      -0.195,
       0.0
     ],
     "max": [
@@ -25,7 +25,7 @@
     ]
   },
   "origin": "bottom-center",
-  "emissive_strength": 4.0,
+  "emissive_strength": 1.2,
   "blender": "5.2.0 LTS",
-  "notes": "계산대 뒤 담배 진열장 220 x 20 x 140. 원점은 벽면 바닥 중심(씬 (2560, -180, 80)), 앞면 -Y. 담뱃갑은 가상 브랜드 여덟 종, 위에 청소년 판매 금지 띠."
+  "notes": "220×19×140cm 담배장. 6단 192갑, 4열씩 같은 품목. 2개 광고함과 선반 조명."
 }

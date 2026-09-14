@@ -1243,9 +1243,9 @@ foreach ($requiredStressTickInvariant in @(
 }
 foreach ($requiredStorePerformanceInvariant in @(
 	'Components/InstancedStaticMeshComponent.h',
-	'ExpectedStoreStockInstances = 1151',
-	'SM_DrinkCan is required for Korean cooler silhouette variety.',
-	'SM_MilkCarton is required for Korean cooler silhouette variety.',
+	'ExpectedStoreStockInstances = 1301',
+	'TEXT("SM_RetailCupBeef")',
+	'TEXT("M_RetailPriceCupBeef")',
 	'MaximumStoreStockBatches = 24',
 	'StoreStockCullStartCentimeters = 1600',
 	'StoreStockCullEndCentimeters = 2200',
@@ -1953,7 +1953,7 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'REBIRTH_SPIKE PASS s4_common_prop ending=$Ending duplicates=0',
 	'actual_state=1 safety_cues=5',
 	'REBIRTH_RELEASE PASS collision_route',
-	'REBIRTH_RELEASE PASS store_instancing instances=1151',
+	'REBIRTH_RELEASE PASS store_instancing instances=1301',
 	'REBIRTH_RELEASE PASS audio_synthesis tracks=19 invalid=0 clipped=0',
 	'REBIRTH_RELEASE PASS audio_queue',
 	'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 presentations=2 cases=12 duplicates=0',
@@ -2434,8 +2434,8 @@ foreach ($requiredPerformanceInvariant in @(
 	'`REC-W11-AMD`',
 	'여섯 필수 장비',
 	'기준일: `2026-08-06`',
-	'`UInstancedStaticMeshComponent` 22개 배치(상한 24개)',
-	'`instances=1151`',
+	'`UInstancedStaticMeshComponent` 23개 배치(상한 24개)',
+	'`instances=1301`',
 	'Component Tick은 기본 활성 상태로 시작할 수 없으며',
 	'현재 월드는 `BeginPlay`에서 절차적으로 조립되므로',
 	'`stat PSOPrecache`',
@@ -2796,10 +2796,10 @@ if (-not $playerCharacterSource.Contains(
 foreach ($requiredCaptureWaypoint in @(
 	'FVector(198, -160, 0)',
 	'FVector(143, -360, 0)',
-	'FVector(2515, -457, 0)',
-	'FVector(2900, -430, 0)',
-	'FVector(2840, -195, 0)',
-	'FVector(2665, -250, 0)'
+	'FVector(2515, -470, 0)',
+	'FVector(2910, -470, 0)',
+	'FVector(2760, -285, 0)',
+	'FVector(2670, -285, 0)'
 )) {
 	if (-not $demoDirectorSource.Contains($requiredCaptureWaypoint)) {
 		throw "Required collision-safe CH01 capture waypoint is missing: $requiredCaptureWaypoint"

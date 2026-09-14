@@ -1,0 +1,30 @@
+{
+  "name": "SM_RetailShrimp",
+  "mesh_class": "prop",
+  "fbx": "SM_RetailShrimp.fbx",
+  "textures": {
+    "D": "SM_RetailShrimp_D.png",
+    "N": "SM_RetailShrimp_N.png",
+    "ORM": "SM_RetailShrimp_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 904,
+  "bounds_m": {
+    "min": [
+      -0.082,
+      -0.0438,
+      0.0
+    ],
+    "max": [
+      0.082,
+      0.0438,
+      0.245
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "60~70g 봉지 16.4×8.6×24.5cm. 밀봉선과 공기층, 완만한 접힘. 같은 제품의 앞면을 통로로 맞춘다."
+}

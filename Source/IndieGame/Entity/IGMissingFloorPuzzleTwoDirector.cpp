@@ -206,7 +206,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2FairCopyNote",
-				"볼펜 자국이 깊다. 아래 장까지 눌렸겠다."),
+				"담당  목한수  /  확인란 별도"),
 		});
 
 	// The carbon pad. Three passes of the pencil; the truth is the third.
@@ -232,7 +232,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2CarbonRestored",
-			"벽에서 쿵쿵. 사람 소리 같다 — 7월 27일. 방 뺐다는 날 바로 다음이다."),
+			"「벽에서 쿵쿵. 사람 소리 같다.」 7월 27일에 접수됐다고 적혀 있다."),
 		EIGMissingFloorTruth::WasStillAlive,
 		EIGMissingFloorSource::CarbonLedgerOriginal,
 		IGPuzzleTwo::FrottageHoldSeconds,
@@ -271,13 +271,13 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	AgentMessageNote->SetNoteText(
 		NSLOCTEXT("IGMissingFloor", "P2AgentTitle", "무영부동산 문자 사본"),
 		{
-			NSLOCTEXT("IGMissingFloor", "P2Agent1", "[7/26 14:02] 사장님, 5층 짐 뺐습니다."),
-			NSLOCTEXT("IGMissingFloor", "P2Agent2", "[7/26 14:05] 네. 방은 창고로 되돌립니다."),
+			NSLOCTEXT("IGMissingFloor", "P2Agent1", "7/26 14:02  부동산: 사장님, 옥탑 짐은 다 뺐습니다."),
+			NSLOCTEXT("IGMissingFloor", "P2Agent2", "7/26 14:05  목한수: 네. 이제 창고로 쓸 거예요."),
 			FText::GetEmpty(),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2Agent3",
-				"[7/26 14:11] 열쇠는 우편함에 두겠습니다."),
+				"7/26 14:11  부동산: 열쇠는 우편함에 넣고 갑니다."),
 		});
 	AgentMessageNote->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleAgentNoteRead);
@@ -403,7 +403,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2Receipt6",
-				"뒷면 메모: 대장 기재 7/26 한 건"),
+				"기재일 7/26  ·  옥상 보수비"),
 		});
 	BoardReceipts->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead);
@@ -425,7 +425,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2CalendarThought",
-				"26일에만 동그라미. 그 주 나머지 칸은 아예 안 넘겼다."),
+				"26일에 동그라미가 쳐져 있다. 그 뒤로는 아무것도 안 적었네."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -804,7 +804,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 				? NSLOCTEXT(
 					"IGMissingFloor",
 					"P2PhoneSilence",
-					"내 발소리. 내 숨소리. 노크가 있던 자리는 전부 비어 있다.")
+					"내 발소리는 들리는데. 문에서 난 소리는 하나도 안 담겼다.")
 				: bRuleLifted
 					? NSLOCTEXT(
 						"IGMissingFloor",
@@ -813,7 +813,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 					: NSLOCTEXT(
 						"IGMissingFloor",
 						"P2PhoneNothing",
-						"내 발소리. 내 숨소리. 그게 다다."),
+						"발소리하고 숨소리만 담겼다."),
 			5.0f);
 		return;
 	}
@@ -829,7 +829,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2PhoneArmed",
-				"문에 대 둔다. 뭐라도 남아야 해."),
+				"여기 두면 들리겠지."),
 			3.4f);
 	}
 }
@@ -865,7 +865,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2CctvThought1",
-				"복도가 하나 더 있다. 전구 하나, 왼쪽으로 꺾인다."),
+				"저 복도는 어디지? 여기 들어올 때는 없었는데."),
 			4.4f);
 		return;
 	}
@@ -881,7 +881,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P2CctvThought1",
-					"복도가 하나 더 있다. 전구 하나, 왼쪽으로 꺾인다."),
+					"저 복도는 어디지? 여기 들어올 때는 없었는데."),
 				4.4f);
 			// §5.5. The picture is on screen and already unrecoverable: nothing
 			// about channel 5 reaches the recorder, and the label on the case
@@ -892,7 +892,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P2CctvThought2",
-					"AUX 5 / MONITOR ONLY. 저장은 안 되는 채널. 보기만 하라는 거다."),
+					"저장은 안 되는 채널이다. 화면부터 기억해 두자."),
 				4.2f);
 		}),
 		0.32f + AIGCctvChannelFive::LiveSeconds + 0.86f + 0.25f,
@@ -967,7 +967,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleInnerRoomListenExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2InnerRoomThought",
-			"창고라면서요. 창고에서 뭐가 돌아가요."),
+			"안에 누가 있다. 지금 문을 열면 들키겠어."),
 		4.4f);
 }
 
@@ -996,7 +996,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2FoamThought",
-			"문틈까지 계란판이다. 안 들리게 해 놓고 산다."),
+			"문틈까지 막아 놨다. 여기 안에서는 바깥 소리가 안 들리겠네."),
 		4.6f);
 }
 

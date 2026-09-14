@@ -713,12 +713,12 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'const bool bRamyeonBay =',
-	'constexpr float RamyeonShelfSurfaceZ = 121.5f;',
-	'FVector(CupX, RowY, RamyeonShelfSurfaceZ)',
-	'const float TierHeights[] = {30.0f, 60.0f, 90.0f, 120.0f, 150.0f};',
-	'FVector(2640, GondolaY, 174)',
-	'for (const float TierZ : {16.0f, 46.0f, 76.0f, 106.0f, 136.0f, 166.0f})'
+	'const bool Cups = Run == 0 && (Tier == 2 || Tier == 3);',
+	'const float Z = 31.5f + Tier * 30.0f;',
+	'Depth == 0 ? 28.0f : 11.5f',
+	'Tier < 5',
+	'FVector(2710, Y, 6)',
+	'const float BayCenters[] = {-630, -552, -474, -396, -318, -240};'
 )) {
 	if (-not $prologueSource.Contains($token)) {
 		throw "Convenience-store shelf-bay placement contract is missing: $token"
@@ -874,9 +874,9 @@ if (-not $meshScript.Contains('SM_OfferingWaterBowl') -or
 	throw 'Lobby offering bowl is not generated and loaded as an open vessel'
 }
 if (-not $meshScript.Contains('SM_DrinkCan') -or
-	-not $prologueSource.Contains('SM_DrinkCan') -or
-	-not $prologueSource.Contains('SM_MilkCarton')) {
-	throw 'Korean cooler silhouette variety is missing its can/carton asset contract.'
+	-not $prologueSource.Contains('M_LabelWater1L') -or
+	-not $prologueSource.Contains('M_LabelWater2L')) {
+	throw '냉장고의 용량별 상품 라벨이 빠졌다.'
 }
 foreach ($token in @(
 	'def build_offering_water_bowl',

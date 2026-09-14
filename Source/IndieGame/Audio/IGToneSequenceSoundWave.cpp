@@ -801,7 +801,8 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateStoreJingle(
 			EIGToneWaveform::SoftSquare});
 	}
 
-	Wave->ConfigureNotes(MoveTemp(JingleNotes), true, 32.0f * Beat);
+	// 같은 멜로디가 대화 위로 곧장 반복되지 않게 안내 방송 사이에 쉼을 둔다.
+	Wave->ConfigureNotes(MoveTemp(JingleNotes), true, 32.0f * Beat + (bDegraded ? 0.f : 45.f));
 	if (bDegraded)
 	{
 		Wave->ConfigurePitchWow(0.003f, 0.30f);

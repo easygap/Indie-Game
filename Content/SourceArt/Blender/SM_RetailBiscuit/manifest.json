@@ -1,0 +1,30 @@
+{
+  "name": "SM_RetailBiscuit",
+  "mesh_class": "prop",
+  "fbx": "SM_RetailBiscuit.fbx",
+  "textures": {
+    "D": "SM_RetailBiscuit_D.png",
+    "N": "SM_RetailBiscuit_N.png",
+    "ORM": "SM_RetailBiscuit_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 56,
+  "bounds_m": {
+    "min": [
+      -0.095,
+      -0.0284,
+      0.0
+    ],
+    "max": [
+      0.095,
+      0.0275,
+      0.125
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "비스킷 소매 상자 19×5.5×12.5cm. 인쇄가 한 면에 붙는 접이식 종이 포장."
+}
