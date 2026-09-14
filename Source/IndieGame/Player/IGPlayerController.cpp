@@ -141,7 +141,8 @@ namespace IGAudioCalibration
 AIGPlayerController::AIGPlayerController()
 {
 	PrimaryActorTick.bCanEverTick = true;
-	PrimaryActorTick.bStartWithTickEnabled = false;
+	// PlayerTick이 입력과 카메라 갱신을 맡는다. 메뉴가 닫혀도 끄면 안 된다.
+	PrimaryActorTick.bStartWithTickEnabled = true;
 	PrimaryActorTick.bTickEvenWhenPaused = true;
 }
 
@@ -307,7 +308,6 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 		&& !bHeadphoneRecommendationVisible
 		&& NextAudioCalibrationKnockTime <= 0.0)
 	{
-		SetActorTickEnabled(false);
 		return;
 	}
 	if (!bDisplaySettingsAwaitingConfirmation)
@@ -2285,10 +2285,6 @@ void AIGPlayerController::EndJournalInput()
 		}
 	}
 	bJournalInputHeld = false;
-	if (!bDisplaySettingsAwaitingConfirmation)
-	{
-		SetActorTickEnabled(false);
-	}
 }
 
 void AIGPlayerController::OpenMissingFloorJournal()
@@ -3448,7 +3444,6 @@ void AIGPlayerController::ApplyDisplaySettings()
 		bDisplaySettingsApplied = true;
 		bDisplaySettingsAwaitingConfirmation = false;
 		DisplayConfirmationSecondsRemaining = 0;
-		SetActorTickEnabled(false);
 		SystemMenuStatusText = FText::GetEmpty();
 		bSystemMenuStatusIsError = false;
 		RefreshMenuHud();
@@ -3482,7 +3477,6 @@ void AIGPlayerController::ConfirmPendingDisplaySettings()
 	bDisplaySettingsAwaitingConfirmation = false;
 	bDisplaySettingsApplied = true;
 	DisplayConfirmationSecondsRemaining = 0;
-	SetActorTickEnabled(false);
 	RefreshStagedDisplaySettings();
 	bDisplaySettingsApplied = true;
 	RefreshMenuHud();
@@ -3509,7 +3503,6 @@ void AIGPlayerController::RevertPendingDisplaySettings()
 	bDisplaySettingsAwaitingConfirmation = false;
 	bDisplaySettingsApplied = false;
 	DisplayConfirmationSecondsRemaining = 0;
-	SetActorTickEnabled(false);
 	RefreshStagedDisplaySettings();
 	SystemMenuStatusText = NSLOCTEXT(
 		"IGFrontend",

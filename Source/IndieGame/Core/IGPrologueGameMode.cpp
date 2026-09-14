@@ -7,6 +7,7 @@
 #include "Misc/Parse.h"
 #include "Player/IGHorrorHUD.h"
 #include "Sequence/IGRebirthPersistenceProbe.h"
+#include "Sequence/IGGameplayRealismProbe.h"
 
 AIGPrologueGameMode::AIGPrologueGameMode()
 {
@@ -20,6 +21,12 @@ void AIGPrologueGameMode::StartPlay()
 	UWorld* World = GetWorld();
 	if (!World || IsValid(WorldScene))
 	{
+		return;
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGGameplayRealismProbe")))
+	{
+		World->SpawnActor<AIGGameplayRealismProbe>();
 		return;
 	}
 

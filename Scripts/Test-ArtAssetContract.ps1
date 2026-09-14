@@ -1562,7 +1562,7 @@ foreach ($token in @(
 	'SK_ListenerCrawler.SK_ListenerCrawler',
 	'A_ListenerCrawler_Crawl.A_ListenerCrawler_Crawl',
 	'ListenerSkeletal->PlayAnimation(Sequence, bLoop)',
-	'bLungeArmed = Distance <= CaptureRadius * 2.3f',
+	'bLungeArmed = bReachable',
 	'? BodyRate * (4.0f / 1.2f)',
 	': FMath::Lerp(1.6f, 6.0f, SpeedAlpha)',
 	'SetCastHiddenShadow(bFrontCardActive)',

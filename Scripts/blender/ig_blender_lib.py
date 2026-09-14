@@ -916,6 +916,74 @@ def _source_materials(ob):
     return [m for m in ob.data.materials if m is not None]
 
 
+def prepare_organic_source(ob, roughness_floor=0.58):
+    """살과 천의 원본에서 조각난 면 노멀과 잘못 추정된 금속 반사를 걷어 낸다.
+
+    저밀도 몸만 매끈하게 만들어도 고밀도 원본의 삼각 면을 노멀로 다시 구우면
+    종이 같은 주름이 돌아온다. 베이크 원본부터 연속된 표면으로 다뤄야 한다.
+    """
+    for poly in ob.data.polygons:
+        poly.use_smooth = True
+    if ob.data.has_custom_normals:
+        set_active(ob)
+        bpy.ops.mesh.customdata_custom_splitnormals_clear()
+    for mat in ob.data.materials:
+        if mat is None:
+            continue
+        bsdf = _principled(mat)
+        tree, nodes, links = _nodes(mat)
+        metal = bsdf.inputs["Metallic"]
+        for link in list(metal.links):
+            links.remove(link)
+        metal.default_value = 0.0
+        rough = bsdf.inputs["Roughness"]
+        if rough.is_linked:
+            original = rough.links[0].from_socket
+            floor = nodes.new("ShaderNodeMath")
+            floor.operation = "MAXIMUM"
+            floor.inputs[1].default_value = roughness_floor
+            links.new(original, floor.inputs[0])
+            links.new(floor.outputs[0], rough)
+        else:
+            rough.default_value = max(float(rough.default_value), roughness_floor)
+
+
+def remove_small_islands(ob, max_diameter=0.035, keep_largest=False):
+    """리메시 뒤 손끝·머리 둘레에 떠 있는 작은 조각만 없앤다(단위 m)."""
+    bm = bmesh.new()
+    bm.from_mesh(ob.data)
+    unseen = set(bm.verts)
+    groups = []
+    while unseen:
+        seed = unseen.pop()
+        group, pending = [seed], [seed]
+        while pending:
+            current = pending.pop()
+            for edge in current.link_edges:
+                other = edge.other_vert(current)
+                if other in unseen:
+                    unseen.remove(other)
+                    pending.append(other)
+                    group.append(other)
+        groups.append(group)
+    largest = max((len(group) for group in groups), default=0)
+    removed = []
+    for group in groups:
+        if len(group) == largest:
+            continue
+        low = Vector(tuple(min(v.co[i] for v in group) for i in range(3)))
+        high = Vector(tuple(max(v.co[i] for v in group) for i in range(3)))
+        if keep_largest or (high - low).length < max_diameter:
+            removed.extend(group)
+    if removed:
+        bmesh.ops.delete(bm, geom=removed, context="VERTS")
+        bm.to_mesh(ob.data)
+        ob.data.update()
+    bm.free()
+    log(f"  cleanup islands={len(groups)} removed_vertices={len(removed)}")
+    return len(removed)
+
+
 def bake_from_high(low, high, asset_name, out_dir, size=2048, ao_samples=AO_SAMPLES,
                    cage_extrusion=0.02, max_ray_distance=0.0):
     """고밀도(high)의 색·거칠기·금속성·노멀·AO를 저밀도(low)의 UV로 굽는다.

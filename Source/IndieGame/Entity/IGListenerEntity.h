@@ -61,10 +61,8 @@ enum class EIGListenerBodyAnim : uint8
  * not violence — it is an embrace and a walk toward the wall — and hands
  * control to the night-loop director, which resets the hour.
  *
- * Release body: a continuous static crawl shell provides contact/parallax and
- * a four-phase lit masked PBR layer preserves both generated human anatomy and
- * visible weight transfer in the authored head-on chase. Engine primitives
- * remain only as a missing-asset fallback. No skeletal pipeline is required.
+ * 사진을 대조해 다듬은 스켈레탈 몸이 포복·듣기·노크·덮치기를 재생한다.
+ * 접지 동작은 Blender에서 구우며, 거리별 LOD로 스키닝 정점 수를 줄인다.
  */
 UCLASS()
 class INDIEGAME_API AIGListenerEntity : public APawn

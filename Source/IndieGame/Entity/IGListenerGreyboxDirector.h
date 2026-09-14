@@ -411,6 +411,7 @@ private:
 	FDelegateHandle HistogramScreenshotHandle;
 	FTimerHandle HistogramTimer;
 	bool bMercyNoteProbeRequested = false;
+	bool bCaptureMetricsOnly = false;
 	int32 CaptureStepIndex = -1;
 	float CaptureStepSeconds = 0.0f;
 	bool bCaptureBurstActive = false;

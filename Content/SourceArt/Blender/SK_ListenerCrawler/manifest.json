@@ -10,23 +10,23 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 14000,
+  "triangles": 12000,
   "bounds_m": {
     "min": [
-      -0.949,
-      -0.4698,
-      0.0012
+      -0.9523,
+      -0.4218,
+      -0.0012
     ],
     "max": [
-      0.9481,
-      0.4694,
-      0.8349
+      0.9489,
+      0.4246,
+      0.671
     ]
   },
   "origin": "bottom",
   "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "위층 사람의 기는 몸. 옆모습 칸 생성물을 복셀 리메시로 한 표면으로 녹이고, 거리 웨이트로 리깅해 Crawl/Listen/Bang/Lunge를 짰다. 머리 +X, 원점 바닥 중심.",
+  "notes": "실제 포복·분장 사진에서 만든 기준 이미지와 다각도 시트를 대조했다. 떠 있는 발 조각을 제거하고, 비대칭 팔꿈치와 무릎을 직접 맞춘 뒤 손목·발목 접지 동작을 구웠다.",
   "skeletal": true,
   "animations": {
     "Crawl": {
@@ -50,5 +50,5 @@
       "loop": false
     }
   },
-  "generated_from": "../Content/SourceArt/Generated/ListenerEntityCrawl/trellis1024-s56-side/raw/pbr_00001_.glb"
+  "generated_from": "../Generated/ListenerPhotoCrawl/photo-20260914/raw/pbr_00001_.glb"
 }

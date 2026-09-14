@@ -1,6 +1,7 @@
 ﻿#include "Entity/IGListenerGreyboxDirector.h"
 
 #include "AssetCompilingManager.h"
+#include "IndieGame.h"
 #include "Audio/IGAmbienceSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
@@ -25,6 +26,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Player/IGStressComponent.h"
 #include "ShaderCompiler.h"
+#include "Sound/SoundWave.h"
 #include "UnrealClient.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNightLoopDirector.h"
@@ -100,6 +102,7 @@ void AIGListenerGreyboxDirector::BeginPlay()
 		FParse::Param(FCommandLine::Get(), TEXT("IGArrivalCapture"));
 	bNightCaptureRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGNightCapture"));
+	bCaptureMetricsOnly = FParse::Param(FCommandLine::Get(), TEXT("IGCaptureMetricsOnly"));
 	bMercyNoteProbeRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGM65MercyNoteProbe"));
 	bHistogramRequested =
@@ -204,27 +207,37 @@ void AIGListenerGreyboxDirector::SpawnNightAmbienceBeds()
 		float InnerRadius;
 		float Falloff;
 		uint32 Seed;
+		const TCHAR* SampleName;
+		float SampleVolume;
 	};
 	const FBedSpec Specs[] = {
 		{TEXT("NightBedCorridor"), EIGAmbienceMode::CorridorNight,
 			FVector(CorridorCenter.X, CorridorCenter.Y, IGListenerGreybox::FourthFloorZ + 140.0f),
-			0.55f, 700.0f, 1900.0f, 0x7A11C0DEu},
+			0.55f, 700.0f, 1900.0f, 0x7A11C0DEu, TEXT("Bed_Corridor"), 0.12f},
 		{TEXT("NightBedStairwell"), EIGAmbienceMode::Stairwell,
 			FVector(-445.0f, -305.0f, IGListenerGreybox::FourthFloorZ - 30.0f),
-			0.60f, 260.0f, 1100.0f, 0x51A1B2C3u},
+			0.60f, 260.0f, 1100.0f, 0x51A1B2C3u, TEXT("Wind_Gap"), 0.055f},
 		{TEXT("NightBedUpperFloor"), EIGAmbienceMode::UpperFloor,
 			FVector(CorridorCenter.X, CorridorCenter.Y, IGListenerGreybox::FourthFloorZ + 420.0f),
-			0.50f, 500.0f, 1500.0f, 0x9C0FFEE1u},
+			0.50f, 500.0f, 1500.0f, 0x9C0FFEE1u, TEXT("Bed_Corridor"), 0.065f},
 	};
 	for (const FBedSpec& Spec : Specs)
 	{
-		UIGAmbienceSoundWave* Wave = NewObject<UIGAmbienceSoundWave>(this);
-		Wave->Configure(Spec.Mode, Spec.Seed);
+		USoundBase* Wave = IGAudio::Sample(Spec.SampleName);
+		const bool bRecorded = Wave != nullptr;
+		if (!Wave)
+		{
+			UIGAmbienceSoundWave* Fallback = NewObject<UIGAmbienceSoundWave>(this);
+			Fallback->Configure(Spec.Mode, Spec.Seed);
+			Wave = Fallback;
+		}
 		UAudioComponent* Bed = NewObject<UAudioComponent>(this, Spec.Name);
 		Bed->RegisterComponent();
 		Bed->SetWorldLocation(Spec.Location);
 		Bed->SetSound(Wave);
-		Bed->SetVolumeMultiplier(Spec.Volume);
+		// 녹음은 합성 베드보다 원음이 크다. 노크의 빈자리를 덮지 않게 섞는다.
+		Bed->SetVolumeMultiplier(bRecorded ? Spec.SampleVolume : Spec.Volume);
+		Bed->bAutoActivate = false;
 		Bed->AttenuationSettings = IGAudio::MakeAttenuation(
 			this, Spec.InnerRadius, Spec.Falloff, EIGAudioBus::World);
 		Bed->bAllowSpatialization = true;
@@ -233,7 +246,15 @@ void AIGListenerGreyboxDirector::SpawnNightAmbienceBeds()
 			AudioDirector->PrepareSound(Wave, EIGAudioBus::World);
 			AudioDirector->RegisterPersistentBed(Bed, EIGAudioBus::World);
 		}
-		Bed->Play();
+		// 같은 녹음을 층마다 같은 위치에서 재생하면 위아래 소리가 달라붙는다.
+		const USoundWave* RecordedWave = Cast<USoundWave>(Wave);
+		const float ClipSeconds = RecordedWave ? RecordedWave->Duration : 0.0f;
+		const float StartOffset = bRecorded
+			? FMath::Fmod(static_cast<float>(Spec.Seed % 1100u) * 0.01f,
+				FMath::Max(0.1f, ClipSeconds)) : 0.0f;
+		Bed->Play(StartOffset);
+		UE_LOG(LogIndieGame, Display, TEXT("NIGHT_BED %s recorded=%d sound=%s volume=%.3f"),
+			Spec.Name, bRecorded, *Wave->GetName(), Bed->VolumeMultiplier);
 		NightAmbienceBeds.Add(Bed);
 	}
 }
@@ -2827,6 +2848,8 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			: PlayerCharacter->GetActorForwardVector();
 		ProbeDustTrailLocation = CameraLocation + CameraForward * 260.0f;
 		Dust->ReportDisturbance(ProbeDustTrailLocation, 1.0f);
+		// 밤 시작부터 켜져 있을 수 있다. 새 빔 검사 전에 이전 앵커를 비운다.
+		Torch->SetOn(false);
 		Torch->SetAvailable(true);
 		Torch->SetOn(true);
 		ProbeStep = EProbeStep::BeamDustContract;
@@ -6116,12 +6139,17 @@ void AIGListenerGreyboxDirector::CaptureParkEntity(
 	{
 		return;
 	}
-	Entity->TeleportTo(Location, FRotator(0.0f, Yaw, 0.0f), false, true);
 	Entity->SetPatrolPoints({Location});
+	Entity->ParkForBeat(Location, Yaw);
 }
 
 void AIGListenerGreyboxDirector::CaptureShot(const TCHAR* BaseName) const
 {
+	if (bCaptureMetricsOnly)
+	{
+		UE_LOG(LogIndieGame, Display, TEXT("NIGHT_PERF_POINT %s"), BaseName);
+		return;
+	}
 	// 첫 프레임들이 렌더된 뒤에 재질·PSO 작업이 다시 쌓인다. 스틸마다 그
 	// 두 번째 물결을 비우고 찍는다.
 	FAssetCompilingManager::Get().FinishAllCompilation();
@@ -6141,8 +6169,11 @@ void AIGListenerGreyboxDirector::CaptureBeginBurst(
 	const TCHAR* DirectoryName,
 	const float Seconds)
 {
+	// 성능 검사에서는 같은 동선을 돌되 PNG 읽기·압축·저장 비용을 제외한다.
+	if (bCaptureMetricsOnly) { return; }
 	CaptureBurstDirectory = FPaths::ConvertRelativePathToFull(FPaths::Combine(
-		FPaths::ProjectSavedDir(), TEXT("NightCapture"), DirectoryName));
+		FPaths::ProjectDir(), TEXT("Saved/NightCapture"), DirectoryName));
+	UE_LOG(LogIndieGame, Display, TEXT("NIGHT_CAPTURE_BURST %s"), *CaptureBurstDirectory);
 	IFileManager::Get().MakeDirectory(*CaptureBurstDirectory, true);
 	CaptureBurstFrame = 0;
 	CaptureBurstAccumulator = 0.0f;
@@ -6171,8 +6202,9 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		// player stands east of the fire-cabinet beat zone (X > 292): parking
 		// inside it once fired the whole tutorial mid-photograph, and the
 		// capture reset shot the next two stills from the bedroom.
-		CaptureParkEntity(FVector(150.0f, -305.0f, 960.0f), 180.0f);
-		CaptureTeleportPlayer(FVector(330.0f, -305.0f, 997.0f), 180.0f, -6.0f);
+		// 낮게 기는 몸과 얼굴이 평소 카메라 높이에서 함께 보이는 거리.
+		CaptureParkEntity(FVector(150.0f, -305.0f, 960.0f), 0.0f);
+		CaptureTeleportPlayer(FVector(420.0f, -305.0f, 997.0f), 180.0f, -24.0f);
 		break;
 	case 2:
 		// Looking down the stair throat at the half-landing cameo.

@@ -375,6 +375,18 @@ void UIGInteractionComponent::RefreshFocus()
 				continue;
 			}
 
+			// 구체의 가장자리가 선반이나 문틀을 돌아가도 눈에서 물체까지는
+			// 열려 있어야 한다. 가려진 손잡이와 벽 뒤 기록이 선택되면 안 된다.
+			FHitResult VisibilityHit;
+			const FVector SightEnd = SweepHit.ImpactPoint
+				+ (SweepHit.ImpactPoint - TraceStart).GetSafeNormal() * 1.0f;
+			if (World->LineTraceSingleByChannel(
+					VisibilityHit, TraceStart, SightEnd, TraceChannel, QueryParams)
+				&& VisibilityHit.GetActor() != SweptActor)
+			{
+				continue;
+			}
+
 			// Perpendicular distance from the aim ray: the nearer the centre
 			// of the screen, the stronger the claim on focus. 앞뒤 거리도 조금
 			// 더하고, 지금 초점인 것은 조금 봐준다.

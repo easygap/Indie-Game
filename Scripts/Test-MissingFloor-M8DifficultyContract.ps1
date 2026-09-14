@@ -132,7 +132,7 @@ Require-All $listener @(
 	'Tuning.HearingSensitivity',
 	'Tuning.WaitScale',
 	'bSecondSound && Tuning.bChaseEnabled',
-	'Distance <= CaptureRadius && Tuning.bCaptureEnabled',
+	'Distance <= CaptureRadius && bReachable && Tuning.bCaptureEnabled',
 	'void AIGListenerEntity::AdvancePatrolIndex()',
 	'bool AIGListenerEntity::TryBeginAmbush()',
 	'NoiseSubsystem->DecayHeatmapForNewNight();'

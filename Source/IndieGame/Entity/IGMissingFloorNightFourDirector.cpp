@@ -633,7 +633,7 @@ bool AIGMissingFloorNightFourDirector::BuildFinaleVisuals()
 		// 정면 -Y인 생성 메시는 yaw 180으로 같은 +Y를 본다.
 		MokVisuals.Add(AddVisual(
 			TEXT("MokHansooFigure"), MokFigureMesh, nullptr,
-			IGNightFour::MokStartLocation, FRotator(0.0f, 180.0f, 0.0f)));
+			IGNightFour::MokStartLocation, GetMokRotation()));
 	}
 	else
 	{
@@ -719,6 +719,12 @@ void AIGMissingFloorNightFourDirector::SetCavityRevealVisible(
 		}
 	}
 	UpdateFinaleDetailLayers();
+}
+
+FRotator AIGMissingFloorNightFourDirector::GetMokRotation() const
+{
+	// 생성 메시의 정면은 -Y다. 등장·캡처·퇴장에도 같은 기준을 쓴다.
+	return bMokFigureAuthored ? FRotator(0.0f, 180.0f, 0.0f) : IGNightFour::MokRotation;
 }
 
 void AIGMissingFloorNightFourDirector::SetMokVisible(const bool bVisible)
@@ -829,7 +835,7 @@ void AIGMissingFloorNightFourDirector::SetFinaleCapturePreview(
 		{
 			Visual->SetWorldLocationAndRotation(
 				IGNightFour::MokStartLocation,
-				IGNightFour::MokRotation);
+				GetMokRotation());
 		}
 	}
 	SetMokVisible(bShowMok);
@@ -1383,7 +1389,7 @@ void AIGMissingFloorNightFourDirector::PresentMokHansoo()
 		if (Visual)
 		{
 			Visual->SetWorldLocationAndRotation(
-				IGNightFour::MokStartLocation, IGNightFour::MokRotation);
+				IGNightFour::MokStartLocation, GetMokRotation());
 		}
 	}
 	SetMokVisible(true);
@@ -1554,8 +1560,8 @@ void AIGMissingFloorNightFourDirector::UpdateMokRetreat(
 			Visual->SetWorldLocation(Location);
 			Visual->SetWorldRotation(
 				Index == 2
-					? IGNightFour::MokRotation + FRotator(0.0f, 0.0f, Alpha * 9.0f)
-					: IGNightFour::MokRotation);
+					? GetMokRotation() + FRotator(0.0f, 0.0f, Alpha * 9.0f)
+					: GetMokRotation());
 		}
 	}
 }

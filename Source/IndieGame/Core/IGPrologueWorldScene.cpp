@@ -642,7 +642,7 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	// 아무 일이 없다 — 지금까지 이 값들은 전부 헛돌고 있었다.
 	{
 		static ConstructorHelpers::FObjectFinder<UTexture2D> GrainFinder(
-			TEXT("/Engine/EngineResources/FilmGrains/Marcie_Grain_v1_1024_M5_555_A0.Marcie_Grain_v1_1024_M5_555_A0"));
+			TEXT("/Engine/EngineResources/FilmGrains/Marcie_Grain_v3_128_M2_000.Marcie_Grain_v3_128_M2_000"));
 		if (GrainFinder.Succeeded())
 		{
 			PostProcess->Settings.bOverride_FilmGrainTexture = true;
@@ -8403,20 +8403,29 @@ void AIGPrologueWorldScene::SpawnDirectors()
 
 void AIGPrologueWorldScene::CreateAmbience()
 {
-	// Apartment room tone (the fridge carries its own hum).
-	UIGAmbienceSoundWave* RoomTone = NewObject<UIGAmbienceSoundWave>(this, TEXT("RoomToneWave"));
-	RoomTone->Configure(EIGAmbienceMode::RoomTone, 0xA13F92C7u);
-	CreateAmbientBed(RoomTone, FVector(0, 0, 1020), 0.6f, 320.0f, 850.0f);
-
-	// Pre-dawn wind over the alley.
-	UIGAmbienceSoundWave* Wind = NewObject<UIGAmbienceSoundWave>(this, TEXT("StreetWindWave"));
-	Wind->Configure(EIGAmbienceMode::StreetWind, 0x5D2E77B1u);
-	CreateAmbientBed(Wind, FVector(1040, -457, 240), 0.85f, 900.0f, 2600.0f);
-
-	// Fluorescent ballast buzz inside the store.
-	UIGAmbienceSoundWave* Buzz = NewObject<UIGAmbienceSoundWave>(this, TEXT("StoreBuzzWave"));
-	Buzz->Configure(EIGAmbienceMode::StoreBuzz, 0x3C91D4E5u);
-	CreateAmbientBed(Buzz, FVector(2595, -457, 250), 0.5f, 320.0f, 950.0f);
+	// 방의 공기, 창밖 도로, 편의점 냉각기의 녹음을 각 공간에 둔다.
+	// 샘플을 못 읽는 소스 작업 환경에서도 기존 합성 베드는 살아 있다.
+	auto RecordedBed = [this](const TCHAR* Name, const EIGAmbienceMode Mode,
+		const uint32 Seed, const FVector& Location, const float RecordedVolume,
+		const float FallbackVolume, const float Inner, const float Falloff)
+	{
+		USoundBase* Sound = IGAudio::Sample(Name);
+		const bool bRecorded = Sound != nullptr;
+		if (!Sound)
+		{
+			UIGAmbienceSoundWave* Fallback = NewObject<UIGAmbienceSoundWave>(this);
+			Fallback->Configure(Mode, Seed);
+			Sound = Fallback;
+		}
+		CreateAmbientBed(Sound, Location,
+			bRecorded ? RecordedVolume : FallbackVolume, Inner, Falloff);
+	};
+	RecordedBed(TEXT("Bed_Corridor"), EIGAmbienceMode::RoomTone, 0xA13F92C7u,
+		FVector(0, 0, 1020), 0.055f, 0.6f, 320.0f, 850.0f);
+	RecordedBed(TEXT("Bed_City_Night"), EIGAmbienceMode::StreetWind, 0x5D2E77B1u,
+		FVector(1040, -457, 240), 0.16f, 0.85f, 900.0f, 2600.0f);
+	RecordedBed(TEXT("Hum_Machine"), EIGAmbienceMode::StoreBuzz, 0x3C91D4E5u,
+		FVector(2595, -457, 250), 0.10f, 0.5f, 320.0f, 950.0f);
 
 	// The store jingle: cheerful, looping, and completely indifferent.
 	JingleComponent = CreateAmbientBed(

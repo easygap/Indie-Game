@@ -34,11 +34,11 @@ WET_GROUND_RESPONSE_MARKER = "IG_WetGroundResponse_v1"
 SURFACE_RESPONSE_DEFAULTS = {
     "Jangpan": {
         "macro_strength": 0.045, "macro_scale": 4.6,
-        "normal_strength": 1.10, "specular": 0.34,
+        "normal_strength": 0.42, "specular": 0.34,
     },
     "ApartmentWallpaperV2": {
         "macro_strength": 0.045, "macro_scale": 4.2,
-        "normal_strength": 1.08, "roughness_detail_strength": 0.08,
+        "normal_strength": 0.38, "roughness_detail_strength": 0.05,
         "roughness_detail_scale": 3.1, "ao_strength": 0.82,
         "specular": 0.28,
     },
@@ -47,16 +47,16 @@ SURFACE_RESPONSE_DEFAULTS = {
     # 밝기만 흔들리며 결이 흐려진다. 결의 방향성은 노멀이 소유한다.
     "ApartmentWallpaperEmboss": {
         "macro_strength": 0.0,
-        "normal_strength": 1.14, "roughness_detail_strength": 0.05,
+        "normal_strength": 0.46, "roughness_detail_strength": 0.05,
         "roughness_detail_scale": 3.1, "ao_strength": 0.86,
         "specular": 0.30,
     },
     "WoodDark": {
-        "normal_strength": 1.12, "roughness_detail_strength": 0.10,
+        "normal_strength": 0.65, "roughness_detail_strength": 0.08,
         "roughness_detail_scale": 3.7, "specular": 0.38,
     },
     "Blanket": {
-        "normal_strength": 1.16, "detail_normal_strength": 0.10,
+        "normal_strength": 0.56, "detail_normal_strength": 0.04,
         "detail_normal_scale": 4.3, "specular": 0.22,
     },
     "Brick": {
@@ -66,7 +66,7 @@ SURFACE_RESPONSE_DEFAULTS = {
     },
     "Concrete": {
         "macro_strength": 0.075, "macro_scale": 5.4,
-        "normal_strength": 1.18, "detail_normal_strength": 0.16,
+        "normal_strength": 0.72, "detail_normal_strength": 0.06,
         "detail_normal_scale": 4.7, "roughness_detail_strength": 0.16,
         "roughness_detail_scale": 4.7, "specular": 0.32,
     },
@@ -77,21 +77,22 @@ SURFACE_RESPONSE_DEFAULTS = {
     },
     "StoreTile": {
         "macro_strength": 0.025, "macro_scale": 6.0,
-        "normal_strength": 1.08, "roughness_variation": 0.30,
+        "normal_strength": 0.42, "roughness_variation": 0.18,
         "specular": 0.50,
     },
     "CeilingTile": {
         "macro_strength": 0.035, "macro_scale": 5.0,
-        "normal_strength": 1.12, "specular": 0.24,
+        "normal_strength": 0.55, "specular": 0.24,
     },
     "MetalBrushed": {
-        "normal_strength": 1.10, "detail_normal_strength": 0.12,
+        "normal_strength": 0.30, "detail_normal_strength": 0.03,
         "detail_normal_scale": 5.3, "roughness_detail_strength": 0.14,
         "roughness_detail_scale": 4.9, "specular": 0.50,
     },
     "Stucco": {
-        "macro_strength": 0.065, "macro_scale": 5.8,
-        "normal_strength": 1.20, "detail_normal_strength": 0.18,
+        # 도장 미장면의 잔결이다. 스캔 노멀을 두 번 증폭하면 돌처럼 보인다.
+        "macro_strength": 0.035, "macro_scale": 5.8,
+        "normal_strength": 0.42, "detail_normal_strength": 0.04,
         "detail_normal_scale": 4.8, "roughness_detail_strength": 0.12,
         "roughness_detail_scale": 4.8, "specular": 0.28,
     },
@@ -109,17 +110,17 @@ SURFACE_RESPONSE_DEFAULTS = {
     },
     "GraniteTile": {
         "macro_strength": 0.025, "macro_scale": 6.4,
-        "normal_strength": 1.10, "roughness_variation": 0.24,
+        "normal_strength": 0.24, "roughness_variation": 0.18,
         "specular": 0.46,
     },
     "GranitePanel": {
         "macro_strength": 0.040, "macro_scale": 5.7,
-        "normal_strength": 1.12, "roughness_detail_strength": 0.10,
+        "normal_strength": 0.48, "roughness_detail_strength": 0.07,
         "roughness_detail_scale": 4.3, "specular": 0.42,
     },
     "MarbleFloor": {
         "macro_strength": 0.020, "macro_scale": 7.0,
-        "normal_strength": 1.06, "roughness_variation": 0.22,
+        "normal_strength": 0.22, "roughness_variation": 0.18,
         "specular": 0.50,
     },
     # 빌라 파사드 적벽돌. 줄눈이 노멀에 있으니 세기를 조금 올리고, 큰 얼룩으로
@@ -132,7 +133,7 @@ SURFACE_RESPONSE_DEFAULTS = {
     },
     "MissingFloorDryPlaster": {
         "macro_strength": 0.080, "macro_scale": 5.6,
-        "normal_strength": 1.20, "detail_normal_strength": 0.20,
+        "normal_strength": 0.68, "detail_normal_strength": 0.06,
         "detail_normal_scale": 4.6, "roughness_detail_strength": 0.14,
         "roughness_detail_scale": 4.6, "ao_strength": 0.88,
         "specular": 0.22,
@@ -211,7 +212,7 @@ TEXTURED_MATERIALS = {
     # Shop floors are buffed to a mirror; the photo roughness map is far too
     # matte for that, so this one forces a polished value.
     "M_StoreTileWorld": {"tex": "StoreTile", "mapping": "XY", "tile": 60.0,
-                         "force_rough": 0.14},
+                         "force_rough": 0.28},
     "M_StoreCeilWorld": {"tex": "CeilingTile", "mapping": "XY", "tile": 120.0, "rough": 0.8},
     "M_StoreWall_X":    {"tex": "Concrete", "mapping": "XZ", "tile": 150.0,
                          "tint": (1.25, 1.25, 1.22)},

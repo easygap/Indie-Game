@@ -295,8 +295,8 @@ void AIGDemoDirector::BuildScript()
 	// 걸음이 막히므로 동쪽 끝을 돌아 나온 자리에서 비스듬히 본다. 곤돌라와 계산대
 	// 사이 58 cm 틈은 캡슐보다 좁다.
 	Steps.Add(MakeWalk(FVector(2900, -430, 0)));
-	Steps.Add(MakeWalkLook(FVector(2838, -335, 0), FVector(2560, -195, 125)));
-	Steps.Add(MakeWait(1.0f, FVector(2560, -195, 125)));
+	Steps.Add(MakeWalkLook(FVector(2850, -260, 0), FVector(2560, -215, 120)));
+	Steps.Add(MakeWait(1.0f, FVector(2560, -215, 120)));
 	Steps.Add(MakeStill(TEXT("prologue-store-counter")));
 	// Reach the register around the open east ends of the gondola and
 	// counter. The 62 cm slot between them is narrower than the capsule.
@@ -539,6 +539,11 @@ void AIGDemoDirector::RequestStill(const FString& BaseName) const
 		FString::Printf(TEXT("Docs/Media/%s.png"), *BaseName)));
 	FScreenshotRequest::RequestScreenshot(ScreenshotPath, true, false);
 	UE_LOG(LogIndieGame, Display, TEXT("Capture requested: %s"), *ScreenshotPath);
+	if (const APawn* Pawn = GetDemoPawn())
+	{
+		UE_LOG(LogIndieGame, Display, TEXT("CAPTURE_PLAYER %s position=%s"),
+			*BaseName, *Pawn->GetActorLocation().ToCompactString());
+	}
 }
 
 void AIGDemoDirector::DumpFrameIfDue(const float DeltaSeconds)

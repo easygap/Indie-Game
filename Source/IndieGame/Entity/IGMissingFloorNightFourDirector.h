@@ -136,6 +136,7 @@ private:
 	bool BuildFinaleVisuals();
 	void SetCavityRevealVisible(bool bVisible);
 	void SetMokVisible(bool bVisible);
+	FRotator GetMokRotation() const;
 	void UpdateFinaleDetailLayers();
 	void BeginCavityReveal();
 	void UpdateCavityReveal(float DeltaSeconds);

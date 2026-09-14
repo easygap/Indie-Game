@@ -422,6 +422,43 @@ def list_animations_for(name):
     return found
 
 
+def apply_character_lods(mesh):
+    """근접 실루엣을 남기고 화면 점유율이 작아질 때만 스키닝 메시를 줄인다."""
+    settings_path = f"{MESH_ROOT}/DA_IGCharacterLODs"
+    settings = unreal.load_asset(settings_path)
+    if settings is None:
+        factory = unreal.DataAssetFactory()
+        factory.set_editor_property("data_asset_class", unreal.SkeletalMeshLODSettings)
+        settings = unreal.AssetToolsHelpers.get_asset_tools().create_asset(
+            "DA_IGCharacterLODs", MESH_ROOT, unreal.SkeletalMeshLODSettings, factory)
+    groups = []
+    for fraction, screen in ((1.0, 1.0), (0.55, 0.30), (0.25, 0.12), (0.10, 0.045)):
+        group = unreal.SkeletalMeshLODGroupSettings()
+        group.set_editor_property("screen_size", unreal.PerPlatformFloat(default=screen))
+        group.set_editor_property("lod_hysteresis", 0.02)
+        reduction = group.get_editor_property("reduction_settings")
+        reduction.set_editor_property("termination_criterion",
+                                      unreal.SkeletalMeshTerminationCriterion.SMTC_NUM_OF_TRIANGLES)
+        reduction.set_editor_property("num_of_triangles_percentage", fraction)
+        reduction.set_editor_property("base_lod", 0)
+        reduction.set_editor_property("max_bones_per_vertex", 4)
+        reduction.set_editor_property("recalc_normals", False)
+        reduction.set_editor_property("enforce_bone_boundaries", True)
+        group.set_editor_property("reduction_settings", reduction)
+        groups.append(group)
+    settings.set_editor_property("lod_groups", groups)
+    unreal.EditorAssetLibrary.save_loaded_asset(settings, False)
+    mesh.set_editor_property("lod_settings", settings)
+    subsystem = unreal.get_editor_subsystem(unreal.SkeletalMeshEditorSubsystem)
+    if not subsystem.regenerate_lod(mesh, 4, False, False):
+        raise RuntimeError(f"{mesh.get_name()}: 캐릭터 LOD 생성 실패")
+    count = subsystem.get_lod_count(mesh)
+    vertices = [subsystem.get_num_verts(mesh, lod) for lod in range(count)]
+    if count != 4 or any(a <= b or b <= 0 for a, b in zip(vertices, vertices[1:])):
+        raise RuntimeError(f"{mesh.get_name()}: LOD별 정점 수가 줄지 않는다: {vertices}")
+    log(f"  CHARACTER_LOD {mesh.get_name()} count={count} vertices={vertices}")
+
+
 def rename_animations(name, expected):
     """테이크 이름을 A_<이름>_<Action>으로 정리하고, 없는 동작은 실패로 잡는다."""
     short = name[3:]
@@ -575,6 +612,11 @@ def export_bounds(output):
             "origin": [round(b.origin.x, 4), round(b.origin.y, 4), round(b.origin.z, 4)],
             "extent": [round(b.box_extent.x, 4), round(b.box_extent.y, 4), round(b.box_extent.z, 4)],
         }
+        if isinstance(asset, unreal.SkeletalMesh):
+            subsystem = unreal.get_editor_subsystem(unreal.SkeletalMeshEditorSubsystem)
+            count = subsystem.get_lod_count(asset)
+            target[str(data.asset_name)]["lod_vertices"] = [
+                subsystem.get_num_verts(asset, lod) for lod in range(count)]
     os.makedirs(os.path.dirname(output), exist_ok=True)
     payload = {"meshes": dict(sorted(exported.items()))}
     if skeletal:
@@ -619,6 +661,7 @@ def import_asset(source_dir, manifest, master):
         instance = create_instance(f"MI_{name[3:]}", master, textures,
                                    manifest.get("emissive_strength", 1.0))
         slots = assign_skeletal_materials(mesh, instance)
+        apply_character_lods(mesh)
         unreal.EditorAssetLibrary.save_asset(f"{MESH_ROOT}/{name}", False)
         skeleton = mesh.get_editor_property("skeleton")
         if skeleton is not None:

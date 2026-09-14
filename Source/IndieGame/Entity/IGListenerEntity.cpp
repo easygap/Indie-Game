@@ -497,6 +497,18 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		{
 			const float Distance =
 				FVector::Dist(Player->GetActorLocation(), GetActorLocation());
+			// 들리는 것과 손이 닿는 것은 다르다. 문·벽 너머의 같은 반경에서는
+			// 덮치지도 잡지도 않는다. 가까운 순간에만 검사한다.
+			bool bReachable = false;
+			if (Distance <= CaptureRadius * 2.3f)
+			{
+				FCollisionQueryParams ReachParams(SCENE_QUERY_STAT(IGListenerReach), false, this);
+				ReachParams.AddIgnoredActor(Player);
+				FHitResult ReachHit;
+				bReachable = !GetWorld()->LineTraceSingleByChannel(
+					ReachHit, GetActorLocation(), Player->GetActorLocation(),
+					ECC_Visibility, ReachParams);
+			}
 			// 듣기만 하는 밤: he reaches the sound and holds there, and that is
 			// where it ends. Touching costs nothing, so the night can never be
 			// taken away — the story, the puzzles and all three endings stay
@@ -504,9 +516,9 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 			// 두 팔 길이 안. 덮치는 동작이 먼저 오고 그 끝에 포옹이 온다.
 			if (State == EIGListenerState::Chasing)
 			{
-				bLungeArmed = Distance <= CaptureRadius * 2.3f;
+				bLungeArmed = bReachable;
 			}
-			if (Distance <= CaptureRadius && Tuning.bCaptureEnabled)
+			if (Distance <= CaptureRadius && bReachable && Tuning.bCaptureEnabled)
 			{
 				BeginCapture(Player);
 			}

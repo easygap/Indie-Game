@@ -65,7 +65,9 @@ namespace IGPlayerNoise
 	constexpr float CrouchAcceleration = 900.0f;
 	constexpr float CrouchBraking = 2200.0f;
 	constexpr float SprintAcceleration = 1400.0f;
-	constexpr float SprintBraking = 900.0f;
+	// 달린 뒤에도 문 하나 폭 안에서 멈춘다. 900은 1.18m를 미끄러져
+	// 모서리를 돌아 숨으려는 입력이 늦게 먹는 것처럼 느껴졌다.
+	constexpr float SprintBraking = 1800.0f;
 	// §27.3. 듣는 동안은 거의 서 있다. 멈추는 것도 빨라야 소리를 놓치지
 	// 않는다 — 제동이 네 상태 중 가장 세다.
 	constexpr float ListenAcceleration = 800.0f;

@@ -49,6 +49,7 @@ def parse_args():
     parser.add_argument("--origin", choices=["bottom", "center"], default="bottom")
     parser.add_argument("--texture-size", type=int, default=0)
     parser.add_argument("--vertex-ao", action="store_true")
+    parser.add_argument("--organic", action="store_true", help="사람·생물의 면 노멀과 비금속 반사를 정리한다")
     parser.add_argument("--smooth-iterations", type=int, default=0, help="데시메이트 전 스무딩 횟수")
     parser.add_argument("--voxel-remesh", type=float, default=0.0,
                         help="데시메이트 전 복셀 리메시 크기(m). 털·얇은 조각으로 깨진 표면을 한 덩어리로 녹인다")
@@ -139,7 +140,8 @@ def import_glb(path):
 
 def main():
     args = parse_args()
-    out_root = args.out or ig.out_root_from_argv()
+    out_root = os.path.abspath(args.out) if args.out else os.path.abspath(
+        os.path.join(HERE, "..", "..", "Content", "SourceArt", "Blender"))
     name = args.name
     out_dir = os.path.join(out_root, name)
     os.makedirs(out_dir, exist_ok=True)
@@ -207,6 +209,8 @@ def main():
     for v in high.data.vertices:
         v.co -= shift
     high.data.update()
+    if args.organic:
+        ig.prepare_organic_source(high)
     # 생성 메시에 딸려 온 배경(벽감·받침)을 평면으로 잘라내고 구멍을 메운다.
     for axis, value, keep_below in ((1, args.clip_y_max, True), (1, args.clip_y_min, False)):
         if value is None:
@@ -242,6 +246,8 @@ def main():
         mod.factor = 0.5
         ig.apply_modifiers(low)
     budget = args.budget or BUDGET[args.mesh_class]
+    if args.organic:
+        ig.remove_small_islands(low)
     ig.decimate(low, budget)
     for poly in low.data.polygons:
         poly.use_smooth = True

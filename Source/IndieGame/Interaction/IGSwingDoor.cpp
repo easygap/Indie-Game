@@ -222,6 +222,7 @@ void AIGSwingDoor::ConfigureAuthoredLeaf(
 	}
 
 	DoorMesh->SetStaticMesh(LeafMesh);
+	DoorMesh->EmptyOverrideMaterials();
 	DoorMesh->SetRelativeLocation(FVector(0.0f, PanelSize.Y * 0.5f, 0.0f));
 	DoorMesh->SetRelativeRotation(FRotator(0.0f, -90.0f, 0.0f));
 	DoorMesh->SetRelativeScale3D(FVector::OneVector);
@@ -294,7 +295,7 @@ void AIGSwingDoor::Tick(const float DeltaSeconds)
 					TEXT("Door_Steel_Close"),
 					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateDoorThud(this); }),
 				DoorMesh->GetComponentLocation(),
-				0.9f);
+				CloseThudVolume);
 		}
 		bSuppressNextCloseThud = false;
 	}
@@ -464,6 +465,7 @@ bool AIGSwingDoor::BeginSwing(
 
 	bOpen = bInOpen;
 	bSuppressNextCloseThud = !bOpen && bSuppressCloseThud;
+	CloseThudVolume = DurationScale > 1.0f ? 0.22f : 0.9f;
 	// A rotating child component cannot sweep against the character capsule.
 	// Remove leaf collision as soon as it opens so a narrow Korean unit door
 	// cannot snag the player; restore it before a close, where Tick's proximity

@@ -51,11 +51,13 @@ def parse_args():
     parser.add_argument("--rot-y", type=float, default=0.0)
     parser.add_argument("--voxel-remesh", type=float, default=0.007)
     parser.add_argument("--smooth-iterations", type=int, default=3)
-    parser.add_argument("--budget", type=int, default=14000)
+    parser.add_argument("--budget", type=int, default=12000)
     parser.add_argument("--texture-size", type=int, default=2048)
     parser.add_argument("--out", default=None)
     parser.add_argument("--no-bake", action="store_true")
     parser.add_argument("--notes", default="")
+    parser.add_argument("--landmarks", help="다각도 렌더에서 확인한 관절 좌표 JSON")
+    parser.add_argument("--keep-largest", action="store_true", help="몸과 떨어진 생성 조각을 제거한다")
     return parser.parse_args(argv)
 
 
@@ -288,6 +290,18 @@ def build_armature(name, marks):
     return arm
 
 
+def load_landmarks(path):
+    """검토한 관절 좌표를 쓴다. 비대칭 자세를 바운드 비율로 다시 추정하지 않는다."""
+    import json
+    with open(path, encoding="utf-8") as handle:
+        data = json.load(handle)
+    marks = {key: Vector(data[key]) for key in
+             ("pelvis", "spine_01", "spine_02", "spine_03", "neck", "head", "head_top")}
+    for key in ("arms", "legs"):
+        marks[key] = {side: tuple(Vector(p) for p in data[key][side]) for side in ("l", "r")}
+    return marks
+
+
 BONE_RADIUS = {
     "pelvis": 0.15, "spine_01": 0.15, "spine_02": 0.15, "spine_03": 0.15,
     "neck": 0.07, "head": 0.11,
@@ -343,7 +357,8 @@ def skin(mesh_ob, arm):
     mod = mesh_ob.modifiers.new("Armature", "ARMATURE")
     mod.object = arm
     mod.use_vertex_groups = True
-    mod.use_deform_preserve_volume = True
+    # UE 기본 스키닝과 같은 선형 블렌딩으로 미리본다.
+    mod.use_deform_preserve_volume = False
     mesh_ob.parent = arm
     ig.log(f"  skin: distance weights, {len(bones)} bones, falloff {WEIGHT_FALLOFF} m")
 
@@ -354,6 +369,7 @@ def skin(mesh_ob, arm):
 
 def new_action(arm, name, frames):
     action = bpy.data.actions.new(name)
+    action.use_fake_user = True
     if arm.animation_data is None:
         arm.animation_data_create()
     arm.animation_data.action = action
@@ -368,7 +384,11 @@ def new_action(arm, name, frames):
         pb.rotation_euler = (0.0, 0.0, 0.0)
         pb.location = (0.0, 0.0, 0.0)
         pb.scale = (1.0, 1.0, 1.0)
-    action.frame_range = (1, frames)
+        # 다른 테이크의 팔·골반 자세가 다음 테이크에 남지 않게 전 채널을 적는다.
+        for f in (0, frames):
+            for channel in ("rotation_euler", "location", "scale"):
+                pb.keyframe_insert(channel, frame=f)
+    action.frame_range = (0, frames)
     action.use_frame_range = True
     return action
 
@@ -407,41 +427,65 @@ def cyclic(arm, action):
             kp.easing = "AUTO"
 
 
+def orient_bone(arm, name, start, end, frame):
+    """접지 목표에서 구한 뼈 방향을 로컬 키로 굽는다. 런타임 IK 비용은 없다."""
+    bone = arm.data.bones[name]
+    rotation = (bone.tail_local - bone.head_local).rotation_difference(end - start)
+    matrix = rotation.to_matrix().to_4x4() @ bone.matrix_local
+    matrix.translation = start
+    arm.pose.bones[name].matrix = matrix
+    bpy.context.view_layer.update()
+    arm.pose.bones[name].keyframe_insert("rotation_euler", frame=frame)
+
+
+def plant_limb(arm, upper_name, lower_name, end_name, target, pole, frame):
+    """두 관절 해석 IK. 손목·발목 목표와 팔꿈치·무릎의 굽힘 방향을 보존한다."""
+    bpy.context.view_layer.update()
+    upper = arm.pose.bones[upper_name]
+    start = upper.head.copy()
+    a = arm.data.bones[upper_name].length
+    b = arm.data.bones[lower_name].length
+    direction = (target - start).normalized()
+    distance = max(abs(a - b) + 0.0001, min((target - start).length, a + b - 0.0001))
+    along = (a * a - b * b + distance * distance) / (2.0 * distance)
+    bend = pole - start
+    bend -= direction * bend.dot(direction)
+    bend.normalize()
+    elbow = start + direction * along + bend * math.sqrt(max(0.0, a * a - along * along))
+    endpoint = start + direction * distance
+    orient_bone(arm, upper_name, start, elbow, frame)
+    orient_bone(arm, lower_name, elbow, endpoint, frame)
+    # 접지 중 주먹과 발끝은 팔·종아리 회전을 따라 말려 들어가지 않는다.
+    end = arm.data.bones[end_name]
+    orient_bone(arm, end_name, endpoint, endpoint + end.tail_local - end.head_local, frame)
+
+
 def author_crawl(arm, frames=36):
-    """낮은 포복 한 주기. 왼팔 뻗기→당기기와 오른팔이 반 주기 어긋나고, 당기는
-    쪽 무릎이 바깥으로 벌어져 밀며, 골반이 그 반대로 구른다."""
+    """한 팔로 버티는 동안 반대 손을 옮긴다. 발목도 바닥 목표를 따라 움직인다."""
     action = new_action(arm, "Crawl", frames)
-    n = frames
-    q = n // 4
-
-    def phase(f, offset=0.0):
-        return (f / n + offset) * math.tau
-
-    for f in range(0, n + 1, 3):
-        t = phase(f)
-        # 팔. 왼팔 t=0에서 앞으로 뻗은 자세, 반 주기 뒤 당김.
+    for f in range(frames + 1):
+        t = f / frames * math.tau
+        key_rot(arm, "pelvis", f, ry=1.5 * math.sin(t))
+        key_rot(arm, "spine_01", f, rz=1.5 * math.sin(t))
+        key_rot(arm, "spine_02", f, rx=0.7 * math.sin(2.0 * t), rz=-1.2 * math.sin(t))
+        key_rot(arm, "spine_03", f, rz=-1.0 * math.sin(t))
+        key_rot(arm, "neck", f, rx=1.0 * math.sin(2.0 * t))
+        key_rot(arm, "head", f, rx=-1.5 * math.sin(2.0 * t), rz=3.0 * math.sin(t))
         for side, off in (("l", 0.0), ("r", 0.5)):
-            p = phase(f, off)
-            reach = math.cos(p)          # 1 뻗음 … -1 당김
-            lift = max(0.0, math.sin(p))  # 앞으로 옮길 때만 팔꿈치가 뜬다
-            key_rot(arm, f"upperarm_{side}", f, rx=-22.0 * reach - 10.0 * lift, rz=10.0 * lift * (1 if side == "l" else -1))
-            key_rot(arm, f"lowerarm_{side}", f, rx=-30.0 * lift, rz=-8.0 * reach * (1 if side == "l" else -1))
-            key_rot(arm, f"hand_{side}", f, rx=12.0 * lift)
-            # 다리는 같은 쪽 팔이 당길 때 무릎을 벌려 민다.
-            push = max(0.0, -math.cos(p))
-            key_rot(arm, f"thigh_{side}", f, rx=-6.0 * push, rz=(1 if side == "l" else -1) * 18.0 * push)
-            key_rot(arm, f"calf_{side}", f, rx=30.0 * push, rz=(1 if side == "l" else -1) * -10.0 * push)
-            key_rot(arm, f"foot_{side}", f, rx=-12.0 * push)
-        # 몸통. 골반은 미는 다리 반대로 구르고, 등뼈는 팔 반대로 비튼다.
-        roll = 9.0 * math.sin(t)
-        key_rot(arm, "pelvis", f, ry=roll, rz=5.0 * math.sin(t))
-        key_rot(arm, "spine_01", f, ry=-3.0 * math.sin(t), rz=-4.0 * math.sin(t))
-        key_rot(arm, "spine_02", f, rx=3.0 * math.sin(2.0 * t), rz=-5.0 * math.sin(t))
-        key_rot(arm, "spine_03", f, rx=-2.5 * math.sin(2.0 * t), rz=4.0 * math.sin(t))
-        key_rot(arm, "neck", f, rx=3.0 * math.sin(2.0 * t + 0.6))
-        key_rot(arm, "head", f, rx=-4.0 * math.sin(2.0 * t + 0.6), rz=5.0 * math.sin(t + 0.8))
-        # 앞으로 밀리는 만큼 골반이 한 번씩 떠오른다.
-        key_loc(arm, "pelvis", f, z=0.012 * max(0.0, math.sin(2.0 * t)))
+            phase = (f / frames + off) % 1.0
+            if phase < 0.65:
+                slide, lift = 0.045 - 0.09 * phase / 0.65, 0.0
+            else:
+                swing = (phase - 0.65) / 0.35
+                slide = -0.045 + 0.09 * swing
+                lift = 0.035 * math.sin(math.pi * swing)
+            forearm = arm.data.bones[f"lowerarm_{side}"]
+            target = forearm.tail_local + Vector((slide, 0.0, lift))
+            plant_limb(arm, f"upperarm_{side}", f"lowerarm_{side}", f"hand_{side}",
+                       target, forearm.head_local, f)
+            calf = arm.data.bones[f"calf_{side}"]
+            plant_limb(arm, f"thigh_{side}", f"calf_{side}", f"foot_{side}",
+                       calf.tail_local + Vector((-slide * 0.4, 0.0, lift * 0.2)), calf.head_local, f)
     cyclic(arm, action)
     return action
 
@@ -458,9 +502,12 @@ def author_listen(arm, frames=90):
         key_rot(arm, "neck", f, rx=1.0 * breath)
         key_rot(arm, "head", f, rx=-3.0 + 2.0 * math.sin(t + 1.0), ry=9.0 * math.sin(t), rz=14.0 * math.sin(t * 0.5))
         for side in ("l", "r"):
-            key_rot(arm, f"upperarm_{side}", f, rx=0.6 * breath)
-            key_rot(arm, f"thigh_{side}", f)
-            key_rot(arm, f"calf_{side}", f)
+            forearm = arm.data.bones[f"lowerarm_{side}"]
+            plant_limb(arm, f"upperarm_{side}", f"lowerarm_{side}", f"hand_{side}",
+                       forearm.tail_local, forearm.head_local, f)
+            calf = arm.data.bones[f"calf_{side}"]
+            plant_limb(arm, f"thigh_{side}", f"calf_{side}", f"foot_{side}",
+                       calf.tail_local, calf.head_local, f)
         key_rot(arm, "pelvis", f, ry=1.0 * math.sin(t))
     cyclic(arm, action)
     return action
@@ -469,7 +516,8 @@ def author_listen(arm, frames=90):
 def author_bang(arm, frames=63):
     """오른주먹으로 세 번 두드린다. 2.1초 = 63프레임, 노크 소리와 박자를 맞춘다."""
     action = new_action(arm, "Bang", frames)
-    strikes = (9, 27, 45)  # CreateWallKnockTriple의 세 타격과 같은 간격
+    # 녹음은 0 / 0.62 / 1.24초에 친다. 30fps에서 가장 가까운 프레임.
+    strikes = (0, 19, 37)
     for f in range(0, frames + 1):
         raise_amt = 0.0
         for s in strikes:
@@ -481,9 +529,6 @@ def author_bang(arm, frames=63):
         if f > strikes[-1] + 3:
             raise_amt = 0.0
         if f % 3 == 0 or any(abs(f - s) <= 1 for s in strikes):
-            key_rot(arm, "upperarm_r", f, rx=-48.0 * raise_amt - 18.0 * (1.0 if f > 4 and f < strikes[-1] + 6 else 0.0), rz=-12.0 * raise_amt)
-            key_rot(arm, "lowerarm_r", f, rx=-55.0 * raise_amt - 20.0 * (1.0 if f > 4 and f < strikes[-1] + 6 else 0.0))
-            key_rot(arm, "hand_r", f, rx=-10.0 * raise_amt)
             # 몸통은 왼팔에 체중을 싣고 오른쪽 어깨를 든다.
             weight = min(1.0, f / 6.0) if f < strikes[-1] + 6 else max(0.0, 1.0 - (f - strikes[-1] - 6) / 10.0)
             key_rot(arm, "spine_03", f, ry=-6.0 * weight, rz=4.0 * weight)
@@ -491,6 +536,11 @@ def author_bang(arm, frames=63):
             key_rot(arm, "upperarm_l", f, rx=4.0 * weight)
             key_rot(arm, "head", f, rx=-6.0 * weight, rz=-8.0 * weight)
             key_rot(arm, "neck", f, rx=-2.0 * weight)
+            for side in ("l", "r"):
+                forearm = arm.data.bones[f"lowerarm_{side}"]
+                lift = Vector((0.02 * raise_amt, 0.0, 0.14 * raise_amt)) if side == "r" else Vector()
+                plant_limb(arm, f"upperarm_{side}", f"lowerarm_{side}", f"hand_{side}",
+                           forearm.tail_local + lift, forearm.head_local, f)
     for fc in action_fcurves(action):
         for kp in fc.keyframe_points:
             kp.interpolation = "BEZIER"
@@ -503,19 +553,19 @@ def author_lunge(arm, frames=24):
     for f in (0, 6, 12, 18, 24):
         a = min(1.0, f / 14.0)
         ease = a * a * (3.0 - 2.0 * a)
-        key_rot(arm, "spine_01", f, rx=-5.0 * ease)
-        key_rot(arm, "spine_02", f, rx=-9.0 * ease)
-        key_rot(arm, "spine_03", f, rx=-8.0 * ease)
+        key_rot(arm, "spine_01", f, rx=-3.0 * ease)
+        key_rot(arm, "spine_02", f, rx=-4.0 * ease)
+        key_rot(arm, "spine_03", f, rx=-4.0 * ease)
         key_rot(arm, "neck", f, rx=-5.0 * ease)
         key_rot(arm, "head", f, rx=-12.0 * ease)
         for side, sgn in (("l", 1.0), ("r", -1.0)):
             # 두 손이 바닥에서 떠 앞으로 나온다. 팔꿈치는 거의 펴진 채로.
-            key_rot(arm, f"upperarm_{side}", f, rx=-34.0 * ease, rz=sgn * 10.0 * ease)
-            key_rot(arm, f"lowerarm_{side}", f, rx=-14.0 * ease, rz=sgn * 4.0 * ease)
-            key_rot(arm, f"hand_{side}", f, rx=-10.0 * ease)
+            forearm = arm.data.bones[f"lowerarm_{side}"]
+            plant_limb(arm, f"upperarm_{side}", f"lowerarm_{side}", f"hand_{side}",
+                       forearm.tail_local + Vector((0.07, sgn * 0.035, 0.12)) * ease,
+                       forearm.head_local, f)
             key_rot(arm, f"thigh_{side}", f, rz=sgn * 6.0 * ease)
             key_rot(arm, f"calf_{side}", f, rx=14.0 * ease)
-        key_loc(arm, "pelvis", f, z=0.03 * ease)
     for fc in action_fcurves(action):
         for kp in fc.keyframe_points:
             kp.interpolation = "BEZIER"
@@ -623,6 +673,7 @@ def main():
     if args.yaw:
         bake_rotation(high, 0.0, 0.0, args.yaw)
     scale = fit_and_ground(high, args.length)
+    ig.prepare_organic_source(high, roughness_floor=0.70)
     lo, hi = ig.bounds(high)
     ig.log(f"{name}: scale x{scale:.4f} -> {(hi - lo).x * 100:.1f} x {(hi - lo).y * 100:.1f} x {(hi - lo).z * 100:.1f} cm")
 
@@ -643,6 +694,7 @@ def main():
         mod.iterations = args.smooth_iterations
         mod.factor = 0.5
         ig.apply_modifiers(low)
+    ig.remove_small_islands(low, keep_largest=args.keep_largest)
     ig.decimate(low, args.budget)
     for poly in low.data.polygons:
         poly.use_smooth = True
@@ -675,7 +727,7 @@ def main():
         bsdf.inputs["Roughness"].default_value = 0.9
         ig.assign_material(low, mat)
 
-    marks = find_landmarks(low)
+    marks = load_landmarks(args.landmarks) if args.landmarks else find_landmarks(low)
     arm = build_armature(name, marks)
     skin(low, arm)
 
@@ -698,7 +750,7 @@ def main():
                           camera_yaw_deg=-55.0, camera_pitch_deg=10.0)
     set_action_frame(arm, actions["Lunge"], 24)
     ig.render_preview(low, os.path.join(out_dir, f"{name}_lunge.png"), camera_yaw_deg=-80.0, camera_pitch_deg=6.0)
-    set_action_frame(arm, actions["Bang"], 9)
+    set_action_frame(arm, actions["Bang"], 19)
     ig.render_preview(low, os.path.join(out_dir, f"{name}_bang.png"), camera_yaw_deg=-30.0, camera_pitch_deg=14.0)
     set_action_frame(arm, actions["Crawl"], 1)
     ig.render_preview(low, os.path.join(out_dir, f"{name}_preview.png"), camera_yaw_deg=-55.0)
@@ -731,4 +783,5 @@ def main():
     ig.log(f"{name}: done tris={ig.triangle_count(low)} bones={len(arm.data.bones)}")
 
 
-main()
+if __name__ == "__main__":
+    main()

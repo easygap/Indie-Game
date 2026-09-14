@@ -151,30 +151,34 @@ Blender 원본이 없는 메시(스캔 소품, 예전 지오메트리 스크립�
 
 ```powershell
 blender -b --factory-startup --python Scripts\blender\rig_crawler.py -- `
-    --glb Content\SourceArt\Generated\ListenerEntityCrawl\trellis1024-s56-side\raw\pbr_00001_.glb `
-    --name SK_ListenerCrawler --length 190 --yaw 0 --voxel-remesh 0.007
+    --glb Content\SourceArt\Generated\ListenerPhotoCrawl\photo-20260914\raw\pbr_00001_.glb `
+    --name SK_ListenerCrawler --length 190 --yaw 94 --voxel-remesh 0.004 `
+    --smooth-iterations 3 --budget 12000 --texture-size 2048 `
+    --landmarks Scripts\blender\listener_photo_landmarks.json --keep-largest
 powershell -File Scripts\Import-BlenderAssets.ps1 -Only SK_ListenerCrawler
 ```
 
 `rig_crawler.py`가 하는 일은 refine_generated.py와 같은 앞부분(회전·치수·
 원점) 뒤에 넷이다.
 
-- **복셀 리메시 7 mm.** TRELLIS.2가 석고 껍질을 얇은 조각 수백 장으로
-  만들어 놓아서 예전 셸은 깨진 조각상처럼 보였다. 한 표면으로 녹인 뒤
-  스무딩 세 번, 14000 삼각형까지 데시메이트. 색·노멀·거칠기는 고밀도에서
-  굽는다.
-- **뼈 자리는 정점 통계로.** 기는 자세라 T 포즈 규칙이 없다. 머리는 +X 끝
-  23 cm, 어깨는 목에서 20 cm 뒤, 팔꿈치·주먹은 몸통 폭 밖의 바닥 정점
-  군집에서, 다리는 발끝에서 전신의 46%에 골반을 두고 좌우 군집으로.
-  세로에 가까운 뼈(머리·손)는 롤을 +X에 맞춘다 — Z 정렬은 거기서 퇴화한다.
+- **복셀 리메시 4 mm.** 9월 14일 새 기준 이미지에서 만든 몸을 한 표면으로
+  정리하고 몸에서 떨어진 발 조각을 없앴다. 스무딩 세 번 뒤 12,000삼각형으로
+  줄이고 색·노멀·거칠기를 2048px D/N/ORM에 굽는다. 고밀도 원본도 부드러운
+  노멀과 비금속 표면으로 바꿔 폴리곤 면이 굽기에 남는 일을 줄였다.
+- **검수한 관절 좌표.** 사진에서 만든 앞·옆·뒤·위와 얼굴·주먹 확대 시트를
+  Blender 렌더와 대조했다. 양팔과 다리 자세가 비대칭이므로 관절을 통계로만
+  추정하지 않고 `listener_photo_landmarks.json`에 지정한다. 좌표는 회전·실제
+  치수 적용·Y 미러링이 끝난 저작 공간의 미터 단위다.
 - **거리 웨이트.** Blender 자동 웨이트(열 확산)는 리메시 껍질에서 「failed
   to find solution」으로 거의 모든 정점을 비운 채 돌아왔다. 뼈마다 두께
   반지름을 두고 표면에서 뼈 표면까지의 거리로 가우시안(4.5 cm)을 걸어
-  최대 넷을 섞는다. 예측 가능하고 매번 같다.
-- **동작 넷.** Crawl(36프레임 루프, 팔 뻗기·당기기가 반 주기 어긋나고 미는
-  다리 반대로 골반이 구른다), Listen(90프레임 루프, 숨과 고개), Bang(63
-  프레임, `CreateWallKnockTriple`과 같은 0.62초 간격의 세 타격), Lunge(24
-  프레임, 덮침). 이동은 폰이 하므로 전부 제자리다.
+  최대 넷을 섞는다. 게임과 같은 선형 블렌딩으로 검수한다.
+- **접지를 구운 동작 넷.** Crawl(36프레임 루프)은 손목·발목의 지지와 들어
+  옮기기를 두 관절 역운동학으로 풀어 키프레임에 기록한다. Listen(90프레임)은
+  숨을 쉬면서 손발을 고정한다. Bang(63프레임)은 녹음의 0/0.62/1.24초와
+  가장 가까운 0/19/37프레임에 타격한다. Lunge(24프레임)는 몸통과 팔을 함께
+  들어 올린다. 이동은 폰이 맡는다. 각 액션의 전 채널을 초기화해 이전 자세가
+  섞이지 않게 하고, fake user를 지정해 .blend를 다시 열어도 네 동작이 남는다.
 
 FBX는 뼈대+메시+액션 전부를 테이크로 굽고(`bake_anim_use_all_actions`),
 `import_blender_assets.py`가 manifest의 `"skeletal": true`를 보고 예전 FBX
@@ -188,11 +192,26 @@ FBX는 뼈대+메시+액션 전부를 테이크로 굽고(`bake_anim_use_all_act
 대답에 얼면 Listen을 0배속으로 세우고, 추격 중 두 팔 거리 안에 들어오면
 Lunge. 스켈레탈 에셋이 없으면 예전 셸+카드로 내려간다.
 
+반입 시 `/Game/Meshes/DA_IGCharacterLODs` 설정으로 LOD 네 단계를 실제
+생성한다. 삼각형 목표 비율은 1 / 0.55 / 0.25 / 0.10, 전환 화면 점유율은
+0.30 / 0.12 / 0.045다. 네 단계와 감소하는 정점 수를 검사한 뒤에만 저장한다.
+이번 반입의 정점 수는 14,400 / 9,377 / 5,242 / 2,930이다. UV 경계 등의 정점
+분할 때문에 정점 비율과 삼각형 목표 비율은 같지 않다.
+
 미리보기: `SK_ListenerCrawler_bones.png`(뼈 자리), `_crawl_f01~f28.png`(기는
-네 프레임), `_lunge.png`, `_bang.png`. 상대 경로 `--out`은 Blender가 드라이브
-루트 기준으로 풀어 `C:\Saved`에 렌더를 쓰니 절대 경로로 준다.
-`out_root_from_argv`는 `--` 뒤 첫 인자를 폴더로 읽는데 여기는 그 인자가
-`--glb`라 저장소 루트에 `--glb` 폴더가 생긴 적이 있다. 이제 기본값을 따로 둔다.
+네 프레임), `_lunge.png`, `_bang.png`. `--out`은 작업 폴더 기준 절대 경로로
+변환한다. 과거 Blender가 드라이브 루트에 쓰던 상대 경로 오류를 고쳤다.
+
+사진과 생성 시트의 출처는 [9월 14일 검증 기록](REALISM_REVIEW_2026-09-14.md)에
+있다. 목한수의 표면을 같은 방식으로 다시 굽는 명령은 다음과 같다.
+
+```powershell
+blender -b --factory-startup --python Scripts\blender\refine_generated.py -- `
+    --glb Content\SourceArt\Generated\MokHansoo\trellis1024-s56\raw\pbr_00001_.glb `
+    --name SM_MokHansooFigure --height 172 --yaw 0 --organic `
+    --voxel-remesh 0.003 --smooth-iterations 2 --budget 12000 --texture-size 2048
+pwsh -NoProfile -File Scripts\Import-BlenderAssets.ps1 -Only SM_MokHansooFigure
+```
 
 ## 지금까지 바꾼 것
 

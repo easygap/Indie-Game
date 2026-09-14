@@ -106,7 +106,7 @@ Assert-ContainsAll $character @(
 	'CrouchAcceleration = 900.0f',
 	'CrouchBraking = 2200.0f',
 	'SprintAcceleration = 1400.0f',
-	'SprintBraking = 900.0f',
+	'SprintBraking = 1800.0f',
 	'CrouchTransitionSeconds = 0.35f',
 	'CrouchTransitionSpeedScale = 0.5f',
 	'KnockInputLockSeconds = 0.9f',

@@ -1,0 +1,142 @@
+{
+  "name": "ListenerPhotoCrawl",
+  "trial": "photo-20260914",
+  "status": "Generated",
+  "source": "Content/SourceArt/AI/ListenerPhotoAnchor_20260914.png",
+  "sourceSha256": "3abc5fa10c74455b18103f7b37898248d2efe333f44900d42b225d1aed411b43",
+  "route": "trellis",
+  "resolution": 1024,
+  "seed": 56,
+  "postprocess": "pbr",
+  "decimateFaces": 160000,
+  "textureSize": 2048,
+  "server": {
+    "url": "http://127.0.0.1:8199",
+    "version": "0.34.6",
+    "device": "cuda:0 NVIDIA GeForce RTX 3060 : cudaMallocAsync"
+  },
+  "startedAt": "2026-09-14T01:06:21.442555+00:00",
+  "license": "TRELLIS.2 / Pixal3D weights: Comfy-Org repackage, MIT/permissive; DINOv3, MoGe, BiRefNet: see lunia_z SourceArt/Manifests/ComfyNative.20260908.json",
+  "runtimeReady": false,
+  "promptId": "299f36b2-748a-44c9-9c5c-d045989b14da",
+  "elapsedSeconds": 130.3,
+  "finishedAt": "2026-09-14T01:08:31.753097+00:00",
+  "files": [
+    {
+      "path": "Content/SourceArt/Generated/ListenerPhotoCrawl/photo-20260914/raw/base-color_00001_.png",
+      "bytes": 4589241,
+      "sha256": "498106738b1d086d656e0080958f595deaa51e655b6f699146097408e1487bd0"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerPhotoCrawl/photo-20260914/raw/cleaned-colored_00001_.glb",
+      "bytes": 4803636,
+      "sha256": "752661453a1ea610e2876cdf7ab3679e1430ac9e3914e116fad9363a0ac3cf3c"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerPhotoCrawl/photo-20260914/raw/colored_00001_.glb",
+      "bytes": 166582980,
+      "sha256": "e9f9eed86c3597c530cfdc439026bce4cd2c1449972df3c44ca911af48fb3057",
+      "pruned": true
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerPhotoCrawl/photo-20260914/raw/conditioning_00001_.png",
+      "bytes": 430045,
+      "sha256": "d57ff855312613cb663688715e2e0927dda92b6d936a8bdca59b06df013c68e6"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerPhotoCrawl/photo-20260914/raw/metallic_00001_.png",
+      "bytes": 18153,
+      "sha256": "68e863d7592f0c09338011019082f672334d61c6254627aaadb23e83c5fd5375"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerPhotoCrawl/photo-20260914/raw/pbr_00001_.glb",
+      "bytes": 10418736,
+      "sha256": "cc164b93a957bc9758ff279b0ad40ba9d2cc4541259070aaea7f6a00b38748db"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerPhotoCrawl/photo-20260914/raw/roughness_00001_.png",
+      "bytes": 1657376,
+      "sha256": "f829e27b587029153233088e863b0c4aa745585e7feac513a5c20d8e4db1867b"
+    },
+    {
+      "path": "Content/SourceArt/Generated/ListenerPhotoCrawl/photo-20260914/raw/shape_00001_.glb",
+      "bytes": 133788164,
+      "sha256": "8db3c2716562e2e885d3120ae89f6f31bba8d5864d30562039f287ebc3632e25",
+      "pruned": true
+    }
+  ],
+  "outputs": {
+    "5": {
+      "images": [
+        {
+          "filename": "conditioning_00001_.png",
+          "subfolder": "ig3d\\ListenerPhotoCrawl\\photo-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "28": {
+      "3d": [
+        {
+          "filename": "shape_00001_.glb",
+          "subfolder": "ig3d\\ListenerPhotoCrawl\\photo-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "33": {
+      "3d": [
+        {
+          "filename": "colored_00001_.glb",
+          "subfolder": "ig3d\\ListenerPhotoCrawl\\photo-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "38": {
+      "3d": [
+        {
+          "filename": "cleaned-colored_00001_.glb",
+          "subfolder": "ig3d\\ListenerPhotoCrawl\\photo-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "43": {
+      "images": [
+        {
+          "filename": "base-color_00001_.png",
+          "subfolder": "ig3d\\ListenerPhotoCrawl\\photo-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "45": {
+      "images": [
+        {
+          "filename": "roughness_00001_.png",
+          "subfolder": "ig3d\\ListenerPhotoCrawl\\photo-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "44": {
+      "images": [
+        {
+          "filename": "metallic_00001_.png",
+          "subfolder": "ig3d\\ListenerPhotoCrawl\\photo-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "42": {
+      "3d": [
+        {
+          "filename": "pbr_00001_.glb",
+          "subfolder": "ig3d\\ListenerPhotoCrawl\\photo-20260914",
+          "type": "output"
+        }
+      ]
+    }
+  }
+}

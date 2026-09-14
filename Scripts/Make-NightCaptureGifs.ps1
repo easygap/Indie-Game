@@ -24,6 +24,11 @@ function Convert-Burst {
 	# 1080p 캡처가 밀리면 프레임 하나가 비어 있을 수 있다. 남은 프레임을
 	# 연속 번호로 다시 묶어 ffmpeg이 중간에서 멈추지 않게 한다.
 	$sequenceDirectory = Join-Path $framesDir '_sequence'
+	$sequenceDirectory = [IO.Path]::GetFullPath($sequenceDirectory)
+	$captureRoot = [IO.Path]::GetFullPath((Join-Path $projectRoot 'Saved\NightCapture')) + '\'
+	if (-not $sequenceDirectory.StartsWith($captureRoot, [StringComparison]::OrdinalIgnoreCase)) {
+		throw "캡처 폴더 바깥 경로는 정리할 수 없습니다: $sequenceDirectory"
+	}
 	if (Test-Path -LiteralPath $sequenceDirectory) {
 		Remove-Item -LiteralPath $sequenceDirectory -Recurse -Force
 	}

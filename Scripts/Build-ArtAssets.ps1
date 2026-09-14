@@ -1009,6 +1009,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 		foreach ($relativeFolder in @(
 			'Content\Meshes',
 			'Content\Photo\Props',
+			'Content\UI\Textures',
 			'Content\Prototype\Textures',
 			'Content\Prototype\Materials'
 		)) {
@@ -1118,6 +1119,7 @@ if ($usingAsciiMirror) {
 		foreach ($relativeFolder in @(
 			'Content\Meshes',
 			'Content\Photo\Props',
+			'Content\UI\Textures',
 			'Content\Prototype\Textures',
 			'Content\Prototype\Materials'
 	)) {

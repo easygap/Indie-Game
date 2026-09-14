@@ -677,6 +677,8 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 # (-IGListenerGreybox spawns it), it owns no timers that could substitute for
 # the tick, and gating it would make the pursuit visibly step.
 $reviewedTickingFiles = @(
+	# 전용 실행 인자에서만 생성하고 약 3초 뒤 종료한다. 실제 입력 제동 거리를 잰다.
+	'IGGameplayRealismProbe.cpp',
 	'IGWakeUpDirector.cpp',
 	'IGPlayerCharacter.cpp',
 	'IGPlayerController.cpp',

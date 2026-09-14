@@ -177,4 +177,6 @@ private:
 	FIGDoorAnimation DoorAnimation;
 	bool bOpen = false;
 	bool bSuppressNextCloseThud = false;
+	// 조용히 닫았을 때 걸쇠도 같은 힘으로 닫힌다.
+	float CloseThudVolume = 0.9f;
 };

@@ -148,10 +148,9 @@ Assert-ContainsAll $controllerSource @(
 	'Settings->RevertVideoMode()',
 	'Settings->SaveSettings()',
 	'DisplayConfirmationDeadline = FPlatformTime::Seconds() + 10.0',
-	'PrimaryActorTick.bStartWithTickEnabled = false',
+	'PrimaryActorTick.bStartWithTickEnabled = true',
 	'PrimaryActorTick.bTickEvenWhenPaused = true',
 	'SetActorTickEnabled(true)',
-	'SetActorTickEnabled(false)',
 	'RevertPendingDisplaySettings()',
 	'Params.Key == EKeys::LeftMouseButton',
 	'TryGetMenuRowFromPointer(',
@@ -165,6 +164,9 @@ Assert-ContainsAll $controllerSource @(
 	'UKismetSystemLibrary::QuitGame',
 	'EQuitPreference::Quit'
 ) '타이틀·일시정지·새 게임·이어하기 계약'
+if ($controllerSource.Contains('SetActorTickEnabled(false)')) {
+	throw '플레이어 컨트롤러를 끄면 메뉴를 닫은 뒤 이동·시점 입력도 멈춥니다.'
+}
 Assert-ContainsAll $hudSource @(
 	'GetOwningPlayerController()',
 	'IndieController->RefreshMenuHud()'
