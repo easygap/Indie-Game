@@ -29,7 +29,6 @@ function Assert-ContainsAll {
 }
 
 $story = Read-ProjectText 'Docs/STORY_BIBLE_MISSING_FLOOR.md'
-$readme = Read-ProjectText 'README.md'
 $audioHeader = Read-ProjectText `
 	'Source/IndieGame/Audio/IGMissingFloorAudioSubsystem.h'
 $audioSource = Read-ProjectText `
@@ -253,11 +252,6 @@ Assert-ContainsAll $greyboxSource @(
 	'GetEffectiveBusDecibels(EIGAudioBus::Player)',
 	'MISSINGFLOOR_M6_AUDIO PASS'
 ) 'M6 runtime probe'
-Assert-ContainsAll $readme @(
-	'첫 실행에서는 본편에 들어가기 전에 소리와 밝기를 한 번 맞춥니다',
-	'5층 석고 파편이나 밤 4의 고인 물',
-	'선택형 마이크 소음 입력',
-	'음성이나 파형은 저장도 전송도 하지 않습니다'
-) 'M6 README'
+# README의 소개 화면과 링크는 Validate-Project.ps1에서 검사한다.
 
 Write-Host 'MISSING_FLOOR_M6_AUDIO_VISUAL_CONTRACT PASS buses=6 surfaces=6 scores=3 hrtf=1 microphone_default_off=1'

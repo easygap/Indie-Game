@@ -63,7 +63,6 @@ $greybox = Read-ProjectText 'Source/IndieGame/Entity/IGListenerGreyboxDirector.c
 $story = Read-ProjectText 'Docs/STORY_BIBLE_MISSING_FLOOR.md'
 $status = Read-ProjectText 'Docs/IMPLEMENTATION_STATUS.md'
 $artMatrix = Read-ProjectText 'Docs/MISSING_FLOOR_ART_MATRIX.md'
-$readme = Read-ProjectText 'README.md'
 $captureRunner = Read-ProjectText 'Scripts/Run-MissingFloor-NightCapture.bat'
 
 # 포획 리셋은 암전뿐 아니라 짧은 기상 잔향까지 하나의 원자적 상태다.
@@ -199,15 +198,7 @@ Assert-ContainsAll $artMatrix @(
 	'잔향 뒤 페이드 끝까지 HUD 점유',
 	'1920×1080과 1280×800 D3D12 실렌더'
 ) 'art matrix wake reuse'
-Assert-ContainsAll $readme @(
-	# README는 플레이어 문서다. 기상 잔향의 HUD 점유 같은 구현 세부는
-	# 이 계약의 소스·상태 문서 단언이 잡고, 문서에는 플레이어에게 한
-	# 약속만 남는다: 입주 저녁에서 시작하고, 잡히면 같은 밤으로 되감기며,
-	# 진행은 잃지 않는다.
-	'입주 첫날 저녁부터 시작합니다',
-	'붙잡히면 같은 밤 04시 30분의 침대로 돌아옵니다',
-	'읽은 기록과 알아낸 것은 그대로 남고'
-) 'player-facing readme'
+# README의 소개 화면과 링크는 Validate-Project.ps1에서 검사한다.
 Assert-ContainsAll $captureRunner @(
 	'IG_NIGHT_CAPTURE_RES_X',
 	'IG_NIGHT_CAPTURE_RES_Y',

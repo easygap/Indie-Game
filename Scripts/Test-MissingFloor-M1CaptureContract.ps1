@@ -70,7 +70,6 @@ $artBuild = Read-ProjectText 'Scripts/Build-ArtAssets.ps1'
 $assetPolicy = Read-ProjectText 'Docs/ASSET_POLICY.md'
 $imageGenRecord = Read-ProjectText 'Docs/IMAGEGEN_PROMPTS_2026-08-11.md'
 $story = Read-ProjectText 'Docs/STORY_BIBLE_MISSING_FLOOR.md'
-$readme = Read-ProjectText 'README.md'
 
 Assert-ContainsAll $nightHeader @(
 	'float FadeOutSeconds = 2.15f;',
@@ -218,15 +217,7 @@ Assert-ContainsAll $story @(
 	'카메라 피치 최대 3.2°와 전 모터 진동 0.70을 0까지 감쇠한다',
 	'3.0초 → 2.2초 → 1.4초 → 0.4초'
 ) 'v2.7 capture design supplement'
-Assert-ContainsAll $readme @(
-	# README는 Docs/Media/readme/의 표시용 파생본을 건다. 원본은 아래 자산
-	# 목록에서 따로 확인한다 — 파생본이 있다고 원본이 있는 것은 아니다.
-	# 진동 감쇠 초 수 같은 구현 수치는 플레이어 문서에 싣지 않는다. 문서가
-	# 약속해야 하는 것은 포획이 벌이 아니라 되감기라는 사실이다.
-	'Docs/Media/readme/m1-capture-embrace.gif',
-	'포획은 게임 오버가 아닙니다.',
-	'읽은 기록과 알아낸 것은 그대로 남고'
-) 'player-facing capture README'
+# README의 소개 화면과 링크는 Validate-Project.ps1에서 검사한다.
 
 $sourceAsset = Join-Path $projectRoot `
 	'Content/SourceArt/AI/SheetListenerCaptureEmbracePhases_v1.png'

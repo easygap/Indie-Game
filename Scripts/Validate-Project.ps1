@@ -235,20 +235,16 @@ if ($missing.Count -gt 0) {
 $readme = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'README.md')
 foreach ($requiredReadmeToken in @(
-	# 인라인은 Docs/Media/readme/의 표시용 파생본을 건다. 원본을 그대로 걸면
-	# README를 여는 데 40 MB 가까이 받는다. 원본은 Docs/Media에 그대로 있다.
-	# README는 게임을 처음 보는 사람용이라, 설정 메뉴 캡처·밤 4 스포일러·
-	# 개별 기능 시연 같은 개발 증거는 걸지 않는다. 그런 캡처의 계약은
-	# 각자의 검증 스크립트가 따로 잡고 있다.
+	# 소개에 쓰는 실제 화면과 실행 안내가 빠지지 않았는지 확인한다.
+	# 퍼즐 해답이나 개별 연출의 검증용 캡처를 README에 고정하지 않는다.
+	'Docs/Media/readme/prologue-corridor.webp',
+	'Docs/Media/readme/prologue-alley.webp',
+	'Docs/Media/readme/prologue-store-counter.webp',
 	'Docs/Media/readme/readme-route-preview.gif',
 	'Docs/Media/readme/night-listener-chase.gif',
-	'Docs/Media/readme/arrival-contract.webp',
-	'Docs/Media/readme/hud-noise-ripple.webp',
-	'Docs/Media/readme/prologue-not-found-note.webp',
-	# 타이틀 화면과 채널 5는 README의 첫 인상과 유일한 관측 호러 컷이다.
-	# 둘 다 다른 캡처로 대체할 수 없으니 참조 자체를 고정한다.
-	'Docs/Media/readme/title-menu-first-run-1080.webp',
-	'Docs/Media/readme/cctv5-feed.webp',
+	'Docs/Media/readme/p1-meter-cabinet.webp',
+	'Docs/PLAYING.md',
+	'## 조작',
 	'## 접근성',
 	'## 직접 해 보기'
 )) {
@@ -284,6 +280,24 @@ $chaseGif = Get-Item -LiteralPath (
 	Join-Path $projectRoot 'Docs/Media/readme/night-listener-chase.gif')
 if ($chaseGif.Length -lt 500KB -or $chaseGif.Length -gt 10MB) {
 	throw 'README chase preview must stay legible and below the 10 MB review budget.'
+}
+# 접힌 영역의 이미지도 내려받을 수 있으므로, 실제 이미지 태그를 모두 센다.
+# 일반 링크로 제공하는 장면 모음 GIF는 본문 이미지 용량에 넣지 않는다.
+$readmeInlineImages = @(
+	[regex]::Matches($readme, '(?:src="|!\[[^\]]*\]\()(?<path>Docs/[^\)"]+)') |
+		ForEach-Object { $_.Groups['path'].Value } |
+		Sort-Object -Unique
+)
+$readmeInlineBytes = 0L
+foreach ($readmeInlineImage in $readmeInlineImages) {
+	if (-not $readmeInlineImage.StartsWith('Docs/Media/readme/')) {
+		throw "README 본문에는 축소본을 사용해 주세요: $readmeInlineImage"
+	}
+	$readmeInlineBytes += (Get-Item -LiteralPath (
+		Join-Path $projectRoot $readmeInlineImage)).Length
+}
+if ($readmeInlineBytes -gt 6MB) {
+	throw 'README 본문 이미지의 총용량은 6 MB 이하여야 합니다.'
 }
 $readmeMediaRecipe = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/create_readme_media.py')
