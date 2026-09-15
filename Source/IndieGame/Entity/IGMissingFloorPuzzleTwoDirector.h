@@ -57,6 +57,7 @@ public:
 
 	/** Probe queries. */
 	bool ValidateFixtures() const;
+	AIGSwingDoor* GetBoothDoor() const { return BoothDoor; }
 	AIGMissingFloorEvidence* GetCarbonLedger() const { return CarbonLedger; }
 	AIGReadableNote* GetAgentMessageNote() const { return AgentMessageNote; }
 	AIGMissingFloorEvidence* GetCctvSelector() const { return CctvSelector; }

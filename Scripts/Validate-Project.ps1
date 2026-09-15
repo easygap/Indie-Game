@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -2823,7 +2823,7 @@ if ($demoDirectorSource.Contains('FVector(2610, -320, 0)')) {
 	throw 'CH01 capture route must not use the sub-capsule gap between the register and gondola.'
 }
 if (-not $worldSceneSource.Contains(
-	'CreateBlock(FVector(142, -225, 220), FVector(88, 20, 20), WallX)')) {
+	'CreateBlock(FVector(131, -225, 220), FVector(110, 20, 20), WallX)')) {
 	throw 'The apartment entrance must retain 210 cm clearance above the shoe step.'
 }
 if ($worldSceneSource.Contains(

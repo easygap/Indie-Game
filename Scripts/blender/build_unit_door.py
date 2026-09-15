@@ -21,6 +21,7 @@ SM_UnitDoorHardware로 따로 낸다. 문틀은 8 x 7 cm 도장 강판 문선에
 import math
 import os
 import sys
+import bpy
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
@@ -98,7 +99,7 @@ def leaf_parts(m, side):
     return parts, leaf
 
 
-def hardware_parts(m, side):
+def hardware_parts(m, side, interior=False):
     """레버·도어락. 문짝 원점 기준으로 판 앞(-Y)에 매달린 것들."""
     parts = []
     # 레버 손잡이: 로제트, 넥, 레버.
@@ -136,10 +137,38 @@ def hardware_parts(m, side):
     status = ig.cylinder("status_led", 0.002, 0.0006, location=(side * HANDLE_X, FRONT - 0.0338, 1.165),
                          rotation=(math.pi * 0.5, 0.0, 0.0), segments=12, material=m["led"])
     parts.append(status)
+    if interior:
+        # 실내 쪽은 숫자판 대신 배터리 덮개와 잠금 손잡이가 달린다.
+        for original in list(parts[:3]):
+            inner = original.copy()
+            inner.data = original.data.copy()
+            inner.name = "inside_" + original.name
+            bpy.context.collection.objects.link(inner)
+            ig.set_active(inner)
+            bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+            ig.mirror_y(inner)
+            parts.append(inner)
+        parts.append(ig.box("inside_lock_cover", (0.082, 0.028, 0.17),
+                            location=(side * HANDLE_X, -FRONT + 0.014, 1.21),
+                            bevel=0.004, segments=2, material=m["black"]))
+        parts.append(ig.box("inside_thumbturn", (0.038, 0.014, 0.012),
+                            location=(side * HANDLE_X, -FRONT + 0.035, 1.19),
+                            bevel=0.003, segments=2, material=m["steel"]))
     return parts
 
 
-def build_leaf(out_root, hinge="R"):
+def orient_wide_swing(parts, variant):
+    if variant != "Wide":
+        return
+    # 액터와 문짝의 -90도 회전이 합쳐지면 -Y 앞면이 실내를 향했다.
+    # 저작 단계에서 앞뒤를 바꿔 키패드는 복도, 잠금 손잡이는 실내로 둔다.
+    for part in parts:
+        ig.set_active(part)
+        bpy.ops.object.transform_apply(location=True, rotation=True, scale=True)
+        ig.mirror_y(part)
+
+
+def build_leaf(out_root, hinge="R", variant=""):
     side = hinge_side(hinge)
     ig.reset_scene()
     parts, leaf = leaf_parts(materials(), side)
@@ -149,37 +178,39 @@ def build_leaf(out_root, hinge="R"):
     if proud > LEAF_PROUD_MAX + 1e-6:
         raise RuntimeError(f"문짝 부품이 판 앞으로 {proud * 1000:.1f} mm 나온다. 한계 {LEAF_PROUD_MAX * 1000:.1f} mm")
     ig.log(f"unit door leaf {hinge}: proud of panel {proud * 1000:.1f} mm")
+    orient_wide_swing(parts, variant)
 
     # 충돌은 문짝 상자 하나. 플레이어가 두드리고 팔 길이에서 보는 문짝이라
     # hero 예산을 준다.
-    suffix = "" if hinge == "R" else "L"
+    suffix = variant + ("" if hinge == "R" else "L")
     return ig.build_asset(
         f"SM_UnitDoorLeaf{suffix}", "hero", parts, out_root,
         collision_parts=[[leaf]],
-        notes=(f"세대 현관문 문짝({hinge} 힌지). 앞면 -Y, 원점 바닥 중심. 판 앞으로 4 mm 안쪽만 나온다. "
-               f"레버·도어락은 같은 원점의 SM_UnitDoorHardware{suffix}, 문틀은 SM_UnitDoorFrame."),
-        texture_size=2048)
+        notes=(f"세대 현관문 문짝({hinge} 힌지). 앞면 {'+Y' if variant == 'Wide' else '-Y'}, 원점 바닥 중심. 판 앞으로 4 mm 안쪽만 나온다. "
+               f"레버·도어락은 같은 원점의 SM_UnitDoorHardware{suffix}, 문틀은 SM_UnitDoorFrame{variant}."),
+        texture_size=2048, preview_yaw=150 if variant == "Wide" else 30)
 
 
-def build_hardware(out_root, hinge="R"):
+def build_hardware(out_root, hinge="R", variant=""):
     side = hinge_side(hinge)
     ig.reset_scene()
-    parts = hardware_parts(materials(), side)
+    parts = hardware_parts(materials(), side, interior=variant == "Wide")
+    orient_wide_swing(parts, variant)
     # 레버는 손이 닿는 프롬프트용이라 충돌에 안 넣는다.
-    suffix = "" if hinge == "R" else "L"
+    suffix = variant + ("" if hinge == "R" else "L")
     return ig.build_asset(
         f"SM_UnitDoorHardware{suffix}", "prop", parts, out_root,
         collision_parts=[],
         notes=(f"세대 현관문 레버·도어락({hinge} 힌지). 원점은 문짝과 같은 바닥 중심이라 "
                f"SM_UnitDoorLeaf{suffix}와 같은 자리에 놓는다. 충돌 없음."),
-        texture_size=1024)
+        texture_size=1024, preview_yaw=150 if variant == "Wide" else 30)
 
 
-def build_frame(out_root):
+def build_frame(out_root, opening_w=0.86, variant=""):
     ig.reset_scene()
     paint = ig.mat_painted_steel("PaintedCharcoalFrame", (0.05, 0.052, 0.056), roughness=0.6, wear=0.3)
     jamb_w, jamb_d = 0.08, 0.07
-    opening_w, opening_h = 0.86, 2.02
+    opening_h = 2.02
     parts = []
     for sign in (-1.0, 1.0):
         jamb = ig.box(f"jamb_{'r' if sign > 0 else 'l'}", (jamb_w, jamb_d, opening_h + jamb_w),
@@ -198,13 +229,14 @@ def build_frame(out_root):
                       bevel=0.002, segments=1, material=paint)
     parts.append(head_lip)
     return ig.build_asset(
-        "SM_UnitDoorFrame", "prop", parts, out_root,
+        f"SM_UnitDoorFrame{variant}", "prop", parts, out_root,
         collision_parts=[[parts[0], parts[1]], [parts[2], parts[3]], [head, head_lip]],
-        notes="세대 현관문 문틀. 개구부 86 x 202, 문선 8 x 7. 원점은 개구부 바닥 중심.",
+        notes=f"세대 현관문 문틀. 개구부 {opening_w * 100:.0f} x 202, 문선 8 x 7. 원점은 개구부 바닥 중심.",
         texture_size=1024)
 
 
 def main():
+    global W, HANDLE_X, BAND_X
     out_root = ig.out_root_from_argv()
     only = [a for a in sys.argv[sys.argv.index("--") + 2:]] if "--" in sys.argv else []
     if not only or "leaf" in only:
@@ -217,6 +249,12 @@ def main():
         build_hardware(out_root, "L")
     if not only or "frame" in only:
         build_frame(out_root)
+    if not only or "wide" in only:
+        # 통과하는 403호만 넓힌다. 레버·키패드·힌지는 늘이지 않고 위치만 옮긴다.
+        W, HANDLE_X, BAND_X = 1.06, 0.43, 0.25
+        build_leaf(out_root, "L", "Wide")
+        build_hardware(out_root, "L", "Wide")
+        build_frame(out_root, 1.08, "Wide")
 
 
 main()

@@ -36,8 +36,9 @@ if (-not $blender) {
 # 유일한 출처다. Import 쪽은 manifest만 보므로 표는 이쪽에만 필요하다.
 $builders = [ordered]@{
 	'retail_refresh' = @('SM_RetailPOS', 'SM_ServiceBell', 'SM_RetailPotato', 'SM_RetailShrimp', 'SM_RetailCorn', 'SM_RetailCupBeef', 'SM_RetailCupKimchi', 'SM_RetailBiscuit', 'SM_WaterBottle')
-	'unit_door' = @('SM_UnitDoorLeaf', 'SM_UnitDoorLeafL', 'SM_UnitDoorHardware', 'SM_UnitDoorHardwareL', 'SM_UnitDoorFrame')
+	'unit_door' = @('SM_UnitDoorLeaf', 'SM_UnitDoorLeafL', 'SM_UnitDoorHardware', 'SM_UnitDoorHardwareL', 'SM_UnitDoorFrame', 'SM_UnitDoorLeafWideL', 'SM_UnitDoorHardwareWideL', 'SM_UnitDoorFrameWide')
 	'corridor_fixtures' = @('SM_FireExtinguisherBox', 'SM_FireExtinguisher')
+	'house_slipper' = @('SM_HouseSlipper')
 	'lobby_mailboxes' = @('SM_MailboxUnit')
 	'ceiling_light' = @('SM_CeilingLightRing', 'SM_CeilingLightDome')
 	'fridge' = @('SM_FridgeBody', 'SM_FridgeDoor')

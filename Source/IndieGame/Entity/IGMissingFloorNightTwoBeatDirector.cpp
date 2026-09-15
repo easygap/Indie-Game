@@ -18,13 +18,13 @@
 namespace IGNightTwo
 {
 	/**
-	 * 4층 세계 좌표. 현관문은 (101, -225)에 있고 남쪽 벽이 Y=-225이므로 집
+	 * 4층 세계 좌표. 남쪽 벽이 Y=-225이므로 집
 	 * 안쪽은 Y가 0에 가까운 쪽, 복도는 그 반대쪽이다. 층 높이는 씬이 들고
 	 * 있고, 문·노크·문구멍은 그 위에서 잰다.
 	 */
 	constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;
 	const FVector DoorLocation(
-		AIGPrologueWorldScene::HomeDoorX,
+		AIGPrologueWorldScene::HomeDoorX + AIGPrologueWorldScene::WideDoorLeafWidth * 0.5f,
 		AIGPrologueWorldScene::HomeDoorY,
 		FourthFloorZ);
 	// 아래 셋은 문에서 잰다. 예전에는 절대 좌표를 적고 관계는 주석에만
@@ -37,7 +37,7 @@ namespace IGNightTwo
 		DoorLocation + FVector(0.0f, -KnockCorridorOffset, KnockFistHeight);
 	/** 문구멍은 문 안쪽, 눈높이. */
 	constexpr float PeepholeInsideOffset = 5.0f;
-	constexpr float PeepholeEyeHeight = 150.0f;
+	constexpr float PeepholeEyeHeight = 155.0f;
 	const FVector PeepholeLocation =
 		DoorLocation + FVector(0.0f, PeepholeInsideOffset, PeepholeEyeHeight);
 	/** 그가 서는 자리 — 문에서 47 cm, 복도 안. */
@@ -45,7 +45,7 @@ namespace IGNightTwo
 	const FVector FigureStagePoint =
 		DoorLocation + FVector(0.0f, -FigureStandOffset, 0.0f);
 	/** 두 점 사이를 오가게 둔다. 서 있는 사람이 아니라 기다리는 사람이 된다. */
-	const FVector FigureShufflePoint(139.0f, -276.0f, FourthFloorZ);
+	const FVector FigureShufflePoint = DoorLocation + FVector(8.0f, -51.0f, 0.0f);
 	/** 끌려가는 소리는 계단코어 쪽으로 멀어진다. */
 	const FVector DragDepartPoint(-120.0f, -278.0f, FourthFloorZ);
 
@@ -93,11 +93,11 @@ namespace IGNightTwo
 
 	// -- 비트 2-5 「귀환 추격」 ---------------------------------------------
 	/**
-	 * 관리실 문 바로 밖, 연결 복도. 관리실은 1층이라 Z가 작다. 쌓아 둔 자재가
+	 * 관리실 오른쪽 벽. 관리실은 1층이라 Z가 작다. 쌓아 둔 자재가
 	 * 무너지는 자리이며, 소리의 출처가 눈에 보이게 BuildLobby가 같은 좌표에
 	 * 판재 더미를 세워 둔다.
 	 */
-	const FVector CollapseLocation(168.0f, -258.0f, 24.0f);
+	const FVector CollapseLocation(260.0f, -166.0f, 24.0f);
 	/**
 	 * 두 번. 이것이 이 비트의 전부다 — §5의 규칙이 「두 번 대답하는 소리는
 	 * 누군가다」이므로, 무너지는 더미의 첫 조각과 나머지가 실제 AI를 추격으로

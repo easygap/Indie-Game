@@ -1,0 +1,31 @@
+{
+  "name": "SM_UnitDoorHardwareWideL",
+  "mesh_class": "prop",
+  "fbx": "SM_UnitDoorHardwareWideL.fbx",
+  "textures": {
+    "D": "SM_UnitDoorHardwareWideL_D.png",
+    "N": "SM_UnitDoorHardwareWideL_N.png",
+    "ORM": "SM_UnitDoorHardwareWideL_ORM.png",
+    "E": "SM_UnitDoorHardwareWideL_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 3108,
+  "bounds_m": {
+    "min": [
+      -0.475,
+      -0.0975,
+      0.92
+    ],
+    "max": [
+      -0.2961,
+      0.0975,
+      1.34
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 6.0,
+  "blender": "5.2.0 LTS",
+  "notes": "세대 현관문 레버·도어락(L 힌지). 원점은 문짝과 같은 바닥 중심이라 SM_UnitDoorLeafWideL와 같은 자리에 놓는다. 충돌 없음."
+}

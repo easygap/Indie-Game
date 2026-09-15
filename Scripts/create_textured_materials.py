@@ -91,9 +91,10 @@ SURFACE_RESPONSE_DEFAULTS = {
     },
     "Stucco": {
         # 도장 미장면의 잔결이다. 스캔 노멀을 두 번 증폭하면 돌처럼 보인다.
+        "response_revision": 2,
         "macro_strength": 0.035, "macro_scale": 5.8,
-        "normal_strength": 0.42, "detail_normal_strength": 0.04,
-        "detail_normal_scale": 4.8, "roughness_detail_strength": 0.12,
+        "normal_strength": 0.12, "detail_normal_strength": 0.0,
+        "detail_normal_scale": 4.8, "roughness_detail_strength": 0.06,
         "roughness_detail_scale": 4.8, "specular": 0.28,
     },
     "KoreanVillaStucco": {
@@ -241,12 +242,8 @@ TEXTURED_MATERIALS = {
                          "tint": (0.42, 0.47, 0.44)},
     "M_StuccoDado_Y":   {"tex": "Stucco", "mapping": "YZ", "tile": 185.0, "force_rough": 0.62,
                          "tint": (0.42, 0.47, 0.44)},
-    # The terrazzo scans are confetti at their native scale; 화강석 is the same
-    # material read at a tenth the chip size with the colour taken out, so the
-    # repeat is tightened hard and the chroma is desaturated away.
-    "M_GraniteTile_XY": {"tex": "GraniteTile", "mapping": "XY", "tile": 17.0,
-                         "desaturate": 0.9, "tint": (0.88, 0.88, 0.86),
-                         "force_rough": 0.26},
+    # 포천석 사진에서 새로 만든 원본과 600mm 줄눈. 테라초를 화강석으로 위장하지 않는다.
+    "M_GraniteTile_XY": {"tex": "GraniteTile", "mapping": "XY", "tile": 60.0, "retail_finish": "granite"},
     "M_GranitePanel_X": {"tex": "GranitePanel", "mapping": "XZ", "tile": 24.0,
                          "desaturate": 0.92, "tint": (0.80, 0.80, 0.78), "rough": 0.58},
     "M_GranitePanel_Y": {"tex": "GranitePanel", "mapping": "YZ", "tile": 24.0,
@@ -1144,7 +1141,12 @@ def _recreate_material(assets, tools, name):
     return material
 
 
-def _has_surface_response_marker(material):
+def surface_response_marker(spec):
+    revision = int(_surface_value(spec, spec["tex"], "response_revision", 1))
+    return SURFACE_RESPONSE_MARKER if revision == 1 else f"IG_SurfaceResponse_v{revision}_{spec['tex']}"
+
+
+def _has_surface_response_marker(material, spec):
     """Return true when this exact bounded response graph is already active.
 
     Structural materials may be rooted by the scene CDO while this commandlet
@@ -1160,7 +1162,7 @@ def _has_surface_response_marker(material):
         ):
             continue
         if str(expression.get_editor_property("parameter_name")) == (
-            SURFACE_RESPONSE_MARKER
+            surface_response_marker(spec)
         ):
             return True
     return False
@@ -1184,7 +1186,7 @@ def create_textured_materials(assets, tools, specs=None, update_in_place=False):
             material = unreal.load_asset(asset_path)
             if material is None:
                 raise RuntimeError(f"Could not load material: {asset_path}")
-            if _has_surface_response_marker(material):
+            if _has_surface_response_marker(material, spec):
                 unreal.log(
                     f"[IndieGame] Surface response already current: {name}"
                 )
@@ -1517,7 +1519,7 @@ def create_textured_materials(assets, tools, specs=None, update_in_place=False):
             material, unreal.MaterialExpressionScalarParameter, -650, 1380
         )
         response_marker.set_editor_property(
-            "parameter_name", SURFACE_RESPONSE_MARKER
+            "parameter_name", surface_response_marker(spec)
         )
         response_marker.set_editor_property("default_value", 1.0)
         marked_specular = _expr(

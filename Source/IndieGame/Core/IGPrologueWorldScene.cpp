@@ -12,6 +12,7 @@
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -695,6 +696,67 @@ void AIGPrologueWorldScene::BeginPlay()
 	InitializePrologue();
 }
 
+bool AIGPrologueWorldScene::AuditPlayerClearance(APawn* Pawn, AIGSwingDoor* BoothDoor)
+{
+	const UCapsuleComponent* Capsule = Pawn ? Pawn->FindComponentByClass<UCapsuleComponent>() : nullptr;
+	if (!Capsule || !HomeDoor || !BuildingDoor || !BoothDoor) { return false; }
+	FCollisionQueryParams Query(SCENE_QUERY_STAT(SpatialClearance), false, Pawn);
+	const FCollisionShape Shape = FCollisionShape::MakeCapsule(
+		Capsule->GetScaledCapsuleRadius(), Capsule->GetScaledCapsuleHalfHeight());
+	int32 Failures = 0;
+	int32 Checks = 0;
+	const auto Sweep = [&](const TCHAR* Name, const FVector& From, const FVector& To, const bool bExpectedClear = true)
+	{
+		FHitResult Hit;
+		const bool bBlocked = GetWorld()->SweepSingleByChannel(Hit, From, To, FQuat::Identity, ECC_Pawn, Shape, Query);
+		const bool bPass = bBlocked != bExpectedClear;
+		++Checks;
+		Failures += bPass ? 0 : 1;
+		UE_LOG(LogIndieGame, Display, TEXT("SPATIAL_CHECK %s %s hit=%s"), Name,
+			bPass ? TEXT("PASS") : TEXT("FAIL"), *GetNameSafe(Hit.GetComponent()));
+		if (bBlocked && !bPass && Hit.GetComponent())
+		{
+			UE_LOG(LogIndieGame, Display, TEXT("SPATIAL_OBSTACLE owner=%s center=%s extent=%s at=%s"),
+				*GetNameSafe(Hit.GetActor()), *Hit.GetComponent()->Bounds.Origin.ToCompactString(),
+				*Hit.GetComponent()->Bounds.BoxExtent.ToCompactString(), *Hit.ImpactPoint.ToCompactString());
+		}
+	};
+	const bool bHomeWasOpen = HomeDoor->IsOpen();
+	const bool bBuildingWasOpen = BuildingDoor->IsOpen();
+	const bool bBoothWasOpen = BoothDoor->IsOpen();
+	const float DoorCenter = HomeDoorX + WideDoorLeafWidth * .5f;
+	HomeDoor->ForceOpenState(false);
+	Sweep(TEXT("home_closed_blocks"), FVector(DoorCenter, -300, FourthFloorZ + 106),
+		FVector(DoorCenter, -165, FourthFloorZ + 106), false);
+	HomeDoor->ForceOpenState(true);
+	for (const float Offset : {-18.0f, 0.0f, 18.0f})
+	{
+		const FVector Outer(DoorCenter + Offset, -300, FourthFloorZ + 106);
+		const FVector Inner(DoorCenter + Offset, -165, FourthFloorZ + 106);
+		Sweep(TEXT("home_enter_offset"), Outer, Inner);
+		Sweep(TEXT("home_leave_offset"), Inner, Outer);
+	}
+	BoothDoor->ForceOpenState(false);
+	Sweep(TEXT("booth_closed_blocks"), FVector(165, -310, 106), FVector(165, -181, 106), false);
+	BoothDoor->ForceOpenState(true);
+	for (const float Offset : {-18.0f, 0.0f, 18.0f})
+	{
+		Sweep(TEXT("booth_entry_offset"), FVector(165 + Offset, -310, 106), FVector(165 + Offset, -181, 106));
+	}
+	BuildingDoor->ForceOpenState(true);
+	Sweep(TEXT("building_entrance"), FVector(646, -470, 106), FVector(646, -310, 106));
+	Sweep(TEXT("lobby_connector"), FVector(-45, -305, 98), FVector(410, -305, 98));
+	Sweep(TEXT("west_alley"), FVector(1300, -560, 98), FVector(1300, -1150, 98));
+	Sweep(TEXT("rear_alley"), FVector(1330, -1380, 98), FVector(2310, -1380, 98));
+	HomeDoor->ForceOpenState(bHomeWasOpen);
+	BuildingDoor->ForceOpenState(bBuildingWasOpen);
+	BoothDoor->ForceOpenState(bBoothWasOpen);
+	UE_LOG(LogIndieGame, Display, TEXT("SPATIAL_CLEARANCE %s checks=%d failures=%d capsule=%.1fx%.1f"),
+		Failures ? TEXT("FAIL") : TEXT("PASS"), Checks, Failures,
+		Capsule->GetScaledCapsuleRadius() * 2, Capsule->GetScaledCapsuleHalfHeight() * 2);
+	return Failures == 0;
+}
+
 // ---------------------------------------------------------------------------
 // Assembly helpers
 // ---------------------------------------------------------------------------
@@ -734,9 +796,19 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateBlock(
 	// Paper-thin dressing (posters, price rails, seams, panel grooves) sits
 	// flush against its host surface; letting it cast shadows only produces
 	// self-shadow acne and doubled contact lines.
-	if (SizeCentimeters.GetMin() < 3.0f || Material == GlassMaterial)
+	const FVector MeshSize = Block->GetStaticMesh()->GetBounds().BoxExtent * 2.0f
+		* Block->GetRelativeScale3D().GetAbs();
+	if (MeshSize.GetMin() < 3.0f || Material == GlassMaterial)
 	{
 		Block->SetCastShadow(false);
+	}
+	// 표면에 붙인 얇은 표찰·띠는 뒤의 벽과 같은 공간을 점유한다. 이런 장식까지
+	// 거리장에 넣으면 작은 형상이 부풀고 Lumen 갱신 대상만 늘어난다.
+	// 구조물과 충돌 있는 소품은 보존하며, 크기는 원본 메시의 실제 바운드로 잰다.
+	if (!bEnableCollision && MeshSize.GetMin() < 3.0f)
+	{
+		Block->SetAffectDistanceFieldLighting(false);
+		Block->SetAffectDynamicIndirectLighting(false);
 	}
 	Block->RegisterComponent();
 	GeometryComponents.Add(Block);
@@ -2124,15 +2196,15 @@ void AIGPrologueWorldScene::BuildApartment()
 	// camera. Cap that return with the correctly oriented wallpaper material.
 	CreateBlock(FVector(200, -245.6f, 115), FVector(20, 0.8f, 230), WallX, false);
 	CreateBlock(FVector(0, 225, 115), FVector(440, 20, 230), WallX);
-	// South wall with the entrance opening (X 98..186).
-	CreateBlock(FVector(-61, -225, 115), FVector(318, 20, 230), WallX);
+	// 문틀 바깥 개구부 X 76..186. 동쪽 내벽은 유지하고 서쪽으로 넓힌다.
+	CreateBlock(FVector(-72, -225, 115), FVector(296, 20, 230), WallX);
 	CreateBlock(FVector(203, -225, 115), FVector(34, 20, 230), WallX);
 	// A 210 cm clear opening leaves headroom above the 8 cm Korean shoe step.
 	// The former 200 cm soffit exactly touched the 192 cm player capsule once
 	// the pawn stood on the step, making the doorway look open but impassable.
-	CreateBlock(FVector(142, -225, 220), FVector(88, 20, 20), WallX);
+	CreateBlock(FVector(131, -225, 220), FVector(110, 20, 20), WallX);
 	// Entrance shoe step.
-	CreateBlock(FVector(143, -195, 4), FVector(80, 40, 8), TexMat(TEXT("M_Concrete_XY"), ConcreteDarkMaterial));
+	CreateBlock(FVector(131, -195, 4), FVector(106, 40, 8), TexMat(TEXT("M_GraniteTile_XY"), ConcreteDarkMaterial));
 
 	// Localised wear is layered, never baked across every wall. Two masked
 	// planes are enough to establish humidity at the cold exterior corner and
@@ -2633,9 +2705,6 @@ void AIGPrologueWorldScene::BuildApartment()
 		CreateBlock(FVector(139.6f, 50, 100), FVector(1.4f, 7, 20), PlasticDarkMaterial, false);
 	}
 
-	// Bathroom door name plate.
-	CreateBlock(FVector(20, -210.6f, 145), FVector(26, 1.5f, 13), TexMat(TEXT("M_SignToilet"), PlasticDarkMaterial), false);
-
 	// Lived-in unit 403: wall AC unit, outlets, a July calendar, range hood.
 	// 에어컨은 Blender 메시. 같은 82 x 19 x 27 봉투, 앞면 +Y, 원점 바닥 중심.
 	UStaticMesh* WallAcMesh = PropMesh(TEXT("SM_WallAirConditioner"));
@@ -2769,14 +2838,14 @@ void AIGPrologueWorldScene::BuildApartment()
 	if (SwitchMesh)
 	{
 		CreateBlock(
-			FVector(90, -215, 123), FVector(100, 100, 100),
+			FVector(30, -215, 123), FVector(100, 100, 100),
 			nullptr, false, SwitchMesh, FRotator::ZeroRotator);
 	}
 	else
 	{
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 		CreateBlock(
-			FVector(90, -213.4f, 128), FVector(10, 2, 10),
+			FVector(30, -213.4f, 128), FVector(10, 2, 10),
 			TexMat(TEXT("M_SwitchPlate"), SignWhiteMaterial), false);
 	}
 	// 신발장은 유광 흰 문 넷에 손가락 홈, 상판이 벽면까지 닿는 메시다. 원점
@@ -2785,39 +2854,37 @@ void AIGPrologueWorldScene::BuildApartment()
 	if (ShoeCabinetMesh)
 	{
 		CreateBlock(
-			FVector(48, -198, 0), FVector(100, 100, 100),
+			FVector(24, -198, 0), FVector(100, 100, 100),
 			nullptr, true, ShoeCabinetMesh, FRotator::ZeroRotator);
 	}
 	else
 	{
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(48, -198, 55), FVector(80, 32, 110), Gloss);
+		CreateBlock(FVector(24, -198, 55), FVector(80, 32, 110), Gloss);
 		for (const float ShelfZ : {28.0f, 82.0f})
 		{
-			CreateBlock(FVector(48, -181.6f, ShelfZ), FVector(76, 1.6f, 52), Gloss, false);
-			CreateBlock(FVector(48, -180.6f, ShelfZ + 26), FVector(70, 1.2f, 1.6f), PlasticDarkMaterial, false);
+			CreateBlock(FVector(24, -181.6f, ShelfZ), FVector(76, 1.6f, 52), Gloss, false);
+			CreateBlock(FVector(24, -180.6f, ShelfZ + 26), FVector(70, 1.2f, 1.6f), PlasticDarkMaterial, false);
 		}
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(48, -198, 111.5f), FVector(84, 34, 3), Furniture, false);
+		CreateBlock(FVector(24, -198, 111.5f), FVector(84, 34, 3), Furniture, false);
 	}
 
 	// Baseboard trim along the interior walls.
 	CreateBlock(FVector(0, 213, 5), FVector(378, 4, 10), Furniture, false);
 	CreateBlock(FVector(-188, 0, 5), FVector(4, 428, 10), Furniture, false);
 	CreateBlock(FVector(188, 0, 5), FVector(4, 428, 10), Furniture, false);
-	CreateBlock(FVector(-46, -213, 5), FVector(286, 4, 10), Furniture, false);
+	CreateBlock(FVector(-58, -213, 5), FVector(262, 4, 10), Furniture, false);
 
-	// Entryway slippers the player can kick around.
-	// On the 8 cm shoe step, not inside it. At Z 3 both slippers spawned
-	// three centimetres into the step's collision, and a simulated body that
-	// starts inside static geometry does not settle onto it -- Chaos resolves
-	// the penetration by shoving it out, in the first second of the level.
-	CreatePhysicsProp(
-		CubeMesh, PlasticDarkMaterial,
-		FVector(0.09f, 0.26f, 0.03f), FVector(120, -190, 9.5f), FRotator(0, 15, 0), 0.2f);
-	CreatePhysicsProp(
-		CubeMesh, PlasticDarkMaterial,
-		FVector(0.09f, 0.26f, 0.03f), FVector(148, -192, 9.5f), FRotator(0, -8, 0), 0.2f);
+	// 벗어 둔 실내화는 침대 옆에 둔다. 현관 단차 위에 물리 소품을 놓으면
+	// 문을 지나던 발에 걸리고, 바닥과 겹친 채 생성되면 밖으로 튀어나간다.
+	if (UStaticMesh* SlipperMesh = PropMesh(TEXT("SM_HouseSlipper")))
+	{
+		CreatePhysicsProp(SlipperMesh, nullptr, FVector::OneVector,
+			FVector(-62, 80, 1), FRotator(0, 10, 0), 0.2f);
+		CreatePhysicsProp(SlipperMesh, nullptr, FVector::OneVector,
+			FVector(-42, 81, 1), FRotator(0, -8, 0), 0.2f);
+	}
 
 	ActiveParent = nullptr;
 }
@@ -2862,10 +2929,8 @@ void AIGPrologueWorldScene::BuildCorridor()
 		IGPrologueWorld::FootstepConcreteTag);
 	CreateBlock(FVector(190, -305, 250), FVector(1040, 160, 20), CorridorCeil);
 
-	// §11 V2 끌린 자국 (복도 러너). A year of a hand cart and a rolled tarp being
-	// dragged from the stair core to 403's door has worn a lane down the middle
-	// of the hallway. It is the oldest mark in the building and the quietest
-	// clue in it: the route the covering-up took, worn in before she moved in.
+	// §11 V2 끌린 자국 (복도 러너). 계단에서 403호로 수레를 돌린 지점에만
+	// 바퀴 자국을 남긴다. 복도 전체에 같은 큰 무늬를 반복하지 않는다.
 	if (PlaneMesh)
 	{
 		UMaterialInterface* Runner =
@@ -2897,24 +2962,11 @@ void AIGPrologueWorldScene::BuildCorridor()
 				Plane->SetCullDistance(1600.0f);
 			}
 		};
-		// Three overlapping segments rather than one long plane: the lane wanders
-		// where the cart was steered, and a single straight stripe down a hallway
-		// reads as a painted line.
 		AddCorridorResidue(
-			FVector(-160.0f, -300.0f, 0.15f),
-			FVector(320.0f, 96.0f, 1.0f),
-			Runner,
-			FRotator(0.0f, 3.0f, 0.0f));
-		AddCorridorResidue(
-			FVector(120.0f, -308.0f, 0.15f),
-			FVector(300.0f, 88.0f, 1.0f),
+			FVector(120.0f, -298.0f, 0.15f),
+			FVector(165.0f, 36.0f, 1.0f),
 			Runner,
 			FRotator(0.0f, -4.0f, 0.0f));
-		AddCorridorResidue(
-			FVector(390.0f, -302.0f, 0.15f),
-			FVector(280.0f, 82.0f, 1.0f),
-			Runner,
-			FRotator(0.0f, 2.0f, 0.0f));
 		// §11 V2 계량기함 녹. The distribution board's steel face has been
 		// weeping down its own door since long before any of this.
 		AddCorridorResidue(
@@ -3061,7 +3113,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 		};
 		AddNorthDado(-320.0f, -200.0f);
 		AddNorthDado(-100.0f, -78.0f);
-		AddNorthDado(18.0f, 94.0f);
+		AddNorthDado(18.0f, 68.0f);
 		AddNorthDado(194.0f, 700.0f);
 
 		// 천장 밑 전선관. 관리인이 나중에 단 인터폰과 등의 배선은 벽 속이 아니라
@@ -3210,18 +3262,18 @@ void AIGPrologueWorldScene::BuildCorridor()
 	}
 	// Our 403 door casing and plate around the real swing door; the leaf
 	// itself is the AIGSwingDoor actor, which dresses its own face.
-	if (UnitDoorFrameMesh)
+	if (UStaticMesh* WideFrame = PropMesh(TEXT("SM_UnitDoorFrameWide")))
 	{
 		CreateBlock(
-			FVector(143, -233, 0), FVector(100, 100, 100),
-			nullptr, false, UnitDoorFrameMesh, FRotator::ZeroRotator);
+			FVector(131, -233, 0), FVector(100, 100, 100),
+			nullptr, false, WideFrame, FRotator::ZeroRotator);
 	}
 	else
 	{
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(96, -233, 102), FVector(8, 7, 208), DoorTrim, false);
+		CreateBlock(FVector(73, -233, 102), FVector(8, 7, 208), DoorTrim, false);
 		CreateBlock(FVector(190, -233, 102), FVector(8, 7, 208), DoorTrim, false);
-		CreateBlock(FVector(143, -233, 206), FVector(102, 7, 8), DoorTrim, false);
+		CreateBlock(FVector(131, -233, 206), FVector(124, 7, 8), DoorTrim, false);
 	}
 	// The actual 404 opening also needs its three inside returns capped. The
 	// south-wall material is authored for the broad wall face and streaks when
@@ -3229,13 +3281,13 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// Offset these caps a few millimetres into the opening. Making their outer
 	// faces exactly coplanar with the wall return caused a striped z-fighting
 	// pattern in the corridor capture.
-	CreateBlock(FVector(99.1f, -225, 105), FVector(1.8f, 22, 210), DoorTrim, false);
+	CreateBlock(FVector(76.7f, -225, 105), FVector(1.4f, 22, 210), DoorTrim, false);
 	CreateBlock(FVector(184.4f, -225, 105), FVector(2.8f, 22, 210), DoorTrim, false);
-	CreateBlock(FVector(142, -225, 209.7f), FVector(88, 22, 0.4f), DoorTrim, false);
+	CreateBlock(FVector(131, -225, 209.7f), FVector(110, 22, 0.4f), DoorTrim, false);
 	// Both read from the landing, so both have to clear the wall face at
 	// Y -235; at Y -233.5 the plate and the intercom were inside the wall.
 	CreateBlock(
-		FVector(144, -236, 214), FVector(16, 2, 8),
+		FVector(131, -236, 214), FVector(16, 2, 8),
 		TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial), false);
 	CreateBlock(
 		FVector(88, -236.25f, 138), FVector(7, 2.5f, 11),
@@ -5193,12 +5245,14 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(170.5f, -305, -10), FVector(519, 120, 20), LobbyFloor);
 	CreateBlock(FVector(170.5f, -305, 250), FVector(519, 120, 20), LobbyCeil);
 	CreateBlock(FVector(170.5f, -375, 120), FVector(519, 20, 240), LobbyWallX);
-	// North wall of the connector, split around the 관리실 doorway (X 120..200)
-	// instead of the old single slab. Coverage outside the opening is
-	// unchanged, so legacy traversal never notices.
-	CreateBlock(FVector(15.5f, -235, 120), FVector(209, 20, 240), LobbyWallX);
-	CreateBlock(FVector(315, -235, 120), FVector(230, 20, 240), LobbyWallX);
-	CreateBlock(FVector(160, -235, 225), FVector(80, 20, 30), LobbyWallX);
+	// 관리실은 한 손에 물건을 든 채 드나드는 곳이다. 진입 폭 110cm를 확보한다.
+	CreateBlock(FVector(10.5f, -235, 120), FVector(199, 20, 240), LobbyWallX);
+	CreateBlock(FVector(325, -235, 120), FVector(210, 20, 240), LobbyWallX);
+	CreateBlock(FVector(165, -235, 225), FVector(110, 20, 30), LobbyWallX);
+	if (UStaticMesh* BoothFrame = PropMesh(TEXT("SM_UnitDoorFrameWide")))
+	{
+		CreateBlock(FVector(165, -243, 0), FVector(100, 100, 100), nullptr, false, BoothFrame);
+	}
 
 	// 없는 층: the management booth, tucked behind the connector's north wall
 	// where Korean villas actually put it — beside the way in. Mok Hansu's
@@ -5206,7 +5260,7 @@ void AIGPrologueWorldScene::BuildLobby()
 	// ledger underneath it, the CCTV monitor with one channel too many, and
 	// the inner room whose door edge shows the egg-crate foam
 	// (STORY_BIBLE_MISSING_FLOOR.md §8 밤2).
-	CreateBlock(FVector(170, -155, -10), FVector(240, 160, 20), LobbyFloor);
+	CreateBlock(FVector(170, -160, -10), FVector(240, 170, 20), LobbyFloor);
 	CreateBlock(FVector(170, -155, 250), FVector(240, 160, 20), LobbyCeil);
 	CreateBlock(FVector(170, -77.5f, 120), FVector(240, 15, 240), LobbyWallX);
 	CreateBlock(FVector(52.5f, -155, 120), FVector(15, 140, 240), LobbyWallY);
@@ -5256,21 +5310,18 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(170, -150, 237), FVector(24, 24, 4), PlasticDarkMaterial, false);
 	CreateLight(FVector(170, -150, 226), 900.0f, 420.0f,
 		FLinearColor(1.0f, 0.95f, 0.85f), false);
-	// §8 비트 2-5's 낙하물. Boards and a paint tin stored against the wall just
-	// outside the booth door, where a caretaker who is quietly building an extra
-	// floor would keep them. Permanent dressing: the crash has to have had a
-	// source the player could have seen on the way in, and the same stack is
-	// still standing in the mornings.
+	// 낙하음이 나는 판재와 페인트 통. 입구를 가로막던 14cm 금속 덩어리를
+	// 관리실 오른쪽 벽에 세운 석고보드로 바꾼다. 문 앞은 비워 둔다.
 	CreateBlock(
-		FVector(168, -262, 52), FVector(96, 14, 104),
-		TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial),
-		true, nullptr, FRotator(0, 0, 6.0f));
+		FVector(267, -164, 60), FVector(90, 1.25f, 120),
+		TexMat(TEXT("M_GypsumBoard"), FridgeInteriorMaterial),
+		true, nullptr, FRotator(0, 90, 6.0f));
 	CreateBlock(
-		FVector(196, -258, 34), FVector(52, 12, 68),
-		TexMat(TEXT("M_ShelfSteelUV"), PlasticDarkMaterial),
-		true, nullptr, FRotator(0, 0, -9.0f));
+		FVector(254, -166, 40), FVector(60, 1.25f, 80),
+		TexMat(TEXT("M_GypsumBoard"), FridgeInteriorMaterial),
+		true, nullptr, FRotator(0, 90, 9.0f));
 	CreateBlock(
-		FVector(140, -256, 12), FVector(24, 24, 24),
+		FVector(230, -198, 12), FVector(24, 24, 24),
 		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial),
 		true, CylinderMesh);
 
@@ -5475,11 +5526,11 @@ void AIGPrologueWorldScene::BuildLobby()
 	// Lobby fittings: the video intercom by the door, a notice board over the
 	// mailboxes, and the umbrella stand nobody has emptied since the rains.
 	CreatePrintedBlock(
-		FVector(672, -381, 145), FVector(16, 5, 22),
+		FVector(703, -371.5f, 145), FVector(16, 5, 22),
 		FridgeInteriorMaterial,
 		TexMat(TEXT("M_Intercom"), SignWhiteMaterial),
 		FVector(0, 1, 0));
-	CreateBlock(FVector(672, -383.5f, 145), FVector(19, 3, 25), Stainless, false);
+	CreateBlock(FVector(703, -374.4f, 145), FVector(19, 0.8f, 25), Stainless, false);
 	CreatePrintedBlock(
 		FVector(600, -239.5f, 196), FVector(84, 3, 44),
 		FridgeInteriorMaterial,
@@ -5655,7 +5706,9 @@ void AIGPrologueWorldScene::BuildAlley()
 
 	// Curb stones seat the facades onto the road. 남쪽 연석은 샛길 입구 두 곳(X 1210..1390,
 	// 1640..1800)을 건너뛴다. 한 줄로 두면 샛길로 들어서는 발밑에 12 cm 턱이 걸린다.
-	CreateBlock(FVector(1040, -410, 4), FVector(2720, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
+	// 공동현관 앞은 연석을 끊는다. 문턱 앞에 별도의 10cm 턱을 만들지 않는다.
+	CreateBlock(FVector(138, -410, 4), FVector(916, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
+	CreateBlock(FVector(1546, -410, 4), FVector(1708, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
 	CreateBlock(FVector(445, -665, 4), FVector(1530, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
 	CreateBlock(FVector(1515, -665, 4), FVector(250, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
 	CreateBlock(FVector(2000, -665, 4), FVector(320, 16, 12), TexMat(TEXT("M_Concrete_X"), ConcreteMaterial));
@@ -5707,12 +5760,15 @@ void AIGPrologueWorldScene::BuildAlley()
 		// 비우고 주차면만 남긴다.
 		CreateBlock(FVector(-214.5f, -310, -10), FVector(251, 170, 20), ParkFloor);
 		CreateBlock(FVector(170.5f, -380, -10), FVector(519, 30, 20), ParkFloor);
-		CreateBlock(FVector(170.5f, -235, -10), FVector(519, 20, 20), ParkFloor);
+		CreateBlock(FVector(-19.5f, -235, -10), FVector(139, 20, 20), ParkFloor);
+		CreateBlock(FVector(360, -235, -10), FVector(140, 20, 20), ParkFloor);
 		// 7.8 x 1.7 m 필로티 천장. 바닥과 마주 보는 면이므로 바닥과 같은
 		// 축으로 읽어야 한다 — XZ로 읽는 동안 이 면 전체가 콘크리트 한 줄을
 		// 1.7 m 늘여 놓은 민무늬였다.
 		CreateBlock(FVector(50, -308, 244), FVector(780, 166, 12), DarkXY, false);
-		CreateBlock(FVector(50, -232, 120), FVector(780, 16, 240), DarkX);
+		// 주차장 뒤벽은 주차면까지만. 연결 복도의 벽은 BuildLobby가 개구부와
+		// 함께 만든다. 여기서 통째로 덮으면 관리실 문이 다시 막힌다.
+		CreateBlock(FVector(-215, -232, 120), FVector(250, 16, 240), DarkX);
 		CreateBlock(FVector(-348, -310, 120), FVector(16, 170, 240), DarkY);
 		// Columns on the street line, each with a concrete capital.
 		for (const float ColumnX : {-300.0f, -140.0f, 20.0f, 180.0f, 340.0f})
@@ -5735,11 +5791,11 @@ void AIGPrologueWorldScene::BuildAlley()
 		// Stair-core door at the back of the bay and a wall-mounted hose reel.
 		CreateBlock(FVector(-120, -241, 100), FVector(88, 6, 200), DarkX, false);
 		CreateBlock(FVector(-84, -244.5f, 96), FVector(4, 2, 14), Metal, false);
-		CreatePrintedBlock(
-			FVector(210, -240, 130), FVector(34, 12, 40),
-			SnackRedMaterial,
-			TexMat(TEXT("M_FireBox"), SnackRedMaterial),
-			FVector(0, -1, 0));
+		if (UStaticMesh* FireBox = PropMesh(TEXT("SM_FireExtinguisherBox")))
+		{
+			CreateBlock(FVector(254, -249.5f, 113), FVector(100, 100, 100),
+				nullptr, false, FireBox);
+		}
 		// A single sodium bulkhead keeps the bay from being a black hole.
 		CreateBlock(FVector(-30, -244, 214), FVector(22, 14, 12), Metal, false);
 		UPointLightComponent* PilotisLamp = CreateLight(
@@ -6694,11 +6750,11 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	{
 		// 403호 문짝은 이웃 문과 같은 Blender 메시의 왼손 변형이다. 힌지가
 		// 액터 원점, 문짝이 +Y, 바깥면이 -X인 이 액터의 관례에 맞춰 돈다.
-		UStaticMesh* HomeDoorLeafMesh = PropMesh(TEXT("SM_UnitDoorLeafL"));
+		UStaticMesh* HomeDoorLeafMesh = PropMesh(TEXT("SM_UnitDoorLeafWideL"));
 		if (HomeDoorLeafMesh)
 		{
 			HomeDoor->ConfigureAuthoredLeaf(
-				HomeDoorLeafMesh, PropMesh(TEXT("SM_UnitDoorHardwareL")), FVector(5, 84, 200));
+				HomeDoorLeafMesh, PropMesh(TEXT("SM_UnitDoorHardwareWideL")), FVector(5, WideDoorLeafWidth, 200));
 		}
 		else
 		{
@@ -6708,11 +6764,11 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				// The authored stainless UV is useful on broad lift panels but
 				// compresses into horizontal bands on this 13 cm vertical inlay.
 				MetalFrameMaterial,
-				FVector(7, 84, 204));
+				FVector(7, WideDoorLeafWidth, 204));
 			HomeDoor->SetLeverMesh(
 				PropMesh(TEXT("SM_LeverHandle")),
 				MetalFrameMaterial,
-				FVector(7, 84, 204));
+				FVector(7, WideDoorLeafWidth, 204));
 		}
 		// Korean entrance doors open outward — and it keeps the hallway clear.
 		HomeDoor->SetOpenYaw(-95.0f);
@@ -6878,18 +6934,6 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		Wallet->OnPickedUp.AddUniqueDynamic(
 			this,
 			&ThisClass::HandlePurchaseSelectionChanged);
-	}
-
-	// Bathroom door and window flavor.
-	if (AIGInspectable* BathroomDoor = World->SpawnActor<AIGInspectable>(
-		AIGInspectable::StaticClass(),
-		FTransform(FRotator::ZeroRotator, FVector(20, -214, 1000)),
-		SpawnParameters))
-	{
-		BathroomDoor->ConfigurePrototypeVisuals(CubeMesh, DoorMaterial, FVector(0.7f, 0.05f, 2.0f));
-		BathroomDoor->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "BathroomPrompt", "화장실 문"));
-		BathroomDoor->ThoughtText =
-			NSLOCTEXT("IGPrologue", "BathroomThought", "…지금은 급하지 않다.");
 	}
 
 	if (AIGInspectable* Window = World->SpawnActor<AIGInspectable>(

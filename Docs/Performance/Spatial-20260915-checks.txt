@@ -1,0 +1,117 @@
+2026-09-15 바닥·소품·출입 동선 수정 검증
+
+Saved/Logs/Spatial-CodeBuild.txt
+ART_CODE_BUILD PASS target=IndieGameEditor platform=Win64 configuration=Development
+
+Saved/Logs/Spatial-DoorImport.txt
+BLENDER_IMPORT PASS assets=3: SM_UnitDoorFrameWide, SM_UnitDoorHardwareWideL, SM_UnitDoorLeafWideL
+
+Saved/Logs/Spatial-SlipperImport.txt
+BLENDER_IMPORT PASS assets=1: SM_HouseSlipper
+
+Saved/Logs/Spatial-MaterialBuild.txt
+[2026.09.15-05.36.49:067][  2]LogPython: Warning: ART_UASSET_AUDIT PASS meshes=48 total_lods=192 reduced_meshes=48 photo_meshes=50 textures=119 materials=164 linked_textures=179 atlas_entries=49
+ART_TARGETED_BUILD PASS target=SurfaceResponse assets=42 uasset_audit=1 no_visible_window=true
+
+Saved/Logs/Spatial-MaterialRebuild.txt
+[2026.09.15-05.35.08:700][  2]LogPython: Warning: ART_UASSET_AUDIT PASS meshes=48 total_lods=192 reduced_meshes=48 photo_meshes=50 textures=119 materials=164 linked_textures=179 atlas_entries=49
+ART_TARGETED_BUILD PASS target=SurfaceResponse assets=42 uasset_audit=1 no_visible_window=true
+
+Saved/Logs/MissingFloorArrivalProbe.log
+[2026.09.15-05.58.31:428][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+[2026.09.15-05.58.32:285][418]LogIndieGame: Display: SPATIAL_VALVE MissingFloorCleaningDrain PASS size=V(X=18.00, Y=18.00, Z=2.79)
+[2026.09.15-05.58.32:285][418]LogIndieGame: Display: SPATIAL_VALVE MissingFloorFloatBypass PASS size=V(X=12.00, Y=12.00, Z=2.60)
+[2026.09.15-05.58.32:295][418]LogIndieGame: Display: SPATIAL_CHECK home_closed_blocks PASS hit=DoorMesh
+[2026.09.15-05.58.32:295][418]LogIndieGame: Display: SPATIAL_CHECK home_enter_offset PASS hit=None
+[2026.09.15-05.58.32:295][418]LogIndieGame: Display: SPATIAL_CHECK home_leave_offset PASS hit=None
+[2026.09.15-05.58.32:295][418]LogIndieGame: Display: SPATIAL_CHECK home_enter_offset PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK home_leave_offset PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK home_enter_offset PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK home_leave_offset PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK booth_closed_blocks PASS hit=DoorMesh
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK booth_entry_offset PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK booth_entry_offset PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK booth_entry_offset PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK building_entrance PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK lobby_connector PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK west_alley PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CHECK rear_alley PASS hit=None
+[2026.09.15-05.58.32:296][418]LogIndieGame: Display: SPATIAL_CLEARANCE PASS checks=15 failures=0 capsule=60.0x192.0
+[2026.09.15-05.58.32:296][418]LogTemp: Display: MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1
+
+Saved/Logs/Spatial-Greybox.log
+[2026.09.15-05.45.15:588][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+[2026.09.15-05.45.16:323][462]LogIndieGame: Display: SPATIAL_VALVE MissingFloorCleaningDrain PASS size=V(X=18.00, Y=18.00, Z=2.79)
+[2026.09.15-05.45.16:323][462]LogIndieGame: Display: SPATIAL_VALVE MissingFloorFloatBypass PASS size=V(X=12.00, Y=12.00, Z=2.60)
+[2026.09.15-05.45.16:675][209]LogTemp: Display: MISSINGFLOOR_DIFFICULTY PASS: §20.2 four nights, tier axis multiplies (night3 tier3 = 3.50s), quiet/hasty/listen-only honoured, heatmap saturates and halves
+[2026.09.15-05.45.17:123][181]LogTemp: Display: MISSINGFLOOR_PERCEPTION PASS: corridor/stairwell reverb, cavity still ringing at 0.5s (level=1472, 1.51s vs solid 0.37s), settled dust bounded and 403 aging cumulative, dust x2.00 over his lane, 220/220 motes lit, dry when dark
+[2026.09.15-05.45.17:357][660]LogTemp: Display: MISSINGFLOOR_P1_EXPERIMENT PASS isolation=1 off_on=1 reversible=1
+[2026.09.15-05.45.23:511][386]LogTemp: Display: MISSINGFLOOR_MERCY PASS: 90s clock, 2-reset hint, responses=4 never repeating, note rests 28.7 cm clear of the five-capture note, stands down on a new source
+[2026.09.15-05.45.23:728][875]LogTemp: Display: MISSINGFLOOR_RECORDING PASS: her sounds kept, his refused, 2.10s of exact silence, lifted once by the night-four wall
+[2026.09.15-05.45.24:913][832]LogTemp: Display: MISSINGFLOOR_N2DOOR PASS: knock at 403, figure staged and released, 3 cues, 3 refused events, 4.11s of silence
+[2026.09.15-05.45.30:050][236]LogTemp: Display: MISSINGFLOOR_CCTV5 PASS: 352x288 allocated on the press, 71 captures, the corridor sounded once, released on death, second press refused
+[2026.09.15-05.45.31:285][701]LogTemp: Display: MISSINGFLOOR_N2CHASE PASS: T7 armed the return, the booth exit dropped the stack, two sounds moved the building, and 403 ended the night
+[2026.09.15-05.45.32:467][178]LogTemp: Display: MISSINGFLOOR_ANSWERREACH PASS: the learned answer knocked at nothing froze him into Waiting, and the same cadence from two floors up did not
+[2026.09.15-05.45.41:127][ 94]LogTemp: Display: MISSINGFLOOR_N3PASS PASS: T9 armed the walk home, the learned answer stopped him in the corridor, she passed him while he waited, and 403 ended the night
+[2026.09.15-05.45.41:127][ 94]LogIndieGame: Display: SPATIAL_VALVE MissingFloorCleaningDrain PASS size=V(X=18.00, Y=18.00, Z=2.79)
+[2026.09.15-05.45.41:127][ 94]LogIndieGame: Display: SPATIAL_VALVE MissingFloorFloatBypass PASS size=V(X=12.00, Y=12.00, Z=2.60)
+[2026.09.15-05.45.41:276][591]LogTemp: Display: MISSINGFLOOR_SEALEDUI PASS
+[2026.09.15-05.46.03:214][ 87]LogTemp: Display: MISSINGFLOOR_M6_AUDIO PASS: six buses, score states, title window
+[2026.09.15-05.46.03:214][ 87]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+
+Saved/Logs/Spatial-Gameplay30.txt
+[2026.09.15-05.57.43:602][ 56]LogIndieGame: Display: REALISM_CHECK sprint_key_reaches_speed PASS
+[2026.09.15-05.57.43:604][ 65]LogIndieGame: Display: REALISM_CHECK sprint_release_stops_before_door_width PASS
+[2026.09.15-05.57.43:622][121]LogIndieGame: Display: REALISM_CHECK offset_doorway_passage PASS
+[2026.09.15-05.57.43:622][121]LogIndieGame: Display: REALISM_CHECK interaction_component PASS
+[2026.09.15-05.57.43:628][121]LogIndieGame: Display: REALISM_CHECK small_visible_prop_focus PASS
+[2026.09.15-05.57.43:628][121]LogIndieGame: Display: REALISM_CHECK occluded_prop_rejected PASS
+[2026.09.15-05.57.43:683][121]LogIndieGame: Display: REALISM_CHECK closed_door_blocks_capture PASS
+[2026.09.15-05.57.43:683][121]LogIndieGame: Display: REALISM_CHECK open_door_allows_capture PASS
+[2026.09.15-05.57.43:683][121]LogIndieGame: Display: REALISM_CHECK capture_keeps_physical_body_visible PASS
+[2026.09.15-05.57.43:683][121]LogIndieGame: Display: REALISM_CHECK runtime_character_has_four_lods PASS
+[2026.09.15-05.57.43:684][121]LogIndieGame: Display: REALISM_CHECK capture_face_stays_in_front_of_camera PASS
+[2026.09.15-05.57.43:684][121]LogIndieGame: Display: REALISM_CHECK failure_ending_keeps_capture_pose PASS
+[2026.09.15-05.57.43:684][121]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+Saved/Logs/Spatial-Gameplay60.txt
+[2026.09.15-05.57.58:688][110]LogIndieGame: Display: REALISM_CHECK sprint_key_reaches_speed PASS
+[2026.09.15-05.57.58:693][126]LogIndieGame: Display: REALISM_CHECK sprint_release_stops_before_door_width PASS
+[2026.09.15-05.57.58:726][236]LogIndieGame: Display: REALISM_CHECK offset_doorway_passage PASS
+[2026.09.15-05.57.58:726][236]LogIndieGame: Display: REALISM_CHECK interaction_component PASS
+[2026.09.15-05.57.58:732][236]LogIndieGame: Display: REALISM_CHECK small_visible_prop_focus PASS
+[2026.09.15-05.57.58:732][236]LogIndieGame: Display: REALISM_CHECK occluded_prop_rejected PASS
+[2026.09.15-05.57.58:785][236]LogIndieGame: Display: REALISM_CHECK closed_door_blocks_capture PASS
+[2026.09.15-05.57.58:786][236]LogIndieGame: Display: REALISM_CHECK open_door_allows_capture PASS
+[2026.09.15-05.57.58:786][236]LogIndieGame: Display: REALISM_CHECK capture_keeps_physical_body_visible PASS
+[2026.09.15-05.57.58:786][236]LogIndieGame: Display: REALISM_CHECK runtime_character_has_four_lods PASS
+[2026.09.15-05.57.58:787][236]LogIndieGame: Display: REALISM_CHECK capture_face_stays_in_front_of_camera PASS
+[2026.09.15-05.57.58:787][236]LogIndieGame: Display: REALISM_CHECK failure_ending_keeps_capture_pose PASS
+[2026.09.15-05.57.58:787][236]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+Saved/Logs/Spatial-Gameplay120.txt
+[2026.09.15-05.58.13:813][219]LogIndieGame: Display: REALISM_CHECK sprint_key_reaches_speed PASS
+[2026.09.15-05.58.13:822][250]LogIndieGame: Display: REALISM_CHECK sprint_release_stops_before_door_width PASS
+[2026.09.15-05.58.13:885][467]LogIndieGame: Display: REALISM_CHECK offset_doorway_passage PASS
+[2026.09.15-05.58.13:885][467]LogIndieGame: Display: REALISM_CHECK interaction_component PASS
+[2026.09.15-05.58.13:892][467]LogIndieGame: Display: REALISM_CHECK small_visible_prop_focus PASS
+[2026.09.15-05.58.13:892][467]LogIndieGame: Display: REALISM_CHECK occluded_prop_rejected PASS
+[2026.09.15-05.58.13:945][467]LogIndieGame: Display: REALISM_CHECK closed_door_blocks_capture PASS
+[2026.09.15-05.58.13:945][467]LogIndieGame: Display: REALISM_CHECK open_door_allows_capture PASS
+[2026.09.15-05.58.13:945][467]LogIndieGame: Display: REALISM_CHECK capture_keeps_physical_body_visible PASS
+[2026.09.15-05.58.13:945][467]LogIndieGame: Display: REALISM_CHECK runtime_character_has_four_lods PASS
+[2026.09.15-05.58.13:946][467]LogIndieGame: Display: REALISM_CHECK capture_face_stays_in_front_of_camera PASS
+[2026.09.15-05.58.13:946][467]LogIndieGame: Display: REALISM_CHECK failure_ending_keeps_capture_pose PASS
+[2026.09.15-05.58.13:946][467]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+Saved/Logs/Spatial-CaptureRun.txt
+[2026.09.15-05.59.05:021][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+[2026.09.15-06.01.23:604][  3]LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=False quality=High production=1 resolution=1920x1080
+
+Scripts/Validate-Project.ps1
+PASS director prop audit self-test: signature parsing, three size conventions read from their own bodies, ternary fallbacks spared, unspawned callers skipped, contact told apart from penetration, a sunk sheet told apart from a rested one, hidden props spared, all codes on and off
+DIRECTOR PROP AUDIT  configure=18 (raw_scale=2 target_bounds=2 unit_scale=5 unknown=9) sites=73 placed=35/35 mesh_bounds=132 findings=0
+LIGHT PLACEMENT AUDIT  lights=52 findings=0
+COPLANAR SURFACE AUDIT  boxes=1411 findings=0
+Project structure validation passed (this is not an Unreal build).

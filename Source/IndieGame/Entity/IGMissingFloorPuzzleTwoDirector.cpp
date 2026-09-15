@@ -24,7 +24,7 @@ namespace IGPuzzleTwo
 	// BuildLobby erects behind the connector's north wall; duplicated by the
 	// same rule every night director follows, because the scene's coordinate
 	// namespace is .cpp-local.
-	const FVector BoothDoorHinge(120.0f, -235.0f, 0.0f);
+	const FVector BoothDoorHinge(112.0f, -235.0f, 0.0f);
 	// Desk top is Z=76.  The 2.8 cm ledger rests at Z=77.5, never at the old
 	// upright-paper centre that made it intersect and appear to float.
 	const FVector FairCopyLocation(120.0f, -103.0f, 77.5f);
@@ -168,11 +168,19 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	{
 		return false;
 	}
-	BoothDoor->ConfigurePrototypeVisuals(
-		CubeMesh,
-		DarkPlasticMaterial,
-		MetalMaterial,
-		FVector(6.0f, 80.0f, 204.0f));
+	UStaticMesh* BoothLeaf = LoadObject<UStaticMesh>(nullptr,
+		TEXT("/Game/Meshes/SM_UnitDoorLeafWideL.SM_UnitDoorLeafWideL"));
+	if (BoothLeaf)
+	{
+		BoothDoor->ConfigureAuthoredLeaf(BoothLeaf,
+			LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_UnitDoorHardwareWideL.SM_UnitDoorHardwareWideL")),
+			FVector(5, AIGPrologueWorldScene::WideDoorLeafWidth, 200));
+	}
+	else
+	{
+		BoothDoor->ConfigurePrototypeVisuals(CubeMesh, DarkPlasticMaterial, MetalMaterial,
+			FVector(6, AIGPrologueWorldScene::WideDoorLeafWidth, 204));
+	}
 	BoothDoor->SetOpenYaw(-95.0f);
 	SetHourActive(false);
 

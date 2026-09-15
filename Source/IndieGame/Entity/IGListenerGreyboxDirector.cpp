@@ -5345,7 +5345,13 @@ void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 void AIGListenerGreyboxDirector::RunArrivalProbe()
 {
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	const AIGPrologueWorldScene* Scene = WorldScene.Get();
+	AIGPrologueWorldScene* Scene = WorldScene.Get();
+	if (!Scene || !PuzzleTwo || !Scene->AuditPlayerClearance(Player.Get(), PuzzleTwo->GetBoothDoor()))
+	{
+		UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_ARRIVAL FAIL spatial_clearance"));
+		RequestExit(true);
+		return;
+	}
 	const UStaticMeshComponent* BoxComponent = ArrivalParcelBox
 		? ArrivalParcelBox->GetPresentationMesh()
 		: nullptr;
@@ -5515,8 +5521,35 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 		case 65: CaptureTeleportPlayer(FVector(1950, -1300, 98), 180, -4); break;
 		case 68: CaptureShot(TEXT("retail-backlane-wide")); break;
 		case 69:
+			if (FParse::Param(FCommandLine::Get(), TEXT("IGSpatialAudit"))) break;
 			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
 			UE_LOG(LogTemp, Display, TEXT("RETAIL_CAPTURE PASS shots=14 production=1 d3d12=1"));
+			RequestExit(false);
+			break;
+		case 70: CaptureTeleportPlayer(FVector(70, -100, 998), -64, -14); break;
+		case 73: CaptureShot(TEXT("spatial-home-entry")); break;
+		case 74: CaptureTeleportPlayer(FVector(-130, -305, 998), 0, -24); break;
+		case 77: CaptureShot(TEXT("spatial-corridor-floor")); break;
+		case 78: CaptureTeleportPlayer(FVector(165, -325, 98), 90, -12); break;
+		case 81: CaptureShot(TEXT("spatial-booth-entry")); break;
+		case 82:
+			// 낮에는 잠긴 방이라, 내부 소품 검수 동안만 문을 열어 둔다.
+			PuzzleTwo->GetBoothDoor()->ForceOpenState(true);
+			CaptureTeleportPlayer(FVector(165, -245, 98), 35, -25);
+			break;
+		case 85: CaptureShot(TEXT("spatial-booth-storage")); break;
+		case 86:
+			PuzzleTwo->GetBoothDoor()->ForceOpenState(false);
+			CaptureTeleportPlayer(FVector(2710, -500, 104), 0, -60);
+			break;
+		case 89: CaptureShot(TEXT("spatial-store-floor")); break;
+		case 90: CaptureTeleportPlayer(FVector(5, 305, 1298), -90, -12); break;
+		case 93: CaptureShot(TEXT("spatial-roof-valves")); break;
+		case 94: CaptureTeleportPlayer(FVector(5, 12, 998), 135, -58); break;
+		case 97: CaptureShot(TEXT("spatial-slippers")); break;
+		case 98:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1"));
 			RequestExit(false);
 			break;
 		default: break;

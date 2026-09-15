@@ -8,6 +8,7 @@
 #include "IGPrologueWorldScene.generated.h"
 
 class AIGCheckoutCounter;
+class APawn;
 class AIGDemoDirector;
 class AIGElevator;
 class AIGFridge;
@@ -133,8 +134,13 @@ public:
 	 * 아니어서다. 밤 2가 이 문에서 노크·문구멍·인물 자리를 재므로
 	 * 정적 초기화 순서에 걸리지 않는 값이어야 한다.
 	 */
-	static constexpr float HomeDoorX = 101.0f;
+	static constexpr float HomeDoorX = 78.0f;
 	static constexpr float HomeDoorY = -225.0f;
+	static constexpr float WideDoorLeafWidth = 106.0f;
+	static constexpr float WideDoorClearWidth = 108.0f;
+
+	/** 실제 배치된 벽과 문에 플레이어 캡슐을 통과시킨다. 시작 구간 검사에서 사용한다. */
+	bool AuditPlayerClearance(APawn* Pawn, AIGSwingDoor* BoothDoor);
 
 	/**
 	 * 복도 동쪽 끝 설비 벽장. §5.1의 세 번째 험 존이 여기 붙는다.

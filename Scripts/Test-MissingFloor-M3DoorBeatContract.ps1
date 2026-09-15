@@ -1,4 +1,4 @@
-﻿<#
+<#
 .SYNOPSIS
 	§8 밤2 비트 2-1 「문 하나를 사이에 둔 첫 대면」 계약 검사.
 
@@ -65,7 +65,8 @@ Require-All $beat @(
 	'constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;',
 	'AIGPrologueWorldScene::HomeDoorX',
 	'AIGPrologueWorldScene::HomeDoorY',
-	'const FVector FigureShufflePoint(139.0f, -276.0f, FourthFloorZ);',
+	'AIGPrologueWorldScene::WideDoorLeafWidth * 0.5f',
+	'const FVector FigureShufflePoint = DoorLocation + FVector(8.0f, -51.0f, 0.0f);',
 	'const FVector DragDepartPoint(-120.0f, -278.0f, FourthFloorZ)'
 ) '비트 2-1 coordinates'
 
@@ -77,7 +78,7 @@ Require-All $beat @(
 	'constexpr float KnockFistHeight = 112.0f;',
 	'DoorLocation + FVector(0.0f, -KnockCorridorOffset, KnockFistHeight)',
 	'constexpr float PeepholeInsideOffset = 5.0f;',
-	'constexpr float PeepholeEyeHeight = 150.0f;',
+	'constexpr float PeepholeEyeHeight = 155.0f;',
 	'DoorLocation + FVector(0.0f, PeepholeInsideOffset, PeepholeEyeHeight)',
 	'constexpr float FigureStandOffset = 47.0f;',
 	'DoorLocation + FVector(0.0f, -FigureStandOffset, 0.0f)'
@@ -226,7 +227,7 @@ Require-All $nightLoop @(
 Require-All $beat @(
 	'constexpr float CollapseSecondImpactSeconds = 0.55f;',
 	'constexpr float CollapseLoudness = 0.95f;',
-	'const FVector CollapseLocation(168.0f, -258.0f, 24.0f);',
+	'const FVector CollapseLocation(260.0f, -166.0f, 24.0f);',
 	'constexpr float BoothExitY = -242.0f;',
 	'IGNightTwo::CollapseLoudness,',
 	'nullptr);',
@@ -242,7 +243,7 @@ Require-All $entity @(
 $scene = Read-Source 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
 Require-All $scene @(
 	'CreateBlock(',
-	'FVector(168, -262, 52), FVector(96, 14, 104),'
+	'FVector(267, -164, 60), FVector(90, 1.25f, 120),'
 ) '비트 2-5 material stack'
 
 Require-All $greyboxHeader @(

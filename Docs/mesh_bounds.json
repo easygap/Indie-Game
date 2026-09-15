@@ -444,6 +444,18 @@
         26.0
       ]
     },
+    "SM_HouseSlipper": {
+      "origin": [
+        0.0,
+        -0.0008,
+        3.11
+      ],
+      "extent": [
+        5.0124,
+        13.6092,
+        3.11
+      ]
+    },
     "SM_InductionHob": {
       "origin": [
         0.0,
@@ -1380,6 +1392,18 @@
         105.0
       ]
     },
+    "SM_UnitDoorFrameWide": {
+      "origin": [
+        0.0,
+        -0.0,
+        105.0
+      ],
+      "extent": [
+        62.0,
+        3.5,
+        105.0
+      ]
+    },
     "SM_UnitDoorHardware": {
       "origin": [
         27.5532,
@@ -1404,6 +1428,18 @@
         21.0
       ]
     },
+    "SM_UnitDoorHardwareWideL": {
+      "origin": [
+        -38.5532,
+        -0.0,
+        113.0
+      ],
+      "extent": [
+        8.9468,
+        9.7499,
+        21.0
+      ]
+    },
     "SM_UnitDoorLeaf": {
       "origin": [
         -0.575,
@@ -1424,6 +1460,18 @@
       ],
       "extent": [
         42.575,
+        2.675,
+        100.0
+      ]
+    },
+    "SM_UnitDoorLeafWideL": {
+      "origin": [
+        0.575,
+        0.175,
+        100.0
+      ],
+      "extent": [
+        53.575,
         2.675,
         100.0
       ]

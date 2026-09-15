@@ -59,8 +59,8 @@ namespace IGNightFour
 	// 403 shipping labels. Its back face shares the established paper plane.
 	const FVector EvictionNoticeLocation(640.0f, -232.0f, 1042.0f);
 	// Both roof controls face the 1.2 m maintenance lane beside the tank.
-	const FVector CleaningDrainLocation(-62.0f, 158.0f, 1340.0f);
-	const FVector FloatBypassLocation(72.0f, 158.0f, 1340.0f);
+	const FVector CleaningDrainLocation(-62.0f, 166.0f, 1340.0f);
+	const FVector FloatBypassLocation(72.0f, 166.0f, 1340.0f);
 	// Ground-floor transfer-pump selector, inside the management booth.
 	// A wall-mounted selector above a floor-seated pump assembly in the booth.
 	const FVector TransferPumpLocation(63.0f, -170.0f, 112.0f);
@@ -254,11 +254,11 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	CleaningDrain = SpawnEvidence(
 		TEXT("MissingFloorCleaningDrain"),
 		IGNightFour::CleaningDrainLocation,
-		FRotator(90.0f, 0.0f, 0.0f));
+		FRotator(0.0f, 0.0f, 90.0f));
 	FloatBypass = SpawnEvidence(
 		TEXT("MissingFloorFloatBypass"),
 		IGNightFour::FloatBypassLocation,
-		FRotator(90.0f, 0.0f, 0.0f));
+		FRotator(0.0f, 0.0f, 90.0f));
 	TransferPump = SpawnEvidence(
 		TEXT("MissingFloorTransferPump"),
 		IGNightFour::TransferPumpLocation,
@@ -300,12 +300,9 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	CleaningDrain->Configure(
 		LargeValveMesh ? LargeValveMesh : CylinderMesh,
 		MetalMaterial,
-		LargeValveMesh ? FVector(100.0f) : FVector(18.0f, 18.0f, 5.0f),
+		LargeValveMesh ? FVector::ZeroVector : FVector(18.0f, 18.0f, 5.0f),
 		NSLOCTEXT("IGMissingFloor", "CleaningDrainPrompt", "세척 배수 — OPEN"),
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"CleaningDrainThought",
-			"물이 빠지기 시작했다."),
+		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.8f,
@@ -316,12 +313,9 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	FloatBypass->Configure(
 		SmallValveMesh ? SmallValveMesh : CylinderMesh,
 		MetalMaterial,
-		SmallValveMesh ? FVector(100.0f) : FVector(14.0f, 14.0f, 4.0f),
+		SmallValveMesh ? FVector::ZeroVector : FVector(12.0f, 12.0f, 4.0f),
 		NSLOCTEXT("IGMissingFloor", "FloatBypassPrompt", "부자밸브 우회 — OPEN"),
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"FloatBypassThought",
-			"여기로 돌리면 부자가 올라가도 급수가 멈추지 않는다."),
+		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.8f,
@@ -335,10 +329,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		FVector(6.0f, 34.0f, 52.0f),
 		NSLOCTEXT(
 			"IGMissingFloor", "TransferPumpPrompt", "이송펌프 선택반 — MANUAL"),
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"TransferPumpThought",
-			"펌프가 돈다. 관을 타고 물이 올라간다."),
+		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		1.0f,
@@ -395,20 +386,24 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 			MetalMaterial,
 			FName(*(Branch.Key.ToString() + TEXT("Riser"))),
 			FVector(Branch.Value, 140.0f, 1320.0f),
-			FVector(8.0f, 8.0f, 40.0f));
+			FVector(6.0f, 6.0f, 40.0f));
 		AddEquipment(
 			CylinderMesh,
 			MetalMaterial,
 			FName(*(Branch.Key.ToString() + TEXT("Nipple"))),
 			FVector(Branch.Value, 149.0f, 1340.0f),
-			FVector(10.0f, 10.0f, 18.0f),
+			FVector(6.0f, 6.0f, 18.0f),
 			FRotator(0.0f, 0.0f, 90.0f));
 		AddEquipment(
 			CylinderMesh,
 			DarkMaterial,
 			FName(*(Branch.Key.ToString() + TEXT("Body"))),
 			FVector(Branch.Value, 154.0f, 1340.0f),
-			FVector(16.0f, 16.0f, 10.0f),
+			FVector(9.0f, 9.0f, 7.0f),
+			FRotator(0.0f, 0.0f, 90.0f));
+		AddEquipment(CylinderMesh, MetalMaterial,
+			FName(*(Branch.Key.ToString() + TEXT("Stem"))),
+			FVector(Branch.Value, 162.0f, 1340.0f), FVector(2.0f, 2.0f, 10.0f),
 			FRotator(0.0f, 0.0f, 90.0f));
 	}
 
@@ -985,10 +980,22 @@ void AIGMissingFloorNightFourDirector::SetHourActive(const bool bHourActive)
 
 bool AIGMissingFloorNightFourDirector::ValidateFixtures() const
 {
+	const auto ValveFits = [](const AIGMissingFloorEvidence* Evidence, const float Diameter)
+	{
+		const UStaticMeshComponent* Mesh = Evidence ? Evidence->GetPresentationMesh() : nullptr;
+		if (!Mesh || !Mesh->GetStaticMesh()) { return false; }
+		const FVector Size = Mesh->GetStaticMesh()->GetBounds().BoxExtent * 2.0f * Mesh->GetComponentScale().GetAbs();
+		const bool bFits = FMath::IsNearlyEqual(Size.GetMax(), Diameter, 1.0f) && Size.GetMin() < 6.0f;
+		UE_LOG(LogIndieGame, Display, TEXT("SPATIAL_VALVE %s %s size=%s"), *Evidence->GetName(),
+			bFits ? TEXT("PASS") : TEXT("FAIL"), *Size.ToCompactString());
+		return bFits;
+	};
 	return Scene.IsValid()
 		&& EvictionNotice
 		&& CleaningDrain
 		&& FloatBypass
+		&& ValveFits(CleaningDrain, 18.0f)
+		&& ValveFits(FloatBypass, 12.0f)
 		&& TransferPump
 		&& WallBreakTarget
 		&& EndingATarget
@@ -1678,6 +1685,14 @@ void AIGMissingFloorNightFourDirector::ActivateControl(
 	{
 		Evidence->SetInteractionEnabled(false);
 	}
+	// 성공한 조작에만 결과를 말한다. 증거 액터가 판정 전에 대사를 띄우면
+	// 역순으로 밸브를 돌려도 '물이 빠진다'와 경보가 동시에 나왔다.
+	const FText Result = ControlId == IGNightFour::CleaningDrainId
+		? NSLOCTEXT("IGMissingFloor", "CleaningDrainThought", "아래쪽 관으로 물이 빠진다.")
+		: ControlId == IGNightFour::FloatBypassId
+			? NSLOCTEXT("IGMissingFloor", "FloatBypassThought", "급수관에서도 물소리가 난다.")
+			: NSLOCTEXT("IGMissingFloor", "TransferPumpThought", "펌프가 돌기 시작했다.");
+	AIGHorrorHUD::PushThought(this, Result, 3.0f);
 	StartWaterMaskIfReady();
 	RefreshPresentation();
 }

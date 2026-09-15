@@ -2,11 +2,13 @@
 param(
     [switch]$Measure,
     [switch]$Audit,
+    [switch]$Spatial,
     [ValidateSet('High', 'Performance')][string]$Quality = 'High',
     [string[]]$RenderCommands = @(),
     [ValidatePattern('^[a-zA-Z0-9_-]*$')][string]$Profile = ''
 )
 $ErrorActionPreference = 'Stop'
+if ($Spatial) { $Audit = $true }
 if ($Measure -and $Audit) { throw '성능 측정과 확대 검수는 따로 실행해야 한다.' }
 $reviewRoot = Split-Path -Parent $PSScriptRoot
 $reviewProject = Join-Path $reviewRoot 'IndieGame.uproject'
@@ -24,6 +26,7 @@ $reviewCommands = if ($Quality -eq 'Performance') {
 }
 $reviewCommands += @($RenderCommands)
 if ($Audit) { $reviewArgs += '-IGRetailAudit' }
+if ($Spatial) { $reviewArgs += '-IGSpatialAudit' }
 if ($Measure) { $reviewCommands += @('t.MaxFPS 0', 'r.VSync 0') }
 if ($reviewCommands.Count) { $reviewArgs += ('-ExecCmds=' + ($reviewCommands -join ',')) }
 $settingsPath = Join-Path $reviewRoot 'Saved/Config/WindowsEditor/GameUserSettings.ini'
@@ -42,6 +45,7 @@ if ($reviewExit -ne 0 -or -not (Select-String -LiteralPath $reviewLog -Pattern '
 }
 $reviewShots = @('retail-exterior', 'retail-counter', 'retail-stock', 'retail-cooler', 'retail-delivery-lane', 'retail-clerk', 'kitchen-microwave')
 if ($Audit) { $reviewShots += @('retail-clerk-left', 'retail-clerk-right', 'retail-clerk-distance', 'retail-packaging-back', 'retail-seating', 'bedroom-lamp', 'retail-backlane-wide') }
+if ($Spatial) { $reviewShots += @('spatial-home-entry', 'spatial-corridor-floor', 'spatial-booth-entry', 'spatial-booth-storage', 'spatial-store-floor', 'spatial-roof-valves', 'spatial-slippers') }
 foreach ($shot in $(if ($Measure) { @() } else { $reviewShots })) {
     $file = Get-Item -LiteralPath (Join-Path $reviewRoot "Docs/Media/$shot.png")
     if ($file.LastWriteTime -lt $reviewStarted -or $file.Length -lt 10000) {

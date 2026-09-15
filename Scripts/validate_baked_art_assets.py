@@ -1,4 +1,4 @@
-﻿"""Headless validation for generated meshes, PBR textures, and materials."""
+"""Headless validation for generated meshes, PBR textures, and materials."""
 
 from __future__ import annotations
 
@@ -22,6 +22,7 @@ from create_textured_materials import (
     PRINT_RESPONSE_MARKER,
     SURFACE_RESPONSE_DEFAULTS,
     SURFACE_RESPONSE_MARKER,
+    surface_response_marker,
     TEXTURED_MATERIALS,
     WET_GROUND_RESPONSE_MARKER,
 )
@@ -641,8 +642,32 @@ def validate_surface_response_materials(material_specs=None) -> tuple[int, int]:
         material = load(f"/Game/Prototype/Materials/{name}", unreal.Material)
         errors = unreal.MaterialEditingLibrary.recompile_material(material)
         require(not errors, f"Surface material compile failed: {name}: {errors}")
+        if spec.get("retail_finish"):
+            # 도장 벽과 연마 타일에는 암석용 다중 노멀 검사를 강제하지 않는다.
+            # 대신 실제 생성 원본 연결, 평면 노멀, 스트리밍과 샘플 예산을 확인한다.
+            require(has_scalar_parameter(material, "IG_RetailFinish_20260914"),
+                    f"매장 마감 재질이 반입되지 않았다: {name}")
+            for prop in (unreal.MaterialProperty.MP_BASE_COLOR, unreal.MaterialProperty.MP_NORMAL,
+                         unreal.MaterialProperty.MP_ROUGHNESS, unreal.MaterialProperty.MP_SPECULAR):
+                material_input(material, prop)
+            require(material.get_editor_property("tangent_space_normal"), f"평면 노멀 좌표계 오류: {name}")
+            if spec["retail_finish"] in ("floor", "granite"):
+                stem = "PocheonGranite" if spec["retail_finish"] == "granite" else "PorcelainStore"
+                path = f"/Game/Prototype/Textures/T_{stem}_20260915_D"
+                counts = texture_sample_counts(material)
+                require(counts.get(path, 0) == 1, f"생성 원본 연결 오류: {name}: {counts}")
+                texture = load(path, unreal.Texture2D)
+                require(not texture.get_editor_property("never_stream"), f"바닥 스트리밍이 꺼져 있다: {name}")
+                require(texture.get_editor_property("max_texture_size") == 1024, f"바닥 텍스처 예산 초과: {name}")
+                require(texture.get_editor_property("mip_gen_settings") != unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS,
+                        f"바닥 밉맵이 꺼져 있다: {name}")
+            samples = int(unreal.MaterialEditingLibrary.get_statistics(material).get_editor_property("num_pixel_texture_samples"))
+            require(samples <= 1, f"단순 마감의 샘플 예산 초과: {name}: {samples}")
+            checked += 1
+            linked_samples += samples
+            continue
         require(
-            has_scalar_parameter(material, SURFACE_RESPONSE_MARKER),
+            has_scalar_parameter(material, surface_response_marker(spec)),
             f"Surface response version marker is missing: {name}",
         )
         for material_property in (
@@ -940,8 +965,20 @@ def validate_materials() -> tuple[int, int]:
         errors = unreal.MaterialEditingLibrary.recompile_material(material)
         require(not errors, f"Printed material compile failed: {name}: {errors}")
         expected = f"/Game/Prototype/Textures/{texture_name}"
+        paths = expression_texture_paths(material)
+        manifest = texture_atlas_contract.try_load_manifest()
+        if expected not in paths and manifest and texture_name in manifest["entries"]:
+            entry = manifest["entries"][texture_name]
+            expected = texture_atlas_contract.page_package_path(entry["page"])
+            transform = texture_atlas_contract.atlas_uv_transform(manifest, texture_name)
+            pairs = [(float(e.get_editor_property("r")), float(e.get_editor_property("g")))
+                     for e in unreal.MaterialEditingLibrary.get_material_expressions(material)
+                     if isinstance(e, unreal.MaterialExpressionConstant2Vector)]
+            for target in (transform[:2], transform[2:]):
+                require(any(abs(pair[0] - target[0]) < 1e-6 and abs(pair[1] - target[1]) < 1e-6
+                            for pair in pairs), f"아틀라스의 다른 그림을 가리킨다: {name}")
         require(
-            expected in expression_texture_paths(material),
+            expected in paths,
             f"Printed texture is not linked to {name}: {expected}",
         )
         material_input(material, unreal.MaterialProperty.MP_BASE_COLOR)
