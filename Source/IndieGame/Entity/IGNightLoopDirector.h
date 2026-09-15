@@ -71,7 +71,7 @@ protected:
 
 	/** 플레이어를 옮기기 전 포옹 암전 시간(초). */
 	UPROPERTY(EditAnywhere, Category = "NightLoop", meta = (ClampMin = "0.0"))
-	float FadeOutSeconds = 1.2f;
+	float FadeOutSeconds = 2.15f;
 
 private:
 	void HandlePlayerCaptured(APawn* Player);
@@ -109,6 +109,7 @@ private:
 	int32 CaptureCount = 0;
 	float MercyNoteSlideElapsedSeconds = 0.0f;
 	FTimerHandle ResetTimer;
+	FTimerHandle CaptureFadeTimer;
 	FTimerHandle WakeRecoveryTimer;
 	FTimerHandle MercyNoteRevealTimer;
 };

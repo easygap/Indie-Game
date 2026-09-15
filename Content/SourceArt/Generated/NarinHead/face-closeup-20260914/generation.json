@@ -1,0 +1,142 @@
+{
+  "name": "NarinHead",
+  "trial": "face-closeup-20260914",
+  "status": "Generated",
+  "source": "Content/SourceArt/AI/NarinHead_20260914.png",
+  "sourceSha256": "eaf66632a6e24851c1124b69200bed310a444dc18d49955dd4055605e01b9a94",
+  "route": "trellis",
+  "resolution": 1024,
+  "seed": 84,
+  "postprocess": "pbr",
+  "decimateFaces": 200000,
+  "textureSize": 2048,
+  "server": {
+    "url": "http://127.0.0.1:8199",
+    "version": "0.34.6",
+    "device": "cuda:0 NVIDIA GeForce RTX 3060 : cudaMallocAsync"
+  },
+  "startedAt": "2026-09-14T08:15:24.283109+00:00",
+  "license": "TRELLIS.2 / Pixal3D weights: Comfy-Org repackage, MIT/permissive; DINOv3, MoGe, BiRefNet: see lunia_z SourceArt/Manifests/ComfyNative.20260908.json",
+  "runtimeReady": false,
+  "promptId": "3adae8c3-69d1-41d1-b0e8-2a2309f66a54",
+  "elapsedSeconds": 637.1,
+  "finishedAt": "2026-09-14T08:26:01.419261+00:00",
+  "files": [
+    {
+      "path": "Content/SourceArt/Generated/NarinHead/face-closeup-20260914/raw/base-color_00001_.png",
+      "bytes": 4264331,
+      "sha256": "e580def56f867084a347280e253bc3c0862df7fd9b6cbad3803647c7dfa111ad"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinHead/face-closeup-20260914/raw/cleaned-colored_00001_.glb",
+      "bytes": 5697276,
+      "sha256": "f55f60e6950e98c1dab725b1ed7a390ccfdb67646c022f29601b0c995a69be7f"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinHead/face-closeup-20260914/raw/colored_00001_.glb",
+      "bytes": 789881660,
+      "sha256": "5881fdf039f82faf775170f0e3474422a7473e2f6859cc8c9de4614a28cf1766",
+      "pruned": true
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinHead/face-closeup-20260914/raw/conditioning_00001_.png",
+      "bytes": 844986,
+      "sha256": "412f56bca68d8fcfdc71b5266d99502d6b1818c2301eae90215de6a3baebefa7"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinHead/face-closeup-20260914/raw/metallic_00001_.png",
+      "bytes": 27365,
+      "sha256": "ea2facb114fd168078b8db99cacc46bad1b1ac60c5937d9fe02bd171d7875934"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinHead/face-closeup-20260914/raw/pbr_00001_.glb",
+      "bytes": 12664848,
+      "sha256": "f9e86aa49247e50531a0ecb4a295142f556a48c2a8ee0e91525b01673dbf1859"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinHead/face-closeup-20260914/raw/roughness_00001_.png",
+      "bytes": 2820217,
+      "sha256": "80e8a9354dc5e9d07dcebdc372e05c8c0d8672d7ceb69fcbe8609db82a610ac5"
+    },
+    {
+      "path": "Content/SourceArt/Generated/NarinHead/face-closeup-20260914/raw/shape_00001_.glb",
+      "bytes": 621285504,
+      "sha256": "2c37df2e51889cc160aea3942bd0b417fff0b60324deccdf42ab53eed4761cc7",
+      "pruned": true
+    }
+  ],
+  "outputs": {
+    "5": {
+      "images": [
+        {
+          "filename": "conditioning_00001_.png",
+          "subfolder": "ig3d\\NarinHead\\face-closeup-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "28": {
+      "3d": [
+        {
+          "filename": "shape_00001_.glb",
+          "subfolder": "ig3d\\NarinHead\\face-closeup-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "33": {
+      "3d": [
+        {
+          "filename": "colored_00001_.glb",
+          "subfolder": "ig3d\\NarinHead\\face-closeup-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "38": {
+      "3d": [
+        {
+          "filename": "cleaned-colored_00001_.glb",
+          "subfolder": "ig3d\\NarinHead\\face-closeup-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "44": {
+      "images": [
+        {
+          "filename": "metallic_00001_.png",
+          "subfolder": "ig3d\\NarinHead\\face-closeup-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "45": {
+      "images": [
+        {
+          "filename": "roughness_00001_.png",
+          "subfolder": "ig3d\\NarinHead\\face-closeup-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "43": {
+      "images": [
+        {
+          "filename": "base-color_00001_.png",
+          "subfolder": "ig3d\\NarinHead\\face-closeup-20260914",
+          "type": "output"
+        }
+      ]
+    },
+    "42": {
+      "3d": [
+        {
+          "filename": "pbr_00001_.glb",
+          "subfolder": "ig3d\\NarinHead\\face-closeup-20260914",
+          "type": "output"
+        }
+      ]
+    }
+  }
+}

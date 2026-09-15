@@ -149,8 +149,8 @@ if ($dryCallCount -ne 1) {
 $assertionCount++
 if (-not [regex]::IsMatch(
 	$entitySource,
-	'SpawnDryOneShotAt\([\s\S]{0,200}?CreateWallKnockReply')) {
-	throw 'The capture knock must be the cue played dry (§21.3 / §10.4).'
+	'SpawnDryOneShotAt\([\s\S]{0,200}?CreateCaptureStruggle')) {
+	throw '포획의 마찰·숨·노크는 공간 잔향 없이 바로 들려야 한다.'
 }
 Assert-ContainsAll $audioHelpers @(
 	'SpawnDryOneShotAt('

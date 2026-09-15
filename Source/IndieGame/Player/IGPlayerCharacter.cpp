@@ -149,12 +149,8 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	PrimaryActorTick.bCanEverTick = true;
 	PrimaryActorTick.bStartWithTickEnabled = false;
 
-	// Interior openings are 84-88 cm wide.  A 42 cm radius capsule had zero
-	// clearance, and even 36 cm left too little tolerance beside a moving
-	// Korean steel door.  UE first-person characters commonly use a ~34 cm
-	// radius; keep the standing height while giving door jambs realistic
-	// shoulder clearance instead of letting the capsule snag on millimetres.
-	GetCapsuleComponent()->InitCapsuleSize(34.0f, 96.0f);
+	// 86cm 문에서 양옆 여유를 13cm씩 둔다. 눈높이와 문 크기는 유지한다.
+	GetCapsuleComponent()->InitCapsuleSize(30.0f, 96.0f);
 
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = true;
@@ -716,10 +712,22 @@ void AIGPlayerCharacter::PlayScareKick(const float Degrees)
 	SetCameraMotionEnabled(true);
 }
 
+void AIGPlayerCharacter::SetCaptureThreat(AIGListenerEntity* Threat)
+{
+	CaptureThreat = Threat;
+}
+
+bool AIGPlayerCharacter::HasPhysicalCaptureView() const
+{
+	return CaptureFeedbackRemainingSeconds > 0.0f && CaptureThreat.IsValid()
+		&& CaptureThreat->HasPhysicalCaptureBody();
+}
+
 void AIGPlayerCharacter::PlayCaptureFeedback(const float DurationSeconds)
 {
 	CaptureFeedbackDurationSeconds = FMath::Max(DurationSeconds, 0.05f);
 	CaptureFeedbackRemainingSeconds = CaptureFeedbackDurationSeconds;
+	CaptureStartRotation = GetControlRotation();
 	SetCameraMotionEnabled(true);
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
@@ -759,6 +767,17 @@ void AIGPlayerCharacter::UpdateCaptureFeedback(const float DeltaSeconds)
 		0.0f,
 		CaptureFeedbackRemainingSeconds - DeltaSeconds);
 	APlayerController* PlayerController = Cast<APlayerController>(Controller);
+	if (PlayerController && HasPhysicalCaptureView()
+		&& (!AccessibilitySubsystem || !AccessibilitySubsystem->IsReducedCameraMotionEnabled()))
+	{
+		const float Age = CaptureFeedbackDurationSeconds - CaptureFeedbackRemainingSeconds;
+		const float TurnAlpha = FMath::SmoothStep(0.0f, 0.42f, Age);
+		FRotator FocusRotation = (CaptureThreat->GetCaptureFaceLocation()
+			- FirstPersonCamera->GetComponentLocation()).Rotation();
+		FocusRotation.Pitch = FMath::Clamp(FocusRotation.Pitch, -72.0f, 55.0f);
+		PlayerController->SetControlRotation(FQuat::Slerp(CaptureStartRotation.Quaternion(),
+			FocusRotation.Quaternion(), TurnAlpha).Rotator());
+	}
 	const bool bHapticsEnabled = !AccessibilitySubsystem
 		|| AccessibilitySubsystem->AreHapticsEnabled();
 	if (PlayerController && CaptureForceFeedbackHandle > 0)
@@ -1050,6 +1069,11 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 		TargetOffset.Z -= LandingDip;
 	}
 	LandingDip = FMath::FInterpTo(LandingDip, 0.0f, DeltaSeconds, 9.0f);
+	if (!bReducedMotion && HasPhysicalCaptureView())
+	{
+		const float Age = CaptureFeedbackDurationSeconds - CaptureFeedbackRemainingSeconds;
+		TargetOffset.Z -= 42.0f * FMath::SmoothStep(0.0f, 0.5f, Age);
+	}
 
 	// 보간 없이 그대로 건다. 10/s 보간은 걸음 주파수(1.9~2.9Hz)의 저역 필터라
 	// §18.3의 진폭을 걷기 64%, 달리기 47%로 깎아 화면에 냈다. 각 성분은 이미

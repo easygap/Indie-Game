@@ -165,7 +165,7 @@ Assert-ContainsAll $greybox @(
 ) 'runtime recovery probe'
 
 Assert-ContainsAll $story @(
-	'제작 정사 v3.2',
+	'2026-09-14 수정',
 	'## 26. 2026-08-11 제품 감사',
 	'### 26.7 2026-08-11 델타 감사',
 	'## 29. v2.8 — 포획 뒤 기상 잔향',

@@ -1760,7 +1760,7 @@ foreach ($truthName in $truthNames) {
 }
 
 foreach ($token in @(
-	'제작 정사 v3.2',
+	'2026-09-14 수정',
 	'세척 배수 OPEN',
 	'부자밸브 우회 OPEN',
 	'저수조 이송펌프',

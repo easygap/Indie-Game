@@ -52,7 +52,7 @@ def _set(target, values):
 # 텍스처
 # --------------------------------------------------------------------------
 
-def import_texture(path, asset_name, role):
+def import_texture(path, asset_name, role, character=False):
     tools = unreal.AssetToolsHelpers.get_asset_tools()
     task = unreal.AssetImportTask()
     task.filename = path
@@ -69,19 +69,19 @@ def import_texture(path, asset_name, role):
         _set(texture, (
             ("compression_settings", unreal.TextureCompressionSettings.TC_NORMALMAP),
             ("srgb", False),
-            ("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD_NORMAL_MAP),
+            ("lod_group", unreal.TextureGroup.TEXTUREGROUP_CHARACTER_NORMAL_MAP if character else unreal.TextureGroup.TEXTUREGROUP_WORLD_NORMAL_MAP),
         ))
     elif role == "ORM":
         _set(texture, (
             ("compression_settings", unreal.TextureCompressionSettings.TC_MASKS),
             ("srgb", False),
-            ("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD_SPECULAR),
+            ("lod_group", unreal.TextureGroup.TEXTUREGROUP_CHARACTER_SPECULAR if character else unreal.TextureGroup.TEXTUREGROUP_WORLD_SPECULAR),
         ))
     else:
         _set(texture, (
             ("compression_settings", unreal.TextureCompressionSettings.TC_DEFAULT),
             ("srgb", True),
-            ("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD),
+            ("lod_group", unreal.TextureGroup.TEXTUREGROUP_CHARACTER if character else unreal.TextureGroup.TEXTUREGROUP_WORLD),
         ))
     return texture
 
@@ -668,7 +668,8 @@ def import_asset(source_dir, manifest):
     guard_name_collision(name)
     textures = {}
     for role, filename in manifest["textures"].items():
-        textures[role] = import_texture(os.path.join(source_dir, filename), f"T_{name[3:]}_{role}", role)
+        textures[role] = import_texture(os.path.join(source_dir, filename), f"T_{name[3:]}_{role}", role,
+                                        character=bool(manifest.get("skeletal")))
     # 첫 반입에서도 마스터가 올바른 ORM 기본값을 고를 수 있도록 텍스처를 먼저 만든다.
     master = ensure_master_material() if textures else None
     if manifest.get("skeletal"):

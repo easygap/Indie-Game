@@ -27,6 +27,9 @@ namespace IGPuzzleOne
 	const FVector FifthMeterFace(542.0f, -364.6f, 152.0f);
 	// 미명칭 차단기가 내려와 있는 자리. 스위치판 왼쪽 열 맨 아래 슬롯이다.
 	const FVector BreakerFace(569.4f, -365.6f, 140.0f);
+	const FVector CommonBreakerFace(582.7f, -365.6f, 151.0f);
+	const FName UnpoweredObservation(TEXT("P1.Isolation.Unpowered"));
+	const FName PoweredObservation(TEXT("P1.Isolation.Powered"));
 	const FVector ReadingSheetLocation(672.0f, -241.2f, 150.0f);
 
 	/**
@@ -52,6 +55,27 @@ namespace IGPuzzleOne
 AIGMissingFloorPuzzleOneDirector::AIGMissingFloorPuzzleOneDirector()
 {
 	PrimaryActorTick.bCanEverTick = false;
+}
+
+void AIGMissingFloorPuzzleOneDirector::UpdateMeterMotion()
+{
+	GetWorldTimerManager().ClearTimer(MeterRotationTimer);
+	if (bHourActive && bBreakerThrown)
+	{
+		GetWorldTimerManager().SetTimer(MeterRotationTimer, this,
+			&AIGMissingFloorPuzzleOneDirector::AdvanceMeterDisc, .05f, true);
+	}
+}
+
+void AIGMissingFloorPuzzleOneDirector::AdvanceMeterDisc()
+{
+	if (bHourActive && bBreakerThrown && Scene.IsValid())
+	{
+		if (UStaticMeshComponent* Disc = Scene->GetFifthMeterDisc())
+		{
+			Disc->AddLocalRotation(FRotator(0, 2.1f, 0));
+		}
+	}
 }
 
 bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
@@ -109,12 +133,9 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		nullptr,
 		FVector(15.0f, 3.0f, 15.0f),
 		NSLOCTEXT("IGMissingFloor", "P1MeterPrompt", "계량기"),
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"P1MeterThought",
-			"집은 네 군데인데 계량기는 다섯 개다. 하나는 어디 거지?"),
-		EIGMissingFloorTruth::LivedUpstairs,
-		EIGMissingFloorSource::MeterFifthDial,
+		FText::GetEmpty(),
+		EIGMissingFloorTruth::None,
+		EIGMissingFloorSource::None,
 		0.0f,
 		IGPuzzleOne::DialNoiseLoudness,
 		/*bPresentationVisible=*/false);
@@ -149,6 +170,16 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		/*bPresentationVisible=*/false);
 	BreakerAction->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown);
+	SpawnParameters.Name = TEXT("MissingFloorCommonLighting");
+	CommonLightAction = World->SpawnActor<AIGMissingFloorEvidence>(
+		AIGMissingFloorEvidence::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGPuzzleOne::CommonBreakerFace), SpawnParameters);
+	if (!CommonLightAction) { return false; }
+	CommonLightAction->Configure(CubeMesh, nullptr, FVector(7, 3, 7),
+		NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "공용 조명 — 내리기"),
+		FText::GetEmpty(), EIGMissingFloorTruth::None, EIGMissingFloorSource::None,
+		IGPuzzleOne::BreakerHoldSeconds, IGPuzzleOne::BreakerNoiseLoudness, false);
+	CommonLightAction->OnExamined.AddUObject(this, &AIGMissingFloorPuzzleOneDirector::HandleCommonLighting);
 
 	// The meter-reading sheet. Five columns; the fifth stops in July 2024.
 	// Authored as padded rows for now — a real column presentation is a HUD
@@ -171,18 +202,18 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 	ReadingSheet->SetNoteText(
 		NSLOCTEXT("IGMissingFloor", "P1SheetTitle", "달빛빌라 검침 기록"),
 		{
-			NSLOCTEXT("IGMissingFloor", "P1SheetHeader", "호수   4월   5월   6월   7월"),
+			NSLOCTEXT("IGMissingFloor", "P1SheetHeader", "월 사용량(kWh) / 4월  5월  6월  7월"),
 			NSLOCTEXT("IGMissingFloor", "P1Sheet401", "401    182   174   169   201"),
 			NSLOCTEXT("IGMissingFloor", "P1Sheet402", "402    240   233   251   266"),
 			NSLOCTEXT("IGMissingFloor", "P1Sheet403", "403    118   121   115   130"),
-			NSLOCTEXT("IGMissingFloor", "P1Sheet404", "404    97    102   99    104"),
+			NSLOCTEXT("IGMissingFloor", "P1Sheet404", "공용   97    102   99    104"),
 			FText::GetEmpty(),
 			NSLOCTEXT("IGMissingFloor", "P1SheetFifth", "(공란)  63    58    61    0"),
 			FText::GetEmpty(),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P1SheetNote",
-				"(공란)  24.07~ 0  검침 생략"),
+				"(공란)  24.07~ 0  검침 생략\n공용은 복도등 계량. 이름 없는 것은 확인 후 기입."),
 		});
 	ReadingSheet->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorPuzzleOneDirector::HandleSheetRead);
@@ -201,6 +232,11 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 
 void AIGMissingFloorPuzzleOneDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	GetWorldTimerManager().ClearTimer(MeterRotationTimer);
+	if (Scene.IsValid())
+	{
+		Scene->SetCommonInspectionLightsEnabled(true);
+	}
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
 		Narrative->OnTruthConfirmed.Remove(TruthHandle);
@@ -251,32 +287,50 @@ void AIGMissingFloorPuzzleOneDirector::CreateBallastHum()
 void AIGMissingFloorPuzzleOneDirector::HandleMeterExamined(
 	AIGMissingFloorEvidence* Evidence)
 {
-	// The dial that does not turn. Said once, on the first look, and only if
-	// the fixture the lobby built is actually there to look at. The line
-	// claims nothing the greybox does not show — the dials are static meshes,
-	// so it reads the nameplate and the dead needle, not motion.
-	if (const AIGPrologueWorldScene* WorldScene = Scene.Get())
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative) { return; }
+	if (!bHourActive || bCommonLightsEnabled)
 	{
-		if (WorldScene->GetFifthMeterDisc())
+		AIGHorrorHUD::PushThought(this,
+			NSLOCTEXT("IGMissingFloor", "P1DialStill", "공용 계량기는 따로 있다. 이름 없는 건 어느 회로지."), 3.8f);
+		return;
+	}
+	Narrative->MarkBeatPlayed(bBreakerThrown ? IGPuzzleOne::PoweredObservation : IGPuzzleOne::UnpoweredObservation);
+	AIGHorrorHUD::PushThought(this, bBreakerThrown
+		? NSLOCTEXT("IGMissingFloor", "P1IsolatedRunning", "복도는 꺼졌는데 이 원판은 돈다.")
+		: NSLOCTEXT("IGMissingFloor", "P1IsolatedStopped", "원판이 움직이지 않는다. 위에서도 소리가 안 난다."), 3.8f);
+	if (Narrative->HasBeatPlayed(IGPuzzleOne::PoweredObservation)
+		&& Narrative->HasBeatPlayed(IGPuzzleOne::UnpoweredObservation))
+	{
+		Narrative->RegisterTruthSource(EIGMissingFloorTruth::LivedUpstairs, EIGMissingFloorSource::MeterFifthDial);
+	}
+	AnnounceSolvedIfReady();
+}
+
+void AIGMissingFloorPuzzleOneDirector::HandleCommonLighting(AIGMissingFloorEvidence* Evidence)
+{
+	if (!bHourActive) { return; }
+	bCommonLightsEnabled = !bCommonLightsEnabled;
+	if (AIGPrologueWorldScene* WorldScene = Scene.Get())
+	{
+		WorldScene->SetCommonInspectionLightsEnabled(bCommonLightsEnabled);
+		if (UStaticMeshComponent* Toggle = WorldScene->GetCommonBreakerToggle())
 		{
-			AIGHorrorHUD::PushThought(
-				this,
-				NSLOCTEXT(
-					"IGMissingFloor",
-					"P1DialStill",
-					"다섯 번째만 이름표가 없다. 바늘도 안 돈다."),
-				3.8f);
+			FVector At = Toggle->GetRelativeLocation();
+			At.Z = 151.0f - (bCommonLightsEnabled ? 0.0f : 3.0f);
+			Toggle->SetRelativeLocation(At);
 		}
 	}
+	CommonLightAction->SetInteractionPrompt(bCommonLightsEnabled
+		? NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "공용 조명 — 내리기")
+		: NSLOCTEXT("IGMissingFloor", "P1CommonRestore", "공용 조명 — 올리기"));
+	IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateRelayClick(this),
+		IGPuzzleOne::CommonBreakerFace, .8f, 1.f, 90.f, 900.f, EIGAudioBus::Puzzle);
 }
 
 void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 	AIGMissingFloorEvidence* Evidence)
 {
-	if (bBreakerThrown)
-	{
-		return;
-	}
 	if (!bHourActive)
 	{
 		// 낮의 투입. 계전기가 바로 되돌려서 딸깍 소리 하나로 끝난다. 위는
@@ -299,7 +353,11 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 			3.4f);
 		return;
 	}
-	bBreakerThrown = true;
+	bBreakerThrown = !bBreakerThrown;
+	UpdateMeterMotion();
+	BreakerAction->SetInteractionPrompt(bBreakerThrown
+		? NSLOCTEXT("IGMissingFloor", "P1BreakerLower", "이름 없는 회로 — 내리기")
+		: NSLOCTEXT("IGMissingFloor", "P1BreakerRaise", "이름 없는 회로 — 올리기"));
 
 	// Raise the toggle so the world shows what was done, then let the sound
 	// answer. This is the whole confirmation: no card, no tick, no popup.
@@ -307,8 +365,9 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 	{
 		if (UStaticMeshComponent* Toggle = WorldScene->GetUnnamedBreakerToggle())
 		{
-			Toggle->SetRelativeLocation(
-				Toggle->GetRelativeLocation() + FVector(0.0f, 0.0f, 3.0f));
+			FVector At = Toggle->GetRelativeLocation();
+			At.Z = 140.0f + (bBreakerThrown ? 3.0f : 0.0f);
+			Toggle->SetRelativeLocation(At);
 		}
 	}
 
@@ -324,13 +383,13 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 
 	if (BallastHum)
 	{
-		BallastHum->Play();
-		bBallastHumAudible = true;
+		if (bBreakerThrown) { BallastHum->Play(); }
+		else { BallastHum->Stop(); }
+		bBallastHumAudible = bBreakerThrown;
 	}
-
-	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	if (!bBreakerThrown)
 	{
-		Narrative->MarkPuzzleSolved(IGPuzzleOne::PuzzleId);
+		return;
 	}
 
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
@@ -352,6 +411,23 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 void AIGMissingFloorPuzzleOneDirector::SetHourActive(const bool bActive)
 {
 	bHourActive = bActive;
+	UpdateMeterMotion();
+	if (BallastHum)
+	{
+		bBallastHumAudible = bActive && bBreakerThrown;
+		if (bBallastHumAudible) { BallastHum->Play(); }
+		else { BallastHum->Stop(); }
+	}
+	if (!bActive && Scene.IsValid())
+	{
+		Scene->SetCommonInspectionLightsEnabled(true);
+		bCommonLightsEnabled = true;
+		if (UStaticMeshComponent* Toggle = Scene->GetCommonBreakerToggle())
+		{
+			FVector At = Toggle->GetRelativeLocation(); At.Z = 151.0f; Toggle->SetRelativeLocation(At);
+		}
+		CommonLightAction->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "공용 조명 — 내리기"));
+	}
 }
 
 void AIGMissingFloorPuzzleOneDirector::HandleTruthConfirmed(
@@ -371,12 +447,13 @@ void AIGMissingFloorPuzzleOneDirector::AnnounceSolvedIfReady()
 	{
 		return;
 	}
-	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	if (!Narrative || !Narrative->HasTruth(EIGMissingFloorTruth::LivedUpstairs))
 	{
 		return;
 	}
 	bSolvedAnnounced = true;
+	Narrative->MarkPuzzleSolved(IGPuzzleOne::PuzzleId);
 	OnSolved.Broadcast();
 }
 
@@ -403,6 +480,8 @@ bool AIGMissingFloorPuzzleOneDirector::ValidateFixtures() const
 	return WorldScene != nullptr
 		&& WorldScene->GetFifthMeterDisc() != nullptr
 		&& WorldScene->GetUnnamedBreakerToggle() != nullptr
+		&& WorldScene->GetCommonBreakerToggle() != nullptr
+		&& CommonLightAction != nullptr
 		&& MeterDialEvidence != nullptr
 		&& BreakerAction != nullptr
 		&& ReadingSheet != nullptr

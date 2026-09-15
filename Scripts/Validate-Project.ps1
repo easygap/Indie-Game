@@ -2774,7 +2774,7 @@ if (([regex]::Matches(
 }
 
 if (-not $playerCharacterSource.Contains(
-	'InitCapsuleSize(34.0f, 96.0f)')) {
+	'InitCapsuleSize(30.0f, 96.0f)')) {
 	throw 'First-person capsule must preserve clearance through the 84-88 cm interior doors.'
 }
 if (-not $playerCharacterSource.Contains(

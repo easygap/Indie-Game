@@ -2010,6 +2010,22 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCaptureLunge(UObject* 
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateCaptureStruggle(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGCaptureStruggle"));
+	TArray<FIGToneNote> Notes;
+	// 접촉 뒤 목 가까이의 마찰과 끊기는 숨. 큰 음악 한 번으로 끝내지 않는다.
+	Notes.Add({.16f, .38f, 780.f, .14f, .05f, 1.5f, EIGToneWaveform::BandNoise, .4f});
+	Notes.Add({.35f, .59f, 61.f, .16f, .18f, 1.9f, EIGToneWaveform::Growl, .65f});
+	Notes.Add({.72f, .22f, 1400.f, .11f, .02f, 2.2f, EIGToneWaveform::BandNoise, .3f});
+	Notes.Add({1.06f, .54f, 43.f, .13f, .04f, 2.8f, EIGToneWaveform::Sub});
+	Notes.Add({1.34f, .42f, 530.f, .12f, .13f, 1.7f, EIGToneWaveform::BandNoise, .65f});
+	Notes.Add({1.75f, .10f, 118.f, .19f, .01f, 3.0f, EIGToneWaveform::Pluck, .22f});
+	Notes.Add({1.91f, .12f, 105.f, .14f, .01f, 3.0f, EIGToneWaveform::Pluck, .18f});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePresenceLayer(UObject* Outer)
 {
 	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGPresenceLayer"));

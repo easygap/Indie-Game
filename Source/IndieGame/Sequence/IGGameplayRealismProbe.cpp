@@ -93,9 +93,22 @@ void AIGGameplayRealismProbe::Tick(const float DeltaSeconds)
 	}
 	else if (Phase == 4 && Seconds > 0.2f)
 	{
+		// 86cm 문을 중심에서 10cm 비껴 진입한다. 실제 이동으로 문틀 끼임을 확인한다.
+		Player->SetActorLocation(FVector(0, 10, 98));
+		Player->GetCharacterMovement()->StopMovementImmediately();
+		Controller->SetControlRotation(FRotator::ZeroRotator);
+		AddBlock(FVector(160, 143, 110), FVector(8, 100, 110));
+		AddBlock(FVector(160, -143, 110), FVector(8, 100, 110));
+		SendKey(EKeys::W, true);
+		Phase = 5; Seconds = 0;
+	}
+	else if (Phase == 5 && Seconds > 1.6f)
+	{
+		SendKey(EKeys::W, false);
+		Check(Player->GetActorLocation().X > 230.f, TEXT("offset_doorway_passage"));
 		CheckInteractionsAndCapture();
 		UE_LOG(LogIndieGame, Display, TEXT("REALISM_PROBE %s failures=%d"), Failures ? TEXT("FAIL") : TEXT("PASS"), Failures);
-		Phase = 5;
+		Phase = 6;
 		FPlatformMisc::RequestExitWithStatus(false, Failures ? 1 : 0);
 	}
 }
@@ -137,7 +150,25 @@ void AIGGameplayRealismProbe::CheckInteractionsAndCapture()
 	Door->DestroyComponent();
 	Entity->Tick(0.016f);
 	Check(Entity->GetListenerState() == EIGListenerState::CaptureHold, TEXT("open_door_allows_capture"));
+	Check(!Entity->IsHidden(), TEXT("capture_keeps_physical_body_visible"));
 	USkeletalMeshComponent* Body = Entity->FindComponentByClass<USkeletalMeshComponent>();
 	Check(Body && Body->GetSkeletalMeshAsset() && Body->GetNumLODs() == 4, TEXT("runtime_character_has_four_lods"));
+	if (Body)
+	{
+		for (int32 Frame = 0; Frame < 48; ++Frame)
+		{
+			Body->TickAnimation(1.0f / 60.0f, false);
+			Body->RefreshBoneTransforms();
+			Entity->Tick(1.0f / 60.0f);
+		}
+		const FVector FaceFromEye = Entity->GetCaptureFaceLocation() - Player->GetPawnViewLocation();
+		Check(FaceFromEye.Size() > 35.0f && FaceFromEye.Size() < 110.0f
+			&& FMath::Abs(FaceFromEye.Z) < 45.0f, TEXT("capture_face_stays_in_front_of_camera"));
+		Entity->SetDormant(true);
+		Entity->KeepCaptureVisible();
+		Check(!Entity->IsHidden() && Entity->IsActorTickEnabled()
+			&& Entity->GetListenerState() == EIGListenerState::CaptureHold,
+			TEXT("failure_ending_keeps_capture_pose"));
+	}
 	Entity->Destroy();
 }

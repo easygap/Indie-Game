@@ -281,6 +281,8 @@ public:
 	/** P1 fixtures, so the puzzle's director can dress them without rebuilding. */
 	UStaticMeshComponent* GetFifthMeterDisc() const { return FifthMeterDisc; }
 	UStaticMeshComponent* GetUnnamedBreakerToggle() const { return UnnamedBreakerToggle; }
+	UStaticMeshComponent* GetCommonBreakerToggle() const { return CommonBreakerToggle; }
+	void SetCommonInspectionLightsEnabled(bool bEnabled);
 
 	/**
 	 * 없는 층 밤1: slides the stair teleport west so the 3.5F half-landing
@@ -746,6 +748,7 @@ private:
 	/** §14 CCTV 채널 5's housing, high in the annex's south-west corner. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> MissingFloorCctvCamera;
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> UnnamedBreakerToggle;
+	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> CommonBreakerToggle;
 	/** 밤1: the corridor extinguisher, kinematic until its scripted fall. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> CorridorExtinguisher;
 	bool bCorridorExtinguisherDropped = false;

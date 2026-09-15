@@ -600,11 +600,10 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCarbonRestored(
 {
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
+		if (!Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive)) { return; }
 		Narrative->MarkPuzzleSolved(IGPuzzleTwo::PuzzleId);
 	}
-	// 밤2의 목표는 원문 복원이다. 날짜의 모순은 밤3에 열쇠를 집으며 닫힌다 —
-	// T7이 둘째 밤에 닫히면 게임의 정점이 둘째 밤에 오고, 셋째·넷째 밤은
-	// 집행이 된다. 여기서는 그가 민원을 지웠다는 것까지만 안다.
+	// 원문을 읽는 데서 끝내지 않고, 퇴실 문자와 접수 날짜를 대조한다.
 	if (!bSolvedAnnounced)
 	{
 		bSolvedAnnounced = true;
@@ -717,7 +716,7 @@ void AIGMissingFloorPuzzleTwoDirector::RefreshAgentNoteAvailability()
 		return;
 	}
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	const bool bPresent = Narrative && Narrative->GetNightIndex() >= 3;
+	const bool bPresent = Narrative != nullptr;
 	AgentMessageNote->SetActorHiddenInGame(!bPresent);
 	AgentMessageNote->SetActorEnableCollision(bPresent);
 	AgentMessageNote->SetInteractionEnabled(bPresent);
@@ -1007,9 +1006,8 @@ void AIGMissingFloorPuzzleTwoDirector::HandleTruthConfirmed(
 	{
 		return;
 	}
-	// 날짜가 닫혔다. 말하지 않는다 — 26일에 뺐다는 방에서 27일부터 두드렸다는
-	// 것은 두 종이를 나란히 본 사람이 스스로 말할 문장이다(§16). 밤2를 끝내는
-	// 일도 이제 여기 없다. 원문 복원이 그 밤을 끝낸다.
+	// 문자부터 읽었든 먹지부터 복원했든, 둘을 모으면 같은 지점에 도착한다.
+	HandleCarbonRestored(CarbonLedger);
 }
 
 bool AIGMissingFloorPuzzleTwoDirector::ValidateFixtures() const

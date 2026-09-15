@@ -10,25 +10,24 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 12000,
+  "triangles": 15486,
   "bounds_m": {
     "min": [
-      -0.2732,
-      -0.188,
-      0.0003
+      -0.2695,
+      -0.1804,
+      0.0024
     ],
     "max": [
-      0.2728,
-      0.1858,
-      1.6305
+      0.2675,
+      0.1813,
+      1.6291
     ]
   },
-  "origin": "bottom",
+  "origin": "bottom-center",
   "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "나린 정면 사진 기반 163cm 인물. 얼굴 사진은 머리 앞쪽 깊이에만 투영하고 묶은 머리에는 원래 색을 유지한다. 몸통·머리 리그 3개, 6초 호흡 동작. 얼굴 방향은 게임에서 고객 위치를 따른다.",
-  "generated_from": "../Generated/NarinClerk/front-v2/raw/pbr_00001_.glb",
-  "vertex_ao": false,
+  "notes": "163cm 인물. 전신과 얼굴 확대 원화의 3D 원본을 목에서 연결했다. 몸 6천5백·머리 9천 삼각형, 4K UV의 2/3를 머리에 배분한다. 몸통·머리 리그 3개, 6초 호흡 동작. 얼굴 방향은 게임에서 고객 위치를 따른다.",
+  "generated_from": "../Generated/NarinHead/face-closeup-20260914/raw/pbr_00001_.glb",
   "skeletal": true,
   "animations": {
     "Idle": {

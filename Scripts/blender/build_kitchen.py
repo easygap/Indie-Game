@@ -8,7 +8,7 @@
     SM_DrumWasher       하부장 남쪽 끝의 드럼세탁기 앞면(포트홀·조작 패널)
     SM_KitchenWallUnits 상부장 + 밸런스 + LED 띠
     SM_RangeHood        후드와 연통
-    SM_Microwave        카운터 위 전자레인지(조작 패널은 생성 시트)
+    SM_Microwave        삼성 제품 사진과 치수를 참고한 전자레인지
     SM_KitchenSink      싱크 볼과 구즈넥 수전
     SM_InductionHob     인덕션 유리판
 
@@ -201,31 +201,45 @@ def build_range_hood(out_root):
 
 
 def build_microwave(out_root):
+    """삼성 MS20A3010AL 제품 사진과 440×259×337.5mm 외형 치수를 참고한다."""
     ig.reset_scene()
     m = mats()
-    panel_mat = ig.mat_image_uv("MicrowavePanel", os.path.join(PANELS, "MicrowavePanel.png"), roughness=0.35)
-    parts = []
-    # 42 x 34 x 26, 원점 바닥 중심(씬 (166, 47, 88)), 앞면 -X.
-    body = ig.box("body", (0.42, 0.34, 0.26), location=(0.0, 0.0, 0.13), bevel=0.008, segments=3, material=m["steel"])
-    parts.append(body)
-    door_frame = ig.box("door_frame", (0.012, 0.24, 0.22), location=(-0.215, -0.04, 0.13), bevel=0.003, segments=2,
-                        material=m["dark"])
-    window_cut = ig.box("window_cut", (0.03, 0.19, 0.16), location=(-0.215, -0.04, 0.135))
-    ig.boolean(door_frame, window_cut, "DIFFERENCE")
-    parts.append(door_frame)
-    window = ig.box("window", (0.004, 0.19, 0.16), location=(-0.214, -0.04, 0.135), material=m["blackglass"])
-    parts.append(window)
-    handle = ig.pipe("handle", [(-0.222, 0.06, 0.06), (-0.245, 0.06, 0.06), (-0.245, 0.06, 0.20), (-0.222, 0.06, 0.20)],
-                     radius=0.006, resolution=12, corner_radius=0.008, material=m["chrome"])
-    parts.append(handle)
-    panel = ig.image_quad("panel", (0.08, 0.20), (-0.211, 0.125, 0.135), panel_mat, rotation=facing_neg_x())
-    parts.append(panel)
-    feet = [ig.cylinder(f"foot_{i}", 0.012, 0.008, location=(x, y, 0.004), segments=12, material=m["rubber"])
-            for i, (x, y) in enumerate(((-0.17, -0.13), (0.17, -0.13), (-0.17, 0.13), (0.17, 0.13)))]
-    parts.extend(feet)
+    paint = ig.mat_plastic("검정분체도장", (.024, .026, .028), roughness=.34, bump=.003)
+    lettering = ig.mat_plastic("흰눈금", (.65, .67, .67), roughness=.5, bump=0)
+    # 앞은 -X. 깊이와 폭을 바꾸지 않는다. 고무발 8mm 위에 몸체를 얹는다.
+    body = ig.box("몸체", (.316, .440, .251), (.008, 0, .1335),
+                  bevel=.005, segments=3, material=paint)
+    parts = [body]
+    parts.append(ig.box("유리문", (.010, .355, .241), (-.155, -.041, .134),
+                        bevel=.003, segments=2, material=m["blackglass"]))
+    parts.append(ig.box("조작부", (.011, .077, .241), (-.155, .1785, .134),
+                        bevel=.002, segments=2, material=m["blackglass"]))
+    # 창의 천공망은 가까운 사진에서 보이는 어두운 회색 판으로 굽는다.
+    mesh_window = ig.mat_speckle("전자파차폐망", (.009, .01, .011), (.029, .03, .033),
+                                 scale=1800, threshold=.72, roughness=.46)
+    parts.append(ig.box("창", (.001, .260, .129), (-.161, -.045, .128),
+                        bevel=.004, segments=2, material=mesh_window))
+    for z in (.089, .190):
+        parts.append(ig.cylinder("다이얼테", .018, .011, (-.166, .174, z),
+                                 rotation=(0, math.pi/2, 0), segments=40, bevel=.001, material=m["chrome"]))
+        parts.append(ig.cylinder("다이얼", .0155, .012, (-.170, .174, z),
+                                 rotation=(0, math.pi/2, 0), segments=40, bevel=.001, material=m["dark"]))
+        parts.append(ig.box("다이얼지시선", (.0008, .001, .009), (-.1765, .174, z+.011), material=lettering))
+        for index in range(9):
+            angle = math.radians(-135 + index*33.75)
+            parts.append(ig.box("조절눈금", (.0007, .0014, .0014),
+                                (-.161, .174 + .024*math.sin(angle), z+.024*math.cos(angle)), material=lettering))
+    parts.append(ig.box("문열림버튼", (.003, .062, .025), (-.163, .178, .031),
+                        bevel=.001, segments=1, material=paint))
+    # 통풍구는 몸체에서 떨어진 장식이 되지 않도록 옆판에 붙인다.
+    for index in range(12):
+        parts.append(ig.box("측면통풍구", (.003, .0008, .035),
+                            (-.03+index*.009, -.2204, .104), material=m["dark"]))
+    for index, (x, y) in enumerate(((-.119, -.178), (.127, -.178), (-.119, .178), (.127, .178))):
+        parts.append(ig.cylinder(f"고무발_{index}", .010, .008, (x,y,.004), segments=12, material=m["rubber"]))
     return ig.build_asset(
         "SM_Microwave", "prop", parts, out_root, collision_parts=[[body]],
-        notes="카운터 위 전자레인지 42 x 34 x 26. 앞면 -X, 원점 바닥 중심(씬 (166,47,88)).",
+        notes="삼성 MS20A3010AL 사진과 치수를 참고한 44 x 33.75 x 25.9cm 전자레인지. 앞면 -X, 원점 (157,68,87). 고무발 네 개를 상판에 놓고 뒤쪽 환기 여유를 둔다.",
         texture_size=1024)
 
 

@@ -51,9 +51,9 @@ namespace IGNightFour
 	/** 한 줄이 화면에 머무는 최소 시간과, 그만큼 뒤로 밀리는 통과. */
 	constexpr float ConfrontationReplySeconds = 2.8f;
 	constexpr float EntityPassBaseSeconds = 3.35f;
-	constexpr float FailureCaptureSeconds = 1.2f;
-	constexpr float FailureListingDelaySeconds = 1.24f;
-	constexpr float FailureRetryDelaySeconds = 7.2f;
+	constexpr float FailureCaptureSeconds = 2.15f;
+	constexpr float FailureListingDelaySeconds = 2.2f;
+	constexpr float FailureRetryDelaySeconds = 8.2f;
 
 	// Posted beside the existing fourth-floor lift notice, not on top of the
 	// 403 shipping labels. Its back face shares the established paper plane.
@@ -1868,7 +1868,7 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 		AIGHorrorHUD::PushThought(
 			this,
 			NSLOCTEXT(
-				"IGMissingFloor", "NightFourPowerCut", "전기가 나갔다. 목한수다."),
+				"IGMissingFloor", "NightFourPowerCut", "아래에서 차단기 내리는 소리가 났다."),
 			3.5f);
 		// 차단기는 내리는 소리가 있다. 남쪽 층계참에서 딸깍, 그리고 멀어지는
 		// 발소리 넷 — 그가 왔다 갔다는 것을 화면 없이 안다. 밤4에서 그의
@@ -2289,6 +2289,14 @@ bool AIGMissingFloorNightFourDirector::CommitFailureEnding(
 		ListenerActor->SetDormant(true);
 	}
 
+	if (bRecordCapture)
+	{
+		if (AIGListenerEntity* ListenerActor = Listener.Get())
+		{
+			// 추적만 멈추고 이미 닿은 몸과 덮치는 동작은 암전까지 남긴다.
+			ListenerActor->KeepCaptureVisible();
+		}
+	}
 	if (AIGPlayerCharacter* Character = FailurePlayer.Get())
 	{
 		Character->PlayCaptureFeedback(IGNightFour::FailureCaptureSeconds);
@@ -2337,6 +2345,10 @@ void AIGMissingFloorNightFourDirector::BeginFailureListing()
 	if (!bFailureEndingActive)
 	{
 		return;
+	}
+	if (AIGListenerEntity* ListenerActor = Listener.Get())
+	{
+		ListenerActor->SetDormant(true);
 	}
 	AIGPlayerCharacter* Character = FailurePlayer.Get();
 	APlayerController* Controller = Character

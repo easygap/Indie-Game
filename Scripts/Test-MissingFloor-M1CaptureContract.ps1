@@ -73,7 +73,7 @@ $story = Read-ProjectText 'Docs/STORY_BIBLE_MISSING_FLOOR.md'
 $readme = Read-ProjectText 'README.md'
 
 Assert-ContainsAll $nightHeader @(
-	'float FadeOutSeconds = 1.2f;',
+	'float FadeOutSeconds = 2.15f;',
 	'int32 GetCaptureHandprintCount() const',
 	'TArray<TObjectPtr<UStaticMeshComponent>> CaptureHandprints;',
 	'float GetWakeFadeInSeconds() const;'
@@ -102,7 +102,7 @@ Assert-True (
 	$captureBlock.IndexOf('Character->DisableInput(Controller);')) `
 	'capture feedback must start before input is disabled'
 Assert-True (-not $captureBlock.Contains('+ 0.4f')) `
-	'blackout reset must finish at the authored 1.2-second boundary'
+	'blackout reset must finish at the authored 2.15-second boundary'
 
 Assert-ContainsAll $playerHeader @(
 	'void PlayCaptureFeedback(float DurationSeconds = 1.2f);',
@@ -153,13 +153,15 @@ Assert-ContainsAll $hud @(
 ) 'capture HUD presentation'
 
 Assert-ContainsAll $listener @(
-	'UIGToneSequenceSoundWave::CreateWallKnockReply(this)',
+	'UIGToneSequenceSoundWave::CreateCaptureStruggle(this)',
 	'OnPlayerCaptured.Broadcast(Player);'
 ) 'close capture sound'
 Assert-ContainsAll $greybox @(
 	'NightLoop->GetCaptureHandprintCount() >= 1',
 	'!NightLoop->IsCaptureResetInFlight()',
 	'PlayerCharacter->InputEnabled()',
+	'PHYSICAL_CAPTURE_CONTACT',
+	'bTexturesReady &= Texture->IsFullyStreamedIn();',
 	'reset incomplete (atBed=%d tier=%d handprints=%d recovery=%d input=%d)'
 ) 'capture runtime probe'
 $replyBlock = Get-Block $toneSequence `
@@ -212,7 +214,7 @@ Assert-ContainsAll $imageGenRecord @(
 Assert-ContainsAll $story @(
 	'## 28. v2.7',
 	# 세 값을 맨 숫자로 찾으면 문서 아무 데나 있어도 통과한다.
-	'붙잡힌 접촉은 한 번 크게 오고 1.2초에 풀린다',
+	'붙잡힌 접촉은 2.15초간 이어지고 침대에서 풀린다',
 	'카메라 피치 최대 3.2°와 전 모터 진동 0.70을 0까지 감쇠한다',
 	'3.0초 → 2.2초 → 1.4초 → 0.4초'
 ) 'v2.7 capture design supplement'

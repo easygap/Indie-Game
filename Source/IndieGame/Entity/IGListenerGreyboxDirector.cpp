@@ -12,6 +12,7 @@
 #include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
+#include "Engine/Texture2D.h"
 #include "EngineUtils.h"
 #include "ImageUtils.h"
 #include "HAL/FileManager.h"
@@ -3072,7 +3073,43 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("P1 fixtures were not all placed"));
 			return;
 		}
-		// Every 없는 층 truth needs two independent records. One must not do.
+		// 공용 회로를 분리하고 전원 전후를 비교해야 계량기를 증거로 남긴다.
+		const FIGMissingFloorNarrativeSnapshot BeforeExperiment = Narrative->GetSnapshot();
+		const float CommonSwitchZ = WorldScene->GetCommonBreakerToggle()->GetRelativeLocation().Z;
+		const float UnnamedSwitchZ = WorldScene->GetUnnamedBreakerToggle()->GetRelativeLocation().Z;
+		FIGInteractionContext Experiment;
+		Experiment.Interactor = Player.Get();
+		PuzzleOne->SetHourActive(true);
+		PuzzleOne->GetMeterAction()->CompleteInteraction_Implementation(Experiment);
+		if (Narrative->HasSource(EIGMissingFloorTruth::LivedUpstairs, EIGMissingFloorSource::MeterFifthDial))
+		{
+			FailProbe(TEXT("P1 filed meter evidence without separating the common circuit")); return;
+		}
+		PuzzleOne->GetCommonLightAction()->CompleteInteraction_Implementation(Experiment);
+		PuzzleOne->GetMeterAction()->CompleteInteraction_Implementation(Experiment);
+		PuzzleOne->GetBreakerAction()->CompleteInteraction_Implementation(Experiment);
+		if (!FMath::IsNearlyEqual(WorldScene->GetCommonBreakerToggle()->GetRelativeLocation().Z, CommonSwitchZ - 3.f)
+			|| !FMath::IsNearlyEqual(WorldScene->GetUnnamedBreakerToggle()->GetRelativeLocation().Z, UnnamedSwitchZ + 3.f)
+			|| WorldScene->GetFifthMeterDisc()->Mobility != EComponentMobility::Movable)
+		{
+			FailProbe(TEXT("P1 switch or meter presentation cannot move")); return;
+		}
+		if (Narrative->HasSource(EIGMissingFloorTruth::LivedUpstairs, EIGMissingFloorSource::MeterFifthDial))
+		{
+			FailProbe(TEXT("P1 switch alone completed the experiment")); return;
+		}
+		PuzzleOne->GetMeterAction()->CompleteInteraction_Implementation(Experiment);
+		if (!Narrative->HasSource(EIGMissingFloorTruth::LivedUpstairs, EIGMissingFloorSource::MeterFifthDial)
+			|| Narrative->HasTruth(EIGMissingFloorTruth::LivedUpstairs))
+		{
+			FailProbe(TEXT("P1 requires both observations and an independent reading sheet")); return;
+		}
+		PuzzleOne->GetBreakerAction()->CompleteInteraction_Implementation(Experiment);
+		PuzzleOne->GetCommonLightAction()->CompleteInteraction_Implementation(Experiment);
+		PuzzleOne->SetHourActive(false);
+		Narrative->RestoreSnapshot(BeforeExperiment);
+		UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_P1_EXPERIMENT PASS isolation=1 off_on=1 reversible=1"));
+		// 기록 하나만으로는 결론을 내릴 수 없다.
 		Narrative->RegisterTruthSource(
 			EIGMissingFloorTruth::LivedUpstairs,
 			EIGMissingFloorSource::MeterFifthDial);
@@ -3879,19 +3916,24 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
-		// The realtor's message is not on this desk yet. It turns up beside the
-		// keyring on night 3, so the date contradiction closes in the same night
-		// as the answer; night 2 ends on the restored original alone.
-		if (!AgentNote->IsHidden() || AgentNote->IsInteractionEnabled())
+		if (Narrative->IsPuzzleSolved(FName(TEXT("P2"))))
 		{
-			FailProbe(TEXT("the realtor's message must wait for night 3"));
+			FailProbe(TEXT("P2 completed before comparing the move-out date"));
 			return;
 		}
-		if (Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
+		if (AgentNote->IsHidden() || !AgentNote->IsInteractionEnabled())
 		{
-			FailProbe(TEXT("T7 confirmed on night 2"));
+			FailProbe(TEXT("the printed message must already be on the desk"));
 			return;
 		}
+		Context.TargetActor = AgentNote;
+		IIGInteractable::Execute_CompleteInteraction(AgentNote, Context);
+		if (!Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive)
+			|| !Narrative->IsPuzzleSolved(FName(TEXT("P2"))))
+		{
+			FailProbe(TEXT("P2 date comparison did not complete")); return;
+		}
+		IIGInteractable::Execute_CompleteInteraction(AgentNote, Context);
 		// §8 밤2 ends at 403's door, not here. The restored original arms 비트
 		// 2-5 and the hour has to still be running, or the return chase never
 		// happens.
@@ -4249,11 +4291,10 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("day papers unresolved"));
 			return;
 		}
-		// The journal is earned by T7, and T7 now closes on night 3 — so on day
-		// two 황순금 has not handed it over yet.
-		if (!Journal->IsHidden())
+		// 날짜 대조를 마친 다음 낮에는 황순금의 기록을 받을 수 있다.
+		if (Journal->IsHidden() == Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
 		{
-			FailProbe(TEXT("journal appeared before T7"));
+			FailProbe(TEXT("day journal visibility did not follow the date evidence"));
 			return;
 		}
 
@@ -5446,8 +5487,16 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 				GEngine->Exec(GetWorld(), TEXT("csvprofile stop"));
 			break;
 		case 33:
+			CaptureTeleportPlayer(FVector(2590, -270, 104), 90, -9);
+			break;
+		case 36: CaptureShot(TEXT("retail-clerk")); break;
+		case 37:
+			CaptureTeleportPlayer(FVector(52, 57, 997), 7, -34);
+			break;
+		case 40: CaptureShot(TEXT("kitchen-microwave")); break;
+		case 41:
 			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
-			UE_LOG(LogTemp, Display, TEXT("RETAIL_CAPTURE PASS shots=%d production=1 d3d12=1"), bCaptureMetricsOnly ? 0 : 5);
+			UE_LOG(LogTemp, Display, TEXT("RETAIL_CAPTURE PASS shots=%d production=1 d3d12=1"), bCaptureMetricsOnly ? 0 : 7);
 			RequestExit(false);
 			break;
 		default: break;
@@ -5556,12 +5605,12 @@ void AIGListenerGreyboxDirector::StartNightCapture()
 		FCommandLine::Get(),
 		TEXT("IGNightCaptureStartStep="),
 		StartStep);
-	EnterCaptureStep(FMath::Clamp(StartStep, 0, 17));
+	EnterCaptureStep(FMath::Clamp(StartStep, 0, 18));
 	if (StartStep > 0)
 	{
 		// A direct art-review stop still begins while the normal night card is
 		// fading. Keep timed actions behind that card instead of photographing it.
-		CaptureStepSeconds = -4.0f;
+		CaptureStepSeconds = StartStep == 18 ? -8.0f : -4.0f;
 		if (APlayerController* PlayerController =
 			World->GetFirstPlayerController())
 		{
@@ -6482,6 +6531,12 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 			}
 		}
 		break;
+	case 18:
+		if (NightPhase) { NightPhase->RestartTheHour(1); NightPhase->SetHourPaused(true); }
+		if (Entity) { Entity->SetDormant(true); }
+		CaptureTeleportPlayer(FVector(190.f, -305.f, 997.f), 180.f, -12.f);
+		CaptureParkEntity(FVector(20.f, -305.f, 960.f), 0.f);
+		break;
 	default:
 		break;
 	}
@@ -6766,9 +6821,7 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 		}
 		if (StepDone(1.5f))
 		{
-			GetWorldTimerManager().ClearTimer(CaptureTimer);
-			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));
-			RequestExit(false);
+			EnterCaptureStep(18);
 		}
 		break;
 	case 17:
@@ -6801,6 +6854,54 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 			GetWorldTimerManager().ClearTimer(CaptureTimer);
 			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));
 			RequestExit(false);
+		}
+		break;
+	case 18:
+		if (ActionA(.8f) && Entity && Player.IsValid())
+		{
+			Entity->SetDifficultyForTesting(EIGNightDifficulty::Standard);
+			Entity->SetDormant(false);
+			CaptureTeleportPlayer(FVector(190.f, -305.f, 997.f), 180.f, -12.f);
+			CaptureParkEntity(FVector(20.f, -305.f, 960.f), 0.f);
+			CaptureBeginBurst(TEXT("physical-capture"), 4.2f);
+		}
+		if (ActionB(1.4f) && Entity)
+		{
+			CaptureParkEntity(FVector(100.f, -305.f, 960.f), 0.f);
+			Entity->SetActorTickEnabled(true);
+		}
+		if (ActionC(2.2f) && Entity && Player.IsValid())
+		{
+			bool bTexturesReady = true;
+			for (const TCHAR* TextureRole : {TEXT("D"), TEXT("N"), TEXT("ORM")})
+			{
+				if (UTexture2D* Texture = LoadObject<UTexture2D>(nullptr,
+					*FString::Printf(TEXT("/Game/Prototype/Textures/T_ListenerCrawler_%s.T_ListenerCrawler_%s"), TextureRole, TextureRole)))
+				{
+					const auto& Streaming = Texture->GetStreamableResourceState();
+					bTexturesReady &= Texture->IsFullyStreamedIn();
+					UE_LOG(LogTemp, Display, TEXT("PHYSICAL_CAPTURE_TEXTURE %s resident=%d requested=%d max=%d forced=%d"),
+						TextureRole, Streaming.NumResidentLODs, Streaming.NumRequestedLODs, Streaming.MaxNumLODs,
+						Texture->ShouldMipLevelsBeForcedResident());
+				}
+			}
+			UE_LOG(LogTemp, Display, TEXT("PHYSICAL_CAPTURE_CONTACT state=%d dormant=%d physical=%d player=%s face=%s eye=%s"),
+				static_cast<int32>(Entity->GetListenerState()), Entity->IsDormant(), Player->HasPhysicalCaptureView(),
+				*Player->GetActorLocation().ToString(), *Entity->GetCaptureFaceLocation().ToString(),
+				*Player->GetPawnViewLocation().ToString());
+			if (Entity->GetListenerState() != EIGListenerState::CaptureHold || !Player->HasPhysicalCaptureView() || !bTexturesReady)
+			{
+				UE_LOG(LogTemp, Error, TEXT("PHYSICAL_CAPTURE FAIL contact or texture streaming"));
+				RequestExit(true);
+			}
+		}
+		if (StepDone(5.f))
+		{
+			GetWorldTimerManager().ClearTimer(CaptureTimer);
+			const bool bCaptured = NightLoop && NightLoop->GetCaptureCount() > 0;
+			UE_LOG(LogTemp, Display, TEXT("PHYSICAL_CAPTURE %s"), bCaptured ? TEXT("PASS") : TEXT("FAIL"));
+			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));
+			RequestExit(!bCaptured);
 		}
 		break;
 	default:

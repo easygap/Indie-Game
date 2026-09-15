@@ -858,6 +858,9 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 	Light->SetRelativeLocation(Location);
 	Light->SetIntensity(Intensity);
 	Light->SetAttenuationRadius(Radius);
+	// 광원 영향권 밖에서는 먼 층과 골목의 그림자까지 계속 계산할 필요가 없다.
+	Light->SetMaxDrawDistance(FMath::Max(Radius * 2.5f, 1600.0f));
+	Light->SetMaxDistanceFadeRange(FMath::Max(Radius * 0.5f, 250.0f));
 	Light->SetLightColor(Color);
 	Light->SetCastShadows(bCastShadows);
 	// A physical source size softens penumbras; contact shadows ground props.
@@ -876,6 +879,12 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 	Light->RegisterComponent();
 	Lights.Add(Light);
 	return Light;
+}
+
+void AIGPrologueWorldScene::SetCommonInspectionLightsEnabled(const bool bEnabled)
+{
+	for (UPointLightComponent* Light : LobbyLights) { if (Light) { Light->SetVisibility(bEnabled); } }
+	for (UPointLightComponent* Light : CorridorLights) { if (Light) { Light->SetVisibility(bEnabled); } }
 }
 
 UStaticMeshComponent* AIGPrologueWorldScene::CreateDecoOnComponent(
@@ -2595,20 +2604,26 @@ void AIGPrologueWorldScene::BuildApartment()
 		CreateBlock(FVector(178, 128, 200), FVector(18, 26, 24), Stainless, false);
 	}
 
-	// Microwave on the counter, next to the hob.
+	// 전자레인지의 바닥 전체와 고무발이 상판 안에 들어오도록 배치한다.
 	if (MicrowaveMesh)
 	{
 		// 상판 윗면(Z 87)에 발이 닿는다.
-		CreateBlock(
-			FVector(166, 47, 87), FVector(100, 100, 100),
+		UStaticMeshComponent* Appliance = CreateBlock(
+			FVector(157, 68, 87), FVector(100, 100, 100),
 			nullptr, false, MicrowaveMesh, FRotator::ZeroRotator);
+		const FBox Footprint = MicrowaveMesh->GetBoundingBox().TransformBy(Appliance->GetRelativeTransform());
+		const bool bSupported = Footprint.Min.X >= 132.f && Footprint.Max.X <= 190.f
+			&& Footprint.Min.Y >= 40.f && Footprint.Max.Y <= 216.f
+			&& FMath::IsNearlyEqual(Footprint.Min.Z, 87.f, .2f);
+		UE_LOG(LogTemp, Display, TEXT("KITCHEN_SUPPORT %s microwave_min=%s max=%s"),
+			bSupported ? TEXT("PASS") : TEXT("FAIL"), *Footprint.Min.ToString(), *Footprint.Max.ToString());
 	}
 	else
 	{
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(166, 47, 101), FVector(42, 34, 26), Stainless, false);
-		CreateBlock(FVector(144.6f, 43, 101), FVector(1.4f, 22, 20), GlassMaterial, false);
-		CreateBlock(FVector(144.6f, 60, 101), FVector(1.4f, 9, 20), PlasticDarkMaterial, false);
+		CreateBlock(FVector(157, 68, 100), FVector(34, 44, 26), Stainless, false);
+		CreateBlock(FVector(139.6f, 72, 100), FVector(1.4f, 32, 20), GlassMaterial, false);
+		CreateBlock(FVector(139.6f, 50, 100), FVector(1.4f, 7, 20), PlasticDarkMaterial, false);
 	}
 
 	// Bathroom door name plate.
@@ -5380,6 +5395,12 @@ void AIGPrologueWorldScene::BuildLobby()
 			if (MeterIndex == 4)
 			{
 				FifthMeterDisc = Disc;
+				Disc->SetMobility(EComponentMobility::Movable);
+				UStaticMeshComponent* IndexMark = CreateBlock(
+					FVector(MeterX + 1.3f, -365.05f, 152), FVector(2.1f, 0.15f, 0.3f),
+					SignWhiteMaterial, false);
+				IndexMark->SetMobility(EComponentMobility::Movable);
+				IndexMark->AttachToComponent(Disc, FAttachmentTransformRules::KeepWorldTransform);
 				// No nameplate: a unit that is not on any list.
 				CreateBlock(
 					FVector(MeterX, -365.6f, 133), FVector(15, 1.0f, 6),
@@ -5418,9 +5439,14 @@ void AIGPrologueWorldScene::BuildLobby()
 	{
 		for (const float BreakerZ : {159.0f, 151.0f})
 		{
-			CreateBlock(
+			UStaticMeshComponent* Toggle = CreateBlock(
 				FVector(BreakerX, -366.4f, BreakerZ), FVector(4, 2.4f, 5),
 				PlasticDarkMaterial, false);
+			if (BreakerX == BreakerRightX && BreakerZ == 151.0f)
+			{
+				CommonBreakerToggle = Toggle;
+				Toggle->SetMobility(EComponentMobility::Movable);
+			}
 		}
 	}
 	// The unnamed circuit, visibly thrown down. Kept so P1 can raise it.
@@ -5430,6 +5456,7 @@ void AIGPrologueWorldScene::BuildLobby()
 	UnnamedBreakerToggle = CreateBlock(
 		FVector(BreakerLeftX, -366.4f, 140.0f), FVector(4, 2.4f, 5),
 		Stainless, false);
+	UnnamedBreakerToggle->SetMobility(EComponentMobility::Movable);
 
 	// The meter-reading clipboard's backing, on the free north-wall band east
 	// of the notice board. The note actor itself is spawned later, because

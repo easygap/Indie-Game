@@ -164,6 +164,16 @@ void AIGListenerEntity::Tick(const float DeltaSeconds)
 	Super::Tick(DeltaSeconds);
 	StateSeconds += DeltaSeconds;
 	TickState(DeltaSeconds);
+	TexturePrefetchSeconds -= DeltaSeconds;
+	if (!bDormant && ListenerSkeletal && CachedPlayer.IsValid() && TexturePrefetchSeconds <= 0.f)
+	{
+		TexturePrefetchSeconds = 1.f;
+		if (FVector::DistSquared(GetActorLocation(), CachedPlayer->GetActorLocation()) < FMath::Square(500.f))
+		{
+			// 가까워지는 몸의 텍스처만 미리 올린다. 시간 제한이 끝나면 일반 스트리밍으로 돌아간다.
+			ListenerSkeletal->PrestreamTextures(5.f, false);
+		}
+	}
 	UpdatePresentationLayer();
 	UpdatePresentationPose(LastMoveSpeed, DeltaSeconds);
 	UpdateDragLoop(LastMoveSpeed);
@@ -202,18 +212,19 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 		bLungeArmed = false;
 	}
 
-	// 잡는 순간부터는 1인칭 포옹이 이 존재를 대신 그린다. 몸을 그대로 세워
-	// 두면 팔이 화면을 감싸는 동안 같은 것이 복도 바닥에 한 번 더 보인다 —
-	// m1 포획 캡처에 실제로 둘이 같이 찍혀 있었다. 충돌과 소리는 그대로 두고
-	// 그림만 내린다.
+	// 붙잡히는 동안에도 같은 몸이 남는다. 평면 팔 그림으로 바꿔치기하지 않는다.
 	if (NewState == EIGListenerState::CaptureHold)
 	{
-		SetActorHiddenInGame(true);
+		SetActorHiddenInGame(false);
 	}
 	else if (PreviousState == EIGListenerState::CaptureHold)
 	{
 		// 낮에는 잠들어 있어야 하므로 휴면 상태를 그대로 따른다.
 		SetActorHiddenInGame(bDormant);
+		if (ListenerSkeletal)
+		{
+			ListenerSkeletal->SetRelativeLocation(FVector(0, 0, -58));
+		}
 	}
 
 	if (UWorld* World = GetWorld())
@@ -819,6 +830,10 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 		return;
 	}
 	bDormant = bInDormant;
+	if (!bDormant && ListenerSkeletal)
+	{
+		ListenerSkeletal->PrestreamTextures(10.f, false);
+	}
 
 	SetActorHiddenInGame(bDormant);
 	SetActorEnableCollision(!bDormant);
@@ -1112,6 +1127,7 @@ bool AIGListenerEntity::BuildSkeletalBody()
 	Component->AttachToComponent(
 		Body, FAttachmentTransformRules::KeepRelativeTransform);
 	Component->SetSkeletalMesh(Mesh);
+	Component->PrestreamTextures(10.f, false);
 	// 메시 원점은 바닥 중심, 머리가 +X. 캡슐 원점은 바닥에서 58cm.
 	Component->SetRelativeLocation(FVector(0.0f, 0.0f, -58.0f));
 	Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -1177,6 +1193,16 @@ void AIGListenerEntity::UpdateSkeletalPose(
 	}
 	switch (State)
 	{
+	case EIGListenerState::CaptureHold:
+		PlayBodyAnim(EIGListenerBodyAnim::Lunge, false, 0.72f);
+		{
+			// 바닥의 자세에서 가슴 높이까지 덮친다. 얼굴을 카메라 앞에 두되
+			// 가까운 면이 시야를 뚫지 않도록 머리 뼈와 눈 사이에 거리를 남긴다.
+			const FVector Delta = (CaptureViewTarget - GetCaptureFaceLocation()).GetClampedToMaxSize(150);
+			const float Approach = 1.0f - FMath::Exp(-12.0f * DeltaSeconds);
+			ListenerSkeletal->AddWorldOffset(Delta * Approach);
+		}
+		return;
 	case EIGListenerState::Banging:
 		// 노크 소리와 같은 2.1초짜리 동작. 한 번 재생하고 듣기로 넘어간다.
 		PlayBodyAnim(EIGListenerBodyAnim::Bang, false, 1.0f);
@@ -1857,6 +1883,22 @@ void AIGListenerEntity::TryCloseCallStinger(const AIGPlayerCharacter* Player, co
 	const_cast<AIGPlayerCharacter*>(Player)->PlayScareKick(1.4f);
 }
 
+void AIGListenerEntity::KeepCaptureVisible()
+{
+	if (State != EIGListenerState::CaptureHold) return;
+	bDormant = false;
+	SetActorHiddenInGame(false);
+	SetActorEnableCollision(false);
+	SetActorTickEnabled(true);
+}
+
+FVector AIGListenerEntity::GetCaptureFaceLocation() const
+{
+	return ListenerSkeletal && ListenerSkeletal->DoesSocketExist(TEXT("head"))
+		? ListenerSkeletal->GetSocketLocation(TEXT("head"))
+		: GetActorLocation() + GetActorForwardVector() * 65.0f + FVector(0, 0, 15);
+}
+
 void AIGListenerEntity::BeginCapture(APawn* Player)
 {
 	if (State == EIGListenerState::CaptureHold)
@@ -1864,17 +1906,29 @@ void AIGListenerEntity::BeginCapture(APawn* Player)
 		return;
 	}
 	EnterState(EIGListenerState::CaptureHold);
+	if (Player)
+	{
+		const FVector Direction = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
+		SetActorRotation(Direction.Rotation());
+		CaptureViewTarget = Player->GetPawnViewLocation() - Direction * 75.0f - FVector(0, 0, 22);
+	}
+	if (ListenerSkeletal && LungeAnim)
+	{
+		ListenerSkeletal->PrestreamTextures(3.f, false);
+		ListenerSkeletal->PlayAnimation(LungeAnim, false);
+		ActiveBodyAnim = EIGListenerBodyAnim::Lunge;
+	}
 
 	if (AIGPlayerCharacter* Character = Cast<AIGPlayerCharacter>(Player))
 	{
+		Character->SetCaptureThreat(this);
 		if (UIGStressComponent* Stress = Character->GetStress())
 		{
 			Stress->ApplyScare(1.0f);
 		}
 	}
 
-	// 덮치는 순간의 저역과 천 스침. 그 뒤가 「노크 둘」이다 — 포효는 아니지만
-	// 붙잡히는 것이 아무 소리 없이 지나가서도 안 된다.
+	// 몸이 닿는 순간 저역을 겹치고, 가까운 마찰과 숨은 아래의 건조한 음원으로 낸다.
 	if (UWorld* World = GetWorld())
 	{
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
@@ -1886,16 +1940,10 @@ void AIGListenerEntity::BeginCapture(APawn* Player)
 		}
 	}
 
-	// Not a roar: the calmed reply, from very close. Then the director's
-	// blackout and the half-past-four bed.
-	//
-	// The one dry cue in the building (§21.3). Every other knock all night has
-	// arrived wearing the corridor or the stairwell, and by now the player reads
-	// that wetness as distance without being told. Taking it to zero is the
-	// sentence: he is not down the hall any more.
+	// 복도 잔향을 빼서 귓가의 마찰, 끊긴 숨, 짧은 두 번의 충격이 바로 들리게 한다.
 	IGAudio::SpawnDryOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateWallKnockReply(this),
+		UIGToneSequenceSoundWave::CreateCaptureStruggle(this),
 		Player ? Player->GetActorLocation() : GetActorLocation(),
 		1.0f,
 		1.0f,

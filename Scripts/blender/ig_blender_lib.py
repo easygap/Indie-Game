@@ -839,9 +839,18 @@ def _pixels(image):
 
 
 def _save(image, path):
-    image.filepath_raw = path
+    # 미리보기에서 연 파일도 교체할 수 있게 새 파일을 완성한 뒤 바꾼다.
+    import uuid
+    temporary = path + '.' + uuid.uuid4().hex + '.png'
+    image.filepath_raw = temporary
     image.file_format = "PNG"
-    image.save()
+    try:
+        image.save()
+        os.replace(temporary, path)
+    finally:
+        image.filepath_raw = path
+        if os.path.exists(temporary):
+            os.remove(temporary)
 
 
 def bake_textures(ob, asset_name, out_dir, size=1024, ao_samples=AO_SAMPLES):

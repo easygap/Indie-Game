@@ -28,6 +28,7 @@
 #include "Player/IGInteractionComponent.h"
 #include "Player/IGFrontendMenuLayout.h"
 #include "Player/IGPlayerController.h"
+#include "Player/IGPlayerCharacter.h"
 #include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGObjectiveProvider.h"
 #include "Sequence/IGWakeUpDirector.h"
@@ -142,7 +143,7 @@ namespace IGHorrorHUD
 	{
 		static const TArray<FJournalEntryDefinition> Entries = {
 			{TEXT("Lobby.MeterFifthDial"), EJournalLane::Administration,
-				TEXT("다섯 번째 계량기"), TEXT("이름표가 없다. 바늘이 멈춰 있다."),
+				TEXT("다섯 번째 계량기"), TEXT("공용 조명과 별개다. 무명 회로를 올리면 원판이 돈다."),
 				TEXT("공동현관 계량기함 · 밤 1"), EJournalThumbnail::Meter},
 			{TEXT("Office.MeterReadingSheet"), EJournalLane::Administration,
 				TEXT("검침 기록지"), TEXT("다섯 번째 칸. 63 · 58 · 61 · 0"),
@@ -155,7 +156,7 @@ namespace IGHorrorHUD
 				TEXT("관리실 책상 · 7/27~7/31"), EJournalThumbnail::Document},
 			{TEXT("Office.AgentMoveOutMessage"), EJournalLane::Administration,
 				TEXT("중개인 문자"), TEXT("5층 짐 뺐습니다. 7/26."),
-				TEXT("관리실 열쇠 고리 옆 · 밤 3"), EJournalThumbnail::Metal},
+				TEXT("관리실 책상 · 밤 2"), EJournalThumbnail::Document},
 			{TEXT("Office.EvictionWarning"), EJournalLane::Administration,
 				TEXT("퇴거 요구서"), TEXT("내일 오전 7시 누수 보수. 403호 퇴거 요망."),
 				TEXT("4층 복도 · 낮 3"), EJournalThumbnail::Document},
@@ -3589,6 +3590,13 @@ bool AIGHorrorHUD::DrawCaptureEmbrace(const double CurrentTime)
 	const double Duration = FMath::Max(
 		CaptureEmbraceEndTime - CaptureEmbraceStartTime,
 		0.001);
+	if (const AIGPlayerCharacter* Player = Cast<AIGPlayerCharacter>(GetOwningPawn()))
+	{
+		if (Player->HasPhysicalCaptureView() && !bCaptureEmbracePreview)
+		{
+			return true;
+		}
+	}
 	const float NormalizedAge = FMath::Clamp(
 		static_cast<float>((CurrentTime - CaptureEmbraceStartTime) / Duration),
 		0.0f,

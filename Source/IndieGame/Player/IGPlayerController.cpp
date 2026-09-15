@@ -3260,7 +3260,7 @@ void AIGPlayerController::RefreshStagedDisplaySettings()
 		}
 	}
 
-	DisplayQualityIndex = Settings->GetOverallScalabilityLevel() <= 0 ? 0 : 1;
+	DisplayQualityIndex = Settings->GetOverallScalabilityLevel() <= 1 ? 0 : 1;
 	bDisplayVSync = Settings->IsVSyncEnabled();
 	const float CurrentFrameLimit = Settings->GetFrameRateLimit();
 	DisplayFrameLimitIndex = CurrentFrameLimit <= 0.0f
@@ -3429,7 +3429,8 @@ void AIGPlayerController::ApplyDisplaySettings()
 	Settings->SetFullscreenMode(WindowMode);
 	Settings->SetScreenResolution(
 		IGDisplaySettings::Resolutions[DisplayResolutionIndex]);
-	Settings->SetOverallScalabilityLevel(DisplayQualityIndex == 0 ? 0 : 2);
+	// UE 5.8의 중간 품질은 Lumen Lite를 쓴다. 성능 모드에서도 간접광을 남긴다.
+	Settings->SetOverallScalabilityLevel(DisplayQualityIndex == 0 ? 1 : 2);
 	Settings->SetVSyncEnabled(bDisplayVSync);
 	Settings->SetFrameRateLimit(
 		IGDisplaySettings::FrameLimits[DisplayFrameLimitIndex]);

@@ -139,7 +139,7 @@ Assert-ContainsAll $controllerSource @(
 	'PlayCalibrationKnock()',
 	'Settings->SetFullscreenMode(WindowMode)',
 	'Settings->SetScreenResolution(',
-	'Settings->SetOverallScalabilityLevel(DisplayQualityIndex == 0 ? 0 : 2)',
+	'Settings->SetOverallScalabilityLevel(DisplayQualityIndex == 0 ? 1 : 2)',
 	'Settings->SetVSyncEnabled(bDisplayVSync)',
 	'Settings->SetFrameRateLimit(',
 	'Settings->ApplyResolutionSettings(false)',

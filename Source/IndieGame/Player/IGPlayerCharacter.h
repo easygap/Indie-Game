@@ -68,6 +68,8 @@ public:
 	/** 비폭력 포획 포옹과 카메라 킥, 감쇠 진동을 시작한다. */
 	UFUNCTION(BlueprintCallable, Category = "Player|Camera")
 	void PlayCaptureFeedback(float DurationSeconds = 1.2f);
+	void SetCaptureThreat(class AIGListenerEntity* Threat);
+	bool HasPhysicalCaptureView() const;
 
 	/** Parents an item to the camera at the given relative pose (held item). */
 	UFUNCTION(BlueprintCallable, Category = "Player|Carry")
@@ -304,6 +306,8 @@ private:
 	float ChaseHapticAlpha = 0.0f;
 	int32 ChaseForceFeedbackHandle = 0;
 	float CaptureFeedbackRemainingSeconds = 0.0f;
+	UPROPERTY(Transient) TWeakObjectPtr<class AIGListenerEntity> CaptureThreat;
+	FRotator CaptureStartRotation = FRotator::ZeroRotator;
 	uint64 CaptureForceFeedbackHandle = 0;
 	double LastKnockInputSeconds = -1.0;
 	double KnockInputLockedUntil = -1.0;

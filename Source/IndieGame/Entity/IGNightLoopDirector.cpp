@@ -137,6 +137,7 @@ void AIGNightLoopDirector::HandlePlayerCaptured(APawn* Player)
 		: 0;
 	CaptureCount = FMath::Max(CaptureCount + 1, PersistedCaptureCount + 1);
 	CapturedPlayer = Character;
+	Character->GetCharacterMovement()->StopMovementImmediately();
 	SpawnCaptureHandprint(Character);
 
 	// Without an authored wake point the first capture teaches us one: the
@@ -155,11 +156,25 @@ void AIGNightLoopDirector::HandlePlayerCaptured(APawn* Player)
 		Character->DisableInput(Controller);
 		if (Controller->PlayerCameraManager)
 		{
-			Controller->PlayerCameraManager->StartCameraFade(
-				0.0f, 1.0f, FadeOutSeconds, FLinearColor::Black,
-				/*bShouldFadeAudio=*/false, /*bHoldWhenFinished=*/true);
+			Controller->PlayerCameraManager->StopCameraFade();
 		}
 	}
+	// 몸이 붙는 순간은 보인다. 숨이 끊기는 뒤쪽에서 시야를 닫는다.
+	GetWorldTimerManager().SetTimer(CaptureFadeTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (AIGPlayerCharacter* Pawn = CapturedPlayer.Get())
+			{
+				if (APlayerController* PC = Cast<APlayerController>(Pawn->GetController()))
+				{
+					if (PC->PlayerCameraManager)
+					{
+						PC->PlayerCameraManager->StartCameraFade(0.f, 1.f,
+							FMath::Max(FadeOutSeconds - .65f, .05f), FLinearColor::Black, false, true);
+					}
+				}
+			}
+		}), .65f, false);
 
 	GetWorldTimerManager().SetTimer(
 		ResetTimer,
@@ -171,6 +186,7 @@ void AIGNightLoopDirector::HandlePlayerCaptured(APawn* Player)
 
 void AIGNightLoopDirector::FinishReset()
 {
+	GetWorldTimerManager().ClearTimer(CaptureFadeTimer);
 	bool bWakeRecoveryScheduled = false;
 	AIGPlayerCharacter* Character = CapturedPlayer.Get();
 	if (Character)
@@ -336,6 +352,7 @@ void AIGNightLoopDirector::FinishWakeRecovery()
 
 void AIGNightLoopDirector::AbortCaptureBlackout(const TCHAR* Reason)
 {
+	GetWorldTimerManager().ClearTimer(CaptureFadeTimer);
 	UWorld* World = GetWorld();
 	AIGPlayerCharacter* Character = CapturedPlayer.Get();
 	APlayerController* Controller = Character
@@ -365,6 +382,7 @@ void AIGNightLoopDirector::AbortCaptureBlackout(const TCHAR* Reason)
 
 void AIGNightLoopDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	GetWorldTimerManager().ClearTimer(CaptureFadeTimer);
 	// 리셋 도중에 디렉터가 사라지면 타이머와 함께 복귀도 사라진다.
 	if (bResetInFlight && EndPlayReason != EEndPlayReason::LevelTransition
 		&& EndPlayReason != EEndPlayReason::EndPlayInEditor

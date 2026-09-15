@@ -14,18 +14,9 @@ class UIGMissingFloorNarrativeSubsystem;
 DECLARE_MULTICAST_DELEGATE(FIGPuzzleOneSolvedSignature);
 
 /**
- * P1 「다섯 번째 바늘」 — the proof that the fifth floor is lived in
- * (STORY_BIBLE_MISSING_FLOOR.md §7).
- *
- * Four unit meters and a fifth with no nameplate whose disc never turns; a
- * reading sheet in the lobby with five columns, the fifth reading zero since
- * July 2024. Those two records cross into T1. The distribution panel's unnamed
- * breaker is the check the player performs themselves: throwing it is loud
- * enough to be heard upstairs, and what answers is a fluorescent ballast
- * starting somewhere above the fourth-floor ceiling.
- *
- * There is no success popup anywhere in here. The world confirms: a hum where
- * no hum should be.
+ * P1 「다섯 번째 바늘」. 공용 조명을 끄고 무명 회로의 전원을 바꾸며
+ * 계량기의 멈춤과 회전을 비교한다. 검침표까지 대조하면 숨은 회로를
+ * 확인한다. 전원을 올린 상태로 조사를 끝내야 위층의 안정기 소리가 이어진다.
  */
 UCLASS(NotBlueprintable, Transient)
 class INDIEGAME_API AIGMissingFloorPuzzleOneDirector : public AActor
@@ -34,6 +25,9 @@ class INDIEGAME_API AIGMissingFloorPuzzleOneDirector : public AActor
 
 public:
 	AIGMissingFloorPuzzleOneDirector();
+	AIGMissingFloorEvidence* GetMeterAction() const { return MeterDialEvidence; }
+	AIGMissingFloorEvidence* GetBreakerAction() const { return BreakerAction; }
+	AIGMissingFloorEvidence* GetCommonLightAction() const { return CommonLightAction; }
 
 	/** Spawns the puzzle's interactables against an already-built lobby. */
 	bool Configure(AIGPrologueWorldScene* InScene);
@@ -50,7 +44,7 @@ public:
 	 */
 	void SetHourActive(bool bActive);
 
-	/** Release probes: all three fixtures resolved and placed. */
+	/** 계량기·공용 스위치·무명 회로·검침표가 모두 배치됐는지 확인한다. */
 	bool ValidateFixtures() const;
 
 	/**
@@ -63,8 +57,12 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+	void UpdateMeterMotion();
+	void AdvanceMeterDisc();
+	FTimerHandle MeterRotationTimer;
 	void HandleMeterExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleBreakerThrown(AIGMissingFloorEvidence* Evidence);
+	void HandleCommonLighting(AIGMissingFloorEvidence* Evidence);
 
 	/** Dynamic delegate target, so it has to be reflected. */
 	UFUNCTION()
@@ -82,6 +80,8 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> BreakerAction;
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> CommonLightAction;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> ReadingSheet;
@@ -91,6 +91,7 @@ private:
 	TObjectPtr<UAudioComponent> BallastHum;
 
 	bool bBreakerThrown = false;
+	bool bCommonLightsEnabled = true;
 	bool bBallastHumAudible = false;
 	bool bHourActive = false;
 	bool bSolvedAnnounced = false;

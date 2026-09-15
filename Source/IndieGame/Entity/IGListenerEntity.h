@@ -73,6 +73,9 @@ public:
 	AIGListenerEntity();
 
 	virtual void Tick(float DeltaSeconds) override;
+	FVector GetCaptureFaceLocation() const;
+	bool HasPhysicalCaptureBody() const { return ListenerSkeletal != nullptr; }
+	void KeepCaptureVisible();
 
 	UFUNCTION(BlueprintPure, Category = "Listener")
 	EIGListenerState GetListenerState() const { return State; }
@@ -328,6 +331,8 @@ private:
 	TObjectPtr<UAnimSequence> LungeAnim;
 
 	EIGListenerBodyAnim ActiveBodyAnim = EIGListenerBodyAnim::None;
+	FVector CaptureViewTarget = FVector::ZeroVector;
+	float TexturePrefetchSeconds = 0.f;
 	/** 추격 중 두 팔 거리 안에 들어오면 덮치는 동작으로 바꾼다. */
 	bool bLungeArmed = false;
 
