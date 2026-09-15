@@ -10,7 +10,7 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 15486,
+  "triangles": 15184,
   "bounds_m": {
     "min": [
       -0.2695,
@@ -20,13 +20,13 @@
     "max": [
       0.2675,
       0.1813,
-      1.6291
+      1.6295
     ]
   },
   "origin": "bottom-center",
   "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "163cm 인물. 전신과 얼굴 확대 원화의 3D 원본을 목에서 연결했다. 몸 6천5백·머리 9천 삼각형, 4K UV의 2/3를 머리에 배분한다. 몸통·머리 리그 3개, 6초 호흡 동작. 얼굴 방향은 게임에서 고객 위치를 따른다.",
+  "notes": "163cm 인물. 전신과 얼굴 원본의 교차면을 없애 목을 연결하고 양쪽 볼 색을 기준으로 피부색을 맞췄다. 삼면 참고 원화 NarinContinuity_20260915.png. 4K UV의 2/3를 머리에 배분한다. 몸통·머리 리그 3개, 6초 호흡 동작. 얼굴 방향은 게임에서 고객 위치를 따른다.",
   "generated_from": "../Generated/NarinHead/face-closeup-20260914/raw/pbr_00001_.glb",
   "skeletal": true,
   "animations": {

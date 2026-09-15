@@ -175,11 +175,10 @@ namespace IGPrologueWorld
 	// handful of pixels, so it can fade before the store itself disappears.
 	constexpr int32 StoreStockCullStartCentimeters = 1600;
 	constexpr int32 StoreStockCullEndCentimeters = 2200;
-	// 627 fixed aisle/chilled-food instances plus 524 cooler instances.  The
-	// cooler total counts each PET/glass bottle's body, cap and label as three
-	// render instances while cans and cartons are single instances.
-	constexpr int32 ExpectedStoreStockInstances = 1301;
-	constexpr int32 MaximumStoreStockBatches = 24;
+	// 기존 상품·가격표 1,301개에 냉장고 가격표 17개를 더한다.
+	// 병의 몸체·뚜껑·라벨도 각각의 렌더 인스턴스로 센다.
+	constexpr int32 ExpectedStoreStockInstances = 1318;
+	constexpr int32 MaximumStoreStockBatches = 28;
 
 	enum class EReceiptTimeline : uint8
 	{
@@ -1198,6 +1197,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_MovingBoxCardboardUV"), TEXT("M_RetailPET"), TEXT("M_LabelWater1L"), TEXT("M_LabelWater2L"),
 		TEXT("M_RetailPricePotato"), TEXT("M_RetailPriceShrimp"), TEXT("M_RetailPriceCorn"),
 		TEXT("M_RetailPriceCupBeef"), TEXT("M_RetailPriceCupKimchi"), TEXT("M_RetailPriceBiscuit"),
+		TEXT("M_RetailPriceWater"), TEXT("M_RetailPriceSoda"), TEXT("M_RetailPriceBarley"), TEXT("M_RetailPriceGreenTea"),
 		TEXT("M_RetailTobaccoAd"),
 	};
 
@@ -2305,12 +2305,27 @@ void AIGPrologueWorldScene::BuildApartment()
 			BedsideSurfaceWorldZ - IGPrologueWorld::AlarmContactBottomLocalZ
 				- IGPrologueWorld::PropContactEmbedZ);
 	}
-	PlacePhotoProp(
+	UStaticMeshComponent* DeskLampFixture = PlacePhotoProp(
 		TEXT("desk_lamp_arm_01"),
 		FVector(-172, -52, BedsideSurfaceLocalZ),
 		FVector(30, 30, 48),
-		35.0f,
+		0.0f,
 		false);
+	FVector BedsideEmitterLocal(-164, -45, 101);
+	if (DeskLampFixture && BedsideTable)
+	{
+		const FBoxSphereBounds TableBounds = BedsideTable->CalcBounds(BedsideTable->GetComponentTransform());
+		const FVector TableFrontWorld(TableBounds.Origin.X, TableBounds.Origin.Y + TableBounds.BoxExtent.Y,
+			TableBounds.Origin.Z + TableBounds.BoxExtent.Z);
+		const FVector TableFrontLocal = DeskLampFixture->GetAttachParent()->GetComponentTransform()
+			.InverseTransformPosition(TableFrontWorld);
+		// 스캔 원본의 집게 입구(0, 0, -1cm)를 협탁 앞 모서리에 물린다.
+		const FVector ClampBefore = DeskLampFixture->GetRelativeTransform().TransformPosition(FVector(0, 0, -1));
+		const FVector ClampTarget(-172, TableFrontLocal.Y - .6f, BedsideSurfaceLocalZ);
+		DeskLampFixture->SetRelativeLocation(DeskLampFixture->GetRelativeLocation() + ClampTarget - ClampBefore);
+		// 원본 갓 안쪽에서 잰 전구 중심. 회전·크기가 바뀌어도 갓과 같이 이동한다.
+		BedsideEmitterLocal = DeskLampFixture->GetRelativeTransform().TransformPosition(FVector(-.15f, -17.1f, 68.8f));
+	}
 	// Furniture is dimensioned around a seated adult: 74 cm work surface and a
 	// roughly 43 cm chair seat. The source desk is two metres wide, so the usual
 	// aspect-preserving fit would shrink its height to about 41 cm.
@@ -2428,14 +2443,6 @@ void AIGPrologueWorldScene::BuildApartment()
 	AddApartmentDressing(
 		FVector(-75.0f, -183.0f, DeskSurfaceLocalZ + 3.05f), FVector(22.0f, 16.0f, 2.0f),
 		SignWhiteMaterial, nullptr, FRotator(0.0f, 3.0f, 0.0f));
-	// The practical has a visible emitting face and a routed power lead, so the
-	// warm pool reads as light from a real object rather than a floating point.
-	AddApartmentDressing(
-		FVector(-164.0f, -45.0f, 96.0f), FVector(9.0f, 9.0f, 1.0f),
-		LightPanelMaterial, CylinderMesh, FRotator::ZeroRotator);
-	AddApartmentDressing(
-		FVector(-175.0f, -55.0f, 61.0f), FVector(1.2f, 1.2f, 22.0f),
-		PlasticDarkMaterial, CylinderMesh, FRotator(0.0f, 18.0f, 18.0f));
 
 	// --- Built-in kitchen line along the east wall ---------------------------
 	// A real 원룸 is fitted, not furnished: one continuous run of white gloss
@@ -2674,8 +2681,8 @@ void AIGPrologueWorldScene::BuildApartment()
 	// bedside lamp, the strip left on under the wall units, and the cool
 	// spill through the window; the sky light carries the rest physically.
 	UPointLightComponent* BedsideLamp = CreateLight(
-		FVector(-164, -45, 101), 255.0f, 340.0f,
-		FLinearColor(1.0f, 0.53f, 0.25f), true, 25.0f);
+		BedsideEmitterLocal, 255.0f, 340.0f,
+		FLinearColor(1.0f, 0.53f, 0.25f), true, 3.0f);
 	BedsideLamp->SetVolumetricScatteringIntensity(0.28f);
 	CreateLight(
 		FVector(-100, 190, 160), 132.0f, 460.0f,
@@ -6213,11 +6220,15 @@ void AIGPrologueWorldScene::BuildAlley()
 	Passage(1210, 1390);
 	Passage(1640, 1840);
 	// 후면 길과 편의점 옆길. 경계는 눈에 보이는 건물 벽이며 보행 바닥에 턱을 두지 않는다.
-	CreateBlock(FVector(1830, -1360, -10), FVector(1240, 240, 20), AsphaltWorld);
+	// 끝벽 안쪽까지 바닥을 넣어 모서리에서 하늘이 비치는 틈을 막는다.
+	CreateBlock(FVector(1830, -1360, -10), FVector(1280, 240, 20), AsphaltWorld);
+	// 샛길 서쪽 벽과 끝벽이 만나는 곳에 남는 10×10cm 바닥도 잇는다.
+	CreateBlock(FVector(1205, -1235, -10), FVector(10, 10, 20), AsphaltWorld);
 	CreateBlock(FVector(2310, -965, -10), FVector(260, 550, 20), AsphaltWorld);
 	CreateBlock(FVector(1190, -1350, 230), FVector(20, 260, 460), BrickY);
 	CreateBlock(FVector(1830, -1490, 230), FVector(1300, 20, 460), BrickX);
-	CreateBlock(FVector(2450, -1160, 230), FVector(20, 620, 460), VillaStuccoY);
+	// 편의점 옆 외벽의 뒤쪽 끝을 뒷담 안까지 이어 세로로 열린 10cm 틈을 닫는다.
+	CreateBlock(FVector(2450, -1170, 230), FVector(20, 640, 460), VillaStuccoY);
 	CreateBlock(FVector(2170, -960, 230), FVector(20, 560, 460), BrickY);
 	CreateBlock(FVector(1515, -1240, 230), FVector(250, 20, 460), BrickX);
 	CreateBlock(FVector(2000, -1240, 230), FVector(320, 20, 460), BrickX);
@@ -6425,8 +6436,11 @@ void AIGPrologueWorldScene::BuildStore()
 					{
 						// 한두 개 빠진 자리는 앞줄에 남긴다. 무작위 회전으로 진열을 흐트러뜨리지 않는다.
 						if (Depth == 0 && Column == 9 && Tier == 1 && Run == 1 && Side < 0) continue;
+						// 돌려놓은 한 봉지만 뒷면이 보인다. 나머지는 품목별 앞줄을 유지한다.
+						const bool bReturnedBag = Run == 1 && Tier == 1 && Column == 8 && Depth == 0 && Side < 0;
+						const float StockYaw = (Side > 0 ? 180.0f : 0.0f) + (bReturnedBag ? 180.0f : 0.0f);
 						AddStoreStockProp(SKU, FVector(X, Y + Side * (Depth == 0 ? 28.0f : 11.5f), Z),
-							nullptr, Side > 0 ? 180 : 0, 1, true);
+							nullptr, StockYaw, 1, true);
 					}
 				}
 			}
@@ -6441,6 +6455,12 @@ void AIGPrologueWorldScene::BuildStore()
 		{
 			if (Bay == 1 && Tier == 1) continue;
 			const float Z = 61.5f + Tier * 45.0f;
+			UMaterialInterface* DrinkPrice = Bay <= 2 ? TexMat(TEXT("M_RetailPriceWater"), SignWhiteMaterial)
+				: Bay == 3 ? TexMat(TEXT("M_RetailPriceSoda"), SignWhiteMaterial)
+				: Bay == 4 ? TexMat(TEXT("M_RetailPriceBarley"), SignWhiteMaterial)
+				: TexMat(TEXT("M_RetailPriceGreenTea"), SignWhiteMaterial);
+			AddStoreStockBlock(FVector(3060.4f, BayCenters[Bay], Z + 1.5f), FVector(.2f, 16, 4),
+				DrinkPrice, false, FRotator::ZeroRotator);
 			for (int32 Column = 0; Column < 7; ++Column)
 			{
 				for (int32 Depth = 0; Depth < 2; ++Depth)
@@ -6484,7 +6504,7 @@ void AIGPrologueWorldScene::BuildStore()
 	Fixture(TEXT("SM_WindowBar"), FVector(2433, -730, 6));
 	Fixture(TEXT("SM_HotWaterDispenser"), FVector(2433, -710, 111), 90);
 	CreateProp(TEXT("SM_Stool"), FVector(2468, -751, 6), PlasticDarkMaterial, 0, 1, true);
-	CreateProp(TEXT("SM_Stool"), FVector(2468, -710, 6), PlasticDarkMaterial, 0, 1, true);
+	// 온수기 앞은 서서 물을 받는 자리다. 의자를 놓으면 꼭지와 통로를 함께 막는다.
 	Fixture(TEXT("SM_TrashBin"), FVector(3030, -799, 6), 180);
 	for (int32 Basket = 0; Basket < 5; ++Basket)
 	{

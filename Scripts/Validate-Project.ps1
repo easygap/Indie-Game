@@ -1243,10 +1243,10 @@ foreach ($requiredStressTickInvariant in @(
 }
 foreach ($requiredStorePerformanceInvariant in @(
 	'Components/InstancedStaticMeshComponent.h',
-	'ExpectedStoreStockInstances = 1301',
+	'ExpectedStoreStockInstances = 1318',
 	'TEXT("SM_RetailCupBeef")',
 	'TEXT("M_RetailPriceCupBeef")',
-	'MaximumStoreStockBatches = 24',
+	'MaximumStoreStockBatches = 28',
 	'StoreStockCullStartCentimeters = 1600',
 	'StoreStockCullEndCentimeters = 2200',
 	'Batch->SetAffectDistanceFieldLighting(false)',
@@ -1953,7 +1953,7 @@ foreach ($requiredReleaseValidationInvariant in @(
 	'REBIRTH_SPIKE PASS s4_common_prop ending=$Ending duplicates=0',
 	'actual_state=1 safety_cues=5',
 	'REBIRTH_RELEASE PASS collision_route',
-	'REBIRTH_RELEASE PASS store_instancing instances=1301',
+	'REBIRTH_RELEASE PASS store_instancing instances=1318',
 	'REBIRTH_RELEASE PASS audio_synthesis tracks=19 invalid=0 clipped=0',
 	'REBIRTH_RELEASE PASS audio_queue',
 	'REBIRTH_RELEASE PASS s5_item_continuity profiles=3 closures=2 presentations=2 cases=12 duplicates=0',

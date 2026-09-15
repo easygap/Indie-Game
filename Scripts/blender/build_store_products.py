@@ -279,26 +279,40 @@ def build_water_dispenser(out_root):
     ig.reset_scene()
     m = mats()
     parts = []
-    w, d, h = 0.30, 0.36, 0.42
+    # NS-3000B 제품 사진의 돌출 코크·하향 출수구·외부 물받이 구조를 따른다.
+    # 창가 취식대 안에 받침이 들어오도록 소형 본체의 깊이는 22cm로 잡는다.
+    w, d, h = 0.24, 0.22, 0.50
     body = ig.box("body", (w, d, h), origin="bottom", bevel=0.006, segments=2, material=m["steel"])
     parts.append(body)
-    # 앞면(-Y) 아래 물받이 홈, 꼭지, 표시등, 위 뚜껑.
-    tray = ig.box("tray_cut", (0.22, 0.10, 0.12), location=(0.0, -d * 0.5 + 0.05, 0.10))
-    ig.boolean(body, tray, "DIFFERENCE")
-    parts.append(ig.box("grate", (0.20, 0.09, 0.006), location=(0.0, -d * 0.5 + 0.05, 0.043), material=m["grey"]))
-    parts.append(ig.cylinder("tap", 0.008, 0.05, location=(0.0, -d * 0.5 + 0.03, 0.22), segments=16,
-                             rotation=(math.pi * 0.5, 0.0, 0.0), material=m["chrome"]))
-    parts.append(ig.box("lever", (0.06, 0.02, 0.014), location=(0.0, -d * 0.5 - 0.005, 0.245), bevel=0.003, segments=1,
-                        material=m["dark"]))
-    parts.append(ig.box("panel", (0.10, 0.004, 0.05), location=(0.0, -d * 0.5 - 0.002, 0.33), material=m["dark"]))
+    parts.append(ig.box("전면패널",(.13,.004,.43),(0,-.112,.255),material=m["dark"]))
+    parts.append(ig.box("물받이",(.22,.095,.017),(0,-.122,.012),bevel=.003,material=m["dark"]))
+    for x in (-.10,.10):
+        parts.append(ig.box("물받이테두리",(.006,.091,.018),(x,-.122,.024),material=m["steel"]))
+    for x in range(13):
+        parts.append(ig.box("물받이살",(.005,.083,.004),(-.09+x*.015,-.122,.028),material=m["steel"]))
+    parts.append(ig.cylinder("코크연결관",.012,.042,(0,-.13,.255),segments=16,
+                             rotation=(math.pi/2,0,0),material=m["chrome"]))
+    parts.append(ig.cylinder("코크몸체",.017,.05,(0,-.149,.257),segments=20,material=m["dark"]))
+    parts.append(ig.cylinder("아래로난출수구",.007,.018,(0,-.149,.224),segments=16,material=m["chrome"]))
+    parts.append(ig.cylinder("출수구안쪽",.005,.001,(0,-.149,.2145),segments=16,material=m["dark"]))
+    parts.append(ig.box("누름레버",(.025,.026,.045),(0,-.15,.306),rotation=(math.radians(-18),0,0),bevel=.003,material=m["dark"]))
+    parts.append(ig.box("온도표시창",(.052,.003,.033),(0,-.116,.411),material=m["grey"]))
+    # 한글 경고와 온도 숫자는 글꼴로 조판한 뒤 본체와 함께 굽는다.
+    font=bpy.data.fonts.load('C:/Windows/Fonts/malgun.ttf')
+    for label,z,size,material in (('98',.407,.021,m['red']),('온수',.367,.015,m['white']),('화상주의',.193,.009,m['white'])):
+        curve=bpy.data.curves.new(label,'FONT');curve.body=label;curve.font=font
+        curve.align_x='CENTER';curve.align_y='CENTER';curve.size=size
+        ob=bpy.data.objects.new(label,curve);bpy.context.collection.objects.link(ob)
+        ob.location=(0,-.118,z);ob.rotation_euler=(math.pi/2,0,0)
+        curve.materials.append(material);ig.set_active(ob);bpy.ops.object.convert(target='MESH');parts.append(bpy.context.object)
     parts.append(ig.cylinder("lamp", 0.005, 0.002, location=(-0.03, -d * 0.5 - 0.005, 0.33), segments=10,
                              rotation=(math.pi * 0.5, 0.0, 0.0), material=m["red"]))
     parts.append(ig.box("lid", (w - 0.02, d - 0.02, 0.02), location=(0.0, 0.0, h + 0.01), bevel=0.004, segments=1,
                         material=m["steel"]))
-    parts.append(ig.box("label", (0.10, 0.002, 0.03), location=(0.0, -d * 0.5 - 0.001, 0.375), material=m["white"]))
     return ig.build_asset(
         "SM_HotWaterDispenser", "prop", parts, out_root, collision_parts=[[body]],
-        notes="라면 온수기 30 x 36 x 44. 원점 바닥 중심, 꼭지가 -Y.", texture_size=1024)
+        notes="라면 온수기 24×27.95×52cm. NS-3000B 사진에서 코크와 물받이 구조를 확인했다. 본체 밖의 레버·하향 출수구·물받이, 꼭지는 -Y.", texture_size=1024,
+        mirror_print_for_ue=True)
 
 
 def build_trash_bin(out_root):

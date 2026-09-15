@@ -316,7 +316,7 @@ TEXTURED_MATERIALS = {
 DECAL_MATERIALS = {
     "M_RetailTobaccoAd": {"tex_asset": "T_RetailTobaccoAd_D", "rough": 0.6},
     **{f"M_RetailPrice{sku}": {"tex_asset": f"T_RetailPrice{sku}_D", "rough": 0.7}
-       for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit")},
+       for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit", "Water", "Soda", "Barley", "GreenTea")},
     "M_LabelWater1L": {"tex_asset": "T_LabelWater1L_D", "rough": 0.55},
     "M_LabelWater2L": {"tex_asset": "T_LabelWater2L_D", "rough": 0.55},
     "M_NeighborhoodDelivery": {"tex_asset": "T_NeighborhoodDelivery_D", "rough": 0.85},
@@ -703,7 +703,7 @@ SIGN_MATERIALS = {
 # its grey default material at runtime even though the texture graph is valid.
 INSTANCED_PRODUCT_MATERIALS = {
     "M_GypsumBoard",
-    *(f"M_RetailPrice{sku}" for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit")),
+    *(f"M_RetailPrice{sku}" for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit", "Water", "Soda", "Barley", "GreenTea")),
     "M_RetailPET",
     "M_BottleBrown",
     "M_BottleGreen",

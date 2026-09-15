@@ -13,7 +13,7 @@ def run():
     tools = unreal.AssetToolsHelpers.get_asset_tools()
     tasks = []
     texture_names = ["T_SignMain_D", "T_SignBlade_D", "T_RetailTobaccoAd_D", "T_NeighborhoodDelivery_D", "T_LabelWater1L_D", "T_LabelWater2L_D"]
-    texture_names += [f"T_RetailPrice{sku}_D" for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit")]
+    texture_names += [f"T_RetailPrice{sku}_D" for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit", "Water", "Soda", "Barley", "GreenTea")]
     for name in texture_names:
         task = unreal.AssetImportTask()
         task.filename = os.path.join(unreal.Paths.project_content_dir(), "SourceArt", name+".png")

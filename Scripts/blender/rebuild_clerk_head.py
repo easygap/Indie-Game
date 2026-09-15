@@ -12,6 +12,7 @@ from mathutils import Vector
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import ig_blender_lib as ig
+from clerk_surface_finish import connect_neck, match_neck_material
 
 ROOT = os.path.abspath(os.path.join(HERE, '../..'))
 NAME = 'SK_NarinClerk'
@@ -162,7 +163,9 @@ for role in ('D','N','ORM'):
 bpy.data.objects.remove(body,do_unlink=True)
 bpy.data.objects.remove(head,do_unlink=True)
 low_body.hide_render=False;low_head.hide_render=False
-low=ig.join([low_body,low_head],NAME)
+low=connect_neck(low_body,low_head)
+low.name=NAME
+match_neck_material(low,textures,NAME,OUT)
 ig.preview_material_from_bakes(low, textures)
 ig.render_preview(low, os.path.join(OUT, NAME+'_preview.png'), camera_yaw_deg=180)
 ig.render_preview(low, os.path.join(OUT, NAME+'_preview_torch.png'), camera_yaw_deg=180, flashlight=True)
@@ -181,7 +184,7 @@ slots = ig.finalize_slots(low)
 ig.ensure_primary_uv(low)
 ig.export_fbx(os.path.join(OUT,NAME+'.fbx'), [low])
 ig.write_manifest(OUT,NAME,'hero',os.path.join(OUT,NAME+'.fbx'),textures,low,slots,
-                  notes='163cm 인물. 전신과 얼굴 확대 원화의 3D 원본을 목에서 연결했다. 몸 6천5백·머리 9천 삼각형, 4K UV의 2/3를 머리에 배분한다.')
+                  notes='163cm 인물. 전신과 얼굴 원본의 교차면을 없애 목을 연결하고 양쪽 볼 색을 기준으로 피부색을 맞췄다. 삼면 참고 원화 NarinContinuity_20260915.png. 4K UV의 2/3를 머리에 배분한다.')
 with open(os.path.join(OUT,'manifest.json'),encoding='utf-8') as f:
     manifest = json.load(f)
 manifest['generated_from'] = '../Generated/NarinHead/face-closeup-20260914/raw/pbr_00001_.glb'

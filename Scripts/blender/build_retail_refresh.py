@@ -30,6 +30,7 @@ def materials():
         "blue": ig.mat_emissive("푸른광고띠", (.025, .13, .42), .75),
         "screen": ig.mat_plastic("POS화면", (.025, .042, .05), .25, bump=0),
         "print": ig.mat_image_uv("상품인쇄", os.path.join(ART, "RetailPackaging.png"), roughness=.38),
+        "back": ig.mat_image_uv("상품뒷면", os.path.join(ART, "RetailPackagingBack.png"), roughness=.45),
         "pack": ig.mat_image_uv("담뱃갑인쇄", os.path.join(ART, "CigarettePacks.png"), roughness=.52),
         "ad": ig.mat_image_uv("담배장광고", os.path.join(ROOT, "Content", "SourceArt", "T_RetailTobaccoAd_D.png"), roughness=.50),
     }
@@ -129,10 +130,10 @@ def bag(out, index):
     m=materials()
     bm=bmesh.new()
     uv=bm.loops.layers.uv.new("ImageUV")
-    rect=ig.atlas_rect(2,3,index)
     nx,nz=12,16
     grids=[]
     for side in (-1,1):
+        rect=ig.atlas_rect(2,3,index) if side < 0 else ig.atlas_rect(2,2,index)
         grid=[]
         for iz in range(nz+1):
             t=iz/nz
@@ -148,6 +149,7 @@ def bag(out, index):
         for iz in range(nz):
             for ix in range(nx):
                 face=bm.faces.new((grid[iz][ix],grid[iz][ix+1],grid[iz+1][ix+1],grid[iz+1][ix]))
+                face.material_index=0 if side < 0 else 1
                 for loop in face.loops:
                     z=loop.vert.co.z/.245
                     width=.164*(.90+.10*math.sin(math.pi*z))
@@ -164,12 +166,13 @@ def bag(out, index):
     mesh=ig._mesh_from_bm("봉지",bm)
     ob=ig._link(bpy.data.objects.new("봉지",mesh))
     mesh.materials.append(m["print"])
+    mesh.materials.append(m["back"])
     for face in mesh.polygons: face.use_smooth=True
     p=[ob]
     for z in (.003,.242):
         p.append(ig.box("열접착선",(.15,.006,.005),(0,0,z),material=m["paper"]))
     finish(("SM_RetailPotato","SM_RetailShrimp","SM_RetailCorn")[index],p,out,
-           "60~70g 봉지 16.4×8.6×24.5cm. 밀봉선과 공기층, 완만한 접힘. 같은 제품의 앞면을 통로로 맞춘다.",size=1024)
+           "60~70g 봉지 16.4×8.6×24.5cm. 앞면은 상품명, 뒷면은 영양·보관 정보. 밀봉선과 공기층, 완만한 접힘.",size=1024)
 
 
 def cups(out,index):
@@ -200,9 +203,16 @@ def cups(out,index):
 def biscuit(out):
     ig.reset_scene()
     m=materials()
-    body=ig.box("접은종이상자",(.19,.055,.125),(0,0,.0625),bevel=.001,segments=1,material=m["paper"])
+    carton=ig.mat_plastic("갈색인쇄종이",(.105,.031,.008),.52,bump=0)
+    body=ig.box("접은종이상자",(.19,.055,.125),(0,0,.0625),bevel=.001,segments=1,material=carton)
     face=ig.image_quad("앞면",(.188,.123),(0,-.028,.0625),m["print"],uv_rect=ig.atlas_rect(2,3,3))
-    finish("SM_RetailBiscuit",[body,face],out,"비스킷 소매 상자 19×5.5×12.5cm. 인쇄가 한 면에 붙는 접이식 종이 포장.",size=1024)
+    back=ig.image_quad("뒷면",(.188,.123),(0,.028,.0625),m["back"],rotation=(0,0,math.pi),uv_rect=ig.atlas_rect(2,2,3))
+    # 위·옆 접힘 면에도 원화의 작은 제품명을 배치한다. 흰 민무늬 상자가 보이지 않는다.
+    top=ig.image_quad("윗면인쇄",(.184,.050),(0,0,.1256),m["back"],rotation=(-math.pi/2,0,0),uv_rect=(.52,.385,.94,.49))
+    sides=[]
+    for side in (-1,1):
+        sides.append(ig.image_quad("옆면인쇄",(.051,.12),(side*.0956,0,.0625),m["back"],rotation=(0,0,side*math.pi/2),uv_rect=(.53,.02,.97,.48)))
+    finish("SM_RetailBiscuit",[body,face,back,top]+sides,out,"비스킷 소매 상자 19×5.5×12.5cm. 앞면 원화, 뒷면 제품 정보, 갈색 접힘 면을 각각 매핑했다.",size=1024)
 
 
 def pet(out):

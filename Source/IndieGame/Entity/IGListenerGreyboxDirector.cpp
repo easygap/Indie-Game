@@ -5495,8 +5495,28 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 			break;
 		case 40: CaptureShot(TEXT("kitchen-microwave")); break;
 		case 41:
+			if (FParse::Param(FCommandLine::Get(), TEXT("IGRetailAudit"))) break;
 			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
 			UE_LOG(LogTemp, Display, TEXT("RETAIL_CAPTURE PASS shots=%d production=1 d3d12=1"), bCaptureMetricsOnly ? 0 : 7);
+			RequestExit(false);
+			break;
+		case 42: CaptureTeleportPlayer(FVector(2520, -277, 104), 65, -6); break;
+		case 44: CaptureShot(TEXT("retail-clerk-left")); break;
+		case 45: CaptureTeleportPlayer(FVector(2680, -280, 104), 120, -6); break;
+		case 48: CaptureShot(TEXT("retail-clerk-right")); break;
+		case 49: CaptureTeleportPlayer(FVector(2580, -345, 104), 87, -5); break;
+		case 52: CaptureShot(TEXT("retail-clerk-distance")); break;
+		case 53: CaptureTeleportPlayer(FVector(2758, -727, 104), 90, -48); break;
+		case 56: CaptureShot(TEXT("retail-packaging-back")); break;
+		case 57: CaptureTeleportPlayer(FVector(2550, -726, 104), 180, -22); break;
+		case 60: CaptureShot(TEXT("retail-seating")); break;
+		case 61: CaptureTeleportPlayer(FVector(-85, 40, 997), -145, -26); break;
+		case 64: CaptureShot(TEXT("bedroom-lamp")); break;
+		case 65: CaptureTeleportPlayer(FVector(1950, -1300, 98), 180, -4); break;
+		case 68: CaptureShot(TEXT("retail-backlane-wide")); break;
+		case 69:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("RETAIL_CAPTURE PASS shots=14 production=1 d3d12=1"));
 			RequestExit(false);
 			break;
 		default: break;

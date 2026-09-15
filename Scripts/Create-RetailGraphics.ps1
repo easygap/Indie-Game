@@ -95,7 +95,11 @@ $prices = @(
     @{Key='Corn';Name='콘스낵';Price='1,500원'},
     @{Key='CupBeef';Name='육개장 사발면';Price='1,000원'},
     @{Key='CupKimchi';Name='김치라면';Price='1,000원'},
-    @{Key='Biscuit';Name='초코비스킷';Price='1,800원'}
+    @{Key='Biscuit';Name='초코비스킷';Price='1,800원'},
+    @{Key='Water';Name='새벽샘물 500mL';Price='1,000원'},
+    @{Key='Soda';Name='탄산수 500mL';Price='1,200원'},
+    @{Key='Barley';Name='보리차 500mL';Price='1,500원'},
+    @{Key='GreenTea';Name='녹차 500mL';Price='1,500원'}
 )
 foreach ($price in $prices) {
     Sheet ('T_RetailPrice'+$price.Key+'_D.png') 512 128 {
@@ -105,4 +109,4 @@ foreach ($price in $prices) {
         Text-At $g '새벽24' 18 17 95 '#4E5851'
     }
 }
-Write-Host 'RETAIL_GRAPHICS PASS 16 textures'
+Write-Host 'RETAIL_GRAPHICS PASS'
