@@ -1,0 +1,30 @@
+{
+  "name": "SM_MeterRotor",
+  "mesh_class": "prop",
+  "fbx": "SM_MeterRotor.fbx",
+  "textures": {
+    "D": "SM_MeterRotor_D.png",
+    "N": "SM_MeterRotor_N.png",
+    "ORM": "SM_MeterRotor_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 272,
+  "bounds_m": {
+    "min": [
+      -0.034,
+      -0.0341,
+      -0.013
+    ],
+    "max": [
+      0.034,
+      0.034,
+      0.013
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "6.8cm 수평 원판. 원점과 회전축 Z를 보존. 검정 띠가 돌아오는 것으로 관찰."
+}

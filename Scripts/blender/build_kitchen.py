@@ -37,11 +37,23 @@ def L(x_cm, y_cm, z_cm):
 
 
 def mats():
+    # 실물 인조대리석 샘플을 참고한 원본. 검고 흰 절차식 노이즈는 상판 전체에서
+    # 반짝이는 모래처럼 보여 없앴다. 표면은 평평하고 입자는 색상에만 남긴다.
+    stone = ig.mat_image("CounterSolidSurface", os.path.join(REPO, "Content", "SourceArt", "AI", "CounterSolidSurface_20260915.png"), roughness=.34)
+    tree = stone.node_tree
+    texture = next(n for n in tree.nodes if n.type == "TEX_IMAGE")
+    texture.projection = "BOX"
+    texture.projection_blend = .12
+    coordinates = tree.nodes.new("ShaderNodeTexCoord")
+    scale = tree.nodes.new("ShaderNodeVectorMath")
+    scale.operation = "SCALE"
+    scale.inputs[3].default_value = 1.0 / .30
+    tree.links.new(coordinates.outputs["Object"], scale.inputs[0])
+    tree.links.new(scale.outputs["Vector"], texture.inputs["Vector"])
     return {
         "gloss": ig.mat_painted_steel("GlossWhite", (0.86, 0.86, 0.84), roughness=0.16, wear=0.08, bump=0.008,
                                       dirt_color=(0.55, 0.53, 0.5)),
-        "stone": ig.mat_speckle("CounterStone", (0.13, 0.12, 0.11), (0.62, 0.60, 0.56), scale=1200.0,
-                                threshold=0.55, roughness=0.28),
+        "stone": stone,
         "dark": ig.mat_plastic("DarkPlastic", (0.02, 0.02, 0.022), roughness=0.5),
         "steel": ig.mat_metal("Stainless", (0.78, 0.78, 0.77), roughness=0.36, streak=0.1),
         "chrome": ig.mat_metal("Chrome", (0.86, 0.86, 0.86), roughness=0.22, streak=0.05, anisotropic=False),

@@ -71,7 +71,7 @@ namespace IGNightThree
 	// 관리실 책상 위. (118, -96, 80)은 P2 민원 대장 정서본(X 108.6~130.8,
 	// Y -118.3~-87.7) 한가운데였고 상판(Z=76)에도 1cm 박혀 있었다. 서로
 	// 다른 디렉터가 같은 책상에 놓으면서 부딪혔다. 대장 앞쪽 빈자리로 뺀다.
-	const FVector KeyringLocation(118.0f, -126.0f, 81.0f);
+	const FVector KeyringLocation(118.0f, -126.0f, 76.16f);
 
 	// Day papers: the mover's labels in 403, the forum printout by the
 	// mailboxes, the tally journal at 401's threshold once it is earned.
@@ -288,7 +288,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		return false;
 	}
 
-	// The keyring, hanging in the booth the hour leaves open.
+	// 관리실 상판에 내려 둔 금속 열쇠 두 개. 이름표까지 같은 메시로 반입한다.
 	SpawnParameters.Name = TEXT("MissingFloorKeyring");
 	Keyring = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
@@ -298,21 +298,24 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	{
 		return false;
 	}
+	UStaticMesh* KeyringMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_BoothKeyring.SM_BoothKeyring"));
 	Keyring->Configure(
-		CubeMesh,
-		HandleMaterial,
-		FVector(9.0f, 4.0f, 10.0f),
+		KeyringMesh,
+		LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/MI_BoothKeyring.MI_BoothKeyring")),
+		FVector::ZeroVector,
 		NSLOCTEXT("IGMissingFloor", "KeyringPrompt", "옥상·창고 열쇠뭉치"),
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"KeyringThought",
-			"크기가 다른 열쇠 둘. `옥상`, `창고`."),
+			"옥상, 창고. 열쇠를 챙겼다."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
 		0.1f);
 	Keyring->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightThreeDirector::HandleKeyringTaken);
+	RefreshKeyringAvailability();
 
 	// -- annex contents ----------------------------------------------------
 
@@ -913,6 +916,7 @@ void AIGMissingFloorNightThreeDirector::EndPlay(
 
 void AIGMissingFloorNightThreeDirector::SetHourActive(const bool bHourActive)
 {
+	RefreshKeyringAvailability();
 	bHourCurrentlyActive = bHourActive;
 	if (!bHourActive)
 	{
@@ -959,6 +963,16 @@ bool AIGMissingFloorNightThreeDirector::GetCavityWallObservationPoint(
 	return true;
 }
 
+void AIGMissingFloorNightThreeDirector::RefreshKeyringAvailability()
+{
+	if (!Keyring) { return; }
+	const bool bTaken = IGStory::HasState(this, FGameplayTag::RequestGameplayTag(
+		FName(TEXT("State.MissingFloor.HasStairKey")), false));
+	Keyring->SetActorHiddenInGame(bTaken);
+	Keyring->SetActorEnableCollision(!bTaken);
+	Keyring->SetInteractionEnabled(!bTaken);
+}
+
 void AIGMissingFloorNightThreeDirector::HandleKeyringTaken(
 	AIGMissingFloorEvidence* Evidence)
 {
@@ -968,8 +982,8 @@ void AIGMissingFloorNightThreeDirector::HandleKeyringTaken(
 		this,
 		FGameplayTag::RequestGameplayTag(
 			FName(TEXT("State.MissingFloor.HasStairKey")), false));
-	// 고리 옆, 밤3의 책상에 부동산 문자 사본이 뽑혀 있다. 밤2에는 없던
-	// 종이다. T7은 이 종이가 닫는다 — 열쇠만 집고 나가면 밤4의 망치가 안 열린다.
+	RefreshKeyringAvailability();
+	// 아직 읽지 않았다면 옆에 놓인 문자 사본을 짚어 준다. 밤2부터 있는 종이다.
 	if (const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
 		if (!Narrative->HasSource(
@@ -981,7 +995,7 @@ void AIGMissingFloorNightThreeDirector::HandleKeyringTaken(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"KeyringPaperThought",
-					"고리 옆에 문자 뽑아 놓은 종이가 있다. 어제는 없었는데."),
+					"열쇠 옆에 부동산에서 보낸 문자가 있다."),
 				3.8f);
 		}
 	}

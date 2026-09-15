@@ -60,7 +60,7 @@ AIGMissingFloorPuzzleOneDirector::AIGMissingFloorPuzzleOneDirector()
 void AIGMissingFloorPuzzleOneDirector::UpdateMeterMotion()
 {
 	GetWorldTimerManager().ClearTimer(MeterRotationTimer);
-	if (bHourActive && bBreakerThrown)
+	if (Scene.IsValid())
 	{
 		GetWorldTimerManager().SetTimer(MeterRotationTimer, this,
 			&AIGMissingFloorPuzzleOneDirector::AdvanceMeterDisc, .05f, true);
@@ -69,12 +69,9 @@ void AIGMissingFloorPuzzleOneDirector::UpdateMeterMotion()
 
 void AIGMissingFloorPuzzleOneDirector::AdvanceMeterDisc()
 {
-	if (bHourActive && bBreakerThrown && Scene.IsValid())
+	if (Scene.IsValid())
 	{
-		if (UStaticMeshComponent* Disc = Scene->GetFifthMeterDisc())
-		{
-			Disc->AddLocalRotation(FRotator(0, 2.1f, 0));
-		}
+		Scene->AdvanceUtilityMeters(2.1f, bHourActive && bBreakerThrown, bCommonLightsEnabled);
 	}
 }
 
@@ -132,11 +129,11 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		CubeMesh,
 		nullptr,
 		FVector(15.0f, 3.0f, 15.0f),
-		NSLOCTEXT("IGMissingFloor", "P1MeterPrompt", "계량기"),
+		NSLOCTEXT("IGMissingFloor", "P1MeterPrompt", "계량기 — 원판 확인"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
-		0.0f,
+		1.2f,
 		IGPuzzleOne::DialNoiseLoudness,
 		/*bPresentationVisible=*/false);
 	MeterDialEvidence->OnExamined.AddUObject(

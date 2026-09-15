@@ -62,12 +62,29 @@ def author(material, finish):
         if lib.connect_material_expressions(a, "", b, slot) is False:
             raise RuntimeError(f"재질 노드 연결 실패: {b.get_name()} / {slot}")
 
+    # 디딤판과 챌판이 같은 석재를 쓴다. 면 방향에 맞춰 좌표를 고르고
+    # 색상과 줄눈이 같은 좌표를 쓰게 해 계단 옆면도 늘어나지 않게 한다.
+    position = node("MaterialExpressionWorldPosition")
+    if finish == "granite":
+        projected = node("MaterialExpressionCustom",
+                         output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3,
+                         code="float3 n=abs(N); return float3(n.z>.707 ? P.xy : (n.x>n.y ? P.yz : P.xz),0);",
+                         description="석재 면 방향 투영 / 600mm")
+        pins = []
+        for label in ("P", "N"):
+            pin = unreal.CustomInput()
+            pin.set_editor_property("input_name", label)
+            pins.append(pin)
+        projected.set_editor_property("inputs", pins)
+        link(position, projected, "P")
+        link(node("MaterialExpressionVertexNormalWS"), projected, "N")
+        position = projected
+
     base = color((.68, .69, .665) if finish == "wall" else (.61, .59, .54))
     rough = scalar(.42 if finish == "wall" else .31)
     if finish in ("floor", "granite"):
         # 600mm 실물 사진을 기준으로 한 색상 원본이다. 연마면의 검은 광물은
         # 구멍이 아니므로 색의 명암에서 높이·노멀을 만들지 않는다.
-        position = node("MaterialExpressionWorldPosition")
         axes = node("MaterialExpressionComponentMask", r=True, g=True, b=False, a=False)
         link(position, axes, "")
         uv = node("MaterialExpressionDivide", const_b=60.)
@@ -98,7 +115,6 @@ def author(material, finish):
     if finish not in ("wall", "gypsum"):
         # 반복 전 좌표의 미분으로 픽셀 면적을 구한다. frac의 경계에서 미분하면
         # 줄눈 한 줄이 타일 너비만큼 번지거나 먼 바닥에서 반짝인다.
-        position = node("MaterialExpressionWorldPosition")
         grid = node("MaterialExpressionCustom", output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1,
                     code="float2 uv=P.xy/60.0; float2 w=max(fwidth(uv),1e-5); float2 d=abs(frac(uv+0.5)-0.5); float2 a=saturate((0.001667-d)/w+0.5); a=lerp(a,float2(0.003333,0.003333),saturate(w*2.0-1.0)); return 1.0-(1.0-a.x)*(1.0-a.y);",
                     description="600mm 타일 / 2mm 줄눈")

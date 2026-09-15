@@ -1,0 +1,31 @@
+{
+  "name": "SM_BoothRecorder",
+  "mesh_class": "prop",
+  "fbx": "SM_BoothRecorder.fbx",
+  "textures": {
+    "D": "SM_BoothRecorder_D.png",
+    "N": "SM_BoothRecorder_N.png",
+    "ORM": "SM_BoothRecorder_ORM.png",
+    "E": "SM_BoothRecorder_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1075,
+  "bounds_m": {
+    "min": [
+      -0.13,
+      -0.114,
+      0.0
+    ],
+    "max": [
+      0.1306,
+      0.1165,
+      0.045
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 1.6,
+  "blender": "5.2.0 LTS",
+  "notes": "4채널 녹화기 26x21.5x4.5cm. SRD-440 제품 사진과 생성 시트 대조. 앞면 -Y, 바닥 원점."
+}

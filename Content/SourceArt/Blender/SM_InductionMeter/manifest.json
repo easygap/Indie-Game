@@ -1,0 +1,31 @@
+{
+  "name": "SM_InductionMeter",
+  "mesh_class": "prop",
+  "fbx": "SM_InductionMeter.fbx",
+  "textures": {
+    "D": "SM_InductionMeter_D.png",
+    "N": "SM_InductionMeter_N.png",
+    "ORM": "SM_InductionMeter_ORM.png"
+  },
+  "slots": [
+    "Baked",
+    "Glass"
+  ],
+  "triangles": 2904,
+  "bounds_m": {
+    "min": [
+      -0.064,
+      -0.077,
+      0.0
+    ],
+    "max": [
+      0.064,
+      0.0045,
+      0.2205
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "유도형 계량기. 뒷판 하단 원점, 앞면 -Y. 별도 수평 원판은 로컬 (0,-4.2,9.6)cm. 실물·생성 시트 대조."
+}

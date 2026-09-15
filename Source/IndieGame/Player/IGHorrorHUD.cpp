@@ -1838,7 +1838,7 @@ void AIGHorrorHUD::DrawHUD()
 {
 	Super::DrawHUD();
 
-	if (!Canvas || !GEngine)
+	if (!bShowHUD || !Canvas || !GEngine)
 	{
 		return;
 	}

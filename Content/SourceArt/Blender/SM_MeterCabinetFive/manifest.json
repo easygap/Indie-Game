@@ -1,0 +1,30 @@
+{
+  "name": "SM_MeterCabinetFive",
+  "mesh_class": "prop",
+  "fbx": "SM_MeterCabinetFive.fbx",
+  "textures": {
+    "D": "SM_MeterCabinetFive_D.png",
+    "N": "SM_MeterCabinetFive_N.png",
+    "ORM": "SM_MeterCabinetFive_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 844,
+  "bounds_m": {
+    "min": [
+      -0.49,
+      -0.0105,
+      -0.32
+    ],
+    "max": [
+      0.49,
+      0.089,
+      0.32
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "5칸 검침함 98x64cm. 열린 창 14.1x24.1cm, 18cm 간격. 검침함 실물 사진의 절곡 강판·캠록을 반영."
+}

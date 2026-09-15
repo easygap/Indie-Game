@@ -36,6 +36,7 @@
 #include "HAL/PlatformMisc.h"
 #include "IndieGame.h"
 #include "HighResScreenshot.h"
+#include "Kismet/GameplayStatics.h"
 #include "Interaction/IGCheckoutCounter.h"
 #include "Interaction/IGElevator.h"
 #include "Player/IGFlashlightComponent.h"
@@ -51,6 +52,7 @@
 #include "Interaction/IGSwingDoor.h"
 #include "Interaction/IGZoneTrigger.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
@@ -934,13 +936,12 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 	Light->SetMaxDistanceFadeRange(FMath::Max(Radius * 0.5f, 250.0f));
 	Light->SetLightColor(Color);
 	Light->SetCastShadows(bCastShadows);
-	// A physical source size softens penumbras; contact shadows ground props.
-	// Real fixtures are area sources, so a light with no radius given still
-	// gets a small one rather than a point-hard edge.
+	// 광원의 면적으로 그림자 가장자리를 부드럽게 한다.
 	const float EffectiveSourceRadius = FMath::Max(SourceRadius, 3.0f);
 	Light->SetSourceRadius(EffectiveSourceRadius);
 	Light->SetSoftSourceRadius(EffectiveSourceRadius * 1.6f);
-	Light->ContactShadowLength = bCastShadows ? 0.12f : 0.0f;
+	// VSM이 소품 접촉부까지 처리한다. 화면 공간 접촉 그림자를 중복 계산하지 않는다.
+	Light->ContactShadowLength = 0.0f;
 	Light->ContactShadowLengthInWS = false;
 	Light->ShadowSharpen = 0.0f;
 	// Do not mute the BRDF at the light.  Material roughness and specular now
@@ -950,6 +951,18 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 	Light->RegisterComponent();
 	Lights.Add(Light);
 	return Light;
+}
+
+void AIGPrologueWorldScene::AdvanceUtilityMeters(float Degrees, bool bUnnamedPowered, bool bCommonPowered)
+{
+	// 멀리 있는 계량기에는 애니메이션 갱신을 보내지 않는다.
+	const APawn* Observer = UGameplayStatics::GetPlayerPawn(this, 0);
+	if (!Observer || FVector::DistSquared(Observer->GetActorLocation(), FVector(506, -345, 150)) > FMath::Square(650.0f)) { return; }
+	for (int32 Index = 0; Index < UtilityMeterDiscs.Num(); ++Index)
+	{
+		if ((Index == 4 && !bUnnamedPowered) || (Index == 3 && !bCommonPowered)) { continue; }
+		UtilityMeterDiscs[Index]->AddLocalRotation(FRotator(0, Degrees * (1.f + .11f * Index), 0));
+	}
 }
 
 void AIGPrologueWorldScene::SetCommonInspectionLightsEnabled(const bool bEnabled)
@@ -1260,7 +1273,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		// 소리만 다르고 그림은 복도 콘크리트 그대로다.
 		TEXT("M_MissingFloorSteelStair"), TEXT("M_RooftopWaterproofing_XY"),
 		TEXT("M_MissingFloorGypsumDebris_XY"),
-		TEXT("M_WaterTankMetalUV"), TEXT("M_TankWaterReveal"),
+		TEXT("M_WaterTankMetalUV"), TEXT("M_UtilityTankSteel"), TEXT("M_UtilityFoundation"), TEXT("M_UtilityGraniteCladding"), TEXT("M_UtilityConcreteDark"), TEXT("M_UtilityVillaBrick"), TEXT("M_UtilityStreetBrick"), TEXT("M_CctvStandby"), TEXT("M_UtilityMeterCounter"), TEXT("M_UtilityMeterLabel"), TEXT("M_TankWaterReveal"),
 		TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
 		TEXT("M_SpriteHwang"), TEXT("M_SpriteNarin"),
 		// Aged paper stock for readable notes, and the rental notice.
@@ -4201,7 +4214,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		TexMat(TEXT("M_MissingFloorSteelStair"), RoofFloor);
 	UMaterialInterface* RoofDeck =
 		TexMat(TEXT("M_RooftopWaterproofing_XY"), RoofFloor);
-	UMaterialInterface* RoofMetal = TexMat(TEXT("M_WaterTankMetalUV"), MetalFrameMaterial);
+	UMaterialInterface* RoofMetal = TexMat(TEXT("M_UtilityTankSteel"), MetalFrameMaterial);
 	UMaterialInterface* RailMetal = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
 
 	MissingFloorUpperStairSteps.Reset();
@@ -4286,7 +4299,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	CreateBlock(
 		TankCenter + FVector(0.0f, 0.0f, 1250.0f),
 		FVector(360.0f, 360.0f, 100.0f),
-		AnnexFloor);
+		TexMat(TEXT("M_UtilityFoundation"), ConcreteMaterial));
 	if (UStaticMesh* TankShell = PropMesh(TEXT("SM_RooftopWaterTankShell")))
 	{
 		CreateBlock(
@@ -5265,43 +5278,23 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(170, -77.5f, 120), FVector(240, 15, 240), LobbyWallX);
 	CreateBlock(FVector(52.5f, -155, 120), FVector(15, 140, 240), LobbyWallY);
 	CreateBlock(FVector(287.5f, -155, 120), FVector(15, 140, 240), LobbyWallY);
-	// Desk with the monitor shell; the interactables land on it later, from
-	// the night-2 director, because BuildLobby runs before any actor exists.
-	CreateBlock(FVector(160, -110, 38), FVector(110, 55, 76), ShelfSteel);
-	// 케이스는 검은 플라스틱이고 빛나는 것은 화면뿐이다. 예전에는 발광 재질을
-	// 40x10x28 상자 전체에 발라서, 옆면과 윗면까지 빛나는 하늘색 덩어리가
-	// 책상에 놓여 있었다. 화면은 케이스 앞면(Y=-105)보다 살짝 앞에 세우되
-	// AIGCctvChannelFive가 채널 5 동안 띄우는 렌더 면(Y=-105.45)과는 겹치지
-	// 않게 그 사이에 둔다.
-	CreateBlock(
-		FVector(150, -100, 96), FVector(40, 10, 28),
-		PlasticDarkMaterial, false);
-	// 화면은 4분할이다. 「채널이 4분할로 돌아간다」고 서사가 두 번 말하는데
-	// 발광 판 하나로 두면 균일한 하늘색 사각형이라 그 말이 화면에 없다.
-	// 분할선을 앞에 덧대는 대신 발광면 자체를 넷으로 쪼갠다 — 채널 5의
-	// 렌더 면(Y=-105.45)과 케이스 앞면(Y=-105) 사이가 0.25 cm뿐이라
-	// 그 틈에 판을 하나 더 세울 자리가 없다. 8 mm 틈으로 케이스의 검은
-	// 앞면이 비치면서 그것이 그대로 분할선이 된다.
+	// 상판 아래가 빈 사무용 책상. 받침대와 녹화기, 장부의 자리를 따로 둔다.
+	CreateBlock(FVector(160, -110, 74.5f), FVector(110, 55, 3), ShelfSteel);
+	for (float LegX : {110.0f, 210.0f})
 	{
-		constexpr float ScreenWidth = AIGPrologueWorldScene::CctvScreenWidth;
-		constexpr float ScreenHeight = AIGPrologueWorldScene::CctvScreenHeight;
-		constexpr float MullionWidth = 0.8f;
-		const float QuadrantWidth = (ScreenWidth - MullionWidth) * 0.5f;
-		const float QuadrantHeight = (ScreenHeight - MullionWidth) * 0.5f;
-		const float OffsetX = (QuadrantWidth + MullionWidth) * 0.5f;
-		const float OffsetZ = (QuadrantHeight + MullionWidth) * 0.5f;
-		for (const float SideX : {-1.0f, 1.0f})
-		{
-			for (const float SideZ : {-1.0f, 1.0f})
-			{
-				CreateBlock(
-					FVector(150 + SideX * OffsetX, -105.2f, 96 + SideZ * OffsetZ),
-					FVector(QuadrantWidth, 0.3f, QuadrantHeight),
-					ScreenGlowMaterial, false);
-			}
-		}
+		for (float LegY : {-132.5f, -87.5f})
+			CreateBlock(FVector(LegX, LegY, 36.5f), FVector(3.5f, 3.5f, 73), ShelfSteel);
 	}
-	CreateBlock(FVector(150, -103, 80), FVector(12, 8, 8), PlasticDarkMaterial, false);
+	CreateBlock(FVector(160, -87.5f, 24), FVector(96.5f, 2, 4), ShelfSteel, false);
+	// 배관 밸브가 토출관과 맞물리는 몸체와 축이다.
+	CreateBlock(FVector(75, -170, 52), FVector(9, 9, 8), ShelfSteel, false, CylinderMesh);
+	CreateBlock(FVector(75, -177, 52), FVector(2, 2, 12), ShelfSteel, false, CylinderMesh, FRotator(0, 0, 90));
+	CreateProp(TEXT("SM_BoothRecorder"), FVector(150, -100, 76), nullptr, 0, 1, false);
+	CreateProp(TEXT("SM_BoothMonitor"), FVector(150, -100, 80.5f), nullptr, 0, 1, false);
+	// 일반 네 채널은 실제 맵에서 구운 화면을 쓴다. 외부 입력 5번만 순간 렌더한다.
+	CreateBlock(FVector(150, -105.2f, CctvScreenCenterZ), FVector(CctvScreenWidth, CctvScreenHeight, 100),
+		TexMat(TEXT("M_CctvStandby"), ScreenGlowMaterial), false,
+		LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")), FRotator(0, 180, 90));
 	// The inner room's door leaf, always shut: a dark slab with a hairline
 	// gap the foam reveal peers through. It never opens — that is the point.
 	CreateBlock(FVector(240, -84.5f, 105), FVector(70, 5, 210), PlasticDarkMaterial, false);
@@ -5406,71 +5399,29 @@ void AIGPrologueWorldScene::BuildLobby()
 		}
 	}
 
-	// 없는 층 P1: the utility meter cabinet and the distribution panel, on the
-	// one genuinely empty wall in the vestibule — the street wall segment
-	// X 450..600, whose inner face is Y = -375. Props extend toward +Y so
-	// nothing sinks into the 20 cm wall, and everything stays west of X 598 to
-	// clear the common-entrance opening and the swept volume of its leaf.
-	//
-	// Three unit meters, one clearly labelled common meter and a fifth with no
-	// nameplate. The dial that does not turn is the whole point, so its component
-	// is kept: the other four are given a slow rotation and it is left motionless.
-	// 계량기함은 분전반이 아니다. 여기 케이스가 「분전반」 도장면을 쓰고
-	// 있어서 8 cm 옆면마다 그 글자가 눌려 찍혔다. 신원은 아래 401·402·403·
-	// 공용 명판이 이미 말한다.
-	CreateBlock(FVector(506, -371.0f, 150), FVector(96, 8, 62), Metal, false);
-	CreateBlock(FVector(506, -366.4f, 150), FVector(98, 1.2f, 64), Metal, false);
+	// 검침함의 열린 창 안에 실제 계기를 넣는다. 계수기 아래의 원판은 수평이다.
+	CreateProp(TEXT("SM_MeterCabinetFive"), FVector(506, -365, 150), nullptr, 180, 1, false);
+	UtilityMeterDiscs.Reset();
+	for (int32 MeterIndex = 0; MeterIndex < 5; ++MeterIndex)
 	{
-		const TCHAR* MeterPlateNames[] = {
-			TEXT("M_Plate401"), TEXT("M_Plate402"),
-			TEXT("M_Plate403"), TEXT("M_PlateCommon")};
-		const float MeterXs[] = {470.0f, 488.0f, 506.0f, 524.0f, 542.0f};
-		for (int32 MeterIndex = 0; MeterIndex < 5; ++MeterIndex)
+		const float MeterX = 470.0f + MeterIndex * 18.0f;
+		CreateProp(TEXT("SM_InductionMeter"), FVector(MeterX, -373.3f, 140.5f), nullptr, 180, 1, false);
+		UStaticMeshComponent* Disc = CreateProp(TEXT("SM_MeterRotor"), FVector(MeterX, -369.1f, 150.1f), nullptr, 0, 1, false);
+		if (Disc)
 		{
-			const float MeterX = MeterXs[MeterIndex];
-			CreateBlock(
-				FVector(MeterX, -365.4f, 156), FVector(13, 13, 1.2f),
-				GlassMaterial, false);
-			// 문자판. 눈금과 붉은 호는 텍스처가, 지침과 다섯 번째가 돌지
-			// 않는다는 사실은 코드가 소유한다. 회전 원판보다 뒤(Y가 작은
-			// 쪽)에 두고 원판을 줄여, 눈금이 원판 둘레로 보이면서 회전도
-			// 함께 읽히게 한다 — P1은 「다섯째만 안 돈다」가 전부이므로
-			// 원판이 문자판에 가려지면 퍼즐 자체가 사라진다.
-			//
-			// 깊이는 두 면 사이 0.6cm가 전부다. 함체 강판 앞면이 -365.8,
-			// 원판 앞면이 -365.2이고 문자판은 그 사이에 있어야 한다.
-			// -366.6/두께 0.8은 -367.0~-366.2라 강판 안에 통째로 들어가
-			// 있었다 — 재질이 무엇이든 보일 수가 없는 자리였다. 두께를
-			// 0.4로 줄여 양쪽에 0.1cm씩 띄운다.
-			CreateBlock(
-				FVector(MeterX, -365.5f, 152), FVector(11, 0.4f, 11),
-				TexMat(TEXT("M_UtilityMeterDial"), SignWhiteMaterial), false);
-			// Roll 90 puts the cylinder axis on world Y, so the disc face is
-			// what a reader standing in the lobby actually sees.
-			UStaticMeshComponent* Disc = CreateBlock(
-				FVector(MeterX, -366.0f, 152), FVector(5, 5, 1.6f),
-				PlasticDarkMaterial, false, CylinderMesh, FRotator(0, 0, 90));
-			if (MeterIndex == 4)
-			{
-				FifthMeterDisc = Disc;
-				Disc->SetMobility(EComponentMobility::Movable);
-				UStaticMeshComponent* IndexMark = CreateBlock(
-					FVector(MeterX + 1.3f, -365.05f, 152), FVector(2.1f, 0.15f, 0.3f),
-					SignWhiteMaterial, false);
-				IndexMark->SetMobility(EComponentMobility::Movable);
-				IndexMark->AttachToComponent(Disc, FAttachmentTransformRules::KeepWorldTransform);
-				// No nameplate: a unit that is not on any list.
-				CreateBlock(
-					FVector(MeterX, -365.6f, 133), FVector(15, 1.0f, 6),
-					SignWhiteMaterial, false);
-			}
-			else
-			{
-				CreateBlock(
-					FVector(MeterX, -365.6f, 133), FVector(15, 1.0f, 6),
-					TexMat(MeterPlateNames[MeterIndex], SignWhiteMaterial), false);
-			}
+			Disc->SetMobility(EComponentMobility::Movable);
+			Disc->SetCastShadow(false);
+			UtilityMeterDiscs.Add(Disc);
+			if (MeterIndex == 4) { FifthMeterDisc = Disc; }
 		}
+		UMaterialInstanceDynamic* CounterPrint = UMaterialInstanceDynamic::Create(
+			TexMat(TEXT("M_UtilityMeterCounter"), SignWhiteMaterial), this);
+		UMaterialInstanceDynamic* LabelPrint = UMaterialInstanceDynamic::Create(
+			TexMat(TEXT("M_UtilityMeterLabel"), SignWhiteMaterial), this);
+		CounterPrint->SetScalarParameterValue(TEXT("MeterIndex"), MeterIndex);
+		LabelPrint->SetScalarParameterValue(TEXT("MeterIndex"), MeterIndex);
+		CreateBlock(FVector(MeterX, -367.0f, 158.3f), FVector(7.25f, .01f, 2.25f), CounterPrint, false);
+		CreateBlock(FVector(MeterX, -364.75f, 133), FVector(15, .04f, 6), LabelPrint, false);
 	}
 
 	// The 두꺼비집, east of the cabinet and clear of the entrance opening.
@@ -5645,12 +5596,10 @@ void AIGPrologueWorldScene::BuildLobby()
 	// Lower mouth of the same occluded switchback stair. Five real treads and
 	// a dark return wall make the floor compression happen behind a plausible
 	// 180-degree corner instead of in the open lobby.
-	// 계단 한 단은 바닥에서 자란 한 덩어리다. 디딤면은 화강석 타일을 XY로
-	// 읽어 맞지만, 같은 상자의 챌면은 세로 면이라 그 재질이 높이를 따라
-	// 변하지 않는다 — 타일 한 줄이 18 cm 높이로 늘어난 민무늬 띠가 된다.
-	// 챌면에는 실제 건물이 쓰는 것과 같은 화강석 판재를 YZ로 읽어 3 mm 덧댄다.
+	// 챌판도 디딤판과 같은 작은 입자의 화강석을 쓴다.
+	// 얇은 마감판의 옆면까지 면 방향에 맞춰 투영한다.
 	UMaterialInterface* LobbyRiser =
-		TexMat(TEXT("M_GranitePanel_Y"), ConcreteMaterial);
+		TexMat(TEXT("M_UtilityGraniteCladding"), ConcreteMaterial);
 	for (int32 LowerStepIndex = 0; LowerStepIndex < 5; ++LowerStepIndex)
 	{
 		const float StepX = -100.0f - LowerStepIndex * 22.0f;
@@ -5678,17 +5627,15 @@ void AIGPrologueWorldScene::BuildLobby()
 void AIGPrologueWorldScene::BuildAlley()
 {
 	UMaterialInterface* AsphaltWorld = TexMat(TEXT("M_AsphaltWorld"), AsphaltMaterial);
-	UMaterialInterface* BrickX = TexMat(TEXT("M_Brick_X"), ConcreteMaterial);
+	UMaterialInterface* BrickX = TexMat(TEXT("M_UtilityStreetBrick"), ConcreteMaterial);
 	UMaterialInterface* VillaStuccoX =
 		TexMat(TEXT("M_VillaStucco_X"), ConcreteMaterial);
 	UMaterialInterface* VillaStuccoY =
 		TexMat(TEXT("M_VillaStucco_Y"), ConcreteMaterial);
-	UMaterialInterface* DarkX = TexMat(TEXT("M_ConcreteDark_X"), ConcreteDarkMaterial);
-	UMaterialInterface* DarkY = TexMat(TEXT("M_ConcreteDark_Y"), ConcreteDarkMaterial);
-	// 위를 보는 면과 아래를 보는 면. XZ/YZ 변형은 높이를 따라 UV가 변하므로
-	// 수평면에 붙이면 한 줄이 폭 방향으로 통째로 늘어난다.
-	UMaterialInterface* DarkXY =
-		TexMat(TEXT("M_ConcreteDark_XY"), ConcreteDarkMaterial);
+	UMaterialInterface* DarkX = TexMat(TEXT("M_UtilityConcreteDark"), ConcreteDarkMaterial);
+	UMaterialInterface* DarkY = DarkX;
+	// 기둥과 수평 테두리는 면 방향을 고르는 같은 재질을 쓴다.
+	UMaterialInterface* DarkXY = DarkX;
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
 
 	// Asphalt strip from the west dead end to the store front.
@@ -5726,8 +5673,8 @@ void AIGPrologueWorldScene::BuildAlley()
 	// 남는다. Band between the pilotis (0..240) and the 4F corridor wall
 	// (900..1140), then a parapet above. 벽돌은 줄눈이 텍스처에 있으므로 판
 	// 이음 홈을 따로 세우지 않는다.
-	UMaterialInterface* GranitePanelX = TexMat(TEXT("M_GranitePanel_X"), ConcreteMaterial);
-	UMaterialInterface* VillaBrickX = TexMat(TEXT("M_VillaBrick_X"), GranitePanelX);
+	UMaterialInterface* GranitePanelX = TexMat(TEXT("M_UtilityGraniteCladding"), ConcreteMaterial);
+	UMaterialInterface* VillaBrickX = TexMat(TEXT("M_UtilityVillaBrick"), GranitePanelX);
 	CreateBlock(FVector(190, -385, 570), FVector(1060, 20, 660), VillaBrickX);
 	CreateBlock(FVector(190, -385, 1190), FVector(1060, 20, 100), VillaBrickX);
 	// 층 사이 콘크리트 띠. 벽돌 빌라는 슬래브 선이 밖으로 드러난다.
@@ -6266,7 +6213,7 @@ void AIGPrologueWorldScene::BuildAlley()
 	}
 
 	// 상가 사이 두 샛길이 뒤편 배송 골목으로 이어진다. 편의점 옆길까지 한 바퀴 돌 수 있다.
-	UMaterialInterface* BrickY = TexMat(TEXT("M_Brick_Y"), ConcreteMaterial);
+	UMaterialInterface* BrickY = TexMat(TEXT("M_UtilityStreetBrick"), ConcreteMaterial);
 	const auto Passage = [this, AsphaltWorld, BrickY](float X0, float X1)
 	{
 		CreateBlock(FVector((X0 + X1) * .5f, -960, -10), FVector(X1 - X0, 560, 20), AsphaltWorld);
@@ -6607,7 +6554,7 @@ void AIGPrologueWorldScene::BuildSkyAndFog()
 	MoonLight->SetIntensity(0.25f); // full-moon-ish illuminance in lux
 	MoonLight->SetLightColor(FLinearColor(0.62f, 0.72f, 0.92f));
 	MoonLight->SetCastShadows(true);
-	MoonLight->ContactShadowLength = 0.05f;
+	MoonLight->ContactShadowLength = 0.0f;
 	MoonLight->SetAtmosphereSunLight(true);
 	MoonLight->SetAtmosphereSunLightIndex(1);
 	MoonLight->SetVolumetricScatteringIntensity(0.15f);

@@ -64,7 +64,7 @@ from dataclasses import dataclass
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 from audit_world_geometry import (  # noqa: E402
-    Unresolved,
+    Unresolved, Vec3, Rot3, rotate_vector, rotated_extent,
     match_call,
     split_arguments,
     strip_comments,
@@ -439,6 +439,7 @@ def prop_boxes(sources: dict, signatures: dict, mesh_bounds: dict) -> tuple:
                 continue
 
             location = None
+            rotation = Rot3()
             transform = re.search(r"FTransform\s*\(", spawn_arguments)
             if transform:
                 try:
@@ -447,6 +448,10 @@ def prop_boxes(sources: dict, signatures: dict, mesh_bounds: dict) -> tuple:
                     inner = ""
                 pieces = split_arguments(inner)
                 if pieces:
+                    rot_match = re.fullmatch(r"FRotator\s*\(([^()]*)\)", pieces[0].strip())
+                    rot_values = _floats(rot_match.group(1), 3) if rot_match else None
+                    if rot_values:
+                        rotation = Rot3(*rot_values)
                     location = _resolve_location(pieces[-1], constants)
             if location is None:
                 continue
@@ -530,6 +535,10 @@ def prop_boxes(sources: dict, signatures: dict, mesh_bounds: dict) -> tuple:
             if half is None:
                 unresolved += 1
                 continue
+            # 돌려 놓은 밸브나 종이도 실제 월드 축의 상자로 검사한다.
+            half = rotated_extent(Vec3(*(v * 2 for v in half)), rotation).as_tuple()
+            half = tuple(v / 2 for v in half)
+            origin = rotate_vector(Vec3(*origin), rotation).as_tuple()
             centre = tuple(location[i] + origin[i] for i in range(3))
             resolved.append((
                 f"{relative_path}:{_line_of(text, call.start())}",
@@ -829,6 +838,17 @@ def _self_test() -> int:
     check("보이는 소품은 둘 다 걸린다",
           sorted(f.code for f in shown_findings),
           ["PLACEHOLDER_MATERIAL", "UNIT_MISMATCH"])
+
+    # 평평한 손잡이를 세워 붙인 사례. 로컬 XY 크기를 그대로 쓰면 배관을
+    # 6cm나 뚫는다고 잘못 판정한다.
+    valve_source = {"Valve.cpp": """
+        Wheel = World->SpawnActor<AFakeEvidence>(AFakeEvidence::StaticClass(),
+            FTransform(FRotator(0, 0, 90), FVector(75, -184, 52)), Params);
+        Wheel->Configure(Mesh, Material, FVector(12, 12, 2), 0.0f);
+    """}
+    valve_boxes, valve_missing = prop_boxes(valve_source, signatures, {})
+    check("세운 손잡이 크기", valve_boxes[0][2:4], ((69., -185., 46.), (81., -183., 58.)))
+    check("세운 손잡이 해석", valve_missing, 0)
 
     # 자리 판정. 닿는 것과 뚫는 것을 가른다.
     def box(name, centre, half, visible=True):

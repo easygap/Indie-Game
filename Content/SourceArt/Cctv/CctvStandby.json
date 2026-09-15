@@ -1,0 +1,70 @@
+{
+  "source": "Run-FixtureReview.ps1 -BakeCctv / 실제 게임 D3D12 캡처",
+  "resolution": [
+    1024,
+    768
+  ],
+  "runtime_scene_captures": 0,
+  "frames": [
+    {
+      "source": "Docs/Media/cctv-source-entrance.png",
+      "sha256": "95ec2ba363511af55fcd01822792a54938652fdb379aabb780488e75dcdf50b2",
+      "eye_cm": [
+        490,
+        -255,
+        229
+      ],
+      "pitch_yaw_roll": [
+        -25,
+        -30,
+        0
+      ],
+      "fov": 78
+    },
+    {
+      "source": "Docs/Media/cctv-source-parking.png",
+      "sha256": "c8d5f0283a1a8971b58787ff4b4b382f503f04697519bcc07aca4e558e243255",
+      "eye_cm": [
+        2000,
+        -460,
+        230
+      ],
+      "pitch_yaw_roll": [
+        -12,
+        180,
+        0
+      ],
+      "fov": 78
+    },
+    {
+      "source": "Docs/Media/cctv-source-stair.png",
+      "sha256": "afc38ff5831f17a217db74d15d93c2d733a1494e66d2e60759a5dd7431509fd0",
+      "eye_cm": [
+        30,
+        -325,
+        1100
+      ],
+      "pitch_yaw_roll": [
+        -18,
+        180,
+        0
+      ],
+      "fov": 78
+    },
+    {
+      "source": "Docs/Media/cctv-source-corridor.png",
+      "sha256": "36cbbd25e4399d43544543291473f8c2d097674c4ca2270234072aeda2e23995",
+      "eye_cm": [
+        680,
+        -325,
+        1104
+      ],
+      "pitch_yaw_roll": [
+        -13,
+        180,
+        0
+      ],
+      "fov": 78
+    }
+  ]
+}

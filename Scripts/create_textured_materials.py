@@ -243,7 +243,7 @@ TEXTURED_MATERIALS = {
     "M_StuccoDado_Y":   {"tex": "Stucco", "mapping": "YZ", "tile": 185.0, "force_rough": 0.62,
                          "tint": (0.42, 0.47, 0.44)},
     # 포천석 사진에서 새로 만든 원본과 600mm 줄눈. 테라초를 화강석으로 위장하지 않는다.
-    "M_GraniteTile_XY": {"tex": "GraniteTile", "mapping": "XY", "tile": 60.0, "retail_finish": "granite"},
+    "M_GraniteTile_XY": {"tex": "GraniteTile", "mapping": "DOMINANT", "tile": 60.0, "retail_finish": "granite"},
     "M_GranitePanel_X": {"tex": "GranitePanel", "mapping": "XZ", "tile": 24.0,
                          "desaturate": 0.92, "tint": (0.80, 0.80, 0.78), "rough": 0.58},
     "M_GranitePanel_Y": {"tex": "GranitePanel", "mapping": "YZ", "tile": 24.0,

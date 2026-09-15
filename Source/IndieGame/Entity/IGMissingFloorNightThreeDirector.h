@@ -143,6 +143,7 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+	void RefreshKeyringAvailability();
 	void HandleKeyringTaken(AIGMissingFloorEvidence* Evidence);
 	void HandleValveOpened(AIGMissingFloorEvidence* Evidence);
 	void HandleWallListened(int32 BayIndex);

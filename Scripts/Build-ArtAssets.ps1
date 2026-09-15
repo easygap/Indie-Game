@@ -1337,6 +1337,9 @@ if ($missing.Count -gt 0) {
 	throw ('Art build finished but required assets are missing: ' + ($missing -join ', '))
 }
 
+# 설비 원본과 게임에서 구운 CCTV 화면도 전체 아트 빌드에 포함한다.
+& (Join-Path $PSScriptRoot 'Build-UtilityMaterials.ps1')
+
 # Assets existing is not the same as assets shipping. The rebuilt print
 # materials read the atlas pages now, so the textures they replaced should
 # have dropped out of the cook's reference graph; if any is still reachable

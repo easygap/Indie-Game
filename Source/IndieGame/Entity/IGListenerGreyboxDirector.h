@@ -82,7 +82,7 @@ private:
 	void EnterCaptureStep(int32 StepIndex);
 	void CaptureTeleportPlayer(const FVector& Location, float Yaw, float Pitch);
 	void CaptureParkEntity(const FVector& Location, float Yaw);
-	void CaptureShot(const TCHAR* BaseName) const;
+	void CaptureShot(const TCHAR* BaseName, bool bShowUI = true) const;
 	void CaptureBeginBurst(const TCHAR* DirectoryName, float Seconds);
 
 	// -- §11 V5 밤 구간 히스토그램 (-IGNightHistogram) ----------------------

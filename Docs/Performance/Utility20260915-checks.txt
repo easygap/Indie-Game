@@ -1,0 +1,50 @@
+2026-09-15 설비·표면 수정 검증
+기준 커밋: 9551c93
+
+코드 빌드
+ART_CODE_BUILD PASS target=IndieGameEditor platform=Win64 configuration=Development
+
+출하 시작과 출입
+SPATIAL_CLEARANCE PASS checks=15 failures=0 capsule=60.0x192.0
+MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1
+
+퍼즐·조준·CCTV
+UTILITY_METER PASS stopped_off=1 rotates_on=1 horizontal=1 distance_cull=1 observation_hold=1
+MISSINGFLOOR_P1_EXPERIMENT PASS isolation=1 off_on=1 reversible=1
+MISSINGFLOOR_CCTV5 PASS: 352x288 allocated on the press, 66 captures, the corridor sounded once, released on death, second press refused
+MISSINGFLOOR_CCTV5_FEED PASS: brightest=0.9807 lit=0.2582 of the frame
+UTILITY_KEYRING PASS visibility_trace=1 picked_up=1 hidden=1 collision_off=1 gates_unlocked=2
+MISSINGFLOOR_GREYBOX PASS
+
+설비 화면
+FIXTURE_REVIEW PASS shots=7
+
+전체 화면
+RETAIL_STOCK PASS instances=1318 batches=27
+RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=False quality=High production=1 resolution=1920x1080
+
+조작 30fps
+REALISM_PROBE PASS failures=0
+
+조작 60fps
+REALISM_PROBE PASS failures=0
+
+조작 120fps
+REALISM_PROBE PASS failures=0
+
+새 메시 LOD 반입
+SM_BoothMonitor LOD chain=4 class=prop
+SM_BoothRecorder LOD chain=4 class=prop
+SM_InductionMeter LOD chain=4 class=prop
+SM_MeterCabinetFive LOD chain=4 class=prop
+SM_MeterRotor LOD chain=4 class=prop
+SM_BoothKeyring LOD chain=4 class=prop
+
+정적 검사
+WORLD GEOMETRY AUDIT  boxes=1883 coverage=97.2% (1883/1938) exempt=286
+DIRECTOR PROP AUDIT  configure=18 (raw_scale=2 target_bounds=2 unit_scale=5 unknown=9) sites=73 placed=35/35 mesh_bounds=138 findings=0
+SURFACE PROJECTION AUDIT  boxes=1883 planar=192 hidden=15 unresolved=26 findings=0
+PRINTED FACE AUDIT  materials=57 blocks=17 authored_mesh=191 unresolved=26 findings=0
+COPLANAR SURFACE AUDIT  boxes=1390 findings=0
+Project structure validation passed (this is not an Unreal build).

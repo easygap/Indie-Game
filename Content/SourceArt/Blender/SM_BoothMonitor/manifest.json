@@ -1,0 +1,31 @@
+{
+  "name": "SM_BoothMonitor",
+  "mesh_class": "prop",
+  "fbx": "SM_BoothMonitor.fbx",
+  "textures": {
+    "D": "SM_BoothMonitor_D.png",
+    "N": "SM_BoothMonitor_N.png",
+    "ORM": "SM_BoothMonitor_ORM.png",
+    "E": "SM_BoothMonitor_E.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1428,
+  "bounds_m": {
+    "min": [
+      -0.2,
+      -0.0589,
+      0.0
+    ],
+    "max": [
+      0.2,
+      0.0589,
+      0.407
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 1.6,
+  "blender": "5.2.0 LTS",
+  "notes": "보안 모니터 실물 형태. 화면 34x25.5cm, 중심 Z25cm, 앞면 Y-5cm. 게임이 화면을 별도로 그린다."
+}

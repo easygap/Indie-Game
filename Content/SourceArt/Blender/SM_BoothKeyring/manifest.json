@@ -1,0 +1,30 @@
+{
+  "name": "SM_BoothKeyring",
+  "mesh_class": "prop",
+  "fbx": "SM_BoothKeyring.fbx",
+  "textures": {
+    "D": "SM_BoothKeyring_D.png",
+    "N": "SM_BoothKeyring_N.png",
+    "ORM": "SM_BoothKeyring_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 2551,
+  "bounds_m": {
+    "min": [
+      -0.0276,
+      -0.0618,
+      0.0
+    ],
+    "max": [
+      0.0507,
+      0.0151,
+      0.0029
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "기존 SheetRooftopUnlockedPadlockKeysReference의 금속 열쇠와 분리링을 대조. 열쇠 두 개와 옥상·창고 이름표. 상판에 눕혀 둔다."
+}

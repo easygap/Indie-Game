@@ -8,6 +8,7 @@
 #include "Engine/World.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Components/AudioComponent.h"
+#include "Components/StaticMeshComponent.h"
 #include "Entity/IGMissingFloorEvidence.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "Environment/IGCctvChannelFive.h"
@@ -28,20 +29,14 @@ namespace IGPuzzleTwo
 	// Desk top is Z=76.  The 2.8 cm ledger rests at Z=77.5, never at the old
 	// upright-paper centre that made it intersect and appear to float.
 	const FVector FairCopyLocation(120.0f, -103.0f, 77.5f);
-	// X=160일 때 먹지는 X 148.9~171.1을 차지해서 모니터 받침대(X 144~156,
-	// Z 76~84)를 통과했다. 책이 받침대를 뚫고 지나가는 그림이다. 받침대
-	// 오른쪽으로 빼면 X 160.9~183.1이 되어 받침대와 4.9cm, 대리인 쪽지와
-	// 12.9cm가 남는다. 왼쪽은 정서본과 겹치므로 이쪽뿐이다.
-	const FVector CarbonLocation(172.0f, -103.0f, 77.5f);
+	// 녹화기 오른쪽에 4.8cm를 띄워 먹지를 놓는다.
+	const FVector CarbonLocation(179.0f, -103.0f, 77.5f);
 	// 책상에 놓인 종이다. 세워 놓고 중심을 Z=80에 두면 24cm 높이의 절반이
 	// 상판(Z=76) 아래로 들어가 책상에 박힌다 — 위 두 장에서 이미 한 번 고친
 	// 실수다. 눕히고 상판 위에 올린다.
-	const FVector AgentNoteLocation(205.0f, -103.0f, 76.7f);
-	// 채널 선택기는 책상 위 물건이다. Y=-94는 모니터 케이스(Y -105~-95) 뒤로
-	// 3cm 나가 있어서 앞에 선 사람에게는 보이지 않았다. 케이스에 충돌이 없어
-	// 조준 트레이스는 통과해 닿았으므로 프롬프트는 떴고, 결국 보이지 않는
-	// 물건을 누르는 상태였다. 상판(Z=76) 위, 받침대(Y -107~-99) 앞으로 내린다.
-	const FVector CctvLocation(150.0f, -115.0f, 79.0f);
+	const FVector AgentNoteLocation(205.0f, -103.0f, 76.08f);
+	// 별도 상자 대신 모니터 하단 INPUT 버튼을 누른다.
+	const FVector CctvLocation(134.8f, -105.6f, 91.3f);
 	const FVector FoamGapLocation(272.0f, -90.0f, 105.0f);
 	/**
 	 * 자재 반입 영수증 두 장. 관리실 상판(X 105..215, Y -137.5..-82.5, Z=76)
@@ -49,24 +44,21 @@ namespace IGPuzzleTwo
 	 * Y로 갈라지고, 정서본·먹지·받침대는 전부 X 105..183 안쪽에 있다.
 	 * 눕혀서 얹는다. 세우면 절반이 상판 아래로 들어간다.
 	 */
-	const FVector BoardReceiptsLocation(196.0f, -126.0f, 76.6f);
+	const FVector BoardReceiptsLocation(196.0f, -126.0f, 76.08f);
 	/**
 	 * §22.3 관리실 달력. 북벽 안쪽 면이 Y=-85이다. 동쪽은 벽이 아니라
 	 * 안쪽 방 문짝(X 205..275)이라 처음에 거기 걸었다가 문을 뚫었다.
 	 * 책상(X 105..215) 서쪽, 서벽(X 45..60)과도 떨어진 빈 벽에 건다.
 	 */
-	const FVector WallCalendarLocation(82.0f, -85.6f, 150.0f);
+	const FVector WallCalendarLocation(82.0f, -85.12f, 150.0f);
+	// 녹화기 앞면의 표시등을 확인하는 범위다. 모델과 같은 위치를 쓴다.
+	const FVector RecorderBayLocation(150.0f, -111.5f, 78.5f);
 	/**
-	 * §22.3 녹화기. 상판(Z=76) 앞줄의 빈자리다 — 먹지(Y -118 위쪽)와
-	 * 영수증(X 188..204) 사이로, 상판 앞 모서리(Y -137.5)에서 2.5 cm 남는다.
-	 */
-	const FVector RecorderBayLocation(168.0f, -128.0f, 82.0f);
-	/**
-	 * 1층 배관 밸브. 펌프 흡입관(X 75, Y -147) 위, 책상 서쪽. 열면 관에 물이
+	 * 1층 배관 밸브. 펌프 토출관(X 75, Y -170) 앞, 책상 서쪽. 열면 관에 물이
 	 * 흐르고 그 소리가 책상을 덮는다 — 밸브라는 동사를 여기서 처음 배운다.
 	 * 밤3의 5층 밸브와 밤4의 세 손잡이가 같은 손이다(§7 P2, 2026-09-10).
 	 */
-	const FVector BoothValveLocation(75.0f, -128.0f, 52.0f);
+	const FVector BoothValveLocation(75.0f, -184.2f, 52.0f);
 	constexpr float BoothValveHoldSeconds = 0.8f;
 	constexpr float BoothValveLoudness = 0.55f;
 	/** 책상 둘레의 마스킹. 문지르기 0.25가 이 안에서 삼켜진다. */
@@ -266,14 +258,14 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	SpawnParameters.Name = TEXT("MissingFloorAgentNote");
 	AgentMessageNote = World->SpawnActor<AIGReadableNote>(
 		AIGReadableNote::StaticClass(),
-		FTransform(FRotator::ZeroRotator, IGPuzzleTwo::AgentNoteLocation),
+		FTransform(FRotator(0, 180, 0), IGPuzzleTwo::AgentNoteLocation),
 		SpawnParameters);
 	if (!AgentMessageNote)
 	{
 		return false;
 	}
 	AgentMessageNote->ConfigurePrototypeVisuals(
-		CubeMesh, SheetMaterial, FVector(18.0f, 24.0f, 1.2f));
+		CubeMesh, LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_BoothAgentNote.M_BoothAgentNote")), FVector(18.0f, 24.0f, 0.08f));
 	AgentMessageNote->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "P2AgentPrompt", "출력된 문자 사본"));
 	AgentMessageNote->SetNoteText(
@@ -303,13 +295,13 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	CctvSelector->Configure(
 		CubeMesh,
 		DarkPlasticMaterial,
-		FVector(10.0f, 4.0f, 6.0f),
-		NSLOCTEXT("IGMissingFloor", "P2CctvPrompt", "채널 선택기"),
+		FVector(5.0f, 2.0f, 4.0f),
+		NSLOCTEXT("IGMissingFloor", "P2CctvPrompt", "모니터 — 외부 입력"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
-		0.06f);
+		0.06f, false);
 	CctvSelector->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined);
 
@@ -361,22 +353,25 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	SpawnParameters.Name = TEXT("MissingFloorBoothRiserValve");
 	BoothRiserValve = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator::ZeroRotator, IGPuzzleTwo::BoothValveLocation),
+		FTransform(FRotator(0, 0, 90), IGPuzzleTwo::BoothValveLocation),
 		SpawnParameters);
 	if (!BoothRiserValve)
 	{
 		return false;
 	}
+	UStaticMesh* BoothValveMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_P3ValveWheelSmall.SM_P3ValveWheelSmall"));
 	BoothRiserValve->Configure(
-		CubeMesh,
+		BoothValveMesh,
 		MetalMaterial,
-		FVector(12.0f, 12.0f, 5.0f),
+		FVector::ZeroVector,
 		NSLOCTEXT("IGMissingFloor", "BoothValvePrompt", "배관 밸브 — 연다"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		IGPuzzleTwo::BoothValveHoldSeconds,
 		IGPuzzleTwo::BoothValveLoudness);
+	BoothRiserValve->GetPresentationMesh()->SetMobility(EComponentMobility::Movable);
 	BoothRiserValve->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleBoothValveOpened);
 
@@ -386,7 +381,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	BoardReceipts = World->SpawnActor<AIGReadableNote>(
 		AIGReadableNote::StaticClass(),
 		FTransform(
-			FRotator(0.0f, -7.0f, 0.0f),
+			FRotator(0.0f, 173.0f, 0.0f),
 			IGPuzzleTwo::BoardReceiptsLocation),
 		SpawnParameters);
 	if (!BoardReceipts)
@@ -394,7 +389,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		return false;
 	}
 	BoardReceipts->ConfigurePrototypeVisuals(
-		CubeMesh, SheetMaterial, FVector(16.0f, 9.0f, 1.2f));
+		CubeMesh, LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_BoothReceipts.M_BoothReceipts")), FVector(16.0f, 9.0f, 0.08f));
 	BoardReceipts->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "P2ReceiptsPrompt", "자재 반입 영수증"));
 	BoardReceipts->SetNoteText(
@@ -427,13 +422,13 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	{
 		WallCalendar->Configure(
 			CubeMesh,
-			SheetMaterial,
-			FVector(30.0f, 1.2f, 42.0f),
+			LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_BoothCalendar.M_BoothCalendar")),
+			FVector(30.0f, 0.16f, 42.0f),
 			NSLOCTEXT("IGMissingFloor", "P2CalendarPrompt", "벽 달력"),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2CalendarThought",
-				"26일에 동그라미가 쳐져 있다. 그 뒤로는 아무것도 안 적었네."),
+				"작년 7월 달력이다. 26일에만 표시가 돼 있다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -445,23 +440,23 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	SpawnParameters.Name = TEXT("MissingFloorRecorderBay");
 	RecorderBay = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator(0.0f, 4.0f, 0.0f), IGPuzzleTwo::RecorderBayLocation),
+		FTransform(FRotator::ZeroRotator, IGPuzzleTwo::RecorderBayLocation),
 		SpawnParameters);
 	if (RecorderBay)
 	{
 		RecorderBay->Configure(
 			CubeMesh,
 			DarkPlasticMaterial,
-			FVector(24.0f, 14.0f, 12.0f),
+			FVector(26.0f, 3.0f, 4.5f),
 			NSLOCTEXT("IGMissingFloor", "P2RecorderPrompt", "녹화기"),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2RecorderThought",
-				"하드가 빠져 있다. 뺀 자리만 먼지가 없다."),
+				"화면에 ‘HDD 없음’이라고 뜬다. 녹화 표시등도 꺼져 있다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
-			0.06f);
+			0.06f, false);
 		RecorderBay->OnExamined.AddUObject(
 			this, &AIGMissingFloorPuzzleTwoDirector::HandleRecorderBayExamined);
 	}
@@ -628,6 +623,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleBoothValveOpened(
 		return;
 	}
 	bBoothValveOpen = true;
+	BoothRiserValve->GetPresentationMesh()->AddLocalRotation(FRotator(0, 90, 0));
 	if (Evidence)
 	{
 		Evidence->SetInteractionPrompt(
@@ -692,6 +688,7 @@ void AIGMissingFloorPuzzleTwoDirector::CloseBoothValve()
 		return;
 	}
 	bBoothValveOpen = false;
+	if (BoothRiserValve) { BoothRiserValve->GetPresentationMesh()->AddLocalRotation(FRotator(0, -90, 0)); }
 	if (BoothRiserFlow)
 	{
 		BoothRiserFlow->Stop();

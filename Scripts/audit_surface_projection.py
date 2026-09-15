@@ -93,7 +93,7 @@ SPEC_TEXTURE = re.compile(r'"tex"\s*:\s*"(\w+)"')
 MATERIAL_NAME = re.compile(
     r'(?:TexMat\(\s*TEXT\("|"/Game/Prototype/Materials/)(M_[A-Za-z0-9_]+)')
 ASSIGNMENT = re.compile(
-    r'^\s*(?:UMaterialInterface\s*\*\s*(?:const\s+)?)?'
+    r'^\s*(?:UMaterial(?:Interface|InstanceDynamic)\s*\*\s*(?:const\s+)?)?'
     r'([A-Za-z_][A-Za-z0-9_]*)\s*=\s*(.*)$')
 IDENTIFIER = re.compile(r'\b([A-Za-z_][A-Za-z0-9_]*)\b')
 
@@ -395,7 +395,7 @@ def audit_boxes(boxes, bindings, specs, baked, source_label):
             counts["unresolved"] += 1
             continue
         mapping = specs.get(name, (None, None))[0]
-        if mapping is None or mapping == "UV":
+        if mapping is None or mapping in ("UV", "DOMINANT"):
             counts["uv_or_prop"] += 1
             continue
         counts["planar"] += 1
@@ -528,6 +528,11 @@ def _self_test() -> int:
     check("직접 호출",
           resolve_material(bindings, 'TexMat(TEXT("M_Demo_XY"), F)', 9),
           "M_Demo_XY")
+    dynamic = parse_bindings(
+        'UMaterialInstanceDynamic* Printed = UMaterialInstanceDynamic::Create(\n'
+        '\tTexMat(TEXT("M_PropUV"), Fallback), this);\n')
+    check("동적 인스턴스의 부모", resolve_material(dynamic, "Printed", 3), "M_PropUV")
+    check("동적 인스턴스 선언 전", resolve_material(dynamic, "Printed", 0), None)
 
     baked = {"M_Demo_X", "M_Demo_Y", "M_Demo_XY", "M_Lonely_XY", "M_PropUV"}
 

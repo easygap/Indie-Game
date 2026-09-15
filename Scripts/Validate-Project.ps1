@@ -930,7 +930,7 @@ foreach ($surfaceLightingInvariant in @(
 	'PostProcess->Settings.FilmSlope = 0.90f;',
 	'PostProcess->Settings.AmbientOcclusionIntensity = 0.48f;',
 	'PostProcess->Settings.LumenAmbientOcclusionIntensity = 0.55f;',
-	'Light->ContactShadowLength = bCastShadows ? 0.12f : 0.0f;',
+	'Light->ContactShadowLength = 0.0f;',
 	'Light->SetSpecularScale(1.0f);'
 )) {
 	if (-not $worldSceneSource.Contains($surfaceLightingInvariant)) {
@@ -2993,7 +2993,7 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "World geometry audit found impossible placements ($LASTEXITCODE)"
 	}
-	Assert-AuditBlindSpot $worldGeometryOutput '자리를 풀지 못한 상자 (?<count>\d+)건' 56 `
+	Assert-AuditBlindSpot $worldGeometryOutput '자리를 풀지 못한 상자 (?<count>\d+)건' 55 `
 		'좌표가 트랜스폼 지역 변수나 포인터 삼항에 걸려 자리를 풀지 못한 상자'
 
 	$atlasPacker = Join-Path $projectRoot 'Scripts/build_texture_atlas.py'
@@ -3087,7 +3087,7 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A world-projected material is stretched across the face it is on ($LASTEXITCODE)"
 	}
-	Assert-AuditBlindSpot $surfaceProjectionOutput 'unresolved=(?<count>\d+)' 31 `
+	Assert-AuditBlindSpot $surfaceProjectionOutput 'unresolved=(?<count>\d+)' 26 `
 		'호출부가 리터럴도 지역 변수도 아니라 재질을 풀지 못한 상자'
 
 	# 간판과 명판은 메시 UV를 읽는데 엔진 기본 큐브는 여섯 면이 그 UV를
@@ -3104,7 +3104,7 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A printed material is wrapped around a whole body instead of its face ($LASTEXITCODE)"
 	}
-	Assert-AuditBlindSpot $printedFacesOutput 'unresolved=(?<count>\d+)' 31 `
+	Assert-AuditBlindSpot $printedFacesOutput 'unresolved=(?<count>\d+)' 26 `
 		'인쇄 재질을 풀지 못한 상자'
 
 	# 발소리 표면 태그는 소리만 정하는 게 아니라 반향 공간까지 고른다.

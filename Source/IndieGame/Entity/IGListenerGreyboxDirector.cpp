@@ -3073,6 +3073,26 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("P1 fixtures were not all placed"));
 			return;
 		}
+		// 회로가 꺼졌을 때 멈추고, 켜졌을 때 수평 원판만 도는지 확인한다.
+		const FVector MeterProbeSavedLocation = Player->GetActorLocation();
+		Player->SetActorLocation(FVector(505, -300, 98));
+		UStaticMeshComponent* Rotor = WorldScene->GetFifthMeterDisc();
+		const FRotator RotorBefore = Rotor->GetRelativeRotation();
+		WorldScene->AdvanceUtilityMeters(12.f, false, true);
+		const bool bOffStopped = RotorBefore.Equals(Rotor->GetRelativeRotation(), .01f);
+		WorldScene->AdvanceUtilityMeters(12.f, true, true);
+		const FRotator RotorAfter = Rotor->GetRelativeRotation();
+		Player->SetActorLocation(FVector(505, -300, 1098));
+		WorldScene->AdvanceUtilityMeters(12.f, true, true);
+		const bool bFarStopped = RotorAfter.Equals(Rotor->GetRelativeRotation(), .01f);
+		Player->SetActorLocation(MeterProbeSavedLocation);
+		if (!bOffStopped || !bFarStopped || RotorBefore.Equals(RotorAfter, .01f)
+			|| FMath::Abs(Rotor->GetUpVector().Z) < .99f
+			|| PuzzleOne->GetMeterAction()->GetInteractionHoldDuration_Implementation(Player.Get()) < 1.f)
+		{
+			FailProbe(TEXT("P1 rotor power, horizontal axis, distance or observation hold failed")); return;
+		}
+		UE_LOG(LogTemp, Display, TEXT("UTILITY_METER PASS stopped_off=1 rotates_on=1 horizontal=1 distance_cull=1 observation_hold=1"));
 		// 공용 회로를 분리하고 전원 전후를 비교해야 계량기를 증거로 남긴다.
 		const FIGMissingFloorNarrativeSnapshot BeforeExperiment = Narrative->GetSnapshot();
 		const float CommonSwitchZ = WorldScene->GetCommonBreakerToggle()->GetRelativeLocation().Z;
@@ -4355,13 +4375,25 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("a rooftop gate stood open before the keyring"));
 			return;
 		}
+		// 실제 조준에 쓰는 단순 충돌로도 열쇠에 닿아야 집을 수 있다.
+		const FVector KeyCenter = Key->GetComponentsBoundingBox().GetCenter();
+		FHitResult KeyHit;
+		FCollisionQueryParams KeyQuery(SCENE_QUERY_STAT(KeyPickupProbe), false, Player.Get());
+		if (!GetWorld()->LineTraceSingleByChannel(KeyHit,
+			KeyCenter + FVector(0, -70, 70), KeyCenter - FVector(0, 0, 1), ECC_Visibility, KeyQuery)
+			|| KeyHit.GetActor() != Key)
+		{
+			FailProbe(TEXT("keyring cannot be targeted through the gameplay visibility trace")); return;
+		}
 		Context.TargetActor = Key;
 		IIGInteractable::Execute_CompleteInteraction(Key, Context);
-		if (Gate->IsLocked() || AnnexGate->IsLocked())
+		if (Gate->IsLocked() || AnnexGate->IsLocked() || !Key->IsHidden()
+			|| Key->IsInteractionEnabled() || Key->GetActorEnableCollision())
 		{
-			FailProbe(TEXT("the two labelled keys did not release both gates"));
+			FailProbe(TEXT("key pickup did not release the gates and remove the keyring"));
 			return;
 		}
+		UE_LOG(LogTemp, Display, TEXT("UTILITY_KEYRING PASS visibility_trace=1 picked_up=1 hidden=1 collision_off=1 gates_unlocked=2"));
 		// The realtor's message waits beside the keyring. Two reads: open, close.
 		AIGReadableNote* AgentNote =
 			PuzzleTwo ? PuzzleTwo->GetAgentMessageNote() : nullptr;
@@ -5469,6 +5501,62 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	// 새 설비의 앞·옆면을 실제 플레이 화면에서 확인한다.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGFixtureAudit")))
+	{
+		switch (ArrivalCaptureStep++)
+		{
+		case 0:
+			PuzzleOne->SetHourActive(true);
+			PuzzleTwo->SetHourActive(true);
+			PuzzleTwo->GetBoothDoor()->ForceOpenState(true);
+			CaptureTeleportPlayer(FVector(505, -285, 98), -90, -8);
+			break;
+		case 5: CaptureTeleportPlayer(FVector(75, -223, 98), 90, -70); break;
+		case 7: CaptureShot(TEXT("utility-booth-valve")); break;
+		case 8: CaptureTeleportPlayer(FVector(505, -285, 98), -90, -8); break;
+		case 9: CaptureShot(TEXT("utility-meter-wide")); break;
+		case 10: CaptureTeleportPlayer(FVector(542, -300, 98), -90, -8); break;
+		case 13: CaptureShot(TEXT("utility-meter-close")); break;
+		case 14: CaptureTeleportPlayer(FVector(150, -189, 98), 90, -34); break;
+		case 17: CaptureShot(TEXT("utility-booth-front")); break;
+		case 18: CaptureTeleportPlayer(FVector(190, -182, 98), 118, -35); break;
+		case 21: CaptureShot(TEXT("utility-booth-side")); break;
+		case 22: CaptureTeleportPlayer(FVector(5, 305, 1298), -90, -12); break;
+		case 25: CaptureShot(TEXT("utility-tank-steel")); break;
+		case 26: CaptureTeleportPlayer(FVector(52, 57, 997), 7, -34); break;
+		case 29: CaptureShot(TEXT("utility-countertop")); break;
+		case 30:
+			if (FParse::Param(FCommandLine::Get(), TEXT("IGBakeCctv"))) break;
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("FIXTURE_CAPTURE PASS shots=7 production=1"));
+			RequestExit(false);
+			break;
+		case 31:
+			// 저작용 카메라 위치다. 중력으로 바닥에 떨어지지 않게 이 검사에서만 고정한다.
+			Player->GetCharacterMovement()->SetMovementMode(MOVE_Flying);
+			Player->GetCharacterMovement()->StopMovementImmediately();
+			Player->SetActorEnableCollision(false);
+			if (APlayerController* PC = GetWorld()->GetFirstPlayerController())
+			{ if (AHUD* HUD = PC->GetHUD()) HUD->bShowHUD = false; }
+			CaptureTeleportPlayer(FVector(490, -255, 165), -30, -25);
+			break;
+		case 34: CaptureShot(TEXT("cctv-source-entrance"), false); break;
+		case 35: CaptureTeleportPlayer(FVector(2000, -460, 166), 180, -12); break;
+		case 38: CaptureShot(TEXT("cctv-source-parking"), false); break;
+		case 39: CaptureTeleportPlayer(FVector(30, -325, 1036), 180, -18); break;
+		case 42: CaptureShot(TEXT("cctv-source-stair"), false); break;
+		case 43: CaptureTeleportPlayer(FVector(680, -325, 1040), 180, -13); break;
+		case 46: CaptureShot(TEXT("cctv-source-corridor"), false); break;
+		case 47:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("FIXTURE_CAPTURE PASS shots=11 production=1 atlas_sources=4"));
+			RequestExit(false);
+			break;
+		default: break;
+		}
+		return;
+	}
 	// 실제 시작 단계의 조명과 인물이 유지된 상태에서 매장과 뒷길을 검토한다.
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGRetailCapture")))
 	{
@@ -6365,7 +6453,7 @@ void AIGListenerGreyboxDirector::CaptureParkEntity(
 	Entity->ParkForBeat(Location, Yaw);
 }
 
-void AIGListenerGreyboxDirector::CaptureShot(const TCHAR* BaseName) const
+void AIGListenerGreyboxDirector::CaptureShot(const TCHAR* BaseName, bool bShowUI) const
 {
 	if (bCaptureMetricsOnly)
 	{
@@ -6383,7 +6471,13 @@ void AIGListenerGreyboxDirector::CaptureShot(const TCHAR* BaseName) const
 		FPaths::Combine(
 			FPaths::ProjectDir(),
 			FString::Printf(TEXT("Docs/Media/%s.png"), BaseName)));
-	FScreenshotRequest::RequestScreenshot(ScreenshotPath, true, false);
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGFixtureAudit")))
+	{
+		FVector Eye; FRotator View;
+		GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(Eye, View);
+		UE_LOG(LogTemp, Display, TEXT("FIXTURE_VIEW %s eye=%s rotation=%s"), BaseName, *Eye.ToString(), *View.ToString());
+	}
+	FScreenshotRequest::RequestScreenshot(ScreenshotPath, bShowUI, false);
 	UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE shot: %s"), *ScreenshotPath);
 }
 

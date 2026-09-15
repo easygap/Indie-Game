@@ -64,8 +64,8 @@ namespace IGCctvFive
 	constexpr float PinnedExposure = 0.045f;
 	constexpr float ExposureBias = 0.85f;
 
-	/** Booth monitor face. The shell BuildLobby erects is 40×10×28 at Z=96. */
-	const FVector ScreenCenter(150.0f, -105.45f, 96.0f);
+	/** 녹화기 위 모니터의 액정 개구부. 씬과 같은 중심 높이를 쓴다. */
+	const FVector ScreenCenter(150.0f, -105.45f, AIGPrologueWorldScene::CctvScreenCenterZ);
 	// 화면을 세운 것은 씬이다. 렌더 면은 그 치수를 받아 쓴다.
 	constexpr float ScreenWidth = AIGPrologueWorldScene::CctvScreenWidth;
 	constexpr float ScreenHeight = AIGPrologueWorldScene::CctvScreenHeight;
@@ -76,7 +76,7 @@ namespace IGCctvFive
 	 * monitor pushed up against a wall is not somewhere anyone can read — and it
 	 * is legible from the front when she leans over the desk.
 	 */
-	const FVector LabelCenter(150.0f, -97.6f, 110.4f);
+	const FVector LabelCenter(150.0f, -97.6f, 121.5f);
 	const FVector LabelSize(12.8f, 4.8f, 0.5f);
 
 	/**
@@ -153,7 +153,13 @@ bool AIGCctvChannelFive::Configure(AIGPrologueWorldScene* InScene)
 	ScreenFace->SetAbsolute(true, true, true);
 	ScreenFace->SetWorldLocationAndRotation(
 		IGCctvFive::ScreenCenter,
-		FRotator(0.0f, 0.0f, 90.0f));
+		FRotator(0.0f, 180.0f, 90.0f));
+	// 화면의 앞면이 책상 앞을 향해야 단면 재질도 보인다.
+	if (FVector::DotProduct(ScreenFace->GetUpVector(), FVector(0, -1, 0)) < 0.99f)
+	{
+		UE_LOG(LogTemp, Error, TEXT("CCTV screen faces away from the desk"));
+		return false;
+	}
 	ScreenFace->SetWorldScale3D(
 		FVector(
 			IGCctvFive::ScreenWidth / 100.0f,

@@ -193,6 +193,7 @@ public:
 	 */
 	static constexpr float CctvScreenWidth = 34.0f;
 	static constexpr float CctvScreenHeight = 25.5f;
+	static constexpr float CctvScreenCenterZ = 105.5f;
 
 	AIGPrologueWorldScene();
 
@@ -286,6 +287,7 @@ public:
 
 	/** P1 fixtures, so the puzzle's director can dress them without rebuilding. */
 	UStaticMeshComponent* GetFifthMeterDisc() const { return FifthMeterDisc; }
+	void AdvanceUtilityMeters(float Degrees, bool bUnnamedPowered, bool bCommonPowered);
 	UStaticMeshComponent* GetUnnamedBreakerToggle() const { return UnnamedBreakerToggle; }
 	UStaticMeshComponent* GetCommonBreakerToggle() const { return CommonBreakerToggle; }
 	void SetCommonInspectionLightsEnabled(bool bEnabled);
@@ -750,6 +752,7 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> StairCoreNightGate;
 	/** P1: the fifth meter's dial, which never turns, and its dead breaker. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> FifthMeterDisc;
+	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> UtilityMeterDiscs;
 
 	/** §14 CCTV 채널 5's housing, high in the annex's south-west corner. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> MissingFloorCctvCamera;

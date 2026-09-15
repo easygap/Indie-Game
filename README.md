@@ -43,7 +43,16 @@
 읽은 내용과 직접 본 것이 맞는지 확인해야 퍼즐을 풀 수 있습니다.
 조사하다 막히면 `H`로 힌트를 볼 수 있습니다.
 
-![손전등으로 비춘 계량기함과 분전반. 계량기를 조사할 수 있다](Docs/Media/readme/p1-meter-cabinet.webp)
+<table>
+  <tr>
+    <td width="50%"><img src="Docs/Media/readme/p1-meter-cabinet.webp" alt="호실별 계량기와 이름표 없는 다섯 번째 계량기"></td>
+    <td width="50%"><img src="Docs/Media/readme/p2-booth-desk.webp" alt="관리실 책상에 놓인 장부, 열쇠, CCTV 모니터"></td>
+  </tr>
+  <tr>
+    <td>공용 계량기함</td>
+    <td>관리실의 기록과 CCTV</td>
+  </tr>
+</table>
 
 밤의 조사를 마치면 아침이 옵니다. 새로 알아낸 일을 이웃에게 물어보거나
 동네를 더 둘러본 뒤, 방으로 돌아가 다음 밤을 맞습니다.
