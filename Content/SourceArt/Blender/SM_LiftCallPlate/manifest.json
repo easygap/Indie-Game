@@ -1,0 +1,30 @@
+{
+  "name": "SM_LiftCallPlate",
+  "mesh_class": "prop",
+  "fbx": "SM_LiftCallPlate.fbx",
+  "textures": {
+    "D": "SM_LiftCallPlate_D.png",
+    "N": "SM_LiftCallPlate_N.png",
+    "ORM": "SM_LiftCallPlate_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1124,
+  "bounds_m": {
+    "min": [
+      -0.045,
+      -0.0059,
+      0.0
+    ],
+    "max": [
+      0.045,
+      0.014,
+      0.24
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "실물·생성 참조: LandingFixtures_20260915.json. 9×1.4×24cm. 앞 -Y, 원점 판 앞면 아래 중앙."
+}

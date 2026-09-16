@@ -18,6 +18,7 @@
 #include "HAL/FileManager.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSwingDoor.h"
+#include "Interaction/IGElevator.h"
 #include "Misc/Paths.h"
 #include "Player/IGHorrorHUD.h"
 #include "Kismet/GameplayStatics.h"
@@ -5501,6 +5502,62 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	// 승강기 대기 공간은 정면뿐 아니라 출입구와 옆 벽에서도 확인한다.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGLandingAudit")))
+	{
+		switch (ArrivalCaptureStep++)
+		{
+		case 0: CaptureTeleportPlayer(FVector(490, -305, 98), 0, 0); break;
+		case 5: CaptureShot(TEXT("landing-lobby-lift")); break;
+		case 4:
+			if (GEngine && FParse::Param(FCommandLine::Get(), TEXT("IGLandingMetrics")))
+				GEngine->Exec(GetWorld(), TEXT("csvprofile start"));
+			break;
+		case 6: CaptureTeleportPlayer(FVector(620, -330, 98), 135, -8); break;
+		case 9: CaptureShot(TEXT("landing-lobby-mail")); break;
+		case 10: CaptureTeleportPlayer(FVector(643, -490, 98), 90, -4); break;
+		case 13: CaptureShot(TEXT("landing-entrance")); break;
+		case 14: CaptureTeleportPlayer(FVector(520, -305, 998), 0, -8); break;
+		case 17: CaptureShot(TEXT("landing-fourth-lift")); break;
+		case 18: CaptureTeleportPlayer(FVector(640, -335, 998), 140, -12); break;
+		case 21: CaptureShot(TEXT("landing-fourth-return")); break;
+		case 22: CaptureTeleportPlayer(FVector(330, -305, 998), 0, -15); break;
+		case 25: CaptureShot(TEXT("landing-corridor-approach")); break;
+		case 26: CaptureTeleportPlayer(FVector(30, -310, 998), 180, -8); break;
+		case 29: CaptureShot(TEXT("landing-neighbor-doors")); break;
+		case 30: CaptureTeleportPlayer(FVector(500, -205, 98), -22, -14); break;
+		case 33: CaptureShot(TEXT("landing-lobby-wide")); break;
+		case 34: CaptureTeleportPlayer(FVector(632, -257, 98), 90, -8); break;
+		case 37: CaptureShot(TEXT("landing-noticeboard")); break;
+		case 38: CaptureTeleportPlayer(FVector(401, -287, 98), -90, -8); break;
+		case 41: CaptureShot(TEXT("landing-meter-record")); break;
+		case 42: CaptureTeleportPlayer(FVector(637, -275, 998), -72, -23); break;
+		case 45: CaptureShot(TEXT("landing-fourth-waiting")); break;
+		case 46:
+			CaptureTeleportPlayer(FVector(600, -305, 998), 0, -8);
+			for (TActorIterator<AIGElevator> It(GetWorld()); It; ++It)
+			{
+				FIGInteractionContext Context;
+				Context.Interactor = Player.Get();
+				Context.TargetActor = *It;
+				IIGInteractable::Execute_CompleteInteraction(*It, Context);
+				break;
+			}
+			break;
+		case 50: CaptureShot(TEXT("landing-lift-open")); break;
+		case 51:
+			if (GEngine && FParse::Param(FCommandLine::Get(), TEXT("IGLandingMetrics")))
+				GEngine->Exec(GetWorld(), TEXT("csvprofile stop"));
+			break;
+		case 53:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("LANDING_CAPTURE PASS shots=12 production=1"));
+			RequestExit(false);
+			break;
+		default: break;
+		}
+		return;
+	}
 	// 새 설비의 앞·옆면을 실제 플레이 화면에서 확인한다.
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGFixtureAudit")))
 	{
@@ -5527,12 +5584,16 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 		case 26: CaptureTeleportPlayer(FVector(52, 57, 997), 7, -34); break;
 		case 29: CaptureShot(TEXT("utility-countertop")); break;
 		case 30:
+			CaptureTeleportPlayer(FVector(220, -222, 98), 160, -32);
+			break;
+		case 33: CaptureShot(TEXT("utility-booth-pump")); break;
+		case 34:
 			if (FParse::Param(FCommandLine::Get(), TEXT("IGBakeCctv"))) break;
 			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
-			UE_LOG(LogTemp, Display, TEXT("FIXTURE_CAPTURE PASS shots=7 production=1"));
+			UE_LOG(LogTemp, Display, TEXT("FIXTURE_CAPTURE PASS shots=8 production=1"));
 			RequestExit(false);
 			break;
-		case 31:
+		case 35:
 			// 저작용 카메라 위치다. 중력으로 바닥에 떨어지지 않게 이 검사에서만 고정한다.
 			Player->GetCharacterMovement()->SetMovementMode(MOVE_Flying);
 			Player->GetCharacterMovement()->StopMovementImmediately();
@@ -5541,16 +5602,16 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 			{ if (AHUD* HUD = PC->GetHUD()) HUD->bShowHUD = false; }
 			CaptureTeleportPlayer(FVector(490, -255, 165), -30, -25);
 			break;
-		case 34: CaptureShot(TEXT("cctv-source-entrance"), false); break;
-		case 35: CaptureTeleportPlayer(FVector(2000, -460, 166), 180, -12); break;
-		case 38: CaptureShot(TEXT("cctv-source-parking"), false); break;
-		case 39: CaptureTeleportPlayer(FVector(30, -325, 1036), 180, -18); break;
-		case 42: CaptureShot(TEXT("cctv-source-stair"), false); break;
-		case 43: CaptureTeleportPlayer(FVector(680, -325, 1040), 180, -13); break;
-		case 46: CaptureShot(TEXT("cctv-source-corridor"), false); break;
-		case 47:
+		case 38: CaptureShot(TEXT("cctv-source-entrance"), false); break;
+		case 39: CaptureTeleportPlayer(FVector(2000, -460, 166), 180, -12); break;
+		case 42: CaptureShot(TEXT("cctv-source-parking"), false); break;
+		case 43: CaptureTeleportPlayer(FVector(30, -325, 1036), 180, -18); break;
+		case 46: CaptureShot(TEXT("cctv-source-stair"), false); break;
+		case 47: CaptureTeleportPlayer(FVector(680, -325, 1040), 180, -13); break;
+		case 50: CaptureShot(TEXT("cctv-source-corridor"), false); break;
+		case 51:
 			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
-			UE_LOG(LogTemp, Display, TEXT("FIXTURE_CAPTURE PASS shots=11 production=1 atlas_sources=4"));
+			UE_LOG(LogTemp, Display, TEXT("FIXTURE_CAPTURE PASS shots=12 production=1 atlas_sources=4"));
 			RequestExit(false);
 			break;
 		default: break;

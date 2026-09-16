@@ -1,0 +1,30 @@
+{
+  "name": "SM_BoothPumpPipework",
+  "mesh_class": "prop",
+  "fbx": "SM_BoothPumpPipework.fbx",
+  "textures": {
+    "D": "SM_BoothPumpPipework_D.png",
+    "N": "SM_BoothPumpPipework_N.png",
+    "ORM": "SM_BoothPumpPipework_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 724,
+  "bounds_m": {
+    "min": [
+      -0.15,
+      -0.019,
+      0.155
+    ],
+    "max": [
+      0.025,
+      0.325,
+      2.44
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "BoothPump_20260916.json의 사진과 설치 설명서 참조. 배관·지지대를 한 메시로 묶음. 장면 원점 (75,-170,0)cm, 반경 2cm, 상부 Y=-140cm. 조작반 앞을 비우고 천장 내부까지 연결."
+}

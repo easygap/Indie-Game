@@ -7,6 +7,7 @@
 #include "Components/PointLightComponent.h"
 #include "Components/SceneComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "Components/TextRenderComponent.h"
 #include "Engine/World.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "Engine/CollisionProfile.h"
@@ -38,6 +39,7 @@ AIGElevator::AIGElevator()
 
 	ElevatorRoot = CreateDefaultSubobject<USceneComponent>(TEXT("ElevatorRoot"));
 	SetRootComponent(ElevatorRoot);
+	ElevatorRoot->SetMobility(EComponentMobility::Static);
 
 	CallButtonMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("CallButton"));
 	CallButtonMesh->SetupAttachment(ElevatorRoot);
@@ -91,11 +93,11 @@ UStaticMeshComponent* AIGElevator::MakePiece(
 		*FString::Printf(TEXT("ElevatorPiece_%d"), PieceCounter++));
 	Piece->SetupAttachment(Parent);
 	Piece->SetStaticMesh(Mesh);
-	Piece->SetMaterial(0, Material);
+	if (Material) { Piece->SetMaterial(0, Material); }
 	Piece->SetRelativeLocation(RelativeLocation);
 	Piece->SetRelativeRotation(Rotation);
 	Piece->SetRelativeScale3D(SizeCentimeters / 100.0f);
-	Piece->SetMobility(EComponentMobility::Movable);
+	Piece->SetMobility(Parent->GetMobility());
 	Piece->SetGenerateOverlapEvents(false);
 	Piece->SetCanEverAffectNavigation(false);
 	Piece->SetCollisionProfileName(
@@ -321,7 +323,7 @@ void AIGElevator::ConfigurePrototypeVisuals(
 	// not a slab of metal.
 	for (const float BaseZ : {0.0f, IntermediateCabBaseZ, -FloorDeltaZ})
 	{
-		constexpr float DoorCenterSeamWidth = 1.4f;
+		constexpr float DoorCenterSeamWidth = 0.16f;
 		static_assert(
 			DoorCenterSeamWidth > 0.0f
 				&& DoorCenterSeamWidth < CabWidth * 0.5f,
@@ -334,6 +336,14 @@ void AIGElevator::ConfigurePrototypeVisuals(
 					Side * DoorPanelWidth * 0.5f,
 					BaseZ + DoorHeight * 0.5f),
 				FVector(8, DoorPanelWidth - DoorCenterSeamWidth, DoorHeight));
+			Panel->SetMobility(EComponentMobility::Movable);
+			// 닫힌 문틈 뒤에는 검은 겹침판이 있다. 실내등이 정면으로 새지 않으며
+			// 문이 열릴 때도 문짝과 함께 움직인다.
+			UStaticMeshComponent* Seal = MakePiece(Panel, CachedCubeMesh, CachedInlayMaterial,
+				FVector(4.2f / .08f, -Side * (DoorPanelWidth * .5f - .45f) / ((DoorPanelWidth - DoorCenterSeamWidth) / 100), 0),
+				FVector(.8f, 2.4f, DoorHeight), false);
+			Seal->SetAbsolute(false, false, true);
+			Seal->SetRelativeScale3D(FVector(.008f, .024f, DoorHeight / 100));
 			if (FMath::IsNearlyZero(BaseZ))
 			{
 				UpperDoorPanels.Add(Panel);
@@ -347,62 +357,62 @@ void AIGElevator::ConfigurePrototypeVisuals(
 				LowerDoorPanels.Add(Panel);
 			}
 		}
-		// Hall lantern above each landing. The only authored digit artwork is
-		// the live 4F display; reusing it downstairs would show a false floor,
-		// so the lower landings use a neutral diffuser until dynamic indicators
-		// are implemented.
-		MakePiece(ElevatorRoot, CachedCubeMesh, CachedCabMaterial,
-			FVector(-CabDepth * 0.5f - WallThickness - 1.0f, 0, BaseZ + DoorHeight + 15.0f),
-			FVector(3, 48, 26), false);
-		UMaterialInterface* HallFaceMaterial = FMath::IsNearlyZero(BaseZ)
-			? (Visuals.HallMaterial ? Visuals.HallMaterial : Visuals.CopMaterial)
-			: CachedDiffuserMaterial.Get();
-		MakePiece(ElevatorRoot, CachedCubeMesh,
-			HallFaceMaterial,
-			FVector(-CabDepth * 0.5f - WallThickness - 2.6f, 0, BaseZ + DoorHeight + 15.0f),
-			FVector(1.6f, 38, 19), false);
-		// Landing architrave: the stainless surround around the doorway.
+		// 승강장 문선·안쪽 마감·표시판은 여기서만 만든다.
 		for (const float Side : {-1.0f, 1.0f})
 		{
-			MakePiece(ElevatorRoot, CachedCubeMesh, CachedCabMaterial,
-				FVector(-CabDepth * 0.5f - WallThickness - 1.0f,
-					Side * (CabWidth * 0.5f + 4.0f), BaseZ + DoorHeight * 0.5f),
-				FVector(3, 12, DoorHeight + 8), false);
+			MakePiece(ElevatorRoot, CachedCubeMesh, CachedInlayMaterial,
+				FVector(-82, Side * 61, BaseZ + 105), FVector(20, 12, 210), false);
 		}
+		MakePiece(ElevatorRoot, CachedCubeMesh, CachedInlayMaterial,
+			FVector(-82, 0, BaseZ + 216), FVector(20, 134, 12), false);
+		MakePiece(ElevatorRoot, CachedCubeMesh, CachedInlayMaterial,
+			FVector(-90.8f, 0, BaseZ + 230), FVector(1.6f, 32, 16), false);
+		MakePiece(ElevatorRoot, CachedCubeMesh, CachedInlayMaterial,
+			FVector(-91.65f, 0, BaseZ + 230), FVector(.1f, 28, 14), false);
+		UTextRenderComponent* Display = NewObject<UTextRenderComponent>(this);
+		Display->SetupAttachment(ElevatorRoot);
+		Display->SetMobility(EComponentMobility::Static);
+		Display->SetRelativeLocation(FVector(-91.8f, 0, BaseZ + 230));
+		Display->SetRelativeRotation(FRotator(0, 180, 0));
+		Display->SetHorizontalAlignment(EHTA_Center);
+		Display->SetVerticalAlignment(EVRTA_TextCenter);
+		Display->SetWorldSize(11);
+		Display->SetTextRenderColor(FColor(177, 202, 166));
+		Display->SetText(FText::AsNumber(HallFloor));
+		Display->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Display->SetCastShadow(false);
+		Display->RegisterComponent();
+		HallDisplays.Add(Display);
 	}
 
-	// Hall call button on the corridor wall beside the doors. It has to sit
-	// inside the hallway, which is narrower than the shaft.
-	CallButtonMesh->SetStaticMesh(CachedCubeMesh);
-	CallButtonMesh->SetMaterial(0, CachedCabMaterial);
-	CallButtonMesh->SetRelativeLocation(FVector(
-		-CabDepth * 0.5f - WallThickness - 4.0f,
-		-CabWidth * 0.5f + 10.0f,
-		105.0f));
-	CallButtonMesh->SetRelativeScale3D(FVector(0.04f, 0.12f, 0.20f));
-	LowerCallButtonMesh->SetStaticMesh(CachedCubeMesh);
-	LowerCallButtonMesh->SetMaterial(0, CachedCabMaterial);
-	LowerCallButtonMesh->SetRelativeLocation(FVector(
-		-CabDepth * 0.5f - WallThickness - 4.0f,
-		-CabWidth * 0.5f + 10.0f,
-		-FloorDeltaZ + 105.0f));
-	LowerCallButtonMesh->SetRelativeScale3D(FVector(0.04f, 0.12f, 0.20f));
-	LowerCabTrigger->SetRelativeLocation(FVector(
-		20.0f,
-		0.0f,
-		-FloorDeltaZ + 105.0f));
-	// The two round call buttons on that plate, at each physical landing.
-	for (const float BaseZ : {0.0f, IntermediateCabBaseZ, -FloorDeltaZ})
+	const auto ConfigureCallPlate = [&](UStaticMeshComponent* Plate, float Y, float BaseZ)
 	{
-		for (int32 ButtonIndex = 0; ButtonIndex < 2; ++ButtonIndex)
+		Plate->SetRelativeLocation(FVector(-90, Y, BaseZ + 108));
+		if (Visuals.CallPlateMesh)
 		{
-			MakePiece(ElevatorRoot, CachedCylinderMesh, CachedDiffuserMaterial,
-				FVector(-CabDepth * 0.5f - WallThickness - 6.6f,
-					-CabWidth * 0.5f + 10.0f,
-					BaseZ + 110.0f - ButtonIndex * 14.0f),
-				FVector(6, 6, 1.5f), false, FRotator(90, 0, 0));
+			Plate->SetStaticMesh(Visuals.CallPlateMesh);
+			Plate->SetRelativeScale3D(FVector::OneVector);
+			Plate->SetRelativeRotation(FRotator(0, -90, 0));
 		}
+		else
+		{
+			Plate->SetStaticMesh(CachedCubeMesh);
+			Plate->SetMaterial(0, CachedCabMaterial);
+			Plate->SetRelativeScale3D(FVector(.014f, .09f, .24f));
+		}
+		// 벽면의 작은 철물이 이동 캡슐을 붙잡지 않게 한다. 조준 판정은 유지한다.
+		Plate->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+		Plate->SetMobility(EComponentMobility::Static);
+	};
+	ConfigureCallPlate(CallButtonMesh, -85, 0);
+	ConfigureCallPlate(LowerCallButtonMesh, 78, -FloorDeltaZ);
+	LowerCabTrigger->SetRelativeLocation(FVector(20, 0, -FloorDeltaZ + 105));
+	if (Visuals.CallPlateMesh)
+	{
+		MakePiece(ElevatorRoot, Visuals.CallPlateMesh, nullptr,
+			FVector(-90, -65, IntermediateCabBaseZ + 108), FVector(100), false, FRotator(0, -90, 0));
 	}
+
 }
 
 void AIGElevator::ResetForNewRide()
@@ -1455,9 +1465,51 @@ void AIGElevator::ApplyDoorOffsets(
 	}
 }
 
+void AIGElevator::SetHallFloor(const int32 Floor)
+{
+	HallFloor = FMath::Clamp(Floor, 1, 4);
+	for (UTextRenderComponent* Display : HallDisplays)
+	{
+		if (Display) { Display->SetText(FText::AsNumber(HallFloor)); }
+	}
+	UE_LOG(LogIndieGame, Display, TEXT("ELEVATOR_DISPLAY floor=%d"), HallFloor);
+}
+
+void AIGElevator::AdvanceHallFloor()
+{
+	SetHallFloor(HallFloor + HallDirection);
+	if (HallFloor == 1 || HallFloor == 4)
+	{
+		GetWorldTimerManager().ClearTimer(HallDisplayTimer);
+	}
+}
+
 void AIGElevator::SetState(const EIGElevatorState NewState)
 {
 	State = NewState;
+	// 운행 중에만 층 통과 간격으로 갱신한다. 중간 정차 때도 표시가 함께 멈춘다.
+	GetWorldTimerManager().ClearTimer(HallDisplayTimer);
+	switch (NewState)
+	{
+	case EIGElevatorState::IdleClosed:
+	case EIGElevatorState::OpeningUpper:
+	case EIGElevatorState::OpeningUpperForReturn:
+		SetHallFloor(4); break;
+	case EIGElevatorState::OpeningLower:
+	case EIGElevatorState::OpeningLowerForReturn:
+	case EIGElevatorState::DoneAtLobby:
+		SetHallFloor(1); break;
+	case EIGElevatorState::OpeningIntermediate:
+		SetHallFloor(2); break;
+	case EIGElevatorState::Descending:
+	case EIGElevatorState::EmptyDescending:
+	case EIGElevatorState::Ascending:
+	case EIGElevatorState::EmptyAscending:
+		HallDirection = (NewState == EIGElevatorState::Ascending || NewState == EIGElevatorState::EmptyAscending) ? 1 : -1;
+		GetWorldTimerManager().SetTimer(HallDisplayTimer, this, &ThisClass::AdvanceHallFloor, SecondsPerFloor, true);
+		break;
+	default: break;
+	}
 	UE_LOG(
 		LogIndieGame,
 		Display,

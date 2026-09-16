@@ -78,9 +78,8 @@ namespace IGNightThree
 	// 같은 이유로 눕힌다. 13cm 높이를 세워 Z=978에 두면 가구 상판(Z=974)
 	// 아래로 들어갔다.
 	const FVector LabelsLocation(-95.0f, -185.0f, 974.6f);
-	// 출력물은 우편함 앞에 붙는다. 우편함 메시(SM_MailboxUnit)는 투입구 턱까지
-	// Y -248.9로 나오므로, 두께 1.2의 종이 뒷면이 그 앞에 오는 -249.6이다.
-	const FVector ForumLocation(560.0f, -249.6f, 143.0f);
+	// 관리인에게 남긴 인쇄본은 게시판에 꽂는다. 우편 투입구는 비워 둔다.
+	const FVector ForumLocation(643.0f, -148.65f, 166.0f);
 	const FVector JournalLocation(-172.0f, -237.5f, 985.0f);
 
 	// 주먹이 석고보드를 때리는 값은 플레이어 쪽이 든다 —
@@ -703,11 +702,12 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		return false;
 	}
 	ForumNote->ConfigurePrototypeVisuals(
-		CubeMesh, FreshPaperMaterial, FVector(19.0f, 1.2f, 26.0f));
+		CubeMesh, LoadObject<UMaterialInterface>(nullptr,
+			TEXT("/Game/Prototype/Materials/M_LobbyForumPrint.M_LobbyForumPrint")), FVector(21.0f, 0.08f, 29.7f));
 	ForumNote->SetInteractionPrompt(
-		NSLOCTEXT("IGMissingFloor", "ForumPrompt", "게시글 출력물"));
+		NSLOCTEXT("IGMissingFloor", "ForumPrompt", "소음 민원 자료"));
 	ForumNote->SetNoteText(
-		NSLOCTEXT("IGMissingFloor", "ForumTitle", "층간소음 카페 — 인쇄본"),
+		NSLOCTEXT("IGMissingFloor", "ForumTitle", "관리인에게 남긴 인쇄본"),
 		{
 			NSLOCTEXT("IGMissingFloor", "Forum1", "6/30  새벽 네 시만 되면 위에서 뭘 질질 끕니다. 자다가 매번 깨요."),
 			NSLOCTEXT("IGMissingFloor", "Forum2", "7/12  관리인은 창고라 사람이 없대요. 그럼 이 소리는 어디서 나는 건가요?"),

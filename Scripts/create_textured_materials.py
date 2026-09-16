@@ -229,19 +229,12 @@ TEXTURED_MATERIALS = {
     # The lift car is hairline stainless over a marble floor. Roughness is
     # forced on the polished surfaces: the photo maps are far too matte to
     # give back the reflections these materials are recognised by.
-    "M_Stucco_X":       {"tex": "Stucco", "mapping": "XZ", "tile": 185.0, "rough": 0.93,
-                         "tint": (1.05, 1.02, 0.90)},
-    "M_Stucco_Y":       {"tex": "Stucco", "mapping": "YZ", "tile": 185.0, "rough": 0.93,
-                         "tint": (1.05, 1.02, 0.90)},
-    "M_StuccoCeil":     {"tex": "Stucco", "mapping": "XY", "tile": 185.0, "rough": 0.95,
-                         "tint": (0.94, 0.93, 0.86)},
-    # 복도 허리 아래의 어두운 페인트. 오래된 빌라 복도는 허리 높이까지 진한
-    # 유성 페인트를 따로 칠한다 — 걸레질 자국이 남는 자리다. 같은 스투코 위에
-    # 색만 다르고 유광에 가깝다.
-    "M_StuccoDado_X":   {"tex": "Stucco", "mapping": "XZ", "tile": 185.0, "force_rough": 0.62,
-                         "tint": (0.42, 0.47, 0.44)},
-    "M_StuccoDado_Y":   {"tex": "Stucco", "mapping": "YZ", "tile": 185.0, "force_rough": 0.62,
-                         "tint": (0.42, 0.47, 0.44)},
+    # 덧칠한 공용부 벽은 생성 색상 원본 한 장으로 통일한다. 얇은 개구부도 면 방향으로 투영한다.
+    "M_Stucco_X": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_wall"},
+    "M_Stucco_Y": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_wall"},
+    "M_StuccoCeil": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_ceiling"},
+    "M_StuccoDado_X": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_dado"},
+    "M_StuccoDado_Y": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_dado"},
     # 포천석 사진에서 새로 만든 원본과 600mm 줄눈. 테라초를 화강석으로 위장하지 않는다.
     "M_GraniteTile_XY": {"tex": "GraniteTile", "mapping": "DOMINANT", "tile": 60.0, "retail_finish": "granite"},
     "M_GranitePanel_X": {"tex": "GranitePanel", "mapping": "XZ", "tile": 24.0,

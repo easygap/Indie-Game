@@ -25,7 +25,7 @@ if ($fixtureExit -ne 0 -or -not (Select-String -LiteralPath $fixtureLog -Pattern
     throw "설비 화면 검사 실패: $fixtureLog"
 }
 $fixtureShots = @('utility-booth-valve', 'utility-meter-wide', 'utility-meter-close', 'utility-booth-front',
-    'utility-booth-side', 'utility-tank-steel', 'utility-countertop')
+    'utility-booth-side', 'utility-tank-steel', 'utility-countertop', 'utility-booth-pump')
 if ($BakeCctv) { $fixtureShots += @('cctv-source-entrance', 'cctv-source-parking', 'cctv-source-stair', 'cctv-source-corridor') }
 foreach ($shot in $fixtureShots) {
     $file = Get-Item -LiteralPath (Join-Path $fixtureRoot "Docs/Media/$shot.png")

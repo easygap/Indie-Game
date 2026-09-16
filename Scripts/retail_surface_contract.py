@@ -8,7 +8,7 @@ MARKER = "IG_RetailFinish_20260914"
 
 def floor_albedo(finish):
     """생성 원본을 직접 가져온다. 예전 타일 스캔으로 덮어쓰지 않는다."""
-    name = "PocheonGranite" if finish == "granite" else "PorcelainStore"
+    name = "LandingPaint" if finish.startswith("landing_") else ("PocheonGranite" if finish == "granite" else "PorcelainStore")
     asset_name = f"T_{name}_20260915_D"
     source = os.path.join(unreal.SystemLibrary.get_project_directory(),
                           "Content", "SourceArt", "AI", f"{name}_20260915.png")
@@ -37,7 +37,8 @@ def floor_albedo(finish):
 def author(material, finish):
     # 재반입은 이 텍스처를 쓰는 재질을 갱신한다. 노드를 만드는 도중 실행하면
     # 막 연결한 그래프가 이전 저장 상태로 돌아갈 수 있으므로 먼저 끝낸다.
-    albedo = floor_albedo(finish) if finish in ("floor", "granite") else None
+    painted = finish.startswith("landing_")
+    albedo = floor_albedo(finish) if finish in ("floor", "granite") or painted else None
     lib = unreal.MaterialEditingLibrary
     # UE 5.8의 일괄 삭제는 순회 중 원본 배열을 줄여 일부 노드를 남긴다.
     # 목록을 복사해 하나씩 지워야 재실행 때 텍스처 샘플이 쌓이지 않는다.
@@ -65,7 +66,7 @@ def author(material, finish):
     # 디딤판과 챌판이 같은 석재를 쓴다. 면 방향에 맞춰 좌표를 고르고
     # 색상과 줄눈이 같은 좌표를 쓰게 해 계단 옆면도 늘어나지 않게 한다.
     position = node("MaterialExpressionWorldPosition")
-    if finish == "granite":
+    if finish == "granite" or painted:
         projected = node("MaterialExpressionCustom",
                          output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3,
                          code="float3 n=abs(N); return float3(n.z>.707 ? P.xy : (n.x>n.y ? P.yz : P.xz),0);",
@@ -82,16 +83,23 @@ def author(material, finish):
 
     base = color((.68, .69, .665) if finish == "wall" else (.61, .59, .54))
     rough = scalar(.42 if finish == "wall" else .31)
-    if finish in ("floor", "granite"):
+    if finish in ("floor", "granite") or painted:
         # 600mm 실물 사진을 기준으로 한 색상 원본이다. 연마면의 검은 광물은
         # 구멍이 아니므로 색의 명암에서 높이·노멀을 만들지 않는다.
         axes = node("MaterialExpressionComponentMask", r=True, g=True, b=False, a=False)
         link(position, axes, "")
-        uv = node("MaterialExpressionDivide", const_b=60.)
+        uv = node("MaterialExpressionDivide", const_b=180. if painted else 60.)
         link(axes, uv, "A")
         base = node("MaterialExpressionTextureSample", texture=albedo)
         link(uv, base, "UVs")
         rough = scalar(.36 if finish == "granite" else .34)
+        if painted:
+            # 도장 벽은 알베도 한 장만 쓴다. 거친 미장면의 노멀·오클루전은 남기지 않는다.
+            tint = node("MaterialExpressionMultiply")
+            link(base, tint, "A")
+            link(color((.44, .48, .46) if finish == "landing_dado" else (1., 1., 1.)), tint, "B")
+            base = tint
+            rough = scalar(.62 if finish == "landing_dado" else .88)
     if finish == "gypsum":
         # 넓은 면은 아이보리 원지, 절단면은 회백색 석고다. 옆면에 평면 투영을 늘리지 않는다.
         normal = node("MaterialExpressionVertexNormalWS")
@@ -112,7 +120,7 @@ def author(material, finish):
         link(paper, base, "A")
         link(brightness, base, "B")
         rough = scalar(.9)
-    if finish not in ("wall", "gypsum"):
+    if finish not in ("wall", "gypsum") and not painted:
         # 반복 전 좌표의 미분으로 픽셀 면적을 구한다. frac의 경계에서 미분하면
         # 줄눈 한 줄이 타일 너비만큼 번지거나 먼 바닥에서 반짝인다.
         grid = node("MaterialExpressionCustom", output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1,

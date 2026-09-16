@@ -868,12 +868,11 @@ if ($worldScene -notmatch 'Plane->SetHiddenInGame\(Unit403AgeStage < 1\);' -or
 	throw '403호 노화는 누적이어야 한다. 손상은 이사 가지 않는다.'
 }
 $assertions++
-# 4F 복도 러너와 계량기함 녹.
+# 4F 복도의 끌린 자국. 분전반 아래로 떠 있던 녹 합성판은 제거했다.
 Require-All $worldScene @(
 	'§11 V2 끌린 자국 (복도 러너)',
-	'M_MissingFloorDragTrails',
-	'M_DecalRustFasteners'
-) '§11 V2 corridor runner and meter rust'
+	'M_MissingFloorDragTrails'
+) '§11 V2 corridor runner'
 
 # §21.3 프로타주: 밴드 노이즈 900~4200Hz, 지속. 소음 0.25를 내는 유일한 지속
 # 상호작용이므로 유일한 지속 큐를 갖는다. 들리지 않는 비용은 선택할 수 없다.

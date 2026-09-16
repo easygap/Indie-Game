@@ -55,4 +55,41 @@ for row, week in enumerate(calendar.Calendar(firstweekday=6).monthdayscalendar(2
                 draw.ellipse((x-34, y-28, x+34, y+30), outline=(113, 45, 36), width=5)
         draw.line((col*105+10, y+65, col*105+115, y+65), fill=(158, 159, 148), width=1)
 image.save(OUT / "BoothCalendar.png")
-print("UTILITY_PRINTS PASS shared_atlases=2 meters=5 documents=3")
+
+# 빈 종이를 붙여 놓고 팝업에서만 읽게 하지 않는다. 벽에 보이는 표와
+# 실제로 읽는 문서의 숫자를 같은 내용으로 인쇄한다.
+for name, title, lines in (
+    ("PumpProcedure", "저수조 세척 절차", ["2019.03 / 관리실 보관", "", "1. 옥상 세척 배수 밸브 개방", "2. 옥상 부자밸브 우회 개방", "3. 관리실 이송펌프 선택반 → 수동", "", "배수 전에 우회를 열면 넘칩니다.", "관을 열기 전에 펌프를 켜지 마세요.", "", "역지변 · 인터록 10초"]),
+    ("LobbyWaterNotice", "단수 안내", ["7월 26일 금요일", "오전 4시 ~ 6시", "", "옥상 물탱크를 청소합니다.", "물을 미리 받아 두세요.", "", "작업 중 옥상 출입을 삼가 주세요.", "", "달빛빌라 관리사무소"]),
+    ("LobbyContactNotice", "입주민 안내", ["우편물은 해당 호실 우편함에", "넣어 주세요.", "", "공용 설비가 고장 났거나", "소음으로 불편하시면", "1층 관리실에 말씀해 주세요.", "", "택배는 출입문 앞에 두지 마세요."]),
+    ("LobbyForumPrint", "관리인께 드립니다", ["층간소음 카페 게시글 사본", "", "6/30  새벽 네 시만 되면 위에서", "뭘 질질 끕니다. 자다가 매번 깨요.", "", "7/12  창고라 사람이 없대요.", "그럼 이 소리는 어디서 나는 건가요?", "", "7/26  03:12  또 시작됐네요.", "오늘은 직접 올라가 보려고요.", "", "댓글: 일단 녹음해 두세요."]),
+):
+    image = Image.new("RGB", (724, 1024), (218, 217, 209))
+    draw = ImageDraw.Draw(image)
+    draw.text((56, 70), title, font=title_font, fill=(32, 35, 34))
+    draw.line((56, 146, 668, 146), fill=(91, 94, 90), width=2)
+    for i, line in enumerate(lines):
+        draw.text((56, 190 + i * 57), line, font=body_font, fill=(42, 44, 42))
+    image.save(OUT / f"{name}.png")
+
+image = Image.new("RGB", (724, 1024), (218, 217, 209))
+draw = ImageDraw.Draw(image)
+draw.text((50, 68), "달빛빌라 검침 기록", font=title_font, fill=(34, 37, 35))
+draw.text((50, 146), "월 사용량 (kWh) / 2024년", font=body_font, fill=(50, 53, 50))
+table_font = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 33)
+for row, values in enumerate((("호실", "4월", "5월", "6월", "7월"),
+                              ("401", "182", "174", "169", "201"),
+                              ("402", "240", "233", "251", "266"),
+                              ("403", "118", "121", "115", "130"),
+                              ("공용", "97", "102", "99", "104"),
+                              ("", "63", "58", "61", "0"))):
+    y = 270 + row * 84
+    draw.line((45, y-40, 678, y-40), fill=(134, 138, 132), width=2)
+    for col, value in enumerate(values):
+        draw.text((107 + col * 127, y), value, font=table_font, fill=(40, 44, 40), anchor="mm")
+draw.line((45, 734, 678, 734), fill=(134, 138, 132), width=2)
+draw.text((50, 780), "공용: 복도등", font=body_font, fill=(45, 49, 44))
+draw.text((50, 836), "공란: 24.07부터 검침 생략", font=body_font, fill=(45, 49, 44))
+draw.text((50, 892), "회로 확인 후 기입", font=body_font, fill=(45, 49, 44))
+image.save(OUT / "LobbyMeterSheet.png")
+print("UTILITY_PRINTS PASS shared_atlases=2 meters=5 documents=8")

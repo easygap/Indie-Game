@@ -1,0 +1,30 @@
+{
+  "name": "SM_EntranceCamera",
+  "mesh_class": "prop",
+  "fbx": "SM_EntranceCamera.fbx",
+  "textures": {
+    "D": "SM_EntranceCamera_D.png",
+    "N": "SM_EntranceCamera_N.png",
+    "ORM": "SM_EntranceCamera_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 2820,
+  "bounds_m": {
+    "min": [
+      -0.046,
+      -0.0348,
+      0.0
+    ],
+    "max": [
+      0.046,
+      0.0,
+      0.15
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "실물 DRC-4Y와 EntranceCamera_20260916.json 참조. 9.2×3.5×15cm, 앞 -Y, 원점 뒷면 아래 중앙."
+}

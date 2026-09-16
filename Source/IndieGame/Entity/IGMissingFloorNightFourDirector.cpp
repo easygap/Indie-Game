@@ -65,7 +65,7 @@ namespace IGNightFour
 	// A wall-mounted selector above a floor-seated pump assembly in the booth.
 	const FVector TransferPumpLocation(63.0f, -170.0f, 112.0f);
 	// 선택반 옆에 붙은 절차서. 같은 벽면, 같은 높이.
-	const FVector ProcedureSheetLocation(63.0f, -206.0f, 112.0f);
+	const FVector ProcedureSheetLocation(60.08f, -206.0f, 112.0f);
 	/** 순서를 틀리면 인터록이 이만큼 선다(§7 P5). */
 	constexpr float ControlLockoutSeconds = 10.0f;
 	const FVector WallBreakLocation(246.0f, 700.0f, 1300.0f);
@@ -344,14 +344,15 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	SpawnParameters.Name = TEXT("MissingFloorPumpProcedureSheet");
 	ProcedureSheet = World->SpawnActor<AIGReadableNote>(
 		AIGReadableNote::StaticClass(),
-		FTransform(FRotator::ZeroRotator, IGNightFour::ProcedureSheetLocation),
+		FTransform(FRotator(0, 90, 0), IGNightFour::ProcedureSheetLocation),
 		SpawnParameters);
 	if (!ProcedureSheet)
 	{
 		return false;
 	}
 	ProcedureSheet->ConfigurePrototypeVisuals(
-		CubeMesh, PaperMaterial, FVector(1.2f, 16.0f, 22.0f));
+		CubeMesh, LoadObject<UMaterialInterface>(nullptr,
+			TEXT("/Game/Prototype/Materials/M_PumpProcedure.M_PumpProcedure")), FVector(21.0f, 0.08f, 29.7f));
 	ProcedureSheet->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "ProcedureSheetPrompt", "저수조 세척 절차서"));
 	ProcedureSheet->SetNoteText(
@@ -407,35 +408,16 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 			FRotator(0.0f, 0.0f, 90.0f));
 	}
 
-	// A recognizable close-coupled pump: bolted base, motor, volute, suction
-	// and discharge pipes, plus the wall selector that owns the interaction.
-	// Every bottom face is on Z=0 or on the base above it; nothing is suspended.
+	// 실물 사진에서 확인한 방열판·전장함·케이싱을 가진 소형 펌프.
+	// 흡입관은 벽으로, 토출관은 천장으로 이어지며 공중에서 끝나지 않는다.
 	AddEquipment(
 		CubeMesh, DarkMaterial, TEXT("NightFourPumpBase"),
-		FVector(93.0f, -170.0f, 4.0f), FVector(64.0f, 42.0f, 8.0f));
-	AddEquipment(
-		CylinderMesh, MetalMaterial, TEXT("NightFourPumpMotor"),
-		FVector(101.0f, -170.0f, 25.0f), FVector(22.0f, 22.0f, 36.0f),
-		FRotator(90.0f, 0.0f, 0.0f));
-	AddEquipment(
-		CylinderMesh, DarkMaterial, TEXT("NightFourPumpMotorCap"),
-		FVector(120.0f, -170.0f, 25.0f), FVector(18.0f, 18.0f, 4.0f),
-		FRotator(90.0f, 0.0f, 0.0f));
-	AddEquipment(
-		CylinderMesh, MetalMaterial, TEXT("NightFourPumpVolute"),
-		FVector(75.0f, -170.0f, 25.0f), FVector(30.0f, 30.0f, 16.0f),
-		FRotator(90.0f, 0.0f, 0.0f));
-	AddEquipment(
-		CylinderMesh, DarkMaterial, TEXT("NightFourPumpCoupling"),
-		FVector(86.0f, -170.0f, 25.0f), FVector(8.0f, 8.0f, 10.0f),
-		FRotator(90.0f, 0.0f, 0.0f));
-	AddEquipment(
-		CylinderMesh, MetalMaterial, TEXT("NightFourPumpDischarge"),
-		FVector(75.0f, -170.0f, 60.0f), FVector(8.0f, 8.0f, 50.0f));
-	AddEquipment(
-		CylinderMesh, MetalMaterial, TEXT("NightFourPumpSuction"),
-		FVector(75.0f, -147.0f, 25.0f), FVector(8.0f, 8.0f, 34.0f),
-		FRotator(0.0f, 0.0f, 90.0f));
+		FVector(87.5f, -154.0f, 4.0f), FVector(44.0f, 38.0f, 8.0f));
+	AddEquipment(LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_BoothPump.SM_BoothPump")),
+		nullptr, TEXT("NightFourPumpBody"), FVector(82.5f, -150.0f, 8.0f), FVector(100));
+	// 조작반 아래에서 꺾어 올린다. 배관과 지지대는 한 메시로 묶었다.
+	AddEquipment(LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_BoothPumpPipework.SM_BoothPumpPipework")),
+		nullptr, TEXT("NightFourPumpPipework"), FVector(75.0f, -170.0f, 0.0f), FVector(100));
 	AddEquipment(
 		CylinderMesh, DarkMaterial, TEXT("NightFourPumpSelector"),
 		FVector(67.5f, -170.0f, 110.0f), FVector(10.0f, 10.0f, 4.0f),

@@ -748,8 +748,29 @@ bool AIGPrologueWorldScene::AuditPlayerClearance(APawn* Pawn, AIGSwingDoor* Boot
 	BuildingDoor->ForceOpenState(true);
 	Sweep(TEXT("building_entrance"), FVector(646, -470, 106), FVector(646, -310, 106));
 	Sweep(TEXT("lobby_connector"), FVector(-45, -305, 98), FVector(410, -305, 98));
+	for (const float LobbyY : {-320.0f, -270.0f, -210.0f})
+	{
+		Sweep(TEXT("lobby_waiting_lane"), FVector(495, LobbyY, 98), FVector(650, LobbyY, 98));
+	}
+	Sweep(TEXT("lobby_turn"), FVector(630, -320, 98), FVector(630, -190, 98));
+	Sweep(TEXT("upper_lift_step_aside"), FVector(635, -305, FourthFloorZ + 98), FVector(635, -415, FourthFloorZ + 98));
+	Sweep(TEXT("upper_lift_waiting_edge"), FVector(620, -415, FourthFloorZ + 98), FVector(660, -415, FourthFloorZ + 98));
 	Sweep(TEXT("west_alley"), FVector(1300, -560, 98), FVector(1300, -1150, 98));
 	Sweep(TEXT("rear_alley"), FVector(1330, -1380, 98), FVector(2310, -1380, 98));
+	// 새 위치의 소품도 플레이어와 같은 단순 가시성 트레이스에 잡혀야 한다.
+	const auto TraceFixture = [&](const TCHAR* Name, const FVector& Eye, const FVector& Target, const UClass* ExpectedClass)
+	{
+		FHitResult Hit;
+		const bool bHit = GetWorld()->LineTraceSingleByChannel(Hit, Eye, Target, ECC_Visibility, Query);
+		const bool bPass = bHit && Hit.GetActor() && Hit.GetActor()->IsA(ExpectedClass);
+		++Checks;
+		Failures += bPass ? 0 : 1;
+		UE_LOG(LogIndieGame, Display, TEXT("SPATIAL_CHECK %s %s hit=%s"), Name,
+			bPass ? TEXT("PASS") : TEXT("FAIL"), *GetNameSafe(Hit.GetActor()));
+	};
+	TraceFixture(TEXT("lower_call_plate_target"), FVector(610, -227, 162), FVector(702, -227, 120), AIGElevator::StaticClass());
+	TraceFixture(TEXT("upper_call_plate_target"), FVector(610, -390, 1062), FVector(702, -390, 1020), AIGElevator::StaticClass());
+	TraceFixture(TEXT("meter_sheet_target"), FVector(401, -287, 162), FVector(401, -363, 150), AIGReadableNote::StaticClass());
 	HomeDoor->ForceOpenState(bHomeWasOpen);
 	BuildingDoor->ForceOpenState(bBuildingWasOpen);
 	BoothDoor->ForceOpenState(bBoothWasOpen);
@@ -1241,6 +1262,8 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_SignVilla"), TEXT("M_Plate401"), TEXT("M_Plate402"),
 		TEXT("M_Plate403"), TEXT("M_PlateCommon"),
 		TEXT("M_ElevatorPanel"), TEXT("M_ClockFace"),
+		TEXT("M_LobbyWaterNotice"), TEXT("M_LobbyContactNotice"),
+		TEXT("M_LobbyMeterSheet"), TEXT("M_LobbyForumPrint"),
 		TEXT("M_Shutter_X"), TEXT("M_SignLaundry"), TEXT("M_SignHair"),
 		TEXT("M_SignHof"), TEXT("M_SignSuper"), TEXT("M_Banner"),
 		TEXT("M_NoticeA4"), TEXT("M_DoorAd"), TEXT("M_Calendar"),
@@ -1267,7 +1290,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_MissingFloorPlaster_XY"), TEXT("M_GypsumBoard"), TEXT("M_MissingFloorHandprints"),
 		TEXT("M_MissingFloorDragTrails"), TEXT("M_MissingFloorDustJoint"),
 		TEXT("M_MissingFloorCavityScratches"),
-		TEXT("M_DecalDampWallpaper"), TEXT("M_DecalRustFasteners"),
+		TEXT("M_DecalDampWallpaper"),
 		TEXT("M_DecalRainGrime"),
 		// §11 규칙 2가 고르게 만드는 발소리 표면들. 이름이 여기 없으면
 		// 소리만 다르고 그림은 복도 콘크리트 그대로다.
@@ -2407,7 +2430,10 @@ void AIGPrologueWorldScene::BuildApartment()
 		// 스캔 원본의 집게 입구(0, 0, -1cm)를 협탁 앞 모서리에 물린다.
 		const FVector ClampBefore = DeskLampFixture->GetRelativeTransform().TransformPosition(FVector(0, 0, -1));
 		const FVector ClampTarget(-172, TableFrontLocal.Y - .6f, BedsideSurfaceLocalZ);
+		// 고정 소품은 등록된 채로 옮길 수 없다. 집게 위치를 맞춘 뒤 다시 등록한다.
+		DeskLampFixture->UnregisterComponent();
 		DeskLampFixture->SetRelativeLocation(DeskLampFixture->GetRelativeLocation() + ClampTarget - ClampBefore);
+		DeskLampFixture->RegisterComponent();
 		// 원본 갓 안쪽에서 잰 전구 중심. 회전·크기가 바뀌어도 갓과 같이 이동한다.
 		BedsideEmitterLocal = DeskLampFixture->GetRelativeTransform().TransformPosition(FVector(-.15f, -17.1f, 68.8f));
 	}
@@ -2922,7 +2948,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	UMaterialInterface* CorridorCeil = TexMat(TEXT("M_StuccoCeil"), ConcreteMaterial);
 	UMaterialInterface* CorridorWallX = TexMat(TEXT("M_Stucco_X"), ConcreteMaterial);
 	UMaterialInterface* CorridorWallY = TexMat(TEXT("M_Stucco_Y"), ConcreteMaterial);
-	UMaterialInterface* Skirting = TexMat(TEXT("M_ConcreteDark_X"), ConcreteDarkMaterial);
+	UMaterialInterface* Skirting = TexMat(TEXT("M_UtilityGraniteCladding"), ConcreteDarkMaterial);
 	UMaterialInterface* SteelDoor = TexMat(TEXT("M_SteelDoorUV"), DoorMaterial);
 	UMaterialInterface* Stainless = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
@@ -2932,7 +2958,6 @@ void AIGPrologueWorldScene::BuildCorridor()
 	// Directional stone/metal UVs smear across the 1–2 cm portal strips. A
 	// matte charcoal powder coat is common on renovated Korean villa lifts and
 	// stays visually stable on every thin reveal face.
-	UMaterialInterface* LiftStone = PlasticDarkMaterial;
 
 	// Floor and ceiling. The hallway runs well past our door so that leaving
 	// 404 means actually walking the building, not stepping into the lift.
@@ -2948,7 +2973,6 @@ void AIGPrologueWorldScene::BuildCorridor()
 	{
 		UMaterialInterface* Runner =
 			TexMat(TEXT("M_MissingFloorDragTrails"), nullptr);
-		UMaterialInterface* Rust = TexMat(TEXT("M_DecalRustFasteners"), nullptr);
 		const auto AddCorridorResidue = [this](
 			const FVector& Center,
 			const FVector& Size,
@@ -2980,13 +3004,6 @@ void AIGPrologueWorldScene::BuildCorridor()
 			FVector(165.0f, 36.0f, 1.0f),
 			Runner,
 			FRotator(0.0f, -4.0f, 0.0f));
-		// §11 V2 계량기함 녹. The distribution board's steel face has been
-		// weeping down its own door since long before any of this.
-		AddCorridorResidue(
-			FVector(-90.0f, -228.45f, 148.0f),
-			FVector(30.0f, 44.0f, 1.0f),
-			Rust,
-			FRotator(90.0f, 0.0f, 0.0f));
 	}
 
 	// South wall with hopper windows onto the alley. The openings are cut out
@@ -3002,7 +3019,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 		constexpr float OpeningBottomZ = 114.0f;
 		constexpr float OpeningTopZ = 186.0f;
 		constexpr float WallWestX = -330.0f;
-		constexpr float WallEastX = 710.0f;
+		constexpr float WallEastX = 584.0f;
 
 		// Piers: masonry between the openings, plus the two end returns.
 		const int32 WindowCount = static_cast<int32>(UE_ARRAY_COUNT(WindowXs));
@@ -3051,28 +3068,16 @@ void AIGPrologueWorldScene::BuildCorridor()
 
 	// East end: elevator door opening (Y -360..-250); west end: dark stairwell.
 	CreateBlock(FVector(710, -242.5f, 120), FVector(20, 15, 240), CorridorWallY);
-	CreateBlock(FVector(710, -367.5f, 120), FVector(20, 15, 240), CorridorWallY);
+	CreateBlock(FVector(710, -407.5f, 120), FVector(20, 95, 240), CorridorWallY);
 	CreateBlock(FVector(710, -305, 225), FVector(20, 110, 30), CorridorWallY);
-	// World-mapped stone portal and a live hall indicator keep the lift
-	// opening distinct from the stucco without changing its collision.
-	for (const float PortalY : {-245.0f, -365.0f})
-	{
-		CreateBlock(
-			FVector(699, PortalY, 105), FVector(2, 10, 210),
-			LiftStone, false);
-	}
-	// Cover the two side reveals and soffit as well as the corridor-facing
-	// portal. Otherwise the directional stucco on a 20 cm return stretches
-	// into conspicuous horizontal bands when the player looks into the car.
-	CreateBlock(FVector(710, -250.5f, 105), FVector(20, 1, 210), LiftStone, false);
-	CreateBlock(FVector(710, -359.5f, 105), FVector(20, 1, 210), LiftStone, false);
-	CreateBlock(FVector(710, -305, 209.5f), FVector(20, 110, 1), LiftStone, false);
-	CreateBlock(
-		FVector(699, -305, 216), FVector(2, 130, 12),
-		LiftStone, false);
-	CreateBlock(
-		FVector(697.8f, -305, 225), FVector(1.2f, 38, 19),
-		TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial), false);
+	// 문 옆으로 비켜 서서 복도를 볼 수 있는 작은 대기 공간.
+	CreateBlock(FVector(647, -425, -10), FVector(146, 80, 20), CorridorFloor);
+	CreateBlock(FVector(647, -425, 250), FVector(146, 80, 20), CorridorCeil);
+	CreateBlock(FVector(574, -430, 120), FVector(20, 70, 240), CorridorWallY);
+	CreateBlock(FVector(647, -465, 120), FVector(146, 20, 240), CorridorWallX);
+	CreateBlock(FVector(642, -453.25f, 6), FVector(116, 3.5f, 12), Skirting, false);
+	CreateBlock(FVector(585.75f, -415, 6), FVector(3.5f, 76, 12), Skirting, false);
+	CreateBlock(FVector(698.25f, -407.5f, 6), FVector(3.5f, 95, 12), Skirting, false);
 	// Open stair throat. The former full-height wall made the five visible
 	// treads a dead-end decoration while route tests claimed a stair choice.
 	CreateBlock(FVector(-330, -237.5f, 120), FVector(20, 15, 240), PlasticDarkMaterial);
@@ -3106,11 +3111,11 @@ void AIGPrologueWorldScene::BuildCorridor()
 		constexpr float DadoThickness = 0.8f;
 		// 남쪽 벽은 창이 114 cm부터라 허리 아래가 통째로 이어진다.
 		CreateBlock(
-			FVector(190, -375.0f + DadoThickness * 0.5f, DadoTop * 0.5f),
-			FVector(1040, DadoThickness, DadoTop), DadoX, false);
+			FVector(127, -375.0f + DadoThickness * 0.5f, DadoTop * 0.5f),
+			FVector(914, DadoThickness, DadoTop), DadoX, false);
 		CreateBlock(
-			FVector(190, -375.0f + 1.4f, DadoTop + 1.5f),
-			FVector(1040, 2.8f, 3.0f), PlasticDarkMaterial, false);
+			FVector(127, -375.0f + 1.4f, DadoTop + 1.5f),
+			FVector(914, 2.8f, 3.0f), PlasticDarkMaterial, false);
 		// 북쪽 벽은 세 문(401·402·403)의 문선 사이만. 구간을 쌍으로 적으면
 		// 지오메트리 감사가 못 읽으니 람다로 하나씩 부른다.
 		const auto AddNorthDado = [this, DadoX](const float X0, const float X1)
@@ -3124,6 +3129,13 @@ void AIGPrologueWorldScene::BuildCorridor()
 				FVector(SpanCenter, -235.0f - 1.4f, DadoTop + 1.5f),
 				FVector(SpanWidth, 2.8f, 3.0f), PlasticDarkMaterial, false);
 		};
+		// 넓힌 대기 공간까지 같은 도장선과 몰딩을 이어 준다.
+		CreateBlock(FVector(584.4f, -415, 50), FVector(0.8f, 80, 100), DadoX, false);
+		CreateBlock(FVector(642, -454.6f, 50), FVector(116, 0.8f, 100), DadoX, false);
+		CreateBlock(FVector(699.6f, -407.5f, 50), FVector(0.8f, 95, 100), DadoX, false);
+		CreateBlock(FVector(585.4f, -415, 101.5f), FVector(2.8f, 80, 3), PlasticDarkMaterial, false);
+		CreateBlock(FVector(642, -453.6f, 101.5f), FVector(116, 2.8f, 3), PlasticDarkMaterial, false);
+		CreateBlock(FVector(698.6f, -407.5f, 101.5f), FVector(2.8f, 95, 3), PlasticDarkMaterial, false);
 		AddNorthDado(-320.0f, -200.0f);
 		AddNorthDado(-100.0f, -78.0f);
 		AddNorthDado(18.0f, 68.0f);
@@ -3162,9 +3174,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	UStaticMesh* UnitDoorLeafMesh = PropMesh(TEXT("SM_UnitDoorLeaf"));
 	UStaticMesh* UnitDoorHardwareMesh = PropMesh(TEXT("SM_UnitDoorHardware"));
 	UStaticMesh* UnitDoorFrameMesh = PropMesh(TEXT("SM_UnitDoorFrame"));
-	// IntercomSide is +1 when the intercom hangs east of the leaf. 401 needs
-	// that: 56 cm west of its door is the ten-centimetre return of 403's west
-	// wall, and the plate ended up inside the masonry.
+	// 두 세대의 카메라를 문 사이 좁은 벽에 몰지 않고 각 문 바깥쪽으로 나눈다.
 	auto DressUnitDoor = [this, UnitDoorLeaf, UnitDoorLeafMesh, UnitDoorHardwareMesh,
 			Stainless, Metal](
 		const float DoorX, const float FaceY, const float IntercomSide)
@@ -3218,18 +3228,9 @@ void AIGPrologueWorldScene::BuildCorridor()
 				FVector(DoorX, PlateY - 0.4f, 155), FVector(3, 1.2f, 3),
 				Metal, false, CylinderMesh, FRotator(90, 0, 0));
 		}
-		// Doorbell button and the video intercom plate beside the frame. Both
-		// are screwed to the landing face of the wall at Y -235, not to the
-		// leaf: at FaceY + 1 the whole intercom sat inside the masonry and the
-		// button showed a couple of millimetres of itself.
-		CreateBlock(
-			FVector(DoorX + IntercomSide * 56.0f, FaceY - 1.75f, 138),
-			FVector(7, 2.5f, 11),
-			TexMat(TEXT("M_Intercom"), SignWhiteMaterial), false);
-		CreateBlock(
-			FVector(DoorX + IntercomSide * 56.0f, FaceY - 1.25f, 122),
-			FVector(3, 1.5f, 3),
-			SnackRedMaterial, false, CylinderMesh, FRotator(90, 0, 0));
+		// 실외 카메라 한 대에 호출 버튼이 달린다. 상자 옆면에 실내 모니터를 반복하지 않는다.
+		CreateProp(TEXT("SM_EntranceCamera"),
+			FVector(DoorX + IntercomSide * 56.0f, -235, 130), nullptr, 0, 1, false);
 	};
 
 	// West to east the landing reads 401, 402, 403. Keeping the ordinary
@@ -3241,7 +3242,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	{
 		const float DoorX = NeighborDoorXs[NeighborIndex];
 		const int32 FirstDoorComponent = GeometryComponents.Num();
-		DressUnitDoor(DoorX, -234.5f, NeighborIndex == 0 ? -1.0f : 1.0f);
+		DressUnitDoor(DoorX, -234.5f, NeighborIndex == 0 ? 1.0f : -1.0f);
 		if (UnitDoorFrameMesh)
 		{
 			// 문선·머리·스톱 립이 한 메시다. 원점은 개구부 바닥 중심.
@@ -3302,9 +3303,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(
 		FVector(131, -236, 214), FVector(16, 2, 8),
 		TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial), false);
-	CreateBlock(
-		FVector(88, -236.25f, 138), FVector(7, 2.5f, 11),
-		TexMat(TEXT("M_Intercom"), SignWhiteMaterial), false);
+	CreateProp(TEXT("SM_EntranceCamera"), FVector(205, -235, 130), nullptr, 0, 1, false);
 
 	// One dry joke before the building starts lying: a real 76 mm memo sits on
 	// the empty wall where the next unit would continue. It has no collision,
@@ -3343,7 +3342,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(FVector(582.5f, -236.75f, 6), FVector(215, 3.5f, 12), Skirting, false);
 	ChapterOneMaskComponents.Add(CreateBlock(
 		FVector(430, -236.75f, 6), FVector(100, 3.5f, 12), Skirting, false));
-	CreateBlock(FVector(455, -373.25f, 6), FVector(470, 3.5f, 12), Skirting, false);
+	CreateBlock(FVector(398, -373.25f, 6), FVector(356, 3.5f, 12), Skirting, false);
 
 	// Distribution board between the units, plus the fire cabinet. The board
 	// is flush-mounted, so its case belongs inside the wall with the door
@@ -5236,21 +5235,20 @@ void AIGPrologueWorldScene::BuildLobby()
 	UMaterialInterface* LobbyWallX = TexMat(TEXT("M_Stucco_X"), ConcreteMaterial);
 	UMaterialInterface* LobbyWallY = TexMat(TEXT("M_Stucco_Y"), ConcreteMaterial);
 	UMaterialInterface* LobbyCeil = TexMat(TEXT("M_StuccoCeil"), ConcreteMaterial);
-	UMaterialInterface* Skirting = TexMat(TEXT("M_ConcreteDark_X"), ConcreteDarkMaterial);
+	UMaterialInterface* Skirting = TexMat(TEXT("M_UtilityGraniteCladding"), ConcreteDarkMaterial);
 	UMaterialInterface* Stainless = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
 	UMaterialInterface* Metal = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
 	UMaterialInterface* ShelfSteel = TexMat(TEXT("M_ShelfSteelUV"), CoolerBodyMaterial);
-	UMaterialInterface* LiftStone = PlasticDarkMaterial;
 
-	// Interior X 450..710, Y -375..-235, height 240 — directly under the lift.
-	CreateBlock(FVector(580, -305, -10), FVector(300, 180, 20), LobbyFloor);
-	CreateBlock(FVector(580, -303, 250), FVector(300, 176, 20), LobbyCeil);
-	CreateBlock(FVector(580, -225, 120), FVector(300, 20, 240), LobbyWallX);
+	// 승강기 앞은 대기·회전 공간으로 비운다. 안쪽 폭 230cm, 천장 높이 240cm.
+	CreateBlock(FVector(580, -260, -10), FVector(300, 270, 20), LobbyFloor);
+	CreateBlock(FVector(580, -257.5f, 250), FVector(300, 265, 20), LobbyCeil);
+	CreateBlock(FVector(580, -135, 120), FVector(300, 20, 240), LobbyWallX);
 	// Split the west wall around a real stair-core doorway. The old solid
 	// slab forced a player standing inside the lobby to walk back outdoors
 	// and around the pilotis before the lower stair mouth became reachable.
 	CreateBlock(FVector(440, -370, 120), FVector(20, 30, 240), LobbyWallY);
-	CreateBlock(FVector(440, -240, 120), FVector(20, 30, 240), LobbyWallY);
+	CreateBlock(FVector(440, -200, 120), FVector(20, 110, 240), LobbyWallY);
 	CreateBlock(FVector(440, -305, 225), FVector(20, 100, 30), LobbyWallY);
 	// Enclosed ground-floor connector from the lobby doorway to the stair
 	// core. The core is vertically aligned with the west end of the 4F hall;
@@ -5319,8 +5317,8 @@ void AIGPrologueWorldScene::BuildLobby()
 		true, CylinderMesh);
 
 	// Granite skirting round the lobby, matching the landings upstairs.
-	CreateBlock(FVector(580, -233.4f, 6), FVector(300, 3.5f, 12), Skirting, false);
-	CreateBlock(FVector(448.4f, -305, 6), FVector(3.5f, 160, 12), Skirting, false);
+	CreateBlock(FVector(575, -146.75f, 6), FVector(250, 3.5f, 12), Skirting, false);
+	CreateBlock(FVector(451.75f, -200, 6), FVector(3.5f, 110, 12), Skirting, false);
 
 	// 없는 층 night seal: a fire shutter at the stair-core end of the
 	// connector. Locking the common entrance alone does not shut the building
@@ -5347,57 +5345,11 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(643, -385, 225), FVector(86, 20, 30), LobbyWallX);
 
 	// East wall around the elevator opening (Y -360..-250).
-	CreateBlock(FVector(710, -242.5f, 120), FVector(20, 15, 240), LobbyWallY);
+	CreateBlock(FVector(710, -197.5f, 120), FVector(20, 105, 240), LobbyWallY);
 	CreateBlock(FVector(710, -367.5f, 120), FVector(20, 15, 240), LobbyWallY);
 	CreateBlock(FVector(710, -305, 225), FVector(20, 110, 30), LobbyWallY);
-	for (const float PortalY : {-245.0f, -365.0f})
-	{
-		CreateBlock(
-			FVector(699, PortalY, 105), FVector(2, 10, 210),
-			LiftStone, false);
-	}
-	CreateBlock(FVector(710, -250.5f, 105), FVector(20, 1, 210), LiftStone, false);
-	CreateBlock(FVector(710, -359.5f, 105), FVector(20, 1, 210), LiftStone, false);
-	CreateBlock(FVector(710, -305, 209.5f), FVector(20, 110, 1), LiftStone, false);
-	CreateBlock(
-		FVector(699, -305, 216), FVector(2, 130, 12),
-		LiftStone, false);
-	CreateBlock(
-		FVector(697.8f, -305, 225), FVector(1.2f, 38, 19),
-		TexMat(TEXT("M_LiftHall"), ScreenGlowMaterial), false);
-
-	// Mailboxes for the whole building on the north wall.
-	// 우편함은 Blender 메시(Scripts/blender/build_lobby_mailboxes.py) 하나다.
-	// 뒷판·상자 아홉·투입구·차양·캠록·이름표가 실제 기하이고, 원점은 벽면의
-	// 바닥 중심(뒷판 아랫변 Z 118)이며 앞면이 -Y다.
-	UStaticMesh* MailboxMesh = PropMesh(TEXT("SM_MailboxUnit"));
-	if (MailboxMesh)
-	{
-		CreateBlock(
-			FVector(528, -235, 118), FVector(100, 100, 100),
-			nullptr, false, MailboxMesh, FRotator::ZeroRotator);
-	}
-	else
-	{
-		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreateBlock(FVector(528, -237, 151), FVector(96, 4, 66), ShelfSteel, false);
-		for (const float BoxZ : {131.0f, 151.0f, 171.0f})
-		{
-			for (const float BoxX : {500.0f, 528.0f, 556.0f})
-			{
-				CreateBlock(FVector(BoxX, -241.5f, BoxZ), FVector(26, 9, 18), Metal, false);
-				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-				CreateBlock(
-					FVector(BoxX, -246.3f, BoxZ + 4), FVector(18, 1.2f, 2.5f),
-					PlasticDarkMaterial, false);
-				// Cam-lock keyhole.
-				// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-				CreateBlock(
-					FVector(BoxX + 8, -246.5f, BoxZ - 4), FVector(2.4f, 1.2f, 2.4f),
-					PlasticDarkMaterial, false, CylinderMesh, FRotator(90, 0, 0));
-			}
-		}
-	}
+	// 우편을 꺼내는 자리는 통과 동선에서 한 걸음 물러난 뒤쪽 벽이다.
+	CreateProp(TEXT("SM_MailboxUnit"), FVector(508, -145, 106), nullptr, 0, 1, false);
 
 	// 검침함의 열린 창 안에 실제 계기를 넣는다. 계수기 아래의 원판은 수평이다.
 	CreateProp(TEXT("SM_MeterCabinetFive"), FVector(506, -365, 150), nullptr, 180, 1, false);
@@ -5467,28 +5419,19 @@ void AIGPrologueWorldScene::BuildLobby()
 		Stainless, false);
 	UnnamedBreakerToggle->SetMobility(EComponentMobility::Movable);
 
-	// The meter-reading clipboard's backing, on the free north-wall band east
-	// of the notice board. The note actor itself is spawned later, because
-	// BuildLobby runs before any interactable exists.
-	// Flat on the wall at the same standoff as the notice board beside it; at
-	// Y -238.5 it hung two centimetres off the plaster.
-	CreateBlock(FVector(672, -237, 150), FVector(23, 3, 32), Metal, false);
+	// 기록지와 계량기를 같은 벽에서 비교한다. 승강기 버튼 주변에는 종이를 두지 않는다.
+	CreateBlock(FVector(401, -363, 150), FVector(23, 3, 32), Metal, false);
+	CreateBlock(FVector(401, -361.3f, 164.8f), FVector(9, .4f, 1.8f), Stainless, false);
 
-	// Lobby fittings: the video intercom by the door, a notice board over the
-	// mailboxes, and the umbrella stand nobody has emptied since the rains.
-	CreatePrintedBlock(
-		FVector(703, -371.5f, 145), FVector(16, 5, 22),
-		FridgeInteriorMaterial,
-		TexMat(TEXT("M_Intercom"), SignWhiteMaterial),
-		FVector(0, 1, 0));
-	CreateBlock(FVector(703, -374.4f, 145), FVector(19, 0.8f, 25), Stainless, false);
-	CreatePrintedBlock(
-		FVector(600, -239.5f, 196), FVector(84, 3, 44),
-		FridgeInteriorMaterial,
-		TexMat(TEXT("M_NoticeA4"), SignWhiteMaterial),
-		FVector(0, -1, 0));
-	CreateBlock(FVector(600, -237, 196), FVector(90, 3, 50), Metal, false);
-	CreateBlock(FVector(468, -252, 24), FVector(26, 26, 48), Metal, true, CylinderMesh);
+	// 공동현관 인터폰은 바깥쪽 손잡이 옆에 붙는다.
+	CreateProp(TEXT("SM_EntranceCamera"), FVector(703, -395, 137), nullptr, 0, 1, false);
+	// 게시판 두 장은 실제 A4 비율로 걸며, 우편 투입구를 가리지 않는다.
+	CreateBlock(FVector(633, -146.5f, 153), FVector(82, 3, 76), Metal, false);
+	CreateBlock(FVector(633, -148.2f, 153), FVector(78, .4f, 72), FridgeInteriorMaterial, false);
+	CreateBlock(FVector(610, -148.65f, 166), FVector(21, .08f, 29.7f),
+		TexMat(TEXT("M_LobbyWaterNotice"), SignWhiteMaterial), false);
+	CreateBlock(FVector(610, -148.65f, 134), FVector(21, 0.08f, 29.7f),
+		TexMat(TEXT("M_LobbyContactNotice"), SignWhiteMaterial), false);
 
 	// Lobby fluorescents: one over the mailboxes, one at the lift doors.
 	// 복도와 같은 Blender 등 메시 둘. 돔 슬롯은 예전처럼 씬이 재질을 건다.
@@ -5558,20 +5501,6 @@ void AIGPrologueWorldScene::BuildLobby()
 		FVector(710, -305, SecondFloorZ + 225),
 		FVector(20, 110, 30),
 		LobbyWallY);
-	for (const float PortalY : {-245.0f, -365.0f})
-	{
-		CreateBlock(
-			FVector(699, PortalY, SecondFloorZ + 105),
-			FVector(2, 10, 210),
-			LiftStone,
-			false);
-	}
-	CreateBlock(
-		FVector(699, -305, SecondFloorZ + 216),
-		FVector(2, 130, 12),
-		LiftStone,
-		false);
-
 	// The closed service door and a dim floor plaque give the slit a readable
 	// destination without turning the landing into an explorable branch.
 	CreateBlock(
@@ -5675,8 +5604,11 @@ void AIGPrologueWorldScene::BuildAlley()
 	// 이음 홈을 따로 세우지 않는다.
 	UMaterialInterface* GranitePanelX = TexMat(TEXT("M_UtilityGraniteCladding"), ConcreteMaterial);
 	UMaterialInterface* VillaBrickX = TexMat(TEXT("M_UtilityVillaBrick"), GranitePanelX);
-	CreateBlock(FVector(190, -385, 570), FVector(1060, 20, 660), VillaBrickX);
-	CreateBlock(FVector(190, -385, 1190), FVector(1060, 20, 100), VillaBrickX);
+	// 대기 공간 아래·위의 벽돌은 바닥과 천장 슬래브의 안쪽까지 뚫고 나오지 않는다.
+	CreateBlock(FVector(117, -385, 570), FVector(914, 20, 660), VillaBrickX);
+	CreateBlock(FVector(647, -385, 560), FVector(146, 20, 640), VillaBrickX);
+	CreateBlock(FVector(117, -385, 1190), FVector(914, 20, 100), VillaBrickX);
+	CreateBlock(FVector(647, -385, 1200), FVector(146, 20, 80), VillaBrickX);
 	// 층 사이 콘크리트 띠. 벽돌 빌라는 슬래브 선이 밖으로 드러난다.
 	for (const float BandZ : {540.0f, 840.0f})
 	{
@@ -6683,11 +6615,6 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		TexMat(TEXT("M_NoticeA4"), SignWhiteMaterial), false,
 		nullptr, FRotator(0, 24, 0));
 
-	// Lobby: the monthly maintenance-fee notice by the mailboxes.
-	CreateBlock(
-		FVector(474, -226.4f, 150), FVector(22, 1.2f, 30),
-		TexMat(TEXT("M_NoticeA4"), SignWhiteMaterial), false);
-
 	// Front door: always available; room clues remain optional.
 	HomeDoor = World->SpawnActor<AIGSwingDoor>(
 		AIGSwingDoor::StaticClass(),
@@ -6787,7 +6714,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		AIGReadableNote::StaticClass(),
 		FTransform(
 			FRotator::ZeroRotator,
-			FVector(676.0f, -232.0f, IGPrologueWorld::FourthFloorZ + 142.0f)),
+			FVector(348.0f, -236.0f, IGPrologueWorld::FourthFloorZ + 151.0f)),
 		SpawnParameters);
 	if (ManagementNotice)
 	{
@@ -6796,8 +6723,8 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		// this building.
 		ManagementNotice->ConfigurePrototypeVisuals(
 			CubeMesh,
-			TexMat(TEXT("M_PaperWet"), SignWhiteMaterial),
-			FVector(21.0f, 1.2f, 29.7f));
+			TexMat(TEXT("M_LobbyWaterNotice"), SignWhiteMaterial),
+			FVector(21.0f, .08f, 29.7f));
 		ManagementNotice->SetInteractionPrompt(
 			NSLOCTEXT("IGPrologue", "NoticePrompt", "공지 읽기"));
 		// Chapter three is already on this piece of paper; on the first
@@ -6831,6 +6758,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		AIGElevator::FIGElevatorVisuals CabVisuals;
 		CabVisuals.CubeMesh = CubeMesh;
 		CabVisuals.CylinderMesh = CylinderMesh;
+		CabVisuals.CallPlateMesh = PropMesh(TEXT("SM_LiftCallPlate"));
 		// Brushed, mid-roughness stainless retains panel direction and contact
 		// shading without becoming a mirror of the exterior Lumen scene.
 		CabVisuals.StainlessMaterial =
@@ -7227,7 +7155,7 @@ void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
 		});
 
 	MailboxBills = SpawnNote(
-		FVector(528, -222.5f, 157),
+		FVector(643, -149.0f, 130),
 		FRotator::ZeroRotator,
 		FVector(19, 1.3f, 27),
 		TexMat(TEXT("M_PaperFolded"), SignWhiteMaterial),

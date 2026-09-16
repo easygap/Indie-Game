@@ -1,0 +1,164 @@
+2026-09-16 승강장·복도·관리실 수정 검증
+기준 커밋: 85382b8
+
+코드 빌드
+로그: Saved/Logs/LandingBuildFinal.log
+ART_CODE_BUILD PASS target=IndieGameEditor platform=Win64 configuration=Development
+
+승강장 화면 12개
+로그: Saved/Logs/LandingReviewFinal-console.log
+LANDING_REVIEW PASS shots=12 measure=False quality=High
+
+전체 화면 21개
+로그: Saved/Logs/LandingSpatial-console.log
+RETAIL_STOCK PASS instances=1318 batches=27
+RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=False quality=High production=1 resolution=1920x1080
+
+협탁 집게 수정 후 매장·실내 화면 14개
+로그: Saved/Logs/LandingRetailFinal-console.log
+RETAIL_STOCK PASS instances=1318 batches=27
+RETAIL_CAPTURE PASS shots=14 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=False quality=High production=1 resolution=1920x1080
+
+설비 화면 8개
+로그: Saved/Logs/LandingFixtureFinal-console.log
+FIXTURE_REVIEW PASS shots=8
+
+출하 시작과 통행·조준
+로그: Saved/Logs/LandingArrivalFinal.log
+SPATIAL_CHECK home_closed_blocks PASS hit=DoorMesh
+SPATIAL_CHECK home_enter_offset PASS hit=None
+SPATIAL_CHECK home_leave_offset PASS hit=None
+SPATIAL_CHECK booth_closed_blocks PASS hit=DoorMesh
+SPATIAL_CHECK booth_entry_offset PASS hit=None
+SPATIAL_CHECK building_entrance PASS hit=None
+SPATIAL_CHECK lobby_connector PASS hit=None
+SPATIAL_CHECK lobby_waiting_lane PASS hit=None
+SPATIAL_CHECK lobby_turn PASS hit=None
+SPATIAL_CHECK upper_lift_step_aside PASS hit=None
+SPATIAL_CHECK upper_lift_waiting_edge PASS hit=None
+SPATIAL_CHECK west_alley PASS hit=None
+SPATIAL_CHECK rear_alley PASS hit=None
+SPATIAL_CHECK lower_call_plate_target PASS hit=IGElevator_0
+SPATIAL_CHECK upper_call_plate_target PASS hit=IGElevator_0
+SPATIAL_CHECK meter_sheet_target PASS hit=MissingFloorReadingSheet
+SPATIAL_CLEARANCE PASS checks=24 failures=0 capsule=60.0x192.0
+MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1
+MISSINGFLOOR_ARRIVAL_PROBE PASS route=production offscreen=true
+
+퍼즐·귀가·조준·CCTV
+로그: Saved/Logs/LandingFlowFinal.log
+MISSINGFLOOR_DIFFICULTY PASS: §20.2 four nights, tier axis multiplies (night3 tier3 = 3.50s), quiet/hasty/listen-only honoured, heatmap saturates and halves
+MISSINGFLOOR_PERCEPTION PASS: corridor/stairwell reverb, cavity still ringing at 0.5s (level=1472, 1.51s vs solid 0.37s), settled dust bounded and 403 aging cumulative, dust x2.00 over his lane, 220/220 motes lit, dry when dark
+UTILITY_METER PASS stopped_off=1 rotates_on=1 horizontal=1 distance_cull=1 observation_hold=1
+MISSINGFLOOR_P1_EXPERIMENT PASS isolation=1 off_on=1 reversible=1
+MISSINGFLOOR_MERCY PASS: 90s clock, 2-reset hint, responses=4 never repeating, note rests 28.7 cm clear of the five-capture note, stands down on a new source
+MISSINGFLOOR_RECORDING PASS: her sounds kept, his refused, 2.10s of exact silence, lifted once by the night-four wall
+MISSINGFLOOR_N2DOOR PASS: knock at 403, figure staged and released, 3 cues, 3 refused events, 4.11s of silence
+MISSINGFLOOR_CCTV5 PASS: 352x288 allocated on the press, 69 captures, the corridor sounded once, released on death, second press refused
+MISSINGFLOOR_CCTV5_FEED PASS: brightest=0.9807 lit=0.2584 of the frame
+MISSINGFLOOR_N2CHASE PASS: T7 armed the return, the booth exit dropped the stack, two sounds moved the building, and 403 ended the night
+MISSINGFLOOR_ANSWERREACH PASS: the learned answer knocked at nothing froze him into Waiting, and the same cadence from two floors up did not
+UTILITY_KEYRING PASS visibility_trace=1 picked_up=1 hidden=1 collision_off=1 gates_unlocked=2
+MISSINGFLOOR_N3PASS_TAP tap=1 taken=1 dist=179 state=1
+MISSINGFLOOR_N3PASS_TAP tap=2 taken=1 dist=179 state=1
+MISSINGFLOOR_N3PASS_TAP tap=3 taken=1 dist=179 state=7
+MISSINGFLOOR_N3PASS PASS: T9 armed the walk home, the learned answer stopped him in the corridor, she passed him while he waited, and 403 ended the night
+MISSINGFLOOR_SEALEDUI PASS
+MISSINGFLOOR_M6_AUDIO PASS: six buses, score states, title window
+MISSINGFLOOR_GREYBOX PASS
+
+승강기 왕복과 층 표시
+로그: Saved/Logs/LandingRoundtrip-console.log
+ELEVATOR_ROUNDTRIP PASS intermediate=2 lower=1 upper=4 display=4,4,4,3,2,2,1,1,2,3,4
+
+조작 30fps
+로그: Saved/Logs/LandingControls-30.log
+REALISM_CHECK sprint_key_reaches_speed PASS
+REALISM_CHECK sprint_release_stops_before_door_width PASS
+REALISM_CHECK offset_doorway_passage PASS
+REALISM_CHECK interaction_component PASS
+REALISM_CHECK small_visible_prop_focus PASS
+REALISM_CHECK occluded_prop_rejected PASS
+REALISM_CHECK closed_door_blocks_capture PASS
+REALISM_CHECK open_door_allows_capture PASS
+REALISM_CHECK capture_keeps_physical_body_visible PASS
+REALISM_CHECK runtime_character_has_four_lods PASS
+REALISM_CHECK capture_face_stays_in_front_of_camera PASS
+REALISM_CHECK failure_ending_keeps_capture_pose PASS
+REALISM_PROBE PASS failures=0
+
+조작 60fps
+로그: Saved/Logs/LandingControls-60.log
+REALISM_CHECK sprint_key_reaches_speed PASS
+REALISM_CHECK sprint_release_stops_before_door_width PASS
+REALISM_CHECK offset_doorway_passage PASS
+REALISM_CHECK interaction_component PASS
+REALISM_CHECK small_visible_prop_focus PASS
+REALISM_CHECK occluded_prop_rejected PASS
+REALISM_CHECK closed_door_blocks_capture PASS
+REALISM_CHECK open_door_allows_capture PASS
+REALISM_CHECK capture_keeps_physical_body_visible PASS
+REALISM_CHECK runtime_character_has_four_lods PASS
+REALISM_CHECK capture_face_stays_in_front_of_camera PASS
+REALISM_CHECK failure_ending_keeps_capture_pose PASS
+REALISM_PROBE PASS failures=0
+
+조작 120fps
+로그: Saved/Logs/LandingControls-120.log
+REALISM_CHECK sprint_key_reaches_speed PASS
+REALISM_CHECK sprint_release_stops_before_door_width PASS
+REALISM_CHECK offset_doorway_passage PASS
+REALISM_CHECK interaction_component PASS
+REALISM_CHECK small_visible_prop_focus PASS
+REALISM_CHECK occluded_prop_rejected PASS
+REALISM_CHECK closed_door_blocks_capture PASS
+REALISM_CHECK open_door_allows_capture PASS
+REALISM_CHECK capture_keeps_physical_body_visible PASS
+REALISM_CHECK runtime_character_has_four_lods PASS
+REALISM_CHECK capture_face_stays_in_front_of_camera PASS
+REALISM_CHECK failure_ending_keeps_capture_pose PASS
+REALISM_PROBE PASS failures=0
+
+우편함 반입
+로그: Saved/Logs/LandingImportFinal.log
+BLENDER_IMPORT PASS assets=1: SM_MailboxUnit
+
+호출판 반입
+로그: Saved/Logs/LandingCallImport.log
+BLENDER_IMPORT PASS assets=1: SM_LiftCallPlate
+
+현관 카메라 반입
+로그: Saved/Logs/LandingCameraImport.log
+BLENDER_IMPORT PASS assets=1: SM_EntranceCamera
+
+펌프 반입
+로그: Saved/Logs/LandingPumpImport.log
+BLENDER_IMPORT PASS assets=1: SM_BoothPump
+
+배관 반입
+로그: Saved/Logs/LandingPipeworkImport.log
+BLENDER_IMPORT PASS assets=1: SM_BoothPumpPipework
+
+최종 UE 메시의 크기·삼각형·LOD
+로그: Saved/Logs/LandingLodEvidence.txt
+SM_MailboxUnit slots=['Baked'] tris=2765 lods=4 convex=1 box=0 bounds=(-48.0,-10.1,-0.0)..(48.0,-0.0,58.0)
+SM_LiftCallPlate slots=['Baked'] tris=1124 lods=4 convex=1 box=0 bounds=(-4.5,-0.6,0.0)..(4.5,1.4,24.0)
+SM_EntranceCamera slots=['Baked'] tris=2692 lods=4 convex=1 box=0 bounds=(-4.6,-3.5,-0.0)..(4.6,-0.0,15.0)
+SM_BoothPump slots=['Baked'] tris=1620 lods=4 convex=1 box=0 bounds=(-17.2,-14.1,-0.0)..(14.7,8.4,21.5)
+SM_BoothPumpPipework slots=['Baked'] tris=724 lods=4 convex=1 box=0 bounds=(-15.0,-1.9,15.5)..(2.5,32.5,244.0)
+
+정적 검사
+로그: Saved/Logs/LandingValidationFinal.log
+WORLD GEOMETRY AUDIT  boxes=1845 coverage=97.1% (1845/1900) exempt=258
+DIRECTOR PROP AUDIT  configure=18 (raw_scale=2 target_bounds=2 unit_scale=5 unknown=9) sites=73 placed=35/35 mesh_bounds=142 findings=0
+미결 Window
+SURFACE PROJECTION AUDIT  boxes=1845 planar=110 hidden=15 unresolved=26 findings=0
+PRINTED FACE AUDIT  materials=57 blocks=11 authored_mesh=190 unresolved=26 findings=0
+COPLANAR SURFACE AUDIT  boxes=1380 findings=0
+Project structure validation passed (this is not an Unreal build).
+
+새 모델은 Import-BlenderAssets.ps1의 공통 규칙으로 4단계 LOD를 반입했다.
+기존 창문 장식·창틀 겹침 1건은 자동 감사의 미결 목록에 남아 있다.
+레이아웃·상호작용 자동 검사와 실제 캡처를 함께 확인했다. 검사가 모든 시점과 모든 겹침을 포괄하지는 않는다.

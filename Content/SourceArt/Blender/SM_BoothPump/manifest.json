@@ -1,0 +1,30 @@
+{
+  "name": "SM_BoothPump",
+  "mesh_class": "prop",
+  "fbx": "SM_BoothPump.fbx",
+  "textures": {
+    "D": "SM_BoothPump_D.png",
+    "N": "SM_BoothPump_N.png",
+    "ORM": "SM_BoothPump_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1636,
+  "bounds_m": {
+    "min": [
+      -0.1725,
+      -0.141,
+      0.0
+    ],
+    "max": [
+      0.1471,
+      0.084,
+      0.2145
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "PB 계열 제품 사진과 BoothPump_20260916.json 참조. 모터축 X, 흡입 -X, 토출 -Y. 원점 바닥 중심, native scale. 관로는 장면 소유."
+}

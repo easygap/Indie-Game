@@ -10,21 +10,21 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 4392,
+  "triangles": 2765,
   "bounds_m": {
     "min": [
       -0.48,
-      -0.1392,
+      -0.1008,
       0.0
     ],
     "max": [
       0.48,
       0.0,
-      0.66
+      0.58
     ]
   },
   "origin": "bottom-center",
   "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "로비 북쪽 벽 우편함 3x3. 원점은 벽면 바닥 중심, 앞면 -Y. 씬 위치 (528, -235, 118)."
+  "notes": "실물·생성 참조: LandingFixtures_20260915.json. 96×10×58cm, 앞 -Y, 원점 뒷면 아래 중앙."
 }

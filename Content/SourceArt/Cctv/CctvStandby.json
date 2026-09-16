@@ -8,7 +8,7 @@
   "frames": [
     {
       "source": "Docs/Media/cctv-source-entrance.png",
-      "sha256": "95ec2ba363511af55fcd01822792a54938652fdb379aabb780488e75dcdf50b2",
+      "sha256": "8049326aacadc3fabcef47a680b16f94aa6143720231bc0cf9f7707b59a66e40",
       "eye_cm": [
         490,
         -255,
@@ -23,7 +23,7 @@
     },
     {
       "source": "Docs/Media/cctv-source-parking.png",
-      "sha256": "c8d5f0283a1a8971b58787ff4b4b382f503f04697519bcc07aca4e558e243255",
+      "sha256": "28f1de4d477d09540ddba12974d2462b41bc6f2607958d243caa60f333def481",
       "eye_cm": [
         2000,
         -460,
@@ -38,7 +38,7 @@
     },
     {
       "source": "Docs/Media/cctv-source-stair.png",
-      "sha256": "afc38ff5831f17a217db74d15d93c2d733a1494e66d2e60759a5dd7431509fd0",
+      "sha256": "60d585d33617a903e1231e4c16db0e3b4e19e91726d2a6916b1179809370ff22",
       "eye_cm": [
         30,
         -325,
@@ -53,7 +53,7 @@
     },
     {
       "source": "Docs/Media/cctv-source-corridor.png",
-      "sha256": "36cbbd25e4399d43544543291473f8c2d097674c4ca2270234072aeda2e23995",
+      "sha256": "5beff19e0ecea105cfd84c07449731c8667c661811d1349bb3d5e76e260985b1",
       "eye_cm": [
         680,
         -325,

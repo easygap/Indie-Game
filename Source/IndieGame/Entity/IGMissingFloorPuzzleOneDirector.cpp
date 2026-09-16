@@ -30,7 +30,7 @@ namespace IGPuzzleOne
 	const FVector CommonBreakerFace(582.7f, -365.6f, 151.0f);
 	const FName UnpoweredObservation(TEXT("P1.Isolation.Unpowered"));
 	const FName PoweredObservation(TEXT("P1.Isolation.Powered"));
-	const FVector ReadingSheetLocation(672.0f, -241.2f, 150.0f);
+	const FVector ReadingSheetLocation(401.0f, -361.2f, 150.0f);
 
 	/**
 	 * Eight centimeters above the 4F ceiling slab (world Z 1160), directly over
@@ -95,7 +95,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 	// 계량기 원판의 재질을 그대로 넘겨서, A4 한 장이 검은 플라스틱 판으로
 	// 서 있었다.
 	UMaterialInterface* SheetMaterial = LoadObject<UMaterialInterface>(
-		nullptr, TEXT("/Game/Prototype/Materials/M_PaperClean.M_PaperClean"));
+		nullptr, TEXT("/Game/Prototype/Materials/M_LobbyMeterSheet.M_LobbyMeterSheet"));
 	// Reuse the material the lobby already put on this fixture so the
 	// interaction surface disappears into the prop it belongs to.
 	UMaterialInterface* ToggleMaterial = nullptr;
@@ -193,7 +193,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 	ReadingSheet->ConfigurePrototypeVisuals(
 		CubeMesh,
 		SheetMaterial,
-		FVector(21.0f, 1.2f, 29.7f));
+		FVector(21.0f, 0.08f, 29.7f));
 	ReadingSheet->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "P1SheetPrompt", "검침 기록지"));
 	ReadingSheet->SetNoteText(

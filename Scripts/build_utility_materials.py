@@ -166,7 +166,7 @@ def meter_print(kind):
 
 meter_print("Counter")
 meter_print("Label")
-for name in ("BoothAgentNote", "BoothReceipts", "BoothCalendar"):
+for name in ("BoothAgentNote", "BoothReceipts", "BoothCalendar", "LobbyWaterNotice", "LobbyContactNotice", "LobbyMeterSheet", "LobbyForumPrint", "PumpProcedure"):
     image = texture(f"{name}.png", f"T_{name}_D")
     if not image:
         raise RuntimeError(f"인쇄 원본 없음: {name}")
@@ -191,4 +191,12 @@ if not granite_tile:
     raise RuntimeError("석재 타일 재질이 없습니다.")
 retail_surface_contract.author(granite_tile, "granite")
 ASSETS.save_loaded_asset(granite_tile)
-unreal.log(f"UTILITY_MATERIALS PASS materials=13 cctv_atlas={int(screen is not None)}")
+for wall_name, finish in (("M_Stucco_X", "landing_wall"), ("M_Stucco_Y", "landing_wall"),
+                          ("M_StuccoCeil", "landing_ceiling"), ("M_StuccoDado_X", "landing_dado"),
+                          ("M_StuccoDado_Y", "landing_dado")):
+    wall = unreal.load_asset(f"/Game/Prototype/Materials/{wall_name}")
+    if not wall:
+        raise RuntimeError(f"공용부 벽 재질이 없습니다: {wall_name}")
+    retail_surface_contract.author(wall, finish)
+    ASSETS.save_loaded_asset(wall)
+unreal.log(f"UTILITY_MATERIALS PASS materials=23 cctv_atlas={int(screen is not None)}")

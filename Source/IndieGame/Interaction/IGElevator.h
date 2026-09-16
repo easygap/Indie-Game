@@ -12,6 +12,7 @@ class UMaterialInterface;
 class USceneComponent;
 class UStaticMesh;
 class UStaticMeshComponent;
+class UTextRenderComponent;
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
 	FIGElevatorArrivedSignature,
@@ -51,6 +52,7 @@ public:
 	{
 		UStaticMesh* CubeMesh = nullptr;
 		UStaticMesh* CylinderMesh = nullptr;
+		UStaticMesh* CallPlateMesh = nullptr;
 		/** Hairline stainless: cab walls and jambs. */
 		UMaterialInterface* StainlessMaterial = nullptr;
 		/** Powder-coated landing/car door face, kept separate from the cab shell. */
@@ -252,6 +254,14 @@ private:
 
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> LowerDoorPanels;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<UTextRenderComponent>> HallDisplays;
+	void SetHallFloor(int32 Floor);
+	void AdvanceHallFloor();
+	int32 HallFloor = 4;
+	int32 HallDirection = 0;
+	FTimerHandle HallDisplayTimer;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMesh> CachedCubeMesh;
