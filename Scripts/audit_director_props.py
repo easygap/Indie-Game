@@ -119,11 +119,7 @@ AUTHORED_SIZE_IDIOM = re.compile(
 # 키는 소품 이름이다. 줄 번호로 잡았더니 그 위에 코드를 한 줄 넣는 것만으로
 # 목록이 어긋났고, 같은 겹침이 「더 이상 안 걸린다」와 「발견」을 동시에
 # 말했다.
-CARRIED_OVERLAPS = {
-    "Window":
-        "창문 장식판이 창틀 가로대·세로대와 같은 자리를 쓴다."
-        " 창틀 안에 끼우려던 것인지 창틀을 대신하려던 것인지 화면에서 정한다",
-}
+CARRIED_OVERLAPS = {}
 
 
 def carried_owner(finding) -> str | None:

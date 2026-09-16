@@ -35,6 +35,7 @@ if (-not $blender) {
 # 빌더 하나가 에셋 여럿을 만들 수 있다. 어떤 빌더가 무엇을 만드는지는 여기 표가
 # 유일한 출처다. Import 쪽은 manifest만 보므로 표는 이쪽에만 필요하다.
 $builders = [ordered]@{
+	'pump_panel' = @('SM_PumpControlPanel', 'SM_PumpSelector')
 	'booth_pump' = @('SM_BoothPump')
 	'booth_pump_pipework' = @('SM_BoothPumpPipework')
 	'entrance_camera' = @('SM_EntranceCamera')

@@ -4,7 +4,7 @@
 인터폰 앞면 텍스처는 panels/IntercomFace.png. 좌표계는 씬 그대로(cm → m).
 
     SM_ApartmentWindow  북쪽 벽 미닫이 창틀. 원점 (-100, 212.5, 100) 창 아래 중심. 유리는 없다 —
-                        달빛 발광판이 그 뒤에 그대로 있다
+                        장면에서 두 창짝 안쪽에 유리를 따로 끼운다
     SM_VenetianBlind    걷어 올린 베네시안 블라인드. 원점은 헤드레일 윗면 중심 (-100, 207, 206)
     SM_VideoIntercom    비디오 인터폰. 원점은 벽면 바닥 중심 (62, -215, 130), 앞면 +Y
     SM_WallSwitch       2구 스위치. 원점 (90, -215, 123), 앞면 +Y. (T_SwitchPlate_D 간판 텍스처와 이름이 겹쳐 SwitchPlate를 쓰지 않는다)
@@ -53,7 +53,7 @@ def build_window(out_root):
     ig.reset_scene()
     m = mats()
     parts = []
-    depth = 0.05
+    depth = 0.10
     # 바깥 틀: 머리·밑틀·양 세로틀. 흰 PVC 프로파일, 모서리 2 mm.
     parts.append(ig.box("head", (1.30, depth, 0.07), location=(0.0, 0.0, 0.96), bevel=0.002, segments=1,
                         material=m["pvc"]))
@@ -67,7 +67,7 @@ def build_window(out_root):
                         material=m["pvc"]))
     # 미닫이 두 짝. 안짝(-Y)과 바깥짝(+Y)이 다른 레일에 있고 가운데서 겹친다.
     sash_w, sash_h = 0.62, 0.85
-    for index, (x, y) in enumerate(((-0.30, -0.012), (0.30, 0.012))):
+    for index, (x, y) in enumerate(((-0.30, -0.031), (0.30, 0.008))):
         zc = 0.075 + sash_h * 0.5
         frame_parts = []
         for sx in (x - sash_w * 0.5 + 0.02, x + sash_w * 0.5 - 0.02):
@@ -77,22 +77,36 @@ def build_window(out_root):
             frame_parts.append(ig.box(f"sash{index}_rail", (sash_w - 0.08, 0.022, 0.04), location=(x, y, sz),
                                       bevel=0.0015, segments=1, material=m["pvc"]))
         parts.extend(frame_parts)
-    # 가운데 만나는 살(씬의 세로 살)과 잠금 손잡이(실내 쪽 -Y).
-    parts.append(ig.box("meeting_stile", (0.05, 0.04, 0.85), location=(0.0, 0.0, 0.50), bevel=0.0015,
-                        segments=1, material=m["pvc"]))
-    parts.append(ig.box("latch_base", (0.022, 0.012, 0.06), location=(-0.31, -0.03, 0.50), bevel=0.002,
-                        segments=1, material=m["alu"]))
-    parts.append(ig.box("latch", (0.012, 0.03, 0.035), location=(-0.31, -0.045, 0.505), bevel=0.002,
-                        segments=1, material=m["alu"]))
+    # 중앙 잠금대와 크리센트는 실물 70mm 받침·95mm 손잡이를 따른다.
+    # 유리 위에 떠 있던 손잡이를 두 창짝이 맞물리는 곳으로 옮긴다.
+    parts.append(ig.box("meeting_stile", (0.045, 0.040, 0.85), location=(0.0, -0.025, 0.50),
+                        bevel=0.0015, segments=1, material=m["pvc"]))
+    parts.append(ig.box("crescent_base", (.025,.006,.070), location=(-.004,-.049,.50),
+                        bevel=.007, segments=3, material=m["alu"]))
+    parts.append(ig.cylinder("crescent_pivot", .013, .010, location=(-.004,-.058,.50),
+                            rotation=(math.pi/2,0,0),segments=16,material=m["alu"]))
+    parts.append(ig.pipe("crescent_hook", [(-.004,-.060,.48),(.016,-.060,.486),(.020,-.060,.510),(.007,-.060,.521)],
+                         .004, resolution=6, corner_radius=.007,corner_steps=4,material=m["alu"]))
+    parts.append(ig.box("crescent_lever", (.012,.014,.060), location=(-.004,-.069,.473),
+                        bevel=.004,segments=2,material=m["alu"]))
+    for z in (.475,.525):
+        parts.append(ig.cylinder("latch_screw",.0025,.002,location=(-.004,-.053,z),
+                                rotation=(math.pi/2,0,0),segments=8,material=m["dark"]))
+    # 고무 가스켓은 유리 가장자리에만 얇게 둘러진다.
+    for x,y in ((-.30,-.031),(.30,.008)):
+        for sx in (x-.269,x+.269):
+            parts.append(ig.box("glazing_seal",(.003,.005,.767),(sx,y-.002,.50),material=m["dark"]))
+        for z in (.1165,.8835):
+            parts.append(ig.box("glazing_seal",(.535,.005,.003),(x,y-.002,z),material=m["dark"]))
     # 위아래 레일 홈: 머리·밑틀 안쪽에 얕은 두 줄.
     for z in (0.075 + 0.004, 0.925 - 0.004):
-        for y in (-0.012, 0.012):
+        for y in (-0.031, 0.008):
             parts.append(ig.box("track", (1.20, 0.006, 0.008), location=(0.0, y, z), material=m["alu"]))
     return ig.build_asset(
         "SM_ApartmentWindow", "prop", parts, out_root,
         collision_parts=[],
-        notes=("403호 북쪽 벽 미닫이 창틀 130 x 5 x 99. 원점 (-100, 212.5, 100) 창틀 아래 중심(틀 뒷면이 벽면 Y 215에 닿는다), 실내 쪽 -Y. "
-               "유리는 넣지 않았다 — 달빛 발광판이 그 뒤(Y 214)에 그대로 선다. 충돌 없음."),
+        notes=("403호 북쪽 벽 미닫이 창틀 130 x 10 x 99. 원점 (-100, 212.5, 100) 창틀 아래 중심(2개 레일과 중앙 크리센트), 실내 쪽 -Y. "
+               "두 유리는 장면에서 각 창짝의 가스켓 안에 배치한다. WindowReference_20260916.json 참조. 충돌 없음."),
         texture_size=1024)
 
 

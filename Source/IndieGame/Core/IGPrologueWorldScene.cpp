@@ -18,6 +18,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Environment/IGSettledDustComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/SpotLightComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/SkyLightComponent.h"
 #include "Components/PostProcessComponent.h"
@@ -940,16 +941,25 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 	const FLinearColor& Color,
 	const bool bCastShadows,
 	const float SourceRadius,
-	USceneComponent* Parent)
+	USceneComponent* Parent,
+	const bool bDownlight)
 {
-	UPointLightComponent* Light = NewObject<UPointLightComponent>(
-		this,
-		*FString::Printf(TEXT("Light_%d"), BlockCounter++));
+	const FName LightName(*FString::Printf(TEXT("Light_%d"), BlockCounter++));
+	UPointLightComponent* Light = bDownlight
+		? NewObject<USpotLightComponent>(this, LightName)
+		: NewObject<UPointLightComponent>(this, LightName);
 	USceneComponent* ResolvedParent =
 		Parent ? Parent : (ActiveParent ? ActiveParent.Get() : SceneRoot.Get());
 	Light->SetupAttachment(ResolvedParent);
 	Light->SetMobility(EComponentMobility::Movable);
 	Light->SetRelativeLocation(Location);
+	if (USpotLightComponent* Downlight = Cast<USpotLightComponent>(Light))
+	{
+		// 천장 조명은 아래쪽만 비춘다. 위층과 외벽까지 6면 그림자를 만들지 않는다.
+		Downlight->SetRelativeRotation(FRotator(-90, 0, 0));
+		Downlight->SetInnerConeAngle(56.f);
+		Downlight->SetOuterConeAngle(75.f);
+	}
 	Light->SetIntensity(Intensity);
 	Light->SetAttenuationRadius(Radius);
 	// 광원 영향권 밖에서는 먼 층과 골목의 그림자까지 계속 계산할 필요가 없다.
@@ -1297,7 +1307,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_MissingFloorSteelStair"), TEXT("M_RooftopWaterproofing_XY"),
 		TEXT("M_MissingFloorGypsumDebris_XY"),
 		TEXT("M_WaterTankMetalUV"), TEXT("M_UtilityTankSteel"), TEXT("M_UtilityFoundation"), TEXT("M_UtilityGraniteCladding"), TEXT("M_UtilityConcreteDark"), TEXT("M_UtilityVillaBrick"), TEXT("M_UtilityStreetBrick"), TEXT("M_CctvStandby"), TEXT("M_UtilityMeterCounter"), TEXT("M_UtilityMeterLabel"), TEXT("M_TankWaterReveal"),
-		TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
+		TEXT("M_ApartmentNightGlass"), TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
 		TEXT("M_SpriteHwang"), TEXT("M_SpriteNarin"),
 		// Aged paper stock for readable notes, and the rental notice.
 		TEXT("M_PaperClean"), TEXT("M_PaperWet"), TEXT("M_PaperFolded"),
@@ -6305,8 +6315,8 @@ void AIGPrologueWorldScene::BuildStore()
 		for (const float Y : {-250.0f, -650.0f})
 		{
 			StoreLightDiscs.Add(CreateBlock(FVector(X, Y, 257), FVector(180, 7, 4), LightPanelMaterial, false));
-			UPointLightComponent* Light = CreateLight(FVector(X, Y, 239), 3650, 850,
-				FLinearColor(1, .985f, .955f), true, 38);
+			UPointLightComponent* Light = CreateLight(FVector(X, Y, 239), 3650, 460,
+				FLinearColor(1, .985f, .955f), true, 12, nullptr, true);
 			Light->SetVolumetricScatteringIntensity(0.02f);
 			StoreLights.Add(Light);
 		}
@@ -6811,15 +6821,22 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			&ThisClass::HandlePurchaseSelectionChanged);
 	}
 
+	// 각 창짝의 가스켓 안에 유리를 끼운다. 발광판이 창틀을 덮지 않는다.
 	if (AIGInspectable* Window = World->SpawnActor<AIGInspectable>(
 		AIGInspectable::StaticClass(),
-		FTransform(FRotator::ZeroRotator, FVector(-100, 214, 1050)),
-		SpawnParameters))
+		FTransform(FRotator::ZeroRotator, FVector(-130, 209.4f, 1050)), SpawnParameters))
 	{
-		Window->ConfigurePrototypeVisuals(CubeMesh, WindowGlowMaterial, FVector(1.2f, 0.04f, 0.9f));
+		Window->ConfigurePrototypeVisuals(CubeMesh, TexMat(TEXT("M_ApartmentNightGlass"), WindowGlowMaterial), FVector(0.534f, 0.0025f, 0.764f));
 		Window->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WindowPrompt", "창문"));
-		Window->ThoughtText =
-			NSLOCTEXT("IGPrologue", "WindowThought", "아직 어둡다. 해 뜨려면 한참 남았는데.");
+		Window->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편도 불이 켜져 있네. 저 집도 못 자나.");
+	}
+	if (AIGInspectable* WindowRight = World->SpawnActor<AIGInspectable>(
+		AIGInspectable::StaticClass(),
+		FTransform(FRotator::ZeroRotator, FVector(-70, 213.3f, 1050)), SpawnParameters))
+	{
+		WindowRight->ConfigurePrototypeVisuals(CubeMesh, TexMat(TEXT("M_ApartmentNightGlass"), WindowGlowMaterial), FVector(0.534f, 0.0025f, 0.764f));
+		WindowRight->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WindowPrompt", "창문"));
+		WindowRight->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편도 불이 켜져 있네. 저 집도 못 자나.");
 	}
 
 	// Store sliding door.

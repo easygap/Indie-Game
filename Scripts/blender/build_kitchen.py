@@ -76,6 +76,8 @@ def build_base_run(out_root):
     # 캐비닛 몸체 56 x 176 x 72(Z 10..82), 걸레받이 48 x 176 x 10, 상판 60 x 176 x 5.
     carcass = ig.box("carcass", (0.56, 1.76, 0.72), location=(0.0, 0.0, 0.46), bevel=0.004, segments=2,
                      material=m["gloss"])
+    bowl_void = ig.box("basin_clearance", (.48,.49,.31), location=(-.02,1.82-RUN_Y,.745))
+    ig.boolean(carcass,bowl_void,"DIFFERENCE")
     parts.append(carcass)
     kick = ig.box("toe_kick", (0.48, 1.76, 0.10), location=(0.04, 0.0, 0.05), material=m["dark"])
     parts.append(kick)
@@ -310,8 +312,14 @@ def build_hob(out_root):
         parts.append(ring)
         dot = ig.cylinder(f"dot_{int(x_cm)}", 0.008, 0.0006, location=(x, y, 0.0143), segments=16, material=grey)
         parts.append(dot)
-    touch = ig.box("touch", (0.05, 0.30, 0.0006), location=(-0.19, 0.0, 0.0143), material=grey)
-    parts.append(touch)
+    # 검은 유리 위에는 작은 터치 기호만 인쇄한다. 흰 띠 전체를 붙이지 않는다.
+    for y in (-.10, 0, .10):
+        parts.append(ig.torus("touch_button", .008, .0006, location=(-.19,y,.0145),
+                             major_segments=24,minor_segments=4,material=grey))
+    parts.append(ig.box("minus",(.001,.008,.0003),(-.19,0,.0146),material=grey))
+    parts.append(ig.box("plus_h",(.001,.008,.0003),(-.19,.10,.0146),material=grey))
+    parts.append(ig.box("plus_v",(.008,.001,.0003),(-.19,.10,.0146),material=grey))
+    parts.append(ig.box("power",(.009,.001,.0003),(-.187,-.10,.0146),material=grey))
     return ig.build_asset(
         "SM_InductionHob", "prop", parts, out_root, collision_parts=[[glass]],
         notes="인덕션 46 x 50 x 1.4. 원점 상판 위 중심(씬 (160,128,87)).",

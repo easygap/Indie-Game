@@ -53,6 +53,8 @@ public:
 	AIGMissingFloorEvidence* GetEndingBTarget() const { return EndingBTarget; }
 
 	bool WasHydraulicAlarmTriggered() const { return bHydraulicAlarmTriggered; }
+	/** 렌더 재질에 반영된 전원·운전·고장등 비트. 순회 검사에서 실제 출력을 읽는다. */
+	int32 GetPumpLampMask() const;
 	/**
 	 * 막간 「다섯 번째 새벽」은 여기서 돈다. 벽이 열리고 오빠를 본 직후 눈을
 	 * 감기고, 다섯 새벽을 산 뒤 눈을 뜨면 공동 너머의 노크와 목한수가 온다.
@@ -196,6 +198,12 @@ private:
 	/** Non-interactive plumbing and pump parts that keep P5 physically legible. */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UStaticMeshComponent>> EquipmentVisuals;
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> PumpSelector;
+
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<class UMaterialInstanceDynamic>> PumpLamps;
 
 	/** 세척 회로의 순서표. 회로를 만든 사람이 펌프 선택반 옆에 붙여 둔 것. */
 	UPROPERTY(Transient)

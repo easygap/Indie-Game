@@ -1,0 +1,30 @@
+{
+  "name": "SM_PumpControlPanel",
+  "mesh_class": "prop",
+  "fbx": "SM_PumpControlPanel.fbx",
+  "textures": {
+    "D": "SM_PumpControlPanel_D.png",
+    "N": "SM_PumpControlPanel_N.png",
+    "ORM": "SM_PumpControlPanel_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1100,
+  "bounds_m": {
+    "min": [
+      -0.174,
+      -0.0515,
+      -0.2805
+    ],
+    "max": [
+      0.17,
+      0.04,
+      0.26
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "34×8×54cm. 중심 원점, 앞 -Y. 회전 스위치와 표시등 렌즈는 장면에서 상태에 맞춰 배치한다. 참조: PumpPanelReference_20260916.json."
+}

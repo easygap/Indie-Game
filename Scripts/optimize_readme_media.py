@@ -26,6 +26,15 @@ OUT = os.path.join(MEDIA, "readme")
 # 인라인으로 걸리는 무거운 캡처만 줄인다. 접힌 <details> 안이나 이미 작은
 # 파일은 그대로 쓴다 — 파생본이 하나 늘 때마다 확인해야 할 것도 하나 늘어난다.
 STILLS = (
+    "interior-before-window.png",
+    "interior-before-pump.png",
+    "interior-before-sink.png",
+    "interior-window-side.png",
+    "interior-pump-panel.png",
+    "interior-pump-running.png",
+    "interior-pump-fault.png",
+    "interior-kitchen-sink.png",
+    "interior-sink-drain.png",
     # 승강장 검수 문서도 원본 캡처를 한꺼번에 내려받지 않게 한다.
     "landing-before-mail.png",
     "landing-before-corridor.png",

@@ -1,0 +1,30 @@
+{
+  "name": "SM_PumpSelector",
+  "mesh_class": "prop",
+  "fbx": "SM_PumpSelector.fbx",
+  "textures": {
+    "D": "SM_PumpSelector_D.png",
+    "N": "SM_PumpSelector_N.png",
+    "ORM": "SM_PumpSelector_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 196,
+  "bounds_m": {
+    "min": [
+      -0.016,
+      -0.0225,
+      -0.018
+    ],
+    "max": [
+      0.016,
+      0.004,
+      0.018
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "회전축 원점, 앞 -Y. 수직은 정지, 반시계 45도는 수동. 조작반과 별도 메시."
+}

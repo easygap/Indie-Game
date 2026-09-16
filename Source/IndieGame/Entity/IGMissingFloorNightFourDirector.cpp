@@ -24,6 +24,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Math/RotationMatrix.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
@@ -63,7 +64,7 @@ namespace IGNightFour
 	const FVector FloatBypassLocation(72.0f, 166.0f, 1340.0f);
 	// Ground-floor transfer-pump selector, inside the management booth.
 	// A wall-mounted selector above a floor-seated pump assembly in the booth.
-	const FVector TransferPumpLocation(63.0f, -170.0f, 112.0f);
+	const FVector TransferPumpLocation(64.0f, -170.0f, 112.0f);
 	// 선택반 옆에 붙은 절차서. 같은 벽면, 같은 높이.
 	const FVector ProcedureSheetLocation(60.08f, -206.0f, 112.0f);
 	/** 순서를 틀리면 인터록이 이만큼 선다(§7 P5). */
@@ -221,11 +222,11 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		const FName Name,
 		const FVector& Location,
 		const FVector& LocalSize,
-		const FRotator& Rotation = FRotator::ZeroRotator)
+		const FRotator& Rotation = FRotator::ZeroRotator) -> UStaticMeshComponent*
 	{
 		if (!Mesh)
 		{
-			return;
+			return nullptr;
 		}
 		UStaticMeshComponent* Component =
 			NewObject<UStaticMeshComponent>(this, Name);
@@ -245,6 +246,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		AddInstanceComponent(Component);
 		Component->RegisterComponentWithWorld(World);
 		EquipmentVisuals.Add(Component);
+		return Component;
 	};
 
 	EvictionNotice = SpawnEvidence(
@@ -262,7 +264,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	TransferPump = SpawnEvidence(
 		TEXT("MissingFloorTransferPump"),
 		IGNightFour::TransferPumpLocation,
-		FRotator::ZeroRotator);
+		FRotator(0, 90, 0));
 	WallBreakTarget = SpawnEvidence(
 		TEXT("MissingFloorWallBreakTarget"),
 		IGNightFour::WallBreakLocation,
@@ -301,7 +303,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		LargeValveMesh ? LargeValveMesh : CylinderMesh,
 		MetalMaterial,
 		LargeValveMesh ? FVector::ZeroVector : FVector(18.0f, 18.0f, 5.0f),
-		NSLOCTEXT("IGMissingFloor", "CleaningDrainPrompt", "세척 배수 — OPEN"),
+		NSLOCTEXT("IGMissingFloor", "CleaningDrainPrompt", "세척 배수 밸브 열기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -314,7 +316,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		SmallValveMesh ? SmallValveMesh : CylinderMesh,
 		MetalMaterial,
 		SmallValveMesh ? FVector::ZeroVector : FVector(12.0f, 12.0f, 4.0f),
-		NSLOCTEXT("IGMissingFloor", "FloatBypassPrompt", "부자밸브 우회 — OPEN"),
+		NSLOCTEXT("IGMissingFloor", "FloatBypassPrompt", "부자밸브 우회 열기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -324,11 +326,11 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		this, &AIGMissingFloorNightFourDirector::HandleFloatBypass);
 
 	TransferPump->Configure(
-		CubeMesh,
-		MetalMaterial,
-		FVector(6.0f, 34.0f, 52.0f),
+		LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_PumpControlPanel.SM_PumpControlPanel")),
+		nullptr,
+		FVector::ZeroVector,
 		NSLOCTEXT(
-			"IGMissingFloor", "TransferPumpPrompt", "이송펌프 선택반 — MANUAL"),
+			"IGMissingFloor", "TransferPumpPrompt", "이송펌프 — 수동으로 돌리기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -337,10 +339,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	TransferPump->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightFourDirector::HandleTransferPump);
 
-	// 순서는 현장에 붙어 있다. 2019년에 세척 회로를 만든 사람이 선택반 옆에
-	// 붙여 둔 절차서 — 옥상 둘을 먼저, 펌프는 마지막. 안 읽고 돌리면 관이
-	// 운다. 손잡이 이름표만 보고 맞히는 것과 절차를 읽고 하는 것은 다른
-	// 일이고, 밤4는 후자를 요구한다.
+	// 설비의 고장 기록으로 관로 순서를 짐작하게 한다.
 	SpawnParameters.Name = TEXT("MissingFloorPumpProcedureSheet");
 	ProcedureSheet = World->SpawnActor<AIGReadableNote>(
 		AIGReadableNote::StaticClass(),
@@ -354,16 +353,16 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		CubeMesh, LoadObject<UMaterialInterface>(nullptr,
 			TEXT("/Game/Prototype/Materials/M_PumpProcedure.M_PumpProcedure")), FVector(21.0f, 0.08f, 29.7f));
 	ProcedureSheet->SetInteractionPrompt(
-		NSLOCTEXT("IGMissingFloor", "ProcedureSheetPrompt", "저수조 세척 절차서"));
+		NSLOCTEXT("IGMissingFloor", "ProcedureSheetPrompt", "저수조 점검 메모"));
 	ProcedureSheet->SetNoteText(
-		NSLOCTEXT("IGMissingFloor", "ProcedureSheetTitle", "저수조 세척 절차 (2019.03)"),
+		NSLOCTEXT("IGMissingFloor", "ProcedureSheetTitle", "저수조 점검 메모 (2019.03)"),
 		{
-			NSLOCTEXT("IGMissingFloor", "ProcedureSheet1", "1. 옥상 세척 배수 밸브 개방"),
-			NSLOCTEXT("IGMissingFloor", "ProcedureSheet2", "2. 옥상 부자밸브 우회 개방"),
-			NSLOCTEXT("IGMissingFloor", "ProcedureSheet3", "3. 관리실 이송펌프 선택반 → 수동"),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet1", "물이 넘친 날: 배수는 잠겨 있었고, 우회만 열려 있었음."),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet2", "펌프가 멎은 날: 배수만 열고 돌림. 우회관에 물이 안 찼음."),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet3", "세척할 때는 자동 수위 조절을 쓰지 말 것."),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "ProcedureSheet4", "※ 배수 전 우회 개방 금지 (월류)"),
-			NSLOCTEXT("IGMissingFloor", "ProcedureSheet5", "※ 관 미개방 시 펌프 기동 금지 (역지변 · 인터록 10초)"),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet4", "고장등이 켜지면 손대지 말고 10초 정도 기다리세요."),
+			NSLOCTEXT("IGMissingFloor", "ProcedureSheet5", "배관이 조용해지고 등이 꺼진 뒤 다시 돌리면 됩니다."),
 		});
 
 	// P5 is a real 2019 cleaning circuit. These non-interactive pieces make the
@@ -418,16 +417,24 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	// 조작반 아래에서 꺾어 올린다. 배관과 지지대는 한 메시로 묶었다.
 	AddEquipment(LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_BoothPumpPipework.SM_BoothPumpPipework")),
 		nullptr, TEXT("NightFourPumpPipework"), FVector(75.0f, -170.0f, 0.0f), FVector(100));
-	AddEquipment(
-		CylinderMesh, DarkMaterial, TEXT("NightFourPumpSelector"),
-		FVector(67.5f, -170.0f, 110.0f), FVector(10.0f, 10.0f, 4.0f),
-		FRotator(90.0f, 0.0f, 0.0f));
-	AddEquipment(
-		CubeMesh, RedMaterial, TEXT("NightFourPumpAlarmLamp"),
-		FVector(66.5f, -178.0f, 126.0f), FVector(2.0f, 5.0f, 5.0f));
-	AddEquipment(
-		CubeMesh, ScreenMaterial, TEXT("NightFourPumpRunLamp"),
-		FVector(66.5f, -169.0f, 126.0f), FVector(2.0f, 5.0f, 5.0f));
+	const FVector PanelOrigin = TransferPump->GetActorLocation();
+	PumpSelector = AddEquipment(LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_PumpSelector.SM_PumpSelector")),
+		nullptr, TEXT("NightFourPumpSelector"), PanelOrigin + FVector(5.4f, 0, -7.7f), FVector(100), FRotator(0, 90, 0));
+	UMaterialInterface* IndicatorMaterial = LoadObject<UMaterialInterface>(nullptr,
+		TEXT("/Game/Prototype/Materials/M_PumpIndicator.M_PumpIndicator"));
+	for (int32 Index = 0; Index < 3; ++Index)
+	{
+		UStaticMeshComponent* Lens = AddEquipment(CylinderMesh, IndicatorMaterial,
+			FName(*FString::Printf(TEXT("NightFourPumpLens%d"), Index)),
+			PanelOrigin + FVector(5.3f, (1 - Index) * 8.2f, 7.1f), FVector(2.1f, 2.1f, .45f), FRotator(90, 0, 0));
+		if (Lens)
+		{
+			UMaterialInstanceDynamic* Lamp = Lens->CreateAndSetMaterialInstanceDynamic(0);
+			Lamp->SetVectorParameterValue(TEXT("Tint"), Index == 0 ? FLinearColor(.28f,.30f,.25f)
+				: Index == 1 ? FLinearColor(.015f,.28f,.06f) : FLinearColor(.38f,.016f,.008f));
+			PumpLamps.Add(Lamp);
+		}
+	}
 
 	WallBreakTarget->Configure(
 		CubeMesh,
@@ -978,7 +985,7 @@ bool AIGMissingFloorNightFourDirector::ValidateFixtures() const
 		&& FloatBypass
 		&& ValveFits(CleaningDrain, 18.0f)
 		&& ValveFits(FloatBypass, 12.0f)
-		&& TransferPump
+		&& TransferPump && PumpSelector && PumpLamps.Num() == 3
 		&& WallBreakTarget
 		&& EndingATarget
 		&& EndingBTarget
@@ -986,6 +993,17 @@ bool AIGMissingFloorNightFourDirector::ValidateFixtures() const
 		&& HasFinaleFigures()
 		&& EndingHammerVisual
 		&& EndingPhoneVisual;
+}
+
+int32 AIGMissingFloorNightFourDirector::GetPumpLampMask() const
+{
+	int32 Mask = 0;
+	for (int32 Index = 0; Index < PumpLamps.Num(); ++Index)
+	{
+		if (PumpLamps[Index] && PumpLamps[Index]->K2_GetScalarParameterValue(TEXT("Lit")) > 1.f)
+			Mask |= 1 << Index;
+	}
+	return Mask;
 }
 
 bool AIGMissingFloorNightFourDirector::IsWaterMaskPlaying() const
@@ -1718,7 +1736,7 @@ void AIGMissingFloorNightFourDirector::HandleControlMisorder(
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"P5PressureAlarm",
-				"관에서 크게 소리가 났다. 펌프부터 끄자."),
+				"펌프가 멎었다. 고장등이 꺼질 때까지 기다리자."),
 		3.8f);
 	// 인터록이 선다. 그동안은 어느 손잡이도 안 돈다.
 	bControlLockoutActive = true;
@@ -1730,6 +1748,7 @@ void AIGMissingFloorNightFourDirector::HandleControlMisorder(
 			Control->SetInteractionEnabled(false);
 		}
 	}
+	RefreshPresentation();
 	GetWorldTimerManager().SetTimer(
 		ControlLockoutTimer,
 		this,
@@ -2574,6 +2593,17 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 	RefreshControl(CleaningDrain, IGNightFour::CleaningDrainId);
 	RefreshControl(FloatBypass, IGNightFour::FloatBypassId);
 	RefreshControl(TransferPump, IGNightFour::TransferPumpId);
+	const bool bPumpRunning = bNightFour && Narrative->IsNightFourMaskRunning() && !bControlLockoutActive;
+	if (PumpSelector)
+	{
+		PumpSelector->SetWorldRotation(FRotator(bPumpRunning ? -45.f : 0.f, 90.f, 0.f));
+	}
+	for (int32 Index = 0; Index < PumpLamps.Num(); ++Index)
+	{
+		const bool bLit = Index == 0 || (Index == 1 && bPumpRunning) || (Index == 2 && bControlLockoutActive);
+		PumpLamps[Index]->SetScalarParameterValue(TEXT("Lit"), bLit ? 1.8f : 0.f);
+	}
+
 
 	if (Narrative->GetNightFourWallStrikeCount() >= 3)
 	{

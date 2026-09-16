@@ -1,0 +1,48 @@
+2026-09-16 창문·주방·펌프·편의점 조명 검사
+
+FixtureReview.log
+LogTemp: Display: INTERIOR_CAPTURE PASS shots=9 production=1 pump_idle_fault_recovery_run_stop=1
+
+InteriorFinal-Arrival.log
+LogIndieGame: Display: SPATIAL_CLEARANCE PASS checks=24 failures=0 capsule=60.0x192.0
+
+InteriorFinal-Flow.log
+LogTemp: Display: MISSINGFLOOR_CCTV5_FEED PASS: brightest=0.9807 lit=0.2584 of the frame
+LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+
+InteriorFinal-Interior.log
+FIXTURE_REVIEW PASS shots=9
+
+InteriorFinal-Realism120.log
+LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+InteriorFinal-Realism30.log
+LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+InteriorFinal-Realism60.log
+LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+InteriorFinal-Spatial.log
+LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=False quality=High production=1 resolution=1920x1080
+
+Interior20260916-AreaHigh-console.log
+LANDING_REVIEW PASS shots=12 measure=True quality=High
+
+Interior20260916-AreaPerformance-console.log
+LANDING_REVIEW PASS shots=12 measure=True quality=Performance
+
+Interior20260916-RetailHigh-console.log
+LogTemp: Display: RETAIL_CAPTURE PASS shots=0 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=True quality=High production=1 resolution=1920x1080
+
+Interior20260916-RetailPerformance-console.log
+LogTemp: Display: RETAIL_CAPTURE PASS shots=0 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=True quality=Performance production=1 resolution=1920x1080
+
+DIRECTOR PROP AUDIT  configure=18 (raw_scale=2 target_bounds=2 unit_scale=5 unknown=9) sites=74 placed=36/36 mesh_bounds=144 findings=0
+LIGHT PLACEMENT AUDIT  lights=52 findings=0
+PHOTO PROP FIT AUDIT  placements=13 findings=0
+COPLANAR SURFACE AUDIT  boxes=1380 findings=0
+METAL_BASE_COLOR_REVIEW candidates=0 output=.\Saved\MetalBaseColorAudit.json
+Project structure validation passed (this is not an Unreal build).

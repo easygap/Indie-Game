@@ -199,4 +199,6 @@ for wall_name, finish in (("M_Stucco_X", "landing_wall"), ("M_Stucco_Y", "landin
         raise RuntimeError(f"공용부 벽 재질이 없습니다: {wall_name}")
     retail_surface_contract.author(wall, finish)
     ASSETS.save_loaded_asset(wall)
+import build_interior_materials
+build_interior_materials.build(texture, LIB, ASSETS)
 unreal.log(f"UTILITY_MATERIALS PASS materials=23 cctv_atlas={int(screen is not None)}")

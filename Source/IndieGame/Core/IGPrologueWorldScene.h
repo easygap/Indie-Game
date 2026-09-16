@@ -394,7 +394,8 @@ private:
 		const FLinearColor& Color,
 		bool bCastShadows,
 		float SourceRadius = 0.0f,
-		USceneComponent* Parent = nullptr);
+		USceneComponent* Parent = nullptr,
+		bool bDownlight = false);
 	UAudioComponent* CreateAmbientBed(
 		USoundBase* Sound,
 		const FVector& Location,

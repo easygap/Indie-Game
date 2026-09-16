@@ -5012,7 +5012,7 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("the safe P5 order triggered the pressure alarm"));
 			return;
 		}
-		if (!NightFour->IsWaterMaskPlaying()
+		if (NightFour->GetPumpLampMask() != 3 || !NightFour->IsWaterMaskPlaying()
 			|| NoiseSubsystem->GetMaskingAt(
 				AIGMissingFloorNightFourDirector::GetWallBreakLocation())
 				< 0.39f)
@@ -5502,6 +5502,69 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	// 이전 순회에서 빠졌던 창문과 설비를 플레이어 눈높이에서 확인한다.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGInteriorAudit")))
+	{
+		switch (ArrivalCaptureStep++ - 8)
+		{
+		case 0: break;
+		case 4: CaptureTeleportPlayer(FVector(-100, 50, 998), 90, -4); break;
+		case 5: CaptureShot(TEXT("interior-window-front")); break;
+		case 6: CaptureTeleportPlayer(FVector(-175, 100, 998), 55, -18); break;
+		case 9: CaptureShot(TEXT("interior-window-side")); break;
+		case 10: CaptureTeleportPlayer(FVector(-100, 145, 998), 90, -30); break;
+		case 13: CaptureShot(TEXT("interior-window-latch")); break;
+		case 14: CaptureTeleportPlayer(FVector(45, 145, 998), -8, -40); break;
+		case 17: CaptureShot(TEXT("interior-kitchen-sink")); break;
+		case 18:
+			PuzzleTwo->GetBoothDoor()->ForceOpenState(true);
+			CaptureTeleportPlayer(FVector(185, -170, 98), 180, -15);
+			break;
+		case 21: CaptureShot(TEXT("interior-pump-panel")); break;
+		case 22: CaptureTeleportPlayer(FVector(170, -228, 98), 150, -23); break;
+		case 25: CaptureShot(TEXT("interior-pump-side")); break;
+		case 26:
+		{
+			GetNarrative()->SetNightIndex(4);
+			NightFour->SetHourActive(true);
+			FIGInteractionContext Context;
+			Context.Interactor = Player.Get(); Context.HoldProgress = 1.f;
+			Context.TargetActor = NightFour->GetTransferPump();
+			IIGInteractable::Execute_CompleteInteraction(NightFour->GetTransferPump(), Context);
+			CaptureTeleportPlayer(FVector(185,-170,98),180,-15);
+			if (NightFour->GetPumpLampMask() != 5) { FailProbe(TEXT("펌프 고장등이 켜지지 않음")); return; }
+			break;
+		}
+		case 28: CaptureShot(TEXT("interior-pump-fault")); break;
+		case 35:
+		{
+			if (NightFour->GetPumpLampMask() != 1) { FailProbe(TEXT("인터록 해제 뒤 고장등이 남음")); return; }
+			FIGInteractionContext Context;
+			Context.Interactor = Player.Get(); Context.HoldProgress = 1.f;
+			for (AIGMissingFloorEvidence* Control : {NightFour->GetCleaningDrain(), NightFour->GetFloatBypass(), NightFour->GetTransferPump()})
+			{
+				Context.TargetActor = Control;
+				IIGInteractable::Execute_CompleteInteraction(Control, Context);
+			}
+			if (NightFour->GetPumpLampMask() != 3 || !NightFour->IsWaterMaskPlaying()) { FailProbe(TEXT("펌프 운전 표시와 실제 소리가 다름")); return; }
+			break;
+		}
+		case 38: CaptureShot(TEXT("interior-pump-running")); break;
+		case 39:
+			NightFour->SetHourActive(false);
+			if (NightFour->GetPumpLampMask() != 1) { FailProbe(TEXT("시간 종료 뒤 운전등이 남음")); return; }
+			CaptureTeleportPlayer(FVector(105, 182, 998), 0, -59);
+			break;
+		case 43: CaptureShot(TEXT("interior-sink-drain")); break;
+		case 44:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("INTERIOR_CAPTURE PASS shots=9 production=1 pump_idle_fault_recovery_run_stop=1"));
+			RequestExit(false);
+			break;
+		default: break;
+		}
+		return;
+	}
 	// 승강기 대기 공간은 정면뿐 아니라 출입구와 옆 벽에서도 확인한다.
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGLandingAudit")))
 	{
