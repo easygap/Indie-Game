@@ -178,12 +178,19 @@ def bag(out, index):
 def cups(out,index):
     ig.reset_scene()
     m=materials()
-    profile=[(.052,0),(.054,.003)]
-    for i in range(1,10):
-        z=.003+i*.0057
-        profile.append((.054+z*.23,z))
-    profile += [(.069,.061),(.073,.062),(.073,.065),(.067,.066)]
-    body=wrapped_strip("사발",profile,48,m["white"])
+    profile=[(.052,0),(.054,.003),(.0586,.020),(.0655,.050),
+             (.069,.061),(.073,.062),(.073,.065),(.067,.066)]
+    body=wrapped_strip("사발",profile,128,m["white"])
+    # 성형 홈은 용기 표면에 붙어 있다. 수직 막대를 둘러 세우면 아래쪽이
+    # 몸통 밖으로 나와 빗살처럼 보인다. 단면 반지름만 0.35mm 변형한다.
+    for vertex in body.data.vertices:
+        p=vertex.co
+        if .002 < p.z < .061:
+            r=math.hypot(p.x,p.y);a=math.atan2(p.y,p.x)
+            fade=min(1.0,(p.z-.002)/.008,(.061-p.z)/.010)
+            radius=r+.00035*math.cos(32*a)*max(0,fade)
+            p.x*=radius/r;p.y*=radius/r
+    for face in body.data.polygons: face.use_smooth=True
     bottom=ig.cylinder("바닥",.052,.003,(0,0,.0015),segments=48,material=m["white"])
     lid=ig.cylinder("종이뚜껑",.073,.0008,(0,0,.0664),segments=64,material=m["print"])
     layer=lid.data.uv_layers.new(name="ImageUV")
@@ -192,12 +199,8 @@ def cups(out,index):
         v=lid.data.vertices[loop.vertex_index].co
         layer.data[li].uv=(rect[0]+(rect[2]-rect[0])*(v.x/.15+.5),rect[1]+(rect[3]-rect[1])*(v.y/.15+.5))
     p=[body,bottom,lid,ig.box("뜯는탭",(.018,.012,.0008),(0,-.074,.0664),material=m["paper"])]
-    # 사발 아랫부분의 성형 리브. 실제 흰 용기의 구조이고 색 얼룩으로 흉내 내지 않는다.
-    for i in range(48):
-        a=i*math.tau/48
-        p.append(ig.cylinder("성형리브",.0006,.045,(.058*math.cos(a),.058*math.sin(a),.027),segments=5,material=m["white"]))
     finish(("SM_RetailCupBeef","SM_RetailCupKimchi")[index],p,out,
-           "86g 사발면 14.6×14.6×6.68cm. 흰 성형 용기와 인쇄 종이뚜껑. 2줄 진열에 맞춘 실제 비례.",size=1024)
+           "86g 사발면 14.6×14.6×6.68cm. 연속된 흰 성형 용기·0.35mm 홈·인쇄 종이뚜껑. 분리된 리브 원통을 제거. 농심 공식 사발면 사진 참조.",size=1024)
 
 
 def biscuit(out):

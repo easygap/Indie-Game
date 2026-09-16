@@ -7,6 +7,7 @@
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/CameraActor.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
@@ -16,6 +17,7 @@
 #include "Engine/World.h"
 #include "Engine/Texture2D.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/StaticMeshActor.h"
 #include "EngineUtils.h"
 #include "ImageUtils.h"
 #include "HAL/FileManager.h"
@@ -5568,7 +5570,8 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 	}
 	ArrivalCaptureStep = 0;
 	// 근접 사진은 입주 자막과 시작 위치 보정이 끝난 뒤 찍는다.
-	const bool bDetailScreens = FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) && !bCaptureMetricsOnly;
+	const bool bDetailScreens = (FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit"))) && !bCaptureMetricsOnly;
 	if (!bDetailScreens) AdvanceArrivalCapture();
 	GetWorldTimerManager().SetTimer(
 		ArrivalCaptureTimer,
@@ -5581,6 +5584,89 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")))
+	{
+		struct FPrintView { const TCHAR* Name; FVector Position; float Yaw; float Pitch; int32 Sample; float Turn; };
+		TArray<FPrintView> Views = {
+			{TEXT("rice-a-front"), {2826,-725,98}, -90,-12,0,180},
+			{TEXT("rice-a-back"), {2826,-725,98}, -90,-12,0,0},
+			{TEXT("rice-b-front"), {2826,-725,98}, -90,-12,1,180},
+			{TEXT("rice-b-back"), {2826,-725,98}, -90,-12,1,0},
+			{TEXT("rice-c-front"), {2826,-725,98}, -90,-12,2,180},
+			{TEXT("rice-c-back"), {2826,-725,98}, -90,-12,2,0},
+			{TEXT("rice-d-front"), {2826,-725,98}, -90,-12,3,180},
+			{TEXT("rice-d-back"), {2826,-725,98}, -90,-12,3,0},
+			{TEXT("rice-shelf"), {2826,-750,98}, -90,-18,-1,0},
+			{TEXT("rice-distance"), {3000,-720,98}, -140,-16,-1,0},
+			{TEXT("wrench-near"), {-40,725,1235}, 90,-57,-1,0},
+			{TEXT("wrench-standing"), {40,724,1298}, 145,-44,-1,0},
+			{TEXT("wall-traces"), {110,700,1298}, 0,-8,-1,0},
+			{TEXT("annex-floor"), {-180,710,1298}, 60,-65,-1,0},
+			{TEXT("store-floor"), {2740,-300,98}, -90,-68,-1,0},
+			{TEXT("lobby-floor"), {505,-285,98}, -90,-60,-1,0},
+			{TEXT("corridor-floor"), {190,-305,998}, 180,-60,-1,0},
+			{TEXT("elevator-space"), {500,-205,98}, -22,-14,-1,0},
+			{TEXT("notebook-close"), {-90,738,1298}, 90,-45,-1,0},
+		};
+		FString OnlyView;
+		if (FParse::Value(FCommandLine::Get(), TEXT("IGPrintView="), OnlyView))
+		{
+			Views.RemoveAll([&OnlyView](const FPrintView& View) { return OnlyView != View.Name; });
+			if (Views.IsEmpty()) { FailProbe(TEXT("없는 인쇄 검사 시점")); return; }
+		}
+		const int32 Step = ArrivalCaptureStep++;
+		const int32 ViewIndex = Step / 4;
+		AStaticMeshActor* Sample = nullptr;
+		for (TActorIterator<AStaticMeshActor> It(GetWorld()); It; ++It)
+			if (It->GetFName() == TEXT("PrintAuditSample")) { Sample = *It; break; }
+		if (Step == 0)
+		{
+			FActorSpawnParameters Params;
+			Params.Name = TEXT("PrintAuditSample");
+			Sample = GetWorld()->SpawnActor<AStaticMeshActor>(Params);
+			if (!Sample) { FailProbe(TEXT("인쇄 검사 표본을 만들지 못함")); return; }
+			Sample->GetStaticMeshComponent()->SetMobility(EComponentMobility::Movable);
+			Sample->SetActorEnableCollision(false);
+		}
+		if (ViewIndex < Views.Num())
+		{
+			const FPrintView& View = Views[ViewIndex];
+			if (Step % 4 == 0)
+			{
+				// 앞 여덟 장은 동일한 게임용 메시를 진열대 앞에서 돌려 읽는 검사다.
+				Sample->SetActorHiddenInGame(View.Sample < 0);
+				if (View.Sample >= 0)
+				{
+					const FString Path = FString::Printf(TEXT("/Game/Meshes/SM_TriangleKimbap%c.SM_TriangleKimbap%c"), 'A'+View.Sample, 'A'+View.Sample);
+					Sample->GetStaticMeshComponent()->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, *Path));
+					Sample->SetActorLocationAndRotation(FVector(2826,-748,156), FRotator(0,View.Turn,0));
+				}
+				CaptureTeleportPlayer(View.Position, View.Yaw, View.Pitch);
+				if (FCString::Strcmp(View.Name, TEXT("notebook-close")) == 0)
+				{
+					// 확대 검사는 캐릭터 충돌과 분리된 카메라로 실제 표지를 읽는다.
+					const FVector Eye(-90, 738, 1262);
+					const FVector Label(-90, 765, 1232);
+					ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(Eye, (Label - Eye).Rotation());
+					if (!Camera) { FailProbe(TEXT("수첩 검사 카메라를 만들지 못함")); return; }
+					Camera->GetCameraComponent()->SetFieldOfView(60);
+					GetWorld()->GetFirstPlayerController()->SetViewTarget(Camera);
+				}
+			}
+			if (Step % 4 == 3)
+			{
+				const FString Name = FString(FParse::Param(FCommandLine::Get(), TEXT("IGPrintBaseline")) ? TEXT("print-before-") : TEXT("print-")) + View.Name;
+				CaptureShot(*Name);
+			}
+		}
+		else if (Step == Views.Num() * 4 + 2)
+		{
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("PRINT_SHAPE_CAPTURE PASS shots=%d"), Views.Num());
+			RequestExit(false);
+		}
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")))
 	{
 		struct FView { const TCHAR* Name; FVector Position; float Yaw; float Pitch; };
@@ -5612,7 +5698,7 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 			// 첫 프레임에는 메시의 비동기 충돌 준비가 끝나지 않을 수 있다.
 			if (Step == 3 && !FParse::Param(FCommandLine::Get(), TEXT("IGDetailBaseline")))
 			{
-				int32 BoardCount = 0, ChipCount = 0, KimbapCount = 0, FilmCount = 0;
+				int32 BoardCount = 0, ChipCount = 0, KimbapCount = 0, FilmCount = 0, BoardProxyCount = 0;
 				bool bValid = true;
 				TInlineComponentArray<UStaticMeshComponent*> Components(WorldScene.Get());
 				for (UStaticMeshComponent* Component : Components)
@@ -5621,7 +5707,13 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 					if (!Mesh) continue;
 					const FString Name = Mesh->GetName();
 					UInstancedStaticMeshComponent* Instances = Cast<UInstancedStaticMeshComponent>(Component);
-					if (Instances && Name == TEXT("SM_GypsumCutBoard")) BoardCount += Instances->GetInstanceCount();
+					if (Component->ComponentHasTag(TEXT("Visual.BoardShadowProxy"))) ++BoardProxyCount;
+					if (Instances && Name == TEXT("SM_GypsumCutBoard"))
+					{
+						BoardCount += Instances->GetInstanceCount();
+						bValid &= !Component->CastShadow && !Component->bAffectDistanceFieldLighting
+							&& Component->GetCollisionEnabled() == ECollisionEnabled::NoCollision;
+					}
 					if (Instances && Name == TEXT("SM_GypsumChipCluster"))
 					{
 						ChipCount += Instances->GetInstanceCount();
@@ -5658,7 +5750,7 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 					UE_LOG(LogTemp, Display, TEXT("DETAIL_SUPPORT name=%s gap_cm=%.3f trace=%d hit=%s"),
 						*It->GetName(), Gap, bReachable, *GetNameSafe(Hit.GetActor()));
 				}
-				bValid &= BoardCount == 85 && ChipCount == 12 && KimbapCount == 48 && FilmCount == 4 && SupportedClues == 3;
+				bValid &= BoardProxyCount == 3 && BoardCount == 85 && ChipCount == 12 && KimbapCount == 48 && FilmCount == 4 && SupportedClues == 3;
 				UE_LOG(LogTemp, Display, TEXT("DETAIL_LAYOUT %s boards=%d chip_clusters=%d kimbap=%d films=%d supported_clues=%d"),
 					bValid ? TEXT("PASS") : TEXT("FAIL"), BoardCount, ChipCount, KimbapCount, FilmCount, SupportedClues);
 				if (!bValid) { GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer); RequestExit(true); return; }
@@ -5673,6 +5765,15 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 				// 첫 사진은 앞 진열대 밖에서 찍는다. 성능 경로는 기존 기록을 유지한다.
 				const FVector Position = ViewIndex == 0 && !bCaptureMetricsOnly ? FVector(2820, -725, 98) : View.Position;
 				CaptureTeleportPlayer(Position, View.Yaw, View.Pitch);
+				if (ViewIndex >= 12 && !bCaptureMetricsOnly)
+				{
+					// 바닥 가까이 둔 검사 시점은 캐릭터 충돌에 밀려 다른 곳을 찍기 쉽다.
+					ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(
+						Position + FVector(0, 0, 64), FRotator(View.Pitch, View.Yaw, 0));
+					if (!Camera) { FailProbe(TEXT("소품 검사 카메라를 만들지 못함")); return; }
+					Camera->GetCameraComponent()->SetFieldOfView(78);
+					GetWorld()->GetFirstPlayerController()->SetViewTarget(Camera);
+				}
 			}
 			if (Step % 4 == 3)
 			{

@@ -1384,12 +1384,14 @@ def finalize_slots(ob):
 def build_asset(asset_name, mesh_class, parts, out_root, collision_parts=None,
                 notes="", texture_size=None, preview=True, sharp_angle=30.0,
                 uv_margin=0.004, extra_export=(), preview_yaw=30.0, raw_uv=False,
-                mirror_print_for_ue=False, origin="bottom-center"):
+                mirror_print_for_ue=False, origin="bottom-center", mirror_print_uv=False):
     """빌더의 마지막 공통 단계.
 
     parts: 결합할 오브젝트 목록(재질 붙어 있어야 함)
     collision_parts: [[obj, ...], ...] 그룹마다 볼록 껍데기 하나. None이면 전체 하나.
     """
+    if mirror_print_uv and (mirror_print_for_ue or raw_uv):
+        raise ValueError("인쇄 UV 보정과 전체 반전/raw_uv는 함께 쓸 수 없다")
     out_dir = os.path.join(out_root, asset_name)
     os.makedirs(out_dir, exist_ok=True)
     started = time.time()
@@ -1424,6 +1426,15 @@ def build_asset(asset_name, mesh_class, parts, out_root, collision_parts=None,
         render_preview(ob, os.path.join(out_dir, f"{asset_name}_preview.png"), camera_yaw_deg=preview_yaw)
         render_preview(ob, os.path.join(out_dir, f"{asset_name}_preview_torch.png"), flashlight=True,
                        camera_yaw_deg=preview_yaw)
+
+    # 인쇄만 보정한다. 모델 전체를 뒤집으면 책등·손잡이·개봉 탭까지 옮겨진다.
+    # ImageUV를 쓰는 인쇄 재질만 바뀌며, 베이크 UV와 물체 좌표는 보존한다.
+    if mirror_print_uv:
+        print_uv = ob.data.uv_layers.get("ImageUV")
+        if print_uv is None:
+            raise ValueError(f"{asset_name}: 인쇄용 ImageUV가 없다")
+        for loop in print_uv.data:
+            loop.uv.x = 1.0 - loop.uv.x
 
     # 여기서부터는 FBX 좌표. UE가 다시 뒤집어 저작 좌표로 돌려놓는다.
     mirror_y(ob)

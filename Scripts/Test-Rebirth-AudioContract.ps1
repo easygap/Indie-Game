@@ -682,7 +682,7 @@ $residueVantages = @(
 	@{ Point = 'residue_fifth_floor'; Setup = 'ResidueFifthFloor';
 		Materials = @('M_MissingFloorDragTrails', 'M_MissingFloorDustJoint') },
 	@{ Point = 'cavity_wall'; Setup = 'CavityWall';
-		Materials = @('M_MissingFloorHandprints') }
+		Materials = @('M_AnnexPressure') }
 )
 foreach ($vantage in $residueVantages) {
 	# 패턴은 먼저 변수로 만든다. 메서드 인자 목록 안에서 쉼표는 배열이 아니라
@@ -705,9 +705,9 @@ foreach ($vantage in $residueVantages) {
 	$vantageYaw = [double]$vantageMatch.Groups['yaw'].Value
 	$vantagePitch = [double]$vantageMatch.Groups['pitch'].Value
 	foreach ($residueMaterial in $vantage.Materials) {
-		$placementPattern = ('AddResidue\(\s*FVector\(\s*(?<x>-?[\d.]+)f,\s*' +
+		$placementPattern = ('(?:AddResidue|CreateBlock)\(\s*FVector\(\s*(?<x>-?[\d.]+)f,\s*' +
 			'(?<y>-?[\d.]+)f,\s*(?<z>-?[\d.]+)f\s*\),\s*FVector\([^)]*\),\s*' +
-			'TEXT\("{0}"\)') -f $residueMaterial
+			'(?:TexMat\()?TEXT\("{0}"\)') -f $residueMaterial
 		$placement = [regex]::Match($worldScene, $placementPattern)
 		if (-not $placement.Success) {
 			throw "5층 잔흔의 배치를 읽을 수 없다: $residueMaterial"

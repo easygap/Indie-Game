@@ -1,0 +1,30 @@
+{
+  "name": "SM_TuningHammer",
+  "mesh_class": "prop",
+  "fbx": "SM_TuningHammer.fbx",
+  "textures": {
+    "D": "SM_TuningHammer_D.png",
+    "N": "SM_TuningHammer_N.png",
+    "ORM": "SM_TuningHammer_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1700,
+  "bounds_m": {
+    "min": [
+      -0.015,
+      -0.015,
+      0.0
+    ],
+    "max": [
+      0.0434,
+      0.015,
+      0.2987
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "Howard A-5A 실물 사진과 TuningLeverStudy_20260916 참조. 목재 손잡이16.5cm·니켈 축·별 소켓. 장축 Z, 손잡이 반지름1.5cm. 단일 구운 재질, 연결부도 실체 메시."
+}

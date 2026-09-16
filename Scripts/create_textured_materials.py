@@ -584,6 +584,11 @@ EVIDENCE_MASK_MATERIALS = {
     # 잔흔이 덮은 픽셀과 바로 인접한 바닥의 중앙값 비를 낸다. 비가 r이면
     # 그 면의 실효 알베도는 0.30 / r이다. 바닥은 r=2.43 → 0.124, 벽은
     # 손자국 심지(0.23)가 깨끗한 석고의 0.47배로 나와 0.487이었다.
+    "M_AnnexPressure": {
+        "tex_asset": "T_AnnexPressure_M", "rough": 0.94,
+        "color": (0.19, 0.18, 0.16), "mask_gain": 1.1, "specular": 0.08,
+        "substrate": (0.487, 0.474, 0.443),
+    },
     "M_MissingFloorHandprints": {
         "tex_asset": "T_MissingFloorHandprints_M", "rough": 0.94,
         "color": (0.23, 0.22, 0.205), "mask_gain": 1.25, "specular": 0.08,

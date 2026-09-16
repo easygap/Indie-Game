@@ -1298,6 +1298,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		// 「없는 층」 dry-plaster architecture and authored residue layers.
 		TEXT("M_MissingFloorPlaster_X"), TEXT("M_MissingFloorPlaster_Y"),
 		TEXT("M_MissingFloorPlaster_XY"), TEXT("M_GypsumBoard"), TEXT("M_MissingFloorHandprints"),
+		TEXT("M_AnnexPressure"),
 		TEXT("M_MissingFloorDragTrails"), TEXT("M_MissingFloorDustJoint"),
 		TEXT("M_CorridorCasterScuff"),
 		TEXT("M_MissingFloorCavityScratches"),
@@ -4518,7 +4519,10 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	BoardStack->SetupAttachment(ActiveParent.Get() ? ActiveParent.Get() : GetRootComponent());
 	BoardStack->SetStaticMesh(PropMesh(TEXT("SM_GypsumCutBoard")));
 	BoardStack->SetMobility(EComponentMobility::Static);
-	BoardStack->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+	BoardStack->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	BoardStack->SetCastShadow(false);
+	BoardStack->SetAffectDistanceFieldLighting(false);
+	BoardStack->SetAffectDynamicIndirectLighting(false);
 	BoardStack->SetGenerateOverlapEvents(false);
 	BoardStack->SetCanEverAffectNavigation(false);
 	BoardStack->SetCullDistances(1400, 2000);
@@ -4530,6 +4534,14 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 			CreateBlock(Base + FVector(Footprint.X * Side, 0, 6), FVector(10, Footprint.Y * .94f, 12),
 				TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial));
 		}
+		// 판 사이 0.3mm 틈은 외형에만 남긴다. 충돌·그림자·거리장은 더미당 하나다.
+		const float Height = Count * 1.28f - .03f;
+		UStaticMeshComponent* Proxy = CreateBlock(Base + FVector(0, 0, 12.f + Height * .5f),
+			FVector(Footprint.X, Footprint.Y, Height), SignWhiteMaterial, true);
+		Proxy->SetRenderInMainPass(false);
+		Proxy->SetRenderInDepthPass(false);
+		Proxy->SetReceivesDecals(false);
+		Proxy->ComponentTags.Add(TEXT("Visual.BoardShadowProxy"));
 		for (int32 Layer = 0; Layer < Count; ++Layer)
 		{
 			BoardStack->AddInstance(FTransform(FRotator::ZeroRotator,
@@ -4550,6 +4562,8 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	Chips->SetGenerateOverlapEvents(false);
 	Chips->SetCanEverAffectNavigation(false);
 	Chips->SetCastShadow(false);
+	Chips->SetAffectDistanceFieldLighting(false);
+	Chips->SetAffectDynamicIndirectLighting(false);
 	Chips->SetCullDistances(900, 1400);
 	Chips->SetComponentTickEnabled(false);
 	const FVector ChipPlacements[] = {
@@ -4711,11 +4725,12 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		}
 		return nullptr;
 	};
-	MissingFloorCavityWallResidue = AddResidue(
-		FVector(249.65f, 700.0f, 1318.0f),
-		FVector(0.30f, 102.0f, 118.0f),
-		TEXT("M_MissingFloorHandprints"),
-		FRotator::ZeroRotator);
+	// 손바닥의 압흔은 실제 손 크기로 붙인다. 상자의 옆면에 인쇄가 늘어나던
+	// 테두리는 없애고, 벽이 열릴 때 함께 숨길 수 있는 평면 하나만 둔다.
+	MissingFloorCavityWallResidue = CreateBlock(
+		FVector(249.65f, 700.0f, 1332.0f), FVector(48, 44, 100),
+		TexMat(TEXT("M_AnnexPressure"), SignWhiteMaterial), false,
+		PlaneMesh, FRotator(0, 90, -90));
 	AddResidue(
 		FVector(20.0f, 718.0f, 1200.25f),
 		FVector(250.0f, 112.0f, 0.30f),

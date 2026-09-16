@@ -370,8 +370,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		nullptr, TEXT("/Game/Prototype/Materials/M_MetalFrame.M_MetalFrame"));
 	TuningHammer->Configure(
 		TuningHammerMesh ? TuningHammerMesh : CylinderMesh,
-		TuningHammerMesh ? TuningHammerMaterial : nullptr,
-		// 같은 이유로 0이다. 저작된 조율 렌치는 3 x 3 x 26cm다.
+		TuningHammerMesh ? nullptr : TuningHammerMaterial,
+		// 목재·금속 구운 재질과 실제 크기를 쓴다. 손잡이는 지름 3cm다.
 		TuningHammerMesh
 			? FVector::ZeroVector
 			: FVector(3.0f, 3.0f, 26.0f),
@@ -379,7 +379,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"TuningHammerThought",
-			"오빠 조율 렌치다. 왜 여기 떨어져 있어."),
+			"오빠 렌치다. 늘 공구 가방에 넣어 두던 건데."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,

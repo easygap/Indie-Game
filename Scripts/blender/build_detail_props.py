@@ -59,12 +59,13 @@ def kimbap(index, out_root=None):
     front=ig.mat_image_uv('FrontPrint',os.path.join(ROOT,f'UtilityPrints/KimbapFront{index}.png'),roughness=.49)
     back=ig.mat_image_uv('BackPrint',os.path.join(ROOT,f'UtilityPrints/KimbapBack{index}.png'),roughness=.48)
     parts.append(print_face('front_label',[(-.029,.009),(.029,.009),(.025,.035),(.018,.043),(-.018,.043),(-.025,.035)],-.0164,front))
-    parts.append(print_face('back_label',[(-.023,.008),(.023,.008),(.019,.037),(-.019,.037)],.0164,back,True))
-    for number,x,z in [(1,0,.085),(2,.035,.008),(3,-.035,.008)]:
+    parts.append(print_face('back_label',[(-.021,.008),(.021,.008),(.021,.036),(-.021,.036)],.0164,back,True))
+    # UE 정면(-Y)에서 화면 오른쪽은 -X. 개봉 탭은 정점 위치로 배치한다.
+    for number,x,z in [(1,0,.085),(2,-.035,.008),(3,.035,.008)]:
         m=ig.mat_image_uv('Tab'+str(number),os.path.join(ROOT,f'UtilityPrints/KimbapTab{number}.png'),roughness=.44)
         parts.append(ig.image_quad('tab_number',(.006,.006),(x,-.0167,z),m))
     return ig.build_asset('SM_TriangleKimbap'+'ABCD'[index],'prop',parts,out_root or OUT,collision_parts=[],texture_size=1024,
-        sharp_angle=50,mirror_print_for_ue=True,notes='실물 포장과 KimbapConstructionStudy_20260916 참조. 본체9×8×3.2cm, 종이 라벨·중앙 뜯는 띠·접힌 밑면. 1024px 단일 불투명 재질, 앞 -Y. 글씨 방향은 UE 실제 화면에서 확인.')
+        sharp_angle=50,mirror_print_uv=True,notes='실물 포장과 KimbapConstructionStudy_20260916 참조. 본체9×8×3.2cm, 종이 라벨·중앙 뜯는 띠·접힌 밑면. 1024px 단일 불투명 재질, 앞 -Y. 글씨 방향은 UE 실제 화면에서 확인.')
 
 def board():
     ig.reset_scene()
@@ -107,7 +108,7 @@ def paint_can():
     for part in parts:
         for v in part.data.vertices: v.co.x*=.167/.24;v.co.y*=.167/.24;v.co.z*=.190/.2435
         part.location.x*=.167/.24;part.location.y*=.167/.24;part.location.z*=.190/.2435
-    ig.build_asset('SM_WorkPaintCan','prop',parts,OUT,collision_parts=[[body]],texture_size=1024,mirror_print_for_ue=True,
+    ig.build_asset('SM_WorkPaintCan','prop',parts,OUT,collision_parts=[[body]],texture_size=1024,mirror_print_uv=True,
         sharp_angle=40,notes='실물 4L 캔의 지름167×높이190mm 규격. 뚜껑·접힌 철사 손잡이·말린 테두리와 한글 인쇄. 앞 -Y.')
 
 def chips():
@@ -172,13 +173,15 @@ def notebook():
     paper=ig.mat_plastic('PageEdges',(.65,.63,.55),roughness=.96,bump=0)
     parts=[ig.box('pages',(.151,.21,.010),(0,0,0),bevel=.001,material=paper)]
     for z in (-.006,.006):parts.append(ig.box('cover',(.16,.22,.0018),(0,0,z),bevel=.001,material=cover))
-    parts.append(ig.box('spine',(.006,.22,.013),(-.078,0,0),bevel=.0015,material=cover))
+    # UE에서 이름표를 정방향으로 읽는 쪽의 왼편은 +X다.
+    parts.append(ig.box('spine',(.006,.22,.013),(.078,0,0),bevel=.0015,material=cover))
     for z in (-.004,-.002,0,.002,.004):
-        parts.append(ig.box('page_line',(.0002,.209,.00018),(.0756,0,z),material=cover))
+        parts.append(ig.box('page_line',(.0002,.209,.00018),(-.0756,0,z),material=cover))
     label=ig.mat_image_uv('OwnerLabel',os.path.join(ROOT,'UtilityPrints/TunerNotebook.png'),roughness=.9)
-    parts.append(ig.image_quad('owner',(.090,.034),(0,-.048,.00705),label,rotation=(math.pi/2,0,0)))
-    ig.build_asset('SM_TunerNotebook','prop',parts,OUT,collision_parts=[[parts[0]]],texture_size=512,
-        origin='center',mirror_print_for_ue=True,notes='16×22cm 천 표지 수첩. 표지·책등·종이 단면·이름표를 구분. 중심 원점, 두께1.4cm.')
+    # 인쇄 앞면(-Y)이 표지 위(+Z)를 향해야 이름표를 뒤집지 않고 읽는다.
+    parts.append(ig.image_quad('owner',(.090,.034),(0,-.048,.00705),label,rotation=(-math.pi/2,0,0)))
+    ig.build_asset('SM_TunerNotebook','prop',parts,OUT,collision_parts=[[parts[0]]],texture_size=1024,
+        origin='center',mirror_print_uv=True,notes='16×22cm 천 표지 수첩. 표지·책등·종이 단면·이름표를 구분. 중심 원점, 두께1.4cm.')
 
 def sheet(draped):
     ig.reset_scene()

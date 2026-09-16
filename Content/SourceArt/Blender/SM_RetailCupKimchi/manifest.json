@@ -10,7 +10,7 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 2564,
+  "triangles": 2244,
   "bounds_m": {
     "min": [
       -0.073,
@@ -26,5 +26,5 @@
   "origin": "bottom-center",
   "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "86g 사발면 14.6×14.6×6.68cm. 흰 성형 용기와 인쇄 종이뚜껑. 2줄 진열에 맞춘 실제 비례."
+  "notes": "86g 사발면 14.6×14.6×6.68cm. 연속된 흰 성형 용기·0.35mm 홈·인쇄 종이뚜껑. 분리된 리브 원통을 제거. 농심 공식 사발면 사진 참조."
 }
