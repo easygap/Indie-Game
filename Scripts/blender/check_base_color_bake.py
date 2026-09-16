@@ -34,6 +34,23 @@ def bake_sample(output, metallic, from_high):
 
 
 output = ig.out_root_from_argv('Saved/BaseColorBakeCheck')
+
+# 인쇄 원본의 종횡비가 달라도 정사각형 베이크의 UV 배치는 같아야 한다.
+uv_samples = []
+for width, height in ((256, 256), (256, 64)):
+    ig.reset_scene()
+    material = bpy.data.materials.new('UV비율검사')
+    ig._principled(material)
+    image_node = material.node_tree.nodes.new('ShaderNodeTexImage')
+    image_node.image = bpy.data.images.new('원본인쇄', width, height)
+    material.node_tree.nodes.active = image_node
+    ob = ig.box('인쇄판', (1., .1, 1.8), material=material)
+    ig.uv_smart(ob)
+    uv_samples.append([tuple(loop.uv) for loop in ob.data.uv_layers['UVMap'].data])
+if any(abs(a-b) > 1e-5 for left, right in zip(*uv_samples) for a, b in zip(left, right)):
+    raise RuntimeError('인쇄 원본의 종횡비가 정사각형 베이크 UV를 변형함')
+print('UV_BAKE PASS square_and_wide_source_same_layout=1', flush=True)
+
 expected = tuple(1.055 * value**(1/2.4) - .055 for value in (.35, .22, .12))
 for from_high in (False, True):
     nonmetal = bake_sample(output, 0., from_high)

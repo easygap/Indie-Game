@@ -369,6 +369,9 @@ void AIGPlayerCharacter::OnStartCrouch(
 	CrouchCameraCompensation = CrouchCameraCompensationStart;
 	if (FirstPersonCamera)
 	{
+		// 캡슐 이동 중에는 자식의 월드 좌표 갱신이 미뤄진다. 먼저 반영해야
+		// 같은 월드 위치로 판정되어 높이 보정이 생략되는 일이 없다.
+		FirstPersonCamera->UpdateComponentToWorld();
 		FVector CameraLocation = FirstPersonCamera->GetRelativeLocation();
 		CameraLocation.Z += CrouchCameraCompensation
 			- AppliedCrouchCameraCompensation;
@@ -389,6 +392,7 @@ void AIGPlayerCharacter::OnEndCrouch(
 	CrouchCameraCompensation = CrouchCameraCompensationStart;
 	if (FirstPersonCamera)
 	{
+		FirstPersonCamera->UpdateComponentToWorld();
 		FVector CameraLocation = FirstPersonCamera->GetRelativeLocation();
 		CameraLocation.Z += CrouchCameraCompensation
 			- AppliedCrouchCameraCompensation;
@@ -873,6 +877,15 @@ void AIGPlayerCharacter::UpdateCrouchTransition(const float DeltaSeconds)
 	const float Alpha = CrouchTransitionRemaining
 		/ IGPlayerNoise::CrouchTransitionSeconds;
 	CrouchCameraCompensation = CrouchCameraCompensationStart * Alpha;
+	if (!bCameraMotionEnabled && FirstPersonCamera)
+	{
+		// 연출 중 흔들림을 꺼도 자세 전환의 보정은 끝까지 돌려준다.
+		// 그렇지 않으면 일어난 뒤 카메라만 48cm 낮은 곳에 남는다.
+		FVector CameraLocation = FirstPersonCamera->GetRelativeLocation();
+		CameraLocation.Z += CrouchCameraCompensation - AppliedCrouchCameraCompensation;
+		FirstPersonCamera->SetRelativeLocation(CameraLocation);
+		AppliedCrouchCameraCompensation = CrouchCameraCompensation;
+	}
 	if (CrouchTransitionRemaining <= 0.0f)
 	{
 		CrouchCameraCompensation = 0.0f;

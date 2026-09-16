@@ -533,7 +533,7 @@ def mesh_class_for(manifest):
 def apply_lod_contract(mesh, name, mesh_class):
     """generate_meshes.py의 것과 같은 계약. 절차 메시와 같은 사슬·라이트맵."""
     subsystem = unreal.get_editor_subsystem(unreal.StaticMeshEditorSubsystem)
-    plan = [(index + 1, percent, screen) for index, (percent, screen) in enumerate(mesh_class.chain)]
+    plan = mesh_lod_contract.lod_plan(name, mesh_class)
     settings = []
     lod0 = unreal.StaticMeshReductionSettings()
     _set(lod0, (("percent_triangles", 1.0), ("screen_size", 1.0)))

@@ -43,7 +43,8 @@ $builders = [ordered]@{
 	'utility_fixtures' = @('SM_InductionMeter', 'SM_MeterRotor', 'SM_MeterCabinetFive', 'SM_BoothMonitor', 'SM_BoothRecorder', 'SM_BoothKeyring')
 	'retail_refresh' = @('SM_RetailPOS', 'SM_ServiceBell', 'SM_RetailPotato', 'SM_RetailShrimp', 'SM_RetailCorn', 'SM_RetailCupBeef', 'SM_RetailCupKimchi', 'SM_RetailBiscuit', 'SM_WaterBottle')
 	'unit_door' = @('SM_UnitDoorLeaf', 'SM_UnitDoorLeafL', 'SM_UnitDoorHardware', 'SM_UnitDoorHardwareL', 'SM_UnitDoorFrame', 'SM_UnitDoorLeafWideL', 'SM_UnitDoorHardwareWideL', 'SM_UnitDoorFrameWide')
-	'corridor_fixtures' = @('SM_FireExtinguisherBox', 'SM_FireExtinguisher')
+	'corridor_fixtures' = @('SM_FireExtinguisherBox')
+	'fire_safety' = @('SM_FireAlarmPanel', 'SM_FireExtinguisher')
 	'house_slipper' = @('SM_HouseSlipper')
 	'lobby_mailboxes' = @('SM_MailboxUnit')
 	'ceiling_light' = @('SM_CeilingLightRing', 'SM_CeilingLightDome')
@@ -67,6 +68,10 @@ foreach ($entry in $builders.GetEnumerator()) {
 }
 if ($selected.Count -eq 0) {
 	throw "고른 이름에 맞는 빌더가 없다: $($Only -join ', ')"
+}
+if ($selected -contains 'fire_safety') {
+	& python (Join-Path $PSScriptRoot 'build_fire_safety_prints.py')
+	if ($LASTEXITCODE -ne 0) { throw '소방 설비 인쇄 원본 생성 실패' }
 }
 
 $logRoot = Join-Path $projectRoot 'Saved\Logs'

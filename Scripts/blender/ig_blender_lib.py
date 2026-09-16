@@ -369,7 +369,9 @@ def uv_smart(ob, angle_deg=66.0, margin=0.004):
     bpy.ops.mesh.select_all(action="SELECT")
     bpy.ops.uv.smart_project(
         angle_limit=math.radians(angle_deg), island_margin=margin,
-        area_weight=0.0, correct_aspect=True, scale_to_bounds=False)
+        # 결과는 정사각형 베이크다. 원본 라벨(예: 2048×512)의 종횡비로
+        # UV를 보정하면 섬이 세로로 눌리고 작은 글자가 번진다.
+        area_weight=0.0, correct_aspect=False, scale_to_bounds=False)
     bpy.ops.object.mode_set(mode="OBJECT")
 
 

@@ -131,7 +131,8 @@ def build_cooler(out_root):
     header = ig.box("header_box", (0.14, half_w * 2.0, 0.14), location=(x_front + 0.07, 0.0, 2.19),
                     material=m["black"])
     parts.append(header)
-    header_face = ig.box("header_face", (0.004, half_w * 2.0 - 0.02, 0.11), location=(x_front + 0.002, 0.0, 2.19),
+    # 발광판의 뒷면을 외함 앞면에 붙인다. 앞면까지 같은 X에 놓으면 가로줄로 깜빡인다.
+    header_face = ig.box("header_face", (0.004, half_w * 2.0 - 0.02, 0.11), location=(x_front - 0.002, 0.0, 2.19),
                          material=m["header"])
     parts.append(header_face)
     # 바닥 그릴: 검정 몸통에 가로 슬랫.

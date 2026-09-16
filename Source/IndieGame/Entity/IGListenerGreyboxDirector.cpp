@@ -42,6 +42,7 @@
 #include "Entity/IGMissingFloorPuzzleOneDirector.h"
 #include "Entity/IGMissingFloorPuzzleTwoDirector.h"
 #include "Entity/IGNightOneBeatDirector.h"
+#include "Interaction/IGZoneTrigger.h"
 #include "Entity/IGNightPhaseDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "Engine/TextureRenderTarget2D.h"
@@ -3654,6 +3655,16 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 				FVector(-180.0f, -305.0f, 960.0f)) <= 320.0f;
 		if (bCompleted && bBackOnRoute)
 		{
+			// 402호를 먼저 지나도 노크는 소화기 이후 방문을 기다린다.
+			CaptureTeleportPlayer(FVector(-30, -300, 998), 0, 0);
+			for (TActorIterator<AIGZoneTrigger> It(GetWorld()); It; ++It)
+			{
+				if (It->RequiredNarrativeBeat == FName(TEXT("Night1.Extinguisher")) && It->WasTriggered())
+				{
+					FailProbe(TEXT("402호 노크가 선행 사건 전에 소모됨"));
+					return;
+				}
+			}
 			// The forced tutorial: stand at the fire cabinet.
 			if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 			{
@@ -3694,6 +3705,13 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			|| State == EIGListenerState::CaptureHold;
 		if (bDropped && bBeatFired && bReacted)
 		{
+			CaptureTeleportPlayer(FVector(-30, -300, 998), 0, 0);
+			if (!GetNarrative()->HasBeatPlayed(FName(TEXT("Night1.Unit402Knock"))))
+			{
+				FailProbe(TEXT("소화기 이후 재방문에서 402호 노크 누락"));
+				return;
+			}
+			UE_LOG(LogTemp, Display, TEXT("NIGHT1_SEQUENCE PASS early_visit_retained=1 return_knock=1"));
 			if (!NightPhase)
 			{
 				FailProbe(TEXT("night phase missing for the cycle contract"));
@@ -5412,6 +5430,34 @@ void AIGListenerGreyboxDirector::RunArrivalProbe()
 		&& NightPhase && !NightPhase->IsHourActive()
 		&& Scene && !Scene->IsTheHourSealed()
 		&& Entity && Entity->IsDormant();
+	// 이사 날 먼저 복도를 둘러봐도 밤1의 세 구간은 다음 방문을 기다려야 한다.
+	const FVector BeforeVisit = Player->GetActorLocation();
+	const FRotator BeforeLook = Player->GetControlRotation();
+	for (const FVector& Point : { FVector(-30, -300, 998), FVector(232, -300, 998), FVector(-300, -305, 998) })
+	{
+		CaptureTeleportPlayer(Point, 0, 0);
+	}
+	CaptureTeleportPlayer(BeforeVisit, BeforeLook.Yaw, BeforeLook.Pitch);
+	int32 ArmedNightOneZones = 0;
+	for (TActorIterator<AIGZoneTrigger> It(GetWorld()); It; ++It)
+	{
+		if (It->RequiredNightIndex == 1 && !It->WasTriggered())
+		{
+			++ArmedNightOneZones;
+		}
+	}
+	const bool bNightOneStillArmed = ArmedNightOneZones == 3
+		&& !Scene->IsCorridorExtinguisherDropped()
+		&& !Narrative->HasBeatPlayed(FName(TEXT("Night1.Sighting")))
+		&& !Narrative->HasBeatPlayed(FName(TEXT("Night1.Extinguisher")))
+		&& !Narrative->HasBeatPlayed(FName(TEXT("Night1.Unit402Knock")));
+	if (!bNightOneStillArmed)
+	{
+		UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_ARRIVAL FAIL early_night_beat armed=%d"), ArmedNightOneZones);
+		RequestExit(true);
+		return;
+	}
+	UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_ARRIVAL night_beats_armed=3 early_beats=0"));
 	const bool bBoxPlacement = BoxComponent
 		&& BoxComponent->Bounds.Origin.Equals(FVector(20.0f, 70.0f, 924.0f), 2.0f)
 		&& BoxComponent->Bounds.BoxExtent.Equals(FVector(24.0f, 19.0f, 24.0f), 2.0f);
@@ -5502,6 +5548,42 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	// 소방 설비·작은 병마개·타일 경계는 가까운 거리와 비스듬한 시점에서도 본다.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGPropFinishAudit")))
+	{
+		switch (ArrivalCaptureStep++ - 8)
+		{
+		case 2: CaptureTeleportPlayer(FVector(236, -280, 998), -90, -12); break;
+		case 5: CaptureShot(TEXT("finish-fire-panel")); break;
+		case 6:
+			Player->Crouch();
+			CaptureTeleportPlayer(FVector(232, -280, 998), -90, -45);
+			break;
+		case 9: CaptureShot(TEXT("finish-extinguisher")); break;
+		case 10:
+			Player->UnCrouch();
+			CaptureTeleportPlayer(FVector(3006, -470, 104), 0, 6);
+			break;
+		case 13: CaptureShot(TEXT("finish-bottle-near")); break;
+		case 14: CaptureTeleportPlayer(FVector(2880, -470, 104), 0, 1); break;
+		case 17: CaptureShot(TEXT("finish-bottle-far")); break;
+		case 18: CaptureTeleportPlayer(FVector(2710, -790, 104), 270, -68); break;
+		case 21: CaptureShot(TEXT("finish-store-grout")); break;
+		case 22: CaptureTeleportPlayer(FVector(180, -290, 998), 180, -55); break;
+		case 25: CaptureShot(TEXT("finish-corridor-grout")); break;
+		case 26: CaptureTeleportPlayer(FVector(1950, -1300, 98), 180, -4); break;
+		case 29: CaptureShot(TEXT("finish-alley-brick")); break;
+		case 30: CaptureTeleportPlayer(FVector(-277.5f, 190, 1297), 270, -65); break;
+		case 33: CaptureShot(TEXT("finish-stair-surface")); break;
+		case 34:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("PROP_FINISH_CAPTURE PASS shots=8 production=1"));
+			RequestExit(false);
+			break;
+		default: break;
+		}
+		return;
+	}
 	// 이전 순회에서 빠졌던 창문과 설비를 플레이어 눈높이에서 확인한다.
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGInteriorAudit")))
 	{

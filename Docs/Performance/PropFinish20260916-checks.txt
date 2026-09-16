@@ -1,0 +1,74 @@
+2026-09-16 소방 설비·벽돌·냉장고·앉기 시점 검사
+
+PropFinish-AfterBuild.log
+ART_CODE_BUILD PASS target=IndieGameEditor platform=Win64 configuration=Development
+
+FireSafetyImport-run.log
+BLENDER_IMPORT PASS assets=2: SM_FireAlarmPanel, SM_FireExtinguisher
+
+PropFinish-CoolerImport.log
+BLENDER_IMPORT PASS assets=1: SM_StoreCoolerBank
+
+PropFinish-BakeCheck.log
+UV_BAKE PASS square_and_wide_source_same_layout=1
+BASE_COLOR_BAKE PASS from_high=0 nonmetal=(0.6274510025978088, 0.5058823823928833, 0.3803921937942505) metal=(0.6274510025978088, 0.5058823823928833, 0.3803921937942505)
+BASE_COLOR_BAKE PASS from_high=1 nonmetal=(0.6274510025978088, 0.5058823823928833, 0.3803921937942505) metal=(0.6274510025978088, 0.5058823823928833, 0.3803921937942505)
+
+UtilityMaterials.log
+LogPython: SMALL_PROP_LOD PASS SM_BottleCap chain=[(1, 0.8, 0.035), (2, 0.55, 0.012), (3, 0.3, 0.005)]
+LogPython: SMALL_PROP_LOD PASS SM_WaterBottle chain=[(1, 0.6, 0.1), (2, 0.3, 0.04), (3, 0.12, 0.012)]
+
+FixtureReview.log
+LogTemp: Display: PROP_FINISH_CAPTURE PASS shots=8 production=1
+
+PropFinish-Spatial.log
+LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=False quality=High production=1 resolution=1920x1080
+
+MissingFloorArrivalProbe.log
+LogIndieGame: Display: SPATIAL_CLEARANCE PASS checks=24 failures=0 capsule=60.0x192.0
+LogTemp: Display: MISSINGFLOOR_ARRIVAL night_beats_armed=3 early_beats=0
+LogTemp: Display: MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1
+
+PropFinish-Story.log
+LogTemp: Display: NIGHT1_SEQUENCE PASS early_visit_retained=1 return_knock=1
+LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+
+PropFinish-Realism30.log
+LogIndieGame: Display: REALISM_VIEW standing eye=162.00 actor=98.00 relative=64.00
+LogIndieGame: Display: REALISM_VIEW crouched=1 eye_drop_cm=48.00
+LogIndieGame: Display: REALISM_VIEW crouching actor=50.00 relative=64.00
+LogIndieGame: Display: REALISM_CHECK crouch_lowers_view_with_camera_motion_disabled PASS
+LogIndieGame: Display: REALISM_VIEW restored actor=98.00 relative=64.00 crouched=0
+LogIndieGame: Display: REALISM_CHECK uncrouch_restores_view_with_camera_motion_disabled PASS
+LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+PropFinish-Realism60.log
+LogIndieGame: Display: REALISM_VIEW standing eye=162.00 actor=98.00 relative=64.00
+LogIndieGame: Display: REALISM_VIEW crouched=1 eye_drop_cm=48.00
+LogIndieGame: Display: REALISM_VIEW crouching actor=50.00 relative=64.00
+LogIndieGame: Display: REALISM_CHECK crouch_lowers_view_with_camera_motion_disabled PASS
+LogIndieGame: Display: REALISM_VIEW restored actor=98.00 relative=64.00 crouched=0
+LogIndieGame: Display: REALISM_CHECK uncrouch_restores_view_with_camera_motion_disabled PASS
+LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+PropFinish-Realism120.log
+LogIndieGame: Display: REALISM_VIEW standing eye=162.00 actor=98.00 relative=64.00
+LogIndieGame: Display: REALISM_VIEW crouched=1 eye_drop_cm=48.00
+LogIndieGame: Display: REALISM_VIEW crouching actor=50.00 relative=64.00
+LogIndieGame: Display: REALISM_CHECK crouch_lowers_view_with_camera_motion_disabled PASS
+LogIndieGame: Display: REALISM_VIEW restored actor=98.00 relative=64.00 crouched=0
+LogIndieGame: Display: REALISM_CHECK uncrouch_restores_view_with_camera_motion_disabled PASS
+LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+PropFinish-Validate.log
+LIGHT PLACEMENT AUDIT  lights=52 findings=0
+COPLANAR SURFACE AUDIT  boxes=1380 findings=0
+Project structure validation passed (this is not an Unreal build).
+
+성능 측정
+PROFILE_PASS PropFinish20260916-RetailHigh
+PROFILE_PASS PropFinish20260916-RetailPerformance
+PROFILE_PASS PropFinish20260916-AreaHigh
+PROFILE_PASS PropFinish20260916-AreaPerformance

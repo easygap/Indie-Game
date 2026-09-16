@@ -26,6 +26,7 @@ private:
 	TWeakObjectPtr<APlayerController> Controller;
 	FVector BrakeStart = FVector::ZeroVector;
 	float Seconds = 0.0f;
+	float StandingEyeHeight = 0.0f;
 	int32 Phase = 0;
 	int32 Failures = 0;
 };

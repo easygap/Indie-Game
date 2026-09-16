@@ -17,6 +17,13 @@ foreach ($part in @('Content/Prototype/Textures', 'Content/Prototype/Materials')
 $utilitySources = Join-Path $utilityStage 'UtilitySources'
 New-Item -ItemType Directory -Force -Path $utilitySources | Out-Null
 Copy-Item -LiteralPath (Join-Path $utilityRoot 'Content/SourceArt/AI/TankSatinSteel_20260915.png') -Destination $utilitySources -Force
+Copy-Item -LiteralPath (Join-Path $utilityRoot 'Content/SourceArt/AI/KoreanBrick_20260916.png') -Destination $utilitySources -Force
+foreach ($mesh in @('SM_BottleCap', 'SM_WaterBottle')) {
+    Copy-Item -LiteralPath (Join-Path $utilityRoot "Content/Meshes/$mesh.uasset") -Destination (Join-Path $utilityStage 'Content/Meshes') -Force
+}
+foreach ($script in @('mesh_lod_contract.py', 'apply_small_prop_lods.py')) {
+    Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination (Join-Path $utilityStage "Scripts/$script") -Force
+}
 & python (Join-Path $PSScriptRoot 'build_utility_prints.py')
 if ($LASTEXITCODE -ne 0) { throw '검침창 인쇄 원본 생성 실패' }
 foreach ($name in @('MeterCounter', 'MeterLabel', 'BoothAgentNote', 'BoothReceipts', 'BoothCalendar', 'LobbyWaterNotice', 'LobbyContactNotice', 'LobbyMeterSheet', 'LobbyForumPrint', 'PumpProcedure')) {
@@ -47,5 +54,9 @@ foreach ($name in @('M_ApartmentNightGlass', 'M_PumpIndicator', 'M_Stucco_X', 'M
 foreach ($name in @('T_ApartmentNightVista_D', 'T_LandingPaint_20260915_D', 'T_UtilityTankSteel_D', 'T_CctvStandby_D', 'T_UtilityMeterCounter_D', 'T_UtilityMeterLabel_D', 'T_BoothAgentNote_D', 'T_BoothReceipts_D', 'T_BoothCalendar_D', 'T_LobbyWaterNotice_D', 'T_LobbyContactNotice_D', 'T_LobbyMeterSheet_D', 'T_LobbyForumPrint_D', 'T_PumpProcedure_D')) {
     $source = Join-Path $utilityStage "Content/Prototype/Textures/$name.uasset"
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $utilityRoot 'Content/Prototype/Textures') -Force }
+}
+Copy-Item -LiteralPath (Join-Path $utilityStage 'Content/Prototype/Textures/T_KoreanBrick_20260916_D.uasset') -Destination (Join-Path $utilityRoot 'Content/Prototype/Textures') -Force
+foreach ($mesh in @('SM_BottleCap', 'SM_WaterBottle')) {
+    Copy-Item -LiteralPath (Join-Path $utilityStage "Content/Meshes/$mesh.uasset") -Destination (Join-Path $utilityRoot 'Content/Meshes') -Force
 }
 Select-String -LiteralPath $utilityLog -Pattern 'UTILITY_MATERIALS PASS' | ForEach-Object { Write-Host $_.Line }

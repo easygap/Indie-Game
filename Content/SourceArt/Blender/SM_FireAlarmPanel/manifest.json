@@ -1,0 +1,30 @@
+{
+  "name": "SM_FireAlarmPanel",
+  "mesh_class": "prop",
+  "fbx": "SM_FireAlarmPanel.fbx",
+  "textures": {
+    "D": "SM_FireAlarmPanel_D.png",
+    "N": "SM_FireAlarmPanel_N.png",
+    "ORM": "SM_FireAlarmPanel_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1220,
+  "bounds_m": {
+    "min": [
+      -0.125,
+      -0.083,
+      0.0
+    ],
+    "max": [
+      0.125,
+      0.0475,
+      0.65
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "GFS CP-201GS 실물 규격 25×65×9.5cm 기준. 바닥 중심, 앞 -Y. FireAlarmReference_20260916.png의 구성과 대조. 호스함이 아닌 발신기 세트."
+}

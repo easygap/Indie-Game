@@ -34,6 +34,9 @@ def texture(filename, name):
 
 steel = texture("TankSatinSteel_20260915.png", "T_UtilityTankSteel_D")
 screen = texture("CctvStandby.png", "T_CctvStandby_D")
+brick = texture("KoreanBrick_20260916.png", "T_KoreanBrick_20260916_D")
+if not brick:
+    raise RuntimeError("국내 점토벽돌 생성 원본이 없습니다.")
 if not steel or not screen:
     raise RuntimeError("저수조 원본이나 실제 맵 CCTV 아틀라스가 없습니다.")
 
@@ -79,10 +82,14 @@ def material(name, surface):
         normal = node("MaterialExpressionVertexNormalWS")
         # 원통 옆면은 실제 둘레 길이로, 기초는 각 면의 축으로 투영한다.
         # 바닥 XY 투영을 옆면에 늘이던 세로 줄무늬가 생기지 않는다.
-        tile = 210.0 if surface == "street_brick" else 190.0 if surface == "brick" else 60.0 if surface == "granite" else 260.0 if surface == "dark" else 150.0
+        tile = 60.0 if surface == "granite" else 260.0 if surface == "dark" else 150.0
         code = ("return abs(N.z)>.707 ? P.xy/80.0 : float2(atan2(P.y+25.0,P.x)*153.0/80.0,P.z/80.0);"
                 if surface == "steel" else
-                f"float3 n=abs(N); return (n.z>.707 ? P.xy : (n.x>n.y ? P.yz : P.xz))/{tile};")
+                  f"float3 n=abs(N); return (n.z>.707 ? P.xy : (n.x>n.y ? P.yz : P.xz))/{tile};")
+        if surface in ("brick", "street_brick"):
+            # 190×57mm 벽돌 + 10mm 줄눈, 가로 3장·세로 6단. 정사각형 UV로
+            # 늘리지 않는다. 음의 Z로 투영해 원본 위아래와 월드 위아래를 맞춘다.
+            code = "float3 n=abs(N); float2 p=n.z>.707 ? P.xy : float2(n.x>n.y?P.y:P.x,-P.z); return p/float2(60.0,40.2);"
         uv = node("MaterialExpressionCustom", code=code,
                   output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT2)
         inputs = []
@@ -93,9 +100,7 @@ def material(name, surface):
         uv.set_editor_property("inputs", inputs)
         link(position, uv, "P")
         link(normal, uv, "N")
-        image = steel if surface == "steel" else unreal.load_asset(
-            "/Game/Prototype/Textures/T_Photo_Brick_D" if surface == "street_brick" else
-            "/Game/Prototype/Textures/T_Photo_VillaBrick_D" if surface == "brick" else
+        image = steel if surface == "steel" else brick if surface in ("brick", "street_brick") else unreal.load_asset(
             "/Game/Prototype/Textures/T_PocheonGranite_20260915_D" if surface == "granite" else "/Game/Prototype/Textures/T_Concrete_D")
         if not image:
             raise RuntimeError(f"설비 표면 원본 텍스처가 없습니다: {surface}")
@@ -201,4 +206,6 @@ for wall_name, finish in (("M_Stucco_X", "landing_wall"), ("M_Stucco_Y", "landin
     ASSETS.save_loaded_asset(wall)
 import build_interior_materials
 build_interior_materials.build(texture, LIB, ASSETS)
+import apply_small_prop_lods
+apply_small_prop_lods.run()
 unreal.log(f"UTILITY_MATERIALS PASS materials=23 cctv_atlas={int(screen is not None)}")

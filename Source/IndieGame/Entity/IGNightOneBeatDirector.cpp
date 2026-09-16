@@ -139,6 +139,7 @@ bool AIGNightOneBeatDirector::Configure(
 		return false;
 	}
 	SightingZone->SetZoneExtent(IGNightOne::SightingZoneExtent);
+	SightingZone->RequiredNightIndex = 1;
 	SightingZone->OnZoneTriggered.AddDynamic(
 		this, &AIGNightOneBeatDirector::HandleSightingZone);
 
@@ -152,6 +153,7 @@ bool AIGNightOneBeatDirector::Configure(
 		return false;
 	}
 	ExtinguisherZone->SetZoneExtent(IGNightOne::ExtinguisherZoneExtent);
+	ExtinguisherZone->RequiredNightIndex = 1;
 	ExtinguisherZone->OnZoneTriggered.AddDynamic(
 		this, &AIGNightOneBeatDirector::HandleExtinguisherZone);
 
@@ -163,6 +165,8 @@ bool AIGNightOneBeatDirector::Configure(
 	if (Unit402KnockZone)
 	{
 		Unit402KnockZone->SetZoneExtent(IGNightOne::Unit402KnockZoneExtent);
+		Unit402KnockZone->RequiredNightIndex = 1;
+		Unit402KnockZone->RequiredNarrativeBeat = IGNightOne::ExtinguisherBeatId;
 		Unit402KnockZone->OnZoneTriggered.AddDynamic(
 			this, &AIGNightOneBeatDirector::HandleUnit402KnockZone);
 	}
@@ -183,6 +187,8 @@ void AIGNightOneBeatDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	GetWorldTimerManager().ClearTimer(SightingFallbackTimer);
 	GetWorldTimerManager().ClearTimer(ImpactTimer);
 	GetWorldTimerManager().ClearTimer(Unit402KnockTimer);
+	GetWorldTimerManager().ClearTimer(SightingStepTimer);
+	GetWorldTimerManager().ClearTimer(FixtureDeathTimer);
 	if (BreakerPanelHumHandle != 0)
 	{
 		if (UWorld* World = GetWorld())
@@ -373,14 +379,11 @@ void AIGNightOneBeatDirector::RestoreSightingEntity()
 
 void AIGNightOneBeatDirector::HandleUnit402KnockZone(AIGZoneTrigger* Zone)
 {
-	// 소화기 비트를 겪은 뒤에만. 그 전에는 복도가 아직 규칙을 가르치는 중이고,
-	// 규칙을 배우기 전의 놀람은 정보가 아니라 소음이다.
-	if (!bExtinguisherBeatFired)
-	{
-		return;
-	}
+	// 소화기 이후에 돌아올 때 들린다. 먼저 문 앞을 지나도 트리거가 소모되지 않는다.
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	if (!Narrative || !Narrative->MarkBeatPlayed(IGNightOne::Unit402KnockBeatId))
+	if (!Narrative || Narrative->GetNightIndex() != 1
+		|| !Narrative->HasBeatPlayed(IGNightOne::ExtinguisherBeatId)
+		|| !Narrative->MarkBeatPlayed(IGNightOne::Unit402KnockBeatId))
 	{
 		return;
 	}

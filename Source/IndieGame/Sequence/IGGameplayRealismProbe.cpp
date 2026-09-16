@@ -106,9 +106,34 @@ void AIGGameplayRealismProbe::Tick(const float DeltaSeconds)
 	{
 		SendKey(EKeys::W, false);
 		Check(Player->GetActorLocation().X > 230.f, TEXT("offset_doorway_passage"));
+		Player->GetCharacterMovement()->StopMovementImmediately();
+		Phase = 6; Seconds = 0;
+	}
+	else if (Phase == 6 && Seconds > 0.5f)
+	{
+		StandingEyeHeight = Player->FindComponentByClass<UCameraComponent>()->GetComponentLocation().Z;
+		UE_LOG(LogIndieGame, Display, TEXT("REALISM_VIEW standing eye=%.2f actor=%.2f relative=%.2f"), StandingEyeHeight, Player->GetActorLocation().Z, Player->GetFirstPersonCamera()->GetRelativeLocation().Z);
+		Player->Crouch();
+		Phase = 7; Seconds = 0;
+	}
+	else if (Phase == 7 && Seconds > 0.65f)
+	{
+		const float EyeDrop = StandingEyeHeight - Player->FindComponentByClass<UCameraComponent>()->GetComponentLocation().Z;
+		UE_LOG(LogIndieGame, Display, TEXT("REALISM_VIEW crouched=%d eye_drop_cm=%.2f"), Player->bIsCrouched, EyeDrop);
+		UE_LOG(LogIndieGame, Display, TEXT("REALISM_VIEW crouching actor=%.2f relative=%.2f"), Player->GetActorLocation().Z, Player->GetFirstPersonCamera()->GetRelativeLocation().Z);
+		Check(Player->bIsCrouched && FMath::IsNearlyEqual(EyeDrop, 48.f, 1.f),
+			TEXT("crouch_lowers_view_with_camera_motion_disabled"));
+		Player->UnCrouch();
+		Phase = 8; Seconds = 0;
+	}
+	else if (Phase == 8 && Seconds > 0.65f)
+	{
+		UE_LOG(LogIndieGame, Display, TEXT("REALISM_VIEW restored actor=%.2f relative=%.2f crouched=%d"), Player->GetActorLocation().Z, Player->GetFirstPersonCamera()->GetRelativeLocation().Z, Player->bIsCrouched);
+		Check(!Player->bIsCrouched && FMath::IsNearlyEqual(Player->FindComponentByClass<UCameraComponent>()->GetComponentLocation().Z, StandingEyeHeight, 1.f),
+			TEXT("uncrouch_restores_view_with_camera_motion_disabled"));
 		CheckInteractionsAndCapture();
 		UE_LOG(LogIndieGame, Display, TEXT("REALISM_PROBE %s failures=%d"), Failures ? TEXT("FAIL") : TEXT("PASS"), Failures);
-		Phase = 6;
+		Phase = 9;
 		FPlatformMisc::RequestExitWithStatus(false, Failures ? 1 : 0);
 	}
 }

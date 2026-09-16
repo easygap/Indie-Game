@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
@@ -40,6 +40,13 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zone|Story")
 	FText ThoughtOnEnter;
+
+	/** 해당 밤·선행 사건이 오기 전에는 들어가도 소모되지 않는다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zone|Story")
+	int32 RequiredNightIndex = INDEX_NONE;
+
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zone|Story")
+	FName RequiredNarrativeBeat;
 
 protected:
 	virtual void BeginPlay() override;

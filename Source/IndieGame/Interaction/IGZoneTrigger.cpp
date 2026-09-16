@@ -1,9 +1,10 @@
-#include "Interaction/IGZoneTrigger.h"
+﻿#include "Interaction/IGZoneTrigger.h"
 
 #include "Components/BoxComponent.h"
 #include "Engine/GameInstance.h"
 #include "GameFramework/Pawn.h"
 #include "Narrative/IGStoryHelpers.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 
@@ -120,6 +121,19 @@ void AIGZoneTrigger::HandleBeginOverlap(
 	if (!Pawn || !Pawn->IsPlayerControlled())
 	{
 		return;
+	}
+
+	if (RequiredNightIndex != INDEX_NONE || !RequiredNarrativeBeat.IsNone())
+	{
+		const UGameInstance* Instance = GetGameInstance();
+		const UIGMissingFloorNarrativeSubsystem* Narrative = Instance
+			? Instance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>() : nullptr;
+		if (!Narrative
+			|| (RequiredNightIndex != INDEX_NONE && Narrative->GetNightIndex() != RequiredNightIndex)
+			|| (!RequiredNarrativeBeat.IsNone() && !Narrative->HasBeatPlayed(RequiredNarrativeBeat)))
+		{
+			return;
+		}
 	}
 
 	bTriggered = true;

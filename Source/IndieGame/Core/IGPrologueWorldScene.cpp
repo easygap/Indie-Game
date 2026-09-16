@@ -3391,25 +3391,19 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(
 		FVector(CupboardX + 24.0f, -240.4f, 180),
 		FVector(3, 1.5f, 6), PlasticDarkMaterial, false);
-	// 소화전함은 Blender 메시(Scripts/blender/build_corridor_fixtures.py)가
-	// 정식이다. 문짝·창·손잡이·「소화전」 글자가 실제 기하다. 원점이 바닥
-	// 중심, 앞면이 -Y라 남쪽 벽(Y -375)에 등을 대려면 180도 돌리고 원점을
-	// 벽에서 4.5 cm 띄운다.
-	UStaticMesh* FireBoxMesh = PropMesh(TEXT("SM_FireExtinguisherBox"));
-	if (FireBoxMesh)
+	// 소형 호스함처럼 보이던 상자를 국내 25×65cm 발신기 세트로 바꿨다.
+	// 버튼 중심 127cm, 상단 표시등 162cm. 남쪽 벽에 등을 붙이고 복도를 향한다.
+	UStaticMesh* FireAlarmMesh = PropMesh(TEXT("SM_FireAlarmPanel"));
+	if (FireAlarmMesh)
 	{
 		CreateBlock(
-			FVector(236, -370.5f, 123), FVector(100, 100, 100),
-			nullptr, false, FireBoxMesh, FRotator(0, 180, 0));
+			FVector(236, -370.25f, 108), FVector(100, 100, 100),
+			nullptr, false, FireAlarmMesh, FRotator(0, 180, 0));
 	}
 	else
 	{
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
-		CreatePrintedBlock(
-			FVector(236, -371, 140), FVector(26, 9, 34),
-			SnackRedMaterial,
-			TexMat(TEXT("M_FireBox"), SnackRedMaterial),
-			FVector(0, 1, 0));
+		CreateBlock(FVector(236, -370.25f, 140.5f), FVector(25, 9.5f, 65), Metal, false);
 	}
 	// The extinguisher is the one corridor prop authored to fall (밤1 beat
 	// 1-5). A physics body from birth, but kinematic until the scripted drop:
@@ -3424,8 +3418,8 @@ void AIGPrologueWorldScene::BuildCorridor()
 			nullptr,
 			FVector(1.0f, 1.0f, 1.0f),
 			FVector(232, -364, 0.5f),
-			FRotator::ZeroRotator,
-			6.0f);
+			FRotator(0, 180, 0),
+			5.2f);
 		if (CorridorExtinguisher)
 		{
 			CorridorExtinguisher->SetSimulatePhysics(false);
@@ -5677,13 +5671,13 @@ void AIGPrologueWorldScene::BuildAlley()
 				FVector(SpanX, -378, 62), FVector(2.6f, 2.6f, 150),
 				PlasticDarkMaterial, false, CylinderMesh, FRotator(0, 0, 90));
 		}
-		// Stair-core door at the back of the bay and a wall-mounted hose reel.
+		// 계단실 문 옆 발신기도 복도와 같은 제품을 쓴다.
 		CreateBlock(FVector(-120, -241, 100), FVector(88, 6, 200), DarkX, false);
 		CreateBlock(FVector(-84, -244.5f, 96), FVector(4, 2, 14), Metal, false);
-		if (UStaticMesh* FireBox = PropMesh(TEXT("SM_FireExtinguisherBox")))
+		if (UStaticMesh* FireAlarm = PropMesh(TEXT("SM_FireAlarmPanel")))
 		{
-			CreateBlock(FVector(254, -249.5f, 113), FVector(100, 100, 100),
-				nullptr, false, FireBox);
+			CreateBlock(FVector(254, -248.75f, 108), FVector(100, 100, 100),
+				nullptr, false, FireAlarm);
 		}
 		// A single sodium bulkhead keeps the bay from being a black hole.
 		CreateBlock(FVector(-30, -244, 214), FVector(22, 14, 12), Metal, false);

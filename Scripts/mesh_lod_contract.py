@@ -147,12 +147,21 @@ def classify(asset_name: str) -> MeshClass:
     return PROP
 
 
-def lod_plan(asset_name: str):
+SMALL_ROUND_CHAINS = {
+    # 3.4cm 마개에 일반 소품의 20% 전환점을 쓰면 눈앞에서도 원둘레가 무너진다.
+    # 마지막 단계는 화면 높이 0.5%(1080p에서 약 5px)부터만 허용한다.
+    "SM_BottleCap": ((.80, .035), (.55, .012), (.30, .005)),
+    # 투명한 병 어깨는 윤곽과 굴절이 함께 보이므로 팔 길이에서는 원형을 보존한다.
+    "SM_WaterBottle": ((.60, .10), (.30, .040), (.12, .012)),
+}
+
+
+def lod_plan(asset_name: str, mesh_class=None):
     """[(lod index, percent triangles, screen size)] for the reduced LODs."""
-    mesh_class = classify(asset_name)
+    mesh_class = mesh_class or classify(asset_name)
     return [
         (index + 1, percent, screen)
-        for index, (percent, screen) in enumerate(mesh_class.chain)
+        for index, (percent, screen) in enumerate(SMALL_ROUND_CHAINS.get(asset_name, mesh_class.chain))
     ]
 
 
