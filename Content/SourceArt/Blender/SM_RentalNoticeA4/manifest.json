@@ -1,0 +1,30 @@
+{
+  "name": "SM_RentalNoticeA4",
+  "mesh_class": "prop",
+  "fbx": "SM_RentalNoticeA4.fbx",
+  "textures": {
+    "D": "SM_RentalNoticeA4_D.png",
+    "N": "SM_RentalNoticeA4_N.png",
+    "ORM": "SM_RentalNoticeA4_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 36,
+  "bounds_m": {
+    "min": [
+      -0.105,
+      -0.0001,
+      -0.1485
+    ],
+    "max": [
+      0.105,
+      0.0001,
+      0.1485
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "A4 21×29.7cm, 종이 0.15mm. 앞 -Y, 원점 중앙. RentalNotice_20260916의 실물 참조. 앞면만 인쇄, 위쪽 테이프 2개, 바람 변형 없음."
+}

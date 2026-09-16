@@ -10,16 +10,15 @@
 더 달고 있었고, 계량기함 여섯 면에는 「분전반」이 세로로 눌려 있었으며,
 편의점 3.2 m 파사드는 밑면 12 cm에 상호를 한 줄 더 깔고 있었다.
 
-고치는 방법은 하나뿐이다 — 몸통은 민무늬로 두고 인쇄는 앞면에 얇은 판으로
-따로 붙인다. ``AIGPrologueWorldScene::CreatePrintedBlock``이 그 일을 한다.
+몸통과 인쇄면을 나누거나 앞면에만 UV를 편 저작 메시를 쓴다.
 
 코드만 읽고 하나를 본다.
 
 * ``PRINT_ON_EDGES`` - 엔진 큐브에 인쇄 재질이 통째로 발렸고, 몸통이 옆면을
                       마구리로 넘길 만큼 두껍다
 
-두께가 ``MAX_DRESSING_THICKNESS`` 이하인 판은 이 씬이 게시물·명판·가격표에
-쓰는 관례이므로 세지 않는다. 그 정도 마구리는 두 번째 인쇄로 읽히지 않는다.
+금속 명판과 종이는 허용 두께가 다르다. 종이에 3cm 기준을 적용하면
+1.6cm짜리 안내문 상자도 통과하므로 재질별 얇은 인쇄물 기준을 먼저 쓴다.
 저작 메시(``PropMesh``로 구운 것)는 자기 UV를 들고 있으므로 대상이 아니다.
 
 어디서든 돌아간다.
@@ -81,8 +80,15 @@ UNIFORM_SURFACES = frozenset({
     "M_WetServiceHoseUV",
 })
 
-# 이보다 얇으면 마구리가 아니라 종이다.
+# 금속 명판의 몸체와 얇은 인쇄물을 구분한다. 단위는 cm.
 MAX_DRESSING_THICKNESS = 3.0
+PAPER_THICKNESS_LIMITS = {
+    "M_NoticeA4": .10,
+    "M_DoorAd": .10,
+    "M_PosterFlyer": .10,
+    "M_Calendar": .30,
+    "M_Banner": .15,
+}
 
 TABLE_PATTERN = re.compile(r"^([A-Z_]+) = \{", re.M)
 ENTRY_PATTERN = re.compile(r'^\s+"(M_[A-Za-z0-9_]+)"\s*:', re.M)
@@ -147,7 +153,7 @@ def audit_boxes(boxes, bindings, print_materials, source_label):
             continue
         counts["printed"] += 1
         thickness = min(box.size)
-        if thickness <= MAX_DRESSING_THICKNESS:
+        if thickness <= PAPER_THICKNESS_LIMITS.get(name, MAX_DRESSING_THICKNESS):
             continue
         findings.append(Finding(
             source=source_label,
@@ -235,6 +241,17 @@ def _self_test() -> int:
     findings, _ = audit_boxes([plate], bindings, materials, "Fake.cpp")
     check("얇은 판", findings, [])
 
+    # 명판은 통과해도 같은 두께의 종이는 통과하면 안 된다.
+    for paper_name, old_thickness in (("M_NoticeA4", 1.6), ("M_DoorAd", .8),
+                                      ("M_Calendar", 1.5), ("M_PosterFlyer", 2), ("M_Banner", 2.5)):
+        paper_bindings = projection.parse_bindings(f'UMaterialInterface* Paper = TexMat(TEXT("{paper_name}"), F);\n')
+        paper = projection._FakeBox(9, "Paper", (0, 0, 140), (31, old_thickness, 42))
+        findings, _ = audit_boxes([paper], paper_bindings, {paper_name}, "Fake.cpp")
+        check(f"두꺼운 종이 {paper_name}", len(findings), 1)
+        paper = projection._FakeBox(9, "Paper", (0, 0, 140), (31, .02, 42))
+        findings, _ = audit_boxes([paper], paper_bindings, {paper_name}, "Fake.cpp")
+        check(f"얇은 종이 {paper_name}", findings, [])
+
     # 인쇄가 아닌 재질은 두꺼워도 상관없다.
     plain = projection._FakeBox(9, "Plain", (0, 0, 140), (26, 9, 34))
     findings, _ = audit_boxes([plain], bindings, materials, "Fake.cpp")
@@ -301,7 +318,7 @@ def main(argv=None) -> int:
             print(f"  재질을 풀지 못한 상자 {totals['unresolved']}건 — "
                   f"호출부가 리터럴도 지역 변수도 아니었다")
         if not findings:
-            print("\nevery printed surface is a face, not a whole body")
+            print("\n검사한 상자의 인쇄면·종이 두께 기준 통과. 저작 메시의 UV와 부착 방향은 게임 화면에서 확인한다.")
         else:
             print()
             for finding in findings:

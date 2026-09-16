@@ -9,10 +9,12 @@
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
+#include "Components/BoxComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
 #include "Engine/Texture2D.h"
+#include "Engine/StaticMesh.h"
 #include "EngineUtils.h"
 #include "ImageUtils.h"
 #include "HAL/FileManager.h"
@@ -1064,13 +1066,13 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			this, &AIGListenerGreyboxDirector::HandleUnit401RadioExamined);
 	}
 
-	// 402호 문 너머. 401호와 같은 오프셋으로 세운다 — 두 문 앞에서 같은
-	// 동작을 하고 다른 것을 듣는 것이 이 목격의 전부다.
+	// 메모보다 위쪽, 귀를 댈 높이에만 듣기 판정을 둔다. 문 앞을 크게 막으면
+	// 보이는 종이를 겨눠도 보이지 않는 듣기 영역이 먼저 잡힌다.
 	Unit402Listen = SpawnListeningVolume(
 		CubeMesh,
 		TEXT("MissingFloorWitnessUnit402Listen"),
-		FVector(-30.0f, -246.0f, 1010.0f),
-		FVector(30.0f, 12.0f, 40.0f),
+		FVector(-30.0f, -237.15f, 1052.0f),
+		FVector(38.0f, 0.2f, 30.0f),
 		NSLOCTEXT(
 			"IGMissingFloor", "WitnessUnit402Prompt", "402호 문 — 귀를 기울인다"));
 	if (Unit402Listen)
@@ -1169,13 +1171,6 @@ void AIGListenerGreyboxDirector::HandleUnit402ListenExamined(
 			"WitnessUnit402Caption",
 			"[문 안은 조용하다]"),
 		2.8f);
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"WitnessUnit402Thought",
-			"벨이 안 울린다. 문틈에 끼워 둔 우편도 그대로고."),
-		4.4f);
 }
 
 void AIGListenerGreyboxDirector::HandleRoofDoorListenExamined(
@@ -1398,17 +1393,37 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		0.10f);
 	ArrivalUnit402Note = SpawnEvidence(
 		TEXT("MissingFloorArrivalUnit402Note"),
-		FVector(-30.0f, -238.0f, 1018.0f),
-		FVector(14.8f, 0.6f, 10.5f),
-		CubeMesh,
-		Paper,
+		FVector(-30.0f, -237.04f, 1018.0f),
+		FVector::ZeroVector,
+		LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_NeighborMemo402.SM_NeighborMemo402")),
+		nullptr,
 		NSLOCTEXT("IGMissingFloor", "Arrival402Prompt", "402호 문에 붙은 메모를 읽는다"),
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"Arrival402Thought",
-			"「밤에 위에서 소리가 나도 올라가지 마세요.」 402호 사람이 붙였나?"),
+			"새벽마다 위에서 뭘 끄는 소리가 납니다. 혹시 같은 소리 들으시면 관리실에 말씀해 주세요. — 402호"),
 		0.5f,
 		0.01f);
+	if (ArrivalUnit402Note)
+	{
+		UStaticMeshComponent* NoteSurface = ArrivalUnit402Note->GetPresentationMesh();
+		NoteSurface->SetCastShadow(false);
+		NoteSurface->SetAffectDistanceFieldLighting(false);
+		NoteSurface->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		// 얇은 종이의 볼록 충돌은 가져오는 과정에서 납작해질 수 있다.
+		// 읽기는 같은 크기의 별도 상자 판정으로 받고, 플레이어 이동은 막지 않는다.
+		UBoxComponent* ReadArea = NewObject<UBoxComponent>(ArrivalUnit402Note, TEXT("ReadArea"));
+		ArrivalUnit402Note->AddInstanceComponent(ReadArea);
+		ReadArea->SetupAttachment(NoteSurface);
+		ReadArea->SetMobility(EComponentMobility::Static);
+		ReadArea->SetBoxExtent(FVector(7.4f, 0.1f, 5.25f));
+		ReadArea->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		ReadArea->SetCollisionResponseToAllChannels(ECR_Ignore);
+		ReadArea->SetCollisionResponseToChannel(ECC_Visibility, ECR_Block);
+		ReadArea->SetGenerateOverlapEvents(false);
+		ReadArea->SetCanEverAffectNavigation(false);
+		ReadArea->RegisterComponent();
+	}
 	ArrivalRoofLock = SpawnEvidence(
 		TEXT("MissingFloorArrivalRoofLock"),
 		FVector(-277.5f, 213.0f, 1300.0f),
@@ -5406,6 +5421,20 @@ void AIGListenerGreyboxDirector::RunArrivalProbe()
 	const UStaticMeshComponent* BoxComponent = ArrivalParcelBox
 		? ArrivalParcelBox->GetPresentationMesh()
 		: nullptr;
+	FHitResult ArrivalNoteHit;
+	GetWorld()->LineTraceSingleByChannel(ArrivalNoteHit, FVector(-30, -290, 1018), FVector(-30, -236, 1018), ECC_Visibility);
+	FHitResult ArrivalListenHit;
+	GetWorld()->LineTraceSingleByChannel(ArrivalListenHit, FVector(-30, -290, 1052), FVector(-30, -236, 1052), ECC_Visibility);
+	if (!ArrivalUnit402Note || !Unit402Listen
+		|| ArrivalNoteHit.GetActor() != ArrivalUnit402Note || ArrivalListenHit.GetActor() != Unit402Listen)
+	{
+		UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_ARRIVAL FAIL note_trace actor=%s component=%s at=%s listen=%s"),
+			*GetNameSafe(ArrivalNoteHit.GetActor()), *GetNameSafe(ArrivalNoteHit.GetComponent()),
+			*ArrivalNoteHit.ImpactPoint.ToString(), *GetNameSafe(ArrivalListenHit.GetActor()));
+		RequestExit(true);
+		return;
+	}
+	UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_ARRIVAL note_trace=1 listen_trace=1"));
 	const UMaterialInterface* BoxMaterial = ArrivalParcelBox
 		&& BoxComponent
 		? BoxComponent->GetMaterial(0)
@@ -5548,6 +5577,156 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	// 같은 인쇄면을 문 안팎과 열린 상태에서 본다. 정면 사진만으로 놓쳤던
+	// 부착 방향·두께·문짝 추종을 실제 컴포넌트에서도 확인한다.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGDoorPrintAudit")))
+	{
+		AIGSwingDoor* EntryDoor = nullptr;
+		UStaticMeshComponent* Magnet = nullptr;
+		for (TActorIterator<AIGSwingDoor> It(GetWorld()); It; ++It)
+		{
+			TArray<UStaticMeshComponent*> Parts;
+			It->GetComponents(Parts);
+			for (UStaticMeshComponent* Part : Parts)
+			{
+				if (Part->ComponentHasTag(TEXT("Visual.DeliveryMagnet")))
+				{
+					EntryDoor = *It;
+					Magnet = Part;
+				}
+			}
+		}
+		if (!EntryDoor || !Magnet || !Magnet->GetStaticMesh())
+		{
+			UE_LOG(LogTemp, Error, TEXT("DOOR_PRINT_CAPTURE FAIL missing_magnet"));
+			RequestExit(true);
+			return;
+		}
+		switch (ArrivalCaptureStep++ - 8)
+		{
+		case 2:
+		{
+			EntryDoor->ForceOpenState(false);
+			Magnet->UpdateComponentToWorld();
+			const FVector Size = Magnet->GetStaticMesh()->GetBoundingBox().GetSize();
+			const FVector PrintNormal = Magnet->GetComponentTransform().TransformVectorNoScale(FVector(0, -1, 0));
+			const bool bGeometryOK = FMath::IsNearlyEqual(Size.X, 9.f, .02f)
+				&& FMath::IsNearlyEqual(Size.Y, .06f, .01f) && FMath::IsNearlyEqual(Size.Z, 6.5f, .02f);
+			if (!bGeometryOK || PrintNormal.Y > -.99f || Magnet->GetRelativeLocation().X <= 2.5f
+				|| Magnet->GetAttachParent() != EntryDoor->GetDoorPivot()
+				|| Magnet->GetCollisionEnabled() != ECollisionEnabled::NoCollision || Magnet->CastShadow)
+			{
+				UE_LOG(LogTemp, Error, TEXT("DOOR_PRINT_CAPTURE FAIL size=%s normal=%s"), *Size.ToString(), *PrintNormal.ToString());
+				RequestExit(true);
+				return;
+			}
+			UE_LOG(LogTemp, Display, TEXT("DOOR_PRINT_GEOMETRY PASS size_cm=%s outward=1 attached=1 collision=0 shadow=0"), *Size.ToString());
+			CaptureTeleportPlayer(FVector(108, -301, 998), 90, -21);
+			break;
+		}
+		case 5: CaptureShot(TEXT("door-print-outside")); break;
+		case 6: CaptureTeleportPlayer(FVector(70, -100, 998), -64, -14); break;
+		case 9: CaptureShot(TEXT("door-print-inside")); break;
+		case 10:
+			EntryDoor->ForceOpenState(true);
+			CaptureTeleportPlayer(FVector(-15, -289, 998), 21, -18);
+			break;
+		case 13:
+			Magnet->UpdateComponentToWorld();
+			if (!FMath::IsNearlyEqual(EntryDoor->GetDoorPivot()->GetRelativeRotation().Yaw, -95.0f, .1f)
+				|| !Magnet->GetComponentLocation().Equals(EntryDoor->GetDoorPivot()->GetComponentTransform().TransformPosition(Magnet->GetRelativeLocation()), .01f))
+			{
+				UE_LOG(LogTemp, Error, TEXT("DOOR_PRINT_CAPTURE FAIL open_door yaw=%.2f"), EntryDoor->GetDoorPivot()->GetRelativeRotation().Yaw);
+				RequestExit(true);
+				return;
+			}
+			UE_LOG(LogTemp, Display, TEXT("DOOR_PRINT_SWING PASS yaw=%.2f magnet=%s"), EntryDoor->GetDoorPivot()->GetRelativeRotation().Yaw, *Magnet->GetComponentLocation().ToString());
+			CaptureShot(TEXT("door-print-open"));
+			break;
+		case 14:
+			EntryDoor->ForceOpenState(false);
+			CaptureTeleportPlayer(FVector(145, -310, 998), 90, -65);
+			break;
+		case 17: CaptureShot(TEXT("door-print-floor")); break;
+		case 18: CaptureTeleportPlayer(FVector(236, -280, 998), -90, -12); break;
+		case 21: CaptureShot(TEXT("door-print-fire-corridor")); break;
+		case 22: CaptureTeleportPlayer(FVector(254, -330, 98), 90, -12); break;
+		case 25: CaptureShot(TEXT("door-print-fire-pilotis")); break;
+		case 26:
+		{
+			// 이전 에셋을 별도 검수 위치에만 놓는다. 본편에는 새 발신기 세트만 있다.
+			AActor* Sample = GetWorld()->SpawnActor<AActor>();
+			UStaticMeshComponent* Legacy = NewObject<UStaticMeshComponent>(Sample);
+			Sample->SetRootComponent(Legacy);
+			Sample->AddInstanceComponent(Legacy);
+			Legacy->SetStaticMesh(LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_FireExtinguisherBox.SM_FireExtinguisherBox")));
+			Legacy->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+			Legacy->RegisterComponent();
+			Sample->SetActorLocationAndRotation(FVector(440, -371, 1005), FRotator(0, 180, 0));
+			CaptureTeleportPlayer(FVector(440, -278, 998), -90, -20);
+			break;
+		}
+		case 29: CaptureShot(TEXT("door-print-legacy-fire")); break;
+		case 30: CaptureTeleportPlayer(FVector(-140, -115, 998), -90, -4); break;
+		case 33: CaptureShot(TEXT("door-print-calendar")); break;
+		case 34:
+		{
+			int32 AttachedNotices = 0;
+			TArray<UStaticMeshComponent*> Parts;
+			WorldScene->GetComponents(Parts);
+			for (UStaticMeshComponent* Part : Parts)
+			{
+				if (!Part->ComponentHasTag(TEXT("Visual.RentalNotice"))) { continue; }
+				const FVector At = Part->GetComponentLocation();
+				FHitResult Wall;
+				// 실제 벽 충돌을 짧게 쏜다. 빈 틈에 뜬 게시물은 여기서 걸린다.
+				if (!GetWorld()->LineTraceSingleByChannel(Wall, At + FVector(0, -.10f, 0), At + FVector(0, .20f, 0), ECC_Visibility))
+				{
+					UE_LOG(LogTemp, Error, TEXT("DOOR_PRINT_CAPTURE FAIL unsupported_notice=%s"), *At.ToString());
+					RequestExit(true);
+					return;
+				}
+				++AttachedNotices;
+			}
+			if (AttachedNotices != 2)
+			{
+				UE_LOG(LogTemp, Error, TEXT("DOOR_PRINT_CAPTURE FAIL notice_count=%d"), AttachedNotices);
+				RequestExit(true);
+				return;
+			}
+			UE_LOG(LogTemp, Display, TEXT("DOOR_PRINT_SUPPORT PASS wall_contacts=2"));
+			CaptureTeleportPlayer(FVector(703, -480, 98), 90, 5);
+			break;
+		}
+		case 37: CaptureShot(TEXT("door-print-rental-front")); break;
+		case 38: CaptureTeleportPlayer(FVector(748, -431, 98), 141, 5); break;
+		case 41: CaptureShot(TEXT("door-print-rental-side")); break;
+		case 42:
+		{
+			// 글이 보이는 표면과 읽기 판정이 같은 물체에 붙어 있는지도 확인한다.
+			FHitResult NoteHit;
+			const bool bHit = GetWorld()->LineTraceSingleByChannel(NoteHit,
+				FVector(-30, -290, 1018), FVector(-30, -236, 1018), ECC_Visibility);
+			if (!bHit || NoteHit.GetActor() != ArrivalUnit402Note)
+			{
+				UE_LOG(LogTemp, Error, TEXT("DOOR_PRINT_CAPTURE FAIL unreadable_neighbor_note"));
+				RequestExit(true);
+				return;
+			}
+			UE_LOG(LogTemp, Display, TEXT("DOOR_PRINT_NOTE PASS visibility_trace=1"));
+			CaptureTeleportPlayer(FVector(-30, -310, 998), 90, -30);
+			break;
+		}
+		case 45: CaptureShot(TEXT("door-print-neighbor-note")); break;
+		case 46:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("DOOR_PRINT_CAPTURE PASS shots=11 production=1"));
+			RequestExit(false);
+			break;
+		default: break;
+		}
+		return;
+	}
 	// 소방 설비·작은 병마개·타일 경계는 가까운 거리와 비스듬한 시점에서도 본다.
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGPropFinishAudit")))
 	{

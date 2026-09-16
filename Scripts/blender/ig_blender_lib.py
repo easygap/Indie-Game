@@ -1384,7 +1384,7 @@ def finalize_slots(ob):
 def build_asset(asset_name, mesh_class, parts, out_root, collision_parts=None,
                 notes="", texture_size=None, preview=True, sharp_angle=30.0,
                 uv_margin=0.004, extra_export=(), preview_yaw=30.0, raw_uv=False,
-                mirror_print_for_ue=False):
+                mirror_print_for_ue=False, origin="bottom-center"):
     """빌더의 마지막 공통 단계.
 
     parts: 결합할 오브젝트 목록(재질 붙어 있어야 함)
@@ -1455,7 +1455,7 @@ def build_asset(asset_name, mesh_class, parts, out_root, collision_parts=None,
     fbx_path = os.path.join(out_dir, f"{asset_name}.fbx")
     export_fbx(fbx_path, [ob] + hulls + list(extra_export))
     manifest = write_manifest(out_dir, asset_name, mesh_class, fbx_path, textures, ob, slots, notes,
-                              ue_bounds=ue_bounds, emissive=emissive)
+                              origin=origin, ue_bounds=ue_bounds, emissive=emissive)
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out_dir, f"{asset_name}.blend"))
     log(f"{asset_name}: done in {time.time() - started:.1f}s")
     return manifest

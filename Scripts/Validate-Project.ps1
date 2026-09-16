@@ -954,7 +954,8 @@ if ($elevatorSource.Contains(
 }
 foreach ($worldContinuityInvariant in @(
 	'constexpr float SecondFloorZ = 300.0f',
-	'FVector(-140, -213.2f, 154)',
+	'FVector(-140, -214.81f, 154)',
+	'PropMesh(TEXT("SM_ApartmentCalendar2025"))',
 	'FVector(-392.5f, -385, 80), FVector(125, 20, 340)',
 	'FVector(-392.5f, -225, 80), FVector(125, 20, 340)',
 	'FVector(-455, -305, 80), FVector(20, 200, 340)',

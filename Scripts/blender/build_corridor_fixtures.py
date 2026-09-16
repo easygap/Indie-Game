@@ -101,7 +101,7 @@ def build_box(out_root):
         "SM_FireExtinguisherBox", "prop", parts, out_root,
         collision_parts=[[shell]],
         notes="복도 남쪽 벽의 소화전함 26 x 9 x 34. 앞면 -Y, 원점 바닥 중심. Glass 슬롯 있음.",
-        texture_size=1024)
+        texture_size=1024, mirror_print_for_ue=True)
 
 
 

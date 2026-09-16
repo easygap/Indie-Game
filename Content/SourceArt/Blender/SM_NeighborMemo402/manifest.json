@@ -1,0 +1,30 @@
+{
+  "name": "SM_NeighborMemo402",
+  "mesh_class": "prop",
+  "fbx": "SM_NeighborMemo402.fbx",
+  "textures": {
+    "D": "SM_NeighborMemo402_D.png",
+    "N": "SM_NeighborMemo402_N.png",
+    "ORM": "SM_NeighborMemo402_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 12,
+  "bounds_m": {
+    "min": [
+      -0.074,
+      -0.0001,
+      -0.0525
+    ],
+    "max": [
+      0.074,
+      0.0001,
+      0.0525
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "402호 입주 메모. A6 가로 14.8×10.5cm, 종이 0.15mm. 앞 -Y, 원점 중앙. 글자와 읽기 문구 일치. 종이에 충돌 없음. 런타임의 별도 읽기 상자는 Visibility만 판정한다."
+}

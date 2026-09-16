@@ -1265,7 +1265,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_StoreTileWorld"), TEXT("M_StoreCeilWorld"),
 		TEXT("M_StoreWall_X"), TEXT("M_StoreWall_Y"),
 		TEXT("M_MetalUV"), TEXT("M_ShelfSteelUV"),
-		TEXT("M_PosterSale"), TEXT("M_PosterRamyeon"), TEXT("M_PosterFlyer"),
+		TEXT("M_PosterSale"), TEXT("M_PosterRamyeon"),
 		TEXT("M_NoteFridge"), TEXT("M_Note404NotFound"),
 		TEXT("M_SignToilet"), TEXT("M_SignAutoDoor"),
 		TEXT("M_PriceStrip"), TEXT("M_SignMainLit"), TEXT("M_SignBladeLit"),
@@ -1275,9 +1275,8 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_LobbyWaterNotice"), TEXT("M_LobbyContactNotice"),
 		TEXT("M_LobbyMeterSheet"), TEXT("M_LobbyForumPrint"),
 		TEXT("M_Shutter_X"), TEXT("M_SignLaundry"), TEXT("M_SignHair"),
-		TEXT("M_SignHof"), TEXT("M_SignSuper"), TEXT("M_Banner"),
-		TEXT("M_NoticeA4"), TEXT("M_DoorAd"), TEXT("M_Calendar"),
-		TEXT("M_FireBox"), TEXT("M_TobaccoNotice"), TEXT("M_ConeOrange"),
+		TEXT("M_SignHof"), TEXT("M_SignSuper"), TEXT("M_Calendar"),
+		TEXT("M_TobaccoNotice"), TEXT("M_ConeOrange"),
 		TEXT("M_SignPC"), TEXT("M_SignKaraoke"),
 		TEXT("M_LabelWater"), TEXT("M_LabelGreenTea"), TEXT("M_LabelBarley"),
 		TEXT("M_LabelSoda"), TEXT("M_LabelSoju"), TEXT("M_LabelRamyeon"),
@@ -1299,6 +1298,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_MissingFloorPlaster_X"), TEXT("M_MissingFloorPlaster_Y"),
 		TEXT("M_MissingFloorPlaster_XY"), TEXT("M_GypsumBoard"), TEXT("M_MissingFloorHandprints"),
 		TEXT("M_MissingFloorDragTrails"), TEXT("M_MissingFloorDustJoint"),
+		TEXT("M_CorridorCasterScuff"),
 		TEXT("M_MissingFloorCavityScratches"),
 		TEXT("M_DecalDampWallpaper"),
 		TEXT("M_DecalRainGrime"),
@@ -2771,13 +2771,22 @@ void AIGPrologueWorldScene::BuildApartment()
 	}
 	CreateBlock(FVector(-70, -212.5f, 32), FVector(7, 2, 11), FridgeInteriorMaterial, false);
 	CreateBlock(FVector(186.5f, 40, 32), FVector(2, 7, 11), FridgeInteriorMaterial, false);
-	// Hang the calendar on the clear wall directly above the desk. The old
-	// west-wall position overlapped the wardrobe/bedside-table sightline and
-	// made a normal wall calendar look wedged behind furniture.
-	CreateBlock(
-		FVector(-140, -213.2f, 154), FVector(1.5f, 31, 42),
-		TexMat(TEXT("M_Calendar"), SignWhiteMaterial), false,
-		nullptr, FRotator(0, 90, 0));
+	// 현재 입주는 2025년 7월이다. 2024년 사건 자료와 방의 생활 달력을 구분한다.
+	const bool bCurrentStory = GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"));
+	if (bCurrentStory)
+	{
+		if (UStaticMesh* Calendar = PropMesh(TEXT("SM_ApartmentCalendar2025")))
+		{
+			CreateBlock(FVector(-140, -214.81f, 154), FVector(100), nullptr, false, Calendar, FRotator(0, 180, 0));
+		}
+	}
+	else
+	{
+		CreateBlock(FVector(-140, -214.86f, 154), FVector(0.18f, 31, 42),
+			TexMat(TEXT("M_Calendar"), SignWhiteMaterial), false, nullptr, FRotator(0, 90, 0));
+	}
 	CreateBlock(FVector(170, 90, 182), FVector(46, 40, 22), Metal, false);
 	CreateBlock(FVector(170, 90, 212), FVector(13, 13, 38), Metal, false, CylinderMesh);
 
@@ -2982,7 +2991,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	if (PlaneMesh)
 	{
 		UMaterialInterface* Runner =
-			TexMat(TEXT("M_MissingFloorDragTrails"), nullptr);
+			TexMat(TEXT("M_CorridorCasterScuff"), nullptr);
 		const auto AddCorridorResidue = [this](
 			const FVector& Center,
 			const FVector& Size,
@@ -3011,9 +3020,9 @@ void AIGPrologueWorldScene::BuildCorridor()
 		};
 		AddCorridorResidue(
 			FVector(120.0f, -298.0f, 0.15f),
-			FVector(165.0f, 36.0f, 1.0f),
+			FVector(75.0f, 75.0f, 1.0f),
 			Runner,
-			FRotator(0.0f, -4.0f, 0.0f));
+			FRotator(0.0f, -35.0f, 0.0f));
 	}
 
 	// South wall with hopper windows onto the alley. The openings are cut out
@@ -5919,12 +5928,20 @@ void AIGPrologueWorldScene::BuildAlley()
 		}
 	}
 
-	// Rental flyers taped to the brick, and the landlord's banner overhead.
-	CreateBlock(FVector(800, -396.5f, 170), FVector(58, 2, 78), TexMat(TEXT("M_PosterFlyer"), ConcreteMaterial), false);
-	CreateBlock(FVector(1905, -396.5f, 168), FVector(58, 2, 78), TexMat(TEXT("M_PosterFlyer"), ConcreteMaterial), false);
-	CreateBlock(
-		FVector(90, -397.5f, 480), FVector(250, 2.5f, 32),
-		TexMat(TEXT("M_Banner"), SignWhiteMaterial), false);
+	// 첫 안내문은 공동현관 오른쪽 34cm 벽체에 붙인다. 예전 X 800은 벽이
+	// 없는 틈이었다. 두꺼운 판·공중에 뜬 현수막 대신 A4 두 장만 남긴다.
+	if (UStaticMesh* RentalNotice = PropMesh(TEXT("SM_RentalNoticeA4")))
+	{
+		for (const FVector& NoticeAt : {FVector(703, -395.04f, 170), FVector(1905, -395.04f, 168)})
+		{
+			if (UStaticMeshComponent* Notice = CreateBlock(NoticeAt, FVector(100), nullptr, false, RentalNotice))
+			{
+				Notice->ComponentTags.Add(TEXT("Visual.RentalNotice"));
+				Notice->SetCullDistance(1400.0f);
+				Notice->SetEvaluateWorldPositionOffset(false);
+			}
+		}
+	}
 
 
 	// A red church cross on a far rooftop keeps watch over the district.
@@ -6610,15 +6627,6 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		}
 	}
 
-	// This morning's paper on the landing outside 403. The delivery-ad sticker
-	// that belongs on the door itself is applied after the door is spawned,
-	// further down — testing HomeDoor here silently did nothing, because the
-	// actor does not exist yet at this point in the function.
-	CreateBlock(
-		FVector(130, -250, 901.2f), FVector(30, 21, 1.6f),
-		TexMat(TEXT("M_NoticeA4"), SignWhiteMaterial), false,
-		nullptr, FRotator(0, 24, 0));
-
 	// Front door: always available; room clues remain optional.
 	HomeDoor = World->SpawnActor<AIGSwingDoor>(
 		AIGSwingDoor::StaticClass(),
@@ -6626,8 +6634,8 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		SpawnParameters);
 	if (HomeDoor)
 	{
-		// 403호 문짝은 이웃 문과 같은 Blender 메시의 왼손 변형이다. 힌지가
-		// 액터 원점, 문짝이 +Y, 바깥면이 -X인 이 액터의 관례에 맞춰 돈다.
+		// 힌지가 액터 원점이고 문짝은 +Y로 뻗는다. 바깥면은 +X다.
+		// 액터가 -90도 돌아 있으므로 월드에서는 복도 쪽인 -Y를 향한다.
 		UStaticMesh* HomeDoorLeafMesh = PropMesh(TEXT("SM_UnitDoorLeafWideL"));
 		if (HomeDoorLeafMesh)
 		{
@@ -6657,15 +6665,19 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		TArray<FIGDoorRequirement> NoDoorRequirements;
 		HomeDoor->SetRequirements(MoveTemp(NoDoorRequirements));
 
-		// Delivery-ad sticker, on the leaf so it swings with the door. This
-		// has to happen after the spawn above.
-		CreateDecoOnComponent(
-			HomeDoor->GetDoorPivot(), CubeMesh,
-			TexMat(TEXT("M_DoorAd"), SignWhiteMaterial),
-			// 저작 문짝은 5 cm 두께라 바깥면이 X -2.5다. 상자 문짝은 7 cm.
-			FVector(HomeDoorLeafMesh ? -2.95f : -8.4f, 24.0f, 78.0f),
-			FRotator::ZeroRotator,
-			FVector(0.008f, 0.17f, 0.17f));
+		// 광고는 배달원이 붙일 수 있는 바깥 철판에만 둔다. 인쇄면과 고무
+		// 뒷면을 나눈 0.6mm 자석이며, 문과 같은 피벗을 따라 움직인다.
+		if (UStaticMeshComponent* DeliveryMagnet = CreateDecoOnComponent(
+			HomeDoor->GetDoorPivot(), PropMesh(TEXT("SM_DoorDeliveryMagnet")), nullptr,
+			FVector(HomeDoorLeafMesh ? 2.56f : 3.56f, 30.0f, 132.0f),
+			FRotator(1.5f, 90.0f, 0.0f), FVector::OneVector))
+		{
+			DeliveryMagnet->EmptyOverrideMaterials();
+			DeliveryMagnet->ComponentTags.Add(TEXT("Visual.DeliveryMagnet"));
+			DeliveryMagnet->SetCastShadow(false);
+			DeliveryMagnet->SetAffectDistanceFieldLighting(false);
+			DeliveryMagnet->SetCullDistance(650.0f);
+		}
 	}
 
 	// Common entrance of the villa: a properly framed glass door off the lobby.

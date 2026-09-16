@@ -1,0 +1,66 @@
+2026-09-16 현관 인쇄물·복도 점검
+작업 시작 커밋: 3dc4401456747ce051ba943b62ba3629fa760a08
+
+C++ 빌드
+Saved/Logs/DoorPrint-CodeBuild.log
+ART_CODE_BUILD PASS target=IndieGameEditor platform=Win64 configuration=Development
+
+UE 반입
+Saved/Logs/DoorPrint-FinalImport.log
+BLENDER_IMPORT PASS assets=4: SM_ApartmentCalendar2025, SM_DoorDeliveryMagnet, SM_NeighborMemo402, SM_RentalNoticeA4
+
+게임 화면
+Saved/Logs/FixtureReview.log
+[2026.09.16-05.07.06:452][769]LogTemp: Display: DOOR_PRINT_GEOMETRY PASS size_cm=X=9.000 Y=0.060 Z=6.500 outward=1 attached=1 collision=0 shadow=0
+[2026.09.16-05.07.22:022][661]LogTemp: Display: DOOR_PRINT_SWING PASS yaw=-95.00 magnet=X=72.835 Y=-254.663 Z=1032.000
+[2026.09.16-05.07.51:421][375]LogTemp: Display: DOOR_PRINT_SUPPORT PASS wall_contacts=2
+[2026.09.16-05.08.02:620][ 15]LogTemp: Display: DOOR_PRINT_NOTE PASS visibility_trace=1
+[2026.09.16-05.08.08:212][334]LogTemp: Display: DOOR_PRINT_CAPTURE PASS shots=11 production=1
+
+순회 화면
+Saved/Logs/DoorPrint-SpatialReview.log
+[2026.09.16-04.36.36:813][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+[2026.09.16-04.38.55:632][962]LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=False quality=High production=1 resolution=1920x1080
+
+입주와 통로
+Saved/Logs/DoorPrint-ArrivalProbe.log
+[2026.09.16-05.05.11:408][478]LogIndieGame: Display: SPATIAL_CLEARANCE PASS checks=24 failures=0 capsule=60.0x192.0
+[2026.09.16-05.05.11:408][478]LogTemp: Display: MISSINGFLOOR_ARRIVAL note_trace=1 listen_trace=1
+[2026.09.16-05.05.11:409][478]LogTemp: Display: MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1
+MISSINGFLOOR_ARRIVAL_PROBE PASS route=production offscreen=true
+
+밤 진행
+Saved/Logs/DoorPrint-StoryProbe.log
+[2026.09.16-05.08.26:986][122]LogTemp: Display: MISSINGFLOOR_DIFFICULTY PASS: §20.2 four nights, tier axis multiplies (night3 tier3 = 3.50s), quiet/hasty/listen-only honoured, heatmap saturates and halves
+[2026.09.16-05.08.27:404][102]LogTemp: Display: MISSINGFLOOR_PERCEPTION PASS: corridor/stairwell reverb, cavity still ringing at 0.5s (level=1472, 1.51s vs solid 0.37s), settled dust bounded and 403 aging cumulative, dust x2.00 over his lane, 220/220 motes lit, dry when dark
+[2026.09.16-05.08.27:644][562]LogTemp: Display: MISSINGFLOOR_P1_EXPERIMENT PASS isolation=1 off_on=1 reversible=1
+[2026.09.16-05.08.33:296][890]LogTemp: Display: MISSINGFLOOR_MERCY PASS: 90s clock, 2-reset hint, responses=4 never repeating, note rests 28.7 cm clear of the five-capture note, stands down on a new source
+[2026.09.16-05.08.33:495][383]LogTemp: Display: MISSINGFLOOR_RECORDING PASS: her sounds kept, his refused, 2.10s of exact silence, lifted once by the night-four wall
+[2026.09.16-05.08.34:214][362]LogTemp: Display: NIGHT1_SEQUENCE PASS early_visit_retained=1 return_knock=1
+[2026.09.16-05.08.34:559][356]LogTemp: Display: MISSINGFLOOR_N2DOOR PASS: knock at 403, figure staged and released, 3 cues, 3 refused events, 4.11s of silence
+[2026.09.16-05.08.39:620][801]LogTemp: Display: MISSINGFLOOR_CCTV5 PASS: 352x288 allocated on the press, 71 captures, the corridor sounded once, released on death, second press refused
+[2026.09.16-05.08.40:839][287]LogTemp: Display: MISSINGFLOOR_N2CHASE PASS: T7 armed the return, the booth exit dropped the stack, two sounds moved the building, and 403 ended the night
+[2026.09.16-05.08.41:969][782]LogTemp: Display: MISSINGFLOOR_ANSWERREACH PASS: the learned answer knocked at nothing froze him into Waiting, and the same cadence from two floors up did not
+[2026.09.16-05.08.49:341][959]LogTemp: Display: MISSINGFLOOR_N3PASS_TAP tap=1 taken=1 dist=179 state=1
+[2026.09.16-05.08.49:522][456]LogTemp: Display: MISSINGFLOOR_N3PASS_TAP tap=2 taken=1 dist=179 state=1
+[2026.09.16-05.08.50:231][446]LogTemp: Display: MISSINGFLOOR_N3PASS_TAP tap=3 taken=1 dist=179 state=7
+[2026.09.16-05.08.51:297][434]LogTemp: Display: MISSINGFLOOR_N3PASS PASS: T9 armed the walk home, the learned answer stopped him in the corridor, she passed him while he waited, and 403 ended the night
+[2026.09.16-05.08.51:485][929]LogTemp: Display: MISSINGFLOOR_SEALEDUI PASS
+[2026.09.16-05.09.13:783][347]LogTemp: Display: MISSINGFLOOR_M6_AUDIO PASS: six buses, score states, title window
+[2026.09.16-05.09.13:783][347]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+Missing Floor greybox validation passed.
+
+프로젝트 검사
+Saved/Logs/DoorPrint-ValidateFinal.log
+PRINTED FACE AUDIT  materials=57 blocks=7 authored_mesh=193 unresolved=26 findings=0
+LIGHT PLACEMENT AUDIT  lights=52 findings=0
+PHOTO PROP FIT AUDIT  placements=13 findings=0
+COPLANAR SURFACE AUDIT  boxes=1380 findings=0
+METAL_BASE_COLOR_REVIEW candidates=0 output=C:\y2026\99_개인폴더\99_project\Indie_Game\Saved\MetalBaseColorAudit.json
+Project structure validation passed (this is not an Unreal build).
+
+
+성능 측정
+PROFILE_PASS DoorPrint20260916-AreaHigh {"median": 15.755, "p95": 18.246, "max": 35.591}
+PROFILE_PASS DoorPrint20260916-AreaPerformance {"median": 7.746, "p95": 9.506, "max": 23.04}

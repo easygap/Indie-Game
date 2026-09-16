@@ -511,7 +511,8 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Materials\M_WallpaperCeil.uasset',
 			'Content\Prototype\Materials\M_WallpaperEmboss_X.uasset',
 			'Content\Prototype\Materials\M_WallpaperEmboss_Y.uasset',
-			'Content\Prototype\Materials\M_ApartmentWallPatina.uasset'
+			'Content\Prototype\Materials\M_ApartmentWallPatina.uasset',
+			'Content\Prototype\Materials\M_CorridorCasterScuff.uasset'
 		)
 	}
 	elseif ($SurfaceResponseOnly) {

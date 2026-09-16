@@ -2027,6 +2027,28 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
     return created
 
 
+def create_corridor_scuff_material(assets, tools):
+    """화강석 무늬와 줄눈이 비치는 옅은 끌림 자국."""
+    material = _recreate_material(assets, tools, "M_CorridorCasterScuff")
+    material.set_editor_property("material_domain", unreal.MaterialDomain.MD_DEFERRED_DECAL)
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    # 색만 얹는다. 기존 돌의 노멀과 거칠기는 바꾸지 않는다.
+    sample = _sample(material, _load_texture("T_MissingFloorDragTrails_M"), None,
+                     unreal.MaterialSamplerType.SAMPLERTYPE_MASKS, 0)
+    opacity = _expr(material, unreal.MaterialExpressionMultiply, -300, 80)
+    opacity.set_editor_property("const_b", 0.18)
+    unreal.MaterialEditingLibrary.connect_material_expressions(sample, "R", opacity, "A")
+    unreal.MaterialEditingLibrary.connect_material_property(
+        opacity, "", unreal.MaterialProperty.MP_OPACITY)
+    color = _expr(material, unreal.MaterialExpressionConstant3Vector, -300, -80)
+    color.set_editor_property("constant", unreal.LinearColor(0.12, 0.115, 0.105, 1.0))
+    unreal.MaterialEditingLibrary.connect_material_property(
+        color, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    return material
+
+
 def _material_for_layered_update(assets, tools, name, update_in_place):
     asset_path = f"{MATERIAL_ROOT}/{name}"
     if update_in_place and assets.does_asset_exist(asset_path):
@@ -3666,7 +3688,8 @@ def run():
             },
             True,
         )
-        if len(apartment_materials) != 6 or not assets.save_loaded_assets(
+        apartment_materials.append(create_corridor_scuff_material(assets, tools))
+        if len(apartment_materials) != 7 or not assets.save_loaded_assets(
             apartment_materials, False
         ):
             raise RuntimeError("Could not save apartment visual materials")
@@ -3741,6 +3764,7 @@ def run():
     created += create_masked_texture_materials(
         assets, tools, SURFACE_OVERLAY_MATERIALS, False
     )
+    created.append(create_corridor_scuff_material(assets, tools))
     carrier_bag = create_carrier_bag_material(assets, tools)
     if carrier_bag is not None:
         created.append(carrier_bag)

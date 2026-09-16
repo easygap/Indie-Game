@@ -44,6 +44,7 @@ $builders = [ordered]@{
 	'retail_refresh' = @('SM_RetailPOS', 'SM_ServiceBell', 'SM_RetailPotato', 'SM_RetailShrimp', 'SM_RetailCorn', 'SM_RetailCupBeef', 'SM_RetailCupKimchi', 'SM_RetailBiscuit', 'SM_WaterBottle')
 	'unit_door' = @('SM_UnitDoorLeaf', 'SM_UnitDoorLeafL', 'SM_UnitDoorHardware', 'SM_UnitDoorHardwareL', 'SM_UnitDoorFrame', 'SM_UnitDoorLeafWideL', 'SM_UnitDoorHardwareWideL', 'SM_UnitDoorFrameWide')
 	'corridor_fixtures' = @('SM_FireExtinguisherBox')
+	'neighborhood_prints' = @('SM_DoorDeliveryMagnet', 'SM_RentalNoticeA4', 'SM_ApartmentCalendar2025', 'SM_NeighborMemo402')
 	'fire_safety' = @('SM_FireAlarmPanel', 'SM_FireExtinguisher')
 	'house_slipper' = @('SM_HouseSlipper')
 	'lobby_mailboxes' = @('SM_MailboxUnit')
@@ -72,6 +73,10 @@ if ($selected.Count -eq 0) {
 if ($selected -contains 'fire_safety') {
 	& python (Join-Path $PSScriptRoot 'build_fire_safety_prints.py')
 	if ($LASTEXITCODE -ne 0) { throw '소방 설비 인쇄 원본 생성 실패' }
+}
+if ($selected -contains 'neighborhood_prints') {
+	& python (Join-Path $PSScriptRoot 'build_apartment_calendar.py')
+	if ($LASTEXITCODE -ne 0) { throw '2025년 달력 생성 실패' }
 }
 
 $logRoot = Join-Path $projectRoot 'Saved\Logs'

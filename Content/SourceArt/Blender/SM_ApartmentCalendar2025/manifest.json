@@ -1,0 +1,30 @@
+{
+  "name": "SM_ApartmentCalendar2025",
+  "mesh_class": "prop",
+  "fbx": "SM_ApartmentCalendar2025.fbx",
+  "textures": {
+    "D": "SM_ApartmentCalendar2025_D.png",
+    "N": "SM_ApartmentCalendar2025_N.png",
+    "ORM": "SM_ApartmentCalendar2025_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 24,
+  "bounds_m": {
+    "min": [
+      -0.156,
+      -0.0014,
+      -0.21
+    ],
+    "max": [
+      0.156,
+      0.0014,
+      0.211
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "없는 층 현재 시점 2025년 7월. 31×42cm, 종이 묶음 1.8mm, 상단 철심 2.8mm. 앞 -Y, 원점 중앙. 과거 단서의 2024년 달력과 분리."
+}

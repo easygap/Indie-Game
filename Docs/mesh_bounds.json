@@ -36,6 +36,18 @@
         23.3532
       ]
     },
+    "SM_ApartmentCalendar2025": {
+      "origin": [
+        0.0,
+        -0.0,
+        0.05
+      ],
+      "extent": [
+        15.6,
+        0.14,
+        21.05
+      ]
+    },
     "SM_ApartmentWindow": {
       "origin": [
         0.0,
@@ -286,6 +298,18 @@
         5.4906,
         5.4906,
         3.7
+      ]
+    },
+    "SM_DoorDeliveryMagnet": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        4.5,
+        0.03,
+        3.25
       ]
     },
     "SM_DrinkBottle": {
@@ -840,6 +864,18 @@
         81.2398
       ]
     },
+    "SM_NeighborMemo402": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        7.4,
+        0.0075,
+        5.25
+      ]
+    },
     "SM_OfferingWaterBowl": {
       "origin": [
         0.0,
@@ -970,6 +1006,18 @@
         18.0,
         26.0,
         32.9
+      ]
+    },
+    "SM_RentalNoticeA4": {
+      "origin": [
+        0.0,
+        -0.003,
+        0.0
+      ],
+      "extent": [
+        10.5,
+        0.0105,
+        14.85
       ]
     },
     "SM_RetailBiscuit": {

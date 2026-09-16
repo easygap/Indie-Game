@@ -1,0 +1,30 @@
+{
+  "name": "SM_DoorDeliveryMagnet",
+  "mesh_class": "prop",
+  "fbx": "SM_DoorDeliveryMagnet.fbx",
+  "textures": {
+    "D": "SM_DoorDeliveryMagnet_D.png",
+    "N": "SM_DoorDeliveryMagnet_N.png",
+    "ORM": "SM_DoorDeliveryMagnet_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 12,
+  "bounds_m": {
+    "min": [
+      -0.045,
+      -0.0003,
+      -0.0325
+    ],
+    "max": [
+      0.045,
+      0.0003,
+      0.0325
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "90×65×0.6mm 자석 광고. 앞 -Y, 원점 중앙. SourceArt/AI/DoorMagnet_20260916의 실물 참조·생성 기록. 단면 인쇄, 고무색 뒷면."
+}
