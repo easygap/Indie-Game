@@ -174,8 +174,9 @@ Require-All $scene @(
 	'StackBoards(FVector(-80, 780, 1200), FVector(140, 60, 0), 15);',
 	'StackBoards(FVector(120, 880, 1200), FVector(90, 50, 0), 30);',
 	'BoardStack->AddInstance(',
-	'TexMat(TEXT("M_GypsumBoard"), ConcreteMaterial)',
-	'TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial)',
+	'BoardStack->SetStaticMesh(PropMesh(TEXT("SM_GypsumCutBoard")))',
+	'TEXT("SM_ConstructionSheetDrape")',
+	'TexMat(TEXT("M_ConstructionFilm"), GlassMaterial)',
 	'AddSheeting('
 ) 'beat 2-2 shot list'
 Require-All $channel @(

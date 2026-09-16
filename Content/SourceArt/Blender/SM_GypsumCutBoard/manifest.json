@@ -1,0 +1,30 @@
+{
+  "name": "SM_GypsumCutBoard",
+  "mesh_class": "prop",
+  "fbx": "SM_GypsumCutBoard.fbx",
+  "textures": {
+    "D": "SM_GypsumCutBoard_D.png",
+    "N": "SM_GypsumCutBoard_N.png",
+    "ORM": "SM_GypsumCutBoard_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 156,
+  "bounds_m": {
+    "min": [
+      -0.6003,
+      -0.4,
+      -0.0063
+    ],
+    "max": [
+      0.6003,
+      0.4,
+      0.0063
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "120×80×1.25cm 절단재. 위아래 종이0.3mm, 흰 석고 코어, X 양끝의 감싼 종이. 12.5T 판재, 스택은 ISM으로 재사용."
+}

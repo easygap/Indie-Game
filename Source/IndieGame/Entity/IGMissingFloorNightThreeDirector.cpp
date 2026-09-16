@@ -31,18 +31,11 @@ namespace IGNightThree
 	const FVector StairGateHinge(-320.0f, 220.0f, 1200.0f);
 	const FVector AnnexGateHinge(85.0f, 452.5f, 1200.0f);
 
-	// Annex contents.
-	// 자재 더미 위에 놓인 수첩이다. 세워 놓고 중심을 Z=1246에 두면 22cm
-	// 높이의 절반이 더미 상판(Z=1242) 아래로 들어가 박힌다. 눕혀서 얹는다.
-	const FVector NotebookLocation(-90.0f, 770.0f, 1242.7f);
-	const FVector TuningHammerLocation(-40.0f, 755.0f, 1245.0f);
-	/**
-	 * §22.3 작업 장갑 한 짝. 자재 더미는 두 단이다 — 보드 단이 X -150..-10,
-	 * 윗면 Z=1230이고 그 위에 스터드 단(X -120..-60, 윗면 Z=1242)이 얹혀
-	 * 있다. 수첩과 렌치는 스터드 단 위에 있으므로, 장갑은 보드 단이 드러난
-	 * 서쪽 턱에 둔다. 스터드 단과 3 cm 떨어진다.
-	 */
-	const FVector WorkGloveLocation(-135.0f, 768.0f, 1231.2f);
+	// 12.5T 판재 15장의 윗면은 Z=1231.17이다. 사라진 받침대 높이에
+	// 남아 있던 수첩과 렌치도 이 면에 내려놓는다. 좌우로 나눠 서로 겹치지 않는다.
+	const FVector NotebookLocation(-90.0f, 770.0f, 1231.87f);
+	const FVector TuningHammerLocation(-40.0f, 770.0f, 1232.67f);
+	const FVector WorkGloveLocation(-135.0f, 774.0f, 1231.97f);
 	const FVector TunerToolCartLocation(-280.0f, 865.0f, 1201.0f);
 	const FVector ValveLocation(296.0f, 610.0f, 1266.0f);
 	const FVector ImpactMarkLocation(-10.0f, 585.0f, 1264.0f);
@@ -334,8 +327,13 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	UMaterialInterface* AnnexMetalMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_MetalFrame.M_MetalFrame"));
 
+	UStaticMesh* NotebookMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_TunerNotebook.SM_TunerNotebook"));
+	// 이 함수는 크기를 100으로 나눈다. 저작 메시에는 스케일 1을 전달한다.
 	TunerNotebook->ConfigurePrototypeVisuals(
-		CubeMesh, AgedPaperMaterial, FVector(16.0f, 22.0f, 1.4f));
+		NotebookMesh ? NotebookMesh : CubeMesh,
+		NotebookMesh ? nullptr : AgedPaperMaterial,
+		NotebookMesh ? FVector(100) : FVector(16, 22, 1.4f), true);
 	TunerNotebook->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "NotebookPrompt", "조율 수첩"));
 	TunerNotebook->SetNoteText(
@@ -400,10 +398,12 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		SpawnParameters);
 	if (WorkGlove)
 	{
+		UStaticMesh* GloveMesh = LoadObject<UStaticMesh>(
+			nullptr, TEXT("/Game/Meshes/SM_CottonWorkGlove.SM_CottonWorkGlove"));
 		WorkGlove->Configure(
-			CubeMesh,
-			AgedPaperMaterial,
-			FVector(24.0f, 11.0f, 2.4f),
+			GloveMesh ? GloveMesh : CubeMesh,
+			GloveMesh ? nullptr : AgedPaperMaterial,
+			GloveMesh ? FVector::ZeroVector : FVector(24.0f, 11.0f, 2.4f),
 			NSLOCTEXT("IGMissingFloor", "WorkGlovePrompt", "작업 장갑 한 짝"),
 			NSLOCTEXT(
 				"IGMissingFloor",

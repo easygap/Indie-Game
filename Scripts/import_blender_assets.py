@@ -728,6 +728,13 @@ def main():
         raise RuntimeError("no manifests found")
 
     imported = [import_asset(source_dir, manifest) for source_dir, manifest in manifests]
+    if any(name.startswith("SM_ConstructionSheet") for name in imported):
+        import create_textured_materials
+        film = create_textured_materials.create_carrier_bag_material(
+            unreal.EditorAssetLibrary, unreal.AssetToolsHelpers.get_asset_tools(),
+            update_in_place=True, construction=True)
+        if film is None or not unreal.EditorAssetLibrary.save_loaded_asset(film, False):
+            raise RuntimeError("보양 비닐 재질 저장 실패")
 
     bounds_out = os.environ.get("IG_BOUNDS_OUT")
     if bounds_out:

@@ -1,0 +1,26 @@
+{
+  "name": "SM_ConstructionSheetFloor",
+  "mesh_class": "prop",
+  "fbx": "SM_ConstructionSheetFloor.fbx",
+  "textures": {},
+  "slots": [
+    "Sheet"
+  ],
+  "triangles": 864,
+  "bounds_m": {
+    "min": [
+      -0.5307,
+      -0.43,
+      0.001
+    ],
+    "max": [
+      0.531,
+      0.43,
+      0.0089
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "바닥에 접힌 보양 비닐. 높이1~9mm, 종전 기울어진 상자의 떠 있는 모서리를 없앰."
+}

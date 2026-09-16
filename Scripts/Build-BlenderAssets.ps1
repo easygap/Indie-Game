@@ -35,6 +35,7 @@ if (-not $blender) {
 # 빌더 하나가 에셋 여럿을 만들 수 있다. 어떤 빌더가 무엇을 만드는지는 여기 표가
 # 유일한 출처다. Import 쪽은 manifest만 보므로 표는 이쪽에만 필요하다.
 $builders = [ordered]@{
+	'detail_props' = @('SM_TriangleKimbapA', 'SM_TriangleKimbapB', 'SM_TriangleKimbapC', 'SM_TriangleKimbapD', 'SM_GypsumCutBoard', 'SM_WorkPaintCan', 'SM_CottonWorkGlove', 'SM_TunerNotebook', 'SM_GypsumChipCluster', 'SM_ConstructionSheetDrape', 'SM_ConstructionSheetFloor')
 	'roof_utility' = @('SM_RoofTank2000L', 'SM_RoofCleaningPipework', 'SM_RoofStairHandrail', 'SM_RoofTankPlate', 'SM_RoofDrainPlate', 'SM_RoofBypassPlate')
 	'roof_stair_tread' = @('SM_RoofStairTread')
 	'pump_panel' = @('SM_PumpControlPanel', 'SM_PumpSelector')
@@ -58,7 +59,7 @@ $builders = [ordered]@{
 	'store_fixtures' = @('SM_StoreCoolerBank', 'SM_StoreCoolerDoor', 'SM_StoreGondola', 'SM_StoreCounter', 'SM_CardTerminal', 'SM_HotSnackWarmer', 'SM_ChestFreezer', 'SM_OpenShowcase', 'SM_RamyeonRack')
 	'apartment_fixtures' = @('SM_ApartmentWindow', 'SM_VenetianBlind', 'SM_VideoIntercom', 'SM_WallSwitch', 'SM_ShoeCabinet')
 	'villa_window' = @('SM_VillaWindow')
-	'store_products' = @('SM_CupNoodle', 'SM_CupSleeve', 'SM_CupLid', 'SM_SnackBoxA', 'SM_SnackBoxB', 'SM_SnackBoxC', 'SM_SnackBoxD', 'SM_TriangleKimbapA', 'SM_TriangleKimbapB', 'SM_TriangleKimbapC', 'SM_TriangleKimbapD', 'SM_RiceBowlPack', 'SM_TobaccoCabinet', 'SM_WindowBar', 'SM_HotWaterDispenser', 'SM_TrashBin')
+	'store_products' = @('SM_CupNoodle', 'SM_CupSleeve', 'SM_CupLid', 'SM_SnackBoxA', 'SM_SnackBoxB', 'SM_SnackBoxC', 'SM_SnackBoxD', 'SM_RiceBowlPack', 'SM_TobaccoCabinet', 'SM_WindowBar', 'SM_HotWaterDispenser', 'SM_TrashBin')
 }
 
 $selected = @()
@@ -86,6 +87,10 @@ if ($selected -contains 'roof_utility') {
 }
 
 $logRoot = Join-Path $projectRoot 'Saved\Logs'
+if ($selected -contains 'detail_props') {
+	& python (Join-Path $PSScriptRoot 'build_detail_prints.py')
+	if ($LASTEXITCODE -ne 0) { throw '간편식·페인트 통 인쇄 생성 실패' }
+}
 New-Item -ItemType Directory -Force -Path $logRoot | Out-Null
 $colorCheckLog = Join-Path $logRoot 'BlenderBaseColorCheck.log'
 & $blender -b --factory-startup --python-exit-code 1 `

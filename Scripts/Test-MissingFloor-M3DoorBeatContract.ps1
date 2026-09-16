@@ -243,7 +243,9 @@ Require-All $entity @(
 $scene = Read-Source 'Source/IndieGame/Core/IGPrologueWorldScene.cpp'
 Require-All $scene @(
 	'CreateBlock(',
-	'FVector(267, -164, 60), FVector(90, 1.25f, 120),'
+	'FVector(267, -164, 59.74f), FVector(75, 150, 100),'
+	'PropMesh(TEXT("SM_GypsumCutBoard"))'
+	'CreateProp(TEXT("SM_WorkPaintCan"), FVector(230, -198, 0)'
 ) '비트 2-5 material stack'
 
 Require-All $greyboxHeader @(

@@ -1,4 +1,4 @@
-﻿# -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 """README에 인라인으로 걸리는 캡처의 표시용 파생본을 만든다.
 
 원본은 건드리지 않는다. Docs/Media의 1080p 캡처는 접근성 설정과 대화 HUD의
@@ -26,6 +26,26 @@ OUT = os.path.join(MEDIA, "readme")
 # 인라인으로 걸리는 무거운 캡처만 줄인다. 접힌 <details> 안이나 이미 작은
 # 파일은 그대로 쓴다 — 파생본이 하나 늘 때마다 확인해야 할 것도 하나 늘어난다.
 STILLS = (
+    "detail-before-kimbap-front.png",
+    "detail-before-booth-boards.png",
+    "detail-before-booth-can.png",
+    "detail-before-annex-floor.png",
+    "detail-coldcase-wide.png",
+    "detail-kimbap-front.png",
+    "detail-kimbap-side.png",
+    "detail-booth-boards.png",
+    "detail-booth-can.png",
+    "detail-annex-entry.png",
+    "detail-annex-stack.png",
+    "detail-annex-stack-edge.png",
+    "detail-annex-floor.png",
+    "detail-annex-film.png",
+    "detail-annex-wall.png",
+    "detail-annex-return.png",
+    "detail-can-label.png",
+    "detail-glove-close.png",
+    "detail-annex-cutface.png",
+    "detail-film-close.png",
     "roof-before-stair.png",
     "roof-before-tank.png",
     "roof-stair-up.png",

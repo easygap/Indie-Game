@@ -1,0 +1,30 @@
+{
+  "name": "SM_GypsumChipCluster",
+  "mesh_class": "prop",
+  "fbx": "SM_GypsumChipCluster.fbx",
+  "textures": {
+    "D": "SM_GypsumChipCluster_D.png",
+    "N": "SM_GypsumChipCluster_N.png",
+    "ORM": "SM_GypsumChipCluster_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 404,
+  "bounds_m": {
+    "min": [
+      -0.3475,
+      -0.2698,
+      0.0
+    ],
+    "max": [
+      0.3583,
+      0.2488,
+      0.0088
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "가로80cm 안쪽에 흩어진 얇은 석고 파편18개. 잘린 흰 코어와 종이 윗면. 보행 충돌 없음. 바닥과5mm이상 떨어뜨리지 않음."
+}

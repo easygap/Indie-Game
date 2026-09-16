@@ -5567,17 +5567,130 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		GEngine->Exec(GetWorld(), TEXT("DisableAllScreenMessages"));
 	}
 	ArrivalCaptureStep = 0;
-	AdvanceArrivalCapture();
+	// 근접 사진은 입주 자막과 시작 위치 보정이 끝난 뒤 찍는다.
+	const bool bDetailScreens = FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) && !bCaptureMetricsOnly;
+	if (!bDetailScreens) AdvanceArrivalCapture();
 	GetWorldTimerManager().SetTimer(
 		ArrivalCaptureTimer,
 		this,
 		&AIGListenerGreyboxDirector::AdvanceArrivalCapture,
 		1.4f,
-		true);
+		true,
+		bDetailScreens ? 8.4f : -1.f);
 }
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")))
+	{
+		struct FView { const TCHAR* Name; FVector Position; float Yaw; float Pitch; };
+		const FView Views[] = {
+			{TEXT("coldcase-wide"), FVector(2820,-620,98), -90,-18},
+			{TEXT("kimbap-front"), FVector(2774,-750,98), -90,-18},
+			{TEXT("kimbap-side"), FVector(2864,-754,98), -128,-18},
+			{TEXT("booth-boards"), FVector(176,-174,98), 0,-25},
+			{TEXT("booth-can"), FVector(190,-222,98), 36,-64},
+			{TEXT("annex-entry"), FVector(130,498,1298), 115,-14},
+			{TEXT("annex-stack"), FVector(-50,496,1298), 66,-46},
+			{TEXT("annex-stack-edge"), FVector(-112,590,1298), 0,-42},
+			{TEXT("annex-floor"), FVector(-180,710,1298), 60,-65},
+			{TEXT("annex-film"), FVector(-250,760,1298), 95,-46},
+			{TEXT("annex-wall"), FVector(110,700,1298), 0,-8},
+			{TEXT("annex-return"), FVector(130,540,1298), -90,-8},
+			{TEXT("can-label"), FVector(190,-222,-20), 31,-32},
+			{TEXT("glove-close"), FVector(-158,733,1248), 59,-61},
+			{TEXT("annex-cutface"), FVector(0,486,1248), 90,-27},
+			{TEXT("film-close"), FVector(-245,777,1218), 127,-45},
+		};
+		// 성능 비교는 수정 전과 같은 12개 시점만 쓴다. 추가 네 장은 근접 검수용이다.
+		const int32 ViewCount = bCaptureMetricsOnly ? 12 : UE_ARRAY_COUNT(Views);
+		const int32 Step = ArrivalCaptureStep++;
+		const int32 ViewIndex = Step / 4;
+		if (Step == 0 || Step == 3)
+		{
+			if (Step == 0) PuzzleTwo->GetBoothDoor()->ForceOpenState(true);
+			// 첫 프레임에는 메시의 비동기 충돌 준비가 끝나지 않을 수 있다.
+			if (Step == 3 && !FParse::Param(FCommandLine::Get(), TEXT("IGDetailBaseline")))
+			{
+				int32 BoardCount = 0, ChipCount = 0, KimbapCount = 0, FilmCount = 0;
+				bool bValid = true;
+				TInlineComponentArray<UStaticMeshComponent*> Components(WorldScene.Get());
+				for (UStaticMeshComponent* Component : Components)
+				{
+					UStaticMesh* Mesh = Component->GetStaticMesh();
+					if (!Mesh) continue;
+					const FString Name = Mesh->GetName();
+					UInstancedStaticMeshComponent* Instances = Cast<UInstancedStaticMeshComponent>(Component);
+					if (Instances && Name == TEXT("SM_GypsumCutBoard")) BoardCount += Instances->GetInstanceCount();
+					if (Instances && Name == TEXT("SM_GypsumChipCluster"))
+					{
+						ChipCount += Instances->GetInstanceCount();
+						bValid &= Component->GetCollisionEnabled() == ECollisionEnabled::NoCollision;
+					}
+					if (Instances && Name.StartsWith(TEXT("SM_TriangleKimbap"))) KimbapCount += Instances->GetInstanceCount();
+					if (Name.StartsWith(TEXT("SM_ConstructionSheet")))
+					{
+						++FilmCount;
+						bValid &= Component->GetCollisionEnabled() == ECollisionEnabled::NoCollision && !Component->CastShadow;
+					}
+				}
+				// 보이는 소품의 밑면과 실제 지지면을 비교한다. 예전 받침 높이에
+				// 남아 있으면 근접 캡처가 끝나기 전에 실패한다.
+				int32 SupportedClues = 0;
+				for (TActorIterator<AActor> It(GetWorld()); It; ++It)
+				{
+					if (It->GetFName() != TEXT("MissingFloorWorkGlove") &&
+						It->GetFName() != TEXT("MissingFloorTunerNotebook") &&
+						It->GetFName() != TEXT("MissingFloorTuningHammer")) continue;
+					const FBox Bounds = It->GetComponentsBoundingBox(true);
+					const float Gap = Bounds.Min.Z - 1231.17f;
+					bValid &= Gap >= -.3f && Gap <= .35f;
+					FCollisionQueryParams Params(SCENE_QUERY_STAT(DetailClueTrace), false, Player.Get());
+					FHitResult Hit;
+					// ㄱ자 렌치는 바운드 중앙이 빈 공간이다. 손잡이의 축을 겨냥한다.
+					FVector TraceTarget = Bounds.GetCenter();
+					if (It->GetFName() == TEXT("MissingFloorTuningHammer")) TraceTarget.X = It->GetActorLocation().X;
+					const bool bTrace = GetWorld()->LineTraceSingleByChannel(Hit,
+						TraceTarget + FVector(0, 0, 70), TraceTarget, ECC_Visibility, Params);
+					const bool bReachable = bTrace && Hit.GetActor() == *It;
+					bValid &= bReachable;
+					++SupportedClues;
+					UE_LOG(LogTemp, Display, TEXT("DETAIL_SUPPORT name=%s gap_cm=%.3f trace=%d hit=%s"),
+						*It->GetName(), Gap, bReachable, *GetNameSafe(Hit.GetActor()));
+				}
+				bValid &= BoardCount == 85 && ChipCount == 12 && KimbapCount == 48 && FilmCount == 4 && SupportedClues == 3;
+				UE_LOG(LogTemp, Display, TEXT("DETAIL_LAYOUT %s boards=%d chip_clusters=%d kimbap=%d films=%d supported_clues=%d"),
+					bValid ? TEXT("PASS") : TEXT("FAIL"), BoardCount, ChipCount, KimbapCount, FilmCount, SupportedClues);
+				if (!bValid) { GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer); RequestExit(true); return; }
+			}
+		}
+		if (Step == 3 && bCaptureMetricsOnly && GEngine) GEngine->Exec(GetWorld(), TEXT("csvprofile start"));
+		if (ViewIndex < ViewCount)
+		{
+			const FView& View = Views[ViewIndex];
+			if (Step % 4 == 0)
+			{
+				// 첫 사진은 앞 진열대 밖에서 찍는다. 성능 경로는 기존 기록을 유지한다.
+				const FVector Position = ViewIndex == 0 && !bCaptureMetricsOnly ? FVector(2820, -725, 98) : View.Position;
+				CaptureTeleportPlayer(Position, View.Yaw, View.Pitch);
+			}
+			if (Step % 4 == 3)
+			{
+				const FString Name = FString(FParse::Param(FCommandLine::Get(), TEXT("IGDetailBaseline"))
+					? TEXT("detail-before-") : TEXT("detail-")) + View.Name;
+				CaptureShot(*Name);
+			}
+		}
+		else if (Step == ViewCount * 4 && bCaptureMetricsOnly && GEngine)
+			GEngine->Exec(GetWorld(), TEXT("csvprofile stop"));
+		else if (Step == ViewCount * 4 + 2)
+		{
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("DETAIL_CAPTURE PASS shots=%d production=1"), ViewCount);
+			RequestExit(false);
+		}
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGRoofUtilityAudit")))
 	{
 		auto Operate = [this](AIGMissingFloorEvidence* Control)

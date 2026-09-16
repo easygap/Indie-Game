@@ -1,0 +1,30 @@
+{
+  "name": "SM_TunerNotebook",
+  "mesh_class": "prop",
+  "fbx": "SM_TunerNotebook.fbx",
+  "textures": {
+    "D": "SM_TunerNotebook_D.png",
+    "N": "SM_TunerNotebook_N.png",
+    "ORM": "SM_TunerNotebook_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 504,
+  "bounds_m": {
+    "min": [
+      -0.081,
+      -0.11,
+      -0.0069
+    ],
+    "max": [
+      0.08,
+      0.11,
+      0.0075
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "16×22cm 천 표지 수첩. 표지·책등·종이 단면·이름표를 구분. 중심 원점, 두께1.4cm."
+}

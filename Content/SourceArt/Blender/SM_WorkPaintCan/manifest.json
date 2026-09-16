@@ -1,0 +1,30 @@
+{
+  "name": "SM_WorkPaintCan",
+  "mesh_class": "prop",
+  "fbx": "SM_WorkPaintCan.fbx",
+  "textures": {
+    "D": "SM_WorkPaintCan_D.png",
+    "N": "SM_WorkPaintCan_N.png",
+    "ORM": "SM_WorkPaintCan_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 2768,
+  "bounds_m": {
+    "min": [
+      -0.0854,
+      -0.0839,
+      0.0
+    ],
+    "max": [
+      0.0854,
+      0.0839,
+      0.19
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "실물 4L 캔의 지름167×높이190mm 규격. 뚜껑·접힌 철사 손잡이·말린 테두리와 한글 인쇄. 앞 -Y."
+}

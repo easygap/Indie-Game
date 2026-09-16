@@ -10,21 +10,21 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 8,
+  "triangles": 718,
   "bounds_m": {
     "min": [
-      -0.0375,
-      -0.016,
-      0.0
+      -0.0482,
+      -0.0171,
+      0.0001
     ],
     "max": [
-      0.0375,
-      0.016,
-      0.065
+      0.0482,
+      0.0164,
+      0.0929
     ]
   },
   "origin": "bottom-center",
   "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "삼각김밥 4/4. 한 변 7.5, 두께 3.2, 원점 바닥 중심, 앞면 -Y."
+  "notes": "실물 포장과 KimbapConstructionStudy_20260916 참조. 본체9×8×3.2cm, 종이 라벨·중앙 뜯는 띠·접힌 밑면. 1024px 단일 불투명 재질, 앞 -Y. 글씨 방향은 UE 실제 화면에서 확인."
 }

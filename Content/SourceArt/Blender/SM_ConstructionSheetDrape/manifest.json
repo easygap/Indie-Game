@@ -1,0 +1,26 @@
+{
+  "name": "SM_ConstructionSheetDrape",
+  "mesh_class": "prop",
+  "fbx": "SM_ConstructionSheetDrape.fbx",
+  "textures": {},
+  "slots": [
+    "Sheet"
+  ],
+  "triangles": 864,
+  "bounds_m": {
+    "min": [
+      -0.7,
+      -0.5,
+      -0.1135
+    ],
+    "max": [
+      0.7,
+      0.5,
+      0.0045
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "두께 없는 보양 비닐 표면. 주름은 실제 정점, 충돌·그림자 없음. 런타임 M_ConstructionFilm 사용. 덮개는120×80cm 판재 위에서 가장자리만 아래로 처짐."
+}

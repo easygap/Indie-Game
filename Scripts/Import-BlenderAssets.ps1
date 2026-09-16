@@ -90,7 +90,7 @@ foreach ($relative in @('Content\Meshes', 'Content\Prototype\Textures', 'Content
 # Blender 산출물과 스크립트도 ASCII 경로로 옮긴다. 에디터 커맨드라인이 한글
 # 경로를 토막 내는 일이 있었다.
 Invoke-Mirror -Source $sourceRoot -Destination (Join-Path $importRoot 'Import') -Mirror
-foreach ($script in @('import_blender_assets.py', 'mesh_lod_contract.py')) {
+foreach ($script in @('import_blender_assets.py', 'mesh_lod_contract.py', 'create_textured_materials.py', 'texture_atlas_contract.py')) {
 	Copy-Item -LiteralPath (Join-Path $PSScriptRoot $script) -Destination (Join-Path $importRoot 'Scripts') -Force
 }
 

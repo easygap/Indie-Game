@@ -212,15 +212,9 @@ def triangle_prism(name, side, thickness, material, uv_rect, uv_layer="ImageUV")
 
 
 def build_triangle_kimbap(out_root):
-    manifests = []
-    for index in range(4):
-        ig.reset_scene()
-        m = mats()
-        prism = triangle_prism("kimbap", 0.075, 0.032, m["kimbap"], ig.atlas_rect(2, 2, index))
-        manifests.append(ig.build_asset(
-            f"SM_TriangleKimbap{'ABCD'[index]}", "prop", [prism], out_root, collision_parts=[[prism]],
-            notes=f"삼각김밥 {index + 1}/4. 한 변 7.5, 두께 3.2, 원점 바닥 중심, 앞면 -Y.", texture_size=512))
-    return manifests
+    # 예전 단독 호출도 현재 포장 빌더를 사용한다.
+    from build_detail_props import kimbap
+    return [kimbap(index, out_root) for index in range(4)]
 
 
 def build_rice_pack(out_root):
@@ -352,7 +346,8 @@ def main():
     out_root = ig.out_root_from_argv()
     only = [a for a in sys.argv[sys.argv.index("--") + 2:]] if "--" in sys.argv else []
     for key, builder in BUILDERS.items():
-        if not only or key in only:
+        # 전체 빌드의 삼각김밥은 detail_props가 맡는다.
+        if (not only and key != 'kimbap') or key in only:
             builder(out_root)
 
 

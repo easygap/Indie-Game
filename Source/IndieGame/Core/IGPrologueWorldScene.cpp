@@ -1283,6 +1283,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_SnackShrimp"), TEXT("M_SnackPotato"),
 		TEXT("M_SnackSquid"), TEXT("M_SnackCorn"),
 		TEXT("M_CarrierBagFilm"), TEXT("M_WetHoodieUV"),
+		TEXT("M_ConstructionFilm"),
 		TEXT("M_SkyDawn"),
 		// Villa surfaces and fittings from the reference photos.
 		TEXT("M_Stucco_X"), TEXT("M_Stucco_Y"), TEXT("M_StuccoCeil"),
@@ -4203,7 +4204,6 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 
 	// 수평 슬래브에는 XY 매핑을 쓴다. _X는 (X, Z) 마스킹이라 Z가 일정한
 	// 바닥에서 텍스처가 한 줄로 잘려 늘어난다 — 별관 바닥이 그 상태였다.
-	UMaterialInterface* AnnexFloor = TexMat(TEXT("M_ConcreteDark_XY"), ConcreteDarkMaterial);
 	UMaterialInterface* AnnexWallX = TexMat(TEXT("M_MissingFloorPlaster_X"), ConcreteMaterial);
 	UMaterialInterface* AnnexWallY = TexMat(TEXT("M_MissingFloorPlaster_Y"), ConcreteMaterial);
 	UMaterialInterface* AnnexCeiling = TexMat(TEXT("M_MissingFloorPlaster_XY"), ConcreteMaterial);
@@ -4212,7 +4212,6 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	// 폭 4 cm 스터드 여섯 개에 그 글자가 잘려 실려서, 손전등이 스치면
 	// 흰색·노란색 획이 세로로 흩어진 노이즈처럼 보였다.
 	UMaterialInterface* Stud = TexMat(TEXT("M_MetalUV"), MetalFrameMaterial);
-	UMaterialInterface* Board = TexMat(TEXT("M_GypsumBoard"), ConcreteMaterial);
 	// 계단과 옥상 바닥은 서로 다른 발소리 표면인데 한 변수를 공유하고
 	// 있었다. 옥상 방수층은 조용하고 철제 계단은 길게 울린다 — 같은
 	// 콘크리트로 그리면 그 차이를 볼 방법이 없다.
@@ -4441,12 +4440,12 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		FVector(110.0f, 12.0f, 15.0f),
 		RailMetal);
 
-	// 석고 파편이 깔린 슬래브. 어두운 콘크리트로 그리면 5층 바닥과 복도가
-	// 같은 물건이 되는데, 이 바닥은 걷기만 해도 크게 들리는 자리다.
+	// 바탕은 사진에서 가져온 콘크리트다. 큰 파편을 바닥 그림에 반복해서
+	// 찍지 않고 자재 주변에 얇은 메시로 놓는다. 쌓인 분진의 발소리는 유지한다.
 	IGPrologueWorld::TagFootstepSurface(
 		CreateBlock(
 			FVector(0, 700, 1195), FVector(800, 500, 10),
-			TexMat(TEXT("M_MissingFloorGypsumDebris_XY"), AnnexFloor)),
+			TexMat(TEXT("M_ConcreteDark_XY"), ConcreteDarkMaterial)),
 		IGPrologueWorld::FootstepGypsumTag);
 	// §11 V2 분진 퇴적: this is the one floor in the building deep enough in
 	// plaster dust to hold a print. The field covers the slab exactly, so a
@@ -4514,11 +4513,10 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial), false,
 		CylinderMesh);
 
-	// 석고보드 절단 자재. 장당 12mm 간격으로 쌓고 아래에는 각목 받침을 댄다.
+	// 12.5T 판재 사이에 0.3mm 틈을 둔다. 잘린 코어와 종이 겉지는 메시 재질을 쓴다.
 	UInstancedStaticMeshComponent* BoardStack = NewObject<UInstancedStaticMeshComponent>(this, TEXT("AnnexGypsumStack"));
 	BoardStack->SetupAttachment(ActiveParent.Get() ? ActiveParent.Get() : GetRootComponent());
-	BoardStack->SetStaticMesh(CubeMesh);
-	BoardStack->SetMaterial(0, Board);
+	BoardStack->SetStaticMesh(PropMesh(TEXT("SM_GypsumCutBoard")));
 	BoardStack->SetMobility(EComponentMobility::Static);
 	BoardStack->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
 	BoardStack->SetGenerateOverlapEvents(false);
@@ -4535,7 +4533,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		for (int32 Layer = 0; Layer < Count; ++Layer)
 		{
 			BoardStack->AddInstance(FTransform(FRotator::ZeroRotator,
-				Base + FVector(0, 0, 12.57f + Layer * 1.2f), FVector(Footprint.X, Footprint.Y, 1.14f) / 100.f));
+				Base + FVector(0, 0, 12.625f + Layer * 1.28f), FVector(Footprint.X / 120.f, Footprint.Y / 80.f, 1.f)));
 		}
 	};
 	StackBoards(FVector(0, 590, 1200), FVector(120, 80, 0), 40);
@@ -4543,50 +4541,57 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	StackBoards(FVector(120, 880, 1200), FVector(90, 50, 0), 30);
 	AddInstanceComponent(BoardStack);
 	BoardStack->RegisterComponent();
+	// 작은 파편은 한 번에 묶어 그린다. 플레이어와 발밑 추적을 막지 않는다.
+	UInstancedStaticMeshComponent* Chips = NewObject<UInstancedStaticMeshComponent>(this, TEXT("AnnexGypsumChips"));
+	Chips->SetupAttachment(ActiveParent.Get() ? ActiveParent.Get() : GetRootComponent());
+	Chips->SetStaticMesh(PropMesh(TEXT("SM_GypsumChipCluster")));
+	Chips->SetMobility(EComponentMobility::Static);
+	Chips->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	Chips->SetGenerateOverlapEvents(false);
+	Chips->SetCanEverAffectNavigation(false);
+	Chips->SetCastShadow(false);
+	Chips->SetCullDistances(900, 1400);
+	Chips->SetComponentTickEnabled(false);
+	const FVector ChipPlacements[] = {
+		{-80, 538, 12}, {58, 646, 70}, {-178, 786, 134}, {-40, 837, 29},
+		{184, 855, 201}, {218, 762, 83}, {207, 649, 245}, {-40, 496, 308},
+		{-155, 575, 26}, {-244, 701, 170}, {80, 736, 113}, {2, 910, 257}
+	};
+	for (int32 Index = 0; Index < UE_ARRAY_COUNT(ChipPlacements); ++Index)
+	{
+		const FVector& P = ChipPlacements[Index];
+		const float Scale = .65f + (Index % 4) * .14f;
+		Chips->AddInstance(FTransform(FRotator(0, P.Z, 0), FVector(P.X, P.Y, 1200.05f), FVector(Scale, Scale, 1)));
+	}
+	AddInstanceComponent(Chips);
+	Chips->RegisterComponent();
 	CreateBlock(FVector(0, 700, 1436), FVector(10, 10, 8), PlasticDarkMaterial, false);
 
-	// 비닐. §8 비트 2-2's shot list names three things and this is the second:
-	// 자재 더미, 비닐, 낮은 형체. Translucent film over stalled material is what
-	// makes the frame read as a floor somebody stopped building rather than a
-	// corridor somebody swept. Shadow casting stays off — the room has one bulb
-	// and translucent shadows cost more than they say here.
-	UMaterialInterface* Sheeting = TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial);
+	// 접힌 비닐 한 겹만 그린다. 상자 여섯 면의 반투명 중첩과 뜬 모서리를 없앤다.
+	UMaterialInterface* Sheeting = TexMat(TEXT("M_ConstructionFilm"), GlassMaterial);
 	auto AddSheeting = [this, Sheeting](
+		const TCHAR* MeshName,
 		const FVector& Center,
 		const FVector& Size,
 		const FRotator& Rotation)
 	{
 		if (UStaticMeshComponent* Film = CreateBlock(
-				Center, Size, Sheeting, false, nullptr, Rotation))
+				Center, Size, Sheeting, false, PropMesh(MeshName), Rotation))
 		{
 			Film->SetCastShadow(false);
 			Film->SetCanEverAffectNavigation(false);
 		}
 	};
-	// physics-audit: intentional ISM 판재 40장의 상단 Z=1259.94에 얹힌 보호 비닐. 정적 배치 검사는 ISM 지지면을 읽지 못한다.
+	// physics-audit: intentional ISM 판재 40장의 상단 Z=1263.17에 얹힌 보호 비닐.
 	AddSheeting(
-		FVector(0.0f, 590.0f, 1259.99f),
-		FVector(112.0f, 74.0f, 0.08f),
-		FRotator(0.0f, 2.0f, 0.0f));
-	// A second sheet already pulled off and left where it fell. Two overlapping
-	// quads at different angles rather than one rectangle: a single slab of film
-	// on a dark floor reads as a board somebody leaned there, which is what the
-	// first pass of the CCTV frame showed. Kept clear of the camera's near lane
-	// so the low shape crosses floor, not plastic.
+		TEXT("SM_ConstructionSheetDrape"), FVector(0, 590, 1263.17f), FVector(100), FRotator::ZeroRotator);
 	AddSheeting(
-		FVector(-296.0f, 842.0f, 1201.6f),
-		FVector(104.0f, 86.0f, 0.06f),
-		FRotator(1.5f, 24.0f, -2.0f));
+		TEXT("SM_ConstructionSheetFloor"), FVector(-296, 842, 1200.05f), FVector(100), FRotator(0, 24, 0));
 	AddSheeting(
-		FVector(-244.0f, 878.0f, 1203.4f),
-		FVector(78.0f, 62.0f, 0.06f),
-		FRotator(-2.5f, -14.0f, 3.0f));
-	// Hung off the bay studs at the far right of the camera's frame, so the shot
-	// has depth on that side instead of ending on a flat gypsum face.
+		TEXT("SM_ConstructionSheetFloor"), FVector(-244, 878, 1200.12f), FVector(75, 72, 100), FRotator(0, -14, 0));
+	// 스터드 앞에 걸친 비닐. XY 원본을 YZ 방향으로 세운다.
 	AddSheeting(
-		FVector(238.0f, 552.0f, 1318.0f),
-		FVector(0.06f, 148.0f, 232.0f),
-		FRotator(0.0f, 0.0f, 1.5f));
+		TEXT("SM_ConstructionSheetFloor"), FVector(246, 552, 1318), FVector(142.31f, 269.77f, 100), FRotator(0, 90, 90));
 
 	// §14 CCTV 채널 5's camera, and it is a permanent fixture rather than part of
 	// the beat: §17's payoff table requires the player to stand at this exact
@@ -5345,20 +5350,14 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(170, -150, 237), FVector(24, 24, 4), PlasticDarkMaterial, false);
 	CreateLight(FVector(170, -150, 226), 900.0f, 420.0f,
 		FLinearColor(1.0f, 0.95f, 0.85f), false);
-	// 낙하음이 나는 판재와 페인트 통. 입구를 가로막던 14cm 금속 덩어리를
-	// 관리실 오른쪽 벽에 세운 석고보드로 바꾼다. 문 앞은 비워 둔다.
+	// 벽에 기댄 절단재. 로컬 XY 판재를 세우고 바닥에 닿는 높이를 맞춘다.
 	CreateBlock(
-		FVector(267, -164, 60), FVector(90, 1.25f, 120),
-		TexMat(TEXT("M_GypsumBoard"), FridgeInteriorMaterial),
-		true, nullptr, FRotator(0, 90, 6.0f));
+		FVector(267, -164, 59.74f), FVector(75, 150, 100), nullptr,
+		true, PropMesh(TEXT("SM_GypsumCutBoard")), FRotator(0, 90, 96));
 	CreateBlock(
-		FVector(254, -166, 40), FVector(60, 1.25f, 80),
-		TexMat(TEXT("M_GypsumBoard"), FridgeInteriorMaterial),
-		true, nullptr, FRotator(0, 90, 9.0f));
-	CreateBlock(
-		FVector(230, -198, 12), FVector(24, 24, 24),
-		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial),
-		true, CylinderMesh);
+		FVector(254, -166, 39.61f), FVector(50, 100, 100), nullptr,
+		true, PropMesh(TEXT("SM_GypsumCutBoard")), FRotator(0, 90, 99));
+	CreateProp(TEXT("SM_WorkPaintCan"), FVector(230, -198, 0), nullptr, -60, 1, true);
 
 	// Granite skirting round the lobby, matching the landings upstairs.
 	CreateBlock(FVector(575, -146.75f, 6), FVector(250, 3.5f, 12), Skirting, false);

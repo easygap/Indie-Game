@@ -2240,7 +2240,7 @@ def create_optical_prop_materials(assets, tools, update_in_place=False):
     return created
 
 
-def create_carrier_bag_material(assets, tools, update_in_place=False):
+def create_carrier_bag_material(assets, tools, update_in_place=False, construction=False):
     """Thin printed LDPE without an opaque glass-box silhouette.
 
     The texture supplies wrinkles and fictional pale-blue print. Opacity stays
@@ -2254,11 +2254,14 @@ def create_carrier_bag_material(assets, tools, update_in_place=False):
         )
         return None
 
-    material = _material_for_layered_update(
-        assets, tools, "M_CarrierBagFilm", update_in_place
-    )
+    name = "M_ConstructionFilm" if construction else "M_CarrierBagFilm"
+    material = _material_for_layered_update(assets, tools, name, update_in_place)
     material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
     material.set_editor_property("two_sided", True)
+    if construction:
+        # 표면 주름의 반사가 보이는 보양 비닐. 장바구니 재질에는 영향을 주지 않는다.
+        material.set_editor_property("translucency_lighting_mode",
+            unreal.TranslucencyLightingMode.TLM_SURFACE_PER_PIXEL_LIGHTING)
     sample = _sample(
         material,
         _load_texture(source_asset),
@@ -2277,7 +2280,7 @@ def create_carrier_bag_material(assets, tools, update_in_place=False):
     )
 
     opacity_scale = _expr(material, unreal.MaterialExpressionConstant, -620, 220)
-    opacity_scale.set_editor_property("r", 0.24)
+    opacity_scale.set_editor_property("r", 0.40 if construction else 0.24)
     opacity_detail = _expr(material, unreal.MaterialExpressionMultiply, -420, 160)
     unreal.MaterialEditingLibrary.connect_material_expressions(
         sample, "R", opacity_detail, "A"
@@ -2286,7 +2289,7 @@ def create_carrier_bag_material(assets, tools, update_in_place=False):
         opacity_scale, "", opacity_detail, "B"
     )
     opacity_floor = _expr(material, unreal.MaterialExpressionConstant, -420, 300)
-    opacity_floor.set_editor_property("r", 0.11)
+    opacity_floor.set_editor_property("r", 0.28 if construction else 0.11)
     opacity = _expr(material, unreal.MaterialExpressionAdd, -220, 210)
     unreal.MaterialEditingLibrary.connect_material_expressions(
         opacity_detail, "", opacity, "A"
@@ -2300,7 +2303,7 @@ def create_carrier_bag_material(assets, tools, update_in_place=False):
 
     unreal.MaterialEditingLibrary.layout_material_expressions(material)
     unreal.MaterialEditingLibrary.recompile_material(material)
-    unreal.log("[IndieGame] Created translucent carrier bag: M_CarrierBagFilm")
+    unreal.log(f"[IndieGame] Created film material: {name}")
     return material
 
 
@@ -3768,6 +3771,9 @@ def run():
     carrier_bag = create_carrier_bag_material(assets, tools)
     if carrier_bag is not None:
         created.append(carrier_bag)
+    construction_film = create_carrier_bag_material(assets, tools, construction=True)
+    if construction_film is not None:
+        created.append(construction_film)
     tank_water = create_tank_water_material(assets, tools)
     if tank_water is not None:
         created.append(tank_water)
