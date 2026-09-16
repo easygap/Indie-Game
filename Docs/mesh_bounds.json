@@ -1116,6 +1116,90 @@
         2.0
       ]
     },
+    "SM_RoofBypassPlate": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        8.0,
+        0.05,
+        4.0
+      ]
+    },
+    "SM_RoofCleaningPipework": {
+      "origin": [
+        0.2338,
+        111.95,
+        68.75
+      ],
+      "extent": [
+        106.8661,
+        54.05,
+        76.75
+      ]
+    },
+    "SM_RoofDrainPlate": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        8.0,
+        0.05,
+        4.0
+      ]
+    },
+    "SM_RoofStairHandrail": {
+      "origin": [
+        -2.9501,
+        207.9999,
+        223.0032
+      ],
+      "extent": [
+        4.8499,
+        223.8999,
+        146.8556
+      ]
+    },
+    "SM_RoofStairTread": {
+      "origin": [
+        0.0,
+        -0.16,
+        -8.1
+      ],
+      "extent": [
+        42.5,
+        11.16,
+        8.45
+      ]
+    },
+    "SM_RoofTank2000L": {
+      "origin": [
+        0.0,
+        6.9,
+        90.3996
+      ],
+      "extent": [
+        65.7,
+        72.6,
+        90.3996
+      ]
+    },
+    "SM_RoofTankPlate": {
+      "origin": [
+        0.0,
+        0.0,
+        0.0
+      ],
+      "extent": [
+        12.0,
+        0.05,
+        7.0
+      ]
+    },
     "SM_RooftopFireDoorFrame": {
       "origin": [
         7.0,

@@ -1,0 +1,31 @@
+2026년 9월 16일 옥상 설비 수정 검증
+비교 기준: 6e98464e49d1d7b0be37ad28845e70c8a28961f1
+UE 5.8 / Windows 11 / Development Editor
+
+RoofFinalCodeBuild.log
+ART_CODE_BUILD PASS target=IndieGameEditor platform=Win64 configuration=Development
+
+RoofUtility-High-False.log
+[2026.09.16-05.48.25:998][139]LogTemp: Display: ROOF_GEOMETRY PASS treads=20 plate_trace=1
+[2026.09.16-05.49.37:550][505]LogTemp: Display: ROOF_UTILITY_CAPTURE PASS shots=10 treads=20 plate_trace=1 valve_trace=1 misorder_recovery=1 valve_rotation=1 pump_audio=1
+
+RetailReview.log
+[2026.09.16-05.52.16:375][374]LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+
+MissingFloorArrivalProbe.log
+[2026.09.16-05.49.11:076][401]LogIndieGame: Display: SPATIAL_CLEARANCE PASS checks=24 failures=0 capsule=60.0x192.0
+
+RoofRealism30.log
+[2026.09.16-05.49.23:589][177]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+RoofRealism60.log
+[2026.09.16-05.49.36:869][344]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+RoofRealism120.log
+[2026.09.16-05.49.54:893][686]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+MissingFloorGreybox.log
+[2026.09.16-05.51.36:210][766]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+
+RoofValidationFinal.log
+Project structure validation passed (this is not an Unreal build).

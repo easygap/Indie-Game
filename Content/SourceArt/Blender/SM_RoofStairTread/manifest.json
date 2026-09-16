@@ -1,0 +1,30 @@
+{
+  "name": "SM_RoofStairTread",
+  "mesh_class": "prop",
+  "fbx": "SM_RoofStairTread.fbx",
+  "textures": {
+    "D": "SM_RoofStairTread_D.png",
+    "N": "SM_RoofStairTread_N.png",
+    "ORM": "SM_RoofStairTread_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 216,
+  "bounds_m": {
+    "min": [
+      -0.425,
+      -0.1132,
+      -0.1655
+    ],
+    "max": [
+      0.425,
+      0.11,
+      0.0035
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "85×22cm 접힌 철판. 원점은 단 윗면. 충돌 없음. 34mm 간격의 돌기를 고밀도에서 노멀맵으로 굽고 색상은 imagegen StairPaintAlbedo_v1 사용. 실루엣만 저밀도로 남김."
+}

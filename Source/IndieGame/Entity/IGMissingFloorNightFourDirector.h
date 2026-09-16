@@ -154,6 +154,7 @@ private:
 	void ResetFinaleTimers();
 	void UpdateMokRetreat(float DeltaSeconds);
 	void UpdateEndingHammer(float DeltaSeconds);
+	void UpdateRoofValveMotion(float DeltaSeconds);
 	void RefreshPresentation();
 	void FinishEnding(FName EndingId);
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
@@ -246,6 +247,10 @@ private:
 	bool bFinalConfrontationComplete = false;
 	bool bMokRetreatActive = false;
 	bool bEndingHammerMoving = false;
+	bool bValveMotionActive = false;
+	float ValveAngles[2] = {0.f, 0.f};
+	float ValveTargetAngles[2] = {0.f, 0.f};
+	FTransform ValveClosedTransforms[2];
 	bool bCavityPresentationVisible = false;
 	bool bMokPresentationVisible = false;
 	bool bFailureEndingActive = false;

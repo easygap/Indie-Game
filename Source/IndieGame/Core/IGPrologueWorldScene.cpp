@@ -3476,12 +3476,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 		IGPrologueWorld::TagFootstepSurface(CreateBlock(
 			FVector(-277.5f, StepY, StepTop * 0.5f),
 			FVector(85, 22, StepTop),
-			StairSteel), IGPrologueWorld::FootstepMetalStairTag);
-		CreateBlock(
-			FVector(-277.5f, StepY + 10.0f, StepTop + 0.8f),
-			FVector(83, 2.5f, 1.6f),
-			Skirting,
-			false);
+			SteelDoor), IGPrologueWorld::FootstepMetalStairTag);
 	}
 	// 계단은 바닥에서 자란 한 덩어리라 마지막 단의 북쪽 면이 통째로 드러난다.
 	// 체커플레이트는 XY로 읽으므로 그 세로 면에서는 무늬가 전혀 변하지 않는다
@@ -4228,6 +4223,7 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		TexMat(TEXT("M_RooftopWaterproofing_XY"), RoofFloor);
 	UMaterialInterface* RoofMetal = TexMat(TEXT("M_UtilityTankSteel"), MetalFrameMaterial);
 	UMaterialInterface* RailMetal = TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
+	UMaterialInterface* StairRiser = TexMat(TEXT("M_SteelDoorUV"), MetalFrameMaterial);
 
 	MissingFloorUpperStairSteps.Reset();
 	MissingFloorRooftopRouteFloors.Reset();
@@ -4253,12 +4249,40 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 				-100.0f + TreadDepth * StepIndex,
 				StairBaseZ + Height * 0.5f),
 			FVector(85.0f, TreadDepth, Height),
-			StairSteel);
+			StairRiser);
 		IGPrologueWorld::TagFootstepSurface(
 			Step,
 			IGPrologueWorld::FootstepMetalStairTag);
 		MissingFloorUpperStairSteps.Add(Step);
 	}
+	// 단의 충돌은 기존 상자가 맡는다. 얇은 마감과 노멀맵만 20개 인스턴스로 그린다.
+	if (UStaticMesh* TreadMesh = PropMesh(TEXT("SM_RoofStairTread")))
+	{
+		UInstancedStaticMeshComponent* Treads = NewObject<UInstancedStaticMeshComponent>(this, TEXT("RoofStairFinishes"));
+		Treads->SetupAttachment(SceneRoot);
+		Treads->SetStaticMesh(TreadMesh);
+		Treads->SetMobility(EComponentMobility::Static);
+		Treads->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Treads->SetGenerateOverlapEvents(false);
+		Treads->SetCanEverAffectNavigation(false);
+		Treads->SetCastShadow(false);
+		Treads->SetAffectDistanceFieldLighting(false);
+		Treads->ComponentTags.Add(TEXT("Visual.RoofStairFinish"));
+		for (int32 Index = 0; Index < 4; ++Index)
+		{
+			Treads->AddInstance(FTransform(FRotator::ZeroRotator, FVector(-277.5f, -216.f + Index * 22.f, 918.f + Index * 18.f), FVector(1, 1, 18.f / 17.f)));
+		}
+		for (int32 Index = 0; Index < IGPrologueWorld::MissingFloorUpperStepCount; ++Index)
+		{
+			Treads->AddInstance(FTransform(FRotator::ZeroRotator, FVector(-277.5f, -100.f + Index * 22.f, 980.f + Index * 17.f)));
+		}
+		Treads->AddInstance(FTransform(FRotator::ZeroRotator, FVector(-277.5f, -125.f, 972.f), FVector(1, 28.f / 22.f, 1)));
+		Treads->AddInstance(FTransform(FRotator::ZeroRotator, FVector(-277.5f, 208.5f, 1200.f), FVector(1, 23.f / 22.f, 1)));
+		AddInstanceComponent(Treads);
+		Treads->RegisterComponent();
+		GeometryComponents.Add(Treads);
+	}
+	CreateBlock(FVector(-317, -220, 918), FVector(100), nullptr, false, PropMesh(TEXT("SM_RoofStairHandrail")));
 	// 4층 계단과 같은 이유로 마지막 단의 북쪽 마구리를 덮는다. 이쪽은
 	// 2.2 m가 통째로 드러나 있어 계단참에서 올려다보면 바로 보인다.
 	// 열네 번째 단은 Y=186에서 끝나므로 그 북쪽 면은 Y=197, 위로는 계단참
@@ -4305,19 +4329,19 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 			IGPrologueWorld::FootstepRooftopTag);
 	}
 
-	// A 2-ton-class cylindrical rooftop tank at authored scale. The detailed
-	// shell is visual-only; a hidden simple cylinder owns dependable collision.
-	const FVector TankCenter(0.0f, -25.0f, 0.0f);
+	// 정상 수위 150cm, 지름 130cm면 약 2,000L다. 종전의 306cm 원통과
+	// 1m짜리 기단은 용량 표기와 맞지 않았고 주변 통로까지 좁혔다.
+	const FVector TankCenter(0.0f, 60.0f, 0.0f);
 	CreateBlock(
-		TankCenter + FVector(0.0f, 0.0f, 1250.0f),
-		FVector(360.0f, 360.0f, 100.0f),
+		TankCenter + FVector(0.0f, 0.0f, 1210.0f),
+		FVector(170.0f, 170.0f, 20.0f),
 		TexMat(TEXT("M_UtilityFoundation"), ConcreteMaterial));
-	if (UStaticMesh* TankShell = PropMesh(TEXT("SM_RooftopWaterTankShell")))
+	if (UStaticMesh* TankShell = PropMesh(TEXT("SM_RoofTank2000L")))
 	{
 		CreateBlock(
-			TankCenter + FVector(0.0f, 0.0f, 1430.0f),
+			TankCenter + FVector(0.0f, 0.0f, 1220.0f),
 			FVector(100.0f),
-			RoofMetal,
+			nullptr,
 			false,
 			TankShell);
 	}
@@ -4325,15 +4349,15 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	{
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 		CreateBlock(
-			TankCenter + FVector(0.0f, 0.0f, 1430.0f),
-			FVector(306.0f, 306.0f, 260.0f),
+			TankCenter + FVector(0.0f, 0.0f, 1300.0f),
+			FVector(130.0f, 130.0f, 160.0f),
 			RoofMetal,
 			false,
 			CylinderMesh);
 	}
 	if (UStaticMeshComponent* TankCollision = CreateBlock(
-			TankCenter + FVector(0.0f, 0.0f, 1430.0f),
-			FVector(306.0f, 306.0f, 260.0f),
+			TankCenter + FVector(0.0f, 0.0f, 1300.0f),
+			FVector(130.0f, 130.0f, 160.0f),
 			RoofMetal,
 			true,
 			CylinderMesh))
@@ -4341,6 +4365,13 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		TankCollision->SetVisibility(false, true);
 		TankCollision->SetHiddenInGame(true, true);
 		TankCollision->SetCastShadow(false);
+	}
+	if (UStaticMeshComponent* Plate = CreateBlock(FVector(0, 125.7f, 1340), FVector(100), nullptr, false,
+		PropMesh(TEXT("SM_RoofTankPlate")), FRotator(0, 180, 0)))
+	{
+		Plate->ComponentTags.Add(TEXT("Visual.RoofTankPlate"));
+		Plate->SetCastShadow(false);
+		Plate->SetCullDistance(1200);
 	}
 
 	// The route centerline is exactly 407.5 + 232.5 = 640 cm. Rail placement

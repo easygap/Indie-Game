@@ -1,0 +1,30 @@
+{
+  "name": "SM_RoofTank2000L",
+  "mesh_class": "prop",
+  "fbx": "SM_RoofTank2000L.fbx",
+  "textures": {
+    "D": "SM_RoofTank2000L_D.png",
+    "N": "SM_RoofTank2000L_N.png",
+    "ORM": "SM_RoofTank2000L_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 6376,
+  "bounds_m": {
+    "min": [
+      -0.657,
+      -0.657,
+      0.0
+    ],
+    "max": [
+      0.657,
+      0.795,
+      1.808
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "원통 지름 130cm·몸통 높이 160cm. 정상 수위 150cm에서 약 1991L. 북쪽 +Y가 표찰·배관 쪽. 원점은 탱크 바닥. 실물 FRP 비례와 STS 제작 사진, AI 3면 참조는 RoofUtility_20260916.json. 기단과 충돌은 런타임 분리."
+}

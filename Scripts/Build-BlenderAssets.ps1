@@ -35,6 +35,8 @@ if (-not $blender) {
 # 빌더 하나가 에셋 여럿을 만들 수 있다. 어떤 빌더가 무엇을 만드는지는 여기 표가
 # 유일한 출처다. Import 쪽은 manifest만 보므로 표는 이쪽에만 필요하다.
 $builders = [ordered]@{
+	'roof_utility' = @('SM_RoofTank2000L', 'SM_RoofCleaningPipework', 'SM_RoofStairHandrail', 'SM_RoofTankPlate', 'SM_RoofDrainPlate', 'SM_RoofBypassPlate')
+	'roof_stair_tread' = @('SM_RoofStairTread')
 	'pump_panel' = @('SM_PumpControlPanel', 'SM_PumpSelector')
 	'booth_pump' = @('SM_BoothPump')
 	'booth_pump_pipework' = @('SM_BoothPumpPipework')
@@ -77,6 +79,10 @@ if ($selected -contains 'fire_safety') {
 if ($selected -contains 'neighborhood_prints') {
 	& python (Join-Path $PSScriptRoot 'build_apartment_calendar.py')
 	if ($LASTEXITCODE -ne 0) { throw '2025년 달력 생성 실패' }
+}
+if ($selected -contains 'roof_utility') {
+	& python (Join-Path $PSScriptRoot 'build_roof_utility_prints.py')
+	if ($LASTEXITCODE -ne 0) { throw '옥상 설비 표찰 생성 실패' }
 }
 
 $logRoot = Join-Path $projectRoot 'Saved\Logs'

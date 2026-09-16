@@ -134,6 +134,10 @@ AIGMissingFloorNightFourDirector::AIGMissingFloorNightFourDirector()
 void AIGMissingFloorNightFourDirector::Tick(const float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
+	if (bValveMotionActive)
+	{
+		UpdateRoofValveMotion(DeltaSeconds);
+	}
 	if (bFinalRevealActive)
 	{
 		UpdateCavityReveal(DeltaSeconds);
@@ -147,7 +151,7 @@ void AIGMissingFloorNightFourDirector::Tick(const float DeltaSeconds)
 		UpdateEndingHammer(DeltaSeconds);
 	}
 	UpdateFinaleDetailLayers();
-	if (!bFinalRevealActive && !bMokRetreatActive && !bEndingHammerMoving)
+	if (!bFinalRevealActive && !bMokRetreatActive && !bEndingHammerMoving && !bValveMotionActive)
 	{
 		SetActorTickEnabled(
 			bCavityPresentationVisible || bMokPresentationVisible);
@@ -238,6 +242,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
 		Component->SetGenerateOverlapEvents(false);
 		Component->SetCanEverAffectNavigation(false);
+		Component->SetMobility(EComponentMobility::Static);
 		Component->SetCastShadow(true);
 		Component->SetWorldTransform(FTransform(
 			Rotation,
@@ -324,6 +329,12 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		0.18f);
 	FloatBypass->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightFourDirector::HandleFloatBypass);
+	int32 ValveIndex = 0;
+	for (AIGMissingFloorEvidence* Valve : {CleaningDrain.Get(), FloatBypass.Get()})
+	{
+		ValveClosedTransforms[ValveIndex++] = Valve->GetActorTransform();
+		Valve->GetRootComponent()->SetMobility(EComponentMobility::Movable);
+	}
 
 	TransferPump->Configure(
 		LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_PumpControlPanel.SM_PumpControlPanel")),
@@ -365,46 +376,17 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 			NSLOCTEXT("IGMissingFloor", "ProcedureSheet5", "배관이 조용해지고 등이 꺼진 뒤 다시 돌리면 됩니다."),
 		});
 
-	// P5 is a real 2019 cleaning circuit. These non-interactive pieces make the
-	// two wheels read as valves attached to a tank manifold, rather than sprites
-	// hovering in front of the shell. Basic shapes are deliberately used here:
-	// they are the replaceable greybox contract for the final authored asset.
-	AddEquipment(
-		CylinderMesh, MetalMaterial, TEXT("NightFourRoofManifold"),
-		FVector(5.0f, 140.0f, 1300.0f), FVector(7.0f, 7.0f, 155.0f),
-		FRotator(90.0f, 0.0f, 0.0f));
-	AddEquipment(
-		CylinderMesh, MetalMaterial, TEXT("NightFourTankFeed"),
-		FVector(5.0f, 133.0f, 1300.0f), FVector(9.0f, 9.0f, 22.0f),
-		FRotator(0.0f, 0.0f, 90.0f));
-	for (const TPair<FName, float>& Branch : {
-		TPair<FName, float>(TEXT("NightFourDrain"), -62.0f),
-		TPair<FName, float>(TEXT("NightFourBypass"), 72.0f)})
+	// 관로를 한 메시로 굽는다. 배수구·입수구가 탱크와 지면까지 이어진다.
+	AddEquipment(LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_RoofCleaningPipework.SM_RoofCleaningPipework")),
+		nullptr, TEXT("NightFourRoofPipework"), FVector(0, 0, 1200), FVector(100));
+	for (const bool bDrain : {true, false})
 	{
-		AddEquipment(
-			CylinderMesh,
-			MetalMaterial,
-			FName(*(Branch.Key.ToString() + TEXT("Riser"))),
-			FVector(Branch.Value, 140.0f, 1320.0f),
-			FVector(6.0f, 6.0f, 40.0f));
-		AddEquipment(
-			CylinderMesh,
-			MetalMaterial,
-			FName(*(Branch.Key.ToString() + TEXT("Nipple"))),
-			FVector(Branch.Value, 149.0f, 1340.0f),
-			FVector(6.0f, 6.0f, 18.0f),
-			FRotator(0.0f, 0.0f, 90.0f));
-		AddEquipment(
-			CylinderMesh,
-			DarkMaterial,
-			FName(*(Branch.Key.ToString() + TEXT("Body"))),
-			FVector(Branch.Value, 154.0f, 1340.0f),
-			FVector(9.0f, 9.0f, 7.0f),
-			FRotator(0.0f, 0.0f, 90.0f));
-		AddEquipment(CylinderMesh, MetalMaterial,
-			FName(*(Branch.Key.ToString() + TEXT("Stem"))),
-			FVector(Branch.Value, 162.0f, 1340.0f), FVector(2.0f, 2.0f, 10.0f),
-			FRotator(0.0f, 0.0f, 90.0f));
+		UStaticMeshComponent* Plate = AddEquipment(LoadObject<UStaticMesh>(nullptr, bDrain
+			? TEXT("/Game/Meshes/SM_RoofDrainPlate.SM_RoofDrainPlate")
+			: TEXT("/Game/Meshes/SM_RoofBypassPlate.SM_RoofBypassPlate")),
+			nullptr, bDrain ? TEXT("NightFourDrainLabel") : TEXT("NightFourBypassLabel"),
+			FVector(bDrain ? -62.f : 72.f, 142.9f, 1318.f), FVector(100), FRotator(0, 180, 0));
+		if (Plate) { Plate->SetCastShadow(false); Plate->SetCullDistance(1000); }
 	}
 
 	// 실물 사진에서 확인한 방열판·전장함·케이싱을 가진 소형 펌프.
@@ -420,6 +402,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 	const FVector PanelOrigin = TransferPump->GetActorLocation();
 	PumpSelector = AddEquipment(LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_PumpSelector.SM_PumpSelector")),
 		nullptr, TEXT("NightFourPumpSelector"), PanelOrigin + FVector(5.4f, 0, -7.7f), FVector(100), FRotator(0, 90, 0));
+	if (PumpSelector) { PumpSelector->SetMobility(EComponentMobility::Movable); }
 	UMaterialInterface* IndicatorMaterial = LoadObject<UMaterialInterface>(nullptr,
 		TEXT("/Game/Prototype/Materials/M_PumpIndicator.M_PumpIndicator"));
 	for (int32 Index = 0; Index < 3; ++Index)
@@ -1605,6 +1588,22 @@ void AIGMissingFloorNightFourDirector::UpdateEndingHammer(
 	}
 }
 
+void AIGMissingFloorNightFourDirector::UpdateRoofValveMotion(const float DeltaSeconds)
+{
+	bValveMotionActive = false;
+	AIGMissingFloorEvidence* Valves[] = {CleaningDrain.Get(), FloatBypass.Get()};
+	for (int32 Index = 0; Index < 2; ++Index)
+	{
+		if (!Valves[Index] || FMath::IsNearlyEqual(ValveAngles[Index], ValveTargetAngles[Index], .01f)) { continue; }
+		ValveAngles[Index] = FMath::FInterpConstantTo(ValveAngles[Index], ValveTargetAngles[Index], DeltaSeconds, 300.f);
+		const FTransform& Closed = ValveClosedTransforms[Index];
+		const FQuat Turn(FVector::UpVector, FMath::DegreesToRadians(ValveAngles[Index]));
+		Valves[Index]->SetActorLocationAndRotation(Closed.GetLocation() + FVector(0, -.65f * ValveAngles[Index] / 225.f, 0),
+			Closed.GetRotation() * Turn);
+		bValveMotionActive |= !FMath::IsNearlyEqual(ValveAngles[Index], ValveTargetAngles[Index], .01f);
+	}
+}
+
 void AIGMissingFloorNightFourDirector::HandleEvictionNotice(
 	AIGMissingFloorEvidence* Evidence)
 {
@@ -2593,6 +2592,11 @@ void AIGMissingFloorNightFourDirector::RefreshPresentation()
 	RefreshControl(CleaningDrain, IGNightFour::CleaningDrainId);
 	RefreshControl(FloatBypass, IGNightFour::FloatBypassId);
 	RefreshControl(TransferPump, IGNightFour::TransferPumpId);
+	ValveTargetAngles[0] = Narrative->HasNightFourControl(IGNightFour::CleaningDrainId) ? -225.f : 0.f;
+	ValveTargetAngles[1] = Narrative->HasNightFourControl(IGNightFour::FloatBypassId) ? -225.f : 0.f;
+	bValveMotionActive = !FMath::IsNearlyEqual(ValveAngles[0], ValveTargetAngles[0], .01f)
+		|| !FMath::IsNearlyEqual(ValveAngles[1], ValveTargetAngles[1], .01f);
+	if (bValveMotionActive) { SetActorTickEnabled(true); }
 	const bool bPumpRunning = bNightFour && Narrative->IsNightFourMaskRunning() && !bControlLockoutActive;
 	if (PumpSelector)
 	{

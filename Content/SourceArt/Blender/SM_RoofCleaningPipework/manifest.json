@@ -1,0 +1,30 @@
+{
+  "name": "SM_RoofCleaningPipework",
+  "mesh_class": "prop",
+  "fbx": "SM_RoofCleaningPipework.fbx",
+  "textures": {
+    "D": "SM_RoofCleaningPipework_D.png",
+    "N": "SM_RoofCleaningPipework_N.png",
+    "ORM": "SM_RoofCleaningPipework_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 3828,
+  "bounds_m": {
+    "min": [
+      -1.0663,
+      0.579,
+      -0.08
+    ],
+    "max": [
+      1.071,
+      1.66,
+      1.455
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "배수·우회 회로를 하나로 구운 메시. 손잡이 축은 (-62,166,140), (72,166,140)cm. 탱크 배수구에서 왼쪽 배수관으로, 우회관은 별도 오른쪽 입수관에서 탱크로 연결. 배수관과 급수관은 지면 안으로 이어짐. 옥상바닥 원점."
+}

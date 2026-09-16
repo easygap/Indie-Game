@@ -10,6 +10,7 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
@@ -5577,6 +5578,91 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGRoofUtilityAudit")))
+	{
+		auto Operate = [this](AIGMissingFloorEvidence* Control)
+		{
+			FIGInteractionContext Context;
+			Context.Interactor = Player.Get(); Context.HoldProgress = 1.f; Context.TargetActor = Control;
+			IIGInteractable::Execute_CompleteInteraction(Control, Context);
+		};
+		switch (ArrivalCaptureStep++)
+		{
+		case 0: CaptureTeleportPlayer(FVector(-277.5f, -250, 998), 90, 12); break;
+		case 2:
+		{
+			FHitResult Hit;
+			GetWorld()->LineTraceSingleByChannel(Hit, FVector(0, 202, 1340), FVector(0, 124, 1340), ECC_Visibility);
+			if (!Hit.GetActor() || !Hit.GetActor()->GetName().Contains(TEXT("MissingFloorTankAudition")))
+			{ FailProbe(TEXT("저수조 표찰과 읽기 판정 위치가 다름")); return; }
+			TArray<UInstancedStaticMeshComponent*> Batches;
+			WorldScene->GetComponents(Batches);
+			int32 TreadCount = 0;
+			for (UInstancedStaticMeshComponent* Batch : Batches)
+				if (Batch->ComponentHasTag(TEXT("Visual.RoofStairFinish")))
+				{
+					TreadCount += Batch->GetInstanceCount();
+					if (Batch->GetCollisionEnabled() != ECollisionEnabled::NoCollision || Batch->CastShadow)
+					{ FailProbe(TEXT("계단 마감에 중복 충돌이나 그림자가 있음")); return; }
+				}
+			if (TreadCount != 20) { FailProbe(TEXT("계단 마감 인스턴스가 빠짐")); return; }
+			UE_LOG(LogTemp, Display, TEXT("ROOF_GEOMETRY PASS treads=20 plate_trace=1"));
+			break;
+		}
+		case 4: if (GEngine && bCaptureMetricsOnly) GEngine->Exec(GetWorld(), TEXT("csvprofile start")); break;
+		case 5: CaptureShot(TEXT("roof-stair-up")); break;
+		case 6: CaptureTeleportPlayer(FVector(-277.5f, -34, 1129), 90, -22); break;
+		case 9: CaptureShot(TEXT("roof-stair-handrail")); break;
+		case 10: CaptureTeleportPlayer(FVector(-277.5f, 190, 1298), 270, -65); break;
+		case 13: CaptureShot(TEXT("roof-stair-down")); break;
+		case 14: CaptureTeleportPlayer(FVector(180, 305, 1298), -132, -8); break;
+		case 17: CaptureShot(TEXT("roof-tank-wide")); break;
+		case 18: CaptureTeleportPlayer(FVector(0, 237, 1298), -90, -12); break;
+		case 21: CaptureShot(TEXT("roof-tank-plate")); break;
+		case 22: CaptureTeleportPlayer(FVector(230, 90, 1298), 180, -15); break;
+		case 25: CaptureShot(TEXT("roof-tank-side")); break;
+		case 26:
+		{
+			FHitResult Hit;
+			GetWorld()->LineTraceSingleByChannel(Hit, FVector(-62, 220, 1340), FVector(-62, 163, 1340), ECC_Visibility);
+			if (Hit.GetActor() != NightFour->GetCleaningDrain()) { FailProbe(TEXT("배수 손잡이가 조준되지 않음")); return; }
+			CaptureTeleportPlayer(FVector(-62, 257, 1298), -90, -14); break;
+		}
+		case 29: CaptureShot(TEXT("roof-valve-closed")); break;
+		case 30:
+			GetNarrative()->SetNightIndex(4); NightFour->SetHourActive(true);
+			Operate(NightFour->GetTransferPump());
+			if (NightFour->GetPumpLampMask() != 5) { FailProbe(TEXT("역순 조작의 인터록이 빠짐")); return; }
+			break;
+		case 39:
+			if (NightFour->GetPumpLampMask() != 1) { FailProbe(TEXT("인터록이 복구되지 않음")); return; }
+			Operate(NightFour->GetCleaningDrain()); break;
+		case 42:
+		{
+			const FQuat Expected = FRotator(0, 0, 90).Quaternion() * FQuat(FVector::UpVector, FMath::DegreesToRadians(-225.f));
+			if (!NightFour->GetCleaningDrain()->GetActorQuat().Equals(Expected, .001f))
+			{ FailProbe(TEXT("배수 밸브의 저장 상태와 손잡이 회전이 다름")); return; }
+			CaptureShot(TEXT("roof-valve-open")); break;
+		}
+		case 43:
+			Operate(NightFour->GetFloatBypass());
+			CaptureTeleportPlayer(FVector(72, 257, 1298), -90, -14); break;
+		case 46: CaptureShot(TEXT("roof-bypass-open")); break;
+		case 47:
+			Operate(NightFour->GetTransferPump());
+			if (NightFour->GetPumpLampMask() != 3 || !NightFour->IsWaterMaskPlaying())
+			{ FailProbe(TEXT("배관 순서와 펌프 소리가 다름")); return; }
+			CaptureTeleportPlayer(FVector(0, 305, 1298), -90, -24); break;
+		case 50: CaptureShot(TEXT("roof-circuit-running")); break;
+		case 51: if (GEngine && bCaptureMetricsOnly) GEngine->Exec(GetWorld(), TEXT("csvprofile stop")); break;
+		case 53:
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("ROOF_UTILITY_CAPTURE PASS shots=10 treads=20 plate_trace=1 valve_trace=1 misorder_recovery=1 valve_rotation=1 pump_audio=1"));
+			RequestExit(false); break;
+		default: break;
+		}
+		return;
+	}
 	// 같은 인쇄면을 문 안팎과 열린 상태에서 본다. 정면 사진만으로 놓쳤던
 	// 부착 방향·두께·문짝 추종을 실제 컴포넌트에서도 확인한다.
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGDoorPrintAudit")))

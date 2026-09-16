@@ -52,11 +52,10 @@ namespace IGNightThree
 	 */
 	constexpr float PlasterDatingZ = 1220.0f;
 	/**
-	 * T8 「탱크 물소리 청음」. 탱크 몸통은 Y -178..128이고 점검 통로는 그
-	 * 북쪽이다. 통로 쪽 면에서 7 cm 떨어뜨려 판정만 세운다 — 그림은 씬의
-	 * 탱크가 이미 그리고 있다.
+	 * T8 「탱크 물소리 청음」. 탱크 몸통은 Y -5..125이고 점검 통로는 그
+	 * 북쪽이다. 씬에 붙인 24×14cm 표찰과 같은 위치에 읽기 판정을 둔다.
 	 */
-	const FVector TankAuditionLocation(0.0f, 140.0f, 1360.0f);
+	const FVector TankAuditionLocation(0.0f, 125.7f, 1340.0f);
 	/**
 	 * §13 12행. 채널 5는 「도면에 없는 복도, 천장 전구 하나, 바닥을 지나가는
 	 * 낮은 형체」를 보여 준다. 그 화각에 실제로 서는 자리는 별관 철문을
@@ -649,8 +648,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	TankAudition->Configure(
 		CubeMesh,
 		nullptr,
-		FVector(40.0f, 10.0f, 40.0f),
-		NSLOCTEXT("IGMissingFloor", "TankAuditionPrompt", "저수조 — 귀를 대고 표찰을 읽는다"),
+		FVector(24.0f, 1.0f, 14.0f),
+		NSLOCTEXT("IGMissingFloor", "TankAuditionPrompt", "저수조 살펴보기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -1201,8 +1200,7 @@ void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
 		EIGMissingFloorTruth::FiveNightsOfThirst,
 		EIGMissingFloorSource::TankWaterAudition);
 
-	// 4.4초 주기가 이 큐의 전부다. 느리게 오간다는 것이 가득 찼다는 뜻이고,
-	// 그 사실이 §13의 「물 2톤 옆의 갈증」을 만든다.
+	// 수위는 눈으로, 물의 움직임은 소리로 확인한다.
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateRooftopTankSlosh(this),
@@ -1225,8 +1223,7 @@ void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
 	const bool bKnowsTally = Narrative->HasSource(
 		EIGMissingFloorTruth::FiveNightsOfThirst,
 		EIGMissingFloorSource::KnockTallyJournal);
-	// 귀가 「가득 찼다」를 말하고, 뺨 옆의 표찰이 그 양을 말한다. 기록
-	// 화면의 카드가 「용량 2,000 L / 만수」로 적히는 근거가 둘 다 여기 있다.
+	// 용량 표찰과 수위계는 같은 탱크에 붙어 있다. 기록에도 관찰한 수위를 남긴다.
 	AIGHorrorHUD::PushThought(
 		this,
 		bKnowsTally

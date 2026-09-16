@@ -183,7 +183,7 @@ namespace IGHorrorHUD
 				TEXT("황순금 소리 일지"), TEXT("7/27부터 닷새. 마지막 날은 세 번뿐."),
 				TEXT("401호 · 낮 3"), EJournalThumbnail::Document},
 			{TEXT("Roof.TankWaterAudition"), EJournalLane::Life,
-				TEXT("저수조 표찰"), TEXT("용량 2,000 L / 만수"),
+				TEXT("저수조 표찰"), TEXT("용량 2,000 L. 수위계의 지시자는 위쪽에 있었다."),
 				TEXT("옥상 · 밤 3"), EJournalThumbnail::Tank},
 			{TEXT("Fifth.AnswerReturned"), EJournalLane::Life,
 				TEXT("벽의 대답"), TEXT("둘, 쉬고, 하나."),
