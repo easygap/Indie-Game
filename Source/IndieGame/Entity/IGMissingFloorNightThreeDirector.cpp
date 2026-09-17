@@ -8,6 +8,7 @@
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
+#include "Engine/Texture2D.h"
 #include "Engine/World.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorEvidence.h"
@@ -682,6 +683,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	{
 		LabelsNote->ConfigurePrototypeVisuals(CubeMesh, FreshPaperMaterial, FVector(18,13,.12f));
 	}
+	LabelsNote->SetReadingArtwork(LoadObject<UTexture2D>(nullptr,
+		TEXT("/Game/UI/Reading/T_ShippingLabelRead_D.T_ShippingLabelRead_D")));
 	LabelsNote->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "LabelsPrompt", "배송 라벨 뭉치"));
 	LabelsNote->SetNoteText(
@@ -689,6 +692,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		{
 			NSLOCTEXT("IGMissingFloor", "Labels1", "받는 사람: 백도하"),
 			NSLOCTEXT("IGMissingFloor", "Labels2", "무영로 27-3  달빛빌라 옥탑"),
+			NSLOCTEXT("IGMissingFloor", "LabelsSender", "보내는 분: 공방 창고"),
+			NSLOCTEXT("IGMissingFloor", "LabelsContents", "품목: 조율 공구"),
 			FText::GetEmpty(),
 			NSLOCTEXT(
 				"IGMissingFloor",

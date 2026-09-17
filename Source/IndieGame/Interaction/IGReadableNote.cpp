@@ -56,6 +56,7 @@ void AIGReadableNote::SetNoteText(const FText& InTitle, TArray<FText> InBodyLine
 {
 	NoteTitle = InTitle;
 	NoteBodyLines = MoveTemp(InBodyLines);
+	++PresentationRevision;
 }
 
 void AIGReadableNote::SetThermalReceiptData(FIGThermalReceiptData InReceiptData)
@@ -96,6 +97,7 @@ void AIGReadableNote::CompleteInteraction_Implementation(const FIGInteractionCon
 	}
 
 	bOpen = true;
+	++PresentationRevision;
 	bEverRead = true;
 	OpenNote = this;
 	OnReadStateChanged.Broadcast(this, true);

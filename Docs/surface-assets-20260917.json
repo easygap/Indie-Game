@@ -1,0 +1,38 @@
+[
+  {
+    "mesh": "SM_VideoIntercom",
+    "lods": 4,
+    "lod0_triangles": 1520,
+    "material_slots": 1,
+    "emissive_strength": 0.0,
+    "streaming_textures": {
+      "BaseColor": "/Game/Prototype/Textures/T_VideoIntercom_D.T_VideoIntercom_D",
+      "Normal": "/Game/Prototype/Textures/T_VideoIntercom_N.T_VideoIntercom_N",
+      "ORM": "/Game/Prototype/Textures/T_VideoIntercom_ORM.T_VideoIntercom_ORM"
+    }
+  },
+  {
+    "mesh": "SM_HangingWorkVest",
+    "lods": 4,
+    "lod0_triangles": 2980,
+    "material_slots": 1,
+    "emissive_strength": 0.0,
+    "streaming_textures": {
+      "BaseColor": "/Game/Prototype/Textures/T_HangingWorkVest_D.T_HangingWorkVest_D",
+      "Normal": "/Game/Prototype/Textures/T_HangingWorkVest_N.T_HangingWorkVest_N",
+      "ORM": "/Game/Prototype/Textures/T_HangingWorkVest_ORM.T_HangingWorkVest_ORM"
+    }
+  },
+  {
+    "mesh": "SM_ShippingLabels",
+    "lods": 4,
+    "lod0_triangles": 48,
+    "material_slots": 1,
+    "emissive_strength": 0.0,
+    "streaming_textures": {
+      "BaseColor": "/Game/Prototype/Textures/T_ShippingLabels_D.T_ShippingLabels_D",
+      "Normal": "/Game/Prototype/Textures/T_ShippingLabels_N.T_ShippingLabels_N",
+      "ORM": "/Game/Prototype/Textures/T_ShippingLabels_ORM.T_ShippingLabels_ORM"
+    }
+  }
+]

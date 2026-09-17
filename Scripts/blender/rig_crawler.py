@@ -673,6 +673,16 @@ def main():
     if args.yaw:
         bake_rotation(high, 0.0, 0.0, args.yaw)
     scale = fit_and_ground(high, args.length)
+    # glTF의 UV 경계마다 분리된 정점은 smooth 플래그만으로 이어지지 않는다.
+    # 0.05mm 안의 중복 정점만 용접한다. UV는 면 모서리 속성이므로 보존된다.
+    source_mesh = bmesh.new()
+    source_mesh.from_mesh(high.data)
+    before_weld = len(source_mesh.verts)
+    bmesh.ops.remove_doubles(source_mesh, verts=list(source_mesh.verts), dist=.00005)
+    bmesh.ops.recalc_face_normals(source_mesh, faces=list(source_mesh.faces))
+    ig.log(f"원본 중복 정점 연결: {before_weld} -> {len(source_mesh.verts)}")
+    source_mesh.to_mesh(high.data)
+    source_mesh.free()
     ig.prepare_organic_source(high, roughness_floor=0.70)
     lo, hi = ig.bounds(high)
     ig.log(f"{name}: scale x{scale:.4f} -> {(hi - lo).x * 100:.1f} x {(hi - lo).y * 100:.1f} x {(hi - lo).z * 100:.1f} cm")
@@ -702,7 +712,9 @@ def main():
     ue_bounds = ig.bounds(low)
 
     # 저작 좌표 미리보기(고밀도, 정점색/텍스처).
+    low.hide_render = True
     ig.render_preview(high, os.path.join(out_dir, f"{name}_source_preview.png"))
+    low.hide_render = False
 
     # 여기서부터 FBX 좌표. 뼈대도 이 좌표에서 세운다.
     ig.mirror_y(low)
@@ -711,9 +723,11 @@ def main():
     textures = {}
     if not args.no_bake:
         ig.uv_smart(low, margin=0.003)
-        extrusion = max((hi - lo).length * 0.012, 0.006)
+        # 베이크 탐색 범위를 몸 길이 대신 리메시 간격에 맞춘다.
+        # 겹친 옷자락과 얼굴 주변에서 멀리 떨어진 표면까지 읽지 않게 한다.
+        extrusion = max(args.voxel_remesh * 2.0, 0.006)
         textures = ig.bake_from_high(low, high, name, out_dir, size=args.texture_size,
-                                     cage_extrusion=extrusion, max_ray_distance=extrusion * 4.0)
+                                     cage_extrusion=extrusion, max_ray_distance=extrusion * 3.0)
     high_mesh = high.data
     bpy.data.objects.remove(high, do_unlink=True)
     bpy.data.meshes.remove(high_mesh)
@@ -779,6 +793,10 @@ def main():
     with open(manifest_path, "w", encoding="utf-8") as handle:
         json.dump(data, handle, indent=2, ensure_ascii=False)
         handle.write("\n")
+    # FBX의 슬롯 정리로 빠진 재질을 복구한 뒤 이미지까지 작업 파일에 넣는다.
+    if textures:
+        ig.preview_material_from_bakes(low, textures)
+    bpy.ops.file.pack_all()
     bpy.ops.wm.save_as_mainfile(filepath=os.path.join(out_dir, f"{name}.blend"))
     ig.log(f"{name}: done tris={ig.triangle_count(low)} bones={len(arm.data.bones)}")
 

@@ -5697,7 +5697,8 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		return;
 	}
 	// 근접 사진은 입주 자막과 시작 위치 보정이 끝난 뒤 찍는다.
-	const bool bDetailScreens = (FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) ||
+	const bool bDetailScreens = (FParse::Param(FCommandLine::Get(), TEXT("IGReadingReview")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGCircuitReview")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGEntryReview")) ||
@@ -5826,8 +5827,115 @@ void AIGListenerGreyboxDirector::AdvanceImmersionReview()
 	ImmersionReviewNextTime = FPlatformTime::Seconds() + Wait;
 }
 
+void AIGListenerGreyboxDirector::AdvanceReadingReview()
+{
+	APlayerController* Controller = GetWorld()->GetFirstPlayerController();
+	AIGHorrorHUD* Hud = Controller ? Cast<AIGHorrorHUD>(Controller->GetHUD()) : nullptr;
+	if (!Hud || !NightThree) { FailProbe(TEXT("문서 검사 초기화 실패")); return; }
+	float TextScale = 1;
+	FParse::Value(FCommandLine::Get(),TEXT("IGCaptionScale="),TextScale);
+	const bool LargeText = TextScale > 1.15f;
+	auto Check = [this](bool Ok, const TCHAR* Name)
+	{
+		ImmersionReviewFailures += !Ok;
+		UE_LOG(LogTemp,Display,TEXT("READING_CHECK %s %s"),Name,Ok?TEXT("PASS"):TEXT("FAIL"));
+	};
+	auto Key = [Controller](FKey Value)
+	{
+		for (EInputEvent Event : {IE_Pressed,IE_Released})
+		{
+			const FInputKeyEventArgs Input(nullptr,FInputDeviceId::CreateFromInternalId(0),Value,
+				Event,Event==IE_Pressed?1.f:0.f,false,FPlatformTime::Cycles64());
+			Controller->InputKey(Input);
+		}
+	};
+	auto Open = [this](AIGReadableNote* Note)
+	{
+		if (AIGReadableNote* Previous = AIGReadableNote::GetOpenNote()) Previous->Close();
+		FIGInteractionContext Context; Context.Interactor = Player.Get();
+		Note->CompleteInteraction_Implementation(Context);
+	};
+	switch (ArrivalCaptureStep++)
+	{
+	case 0:
+		CaptureTeleportPlayer(FVector(40,-70,998),-85,0);
+		Open(NightThree->GetLabelsNote());
+		break;
+	case 1:
+		Check(NightThree->GetLabelsNote()->GetReadingArtwork()!=nullptr,TEXT("label_uses_installed_artwork"));
+		Check(Hud->GetNotePageIndex()==int32(LargeText),TEXT("first_page_respects_text_size"));
+		Check(Hud->IsNoteTextWithinPaper(),TEXT("label_text_inside_paper"));
+		CaptureShot(TEXT("reading-label"));
+		break;
+	case 2:
+		Key(LargeText?EKeys::Left:EKeys::Right);
+		break;
+	case 3:
+		Check(Hud->GetNotePageIndex()==int32(!LargeText),TEXT("keyboard_turns_page"));
+		Check(Hud->IsNoteTextWithinPaper(),TEXT("label_second_page_inside_paper"));
+		CaptureShot(TEXT("reading-label-alternate"));
+		break;
+	case 4:
+		Open(NightThree->GetJournalNote());
+		break;
+	case 5:
+		Check(Hud->GetNotePageIndex()==0,TEXT("another_document_starts_at_first_page"));
+		Check(!LargeText || Hud->GetNotePageCount()>1,TEXT("large_type_paginates_long_clue"));
+		Check(Hud->IsNoteTextWithinPaper(),TEXT("journal_first_page_inside_paper"));
+		CaptureShot(TEXT("reading-journal"));
+		break;
+	case 6:
+		Key(EKeys::Gamepad_DPad_Right);
+		break;
+	case 7:
+		Check(Hud->GetNotePageIndex()==FMath::Min(1,Hud->GetNotePageCount()-1),TEXT("gamepad_turns_page"));
+		Check(Hud->IsNoteTextWithinPaper(),TEXT("journal_page_inside_paper"));
+		CaptureShot(*FString::Printf(TEXT("reading-journal-%d"),Hud->GetNotePageIndex()+1));
+		break;
+	case 8:
+		if (Hud->GetNotePageIndex()+1<Hud->GetNotePageCount())
+		{
+			Key(EKeys::MouseScrollDown);
+		}
+		else ArrivalCaptureStep = 10;
+		break;
+	case 9:
+		Check(Hud->IsNoteTextWithinPaper(),TEXT("wheel_page_inside_paper"));
+		CaptureShot(*FString::Printf(TEXT("reading-journal-%d"),Hud->GetNotePageIndex()+1));
+		ArrivalCaptureStep=8;
+		break;
+	case 10:
+		Key(EKeys::Right);
+		break;
+	case 11:
+		Check(Hud->GetNotePageIndex()==Hud->GetNotePageCount()-1,TEXT("last_page_does_not_skip_or_wrap"));
+		Open(NightThree->GetJournalNote());
+		break;
+	case 12:
+		Check(Hud->GetNotePageIndex()==0,TEXT("reopening_resets_page"));
+		Open(NightThree->GetTunerNotebook());
+		break;
+	case 13:
+		Check(Hud->IsNoteTextWithinPaper(),TEXT("tuning_clue_inside_paper"));
+		CaptureShot(TEXT("reading-tuning"));
+		break;
+	case 14:
+		if (AIGReadableNote* Note=AIGReadableNote::GetOpenNote()) Note->Close();
+		GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+		UE_LOG(LogTemp,Display,TEXT("READING_REVIEW %s failures=%d"),
+			ImmersionReviewFailures?TEXT("FAIL"):TEXT("PASS"),ImmersionReviewFailures);
+		RequestExit(ImmersionReviewFailures!=0);
+		break;
+	}
+}
+
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGReadingReview")))
+	{
+		AdvanceReadingReview();
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGImmersionReview")))
 	{
 		AdvanceImmersionReview();

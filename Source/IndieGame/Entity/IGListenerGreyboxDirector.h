@@ -444,6 +444,7 @@ private:
 	bool bArrivalCaptureRequested = false;
 	int32 ArrivalCaptureStep = 0;
 	void AdvanceImmersionReview();
+	void AdvanceReadingReview();
 	double ImmersionReviewNextTime = 0.0;
 	int32 ImmersionReviewFailures = 0;
 	bool bProductionMode = false;

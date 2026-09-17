@@ -8,6 +8,7 @@ class AIGReadableNote;
 class UMaterialInterface;
 class UStaticMesh;
 class UStaticMeshComponent;
+class UTexture2D;
 
 /** One product row on a thermal receipt. Prices are expressed in won. */
 USTRUCT(BlueprintType)
@@ -134,14 +135,7 @@ public:
 		const FVector& PaperSize,
 		bool bCastPresentationShadow = false);
 
-	/**
-	 * Sets the heading and body shown in the reading panel.
-	 *
-	 * The body is a list of lines rather than one string with embedded
-	 * breaks. Korean copy has to be broken by hand anyway — there is nothing
-	 * sensible to wrap on mid-clause — and keeping the lines separate means
-	 * the note text contains no escape sequences at all.
-	 */
+	/** 문단 사이의 빈 줄은 보존하고, 화면 폭에 따른 줄바꿈은 읽기 화면이 맡는다. */
 	void SetNoteText(const FText& InTitle, TArray<FText> InBodyLines);
 
 	/**
@@ -152,6 +146,11 @@ public:
 
 	/** Uses a dark smartphone notification screen instead of a paper sheet. */
 	void SetPhoneNotificationPresentation();
+
+	/** 현장에 놓인 인쇄 원본을 먼저 보여 주고, 다음 장에서 본문을 읽는다. */
+	void SetReadingArtwork(UTexture2D* Texture) { ReadingArtwork = Texture; ++PresentationRevision; }
+	UTexture2D* GetReadingArtwork() const { return ReadingArtwork; }
+	uint32 GetPresentationRevision() const { return PresentationRevision; }
 
 	/** Sets the prompt shown before it has been read (e.g. "공지 읽기"). */
 	void SetInteractionPrompt(const FText& InPrompt) { OpenPrompt = InPrompt; }
@@ -218,6 +217,9 @@ protected:
 	bool bUsesPhoneNotificationPresentation = false;
 
 private:
+	UPROPERTY()
+	TObjectPtr<UTexture2D> ReadingArtwork;
+	uint32 PresentationRevision = 0;
 	static TWeakObjectPtr<AIGReadableNote> OpenNote;
 
 	bool bOpen = false;

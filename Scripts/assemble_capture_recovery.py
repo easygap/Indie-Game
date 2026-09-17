@@ -1,6 +1,7 @@
 """포획 검수 프레임을 게임 시각에 맞춰 GIF로 묶는다. 화면은 보정하지 않는다."""
 import argparse
 import json
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -38,6 +39,8 @@ def main():
     if args.resolution == '1920x1080':
         # GIF를 다시 잘라 양자화하면 노이즈가 커진다. 각 구간을 원본 PNG에서 만든다.
         build('m1-capture-embrace.gif', 'trim=end=3.2,setpts=PTS-STARTPTS,')
+        # README의 짧은 포획 장면도 방금 검수한 연속 프레임을 사용한다.
+        shutil.copyfile(ROOT / 'Docs/Media/m1-capture-embrace.gif', ROOT / 'Docs/Media/night-listener-chase.gif')
         build('m1-capture-wake-echo.gif', 'trim=start=2.9,setpts=PTS-STARTPTS,')
     print(f'{len(frames)}장, {frames[-1]["time"] - frames[0]["time"]:.2f}초')
 

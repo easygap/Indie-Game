@@ -1,0 +1,61 @@
+표면·문서 읽기 실행 검사 — 2026-09-17
+실행 환경: UE 5.8 / Windows / D3D12(화면 검사), NullRHI(진행 검사)
+
+에디터 빌드 — Saved\Logs\SurfaceFinalBuild.log
+Result: Succeeded
+
+프로젝트 검사 — Saved\Logs\SurfaceValidation-final.log
+Project structure validation passed (this is not an Unreal build).
+
+현관·관리실 14개 시점 — Saved\Logs\SurfaceEntry-runner.log
+ENTRY_REVIEW PASS shots=14 measure=False quality=High
+
+편의점·주변 21개 시점 — Saved\Logs\SurfaceRetail-runner.log
+[2026.09.17-06.18.50:580][437]LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+RETAIL_REVIEW PASS measure=False quality=High production=1 resolution=1920x1080
+
+문서 1080p 100% — Saved\Logs\Reading1080-runner.log
+[2026.09.17-06.00.06:365][486]LogTemp: Display: READING_REVIEW PASS failures=0
+
+문서 1080p 200% — Saved\Logs\Reading1080-large-runner.log
+[2026.09.17-05.58.16:982][619]LogTemp: Display: READING_REVIEW PASS failures=0
+
+문서 720p 100% — Saved\Logs\Reading720-normal-runner.log
+[2026.09.17-06.22.09:246][539]LogTemp: Display: READING_REVIEW PASS failures=0
+
+문서 720p 200% 최종 재검사 — Saved\Logs\Reading720-final-runner.log
+[2026.09.17-06.19.58:346][573]LogTemp: Display: READING_CHECK label_uses_installed_artwork PASS
+[2026.09.17-06.19.58:346][573]LogTemp: Display: READING_CHECK first_page_respects_text_size PASS
+[2026.09.17-06.19.58:346][573]LogTemp: Display: READING_CHECK label_text_inside_paper PASS
+[2026.09.17-06.20.01:159][718]LogTemp: Display: READING_CHECK keyboard_turns_page PASS
+[2026.09.17-06.20.01:159][718]LogTemp: Display: READING_CHECK label_second_page_inside_paper PASS
+[2026.09.17-06.20.03:969][882]LogTemp: Display: READING_CHECK another_document_starts_at_first_page PASS
+[2026.09.17-06.20.03:969][882]LogTemp: Display: READING_CHECK large_type_paginates_long_clue PASS
+[2026.09.17-06.20.03:969][882]LogTemp: Display: READING_CHECK journal_first_page_inside_paper PASS
+[2026.09.17-06.20.06:762][ 46]LogTemp: Display: READING_CHECK gamepad_turns_page PASS
+[2026.09.17-06.20.06:762][ 46]LogTemp: Display: READING_CHECK journal_page_inside_paper PASS
+[2026.09.17-06.20.09:559][200]LogTemp: Display: READING_CHECK wheel_page_inside_paper PASS
+[2026.09.17-06.20.12:369][364]LogTemp: Display: READING_CHECK wheel_page_inside_paper PASS
+[2026.09.17-06.20.16:561][612]LogTemp: Display: READING_CHECK last_page_does_not_skip_or_wrap PASS
+[2026.09.17-06.20.17:960][696]LogTemp: Display: READING_CHECK reopening_resets_page PASS
+[2026.09.17-06.20.19:360][780]LogTemp: Display: READING_CHECK tuning_clue_inside_paper PASS
+[2026.09.17-06.20.20:756][860]LogTemp: Display: READING_REVIEW PASS failures=0
+
+이동·상호작용·LOD·포획 자세 — Saved\Logs\SurfaceRealism-runner.log
+[2026.09.17-06.09.27:351][344]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+실제 포획·복귀 39프레임 — Saved\Logs\SurfaceCapture-runner.log
+[2026.09.17-06.09.38:828][520]LogTemp: Display: PHYSICAL_CAPTURE_CONTACT state=8 dormant=0 physical=1 player=X=190.000 Y=-305.000 Z=998.150 face=X=115.073 Y=-304.993 Z=1039.814 eye=X=190.000 Y=-305.000 Z=1062.150
+[2026.09.17-06.09.46:307][552]LogTemp: Display: PHYSICAL_CAPTURE PASS
+연속 프레임 39장: C:\y2026\99_개인폴더\99_project\Indie_Game\Saved\CaptureRecovery-1920x1080
+
+야간 진행·단서·추격 — Saved\Logs\SurfaceStoryProbe.log
+[2026.09.17-06.23.19:391][303]LogTemp: Display: BOOTH_RUB_PROGRESS PASS interrupted=1 resumed=1 revealed=1 instant_reread=1 restored=1
+[2026.09.17-06.23.36:378][810]LogTemp: Display: MISSINGFLOOR_N3PASS PASS: T9 armed the walk home, the learned answer stopped him in the corridor, she passed him while he waited, and 403 ended the night
+[2026.09.17-06.23.54:811][522]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+
+반입된 소품의 LOD·재질·스트리밍 — Saved\Logs\SurfaceAssets.log
+[2026.09.17-06.20.45:907][  2]LogPython: ENTRY_ASSETS PASS meshes=3 lods=4 budget=3000 emissive=0 streaming=1
+
+별도 성능 측정 — Saved\Logs\SurfacePerformance-runner.log
+ENTRY_REVIEW PASS shots=9 measure=True quality=High

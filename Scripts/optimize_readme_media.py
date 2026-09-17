@@ -26,6 +26,14 @@ OUT = os.path.join(MEDIA, "readme")
 # 인라인으로 걸리는 무거운 캡처만 줄인다. 접힌 <details> 안이나 이미 작은
 # 파일은 그대로 쓴다 — 파생본이 하나 늘 때마다 확인해야 할 것도 하나 늘어난다.
 STILLS = (
+    "cloth-before-vest-installed.png",
+    "cloth-after-vest-installed.png",
+    "cloth-before-vest-angle.png",
+    "cloth-after-vest-angle.png",
+    "surface-before-capture.png",
+    "surface-after-capture.png",
+    "reading-label-1920x1080-1.png",
+    "reading-journal-1280x720-2.png",
     "ux-quiet-1920x1080.png",
     "ux-guide-keyboard-1920x1080.png",
     "entry-before-room.png",

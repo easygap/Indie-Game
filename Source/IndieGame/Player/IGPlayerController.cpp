@@ -15,6 +15,7 @@
 #include "Entity/IGMissingFloorEpilogueDirector.h"
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "InputCoreTypes.h"
+#include "Interaction/IGReadableNote.h"
 #include "InputKeyEventArgs.h"
 #include "GameFramework/GameUserSettings.h"
 #include "Kismet/GameplayStatics.h"
@@ -441,6 +442,13 @@ bool AIGPlayerController::InputKey(const FInputKeyEventArgs& Params)
 	if (Params.Event == IE_Pressed && SystemMenuMode == EIGSystemMenuMode::Hidden
 		&& !bAccessibilityMenuVisible && !bMissingFloorJournalVisible)
 	{
+		if (AIGReadableNote::GetOpenNote()
+			&& (Params.Key == EKeys::MouseScrollUp || Params.Key == EKeys::MouseScrollDown))
+		{
+			if (AIGHorrorHUD* NoteHud = Cast<AIGHorrorHUD>(GetHUD()))
+				NoteHud->MoveNotePage(Params.Key == EKeys::MouseScrollUp ? -1 : 1);
+			return true;
+		}
 		const UIGInputBindingSubsystem* Bindings = GetGameInstance()->GetSubsystem<UIGInputBindingSubsystem>();
 		AIGHorrorHUD* Hud = Cast<AIGHorrorHUD>(GetHUD());
 		if (Bindings && Hud && Params.Key == Bindings->GetBoundKey(
@@ -2333,6 +2341,12 @@ void AIGPlayerController::CloseMissingFloorJournal()
 
 void AIGPlayerController::MoveMissingFloorJournalPage(const int32 Direction)
 {
+	if (AIGReadableNote::GetOpenNote() && SystemMenuMode == EIGSystemMenuMode::Hidden
+		&& !bAccessibilityMenuVisible && !bMissingFloorJournalVisible)
+	{
+		if (AIGHorrorHUD* NoteHud = Cast<AIGHorrorHUD>(GetHUD())) NoteHud->MoveNotePage(Direction);
+		return;
+	}
 	if (!bMissingFloorJournalVisible || Direction == 0)
 	{
 		return;

@@ -247,7 +247,7 @@ void AIGHorrorHUD::BeginPlay()
 	// Optional: absent until Scripts/Prepare-AIArt.ps1 has produced it, in
 	// which case the reading panel falls back to a flat fill.
 	NotePaperTexture = LoadObject<UTexture2D>(
-		nullptr, TEXT("/Game/Prototype/Textures/T_PaperOld_V2_D.T_PaperOld_V2_D"));
+		nullptr, TEXT("/Game/Prototype/Textures/T_PaperClean_V2_D.T_PaperClean_V2_D"));
 	ReceiptPaperTexture = LoadObject<UTexture2D>(
 		nullptr, TEXT("/Game/Prototype/Textures/T_PaperClean_V2_D.T_PaperClean_V2_D"));
 	InitializeLensDropletTexture();
@@ -7350,124 +7350,128 @@ void AIGHorrorHUD::DrawFocusBracket(const FLinearColor& Color, const float Progr
 	DrawCorner(DrawMax, -1.0f, -1.0f, CornerX, CornerY);
 }
 
-void AIGHorrorHUD::DrawNotePanel()
+void AIGHorrorHUD::MoveNotePage(const int32 Direction)
 {
 	const AIGReadableNote* Note = AIGReadableNote::GetOpenNote();
-	if (!Note || !Canvas)
-	{
-		return;
-	}
+	if (!Note || Direction == 0 || ReadingLayoutNote.Get() != Note
+		|| ReadingLayoutRevision != Note->GetPresentationRevision()) return;
+	NotePageIndex = FMath::Clamp(NotePageIndex + FMath::Sign(Direction), 0, NotePageCount - 1);
+}
 
+void AIGHorrorHUD::DrawNotePanel()
+{
+	AIGReadableNote* Note = AIGReadableNote::GetOpenNote();
+	if (!Note || !Canvas) return;
 	if (Note->UsesPhoneNotificationPresentation())
 	{
 		DrawPhoneNotificationPanel(*Note);
 		return;
 	}
-
 	if (Note->UsesThermalReceiptPresentation())
 	{
 		DrawThermalReceiptPanel(*Note);
 		return;
 	}
-
-	const float ScreenWidth = Canvas->ClipX;
-	const float ScreenHeight = Canvas->ClipY;
-
-	// Scrim: the room is still there, just pushed back behind the paper.
-	DrawRect(FLinearColor(0.0f, 0.0f, 0.0f, 0.72f), 0.0f, 0.0f, ScreenWidth, ScreenHeight);
-
-	// The sheet itself: A4 proportions, sized to the shorter screen axis.
-	const float PaperHeight = FMath::Min(ScreenHeight * 0.78f, 720.0f);
-	const float PaperWidth = PaperHeight * 0.707f;
-	const FVector2D PaperOrigin(
-		(ScreenWidth - PaperWidth) * 0.5f,
-		(ScreenHeight - PaperHeight) * 0.5f);
-
-	// A hairline drop shadow lifts the sheet off the scrim.
-	DrawRect(
-		FLinearColor(0.0f, 0.0f, 0.0f, 0.55f),
-		PaperOrigin.X + 6.0f, PaperOrigin.Y + 8.0f, PaperWidth, PaperHeight);
-
-	// The sheet is real aged paper when the texture is present — creases,
-	// tape marks, a water stain. A flat fill only ever looked like a dialog
-	// box, and a note the player is meant to believe in cannot look like UI.
-	if (NotePaperTexture)
-	{
-		DrawTexture(
-			NotePaperTexture,
-			PaperOrigin.X, PaperOrigin.Y, PaperWidth, PaperHeight,
-			0.0f, 0.0f, 1.0f, 1.0f,
-			FLinearColor::White, BLEND_Opaque);
-	}
-	else
-	{
-		DrawRect(
-			FLinearColor(0.88f, 0.87f, 0.83f, 1.0f),
-			PaperOrigin.X, PaperOrigin.Y, PaperWidth, PaperHeight);
-	}
-
-	UFont* TitleFont = GetFontForRole(EIGHudTextRole::Objective);
 	UFont* BodyFont = GetFontForRole(EIGHudTextRole::Prompt);
 	UFont* HintFont = GetFontForRole(EIGHudTextRole::Hint);
-	if (!TitleFont || !BodyFont)
+	if (!BodyFont || !HintFont) return;
+	const UIGAccessibilitySubsystem* Accessibility = GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>();
+	const float UserScale = Accessibility ? Accessibility->GetCaptionSizeScale() : 1.f;
+	const float Scale = GetResolutionTextScale(UserScale);
+	const float ScreenScale = FMath::Clamp(Canvas->ClipY / 1080.f, .65f, 1.5f);
+	UTexture2D* Artwork = SupportsKorean() ? Note->GetReadingArtwork() : nullptr;
+	const bool HasArtwork = Artwork != nullptr;
+	const float PaperHeight = FMath::Min(Canvas->ClipY * .80f, 860.f * ScreenScale);
+	const float PaperWidth = FMath::Min(Canvas->ClipX * .86f,
+		HasArtwork ? PaperHeight * 1.385f : PaperHeight * .707f);
+	const float Height = HasArtwork ? PaperWidth / 1.385f : PaperHeight;
+	const FVector2D Origin((Canvas->ClipX-PaperWidth)*.5f, (Canvas->ClipY-Height)*.5f);
+	const float Margin = PaperWidth * .075f;
+	const float TextWidth = PaperWidth - Margin*2;
+	const float LineHeight = MeasureTextHeight(TEXT("가Ag"), BodyFont, Scale) * 1.4f;
+	const float HeaderHeight = MeasureTextHeight(TEXT("가Ag"), BodyFont, Scale) * 1.6f;
+	const float BodyTop = Origin.Y + Margin + HeaderHeight + 16*ScreenScale;
+	const float BodyBottom = Origin.Y + Height - Margin;
+	const int32 LinesPerPage = FMath::Max(1, FMath::FloorToInt((BodyBottom-BodyTop)/LineHeight));
+	const FVector2D LayoutSize(PaperWidth, Height);
+	if (ReadingLayoutNote.Get() != Note || ReadingLayoutRevision != Note->GetPresentationRevision()
+		|| !ReadingLayoutSize.Equals(LayoutSize, .1f) || !FMath::IsNearlyEqual(ReadingLayoutScale, Scale))
 	{
-		return;
-	}
-
-	const FLinearColor Ink(0.11f, 0.10f, 0.09f, 1.0f);
-	const float LeftMargin = PaperOrigin.X + PaperWidth * 0.09f;
-	float PenY = PaperOrigin.Y + PaperHeight * 0.09f;
-
-	// Heading, then the rule under it.
-	const FString TitleString = Note->GetTitle().ToString();
-	if (!TitleString.IsEmpty())
-	{
-		FCanvasTextItem TitleItem(
-			FVector2D(LeftMargin, PenY), FText::FromString(TitleString), TitleFont, Ink);
-		Canvas->DrawItem(TitleItem);
-		PenY += TitleFont->GetMaxCharHeight() * 1.15f;
-
-		DrawRect(
-			FLinearColor(0.35f, 0.33f, 0.30f, 1.0f),
-			LeftMargin, PenY, PaperWidth * 0.82f, 1.5f);
-		PenY += BodyFont->GetMaxCharHeight() * 1.1f;
-	}
-
-	// The body is authored with explicit line breaks: Korean has no spaces to
-	// break on in the places that matter, so automatic wrapping produces worse
-	// line endings than simply writing the copy to fit.
-	const float LineHeight = BodyFont->GetMaxCharHeight() * 1.45f;
-	for (const FText& Line : Note->GetBodyLines())
-	{
-		// Empty entries are deliberate paragraph breaks.
-		if (!Line.IsEmpty())
+		const bool Reopened = ReadingLayoutNote.Get() != Note || ReadingLayoutRevision != Note->GetPresentationRevision();
+		ReadingLayoutNote = Note;
+		ReadingLayoutRevision = Note->GetPresentationRevision();
+		ReadingLayoutSize = LayoutSize;
+		ReadingLayoutScale = Scale;
+		ReadingTextPages.Reset();
+		TArray<FString> Lines;
+		for (const FText& Paragraph : Note->GetBodyLines())
 		{
-			FCanvasTextItem LineItem(FVector2D(LeftMargin, PenY), Line, BodyFont, Ink);
-			Canvas->DrawItem(LineItem);
+			if (Paragraph.IsEmpty()) { Lines.Add(FString()); continue; }
+			TArray<FString> Wrapped;
+			FString Remaining;
+			WrapHudText(Paragraph.ToString(), BodyFont, Scale, TextWidth, MAX_int32, Wrapped, Remaining);
+			Lines.Append(Wrapped);
 		}
-		PenY += LineHeight;
+		for (int32 Index = 0; Index < Lines.Num(); ++Index)
+		{
+			if (Index % LinesPerPage == 0) ReadingTextPages.AddDefaulted();
+			ReadingTextPages.Last().Add(Lines[Index]);
+		}
+		if (ReadingTextPages.IsEmpty()) ReadingTextPages.AddDefaulted();
+		NotePageCount = ReadingTextPages.Num() + int32(HasArtwork);
+		if (Reopened) NotePageIndex = HasArtwork && UserScale > 1.15f ? 1 : 0;
+		NotePageIndex = FMath::Clamp(NotePageIndex, 0, NotePageCount-1);
 	}
-
-	// Dismiss hint at the foot of the sheet.
-	if (HintFont)
+	const FLinearColor Ink(.075f, .080f, .078f, 1);
+	DrawRect(FLinearColor(0,0,0,.72f), 0, 0, Canvas->ClipX, Canvas->ClipY);
+	DrawRect(FLinearColor(0,0,0,.55f), Origin.X+5*ScreenScale, Origin.Y+7*ScreenScale, PaperWidth, Height);
+	const bool ArtworkPage = HasArtwork && NotePageIndex == 0;
+	UTexture2D* Paper = ArtworkPage ? Artwork : NotePaperTexture.Get();
+	if (Paper)
+		DrawTexture(Paper, Origin.X, Origin.Y, PaperWidth, Height, 0, 0, 1, 1, FLinearColor::White, BLEND_Opaque);
+	else
+		DrawRect(FLinearColor(.91f,.91f,.89f,1), Origin.X, Origin.Y, PaperWidth, Height);
+	bNoteTextWithinPaper = true;
+	if (!ArtworkPage)
 	{
-		const FText Hint = FText::Format(SupportsKorean()
-			? NSLOCTEXT("IGHUD", "NoteCloseBound", "[ {0} ]  덮기")
-			: FText::FromString(TEXT("[ {0} ]  Close")),
-			GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad));
-		const FString HintString = Hint.ToString();
-		float HintWidth = 0.0f;
-		float HintHeight = 0.0f;
-		Canvas->StrLen(HintFont, HintString, HintWidth, HintHeight);
-		FCanvasTextItem HintItem(
-			FVector2D(
-				PaperOrigin.X + (PaperWidth - HintWidth) * 0.5f,
-				PaperOrigin.Y + PaperHeight - HintHeight * 2.2f),
-			Hint,
-			HintFont,
-			Ink);
-		Canvas->DrawItem(HintItem);
+		const FString Title = Note->GetTitle().ToString();
+		const float TitleScale = FMath::Min(Scale, TextWidth/FMath::Max(1.f, MeasureTextWidth(Title, BodyFont, 1.f)));
+		FCanvasTextItem Header(Origin+FVector2D(Margin,Margin), FText::FromString(Title), BodyFont, Ink);
+		Header.Scale = FVector2D(TitleScale);
+		Canvas->DrawItem(Header);
+		DrawRect(FLinearColor(.25f,.28f,.29f,.5f), Origin.X+Margin,
+			Origin.Y+Margin+HeaderHeight, TextWidth, ScreenScale);
+		const TArray<FString>& Lines = ReadingTextPages[NotePageIndex-int32(HasArtwork)];
+		float Y = BodyTop;
+		for (const FString& Line : Lines)
+		{
+			FCanvasTextItem Text(FVector2D(Origin.X+Margin,Y), FText::FromString(Line), BodyFont, Ink);
+			Text.Scale = FVector2D(Scale);
+			Canvas->DrawItem(Text);
+			bNoteTextWithinPaper &= MeasureTextWidth(Line,BodyFont,Scale) <= TextWidth+.5f
+				&& Y+MeasureTextHeight(Line,BodyFont,Scale) <= BodyBottom+.5f;
+			Y += LineHeight;
+		}
 	}
+	// 안내는 종이 바깥에 둔다. 큰 글씨가 본문과 겹치거나 인쇄처럼 보이지 않는다.
+	FString Footer;
+	if (NotePageCount > 1)
+	{
+		const FString Navigation = bUsingGamepad ? TEXT("방향 패드 좌우") : TEXT("← → / 휠");
+		Footer = FString::Printf(TEXT("[ %s ]  %d / %d%s    "), *Navigation, NotePageIndex+1, NotePageCount,
+			ArtworkPage ? TEXT(" · 다음 장은 본문") : TEXT(""));
+	}
+	Footer += FText::Format(SupportsKorean()
+		? NSLOCTEXT("IGHUD", "NoteCloseBound", "[ {0} ]  덮기")
+		: FText::FromString(TEXT("[ {0} ]  Close")),
+		GetBoundKeyLabel(EIGBindableAction::Interact,bUsingGamepad)).ToString();
+	const float FooterScale = FMath::Min(.80f*Scale,
+		(Canvas->ClipX*.90f)/FMath::Max(1.f,MeasureTextWidth(Footer,HintFont,1.f)));
+	const float FooterWidth = MeasureTextWidth(Footer,HintFont,FooterScale);
+	FCanvasTextItem Hint(FVector2D((Canvas->ClipX-FooterWidth)*.5f,Origin.Y+Height+14*ScreenScale),
+		FText::FromString(Footer),HintFont,FLinearColor(.8f,.81f,.78f,1));
+	Hint.Scale = FVector2D(FooterScale);
+	Canvas->DrawItem(Hint);
 }
 
 void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)

@@ -287,6 +287,12 @@ public:
 		bool& bOutInsideSafeArea,
 		uint64& OutFrameSerial) const;
 
+	/** 문서의 페이지를 넘긴다. 다시 펼치면 첫 장부터 읽는다. */
+	void MoveNotePage(int32 Direction);
+	int32 GetNotePageIndex() const { return NotePageIndex; }
+	int32 GetNotePageCount() const { return NotePageCount; }
+	bool IsNoteTextWithinPaper() const { return bNoteTextWithinPaper; }
+
 	/**
 	 * Shows a reusable story-transition card over a fading black scrim.
 	 * All copy is supplied by the caller so the HUD remains chapter-agnostic.
@@ -506,6 +512,14 @@ private:
 	bool DrawChapterCard(double CurrentTime);
 	/** Full-screen reading panel for whatever note is currently open. */
 	void DrawNotePanel();
+	TWeakObjectPtr<AIGReadableNote> ReadingLayoutNote;
+	uint32 ReadingLayoutRevision = 0;
+	FVector2D ReadingLayoutSize = FVector2D::ZeroVector;
+	float ReadingLayoutScale = 0;
+	TArray<TArray<FString>> ReadingTextPages;
+	int32 NotePageIndex = 0;
+	int32 NotePageCount = 1;
+	bool bNoteTextWithinPaper = false;
 	/** Narrow, dense convenience-store thermal receipt presentation. */
 	void DrawThermalReceiptPanel(const AIGReadableNote& Note);
 	/** Dark, portrait phone screen used for the CH02 card approval record. */
