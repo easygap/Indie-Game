@@ -1,6 +1,7 @@
 [CmdletBinding()]
 param([switch]$Before, [switch]$Measure,
-    [ValidateSet('High','Performance')][string]$Quality = 'High')
+    [ValidateSet('High','Performance')][string]$Quality = 'High',
+    [ValidateRange(-1,3)][int]$TsrAsyncCompute = -1)
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $project = Join-Path $root 'IndieGame.uproject'
@@ -14,6 +15,7 @@ if ($Before) { $argsForGame += '-IGDetailBaseline' }
 $commands = if ($Quality -eq 'Performance') { @('Scalability 1', 'sg.ResolutionQuality 71', 'r.ScreenPercentage 71') }
     else { @('Scalability 2', 'sg.ResolutionQuality 100', 'r.ScreenPercentage 100') }
 if ($Measure) { $argsForGame += @('-IGCaptureMetricsOnly','-csvGpuStats'); $commands += @('t.MaxFPS 0','r.VSync 0') }
+if ($TsrAsyncCompute -ge 0) { $commands += "r.TSR.AsyncCompute $TsrAsyncCompute" }
 $argsForGame += '-ExecCmds=' + ($commands -join ',')
 $settings = Join-Path $root 'Saved/Config/WindowsEditor/GameUserSettings.ini'
 $savedSettings = if (Test-Path -LiteralPath $settings) { [IO.File]::ReadAllBytes($settings) } else { $null }

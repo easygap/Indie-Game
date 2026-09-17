@@ -1,0 +1,58 @@
+{
+  "date": "2026-09-17",
+  "baseline_commit": "a7505d5b4f7d11185dcdb397becb4534ec0bfa64",
+  "logs": {
+    "build": {
+      "file": "Saved/Logs/Build-BoothGameplay.log",
+      "sha256": "5b1300bcb4ac3dc3d1921abc23dee82bc79c40404d52ea275993d0b60928fb8c",
+      "result": [
+        "Result: Succeeded",
+        "Total execution time: 16.81 seconds"
+      ]
+    },
+    "progress": {
+      "file": "Saved/Logs/MissingFloorGreybox.log",
+      "sha256": "a0241ede75925c3e4e98a18ef9ec4fbce86ef83c0b6c23ec75dc21d2d4b5cb07",
+      "result": [
+        "[2026.09.17-00.46.39:353][448]LogTemp: Display: BOOTH_RUB_PROGRESS PASS interrupted=1 resumed=1 revealed=1 instant_reread=1 restored=1",
+        "[2026.09.17-00.47.23:217][285]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS"
+      ]
+    },
+    "controls": {
+      "file": "Saved/Logs/GameplayRealism-60.log",
+      "sha256": "839a3d7ff3f7ca4dde3d7ed38ad779341ddf10a9f05a5f8046674662cd322e4a",
+      "result": [
+        "[2026.09.17-00.47.40:009][344]LogIndieGame: Display: REALISM_PROBE PASS failures=0"
+      ]
+    },
+    "spatial": {
+      "file": "Saved/Logs/RetailReview-BoothSweep20260917.log",
+      "sha256": "c9551ee127158689fa0253e2da4e9c70d1ce33abedbc8f670da8998bc61b84aa",
+      "result": [
+        "[2026.09.17-00.47.59:490][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27",
+        "[2026.09.17-00.50.18:176][456]LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1"
+      ]
+    },
+    "booth_day": {
+      "file": "Saved/Logs/BoothReview-False-False.log",
+      "sha256": "eaa63dd6a543849505804019b9ffb6abde26835d2207230d3350e8209c52aae1",
+      "result": [
+        "[2026.09.17-01.02.54:432][609]LogTemp: Display: BOOTH_REVIEW PASS shots=8"
+      ]
+    },
+    "booth_night": {
+      "file": "Saved/Logs/BoothReview-False-True.log",
+      "sha256": "d8b67ef2f87076e037386fe51c9423b3fae6d2b9e4ff8dd099d1088568efd085",
+      "result": [
+        "[2026.09.17-01.04.13:105][399]LogTemp: Display: BOOTH_REVIEW PASS shots=8"
+      ]
+    },
+    "repository": {
+      "file": "Saved/Logs/Validate-Booth-20260917.log",
+      "sha256": "313afe17c75606b364569631b164afd6759c1c2be2c19b70f72f3b072aff9101",
+      "result": [
+        "Project structure validation passed (this is not an Unreal build)."
+      ]
+    }
+  }
+}

@@ -152,7 +152,7 @@ namespace IGHorrorHUD
 				TEXT("석고보드 납품서"), TEXT("9.5T 석고보드 / 7월 26일"),
 				TEXT("관리실 책상 · 밤 2"), EJournalThumbnail::Document},
 			{TEXT("Office.CarbonLedgerOriginal"), EJournalLane::Administration,
-				TEXT("민원 원장 먹지"), TEXT("401호: 벽에서 쿵쿵. 사람 소리 같다."),
+				TEXT("민원 접수철 밑장"), TEXT("7/27 · 401호: 벽에서 쿵쿵. 사람 소리 같음."),
 				TEXT("관리실 책상 · 7/27~7/31"), EJournalThumbnail::Document},
 			{TEXT("Office.AgentMoveOutMessage"), EJournalLane::Administration,
 				TEXT("중개인 문자"), TEXT("5층 짐 뺐습니다. 7/26."),
@@ -2055,10 +2055,14 @@ void AIGHorrorHUD::DrawHUD()
 				PromptFormat,
 				FocusedPrompt,
 				KeyLabel);
-			// 브래킷이 큰 대상(문·냉장고)을 감싸면 글자를 뚫고 지나간다. 그 아래로 내린다.
-			const float PromptTop = FMath::Max(
+			// 문 바로 앞에서는 브래킷 하단이 화면 밖으로 나간다. 안내 문구는
+			// 글자 높이와 하단 조작 안내 여백을 빼고 화면 안에 남긴다.
+			const float PromptHeight = MeasureTextHeight(
+				Prompt.ToString(), GetFontForRole(EIGHudTextRole::Prompt), 1.f);
+			const float PromptBottomLimit = FMath::Max(0.f, Canvas->ClipY - 54.f - PromptHeight);
+			const float PromptTop = FMath::Clamp(FMath::Max(
 				(Canvas->ClipY * 0.5f) + 54.0f,
-				FocusBracketAlpha > 0.01f ? FocusBracketMax.Y + 14.0f : 0.0f);
+				FocusBracketAlpha > 0.01f ? FocusBracketMax.Y + 14.0f : 0.0f), 0.f, PromptBottomLimit);
 			DrawCenteredText(
 				Prompt,
 				PromptTop,

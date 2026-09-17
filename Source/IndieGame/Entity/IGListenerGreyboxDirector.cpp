@@ -3947,8 +3947,28 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
-		// Two passes of frottage restore nothing yet...
+		// 중간에 손을 떼도 칠한 흔적과 남은 작업 시간이 보존된다.
 		Context.TargetActor = Carbon;
+		const float FullRubDuration = Carbon->GetInteractionHoldDuration_Implementation(Player.Get());
+		Carbon->BeginInteraction_Implementation(Context);
+		Context.HoldProgress = .5f;
+		Carbon->UpdateInteraction_Implementation(Context);
+		Carbon->EndInteraction_Implementation(Context, EIGInteractionEndReason::Cancelled);
+		if (!FMath::IsNearlyEqual(Carbon->GetRevealFraction(), 1.f / 6.f, .002f)
+			|| !FMath::IsNearlyEqual(Carbon->GetInteractionHoldDuration_Implementation(Player.Get()), FullRubDuration * .5f, .002f)
+			|| Carbon->GetCompletedStageCount() != 0 || Carbon->HasBeenExamined())
+		{
+			FailProbe(TEXT("접수철 중단 후 진행 보존 실패")); return;
+		}
+		Carbon->BeginInteraction_Implementation(Context);
+		Carbon->UpdateInteraction_Implementation(Context);
+		Carbon->EndInteraction_Implementation(Context, EIGInteractionEndReason::Cancelled);
+		if (!FMath::IsNearlyEqual(Carbon->GetRevealFraction(), .25f, .002f))
+		{
+			FailProbe(TEXT("접수철 남은 작업 재개 실패")); return;
+		}
+		Context.HoldProgress = 1.f;
+		// 두 줄만 복원했을 때는 증거를 확정하지 않는다.
 		IIGInteractable::Execute_CompleteInteraction(Carbon, Context);
 		IIGInteractable::Execute_CompleteInteraction(Carbon, Context);
 		if (Narrative->HasSource(
@@ -3960,6 +3980,26 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		}
 		// ...and the third files the original.
 		IIGInteractable::Execute_CompleteInteraction(Carbon, Context);
+		if (!FMath::IsNearlyEqual(Carbon->GetRevealFraction(), 1.f)
+			|| Carbon->GetInteractionHoldDuration_Implementation(Player.Get()) != 0.f)
+		{
+			FailProbe(TEXT("복원한 접수철의 읽기 전환 실패")); return;
+		}
+		// 이미 읽은 증거로 액터를 다시 만들면 복원된 종이와 즉시 읽기가 돌아온다.
+		AIGMissingFloorEvidence* RestoredPad = GetWorld()->SpawnActor<AIGMissingFloorEvidence>();
+		if (!RestoredPad) { FailProbe(TEXT("접수철 복구 검사 액터 생성 실패")); return; }
+		RestoredPad->Configure(Carbon->GetPresentationMesh()->GetStaticMesh(), Carbon->GetPresentationMesh()->GetMaterial(0), FVector::ZeroVector,
+			FText::GetEmpty(), FText::GetEmpty(), EIGMissingFloorTruth::WasStillAlive,
+			EIGMissingFloorSource::CarbonLedgerOriginal, FullRubDuration, .25f);
+		RestoredPad->SetProgressiveStages({FText::GetEmpty(), FText::GetEmpty()});
+		const bool bRestored = RestoredPad->ConfigureProgressReveal(
+			LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_ComplaintImpression.M_ComplaintImpression")),
+			FVector::ZeroVector, FVector2D(19.8f,27.7f), FText::GetEmpty())
+			&& RestoredPad->HasBeenExamined() && FMath::IsNearlyEqual(RestoredPad->GetRevealFraction(), 1.f)
+			&& RestoredPad->GetInteractionHoldDuration_Implementation(Player.Get()) == 0.f;
+		RestoredPad->Destroy();
+		if (!bRestored) { FailProbe(TEXT("저장된 접수철 복원 상태 재구성 실패")); return; }
+		UE_LOG(LogTemp, Display, TEXT("BOOTH_RUB_PROGRESS PASS interrupted=1 resumed=1 revealed=1 instant_reread=1 restored=1"));
 		if (!Narrative->HasSource(
 			EIGMissingFloorTruth::WasStillAlive,
 			EIGMissingFloorSource::CarbonLedgerOriginal))
@@ -5571,7 +5611,8 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 	ArrivalCaptureStep = 0;
 	// 근접 사진은 입주 자막과 시작 위치 보정이 끝난 뒤 찍는다.
 	const bool bDetailScreens = (FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) ||
-		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit"))) && !bCaptureMetricsOnly;
+		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGBoothReview"))) && !bCaptureMetricsOnly;
 	if (!bDetailScreens) AdvanceArrivalCapture();
 	GetWorldTimerManager().SetTimer(
 		ArrivalCaptureTimer,
@@ -5584,6 +5625,57 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGBoothReview")))
+	{
+		const int32 Step = ArrivalCaptureStep++;
+		const int32 Index = Step / 4;
+		const bool bBoothNight = FParse::Param(FCommandLine::Get(), TEXT("IGBoothNight"));
+		if (Step == 0 && bBoothNight && NightPhase)
+		{
+			NightPhase->BeginTheHour(2);
+			if (Entity) { Entity->SetDormant(true); }
+		}
+		const TCHAR* Names[] = {TEXT("desk"), TEXT("ledger"), TEXT("pad-blank"), TEXT("pad-partial"),
+			TEXT("pad-first"), TEXT("pad-second"), TEXT("pad-complete"), TEXT("desk-return")};
+		if (!PuzzleTwo || !PuzzleTwo->GetCarbonLedger()) { FailProbe(TEXT("관리실 접수철 없음")); return; }
+		AIGMissingFloorEvidence* Pad = PuzzleTwo->GetCarbonLedger();
+		if (Index < UE_ARRAY_COUNT(Names))
+		{
+			if (Step % 4 == 0)
+			{
+				CaptureTeleportPlayer(FVector(165, -175, 98), 90, -35);
+				const bool bWide = Index == 0 || Index == 7;
+				const FVector Target = bWide ? FVector(150, -105, 84) : FVector(Index == 1 ? 120 : 179, -103, 77);
+				const FVector Eye = bWide ? FVector(160, -190, 145) : Target + FVector(0, -36, 37);
+				ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(Eye, (Target - Eye).Rotation());
+				if (!Camera) { FailProbe(TEXT("접수철 검사 카메라 없음")); return; }
+				Camera->GetCameraComponent()->SetFieldOfView(bWide ? 72 : 55);
+				GetWorld()->GetFirstPlayerController()->SetViewTarget(Camera);
+				FIGInteractionContext Context; Context.Interactor = Player.Get();
+				if (Index == 3)
+				{
+					Pad->BeginInteraction_Implementation(Context);
+					Context.HoldProgress = .5f;
+					Pad->UpdateInteraction_Implementation(Context);
+					Pad->EndInteraction_Implementation(Context, EIGInteractionEndReason::Cancelled);
+				}
+				if (Index >= 4 && Index <= 6) Pad->CompleteInteraction_Implementation(Context);
+			}
+			if (Step % 4 == 3)
+			{
+				const FString Prefix = FParse::Param(FCommandLine::Get(), TEXT("IGBoothBaseline")) ? TEXT("booth-before-")
+					: bBoothNight ? TEXT("booth-night-") : TEXT("booth-");
+				CaptureShot(*(Prefix + Names[Index]));
+			}
+		}
+		else if (Step == UE_ARRAY_COUNT(Names) * 4 + 2)
+		{
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("BOOTH_REVIEW PASS shots=8"));
+			RequestExit(false);
+		}
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")))
 	{
 		struct FPrintView { const TCHAR* Name; FVector Position; float Yaw; float Pitch; int32 Sample; float Turn; };

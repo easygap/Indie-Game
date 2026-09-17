@@ -228,16 +228,28 @@
         43.5
       ]
     },
+    "SM_ComplaintImpressionPad": {
+      "origin": [
+        0.0,
+        0.0,
+        0.3131
+      ],
+      "extent": [
+        10.65,
+        15.0,
+        0.3131
+      ]
+    },
     "SM_ComplaintLedger": {
       "origin": [
-        -0.3125,
+        0.125,
         0.0,
         0.0
       ],
       "extent": [
-        11.0625,
+        11.125,
         15.35,
-        1.4
+        1.43
       ]
     },
     "SM_ConstructionSheetDrape": {
@@ -538,6 +550,18 @@
         20.0,
         10.5,
         60.0
+      ]
+    },
+    "SM_GraphitePencil": {
+      "origin": [
+        0.0,
+        -0.0,
+        7.35
+      ],
+      "extent": [
+        0.355,
+        0.355,
+        7.55
       ]
     },
     "SM_GypsumChipCluster": {

@@ -28,7 +28,7 @@
 | 목한수·황순금·나린 | 같은 시트 나머지 | 각 `T_Sprite*_D`, `M_Sprite*` | Prepared sprite | 고정 원거리 큐가 생길 때만 배치 | 근접 대화 대용 금지. 현재는 미배치가 정답 |
 | 조율 렌치 | `SheetMissingFloorHeroPropsReference.png` 우상 | `SM_TuningHammer` | 3D hero prop | 밤3 자재 위, P3·엔딩 인과 | 27cm L자형, 실제 접촉 그림자, 원통형 청음봉 폴백은 개발 전용 |
 | 조율 공구 카트 | 같은 시트 좌상 | `SM_TunerToolCart` | 3D prop | 5층 서북 모서리 | 45×34×78cm, 선반 틈·바퀴·손잡이 시차, 바닥 관통 0 |
-| 민원 원장·먹지 | 같은 시트 좌하 | `SM_ComplaintLedger` | 3D hero paper | 관리실 책상 Z=76cm 위 | 2.8cm 실제 두께, 중심 Z=77.5cm, 접촉 그림자, 공중 부양 0 |
+| 민원 대장·접수철·연필 | `BoothStationeryStudy_20260917.png`, `ComplaintRubbing_20260917.png` | `SM_ComplaintLedger`, `SM_ComplaintImpressionPad`, `SM_GraphitePencil`, `M_ComplaintImpression` | 3D 소품 + 진행에 따른 표면 복원 | 관리실 책상 Z=76cm 위 | A4 대장과 얇은 접수철 구분, 3단계 복원, 중단·재개, 표지 인쇄 정방향, 책등 중첩 없음 |
 | 달력 뒷장 소리 일지 | 같은 시트 우하 | `SM_CalendarJournal` | 3D hero paper | 401호 문 앞 전달 큐 | 종이판·상단 바인딩 실제 기하, 글은 런타임 패널, 가짜 글자 0 |
 | 1인칭 두드리기 오른손 | `SheetFirstPersonKnockPhases_v2.png` | `T_FPHandKnock0..3_D` | UI-space RGBA sprite blend | Q/B 유효 노크의 준비·접촉·반동 0.22초 | 같은 손·소매 유지, 입력 프레임에 접촉(2), 소매 끝은 화면 밖, 초록 프린지 0, 흔들림 감소 시 이동 0, 월드 평면 0 |
 | 1인칭 포획 포옹 | `SheetListenerCaptureEmbracePhases_v1.png` | `T_FPCaptureEmbrace0..3_D` | UI-space RGBA sprite blend | 포획 암전의 접촉·접근·닫힘·유지 1.2초 | 같은 두 팔·건식 석고·낡은 옷, 얼굴/몸통 0, 중앙 35% 가독, 화면 밖 소매 끝, 초록 프린지 0, 흔들림 감소 정지 프레임, 월드 평면 0 |

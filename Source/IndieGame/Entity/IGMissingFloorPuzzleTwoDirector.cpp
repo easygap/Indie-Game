@@ -29,8 +29,8 @@ namespace IGPuzzleTwo
 	// Desk top is Z=76.  The 2.8 cm ledger rests at Z=77.5, never at the old
 	// upright-paper centre that made it intersect and appear to float.
 	const FVector FairCopyLocation(120.0f, -103.0f, 77.5f);
-	// 녹화기 오른쪽에 4.8cm를 띄워 먹지를 놓는다.
-	const FVector CarbonLocation(179.0f, -103.0f, 77.5f);
+	// 접수철의 얇은 받침이 상판(Z=76)에 닿는다.
+	const FVector CarbonLocation(179.0f, -103.0f, 76.35f);
 	// 책상에 놓인 종이다. 세워 놓고 중심을 Z=80에 두면 24cm 높이의 절반이
 	// 상판(Z=76) 아래로 들어가 책상에 박힌다 — 위 두 장에서 이미 한 번 고친
 	// 실수다. 눕히고 상판 위에 올린다.
@@ -41,7 +41,7 @@ namespace IGPuzzleTwo
 	/**
 	 * 자재 반입 영수증 두 장. 관리실 상판(X 105..215, Y -137.5..-82.5, Z=76)
 	 * 앞쪽 오른편의 빈자리다 — 대리인 쪽지(X 196..214, Y -115..-91)와는
-	 * Y로 갈라지고, 정서본·먹지·받침대는 전부 X 105..183 안쪽에 있다.
+	 * Y로 갈라진다. 접수철은 X 168..190, Y -118..-88에 놓인다.
 	 * 눕혀서 얹는다. 세우면 절반이 상판 아래로 들어간다.
 	 */
 	const FVector BoardReceiptsLocation(196.0f, -126.0f, 76.08f);
@@ -116,6 +116,8 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	}
 	UStaticMesh* ComplaintLedgerMesh = LoadObject<UStaticMesh>(
 		nullptr, TEXT("/Game/Meshes/SM_ComplaintLedger.SM_ComplaintLedger"));
+	UStaticMesh* ImpressionPadMesh = LoadObject<UStaticMesh>(
+		nullptr, TEXT("/Game/Meshes/SM_ComplaintImpressionPad.SM_ComplaintImpressionPad"));
 	UMaterialInterface* LedgerMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
 	// 대리인 문자 사본은 어제 뽑은 출력물이다. 낡은 장부 종이가 아니라
@@ -130,16 +132,6 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		nullptr, TEXT("/Game/Prototype/Materials/M_PlasticDark.M_PlasticDark"));
 	UMaterialInterface* MetalMaterial = LoadObject<UMaterialInterface>(
 		nullptr, TEXT("/Game/Prototype/Materials/M_MetalFrame.M_MetalFrame"));
-	// 먹지는 낡은 종이가 아니다. 왁스 안료가 눌린 자리에서 얇아져 광택이
-	// 달라지는 것이 이 물건의 전부이고, 플레이어가 문지르는 동안 보는 것도
-	// 그것이다. 정서본과 같은 재질을 쓰면 「두 기록이 다르다」가 물건 단계에서
-	// 이미 무너진다. 미베이크 환경에서는 기존 종이로 폴백해 진행을 막지 않는다.
-	UMaterialInterface* CarbonMaterial = LoadObject<UMaterialInterface>(
-		nullptr, TEXT("/Game/Prototype/Materials/M_CarbonPaper.M_CarbonPaper"));
-	if (!CarbonMaterial)
-	{
-		CarbonMaterial = LedgerMaterial;
-	}
 	// Her own phone, the cracked one CH03 already models.
 	UStaticMesh* PhoneMesh = LoadObject<UStaticMesh>(
 		nullptr, TEXT("/Game/Meshes/SM_CrackedPhone.SM_CrackedPhone"));
@@ -188,7 +180,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	}
 	FairCopyLedger->ConfigurePrototypeVisuals(
 		ComplaintLedgerMesh ? ComplaintLedgerMesh : CubeMesh,
-		ComplaintLedgerMesh ? LedgerMaterial : nullptr,
+		ComplaintLedgerMesh ? nullptr : LedgerMaterial,
 		ComplaintLedgerMesh
 			? FVector(100.0f, 100.0f, 100.0f)
 			: FVector(21.0f, 1.2f, 29.7f),
@@ -209,7 +201,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 				"담당  목한수  /  확인란 별도"),
 		});
 
-	// The carbon pad. Three passes of the pencil; the truth is the third.
+	// 뜯어낸 접수지 아래 남은 눌린 글씨. 저장 파일의 기존 Carbon 식별자는 유지한다.
 	SpawnParameters.Name = TEXT("MissingFloorCarbonLedger");
 	CarbonLedger = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
@@ -220,19 +212,16 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		return false;
 	}
 	CarbonLedger->Configure(
-		ComplaintLedgerMesh ? ComplaintLedgerMesh : CubeMesh,
-		ComplaintLedgerMesh ? CarbonMaterial : nullptr,
-		// 저작된 민원 대장은 22 x 30.7 x 2.8cm로 이미 실제 크기다. 예전에는
-		// 여기에 (100,100,100)을 넘겨서 책이 1m 정육면체로 부풀었고, 관리실
-		// 책상 캡처가 먹지 한 장으로 가득 찼다.
-		ComplaintLedgerMesh
+		ImpressionPadMesh ? ImpressionPadMesh : CubeMesh,
+		ImpressionPadMesh ? nullptr : SheetMaterial,
+		ImpressionPadMesh
 			? FVector::ZeroVector
-			: FVector(21.0f, 1.0f, 29.7f),
-		NSLOCTEXT("IGMissingFloor", "P2CarbonPrompt", "먹지 — 문지른다"),
+			: FVector(21.0f, 29.7f, .6f),
+		NSLOCTEXT("IGMissingFloor", "P2CarbonPrompt", "접수철 밑장 — 연필로 문지른다"),
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2CarbonRestored",
-			"「벽에서 쿵쿵. 사람 소리 같다.」 7월 27일에 접수됐다고 적혀 있다."),
+			"31일에도 들린다고 했는데, 장부에는 ‘소음 없음. 종결’이라고 적혀 있다."),
 		EIGMissingFloorTruth::WasStillAlive,
 		EIGMissingFloorSource::CarbonLedgerOriginal,
 		IGPuzzleTwo::FrottageHoldSeconds,
@@ -245,12 +234,28 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2CarbonStage1",
-			"글자가 비친다. 연필을 더 눕혀야겠다."),
+			"7월 27일, 401호. ‘벽에서 쿵쿵. 사람 소리 같음.’ 다음 날에도 전화했네."),
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2CarbonStage2",
-			"날짜가 나온다. 7월 27… 28… 조금만 더."),
+			"29일 새벽에도 들렸고, 30일에는 직접 와 달라고 했다."),
 	});
+	CarbonLedger->ConfigureProgressReveal(
+		LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_ComplaintImpression.M_ComplaintImpression")),
+		FVector(0, 0, .56f), FVector2D(20.9f, 29.6f),
+		NSLOCTEXT("IGMissingFloor", "P2CarbonReadPrompt", "복원한 민원 — 다시 읽는다"));
+	if (UStaticMesh* PencilMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_GraphitePencil.SM_GraphitePencil")))
+	{
+		UStaticMeshComponent* Pencil = NewObject<UStaticMeshComponent>(CarbonLedger, TEXT("Pencil"));
+		Pencil->SetupAttachment(CarbonLedger->GetRootComponent());
+		Pencil->SetStaticMesh(PencilMesh);
+		Pencil->SetRelativeLocation(FVector(-9.4f, -1.f, .92f));
+		Pencil->SetRelativeRotation(FRotator(0, 0, 90));
+		Pencil->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Pencil->SetAffectDistanceFieldLighting(false);
+		Pencil->SetCanEverAffectNavigation(false);
+		Pencil->RegisterComponent();
+	}
 	CarbonLedger->OnExamined.AddUObject(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleCarbonRestored);
 
@@ -517,9 +522,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		this, &AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder);
 	RefreshPhonePrompt();
 
-	// T7 lands on night 3, when the realtor's message is found beside the
-	// keyring. The night-2 goal is the restored original, and the note stays
-	// off the desk until then.
+	// 밤2부터 문자와 접수철을 어느 쪽 순서로도 조사할 수 있다.
 	RefreshAgentNoteAvailability();
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{

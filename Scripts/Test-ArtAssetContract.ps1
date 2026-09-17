@@ -1606,7 +1606,10 @@ foreach ($token in @(
 }
 foreach ($token in @(
 	'SM_ComplaintLedger.SM_ComplaintLedger',
-	'ComplaintLedgerMesh ? LedgerMaterial',
+	'SM_ComplaintImpressionPad.SM_ComplaintImpressionPad',
+	'SM_GraphitePencil.SM_GraphitePencil',
+	'M_ComplaintImpression.M_ComplaintImpression',
+	'ConfigureProgressReveal',
 	'77.5f'
 )) {
 	if (-not $puzzleTwoSource.Contains($token)) {

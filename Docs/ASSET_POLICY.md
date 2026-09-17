@@ -574,6 +574,14 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 프로젝트 코드가 소유한다. 전체 프롬프트와 생성·편집 이력은
 `Docs/IMAGEGEN_PROMPTS_2026-08-11.md`에 보존한다.
 
+## 2026-09-17 관리실 문구류
+
+- `BoothStationeryStudy_20260917.png`: 알파의 근영사 장부 제품 사진과 STAEDTLER 노리스 연필 사진을 형태 참고로 사용한 내장 imagegen 생성물. 외부 사진은 제품 형태를 확인하는 데 쓰며 게임에 원본을 넣지 않는다.
+- `ComplaintRubbing_20260917.png`: 글자 없는 흑연 문지름 질감. 실제 한글은 별도 마스크로 합성한다.
+- 두 생성 원본과 최종 프롬프트는 `Content/SourceArt/AI/BoothPrompts_20260917.json`에 연결되어 있다.
+- 접수철의 손글씨는 나눔손글씨 펜체를 사용한다. [Google Fonts 원본](https://github.com/google/fonts/blob/main/ofl/nanumpenscript/METADATA.pb), 글꼴 파일과 SIL OFL 고지는 `Scripts/fonts/NanumPenScript/`에 보존한다. 글꼴을 수정하지 않았으며 게임에서는 구운 인쇄 이미지를 사용한다.
+- 실물 참고 링크, 모델 치수, 전후 화면은 [관리실 점검 기록](BOOTH_REVIEW_20260917.md)에 정리한다.
+
 프로젝트 코드의 공개 라이선스는 저장소 소유자가 별도로 선택합니다. 선택 전까지
 저작권 고지만으로 공개 사용 권한을 추정하지 않습니다.
 

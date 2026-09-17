@@ -1,0 +1,30 @@
+{
+  "name": "SM_ComplaintLedger",
+  "mesh_class": "prop",
+  "fbx": "SM_ComplaintLedger.fbx",
+  "textures": {
+    "D": "SM_ComplaintLedger_D.png",
+    "N": "SM_ComplaintLedger_N.png",
+    "ORM": "SM_ComplaintLedger_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 508,
+  "bounds_m": {
+    "min": [
+      -0.11,
+      -0.1535,
+      -0.0143
+    ],
+    "max": [
+      0.1125,
+      0.1535,
+      0.0143
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "근영사 A4 장부 실물과 BoothStationeryStudy_20260917 참조. 22×30.7×2.8cm, 왼쪽 천 책등·모서리 보강·종이 단면. 인쇄 UV만 보정."
+}

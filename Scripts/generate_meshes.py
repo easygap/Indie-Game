@@ -2782,6 +2782,7 @@ def run():
     blender_root = os.path.abspath(os.path.join(SCRIPT_DIR, "..", "Content", "SourceArt", "Blender"))
     superseded = {
         "build_tuning_hammer": "SM_TuningHammer",
+        "build_complaint_ledger": "SM_ComplaintLedger",
         "build_alley_cat_run": "SM_AlleyCatRun",
         "build_listener_entity_crawl": "SM_ListenerEntityCrawl",
         "build_final_cavity_clothing_shell": "SM_FinalCavityRemains",

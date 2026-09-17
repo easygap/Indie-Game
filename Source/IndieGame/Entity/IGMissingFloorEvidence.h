@@ -80,6 +80,12 @@ public:
 	 */
 	void SetSustainedRubCue(bool bEnabled);
 
+	/** 종이 위의 복원 흔적을 홀드 진행과 연결한다. 끝낸 기록은 저장 상태에서 복구한다. */
+	bool ConfigureProgressReveal(UMaterialInterface* Material, const FVector& Offset,
+		const FVector2D& Size, const FText& FinishedPrompt);
+	float GetRevealFraction() const { return RevealFraction; }
+	virtual float GetInteractionHoldDuration_Implementation(AActor* Interactor) const override;
+
 	UFUNCTION(BlueprintPure, Category = "Evidence")
 	int32 GetCompletedStageCount() const { return CompletedStages; }
 
@@ -102,6 +108,18 @@ public:
 private:
 	void StartRubCue();
 	void StopRubCue();
+	void RefreshReveal();
+	void ReportRubNoise(const FIGInteractionContext& Context);
+
+	UPROPERTY(Transient)
+	TObjectPtr<UStaticMeshComponent> RevealSurface;
+	UPROPERTY(Transient)
+	TObjectPtr<class UMaterialInstanceDynamic> RevealMaterial;
+	FText RevealFinishedPrompt;
+	float RevealFraction = 0.f;
+	float PartialStageProgress = 0.f;
+	float HoldStartPartial = 0.f;
+	double NextRubNoiseTime = 0.0;
 
 	UPROPERTY(Transient)
 	TObjectPtr<class UAudioComponent> RubCueComponent;

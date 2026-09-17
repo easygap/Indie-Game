@@ -1,0 +1,30 @@
+{
+  "name": "SM_GraphitePencil",
+  "mesh_class": "prop",
+  "fbx": "SM_GraphitePencil.fbx",
+  "textures": {
+    "D": "SM_GraphitePencil_D.png",
+    "N": "SM_GraphitePencil_N.png",
+    "ORM": "SM_GraphitePencil_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 82,
+  "bounds_m": {
+    "min": [
+      -0.0036,
+      -0.0036,
+      -0.002
+    ],
+    "max": [
+      0.0036,
+      0.0036,
+      0.149
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "Staedtler 노리스 실물과 BoothStationeryStudy_20260917 참조. 육각 축·깎인 목재·연속된 흑연 심. 약15cm, 상표 인쇄 없음. 장축 Z."
+}

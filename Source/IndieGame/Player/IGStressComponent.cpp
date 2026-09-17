@@ -483,9 +483,8 @@ void UIGStressComponent::UpdatePostProcess()
 	// 밤 기본 0.16 위에 얹히는 값. 그레인 텍스처가 실제로 돌게 된 뒤의 눈금이다.
 	Settings.FilmGrainIntensity = FMath::Lerp(0.16f, 0.30f, Ramp);
 
-	// Focus pulls in: the far end of the corridor goes soft.
-	Settings.bOverride_DepthOfFieldFocalDistance = true;
-	Settings.DepthOfFieldFocalDistance = FMath::Lerp(2400.0f, 700.0f, Ramp);
-	Settings.bOverride_DepthOfFieldFstop = true;
-	Settings.DepthOfFieldFstop = FMath::Lerp(22.0f, 5.6f, Ramp);
+	// 불안이 높아져도 가까운 기록은 읽을 수 있어야 한다. 초점을 7~24m에
+	// 고정하면 손에 든 단서까지 흐려진다. 압박은 주변 시야·색·심박으로 전한다.
+	Settings.bOverride_DepthOfFieldFocalDistance = false;
+	Settings.bOverride_DepthOfFieldFstop = false;
 }

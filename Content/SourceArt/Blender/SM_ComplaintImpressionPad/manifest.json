@@ -1,0 +1,30 @@
+{
+  "name": "SM_ComplaintImpressionPad",
+  "mesh_class": "prop",
+  "fbx": "SM_ComplaintImpressionPad.fbx",
+  "textures": {
+    "D": "SM_ComplaintImpressionPad_D.png",
+    "N": "SM_ComplaintImpressionPad_N.png",
+    "ORM": "SM_ComplaintImpressionPad_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 405,
+  "bounds_m": {
+    "min": [
+      -0.1065,
+      -0.15,
+      0.0
+    ],
+    "max": [
+      0.1065,
+      0.15,
+      0.0063
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "A4 밑장 21×29.7cm, 회색 받침·얇은 종이·뜯긴 윗장·철심. 표면 기록은 별도 동적 평면에서 복원하며 종이 전체를 두꺼운 책으로 만들지 않는다."
+}

@@ -11,6 +11,7 @@
 #include "Engine/World.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "Materials/MaterialInterface.h"
+#include "Materials/MaterialInstanceDynamic.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 
@@ -123,10 +124,72 @@ void AIGMissingFloorEvidence::SetSustainedRubCue(const bool bEnabled)
 	}
 }
 
+bool AIGMissingFloorEvidence::ConfigureProgressReveal(UMaterialInterface* Material,
+	const FVector& Offset, const FVector2D& Size, const FText& FinishedPrompt)
+{
+	UStaticMesh* Plane = LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Plane.Plane"));
+	if (!Material || !Plane || RevealSurface) { return false; }
+	RevealSurface = NewObject<UStaticMeshComponent>(this, TEXT("ImpressionSurface"));
+	RevealSurface->SetupAttachment(PresentationMesh);
+	RevealSurface->SetMobility(EComponentMobility::Movable);
+	RevealSurface->SetStaticMesh(Plane);
+	RevealSurface->SetRelativeLocation(Offset);
+	RevealSurface->SetRelativeRotation(FRotator(0, 180, 0));
+	RevealSurface->SetRelativeScale3D(FVector(Size.X / 100.f, Size.Y / 100.f, 1));
+	RevealSurface->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+	RevealSurface->SetCastShadow(false);
+	RevealSurface->SetAffectDistanceFieldLighting(false);
+	RevealSurface->SetCanEverAffectNavigation(false);
+	RevealMaterial = UMaterialInstanceDynamic::Create(Material, this);
+	RevealSurface->SetMaterial(0, RevealMaterial);
+	RevealSurface->RegisterComponent();
+	RevealFinishedPrompt = FinishedPrompt;
+	if (UGameInstance* Instance = GetGameInstance())
+	{
+		if (UIGMissingFloorNarrativeSubsystem* Narrative = Instance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
+		{
+			if (EvidenceSource != EIGMissingFloorSource::None && Narrative->HasSource(EvidenceTruth, EvidenceSource))
+			{
+				CompletedStages = StageThoughts.Num();
+				bExamined = true;
+				InteractionPrompt = RevealFinishedPrompt;
+			}
+		}
+	}
+	RefreshReveal();
+	return true;
+}
+
+float AIGMissingFloorEvidence::GetInteractionHoldDuration_Implementation(AActor* Interactor) const
+{
+	const float Duration = Super::GetInteractionHoldDuration_Implementation(Interactor);
+	if (!RevealMaterial) { return Duration; }
+	return bExamined ? 0.f : FMath::Max(.05f, Duration * (1.f - PartialStageProgress));
+}
+
+void AIGMissingFloorEvidence::RefreshReveal()
+{
+	RevealFraction = bExamined ? 1.f : (CompletedStages + PartialStageProgress) / FMath::Max(1, StageThoughts.Num() + 1);
+	if (RevealMaterial) { RevealMaterial->SetScalarParameterValue(TEXT("Reveal"), RevealFraction); }
+}
+
+void AIGMissingFloorEvidence::ReportRubNoise(const FIGInteractionContext& Context)
+{
+	UWorld* World = GetWorld();
+	if (!bSustainedRubCue || bExamined || !World || World->GetTimeSeconds() < NextRubNoiseTime) { return; }
+	NextRubNoiseTime = World->GetTimeSeconds() + .35;
+	if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+	{
+		Noise->ReportNoise(GetActorLocation(), ExamineNoiseLoudness, Context.Interactor);
+	}
+}
+
 void AIGMissingFloorEvidence::BeginInteraction_Implementation(
 	const FIGInteractionContext& Context)
 {
 	Super::BeginInteraction_Implementation(Context);
+	HoldStartPartial = PartialStageProgress;
+	ReportRubNoise(Context);
 	StartRubCue();
 }
 
@@ -134,6 +197,14 @@ void AIGMissingFloorEvidence::UpdateInteraction_Implementation(
 	const FIGInteractionContext& Context)
 {
 	Super::UpdateInteraction_Implementation(Context);
+	if (RevealMaterial && !bExamined)
+	{
+		// 놓았다가 다시 잡아도 이미 칠한 흑연이 사라지지 않는다.
+		PartialStageProgress = FMath::Max(PartialStageProgress,
+			FMath::Lerp(HoldStartPartial, 1.f, FMath::Clamp(Context.HoldProgress, 0.f, 1.f)));
+		RefreshReveal();
+	}
+	ReportRubNoise(Context);
 	if (RubCueComponent)
 	{
 		// The stroke presses harder as the date surfaces. §21.3 asks for 입력
@@ -159,7 +230,7 @@ void AIGMissingFloorEvidence::EndInteraction_Implementation(
 
 void AIGMissingFloorEvidence::StartRubCue()
 {
-	if (!bSustainedRubCue || RubCueComponent)
+	if (!bSustainedRubCue || RubCueComponent || (RevealMaterial && bExamined))
 	{
 		return;
 	}
@@ -181,6 +252,7 @@ void AIGMissingFloorEvidence::StartRubCue()
 		FAttachmentTransformRules::KeepWorldTransform);
 	RubCueComponent->SetWorldLocation(GetActorLocation());
 	RubCueComponent->SetSound(Rub);
+	RubCueComponent->bAutoDestroy = true;
 	// The player's own hand: PLAYER bus, so §10.4 rings the room the ledger is
 	// in rather than pretending the rubbing arrived through the building.
 	RubCueComponent->AttenuationSettings = IGAudio::MakeAttenuation(
@@ -215,6 +287,7 @@ void AIGMissingFloorEvidence::CompleteInteraction_Implementation(
 	const FIGInteractionContext& Context)
 {
 	Super::CompleteInteraction_Implementation(Context);
+	const bool bRereadingReveal = RevealMaterial && bExamined;
 
 	// Interim stages: work done, noise made, nothing filed yet. The sound
 	// costs the same whether or not this pass finished the rubbing — that
@@ -223,6 +296,8 @@ void AIGMissingFloorEvidence::CompleteInteraction_Implementation(
 	{
 		const FText& InterimThought = StageThoughts[CompletedStages];
 		++CompletedStages;
+		PartialStageProgress = 0.f;
+		RefreshReveal();
 		if (UWorld* World = GetWorld())
 		{
 			if (ExamineNoiseLoudness > 0.0f)
@@ -245,6 +320,9 @@ void AIGMissingFloorEvidence::CompleteInteraction_Implementation(
 	}
 
 	bExamined = true;
+	PartialStageProgress = 0.f;
+	RefreshReveal();
+	if (RevealMaterial) { InteractionPrompt = RevealFinishedPrompt; }
 
 	if (UWorld* World = GetWorld())
 	{
@@ -258,7 +336,7 @@ void AIGMissingFloorEvidence::CompleteInteraction_Implementation(
 				Narrative->RegisterTruthSource(EvidenceTruth, EvidenceSource);
 			}
 		}
-		if (ExamineNoiseLoudness > 0.0f)
+		if (ExamineNoiseLoudness > 0.0f && !bRereadingReveal)
 		{
 			if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 			{
