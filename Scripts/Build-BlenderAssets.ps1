@@ -35,6 +35,8 @@ if (-not $blender) {
 # 빌더 하나가 에셋 여럿을 만들 수 있다. 어떤 빌더가 무엇을 만드는지는 여기 표가
 # 유일한 출처다. Import 쪽은 manifest만 보므로 표는 이쪽에만 필요하다.
 $builders = [ordered]@{
+	'entry_props' = @('SM_VideoIntercom', 'SM_HangingWorkVest')
+	'shipping_labels' = @('SM_ShippingLabels')
 	'circuit_panel' = @('SM_LobbyCircuitPanel', 'SM_CircuitPanelPrints', 'SM_CircuitToggle', 'SM_CorridorCircuitCabinet', 'SM_CorridorCircuitPrint')
 	'booth_stationery' = @('SM_ComplaintLedger', 'SM_ComplaintImpressionPad', 'SM_GraphitePencil')
 	'tuning_tool' = @('SM_TuningHammer')
@@ -60,7 +62,7 @@ $builders = [ordered]@{
 	'apartment_props' = @('SM_Wardrobe', 'SM_WallAirConditioner')
 	'alley_props' = @('SM_TrafficCone', 'SM_UtilityPole', 'SM_GasMeterBox', 'SM_AcOutdoorUnit', 'SM_ConvexMirror')
 	'store_fixtures' = @('SM_StoreCoolerBank', 'SM_StoreCoolerDoor', 'SM_StoreGondola', 'SM_StoreCounter', 'SM_CardTerminal', 'SM_HotSnackWarmer', 'SM_ChestFreezer', 'SM_OpenShowcase', 'SM_RamyeonRack')
-	'apartment_fixtures' = @('SM_ApartmentWindow', 'SM_VenetianBlind', 'SM_VideoIntercom', 'SM_WallSwitch', 'SM_ShoeCabinet')
+	'apartment_fixtures' = @('SM_ApartmentWindow', 'SM_VenetianBlind', 'SM_WallSwitch', 'SM_ShoeCabinet')
 	'villa_window' = @('SM_VillaWindow')
 	'store_products' = @('SM_CupNoodle', 'SM_CupSleeve', 'SM_CupLid', 'SM_SnackBoxA', 'SM_SnackBoxB', 'SM_SnackBoxC', 'SM_SnackBoxD', 'SM_RiceBowlPack', 'SM_TobaccoCabinet', 'SM_WindowBar', 'SM_HotWaterDispenser', 'SM_TrashBin')
 }

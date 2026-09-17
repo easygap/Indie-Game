@@ -61,6 +61,7 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Narrative/IGApartmentStoryDressing.h"
 #include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Save/IGSaveSubsystem.h"
@@ -1334,8 +1335,8 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 
 	ArrivalContract = SpawnEvidence(
 		TEXT("MissingFloorArrivalContract"),
-		FVector(-85.0f, -178.0f, 978.0f),
-		FVector(21.0f, 29.7f, 0.7f),
+		FVector(-85.0f, -178.0f, WorldScene->GetDeskSurfaceWorldZ() + 0.18f),
+		FVector(21.0f, 29.7f, 0.12f),
 		CubeMesh,
 		Contract ? Contract : Paper,
 		NSLOCTEXT("IGMissingFloor", "ArrivalContractPrompt", "임대차계약서를 확인한다"),
@@ -1345,6 +1346,12 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 			"403호. 계약서에 적힌 건 여기까지다. 옥상은 같이 쓴다고 했고."),
 		0.7f,
 		0.02f);
+	if (ArrivalContract)
+	{
+		// 얇은 종이는 두꺼운 물체처럼 그림자가 뜨지 않게 한다.
+		ArrivalContract->GetPresentationMesh()->SetCastShadow(false);
+		ArrivalContract->GetPresentationMesh()->SetAffectDistanceFieldLighting(false);
+	}
 	ArrivalParcelBox = SpawnEvidence(
 		TEXT("MissingFloorArrivalParcelBox"),
 		FVector(20.0f, 70.0f, 924.0f),
@@ -1514,22 +1521,26 @@ void AIGListenerGreyboxDirector::UpdateArrivalSequence()
 	const bool bRoof = Narrative->HasBeatPlayed(FName(TEXT("Arrival.RoofDoor")));
 	if (ArrivalContract)
 	{
-		ArrivalContract->SetInteractionEnabled(!bContract);
+		ArrivalContract->SetInteractionEnabled(true);
+		if (bContract) ArrivalContract->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "ArrivalContractAgain", "임대차계약서 다시 보기"));
 	}
 	if (ArrivalParcelBox)
 	{
-		ArrivalParcelBox->SetInteractionEnabled(
-			!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Parcel"))));
+		ArrivalParcelBox->SetInteractionEnabled(true);
+		if (Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Parcel"))))
+			ArrivalParcelBox->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "ArrivalParcelAgain", "반송 주소 다시 확인하기"));
 	}
 	if (ArrivalNotebookBox)
 	{
-		ArrivalNotebookBox->SetInteractionEnabled(
-			!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Notebook"))));
+		ArrivalNotebookBox->SetInteractionEnabled(true);
+		if (Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Notebook"))))
+			ArrivalNotebookBox->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "ArrivalNotebookAgain", "수첩 다시 보기"));
 	}
 	if (ArrivalVoicemailBox)
 	{
-		ArrivalVoicemailBox->SetInteractionEnabled(
-			!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Voicemail"))));
+		ArrivalVoicemailBox->SetInteractionEnabled(true);
+		if (Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Voicemail"))))
+			ArrivalVoicemailBox->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "ArrivalVoicemailAgain", "음성메시지 다시 확인하기"));
 	}
 	if (ArrivalStoreBell)
 	{
@@ -1541,7 +1552,8 @@ void AIGListenerGreyboxDirector::UpdateArrivalSequence()
 	}
 	if (ArrivalUnit402Note)
 	{
-		ArrivalUnit402Note->SetInteractionEnabled(!bUnit402);
+		ArrivalUnit402Note->SetInteractionEnabled(true);
+		if (bUnit402) ArrivalUnit402Note->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "Arrival402Again", "402호 메모 다시 읽기"));
 	}
 	if (ArrivalRoofLock)
 	{
@@ -5467,6 +5479,11 @@ void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 
 void AIGListenerGreyboxDirector::RunArrivalProbe()
 {
+	for (TActorIterator<AIGApartmentStoryDressing> It(GetWorld()); It; ++It)
+	{
+		FailProbe(TEXT("없는 층에 이전 주인공의 생활 소품이 생성됨"));
+		return;
+	}
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	AIGPrologueWorldScene* Scene = WorldScene.Get();
 	if (!Scene || !PuzzleTwo || !Scene->AuditPlayerClearance(Player.Get(), PuzzleTwo->GetBoothDoor()))
@@ -5478,6 +5495,36 @@ void AIGListenerGreyboxDirector::RunArrivalProbe()
 	const UStaticMeshComponent* BoxComponent = ArrivalParcelBox
 		? ArrivalParcelBox->GetPresentationMesh()
 		: nullptr;
+	if (!ArrivalContract) { FailProbe(TEXT("입주 계약서 없음")); return; }
+	const UStaticMeshComponent* ContractMesh = ArrivalContract->GetPresentationMesh();
+	const FVector ContractCenter = ContractMesh->Bounds.Origin;
+	FHitResult ContractSupport;
+	FCollisionQueryParams SupportQuery;
+	SupportQuery.AddIgnoredActor(ArrivalContract);
+	GetWorld()->LineTraceSingleByChannel(ContractSupport, ContractCenter + FVector(0,0,3),
+		ContractCenter - FVector(0,0,12), ECC_Visibility, SupportQuery);
+	const float PaperGap = ContractCenter.Z - ContractMesh->Bounds.BoxExtent.Z - ContractSupport.ImpactPoint.Z;
+	FHitResult ContractRead;
+	GetWorld()->LineTraceSingleByChannel(ContractRead, FVector(-85,-135,1040), ContractCenter, ECC_Visibility);
+	if (!ContractSupport.bBlockingHit || PaperGap < -.05f || PaperGap > .15f || ContractRead.GetActor() != ArrivalContract)
+	{
+		UE_LOG(LogTemp, Error, TEXT("ENTRY_PLACEMENT FAIL paper_gap=%.3f support=%s read=%s"),
+			PaperGap, *GetNameSafe(ContractSupport.GetComponent()), *GetNameSafe(ContractRead.GetActor()));
+		RequestExit(true); return;
+	}
+	UE_LOG(LogTemp, Display, TEXT("ENTRY_PLACEMENT PASS paper_gap=%.3f readable=1"), PaperGap);
+	AIGReadableNote* Labels = NightThree ? NightThree->GetLabelsNote() : nullptr;
+	const UStaticMeshComponent* LabelsMesh = Labels ? Cast<UStaticMeshComponent>(Labels->GetRootComponent()) : nullptr;
+	FHitResult LabelsRead;
+	if (LabelsMesh)
+	{
+		GetWorld()->LineTraceSingleByChannel(LabelsRead, LabelsMesh->Bounds.Origin + FVector(0,0,30),
+			LabelsMesh->Bounds.Origin - FVector(0,0,1), ECC_Visibility);
+	}
+	if (!LabelsMesh || LabelsRead.GetActor() != Labels
+		|| LabelsMesh->Bounds.GetBox().ExpandBy(.5f).Intersect(ContractMesh->Bounds.GetBox()))
+	{ FailProbe(TEXT("배송 라벨이 계약서를 덮거나 읽기 판정이 막힘")); return; }
+	UE_LOG(LogTemp, Display, TEXT("ENTRY_LABELS PASS separated=1 readable=1"));
 	FHitResult ArrivalNoteHit;
 	GetWorld()->LineTraceSingleByChannel(ArrivalNoteHit, FVector(-30, -290, 1018), FVector(-30, -236, 1018), ECC_Visibility);
 	FHitResult ArrivalListenHit;
@@ -5581,10 +5628,21 @@ void AIGListenerGreyboxDirector::RunArrivalProbe()
 	HandleUnit401Knocked(Unit401Door);
 	HandleArrivalEvidence(ArrivalUnit402Note);
 	HandleArrivalEvidence(ArrivalVoicemailBox);
+	// 먼저 읽은 단서를 다시 확인해도 취침이나 밤 진행이 열리지 않는다.
+	FIGInteractionContext Recheck; Recheck.Interactor = Player.Get();
+	ArrivalVoicemailBox->CompleteInteraction_Implementation(Recheck);
+	if (!ArrivalVoicemailBox->IsInteractionEnabled() || SleepTarget->IsInteractionEnabled()
+		|| Narrative->HasBeatPlayed(FName(TEXT("Arrival.Complete"))))
+	{ FailProbe(TEXT("입주 단서 재확인 후 진행 단계가 바뀜")); return; }
 	HandleArrivalEvidence(ArrivalNotebookBox);
 	HandleArrivalEvidence(ArrivalParcelBox);
 	const bool bLastClueRequired = !SleepTarget->IsInteractionEnabled();
 	HandleArrivalEvidence(ArrivalContract);
+	const bool bRereadable = ArrivalContract->IsInteractionEnabled() && ArrivalParcelBox->IsInteractionEnabled()
+		&& ArrivalNotebookBox->IsInteractionEnabled() && ArrivalVoicemailBox->IsInteractionEnabled()
+		&& ArrivalUnit402Note->IsInteractionEnabled();
+	if (!bRereadable) { FailProbe(TEXT("입주 단서를 다시 읽을 수 없음")); return; }
+	UE_LOG(LogTemp, Display, TEXT("ENTRY_NARRATIVE PASS legacy_dressing=0 rereadable=5 repeat_progress=0"));
 	HandleNeighborhoodDeliveryRead(NeighborhoodDeliveryNote, true);
 	const bool bDeliverySaved = Narrative->HasBeatPlayed(FName(TEXT("Neighborhood.Delivery")))
 		&& GetNarinCounterLine().EqualTo(NSLOCTEXT("IGMissingFloor", "NarinDeliveryAnswer",
@@ -5627,6 +5685,7 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 	const bool bDetailScreens = (FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGCircuitReview")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGEntryReview")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGBoothReview"))) && !bCaptureMetricsOnly;
 	if (!bDetailScreens) AdvanceArrivalCapture();
 	GetWorldTimerManager().SetTimer(
@@ -5640,6 +5699,61 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGEntryReview")))
+	{
+		struct FEntryView { const TCHAR* Name; FVector Eye; FVector Target; float Fov; };
+		const FEntryView Views[] = {
+			{TEXT("room"), {20,-45,1056}, {100,-210,1035}, 78},
+			{TEXT("intercom-front"), {62,-144,1048}, {62,-212,1047}, 50},
+			{TEXT("intercom-side"), {102,-155,1048}, {62,-212,1047}, 50},
+			{TEXT("old-vest-wall"), {75,-145,1050}, {188,-145,1045}, 64},
+			{TEXT("desk"), {-65,-83,1044}, {-132,-180,984}, 65},
+			{TEXT("booth-wide"), {164,-216,167}, {99,-138,136}, 78},
+			{TEXT("vest-front"), {147,-136,154}, {65,-136,148}, 58},
+			{TEXT("vest-side"), {125,-197,160}, {65,-136,148}, 58},
+			{TEXT("intercom-far"), {40,94,1056}, {91,-213,1043}, 78},
+			{TEXT("vest-installed"), {176,-151,168}, {275,-155,166}, 78},
+			{TEXT("vest-angle"), {200,-214,170}, {275,-155,166}, 82},
+			{TEXT("booth-room"), {165,-220,170}, {236,-144,145}, 83},
+			{TEXT("labels-front"), {-125,-125,1010}, {-125,-165,974.3f}, 45},
+			{TEXT("labels-side"), {-103,-140,986}, {-125,-165,974.3f}, 50},
+		};
+		// 첫 아홉 시점은 수정 전 성능 기록과 같게 유지한다.
+		const int32 ViewCount = bCaptureMetricsOnly || FParse::Param(FCommandLine::Get(), TEXT("IGEntryBaseline"))
+			? 9 : UE_ARRAY_COUNT(Views);
+		const int32 Step = ArrivalCaptureStep++;
+		const int32 Index = Step / 4;
+		if (Step == 0 && PuzzleTwo) PuzzleTwo->GetBoothDoor()->ForceOpenState(true);
+		if (Step == 3 && bCaptureMetricsOnly && GEngine) GEngine->Exec(GetWorld(), TEXT("csvprofile start"));
+		if (Index < ViewCount)
+		{
+			const FEntryView& View = Views[Index];
+			if (Step % 4 == 0)
+			{
+				CaptureTeleportPlayer((Index >= 5 && Index <= 7) || (Index >= 9 && Index <= 11)
+					? FVector(170,-195,98) : FVector(40,-70,998), -90, 0);
+				ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(View.Eye, (View.Target-View.Eye).Rotation());
+				if (!Camera) { FailProbe(TEXT("현관 검사 카메라 없음")); return; }
+				Camera->GetCameraComponent()->SetFieldOfView(View.Fov);
+				GetWorld()->GetFirstPlayerController()->SetViewTarget(Camera);
+			}
+			if (Step % 4 == 3)
+			{
+				FVector Eye; FRotator Rotation;
+				GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(Eye, Rotation);
+				if (!Eye.Equals(View.Eye, .2f)) { FailProbe(TEXT("현관 검사 시점 이동")); return; }
+				CaptureShot(*(FString(FParse::Param(FCommandLine::Get(), TEXT("IGEntryBaseline")) ? TEXT("entry-before-") : TEXT("entry-")) + View.Name));
+			}
+		}
+		else if (Step == ViewCount*4 && bCaptureMetricsOnly && GEngine) GEngine->Exec(GetWorld(), TEXT("csvprofile stop"));
+		else if (Step == ViewCount*4+2)
+		{
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("ENTRY_REVIEW PASS views=%d"), ViewCount);
+			RequestExit(false);
+		}
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGCircuitReview")))
 	{
 		const int32 Step = ArrivalCaptureStep++;

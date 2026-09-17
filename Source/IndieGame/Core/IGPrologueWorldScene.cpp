@@ -1931,41 +1931,43 @@ void AIGPrologueWorldScene::InitializePrologue()
 	SpawnInteractables();
 	SpawnStairTransition();
 
-	// These ordinary possessions are persistent anchors: CH02 repeats the
-	// same desk and entryway instead of spawning its clues into view.
-	FActorSpawnParameters StoryDressingParameters;
-	StoryDressingParameters.Owner = this;
-	StoryDressingParameters.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	const FTransform StoryDressingTransform =
-		FTransform(FRotator::ZeroRotator, FVector(0.0f, 0.0f, IGPrologueWorld::FourthFloorZ))
-		* GetActorTransform();
-	ApartmentStoryDressing = GetWorld()->SpawnActor<AIGApartmentStoryDressing>(
-		AIGApartmentStoryDressing::StaticClass(),
-		StoryDressingTransform,
-		StoryDressingParameters);
-	if (ApartmentStoryDressing)
-	{
-		ApartmentStoryDressing->ConfigurePrototypeVisuals(
-			CubeMesh,
-			PropMesh(TEXT("SM_CrackedPhone"), CubeMesh),
-			TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial),
-			PlasticDarkMaterial,
-			SnackBlueMaterial,
-			SignMintMaterial,
-			SignWhiteMaterial,
-			ScreenGlowMaterial,
-			TexMat(TEXT("M_NoteFridge"), SignWhiteMaterial),
-			Fridge ? Fridge->GetDoorPivot() : nullptr);
-	}
-
-	SpawnChapterTwoInteractables();
-	RefreshPurchaseProfilePresentation();
 	const bool bMissingFloorRuntime =
 		GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
 		|| GetWorld()->URL.HasOption(TEXT("IGListenerGreybox"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"));
+	// 이전 주인공의 출근 일정·수험서·가족 문자는 보관 장면에서만 만든다.
+	if (!bMissingFloorRuntime)
+	{
+		FActorSpawnParameters StoryDressingParameters;
+		StoryDressingParameters.Owner = this;
+		StoryDressingParameters.SpawnCollisionHandlingOverride =
+			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+		const FTransform StoryDressingTransform =
+			FTransform(FRotator::ZeroRotator, FVector(0.0f, 0.0f, IGPrologueWorld::FourthFloorZ))
+			* GetActorTransform();
+		ApartmentStoryDressing = GetWorld()->SpawnActor<AIGApartmentStoryDressing>(
+			AIGApartmentStoryDressing::StaticClass(),
+			StoryDressingTransform,
+			StoryDressingParameters);
+		if (ApartmentStoryDressing)
+		{
+			ApartmentStoryDressing->ConfigurePrototypeVisuals(
+				CubeMesh,
+				PropMesh(TEXT("SM_CrackedPhone"), CubeMesh),
+				TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial),
+				PlasticDarkMaterial,
+				SnackBlueMaterial,
+				SignMintMaterial,
+				SignWhiteMaterial,
+				ScreenGlowMaterial,
+				TexMat(TEXT("M_NoteFridge"), SignWhiteMaterial),
+				Fridge ? Fridge->GetDoorPivot() : nullptr);
+		}
+	}
+
+	SpawnChapterTwoInteractables();
+	RefreshPurchaseProfilePresentation();
 	// 두 스토리가 같은 빌라를 사용한다. 없는 층에서 기존 REBIRTH 디렉터까지
 	// 실행하면 문, HUD, 자동 저장을 서로 갱신하므로 현재 게임의 디렉터만 둔다.
 	if (!bMissingFloorRuntime)
@@ -2582,13 +2584,19 @@ void AIGPrologueWorldScene::BuildApartment()
 	AddApartmentDressing(
 		FVector(-148.5f, -187.0f, DeskSurfaceLocalZ + 15.0f), FVector(1.0f, 1.0f, 14.0f),
 		SnackBlueMaterial, CylinderMesh, FRotator(1.0f, 0.0f, 5.0f));
-	// Two used notebooks break the otherwise perfect horizontal desk surface.
-	AddApartmentDressing(
-		FVector(-75.0f, -183.0f, DeskSurfaceLocalZ + 1.0f), FVector(25.0f, 18.0f, 2.2f),
-		Bedding, nullptr, FRotator(0.0f, -4.0f, 0.0f));
-	AddApartmentDressing(
-		FVector(-75.0f, -183.0f, DeskSurfaceLocalZ + 3.05f), FVector(22.0f, 16.0f, 2.0f),
-		SignWhiteMaterial, nullptr, FRotator(0.0f, 3.0f, 0.0f));
+	// 없는 층의 계약서는 이 자리에 눕는다. 보관 장면의 공책과 겹치지 않는다.
+	if (!GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
+		&& !GetWorld()->URL.HasOption(TEXT("IGListenerGreybox"))
+		&& !FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
+		&& !FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox")))
+	{
+		AddApartmentDressing(
+			FVector(-75.0f, -183.0f, DeskSurfaceLocalZ + 1.0f), FVector(25.0f, 18.0f, 2.2f),
+			Bedding, nullptr, FRotator(0.0f, -4.0f, 0.0f));
+		AddApartmentDressing(
+			FVector(-75.0f, -183.0f, DeskSurfaceLocalZ + 3.05f), FVector(22.0f, 16.0f, 2.0f),
+			TexMat(TEXT("M_PaperClean"), Bedding), nullptr, FRotator(0.0f, 3.0f, 0.0f));
+	}
 
 	// --- Built-in kitchen line along the east wall ---------------------------
 	// A real 원룸 is fitted, not furnished: one continuous run of white gloss
@@ -2898,23 +2906,22 @@ void AIGPrologueWorldScene::BuildApartment()
 	// Entrance wall: video intercom, the switch bank beside it, and the shoe
 	// cabinet that stands against every Korean entryway.
 	// 인터폰과 스위치는 남쪽 벽면(Y -215)에 붙는 메시다. 원점이 벽면 바닥 중심,
-	// 앞면 +Y. 인터폰 앞면은 생성 시트의 패널 그림을 구운 것이다.
+	// 앞면 +Y. 실물 크기의 외함 안에 LCD 하나만 들어가며 발광하지 않는다.
 	UStaticMesh* IntercomMesh = PropMesh(TEXT("SM_VideoIntercom"));
 	if (IntercomMesh)
 	{
 		CreateBlock(
-			FVector(62, -215, 130), FVector(100, 100, 100),
+			FVector(62, -214.8f, 136), FVector(100, 100, 100),
 			nullptr, false, IntercomMesh, FRotator::ZeroRotator);
 	}
 	else
 	{
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 		CreatePrintedBlock(
-			FVector(62, -212.5f, 145), FVector(17, 5, 23),
+			FVector(62, -213.4f, 146.15f), FVector(14, 2.6f, 20.3f),
 			FridgeInteriorMaterial,
 			TexMat(TEXT("M_Intercom"), SignWhiteMaterial),
 			FVector(0, 1, 0));
-		CreateBlock(FVector(62, -214, 145), FVector(20, 4, 26), SignWhiteMaterial, false);
 	}
 	// 이름은 SwitchPlate가 아니다 — M_SwitchPlate가 읽는 간판 텍스처 T_SwitchPlate_D와 겹친다.
 	UStaticMesh* SwitchMesh = PropMesh(TEXT("SM_WallSwitch"));
@@ -5359,6 +5366,13 @@ void AIGPrologueWorldScene::BuildLobby()
 	CreateBlock(FVector(170, -77.5f, 120), FVector(240, 15, 240), LobbyWallX);
 	CreateBlock(FVector(52.5f, -155, 120), FVector(15, 140, 240), LobbyWallY);
 	CreateBlock(FVector(287.5f, -155, 120), FVector(15, 140, 240), LobbyWallY);
+	// 자재 보관 벽의 작업조끼. 아래 판재와 떨어뜨리고 서쪽 배관·조작반은 비운다.
+	if (UStaticMesh* Vest = PropMesh(TEXT("SM_HangingWorkVest")))
+	{
+		UStaticMeshComponent* Visual = CreateBlock(FVector(279.8f,-155,130), FVector(100), nullptr,
+			false, Vest, FRotator(0,90,0));
+		if (Visual) Visual->ComponentTags.Add(TEXT("Visual.WorkVest"));
+	}
 	// 상판 아래가 빈 사무용 책상. 받침대와 녹화기, 장부의 자리를 따로 둔다.
 	CreateBlock(FVector(160, -110, 74.5f), FVector(110, 55, 3), ShelfSteel);
 	for (float LegX : {110.0f, 210.0f})
@@ -6864,24 +6878,30 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		// here used to bury buttons inside the opposite handrail.
 	}
 
-	// Wallet on the desk.
-	Wallet = World->SpawnActor<AIGPickupItem>(
-		AIGPickupItem::StaticClass(),
-		FTransform(FRotator(0, 20, 0), WalletWorldLocation),
-		SpawnParameters);
-	if (Wallet)
+	// 출근 이야기에서만 쓰는 지갑은 없는 층의 조사 대상에 섞지 않는다.
+	if (!World->URL.HasOption(TEXT("IGMissingFloor"))
+		&& !World->URL.HasOption(TEXT("IGListenerGreybox"))
+		&& !FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
+		&& !FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox")))
 	{
-		Wallet->PickupMode = EIGPickupMode::Pocket;
-		Wallet->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("State.CH01.Morning.HasWallet")), false);
-		Wallet->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WalletPrompt", "지갑 챙기기"));
-		Wallet->ThoughtOnPickup =
-			NSLOCTEXT("IGPrologue", "WalletThought", "지갑. 현금이 조금 있다.");
-		Wallet->ConfigurePrototypeVisuals(
-			CubeMesh, WalletBrownMaterial, FVector(0.14f, 0.09f, 0.03f), false);
-		Wallet->OnPickedUp.AddUniqueDynamic(
-			this,
-			&ThisClass::HandlePurchaseSelectionChanged);
+		Wallet = World->SpawnActor<AIGPickupItem>(
+			AIGPickupItem::StaticClass(),
+			FTransform(FRotator(0, 20, 0), WalletWorldLocation),
+			SpawnParameters);
+		if (Wallet)
+		{
+			Wallet->PickupMode = EIGPickupMode::Pocket;
+			Wallet->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
+				FName(TEXT("State.CH01.Morning.HasWallet")), false);
+			Wallet->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WalletPrompt", "지갑 챙기기"));
+			Wallet->ThoughtOnPickup =
+				NSLOCTEXT("IGPrologue", "WalletThought", "지갑. 현금이 조금 있다.");
+			Wallet->ConfigurePrototypeVisuals(
+				CubeMesh, WalletBrownMaterial, FVector(0.14f, 0.09f, 0.03f), false);
+			Wallet->OnPickedUp.AddUniqueDynamic(
+				this,
+				&ThisClass::HandlePurchaseSelectionChanged);
+		}
 	}
 
 	// 각 창짝의 가스켓 안에 유리를 끼운다. 발광판이 창틀을 덮지 않는다.

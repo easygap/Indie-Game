@@ -1,16 +1,15 @@
 """403호 창문·블라인드·현관 벽 설비. 씬(BuildApartment)의 상자 조립을 메시로 바꾼다.
 
 기준: Content/SourceArt/AI/SheetOneroomKitchenAppliancesReference.png 우하(인터폰·스위치),
-인터폰 앞면 텍스처는 panels/IntercomFace.png. 좌표계는 씬 그대로(cm → m).
+인터폰은 build_entry_props.py에서 제작한다. 좌표계는 씬 그대로(cm → m).
 
     SM_ApartmentWindow  북쪽 벽 미닫이 창틀. 원점 (-100, 212.5, 100) 창 아래 중심. 유리는 없다 —
                         장면에서 두 창짝 안쪽에 유리를 따로 끼운다
     SM_VenetianBlind    걷어 올린 베네시안 블라인드. 원점은 헤드레일 윗면 중심 (-100, 207, 206)
-    SM_VideoIntercom    비디오 인터폰. 원점은 벽면 바닥 중심 (62, -215, 130), 앞면 +Y
     SM_WallSwitch       2구 스위치. 원점 (90, -215, 123), 앞면 +Y. (T_SwitchPlate_D 간판 텍스처와 이름이 겹쳐 SwitchPlate를 쓰지 않는다)
     SM_ShoeCabinet      현관 신발장 80 x 34 x 113. 원점 바닥 중심 (48, -198, 0), 문이 +Y
 
-    blender -b --factory-startup --python Scripts/blender/build_apartment_fixtures.py -- <out_dir> [window|blind|intercom|switch|shoe ...]
+    blender -b --factory-startup --python Scripts/blender/build_apartment_fixtures.py -- <out_dir> [window|blind|switch|shoe ...]
 """
 
 import math
@@ -39,7 +38,6 @@ def mats():
         "dark": ig.mat_plastic("DarkPlastic", (0.02, 0.02, 0.022), roughness=0.5),
         "chrome": ig.mat_metal("Chrome", (0.86, 0.86, 0.86), roughness=0.22, streak=0.05, anisotropic=False),
         "led": ig.mat_emissive("StatusLed", (0.2, 1.0, 0.4), strength=4.0),
-        "intercom": ig.mat_image_uv("IntercomFace", os.path.join(PANELS, "IntercomFace.png"), roughness=0.4),
     }
 
 
@@ -152,29 +150,6 @@ def build_blind(out_root):
 # 인터폰·스위치
 # --------------------------------------------------------------------------
 
-def build_intercom(out_root):
-    ig.reset_scene()
-    m = mats()
-    parts = []
-    w, d, h = 0.20, 0.035, 0.31
-    body = ig.box("body", (w, d, h), location=(0.0, d * 0.5, h * 0.5), bevel=0.004, segments=2,
-                  material=m["white"])
-    parts.append(body)
-    # 앞면 이미지(화면·스피커·통화/열림 버튼). 앞면 +Y.
-    parts.append(ig.image_quad("face", (w - 0.012, h - 0.012), (0.0, d + 0.0005, h * 0.5), m["intercom"],
-                               rotation=FACING_POS_Y))
-    # 화면 유리 살짝 돌출, 대기 LED 하나.
-    parts.append(ig.box("screen_glass", (0.11, 0.002, 0.075), location=(0.0, d + 0.0018, h - 0.075),
-                        material=m["dark"]))
-    parts.append(ig.cylinder("led", 0.0025, 0.001, location=(0.075, d + 0.0015, 0.035),
-                             rotation=(math.pi * 0.5, 0.0, 0.0), segments=10, material=m["led"]))
-    return ig.build_asset(
-        "SM_VideoIntercom", "prop", parts, out_root,
-        collision_parts=[],
-        notes="403호 현관 벽 비디오 인터폰 20 x 3.5 x 31. 원점은 벽면 바닥 중심(씬 (62, -215, 130)), 앞면 +Y. 충돌 없음.",
-        texture_size=1024, preview_yaw=200.0)
-
-
 def build_switch(out_root):
     ig.reset_scene()
     m = mats()
@@ -230,7 +205,6 @@ def build_shoe_cabinet(out_root):
 BUILDERS = {
     "window": build_window,
     "blind": build_blind,
-    "intercom": build_intercom,
     "switch": build_switch,
     "shoe": build_shoe_cabinet,
 }

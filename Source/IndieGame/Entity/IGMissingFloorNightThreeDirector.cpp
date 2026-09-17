@@ -67,9 +67,8 @@ namespace IGNightThree
 
 	// Day papers: the mover's labels in 403, the forum printout by the
 	// mailboxes, the tally journal at 401's threshold once it is earned.
-	// 같은 이유로 눕힌다. 13cm 높이를 세워 Z=978에 두면 가구 상판(Z=974)
-	// 아래로 들어갔다.
-	const FVector LabelsLocation(-95.0f, -185.0f, 974.6f);
+	// 계약서 왼쪽 빈자리. 높이는 생성할 때 실제 상판에서 잰다.
+	const FVector LabelsLocation(-125.0f, -165.0f, 0.0f);
 	// 관리인에게 남긴 인쇄본은 게시판에 꽂는다. 우편 투입구는 비워 둔다.
 	const FVector ForumLocation(643.0f, -148.65f, 166.0f);
 	const FVector JournalLocation(-172.0f, -237.5f, 985.0f);
@@ -667,14 +666,22 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 	SpawnParameters.Name = TEXT("MissingFloorLabelsNote");
 	LabelsNote = World->SpawnActor<AIGReadableNote>(
 		AIGReadableNote::StaticClass(),
-		FTransform(FRotator::ZeroRotator, IGNightThree::LabelsLocation),
+		FTransform(FRotator(0,180,0), IGNightThree::LabelsLocation
+			+ FVector(0,0,Scene->GetDeskSurfaceWorldZ() + .12f)),
 		SpawnParameters);
 	if (!LabelsNote)
 	{
 		return false;
 	}
-	LabelsNote->ConfigurePrototypeVisuals(
-		CubeMesh, FreshPaperMaterial, FVector(18.0f, 13.0f, 1.2f));
+	if (UStaticMesh* LabelsMesh = LoadObject<UStaticMesh>(nullptr,
+		TEXT("/Game/Meshes/SM_ShippingLabels.SM_ShippingLabels")))
+	{
+		LabelsNote->ConfigurePrototypeVisuals(LabelsMesh, LabelsMesh->GetMaterial(0), FVector(100));
+	}
+	else
+	{
+		LabelsNote->ConfigurePrototypeVisuals(CubeMesh, FreshPaperMaterial, FVector(18,13,.12f));
+	}
 	LabelsNote->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "LabelsPrompt", "배송 라벨 뭉치"));
 	LabelsNote->SetNoteText(

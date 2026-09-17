@@ -1,0 +1,100 @@
+## EntryBuild.log
+Result: Succeeded
+
+## EntryArrivalProbe.log
+[2026.09.17-03.41.34:287][  0]LogTemp: Display: KITCHEN_SUPPORT PASS microwave_min=X=139.310 Y=45.920 Z=87.000 max=X=173.600 Y=90.000 Z=112.900
+[2026.09.17-03.41.34:927][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+[2026.09.17-03.41.35:987][412]LogIndieGame: Display: SPATIAL_VALVE MissingFloorCleaningDrain PASS size=V(X=18.00, Y=18.00, Z=2.79)
+[2026.09.17-03.41.35:987][412]LogIndieGame: Display: SPATIAL_VALVE MissingFloorFloatBypass PASS size=V(X=12.00, Y=12.00, Z=2.60)
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK home_closed_blocks PASS hit=DoorMesh
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK home_enter_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK home_leave_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK home_enter_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK home_leave_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK home_enter_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK home_leave_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK booth_closed_blocks PASS hit=DoorMesh
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK booth_entry_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK booth_entry_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK booth_entry_offset PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK building_entrance PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK lobby_connector PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK lobby_waiting_lane PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK lobby_waiting_lane PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK lobby_waiting_lane PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK lobby_turn PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK upper_lift_step_aside PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK upper_lift_waiting_edge PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK west_alley PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK rear_alley PASS hit=None
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK lower_call_plate_target PASS hit=IGElevator_0
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK upper_call_plate_target PASS hit=IGElevator_0
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CHECK meter_sheet_target PASS hit=MissingFloorReadingSheet
+[2026.09.17-03.41.36:002][412]LogIndieGame: Display: SPATIAL_CLEARANCE PASS checks=24 failures=0 capsule=60.0x192.0
+[2026.09.17-03.41.36:002][412]LogTemp: Display: ENTRY_PLACEMENT PASS paper_gap=0.026 readable=1
+[2026.09.17-03.41.36:002][412]LogTemp: Display: ENTRY_LABELS PASS separated=1 readable=1
+[2026.09.17-03.41.36:003][412]LogTemp: Display: ENTRY_NARRATIVE PASS legacy_dressing=0 rereadable=5 repeat_progress=0
+[2026.09.17-03.41.36:003][412]LogTemp: Display: MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1
+
+## EntryFullGameplay.log
+[2026.09.17-03.50.16:686][  0]LogTemp: Display: KITCHEN_SUPPORT PASS microwave_min=X=139.310 Y=45.920 Z=87.000 max=X=173.600 Y=90.000 Z=112.900
+[2026.09.17-03.50.17:742][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+[2026.09.17-03.50.19:717][329]LogIndieGame: Display: SPATIAL_VALVE MissingFloorCleaningDrain PASS size=V(X=18.00, Y=18.00, Z=2.79)
+[2026.09.17-03.50.19:717][329]LogIndieGame: Display: SPATIAL_VALVE MissingFloorFloatBypass PASS size=V(X=12.00, Y=12.00, Z=2.60)
+[2026.09.17-03.50.19:853][534]LogTemp: Display: MISSINGFLOOR_DIFFICULTY PASS: §20.2 four nights, tier axis multiplies (night3 tier3 = 3.50s), quiet/hasty/listen-only honoured, heatmap saturates and halves
+[2026.09.17-03.50.20:345][423]LogTemp: Display: MISSINGFLOOR_PERCEPTION PASS: corridor/stairwell reverb, cavity still ringing at 0.5s (level=1472, 1.51s vs solid 0.37s), settled dust bounded and 403 aging cumulative, dust x2.00 over his lane, 220/220 motes lit, dry when dark
+[2026.09.17-03.50.20:592][868]LogTemp: Display: UTILITY_METER PASS stopped_off=1 rotates_on=1 horizontal=1 distance_cull=1 observation_hold=1
+[2026.09.17-03.50.20:592][868]LogTemp: Display: CIRCUIT_POWER PASS daylight=1 emissive=1 override_guard=1 near60=1 far4=1 phase_kept=1
+[2026.09.17-03.50.20:596][868]LogTemp: Display: MISSINGFLOOR_P1_EXPERIMENT PASS isolation=1 off_on=1 reversible=1
+[2026.09.17-03.50.27:704][231]LogTemp: Display: MISSINGFLOOR_MERCY PASS: 90s clock, 2-reset hint, responses=4 never repeating, note rests 28.7 cm clear of the five-capture note, stands down on a new source
+[2026.09.17-03.50.27:946][694]LogTemp: Display: MISSINGFLOOR_RECORDING PASS: her sounds kept, his refused, 2.10s of exact silence, lifted once by the night-four wall
+[2026.09.17-03.50.28:910][411]LogTemp: Display: NIGHT1_SEQUENCE PASS early_visit_retained=1 return_knock=1
+[2026.09.17-03.50.29:386][300]LogTemp: Display: MISSINGFLOOR_N2DOOR PASS: knock at 403, figure staged and released, 3 cues, 3 refused events, 4.11s of silence
+[2026.09.17-03.50.29:601][779]LogTemp: Display: BOOTH_RUB_PROGRESS PASS interrupted=1 resumed=1 revealed=1 instant_reread=1 restored=1
+[2026.09.17-03.50.35:835][117]LogTemp: Display: MISSINGFLOOR_CCTV5 PASS: 352x288 allocated on the press, 71 captures, the corridor sounded once, released on death, second press refused
+[2026.09.17-03.50.37:367][498]LogTemp: Display: MISSINGFLOOR_N2CHASE PASS: T7 armed the return, the booth exit dropped the stack, two sounds moved the building, and 403 ended the night
+[2026.09.17-03.50.38:857][914]LogTemp: Display: MISSINGFLOOR_ANSWERREACH PASS: the learned answer knocked at nothing froze him into Waiting, and the same cadence from two floors up did not
+[2026.09.17-03.50.39:073][395]LogTemp: Display: UTILITY_KEYRING PASS visibility_trace=1 picked_up=1 hidden=1 collision_off=1 gates_unlocked=2
+[2026.09.17-03.50.50:313][685]LogTemp: Display: MISSINGFLOOR_N3PASS PASS: T9 armed the walk home, the learned answer stopped him in the corridor, she passed him while he waited, and 403 ended the night
+[2026.09.17-03.50.50:313][685]LogIndieGame: Display: SPATIAL_VALVE MissingFloorCleaningDrain PASS size=V(X=18.00, Y=18.00, Z=2.79)
+[2026.09.17-03.50.50:313][685]LogIndieGame: Display: SPATIAL_VALVE MissingFloorFloatBypass PASS size=V(X=12.00, Y=12.00, Z=2.60)
+[2026.09.17-03.50.50:549][152]LogTemp: Display: MISSINGFLOOR_SEALEDUI PASS
+[2026.09.17-03.51.14:886][875]LogTemp: Display: MISSINGFLOOR_M6_AUDIO PASS: six buses, score states, title window
+[2026.09.17-03.51.14:886][875]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+
+## EntryMovementProbe.log
+[2026.09.17-03.50.50:438][110]LogIndieGame: Display: REALISM_CHECK sprint_key_reaches_speed PASS
+[2026.09.17-03.50.50:446][126]LogIndieGame: Display: REALISM_CHECK sprint_release_stops_before_door_width PASS
+[2026.09.17-03.50.50:495][236]LogIndieGame: Display: REALISM_CHECK offset_doorway_passage PASS
+[2026.09.17-03.50.50:524][305]LogIndieGame: Display: REALISM_CHECK crouch_lowers_view_with_camera_motion_disabled PASS
+[2026.09.17-03.50.50:541][344]LogIndieGame: Display: REALISM_CHECK uncrouch_restores_view_with_camera_motion_disabled PASS
+[2026.09.17-03.50.50:541][344]LogIndieGame: Display: REALISM_CHECK interaction_component PASS
+[2026.09.17-03.50.50:544][344]LogIndieGame: Display: REALISM_CHECK small_visible_prop_focus PASS
+[2026.09.17-03.50.50:544][344]LogIndieGame: Display: REALISM_CHECK occluded_prop_rejected PASS
+[2026.09.17-03.50.50:628][344]LogIndieGame: Display: REALISM_CHECK closed_door_blocks_capture PASS
+[2026.09.17-03.50.50:629][344]LogIndieGame: Display: REALISM_CHECK open_door_allows_capture PASS
+[2026.09.17-03.50.50:629][344]LogIndieGame: Display: REALISM_CHECK capture_keeps_physical_body_visible PASS
+[2026.09.17-03.50.50:629][344]LogIndieGame: Display: REALISM_CHECK runtime_character_has_four_lods PASS
+[2026.09.17-03.50.50:633][344]LogIndieGame: Display: REALISM_CHECK capture_face_stays_in_front_of_camera PASS
+[2026.09.17-03.50.50:633][344]LogIndieGame: Display: REALISM_CHECK failure_ending_keeps_capture_pose PASS
+[2026.09.17-03.50.50:633][344]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+## EntryAssetAudit.log
+[2026.09.17-03.52.47:142][  2]LogPython: ENTRY_ASSETS PASS meshes=3 lods=4 budget=3000 emissive=0 streaming=1
+
+## EntryReview-False-final.log
+[2026.09.17-03.53.13:161][  0]LogTemp: Display: KITCHEN_SUPPORT PASS microwave_min=X=139.310 Y=45.920 Z=87.000 max=X=173.600 Y=90.000 Z=112.900
+[2026.09.17-03.53.13:853][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+[2026.09.17-03.53.15:450][  4]LogIndieGame: Display: SPATIAL_VALVE MissingFloorCleaningDrain PASS size=V(X=18.00, Y=18.00, Z=2.79)
+[2026.09.17-03.53.15:450][  4]LogIndieGame: Display: SPATIAL_VALVE MissingFloorFloatBypass PASS size=V(X=12.00, Y=12.00, Z=2.60)
+[2026.09.17-03.54.45:146][263]LogTemp: Display: ENTRY_REVIEW PASS views=14
+
+## RetailReview-Entry20260917.log
+[2026.09.17-03.56.29:276][  0]LogTemp: Display: KITCHEN_SUPPORT PASS microwave_min=X=139.310 Y=45.920 Z=87.000 max=X=173.600 Y=90.000 Z=112.900
+[2026.09.17-03.56.30:077][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27
+[2026.09.17-03.56.31:658][  4]LogIndieGame: Display: SPATIAL_VALVE MissingFloorCleaningDrain PASS size=V(X=18.00, Y=18.00, Z=2.79)
+[2026.09.17-03.56.31:658][  4]LogIndieGame: Display: SPATIAL_VALVE MissingFloorFloatBypass PASS size=V(X=12.00, Y=12.00, Z=2.60)
+[2026.09.17-03.58.48:845][148]LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1
+
+## EntryValidationFinal.log
+Project structure validation passed (this is not an Unreal build).

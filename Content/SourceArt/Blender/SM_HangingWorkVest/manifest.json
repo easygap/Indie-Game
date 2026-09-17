@@ -1,0 +1,30 @@
+{
+  "name": "SM_HangingWorkVest",
+  "mesh_class": "prop",
+  "fbx": "SM_HangingWorkVest.fbx",
+  "textures": {
+    "D": "SM_HangingWorkVest_D.png",
+    "N": "SM_HangingWorkVest_N.png",
+    "ORM": "SM_HangingWorkVest_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 2657,
+  "bounds_m": {
+    "min": [
+      -0.2574,
+      0.0,
+      0.0004
+    ],
+    "max": [
+      0.2574,
+      0.0748,
+      0.725
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "실물 안전조끼와 WorkVestReference_20260917 시트 대조. 폭51cm, 옷높이62cm, 고리포함73cm. 앞 +Y, 원점 벽면 밑단 중심. 앞뒤판·빈 암홀·목둘레·고정 주름·옷걸이. 발광 없음. 관리실 동쪽 벽 (279.8,-155,130), yaw 90. 아래 보관 자재와 11cm 간격. 한 재질·고정 메시, 천 시뮬레이션·충돌 없음."
+}
