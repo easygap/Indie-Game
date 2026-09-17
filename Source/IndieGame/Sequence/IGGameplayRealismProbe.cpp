@@ -17,6 +17,7 @@
 #include "Materials/MaterialInterface.h"
 #include "Player/IGInteractionComponent.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGHudGuidance.h"
 
 AIGGameplayRealismProbe::AIGGameplayRealismProbe()
 {
@@ -140,6 +141,24 @@ void AIGGameplayRealismProbe::Tick(const float DeltaSeconds)
 
 void AIGGameplayRealismProbe::CheckInteractionsAndCapture()
 {
+	FIGHudGuidance Guide;
+	Guide.Update(0, TEXT("짐을 푼다"), true);
+	Check(Guide.ObjectiveAlpha() == 1 && Guide.ControlsAlpha() == 1, TEXT("guide_first_arrival_visible"));
+	Guide.Update(8, TEXT("짐을 푼다"), true);
+	Check(Guide.ObjectiveAlpha() == 0 && Guide.ControlsAlpha() == 1, TEXT("guide_objective_expires_first"));
+	Guide.Update(13, TEXT("짐을 푼다"), true);
+	Check(Guide.ControlsAlpha() == 0, TEXT("guide_tutorial_expires"));
+	Guide.Update(0, TEXT("관리실에 간다"), false);
+	Check(Guide.ObjectiveAlpha() == 1 && Guide.ControlsAlpha() == 0, TEXT("guide_new_goal_without_tutorial_repeat"));
+	Guide.ToggleRecall();
+	Guide.Update(9.8f, TEXT("관리실에 간다"), false);
+	Check(Guide.ControlsAlpha() > 0 && Guide.ControlsAlpha() < 1, TEXT("guide_recall_fades"));
+	Guide.Update(.3f, TEXT("관리실에 간다"), false);
+	Check(Guide.ControlsAlpha() == 0 && Guide.ObjectiveAlpha() == 0, TEXT("guide_recall_expires"));
+	Guide.ToggleRecall(); Guide.ToggleRecall();
+	Check(Guide.ControlsAlpha() == 0, TEXT("guide_second_press_closes"));
+	Guide.ToggleRecall(); Guide.Interrupt();
+	Check(Guide.ControlsAlpha() == 0 && Guide.ObjectiveAlpha() == 0, TEXT("guide_capture_interrupts"));
 	Player->GetCharacterMovement()->StopMovementImmediately();
 	Player->GetCharacterMovement()->DisableMovement();
 	Player->SetActorLocation(FVector(0, 0, 90));

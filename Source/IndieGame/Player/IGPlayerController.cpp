@@ -437,6 +437,19 @@ bool AIGPlayerController::InputKey(const FInputKeyEventArgs& Params)
 	{
 		return true;
 	}
+	// 방향 패드의 메뉴 이동과 겹치므로 자유 조작 중에만 안내 키를 먼저 받는다.
+	if (Params.Event == IE_Pressed && SystemMenuMode == EIGSystemMenuMode::Hidden
+		&& !bAccessibilityMenuVisible && !bMissingFloorJournalVisible)
+	{
+		const UIGInputBindingSubsystem* Bindings = GetGameInstance()->GetSubsystem<UIGInputBindingSubsystem>();
+		AIGHorrorHUD* Hud = Cast<AIGHorrorHUD>(GetHUD());
+		if (Bindings && Hud && Params.Key == Bindings->GetBoundKey(
+			static_cast<int32>(EIGBindableAction::GameplayGuide), bGamepad))
+		{
+			if (Hud->CanShowGameplayGuide()) Hud->ToggleGameplayGuide();
+			return true;
+		}
+	}
 	return Super::InputKey(Params);
 }
 

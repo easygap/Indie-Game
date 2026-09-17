@@ -117,7 +117,7 @@ Assert-ContainsAll $hudSource @(
 	'Remaining / 0.16',
 	'LineStep = BodyHeight * (',
 	'CurrentDialogueLines.Num() >= 3 ? 1.36f : 1.32f',
-	'if (!bDialogueVisible && !bAudioCaptionVisible)',
+	'if (ControlsAlpha > 0.01f && !bDialogueVisible && !bAudioCaptionVisible)',
 	'const float DialogueLaneGap = 14.0f',
 	'DrawLeftAlignedText('
 ) '화면 크기·안전 영역·동작 감소·HUD 레인'

@@ -33,8 +33,8 @@
 | 복도 분전함 | `CorridorCabinetReference_20260917.png` | `SM_CorridorCircuitCabinet`, `SM_CorridorCircuitPrint` | 매입형 함체 + 별도 이름표 | 402·403호 사이 벽면 | 문틀 좌우 9·7cm 간격, 문짝 벽 밖 8mm, 한글 정방향·획 보존, 기존 벽 충돌 사용 |
 | 달력 뒷장 소리 일지 | 같은 시트 우하 | `SM_CalendarJournal` | 3D hero paper | 401호 문 앞 전달 큐 | 종이판·상단 바인딩 실제 기하, 글은 런타임 패널, 가짜 글자 0 |
 | 1인칭 두드리기 오른손 | `SheetFirstPersonKnockPhases_v2.png` | `T_FPHandKnock0..3_D` | UI-space RGBA sprite blend | Q/B 유효 노크의 준비·접촉·반동 0.22초 | 같은 손·소매 유지, 입력 프레임에 접촉(2), 소매 끝은 화면 밖, 초록 프린지 0, 흔들림 감소 시 이동 0, 월드 평면 0 |
-| 1인칭 포획 포옹 | `SheetListenerCaptureEmbracePhases_v1.png` | `T_FPCaptureEmbrace0..3_D` | UI-space RGBA sprite blend | 포획 암전의 접촉·접근·닫힘·유지 1.2초 | 같은 두 팔·건식 석고·낡은 옷, 얼굴/몸통 0, 중앙 35% 가독, 화면 밖 소매 끝, 초록 프린지 0, 흔들림 감소 정지 프레임, 월드 평면 0 |
-| 1인칭 기상 잔향 | 포획 포옹 원본 재사용 | `T_FPCaptureEmbrace1..3_D` | UI-space translucent recall | 포획 뒤 403호 기상의 3→2→1 역재생 0.68/0.48/0.30/0.16초 | 최대 알파 0.34, 셀 교차 페이드 0, 1280×800 종횡비 변화·소매 절단 0, 잔향 뒤 페이드 끝까지 HUD 점유 |
+| 1인칭 포획 접촉 | 기존 포복·포획 모델 기준 시트 | `SK_ListenerCrawler`와 포획 애니메이션 | 실제 3D 몸 + 카메라 암전 | 추격하던 몸이 다가온 뒤 2.15초에 침대 복귀 | 손 그림 합성 제거, 입력 잠금, 카메라 관통 없음 |
+| 1인칭 기상 잔향 | 손 그림 합성 제거 | 별도 이미지 없음 | 침대 시야 + 회차별 페이드 | 회차별 3.0/2.2/1.4/0.4초 뒤 조작 복구 | 페이드 끝까지 HUD 점유, 손 이미지 로드·역재생 없음 |
 | 공동 최종 잔존물 | `SheetFinalCavityRemainsReference_v1.png`, `FinalCavityFrontBlend_v1.png` | `SM_FinalCavityClothingShell`, `SM_FinalCavityBoneInsert`, `SM_FinalCavityTarp`, `SM_FinalCavityBrokenCaster`, `M_SpriteFinalCavity` | continuous 3D + lit masked PBR detail | 밤4 공동 개방 뒤 105~360cm·정면 내적 0.68에서 디테일, 그 밖은 셸 | 120cm 베이 안, 피부·머리카락·피·젖은 조직 0, 두개골→흉곽→신발 판독, 숨은 셸 그림자 유지, 측면 평면 노출 0 |
 | 목한수 최종 대치 | `SheetMokHansooConfrontationReference_v1.png`, `MokHansooFinalFrontBlend_v1.png` | `SM_MokHansooWorkwear`, `SM_MokHansooHeadHands`, `SM_MokHansooGypsumBoard`, `M_SpriteMokFinalUpper` | continuous 3D + upper-body PBR detail | 남쪽 계단참 등장→북쪽 퇴장 2.8초, 105~360cm·정면 내적 0.68에서 얼굴·재킷 보강 | 평균 체형·두 손 파지·95cm 보드·하체·그림자는 3D, 세로 31~39% 알파 감쇠, 근접 `T_SpriteMok_D` 사용 0, 괴물 통과 중 충돌 0 |
 | 엔딩 C 매물 외관 | `TitleBackgroundMissingFloor_v1.png` | `T_TitleBackground_D` + 네이티브 Canvas 한글 | Keep crop + runtime UI | 403호 매물 사진→입주자 후기 전환 | 신규 생성·브랜드 복제·구운 글자 0, 720p·텍스트 200% 안전 영역, 모션 감소 컷 제공 |
@@ -90,15 +90,10 @@
 - 1인칭 손은 투명 여백을 포함한 768px RGBA 네 장을 UI 그룹·NoMip·Clamp·NeverStream으로
   임포트한다. 문·벽·인물·동물·배경은 기존 3D/PBR을 유지하며, 손 이미지를
   월드 카드나 충돌 대용으로 쓰지 않는다.
-- 포획 포옹은 1024px RGBA 네 장을 같은 UI 설정으로 임포트한다. 화면의 긴
-  변으로 정사각 프레임을 오버스캔해 종횡비를 보존하고 0.72 정규화 시점까지
-  네 자세를 한 장씩 전환한 뒤 암전까지 마지막 자세를 유지한다. 포즈 간
-  교차 페이드는 팔이 네 개로 보이므로 금지한다. 장면과의 알파 블렌딩만 쓰며,
-  월드의 위층 사람 셸과 포획 지점 손자국 masked 블렌드는 계속 별도 3D 표면으로 남는다.
-- 기상 잔향은 새 생성 에셋을 추가하지 않고 같은 포옹 셀 3·2·1만 역순으로
-  재사용한다. 첫 포획 최대 알파는 0.34이며 5회까지 0.68배로 낮아진다. 잔향이
-  먼저 사라져도 회차별 3.0/2.2/1.4/0.4초 기상 페이드가 끝나기 전에는 일반
-  HUD를 그리지 않는다.
+- 포획은 실제 스켈레탈 몸과 카메라 암전으로 이어진다. HUD는 예전 손 그림
+  네 장을 읽지 않는다. 원본과 파생본은 과거 제작 기록으로만 남긴다.
+- 기상 때는 침대 시야만 서서히 돌아온다. 회차별 3.0/2.2/1.4/0.4초
+  페이드 끝까지 HUD 점유와 입력 잠금을 유지한다.
 - 엔딩 C는 타이틀 외관의 중앙 빌라 구간만 UV 크롭해 재사용한다. 사진에 방
   번호·앱 로고·매물 문구를 굽지 않고, 403호 칩과 모든 정보는 실제 한글 폰트로
   런타임에 그린다. UI 텍스처 1장 외 신규 스프라이트·월드 카드·충돌은 없다.
@@ -116,11 +111,10 @@
 - 셸 근접 캡처에서 부품이 서로 파고드는 교차 타원 자국 0, 손가락 유착 0,
   응답 노크 대기 중 표면 미동 0을 승인한다.
 - 캡처 한 장이 아니라 이동 전후 두 프레임과 그림자 프레임을 함께 승인한다.
-- 포획은 16:9·16:10·21:9에서 두 팔의 종횡비 변화 0, 화면 안쪽 소매 절단면
-  0, 중앙 시야 유지, 1.2초 뒤 잔류 프레임 0을 승인한다.
-- 기상 잔향은 1920×1080과 1280×800 D3D12 실렌더에서 녹색 프린지·사각 경계·
-  추가 팔 0을 확인한다. 실제 포획 경로의 입력 반환은 잔향 종료가 아니라
-  기상 페이드 종료와 같은 프레임이어야 한다.
+- 1920×1080과 1280×800 D3D12 실렌더에서 접촉부터 침대 복귀까지
+  확인한다. 카메라에 붙은 별도 팔이나 반투명 손 잔상이 남으면 실패다.
+- 기상 페이드가 끝나면 입력을 돌려주고, 그 전에 목표와 조작 안내를
+  띄우지 않는다. 다시 보기 키는 포획 중 작동하지 않는다.
 
 ## 재현 경로
 
@@ -130,7 +124,8 @@
 .\Scripts\Test-ArtAssetContract.ps1
 .\Scripts\Run-MissingFloor-NightCapture.bat
 $env:IG_NIGHT_CAPTURE_RES_X='1280'; $env:IG_NIGHT_CAPTURE_RES_Y='800'
-.\Scripts\Run-MissingFloor-NightCapture.bat -IGM1WakeEchoPreview
+pwsh -NoProfile -File Scripts/Run-CaptureRecoveryReview.ps1
+pwsh -NoProfile -File Scripts/Run-CaptureRecoveryReview.ps1 -Width 1280 -Height 800
 ```
 
 첫 명령은 ImageGen 원본 분리 → PBR 생성 → 메시 베이크 → 텍스처/머티리얼

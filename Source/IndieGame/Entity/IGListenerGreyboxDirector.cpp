@@ -1,6 +1,7 @@
 ﻿#include "Entity/IGListenerGreyboxDirector.h"
 
 #include "AssetCompilingManager.h"
+#include "Containers/Ticker.h"
 #include "IndieGame.h"
 #include "Audio/IGAmbienceSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
@@ -64,6 +65,8 @@
 #include "Narrative/IGApartmentStoryDressing.h"
 #include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGInputBindingSubsystem.h"
+#include "InputKeyEventArgs.h"
 #include "Save/IGSaveSubsystem.h"
 #include "Materials/MaterialInterface.h"
 #include "TimerManager.h"
@@ -5681,6 +5684,18 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		GEngine->Exec(GetWorld(), TEXT("DisableAllScreenMessages"));
 	}
 	ArrivalCaptureStep = FParse::Param(FCommandLine::Get(), TEXT("IGCircuitCorridorOnly")) ? 32 : 0;
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGImmersionReview")))
+	{
+		// 일시 정지 메뉴에서도 검사가 이어져야 한다.
+		TWeakObjectPtr<AIGListenerGreyboxDirector> WeakThis(this);
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakThis](float)
+		{
+			if (!WeakThis.IsValid()) return false;
+			WeakThis->AdvanceImmersionReview();
+			return WeakThis->ArrivalCaptureStep < 12;
+		}), .1f);
+		return;
+	}
 	// 근접 사진은 입주 자막과 시작 위치 보정이 끝난 뒤 찍는다.
 	const bool bDetailScreens = (FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")) ||
@@ -5697,8 +5712,127 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		bDetailScreens ? 8.4f : -1.f);
 }
 
+void AIGListenerGreyboxDirector::AdvanceImmersionReview()
+{
+	APlayerController* Controller = GetWorld()->GetFirstPlayerController();
+	AIGHorrorHUD* Hud = Controller ? Cast<AIGHorrorHUD>(Controller->GetHUD()) : nullptr;
+	if (!Hud || FPlatformTime::Seconds() < ImmersionReviewNextTime) return;
+	bool Objective = false, Controls = false;
+	Hud->GetGameplayGuideRenderSample(Objective, Controls);
+	auto Check = [this](bool Ok, const TCHAR* Label)
+	{
+		ImmersionReviewFailures += !Ok;
+		UE_LOG(LogTemp, Display, TEXT("IMMERSION_CHECK %s %s"), Label, Ok ? TEXT("PASS") : TEXT("FAIL"));
+	};
+	auto Key = [Controller](FKey Value)
+	{
+		for (EInputEvent Event : {IE_Pressed, IE_Released})
+		{
+			const FInputKeyEventArgs Input(nullptr, FInputDeviceId::CreateFromInternalId(0), Value,
+				Event, Event == IE_Pressed ? 1.0f : 0.0f, false, FPlatformTime::Cycles64());
+			Controller->InputKey(Input);
+		}
+	};
+	auto AfterShot = [this](TFunction<void()> Action)
+	{
+		// Core ticker는 화면을 그린 뒤 돌 수도 있다. 다음 촬영 프레임을 먼저 마친다.
+		FTimerHandle Delay;
+		GetWorldTimerManager().SetTimer(Delay, FTimerDelegate::CreateWeakLambda(this,
+			[Action = MoveTemp(Action)] { Action(); }), .55f, false);
+	};
+	UIGInputBindingSubsystem* Bindings = GetGameInstance()->GetSubsystem<UIGInputBindingSubsystem>();
+	const int32 GuideAction = static_cast<int32>(EIGBindableAction::GameplayGuide);
+	const FKey GuideKey = Bindings->GetBoundKey(GuideAction, false);
+	float Wait = 1.4f;
+	switch (ArrivalCaptureStep++)
+	{
+	case 0:
+		CaptureTeleportPlayer(FVector(40,-70,998), -85, 0);
+		Wait = 8.0f;
+		break;
+	case 1:
+		Check(Controls && !Hud->IsGameplayGuideRecalled(), TEXT("initial_tutorial_visible"));
+		CaptureShot(TEXT("ux-tutorial"));
+		Wait = 24.0f;
+		break;
+	case 2:
+		Check(!Objective && !Controls, TEXT("automatic_guidance_hidden"));
+		CaptureShot(TEXT("ux-quiet"));
+		AfterShot([Key, GuideKey] { Key(GuideKey); });
+		break;
+	case 3:
+		Check(Objective && Controls && Hud->IsGameplayGuideRecalled(), TEXT("keyboard_recall"));
+		CaptureShot(TEXT("ux-guide-keyboard"));
+		AfterShot([Key, GuideKey] { Key(GuideKey); });
+		break;
+	case 4:
+	{
+		Check(!Objective && !Controls, TEXT("second_press_closes"));
+		FText Error;
+		Check(Bindings->TryRebind(GuideAction, false, EKeys::F2, Error), TEXT("guide_can_rebind"));
+		Key(GuideKey);
+		Check(!Hud->IsGameplayGuideRecalled(), TEXT("old_key_no_longer_opens_guide"));
+		Key(EKeys::F2);
+		Check(Hud->IsGameplayGuideRecalled(), TEXT("new_key_opens_guide"));
+		Check(Bindings->TryRebind(GuideAction, false, GuideKey, Error), TEXT("guide_binding_restored"));
+		Wait = 11.0f;
+		break;
+	}
+	case 5:
+		Check(!Objective && !Controls, TEXT("recalled_guidance_auto_hides"));
+		Key(Bindings->GetBoundKey(GuideAction, true));
+		break;
+	case 6:
+	{
+		Check(Objective && Controls, TEXT("gamepad_recall"));
+		CaptureShot(TEXT("ux-guide-gamepad"));
+		AfterShot([this]
+		{
+			FIGInteractionContext Context; Context.Interactor = Player.Get();
+			if (NightThree && NightThree->GetLabelsNote())
+				NightThree->GetLabelsNote()->CompleteInteraction_Implementation(Context);
+		});
+		break;
+	}
+	case 7:
+		Check(AIGReadableNote::GetOpenNote() && !Objective && !Controls, TEXT("note_excludes_guide"));
+		Key(GuideKey);
+		Check(!Hud->IsGameplayGuideRecalled(), TEXT("guide_key_blocked_while_reading"));
+		CaptureShot(TEXT("ux-reading"));
+		AfterShot([]
+		{
+			if (AIGReadableNote* Note = AIGReadableNote::GetOpenNote()) Note->Close();
+		});
+		break;
+	case 8:
+		Key(GuideKey);
+		break;
+	case 9:
+		Check(Objective && Controls, TEXT("guide_after_reading"));
+		Key(EKeys::Escape);
+		break;
+	case 10:
+		Check(!Objective && !Controls && !Hud->IsGameplayGuideRecalled(), TEXT("pause_excludes_guide"));
+		Key(EKeys::Escape);
+		break;
+	case 11:
+		Check(!Objective && !Controls, TEXT("pause_does_not_reopen_guide"));
+		GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+		UE_LOG(LogTemp, Display, TEXT("IMMERSION_REVIEW %s failures=%d"),
+			ImmersionReviewFailures ? TEXT("FAIL") : TEXT("PASS"), ImmersionReviewFailures);
+		RequestExit(ImmersionReviewFailures != 0);
+		break;
+	}
+	ImmersionReviewNextTime = FPlatformTime::Seconds() + Wait;
+}
+
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGImmersionReview")))
+	{
+		AdvanceImmersionReview();
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGEntryReview")))
 	{
 		struct FEntryView { const TCHAR* Name; FVector Eye; FVector Target; float Fov; };
@@ -6761,7 +6895,8 @@ void AIGListenerGreyboxDirector::StartNightCapture()
 		{
 			if (AHUD* Hud = PlayerController->GetHUD())
 			{
-				Hud->bShowHUD = false;
+				// 포획 검수는 실제 HUD가 연출 중 스스로 숨는지까지 확인한다.
+				Hud->bShowHUD = StartStep == 18;
 			}
 		}
 	}
@@ -7701,6 +7836,11 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 				CaptureBurstDirectory,
 				FString::Printf(TEXT("frame_%05d.png"), CaptureBurstFrame++));
 			FScreenshotRequest::RequestScreenshot(FramePath, true, false);
+			if (FParse::Param(FCommandLine::Get(), TEXT("IGImmersionCapture")))
+			{
+				UE_LOG(LogTemp, Display, TEXT("IMMERSION_FRAME frame=%d time=%.4f"),
+					CaptureBurstFrame - 1, GetWorld()->GetTimeSeconds());
+			}
 		}
 		if (CaptureStepSeconds >= CaptureBurstEndsAt)
 		{
@@ -8004,7 +8144,7 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 			Entity->SetDormant(false);
 			CaptureTeleportPlayer(FVector(190.f, -305.f, 997.f), 180.f, -12.f);
 			CaptureParkEntity(FVector(20.f, -305.f, 960.f), 0.f);
-			CaptureBeginBurst(TEXT("physical-capture"), 4.2f);
+			CaptureBeginBurst(TEXT("physical-capture"), 8.6f);
 		}
 		if (ActionB(1.4f) && Entity)
 		{
@@ -8036,10 +8176,11 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 				RequestExit(true);
 			}
 		}
-		if (StepDone(5.f))
+		if (StepDone(9.7f))
 		{
 			GetWorldTimerManager().ClearTimer(CaptureTimer);
-			const bool bCaptured = NightLoop && NightLoop->GetCaptureCount() > 0;
+			const bool bCaptured = NightLoop && NightLoop->GetCaptureCount() > 0 &&
+				!NightLoop->IsCaptureResetInFlight() && Player.IsValid() && Player->InputEnabled();
 			UE_LOG(LogTemp, Display, TEXT("PHYSICAL_CAPTURE %s"), bCaptured ? TEXT("PASS") : TEXT("FAIL"));
 			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CAPTURE DONE"));
 			RequestExit(!bCaptured);

@@ -19,14 +19,14 @@ namespace IGInputBinding
 			{
 				TEXT("Sprint"),
 				NSLOCTEXT("IGInput", "ActionSprint", "달리기"),
-				NSLOCTEXT("IGInput", "DescSprint", "빠르지만 소음 0.50. 3.5초 넘으면 숨이 더해진다"),
+				NSLOCTEXT("IGInput", "DescSprint", "빠르게 달린다. 발소리와 숨소리가 커진다"),
 				EKeys::LeftShift,
 				EKeys::Gamepad_LeftThumbstick,
 			},
 			{
 				TEXT("Crouch"),
 				NSLOCTEXT("IGInput", "ActionCrouch", "앉기"),
-				NSLOCTEXT("IGInput", "DescCrouch", "가장 조용한 이동. 전환에 0.35초가 든다"),
+				NSLOCTEXT("IGInput", "DescCrouch", "몸을 낮춰 조용히 움직인다"),
 				EKeys::C,
 				EKeys::Gamepad_RightThumbstick,
 			},
@@ -40,7 +40,7 @@ namespace IGInputBinding
 			{
 				TEXT("Knock"),
 				NSLOCTEXT("IGInput", "ActionKnock", "두드리기"),
-				NSLOCTEXT("IGInput", "DescKnock", "이 게임의 시그니처 입력. 조사와 절대 섞이지 않는다"),
+				NSLOCTEXT("IGInput", "DescKnock", "문이나 벽을 두드린다. 돌아오는 소리를 들어 보자"),
 				EKeys::Q,
 				EKeys::Gamepad_FaceButton_Right,
 			},
@@ -54,7 +54,7 @@ namespace IGInputBinding
 			{
 				TEXT("HoldBreath"),
 				NSLOCTEXT("IGInput", "ActionHoldBreath", "숨 참기"),
-				NSLOCTEXT("IGInput", "DescHoldBreath", "심박을 4초까지 지운다. 놓으면 1.5배로 돌아온다"),
+				NSLOCTEXT("IGInput", "DescHoldBreath", "잠깐 숨을 참는다. 너무 오래 참으면 숨소리가 거칠어진다"),
 				EKeys::LeftControl,
 				EKeys::Gamepad_LeftTrigger,
 			},
@@ -94,6 +94,13 @@ namespace IGInputBinding
 				// 패드 기본값이 없다. Y는 기록 열람이 쓰고 있고, 한 장치에서
 				// 두 동사가 같은 버튼을 쓰는 것을 이 화면이 금지한다.
 				EKeys::Invalid,
+			},
+			{
+				TEXT("GameplayGuide"),
+				NSLOCTEXT("IGInput", "ActionGuide", "목표 · 조작 안내"),
+				NSLOCTEXT("IGInput", "DescGuide", "10초 동안 다시 본다. 한 번 더 누르면 닫힌다"),
+				EKeys::F1,
+				EKeys::Gamepad_DPad_Up,
 			},
 		};
 		return Table;

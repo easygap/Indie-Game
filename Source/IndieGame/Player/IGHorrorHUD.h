@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/HUD.h"
 #include "Player/IGSettingsMenuLayout.h"
+#include "Player/IGHudGuidance.h"
 #include "IGHorrorHUD.generated.h"
 
 class AIGMorningRoutineDirector;
@@ -155,6 +156,15 @@ class INDIEGAME_API AIGHorrorHUD : public AHUD
 
 public:
 	virtual void DrawHUD() override;
+	/** 잠깐 목표와 조작법을 다시 본다. 다시 누르면 바로 닫힌다. */
+	void ToggleGameplayGuide();
+	bool CanShowGameplayGuide() const;
+	bool IsGameplayGuideRecalled() const { return Guidance.IsRecalled(); }
+	void GetGameplayGuideRenderSample(bool& OutObjective, bool& OutControls) const
+	{
+		OutObjective = bObjectiveGuideDrawn;
+		OutControls = bControlsGuideDrawn;
+	}
 
 	/** Pushes a short inner-voice line onto the local player's HUD. */
 	static void PushThought(
@@ -226,16 +236,13 @@ public:
 	void PlayFirstPersonKnock();
 
 	/**
-	 * 포획 암전 동안 위층 사람의 절제된 1인칭 포옹을 재생한다.
-	 * ImageGen 파생 4프레임은 화면 연출만 맡고 실제 포획 판정은
-	 * 밤 루프 디렉터가 계속 소유한다.
+	 * 실제 괴물의 접촉과 암전 동안 일반 HUD를 가린다.
 	 */
 	void PlayCaptureEmbrace(float DurationSeconds = 1.2f);
 
 	/**
-	 * 침대에서 시야가 돌아올 때 포옹의 마지막 자세를 짧은 잔상으로 남긴다.
-	 * 잔상은 VisualDurationSeconds에 사라지지만, 입력이 돌아오는
-	 * OwnershipDurationSeconds까지 일반 HUD가 먼저 나타나지 않게 프레임을 점유한다.
+	 * 침대에서 시야와 입력이 돌아올 때까지 일반 HUD를 가린다.
+	 * 화면 위에 손 그림을 겹치지 않는다.
 	 */
 	void PlayCaptureWakeEcho(
 		int32 CaptureCount,
@@ -667,10 +674,6 @@ private:
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UTexture2D>> FirstPersonKnockFrames;
 
-	/** 카메라 위에 합성하는 ImageGen 파생 M1 포옹 단계. */
-	UPROPERTY(Transient)
-	TArray<TObjectPtr<UTexture2D>> CaptureEmbraceFrames;
-
 	/** Existing world textures sampled as restrained evidence-card thumbnails. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> JournalMeterTexture;
@@ -797,9 +800,10 @@ private:
 	double CaptureEmbraceStartTime = -1.0;
 	double CaptureEmbraceEndTime = -1.0;
 	double CaptureWakeEchoStartTime = -1.0;
-	double CaptureWakeEchoVisualEndTime = -1.0;
 	double CaptureWakeEchoEndTime = -1.0;
-	int32 CaptureWakeEchoCount = 0;
+	FIGHudGuidance Guidance;
+	bool bObjectiveGuideDrawn = false;
+	bool bControlsGuideDrawn = false;
 #if !UE_BUILD_SHIPPING
 	double FirstPersonKnockPreviewNextTime = 0.0;
 	double CaptureEmbracePreviewNextTime = 0.0;

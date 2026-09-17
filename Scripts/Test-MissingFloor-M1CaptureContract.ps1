@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -64,12 +64,6 @@ $hud = Read-ProjectText 'Source/IndieGame/Player/IGHorrorHUD.cpp'
 $listener = Read-ProjectText 'Source/IndieGame/Entity/IGListenerEntity.cpp'
 $greybox = Read-ProjectText 'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
 $toneSequence = Read-ProjectText 'Source/IndieGame/Audio/IGToneSequenceSoundWave.cpp'
-$prepareArt = Read-ProjectText 'Scripts/Prepare-AIArt.ps1'
-$surfaceTextures = Read-ProjectText 'Scripts/generate_surface_textures.py'
-$artBuild = Read-ProjectText 'Scripts/Build-ArtAssets.ps1'
-$assetPolicy = Read-ProjectText 'Docs/ASSET_POLICY.md'
-$imageGenRecord = Read-ProjectText 'Docs/IMAGEGEN_PROMPTS_2026-08-11.md'
-$story = Read-ProjectText 'Docs/STORY_BIBLE_MISSING_FLOOR.md'
 
 Assert-ContainsAll $nightHeader @(
 	'float FadeOutSeconds = 2.15f;',
@@ -123,33 +117,21 @@ Assert-ContainsAll $player @(
 	'if (!bReducedMotion && CaptureFeedbackRemainingSeconds > 0.0f)'
 ) 'camera and haptic feedback'
 
+# 포획 중에는 실제 몸을 보여 주고 일반 HUD만 가린다.
 Assert-ContainsAll $hudHeader @(
-	'void PlayCaptureEmbrace(float DurationSeconds = 1.2f);',
-	'bool DrawCaptureEmbrace(double CurrentTime);',
-	'TArray<TObjectPtr<UTexture2D>> CaptureEmbraceFrames;',
-	'double CaptureEmbraceEndTime = -1.0;',
-	'bool bCaptureEmbracePreview = false;'
+    'void PlayCaptureEmbrace(float DurationSeconds = 1.2f);',
+    'bool DrawCaptureEmbrace(double CurrentTime);',
+    'double CaptureEmbraceEndTime = -1.0;'
 ) 'capture HUD declarations'
 Assert-ContainsAll $hud @(
-	'CaptureEmbraceDurationSeconds = 1.2',
-	'CaptureEmbraceFrameCount = 4',
-	'T_FPCaptureEmbrace0_D.T_FPCaptureEmbrace0_D',
-	'T_FPCaptureEmbrace3_D.T_FPCaptureEmbrace3_D',
-	'TEXT("IGM1CapturePreview")',
-	'if (DrawCaptureEmbrace(CurrentTime))',
-	'const float SpriteSize = FMath::Max(Canvas->ClipX, Canvas->ClipY);',
-	'FrameTile.BlendMode = SE_BLEND_Translucent;',
-	'Accessibility->IsReducedCameraMotionEnabled()',
-	# 정지 화면으로 세우는 칸은 손이 있는 마지막 포즈여야 한다. 시트 3번은
-	# 손이 잘려 나간 팔뚝 두 개라 무엇이 닿았는지를 말해 주지 못한다.
-	'DrawFrame(0, Visibility * 0.94f);',
-	'ClosingAnimationEnd = 0.72f',
-	# 시트 순서대로 틀면 팔이 바깥으로 벌어져 화면을 빠져나간다. 포옹은 안으로
-	# 닫히는 동작이므로 뒤에서부터 튼다. v2 원화를 반입하면 이 뒤집기를
-	# 되돌려야 한다 — v2는 좌상부터가 첫 접촉이다.
-	'IGHorrorHUD::CaptureEmbraceFrameCount - 1 - SheetIndex',
-	'DrawFrame(FrameIndex, Visibility);'
-) 'capture HUD presentation'
+    'if (DrawCaptureEmbrace(CurrentTime))',
+    'Guidance.Interrupt();',
+    'CurrentTime >= CaptureEmbraceStartTime && CurrentTime < CaptureEmbraceEndTime'
+) 'capture HUD ownership'
+Assert-True (-not $hud.Contains('T_FPCaptureEmbrace')) '포획용 손 그림을 HUD에서 읽으면 안 된다'
+Assert-True (-not $hudHeader.Contains('CaptureEmbraceFrames')) '사용하지 않는 손 그림 배열이 남아 있다'
+$captureDraw = Get-Block $hud 'bool AIGHorrorHUD::DrawCaptureEmbrace(' 'bool AIGHorrorHUD::DrawCaptureWakeEcho('
+Assert-True (-not $captureDraw.Contains('DrawItem')) '포획 장면에 2D 팔을 겹치면 안 된다'
 
 Assert-ContainsAll $listener @(
 	'UIGToneSequenceSoundWave::CreateCaptureStruggle(this)',
@@ -170,79 +152,6 @@ Assert-ContainsAll $replyBlock @(
 	'KnockIndex < 2',
 	'const float Start = 0.42f * KnockIndex;'
 ) 'calm close double knock'
-
-Assert-ContainsAll $prepareArt @(
-	"Source = 'SheetListenerCaptureEmbracePhases_v1_RGBA'; Target = 'T_FPCaptureEmbrace0_D.png'",
-	"Source = 'SheetListenerCaptureEmbracePhases_v1_RGBA'; Target = 'T_FPCaptureEmbrace3_D.png'",
-	"Mode = 'PreserveAlphaGreenDespill'"
-) 'capture sprite extraction'
-
-# 1024 시트는 여럿이라 크기만으로는 이 스프라이트를 못 짚는다.
-# 네 장이 각각 1024로 뽑히는지 대상 이름과 짝지어 본다.
-foreach ($phase in 0..3) {
-	$sizePattern = "T_FPCaptureEmbrace$($phase)_D.png'\s*\r?\n\s*" +
-		"Crop = [^\r\n]*Size = @\(1024, 1024\)"
-	Assert-True ($prepareArt -match $sizePattern) `
-		"capture embrace phase $phase must extract at 1024"
-}
-Assert-ContainsAll $surfaceTextures @(
-	'"T_FPCaptureEmbrace0_D"',
-	'"T_FPCaptureEmbrace3_D"',
-	'"mip_gen_settings", unreal.TextureMipGenSettings.TMGS_NO_MIPMAPS',
-	'texture.set_editor_property("address_x", unreal.TextureAddress.TA_CLAMP)',
-	'texture.set_editor_property("never_stream", True)'
-) 'capture texture import settings'
-Assert-ContainsAll $artBuild @(
-	"'SheetListenerCaptureEmbracePhases_v1_RGBA'",
-	"'\[IndieGame\] Imported 11 textures'",
-	"'Content\Prototype\Textures\T_FPCaptureEmbrace0_D.uasset'",
-	"'Content\Prototype\Textures\T_FPCaptureEmbrace3_D.uasset'"
-) 'targeted capture asset build'
-Assert-ContainsAll $assetPolicy @(
-	'SheetListenerCaptureEmbracePhases_v1.png',
-	'C27CAEBAE413E574AB3BA48AA95979718233C87893492420E8F5DBB9E11C999A',
-	'T_FPCaptureEmbrace0_D',
-	'UI-space'
-) 'capture asset provenance'
-Assert-ContainsAll $imageGenRecord @(
-	'Asset type: production 2x2 first-person capture-embrace animation sprite sheet',
-	'perfectly flat solid #00ff00 chroma-key background',
-	'C27CAEBAE413E574AB3BA48AA95979718233C87893492420E8F5DBB9E11C999A',
-	'SheetListenerCaptureEmbracePhases_v1_RGBA.png'
-) 'capture ImageGen prompt record'
-Assert-ContainsAll $story @(
-	'## 28. v2.7',
-	# 세 값을 맨 숫자로 찾으면 문서 아무 데나 있어도 통과한다.
-	'붙잡힌 접촉은 2.15초간 이어지고 침대에서 풀린다',
-	'카메라 피치 최대 3.2°와 전 모터 진동 0.70을 0까지 감쇠한다',
-	'3.0초 → 2.2초 → 1.4초 → 0.4초'
-) 'v2.7 capture design supplement'
-# README의 소개 화면과 링크는 Validate-Project.ps1에서 검사한다.
-
-$sourceAsset = Join-Path $projectRoot `
-	'Content/SourceArt/AI/SheetListenerCaptureEmbracePhases_v1.png'
-$sourceHash = (Get-FileHash -LiteralPath $sourceAsset -Algorithm SHA256).Hash
-Assert-True ($sourceHash -eq `
-	'C27CAEBAE413E574AB3BA48AA95979718233C87893492420E8F5DBB9E11C999A') `
-	'capture source hash does not match the approved ImageGen output'
-
-foreach ($relativeAsset in @(
-	'Content/SourceArt/AI/SheetListenerCaptureEmbracePhases_v1.png',
-	'Content/SourceArt/AI/SheetListenerCaptureEmbracePhases_v1_RGBA.png',
-	'Content/SourceArt/T_FPCaptureEmbrace0_D.png',
-	'Content/SourceArt/T_FPCaptureEmbrace1_D.png',
-	'Content/SourceArt/T_FPCaptureEmbrace2_D.png',
-	'Content/SourceArt/T_FPCaptureEmbrace3_D.png',
-	'Content/Prototype/Textures/T_FPCaptureEmbrace0_D.uasset',
-	'Content/Prototype/Textures/T_FPCaptureEmbrace1_D.uasset',
-	'Content/Prototype/Textures/T_FPCaptureEmbrace2_D.uasset',
-	'Content/Prototype/Textures/T_FPCaptureEmbrace3_D.uasset',
-	'Docs/Media/m1-capture-embrace.png',
-	'Docs/Media/m1-capture-embrace.gif'
-)) {
-	Assert-True (Test-Path -LiteralPath (Join-Path $projectRoot $relativeAsset) -PathType Leaf) `
-		"missing capture asset: $relativeAsset"
-}
 
 Write-Host (
 	'M1 capture contract passed ({0} assertions).' -f $assertionCount) `

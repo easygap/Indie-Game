@@ -424,8 +424,8 @@ foreach ($invariant in @(
 	'FLinearColor(0.20f, 0.55f, 0.95f, 1.0f)',
 	'PhoneCloseGamepad',
 	'PhoneCloseKeyboard',
-	'NoteCloseGamepad',
-	'NoteCloseKeyboard',
+	'NoteCloseBound',
+	'GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad)',
 	'ReceiptCloseGamepad',
 	'ReceiptCloseKeyboard'
 )) {

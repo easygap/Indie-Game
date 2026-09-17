@@ -860,8 +860,8 @@ Assert-ContainsAll $inputConfig @(
 Assert-ContainsAll $hudSource @(
 	'PromptFormatGamepad',
 	'PromptFormatKeyboard',
-	'HintsGamepad',
-	'HintsKeyboard',
+	'GetBoundKeyLabel(EIGBindableAction::GameplayGuide, bUsingGamepad)',
+	'GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad)',
 	'AccessibilityControlsGamepad',
 	'AccessibilityControlsKeyboard',
 	'[ A ]',

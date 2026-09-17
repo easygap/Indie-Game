@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -65,7 +65,7 @@ $status = Read-ProjectText 'Docs/IMPLEMENTATION_STATUS.md'
 $artMatrix = Read-ProjectText 'Docs/MISSING_FLOOR_ART_MATRIX.md'
 $captureRunner = Read-ProjectText 'Scripts/Run-MissingFloor-NightCapture.bat'
 
-# 포획 리셋은 암전뿐 아니라 짧은 기상 잔향까지 하나의 원자적 상태다.
+# 침대 복귀와 페이드가 끝날 때까지 입력 잠금을 유지한다.
 Assert-ContainsAll $nightHeader @(
 	'bool IsCaptureResetInFlight() const { return bResetInFlight; }',
 	'void FinishWakeRecovery();',
@@ -114,46 +114,22 @@ Assert-ContainsAll $finishRecoveryBlock @(
 	'bResetInFlight = false;'
 ) 'single input recovery exit'
 
-# 기상 잔상은 기존 포옹 셀만 되감고 판정·충돌을 소유하지 않는다.
+# 기상 시에는 침대 시야와 암전만 남기고 입력 복귀까지 HUD를 가린다.
 Assert-ContainsAll $hudHeader @(
-	'void PlayCaptureWakeEcho(',
-	'int32 CaptureCount,',
-	'float VisualDurationSeconds = 0.68f,',
-	'float OwnershipDurationSeconds = 0.68f);',
-	'bool DrawCaptureWakeEcho(double CurrentTime);',
-	'double CaptureWakeEchoStartTime = -1.0;',
-	'double CaptureWakeEchoVisualEndTime = -1.0;',
-	'double CaptureWakeEchoEndTime = -1.0;',
-	'int32 CaptureWakeEchoCount = 0;',
-	'bool bCaptureWakeEchoPreview = false;'
-) 'wake echo HUD declarations'
+    'void PlayCaptureWakeEcho(',
+    'float OwnershipDurationSeconds = 0.68f);',
+    'bool DrawCaptureWakeEcho(double CurrentTime);',
+    'double CaptureWakeEchoStartTime = -1.0;',
+    'double CaptureWakeEchoEndTime = -1.0;'
+) 'wake HUD declarations'
 Assert-ContainsAll $hud @(
-	'TEXT("IGM1WakeEchoPreview")',
-	'void AIGHorrorHUD::PlayCaptureWakeEcho(',
-	'SafeOwnershipDuration',
-	'if (DrawCaptureWakeEcho(CurrentTime))',
-	'bool AIGHorrorHUD::DrawCaptureWakeEcho(',
-	'CurrentTime >= CaptureWakeEchoVisualEndTime',
-	'CaptureWakeEchoVisualEndTime - CaptureWakeEchoStartTime',
-	'NormalizedAge >= 0.66f',
-	'FrameIndex = 1;',
-	'NormalizedAge >= 0.33f',
-	'FrameIndex = 2;',
-	'int32 FrameIndex = 3;',
-	'Accessibility->IsReducedCameraMotionEnabled()',
-	'0.34f * RepeatAttenuation',
-	'FrameTile.BlendMode = SE_BLEND_Translucent;',
-	'const float SpriteSize = FMath::Max(Canvas->ClipX, Canvas->ClipY);'
-) 'wake echo HUD presentation'
-$wakeDrawBlock = Get-Block $hud `
-	'bool AIGHorrorHUD::DrawCaptureWakeEcho(' `
-	'float AIGHorrorHUD::MeasureTextWidth('
-Assert-True ($wakeDrawBlock.Contains('if (!bReducedMotion)')) `
-	'reduced motion must keep the closed static pose'
-Assert-True ($wakeDrawBlock.Contains('return true;')) `
-	'missing art must not release the rest of the HUD during recovery'
-Assert-True (-not $wakeDrawBlock.Contains('SE_BLEND_Additive')) `
-	'wake echo must not use a flashing additive blend'
+    'SafeOwnershipDuration',
+    'if (DrawCaptureWakeEcho(CurrentTime))',
+    'CurrentTime >= CaptureWakeEchoStartTime && CurrentTime < CaptureWakeEchoEndTime'
+) 'wake HUD ownership'
+$wakeDrawBlock = Get-Block $hud 'bool AIGHorrorHUD::DrawCaptureWakeEcho(' 'float AIGHorrorHUD::MeasureTextWidth('
+Assert-True (-not $wakeDrawBlock.Contains('DrawItem')) '기상 화면에 손 잔상을 그리면 안 된다'
+Assert-True (-not $hud.Contains('CaptureEmbraceFrames')) '예전 손 잔상 리소스를 읽으면 안 된다'
 
 Assert-ContainsAll $greybox @(
 	'!NightLoop->IsCaptureResetInFlight()',
@@ -167,15 +143,14 @@ Assert-ContainsAll $story @(
 	'2026-09-14 수정',
 	'## 26. 2026-08-11 제품 감사',
 	'### 26.7 2026-08-11 델타 감사',
-	'## 29. v2.8 — 포획 뒤 기상 잔향',
+	'## 29. v2.8 — 포획 뒤 침대 복귀',
 	'게임 시작**은 저녁의 프롤로그',
 	'포획 뒤 시작**은 새 게임이나 밤 처음부터가 아니다',
-	# 잔향 길이는 회차와 짝지어야 뜻이 있다. 맨 숫자만 보면 표가
-	# 뒤섞여도 통과한다.
-	'| 1회 | 0.68초 | 3.0초 |',
-	'| 2회 | 0.48초 | 2.2초 |',
-	'| 3~4회 | 0.30초 | 1.4초 |',
-	'| 5회 이상 | 0.16초 | 0.4초 |',
+	# 회차와 실제 입력 잠금 시간을 함께 확인한다.
+	'| 1회 | 3.0초 |',
+	'| 2회 | 2.2초 |',
+	'| 3~4회 | 1.4초 |',
+	'| 5회 이상 | 0.4초 |',
 	'회차별 페이드 3.0/2.2/1.4/0.4초가 끝난 뒤',
 	'1280×800',
 	'https://gdconf.com/article/gdc-2026-state-of-the-game-industry-reveals-impact-of-layoffs-generative-ai-and-more/',
@@ -188,14 +163,14 @@ Assert-ContainsAll $status @(
 	'게임 전체의 시작, 각 밤의 시작, 포획 뒤 재시작을 분리했다',
 	'저녁 입주에서 시작하고',
 	'같은 밤의 04:30 침대 위치로만',
-	'잔상은 짧게 끝내되 일반 HUD와 입력은',
+	'일반 HUD와 입력은',
 	'M1.1 기상 잔향 계약',
 	'구현 완료·체감 승인 대기'
 ) 'implementation status'
 Assert-ContainsAll $artMatrix @(
 	'| 1인칭 기상 잔향 |',
-	'포획 포옹 원본 재사용',
-	'잔향 뒤 페이드 끝까지 HUD 점유',
+	'손 그림 합성 제거',
+	'페이드 끝까지 HUD 점유',
 	'1920×1080과 1280×800 D3D12 실렌더'
 ) 'art matrix wake reuse'
 # README의 소개 화면과 링크는 Validate-Project.ps1에서 검사한다.

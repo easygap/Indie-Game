@@ -28,6 +28,7 @@ enum class EIGBindableAction : uint8
 	Journal,
 	RequestHint,
 	LoadAutosave,
+	GameplayGuide,
 	Count UMETA(Hidden)
 };
 

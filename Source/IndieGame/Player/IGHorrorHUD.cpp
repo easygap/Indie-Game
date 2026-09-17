@@ -51,7 +51,6 @@ namespace IGHorrorHUD
 	constexpr double FirstPersonKnockDurationSeconds = 0.22;
 	constexpr int32 FirstPersonKnockFrameCount = 4;
 	constexpr double CaptureEmbraceDurationSeconds = 1.2;
-	constexpr int32 CaptureEmbraceFrameCount = 4;
 
 	/**
 	 * The noise ripple (§5.1). One slot, deliberately short, with a minimum
@@ -535,21 +534,6 @@ void AIGHorrorHUD::InitializeFirstPersonActionTextures()
 			KnockTexturePaths[FrameIndex]);
 	}
 
-	static const TCHAR* CaptureTexturePaths[] = {
-		TEXT("/Game/Prototype/Textures/T_FPCaptureEmbrace0_D.T_FPCaptureEmbrace0_D"),
-		TEXT("/Game/Prototype/Textures/T_FPCaptureEmbrace1_D.T_FPCaptureEmbrace1_D"),
-		TEXT("/Game/Prototype/Textures/T_FPCaptureEmbrace2_D.T_FPCaptureEmbrace2_D"),
-		TEXT("/Game/Prototype/Textures/T_FPCaptureEmbrace3_D.T_FPCaptureEmbrace3_D"),
-	};
-	CaptureEmbraceFrames.SetNum(IGHorrorHUD::CaptureEmbraceFrameCount);
-	for (int32 FrameIndex = 0;
-		FrameIndex < IGHorrorHUD::CaptureEmbraceFrameCount;
-		++FrameIndex)
-	{
-		CaptureEmbraceFrames[FrameIndex] = LoadObject<UTexture2D>(
-			nullptr,
-			CaptureTexturePaths[FrameIndex]);
-	}
 }
 
 void AIGHorrorHUD::PlayFirstPersonKnock()
@@ -562,6 +546,7 @@ void AIGHorrorHUD::PlayFirstPersonKnock()
 
 void AIGHorrorHUD::PlayCaptureEmbrace(const float DurationSeconds)
 {
+	Guidance.Interrupt();
 	if (const UWorld* World = GetWorld())
 	{
 		CaptureEmbraceStartTime = World->GetTimeSeconds();
@@ -583,11 +568,9 @@ void AIGHorrorHUD::PlayCaptureWakeEcho(
 			SafeVisualDuration,
 			OwnershipDurationSeconds);
 		CaptureWakeEchoStartTime = World->GetTimeSeconds();
-		CaptureWakeEchoVisualEndTime =
-			CaptureWakeEchoStartTime + SafeVisualDuration;
 		CaptureWakeEchoEndTime =
 			CaptureWakeEchoStartTime + SafeOwnershipDuration;
-		CaptureWakeEchoCount = FMath::Max(1, CaptureCount);
+		Guidance.Interrupt();
 	}
 }
 
@@ -1459,7 +1442,7 @@ void AIGHorrorHUD::DrawNightClock()
 		0.67f,
 		2.0f);
 	FLinearColor Colour = IGHorrorHUD::MutedGray;
-	Colour.A *= 0.7f;
+	Colour.A *= 0.7f * Guidance.ObjectiveAlpha();
 	DrawLeftAlignedText(
 		ClockText,
 		FVector2D(42.0f * Scale, Canvas->ClipY - 60.0f * Scale),
@@ -1834,9 +1817,24 @@ FText AIGHorrorHUD::GetBoundKeyLabel(
 	return Key.GetDisplayName();
 }
 
+bool AIGHorrorHUD::CanShowGameplayGuide() const
+{
+	const APawn* Pawn = GetOwningPawn();
+	const double Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+	return Pawn && Pawn->InputEnabled() && !bSystemMenuVisible && !bAccessibilityMenuVisible
+		&& !bMissingFloorJournalVisible && !bSensoryInterludePresentation && !AIGReadableNote::GetOpenNote()
+		&& Now >= CaptureEmbraceEndTime && Now >= CaptureWakeEchoEndTime;
+}
+
+void AIGHorrorHUD::ToggleGameplayGuide()
+{
+	if (CanShowGameplayGuide()) Guidance.ToggleRecall();
+}
+
 void AIGHorrorHUD::DrawHUD()
 {
 	Super::DrawHUD();
+	bObjectiveGuideDrawn = bControlsGuideDrawn = false;
 
 	if (!bShowHUD || !Canvas || !GEngine)
 	{
@@ -1868,8 +1866,7 @@ void AIGHorrorHUD::DrawHUD()
 	BeginLayoutValidationSample();
 	if (DrawCaptureEmbrace(CurrentTime))
 	{
-		// 포획은 실패 UI가 아니다. 카메라가 완전히 어두워질 때까지 화면을
-		// 점유해 프롬프트가 포옹을 게임 오버처럼 보이게 만들지 않도록 한다.
+		// 실제 몸의 접촉과 암전이 끝날 때까지 일반 안내를 가린다.
 		SuspendDialoguePresentation(CurrentTime);
 		LastHudDrawTime = CurrentTime;
 		FinalizeLayoutValidationSample();
@@ -1877,8 +1874,7 @@ void AIGHorrorHUD::DrawHUD()
 	}
 	if (DrawCaptureWakeEcho(CurrentTime))
 	{
-		// 기상 잔상도 세계 안의 사건이다. 입력이 돌아오기 전에 목표나
-		// 상호작용 문구가 먼저 나타나 기억 효과를 설명하지 않도록 한다.
+		// 침대에서 시야가 돌아오는 동안 입력과 안내를 함께 보류한다.
 		SuspendDialoguePresentation(CurrentTime);
 		LastHudDrawTime = CurrentTime;
 		FinalizeLayoutValidationSample();
@@ -1886,6 +1882,7 @@ void AIGHorrorHUD::DrawHUD()
 	}
 	if (bAccessibilityMenuVisible)
 	{
+		Guidance.DismissRecall();
 		SuspendDialoguePresentation(CurrentTime);
 		DrawAccessibilityPanel();
 		FinalizeLayoutValidationSample();
@@ -1893,6 +1890,7 @@ void AIGHorrorHUD::DrawHUD()
 	}
 	if (bSystemMenuVisible)
 	{
+		Guidance.DismissRecall();
 		SuspendDialoguePresentation(CurrentTime);
 		DrawSystemMenuPanel();
 		FinalizeLayoutValidationSample();
@@ -1900,6 +1898,7 @@ void AIGHorrorHUD::DrawHUD()
 	}
 	if (bMissingFloorJournalVisible)
 	{
+		Guidance.DismissRecall();
 		SuspendDialoguePresentation(CurrentTime);
 		DrawMissingFloorJournalPanel();
 		FinalizeLayoutValidationSample();
@@ -1967,6 +1966,29 @@ void AIGHorrorHUD::DrawHUD()
 		: 0.0f;
 	LastHudDrawTime = CurrentTime;
 
+	// 읽는 동안에는 종이 뒤에 조준점과 목표를 남기지 않는다.
+	if (AIGReadableNote::GetOpenNote())
+	{
+		Guidance.DismissRecall();
+		SuspendDialoguePresentation(CurrentTime);
+		DrawNotePanel();
+		DrawAudioCaption(CurrentTime, Canvas->ClipY - 24.0f);
+		FinalizeLayoutValidationSample();
+		return;
+	}
+	ResumeDialoguePresentation(CurrentTime);
+
+	const FText Objective = SupportsKorean() ? GetObjectiveText() : FText::FromString(GetObjectiveTextAscii());
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>() : nullptr;
+	const bool bTutorialAllowed = !bNightPresentation && (!Narrative
+		|| (Narrative->GetNightIndex() == 0 && !Narrative->HasBeatPlayed(TEXT("Arrival.Complete"))));
+	const FString ObjectiveKey = bNightPresentation
+		? FString::Printf(TEXT("Night.%d"), Narrative ? Narrative->GetNightIndex() : 1) : Objective.ToString();
+	if (CanShowGameplayGuide()) Guidance.Update(DeltaSeconds, ObjectiveKey, bTutorialAllowed);
+	const float ObjectiveAlpha = CanShowGameplayGuide() ? Guidance.ObjectiveAlpha() : 0.0f;
+	const float ControlsAlpha = CanShowGameplayGuide() ? Guidance.ControlsAlpha() : 0.0f;
+
 	UpdateFocusBracket(bHasFocus ? Interaction->GetFocusedActor() : nullptr, DeltaSeconds);
 	DrawFirstPersonKnock(CurrentTime);
 	DrawCrosshair(bHasFocus ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray);
@@ -1981,42 +2003,21 @@ void AIGHorrorHUD::DrawHUD()
 	DrawNoiseRipple(CurrentTime);
 	DrawSaveIndicator(CurrentTime);
 
-	// Objective line. The hour shows none: during 없는 층's night the player
-	// is told nothing and has to listen instead (§11 V4).
-	if (bNightPresentation)
+	if (ObjectiveAlpha > 0.01f)
 	{
-		// 목표 줄은 없다. 시각만(§5.4). GetObjectiveText 본문은 게이트가 잡는다.
-		DrawNightClock();
-	}
-	else if (SupportsKorean())
-	{
-		const FText Objective = GetObjectiveText();
-		if (!Objective.IsEmpty())
+		if (bNightPresentation)
 		{
-			DrawCenteredText(Objective, 42.0f, IGHorrorHUD::PaleGray, EIGHudTextRole::Objective);
+			DrawNightClock();
+			bObjectiveGuideDrawn = true;
+		}
+		else if (!Objective.IsEmpty())
+		{
+			FLinearColor Color = IGHorrorHUD::PaleGray;
+			Color.A *= ObjectiveAlpha;
+			DrawCenteredText(Objective, 42.0f, Color, EIGHudTextRole::Objective);
+			bObjectiveGuideDrawn = true;
 		}
 	}
-	else
-	{
-		const FString Objective = GetObjectiveTextAscii();
-		if (!Objective.IsEmpty())
-		{
-			DrawCenteredText(
-				FText::FromString(Objective), 42.0f, IGHorrorHUD::PaleGray,
-				EIGHudTextRole::Objective);
-		}
-	}
-
-	// A note being read owns the screen: no crosshair chatter under the paper.
-	if (AIGReadableNote::GetOpenNote())
-	{
-		SuspendDialoguePresentation(CurrentTime);
-		DrawNotePanel();
-		DrawAudioCaption(CurrentTime, Canvas->ClipY - 24.0f);
-		FinalizeLayoutValidationSample();
-		return;
-	}
-	ResumeDialoguePresentation(CurrentTime);
 
 	// Focused interaction prompt and hold progress.
 	if (bHasFocus)
@@ -2059,7 +2060,7 @@ void AIGHorrorHUD::DrawHUD()
 			// 글자 높이와 하단 조작 안내 여백을 빼고 화면 안에 남긴다.
 			const float PromptHeight = MeasureTextHeight(
 				Prompt.ToString(), GetFontForRole(EIGHudTextRole::Prompt), 1.f);
-			const float PromptBottomLimit = FMath::Max(0.f, Canvas->ClipY - 54.f - PromptHeight);
+			const float PromptBottomLimit = FMath::Max(0.f, Canvas->ClipY - (ControlsAlpha > 0.01f ? 138.f : 54.f) - PromptHeight);
 			const float PromptTop = FMath::Clamp(FMath::Max(
 				(Canvas->ClipY * 0.5f) + 54.0f,
 				FocusBracketAlpha > 0.01f ? FocusBracketMax.Y + 14.0f : 0.0f), 0.f, PromptBottomLimit);
@@ -2083,37 +2084,39 @@ void AIGHorrorHUD::DrawHUD()
 			? DialoguePanelTop - DialogueLaneGap
 			: Canvas->ClipY - 54.0f);
 
-	// Control hints.
-	if (!bDialogueVisible && !bAudioCaptionVisible)
+	if (ControlsAlpha > 0.01f && !bDialogueVisible && !bAudioCaptionVisible)
 	{
-		// 힌트 줄도 지금 묶인 키를 읽는다. 이동만 고정이다 — 축은 재설정 밖이다.
-		const FText Hints = FText::Format(
-			SupportsKorean()
-				? bUsingGamepad
-					? NSLOCTEXT(
-						"IGHUD",
-						"HintsGamepad",
-						"LS 이동  ·  {0} 달리기  ·  {1} 점프  ·  {2} 앉기  ·  {3} 상호작용  ·  {4} 두드리기  ·  {5} 손전등")
-					: NSLOCTEXT(
-						"IGHUD",
-						"HintsKeyboard",
-						"WASD 이동  ·  {0} 달리기  ·  {1} 점프  ·  {2} 앉기  ·  {3} 상호작용  ·  {4} 두드리기  ·  {5} 손전등")
-				: FText::FromString(
-					bUsingGamepad
-						? TEXT("LS MOVE  |  {0} SPRINT  |  {1} JUMP  |  {2} CROUCH  |  {3} INTERACT  |  {4} KNOCK  |  {5} FLASHLIGHT")
-						: TEXT("WASD MOVE  |  {0} SPRINT  |  {1} JUMP  |  {2} CROUCH  |  {3} INTERACT  |  {4} KNOCK  |  {5} FLASHLIGHT")),
+		FLinearColor Color = IGHorrorHUD::MutedGray;
+		Color.A *= ControlsAlpha;
+		const FText Movement = FText::Format(
+			FText::FromString(SupportsKorean()
+				? (bUsingGamepad ? TEXT("LS 이동  ·  {0} 달리기  ·  {1} 앉기  ·  {2} 점프")
+					: TEXT("WASD 이동  ·  {0} 달리기  ·  {1} 앉기  ·  {2} 점프"))
+				: (bUsingGamepad ? TEXT("LS MOVE  |  {0} SPRINT  |  {1} CROUCH  |  {2} JUMP")
+					: TEXT("WASD MOVE  |  {0} SPRINT  |  {1} CROUCH  |  {2} JUMP"))),
 			GetBoundKeyLabel(EIGBindableAction::Sprint, bUsingGamepad),
-			GetBoundKeyLabel(EIGBindableAction::Jump, bUsingGamepad),
 			GetBoundKeyLabel(EIGBindableAction::Crouch, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::Jump, bUsingGamepad));
+		const FText Actions = FText::Format(FText::FromString(SupportsKorean()
+			? TEXT("{0} 조사  ·  {1} 두드리기  ·  {2} 숨 참기  ·  {3} 손전등")
+			: TEXT("{0} INTERACT  |  {1} KNOCK  |  {2} HOLD BREATH  |  {3} FLASHLIGHT")),
 			GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad),
 			GetBoundKeyLabel(EIGBindableAction::Knock, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::HoldBreath, bUsingGamepad),
 			GetBoundKeyLabel(EIGBindableAction::Flashlight, bUsingGamepad));
-		DrawCenteredText(
-			Hints,
-			FMath::Max(0.0f, Canvas->ClipY - 34.0f),
-			IGHorrorHUD::MutedGray,
-			EIGHudTextRole::Hint);
+		const FText Recall = FText::Format(FText::FromString(SupportsKorean()
+			? (Guidance.IsRecalled() ? TEXT("{0} 안내 닫기  ·  {1} 기록(낮)  ·  {2} 힌트")
+				: TEXT("{0} 목표·조작 다시 보기  ·  {1} 기록(낮)  ·  {2} 힌트"))
+			: TEXT("{0} GUIDE  |  {1} JOURNAL (DAY)  |  {2} HINT")),
+			GetBoundKeyLabel(EIGBindableAction::GameplayGuide, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::Journal, bUsingGamepad),
+			GetBoundKeyLabel(EIGBindableAction::RequestHint, bUsingGamepad));
+		DrawCenteredText(Movement, Canvas->ClipY - 112.0f, Color, EIGHudTextRole::Hint);
+		DrawCenteredText(Actions, Canvas->ClipY - 76.0f, Color, EIGHudTextRole::Hint);
+		DrawCenteredText(Recall, Canvas->ClipY - 40.0f, Color, EIGHudTextRole::Hint);
+		bControlsGuideDrawn = true;
 	}
+
 	FinalizeLayoutValidationSample();
 }
 
@@ -3583,177 +3586,16 @@ void AIGHorrorHUD::DrawFirstPersonKnock(const double CurrentTime)
 
 bool AIGHorrorHUD::DrawCaptureEmbrace(const double CurrentTime)
 {
-	if (!Canvas
-		|| CaptureEmbraceStartTime < 0.0
-		|| CurrentTime < CaptureEmbraceStartTime
-		|| CurrentTime >= CaptureEmbraceEndTime)
-	{
-		return false;
-	}
-
-	const double Duration = FMath::Max(
-		CaptureEmbraceEndTime - CaptureEmbraceStartTime,
-		0.001);
-	if (const AIGPlayerCharacter* Player = Cast<AIGPlayerCharacter>(GetOwningPawn()))
-	{
-		if (Player->HasPhysicalCaptureView() && !bCaptureEmbracePreview)
-		{
-			return true;
-		}
-	}
-	const float NormalizedAge = FMath::Clamp(
-		static_cast<float>((CurrentTime - CaptureEmbraceStartTime) / Duration),
-		0.0f,
-		1.0f);
-	// 꼬리 페이드를 두지 않는다. 카메라 암전이 같은 길이로 돌기 때문에 팔을
-	// 0.82부터 지우면 아직 덜 검은 화면에서 팔이 먼저 증발하고, 마지막에
-	// 남는 그림이 빈 복도가 된다. 끝까지 불투명하게 두면 화면이 완전히
-	// 검어지는 프레임에 맞춰 그리기가 멎으므로 잘림이 보이지 않는다.
-	const float Visibility = IGHorrorHUD::SmoothStep01(NormalizedAge / 0.08f);
-
-	// 어떤 화면 비율에서도 정사각 원본을 늘리지 않는다. 두 소매가 화면
-	// 바깥에서 시작하도록 의도적으로 오버스캔한다.
-	const float SpriteSize = FMath::Max(Canvas->ClipX, Canvas->ClipY);
-	const FVector2D DrawSize(SpriteSize, SpriteSize);
-	const FVector2D DrawPosition(
-		(Canvas->ClipX - SpriteSize) * 0.5f,
-		(Canvas->ClipY - SpriteSize) * 0.5f);
-	auto DrawFrame = [this, &DrawPosition, &DrawSize](
-		const int32 FrameIndex,
-		const float Alpha)
-	{
-		if (!CaptureEmbraceFrames.IsValidIndex(FrameIndex)
-			|| !CaptureEmbraceFrames[FrameIndex]
-			|| !CaptureEmbraceFrames[FrameIndex]->GetResource()
-			|| Alpha <= KINDA_SMALL_NUMBER)
-		{
-			return;
-		}
-		FCanvasTileItem FrameTile(
-			DrawPosition,
-			CaptureEmbraceFrames[FrameIndex]->GetResource(),
-			DrawSize,
-			FLinearColor(0.88f, 0.90f, 0.90f, FMath::Clamp(Alpha, 0.0f, 1.0f)));
-		FrameTile.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(FrameTile);
-	};
-
-	const UGameInstance* GameInstance = GetGameInstance();
-	const UIGAccessibilitySubsystem* Accessibility = GameInstance
-		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
-		: nullptr;
-	const bool bReducedMotion = Accessibility
-		&& Accessibility->IsReducedCameraMotionEnabled();
-	if (bReducedMotion)
-	{
-		// 촉각을 대신할 정보는 남기되 팔이 이동하는 느낌은 제거한다.
-		// 손이 잘려 나간 칸은 무엇이 닿았는지를 말해 주지 못하므로,
-		// 정지 화면으로 세울 칸은 손이 오므라든 마지막 포즈다.
-		DrawFrame(0, Visibility * 0.94f);
-		return true;
-	}
-
-	constexpr float ClosingAnimationEnd = 0.72f;
-	const float FramePosition = FMath::Clamp(
-		NormalizedAge / ClosingAnimationEnd,
-		0.0f,
-		1.0f) * IGHorrorHUD::CaptureEmbraceFrameCount;
-	// 시트 순서대로 틀면 팔이 안으로 모이는 게 아니라 바깥으로 벌어져
-	// 화면을 빠져나가고, 마지막 칸은 손이 잘려 나간 팔뚝 두 개다. 포옹은
-	// 안으로 닫히는 동작이므로 뒤에서부터 튼다 — 팔이 옆에서 들어와 올라오고
-	// 벌어졌다가 손이 오므라들며 끝난다. 붙잡고 있을 마지막 포즈도 손이
-	// 있는 칸이 된다.
-	const int32 SheetIndex = FMath::Clamp(
-		FMath::FloorToInt(FramePosition),
-		0,
-		IGHorrorHUD::CaptureEmbraceFrameCount - 1);
-	const int32 FrameIndex =
-		IGHorrorHUD::CaptureEmbraceFrameCount - 1 - SheetIndex;
-	// 포즈 사이 실루엣 차이가 커서 교차 페이드는 팔이 네 개로 보인다.
-	// 장면과의 알파 블렌드는 유지하되 애니메이션 셀은 한 장씩 전환한다.
-	DrawFrame(FrameIndex, Visibility);
-	return true;
+	// 접촉은 월드의 3D 몸과 카메라가 맡는다. 화면에 별도 팔을 덧씌우지 않는다.
+	return Canvas && CaptureEmbraceStartTime >= 0.0
+		&& CurrentTime >= CaptureEmbraceStartTime && CurrentTime < CaptureEmbraceEndTime;
 }
 
 bool AIGHorrorHUD::DrawCaptureWakeEcho(const double CurrentTime)
 {
-	if (!Canvas
-		|| CaptureWakeEchoStartTime < 0.0
-		|| CurrentTime < CaptureWakeEchoStartTime
-		|| CurrentTime >= CaptureWakeEchoEndTime)
-	{
-		return false;
-	}
-
-	// 잔상이 먼저 사라져도 카메라 페이드와 입력 잠금이 끝날 때까지 일반 HUD는
-	// 되살리지 않는다. 검은 화면 위에 목표/프롬프트만 먼저 뜨는 것을 막는다.
-	if (CurrentTime >= CaptureWakeEchoVisualEndTime)
-	{
-		return true;
-	}
-
-	const double VisualDuration = FMath::Max(
-		CaptureWakeEchoVisualEndTime - CaptureWakeEchoStartTime,
-		0.001);
-	const float NormalizedAge = FMath::Clamp(
-		static_cast<float>((CurrentTime - CaptureWakeEchoStartTime) / VisualDuration),
-		0.0f,
-		1.0f);
-	const float FadeIn = IGHorrorHUD::SmoothStep01(NormalizedAge / 0.12f);
-	const float FadeOut = 1.0f - IGHorrorHUD::SmoothStep01(
-		(NormalizedAge - 0.12f) / 0.88f);
-	const float RepeatAttenuation = FMath::Lerp(
-		1.0f,
-		0.68f,
-		FMath::Clamp((CaptureWakeEchoCount - 1) / 4.0f, 0.0f, 1.0f));
-	const float Visibility = FadeIn * FadeOut * 0.34f * RepeatAttenuation;
-
-	const UGameInstance* GameInstance = GetGameInstance();
-	const UIGAccessibilitySubsystem* Accessibility = GameInstance
-		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
-		: nullptr;
-	const bool bReducedMotion = Accessibility
-		&& Accessibility->IsReducedCameraMotionEnabled();
-	int32 FrameIndex = 3;
-	if (!bReducedMotion)
-	{
-		// 닫힌 포옹이 한 단계씩 풀리는 방향으로만 재생한다. 셀 사이
-		// 교차 페이드는 추가 팔처럼 보이므로 포획 때와 같이 사용하지 않는다.
-		if (NormalizedAge >= 0.66f)
-		{
-			FrameIndex = 1;
-		}
-		else if (NormalizedAge >= 0.33f)
-		{
-			FrameIndex = 2;
-		}
-	}
-
-	if (!CaptureEmbraceFrames.IsValidIndex(FrameIndex)
-		|| !CaptureEmbraceFrames[FrameIndex]
-		|| !CaptureEmbraceFrames[FrameIndex]->GetResource())
-	{
-		// 잔상 에셋이 없어도 입력 복귀와 밤 루프는 계속 진행한다.
-		return true;
-	}
-
-	const float SpriteSize = FMath::Max(Canvas->ClipX, Canvas->ClipY);
-	const FVector2D DrawSize(SpriteSize, SpriteSize);
-	const FVector2D DrawPosition(
-		(Canvas->ClipX - SpriteSize) * 0.5f,
-		(Canvas->ClipY - SpriteSize) * 0.5f);
-	FCanvasTileItem FrameTile(
-		DrawPosition,
-		CaptureEmbraceFrames[FrameIndex]->GetResource(),
-		DrawSize,
-		FLinearColor(
-			0.62f,
-			0.68f,
-			0.72f,
-			FMath::Clamp(Visibility, 0.0f, 1.0f)));
-	FrameTile.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem(FrameTile);
-	return true;
+	// 침대의 실제 시야가 돌아올 때까지 안내만 가린다.
+	return Canvas && CaptureWakeEchoStartTime >= 0.0
+		&& CurrentTime >= CaptureWakeEchoStartTime && CurrentTime < CaptureWakeEchoEndTime;
 }
 
 float AIGHorrorHUD::MeasureTextWidth(
@@ -7609,12 +7451,10 @@ void AIGHorrorHUD::DrawNotePanel()
 	// Dismiss hint at the foot of the sheet.
 	if (HintFont)
 	{
-		const FText Hint = SupportsKorean()
-			? bUsingGamepad
-				? NSLOCTEXT("IGHUD", "NoteCloseGamepad", "[ A ]  덮기")
-				: NSLOCTEXT("IGHUD", "NoteCloseKeyboard", "[ E ]  덮기")
-			: FText::FromString(
-				bUsingGamepad ? TEXT("[ A ]  Close") : TEXT("[ E ]  Close"));
+		const FText Hint = FText::Format(SupportsKorean()
+			? NSLOCTEXT("IGHUD", "NoteCloseBound", "[ {0} ]  덮기")
+			: FText::FromString(TEXT("[ {0} ]  Close")),
+			GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad));
 		const FString HintString = Hint.ToString();
 		float HintWidth = 0.0f;
 		float HintHeight = 0.0f;
@@ -7625,7 +7465,7 @@ void AIGHorrorHUD::DrawNotePanel()
 				PaperOrigin.Y + PaperHeight - HintHeight * 2.2f),
 			Hint,
 			HintFont,
-			FLinearColor(0.42f, 0.39f, 0.35f, 1.0f));
+			Ink);
 		Canvas->DrawItem(HintItem);
 	}
 }
