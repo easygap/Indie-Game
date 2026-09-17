@@ -3102,11 +3102,16 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		const bool bOffStopped = RotorBefore.Equals(Rotor->GetRelativeRotation(), .01f);
 		WorldScene->AdvanceUtilityMeters(12.f, true, true);
 		const FRotator RotorAfter = Rotor->GetRelativeRotation();
+		const bool bNearRate = FMath::IsNearlyEqual(WorldScene->GetUtilityMeterUpdateInterval(), 1.f/60.f);
 		Player->SetActorLocation(FVector(505, -300, 1098));
 		WorldScene->AdvanceUtilityMeters(12.f, true, true);
 		const bool bFarStopped = RotorAfter.Equals(Rotor->GetRelativeRotation(), .01f);
+		const bool bFarRate = FMath::IsNearlyEqual(WorldScene->GetUtilityMeterUpdateInterval(), .25f);
+		Player->SetActorLocation(FVector(505, -300, 98));
+		WorldScene->AdvanceUtilityMeters(0.f, false, true);
+		const bool bFarPhaseKept = Rotor->GetRelativeRotation().Equals(RotorAfter + FRotator(0,12.f*1.44f,0), .01f);
 		Player->SetActorLocation(MeterProbeSavedLocation);
-		if (!bOffStopped || !bFarStopped || RotorBefore.Equals(RotorAfter, .01f)
+		if (!bOffStopped || !bFarStopped || !bNearRate || !bFarRate || !bFarPhaseKept || RotorBefore.Equals(RotorAfter, .01f)
 			|| FMath::Abs(Rotor->GetUpVector().Z) < .99f
 			|| PuzzleOne->GetMeterAction()->GetInteractionHoldDuration_Implementation(Player.Get()) < 1.f)
 		{
@@ -3115,10 +3120,17 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		UE_LOG(LogTemp, Display, TEXT("UTILITY_METER PASS stopped_off=1 rotates_on=1 horizontal=1 distance_cull=1 observation_hold=1"));
 		// 공용 회로를 분리하고 전원 전후를 비교해야 계량기를 증거로 남긴다.
 		const FIGMissingFloorNarrativeSnapshot BeforeExperiment = Narrative->GetSnapshot();
-		const float CommonSwitchZ = WorldScene->GetCommonBreakerToggle()->GetRelativeLocation().Z;
-		const float UnnamedSwitchZ = WorldScene->GetUnnamedBreakerToggle()->GetRelativeLocation().Z;
+		const FTransform CommonSwitchBefore = WorldScene->GetCommonBreakerToggle()->GetRelativeTransform();
+		const FTransform UnnamedSwitchBefore = WorldScene->GetUnnamedBreakerToggle()->GetRelativeTransform();
 		FIGInteractionContext Experiment;
 		Experiment.Interactor = Player.Get();
+		PuzzleOne->SetHourActive(false);
+		PuzzleOne->GetCommonLightAction()->CompleteInteraction_Implementation(Experiment);
+		WorldScene->SetFixtureLive(0, true, true);
+		if (!WorldScene->AreCommonInspectionLightsOff()) { FailProbe(TEXT("낮의 공용 전원 차단 또는 발광 상태 불일치")); return; }
+		PuzzleOne->GetCommonLightAction()->CompleteInteraction_Implementation(Experiment);
+		if (WorldScene->AreCommonInspectionLightsOff()) { FailProbe(TEXT("낮의 공용 전원 복구 실패")); return; }
+		UE_LOG(LogTemp, Display, TEXT("CIRCUIT_POWER PASS daylight=1 emissive=1 override_guard=1 near60=1 far4=1 phase_kept=1"));
 		PuzzleOne->SetHourActive(true);
 		PuzzleOne->GetMeterAction()->CompleteInteraction_Implementation(Experiment);
 		if (Narrative->HasSource(EIGMissingFloorTruth::LivedUpstairs, EIGMissingFloorSource::MeterFifthDial))
@@ -3128,8 +3140,10 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		PuzzleOne->GetCommonLightAction()->CompleteInteraction_Implementation(Experiment);
 		PuzzleOne->GetMeterAction()->CompleteInteraction_Implementation(Experiment);
 		PuzzleOne->GetBreakerAction()->CompleteInteraction_Implementation(Experiment);
-		if (!FMath::IsNearlyEqual(WorldScene->GetCommonBreakerToggle()->GetRelativeLocation().Z, CommonSwitchZ - 3.f)
-			|| !FMath::IsNearlyEqual(WorldScene->GetUnnamedBreakerToggle()->GetRelativeLocation().Z, UnnamedSwitchZ + 3.f)
+		if (!WorldScene->GetCommonBreakerToggle()->GetRelativeLocation().Equals(CommonSwitchBefore.GetLocation(), .01f)
+			|| !WorldScene->GetUnnamedBreakerToggle()->GetRelativeLocation().Equals(UnnamedSwitchBefore.GetLocation(), .01f)
+			|| WorldScene->GetCommonBreakerToggle()->GetRelativeRotation().Equals(CommonSwitchBefore.Rotator(), .1f)
+			|| WorldScene->GetUnnamedBreakerToggle()->GetRelativeRotation().Equals(UnnamedSwitchBefore.Rotator(), .1f)
 			|| WorldScene->GetFifthMeterDisc()->Mobility != EComponentMobility::Movable)
 		{
 			FailProbe(TEXT("P1 switch or meter presentation cannot move")); return;
@@ -5608,10 +5622,11 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 	{
 		GEngine->Exec(GetWorld(), TEXT("DisableAllScreenMessages"));
 	}
-	ArrivalCaptureStep = 0;
+	ArrivalCaptureStep = FParse::Param(FCommandLine::Get(), TEXT("IGCircuitCorridorOnly")) ? 32 : 0;
 	// 근접 사진은 입주 자막과 시작 위치 보정이 끝난 뒤 찍는다.
 	const bool bDetailScreens = (FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGCircuitReview")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGBoothReview"))) && !bCaptureMetricsOnly;
 	if (!bDetailScreens) AdvanceArrivalCapture();
 	GetWorldTimerManager().SetTimer(
@@ -5625,6 +5640,104 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGCircuitReview")))
+	{
+		const int32 Step = ArrivalCaptureStep++;
+		const int32 Index = Step / 4;
+		const bool bBefore = FParse::Param(FCommandLine::Get(), TEXT("IGCircuitBaseline"));
+		const TCHAR* Names[] = {TEXT("wide"), TEXT("front"), TEXT("side"), TEXT("day-reset"),
+			TEXT("common-off"), TEXT("unnamed-on"), TEXT("meter-on"), TEXT("restored"), TEXT("corridor-front"), TEXT("corridor-side")};
+		if (!PuzzleOne || !PuzzleOne->ValidateFixtures()) { FailProbe(TEXT("분전반 검사 대상 없음")); return; }
+		if (Step == 0 && !bBefore)
+		{
+			TInlineComponentArray<UStaticMeshComponent*> Components(WorldScene.Get());
+			int32 Toggles = 0;
+			for (UStaticMeshComponent* Component : Components)
+			{
+				if (!Component->GetStaticMesh() || Component->GetStaticMesh()->GetFName() != TEXT("SM_CircuitToggle")) continue;
+				++Toggles;
+				const FVector LocalCenter = Component->GetStaticMesh()->GetBounds().Origin;
+				const FVector Center = Component->GetComponentTransform().TransformPosition(LocalCenter);
+				const bool bOff = Component == WorldScene->GetUnnamedBreakerToggle();
+				if ((bOff ? Center.Z >= Component->GetComponentLocation().Z : Center.Z <= Component->GetComponentLocation().Z)
+					|| !FMath::IsNearlyEqual(Component->GetRelativeRotation().Roll, bOff ? -32.f : 32.f, .1f))
+				{ FailProbe(TEXT("차단기 초기 자세 또는 상하 방향 오류")); return; }
+				UE_LOG(LogTemp,Display,TEXT("CIRCUIT_TOGGLE x=%.2f z=%.2f roll=%.2f center_z_offset=%.3f"),
+					Component->GetComponentLocation().X, Component->GetComponentLocation().Z, Component->GetRelativeRotation().Roll,
+					Center.Z-Component->GetComponentLocation().Z);
+			}
+			if (Toggles != 5) { FailProbe(TEXT("분전반 손잡이 누락")); return; }
+		}
+		if (Index < UE_ARRAY_COUNT(Names))
+		{
+			if (Step % 4 == 0)
+			{
+				const float CabinetX = bBefore ? -90.f : 44.f;
+				if (Index >= 8)
+				{
+					WorldScene->SetTheHourSealed(false);
+					CaptureTeleportPlayer(FVector(CabinetX,-315,998), 90, 7);
+				}
+				else CaptureTeleportPlayer(FVector(555,-275,98), -90, -8);
+				const bool bWide = Index == 0 || Index == 4 || Index == 7;
+				const FVector Target = Index >= 8 ? FVector(CabinetX,-237,1080) : Index == 6 ? FVector(542,-365,151) : bWide ? FVector(540,-370,150) : FVector(576,-366,152);
+				const FVector Eye = Index == 8 ? FVector(CabinetX,-351,1077) : Index == 9 ? FVector(CabinetX+57,-328,1077) : Index == 2 ? FVector(616,-300,158) : Index == 6 ? FVector(542,-299,158)
+					: bWide ? FVector(528,-242,169) : FVector(576,-289,157);
+				ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(Eye, (Target-Eye).Rotation());
+				if (!Camera) { FailProbe(TEXT("분전반 검사 카메라 없음")); return; }
+				Camera->GetCameraComponent()->SetFieldOfView(bWide ? 72 : 53);
+				GetWorld()->GetFirstPlayerController()->SetViewTarget(Camera);
+				FIGInteractionContext Context; Context.Interactor = Player.Get();
+				if (Index == 3)
+				{
+					const FTransform Down = WorldScene->GetUnnamedBreakerToggle()->GetRelativeTransform();
+					PuzzleOne->GetBreakerAction()->CompleteInteraction_Implementation(Context);
+					if (!bBefore)
+					{
+						UStaticMeshComponent* Toggle = WorldScene->GetUnnamedBreakerToggle();
+						if (Toggle->GetRelativeRotation().Equals(Down.Rotator(), .1f) || !Toggle->GetRelativeLocation().Equals(Down.GetLocation(), .01f))
+						{ FailProbe(TEXT("낮의 차단기 손잡이가 축에서 돌지 않음")); return; }
+						FTimerHandle RaisedShot;
+						GetWorldTimerManager().SetTimer(RaisedShot, [this]() { CaptureShot(TEXT("circuit-day-raised")); }, .10f, false);
+						FTimerHandle TripCheck;
+						GetWorldTimerManager().SetTimer(TripCheck, [this, Down]()
+						{
+							if (!WorldScene->GetUnnamedBreakerToggle()->GetRelativeTransform().Equals(Down,.01f)
+								|| PuzzleOne->HasBreakerBeenThrown() || PuzzleOne->IsBallastHumAudible())
+							{ FailProbe(TEXT("낮의 차단기 복귀 또는 전원 차단 실패")); return; }
+							UE_LOG(LogTemp, Display, TEXT("CIRCUIT_DAY_TRIP PASS hinge=1 returned=1 silent_above=1"));
+						}, .5f, false);
+					}
+				}
+				if (Index == 4)
+				{
+					NightPhase->BeginTheHour(1);
+					if (Entity) Entity->SetDormant(true);
+					PuzzleOne->GetCommonLightAction()->CompleteInteraction_Implementation(Context);
+				}
+				if (Index == 5) PuzzleOne->GetBreakerAction()->CompleteInteraction_Implementation(Context);
+				if (Index == 7)
+				{
+					PuzzleOne->GetBreakerAction()->CompleteInteraction_Implementation(Context);
+					PuzzleOne->GetCommonLightAction()->CompleteInteraction_Implementation(Context);
+					PuzzleOne->SetHourActive(false);
+				}
+			}
+			if (Step % 4 == 3)
+			{
+				if (!bBefore && (Index == 4 || Index == 5) && !WorldScene->AreCommonInspectionLightsOff())
+				{ FailProbe(TEXT("시간 경과 후 공용등이 다시 켜짐")); return; }
+				CaptureShot(*(FString(bBefore ? TEXT("circuit-before-") : TEXT("circuit-")) + Names[Index]));
+			}
+		}
+		else if (Step == UE_ARRAY_COUNT(Names)*4+2)
+		{
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("CIRCUIT_REVIEW PASS views=%d"), UE_ARRAY_COUNT(Names));
+			RequestExit(false);
+		}
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGBoothReview")))
 	{
 		const int32 Step = ArrivalCaptureStep++;
@@ -6598,58 +6711,31 @@ namespace IGNightHistogram
 		bool bShowHud = false;
 	};
 
-	/**
-	 * §11 V5's eight night viewpoints, with bands measured on this build at
-	 * 1280x720 and then opened by ±0.10 — never authored first and loosened
-	 * until they passed, which would only have proved the bands were loose.
-	 * Run-to-run spread is about ±0.001, so the margin exists for a different
-	 * GPU's temporal convergence, not for drift in the lighting.
-	 *
-	 * Both bounds carry weight. The floor catches somebody raising the exposure
-	 * or adding a light; the ceiling catches the torch failing or the scene
-	 * going black, which is the failure that nearly passed this sweep silently.
-	 *
-	 * One measured number does not match the design's language: 복도 암부 sits
-	 * at 20% of pixels below 5% luminance, where V1's "주광 0, 암부가 진짜 검게
-	 * 떨어지도록" reads like it should be most of the frame. The band locks what
-	 * actually ships rather than what the sentence implies, and the gap is noted
-	 * in IMPLEMENTATION_STATUS for a human to settle by looking.
-	 */
+	// 9월 11일부터 복도 서쪽 등 하나만 남는다. 구형 기준은 꺼진 등 아래의
+	// 존재와 빛이 없는 동쪽 벽을 측정했다. 남아 있는 등·손전등·출입구가 실제로
+	// 보이는 시점을 쓰고, 화면과 측정값을 CIRCUIT_REVIEW_20260917에 함께 남긴다.
 	const FPoint Points[] =
 	{
 		{
 			TEXT("corridor_dark"), ESetup::DarkCorridor,
-			FVector(60.0f, -305.0f, 997.0f), 0.0f, -3.0f,
-			0.14f, 0.34f, 0.010f
+			FVector(-245.0f, -305.0f, 997.0f), 0.0f, -10.0f,
+			0.98f, 0.997f, 0.010f
 		},
 		{
 			TEXT("beam_dust"), ESetup::BeamDust,
 			FVector(-60.0f, -305.0f, 997.0f), 0.0f, -6.0f,
-			// 0.18~0.38은 측정값 0.2801에서 저작했는데 그 값이 재현되지 않는다.
-			// 커밋된 자산으로 두 번, 두 번 구운 뒤 한 번, DDC 지우고 구운 직후
-			// 한 번 — 네 조건 전부 0.115대다. 0.28대가 나온 실행은 딱 한 번
-			// 있었고 그 뒤로 다시 나오지 않았다. 원인은 못 찾았지만 여섯 번 중
-			// 다섯 번이 일치하는 쪽을 정본으로 둔다.
-			//
-			// 처음에는 구워진 uasset이 소스보다 오래된 탓이라고 봤는데 아니다.
-			// 같은 소스로 두 번 구우면 소스 PNG는 바이트까지 같고, 그렇게 구운
-			// 자산으로 재면 커밋된 자산과 같은 값이 나온다.
-			0.02f, 0.22f, 0.010f
+			0.68f, 0.77f, 0.010f
 		},
 		{
 			TEXT("entity_rim"), ESetup::EntityRim,
-			// 존재는 바닥을 기므로 -4도 시점에서는 실루엣이 화면 아래로 잘리고 빈
-			// 문만 측정됐다. X=330에서 존재를 실제 복도등 바로 아래인 X=70에 두면,
-			// 검수 전용 보조광 없이 장면에 배치된 실등으로 윤곽을 확인할 수 있다.
-			// 커밋된 자산 기준 실측 0.2519 / 0.2524. 복도 아트가 08-18에 올라오면서
-			// 벽지와 테라조 바닥이 빛을 더 돌려주고, 그만큼 암부가 줄었다.
-			FVector(330.0f, -305.0f, 997.0f), 180.0f, -18.0f,
-			0.15f, 0.35f, 0.010f
+			// 남아 있는 서쪽 등 X=-180 아래에 존재를 둔다. 검수용 보조광은 없다.
+			FVector(80.0f, -305.0f, 997.0f), 180.0f, -18.0f,
+			0.955f, 0.989f, 0.010f
 		},
 		{
 			TEXT("cavity_wall"), ESetup::CavityWall,
 			FVector(120.0f, 700.0f, 1297.0f), 0.0f, -2.0f,
-			0.14f, 0.34f, 0.010f
+			0.34f, 0.42f, 0.010f
 		},
 		{
 			// The first stance faced +X/−Y from (60, 760) and put both floor
@@ -6680,12 +6766,12 @@ namespace IGNightHistogram
 		{
 			TEXT("residue_corridor"), ESetup::ResidueCorridor,
 			FVector(80.0f, -300.0f, 997.0f), 190.0f, -34.0f,
-			0.14f, 0.34f, 0.010f
+			0.33f, 0.40f, 0.010f
 		},
 		{
 			TEXT("chase_post"), ESetup::ChasePost,
 			FVector(200.0f, -305.0f, 997.0f), 180.0f, -3.0f,
-			0.24f, 0.44f, 0.010f
+			0.90f, 0.98f, 0.010f
 		},
 		{
 			// Down the corridor, not across it: at yaw 90 the player is 70 cm
@@ -6693,7 +6779,7 @@ namespace IGNightHistogram
 			// measured 91% black and told us nothing about the ripple.
 			TEXT("ripple_ring"), ESetup::RippleRing,
 			FVector(-40.0f, -305.0f, 997.0f), 0.0f, -3.0f,
-			0.21f, 0.41f, 0.010f, /*bShowHud=*/true
+			0.97f, 0.998f, 0.010f, /*bShowHud=*/true
 		},
 		{
 			// §11 규칙 2는 「어느 바닥을 고르느냐」를 선택으로 만든다. 그
@@ -6739,7 +6825,7 @@ namespace IGNightHistogram
 	 * has not settled reads darker than the authored frame. Measuring early
 	 * would quietly pass every shadow floor for the wrong reason.
 	 */
-	constexpr float SettleSeconds = 1.60f;
+	constexpr float SettleSeconds = 4.0f;
 	constexpr float TickSeconds = 0.04f;
 
 	/**
@@ -6757,6 +6843,9 @@ void AIGListenerGreyboxDirector::StartHistogramSweep()
 	{
 		return;
 	}
+	// 광량을 재는 동안 구역 연출이 등을 끄거나 포획이 시점을 방으로 돌리지 않게 한다.
+	for (TActorIterator<AIGZoneTrigger> It(World); It; ++It) It->SetActorEnableCollision(false);
+	if (NightOneBeats) GetWorldTimerManager().ClearAllTimersForObject(NightOneBeats.Get());
 
 	// Same release as the capture tour: measure a standing player, not the wake
 	// intro's pinned camera.
@@ -6839,7 +6928,8 @@ void AIGListenerGreyboxDirector::EnterHistogramPoint(const int32 PointIndex)
 	// Park the entity out of frame by default; only two points want it visible.
 	if (EntityActor)
 	{
-		EntityActor->SetDormant(false);
+		EntityActor->SetDormant(true);
+		EntityActor->SetActorHiddenInGame(true);
 		CaptureParkEntity(FVector(640.0f, -305.0f, 960.0f), 180.0f);
 	}
 	if (Torch)
@@ -6908,6 +6998,7 @@ void AIGListenerGreyboxDirector::EnterHistogramPoint(const int32 PointIndex)
 				+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 260.0f
 				- FVector(0.0f, 0.0f, 39.0f),
 			Point.PlayerYaw + 180.0f);
+		if (EntityActor) EntityActor->SetActorHiddenInGame(false);
 		break;
 
 	case IGNightHistogram::ESetup::ChasePost:
@@ -6926,17 +7017,7 @@ void AIGListenerGreyboxDirector::EnterHistogramPoint(const int32 PointIndex)
 		break;
 
 	case IGNightHistogram::ESetup::RippleRing:
-		if (UIGNoiseSubsystem* Noise = NoiseSubsystem)
-		{
-			// A hammer-loud report right beside the player: the §5.1 ripple ring
-			// is an edge arc, so it has to be freshly triggered to be in frame.
-			Noise->SetGlobalMasking(0.0f);
-			Noise->ReportNoise(
-				Point.PlayerLocation
-					+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 90.0f,
-				1.0f,
-				PlayerCharacter);
-		}
+		// 파문은 짧게 사라진다. 노출이 안정된 뒤 촬영 직전에 소리를 낸다.
 		break;
 
 	default:
@@ -6973,7 +7054,19 @@ void AIGListenerGreyboxDirector::AdvanceHistogramSweep()
 		FPlatformMisc::RequestExit(false);
 		return;
 	}
+	const float PreviousSeconds = HistogramPointSeconds;
 	HistogramPointSeconds += IGNightHistogram::TickSeconds;
+	const float RippleStartSeconds = IGNightHistogram::SettleSeconds - 0.2f;
+	if (HistogramPointIndex >= 0 && HistogramPointIndex < IGNightHistogram::PointCount
+		&& PreviousSeconds < RippleStartSeconds && HistogramPointSeconds >= RippleStartSeconds
+		&& IGNightHistogram::Points[HistogramPointIndex].Setup == IGNightHistogram::ESetup::RippleRing
+		&& NoiseSubsystem)
+	{
+		// 파문이 나타나는 0.1초를 기다리고, 사라지기 전에 찍는다.
+		const IGNightHistogram::FPoint& Point = IGNightHistogram::Points[HistogramPointIndex];
+		NoiseSubsystem->SetGlobalMasking(0.0f);
+		NoiseSubsystem->ReportNoise(Point.PlayerLocation + FRotator(0.f, Point.PlayerYaw, 0.f).Vector()*90.f, 1.f, Player.Get());
+	}
 	if (HistogramPointSeconds < IGNightHistogram::SettleSeconds)
 	{
 		return;
@@ -7047,6 +7140,16 @@ void AIGListenerGreyboxDirector::HandleHistogramScreenshot(
 
 	const IGNightHistogram::FPoint& Point =
 		IGNightHistogram::Points[HistogramPointIndex];
+	FVector CapturedEye;
+	FRotator CapturedView;
+	GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(CapturedEye, CapturedView);
+	if (FVector::Dist(CapturedEye, Point.PlayerLocation + FVector(0,0,64)) > 25.f
+		|| FMath::Abs(FMath::FindDeltaAngleDegrees(CapturedView.Yaw, Point.PlayerYaw)) > 5.f
+		|| FMath::Abs(FMath::FindDeltaAngleDegrees(CapturedView.Pitch, Point.PlayerPitch)) > 5.f)
+	{
+		UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_V5 FAIL point=%s 시점 이탈 eye=%s"), Point.Name, *CapturedEye.ToString());
+		++HistogramFailures;
+	}
 	const int32 PixelCount = Colors.Num();
 	if (PixelCount <= 0 || Width <= 0 || Height <= 0)
 	{

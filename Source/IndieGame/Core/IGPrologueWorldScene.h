@@ -288,9 +288,11 @@ public:
 	/** P1 fixtures, so the puzzle's director can dress them without rebuilding. */
 	UStaticMeshComponent* GetFifthMeterDisc() const { return FifthMeterDisc; }
 	void AdvanceUtilityMeters(float Degrees, bool bUnnamedPowered, bool bCommonPowered);
+	float GetUtilityMeterUpdateInterval() const;
 	UStaticMeshComponent* GetUnnamedBreakerToggle() const { return UnnamedBreakerToggle; }
 	UStaticMeshComponent* GetCommonBreakerToggle() const { return CommonBreakerToggle; }
 	void SetCommonInspectionLightsEnabled(bool bEnabled);
+	bool AreCommonInspectionLightsOff() const;
 
 	/**
 	 * 없는 층 밤1: slides the stair teleport west so the 3.5F half-landing
@@ -754,6 +756,7 @@ private:
 	/** P1: the fifth meter's dial, which never turns, and its dead breaker. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> FifthMeterDisc;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> UtilityMeterDiscs;
+	TArray<float> UtilityMeterPhases;
 
 	/** §14 CCTV 채널 5's housing, high in the annex's south-west corner. */
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> MissingFloorCctvCamera;
@@ -779,6 +782,7 @@ private:
 
 	/** Set while a chapter owns the west corridor fixture; see the flicker handler. */
 	bool bCorridorFlickerSuspended = false;
+	bool bCommonInspectionLightsEnabled = true;
 	bool bTheHourSealed = false;
 
 	/**

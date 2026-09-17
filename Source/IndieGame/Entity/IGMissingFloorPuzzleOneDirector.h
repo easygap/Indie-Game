@@ -58,8 +58,13 @@ protected:
 
 private:
 	void UpdateMeterMotion();
+	void AccumulateMeterMotion();
 	void AdvanceMeterDisc();
 	FTimerHandle MeterRotationTimer;
+	FTimerHandle DaytimeTripTimer;
+	double LastMeterUpdateTime = -1.0;
+	float MeterUpdateInterval = 0.f;
+	void ResetDaytimeBreaker();
 	void HandleMeterExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleBreakerThrown(AIGMissingFloorEvidence* Evidence);
 	void HandleCommonLighting(AIGMissingFloorEvidence* Evidence);

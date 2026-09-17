@@ -1,0 +1,30 @@
+{
+  "name": "SM_LobbyCircuitPanel",
+  "mesh_class": "prop",
+  "fbx": "SM_LobbyCircuitPanel.fbx",
+  "textures": {
+    "D": "SM_LobbyCircuitPanel_D.png",
+    "N": "SM_LobbyCircuitPanel_N.png",
+    "ORM": "SM_LobbyCircuitPanel_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 3094,
+  "bounds_m": {
+    "min": [
+      -0.18,
+      -0.049,
+      -0.27
+    ],
+    "max": [
+      0.18,
+      0.0285,
+      0.27
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "36×54cm 분전반. 중심 원점, 앞 -Y. 다섯 회로+예비 덮개. 토글 축 로컬 X +6.6/-6.7cm, Y -4.8cm, Z +14/-1/-16cm. 실제 사진과 생성 참고 시트 대조."
+}

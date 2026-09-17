@@ -1,0 +1,30 @@
+{
+  "name": "SM_CircuitPanelPrints",
+  "mesh_class": "prop",
+  "fbx": "SM_CircuitPanelPrints.fbx",
+  "textures": {
+    "D": "SM_CircuitPanelPrints_D.png",
+    "N": "SM_CircuitPanelPrints_N.png",
+    "ORM": "SM_CircuitPanelPrints_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 264,
+  "bounds_m": {
+    "min": [
+      -0.093,
+      -0.0473,
+      -0.227
+    ],
+    "max": [
+      0.092,
+      -0.0329,
+      0.247
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "분전반과 같은 원점. 한글 이름표·정격·I/O 표기만 모은 1K 아틀라스. 충돌·그림자 없음. 전체 함체에 굽지 않아 근접 글자 해상도를 확보한다."
+}

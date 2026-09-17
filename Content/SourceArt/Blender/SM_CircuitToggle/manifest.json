@@ -1,0 +1,30 @@
+{
+  "name": "SM_CircuitToggle",
+  "mesh_class": "prop",
+  "fbx": "SM_CircuitToggle.fbx",
+  "textures": {
+    "D": "SM_CircuitToggle_D.png",
+    "N": "SM_CircuitToggle_N.png",
+    "ORM": "SM_CircuitToggle_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 284,
+  "bounds_m": {
+    "min": [
+      -0.006,
+      -0.0109,
+      -0.007
+    ],
+    "max": [
+      0.006,
+      0.0036,
+      0.007
+    ]
+  },
+  "origin": "hinge",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "1.2cm 폭. 축 중심 원점. 앞 -Y, X축으로 ±32도 회전. 함체와 별도 메시, 이동 없이 ON/OFF를 표현한다."
+}

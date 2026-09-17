@@ -45,11 +45,11 @@
 
 <table>
   <tr>
-    <td width="50%"><img src="Docs/Media/readme/p1-meter-cabinet.webp" alt="호실별 계량기와 이름표 없는 다섯 번째 계량기"></td>
+    <td width="50%"><img src="Docs/Media/readme/p1-meter-cabinet.webp" alt="호실별 계량기와 회로를 확인하는 분전반"></td>
     <td width="50%"><img src="Docs/Media/readme/p2-booth-desk.webp" alt="관리실 책상에 남은 민원 접수철과 장부, 열쇠, CCTV 모니터"></td>
   </tr>
   <tr>
-    <td>공용 계량기함</td>
+    <td>계량기함과 분전반</td>
     <td>관리실의 기록과 CCTV</td>
   </tr>
 </table>

@@ -986,20 +986,43 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 
 void AIGPrologueWorldScene::AdvanceUtilityMeters(float Degrees, bool bUnnamedPowered, bool bCommonPowered)
 {
-	// 멀리 있는 계량기에는 애니메이션 갱신을 보내지 않는다.
 	const APawn* Observer = UGameplayStatics::GetPlayerPawn(this, 0);
-	if (!Observer || FVector::DistSquared(Observer->GetActorLocation(), FVector(506, -345, 150)) > FMath::Square(650.0f)) { return; }
+	const bool bNearby = Observer && FVector::DistSquared(Observer->GetActorLocation(), FVector(506, -345, 150)) <= FMath::Square(650.0f);
+	// 멀리서는 각도만 누적한다. 돌아왔을 때 정지한 원판이나 다른 속도를 보이지 않는다.
 	for (int32 Index = 0; Index < UtilityMeterDiscs.Num(); ++Index)
 	{
-		if ((Index == 4 && !bUnnamedPowered) || (Index == 3 && !bCommonPowered)) { continue; }
-		UtilityMeterDiscs[Index]->AddLocalRotation(FRotator(0, Degrees * (1.f + .11f * Index), 0));
+		if ((Index != 4 || bUnnamedPowered) && (Index != 3 || bCommonPowered))
+		{
+			UtilityMeterPhases[Index] = FMath::Fmod(UtilityMeterPhases[Index] + Degrees * (1.f + .11f * Index), 360.f);
+		}
+		if (bNearby)
+		{
+			UtilityMeterDiscs[Index]->SetRelativeRotation(FRotator(0, UtilityMeterPhases[Index], 0));
+		}
 	}
+}
+
+float AIGPrologueWorldScene::GetUtilityMeterUpdateInterval() const
+{
+	const APawn* Observer = UGameplayStatics::GetPlayerPawn(this, 0);
+	const float DistanceSquared = Observer ? FVector::DistSquared(Observer->GetActorLocation(), FVector(506,-345,150)) : MAX_flt;
+	return DistanceSquared <= FMath::Square(250.f) ? 1.f/60.f : DistanceSquared <= FMath::Square(650.f) ? .05f : .25f;
 }
 
 void AIGPrologueWorldScene::SetCommonInspectionLightsEnabled(const bool bEnabled)
 {
-	for (UPointLightComponent* Light : LobbyLights) { if (Light) { Light->SetVisibility(bEnabled); } }
-	for (UPointLightComponent* Light : CorridorLights) { if (Light) { Light->SetVisibility(bEnabled); } }
+	bCommonInspectionLightsEnabled = bEnabled;
+	for (int32 Index = 0; Index < LobbyLights.Num(); ++Index) SetFixtureLive(Index, true, false);
+	for (int32 Index = 0; Index < CorridorLights.Num(); ++Index) SetFixtureLive(Index, true, true);
+}
+
+bool AIGPrologueWorldScene::AreCommonInspectionLightsOff() const
+{
+	for (const UPointLightComponent* Light : LobbyLights) if (Light && Light->Intensity > 0.f) return false;
+	for (const UPointLightComponent* Light : CorridorLights) if (Light && Light->Intensity > 0.f) return false;
+	for (const UStaticMeshComponent* Disc : LobbyLightDiscs) if (Disc && Disc->GetMaterial(0) == LightPanelMaterial) return false;
+	for (const UStaticMeshComponent* Disc : CorridorLightDiscs) if (Disc && Disc->GetMaterial(0) == LightPanelMaterial) return false;
+	return !LobbyLights.IsEmpty() && !CorridorLights.IsEmpty();
 }
 
 UStaticMeshComponent* AIGPrologueWorldScene::CreateDecoOnComponent(
@@ -3365,19 +3388,15 @@ void AIGPrologueWorldScene::BuildCorridor()
 		FVector(430, -236.75f, 6), FVector(100, 3.5f, 12), Skirting, false));
 	CreateBlock(FVector(398, -373.25f, 6), FVector(356, 3.5f, 12), Skirting, false);
 
-	// Distribution board between the units, plus the fire cabinet. The board
-	// is flush-mounted, so its case belongs inside the wall with the door
-	// proud of the plaster. It sits at chest-to-head height: at Z 155 its case
-	// occupied the same patch of wall as 402's intercom.
-	// 케이스는 민무늬 강판이고 「분전반」은 문짝에만 인쇄된다. 케이스에
-	// 직접 주면 6 cm 옆면에도 같은 글자가 눌려 찍힌다.
-	CreateBlock(FVector(-90, -232.4f, 180), FVector(34, 6, 50), Metal, false);
-	// 문짝과 손잡이는 케이스와 같은 높이여야 한다. 케이스만 Z 155에서 180으로
-	// 올라가고 이 둘이 남아, 문이 상자 아래로 25 cm 흘러내려 있었다.
-	CreateBlock(
-		FVector(-90, -229.2f, 180), FVector(35, 1.2f, 51),
-		TexMat(TEXT("M_MeterBox"), Metal), false);
-	CreateBlock(FVector(-75, -228.6f, 180), FVector(3, 1.5f, 6), PlasticDarkMaterial, false);
+	// 401·402 사이 22cm 벽에는 34cm 함이 들어가지 않는다. 402·403 사이 50cm 벽으로 옮긴다.
+	// 복도 쪽 표면은 Y=-235다. 외함만 매입하고 문짝은 벽에서 8mm 내민다.
+	CreateProp(TEXT("SM_CorridorCircuitCabinet"), FVector(44,-232.4f,180), nullptr, 0, 1, false);
+	if (UStaticMeshComponent* Print = CreateProp(TEXT("SM_CorridorCircuitPrint"), FVector(44,-232.4f,180), nullptr, 0, 1, false))
+	{
+		Print->SetCastShadow(false);
+		Print->bAffectDistanceFieldLighting = false;
+		Print->SetCullDistance(900.f);
+	}
 
 	// 동쪽 끝 설비 벽장. §5.1의 세 번째 험이 여기서 난다 — 복도의 엄폐가
 	// 서쪽 분전반 하나뿐이라 동쪽 절반이 통째로 비어 있었다. 문도 창도 없는
@@ -4000,7 +4019,7 @@ void AIGPrologueWorldScene::SetFixtureLive(
 	// A fixture is the light AND the disc: kill both or the ceiling keeps a
 	// glowing ring where the lamp used to be.
 	const float Scale = NightFixtureScale(Index, bCorridor);
-	const bool bShines = bLive && Scale > 0.0f;
+	const bool bShines = bLive && bCommonInspectionLightsEnabled && Scale > 0.0f;
 	if (UPointLightComponent* Light = FixtureLights[Index])
 	{
 		Light->SetIntensity(bShines ? (bCorridor ? 1020.0f : 920.0f) * Scale : 0.0f);
@@ -5258,7 +5277,7 @@ void AIGPrologueWorldScene::HandleCorridorFlicker()
 	// for the whole session at 10 Hz and writes the intensity unconditionally,
 	// so without the gate anything else done to the west fixture is undone
 	// within a tenth of a second.
-	if (bCorridorFlickerSuspended || !DegradedCorridorLight)
+	if (bCorridorFlickerSuspended || !bCommonInspectionLightsEnabled || !DegradedCorridorLight)
 	{
 		return;
 	}
@@ -5412,6 +5431,7 @@ void AIGPrologueWorldScene::BuildLobby()
 	// 검침함의 열린 창 안에 실제 계기를 넣는다. 계수기 아래의 원판은 수평이다.
 	CreateProp(TEXT("SM_MeterCabinetFive"), FVector(506, -365, 150), nullptr, 180, 1, false);
 	UtilityMeterDiscs.Reset();
+	UtilityMeterPhases.Init(0.f, 5);
 	for (int32 MeterIndex = 0; MeterIndex < 5; ++MeterIndex)
 	{
 		const float MeterX = 470.0f + MeterIndex * 18.0f;
@@ -5434,48 +5454,40 @@ void AIGPrologueWorldScene::BuildLobby()
 		CreateBlock(FVector(MeterX, -364.75f, 133), FVector(15, .04f, 6), LabelPrint, false);
 	}
 
-	// The 두꺼비집, east of the cabinet and clear of the entrance opening.
-	// The fifth toggle is the one that is off.
-	CreateBlock(FVector(576, -372.0f, 152), FVector(36, 6, 54), Metal, false);
-	CreateBlock(
-		FVector(576, -368.4f, 152), FVector(37, 1.2f, 55),
-		TexMat(TEXT("M_MeterBox"), Metal), false);
-	// 스위치판은 두 인쇄 띠 사이에만 놓인다 — 위로 「분전반」(Z 168.5~173.1),
-	// 아래로 「취급주의」(Z 130.8~133.8). 34 cm 판이 Z 169까지 올라와 위 글자의
-	// 아랫부분을 5 mm 잘라 먹고 있었다. 32 cm로 줄여 두 띠에서 1.3 cm씩 뗀다.
-	CreateBlock(
-		FVector(576, -367.4f, 151.1f), FVector(30, 1.0f, 32),
-		TexMat(TEXT("M_SwitchPlate"), SignWhiteMaterial), false);
-	// 스위치판 그림은 **2열** 차단기함이고, 왼쪽 열 맨 아래 슬롯에 주황
-	// 표시점이 찍혀 있다. 토글 다섯을 가운데 한 줄로 세워 두는 바람에 그림과
-	// 어긋났고, 판에 다섯이 8 cm 간격으로 들어가지 못해 다섯째가 문짝으로
-	// 흘러내려 「취급주의」 활자 위에 앉아 있었다. 텍스처에서 실측한 창
-	// 자리에 맞춘다 — 왼쪽 창 X 564.3~574.6, 오른쪽 창 X 577.5~587.8,
-	// 두 창 모두 Z 139.7~162.1.
-	constexpr float BreakerLeftX = 569.4f;
-	constexpr float BreakerRightX = 582.7f;
-	for (const float BreakerX : {BreakerLeftX, BreakerRightX})
+	// 배선을 가린 함체와 회전 손잡이는 분리한다. 인쇄된 그림 위에 큐브를 얹지 않는다.
+	if (UStaticMeshComponent* Panel = CreateProp(TEXT("SM_LobbyCircuitPanel"), FVector(576,-372,152), nullptr, 180, 1, false))
 	{
-		for (const float BreakerZ : {159.0f, 151.0f})
+		Panel->SetCullDistance(1800.f);
+	}
+	if (UStaticMeshComponent* Print = CreateProp(TEXT("SM_CircuitPanelPrints"), FVector(576,-372,152), nullptr, 180, 1, false))
+	{
+		Print->SetCastShadow(false);
+		Print->bAffectDistanceFieldLighting = false;
+		Print->SetCullDistance(900.f);
+	}
+	for (const float BreakerX : {569.4f, 582.7f})
+	{
+		for (const float BreakerZ : {166.f, 151.f, 136.f})
 		{
-			UStaticMeshComponent* Toggle = CreateBlock(
-				FVector(BreakerX, -366.4f, BreakerZ), FVector(4, 2.4f, 5),
-				PlasticDarkMaterial, false);
-			if (BreakerX == BreakerRightX && BreakerZ == 151.0f)
+			if (BreakerX == 582.7f && BreakerZ == 136.f) continue;
+			UStaticMeshComponent* Toggle = CreateProp(TEXT("SM_CircuitToggle"), FVector(BreakerX,-367.2f,BreakerZ), nullptr, 180, 1, false);
+			if (!Toggle) continue;
+			const bool bUnnamed = BreakerX == 569.4f && BreakerZ == 136.f;
+			const bool bCommon = BreakerX == 582.7f && BreakerZ == 151.f;
+			// 등록된 정적 컴포넌트는 회전을 거부한다. 초기 자세를 먼저 정하고 고정한다.
+			Toggle->SetMobility(EComponentMobility::Movable);
+			Toggle->SetRelativeRotation(FRotator(0,180,bUnnamed ? -32.f : 32.f));
+			if (bUnnamed || bCommon)
 			{
-				CommonBreakerToggle = Toggle;
-				Toggle->SetMobility(EComponentMobility::Movable);
+				if (bUnnamed) UnnamedBreakerToggle = Toggle;
+				else CommonBreakerToggle = Toggle;
 			}
+			else Toggle->SetMobility(EComponentMobility::Static);
+			Toggle->SetCastShadow(false);
+			Toggle->bAffectDistanceFieldLighting = false;
+			Toggle->SetCullDistance(650.f);
 		}
 	}
-	// The unnamed circuit, visibly thrown down. Kept so P1 can raise it.
-	// 자기 자리는 표시점이 찍힌 왼쪽 열 맨 아래 슬롯(Z 143)이고, 지금은
-	// 거기서 3 cm 내려와 있다. P1이 올리는 3 cm가 정확히 그 슬롯이라
-	// 확인이 「제자리로 돌아왔다」로 읽힌다. 오른쪽 열 맨 아래는 예비 회로다.
-	UnnamedBreakerToggle = CreateBlock(
-		FVector(BreakerLeftX, -366.4f, 140.0f), FVector(4, 2.4f, 5),
-		Stainless, false);
-	UnnamedBreakerToggle->SetMobility(EComponentMobility::Movable);
 
 	// 기록지와 계량기를 같은 벽에서 비교한다. 승강기 버튼 주변에는 종이를 두지 않는다.
 	CreateBlock(FVector(401, -363, 150), FVector(23, 3, 32), Metal, false);

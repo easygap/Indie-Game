@@ -1,26 +1,15 @@
 <#
 .SYNOPSIS
-	§11 V5 밤 구간 8지점 히스토그램 검증.
+	§11 V5 밤 구간 10지점 히스토그램 검증.
 
 .DESCRIPTION
-	여덟 개 저자 시점을 차례로 세우고, 각 프레임에서 5% 미만 암부와 98% 초과
-	하이라이트 픽셀 비율을 재서 지점별 밴드와 대조한다. V1 조명 재작업은
-	「암부가 진짜 검게 떨어진다」는 대비에 관한 주장이고, 스크린샷은 그것을
-	증명하지 못한다. 픽셀을 세는 것이 증명한다.
-
-	이 검증은 사람의 화면 승인을 대체하지 않는다. 밴드 안에 들어온다는 것은
-	프레임이 깨지지 않았다는 뜻이고, 그림이 좋은지는 여전히 눈이 판단한다.
-	그래서 지점마다 PNG를 남긴다 — 나중에 엔진을 다시 돌리지 않고 볼 수 있도록.
+	복도·별관·계단·옥상에서 5% 미만 암부와 98% 초과 하이라이트의 비율을 잰다.
+	측정한 프레임을 Docs/Media/v5-*.png로 남기므로 수치와 화면을 함께 확인할 수 있다.
+	카메라가 지정한 위치에서 벗어나거나 검은 화면만 찍히면 실패한다.
 
 .NOTES
-	게임 창은 절대 뜨지 않는다. -RenderOffScreen을 주면 Windows에서 엔진이
-	실제 윈도우 애플리케이션 대신 Null 플랫폼 애플리케이션을 만들고
-	(WindowsPlatformApplicationMisc.cpp), D3D12 뷰포트가 스왑체인을 만들지
-	않는다(WindowsD3D12Viewport.cpp). 창이 숨겨지거나 최소화되는 게 아니라
-	애초에 생성되지 않으며, 데스크톱으로 프레젠트되는 경로 자체가 없다.
-
-	이 스크립트는 그 플래그가 빠진 인자 조합을 실행 자체로 거부한다. 오타
-	하나로 창이 뜨는 일을 코드로 막는다.
+	D3D12로 화면을 렌더링하되 게임 창은 띄우지 않는다. High·100% 해상도로 실행하고,
+	검사가 끝나면 기존 사용자 그래픽 설정을 복원한다.
 #>
 [CmdletBinding()]
 param(
@@ -68,6 +57,7 @@ $arguments = @(
 	"-ResY=$ResY",
 	'-ForceRes',
 	'-NoVSync',
+	'-ExecCmds="Scalability 2,sg.ResolutionQuality 100,r.ScreenPercentage 100"',
 	'-stdout',
 	'-FullStdOutLogOutput',
 	"-abslog=$runLog",
@@ -93,11 +83,18 @@ foreach ($forbidden in @('-windowed', '-fullscreen', '-game -log')) {
 Write-Host (
 	"§11 V5 히스토그램 스윕 시작 — ${ResX}x${ResY}, 오프스크린, 창 없음") `
 	-ForegroundColor DarkGray
-$process = Start-Process -FilePath $editor -ArgumentList $arguments `
-	-PassThru -NoNewWindow
-if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-	try { $process.Kill($true) } catch {}
-	throw "히스토그램 스윕이 ${TimeoutSeconds}초 안에 끝나지 않았습니다: $runLog"
+$settingsPath = Join-Path $projectRoot 'Saved/Config/WindowsEditor/GameUserSettings.ini'
+$savedSettings = if (Test-Path -LiteralPath $settingsPath) { [IO.File]::ReadAllBytes($settingsPath) } else { $null }
+try {
+	$process = Start-Process -FilePath $editor -ArgumentList $arguments -PassThru -WindowStyle Hidden
+	if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
+		try { $process.Kill($true) } catch {}
+		throw "히스토그램 스윕이 ${TimeoutSeconds}초 안에 끝나지 않았습니다: $runLog"
+	}
+	if ($process.ExitCode -ne 0) { throw "히스토그램 실행 실패: $runLog" }
+} finally {
+	if ($null -ne $savedSettings) { [IO.File]::WriteAllBytes($settingsPath, $savedSettings) }
+	elseif (Test-Path -LiteralPath $settingsPath) { Remove-Item -LiteralPath $settingsPath }
 }
 if (-not (Test-Path -LiteralPath $runLog -PathType Leaf)) {
 	throw "히스토그램 로그가 생성되지 않았습니다: $runLog"

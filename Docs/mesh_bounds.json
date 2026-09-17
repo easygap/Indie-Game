@@ -228,6 +228,30 @@
         43.5
       ]
     },
+    "SM_CircuitPanelPrints": {
+      "origin": [
+        -0.05,
+        -4.01,
+        1.0
+      ],
+      "extent": [
+        9.25,
+        0.72,
+        23.7
+      ]
+    },
+    "SM_CircuitToggle": {
+      "origin": [
+        0.0,
+        -0.365,
+        -0.0
+      ],
+      "extent": [
+        0.6,
+        0.725,
+        0.7
+      ]
+    },
     "SM_ComplaintImpressionPad": {
       "origin": [
         0.0,
@@ -286,6 +310,30 @@
         31.0,
         20.5,
         31.0
+      ]
+    },
+    "SM_CorridorCircuitCabinet": {
+      "origin": [
+        0.0,
+        -0.4075,
+        0.0
+      ],
+      "extent": [
+        17.0,
+        3.4075,
+        25.0
+      ]
+    },
+    "SM_CorridorCircuitPrint": {
+      "origin": [
+        0.0,
+        -3.42,
+        19.7
+      ],
+      "extent": [
+        3.75,
+        0.01,
+        0.95
       ]
     },
     "SM_CottonWorkGlove": {
@@ -838,6 +886,18 @@
         94.9975,
         47.0319,
         42.4916
+      ]
+    },
+    "SM_LobbyCircuitPanel": {
+      "origin": [
+        0.0,
+        -1.025,
+        0.0
+      ],
+      "extent": [
+        18.0,
+        3.875,
+        27.0
       ]
     },
     "SM_MailboxUnit": {

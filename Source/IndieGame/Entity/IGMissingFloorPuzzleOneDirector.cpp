@@ -25,8 +25,8 @@ namespace IGPuzzleOne
 	 * grows an accessor per prop.
 	 */
 	const FVector FifthMeterFace(542.0f, -364.6f, 152.0f);
-	// 미명칭 차단기가 내려와 있는 자리. 스위치판 왼쪽 열 맨 아래 슬롯이다.
-	const FVector BreakerFace(569.4f, -365.6f, 140.0f);
+	// 왼쪽 아래 회로는 이름표가 비어 있다. 손잡이 축은 전원 상태와 무관하게 고정된다.
+	const FVector BreakerFace(569.4f, -365.6f, 136.0f);
 	const FVector CommonBreakerFace(582.7f, -365.6f, 151.0f);
 	const FName UnpoweredObservation(TEXT("P1.Isolation.Unpowered"));
 	const FName PoweredObservation(TEXT("P1.Isolation.Powered"));
@@ -50,6 +50,10 @@ namespace IGPuzzleOne
 	constexpr float DialNoiseLoudness = 0.05f;
 
 	const FName PuzzleId(TEXT("P1"));
+	void SetToggle(UStaticMeshComponent* Toggle, bool bOn)
+	{
+		if (Toggle) Toggle->SetRelativeRotation(FRotator(0,180,bOn ? 32.f : -32.f));
+	}
 }
 
 AIGMissingFloorPuzzleOneDirector::AIGMissingFloorPuzzleOneDirector()
@@ -59,20 +63,34 @@ AIGMissingFloorPuzzleOneDirector::AIGMissingFloorPuzzleOneDirector()
 
 void AIGMissingFloorPuzzleOneDirector::UpdateMeterMotion()
 {
-	GetWorldTimerManager().ClearTimer(MeterRotationTimer);
+	if (!Scene.IsValid()) { return; }
+	const float Interval = Scene->GetUtilityMeterUpdateInterval();
+	if (!GetWorldTimerManager().IsTimerActive(MeterRotationTimer) || !FMath::IsNearlyEqual(Interval, MeterUpdateInterval))
+	{
+		MeterUpdateInterval = Interval;
+		FTimerManagerTimerParameters Parameters;
+		Parameters.bLoop = true;
+		Parameters.bMaxOncePerFrame = true;
+		GetWorldTimerManager().SetTimer(MeterRotationTimer, this,
+			&AIGMissingFloorPuzzleOneDirector::AdvanceMeterDisc, Interval, Parameters);
+	}
+}
+
+void AIGMissingFloorPuzzleOneDirector::AccumulateMeterMotion()
+{
+	const double Now = GetWorld()->GetTimeSeconds();
 	if (Scene.IsValid())
 	{
-		GetWorldTimerManager().SetTimer(MeterRotationTimer, this,
-			&AIGMissingFloorPuzzleOneDirector::AdvanceMeterDisc, .05f, true);
+		const float Elapsed = LastMeterUpdateTime < 0.0 ? 0.f : static_cast<float>(Now-LastMeterUpdateTime);
+		Scene->AdvanceUtilityMeters(42.f*Elapsed, bHourActive && bBreakerThrown, bCommonLightsEnabled);
 	}
+	LastMeterUpdateTime = Now;
 }
 
 void AIGMissingFloorPuzzleOneDirector::AdvanceMeterDisc()
 {
-	if (Scene.IsValid())
-	{
-		Scene->AdvanceUtilityMeters(2.1f, bHourActive && bBreakerThrown, bCommonLightsEnabled);
-	}
+	AccumulateMeterMotion();
+	UpdateMeterMotion();
 }
 
 bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
@@ -224,12 +242,15 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 	}
 
 	CreateBallastHum();
+	LastMeterUpdateTime = World->GetTimeSeconds();
+	UpdateMeterMotion();
 	return true;
 }
 
 void AIGMissingFloorPuzzleOneDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(MeterRotationTimer);
+	GetWorldTimerManager().ClearTimer(DaytimeTripTimer);
 	if (Scene.IsValid())
 	{
 		Scene->SetCommonInspectionLightsEnabled(true);
@@ -294,8 +315,8 @@ void AIGMissingFloorPuzzleOneDirector::HandleMeterExamined(
 	}
 	Narrative->MarkBeatPlayed(bBreakerThrown ? IGPuzzleOne::PoweredObservation : IGPuzzleOne::UnpoweredObservation);
 	AIGHorrorHUD::PushThought(this, bBreakerThrown
-		? NSLOCTEXT("IGMissingFloor", "P1IsolatedRunning", "복도는 꺼졌는데 이 원판은 돈다.")
-		: NSLOCTEXT("IGMissingFloor", "P1IsolatedStopped", "원판이 움직이지 않는다. 위에서도 소리가 안 난다."), 3.8f);
+		? NSLOCTEXT("IGMissingFloor", "P1IsolatedRunning", "복도등은 껐는데, 이쪽은 돈다.")
+		: NSLOCTEXT("IGMissingFloor", "P1IsolatedStopped", "이건 멈춰 있다."), 3.8f);
 	if (Narrative->HasBeatPlayed(IGPuzzleOne::PoweredObservation)
 		&& Narrative->HasBeatPlayed(IGPuzzleOne::UnpoweredObservation))
 	{
@@ -306,17 +327,12 @@ void AIGMissingFloorPuzzleOneDirector::HandleMeterExamined(
 
 void AIGMissingFloorPuzzleOneDirector::HandleCommonLighting(AIGMissingFloorEvidence* Evidence)
 {
-	if (!bHourActive) { return; }
+	AccumulateMeterMotion();
 	bCommonLightsEnabled = !bCommonLightsEnabled;
 	if (AIGPrologueWorldScene* WorldScene = Scene.Get())
 	{
 		WorldScene->SetCommonInspectionLightsEnabled(bCommonLightsEnabled);
-		if (UStaticMeshComponent* Toggle = WorldScene->GetCommonBreakerToggle())
-		{
-			FVector At = Toggle->GetRelativeLocation();
-			At.Z = 151.0f - (bCommonLightsEnabled ? 0.0f : 3.0f);
-			Toggle->SetRelativeLocation(At);
-		}
+		IGPuzzleOne::SetToggle(WorldScene->GetCommonBreakerToggle(), bCommonLightsEnabled);
 	}
 	CommonLightAction->SetInteractionPrompt(bCommonLightsEnabled
 		? NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "공용 조명 — 내리기")
@@ -330,8 +346,8 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 {
 	if (!bHourActive)
 	{
-		// 낮의 투입. 계전기가 바로 되돌려서 딸깍 소리 하나로 끝난다. 위는
-		// 그대로 조용하고, 회로는 밤에 다시 올릴 수 있다.
+		if (GetWorldTimerManager().IsTimerActive(DaytimeTripTimer)) { return; }
+		if (Scene.IsValid()) IGPuzzleOne::SetToggle(Scene->GetUnnamedBreakerToggle(), true);
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateRelayClick(this),
@@ -341,31 +357,20 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 			90.0f,
 			900.0f,
 			EIGAudioBus::Puzzle);
-		AIGHorrorHUD::PushThought(
-			this,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"P1BreakerDaytime",
-				"올리자마자 떨어진다. 계전기가 안 물린다."),
-			3.4f);
+		GetWorldTimerManager().SetTimer(DaytimeTripTimer, this,
+			&AIGMissingFloorPuzzleOneDirector::ResetDaytimeBreaker, .24f, false);
 		return;
 	}
+	AccumulateMeterMotion();
 	bBreakerThrown = !bBreakerThrown;
 	UpdateMeterMotion();
 	BreakerAction->SetInteractionPrompt(bBreakerThrown
 		? NSLOCTEXT("IGMissingFloor", "P1BreakerLower", "이름 없는 회로 — 내리기")
 		: NSLOCTEXT("IGMissingFloor", "P1BreakerRaise", "이름 없는 회로 — 올리기"));
 
-	// Raise the toggle so the world shows what was done, then let the sound
-	// answer. This is the whole confirmation: no card, no tick, no popup.
 	if (AIGPrologueWorldScene* WorldScene = Scene.Get())
 	{
-		if (UStaticMeshComponent* Toggle = WorldScene->GetUnnamedBreakerToggle())
-		{
-			FVector At = Toggle->GetRelativeLocation();
-			At.Z = 140.0f + (bBreakerThrown ? 3.0f : 0.0f);
-			Toggle->SetRelativeLocation(At);
-		}
+		IGPuzzleOne::SetToggle(WorldScene->GetUnnamedBreakerToggle(), bBreakerThrown);
 	}
 
 	IGAudio::SpawnOneShotAt(
@@ -389,25 +394,25 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 		return;
 	}
 
-	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	const bool bKnowsWhoseCircuit = Narrative
-		&& Narrative->HasTruth(EIGMissingFloorTruth::LivedUpstairs);
-	AIGHorrorHUD::PushThought(
-		this,
-		bKnowsWhoseCircuit
-			? NSLOCTEXT("IGMissingFloor", "P1BallastThought", "위에서 불이 들어왔다.")
-			: NSLOCTEXT(
-				"IGMissingFloor",
-				"P1BallastUnread",
-				"천장 쪽에서 전기 들어가는 소리가 났다."),
-		4.0f);
-
+	// 안정기 소리는 실제로 위층에 올라가야 들린다. 로비에서 원인을 먼저 설명하지 않는다.
 	AnnounceSolvedIfReady();
+}
+
+void AIGMissingFloorPuzzleOneDirector::ResetDaytimeBreaker()
+{
+	if (Scene.IsValid()) IGPuzzleOne::SetToggle(Scene->GetUnnamedBreakerToggle(), false);
+	IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateRelayClick(this),
+		IGPuzzleOne::BreakerFace, .7f, .94f, 90.f, 900.f, EIGAudioBus::Puzzle);
+	AIGHorrorHUD::PushThought(this, NSLOCTEXT("IGMissingFloor", "P1BreakerDaytime", "올려도 다시 떨어진다."), 3.4f);
 }
 
 void AIGMissingFloorPuzzleOneDirector::SetHourActive(const bool bActive)
 {
+	AccumulateMeterMotion();
+	GetWorldTimerManager().ClearTimer(DaytimeTripTimer);
 	bHourActive = bActive;
+	if (!bActive) bBreakerThrown = false;
+	if (Scene.IsValid()) IGPuzzleOne::SetToggle(Scene->GetUnnamedBreakerToggle(), bBreakerThrown);
 	UpdateMeterMotion();
 	if (BallastHum)
 	{
@@ -419,11 +424,9 @@ void AIGMissingFloorPuzzleOneDirector::SetHourActive(const bool bActive)
 	{
 		Scene->SetCommonInspectionLightsEnabled(true);
 		bCommonLightsEnabled = true;
-		if (UStaticMeshComponent* Toggle = Scene->GetCommonBreakerToggle())
-		{
-			FVector At = Toggle->GetRelativeLocation(); At.Z = 151.0f; Toggle->SetRelativeLocation(At);
-		}
+		IGPuzzleOne::SetToggle(Scene->GetCommonBreakerToggle(), true);
 		CommonLightAction->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "공용 조명 — 내리기"));
+		BreakerAction->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "P1BreakerRaise", "이름 없는 회로 — 올리기"));
 	}
 }
 

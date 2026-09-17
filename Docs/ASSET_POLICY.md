@@ -582,6 +582,15 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 - 접수철의 손글씨는 나눔손글씨 펜체를 사용한다. [Google Fonts 원본](https://github.com/google/fonts/blob/main/ofl/nanumpenscript/METADATA.pb), 글꼴 파일과 SIL OFL 고지는 `Scripts/fonts/NanumPenScript/`에 보존한다. 글꼴을 수정하지 않았으며 게임에서는 구운 인쇄 이미지를 사용한다.
 - 실물 참고 링크, 모델 치수, 전후 화면은 [관리실 점검 기록](BOOTH_REVIEW_20260917.md)에 정리한다.
 
+## 2026-09-17 로비 분전반
+
+- `CircuitPanelReference_20260917.png`: LS EBS32Fb 제품 실물 사진을 구조 참고로 전달해 내장 imagegen으로 만든 정면·사선·확대 시트다. 사진의 상표나 인증 표시는 모델에 옮기지 않았다.
+- `CorridorCabinetReference_20260917.png`: KDM의 매입형 금속 함 사진과 로비 분전반 시트를 함께 참고해 만든 닫힌 함체 시트다. 별도 JSON에 프롬프트를 보존한다. `SM_CorridorCircuitCabinet`의 문틈·힌지·잠금쇠와 매입 깊이에 사용했다. 한글 이름표는 `SM_CorridorCircuitPrint`로 분리했다.
+- 참고 사진 주소와 사용한 프롬프트는 `Content/SourceArt/AI/CircuitPanelReference_20260917.json`에 남긴다. 판매 사진 원본은 배포 에셋에 포함하지 않는다.
+- Blender에서 `SM_LobbyCircuitPanel`, `SM_CircuitToggle`, `SM_CircuitPanelPrints`로 제작했다. 한글 이름표는 `Scripts/build_circuit_prints.py`로 만들고 인쇄 UV만 보정했다.
+- 전원 상태, 회전축, 그림자와 반사는 게임이 계산한다. 생성 참고 이미지를 분전반 앞면에 붙이지 않는다.
+- 실제 게임 화면과 검증 결과는 [분전반 점검 기록](CIRCUIT_REVIEW_20260917.md)에 정리한다.
+
 프로젝트 코드의 공개 라이선스는 저장소 소유자가 별도로 선택합니다. 선택 전까지
 저작권 고지만으로 공개 사용 권한을 추정하지 않습니다.
 

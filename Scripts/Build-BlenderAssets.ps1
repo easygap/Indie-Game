@@ -35,6 +35,7 @@ if (-not $blender) {
 # 빌더 하나가 에셋 여럿을 만들 수 있다. 어떤 빌더가 무엇을 만드는지는 여기 표가
 # 유일한 출처다. Import 쪽은 manifest만 보므로 표는 이쪽에만 필요하다.
 $builders = [ordered]@{
+	'circuit_panel' = @('SM_LobbyCircuitPanel', 'SM_CircuitPanelPrints', 'SM_CircuitToggle', 'SM_CorridorCircuitCabinet', 'SM_CorridorCircuitPrint')
 	'booth_stationery' = @('SM_ComplaintLedger', 'SM_ComplaintImpressionPad', 'SM_GraphitePencil')
 	'tuning_tool' = @('SM_TuningHammer')
 	'detail_props' = @('SM_TriangleKimbapA', 'SM_TriangleKimbapB', 'SM_TriangleKimbapC', 'SM_TriangleKimbapD', 'SM_GypsumCutBoard', 'SM_WorkPaintCan', 'SM_CottonWorkGlove', 'SM_TunerNotebook', 'SM_GypsumChipCluster', 'SM_ConstructionSheetDrape', 'SM_ConstructionSheetFloor')

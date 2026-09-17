@@ -1,0 +1,197 @@
+{
+  "date": "2026-09-17",
+  "baseline_commit": "f2f845987a0a4f63bea0efa068a658bb3f0d0b31",
+  "logs": {
+    "build": {
+      "file": "Saved/Logs/Build-CircuitFinal.log",
+      "sha256": "fb6559597df31e51b2809d4c8532dc807e8e5bcd2d4bb80f9bb2a3930fed0536",
+      "result": [
+        "Result: Succeeded"
+      ]
+    },
+    "progress": {
+      "file": "Saved/Logs/MissingFloorCircuitProbe.log",
+      "sha256": "2ad4bd43fd929e7db9109b0b1970abcb1f9b596e0c94f5850501360755f92622",
+      "result": [
+        "[2026.09.17-02.38.19:645][632]LogTemp: Display: UTILITY_METER PASS stopped_off=1 rotates_on=1 horizontal=1 distance_cull=1 observation_hold=1",
+        "[2026.09.17-02.38.19:645][632]LogTemp: Display: CIRCUIT_POWER PASS daylight=1 emissive=1 override_guard=1 near60=1 far4=1 phase_kept=1",
+        "[2026.09.17-02.38.19:646][632]LogTemp: Display: MISSINGFLOOR_P1_EXPERIMENT PASS isolation=1 off_on=1 reversible=1",
+        "[2026.09.17-02.38.56:619][987]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS"
+      ]
+    },
+    "controls": {
+      "file": "Saved/Logs/GameplayRealism-60.log",
+      "sha256": "dd2bffc767839811cf3bfc473b125465194b7fe30dabd5163743936ba05c62b2",
+      "result": [
+        "[2026.09.17-02.07.40:152][110]LogIndieGame: Display: REALISM_CHECK sprint_key_reaches_speed PASS",
+        "[2026.09.17-02.07.40:157][126]LogIndieGame: Display: REALISM_CHECK sprint_release_stops_before_door_width PASS",
+        "[2026.09.17-02.07.40:197][236]LogIndieGame: Display: REALISM_CHECK offset_doorway_passage PASS",
+        "[2026.09.17-02.07.40:219][305]LogIndieGame: Display: REALISM_CHECK crouch_lowers_view_with_camera_motion_disabled PASS",
+        "[2026.09.17-02.07.40:233][344]LogIndieGame: Display: REALISM_CHECK uncrouch_restores_view_with_camera_motion_disabled PASS",
+        "[2026.09.17-02.07.40:233][344]LogIndieGame: Display: REALISM_CHECK interaction_component PASS",
+        "[2026.09.17-02.07.40:237][344]LogIndieGame: Display: REALISM_CHECK small_visible_prop_focus PASS",
+        "[2026.09.17-02.07.40:237][344]LogIndieGame: Display: REALISM_CHECK occluded_prop_rejected PASS",
+        "[2026.09.17-02.07.40:301][344]LogIndieGame: Display: REALISM_CHECK closed_door_blocks_capture PASS",
+        "[2026.09.17-02.07.40:302][344]LogIndieGame: Display: REALISM_CHECK open_door_allows_capture PASS",
+        "[2026.09.17-02.07.40:302][344]LogIndieGame: Display: REALISM_CHECK capture_keeps_physical_body_visible PASS",
+        "[2026.09.17-02.07.40:302][344]LogIndieGame: Display: REALISM_CHECK runtime_character_has_four_lods PASS",
+        "[2026.09.17-02.07.40:303][344]LogIndieGame: Display: REALISM_CHECK capture_face_stays_in_front_of_camera PASS",
+        "[2026.09.17-02.07.40:303][344]LogIndieGame: Display: REALISM_CHECK failure_ending_keeps_capture_pose PASS",
+        "[2026.09.17-02.07.40:304][344]LogIndieGame: Display: REALISM_PROBE PASS failures=0"
+      ]
+    },
+    "spatial": {
+      "file": "Saved/Logs/RetailReview-Circuit20260917.log",
+      "sha256": "6ea516a22f0631dbe058aee99e12f7f74871a9f8f559337e8a8388b970caa007",
+      "result": [
+        "[2026.09.17-01.45.32:189][  0]LogTemp: Display: RETAIL_STOCK PASS instances=1318 batches=27",
+        "[2026.09.17-01.47.50:733][111]LogTemp: Display: RETAIL_CAPTURE PASS shots=21 production=1 d3d12=1"
+      ]
+    },
+    "circuit_lobby": {
+      "file": "Saved/Logs/CircuitReview-LobbyFinal.log",
+      "sha256": "cbdb067925508f0ac82e05217259ec9f82e19fbaf369af8e3485d181d5d7538e",
+      "result": [
+        "[2026.09.17-01.59.16:647][457]LogTemp: Display: CIRCUIT_TOGGLE x=569.40 z=166.00 roll=32.00 center_z_offset=0.193",
+        "[2026.09.17-01.59.16:647][457]LogTemp: Display: CIRCUIT_TOGGLE x=569.40 z=151.00 roll=32.00 center_z_offset=0.193",
+        "[2026.09.17-01.59.16:647][457]LogTemp: Display: CIRCUIT_TOGGLE x=569.40 z=136.00 roll=-32.00 center_z_offset=-0.193",
+        "[2026.09.17-01.59.16:647][457]LogTemp: Display: CIRCUIT_TOGGLE x=582.70 z=166.00 roll=32.00 center_z_offset=0.193",
+        "[2026.09.17-01.59.16:647][457]LogTemp: Display: CIRCUIT_TOGGLE x=582.70 z=151.00 roll=32.00 center_z_offset=0.193",
+        "[2026.09.17-01.59.34:113][393]LogTemp: Display: CIRCUIT_DAY_TRIP PASS hinge=1 returned=1 silent_above=1",
+        "[2026.09.17-02.00.15:611][863]LogTemp: Display: CIRCUIT_REVIEW PASS views=10"
+      ]
+    },
+    "circuit_corridor": {
+      "file": "Saved/Logs/CircuitReview-False.log",
+      "sha256": "962dc216af40bdf8764d5c857b3aa574c73a56fda66c6857ba4804a5c3f91e5b",
+      "result": [
+        "[2026.09.17-02.07.00:345][265]LogTemp: Display: CIRCUIT_REVIEW PASS views=10"
+      ]
+    },
+    "night": {
+      "file": "Saved/Logs/MissingFloorNightHistogram.log",
+      "sha256": "beb347364efcd00f6eef572e94baf073e92f28b7a50651633459074858d34d71",
+      "result": [
+        "[2026.09.17-02.33.09:981][419]LogTemp: Display: MISSINGFLOOR_V5 point=corridor_dark shadow=0.9906 (0.98..1.00) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.13:765][840]LogTemp: Display: MISSINGFLOOR_V5 point=beam_dust shadow=0.7229 (0.68..0.77) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.17:767][297]LogTemp: Display: MISSINGFLOOR_V5 point=entity_rim shadow=0.9742 (0.95..0.99) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.21:845][806]LogTemp: Display: MISSINGFLOOR_V5 point=cavity_wall shadow=0.3802 (0.34..0.42) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.25:873][291]LogTemp: Display: MISSINGFLOOR_V5 point=residue_fifth_floor shadow=0.6623 (0.53..0.75) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.29:902][754]LogTemp: Display: MISSINGFLOOR_V5 point=residue_corridor shadow=0.3637 (0.33..0.40) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.33:914][251]LogTemp: Display: MISSINGFLOOR_V5 point=chase_post shadow=0.9427 (0.90..0.98) highlight=0.0001 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.37:923][765]LogTemp: Display: MISSINGFLOOR_V5 point=ripple_ring shadow=0.9923 (0.97..1.00) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.42:046][214]LogTemp: Display: MISSINGFLOOR_V5 point=steel_stair shadow=0.1506 (0.02..0.21) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.46:090][686]LogTemp: Display: MISSINGFLOOR_V5 point=rooftop_deck shadow=0.6848 (0.49..0.69) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.33.46:090][686]LogTemp: Display: MISSINGFLOOR_V5 PASS points=10 shadow_threshold=0.05 highlight_threshold=0.98"
+      ]
+    },
+    "repository": {
+      "file": "Saved/Logs/Validate-Circuit-20260917.log",
+      "sha256": "75b5d6484f8dd889364d5b3920e3d9eb184309a3b3f10b14529be6ca11a0f563",
+      "result": [
+        "Project structure validation passed (this is not an Unreal build)."
+      ]
+    },
+    "high_repeat": {
+      "file": "Saved/Logs/DetailReview-CircuitFinalHighRepeat.log",
+      "sha256": "9fcaaae844be8c3fac775cde16371a2d952231728088b56b2cfa9e76b65c59b5",
+      "result": [
+        "[2026.09.17-02.35.39:761][  8]LogCsvProfiler: Display: Capture Ended. Writing CSV to file : ../../../../../../y2026/99_개인폴더/99_project/Indie_Game/Saved/Profiling/CSV/Profile(20260917_113436).csv",
+        "[2026.09.17-02.35.42:482][240]LogTemp: Display: DETAIL_CAPTURE PASS shots=12 production=1"
+      ]
+    },
+    "performance": {
+      "file": "Saved/Logs/DetailReview-False-True-Performance.log",
+      "sha256": "ca6e3664537978dc0b31df1b64a6986abaf2bab810c27c786c369d9c01133623",
+      "result": [
+        "[2026.09.17-02.37.38:820][243]LogCsvProfiler: Display: Capture Ended. Writing CSV to file : ../../../../../../y2026/99_개인폴더/99_project/Indie_Game/Saved/Profiling/CSV/Profile(20260917_113635).csv",
+        "[2026.09.17-02.37.41:564][709]LogTemp: Display: DETAIL_CAPTURE PASS shots=12 production=1"
+      ]
+    }
+  },
+  "notes": [
+    "복도 최종 검사는 CorridorOnly로 정면·측면 두 장만 재촬영했다. 로그의 views=10은 전체 검수 배열 길이이며, 최종 복도 PNG 두 장의 해시를 아래에 남긴다.",
+    "고화질 1차의 지연을 포함해 네 성능 측정의 원본과 요약을 모두 보존했다.",
+    "밤 검사의 공용 조명 비교 실행은 SetCommonInspectionLightsEnabled만 수정 전 구현으로 되돌렸다. 최종 게임에는 수정한 구현을 사용한다."
+  ],
+  "night_diagnosis": {
+    "initial_failure": {
+      "file": "Saved/CircuitNightDiagnosis/current.log",
+      "sha256": "dedd404471f6a42a925622c57cbf109fc0923872898ac72ce6dbaf01f0f46621",
+      "result": [
+        "[2026.09.17-02.09.22:341][142]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=corridor_dark frame is entirely black (921600 pixels); nothing rendered, so nothing was measured",
+        "[2026.09.17-02.09.23:734][271]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=beam_dust shadow=0.7293 (0.02..0.22) highlight=0.0000 (max 0.010) pixels=921600",
+        "[2026.09.17-02.09.25:322][435]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=entity_rim shadow=0.9918 (0.15..0.35) highlight=0.0000 (max 0.010) pixels=921600",
+        "[2026.09.17-02.09.27:020][617]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=cavity_wall shadow=0.3790 (0.14..0.34) highlight=0.0000 (max 0.010) pixels=921600",
+        "[2026.09.17-02.09.28:652][793]LogTemp: Display: MISSINGFLOOR_V5 point=residue_fifth_floor shadow=0.6579 (0.53..0.75) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.09.30:301][959]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=residue_corridor shadow=0.3638 (0.14..0.34) highlight=0.0000 (max 0.010) pixels=921600",
+        "[2026.09.17-02.09.31:902][127]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=chase_post shadow=0.9035 (0.24..0.44) highlight=0.0001 (max 0.010) pixels=921600",
+        "[2026.09.17-02.09.33:515][294]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=ripple_ring shadow=0.9880 (0.21..0.41) highlight=0.0000 (max 0.010) pixels=921600",
+        "[2026.09.17-02.09.35:226][455]LogTemp: Display: MISSINGFLOOR_V5 point=steel_stair shadow=0.1708 (0.02..0.21) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.09.36:851][643]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=rooftop_deck shadow=0.7590 (0.49..0.69) highlight=0.0000 (max 0.010) pixels=921600",
+        "[2026.09.17-02.09.36:851][643]LogTemp: Error: MISSINGFLOOR_V5 FAIL points=9 failures=8"
+      ]
+    },
+    "previous_power_function": {
+      "file": "Saved/CircuitNightDiagnosis/legacy.log",
+      "sha256": "d9e69af04855bfddb83fdad18b25a64bf06a4d257314f1567e5f3583acf386cd",
+      "result": [
+        "[2026.09.17-02.15.39:730][155]LogTemp: Error: MISSINGFLOOR_V5 FAIL point=corridor_dark frame is entirely black (921600 pixels); nothing rendered, so nothing was measured",
+        "[2026.09.17-02.15.41:151][295]LogTemp: Display: MISSINGFLOOR_V5 point=beam_dust shadow=0.7292 (0.02..0.22) highlight=0.0000 (max 0.010) pixels=921600 OUT_OF_BAND",
+        "[2026.09.17-02.15.42:734][470]LogTemp: Display: MISSINGFLOOR_V5 point=entity_rim shadow=0.9917 (0.15..0.35) highlight=0.0000 (max 0.010) pixels=921600 OUT_OF_BAND",
+        "[2026.09.17-02.15.44:434][661]LogTemp: Display: MISSINGFLOOR_V5 point=cavity_wall shadow=0.3786 (0.14..0.34) highlight=0.0000 (max 0.010) pixels=921600 OUT_OF_BAND",
+        "[2026.09.17-02.15.46:078][842]LogTemp: Display: MISSINGFLOOR_V5 point=residue_fifth_floor shadow=0.6580 (0.53..0.75) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.15.47:723][  7]LogTemp: Display: MISSINGFLOOR_V5 point=residue_corridor shadow=0.3644 (0.14..0.34) highlight=0.0000 (max 0.010) pixels=921600 OUT_OF_BAND",
+        "[2026.09.17-02.15.49:322][164]LogTemp: Display: MISSINGFLOOR_V5 point=chase_post shadow=0.9510 (0.24..0.44) highlight=0.0001 (max 0.010) pixels=921600 OUT_OF_BAND",
+        "[2026.09.17-02.15.50:938][328]LogTemp: Display: MISSINGFLOOR_V5 point=ripple_ring shadow=0.9891 (0.21..0.41) highlight=0.0000 (max 0.010) pixels=921600 OUT_OF_BAND",
+        "[2026.09.17-02.15.52:653][482]LogTemp: Display: MISSINGFLOOR_V5 point=steel_stair shadow=0.1696 (0.02..0.21) highlight=0.0000 (max 0.010) pixels=921600 OK",
+        "[2026.09.17-02.15.54:326][621]LogTemp: Display: MISSINGFLOOR_V5 point=rooftop_deck shadow=0.7592 (0.49..0.69) highlight=0.0000 (max 0.010) pixels=921600 OUT_OF_BAND",
+        "[2026.09.17-02.15.54:327][621]LogTemp: Display: MISSINGFLOOR_V5 REPORT points=9 — bands are authored from these numbers, never the other way round"
+      ]
+    }
+  },
+  "capture_sha256": {
+    "Docs/Media/bedroom-lamp.png": "a236c2443ea829377c731bb2715dd34ed5c827c38ea8ca09ac62d77e9d256ff9",
+    "Docs/Media/circuit-common-off.png": "9ed1bf62fdb4e72589cefb101ffc0b4051bc1ed2ef2b4162a0e4db2646397abe",
+    "Docs/Media/circuit-corridor-front.png": "d42ddf46b3e2eb63f7ec947087d3a8e48bf4aac33cdd485fae186d5db10714b2",
+    "Docs/Media/circuit-corridor-side.png": "16679ab4d55ffd133b14b13ad7559d517a98d68631abd8f1266929e71aa5c252",
+    "Docs/Media/circuit-day-raised.png": "a29522be34442cc10df0f754c4208443254f14b48d1ae2ff71e9da8c9ac2ade9",
+    "Docs/Media/circuit-day-reset.png": "c0a6158f4a81863a0f1186814ce734616a1bfdd85c55ad46386d8f9c1836253a",
+    "Docs/Media/circuit-front.png": "589bc5bbb2ec558f93c268c19a2d284c0dce9437ba29a8ace836293a041c9b01",
+    "Docs/Media/circuit-meter-on.png": "7353ff04f64d5aba354f03cff81350a6b37ce2b99fdbf6e40e24cbb6a6b6b0d3",
+    "Docs/Media/circuit-restored.png": "c9cbcf1e868cae39a9b1192da78e63dc4627111e9b1d12f26f16c110030bde2e",
+    "Docs/Media/circuit-side.png": "6761c0dadd22ec0c156c137b13f17fbbfd5e0a1db7aa8e31bd1d25b5b199dfef",
+    "Docs/Media/circuit-unnamed-on.png": "4f51bb55e2e78579dc67719f39b8c15a1695664751cb6272f6ed7b2a2eead9bf",
+    "Docs/Media/circuit-wide.png": "3dbec572f606f89712dcffbd1735ade6160aefb7c13fce1b40e846851a8c405a",
+    "Docs/Media/kitchen-microwave.png": "b4300f0b4f03d854006fbd9fbdfff1cf75a909d69bfbc7e104f9c8c66c35518b",
+    "Docs/Media/retail-backlane-wide.png": "08d3e81cd9457823ce2a4f3899cd32bd80e3ea3ae481294ce7b180e41b301b5d",
+    "Docs/Media/retail-clerk-distance.png": "fffb04654fd7c301d51a8fc0b2247a3f348a794bef8af4fe33df09358d207f00",
+    "Docs/Media/retail-clerk-left.png": "6319715fc4b766fc4a44b088451e74b15f40736c1112527280ce406a5b802110",
+    "Docs/Media/retail-clerk-right.png": "c0a8fe92295b2dcf5d407633ae88c724bd13fb386ccbd15f3fc9ee93267a7cb3",
+    "Docs/Media/retail-clerk.png": "99747c576974242983f7df6505bbafae0edf9b195befb632b88134abaf4866f0",
+    "Docs/Media/retail-cooler.png": "afdb2d1764775eba4afa17beff82ac44d61a43f98f5e79d4e827dcee5e863bc3",
+    "Docs/Media/retail-counter.png": "1f08c15187f15a30978af2c93d07fb69667582e6b210e7ac1e7db6543df37866",
+    "Docs/Media/retail-delivery-lane.png": "504cfe8ca32e451970fc214431e8ce591622489fd399ee04117a27f92dfa8183",
+    "Docs/Media/retail-exterior.png": "f8dd8d49aca6ad2a1e4f44e4a20497182d0c4a436a5be2e51af4bc9ca708b666",
+    "Docs/Media/retail-packaging-back.png": "440cba95209185cdc46fb3d66c9521229739d3742fdc7a748c05bb58a50132f9",
+    "Docs/Media/retail-seating.png": "21871532e7208b08e84b73116d1e9f5e793f77d1d3454eb8c5f0faffc4861fdd",
+    "Docs/Media/retail-stock.png": "80d1745582ac098ebdb09aae05cf4f693a21ad665f67511e22b00b9d43afbe19",
+    "Docs/Media/spatial-booth-entry.png": "de57366e551150c9dc4ab3c440e21be92c2a903ebdc11763d5ba584075215da2",
+    "Docs/Media/spatial-booth-storage.png": "2711a9df95c2725a962e7cc8c0c7fd30beb15b1cb67409d4f53d60545977a31a",
+    "Docs/Media/spatial-corridor-floor.png": "51091e72c6bee4d5c6387f56f70af5be2049cb9efdbf2d4bc0d2b577a98270a9",
+    "Docs/Media/spatial-home-entry.png": "429b51b49e52f91fe0bf82e41551131602ce96b53f06dfee617444696d35459d",
+    "Docs/Media/spatial-roof-valves.png": "d8eb11dc537bb22a059d3c198f1a7bfd17ddaf5c1e655010572668c0dfea7ba6",
+    "Docs/Media/spatial-slippers.png": "6521aa390d51aa26fb679ea0113e3b1dbd2da1ad286853f6222ccb664c9d6a0a",
+    "Docs/Media/spatial-store-floor.png": "7d5330088e87410b4c4f7dc9bb8b5268b0188ec1638a7c2fd8e1016669b11edd",
+    "Docs/Media/v5-beam_dust.png": "468666b6868eaf00781490a77524ab3d12f5213ef8c324bbc488492fb169bf6e",
+    "Docs/Media/v5-cavity_wall.png": "768f0b5c4a411601b5a29b49bdd295fb0c6941b10469a00e50a8e738a7021058",
+    "Docs/Media/v5-chase_post.png": "0794b4e646bf2d8e871bb33cfae8475c4e10e0f5dbb1badb2971f7343659c61d",
+    "Docs/Media/v5-corridor_dark.png": "c6d05ce3055046db74aaca97641dd6d17489cbb0aad73ddb812e7d87bd9ec2e8",
+    "Docs/Media/v5-entity_rim.png": "ef0bd2149af37bc0d87a6a37d878842bfdefb016929e5dfffb11434bb380df93",
+    "Docs/Media/v5-residue_corridor.png": "846618f90c9348784687c60db280c104debb893dd34b00d6cb9b83706acb90c0",
+    "Docs/Media/v5-residue_fifth_floor.png": "345a2a352a2e3abd7c90e5db4b7ec724bb7bfb53c038e105eadbd91c50382a6d",
+    "Docs/Media/v5-ripple_ring.png": "6785f7da9de034dfcfa7673a4f76345dc06bcd3690da841e3ee12cc7956e5c02",
+    "Docs/Media/v5-rooftop_deck.png": "2d669d2b1022b521948e3431e0c7c56940ff039cf3bfa39873bf0d4a61d465f7",
+    "Docs/Media/v5-steel_stair.png": "f36c0c50baca58e5d1fe090b859b8cbb31f687e8cea01fc9822e795cb6ecfe71"
+  }
+}

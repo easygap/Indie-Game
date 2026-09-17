@@ -1,0 +1,30 @@
+{
+  "name": "SM_CorridorCircuitCabinet",
+  "mesh_class": "prop",
+  "fbx": "SM_CorridorCircuitCabinet.fbx",
+  "textures": {
+    "D": "SM_CorridorCircuitCabinet_D.png",
+    "N": "SM_CorridorCircuitCabinet_N.png",
+    "ORM": "SM_CorridorCircuitCabinet_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 532,
+  "bounds_m": {
+    "min": [
+      -0.17,
+      -0.0381,
+      -0.25
+    ],
+    "max": [
+      0.17,
+      0.03,
+      0.25
+    ]
+  },
+  "origin": "center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "34×50cm 매입형 분전함. 중심 원점, 앞 -Y. 앞 문짝은 Y -3.4cm, 힌지·잠금쇠는 최대 -3.82cm. 외함은 벽에 매입하고 앞면만 8mm 나온다. 실물과 CorridorCabinetReference_20260917 참조."
+}
