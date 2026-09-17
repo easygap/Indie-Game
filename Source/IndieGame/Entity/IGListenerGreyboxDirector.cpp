@@ -12,6 +12,7 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
 #include "Components/BoxComponent.h"
+#include "Components/CapsuleComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
@@ -65,6 +66,7 @@
 #include "Narrative/IGApartmentStoryDressing.h"
 #include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGInteractionComponent.h"
 #include "Player/IGInputBindingSubsystem.h"
 #include "InputKeyEventArgs.h"
 #include "Save/IGSaveSubsystem.h"
@@ -765,14 +767,14 @@ bool AIGListenerGreyboxDirector::SetupStage()
 			AIGMissingFloorEvidence::StaticClass(),
 			FTransform(
 				FRotator::ZeroRotator,
-				FVector(-140.0f, 183.0f, 952.0f)),
+				FVector(-140.0f, 110.0f, 956.0f)),
 			DayParameters);
 		if (SleepTarget)
 		{
 			SleepTarget->Configure(
 				CubeMesh,
 				nullptr,
-				FVector(60.0f, 40.0f, 14.0f),
+				FVector(88.0f, 180.0f, 18.0f),
 				NSLOCTEXT("IGMissingFloor", "SleepPrompt", "눕는다"),
 				FText::GetEmpty(),
 				EIGMissingFloorTruth::None,
@@ -5684,6 +5686,7 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		GEngine->Exec(GetWorld(), TEXT("DisableAllScreenMessages"));
 	}
 	ArrivalCaptureStep = FParse::Param(FCommandLine::Get(), TEXT("IGCircuitCorridorOnly")) ? 32 : 0;
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGBedroomInteractionOnly"))) ArrivalCaptureStep = 26;
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGImmersionReview")))
 	{
 		// 일시 정지 메뉴에서도 검사가 이어져야 한다.
@@ -5702,6 +5705,7 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGCircuitReview")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGEntryReview")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGBedroomReview")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGBoothReview"))) && !bCaptureMetricsOnly;
 	if (!bDetailScreens) AdvanceArrivalCapture();
 	GetWorldTimerManager().SetTimer(
@@ -5931,6 +5935,100 @@ void AIGListenerGreyboxDirector::AdvanceReadingReview()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGBedroomReview")))
+	{
+		struct FBedroomView { const TCHAR* Name; FVector Eye; FVector Target; float Fov; };
+		const FBedroomView Views[] = {
+			{TEXT("room"), {80,-100,1056}, {-100,100,967}, 78},
+			{TEXT("bed"), {10,150,1056}, {-140,110,952}, 78},
+			{TEXT("foot"), {-75,-40,1056}, {-140,100,952}, 78},
+			{TEXT("pillow"), {-32,179,1010}, {-140,179,960}, 68},
+			{TEXT("hem"), {-20,30,976}, {-100,42,950}, 68},
+			{TEXT("desk"), {-45,-55,1056}, {-140,-175,986}, 68},
+		};
+		const int32 Step = ArrivalCaptureStep++;
+		const int32 Index = Step / 4;
+		if (Step == 3 && bCaptureMetricsOnly && GEngine) GEngine->Exec(GetWorld(), TEXT("csvprofile start"));
+		if (Index < UE_ARRAY_COUNT(Views))
+		{
+			const FBedroomView& View = Views[Index];
+			if (Step % 4 == 0)
+			{
+				CaptureTeleportPlayer(FVector(20,100,998), 180, -30);
+				ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(View.Eye, (View.Target-View.Eye).Rotation());
+				if (!Camera) { FailProbe(TEXT("침실 검사 카메라 없음")); return; }
+				Camera->GetCameraComponent()->SetFieldOfView(View.Fov);
+				GetWorld()->GetFirstPlayerController()->SetViewTarget(Camera);
+			}
+			if (Step % 4 == 3)
+			{
+				FVector Eye; FRotator Rotation;
+				GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(Eye, Rotation);
+				if (!Eye.Equals(View.Eye, .2f)) { FailProbe(TEXT("침실 검사 시점 이동")); return; }
+				CaptureShot(*(FString(FParse::Param(FCommandLine::Get(), TEXT("IGBedroomBaseline")) ? TEXT("bedroom-before-") : TEXT("bedroom-after-")) + View.Name));
+			}
+		}
+		else if (Step == UE_ARRAY_COUNT(Views)*4 && bCaptureMetricsOnly && GEngine) GEngine->Exec(GetWorld(), TEXT("csvprofile stop"));
+		else if (Step >= UE_ARRAY_COUNT(Views)*4+2)
+		{
+			if (bCaptureMetricsOnly || FParse::Param(FCommandLine::Get(), TEXT("IGBedroomBaseline")) || Step == 32)
+			{
+				if (Step == 32)
+				{
+					// 옆 통로는 플레이어 캡슐이 지나가고 매트리스는 몸을 막아야 한다.
+					const UCapsuleComponent* Capsule = Player->GetCapsuleComponent();
+					const FCollisionShape Shape = FCollisionShape::MakeCapsule(
+						Capsule->GetScaledCapsuleRadius(), Capsule->GetScaledCapsuleHalfHeight());
+					FCollisionQueryParams Params(SCENE_QUERY_STAT(BedroomWalk), false, Player.Get());
+					FHitResult Hit;
+					const bool bAisleBlocked = GetWorld()->SweepSingleByChannel(Hit,
+						FVector(-35,20,998), FVector(-35,170,998), FQuat::Identity, ECC_Pawn, Shape, Params);
+					const bool bBedBlocks = GetWorld()->SweepSingleByChannel(Hit,
+						FVector(-35,110,998), FVector(-140,110,998), FQuat::Identity, ECC_Pawn, Shape, Params);
+					if (bAisleBlocked || !bBedBlocks) { FailProbe(TEXT("침대 또는 옆 통로 충돌 오류")); return; }
+					UE_LOG(LogTemp, Display, TEXT("BEDROOM_INTERACTION PASS side=1 foot=1 pillow=1 gate=1 cancel=1 aisle=1 bed_collision=1"));
+				}
+				GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+				UE_LOG(LogTemp, Display, TEXT("BEDROOM_REVIEW PASS views=%d"), UE_ARRAY_COUNT(Views));
+				RequestExit(false);
+			}
+			else if (Step % 2 == 0)
+			{
+				const FVector Positions[] = {{-35,110,998}, {-45,-26,998}, {-35,173,998}};
+				const FVector Targets[] = {{-140,110,956}, {-140,64,956}, {-140,173,956}};
+				const int32 Pose = (Step-26)/2;
+				const FRotator Look = (Targets[Pose] - (Positions[Pose]+FVector(0,0,64))).Rotation();
+				GetWorld()->GetFirstPlayerController()->SetViewTarget(Player.Get());
+				CaptureTeleportPlayer(Positions[Pose], Look.Yaw, Look.Pitch);
+			}
+			else
+			{
+				UIGInteractionComponent* Interaction = Player->GetInteractionComponent();
+				if (!SleepTarget || !Interaction || SleepTarget->IsInteractionEnabled())
+				{ FailProbe(TEXT("입주가 끝나기 전에 침대가 활성화됨")); return; }
+				Interaction->RefreshFocus();
+				if (Interaction->GetFocusedActor() == SleepTarget)
+				{ FailProbe(TEXT("비활성 침대에 조사 안내가 뜸")); return; }
+				SleepTarget->SetInteractionEnabled(true);
+				Interaction->RefreshFocus();
+				const bool bFocused = Interaction->GetFocusedActor() == SleepTarget;
+				FVector Eye; FRotator Look;
+				GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(Eye, Look);
+				FHitResult FocusHit;
+				GetWorld()->LineTraceSingleByChannel(FocusHit, Eye, Eye+Look.Vector()*220,
+					ECC_Visibility, FCollisionQueryParams(SCENE_QUERY_STAT(BedroomFocus), false, Player.Get()));
+				UE_LOG(LogTemp, Display, TEXT("BEDROOM_FOCUS step=%d focus=%s hit=%s input=%d eye=%s look=%s"),
+					Step, *GetNameSafe(Interaction->GetFocusedActor()), *GetNameSafe(FocusHit.GetComponent()),
+					Interaction->IsInteractionInputEnabled(), *Eye.ToString(), *Look.ToString());
+				Interaction->PressInteraction();
+				Interaction->ReleaseInteraction();
+				SleepTarget->SetInteractionEnabled(false);
+				if (!bFocused || SleepTarget->HasBeenExamined() || Interaction->IsInteracting())
+				{ FailProbe(TEXT("침대 조준 또는 짧은 입력 취소 실패")); return; }
+			}
+		}
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGReadingReview")))
 	{
 		AdvanceReadingReview();

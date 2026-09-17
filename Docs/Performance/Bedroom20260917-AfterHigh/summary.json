@@ -1,0 +1,46 @@
+{
+  "source_sha256": "31f35a3d679a438a9533702d282599fced5f4d9052459d2ec214c1134010181c",
+  "captured_frames": 1687,
+  "warmup_frames": 120,
+  "analyzed_frames": 1567,
+  "units": "시간은 ms, GPU 메모리는 MiB, 나머지는 개수",
+  "metrics": {
+    "FrameTime": {
+      "median": 17.319,
+      "p95": 18.875,
+      "max": 21.534
+    },
+    "GPUTime": {
+      "median": 16.854,
+      "p95": 17.926,
+      "max": 21.084
+    },
+    "GameThreadTime": {
+      "median": 1.952,
+      "p95": 2.377,
+      "max": 2.895
+    },
+    "RenderThreadTime": {
+      "median": 17.322,
+      "p95": 18.841,
+      "max": 21.565
+    },
+    "RHI/DrawCalls": {
+      "median": 514.0,
+      "p95": 579.0,
+      "max": 784.0
+    },
+    "RHI/PrimitivesDrawn": {
+      "median": 45991.0,
+      "p95": 69234.6,
+      "max": 113952.0
+    },
+    "GPUMem/LocalUsedMB": {
+      "median": 2957.484,
+      "p95": 2957.484,
+      "max": 2957.484
+    }
+  },
+  "frames_over_33_33ms": 0,
+  "frames_over_100ms": 0
+}

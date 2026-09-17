@@ -1,0 +1,30 @@
+{
+  "name": "SM_ApartmentBedding",
+  "mesh_class": "large",
+  "fbx": "SM_ApartmentBedding.fbx",
+  "textures": {
+    "D": "SM_ApartmentBedding_D.png",
+    "N": "SM_ApartmentBedding_N.png",
+    "ORM": "SM_ApartmentBedding_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 8500,
+  "bounds_m": {
+    "min": [
+      -0.4878,
+      -0.97,
+      -0.0567
+    ],
+    "max": [
+      0.5224,
+      0.97,
+      0.2885
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "IKEA 면 침구·베개 실물 사진과 BeddingStudy_20260917 참고. imagegen 면 원단 입력. 60프레임 천 계산을 고정 메시로 굽고 런타임 계산은 하지 않는다. 매트리스 94x194x18cm, 베개 70x45cm, 2K D/N/ORM 한 재질. 원점은 매트리스 밑면 중심. 403호 (-140,110,38)에 배치. Bedding_20260917.json 참조."
+}

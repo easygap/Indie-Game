@@ -1,0 +1,30 @@
+{
+  "name": "SM_DeskPencilCup",
+  "mesh_class": "prop",
+  "fbx": "SM_DeskPencilCup.fbx",
+  "textures": {
+    "D": "SM_DeskPencilCup_D.png",
+    "N": "SM_DeskPencilCup_N.png",
+    "ORM": "SM_DeskPencilCup_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1046,
+  "bounds_m": {
+    "min": [
+      -0.04,
+      -0.0422,
+      0.0
+    ],
+    "max": [
+      0.0517,
+      0.04,
+      0.1745
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "J.Burrows 연필꽂이 실물 사진의 열린 입구·얇은 벽·바닥 구조. 관리실과 같은 육각 연필 세 자루. 장식 네 컴포넌트를 한 메시로 통합. 512 D/N/ORM 한 재질, 충돌 없음. 바닥 중심 원점, 탁자에 직접 놓는다. 사진 출처는 BEDROOM_REVIEW_20260917.md."
+}

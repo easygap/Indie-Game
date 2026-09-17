@@ -13,6 +13,7 @@
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/DecalComponent.h"
 #include "Components/DirectionalLightComponent.h"
 #include "Components/ExponentialHeightFogComponent.h"
 #include "Components/InstancedStaticMeshComponent.h"
@@ -2279,35 +2280,23 @@ void AIGPrologueWorldScene::BuildApartment()
 	// Entrance shoe step.
 	CreateBlock(FVector(131, -195, 4), FVector(106, 40, 8), TexMat(TEXT("M_GraniteTile_XY"), ConcreteDarkMaterial));
 
-	// Localised wear is layered, never baked across every wall. Two masked
-	// planes are enough to establish humidity at the cold exterior corner and
-	// behind the desk while leaving the living surfaces recognisably cared for.
-	// Small overlays cull outside the apartment and never enter collision or
-	// the Lumen distance field.
-	if (PlaneMesh && WallPatina)
+	// 얼룩 아래로 벽지의 꽃무늬와 요철이 이어진다. 투영 깊이는 벽에만 닿게 제한한다.
+	if (WallPatina)
 	{
-		if (UStaticMeshComponent* SouthPatina = CreateBlock(
-			FVector(-82.0f, -214.4f, 54.0f),
-			FVector(148.0f, 104.0f, 1.0f),
-			WallPatina,
-			false,
-			PlaneMesh,
-			FRotator(0.0f, 0.0f, 90.0f)))
+		const auto AddDamp = [this, WallPatina](const TCHAR* Name,
+			const FVector& Center, const FVector& Extent, float Yaw)
 		{
-			SouthPatina->SetCullDistance(950.0f);
-			SouthPatina->SetAffectDistanceFieldLighting(false);
-		}
-		if (UStaticMeshComponent* WestPatina = CreateBlock(
-			FVector(-189.4f, 58.0f, 48.0f),
-			FVector(96.0f, 126.0f, 1.0f),
-			WallPatina,
-			false,
-			PlaneMesh,
-			FRotator(90.0f, 0.0f, 0.0f)))
-		{
-			WestPatina->SetCullDistance(950.0f);
-			WestPatina->SetAffectDistanceFieldLighting(false);
-		}
+			UDecalComponent* Damp = NewObject<UDecalComponent>(this, FName(Name));
+			Damp->SetupAttachment(UpperFloorRoot);
+			Damp->SetRelativeLocation(Center);
+			Damp->SetRelativeRotation(FRotator(0, Yaw, 0));
+			Damp->DecalSize = Extent;
+			Damp->SetDecalMaterial(WallPatina);
+			Damp->SetFadeScreenSize(0.012f);
+			Damp->RegisterComponent();
+		};
+		AddDamp(TEXT("ApartmentSouthDamp"), FVector(-82,-215,47), FVector(1.2f,74,44), -90);
+		AddDamp(TEXT("ApartmentWestDamp"), FVector(-190,58,47), FVector(1.2f,63,44), 180);
 	}
 
 	// §11 V2: 403호는 프롤로그(깨끗) → 밤4(천장 모서리 균열 진행)로 3단계
@@ -2408,14 +2397,25 @@ void AIGPrologueWorldScene::BuildApartment()
 	// 가장 빡빡한 값이 배율을 정하는데, 100은 120 높이에 걸려 침대를 83%로
 	// 줄여 놓았다. 130이면 배율이 길이(208/200)에서 잡혀 94 x 208이 되고,
 	// 이불 94 x 194가 프레임 위에 정확히 얹힌다.
-	if (!PlacePhotoProp(TEXT("old_bed_frame"), FVector(-140, 110, 0), FVector(108, 208, 130), 180.0f))
+	if (UStaticMeshComponent* Frame = PlacePhotoProp(TEXT("old_bed_frame"), FVector(-140, 110, 0), FVector(108, 208, 130), 180.0f))
+	{
+		// 프레임의 단순 충돌은 빈 공간까지 감싼다. 조사 판정은 침구의 눕기 대상에 맡긴다.
+		Frame->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+	}
+	else
 	{
 		CreateBlock(FVector(-140, 110, 20), FVector(100, 200, 40), Furniture);
 		CreateBlock(FVector(-140, 211, 55), FVector(100, 8, 110), Furniture);
 	}
-	CreateBlock(FVector(-140, 110, 47), FVector(94, 194, 18), Bedding);
-	CreateBlock(FVector(-140, 60, 60), FVector(96, 112, 12), Bedding);
-	CreateBlock(FVector(-140, 118, 63), FVector(96, 16, 8), Bedding);
+	// 천 계산은 제작할 때만 한다. 게임에서는 한 재질과 단순 매트리스 충돌을 쓴다.
+	if (UStaticMesh* BeddingMesh = PropMesh(TEXT("SM_ApartmentBedding")))
+	{
+		UStaticMeshComponent* Bed = CreateBlock(FVector(-140,110,38), FVector(100),
+			nullptr, true, BeddingMesh);
+		Bed->ComponentTags.Add(TEXT("Apartment.Bedding"));
+		// 눈에 보이는 침구를 가리킬 때는 눕기 대상이 시선 판정을 받는다.
+		Bed->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+	}
 
 	// Bedside table with an articulated lamp, desk with chair, wardrobe. Scanned
 	// props keep their aspect ratio, so "fit in 58x58x60" does not guarantee a
@@ -2571,19 +2571,11 @@ void AIGPrologueWorldScene::BuildApartment()
 		}
 		return Component;
 	};
-	// Pencil cup and three uneven pencils on the back corner of the desk.
-	AddApartmentDressing(
-		FVector(-152.0f, -187.0f, DeskSurfaceLocalZ + 5.9f), FVector(8.0f, 8.0f, 12.0f),
-		PlasticDarkMaterial, CylinderMesh, FRotator::ZeroRotator);
-	AddApartmentDressing(
-		FVector(-154.0f, -187.0f, DeskSurfaceLocalZ + 17.0f), FVector(1.0f, 1.0f, 18.0f),
-		SnackRedMaterial, CylinderMesh, FRotator(2.0f, 0.0f, -4.0f));
-	AddApartmentDressing(
-		FVector(-151.0f, -187.0f, DeskSurfaceLocalZ + 16.0f), FVector(1.0f, 1.0f, 16.0f),
-		SnackYellowMaterial, CylinderMesh, FRotator(-3.0f, 0.0f, 3.0f));
-	AddApartmentDressing(
-		FVector(-148.5f, -187.0f, DeskSurfaceLocalZ + 15.0f), FVector(1.0f, 1.0f, 14.0f),
-		SnackBlueMaterial, CylinderMesh, FRotator(1.0f, 0.0f, 5.0f));
+	if (UStaticMesh* PencilCup = PropMesh(TEXT("SM_DeskPencilCup")))
+	{
+		AddApartmentDressing(FVector(-152,-187,DeskSurfaceLocalZ), FVector(100),
+			nullptr, PencilCup, FRotator::ZeroRotator);
+	}
 	// 없는 층의 계약서는 이 자리에 눕는다. 보관 장면의 공책과 겹치지 않는다.
 	if (!GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
 		&& !GetWorld()->URL.HasOption(TEXT("IGListenerGreybox"))

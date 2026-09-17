@@ -50,8 +50,7 @@ def pad():
     ig.build_asset('SM_ComplaintImpressionPad','prop',p,OUT,collision_parts=[[p[1]]],texture_size=512,
         origin='center',notes='A4 밑장 21×29.7cm, 회색 받침·얇은 종이·뜯긴 윗장·철심. 표면 기록은 별도 동적 평면에서 복원하며 종이 전체를 두꺼운 책으로 만들지 않는다.')
 
-def pencil():
-    ig.reset_scene()
+def pencil_parts():
     yellow=ig.mat_plastic('PencilLacquer',(.74,.42,.035),roughness=.49,bump=0)
     dark=ig.mat_plastic('PencilBlack',(.014,.016,.014),roughness=.48,bump=0)
     red=ig.mat_plastic('EndCap',(.40,.025,.018),roughness=.5,bump=0)
@@ -64,9 +63,15 @@ def pencil():
     p=[body,ig.lathe('wood_tip',[(0,0),(.0008,.003),(.00355,.012)],segments=6,material=wood),
        ig.lathe('lead',[(0,-.002),(.0008,.003),(0,.003)],segments=12,material=graphite),
        ig.cylinder('red_cap',.00355,.006,(0,0,.146),segments=6,material=red)]
-    ig.build_asset('SM_GraphitePencil','prop',p,OUT,collision_parts=[[body]],texture_size=256,
+    return p
+
+def pencil():
+    ig.reset_scene()
+    p = pencil_parts()
+    ig.build_asset('SM_GraphitePencil','prop',p,OUT,collision_parts=[[p[0]]],texture_size=256,
         origin='center',notes='Staedtler 노리스 실물과 BoothStationeryStudy_20260917 참조. 육각 축·깎인 목재·연속된 흑연 심. 약15cm, 상표 인쇄 없음. 장축 Z.')
 
-ledger()
-pad()
-pencil()
+if __name__ == '__main__':
+    ledger()
+    pad()
+    pencil()

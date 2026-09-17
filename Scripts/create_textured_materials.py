@@ -549,9 +549,8 @@ DECAL_MATERIALS = {
 # surface overlays carry authored colour plus a keyed alpha channel.
 EVIDENCE_MASK_MATERIALS = {
     "M_ApartmentWallPatina": {
-        "tex_asset": "T_ApartmentWallPatina_M", "rough": 0.91,
-        "color": (0.065, 0.052, 0.034), "mask_gain": 2.1,
-        "specular": 0.16,
+        # 벽지 위의 투영 재질은 create_apartment_patina_material에서 만든다.
+        "tex_asset": "T_ApartmentWallPatina_M",
     },
     "M_EvidenceSlipperTrail": {
         "tex_asset": "T_EvidenceSlipperTrail_M", "rough": 0.10,
@@ -1911,6 +1910,9 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
     """
     created = []
     for name, spec in specs.items():
+        if name == "M_ApartmentWallPatina":
+            created.append(create_apartment_patina_material(assets, tools))
+            continue
         source_asset = spec["tex_asset"]
         if not assets.does_asset_exist(f"{TEXTURE_ROOT}/{source_asset}"):
             unreal.log_warning(
@@ -2030,6 +2032,46 @@ def create_masked_texture_materials(assets, tools, specs, mask_only):
         unreal.log(f"[IndieGame] Created masked overlay material: {name}")
         created.append(material)
     return created
+
+
+def create_apartment_patina_material(assets, tools):
+    """벽지 무늬를 남기고 가장자리에서 옅어지는 습기 자국."""
+    material = _recreate_material(assets, tools, "M_ApartmentWallPatina")
+    material.set_editor_property("material_domain", unreal.MaterialDomain.MD_DEFERRED_DECAL)
+    material.set_editor_property("blend_mode", unreal.BlendMode.BLEND_TRANSLUCENT)
+    sample = _sample(material, _load_texture("T_ApartmentWallPatina_M"), None,
+                     unreal.MaterialSamplerType.SAMPLERTYPE_MASKS, 0)
+    uv = _expr(material, unreal.MaterialExpressionTextureCoordinate, -1000, 300)
+    inverse = _expr(material, unreal.MaterialExpressionOneMinus, -850, 400)
+    unreal.MaterialEditingLibrary.connect_material_expressions(uv, "", inverse, "")
+    edge = _expr(material, unreal.MaterialExpressionMultiply, -700, 320)
+    unreal.MaterialEditingLibrary.connect_material_expressions(uv, "", edge, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(inverse, "", edge, "B")
+    # 16u(1-u)v(1-v): 원본 그림이 닿은 사각 경계까지 농도가 남지 않는다.
+    channels = []
+    for index in range(2):
+        channel = _expr(material, unreal.MaterialExpressionComponentMask, -550, 300 + index*120)
+        channel.set_editor_property("r", index == 0)
+        channel.set_editor_property("g", index == 1)
+        if not unreal.MaterialEditingLibrary.connect_material_expressions(edge, "", channel, ""):
+            raise RuntimeError("벽 얼룩의 테두리 계산 연결 실패")
+        channels.append(channel)
+    border = _expr(material, unreal.MaterialExpressionMultiply, -380, 360)
+    unreal.MaterialEditingLibrary.connect_material_expressions(channels[0], "", border, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(channels[1], "", border, "B")
+    density = _expr(material, unreal.MaterialExpressionMultiply, -200, 240)
+    density.set_editor_property("const_b", 16.0 * 0.48)
+    unreal.MaterialEditingLibrary.connect_material_expressions(border, "", density, "A")
+    opacity = _expr(material, unreal.MaterialExpressionMultiply, 0, 120)
+    unreal.MaterialEditingLibrary.connect_material_expressions(density, "", opacity, "A")
+    unreal.MaterialEditingLibrary.connect_material_expressions(sample, "R", opacity, "B")
+    unreal.MaterialEditingLibrary.connect_material_property(opacity, "", unreal.MaterialProperty.MP_OPACITY)
+    color = _expr(material, unreal.MaterialExpressionConstant3Vector, -200, -80)
+    color.set_editor_property("constant", unreal.LinearColor(0.12, 0.105, 0.078, 1.0))
+    unreal.MaterialEditingLibrary.connect_material_property(color, "", unreal.MaterialProperty.MP_BASE_COLOR)
+    unreal.MaterialEditingLibrary.layout_material_expressions(material)
+    unreal.MaterialEditingLibrary.recompile_material(material)
+    return material
 
 
 def create_corridor_scuff_material(assets, tools):

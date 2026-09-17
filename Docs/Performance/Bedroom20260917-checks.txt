@@ -1,0 +1,73 @@
+2026-09-17 / 403호 침실 검수
+기준 커밋: 8c2c5c0a757ac4118f6e8a7cedd44369b99748b9
+수정 후 실행: UE 5.8, Windows 11, D3D12, 1920×1080 높음
+
+BedroomBuild.log
+Result: Succeeded
+
+BedroomReview-False-.log
+[2026.09.17-07.26.23:302][539]LogTemp: Display: BEDROOM_FOCUS step=27 focus=MissingFloorSleepTarget hit=Presentation input=1 eye=X=-35.000 Y=110.000 Z=1062.000 look=P=-45.271542 Y=180.000000 R=-0.000000
+[2026.09.17-07.26.26:095][695]LogTemp: Display: BEDROOM_FOCUS step=29 focus=MissingFloorSleepTarget hit=Presentation input=1 eye=X=-45.000 Y=-26.000 Z=1062.000 look=P=-39.007832 Y=136.548157 R=-0.000000
+[2026.09.17-07.26.28:939][778]LogTemp: Display: BEDROOM_FOCUS step=31 focus=MissingFloorSleepTarget hit=Presentation input=1 eye=X=-34.512 Y=171.523 Z=1062.150 look=P=-45.271542 Y=-179.697263 R=-0.000000
+[2026.09.17-07.26.30:290][829]LogTemp: Display: BEDROOM_INTERACTION PASS side=1 foot=1 pillow=1 gate=1 cancel=1 aisle=1 bed_collision=1
+[2026.09.17-07.26.30:290][829]LogTemp: Display: BEDROOM_REVIEW PASS views=6
+
+BedroomReview-False-AfterHigh.log
+[2026.09.17-07.28.35:674][ 68]LogTemp: Display: BEDROOM_REVIEW PASS views=6
+
+BedroomAssets.log
+[2026.09.17-07.35.00:272][  2]LogPython: BEDROOM_ASSETS PASS
+
+MissingFloorArrivalProbe.log
+[2026.09.17-07.35.27:625][443]LogTemp: Display: MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1
+
+ImmersionReview-1920x1080.log
+[2026.09.17-07.31.00:979][428]LogTemp: Display: IMMERSION_CHECK initial_tutorial_visible PASS
+[2026.09.17-07.31.25:065][635]LogTemp: Display: IMMERSION_CHECK automatic_guidance_hidden PASS
+[2026.09.17-07.31.26:494][701]LogTemp: Display: IMMERSION_CHECK keyboard_recall PASS
+[2026.09.17-07.31.27:986][773]LogTemp: Display: IMMERSION_CHECK second_press_closes PASS
+[2026.09.17-07.31.27:986][773]LogTemp: Display: IMMERSION_CHECK guide_can_rebind PASS
+[2026.09.17-07.31.27:986][773]LogTemp: Display: IMMERSION_CHECK old_key_no_longer_opens_guide PASS
+[2026.09.17-07.31.27:986][773]LogTemp: Display: IMMERSION_CHECK new_key_opens_guide PASS
+[2026.09.17-07.31.27:986][773]LogTemp: Display: IMMERSION_CHECK guide_binding_restored PASS
+[2026.09.17-07.31.39:095][348]LogTemp: Display: IMMERSION_CHECK recalled_guidance_auto_hides PASS
+[2026.09.17-07.31.40:567][385]LogTemp: Display: IMMERSION_CHECK gamepad_recall PASS
+[2026.09.17-07.31.42:057][437]LogTemp: Display: IMMERSION_CHECK note_excludes_guide PASS
+[2026.09.17-07.31.42:057][437]LogTemp: Display: IMMERSION_CHECK guide_key_blocked_while_reading PASS
+[2026.09.17-07.31.44:948][582]LogTemp: Display: IMMERSION_CHECK guide_after_reading PASS
+[2026.09.17-07.31.46:366][654]LogTemp: Display: IMMERSION_CHECK pause_excludes_guide PASS
+[2026.09.17-07.31.47:784][723]LogTemp: Display: IMMERSION_CHECK pause_does_not_reopen_guide PASS
+[2026.09.17-07.31.47:784][724]LogTemp: Display: IMMERSION_REVIEW PASS failures=0
+
+CaptureRecovery-1920x1080.log
+[2026.09.17-07.36.42:592][563]LogTemp: Display: PHYSICAL_CAPTURE PASS
+
+BedroomNightLoop.log
+[2026.09.17-07.37.59:836][680]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+
+GameplayRealism-60.log
+[2026.09.17-07.39.19:956][344]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+BedroomValidation.log
+Project structure validation passed (this is not an Unreal build).
+
+포획·복귀: 연속 39프레임, 실제 촬영 간격으로 GIF 저장.
+에셋 LOD·충돌·재질·스트리밍 수치: Bedroom20260917-assets.json
+성능 원본: Bedroom20260917-BeforeHigh 및 Bedroom20260917-AfterHigh
+
+캡처 SHA256
+352acda6cee1a1ea79df342e486c3993e8f1dce8322561b1e029b78173404ef1  bedroom-after-bed.png
+7d96ef459ac34e44ee5cfab991ad3780a5a84249e7d77beae2f9c7a9187c439d  bedroom-after-desk.png
+1538431e8c377e88f12865ad9c9a1a5599805c5b0c9d53a36dcd6478b710d83e  bedroom-after-foot.png
+ebd00100206e5afe1a74fb3bbeb59f5e08ef57b4b29e0c75db82035d2bb1debe  bedroom-after-hem.png
+31790cdfe0b03a657eb903c7a7a2fd709305d4d10bcded5a83b9f91f071f2e82  bedroom-after-pillow.png
+faabc7b862644fda496e954c1dc64880e03ecc08e23883d92f157e263a46bd57  bedroom-after-room.png
+912ed1f73cfac5d4a1f773e9e5aa56a81049507f43526d877e351ae8aaea7adf  bedroom-before-bed.png
+dc691735648aba92028e1657878485edf2bd2cadcf3d84885a0b2f06ab378c14  bedroom-before-desk.png
+ccc8951025f8229755678bf0037f1b52547bbed8d07e8d316159276c07990749  bedroom-before-foot.png
+292b49f6fd293f84276372c1937d73b71285d0d1f82d82a0f540070a65631278  bedroom-before-hem.png
+cb3c86e294c59b13aff3cc93d17443ccb7d5445d8cf12267a5a4b581bbf415f8  bedroom-before-pillow.png
+6034e17974278c60502d685d808a365c5434aab1be7380ba2cd6bb1e39976124  bedroom-before-room.png
+a90631ca3ffd8ee1201235362c3c0ca754e983173274b286f28fcea84a0ac016  bedroom-lamp.png
+2fda3ae8e0a93a2e775ed2a788d2c7a3a9d976a7d13721e0a2992c51653c071b  bedroom-prototype.png
+c22c45d861c1c2cfcb3189ff3b3498c56a87d45f8b1d1a38af682ec98be07ef0  bedroom-wakeup-concept.png

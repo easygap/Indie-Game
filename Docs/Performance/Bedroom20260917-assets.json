@@ -1,0 +1,54 @@
+[
+  {
+    "mesh": "SM_ApartmentBedding",
+    "triangles": 8500,
+    "lod_vertices": [
+      5392,
+      3600,
+      2143,
+      1091
+    ],
+    "material_slots": 1,
+    "convex_hulls": 1,
+    "streaming_texture_sizes": {
+      "D": [
+        2048,
+        2048
+      ],
+      "N": [
+        2048,
+        2048
+      ],
+      "ORM": [
+        2048,
+        2048
+      ]
+    }
+  },
+  {
+    "mesh": "SM_DeskPencilCup",
+    "triangles": 1046,
+    "lod_vertices": [
+      1071,
+      595,
+      335,
+      142
+    ],
+    "material_slots": 1,
+    "convex_hulls": 0,
+    "streaming_texture_sizes": {
+      "D": [
+        512,
+        512
+      ],
+      "N": [
+        512,
+        512
+      ],
+      "ORM": [
+        512,
+        512
+      ]
+    }
+  }
+]

@@ -953,11 +953,14 @@ def validate_materials() -> tuple[int, int]:
                 "MASK" in sampler_type.upper(),
                 f"Mask sampler type does not match TC_MASKS: {name}: {sampler_type}",
             )
-        require(
-            material.get_editor_property("blend_mode") == unreal.BlendMode.BLEND_MASKED,
-            f"Masked blend mode missing: {name}",
-        )
-        material_input(material, unreal.MaterialProperty.MP_OPACITY_MASK)
+        if name == "M_ApartmentWallPatina":
+            validate_apartment_patina(material)
+        else:
+            require(
+                material.get_editor_property("blend_mode") == unreal.BlendMode.BLEND_MASKED,
+                f"Masked blend mode missing: {name}",
+            )
+            material_input(material, unreal.MaterialProperty.MP_OPACITY_MASK)
         linked_textures += 1
         checked += 1
     for name, texture_name in ALL_PRINT_MATERIALS.items():
@@ -1113,12 +1116,7 @@ def validate_apartment_visual_assets() -> None:
         "Mask texture is not linked to M_ApartmentWallPatina: "
         f"{expected_mask}",
     )
-    require(
-        patina_material.get_editor_property("blend_mode")
-        == unreal.BlendMode.BLEND_MASKED,
-        "Masked blend mode missing: M_ApartmentWallPatina",
-    )
-    material_input(patina_material, unreal.MaterialProperty.MP_OPACITY_MASK)
+    validate_apartment_patina(patina_material)
     material_count += 1
     linked_textures += 1
 
@@ -1127,6 +1125,17 @@ def validate_apartment_visual_assets() -> None:
         f"textures={texture_count} materials={material_count} "
         f"linked_textures={linked_textures}"
     )
+
+
+def validate_apartment_patina(material):
+    require(material.get_editor_property("material_domain") == unreal.MaterialDomain.MD_DEFERRED_DECAL,
+            "벽 얼룩은 벽지 위에 투영해야 한다")
+    require(material.get_editor_property("blend_mode") == unreal.BlendMode.BLEND_TRANSLUCENT,
+            "벽 얼룩의 옅은 테두리가 잘렸다")
+    material_input(material, unreal.MaterialProperty.MP_OPACITY)
+    expressions = unreal.MaterialEditingLibrary.get_material_expressions(material)
+    require(any(isinstance(expr, unreal.MaterialExpressionOneMinus) for expr in expressions),
+            "벽 얼룩의 사각 경계 감쇠가 없다")
 
 
 def validate_listener_shell() -> None:

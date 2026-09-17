@@ -36,6 +36,18 @@
         23.3532
       ]
     },
+    "SM_ApartmentBedding": {
+      "origin": [
+        1.7316,
+        -0.0,
+        11.5942
+      ],
+      "extent": [
+        50.5133,
+        97.0,
+        17.2603
+      ]
+    },
     "SM_ApartmentCalendar2025": {
       "origin": [
         0.0,
@@ -394,6 +406,18 @@
         5.4906,
         5.4906,
         3.7
+      ]
+    },
+    "SM_DeskPencilCup": {
+      "origin": [
+        0.5835,
+        -0.1112,
+        8.723
+      ],
+      "extent": [
+        4.5835,
+        4.1112,
+        8.723
       ]
     },
     "SM_DoorDeliveryMagnet": {
