@@ -108,31 +108,9 @@ def build_gas_meter(out_root):
 
 
 def build_ac_outdoor(out_root):
-    """에어컨 실외기. 앞면(-Y)에 팬 그릴, 옆에 배관 구멍. 벽걸이 받침 둘. 원점은 벽면 바닥 중심."""
-    ig.reset_scene()
-    shell = ig.mat_painted_steel("AcShell", (0.80, 0.80, 0.78), roughness=0.45, wear=0.25, bump=0.02)
-    dark = ig.mat_plastic("AcDark", (0.04, 0.04, 0.04), roughness=0.55)
-    steel = ig.mat_metal("Bracket", (0.45, 0.46, 0.47), roughness=0.5, streak=0.1)
-    parts = []
-    body = ig.box("body", (0.80, 0.30, 0.55), location=(0.0, -0.15 - 0.06, 0.275), bevel=0.006, segments=2, material=shell)
-    parts.append(body)
-    # 팬 그릴: 동심 링 여섯과 가운데 허브.
-    for index in range(6):
-        parts.append(ig.torus(f"ring{index}", 0.05 + index * 0.035, 0.004, location=(-0.16, -0.36 - 0.006, 0.28),
-                              rotation=(math.pi * 0.5, 0.0, 0.0), major_segments=40, minor_segments=6, material=dark))
-    parts.append(ig.cylinder("hub", 0.03, 0.01, location=(-0.16, -0.362, 0.28), rotation=(math.pi * 0.5, 0.0, 0.0),
-                             segments=20, material=dark))
-    # 오른쪽 루버.
-    for z in (0.10, 0.17, 0.24, 0.31, 0.38, 0.45):
-        parts.append(ig.box(f"louvre_{int(z * 100)}", (0.28, 0.006, 0.02), location=(0.22, -0.363, z), material=dark))
-    # 벽 받침 둘.
-    for x in (-0.28, 0.28):
-        parts.append(ig.box(f"bracket_{int((x + 1) * 100)}", (0.04, 0.34, 0.04), location=(x, -0.17, -0.02), material=steel))
-        parts.append(ig.box(f"strut_{int((x + 1) * 100)}", (0.04, 0.04, 0.30), location=(x, -0.02, -0.15), material=steel))
-    parts.append(ig.cylinder("pipe", 0.012, 0.30, location=(0.36, -0.06, 0.10), segments=12, material=dark))
-    return ig.build_asset(
-        "SM_AcOutdoorUnit", "prop", parts, out_root, collision_parts=[[body]],
-        notes="벽걸이 에어컨 실외기 80 x 36 x 55, 받침 포함. 원점 벽면 바닥 중심, 팬이 -Y.", texture_size=1024)
+    """이전 명령으로도 새 실외기 빌더를 사용한다."""
+    from build_outdoor_condenser import build
+    return build(out_root)
 
 
 def build_convex_mirror(out_root):
@@ -164,7 +142,7 @@ def main():
     out_root = ig.out_root_from_argv()
     only = [a for a in sys.argv[sys.argv.index("--") + 2:]] if "--" in sys.argv else []
     for key, builder in BUILDERS.items():
-        if not only or key in only:
+        if (not only and key != "ac") or key in only:
             builder(out_root)
 
 

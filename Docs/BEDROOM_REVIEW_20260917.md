@@ -2,6 +2,8 @@
 
 2026년 9월 17일 작업. 9월 16일까지 공개된 자료와 실물 사진을 참고했다. 현재 게임의 입주 경로로 들어가 침대, 벽, 책상을 여섯 시점에서 촬영했다.
 
+9월 18일에 창틀과 머리판이 겹친다는 제보를 확인해 침대를 12cm 옮겼다. 아래 수정 후 캡처 여섯 장도 다시 촬영했다. 이 문서의 성능 수치는 17일 측정값이며, 이후 배치와 검사 기록은 [생활 소품 검수](HOUSEHOLD_REVIEW_20260918.md)에 있다. 17일 검사 기록의 캡처 해시는 당시 커밋 `b44bede`의 파일에 해당한다.
+
 ## 침대
 
 기존 침구는 각진 상자 세 개였고 베개가 없었다. [IKEA 면 침구 사진](https://www.ikea.co.id/en/products/bedlinen/duvet-covers/angslilja-art-60592773)과 [실제 베개 사진](https://www.ikea.com/kr/ko/images/products/pilspinnare-pillow-high-side-back-sleeper__1300769_pe937182_s5.jpg)을 imagegen에 넣어 다각도 참고도와 면 원단을 만들었다. Blender에서 매트리스, 베개, 접힌 이불을 모델링하고 원단을 구웠다.

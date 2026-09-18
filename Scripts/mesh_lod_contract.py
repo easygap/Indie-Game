@@ -140,7 +140,7 @@ PRINTED_SURFACE_MESHES = frozenset({
 
 def classify(asset_name: str) -> MeshClass:
     """The budget class one generated mesh belongs to."""
-    if asset_name.startswith(LARGE_MESH_PREFIXES):
+    if asset_name == "SM_AcOutdoorUnit" or asset_name.startswith(LARGE_MESH_PREFIXES):
         return LARGE
     if asset_name in HERO_MESHES:
         return HERO

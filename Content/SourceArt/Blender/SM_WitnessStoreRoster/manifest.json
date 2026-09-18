@@ -1,0 +1,30 @@
+{
+  "name": "SM_WitnessStoreRoster",
+  "mesh_class": "prop",
+  "fbx": "SM_WitnessStoreRoster.fbx",
+  "textures": {
+    "D": "SM_WitnessStoreRoster_D.png",
+    "N": "SM_WitnessStoreRoster_N.png",
+    "ORM": "SM_WitnessStoreRoster_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 716,
+  "bounds_m": {
+    "min": [
+      -0.1175,
+      -0.1675,
+      0.0
+    ],
+    "max": [
+      0.1175,
+      0.1675,
+      0.0134
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "Elizabeth Richards A4 클립보드 실물과 WitnessPropsStudy_20260917.png 참고. 23.5×33.5cm, 3mm 하드보드, 낮은 금속 클립. 평일 야간·주말 오후가 구분되는 7월 마지막 주 근무표. 한 개 재질로 굽는다."
+}

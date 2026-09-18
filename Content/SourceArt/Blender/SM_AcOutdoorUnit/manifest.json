@@ -1,6 +1,6 @@
 {
   "name": "SM_AcOutdoorUnit",
-  "mesh_class": "prop",
+  "mesh_class": "large",
   "fbx": "SM_AcOutdoorUnit.fbx",
   "textures": {
     "D": "SM_AcOutdoorUnit_D.png",
@@ -10,21 +10,21 @@
   "slots": [
     "Baked"
   ],
-  "triangles": 3228,
+  "triangles": 8528,
   "bounds_m": {
     "min": [
       -0.4,
-      -0.3695,
-      -0.3
+      -0.5,
+      -0.305
     ],
     "max": [
-      0.4,
-      0.0,
-      0.55
+      0.655,
+      0.0148,
+      0.735
     ]
   },
   "origin": "bottom-center",
   "emissive_strength": 0.0,
   "blender": "5.2.0 LTS",
-  "notes": "벽걸이 에어컨 실외기 80 x 36 x 55, 받침 포함. 원점 벽면 바닥 중심, 팬이 -Y."
+  "notes": "LG 실외기 설치 사진과 OutdoorCondenserStudy_20260917.png 참고. 외함 80×30×55cm, 후면 벽 간격 15cm. 열린 팬, 3개 날개, 얇은 와이어 보호망, 받침 두 개와 절연 배관. 팬 -Y, 벽면 Y=0. 하나의 재질과 4단계 LOD. 받침은 별도로 덧대지 않는다."
 }

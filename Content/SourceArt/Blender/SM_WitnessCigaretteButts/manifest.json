@@ -1,0 +1,30 @@
+{
+  "name": "SM_WitnessCigaretteButts",
+  "mesh_class": "prop",
+  "fbx": "SM_WitnessCigaretteButts.fbx",
+  "textures": {
+    "D": "SM_WitnessCigaretteButts_D.png",
+    "N": "SM_WitnessCigaretteButts_N.png",
+    "ORM": "SM_WitnessCigaretteButts_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1008,
+  "bounds_m": {
+    "min": [
+      -0.0483,
+      -0.0396,
+      -0.0002
+    ],
+    "max": [
+      0.0463,
+      0.0529,
+      0.0082
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "Museum of Litter의 실물 사진과 WitnessPropsStudy_20260917.png 참고. 차갑게 꺼지고 끝이 눌린 꽁초 여섯 개, 개당 약 3cm. 기초 위 한 군데에 둔다. 후속 대사에 나오는 실제 개수와 일치한다."
+}

@@ -1,0 +1,94 @@
+2026-09-18 / 생활 소품·겹침 검수
+기준 커밋: b44beded2217ee11f533c81d251cf0b394bd12d0
+수정 후: UE 5.8.1 / D3D12 / 1920×1080 / 높음 / 화면 비율 100%
+
+HouseholdBuildVerified.log
+Result: Succeeded
+
+BedroomReview-False-Household20260918.log
+[2026.09.18-00.05.24:644][810]LogTemp: Display: BEDROOM_CLEARANCE window=2.90cm bedside=5.27cm
+[2026.09.18-00.05.24:644][810]LogTemp: Display: BEDROOM_INTERACTION PASS side=1 foot=1 pillow=1 gate=1 cancel=1 aisle=1 bed_collision=1
+[2026.09.18-00.05.24:644][810]LogTemp: Display: BEDROOM_REVIEW PASS views=6
+
+HouseholdReview-False-FinalLighting20260918.log
+[2026.09.18-00.37.59:022][867]LogTemp: Display: HOUSEHOLD_SLIPPER position=X=-61.996 Y=80.082 Z=900.000 up=1.000 speed=0.000 awake=0
+[2026.09.18-00.37.59:022][867]LogTemp: Display: HOUSEHOLD_SLIPPER position=X=-41.925 Y=80.799 Z=900.000 up=1.000 speed=0.000 awake=0
+[2026.09.18-00.37.59:022][867]LogTemp: Display: HOUSEHOLD_LAYOUT PASS slippers=2 condenser_batch=1 condensers=6 wall_contacts=18
+[2026.09.18-00.38.06:017][307]LogTemp: Display: HOUSEHOLD_INTERACTION PASS standing=1 side=1 cancel=1 examine=1 witness=1 unique=1
+[2026.09.18-00.38.08:832][487]LogTemp: Display: HOUSEHOLD_REVIEW PASS views=9
+
+WitnessPropReview-False.log
+[2026.09.18-00.39.39:658][140]LogTemp: Display: WITNESS_PROP_INTERACTION PASS count=3 cancel=3 examined=3 unique=3
+[2026.09.18-00.39.39:658][140]LogTemp: Display: WITNESS_PROP_REVIEW PASS views=6
+
+HouseholdAssets.log
+[2026.09.18-00.17.47:275][  2]LogPython: HOUSEHOLD_ASSETS PASS meshes=6
+
+MissingFloorArrivalProbe.log
+[2026.09.18-00.29.59:672][174]LogTemp: Display: MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1
+
+GameplayRealism-60.log
+[2026.09.18-00.30.20:245][344]LogIndieGame: Display: REALISM_PROBE PASS failures=0
+
+HouseholdNightLoop.log
+[2026.09.18-00.31.32:362][245]LogTemp: Display: MISSINGFLOOR_GREYBOX PASS
+
+HouseholdValidate.log
+DIRECTOR PROP AUDIT  configure=18 (raw_scale=2 target_bounds=2 unit_scale=5 unknown=9) sites=76 placed=34/34 mesh_bounds=178 findings=0
+LIGHT PLACEMENT AUDIT  lights=52 findings=0
+PHOTO PROP FIT AUDIT  placements=13 findings=0
+COPLANAR SURFACE AUDIT  boxes=1348 findings=0
+Project structure validation passed (this is not an Unreal build).
+
+HouseholdReview-False-FinalHigh20260918.log
+[2026.09.18-00.36.11:572][553]LogCsvProfiler: Display: Capture Ended. Writing CSV to file : ../../../../../../y2026/99_개인폴더/99_project/Indie_Game/Saved/Profiling/CSV/Profile(20260918_093525).csv
+[2026.09.18-00.36.14:301][779]LogTemp: Display: HOUSEHOLD_REVIEW PASS views=9
+
+검사 범위: 침실 6시점, 생활 소품 9시점, 목격 소품 6시점.
+낮은 삼각형 수의 약봉투는 80→64→64→64 LOD. 나머지 다섯 종은 단계별로 줄어든다.
+성능: 최종 중앙값 12.857ms, p95 18.777ms. 같은 날 기준 12.434ms / 17.091ms.
+성능이 개선됐다는 판정은 하지 않았다. 시점 전환 지연과 60fps 안정화는 남은 과제다.
+
+캡처 SHA256
+5524377f9d00aa12a1d304b64a786d924f94dce9315a126ea7e9b3f55789f10e  bedroom-after-bed.png
+99969a53a02726c8c8914fbd12408a78609902d7949e2a3d7ed52ddbd3c88661  bedroom-after-desk.png
+3629630ce102c5548dfe0f3791a92e12143decc2005bd6323f2c5517eef19bee  bedroom-after-foot.png
+5122a8cc7a170f07a012b62fe7a64031c8c0f7aaf3a7c370f712d56bdf05dd19  bedroom-after-hem.png
+13f0301a1ec544891b1c4736cd2b0debbba5f88cf4892e5393d80d35439704e5  bedroom-after-pillow.png
+6418f6ec85c47b4ceafb04095cc2a90d7313c1fc533c6a96ca407aa5067de461  bedroom-after-room.png
+319dcf9d351312414eb198c41066e4d57f78f7a9880641652fb2180526c280c6  household-after-alley.png
+d91b1ac1cc8356d574a0aa5d3c485f7383e49b5a93a4f93220aee69c0981691a  household-after-bowl-close.png
+8c739cffc0539e63da6a84b972568e58f2360ab1e1823582edb39bd4e2fa93d6  household-after-bowl-thought.png
+cfe2b6b12ef6b3c39977bea025cacf44c677ea60216d9365e42c0aa69ea89adb  household-after-bowl.png
+b2284fd9f124e8f1dfba12b0cfdb28491ced9816de7c5ce0263a71416aef5700  household-after-condenser-front.png
+380123def12ef63776741db01fd4ed93c974f0a1d3ce2fdb94660fb2dbd11754  household-after-condenser-side.png
+56b301e709fd698bb55069911a77f7cfd3153b748890f7d9f0662a015c7721ae  household-after-delivery.png
+2c50bb778046dbf25f2223bcd77905d0202543d78bdd0766cd6cead73460742e  household-after-facade.png
+8113918e9cd2905ce08f20e8a1a51c2e2f75e64d591494a40aee818a2e21070f  household-after-slipper-low.png
+33be61f398b0ac1cfdf18e62a4e926e2bbef95eb8a909409bee3b44436adca4a  household-after-slippers.png
+c5479e41250fe8af13af5b8949e4310034e1c8395722c3ec728cb4a830aedc8b  household-before-alley.png
+352acda6cee1a1ea79df342e486c3993e8f1dce8322561b1e029b78173404ef1  household-before-bed.png
+18bc69b116637df3e7bf3b520dd354a4d162cab49abec967ac867864da4e7bc3  household-before-bowl-close.png
+d1375695fd9a99aec06561a065adb126b70f2c3c30d4c7c07a27ce72ec674824  household-before-bowl.png
+9005ca94d9105831d9f4c2954c9ad777a7b9d15ea190817c671c3805fd6ad664  household-before-condenser-front.png
+f253b02faa0fea6683a24cd944ba6eb16bb20437137efd8eef38b78554dcdfbe  household-before-condenser-side.png
+817098c11ead33d28efafc77549c3c782f33690b66751805f22587107d590443  household-before-delivery.png
+2beaac88aa417b95feac3bb5af5848136159e381dfdd1230dc13a68805c022df  household-before-facade.png
+51462029193e99889b2852ac6b2a47bdca596ea654c23f3e70560eecd1c84140  household-before-slipper-low.png
+8f0863c96d83e7ce1d44e10c8e4b343c8778996d5724afb98a2cb655671f0ff6  household-before-slippers.png
+31790cdfe0b03a657eb903c7a7a2fd709305d4d10bcded5a83b9f91f071f2e82  household-before-window-gap.png
+dcc7b985ca73b65a380bddc3a49eb3a91e2693cb31e0e35b692b0ad61620c898  witness-after-butts-close.png
+2bc42b89ef287c75ae095e838740a93477c8ab83e3373e8363085d5f6699a69e  witness-after-butts.png
+9e17af1f5d74166c02661b89df14cad0aff771bf7b5f9ead153356cbd7e24a99  witness-after-pills-close.png
+12519d3308a1a57255b8a3a894f0642c01bb204da933c87860714ede394e2df9  witness-after-pills.png
+2406923452825cee357dbe0c4b8454d55054646c1b5aa407075389a9931316e0  witness-after-roster-close.png
+03fcaf0c425e7d536f6a3fdfcf5e9a105ea10d548c403c836c0c8a36ef1eddbe  witness-after-roster.png
+af4d41f7dd829b28df081368e863656186c29e35da516ac21b0d3a93a0962420  witness-after-thought-butts.png
+99f67da5ad74edea1738e19e15e08ceb999dea2d30ce209d971159258d8eb69c  witness-after-thought-pills.png
+3cab747c28ff3bd4d4b4cfa6f4ae56327319d4c1d25e7de1b5d3e3d79ec3c00b  witness-after-thought-roster.png
+754a16d1cb6de113f3ee249800ada2325ead6e5c224eab0cd05248229c2ea8d5  witness-before-butts-close.png
+6d6428e60ef75abf851df71be2f786b6da03efee228cdbfa66d485a1a37bc0e8  witness-before-butts.png
+6d3690d948217d696cf58dd3bc5140a106a3fc96819671097a1e9cd3bfac74e7  witness-before-pills-close.png
+fca96baa29262e4ff4c691761576c577a75e320e4637e5a94ddaf966b6fd1d95  witness-before-pills.png
+90114259149f6ff5f19632b19e35d21ed064cd5b8f6edcc1ba95cfdaa5aee629  witness-before-roster-close.png
+c6f13d89a27cbf52b3cd319c2f0cae3012432d36a13e006ffdca8a426ad2c1c9  witness-before-roster.png

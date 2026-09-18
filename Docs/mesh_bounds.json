@@ -2,14 +2,14 @@
   "meshes": {
     "SM_AcOutdoorUnit": {
       "origin": [
-        0.0,
-        -18.4732,
-        12.5
+        12.75,
+        -24.2621,
+        21.5
       ],
       "extent": [
-        40.0,
-        18.4732,
-        42.5
+        52.75,
+        25.7379,
+        52.0
       ]
     },
     "SM_AlarmClock": {
@@ -723,13 +723,13 @@
     "SM_HouseSlipper": {
       "origin": [
         0.0,
-        -0.0008,
-        3.11
+        -0.0002,
+        3.3069
       ],
       "extent": [
-        5.0124,
-        13.6092,
-        3.11
+        5.12,
+        13.6198,
+        3.3069
       ]
     },
     "SM_InductionHob": {
@@ -2074,6 +2074,54 @@
         17.0,
         36.0,
         52.5
+      ]
+    },
+    "SM_WitnessCigaretteButts": {
+      "origin": [
+        -0.1026,
+        0.6676,
+        0.4008
+      ],
+      "extent": [
+        4.7313,
+        4.6239,
+        0.4163
+      ]
+    },
+    "SM_WitnessPrescriptionEnvelope": {
+      "origin": [
+        0.0,
+        0.7509,
+        0.1987
+      ],
+      "extent": [
+        5.5,
+        9.001,
+        0.1862
+      ]
+    },
+    "SM_WitnessStoreRoster": {
+      "origin": [
+        0.0,
+        0.0,
+        0.6701
+      ],
+      "extent": [
+        11.75,
+        16.75,
+        0.6701
+      ]
+    },
+    "SM_WitnessWaterBowl": {
+      "origin": [
+        -0.1,
+        -0.2,
+        2.2975
+      ],
+      "extent": [
+        10.8,
+        11.3,
+        2.3025
       ]
     },
     "SM_WorkPaintCan": {

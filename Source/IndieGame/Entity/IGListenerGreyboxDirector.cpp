@@ -767,7 +767,7 @@ bool AIGListenerGreyboxDirector::SetupStage()
 			AIGMissingFloorEvidence::StaticClass(),
 			FTransform(
 				FRotator::ZeroRotator,
-				FVector(-140.0f, 110.0f, 956.0f)),
+				FVector(-140.0f, 98.0f, 956.0f)),
 			DayParameters);
 		if (SleepTarget)
 		{
@@ -911,12 +911,10 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 		return;
 	}
 
-	UMaterialInterface* CeramicMaterial = LoadObject<UMaterialInterface>(
-		nullptr, TEXT("/Game/Prototype/Materials/M_StainlessUV.M_StainlessUV"));
-	UMaterialInterface* PaperMaterial = LoadObject<UMaterialInterface>(
-		nullptr, TEXT("/Game/Prototype/Materials/M_PaperClean.M_PaperClean"));
-	UMaterialInterface* CardboardMaterial = LoadObject<UMaterialInterface>(
-		nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld"));
+	UStaticMesh* BowlMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_WitnessWaterBowl.SM_WitnessWaterBowl"));
+	UStaticMesh* EnvelopeMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_WitnessPrescriptionEnvelope.SM_WitnessPrescriptionEnvelope"));
+	UStaticMesh* ButtsMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_WitnessCigaretteButts.SM_WitnessCigaretteButts"));
+	UStaticMesh* RosterMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_WitnessStoreRoster.SM_WitnessStoreRoster"));
 
 	FActorSpawnParameters Parameters;
 	Parameters.SpawnCollisionHandlingOverride =
@@ -940,26 +938,23 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 		NeighborhoodDeliveryNote->OnReadStateChanged.AddDynamic(this, &AIGListenerGreyboxDirector::HandleNeighborhoodDeliveryRead);
 	}
 
-	// 401호 문선 서쪽 복도 바닥. 4층 슬래브는 Z=900이고 그릇 높이는 7 cm이라
-	// 중심은 903.5다. X는 401호 문선(X -200..-192)과 계단 개구부(X -230까지)
-	// 사이의 빈 30 cm에 넣고, Y는 굽도리 앞면(-238.5)에서 1.5 cm 띄운다 —
-	// 처음에는 문선을 1 cm 물고 벽 안에 들어가 있었다.
+	// 401호 문선과 계단 사이의 빈 바닥. 종이까지 포함한 실제 메시 크기로 놓는다.
 	Parameters.Name = TEXT("MissingFloorWitnessWaterBowl");
 	WaterBowl = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator::ZeroRotator, FVector(-212.0f, -249.0f, 903.5f)),
+		FTransform(FRotator::ZeroRotator, FVector(-208.0f, -255.0f, 902.32f)),
 		Parameters);
 	if (WaterBowl)
 	{
 		WaterBowl->Configure(
-			CubeMesh,
-			CeramicMaterial,
-			FVector(18.0f, 18.0f, 7.0f),
+			BowlMesh,
+			LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/MI_WitnessWaterBowl.MI_WitnessWaterBowl")),
+			FVector::ZeroVector,
 			NSLOCTEXT("IGMissingFloor", "WitnessBowlPrompt", "물그릇"),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessBowlThought",
-				"물그릇 밑에 신문지를 깔아 뒀다. 누가 여기서 고양이를 돌보나 보다."),
+				"고양이 물그릇인가. 물은 깨끗하다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -968,25 +963,23 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 			this, &AIGListenerGreyboxDirector::HandleWaterBowlExamined);
 	}
 
-	// 골목 이쪽 보도. 서일영은 Y=-835 건너편에 한 번 서고, 이것은 그가
-	// 서 있던 자리가 아니라 지나가며 떨어뜨린 것이다. 노면은 Z=0이고
-	// 봉투는 눕혀 4 cm이므로 중심은 2다.
+	// 골목 이쪽 보도에 떨어진 납작한 약봉투. 인쇄된 이름까지만 목격 근거가 된다.
 	Parameters.Name = TEXT("MissingFloorWitnessSleepingPills");
 	SleepingPills = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator(0.0f, 18.0f, 0.0f), FVector(-40.0f, -400.0f, 2.0f)),
+		FTransform(FRotator(0.0f, 18.0f, 0.0f), FVector(-40.0f, -449.0f, .20f)),
 		Parameters);
 	if (SleepingPills)
 	{
 		SleepingPills->Configure(
-			CubeMesh,
-			PaperMaterial,
-			FVector(15.0f, 9.0f, 4.0f),
+			EnvelopeMesh,
+			LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/MI_WitnessPrescriptionEnvelope.MI_WitnessPrescriptionEnvelope")),
+			FVector::ZeroVector,
 			NSLOCTEXT("IGMissingFloor", "WitnessPillsPrompt", "떨어진 약봉투"),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessPillsThought",
-				"같은 병원 약봉지다. 작년 여름 것부터 모아 두셨네."),
+				"서일영이라고 적혀 있다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -1001,19 +994,19 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 	Parameters.Name = TEXT("MissingFloorWitnessCigarettePack");
 	CigarettePack = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator(0.0f, -34.0f, 0.0f), FVector(168.0f, -25.0f, 1301.1f)),
+		FTransform(FRotator(0.0f, -34.0f, 0.0f), FVector(168.0f, -25.0f, 1300.42f)),
 		Parameters);
 	if (CigarettePack)
 	{
 		CigarettePack->Configure(
-			CubeMesh,
-			CardboardMaterial,
-			FVector(8.5f, 5.5f, 2.2f),
+			ButtsMesh,
+			LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/MI_WitnessCigaretteButts.MI_WitnessCigaretteButts")),
+			FVector::ZeroVector,
 			NSLOCTEXT("IGMissingFloor", "WitnessPackPrompt", "눌러 끈 담배"),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessPackThought",
-				"재떨이가 없어서 바닥에 끈 건가. 끝마다 눌린 자국이 있다."),
+				"여섯 개비가 한곳에 모여 있다. 전부 끝이 납작하게 눌렸다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -1028,25 +1021,39 @@ void AIGListenerGreyboxDirector::SpawnOptionalWitnesses(UStaticMesh* CubeMesh)
 	Parameters.Name = TEXT("MissingFloorWitnessStoreRoster");
 	StoreRoster = World->SpawnActor<AIGMissingFloorEvidence>(
 		AIGMissingFloorEvidence::StaticClass(),
-		FTransform(FRotator(0.0f, -9.0f, 0.0f), FVector(2548.0f, -193.0f, 99.6f)),
+		FTransform(FRotator(0.0f, -9.0f, 0.0f), FVector(2556.0f, -193.0f, 99.68f)),
 		Parameters);
 	if (StoreRoster)
 	{
 		StoreRoster->Configure(
-			CubeMesh,
-			PaperMaterial,
-			FVector(21.0f, 30.0f, 1.2f),
+			RosterMesh,
+			LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/MI_WitnessStoreRoster.MI_WitnessStoreRoster")),
+			FVector::ZeroVector,
 			NSLOCTEXT("IGMissingFloor", "WitnessRosterPrompt", "야간 근무표"),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"WitnessRosterThought",
-				"나린 씨 이름은 전부 야간에 적혀 있다."),
+				"나린 씨는 이번 주 평일에도 밤 근무다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
 			0.04f);
 		StoreRoster->OnExamined.AddUObject(
 			this, &AIGListenerGreyboxDirector::HandleStoreRosterExamined);
+	}
+
+	// 작은 단서는 가까이서 읽는다. 먼 층까지 거리장·간접광 갱신에 넣지 않는다.
+	// 얇은 봉투와 근무표는 받침 면의 그림자를 쓰고, 그릇·꽁초의 그림자는 남긴다.
+	for (AIGMissingFloorEvidence* Evidence : {WaterBowl.Get(), SleepingPills.Get(), CigarettePack.Get(), StoreRoster.Get()})
+	{
+		if (!Evidence) continue;
+		if (UStaticMeshComponent* Visual = Cast<UStaticMeshComponent>(Evidence->GetRootComponent()))
+		{
+			Visual->SetCullDistance(1600.0f);
+			Visual->SetAffectDistanceFieldLighting(false);
+			Visual->SetAffectDynamicIndirectLighting(false);
+			if (Evidence == SleepingPills || Evidence == StoreRoster) Visual->SetCastShadow(false);
+		}
 	}
 
 	// 401호 문 너머. 부피만 세우고 그림은 두지 않는다 — 여기 있는 것은
@@ -5706,6 +5713,8 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		FParse::Param(FCommandLine::Get(), TEXT("IGCircuitReview")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGEntryReview")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGBedroomReview")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGHouseholdReview")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGWitnessPropReview")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGBoothReview"))) && !bCaptureMetricsOnly;
 	if (!bDetailScreens) AdvanceArrivalCapture();
 	GetWorldTimerManager().SetTimer(
@@ -5935,6 +5944,217 @@ void AIGListenerGreyboxDirector::AdvanceReadingReview()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGWitnessPropReview")))
+	{
+		struct FWitnessView { const TCHAR* Name; FVector Eye; FVector Target; float Fov; };
+		const FWitnessView Views[] = {
+			{TEXT("pills"), {-25,-470,162}, {-40,-400,2}, 68},
+			{TEXT("pills-close"), {-15,-440,49}, {-40,-400,2}, 58},
+			{TEXT("butts"), {245,-90,1362}, {168,-25,1301}, 68},
+			{TEXT("butts-close"), {196,-58,1334}, {168,-25,1301}, 48},
+			{TEXT("roster"), {2548,-290,162}, {2548,-193,100}, 68},
+			{TEXT("roster-close"), {2558,-247,155}, {2548,-193,100}, 48},
+		};
+		const FVector Positions[] = {{-25,-517,98}, {245,-90,1298}, {2556,-290,104}};
+		const EIGMissingFloorWitness Witnesses[] = {EIGMissingFloorWitness::SeoSleepingPills,
+			EIGMissingFloorWitness::RooftopCigarettePack, EIGMissingFloorWitness::StoreNightRoster};
+		AIGMissingFloorEvidence* Props[] = {SleepingPills.Get(), CigarettePack.Get(), StoreRoster.Get()};
+		const int32 Step = ArrivalCaptureStep++;
+		const bool bBaseline = FParse::Param(FCommandLine::Get(), TEXT("IGWitnessPropBaseline"));
+		if (Step < 24)
+		{
+			const int32 Index = Step/4;
+			FWitnessView View = Views[Index];
+			if (!bBaseline && Index < 2) { View.Target.Y -= 49; View.Eye.Y -= 49; }
+			if (!bBaseline && Index >= 4) { View.Target.X += 8; View.Eye.X += 8; }
+			if (Step%4 == 0)
+			{
+				CaptureTeleportPlayer(Positions[Index/2], 0, 0);
+				APlayerController* Controller = GetWorld()->GetFirstPlayerController();
+				ACameraActor* OldCamera = Cast<ACameraActor>(Controller->GetViewTarget());
+				ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(View.Eye, (View.Target-View.Eye).Rotation());
+				if (!Camera) { FailProbe(TEXT("목격 소품 검사 카메라 없음")); return; }
+				Camera->GetCameraComponent()->SetFieldOfView(View.Fov);
+				Controller->SetViewTarget(Camera);
+				if (OldCamera) OldCamera->Destroy();
+			}
+			if (Step%4 == 3) CaptureShot(*(FString(bBaseline ? TEXT("witness-before-") : TEXT("witness-after-"))+View.Name));
+		}
+		else if (Step >= 26)
+		{
+			if (bBaseline || Step == 43)
+			{
+				GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+				if (!bBaseline) UE_LOG(LogTemp, Display, TEXT("WITNESS_PROP_INTERACTION PASS count=3 cancel=3 examined=3 unique=3"));
+				UE_LOG(LogTemp, Display, TEXT("WITNESS_PROP_REVIEW PASS views=6"));
+				RequestExit(false);
+				return;
+			}
+			const int32 Index = (Step-26)/5;
+			if (Index >= 3) return;
+			AIGMissingFloorEvidence* Prop = Props[Index];
+			UIGInteractionComponent* Interaction = Player->GetInteractionComponent();
+			if (!Prop || !Interaction || !GetNarrative()) { FailProbe(TEXT("목격 소품 검사 대상 없음")); return; }
+			switch ((Step-26)%5)
+			{
+			case 0: {
+				GetWorld()->GetFirstPlayerController()->SetViewTarget(Player.Get());
+				const FRotator Aim = (Prop->GetActorLocation()-(Positions[Index]+FVector(0,0,64))).Rotation();
+				CaptureTeleportPlayer(Positions[Index],Aim.Yaw,Aim.Pitch);
+				break;
+			}
+			case 1:
+			case 2:
+				Interaction->RefreshFocus();
+				if (Interaction->GetFocusedActor() != Prop || Prop->HasBeenExamined())
+				{ FailProbe(*FString::Printf(TEXT("목격 소품 조준 또는 입력 취소 실패: %d"),Index)); return; }
+				Interaction->PressInteraction();
+				if ((Step-26)%5 == 1) Interaction->ReleaseInteraction();
+				break;
+			case 3:
+				Interaction->ReleaseInteraction();
+				if (!Prop->HasBeenExamined() || !GetNarrative()->HasWitness(Witnesses[Index]) ||
+					GetNarrative()->RecordWitness(Witnesses[Index]))
+				{ FailProbe(*FString::Printf(TEXT("목격 소품 기록 오류: %d"),Index)); return; }
+				CaptureShot(*(FString(TEXT("witness-after-thought-"))+Views[Index*2].Name));
+				break;
+			default: break;
+			}
+		}
+		return;
+	}
+
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGHouseholdReview")))
+	{
+		struct FHouseholdView { const TCHAR* Name; FVector Eye; FVector Target; float Fov; };
+		const FHouseholdView Views[] = {
+			{TEXT("slippers"), {-3,10,1056}, {-52,80,904}, 68},
+			{TEXT("slipper-low"), {-14,30,929}, {-52,84,904}, 58},
+			{TEXT("bowl"), {-150,-305,1062}, {-212,-249,904}, 78},
+			{TEXT("bowl-close"), {-165,-290,951}, {-212,-249,904}, 58},
+			{TEXT("alley"), {1770,-1295,162}, {1460,-1450,256}, 78},
+			{TEXT("condenser-front"), {1460,-1320,245}, {1460,-1450,255}, 60},
+			{TEXT("condenser-side"), {1350,-1390,245}, {1460,-1448,250}, 62},
+			{TEXT("facade"), {90,-690,173}, {-100,-430,320}, 72},
+			{TEXT("delivery"), {2045,-1370,161}, {2045,-1468,151}, 78},
+		};
+		const int32 Step = ArrivalCaptureStep++;
+		const int32 Index = Step / 4;
+		if (Step == 3 && bCaptureMetricsOnly && GEngine) GEngine->Exec(GetWorld(), TEXT("csvprofile start"));
+		if (Index < UE_ARRAY_COUNT(Views))
+		{
+			const FHouseholdView& View = Views[Index];
+			if (Step % 4 == 0)
+			{
+				CaptureTeleportPlayer(Index < 2 ? FVector(40,-70,998) : Index < 4
+					? FVector(-140,-310,998) : FVector(1800,-1360,98), 0, 0);
+				APlayerController* Controller = GetWorld()->GetFirstPlayerController();
+				ACameraActor* OldCamera = Cast<ACameraActor>(Controller->GetViewTarget());
+				ACameraActor* Camera = GetWorld()->SpawnActor<ACameraActor>(View.Eye, (View.Target-View.Eye).Rotation());
+				if (!Camera) { FailProbe(TEXT("생활 소품 검사 카메라 없음")); return; }
+				Camera->GetCameraComponent()->SetFieldOfView(View.Fov);
+				Controller->SetViewTarget(Camera);
+				if (OldCamera) OldCamera->Destroy();
+			}
+			if (Step % 4 == 3)
+			{
+				FVector Eye; FRotator Rotation;
+				GetWorld()->GetFirstPlayerController()->GetPlayerViewPoint(Eye, Rotation);
+				if (!Eye.Equals(View.Eye, .2f)) { FailProbe(TEXT("생활 소품 검사 시점 이동")); return; }
+				CaptureShot(*(FString(FParse::Param(FCommandLine::Get(), TEXT("IGHouseholdBaseline"))
+					? TEXT("household-before-") : TEXT("household-after-")) + View.Name));
+			}
+		}
+		else if (Step == UE_ARRAY_COUNT(Views)*4 && bCaptureMetricsOnly && GEngine) GEngine->Exec(GetWorld(), TEXT("csvprofile stop"));
+		else if (Step >= UE_ARRAY_COUNT(Views)*4+2)
+		{
+			const bool bBaseline = FParse::Param(FCommandLine::Get(), TEXT("IGHouseholdBaseline"));
+			if (bCaptureMetricsOnly || bBaseline || Step == 45)
+			{
+				GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+				UE_LOG(LogTemp, Display, TEXT("HOUSEHOLD_REVIEW PASS views=%d"), UE_ARRAY_COUNT(Views));
+				RequestExit(false);
+				return;
+			}
+			UIGInteractionComponent* Interaction = Player->GetInteractionComponent();
+			if (!Interaction || !WaterBowl || !GetNarrative()) { FailProbe(TEXT("생활 소품 검사 대상 없음")); return; }
+			if (Step == 38)
+			{
+				int32 Slippers = 0, Batches = 0, Anchors = 0;
+				TInlineComponentArray<UStaticMeshComponent*> Components(WorldScene.Get());
+				for (UStaticMeshComponent* Component : Components)
+				{
+					if (!Component->GetStaticMesh()) continue;
+					if (Component->GetStaticMesh()->GetFName() == TEXT("SM_HouseSlipper"))
+					{
+						++Slippers;
+						const FVector Position = Component->GetComponentLocation();
+						UE_LOG(LogTemp, Display, TEXT("HOUSEHOLD_SLIPPER position=%s up=%.3f speed=%.3f awake=%d"),
+							*Position.ToString(), Component->GetUpVector().Z, Component->GetPhysicsLinearVelocity().Size(),
+							Component->IsAnyRigidBodyAwake());
+						if (Position.Z < 899 || Position.Z > 905 || Component->GetUpVector().Z < .96f ||
+							Component->GetPhysicsLinearVelocity().Size() > 2.f)
+						{ FailProbe(TEXT("실내화가 바닥에 안정적으로 놓이지 않음")); return; }
+					}
+					if (Component->ComponentHasTag(TEXT("Exterior.Condenser")))
+					{
+						UInstancedStaticMeshComponent* Batch = Cast<UInstancedStaticMeshComponent>(Component);
+						if (!Batch || Batch->GetInstanceCount() != 6) { FailProbe(TEXT("실외기 배치 누락")); return; }
+						++Batches;
+						for (int32 Instance = 0; Instance < 6; ++Instance)
+						{
+							FTransform Transform; Batch->GetInstanceTransform(Instance, Transform, true);
+							for (float X : {-28.f, 28.f, 61.f})
+							{
+								const float Z = X == 61.f ? 69.f : -12.f;
+								FHitResult Hit;
+								if (!GetWorld()->LineTraceSingleByChannel(Hit,
+									Transform.TransformPosition(FVector(X,-3,Z)), Transform.TransformPosition(FVector(X,3,Z)),
+									ECC_Visibility, FCollisionQueryParams(SCENE_QUERY_STAT(CondenserAnchor), false)))
+								{ FailProbe(TEXT("실외기 받침 또는 배관이 벽에서 떨어짐")); return; }
+								++Anchors;
+							}
+						}
+					}
+				}
+				if (Slippers != 2 || Batches != 1 || Anchors != 18) { FailProbe(TEXT("생활 소품 수량 오류")); return; }
+				UE_LOG(LogTemp, Display, TEXT("HOUSEHOLD_LAYOUT PASS slippers=2 condenser_batch=1 condensers=6 wall_contacts=18"));
+				GetWorld()->GetFirstPlayerController()->SetViewTarget(Player.Get());
+				const FVector Position(-158,-302,998);
+				const FRotator Aim = (FVector(-208,-255,902.5f)-(Position+FVector(0,0,64))).Rotation();
+				CaptureTeleportPlayer(Position,Aim.Yaw,Aim.Pitch);
+			}
+			else if (Step == 39 || Step == 40)
+			{
+				Interaction->RefreshFocus();
+				if (Interaction->GetFocusedActor() != WaterBowl || WaterBowl->HasBeenExamined())
+				{ FailProbe(TEXT("물그릇 조준 또는 짧은 입력 취소 실패")); return; }
+				Interaction->PressInteraction();
+				if (Step == 39) Interaction->ReleaseInteraction();
+			}
+			else if (Step == 41)
+			{
+				Interaction->ReleaseInteraction();
+				if (!WaterBowl->HasBeenExamined() || !GetNarrative()->HasWitness(EIGMissingFloorWitness::HwangWaterBowl))
+				{ FailProbe(TEXT("물그릇 조사가 후속 기록에 반영되지 않음")); return; }
+				CaptureShot(TEXT("household-after-bowl-thought"));
+			}
+			else if (Step == 42)
+			{
+				const FVector Position(-155,-285,998);
+				const FRotator Aim = (FVector(-208,-255,902.5f)-(Position+FVector(0,0,64))).Rotation();
+				CaptureTeleportPlayer(Position,Aim.Yaw,Aim.Pitch);
+			}
+			else if (Step == 43)
+			{
+				Interaction->RefreshFocus();
+				if (Interaction->GetFocusedActor() != WaterBowl || GetNarrative()->RecordWitness(EIGMissingFloorWitness::HwangWaterBowl))
+				{ FailProbe(TEXT("물그릇 옆 조준 또는 중복 기록 방지 실패")); return; }
+				UE_LOG(LogTemp, Display, TEXT("HOUSEHOLD_INTERACTION PASS standing=1 side=1 cancel=1 examine=1 witness=1 unique=1"));
+			}
+		}
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGBedroomReview")))
 	{
 		struct FBedroomView { const TCHAR* Name; FVector Eye; FVector Target; float Fov; };
@@ -5986,6 +6206,19 @@ void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 					const bool bBedBlocks = GetWorld()->SweepSingleByChannel(Hit,
 						FVector(-35,110,998), FVector(-140,110,998), FQuat::Identity, ECC_Pawn, Shape, Params);
 					if (bAisleBlocked || !bBedBlocks) { FailProbe(TEXT("침대 또는 옆 통로 충돌 오류")); return; }
+					FBox FrameBox(ForceInit), WindowBox(ForceInit), TableBox(ForceInit);
+					for (UStaticMeshComponent* Component : TInlineComponentArray<UStaticMeshComponent*>(WorldScene.Get()))
+					{
+						const FBox Bounds = Component->CalcBounds(Component->GetComponentTransform()).GetBox();
+						if (Component->ComponentHasTag(TEXT("Apartment.BedFrame"))) FrameBox += Bounds;
+						if (Component->ComponentHasTag(TEXT("Apartment.Window"))) WindowBox += Bounds;
+						if (Component->ComponentHasTag(TEXT("Apartment.BedsideTable"))) TableBox += Bounds;
+					}
+					const float WindowGap = WindowBox.Min.Y-FrameBox.Max.Y;
+					const float TableGap = FrameBox.Min.Y-TableBox.Max.Y;
+					UE_LOG(LogTemp, Display, TEXT("BEDROOM_CLEARANCE window=%.2fcm bedside=%.2fcm"), WindowGap, TableGap);
+					if (!FrameBox.IsValid || !WindowBox.IsValid || !TableBox.IsValid || WindowGap < 2.5f || TableGap < 1.f)
+					{ FailProbe(TEXT("침대 프레임이 창틀 또는 협탁에 겹침")); return; }
 					UE_LOG(LogTemp, Display, TEXT("BEDROOM_INTERACTION PASS side=1 foot=1 pillow=1 gate=1 cancel=1 aisle=1 bed_collision=1"));
 				}
 				GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);

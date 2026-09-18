@@ -1,0 +1,30 @@
+{
+  "name": "SM_WitnessWaterBowl",
+  "mesh_class": "prop",
+  "fbx": "SM_WitnessWaterBowl.fbx",
+  "textures": {
+    "D": "SM_WitnessWaterBowl_D.png",
+    "N": "SM_WitnessWaterBowl_N.png",
+    "ORM": "SM_WitnessWaterBowl_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 2448,
+  "bounds_m": {
+    "min": [
+      -0.109,
+      -0.115,
+      -0.0
+    ],
+    "max": [
+      0.107,
+      0.111,
+      0.046
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "IKEA UTSADD 실물 사진과 CatWaterBowlStudy_20260917.png 참고. 외경 18cm, 높이 4.6cm. 열린 안벽과 말린 테두리, 미끄럼 방지 고무, 접은 받침 종이. 바닥 원점, 1개 재질, 1개 조사 충돌, Pawn 충돌은 사용하지 않는다. 수면은 굴절 없는 정적 근사."
+}

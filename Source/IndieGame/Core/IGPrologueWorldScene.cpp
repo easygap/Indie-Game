@@ -2384,33 +2384,23 @@ void AIGPrologueWorldScene::BuildApartment()
 	}
 	ApplyUnit403AgeStage();
 
-	// Bed: a real scanned frame when available, greybox otherwise. The
-	// mattress/duvet dressing sits on top either way.
-	//
-	// 원본 메시는 90(폭) x 200(길이) x 120(높이)이고 머리판은 로컬 -Y 쪽에
-	// 있다. 요각 90도는 길이를 월드 X로 눕혀서 침대가 -X 벽을 33 cm 파고들게
-	// 하고, 같은 자리에 놓인 이불(94 x 194, Y를 따라 눕는다)과도 직각이
-	// 됐다. 요각 180도면 길이가 Y를 따르고 머리판이 북쪽으로 간다 — 대체
-	// 상자가 머리판을 Y 211에 두는 것과 같은 방향이다.
-	//
-	// 높이 한도도 100에서 130으로 올렸다. 종횡비를 지키는 맞춤이라 셋 중
-	// 가장 빡빡한 값이 배율을 정하는데, 100은 120 높이에 걸려 침대를 83%로
-	// 줄여 놓았다. 130이면 배율이 길이(208/200)에서 잡혀 94 x 208이 되고,
-	// 이불 94 x 194가 프레임 위에 정확히 얹힌다.
-	if (UStaticMeshComponent* Frame = PlacePhotoProp(TEXT("old_bed_frame"), FVector(-140, 110, 0), FVector(108, 208, 130), 180.0f))
+	// 창틀 안쪽 면은 Y=206.5 부근까지 나온다. 침대를 창에서 12cm 떼고
+	// 프레임·침구·눕기 판정을 함께 옮긴다. 발치 협탁과도 간격을 남긴다.
+	if (UStaticMeshComponent* Frame = PlacePhotoProp(TEXT("old_bed_frame"), FVector(-140, 98, 0), FVector(108, 208, 130), 180.0f))
 	{
 		// 프레임의 단순 충돌은 빈 공간까지 감싼다. 조사 판정은 침구의 눕기 대상에 맡긴다.
 		Frame->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
+		Frame->ComponentTags.Add(TEXT("Apartment.BedFrame"));
 	}
 	else
 	{
-		CreateBlock(FVector(-140, 110, 20), FVector(100, 200, 40), Furniture);
-		CreateBlock(FVector(-140, 211, 55), FVector(100, 8, 110), Furniture);
+		CreateBlock(FVector(-140, 98, 20), FVector(100, 200, 40), Furniture);
+		CreateBlock(FVector(-140, 199, 55), FVector(100, 8, 110), Furniture);
 	}
 	// 천 계산은 제작할 때만 한다. 게임에서는 한 재질과 단순 매트리스 충돌을 쓴다.
 	if (UStaticMesh* BeddingMesh = PropMesh(TEXT("SM_ApartmentBedding")))
 	{
-		UStaticMeshComponent* Bed = CreateBlock(FVector(-140,110,38), FVector(100),
+		UStaticMeshComponent* Bed = CreateBlock(FVector(-140,98,38), FVector(100),
 			nullptr, true, BeddingMesh);
 		Bed->ComponentTags.Add(TEXT("Apartment.Bedding"));
 		// 눈에 보이는 침구를 가리킬 때는 눕기 대상이 시선 판정을 받는다.
@@ -2436,6 +2426,7 @@ void AIGPrologueWorldScene::BuildApartment()
 	float BedsideSurfaceLocalZ = IGPrologueWorld::BedsideTableTopZ;
 	if (BedsideTable)
 	{
+		BedsideTable->ComponentTags.Add(TEXT("Apartment.BedsideTable"));
 		const FBoxSphereBounds TableBounds = BedsideTable->CalcBounds(
 			BedsideTable->GetComponentTransform());
 		const float BedsideSurfaceWorldZ =
@@ -2860,9 +2851,10 @@ void AIGPrologueWorldScene::BuildApartment()
 	UStaticMesh* WindowMesh = PropMesh(TEXT("SM_ApartmentWindow"));
 	if (WindowMesh)
 	{
-		CreateBlock(
+		UStaticMeshComponent* Window = CreateBlock(
 			FVector(-100, 212.5f, 100), FVector(100, 100, 100),
 			nullptr, false, WindowMesh, FRotator::ZeroRotator);
+		Window->ComponentTags.Add(TEXT("Apartment.Window"));
 	}
 	else
 	{
@@ -5877,31 +5869,25 @@ void AIGPrologueWorldScene::BuildAlley()
 		}
 	}
 
-	// 창 아래 실외기. 빌라 파사드에서 가장 먼저 눈에 걸리는 것이고, 층마다
-	// 다른 자리에 달려 있어야 「한 집 한 집이 따로 산다」로 읽힌다. 메시는
-	// 골목 샛길에 쓰던 SM_AcOutdoorUnit(build_alley_props.py). 원점은 바닥 중심,
-	// 앞면 -Y라 파사드 앞 브래킷 위에 그대로 선다.
+	// 실외기 여섯 대는 같은 고정 메시를 공유한다. 받침과 배관도 모델에 들어 있다.
+	UInstancedStaticMeshComponent* Condensers = nullptr;
 	if (UStaticMesh* FacadeAcMesh = PropMesh(TEXT("SM_AcOutdoorUnit")))
 	{
+		Condensers = NewObject<UInstancedStaticMeshComponent>(this, TEXT("OutdoorCondensers"));
+		Condensers->SetupAttachment(SceneRoot);
+		Condensers->SetMobility(EComponentMobility::Static);
+		Condensers->SetStaticMesh(FacadeAcMesh);
+		Condensers->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		Condensers->SetGenerateOverlapEvents(false);
+		Condensers->SetCanEverAffectNavigation(false);
+		Condensers->SetCullDistances(0, 5500);
+		Condensers->ComponentTags.Add(TEXT("Exterior.Condenser"));
 		for (const FVector& Spot : {
-			FVector(-100.0f, -416.0f, 300.0f), FVector(220.0f, -416.0f, 600.0f),
-			FVector(380.0f, -416.0f, 300.0f), FVector(-260.0f, -416.0f, 900.0f)})
+			FVector(-100.0f, -395.0f, 268.0f), FVector(220.0f, -395.0f, 568.0f),
+			FVector(380.0f, -395.0f, 268.0f), FVector(-260.0f, -395.0f, 868.0f)})
 		{
-			CreateBlock(Spot, FVector(100, 100, 100), nullptr, false, FacadeAcMesh, FRotator::ZeroRotator);
-			// 앵글 브래킷 두 개가 벽에 박혀 있다.
-			for (const float BracketDx : {-30.0f, 30.0f})
-			{
-				CreateBlock(
-					FVector(Spot.X + BracketDx, -406.0f, Spot.Z - 3.0f), FVector(4, 40, 4),
-					PlasticDarkMaterial, false);
-				CreateBlock(
-					FVector(Spot.X + BracketDx, -412.0f, Spot.Z - 20.0f), FVector(4, 4, 36),
-					PlasticDarkMaterial, false, nullptr, FRotator(-38, 0, 0));
-			}
-			// 실외기 밑에서 떨어진 물이 벽돌에 남긴 자국.
-			CreateBlock(
-				FVector(Spot.X, -395.4f, Spot.Z - 40.0f), FVector(70, 0.8f, 70),
-				TexMat(TEXT("M_DecalRainGrime"), nullptr), false);
+			// 창턱 아래로 외함을 내리고, 벽면 원점에 앵커를 맞춘다.
+			Condensers->AddInstance(FTransform(FRotator::ZeroRotator, Spot));
 		}
 	}
 	// 도시가스 배관. 노란 강관이 1층에서 옥상까지 오르고 층마다 세대로 꺾인다.
@@ -6262,10 +6248,15 @@ void AIGPrologueWorldScene::BuildAlley()
 		if (UStaticMesh* Meter = PropMesh(TEXT("SM_GasMeterBox")))
 			CreateBlock(P, FVector(100), nullptr, false, Meter, FRotator(0, -90, 0));
 	}
-	for (const FVector& P : {FVector(1460, -1488, 230), FVector(2040, -1488, 230)})
+	for (const FVector& P : {FVector(1460, -1480, 230), FVector(2040, -1480, 230)})
 	{
-		if (UStaticMesh* Ac = PropMesh(TEXT("SM_AcOutdoorUnit")))
-			CreateBlock(P, FVector(100), nullptr, false, Ac, FRotator(0, 180, 0));
+		if (Condensers) Condensers->AddInstance(FTransform(FRotator(0, 180, 0), P));
+	}
+	if (Condensers)
+	{
+		Condensers->RegisterComponent();
+		AddInstanceComponent(Condensers);
+		GeometryComponents.Add(Condensers);
 	}
 	for (const FVector& P : {FVector(1226, -1060, 300), FVector(1824, -1100, 300), FVector(2196, -1060, 300)})
 	{

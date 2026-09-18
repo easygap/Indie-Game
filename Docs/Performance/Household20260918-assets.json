@@ -1,0 +1,152 @@
+[
+  {
+    "mesh": "SM_HouseSlipper",
+    "lod_triangles": [
+      2856,
+      1286,
+      514,
+      200
+    ],
+    "material_slots": 1,
+    "convex_hulls": 1,
+    "streaming_texture_sizes": {
+      "D": [
+        1024,
+        1024
+      ],
+      "N": [
+        1024,
+        1024
+      ],
+      "ORM": [
+        1024,
+        1024
+      ]
+    }
+  },
+  {
+    "mesh": "SM_AcOutdoorUnit",
+    "lod_triangles": [
+      8304,
+      4982,
+      2492,
+      996
+    ],
+    "material_slots": 1,
+    "convex_hulls": 1,
+    "streaming_texture_sizes": {
+      "D": [
+        2048,
+        2048
+      ],
+      "N": [
+        2048,
+        2048
+      ],
+      "ORM": [
+        2048,
+        2048
+      ]
+    }
+  },
+  {
+    "mesh": "SM_WitnessWaterBowl",
+    "lod_triangles": [
+      2448,
+      1102,
+      440,
+      172
+    ],
+    "material_slots": 1,
+    "convex_hulls": 1,
+    "streaming_texture_sizes": {
+      "D": [
+        1024,
+        1024
+      ],
+      "N": [
+        1024,
+        1024
+      ],
+      "ORM": [
+        1024,
+        1024
+      ]
+    }
+  },
+  {
+    "mesh": "SM_WitnessPrescriptionEnvelope",
+    "lod_triangles": [
+      80,
+      64,
+      64,
+      64
+    ],
+    "material_slots": 1,
+    "convex_hulls": 1,
+    "streaming_texture_sizes": {
+      "D": [
+        1024,
+        1024
+      ],
+      "N": [
+        1024,
+        1024
+      ],
+      "ORM": [
+        1024,
+        1024
+      ]
+    }
+  },
+  {
+    "mesh": "SM_WitnessStoreRoster",
+    "lod_triangles": [
+      668,
+      300,
+      120,
+      64
+    ],
+    "material_slots": 1,
+    "convex_hulls": 1,
+    "streaming_texture_sizes": {
+      "D": [
+        2048,
+        2048
+      ],
+      "N": [
+        2048,
+        2048
+      ],
+      "ORM": [
+        2048,
+        2048
+      ]
+    }
+  },
+  {
+    "mesh": "SM_WitnessCigaretteButts",
+    "lod_triangles": [
+      1008,
+      454,
+      182,
+      70
+    ],
+    "material_slots": 1,
+    "convex_hulls": 1,
+    "streaming_texture_sizes": {
+      "D": [
+        512,
+        512
+      ],
+      "N": [
+        512,
+        512
+      ],
+      "ORM": [
+        512,
+        512
+      ]
+    }
+  }
+]

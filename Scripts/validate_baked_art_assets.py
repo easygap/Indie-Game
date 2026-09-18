@@ -1213,6 +1213,9 @@ def main() -> None:
     texture_count = validate_textures()
     material_count, linked_textures = validate_materials()
     validate_listener_shell()
+    # 생활 소품의 실제 반입 결과도 같은 에셋 검사에서 확인한다.
+    import validate_household_assets
+    validate_household_assets.main()
     atlas_entries = validate_print_atlas()
     unreal.log_warning(
         "ART_UASSET_AUDIT PASS "

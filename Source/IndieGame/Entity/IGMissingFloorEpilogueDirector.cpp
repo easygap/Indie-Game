@@ -755,7 +755,7 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildAutumnLines() const
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueAutumn2Seen",
-			"401호 창턱, 물그릇이 있던 자리에 작은 라디오가 놓여 있다."));
+			"물그릇이 있던 401호 앞을 지난다. 창턱에 작은 라디오가 놓여 있다."));
 	}
 	else
 	{

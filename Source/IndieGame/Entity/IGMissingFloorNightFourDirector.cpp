@@ -2069,7 +2069,7 @@ void AIGMissingFloorNightFourDirector::BuildConfrontationReplyLines(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"ConfrontationReplyPills",
-				"서일영 씨, 작년 팔월부터 약 드세요."),
+				"골목에 떨어진 약봉투에 서일영 씨 이름이 있었어요."),
 		},
 	};
 

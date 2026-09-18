@@ -1,0 +1,30 @@
+{
+  "name": "SM_WitnessPrescriptionEnvelope",
+  "mesh_class": "prop",
+  "fbx": "SM_WitnessPrescriptionEnvelope.fbx",
+  "textures": {
+    "D": "SM_WitnessPrescriptionEnvelope_D.png",
+    "N": "SM_WitnessPrescriptionEnvelope_N.png",
+    "ORM": "SM_WitnessPrescriptionEnvelope_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 80,
+  "bounds_m": {
+    "min": [
+      -0.055,
+      -0.0825,
+      0.0001
+    ],
+    "max": [
+      0.055,
+      0.0975,
+      0.0038
+    ]
+  },
+  "origin": "bottom-center",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "인쇄코리아 약봉투 실물과 WitnessPropsStudy_20260917.png 참고. 11×18cm 종이 봉투, 0.35cm 이내 두께. 인쇄면은 별도 UV에 실제 한글 조판. 이름과 조제일만 목격 근거로 쓴다."
+}
