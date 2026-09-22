@@ -81,7 +81,10 @@ namespace IGMissingFloorMix
 		6,  // PUZZLE
 		12, // WORLD
 		8,  // UI: navigation remains responsive under caption churn
-		2   // SCORE: current loop plus a release tail
+		// SCORE: 압박 층이 상시 베드로 한 자리를 늘 차지한다. 그 위에 지금
+		// 도는 루프와 놓아 주는 꼬리 — 둘이면 추격의 4초 테일이 다음 드론에
+		// 밀려 0.12초에 잘렸다.
+		3
 	};
 
 	/**
@@ -525,15 +528,20 @@ void UIGMissingFloorAudioSubsystem::UpdatePresenceLayer(const float DistanceCent
 	{
 		UIGToneSequenceSoundWave* Layer = UIGToneSequenceSoundWave::CreatePresenceLayer(this);
 		PrepareSound(Layer, EIGAudioBus::Score);
+		// 볼륨 배수는 1이다. 예전엔 0으로 만들고 AdjustVolume으로 올렸는데,
+		// 엔진은 배수 × 페이더로 소리를 내므로 페이더가 어디로 가든 곱은 0이었다
+		// — 이 층은 2026-09-09에 넣은 뒤로 한 번도 들린 적이 없다. 재생은
+		// 아래 FadePresenceLayer가 페이더 0에서 올리며 시작한다. 자동 파괴를
+		// 끄는 것은 0으로 내리는 페이드가 엔진에서 정지이기 때문이다 — 지워지면
+		// 다음에 올릴 때 새 컴포넌트를 또 만들어야 한다.
 		PresenceComponent = UGameplayStatics::CreateSound2D(
-			World, Layer, 0.0f, 1.0f, 0.0f, nullptr, false, true);
+			World, Layer, 1.0f, 1.0f, 0.0f, nullptr, false, false);
 		if (!PresenceComponent)
 		{
 			return;
 		}
 		PresenceComponent->SetUISound(false);
 		RegisterPersistentBed(PresenceComponent, EIGAudioBus::Score);
-		PresenceComponent->Play();
 	}
 	FadePresenceLayer(Target, 0.35f);
 }
@@ -546,10 +554,28 @@ void UIGMissingFloorAudioSubsystem::FadePresenceLayer(const float Target, const 
 		return;
 	}
 	PresenceAlpha = Clamped;
-	if (PresenceComponent)
+	if (!PresenceComponent)
 	{
-		PresenceComponent->AdjustVolume(Seconds, Clamped * 0.9f);
+		return;
 	}
+	// 0으로 가는 페이드는 엔진이 끝에서 정지로 처리한다. 그래서 다시 올릴 때는
+	// 멈춘 컴포넌트를 FadeIn으로 되살리고, 도는 중이면 페이더만 옮긴다 — 내려가는
+	// 도중에 AdjustVolume을 받으면 엔진이 정지 예약을 풀고 다시 올라간다.
+	const float Level = Clamped * 0.9f;
+	if (Level <= 0.005f)
+	{
+		if (PresenceComponent->IsPlaying())
+		{
+			PresenceComponent->FadeOut(Seconds, 0.0f);
+		}
+		return;
+	}
+	if (!PresenceComponent->IsPlaying())
+	{
+		PresenceComponent->FadeIn(Seconds, Level);
+		return;
+	}
+	PresenceComponent->AdjustVolume(Seconds, Level);
 }
 
 void UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVector& Location)
@@ -1087,10 +1113,15 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 
 	UIGToneSequenceSoundWave* Score = nullptr;
 	float Volume = 1.0f;
+	// §10.2: 조사 드론은 「페이드인」이다. 갑자기 켜지는 스코어는 드론이 아니라
+	// 스팅이고, 스팅은 그의 것이지 음악의 것이 아니다. 추격만 빠르게 든다 —
+	// 비명이 먼저 왔으니 음악이 그 뒤를 바로 받아야 한다.
+	float FadeInSeconds = 0.30f;
 	if (bTitleMode)
 	{
 		Score = UIGToneSequenceSoundWave::CreateTuningMotif(this, false);
 		Volume = 0.78f;
+		FadeInSeconds = 1.2f;
 	}
 	else
 	{
@@ -1099,14 +1130,17 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 		case EIGAudioThreatState::Investigating:
 			Score = UIGToneSequenceSoundWave::CreateCavityDrone(this);
 			Volume = 0.82f;
+			FadeInSeconds = 1.8f;
 			break;
 		case EIGAudioThreatState::Chasing:
 			Score = UIGToneSequenceSoundWave::CreateChaseScore(this);
 			Volume = 1.0f;
+			FadeInSeconds = 0.30f;
 			break;
 		case EIGAudioThreatState::Finale:
 			Score = UIGToneSequenceSoundWave::CreateCavityDrone(this);
 			Volume = 0.62f;
+			FadeInSeconds = 1.6f;
 			break;
 		case EIGAudioThreatState::Calm:
 		case EIGAudioThreatState::Banging:
@@ -1137,7 +1171,7 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 	RegisterComponent(ScoreComponent, EIGAudioBus::Score);
 	if (ScoreComponent)
 	{
-		ScoreComponent->Play();
+		ScoreComponent->FadeIn(FadeInSeconds, 1.0f);
 	}
 }
 

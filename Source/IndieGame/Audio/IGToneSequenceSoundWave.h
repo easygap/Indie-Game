@@ -563,6 +563,27 @@ public:
 		UObject* Outer,
 		float Loudness);
 
+	// --- 없는 층: 유담의 몸 (§21.1 BUS_PLAYER의 「호흡」) --------------------
+	//
+	// 심박은 있었는데 숨이 없었다. §21.4가 침묵 구간에 「플레이어 호흡만 남긴다」고
+	// 적어 둔 그 호흡이다. 녹음(Player_Breath_Scared)이 있으면 그쪽이 먼저고
+	// 아래는 폴백이다. 소리를 내는 자리는 UIGStressComponent 하나다.
+
+	/**
+	 * 겁먹은 숨의 루프. 4.2초에 숨 둘 — 뒤의 것이 앞의 것보다 급하다. 볼륨은
+	 * 스트레스와 숨찬 정도로 오르고, 숨을 참는 동안은 0이다.
+	 */
+	static UIGToneSequenceSoundWave* CreatePlayerBreathLoop(UObject* Outer);
+	/** 놀라서 들이켜는 숨. 참았던 숨을 놓을 때도 이것이다. 0.45초. */
+	static UIGToneSequenceSoundWave* CreatePlayerGasp(UObject* Outer);
+	/** 추격이 끝났을 때, 아침이 왔을 때 떨리며 내쉬는 숨. 1초. 안도이지 회복은 아니다. */
+	static UIGToneSequenceSoundWave* CreatePlayerExhale(UObject* Outer);
+	/**
+	 * 메뉴 칸을 옮기고 고르는 소리. 나무를 손톱으로 톡 — 고를 때는 둘. 밤의
+	 * 세계와 같은 재질이라 화면이 게임 밖으로 튀지 않는다. UI 버스.
+	 */
+	static UIGToneSequenceSoundWave* CreateMenuTick(UObject* Outer, bool bConfirm);
+
 	// --- 없는 층: 소리로 된 선택적 목격 (§22.3) ---------------------------
 	//
 	// 이 게임에서 목격은 집어 드는 물건일 필요가 없다. 아래 셋은 귀로만

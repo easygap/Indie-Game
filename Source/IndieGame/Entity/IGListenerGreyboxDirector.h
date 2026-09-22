@@ -158,6 +158,8 @@ private:
 	void WakeIntoNight();
 	/** 카드가 걷힌 뒤 403호 천장의 정해진 자리에서 건물이 한 번 운다. */
 	void PlayNightOpeningSettle();
+	/** 밤1 프롤로그 0-5의 「드르륵」. 그의 노크 셋이 끝난 뒤 천장에서 끌린다. */
+	void PlayNightOneOpeningDrag();
 	/** 밤1, 옥상에서 전동 드릴이 다섯 번 돌다 멈춘다. 목한수의 첫 흔적. */
 	void PlayRoofDriverBeat();
 	/** 렌치가 놓이고 독백이 읽힌 뒤에야 화면이 검어진다. */
@@ -297,6 +299,8 @@ private:
 	FTimerHandle NightStartTimer;
 	FTimerHandle NightSettleTimer;
 	FTimerHandle RoofDriverTimer;
+	FTimerHandle NightOneDragTimer;
+	FTimerHandle NightOneDragFadeTimer;
 	FTimerHandle EpilogueStartTimer;
 	FTimerHandle ReportTimer;
 	int32 PendingNightIndex = 1;

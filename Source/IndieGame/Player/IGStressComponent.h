@@ -23,6 +23,9 @@ DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(
  * What it drives:
  *  - heartbeat rate and volume (procedural, no audio assets)
  *  - breathing rate, which the character's camera sway reads
+ *  - the sound of that breathing: a looped scared breath that rises with
+ *    fear and with exertion, a gasp on a scare, a shaky exhale when a chase
+ *    lets go — §21.1 puts 「호흡」 on the player bus and this is where it is
  *  - a post-process ramp: vignette closes in, colour drains, the lens
  *    aberrates slightly at the edges
  *  - a fine camera tremor at high stress
@@ -82,6 +85,22 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Stress")
 	float GetBreathsPerMinute() const;
 
+	/**
+	 * 숨이 찬 정도 0~1. 폰이 달리는 동안 매 프레임 넣고, 넣는 값이 0으로
+	 * 떨어져도 여기서 6초에 걸쳐 스스로 가라앉는다 — 멈춰 섰다고 바로 숨이
+	 * 고르지는 않는다. 스트레스와 따로 숨소리를 올린다.
+	 */
+	void SetExertion(float Exertion01);
+
+	/**
+	 * 놀라서 들이켜는 숨 한 번. 0.4 넘는 놀람이 스스로 부르고, 참았던 숨을
+	 * 놓을 때도 온다. 7초에 한 번 — 놀람마다 헐떡이면 몸이 아니라 효과음이다.
+	 */
+	void PlayGasp(bool bIgnoreCooldown = false);
+
+	/** 추격이 끝났거나 아침이 왔을 때 떨리며 내쉬는 숨. 10초에 한 번. 겁먹은 몸만 쉰다. */
+	void PlayReliefExhale();
+
 	/** Camera tremor in degrees, applied by the pawn on top of its own sway. */
 	UFUNCTION(BlueprintPure, Category = "Stress")
 	FRotator GetTremor() const { return Tremor; }
@@ -125,6 +144,10 @@ private:
 	void UpdateHeartbeat(float DeltaSeconds);
 	void PlayHeartbeat(float EffectiveStress);
 	void UpdateTremor(float DeltaSeconds);
+	/** 숨의 루프. 스트레스·숨참·반동으로 볼륨, 숨을 참는 동안 0. */
+	void UpdateBreathLayer(float DeltaSeconds);
+	/** 2D 숨 한 번. CutSeconds가 양수면 그 뒤로 잘라 낸다 — 녹음이 길 때. */
+	void PlayBreathOneShot(USoundBase* Sound, float Volume, float CutSeconds);
 	/** §19.8. 심박 경고가 켜져 있을 때 비네트가 부푸는 배율. */
 	float GetHeartbeatWarningScale() const;
 
@@ -137,6 +160,17 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> HeartbeatComponent;
+
+	/** 그녀의 숨. 2D, PLAYER 버스, 상시 베드. 배수는 1이고 페이더가 볼륨이다. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> BreathComponent;
+	/** 폰이 넣은 숨찬 정도와, 거기서 스스로 가라앉는 값. */
+	float ExertionReported = 0.0f;
+	float Exertion = 0.0f;
+	float BreathLevelTarget = 0.0f;
+	float BreathPitchTarget = 1.0f;
+	double LastGaspSeconds = -1000.0;
+	double LastReliefSeconds = -1000.0;
 
 	float Stress = 0.0f;
 	float Darkness = 0.0f;

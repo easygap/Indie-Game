@@ -2,6 +2,7 @@
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "Components/AudioComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
@@ -193,6 +194,7 @@ void AIGMissingFloorNightTwoBeatDirector::EndPlay(
 	GetWorldTimerManager().ClearTimer(StageTimer);
 	GetWorldTimerManager().ClearTimer(ReturnTimer);
 	GetWorldTimerManager().ClearTimer(CollapseTimer);
+	GetWorldTimerManager().ClearTimer(DragFadeTimer);
 	ReleaseFigure();
 	Super::EndPlay(EndPlayReason);
 }
@@ -429,7 +431,9 @@ void AIGMissingFloorNightTwoBeatDirector::PlayDragAway()
 {
 	// 끌려가는 소리. 무엇이 끌려가는지는 밤4에 가서야 알게 되고, 지금은 복도가
 	// 비어 가는 소리일 뿐이다. 4층 복도는 화강석 타일이라 비닐이 아니다.
-	IGAudio::SpawnOneShotAt(
+	// 루프 파형이라 복도를 다 빠져나가는 시간에 맞춰 멎게 한다 — 예전엔 아무도
+	// 안 끊어서 ENTITY 상한에 밀려날 때까지 문 앞에서 계속 긁었다.
+	UAudioComponent* DragAway = IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateEntityDragLoop(this, /*bVinyl=*/false),
 		IGNightTwo::FigureStagePoint,
@@ -438,6 +442,21 @@ void AIGMissingFloorNightTwoBeatDirector::PlayDragAway()
 		IGNightTwo::KnockInnerRadius,
 		IGNightTwo::KnockFalloff,
 		EIGAudioBus::Entity);
+	if (DragAway)
+	{
+		TWeakObjectPtr<UAudioComponent> WeakDrag(DragAway);
+		GetWorldTimerManager().SetTimer(
+			DragFadeTimer,
+			FTimerDelegate::CreateWeakLambda(this, [WeakDrag]()
+			{
+				if (UAudioComponent* Loop = WeakDrag.Get())
+				{
+					Loop->FadeOut(1.2f, 0.0f);
+				}
+			}),
+			FMath::Max(IGNightTwo::DragSeconds - 1.2f, 0.2f),
+			false);
+	}
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT("IGMissingFloor", "N2DragCaption", "끌리는 소리 — 멀어짐"),

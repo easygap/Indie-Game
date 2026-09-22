@@ -128,6 +128,21 @@ namespace IGPlayerNoise
 	const FName MetalStairSurfaceTag(TEXT("Footstep.MetalStair"));
 	const FName RooftopSurfaceTag(TEXT("Footstep.Rooftop"));
 	const FName GypsumSurfaceTag(TEXT("Footstep.GypsumDebris"));
+
+	/** 표면별 녹음 접두와 벌 수. 발소리와 착지가 같은 표를 읽어야 한 발이 두 소리를 내지 않는다. */
+	const TCHAR* FootstepSamplePrefix(const EIGFootstepSurface Surface, int32& OutCount)
+	{
+		OutCount = 5;
+		switch (Surface)
+		{
+		case EIGFootstepSurface::Vinyl: return TEXT("Foot_Vinyl");
+		case EIGFootstepSurface::MetalStair: return TEXT("Foot_MetalStair");
+		case EIGFootstepSurface::Rooftop: OutCount = 3; return TEXT("Foot_Rooftop");
+		case EIGFootstepSurface::GypsumDebris: return TEXT("Foot_Gypsum");
+		case EIGFootstepSurface::Water: OutCount = 3; return TEXT("Foot_Water");
+		default: return TEXT("Foot_Concrete");
+		}
+	}
 	const FName WaterSurfaceTag(TEXT("Footstep.Water"));
 }
 
@@ -509,6 +524,18 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 	UpdateContextualActions(DeltaSeconds);
 	UpdateCrouchTransition(DeltaSeconds);
 	UpdateFootsteps(DeltaSeconds);
+	if (StressComponent)
+	{
+		// 숨이 찬다. 3.5초 넘게 달리면 발소리가 커지는 §18.2의 같은 값으로
+		// 숨소리도 오른다. 멈춘 뒤 고르는 건 스트레스 쪽이 한다.
+		const float BreathLoad = (bSprinting && !bIsCrouched)
+			? FMath::Clamp(
+				(SprintActiveSeconds - IGPlayerNoise::SprintBreathThresholdSeconds) / 3.5f,
+				0.0f,
+				1.0f)
+			: 0.0f;
+		StressComponent->SetExertion(BreathLoad);
+	}
 	UpdateCaptureFeedback(DeltaSeconds);
 	UpdateChaseHaptic(DeltaSeconds);
 	UpdateCameraMotion(DeltaSeconds);
@@ -1169,17 +1196,8 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 		FMath::Clamp(LastFootstepNoiseLoudness / 0.72f, 0.0f, 1.0f));
 	// 녹음이 있으면 녹음. 표면마다 셋~다섯 벌을 걸음 해시로 고른다. 합성기는
 	// 피치를 안에서 걸고, 녹음은 재생 피치로 건다.
-	const TCHAR* SamplePrefix = TEXT("Foot_Concrete");
 	int32 SampleCount = 5;
-	switch (Surface)
-	{
-	case EIGFootstepSurface::Vinyl: SamplePrefix = TEXT("Foot_Vinyl"); break;
-	case EIGFootstepSurface::MetalStair: SamplePrefix = TEXT("Foot_MetalStair"); break;
-	case EIGFootstepSurface::Rooftop: SamplePrefix = TEXT("Foot_Rooftop"); SampleCount = 3; break;
-	case EIGFootstepSurface::GypsumDebris: SamplePrefix = TEXT("Foot_Gypsum"); break;
-	case EIGFootstepSurface::Water: SamplePrefix = TEXT("Foot_Water"); SampleCount = 3; break;
-	default: break;
-	}
+	const TCHAR* SamplePrefix = IGPlayerNoise::FootstepSamplePrefix(Surface, SampleCount);
 	USoundBase* FootSample = IGAudio::SampleVariant(SamplePrefix, SampleCount, StepHash);
 	IGAudio::SpawnOneShotAt(
 		this,
@@ -1726,12 +1744,23 @@ void AIGPlayerCharacter::Landed(const FHitResult& Hit)
 		FVector2D(0.14f, 0.58f),
 		ImpactSpeed);
 	const EIGFootstepSurface Surface = ResolveFootstepSurface();
+	// 걸음과 같은 녹음을 낮고 무겁게. 걸음은 녹음인데 착지만 합성이면 같은
+	// 바닥이 두 재질로 들린다.
+	int32 SampleCount = 5;
+	const TCHAR* SamplePrefix = IGPlayerNoise::FootstepSamplePrefix(Surface, SampleCount);
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateSurfaceFootstep(this, Surface, 0.82f, 0.82f),
+		IGAudio::SampleVariantOr(
+			SamplePrefix,
+			SampleCount,
+			static_cast<uint32>(LastStepIndex + 977) * 2654435761u,
+			[this, Surface]() -> USoundBase*
+			{
+				return UIGToneSequenceSoundWave::CreateSurfaceFootstep(this, Surface, 0.82f, 0.82f);
+			}),
 		Hit.ImpactPoint,
 		FootstepVolume * FMath::Lerp(0.85f, 1.35f, LandingLoudness),
-		0.92f,
+		0.86f,
 		120.0f,
 		1050.0f,
 		EIGAudioBus::Player);
@@ -1856,9 +1885,14 @@ void AIGPlayerCharacter::Knock()
 		}
 		if (bSurfaceInReach)
 		{
+			// 402호 문 안쪽의 노크가 쓰는 것과 같은 석고 녹음이다. 같은 벽을
+			// 그는 녹음으로 치고 그녀는 합성으로 치면 두 손이 다른 벽을 친다.
 			IGAudio::SpawnOneShotAt(
 				this,
-				UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
+				IGAudio::SampleVariantOr(
+					TEXT("Knock_Plaster"), 3,
+					static_cast<uint32>(CurrentWorld->GetTimeSeconds() * 977.0f),
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f); }),
 				KnockLocation,
 				0.82f,
 				1.0f,
@@ -1898,9 +1932,13 @@ void AIGPlayerCharacter::Knock()
 
 		// Ordinary doors still answer the verb physically; they simply do not
 		// advance a puzzle unless a chapter director owns that surface.
+		// 현관문은 강철이다. 석고 소리로 철문을 치면 손이 벽을 친 줄 안다.
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
+			IGAudio::SampleVariantOr(
+				TEXT("Knock_Steel"), 3,
+				static_cast<uint32>(World->GetTimeSeconds() * 977.0f),
+				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f); }),
 			FocusedActor->GetActorLocation(),
 			0.82f,
 			1.0f,
@@ -2181,6 +2219,17 @@ void AIGPlayerCharacter::BeginListen()
 		{
 			AudioDirector->SetPlayerListening(true);
 		}
+		// 벽에 귀를 대는 옷과 머리카락. 이 자리의 소리는 이것 하나이고, 듣고
+		// 있다는 것은 §21.4대로 세계가 6dB 내려가는 것으로 말한다.
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateClothSettle(this),
+			FirstPersonCamera ? FirstPersonCamera->GetComponentLocation() : GetActorLocation(),
+			0.42f,
+			1.08f,
+			60.0f,
+			320.0f,
+			EIGAudioBus::Player);
 		return;
 	}
 }

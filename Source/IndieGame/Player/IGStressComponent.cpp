@@ -12,6 +12,8 @@
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Sound/SoundBase.h"
+#include "TimerManager.h"
 
 namespace IGStress
 {
@@ -33,6 +35,30 @@ namespace IGStress
 	constexpr float BreathReboundScale = 1.5f;
 	// 맥동은 심박 속도를 따라간다. 경고가 제 박자로 뛰지 않으면 그건
 	// 심박이 아니라 그냥 화면이 흔들리는 것이다.
+
+	// 숨. 스트레스 0.32까지는 안 들리고 1.0에서 0.55다 — 심박이 0.18에서
+	// 시작하니 숨이 먼저 들리면 안 된다. 심장이 뛰는 걸 먼저 알고, 그 다음에
+	// 자기 숨을 듣는다.
+	constexpr float BreathFearFloor = 0.32f;
+	constexpr float BreathFearCeiling = 0.55f;
+	// 달려서 찬 숨. 발소리를 키우는 §18.2의 같은 값이 숨소리도 키운다.
+	constexpr float BreathExertionScale = 0.42f;
+	// 참았던 숨을 놓은 반동. 심박 1.5배와 같은 4초 동안 숨이 얹힌다.
+	constexpr float BreathReboundBoost = 0.30f;
+	constexpr float BreathLevelCeiling = 0.75f;
+	constexpr float BreathFadeSeconds = 0.45f;
+	// 숨을 참는 순간은 빠르다. 0.45초 뒤에 조용해지는 건 참는 게 아니다.
+	constexpr float BreathHoldFadeSeconds = 0.12f;
+	// 멈춰 선 뒤 숨이 고르기까지. 6초.
+	constexpr float ExertionDecayPerSecond = 1.0f / 6.0f;
+	constexpr float GaspCooldownSeconds = 7.0f;
+	// 녹음 gasp1은 5초에 숨을 세 번 들이켠다. 첫 번째만 쓴다.
+	constexpr float GaspCutSeconds = 0.80f;
+	constexpr float GaspVolume = 0.55f;
+	constexpr float ReliefCooldownSeconds = 10.0f;
+	constexpr float ReliefVolume = 0.50f;
+	// 이보다 낮은 스트레스에서 내쉬는 숨은 안도가 아니라 그냥 숨이다.
+	constexpr float ReliefStressFloor = 0.18f;
 }
 
 UIGStressComponent::UIGStressComponent()
@@ -73,12 +99,37 @@ void UIGStressComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		HeartbeatComponent->Stop();
 	}
 	HeartbeatComponent = nullptr;
+	if (IsValid(BreathComponent))
+	{
+		BreathComponent->Stop();
+	}
+	BreathComponent = nullptr;
 	Super::EndPlay(EndPlayReason);
 }
 
 void UIGStressComponent::ApplyScare(const float Amount)
 {
 	ScareCharge = FMath::Clamp(ScareCharge + FMath::Max(0.0f, Amount), 0.0f, 1.0f);
+	// 0.4 위의 놀람은 숨을 들이켠다. 1.0은 포획이고 포획은 제 숨(끊긴 숨과
+	// 마찰)을 따로 가지므로 여기서 겹치지 않는다. 등 뒤의 등이 죽는 0.30,
+	// 소화기의 0.35는 몸이 움찔하는 것으로 끝난다 — 전부 헐떡이면 아무것도
+	// 헐떡이지 않는 것과 같다.
+	if (Amount >= 0.4f && Amount < 0.99f)
+	{
+		PlayGasp();
+	}
+	RefreshTickState();
+}
+
+void UIGStressComponent::SetExertion(const float Exertion01)
+{
+	const float Clamped = FMath::Clamp(Exertion01, 0.0f, 1.0f);
+	if (FMath::IsNearlyEqual(ExertionReported, Clamped, 0.005f))
+	{
+		return;
+	}
+	ExertionReported = Clamped;
+	Exertion = FMath::Max(Exertion, ExertionReported);
 	RefreshTickState();
 }
 
@@ -115,6 +166,9 @@ void UIGStressComponent::EndBreathHold(const bool bRebound)
 	if (bRebound)
 	{
 		HeartbeatReboundRemaining = IGStress::BreathReboundSeconds;
+		// 참았던 만큼 들이켠다. 쿨다운을 무시하는 건 이게 놀람이 아니라
+		// 몸의 당연한 순서라서다.
+		PlayGasp(/*bIgnoreCooldown=*/true);
 	}
 	RefreshTickState();
 }
@@ -159,6 +213,7 @@ void UIGStressComponent::TickComponent(
 
 	UpdateStress(DeltaSeconds);
 	UpdateHeartbeat(DeltaSeconds);
+	UpdateBreathLayer(DeltaSeconds);
 	UpdateTremor(DeltaSeconds);
 	UpdatePostProcess();
 	RefreshTickState();
@@ -172,7 +227,9 @@ void UIGStressComponent::RefreshTickState()
 		|| ThreatPressure > KINDA_SMALL_NUMBER
 		|| ScareCharge > KINDA_SMALL_NUMBER
 		|| HeartbeatSuppressionRemaining > KINDA_SMALL_NUMBER
-		|| HeartbeatReboundRemaining > KINDA_SMALL_NUMBER;
+		|| HeartbeatReboundRemaining > KINDA_SMALL_NUMBER
+		|| Exertion > KINDA_SMALL_NUMBER
+		|| BreathLevelTarget > KINDA_SMALL_NUMBER;
 	if (IsComponentTickEnabled() != bNeedsTick)
 	{
 		SetComponentTickEnabled(bNeedsTick);
@@ -366,6 +423,177 @@ void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 				}
 			}
 		}
+	}
+}
+
+void UIGStressComponent::UpdateBreathLayer(const float DeltaSeconds)
+{
+	// 폰이 넣는 값은 바닥이고, 거기서 위로는 스스로 가라앉는다.
+	Exertion = FMath::Max(
+		ExertionReported,
+		Exertion - DeltaSeconds * IGStress::ExertionDecayPerSecond);
+
+	const float ReboundAlpha = HeartbeatReboundRemaining > 0.0f
+		? HeartbeatReboundRemaining / IGStress::BreathReboundSeconds
+		: 0.0f;
+	const float Fear = FMath::GetMappedRangeValueClamped(
+		FVector2D(IGStress::BreathFearFloor, 1.0f),
+		FVector2D(0.0f, IGStress::BreathFearCeiling),
+		Stress);
+	float Level = FMath::Max(Fear, Exertion * IGStress::BreathExertionScale)
+		+ IGStress::BreathReboundBoost * ReboundAlpha;
+	if (bBreathHeld)
+	{
+		Level = 0.0f;
+	}
+	Level = FMath::Clamp(Level, 0.0f, IGStress::BreathLevelCeiling);
+	// 겁먹을수록, 숨이 찰수록 빠르고 높다. 루프 속도를 못 바꾸니 피치로 — 그의
+	// 숨이 추격에서 쓰는 것과 같은 수다.
+	const float Pitch = 1.0f + 0.10f * FMath::Max(Stress, Exertion);
+
+	UWorld* World = GetWorld();
+	if (!BreathComponent && Level > 0.02f && World)
+	{
+		USoundBase* Loop = IGAudio::SampleOr(
+			TEXT("Player_Breath_Scared"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreatePlayerBreathLoop(this); });
+		UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+		if (AudioDirector)
+		{
+			AudioDirector->PrepareSound(Loop, EIGAudioBus::Player);
+		}
+		// 2D: 심박과 같은 이유로 내 안에서 난다. 배수는 1, 볼륨은 페이더다.
+		BreathComponent = UGameplayStatics::CreateSound2D(
+			this, Loop, 1.0f, 1.0f, 0.0f, nullptr, false, false);
+		if (BreathComponent)
+		{
+			BreathComponent->SetUISound(false);
+			if (AudioDirector)
+			{
+				AudioDirector->RegisterPersistentBed(
+					BreathComponent, EIGAudioBus::Player);
+			}
+		}
+	}
+	if (!BreathComponent)
+	{
+		return;
+	}
+
+	const float FadeSeconds = bBreathHeld
+		? IGStress::BreathHoldFadeSeconds
+		: IGStress::BreathFadeSeconds;
+	const bool bLevelChanged =
+		!FMath::IsNearlyEqual(Level, BreathLevelTarget, 0.02f);
+	if (Level <= 0.02f)
+	{
+		if (bLevelChanged && BreathComponent->IsPlaying())
+		{
+			// 0으로 가는 페이드는 엔진이 정지로 처리한다. 그래서 되살릴 때는 FadeIn.
+			BreathComponent->FadeOut(FadeSeconds, 0.0f);
+		}
+		BreathLevelTarget = 0.0f;
+		return;
+	}
+	if (!BreathComponent->IsPlaying())
+	{
+		BreathComponent->FadeIn(FadeSeconds, Level);
+		BreathLevelTarget = Level;
+	}
+	else if (bLevelChanged)
+	{
+		BreathComponent->AdjustVolume(FadeSeconds, Level);
+		BreathLevelTarget = Level;
+	}
+	if (!FMath::IsNearlyEqual(Pitch, BreathPitchTarget, 0.01f))
+	{
+		BreathPitchTarget = Pitch;
+		BreathComponent->SetPitchMultiplier(Pitch);
+	}
+}
+
+void UIGStressComponent::PlayGasp(const bool bIgnoreCooldown)
+{
+	UWorld* World = GetWorld();
+	if (!World || bBreathHeld)
+	{
+		return;
+	}
+	const double Now = World->GetTimeSeconds();
+	if (!bIgnoreCooldown && Now - LastGaspSeconds < IGStress::GaspCooldownSeconds)
+	{
+		return;
+	}
+	LastGaspSeconds = Now;
+	PlayBreathOneShot(
+		IGAudio::SampleOr(
+			TEXT("Player_Gasp"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreatePlayerGasp(this); }),
+		IGStress::GaspVolume,
+		IGStress::GaspCutSeconds);
+}
+
+void UIGStressComponent::PlayReliefExhale()
+{
+	UWorld* World = GetWorld();
+	if (!World || bBreathHeld || Stress < IGStress::ReliefStressFloor)
+	{
+		return;
+	}
+	const double Now = World->GetTimeSeconds();
+	if (Now - LastReliefSeconds < IGStress::ReliefCooldownSeconds)
+	{
+		return;
+	}
+	LastReliefSeconds = Now;
+	PlayBreathOneShot(
+		UIGToneSequenceSoundWave::CreatePlayerExhale(this),
+		IGStress::ReliefVolume,
+		0.0f);
+}
+
+void UIGStressComponent::PlayBreathOneShot(
+	USoundBase* Sound,
+	const float Volume,
+	const float CutSeconds)
+{
+	UWorld* World = GetWorld();
+	if (!World || !Sound)
+	{
+		return;
+	}
+	UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+	if (AudioDirector)
+	{
+		AudioDirector->PrepareSound(Sound, EIGAudioBus::Player);
+	}
+	UAudioComponent* Voice = UGameplayStatics::SpawnSound2D(this, Sound, Volume);
+	if (!Voice)
+	{
+		return;
+	}
+	Voice->SetUISound(false);
+	if (AudioDirector)
+	{
+		AudioDirector->RegisterComponent(Voice, EIGAudioBus::Player);
+	}
+	if (CutSeconds > 0.0f)
+	{
+		FTimerHandle CutHandle;
+		TWeakObjectPtr<UAudioComponent> WeakVoice(Voice);
+		World->GetTimerManager().SetTimer(
+			CutHandle,
+			FTimerDelegate::CreateWeakLambda(this, [WeakVoice]()
+			{
+				if (UAudioComponent* Cut = WeakVoice.Get())
+				{
+					Cut->FadeOut(0.25f, 0.0f);
+				}
+			}),
+			CutSeconds,
+			false);
 	}
 }
 

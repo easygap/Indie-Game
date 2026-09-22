@@ -179,6 +179,8 @@ private:
 	FTimerHandle StageTimer;
 	FTimerHandle ReturnTimer;
 	FTimerHandle CollapseTimer;
+	/** 끌려가는 소리를 복도 끝에서 멎게 하는 시계. 루프 파형이라 잘라 줘야 한다. */
+	FTimerHandle DragFadeTimer;
 	EIGNightTwoBeatStage Stage = EIGNightTwoBeatStage::Idle;
 	EIGNightTwoReturnStage ReturnStage = EIGNightTwoReturnStage::Idle;
 	float StageSeconds = 0.0f;

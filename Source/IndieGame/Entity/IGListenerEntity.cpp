@@ -128,7 +128,10 @@ void AIGListenerEntity::BeginPlay()
 			1500.0f,
 			EIGAudioBus::Entity);
 		BreathLoopComponent->bAllowSpatialization = true;
-		BreathLoopComponent->SetVolumeMultiplier(0.0f);
+		// 배수는 1이고 상태별 볼륨은 페이더가 든다(UpdateBreathLoop). 배수를 0으로
+		// 두고 AdjustVolume으로 올리던 때는 곱이 늘 0이라 이 숨이 한 번도 안
+		// 들렸다 — 「멈춰 있어도 가까우면 들린다」는 위 문장이 그동안 거짓이었다.
+		BreathLoopComponent->SetVolumeMultiplier(1.0f);
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
@@ -137,7 +140,6 @@ void AIGListenerEntity::BeginPlay()
 				BreathLoopComponent,
 				EIGAudioBus::Entity);
 		}
-		BreathLoopComponent->Play();
 	}
 
 	// §20.4: the mode is a user setting, read once when he wakes into the world.
@@ -318,6 +320,22 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 					Stress->ApplyScare(0.35f + 0.30f * Near);
 				}
 				PlayerCharacter->PlayScareKick(0.8f + 1.2f * Near);
+			}
+		}
+		else if (PreviousState == EIGListenerState::Chasing
+			&& (NewState == EIGListenerState::Searching
+				|| NewState == EIGListenerState::Waiting))
+		{
+			// 놓쳤다. 추격의 끝은 음악이 4초에 걸쳐 빠지는 것으로만 알 수 있었는데,
+			// 그건 세계의 신호지 몸의 신호가 아니다. 그가 멈추는 순간 그녀가
+			// 숨을 내쉰다 — 대답 노크에 얼어붙은 것도 같은 순간이다.
+			if (AIGPlayerCharacter* PlayerCharacter =
+				Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+			{
+				if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+				{
+					Stress->PlayReliefExhale();
+				}
 			}
 		}
 	}
@@ -847,6 +865,12 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 		{
 			DragLoopComponent->SetVolumeMultiplier(0.0f);
 		}
+		// 잠들면 숨도 멎는다. Tick이 꺼지므로 UpdateBreathLoop이 내려 주지 못한다.
+		if (BreathLoopComponent && BreathLoopComponent->IsPlaying())
+		{
+			BreathLoopComponent->FadeOut(0.5f, 0.0f);
+		}
+		BreathVolumeTarget = 0.0f;
 		// A knock window must never outlive the knocker into the day.
 		if (NoiseSubsystem)
 		{
@@ -1837,7 +1861,23 @@ void AIGListenerEntity::UpdateBreathLoop(const float Distance)
 	if (!FMath::IsNearlyEqual(Target, BreathVolumeTarget, 0.02f))
 	{
 		BreathVolumeTarget = Target;
-		BreathLoopComponent->AdjustVolume(0.6f, Target);
+		// 0으로 가는 페이드는 엔진이 끝에서 정지다. 다시 낼 때는 FadeIn으로
+		// 되살리고, 도는 중이면 페이더만 옮긴다.
+		if (Target <= 0.01f)
+		{
+			if (BreathLoopComponent->IsPlaying())
+			{
+				BreathLoopComponent->FadeOut(0.6f, 0.0f);
+			}
+		}
+		else if (!BreathLoopComponent->IsPlaying())
+		{
+			BreathLoopComponent->FadeIn(0.6f, Target);
+		}
+		else
+		{
+			BreathLoopComponent->AdjustVolume(0.6f, Target);
+		}
 	}
 	// 추격 중엔 숨이 빠르다. 루프 속도는 못 바꾸니 피치로.
 	BreathLoopComponent->SetPitchMultiplier(State == EIGListenerState::Chasing ? 1.22f : 1.0f);

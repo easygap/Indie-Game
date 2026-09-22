@@ -12,6 +12,7 @@
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGStressComponent.h"
 #include "Save/IGSaveSubsystem.h"
 #include "TimerManager.h"
 
@@ -348,6 +349,15 @@ void AIGNightPhaseDirector::FinishDawnPresentation()
 		this,
 		NSLOCTEXT("IGMissingFloor", "MorningCame", "문이 열린다. 아침이다."),
 		3.4f);
+	// 잠금이 풀리는 소리에 숨을 내쉰다. 밤을 무섭게 보낸 몸만 — 스트레스가
+	// 낮으면 그냥 아침이고, 그건 소리 낼 일이 아니다.
+	if (PlayerCharacter)
+	{
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+		{
+			Stress->PlayReliefExhale();
+		}
+	}
 }
 
 void AIGNightPhaseDirector::RequestMissingFloorAutosave(const bool bAtNight)

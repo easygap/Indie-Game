@@ -94,6 +94,17 @@ namespace IGListenerGreybox
 	constexpr float SetupRetryIntervalSeconds = 0.3f;
 	constexpr float SetupGiveUpSeconds = 6.0f;
 	constexpr float ProbePollSeconds = 0.25f;
+
+	/**
+	 * 낮의 밤 베드. 안정기 떨림과 벽 사이 공기는 그 시간의 소리라서 낮에는
+	 * 거의 없어야 한다 — 세계가 멀쩡하다는 감각은 낮의 몫이다(§10.2). 0이
+	 * 아닌 것은 녹음 베드 위에 얹힌 두 번째 복도 공기가 통째로 빠지면 낮이
+	 * 진공이 되기 때문이다.
+	 */
+	constexpr float NightBedDayScale = 0.22f;
+	/** 밤1, 알람 뒤 이만큼 있다가 천장이 끌린다. 그의 노크 셋(2.6초)이 먼저 끝난다. */
+	constexpr float NightOneDragDelaySeconds = 4.6f;
+	constexpr float NightOneDragSeconds = 1.35f;
 }
 
 AIGListenerGreyboxDirector::AIGListenerGreyboxDirector()
@@ -266,7 +277,9 @@ void AIGListenerGreyboxDirector::SpawnNightAmbienceBeds()
 		const float StartOffset = bRecorded
 			? FMath::Fmod(static_cast<float>(Spec.Seed % 1100u) * 0.01f,
 				FMath::Max(0.1f, ClipSeconds)) : 0.0f;
-		Bed->Play(StartOffset);
+		// 낮에 깔린다. 볼륨 배수는 그대로 두고 페이더만 낮춰 두면, 밤이 열릴 때
+		// HandleHourActiveChanged가 검은 화면 아래서 올린다.
+		Bed->FadeIn(0.05f, IGListenerGreybox::NightBedDayScale, StartOffset);
 		UE_LOG(LogIndieGame, Display, TEXT("NIGHT_BED %s recorded=%d sound=%s volume=%.3f"),
 			Spec.Name, bRecorded, *Wave->GetName(), Bed->VolumeMultiplier);
 		NightAmbienceBeds.Add(Bed);
@@ -406,6 +419,8 @@ void AIGListenerGreyboxDirector::DestroyPartialStage()
 	// 밤 베드 셋과 건물 소리 시계. 이름 붙인 컴포넌트라 남기면 재시도의 NewObject가
 	// 같은 이름에 막힌다.
 	GetWorldTimerManager().ClearTimer(SettleTimerHandle);
+	GetWorldTimerManager().ClearTimer(NightOneDragTimer);
+	GetWorldTimerManager().ClearTimer(NightOneDragFadeTimer);
 	for (UAudioComponent* Bed : NightAmbienceBeds)
 	{
 		if (IsValid(Bed))
@@ -1871,6 +1886,22 @@ void AIGListenerGreyboxDirector::HandleHourActiveChanged(const bool bActive)
 		// 05:30 on any route: the goal, the timeout, or the walk home.
 		MakeNightThreeFirstReport();
 	}
+	// 밤의 베드는 밤에만 온전하다. 눈을 감는 검은 화면 아래서 2초에 걸쳐
+	// 차오르고, 새벽에는 문이 열리는 소리와 함께 3초에 걸쳐 가라앉는다.
+	for (UAudioComponent* Bed : NightAmbienceBeds)
+	{
+		if (!IsValid(Bed))
+		{
+			continue;
+		}
+		const float Level = bActive ? 1.0f : IGListenerGreybox::NightBedDayScale;
+		if (!Bed->IsPlaying())
+		{
+			Bed->FadeIn(bActive ? 2.0f : 0.05f, Level);
+			continue;
+		}
+		Bed->AdjustVolume(bActive ? 2.0f : 3.0f, Level);
+	}
 	// One boundary, every consequence, in one place: the entity sleeps by
 	// day, the booth locks by day, and the day verbs vanish by night.
 	if (Entity)
@@ -2285,14 +2316,17 @@ void AIGListenerGreyboxDirector::WakeIntoNight()
 	}
 	// 밤은 방향으로 시작한다. 밤2만 여섯 초 뒤에 문을 두드렸고 나머지는
 	// 카드 뒤에 아무것도 없었다.
-	GetWorldTimerManager().SetTimer(
-		NightSettleTimer,
-		this,
-		&AIGListenerGreyboxDirector::PlayNightOpeningSettle,
-		6.0f,
-		false);
 	if (PendingNightIndex == 1)
 	{
+		// 첫 밤은 프롤로그 0-5 그대로다: 쿵, 쿵, 쿵. 드르륵. 노크 셋은 그가
+		// 복도 서쪽 끝에서 직접 치고(깨는 순간 순찰 첫 칸에서 두드린다), 그
+		// 셋이 끝난 뒤 천장이 끌린다. 나무가 뒤틀리는 소리는 그 다음 밤부터다.
+		GetWorldTimerManager().SetTimer(
+			NightOneDragTimer,
+			this,
+			&AIGListenerGreyboxDirector::PlayNightOneOpeningDrag,
+			IGListenerGreybox::NightOneDragDelaySeconds,
+			false);
 		// 밤1, 위에서 누가 일한다. 옥상 탱크 매니폴드에서 전동 드릴이 다섯 번
 		// 돌다 멈춘다 — 목한수의 첫 흔적. 밤4의 한 마디를 두 밤의 노동으로 번다.
 		GetWorldTimerManager().SetTimer(
@@ -2301,6 +2335,68 @@ void AIGListenerGreyboxDirector::WakeIntoNight()
 			&AIGListenerGreyboxDirector::PlayRoofDriverBeat,
 			42.0f,
 			false);
+	}
+	else
+	{
+		GetWorldTimerManager().SetTimer(
+			NightSettleTimer,
+			this,
+			&AIGListenerGreyboxDirector::PlayNightOpeningSettle,
+			6.0f,
+			false);
+	}
+}
+
+void AIGListenerGreyboxDirector::PlayNightOneOpeningDrag()
+{
+	if (!NightPhase || !NightPhase->IsHourActive())
+	{
+		return;
+	}
+	// 침대 위 천장. 걸어가 볼 수 있는 자리라야 소리가 장소가 된다.
+	const FVector Bed = NightLoop && NightLoop->HasWakeTransform()
+		? NightLoop->GetWakeTransform().GetLocation()
+		: (Player.IsValid() ? Player->GetActorLocation() : GetActorLocation());
+	const FVector Above = Bed + FVector(30.0f, 40.0f, 300.0f);
+	// 끌림은 루프 파형이다. 한 번 긁고 멎게 잘라 낸다 — 놓아두면 밤새 천장에서 긁는다.
+	UAudioComponent* Drag = IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateEntityDragLoop(this, /*bVinyl=*/false),
+		Above,
+		0.58f,
+		0.92f,
+		200.0f,
+		1500.0f,
+		EIGAudioBus::Entity);
+	if (Drag)
+	{
+		TWeakObjectPtr<UAudioComponent> WeakDrag(Drag);
+		GetWorldTimerManager().SetTimer(
+			NightOneDragFadeTimer,
+			FTimerDelegate::CreateWeakLambda(this, [WeakDrag]()
+			{
+				if (UAudioComponent* Loop = WeakDrag.Get())
+				{
+					Loop->FadeOut(0.45f, 0.0f);
+				}
+			}),
+			IGListenerGreybox::NightOneDragSeconds,
+			false);
+	}
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "NightOneOpeningDragCaption", "천장 — 끌리는 소리"),
+		2.4f,
+		Above);
+	AIGHorrorHUD::PushFearDirection(this, Above);
+	// 유담이 천장을 본다. 「…4층이 꼭대기인데.」의 그 순간이다.
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+		{
+			Stress->ApplyScare(0.22f);
+		}
+		PlayerCharacter->PlayScareKick(0.6f);
 	}
 }
 

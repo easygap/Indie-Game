@@ -2150,11 +2150,13 @@ void AIGPlayerController::ToggleSystemMenu()
 		}
 		return;
 	case EIGSystemMenuMode::Pause:
+		PlayMenuTick(false);
 		SetSystemMenuMode(EIGSystemMenuMode::Hidden);
 		return;
 	case EIGSystemMenuMode::Hidden:
 	default:
 		SystemMenuSelection = 0;
+		PlayMenuTick(false);
 		SetSystemMenuMode(EIGSystemMenuMode::Pause);
 		return;
 	}
@@ -2175,6 +2177,7 @@ void AIGPlayerController::ToggleAccessibilityMenu()
 
 	bAccessibilityMenuVisible = true;
 	bNewGameConfirmationArmed = false;
+	PlayMenuTick(false);
 	AccessibilityReturnMode = SystemMenuMode;
 	bGameWasPausedBeforeAccessibility =
 		UGameplayStatics::IsGamePaused(this);
@@ -2413,6 +2416,31 @@ void AIGPlayerController::PlayMissingFloorJournalPaperSound(
 	}
 }
 
+void AIGPlayerController::PlayMenuTick(const bool bConfirm) const
+{
+	// 메뉴의 손맛. 나무를 손톱으로 톡 치는 소리라 화면이 게임 밖으로 튀지
+	// 않는다. 종이 소리와 같은 길로 UI 버스에 올려 일시정지 중에도 난다.
+	UIGToneSequenceSoundWave* Tick = UIGToneSequenceSoundWave::CreateMenuTick(
+		const_cast<AIGPlayerController*>(this), bConfirm);
+	if (!Tick)
+	{
+		return;
+	}
+	UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+		? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+		: nullptr;
+	if (AudioDirector)
+	{
+		AudioDirector->PrepareSound(Tick, EIGAudioBus::UI);
+	}
+	UAudioComponent* Voice = UGameplayStatics::SpawnSound2D(
+		this, Tick, bConfirm ? 0.55f : 0.42f);
+	if (AudioDirector && Voice)
+	{
+		AudioDirector->RegisterComponent(Voice, EIGAudioBus::UI);
+	}
+}
+
 void AIGPlayerController::MoveAccessibilitySelectionUp()
 {
 	if (!bAccessibilityMenuVisible)
@@ -2423,6 +2451,7 @@ void AIGPlayerController::MoveAccessibilitySelectionUp()
 	AccessibilitySelection =
 		(AccessibilitySelection + IGAccessibilityMenu::RowCount - 1)
 		% IGAccessibilityMenu::RowCount;
+	PlayMenuTick(false);
 	RefreshMenuHud();
 }
 
@@ -2435,6 +2464,7 @@ void AIGPlayerController::MoveAccessibilitySelectionDown()
 	}
 	AccessibilitySelection =
 		(AccessibilitySelection + 1) % IGAccessibilityMenu::RowCount;
+	PlayMenuTick(false);
 	RefreshMenuHud();
 }
 
@@ -2739,6 +2769,7 @@ void AIGPlayerController::MoveSystemMenuSelection(const int32 Direction)
 	{
 		VisibleSlot = 0;
 	}
+	const int32 PreviousSelection = SystemMenuSelection;
 	for (int32 Attempt = 0; Attempt < VisibleCount; ++Attempt)
 	{
 		VisibleSlot =
@@ -2753,6 +2784,10 @@ void AIGPlayerController::MoveSystemMenuSelection(const int32 Direction)
 			SystemMenuSelection = Candidate;
 			break;
 		}
+	}
+	if (SystemMenuSelection != PreviousSelection)
+	{
+		PlayMenuTick(false);
 	}
 	RefreshMenuHud();
 }
@@ -2769,6 +2804,7 @@ void AIGPlayerController::ConfirmSystemMenuSelection()
 	{
 		return;
 	}
+	PlayMenuTick(true);
 	if (SystemMenuMode == EIGSystemMenuMode::Credits)
 	{
 		ReturnFromCredits();
@@ -3106,6 +3142,7 @@ void AIGPlayerController::MoveAudioCalibrationSelection(const int32 Direction)
 		(AudioCalibrationSelection
 			+ (Direction < 0 ? IGAudioCalibration::RowCount - 1 : 1))
 		% IGAudioCalibration::RowCount;
+	PlayMenuTick(false);
 	RefreshMenuHud();
 }
 
@@ -3310,6 +3347,7 @@ void AIGPlayerController::MoveDisplaySettingsSelection(const int32 Direction)
 			DisplaySettingsSelection == IGSettingsMenuLayout::ApplyOrKeep
 				? IGSettingsMenuLayout::BackOrRevert
 				: IGSettingsMenuLayout::ApplyOrKeep;
+		PlayMenuTick(false);
 		RefreshMenuHud();
 		return;
 	}
@@ -3317,6 +3355,7 @@ void AIGPlayerController::MoveDisplaySettingsSelection(const int32 Direction)
 		(DisplaySettingsSelection
 			+ (Direction < 0 ? IGDisplaySettings::RowCount - 1 : 1))
 		% IGDisplaySettings::RowCount;
+	PlayMenuTick(false);
 	RefreshMenuHud();
 }
 
@@ -4149,6 +4188,7 @@ void AIGPlayerController::MoveKeyBindingSelection(const int32 Direction)
 		(KeyBindingSelection + Direction + RowCount) % RowCount;
 	KeyBindingStatusText = FText::GetEmpty();
 	bKeyBindingStatusIsError = false;
+	PlayMenuTick(false);
 	RefreshMenuHud();
 }
 

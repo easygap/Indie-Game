@@ -179,4 +179,8 @@ private:
 	bool bSuppressNextCloseThud = false;
 	// 조용히 닫았을 때 걸쇠도 같은 힘으로 닫힌다.
 	float CloseThudVolume = 0.9f;
+	/** 한 번이라도 열린 적이 있는가. 잠겨 있던 문의 첫 개방에만 자물쇠가 돈다. */
+	bool bEverOpened = false;
+	/** 유리문. 걸쇠·자물쇠 녹음은 강철 세대문의 것이라 여기서는 안 낸다. */
+	bool bFramedGlass = false;
 };

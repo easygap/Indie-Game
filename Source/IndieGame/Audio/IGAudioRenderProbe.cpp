@@ -136,6 +136,11 @@ namespace IGAudioRenderProbe
 			{TEXT("bed_corridor"), [](UObject* O) { return Ambience(O, EIGAmbienceMode::CorridorNight); }, 8.0f},
 			{TEXT("bed_stairwell"), [](UObject* O) { return Ambience(O, EIGAmbienceMode::Stairwell); }, 8.0f},
 			{TEXT("bed_upper"), [](UObject* O) { return Ambience(O, EIGAmbienceMode::UpperFloor); }, 8.0f},
+			{TEXT("player_breath"), [](UObject* O) { return W::CreatePlayerBreathLoop(O); }, 8.4f},
+			{TEXT("player_gasp"), [](UObject* O) { return W::CreatePlayerGasp(O); }, 0.0f},
+			{TEXT("player_exhale"), [](UObject* O) { return W::CreatePlayerExhale(O); }, 0.0f},
+			{TEXT("menu_tick_move"), [](UObject* O) { return W::CreateMenuTick(O, false); }, 0.0f},
+			{TEXT("menu_tick_confirm"), [](UObject* O) { return W::CreateMenuTick(O, true); }, 0.0f},
 		};
 
 		const FString Directory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("AudioProbe"));

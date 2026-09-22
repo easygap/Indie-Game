@@ -2153,6 +2153,73 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateAudibleHeartbeat(
 	return Wave;
 }
 
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlayerBreathLoop(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGPlayerBreathLoop"));
+	constexpr float LoopSeconds = 4.2f;
+	TArray<FIGToneNote> Notes;
+	// 들숨은 이 사이로 새는 고역이 얹힌 대역 잡음, 날숨은 낮고 목이 조금 울린다.
+	// 두 번째 짝은 짧고 급하다 — 같은 숨이 두 번 반복되면 기계 소리다.
+	Notes.Add({0.00f, 1.05f, 900.0f, 0.200f, 0.55f, 1.3f, EIGToneWaveform::BandNoise, 0.22f});
+	Notes.Add({0.10f, 0.90f, 1600.0f, 0.080f, 0.60f, 1.2f, EIGToneWaveform::BandNoise, 0.35f});
+	Notes.Add({1.30f, 1.20f, 520.0f, 0.220f, 0.25f, 1.1f, EIGToneWaveform::BandNoise, 0.20f});
+	Notes.Add({1.35f, 0.80f, 110.0f, 0.050f, 0.30f, 1.0f, EIGToneWaveform::Sub});
+	Notes.Add({2.75f, 0.70f, 980.0f, 0.170f, 0.50f, 1.3f, EIGToneWaveform::BandNoise, 0.22f});
+	Notes.Add({3.50f, 0.68f, 540.0f, 0.190f, 0.25f, 1.1f, EIGToneWaveform::BandNoise, 0.20f});
+	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopSeconds);
+	Wave->ConfigurePitchWow(0.010f, 0.23f);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlayerGasp(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGPlayerGasp"));
+	TArray<FIGToneNote> Notes;
+	// 공기를 한 번에 들이켠다. 끝에서 성문이 닫히는 고역과 목의 딸깍.
+	Notes.Add({0.00f, 0.42f, 1400.0f, 0.270f, 0.18f, 1.5f, EIGToneWaveform::BandNoise, 0.30f});
+	Notes.Add({0.02f, 0.36f, 720.0f, 0.180f, 0.22f, 1.4f, EIGToneWaveform::BandNoise, 0.25f});
+	Notes.Add({0.04f, 0.30f, 130.0f, 0.050f, 0.20f, 1.6f, EIGToneWaveform::Growl, 0.15f});
+	Notes.Add({0.30f, 0.14f, 2600.0f, 0.080f, 0.10f, 2.0f, EIGToneWaveform::BandNoise, 0.45f});
+	Notes.Add({0.41f, 0.012f, 3000.0f, 0.080f, 0.10f, 1.0f, EIGToneWaveform::WhiteNoise});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlayerExhale(UObject* Outer)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGPlayerExhale"));
+	TArray<FIGToneNote> Notes;
+	// 한숨. 낮은 대역 잡음에 목소리가 살짝 섞이고, 날숨이 세 번 끊긴다 — 떨림이다.
+	Notes.Add({0.00f, 0.95f, 480.0f, 0.220f, 0.10f, 1.7f, EIGToneWaveform::BandNoise, 0.18f});
+	Notes.Add({0.00f, 0.80f, 300.0f, 0.150f, 0.12f, 1.6f, EIGToneWaveform::BandNoise, 0.22f});
+	Notes.Add({0.02f, 0.55f, 95.0f, 0.050f, 0.15f, 1.5f, EIGToneWaveform::Sub});
+	Notes.Add({0.34f, 0.07f, 620.0f, 0.090f, 0.20f, 1.2f, EIGToneWaveform::BandNoise, 0.30f});
+	Notes.Add({0.56f, 0.07f, 600.0f, 0.080f, 0.20f, 1.2f, EIGToneWaveform::BandNoise, 0.30f});
+	Notes.Add({0.78f, 0.08f, 560.0f, 0.070f, 0.20f, 1.2f, EIGToneWaveform::BandNoise, 0.30f});
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
+UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateMenuTick(UObject* Outer, const bool bConfirm)
+{
+	UIGToneSequenceSoundWave* Wave = IGToneSequence::NewWave(Outer, TEXT("IGMenuTick"));
+	TArray<FIGToneNote> Notes;
+	if (bConfirm)
+	{
+		// 둘. 두 번째가 오분의 일 위라 「됐다」로 읽힌다.
+		Notes.Add({0.000f, 0.090f, 880.0f, 0.220f, 0.01f, 2.2f, EIGToneWaveform::Pluck, 0.30f});
+		Notes.Add({0.055f, 0.090f, 1320.0f, 0.170f, 0.01f, 2.2f, EIGToneWaveform::Pluck, 0.30f});
+		Notes.Add({0.000f, 0.006f, 4000.0f, 0.070f, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+	}
+	else
+	{
+		Notes.Add({0.000f, 0.060f, 1180.0f, 0.200f, 0.01f, 2.4f, EIGToneWaveform::Pluck, 0.25f});
+		Notes.Add({0.000f, 0.005f, 4000.0f, 0.060f, 0.05f, 1.0f, EIGToneWaveform::WhiteNoise});
+	}
+	Wave->ConfigureNotes(MoveTemp(Notes), false);
+	return Wave;
+}
+
 UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreatePlasterSettle(UObject* Outer)
 {
 	UIGToneSequenceSoundWave* Wave =

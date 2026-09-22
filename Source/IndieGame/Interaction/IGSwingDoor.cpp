@@ -136,6 +136,7 @@ void AIGSwingDoor::ConfigureFramedGlassVisuals(
 	UMaterialInterface* FrameMaterial,
 	const FVector& PanelSize)
 {
+	bFramedGlass = true;
 	if (!CubeMesh)
 	{
 		return;
@@ -427,6 +428,7 @@ void AIGSwingDoor::ForceOpenState(const bool bInOpen)
 {
 	DoorAnimation = FIGDoorAnimation();
 	bOpen = bInOpen;
+	bEverOpened = bEverOpened || bOpen;
 	bSuppressNextCloseThud = false;
 	DoorMesh->SetCollisionProfileName(
 		bOpen
@@ -479,6 +481,35 @@ bool AIGSwingDoor::BeginSwing(
 		bOpen ? OpenYaw : 0.0f,
 		SwingDuration * FMath::Max(DurationScale, 0.05f));
 	SetActorTickEnabled(true);
+
+	if (bPlayCreak && bOpen && !bFramedGlass)
+	{
+		// 손잡이가 경첩보다 먼저다. 잠겨 있던 문은 첫 개방에서 자물쇠가 한 번
+		// 돌아가고, 그 뒤로는 걸쇠만 풀린다. 천천히 열면 걸쇠도 조심스럽다.
+		const FVector HandleLocation = HandleMesh
+			? HandleMesh->GetComponentLocation()
+			: DoorMesh->GetComponentLocation();
+		if (!bEverOpened && Requirements.Num() > 0)
+		{
+			if (USoundBase* Unlock = IGAudio::Sample(TEXT("Lock_Open")))
+			{
+				IGAudio::SpawnOneShotAt(
+					this, Unlock, HandleLocation, 0.7f, 1.0f, 120.0f, 900.0f);
+			}
+		}
+		if (USoundBase* Latch = IGAudio::Sample(TEXT("Door_Steel_Open")))
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				Latch,
+				HandleLocation,
+				DurationScale > 1.0f ? 0.30f : 0.55f,
+				DurationScale > 1.0f ? 0.94f : 1.0f,
+				120.0f,
+				900.0f);
+		}
+	}
+	bEverOpened = bEverOpened || bOpen;
 
 	if (bPlayCreak)
 	{

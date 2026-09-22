@@ -113,6 +113,8 @@ private:
 	void MoveMissingFloorJournalPageRight();
 	bool IsMissingFloorNight() const;
 	void PlayMissingFloorJournalPaperSound(float VolumeMultiplier = 1.0f) const;
+	/** 메뉴 칸을 옮기고(false) 고르는(true) 소리. UI 버스라 일시정지 중에도 난다. */
+	void PlayMenuTick(bool bConfirm) const;
 	void MoveAccessibilitySelectionUp();
 	void MoveAccessibilitySelectionDown();
 	void AdjustAccessibilityLeft();
