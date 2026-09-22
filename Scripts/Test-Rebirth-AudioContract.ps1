@@ -561,7 +561,7 @@ $assertions++
 $playerCharacterBody = Read-Source 'Source/IndieGame/Player/IGPlayerCharacter.cpp'
 if ($playerCharacterBody -notmatch
 	'Narrative && Narrative->IsHourSealed\(\)[\s\S]{0,400}?MissingFloorLoadLocked') {
-	throw '봉쇄된 시간에 최근 자동 저장 복원을 막는 가드가 없다.'
+	throw '봉쇄된 시간에 최근 자동 저장 불러오기을 막는 가드가 없다.'
 }
 $assertions++
 $playerControllerBody = Read-Source 'Source/IndieGame/Player/IGPlayerController.cpp'

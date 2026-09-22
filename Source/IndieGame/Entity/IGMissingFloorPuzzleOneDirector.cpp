@@ -172,7 +172,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		CubeMesh,
 		ToggleMaterial,
 		FVector(7.0f, 3.0f, 8.0f),
-		NSLOCTEXT("IGMissingFloor", "P1BreakerPrompt", "이름 없는 회로"),
+		NSLOCTEXT("IGMissingFloor", "P1BreakerPrompt", "이름 없는 차단기"),
 		FText::GetEmpty(),
 		// Files nothing on its own: what it produces is a sound, and the sound
 		// is what the player reasons from.
@@ -191,7 +191,7 @@ bool AIGMissingFloorPuzzleOneDirector::Configure(AIGPrologueWorldScene* InScene)
 		FTransform(FRotator::ZeroRotator, IGPuzzleOne::CommonBreakerFace), SpawnParameters);
 	if (!CommonLightAction) { return false; }
 	CommonLightAction->Configure(CubeMesh, nullptr, FVector(7, 3, 7),
-		NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "공용 조명 — 내리기"),
+		NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "복도등 끄기"),
 		FText::GetEmpty(), EIGMissingFloorTruth::None, EIGMissingFloorSource::None,
 		IGPuzzleOne::BreakerHoldSeconds, IGPuzzleOne::BreakerNoiseLoudness, false);
 	CommonLightAction->OnExamined.AddUObject(this, &AIGMissingFloorPuzzleOneDirector::HandleCommonLighting);
@@ -310,7 +310,7 @@ void AIGMissingFloorPuzzleOneDirector::HandleMeterExamined(
 	if (!bHourActive || bCommonLightsEnabled)
 	{
 		AIGHorrorHUD::PushThought(this,
-			NSLOCTEXT("IGMissingFloor", "P1DialStill", "공용 계량기는 따로 있다. 이름 없는 건 어느 회로지."), 3.8f);
+			NSLOCTEXT("IGMissingFloor", "P1DialStill", "복도등 계량기는 따로 있다. 이건 어디로 연결된 걸까."), 3.8f);
 		return;
 	}
 	Narrative->MarkBeatPlayed(bBreakerThrown ? IGPuzzleOne::PoweredObservation : IGPuzzleOne::UnpoweredObservation);
@@ -335,8 +335,8 @@ void AIGMissingFloorPuzzleOneDirector::HandleCommonLighting(AIGMissingFloorEvide
 		IGPuzzleOne::SetToggle(WorldScene->GetCommonBreakerToggle(), bCommonLightsEnabled);
 	}
 	CommonLightAction->SetInteractionPrompt(bCommonLightsEnabled
-		? NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "공용 조명 — 내리기")
-		: NSLOCTEXT("IGMissingFloor", "P1CommonRestore", "공용 조명 — 올리기"));
+		? NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "복도등 끄기")
+		: NSLOCTEXT("IGMissingFloor", "P1CommonRestore", "복도등 켜기"));
 	IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateRelayClick(this),
 		IGPuzzleOne::CommonBreakerFace, .8f, 1.f, 90.f, 900.f, EIGAudioBus::Puzzle);
 }
@@ -365,8 +365,8 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 	bBreakerThrown = !bBreakerThrown;
 	UpdateMeterMotion();
 	BreakerAction->SetInteractionPrompt(bBreakerThrown
-		? NSLOCTEXT("IGMissingFloor", "P1BreakerLower", "이름 없는 회로 — 내리기")
-		: NSLOCTEXT("IGMissingFloor", "P1BreakerRaise", "이름 없는 회로 — 올리기"));
+		? NSLOCTEXT("IGMissingFloor", "P1BreakerLower", "이름 없는 차단기 — 내리기")
+		: NSLOCTEXT("IGMissingFloor", "P1BreakerRaise", "이름 없는 차단기 — 올리기"));
 
 	if (AIGPrologueWorldScene* WorldScene = Scene.Get())
 	{
@@ -425,8 +425,8 @@ void AIGMissingFloorPuzzleOneDirector::SetHourActive(const bool bActive)
 		Scene->SetCommonInspectionLightsEnabled(true);
 		bCommonLightsEnabled = true;
 		IGPuzzleOne::SetToggle(Scene->GetCommonBreakerToggle(), true);
-		CommonLightAction->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "공용 조명 — 내리기"));
-		BreakerAction->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "P1BreakerRaise", "이름 없는 회로 — 올리기"));
+		CommonLightAction->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "복도등 끄기"));
+		BreakerAction->SetInteractionPrompt(NSLOCTEXT("IGMissingFloor", "P1BreakerRaise", "이름 없는 차단기 — 올리기"));
 	}
 }
 

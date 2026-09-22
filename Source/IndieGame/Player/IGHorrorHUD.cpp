@@ -12,6 +12,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Entity/IGNoiseSubsystem.h"
+#include "Entity/IGListenerTuning.h"
 #include "Fonts/CompositeFont.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
@@ -142,7 +143,7 @@ namespace IGHorrorHUD
 	{
 		static const TArray<FJournalEntryDefinition> Entries = {
 			{TEXT("Lobby.MeterFifthDial"), EJournalLane::Administration,
-				TEXT("다섯 번째 계량기"), TEXT("공용 조명과 별개다. 무명 회로를 올리면 원판이 돈다."),
+				TEXT("다섯 번째 계량기"), TEXT("복도등과는 따로 연결돼 있다. 이름 없는 차단기를 올리면 원판이 돈다."),
 				TEXT("공동현관 계량기함 · 밤 1"), EJournalThumbnail::Meter},
 			{TEXT("Office.MeterReadingSheet"), EJournalLane::Administration,
 				TEXT("검침 기록지"), TEXT("다섯 번째 칸. 63 · 58 · 61 · 0"),
@@ -167,25 +168,25 @@ namespace IGHorrorHUD
 				TEXT("마지막 게시글"), TEXT("오늘은 올라가서 직접 말하겠습니다."),
 				TEXT("게시글 출력물 · 2024-07-26"), EJournalThumbnail::Document},
 			{TEXT("Fifth.LandingImpactMark"), EJournalLane::Life,
-				TEXT("계단참 충격 자국"), TEXT("철골 모서리와 바닥에 같은 검은 이염"),
+				TEXT("계단참에 남은 자국"), TEXT("철골 모서리와 바닥에 같은 검은 얼룩이 묻어 있다."),
 				TEXT("5층 계단참 · 밤 3"), EJournalThumbnail::Metal},
 			{TEXT("Fifth.FreshPlasterDating"), EJournalLane::Life,
-				TEXT("두 겹의 마감"), TEXT("안쪽 보드와 바깥 실란트의 굳은 정도가 다르다."),
+				TEXT("덧댄 벽"), TEXT("안쪽 판은 굳었는데, 겉에 바른 실리콘은 아직 덜 굳었다."),
 				TEXT("5층 공동벽 · 밤 3"), EJournalThumbnail::Plaster},
 			{TEXT("Fifth.PipeWaterComparison"), EJournalLane::Life,
-				TEXT("배관 청음"), TEXT("한쪽은 물, 한쪽은 먹먹한 빈 잔향"),
+				TEXT("배관에서 들은 소리"), TEXT("한쪽에서는 물이 흐르고, 다른 쪽에서는 속이 빈 듯한 소리가 난다."),
 				TEXT("5층 서비스 벽 · 밤 3"), EJournalThumbnail::Metal},
 			{TEXT("Fifth.WallEchoByHand"), EJournalLane::Life,
-				TEXT("직접 두드린 벽"), TEXT("한 벽만 길게 운다. 나머지는 바로 죽는다."),
+				TEXT("직접 두드린 벽"), TEXT("한쪽 벽만 오래 울린다. 다른 벽은 두드리면 소리가 금방 끊긴다."),
 				TEXT("5층 · 밤 3"), EJournalThumbnail::Plaster},
 			{TEXT("Unit401.KnockTallyJournal"), EJournalLane::Life,
 				TEXT("황순금 소리 일지"), TEXT("7/27부터 닷새. 마지막 날은 세 번뿐."),
 				TEXT("401호 · 낮 3"), EJournalThumbnail::Document},
 			{TEXT("Roof.TankWaterAudition"), EJournalLane::Life,
-				TEXT("저수조 표찰"), TEXT("용량 2,000 L. 수위계의 지시자는 위쪽에 있었다."),
+				TEXT("물탱크 안내판"), TEXT("용량 2,000 L. 물 높이를 가리키는 바늘이 위쪽에 있었다."),
 				TEXT("옥상 · 밤 3"), EJournalThumbnail::Tank},
 			{TEXT("Fifth.AnswerReturned"), EJournalLane::Life,
-				TEXT("벽의 대답"), TEXT("둘, 쉬고, 하나."),
+				TEXT("벽 너머의 노크"), TEXT("둘, 쉬고, 하나."),
 				TEXT("5층 공동벽 · 05:12"), EJournalThumbnail::Plaster},
 			{TEXT("Fifth.BreakerCutIntervention"), EJournalLane::Life,
 				TEXT("끊긴 전기"), TEXT("망치 세 번째에 5층 불이 나갔다."),
@@ -201,7 +202,7 @@ namespace IGHorrorHUD
 				TEXT("작업 시간표"), TEXT("마지막 작업 23:10 / 귀가 04:18"),
 				TEXT("조율 수첩 · 밤 3"), EJournalThumbnail::Document},
 			{TEXT("Fifth.PipeAuditionCriterion"), EJournalLane::Personal,
-				TEXT("청음 메모"), TEXT("빈 벽은 낮은 음이 길게 남는다."),
+				TEXT("소리를 적어 둔 메모"), TEXT("빈 벽은 낮은 음이 길게 남는다."),
 				TEXT("조율 수첩 여백 · 밤 3"), EJournalThumbnail::Document},
 			{TEXT("Phone.AnswerRhythmVoicemail"), EJournalLane::Personal,
 				TEXT("마지막 음성사서함"), TEXT("문 두드리면 알지? 둘, 하나."),
@@ -210,7 +211,7 @@ namespace IGHorrorHUD
 				TEXT("수첩의 리듬"), TEXT("● ●  —  ●"),
 				TEXT("조율 수첩 여백 · 밤 3"), EJournalThumbnail::Document},
 			{TEXT("Unit401.AnswerRhythmJournal"), EJournalLane::Personal,
-				TEXT("일지의 답"), TEXT("나도 두드려 줬다. 그랬더니 조용하데."),
+				TEXT("일지에 적힌 노크"), TEXT("나도 두드려 줬다. 그랬더니 조용하데."),
 				TEXT("401호 · 2024-07-29"), EJournalThumbnail::Document},
 		};
 		return Entries;
@@ -307,7 +308,7 @@ void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
 	// entity's knocks and any scripted bait, and telling the player "you made
 	// that sound" when they did not would teach the wrong rule.
 	//
-	// §19.8 노크 시각 대체를 켜면 그 규칙이 뒤집힌다. 소리를 못 듣는 손에게
+	// §19.8 노크를 화면으로 표시를 켜면 그 규칙이 뒤집힌다. 소리를 못 듣는 손에게
 	// 존재의 노크는 아무것도 아닌 것이 되므로, 링을 그리되 **두께로** 나눠
 	// 내 소리와 구분한다 — 색으로만 나누면 색각에서 다시 사라진다.
 	const APawn* OwningPawn = GetOwningPawn();
@@ -2841,8 +2842,8 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 				PanelPosition.X + PanelSize.X - 2.0f * Scale,
 				FooterY + FooterHeight - 2.0f * Scale));
 		const FText RetryText = bUsingGamepad
-			? NSLOCTEXT("IGHUD", "EndingCRetryGamepad", "A  밤 4를 다시 시작할 수 있다")
-			: NSLOCTEXT("IGHUD", "EndingCRetryKeyboard", "E  밤 4를 다시 시작할 수 있다");
+			? NSLOCTEXT("IGHUD", "EndingCRetryGamepad", "A  넷째 날 밤 다시 시작")
+			: NSLOCTEXT("IGHUD", "EndingCRetryKeyboard", "E  넷째 날 밤 다시 시작");
 		const float RetryScale = GetFittedTextScale(
 			RetryText,
 			EIGHudTextRole::Prompt,
@@ -4462,51 +4463,44 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			: FString(bEnabled ? TEXT("ON") : TEXT("OFF"));
 	};
 
-	FString HintMode;
-	switch (Settings.HintMode)
-	{
-	case EIGHintMode::Story:
-		HintMode = bKorean ? TEXT("이야기") : TEXT("STORY");
-		break;
-	case EIGHintMode::Silent:
-		HintMode = bKorean ? TEXT("침묵") : TEXT("SILENT");
-		break;
-	case EIGHintMode::Standard:
-	default:
-		HintMode = bKorean ? TEXT("기본") : TEXT("STANDARD");
-		break;
-	}
+	const EIGNightDifficulty Difficulty = IGListenerTuning::LoadPersistedDifficulty();
+	const FString DifficultyLabel = IGListenerTuning::GetDifficultyLabel(Difficulty).ToString();
+	const TCHAR* DifficultyDescriptions[] = {
+		TEXT("적이 소리에 덜 민감하고 쫓아오는 속도도 느려집니다."),
+		TEXT("소리를 조심하며 단서를 찾습니다. 처음 시작할 때의 난이도입니다."),
+		TEXT("적이 더 빨리 반응하고 오래 쫓아옵니다. 익숙해진 뒤 도전해 보세요."),
+		TEXT("적이 소리를 듣고 다가오지만 쫓아오거나 붙잡지는 않습니다. 모든 퍼즐과 결말을 볼 수 있습니다.")
+	};
 
 	const FString Labels[] =
 	{
-		bKorean ? TEXT("힌트 난이도") : TEXT("HINT MODE"),
+		bKorean ? TEXT("난이도") : TEXT("DIFFICULTY"),
 		bKorean ? TEXT("카메라 흔들림 감소") : TEXT("REDUCED CAMERA MOTION"),
-		bKorean ? TEXT("손전등 점멸 감소") : TEXT("REDUCED FLASHLIGHT FLICKER"),
+		bKorean ? TEXT("빛 깜빡임 줄이기") : TEXT("REDUCED FLASHLIGHT FLICKER"),
 		bKorean ? TEXT("시야각") : TEXT("FIELD OF VIEW"),
-		bKorean ? TEXT("주변부 비네트") : TEXT("EDGE VIGNETTE"),
-		bKorean ? TEXT("공포음 방향 표시") : TEXT("FEAR SOUND DIRECTION"),
-		bKorean ? TEXT("노크 시각 대체") : TEXT("KNOCK AS A RING"),
-		bKorean ? TEXT("노크 진동 대체") : TEXT("KNOCK AS VIBRATION"),
-		bKorean ? TEXT("심박 경고") : TEXT("HEARTBEAT WARNING"),
-		bKorean ? TEXT("인지 지원") : TEXT("COGNITIVE ASSIST"),
-		bKorean ? TEXT("P5 단서 자동 연결") : TEXT("AUTO-CONNECT EVIDENCE"),
-		bKorean ? TEXT("대사 음성 자막") : TEXT("VOICE SUBTITLES"),
-		bKorean ? TEXT("핵심 소리 캡션") : TEXT("SOUND CAPTIONS"),
-		bKorean ? TEXT("대사·캡션 크기") : TEXT("DIALOGUE + CAPTION SIZE"),
-		bKorean ? TEXT("메시지 배경 농도") : TEXT("MESSAGE BACKGROUND"),
-		bKorean ? TEXT("자막 안전 영역") : TEXT("CAPTION SAFE AREA"),
+		bKorean ? TEXT("화면 가장자리 어둡게") : TEXT("EDGE VIGNETTE"),
+		bKorean ? TEXT("소리가 나는 방향 표시") : TEXT("FEAR SOUND DIRECTION"),
+		bKorean ? TEXT("노크를 화면으로 표시") : TEXT("KNOCK AS A RING"),
+		bKorean ? TEXT("노크를 진동으로 알림") : TEXT("KNOCK AS VIBRATION"),
+		bKorean ? TEXT("심장 박동 표시") : TEXT("HEARTBEAT WARNING"),
+		bKorean ? TEXT("노크 박자 맞추기 도움") : TEXT("COGNITIVE ASSIST"),
+		bKorean ? TEXT("대사 자막") : TEXT("VOICE SUBTITLES"),
+		bKorean ? TEXT("소리 자막") : TEXT("SOUND CAPTIONS"),
+		bKorean ? TEXT("자막 글자 크기") : TEXT("DIALOGUE + CAPTION SIZE"),
+		bKorean ? TEXT("자막 배경 진하기") : TEXT("MESSAGE BACKGROUND"),
+		bKorean ? TEXT("자막 표시 영역") : TEXT("CAPTION SAFE AREA"),
 		bKorean ? TEXT("자막 표시 시간") : TEXT("CAPTION DURATION"),
 		bKorean ? TEXT("앉기 입력 방식") : TEXT("CROUCH INPUT"),
 		bKorean ? TEXT("길게 누르기 방식") : TEXT("HOLD INPUT"),
-		bKorean ? TEXT("홀드 길이") : TEXT("HOLD DURATION"),
+		bKorean ? TEXT("길게 누르는 시간") : TEXT("HOLD DURATION"),
 		bKorean ? TEXT("컨트롤러 진동") : TEXT("CONTROLLER VIBRATION"),
-		bKorean ? TEXT("마이크 소음 입력 (선택)") : TEXT("OPTIONAL MICROPHONE NOISE"),
+		bKorean ? TEXT("마이크 소리 사용") : TEXT("OPTIONAL MICROPHONE NOISE"),
 		bKorean ? TEXT("기본값으로 초기화") : TEXT("RESET TO DEFAULTS"),
 		bKorean ? TEXT("닫기") : TEXT("CLOSE")
 	};
 	const FString Values[] =
 	{
-		HintMode,
+		DifficultyLabel,
 		OnOff(Settings.bReducedCameraMotion),
 		OnOff(Settings.bReducedFlicker),
 		FString::Printf(
@@ -4520,7 +4514,6 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		OnOff(Settings.bKnockHapticSubstitute),
 		OnOff(Settings.bHeartbeatWarning),
 		OnOff(Settings.bCognitiveAssist),
-		OnOff(Settings.bAutoConnectEvidence),
 		OnOff(Settings.bSubtitlesEnabled),
 		OnOff(Settings.bSoundCaptionsEnabled),
 		FString::Printf(
@@ -4536,10 +4529,10 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			TEXT("%d%%"),
 			FMath::RoundToInt(Settings.CaptionDurationScale * 100.0f)),
 		bKorean
-			? (Settings.bToggleCrouch ? TEXT("토글") : TEXT("누르는 동안"))
+			? (Settings.bToggleCrouch ? TEXT("한 번 눌러 전환") : TEXT("누르는 동안"))
 			: (Settings.bToggleCrouch ? TEXT("TOGGLE") : TEXT("HOLD")),
 		bKorean
-			? (Settings.bToggleHoldInteractions ? TEXT("토글") : TEXT("누르는 동안"))
+			? (Settings.bToggleHoldInteractions ? TEXT("한 번 눌러 전환") : TEXT("누르는 동안"))
 			: (Settings.bToggleHoldInteractions ? TEXT("TOGGLE") : TEXT("HOLD")),
 		FString::Printf(
 			TEXT("%d%%"),
@@ -4552,55 +4545,52 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 	const FString Descriptions[] =
 	{
 		bKorean
-			? TEXT("막혔을 때 제공되는 도움의 강도를 정합니다. 정답을 즉시 공개하지 않고 단계별 단서를 유지합니다.")
-			: TEXT("SETS HOW MUCH HELP APPEARS WHEN PROGRESS STALLS WITHOUT REVEALING ANSWERS AT ONCE."),
+			? DifficultyDescriptions[static_cast<int32>(Difficulty)]
+			: TEXT("CHANGES PURSUIT DIFFICULTY. EVERY PUZZLE AND ENDING REMAINS AVAILABLE."),
 		bKorean
-			? TEXT("머리 흔들림과 추격 중 카메라 진폭을 낮춥니다. 이동 속도와 판정은 그대로 유지됩니다.")
+			? TEXT("걷거나 쫓길 때 화면이 덜 흔들리게 합니다.")
 			: TEXT("REDUCES HEAD BOB AND CHASE CAMERA AMPLITUDE WITHOUT CHANGING MOVEMENT OR GAMEPLAY."),
 		bKorean
-			? TEXT("손전등과 공포 연출의 빠른 점멸을 완화합니다. 필요한 위험 정보는 밝기 변화 대신 형태로 남깁니다.")
+			? TEXT("손전등과 조명이 빠르게 깜빡이는 효과를 줄입니다.")
 			: TEXT("SOFTENS RAPID FLASHES WHILE PRESERVING DANGER INFORMATION THROUGH SHAPE AND TIMING."),
 		bKorean
-			? TEXT("1인칭 시야각을 68도에서 100도 사이로 조절합니다. 좁으면 압박이 커지고 넓히면 멀미가 줄어듭니다.")
+			? TEXT("한 화면에 보이는 범위를 조절합니다. 화면이 답답하거나 어지럽다면 편한 값으로 맞춰 보세요.")
 			: TEXT("SETS THE FIRST-PERSON FIELD OF VIEW BETWEEN 68 AND 100 DEGREES."),
 		bKorean
-			? TEXT("화면 가장자리를 어둡게 눌러 시야 주변의 흐름을 줄입니다. 멀미가 있으면 시야각과 함께 씁니다.")
+			? TEXT("화면 가장자리를 어둡게 합니다. 움직일 때 주변 풍경이 덜 보이게 할 수 있습니다.")
 			: TEXT("DARKENS THE SCREEN EDGES TO CALM PERIPHERAL FLOW. USE IT ALONGSIDE FIELD OF VIEW."),
 		bKorean
-			? TEXT("공포음이 들린 방향을 화면 가장자리의 절제된 표시로 함께 전달합니다.")
+			? TEXT("중요한 소리가 나면 화면 가장자리에 그 방향을 표시합니다.")
 			: TEXT("ADDS A RESTRAINED SCREEN-EDGE CUE FOR THE DIRECTION OF IMPORTANT HORROR SOUNDS."),
 		bKorean
-			? TEXT("존재가 낸 소리에도 파문 링을 그립니다. 내가 낸 소리와는 색이 아니라 링 두께로 구분합니다.")
+			? TEXT("적이 낸 소리를 화면에 얇은 원으로 표시합니다. 내가 낸 소리는 굵은 원으로 표시됩니다.")
 			: TEXT("DRAWS A RING FOR THE PRESENCE TOO, TOLD APART BY THICKNESS RATHER THAN COLOUR."),
 		bKorean
-			? TEXT("존재가 낸 소리를 패드 진동으로 함께 전달합니다. 멀리서 난 소리는 약하게 옵니다.")
+			? TEXT("적이 소리를 내면 게임패드가 진동합니다. 소리가 멀수록 진동도 약해집니다.")
 			: TEXT("SENDS THE PRESENCE'S SOUNDS TO THE PAD AS VIBRATION, WEAKER WITH DISTANCE."),
 		bKorean
-			? TEXT("스트레스가 높아지면 화면 가장자리가 심박에 맞춰 맥동합니다. 심박음을 듣지 못해도 위험이 보입니다.")
+			? TEXT("긴장했을 때 화면 가장자리가 심장 박동에 맞춰 움직입니다.")
 			: TEXT("PULSES THE SCREEN EDGE IN TIME WITH THE HEARTBEAT SO DANGER STAYS VISIBLE."),
 		bKorean
-			? TEXT("퍼즐의 시간 압박을 풀고 노크 판정창을 넓힙니다. 리듬을 맞추기 어려운 손을 위한 선택지입니다.")
+			? TEXT("노크 박자를 조금 늦거나 빠르게 맞춰도 인정합니다.")
 			: TEXT("RELAXES PUZZLE TIME PRESSURE AND WIDENS THE KNOCK WINDOW."),
 		bKorean
-			? TEXT("관찰한 P5 단서의 연결을 자동으로 정리합니다. 단서를 발견하는 과정은 건너뛰지 않습니다.")
-			: TEXT("ORGANIZES OBSERVED P5 EVIDENCE AUTOMATICALLY WITHOUT SKIPPING DISCOVERY."),
-		bKorean
-			? TEXT("녹음된 인물 대사를 자막으로 표시합니다. 지운의 내면 독백은 이야기 전달을 위해 항상 유지됩니다.")
+			? TEXT("인물의 목소리를 자막으로 보여 줍니다. 주인공이 혼자 하는 생각은 항상 표시됩니다.")
 			: TEXT("SHOWS SUBTITLES FOR RECORDED VOICES; STORY-CRITICAL INNER MONOLOGUE REMAINS AVAILABLE."),
 		bKorean
-			? TEXT("노크, 발소리, 기계음처럼 진행에 필요한 비언어음을 별도의 캡션으로 표시합니다.")
+			? TEXT("노크나 발소리처럼 진행에 필요한 소리를 글로 보여 줍니다.")
 			: TEXT("CAPTIONS IMPORTANT NON-SPEECH AUDIO SUCH AS KNOCKS, FOOTSTEPS, AND MACHINES."),
 		bKorean
-			? TEXT("대사와 소리 캡션의 글자 크기를 함께 조정합니다. 아래 미리 보기에 즉시 반영됩니다.")
+			? TEXT("대사 자막과 소리 자막의 글자 크기를 함께 바꿉니다. 아래에서 미리 볼 수 있습니다.")
 			: TEXT("CHANGES DIALOGUE AND SOUND-CAPTION SIZE WITH AN IMMEDIATE PREVIEW BELOW."),
 		bKorean
-			? TEXT("밝은 배경에서도 읽히도록 자막 뒤 어두운 면의 농도를 조절합니다.")
+			? TEXT("자막 뒤의 검은 배경을 얼마나 진하게 표시할지 정합니다.")
 			: TEXT("ADJUSTS THE DARK SURFACE BEHIND CAPTIONS FOR LEGIBILITY OVER BRIGHT SCENES."),
 		bKorean
-			? TEXT("자막이 화면 가장자리에 너무 가깝지 않도록 최대 너비와 여백을 조절합니다.")
+			? TEXT("값을 줄이면 자막이 화면 안쪽에 표시됩니다.")
 			: TEXT("CONTROLS CAPTION WIDTH AND MARGINS SO TEXT STAYS AWAY FROM SCREEN EDGES."),
 		bKorean
-			? TEXT("자막과 소리 캡션이 화면에 머무는 시간을 조절합니다. 읽는 속도가 다른 사람을 위해 최대 두 배까지 늘립니다.")
+			? TEXT("자막이 사라지는 시간을 조절합니다. 읽을 시간이 부족하면 값을 높여 주세요.")
 			: TEXT("KEEPS SUBTITLES AND SOUND CAPTIONS ON SCREEN LONGER, UP TO TWICE THE DEFAULT."),
 		bKorean
 			? TEXT("앉기 키를 한 번 눌러 전환하거나, 누르고 있는 동안만 유지하도록 선택합니다.")
@@ -4609,19 +4599,19 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			? TEXT("상호작용을 길게 누르는 대신 한 번 눌러 시작하고 다시 눌러 취소할 수 있습니다.")
 			: TEXT("ALLOWS HOLD INTERACTIONS TO START WITH ONE PRESS AND CANCEL WITH ANOTHER."),
 		bKorean
-			? TEXT("문 열기와 조사처럼 길게 누르는 상호작용의 요구 시간을 조정합니다.")
+			? TEXT("문을 열거나 조사할 때 버튼을 얼마나 오래 누를지 정합니다.")
 			: TEXT("ADJUSTS THE REQUIRED TIME FOR HOLD INTERACTIONS SUCH AS OPENING AND INSPECTING."),
 		bKorean
-			? TEXT("위험, 충돌, 상호작용 피드백에 사용되는 컨트롤러 진동을 켜거나 끕니다.")
+			? TEXT("게임패드 진동을 켜거나 끕니다.")
 			: TEXT("ENABLES OR DISABLES CONTROLLER VIBRATION FOR DANGER, IMPACTS, AND INTERACTIONS."),
 		bKorean
-			? TEXT("선택 기능입니다. 실제 마이크 소리를 소음 기믹에 사용하며, 끄면 마이크를 열지 않습니다.")
+			? TEXT("켜면 실제로 말하거나 낸 소리를 게임 속 적도 듣습니다. 꺼 두면 마이크를 사용하지 않습니다.")
 			: TEXT("OPTIONAL. USES LIVE MICROPHONE NOISE FOR GAMEPLAY; OFF KEEPS THE MICROPHONE CLOSED."),
 		bKorean
-			? TEXT("이 화면의 접근성 항목을 처음 설치했을 때의 값으로 되돌립니다.")
+			? TEXT("이 화면의 설정을 처음 상태로 되돌립니다.")
 			: TEXT("RESTORES EVERY ACCESSIBILITY OPTION ON THIS SCREEN TO ITS INSTALL DEFAULT."),
 		bKorean
-			? TEXT("변경 내용은 즉시 저장됩니다. 이전 화면이나 게임으로 돌아갑니다.")
+			? TEXT("설정을 저장하고 이전 화면으로 돌아갑니다.")
 			: TEXT("CHANGES ARE SAVED IMMEDIATELY. RETURN TO THE PREVIOUS SCREEN OR THE GAME.")
 	};
 	const FString CategoryLabels[] =
@@ -4649,9 +4639,9 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			? NSLOCTEXT(
 				"IGHUD",
 				"AccessibilitySubtitle",
-				"필요한 정보는 더 또렷하게, 공포의 밀도는 그대로 유지합니다.")
+				"글자, 소리 안내, 조작을 편하게 맞춰 주세요.")
 			: FText::FromString(
-				TEXT("CLEARER INFORMATION WITHOUT DILUTING THE HORROR.")),
+				TEXT("ADJUST TEXT, SOUND CUES, AND CONTROLS FOR COMFORT.")),
 		bKorean
 			? NSLOCTEXT("IGHUD", "AccessibilitySavedImmediately", "변경 즉시 저장")
 			: FText::FromString(TEXT("SAVES IMMEDIATELY")));
@@ -4702,7 +4692,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			IGHorrorHUD::SettingsRaised);
 		DrawLeftAlignedText(
 			bKorean
-				? NSLOCTEXT("IGHUD", "SettingsEffectHeading", "이 설정이 바꾸는 것")
+				? NSLOCTEXT("IGHUD", "SettingsEffectHeading", "설명")
 				: FText::FromString(TEXT("WHAT THIS CHANGES")),
 			FVector2D(
 				Metrics.ContentLeft + 18.0f * Scale,
@@ -4987,8 +4977,8 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 	const float HeaderTop = PaperOrigin.Y + 20.0f * ResolutionScale;
 	DrawPaperText(
 		SupportsKorean()
-			? NSLOCTEXT("IGHUD", "MissingFloorJournalTitle", "듣는 것들")
-			: FText::FromString(TEXT("THINGS HEARD")),
+			? NSLOCTEXT("IGHUD", "MissingFloorJournalTitle", "조사 기록")
+			: FText::FromString(TEXT("INVESTIGATION NOTES")),
 		FVector2D(PaperOrigin.X + OuterMargin, HeaderTop),
 		Ink,
 		EIGHudTextRole::Objective,
@@ -4998,7 +4988,7 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 			? NSLOCTEXT(
 				"IGHUD",
 				"MissingFloorJournalSubtitle",
-				"달빛빌라 · 관찰 기록")
+				"달빛빌라에서 알아낸 것들")
 			: FText::FromString(TEXT("DALBIT VILLA · OBSERVATION LOG")),
 		FVector2D(
 			PaperOrigin.X + OuterMargin,
@@ -5085,13 +5075,13 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 		/ CardsPerLanePerPage;
 	const FText LaneTitles[3] = {
 		SupportsKorean()
-			? NSLOCTEXT("IGHUD", "JournalLaneAdministration", "행정")
+			? NSLOCTEXT("IGHUD", "JournalLaneAdministration", "건물 서류")
 			: FText::FromString(TEXT("RECORD")),
 		SupportsKorean()
 			? NSLOCTEXT("IGHUD", "JournalLaneLife", "생활")
 			: FText::FromString(TEXT("LIFE")),
 		SupportsKorean()
-			? NSLOCTEXT("IGHUD", "JournalLanePersonal", "개인")
+			? NSLOCTEXT("IGHUD", "JournalLanePersonal", "오빠의 물건")
 			: FText::FromString(TEXT("PERSONAL")),
 	};
 
@@ -5360,7 +5350,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 
 	DrawCenteredText(
 		bKorean
-			? NSLOCTEXT("IGHUD", "AudioCalibrationTitle", "소리 · 밝기 보정")
+			? NSLOCTEXT("IGHUD", "AudioCalibrationTitle", "소리와 밝기")
 			: FText::FromString(TEXT("AUDIO + BRIGHTNESS CALIBRATION")),
 		PanelOrigin.Y + 30.0f * Scale,
 		IGHorrorHUD::PaleGray,
@@ -5371,13 +5361,13 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 			? bKorean
 				? NSLOCTEXT(
 					"IGHUD", "AudioCalibrationFirstRunSubtitle",
-					"없는 층은 소리로 먼저 드러납니다. 시작 전에 한 번만 맞춰 주세요.")
+					"시작하기 전에 소리 크기와 화면 밝기를 맞춰 주세요.")
 				: FText::FromString(
-					TEXT("THE MISSING FLOOR IS HEARD FIRST. TUNE IT ONCE BEFORE PLAY."))
+					TEXT("ADJUST AUDIO AND BRIGHTNESS BEFORE YOU START."))
 			: bKorean
 				? NSLOCTEXT(
 					"IGHUD", "AudioCalibrationSubtitle",
-					"플레이 환경이 바뀌었다면 여기서 다시 맞출 수 있습니다.")
+					"헤드폰이나 모니터를 바꿨다면 다시 맞춰 주세요.")
 				: FText::FromString(
 					TEXT("RECALIBRATE WHEN YOUR HEADPHONES OR DISPLAY CHANGE.")),
 		PanelOrigin.Y + 74.0f * Scale,
@@ -5390,7 +5380,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 	const float ContentY = PanelOrigin.Y + 144.0f * Scale;
 	DrawLeftAlignedText(
 		bKorean
-			? NSLOCTEXT("IGHUD", "AudioCalibrationKnockLabel", "위쪽 노크")
+			? NSLOCTEXT("IGHUD", "AudioCalibrationKnockLabel", "위층 노크 소리")
 			: FText::FromString(TEXT("KNOCK ABOVE")),
 		FVector2D(LeftX, ContentY),
 		IGHorrorHUD::ThoughtBlue,
@@ -5400,9 +5390,9 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		bKorean
 			? NSLOCTEXT(
 				"IGHUD", "AudioCalibrationKnockInstruction",
-				"노크가 겨우 들리면서\n위쪽에서 온다고 느껴질 정도로 맞추세요.")
+				"노크가 또렷하게 들리되\n놀라지 않을 정도의 크기로 맞춰 주세요.")
 			: FText::FromString(
-				TEXT("LOWER IT UNTIL THE KNOCK IS BARELY AUDIBLE\nAND STILL FEELS ABOVE YOU.")),
+				TEXT("MAKE THE KNOCK CLEARLY AUDIBLE\nAT A COMFORTABLE VOLUME.")),
 		FVector2D(LeftX, ContentY + 38.0f * Scale),
 		IGHorrorHUD::PaleGray,
 		EIGHudTextRole::Hint,
@@ -5428,7 +5418,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 
 	DrawLeftAlignedText(
 		bKorean
-			? NSLOCTEXT("IGHUD", "AudioCalibrationShadowLabel", "어두운 곳의 경계")
+			? NSLOCTEXT("IGHUD", "AudioCalibrationShadowLabel", "어두운 화면 확인")
 			: FText::FromString(TEXT("SHADOW DETAIL")),
 		FVector2D(RightX, ContentY),
 		IGHorrorHUD::ThoughtBlue,
@@ -5438,7 +5428,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		bKorean
 			? NSLOCTEXT(
 				"IGHUD", "AudioCalibrationShadowInstruction",
-				"가운데 칸은 겨우 보이고\n왼쪽 칸은 배경에 묻히게 맞추세요.")
+				"가운데 칸이 희미하게 보이도록 맞춰 주세요.\n왼쪽 칸은 배경과 구분되지 않아야 합니다.")
 			: FText::FromString(
 				TEXT("THE MIDDLE PATCH SHOULD BE BARELY VISIBLE;\nTHE LEFT PATCH SHOULD DISAPPEAR.")),
 		FVector2D(RightX, ContentY + 38.0f * Scale),
@@ -5473,14 +5463,14 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 
 	const FString Labels[] =
 	{
-		bKorean ? TEXT("노크 음량") : TEXT("KNOCK VOLUME"),
-		bKorean ? TEXT("음악") : TEXT("MUSIC"),
+		bKorean ? TEXT("전체 소리") : TEXT("MASTER VOLUME"),
+		bKorean ? TEXT("배경 음악") : TEXT("MUSIC"),
 		bKorean ? TEXT("환경음") : TEXT("AMBIENCE"),
-		bKorean ? TEXT("듣는 방식") : TEXT("LISTENING ON"),
+		bKorean ? TEXT("소리 출력") : TEXT("LISTENING ON"),
 		bKorean ? TEXT("화면 밝기") : TEXT("DISPLAY BRIGHTNESS"),
 		bKorean ? TEXT("노크 다시 듣기") : TEXT("PLAY KNOCK AGAIN"),
 		bSystemMenuAudioCalibrationFirstRun
-			? bKorean ? TEXT("저장하고 타이틀로") : TEXT("SAVE AND CONTINUE")
+			? bKorean ? TEXT("저장하고 시작하기") : TEXT("SAVE AND CONTINUE")
 			: bKorean ? TEXT("저장하고 돌아가기") : TEXT("SAVE AND BACK")
 	};
 	const float RowStartY = PanelOrigin.Y + PanelSize.Y - 308.0f * Scale;
@@ -5525,9 +5515,9 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 			bKorean
 				? NSLOCTEXT(
 					"IGHUD", "AudioCalibrationBusNote",
-					"존재가 내는 소리는 줄지 않습니다. 놓친 노크는 설정으로 되돌릴 수 없습니다.")
+					"배경 음악과 환경음만 바뀝니다. 노크와 적의 소리는 전체 소리에서 조절하세요.")
 				: FText::FromString(
-					TEXT("THE PRESENCE NEVER GETS QUIETER. A MISSED KNOCK CANNOT BE UNDONE.")),
+					TEXT("THESE SLIDERS CHANGE MUSIC AND AMBIENCE. MASTER VOLUME ALSO CHANGES KNOCKS AND ENEMIES.")),
 			PanelOrigin.Y + PanelSize.Y - 52.0f * Scale,
 			IGHorrorHUD::PaleGray,
 			EIGHudTextRole::Hint,
@@ -5540,13 +5530,13 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 				? bSystemMenuHeadphoneOutput
 					? NSLOCTEXT(
 						"IGHUD", "AudioCalibrationOutputHeadphones",
-						"위아래에서 나는 소리를 그대로 씁니다. 이 게임이 기대하는 방식입니다.")
+						"헤드폰에 맞는 입체 음향을 사용합니다.")
 					: NSLOCTEXT(
 						"IGHUD", "AudioCalibrationOutputSpeakers",
-						"스피커에서는 위아래 구분이 흐려집니다. 자막을 켜면 방향을 함께 적습니다.")
+						"스피커에 맞게 소리를 재생합니다. 방향을 구분하기 어렵다면 소리 자막을 켜 주세요.")
 				: FText::FromString(
 					bSystemMenuHeadphoneOutput
-						? TEXT("FULL VERTICAL IMAGING. THIS IS WHAT THE GAME EXPECTS.")
+						? TEXT("SPATIAL AUDIO FOR HEADPHONES.")
 						: TEXT("SPEAKERS BLUR UP AND DOWN. SUBTITLES WILL NAME THE DIRECTION.")),
 			PanelOrigin.Y + PanelSize.Y - 52.0f * Scale,
 			IGHorrorHUD::PaleGray,
@@ -5614,8 +5604,8 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 		bKorean ? TEXT("수직 동기화") : TEXT("V-SYNC"),
 		bKorean ? TEXT("프레임 제한") : TEXT("FRAME LIMIT"),
 		bKorean ? TEXT("접근성 설정") : TEXT("ACCESSIBILITY"),
-		bKorean ? TEXT("소리 · 밝기 보정") : TEXT("AUDIO + BRIGHTNESS"),
-		bKorean ? TEXT("조작 · 키 다시 묶기") : TEXT("CONTROLS + REBINDING"),
+		bKorean ? TEXT("소리와 밝기") : TEXT("AUDIO + BRIGHTNESS"),
+		bKorean ? TEXT("조작 설정") : TEXT("CONTROLS + REBINDING"),
 		bDisplaySettingsAwaitingConfirmation
 			? bKorean ? TEXT("이 설정 유지") : TEXT("KEEP THESE SETTINGS")
 			: bKorean ? TEXT("화면 설정 다시 적용") : TEXT("REAPPLY DISPLAY"),
@@ -5641,31 +5631,31 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 	const FString Descriptions[] =
 	{
 		bKorean
-			? TEXT("전체 화면, 테두리 없는 창, 창 모드 중 출력 방식을 선택합니다. 바꾸면 바로 적용되고, 10초 안에 유지할지 정합니다.")
+			? TEXT("전체 화면이나 창 모드로 바꿉니다. 바꾼 뒤 10초 동안 확인하지 않으면 이전 설정으로 돌아갑니다.")
 			: TEXT("CHOOSE FULLSCREEN, BORDERLESS, OR WINDOWED OUTPUT. IT APPLIES AT ONCE; YOU HAVE 10 SECONDS TO KEEP IT."),
 		bKorean
-			? TEXT("화면에 출력할 픽셀 수를 정합니다. 디스플레이의 기본 해상도와 같을 때 가장 선명합니다.")
+			? TEXT("화면 해상도를 바꿉니다. 모니터 해상도와 맞추면 가장 선명하게 보입니다.")
 			: TEXT("SETS THE OUTPUT PIXEL COUNT. MATCHING THE DISPLAY'S NATIVE RESOLUTION GIVES THE SHARPEST IMAGE."),
 		bKorean
-			? TEXT("그림자, 후처리, 반사 품질을 한 번에 조정합니다. 낮음은 GPU 부하와 프레임 흔들림을 줄입니다.")
+			? TEXT("그림자와 반사 등의 품질을 조절합니다. 게임이 버벅인다면 낮춰 보세요.")
 			: TEXT("CHANGES SHADOW, POST-PROCESS, AND REFLECTION QUALITY TOGETHER. LOW REDUCES GPU LOAD."),
 		bKorean
-			? TEXT("모니터 주사에 프레임 출력을 맞춰 화면 찢어짐을 줄입니다. 입력 지연은 환경에 따라 소폭 늘 수 있습니다.")
+			? TEXT("화면이 가로로 갈라져 보이는 현상을 줄입니다. 조작 반응이 조금 느려질 수 있습니다.")
 			: TEXT("SYNCHRONIZES FRAMES TO THE DISPLAY TO REDUCE TEARING, WITH A POSSIBLE SMALL LATENCY COST."),
 		bKorean
-			? TEXT("초당 최대 프레임 수를 정합니다. 안정적인 상한은 발열과 순간적인 프레임 편차를 줄이는 데 도움이 됩니다.")
+			? TEXT("초당 표시할 화면 수의 최대값을 정합니다. 값을 낮추면 발열과 전력 사용을 줄일 수 있습니다.")
 			: TEXT("SETS THE MAXIMUM FRAME RATE. A STABLE CAP CAN REDUCE HEAT AND FRAME-TIME VARIANCE."),
 		bKorean
-			? TEXT("자막, 움직임, 소리 방향, 입력 보조처럼 플레이 방식에 영향을 주는 항목을 엽니다.")
+			? TEXT("난이도, 자막, 화면 흔들림, 조작 도움을 설정합니다.")
 			: TEXT("OPENS CAPTION, MOTION, SOUND-DIRECTION, AND INPUT ASSISTANCE OPTIONS."),
 		bKorean
-			? TEXT("게임의 핵심인 위층 노크가 들리는 크기와 어두운 복도의 기준 밝기를 다시 맞춥니다.")
+			? TEXT("소리 크기와 화면 밝기를 맞춥니다.")
 			: TEXT("RECALIBRATES THE UPSTAIRS KNOCK LEVEL AND THE REFERENCE BRIGHTNESS FOR DARK CORRIDORS."),
 		bKorean
-			? TEXT("달리기·앉기·두드리기 같은 동사를 다른 키로 옮깁니다. Esc와 F10은 나가는 길이라 고정입니다.")
+			? TEXT("동작별 키와 게임패드 버튼을 바꿉니다. Esc와 F10은 바꿀 수 없습니다.")
 			: TEXT("MOVES SPRINT, CROUCH, KNOCK AND THE REST ONTO OTHER KEYS. ESC AND F10 STAY FIXED."),
 		bKorean
-			? TEXT("항목을 바꾸면 그 자리에서 적용되고 저장됩니다. 이 줄은 같은 값을 한 번 더 적용할 때만 쓰입니다.")
+			? TEXT("현재 화면 설정을 다시 적용합니다.")
 			: TEXT("CHANGES APPLY AND SAVE AS YOU MAKE THEM. THIS ROW ONLY REAPPLIES THE SAME VALUES."),
 		bKorean
 			? TEXT("이전 화면으로 돌아갑니다.")
@@ -5688,9 +5678,9 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 			? NSLOCTEXT(
 				"IGHUD",
 				"DisplaySettingsSubtitle",
-				"공포 연출의 가독성과 프레임 안정성을 함께 조정합니다.")
+				"화면과 그래픽 품질을 맞추고 다른 설정을 엽니다.")
 			: FText::FromString(
-				TEXT("BALANCE HORROR LEGIBILITY WITH STABLE FRAME DELIVERY.")),
+				TEXT("ADJUST DISPLAY, GRAPHICS QUALITY, AND OTHER SETTINGS.")),
 		bKorean
 			? NSLOCTEXT(
 				"IGHUD",
@@ -5897,7 +5887,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 		0.82f * Scale);
 	DrawLeftAlignedText(
 		bKorean
-			? NSLOCTEXT("IGHUD", "KeyBindingsTitle", "키 다시 묶기")
+			? NSLOCTEXT("IGHUD", "KeyBindingsTitle", "키 설정")
 			: FText::FromString(TEXT("REBIND CONTROLS")),
 		FVector2D(Metrics.ContentLeft, Metrics.TitleTop + 26.0f * Scale),
 		IGHorrorHUD::SettingsPrimary,
@@ -5956,13 +5946,13 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 			FVector2D(Metrics.ContentLeft - 16.0f * Scale, RowY),
 			IGHorrorHUD::SettingsAccent,
 			EIGHudTextRole::Hint,
-			0.88f * Scale);
+			1.05f * Scale);
 		DrawLeftAlignedText(
 			Label,
 			FVector2D(Metrics.ContentLeft, RowY),
 			bSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
 			EIGHudTextRole::Hint,
-			0.88f * Scale);
+			1.05f * Scale);
 		// 고른 행에만 꺾쇠를 붙여 좌우로 움직이는 행임을 알린다.
 		DrawLeftAlignedText(
 			bSelected
@@ -5973,7 +5963,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 			FVector2D(ValueX, RowY),
 			bSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
 			EIGHudTextRole::Hint,
-			0.88f * Scale);
+			1.05f * Scale);
 	}
 
 	// 열 머리글. 지금 고른 칸을 밝게 둔다 — 색만으로 알리지 않기 위해
@@ -6019,13 +6009,13 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 			FVector2D(Metrics.ContentLeft - 16.0f * Scale, RowY),
 			IGHorrorHUD::SettingsAccent,
 			EIGHudTextRole::Hint,
-			0.88f * Scale);
+			1.05f * Scale);
 		DrawLeftAlignedText(
 			Info.Label,
 			FVector2D(Metrics.ContentLeft, RowY),
 			bSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
 			EIGHudTextRole::Hint,
-			0.88f * Scale);
+			1.05f * Scale);
 
 		for (int32 Column = 0; Column < 2; ++Column)
 		{
@@ -6041,6 +6031,15 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 					? NSLOCTEXT("IGHUD", "KeyBindingsPressNow", "[ 누르세요 ]")
 					: FText::FromString(TEXT("[ PRESS ]"));
 			}
+			else if (!Bound.IsValid() && !bGamepadColumn
+				&& Row == static_cast<int32>(EIGBindableAction::Listen))
+			{
+				Shown = FText::Format(
+					bKorean
+						? NSLOCTEXT("IGHUD", "KeyBindingsListenHold", "{0} 길게")
+						: FText::FromString(TEXT("HOLD {0}")),
+					GetBoundKeyLabel(EIGBindableAction::Interact, false));
+			}
 			else if (!Bound.IsValid())
 			{
 				// 빈 칸은 「없음」이라고 적는다. 비워 두면 고장으로 읽힌다.
@@ -6050,7 +6049,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 			}
 			else
 			{
-				Shown = Bound.GetDisplayName();
+				Shown = GetBoundKeyLabel(static_cast<EIGBindableAction>(Row), bGamepadColumn);
 			}
 			const bool bOverridden = !Bindings->IsDefaultBinding(Row, bGamepadColumn);
 			DrawLeftAlignedText(
@@ -6066,7 +6065,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 						? IGHorrorHUD::SettingsPrimary
 						: IGHorrorHUD::SettingsSecondary,
 				EIGHudTextRole::Hint,
-				0.88f * Scale);
+				1.05f * Scale);
 		}
 	}
 
@@ -6080,7 +6079,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 		FVector2D(Metrics.ContentLeft - 16.0f * Scale, ResetY),
 		IGHorrorHUD::SettingsAccent,
 		EIGHudTextRole::Hint,
-		0.88f * Scale);
+		1.05f * Scale);
 	DrawLeftAlignedText(
 		bKorean
 			? NSLOCTEXT("IGHUD", "KeyBindingsResetRow", "전부 기본값으로")
@@ -6088,7 +6087,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 		FVector2D(Metrics.ContentLeft, ResetY),
 		bResetSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
 		EIGHudTextRole::Hint,
-		0.88f * Scale);
+		1.05f * Scale);
 
 	// 고른 행의 설명. §18.1이 그 동사에 대해 말하는 것을 그대로 보여 준다.
 	const float DetailY = ResetY + 34.0f * Scale;
@@ -6101,7 +6100,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 				? NSLOCTEXT(
 					"IGHUD",
 					"LookDetail",
-					"마우스와 패드는 곡선이 달라 따로 맞춥니다. 상하는 좌우에 곱해집니다.")
+					"마우스와 게임패드 감도는 따로 조절합니다. 상하 감도 배율을 높이면 위아래로 더 빠르게 움직입니다.")
 				: FText::FromString(
 					TEXT("MOUSE AND PAD TUNE SEPARATELY; VERTICAL MULTIPLIES THE HORIZONTAL.")),
 			FVector2D(Metrics.ContentLeft, DetailY),
@@ -6135,7 +6134,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 			? NSLOCTEXT(
 				"IGHUD",
 				"KeyBindingsFixedNote",
-				"Esc와 F10은 고정입니다 — 일시정지와 접근성으로 돌아갈 길은 남겨 둡니다.")
+				"Esc(일시정지)와 F10(접근성 설정)은 바꿀 수 없습니다. 패드 버튼은 Xbox 기준입니다.")
 			: FText::FromString(
 				TEXT("ESC AND F10 STAY FIXED SO YOU CAN ALWAYS GET BACK OUT.")),
 		FVector2D(Metrics.ContentLeft, DetailY + 48.0f * Scale),
@@ -6149,11 +6148,11 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 				? NSLOCTEXT(
 					"IGHUD",
 					"KeyBindingsControlsPad",
-					"D-pad 상하 이동 · 좌우 값과 칸 · A 바꾸기 · B 돌아가기")
+					"십자키 ↑↓ 항목 이동 · ←→ 값 변경/장치 선택 · A 바꾸기 · B 돌아가기")
 				: NSLOCTEXT(
 					"IGHUD",
 					"KeyBindingsControlsKeys",
-					"방향키 상하 이동 · 좌우 값과 칸 · Enter 바꾸기 · Esc 돌아가기")
+					"↑↓ 항목 이동 · ←→ 값 변경/장치 선택 · Enter 바꾸기 · Esc 돌아가기")
 			: FText::FromString(
 				bPadHints
 					? TEXT("D-PAD MOVE  |  A REBIND  |  B BACK")
@@ -6390,7 +6389,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			HeaderOrigin + FVector2D(0.0f, 24.0f * Metrics.Scale);
 		DrawDisplayTitle(
 			bKorean
-				? NSLOCTEXT("IGHUD", "NoticeTitle", "이 게임에 나오는 것")
+				? NSLOCTEXT("IGHUD", "NoticeTitle", "플레이 안내")
 				: FText::FromString(TEXT("WHAT THIS GAME CONTAINS")),
 			NoticeTitleOrigin,
 			0.78f * TitleScale);
@@ -6403,28 +6402,28 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		const FNoticeLine NoticeLines[] =
 		{
 			{bKorean
-				? NSLOCTEXT("IGHUD", "NoticeSensory", "감각")
+				? NSLOCTEXT("IGHUD", "NoticeSensory", "화면과 소리")
 				: FText::FromString(TEXT("SENSORY")), true},
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeSensory1",
-					"암전, 갑작스러운 접근, 화면 흔들림과 조명 점멸이 있습니다.")
+					"갑자기 다가오는 적과 큰 소리, 어두운 장면, 화면 흔들림과 깜빡이는 조명이 나옵니다.")
 				: FText::FromString(
 					TEXT("BLACKOUTS, SUDDEN APPROACH, CAMERA SHAKE AND FLICKER.")), false},
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeSensory2",
-					"3Hz를 넘는 점멸과 전대역 플래시는 쓰지 않았습니다.")
+					"화면이나 소리가 불편하면 잠시 쉬거나 설정을 조절해 주세요.")
 				: FText::FromString(
-					TEXT("NO FLASHING ABOVE 3HZ AND NO FULL-SCREEN FLASH.")), false},
+					TEXT("TAKE A BREAK OR ADJUST SETTINGS IF THE EFFECTS FEEL UNCOMFORTABLE.")), false},
 			{bKorean
 				? NSLOCTEXT("IGHUD", "NoticeThemes", "소재")
 				: FText::FromString(TEXT("THEMES")), true},
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeThemes1",
-					"장기간 은폐된 유해를 연상시키는 장면이 나옵니다. 직접적인"
-					" 신체 훼손 묘사는 없습니다.")
+					"오랫동안 숨겨진 시신을 암시하는 장면이 나옵니다."
+					" 신체가 훼손되는 장면은 직접 보여 주지 않습니다.")
 				: FText::FromString(
 					TEXT("LONG-CONCEALED REMAINS ARE IMPLIED. NO GRAPHIC GORE.")), false},
 			{bKorean
@@ -6441,16 +6440,15 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeControls1",
-					"흔들림 감소와 점멸 감소를 켜면 카메라 떨림과 임의 암전이"
-					" 사라집니다. 판정은 그대로입니다.")
+					"접근성 설정에서 카메라 흔들림과 빛 깜빡임을 줄일 수 있습니다.")
 				: FText::FromString(
-					TEXT("REDUCED SHAKE AND REDUCED FLICKER REMOVE BOTH."
+					TEXT("REDUCED MOTION AND FLICKER SOFTEN THESE EFFECTS."
 						" GAMEPLAY IS UNCHANGED.")), false},
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeControls2",
-					"쫓기는 압박이 부담스러우면 난이도에서 「듣기만 하는 밤」을"
-					" 고르세요. 결말은 전부 같습니다.")
+					"쫓기는 게 부담스럽다면 난이도를 ‘추격 없음’으로 바꿔 주세요."
+					" 어느 난이도에서도 모든 결말을 볼 수 있습니다.")
 				: FText::FromString(
 					TEXT("PICK THE LISTENING-ONLY NIGHT IF PURSUIT IS TOO MUCH."
 						" EVERY ENDING STAYS REACHABLE.")), false},
@@ -6619,7 +6617,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 	{
 		MessageLines = {
 			bKorean
-				? TEXT("이 게임은 헤드폰으로 듣도록 만들어졌다.")
+				? TEXT("헤드폰을 쓰면 소리가 나는 방향을 구분하기 쉽습니다.")
 				: TEXT("THIS GAME IS MADE TO BE HEARD ON HEADPHONES."),
 			bKorean ? TEXT("아무 키를 누르면 건너뜁니다.") : TEXT("PRESS ANY KEY TO SKIP.")
 		};

@@ -99,6 +99,9 @@ public:
 
 	EIGNightDifficulty GetDifficulty() const { return Difficulty; }
 
+	/** 설정에서 바꾼 난이도를 현재 추격에도 바로 적용한다. 저장은 메뉴가 맡는다. */
+	void SetDifficulty(EIGNightDifficulty NewDifficulty);
+
 	/** Harness hook: forces a mode for one run without writing it back. */
 	void SetDifficultyForTesting(EIGNightDifficulty NewDifficulty);
 

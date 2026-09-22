@@ -1,57 +1,47 @@
-# 소스에서 실행하기
+# 없는 층 실행 안내
 
-현재는 소스를 받아 빌드한 뒤 실행할 수 있습니다.
-Windows 10/11 64비트 환경에서 진행해 주세요.
+## Windows에서 플레이하기
 
-## 준비할 것
+1. [Windows 테스트 빌드](https://github.com/easygap/Indie-Game/releases/tag/v1.0.0-test.20260922)에서 `MissingFloor-Windows-20260922.zip`을 받습니다.
+2. ZIP 파일의 **압축을 모두 풉니다.** 실행 파일 옆의 `Engine`, `IndieGame` 폴더도 함께 있어야 합니다.
+3. `IndieGame.exe`를 실행하고 **게임 시작**을 선택합니다.
+4. 소리 크기와 밝기를 맞춘 뒤 시작합니다. 조작법은 `F1`, 난이도와 접근성 설정은 `F10`으로 다시 열 수 있습니다.
 
-- Unreal Engine 5.8
-- Visual Studio의 **C++를 사용한 게임 개발** 워크로드와 Windows SDK
-- PowerShell 7
-- Git과 Git LFS
+Unreal Engine이나 Visual Studio를 설치할 필요는 없습니다.
+저장된 진행이 있으면 타이틀 화면의 **이어하기**로 계속할 수 있습니다.
 
-## 받기
+![없는 층 타이틀 화면](Media/readme/title-menu-first-run-1080.webp)
 
-PowerShell에서 저장할 폴더로 이동한 뒤 실행합니다.
+Windows 11, Ryzen 9 7900X, RTX 3060, 메모리 32GB 환경에서 확인한 테스트 빌드입니다.
+다른 PC의 성능을 확인하기 전이므로 최소 사양을 확정하지 않았습니다.
+저장소가 비공개인 동안에는 초대받은 계정으로 로그인해야 다운로드할 수 있습니다.
+
+## 실행이 안 될 때
+
+- **DLL이 없다고 나올 때:** 압축을 모두 풀었는지 먼저 확인해 주세요. 같은 폴더의 `Engine/Extras/Redist/en-us/vc_redist.x64.exe`로 필요한 실행 구성 요소를 설치할 수 있습니다.
+- **화면이 끊길 때:** 설정에서 그래픽 품질과 해상도를 낮춰 보세요.
+- **소리가 작을 때:** 게임의 전체 소리와 Windows 볼륨 믹서를 확인해 주세요. 배경 음악과 환경음도 따로 조절할 수 있습니다.
+
+문제가 계속되면 [이슈](https://github.com/easygap/Indie-Game/issues)에
+오류 메시지, Windows 버전, 그래픽카드와 문제가 생긴 장면을 남겨 주세요.
+
+## 소스에서 빌드하기
+
+직접 수정하거나 빌드하려면 Unreal Engine 5.8, Visual Studio의 **C++를 사용한 게임 개발** 도구와 Windows SDK, PowerShell 7, Git LFS가 필요합니다.
 
 ```powershell
 git lfs install
 git clone https://github.com/easygap/Indie-Game.git
 cd Indie-Game
 git lfs pull
-```
-
-에셋은 Git LFS로 받습니다. 마지막 명령이 끝날 때까지 기다려 주세요.
-
-## 빌드하고 시작하기
-
-프로젝트 폴더에서 다음 명령으로 게임 코드를 빌드합니다.
-
-```powershell
 pwsh -NoProfile -File .\Scripts\Build-ArtAssets.ps1 -CodeOnly
-```
-
-빌드가 성공하면 실행합니다.
-
-```powershell
 .\Scripts\RunGame.bat
 ```
 
-타이틀 화면에서 **게임 시작**을 선택하면 입주 첫날부터 시작합니다.
-저장된 진행이 있다면 **이어하기**를 선택할 수 있습니다.
-처음 실행할 때는 셰이더 준비에 시간이 걸릴 수 있습니다.
+게임 데이터까지 묶은 Windows 배포 파일은 다음 명령으로 만듭니다.
 
-![없는 층 타이틀 화면. 게임 시작, 설정, 제작 정보, 게임 종료 메뉴](Media/readme/title-menu-first-run-1080.webp)
+```powershell
+pwsh -NoProfile -File .\Scripts\Package-Windows.ps1
+```
 
-소리와 밝기를 맞춘 뒤 플레이해 주세요. 조작법과 접근성 설정은
-[게임 소개](../README.md#조작)에서 확인할 수 있습니다.
-
-## 실행이 안 될 때
-
-- **엔진을 찾을 수 없다고 나올 때:** Unreal Engine 5.8이 설치되어 있는지 확인해 주세요.
-- **빌드가 실패할 때:** Visual Studio의 C++ 게임 개발 도구와 Windows SDK 설치 여부를 확인해 주세요.
-  해결되지 않으면 빌드 창의 오류 메시지를 함께 남겨 주세요.
-- **화면이나 에셋이 빠져 있을 때:** 프로젝트 폴더에서 `git lfs pull`을 다시 실행해 주세요.
-
-문제가 계속되면 [이슈](https://github.com/easygap/Indie-Game/issues)에
-오류 메시지와 Windows 버전을 적어 주세요.
+완료되면 배포 폴더 경로가 출력됩니다. `Windows/IndieGame.exe`가 실행 파일입니다.

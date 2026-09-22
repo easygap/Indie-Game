@@ -11,7 +11,7 @@ $ErrorActionPreference = 'Stop'
 # 바이블의 나머지 절은 `Test-MissingFloor-BibleContract.ps1`이 본다.
 #
 # 키 재설정 검사가 맨 앞에 있는 것은 만들면서 바로 깨졌기 때문이다. 재설정 표에
-# `LoadAutosave`의 패드 기본값을 Y로 적었는데, Y는 기록 열람이 이미 쓰고
+# `LoadAutosave`의 패드 기본값을 Y로 적었는데, Y는 기록 보기이 이미 쓰고
 # 있었다. 한 장치에서 두 동사가 같은 버튼을 쓰는 것을 재설정 화면이 금지하는데
 # **기본값이 그 규칙을 어기고 있었다.**
 #
@@ -1096,7 +1096,7 @@ foreach ($verb in $acceptanceVerbs) {
 	}
 }
 $assertionCount++
-if ($bindingSource -notmatch 'DescListen[^)]*패드 전용 독립 입력') {
+if ($bindingSource -notmatch 'DescListen[^)]*키보드에서는 벽을 보며 조사 키를 길게 누르세요') {
 	throw 'The keyboard route for 엿듣기 must stay written down (§18.7).'
 }
 $assertionCount++

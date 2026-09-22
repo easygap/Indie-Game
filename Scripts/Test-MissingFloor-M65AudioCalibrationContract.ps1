@@ -104,9 +104,9 @@ Assert-ContainsAll $hudHeader @(
 ) 'HUD 인터페이스'
 Assert-ContainsAll $hudSource @(
 	'T_AudioCalibrationWall_D',
-	'소리 · 밝기 보정',
-	'노크가 겨우 들리면서',
-	'가운데 칸은 겨우 보이고',
+	'소리와 밝기',
+	'노크가 또렷하게 들리되',
+	'가운데 칸이 희미하게 보이도록',
 	'노크 다시 듣기',
 	'●',
 	'○'

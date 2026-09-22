@@ -14,7 +14,9 @@
 #include "GameFramework/PlayerController.h"
 #include "HAL/FileManager.h"
 #include "HAL/PlatformMisc.h"
+#include "Misc/App.h"
 #include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGStressComponent.h"
 #include "Sound/SoundClass.h"
@@ -31,6 +33,15 @@ void AIGAudioPresentationProbe::Check(const bool bCondition, const TCHAR* Name)
 	Failures += bCondition ? 0 : 1;
 	UE_LOG(LogTemp, Display, TEXT("AUDIO_PRESENTATION_CHECK %s %s"), Name,
 		bCondition ? TEXT("PASS") : TEXT("FAIL"));
+	// Shipping에서도 로그 설정과 관계없이 검사 결과를 남긴다.
+	const FString Line = FString::Printf(TEXT("AUDIO_PRESENTATION_CHECK %s %s\n"),
+		Name, bCondition ? TEXT("PASS") : TEXT("FAIL"));
+	if (!FFileHelper::SaveStringToFile(Line,
+		*(FPaths::ProjectSavedDir() / TEXT("AudioPresentation/receipt.txt")),
+		FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(), FILEWRITE_Append))
+	{
+		++Failures;
+	}
 }
 
 void AIGAudioPresentationProbe::CheckVisibility()
@@ -117,6 +128,13 @@ void AIGAudioPresentationProbe::Tick(const float DeltaSeconds)
 	Seconds += DeltaSeconds;
 	if (Phase == 0)
 	{
+		// 창을 띄우지 않는 검사에서도 실제 믹서를 녹음한다.
+		// Shipping에서는 실행 인자로 넘긴 ini 덮어쓰기가 적용되지 않을 수 있다.
+		FApp::SetUnfocusedVolumeMultiplier(1.0f);
+		FApp::SetVolumeMultiplier(1.0f);
+		const FString Directory = FPaths::ProjectSavedDir() / TEXT("AudioPresentation");
+		IFileManager::Get().MakeDirectory(*Directory, true);
+		FFileHelper::SaveStringToFile(TEXT(""), *(Directory / TEXT("receipt.txt")));
 		APlayerController* Controller = GetWorld()->GetFirstPlayerController();
 		Player = Controller ? Cast<AIGPlayerCharacter>(Controller->GetPawn()) : nullptr;
 		if (!Player.IsValid())
@@ -299,6 +317,11 @@ void AIGAudioPresentationProbe::Tick(const float DeltaSeconds)
 			TEXT("nearly_silent_pressure_loop_stops"));
 		UE_LOG(LogTemp, Display, TEXT("AUDIO_PRESENTATION_PROBE %s failures=%d"),
 			Failures ? TEXT("FAIL") : TEXT("PASS"), Failures);
+		const FString Summary = FString::Printf(TEXT("AUDIO_PRESENTATION_PROBE %s failures=%d\n"),
+			Failures ? TEXT("FAIL") : TEXT("PASS"), Failures);
+		if (!FFileHelper::SaveStringToFile(Summary,
+			*(FPaths::ProjectSavedDir() / TEXT("AudioPresentation/receipt.txt")),
+			FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM, &IFileManager::Get(), FILEWRITE_Append)) ++Failures;
 		Phase = 13;
 		FPlatformMisc::RequestExitWithStatus(false, Failures ? 1 : 0);
 	}

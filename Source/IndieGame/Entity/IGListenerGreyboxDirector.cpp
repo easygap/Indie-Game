@@ -27,6 +27,7 @@
 #include "Interaction/IGSwingDoor.h"
 #include "Interaction/IGElevator.h"
 #include "Misc/Paths.h"
+#include "Misc/FileHelper.h"
 #include "Player/IGHorrorHUD.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/IGPlayerController.h"
@@ -136,6 +137,18 @@ void AIGListenerGreyboxDirector::BeginPlay()
 		FParse::Param(FCommandLine::Get(), TEXT("IGNightHistogramReport"));
 	bCctvFeedProbeRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGCctvFeedProbe"));
+	// 저장 검사는 새 프로세스에서 실제 불러오기와 맵 이동을 거친다.
+	// 입주 장면을 먼저 만들면 초기 자동 저장이 검사할 파일을 덮을 수 있다.
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGArrivalSaveRead"))
+		&& !GetWorld()->URL.HasOption(TEXT("IGResumeSave")))
+	{
+		UIGSaveSubsystem* Save = GetGameInstance()->GetSubsystem<UIGSaveSubsystem>();
+		if (!Save || !Save->RequestLoadLatestAutosave())
+		{
+			FailProbe(TEXT("다시 실행한 게임에서 자동 저장을 불러오지 못함"));
+		}
+		return;
+	}
 
 	// The procedural villa and the player pawn appear over the first frames;
 	// poll briefly instead of assuming a build order.
@@ -154,6 +167,29 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 	{
 		GetWorldTimerManager().ClearTimer(SetupTimer);
 		bStageReady = true;
+		if (FParse::Param(FCommandLine::Get(), TEXT("IGArrivalSaveRead")))
+		{
+			const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+			bool bRestored = bProductionMode && Narrative && WorldScene.IsValid()
+				&& Narrative->GetNightIndex() == 0 && !Narrative->IsHourSealed()
+				&& !WorldScene->IsTheHourSealed() && Entity && Entity->IsDormant()
+				&& SleepTarget && SleepTarget->IsInteractionEnabled()
+				&& ArrivalContract && ArrivalContract->IsInteractionEnabled()
+				&& AreArrivalBoxesOpened();
+			for (const TCHAR* Beat : {TEXT("Arrival.Started"), TEXT("Arrival.Contract"),
+				TEXT("Arrival.Store"), TEXT("Arrival.Unit401"), TEXT("Arrival.Unit402"),
+				TEXT("Arrival.RoofDoor"), TEXT("Arrival.Complete"), TEXT("Neighborhood.Delivery")})
+			{
+				bRestored = bRestored && Narrative->HasBeatPlayed(FName(Beat));
+			}
+			if (!bRestored)
+			{
+				FailProbe(TEXT("다시 실행한 게임에서 입주 조사와 취침 상태가 복구되지 않음"));
+				return;
+			}
+			RequestExit(false);
+			return;
+		}
 		// The capture tour, the V5 sweep and the probe are mutually exclusive
 		// drivers of the same stage. The two that need real pixels win.
 		if (bNightCaptureRequested)
@@ -1227,7 +1263,7 @@ void AIGListenerGreyboxDirector::HandleRoofDoorListenExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"WitnessRoofWindCaption",
-			"[바깥] 바람이 느리게 부풀었다 죽는다"),
+			"[바깥] 바람 소리가 커졌다 잦아든다"),
 		3.0f);
 	AIGHorrorHUD::PushThought(
 		this,
@@ -2853,6 +2889,16 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		}
 		const EIGNightDifficulty RestoreDifficulty =
 			EntityActor->GetDifficulty();
+		const int32 BeforeTier = EntityActor->GetAggressionTier();
+		const float BeforeWindow = EntityActor->GetTuning().ListenWindowSeconds;
+		EntityActor->SetDifficulty(EIGNightDifficulty::Hasty);
+		EntityActor->SetDifficulty(RestoreDifficulty);
+		if (EntityActor->GetAggressionTier() != BeforeTier
+			|| !FMath::IsNearlyEqual(EntityActor->GetTuning().ListenWindowSeconds, BeforeWindow))
+		{
+			FailProbe(TEXT("난이도를 바꿨다가 되돌리면 적의 반응 단계가 달라짐"));
+			return;
+		}
 		EntityActor->SetDifficultyForTesting(EIGNightDifficulty::ListenOnly);
 		const bool bEntityListenOnly =
 			!EntityActor->GetTuning().bCaptureEnabled
@@ -5580,6 +5626,19 @@ void AIGListenerGreyboxDirector::PassProbe()
 
 void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 {
+	FString ResultPath;
+	if (FParse::Value(FCommandLine::Get(), TEXT("IGMissingFloorResultPath="), ResultPath))
+	{
+		ResultPath.TrimQuotesInline();
+		IFileManager::Get().MakeDirectory(*FPaths::GetPath(ResultPath), true);
+		const FString Result = FString::Printf(TEXT("MISSINGFLOOR_GREYBOX %s step=%d\n"),
+			bFailed ? TEXT("FAIL") : TEXT("PASS"), static_cast<int32>(ProbeStep));
+		if (!FFileHelper::SaveStringToFile(Result, *ResultPath))
+		{
+			FPlatformMisc::RequestExitWithStatus(false, 2);
+			return;
+		}
+	}
 	// Same contract as the REBIRTH harnesses: explicit status, normal main
 	// loop shutdown so the log flushes.
 	FPlatformMisc::RequestExitWithStatus(false, bFailed ? 1 : 0);
@@ -5767,6 +5826,26 @@ void AIGListenerGreyboxDirector::RunArrivalProbe()
 		LogTemp,
 		Display,
 		TEXT("MISSINGFLOOR_ARRIVAL PASS props=7 night=0 hour_sealed=0 cardboard_pbr=1 free_order=1 delivery_branch=1"));
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGArrivalSaveWrite")))
+	{
+		// 마지막 단서까지 비동기 저장이 끝난 뒤 프로세스를 종료한다.
+		const double StartedAt = FPlatformTime::Seconds();
+		GetWorldTimerManager().SetTimer(SetupTimer, FTimerDelegate::CreateWeakLambda(this, [this, StartedAt]()
+		{
+			UIGSaveSubsystem* Save = GetGameInstance()->GetSubsystem<UIGSaveSubsystem>();
+			if (!Save || FPlatformTime::Seconds() - StartedAt > 30.0)
+			{
+				GetWorldTimerManager().ClearTimer(SetupTimer);
+				FailProbe(TEXT("입주 조사 결과의 자동 저장이 끝나지 않음"));
+			}
+			else if (!Save->IsBusy())
+			{
+				GetWorldTimerManager().ClearTimer(SetupTimer);
+				RequestExit(!Save->HasCompatibleAutosave());
+			}
+		}), 0.1f, true);
+		return;
+	}
 	RequestExit(false);
 }
 

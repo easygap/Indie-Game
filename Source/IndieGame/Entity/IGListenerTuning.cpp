@@ -42,13 +42,12 @@ namespace IGListenerTuning
 			return FMath::Clamp(NightIndex, FirstNight, LastNight) - FirstNight;
 		}
 
-		EIGNightDifficulty ClampDifficulty(const int32 Raw)
-		{
-			return static_cast<EIGNightDifficulty>(FMath::Clamp(
-				Raw,
-				0,
-				static_cast<int32>(EIGNightDifficulty::Count) - 1));
-		}
+	}
+
+	EIGNightDifficulty ClampDifficulty(const int32 Raw)
+	{
+		return static_cast<EIGNightDifficulty>(FMath::Clamp(
+			Raw, 0, static_cast<int32>(EIGNightDifficulty::Count) - 1));
 	}
 
 	FIGListenerTuning Resolve(
@@ -84,9 +83,8 @@ namespace IGListenerTuning
 			break;
 
 		case EIGNightDifficulty::Hasty:
-			// 티어 초기값은 존재 쪽에서 1로 시작하고, 여기서는 남은 두 축을
-			// 올린다. LISTENING −1초는 밤 기준값에서 빼므로 티어 축과 겹치지
-			// 않는다.
+			// 어려움의 최소 단계는 적이 별도로 계산한다. 여기서는 노크를
+			// 기다리는 시간과 자주 다닌 곳을 다시 찾을 확률을 바꾼다.
 			Tuning.ListenWindowSeconds = FMath::Max(
 				2.0f,
 				(NightListenWindow[Night] - 1.0f) * TierListenScale[Tier]);
@@ -115,17 +113,17 @@ namespace IGListenerTuning
 		switch (Difficulty)
 		{
 		case EIGNightDifficulty::Quiet:
-			return NSLOCTEXT("IGMissingFloor", "DifficultyQuiet", "조용한 밤");
+			return NSLOCTEXT("IGMissingFloor", "DifficultyQuiet", "쉬움");
 		case EIGNightDifficulty::Hasty:
-			return NSLOCTEXT("IGMissingFloor", "DifficultyHasty", "성급한 밤");
+			return NSLOCTEXT("IGMissingFloor", "DifficultyHasty", "어려움");
 		case EIGNightDifficulty::ListenOnly:
 			return NSLOCTEXT(
 				"IGMissingFloor",
 				"DifficultyListenOnly",
-				"듣기만 하는 밤");
+				"추격 없음");
 		case EIGNightDifficulty::Standard:
 		default:
-			return NSLOCTEXT("IGMissingFloor", "DifficultyStandard", "기본");
+			return NSLOCTEXT("IGMissingFloor", "DifficultyStandard", "보통");
 		}
 	}
 

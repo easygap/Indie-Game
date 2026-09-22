@@ -1886,7 +1886,7 @@ foreach ($token in @(
 }
 foreach ($token in @(
 	'MissingFloor->IsHourSealed()',
-	'401호에 물어볼 수 있다.'
+	'401호 할머니께 물어보자.'
 )) {
 	if (-not $playerControllerSource.Contains($token)) {
 		throw "Missing-floor hint policy runtime is missing: $token"

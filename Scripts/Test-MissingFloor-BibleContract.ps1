@@ -95,7 +95,7 @@ foreach ($banned in @('JournalFilter', 'JournalSearch', 'DrawJournalHighlight'))
 
 # 19.4 — 낮의 힌트는 정답이 아니라 한 줄이다.
 $assertionCount++
-if (-not $controllerSource.Contains('401호에 물어볼 수 있다')) {
+if (-not $controllerSource.Contains('401호 할머니께 물어보자')) {
 	throw 'The §19.4 daytime hint line is missing.'
 }
 
@@ -303,12 +303,12 @@ if ($story -notmatch '\*\*막힌 플레이어에게 주는 것은\s*\r?\n?\s*답
 
 # --- §20.4 난이도 네 모드 -----------------------------------------------------
 #
-# 이름부터 세계의 언어다. 「쉬움/보통/어려움」으로 부르지 않는다.
+# 난이도 이름과 바꾸는 위치를 처음 보는 사람도 알 수 있어야 한다.
 $assertionCount++
-if ($story -notmatch '"쉬움/보통/어려움"이라 부르지 않는다') {
-	throw 'The §20.4 naming rule was removed.'
+if ($story -notmatch '쉬움·보통·어려움·추격 없음으로 표시한다') {
+	throw '난이도 네 가지의 표시 이름이 설계서와 다릅니다.'
 }
-foreach ($mode in @('조용한 밤', '성급한 밤', '듣기만 하는 밤')) {
+foreach ($mode in @('쉬움', '보통', '어려움', '추격 없음')) {
 	$assertionCount++
 	if (-not $tuningSource.Contains($mode) -and -not $mercyHeader.Contains($mode)) {
 		$tuningHeader = Read-ProjectText 'Source/IndieGame/Entity/IGListenerTuning.h'
@@ -318,7 +318,7 @@ foreach ($mode in @('조용한 밤', '성급한 밤', '듣기만 하는 밤')) {
 	}
 }
 
-# 조용한 밤의 세 배율. 문서가 표에 적어 둔 값 그대로다.
+# 쉬움의 세 배율. 문서가 표에 적어 둔 값 그대로다.
 $quietRow = [regex]::Match(
 	$story,
 	'청취 반경 ×(?<hearing>[0-9.]+), CHASE 속도 ×(?<chase>[0-9.]+), WAITING 시간 ×(?<wait>[0-9.]+)')
@@ -343,7 +343,7 @@ foreach ($pair in @(
 	}
 }
 
-# 성급한 밤의 세 축.
+# 어려움의 세 축.
 $hastyRow = [regex]::Match(
 	$story,
 	'티어 초기값 (?<tier>[0-9]+), 히트맵 가중 \+(?<heatmap>[0-9.]+), LISTENING −(?<listen>[0-9]+)s')
@@ -369,7 +369,7 @@ if (-not $hastyBody.Groups['body'].Value.Contains(
 	throw 'The hasty night must shorten LISTENING by the §20.4 amount.'
 }
 
-# 듣기만 하는 밤: 포획도 추격도 없다. 매복도 함께 꺼진다 — 잡을 수 없는
+# 추격 없음: 포획도 추격도 없다. 매복도 함께 꺼진다 — 잡을 수 없는
 # 매복은 압박이 아니라 연출이다.
 $listenBody = [regex]::Match(
 	$tuningSource,
@@ -398,7 +398,7 @@ if ($story -notmatch '엔딩 C의 도달 조건을 \*\*밤4의 05:30\s*\r?\n?\s*
 	throw 'The §20.4 substitute ending-C condition was removed.'
 }
 $assertionCount++
-if ($story -notmatch '「듣기만 하는 밤」으로 진실 10개 전부 확정 가능, 엔딩 A·B·C 전부 도달 가능') {
+if ($story -notmatch '「추격 없음」으로 진실 10개 전부 확정 가능, 엔딩 A·B·C 전부 도달 가능') {
 	throw 'The §20.5 all-modes-reachable criterion was removed.'
 }
 
@@ -539,7 +539,7 @@ if ($resolveDifficulty.Value -match 'SavePersistedDifficulty') {
 	throw 'A validation run would write back the difficulty it overrode (§20.5).'
 }
 $assertionCount++
-if ($acceptanceDoc -notmatch '난이도와 세이브는 서로를\s*모른다') {
+if ($acceptanceDoc -notmatch '난이도는 사용자 설정에, 게임 진행은 저장 파일에 따로 기록한다') {
 	throw 'The acceptance sheet lost the reason this line is a contract (§20.5).'
 }
 $bibleLineCount = 0
@@ -573,7 +573,7 @@ foreach ($section in @('18.7', '19.9', '20.5', '21.5')) {
 		throw "The acceptance sheet is missing §$section."
 	}
 	$rows = [regex]::Matches(
-		$table.Groups['body'].Value, '(?m)^\| (?!줄 \|)(?!---)[^|]+\|')
+		$table.Groups['body'].Value, '(?m)^\| (?!확인 항목 \|)(?!---)[^|]+\|')
 	$docLineCount += $rows.Count
 }
 $assertionCount++
@@ -591,24 +591,23 @@ $assertionCount++
 if ($humanRows -lt 1) {
 	throw 'The acceptance sheet must keep naming the lines a person has to check.'
 }
-$statedHuman = [regex]::Match($acceptanceDoc, '나머지 \*\*(?<count>[^*]+)\*\*은 사람이 필요하다')
+$statedHuman = [regex]::Match($acceptanceDoc, '\*\*(?<count>\d+)개 항목\*\*은 사람이 플레이하거나 장비로 측정해야 한다')
 $assertionCount++
 if (-not $statedHuman.Success) {
 	throw 'The acceptance sheet no longer says how many lines need a person.'
 }
-$humanWords = @{ '열둘' = 12; '열셋' = 13; '열넷' = 14; '열다섯' = 15 }
 $assertionCount++
-if (-not $humanWords.ContainsKey($statedHuman.Groups['count'].Value)) {
+if ([int]$statedHuman.Groups['count'].Value -lt 1) {
 	throw 'The acceptance sheet states a count this check cannot read.'
 }
 $assertionCount++
-if ($humanRows -ne $humanWords[$statedHuman.Groups['count'].Value]) {
+if ($humanRows -ne [int]$statedHuman.Groups['count'].Value) {
 	throw (
 		'The sheet says {0} lines need a person but {1} rows are marked.' -f
 			$statedHuman.Groups['count'].Value, $humanRows)
 }
 $assertionCount++
-if ($acceptanceDoc -notmatch '자동으로 볼 수 없다는 것과\s*\r?\n?안 봐도 된다는 것은 다르다') {
+if ($acceptanceDoc -notmatch '직접 확인하지 않은 항목은 통과로 표시하지 않는다') {
 	throw 'The acceptance sheet lost the rule that keeps its own rows honest.'
 }
 
@@ -811,7 +810,7 @@ foreach ($expected in @(
 	'업적 토스트',
 	'사망 카운터·재시도 버튼',
 	'자동 저장 아이콘 상시 표시',
-	'밤 중 기록 열람',
+	'밤 중 기록 보기',
 	'밤 중 `F9` 즉시 로드',
 	'존재를 설명하는 컷신',
 	'상표·실존 인물·실존 사건')) {
@@ -859,7 +858,7 @@ foreach ($hudText in $hudTexts) {
 # 실패 피드백도 있다 — 서사가 정당하게 쓸 말을 금지하면 다음 사람이 검사를
 # 피하려고 문장을 비튼다.
 #
-# 「다시 시작」도 안 막는다. 엔딩 C가 「밤 4를 다시 시작할 수 있다」라고
+# 「다시 시작」도 안 막는다. 엔딩 C가 「넷째 날 밤 다시 시작」라고
 # 말하는 것과 「재시도」 버튼을 다는 것의 차이가 §19.5의 전부다.
 $forbiddenWords = @(
 	@{ Word = '검색'; Section = '19.2'; Why = '저널이 체크리스트가 된다' },
@@ -1693,7 +1692,7 @@ foreach ($file in @(
 	'Source/IndieGame/Narrative/IGMissingFloorNarrativeSubsystem.cpp')) {
 	$text = Read-ProjectText $file
 	$clamps = [regex]::Matches(
-		$text, 'Clamp\(\s*(?:Snapshot\.Night\.)?AggressionTier[^,]*,\s*0,\s*(?<max>\d+)\)')
+		$text, 'Clamp\(\s*(?:(?:Snapshot\.Night\.)?AggressionTier|EffectiveTier)[^,]*,\s*0,\s*(?<max>\d+)\)')
 	$assertionCount++
 	if ($clamps.Count -eq 0) {
 		throw "§4.3 rule 7: no aggression clamp left in $file."

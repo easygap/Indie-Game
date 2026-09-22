@@ -253,7 +253,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionStart",
-				"[가까이] 얕은 숨  ·  [오른쪽] 물이 천천히 밀린다"),
+				"[가까이] 얕은 숨  ·  [오른쪽] 물이 흐르는 소리"),
 			4.0f);
 		break;
 	case 1:
@@ -271,7 +271,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionWaterShift",
-				"[머리 위] 배관이 한 번 크게 밀린다"),
+				"[머리 위] 배관이 크게 덜컹거린다"),
 			2.6f);
 		break;
 	case 2:

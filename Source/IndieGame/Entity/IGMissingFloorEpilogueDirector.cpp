@@ -509,7 +509,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"EpilogueWorkshopFootnote",
-					"공방 벽에 업라이트 한 대가 그대로 서 있다"));
+					"공방 벽에 업라이트 피아노 한 대가 그대로 서 있다"));
 			return;
 
 		case 6:
@@ -575,7 +575,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"EpilogueAutumnFootnote",
-					"네시 반 알람은 지웠다."));
+					"네 시 반 알람은 지웠다."));
 			return;
 
 		case 8:

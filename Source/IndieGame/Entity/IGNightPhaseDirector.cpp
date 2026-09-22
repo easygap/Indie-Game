@@ -142,8 +142,8 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 		AIGHorrorHUD::ShowChapterCard(
 			this,
 			bRepeatedNight
-				? NSLOCTEXT("IGMissingFloor", "NightCardEyebrowAgain", "다시, 새벽 네시 반")
-				: NSLOCTEXT("IGMissingFloor", "NightCardEyebrow", "새벽 네시 반"),
+				? NSLOCTEXT("IGMissingFloor", "NightCardEyebrowAgain", "다시, 새벽 네 시 반")
+				: NSLOCTEXT("IGMissingFloor", "NightCardEyebrow", "새벽 네 시 반"),
 			NightTitle,
 			FText::GetEmpty(),
 			4.2f);

@@ -192,8 +192,8 @@ Assert-ContainsAll $playerSource @(
 	'음성은 저장되지 않음'
 ) 'M6 ephemeral microphone envelope'
 Assert-ContainsAll $hudSource @(
-	'마이크 소음 입력 (선택)',
-	'이 게임은 헤드폰으로 듣도록 만들어졌다.',
+	'마이크 소리 사용',
+	'헤드폰을 쓰면 소리가 나는 방향을 구분하기 쉽습니다.',
 	'THE MISSING FLOOR',
 	'없는 층'
 ) 'M6 user-facing audio UI'

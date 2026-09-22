@@ -6,8 +6,8 @@
 /**
  * 난이도 4종 (STORY_BIBLE_MISSING_FLOOR.md §20.4).
  *
- * "쉬움/보통/어려움"이라 부르지 않는다 — 이름도 세계의 언어여야 한다. 어느
- * 모드도 서사·진실·엔딩·저장 호환성을 잠그지 않으며, 언제든 바꿀 수 있다.
+ * 화면에는 쉬움·보통·어려움·추격 없음으로 표시한다.
+ * 난이도는 언제든 바꿀 수 있고, 이야기와 결말은 모두 볼 수 있다.
  */
 UENUM(BlueprintType)
 enum class EIGNightDifficulty : uint8
@@ -96,6 +96,9 @@ namespace IGListenerTuning
 
 	/** 세계의 언어로 된 모드 이름. UI와 로그가 같은 문자열을 쓴다. */
 	INDIEGAME_API FText GetDifficultyLabel(EIGNightDifficulty Difficulty);
+
+	/** 저장값이나 메뉴 값이 범위를 벗어나지 않게 한다. */
+	INDIEGAME_API EIGNightDifficulty ClampDifficulty(int32 Raw);
 
 	/**
 	 * 난이도는 사용자 설정이므로 GameUserSettings.ini에 남는다. 진행 중

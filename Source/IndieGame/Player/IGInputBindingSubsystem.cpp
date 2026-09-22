@@ -19,86 +19,86 @@ namespace IGInputBinding
 			{
 				TEXT("Sprint"),
 				NSLOCTEXT("IGInput", "ActionSprint", "달리기"),
-				NSLOCTEXT("IGInput", "DescSprint", "빠르게 달린다. 발소리와 숨소리가 커진다"),
+				NSLOCTEXT("IGInput", "DescSprint", "빠르게 달립니다. 발소리와 숨소리가 커집니다."),
 				EKeys::LeftShift,
 				EKeys::Gamepad_LeftThumbstick,
 			},
 			{
 				TEXT("Crouch"),
 				NSLOCTEXT("IGInput", "ActionCrouch", "앉기"),
-				NSLOCTEXT("IGInput", "DescCrouch", "몸을 낮춰 조용히 움직인다"),
+				NSLOCTEXT("IGInput", "DescCrouch", "몸을 낮춰 조용히 움직입니다."),
 				EKeys::C,
 				EKeys::Gamepad_RightThumbstick,
 			},
 			{
 				TEXT("Interact"),
 				NSLOCTEXT("IGInput", "ActionInteract", "조사 · 상호작용"),
-				NSLOCTEXT("IGInput", "DescInteract", "짧게 눌러 빠르게, 길게 눌러 조용하게"),
+				NSLOCTEXT("IGInput", "DescInteract", "물건을 조사하거나 문을 엽니다. 문은 길게 누르면 조용히 열 수 있습니다."),
 				EKeys::E,
 				EKeys::Gamepad_FaceButton_Bottom,
 			},
 			{
 				TEXT("Knock"),
 				NSLOCTEXT("IGInput", "ActionKnock", "두드리기"),
-				NSLOCTEXT("IGInput", "DescKnock", "문이나 벽을 두드린다. 돌아오는 소리를 들어 보자"),
+				NSLOCTEXT("IGInput", "DescKnock", "문이나 벽을 두드립니다. 돌아오는 소리를 들어 보세요."),
 				EKeys::Q,
 				EKeys::Gamepad_FaceButton_Right,
 			},
 			{
 				TEXT("Listen"),
 				NSLOCTEXT("IGInput", "ActionListen", "엿듣기"),
-				NSLOCTEXT("IGInput", "DescListen", "패드 전용 독립 입력. 키보드는 벽 조준 중 조사 홀드로 전환된다"),
+				NSLOCTEXT("IGInput", "DescListen", "벽에 귀를 대고 듣습니다. 키보드에서는 벽을 보며 조사 키를 길게 누르세요."),
 				EKeys::Invalid,
 				EKeys::Gamepad_RightTrigger,
 			},
 			{
 				TEXT("HoldBreath"),
 				NSLOCTEXT("IGInput", "ActionHoldBreath", "숨 참기"),
-				NSLOCTEXT("IGInput", "DescHoldBreath", "잠깐 숨을 참는다. 너무 오래 참으면 숨소리가 거칠어진다"),
+				NSLOCTEXT("IGInput", "DescHoldBreath", "잠깐 숨을 참습니다. 너무 오래 참으면 숨소리가 거칠어집니다."),
 				EKeys::LeftControl,
 				EKeys::Gamepad_LeftTrigger,
 			},
 			{
 				TEXT("Flashlight"),
 				NSLOCTEXT("IGInput", "ActionFlashlight", "손전등"),
-				NSLOCTEXT("IGInput", "DescFlashlight", "스위치음도 소음이다"),
+				NSLOCTEXT("IGInput", "DescFlashlight", "손전등을 켜거나 끕니다. 스위치 소리도 적에게 들릴 수 있습니다."),
 				EKeys::F,
 				EKeys::Gamepad_FaceButton_Left,
 			},
 			{
 				TEXT("Jump"),
-				NSLOCTEXT("IGInput", "ActionJump", "낮게 뛰기"),
-				NSLOCTEXT("IGInput", "DescJump", "세게 착지하면 그것도 소리다"),
+				NSLOCTEXT("IGInput", "ActionJump", "점프"),
+				NSLOCTEXT("IGInput", "DescJump", "낮은 장애물을 뛰어넘습니다. 착지하면 소리가 납니다."),
 				EKeys::SpaceBar,
 				EKeys::Gamepad_LeftShoulder,
 			},
 			{
 				TEXT("Journal"),
-				NSLOCTEXT("IGInput", "ActionJournal", "기록 열람"),
-				NSLOCTEXT("IGInput", "DescJournal", "낮 전용. 밤에는 열리지 않는다"),
+				NSLOCTEXT("IGInput", "ActionJournal", "기록 보기"),
+				NSLOCTEXT("IGInput", "DescJournal", "낮에 그동안 찾은 단서를 다시 볼 수 있습니다."),
 				EKeys::Tab,
 				EKeys::Gamepad_FaceButton_Top,
 			},
 			{
 				TEXT("RequestHint"),
-				NSLOCTEXT("IGInput", "ActionHint", "단계별 힌트"),
-				NSLOCTEXT("IGInput", "DescHint", "답이 아니라 어디를 볼지만 알려 준다"),
+				NSLOCTEXT("IGInput", "ActionHint", "힌트"),
+				NSLOCTEXT("IGInput", "DescHint", "막혔을 때 어디서 도움을 받을지 확인합니다."),
 				EKeys::H,
 				EKeys::Gamepad_RightShoulder,
 			},
 			{
 				TEXT("LoadAutosave"),
-				NSLOCTEXT("IGInput", "ActionLoadAutosave", "자동 저장 복원"),
-				NSLOCTEXT("IGInput", "DescLoadAutosave", "봉인된 새벽에는 거절된다"),
+				NSLOCTEXT("IGInput", "ActionLoadAutosave", "자동 저장 불러오기"),
+				NSLOCTEXT("IGInput", "DescLoadAutosave", "최근 자동 저장부터 다시 시작합니다. 밤이 진행되는 동안에는 불러올 수 없습니다."),
 				EKeys::F9,
-				// 패드 기본값이 없다. Y는 기록 열람이 쓰고 있고, 한 장치에서
+				// 패드 기본값이 없다. Y는 기록 보기에 쓰고 있고, 한 장치에서
 				// 두 동사가 같은 버튼을 쓰는 것을 이 화면이 금지한다.
 				EKeys::Invalid,
 			},
 			{
 				TEXT("GameplayGuide"),
 				NSLOCTEXT("IGInput", "ActionGuide", "목표 · 조작 안내"),
-				NSLOCTEXT("IGInput", "DescGuide", "10초 동안 다시 본다. 한 번 더 누르면 닫힌다"),
+				NSLOCTEXT("IGInput", "DescGuide", "목표와 조작법을 10초 동안 표시합니다. 한 번 더 누르면 닫힙니다."),
 				EKeys::F1,
 				EKeys::Gamepad_DPad_Up,
 			},
@@ -191,7 +191,7 @@ bool UIGInputBindingSubsystem::TryRebind(
 		OutFailureReason = NSLOCTEXT(
 			"IGInput",
 			"RebindReserved",
-			"이 키는 고정입니다. 일시정지와 접근성 패널로 돌아갈 길은 남겨 둡니다.");
+			"일시정지와 접근성 설정에 쓰는 키는 바꿀 수 없습니다.");
 		return false;
 	}
 	// 칸과 장치가 어긋나면 그 칸에서 영영 눌리지 않는 키가 된다.

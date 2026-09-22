@@ -328,7 +328,7 @@ Assert-ContainsAll $hudSource @(
 	'AudioCaptionQueue.Insert',
 	'TextItem.Scale',
 	'DrawAudioCaption(',
-	'핵심 소리 캡션',
+	'소리 자막',
 	'SOUND CAPTIONS'
 ) '핵심 소리 자막 설정·출력 연결'
 Assert-True (-not $hudSource.Contains(
@@ -413,27 +413,26 @@ Assert-ContainsAll $controllerSource @(
 Assert-ContainsAll $hudSource @(
 	'DrawAccessibilityPanel()',
 	'접근성 설정',
-	'필요한 정보는 더 또렷하게, 공포의 밀도는 그대로 유지합니다.',
+	'글자, 소리 안내, 조작을 편하게 맞춰 주세요.',
 	'변경 즉시 저장',
 	'게임 진행',
 	'움직임',
 	'정보 안내',
 	'자막',
 	'입력',
-	'이 설정이 바꾸는 것',
-	'힌트 난이도',
+	'설명',
+	'난이도',
 	'카메라 흔들림 감소',
-	'손전등 점멸 감소',
-	'공포음 방향 표시',
-	'P5 단서 자동 연결',
-	'대사 음성 자막',
-	'핵심 소리 캡션',
-	'대사·캡션 크기',
-	'메시지 배경 농도',
-	'자막 안전 영역',
-	'마이크 소음 입력 (선택)',
+	'빛 깜빡임 줄이기',
+	'소리가 나는 방향 표시',
+	'대사 자막',
+	'소리 자막',
+	'자막 글자 크기',
+	'자막 배경 진하기',
+	'자막 표시 영역',
+	'마이크 소리 사용',
 	'길게 누르기 방식',
-	'홀드 길이',
+	'길게 누르는 시간',
 	'기본값으로 초기화',
 	'Esc/F10 닫기'
 ) '1280x720 대응 네이티브 설정 패널'
@@ -447,7 +446,7 @@ Assert-ContainsAll $hudSource @(
 	'DrawSettingsFooterText('
 ) '긴 한글·200% 미리 보기 내부 경계 계약'
 Assert-ContainsAll $settingsLayout @(
-	'AccessibilityRowCount = 24',
+	'AccessibilityRowCount = 23',
 	'AccessibilityCategoryCount = 6',
 	'case 3: return {Subtitles, 6}',
 	'case 4: return {ToggleCrouch, 5}',
@@ -481,7 +480,7 @@ foreach ($entry in [regex]::Matches(
 	$rowNames.Groups['body'].Value, '(?m)^\s*(?<name>[A-Za-z]+)')) {
 	$orderedNames += $entry.Groups['name'].Value
 }
-Assert-True ($orderedNames.Count -eq 24) '접근성 행 이름 스물넷'
+Assert-True ($orderedNames.Count -eq 23) '접근성 행 이름 23개'
 $expectedFirst = 0
 foreach ($range in $categoryRanges) {
 	$firstName = $range.Groups['first'].Value
@@ -490,7 +489,7 @@ foreach ($range in $categoryRanges) {
 		'접근성 묶음이 이어 붙는다: {0}' -f $firstName)
 	$expectedFirst += [int]$range.Groups['count'].Value
 }
-Assert-True ($expectedFirst -eq 24) '접근성 묶음이 행 전부를 덮는다'
+Assert-True ($expectedFirst -eq 23) '접근성 묶음이 행 전부를 덮는다'
 # --- §19.8 소리의 대체 채널 ---------------------------------------------------
 #
 # 표 여덟 줄 중 넷이 비어 있었다. 소리를 못 듣는 손에게 존재의 노크는
@@ -507,10 +506,10 @@ Assert-ContainsAll $header @(
 
 # 넷 다 기본은 꺼짐이다. 표의 「기본」 열이 그렇게 적혀 있다.
 $substituteRows = @(
-	@{ Name = '노크 진동 대체'; Field = 'bKnockHapticSubstitute' },
-	@{ Name = '노크 시각 대체'; Field = 'bKnockRippleSubstitute' },
-	@{ Name = '심박 경고'; Field = 'bHeartbeatWarning' },
-	@{ Name = '인지 지원'; Field = 'bCognitiveAssist' })
+	@{ Name = '노크를 진동으로 알림'; Field = 'bKnockHapticSubstitute' },
+	@{ Name = '노크를 화면으로 표시'; Field = 'bKnockRippleSubstitute' },
+	@{ Name = '심장 박동 표시'; Field = 'bHeartbeatWarning' },
+	@{ Name = '노크 박자 맞추기 도움'; Field = 'bCognitiveAssist' })
 foreach ($row in $substituteRows) {
 	$tableRow = [regex]::Match(
 		$storyText, ('\| {0} \| (?<default>[^|]+?) \|' -f [regex]::Escape($row.Name)))
@@ -545,7 +544,7 @@ foreach ($half in @(
 	}
 }
 
-# 노크 시각 대체는 색이 아니라 두께로 나눈다. 색으로만 나누면 색각에서
+# 노크를 화면으로 표시는 색이 아니라 두께로 나눈다. 색으로만 나누면 색각에서
 # 다시 사라져서, 대체 채널이 또 하나의 벽이 된다.
 $noiseBody = [regex]::Match(
 	$hudSource,
@@ -559,7 +558,7 @@ Assert-True ($hudSource -match 'bRippleIsForeign \? [0-9.]+f : 1\.0f') `
 Assert-True ($storyText -match '색이 아니라 두께로 구분') `
 	'§19.8의 두께 구분 규칙이 남아 있다'
 
-# 노크 진동 대체는 소음 버스를 탄다. 응답 노크 코드에 손을 대면 §18.5의
+# 노크를 진동으로 알림는 소음 버스를 탄다. 응답 노크 코드에 손을 대면 §18.5의
 # 무진동 규칙이 무너진다.
 Assert-True ($character -match 'OnNoiseReported.AddUObject\(\s*\r?\n?\s*this, &AIGPlayerCharacter::HandleForeignNoise\)') `
 	'대체 진동은 소음 버스에서 온다'
@@ -581,10 +580,10 @@ Assert-True $substituteBody.Success 'PlayKnockSubstituteHaptic를 떼어낼 수 
 Assert-True ($substituteBody.Groups['body'].Value.Contains('Loudness')) `
 	'대체 진동의 세기가 소리 크기를 따라간다'
 
-# 심박 경고는 표의 배율과 임계를 그대로 쓴다.
+# 심장 박동 표시는 표의 배율과 임계를 그대로 쓴다.
 $warningRow = [regex]::Match(
 	$storyText, '스트레스 (?<threshold>[0-9.]+) 도달 시 비네트 맥동 ×(?<scale>[0-9.]+)')
-Assert-True $warningRow.Success '§19.8 심박 경고 줄을 읽을 수 있다'
+Assert-True $warningRow.Success '§19.8 심장 박동 표시 줄을 읽을 수 있다'
 $stressForWarning = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGStressComponent.cpp')
 $scaleDeclared = [regex]::Match(
@@ -593,7 +592,7 @@ $scaleDeclared = [regex]::Match(
 Assert-True $scaleDeclared.Success 'HeartbeatWarningVignetteScale을 읽을 수 있다'
 Assert-True (
 	[double]$scaleDeclared.Groups['value'].Value -eq [double]$warningRow.Groups['scale'].Value) (
-	'심박 경고 배율이 {0}인데 §19.8은 {1}이라고 적었다' -f
+	'심장 박동 표시 배율이 {0}인데 §19.8은 {1}이라고 적었다' -f
 		$scaleDeclared.Groups['value'].Value, $warningRow.Groups['scale'].Value)
 $warningBody = [regex]::Match(
 	$stressForWarning,
@@ -602,12 +601,12 @@ Assert-True $warningBody.Success 'GetHeartbeatWarningScale를 떼어낼 수 있�
 Assert-True (
 	$warningBody.Groups['body'].Value.Contains(
 		'IGStress::HeartbeatHapticStressThreshold')) `
-	'심박 경고가 진동과 같은 임계를 쓴다'
+	'심장 박동 표시가 진동과 같은 임계를 쓴다'
 # 꺼져 있으면 1이라서 나머지 계산이 예전과 똑같이 돈다.
 Assert-True ($warningBody.Groups['body'].Value -match 'return 1\.0f;') `
-	'심박 경고가 꺼져 있으면 비네트가 그대로다'
+	'심장 박동 표시가 꺼져 있으면 비네트가 그대로다'
 
-# 인지 지원: 판정창 ×1.6과 시간 압박 해제.
+# 노크 박자 맞추기 도움: 판정창 ×1.6과 시간 압박 해제.
 $windowRow = [regex]::Match($storyText, '노크 판정창 ×(?<scale>[0-9.]+)')
 Assert-True $windowRow.Success '§19.8 노크 판정창 줄을 읽을 수 있다'
 $windowDeclared = [regex]::Match(
@@ -625,7 +624,7 @@ $pressureBody = [regex]::Match(
 	'float UIGAccessibilitySubsystem::GetPressureRiseIntervalSeconds\(\) const(?<body>[\s\S]*?)\r?\n\}')
 Assert-True $pressureBody.Success 'GetPressureRiseIntervalSeconds를 떼어낼 수 있다'
 Assert-True ($pressureBody.Groups['body'].Value.Contains('bCognitiveAssist')) `
-	'인지 지원이 시간 압박을 푼다'
+	'노크 박자 맞추기 도움이 시간 압박을 푼다'
 # 0으로 만들지 않는다. 세계가 아무 반응도 안 하면 그건 해제가 아니라 고장이다.
 $relaxed = [regex]::Match(
 	$source, 'constexpr float RelaxedPressureIntervalSeconds = (?<value>[0-9.]+)f;')
@@ -692,7 +691,7 @@ foreach ($half in @(
 # §18.3이 비네트를 접근성에 두라고 말한 자리가 남아 있는가.
 $storyText = Get-Content -Raw -Encoding UTF8 (
 	Join-Path $projectRoot 'Docs/STORY_BIBLE_MISSING_FLOOR.md')
-Assert-True ($storyText -match '주변부 비네트 강화') `
+Assert-True ($storyText -match '화면 가장자리 어둡게 강화') `
 	'§18.3의 비네트 약속이 남아 있다'
 
 # --- 시야각과 자막 표시 시간 -------------------------------------------------
@@ -915,7 +914,7 @@ foreach ($holdScale in @(-2.0, 0.25, 0.7, 1.0, 4.0)) {
 	$clamped = [Math]::Min(1.0, [Math]::Max(0.25, $holdScale))
 	Assert-True (
 		$clamped -ge 0.25 -and $clamped -le 1.0
-	) "홀드 길이 배율 범위 오류: $holdScale"
+	) "길게 누르는 시간 배율 범위 오류: $holdScale"
 }
 foreach ($captionScale in @(-2.0, 0.85, 1.0, 1.25, 1.5, 2.0, 4.0)) {
 	$clamped = [Math]::Min(2.0, [Math]::Max(0.85, $captionScale))
@@ -927,13 +926,13 @@ foreach ($backgroundOpacity in @(-2.0, 0.0, 0.50, 0.82, 1.0, 4.0)) {
 	$clamped = [Math]::Min(1.0, [Math]::Max(0.0, $backgroundOpacity))
 	Assert-True (
 		$clamped -ge 0.0 -and $clamped -le 1.0
-	) "메시지 배경 농도 범위 오류: $backgroundOpacity"
+	) "자막 배경 진하기 범위 오류: $backgroundOpacity"
 }
 foreach ($safeArea in @(-2.0, 0.80, 0.90, 1.0, 4.0)) {
 	$clamped = [Math]::Min(1.0, [Math]::Max(0.80, $safeArea))
 	Assert-True (
 		$clamped -ge 0.80 -and $clamped -le 1.0
-	) "자막 안전 영역 범위 오류: $safeArea"
+	) "자막 표시 영역 범위 오류: $safeArea"
 }
 
 # 실제 실행을 대체하지 않는 순수 배치 오라클. 설정 17개를 최대 5개씩

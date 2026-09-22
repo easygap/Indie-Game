@@ -235,7 +235,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		KeyLock.LockedThought = NSLOCTEXT(
 			"IGMissingFloor",
 			"StairGateThought",
-			"`옥상` 표찰 열쇠가 필요하다.");
+			"옥상 열쇠가 있어야 열 수 있다.");
 		StairGate->SetRequirements(MoveTemp(GateRequirements));
 	}
 
@@ -259,7 +259,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		KeyLock.LockedPrompt = NSLOCTEXT(
 			"IGMissingFloor", "AnnexGatePrompt", "5층 철문 — 잠겨 있다");
 		KeyLock.LockedThought = NSLOCTEXT(
-			"IGMissingFloor", "AnnexGateThought", "`창고` 표찰 열쇠가 필요하다.");
+			"IGMissingFloor", "AnnexGateThought", "창고 열쇠가 있어야 열 수 있다.");
 		AnnexGate->SetRequirements(MoveTemp(GateRequirements));
 	}
 	float RouteLengthCentimeters = 0.0f;
@@ -1195,7 +1195,7 @@ void AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"PlasterDatingThought",
-			"안쪽 보드는 낡았는데, 바깥 실란트엔 손톱 자국이 난다. 최근에 다시 막았나?"),
+			"안쪽 판자는 낡았는데, 바깥 실리콘은 아직 덜 굳었다. 최근에 다시 막았나?"),
 		4.6f);
 }
 
@@ -1340,11 +1340,11 @@ void AIGMissingFloorNightThreeDirector::HandleWallKnocked(const int32 BayIndex)
 				? NSLOCTEXT(
 					"IGMissingFloor",
 					"KnockCavity",
-					"길게 운다. 속이 비었다.")
+					"오래 울린다. 안이 비어 있다.")
 				: NSLOCTEXT(
 					"IGMissingFloor",
 					"KnockCavityUnread",
-					"길게 운다. 다른 두 벽하고 다르다. 오빠라면 이게 뭔지 알았을 텐데."),
+					"오래 울린다. 다른 두 벽하고 다르다. 오빠라면 이유를 알았을 텐데."),
 			3.8f);
 		if (Narrative)
 		{
@@ -1363,7 +1363,7 @@ void AIGMissingFloorNightThreeDirector::HandleWallKnocked(const int32 BayIndex)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"KnockSolid",
-			"짧게 죽는 소리. 속이 찼다."),
+			"소리가 금방 끊긴다. 이쪽은 꽉 차 있다."),
 		3.0f);
 }
 
@@ -1833,7 +1833,7 @@ void AIGMissingFloorNightThreeDirector::RefreshAnswerTargetAvailability()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"AnswerTargetReady",
-				"두 군데서 같은 박자다. 둘, 쉬고, 하나. 이 벽에."),
+				"두 군데서 같은 박자가 들렸다. 두 번, 쉬고, 한 번. 이 벽에 답해 보자."),
 			4.6f);
 	}
 }

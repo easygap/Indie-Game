@@ -657,7 +657,9 @@ float AIGListenerEntity::WaitSecondsForTier() const
 	static constexpr float Seconds[4] = {20.0f, 12.0f, 6.0f, 6.0f};
 	static constexpr float AnswerDecay[3] = {1.0f, 0.6f, 0.35f};
 	const int32 AnswerIndex = FMath::Clamp(AnswersThisNight - 1, 0, 2);
-	return Seconds[FMath::Clamp(AggressionTier, 0, 3)] * Tuning.WaitScale
+	const int32 EffectiveTier = Difficulty == EIGNightDifficulty::Hasty
+		? FMath::Max(AggressionTier, 1) : AggressionTier;
+	return Seconds[FMath::Clamp(EffectiveTier, 0, 3)] * Tuning.WaitScale
 		* AnswerDecay[AnswerIndex];
 }
 
@@ -700,7 +702,10 @@ void AIGListenerEntity::RefreshNightTuning()
 			}
 		}
 	}
-	Tuning = IGListenerTuning::Resolve(NightIndex, Difficulty, AggressionTier);
+	// 난이도를 올렸다 내렸을 때 플레이 중 쌓인 단계가 바뀌지 않게 한다.
+	const int32 EffectiveTier = Difficulty == EIGNightDifficulty::Hasty
+		? FMath::Max(AggressionTier, 1) : AggressionTier;
+	Tuning = IGListenerTuning::Resolve(NightIndex, Difficulty, EffectiveTier);
 	ChaseSpeed = Tuning.ChaseSpeed;
 
 	// 듣기만 하는 밤에서는 이미 시작된 추격과 포획도 성립하지 않는다. 모드를
@@ -715,11 +720,17 @@ void AIGListenerEntity::RefreshNightTuning()
 	}
 }
 
+void AIGListenerEntity::SetDifficulty(
+	const EIGNightDifficulty NewDifficulty)
+{
+	Difficulty = IGListenerTuning::ClampDifficulty(static_cast<int32>(NewDifficulty));
+	RefreshNightTuning();
+}
+
 void AIGListenerEntity::SetDifficultyForTesting(
 	const EIGNightDifficulty NewDifficulty)
 {
-	Difficulty = NewDifficulty;
-	RefreshNightTuning();
+	SetDifficulty(NewDifficulty);
 }
 
 void AIGListenerEntity::SetPatrolPoints(const TArray<FVector>& Points)

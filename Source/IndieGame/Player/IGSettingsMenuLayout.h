@@ -35,7 +35,7 @@ namespace IGSettingsMenuLayout
 	static_assert(
 		BackOrRevert + 1 == DisplayRowCount,
 		"화면 설정 행 이름과 행 수가 어긋났다");
-	constexpr int32 AccessibilityRowCount = 24;
+	constexpr int32 AccessibilityRowCount = 23;
 
 	/**
 	 * 접근성 행 번호. 화면과 컨트롤러와 묶음 범위 셋이 같은 숫자를 봐야 한다.
@@ -43,7 +43,7 @@ namespace IGSettingsMenuLayout
 	 */
 	enum EAccessibilityRow : int32
 	{
-		HintMode = 0,
+		NightDifficulty = 0,
 		ReducedCameraMotion,
 		ReducedFlicker,
 		FieldOfView,
@@ -53,7 +53,6 @@ namespace IGSettingsMenuLayout
 		KnockHapticSubstitute,
 		HeartbeatWarning,
 		CognitiveAssist,
-		AutoConnectEvidence,
 		Subtitles,
 		SoundCaptions,
 		CaptionSize,
@@ -147,8 +146,8 @@ namespace IGSettingsMenuLayout
 		{
 		case 0: return {0, 2}; // Display mode and resolution.
 		case 1: return {2, 3}; // Quality, sync, and frame rate.
-		case 2: return {5, 2}; // Accessibility and calibration shortcuts.
-		case 3: return {7, 2}; // Apply and return actions.
+		case 2: return {5, 3}; // 접근성, 소리와 밝기, 조작 설정.
+		case 3: return {8, 2}; // 적용과 돌아가기.
 		default: return {0, 0};
 		}
 	}
@@ -157,9 +156,9 @@ namespace IGSettingsMenuLayout
 	{
 		switch (Category)
 		{
-		case 0: return {HintMode, 1};              // Gameplay.
+		case 0: return {NightDifficulty, 1};       // 게임 난이도.
 		case 1: return {ReducedCameraMotion, 4};   // Motion.
-		case 2: return {DirectionalFearCues, 6};   // Guidance.
+		case 2: return {DirectionalFearCues, 5};   // 소리 안내와 노크 도움.
 		case 3: return {Subtitles, 6};             // Captions.
 		case 4: return {ToggleCrouch, 5};          // Input.
 		case 5: return {ResetDefaults, 2};         // General actions.

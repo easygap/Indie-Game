@@ -57,10 +57,10 @@ Require-All $tuningHeader @(
 	'ListenOnly,'
 ) '§20.4 difficulty modes'
 Require-All $tuning @(
-	'"조용한 밤"',
-	'"기본"',
-	'"성급한 밤"',
-	'"듣기만 하는 밤"'
+	'"쉬움"',
+	'"보통"',
+	'"어려움"',
+	'"추격 없음"'
 ) '§20.4 mode labels'
 Require-All $tuning @(
 	'Tuning.HearingSensitivity *= 0.75f;',

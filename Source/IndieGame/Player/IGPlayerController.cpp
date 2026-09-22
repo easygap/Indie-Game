@@ -12,6 +12,8 @@
 #include "Engine/LocalPlayer.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Entity/IGListenerEntity.h"
+#include "Entity/IGListenerTuning.h"
 #include "Entity/IGMissingFloorEpilogueDirector.h"
 #include "Entity/IGMissingFloorFifthDawnDirector.h"
 #include "InputCoreTypes.h"
@@ -54,6 +56,18 @@ namespace IGInputLocks
 namespace IGAccessibilityMenu
 {
 	constexpr int32 RowCount = IGSettingsMenuLayout::AccessibilityRowCount;
+
+	void ApplyNightDifficulty(UWorld* World, const EIGNightDifficulty Difficulty)
+	{
+		IGListenerTuning::SavePersistedDifficulty(Difficulty);
+		if (World)
+		{
+			for (TActorIterator<AIGListenerEntity> It(World); It; ++It)
+			{
+				It->SetDifficulty(Difficulty);
+			}
+		}
+	}
 }
 
 namespace IGSystemMenu
@@ -480,6 +494,43 @@ void AIGPlayerController::StartFrontendShippingProbe()
 	}
 
 	bFrontendShippingProbe = true;
+	// 그려지는 모든 설정 행이 같은 위치에서 클릭되는지 확인한다.
+	// 마지막 행이 묶음 범위에서 빠지면 키보드 선택만 이동하고 화면은 사라진다.
+	const auto VerifySettingsRows = [this](const int32 RowCount,
+		const int32 CategoryCount, auto GetCategory)
+	{
+		const auto Metrics = IGSettingsMenuLayout::MakePanelMetrics(
+			FrontendProbeExpectedWidth, FrontendProbeExpectedHeight);
+		TArray<int32> Coverage;
+		Coverage.Init(0, RowCount);
+		for (int32 Category = 0; Category < CategoryCount; ++Category)
+		{
+			const auto Range = GetCategory(Category);
+			for (int32 LocalRow = 0; LocalRow < Range.RowCount; ++LocalRow)
+			{
+				const int32 Row = Range.FirstRow + LocalRow;
+				if (!Coverage.IsValidIndex(Row)) return false;
+				++Coverage[Row];
+				int32 HitRow = INDEX_NONE;
+				bool bCategoryHit = false;
+				const FVector2D Point((Metrics.ContentLeft + Metrics.ContentRight) * 0.5f,
+					Metrics.OptionStartY + (LocalRow + 0.5f) * Metrics.OptionRowHeight);
+				if (!IGSettingsMenuLayout::HitTestSettingsRow(Metrics, Point, Row,
+					CategoryCount, GetCategory, HitRow, bCategoryHit)
+					|| HitRow != Row || bCategoryHit) return false;
+			}
+		}
+		for (const int32 Count : Coverage) if (Count != 1) return false;
+		return true;
+	};
+	if (!VerifySettingsRows(IGSettingsMenuLayout::DisplayRowCount,
+		IGSettingsMenuLayout::DisplayCategoryCount, IGSettingsMenuLayout::GetDisplayCategory)
+		|| !VerifySettingsRows(IGSettingsMenuLayout::AccessibilityRowCount,
+			IGSettingsMenuLayout::AccessibilityCategoryCount, IGSettingsMenuLayout::GetAccessibilityCategory))
+	{
+		FailFrontendShippingProbe(TEXT("settings_row_hit_coverage"));
+		return;
+	}
 	FrontendProbeStep = 0;
 	FrontendProbeLayoutSampleCount = 0;
 	FrontendProbeMinimumElementCount = MAX_int32;
@@ -503,9 +554,8 @@ void AIGPlayerController::StartFrontendShippingProbe()
 		TNumericLimits<float>::Lowest());
 
 	bAccessibilityMenuVisible = false;
-	// Start on the five-row caption category: this is the tightest settings
-	// composition and includes the live 200%-scale preview exercised below.
-	AccessibilitySelection = 5;
+	// 글자 크기 미리 보기가 있는 자막 묶음부터 실제 화면을 검사한다.
+	AccessibilitySelection = IGSettingsMenuLayout::Subtitles;
 	SystemMenuSelection = 0;
 	SetSystemMenuMode(EIGSystemMenuMode::Hidden);
 	SetInputDevicePresentation(false);
@@ -602,13 +652,32 @@ void AIGPlayerController::TickFrontendShippingProbe()
 			FrontendProbeStepDeadline = Now + 4.0;
 			return;
 		}
-		AccessibilitySelection = 9;
+		// 메뉴에서 난이도를 바꾼 값이 저장되고 현재 적에게도 전달되는지 확인한다.
+		{
+			const EIGNightDifficulty Before = IGListenerTuning::LoadPersistedDifficulty();
+			AccessibilitySelection = IGSettingsMenuLayout::NightDifficulty;
+			ChangeAccessibilitySetting(1, false);
+			const EIGNightDifficulty Expected = IGListenerTuning::ClampDifficulty(
+				(static_cast<int32>(Before) + 1) % static_cast<int32>(EIGNightDifficulty::Count));
+			bool bApplied = IGListenerTuning::LoadPersistedDifficulty() == Expected;
+			for (TActorIterator<AIGListenerEntity> It(GetWorld()); It; ++It)
+			{
+				bApplied &= It->GetDifficulty() == Expected;
+			}
+			ChangeAccessibilitySetting(-1, false);
+			if (!bApplied || IGListenerTuning::LoadPersistedDifficulty() != Before)
+			{
+				FailFrontendShippingProbe(TEXT("night_difficulty_setting"));
+				return;
+			}
+		}
+		AccessibilitySelection = IGSettingsMenuLayout::CognitiveAssist;
 		DispatchFrontendProbeKey(EKeys::Gamepad_DPad_Down);
 		WaitForInputProcessing(3);
 		return;
 	case 3:
 		if (!bAccessibilityMenuVisible
-			|| AccessibilitySelection != 10
+			|| AccessibilitySelection != IGSettingsMenuLayout::Subtitles
 			|| !bUsingGamepadForHud)
 		{
 			FailFrontendShippingProbe(TEXT("gamepad_dpad_down"));
@@ -628,7 +697,7 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		return;
 	case 5:
 		if (!bAccessibilityMenuVisible
-			|| AccessibilitySelection != 9
+			|| AccessibilitySelection != IGSettingsMenuLayout::CognitiveAssist
 			|| bUsingGamepadForHud)
 		{
 			FailFrontendShippingProbe(TEXT("keyboard_up_return"));
@@ -639,7 +708,7 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		AwaitFrontendProbeFrame();
 		return;
 	case 6:
-		if (!TryCaptureFrontendProbeLayout(TEXT("accessibility_keyboard_return"), 14))
+		if (!TryCaptureFrontendProbeLayout(TEXT("accessibility_keyboard_return"), 13))
 		{
 			return;
 		}
@@ -1018,6 +1087,59 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		{
 			FrontendProbeNextActionTime = Now + 0.05;
 			return;
+		}
+		if (FParse::Param(FCommandLine::Get(), TEXT("IGFrontendCopyReview")))
+		{
+			SetSystemMenuMode(EIGSystemMenuMode::ContentNotice);
+			FrontendProbeStep = 28;
+			FrontendProbeNextActionTime = Now + 0.5;
+			FrontendProbeStepDeadline = Now + 8.0;
+			return;
+		}
+		CompleteFrontendShippingProbe();
+		return;
+	case 28:
+	case 30:
+	case 32:
+	case 34:
+	{
+		const TCHAR* Names[] = {TEXT("notice.png"), TEXT("audio-brightness.png"),
+			TEXT("night-difficulty.png"), TEXT("key-settings.png")};
+		const FString Path = FPaths::GetPath(FrontendProbeTitleScreenshotPath)
+			/ Names[(FrontendProbeStep - 28) / 2];
+		FScreenshotRequest::RequestScreenshot(Path, true, false);
+		++FrontendProbeStep;
+		FrontendProbeNextActionTime = Now + 0.3;
+		FrontendProbeStepDeadline = Now + 8.0;
+		return;
+	}
+	case 29:
+		OpenAudioCalibration(false);
+		FrontendProbeStep = 30;
+		FrontendProbeNextActionTime = Now + 0.5;
+		return;
+	case 31:
+		ToggleAccessibilityMenu();
+		AccessibilitySelection = IGSettingsMenuLayout::NightDifficulty;
+		RefreshMenuHud();
+		FrontendProbeStep = 32;
+		FrontendProbeNextActionTime = Now + 0.5;
+		return;
+	case 33:
+		CloseAccessibilityMenu();
+		OpenKeyBindings();
+		FrontendProbeStep = 34;
+		FrontendProbeNextActionTime = Now + 0.5;
+		return;
+	case 35:
+		for (const TCHAR* Name : {TEXT("notice.png"), TEXT("audio-brightness.png"),
+			TEXT("night-difficulty.png"), TEXT("key-settings.png")})
+		{
+			if (IFileManager::Get().FileSize(*(FPaths::GetPath(FrontendProbeTitleScreenshotPath) / Name)) < 10000)
+			{
+				FailFrontendShippingProbe(TEXT("copy_review_screenshot_missing"));
+				return;
+			}
 		}
 		CompleteFrontendShippingProbe();
 		return;
@@ -2547,7 +2669,7 @@ void AIGPlayerController::RequestManualHint()
 					NSLOCTEXT(
 						"IGMissingFloor",
 						"DayHintAskHwang",
-						"401호에 물어볼 수 있다."),
+						"401호 할머니께 물어보자."),
 					2.4f);
 			}
 			return;
@@ -2588,6 +2710,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		if (bConfirm)
 		{
 			Accessibility->ResetToDefaults();
+			IGAccessibilityMenu::ApplyNightDifficulty(GetWorld(), EIGNightDifficulty::Standard);
 			if (AIGPlayerCharacter* PlayerCharacter =
 				Cast<AIGPlayerCharacter>(GetPawn()))
 			{
@@ -2609,13 +2732,13 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 	FIGAccessibilitySettings Settings = Accessibility->GetSettings();
 	switch (AccessibilitySelection)
 	{
-	case IGSettingsMenuLayout::HintMode:
+	case IGSettingsMenuLayout::NightDifficulty:
 	{
-		constexpr int32 HintModeCount = 3;
-		const int32 Current = static_cast<int32>(Settings.HintMode);
-		Settings.HintMode = static_cast<EIGHintMode>(
-			(Current + (Direction < 0 ? HintModeCount - 1 : 1))
-			% HintModeCount);
+		constexpr int32 ModeCount = static_cast<int32>(EIGNightDifficulty::Count);
+		const int32 Current = static_cast<int32>(IGListenerTuning::LoadPersistedDifficulty());
+		const EIGNightDifficulty Difficulty = IGListenerTuning::ClampDifficulty(
+			(Current + (Direction < 0 ? ModeCount - 1 : 1)) % ModeCount);
+		IGAccessibilityMenu::ApplyNightDifficulty(GetWorld(), Difficulty);
 		break;
 	}
 	case IGSettingsMenuLayout::ReducedCameraMotion:
@@ -2650,9 +2773,6 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		break;
 	case IGSettingsMenuLayout::CognitiveAssist:
 		Settings.bCognitiveAssist = !Settings.bCognitiveAssist;
-		break;
-	case IGSettingsMenuLayout::AutoConnectEvidence:
-		Settings.bAutoConnectEvidence = !Settings.bAutoConnectEvidence;
 		break;
 	case IGSettingsMenuLayout::Subtitles:
 		Settings.bSubtitlesEnabled = !Settings.bSubtitlesEnabled;
@@ -4260,7 +4380,7 @@ void AIGPlayerController::ConfirmKeyBindingSelection()
 			KeyBindingStatusText = NSLOCTEXT(
 				"IGHUD",
 				"KeyBindingsUseArrows",
-				"이 행은 좌우로 맞춥니다.");
+				"좌우 방향키로 값을 바꿀 수 있습니다.");
 		}
 		bKeyBindingStatusIsError = false;
 		RefreshMenuHud();

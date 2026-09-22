@@ -4,7 +4,7 @@ param(
 	[string]$ArchiveDirectory,
 	[string]$EvidenceDirectory,
 	[ValidateRange(20, 180)]
-	[int]$TimeoutSeconds = 60
+	[int]$TimeoutSeconds = 120
 )
 
 Set-StrictMode -Version Latest
@@ -140,6 +140,7 @@ function Invoke-FrontendCase {
 		'-ForceRes',
 		'-NoVSync',
 		'-IGFrontendShippingProbe',
+		'-IGFrontendCopyReview',
 		"-IGFrontendExpectedWidth=$Width",
 		"-IGFrontendExpectedHeight=$Height",
 		"-IGFrontendResultPath=$receiptPath",
