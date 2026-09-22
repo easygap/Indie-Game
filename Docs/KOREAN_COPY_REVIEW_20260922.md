@@ -88,3 +88,27 @@ Windows 11 / Ryzen 9 7900X / RTX 3060 / 메모리 32GB에서 확인했다.
 
 GitHub 소개에는 게임 이름과 장르를 적고 다운로드 페이지를 연결했다.
 태그는 `horror-game`, `indie-game`, `unreal-engine`, `first-person`, `singleplayer`, `cpp`, `korean`, `windows`를 사용했다.
+
+## README 다국어 소개
+
+Star·Watch 안내와 개발 도구 설명을 README에서 뺐다. 한국어를 기본으로 두고,
+영어·일본어·중국어 간체·번체 소개로 이동하는 링크를 맨 위에 넣었다.
+외국어 소개에도 실행 방법과 조작법을 모두 적었다. 게임 메뉴, 대화와 단서는 아직
+한국어이므로 다운로드 전에 실제 지원 언어를 알 수 있게 표시했다.
+
+타이틀 화면과 방, 골목, 편의점, 낮과 밤의 복도, 추격 장면, 퍼즐, 설정 화면을
+해당 설명 옆에 배치했다. 각 페이지는 이미지 10개를 쓰며, GIF 1개를 포함해
+합계 2,780,338바이트다. 4.9MB 장면 모음은 별도 링크로 남겼다.
+
+문장은 언어별로 다시 썼다. 일본어는 ‘調べる’, ‘操作方法’처럼 게임에서 쓰는 말을,
+간체는 ‘鼠标·设置·手柄’, 번체는 ‘滑鼠·設定·手把’처럼 지역에서 쓰는 말을 구분했다.
+영어의 ‘villa’가 주택 종류로 오해되지 않도록 첫 문장에서 한국의 아파트 건물임을 설명했다.
+
+2026년 9월 22일에 아래 개발사·배급사의 소개를 확인했다. 다른 게임의 기능이나
+홍보 문구를 가져오지 않고, 장르·플레이 방법·조작·설정을 설명하는 표현을 참고했다.
+
+- 한국어: [산나비](https://store.steampowered.com/app/1562700/_/?l=koreana)
+- 영어: [Scarlet Hollow](https://store.steampowered.com/app/1609230/?l=english)
+- 일본어: [ウツロマユ](https://store.steampowered.com/app/2414630/_/?l=japanese)
+- 간체: [纸嫁衣](https://store.steampowered.com/app/1735950/_/?l=schinese)
+- 번체: [九日](https://store.steampowered.com/app/1809540/_/?l=tchinese)
