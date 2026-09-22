@@ -5804,6 +5804,7 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 	}
 	// 근접 사진은 입주 자막과 시작 위치 보정이 끝난 뒤 찍는다.
 	const bool bDetailScreens = (FParse::Param(FCommandLine::Get(), TEXT("IGReadingReview")) ||
+		FParse::Param(FCommandLine::Get(), TEXT("IGReadmeCapture")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGDetailAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGPrintShapeAudit")) ||
 		FParse::Param(FCommandLine::Get(), TEXT("IGCircuitReview")) ||
@@ -6040,6 +6041,51 @@ void AIGListenerGreyboxDirector::AdvanceReadingReview()
 
 void AIGListenerGreyboxDirector::AdvanceArrivalCapture()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGReadmeCapture")))
+	{
+		// 배포 소개에 쓰는 장면은 실제 입주 경로와 야간 조명으로 다시 찍는다.
+		struct FReadmeView { const TCHAR* Name; FVector Position; float Yaw; float Pitch; };
+		const FReadmeView Views[] = {
+			{TEXT("game-bedroom"), {80,-100,998}, 132,-20},
+			{TEXT("game-corridor-day"), {190,-305,998}, 180,-4},
+			{TEXT("game-alley"), {700,-520,98}, 0,0},
+			{TEXT("game-store"), {2760,-285,98}, 138,-4},
+			{TEXT("game-corridor-night"), {190,-305,998}, 180,-4},
+			{TEXT("game-booth"), {165,-190,98}, 90,-35},
+		};
+		const int32 Step = ArrivalCaptureStep++;
+		const int32 Index = Step / 6;
+		if (Index < UE_ARRAY_COUNT(Views))
+		{
+			if (Step % 6 == 0)
+			{
+				if (Index == 4)
+				{
+					NightPhase->BeginTheHour(2);
+					if (Entity) Entity->SetDormant(true);
+				}
+				if (Index == 5 && PuzzleTwo && PuzzleTwo->GetBoothDoor())
+				{
+					PuzzleTwo->GetBoothDoor()->ForceOpenState(true);
+				}
+				const FReadmeView& View = Views[Index];
+				CaptureTeleportPlayer(View.Position, View.Yaw, View.Pitch);
+				if (UIGFlashlightComponent* Torch = Player->GetFlashlight())
+				{
+					Torch->SetAvailable(true);
+					Torch->SetOn(Index >= 4);
+				}
+			}
+			if (Step % 6 == 5) CaptureShot(Views[Index].Name);
+		}
+		else
+		{
+			GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
+			UE_LOG(LogTemp, Display, TEXT("README_CAPTURE PASS shots=6 production=1"));
+			RequestExit(false);
+		}
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGWitnessPropReview")))
 	{
 		struct FWitnessView { const TCHAR* Name; FVector Eye; FVector Target; float Fov; };

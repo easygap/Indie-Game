@@ -35,7 +35,9 @@ enum class EIGAudioThreatState : uint8
 	Listening,
 	Investigating,
 	Chasing,
-	Finale
+	Finale,
+	/** 붙잡힌 접촉음이 들리도록 음악을 걷는다. */
+	Captured
 };
 
 /**
@@ -151,7 +153,7 @@ public:
 	void SetAuthoredSilence(bool bSilent);
 	void SetEntityDistance(float DistanceCentimeters);
 	/** 놀람 하나. 존재 버스, 그의 자리에서. */
-	void PlayStinger(EIGStinger Kind, const FVector& Location);
+	bool PlayStinger(EIGStinger Kind, const FVector& Location);
 	/** 압박 층의 지금 볼륨 0~1. 계약과 프로브가 읽는다. */
 	float GetPresenceAlpha() const { return PresenceAlpha; }
 	void SetTitleMode(bool bEnabled);
@@ -223,6 +225,7 @@ public:
 	static bool IsTitleReplyTime(const FDateTime& LocalTime);
 
 private:
+	friend class AIGAudioPresentationProbe;
 	struct FTrackedVoice
 	{
 		TWeakObjectPtr<UAudioComponent> Component;
@@ -261,6 +264,13 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> ScoreComponent;
+	/** 추격이 곧 재개되면 빠지던 음악을 같은 박자에서 되살린다. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> ReleasingScoreComponent;
+	EIGAudioThreatState ReleasingScoreState = EIGAudioThreatState::Calm;
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> StingerComponent;
+	double LastChaseStingerSeconds = -1000.0;
 	/**
 	 * 존재 거리로 켜지는 압박 층. 14m 밖에서 0, 3m 안에서 1. 순찰 중에는 음악이
 	 * 없다는 §10.2의 원칙은 그대로다 — 이건 음악이 아니라 그가 가까이 있다는

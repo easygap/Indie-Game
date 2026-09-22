@@ -104,6 +104,11 @@ void UIGStressComponent::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		BreathComponent->Stop();
 	}
 	BreathComponent = nullptr;
+	if (IsValid(BreathOneShotComponent))
+	{
+		BreathOneShotComponent->Stop();
+	}
+	BreathOneShotComponent = nullptr;
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -151,6 +156,7 @@ void UIGStressComponent::BeginBreathHold(const float MaximumSeconds)
 	HeartbeatReboundRemaining = 0.0f;
 	// 한도보다 조금 길게 걸어 둔다. 놓는 쪽이 끊는다.
 	SuppressHeartbeat(FMath::Max(MaximumSeconds, 0.5f) + 1.0f, false);
+	UpdateBreathLayer(0.0f);
 }
 
 void UIGStressComponent::EndBreathHold(const bool bRebound)
@@ -426,6 +432,16 @@ void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 	}
 }
 
+bool UIGStressComponent::IsBreathPresentationSuppressed() const
+{
+	const UWorld* World = GetWorld();
+	const UIGMissingFloorAudioSubsystem* AudioDirector = World
+		? World->GetSubsystem<UIGMissingFloorAudioSubsystem>() : nullptr;
+	return bBreathHeld || (AudioDirector
+		&& (AudioDirector->IsAuthoredSilence() || AudioDirector->IsTitleModeActive()
+			|| AudioDirector->GetThreatState() == EIGAudioThreatState::Captured));
+}
+
 void UIGStressComponent::UpdateBreathLayer(const float DeltaSeconds)
 {
 	// 폰이 넣는 값은 바닥이고, 거기서 위로는 스스로 가라앉는다.
@@ -442,9 +458,20 @@ void UIGStressComponent::UpdateBreathLayer(const float DeltaSeconds)
 		Stress);
 	float Level = FMath::Max(Fear, Exertion * IGStress::BreathExertionScale)
 		+ IGStress::BreathReboundBoost * ReboundAlpha;
-	if (bBreathHeld)
+	const bool bSuppressBreath = IsBreathPresentationSuppressed();
+	if (bSuppressBreath)
 	{
 		Level = 0.0f;
+		if (IsValid(BreathOneShotComponent) && BreathOneShotComponent->IsPlaying())
+		{
+			BreathOneShotComponent->FadeOut(0.08f, 0.0f);
+			BreathOneShotComponent = nullptr;
+		}
+	}
+	else if (IsValid(BreathOneShotComponent) && BreathOneShotComponent->IsPlaying())
+	{
+		// 한 번 들이켜는 숨 아래로 평소 호흡을 낮춰 두 입이 겹치지 않게 한다.
+		Level *= 0.28f;
 	}
 	Level = FMath::Clamp(Level, 0.0f, IGStress::BreathLevelCeiling);
 	// 겁먹을수록, 숨이 찰수록 빠르고 높다. 루프 속도를 못 바꾸니 피치로 — 그의
@@ -481,7 +508,7 @@ void UIGStressComponent::UpdateBreathLayer(const float DeltaSeconds)
 		return;
 	}
 
-	const float FadeSeconds = bBreathHeld
+	const float FadeSeconds = bSuppressBreath
 		? IGStress::BreathHoldFadeSeconds
 		: IGStress::BreathFadeSeconds;
 	const bool bLevelChanged =
@@ -516,7 +543,7 @@ void UIGStressComponent::UpdateBreathLayer(const float DeltaSeconds)
 void UIGStressComponent::PlayGasp(const bool bIgnoreCooldown)
 {
 	UWorld* World = GetWorld();
-	if (!World || bBreathHeld)
+	if (!World || IsBreathPresentationSuppressed())
 	{
 		return;
 	}
@@ -537,7 +564,7 @@ void UIGStressComponent::PlayGasp(const bool bIgnoreCooldown)
 void UIGStressComponent::PlayReliefExhale()
 {
 	UWorld* World = GetWorld();
-	if (!World || bBreathHeld || Stress < IGStress::ReliefStressFloor)
+	if (!World || IsBreathPresentationSuppressed() || Stress < IGStress::ReliefStressFloor)
 	{
 		return;
 	}
@@ -559,7 +586,7 @@ void UIGStressComponent::PlayBreathOneShot(
 	const float CutSeconds)
 {
 	UWorld* World = GetWorld();
-	if (!World || !Sound)
+	if (!World || !Sound || IsBreathPresentationSuppressed())
 	{
 		return;
 	}
@@ -569,7 +596,12 @@ void UIGStressComponent::PlayBreathOneShot(
 	{
 		AudioDirector->PrepareSound(Sound, EIGAudioBus::Player);
 	}
-	UAudioComponent* Voice = UGameplayStatics::SpawnSound2D(this, Sound, Volume);
+	if (IsValid(BreathOneShotComponent) && BreathOneShotComponent->IsPlaying())
+	{
+		BreathOneShotComponent->FadeOut(0.08f, 0.0f);
+	}
+	// UI 소리 여부와 버스를 정한 뒤 재생해야 일시정지 첫 프레임에도 맞게 멎는다.
+	UAudioComponent* Voice = UGameplayStatics::CreateSound2D(this, Sound, Volume);
 	if (!Voice)
 	{
 		return;
@@ -579,6 +611,8 @@ void UIGStressComponent::PlayBreathOneShot(
 	{
 		AudioDirector->RegisterComponent(Voice, EIGAudioBus::Player);
 	}
+	BreathOneShotComponent = Voice;
+	Voice->Play();
 	if (CutSeconds > 0.0f)
 	{
 		FTimerHandle CutHandle;

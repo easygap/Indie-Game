@@ -106,7 +106,7 @@ void AIGListenerEntity::BeginPlay()
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->RegisterComponent(
+			AudioDirector->RegisterPersistentBed(
 				DragLoopComponent,
 				EIGAudioBus::Entity);
 		}
@@ -252,6 +252,8 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 				AudioState = EIGAudioThreatState::Chasing;
 				break;
 			case EIGListenerState::CaptureHold:
+				AudioState = EIGAudioThreatState::Captured;
+				break;
 			case EIGListenerState::FinaleLured:
 				AudioState = EIGAudioThreatState::Finale;
 				break;
@@ -299,17 +301,19 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 		}
 		else if (NewState == EIGListenerState::Chasing && PreviousState != EIGListenerState::Chasing)
 		{
+			bool bPlayedChaseStinger = false;
 			if (UWorld* World = GetWorld())
 			{
 				if (UIGMissingFloorAudioSubsystem* AudioDirector =
 					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 				{
-					AudioDirector->PlayStinger(
+					bPlayedChaseStinger = AudioDirector->PlayStinger(
 						EIGStinger::ChaseStart, GetActorLocation() + FVector(30.0f, 0.0f, 30.0f));
 				}
 			}
 			if (AIGPlayerCharacter* PlayerCharacter =
-				Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+				Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
+				bPlayedChaseStinger && PlayerCharacter)
 			{
 				// 비명은 몸으로도 온다. 가까울수록 크게.
 				const float Distance = FVector::Dist(
@@ -1888,11 +1892,12 @@ void AIGListenerEntity::TryCloseCallStinger(const AIGPlayerCharacter* Player, co
 	// 코앞에서 마주쳤다: 3.2m 안, 시야 안, 그가 깨어서 움직이거나 듣는 중. 25초에
 	// 한 번. 「이미 본 형상의 위치 변화」(STORY_DIRECTION §7)를 소리로 찍는다.
 	UWorld* World = GetWorld();
-	if (!World || !Player || bDormant || Distance > 320.0f)
+	if (!World || !Player || bDormant || IsHidden() || Distance > 320.0f)
 	{
 		return;
 	}
 	if (State == EIGListenerState::CaptureHold
+		|| State == EIGListenerState::Chasing
 		|| State == EIGListenerState::FinaleLured
 		|| State == EIGListenerState::Waiting)
 	{
@@ -1903,19 +1908,29 @@ void AIGListenerEntity::TryCloseCallStinger(const AIGPlayerCharacter* Player, co
 	{
 		return;
 	}
-	FVector ToHim = GetActorLocation() - Player->GetActorLocation();
-	ToHim.Z = 0.0f;
-	const FVector View = Player->GetControlRotation().Vector().GetSafeNormal2D();
+	const FVector Eye = Player->GetPawnViewLocation();
+	const FVector CueLocation = GetCaptureFaceLocation();
+	const FVector ToHim = CueLocation - Eye;
+	const FVector View = Player->GetControlRotation().Vector();
 	if (FVector::DotProduct(View, ToHim.GetSafeNormal()) < 0.55f)
 	{
 		return;
 	}
-	LastCloseCallSeconds = Now;
-	if (UIGMissingFloorAudioSubsystem* AudioDirector =
-		World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	// 고개 방향만 맞아도 벽 너머에서 놀라던 것을 막는다. 실제 눈높이에서
+	// 얼굴까지 문이나 벽이 가로막으면 마주친 것이 아니다.
+	FCollisionQueryParams SightParams(SCENE_QUERY_STAT(IGCloseCallSight), false, this);
+	SightParams.AddIgnoredActor(Player);
+	if (World->LineTraceTestByChannel(Eye, CueLocation, ECC_Visibility, SightParams))
 	{
-		AudioDirector->PlayStinger(EIGStinger::CloseCall, GetActorLocation() + FVector(0.0f, 0.0f, 40.0f));
+		return;
 	}
+	UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+	if (!AudioDirector || !AudioDirector->PlayStinger(EIGStinger::CloseCall, CueLocation))
+	{
+		return;
+	}
+	LastCloseCallSeconds = Now;
 	if (UIGStressComponent* Stress = Player->GetStress())
 	{
 		Stress->ApplyScare(0.45f);

@@ -1750,8 +1750,9 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateChaseScore(
 	Notes.Add({0.0f, LoopLength, 41.0f, 0.060f, 0.30f, 0.8f, EIGToneWaveform::Growl, 0.35f});
 	Notes.Add({Beat * 3.0f, 0.60f, 220.0f, 0.070f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
 	Notes.Add({Beat * 3.0f, 0.60f, 233.0f, 0.060f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
-	Notes.Add({Beat * 7.0f, 0.60f, 227.0f, 0.070f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
-	Notes.Add({Beat * 7.0f, 0.60f, 247.0f, 0.060f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
+	// 마지막 타격이 마디를 넘으면 ConfigureNotes가 루프를 늘려 매번 박자가 쉰다.
+	Notes.Add({Beat * 7.0f, Beat * 0.95f, 227.0f, 0.070f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
+	Notes.Add({Beat * 7.0f, Beat * 0.95f, 247.0f, 0.060f, 0.01f, 1.5f, EIGToneWaveform::Pluck, 0.85f});
 	Wave->ConfigureNotes(MoveTemp(Notes), true, LoopLength);
 	Wave->ConfigurePitchWow(0.0025f, 0.21f);
 	return Wave;

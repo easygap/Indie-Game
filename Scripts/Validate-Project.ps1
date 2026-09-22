@@ -237,9 +237,12 @@ $readme = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 foreach ($requiredReadmeToken in @(
 	# 소개에 쓰는 실제 화면과 실행 안내가 빠지지 않았는지 확인한다.
 	# 퍼즐 해답이나 개별 연출의 검증용 캡처를 README에 고정하지 않는다.
-	'Docs/Media/readme/prologue-corridor.webp',
-	'Docs/Media/readme/prologue-alley.webp',
-	'Docs/Media/readme/prologue-store-counter.webp',
+	'Docs/Media/readme/game-corridor-day.webp',
+	'Docs/Media/readme/game-corridor-night.webp',
+	'Docs/Media/readme/game-bedroom.webp',
+	'Docs/Media/readme/game-alley.webp',
+	'Docs/Media/readme/game-store.webp',
+	'Docs/Media/readme/game-booth.webp',
 	'Docs/Media/readme/readme-route-preview.gif',
 	'Docs/Media/readme/night-listener-chase.gif',
 	'Docs/Media/readme/p1-meter-cabinet.webp',
@@ -693,6 +696,9 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 $reviewedTickingFiles = @(
 	# 전용 실행 인자에서만 생성하고 약 3초 뒤 종료한다. 실제 입력 제동 거리를 잰다.
 	'IGGameplayRealismProbe.cpp',
+	# 전용 인자로만 생성한다. 실제 오디오 페이드와 충돌을 순서대로 확인한 뒤 종료한다.
+	# 일반 플레이에서는 생성하지 않으며, 후처리 Tick에서 같은 프레임의 상태를 읽는다.
+	'IGAudioPresentationProbe.cpp',
 	'IGWakeUpDirector.cpp',
 	'IGPlayerCharacter.cpp',
 	'IGPlayerController.cpp',

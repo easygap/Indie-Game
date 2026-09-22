@@ -684,6 +684,7 @@ public:
 		const TArray<struct FIGRecordedSound>& Sounds);
 
 private:
+	friend class AIGAudioPresentationProbe;
 	/** 상태가 있는 파형(BandNoise·Pluck)의 음별 작업 기억. 렌더 스레드만 만진다. */
 	struct FNoteRenderState
 	{

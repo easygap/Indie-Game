@@ -138,6 +138,8 @@ protected:
 	float PanicBPM = 148.0f;
 
 private:
+	friend class AIGAudioPresentationProbe;
+	bool IsBreathPresentationSuppressed() const;
 	/** Enables frame updates only while fear state is changing or audible. */
 	void RefreshTickState();
 	void UpdateStress(float DeltaSeconds);
@@ -164,6 +166,9 @@ private:
 	/** 그녀의 숨. 2D, PLAYER 버스, 상시 베드. 배수는 1이고 페이더가 볼륨이다. */
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> BreathComponent;
+	/** 들이켜거나 내쉬는 숨은 한 번에 하나만 낸다. */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> BreathOneShotComponent;
 	/** 폰이 넣은 숨찬 정도와, 거기서 스스로 가라앉는 값. */
 	float ExertionReported = 0.0f;
 	float Exertion = 0.0f;

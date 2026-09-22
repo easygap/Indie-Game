@@ -2,6 +2,7 @@
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "AudioDevice.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
 #include "Engine/World.h"
@@ -81,10 +82,9 @@ namespace IGMissingFloorMix
 		6,  // PUZZLE
 		12, // WORLD
 		8,  // UI: navigation remains responsive under caption churn
-		// SCORE: 압박 층이 상시 베드로 한 자리를 늘 차지한다. 그 위에 지금
-		// 도는 루프와 놓아 주는 꼬리 — 둘이면 추격의 4초 테일이 다음 드론에
-		// 밀려 0.12초에 잘렸다.
-		3
+		// SCORE: 거리 압박, 현재 음악, 전환 꼬리, 단서 확인음에 한 자리씩 둔다.
+		// 확인음을 연달아 들어도 음악과 4초짜리 추격 꼬리는 남아야 한다.
+		4
 	};
 
 	/**
@@ -150,8 +150,26 @@ void UIGMissingFloorAudioSubsystem::Deinitialize()
 				World,
 				IGMissingFloorMix::AcousticSpaceReverbTag);
 		}
+		if (FAudioDevice* Device = World->GetAudioDeviceRaw())
+		{
+			for (USoundClass* Bus : BusSoundClasses)
+			{
+				Device->UnregisterSoundClass(Bus);
+			}
+		}
 	}
 	StopScore(0.0f);
+	if (IsValid(PresenceComponent))
+	{
+		PresenceComponent->Stop();
+		PresenceComponent->DestroyComponent();
+	}
+	PresenceComponent = nullptr;
+	if (IsValid(StingerComponent))
+	{
+		StingerComponent->Stop();
+	}
+	StingerComponent = nullptr;
 	bMixPushed = false;
 	bAcousticSpaceApplied = false;
 	bAcousticSpaceResolved = false;
@@ -168,6 +186,15 @@ void UIGMissingFloorAudioSubsystem::Deinitialize()
 void UIGMissingFloorAudioSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 {
 	Super::OnWorldBeginPlay(InWorld);
+	// NewObject로 만든 SoundClass는 에셋의 PostLoad를 거치지 않는다.
+	// 실제 장치에 등록하지 않으면 버스·더킹·음량 설정이 모두 적용되지 않는다.
+	if (FAudioDevice* Device = InWorld.GetAudioDeviceRaw())
+	{
+		for (USoundClass* Bus : BusSoundClasses)
+		{
+			Device->RegisterSoundClass(Bus);
+		}
+	}
 	if (RuntimeMix && !bMixPushed)
 	{
 		UGameplayStatics::PushSoundMixModifier(&InWorld, RuntimeMix);
@@ -307,6 +334,15 @@ void UIGMissingFloorAudioSubsystem::RegisterVoice(
 	{
 		return !Voice.Component.IsValid();
 	});
+	// 같은 루프를 다시 보호할 때 자리를 두 번 차지하지 않게 한다.
+	for (FTrackedVoice& Voice : Voices)
+	{
+		if (Voice.Component == Component)
+		{
+			Voice.bPersistent = bPersistent;
+			return;
+		}
+	}
 
 	const int32 VoiceCap = GetVoiceCap(Bus);
 	while (Voices.Num() >= VoiceCap && Voices.Num() > 0)
@@ -356,6 +392,10 @@ void UIGMissingFloorAudioSubsystem::SetThreatState(
 	}
 	ThreatState = NewState;
 	bEntityListening = NewState == EIGAudioThreatState::Listening;
+	if (NewState == EIGAudioThreatState::Captured)
+	{
+		FadePresenceLayer(0.0f, 0.12f);
+	}
 	RefreshMix();
 	if (!bTitleMode)
 	{
@@ -477,6 +517,10 @@ void UIGMissingFloorAudioSubsystem::SetAuthoredSilence(const bool bSilent)
 		return;
 	}
 	bAuthoredSilence = bSilent;
+	if (bSilent && IsValid(StingerComponent))
+	{
+		StingerComponent->FadeOut(0.08f, 0.0f);
+	}
 	RefreshMix(bSilent ? 0.08f : 0.45f);
 }
 
@@ -510,6 +554,11 @@ void UIGMissingFloorAudioSubsystem::UpdatePresenceLayer(const float DistanceCent
 	UWorld* World = GetWorld();
 	if (!World || bTitleMode)
 	{
+		return;
+	}
+	if (ThreatState == EIGAudioThreatState::Captured)
+	{
+		FadePresenceLayer(0.0f, 0.12f);
 		return;
 	}
 	// 14m 밖에서 0, 3m 안에서 1. 1.6제곱이라 멀리서는 거의 없고 가까워질수록
@@ -549,7 +598,10 @@ void UIGMissingFloorAudioSubsystem::UpdatePresenceLayer(const float DistanceCent
 void UIGMissingFloorAudioSubsystem::FadePresenceLayer(const float Target, const float Seconds)
 {
 	const float Clamped = FMath::Clamp(Target, 0.0f, 1.0f);
-	if (FMath::IsNearlyEqual(PresenceAlpha, Clamped, 0.01f))
+	// 작은 음량 변화는 묶되, 완전히 멎는 전환은 빠뜨리지 않는다.
+	// 거의 멀어진 상태에서 0으로 내려갈 때도 루프를 정리해야 한다.
+	const bool bStopping = Clamped == 0.0f && PresenceAlpha > 0.0f;
+	if (!bStopping && FMath::IsNearlyEqual(PresenceAlpha, Clamped, 0.01f))
 	{
 		return;
 	}
@@ -578,11 +630,26 @@ void UIGMissingFloorAudioSubsystem::FadePresenceLayer(const float Target, const 
 	PresenceComponent->AdjustVolume(Seconds, Level);
 }
 
-void UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVector& Location)
+bool UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVector& Location)
 {
-	if (!GetWorld() || bTitleMode)
+	UWorld* World = GetWorld();
+	if (!World || bTitleMode || bAuthoredSilence)
 	{
-		return;
+		return false;
+	}
+	const double Now = World->GetTimeSeconds();
+	// 재탐색과 추격이 짧게 오가도 비명을 연달아 지르지 않는다.
+	if (Kind == EIGStinger::ChaseStart && Now - LastChaseStingerSeconds < 6.0)
+	{
+		return false;
+	}
+	if (Kind == EIGStinger::CloseCall
+		&& (ThreatState == EIGAudioThreatState::Chasing
+			|| ThreatState == EIGAudioThreatState::Captured
+			|| Now - LastChaseStingerSeconds < 6.0
+			|| (IsValid(StingerComponent) && StingerComponent->IsPlaying())))
+	{
+		return false;
 	}
 	USoundBase* Wave = nullptr;
 	float Volume = 1.0f;
@@ -609,9 +676,19 @@ void UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVe
 	}
 	if (!Wave)
 	{
-		return;
+		return false;
 	}
-	IGAudio::SpawnOneShotAt(this, Wave, Location, Volume, 1.0f, 240.0f, 2600.0f, EIGAudioBus::Entity);
+	if (IsValid(StingerComponent) && StingerComponent->IsPlaying())
+	{
+		StingerComponent->FadeOut(0.08f, 0.0f);
+	}
+	StingerComponent = IGAudio::SpawnOneShotAt(
+		this, Wave, Location, Volume, 1.0f, 240.0f, 2600.0f, EIGAudioBus::Entity);
+	if (StingerComponent && Kind == EIGStinger::ChaseStart)
+	{
+		LastChaseStingerSeconds = Now;
+	}
+	return StingerComponent != nullptr;
 }
 
 void UIGMissingFloorAudioSubsystem::SetTitleMode(const bool bEnabled)
@@ -1105,11 +1182,25 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 		return;
 	}
 
+	UAudioComponent* Resume = !bTitleMode && IsValid(ReleasingScoreComponent)
+		&& ReleasingScoreState == NewState && ReleasingScoreComponent->IsPlaying()
+		? ReleasingScoreComponent.Get() : nullptr;
+	if (Resume)
+	{
+		ReleasingScoreComponent = nullptr;
+	}
 	const float ReleaseSeconds = ActiveScoreState == EIGAudioThreatState::Chasing
 		? 4.0f
 		: 0.30f;
-	StopScore(ReleaseSeconds);
+	StopScore(NewState == EIGAudioThreatState::Captured ? 0.12f : ReleaseSeconds);
 	ActiveScoreState = NewState;
+	if (Resume)
+	{
+		ScoreComponent = Resume;
+		RegisterPersistentBed(ScoreComponent, EIGAudioBus::Score);
+		ScoreComponent->AdjustVolume(0.25f, 1.0f);
+		return;
+	}
 
 	UIGToneSequenceSoundWave* Score = nullptr;
 	float Volume = 1.0f;
@@ -1145,6 +1236,7 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 		case EIGAudioThreatState::Calm:
 		case EIGAudioThreatState::Banging:
 		case EIGAudioThreatState::Listening:
+		case EIGAudioThreatState::Captured:
 		default:
 			break;
 		}
@@ -1168,7 +1260,7 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 	{
 		ScoreComponent->SetUISound(bTitleMode);
 	}
-	RegisterComponent(ScoreComponent, EIGAudioBus::Score);
+	RegisterPersistentBed(ScoreComponent, EIGAudioBus::Score);
 	if (ScoreComponent)
 	{
 		ScoreComponent->FadeIn(FadeInSeconds, 1.0f);
@@ -1177,10 +1269,26 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 
 void UIGMissingFloorAudioSubsystem::StopScore(const float FadeSeconds)
 {
-	if (!ScoreComponent)
+	if (IsValid(ReleasingScoreComponent))
 	{
+		// 이미 교체 중인 음악은 짧게 마무리하고 다음 전환에 자리를 내준다.
+		RegisterComponent(ReleasingScoreComponent, EIGAudioBus::Score);
+		if (FadeSeconds <= KINDA_SMALL_NUMBER)
+		{
+			ReleasingScoreComponent->Stop();
+		}
+		else
+		{
+			ReleasingScoreComponent->FadeOut(0.12f, 0.0f);
+		}
+	}
+	ReleasingScoreComponent = nullptr;
+	if (!IsValid(ScoreComponent))
+	{
+		ScoreComponent = nullptr;
 		return;
 	}
+	// 방금 빠지기 시작한 꼬리는 끝까지 보호한다. 단서 확인음이 끊을 수 없다.
 	if (FadeSeconds <= KINDA_SMALL_NUMBER)
 	{
 		ScoreComponent->Stop();
@@ -1188,12 +1296,15 @@ void UIGMissingFloorAudioSubsystem::StopScore(const float FadeSeconds)
 	else
 	{
 		ScoreComponent->FadeOut(FadeSeconds, 0.0f);
+		ReleasingScoreComponent = ScoreComponent;
+		ReleasingScoreState = ActiveScoreState;
 	}
 	ScoreComponent = nullptr;
 }
 
 void UIGMissingFloorAudioSubsystem::StartTitleSoundscape()
 {
+	FadePresenceLayer(0.0f, 0.12f);
 	bAuthoredSilence = false;
 	RefreshMix(0.25f);
 	SwitchScore(EIGAudioThreatState::Calm, true);

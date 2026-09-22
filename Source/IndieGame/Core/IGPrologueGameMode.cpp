@@ -8,6 +8,7 @@
 #include "Player/IGHorrorHUD.h"
 #include "Sequence/IGRebirthPersistenceProbe.h"
 #include "Sequence/IGGameplayRealismProbe.h"
+#include "Audio/IGAudioPresentationProbe.h"
 
 AIGPrologueGameMode::AIGPrologueGameMode()
 {
@@ -24,6 +25,11 @@ void AIGPrologueGameMode::StartPlay()
 		return;
 	}
 
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGAudioPresentationProbe")))
+	{
+		World->SpawnActor<AIGAudioPresentationProbe>();
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGGameplayRealismProbe")))
 	{
 		World->SpawnActor<AIGGameplayRealismProbe>();

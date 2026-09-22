@@ -35,6 +35,8 @@ public class IndieGame : ModuleRules
 		// Optional microphone mode reduces capture buffers to a local envelope;
 		// the platform backend is loaded by the AudioCapture project plugin.
 		PrivateDependencyModuleNames.Add("AudioCaptureCore");
+		// 연출 검사에서 실제 게임 믹서 출력을 녹음한다.
+		PrivateDependencyModuleNames.Add("AudioMixer");
 
 		// Bundle UI typefaces with every target. Loading from the project
 		// directory keeps glyph metrics identical in Editor and packaged builds.

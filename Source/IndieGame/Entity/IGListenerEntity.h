@@ -233,6 +233,7 @@ protected:
 	float FloorHeightThreshold = 240.0f;
 
 private:
+	friend class AIGAudioPresentationProbe;
 	// -- state machine ------------------------------------------------------
 	void EnterState(EIGListenerState NewState);
 	void TickState(float DeltaSeconds);
