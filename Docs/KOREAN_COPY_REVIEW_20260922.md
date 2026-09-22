@@ -71,3 +71,20 @@ Windows 11 / Ryzen 9 7900X / RTX 3060 / 메모리 32GB에서 확인했다.
 처음 하는 사람의 체감 난이도와 소리 방향 구분, 다른 PC·입력 장치에서의 성능,
 전체 플레이의 음량 측정은 남아 있다. [출시 전 확인 항목](MISSING_FLOOR_ACCEPTANCE.md)에
 그대로 남겼으며 이번 배포는 테스트 빌드로 표시한다.
+
+## README와 GitHub 소개
+
+2026년 9월 22일에 아래 자료를 추가로 확인했다.
+
+- [《골목길: 귀흔》의 한국어 게임 소개](https://store.steampowered.com/app/4181410/The_Alley/?l=koreana): 2026년 7월 23일 출시작이다. 장르와 플레이어가 하는 일을 먼저 설명하고, 실제 화면을 함께 보여주는 구성을 참고했다.
+- [GitHub의 README 안내](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/about-readmes): 처음 보는 사람이 프로젝트의 용도와 시작 방법을 찾을 수 있도록 구성했다.
+- [GitHub Topics 안내](https://docs.github.com/en/repositories/managing-your-repositorys-settings-and-features/customizing-your-repository/classifying-your-repository-with-topics): 게임 장르와 플랫폼, 사용한 엔진에 맞춰 태그를 달았다. 비공개 저장소는 접근 권한이 있는 사람에게만 검색 결과로 보인다.
+- [Star 안내](https://docs.github.com/en/get-started/exploring-projects-on-github/saving-repositories-with-stars)와 [알림 설정 안내](https://docs.github.com/en/subscriptions-and-notifications/get-started/configuring-notifications): 다시 찾아보기는 Star, 새 버전 알림은 Watch로 구분해 안내했다.
+
+분위기를 설명하는 소제목을 줄이고 게임 소개, 다운로드, 줄거리, 플레이, 조작 순서로 정리했다.
+‘빌드’는 플레이어가 읽는 안내에서 ‘테스트 버전’으로 바꿨다.
+첫 화면에는 실제 추격 장면과 다운로드 링크를 두고, 긴 조작표와 설정 화면은 접어서 볼 수 있게 했다.
+문제 제보와 플레이 소감도 한국어 양식으로 바로 연결한다.
+
+GitHub 소개에는 게임 이름과 장르를 적고 다운로드 페이지를 연결했다.
+태그는 `horror-game`, `indie-game`, `unreal-engine`, `first-person`, `singleplayer`, `cpp`, `korean`, `windows`를 사용했다.

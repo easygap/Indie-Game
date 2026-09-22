@@ -1,0 +1,22 @@
+name: 문제 제보
+description: 게임이 멈추거나 제대로 동작하지 않는 부분을 알려 주세요.
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 어디서 어떤 문제가 생겼나요?
+      description: 문제가 생기기 직전에 한 행동과 화면에 나타난 증상을 적어 주세요.
+      placeholder: 예) 이어하기를 누르면 화면이 검게 바뀐 뒤 게임이 꺼집니다.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 게임 버전과 PC 사양
+      description: 알고 있는 내용만 적어 주세요. 받은 ZIP 파일 이름으로 버전을 확인할 수 있습니다.
+      placeholder: "게임 버전 또는 ZIP 파일 이름:\nWindows 버전:\n그래픽카드:"
+  - type: textarea
+    id: attachment
+    attributes:
+      label: 화면 캡처나 오류 메시지
+      description: 있으면 함께 올려 주세요. 파일을 이 칸에 끌어다 놓으면 첨부됩니다.

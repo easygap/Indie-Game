@@ -1,0 +1,11 @@
+name: 플레이 소감과 제안
+description: 재밌었던 부분, 헷갈렸던 부분, 바라는 점을 편하게 남겨 주세요.
+body:
+  - type: textarea
+    id: feedback
+    attributes:
+      label: 플레이해 보니 어땠나요?
+      description: 어느 장면이었는지 함께 적어 주시면 도움이 됩니다.
+      placeholder: 예) 밤에 관리실을 찾다가 길을 잃었어요. 어느 층인지 확인할 방법이 있으면 좋겠어요.
+    validations:
+      required: true

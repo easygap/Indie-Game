@@ -2,7 +2,7 @@
 
 ## Windows에서 플레이하기
 
-1. [Windows 테스트 빌드](https://github.com/easygap/Indie-Game/releases/tag/v1.0.0-test.20260922)에서 `MissingFloor-Windows-20260922.zip`을 받습니다.
+1. [Windows 테스트 버전](https://github.com/easygap/Indie-Game/releases/tag/v1.0.0-test.20260922)에서 `MissingFloor-Windows-20260922.zip`을 받습니다.
 2. ZIP 파일의 **압축을 모두 풉니다.** 실행 파일 옆의 `Engine`, `IndieGame` 폴더도 함께 있어야 합니다.
 3. `IndieGame.exe`를 실행하고 **게임 시작**을 선택합니다.
 4. 소리 크기와 밝기를 맞춘 뒤 시작합니다. 조작법은 `F1`, 난이도와 접근성 설정은 `F10`으로 다시 열 수 있습니다.
@@ -12,8 +12,8 @@ Unreal Engine이나 Visual Studio를 설치할 필요는 없습니다.
 
 ![없는 층 타이틀 화면](Media/readme/title-menu-first-run-1080.webp)
 
-Windows 11, Ryzen 9 7900X, RTX 3060, 메모리 32GB 환경에서 확인한 테스트 빌드입니다.
-다른 PC의 성능을 확인하기 전이므로 최소 사양을 확정하지 않았습니다.
+Windows 11, Ryzen 9 7900X, RTX 3060, 메모리 32GB PC에서 실행을 확인했습니다.
+다른 PC에서는 아직 확인하지 않아 최소 사양은 정하지 않았습니다.
 저장소가 비공개인 동안에는 초대받은 계정으로 로그인해야 다운로드할 수 있습니다.
 
 ## 실행이 안 될 때

@@ -248,8 +248,8 @@ foreach ($requiredReadmeToken in @(
 	'Docs/Media/readme/p1-meter-cabinet.webp',
 	'Docs/PLAYING.md',
 	'## 조작',
-	'## 접근성',
-	'## 직접 해 보기'
+	'## 난이도와 설정',
+	'## 다운로드'
 )) {
 	if (-not $readme.Contains($requiredReadmeToken)) {
 		throw "README product overview is missing: $requiredReadmeToken"
@@ -269,8 +269,10 @@ $readmeMediaReferences = @(
 		Sort-Object -Unique
 )
 foreach ($readmeMediaReference in $readmeMediaReferences) {
+	# 문서 안의 제목으로 가는 링크는 # 앞의 파일 경로만 확인한다.
+	$readmeFilePath = $readmeMediaReference.Split('#')[0]
 	if (-not (Test-Path -LiteralPath (
-		Join-Path $projectRoot $readmeMediaReference) -PathType Leaf)) {
+		Join-Path $projectRoot $readmeFilePath) -PathType Leaf)) {
 		throw "README media or document link is missing: $readmeMediaReference"
 	}
 }
