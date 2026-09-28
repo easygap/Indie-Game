@@ -655,6 +655,18 @@ private:
 	void ApplyStreetNightLevel(bool bNight);
 
 	/**
+	 * §11 V1 ③ 세대 문틈 누광. 그 시간 401호는 라디오를 끄고 불만 켠 채 벽
+	 * 소리를 듣는다. 작년 7월 29일 새벽 벽에 같은 리듬으로 대답한 사람이다(§3.5).
+	 * 문 아래로 따뜻한 줄 하나와 바닥에 번지는 빛이 새고, 유담이 문 앞에 서면
+	 * 안쪽에서 발 그림자가 그 줄을 끊는다. 밤마다 한 번, 문 너머로 확인하는 순간이다.
+	 */
+	void SetUnit401GapLit(bool bLit);
+	void PollUnit401GapVisitor();
+	void AdvanceUnit401GapBeat();
+	/** 문틈 줄을 칸으로 나눠 발이 선 자리만 가린다. First < 0이면 전부 켠다. */
+	void SetUnit401GapShadow(int32 FirstSegment, int32 SegmentCount);
+
+	/**
 	 * 카메라가 있는 층에서 보일 수 없는 공간의 광원을 끈다. 4층의 창은 모두
 	 * 불투명한 원경이라 바깥 빛이 들어오지 않고, 계단의 층 압축은 모퉁이 뒤라
 	 * 로비가 보이지 않는다. 세기(연출)는 건드리지 않고 표시 여부만 바꾼다.
@@ -667,6 +679,14 @@ private:
 	TArray<TWeakObjectPtr<class ULightComponent>> ZoneLights[static_cast<int32>(EIGLightZone::Count)];
 	int32 ActiveLightBand = -1;
 	FTimerHandle LightZoneTimer;
+
+	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> Unit401GapSegments;
+	UPROPERTY(Transient) TObjectPtr<class URectLightComponent> Unit401GapLight;
+	FTimerHandle Unit401GapPollTimer;
+	FTimerHandle Unit401GapBeatTimer;
+	float Unit401GapLightIntensity = 0.0f;
+	int32 Unit401GapBeatStep = 0;
+	bool bUnit401GapBeatPlayed = false;
 
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> DegradedCorridorLight;
 	UPROPERTY(Transient) TObjectPtr<class AIGStoreClerk> StoreClerk;
@@ -719,6 +739,13 @@ private:
 	float DeskSurfaceWorldZ = 0.0f;
 
 	FTimerHandle CorridorFlickerHandle;
+	/**
+	 * 위층 사람이 죽어 가는 서쪽 등에 얼마나 가까운지(0~1). 두드리거나 쫓으면
+	 * 더 올라간다. 등이 끊기는 빈도가 이 값을 따른다 — 그 시간에만 쓴다.
+	 */
+	float ComputeListenerNearness();
+	TWeakObjectPtr<class AIGListenerEntity> CachedListener;
+	double NextListenerSearchSeconds = 0.0;
 	float DegradedLightBaseIntensity = 850.0f;
 	uint32 FlickerHashCounter = 0;
 	int32 PlayerPositionAttempts = 0;

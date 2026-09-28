@@ -15,6 +15,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Environment/IGSettledDustComponent.h"
 #include "Components/PointLightComponent.h"
+#include "Components/RectLightComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Components/SkyAtmosphereComponent.h"
 #include "Components/SkyLightComponent.h"
@@ -28,6 +29,7 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Environment/IGNeighborhoodLifeDirector.h"
+#include "Entity/IGListenerEntity.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
 #include "IndieGame.h"
@@ -2748,6 +2750,46 @@ void AIGPrologueWorldScene::BuildCorridor()
 			FVector(DoorX, -236, 214), FVector(16, 2, 8),
 			TexMat(NeighborPlates[NeighborIndex], FridgeInteriorMaterial), false);
 	}
+
+	// 401호 문 아래로 새는 불빛(§11 V1 ③). 문짝 앞면은 Y -237.35이고 바닥까지
+	// 내려온다. 그 끝에 0.9 cm 빛줄을 여덟 칸으로 나눠 붙인다 — 칸을 하나씩
+	// 끌 수 있어야 안쪽에 선 발이 줄을 끊는 것처럼 보인다. 바닥으로 번지는 빛은
+	// 문틈 높이의 면광원이 맡는다. 그림자를 드리우므로 문 앞을 지나는 몸이
+	// 번진 빛을 실제로 가린다. 낮에는 둘 다 꺼 둔다.
+	Unit401GapSegments.Reset();
+	for (int32 Segment = 0; Segment < 8; ++Segment)
+	{
+		UStaticMeshComponent* GapSegment = CreateBlock(
+			FVector(-185.0f + Segment * 10.0f, -237.45f, 0.6f), FVector(10.0f, 0.1f, 0.9f),
+			StreetLampGlowMaterial, false);
+		GapSegment->SetCastShadow(false);
+		GapSegment->SetVisibility(false);
+		Unit401GapSegments.Add(GapSegment);
+	}
+	Unit401GapLight = NewObject<URectLightComponent>(this, TEXT("Unit401GapLight"));
+	Unit401GapLight->SetupAttachment(ActiveParent ? ActiveParent.Get() : SceneRoot.Get());
+	Unit401GapLight->SetMobility(EComponentMobility::Movable);
+	Unit401GapLight->SetRelativeLocation(FVector(-150.0f, -237.8f, 1.5f));
+	// 면광원은 +X를 비춘다. 복도 쪽(-Y)으로 돌리고 40도 숙인다. 바닥과 나란히
+	// 비추면 빛이 타일에 스치기만 해서 번진 자리가 안 생기고 줄만 LED처럼 남았다.
+	// 실제 문틈 빛은 방 바닥과 천장에서 되튄 빛이 틈을 비스듬히 빠져나와 문 앞
+	// 한 뼘에 부채꼴로 고인다.
+	Unit401GapLight->SetRelativeRotation(FRotator(-40.0f, -90.0f, 0.0f));
+	Unit401GapLight->SetSourceWidth(80.0f);
+	Unit401GapLight->SetSourceHeight(1.0f);
+	Unit401GapLight->SetAttenuationRadius(170.0f);
+	Unit401GapLight->SetMaxDrawDistance(1600.0f);
+	// 전구색. 복도에 남은 형광등(청백)과 온도가 달라야 문 아래가 따로 읽힌다.
+	Unit401GapLight->SetLightColor(FLinearColor(1.0f, 0.70f, 0.40f));
+	Unit401GapLight->SetCastShadows(true);
+	Unit401GapLight->SetVolumetricScatteringIntensity(0.0f);
+	Unit401GapLight->SetIntensity(0.0f);
+	Unit401GapLight->RegisterComponent();
+	ZoneLights[static_cast<int32>(EIGLightZone::FourthFloor)].Add(Unit401GapLight);
+	// 단위 없는 값 625가 1 cd다. 160은 0.26 cd로, 밤에 남는 서쪽 등(0.52 cd)의
+	// 절반이다. 그래야 등 아래에서도 문 앞 한 뼘만 따뜻하게 읽힌다.
+	Unit401GapLightIntensity = 160.0f;
+
 	// Our 403 door casing and plate around the real swing door; the leaf
 	// itself is the AIGSwingDoor actor, which dresses its own face.
 	if (UStaticMesh* WideFrame = PropMesh(TEXT("SM_UnitDoorFrameWide")))
@@ -3167,6 +3209,7 @@ void AIGPrologueWorldScene::ApplyNightAtmosphere(const bool bSealed)
 		HeightFog->SetVolumetricFogScatteringDistribution(bSealed ? 0.35f : 0.55f);
 		HeightFog->SetVolumetricFogExtinctionScale(bSealed ? 1.8f : 1.0f);
 	}
+	SetUnit401GapLit(bSealed);
 	if (PostProcess)
 	{
 		// 카메라 룩. 밤은 어둠을 들어 올리지 않고, 가장자리가 흐려지고 색이 빠진다.
@@ -3305,6 +3348,121 @@ void AIGPrologueWorldScene::HandleStairTransitionForLights(bool /*bGoingDown*/)
 	// 암전 속에서 순간이동이 끝난 프레임에 바로 맞춘다. 0.1초 주기를 기다리면
 	// 밝아지는 동안 한두 프레임 옛 층의 등으로 그려질 수 있다.
 	UpdateLightZones();
+}
+
+void AIGPrologueWorldScene::SetUnit401GapLit(const bool bLit)
+{
+	FTimerManager& Timers = GetWorldTimerManager();
+	Timers.ClearTimer(Unit401GapBeatTimer);
+	Timers.ClearTimer(Unit401GapPollTimer);
+	Unit401GapBeatStep = 0;
+	SetUnit401GapShadow(-1, 0);
+	for (UStaticMeshComponent* Segment : Unit401GapSegments)
+	{
+		if (Segment)
+		{
+			Segment->SetVisibility(bLit);
+		}
+	}
+	if (Unit401GapLight)
+	{
+		Unit401GapLight->SetIntensity(bLit ? Unit401GapLightIntensity : 0.0f);
+	}
+	if (!bLit)
+	{
+		return;
+	}
+	// 그 시간이 다시 시작하면(포획 뒤 04:30 포함) 한 번 더 볼 수 있다.
+	bUnit401GapBeatPlayed = false;
+	Timers.SetTimer(
+		Unit401GapPollTimer, this, &ThisClass::PollUnit401GapVisitor, 0.25f, true);
+}
+
+void AIGPrologueWorldScene::PollUnit401GapVisitor()
+{
+	// 캡처·광량 검사·밤1 연출이 복도 등을 쥐고 있을 때는 같은 이유로 비킨다.
+	// 측정 중에 문 아래 빛이 꺼지면 같은 지점이 매번 다른 값을 낸다.
+	if (bUnit401GapBeatPlayed || bCorridorFlickerSuspended || !Unit401GapLight)
+	{
+		return;
+	}
+	const APlayerController* Controller =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	const APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
+	if (!Pawn)
+	{
+		return;
+	}
+	const FVector Offset =
+		Pawn->GetActorLocation() - Unit401GapLight->GetComponentLocation();
+	// 문 앞 2.2 m, 같은 층. 문을 두드리지 않고 지나가기만 해도 안에서는 안다.
+	if (FVector2D(Offset.X, Offset.Y).Size() > 220.0f || FMath::Abs(Offset.Z) > 150.0f)
+	{
+		return;
+	}
+	bUnit401GapBeatPlayed = true;
+	Unit401GapBeatStep = 0;
+	AdvanceUnit401GapBeat();
+}
+
+void AIGPrologueWorldScene::AdvanceUnit401GapBeat()
+{
+	if (!Unit401GapLight)
+	{
+		return;
+	}
+	// 발 둘이 문 앞에 멈추고, 한 번 무게를 옮기고, 불이 꺼진다. 한참 뒤 다시
+	// 켜질 때는 아무도 서 있지 않다. 소리는 내지 않는다 — 문 너머에서 숨죽인
+	// 사람이 낼 소리가 없다.
+	float NextSeconds = 0.0f;
+	switch (Unit401GapBeatStep++)
+	{
+	case 0:
+		SetUnit401GapShadow(3, 2);
+		Unit401GapLight->SetIntensity(Unit401GapLightIntensity * 0.72f);
+		NextSeconds = 1.6f;
+		break;
+	case 1:
+		SetUnit401GapShadow(2, 2);
+		Unit401GapLight->SetIntensity(Unit401GapLightIntensity * 0.70f);
+		NextSeconds = 1.3f;
+		break;
+	case 2:
+		for (UStaticMeshComponent* Segment : Unit401GapSegments)
+		{
+			if (Segment)
+			{
+				Segment->SetVisibility(false);
+			}
+		}
+		Unit401GapLight->SetIntensity(0.0f);
+		NextSeconds = 7.5f;
+		break;
+	case 3:
+		SetUnit401GapShadow(-1, 0);
+		Unit401GapLight->SetIntensity(Unit401GapLightIntensity);
+		return;
+	default:
+		return;
+	}
+	GetWorldTimerManager().SetTimer(
+		Unit401GapBeatTimer, this, &ThisClass::AdvanceUnit401GapBeat, NextSeconds, false);
+}
+
+void AIGPrologueWorldScene::SetUnit401GapShadow(
+	const int32 FirstSegment,
+	const int32 SegmentCount)
+{
+	for (int32 Index = 0; Index < Unit401GapSegments.Num(); ++Index)
+	{
+		if (UStaticMeshComponent* Segment = Unit401GapSegments[Index])
+		{
+			const bool bBlocked = FirstSegment >= 0
+				&& Index >= FirstSegment
+				&& Index < FirstSegment + SegmentCount;
+			Segment->SetVisibility(!bBlocked);
+		}
+	}
 }
 
 FVector AIGPrologueWorldScene::GetCorridorFixtureLocation(const int32 Index) const
@@ -4250,6 +4408,45 @@ FVector AIGPrologueWorldScene::GetFridgeLocation() const
 		: IGPrologueWorld::FridgeLocation;
 }
 
+float AIGPrologueWorldScene::ComputeListenerNearness()
+{
+	if (!bTheHourSealed || !DegradedCorridorLight || !GetWorld())
+	{
+		return 0.0f;
+	}
+	if (!CachedListener.IsValid() && GetWorld()->GetTimeSeconds() >= NextListenerSearchSeconds)
+	{
+		NextListenerSearchSeconds = GetWorld()->GetTimeSeconds() + 1.0;
+		for (TActorIterator<AIGListenerEntity> It(GetWorld()); It; ++It)
+		{
+			CachedListener = *It;
+			break;
+		}
+	}
+	const AIGListenerEntity* Listener = CachedListener.Get();
+	if (!Listener || Listener->IsDormant() || Listener->IsHidden())
+	{
+		return 0.0f;
+	}
+	constexpr float Reach = 650.0f;
+	const float Distance = FVector::Dist(
+		Listener->GetActorLocation(), DegradedCorridorLight->GetComponentLocation());
+	float Near = FMath::Clamp(1.0f - Distance / Reach, 0.0f, 1.0f);
+	if (Distance < Reach * 1.3f)
+	{
+		const EIGListenerState State = Listener->GetListenerState();
+		if (State == EIGListenerState::Banging)
+		{
+			Near = FMath::Min(1.0f, Near + 0.35f);
+		}
+		else if (State == EIGListenerState::Chasing)
+		{
+			Near = FMath::Min(1.0f, Near + 0.5f);
+		}
+	}
+	return Near;
+}
+
 void AIGPrologueWorldScene::HandleCorridorFlicker()
 {
 	// A chapter that owns the corridor lighting suspends this. The timer runs
@@ -4281,8 +4478,11 @@ void AIGPrologueWorldScene::HandleCorridorFlicker()
 	const float Uniform = (Hash & 0xFFFF) / 65535.0f;
 	const float DropoutRoll = ((Hash >> 16) & 0xFFFF) / 65535.0f;
 	// 밤에는 낙하가 잦고 더 깊다. 안정기가 다 된 등은 어둠 속에서 더 자주 죽는다.
-	const float DropoutChance = bTheHourSealed ? 0.09f : 0.05f;
-	const float DropoutFloor = bTheHourSealed ? 0.06f : 0.12f;
+	// 그가 등 가까이 오면 더 자주, 더 깊이 죽는다. 두드리거나 쫓는 동안은 더하다.
+	// 같은 규칙이 매번 같게 작동해야 플레이어가 등을 보고 거리를 읽는다.
+	const float Near = ComputeListenerNearness();
+	const float DropoutChance = (bTheHourSealed ? 0.09f : 0.05f) + 0.30f * Near;
+	const float DropoutFloor = (bTheHourSealed ? 0.06f : 0.12f) * (1.0f - 0.8f * Near);
 	const float Multiplier =
 		DropoutRoll < DropoutChance ? DropoutFloor : (0.86f + 0.20f * Uniform);
 	DegradedCorridorLight->SetIntensity(
