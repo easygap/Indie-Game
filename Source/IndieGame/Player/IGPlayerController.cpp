@@ -132,6 +132,9 @@ namespace IGAudioCalibration
 		Count
 	};
 	constexpr int32 RowCount = ERow::Count;
+	static_assert(
+		RowCount == IGSettingsMenuLayout::AudioCalibrationRowCount,
+		"소리와 밝기 행 이름과 화면의 줄 수가 어긋났다");
 	constexpr int32 MusicStepCount = 5;
 	constexpr int32 AmbienceStepCount = 5;
 	// 음악은 0까지 내려간다. 작가가 얹은 것이라 없어도 사건은 남는다.
@@ -4155,25 +4158,17 @@ void AIGPlayerController::UpdateMenuPointerHover()
 	}
 	if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
 	{
-		const float CalibrationScale = FMath::Clamp(
-			FMath::Min(
-				ViewportHeight / 1080.0f,
-				ViewportWidth / 1920.0f),
-			0.67f,
-			2.0f);
-		const float PanelHeight = FMath::Min(
-			ViewportHeight * 0.70f,
-			690.0f * CalibrationScale);
-		const float PanelTop =
-			(ViewportHeight - PanelHeight) * 0.5f + 12.0f * CalibrationScale;
-		const float RowStart =
-			PanelTop + PanelHeight - 224.0f * CalibrationScale;
+		// HUD가 그리는 줄과 같은 치수를 쓴다. 따로 적어 두었다가 두 줄 어긋났었다.
+		const IGSettingsMenuLayout::FAudioCalibrationMetrics Layout =
+			IGSettingsMenuLayout::MakeAudioCalibrationMetrics(
+				ViewportWidth,
+				ViewportHeight);
 		if (TryGetMenuRowFromPointer(
 				IGAudioCalibration::RowCount,
-				RowStart,
+				Layout.RowTop + Layout.RowCenterOffset,
 				0.0f,
-				42.0f * CalibrationScale,
-				42.0f * CalibrationScale,
+				Layout.RowSpacing,
+				Layout.RowSpacing,
 				0.0f,
 				Row)
 			&& AudioCalibrationSelection != Row)
@@ -4253,25 +4248,17 @@ bool AIGPlayerController::HandleMenuPointerClick()
 	}
 	if (SystemMenuMode == EIGSystemMenuMode::AudioCalibration)
 	{
-		const float CalibrationScale = FMath::Clamp(
-			FMath::Min(
-				ViewportHeight / 1080.0f,
-				ViewportWidth / 1920.0f),
-			0.67f,
-			2.0f);
-		const float PanelHeight = FMath::Min(
-			ViewportHeight * 0.70f,
-			690.0f * CalibrationScale);
-		const float PanelTop =
-			(ViewportHeight - PanelHeight) * 0.5f + 12.0f * CalibrationScale;
-		const float RowStart =
-			PanelTop + PanelHeight - 224.0f * CalibrationScale;
+		// HUD가 그리는 줄과 같은 치수를 쓴다. 따로 적어 두었다가 두 줄 어긋났었다.
+		const IGSettingsMenuLayout::FAudioCalibrationMetrics Layout =
+			IGSettingsMenuLayout::MakeAudioCalibrationMetrics(
+				ViewportWidth,
+				ViewportHeight);
 		if (TryGetMenuRowFromPointer(
 			IGAudioCalibration::RowCount,
-			RowStart,
+			Layout.RowTop + Layout.RowCenterOffset,
 			0.0f,
-			42.0f * CalibrationScale,
-			42.0f * CalibrationScale,
+			Layout.RowSpacing,
+			Layout.RowSpacing,
 			0.0f,
 			Row))
 		{

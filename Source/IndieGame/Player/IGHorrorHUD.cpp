@@ -5131,16 +5131,11 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		return;
 	}
 	const bool bKorean = SupportsKorean();
-	const float Scale = FMath::Clamp(
-		FMath::Min(Canvas->ClipY / 1080.0f, Canvas->ClipX / 1920.0f),
-		0.67f,
-		2.0f);
-	const FVector2D PanelSize(
-		FMath::Min(Canvas->ClipX * 0.76f, 980.0f * Scale),
-		FMath::Min(Canvas->ClipY * 0.70f, 690.0f * Scale));
-	const FVector2D PanelOrigin(
-		(Canvas->ClipX - PanelSize.X) * 0.5f,
-		(Canvas->ClipY - PanelSize.Y) * 0.5f + 12.0f * Scale);
+	const IGSettingsMenuLayout::FAudioCalibrationMetrics Layout =
+		IGSettingsMenuLayout::MakeAudioCalibrationMetrics(Canvas->ClipX, Canvas->ClipY);
+	const float Scale = Layout.Scale;
+	const FVector2D PanelSize = Layout.PanelSize;
+	const FVector2D PanelOrigin = Layout.PanelPosition;
 
 	DrawRoundedHudSurface(
 		PanelOrigin,
@@ -5159,8 +5154,8 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		Canvas->DrawItem(Wall);
 	}
 	FCanvasTileItem Divider(
-		PanelOrigin + FVector2D(PanelSize.X * 0.50f, 122.0f * Scale),
-		FVector2D(1.0f, PanelSize.Y - 168.0f * Scale),
+		FVector2D(PanelOrigin.X + PanelSize.X * 0.50f, Layout.DividerTop),
+		FVector2D(1.0f, Layout.DividerBottom - Layout.DividerTop),
 		FLinearColor(0.42f, 0.45f, 0.45f, 0.24f));
 	Divider.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem(Divider);
@@ -5290,8 +5285,11 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 			? bKorean ? TEXT("저장하고 시작하기") : TEXT("SAVE AND CONTINUE")
 			: bKorean ? TEXT("저장하고 돌아가기") : TEXT("SAVE AND BACK")
 	};
-	const float RowStartY = PanelOrigin.Y + PanelSize.Y - 308.0f * Scale;
-	const float RowSpacing = 42.0f * Scale;
+	static_assert(
+		UE_ARRAY_COUNT(Labels) == IGSettingsMenuLayout::AudioCalibrationRowCount,
+		"소리와 밝기 줄 수가 마우스 판정과 어긋났다");
+	const float RowStartY = Layout.RowTop;
+	const float RowSpacing = Layout.RowSpacing;
 	for (int32 Row = 0; Row < UE_ARRAY_COUNT(Labels); ++Row)
 	{
 		const bool bSelected = Row == AudioCalibrationSelectedRow;
@@ -5335,7 +5333,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 					"배경 음악과 환경음만 바뀝니다. 노크와 적의 소리는 전체 소리에서 조절하세요.")
 				: FText::FromString(
 					TEXT("THESE SLIDERS CHANGE MUSIC AND AMBIENCE. MASTER VOLUME ALSO CHANGES KNOCKS AND ENEMIES.")),
-			PanelOrigin.Y + PanelSize.Y - 52.0f * Scale,
+			Layout.NoteTop,
 			IGHorrorHUD::PaleGray,
 			EIGHudTextRole::Hint,
 			0.78f * Scale);
@@ -5355,7 +5353,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 					bSystemMenuHeadphoneOutput
 						? TEXT("SPATIAL AUDIO FOR HEADPHONES.")
 						: TEXT("SPEAKERS BLUR UP AND DOWN. SUBTITLES WILL NAME THE DIRECTION.")),
-			PanelOrigin.Y + PanelSize.Y - 52.0f * Scale,
+			Layout.NoteTop,
 			IGHorrorHUD::PaleGray,
 			EIGHudTextRole::Hint,
 			0.78f * Scale);
@@ -5373,7 +5371,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 				bUsingGamepad
 					? TEXT("D-PAD SELECT + ADJUST  |  A APPLY  |  B CANCEL")
 					: TEXT("ARROWS/WASD ADJUST  |  ENTER APPLY  |  ESC CANCEL  |  MOUSE SELECT")),
-		PanelOrigin.Y + PanelSize.Y - 26.0f * Scale,
+		Layout.FooterTop,
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint,
 		0.78f * Scale);

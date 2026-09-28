@@ -140,6 +140,64 @@ namespace IGSettingsMenuLayout
 		return Result;
 	}
 
+	/**
+	 * 소리와 밝기 화면. 그리는 쪽(HUD)과 마우스로 줄을 고르는 쪽(컨트롤러)이
+	 * 같은 숫자를 봐야 한다. 배경 음악·환경음 두 줄을 넣을 때 HUD만 두 줄
+	 * 올리고 마우스 판정은 그대로 둬서, 「환경음」을 가리키면 「전체 소리」가
+	 * 골라지고 있었다.
+	 */
+	constexpr int32 AudioCalibrationRowCount = 7;
+
+	struct FAudioCalibrationMetrics
+	{
+		float Scale = 1.0f;
+		FVector2D PanelPosition = FVector2D::ZeroVector;
+		FVector2D PanelSize = FVector2D::ZeroVector;
+		/** 위쪽 두 칸(노크·어두운 화면)을 가르는 세로선. 메뉴 줄 위에서 멈춘다. */
+		float DividerTop = 0.0f;
+		float DividerBottom = 0.0f;
+		/** 첫 메뉴 줄 글자의 윗변. */
+		float RowTop = 0.0f;
+		float RowSpacing = 42.0f;
+		/** 글자 윗변에서 줄 가운데까지. 마우스 판정은 가운데를 기준으로 잡는다. */
+		float RowCenterOffset = 12.0f;
+		/** 고른 줄의 설명 한 줄. 마지막 메뉴 줄과 조작 안내 사이에 선다. */
+		float NoteTop = 0.0f;
+		float FooterTop = 0.0f;
+	};
+
+	inline FAudioCalibrationMetrics MakeAudioCalibrationMetrics(
+		const float ViewportWidth,
+		const float ViewportHeight)
+	{
+		FAudioCalibrationMetrics Result;
+		Result.Scale = FMath::Clamp(
+			FMath::Min(ViewportHeight / 1080.0f, ViewportWidth / 1920.0f),
+			0.67f,
+			2.0f);
+		const float Scale = Result.Scale;
+		Result.PanelSize = FVector2D(
+			FMath::Min(ViewportWidth * 0.76f, 980.0f * Scale),
+			FMath::Min(ViewportHeight * 0.70f, 690.0f * Scale));
+		Result.PanelPosition = FVector2D(
+			(ViewportWidth - Result.PanelSize.X) * 0.5f,
+			(ViewportHeight - Result.PanelSize.Y) * 0.5f + 12.0f * Scale);
+		// 아래에서부터 쌓는다. 조작 안내, 설명 한 줄, 메뉴 일곱 줄 순서다.
+		// 설명이 마지막 메뉴 줄과 같은 높이에 그려져 「저장하고 돌아가기」를
+		// 덮던 자리를 이렇게 떼어 놓았다.
+		const float PanelBottom = Result.PanelPosition.Y + Result.PanelSize.Y;
+		Result.FooterTop = PanelBottom - 34.0f * Scale;
+		Result.NoteTop = PanelBottom - 64.0f * Scale;
+		Result.RowSpacing = 42.0f * Scale;
+		Result.RowCenterOffset = 12.0f * Scale;
+		Result.RowTop = PanelBottom - 352.0f * Scale;
+		Result.DividerTop = Result.PanelPosition.Y + 122.0f * Scale;
+		Result.DividerBottom = FMath::Min(
+			Result.PanelPosition.Y + 324.0f * Scale,
+			Result.RowTop - 12.0f * Scale);
+		return Result;
+	}
+
 	inline FCategoryRange GetDisplayCategory(const int32 Category)
 	{
 		switch (Category)
