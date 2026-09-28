@@ -2244,6 +2244,23 @@ void AIGPrologueWorldScene::BuildApartment()
 		CreateBlock(FVector(40, -196.2f, 188), FVector(70, 1.5f, 3), PlasticDarkMaterial, false);
 	}
 	CreateBlock(FVector(-70, -212.5f, 32), FVector(7, 2, 11), FridgeInteriorMaterial, false);
+	// 7월 말이면 어느 집에나 꽂혀 있는 액체 전자모기향. 침대 머리맡 협탁 위 콘센트에
+	// 꽂혀 있고, 불 끈 방에서 주황 점 하나가 밤새 켜져 있다(§11 V1 ④ 기기 LED).
+	// 본체는 콘센트 판에 붙고 약병이 그 아래로 매달린다. 스탠드 갓이 Y -15~-25에
+	// 걸려 있어 그보다 책상 쪽에 둔다.
+	CreateBlock(FVector(-189, -48, 75), FVector(2, 7, 11), FridgeInteriorMaterial, false);
+	CreateBlock(FVector(-185.5f, -48, 77), FVector(5, 5.5f, 7.5f), FridgeInteriorMaterial, false);
+	CreateBlock(FVector(-186, -48, 70.25f), FVector(3.2f, 3.2f, 6), GlassMaterial, false, CylinderMesh);
+	UMaterialInterface* RepellentLedMaterial = LoadObject<UMaterialInterface>(
+		nullptr, TEXT("/Game/Prototype/Materials/M_PumpIndicator.M_PumpIndicator"));
+	if (RepellentLedMaterial)
+	{
+		UStaticMeshComponent* RepellentLed = CreateBlock(
+			FVector(-182.95f, -48, 79), FVector(0.1f, 0.4f, 0.4f), RepellentLedMaterial, false);
+		UMaterialInstanceDynamic* Led = RepellentLed->CreateAndSetMaterialInstanceDynamic(0);
+		Led->SetVectorParameterValue(TEXT("Tint"), FLinearColor(0.9f, 0.28f, 0.04f));
+		Led->SetScalarParameterValue(TEXT("Lit"), 3.0f);
+	}
 	CreateBlock(FVector(186.5f, 40, 32), FVector(2, 7, 11), FridgeInteriorMaterial, false);
 	// 현재 입주는 2025년 7월이다. 2024년 사건 자료와 방의 생활 달력을 구분한다.
 	const bool bCurrentStory = GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
