@@ -191,7 +191,6 @@ private:
 	void PlayHapticFeedback(float Intensity, float DurationSeconds) const;
 	/** Samples how dark it is where the player stands, for the stress model. */
 	float SampleAmbientDarkness() const;
-	void TryRequestGetUpFallback();
 	/** Footstep cadence and its noise report; runs whether or not the camera bobs. */
 	void UpdateFootsteps(float DeltaSeconds);
 	void UpdateCaptureFeedback(float DeltaSeconds);

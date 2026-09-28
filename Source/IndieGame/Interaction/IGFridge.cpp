@@ -586,14 +586,3 @@ void AIGFridge::ConfigureChapterState(
 	InspectionThought = InInspectionThought;
 }
 
-void AIGFridge::ResetForNewChapter()
-{
-	GetWorldTimerManager().ClearTimer(InspectionTimerHandle);
-	DoorAnimation = FIGDoorAnimation();
-	bDoorOpen = false;
-	bInspectionDone = false;
-	DoorPivot->SetRelativeRotation(FRotator::ZeroRotator);
-	SetActorTickEnabled(false);
-	SetInteractionEnabled(true);
-	UpdateHumIntensity();
-}

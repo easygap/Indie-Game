@@ -31,7 +31,6 @@
 #include "Player/IGHorrorHUD.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/IGPlayerController.h"
-#include "Sequence/IGWakeUpDirector.h"
 #include "Engine/GameViewportClient.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "Player/IGStressComponent.h"
@@ -8357,11 +8356,6 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		RequestExit(true);
 		return;
 	}
-	for (TActorIterator<AIGWakeUpDirector> It(GetWorld()); It; ++It)
-	{
-		It->RestoreStandingCheckpoint();
-		break;
-	}
 	Player->SetCameraMotionEnabled(false);
 	if (GEngine)
 	{
@@ -10009,17 +10003,6 @@ void AIGListenerGreyboxDirector::StartNightCapture()
 		return;
 	}
 
-	// Release the camera from the wake intro: the capture starts standing.
-	for (TActorIterator<AIGWakeUpDirector> It(World); It; ++It)
-	{
-		It->RestoreStandingCheckpoint();
-		if (!It->IsFreeRoam())
-		{
-			It->RequestStopAlarmFallback();
-			It->CompleteGettingUp();
-		}
-		break;
-	}
 	if (APlayerController* PlayerController = World->GetFirstPlayerController())
 	{
 		PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
@@ -10256,18 +10239,6 @@ void AIGListenerGreyboxDirector::StartHistogramSweep()
 	for (TActorIterator<AIGZoneTrigger> It(World); It; ++It) It->SetActorEnableCollision(false);
 	if (NightOneBeats) GetWorldTimerManager().ClearAllTimersForObject(NightOneBeats.Get());
 
-	// Same release as the capture tour: measure a standing player, not the wake
-	// intro's pinned camera.
-	for (TActorIterator<AIGWakeUpDirector> It(World); It; ++It)
-	{
-		It->RestoreStandingCheckpoint();
-		if (!It->IsFreeRoam())
-		{
-			It->RequestStopAlarmFallback();
-			It->CompleteGettingUp();
-		}
-		break;
-	}
 	if (APlayerController* PlayerController = World->GetFirstPlayerController())
 	{
 		PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);

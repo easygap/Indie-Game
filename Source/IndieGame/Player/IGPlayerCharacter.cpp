@@ -36,7 +36,6 @@
 #include "Player/IGPlayerController.h"
 #include "GameFramework/PlayerInput.h"
 #include "Player/IGStressComponent.h"
-#include "Sequence/IGWakeUpDirector.h"
 #include "Save/IGSaveSubsystem.h"
 
 namespace IGPlayerNoise
@@ -2455,10 +2454,6 @@ void AIGPlayerCharacter::BeginInteraction()
 		}
 
 		InteractionComponent->PressInteraction();
-		if (!InteractionComponent->GetFocusedActor())
-		{
-			TryRequestGetUpFallback();
-		}
 	}
 }
 
@@ -2506,34 +2501,3 @@ void AIGPlayerCharacter::EndInteraction()
 	}
 }
 
-void AIGPlayerCharacter::TryRequestGetUpFallback()
-{
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
-	// The wake-up must never soft-lock on aim: with nothing focused, Interact
-	// still silences the ringing alarm and then gets the player out of bed.
-	for (TActorIterator<AIGWakeUpDirector> It(World); It; ++It)
-	{
-		AIGWakeUpDirector* Director = *It;
-		if (!Director)
-		{
-			continue;
-		}
-
-		if (Director->GetWakeState() == EIGWakeState::AwaitAlarm)
-		{
-			Director->RequestStopAlarmFallback();
-			return;
-		}
-
-		if (Director->GetWakeState() == EIGWakeState::BedLocked)
-		{
-			Director->RequestGetUp();
-			return;
-		}
-	}
-}

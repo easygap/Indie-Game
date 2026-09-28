@@ -68,55 +68,6 @@ void AIGCheckoutCounter::SetVisualsHidden(const bool bInHidden)
 	ScreenMesh->SetHiddenInGame(bInHidden);
 }
 
-void AIGCheckoutCounter::ConfigureChapterPurchase(
-	const FGameplayTag InRequiredStateTag,
-	const FGameplayTag InPurchasedStateTag,
-	const FText& InInteractionPrompt,
-	const FText& InPurchaseThought)
-{
-	bRequiresPrimaryState = true;
-	bPlayRegisterPresentation = true;
-	if (InRequiredStateTag.IsValid())
-	{
-		RequiredStateTag = InRequiredStateTag;
-	}
-	if (InPurchasedStateTag.IsValid())
-	{
-		PurchasedStateTag = InPurchasedStateTag;
-	}
-	InteractionPrompt = InInteractionPrompt;
-	PurchaseThought = InPurchaseThought;
-}
-
-void AIGCheckoutCounter::ConfigureChapterAction(
-	const FGameplayTag InCompletedStateTag,
-	const FText& InInteractionPrompt,
-	const FText& InCompletionThought)
-{
-	bRequiresPrimaryState = false;
-	bPlayRegisterPresentation = false;
-	RequiredStateTag = FGameplayTag();
-	AdditionalRequiredStateTag = FGameplayTag();
-	if (InCompletedStateTag.IsValid())
-	{
-		PurchasedStateTag = InCompletedStateTag;
-	}
-	InteractionPrompt = InInteractionPrompt;
-	PurchaseThought = InCompletionThought;
-}
-
-void AIGCheckoutCounter::SetAdditionalRequiredState(
-	const FGameplayTag InRequiredStateTag)
-{
-	AdditionalRequiredStateTag = InRequiredStateTag;
-}
-
-void AIGCheckoutCounter::ResetForNewChapter()
-{
-	GetWorldTimerManager().ClearTimer(RegisterSoundTimerHandle);
-	SetInteractionEnabled(true);
-}
-
 void AIGCheckoutCounter::BeginPlay()
 {
 	Super::BeginPlay();
@@ -144,10 +95,7 @@ void AIGCheckoutCounter::BeginPlay()
 bool AIGCheckoutCounter::CanInteract_Implementation(AActor* Interactor) const
 {
 	return Super::CanInteract_Implementation(Interactor)
-		&& (!bRequiresPrimaryState
-			|| IGStory::HasState(this, RequiredStateTag))
-		&& (!AdditionalRequiredStateTag.IsValid()
-			|| IGStory::HasState(this, AdditionalRequiredStateTag))
+		&& IGStory::HasState(this, RequiredStateTag)
 		&& !IGStory::HasState(this, PurchasedStateTag);
 }
 
@@ -155,10 +103,7 @@ void AIGCheckoutCounter::CompleteInteraction_Implementation(const FIGInteraction
 {
 	Super::CompleteInteraction_Implementation(Context);
 
-	if ((bRequiresPrimaryState
-			&& !IGStory::HasState(this, RequiredStateTag))
-		|| (AdditionalRequiredStateTag.IsValid()
-			&& !IGStory::HasState(this, AdditionalRequiredStateTag))
+	if (!IGStory::HasState(this, RequiredStateTag)
 		|| IGStory::HasState(this, PurchasedStateTag))
 	{
 		return;
@@ -167,21 +112,17 @@ void AIGCheckoutCounter::CompleteInteraction_Implementation(const FIGInteraction
 	// Progression is committed immediately; the audio that follows is cosmetic.
 	IGStory::AddState(this, PurchasedStateTag);
 
-	if (bPlayRegisterPresentation)
-	{
-		const FVector RegisterLocation = RegisterMesh->GetComponentLocation();
-		IGAudio::SpawnOneShotAt(
-			this,
-			UIGToneSequenceSoundWave::CreateScannerBeep(this),
-			RegisterLocation,
-			0.9f);
-		GetWorldTimerManager().SetTimer(
-			RegisterSoundTimerHandle,
-			this,
-			&ThisClass::PlayRegisterTimerElapsed,
-			0.55f,
-			false);
-	}
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateScannerBeep(this),
+		RegisterMesh->GetComponentLocation(),
+		0.9f);
+	GetWorldTimerManager().SetTimer(
+		RegisterSoundTimerHandle,
+		this,
+		&ThisClass::PlayRegisterTimerElapsed,
+		0.55f,
+		false);
 
 	if (!PurchaseThought.IsEmpty())
 	{

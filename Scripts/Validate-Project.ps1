@@ -649,7 +649,6 @@ $reviewedTickingFiles = @(
 	# 전용 인자로만 생성한다. 실제 오디오 페이드와 충돌을 순서대로 확인한 뒤 종료한다.
 	# 일반 플레이에서는 생성하지 않으며, 후처리 Tick에서 같은 프레임의 상태를 읽는다.
 	'IGAudioPresentationProbe.cpp',
-	'IGWakeUpDirector.cpp',
 	'IGPlayerCharacter.cpp',
 	'IGPlayerController.cpp',
 	'IGFridge.cpp',

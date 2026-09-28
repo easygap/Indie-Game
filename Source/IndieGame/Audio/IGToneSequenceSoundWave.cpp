@@ -995,8 +995,8 @@ UIGToneSequenceSoundWave* UIGToneSequenceSoundWave::CreateAlarmFirstNote(UObject
 		IGToneSequence::NewWave(Outer, TEXT("IGAlarmFirstNote"));
 	TArray<FIGToneNote> AlarmNotes;
 
-	// One 140 ms pulse matching UIGAlarmSoundWave's first slot (880 Hz plus
-	// its quiet harmonic), so the intercepted call reads as the same clock.
+	// 머리맡 폰 알람의 첫 박. 880 Hz 140 ms에 작은 3배음을 얹는다. 밤마다
+	// 이 한 박으로 04:30이 시작된다.
 	AlarmNotes.Add({0.000f, 0.140f, 880.0f, 0.170f, 0.030f, 1.1f, EIGToneWaveform::Sine});
 	AlarmNotes.Add({0.000f, 0.140f, 2640.0f, 0.025f, 0.030f, 1.1f, EIGToneWaveform::Sine});
 

@@ -85,13 +85,6 @@ public:
 		FGameplayTag InInspectedStateTag,
 		const FText& InInspectionThought);
 
-	/**
-	 * Silently closes the door and clears the one-shot inspection latch.
-	 * Story-state removal is intentionally owned by the chapter director.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Fridge|Story")
-	void ResetForNewChapter();
-
 	UPROPERTY(BlueprintAssignable, Category = "Fridge|Events")
 	FIGFridgeInspectedSignature OnFridgeInspected;
 

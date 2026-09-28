@@ -7,7 +7,6 @@
 #include "IGHorrorHUD.generated.h"
 
 class AIGReadableNote;
-class AIGWakeUpDirector;
 class IIGObjectiveProvider;
 class UFont;
 class UTexture2D;
@@ -448,7 +447,6 @@ protected:
 
 private:
 	void ResolveInteractionComponent();
-	void ResolveDirectors();
 	void InitializeKoreanFont();
 	void InitializeFrontendMenuTextures();
 	void InitializeDialogueSurfaceTextures();
@@ -713,9 +711,7 @@ private:
 	TObjectPtr<UFont> KoreanPhoneMetaFont;
 
 	TWeakObjectPtr<UIGInteractionComponent> InteractionComponent;
-	TWeakObjectPtr<AIGWakeUpDirector> WakeDirector;
 	TWeakObjectPtr<UObject> ObjectiveProvider;
-	double NextDirectorSearchTime = 0.0;
 
 	TWeakObjectPtr<class UIGNoiseSubsystem> NoiseSubsystem;
 	FDelegateHandle NoiseReportedHandle;

@@ -32,12 +32,10 @@
 #include "Player/IGPlayerController.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Sequence/IGObjectiveProvider.h"
-#include "Sequence/IGWakeUpDirector.h"
 #include "UObject/UObjectGlobals.h"
 
 namespace IGHorrorHUD
 {
-	constexpr double DirectorSearchInterval = 2.0;
 	constexpr int32 HudRoundedMaskTextureSize = 64;
 	constexpr int32 MaximumDialogueQueueDepth = 6;
 	constexpr int32 MaximumAudioCaptionQueueDepth = 4;
@@ -265,11 +263,9 @@ void AIGHorrorHUD::BeginPlay()
 #endif
 
 	ResolveInteractionComponent();
-	ResolveDirectors();
 
 	if (UWorld* World = GetWorld())
 	{
-		NextDirectorSearchTime = World->GetTimeSeconds() + IGHorrorHUD::DirectorSearchInterval;
 		// The noise bus is a world subsystem, not a game-instance one: every
 		// other subsystem lookup in this file goes through the game instance
 		// and would silently return null here.
@@ -1802,13 +1798,6 @@ void AIGHorrorHUD::DrawHUD()
 	if (!InteractionComponent.IsValid())
 	{
 		ResolveInteractionComponent();
-	}
-
-	if ((!WakeDirector.IsValid() || !ObjectiveProvider.IsValid())
-		&& CurrentTime >= NextDirectorSearchTime)
-	{
-		ResolveDirectors();
-		NextDirectorSearchTime = CurrentTime + IGHorrorHUD::DirectorSearchInterval;
 	}
 
 	const UIGInteractionComponent* Interaction = InteractionComponent.Get();
@@ -6679,100 +6668,18 @@ void AIGHorrorHUD::ResolveInteractionComponent()
 		: nullptr;
 }
 
-void AIGHorrorHUD::ResolveDirectors()
-{
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
-	if (!WakeDirector.IsValid())
-	{
-		for (TActorIterator<AIGWakeUpDirector> It(World); It; ++It)
-		{
-			if (IsValid(*It))
-			{
-				WakeDirector = *It;
-				break;
-			}
-		}
-	}
-}
-
 FText AIGHorrorHUD::GetObjectiveText() const
 {
-	const AIGWakeUpDirector* Wake = WakeDirector.Get();
 	const IIGObjectiveProvider* Provider =
 		Cast<IIGObjectiveProvider>(ObjectiveProvider.Get());
-	if (!Wake)
-	{
-		// Later chapters retire the reusable wake director once the player is
-		// already standing. Their chapter director still owns the objective,
-		// so do not make that HUD line depend on a CH01/02-only actor.
-		return Provider ? Provider->GetObjectiveText() : FText::GetEmpty();
-	}
-
-	switch (Wake->GetWakeState())
-	{
-	case EIGWakeState::NotStarted:
-	case EIGWakeState::FadeIn:
-	case EIGWakeState::AwaitAlarm:
-		return NSLOCTEXT("IGHUD", "ObjAlarm", "알람을 끄자");
-
-	case EIGWakeState::BedLocked:
-	case EIGWakeState::GettingUp:
-		return NSLOCTEXT("IGHUD", "ObjGetUp", "몸을 일으키자");
-
-	case EIGWakeState::FreeRoam:
-	{
-		if (Provider)
-		{
-			// An empty objective can be intentional between story beats.
-			// Only use the generic exploration copy when no director exists.
-			return Provider->GetObjectiveText();
-		}
-		return NSLOCTEXT("IGHUD", "ObjExplore", "방 안을 둘러보자");
-	}
-
-	default:
-		return FText::GetEmpty();
-	}
+	return Provider ? Provider->GetObjectiveText() : FText::GetEmpty();
 }
 
 FString AIGHorrorHUD::GetObjectiveTextAscii() const
 {
-	const AIGWakeUpDirector* Wake = WakeDirector.Get();
 	const IIGObjectiveProvider* Provider =
 		Cast<IIGObjectiveProvider>(ObjectiveProvider.Get());
-	if (!Wake)
-	{
-		return Provider ? Provider->GetObjectiveTextAscii() : FString();
-	}
-
-	switch (Wake->GetWakeState())
-	{
-	case EIGWakeState::NotStarted:
-	case EIGWakeState::FadeIn:
-	case EIGWakeState::AwaitAlarm:
-		return TEXT("Alarm ringing: Turn off alarm");
-
-	case EIGWakeState::BedLocked:
-	case EIGWakeState::GettingUp:
-		return TEXT("Alarm stopped: Get up");
-
-	case EIGWakeState::FreeRoam:
-	{
-		if (Provider)
-		{
-			return Provider->GetObjectiveTextAscii();
-		}
-		return TEXT("Explore the room");
-	}
-
-	default:
-		return FString();
-	}
+	return Provider ? Provider->GetObjectiveTextAscii() : FString();
 }
 
 float AIGHorrorHUD::GetObjectiveProgress() const
