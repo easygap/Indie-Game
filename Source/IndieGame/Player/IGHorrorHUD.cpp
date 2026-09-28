@@ -6600,6 +6600,12 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			bKorean
 				? NSLOCTEXT("IGHUD", "CreditsProps", "일부 소품    Poly Haven · CC0")
 				: FText::FromString(TEXT("SELECT PROPS    POLY HAVEN · CC0")),
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsSounds", "일부 소리    OpenGameArt · Kenney · Owlish Media · CC0")
+				: FText::FromString(TEXT("SELECT SOUNDS    OPENGAMEART · KENNEY · OWLISH MEDIA · CC0")),
+			bKorean
+				? NSLOCTEXT("IGHUD", "CreditsFonts", "글꼴    Pretendard · 고운바탕 · SIL OFL")
+				: FText::FromString(TEXT("FONTS    PRETENDARD · GOWUN BATANG · SIL OFL")),
 			FText::FromString(TEXT("Copyright 2026 easygap. All rights reserved."))
 		};
 		for (int32 Line = 0; Line < UE_ARRAY_COUNT(CreditLines); ++Line)
