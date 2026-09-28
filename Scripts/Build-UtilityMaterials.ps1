@@ -49,6 +49,10 @@ foreach ($name in @('NightSkyline_D', 'NightSkyline_M', 'ApartmentNightVista_M')
 & python (Join-Path $PSScriptRoot 'build_annex_panel_texture.py')
 if ($LASTEXITCODE -ne 0) { throw '옥탑 패널 텍스처 가공 실패' }
 Copy-Item -LiteralPath (Join-Path $utilityRoot 'Content/SourceArt/AnnexPanel/AnnexSandwichPanel_D.png') -Destination $utilitySources -Force
+# 골목 이웃 창 뒤의 방 사진 네 장을 한 장으로 묶는다.
+& python (Join-Path $PSScriptRoot 'build_room_interior_atlas.py')
+if ($LASTEXITCODE -ne 0) { throw '방 사진 아틀라스 생성 실패' }
+Copy-Item -LiteralPath (Join-Path $utilityRoot 'Content/SourceArt/RoomInterior/RoomInteriors_D.png') -Destination $utilitySources -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'build_interior_materials.py') -Destination (Join-Path $utilityStage 'Scripts/build_interior_materials.py') -Force
 $utilityScript = Join-Path $utilityStage 'Scripts/build_utility_materials.py'
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'build_utility_materials.py') -Destination $utilityScript -Force
@@ -58,10 +62,10 @@ $utilityLog = Join-Path $utilityRoot 'Saved/Logs/UtilityMaterials.log'
 if ($LASTEXITCODE -ne 0 -or -not (Select-String -LiteralPath $utilityLog -Pattern 'UTILITY_MATERIALS PASS')) {
     throw "설비 재질 생성 실패: $utilityLog"
 }
-foreach ($name in @('M_ApartmentNightGlass', 'M_NightSkyline', 'M_NightSkyGlow', 'M_AnnexPanel', 'M_PumpIndicator', 'M_Stucco_X', 'M_Stucco_Y', 'M_StuccoCeil', 'M_StuccoDado_X', 'M_StuccoDado_Y', 'M_UtilityStreetBrick', 'M_UtilityVillaBrick', 'M_GraniteTile_XY', 'M_UtilityTankSteel', 'M_UtilityFoundation', 'M_UtilityGraniteCladding', 'M_UtilityConcreteDark', 'M_CctvStandby', 'M_UtilityMeterCounter', 'M_UtilityMeterLabel', 'M_BoothAgentNote', 'M_BoothReceipts', 'M_BoothCalendar', 'M_LobbyWaterNotice', 'M_LobbyContactNotice', 'M_LobbyMeterSheet', 'M_LobbyForumPrint', 'M_PumpProcedure')) {
+foreach ($name in @('M_ApartmentNightGlass', 'M_NightSkyline', 'M_NightSkyGlow', 'M_AnnexPanel', 'M_RoomInterior', 'M_PumpIndicator', 'M_Stucco_X', 'M_Stucco_Y', 'M_StuccoCeil', 'M_StuccoDado_X', 'M_StuccoDado_Y', 'M_UtilityStreetBrick', 'M_UtilityVillaBrick', 'M_GraniteTile_XY', 'M_UtilityTankSteel', 'M_UtilityFoundation', 'M_UtilityGraniteCladding', 'M_UtilityConcreteDark', 'M_CctvStandby', 'M_UtilityMeterCounter', 'M_UtilityMeterLabel', 'M_BoothAgentNote', 'M_BoothReceipts', 'M_BoothCalendar', 'M_LobbyWaterNotice', 'M_LobbyContactNotice', 'M_LobbyMeterSheet', 'M_LobbyForumPrint', 'M_PumpProcedure')) {
     Copy-Item -LiteralPath (Join-Path $utilityStage "Content/Prototype/Materials/$name.uasset") -Destination (Join-Path $utilityRoot 'Content/Prototype/Materials') -Force
 }
-foreach ($name in @('T_AnnexSandwichPanel_D', 'T_ApartmentNightVista_D', 'T_ApartmentNightVista_M', 'T_NightSkyline_D', 'T_NightSkyline_M', 'T_LandingPaint_20260915_D', 'T_UtilityTankSteel_D', 'T_CctvStandby_D', 'T_UtilityMeterCounter_D', 'T_UtilityMeterLabel_D', 'T_BoothAgentNote_D', 'T_BoothReceipts_D', 'T_BoothCalendar_D', 'T_LobbyWaterNotice_D', 'T_LobbyContactNotice_D', 'T_LobbyMeterSheet_D', 'T_LobbyForumPrint_D', 'T_PumpProcedure_D')) {
+foreach ($name in @('T_RoomInteriors_D', 'T_AnnexSandwichPanel_D', 'T_ApartmentNightVista_D', 'T_ApartmentNightVista_M', 'T_NightSkyline_D', 'T_NightSkyline_M', 'T_LandingPaint_20260915_D', 'T_UtilityTankSteel_D', 'T_CctvStandby_D', 'T_UtilityMeterCounter_D', 'T_UtilityMeterLabel_D', 'T_BoothAgentNote_D', 'T_BoothReceipts_D', 'T_BoothCalendar_D', 'T_LobbyWaterNotice_D', 'T_LobbyContactNotice_D', 'T_LobbyMeterSheet_D', 'T_LobbyForumPrint_D', 'T_PumpProcedure_D')) {
     $source = Join-Path $utilityStage "Content/Prototype/Textures/$name.uasset"
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $utilityRoot 'Content/Prototype/Textures') -Force }
 }

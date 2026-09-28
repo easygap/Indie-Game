@@ -1028,7 +1028,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_MissingFloorSteelStair"), TEXT("M_RooftopWaterproofing_XY"),
 		TEXT("M_MissingFloorGypsumDebris_XY"),
 		TEXT("M_WaterTankMetalUV"), TEXT("M_UtilityTankSteel"), TEXT("M_UtilityFoundation"), TEXT("M_UtilityGraniteCladding"), TEXT("M_UtilityConcreteDark"), TEXT("M_UtilityVillaBrick"), TEXT("M_UtilityStreetBrick"), TEXT("M_CctvStandby"), TEXT("M_UtilityMeterCounter"), TEXT("M_UtilityMeterLabel"), TEXT("M_TankWaterReveal"),
-		TEXT("M_ApartmentNightGlass"), TEXT("M_NightSkyline"), TEXT("M_NightSkyGlow"), TEXT("M_AnnexPanel"), TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
+		TEXT("M_ApartmentNightGlass"), TEXT("M_NightSkyline"), TEXT("M_NightSkyGlow"), TEXT("M_AnnexPanel"), TEXT("M_RoomInterior"), TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
 		TEXT("M_SpriteHwang"), TEXT("M_SpriteNarin"),
 		// Aged paper stock for readable notes, and the rental notice.
 		TEXT("M_PaperClean"), TEXT("M_PaperWet"), TEXT("M_PaperFolded"),
@@ -5283,15 +5283,19 @@ void AIGPrologueWorldScene::BuildAlley()
 	// gone — that facade already carries its full sash-frame-sill-railing grid
 	// for floors two to four, so a bare pane there was a second window drawn
 	// over the first.
+	// 유리 뒤에는 방이 있다. M_RoomInterior가 창마다 방 사진 한 장을 원근에 맞춰 펴고,
+	// 그 집이 깨어 있으면 불을 켠다(UpdateNeighborhoodAwake). 재질이 없으면 예전
+	// 어두운 유리다.
+	UMaterialInterface* RoomWindow = TexMat(TEXT("M_RoomInterior"), WindowDarkMaterial);
 	const float NorthWindowXs[] = {1000, 1700, 2100};
 	for (int32 WindowIndex = 0; WindowIndex < static_cast<int32>(UE_ARRAY_COUNT(NorthWindowXs)); ++WindowIndex)
 	{
 		const float OffsetZ = (WindowIndex % 2 == 0) ? 300.0f : 310.0f;
-		CreateBlock(
+		NightViewSurfaces.Add(CreateBlock(
 			FVector(NorthWindowXs[WindowIndex], -396, OffsetZ),
 			FVector(90, 4, 110),
-			WindowDarkMaterial,
-			false);
+			RoomWindow,
+			false));
 	}
 
 	// South side: opposing building lined with shuttered shops — the
@@ -5409,11 +5413,11 @@ void AIGPrologueWorldScene::BuildAlley()
 		const float OffsetZ = (WindowIndex % 2 == 0) ? 320.0f : 330.0f;
 		// Beds 1 cm into the brick face at Y -680 instead of hanging 2 cm
 		// clear of it.
-		CreateBlock(
+		NightViewSurfaces.Add(CreateBlock(
 			FVector(SouthWindowXs[WindowIndex], -679, OffsetZ),
 			FVector(80, 4, 90),
-			WindowDarkMaterial,
-			false);
+			RoomWindow,
+			false));
 	}
 
 	// West dead end.

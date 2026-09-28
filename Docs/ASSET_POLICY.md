@@ -646,3 +646,23 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 - 적용 경계: 5층 증축부 바깥 외피와 후레싱만 담당한다. 안쪽 석고와 문, 충돌은 기존 벽이
   그대로 맡는다
 - 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-09-28.md`, 원본 옆 JSON
+
+## 2026-09-28 골목 이웃 창 뒤의 방
+
+- 도구/모드: gpt-image 스킬(Codex 내장 image_gen, ChatGPT 구독 인증)
+- 보존 원본과 SHA-256:
+  - `Content/SourceArt/AI/RoomInteriorLamp_20260928.png`
+    `941BDCEF303A40F048B67180EAABF86CB663F2655CD3E019DA77EB6128B78E07`
+  - `Content/SourceArt/AI/RoomInteriorTv_20260928.png`
+    `6B536D6625CD29107EC7221EEE397A15914AD6AC34B6C6716AB15D913466F323`
+  - `Content/SourceArt/AI/RoomInteriorKitchen_20260928.png`
+    `B6FA42275AAEF41CFF085FA8174773C6BD19DA75A1C794DCFD08694B0FA8615F`
+  - `Content/SourceArt/AI/RoomInteriorStudy_20260928.png`
+    `236BC45D2BCD92967789414C6F6920D89E9DFE5038ABDC538385A954CCF48040`
+- 파생: `Content/SourceArt/RoomInterior/RoomInteriors_D.png`(2x2, 2048). `Scripts/build_room_interior_atlas.py`가 만든다
+- 런타임: `/Game/Prototype/Textures/T_RoomInteriors_D`, `/Game/Prototype/Materials/M_RoomInterior`. 좌표를 재질이
+  시선으로 계산하므로 스트리밍하지 않는다
+- 권리/참조: 참고 사진 없이 문장만으로 만든 가상의 방이다. 사람·읽을 수 있는 글자·상표가 없다
+- 적용 경계: 골목 이웃 건물의 창 여덟 개 뒤에서만 보인다. 들어갈 수 없는 방이고, 빌라 자기 앞면 창과
+  403호·복도 창은 쓰지 않는다
+- 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-09-28.md`, 원본마다 같은 이름의 JSON

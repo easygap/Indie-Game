@@ -176,6 +176,63 @@ def build_sky_glow():
     finish(mat)
 
 
+# 골목 이웃 건물의 창. 유리 뒤에 방이 있는 것처럼 보이게 한다(인테리어 매핑).
+# 방 한 칸은 창 밖 E cm 앞에서 정면으로 찍은 1점 투시 사진이다. 시선 광선이 깊이
+# L cm의 방 상자에서 옆벽·바닥·천장·뒷벽 중 어디에 닿는지 구하고, 그 점을 사진
+# 좌표로 다시 투영한다(bgolus의 원근 보정 2D 방식). 뒷벽이 사진 폭의 S를 차지하면
+# E = S·L/(1-S)다. 방 종류와 불 켜짐 문턱은 창 위치의 해시로 정하고, 깨어 있는 집(A)
+# 값을 원경과 같이 따른다. F가 1이면 언제나 켜져 있다.
+ROOM_INTERIOR = (
+    'float3 D = normalize(P - C);'
+    'float s = D.y >= 0.0 ? 1.0 : -1.0;'
+    # UE 5.8의 ObjectBounds는 월드 기준 절반 크기(BoxExtent)다. 다시 반으로 나누면 방이 반쪽이 된다.
+    'float a = max(B.x, 0.5); float b = max(B.z, 0.5);'
+    'float L = 320.0; float E = {S} / (1.0 - {S}) * L;'
+    'float x = clamp(P.x - O.x, -a, a); float y = clamp(P.z - O.z, -b, b);'
+    'float dx = D.x; float dy = D.z; float dz = max(abs(D.y), 0.0001);'
+    'float tx = abs(dx) > 0.00001 ? ((dx > 0.0 ? a : -a) - x) / dx : 100000.0;'
+    'float ty = abs(dy) > 0.00001 ? ((dy > 0.0 ? b : -b) - y) / dy : 100000.0;'
+    'float t = min(min(tx, ty), L / dz);'
+    'float hx = x + dx * t; float hy = y + dy * t; float hz = dz * t;'
+    'float k = E / (hz + E);'
+    'float2 uv = float2(0.5 - 0.5 * s * (hx / a) * k, 0.5 - 0.5 * (hy / b) * k);'
+    'float pick = frac(sin(dot(O.xz, float2(12.9898, 78.233))) * 43758.5453);'
+    'float room = min(floor(pick * 4.0), 3.0);'
+    'float2 cell = float2(fmod(room, 2.0), floor(room / 2.0));'
+    'float3 c = Tex.Sample(TexSampler, (cell + clamp(uv, 0.002, 0.998)) * 0.5).rgb;'
+    'float g = 0.02 + 0.98 * frac(sin(dot(O.xz, float2(39.346, 11.135))) * 24634.6345);'
+    'float lit = max(F, g <= A ? 1.0 : 0.0);'
+    'float tv = room == 1.0 ? 0.55 + 0.45 * frac(sin(floor(T * 9.0 + g * 40.0) * 12.9898) * 43758.5453) : 1.0;'
+    # 꺼진 방도 완전히 검지 않다. 바깥 불빛에 가구 윤곽이 희미하고, 유리에는 하늘과
+    # 가로등이 옅게 비친다. 비스듬히 볼수록 반사가 세다.
+    'float3 glassSheen = float3(0.020, 0.022, 0.028) + float3(0.05, 0.05, 0.055) * pow(1.0 - dz, 3.0);'
+    'return c * lerp(0.04, 0.85 * tv, lit) * float3(0.93, 0.96, 1.0) + glassSheen * (1.0 - 0.6 * lit);'
+)
+
+
+ROOM_BACK_WALL_FRACTION = 0.5
+
+
+def build_room_interior():
+    atlas = night_texture('RoomInteriors_D.png', 'T_RoomInteriors_D', True)
+    mat = start('M_RoomInterior')
+    mat.set_editor_property('shading_model', unreal.MaterialShadingModel.MSM_UNLIT)
+    # 네 사진의 뒷벽이 폭의 절반쯤을 차지한다(build_room_interior_atlas.py가 잰다).
+    code = ROOM_INTERIOR.format(S=ROOM_BACK_WALL_FRACTION)
+    look = custom(mat, code, ('P', 'C', 'O', 'B', 'A', 'F', 'T', 'Tex'),
+                  unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    link(node(mat, 'WorldPosition'), '', look, 'P')
+    link(node(mat, 'CameraPositionWS'), '', look, 'C')
+    link(node(mat, 'ObjectPositionWS'), '', look, 'O')
+    link(node(mat, 'ObjectBounds'), '', look, 'B')
+    link(primitive_scalar(mat, 'Awake', 0, 0.8), '', look, 'A')
+    link(primitive_scalar(mat, 'ForceLit', 1, 0.0), '', look, 'F')
+    link(node(mat, 'Time'), '', look, 'T')
+    link(node(mat, 'TextureObject', texture=atlas), '', look, 'Tex')
+    LIB.connect_material_property(look, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    finish(mat)
+
+
 def build_night_skyline():
     """옥상 사방의 원경. 방향마다 다른 그림을 세로 띠 한 장에 묶었다."""
     color = night_texture('NightSkyline_D.png', 'T_NightSkyline_D', True)
@@ -249,6 +306,7 @@ def build(texture_loader, material_library, asset_subsystem):
     finish(mat)
     build_night_skyline()
     build_sky_glow()
+    build_room_interior()
     mat=start('M_PumpIndicator')
     tint=node(mat,'VectorParameter',parameter_name='Tint',default_value=unreal.LinearColor(.02,.24,.04,1))
     strength=node(mat,'ScalarParameter',parameter_name='Lit',default_value=0.)
@@ -258,4 +316,4 @@ def build(texture_loader, material_library, asset_subsystem):
     LIB.connect_material_property(emission,'',unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     constant(mat,'ROUGHNESS',.26);constant(mat,'SPECULAR',.5)
     finish(mat)
-    unreal.log('INTERIOR_MATERIALS PASS materials=4')
+    unreal.log('INTERIOR_MATERIALS PASS materials=5')

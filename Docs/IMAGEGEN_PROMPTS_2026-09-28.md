@@ -68,3 +68,32 @@
 오래된 피스 구멍처럼 읽혀서 그대로 둔다.
 
 > Use case: texture generation for a real-time game. Create ONE seamless, tileable, perfectly front-facing diffuse albedo texture of the exterior wall of a cheap Korean rooftop extension built from factory-painted steel sandwich panels with an EPS core. The whole image is the wall surface and covers exactly 2000 mm wide by 1333 mm tall: two vertical panels side by side, each exactly 1000 mm wide, with the interlocking vertical panel joints exactly on the left image edge, the exact horizontal centre and the right image edge, so horizontal tiling joins perfectly. Off-white warm light grey paint over steel, very shallow horizontal micro-ribs every 20 mm across both panels, a vertical column of small hex-head self-tapping screws with dark rubber washers along each joint at even 333 mm spacing so the top and bottom image edges fall halfway between screws and vertical tiling is seamless. Restrained realistic weathering from ten years on a Seoul rooftop: faint grey rain streaks, thin orange-brown rust bleeding down from two or three screw heads, light grime, one or two small dents, a few scuffs. Completely flat even diffuse illumination, no directional light, no cast shadows, no ambient-occlusion halos, no perspective, no vignetting, no glossy highlights. No text, no logos, no stickers, no windows, no doors, no border, no reference-sheet layout. Landscape 3:2. High resolution, sharp enough for a 1 m viewing distance.
+
+## 골목 이웃 창 뒤의 방
+
+골목 이웃 건물의 창 여덟 개가 어두운 유리 판이었다. 창 뒤에 방이 있는 것처럼 보이게
+하려고(인테리어 매핑) 창 밖에서 정면으로 찍은 1점 투시 방 사진 네 장을 뽑았다. 뒷벽은
+화면과 평행하고 소실점은 정중앙, 가구는 뒷벽과 옆벽에만 붙게 했다. 네 장 모두 뒷벽이
+사진 폭의 절반쯤(0.47~0.6)을 차지해서 재질은 0.5로 잡는다.
+`Scripts/build_room_interior_atlas.py`가 2x2로 묶고, `M_RoomInterior`가 창마다 방 하나를
+골라 원근대로 편다. 네 장 모두 공통 문장 뒤에 방마다 다른 한 문장을 붙였다.
+
+공통 문장:
+
+> Use case: interior-mapping texture for a real-time game window. Photorealistic night photograph of the inside of one small room of an ordinary 1990s Korean villa apartment, taken from exactly outside its window looking straight in. Strict one-point perspective: camera centred and level, the back wall perfectly parallel to the image plane and filling about the central half of the frame, the single vanishing point exactly at the image centre, the floor, ceiling and both side walls converging symmetrically toward it, the room opening filling the frame edge to edge. No window frame, no glass, no curtains or blinds in the foreground, nothing sticking out toward the camera; all furniture stands flat against the back wall or tight against the side walls.
+
+### 0번 — 스탠드 켠 침실
+
+> A small bedroom lit only by a warm tungsten bedside lamp on a low table in the back-left corner: a white sliding-door wardrobe covering the back wall, a thin folded blanket on a low bed along the left wall, beige floral wallpaper, yellow vinyl sheet floor, a calendar on the right wall. Realistic low-light exposure, slight sensor grain, lived-in and ordinary. No people, no text, no readable labels, no logos, no watermark. Square 1:1.
+
+### 1번 — TV만 켠 거실
+
+> A living room lit mostly by the cold blue flicker of a television standing on a low cabinet against the centre of the back wall, a little warm spill from a doorway on the right wall, a wall clock above the television, beige wallpaper, light laminate floor, a folded drying rack against the left wall. Realistic low-light exposure, slight sensor grain, lived-in and ordinary. No people, no text, no readable labels, no logos, no watermark. Square 1:1.
+
+### 2번 — 형광등 켠 부엌
+
+> A narrow kitchen lit by a cold white fluorescent ceiling tube: a small white refrigerator and a short run of white wall cabinets and sink against the back wall, a rice cooker with a tiny orange light on the counter, beige wall tiles, a plastic stool against the right wall. Realistic low-light exposure, slight sensor grain, lived-in and ordinary. No people, no text, no readable labels, no logos, no watermark. Square 1:1.
+
+### 3번 — 스탠드 켠 공부방
+
+> A student's study room lit by a single desk lamp: a desk with a closed laptop and stacked books against the back wall, a bookshelf against the right wall, pale grey wallpaper, dark laminate floor, a hoodie hanging on a hook on the left wall. Realistic low-light exposure, slight sensor grain, lived-in and ordinary. No people, no text, no readable labels, no logos, no watermark. Square 1:1.
