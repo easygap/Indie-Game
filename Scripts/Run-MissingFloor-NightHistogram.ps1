@@ -87,8 +87,10 @@ $settingsPath = Join-Path $projectRoot 'Saved/Config/WindowsEditor/GameUserSetti
 $savedSettings = if (Test-Path -LiteralPath $settingsPath) { [IO.File]::ReadAllBytes($settingsPath) } else { $null }
 try {
 	$process = Start-Process -FilePath $editor -ArgumentList $arguments -PassThru -WindowStyle Hidden
+	# Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
+	$null = $process.Handle
 	if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-		try { $process.Kill($true) } catch {}
+		try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch {}
 		throw "히스토그램 스윕이 ${TimeoutSeconds}초 안에 끝나지 않았습니다: $runLog"
 	}
 	if ($process.ExitCode -ne 0) { throw "히스토그램 실행 실패: $runLog" }

@@ -19,8 +19,10 @@ try {
 		'"-ExecCmds=Scalability 2,r.ScreenPercentage 100,t.MaxFPS 60"', ('"-abslog={0}"' -f $runLog)
 	)
 	$process = Start-Process -FilePath $editor -ArgumentList $arguments -WindowStyle Hidden -PassThru
+	# Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
+	$null = $process.Handle
 	if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-		$process.Kill($true)
+		& taskkill.exe /PID $process.Id /T /F | Out-Null
 		throw "소개 화면 촬영 시간 초과: $runLog"
 	}
 	if ($process.ExitCode -ne 0 -or -not (Select-String -LiteralPath $runLog -Pattern 'README_CAPTURE PASS shots=6 production=1')) {

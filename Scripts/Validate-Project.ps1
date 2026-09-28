@@ -1582,7 +1582,9 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "금속 색 손실 후보 검사 실패 ($LASTEXITCODE)"
 	}
-	$metalBaseColorCandidates = @(Get-Content -Raw -Encoding UTF8 -LiteralPath $metalBaseColorReport | ConvertFrom-Json)
+	# Windows PowerShell 5.1의 ConvertFrom-Json은 배열을 펼치지 않고 한 덩어리로
+	# 넘긴다. 빈 목록 []도 한 개로 세어져 없는 후보를 경고하므로 한 번 펼친다.
+	$metalBaseColorCandidates = @((Get-Content -Raw -Encoding UTF8 -LiteralPath $metalBaseColorReport | ConvertFrom-Json) | ForEach-Object { $_ })
 	if ($metalBaseColorCandidates.Count -gt 0) {
 		Write-Warning ("금속 색 손실 후보 {0}개를 화면에서 확인해야 한다: {1}" -f $metalBaseColorCandidates.Count, $metalBaseColorReport)
 	}

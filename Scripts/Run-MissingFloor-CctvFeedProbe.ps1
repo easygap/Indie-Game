@@ -108,7 +108,7 @@ Write-Host '§14 CCTV 채널 5 화면 판정 시작 — 오프스크린, 창 없
 $process = Start-Process -FilePath $editor -ArgumentList $arguments `
 	-PassThru -NoNewWindow
 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-	try { $process.Kill($true) } catch {}
+	try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch {}
 	throw "화면 판정이 ${TimeoutSeconds}초 안에 끝나지 않았습니다: $runLog"
 }
 if (-not (Test-Path -LiteralPath $runLog -PathType Leaf)) {

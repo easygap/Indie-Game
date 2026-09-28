@@ -48,6 +48,8 @@ function Invoke-GameCase([string]$Name, [string[]]$ExtraArguments, [switch]$Audi
     $started = [DateTime]::UtcNow
     $process = Start-Process -FilePath $launcher -ArgumentList $quoted -WorkingDirectory (Split-Path $launcher -Parent) -WindowStyle Hidden -PassThru
     try {
+        # Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
+        $null = $process.Handle
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
             # 런처가 띄운 Shipping 프로세스까지 같이 끈다. Kill($true)는 PowerShell 7 전용이다.
             & taskkill.exe /PID $process.Id /T /F | Out-Null

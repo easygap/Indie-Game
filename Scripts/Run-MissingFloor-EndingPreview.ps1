@@ -85,6 +85,8 @@ foreach ($case in $cases) {
 	}
 
 	$process = Start-Process -FilePath $editor -ArgumentList $arguments -PassThru
+	# Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
+	$null = $process.Handle
 	if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
 		$process.Kill()
 		throw "Ending preview timed out: $($case.name)"

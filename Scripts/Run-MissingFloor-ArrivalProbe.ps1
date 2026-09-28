@@ -53,8 +53,10 @@ $arguments = @(
 Write-Host 'MISSINGFLOOR_ARRIVAL_PROBE running offscreen NullRHI'
 $process = Start-Process -FilePath $editor -ArgumentList $arguments `
 	-PassThru -NoNewWindow
+# Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
+$null = $process.Handle
 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-	try { $process.Kill($true) } catch {}
+	try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch {}
 	throw "Arrival probe exceeded ${TimeoutSeconds}s: $runLog"
 }
 if (-not (Test-Path -LiteralPath $runLog -PathType Leaf)) {

@@ -82,7 +82,7 @@ Write-Host '§9 「밤 5」 슬롯 검증 시작 — 오프스크린, 창 없음
 $process = Start-Process -FilePath $editor -ArgumentList $arguments `
 	-PassThru -NoNewWindow
 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-	try { $process.Kill($true) } catch {}
+	try { & taskkill.exe /PID $process.Id /T /F | Out-Null } catch {}
 	throw "밤 5 검증이 ${TimeoutSeconds}초 안에 끝나지 않았습니다: $runLog"
 }
 if (-not (Test-Path -LiteralPath $runLog -PathType Leaf)) {

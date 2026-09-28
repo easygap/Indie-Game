@@ -25,8 +25,10 @@ $arguments = @(
 # 화면 밖 실행도 소리가 나도록 이 프로세스의 비활성 음량을 열어 둔다.
 # -nosound나 고정 시간 가속으로는 실제 페이드를 검사할 수 없다.
 $process = Start-Process -FilePath $editor -ArgumentList $arguments -WindowStyle Hidden -PassThru
+# Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
+$null = $process.Handle
 if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-	$process.Kill($true)
+	& taskkill.exe /PID $process.Id /T /F | Out-Null
 	throw "소리 연출 검사 시간 초과: $runLog"
 }
 $receipts = Select-String -LiteralPath $runLog -Pattern 'AUDIO_PRESENTATION_'
