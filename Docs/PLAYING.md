@@ -26,7 +26,7 @@ Windows 11, Ryzen 9 7900X, RTX 3060, 메모리 32GB PC에서 실행을 확인했
 
 ## 소스에서 빌드하기
 
-직접 수정하거나 빌드하려면 Unreal Engine 5.8, Visual Studio의 **C++를 사용한 게임 개발** 도구와 Windows SDK, PowerShell 7, Git LFS가 필요합니다.
+직접 수정하거나 빌드하려면 Unreal Engine 5.8, Visual Studio의 **C++를 사용한 게임 개발** 도구와 Windows SDK, Git LFS가 필요합니다. 스크립트는 PowerShell 7(`pwsh`)과 Windows에 기본으로 들어 있는 Windows PowerShell(`powershell -ExecutionPolicy Bypass -File ...`) 모두에서 돌아갑니다.
 
 ```powershell
 git lfs install

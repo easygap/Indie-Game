@@ -17,8 +17,12 @@ if ((Test-Path -LiteralPath $ArchiveDirectory) -and
 & (Join-Path $PSScriptRoot 'Build-ArtAssets.ps1') -CodeOnly
 $buildRoot = $projectRoot
 if ($projectRoot -match '[^\x00-\x7F]') {
+    # Build-ArtAssets.ps1의 Get-AsciiArtBuildRoot와 같은 계산이다. Windows PowerShell 5.1에는
+    # [Convert]::ToHexString과 SHA256.HashData가 없어서 ComputeHash로 쓴다.
     $bytes = [Text.Encoding]::UTF8.GetBytes($projectRoot.ToLowerInvariant())
-    $hash = [Convert]::ToHexString([Security.Cryptography.SHA256]::HashData($bytes)).Substring(0, 8).ToLowerInvariant()
+    $sha = [Security.Cryptography.SHA256]::Create()
+    try { $hashBytes = $sha.ComputeHash($bytes) } finally { $sha.Dispose() }
+    $hash = -join ($hashBytes[0..3] | ForEach-Object { $_.ToString('x2') })
     $buildRoot = Join-Path $env:LOCALAPPDATA "IndieGame/AsciiBuild/Art_$hash"
 }
 $buildProject = Join-Path $buildRoot 'IndieGame.uproject'
@@ -46,7 +50,7 @@ foreach ($exe in @($launcher, $game)) {
 }
 $files = Get-ChildItem -LiteralPath (Join-Path $ArchiveDirectory 'Windows') -File -Recurse | ForEach-Object {
     [ordered]@{
-        path = [IO.Path]::GetRelativePath($ArchiveDirectory, $_.FullName).Replace('\', '/')
+        path = $_.FullName.Substring($ArchiveDirectory.Length).TrimStart('\', '/').Replace('\', '/')
         bytes = $_.Length
         sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     }

@@ -21,7 +21,8 @@ New-Item -ItemType Directory -Path $EvidenceDirectory -Force | Out-Null
 
 function Get-ArchiveHashes {
     @(Get-ChildItem -LiteralPath $archiveRoot -Recurse -File | Sort-Object FullName | ForEach-Object {
-        '{0} {1}' -f [IO.Path]::GetRelativePath($archiveRoot, $_.FullName), (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
+        # Windows PowerShell 5.1에는 [IO.Path]::GetRelativePath가 없다.
+        '{0} {1}' -f $_.FullName.Substring($archiveRoot.Length).TrimStart('\', '/'), (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash
     })
 }
 $before = Get-ArchiveHashes
@@ -48,7 +49,8 @@ function Invoke-GameCase([string]$Name, [string[]]$ExtraArguments, [switch]$Audi
     $process = Start-Process -FilePath $launcher -ArgumentList $quoted -WorkingDirectory (Split-Path $launcher -Parent) -WindowStyle Hidden -PassThru
     try {
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-            $process.Kill($true)
+            # 런처가 띄운 Shipping 프로세스까지 같이 끈다. Kill($true)는 PowerShell 7 전용이다.
+            & taskkill.exe /PID $process.Id /T /F | Out-Null
             throw "게임 실행 검사 시간 초과: $Name"
         }
         if ($process.ExitCode -ne 0) { throw "게임 실행 검사 실패: $Name (종료 코드 $($process.ExitCode))" }
