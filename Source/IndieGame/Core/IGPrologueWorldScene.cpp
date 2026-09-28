@@ -208,9 +208,10 @@ namespace IGPrologueWorld
 		return FText::Format(
 			NSLOCTEXT(
 				"IGReceipt",
-				"CheckoutPromptPocket",
-				"{0} 후드 주머니 카드로 결제하기 ({1})"),
+				"CheckoutPrompt",
+				"{0} {1}병 계산하기 ({2})"),
 			Spec.ProductName,
+			FText::AsNumber(Spec.Quantity),
 			FormatWon(Spec.Quantity * Spec.UnitPrice));
 	}
 }
@@ -5748,14 +5749,14 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			{
 			case EIGPurchaseProfile::ProfileA500MlX2:
 				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
-					"IGPrologue", "WaterProfileA", "새벽샘물 500mL × 2 고르기"));
+					"IGPrologue", "WaterProfileA", "새벽샘물 500mL 2병 고르기"));
 				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
 					"IGPrologue", "WaterProfileAThought", "두 병이면 충분하겠지.");
 				bHasSecondBottle = true;
 				break;
 			case EIGPurchaseProfile::ProfileB1LX1:
 				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
-					"IGPrologue", "WaterProfileB", "한강수 1L × 1 고르기"));
+					"IGPrologue", "WaterProfileB", "한강수 1L 1병 고르기"));
 				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
 					"IGPrologue", "WaterProfileBThought", "이거 하나면 되겠다.");
 				ProfileScale = FVector(1.30f, 1.30f, 1.20f);
@@ -5763,7 +5764,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				break;
 			case EIGPurchaseProfile::ProfileC2LX2:
 				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
-					"IGPrologue", "WaterProfileC", "맑은산 2L × 2 고르기"));
+					"IGPrologue", "WaterProfileC", "맑은산 2L 2병 고르기"));
 				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
 					"IGPrologue", "WaterProfileCThought", "무겁지만 한 번에 가져가자.");
 				ProfileScale = FVector(1.60f, 1.60f, 1.57f);
@@ -5886,7 +5887,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	LeftHomeZone = SpawnZone(
 		FVector(643, -435, 110), FVector(120, 55, 110),
 		TEXT("State.CH01.Morning.LeftHome"),
-		NSLOCTEXT("IGPrologue", "LeftHomeThought", "새벽 공기가 차다."));
+		NSLOCTEXT("IGPrologue", "LeftHomeThought", "밖은 후텁지근하네."));
 	StoreEntryZone = SpawnZone(
 		FVector(2450, -457, 116), FVector(35, 95, 110),
 		TEXT("State.CH01.Morning.EnteredStore"),

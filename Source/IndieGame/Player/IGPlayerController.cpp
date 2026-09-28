@@ -899,7 +899,7 @@ void AIGPlayerController::TickFrontendShippingProbe()
 				NSLOCTEXT(
 					"IGFrontendProbe",
 					"DialogueDefaultKorean",
-					"라디오가 끊겼다. 휴대폰 시계는 4시 44분에서 멈춰 있다."),
+					"문자 신고가 접수되었습니다. 곧 담당 경찰관이 연락드리겠습니다."),
 				EIGDialogueChannel::Device,
 				5.0f,
 				EIGDialoguePriority::Story);
@@ -907,7 +907,7 @@ void AIGPlayerController::TickFrontendShippingProbe()
 				NSLOCTEXT(
 					"IGFrontendProbe",
 					"SoundCaption",
-					"[오른쪽 문 너머에서 라디오가 끊긴다]"),
+					"[천장에서 세 번 두드리는 소리]"),
 				5.0f);
 		}
 		else
@@ -984,7 +984,7 @@ void AIGPlayerController::TickFrontendShippingProbe()
 				NSLOCTEXT(
 					"IGFrontendProbe",
 					"DialogueLongKorean",
-					"통화가 연결되지 않습니다. 복도 오른쪽 문 너머에서 라디오가 끊겼고, 같은 순간 휴대폰의 시계가 4시 44분으로 돌아왔습니다. 이 문장은 큰 글자에서도 잘리지 않고 다음 페이지로 이어져야 합니다. 플레이어가 이동 중이어도 앞 문장을 덮어쓰지 않아야 합니다."),
+					"통화가 연결되지 않습니다. 천장에서 두드리는 소리가 세 번 났고, 같은 순간 휴대폰 알람이 네 시 반을 알렸습니다. 이 문장은 큰 글자에서도 잘리지 않고 다음 페이지로 이어져야 합니다. 플레이어가 이동 중이어도 앞 문장을 덮어쓰지 않아야 합니다."),
 				EIGDialogueChannel::Device,
 				5.0f,
 				EIGDialoguePriority::Critical);

@@ -92,7 +92,7 @@ AIGFridge::AIGFridge()
 	HumAudioComponent->bAutoActivate = false;
 
 	InteractionPrompt = NSLOCTEXT("IGFridge", "OpenPrompt", "냉장고 열기");
-	InspectionThought = NSLOCTEXT("IGFridge", "NoWater", "…물이 없다. 한 병도 안 남았네.");
+	InspectionThought = NSLOCTEXT("IGFridge", "NoWater", "텅 비었네. 물이라도 좀 사다 놔야겠다.");
 	InteriorShelfLocalCenter = FVector(4.0f, 0.0f, IGFridge::BodyHeight * 0.52f);
 }
 

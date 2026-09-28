@@ -37,7 +37,7 @@ AIGCheckoutCounter::AIGCheckoutCounter()
 	PurchaseThought = NSLOCTEXT(
 		"IGCheckout",
 		"PaidThought",
-		"결제 완료. 영수증은 챙겨 두자.");
+		"물은 샀으니 됐다.");
 }
 
 void AIGCheckoutCounter::ConfigurePrototypeVisuals(

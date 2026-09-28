@@ -78,7 +78,7 @@ namespace IGListenerGreybox
 	// 복도를 세운 것과 같은 상수를 쓴다. 이제 주석이 아니라 코드가 그렇다.
 	constexpr float FourthFloorZ = AIGPrologueWorldScene::FourthFloorZ;
 	constexpr float EntityHalfHeight = 58.0f;
-	// 404 냉장고 험. §5.1의 첫 마스킹 주머니다. 자리는 냉장고에게
+	// 403호 냉장고 험. §5.1의 첫 마스킹 주머니다. 자리는 냉장고에게
 	// 묻는다 — 좌표를 여기 다시 적으면 냉장고만 옮겨지고 험은 옛
 	// 자리에 남는다. 기계 몸통 한가운데 높이만 여기서 정한다.
 	constexpr float FridgeHumHeightOffset = 60.0f;
