@@ -10,7 +10,7 @@
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/PlayerController.h"
 #include "IndieGame.h"
-#include "Narrative/IGRebirthNarrativeSubsystem.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
@@ -118,11 +118,10 @@ bool AIGPickupItem::CanInteract_Implementation(AActor* Interactor) const
 			const bool bCanSwapProfile =
 				CarriedPickup
 				&& CarriedPickup != this
-				&& RebirthPurchaseProfileOnPickup
-					!= EIGRebirthPurchaseProfile::Unset
-				&& CarriedPickup->RebirthPurchaseProfileOnPickup
-					!= EIGRebirthPurchaseProfile::Unset
-				&& !IsRebirthPurchaseCommitted();
+				&& PurchaseProfileOnPickup != EIGPurchaseProfile::Unset
+				&& CarriedPickup->PurchaseProfileOnPickup
+					!= EIGPurchaseProfile::Unset
+				&& !IsPurchaseCommitted();
 			if (!bCanSwapProfile)
 			{
 				return false;
@@ -167,7 +166,7 @@ void AIGPickupItem::CompleteInteraction_Implementation(const FIGInteractionConte
 
 	// Commit only after a carry/pocket transition succeeded. Observers still
 	// see the stable profile and story state before OnPickedUp is broadcast.
-	CommitRebirthPurchaseProfile();
+	CommitPurchaseProfile();
 	if (StateTagOnPickup.IsValid())
 	{
 		IGStory::AddState(this, StateTagOnPickup);
@@ -175,59 +174,44 @@ void AIGPickupItem::CompleteInteraction_Implementation(const FIGInteractionConte
 	OnPickedUp.Broadcast(this);
 }
 
-void AIGPickupItem::CommitRebirthPurchaseProfile()
+void AIGPickupItem::CommitPurchaseProfile()
 {
-	if (RebirthPurchaseProfileOnPickup == EIGRebirthPurchaseProfile::Unset)
+	if (PurchaseProfileOnPickup == EIGPurchaseProfile::Unset)
 	{
 		return;
 	}
 
 	UGameInstance* GameInstance = GetGameInstance();
-	UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
-		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+	UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
 		: nullptr;
-	if (!RebirthState)
+	if (!Narrative)
 	{
 		return;
 	}
 
-	if (IsRebirthPurchaseCommitted())
+	if (IsPurchaseCommitted())
 	{
 		return;
 	}
-	FIGRebirthChoiceState Choices = RebirthState->GetChoices();
-	Choices.PurchaseProfile = RebirthPurchaseProfileOnPickup;
-	RebirthState->SetChoices(Choices);
+	Narrative->SetStorePurchaseProfile(PurchaseProfileOnPickup);
 }
 
-bool AIGPickupItem::IsRebirthPurchaseCommitted() const
+bool AIGPickupItem::IsPurchaseCommitted() const
 {
-	if (IGStory::HasState(
-			this,
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH01.Morning.WaterPurchased")),
-				false)))
-	{
-		return true;
-	}
-
-	const UGameInstance* GameInstance = GetGameInstance();
-	const UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
-		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
-		: nullptr;
-	return RebirthState
-		&& RebirthState->HasTruth(
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("Truth.Purchase0431")),
-				false));
+	return IGStory::HasState(
+		this,
+		FGameplayTag::RequestGameplayTag(
+			FName(TEXT("State.CH01.Morning.WaterPurchased")),
+			false));
 }
 
 bool AIGPickupItem::ReturnForProfileSwap(AIGPlayerCharacter* Character)
 {
 	if (!Character
 		|| !bPickedUp
-		|| RebirthPurchaseProfileOnPickup == EIGRebirthPurchaseProfile::Unset
-		|| IsRebirthPurchaseCommitted()
+		|| PurchaseProfileOnPickup == EIGPurchaseProfile::Unset
+		|| IsPurchaseCommitted()
 		|| !Character->ReleaseCarriedActor(this))
 	{
 		return false;
@@ -255,26 +239,26 @@ bool AIGPickupItem::ReturnForProfileSwap(AIGPlayerCharacter* Character)
 	return true;
 }
 
-bool AIGPickupItem::MatchesRestoredRebirthPurchaseProfile() const
+bool AIGPickupItem::MatchesRestoredPurchaseProfile() const
 {
-	if (RebirthPurchaseProfileOnPickup == EIGRebirthPurchaseProfile::Unset)
+	if (PurchaseProfileOnPickup == EIGPurchaseProfile::Unset)
 	{
 		return true;
 	}
 
 	const UGameInstance* GameInstance = GetGameInstance();
-	const UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
-		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
 		: nullptr;
-	if (!RebirthState)
+	if (!Narrative)
 	{
 		return true;
 	}
 
-	const EIGRebirthPurchaseProfile SelectedProfile =
-		RebirthState->GetChoices().PurchaseProfile;
-	return SelectedProfile == EIGRebirthPurchaseProfile::Unset
-		|| SelectedProfile == RebirthPurchaseProfileOnPickup;
+	const EIGPurchaseProfile SelectedProfile =
+		Narrative->GetStorePurchaseProfile();
+	return SelectedProfile == EIGPurchaseProfile::Unset
+		|| SelectedProfile == PurchaseProfileOnPickup;
 }
 
 void AIGPickupItem::ReconcileRestoredPickedUpState()
@@ -296,10 +280,9 @@ void AIGPickupItem::ReconcileRestoredPickedUpState()
 	}
 
 	if (PickupMode == EIGPickupMode::CarryInHand
-		&& RebirthPurchaseProfileOnPickup
-			!= EIGRebirthPurchaseProfile::Unset
-		&& !MatchesRestoredRebirthPurchaseProfile()
-		&& !IsRebirthPurchaseCommitted())
+		&& PurchaseProfileOnPickup != EIGPurchaseProfile::Unset
+		&& !MatchesRestoredPurchaseProfile()
+		&& !IsPurchaseCommitted())
 	{
 		// A pre-checkout save restores the selected bottle to the hand while
 		// leaving the other authored profiles on the shelf for another choice.
@@ -309,7 +292,7 @@ void AIGPickupItem::ReconcileRestoredPickedUpState()
 
 	ApplyRestoredPickedUpState(
 		PickupMode == EIGPickupMode::CarryInHand
-		&& MatchesRestoredRebirthPurchaseProfile());
+		&& MatchesRestoredPurchaseProfile());
 }
 
 void AIGPickupItem::ApplyRestoredPickedUpState(const bool bAttachToPlayer)

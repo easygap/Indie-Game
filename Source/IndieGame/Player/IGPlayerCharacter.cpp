@@ -9,10 +9,7 @@
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/PrimitiveComponent.h"
-#include "Components/StaticMeshComponent.h"
-#include "Engine/CollisionProfile.h"
 #include "Engine/GameInstance.h"
-#include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EnhancedInputComponent.h"
 #include "EngineUtils.h"
@@ -28,7 +25,6 @@
 #include "InputCoreTypes.h"
 #include "Interaction/IGPickupItem.h"
 #include "Interaction/IGSwingDoor.h"
-#include "Materials/MaterialInterface.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "UObject/UObjectIterator.h"
@@ -42,7 +38,6 @@
 #include "Player/IGStressComponent.h"
 #include "Sequence/IGWakeUpDirector.h"
 #include "Save/IGSaveSubsystem.h"
-#include "UObject/ConstructorHelpers.h"
 
 namespace IGPlayerNoise
 {
@@ -144,19 +139,6 @@ namespace IGPlayerNoise
 		default: return TEXT("Foot_Concrete");
 		}
 	}
-	const FName WaterSurfaceTag(TEXT("Footstep.Water"));
-}
-
-namespace IGPlayerOutfit
-{
-	constexpr float PresentationDurationSeconds = 1.2f;
-	constexpr float PresentationPeakAlpha = 0.42f;
-	const FVector RestLocation(34.0f, -18.0f, -27.0f);
-	const FVector StartLocation(22.0f, -18.0f, -49.0f);
-	const FVector PeakLocation(38.0f, -16.0f, -18.0f);
-	const FRotator RestRotation(72.0f, -8.0f, -6.0f);
-	const FRotator StartRotation(78.0f, -5.0f, -12.0f);
-	const FRotator PeakRotation(48.0f, -16.0f, 12.0f);
 }
 
 AIGPlayerCharacter::AIGPlayerCharacter()
@@ -212,96 +194,6 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	FirstPersonCamera->bUsePawnControlRotation = true;
 	// ~standard 35mm feel; the default 90 reads wide-angle and warps depth.
 	FirstPersonCamera->SetFieldOfView(78.0f);
-
-	// REBIRTH uses a static first-person proxy instead of introducing a
-	// skeletal-arms pipeline. The three dark stitches are the unique repair
-	// repeated on the 403 figure and the tank clothing.
-	OutfitSleeveProxy =
-		CreateDefaultSubobject<UStaticMeshComponent>(TEXT("OutfitSleeveProxy"));
-	OutfitSleeveProxy->SetupAttachment(FirstPersonCamera);
-	OutfitSleeveProxy->SetCollisionProfileName(
-		UCollisionProfile::NoCollision_ProfileName);
-	OutfitSleeveProxy->SetGenerateOverlapEvents(false);
-	OutfitSleeveProxy->SetCanEverAffectNavigation(false);
-	OutfitSleeveProxy->SetCastShadow(false);
-	OutfitSleeveProxy->SetRelativeLocation(IGPlayerOutfit::RestLocation);
-	OutfitSleeveProxy->SetRelativeRotation(IGPlayerOutfit::RestRotation);
-	OutfitSleeveProxy->SetRelativeScale3D(FVector(0.055f, 0.055f, 0.28f));
-	OutfitSleeveProxy->SetHiddenInGame(true);
-
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CylinderMeshFinder(
-		TEXT("/Engine/BasicShapes/Cylinder.Cylinder"));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMeshFinder(
-		TEXT("/Engine/BasicShapes/Cube.Cube"));
-	static ConstructorHelpers::FObjectFinder<UStaticMesh> AuthoredSleeveMeshFinder(
-		TEXT("/Game/Meshes/SM_FirstPersonHoodieSleeve.SM_FirstPersonHoodieSleeve"));
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> WetSleeveMaterialFinder(
-		TEXT("/Game/Prototype/Materials/M_WetHoodieUV.M_WetHoodieUV"));
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> SleeveFallbackFinder(
-		TEXT("/Game/Prototype/Materials/M_BeddingUV.M_BeddingUV"));
-	static ConstructorHelpers::FObjectFinder<UMaterialInterface> StitchMaterialFinder(
-		TEXT("/Game/Prototype/Materials/M_PlasticDark.M_PlasticDark"));
-	const bool bHasAuthoredSleeveMesh = AuthoredSleeveMeshFinder.Succeeded();
-	if (bHasAuthoredSleeveMesh)
-	{
-		OutfitSleeveProxy->SetStaticMesh(AuthoredSleeveMeshFinder.Object);
-		OutfitSleeveProxy->SetRelativeScale3D(FVector::OneVector);
-	}
-	else if (CylinderMeshFinder.Succeeded())
-	{
-		OutfitSleeveProxy->SetStaticMesh(CylinderMeshFinder.Object);
-	}
-	if (WetSleeveMaterialFinder.Succeeded())
-	{
-		OutfitSleeveProxy->SetMaterial(0, WetSleeveMaterialFinder.Object);
-	}
-	else if (SleeveFallbackFinder.Succeeded())
-	{
-		OutfitSleeveProxy->SetMaterial(0, SleeveFallbackFinder.Object);
-	}
-
-	for (int32 StitchIndex = 0; StitchIndex < 3; ++StitchIndex)
-	{
-		UStaticMeshComponent* Stitch = CreateDefaultSubobject<UStaticMeshComponent>(
-			*FString::Printf(TEXT("OutfitRepairStitch%d"), StitchIndex + 1));
-		// The repair belongs to the cloth, not the camera. Parenting all three
-		// stitches to the sleeve keeps their spacing and orientation exact
-		// throughout the first-exit presentation and ordinary camera motion.
-		Stitch->SetupAttachment(OutfitSleeveProxy);
-		Stitch->SetCollisionProfileName(
-			UCollisionProfile::NoCollision_ProfileName);
-		Stitch->SetGenerateOverlapEvents(false);
-		Stitch->SetCanEverAffectNavigation(false);
-		Stitch->SetCastShadow(false);
-		if (bHasAuthoredSleeveMesh)
-		{
-			// Three 12 mm black bar stitches cross the inner seam about 6 cm
-			// above the cuff. Real-centimetre sleeve geometry uses unit scale.
-			Stitch->SetRelativeLocation(
-				FVector(1.0f, -5.75f, -7.0f + StitchIndex * 1.4f));
-			Stitch->SetRelativeRotation(FRotator::ZeroRotator);
-			Stitch->SetRelativeScale3D(FVector(0.012f, 0.003f, 0.0025f));
-		}
-		else
-		{
-			// Preserve the release-safe cylinder proxy and its parent-scaled
-			// stitch placement until the authored mesh has been baked.
-			Stitch->SetRelativeLocation(
-				FVector(-10.0f, -52.0f, -12.0f + StitchIndex * 12.0f));
-			Stitch->SetRelativeRotation(FRotator(0.0f, 0.0f, 18.0f));
-			Stitch->SetRelativeScale3D(FVector(0.16f, 0.045f, 0.012f));
-		}
-		Stitch->SetHiddenInGame(true);
-		if (CubeMeshFinder.Succeeded())
-		{
-			Stitch->SetStaticMesh(CubeMeshFinder.Object);
-		}
-		if (StitchMaterialFinder.Succeeded())
-		{
-			Stitch->SetMaterial(0, StitchMaterialFinder.Object);
-		}
-		OutfitStitchProxies.Add(Stitch);
-	}
 
 	InteractionComponent = CreateDefaultSubobject<UIGInteractionComponent>(TEXT("InteractionComponent"));
 
@@ -415,75 +307,6 @@ void AIGPlayerCharacter::OnEndCrouch(
 	ApplyContextMovementSpeed();
 }
 
-void AIGPlayerCharacter::SetRebirthOutfitEquipped(
-	const bool bEquipped,
-	const bool bPlayPresentation)
-{
-	bRebirthOutfitEquipped = bEquipped;
-	if (OutfitSleeveProxy)
-	{
-		if (!bEquipped)
-		{
-			OutfitSleeveProxy->SetRelativeLocation(
-				IGPlayerOutfit::RestLocation);
-			OutfitSleeveProxy->SetRelativeRotation(
-				IGPlayerOutfit::RestRotation);
-		}
-		OutfitSleeveProxy->SetHiddenInGame(!bEquipped);
-	}
-	for (UStaticMeshComponent* Stitch : OutfitStitchProxies)
-	{
-		if (Stitch)
-		{
-			Stitch->SetHiddenInGame(!bEquipped);
-		}
-	}
-
-	if (!bEquipped)
-	{
-		bOutfitPresentationActive = false;
-		OutfitPresentationElapsed = 0.0f;
-		return;
-	}
-
-	if (bPlayPresentation && OutfitSleeveProxy)
-	{
-		bOutfitPresentationActive = true;
-		OutfitPresentationElapsed = 0.0f;
-		OutfitSleeveProxy->SetRelativeLocation(
-			IGPlayerOutfit::StartLocation);
-		OutfitSleeveProxy->SetRelativeRotation(
-			IGPlayerOutfit::StartRotation);
-		// No input or view lock: this camera-child prop moves while the player
-		// remains in full control.
-		SetActorTickEnabled(true);
-	}
-}
-
-bool AIGPlayerCharacter::ValidateRebirthOutfitProxy(
-	int32& OutStitchCount) const
-{
-	OutStitchCount = 0;
-	if (!bRebirthOutfitEquipped
-		|| !IsValid(OutfitSleeveProxy)
-		|| !OutfitSleeveProxy->GetStaticMesh())
-	{
-		return false;
-	}
-
-	for (const UStaticMeshComponent* Stitch : OutfitStitchProxies)
-	{
-		if (!IsValid(Stitch)
-			|| !Stitch->GetStaticMesh()
-			|| Stitch->GetAttachParent() != OutfitSleeveProxy.Get())
-		{
-			return false;
-		}
-		++OutStitchCount;
-	}
-	return OutStitchCount == 3;
-}
-
 void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
@@ -520,68 +343,7 @@ void AIGPlayerCharacter::Tick(const float DeltaSeconds)
 	UpdateChaseHaptic(DeltaSeconds);
 	UpdateCameraMotion(DeltaSeconds);
 	UpdateCarriedItem(DeltaSeconds);
-	UpdateOutfitPresentation(DeltaSeconds);
 	UpdateMicrophoneNoise(DeltaSeconds);
-}
-
-void AIGPlayerCharacter::UpdateOutfitPresentation(const float DeltaSeconds)
-{
-	if (!bOutfitPresentationActive || !OutfitSleeveProxy)
-	{
-		return;
-	}
-
-	OutfitPresentationElapsed = FMath::Min(
-		OutfitPresentationElapsed + DeltaSeconds,
-		IGPlayerOutfit::PresentationDurationSeconds);
-	const float Alpha = OutfitPresentationElapsed
-		/ IGPlayerOutfit::PresentationDurationSeconds;
-
-	FVector Location;
-	FRotator Rotation;
-	if (Alpha < IGPlayerOutfit::PresentationPeakAlpha)
-	{
-		const float Phase = FMath::SmoothStep(
-			0.0f,
-			1.0f,
-			Alpha / IGPlayerOutfit::PresentationPeakAlpha);
-		Location = FMath::Lerp(
-			IGPlayerOutfit::StartLocation,
-			IGPlayerOutfit::PeakLocation,
-			Phase);
-		Rotation = FMath::Lerp(
-			IGPlayerOutfit::StartRotation,
-			IGPlayerOutfit::PeakRotation,
-			Phase);
-	}
-	else
-	{
-		const float Phase = FMath::SmoothStep(
-			0.0f,
-			1.0f,
-			(Alpha - IGPlayerOutfit::PresentationPeakAlpha)
-				/ (1.0f - IGPlayerOutfit::PresentationPeakAlpha));
-		Location = FMath::Lerp(
-			IGPlayerOutfit::PeakLocation,
-			IGPlayerOutfit::RestLocation,
-			Phase);
-		Rotation = FMath::Lerp(
-			IGPlayerOutfit::PeakRotation,
-			IGPlayerOutfit::RestRotation,
-			Phase);
-	}
-
-	OutfitSleeveProxy->SetRelativeLocation(Location);
-	OutfitSleeveProxy->SetRelativeRotation(Rotation);
-	if (OutfitPresentationElapsed
-		>= IGPlayerOutfit::PresentationDurationSeconds)
-	{
-		bOutfitPresentationActive = false;
-		OutfitSleeveProxy->SetRelativeLocation(
-			IGPlayerOutfit::RestLocation);
-		OutfitSleeveProxy->SetRelativeRotation(
-			IGPlayerOutfit::RestRotation);
-	}
 }
 
 float AIGPlayerCharacter::SampleAmbientDarkness() const
@@ -1284,10 +1046,6 @@ EIGFootstepSurface AIGPlayerCharacter::ResolveFootstepSurface() const
 		const UPrimitiveComponent* Component = Hit.GetComponent();
 		if (Component)
 		{
-			if (Component->ComponentHasTag(IGPlayerNoise::WaterSurfaceTag))
-			{
-				return EIGFootstepSurface::Water;
-			}
 			if (Component->ComponentHasTag(IGPlayerNoise::GypsumSurfaceTag))
 			{
 				return EIGFootstepSurface::GypsumDebris;
@@ -2669,8 +2427,8 @@ void AIGPlayerCharacter::BeginInteraction()
 				Cast<AIGPickupItem>(CarriedActor.Get());
 			const bool bProfileCCommitted =
 				CarriedPickup
-				&& CarriedPickup->RebirthPurchaseProfileOnPickup
-					== EIGRebirthPurchaseProfile::ProfileC2LX2
+				&& CarriedPickup->PurchaseProfileOnPickup
+					== EIGPurchaseProfile::ProfileC2LX2
 				&& IGStory::HasState(
 					this,
 					FGameplayTag::RequestGameplayTag(
@@ -2746,67 +2504,6 @@ void AIGPlayerCharacter::EndInteraction()
 			700.0f,
 			EIGAudioBus::Player);
 	}
-}
-
-bool AIGPlayerCharacter::BeginScriptedHeavyBagRest(const float Seconds)
-{
-	const AIGPickupItem* CarriedPickup =
-		Cast<AIGPickupItem>(CarriedActor.Get());
-	const bool bProfileCCommitted =
-		CarriedPickup
-		&& CarriedPickup->RebirthPurchaseProfileOnPickup
-			== EIGRebirthPurchaseProfile::ProfileC2LX2
-		&& IGStory::HasState(
-			this,
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH01.Morning.WaterPurchased")),
-				false));
-	if (!bProfileCCommitted || bHeavyBagInteractionProxyActive)
-	{
-		return false;
-	}
-
-	bHeavyBagInteractionProxyActive = true;
-	HeavyBagRestLocation = CarriedBaseLocation;
-	CarriedBaseLocation += FVector(-8.0f, 2.0f, -48.0f);
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreatePlasticBagSetDown(this),
-		GetActorLocation() - FVector(0.0f, 0.0f, 88.0f),
-		0.55f,
-		1.0f,
-		100.0f,
-		700.0f,
-		EIGAudioBus::Player);
-	GetWorldTimerManager().SetTimer(
-		HeavyBagRestTimer,
-		this,
-		&ThisClass::EndScriptedHeavyBagRest,
-		FMath::Max(Seconds, 0.5f),
-		false);
-	return true;
-}
-
-void AIGPlayerCharacter::EndScriptedHeavyBagRest()
-{
-	// An interaction release may already have re-gripped the bag; the flag
-	// keeps the restore idempotent.
-	if (!bHeavyBagInteractionProxyActive)
-	{
-		return;
-	}
-	CarriedBaseLocation = HeavyBagRestLocation;
-	bHeavyBagInteractionProxyActive = false;
-	HeavyBagRestLocation = FVector::ZeroVector;
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreatePlasticBagLift(this),
-		GetActorLocation() - FVector(0.0f, 0.0f, 72.0f),
-		0.42f,
-		1.0f,
-		100.0f,
-		700.0f,
-		EIGAudioBus::Player);
 }
 
 void AIGPlayerCharacter::TryRequestGetUpFallback()

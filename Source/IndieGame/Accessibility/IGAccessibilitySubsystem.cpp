@@ -25,29 +25,6 @@ namespace IGAccessibility
 	constexpr float MaximumComfortVignette = 1.0f;
 	// §19.8 표의 두 배율. 문서에 적힌 숫자를 여기 한 번만 적는다.
 	constexpr float KnockWindowAssistScale = 1.6f;
-	// 인지 지원에서 시간 압박을 푼다. 0으로 만들지 않고 아주 길게 둔다 —
-	// 세계가 아무 반응도 하지 않으면 그건 압박 해제가 아니라 고장이다.
-	constexpr float RelaxedPressureIntervalSeconds = 200.0f;
-
-	bool ParseHintMode(const FString& Value, EIGHintMode& OutMode)
-	{
-		if (Value.Equals(TEXT("Story"), ESearchCase::IgnoreCase))
-		{
-			OutMode = EIGHintMode::Story;
-			return true;
-		}
-		if (Value.Equals(TEXT("Standard"), ESearchCase::IgnoreCase))
-		{
-			OutMode = EIGHintMode::Standard;
-			return true;
-		}
-		if (Value.Equals(TEXT("Silent"), ESearchCase::IgnoreCase))
-		{
-			OutMode = EIGHintMode::Silent;
-			return true;
-		}
-		return false;
-	}
 }
 
 void UIGAccessibilitySubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -72,36 +49,6 @@ void UIGAccessibilitySubsystem::ResetToDefaults()
 	RebuildEffectiveSettings();
 }
 
-FVector UIGAccessibilitySubsystem::GetP3HintThresholds() const
-{
-	switch (EffectiveSettings.HintMode)
-	{
-	case EIGHintMode::Story:
-		return FVector(45.0f, 90.0f, 150.0f);
-	case EIGHintMode::Silent:
-		// Silent mode never advances the automatic clock. Keeping a stable
-		// sentinel is useful to a future manual-hint UI and automated probes.
-		return FVector(-1.0f, -1.0f, -1.0f);
-	case EIGHintMode::Standard:
-	default:
-		return FVector(90.0f, 150.0f, 210.0f);
-	}
-}
-
-FVector UIGAccessibilitySubsystem::GetP4HintThresholds() const
-{
-	switch (EffectiveSettings.HintMode)
-	{
-	case EIGHintMode::Story:
-		return FVector(45.0f, 90.0f, 150.0f);
-	case EIGHintMode::Silent:
-		return FVector(-1.0f, -1.0f, -1.0f);
-	case EIGHintMode::Standard:
-	default:
-		return FVector(45.0f, 100.0f, 150.0f);
-	}
-}
-
 float UIGAccessibilitySubsystem::GetKnockWindowScale() const
 {
 	return EffectiveSettings.bCognitiveAssist
@@ -109,34 +56,10 @@ float UIGAccessibilitySubsystem::GetKnockWindowScale() const
 		: 1.0f;
 }
 
-float UIGAccessibilitySubsystem::GetPressureRiseIntervalSeconds() const
-{
-	if (EffectiveSettings.bCognitiveAssist)
-	{
-		return IGAccessibility::RelaxedPressureIntervalSeconds;
-	}
-	switch (EffectiveSettings.HintMode)
-	{
-	case EIGHintMode::Story:
-		return 80.0f;
-	case EIGHintMode::Silent:
-		return 45.0f;
-	case EIGHintMode::Standard:
-	default:
-		return 55.0f;
-	}
-}
-
 FIGAccessibilitySettings UIGAccessibilitySubsystem::Sanitize(
 	const FIGAccessibilitySettings& Candidate)
 {
 	FIGAccessibilitySettings Result = Candidate;
-	if (Result.HintMode != EIGHintMode::Story
-		&& Result.HintMode != EIGHintMode::Standard
-		&& Result.HintMode != EIGHintMode::Silent)
-	{
-		Result.HintMode = EIGHintMode::Standard;
-	}
 	Result.HoldDurationScale = FMath::Clamp(
 		FMath::IsFinite(Result.HoldDurationScale)
 			? Result.HoldDurationScale
@@ -190,13 +113,6 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		return;
 	}
 
-	int32 HintMode = static_cast<int32>(PersistedSettings.HintMode);
-	GConfig->GetInt(
-		IGAccessibility::ConfigSection,
-		TEXT("HintMode"),
-		HintMode,
-		GGameUserSettingsIni);
-	PersistedSettings.HintMode = static_cast<EIGHintMode>(HintMode);
 	GConfig->GetBool(
 		IGAccessibility::ConfigSection,
 		TEXT("ReducedCameraMotion"),
@@ -211,11 +127,6 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		IGAccessibility::ConfigSection,
 		TEXT("DirectionalFearCues"),
 		PersistedSettings.bDirectionalFearCues,
-		GGameUserSettingsIni);
-	GConfig->GetBool(
-		IGAccessibility::ConfigSection,
-		TEXT("AutoConnectEvidence"),
-		PersistedSettings.bAutoConnectEvidence,
 		GGameUserSettingsIni);
 	GConfig->GetBool(
 		IGAccessibility::ConfigSection,
@@ -312,11 +223,6 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		return;
 	}
 
-	GConfig->SetInt(
-		IGAccessibility::ConfigSection,
-		TEXT("HintMode"),
-		static_cast<int32>(PersistedSettings.HintMode),
-		GGameUserSettingsIni);
 	GConfig->SetBool(
 		IGAccessibility::ConfigSection,
 		TEXT("ReducedCameraMotion"),
@@ -331,11 +237,6 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		IGAccessibility::ConfigSection,
 		TEXT("DirectionalFearCues"),
 		PersistedSettings.bDirectionalFearCues,
-		GGameUserSettingsIni);
-	GConfig->SetBool(
-		IGAccessibility::ConfigSection,
-		TEXT("AutoConnectEvidence"),
-		PersistedSettings.bAutoConnectEvidence,
 		GGameUserSettingsIni);
 	GConfig->SetBool(
 		IGAccessibility::ConfigSection,
@@ -436,19 +337,12 @@ void UIGAccessibilitySubsystem::ApplyCommandLineOverrides(
 	FIGAccessibilitySettings& Settings) const
 {
 	const TCHAR* CommandLine = FCommandLine::Get();
-	FString Preset;
-	if (FParse::Value(CommandLine, TEXT("IGAccessibilityPreset="), Preset))
-	{
-		IGAccessibility::ParseHintMode(Preset, Settings.HintMode);
-	}
 	Settings.bReducedCameraMotion |=
 		FParse::Param(CommandLine, TEXT("IGReducedMotion"));
 	Settings.bReducedFlicker |=
 		FParse::Param(CommandLine, TEXT("IGReducedFlicker"));
 	Settings.bDirectionalFearCues |=
 		FParse::Param(CommandLine, TEXT("IGFearDirection"));
-	Settings.bAutoConnectEvidence |=
-		FParse::Param(CommandLine, TEXT("IGAutoConnectEvidence"));
 	Settings.bToggleHoldInteractions |=
 		FParse::Param(CommandLine, TEXT("IGToggleHolds"));
 	Settings.bMicrophoneNoiseEnabled |=

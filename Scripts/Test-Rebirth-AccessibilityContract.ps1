@@ -23,22 +23,8 @@ $settingsLayout = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGSettingsMenuLayout.h')
 $controllerSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGPlayerController.cpp')
-$secondMorning = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGSecondMorningDirector.cpp')
-$humanGate = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGChapterTwoHumanGateDirector.cpp')
 $inputConfig = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Config/DefaultInput.ini')
-$thirdMorning = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGThirdMorningDirector.cpp')
-$timeEntry = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Interaction/IGTimeEntryPuzzle.cpp')
-$narrativeTypes = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Narrative/IGRebirthNarrativeTypes.h')
-$narrativeRouter = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Narrative/IGRebirthNarrativeSubsystem.cpp')
-$persistenceProbe = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGRebirthPersistenceProbe.cpp')
 $assertionCount = 0
 
 function Assert-True {
@@ -71,14 +57,9 @@ function Assert-ContainsAll {
 }
 
 Assert-ContainsAll $header @(
-	'EIGHintMode',
-	'Story',
-	'Standard',
-	'Silent',
 	'bReducedCameraMotion',
 	'bReducedFlicker',
 	'bDirectionalFearCues',
-	'bAutoConnectEvidence',
 	'bSubtitlesEnabled',
 	'bSoundCaptionsEnabled',
 	'CaptionSizeScale',
@@ -89,11 +70,7 @@ Assert-ContainsAll $header @(
 	'bHapticsEnabled',
 	'bMicrophoneNoiseEnabled',
 	'HoldDurationScale',
-	'GetP3HintThresholds',
-	'GetP4HintThresholds',
-	'GetPressureRiseIntervalSeconds',
 	'UsesDirectionalFearCues',
-	'UsesAutomaticEvidenceConnections',
 	'AreSubtitlesEnabled',
 	'AreSoundCaptionsEnabled',
 	'UsesToggleCrouch',
@@ -130,17 +107,9 @@ Assert-ContainsAll $source @(
 ) '영구 저장·입력 정규화'
 
 Assert-ContainsAll $source @(
-	'FVector(45.0f, 90.0f, 150.0f)',
-	'FVector(90.0f, 150.0f, 210.0f)',
-	'FVector(-1.0f, -1.0f, -1.0f)',
-	'return 80.0f',
-	'return 55.0f',
-	'return 45.0f',
-	'IGAccessibilityPreset=',
 	'IGReducedMotion',
 	'IGReducedFlicker',
 	'IGFearDirection',
-	'IGAutoConnectEvidence',
 	'IGNoSubtitles',
 	'IGNoSoundCaptions',
 	'IGToggleHolds',
@@ -149,128 +118,13 @@ Assert-ContainsAll $source @(
 	'IGCaptionScale=',
 	'IGCaptionBackground=',
 	'IGCaptionSafeArea='
-) '난이도·무상태 QA 오버라이드'
+) '무상태 QA 오버라이드'
 
 $loadIndex = $source.IndexOf('LoadPersistedSettings();')
 $overrideIndex = $source.IndexOf('RebuildEffectiveSettings();')
 Assert-True (
 	$loadIndex -ge 0 -and $overrideIndex -gt $loadIndex
 ) '저장값을 읽기 전에 QA 오버라이드를 적용한다'
-
-Assert-ContainsAll $thirdMorning @(
-	'Accessibility->ShouldAutoShowHints()',
-	'Accessibility->GetP3HintThresholds()',
-	'P3HintElapsedSeconds += 1.0f',
-	'HintThresholds.X',
-	'HintThresholds.Y',
-	'HintThresholds.Z'
-) 'P3 힌트 사다리 연결'
-$silentGateIndex = $thirdMorning.IndexOf(
-	'Accessibility && !Accessibility->ShouldAutoShowHints()')
-$hintClockIndex = $thirdMorning.IndexOf('P3HintElapsedSeconds += 1.0f')
-Assert-True (
-	$silentGateIndex -ge 0 -and $hintClockIndex -gt $silentGateIndex
-) '침묵 모드 게이트가 자동 힌트 체류 증가보다 먼저 실행되지 않는다'
-
-Assert-ContainsAll $timeEntry @(
-	'bool AIGTimeEntryPuzzle::AdvancePressureStage()',
-	'WrongAttempts >= 3',
-	'++WrongAttempts',
-	'UpdateButtonPrompts()'
-) 'P1/P2 공용 압박 단계'
-Assert-ContainsAll $secondMorning @(
-	'&ThisClass::PollPuzzlePressure',
-	'Accessibility->GetPressureRiseIntervalSeconds()',
-	'AIGReadableNote::GetOpenNote()',
-	'bP1PressureArmed',
-	'HasState(CalledEmployeeTag)',
-	'Puzzle->AdvancePressureStage()',
-	'ApplyP1PressureStage(PressureStage)',
-	'SetP2ShutterStage(PressureStage)',
-	'RequestCheckpointAutosave(bP1 ? CorridorCheckpointTag : StoreCheckpointTag)'
-) 'P1/P2 시간 압박 연결'
-Assert-ContainsAll $thirdMorning @(
-	'P3PressureRiseElapsedSeconds += 1.0f',
-	'Accessibility->GetPressureRiseIntervalSeconds()',
-	'AdvanceP3TimedPressure()',
-	'bP3PressureRiseArmed',
-	'AIGReadableNote::GetOpenNote()',
-	'Pressure remains',
-	'P3MistakeCount >= 3'
-) 'P3 시간 압박 연결'
-Assert-ContainsAll $thirdMorning @(
-	'void AIGThirdMorningDirector::PollP4PressureAndHint()',
-	'P4PressureRiseElapsedSeconds += 1.0f',
-	'Accessibility->GetP4HintThresholds()',
-	'AdvanceP4Pressure()',
-	'PresentNextP4Hint()',
-	'BeginP4ReceiptHint()',
-	'UpdateP4ReceiptHint()',
-	'P4ReceiptFragment',
-	'bP4PressureArmed',
-	'P4PressureStage < 3',
-	'AIGReadableNote::GetOpenNote()',
-	'FVector(1085.0f, -90.0f, 145.0f)',
-	'FMath::Square(360.0f)'
-) 'P4 접근 기반 압박·힌트 연결'
-Assert-ContainsAll $narrativeTypes @(
-	'float PressureRiseElapsedSeconds = 0.0f',
-	'bool bPressureRiseArmed = false'
-) 'P3 압박 시계 스냅샷 필드'
-Assert-ContainsAll $thirdMorning @(
-	'State.P3.PressureRiseElapsedSeconds = P3PressureRiseElapsedSeconds',
-	'State.P3.bPressureRiseArmed = bP3PressureRiseArmed',
-	'P3PressureRiseElapsedSeconds = State.P3.PressureRiseElapsedSeconds',
-	'bP3PressureRiseArmed = State.P3.bPressureRiseArmed'
-) 'P3 압박 시계 디렉터 저장·복원'
-Assert-ContainsAll $narrativeRouter @(
-	'FMath::IsFinite(',
-	'P3.PressureRiseElapsedSeconds',
-	'P3.bPressureRiseArmed = false',
-	'P3.PressureRiseElapsedSeconds = 0.0f'
-) 'P3 압박 시계 정규화'
-Assert-ContainsAll $persistenceProbe @(
-	'State.PressureRiseElapsedSeconds = 9.0f * CheckpointIndex',
-	'State.bPressureRiseArmed = CheckpointIndex > 0',
-	'Actual.PressureRiseElapsedSeconds',
-	'Actual.bPressureRiseArmed == Expected.bPressureRiseArmed'
-) 'P3 압박 시계 저장 왕복 오라클'
-Assert-ContainsAll $narrativeTypes @(
-	'FIGRebirthP4State',
-	'int32 StairLoopCount = 0',
-	'int32 PressureStage = 0',
-	'float PressureRiseElapsedSeconds = 0.0f',
-	'float HintElapsedSeconds = 0.0f',
-	'int32 HintStage = 0',
-	'bool bPressureArmed = false',
-	'bool bCompleted = false',
-	'FIGRebirthP4State P4'
-) 'P4 스냅샷 필드'
-Assert-ContainsAll $thirdMorning @(
-	'State.P4.StairLoopCount = StairLoopCount',
-	'State.P4.PressureStage = P4PressureStage',
-	'State.P4.PressureRiseElapsedSeconds = P4PressureRiseElapsedSeconds',
-	'State.P4.HintElapsedSeconds = P4HintElapsedSeconds',
-	'State.P4.HintStage = P4HintStage',
-	'State.P4.bPressureArmed = bP4PressureArmed',
-	'State.P4.bCompleted = bP4Completed',
-	'StairLoopCount = State.P4.StairLoopCount',
-	'bP4Completed = State.P4.bCompleted'
-) 'P4 디렉터 저장·복원'
-Assert-ContainsAll $narrativeRouter @(
-	'FIGRebirthP4State& P4',
-	'P4.StairLoopCount = FMath::Clamp',
-	'P4.PressureStage = FMath::Clamp',
-	'P4.HintStage = FMath::Clamp',
-	'P4.bPressureArmed = false',
-	'P4.PressureRiseElapsedSeconds = 0.0f'
-) 'P4 스냅샷 정규화'
-Assert-ContainsAll $persistenceProbe @(
-	'MakeP4Checkpoint',
-	'MatchesP4Checkpoint',
-	'ChapterThree.P4 = MakeP4Checkpoint(P3CheckpointIndex)',
-	'MatchesP4Checkpoint(ActualP4, ExpectedP4)'
-) 'P3 7경계와 결합한 P4 저장 왕복 오라클'
 
 Assert-ContainsAll $interaction @(
 	'TargetHoldDuration *= Accessibility->GetHoldDurationScale()',
@@ -333,34 +187,6 @@ Assert-ContainsAll $hudSource @(
 ) '핵심 소리 자막 설정·출력 연결'
 Assert-True (-not $hudSource.Contains(
 	'const FString Ellipsis = TEXT("…")')) '긴 자막을 말줄임표로 손실한다'
-Assert-ContainsAll $thirdMorning @(
-	'RearSplashCaption',
-	'TankScratchCaption',
-	'SafetyGasCaption',
-	'EndingAChimeCaption',
-	'MontageCaptions',
-	'EpilogueDripCaption',
-	'EndingBCatDrinkCaption'
-) 'CH03 공포음·엔딩 소리 자막 큐'
-Assert-ContainsAll $thirdMorning @(
-	'const float CaptionDuration',
-	'CaptionDuration);',
-	'FName(TEXT("Safety.GasDetector")),',
-	'1.15f);',
-	'FName(TEXT("Safety.Ventilation")),',
-	'2.30f);',
-	'FName(TEXT("Safety.Harness")),',
-	'1.05f);',
-	'FName(TEXT("Safety.TwoClimbers")),',
-	'2.50f);',
-	'FName(TEXT("Safety.HatchOpen")),',
-	'1.70f);',
-	'{10.60f, TEXT("[콘크리트 위에 물그릇을 놓는다]"), 0.8f}'
-) '연속 엔딩 음향의 자막 표시 구간'
-Assert-ContainsAll $humanGate @(
-	'AlarmFirstToneCaption',
-	'RadioStopsCaption'
-) 'CH02 알람·라디오 단절 소리 자막 큐'
 Assert-ContainsAll $hudSource @(
 	'Accessibility->UsesDirectionalFearCues()',
 	'FVector::DotProduct(Direction, Forward)',
@@ -368,26 +194,6 @@ Assert-ContainsAll $hudSource @(
 	'FCanvasLineItem',
 	'CueColor(0.72f, 0.74f, 0.72f'
 ) '공포음 방향 무채색 파형'
-Assert-True (
-	$thirdMorning.Contains('AIGHorrorHUD::PushFearDirection(this, WorldLocation') -and
-	$thirdMorning.Contains('AIGHorrorHUD::PushFearDirection(this, CueLocation')
-) 'CH03 긁힘·배관·후방 소리의 방향 파형 호출이 없다'
-
-Assert-ContainsAll $thirdMorning @(
-	'TryAutoConnectEvidence(EvidenceAction)',
-	'Accessibility->UsesAutomaticEvidenceConnections()',
-	'IsEvidenceActionObserved(Candidate)',
-	'IsEvidencePairValid(Candidate, EvidenceAction)',
-	'ResolveEvidencePair(Candidate, EvidenceAction)',
-	'EvidenceSearchPoster',
-	'EvidenceGlasses',
-	'EvidenceTankClothing'
-) 'P5 자동 연결'
-$observationIndex = $thirdMorning.IndexOf('RegisterEvidenceObservation(EvidenceAction);')
-$autoConnectIndex = $thirdMorning.IndexOf('TryAutoConnectEvidence(EvidenceAction)')
-Assert-True (
-	$observationIndex -ge 0 -and $autoConnectIndex -gt $observationIndex
-) 'P5 자동 연결이 실제 단서 관찰보다 먼저 실행된다'
 
 Assert-ContainsAll $controllerSource @(
 	'ToggleAccessibilityMenu',
@@ -606,7 +412,7 @@ Assert-True (
 Assert-True ($warningBody.Groups['body'].Value -match 'return 1\.0f;') `
 	'심장 박동 표시가 꺼져 있으면 비네트가 그대로다'
 
-# 노크 박자 맞추기 도움: 판정창 ×1.6과 시간 압박 해제.
+# 노크 박자 맞추기 도움: 판정창 ×1.6.
 $windowRow = [regex]::Match($storyText, '노크 판정창 ×(?<scale>[0-9.]+)')
 Assert-True $windowRow.Success '§19.8 노크 판정창 줄을 읽을 수 있다'
 $windowDeclared = [regex]::Match(
@@ -619,18 +425,6 @@ Assert-True (
 Assert-True (
 	$character -match 'IGPlayerNoise::KnockSequenceResetSeconds \* WindowScale') `
 	'넓어진 판정창이 실제로 걸린다'
-$pressureBody = [regex]::Match(
-	$source,
-	'float UIGAccessibilitySubsystem::GetPressureRiseIntervalSeconds\(\) const(?<body>[\s\S]*?)\r?\n\}')
-Assert-True $pressureBody.Success 'GetPressureRiseIntervalSeconds를 떼어낼 수 있다'
-Assert-True ($pressureBody.Groups['body'].Value.Contains('bCognitiveAssist')) `
-	'노크 박자 맞추기 도움이 시간 압박을 푼다'
-# 0으로 만들지 않는다. 세계가 아무 반응도 안 하면 그건 해제가 아니라 고장이다.
-$relaxed = [regex]::Match(
-	$source, 'constexpr float RelaxedPressureIntervalSeconds = (?<value>[0-9.]+)f;')
-Assert-True $relaxed.Success 'RelaxedPressureIntervalSeconds를 읽을 수 있다'
-Assert-True ([double]$relaxed.Groups['value'].Value -gt 0.0) `
-	'시간 압박 해제는 세계를 멈추는 것이 아니다'
 
 # --- 멀미 완화 비네트 (§18.3) ------------------------------------------------
 #
@@ -825,20 +619,6 @@ Assert-ContainsAll $inputConfig @(
 	'Key=Enter',
 	'Key=SpaceBar'
 ) '키보드 설정 패널 매핑'
-Assert-ContainsAll $secondMorning @(
-	'bool AIGSecondMorningDirector::RequestManualHint()',
-	'PresentP1ManualHint()',
-	'PresentP2ManualHint()',
-	'P1ManualHintAnswer',
-	'P2ManualHintAnswer'
-) 'P1/P2 수동 힌트 사다리'
-Assert-ContainsAll $thirdMorning @(
-	'bool AIGThirdMorningDirector::RequestManualHint()',
-	'PresentNextP3Hint()',
-	'PresentNextP4Hint()',
-	'P3HintFullOrder',
-	'P4HintRouteAnswer'
-) 'P3/P4 수동 힌트 사다리'
 Assert-ContainsAll $inputConfig @(
 	'ActionName="RequestHint"',
 	'Key=H',
@@ -855,7 +635,7 @@ Assert-ContainsAll $inputConfig @(
 	'Key=Gamepad_FaceButton_Top',
 	'Key=Gamepad_LeftThumbstick',
 	'Key=Gamepad_RightThumbstick'
-) '게임패드 이동·조사·설정·엔딩 매핑'
+) '게임패드 이동·조사·설정 매핑'
 Assert-ContainsAll $hudSource @(
 	'PromptFormatGamepad',
 	'PromptFormatKeyboard',
@@ -876,40 +656,9 @@ Assert-ContainsAll $controllerSource @(
 	'SetInputDevicePresentation(bGamepad)',
 	'SetInputDevicePresentation(bUsingGamepadForHud)'
 ) '마지막 실제 입력 장치 자동 전환'
-Assert-ContainsAll $thirdMorning @(
-	'IsUsingGamepadForHud()',
-	'EndingControlsGamepad',
-	'EndingControlsKeyboard',
-	'L3  이 아침 다시 시작',
-	'R  이 아침 다시 시작'
-) '엔딩 입력 장치별 안내'
 
-# C++ 구현과 독립된 정책 오라클. 숫자나 순서가 바뀌면 기획 계약도
+# C++ 구현과 독립된 정책 오라클. 숫자가 바뀌면 기획 계약도
 # 명시적으로 함께 바꾸게 한다.
-$thresholds = @{
-	Story = @(45, 90, 150)
-	Standard = @(90, 150, 210)
-	Silent = @(-1, -1, -1)
-}
-Assert-True (($thresholds.Story -join ',') -eq '45,90,150') '이야기 힌트 임계값 오류'
-Assert-True (($thresholds.Standard -join ',') -eq '90,150,210') '기본 힌트 임계값 오류'
-Assert-True (($thresholds.Silent -join ',') -eq '-1,-1,-1') '침묵 자동 힌트 차단값 오류'
-$p4Thresholds = @{
-	Story = @(45, 90, 150)
-	Standard = @(45, 100, 150)
-	Silent = @(-1, -1, -1)
-}
-Assert-True (($p4Thresholds.Story -join ',') -eq '45,90,150') 'P4 이야기 힌트 임계값 오류'
-Assert-True (($p4Thresholds.Standard -join ',') -eq '45,100,150') 'P4 기본 힌트 임계값 오류'
-Assert-True (($p4Thresholds.Silent -join ',') -eq '-1,-1,-1') 'P4 침묵 자동 힌트 차단값 오류'
-$pressureIntervals = @{
-	Story = 80
-	Standard = 55
-	Silent = 45
-}
-Assert-True ($pressureIntervals.Story -eq 80) '이야기 압박 간격 오류'
-Assert-True ($pressureIntervals.Standard -eq 55) '기본 압박 간격 오류'
-Assert-True ($pressureIntervals.Silent -eq 45) '침묵 압박 간격 오류'
 foreach ($holdScale in @(-2.0, 0.25, 0.7, 1.0, 4.0)) {
 	$clamped = [Math]::Min(1.0, [Math]::Max(0.25, $holdScale))
 	Assert-True (
@@ -1044,73 +793,11 @@ foreach ($profile in $layoutProfiles) {
 	}
 }
 
-function Assert-NoCaptionOverlap {
-	param(
-		[Parameter(Mandatory = $true)]
-		[object[]]$Entries,
-		[Parameter(Mandatory = $true)]
-		[double]$SequenceEnd,
-		[Parameter(Mandatory = $true)]
-		[string]$Context
-	)
-	for ($index = 0; $index -lt $Entries.Count; $index++) {
-		$entry = $Entries[$index]
-		$nextStart = if ($index + 1 -lt $Entries.Count) {
-			[double]$Entries[$index + 1].Start
-		} else {
-			$SequenceEnd
-		}
-		Assert-True (
-			([double]$entry.Start + [double]$entry.Duration) -le $nextStart + 0.001
-		) "$Context 자막 겹침: index=$index"
-	}
-}
-
-$safetyCaptions = @(
-	@{ Start = 0.10; Duration = 1.15 },
-	@{ Start = 1.40; Duration = 2.30 },
-	@{ Start = 4.10; Duration = 1.05 },
-	@{ Start = 5.30; Duration = 2.50 },
-	@{ Start = 9.00; Duration = 1.70 }
-)
-$montageCaptions = @(
-	@{ Start = 0.01; Duration = 1.40 },
-	@{ Start = 1.50; Duration = 1.20 },
-	@{ Start = 2.80; Duration = 1.80 },
-	@{ Start = 5.20; Duration = 1.40 },
-	@{ Start = 6.90; Duration = 1.00 },
-	@{ Start = 7.90; Duration = 1.20 },
-	@{ Start = 9.10; Duration = 1.40 },
-	@{ Start = 10.60; Duration = 0.80 },
-	@{ Start = 11.50; Duration = 1.90 },
-	@{ Start = 13.90; Duration = 2.00 }
-)
-Assert-NoCaptionOverlap $safetyCaptions 10.90 '공통 안전 절차'
-Assert-NoCaptionOverlap $montageCaptions 16.40 '엔딩 B 암전 몽타주'
-
-# --- 광과민: 초당 세 번을 넘는 점멸을 남기지 않는다 -----------------------
-# 설계서 §24의 즉시 차단 22가 3Hz 초과 점멸을 출시 차단으로 잠갔다. 골목
-# 가로등 고장은 0.11초 간격으로 상승·하강을 번갈아 밟고 있었다. 두 단계마다
-# 점멸 한 번이므로 초당 4.55회, 1초 안에 4회다. 한계를 넘는다.
+# --- 광과민: 점멸을 만드는 곳은 전부 점멸 감소를 따른다 ------------------
+# 설계서 §24의 즉시 차단 22가 3Hz 초과 점멸을 출시 차단으로 잠갔다.
 #
-# 점멸률은 C++ static_assert가 빌드 시점에 잠그므로 여기서는 그 잠금 자체가
-# 사라지지 않았는지와, 점멸을 만드는 모든 곳이 「점멸 감소」를 따르는지를 본다.
-$morningDirector = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGMorningRoutineDirector.cpp')
-Assert-ContainsAll $morningDirector @(
-	'constexpr float FlickerStepSeconds = 0.20f;',
-	'FlickerStepSeconds * 2.0f * 3.0f >= 1.0f',
-	'static_assert('
-) '골목 가로등 점멸률 잠금'
-$morningStep = [regex]::Match(
-	$morningDirector, 'constexpr float FlickerStepSeconds = (?<v>[\d.]+)f;')
-Assert-True $morningStep.Success '골목 가로등 점멸 간격을 읽을 수 없다'
-$flashesPerSecond = 1.0 / (2.0 * [double]$morningStep.Groups['v'].Value)
-Assert-True ($flashesPerSecond -le 3.0) (
-	'골목 가로등이 초당 {0:N2}회 점멸한다. 한계는 3회다.' -f $flashesPerSecond)
-
-# 점멸을 정의하는 파일은 전부 점멸 감소를 참조해야 한다. 호출만 하는 파일은
-# 세지 않는다 — SuspendCorridorFlicker를 부르는 것은 점멸을 만드는 게 아니다.
+# 호출만 하는 파일은 세지 않는다 — SuspendCorridorFlicker를 부르는 것은
+# 점멸을 만드는 게 아니다.
 $flickerOwners = @(
 	Get-ChildItem -Recurse -File -LiteralPath (
 		Join-Path $projectRoot 'Source/IndieGame') -Filter '*.cpp' |
@@ -1119,7 +806,8 @@ $flickerOwners = @(
 				'::[A-Za-z]*(Flicker|Blink)[A-Za-z]*\('
 		}
 )
-Assert-True ($flickerOwners.Count -ge 4) (
+# 지금은 복도 형광등과 손전등, 두 파일이다.
+Assert-True ($flickerOwners.Count -ge 2) (
 	'점멸을 정의하는 파일이 {0}개뿐이다. 판별식이 깨졌다.' -f $flickerOwners.Count)
 foreach ($flickerOwner in $flickerOwners) {
 	$flickerSource = Get-Content -Raw -Encoding UTF8 -LiteralPath $flickerOwner.FullName
@@ -1129,5 +817,5 @@ foreach ($flickerOwner in $flickerOwners) {
 
 Write-Host (
 	"REBIRTH_ACCESSIBILITY_CONTRACT PASS assertions=$assertionCount " +
-	"hints=3 pressure_modes=3 gamepad=1 input_switch=1 captions=1 layout_profiles=$($layoutProfiles.Count) caption_sequences=2 persistence=1 reduced_motion=1 reduced_flicker=1 toggle_hold=1"
+	"gamepad=1 input_switch=1 captions=1 layout_profiles=$($layoutProfiles.Count) persistence=1 reduced_motion=1 reduced_flicker=1 toggle_hold=1"
 ) -ForegroundColor Green

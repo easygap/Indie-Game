@@ -4,22 +4,11 @@
 #include "Subsystems/GameInstanceSubsystem.h"
 #include "IGAccessibilitySubsystem.generated.h"
 
-UENUM(BlueprintType)
-enum class EIGHintMode : uint8
-{
-	Story UMETA(DisplayName = "이야기"),
-	Standard UMETA(DisplayName = "기본"),
-	Silent UMETA(DisplayName = "침묵")
-};
-
 /** Settings that alter presentation and input without changing story truth. */
 USTRUCT(BlueprintType)
 struct INDIEGAME_API FIGAccessibilitySettings
 {
 	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
-	EIGHintMode HintMode = EIGHintMode::Standard;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bReducedCameraMotion = false;
@@ -74,15 +63,9 @@ struct INDIEGAME_API FIGAccessibilitySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bHeartbeatWarning = false;
 
-	/**
-	 * §19.8 인지 지원. 퍼즐의 시간 압박을 풀고 노크 판정창을 넓힌다.
-	 * 힌트 모드는 같은 묶음이지만 자기 행을 따로 가진다(§19.4).
-	 */
+	/** §19.8 인지 지원. 노크 판정창을 넓힌다. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bCognitiveAssist = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
-	bool bAutoConnectEvidence = false;
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bSubtitlesEnabled = true;
@@ -177,24 +160,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Accessibility")
 	void ResetToDefaults();
 
-	UFUNCTION(BlueprintPure, Category = "Accessibility|Hints")
-	bool ShouldAutoShowHints() const
-	{
-		return EffectiveSettings.HintMode != EIGHintMode::Silent;
-	}
-
-	/** X/Y/Z are the first, second, and third P3 dwell thresholds in seconds. */
-	UFUNCTION(BlueprintPure, Category = "Accessibility|Hints")
-	FVector GetP3HintThresholds() const;
-
-	/** X/Y/Z are P4's relation, environmental, and explicit-route thresholds. */
-	UFUNCTION(BlueprintPure, Category = "Accessibility|Hints")
-	FVector GetP4HintThresholds() const;
-
-	/** Story/Standard/Silent pressure cadence: 80/55/45 seconds. */
-	UFUNCTION(BlueprintPure, Category = "Accessibility|Pressure")
-	float GetPressureRiseIntervalSeconds() const;
-
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Motion")
 	bool IsReducedCameraMotionEnabled() const
 	{
@@ -211,12 +176,6 @@ public:
 	bool UsesDirectionalFearCues() const
 	{
 		return EffectiveSettings.bDirectionalFearCues;
-	}
-
-	UFUNCTION(BlueprintPure, Category = "Accessibility|Evidence")
-	bool UsesAutomaticEvidenceConnections() const
-	{
-		return EffectiveSettings.bAutoConnectEvidence;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Subtitles")

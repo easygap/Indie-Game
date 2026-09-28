@@ -340,7 +340,7 @@ def self_test() -> int:
 
     # 실제 트리에서 상자가 뽑히고, 숨긴 상자를 실제로 찾아내는지.
     boxes = collect()
-    if len(boxes) < 800:
+    if len(boxes) < 600:
         failures.append("실제 트리에서 상자가 너무 적다 (%d)" % len(boxes))
     hidden_total = sum(len(hidden_lines(path)) for path in geometry.SOURCES)
     if hidden_total < 1:

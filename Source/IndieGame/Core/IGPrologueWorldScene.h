@@ -2,31 +2,18 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Actor.h"
-#include "Interaction/IGAlarmClock.h"
-#include "Interaction/IGGetUpInteractable.h"
-#include "Sequence/IGWakeUpDirector.h"
 #include "IGPrologueWorldScene.generated.h"
 
 class AIGCheckoutCounter;
 class APawn;
-class AIGDemoDirector;
 class AIGElevator;
 class AIGFridge;
 class AIGInspectable;
-class AIGApartmentStoryDressing;
-class AIGChapterOneIncidentDirector;
-class AIGChapterOneIncidentAction;
-class AIGChapterTwoHumanGateDirector;
-class AIGItemContinuityDressing;
-class AIGMorningRoutineDirector;
 class AIGNeighborhoodLifeDirector;
 class AIGPickupItem;
-class AIGReadableNote;
-class AIGSecondMorningDirector;
 class AIGSlidingDoor;
 class AIGStairTransition;
 class AIGSwingDoor;
-class AIGThirdMorningDirector;
 class AIGZoneTrigger;
 class UAudioComponent;
 class UDirectionalLightComponent;
@@ -42,75 +29,12 @@ class UStaticMesh;
 class UStaticMeshComponent;
 class UIGSettledDustComponent;
 class UInstancedStaticMeshComponent;
-class UIGAlarmSoundWave;
-enum class EIGRebirthPurchaseProfile : uint8;
-
-/** Prototype-only alarm subclass that exposes protected presentation components safely. */
-UCLASS(NotBlueprintable, Transient)
-class INDIEGAME_API AIGPrologueAlarmClock final : public AIGAlarmClock
-{
-	GENERATED_BODY()
-
-public:
-	/**
-	 * Builds the clock radio. InBodyMesh is the authored beveled shell (real
-	 * centimeters); InPanelMesh is a unit cube used for the LED face plate.
-	 */
-	void ConfigurePrototype(
-		UStaticMesh* InBodyMesh,
-		UStaticMesh* InPanelMesh,
-		UMaterialInterface* InBodyMaterial,
-		UMaterialInterface* InDisplayMaterial,
-		UMaterialInterface* InButtonMaterial,
-		USoundBase* InAlarmSound);
-
-private:
-	UStaticMeshComponent* AddPart(
-		UStaticMesh* Mesh,
-		UMaterialInterface* Material,
-		const FVector& RelativeLocation,
-		const FVector& SizeCentimeters);
-
-	int32 PartCounter = 0;
-};
-
-/** Prototype-only director adapter; production content will configure the base class in a Blueprint. */
-UCLASS(NotBlueprintable, Transient)
-class INDIEGAME_API AIGPrologueWakeDirector final : public AIGWakeUpDirector
-{
-	GENERATED_BODY()
-
-public:
-	void ConfigurePrototype(AIGAlarmClock* InAlarmClock);
-};
-
-/** Traceable pillow target used for the contextual Get Up interaction. */
-UCLASS(NotBlueprintable, Transient)
-class INDIEGAME_API AIGPrologueGetUpTarget final : public AIGGetUpInteractable
-{
-	GENERATED_BODY()
-
-public:
-	AIGPrologueGetUpTarget();
-	void ConfigurePrototype(
-		AIGWakeUpDirector* InWakeUpDirector,
-		UStaticMesh* InTargetMesh,
-		UMaterialInterface* InTargetMaterial);
-
-private:
-	UPROPERTY(VisibleAnywhere, Category = "Prototype")
-	TObjectPtr<UStaticMeshComponent> TargetMesh;
-};
+enum class EIGPurchaseProfile : uint8;
 
 /**
- * Self-contained greybox world for the prologue morning:
- * a 5-pyeong basement studio, the pre-dawn alley outside and the glowing
- * convenience store that terminates it. Geometry is assembled at BeginPlay
- * from Engine basic shapes; nothing here Ticks after construction settles.
- *
- * Runtime flow: alarm wake-up -> empty fridge -> wallet -> alley ->
- * store -> water bottle -> self checkout, coordinated by the wake and
- * morning-routine directors this scene spawns and wires together.
+ * 빌라(403호·복도·로비·5층·옥상)와 골목, 편의점을 BeginPlay에 기본 도형과
+ * 저작 메시로 세우는 월드. 다 세운 뒤에는 Tick하지 않는다. 밤마다 무엇이
+ * 일어나는지는 없는 층 디렉터들이 정하고, 이 씬은 아래 동사로만 건물을 바꾼다.
  */
 UCLASS(NotBlueprintable, Transient)
 class INDIEGAME_API AIGPrologueWorldScene : public AActor
@@ -184,16 +108,6 @@ public:
 	static FVector GetPlayerStartLocation();
 
 	/**
-	 * 401호 라디오의 월드 자리.
-	 *
-	 * 한동안 챕터 2 게이트가 지역 좌표로 들고 자기 액터 트랜스폼을
-	 * 걸었고, 챕터 1 프레즌스 컴포넌트는 같은 숫자를 월드로 바로
-	 * 썼다. 둘 다 원점에 있어 결과가 같았을 뿐이다. 같은 라디오는
-	 * 한 좌표계로 적는다.
-	 */
-	static FVector GetRadio401Location();
-
-	/**
 	 * 로비 CCTV 모니터 화면의 실치수(cm).
 	 *
 	 * 케이스와 4분할 발광면은 씬이 세우고, 채널 5의 렌더 면은
@@ -234,28 +148,6 @@ public:
 	 */
 	void SetFixtureLive(int32 Index, bool bLive, bool bCorridor);
 	FVector GetCorridorFixtureLocation(int32 Index) const;
-
-	/** Reveals or parks the pre-built second-morning set without reallocating it. */
-	void SetChapterTwoOverlayVisible(bool bVisible);
-
-	/** Wet prints appear only at the end of the interrupted 2F lift stop. */
-	void RevealElevatorFootprints();
-
-	/** Drops the duplicate 04:44 receipt after the second checkout. */
-	void RevealSecondReceipt();
-
-	/** Arms the 4F approach-to-404 volume after C3 has two independent truths. */
-	void SetChapterTwoReturnZoneArmed(bool bArmed);
-
-	/** Kills/restores the two north-side sales-floor luminaires and diffusers. */
-	void SetStoreNorthLightsLive(bool bLive);
-
-	/** CH02 ending: relight 4F, sound the distant alarm, fade, and show CH03 card. */
-	void FinishChapterTwo();
-
-	/** Rebuilds the persisted CH01 cat-water trace for CH02 and direct save loads. */
-	void RefreshChapterTwoCatWaterAftermath();
-	bool ValidateChapterTwoCatWaterAftermath() const;
 
 	int32 GetCorridorFixtureCount() const { return CorridorLights.Num(); }
 	int32 GetLobbyFixtureCount() const { return LobbyLights.Num(); }
@@ -546,7 +438,6 @@ private:
 	/** Shows the aging planes the current stage has reached, hides the rest. */
 	void ApplyUnit403AgeStage();
 	void BuildCorridor();
-	void BuildChapterTwoOverlay();
 	void BuildLobby();
 	/**
 	 * 없는 층 밤3: extends the real 4F stair to the roof, builds the 6.4 m
@@ -560,53 +451,18 @@ private:
 	void BuildDistantSkyline();
 	void SpawnInteractables();
 	void SpawnStairTransition();
-	void SpawnChapterTwoInteractables();
-	void SpawnChapterTwoItemContinuityDressing();
 	void AddStaticPurchaseBagProxy(
 		AIGPickupItem* WaterBottle,
-		EIGRebirthPurchaseProfile PurchaseProfile);
+		EIGPurchaseProfile PurchaseProfile);
 	void RefreshPurchaseProfilePresentation();
-	void SpawnDirectors();
 	void CreateAmbience();
-	void SpawnDemoDirectorIfRequested();
-	void SpawnChapterOneIncident();
-	void SpawnReturnBoundary();
-	void ReconcileLoadedCheckpoint();
-	void BeginChapterTwoTransition();
-	void EnterChapterTwo();
-	void EnterChapterThree();
-	void StartRebirthEndToEndValidation();
-	void ContinueRebirthEndToEndChapterTwo();
-	void FailRebirthEndToEndValidation(const TCHAR* Reason) const;
-	void StartChapterTwoCaptureSequence();
-	void CaptureNextChapterTwoFrame();
-	void FinishChapterTwoCaptureSequence();
 
 	UFUNCTION()
 	void HandleStoryStateChanged(FGameplayTag StateTag, bool bAdded);
 
-	UFUNCTION()
-	void HandleReturnBoundaryTriggered(AIGZoneTrigger* Zone);
-
-	UFUNCTION()
-	void HandleChapterOneMemoryBoundaryCompleted();
-
-	UFUNCTION()
-	void HandleElevatorReturnedToFourthFloor(AIGElevator* ReturnedElevator);
-
-	UFUNCTION()
-	void HandleStairTransitionCompleted(bool bGoingDown);
-
-	/** Grants the torch to the player pawn once the pickup is taken. */
-	UFUNCTION()
-	void HandleFlashlightPickedUp(AIGPickupItem* Item);
-
-	/** Refreshes price, receipt, and bag presentation after a profile swap. */
+	/** 물병을 바꿔 들면 계산대 문구와 봉투 표시를 다시 맞춘다. */
 	UFUNCTION()
 	void HandlePurchaseSelectionChanged(AIGPickupItem* Item);
-
-	UFUNCTION()
-	void HandleFlickerZoneTriggered(AIGZoneTrigger* Zone);
 
 	/** 발에 걸린 물리 소품이 부딪는 소리. 소화기는 제 낙하음이 따로 있어 뺀다. */
 	UFUNCTION()
@@ -706,50 +562,23 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WindowDarkMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> NightSkyMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> StreetLampGlowMaterial;
-	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WalletBrownMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> CoolerBodyMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> CounterTopMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> ScreenGlowMaterial;
 
 	// --- spawned actors ---------------------------------------------------
-	UPROPERTY(Transient) TObjectPtr<UIGAlarmSoundWave> AlarmSound;
-	UPROPERTY(Transient) TObjectPtr<AIGPrologueAlarmClock> AlarmClock;
-	UPROPERTY(Transient) TObjectPtr<AIGPrologueWakeDirector> WakeDirector;
-	UPROPERTY(Transient) TObjectPtr<AIGPrologueGetUpTarget> GetUpTarget;
 	UPROPERTY(Transient) TObjectPtr<AIGFridge> Fridge;
-	UPROPERTY(Transient) TObjectPtr<AIGApartmentStoryDressing> ApartmentStoryDressing;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> HomeDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> BuildingDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGElevator> Elevator;
 	UPROPERTY(Transient) TObjectPtr<AIGStairTransition> StairTransition;
 	UPROPERTY(Transient) TObjectPtr<AIGSlidingDoor> StoreDoor;
 	UPROPERTY(Transient) TObjectPtr<AIGCheckoutCounter> Checkout;
-	/** CH01 checkout scan; CH02 replaces it with the interactive P2 terminal. */
-	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> StoreCashRegisterVisual;
-	UPROPERTY(Transient) TObjectPtr<AIGChapterOneIncidentDirector> ChapterOneIncidentDirector;
-	UPROPERTY(Transient) TObjectPtr<AIGMorningRoutineDirector> MorningDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGNeighborhoodLifeDirector> NeighborhoodLifeDirector;
-	UPROPERTY(Transient) TObjectPtr<AIGSecondMorningDirector> SecondMorningDirector;
-	UPROPERTY(Transient) TObjectPtr<AIGChapterTwoHumanGateDirector> ChapterTwoHumanGateDirector;
-	UPROPERTY(Transient) TObjectPtr<AIGItemContinuityDressing> ChapterTwoItemContinuityDressing;
-	UPROPERTY(Transient) TObjectPtr<AIGChapterOneIncidentAction> ChapterTwoCatWaterAftermath;
-	UPROPERTY(Transient) TObjectPtr<AIGThirdMorningDirector> ThirdMorningDirector;
-	UPROPERTY(Transient) TObjectPtr<AIGDemoDirector> DemoDirector;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterOneApartmentExitZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> LeftHomeZone;
-	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> FlickerZone;
 	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> StoreEntryZone;
-	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ReturnBoundaryZone;
-	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterTwoLeftHomeZone;
-	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterTwoOutdoorZone;
-	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> MirrorSightZone;
-	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> MirrorEntryZone;
-	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterTwoStoreEntryZone;
-	UPROPERTY(Transient) TObjectPtr<AIGZoneTrigger> ChapterTwoReturnZone;
 	UPROPERTY(Transient) TArray<TObjectPtr<AIGPickupItem>> WaterBottles;
-	UPROPERTY(Transient) TObjectPtr<AIGPickupItem> Wallet;
-	UPROPERTY(Transient) TArray<TObjectPtr<AIGPickupItem>> ChapterTwoWaterBottles;
-	UPROPERTY(Transient) TObjectPtr<AIGPickupItem> ChapterTwoWallet;
 
 	// Ceiling fixtures, kept so a later chapter can put them out one at a
 	// time. Each fixture is TWO things: the point light and the emissive disc
@@ -760,14 +589,6 @@ private:
 	UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> LobbyLights;
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> LobbyLightDiscs;
 	UPROPERTY(Transient) TObjectPtr<AIGPickupItem> Flashlight;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ManagementNotice;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ChapterOneReceipt;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> ExistingReceipt;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> DuplicateReceipt;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> MirrorAlarmMemo;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> MailboxBills;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> OfferingNote;
-	UPROPERTY(Transient) TObjectPtr<AIGReadableNote> NightRoster;
 	/**
 	 * 없는 층: the roller shutter across the lobby-to-stair-core connector.
 	 * Built hidden and non-colliding; SetTheHourSealed is the only thing that
@@ -792,19 +613,6 @@ private:
 	double PropImpactLastAnySeconds = -1.0;
 	/** 막 생긴 소품이 바닥에 자리 잡는 충돌은 소리가 아니다. 이 시각 전은 듣지 않는다. */
 	double PropImpactArmedAtSeconds = 0.0;
-	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> MirrorRoomDoor;
-	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomLamp;
-	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomBounce;
-	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> OfferingLight;
-
-	/** CH01 wall plug masks the future 403 doorway until the first loop ends. */
-	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> ChapterOneMaskComponents;
-
-	/** Hidden-at-start CH02 dressing. Colliders are restored from a separate list. */
-	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> ChapterTwoOverlayComponents;
-	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> ChapterTwoCollisionComponents;
-	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> ElevatorFootprintComponents;
-	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> StoreLightDiscs;
 
 	/** Set while a chapter owns the west corridor fixture; see the flicker handler. */
 	bool bCorridorFlickerSuspended = false;
@@ -825,14 +633,11 @@ private:
 	 */
 	void ApplyStreetNightLevel(bool bNight);
 
-	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> FlickerStreetlight;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> DegradedCorridorLight;
-	UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> StoreLights;
 	UPROPERTY(Transient) TObjectPtr<class AIGStoreClerk> StoreClerk;
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> JingleComponent;
 	/** Bed_City_Night. 새벽마다 차오르는 도로. */
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> StreetBedComponent;
-	UPROPERTY(Transient) TObjectPtr<UAudioComponent> DistantAlarmComponent;
 
 	/** When set, assembly helpers parent to this instead of SceneRoot. */
 	UPROPERTY(Transient)
@@ -871,17 +676,8 @@ private:
 	TObjectPtr<UStaticMeshComponent> MissingFloorCavityWallResidue;
 	bool bMissingFloorCavityOpen = false;
 
-	/**
-	 * Exact world-space contact transform derived from the registered bedside
-	 * table bounds. Imported scans are uniformly fitted and may finish shorter
-	 * than their target box, so a hard-coded 60 cm surface can visibly float the
-	 * clock above an otherwise correct table.
-	 */
-	FVector AlarmWorldLocation = FVector::ZeroVector;
-
-	/** Measured desk support plane and its gravity-seated wallet transform. */
+	/** Measured desk support plane. */
 	float DeskSurfaceWorldZ = 0.0f;
-	FVector WalletWorldLocation = FVector::ZeroVector;
 
 	FTimerHandle CorridorFlickerHandle;
 	float DegradedLightBaseIntensity = 850.0f;
@@ -889,15 +685,4 @@ private:
 	int32 PlayerPositionAttempts = 0;
 	int32 BlockCounter = 0;
 	bool bPrologueInitialized = false;
-	bool bChapterTwoTransitionPending = false;
-	bool bChapterTwoActive = false;
-	bool bChapterTwoFinished = false;
-	bool bChapterThreeActive = false;
-	bool bRebirthEndToEndValidation = false;
-
-	FTimerHandle ChapterTransitionHandle;
-	FTimerHandle ChapterEndingHandle;
-	FTimerHandle ChapterCaptureHandle;
-	FTimerHandle RebirthEndToEndHandle;
-	int32 ChapterCaptureIndex = 0;
 };

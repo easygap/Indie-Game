@@ -504,10 +504,6 @@ $meshScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\generate_meshes.py')
 $meshContractScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts\mesh_lod_contract.py')
-$directorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source\IndieGame\Sequence\IGThirdMorningDirector.cpp')
-$demoSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source\IndieGame\Sequence\IGDemoDirector.cpp')
 $neighborhoodSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source\IndieGame\Environment\IGNeighborhoodLifeDirector.cpp')
 $prologueSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -666,11 +662,7 @@ if ($meshScript.Contains('set_mesh_u_vs_from_cylinder_projection') -or
 }
 foreach ($token in @(
 	'constexpr float BedsideTableTopZ = 60.0f;',
-	'constexpr float AlarmContactBottomLocalZ = -0.40f;',
-	'constexpr float PropContactEmbedZ = 0.10f;',
 	'BedsideTable->CalcBounds(',
-	'BedsideSurfaceWorldZ - IGPrologueWorld::AlarmContactBottomLocalZ',
-	'AlarmWorldLocation',
 	'PropMesh(TEXT("SM_StickyNote76mm"))',
 	'FVector(-7.43f, 36.0f, 18.0f)',
 	'FVector(3.30f, 3.30f, 5.5f)',
@@ -695,16 +687,6 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'NotFoundNoteSpot(216, -235, FloorZ + 171)',
-	'MakeWalkLook(FVector(310, -350, 0), NotFoundNoteSpot)',
-	'MakeStill(TEXT("prologue-not-found-note"))',
-	'BaseName == TEXT("prologue-not-found-note")'
-)) {
-	if (-not $demoSource.Contains($token)) {
-		throw "403/404 entrance capture contract is missing: $token"
-	}
-}
-foreach ($token in @(
 	'const bool Cups = Run == 0 && (Tier == 2 || Tier == 3);',
 	'const float Z = 31.5f + Tier * 30.0f;',
 	'Depth == 0 ? 28.0f : 11.5f',
@@ -718,9 +700,7 @@ foreach ($token in @(
 }
 foreach ($forbiddenToken in @(
 	'AddStoreStockCup(FVector(CupX, -365, 142)',
-	'AddStoreStockCup(FVector(CupX, -654, 167.5f)',
-	'constexpr float AlarmFootBottomLocalZ = -0.65f;',
-	'PropContactClearanceZ'
+	'AddStoreStockCup(FVector(CupX, -654, 167.5f)'
 )) {
 	if ($prologueSource.Contains($forbiddenToken)) {
 		throw "A known floating/top-cap retail placement regressed: $forbiddenToken"
@@ -848,57 +828,18 @@ foreach ($token in @(
 		throw "Static-mesh LOD chain is not applied at bake time: $token"
 	}
 }
-if ($directorSource.Contains('for (int32 RingIndex = 0; RingIndex < 3; ++RingIndex)')) {
-	throw 'Opaque segmented ripple bars returned above the translucent tank water'
-}
-foreach ($token in @(
-	'SM_HornRimGlasses',
-	'SM_InspectionRod',
-	'SM_CrackedPhone'
-)) {
-	if (-not $meshScript.Contains($token) -or
-		-not $directorSource.Contains($token)) {
-		throw "Evidence prop is not generated and loaded: $token"
-	}
-}
-if (-not $meshScript.Contains('SM_OfferingWaterBowl') -or
-	-not $prologueSource.Contains('SM_OfferingWaterBowl')) {
-	throw 'Lobby offering bowl is not generated and loaded as an open vessel'
-}
 if (-not $meshScript.Contains('SM_DrinkCan') -or
 	-not $prologueSource.Contains('M_LabelWater1L') -or
 	-not $prologueSource.Contains('M_LabelWater2L')) {
 	throw '냉장고의 용량별 상품 라벨이 빠졌다.'
-}
-foreach ($token in @(
-	'def build_offering_water_bowl',
-	'(12.2, 8.0)',
-	'(10.7, 7.7)',
-	'revolve(mesh, profile, steps=48, smooth=True, scale_to_fill=True)',
-	'return bake(mesh, "SM_OfferingWaterBowl", add_collision=False)',
-	'FVector(-126, -280, 7.72f)',
-	'WaterSurface->SetCastShadow(false)'
-)) {
-	if (-not $meshScript.Contains($token) -and
-		-not $prologueSource.Contains($token)) {
-		throw "Offering-bowl open-water contract is missing: $token"
-	}
 }
 if (-not $meshScript.Contains('SM_AlleyCatRun') -or
 	-not $neighborhoodSource.Contains('SM_AlleyCatRun') -or
 	-not $neighborhoodSource.Contains('M_AlleyCatTabbyUV')) {
 	throw 'Alley cat mesh/material is not generated and loaded'
 }
-foreach ($token in @(
-	'SM_SubmergedHoodieCurl',
-	'SM_SubmergedPantsCurl',
-	'SM_SubmergedSlippersCurl'
-)) {
-	if (-not $meshScript.Contains($token) -or
-		-not $directorSource.Contains($token)) {
-		throw "Submerged body group is not generated and loaded: $token"
-	}
-}
+# 잠긴 몸·옥상 방화문·물탱크 소품은 옛 이야기(REBIRTH)에서만 쓰던 것이다. 불러
+# 쓰던 디렉터는 지웠고, 에셋과 생성기가 남아 있는 동안은 생성기 쪽 치수만 본다.
 foreach ($token in @(
 	'Anatomically readable wet hoodie',
 	'leg_segments = (',
@@ -908,84 +849,6 @@ foreach ($token in @(
 )) {
 	if (-not $meshScript.Contains($token)) {
 		throw "Submerged human-anatomy silhouette contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'M_SubmergedHoodieUV',
-	'M_SubmergedPantsUV',
-	'M_SubmergedSlippersUV',
-	'M_SubmergedSlipperWearUV',
-	'SubmergedPantsMaterial',
-	'SubmergedSlippersMaterial',
-	'SubmergedSlipperWearMaterial'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Submerged clothing material contract is missing: $token"
-	}
-}
-if ($directorSource -match
-	'BeddingMaterial,\s*\r?\n\s*SubmergedPantsMesh' -or
-	$directorSource -match
-	'PlasticMaterial,\s*\r?\n\s*SubmergedSlippersMesh') {
-	throw 'Authored submerged clothing regressed to a generic proxy material'
-}
-foreach ($token in @('SM_TankAccessDeck', 'SM_TankAccessLid')) {
-	if (-not $meshScript.Contains($token) -or
-		-not $directorSource.Contains($token)) {
-		throw "Tank access mesh is not generated and loaded: $token"
-	}
-}
-foreach ($token in @(
-	'SM_RooftopWaterTankShell',
-	'SM_TankInternalLining',
-	'SM_RooftopTankPipeCluster',
-	'SM_TankInternalLadder',
-	'SM_TankAccessGuardRail',
-	'SM_TankExteriorAccessStair'
-)) {
-	if (-not $meshScript.Contains($token) -or
-		-not $directorSource.Contains($token)) {
-		throw "Rooftop water-tank asset is not generated and loaded: $token"
-	}
-}
-foreach ($token in @(
-	'SM_RooftopServiceHose',
-	'SM_HoseCoupling',
-	'SM_CarrierBagCollapsed'
-)) {
-	if (-not $meshScript.Contains($token) -or
-		-not $directorSource.Contains($token)) {
-		throw "P5 accident prop is not generated and loaded: $token"
-	}
-}
-foreach ($token in @(
-	'SM_RooftopFireDoorLeaf',
-	'SM_RooftopFireDoorFrame'
-)) {
-	if (-not $meshScript.Contains($token) -or
-		-not $directorSource.Contains($token)) {
-		throw "Rooftop fire-door asset is not generated and loaded: $token"
-	}
-}
-if (-not $meshScript.Contains('SM_RooftopUnlockedPadlockKeys') -or
-	-not $directorSource.Contains('SM_RooftopUnlockedPadlockKeys')) {
-	throw 'Rooftop unlocked padlock/key assembly is not generated and loaded'
-}
-if (($directorSource.Split(
-	@('InspectionRodVisual = CreateBlock('),
-	[System.StringSplitOptions]::None).Count - 1) -ne 1 -or
-	($directorSource.Split(
-	@('InspectionRodMesh ? InspectionRodMesh.Get() : CylinderMesh.Get()'),
-	[System.StringSplitOptions]::None).Count - 1) -ne 1) {
-	throw 'CH03 inspection rod must be one movable component without a duplicate prop'
-}
-foreach ($token in @(
-	'SetInspectionRodWedged(true)',
-	'SetInspectionRodWedged(false)',
-	'never spawn a second explanatory prop'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Inspection-rod continuity contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -1007,39 +870,6 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'const bool bHasAuthoredPadlockKeys',
-	'"열린 자물쇠와 꽂힌 열쇠 확인하기"',
-	'"자물쇠가 열려 있다. 관리 열쇠도 그대로 꽂혀 있다."',
-	'KeyIndex < 3'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Rooftop unlocked key interaction contract is missing: $token"
-	}
-}
-foreach ($forbiddenToken in @(
-	'RoofDoorUnlockedPrompt',
-	'열쇠로 옥상 철문 열기'
-)) {
-	if ($directorSource.Contains($forbiddenToken)) {
-		throw "Rooftop door regressed into an unintended lock puzzle: $forbiddenToken"
-	}
-}
-foreach ($token in @(
-	'RoofDoorLatchedAngleDegrees = 5.441396f',
-	'const bool bHasAuthoredRoofDoor',
-	'if (bHasAuthoredRoofDoor)',
-	'FVector(4.5f, 116.0f, 230.0f)',
-	'MeasureRoofDoorFreeEdgeGap()',
-	'FVector(1645.5f, -340.5f, CatCenterZ)',
-	'FVector(1655.5f, -339.0f, CatCenterZ)',
-	'FCollisionShape::MakeCapsule(3.5f, 3.5f)',
-	'M_SteelDoorUV'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Rooftop fire-door physical contract is missing: $token"
-	}
-}
-foreach ($token in @(
 	'def build_rooftop_fire_door_leaf',
 	'(4.5, 116.0, 230.0)',
 	'def build_rooftop_fire_door_frame',
@@ -1047,16 +877,6 @@ foreach ($token in @(
 )) {
 	if (-not $meshScript.Contains($token)) {
 		throw "Rooftop fire-door mesh dimensional contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'SM_LadderFailureRung',
-	'SM_LadderRungPadLifted',
-	'SM_LadderRungRetainingClips'
-)) {
-	if (-not $meshScript.Contains($token) -or
-		-not $directorSource.Contains($token)) {
-		throw "P5 rung-failure asset is not generated and loaded: $token"
 	}
 }
 foreach ($token in @(
@@ -1069,45 +889,6 @@ foreach ($token in @(
 )) {
 	if (-not $meshScript.Contains($token)) {
 		throw "Exterior access-stair dimensional contract is missing: $token"
-	}
-}
-if (-not $directorSource.Contains('M_WaterTankMetalUV')) {
-	throw 'CH03 tank assembly does not load the shared galvanized material'
-}
-if (-not $directorSource.Contains('M_TankInteriorBiofilmUV')) {
-	throw 'CH03 tank interior does not load its mineral and biofilm material'
-}
-if (-not $directorSource.Contains('M_WetServiceHoseUV')) {
-	throw 'P5 hose does not load the shared wet-rubber material'
-}
-if (-not $directorSource.Contains('M_WetRungPadUV')) {
-	throw 'P5 rung pad does not load the dedicated ribbed-rubber material'
-}
-foreach ($token in @(
-	'M_TankWaterReveal',
-	'TankRevealWaterMaterial',
-	'TankInternalFloorZ = 381.0f',
-	'TankDeckUndersideZ = 596.0f',
-	'TankWaterSurfaceZ = 561.0f',
-	'TankBodyPlacementAdjustmentZ = -9.0f',
-	'AuthoredTankBodyPlacement(-88.0f, 0.0f, 542.0f)',
-	'AuthoredTankBodyRotation(0.0f, 70.0f, 0.0f)',
-	'AuthoredSleeveStitchLocalBase(8.0f, -27.0f, 15.2f)',
-	'GetAuthoredSleeveStitchFocusOffset()',
-	'TankDeckUndersideZ - TankInternalFloorZ == 215.0f',
-	'TankWaterSurfaceZ - TankInternalFloorZ == 180.0f',
-	'TankDeckUndersideZ - TankWaterSurfaceZ == 35.0f',
-	'PlaneMesh ? FVector(270, 270, 1.0f) : FVector(270, 270, 3.0f)',
-	'TankWaterSurface->SetCastShadow(false)',
-	'TankWaterSurface->SetTranslucentSortPriority(2)',
-	'Tank + FVector(-151.0f, 45.0f, 580.0f)',
-	'Tank + FVector(-149, -28, 574)',
-	'const FVector ClothingEvidenceOffset = bUsesAuthoredTankBody',
-	'Tank + ClothingEvidenceOffset',
-	'ClothingEvidence->GetPresentationMesh()->SetVisibility(false)'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Tank-water reveal contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -1124,20 +905,6 @@ foreach ($token in @(
 )) {
 	if (-not $meshScript.Contains($token)) {
 		throw "Rooftop water-tank dimensional mesh contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'def build_tank_internal_lining',
-	'(145.0, 382.0)',
-	'(147.0, 596.0)',
-	'location=(0.0, 0.0, 381.2)',
-	'return bake(mesh, "SM_TankInternalLining", add_collision=False)',
-	'TankInternalLiningMesh',
-	'TankInteriorBiofilmMaterial',
-	'InteriorLining->SetCastShadow(false)'
-)) {
-	if (-not $meshScript.Contains($token) -and -not $directorSource.Contains($token)) {
-		throw "Tank-interior lining contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -1158,36 +925,6 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'const bool bHasAuthoredTankShell',
-	'CollisionPanel->SetVisibility(false, true)',
-	'const bool bHasAuthoredTankPlumbing',
-	'FVector(8.9f, 8.9f, 300)',
-	'FVector(7.6f, 7.6f, 53)',
-	'FVector(18, 18, 3)'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Rooftop water-tank runtime contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'if (TankInternalLadderMesh)',
-	'InnerRungIndex < 7',
-	'Tank + FVector(-125, 0, 400 + InnerRungIndex * 30.0f)',
-	'if (TankAccessGuardRailMesh)',
-	'RailCollision->SetVisibility(false, true)',
-	'FVector(2335, -184, 662)',
-	'"난간 U볼트의 젖은 안경 확인하기"',
-	'FRotator(0.0f, -8.0f, 82.0f)'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Tank ladder/guardrail/glasses runtime contract is missing: $token"
-	}
-}
-if ($directorSource.Contains('FVector(1880, -250, 247)') -or
-	$directorSource.Contains('FVector(1880, -250, 250)')) {
-	throw 'Glasses regressed from the upper U-bolt to the rooftop floor'
-}
-foreach ($token in @(
 	'def create_tank_water_material',
 	'MaterialProperty.MP_OPACITY',
 	'MaterialProperty.MP_REFRACTION',
@@ -1195,31 +932,6 @@ foreach ($token in @(
 )) {
 	if (-not $materialScript.Contains($token)) {
 		throw "Tank-water material contract is missing: $token"
-	}
-}
-if (-not $directorSource.Contains('FVector(4.2f, 4.2f, 82.0f)') -or
-	$directorSource.Contains('FVector(14, 14, 82)')) {
-	throw 'P5 hose regressed from 42 mm service hose to the oversized greybox'
-}
-foreach ($token in @(
-	'const bool bHasCarrierBagMesh = CarrierBagCollapsedMesh != nullptr;',
-	'if (!bHasCarrierBagMesh)',
-	'bHasCarrierBagMesh ? CarrierBagCollapsedMesh.Get() : nullptr'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Carrier-bag no-duplication contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'const bool bHasAuthoredExteriorStair',
-	'TankExteriorAccessStairMesh && LadderFailureRungMesh',
-	'StairCollision->SetVisibility(false, true)',
-	'FVector(2235, -300, 582.0f)',
-	'FVector(8.5f, 54.0f, 0.3f)',
-	'FRotator(6.0f, 0.0f, 0.0f)'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Rung-failure physical contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -1242,19 +954,6 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'FVector(0, 0, 600)',
-	'FVector(108, 108, 6)',
-	'TankHatchOffset(-96.0f, 0.0f, 0.0f)',
-	'TankLidOpenOffset(36.9f, 0.0f, 49.5f)',
-	'Tank + IGThirdMorning::TankHatchOffset + FVector(0, 0, 610)',
-	'FRotator(-78, 0, 0)',
-	'FVector(2308.5f, -300, 610), FVector(87, 220, 20)'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "Tank service-hatch physical contract is missing: $token"
-	}
-}
-foreach ($token in @(
 	'location=(-96.0, 0.0, -7.0)',
 	'location=(-96.0, 0.0, 3.0)',
 	'location=(49.0, hinge_y, 2.0)'
@@ -1263,30 +962,8 @@ foreach ($token in @(
 		throw "West-side service-hatch mesh contract is missing: $token"
 	}
 }
-if ($directorSource.Contains('FVector(310, 310, 8)')) {
-	throw 'The non-liftable three-metre tank lid returned'
-}
-foreach ($token in @('M_SubmergedHoodieUV', 'M_CarrierBagFilm')) {
-	if (-not $directorSource.Contains($token)) {
-		throw "CH03 material is not loaded: $token"
-	}
-}
 if (-not $prologueSource.Contains('M_CarrierBagFilm')) {
-	throw 'CH01/CH02 purchase bag does not share the carrier-film material'
-}
-if (-not $playerSource.Contains('M_WetHoodieUV')) {
-	throw 'First-person sleeve does not share the wet-hoodie identity material'
-}
-foreach ($token in @(
-	'SM_FirstPersonHoodieSleeve',
-	'bHasAuthoredSleeveMesh',
-	'OutfitSleeveProxy->SetRelativeScale3D(FVector::OneVector)',
-	'FVector(1.0f, -5.75f, -7.0f + StitchIndex * 1.4f)',
-	'FVector(0.012f, 0.003f, 0.0025f)'
-)) {
-	if (-not $playerSource.Contains($token)) {
-		throw "First-person authored sleeve contract is missing: $token"
-	}
+	throw 'Purchase bag does not share the carrier-film material'
 }
 foreach ($token in @(
 	'def build_first_person_hoodie_sleeve',
@@ -1299,33 +976,7 @@ foreach ($token in @(
 		throw "First-person sleeve mesh contract is missing: $token"
 	}
 }
-foreach ($token in @(
-	'SM_P3ServiceCabinetShell',
-	'SM_P3ServiceManifold',
-	'SM_P3ValveWheelLarge',
-	'SM_P3ValveWheelSmall',
-	'SM_P3PressureGauge'
-)) {
-	if (-not $meshScript.Contains($token) -or
-		-not $directorSource.Contains($token)) {
-		throw "P3 authored control cluster is not generated and loaded: $token"
-	}
-}
-foreach ($token in @(
-	'const bool bHasAuthoredP3Cluster',
-	'FVector(18, 18, 4)',
-	'FVector(12, 12, 3)',
-	'FVector(16, 16, 4)',
-	'FVector(812, -176.8f, 130)',
-	'FVector(812, -176.8f, 122)',
-	'FVector(0.026f, 0.026f, 0.40f * FlowScale)',
-	'FRotator(FMath::Lerp(-55.0f, 55.0f, Alpha), 0, 0)',
-	'Wheel->SetRelativeRotation(FRotator(0, 45, 0))'
-)) {
-	if (-not $directorSource.Contains($token)) {
-		throw "P3 physical feedback contract is missing: $token"
-	}
-}
+# 이름은 P3지만 밸브 핸들 둘은 없는 층 밤4 설비와 부스 수직관 밸브가 그대로 쓴다.
 foreach ($token in @(
 	'def build_p3_service_cabinet_shell',
 	'(270.0, 4.0, 196.0)',

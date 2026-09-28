@@ -81,12 +81,10 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'bMissingFloorRuntime',
-	'if (!bMissingFloorRuntime)',
 	'M_MovingBoxCardboardUV'
 )) {
 	if (-not $world.Contains($token)) {
-		throw "Shared-world ownership/material contract is missing: $token"
+		throw "Shared-world material contract is missing: $token"
 	}
 }
 foreach ($token in @(

@@ -61,40 +61,19 @@ STILLS = (
     "booth-night-desk-return.png",
     "title-menu-first-run-1080.png",
     "p1-meter-cabinet.png",
-    # 건물과 낮을 보여 주는 넉 장. 처음 보는 사람은 규칙보다 장소를 먼저
-    # 궁금해한다.
-    "prologue-villa.png",
-    "prologue-corridor.png",
-    "prologue-alley.png",
-    "prologue-ramyeon.png",
-    "prologue-not-found-note.png",
-    # 샛길과 계산대. 골목이 복도가 아니라는 것과 편의점이 편의점이라는 것을
-    # 이 둘이 보여 준다.
-    "prologue-alley-passage.png",
-    "prologue-store-counter.png",
-    # 편의점 음료 매대는 라면 매대와 같은 말을 해서 뺐다. 원본은 낮 동선
-    # GIF의 마지막 프레임으로 계속 쓰인다.
     # 계단참 목격 컷은 뺐다. 원본부터 거의 검은 화면이라 GitHub에서는 빈
     # 사각형으로 보인다. 게임 안에서 통하는 어둠이 문서에서도 통하지는 않는다.
     # 설정 메뉴·보정 화면·밤 4 스포일러도 README에는 걸지 않는다. 원본은 각자의
     # 계약이 Docs/Media에 증거로 잡고 있고, 표시용 파생본만 여기서 빠진다.
 )
 
-# 프롤로그 맵 캡처는 「4시 44분」 시절 모닝 루틴 디렉터가 같이 돌 때 찍혔다.
-# 화면 위쪽 목표 띠에 "골목 끝 편의점에서 물을 사 오자"가 그대로 남아 있어서,
-# 「없는 층」을 설명하는 README에 걸면 글과 그림이 서로 다른 말을 한다.
-# 빌라·복도·골목·편의점은 두 작품이 같이 쓰는 실제 맵이므로 목표 띠만 잘라낸다.
-# 원본은 Docs/Media에 그대로 두고 파생본에서만 자른다.
+# 낮 동선 GIF는 「4시 44분」 시절 모닝 루틴 디렉터가 같이 돌 때 찍은 프롤로그
+# 캡처를 이어 붙였다. 화면 위쪽 목표 띠에 "골목 끝 편의점에서 물을 사 오자"가
+# 그대로 남아 있어서, 「없는 층」을 설명하는 README에 걸면 글과 그림이 서로 다른
+# 말을 한다. 빌라·복도·골목·편의점은 두 작품이 같이 쓰던 실제 맵이므로 목표
+# 띠만 잘라낸다. 원본은 Docs/Media에 그대로 두고 파생본에서만 자른다.
 OBJECTIVE_BAND = 0.09
 LEGACY_OBJECTIVE = frozenset((
-    "prologue-villa.png",
-    "prologue-corridor.png",
-    "prologue-alley.png",
-    "prologue-ramyeon.png",
-    "prologue-not-found-note.png",
-    "prologue-alley-passage.png",
-    "prologue-store-counter.png",
-    # 낮 동선 GIF도 같은 프롤로그 캡처를 이어 붙인 것이라 같이 자른다.
     "readme-route-preview.gif",
 ))
 

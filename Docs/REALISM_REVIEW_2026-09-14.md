@@ -80,7 +80,6 @@ pwsh -NoProfile -File Scripts/Build-ArtAssets.ps1 -CodeOnly
 pwsh -NoProfile -File Scripts/Run-GameplayRealismProbe.ps1 -FrameRate 30
 pwsh -NoProfile -File Scripts/Run-GameplayRealismProbe.ps1 -FrameRate 60
 pwsh -NoProfile -File Scripts/Run-GameplayRealismProbe.ps1 -FrameRate 120
-pwsh -NoProfile -File Scripts/Run-Prologue-Capture.ps1
 pwsh -NoProfile -File Scripts/Validate-Project.ps1
 ```
 

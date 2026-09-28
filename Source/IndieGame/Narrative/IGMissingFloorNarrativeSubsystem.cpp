@@ -26,6 +26,13 @@ namespace IGMissingFloorNarrative
 			|| EndingId == EndingC;
 	}
 
+	/** 모르는 이름을 읽으면 엔진이 열거형 끝값을 넣는다. 그걸 걸러 낸다. */
+	static bool IsKnownPurchaseProfile(const EIGPurchaseProfile Profile)
+	{
+		return static_cast<uint8>(Profile)
+			<= static_cast<uint8>(EIGPurchaseProfile::ProfileC2LX2);
+	}
+
 	/**
 	 * One evidence category: any one of these records satisfies it. Most
 	 * categories hold a single record; T6's location category holds two
@@ -386,6 +393,17 @@ bool UIGMissingFloorNarrativeSubsystem::IsFinalChoiceUnlocked() const
 	return HasTruth(EIGMissingFloorTruth::SomeoneInTheWall)
 		&& HasTruth(EIGMissingFloorTruth::WasStillAlive)
 		&& HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
+}
+
+// -- 편의점 물 ----------------------------------------------------------------
+
+void UIGMissingFloorNarrativeSubsystem::SetStorePurchaseProfile(
+	const EIGPurchaseProfile Profile)
+{
+	Snapshot.StorePurchaseProfile =
+		IGMissingFloorNarrative::IsKnownPurchaseProfile(Profile)
+			? Profile
+			: EIGPurchaseProfile::Unset;
 }
 
 // -- the hour's persistent runtime facts ------------------------------------
@@ -768,6 +786,10 @@ void UIGMissingFloorNarrativeSubsystem::NormalizeSnapshot()
 	if (!IGMissingFloorNarrative::IsEnding(Snapshot.Night.EndingChoice))
 	{
 		Snapshot.Night.EndingChoice = NAME_None;
+	}
+	if (!IGMissingFloorNarrative::IsKnownPurchaseProfile(Snapshot.StorePurchaseProfile))
+	{
+		Snapshot.StorePurchaseProfile = EIGPurchaseProfile::Unset;
 	}
 }
 

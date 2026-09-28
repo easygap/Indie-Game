@@ -635,7 +635,6 @@ def read_sources(project_root: str) -> dict:
 
 SCENE_SOURCES = (
     "Source/IndieGame/Core/IGPrologueWorldScene.cpp",
-    "Source/IndieGame/Sequence/IGThirdMorningDirector.cpp",
 )
 
 

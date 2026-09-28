@@ -18,11 +18,6 @@ DECLARE_MULTICAST_DELEGATE_OneParam(FIGMissingFloorTruthSignature, EIGMissingFlo
  * Confirmation is always derived from the recorded sources, never latched, so
  * restoring a save (or hand-editing one) cannot produce a truth whose evidence
  * is missing. The final choice is gated on T6 + T7 + T9 and nothing else.
- *
- * This lives beside UIGRebirthNarrativeSubsystem rather than replacing it: the
- * legacy twelve truths are pinned by the REBIRTH contract scripts and by every
- * shipped save, and Config's ClearInvalidTags=True means deleting their tags
- * would silently rewrite old saves.
  */
 UCLASS()
 class INDIEGAME_API UIGMissingFloorNarrativeSubsystem : public UGameInstanceSubsystem
@@ -91,6 +86,18 @@ public:
 	/** 몇 개를 봤는지. 플레이어에게 보여 주는 숫자가 아니라 문장 선택용이다. */
 	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
 	int32 GetWitnessCount() const { return Snapshot.Night.Witnesses.Num(); }
+
+	// -- 편의점 물 ----------------------------------------------------------
+
+	UFUNCTION(BlueprintPure, Category = "Narrative|MissingFloor")
+	EIGPurchaseProfile GetStorePurchaseProfile() const
+	{
+		return Snapshot.StorePurchaseProfile;
+	}
+
+	/** 손에 든 병을 적는다. 계산한 뒤에는 부르는 쪽이 더 부르지 않는다. */
+	UFUNCTION(BlueprintCallable, Category = "Narrative|MissingFloor")
+	void SetStorePurchaseProfile(EIGPurchaseProfile Profile);
 
 	// -- the hour's persistent runtime facts (§5.4) ------------------------
 

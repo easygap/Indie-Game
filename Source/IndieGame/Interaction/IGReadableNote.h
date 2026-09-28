@@ -10,100 +10,6 @@ class UStaticMesh;
 class UStaticMeshComponent;
 class UTexture2D;
 
-/** One product row on a thermal receipt. Prices are expressed in won. */
-USTRUCT(BlueprintType)
-struct INDIEGAME_API FIGReceiptItemLine
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText ProductName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	int32 Quantity = 1;
-
-	/** Price for one unit, printed separately on Korean POS receipts. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	int32 UnitPrice = 0;
-
-	/** Quantity multiplied by unit price after any line discount. */
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	int32 Amount = 0;
-};
-
-/** A label/value row such as card approval or points information. */
-USTRUCT(BlueprintType)
-struct INDIEGAME_API FIGReceiptKeyValueLine
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText Label;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText Value;
-};
-
-/**
- * Structured thermal-receipt data.
- *
- * Keeping columns as data instead of padding localized strings with spaces
- * lets the HUD align Korean product names, quantities and prices correctly.
- */
-USTRUCT(BlueprintType)
-struct INDIEGAME_API FIGThermalReceiptData
-{
-	GENERATED_BODY()
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText StoreName;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText StoreSubtitle;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	TArray<FText> StoreDetailLines;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	TArray<FText> PolicyLines;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText TransactionDateTime;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText PosLabel;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText ReceiptNumber;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	TArray<FIGReceiptItemLine> Items;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	int32 Subtotal = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	int32 TaxableSupply = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	int32 Vat = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	int32 Total = 0;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FText PaymentHeading;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	TArray<FIGReceiptKeyValueLine> PaymentLines;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	TArray<FText> FooterLines;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Receipt")
-	FString BarcodeDigits;
-};
-
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(
 	FIGNoteReadSignature,
 	AIGReadableNote*, Note,
@@ -138,12 +44,6 @@ public:
 	/** 문단 사이의 빈 줄은 보존하고, 화면 폭에 따른 줄바꿈은 읽기 화면이 맡는다. */
 	void SetNoteText(const FText& InTitle, TArray<FText> InBodyLines);
 
-	/**
-	 * Switches this document to the narrow thermal-receipt presentation.
-	 * Generic notes keep the existing full-sheet layout.
-	 */
-	void SetThermalReceiptData(FIGThermalReceiptData InReceiptData);
-
 	/** Uses a dark smartphone notification screen instead of a paper sheet. */
 	void SetPhoneNotificationPresentation();
 
@@ -164,17 +64,11 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Note")
 	const TArray<FText>& GetBodyLines() const { return NoteBodyLines; }
 
-	UFUNCTION(BlueprintPure, Category = "Note|Receipt")
-	bool UsesThermalReceiptPresentation() const { return bUsesThermalReceiptPresentation; }
-
 	UFUNCTION(BlueprintPure, Category = "Note|Phone")
 	bool UsesPhoneNotificationPresentation() const
 	{
 		return bUsesPhoneNotificationPresentation;
 	}
-
-	UFUNCTION(BlueprintPure, Category = "Note|Receipt")
-	const FIGThermalReceiptData& GetThermalReceiptData() const { return ThermalReceiptData; }
 
 	/** Closes the panel; the HUD calls this when the player dismisses it. */
 	UFUNCTION(BlueprintCallable, Category = "Note")
@@ -216,12 +110,6 @@ protected:
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Note")
 	FText OpenPrompt;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Note|Receipt")
-	bool bUsesThermalReceiptPresentation = false;
-
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Note|Receipt")
-	FIGThermalReceiptData ThermalReceiptData;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Note|Phone")
 	bool bUsesPhoneNotificationPresentation = false;

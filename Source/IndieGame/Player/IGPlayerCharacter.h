@@ -17,7 +17,6 @@ class UIGFlashlightComponent;
 class UIGInteractionComponent;
 class UIGStressComponent;
 class UInputAction;
-class UStaticMeshComponent;
 struct FInputActionValue;
 
 /** First-person player pawn with asset-driven Enhanced Input bindings. */
@@ -81,31 +80,6 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Player|Carry")
 	AActor* GetCarriedActor() const { return CarriedActor.Get(); }
-
-	/**
-	 * Profile-C static proxy for scripted beats (the 04:33 drink): sets the
-	 * carried bag down for Seconds, then re-grips automatically. No input is
-	 * taken away. Returns false unless the committed purchase actually needs
-	 * both hands or the bag is already down.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Player|Carry")
-	bool BeginScriptedHeavyBagRest(float Seconds);
-
-	/**
-	 * Renders the persistent REBIRTH outfit fact with a static first-person
-	 * sleeve proxy. Restore callers leave bPlayPresentation false; the
-	 * canonical first-exit commit requests the non-blocking 1.2 second reveal.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Player|Outfit")
-	void SetRebirthOutfitEquipped(
-		bool bEquipped,
-		bool bPlayPresentation = false);
-
-	UFUNCTION(BlueprintPure, Category = "Player|Outfit")
-	bool IsRebirthOutfitEquipped() const { return bRebirthOutfitEquipped; }
-
-	/** Runtime release probe for the static sleeve and its three repair stitches. */
-	bool ValidateRebirthOutfitProxy(int32& OutStitchCount) const;
 
 	/** Applies the persisted/command-line microphone mode immediately. */
 	void RefreshMicrophoneCaptureMode();
@@ -218,13 +192,11 @@ private:
 	/** Samples how dark it is where the player stands, for the stress model. */
 	float SampleAmbientDarkness() const;
 	void TryRequestGetUpFallback();
-	void EndScriptedHeavyBagRest();
 	/** Footstep cadence and its noise report; runs whether or not the camera bobs. */
 	void UpdateFootsteps(float DeltaSeconds);
 	void UpdateCaptureFeedback(float DeltaSeconds);
 	void UpdateCameraMotion(float DeltaSeconds);
 	void UpdateCarriedItem(float DeltaSeconds);
-	void UpdateOutfitPresentation(float DeltaSeconds);
 	void PlayFootstep(float SpeedScale);
 	EIGFootstepSurface ResolveFootstepSurface() const;
 	float GetSurfaceMovementScale(EIGFootstepSurface Surface) const;
@@ -246,12 +218,6 @@ private:
 
 	UPROPERTY(Transient)
 	TObjectPtr<UIGAccessibilitySubsystem> AccessibilitySubsystem;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Outfit", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UStaticMeshComponent> OutfitSleeveProxy;
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Outfit", meta = (AllowPrivateAccess = "true"))
-	TArray<TObjectPtr<UStaticMeshComponent>> OutfitStitchProxies;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category = "Player|Input", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UInputAction> MoveInputAction;
@@ -322,12 +288,8 @@ private:
 	bool bInteractionRedirectedToInterludeListen = false;
 	/** 패드 엿듣기 키를 밤3 벽이 아닌 엿듣기 판정에서 눌러 상호작용 홀드로 넘긴 중. */
 	bool bListenRedirectedToInteraction = false;
-	bool bRebirthOutfitEquipped = false;
-	bool bOutfitPresentationActive = false;
-	float OutfitPresentationElapsed = 0.0f;
 	bool bHeavyBagInteractionProxyActive = false;
 	FVector HeavyBagRestLocation = FVector::ZeroVector;
-	FTimerHandle HeavyBagRestTimer;
 
 	/** Direct capture path: samples are reduced to an envelope, never retained. */
 	Audio::FAudioCaptureSynth* MicrophoneCaptureSynth = nullptr;

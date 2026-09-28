@@ -57,10 +57,9 @@ import audit_world_geometry  # noqa: E402
 MATERIAL_RECIPE = os.path.join("Scripts", "create_textured_materials.py")
 MATERIAL_DIR = os.path.join("Content", "Prototype", "Materials")
 
-# 상자를 리터럴 좌표로 짓는 두 빌더. 기하 감사와 같은 목록이다.
+# 상자를 리터럴 좌표로 짓는 빌더. 기하 감사와 같은 목록이다.
 SOURCES = (
     os.path.join("Source", "IndieGame", "Core", "IGPrologueWorldScene.cpp"),
-    os.path.join("Source", "IndieGame", "Sequence", "IGThirdMorningDirector.cpp"),
 )
 
 # mapping이 고르는 두 축과, 그래서 UV가 따라가지 못하는 나머지 한 축.

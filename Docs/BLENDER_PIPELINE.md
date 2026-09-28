@@ -22,7 +22,7 @@
 전부 자동으로 한다.
 
 2026-09-08 오후에 Smart App Control을 껐고 그때부터 `-game` 캡처
-(`Run-Prologue-Capture.ps1`, `Run-MissingFloor-NightCapture.bat`)가 다시 돈다.
+(`Run-ReadmeCapture.ps1`, `Run-MissingFloor-NightCapture.bat`)가 다시 돈다.
 반입은 그래도 이 흐름을 쓴다 — 게임 모듈을 다시 빌드하지 않아도 되고 한글
 경로와도 무관하다. 다만 반입은 `-nullrhi`라 재질 컴파일 실패를 못 본다. 첫
 캡처에서 마스터 재질 `M_IGBakedProp`이 Normal·ORM 기본 텍스처가 없어 컴파일에

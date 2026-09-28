@@ -64,7 +64,6 @@
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
-#include "Narrative/IGApartmentStoryDressing.h"
 #include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGInteractionComponent.h"
@@ -8116,18 +8115,12 @@ void AIGListenerGreyboxDirector::RequestExit(const bool bFailed)
 			return;
 		}
 	}
-	// Same contract as the REBIRTH harnesses: explicit status, normal main
-	// loop shutdown so the log flushes.
+	// 종료 코드를 분명히 남기고 메인 루프를 정상으로 빠져나가야 로그가 끝까지 적힌다.
 	FPlatformMisc::RequestExitWithStatus(false, bFailed ? 1 : 0);
 }
 
 void AIGListenerGreyboxDirector::RunArrivalProbe()
 {
-	for (TActorIterator<AIGApartmentStoryDressing> It(GetWorld()); It; ++It)
-	{
-		FailProbe(TEXT("없는 층에 이전 주인공의 생활 소품이 생성됨"));
-		return;
-	}
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	AIGPrologueWorldScene* Scene = WorldScene.Get();
 	if (!Scene || !PuzzleTwo || !Scene->AuditPlayerClearance(Player.Get(), PuzzleTwo->GetBoothDoor()))

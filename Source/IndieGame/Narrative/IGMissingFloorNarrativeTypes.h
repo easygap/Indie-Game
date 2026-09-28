@@ -135,6 +135,22 @@ enum class EIGMissingFloorWitness : uint8
 	BoothInnerRoomHum = 12
 };
 
+/**
+ * 편의점 물 세 가지. 계산대 가격표와 봉투가 이 값을 따라간다.
+ * 세이브에는 이름으로 들어가므로 이름을 바꾸면 옛 저장에서 고른 물이 사라진다.
+ */
+UENUM(BlueprintType)
+enum class EIGPurchaseProfile : uint8
+{
+	Unset = 0,
+	/** 새벽샘물 500mL 두 병. */
+	ProfileA500MlX2 = 1,
+	/** 한강수 1L 한 병. */
+	ProfileB1LX1 = 2,
+	/** 맑은산 2L 두 병. 봉투가 4kg이라 두 손을 쓸 때는 내려놓는다. */
+	ProfileC2LX2 = 3
+};
+
 /** One truth and the provenance behind it. Confirmation is always derived. */
 USTRUCT(BlueprintType)
 struct INDIEGAME_API FIGMissingFloorTruthRecord
@@ -229,21 +245,13 @@ struct INDIEGAME_API FIGMissingFloorNightState
 	TArray<FName> Witnesses;
 };
 
-/**
- * The whole 없는 층 narrative state. Rides alongside the legacy REBIRTH
- * snapshot inside FIGProgressSnapshot rather than replacing it: the legacy
- * truth set is pinned by five validation contracts and by every existing
- * save, so the two coexist until the legacy directors are retired (§14).
- */
+/** 없는 층의 서사 상태 전부. FIGProgressSnapshot에 통째로 실린다. */
 USTRUCT(BlueprintType)
 struct INDIEGAME_API FIGMissingFloorNarrativeSnapshot
 {
 	GENERATED_BODY()
 
-	/**
-	 * Read before normalizing, unlike the legacy snapshot's write-only
-	 * counterpart, so a future revision can actually migrate.
-	 */
+	/** 정규화보다 먼저 읽는다. 구조가 바뀌면 이 번호를 보고 옮긴다. */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	int32 SchemaVersion = 0;
 
@@ -252,4 +260,14 @@ struct INDIEGAME_API FIGMissingFloorNarrativeSnapshot
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
 	FIGMissingFloorNightState Night;
+
+	/**
+	 * 편의점에서 고른 물. 계산 전에는 다른 병으로 바꿔 들 수 있고, 계산하면
+	 * 굳는다. 불러온 뒤 손에 돌아올 병과 보일 봉투를 이것으로 고른다.
+	 *
+	 * 2026-09-28 전에는 REBIRTH 스냅샷에 들어 있었다. 그 칸을 지웠으므로
+	 * 그 전 저장은 고르기 전(Unset)으로 읽힌다.
+	 */
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Narrative")
+	EIGPurchaseProfile StorePurchaseProfile = EIGPurchaseProfile::Unset;
 };

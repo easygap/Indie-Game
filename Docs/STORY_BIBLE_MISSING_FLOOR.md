@@ -3,9 +3,10 @@
 > **전체 스포일러.**
 >
 > 이 문서는 「4시 44분」의 서사를 전면 폐기하고 새로 쓴 차기작
-> **「없는 층」**의 단일 제작 정사다. 이전 정사(`STORY_BIBLE_REBIRTH.md`)와
-> 그 이전 보관본(`STORY_BIBLE.md`, `STORY_DIRECTION.md`)은 모두 보관
-> 문서이며, 충돌하면 이 문서가 우선한다.
+> **「없는 층」**의 단일 제작 정사다. 그 이전 보관본(`STORY_BIBLE.md`,
+> `STORY_DIRECTION.md`)은 보관 문서이며, 충돌하면 이 문서가 우선한다.
+> 바로 앞 정사(`STORY_BIBLE_REBIRTH.md`)와 그 이야기를 돌리던 코드는
+> 2026-09-28에 지웠다. 필요하면 git 기록에서 찾는다.
 >
 > 공간·엔진 시스템(빌라·복도·엘리베이터·계단실·5층·옥상·편의점·골목,
 > 절차 오디오·스트레스·상호작용·세이브 v3·검증 하네스)은 재활용한다.
@@ -1480,8 +1481,9 @@ M-공동의 마지막 쓰임(2026-09-23). 목한수가 나타나 침묵이 걷�
   탱크 청음은 한동안 규칙표에만 있었고, 그동안 두 진실은 도달 불가였다.
   `Test-ArtAssetContract.ps1`이 열거형을 읽어 게임플레이 파일과 대조한다 —
   저널 미리보기 프로브가 캡처용으로 넣는 이름은 세지 않는다.
-- 라우터는 `UIGRebirthNarrativeSubsystem`의 구조(진실·출처 분리 저장,
-  스냅샷, C-게이트 평가)를 신규 진실 세트로 교체해 재사용한다.
+- 라우터(`UIGMissingFloorNarrativeSubsystem`)는 예전 이야기의 서사
+  서브시스템 구조(진실·출처 분리 저장, 스냅샷, 게이트 평가)를 본떠 새로
+  만들었다. 예전 것은 2026-09-28에 지웠다.
 
 ---
 
@@ -1584,13 +1586,16 @@ M-공동의 마지막 쓰임(2026-09-23). 목한수가 나타나 침묵이 걷�
     발소리 매트릭스, 침묵 구간의 버스 정지. 기존 합성 클래스는 그대로 쓰고
     라우팅과 상한만 신규다.
 
-### 폐기 대상 (삭제가 아니라 비활성 — 참조 자산으로 보존)
+### 폐기한 것
 
 `IGChapterOneIncidentDirector`, `IGChapterTwoHumanGateDirector`,
-`IGSecondMorningDirector`, `IGThirdMorningDirector`,
-`IGRebirthEvidenceSubsystem`의 구 진실 세트, 편의점 재구매·영수증
-퍼즐, 계단 4층 루프, 물탱크 내부 리빌. 코드 삭제는 신규 수직 절단이
-플레이 가능해진 뒤 일괄 수행한다(중간 상태에서 빌드 깨짐 방지).
+`IGSecondMorningDirector`, `IGThirdMorningDirector`, `IGMorningRoutineDirector`,
+`IGRebirthEvidenceSubsystem`, `IGRebirthNarrativeSubsystem`, 시간 입력 퍼즐,
+편의점 재구매·영수증 퍼즐, 계단 4층 루프, 물탱크 내부 리빌. 없는 층이 처음부터
+끝까지 플레이되는 것을 확인한 뒤 2026-09-28에 코드째 지웠다. 세이브의 REBIRTH
+칸과 예전 이야기만 쓰던 게임플레이 태그도 같이 뺐고, 예전 이야기의 자동 저장은
+이어하기 목록에 오르지 않는다. 공간 빌더와 편의점 물병 고르기·계산대는 없는 층이
+그대로 쓴다. 고른 물은 없는 층 서사 스냅샷에 실린다.
 
 ---
 
@@ -2002,9 +2007,9 @@ v2.3 감사 당시 빌드에는 레거시 「4시 44분」의 `RequestHint` 액�
 
 - v2.4 입력 패스에서 밤 구간의 `RequestHint`를 **실제로 비활성화**했다. 낮
   구간에서 같은 키는 정답 대신 한 줄만 낸다: "401호 할머니께 물어보자."
-- 접근성 힌트 모드(`IGAccessibilitySubsystem`의 `HintMode`)는 **삭제하지 않고
-  접근성 설정 안으로 이동**한다(§19.8). 인지·시간 제약이 있는 플레이어를 위한
-  선택지이지 기본 경로가 아니다.
+- 접근성 힌트 모드(`HintMode`)는 옛 이야기의 퍼즐만 읽고 있었고 메뉴에도
+  없었다. 옛 코드를 지우면서 같이 지웠다. 인지 제약이 있는 플레이어를 돕는
+  일은 §19.8의 「노크 박자 맞추기 도움」이 맡는다.
 - `README.md`의 조작표에 남아 있는 `H` 단계별 힌트는 현재 빌드 기준으로는
   정확하므로 M6 브랜딩 교체에서 함께 갱신한다.
 
@@ -2137,7 +2142,7 @@ v2.3 감사 당시 빌드에는 레거시 「4시 44분」의 `RequestHint` 액�
 | 심장 박동 표시 | OFF | 스트레스 0.85 도달 시 비네트 맥동 ×1.4 |
 | 광과민 | 상시 | 정전·손전등 점멸 최대 3Hz, 전대역 플래시 0 |
 | 색각 | 상시 | UI는 색으로만 정보를 전달하지 않는다(형태·두께·위치 병용) |
-| 노크 박자 맞추기 도움 | OFF | 힌트 모드(§19.4), 퍼즐 시간 압박 해제, 노크 판정창 ×1.6 |
+| 노크 박자 맞추기 도움 | OFF | 노크 판정창 ×1.6 |
 | 추적 완화 | OFF | 「추격 없음」(§20.4) |
 
 - 소음 파문 링은 동작 감소에서도 **끄지 않는다**. 확장 애니메이션만 정지하고
@@ -2627,9 +2632,8 @@ CC0 녹음 샘플을 쓰고, 없는 샘플은 `UIGToneSequenceSoundWave` 합성�
 | 6 · 10 · 14 | `Test-MissingFloor-ReleaseGateContract.ps1` |
 | 7 · 15 | `Test-ArtAssetContract.ps1` — P3·P5 설비 프롭과 재질 |
 | 8 | `Test-MissingFloor-M3CctvChannelContract.ps1` |
-| 9 | `Test-Rebirth-ItemContinuityContract.ps1` |
 | 11 · 18 | `Test-MissingFloor-ReleaseEndingContract.ps1` |
-| 12 | 정적 검사 대상 아님. 실측 증거로만 닫힌다 |
+| 9 · 12 | 정적 검사 대상 아님. 실측 증거로만 닫힌다 |
 | 16 | `Test-MissingFloor-M0InputContract.ps1`, `Test-MissingFloor-InputBindingContract.ps1` |
 | 17 · 19 · 22 | `Test-Rebirth-AudioContract.ps1`, `Test-Rebirth-AccessibilityContract.ps1` |
 | 20 | `Test-MissingFloor-MixAndMovementContract.ps1` — 더킹에 ENTITY 분기가 없음 |
@@ -2642,8 +2646,10 @@ CC0 녹음 샘플을 쓰고, 없는 샘플은 `UIGToneSequenceSoundWave` 합성�
 
 세는 것만으로는 한 줄이 스크립트 이름을 잃고 산문으로 바뀌는 것을 못 잡는다.
 줄 수는 그대로고 남은 이름들도 다 실재하기 때문이다. 그래서 번호마다 따로
-본다. 스크립트 없이 닫히는 것은 1~5·12·13 일곱 개뿐이고 그 이유까지 못 박혀
-있어서, 여덟 번째가 들어오려면 계약을 같이 고쳐야 한다.
+본다. 스크립트 없이 닫히는 것은 1~5·9·12·13 여덟 개뿐이고 그 이유까지 못 박혀
+있어서, 아홉 번째가 들어오려면 계약을 같이 고쳐야 한다. 9번은 한동안 옛
+이야기의 아이템 연속성 계약이 잠근다고 적혀 있었는데, 그 계약은 없는 층의
+물건을 보지 않았다. 옛 코드를 지우면서 실측 증거 쪽으로 옮겼다.
 
 계약은 전부 **일부러 깨서 잡히는 것까지 확인한 뒤** 넣는다. 주석 처리한
 호출을 문자열 포함으로는 구분할 수 없어 통과해 버린 검사가 실제로 있었고,

@@ -62,7 +62,6 @@ pwsh -NoProfile -File Scripts/Import-RetailRefresh.ps1
 pwsh -NoProfile -File Scripts/Build-ArtAssets.ps1 -CodeOnly
 pwsh -NoProfile -File Scripts/Run-RetailReview.ps1
 pwsh -NoProfile -File Scripts/Run-RetailReview.ps1 -Measure
-pwsh -NoProfile -File Scripts/Run-Prologue-Capture.ps1
 pwsh -NoProfile -File Scripts/Run-MissingFloor-ArrivalProbe.ps1
 pwsh -NoProfile -File Scripts/Validate-Project.ps1
 ```

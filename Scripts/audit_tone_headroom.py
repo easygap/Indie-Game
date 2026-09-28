@@ -44,8 +44,6 @@ SOURCES = [
     "Source/IndieGame/Environment/IGNeighborhoodLifeDirector.cpp",
     "Source/IndieGame/Interaction/IGElevator.cpp",
     "Source/IndieGame/Player/IGStressComponent.cpp",
-    "Source/IndieGame/Sequence/IGChapterTwoHumanGateDirector.cpp",
-    "Source/IndieGame/Sequence/IGThirdMorningDirector.cpp",
 ]
 
 SAMPLE_RATE = 48000.0

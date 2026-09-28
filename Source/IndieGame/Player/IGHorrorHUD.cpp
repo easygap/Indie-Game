@@ -31,7 +31,6 @@
 #include "Player/IGFrontendMenuLayout.h"
 #include "Player/IGPlayerController.h"
 #include "Player/IGPlayerCharacter.h"
-#include "Sequence/IGMorningRoutineDirector.h"
 #include "Sequence/IGObjectiveProvider.h"
 #include "Sequence/IGWakeUpDirector.h"
 #include "UObject/UObjectGlobals.h"
@@ -39,7 +38,6 @@
 namespace IGHorrorHUD
 {
 	constexpr double DirectorSearchInterval = 2.0;
-	constexpr int32 LensDropletTextureSize = 128;
 	constexpr int32 HudRoundedMaskTextureSize = 64;
 	constexpr int32 MaximumDialogueQueueDepth = 6;
 	constexpr int32 MaximumAudioCaptionQueueDepth = 4;
@@ -250,9 +248,6 @@ void AIGHorrorHUD::BeginPlay()
 	// which case the reading panel falls back to a flat fill.
 	NotePaperTexture = LoadObject<UTexture2D>(
 		nullptr, TEXT("/Game/Prototype/Textures/T_PaperClean_V2_D.T_PaperClean_V2_D"));
-	ReceiptPaperTexture = LoadObject<UTexture2D>(
-		nullptr, TEXT("/Game/Prototype/Textures/T_PaperClean_V2_D.T_PaperClean_V2_D"));
-	InitializeLensDropletTexture();
 	InitializeDialogueSurfaceTextures();
 	InitializeAudioCalibrationTexture();
 	InitializeMissingFloorJournalTextures();
@@ -584,85 +579,6 @@ void AIGHorrorHUD::PlayCaptureWakeEcho(
 	}
 }
 
-void AIGHorrorHUD::InitializeLensDropletTexture()
-{
-	constexpr int32 TextureSize = IGHorrorHUD::LensDropletTextureSize;
-	TArray64<uint8> PixelBytes;
-	PixelBytes.SetNumZeroed(TextureSize * TextureSize * sizeof(FColor));
-	FColor* Pixels = reinterpret_cast<FColor*>(PixelBytes.GetData());
-
-	for (int32 Row = 0; Row < TextureSize; ++Row)
-	{
-		for (int32 Column = 0; Column < TextureSize; ++Column)
-		{
-			const float X =
-				((static_cast<float>(Column) + 0.5f) / TextureSize) * 2.0f - 1.0f;
-			const float Y =
-				((static_cast<float>(Row) + 0.5f) / TextureSize) * 2.0f - 1.0f;
-			const float Vertical01 = FMath::Clamp((Y + 1.0f) * 0.5f, 0.0f, 1.0f);
-			// A lens bead is never a clean icon. Slightly shear its centre and vary
-			// the edge at two frequencies so the proxy reads as a thin water film
-			// even though it deliberately avoids an expensive refraction pass.
-			const float WarpedX = X
-				+ Y * 0.035f
-				+ FMath::Sin(Y * 4.7f) * 0.018f;
-			const float HalfWidth = FMath::Lerp(0.50f, 0.62f, Vertical01);
-			const float EdgeVariation =
-				FMath::Sin(X * 3.1f + Y * 4.3f) * 0.020f
-				+ FMath::Sin(X * 8.4f - Y * 5.2f) * 0.010f;
-			const float EllipseRadius = FMath::Sqrt(
-				FMath::Square(WarpedX / HalfWidth)
-				+ FMath::Square((Y - 0.03f) / 0.90f))
-				+ EdgeVariation;
-
-			const float Coverage = 1.0f - IGHorrorHUD::SmoothStep01(
-				(EllipseRadius - 0.88f) / 0.12f);
-			const float Rim = Coverage * IGHorrorHUD::SmoothStep01(
-				(EllipseRadius - 0.70f) / 0.23f);
-			const float HighlightDistance = FVector2D(
-				WarpedX + 0.24f,
-				(Y + 0.29f) * 1.35f).Size();
-			const float Highlight = Coverage * (
-				1.0f - IGHorrorHUD::SmoothStep01((HighlightDistance - 0.04f) / 0.16f));
-			const float LowerShadow = Coverage * IGHorrorHUD::SmoothStep01(
-				((X * 0.42f + Y * 0.58f) + 0.10f) / 0.90f);
-
-			const float Alpha = Coverage * FMath::Clamp(
-				0.022f + Rim * 0.23f + Highlight * 0.24f + LowerShadow * 0.025f,
-				0.0f,
-				0.54f);
-			const float Luminance = FMath::Clamp(
-				0.52f + Rim * 0.16f + Highlight * 0.22f - LowerShadow * 0.12f,
-				0.28f,
-				0.90f);
-			Pixels[Column + Row * TextureSize] = FLinearColor(
-				Luminance * 0.90f,
-				Luminance * 0.96f,
-				Luminance,
-				Alpha).ToFColorSRGB();
-		}
-	}
-
-	const FName TextureName = MakeUniqueObjectName(
-		GetTransientPackage(),
-		UTexture2D::StaticClass(),
-		TEXT("CH03LensDroplet"));
-	LensDropletTexture = UTexture2D::CreateTransient(
-		TextureSize,
-		TextureSize,
-		PF_B8G8R8A8,
-		TextureName,
-		PixelBytes);
-	if (LensDropletTexture)
-	{
-		LensDropletTexture->Filter = TF_Bilinear;
-		LensDropletTexture->AddressX = TA_Clamp;
-		LensDropletTexture->AddressY = TA_Clamp;
-		LensDropletTexture->NeverStream = true;
-		LensDropletTexture->UpdateResource();
-	}
-}
-
 UFontFace* AIGHorrorHUD::LoadBundledFontFace(
 	const TCHAR* RelativePath,
 	const TCHAR* FontFaceName)
@@ -748,14 +664,6 @@ void AIGHorrorHUD::InitializeKoreanFont()
 			KoreanBodyFontFace.Get(),
 			IGHorrorHUD::PhoneMetaFontSize,
 			TEXT("KoreanPhoneMetaFont"));
-
-		// Receipts deliberately retain a denser system face when available;
-		// all navigational and story UI uses the deterministic bundled pair.
-		KoreanReceiptFontFace = KoreanBodyFontFace;
-		KoreanReceiptHeaderFont = MakeRuntimeFont(
-			KoreanEmphasisFontFace.Get(), 21, TEXT("KoreanReceiptHeaderFont"));
-		KoreanReceiptFont = MakeRuntimeFont(
-			KoreanBodyFontFace.Get(), 12, TEXT("KoreanReceiptFont"));
 		UE_LOG(LogIndieGame, Display, TEXT("Bundled Korean HUD type system loaded."));
 		return;
 	}
@@ -805,41 +713,6 @@ void AIGHorrorHUD::InitializeKoreanFont()
 			FontFace,
 			IGHorrorHUD::PhoneMetaFontSize,
 			TEXT("KoreanPhoneMetaFont"));
-
-		// Receipt printers use a compact, almost fixed-width bitmap face. Keep
-		// the fallback UI on Malgun Gothic, but prefer the narrower Gulim/Dotum
-		// family for the 80 mm thermal roll. Column positions are still
-		// measured explicitly, so Korean and ASCII remain aligned at 720p.
-		KoreanReceiptFontFace = FontFace;
-		const TCHAR* ReceiptCandidateFonts[] = {
-			TEXT("gulim.ttc"),
-			TEXT("Dotum.ttc"),
-		};
-		for (const TCHAR* ReceiptFontFileName : ReceiptCandidateFonts)
-		{
-			const FString ReceiptFontPath =
-				FPaths::Combine(FontsDirectory, ReceiptFontFileName);
-			TArray<uint8> ReceiptFontBytes;
-			if (!FPaths::FileExists(ReceiptFontPath)
-				|| !FFileHelper::LoadFileToArray(ReceiptFontBytes, *ReceiptFontPath))
-			{
-				continue;
-			}
-
-			KoreanReceiptFontFace =
-				NewObject<UFontFace>(this, TEXT("ReceiptFontFace"));
-			KoreanReceiptFontFace->LoadingPolicy = EFontLoadingPolicy::Inline;
-			KoreanReceiptFontFace->Hinting = EFontHinting::Monochrome;
-			KoreanReceiptFontFace->SourceFilename = ReceiptFontPath;
-			KoreanReceiptFontFace->FontFaceData =
-				FFontFaceData::MakeFontFaceData(MoveTemp(ReceiptFontBytes));
-			break;
-		}
-
-		KoreanReceiptHeaderFont = MakeRuntimeFont(
-			KoreanReceiptFontFace.Get(), 21, TEXT("KoreanReceiptHeaderFont"));
-		KoreanReceiptFont = MakeRuntimeFont(
-			KoreanReceiptFontFace.Get(), 12, TEXT("KoreanReceiptFont"));
 
 		UE_LOG(LogIndieGame, Display, TEXT("HUD Korean font loaded: %s"), *FontPath);
 		return;
@@ -1434,25 +1307,6 @@ void AIGHorrorHUD::PushFearDirection(
 	}
 }
 
-void AIGHorrorHUD::PushLensDroplet(
-	const UObject* WorldContext,
-	const float DurationSeconds)
-{
-	const UWorld* World = GEngine && WorldContext
-		? GEngine->GetWorldFromContextObject(
-			WorldContext,
-			EGetWorldErrorMode::ReturnNull)
-		: nullptr;
-	const APlayerController* PlayerController =
-		World ? World->GetFirstPlayerController() : nullptr;
-	if (AIGHorrorHUD* HorrorHUD = PlayerController
-		? Cast<AIGHorrorHUD>(PlayerController->GetHUD())
-		: nullptr)
-	{
-		HorrorHUD->ShowLensDroplet(DurationSeconds);
-	}
-}
-
 void AIGHorrorHUD::ShowSaveIndicator()
 {
 	const UWorld* World = GetWorld();
@@ -1523,47 +1377,6 @@ void AIGHorrorHUD::DrawSaveIndicator(const double CurrentTime)
 		DotColour);
 	Dot.BlendMode = SE_BLEND_Translucent;
 	Canvas->DrawItem(Dot);
-}
-
-void AIGHorrorHUD::ShowLensDroplet(const float DurationSeconds)
-{
-	const UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-	if (!LensDropletTexture)
-	{
-		InitializeLensDropletTexture();
-	}
-
-	LensDropletStartTime = World->GetTimeSeconds();
-	LensDropletEndTime = LensDropletStartTime + FMath::Max(1.6f, DurationSeconds);
-}
-
-bool AIGHorrorHUD::GetLensDropletRenderSample(
-	FVector2D& OutPosition,
-	FVector2D& OutSize,
-	FVector2D& OutCanvasSize,
-	float& OutAlpha,
-	bool& bOutReducedMotion,
-	double& OutWorldTime) const
-{
-	if (LensDropletLastRenderTime < 0.0
-		|| LensDropletLastSize.X <= 0.0f
-		|| LensDropletLastSize.Y <= 0.0f
-		|| LensDropletLastCanvasSize.X <= 0.0f
-		|| LensDropletLastCanvasSize.Y <= 0.0f)
-	{
-		return false;
-	}
-	OutPosition = LensDropletLastPosition;
-	OutSize = LensDropletLastSize;
-	OutCanvasSize = LensDropletLastCanvasSize;
-	OutAlpha = LensDropletLastAlpha;
-	bOutReducedMotion = bLensDropletLastReducedMotion;
-	OutWorldTime = LensDropletLastRenderTime;
-	return true;
 }
 
 void AIGHorrorHUD::ShowFearDirection(
@@ -1793,11 +1606,6 @@ void AIGHorrorHUD::SetObjectiveProvider(UObject* InObjectiveProvider)
 		: nullptr;
 }
 
-void AIGHorrorHUD::SetMorningDirector(AIGMorningRoutineDirector* InMorningDirector)
-{
-	SetObjectiveProvider(InMorningDirector);
-}
-
 FText AIGHorrorHUD::GetBoundKeyLabel(
 	const EIGBindableAction Action,
 	const bool bGamepad) const
@@ -1991,10 +1799,6 @@ void AIGHorrorHUD::DrawHUD()
 		FinalizeLayoutValidationSample();
 		return;
 	}
-	// The droplet belongs to the camera lens, while prompts and captions remain
-	// optically crisp on top of it. Draw it before every native HUD element.
-	DrawLensDroplet(CurrentTime);
-
 	if (!InteractionComponent.IsValid())
 	{
 		ResolveInteractionComponent();
@@ -3456,60 +3260,6 @@ bool AIGHorrorHUD::DrawAudioCaption(
 			bUseTextOutline);
 	}
 	return true;
-}
-
-void AIGHorrorHUD::DrawLensDroplet(const double CurrentTime)
-{
-	if (!Canvas || !LensDropletTexture
-		|| CurrentTime < LensDropletStartTime
-		|| CurrentTime >= LensDropletEndTime)
-	{
-		return;
-	}
-
-	const double Duration = FMath::Max(
-		LensDropletEndTime - LensDropletStartTime,
-		0.001);
-	const float Age = FMath::Clamp(
-		static_cast<float>((CurrentTime - LensDropletStartTime) / Duration),
-		0.0f,
-		1.0f);
-	const float FadeIn = IGHorrorHUD::SmoothStep01(Age / 0.12f);
-	const float FadeOut = 1.0f - IGHorrorHUD::SmoothStep01((Age - 0.68f) / 0.32f);
-	const float Alpha = FadeIn * FadeOut * 0.72f;
-
-	const UGameInstance* GameInstance = GetGameInstance();
-	const UIGAccessibilitySubsystem* Accessibility = GameInstance
-		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
-		: nullptr;
-	const bool bReducedMotion = Accessibility
-		&& Accessibility->IsReducedCameraMotionEnabled();
-	const float Travel = bReducedMotion
-		? 0.0f
-		: IGHorrorHUD::SmoothStep01(Age) * Canvas->ClipY * 0.028f;
-
-	const float DropHeight = FMath::Clamp(
-		FMath::Min(Canvas->ClipX, Canvas->ClipY) * 0.16f,
-		84.0f,
-		176.0f);
-	const FVector2D DropSize(DropHeight * 0.60f, DropHeight);
-	const FVector2D DropPosition(
-		Canvas->ClipX * 0.75f - DropSize.X * 0.5f,
-		Canvas->ClipY * 0.14f + Travel);
-	LensDropletLastPosition = DropPosition;
-	LensDropletLastSize = DropSize;
-	LensDropletLastCanvasSize = FVector2D(Canvas->ClipX, Canvas->ClipY);
-	LensDropletLastAlpha = Alpha;
-	bLensDropletLastReducedMotion = bReducedMotion;
-	LensDropletLastRenderTime = CurrentTime;
-
-	FCanvasTileItem Droplet(
-		DropPosition,
-		LensDropletTexture->GetResource(),
-		DropSize,
-		FLinearColor(0.76f, 0.82f, 0.84f, Alpha));
-	Droplet.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem(Droplet);
 }
 
 void AIGHorrorHUD::ValidateSettingsTextRect(
@@ -6948,18 +6698,6 @@ void AIGHorrorHUD::ResolveDirectors()
 			}
 		}
 	}
-
-	if (!ObjectiveProvider.IsValid())
-	{
-		for (TActorIterator<AIGMorningRoutineDirector> It(World); It; ++It)
-		{
-			if (IsValid(*It))
-			{
-				SetMorningDirector(*It);
-				break;
-			}
-		}
-	}
 }
 
 FText AIGHorrorHUD::GetObjectiveText() const
@@ -7444,11 +7182,6 @@ void AIGHorrorHUD::DrawNotePanel()
 		DrawPhoneNotificationPanel(*Note);
 		return;
 	}
-	if (Note->UsesThermalReceiptPresentation())
-	{
-		DrawThermalReceiptPanel(*Note);
-		return;
-	}
 	UFont* BodyFont = GetFontForRole(EIGHudTextRole::Prompt);
 	UFont* HintFont = GetFontForRole(EIGHudTextRole::Hint);
 	if (!BodyFont || !HintFont) return;
@@ -7730,465 +7463,4 @@ void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)
 		FMath::Min(ScreenHeight - 26.0f, PhoneOrigin.Y + PhoneHeight + 16.0f),
 		IGHorrorHUD::PaleGray,
 		EIGHudTextRole::Hint);
-}
-
-void AIGHorrorHUD::DrawThermalReceiptPanel(const AIGReadableNote& Note)
-{
-	if (!Canvas)
-	{
-		return;
-	}
-
-	const FIGThermalReceiptData& Receipt = Note.GetThermalReceiptData();
-	const float ScreenWidth = Canvas->ClipX;
-	const float ScreenHeight = Canvas->ClipY;
-
-	// A real convenience-store receipt is an 80 mm thermal roll, not A4.
-	// Keep it tall and narrow while leaving a small strip of scrim below for
-	// the interaction hint, so the hint never looks printed on the receipt.
-	DrawRect(
-		FLinearColor(0.0f, 0.0f, 0.0f, 0.78f),
-		0.0f, 0.0f, ScreenWidth, ScreenHeight);
-
-	const float PaperHeight = FMath::Min(ScreenHeight * 0.91f, 760.0f);
-	const float PaperWidth = FMath::Min(PaperHeight * 0.465f, ScreenWidth * 0.32f);
-	const FVector2D PaperOrigin(
-		(ScreenWidth - PaperWidth) * 0.5f,
-		(ScreenHeight - PaperHeight) * 0.5f);
-
-	DrawRect(
-		FLinearColor(0.0f, 0.0f, 0.0f, 0.62f),
-		PaperOrigin.X + 5.0f,
-		PaperOrigin.Y + 7.0f,
-		PaperWidth,
-		PaperHeight);
-
-	if (ReceiptPaperTexture)
-	{
-		DrawTexture(
-			ReceiptPaperTexture,
-			PaperOrigin.X, PaperOrigin.Y, PaperWidth, PaperHeight,
-			0.0f, 0.0f, 1.0f, 1.0f,
-			FLinearColor(0.97f, 0.965f, 0.925f, 1.0f), BLEND_Opaque);
-	}
-	else
-	{
-		DrawRect(
-			FLinearColor(0.945f, 0.94f, 0.885f, 1.0f),
-			PaperOrigin.X, PaperOrigin.Y, PaperWidth, PaperHeight);
-	}
-
-	// Uneven heat and the low-grade roll stock leave faint horizontal bands.
-	// Two different intervals prevent the surface from looking like ruled
-	// notebook paper while remaining visible at a 1280x720 capture.
-	for (float BandY = PaperOrigin.Y + 9.0f;
-		BandY < PaperOrigin.Y + PaperHeight - 8.0f;
-		BandY += 13.0f)
-	{
-		DrawRect(
-			FLinearColor(0.24f, 0.225f, 0.19f, 0.012f),
-			PaperOrigin.X + 1.0f,
-			BandY,
-			PaperWidth - 2.0f,
-			1.0f);
-	}
-	for (float BandY = PaperOrigin.Y + 31.0f;
-		BandY < PaperOrigin.Y + PaperHeight - 8.0f;
-		BandY += 47.0f)
-	{
-		DrawRect(
-			FLinearColor(1.0f, 0.995f, 0.95f, 0.04f),
-			PaperOrigin.X + 3.0f,
-			BandY,
-			PaperWidth - 6.0f,
-			1.0f);
-	}
-	// A soft compression crease and slightly dirty roll edges sell physical
-	// paper without making a brand-new receipt look like an antique note.
-	const float CreaseY = PaperOrigin.Y + PaperHeight * 0.585f;
-	DrawRect(
-		FLinearColor(0.23f, 0.21f, 0.17f, 0.035f),
-		PaperOrigin.X + 2.0f, CreaseY, PaperWidth - 4.0f, 2.0f);
-	DrawRect(
-		FLinearColor(1.0f, 0.995f, 0.96f, 0.10f),
-		PaperOrigin.X + 3.0f, CreaseY + 2.0f, PaperWidth - 6.0f, 1.0f);
-	DrawRect(
-		FLinearColor(0.24f, 0.22f, 0.18f, 0.36f),
-		PaperOrigin.X,
-		PaperOrigin.Y,
-		1.0f,
-		PaperHeight);
-	DrawRect(
-		FLinearColor(0.24f, 0.22f, 0.18f, 0.36f),
-		PaperOrigin.X + PaperWidth - 1.0f,
-		PaperOrigin.Y,
-		1.0f,
-		PaperHeight);
-
-	UFont* HeaderFont = KoreanReceiptHeaderFont
-		? KoreanReceiptHeaderFont.Get()
-		: GetFontForRole(EIGHudTextRole::Prompt);
-	UFont* ReceiptFont = KoreanReceiptFont
-		? KoreanReceiptFont.Get()
-		: GetFontForRole(EIGHudTextRole::Hint);
-	if (!HeaderFont || !ReceiptFont)
-	{
-		return;
-	}
-
-	const FLinearColor ThermalInk(0.015f, 0.012f, 0.009f, 0.98f);
-	const FLinearColor FaintInk(0.045f, 0.040f, 0.032f, 0.84f);
-	const float ContentLeft = PaperOrigin.X + PaperWidth * 0.065f;
-	const float ContentRight = PaperOrigin.X + PaperWidth * 0.935f;
-	const float ContentWidth = ContentRight - ContentLeft;
-	// Thermal printers pack rows much more tightly than normal UI text. Font
-	// ascent metrics are intentionally not used here: Malgun Gothic reports a
-	// generous line box that made the first pass look like a document again.
-	const float ReceiptLineHeight =
-		FMath::Clamp(PaperHeight / 39.0f, 15.5f, 17.5f);
-	float PenY = PaperOrigin.Y + PaperHeight * 0.027f;
-
-	auto MeasureText = [this](UFont* Font, const FText& Text)
-	{
-		FVector2D Size = FVector2D::ZeroVector;
-		if (Canvas && Font && !Text.IsEmpty())
-		{
-			Canvas->StrLen(Font, Text.ToString(), Size.X, Size.Y);
-		}
-		return Size;
-	};
-	auto DrawTextAt = [this, &ThermalInk](
-		const FText& Text,
-		UFont* Font,
-		const float X,
-		const float Y,
-		const FLinearColor* Color = nullptr)
-	{
-		if (!Canvas || !Font || Text.IsEmpty())
-		{
-			return;
-		}
-		FCanvasTextItem Item(
-			FVector2D(X, Y),
-			Text,
-			Font,
-			Color ? *Color : ThermalInk);
-		Canvas->DrawItem(Item);
-	};
-	auto DrawCentered = [&](
-		const FText& Text,
-		UFont* Font,
-		const float Y,
-		const FLinearColor* Color = nullptr)
-	{
-		const FVector2D Size = MeasureText(Font, Text);
-		DrawTextAt(
-			Text,
-			Font,
-			PaperOrigin.X + (PaperWidth - Size.X) * 0.5f,
-			Y,
-			Color);
-	};
-	auto DrawRight = [&](
-		const FText& Text,
-		UFont* Font,
-		const float RightX,
-		const float Y,
-		const FLinearColor* Color = nullptr)
-	{
-		const FVector2D Size = MeasureText(Font, Text);
-		DrawTextAt(Text, Font, RightX - Size.X, Y, Color);
-	};
-	auto DrawRule = [&](const bool bHeavy = false)
-	{
-		const float SegmentWidth = bHeavy ? 5.0f : 3.0f;
-		const float GapWidth = bHeavy ? 2.5f : 3.0f;
-		for (float X = ContentLeft; X < ContentRight; X += SegmentWidth + GapWidth)
-		{
-			DrawRect(
-				ThermalInk,
-				X,
-				PenY,
-				FMath::Min(SegmentWidth, ContentRight - X),
-				bHeavy ? 1.5f : 1.0f);
-		}
-		PenY += bHeavy ? 7.0f : 6.0f;
-	};
-	auto FormatAmount = [](const int32 Amount)
-	{
-		const bool bNegative = Amount < 0;
-		FString Digits = FString::FromInt(FMath::Abs(Amount));
-		for (int32 Index = Digits.Len() - 3; Index > 0; Index -= 3)
-		{
-			Digits.InsertAt(Index, TEXT(','));
-		}
-		return FText::FromString(bNegative ? TEXT("-") + Digits : Digits);
-	};
-
-	DrawCentered(Receipt.StoreName, HeaderFont, PenY);
-	// A second sub-pixel impression mimics the heavy one-colour logo pass
-	// common at the top of convenience-store thermal receipts.
-	const FVector2D StoreNameSize = MeasureText(HeaderFont, Receipt.StoreName);
-	DrawTextAt(
-		Receipt.StoreName,
-		HeaderFont,
-		PaperOrigin.X + (PaperWidth - StoreNameSize.X) * 0.5f + 0.65f,
-		PenY);
-	PenY += FMath::Max(23.0f, HeaderFont->GetMaxCharHeight() * 1.05f);
-	DrawCentered(Receipt.StoreSubtitle, ReceiptFont, PenY, &FaintInk);
-	// Gulim's descenders extend slightly beyond its reported compact line
-	// box; keep the first perforated rule visibly below the branch subtitle.
-	PenY += ReceiptLineHeight + 4.0f;
-	DrawRule(true);
-
-	for (const FText& DetailLine : Receipt.StoreDetailLines)
-	{
-		DrawTextAt(DetailLine, ReceiptFont, ContentLeft, PenY);
-		PenY += ReceiptLineHeight;
-	}
-	if (!Receipt.StoreDetailLines.IsEmpty())
-	{
-		PenY += 1.0f;
-	}
-
-	for (const FText& PolicyLine : Receipt.PolicyLines)
-	{
-		DrawTextAt(PolicyLine, ReceiptFont, ContentLeft, PenY, &FaintInk);
-		PenY += ReceiptLineHeight;
-	}
-	PenY += 1.0f;
-	DrawRule();
-
-	// Keep identifiers and the timestamp on adjacent dense rows. This avoids
-	// collisions on 720p while matching Korean POS layouts that print a
-	// receipt/transaction number immediately before the dated sales line.
-	DrawTextAt(
-		FText::Format(
-			NSLOCTEXT("IGHUD", "ReceiptTransactionNumber", "거래NO {0}"),
-			Receipt.ReceiptNumber),
-		ReceiptFont,
-		ContentLeft,
-		PenY);
-	DrawRight(Receipt.PosLabel, ReceiptFont, ContentRight, PenY);
-	PenY += ReceiptLineHeight;
-	DrawCentered(Receipt.TransactionDateTime, ReceiptFont, PenY);
-	PenY += ReceiptLineHeight;
-	DrawRule();
-
-	// Give Korean product names a true left column. The former 49% boundary
-	// made "새벽샘물500mL" touch the quantity at 1280x720.
-	const float QuantityCenterX = ContentLeft + ContentWidth * 0.53f;
-	const float UnitPriceRightX = ContentLeft + ContentWidth * 0.76f;
-	DrawTextAt(
-		NSLOCTEXT("IGHUD", "ReceiptProductHeading", "상품명"),
-		ReceiptFont,
-		ContentLeft,
-		PenY,
-		&FaintInk);
-	const FText QuantityHeading = NSLOCTEXT("IGHUD", "ReceiptQuantityHeading", "수량");
-	const FVector2D QuantityHeadingSize = MeasureText(ReceiptFont, QuantityHeading);
-	DrawTextAt(
-		QuantityHeading,
-		ReceiptFont,
-		QuantityCenterX - QuantityHeadingSize.X * 0.5f,
-		PenY,
-		&FaintInk);
-	DrawRight(
-		NSLOCTEXT("IGHUD", "ReceiptUnitPriceHeading", "단가"),
-		ReceiptFont,
-		UnitPriceRightX,
-		PenY,
-		&FaintInk);
-	DrawRight(
-		NSLOCTEXT("IGHUD", "ReceiptAmountHeading", "금액"),
-		ReceiptFont,
-		ContentRight,
-		PenY,
-		&FaintInk);
-	PenY += ReceiptLineHeight;
-
-	for (const FIGReceiptItemLine& Item : Receipt.Items)
-	{
-		DrawTextAt(Item.ProductName, ReceiptFont, ContentLeft, PenY);
-		const FText QuantityText = FText::AsNumber(Item.Quantity);
-		const FVector2D QuantitySize = MeasureText(ReceiptFont, QuantityText);
-		DrawTextAt(
-			QuantityText,
-			ReceiptFont,
-			QuantityCenterX - QuantitySize.X * 0.5f,
-			PenY);
-		DrawRight(
-			FormatAmount(Item.UnitPrice > 0 ? Item.UnitPrice : Item.Amount),
-			ReceiptFont,
-			UnitPriceRightX,
-			PenY);
-		DrawRight(FormatAmount(Item.Amount), ReceiptFont, ContentRight, PenY);
-		PenY += ReceiptLineHeight + 1.0f;
-	}
-	DrawRule();
-
-	auto DrawAmountRow = [&](
-		const FText& Label,
-		const int32 Amount,
-		UFont* Font,
-		const FLinearColor* Color = nullptr)
-	{
-		DrawTextAt(Label, Font, ContentLeft, PenY, Color);
-		DrawRight(FormatAmount(Amount), Font, ContentRight, PenY, Color);
-		PenY += FMath::Max(
-			ReceiptLineHeight,
-			static_cast<float>(Font->GetMaxCharHeight()) * 1.02f);
-	};
-
-	DrawAmountRow(
-		NSLOCTEXT("IGHUD", "ReceiptSubtotal", "총 구 매 액"),
-		Receipt.Subtotal,
-		HeaderFont);
-	DrawAmountRow(
-		NSLOCTEXT("IGHUD", "ReceiptTaxable", "과세물품가액"),
-		Receipt.TaxableSupply,
-		ReceiptFont,
-		&FaintInk);
-	DrawAmountRow(
-		NSLOCTEXT("IGHUD", "ReceiptVat", "부 가 세"),
-		Receipt.Vat,
-		ReceiptFont,
-		&FaintInk);
-	DrawAmountRow(
-		NSLOCTEXT("IGHUD", "ReceiptTotal", "결 제 금 액"),
-		Receipt.Total,
-		HeaderFont);
-	DrawRule(true);
-
-	if (!Receipt.PaymentHeading.IsEmpty())
-	{
-		DrawCentered(
-			Receipt.PaymentHeading,
-			ReceiptFont,
-			PenY,
-			&FaintInk);
-		PenY += ReceiptLineHeight;
-	}
-	for (const FIGReceiptKeyValueLine& PaymentLine : Receipt.PaymentLines)
-	{
-		DrawTextAt(PaymentLine.Label, ReceiptFont, ContentLeft, PenY);
-		DrawRight(PaymentLine.Value, ReceiptFont, ContentRight, PenY);
-		PenY += ReceiptLineHeight;
-	}
-	PenY += 2.0f;
-	DrawRule();
-
-	for (const FText& FooterLine : Receipt.FooterLines)
-	{
-		DrawCentered(FooterLine, ReceiptFont, PenY, &FaintInk);
-		PenY += ReceiptLineHeight;
-	}
-
-	// EAN-13-like layout: start/centre/end guards, six left digits with L/G
-	// parity, and six right digits. Story data deliberately supplies an
-	// invalid check digit, so this has authentic proportions without becoming
-	// a usable identifier for a real product.
-	FString BarcodeDigits = Receipt.BarcodeDigits;
-	bool bValidBarcodeDigits = BarcodeDigits.Len() == 13;
-	for (int32 Index = 0; bValidBarcodeDigits && Index < BarcodeDigits.Len(); ++Index)
-	{
-		bValidBarcodeDigits =
-			BarcodeDigits[Index] >= TEXT('0') && BarcodeDigits[Index] <= TEXT('9');
-	}
-	if (!bValidBarcodeDigits)
-	{
-		BarcodeDigits = TEXT("2904440711004");
-	}
-
-	static const TCHAR* LeftOddPatterns[10] = {
-		TEXT("0001101"), TEXT("0011001"), TEXT("0010011"), TEXT("0111101"),
-		TEXT("0100011"), TEXT("0110001"), TEXT("0101111"), TEXT("0111011"),
-		TEXT("0110111"), TEXT("0001011"),
-	};
-	static const TCHAR* LeftEvenPatterns[10] = {
-		TEXT("0100111"), TEXT("0110011"), TEXT("0011011"), TEXT("0100001"),
-		TEXT("0011101"), TEXT("0111001"), TEXT("0000101"), TEXT("0010001"),
-		TEXT("0001001"), TEXT("0010111"),
-	};
-	static const TCHAR* RightPatterns[10] = {
-		TEXT("1110010"), TEXT("1100110"), TEXT("1101100"), TEXT("1000010"),
-		TEXT("1011100"), TEXT("1001110"), TEXT("1010000"), TEXT("1000100"),
-		TEXT("1001000"), TEXT("1110100"),
-	};
-	static const TCHAR* LeftParity[10] = {
-		TEXT("LLLLLL"), TEXT("LLGLGG"), TEXT("LLGGLG"), TEXT("LLGGGL"),
-		TEXT("LGLLGG"), TEXT("LGGLLG"), TEXT("LGGGLL"), TEXT("LGLGLG"),
-		TEXT("LGLGGL"), TEXT("LGGLGL"),
-	};
-
-	FString BarcodeModules(TEXT("101"));
-	const int32 LeadingDigit = BarcodeDigits[0] - TEXT('0');
-	for (int32 Index = 1; Index <= 6; ++Index)
-	{
-		const int32 Digit = BarcodeDigits[Index] - TEXT('0');
-		BarcodeModules += LeftParity[LeadingDigit][Index - 1] == TEXT('L')
-			? LeftOddPatterns[Digit]
-			: LeftEvenPatterns[Digit];
-	}
-	BarcodeModules += TEXT("01010");
-	for (int32 Index = 7; Index <= 12; ++Index)
-	{
-		BarcodeModules += RightPatterns[BarcodeDigits[Index] - TEXT('0')];
-	}
-	BarcodeModules += TEXT("101");
-
-	// Leave one printer row between the service line and the first guard bar.
-	const float BarcodeTop = PenY + 5.0f;
-	const float BarcodeHeight = FMath::Max(
-		26.0f,
-		FMath::Min(35.0f, PaperOrigin.Y + PaperHeight - BarcodeTop - 26.0f));
-	const float UnitWidth = ContentWidth / 95.0f;
-	float BarcodeX = ContentLeft;
-	for (int32 ModuleIndex = 0; ModuleIndex < BarcodeModules.Len(); ++ModuleIndex)
-	{
-		if (BarcodeModules[ModuleIndex] == TEXT('1'))
-		{
-			const bool bGuard =
-				ModuleIndex <= 2
-				|| (ModuleIndex >= 45 && ModuleIndex <= 49)
-				|| ModuleIndex >= 92;
-			DrawRect(
-				ThermalInk,
-				BarcodeX,
-				BarcodeTop,
-				FMath::Max(1.0f, UnitWidth * 0.86f),
-				BarcodeHeight + (bGuard ? 4.0f : 0.0f));
-		}
-		BarcodeX += UnitWidth;
-	}
-	PenY = BarcodeTop + BarcodeHeight + 3.0f;
-	const FString HumanReadableBarcode = FString::Printf(
-		TEXT("%c  %s  %s"),
-		BarcodeDigits[0],
-		*BarcodeDigits.Mid(1, 6),
-		*BarcodeDigits.Mid(7, 6));
-	DrawCentered(
-		FText::FromString(HumanReadableBarcode),
-		ReceiptFont,
-		PenY,
-		&FaintInk);
-
-	const FText Hint = SupportsKorean()
-		? bUsingGamepad
-			? NSLOCTEXT("IGHUD", "ReceiptCloseGamepad", "[ A ]  영수증 내려놓기")
-			: NSLOCTEXT("IGHUD", "ReceiptCloseKeyboard", "[ E ]  영수증 내려놓기")
-		: FText::FromString(
-			bUsingGamepad
-				? TEXT("[ A ]  Put receipt down")
-				: TEXT("[ E ]  Put receipt down"));
-	const FVector2D HintSize = MeasureText(ReceiptFont, Hint);
-	const float HintY = FMath::Min(
-		ScreenHeight - HintSize.Y - 5.0f,
-		PaperOrigin.Y + PaperHeight + 8.0f);
-	DrawTextAt(
-		Hint,
-		ReceiptFont,
-		(ScreenWidth - HintSize.X) * 0.5f,
-		HintY,
-		&IGHorrorHUD::PaleGray);
 }

@@ -2,7 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Interaction/IGInteractableActor.h"
-#include "Narrative/IGRebirthNarrativeTypes.h"
+#include "Narrative/IGMissingFloorNarrativeTypes.h"
 #include "IGPickupItem.generated.h"
 
 class AIGPickupItem;
@@ -67,13 +67,12 @@ public:
 	FGameplayTag StateTagOnPickup;
 
 	/**
-	 * Optional fixed REBIRTH purchase profile represented by this pickup.
+	 * Optional fixed store purchase profile represented by this pickup.
 	 * It is committed before StateTagOnPickup so checkout/autosave observers
 	 * can never snapshot an Unset or mismatched product.
 	 */
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup|Story")
-	EIGRebirthPurchaseProfile RebirthPurchaseProfileOnPickup =
-		EIGRebirthPurchaseProfile::Unset;
+	EIGPurchaseProfile PurchaseProfileOnPickup = EIGPurchaseProfile::Unset;
 
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Pickup|Story")
 	FText ThoughtOnPickup;
@@ -95,9 +94,9 @@ protected:
 	TObjectPtr<UStaticMeshComponent> MeshComponent;
 
 private:
-	void CommitRebirthPurchaseProfile();
-	bool IsRebirthPurchaseCommitted() const;
-	bool MatchesRestoredRebirthPurchaseProfile() const;
+	void CommitPurchaseProfile();
+	bool IsPurchaseCommitted() const;
+	bool MatchesRestoredPurchaseProfile() const;
 	bool ReturnForProfileSwap(AIGPlayerCharacter* Character);
 	void ReconcileRestoredPickedUpState();
 	void TryAttachRestoredPickup();

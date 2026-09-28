@@ -23,10 +23,6 @@ $saveHeader = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Save/IGSaveSubsystem.h')
 $saveSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Save/IGSaveSubsystem.cpp')
-$thirdMorningHeader = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGThirdMorningDirector.h')
-$thirdMorningSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGThirdMorningDirector.cpp')
 $inputConfig = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Config/DefaultInput.ini')
 $gameConfig = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -49,8 +45,6 @@ $executableMetadataSyncScript = Get-Content `
 			'Scripts/Copy-Windows-ExecutableVersionResource.ps1')
 $executableMetadataScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/Test-Windows-ExecutableMetadata.ps1')
-$releaseValidationScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Scripts/Run-Rebirth-ReleaseValidation.ps1')
 $frontendProbeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/Run-Rebirth-FrontendShippingProbe.ps1')
 $prepareAiArtScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -119,12 +113,10 @@ Assert-ContainsAll $controllerSource @(
 	'IGSkipFrontend',
 	'IGResumeSave',
 	'IGNewGame',
-	'IGChapterTwo',
-	'IGChapterThree',
 	'Binding.bExecuteWhenPaused = true',
 	'SetPause(NewMode != EIGSystemMenuMode::Hidden)',
 	'StoryState->ClearStates(false)',
-	'RebirthState->ResetNarrative()',
+	'MissingFloorState->ResetNarrative()',
 	'SaveSubsystem->ClearRotatingAutosaves()',
 	'bCompatibleAutosaveAvailable && !bNewGameConfirmationArmed',
 	'bNewGameConfirmationArmed = true;',
@@ -560,35 +552,6 @@ Assert-ContainsAll $executableMetadataScript @(
 	'Engine build metadata leaked',
 	'WINDOWS_EXECUTABLE_METADATA PASS'
 ) 'Shipping 실행 파일 제품 정보 검증'
-Assert-ContainsAll $thirdMorningHeader @(
-	'WriteRebirthReleaseValidationResult'
-) 'Shipping 종단 결과 기록 선언'
-Assert-ContainsAll $thirdMorningSource @(
-	'TEXT("IGRebirthResultPath=")',
-	'"REBIRTH_PACKAGED_RUNTIME PASS contract=1 ending=%s "',
-	'"REBIRTH_PACKAGED_RUNTIME FAIL contract=1 ending=%s "',
-	'FFileHelper::SaveStringToFile(',
-	'TEXT("result_evidence_write")'
-) 'Shipping 종단 결과 기록 계약'
-Assert-ContainsAll $releaseValidationScript @(
-	'function Invoke-RebirthShippingRuntimeCase',
-	'$_.Name -ieq ''IndieGame-Win64-Shipping.exe''',
-	'"-IGRebirthResultPath=$resultPath"',
-	'"-UserDir=$userDirectory"',
-	"'shipping_runtime_ending_a'",
-	"'shipping_runtime_ending_b'",
-	'$resultText -cne $expectedResult',
-	'shippingRuntimeResults = [pscustomobject]$shippingRuntimeResults',
-	'function Assert-ShippingArchiveManifestUnchanged',
-	'accessibilityScreenshotSha256',
-	'displayScreenshotSha256',
-	'$result.layoutSamples -ne 11',
-	"'shipping_archive_post_runtime'",
-	'Shipping manifest path escaped the archive',
-	'Shipping archive file hash changed after runtime',
-	'Assert-ShippingArchiveManifestUnchanged',
-	'if (-not $SkipShippingPackage -and -not $SkipRuntimeValidation)'
-) 'Shipping 패키지 A/B 실제 실행 영수증 검증'
 Assert-ContainsAll $frontendProbeScript @(
 	'-FilePath $launcher',
 	'-WorkingDirectory (Split-Path -Parent $launcher)',
@@ -659,5 +622,5 @@ foreach ($height in @(720.0, 900.0, 1080.0, 1440.0)) {
 
 Write-Host (
 	"REBIRTH_FRONTEND_CONTRACT PASS assertions=$assertionCount " +
-	"title=1 pause=1 settings=1 mouse=1 save_failure_feedback=1 continue=1 new_game_reset=1 credits=1 quit=1 shipping_defaults=1 unattended_bypass=1 layout_profiles=4 icon_levels=7 exe_icon_verifier=1 exe_metadata_verifier=1 bootstrap_metadata_sync=1 packaged_runtime_receipt=1 packaged_runtime_harness=1 archive_immutability=1"
+	"title=1 pause=1 settings=1 mouse=1 save_failure_feedback=1 continue=1 new_game_reset=1 credits=1 quit=1 shipping_defaults=1 unattended_bypass=1 layout_profiles=4 icon_levels=7 exe_icon_verifier=1 exe_metadata_verifier=1 bootstrap_metadata_sync=1"
 ) -ForegroundColor Green

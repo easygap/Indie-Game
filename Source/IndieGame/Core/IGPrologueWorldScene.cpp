@@ -3,14 +3,10 @@
 #include "Accessibility/IGAccessibilitySubsystem.h"
 
 #include "AssetRegistry/AssetRegistryModule.h"
-#include "AssetCompilingManager.h"
-#include "Audio/IGAlarmSoundWave.h"
 #include "Audio/IGAmbienceSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
-#include "Camera/CameraComponent.h"
-#include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/DecalComponent.h"
@@ -32,17 +28,12 @@
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Environment/IGNeighborhoodLifeDirector.h"
-#include "GameFramework/HUD.h"
 #include "GameFramework/Pawn.h"
 #include "GameFramework/PlayerController.h"
-#include "HAL/PlatformMisc.h"
 #include "IndieGame.h"
-#include "HighResScreenshot.h"
 #include "Kismet/GameplayStatics.h"
 #include "Interaction/IGCheckoutCounter.h"
 #include "Interaction/IGElevator.h"
-#include "Player/IGFlashlightComponent.h"
-#include "Player/IGPlayerCharacter.h"
 #include "Interaction/IGFridge.h"
 #include "Interaction/IGInspectable.h"
 #include "Interaction/IGInteractable.h"
@@ -57,24 +48,10 @@
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
-#include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
-#include "Narrative/IGApartmentStoryDressing.h"
-#include "Narrative/IGItemContinuityDressing.h"
-#include "Narrative/IGRebirthNarrativeSubsystem.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Narrative/IGStoryStateSubsystem.h"
-#include "Player/IGHorrorHUD.h"
-#include "Sequence/IGDemoDirector.h"
-#include "Sequence/IGChapterOneIncidentDirector.h"
-#include "Sequence/IGChapterTwoHumanGateDirector.h"
-#include "Sequence/IGMorningRoutineDirector.h"
-#include "Sequence/IGSecondMorningDirector.h"
-#include "Sequence/IGThirdMorningDirector.h"
-#include "Player/IGStressComponent.h"
-#include "Save/IGSaveGame.h"
-#include "Save/IGSaveSubsystem.h"
-#include "ShaderCompiler.h"
 #include "TimerManager.h"
 #include "UObject/ConstructorHelpers.h"
 
@@ -123,19 +100,7 @@ namespace IGPrologueWorld
 
 	constexpr float BedsideTableTopZ = 60.0f;
 	constexpr float DeskWorkSurfaceHeight = 74.0f;
-	// The generated mesh audit fixes the continuous chassis at local Z=-0.40 cm.
-	// Sink it by 1 mm into the measured tabletop instead of adding an air gap.
-	// The tabletop scan is
-	// uniformly fitted, so its actual height is read
-	// from component bounds in BuildApartment rather than assumed to be 60 cm.
-	constexpr float AlarmContactBottomLocalZ = -0.40f;
-	constexpr float PropContactEmbedZ = 0.10f;
-	const FVector AlarmHorizontalLocation(-160.0f, -35.0f, 0.0f);
-	const FVector GetUpTargetLocation(-140.0f, 183.0f, FourthFloorZ + 58.0f);
 	const FVector FridgeLocation(155.0f, -20.0f, FourthFloorZ);
-	// 401호 안, 북향 강철 현관문 뒤. 챕터 1의 기도 라디오와 챕터 2의
-	// 401 라디오가 같은 물건이라 자리도 하나다.
-	const FVector Radio401Location(-150.0f, -174.0f, 1028.0f);
 	// 설비 벽장 앞면. 분전반 문짝(-229.2)보다 조금 더 복도로 나온다 —
 	// 보일러는 분전반보다 두껍다.
 	constexpr float BoilerCupboardX = 580.0f;
@@ -153,14 +118,9 @@ namespace IGPrologueWorld
 	// 8 cm 안쪽 레일로 물려 유리 뒤를 지나가게 한다.
 	const FVector StoreDoorLocation(2413.0f, -457.0f, 6.0f);
 	const FVector CheckoutLocation(2650.0f, -205.0f, 96.0f);
-	const FVector WalletHorizontalLocation(-125.0f, -183.0f, 0.0f);
 
-	const FName PurchaseBagProxyTag(TEXT("REBIRTH.PurchaseBagProxy"));
+	const FName PurchaseBagProxyTag(TEXT("Store.PurchaseBagProxy"));
 	const FName NotFoundEasterEggTag(TEXT("EasterEgg.404NotFound"));
-	const FName CatWaterAftermathTag(TEXT("REBIRTH.CatWaterAftermath.CH02"));
-	const FName CatWaterCapTag(TEXT("REBIRTH.CatWaterAftermath.Cap"));
-	const FName CatWaterCupTag(TEXT("REBIRTH.CatWaterAftermath.Cup"));
-	const FName CatWaterWetRingTag(TEXT("REBIRTH.CatWaterAftermath.WetRing"));
 	const FName FootstepVinylTag(TEXT("Footstep.Vinyl"));
 	const FName FootstepConcreteTag(TEXT("Footstep.Concrete"));
 	const FName FootstepMetalStairTag(TEXT("Footstep.MetalStair"));
@@ -185,65 +145,47 @@ namespace IGPrologueWorld
 	constexpr int32 ExpectedStoreStockInstances = 1318;
 	constexpr int32 MaximumStoreStockBatches = 28;
 
-	enum class EReceiptTimeline : uint8
-	{
-		ActualPurchase0431,
-		DeathOverlay0444
-	};
-
 	struct FPurchaseProfileSpec
 	{
 		FText ProductName;
 		int32 Quantity = 1;
 		int32 UnitPrice = 0;
-		FString ReceiptNumber;
-		FString ApprovalNumber;
-		FString BarcodeDigits;
 		FVector BagSize = FVector(12.0f, 18.0f, 20.0f);
 		float BagCenterY = 0.0f;
 		float BagHandleHeight = 8.0f;
 	};
 
 	FPurchaseProfileSpec GetPurchaseProfileSpec(
-		const EIGRebirthPurchaseProfile PurchaseProfile)
+		const EIGPurchaseProfile PurchaseProfile)
 	{
 		FPurchaseProfileSpec Spec;
 		switch (PurchaseProfile)
 		{
-		case EIGRebirthPurchaseProfile::ProfileB1LX1:
+		case EIGPurchaseProfile::ProfileB1LX1:
 			Spec.ProductName =
 				NSLOCTEXT("IGReceipt", "ProfileBProduct", "한강수 1L");
 			Spec.Quantity = 1;
 			Spec.UnitPrice = 1500;
-			Spec.ReceiptNumber = TEXT("31858");
-			Spec.ApprovalNumber = TEXT("82716391");
-			Spec.BarcodeDigits = TEXT("2903185815002");
 			Spec.BagSize = FVector(13.0f, 12.0f, 28.0f);
 			Spec.BagCenterY = 0.0f;
 			Spec.BagHandleHeight = 10.0f;
 			break;
-		case EIGRebirthPurchaseProfile::ProfileC2LX2:
+		case EIGPurchaseProfile::ProfileC2LX2:
 			Spec.ProductName =
 				NSLOCTEXT("IGReceipt", "ProfileCProduct", "맑은산 2L");
 			Spec.Quantity = 2;
 			Spec.UnitPrice = 2000;
-			Spec.ReceiptNumber = TEXT("31859");
-			Spec.ApprovalNumber = TEXT("82716392");
-			Spec.BarcodeDigits = TEXT("2903185940003");
 			Spec.BagSize = FVector(16.0f, 25.0f, 31.0f);
 			Spec.BagCenterY = 5.5f;
 			Spec.BagHandleHeight = 15.0f;
 			break;
-		case EIGRebirthPurchaseProfile::ProfileA500MlX2:
-		case EIGRebirthPurchaseProfile::Unset:
+		case EIGPurchaseProfile::ProfileA500MlX2:
+		case EIGPurchaseProfile::Unset:
 		default:
 			Spec.ProductName =
 				NSLOCTEXT("IGReceipt", "ProfileAProduct", "새벽샘물 500mL");
 			Spec.Quantity = 2;
 			Spec.UnitPrice = 1000;
-			Spec.ReceiptNumber = TEXT("31857");
-			Spec.ApprovalNumber = TEXT("82716390");
-			Spec.BarcodeDigits = TEXT("2903185720001");
 			Spec.BagSize = FVector(12.0f, 18.0f, 20.0f);
 			Spec.BagCenterY = 4.0f;
 			Spec.BagHandleHeight = 8.0f;
@@ -259,259 +201,18 @@ namespace IGPrologueWorld
 			FText::AsNumber(Amount));
 	}
 
-	FText GetReceiptDateTime(const EReceiptTimeline Timeline)
-	{
-		return Timeline == EReceiptTimeline::ActualPurchase0431
-			? NSLOCTEXT(
-				"IGReceipt",
-				"ActualPurchaseDateTime",
-				"2024/07/26(금) 04:31")
-			: NSLOCTEXT(
-				"IGReceipt",
-				"DeathOverlayDateTime",
-				"2024/07/26(금) 04:44");
-	}
-
-	TArray<FText> BuildPurchaseReceiptSummary(
-		const EIGRebirthPurchaseProfile PurchaseProfile,
-		const EReceiptTimeline Timeline)
-	{
-		const FPurchaseProfileSpec Spec =
-			GetPurchaseProfileSpec(PurchaseProfile);
-		const int32 Total = Spec.Quantity * Spec.UnitPrice;
-		return {
-			FText::Format(
-				NSLOCTEXT("IGReceipt", "SummaryDate", "{0} POS-01"),
-				GetReceiptDateTime(Timeline)),
-			FText::Format(
-				NSLOCTEXT(
-					"IGReceipt",
-					"SummaryItem",
-					"{0} / {1} / {2}"),
-				Spec.ProductName,
-				FText::AsNumber(Spec.Quantity),
-				FormatWon(Total)),
-			FText::Format(
-				NSLOCTEXT(
-					"IGReceipt",
-					"SummaryApproval",
-					"체크카드 승인 {0}"),
-				FText::FromString(Spec.ApprovalNumber)),
-			FText::Format(
-				NSLOCTEXT("IGReceipt", "SummaryNumber", "거래NO. {0}"),
-				FText::FromString(Spec.ReceiptNumber)),
-		};
-	}
-
-	FIGThermalReceiptData BuildPurchaseReceiptData(
-		const EIGRebirthPurchaseProfile PurchaseProfile,
-		const EReceiptTimeline Timeline)
-	{
-		const FPurchaseProfileSpec Spec =
-			GetPurchaseProfileSpec(PurchaseProfile);
-		const int32 Total = Spec.Quantity * Spec.UnitPrice;
-
-		FIGThermalReceiptData Data;
-		Data.StoreName =
-			NSLOCTEXT("IGReceipt", "Store", "새벽24");
-		Data.StoreSubtitle =
-			NSLOCTEXT("IGReceipt", "StoreSubtitle", "무영로점  ·  24 HOURS");
-		Data.StoreDetailLines = {
-			NSLOCTEXT("IGReceipt", "Branch", "새벽24 무영로점"),
-			// Fictional identifiers use plausible Korean formatting without
-			// repeating 4s or pointing at an actual business.
-			NSLOCTEXT(
-				"IGReceipt",
-				"Business",
-				"사업자등록번호 110-81-32765"),
-			NSLOCTEXT("IGReceipt", "Owner", "대표 박해원"),
-			NSLOCTEXT(
-				"IGReceipt",
-				"Address",
-				"주소 서울 은평구 무영로17길 8"),
-			NSLOCTEXT("IGReceipt", "Telephone", "TEL 02-3157-0826"),
-		};
-		Data.PolicyLines = {
-			NSLOCTEXT("IGReceipt", "Policy1", "교환/환불은 구입 후 30일 이내"),
-			NSLOCTEXT("IGReceipt", "Policy2", "영수증과 결제카드를 지참해 주세요."),
-			NSLOCTEXT("IGReceipt", "Policy3", "일부 행사·신선식품은 제외됩니다."),
-		};
-		Data.TransactionDateTime = GetReceiptDateTime(Timeline);
-		Data.PosLabel =
-			NSLOCTEXT("IGReceipt", "Pos", "POS-01");
-		Data.ReceiptNumber = FText::FromString(Spec.ReceiptNumber);
-
-		FIGReceiptItemLine WaterItem;
-		WaterItem.ProductName = Spec.ProductName;
-		WaterItem.Quantity = Spec.Quantity;
-		WaterItem.UnitPrice = Spec.UnitPrice;
-		WaterItem.Amount = Total;
-		Data.Items.Add(MoveTemp(WaterItem));
-
-		Data.Subtotal = Total;
-		Data.Vat = FMath::RoundToInt(static_cast<float>(Total) / 11.0f);
-		Data.TaxableSupply = Total - Data.Vat;
-		Data.Total = Total;
-		Data.PaymentHeading =
-			NSLOCTEXT(
-				"IGReceipt",
-				"PaymentHeading",
-				"******** 체크카드(일시불) ********");
-
-		FIGReceiptKeyValueLine CardLine;
-		CardLine.Label =
-			NSLOCTEXT("IGReceipt", "CardLabel", "카드번호");
-		CardLine.Value =
-			NSLOCTEXT("IGReceipt", "CardValue", "5417-****-****-2719");
-		Data.PaymentLines.Add(MoveTemp(CardLine));
-
-		FIGReceiptKeyValueLine AcquirerLine;
-		AcquirerLine.Label =
-			NSLOCTEXT("IGReceipt", "AcquirerLabel", "매입사");
-		AcquirerLine.Value =
-			NSLOCTEXT("IGReceipt", "AcquirerValue", "해온카드");
-		Data.PaymentLines.Add(MoveTemp(AcquirerLine));
-
-		FIGReceiptKeyValueLine ApprovalLine;
-		ApprovalLine.Label =
-			NSLOCTEXT("IGReceipt", "ApprovalLabel", "승인번호");
-		ApprovalLine.Value = FText::FromString(Spec.ApprovalNumber);
-		Data.PaymentLines.Add(MoveTemp(ApprovalLine));
-
-		FIGReceiptKeyValueLine PaymentAmountLine;
-		PaymentAmountLine.Label =
-			NSLOCTEXT("IGReceipt", "PaymentAmountLabel", "결제금액");
-		PaymentAmountLine.Value = FormatWon(Total);
-		Data.PaymentLines.Add(MoveTemp(PaymentAmountLine));
-
-		FIGReceiptKeyValueLine InstallmentLine;
-		InstallmentLine.Label =
-			NSLOCTEXT("IGReceipt", "InstallmentLabel", "할부");
-		InstallmentLine.Value =
-			NSLOCTEXT("IGReceipt", "InstallmentValue", "일시불");
-		Data.PaymentLines.Add(MoveTemp(InstallmentLine));
-
-		Data.FooterLines = {
-			NSLOCTEXT("IGReceipt", "FooterThanks", "이용해 주셔서 감사합니다."),
-			FText::Format(
-				NSLOCTEXT(
-					"IGReceipt",
-					"FooterClerk",
-					"담당:07  거래NO:{0}  재출력:0"),
-				FText::FromString(Spec.ReceiptNumber)),
-			NSLOCTEXT(
-				"IGReceipt",
-				"FooterService",
-				"고객센터 080-315-0726"),
-		};
-		// These EAN-13-like digits intentionally have invalid check digits.
-		Data.BarcodeDigits = Spec.BarcodeDigits;
-		return Data;
-	}
-
-	FText BuildCheckoutPrompt(
-		const EIGRebirthPurchaseProfile PurchaseProfile,
-		const bool bWalletInHand)
+	FText BuildCheckoutPrompt(const EIGPurchaseProfile PurchaseProfile)
 	{
 		const FPurchaseProfileSpec Spec =
 			GetPurchaseProfileSpec(PurchaseProfile);
 		return FText::Format(
-			bWalletInHand
-				? NSLOCTEXT(
-					"IGReceipt",
-					"CheckoutPromptWallet",
-					"{0} 결제하기 ({1})")
-				: NSLOCTEXT(
-					"IGReceipt",
-					"CheckoutPromptPocket",
-					"{0} 후드 주머니 카드로 결제하기 ({1})"),
+			NSLOCTEXT(
+				"IGReceipt",
+				"CheckoutPromptPocket",
+				"{0} 후드 주머니 카드로 결제하기 ({1})"),
 			Spec.ProductName,
 			FormatWon(Spec.Quantity * Spec.UnitPrice));
 	}
-}
-
-// ---------------------------------------------------------------------------
-// Prototype wake-flow adapters
-// ---------------------------------------------------------------------------
-
-UStaticMeshComponent* AIGPrologueAlarmClock::AddPart(
-	UStaticMesh* Mesh,
-	UMaterialInterface* Material,
-	const FVector& RelativeLocation,
-	const FVector& SizeCentimeters)
-{
-	UStaticMeshComponent* Part = NewObject<UStaticMeshComponent>(
-		this,
-		*FString::Printf(TEXT("ClockPart_%d"), PartCounter++));
-	Part->SetupAttachment(SceneRoot);
-	Part->SetStaticMesh(Mesh);
-	Part->SetMaterial(0, Material);
-	Part->SetRelativeLocation(RelativeLocation);
-	Part->SetRelativeScale3D(SizeCentimeters / 100.0f);
-	Part->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
-	Part->SetGenerateOverlapEvents(false);
-	Part->SetCanEverAffectNavigation(false);
-	Part->RegisterComponent();
-	return Part;
-}
-
-void AIGPrologueAlarmClock::ConfigurePrototype(
-	UStaticMesh* InBodyMesh,
-	UStaticMesh* InPanelMesh,
-	UMaterialInterface* InBodyMaterial,
-	UMaterialInterface* InDisplayMaterial,
-	UMaterialInterface* InButtonMaterial,
-	USoundBase* InAlarmSound)
-{
-	if (ClockMesh)
-	{
-		// Authored shell: beveled body, recessed face, buttons and feet all
-		// modelled. Also the trace/interaction target.
-		ClockMesh->SetStaticMesh(InBodyMesh);
-		ClockMesh->SetMaterial(0, InBodyMaterial);
-		ClockMesh->SetRelativeScale3D(FVector::OneVector);
-		ClockMesh->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
-		ClockMesh->SetGenerateOverlapEvents(false);
-		ClockMesh->SetCanEverAffectNavigation(false);
-	}
-
-	// The lit LED face sits inside the modelled recess, aimed at the bed (+Y).
-	AddPart(InPanelMesh, InDisplayMaterial, FVector(0.0f, 4.05f, 3.4f), FVector(9.4f, 0.3f, 4.0f));
-
-	if (UAudioComponent* AudioComponent = GetAlarmAudioComponent())
-	{
-		AudioComponent->SetSound(InAlarmSound);
-		AudioComponent->SetVolumeMultiplier(0.32f);
-	}
-}
-
-void AIGPrologueWakeDirector::ConfigurePrototype(AIGAlarmClock* InAlarmClock)
-{
-	AlarmClock = InAlarmClock;
-	// The scene binds presentation callbacks before starting the state machine.
-	bAutoStart = false;
-	FadeInDuration = 2.2f;
-	GettingUpFallbackDuration = 2.7f; // sit up, breathe, then stand
-}
-
-AIGPrologueGetUpTarget::AIGPrologueGetUpTarget()
-{
-	TargetMesh = CreateDefaultSubobject<UStaticMeshComponent>(TEXT("PrologueGetUpTarget"));
-	SetRootComponent(TargetMesh);
-	TargetMesh->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
-	TargetMesh->SetGenerateOverlapEvents(false);
-	TargetMesh->SetCanEverAffectNavigation(false);
-}
-
-void AIGPrologueGetUpTarget::ConfigurePrototype(
-	AIGWakeUpDirector* InWakeUpDirector,
-	UStaticMesh* InTargetMesh,
-	UMaterialInterface* InTargetMaterial)
-{
-	WakeUpDirector = InWakeUpDirector;
-	TargetMesh->SetStaticMesh(InTargetMesh);
-	TargetMesh->SetMaterial(0, InTargetMaterial);
-	TargetMesh->SetRelativeScale3D(FVector(0.46f, 0.30f, 0.11f));
 }
 
 // ---------------------------------------------------------------------------
@@ -526,18 +227,8 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	SceneRoot = CreateDefaultSubobject<USceneComponent>(TEXT("SceneRoot"));
 	SceneRoot->SetMobility(EComponentMobility::Static);
 	SetRootComponent(SceneRoot);
-	AlarmWorldLocation = FVector(
-		IGPrologueWorld::AlarmHorizontalLocation.X,
-		IGPrologueWorld::AlarmHorizontalLocation.Y,
-		IGPrologueWorld::FourthFloorZ + IGPrologueWorld::BedsideTableTopZ
-			- IGPrologueWorld::AlarmContactBottomLocalZ
-			- IGPrologueWorld::PropContactEmbedZ);
 	DeskSurfaceWorldZ = IGPrologueWorld::FourthFloorZ
 		+ IGPrologueWorld::DeskWorkSurfaceHeight;
-	WalletWorldLocation = FVector(
-		IGPrologueWorld::WalletHorizontalLocation.X,
-		IGPrologueWorld::WalletHorizontalLocation.Y,
-		DeskSurfaceWorldZ + 1.4f);
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> CubeMeshFinder(
 		TEXT("/Engine/BasicShapes/Cube.Cube"));
@@ -592,7 +283,6 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	WindowDarkMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_WindowDark.M_WindowDark"));
 	NightSkyMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_NightSky.M_NightSky"));
 	StreetLampGlowMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_StreetLampGlow.M_StreetLampGlow"));
-	WalletBrownMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_WalletBrown.M_WalletBrown"));
 	CoolerBodyMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_CoolerBody.M_CoolerBody"));
 	CounterTopMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_CounterTop.M_CounterTop"));
 	ScreenGlowMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_ScreenGlow.M_ScreenGlow"));
@@ -1125,7 +815,7 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreateDecoOnComponent(
 
 void AIGPrologueWorldScene::AddStaticPurchaseBagProxy(
 	AIGPickupItem* WaterBottle,
-	const EIGRebirthPurchaseProfile PurchaseProfile)
+	const EIGPurchaseProfile PurchaseProfile)
 {
 	if (!WaterBottle || !CubeMesh)
 	{
@@ -1224,92 +914,32 @@ void AIGPrologueWorldScene::AddStaticPurchaseBagProxy(
 
 void AIGPrologueWorldScene::RefreshPurchaseProfilePresentation()
 {
-	EIGRebirthPurchaseProfile PurchaseProfile =
-		EIGRebirthPurchaseProfile::ProfileA500MlX2;
+	EIGPurchaseProfile PurchaseProfile = EIGPurchaseProfile::ProfileA500MlX2;
 	if (const UGameInstance* GameInstance = GetGameInstance())
 	{
-		if (const UIGRebirthNarrativeSubsystem* RebirthState =
-			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
+		if (const UIGMissingFloorNarrativeSubsystem* Narrative =
+			GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
 		{
-			const EIGRebirthPurchaseProfile SavedProfile =
-				RebirthState->GetChoices().PurchaseProfile;
-			if (SavedProfile != EIGRebirthPurchaseProfile::Unset)
+			const EIGPurchaseProfile SavedProfile =
+				Narrative->GetStorePurchaseProfile();
+			if (SavedProfile != EIGPurchaseProfile::Unset)
 			{
 				PurchaseProfile = SavedProfile;
 			}
 		}
 	}
 
-	const auto ConfigureReceipt =
-		[PurchaseProfile](
-			AIGReadableNote* Receipt,
-			const IGPrologueWorld::EReceiptTimeline Timeline)
-		{
-			if (!Receipt)
-			{
-				return;
-			}
-			Receipt->SetNoteText(
-				NSLOCTEXT("IGReceipt", "ReceiptTitle", "영수증"),
-				IGPrologueWorld::BuildPurchaseReceiptSummary(
-					PurchaseProfile,
-					Timeline));
-			Receipt->SetThermalReceiptData(
-				IGPrologueWorld::BuildPurchaseReceiptData(
-					PurchaseProfile,
-					Timeline));
-		};
-
-	ConfigureReceipt(
-		ChapterOneReceipt,
-		IGPrologueWorld::EReceiptTimeline::ActualPurchase0431);
-	ConfigureReceipt(
-		ExistingReceipt,
-		IGPrologueWorld::EReceiptTimeline::DeathOverlay0444);
-	ConfigureReceipt(
-		DuplicateReceipt,
-		IGPrologueWorld::EReceiptTimeline::DeathOverlay0444);
-	if (DuplicateReceipt)
+	if (Checkout)
 	{
-		// The functional P2 proxy must put both observed values on the paper.
-		// Without this line Ji-un's follow-up thought would know 04:31 even
-		// when the player skipped the optional CH01 receipt.
-		FIGThermalReceiptData Comparison =
-			IGPrologueWorld::BuildPurchaseReceiptData(
-				PurchaseProfile,
-				IGPrologueWorld::EReceiptTimeline::DeathOverlay0444);
-		Comparison.StoreDetailLines.Insert(
-			NSLOCTEXT(
-				"IGReceipt",
-				"DuplicateComparisonTimes",
-				"[대조] 원거래 04:31 / 현재 04:44 중복"),
-			0);
-		DuplicateReceipt->SetThermalReceiptData(MoveTemp(Comparison));
-	}
-
-	if (Checkout && !bChapterTwoActive)
-	{
-		const bool bWalletInHand = IGStory::HasState(
-			this,
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH01.Morning.HasWallet")),
-				false));
 		Checkout->SetInteractionPrompt(
-			IGPrologueWorld::BuildCheckoutPrompt(
-				PurchaseProfile,
-				bWalletInHand));
+			IGPrologueWorld::BuildCheckoutPrompt(PurchaseProfile));
 	}
 
 	const FGameplayTag PurchaseTag = FGameplayTag::RequestGameplayTag(
-		FName(
-			bChapterTwoActive
-				? TEXT("State.CH02.Loop.WaterPurchased")
-				: TEXT("State.CH01.Morning.WaterPurchased")),
+		FName(TEXT("State.CH01.Morning.WaterPurchased")),
 		false);
 	const bool bPurchaseCommitted = IGStory::HasState(this, PurchaseTag);
-	const TArray<TObjectPtr<AIGPickupItem>>& ActiveBottles =
-		bChapterTwoActive ? ChapterTwoWaterBottles : WaterBottles;
-	for (AIGPickupItem* WaterBottle : ActiveBottles)
+	for (AIGPickupItem* WaterBottle : WaterBottles)
 	{
 		if (!WaterBottle)
 		{
@@ -1317,7 +947,7 @@ void AIGPrologueWorldScene::RefreshPurchaseProfilePresentation()
 		}
 		const bool bShowBag =
 			bPurchaseCommitted
-			&& WaterBottle->RebirthPurchaseProfileOnPickup == PurchaseProfile;
+			&& WaterBottle->PurchaseProfileOnPickup == PurchaseProfile;
 		TArray<UStaticMeshComponent*> Components;
 		WaterBottle->GetComponents<UStaticMeshComponent>(Components);
 		for (UStaticMeshComponent* Component : Components)
@@ -1984,7 +1614,6 @@ void AIGPrologueWorldScene::InitializePrologue()
 
 	BuildApartment();
 	BuildCorridor();
-	BuildChapterTwoOverlay();
 	BuildLobby();
 	BuildFifthFloorAnnex();
 	BuildAlley();
@@ -1994,49 +1623,7 @@ void AIGPrologueWorldScene::InitializePrologue()
 	SpawnInteractables();
 	SpawnStairTransition();
 
-	const bool bMissingFloorRuntime =
-		GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
-		|| GetWorld()->URL.HasOption(TEXT("IGListenerGreybox"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"));
-	// 이전 주인공의 출근 일정·수험서·가족 문자는 보관 장면에서만 만든다.
-	if (!bMissingFloorRuntime)
-	{
-		FActorSpawnParameters StoryDressingParameters;
-		StoryDressingParameters.Owner = this;
-		StoryDressingParameters.SpawnCollisionHandlingOverride =
-			ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-		const FTransform StoryDressingTransform =
-			FTransform(FRotator::ZeroRotator, FVector(0.0f, 0.0f, IGPrologueWorld::FourthFloorZ))
-			* GetActorTransform();
-		ApartmentStoryDressing = GetWorld()->SpawnActor<AIGApartmentStoryDressing>(
-			AIGApartmentStoryDressing::StaticClass(),
-			StoryDressingTransform,
-			StoryDressingParameters);
-		if (ApartmentStoryDressing)
-		{
-			ApartmentStoryDressing->ConfigurePrototypeVisuals(
-				CubeMesh,
-				PropMesh(TEXT("SM_CrackedPhone"), CubeMesh),
-				TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial),
-				PlasticDarkMaterial,
-				SnackBlueMaterial,
-				SignMintMaterial,
-				SignWhiteMaterial,
-				ScreenGlowMaterial,
-				TexMat(TEXT("M_NoteFridge"), SignWhiteMaterial),
-				Fridge ? Fridge->GetDoorPivot() : nullptr);
-		}
-	}
-
-	SpawnChapterTwoInteractables();
 	RefreshPurchaseProfilePresentation();
-	// 두 스토리가 같은 빌라를 사용한다. 없는 층에서 기존 REBIRTH 디렉터까지
-	// 실행하면 문, HUD, 자동 저장을 서로 갱신하므로 현재 게임의 디렉터만 둔다.
-	if (!bMissingFloorRuntime)
-	{
-		SpawnDirectors();
-	}
 	CreateAmbience();
 
 	// Ordinary street life is a narrative baseline, not decoration. CH01
@@ -2064,50 +1651,6 @@ void AIGPrologueWorldScene::InitializePrologue()
 			4040444);
 	}
 
-	const bool bIgnoreDirectStart =
-		GetWorld()->URL.HasOption(TEXT("IGIgnoreDirectStart"));
-	const bool bDirectChapterThree = !bIgnoreDirectStart
-		&& (FParse::Param(FCommandLine::Get(), TEXT("IGChapterThree"))
-			|| FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH03"))
-			|| FParse::Param(
-				FCommandLine::Get(),
-				TEXT("IGCaptureCH03LensDroplet"))
-			|| GetWorld()->URL.HasOption(TEXT("IGChapterThree")));
-	if (bDirectChapterThree)
-	{
-		EnterChapterThree();
-	}
-	else if (!bIgnoreDirectStart
-		&& (FParse::Param(FCommandLine::Get(), TEXT("IGChapterTwo"))
-			|| FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH02"))
-			|| GetWorld()->URL.HasOption(TEXT("IGChapterTwo"))))
-	{
-		EnterChapterTwo();
-	}
-	else
-	{
-		SpawnDemoDirectorIfRequested();
-	}
-	bRebirthEndToEndValidation =
-		FParse::Param(
-			FCommandLine::Get(),
-			TEXT("IGRebirthEndToEndValidation"));
-	if (bRebirthEndToEndValidation)
-	{
-		if (bDirectChapterThree || bChapterTwoActive)
-		{
-			FailRebirthEndToEndValidation(
-				TEXT("end-to-end validation must start from CH01"));
-			return;
-		}
-		GetWorldTimerManager().SetTimer(
-			RebirthEndToEndHandle,
-			this,
-			&ThisClass::StartRebirthEndToEndValidation,
-			0.25f,
-			false);
-	}
-
 	// A tired ballast shimmer runs for the whole session.
 	GetWorldTimerManager().SetTimer(
 		CorridorFlickerHandle,
@@ -2127,163 +1670,7 @@ void AIGPrologueWorldScene::InitializePrologue()
 		}
 	}
 
-	ReconcileLoadedCheckpoint();
 	UE_LOG(LogIndieGame, Display, TEXT("Prologue world ready: apartment, alley and store assembled."));
-}
-
-void AIGPrologueWorldScene::ReconcileLoadedCheckpoint()
-{
-	UWorld* World = GetWorld();
-	if (!World
-		|| World->URL.HasOption(TEXT("IGMissingFloor"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"))
-		|| !World->URL.HasOption(TEXT("IGResumeSave"))
-		|| bChapterTwoActive
-		|| bChapterThreeActive)
-	{
-		return;
-	}
-
-	const UGameInstance* GameInstance = GetGameInstance();
-	const UIGSaveSubsystem* SaveSubsystem = GameInstance
-		? GameInstance->GetSubsystem<UIGSaveSubsystem>()
-		: nullptr;
-	const UIGSaveGame* LoadedSave =
-		SaveSubsystem ? SaveSubsystem->GetLastLoadedSave() : nullptr;
-	if (!LoadedSave)
-	{
-		return;
-	}
-
-	const FGameplayTag ChapterOne = FGameplayTag::RequestGameplayTag(
-		FName(TEXT("Chapter.CH01")),
-		false);
-	if (!LoadedSave->Progress.ChapterId.MatchesTagExact(ChapterOne))
-	{
-		return;
-	}
-
-	const FGameplayTag Checkpoint = LoadedSave->Progress.CheckpointTag;
-	const auto IsCheckpoint = [&Checkpoint](const TCHAR* TagName)
-	{
-		return Checkpoint.MatchesTagExact(FGameplayTag::RequestGameplayTag(
-			FName(TagName),
-			false));
-	};
-	const bool bAtStore =
-		IsCheckpoint(TEXT("Checkpoint.CH01.StoreEntrance"))
-		|| IsCheckpoint(TEXT("Checkpoint.CH01.WaterPurchased"));
-	const bool bOnReturnWalk =
-		IsCheckpoint(TEXT("Checkpoint.CH01.CatApproach"))
-		|| IsCheckpoint(TEXT("Checkpoint.CH01.CatSpot"))
-		|| IsCheckpoint(TEXT("Checkpoint.CH01.ReturnAlley"));
-	const bool bAtLobby =
-		IsCheckpoint(TEXT("Checkpoint.CH01.Lobby"));
-	const bool bAtFourthFloor =
-		IsCheckpoint(TEXT("Checkpoint.CH01.FourthFloor"));
-	const bool bOutside =
-		bAtStore
-		|| bOnReturnWalk
-		|| bAtLobby
-		|| IsCheckpoint(TEXT("Checkpoint.CH01.AlleyEntrance"));
-
-	FVector SafeLocation = IGPrologueWorld::PlayerLocation;
-	FRotator SafeActorRotation = IGPrologueWorld::PlayerActorRotation;
-	FRotator SafeViewRotation = IGPrologueWorld::PlayerViewRotation;
-	if (IsCheckpoint(TEXT("Checkpoint.CH01.BedroomDoor")))
-	{
-		SafeLocation = FVector(48.0f, -155.0f, 997.0f);
-		SafeActorRotation = FRotator(0.0f, -90.0f, 0.0f);
-		SafeViewRotation = FRotator(-4.0f, -90.0f, 0.0f);
-	}
-	else if (IsCheckpoint(TEXT("Checkpoint.CH01.FridgeChecked")))
-	{
-		SafeLocation = FVector(75.0f, 15.0f, 997.0f);
-		SafeActorRotation = FRotator(0.0f, 0.0f, 0.0f);
-		SafeViewRotation = FRotator(-4.0f, 0.0f, 0.0f);
-	}
-	else if (IsCheckpoint(TEXT("Checkpoint.CH01.AlleyEntrance")))
-	{
-		SafeLocation = FVector(705.0f, -445.0f, 110.0f);
-		SafeActorRotation = FRotator(0.0f, 0.0f, 0.0f);
-		SafeViewRotation = FRotator(-4.0f, 0.0f, 0.0f);
-	}
-	else if (bAtStore)
-	{
-		SafeLocation = IsCheckpoint(TEXT("Checkpoint.CH01.WaterPurchased"))
-			? FVector(2525.0f, -330.0f, 110.0f)
-			: FVector(2505.0f, -455.0f, 110.0f);
-		SafeActorRotation = FRotator(0.0f, -90.0f, 0.0f);
-		SafeViewRotation = FRotator(-4.0f, -90.0f, 0.0f);
-	}
-	else if (bOnReturnWalk)
-	{
-		SafeLocation = IsCheckpoint(TEXT("Checkpoint.CH01.CatApproach"))
-			? FVector(1550.0f, -515.0f, 110.0f)
-			: IsCheckpoint(TEXT("Checkpoint.CH01.CatSpot"))
-				? FVector(1320.0f, -515.0f, 110.0f)
-				: FVector(1005.0f, -515.0f, 110.0f);
-		SafeActorRotation = FRotator(0.0f, 180.0f, 0.0f);
-		SafeViewRotation = FRotator(-4.0f, 180.0f, 0.0f);
-	}
-	else if (bAtLobby)
-	{
-		SafeLocation = FVector(585.0f, -360.0f, 110.0f);
-		SafeActorRotation = FRotator(0.0f, 180.0f, 0.0f);
-		SafeViewRotation = FRotator(-4.0f, 180.0f, 0.0f);
-	}
-	else if (bAtFourthFloor)
-	{
-		SafeLocation = FVector(-80.0f, -305.0f, 1010.0f);
-		SafeActorRotation = FRotator(0.0f, 180.0f, 0.0f);
-		SafeViewRotation = FRotator(-4.0f, 180.0f, 0.0f);
-	}
-
-	APlayerController* PlayerController = World->GetFirstPlayerController();
-	APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
-	if (PlayerPawn)
-	{
-		PlayerPawn->SetActorLocationAndRotation(
-			SafeLocation,
-			SafeActorRotation,
-			false,
-			nullptr,
-			ETeleportType::TeleportPhysics);
-	}
-	if (PlayerController)
-	{
-		PlayerController->SetControlRotation(SafeViewRotation);
-		if (APlayerCameraManager* Camera = PlayerController->PlayerCameraManager)
-		{
-			Camera->StopCameraFade();
-		}
-	}
-	if (WakeDirector)
-	{
-		WakeDirector->RestoreStandingCheckpoint();
-	}
-	if (bOutside && Elevator)
-	{
-		Elevator->RestoreAtLobbyOpen();
-	}
-
-	const FGameplayTag PurchaseTag = FGameplayTag::RequestGameplayTag(
-		FName(TEXT("State.CH01.Morning.WaterPurchased")),
-		false);
-	if (IGStory::HasState(this, PurchaseTag))
-	{
-		// The live change event happened before this newly built world existed.
-		// Recreate the receipt and homeward boundary without replaying feedback.
-		HandleStoryStateChanged(PurchaseTag, true);
-	}
-
-	UE_LOG(
-		LogIndieGame,
-		Display,
-		TEXT("CH01 checkpoint reconciled at %s (%s)."),
-		*SafeLocation.ToCompactString(),
-		*Checkpoint.ToString());
 }
 
 bool AIGPrologueWorldScene::PositionPlayer()
@@ -2497,11 +1884,6 @@ void AIGPrologueWorldScene::BuildApartment()
 			? UpperFloorRoot->GetComponentLocation().Z
 			: IGPrologueWorld::FourthFloorZ;
 		BedsideSurfaceLocalZ = BedsideSurfaceWorldZ - UpperFloorWorldZ;
-		AlarmWorldLocation = FVector(
-			IGPrologueWorld::AlarmHorizontalLocation.X,
-			IGPrologueWorld::AlarmHorizontalLocation.Y,
-			BedsideSurfaceWorldZ - IGPrologueWorld::AlarmContactBottomLocalZ
-				- IGPrologueWorld::PropContactEmbedZ);
 	}
 	UStaticMeshComponent* DeskLampFixture = PlacePhotoProp(
 		TEXT("desk_lamp_arm_01"),
@@ -2556,10 +1938,6 @@ void AIGPrologueWorldScene::BuildApartment()
 			? UpperFloorRoot->GetComponentLocation().Z
 			: IGPrologueWorld::FourthFloorZ;
 		DeskSurfaceLocalZ = DeskSurfaceWorldZ - UpperFloorWorldZ;
-		WalletWorldLocation = FVector(
-			IGPrologueWorld::WalletHorizontalLocation.X,
-			IGPrologueWorld::WalletHorizontalLocation.Y,
-			DeskSurfaceWorldZ + 1.4f);
 	}
 	if (!PlacePhotoPropExactSize(
 			TEXT("painted_wooden_chair_01"),
@@ -3183,22 +2561,16 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(FVector(-330, -372.5f, 120), FVector(20, 15, 240), PlasticDarkMaterial);
 	CreateBlock(FVector(-330, -305, 225), FVector(20, 120, 30), PlasticDarkMaterial);
 
-	// North wall extensions beyond the apartment span, plus the height filler
-	// strip above the apartment's 230 cm wall to the corridor's 240 cm. The
-	// east extension is permanently split around the future 403 doorway.
-	// During CH01 a removable wall plug makes the split read as an ordinary
-	// uninterrupted wall; CH02 parks that plug and reveals the open room.
-	// The west section is split around the permanent 4F->5F stair opening.
-	// The stairs themselves exist from the first visit; only their interaction
-	// surface is armed by the authored 4F light-and-cat cue.
+	// 집 구간 밖으로 이어지는 북쪽 벽과, 집 벽(230 cm) 위를 복도 높이(240 cm)까지
+	// 채우는 띠. 동쪽은 옛 문 자리를 벽 마개로 메워 한 장의 벽으로 읽히고, 서쪽은
+	// 4층에서 5층으로 오르는 계단 입구를 비워 둔다.
 	CreateBlock(FVector(-332.5f, -225, 120), FVector(15, 20, 240), CorridorWallX);
 	CreateBlock(FVector(-225.0f, -225, 120), FVector(10, 20, 240), CorridorWallX);
 	CreateBlock(FVector(-277.5f, -225, 225), FVector(95, 20, 30), CorridorWallX);
 	CreateBlock(FVector(302.5f, -225, 120), FVector(165, 20, 240), CorridorWallX);
 	CreateBlock(FVector(582.5f, -225, 120), FVector(215, 20, 240), CorridorWallX);
 	CreateBlock(FVector(430, -225, 225), FVector(90, 20, 30), CorridorWallX);
-	ChapterOneMaskComponents.Add(CreateBlock(
-		FVector(430, -225, 105), FVector(100, 20, 210), CorridorWallX));
+	CreateBlock(FVector(430, -225, 105), FVector(100, 20, 210), CorridorWallX);
 	CreateBlock(FVector(0, -225, 235), FVector(440, 20, 10), CorridorWallX);
 
 	// 허리 아래의 진한 페인트. 오래된 빌라 복도는 바닥에서 1 m까지 유성 페인트를
@@ -3340,7 +2712,6 @@ void AIGPrologueWorldScene::BuildCorridor()
 	for (int32 NeighborIndex = 0; NeighborIndex < 2; ++NeighborIndex)
 	{
 		const float DoorX = NeighborDoorXs[NeighborIndex];
-		const int32 FirstDoorComponent = GeometryComponents.Num();
 		DressUnitDoor(DoorX, -234.5f, NeighborIndex == 0 ? 1.0f : -1.0f);
 		if (UnitDoorFrameMesh)
 		{
@@ -3363,15 +2734,6 @@ void AIGPrologueWorldScene::BuildCorridor()
 		CreateBlock(
 			FVector(DoorX, -236, 214), FVector(16, 2, 8),
 			TexMat(NeighborPlates[NeighborIndex], FridgeInteriorMaterial), false);
-		if (NeighborIndex == 0)
-		{
-			for (int32 ComponentIndex = FirstDoorComponent;
-				ComponentIndex < GeometryComponents.Num();
-				++ComponentIndex)
-			{
-				ChapterOneMaskComponents.Add(GeometryComponents[ComponentIndex]);
-			}
-		}
 	}
 	// Our 403 door casing and plate around the real swing door; the leaf
 	// itself is the AIGSwingDoor actor, which dresses its own face.
@@ -3439,8 +2801,7 @@ void AIGPrologueWorldScene::BuildCorridor()
 	CreateBlock(FVector(285.5f, -236.75f, 6), FVector(199, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(-35, -373.25f, 6), FVector(580, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(582.5f, -236.75f, 6), FVector(215, 3.5f, 12), Skirting, false);
-	ChapterOneMaskComponents.Add(CreateBlock(
-		FVector(430, -236.75f, 6), FVector(100, 3.5f, 12), Skirting, false));
+	CreateBlock(FVector(430, -236.75f, 6), FVector(100, 3.5f, 12), Skirting, false);
 	CreateBlock(FVector(398, -373.25f, 6), FVector(356, 3.5f, 12), Skirting, false);
 
 	// 401·402 사이 22cm 벽에는 34cm 함이 들어가지 않는다. 402·403 사이 50cm 벽으로 옮긴다.
@@ -3717,340 +3078,6 @@ void AIGPrologueWorldScene::BuildCorridor()
 	ActiveParent = nullptr;
 }
 
-void AIGPrologueWorldScene::BuildChapterTwoOverlay()
-{
-	// The second morning shares every streamed surface with CH01. Only the
-	// impossible east-side 403 room and its clue dressing are additional.
-	// Build those once, park them, and toggle visibility/collision at the loop
-	// boundary; this avoids a hitch exactly where the cut must feel seamless.
-	ActiveParent = UpperFloorRoot;
-
-	// 403 is papered differently from the player's own flat. It was using the
-	// same floral V2, which quietly said the impossible room is a copy of your
-	// room -- and the whole beat is that it is somebody else's. Plain embossed
-	// vinyl is the other common Korean villa paper, so it reads as a different
-	// household at a glance without reading as a different building. Falls
-	// back to WallMaterial until the art build has produced the texture.
-	UMaterialInterface* RoomWallX =
-		TexMat(TEXT("M_WallpaperEmboss_X"), WallMaterial);
-	UMaterialInterface* RoomWallY =
-		TexMat(TEXT("M_WallpaperEmboss_Y"), WallMaterial);
-	UMaterialInterface* RoomFloor = TexMat(TEXT("M_Jangpan"), FloorMaterial);
-	UMaterialInterface* RoomCeiling = TexMat(TEXT("M_StuccoCeil"), ConcreteMaterial);
-	UMaterialInterface* Furniture = TexMat(TEXT("M_WoodFurnitureUV"), WoodMaterial);
-	UMaterialInterface* Bedding = TexMat(TEXT("M_BeddingUV"), BeddingMaterial);
-	UMaterialInterface* Hoodie = TexMat(TEXT("M_WetHoodieUV"), BeddingMaterial);
-	UMaterialInterface* CorridorFloor =
-		TexMat(TEXT("M_GraniteTile_XY"), ConcreteMaterial);
-	UMaterialInterface* OfferingBowlMaterial =
-		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
-	UMaterialInterface* OfferingWaterMaterial =
-		TexMat(TEXT("M_TankWaterReveal"), GlassMaterial);
-	UMaterialInterface* LampShadeMaterial =
-		TexMat(TEXT("M_PaperOld"), SignWhiteMaterial);
-	UMaterialInterface* DarkGloss = PlasticDarkMaterial;
-	UMaterialInterface* DoorTrim = PlasticDarkMaterial;
-
-	auto AddOverlay = [this](
-		const FVector& Center,
-		const FVector& Size,
-		UMaterialInterface* Material,
-		const bool bCollide = true,
-		UStaticMesh* Mesh = nullptr,
-		const FRotator& Rotation = FRotator::ZeroRotator,
-		USceneComponent* Parent = nullptr) -> UStaticMeshComponent*
-	{
-		UStaticMeshComponent* Component =
-			CreateBlock(Center, Size, Material, bCollide, Mesh, Rotation, Parent);
-		if (!Component)
-		{
-			return nullptr;
-		}
-
-		ChapterTwoOverlayComponents.Add(Component);
-		if (bCollide)
-		{
-			ChapterTwoCollisionComponents.Add(Component);
-		}
-		Component->SetVisibility(false, true);
-		Component->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		return Component;
-	};
-
-	// 403 is a spatial echo of 404, shifted east. The geometry is sparse on
-	// purpose: the open doorway frames the same bed/nightstand silhouette,
-	// while darkness lets the player's memory complete the room.
-	AddOverlay(FVector(435, 0, -10), FVector(430, 450, 20), RoomFloor);
-	AddOverlay(FVector(435, 0, 240), FVector(430, 450, 20), RoomCeiling);
-	AddOverlay(FVector(435, 225, 115), FVector(430, 20, 230), RoomWallX);
-	AddOverlay(FVector(210, 0, 115), FVector(20, 450, 230), RoomWallY);
-	AddOverlay(FVector(650, 0, 115), FVector(20, 450, 230), RoomWallY);
-	AddOverlay(FVector(384, -233, 102), FVector(8, 7, 208), DoorTrim, false);
-	AddOverlay(FVector(476, -233, 102), FVector(8, 7, 208), DoorTrim, false);
-	AddOverlay(FVector(430, -233, 204), FVector(100, 7, 8), DoorTrim, false);
-	AddOverlay(
-		FVector(430, -233.5f, 214), FVector(16, 2, 8),
-		TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial), false);
-
-	// Where 403 stood yesterday: four paler screw-shadow strips on bare wall,
-	// not a replacement door. The player has to supply the memory.
-	UMaterialInterface* OldPaint = TexMat(TEXT("M_Wallpaper_X"), WallMaterial);
-	AddOverlay(FVector(-72, -232.0f, 100), FVector(2.5f, 1.4f, 190), OldPaint, false);
-	AddOverlay(FVector(12, -232.0f, 100), FVector(2.5f, 1.4f, 190), OldPaint, false);
-	AddOverlay(FVector(-30, -232.0f, 194), FVector(84, 1.4f, 2.5f), OldPaint, false);
-	AddOverlay(FVector(-30, -232.0f, 7), FVector(84, 1.4f, 2.5f), OldPaint, false);
-
-	// Bed, pillow and the same curled, fully clothed anatomy used by the tank
-	// reveal. Engine spheres made the sleeper read as a featureless creature;
-	// the authored mesh keeps a neck notch, shoulder line, elbows and covered
-	// hands while showing no skin.
-	AddOverlay(FVector(300, 110, 20), FVector(100, 200, 40), Furniture);
-	AddOverlay(FVector(300, 110, 47), FVector(94, 194, 18), Bedding);
-	AddOverlay(FVector(300, 182, 59), FVector(80, 47, 10), FridgeInteriorMaterial, false);
-	const FVector SleeperOrigin(300.0f, 127.0f, 70.0f);
-	const FRotator SleeperRotation(0.0f, 90.0f, 0.0f);
-	AddOverlay(
-		SleeperOrigin, FVector(100.0f), Hoodie, false,
-		PropMesh(TEXT("SM_SubmergedHoodieCurl")), SleeperRotation);
-	// The lower body remains under the blanket, but follows two bent legs and
-	// knees instead of one mathematically smooth oval.
-	AddOverlay(
-		SleeperOrigin, FVector(100.0f), Bedding, false,
-		PropMesh(TEXT("SM_SubmergedPantsCurl")), SleeperRotation);
-	// Three stitches sit on the authored camera-side forearm. They are derived
-	// from the same local points as the tank identity evidence, not floated by
-	// eye above the duvet.
-	const FVector StitchBase = SleeperOrigin
-		+ SleeperRotation.RotateVector(FVector(8.0f, -27.0f, 15.2f));
-	const FVector StitchStep =
-		SleeperRotation.RotateVector(FVector(1.8f, 1.2f, 0.0f));
-	for (int32 StitchIndex = 0; StitchIndex < 3; ++StitchIndex)
-	{
-		AddOverlay(
-			StitchBase + StitchStep * StitchIndex,
-			FVector(0.8f, 3.2f, 0.5f),
-			PlasticDarkMaterial,
-			false,
-			nullptr,
-			FRotator(0.0f, 90.0f, 18.0f));
-	}
-	AddOverlay(FVector(380, 185, 28), FVector(55, 55, 56), Furniture);
-
-	// Black horn-rim glasses at real scale (about 14 cm across).
-	for (const float LensX : {365.5f, 373.5f})
-	{
-		AddOverlay(FVector(LensX, 181, 57.4f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
-		AddOverlay(FVector(LensX, 181, 61.2f), FVector(5.5f, 0.8f, 0.8f), DarkGloss, false);
-		AddOverlay(FVector(LensX - 2.75f, 181, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
-		AddOverlay(FVector(LensX + 2.75f, 181, 59.3f), FVector(0.8f, 0.8f, 4.6f), DarkGloss, false);
-	}
-	AddOverlay(FVector(369.5f, 181, 59.3f), FVector(2.1f, 0.8f, 0.8f), DarkGloss, false);
-	AddOverlay(
-		FVector(360.3f, 184, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
-		nullptr, FRotator(0, -18, 0));
-	AddOverlay(
-		FVector(378.7f, 184, 59), FVector(8.5f, 0.8f, 0.8f), DarkGloss, false,
-		nullptr, FRotator(0, 18, 0));
-
-	// The small nightstand already carries the alarm, memo and glasses. A wall
-	// sconce above it keeps that real 55 cm surface physically usable and gives
-	// the otherwise dead corridor one believable warm source.
-	AddOverlay(FVector(380, 216, 157), FVector(14, 4, 22), DarkGloss, false);
-	AddOverlay(FVector(380, 206, 157), FVector(4, 18, 4), DarkGloss, false);
-	// 갓 윗면은 팔 밑면(Z=155)에 닿아야 한다. Z 143이면 갓이 Z 133..153이라
-	// 팔과 2 cm 떠서, 벽등 갓만 공중에 매달린 꼴이었다.
-	UStaticMeshComponent* LampShade = AddOverlay(
-		FVector(380, 197, 145), FVector(24, 24, 20),
-		LampShadeMaterial, false, ConeMesh);
-	if (LampShade)
-	{
-		// The point light sits inside this solid prototype cone. Letting the
-		// cone cast produced a large black triangular pool across the bed.
-		LampShade->SetCastShadow(false);
-	}
-	// The bulb sits just below the wall shade. A small soft source keeps the
-	// sleeper readable without flattening the far corner or lighting the hall.
-	MirrorRoomLamp = CreateLight(
-		FVector(380, 194, 132), 560.0f, 380.0f,
-		FLinearColor(1.0f, 0.52f, 0.22f), false, 34.0f);
-	if (MirrorRoomLamp)
-	{
-		MirrorRoomLamp->SetVisibility(false);
-		MirrorRoomLamp->SetSpecularScale(0.55f);
-		MirrorRoomLamp->SetVolumetricScatteringIntensity(0.05f);
-	}
-	// Keep the non-specular fill on the camera side of the bed. Placing it
-	// twenty centimetres from the rear wall made a cold white hotspot while
-	// the outward-facing duvet and frame remained black.
-	MirrorRoomBounce = CreateLight(
-		FVector(430, -40, 125), 360.0f, 310.0f,
-		FLinearColor(0.30f, 0.38f, 0.56f), false, 56.0f);
-	if (MirrorRoomBounce)
-	{
-		MirrorRoomBounce->SetVisibility(false);
-		MirrorRoomBounce->SetSpecularScale(0.0f);
-		MirrorRoomBounce->SetVolumetricScatteringIntensity(0.0f);
-	}
-
-	// CH02 overlaps the 7/27 state after the management reply: 401 has already
-	// removed the rice, spoon and incense. The salt was swept apart by hand,
-	// leaving a deliberate central gap rather than a trampled line.
-	for (int32 GrainIndex = 0; GrainIndex < 17; ++GrainIndex)
-	{
-		const float Alpha = static_cast<float>(GrainIndex) / 16.0f;
-		const float GrainSize = 0.38f + (GrainIndex % 4) * 0.05f;
-		for (const float Side : {-1.0f, 1.0f})
-		{
-			const float GrainX = -150.0f
-				+ Side * (17.0f + (1.0f - Alpha) * 25.0f);
-			const float GrainY = -248.0f - Alpha * 4.0f
-				+ FMath::Sin(GrainIndex * 1.71f) * 1.05f;
-			if (UStaticMeshComponent* Grain = AddOverlay(
-				FVector(GrainX, GrainY, 0.27f),
-				FVector(GrainSize, GrainSize * 0.72f, 0.38f),
-				LampShadeMaterial, false, SphereMesh))
-			{
-				Grain->SetCastShadow(false);
-			}
-		}
-	}
-	// Thin, asymmetric deposits keep the swept salt legible without turning the
-	// threshold into an evenly spaced row of pebble-like props.
-	struct FSaltDepositSpec
-	{
-		FVector2D Position;
-		FVector Scale;
-		float Yaw;
-	};
-	const FSaltDepositSpec SaltDeposits[] = {
-		{FVector2D(-193.0f, -249.4f), FVector(8.2f, 1.55f, 0.42f), -11.0f},
-		{FVector2D(-183.5f, -246.9f), FVector(3.6f, 1.15f, 0.32f),   7.0f},
-		{FVector2D(-175.0f, -250.2f), FVector(9.2f, 1.85f, 0.48f),  -4.0f},
-		{FVector2D(-166.5f, -247.6f), FVector(3.0f, 1.00f, 0.30f),  15.0f},
-		{FVector2D(-133.0f, -249.0f), FVector(4.1f, 1.10f, 0.33f), -12.0f},
-		{FVector2D(-124.0f, -246.5f), FVector(9.6f, 1.75f, 0.48f),   6.0f},
-		{FVector2D(-113.0f, -250.7f), FVector(3.2f, 0.95f, 0.30f), -18.0f},
-		{FVector2D(-103.5f, -247.8f), FVector(8.7f, 1.50f, 0.42f),   9.0f}};
-	for (const FSaltDepositSpec& Deposit : SaltDeposits)
-	{
-		if (UStaticMeshComponent* Cluster = AddOverlay(
-			FVector(Deposit.Position.X, Deposit.Position.Y, 0.28f),
-			Deposit.Scale,
-			LampShadeMaterial,
-			false,
-			SphereMesh,
-			FRotator(0, Deposit.Yaw, 0)))
-		{
-			Cluster->SetCastShadow(false);
-		}
-	}
-	const FVector2D SweptSalt[] = {
-		FVector2D(-198.0f, -250.0f), FVector2D(-202.0f, -254.0f),
-		FVector2D(-102.0f, -250.0f), FVector2D(-98.0f, -254.0f)};
-	for (int32 ScatterIndex = 0;
-		ScatterIndex < UE_ARRAY_COUNT(SweptSalt);
-		++ScatterIndex)
-	{
-		if (UStaticMeshComponent* Grain = AddOverlay(
-			FVector(SweptSalt[ScatterIndex].X, SweptSalt[ScatterIndex].Y, 0.20f),
-			FVector(0.42f, 0.34f, 0.30f),
-			LampShadeMaterial,
-			false,
-			SphereMesh))
-		{
-			Grain->SetCastShadow(false);
-		}
-	}
-
-	// Only the dry circular trace of the removed rice bowl remains.
-	if (UStaticMeshComponent* DryOuter = AddOverlay(
-		FVector(-174, -280, 0.16f), FVector(24, 24, 0.24f),
-		ConcreteMaterial, false, CylinderMesh))
-	{
-		DryOuter->SetCastShadow(false);
-	}
-	if (UStaticMeshComponent* DryInner = AddOverlay(
-		FVector(-174, -280, 0.24f), FVector(23.1f, 23.1f, 0.18f),
-		CorridorFloor, false, CylinderMesh))
-	{
-		DryInner->SetCastShadow(false);
-	}
-	// Foot traffic and wiping interrupt the mineral ring at three points. The
-	// residue remains recognizable without looking like a puzzle UI outline.
-	AddOverlay(FVector(-186.0f, -280.0f, 0.36f), FVector(4.0f, 5.0f, 0.12f), CorridorFloor, false);
-	AddOverlay(FVector(-174.0f, -268.0f, 0.36f), FVector(5.0f, 4.0f, 0.12f), CorridorFloor, false);
-	AddOverlay(FVector(-164.5f, -287.0f, 0.36f), FVector(4.0f, 5.0f, 0.12f), CorridorFloor, false);
-
-	// The clear-water bowl sits outside the broken line. Its 24 cm steel body
-	// matches the overturned bowl that reappears on the unfinished fifth floor.
-	AddOverlay(
-		FVector(-126, -280, 0.08f), FVector(100.0f),
-		OfferingBowlMaterial, false,
-		PropMesh(TEXT("SM_OfferingWaterBowl"), CylinderMesh));
-	if (UStaticMeshComponent* WaterSurface = AddOverlay(
-		FVector(-126, -280, 7.72f), FVector(20.6f, 20.6f, 0.16f),
-		OfferingWaterMaterial, false, CylinderMesh))
-	{
-		WaterSurface->SetCastShadow(false);
-	}
-	// Two broken reflections are enough to communicate a liquid surface in the
-	// dim corridor without turning the bowl into an emissive objective marker.
-	AddOverlay(
-		FVector(-129.0f, -276.5f, 7.86f), FVector(7.2f, 0.85f, 0.08f),
-		FridgeInteriorMaterial, false, SphereMesh, FRotator(0, -18, 0));
-	AddOverlay(
-		FVector(-122.5f, -282.5f, 7.87f), FVector(4.2f, 0.62f, 0.06f),
-		FridgeInteriorMaterial, false, SphereMesh, FRotator(0, 24, 0));
-
-	// A restrained corridor spill keeps the evidence legible without turning
-	// this quiet act of waiting into a supernatural spotlight.
-	OfferingLight = CreateLight(
-		FVector(-150, -312, 78), 175.0f, 220.0f,
-		FLinearColor(1.0f, 0.78f, 0.58f), false, 30.0f);
-	if (OfferingLight)
-	{
-		OfferingLight->SetVisibility(false);
-		OfferingLight->SetSpecularScale(0.18f);
-		OfferingLight->SetVolumetricScatteringIntensity(0.04f);
-	}
-
-	ActiveParent = nullptr;
-
-	// Wet steps begin inside the real 2F cab, from the narrow door gap to the
-	// rider's back. Matching lower-cab/lobby steps are already waiting when
-	// the doors reopen at 1F, so the impossible follower still obeys the
-	// building's visible floors.
-	const FVector FootprintLocations[] = {
-		FVector(726, -286, 300), FVector(748, -326, 300),
-		FVector(766, -284, 300), FVector(788, -326, 300),
-		FVector(806, -286, 300), FVector(828, -326, 300),
-		FVector(760, -286, 0), FVector(778, -326, 0),
-		FVector(730, -284, 0), FVector(748, -326, 0),
-		FVector(690, -286, 0), FVector(708, -326, 0),
-		FVector(650, -300, 0), FVector(626, -338, 0),
-		FVector(603, -350, 0), FVector(579, -374, 0),
-	};
-	for (int32 StepIndex = 0; StepIndex < UE_ARRAY_COUNT(FootprintLocations); ++StepIndex)
-	{
-		UStaticMeshComponent* Step = AddOverlay(
-			FVector(
-				FootprintLocations[StepIndex].X,
-				FootprintLocations[StepIndex].Y,
-				FootprintLocations[StepIndex].Z + 0.45f),
-			FVector(23, 9.5f, 0.7f),
-			TexMat(TEXT("M_WetStep"), ConcreteDarkMaterial),
-			false,
-			SphereMesh,
-			FRotator(0, StepIndex % 2 == 0 ? -12.0f : 12.0f, 0),
-			SceneRoot);
-		if (Step)
-		{
-			Step->SetCastShadow(false);
-			ElevatorFootprintComponents.Add(Step);
-		}
-	}
-}
-
 void AIGPrologueWorldScene::SuspendCorridorFlicker(const bool bSuspend)
 {
 	bCorridorFlickerSuspended = bSuspend;
@@ -4178,114 +3205,6 @@ FVector AIGPrologueWorldScene::GetCorridorFixtureLocation(const int32 Index) con
 	return CorridorLights.IsValidIndex(Index) && CorridorLights[Index]
 		? CorridorLights[Index]->GetComponentLocation()
 		: FVector::ZeroVector;
-}
-
-void AIGPrologueWorldScene::SetChapterTwoOverlayVisible(const bool bVisible)
-{
-	for (UStaticMeshComponent* Component : ChapterTwoOverlayComponents)
-	{
-		if (!Component)
-		{
-			continue;
-		}
-
-		// The wet steps have their own late reveal inside the interrupted lift
-		// beat. Everything else is ready when the second morning begins.
-		const bool bIsDeferredFootprint = ElevatorFootprintComponents.Contains(Component);
-		Component->SetVisibility(bVisible && !bIsDeferredFootprint, true);
-		Component->SetCollisionEnabled(
-			bVisible && ChapterTwoCollisionComponents.Contains(Component)
-				? ECollisionEnabled::QueryAndPhysics
-				: ECollisionEnabled::NoCollision);
-	}
-
-	if (bVisible)
-	{
-		for (UStaticMeshComponent* Mask : ChapterOneMaskComponents)
-		{
-			if (Mask)
-			{
-				Mask->SetVisibility(false, true);
-				Mask->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-			}
-		}
-	}
-
-	if (MirrorRoomLamp)
-	{
-		MirrorRoomLamp->SetVisibility(bVisible);
-		MirrorRoomLamp->SetIntensity(bVisible ? 300.0f : 0.0f);
-	}
-	if (MirrorRoomBounce)
-	{
-		MirrorRoomBounce->SetVisibility(bVisible);
-		MirrorRoomBounce->SetIntensity(bVisible ? 360.0f : 0.0f);
-	}
-	if (OfferingLight)
-	{
-		OfferingLight->SetVisibility(bVisible);
-		OfferingLight->SetIntensity(bVisible ? 145.0f : 0.0f);
-	}
-
-	auto SetChapterActorVisible = [bVisible](AIGInteractableActor* Actor)
-	{
-		if (!Actor)
-		{
-			return;
-		}
-		Actor->SetActorHiddenInGame(!bVisible);
-		Actor->SetActorEnableCollision(bVisible);
-		Actor->SetInteractionEnabled(bVisible);
-	};
-
-	SetChapterActorVisible(MirrorRoomDoor);
-	SetChapterActorVisible(ExistingReceipt);
-	SetChapterActorVisible(MirrorAlarmMemo);
-	SetChapterActorVisible(MailboxBills);
-	SetChapterActorVisible(OfferingNote);
-	SetChapterActorVisible(NightRoster);
-
-	// The restored copy does not exist until the unanswered employee call.
-	if (DuplicateReceipt)
-	{
-		DuplicateReceipt->SetActorHiddenInGame(true);
-		DuplicateReceipt->SetActorEnableCollision(false);
-		DuplicateReceipt->SetInteractionEnabled(false);
-	}
-}
-
-void AIGPrologueWorldScene::RevealElevatorFootprints()
-{
-	for (UStaticMeshComponent* Footprint : ElevatorFootprintComponents)
-	{
-		if (Footprint)
-		{
-			Footprint->SetVisibility(true, true);
-		}
-	}
-}
-
-void AIGPrologueWorldScene::RevealSecondReceipt()
-{
-	// Refresh defensively at the reveal boundary. The CH02 paper must preserve
-	// the CH01 product row while replacing only 04:31 with the 04:44 overlay.
-	RefreshPurchaseProfilePresentation();
-	if (!DuplicateReceipt)
-	{
-		return;
-	}
-
-	DuplicateReceipt->SetActorHiddenInGame(false);
-	DuplicateReceipt->SetActorEnableCollision(true);
-	DuplicateReceipt->SetInteractionEnabled(true);
-}
-
-void AIGPrologueWorldScene::SetChapterTwoReturnZoneArmed(const bool bArmed)
-{
-	if (ChapterTwoReturnZone)
-	{
-		ChapterTwoReturnZone->SetActorEnableCollision(bArmed);
-	}
 }
 
 void AIGPrologueWorldScene::BuildFifthFloorAnnex()
@@ -5204,11 +4123,6 @@ FVector AIGPrologueWorldScene::GetBoilerCupboardLocation()
 		IGPrologueWorld::FourthFloorZ + IGPrologueWorld::BoilerCupboardZ);
 }
 
-FVector AIGPrologueWorldScene::GetRadio401Location()
-{
-	return IGPrologueWorld::Radio401Location;
-}
-
 FVector AIGPrologueWorldScene::GetPlayerStartLocation()
 {
 	return IGPrologueWorld::PlayerLocation;
@@ -5221,134 +4135,6 @@ FVector AIGPrologueWorldScene::GetFridgeLocation() const
 	return Fridge
 		? Fridge->GetActorLocation()
 		: IGPrologueWorld::FridgeLocation;
-}
-
-void AIGPrologueWorldScene::SetStoreNorthLightsLive(const bool bLive)
-{
-	// BuildStore appends in X-major/Y-minor order. Indices 0 and 2 are the
-	// north row (Y=-300); the fifth StoreLights entry belongs to the cooler.
-	for (const int32 LightIndex : {0, 2})
-	{
-		if (StoreLights.IsValidIndex(LightIndex) && StoreLights[LightIndex])
-		{
-			StoreLights[LightIndex]->SetIntensity(bLive ? 2850.0f : 0.0f);
-		}
-		if (StoreLightDiscs.IsValidIndex(LightIndex) && StoreLightDiscs[LightIndex])
-		{
-			StoreLightDiscs[LightIndex]->SetMaterial(
-				0, bLive ? LightPanelMaterial : PlasticDarkMaterial);
-		}
-	}
-}
-
-void AIGPrologueWorldScene::FinishChapterTwo()
-{
-	if (bChapterTwoFinished)
-	{
-		return;
-	}
-	bChapterTwoFinished = true;
-	if (NeighborhoodLifeDirector)
-	{
-		// When the player returns, even the ordinary city has stopped answering.
-		// The distant alarm is allowed to own the entire sound field.
-		NeighborhoodLifeDirector->SetChapterVariant(
-			EIGNeighborhoodChapterVariant::ChapterTwoAbsent);
-	}
-
-	for (int32 FixtureIndex = 0; FixtureIndex < GetCorridorFixtureCount(); ++FixtureIndex)
-	{
-		SetFixtureLive(FixtureIndex, true, true);
-	}
-
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT("IGCH02", "ReturnedLightsThought", "…다 켜져 있네."),
-		3.6f);
-
-	GetWorldTimerManager().SetTimer(
-		ChapterEndingHandle,
-		[this]()
-		{
-			if (!IsValid(this))
-			{
-				return;
-			}
-
-			DistantAlarmComponent = CreateAmbientBed(
-				AlarmSound,
-				AlarmWorldLocation,
-				0.12f,
-				90.0f,
-				1750.0f);
-			if (DistantAlarmComponent)
-			{
-				DistantAlarmComponent->SetLowPassFilterEnabled(true);
-				DistantAlarmComponent->SetLowPassFilterFrequency(800.0f);
-			}
-
-			AIGHorrorHUD::PushThought(
-				this,
-				NSLOCTEXT("IGCH02", "DistantAlarmThought", "저건… 내 알람이잖아."),
-				4.2f);
-
-			if (APlayerController* PlayerController =
-				GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)
-			{
-				if (APlayerCameraManager* CameraManager = PlayerController->PlayerCameraManager)
-				{
-					CameraManager->StartCameraFade(
-						0.0f, 1.0f, 2.2f, FLinearColor::Black, false, true);
-				}
-			}
-
-			GetWorldTimerManager().SetTimer(
-				ChapterEndingHandle,
-				[this]()
-				{
-					if (!IsValid(this))
-					{
-						return;
-					}
-					AIGHorrorHUD::ShowChapterCard(
-						this,
-						NSLOCTEXT("IGCH02", "ChapterThreeEyebrow", "CHAPTER 03"),
-						NSLOCTEXT("IGCH02", "ChapterThreeTitle", "세 번째 아침"),
-						NSLOCTEXT("IGCH02", "ChapterThreeSubtitle", "물이 온다"),
-						4.8f);
-
-					// The card is a transition, not the old demo's dead end.
-					// Keep CH02 documentation capture finite, but an ordinary
-					// playthrough now continues into the complete greybox ending.
-					if (!FParse::Param(
-						FCommandLine::Get(), TEXT("IGCaptureCH02")))
-					{
-						GetWorldTimerManager().SetTimer(
-							ChapterTransitionHandle,
-							this,
-							&ThisClass::EnterChapterThree,
-							4.85f,
-							false);
-					}
-
-					// The alarm survives onto the card for two more seconds.
-					GetWorldTimerManager().SetTimer(
-						ChapterEndingHandle,
-						[this]()
-						{
-							if (DistantAlarmComponent)
-							{
-								DistantAlarmComponent->Stop();
-							}
-						},
-						2.0f,
-						false);
-				},
-				2.2f,
-				false);
-		},
-		1.0f,
-		false);
 }
 
 void AIGPrologueWorldScene::HandleCorridorFlicker()
@@ -6304,10 +5090,6 @@ void AIGPrologueWorldScene::BuildAlley()
 			true,
 			18.0f);
 		LampLight->SetVolumetricScatteringIntensity(0.55f);
-		if (FMath::IsNearlyEqual(PoleX, 1000.0f))
-		{
-			FlickerStreetlight = LampLight;
-		}
 	}
 
 	// 상가 사이 두 샛길이 뒤편 배송 골목으로 이어진다. 편의점 옆길까지 한 바퀴 돌 수 있다.
@@ -6475,11 +5257,10 @@ void AIGPrologueWorldScene::BuildStore()
 	{
 		for (const float Y : {-250.0f, -650.0f})
 		{
-			StoreLightDiscs.Add(CreateBlock(FVector(X, Y, 257), FVector(180, 7, 4), LightPanelMaterial, false));
+			CreateBlock(FVector(X, Y, 257), FVector(180, 7, 4), LightPanelMaterial, false);
 			UPointLightComponent* Light = CreateLight(FVector(X, Y, 239), 3650, 460,
 				FLinearColor(1, .985f, .955f), true, 12, nullptr, true);
 			Light->SetVolumetricScatteringIntensity(0.02f);
-			StoreLights.Add(Light);
 		}
 	}
 	CreateLight(FVector(2340, -457, 225), 1150, 650, FLinearColor(1, .96f, .87f), true, 28);
@@ -6494,7 +5275,7 @@ void AIGPrologueWorldScene::BuildStore()
 	};
 	StoreClerk = GetWorld()->SpawnActor<AIGStoreClerk>(AIGStoreClerk::StaticClass(), FVector(2590, -128, 6), FRotator::ZeroRotator);
 	Fixture(TEXT("SM_StoreCounter"), FVector(2590, -200, 6));
-	StoreCashRegisterVisual = Fixture(TEXT("SM_RetailPOS"), FVector(2608, -190, 99), 0, false);
+	Fixture(TEXT("SM_RetailPOS"), FVector(2608, -190, 99), 0, false);
 	Fixture(TEXT("SM_CardTerminal"), FVector(2665, -216, 99), 0, false);
 	Fixture(TEXT("SM_HotSnackWarmer"), FVector(2510, -198, 99));
 	Fixture(TEXT("SM_TobaccoCabinet"), FVector(2590, -50, 80));
@@ -6595,7 +5376,7 @@ void AIGPrologueWorldScene::BuildStore()
 			}
 		}
 	}
-	StoreLights.Add(CreateLight(FVector(3050, -430, 195), 380, 490, FLinearColor(.91f, .97f, 1), false, 20));
+	CreateLight(FVector(3050, -430, 195), 380, 490, FLinearColor(.91f, .97f, 1), false, 20);
 	Fixture(TEXT("SM_OpenShowcase"), FVector(2820, -800, 6));
 	for (int32 Tier = 0; Tier < 3; ++Tier)
 	{
@@ -6731,9 +5512,6 @@ void AIGPrologueWorldScene::SpawnStairTransition()
 		ToWorld(FVector(-188.0f, -305.0f, 187.0f)),
 		FRotator(0.0f, 0.0f, 0.0f));
 	StairTransition->FinishSpawning(TransitionTransform);
-	StairTransition->OnTransitionCompleted.AddUniqueDynamic(
-		this,
-		&ThisClass::HandleStairTransitionCompleted);
 }
 
 void AIGPrologueWorldScene::SpawnInteractables()
@@ -6859,9 +5637,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			NSLOCTEXT("IGPrologue", "BuildingDoorPrompt", "공동현관 열기"));
 	}
 
-	// --- Torch on the shoe cabinet by the door ----------------------------
-	// It is a prop in chapter one and the only light source in chapter two,
-	// so it sits somewhere you walk past on the way out either way.
+	// 현관 신발장 위의 손전등. 집을 수는 없는 소품이다.
 	Flashlight = World->SpawnActor<AIGPickupItem>(
 		AIGPickupItem::StaticClass(),
 		FTransform(
@@ -6873,69 +5649,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		Flashlight->ConfigurePrototypeVisuals(
 			CylinderMesh, PlasticDarkMaterial, FVector(0.05f, 0.05f, 0.17f), false);
 		Flashlight->GetMeshComponent()->SetRelativeRotation(FRotator(90.0f, 0.0f, 0.0f));
-		Flashlight->PickupMode = EIGPickupMode::Pocket;
-		Flashlight->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("State.CH02.Loop.HasFlashlight")), false);
-		Flashlight->ThoughtOnPickup = NSLOCTEXT(
-			"IGPrologue", "TorchTaken", "손전등. …배터리가 얼마 안 남았을 텐데.");
-		Flashlight->SetInteractionPrompt(
-			NSLOCTEXT("IGPrologue", "TorchPrompt", "손전등 챙기기"));
-		Flashlight->OnPickedUp.AddUniqueDynamic(
-			this, &AIGPrologueWorldScene::HandleFlashlightPickedUp);
-		// It is environmental dressing on the first morning. The second loop
-		// enables the exact same prop instead of spawning it into view.
 		Flashlight->SetInteractionEnabled(false);
-	}
-
-	// --- Management notice taped beside the lift --------------------------
-	// The seed of the whole story: a routine notice about the roof tank that
-	// means nothing on the first morning and everything on the third.
-	// 없는 층에는 걸지 않는다. 옛 이야기의 단수 공지라 「7월 26일(금)
-	// 04:00~06:00 옥상 출입 삼가」가 이 건물의 추락 시각과 겹쳐, 관리인이 그
-	// 시각에 옥상을 막아 둔 것처럼 읽힌다. 본편 어디서도 거두지 않는 단서다.
-	const bool bMissingFloorStory = World->URL.HasOption(TEXT("IGMissingFloor"))
-		|| World->URL.HasOption(TEXT("IGListenerGreybox"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"));
-	if (!bMissingFloorStory)
-	{
-		ManagementNotice = World->SpawnActor<AIGReadableNote>(
-			AIGReadableNote::StaticClass(),
-			FTransform(
-				FRotator::ZeroRotator,
-				FVector(348.0f, -236.0f, IGPrologueWorld::FourthFloorZ + 151.0f)),
-			SpawnParameters);
-	}
-	if (ManagementNotice)
-	{
-		// Taped up long enough that the bottom has gone wavy with damp — the
-		// first hint, before anything is wrong, that water gets everywhere in
-		// this building.
-		ManagementNotice->ConfigurePrototypeVisuals(
-			CubeMesh,
-			TexMat(TEXT("M_LobbyWaterNotice"), SignWhiteMaterial),
-			FVector(21.0f, .08f, 29.7f));
-		ManagementNotice->SetInteractionPrompt(
-			NSLOCTEXT("IGPrologue", "NoticePrompt", "공지 읽기"));
-		// Chapter three is already on this piece of paper; on the first
-		// morning it is only a reason the tap ran dry.
-		ManagementNotice->SetNoteText(
-			NSLOCTEXT("IGPrologue", "NoticeTitle", "[관리사무소] 단수 안내"),
-			{
-				NSLOCTEXT("IGPrologue", "NoticeL1", "입주민 여러분께 알려 드립니다."),
-				FText::GetEmpty(),
-				NSLOCTEXT("IGPrologue", "NoticeL2", "옥상 물탱크 청소 및 수질 점검 관계로"),
-				NSLOCTEXT("IGPrologue", "NoticeL3", "아래와 같이 단수를 실시합니다."),
-				FText::GetEmpty(),
-				NSLOCTEXT("IGPrologue", "NoticeL4", "   일시 :  7월 26일 (금)  04:00 ~ 06:00"),
-				NSLOCTEXT("IGPrologue", "NoticeL5", "   대상 :  전 세대 (401호 ~ 403호)"),
-				FText::GetEmpty(),
-				NSLOCTEXT("IGPrologue", "NoticeL6", "점검 중에는 옥상 출입을 삼가 주시기"),
-				NSLOCTEXT("IGPrologue", "NoticeL7", "바랍니다. 불편을 드려 죄송합니다."),
-				FText::GetEmpty(),
-				FText::GetEmpty(),
-				NSLOCTEXT("IGPrologue", "NoticeL8", "            달빛빌라 관리사무소"),
-			});
 	}
 
 	// The villa elevator: call it on 4F, ride down to the lobby.
@@ -6973,38 +5687,9 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		// A matte white lens keeps the panel shape readable without baked light.
 		CabVisuals.DiffuserMaterial = SignWhiteMaterial;
 		Elevator->ConfigurePrototypeVisuals(CabVisuals, 900.0f);
-		Elevator->OnReturnedToFourthFloor.AddUniqueDynamic(
-			this,
-			&ThisClass::HandleElevatorReturnedToFourthFloor);
 
 		// BuildCabInterior owns the sole rider COP. Adding a camera-facing copy
 		// here used to bury buttons inside the opposite handrail.
-	}
-
-	// 출근 이야기에서만 쓰는 지갑은 없는 층의 조사 대상에 섞지 않는다.
-	if (!World->URL.HasOption(TEXT("IGMissingFloor"))
-		&& !World->URL.HasOption(TEXT("IGListenerGreybox"))
-		&& !FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
-		&& !FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox")))
-	{
-		Wallet = World->SpawnActor<AIGPickupItem>(
-			AIGPickupItem::StaticClass(),
-			FTransform(FRotator(0, 20, 0), WalletWorldLocation),
-			SpawnParameters);
-		if (Wallet)
-		{
-			Wallet->PickupMode = EIGPickupMode::Pocket;
-			Wallet->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH01.Morning.HasWallet")), false);
-			Wallet->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WalletPrompt", "지갑 챙기기"));
-			Wallet->ThoughtOnPickup =
-				NSLOCTEXT("IGPrologue", "WalletThought", "지갑. 현금이 조금 있다.");
-			Wallet->ConfigurePrototypeVisuals(
-				CubeMesh, WalletBrownMaterial, FVector(0.14f, 0.09f, 0.03f), false);
-			Wallet->OnPickedUp.AddUniqueDynamic(
-				this,
-				&ThisClass::HandlePurchaseSelectionChanged);
-		}
 	}
 
 	// 각 창짝의 가스켓 안에 유리를 끼운다. 발광판이 창틀을 덮지 않는다.
@@ -7036,18 +5721,17 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			CubeMesh, GlassMaterial, MetalFrameMaterial, FVector(6, 60, 200));
 	}
 
-	// Three fixed purchase profiles share the cooler shelf. Picking one commits
-	// its REBIRTH profile before the legacy HasWater event is broadcast.
+	// 음료 냉장고 한 칸에 물 세 가지가 놓인다. 하나를 집으면 HasWater가
+	// 퍼지기 전에 어느 물을 골랐는지부터 적힌다.
 	const float WaterYs[] = {-576.0f, -552.0f, -528.0f};
-	const EIGRebirthPurchaseProfile WaterProfiles[] = {
-		EIGRebirthPurchaseProfile::ProfileA500MlX2,
-		EIGRebirthPurchaseProfile::ProfileB1LX1,
-		EIGRebirthPurchaseProfile::ProfileC2LX2};
+	const EIGPurchaseProfile WaterProfiles[] = {
+		EIGPurchaseProfile::ProfileA500MlX2,
+		EIGPurchaseProfile::ProfileB1LX1,
+		EIGPurchaseProfile::ProfileC2LX2};
 	for (int32 WaterIndex = 0; WaterIndex < UE_ARRAY_COUNT(WaterYs); ++WaterIndex)
 	{
 		const float WaterY = WaterYs[WaterIndex];
-		const EIGRebirthPurchaseProfile PurchaseProfile =
-			WaterProfiles[WaterIndex];
+		const EIGPurchaseProfile PurchaseProfile = WaterProfiles[WaterIndex];
 		AIGPickupItem* WaterBottle = World->SpawnActor<AIGPickupItem>(
 			AIGPickupItem::StaticClass(),
 			FTransform(FRotator::ZeroRotator, FVector(3085, WaterY, 106.5f)),
@@ -7055,21 +5739,21 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		if (WaterBottle)
 		{
 			WaterBottle->PickupMode = EIGPickupMode::CarryInHand;
-			WaterBottle->RebirthPurchaseProfileOnPickup = PurchaseProfile;
+			WaterBottle->PurchaseProfileOnPickup = PurchaseProfile;
 			WaterBottle->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
 				FName(TEXT("State.CH01.Morning.HasWater")), false);
 			FVector ProfileScale = FVector::OneVector;
 			bool bHasSecondBottle = false;
 			switch (PurchaseProfile)
 			{
-			case EIGRebirthPurchaseProfile::ProfileA500MlX2:
+			case EIGPurchaseProfile::ProfileA500MlX2:
 				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
 					"IGPrologue", "WaterProfileA", "새벽샘물 500mL × 2 고르기"));
 				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
 					"IGPrologue", "WaterProfileAThought", "두 병이면 충분하겠지.");
 				bHasSecondBottle = true;
 				break;
-			case EIGRebirthPurchaseProfile::ProfileB1LX1:
+			case EIGPurchaseProfile::ProfileB1LX1:
 				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
 					"IGPrologue", "WaterProfileB", "한강수 1L × 1 고르기"));
 				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
@@ -7077,7 +5761,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				ProfileScale = FVector(1.30f, 1.30f, 1.20f);
 				WaterBottle->CarryOffset = FVector(43.0f, 17.0f, -40.0f);
 				break;
-			case EIGRebirthPurchaseProfile::ProfileC2LX2:
+			case EIGPurchaseProfile::ProfileC2LX2:
 				WaterBottle->SetInteractionPrompt(NSLOCTEXT(
 					"IGPrologue", "WaterProfileC", "맑은산 2L × 2 고르기"));
 				WaterBottle->ThoughtOnPickup = NSLOCTEXT(
@@ -7091,7 +5775,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			}
 			// Held low and to the side so the lathed bottle reads without
 			// filling the view; the mesh pivot is at the bottle's base.
-			if (PurchaseProfile == EIGRebirthPurchaseProfile::ProfileA500MlX2)
+			if (PurchaseProfile == EIGPurchaseProfile::ProfileA500MlX2)
 			{
 				WaterBottle->CarryOffset = FVector(40.0f, 16.0f, -35.0f);
 			}
@@ -7112,7 +5796,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 			CreateDecoOnComponent(
 				WaterBottle->GetMeshComponent(),
 				PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
-				TexMat(PurchaseProfile == EIGRebirthPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGRebirthPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
+				TexMat(PurchaseProfile == EIGPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
 				FVector(0, 0, 7.2f), FRotator::ZeroRotator,
 				FVector(3.30f, 3.30f, 5.5f));
 			if (bHasSecondBottle)
@@ -7134,7 +5818,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 				CreateDecoOnComponent(
 					SecondBottle,
 					PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
-					TexMat(PurchaseProfile == EIGRebirthPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGRebirthPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
+					TexMat(PurchaseProfile == EIGPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
 					FVector(0, 0, 7.2f),
 					FRotator::ZeroRotator,
 					FVector(3.30f, 3.30f, 5.5f));
@@ -7170,7 +5854,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		Checkout->SetVisualsHidden(true);
 	}
 
-	// Progress volumes: stepping outside, mid-alley beat, entering the store.
+	// Progress volumes: stepping outside and entering the store.
 	auto SpawnZone = [&](const FVector& Location, const FVector& Extent,
 		const TCHAR* StateTagName, const FText& Thought) -> AIGZoneTrigger*
 	{
@@ -7194,9 +5878,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		return Zone;
 	};
 
-	// Canonical CH01 dressing happens when the player actually crosses the
-	// 404 threshold. The ground-floor LeftHome volume remains an alley
-	// checkpoint and legacy migration input, never the outfit authority.
+	// 403호 문턱을 넘는 순간과 공동현관을 나서는 순간을 따로 남긴다.
 	ChapterOneApartmentExitZone = SpawnZone(
 		FVector(180, -305, 1010), FVector(72, 62, 110),
 		TEXT("State.CH01.Morning.LeftApartment"),
@@ -7205,755 +5887,18 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		FVector(643, -435, 110), FVector(120, 55, 110),
 		TEXT("State.CH01.Morning.LeftHome"),
 		NSLOCTEXT("IGPrologue", "LeftHomeThought", "새벽 공기가 차다."));
-	FlickerZone = SpawnZone(
-		FVector(1000, -537, 110), FVector(80, 160, 110),
-		nullptr,
-		FText::GetEmpty());
 	StoreEntryZone = SpawnZone(
 		FVector(2450, -457, 116), FVector(35, 95, 110),
 		TEXT("State.CH01.Morning.EnteredStore"),
 		FText::GetEmpty());
 }
 
-void AIGPrologueWorldScene::SpawnChapterTwoInteractables()
-{
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
-	FActorSpawnParameters SpawnParameters;
-	SpawnParameters.Owner = this;
-	SpawnParameters.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-
-	auto ParkActor = [](AIGInteractableActor* Actor)
-	{
-		if (!Actor)
-		{
-			return;
-		}
-		Actor->SetActorHiddenInGame(true);
-		Actor->SetActorEnableCollision(false);
-		Actor->SetInteractionEnabled(false);
-	};
-
-	// Open 403 at the east end: a normal interactable leaf, initially parked
-	// behind CH01's removable wall plug.
-	MirrorRoomDoor = World->SpawnActor<AIGSwingDoor>(
-		AIGSwingDoor::StaticClass(),
-		FTransform(
-			FRotator(0, -90, 0),
-			FVector(388.0f, -225.0f, IGPrologueWorld::FourthFloorZ)),
-		SpawnParameters);
-	if (MirrorRoomDoor)
-	{
-		MirrorRoomDoor->ConfigurePrototypeVisuals(
-			CubeMesh,
-			TexMat(TEXT("M_SteelDoorUV"), DoorMaterial),
-			TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial),
-			FVector(7, 84, 204));
-		// Swing into 403 (+Y), not across the 72 cm-wide corridor route.
-		MirrorRoomDoor->SetOpenYaw(95.0f);
-		MirrorRoomDoor->SetInteractionPrompt(
-			NSLOCTEXT("IGCH02", "MirrorDoorPrompt", "403호 문"));
-		MirrorRoomDoor->ForceOpenState(true);
-		ParkActor(MirrorRoomDoor);
-	}
-
-	auto SpawnNote = [&](const FVector& Location,
-		const FRotator& Rotation,
-		const FVector& PaperSize,
-		UMaterialInterface* PaperMaterial,
-		const FText& Prompt,
-		const FText& Title,
-		TArray<FText>&& Lines) -> AIGReadableNote*
-	{
-		AIGReadableNote* Note = World->SpawnActor<AIGReadableNote>(
-			AIGReadableNote::StaticClass(),
-			FTransform(Rotation, Location),
-			SpawnParameters);
-		if (Note)
-		{
-			Note->ConfigurePrototypeVisuals(
-				CubeMesh,
-				PaperMaterial ? PaperMaterial : SignWhiteMaterial.Get(),
-				PaperSize);
-			Note->SetInteractionPrompt(Prompt);
-			Note->SetNoteText(Title, MoveTemp(Lines));
-			ParkActor(Note);
-		}
-		return Note;
-	};
-
-	// The actual CH01 transaction and the CH02 death overlay share the
-	// selected product data. Only the narrative timestamp differs.
-	ChapterOneReceipt = SpawnNote(
-		FVector(2563, -216, 100.5f),
-		FRotator::ZeroRotator,
-		FVector(8.5f, 15.0f, 0.25f),
-		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
-		NSLOCTEXT("IGPrologue", "FirstReceiptPrompt", "출력된 영수증 읽기"),
-		NSLOCTEXT("IGPrologue", "FirstReceiptTitle", "영수증"),
-		IGPrologueWorld::BuildPurchaseReceiptSummary(
-			EIGRebirthPurchaseProfile::ProfileA500MlX2,
-			IGPrologueWorld::EReceiptTimeline::ActualPurchase0431));
-	if (ChapterOneReceipt)
-	{
-		ChapterOneReceipt->SetThermalReceiptData(
-			IGPrologueWorld::BuildPurchaseReceiptData(
-				EIGRebirthPurchaseProfile::ProfileA500MlX2,
-				IGPrologueWorld::EReceiptTimeline::ActualPurchase0431));
-	}
-
-	ExistingReceipt = SpawnNote(
-		FVector(2563, -216, 100.5f),
-		FRotator::ZeroRotator,
-		FVector(8.5f, 15.0f, 0.25f),
-		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
-		NSLOCTEXT("IGCH02", "ReceiptPrompt", "놓인 영수증 읽기"),
-		NSLOCTEXT("IGCH02", "ReceiptTitle", "영수증"),
-		IGPrologueWorld::BuildPurchaseReceiptSummary(
-			EIGRebirthPurchaseProfile::ProfileA500MlX2,
-			IGPrologueWorld::EReceiptTimeline::DeathOverlay0444));
-	if (ExistingReceipt)
-	{
-		ExistingReceipt->SetThermalReceiptData(
-			IGPrologueWorld::BuildPurchaseReceiptData(
-				EIGRebirthPurchaseProfile::ProfileA500MlX2,
-				IGPrologueWorld::EReceiptTimeline::DeathOverlay0444));
-	}
-
-	DuplicateReceipt = SpawnNote(
-		FVector(2581, -216, 100.8f),
-		FRotator(0, 0, 4),
-		FVector(8.5f, 15.0f, 0.25f),
-		TexMat(TEXT("M_PaperClean"), SignWhiteMaterial),
-		NSLOCTEXT("IGCH02", "DuplicateReceiptPrompt", "새 영수증 읽기"),
-		NSLOCTEXT("IGCH02", "DuplicateReceiptTitle", "영수증"),
-		IGPrologueWorld::BuildPurchaseReceiptSummary(
-			EIGRebirthPurchaseProfile::ProfileA500MlX2,
-			IGPrologueWorld::EReceiptTimeline::DeathOverlay0444));
-	if (DuplicateReceipt)
-	{
-		DuplicateReceipt->SetThermalReceiptData(
-			IGPrologueWorld::BuildPurchaseReceiptData(
-				EIGRebirthPurchaseProfile::ProfileA500MlX2,
-				IGPrologueWorld::EReceiptTimeline::DeathOverlay0444));
-	}
-
-	MirrorAlarmMemo = SpawnNote(
-		FVector(346, 44, IGPrologueWorld::FourthFloorZ + 61.0f),
-		FRotator(0, 0, -3),
-		FVector(14.0f, 10.0f, 0.3f),
-		TexMat(TEXT("M_PaperFolded"), SignWhiteMaterial),
-		NSLOCTEXT("IGCH02", "AlarmMemoPrompt", "집결 메모 읽기"),
-		NSLOCTEXT("IGCH02", "AlarmMemoTitle", "[캠프 집결 메모]"),
-		{
-			NSLOCTEXT("IGCH02", "AlarmMemoL1", "내일  05:30  캠프 집결"),
-			NSLOCTEXT("IGCH02", "AlarmMemoL2", "알람  :  집결 20분 전"),
-			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "AlarmMemoL3", "※ 늦지 말 것"),
-		});
-
-	MailboxBills = SpawnNote(
-		FVector(643, -149.0f, 130),
-		FRotator::ZeroRotator,
-		FVector(19, 1.3f, 27),
-		TexMat(TEXT("M_PaperFolded"), SignWhiteMaterial),
-		NSLOCTEXT("IGCH02", "MailboxPrompt", "관리 연락함 확인"),
-		NSLOCTEXT("IGCH02", "MailboxTitle", "[민원 접수 사본]"),
-		{
-			NSLOCTEXT("IGCH02", "MailboxL1", "7/27  06:18  ·  401호 정막례"),
-			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "MailboxL2", "“사람이 떨어진 것 같은 쿵 소리.”"),
-			NSLOCTEXT("IGCH02", "MailboxL3", "처리 : 고양이로 추정 · 옥상 잠금 확인"),
-			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "MailboxL4", "403호 연락 불가 · 가족 연락처 확인 요청"),
-		});
-
-	OfferingNote = SpawnNote(
-		FVector(-94, -278, IGPrologueWorld::FourthFloorZ + 0.6f),
-		FRotator(0, 0, -8),
-		FVector(25, 18, 0.6f),
-		TexMat(TEXT("M_PaperFolded"), SignWhiteMaterial),
-		NSLOCTEXT("IGCH02", "OfferingNotePrompt", "물그릇 옆 쪽지 읽기"),
-		NSLOCTEXT("IGCH02", "OfferingNoteTitle", "삐뚤한 글씨"),
-		{
-			NSLOCTEXT("IGCH02", "OfferingNoteL1", "목마른 사람은"),
-			NSLOCTEXT("IGCH02", "OfferingNoteL2", "이 물을 드시오."),
-			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "OfferingNoteL3", "— 401호"),
-		});
-
-	NightRoster = SpawnNote(
-		FVector(2838, -181.0f, 145),
-		FRotator::ZeroRotator,
-		FVector(21, 1.2f, 29.7f),
-		TexMat(TEXT("M_PaperOld"), SignWhiteMaterial),
-		NSLOCTEXT("IGCH02", "RosterPrompt", "야간 근무표 읽기"),
-		NSLOCTEXT("IGCH02", "RosterTitle", "야간 근무표"),
-		{
-			NSLOCTEXT("IGCH02", "RosterL1", "목     최상구"),
-			NSLOCTEXT("IGCH02", "RosterL2", "금 새벽          "),
-			NSLOCTEXT("IGCH02", "RosterL3", "토     최상구"),
-			FText::GetEmpty(),
-			NSLOCTEXT("IGCH02", "RosterL4", "금 새벽 알바 구합니다"),
-			NSLOCTEXT("IGCH02", "RosterL5", "문의: 점장"),
-		});
-
-	// CH02 keeps matching product silhouettes on the shelf for continuity,
-	// but they are evidence dressing rather than a second shopping errand.
-	ChapterTwoWallet = World->SpawnActor<AIGPickupItem>(
-		AIGPickupItem::StaticClass(),
-		FTransform(FRotator(0, 20, 0), WalletWorldLocation),
-		SpawnParameters);
-	if (ChapterTwoWallet)
-	{
-		// This is a non-authoritative memory prop. Its visibility is restored
-		// from the CH01 payment choice and it can never be picked up again.
-		ChapterTwoWallet->PickupMode = EIGPickupMode::Pocket;
-		ChapterTwoWallet->SetInteractionPrompt(
-			NSLOCTEXT("IGCH02", "SecondWalletPrompt", "놓인 지갑 확인"));
-		ChapterTwoWallet->ConfigurePrototypeVisuals(
-			CubeMesh, WalletBrownMaterial, FVector(0.14f, 0.09f, 0.03f), false);
-		ParkActor(ChapterTwoWallet);
-	}
-
-	const float ChapterTwoWaterYs[] = {-576.0f, -552.0f, -528.0f};
-	const EIGRebirthPurchaseProfile ChapterTwoProfiles[] = {
-		EIGRebirthPurchaseProfile::ProfileA500MlX2,
-		EIGRebirthPurchaseProfile::ProfileB1LX1,
-		EIGRebirthPurchaseProfile::ProfileC2LX2};
-	for (int32 WaterIndex = 0;
-		WaterIndex < UE_ARRAY_COUNT(ChapterTwoWaterYs);
-		++WaterIndex)
-	{
-		const float WaterY = ChapterTwoWaterYs[WaterIndex];
-		const EIGRebirthPurchaseProfile PurchaseProfile =
-			ChapterTwoProfiles[WaterIndex];
-		AIGPickupItem* WaterBottle = World->SpawnActor<AIGPickupItem>(
-			AIGPickupItem::StaticClass(),
-			FTransform(FRotator::ZeroRotator, FVector(3085, WaterY, 106.5f)),
-			SpawnParameters);
-		if (!WaterBottle)
-		{
-			continue;
-		}
-
-		WaterBottle->PickupMode = EIGPickupMode::CarryInHand;
-		WaterBottle->RebirthPurchaseProfileOnPickup = PurchaseProfile;
-		WaterBottle->StateTagOnPickup = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("State.CH02.Loop.HasWater")), false);
-		FVector ProfileScale = FVector::OneVector;
-		bool bHasSecondBottle = false;
-		switch (PurchaseProfile)
-		{
-		case EIGRebirthPurchaseProfile::ProfileA500MlX2:
-			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
-				"IGCH02", "SecondWaterProfileA", "같은 새벽샘물 확인하기"));
-			WaterBottle->CarryOffset = FVector(40.0f, 16.0f, -35.0f);
-			bHasSecondBottle = true;
-			break;
-		case EIGRebirthPurchaseProfile::ProfileB1LX1:
-			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
-				"IGCH02", "SecondWaterProfileB", "같은 한강수 확인하기"));
-			WaterBottle->CarryOffset = FVector(43.0f, 17.0f, -40.0f);
-			ProfileScale = FVector(1.30f, 1.30f, 1.20f);
-			break;
-		case EIGRebirthPurchaseProfile::ProfileC2LX2:
-			WaterBottle->SetInteractionPrompt(NSLOCTEXT(
-				"IGCH02", "SecondWaterProfileC", "같은 맑은산 두 병 확인하기"));
-			WaterBottle->CarryOffset = FVector(49.0f, 20.0f, -51.0f);
-			ProfileScale = FVector(1.60f, 1.60f, 1.57f);
-			bHasSecondBottle = true;
-			break;
-		default:
-			break;
-		}
-		WaterBottle->ThoughtOnPickup =
-			NSLOCTEXT("IGCH02", "SecondWaterThought", "같은 자리. 내가 골랐던 물.");
-		WaterBottle->CarryRotation = FRotator(-8.0f, -14.0f, 0.0f);
-		WaterBottle->ConfigurePrototypeVisuals(
-			PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
-			TexMat(TEXT("M_RetailPET"), GlassMaterial), ProfileScale, false);
-		CreateDecoOnComponent(
-			WaterBottle->GetMeshComponent(),
-			PropMesh(TEXT("SM_BottleCap"), CylinderMesh), SnackBlueMaterial,
-			FVector(0, 0, 20.1f), FRotator::ZeroRotator, FVector::OneVector);
-		CreateDecoOnComponent(
-			WaterBottle->GetMeshComponent(),
-			PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
-			TexMat(PurchaseProfile == EIGRebirthPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGRebirthPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
-			FVector(0, 0, 7.2f), FRotator::ZeroRotator,
-			FVector(3.30f, 3.30f, 5.5f));
-		if (bHasSecondBottle)
-		{
-			UStaticMeshComponent* SecondBottle = CreateDecoOnComponent(
-				WaterBottle->GetMeshComponent(),
-				PropMesh(TEXT("SM_WaterBottle"), CylinderMesh),
-				TexMat(TEXT("M_RetailPET"), GlassMaterial),
-				FVector(0, 8.0f, 0),
-				FRotator(0, 7.0f, 0),
-				FVector::OneVector);
-			CreateDecoOnComponent(
-				SecondBottle,
-				PropMesh(TEXT("SM_BottleCap"), CylinderMesh),
-				SnackBlueMaterial,
-				FVector(0, 0, 20.1f),
-				FRotator::ZeroRotator,
-				FVector::OneVector);
-			CreateDecoOnComponent(
-				SecondBottle,
-				PropMesh(TEXT("SM_LabelSleeve"), CylinderMesh),
-				TexMat(PurchaseProfile == EIGRebirthPurchaseProfile::ProfileC2LX2 ? TEXT("M_LabelWater2L") : PurchaseProfile == EIGRebirthPurchaseProfile::ProfileB1LX1 ? TEXT("M_LabelWater1L") : TEXT("M_LabelWater"), WaterBlueMaterial),
-				FVector(0, 0, 7.2f),
-				FRotator::ZeroRotator,
-				FVector(3.30f, 3.30f, 5.5f));
-		}
-		AddStaticPurchaseBagProxy(WaterBottle, PurchaseProfile);
-		ParkActor(WaterBottle);
-		ChapterTwoWaterBottles.Add(WaterBottle);
-	}
-
-	auto SpawnParkedZone = [&](const FVector& Location,
-		const FVector& Extent,
-		const TCHAR* StateTagName,
-		const FText& Thought) -> AIGZoneTrigger*
-	{
-		const FTransform ZoneTransform(FRotator::ZeroRotator, Location);
-		AIGZoneTrigger* Zone = World->SpawnActorDeferred<AIGZoneTrigger>(
-			AIGZoneTrigger::StaticClass(),
-			ZoneTransform,
-			this,
-			nullptr,
-			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-		if (Zone)
-		{
-			Zone->SetZoneExtent(Extent);
-			Zone->StateTagOnEnter = FGameplayTag::RequestGameplayTag(
-				FName(StateTagName), false);
-			Zone->ThoughtOnEnter = Thought;
-			Zone->SetActorEnableCollision(false);
-			Zone->FinishSpawning(ZoneTransform);
-		}
-		return Zone;
-	};
-
-	ChapterTwoLeftHomeZone = SpawnParkedZone(
-		FVector(180, -305, 1010), FVector(72, 62, 110),
-		TEXT("State.CH02.Loop.LeftHome"),
-		FText::GetEmpty());
-	ChapterTwoOutdoorZone = SpawnParkedZone(
-		FVector(643, -435, 110), FVector(120, 55, 110),
-		TEXT("State.CH02.Loop.EnteredAlley"),
-		FText::GetEmpty());
-	MirrorSightZone = SpawnParkedZone(
-		FVector(350, -300, 1010), FVector(72, 72, 110),
-		TEXT("State.CH02.Loop.SawMirrorRoom"),
-		NSLOCTEXT("IGCH02", "MirrorMovedThought", "403호가… 여기였나?"));
-	MirrorEntryZone = SpawnParkedZone(
-		// Trigger only after the capsule has cleared the inward-swinging leaf.
-		// Closing at the threshold made the door safety sensor reopen it and
-		// left the scripted blackout playing against a visibly open doorway.
-		FVector(430, -65, 1010), FVector(45, 20, 110),
-		TEXT("State.CH02.Loop.EnteredMirrorRoom"),
-		NSLOCTEXT("IGCH02", "MirrorEnteredThought", "…우리 집이랑 똑같네."));
-	ChapterTwoStoreEntryZone = SpawnParkedZone(
-		FVector(2450, -457, 116), FVector(35, 95, 110),
-		TEXT("State.CH02.Loop.EnteredStore"),
-		FText::GetEmpty());
-	// C3 belongs to the return toward 404, not to a directionless lobby
-	// crossing. The old ground-floor volume ended the chapter while a player
-	// with P1+search evidence was still walking out, and could miss an
-	// elevator return entirely. This 4F corridor anchor is crossed only after
-	// the player has turned back toward the apartment.
-	ChapterTwoReturnZone = SpawnParkedZone(
-		FVector(300, -305, 1010), FVector(45, 62, 110),
-		TEXT("State.CH02.Loop.Returned"),
-		FText::GetEmpty());
-}
-
-void AIGPrologueWorldScene::SpawnChapterTwoItemContinuityDressing()
-{
-	if (IsValid(ChapterTwoItemContinuityDressing) || !GetWorld())
-	{
-		return;
-	}
-
-	EIGRebirthPurchaseProfile PurchaseProfile =
-		EIGRebirthPurchaseProfile::ProfileA500MlX2;
-	EIGRebirthBottleClosureState ClosureState =
-		EIGRebirthBottleClosureState::Resealed;
-	if (const UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (const UIGRebirthNarrativeSubsystem* RebirthState =
-			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
-		{
-			const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
-			if (Choices.PurchaseProfile != EIGRebirthPurchaseProfile::Unset)
-			{
-				PurchaseProfile = Choices.PurchaseProfile;
-			}
-			if (Choices.BottleClosureState
-				!= EIGRebirthBottleClosureState::Unset)
-			{
-				ClosureState = Choices.BottleClosureState;
-			}
-		}
-	}
-
-	for (TActorIterator<AIGItemContinuityDressing> It(GetWorld()); It; ++It)
-	{
-		AIGItemContinuityDressing* Existing = *It;
-		if (!Existing
-			|| !Existing->ActorHasTag(
-				FName(TEXT("REBIRTH.ItemContinuity.CH02RecycleSack"))))
-		{
-			continue;
-		}
-		if (Existing->MatchesContract(
-			EIGItemContinuityPresentation::LobbyRecycleSack,
-			PurchaseProfile,
-			ClosureState))
-		{
-			ChapterTwoItemContinuityDressing = Existing;
-			IGStory::AddState(
-				this,
-				FGameplayTag::RequestGameplayTag(
-					FName(TEXT(
-						"State.CH02.Loop.RecycleEvidenceRestored")),
-					false));
-			return;
-		}
-		Existing->Destroy();
-	}
-
-	const FTransform EvidenceTransform(
-		GetActorTransform().TransformRotation(
-			FRotator(0.0f, 14.0f, 0.0f).Quaternion()),
-		GetActorTransform().TransformPosition(
-			FVector(-210.0f, -350.0f, 0.8f)));
-	FActorSpawnParameters Parameters;
-	Parameters.Owner = this;
-	Parameters.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	ChapterTwoItemContinuityDressing =
-		GetWorld()->SpawnActor<AIGItemContinuityDressing>(
-			AIGItemContinuityDressing::StaticClass(),
-			EvidenceTransform,
-			Parameters);
-	if (ChapterTwoItemContinuityDressing)
-	{
-		ChapterTwoItemContinuityDressing->Configure(
-			EIGItemContinuityPresentation::LobbyRecycleSack,
-			PurchaseProfile,
-			ClosureState,
-			CubeMesh,
-			CylinderMesh,
-			SignWhiteMaterial,
-			GlassMaterial,
-			WaterBlueMaterial,
-			SnackBlueMaterial);
-		IGStory::AddState(
-			this,
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Loop.RecycleEvidenceRestored")),
-				false));
-	}
-}
-
-void AIGPrologueWorldScene::RefreshChapterTwoCatWaterAftermath()
-{
-	if (!GetWorld())
-	{
-		return;
-	}
-	for (TActorIterator<AIGChapterOneIncidentAction> It(GetWorld()); It; ++It)
-	{
-		AIGChapterOneIncidentAction* Existing = *It;
-		if (Existing
-			&& Existing->Tags.Contains(IGPrologueWorld::CatWaterAftermathTag)
-			&& !Existing->IsActorBeingDestroyed())
-		{
-			Existing->Destroy();
-		}
-	}
-	ChapterTwoCatWaterAftermath = nullptr;
-
-	const UIGRebirthNarrativeSubsystem* RebirthState = GetGameInstance()
-		? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
-		: nullptr;
-	if (!RebirthState)
-	{
-		return;
-	}
-	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
-	FVector LocalLocation = FVector::ZeroVector;
-	FVector Size = FVector::ZeroVector;
-	UStaticMesh* Mesh = nullptr;
-	UMaterialInterface* Material = nullptr;
-	FName PresentationTag;
-	if (Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap)
-	{
-		if (Choices.bWaitedForCat)
-		{
-			LocalLocation = FVector(1198.0f, -438.0f, 8.0f);
-			Size = FVector(18.0f, 18.0f, 0.8f);
-			Mesh = CylinderMesh;
-			Material = WaterBlueMaterial;
-			PresentationTag = IGPrologueWorld::CatWaterWetRingTag;
-		}
-		else
-		{
-			LocalLocation = FVector(1230.0f, -438.0f, 9.0f);
-			Size = FVector(8.0f, 8.0f, 3.0f);
-			Mesh = CylinderMesh;
-			Material = PlasticDarkMaterial;
-			PresentationTag = IGPrologueWorld::CatWaterCapTag;
-		}
-	}
-	else if (Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup)
-	{
-		LocalLocation = FVector(1255.0f, -438.0f, 10.0f);
-		Size = FVector(10.0f, 10.0f, 13.0f);
-		Mesh = CylinderMesh;
-		Material = SignWhiteMaterial;
-		PresentationTag = IGPrologueWorld::CatWaterCupTag;
-	}
-	else
-	{
-		return;
-	}
-
-	const FTransform SpawnTransform(
-		GetActorTransform().TransformRotation(FQuat::Identity),
-		GetActorTransform().TransformPosition(LocalLocation));
-	ChapterTwoCatWaterAftermath =
-		GetWorld()->SpawnActorDeferred<AIGChapterOneIncidentAction>(
-			AIGChapterOneIncidentAction::StaticClass(),
-			SpawnTransform,
-			this,
-			nullptr,
-			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (!ChapterTwoCatWaterAftermath)
-	{
-		return;
-	}
-	ChapterTwoCatWaterAftermath->Configure(
-		nullptr,
-		EIGChapterOneIncidentAction::None,
-		Mesh,
-		Material,
-		Size,
-		FText::GetEmpty());
-	ChapterTwoCatWaterAftermath->Tags.AddUnique(
-		IGPrologueWorld::CatWaterAftermathTag);
-	ChapterTwoCatWaterAftermath->Tags.AddUnique(PresentationTag);
-	ChapterTwoCatWaterAftermath->FinishSpawning(SpawnTransform);
-	ChapterTwoCatWaterAftermath->SetActorHiddenInGame(false);
-	ChapterTwoCatWaterAftermath->SetActorEnableCollision(false);
-	ChapterTwoCatWaterAftermath->SetInteractionEnabled(false);
-}
-
-bool AIGPrologueWorldScene::ValidateChapterTwoCatWaterAftermath() const
-{
-	const UIGRebirthNarrativeSubsystem* RebirthState = GetGameInstance()
-		? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
-		: nullptr;
-	if (!RebirthState || !GetWorld())
-	{
-		return false;
-	}
-	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
-	FName ExpectedTag;
-	FVector ExpectedLocalLocation = FVector::ZeroVector;
-	if (Choices.CatWaterState == EIGRebirthCatWaterState::BottleCap)
-	{
-		ExpectedTag = Choices.bWaitedForCat
-			? IGPrologueWorld::CatWaterWetRingTag
-			: IGPrologueWorld::CatWaterCapTag;
-		ExpectedLocalLocation = Choices.bWaitedForCat
-			? FVector(1198.0f, -438.0f, 8.0f)
-			: FVector(1230.0f, -438.0f, 9.0f);
-	}
-	else if (Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup)
-	{
-		ExpectedTag = IGPrologueWorld::CatWaterCupTag;
-		ExpectedLocalLocation = FVector(1255.0f, -438.0f, 10.0f);
-	}
-
-	int32 LiveAftermathCount = 0;
-	for (TActorIterator<AIGChapterOneIncidentAction> It(GetWorld()); It; ++It)
-	{
-		const AIGChapterOneIncidentAction* Existing = *It;
-		LiveAftermathCount += Existing
-			&& Existing->Tags.Contains(IGPrologueWorld::CatWaterAftermathTag)
-			&& !Existing->IsActorBeingDestroyed()
-			? 1
-			: 0;
-	}
-	if (ExpectedTag.IsNone())
-	{
-		return LiveAftermathCount == 0
-			&& !IsValid(ChapterTwoCatWaterAftermath);
-	}
-	const FVector ExpectedWorldLocation =
-		GetActorTransform().TransformPosition(ExpectedLocalLocation);
-	return LiveAftermathCount == 1
-		&& IsValid(ChapterTwoCatWaterAftermath)
-		&& ChapterTwoCatWaterAftermath->Tags.Contains(ExpectedTag)
-		&& !ChapterTwoCatWaterAftermath->IsHidden()
-		&& !ChapterTwoCatWaterAftermath->GetActorEnableCollision()
-		&& !ChapterTwoCatWaterAftermath->IsInteractionEnabled()
-		&& FVector::DistSquared(
-			ChapterTwoCatWaterAftermath->GetActorLocation(),
-			ExpectedWorldLocation) <= 1.0f;
-}
-
-void AIGPrologueWorldScene::HandleFlashlightPickedUp(AIGPickupItem* Item)
-{
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UIGRebirthNarrativeSubsystem* RebirthState =
-			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
-		{
-			RebirthState->SetHasMemoryFlashlight(true);
-		}
-		if (UIGSaveSubsystem* SaveSubsystem =
-			GameInstance->GetSubsystem<UIGSaveSubsystem>())
-		{
-			const FGameplayTag EnteredStoreTag =
-				FGameplayTag::RequestGameplayTag(
-					FName(TEXT("State.CH02.Loop.EnteredStore")),
-					false);
-			const FGameplayTag LeftHomeTag =
-				FGameplayTag::RequestGameplayTag(
-					FName(TEXT("State.CH02.Loop.LeftHome")),
-					false);
-			const FGameplayTag CheckpointTag =
-				IGStory::HasState(this, EnteredStoreTag)
-					? FGameplayTag::RequestGameplayTag(
-						FName(TEXT("Checkpoint.CH02.Store")),
-						false)
-					: IGStory::HasState(this, LeftHomeTag)
-						? FGameplayTag::RequestGameplayTag(
-							FName(TEXT("Checkpoint.CH02.Corridor")),
-							false)
-						: FGameplayTag::RequestGameplayTag(
-							FName(TEXT("Checkpoint.CH02.Woke")),
-							false);
-			SaveSubsystem->RequestAutosave(
-				FGameplayTag::RequestGameplayTag(
-					FName(TEXT("Chapter.CH02")),
-					false),
-				GetWorld() ? GetWorld()->GetOutermost()->GetFName() : NAME_None,
-				CheckpointTag);
-		}
-	}
-
-	const UWorld* World = GetWorld();
-	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
-	AIGPlayerCharacter* Player = PlayerController
-		? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
-		: nullptr;
-	if (UIGFlashlightComponent* Torch = Player ? Player->GetFlashlight() : nullptr)
-	{
-		Torch->SetAvailable(true);
-	}
-}
-
 void AIGPrologueWorldScene::HandlePurchaseSelectionChanged(AIGPickupItem* Item)
 {
-	if (Item && !bChapterTwoActive)
+	if (Item)
 	{
 		RefreshPurchaseProfilePresentation();
 	}
-}
-
-void AIGPrologueWorldScene::SpawnDirectors()
-{
-	UWorld* World = GetWorld();
-	if (!World || !CubeMesh)
-	{
-		return;
-	}
-
-	AlarmSound = NewObject<UIGAlarmSoundWave>(this, TEXT("PrologueAlarmTone"));
-
-	const FTransform AlarmTransform(FRotator::ZeroRotator, AlarmWorldLocation);
-	AlarmClock = World->SpawnActorDeferred<AIGPrologueAlarmClock>(
-		AIGPrologueAlarmClock::StaticClass(),
-		AlarmTransform,
-		this,
-		nullptr,
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (!AlarmClock)
-	{
-		return;
-	}
-	AlarmClock->ConfigurePrototype(
-		PropMesh(TEXT("SM_AlarmClock"), CubeMesh),
-		CubeMesh,
-		PlasticDarkMaterial,
-		TexMat(TEXT("M_ClockFace"), AlarmMaterial),
-		TexMat(TEXT("M_MetalUV"), MetalFrameMaterial),
-		AlarmSound);
-	AlarmClock->FinishSpawning(AlarmTransform);
-
-	WakeDirector = World->SpawnActorDeferred<AIGPrologueWakeDirector>(
-		AIGPrologueWakeDirector::StaticClass(),
-		FTransform::Identity,
-		this,
-		nullptr,
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (!WakeDirector)
-	{
-		return;
-	}
-	WakeDirector->ConfigurePrototype(AlarmClock);
-	WakeDirector->FinishSpawning(FTransform::Identity);
-
-	const FTransform GetUpTransform(
-		FRotator::ZeroRotator,
-		IGPrologueWorld::GetUpTargetLocation);
-	GetUpTarget = World->SpawnActorDeferred<AIGPrologueGetUpTarget>(
-		AIGPrologueGetUpTarget::StaticClass(),
-		GetUpTransform,
-		this,
-		nullptr,
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (GetUpTarget)
-	{
-		GetUpTarget->ConfigurePrototype(
-			WakeDirector, CubeMesh, TexMat(TEXT("M_BeddingUV"), BeddingMaterial));
-		GetUpTarget->FinishSpawning(GetUpTransform);
-	}
-
-	// Morning routine director wired to the world it narrates.
-	FActorSpawnParameters DirectorParameters;
-	DirectorParameters.Owner = this;
-	MorningDirector = World->SpawnActor<AIGMorningRoutineDirector>(
-		AIGMorningRoutineDirector::StaticClass(),
-		FTransform::Identity,
-	DirectorParameters);
-	if (MorningDirector)
-	{
-		MorningDirector->SetSceneReferences(
-			FlickerStreetlight,
-			ChapterOneApartmentExitZone);
-
-		if (FlickerZone)
-		{
-			FlickerZone->OnZoneTriggered.AddDynamic(
-				this,
-				&ThisClass::HandleFlickerZoneTriggered);
-		}
-	}
-
-	WakeDirector->StartWakeUp();
-	UE_LOG(LogIndieGame, Display, TEXT("Prologue wake flow started."));
 }
 
 void AIGPrologueWorldScene::CreateAmbience()
@@ -7991,52 +5936,11 @@ void AIGPrologueWorldScene::CreateAmbience()
 		650.0f);
 }
 
-void AIGPrologueWorldScene::SpawnDemoDirectorIfRequested()
-{
-	const TCHAR* CommandLine = FCommandLine::Get();
-	const bool bCaptureStills = FParse::Param(CommandLine, TEXT("IGCapture"));
-	const bool bDumpFrames = FParse::Param(CommandLine, TEXT("IGDemoFrames"));
-	const bool bDemoOnly = FParse::Param(CommandLine, TEXT("IGDemo"));
-	if (!bCaptureStills && !bDumpFrames && !bDemoOnly)
-	{
-		return;
-	}
-
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-
-	FActorSpawnParameters DemoParameters;
-	DemoParameters.Owner = this;
-	DemoDirector = World->SpawnActor<AIGDemoDirector>(
-		AIGDemoDirector::StaticClass(),
-		FTransform::Identity,
-		DemoParameters);
-	if (DemoDirector)
-	{
-		DemoDirector->ConfigureDemo(
-			WakeDirector,
-			AlarmClock,
-			Fridge,
-			Wallet,
-			HomeDoor,
-			Elevator,
-			BuildingDoor,
-			WaterBottles.Num() > 0 ? WaterBottles[0].Get() : nullptr,
-			Checkout,
-			bCaptureStills,
-			bDumpFrames,
-			bCaptureStills || bDumpFrames);
-	}
-}
-
 void AIGPrologueWorldScene::HandleStoryStateChanged(
 	const FGameplayTag StateTag,
 	const bool bAdded)
 {
-	if (!bAdded || bChapterTwoTransitionPending)
+	if (!bAdded)
 	{
 		return;
 	}
@@ -8047,1519 +5951,13 @@ void AIGPrologueWorldScene::HandleStoryStateChanged(
 		FName(TEXT("State.CH01.Morning.HasWater")), false);
 	const FGameplayTag ChapterOneLeftHome = FGameplayTag::RequestGameplayTag(
 		FName(TEXT("State.CH01.Morning.LeftHome")), false);
-	const FGameplayTag ChapterTwoEnteredAlley = FGameplayTag::RequestGameplayTag(
-		FName(TEXT("State.CH02.Loop.EnteredAlley")), false);
-	const FGameplayTag ChapterTwoHasWater = FGameplayTag::RequestGameplayTag(
-		FName(TEXT("State.CH02.Loop.HasWater")), false);
-	const FGameplayTag ChapterTwoPurchase = FGameplayTag::RequestGameplayTag(
-		FName(TEXT("State.CH02.Loop.WaterPurchased")), false);
-	if (bChapterTwoActive)
-	{
-		if (StateTag.MatchesTagExact(ChapterTwoEnteredAlley) && NeighborhoodLifeDirector)
-		{
-			NeighborhoodLifeDirector->PrimeOutdoorSequence();
-		}
-		if (StateTag.MatchesTagExact(ChapterTwoHasWater)
-			|| StateTag.MatchesTagExact(ChapterTwoPurchase))
-		{
-			RefreshPurchaseProfilePresentation();
-		}
-		return;
-	}
 	if (StateTag.MatchesTagExact(ChapterOneLeftHome) && NeighborhoodLifeDirector)
 	{
 		NeighborhoodLifeDirector->PrimeOutdoorSequence();
 	}
-	if (StateTag.MatchesTagExact(ChapterOneHasWater))
+	if (StateTag.MatchesTagExact(ChapterOneHasWater)
+		|| StateTag.MatchesTagExact(ChapterOnePurchase))
 	{
 		RefreshPurchaseProfilePresentation();
-	}
-	if (StateTag.MatchesTagExact(ChapterOnePurchase))
-	{
-		RefreshPurchaseProfilePresentation();
-		if (ChapterOneReceipt)
-		{
-			ChapterOneReceipt->SetActorHiddenInGame(false);
-			ChapterOneReceipt->SetActorEnableCollision(true);
-			ChapterOneReceipt->SetInteractionEnabled(true);
-		}
-		SpawnChapterOneIncident();
-		SpawnReturnBoundary();
-	}
-}
-
-void AIGPrologueWorldScene::SpawnChapterOneIncident()
-{
-	if (ChapterOneIncidentDirector
-		|| bChapterTwoActive
-		|| bChapterThreeActive
-		|| !GetWorld())
-	{
-		return;
-	}
-
-	FActorSpawnParameters Parameters;
-	Parameters.Owner = this;
-	Parameters.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	ChapterOneIncidentDirector =
-		GetWorld()->SpawnActor<AIGChapterOneIncidentDirector>(
-			AIGChapterOneIncidentDirector::StaticClass(),
-			FTransform::Identity,
-			Parameters);
-	if (!ChapterOneIncidentDirector)
-	{
-		return;
-	}
-	ChapterOneIncidentDirector->Configure(
-		this,
-		NeighborhoodLifeDirector,
-		CubeMesh,
-		CylinderMesh,
-		PlasticDarkMaterial,
-		TexMat(TEXT("M_CarrierBagFilm"), GlassMaterial),
-		WaterBlueMaterial,
-		GetActorTransform());
-	ChapterOneIncidentDirector->OnMemoryBoundaryCompleted.AddUniqueDynamic(
-		this,
-		&ThisClass::HandleChapterOneMemoryBoundaryCompleted);
-}
-
-void AIGPrologueWorldScene::SpawnReturnBoundary()
-{
-	if (ReturnBoundaryZone || !GetWorld())
-	{
-		return;
-	}
-
-	// Promotional CH01 capture remains a stable, finite route. The natural
-	// loop boundary is only armed in an interactive run.
-	const TCHAR* CommandLine = FCommandLine::Get();
-	if (FParse::Param(CommandLine, TEXT("IGCapture"))
-		|| FParse::Param(CommandLine, TEXT("IGDemoFrames"))
-		|| FParse::Param(CommandLine, TEXT("IGDemo")))
-	{
-		return;
-	}
-
-	FActorSpawnParameters SpawnParameters;
-	SpawnParameters.Owner = this;
-	SpawnParameters.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	const FTransform ReturnBoundaryTransform(
-		FRotator::ZeroRotator,
-		FVector(643, -360, 110));
-	ReturnBoundaryZone = GetWorld()->SpawnActorDeferred<AIGZoneTrigger>(
-		AIGZoneTrigger::StaticClass(),
-		ReturnBoundaryTransform,
-		this,
-		nullptr,
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (ReturnBoundaryZone)
-	{
-		ReturnBoundaryZone->SetZoneExtent(FVector(72, 52, 110));
-		ReturnBoundaryZone->FinishSpawning(ReturnBoundaryTransform);
-		ReturnBoundaryZone->OnZoneTriggered.AddUniqueDynamic(
-			this, &ThisClass::HandleReturnBoundaryTriggered);
-	}
-}
-
-void AIGPrologueWorldScene::HandleReturnBoundaryTriggered(AIGZoneTrigger* Zone)
-{
-	if (Zone == ReturnBoundaryZone && ChapterOneIncidentDirector)
-	{
-		// Crossing the actual common entrance records only 1F arrival. The
-		// player still chooses stairs or lift and physically reaches 4F before
-		// the shared accident convergence can own input or fade the camera.
-		ChapterOneIncidentDirector->RegisterLobbyReturn();
-	}
-}
-
-void AIGPrologueWorldScene::HandleChapterOneMemoryBoundaryCompleted()
-{
-	BeginChapterTwoTransition();
-}
-
-void AIGPrologueWorldScene::HandleElevatorReturnedToFourthFloor(
-	AIGElevator* ReturnedElevator)
-{
-	if (ReturnedElevator != Elevator
-		|| bChapterTwoActive
-		|| bChapterThreeActive
-		|| !ChapterOneIncidentDirector)
-	{
-		return;
-	}
-	ChapterOneIncidentDirector->RegisterFourthFloorReturn();
-}
-
-void AIGPrologueWorldScene::HandleStairTransitionCompleted(
-	const bool bGoingDown)
-{
-	if (bChapterThreeActive)
-	{
-		return;
-	}
-	if (bGoingDown)
-	{
-		// Floor transfer is not the outdoor boundary. The real common-door
-		// volumes own LeftHome/EnteredAlley after the player actually exits.
-		return;
-	}
-
-	if (!bChapterTwoActive
-		&& ChapterOneIncidentDirector
-		&& IGStory::HasState(
-			this,
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH01.Morning.WaterPurchased")),
-				false)))
-	{
-		ChapterOneIncidentDirector->RegisterFourthFloorReturn();
-	}
-}
-
-void AIGPrologueWorldScene::BeginChapterTwoTransition()
-{
-	if (bChapterTwoTransitionPending || bChapterTwoActive || !GetWorld())
-	{
-		return;
-	}
-	bChapterTwoTransitionPending = true;
-
-	if (APlayerController* PlayerController = GetWorld()->GetFirstPlayerController())
-	{
-		if (APlayerCameraManager* CameraManager = PlayerController->PlayerCameraManager)
-		{
-			// The 1.8-second first-stair memory cut already owns black. Hold
-			// it through the chapter swap instead of flashing back to the
-			// corridor by restarting a 0->1 fade.
-			CameraManager->StartCameraFade(
-				1.0f, 1.0f, 1.2f, FLinearColor::Black, false, true);
-		}
-	}
-
-	GetWorldTimerManager().SetTimer(
-		ChapterTransitionHandle,
-		this,
-		&ThisClass::EnterChapterTwo,
-		1.2f,
-		false);
-}
-
-void AIGPrologueWorldScene::StartRebirthEndToEndValidation()
-{
-	if (!bRebirthEndToEndValidation
-		|| !MorningDirector
-		|| !Checkout
-		|| !Wallet
-		|| !GetWorld())
-	{
-		FailRebirthEndToEndValidation(TEXT("CH01 actors unavailable"));
-		return;
-	}
-
-	UGameInstance* GameInstance = GetGameInstance();
-	UIGStoryStateSubsystem* StoryState = GameInstance
-		? GameInstance->GetSubsystem<UIGStoryStateSubsystem>()
-		: nullptr;
-	UIGRebirthNarrativeSubsystem* RebirthState = GameInstance
-		? GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>()
-		: nullptr;
-	APlayerController* PlayerController =
-		GetWorld()->GetFirstPlayerController();
-	AIGPlayerCharacter* Player = PlayerController
-		? Cast<AIGPlayerCharacter>(PlayerController->GetPawn())
-		: nullptr;
-	if (!StoryState || !RebirthState || !Player)
-	{
-		FailRebirthEndToEndValidation(TEXT("CH01 subsystems or player unavailable"));
-		return;
-	}
-
-	int32 StoreStockBatchCount = 0;
-	int32 StoreStockInstanceCount = 0;
-	if (!ValidateStoreStockBatches(
-			StoreStockBatchCount,
-			StoreStockInstanceCount))
-	{
-		UE_LOG(
-			LogIndieGame,
-			Error,
-			TEXT(
-				"REBIRTH_RELEASE FAIL store_instancing instances=%d expected=%d "
-				"batches=%d maximum=%d"),
-			StoreStockInstanceCount,
-			IGPrologueWorld::ExpectedStoreStockInstances,
-			StoreStockBatchCount,
-			IGPrologueWorld::MaximumStoreStockBatches);
-		FailRebirthEndToEndValidation(TEXT("store stock batching contract"));
-		return;
-	}
-	UE_LOG(
-		LogIndieGame,
-		Display,
-		TEXT(
-			"REBIRTH_RELEASE PASS store_instancing instances=%d batches=%d "
-			"cull_cm=%d-%d"),
-		StoreStockInstanceCount,
-		StoreStockBatchCount,
-		IGPrologueWorld::StoreStockCullStartCentimeters,
-		IGPrologueWorld::StoreStockCullEndCentimeters);
-
-	StoryState->ClearStates(false);
-	RebirthState->ResetNarrative();
-	const auto AddStoryState = [this](const TCHAR* Name)
-	{
-		IGStory::AddState(
-			this,
-			FGameplayTag::RequestGameplayTag(FName(Name), false));
-	};
-	AddStoryState(TEXT("State.CH01.Wake.Standing"));
-	AddStoryState(TEXT("State.CH01.Morning.FridgeChecked"));
-
-	FIGInteractionContext Context;
-	Context.Interactor = Player;
-	Context.TargetActor = Wallet;
-	Wallet->CompleteInteraction_Implementation(Context);
-	AddStoryState(TEXT("State.CH01.Morning.LeftApartment"));
-	if (!MorningDirector->RunRebirthEndToEndFirstExit())
-	{
-		FailRebirthEndToEndValidation(TEXT("CH01 outfit first-exit contract"));
-		return;
-	}
-	AddStoryState(TEXT("State.CH01.Morning.LeftHome"));
-	AddStoryState(TEXT("State.CH01.Morning.EnteredStore"));
-
-	AIGPickupItem* SelectedWater = nullptr;
-	for (AIGPickupItem* Candidate : WaterBottles)
-	{
-		if (Candidate
-			&& Candidate->RebirthPurchaseProfileOnPickup
-				== EIGRebirthPurchaseProfile::ProfileA500MlX2)
-		{
-			SelectedWater = Candidate;
-			break;
-		}
-	}
-	if (!SelectedWater)
-	{
-		FailRebirthEndToEndValidation(TEXT("CH01 profile A pickup unavailable"));
-		return;
-	}
-	Context.TargetActor = SelectedWater;
-	SelectedWater->CompleteInteraction_Implementation(Context);
-	Context.TargetActor = Checkout;
-	Checkout->CompleteInteraction_Implementation(Context);
-
-	if (!ChapterOneIncidentDirector
-		|| !ChapterOneIncidentDirector->RunRebirthEndToEndReturnRoute())
-	{
-		FailRebirthEndToEndValidation(TEXT("CH01 return incident route"));
-		return;
-	}
-
-	const FIGRebirthChoiceState Choices = RebirthState->GetChoices();
-	const bool bPassed =
-		MorningDirector->GetPhase() == EIGMorningPhase::Complete
-		&& Choices.PurchaseProfile
-			== EIGRebirthPurchaseProfile::ProfileA500MlX2
-		&& Choices.PaymentMethod == EIGRebirthPaymentMethod::WalletCard
-		&& Choices.CatWaterState == EIGRebirthCatWaterState::PaperCup
-		&& Choices.BottleClosureState
-			== EIGRebirthBottleClosureState::Resealed
-		&& Choices.bHasPaperCup
-		&& Choices.bWaitedForCat
-		&& RebirthState->CanConverge(
-			EIGRebirthConvergencePoint::C1StorePurchase)
-		&& RebirthState->CanConverge(
-			EIGRebirthConvergencePoint::C2FirstReturn);
-	if (!bPassed)
-	{
-		FailRebirthEndToEndValidation(TEXT("CH01 router state mismatch"));
-		return;
-	}
-
-	UE_LOG(
-		LogIndieGame,
-		Display,
-		TEXT(
-			"REBIRTH_E2E PASS ch01_router profile=A payment=wallet "
-			"cat=paper_cup waited=1 outfit_once=1 c1=1 c2=1"));
-}
-
-void AIGPrologueWorldScene::ContinueRebirthEndToEndChapterTwo()
-{
-	FString EndingValue;
-	const bool bEndingB =
-		FParse::Value(
-			FCommandLine::Get(),
-			TEXT("IGRebirthEnding="),
-			EndingValue)
-		&& EndingValue.Equals(TEXT("B"), ESearchCase::IgnoreCase);
-	FString RouteValue;
-	if (!FParse::Value(
-			FCommandLine::Get(),
-			TEXT("IGRebirthCH02Route="),
-			RouteValue))
-	{
-		RouteValue = bEndingB ? TEXT("P2ThenP1") : TEXT("P1ThenP2");
-	}
-	const bool bP2First =
-		RouteValue.Equals(TEXT("P2ThenP1"), ESearchCase::IgnoreCase);
-	const bool bSkipP1 =
-		RouteValue.Equals(TEXT("SkipP1"), ESearchCase::IgnoreCase)
-		|| RouteValue.Equals(TEXT("SkipBoth"), ESearchCase::IgnoreCase);
-	const bool bSkipP2 =
-		RouteValue.Equals(TEXT("SkipP2"), ESearchCase::IgnoreCase)
-		|| RouteValue.Equals(TEXT("SkipBoth"), ESearchCase::IgnoreCase);
-	const bool bKnownRoute = bP2First
-		|| RouteValue.Equals(TEXT("P1ThenP2"), ESearchCase::IgnoreCase)
-		|| bSkipP1
-		|| bSkipP2;
-	if (!bKnownRoute || (bP2First && (bSkipP1 || bSkipP2)))
-	{
-		FailRebirthEndToEndValidation(TEXT("unknown CH02 validation route"));
-		return;
-	}
-	if (!bRebirthEndToEndValidation
-		|| !SecondMorningDirector
-		|| !SecondMorningDirector->RunRebirthEndToEndRoute(
-			bP2First,
-			bSkipP1,
-			bSkipP2))
-	{
-		FailRebirthEndToEndValidation(TEXT("CH02 production event route"));
-		return;
-	}
-
-	const UIGRebirthNarrativeSubsystem* RebirthState =
-		GetGameInstance()
-			? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
-			: nullptr;
-	const FIGRebirthChoiceState Choices =
-		RebirthState ? RebirthState->GetChoices() : FIGRebirthChoiceState();
-	const FIGRebirthNarrativeSnapshot Snapshot = RebirthState
-		? RebirthState->BuildSnapshot()
-		: FIGRebirthNarrativeSnapshot();
-	const bool bP1Resolved =
-		Snapshot.ResolvedPuzzles.Contains(FName(TEXT("P1")));
-	const bool bP2Resolved =
-		Snapshot.ResolvedPuzzles.Contains(FName(TEXT("P2")));
-	const int32 TimeEntryPhysicalCount =
-		SecondMorningDirector->GetTimeEntryPhysicalContractCount();
-	const int32 TimeEntryMeshComponentCount =
-		SecondMorningDirector->GetTimeEntryMeshComponentCount();
-	const int32 AuthoredHousingCount =
-		SecondMorningDirector->GetAuthoredTimeEntryHousingCount();
-	const int32 LayeredDisplayCount =
-		SecondMorningDirector->GetLayeredTimeEntryDisplayCount();
-	int32 TruthCount = 0;
-	for (const TCHAR* TruthName : {
-		TEXT("Truth.Alarm0510"),
-		TEXT("Truth.DeathOverlay"),
-		TEXT("Truth.WasSearched")})
-	{
-		TruthCount += RebirthState
-			&& RebirthState->HasTruth(FGameplayTag::RequestGameplayTag(
-				FName(TruthName),
-				false))
-			? 1
-			: 0;
-	}
-	const bool bPassed =
-		RebirthState
-		&& Choices.PurchaseProfile
-			== EIGRebirthPurchaseProfile::ProfileA500MlX2
-		&& Choices.PaymentMethod == EIGRebirthPaymentMethod::WalletCard
-		&& RebirthState->WasOneShotBeatPlayed(
-			FName(TEXT("CH01.BagPlacedAtLadder")))
-		&& ChapterTwoItemContinuityDressing
-		&& ChapterTwoItemContinuityDressing->MatchesContract(
-			EIGItemContinuityPresentation::LobbyRecycleSack,
-			Choices.PurchaseProfile,
-			Choices.BottleClosureState)
-		&& ValidateChapterTwoCatWaterAftermath()
-		&& TimeEntryPhysicalCount == 2
-		&& TimeEntryMeshComponentCount == 23
-		&& AuthoredHousingCount == 2
-		&& LayeredDisplayCount == 2
-		&& bP1Resolved == !bSkipP1
-		&& bP2Resolved == !bSkipP2
-		&& TruthCount == (bSkipP1 || bSkipP2 ? 2 : 3)
-		&& RebirthState->CanConverge(
-			EIGRebirthConvergencePoint::C3SecondMorning);
-	if (!bPassed)
-	{
-		FailRebirthEndToEndValidation(TEXT("CH02 router state mismatch"));
-		return;
-	}
-
-	UE_LOG(
-		LogIndieGame,
-		Display,
-		TEXT(
-			"REBIRTH_E2E PASS ch02_router p1=%d p2=%d truths=%d searched=1 "
-			"outfit_once=1 human_gate=1 c3=1 purchase_preserved=1 "
-			"item_continuity=1 cat_aftermath=1 authored_housings=%d "
-			"layered_displays=%d "
-			"time_entry_physical=%d "
-			"time_entry_mesh_components=%d "
-			"pressure_caps=%d "
-			"route_order=%s"),
-		bP1Resolved ? 1 : 0,
-		bP2Resolved ? 1 : 0,
-		TruthCount,
-		AuthoredHousingCount,
-		LayeredDisplayCount,
-		TimeEntryPhysicalCount,
-		TimeEntryMeshComponentCount,
-		(bSkipP1 ? 0 : 1) + (bSkipP2 ? 0 : 1),
-		bSkipP1 && bSkipP2
-			? TEXT("skip_both")
-			: bSkipP1
-				? TEXT("skip_p1")
-				: bSkipP2
-					? TEXT("skip_p2")
-					: bP2First ? TEXT("p2_p1") : TEXT("p1_p2"));
-}
-
-void AIGPrologueWorldScene::FailRebirthEndToEndValidation(
-	const TCHAR* Reason) const
-{
-	UE_LOG(
-		LogIndieGame,
-		Error,
-		TEXT("REBIRTH_E2E FAIL reason=%s"),
-		Reason ? Reason : TEXT("unknown"));
-	FPlatformMisc::RequestExitWithStatus(
-		false,
-		1,
-		TEXT("REBIRTH end-to-end validation failed"));
-}
-
-void AIGPrologueWorldScene::EnterChapterTwo()
-{
-	UWorld* World = GetWorld();
-	if (!World)
-	{
-		return;
-	}
-	if (ChapterOneIncidentDirector)
-	{
-		ChapterOneIncidentDirector->OnMemoryBoundaryCompleted.RemoveDynamic(
-			this,
-			&ThisClass::HandleChapterOneMemoryBoundaryCompleted);
-		ChapterOneIncidentDirector->Destroy();
-		ChapterOneIncidentDirector = nullptr;
-	}
-	const bool bResumeLoadedCheckpoint =
-		World->URL.HasOption(TEXT("IGResumeSave"));
-	const UIGSaveGame* LoadedSave = nullptr;
-	if (const UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (const UIGSaveSubsystem* SaveSubsystem =
-			GameInstance->GetSubsystem<UIGSaveSubsystem>())
-		{
-			LoadedSave = SaveSubsystem->GetLastLoadedSave();
-		}
-	}
-	const FGameplayTag LoadedCheckpoint =
-		LoadedSave ? LoadedSave->Progress.CheckpointTag : FGameplayTag();
-	const FGameplayTag StoreCheckpoint = FGameplayTag::RequestGameplayTag(
-		FName(TEXT("Checkpoint.CH02.Store")),
-		false);
-	const FGameplayTag WokeCheckpoint = FGameplayTag::RequestGameplayTag(
-		FName(TEXT("Checkpoint.CH02.Woke")),
-		false);
-	const bool bResumeAtStore =
-		bResumeLoadedCheckpoint
-		&& LoadedCheckpoint.MatchesTagExact(StoreCheckpoint);
-	const bool bResumeAtWoke =
-		bResumeLoadedCheckpoint
-		&& LoadedCheckpoint.MatchesTagExact(WokeCheckpoint);
-
-	if (NeighborhoodLifeDirector)
-	{
-		NeighborhoodLifeDirector->SetChapterVariant(
-			EIGNeighborhoodChapterVariant::ChapterTwoUncanny);
-	}
-	if (ChapterOneReceipt)
-	{
-		ChapterOneReceipt->SetActorHiddenInGame(true);
-		ChapterOneReceipt->SetActorEnableCollision(false);
-		ChapterOneReceipt->SetInteractionEnabled(false);
-	}
-
-	bChapterTwoTransitionPending = false;
-	bChapterTwoActive = true;
-
-	if (AIGReadableNote* OpenNote = AIGReadableNote::GetOpenNote())
-	{
-		OpenNote->Close();
-	}
-	if (MorningDirector)
-	{
-		MorningDirector->Destroy();
-		MorningDirector = nullptr;
-	}
-
-	if (!bResumeLoadedCheckpoint)
-	{
-		if (UGameInstance* GameInstance = GetGameInstance())
-		{
-			if (UIGStoryStateSubsystem* StoryState =
-				GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
-			{
-				StoryState->ClearStates(false);
-			}
-		}
-	}
-
-	// Consume/hide the first-loop inventory. Carry pointers are weak, so
-	// destroying the held bottle releases the hand without another mutation.
-	if (Wallet)
-	{
-		Wallet->SetActorHiddenInGame(true);
-		Wallet->SetActorEnableCollision(false);
-		Wallet->SetInteractionEnabled(false);
-	}
-	for (AIGPickupItem* WaterBottle : WaterBottles)
-	{
-		if (WaterBottle)
-		{
-			WaterBottle->Destroy();
-		}
-	}
-	WaterBottles.Reset();
-
-	bool bWalletRemainsOnDesk = true;
-	if (const UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (const UIGRebirthNarrativeSubsystem* RebirthState =
-			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
-		{
-			bWalletRemainsOnDesk =
-				RebirthState->GetChoices().PaymentMethod
-				!= EIGRebirthPaymentMethod::WalletCard;
-		}
-	}
-	if (ChapterTwoWallet)
-	{
-		ChapterTwoWallet->SetActorHiddenInGame(!bWalletRemainsOnDesk);
-		ChapterTwoWallet->SetActorEnableCollision(false);
-		ChapterTwoWallet->SetInteractionEnabled(false);
-	}
-	for (AIGPickupItem* WaterBottle : ChapterTwoWaterBottles)
-	{
-		if (WaterBottle)
-		{
-			// CH02 is not a second shopping errand. Keep the old shelf actors
-			// parked; the one lobby sack is the authoritative recovered
-			// purchase keyed to the persisted A/B/C choice.
-			WaterBottle->SetActorHiddenInGame(true);
-			WaterBottle->SetActorEnableCollision(false);
-			WaterBottle->SetInteractionEnabled(false);
-		}
-	}
-	SpawnChapterTwoItemContinuityDressing();
-	RefreshChapterTwoCatWaterAftermath();
-	if (Flashlight)
-	{
-		Flashlight->SetInteractionEnabled(true);
-	}
-
-	SetChapterTwoOverlayVisible(true);
-	for (int32 FixtureIndex = 0; FixtureIndex < GetCorridorFixtureCount(); ++FixtureIndex)
-	{
-		SetFixtureLive(FixtureIndex, true, true);
-	}
-	SuspendCorridorFlicker(true);
-	SetFixtureLive(0, false, true);
-
-	// The ground lobby is not black — it is an exhausted quarter-light.
-	for (UPointLightComponent* LobbyLight : LobbyLights)
-	{
-		if (LobbyLight)
-		{
-			LobbyLight->SetIntensity(400.0f);
-		}
-	}
-
-	if (Fridge)
-	{
-		Fridge->ConfigureChapterState(
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Loop.FridgeChecked")), false),
-			NSLOCTEXT("IGCH02", "SecondFridgeThought", "…또 물이 없다."));
-		Fridge->ResetForNewChapter();
-	}
-
-	if (Checkout)
-	{
-		Checkout->ConfigureChapterAction(
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Loop.CalledEmployee")), false),
-			NSLOCTEXT("IGCH02", "EmployeeCallPrompt", "직원 호출 버튼 누르기"),
-			NSLOCTEXT(
-				"IGCH02",
-				"EmployeeCallResult",
-				"직원 응답 없음. [보류 거래 자동 복원] 이미 결제된 상품입니다."));
-		Checkout->ResetForNewChapter();
-	}
-	RefreshPurchaseProfilePresentation();
-
-	if (HomeDoor)
-	{
-		HomeDoor->ForceOpenState(false);
-		// CH02 supports an unlit route and optional repeat investigations.
-		// Keep HUD guidance, but do not turn fridge, wallet or flashlight into
-		// movement locks.
-		TArray<FIGDoorRequirement> NoDoorRequirements;
-		HomeDoor->SetRequirements(MoveTemp(NoDoorRequirements));
-	}
-	if (BuildingDoor)
-	{
-		BuildingDoor->ForceOpenState(false);
-	}
-	if (MirrorRoomDoor)
-	{
-		MirrorRoomDoor->ForceOpenState(true);
-	}
-
-	if (Elevator)
-	{
-		Elevator->ResetForNewRide();
-		Elevator->ConfigureIntermediateStop(true, 12.0f);
-		if (bResumeAtStore)
-		{
-			Elevator->RestoreAtLobbyOpen();
-		}
-	}
-
-	// CH01 volumes outlive their director. Disable them before the second
-	// route starts so direct CH02 runs cannot emit first-morning thoughts or
-	// repopulate State.CH01 tags after the story-state reset.
-	for (AIGZoneTrigger* Zone :
-		{ChapterOneApartmentExitZone.Get(), LeftHomeZone.Get(),
-			FlickerZone.Get(), StoreEntryZone.Get(), ReturnBoundaryZone.Get()})
-	{
-		if (Zone)
-		{
-			Zone->SetActorEnableCollision(false);
-		}
-	}
-
-	for (AIGZoneTrigger* Zone :
-		{ChapterTwoLeftHomeZone.Get(), MirrorSightZone.Get(), MirrorEntryZone.Get(),
-			ChapterTwoStoreEntryZone.Get()})
-	{
-		if (Zone)
-		{
-			Zone->SetActorEnableCollision(true);
-		}
-	}
-	// The 4F homecoming anchor stays dormant until the director confirms any
-	// two C3 truths. It may then close a store route or a store-skipping route.
-	SetChapterTwoReturnZoneArmed(false);
-
-	// A load always resumes at an authored safe anchor, never in a moving lift
-	// or inside a one-shot trigger. Corridor saves sit on the elevator side of
-	// the 4F homecoming gate so walking back to 404 still crosses it naturally.
-	APlayerController* PlayerController = World->GetFirstPlayerController();
-	APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
-	if (PlayerPawn)
-	{
-		const FVector ResumeLocation = bResumeLoadedCheckpoint
-			? (bResumeAtStore
-				? FVector(2515.0f, -455.0f, 104.0f)
-				: bResumeAtWoke
-					? IGPrologueWorld::PlayerLocation
-					: FVector(430.0f, -305.0f, 998.0f))
-			: IGPrologueWorld::PlayerLocation;
-		const FRotator ResumeActorRotation = bResumeLoadedCheckpoint
-			? FRotator(0.0f, -180.0f, 0.0f)
-			: IGPrologueWorld::PlayerActorRotation;
-		PlayerPawn->SetActorLocationAndRotation(
-			ResumeLocation,
-			ResumeActorRotation,
-			false,
-			nullptr,
-			ETeleportType::TeleportPhysics);
-	}
-	if (PlayerController)
-	{
-		PlayerController->SetControlRotation(
-			bResumeLoadedCheckpoint
-				? FRotator(-4.0f, -180.0f, 0.0f)
-				: IGPrologueWorld::PlayerViewRotation);
-	}
-	// This ground-floor zone overlaps the CH01 return boundary. Enabling it
-	// before the pawn is moved back upstairs consumes the one-shot while the
-	// camera is black and schedules every alley event from the wrong floor.
-	if (ChapterTwoOutdoorZone)
-	{
-		ChapterTwoOutdoorZone->SetActorEnableCollision(true);
-	}
-
-	if (AIGPlayerCharacter* Player = Cast<AIGPlayerCharacter>(PlayerPawn))
-	{
-		if (UIGFlashlightComponent* Torch = Player->GetFlashlight())
-		{
-			bool bRestoreFlashlight = false;
-			if (bResumeLoadedCheckpoint)
-			{
-				const FGameplayTag FlashlightTag =
-					FGameplayTag::RequestGameplayTag(
-						FName(TEXT("State.CH02.Loop.HasFlashlight")),
-						false);
-				const bool bLegacyOwnsFlashlight =
-					IGStory::HasState(this, FlashlightTag);
-				bRestoreFlashlight = bLegacyOwnsFlashlight;
-				if (UGameInstance* GameInstance = GetGameInstance())
-				{
-					if (UIGRebirthNarrativeSubsystem* RebirthState =
-						GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
-					{
-						const bool bCanonicalOwnsFlashlight =
-							RebirthState->BuildSnapshot().bHasMemoryFlashlight;
-						bRestoreFlashlight |= bCanonicalOwnsFlashlight;
-						// v2 saves used only the gameplay tag; v3 uses the
-						// canonical narrative field as well. Normalize both
-						// directions before any actor reconciles its pickup.
-						if (bRestoreFlashlight && !bCanonicalOwnsFlashlight)
-						{
-							RebirthState->SetHasMemoryFlashlight(true);
-						}
-					}
-				}
-				if (bRestoreFlashlight && !bLegacyOwnsFlashlight)
-				{
-					IGStory::AddState(this, FlashlightTag);
-				}
-				if (bRestoreFlashlight && Flashlight && !Flashlight->WasPickedUp())
-				{
-					Flashlight->ApplyRestoredPickedUpState(false);
-				}
-			}
-			Torch->SetAvailable(bRestoreFlashlight);
-			Torch->RefillBattery(1.0f);
-		}
-	}
-
-	FActorSpawnParameters DirectorParameters;
-	DirectorParameters.Owner = this;
-	ChapterTwoHumanGateDirector =
-		World->SpawnActorDeferred<AIGChapterTwoHumanGateDirector>(
-			AIGChapterTwoHumanGateDirector::StaticClass(),
-			GetActorTransform(),
-			this,
-			nullptr,
-			ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (ChapterTwoHumanGateDirector)
-	{
-		ChapterTwoHumanGateDirector->Configure(
-			ApartmentStoryDressing
-				? ApartmentStoryDressing->GetPhoneInspectable()
-				: nullptr,
-			CubeMesh,
-			PlasticDarkMaterial,
-			SignWhiteMaterial,
-			ScreenGlowMaterial);
-		ChapterTwoHumanGateDirector->FinishSpawning(GetActorTransform());
-	}
-
-	SecondMorningDirector = World->SpawnActorDeferred<AIGSecondMorningDirector>(
-		AIGSecondMorningDirector::StaticClass(),
-		FTransform::Identity,
-		this,
-		nullptr,
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn);
-	if (SecondMorningDirector)
-	{
-		// P2 owns the final register presentation. Retire the CH01 dressing scan
-		// before spawning it so two copies cannot overlap and z-fight.
-		if (StoreCashRegisterVisual)
-		{
-			StoreCashRegisterVisual->SetVisibility(false, true);
-			StoreCashRegisterVisual->SetHiddenInGame(true, true);
-		}
-		UStaticMesh* PosHousingMesh = nullptr;
-		if (StoreCashRegisterVisual)
-		{
-			PosHousingMesh = StoreCashRegisterVisual->GetStaticMesh();
-		}
-		SecondMorningDirector->Configure(
-			this,
-			ChapterTwoHumanGateDirector,
-			MirrorRoomDoor,
-			MirrorRoomLamp,
-			Elevator,
-			StoreDoor,
-			JingleComponent,
-			ExistingReceipt,
-			DuplicateReceipt,
-			ApartmentStoryDressing
-				? ApartmentStoryDressing->GetPlannerNote()
-				: nullptr,
-			MirrorAlarmMemo,
-			MailboxBills,
-			OfferingNote,
-			NightRoster,
-			ManagementNotice,
-			CubeMesh,
-			PropMesh(TEXT("SM_AlarmClock")),
-			PosHousingMesh,
-			PlasticDarkMaterial,
-			PlasticDarkMaterial,
-			GlassMaterial,
-			AlarmMaterial,
-			ScreenGlowMaterial,
-			SnackRedMaterial);
-		SecondMorningDirector->FinishSpawning(FTransform::Identity);
-
-		if (PlayerController)
-		{
-			if (AIGHorrorHUD* HorrorHUD =
-				Cast<AIGHorrorHUD>(PlayerController->GetHUD()))
-			{
-				HorrorHUD->SetObjectiveProvider(SecondMorningDirector);
-			}
-		}
-	}
-
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UIGStoryStateSubsystem* StoryState =
-			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
-		{
-			StoryState->AddState(FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Loop.Started")), false));
-		}
-	}
-
-	const bool bCaptureChapterTwo =
-		FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH02"));
-	if (!bCaptureChapterTwo && !bResumeLoadedCheckpoint)
-	{
-		AIGHorrorHUD::ShowChapterCard(
-			this,
-			NSLOCTEXT("IGCH02", "ChapterTwoEyebrow", "CHAPTER 02"),
-			NSLOCTEXT("IGCH02", "ChapterTwoTitle", "두 번째 아침"),
-			NSLOCTEXT("IGCH02", "ChapterTwoSubtitle", "집이 아니다"),
-			4.2f);
-	}
-
-	if (WakeDirector)
-	{
-		WakeDirector->ConfigureChapterSaveTags(
-			FGameplayTag::RequestGameplayTag(FName(TEXT("Chapter.CH02")), false),
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Wake.AlarmStopped")), false),
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("State.CH02.Wake.Standing")), false),
-			FGameplayTag::RequestGameplayTag(
-				FName(TEXT("Checkpoint.CH02.Woke")), false),
-			true);
-		if (bResumeLoadedCheckpoint)
-		{
-			WakeDirector->RestoreStandingCheckpoint();
-		}
-		else
-		{
-			WakeDirector->ResetForNewChapter();
-			WakeDirector->StartWakeUp();
-			if (bCaptureChapterTwo)
-			{
-				WakeDirector->RestoreStandingCheckpoint();
-			}
-		}
-	}
-
-	if (bCaptureChapterTwo)
-	{
-		StartChapterTwoCaptureSequence();
-	}
-	if (bRebirthEndToEndValidation)
-	{
-		GetWorldTimerManager().SetTimer(
-			RebirthEndToEndHandle,
-			this,
-			&ThisClass::ContinueRebirthEndToEndChapterTwo,
-			0.25f,
-			false);
-	}
-
-	UE_LOG(LogIndieGame, Display, TEXT("CH02 second morning entered in-session."));
-}
-
-void AIGPrologueWorldScene::EnterChapterThree()
-{
-	if (bChapterThreeActive || !GetWorld())
-	{
-		return;
-	}
-	const bool bResumeLoadedCheckpoint =
-		GetWorld()->URL.HasOption(TEXT("IGResumeSave"));
-	FGameplayTag LoadedCheckpoint;
-	if (bResumeLoadedCheckpoint)
-	{
-		if (const UGameInstance* GameInstance = GetGameInstance())
-		{
-			if (const UIGSaveSubsystem* SaveSubsystem =
-				GameInstance->GetSubsystem<UIGSaveSubsystem>())
-			{
-				if (const UIGSaveGame* LoadedSave =
-					SaveSubsystem->GetLastLoadedSave())
-				{
-					LoadedCheckpoint = LoadedSave->Progress.CheckpointTag;
-				}
-			}
-		}
-	}
-	bChapterThreeActive = true;
-	bChapterTwoTransitionPending = false;
-	// The 7/29 state moves the same bowl and note upstairs. Retire their CH02
-	// placement before the fifth-floor copy is spawned so both cannot coexist.
-	SetChapterTwoOverlayVisible(false);
-
-	if (AIGReadableNote* OpenNote = AIGReadableNote::GetOpenNote())
-	{
-		OpenNote->Close();
-	}
-	if (DistantAlarmComponent)
-	{
-		DistantAlarmComponent->Stop();
-		DistantAlarmComponent = nullptr;
-	}
-	if (JingleComponent)
-	{
-		JingleComponent->Stop();
-	}
-	if (NeighborhoodLifeDirector)
-	{
-		NeighborhoodLifeDirector->SetChapterVariant(
-			EIGNeighborhoodChapterVariant::ChapterTwoAbsent);
-	}
-
-	// Retire chapter scripts and every one-shot volume.  The stage itself is
-	// far away so the sky/fog remain shared, while stale 404 logic cannot add
-	// CH01/02 state tags during the ending.
-	for (AActor* Director :
-		{static_cast<AActor*>(MorningDirector.Get()),
-			static_cast<AActor*>(SecondMorningDirector.Get()),
-			static_cast<AActor*>(ChapterTwoHumanGateDirector.Get()),
-			static_cast<AActor*>(WakeDirector.Get()),
-			static_cast<AActor*>(AlarmClock.Get()),
-			static_cast<AActor*>(GetUpTarget.Get())})
-	{
-		if (Director)
-		{
-			Director->Destroy();
-		}
-	}
-	MorningDirector = nullptr;
-	SecondMorningDirector = nullptr;
-	ChapterTwoHumanGateDirector = nullptr;
-	WakeDirector = nullptr;
-	AlarmClock = nullptr;
-	GetUpTarget = nullptr;
-	if (ChapterTwoItemContinuityDressing)
-	{
-		ChapterTwoItemContinuityDressing->Destroy();
-		ChapterTwoItemContinuityDressing = nullptr;
-	}
-	if (ChapterTwoCatWaterAftermath)
-	{
-		ChapterTwoCatWaterAftermath->Destroy();
-		ChapterTwoCatWaterAftermath = nullptr;
-	}
-	for (AIGZoneTrigger* Zone :
-		{ChapterOneApartmentExitZone.Get(), LeftHomeZone.Get(),
-			FlickerZone.Get(), StoreEntryZone.Get(), ReturnBoundaryZone.Get(),
-			ChapterTwoLeftHomeZone.Get(),
-			ChapterTwoOutdoorZone.Get(), MirrorSightZone.Get(), MirrorEntryZone.Get(),
-			ChapterTwoStoreEntryZone.Get(), ChapterTwoReturnZone.Get()})
-	{
-		if (Zone)
-		{
-			Zone->SetActorEnableCollision(false);
-		}
-	}
-
-	if (UGameInstance* GameInstance = GetGameInstance())
-	{
-		if (UIGStoryStateSubsystem* StoryState =
-			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
-		{
-			// Preserve the CH02 receipt comparison before retiring the legacy
-			// chapter event bus. CH03 consumes the REBIRTH truth record after
-			// the old per-chapter tags have been cleared.
-			const FGameplayTag DuplicateReceiptTag =
-				FGameplayTag::RequestGameplayTag(
-					FName(TEXT("State.CH02.Loop.ReadDuplicateReceipt")),
-					false);
-			if (StoryState->HasState(DuplicateReceiptTag))
-			{
-				if (UIGRebirthNarrativeSubsystem* RebirthState =
-					GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
-				{
-					RebirthState->RegisterTruthSource(
-						FGameplayTag::RequestGameplayTag(
-							FName(TEXT("Truth.DeathOverlay")),
-							false),
-						FName(TEXT("CH02.DuplicateReceipt")));
-				}
-			}
-			StoryState->ClearStates(false);
-		}
-	}
-
-	FActorSpawnParameters Parameters;
-	Parameters.Owner = this;
-	Parameters.SpawnCollisionHandlingOverride =
-		ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
-	ThirdMorningDirector = GetWorld()->SpawnActor<AIGThirdMorningDirector>(
-		AIGThirdMorningDirector::StaticClass(),
-		FTransform(
-			FRotator::ZeroRotator,
-			AIGThirdMorningDirector::GetStageOrigin()),
-		Parameters);
-	if (!ThirdMorningDirector)
-	{
-		UE_LOG(LogIndieGame, Error, TEXT("CH03 director failed to spawn."));
-		return;
-	}
-
-	const bool bCapture =
-		FParse::Param(FCommandLine::Get(), TEXT("IGCaptureCH03"))
-		|| FParse::Param(
-			FCommandLine::Get(),
-			TEXT("IGCaptureCH03LensDroplet"));
-	const bool bDirectStart =
-		FParse::Param(FCommandLine::Get(), TEXT("IGChapterThree"))
-		|| bCapture
-		|| GetWorld()->URL.HasOption(TEXT("IGChapterThree"));
-	ThirdMorningDirector->ConfigureAndStart(bDirectStart && !bCapture, bCapture);
-	if (bResumeLoadedCheckpoint)
-	{
-		ThirdMorningDirector->RestoreCheckpointAnchor(LoadedCheckpoint);
-	}
-	if (bRebirthEndToEndValidation)
-	{
-		const UIGRebirthNarrativeSubsystem* RebirthState =
-			GetGameInstance()
-				? GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>()
-				: nullptr;
-		if (!RebirthState
-			|| !RebirthState->CanConverge(
-				EIGRebirthConvergencePoint::C3SecondMorning))
-		{
-			FailRebirthEndToEndValidation(TEXT("CH03 handoff lost CH01/CH02 state"));
-			return;
-		}
-		UE_LOG(
-			LogIndieGame,
-			Display,
-			TEXT(
-				"REBIRTH_E2E PASS ch03_handoff c1=1 c2=1 c3=1 "
-				"same_session=1"));
-		if (FParse::Param(
-			FCommandLine::Get(),
-			TEXT("IGRebirthCH02FreedomProbe")))
-		{
-			FString RouteValue;
-			FParse::Value(
-				FCommandLine::Get(),
-				TEXT("IGRebirthCH02Route="),
-				RouteValue);
-			UE_LOG(
-				LogIndieGame,
-				Display,
-				TEXT("REBIRTH_CH02_FREEDOM PASS route=%s handoff=1"),
-				*RouteValue);
-			FPlatformMisc::RequestExitWithStatus(
-				false,
-				0,
-				TEXT("REBIRTH CH02 freedom probe passed"));
-		}
-	}
-
-	UE_LOG(LogIndieGame, Display, TEXT("CH03 third morning entered in-session."));
-}
-
-void AIGPrologueWorldScene::StartChapterTwoCaptureSequence()
-{
-	// Deterministic documentation captures must never contain checkerboard
-	// materials or the editor's "Preparing Shaders" overlay.
-	FAssetCompilingManager::Get().FinishAllCompilation();
-	if (GShaderCompilingManager)
-	{
-		GShaderCompilingManager->FinishAllCompilation();
-	}
-	if (GEngine)
-	{
-		GEngine->bEnableOnScreenDebugMessages = false;
-	}
-	if (const UWorld* World = GetWorld())
-	{
-		if (APlayerController* PlayerController = World->GetFirstPlayerController())
-		{
-			PlayerController->ConsoleCommand(TEXT("r.MotionBlurQuality 0"), true);
-			PlayerController->ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
-		}
-	}
-
-	ChapterCaptureIndex = 0;
-	GetWorldTimerManager().SetTimer(
-		ChapterCaptureHandle,
-		this,
-		&ThisClass::CaptureNextChapterTwoFrame,
-		1.5f,
-		false);
-}
-
-void AIGPrologueWorldScene::CaptureNextChapterTwoFrame()
-{
-	UWorld* World = GetWorld();
-	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
-	APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
-	if (!World || !PlayerController || !PlayerPawn)
-	{
-		FinishChapterTwoCaptureSequence();
-		return;
-	}
-	// Material/PSO jobs can be queued on the first rendered frames after the
-	// initial world build. Drain that second wave before each still.
-	FAssetCompilingManager::Get().FinishAllCompilation();
-	if (GShaderCompilingManager)
-	{
-		GShaderCompilingManager->FinishAllCompilation();
-	}
-
-	if (APlayerCameraManager* CameraManager = PlayerController->PlayerCameraManager)
-	{
-		CameraManager->StopCameraFade();
-	}
-	if (AIGReadableNote* OpenNote = AIGReadableNote::GetOpenNote())
-	{
-		OpenNote->Close();
-	}
-	if (AHUD* HUD = PlayerController->GetHUD())
-	{
-		// Environment stills stay clean; the receipt frame deliberately turns
-		// the real HUD back on because that panel is the product being shown.
-		HUD->bShowHUD = ChapterCaptureIndex == 2;
-	}
-
-	auto PlaceCaptureCamera = [PlayerPawn, PlayerController](
-		const FVector& PawnLocation,
-		const FVector& LookAt)
-	{
-		PlayerPawn->SetActorLocation(
-			PawnLocation,
-			false,
-			nullptr,
-			ETeleportType::TeleportPhysics);
-
-		FVector CameraLocation = PawnLocation + FVector(0, 0, 64.0f);
-		if (const AIGPlayerCharacter* Player =
-			Cast<AIGPlayerCharacter>(PlayerPawn))
-		{
-			if (const UCameraComponent* Camera = Player->GetFirstPersonCamera())
-			{
-				CameraLocation = Camera->GetComponentLocation();
-			}
-		}
-
-		const FRotator LookRotation = (LookAt - CameraLocation).Rotation();
-		PlayerPawn->SetActorRotation(FRotator(0, LookRotation.Yaw, 0));
-		PlayerController->SetControlRotation(LookRotation);
-	};
-
-	FString BaseName;
-	switch (ChapterCaptureIndex)
-	{
-	case 0:
-		// The only warm light left in the hall is the impossible open 403.
-		// Do not fire the room's scare during a documentation tour; its
-		// 18-second stress hold would contaminate the following lobby frame.
-		if (MirrorSightZone)
-		{
-			MirrorSightZone->SetActorEnableCollision(false);
-		}
-		if (MirrorEntryZone)
-		{
-			MirrorEntryZone->SetActorEnableCollision(false);
-		}
-		for (int32 FixtureIndex = 0; FixtureIndex < GetCorridorFixtureCount(); ++FixtureIndex)
-		{
-			SetFixtureLive(FixtureIndex, false, true);
-		}
-		if (MirrorRoomLamp)
-		{
-			MirrorRoomLamp->SetVisibility(true);
-			MirrorRoomLamp->SetIntensity(390.0f);
-		}
-		if (MirrorRoomBounce)
-		{
-			MirrorRoomBounce->SetVisibility(true);
-			MirrorRoomBounce->SetIntensity(360.0f);
-		}
-		if (MirrorRoomDoor)
-		{
-			MirrorRoomDoor->ForceOpenState(true);
-		}
-		PlaceCaptureCamera(
-			FVector(430, -120, 1005),
-			FVector(315, 105, 970));
-		BaseName = TEXT("ch02-mirror-room");
-		break;
-
-	case 1:
-		// 401 after the management reply: swept salt, a dry bowl ring and clear
-		// water outside the line. Rice, spoon and incense are already gone.
-		if (OfferingLight)
-		{
-			OfferingLight->SetVisibility(true);
-			OfferingLight->SetIntensity(175.0f);
-		}
-		PlaceCaptureCamera(
-			FVector(-150, -360, IGPrologueWorld::FourthFloorZ),
-			FVector(-150, -276, IGPrologueWorld::FourthFloorZ + 5));
-		BaseName = TEXT("ch02-lobby-offering");
-		break;
-
-	case 2:
-		// The note panel is the actual in-game document UI, not a mock-up.
-		PlaceCaptureCamera(
-			FVector(2700, -390, 96),
-			FVector(2582, -252, 100));
-		if (ExistingReceipt)
-		{
-			FIGInteractionContext Context;
-			Context.Interactor = PlayerPawn;
-			Context.TargetActor = ExistingReceipt;
-			Context.HoldProgress = 1.0f;
-			IIGInteractable::Execute_CompleteInteraction(ExistingReceipt, Context);
-		}
-		BaseName = TEXT("ch02-receipt-0444");
-		break;
-
-	default:
-		FinishChapterTwoCaptureSequence();
-		return;
-	}
-
-	const FString ScreenshotPath = FPaths::ConvertRelativePathToFull(FPaths::Combine(
-		FPaths::ProjectDir(),
-		FString::Printf(TEXT("Docs/Media/%s.png"), *BaseName)));
-	++ChapterCaptureIndex;
-
-	// Let the teleported camera settle so temporal history cannot smear the
-	// documentation frame. This is especially visible when the first two
-	// captures jump between the 403 interior and the 401 corridor threshold.
-	const TWeakObjectPtr<AIGPrologueWorldScene> WeakThis(this);
-	FTimerDelegate CaptureDelegate;
-	CaptureDelegate.BindLambda([WeakThis, ScreenshotPath]()
-	{
-		AIGPrologueWorldScene* Scene = WeakThis.Get();
-		if (!Scene)
-		{
-			return;
-		}
-
-		FScreenshotRequest::RequestScreenshot(ScreenshotPath, true, false);
-		UE_LOG(
-			LogIndieGame,
-			Display,
-			TEXT("CH02 capture requested: %s"),
-			*ScreenshotPath);
-
-		Scene->GetWorldTimerManager().SetTimer(
-			Scene->ChapterCaptureHandle,
-			Scene,
-			&ThisClass::CaptureNextChapterTwoFrame,
-			6.0f,
-			false);
-	});
-	GetWorldTimerManager().SetTimer(
-		ChapterCaptureHandle,
-		CaptureDelegate,
-		0.75f,
-		false);
-}
-
-void AIGPrologueWorldScene::FinishChapterTwoCaptureSequence()
-{
-	if (AIGReadableNote* OpenNote = AIGReadableNote::GetOpenNote())
-	{
-		OpenNote->Close();
-	}
-
-	// The three stills also serve as a deterministic CH02 smoke run. Exercise
-	// the complete intermediate-stop state machine before exiting so a visual
-	// capture cannot pass while the chapter's one-off elevator ride is broken.
-	UWorld* World = GetWorld();
-	APlayerController* PlayerController = World ? World->GetFirstPlayerController() : nullptr;
-	APawn* PlayerPawn = PlayerController ? PlayerController->GetPawn() : nullptr;
-	if (!Elevator || !PlayerPawn)
-	{
-		UE_LOG(LogIndieGame, Error, TEXT("CH02 elevator validation could not start."));
-		FPlatformMisc::RequestExitWithStatus(
-			false,
-			1,
-			TEXT("CH02 capture validation could not start"));
-		return;
-	}
-
-	Elevator->ResetForNewRide();
-	Elevator->ConfigureIntermediateStop(true, 12.0f);
-	PlayerPawn->SetActorLocation(
-		FVector(625, -305, IGPrologueWorld::FourthFloorZ),
-		false,
-		nullptr,
-		ETeleportType::TeleportPhysics);
-
-	FIGInteractionContext Context;
-	Context.Interactor = PlayerPawn;
-	Context.TargetActor = Elevator;
-	Context.HoldProgress = 1.0f;
-	IIGInteractable::Execute_CompleteInteraction(Elevator, Context);
-
-	const TWeakObjectPtr<APawn> WeakPlayerPawn = PlayerPawn;
-	FTimerDelegate EnterCabDelegate;
-	EnterCabDelegate.BindLambda([WeakPlayerPawn]()
-	{
-		if (APawn* Pawn = WeakPlayerPawn.Get())
-		{
-			Pawn->SetActorLocation(
-				FVector(795, -305, IGPrologueWorld::FourthFloorZ),
-				false,
-				nullptr,
-				ETeleportType::TeleportPhysics);
-		}
-	});
-	FTimerHandle EnterCabHandle;
-	GetWorldTimerManager().SetTimer(EnterCabHandle, EnterCabDelegate, 1.35f, false);
-
-	const TWeakObjectPtr<AIGPrologueWorldScene> WeakThis(this);
-	FTimerDelegate ValidationDelegate;
-	ValidationDelegate.BindLambda([WeakThis]()
-	{
-		AIGPrologueWorldScene* Scene = WeakThis.Get();
-		if (!Scene)
-		{
-			return;
-		}
-		const bool bRideCompleted =
-			Scene->Elevator && Scene->Elevator->IsRideComplete();
-		APlayerController* Controller =
-			Scene->GetWorld()
-				? Scene->GetWorld()->GetFirstPlayerController()
-				: nullptr;
-		APawn* Pawn = Controller ? Controller->GetPawn() : nullptr;
-		if (!bRideCompleted || !Scene->Elevator || !Pawn)
-		{
-			UE_LOG(
-				LogIndieGame,
-				Error,
-				TEXT("CH02 elevator descent validation failed."));
-			FPlatformMisc::RequestExitWithStatus(
-				false,
-				1,
-				TEXT("CH02 capture elevator descent failed"));
-			return;
-		}
-
-		// Exercise the route that closes the actual chapter: call the same cab
-		// at 1F, board it, transfer only behind shut doors, and reopen at 4F.
-		Pawn->SetActorLocation(
-			FVector(625, -305, 110),
-			false,
-			nullptr,
-			ETeleportType::TeleportPhysics);
-		FIGInteractionContext ReturnContext;
-		ReturnContext.Interactor = Pawn;
-		ReturnContext.TargetActor = Scene->Elevator;
-		ReturnContext.HoldProgress = 1.0f;
-		IIGInteractable::Execute_CompleteInteraction(
-			Scene->Elevator,
-			ReturnContext);
-
-		const TWeakObjectPtr<APawn> WeakReturnPawn = Pawn;
-		FTimerDelegate BoardReturnDelegate;
-		BoardReturnDelegate.BindLambda([WeakReturnPawn]()
-		{
-			if (APawn* ReturnPawn = WeakReturnPawn.Get())
-			{
-				ReturnPawn->SetActorLocation(
-					FVector(795, -305, 110),
-					false,
-					nullptr,
-					ETeleportType::TeleportPhysics);
-			}
-		});
-		FTimerHandle BoardReturnHandle;
-		Scene->GetWorldTimerManager().SetTimer(
-			BoardReturnHandle,
-			BoardReturnDelegate,
-			1.0f,
-			false);
-
-		FTimerDelegate ReturnValidationDelegate;
-		ReturnValidationDelegate.BindLambda([WeakThis, WeakReturnPawn]()
-		{
-			AIGPrologueWorldScene* ReturnScene = WeakThis.Get();
-			if (!ReturnScene)
-			{
-				return;
-			}
-			const APawn* ReturnPawn = WeakReturnPawn.Get();
-			const bool bReturned =
-				ReturnScene->Elevator
-				&& ReturnScene->Elevator->HasReturnedToFourthFloor()
-				&& ReturnPawn
-				&& ReturnPawn->GetActorLocation().Z > 900.0f;
-			if (bReturned)
-			{
-				UE_LOG(
-					LogIndieGame,
-					Display,
-					TEXT("CH02 elevator roundtrip validation complete."));
-			}
-			else
-			{
-				UE_LOG(
-					LogIndieGame,
-					Error,
-					TEXT("CH02 elevator return validation failed."));
-			}
-			FPlatformMisc::RequestExitWithStatus(
-				false,
-				bReturned ? 0 : 1,
-				bReturned
-					? TEXT("CH02 capture validation completed")
-					: TEXT("CH02 capture elevator return failed"));
-		});
-		Scene->GetWorldTimerManager().SetTimer(
-			Scene->ChapterCaptureHandle,
-			ReturnValidationDelegate,
-			10.0f,
-			false);
-	});
-	GetWorldTimerManager().SetTimer(
-		ChapterCaptureHandle,
-		ValidationDelegate,
-		18.0f,
-		false);
-	UE_LOG(LogIndieGame, Display, TEXT("CH02 elevator roundtrip validation started."));
-}
-
-void AIGPrologueWorldScene::HandleFlickerZoneTriggered(AIGZoneTrigger* Zone)
-{
-	if (MorningDirector)
-	{
-		MorningDirector->TriggerAlleyLightFailure();
 	}
 }

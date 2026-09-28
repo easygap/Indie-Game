@@ -6,7 +6,6 @@
 #include "Player/IGHudGuidance.h"
 #include "IGHorrorHUD.generated.h"
 
-class AIGMorningRoutineDirector;
 class AIGReadableNote;
 class AIGWakeUpDirector;
 class IIGObjectiveProvider;
@@ -227,11 +226,6 @@ public:
 		const FVector& WorldLocation,
 		float DurationSeconds = 1.1f);
 
-	/** Shows the single authored CH03 lens droplet without requiring a cooked UI asset. */
-	static void PushLensDroplet(
-		const UObject* WorldContext,
-		float DurationSeconds = 3.0f);
-
 	/** Starts the authored first-person contact/recoil sequence for a valid knock. */
 	void PlayFirstPersonKnock();
 
@@ -248,19 +242,6 @@ public:
 		int32 CaptureCount,
 		float VisualDurationSeconds = 0.68f,
 		float OwnershipDurationSeconds = 0.68f);
-
-	/**
-	 * Returns the most recent frame that actually drew the CH03 lens droplet.
-	 * The Shipping visual probe uses this instead of trusting a screenshot
-	 * request alone, so reduced-motion and HUD-safe placement remain measurable.
-	 */
-	bool GetLensDropletRenderSample(
-		FVector2D& OutPosition,
-		FVector2D& OutSize,
-		FVector2D& OutCanvasSize,
-		float& OutAlpha,
-		bool& bOutReducedMotion,
-		double& OutWorldTime) const;
 
 	/**
 	 * Returns text bounds from the most recently completed HUD frame. The
@@ -315,7 +296,6 @@ public:
 	void ShowFearDirection(const FVector& WorldLocation, float DurationSeconds);
 	/** §19.7. 저장됐다는 흔적 하나. 0.8초 뒤에 사라진다. */
 	void ShowSaveIndicator();
-	void ShowLensDroplet(float DurationSeconds);
 	void PresentChapterCard(
 		const FText& Eyebrow,
 		const FText& Title,
@@ -327,9 +307,6 @@ public:
 	 * roam. The object must implement IIGObjectiveProvider.
 	 */
 	void SetObjectiveProvider(UObject* InObjectiveProvider);
-
-	/** Backward-compatible CH01 binding; delegates to SetObjectiveProvider. */
-	void SetMorningDirector(AIGMorningRoutineDirector* InMorningDirector);
 
 	/** Progress reported by the currently bound story objective provider. */
 	UFUNCTION(BlueprintPure, Category = "HUD")
@@ -474,7 +451,6 @@ private:
 	void ResolveDirectors();
 	void InitializeKoreanFont();
 	void InitializeFrontendMenuTextures();
-	void InitializeLensDropletTexture();
 	void InitializeDialogueSurfaceTextures();
 	void InitializeAudioCalibrationTexture();
 	void InitializeMissingFloorJournalTextures();
@@ -528,12 +504,9 @@ private:
 	int32 NotePageIndex = 0;
 	int32 NotePageCount = 1;
 	bool bNoteTextWithinPaper = false;
-	/** Narrow, dense convenience-store thermal receipt presentation. */
-	void DrawThermalReceiptPanel(const AIGReadableNote& Note);
-	/** Dark, portrait phone screen used for the CH02 card approval record. */
+	/** 어두운 세로 휴대폰 화면. 중고 거래 알림처럼 폰으로 보는 기록을 여기에 띄운다. */
 	void DrawPhoneNotificationPanel(const AIGReadableNote& Note);
 	void DrawFearDirection(double CurrentTime);
-	void DrawLensDroplet(double CurrentTime);
 	void DrawFirstPersonKnock(double CurrentTime);
 	/** 포획 연출이 HUD 전체 프레임을 점유하는 동안 true를 반환한다. */
 	bool DrawCaptureEmbrace(double CurrentTime);
@@ -657,14 +630,6 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> NotePaperTexture;
 
-	/** Cleaner paper grain used for thermal receipts. */
-	UPROPERTY(Transient)
-	TObjectPtr<UTexture2D> ReceiptPaperTexture;
-
-	/** Procedural low-cost proxy for the one authored camera-lens droplet. */
-	UPROPERTY(Transient)
-	TObjectPtr<UTexture2D> LensDropletTexture;
-
 	/** ImageGen-derived, low-contrast optical grain used by dialogue surfaces. */
 	UPROPERTY(Transient)
 	TObjectPtr<UTexture2D> DialogueFilmTexture;
@@ -747,16 +712,6 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UFont> KoreanPhoneMetaFont;
 
-	/** Dense Gulim/Dotum-style faces reserved for narrow thermal receipts. */
-	UPROPERTY(Transient)
-	TObjectPtr<UFontFace> KoreanReceiptFontFace;
-
-	UPROPERTY(Transient)
-	TObjectPtr<UFont> KoreanReceiptHeaderFont;
-
-	UPROPERTY(Transient)
-	TObjectPtr<UFont> KoreanReceiptFont;
-
 	TWeakObjectPtr<UIGInteractionComponent> InteractionComponent;
 	TWeakObjectPtr<AIGWakeUpDirector> WakeDirector;
 	TWeakObjectPtr<UObject> ObjectiveProvider;
@@ -822,14 +777,6 @@ private:
 	/** §19.8. 이 링이 내가 낸 소리인가, 건물이 낸 소리인가. */
 	bool bRippleIsForeign = false;
 
-	double LensDropletStartTime = 0.0;
-	double LensDropletEndTime = -1.0;
-	FVector2D LensDropletLastPosition = FVector2D::ZeroVector;
-	FVector2D LensDropletLastSize = FVector2D::ZeroVector;
-	FVector2D LensDropletLastCanvasSize = FVector2D::ZeroVector;
-	float LensDropletLastAlpha = 0.0f;
-	bool bLensDropletLastReducedMotion = false;
-	double LensDropletLastRenderTime = -1.0;
 	double FirstPersonKnockStartTime = -1.0;
 	double CaptureEmbraceStartTime = -1.0;
 	double CaptureEmbraceEndTime = -1.0;

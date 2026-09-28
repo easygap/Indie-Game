@@ -4,7 +4,6 @@
 #include "Engine/GameInstance.h"
 #include "Kismet/GameplayStatics.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
-#include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Save/IGSaveGame.h"
 #include "Templates/UnrealTemplate.h"
@@ -13,6 +12,23 @@ namespace IGSave
 {
 	constexpr int32 AutosaveSlotCount = 2;
 	const TCHAR* AutosaveSlotPrefix = TEXT("AutoSave");
+
+	/**
+	 * 없는 층에서 쓴 저장인지. 없는 층의 자동 저장은 모두 이 챕터 태그를
+	 * 달지만, 서사가 한 발이라도 나아간 저장도 같이 쳐 준다.
+	 */
+	static bool IsMissingFloorSave(const UIGSaveGame& SaveGame)
+	{
+		const FGameplayTag MissingFloor = FGameplayTag::RequestGameplayTag(
+			FName(TEXT("Chapter.MissingFloor")),
+			false);
+		const FIGMissingFloorNarrativeSnapshot& MissingFloorSnapshot =
+			SaveGame.Progress.MissingFloorNarrative;
+		return SaveGame.Progress.ChapterId.MatchesTagExact(MissingFloor)
+			|| MissingFloorSnapshot.Night.NightIndex > 0
+			|| MissingFloorSnapshot.Night.CompletedBeats.Num() > 0
+			|| MissingFloorSnapshot.Truths.Num() > 0;
+	}
 }
 
 bool UIGSaveSubsystem::RequestSave(
@@ -136,12 +152,6 @@ UIGSaveGame* UIGSaveSubsystem::CreateSaveSnapshot(
 			GameInstance->GetSubsystem<UIGStoryStateSubsystem>())
 		{
 			Snapshot->Progress.StoryStateTags = StoryState->GetStateSnapshot();
-		}
-		if (const UIGRebirthNarrativeSubsystem* RebirthState =
-			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
-		{
-			Snapshot->Progress.RebirthNarrative =
-				RebirthState->BuildSnapshot();
 		}
 		if (const UIGMissingFloorNarrativeSubsystem* MissingFloorState =
 			GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
@@ -318,29 +328,10 @@ bool UIGSaveSubsystem::ApplyLoadedProgressInternal(
 
 	TGuardValue<bool> ApplyingGuard(bApplyingLoadedProgress, true);
 	bool bApplied = false;
-	// Restore the authoritative REBIRTH snapshot before replaying legacy story
-	// tags. RestoreStateSnapshot broadcasts tag changes synchronously, and the
-	// chapter directors use those callbacks to rebuild receipts, carried props,
-	// C3 gates and ending presentation. Reversing this order exposes the
-	// pre-load narrative state for one frame and can permanently reconcile the
-	// wrong A/B/C profile or return gate.
-	if (UIGRebirthNarrativeSubsystem* RebirthState =
-		GetGameInstance()->GetSubsystem<UIGRebirthNarrativeSubsystem>())
-	{
-		if (LastLoadedSave->Progress.SchemaVersion >= 2)
-		{
-			RebirthState->RestoreSnapshot(
-				LastLoadedSave->Progress.RebirthNarrative);
-		}
-		else
-		{
-			RebirthState->ResetNarrative();
-		}
-		bApplied = true;
-	}
-	// Same reason as the REBIRTH restore above: 없는 층 truths and the hour's
-	// tier/capture state are authoritative, and the night directors rebuild
-	// their gates inside the story-tag callbacks that follow.
+	// 서사 스냅샷을 스토리 태그보다 먼저 되돌린다. RestoreStateSnapshot은 태그
+	// 변화를 그 자리에서 알리고, 밤 디렉터는 그 콜백 안에서 게이트를, 월드
+	// 씬은 고른 물의 봉투를 다시 맞춘다. 순서를 뒤집으면 불러오기 전 상태로
+	// 한 번 맞춰 버린다.
 	if (UIGMissingFloorNarrativeSubsystem* MissingFloorState =
 		GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
 	{
@@ -433,31 +424,14 @@ void UIGSaveSubsystem::HandleLoadComplete(
 
 	if (bSuccess && bWillTravel)
 	{
-		const FGameplayTag ChapterTwo = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("Chapter.CH02")),
-			false);
-		const FGameplayTag ChapterThree = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("Chapter.CH03")),
-			false);
-		const FGameplayTag MissingFloor = FGameplayTag::RequestGameplayTag(
-			FName(TEXT("Chapter.MissingFloor")),
-			false);
-		const FGameplayTag SavedChapter = LastLoadedSave->Progress.ChapterId;
-		const FIGMissingFloorNarrativeSnapshot& MissingFloorSnapshot =
-			LastLoadedSave->Progress.MissingFloorNarrative;
+		// 없는 층이 아닌 저장은 이어하기 목록에 오르지 않는다. 슬롯을 이름으로
+		// 직접 불러온 경우에만 뒤쪽 갈래를 타고, 그때는 맵만 다시 연다.
 		const bool bIsMissingFloorSave =
-			SavedChapter.MatchesTagExact(MissingFloor)
-			|| MissingFloorSnapshot.Night.NightIndex > 0
-			|| MissingFloorSnapshot.Night.CompletedBeats.Num() > 0
-			|| MissingFloorSnapshot.Truths.Num() > 0;
+			IGSave::IsMissingFloorSave(*LastLoadedSave);
 		const FString TravelOptions =
 			bIsMissingFloorSave
 				? TEXT("IGMissingFloor=1?IGIgnoreDirectStart=1?IGResumeSave=1")
-				: SavedChapter.MatchesTagExact(ChapterThree)
-				? TEXT("IGChapterThree=1?IGResumeSave=1")
-				: SavedChapter.MatchesTagExact(ChapterTwo)
-					? TEXT("IGChapterTwo=1?IGResumeSave=1")
-					: TEXT("IGIgnoreDirectStart=1?IGResumeSave=1");
+				: TEXT("IGIgnoreDirectStart=1?IGResumeSave=1");
 		UGameplayStatics::OpenLevel(
 			this,
 			SavedMap,
@@ -501,8 +475,11 @@ bool UIGSaveSubsystem::IsSaveCompatible(const UIGSaveGame* SaveGame) const
 
 bool UIGSaveSubsystem::IsAutosaveLoadable(const UIGSaveGame* SaveGame) const
 {
+	// 예전 이야기(CH01~CH03)의 자동 저장은 돌아갈 장면이 없다. 목록에서 조용히
+	// 빼서 타이틀이 이어하기를 권하지 않게 한다.
 	return IsSaveCompatible(SaveGame)
 		&& SaveGame->Progress.ChapterId.IsValid()
 		&& !SaveGame->Progress.MapPackageName.IsNone()
-		&& SaveGame->Progress.CheckpointTag.IsValid();
+		&& SaveGame->Progress.CheckpointTag.IsValid()
+		&& IGSave::IsMissingFloorSave(*SaveGame);
 }

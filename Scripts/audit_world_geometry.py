@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Static physical-plausibility audit of the code-authored world geometry.
 
-The building, the alley, the store and the CH03 rooftop are not placed in a
+The building, the alley, the store and the rooftop are not placed in a
 level editor — they are assembled from literal centimetre coordinates in
-``IGPrologueWorldScene.cpp`` and ``IGThirdMorningDirector.cpp``. That is fast
+``IGPrologueWorldScene.cpp``. That is fast
 to author and impossible to eyeball: a shelf can end up three centimetres
 inside a wall, a bottle can rest four centimetres above the counter it is
 supposed to be standing on, and nothing in the compiler or the engine will
@@ -45,7 +45,6 @@ PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # Builders that author world geometry from literal centimetres.
 SOURCES = (
     os.path.join("Source", "IndieGame", "Core", "IGPrologueWorldScene.cpp"),
-    os.path.join("Source", "IndieGame", "Sequence", "IGThirdMorningDirector.cpp"),
 )
 
 # Scene roots the builders switch between. Every offset is authored in the
@@ -92,7 +91,7 @@ ENGINE_UNIT_MESHES = frozenset(
 # 크기는 소스가 아니라 구운 에셋에 있고, `Scripts/export_mesh_bounds.py`가
 # 그것을 여기로 뽑아 둔다. 이 표가 있으면 배율에 곱해 진짜 상자가 나온다.
 MESH_BOUNDS_RELATIVE = os.path.join("Docs", "mesh_bounds.json")
-# `WaterBottleMesh = IGThirdMorning::LoadMesh(TEXT("/Game/Meshes/SM_X.SM_X"));`
+# `Mesh = LoadMesh(TEXT("/Game/Meshes/SM_X.SM_X"));`
 # 이나 `Mesh = PropMesh(TEXT("SM_X"));` 꼴로 이름이 붙는다.
 MESH_BINDING = re.compile(
     r"(?P<name>\w+)\s*=\s*[^;]*?(?:/Game/[\w/]*?(?P<path>SM_\w+)\."
@@ -125,12 +124,10 @@ def _authored_mesh_name(token: str, bindings: dict):
                 return part
     return None
 
-# CreateBlock's tail differs between the two builders.
+# CreateBlock의 뒤쪽 인자 순서.
 #   AIGPrologueWorldScene: center, size, material, collision, mesh, rotation, parent
-#   AIGThirdMorningDirector: center, size, material, collision, rotation, mesh, movable
 CREATE_BLOCK_LAYOUT = {
     "IGPrologueWorldScene.cpp": {"mesh": 4, "rotation": 5, "movable": None},
-    "IGThirdMorningDirector.cpp": {"mesh": 5, "rotation": 4, "movable": 6},
 }
 
 IDENTIFIER = re.compile(r"\b[A-Za-z_]\w*\b")

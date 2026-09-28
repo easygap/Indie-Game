@@ -34,7 +34,6 @@
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
-#include "Narrative/IGRebirthNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGCameraFeelModifier.h"
 #include "Player/IGHorrorHUD.h"
@@ -43,8 +42,6 @@
 #include "Player/IGPlayerCharacter.h"
 #include "Player/IGSettingsMenuLayout.h"
 #include "Save/IGSaveSubsystem.h"
-#include "Sequence/IGSecondMorningDirector.h"
-#include "Sequence/IGThirdMorningDirector.h"
 #include "ShaderCompiler.h"
 #include "IndieGame.h"
 
@@ -2682,20 +2679,6 @@ void AIGPlayerController::RequestManualHint()
 			return;
 		}
 	}
-	for (TActorIterator<AIGThirdMorningDirector> It(GetWorld()); It; ++It)
-	{
-		if (It->RequestManualHint())
-		{
-			return;
-		}
-	}
-	for (TActorIterator<AIGSecondMorningDirector> It(GetWorld()); It; ++It)
-	{
-		if (It->RequestManualHint())
-		{
-			return;
-		}
-	}
 }
 
 void AIGPlayerController::ChangeAccessibilitySetting(
@@ -3777,11 +3760,6 @@ void AIGPlayerController::StartNewGame()
 		{
 			StoryState->ClearStates(false);
 		}
-		if (UIGRebirthNarrativeSubsystem* RebirthState =
-			GameInstance->GetSubsystem<UIGRebirthNarrativeSubsystem>())
-		{
-			RebirthState->ResetNarrative();
-		}
 		// Game-instance subsystems outlive a new game inside one process, so
 		// without this the previous run's truths and aggression tier leak in.
 		if (UIGMissingFloorNarrativeSubsystem* MissingFloorState =
@@ -4589,17 +4567,13 @@ bool AIGPlayerController::ShouldShowTitleMenu() const
 	const UWorld* World = GetWorld();
 	if (World
 		&& (World->URL.HasOption(TEXT("IGResumeSave"))
-			|| World->URL.HasOption(TEXT("IGNewGame"))
-			|| World->URL.HasOption(TEXT("IGChapterTwo"))
-			|| World->URL.HasOption(TEXT("IGChapterThree"))))
+			|| World->URL.HasOption(TEXT("IGNewGame"))))
 	{
 		return false;
 	}
 
 	const TCHAR* CommandLine = FCommandLine::Get();
 	if (FParse::Param(CommandLine, TEXT("IGSkipFrontend"))
-		|| FParse::Param(CommandLine, TEXT("IGChapterTwo"))
-		|| FParse::Param(CommandLine, TEXT("IGChapterThree"))
 		|| FParse::Param(CommandLine, TEXT("IGFrontendShippingProbe"))
 		|| FParse::Param(CommandLine, TEXT("IGAudioCalibrationPreview"))
 		|| FParse::Param(CommandLine, TEXT("IGDisplaySettingsPreview")))
@@ -4607,8 +4581,7 @@ bool AIGPlayerController::ShouldShowTitleMenu() const
 		return false;
 	}
 	const FString CommandLineText(CommandLine);
-	return !CommandLineText.Contains(TEXT("-IGRebirth"), ESearchCase::IgnoreCase)
-		&& !CommandLineText.Contains(TEXT("-IGCapture"), ESearchCase::IgnoreCase)
+	return !CommandLineText.Contains(TEXT("-IGCapture"), ESearchCase::IgnoreCase)
 		&& !CommandLineText.Contains(TEXT("-IGDemo"), ESearchCase::IgnoreCase);
 }
 

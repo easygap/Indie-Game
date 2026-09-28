@@ -4,7 +4,6 @@
 #include "GameFramework/SaveGame.h"
 #include "GameplayTagContainer.h"
 #include "Narrative/IGMissingFloorNarrativeTypes.h"
-#include "Narrative/IGRebirthNarrativeTypes.h"
 #include "IGSaveGame.generated.h"
 
 USTRUCT(BlueprintType)
@@ -30,14 +29,12 @@ struct INDIEGAME_API FIGProgressSnapshot
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Save")
 	FGameplayTagContainer StoryStateTags;
 
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Save")
-	FIGRebirthNarrativeSnapshot RebirthNarrative;
-
 	/**
-	 * 없는 층 state, added additively beside the legacy snapshot. Tagged
-	 * property serialization leaves this default-constructed in v1..v3 saves,
-	 * so no schema bump is needed — and CurrentSchemaVersion must stay 3,
-	 * which the compatibility contract pins.
+	 * 없는 층의 서사 상태. 태그 직렬화라 이 칸이 생기기 전 저장에서는
+	 * 기본값으로 읽히고, 그래서 스키마 번호를 올리지 않았다.
+	 *
+	 * 예전 이야기의 REBIRTH 스냅샷 칸은 2026-09-28에 지웠다. 옛 저장에 남은
+	 * 그 칸은 이름이 맞는 속성이 없어 불러올 때 통째로 건너뛴다.
 	 */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, SaveGame, Category = "Save")
 	FIGMissingFloorNarrativeSnapshot MissingFloorNarrative;

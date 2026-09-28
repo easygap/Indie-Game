@@ -60,7 +60,7 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Flashlight")
 	bool IsAvailable() const { return bAvailable; }
 
-	/** Compatibility value; REBIRTH keeps it at full charge. */
+	/** 호환용으로 남긴 값. 배터리는 닳지 않아 늘 가득이다. */
 	UFUNCTION(BlueprintPure, Category = "Flashlight")
 	float GetBatteryFraction() const { return BatteryFraction; }
 

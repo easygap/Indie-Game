@@ -61,17 +61,9 @@ void AIGReadableNote::SetNoteText(const FText& InTitle, TArray<FText> InBodyLine
 	++PresentationRevision;
 }
 
-void AIGReadableNote::SetThermalReceiptData(FIGThermalReceiptData InReceiptData)
-{
-	ThermalReceiptData = MoveTemp(InReceiptData);
-	bUsesThermalReceiptPresentation = true;
-	bUsesPhoneNotificationPresentation = false;
-}
-
 void AIGReadableNote::SetPhoneNotificationPresentation()
 {
 	bUsesPhoneNotificationPresentation = true;
-	bUsesThermalReceiptPresentation = false;
 }
 
 FText AIGReadableNote::GetInteractionPrompt_Implementation(AActor* Interactor) const
@@ -151,11 +143,6 @@ void AIGReadableNote::PlayHandlingSound(const bool bOpening, const float VolumeS
 			Sound = IGAudio::SampleOr(TEXT("Paper_Turn_0"), PaperSynth);
 			Volume = 0.22f;
 			Pitch = 1.10f;
-		}
-		if (bUsesThermalReceiptPresentation)
-		{
-			// 감열지는 얇아서 더 높게 바스락거린다.
-			Pitch *= 1.25f;
 		}
 	}
 	IGAudio::SpawnOneShotAt(

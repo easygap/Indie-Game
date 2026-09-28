@@ -15,10 +15,6 @@ $accessibilitySource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Accessibility/IGAccessibilitySubsystem.cpp')
 $controller = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGPlayerController.cpp')
-$humanGate = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Source/IndieGame/Sequence/IGChapterTwoHumanGateDirector.cpp')
-$story = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Docs/STORY_BIBLE_REBIRTH.md')
 $assertionCount = 0
 
 function Assert-True {
@@ -162,22 +158,6 @@ Assert-ContainsAll $controller @(
 	'FrontendProbeNextActionTime = Now + 0.30',
 	'2.0f'
 ) '접근성 메뉴 입력 연결'
-
-Assert-ContainsAll $humanGate @(
-	'AIGHorrorHUD::PushDialogue(',
-	'PhoneDeviceSpeaker',
-	'"휴대폰"',
-	'"통화 연결 불가."',
-	'EIGDialogueChannel::Device',
-	'EIGDialoguePriority::Critical'
-) 'CH02 실제 기기 메시지 연결'
-Assert-ContainsAll $story @(
-	'게임 전체에서 명료한 인간 목소리는 이 한 문장뿐이다.',
-	'음성 제작이 불가능한 빌드에서는 이 문장을 자막으로 대체하지 않는다.',
-	'자막 제1원칙 — 손이 증명한 것은 자막이 말하지 않는다'
-) '스토리의 침묵·음성·추론 보상 계약'
-Assert-True (-not $humanGate.Contains('"집에 가자, 지운아."')) (
-	'배우 음성 폴백 금지 문장을 CH02 메시지로 잘못 노출했다')
 
 # 읽기 시간 정책을 C++과 독립적으로 다시 계산한다. 요청 시간이 짧아도
 # 자동 읽기 시간이 이기고, 연출상 긴 요청 시간은 줄이지 않아야 한다.
