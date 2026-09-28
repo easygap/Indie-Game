@@ -7,7 +7,7 @@ At night, an enemy hunts by sound. Even opening a door can give you away.
 
 Windows PC · Single-player · In-game language: Korean only · In development
 
-[Download for Windows](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260922/MissingFloor-Windows-20260922.zip) · [Controls](#controls)
+[Download for Windows](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip) · [Controls](#controls)
 
 ![The Missing Floor title screen, showing an old apartment building and the Korean main menu.](../Media/readme/title-menu-first-run-1080.webp)
 
@@ -71,9 +71,9 @@ You can review collected clues with `Tab` during the day. Press `H` for a hint i
 
 ## Download and play
 
-The **September 22, 2026 test version** is available now. **The game currently supports Korean only**, including menus, dialogue, and clues.
+The **September 28, 2026 test version** is available now. **The game currently supports Korean only**, including menus, dialogue, and clues.
 
-1. [Download the Windows ZIP (727 MB)](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260922/MissingFloor-Windows-20260922.zip).
+1. [Download the Windows ZIP (726 MB)](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip).
 2. Extract the entire archive, then run `IndieGame.exe`.
 3. Select **게임 시작** (New Game). To resume a saved game, select **이어하기** (Continue).
 
@@ -113,7 +113,7 @@ If you’d rather explore without being chased, press `F10` and choose **추격 
 
 Adjust subtitle size, background opacity, and how long text stays on screen. Visual sound cues and controller vibration can help you notice sounds and knocks. You can also reduce camera shake and flashing, replace button holds with toggles, and adjust music and ambient sound separately.
 
-![The Korean accessibility menu, with subtitle size, background opacity, and display time settings.](../Media/readme/settings-accessibility-20260922.webp)
+![The Korean accessibility menu, with subtitle size, background opacity, and display time settings.](../Media/readme/settings-accessibility-20260928.webp)
 
 Contains dark scenes, jump scares, and loud sounds. Adjust the volume and brightness before you start.
 

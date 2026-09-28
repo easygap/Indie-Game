@@ -7,7 +7,7 @@
 
 Windows PC · 單人遊戲 · 遊戲內語言：僅韓文 · 開發中
 
-[下載 Windows 版](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260922/MissingFloor-Windows-20260922.zip) · [操作說明](#操作說明)
+[下載 Windows 版](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip) · [操作說明](#操作說明)
 
 ![遊戲標題畫面：老舊公寓前顯示著韓文主選單。](../Media/readme/title-menu-first-run-1080.webp)
 
@@ -73,9 +73,9 @@ Windows PC · 單人遊戲 · 遊戲內語言：僅韓文 · 開發中
 
 ## 下載與執行
 
-目前提供 **2026年9月22日測試版**。**遊戲本體目前僅支援韓文**，選單、對話和線索文字都是韓文。
+目前提供 **2026年9月28日測試版**。**遊戲本體目前僅支援韓文**，選單、對話和線索文字都是韓文。
 
-1. [下載 Windows 壓縮檔（ZIP，727MB）](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260922/MissingFloor-Windows-20260922.zip)。
+1. [下載 Windows 壓縮檔（ZIP，726MB）](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip)。
 2. 完整解壓縮後，執行 `IndieGame.exe`。
 3. 選擇 **게임 시작**（開始遊戲）。已有存檔時，選擇 **이어하기**（繼續遊戲）。
 
@@ -115,7 +115,7 @@ Windows PC · 單人遊戲 · 遊戲內語言：僅韓文 · 開發中
 
 字幕的大小、背景深淺和顯示時間都能調整。你可以讓畫面標出聲音的方向，或用手把震動提示敲擊聲。也能減少鏡頭晃動與閃爍、把長按操作改成按一下切換，並分別調整背景音樂和環境音的音量。
 
-![韓文設定選單，可調整字幕大小、背景深淺和顯示時間。](../Media/readme/settings-accessibility-20260922.webp)
+![韓文設定選單，可調整字幕大小、背景深淺和顯示時間。](../Media/readme/settings-accessibility-20260928.webp)
 
 遊戲有昏暗場景、突然出現的敵人和較大聲的音效。開始前，請先調整音量和亮度。
 
