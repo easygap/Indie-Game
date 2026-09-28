@@ -546,7 +546,7 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 			EnterState(EIGListenerState::Banging);
 			break;
 		}
-		if (CrawlTowards(*Target, CrawlSpeed, DeltaSeconds))
+		if (CrawlTowards(*Target, CrawlSpeed * AdvanceGait(DeltaSeconds), DeltaSeconds))
 		{
 			// 밤2 문 앞의 그는 대본의 노크 사이에 제 노크를 끼워 넣지 않는다.
 			if (bBeatHold)
@@ -758,7 +758,7 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 				* IGListener::SearchRadius;
 			SearchRetargetSeconds = 3.0f;
 		}
-		CrawlTowards(SearchTarget, CrawlSpeed, DeltaSeconds);
+		CrawlTowards(SearchTarget, CrawlSpeed * AdvanceGait(DeltaSeconds), DeltaSeconds);
 		if (StateSeconds >= IGListener::SearchSeconds)
 		{
 			bReactingToSound = false;
@@ -1807,6 +1807,33 @@ void AIGListenerEntity::LeaveHomeDoor()
 }
 
 // -- locomotion ------------------------------------------------------------
+
+float AIGListenerEntity::AdvanceGait(const float DeltaSeconds)
+{
+	// 걸음마다 빠르기를 새로 고른다. 수색 궤적처럼 해시로 골라서 같은 판은 같은
+	// 박자로 기고 캡처가 매번 같은 자리를 찍는다. 여덟 걸음에 한 번꼴로 0.5~1.2초
+	// 멈춘다. 몸이 서면 애니메이션은 듣는 자세로 넘어가고 끌림 소리도 끊긴다.
+	// 나머지 걸음을 조금 빠르게 골라(0.9~1.35배) 평균 순찰 속도는 예전의 95%쯤이다.
+	GaitSecondsLeft -= DeltaSeconds;
+	if (GaitSecondsLeft <= 0.0f)
+	{
+		const uint32 Hash = (++GaitStepCount) * 2654435761u;
+		const float Roll = ((Hash >> 8) & 0xFFFF) / 65535.0f;
+		const float Span = ((Hash >> 22) & 0x3FF) / 1023.0f;
+		if (Roll < 0.125f)
+		{
+			GaitTarget = 0.0f;
+			GaitSecondsLeft = 0.5f + 0.7f * Span;
+		}
+		else
+		{
+			GaitTarget = 0.9f + 0.45f * Span;
+			GaitSecondsLeft = 0.45f + 0.35f * Roll;
+		}
+	}
+	GaitCurrent = FMath::FInterpTo(GaitCurrent, GaitTarget, DeltaSeconds, 9.0f);
+	return GaitCurrent;
+}
 
 bool AIGListenerEntity::CrawlTowards(
 	const FVector& Target,

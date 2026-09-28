@@ -347,6 +347,11 @@ private:
 	// -- locomotion ---------------------------------------------------------
 	/** Sweeps toward Target; returns true on arrival (or when wedged). */
 	bool CrawlTowards(const FVector& Target, float Speed, float DeltaSeconds);
+	/**
+	 * 순찰·수색 걸음의 빠르기 배율. 한 걸음마다 다시 고르고 가끔 0으로 멈춰 듣는다.
+	 * 같은 주기가 매끈하게 돌면 몇 번 보고 나서 익숙해진다. 추격에는 쓰지 않는다.
+	 */
+	float AdvanceGait(float DeltaSeconds);
 	void FaceDirection(const FVector& Direction, float DeltaSeconds);
 	const FVector* CurrentPatrolTarget() const;
 
@@ -588,6 +593,10 @@ private:
 	float SearchRetargetSeconds = 0.0f;
 	float StuckSeconds = 0.0f;
 	float LastMoveSpeed = 0.0f;
+	float GaitCurrent = 1.0f;
+	float GaitTarget = 1.0f;
+	float GaitSecondsLeft = 0.0f;
+	uint32 GaitStepCount = 0;
 	FVector LastDustReportLocation = FVector::ZeroVector;
 	float DustSiftCentimeters = 0.0f;
 	float DragSurfacePollSeconds = 0.0f;
