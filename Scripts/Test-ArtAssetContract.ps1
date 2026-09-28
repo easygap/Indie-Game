@@ -18,8 +18,6 @@ $requiredRaw = @(
 	'AI\SheetFirstPersonKnockPhases_v1_RGBA.png',
 	'AI\SheetFirstPersonKnockPhases_v2.png',
 	'AI\SheetFirstPersonKnockPhases_v2_RGBA.png',
-	'AI\SheetListenerCaptureEmbracePhases_v1.png',
-	'AI\SheetListenerCaptureEmbracePhases_v1_RGBA.png',
 	'AI\SheetP3ServiceCabinetReference.png',
 	'AI\SheetRooftopFireDoorReference.png',
 	'AI\SheetRooftopUnlockedPadlockKeysReference.png',
@@ -101,11 +99,7 @@ $requiredOverlays = @(
 	'T_FPHandKnock0_D.png',
 	'T_FPHandKnock1_D.png',
 	'T_FPHandKnock2_D.png',
-	'T_FPHandKnock3_D.png',
-	'T_FPCaptureEmbrace0_D.png',
-	'T_FPCaptureEmbrace1_D.png',
-	'T_FPCaptureEmbrace2_D.png',
-	'T_FPCaptureEmbrace3_D.png'
+	'T_FPHandKnock3_D.png'
 )
 $requiredMaterialMasks = @(
 	'T_ApartmentWallPatina_M.png'
@@ -289,8 +283,7 @@ foreach ($relativePath in $requiredDerived) {
 			$requiredMaterialMasks -contains $relativePath -or
 			$requiredMaterialTextures -contains $relativePath -or
 			$requiredPbrMaps -contains $relativePath -or
-			$relativePath -like 'T_SpriteListener*_D.png' -or
-			$relativePath -like 'T_FPCaptureEmbrace*_D.png'
+			$relativePath -like 'T_SpriteListener*_D.png'
 		) { 1024 } else { 512 }
 		# 먹지는 22x30.7cm 원장 아래에 UV로 붙으므로 A4 비율(1:1.414)을
 		# 유지한다. 정사각으로 리샘플하면 종이 결과 접힘이 함께 늘어난다.
@@ -374,8 +367,7 @@ foreach ($relativePath in $requiredDerived) {
 			if (($relativePath -like 'T_SpriteListener*_D.png' -or
 				$relativePath -like 'T_SpriteFinalCavity_D.png' -or
 				$relativePath -like 'T_SpriteMokFinalUpper_D.png' -or
-				$relativePath -like 'T_FPHandKnock*_D.png' -or
-				$relativePath -like 'T_FPCaptureEmbrace*_D.png') -and
+				$relativePath -like 'T_FPHandKnock*_D.png') -and
 				$visibleGreenSamples -gt 0) {
 				throw "RGBA overlay retained a visible green fringe: $relativePath"
 			}
@@ -1376,8 +1368,6 @@ foreach ($token in @(
 	'M_MovingBoxCardboardUV.uasset',
 	'T_FPHandKnock0_D.uasset',
 	'T_FPHandKnock3_D.uasset',
-	'T_FPCaptureEmbrace0_D.uasset',
-	'T_FPCaptureEmbrace3_D.uasset',
 	'IG_APARTMENT_VISUAL_ONLY',
 	'T_ApartmentWallpaperV2_D.uasset',
 	'T_ApartmentWallPatina_M.uasset',

@@ -231,8 +231,7 @@ if ($HudUiOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
 		-OnlySource @(
 			'TextureAudioCalibrationWall_v1',
-			'SheetFirstPersonKnockPhases_v2_RGBA',
-			'SheetListenerCaptureEmbracePhases_v1_RGBA'
+			'SheetFirstPersonKnockPhases_v2_RGBA'
 		)
 }
 
@@ -488,11 +487,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Textures\T_FPHandKnock0_D.uasset',
 			'Content\Prototype\Textures\T_FPHandKnock1_D.uasset',
 			'Content\Prototype\Textures\T_FPHandKnock2_D.uasset',
-			'Content\Prototype\Textures\T_FPHandKnock3_D.uasset',
-			'Content\Prototype\Textures\T_FPCaptureEmbrace0_D.uasset',
-			'Content\Prototype\Textures\T_FPCaptureEmbrace1_D.uasset',
-			'Content\Prototype\Textures\T_FPCaptureEmbrace2_D.uasset',
-			'Content\Prototype\Textures\T_FPCaptureEmbrace3_D.uasset'
+			'Content\Prototype\Textures\T_FPHandKnock3_D.uasset'
 		)
 	}
 	elseif ($ApartmentVisualOnly) {
