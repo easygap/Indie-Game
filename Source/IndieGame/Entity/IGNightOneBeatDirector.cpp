@@ -490,7 +490,7 @@ void AIGNightOneBeatDirector::HandleStairTransitionCompleted(const bool bGoingDo
 					EIGAudioBus::Entity);
 				AIGHorrorHUD::PushAudioCaptionAt(
 					this,
-					NSLOCTEXT("IGMissingFloor", "SightingSettleCaption", "석고가 갈라진다"),
+					NSLOCTEXT("IGMissingFloor", "SightingSettleCaption", "벽에 금 가는 소리"),
 					2.0f,
 					Listener->GetActorLocation());
 			}
@@ -647,7 +647,7 @@ void AIGNightOneBeatDirector::HandleUnit402KnockZone(AIGZoneTrigger* Zone)
 	AIGHorrorHUD::PushFearDirection(this, IGNightOne::Unit402KnockSource);
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "Unit402KnockCaption", "402호 안쪽 — 노크 둘"),
+		NSLOCTEXT("IGMissingFloor", "Unit402KnockCaption", "402호 안에서 두 번 두드리는 소리"),
 		2.2f,
 		IGNightOne::Unit402KnockSource);
 }

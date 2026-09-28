@@ -259,11 +259,11 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		ImpressionPadMesh
 			? FVector::ZeroVector
 			: FVector(21.0f, 29.7f, .6f),
-		NSLOCTEXT("IGMissingFloor", "P2CarbonPrompt", "접수철 밑장 — 연필로 문지른다"),
+		NSLOCTEXT("IGMissingFloor", "P2CarbonPrompt", "접수철 밑장 연필로 문지르기"),
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2CarbonRestored",
-			"31일에도 들린다고 했는데, 장부에는 ‘소음 없음. 종결’이라고 적혀 있다."),
+			"31일에도 들린다고 했는데, 장부엔 ‘소음 없음. 종결’이라고 적어 놨네."),
 		EIGMissingFloorTruth::WasStillAlive,
 		EIGMissingFloorSource::CarbonLedgerOriginal,
 		IGPuzzleTwo::FrottageHoldSeconds,
@@ -280,12 +280,12 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2CarbonStage2",
-			"29일 새벽에도 들렸고, 30일에는 직접 와 달라고 했다."),
+			"29일 새벽에도 들렸고, 30일엔 직접 와 달라고 했네."),
 	});
 	CarbonLedger->ConfigureProgressReveal(
 		LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_ComplaintImpression.M_ComplaintImpression")),
 		FVector(0, 0, .56f), FVector2D(20.9f, 29.6f),
-		NSLOCTEXT("IGMissingFloor", "P2CarbonReadPrompt", "복원한 민원 — 다시 읽는다"));
+		NSLOCTEXT("IGMissingFloor", "P2CarbonReadPrompt", "밑장 민원 다시 읽기"));
 	if (UStaticMesh* PencilMesh = LoadObject<UStaticMesh>(nullptr, TEXT("/Game/Meshes/SM_GraphitePencil.SM_GraphitePencil")))
 	{
 		UStaticMeshComponent* Pencil = NewObject<UStaticMeshComponent>(CarbonLedger, TEXT("Pencil"));
@@ -314,7 +314,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	AgentMessageNote->ConfigurePrototypeVisuals(
 		CubeMesh, LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_BoothAgentNote.M_BoothAgentNote")), FVector(18.0f, 24.0f, 0.08f));
 	AgentMessageNote->SetInteractionPrompt(
-		NSLOCTEXT("IGMissingFloor", "P2AgentPrompt", "출력된 문자 사본"));
+		NSLOCTEXT("IGMissingFloor", "P2AgentPrompt", "문자 출력본"));
 	AgentMessageNote->SetNoteText(
 		NSLOCTEXT("IGMissingFloor", "P2AgentTitle", "무영부동산 문자 사본"),
 		{
@@ -343,7 +343,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		CubeMesh,
 		DarkPlasticMaterial,
 		FVector(5.0f, 2.0f, 4.0f),
-		NSLOCTEXT("IGMissingFloor", "P2CctvPrompt", "모니터 — 외부 입력"),
+		NSLOCTEXT("IGMissingFloor", "P2CctvPrompt", "모니터 외부 입력 보기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -385,7 +385,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		CubeMesh,
 		nullptr,
 		FVector(4.0f, 4.0f, 60.0f),
-		NSLOCTEXT("IGMissingFloor", "P2FoamPrompt", "문틈"),
+		NSLOCTEXT("IGMissingFloor", "P2FoamPrompt", "문틈 보기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -412,7 +412,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		BoothValveMesh,
 		MetalMaterial,
 		FVector::ZeroVector,
-		NSLOCTEXT("IGMissingFloor", "BoothValvePrompt", "배관 밸브 — 연다"),
+		NSLOCTEXT("IGMissingFloor", "BoothValvePrompt", "배관 밸브 열기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -440,9 +440,9 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	BoardReceipts->SetInteractionPrompt(
 		NSLOCTEXT("IGMissingFloor", "P2ReceiptsPrompt", "자재 반입 영수증"));
 	BoardReceipts->SetNoteText(
-		NSLOCTEXT("IGMissingFloor", "P2ReceiptsTitle", "자재 반입 영수증 (2매)"),
+		NSLOCTEXT("IGMissingFloor", "P2ReceiptsTitle", "자재 반입 영수증 (2장)"),
 		{
-			NSLOCTEXT("IGMissingFloor", "P2Receipt1", "무영건재  ·  무영로 27-3 달빛빌라"),
+			NSLOCTEXT("IGMissingFloor", "P2Receipt1", "무영건재  ·  무영로44길 4 달빛빌라"),
 			FText::GetEmpty(),
 			NSLOCTEXT("IGMissingFloor", "P2Receipt2", "7/26   석고보드 9.5T   12장     현금"),
 			NSLOCTEXT("IGMissingFloor", "P2Receipt3", "       경량스터드 3.6m  8본     현금"),
@@ -503,7 +503,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2CalendarThought",
-				"작년 7월 달력이다. 26일에만 표시가 돼 있다."),
+				"작년 7월 달력이네. 26일에만 동그라미가 쳐져 있다."),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
 			0.9f,
@@ -552,7 +552,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2InnerRoomListenPrompt",
-				"안쪽 방 문 — 귀를 댄다"),
+				"안쪽 방 문에 귀 대기"),
 			FText::GetEmpty(),
 			EIGMissingFloorTruth::None,
 			EIGMissingFloorSource::None,
@@ -582,7 +582,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		PhoneMesh ? PhoneMesh : CubeMesh,
 		DarkPlasticMaterial,
 		PhoneMesh ? FVector::ZeroVector : FVector(7.0f, 14.5f, 1.6f),
-		NSLOCTEXT("IGMissingFloor", "P2PhoneArmPrompt", "폰 — 녹음"),
+		NSLOCTEXT("IGMissingFloor", "P2PhoneArmPrompt", "폰으로 녹음하기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -608,7 +608,7 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		BoothNotice->SetInteractionPrompt(
 			NSLOCTEXT("IGMissingFloor", "BoothNoticePrompt", "관리실 쪽지"));
 		BoothNotice->SetNoteText(
-			NSLOCTEXT("IGMissingFloor", "BoothNoticeTitle", "알림"),
+			NSLOCTEXT("IGMissingFloor", "BoothNoticeTitle", "알립니다"),
 			{
 				NSLOCTEXT("IGMissingFloor", "BoothNotice1", "옥탑은 창고입니다. 사람 없습니다."),
 				NSLOCTEXT("IGMissingFloor", "BoothNotice2", "새벽에 나는 소리는 물탱크에 바람 드는 소리입니다."),
@@ -721,11 +721,11 @@ void AIGMissingFloorPuzzleTwoDirector::SetHourActive(const bool bHourActive)
 		Lock.RequiredState = FGameplayTag::RequestGameplayTag(
 			FName(TEXT("State.MissingFloor.Office.Vacant")), false);
 		Lock.LockedPrompt =
-			NSLOCTEXT("IGMissingFloor", "BoothDayPrompt", "관리실");
+			NSLOCTEXT("IGMissingFloor", "BoothDayPrompt", "관리실 문 두드리기");
 		Lock.LockedThought = NSLOCTEXT(
 			"IGMissingFloor",
 			"BoothDayThought",
-			"안에 있다. 낮에는 문을 안 열어 준다.");
+			"안에 사람 있는데. 낮에는 문을 안 열어 주네.");
 		BoothDoor->SetRequirements(MoveTemp(DayLock));
 	}
 }
@@ -759,7 +759,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleBoothValveOpened(
 	if (Evidence)
 	{
 		Evidence->SetInteractionPrompt(
-			NSLOCTEXT("IGMissingFloor", "BoothValveOpenPrompt", "배관 밸브 — 열려 있다"));
+			NSLOCTEXT("IGMissingFloor", "BoothValveOpenPrompt", "열린 배관 밸브"));
 		Evidence->SetInteractionEnabled(false);
 	}
 	IGAudio::SpawnOneShotAt(
@@ -813,7 +813,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleBoothValveOpened(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"BoothValveThought",
-			"관에서 물소리. 책상까지 울린다."),
+			"배관에서 물소리가 난다. 책상까지 울리네."),
 		3.6f);
 }
 
@@ -845,7 +845,7 @@ void AIGMissingFloorPuzzleTwoDirector::CloseBoothValve()
 	if (BoothRiserValve)
 	{
 		BoothRiserValve->SetInteractionPrompt(
-			NSLOCTEXT("IGMissingFloor", "BoothValvePrompt", "배관 밸브 — 연다"));
+			NSLOCTEXT("IGMissingFloor", "BoothValvePrompt", "배관 밸브 열기"));
 		BoothRiserValve->SetInteractionEnabled(true);
 	}
 }
@@ -928,17 +928,17 @@ void AIGMissingFloorPuzzleTwoDirector::RefreshPhonePrompt()
 	if (Recording->IsRecording())
 	{
 		PhoneRecorder->SetInteractionPrompt(
-			NSLOCTEXT("IGMissingFloor", "P2PhoneRecording", "폰 — 녹음 중"));
+			NSLOCTEXT("IGMissingFloor", "P2PhoneRecording", "폰 녹음 중"));
 		return;
 	}
 	if (Recording->HasTake() && !bPhonePlayedBack)
 	{
 		PhoneRecorder->SetInteractionPrompt(
-			NSLOCTEXT("IGMissingFloor", "P2PhonePlayPrompt", "폰 — 재생"));
+			NSLOCTEXT("IGMissingFloor", "P2PhonePlayPrompt", "녹음 들어 보기"));
 		return;
 	}
 	PhoneRecorder->SetInteractionPrompt(
-		NSLOCTEXT("IGMissingFloor", "P2PhoneArmPrompt", "폰 — 녹음"));
+		NSLOCTEXT("IGMissingFloor", "P2PhoneArmPrompt", "폰으로 녹음하기"));
 }
 
 void AIGMissingFloorPuzzleTwoDirector::RefreshPhoneOffer()
@@ -1056,7 +1056,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCashMemoRead(
 	{
 		AIGHorrorHUD::PushThought(
 			this,
-			NSLOCTEXT("IGMissingFloor", "P2CashMemoThought", "8월 12일, 3만 원. 그 매물이다."),
+			NSLOCTEXT("IGMissingFloor", "P2CashMemoThought", "8월 12일, 3만 원. 그 중고 매물이네."),
 			3.8f);
 	}
 }
@@ -1095,16 +1095,16 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 			? NSLOCTEXT(
 				"IGMissingFloor",
 				"P2PhoneSilence",
-				"내 발소리는 들리는데. 문에서 난 소리는 하나도 안 담겼다.")
+				"내 발소리는 들리는데, 문에서 난 소리는 하나도 안 담겼어.")
 			: bRuleLifted
 				? NSLOCTEXT(
 					"IGMissingFloor",
 					"P2PhoneKept",
-					"담겼다. 이번엔 담겼어.")
+					"녹음됐다. 이번엔 제대로 됐어.")
 				: NSLOCTEXT(
 					"IGMissingFloor",
 					"P2PhoneNothing",
-					"발소리하고 숨소리만 담겼다.");
+					"내 발소리랑 숨소리만 녹음됐네.");
 		// 결론은 증거 뒤에 온다. 재생과 같은 틱에 뜨면 공백이 오기도 전에 글이
 		// 먼저 말해 버린다. 발췌가 둘러싼 순간(3연이 비운 자리)이 끝나고 숨
 		// 한 번 뒤에 띄운다.
@@ -1195,7 +1195,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 	const bool bChannelLive = CctvChannelFive && CctvChannelFive->Play();
 	AIGHorrorHUD::PushAudioCaption(
 		this,
-		NSLOCTEXT("IGMissingFloor", "P2CctvCaption", "화면 지직임"),
+		NSLOCTEXT("IGMissingFloor", "P2CctvCaption", "화면 지지직거리는 소리"),
 		1.6f);
 	if (!bChannelLive)
 	{
@@ -1204,7 +1204,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2CctvThought1",
-				"방금 그 복도는 어디지? 이 건물은 4층이 꼭대기인데."),
+				"방금 그 복도는 어디야? 이 건물에 저런 층은 없는데."),
 			4.4f);
 		return;
 	}
@@ -1220,7 +1220,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P2CctvThought1",
-					"방금 그 복도는 어디지? 이 건물은 4층이 꼭대기인데."),
+					"방금 그 복도는 어디야? 이 건물에 저런 층은 없는데."),
 				4.4f);
 			// §5.5. The picture is on screen and already unrecoverable: nothing
 			// about channel 5 reaches the recorder, and the label on the case
@@ -1231,7 +1231,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P2CctvThought2",
-					"저장은 안 되는 채널이다. 화면부터 기억해 두자."),
+					"녹화는 안 되는 채널이네. 화면이라도 잘 봐 두자."),
 				4.2f);
 		}),
 		0.32f + AIGCctvChannelFive::LiveSeconds + 0.86f + 0.25f,
@@ -1262,7 +1262,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2ReceiptsThought",
-				"같은 보드를 26일, 27일 이틀로 나눠 샀다. 대장에는 하루만."),
+				"같은 석고보드를 26일, 27일 이틀에 나눠 샀네. 대장엔 하루만 적혀 있는데."),
 			4.6f);
 	}
 }
@@ -1303,7 +1303,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleInnerRoomListenExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2InnerRoomCaption",
-			"[문 너머, 낮게] 뭔가 계속 돌고 있다"),
+			"[문 너머] 뭔가 낮게 웅웅 도는 소리"),
 		IGPuzzleTwo::InnerRoomCreakSeconds);
 	// 기계만 도는 방이 아니다. 간이침대의 나무가 한 번 삐걱이고, 몸을 뒤척이는
 	// 천 소리가 난다. 목소리도 기침도 숨도 넣지 않는다 — 산 사람의 목소리는
@@ -1323,7 +1323,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleInnerRoomListenExamined(
 				EIGAudioBus::World);
 			AIGHorrorHUD::PushAudioCaption(
 				this,
-				NSLOCTEXT("IGMissingFloor", "P2InnerRoomCreakCaption", "[문 너머] 나무가 한 번 삐걱인다"),
+				NSLOCTEXT("IGMissingFloor", "P2InnerRoomCreakCaption", "[문 너머] 나무 한 번 삐걱거리는 소리"),
 				IGPuzzleTwo::InnerRoomClothSeconds - IGPuzzleTwo::InnerRoomCreakSeconds);
 		}),
 		IGPuzzleTwo::InnerRoomCreakSeconds,
@@ -1343,7 +1343,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleInnerRoomListenExamined(
 				EIGAudioBus::World);
 			AIGHorrorHUD::PushAudioCaption(
 				this,
-				NSLOCTEXT("IGMissingFloor", "P2InnerRoomClothCaption", "[문 너머] 천이 스친다"),
+				NSLOCTEXT("IGMissingFloor", "P2InnerRoomClothCaption", "[문 너머] 천 스치는 소리"),
 				1.8f);
 		}),
 		IGPuzzleTwo::InnerRoomClothSeconds,
@@ -1358,7 +1358,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleInnerRoomListenExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P2InnerRoomThought",
-					"안에서 누가 몸을 뒤척였다. 지금 문을 열면 들킨다."),
+					"안에서 누가 뒤척였어. 지금 문 열면 들킨다."),
 				4.4f);
 		}),
 		IGPuzzleTwo::InnerRoomThoughtSeconds,

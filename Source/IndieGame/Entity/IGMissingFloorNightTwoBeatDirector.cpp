@@ -224,7 +224,7 @@ bool AIGMissingFloorNightTwoBeatDirector::Configure(
 		CubeMesh,
 		nullptr,
 		FVector(3.0f, 2.4f, 3.0f),
-		NSLOCTEXT("IGMissingFloor", "N2PeepholePrompt", "문구멍"),
+		NSLOCTEXT("IGMissingFloor", "N2PeepholePrompt", "문구멍으로 내다보기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -448,7 +448,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayFirstKnock()
 	}
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "N2DoorKnockCaption", "현관문 — 노크"),
+		NSLOCTEXT("IGMissingFloor", "N2DoorKnockCaption", "현관문 두드리는 소리"),
 		2.0f,
 		IGNightTwo::KnockLocation);
 	// 계기는 소리가 아니라 위치다. 사흘째 벽에서 들리던 것이 이번엔 문이다.
@@ -457,7 +457,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayFirstKnock()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2DoorKnockThought",
-			"이번엔 현관문에서 들렸다."),
+			"이번엔 현관문이야."),
 		4.2f);
 
 	// §5.5가 거부할 것이 생기는 순간이다. 발신자가 존재여야 하므로 소음
@@ -517,7 +517,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayAnswer()
 		false);
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "N2TripleCaption", "문 너머 — 연달아 세 번 두드리는 소리"),
+		NSLOCTEXT("IGMissingFloor", "N2TripleCaption", "문 너머에서 연달아 세 번 두드리는 소리"),
 		2.4f,
 		IGNightTwo::KnockLocation);
 	// 1.0은 §21.2의 3연 값이고, §5.5의 표가 그것을 2.10초의 무음으로 옮긴다.
@@ -575,7 +575,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayDragAway()
 	}
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "N2DragCaption", "끌리는 소리 — 멀어짐"),
+		NSLOCTEXT("IGMissingFloor", "N2DragCaption", "뭔가 끌리며 멀어지는 소리"),
 		2.6f,
 		IGNightTwo::FigureStagePoint);
 	if (UIGNoiseSubsystem* Noise = GetNoise())
@@ -721,7 +721,7 @@ void AIGMissingFloorNightTwoBeatDirector::ArmReturnChase()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2ReturnThought",
-			"이제 403호까지 올라가야 한다."),
+			"이제 403호까지 올라가야 해."),
 		4.0f);
 	// 지운 민원을 읽은 몸이 식는다. 놀람이 아니라 한기라서 숨은 걸리지 않는다.
 	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
@@ -765,7 +765,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayReturnChill()
 		EIGAudioBus::World);
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "N2ReturnCeilingCreak", "천장이 한 번 삐걱인다"),
+		NSLOCTEXT("IGMissingFloor", "N2ReturnCeilingCreak", "천장에서 한 번 삐걱거리는 소리"),
 		2.2f,
 		IGNightTwo::ReturnCreakLocation);
 }
@@ -897,7 +897,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayMaterialCollapse()
 
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "N2CollapseCaption", "자재 무너짐"),
+		NSLOCTEXT("IGMissingFloor", "N2CollapseCaption", "자재 무너지는 소리"),
 		2.4f,
 		IGNightTwo::CollapseLocation);
 	// §18.6 낙하물·충돌. 건물이 무너뜨린 것이지 그녀가 낸 소리가 아니라서
@@ -950,7 +950,7 @@ void AIGMissingFloorNightTwoBeatDirector::HandlePeepholeExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2PeepholeThought1",
-			"캄캄하다. 복도 끝 등 하나만 켜져 있다."),
+			"캄캄하네. 복도 끝 등 하나만 켜져 있어."),
 		3.0f);
 	GetWorldTimerManager().SetTimer(
 		PeepholeTimer,
@@ -992,7 +992,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayPeepholeAftermath()
 			EIGAudioBus::Entity);
 		AIGHorrorHUD::PushAudioCaptionAt(
 			this,
-			NSLOCTEXT("IGMissingFloor", "N2PeepholeCrackCaption", "문 바로 아래 — 석고 갈라지는 소리"),
+			NSLOCTEXT("IGMissingFloor", "N2PeepholeCrackCaption", "문 바로 밖에서 벽 갈라지는 소리"),
 			2.2f,
 			CrackAt);
 		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())

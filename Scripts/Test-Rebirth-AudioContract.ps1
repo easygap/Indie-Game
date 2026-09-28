@@ -533,7 +533,7 @@ Require-All $puzzleTwoRec @(
 	'Recording->StartRecording();',
 	'Recording->StopRecording();',
 	'Recording->PlayBack(At)',
-	'내 발소리는 들리는데. 문에서 난 소리는 하나도 안 담겼다.'
+	'내 발소리는 들리는데, 문에서 난 소리는 하나도 안 담겼어.'
 ) '§5.5 night two beats'
 Require-All $greybox @(
 	'case EProbeStep::RecordingRuleContract:',
@@ -553,7 +553,7 @@ Require-All $greybox @(
 # 거부했다는 사실만으로는 부족하다. 아무 일도 일어나지 않는 것은 입력이
 # 끊어졌을 때의 모습이기도 하다. 어떤 거부를 했는지까지 읽어야 한다.
 if ($greybox -notmatch 'HasDialogueLineForTesting\(\s*[
-\s]*TEXT\("지금은 되돌릴 때가 아니다\."\)') {
+\s]*TEXT\("지금은 되돌릴 수 없어\."\)') {
 	throw '봉쇄 중 F9 거부는 침묵이 아니라 그 문장으로 확인해야 한다.'
 }
 $assertions++

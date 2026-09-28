@@ -144,23 +144,23 @@ namespace IGHorrorHUD
 	{
 		static const TArray<FJournalEntryDefinition> Entries = {
 			{TEXT("Lobby.MeterFifthDial"), EJournalLane::Administration,
-				TEXT("다섯 번째 계량기"), TEXT("복도등과는 따로 연결돼 있다. 이름 없는 차단기를 올리면 원판이 돈다."),
-				TEXT("공동현관 계량기함 · 밤 1"), EJournalThumbnail::Meter},
+				TEXT("다섯 번째 계량기"), TEXT("복도등과는 따로 연결돼 있다. 이름표 없는 차단기를 올리면 원판이 돈다."),
+				TEXT("공동현관 계량기함 · 첫째 밤"), EJournalThumbnail::Meter},
 			{TEXT("Office.MeterReadingSheet"), EJournalLane::Administration,
 				TEXT("검침 기록지"), TEXT("다섯 번째 칸. 63 · 58 · 61 · 0"),
-				TEXT("관리실 사본 · 밤 1"), EJournalThumbnail::Document},
+				TEXT("관리실 사본 · 첫째 밤"), EJournalThumbnail::Document},
 			{TEXT("Office.BoardDeliveryReceipt"), EJournalLane::Administration,
 				TEXT("자재 반입 영수증"), TEXT("석고보드 9.5T 12장씩, 7/26과 7/27"),
-				TEXT("관리실 책상 · 밤 2"), EJournalThumbnail::Document},
+				TEXT("관리실 책상 · 둘째 밤"), EJournalThumbnail::Document},
 			{TEXT("Office.CarbonLedgerOriginal"), EJournalLane::Administration,
 				TEXT("민원 접수철 밑장"), TEXT("7/27 · 401호: 벽에서 쿵쿵. 사람 소리 같음."),
-				TEXT("관리실 책상 · 밤 2"), EJournalThumbnail::Document},
+				TEXT("관리실 책상 · 둘째 밤"), EJournalThumbnail::Document},
 			{TEXT("Office.AgentMoveOutMessage"), EJournalLane::Administration,
 				TEXT("부동산 문자 사본"), TEXT("사장님, 옥탑 짐은 다 뺐습니다. (7/26 14:02)"),
-				TEXT("관리실 책상 · 밤 2"), EJournalThumbnail::Document},
+				TEXT("관리실 책상 · 둘째 밤"), EJournalThumbnail::Document},
 			{TEXT("Office.EvictionWarning"), EJournalLane::Administration,
-				TEXT("퇴거 요구서"), TEXT("무단 시설 조작, 이번 주 내 퇴거. 내일 07:00 옥상 누수 보수."),
-				TEXT("4층 복도 · 낮 4"), EJournalThumbnail::Document},
+				TEXT("퇴거 통보문"), TEXT("시설 무단 조작으로 이번 주 안에 퇴거. 내일 07:00 옥상 누수 공사."),
+				TEXT("4층 복도 · 넷째 날 낮"), EJournalThumbnail::Document},
 
 			{TEXT("Forum.NoisePosts"), EJournalLane::Life,
 				TEXT("층간소음 게시글"), TEXT("6/30 새벽 네 시만 되면 위에서 뭘 질질 끕니다."),
@@ -170,50 +170,50 @@ namespace IGHorrorHUD
 				TEXT("1층 게시판 인쇄본"), EJournalThumbnail::Document},
 			{TEXT("Fifth.LandingImpactMark"), EJournalLane::Life,
 				TEXT("계단참에 남은 자국"), TEXT("철골 모서리와 바닥에 같은 검은 얼룩이 묻어 있다."),
-				TEXT("5층 계단참 · 밤 3"), EJournalThumbnail::Metal},
+				TEXT("5층 계단참 · 셋째 밤"), EJournalThumbnail::Metal},
 			{TEXT("Fifth.FreshPlasterDating"), EJournalLane::Life,
 				TEXT("덧댄 벽"), TEXT("안쪽 석고보드는 바싹 말랐는데, 바깥 실리콘은 아직 덜 굳었다."),
-				TEXT("5층 공동벽 · 밤 3"), EJournalThumbnail::Plaster},
+				TEXT("5층 공동벽 · 셋째 밤"), EJournalThumbnail::Plaster},
 			{TEXT("Fifth.PipeWaterComparison"), EJournalLane::Life,
 				TEXT("배관에서 들은 소리"), TEXT("한쪽에서는 물이 흐르고, 다른 쪽에서는 속이 빈 듯한 소리가 난다."),
-				TEXT("5층 서비스 벽 · 밤 3"), EJournalThumbnail::Metal},
+				TEXT("5층 점검구 쪽 벽 · 셋째 밤"), EJournalThumbnail::Metal},
 			{TEXT("Fifth.WallEchoByHand"), EJournalLane::Life,
 				TEXT("직접 두드린 벽"), TEXT("한쪽 벽만 오래 울린다. 다른 벽은 두드리면 소리가 금방 끊긴다."),
-				TEXT("5층 · 밤 3"), EJournalThumbnail::Plaster},
+				TEXT("5층 · 셋째 밤"), EJournalThumbnail::Plaster},
 			{TEXT("Unit401.KnockTallyJournal"), EJournalLane::Life,
 				TEXT("황순금 소리 일지"), TEXT("7/27 위에서 다섯 번 · 7/31 오늘은 세 번."),
-				TEXT("401호 · 낮 3"), EJournalThumbnail::Document},
+				TEXT("401호 · 셋째 날 낮"), EJournalThumbnail::Document},
 			{TEXT("Roof.TankWaterAudition"), EJournalLane::Life,
 				TEXT("물탱크 안내판"), TEXT("용량 2,000 L. 물 높이를 가리키는 바늘이 위쪽에 있었다."),
-				TEXT("옥상 · 밤 3"), EJournalThumbnail::Tank},
+				TEXT("옥상 · 셋째 밤"), EJournalThumbnail::Tank},
 			{TEXT("Fifth.AnswerReturned"), EJournalLane::Life,
-				TEXT("벽 너머의 노크"), TEXT("둘, 쉬고, 하나."),
-				TEXT("5층 공동벽 · 밤 3"), EJournalThumbnail::Plaster},
+				TEXT("벽 너머 노크 소리"), TEXT("둘, 쉬고, 하나."),
+				TEXT("5층 공동벽 · 셋째 밤"), EJournalThumbnail::Plaster},
 			{TEXT("Fifth.BreakerCutIntervention"), EJournalLane::Life,
-				TEXT("끊긴 전기"), TEXT("망치 세 번째에 5층 불이 나갔다."),
-				TEXT("5층 · 밤 4"), EJournalThumbnail::Metal},
+				TEXT("나간 전기"), TEXT("망치 세 번째에 5층 불이 나갔다."),
+				TEXT("5층 · 넷째 밤"), EJournalThumbnail::Metal},
 
 			{TEXT("Estate.ShippingLabels"), EJournalLane::Personal,
-				TEXT("배송 라벨"), TEXT("받는 사람 백도하 / 무영로 27-3 달빛빌라 옥탑"),
+				TEXT("배송 라벨"), TEXT("받는 분 백도하 / 무영로 27-3 달빛빌라 옥탑"),
 				TEXT("403호 책상 · 입주일"), EJournalThumbnail::Document},
 			{TEXT("Fifth.TunerNotebookName"), EJournalLane::Personal,
-				TEXT("조율 수첩"), TEXT("조율 수첩 — 백도하"),
-				TEXT("5층 벽 틈 · 밤 3"), EJournalThumbnail::Document},
+				TEXT("조율 수첩"), TEXT("백도하 조율 수첩"),
+				TEXT("5층 벽 틈 · 셋째 밤"), EJournalThumbnail::Document},
 			{TEXT("Fifth.TunerWorkSchedule"), EJournalLane::Personal,
 				TEXT("작업 시간표"), TEXT("월 서초 공연장 · 공연 끝나고 조율 02:30"),
-				TEXT("조율 수첩 · 밤 3"), EJournalThumbnail::Document},
+				TEXT("조율 수첩 · 셋째 밤"), EJournalThumbnail::Document},
 			{TEXT("Fifth.PipeAuditionCriterion"), EJournalLane::Personal,
 				TEXT("소리를 적어 둔 메모"), TEXT("옥탑 벽 확인: 빈 곳은 낮게 울리고 소리가 오래 감."),
-				TEXT("조율 수첩 여백 · 밤 3"), EJournalThumbnail::Document},
+				TEXT("조율 수첩 여백 · 셋째 밤"), EJournalThumbnail::Document},
 			{TEXT("Phone.AnswerRhythmVoicemail"), EJournalLane::Personal,
-				TEXT("마지막 음성사서함"), TEXT("문 두드리면 알지? 둘, 하나."),
+				TEXT("마지막 음성 메시지"), TEXT("문 두드리면 알지? 둘, 하나."),
 				TEXT("휴대폰 · 입주 전"), EJournalThumbnail::Metal},
 			{TEXT("Fifth.AnswerRhythmNotebook"), EJournalLane::Personal,
-				TEXT("수첩의 리듬"), TEXT("●●  —  ●"),
-				TEXT("조율 수첩 여백 · 밤 3"), EJournalThumbnail::Document},
+				TEXT("수첩에 그려진 박자"), TEXT("●●  —  ●"),
+				TEXT("조율 수첩 여백 · 셋째 밤"), EJournalThumbnail::Document},
 			{TEXT("Unit401.AnswerRhythmJournal"), EJournalLane::Personal,
 				TEXT("일지에 적힌 노크"), TEXT("7/29 저쪽이 하던 대로 둘, 쉬고, 하나. 그랬더니 조용하데."),
-				TEXT("401호 · 낮 3"), EJournalThumbnail::Document},
+				TEXT("401호 · 셋째 날 낮"), EJournalThumbnail::Document},
 		};
 		return Entries;
 	}
@@ -2899,8 +2899,8 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 				PanelPosition.X + PanelSize.X - 2.0f * Scale,
 				FooterY + FooterHeight - 2.0f * Scale));
 		const FText RetryText = bUsingGamepad
-			? NSLOCTEXT("IGHUD", "EndingCRetryGamepad", "A  넷째 날 밤 다시 시작")
-			: NSLOCTEXT("IGHUD", "EndingCRetryKeyboard", "E  넷째 날 밤 다시 시작");
+			? NSLOCTEXT("IGHUD", "EndingCRetryGamepad", "A  넷째 밤 다시 시작")
+			: NSLOCTEXT("IGHUD", "EndingCRetryKeyboard", "E  넷째 밤 다시 시작");
 		const float RetryScale = GetFittedTextScale(
 			RetryText,
 			EIGHudTextRole::Prompt,
@@ -4535,7 +4535,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 	const FString Labels[] =
 	{
 		bKorean ? TEXT("난이도") : TEXT("DIFFICULTY"),
-		bKorean ? TEXT("카메라 흔들림 감소") : TEXT("REDUCED CAMERA MOTION"),
+		bKorean ? TEXT("화면 흔들림 줄이기") : TEXT("REDUCED CAMERA MOTION"),
 		bKorean ? TEXT("빛 깜빡임 줄이기") : TEXT("REDUCED FLASHLIGHT FLICKER"),
 		bKorean ? TEXT("시야각") : TEXT("FIELD OF VIEW"),
 		bKorean ? TEXT("화면 가장자리 어둡게") : TEXT("EDGE VIGNETTE"),
@@ -4677,11 +4677,11 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 	const FString CategoryLabels[] =
 	{
 		bKorean ? TEXT("게임 진행") : TEXT("GAMEPLAY"),
-		bKorean ? TEXT("움직임") : TEXT("MOTION"),
-		bKorean ? TEXT("정보 안내") : TEXT("GUIDANCE"),
+		bKorean ? TEXT("화면 효과") : TEXT("MOTION"),
+		bKorean ? TEXT("소리 알림") : TEXT("GUIDANCE"),
 		bKorean ? TEXT("자막") : TEXT("CAPTIONS"),
-		bKorean ? TEXT("입력") : TEXT("INPUT"),
-		bKorean ? TEXT("관리") : TEXT("GENERAL")
+		bKorean ? TEXT("조작") : TEXT("INPUT"),
+		bKorean ? TEXT("기타") : TEXT("GENERAL")
 	};
 
 	FCanvasTileItem Scrim(
@@ -5337,7 +5337,7 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 				? NSLOCTEXT(
 					"IGHUD",
 					"MissingFloorJournalEmpty",
-					"아직 옮겨 적은 것이 없다.")
+					"아직 적어 둔 게 없다.")
 				: FText::FromString(TEXT("NOTHING HAS BEEN COPIED DOWN YET.")),
 			ContentTop + (ContentBottom - ContentTop) * 0.48f,
 			FaintInk,
@@ -5450,7 +5450,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		bKorean
 			? NSLOCTEXT(
 				"IGHUD", "AudioCalibrationKnockInstruction",
-				"노크가 또렷하게 들리되\n놀라지 않을 정도의 크기로 맞춰 주세요.")
+				"노크가 또렷하게 들리면서도\n깜짝 놀라지 않을 만큼 맞춰 주세요.")
 			: FText::FromString(
 				TEXT("MAKE THE KNOCK CLEARLY AUDIBLE\nAT A COMFORTABLE VOLUME.")),
 		FVector2D(LeftX, ContentY + 38.0f * Scale),
@@ -5526,7 +5526,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		bKorean ? TEXT("전체 소리") : TEXT("MASTER VOLUME"),
 		bKorean ? TEXT("배경 음악") : TEXT("MUSIC"),
 		bKorean ? TEXT("환경음") : TEXT("AMBIENCE"),
-		bKorean ? TEXT("소리 출력") : TEXT("LISTENING ON"),
+		bKorean ? TEXT("출력 장치") : TEXT("LISTENING ON"),
 		bKorean ? TEXT("화면 밝기") : TEXT("DISPLAY BRIGHTNESS"),
 		bKorean ? TEXT("노크 다시 듣기") : TEXT("PLAY KNOCK AGAIN"),
 		bSystemMenuAudioCalibrationFirstRun
@@ -5978,19 +5978,19 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 			break;
 		case 1:
 			Label = bKorean
-				? NSLOCTEXT("IGHUD", "LookPad", "패드 시점 감도")
+				? NSLOCTEXT("IGHUD", "LookPad", "패드 감도")
 				: FText::FromString(TEXT("GAMEPAD LOOK SENSITIVITY"));
 			Value = FText::AsNumber(Bindings->GetGamepadSensitivity(), &TwoDecimals);
 			break;
 		case 2:
 			Label = bKorean
-				? NSLOCTEXT("IGHUD", "LookVertical", "상하 감도 배율")
+				? NSLOCTEXT("IGHUD", "LookVertical", "세로 감도 배율")
 				: FText::FromString(TEXT("VERTICAL LOOK SCALE"));
 			Value = FText::AsNumber(Bindings->GetVerticalLookScale(), &TwoDecimals);
 			break;
 		default:
 			Label = bKorean
-				? NSLOCTEXT("IGHUD", "LookInvert", "시점 상하 반전")
+				? NSLOCTEXT("IGHUD", "LookInvert", "상하 반전")
 				: FText::FromString(TEXT("INVERT LOOK Y"));
 			Value = Bindings->IsLookInverted()
 				? (bKorean
@@ -6475,30 +6475,30 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 				: FText::FromString(
 					TEXT("TAKE A BREAK OR ADJUST SETTINGS IF THE EFFECTS FEEL UNCOMFORTABLE.")), false},
 			{bKorean
-				? NSLOCTEXT("IGHUD", "NoticeThemes", "소재")
+				? NSLOCTEXT("IGHUD", "NoticeThemes", "다루는 내용")
 				: FText::FromString(TEXT("THEMES")), true},
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeThemes1",
-					"벽 속에서 유해를 발견하는 장면과, 갇힌 사람이 숨져 가는"
+					"시신이 나오는 장면과, 사람이 죽어 가는"
 					" 소리를 듣는 구간이 있습니다.")
 				: FText::FromString(
-					TEXT("HIDDEN REMAINS ARE SHOWN, WITHOUT GORE. A TRAPPED DEATH IS HEARD.")), false},
+					TEXT("A BODY IS SHOWN, WITHOUT GORE. A DEATH IS HEARD.")), false},
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeThemes2",
-					"층간소음, 무단증축, 사망 사건 은폐를 다룹니다. 잔혹한 묘사는"
-					" 없으며 실제 사건과 무관합니다.")
+					"층간소음, 불법 증축, 죽음을 숨긴 사건을 다룹니다. 잔인한 묘사는"
+					" 없으며 실제 사건과는 관계가 없습니다.")
 				: FText::FromString(
 					TEXT("NOISE DISPUTES, ILLEGAL BUILDING, A COVERED-UP DEATH."
 						" NOT BASED ON REAL EVENTS.")), false},
 			{bKorean
-				? NSLOCTEXT("IGHUD", "NoticeControls", "줄일 수 있는 것")
+				? NSLOCTEXT("IGHUD", "NoticeControls", "불편하다면")
 				: FText::FromString(TEXT("WHAT YOU CAN TURN DOWN")), true},
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeControls1",
-					"접근성 설정에서 카메라 흔들림과 빛 깜빡임을 줄일 수 있습니다.")
+					"접근성 설정에서 화면 흔들림과 빛 깜빡임을 줄일 수 있습니다.")
 				: FText::FromString(
 					TEXT("REDUCED MOTION AND FLICKER SOFTEN THESE EFFECTS."
 						" GAMEPLAY IS UNCHANGED.")), false},
@@ -6685,7 +6685,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 	{
 		MessageLines = {
 			bKorean ? TEXT("자동 저장을 덮어씁니다.") : TEXT("THIS OVERWRITES YOUR AUTOSAVE."),
-			bKorean ? TEXT("다시 선택하면 새 게임 시작") : TEXT("SELECT NEW GAME AGAIN TO START.")
+			bKorean ? TEXT("한 번 더 누르면 새 게임을 시작합니다") : TEXT("SELECT NEW GAME AGAIN TO START.")
 		};
 		MessageColor = IGHorrorHUD::FrontendOxide;
 	}
@@ -6748,7 +6748,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		bKorean ? TEXT("게임 종료") : TEXT("QUIT"),
 		// §9. 있을 수 없는 슬롯. 라벨은 밤 이름 하나뿐이고 아무 설명도 달지
 		// 않는다 — 발견한 사람만 아는 것이 이 30초의 전부다.
-		bKorean ? TEXT("밤 5") : TEXT("NIGHT 5")
+		bKorean ? TEXT("다섯째 밤") : TEXT("NIGHT 5")
 	};
 	const FString PauseRows[] =
 	{

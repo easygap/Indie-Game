@@ -418,14 +418,14 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		CubeMesh,
 		PaperMaterial,
 		FVector(21.0f, 1.0f, 29.7f),
-		NSLOCTEXT("IGMissingFloor", "EvictionNoticePrompt", "퇴거 요구서"),
+		NSLOCTEXT("IGMissingFloor", "EvictionNoticePrompt", "퇴거 통보문 읽기"),
 		// 종이에서 읽는 것은 사유와 기한이다(§8 3-8). 아침 일곱 시 보수와 석고보드는
 		// 이어서 담당 수사관에게 보내는 사진 문자가 말한다 — 그레이박스 감독의
 		// 신고 문자 줄기가 이 종이를 읽은 뒤에 민다.
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"EvictionNoticeThought",
-			"무단 시설 조작으로 이번 주 안에 나가란다. 밤에 올라간 걸 알고 있는 거다."),
+			"시설 무단 조작으로 이번 주 안에 나가 달래. 밤에 올라간 걸 알고 있는 거야."),
 		EIGMissingFloorTruth::StillCoveringIt,
 		EIGMissingFloorSource::EvictionWarning,
 		0.0f,
@@ -470,7 +470,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		nullptr,
 		FVector::ZeroVector,
 		NSLOCTEXT(
-			"IGMissingFloor", "TransferPumpPrompt", "이송펌프 — 수동으로 돌리기"),
+			"IGMissingFloor", "TransferPumpPrompt", "이송 펌프 수동으로 돌리기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -571,7 +571,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		nullptr,
 		FVector(18.0f, 24.0f, 5.0f),
 		NSLOCTEXT(
-			"IGMissingFloor", "EndingAPrompt", "조율 렌치를 돌려놓고 물러난다"),
+			"IGMissingFloor", "EndingAPrompt", "튜닝 해머를 오빠 곁에 두고 물러나기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -585,7 +585,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		nullptr,
 		FVector(42.0f, 42.0f, 4.0f),
 		NSLOCTEXT(
-			"IGMissingFloor", "EndingBPrompt", "녹음을 끄고, 곁에 앉아 대답한다"),
+			"IGMissingFloor", "EndingBPrompt", "녹음 끄고 곁에 앉아 대답하기"),
 		FText::GetEmpty(),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
@@ -1349,7 +1349,7 @@ void AIGMissingFloorNightFourDirector::BeginCavityReveal()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"FinalRevealBegin",
-			"위에서부터 천천히 비춘다."),
+			"위에서부터 천천히 비춰 본다."),
 		4.2f);
 	SetActorTickEnabled(true);
 }
@@ -1425,7 +1425,7 @@ void AIGMissingFloorNightFourDirector::AdvanceCavityReveal()
 			this,
 			NSLOCTEXT(
 				"IGMissingFloor", "FinalRevealSkull",
-				"머리가 옷깃 안으로 기울어 있다."),
+				"고개가 옷깃 쪽으로 푹 숙여져 있다."),
 			3.0f);
 		// 알아보는 순간 공동 안에서 석고가 갈라져 떨어진다. 글만 있던 단계에 소리.
 		IGAudio::SpawnOneShotAt(
@@ -1453,7 +1453,7 @@ void AIGMissingFloorNightFourDirector::AdvanceCavityReveal()
 			this,
 			NSLOCTEXT(
 				"IGMissingFloor", "FinalRevealRibs",
-				"갈비뼈 사이에 석고 가루가 쌓였다. 오래됐다."),
+				"갈비뼈 사이에 석고 가루가 쌓여 있다. 오래됐어."),
 			3.0f);
 	}
 	else
@@ -1500,7 +1500,7 @@ void AIGMissingFloorNightFourDirector::BeginSilenceBeat()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"FinalRevealShoes",
-			"한쪽 발이 안으로 꺾였다. 방수포, 카트 바퀴. 오빠다."),
+			"한쪽 발이 안으로 꺾여 있다. 방수포, 카트 바퀴… 오빠야."),
 		5.0f);
 	const UIGMissingFloorNarrativeSubsystem* NarrativeNow = GetNarrative();
 	if (FifthDawn.IsValid() && NarrativeNow
@@ -1653,7 +1653,7 @@ void AIGMissingFloorNightFourDirector::PlayDistantReply()
 		EIGAudioBus::Entity);
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "FinalRevealKnockCaption", "멀리서, 두 번의 노크"),
+		NSLOCTEXT("IGMissingFloor", "FinalRevealKnockCaption", "멀리서 두 번 두드리는 소리"),
 		1.8f,
 		KnockLocation);
 }
@@ -1701,7 +1701,7 @@ void AIGMissingFloorNightFourDirector::PresentMokHansoo()
 	const FText MokLine = NSLOCTEXT(
 		"IGMissingFloor",
 		"MokHansooFinalLine",
-		"그만해요. 덮어야 돼요. 이거… 말해도 아무도 안 믿어요.");
+		"그만해요. 덮어야 돼. 이거… 말해 봤자 아무도 안 믿어요.");
 	AIGHorrorHUD::PushDialogue(
 		this,
 		NSLOCTEXT("IGMissingFloor", "MokHansooName", "목한수"),
@@ -1872,7 +1872,7 @@ void AIGMissingFloorNightFourDirector::BeginEntityPass()
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor", "FinaleDragCaption",
-			"석고 가루를 긁는 무거운 끌림 소리"),
+			"석고 가루 위로 무겁게 끌리는 소리"),
 		2.3f,
 		EntityStart);
 	// 그가 늦게 나오는 만큼 불도 0.75초 늦게 나간다. 목한수가 북벽에 닿은 뒤
@@ -1969,7 +1969,7 @@ void AIGMissingFloorNightFourDirector::CompleteConfrontation()
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor", "FinalConfrontationAfter",
-			"나를 두고 관리인을 따라갔다."),
+			"나를 지나쳐서 관리인을 따라갔어."),
 		4.5f);
 	// §8 4-5b. 앞의 줄이 다 읽힌 뒤, 유담이 폰을 본다. 선택은 지금처럼 바로
 	// 열린다 — 먼저 고른 사람은 이 줄을 건너뛴다.
@@ -2112,7 +2112,7 @@ void AIGMissingFloorNightFourDirector::PostEvictionNotice(const bool bAnnounce)
 		EIGAudioBus::World);
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "EvictionPostedCaption", "4층 복도 — 종이 소리"),
+		NSLOCTEXT("IGMissingFloor", "EvictionPostedCaption", "4층 복도에서 종이 붙이는 소리"),
 		2.0f,
 		IGNightFour::EvictionNoticeLocation);
 }
@@ -2206,7 +2206,7 @@ void AIGMissingFloorNightFourDirector::ActivateControl(
 	// 성공한 조작에만 결과를 말한다. 증거 액터가 판정 전에 대사를 띄우면
 	// 역순으로 밸브를 돌려도 '물이 빠진다'와 경보가 동시에 나왔다.
 	const FText Result = ControlId == IGNightFour::CleaningDrainId
-		? NSLOCTEXT("IGMissingFloor", "CleaningDrainThought", "아래쪽 관으로 물이 빠진다.")
+		? NSLOCTEXT("IGMissingFloor", "CleaningDrainThought", "아래쪽 배관으로 물이 빠진다.")
 		: ControlId == IGNightFour::FloatBypassId
 			? NSLOCTEXT("IGMissingFloor", "FloatBypassThought", "급수관에서도 물소리가 난다.")
 			: NSLOCTEXT("IGMissingFloor", "TransferPumpThought", "펌프가 돌기 시작했다.");
@@ -2274,11 +2274,11 @@ void AIGMissingFloorNightFourDirector::HandleControlMisorder(
 			? NSLOCTEXT(
 				"IGMissingFloor",
 				"P5OverflowAlarm",
-				"물이 넘친다. 배수를 안 열었다.")
+				"물이 넘친다. 배수 밸브를 안 열었어.")
 			: NSLOCTEXT(
 				"IGMissingFloor",
 				"P5PressureAlarm",
-				"펌프가 멎었다. 고장등이 꺼질 때까지 기다리자."),
+				"펌프가 멈췄다. 고장등 꺼질 때까지 기다리자."),
 		3.8f);
 	// 인터록이 선다. 그동안은 어느 손잡이도 안 돈다.
 	bControlLockoutActive = true;
@@ -2483,7 +2483,7 @@ void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P5MaskReady",
-				"물이 도는 동안은 벽 두드리는 소리가 묻힌다."),
+				"물 도는 동안엔 벽 치는 소리가 묻히겠다."),
 			4.0f);
 		// §8 4-5b의 심기. 망치를 들기 전에 폰 녹음을 켠다. 그 시간의 소리는
 		// 담기지 않는다는 것을 밤2에 배웠어도 증거를 만들 생각은 그대로다. 벽이
@@ -2495,7 +2495,7 @@ void AIGMissingFloorNightFourDirector::StartWaterMaskIfReady()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"NightFourRecordingArmed",
-				"폰 녹음을 켜 둔다. 이번엔 뭐라도 남아야 한다."),
+				"폰 녹음 켜 두자. 이번엔 뭐라도 남겨야 해."),
 			3.6f);
 	}
 }
@@ -2539,11 +2539,11 @@ void AIGMissingFloorNightFourDirector::PlayRecordingLiftBeat()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"NightFourRecordingLifted",
-			"폰을 본다. 파형에 방금 그 소리들이 찍혀 있다."),
+			"폰을 보니 방금 그 소리가 다 찍혀 있다."),
 		3.4f);
 	AIGHorrorHUD::PushThought(
 		this,
-		NSLOCTEXT("IGMissingFloor", "P2PhoneKept", "담겼다. 이번엔 담겼어."),
+		NSLOCTEXT("IGMissingFloor", "P2PhoneKept", "녹음됐다. 이번엔 제대로 됐어."),
 		4.0f);
 }
 
@@ -2673,9 +2673,9 @@ void AIGMissingFloorNightFourDirector::HandleWallStrike(
 		AIGHorrorHUD::PushThought(
 			this,
 			StrikeCount == 1
-				? NSLOCTEXT("IGMissingFloor", "NightFourStrikeFirst", "석고가 갈라졌다.")
+				? NSLOCTEXT("IGMissingFloor", "NightFourStrikeFirst", "석고에 금이 갔다.")
 				: StrikeCount == 2
-					? NSLOCTEXT("IGMissingFloor", "NightFourStrikeSecond", "안쪽이 비었다. 소리가 다르다.")
+					? NSLOCTEXT("IGMissingFloor", "NightFourStrikeSecond", "안이 비었어. 소리가 달라.")
 					: NSLOCTEXT("IGMissingFloor", "NightFourStrikeFourth", "손이 저리다. 한 번만 더."),
 			2.2f);
 		if (StrikeCount == 4)
@@ -2792,7 +2792,7 @@ void AIGMissingFloorNightFourDirector::CutAnnexPower()
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
-			"IGMissingFloor", "NightFourPowerCut", "아래에서 차단기 내리는 소리가 났다."),
+			"IGMissingFloor", "NightFourPowerCut", "불이 나갔어. 밑에 누가 있어."),
 		3.5f);
 	AIGHorrorHUD::PushFearDirection(this, IGNightFour::AnnexBreakerLocation, 1.2f);
 	AIGHorrorHUD::PushAudioCaptionAt(
@@ -2963,7 +2963,7 @@ void AIGMissingFloorNightFourDirector::BuildConfrontationReplyLines(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"ConfrontationReplyRecorder",
-				"녹화기 하드, 언제 빼셨어요."),
+				"녹화기 하드는 언제 빼셨어요?"),
 		},
 		{
 			EIGMissingFloorWitness::BoothInnerRoomHum,
@@ -2988,7 +2988,7 @@ void AIGMissingFloorNightFourDirector::BuildConfrontationReplyLines(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"ConfrontationReplyPack",
-				"탱크 옆에 담배 여섯 개비요. 거기 앉아서 쉬던 사람이에요."),
+				"탱크 옆에 꽁초 여섯 개요. 거기 앉아서 쉬던 사람이 있었다고요."),
 		},
 		{
 			EIGMissingFloorWitness::HwangWaterBowl,
@@ -3154,7 +3154,7 @@ void AIGMissingFloorNightFourDirector::FinishEnding(const FName EndingId)
 		// 딸깍 하나로는 무엇을 껐는지 모른다. 켠 채 물러나는 A와 갈리는 자리다.
 		AIGHorrorHUD::PushAudioCaptionAt(
 			this,
-			NSLOCTEXT("IGMissingFloor", "EndingBRecordingOffCaption", "폰 — 녹음을 끈다"),
+			NSLOCTEXT("IGMissingFloor", "EndingBRecordingOffCaption", "폰 녹음 끄는 소리"),
 			1.8f,
 			IGNightFour::EndingPhoneRest);
 	}
@@ -3370,7 +3370,7 @@ void AIGMissingFloorNightFourDirector::PlayVigilReply()
 		EIGAudioBus::Entity);
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "EndingBAnswerCaption", "복도 끝 — 대답 둘"),
+		NSLOCTEXT("IGMissingFloor", "EndingBAnswerCaption", "복도 끝에서 대답하듯 두 번 두드리는 소리"),
 		3.0f,
 		IGNightFour::CorridorEndKnockLocation);
 	GetWorldTimerManager().SetTimer(
@@ -3641,7 +3641,7 @@ bool AIGMissingFloorNightFourDirector::CommitFailureEnding(
 	{
 		AIGHorrorHUD::PushAudioCaption(
 			this,
-			NSLOCTEXT("IGMissingFloor", "EndingCCaption", "아주 가까이서, 같은 두 번의 노크"),
+			NSLOCTEXT("IGMissingFloor", "EndingCCaption", "아주 가까이서, 똑같이 두 번 두드리는 소리"),
 			2.0f);
 	}
 	GetWorldTimerManager().SetTimer(

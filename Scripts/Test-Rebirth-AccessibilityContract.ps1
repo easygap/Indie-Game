@@ -286,7 +286,7 @@ Assert-ContainsAll $character @(
 	'if (!bReducedMotion)',
 	'FirstPersonCamera->SetRelativeRotation(FRotator::ZeroRotator)',
 	'PlayFootstep(SpeedScale)'
-) '카메라 흔들림 감소'
+) '화면 흔들림 줄이기'
 
 Assert-ContainsAll $flashlight @(
 	'IsReducedCameraMotionEnabled()',
@@ -416,13 +416,13 @@ Assert-ContainsAll $hudSource @(
 	'글자, 소리 안내, 조작을 편하게 맞춰 주세요.',
 	'변경 즉시 저장',
 	'게임 진행',
-	'움직임',
-	'정보 안내',
+	'화면 효과',
+	'소리 알림',
 	'자막',
-	'입력',
+	'조작',
 	'설명',
 	'난이도',
-	'카메라 흔들림 감소',
+	'화면 흔들림 줄이기',
 	'빛 깜빡임 줄이기',
 	'소리가 나는 방향 표시',
 	'대사 자막',

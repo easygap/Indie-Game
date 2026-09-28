@@ -143,8 +143,8 @@ Require-All $controller @(
 # 비언어음이므로 자막이 있어야 한다.
 Require-All $controller @(
 	'AIGHorrorHUD::PushAudioCaption(',
-	'"둘 — 쉬고 — 하나"',
-	'"복도 끝 — 대답 둘"'
+	'"둘, 쉬고, 하나"',
+	'"복도 끝에서 대답하듯 두 번 두드리는 소리"'
 ) 'captions for both cues'
 
 # --- 월드 타이머로는 한 프레임도 진행하지 않는다 ----------------------------
@@ -166,7 +166,7 @@ Require-All $hud @(
 	'FLinearColor::Black',
 	'SE_BLEND_Opaque',
 	'DrawAudioCaption(',
-	'bKorean ? TEXT("밤 5") : TEXT("NIGHT 5")'
+	'bKorean ? TEXT("다섯째 밤") : TEXT("NIGHT 5")'
 ) 'black screen and the row label'
 # 한 번 재생하면 흐려진다. 사라지지는 않는다.
 Require-All $hud @(

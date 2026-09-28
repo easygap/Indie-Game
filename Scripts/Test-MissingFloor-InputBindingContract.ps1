@@ -619,7 +619,7 @@ if ($story -notmatch '숫자·퍼센트·링 게이지 전부 금지') {
 # 홀드 시간. 문서가 부르는 이름과 코드의 자리를 짝지어 둔다.
 $holdRow = [regex]::Match(
 	$story,
-	'홀드 시간: 문 조용히 열기 (?<door>[0-9.]+)s[\s\S]{0,60}?망치 스윙\s*\r?\n?\s*차징 (?<hammer>[0-9.]+)s, 엔딩 A의 조율 렌치 되돌리기 (?<wrench>[0-9.]+)s')
+	'홀드 시간: 문 조용히 열기 (?<door>[0-9.]+)s[\s\S]{0,60}?망치 스윙\s*\r?\n?\s*차징 (?<hammer>[0-9.]+)s, 엔딩 A의 튜닝 해머 되돌리기 (?<wrench>[0-9.]+)s')
 $assertionCount++
 if (-not $holdRow.Success) {
 	throw 'The §18.4 hold-time row could not be read.'
@@ -641,7 +641,7 @@ if ([double]$doorHold.Groups['value'].Value -ne [double]$holdRow.Groups['door'].
 $nightFour = Read-ProjectText 'Source/IndieGame/Entity/IGMissingFloorNightFourDirector.cpp'
 foreach ($target in @(
 	@{ Prompt = 'WallBreakPrompt'; Value = $holdRow.Groups['hammer'].Value; Name = '망치 스윙 차징' },
-	@{ Prompt = 'EndingAPrompt'; Value = $holdRow.Groups['wrench'].Value; Name = '조율 렌치 되돌리기' })) {
+	@{ Prompt = 'EndingAPrompt'; Value = $holdRow.Groups['wrench'].Value; Name = '튜닝 해머 되돌리기' })) {
 	# HoldSeconds는 NoiseLoudness 바로 앞에 온다. 두 숫자가 붙어 있어서
 	# 자리를 세지 않고 읽으면 소음 크기를 홀드 시간으로 착각한다.
 	$configured = [regex]::Match(

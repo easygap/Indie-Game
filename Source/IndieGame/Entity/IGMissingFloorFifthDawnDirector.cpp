@@ -293,7 +293,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionStart",
-				"[7월 27일 · 가까이] 얕은 숨  ·  [오른쪽] 물이 흐르는 소리"),
+				"[7월 27일 · 가까이] 얕은 숨소리  ·  [오른쪽] 물 흐르는 소리"),
 			4.0f);
 		// 7월 27일. 아직 힘이 있는 두 번. 뒤의 새벽들은 여기서부터 약해진다.
 		ScheduleInterludeSound(8.0f, FTimerDelegate::CreateWeakLambda(this, [this, HandOnWall]()
@@ -351,7 +351,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionWaterShift",
-				"[머리 위] 배관이 크게 덜컹거린다"),
+				"[머리 위] 배관 크게 덜컹거리는 소리"),
 			2.6f);
 		break;
 	}
@@ -369,7 +369,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionSecondDawn",
-				"[7월 28일] 발소리와 예불이 더 멀어진다"),
+				"[7월 28일] 발소리와 불경 소리가 점점 멀어진다"),
 			2.8f);
 		// 배관이 가라앉은 뒤 계단을 내려가는 발소리 셋. 아무도 올라오지 않는다.
 		ScheduleInterludeSound(3.0f, FTimerDelegate::CreateWeakLambda(this, [this]()
@@ -508,7 +508,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionHwangReply",
-				"[아주 멀리] 같은 박자로 대답이 온다"),
+				"[아주 멀리] 같은 박자로 대답하는 소리"),
 			3.2f);
 		break;
 	case 6:
@@ -558,7 +558,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionNoReply",
-				"[벽 안] 두 번  ·  대답 없음"),
+				"[벽 안] 두 번 두드리는 소리  ·  대답 없음"),
 			3.0f);
 		break;
 	case 9:

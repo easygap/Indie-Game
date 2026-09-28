@@ -352,7 +352,7 @@ FText AIGSwingDoor::GetInteractionPrompt_Implementation(AActor* Interactor) cons
 	// The quiet/loud verb pair only matters if the player can discover it.
 	// One short suffix teaches it everywhere without a tutorial screen.
 	return FText::Format(
-		NSLOCTEXT("IGSwingDoor", "HoldHintFormat", "{0} (꾹: 조용히)"),
+		NSLOCTEXT("IGSwingDoor", "HoldHintFormat", "{0} (길게 누르면 조용히)"),
 		BasePrompt);
 }
 

@@ -398,7 +398,7 @@ void AIGMissingFloorEpilogueDirector::PlayMontageCue(const int32 MontageIndex)
 		Caption = NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueMontageTape",
-			"[테이프가 풀린다]");
+			"[테이프 뜯는 소리]");
 		break;
 	case 1:
 		Sound = UIGToneSequenceSoundWave::CreateGurneyWheels(this);
@@ -406,7 +406,7 @@ void AIGMissingFloorEpilogueDirector::PlayMontageCue(const int32 MontageIndex)
 		Caption = NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueMontageGurney",
-			"[바퀴가 복도를 지나 멀어진다]");
+			"[바퀴 소리가 복도를 지나 멀어진다]");
 		break;
 	case 2:
 		Sound = UIGToneSequenceSoundWave::CreateCameraShutterTriple(this);
@@ -414,7 +414,7 @@ void AIGMissingFloorEpilogueDirector::PlayMontageCue(const int32 MontageIndex)
 		Caption = NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueMontageShutter",
-			"[셔터가 세 번]");
+			"[카메라 셔터 소리, 세 번]");
 		break;
 	case 3:
 		Sound = UIGToneSequenceSoundWave::CreateDebrisSweep(this);
@@ -422,7 +422,7 @@ void AIGMissingFloorEpilogueDirector::PlayMontageCue(const int32 MontageIndex)
 		Caption = NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueMontageSweep",
-			"[석고 조각을 쓸어 담는다]");
+			"[석고 조각 쓸어 담는 소리]");
 		break;
 	default:
 		return;
@@ -508,7 +508,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"EpilogueWorkshopHeading",
-					"장례가 끝나고, 공방"),
+					"장례를 치르고, 공방"),
 				BuildWorkshopLines(),
 				NSLOCTEXT(
 					"IGMissingFloor",
@@ -545,7 +545,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"EpilogueTuningCaption",
-					"[같은 음을 다시 친다. 이번에는 맞는다]"),
+					"[같은 건반을 다시 누른다. 이번엔 음이 맞는다]"),
 				4.0f);
 			return;
 
@@ -586,7 +586,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 		case 8:
 			PresentScene(
 				EIGMissingFloorEpilogueScene::News,
-				NSLOCTEXT("IGMissingFloor", "EpilogueNewsHeading", "보도"),
+				NSLOCTEXT("IGMissingFloor", "EpilogueNewsHeading", "뉴스"),
 				BuildNewsLines(),
 				FText::GetEmpty());
 			return;
@@ -620,12 +620,12 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueServiceBayHeading",
-				"수습이 끝난 날, 5층"),
+				"오빠를 꺼낸 날, 5층"),
 			BuildServiceBayLines(),
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueServiceBayFootnote",
-				"소리 일지를 401호에 돌려주었다"));
+				"소리 일지는 401호 할머니께 돌려드렸다"));
 		return;
 
 	case 6:
@@ -643,7 +643,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueKeyDropCaption",
-				"[열쇠가 반납함 바닥에 떨어진다]"),
+				"[열쇠가 반납함 바닥에 떨어지는 소리]"),
 			2.4f);
 		return;
 
@@ -686,14 +686,14 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueRailingCaption",
-				"[난간을 두 번 두드린다]"),
+				"[난간을 두 번 두드리는 소리]"),
 			2.6f);
 		return;
 
 	case 9:
 		PresentScene(
 			EIGMissingFloorEpilogueScene::News,
-			NSLOCTEXT("IGMissingFloor", "EpilogueNewsHeadingB", "보도"),
+			NSLOCTEXT("IGMissingFloor", "EpilogueNewsHeadingB", "뉴스"),
 			BuildNewsLines(),
 			FText::GetEmpty());
 		return;
@@ -725,16 +725,16 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildWorkshopLines() const
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueWorkshop1",
-		"오빠가 쓰던 작업지가 아직 여기 있다."));
+		"오빠가 쓰던 작업표가 아직 여기 있네."));
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueWorkshop2",
-		"업라이트 1대  ·  백유담  ·  집들이 전 전달"));
+		"업라이트 1대  ·  받는 분 백유담  ·  집들이 전에 전달"));
 	Lines.Add(FText::GetEmpty());
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueWorkshop3",
-		"렌치를 잡아 본다. 손잡이 한쪽이 닳아 있다."));
+		"튜닝 해머를 쥐어 본다. 손잡이 한쪽이 닳아 있다."));
 	return Lines;
 }
 
@@ -745,7 +745,7 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildAutumnLines() const
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueAutumn1",
-		"5층이 뜯겨 나가고 있다. 크레인이 하루 종일 골목을 막는다."));
+		"5층을 뜯어내고 있다. 크레인이 하루 종일 골목을 막고 서 있다."));
 	// 402호 문 너머의 없던 소리를 들어 본 회차만, 그 집이 다시 찬 것을
 	// 알아본다. 못 들었으면 그냥 창문 하나가 더 밝을 뿐이다.
 	if (Narrative
@@ -754,7 +754,7 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildAutumnLines() const
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueAutumn1Vacancy",
-			"402호에 불이 들어와 있다. 냉장고 도는 소리가 복도까지 난다."));
+			"402호에 불이 켜져 있다. 냉장고 소리가 복도까지 들린다."));
 	}
 	if (Narrative
 		&& Narrative->HasWitness(EIGMissingFloorWitness::HwangWaterBowl))
@@ -780,14 +780,14 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildAutumnLines() const
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueAutumn3Radio",
-			"문 너머로 듣던 그 소리다. 창밖을 향해 틀어 놨다."));
+			"문 너머로 듣던 그 불경 소리다. 창밖으로 들리게 틀어 놓으셨네."));
 	}
 	else
 	{
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueAutumn3Seen",
-			"창밖을 향해 돌려놓았다. 골목까지 들린다."));
+			"라디오를 창밖 쪽으로 돌려놓으셨다. 골목까지 들리겠다."));
 	}
 	return Lines;
 }
@@ -804,13 +804,13 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildServiceBayLines() const
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueServiceBay1b",
-		"관리실 창은 그날 밤부터 어두웠다."));
+		"관리실 창은 그날 밤 뒤로 불이 한 번도 안 켜졌다."));
 	// §9 B. 현장은 보존 중이라 곁에는 못 간다. 수습 전 두 번의 새벽은 황순금과
 	// 벽 밖에서 대답했다. 각주의 소리 일지가 이 줄에서 받쳐진다.
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueServiceBay2",
-		"새벽이 두 번 더 오는 동안, 401호 할머니와 벽 밖에서 대답했다."));
+		"그 뒤로 새벽 두 번을 401호 할머니와 벽 앞에서 같이 대답했다."));
 	if (Narrative
 		&& Narrative->HasWitness(EIGMissingFloorWitness::RooftopCigarettePack))
 	{
@@ -877,7 +877,7 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueNews4Seen",
-			"전 세입자 서모씨는 「그 뒤로 새벽마다 깼다」며 출석 의사를 밝혔다"));
+			"전 세입자 서모씨는 “그 뒤로 새벽마다 깼다”며 출석 의사를 밝혔다"));
 	}
 	else
 	{

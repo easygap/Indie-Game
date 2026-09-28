@@ -46,7 +46,7 @@ namespace IGInputBinding
 			},
 			{
 				TEXT("Listen"),
-				NSLOCTEXT("IGInput", "ActionListen", "엿듣기"),
+				NSLOCTEXT("IGInput", "ActionListen", "귀 대기"),
 				NSLOCTEXT("IGInput", "DescListen", "벽에 귀를 대고 듣습니다. 키보드에서는 벽을 보며 조사 키를 길게 누르세요."),
 				EKeys::Invalid,
 				EKeys::Gamepad_RightTrigger,
@@ -218,7 +218,7 @@ bool UIGInputBindingSubsystem::TryRebind(
 				NSLOCTEXT(
 					"IGInput",
 					"RebindConflict",
-					"「{0}」이 이미 그 키를 씁니다. 먼저 그쪽을 옮겨 주세요."),
+					"‘{0}’에서 이미 쓰는 키입니다. 그쪽을 먼저 바꿔 주세요."),
 				GetActionInfo(Other).Label);
 			return false;
 		}

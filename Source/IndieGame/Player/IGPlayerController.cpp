@@ -2399,7 +2399,7 @@ void AIGPlayerController::BeginJournalInput()
 			NSLOCTEXT(
 				"IGMissingFloorJournal",
 				"NightDenied",
-				"지금은 그럴 때가 아니다."),
+				"지금은 그럴 때가 아니야."),
 			2.2f);
 		return;
 	}
@@ -4441,9 +4441,9 @@ void AIGPlayerController::ConfirmKeyBindingSelection()
 	bKeyBindingCapturing = true;
 	KeyBindingStatusText = bKeyBindingColumnGamepad
 		? NSLOCTEXT(
-			"IGHUD", "KeyBindingsAwaitPad", "쓸 버튼을 누르세요. B로 취소.")
+			"IGHUD", "KeyBindingsAwaitPad", "새 버튼을 누르세요. B를 누르면 취소합니다.")
 		: NSLOCTEXT(
-			"IGHUD", "KeyBindingsAwaitKey", "쓸 키를 누르세요. Esc로 취소.");
+			"IGHUD", "KeyBindingsAwaitKey", "새 키를 누르세요. Esc를 누르면 취소합니다.");
 	bKeyBindingStatusIsError = false;
 	RefreshMenuHud();
 }
@@ -4485,7 +4485,7 @@ bool AIGPlayerController::CaptureKeyBindingInput(const FInputKeyEventArgs& Param
 	{
 		bKeyBindingCapturing = false;
 		KeyBindingStatusText = FText::Format(
-			NSLOCTEXT("IGHUD", "KeyBindingsBound", "「{0}」으로 바꿨습니다."),
+			NSLOCTEXT("IGHUD", "KeyBindingsBound", "‘{0}’ 키로 바꿨습니다."),
 			Params.Key.GetDisplayName());
 		bKeyBindingStatusIsError = false;
 	}
@@ -4949,7 +4949,7 @@ bool AIGPlayerController::AdvanceNightFive(const float DeltaSeconds)
 			/*bPlayWhenPaused=*/true);
 		AIGHorrorHUD::PushAudioCaption(
 			this,
-			NSLOCTEXT("IGMissingFloor", "NightFiveSignal", "둘 — 쉬고 — 하나"),
+			NSLOCTEXT("IGMissingFloor", "NightFiveSignal", "둘, 쉬고, 하나"),
 			3.0f);
 		return true;
 	}
@@ -4971,7 +4971,7 @@ bool AIGPlayerController::AdvanceNightFive(const float DeltaSeconds)
 			/*bPlayWhenPaused=*/true);
 		AIGHorrorHUD::PushAudioCaption(
 			this,
-			NSLOCTEXT("IGMissingFloor", "NightFiveAnswer", "복도 끝 — 대답 둘"),
+			NSLOCTEXT("IGMissingFloor", "NightFiveAnswer", "복도 끝에서 대답하듯 두 번 두드리는 소리"),
 			3.4f);
 		return true;
 	}

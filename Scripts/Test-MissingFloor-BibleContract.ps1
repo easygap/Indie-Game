@@ -58,7 +58,7 @@ if ($story -notmatch '\*\*열 수 없음\*\*') {
 	throw 'The §19.1 night journal lock was removed.'
 }
 $assertionCount++
-if (-not $controllerSource.Contains('지금은 그럴 때가 아니다')) {
+if (-not $controllerSource.Contains('지금은 그럴 때가 아니야')) {
 	throw 'The §19.1 refusal line is missing.'
 }
 
@@ -1539,7 +1539,7 @@ $noiseTableRows = @(
 	@{ Row = '노크'; Column = 1
 		File = 'Source/IndieGame/Player/IGPlayerCharacter.h'
 		Name = 'KnockLoudness' },
-	@{ Row = '엘리베이터 호출'; Column = 1
+	@{ Row = '엘리베이터 부르기'; Column = 1
 		File = 'Source/IndieGame/Interaction/IGElevator.cpp'
 		Name = 'CallLoudness' },
 	@{ Row = '소품 집기'; Column = 1

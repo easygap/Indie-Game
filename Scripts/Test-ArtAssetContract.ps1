@@ -1586,7 +1586,7 @@ foreach ($token in @(
 	'Feet sit exactly on Z=0',
 	'RefreshDistantSeoVisibility',
 	'SM_TuningHammer.SM_TuningHammer',
-	'조율 렌치',
+	'튜닝 해머',
 	'SM_TunerToolCart.SM_TunerToolCart',
 	'SM_CalendarJournal.SM_CalendarJournal'
 )) {
@@ -1813,7 +1813,7 @@ foreach ($token in @(
 	'void AIGPlayerController::BeginJournalInput()',
 	'JournalHoldSeconds = 0.30',
 	'UsesToggleHoldInteractions()',
-	'지금은 그럴 때가 아니다.',
+	'지금은 그럴 때가 아니야.',
 	'SetMissingFloorJournalState',
 	'CreateJournalPageTurn'
 )) {

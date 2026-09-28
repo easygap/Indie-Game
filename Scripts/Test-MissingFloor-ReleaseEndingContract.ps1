@@ -110,8 +110,8 @@ Assert-ContainsAll $hudSource @(
 	'"채광 좋은 남향, 즉시 입주 가능"',
 	'"이 집 새벽에 노크 소리 나요."',
 	'"두 명이서 하는 것 같아요."',
-	'"E  넷째 날 밤 다시 시작"',
-	'"A  넷째 날 밤 다시 시작"',
+	'"E  넷째 밤 다시 시작"',
+	'"A  넷째 밤 다시 시작"',
 	'RecordLayoutValidationRect(PanelPosition, PanelPosition + PanelSize)'
 ) 'Ending C presentation'
 
@@ -271,7 +271,7 @@ Assert-ContainsAll $epilogueSource @(
 	'EIGMissingFloorEpilogueScene::Card',
 	'조율이 끝난 방',
 	'같이 있던 밤',
-	'업라이트 1대  ·  백유담  ·  집들이 전 전달',
+	'업라이트 1대  ·  받는 분 백유담  ·  집들이 전에 전달',
 	'네 시 반 알람은 지웠다.',
 	'인근 편의점 직원의 목격 진술을 토대로 당시 행적을 확인 중이다'
 ) '에필로그 타임라인과 카피'

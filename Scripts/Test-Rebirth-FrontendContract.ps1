@@ -211,7 +211,7 @@ Assert-ContainsAll $hudSource @(
 	'무영로 · 04:30',
 	'헤드폰을 쓰면 소리가 나는 방향을 구분하기 쉽습니다.',
 	'소리와 밝기',
-	'노크가 또렷하게 들리되',
+	'노크가 또렷하게 들리면서도',
 	'가운데 칸이 희미하게 보이도록 맞춰 주세요.',
 	'노크 다시 듣기',
 	'이어하기',
@@ -353,7 +353,7 @@ Assert-True (-not $controllerSource.Contains('ToggleCursorMode')) `
 Assert-ContainsAll $gameConfig @(
 	'ProjectName=없는 층',
 	'ProjectVersion=1.0.0',
-	'Description=연락이 끊긴 오빠를 찾아 이사 온 4층짜리 빌라. 소포 주소에는 501호라고 적혀 있다. 소리를 듣고 단서를 찾는 1인칭 공포 게임.',
+	'Description=연락이 끊긴 오빠를 찾아 낡은 빌라로 이사 온 뒤, 새벽마다 천장에서 들리는 노크를 따라가는 1인칭 공포 게임',
 	'CompanyName=easygap',
 	'Homepage=https://github.com/easygap/Indie-Game',
 	'SupportContact=https://github.com/easygap/Indie-Game/issues',

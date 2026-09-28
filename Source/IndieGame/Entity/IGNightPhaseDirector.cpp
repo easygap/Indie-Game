@@ -167,16 +167,16 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 	switch (NightIndex)
 	{
 	case 1:
-		NightTitle = NSLOCTEXT("IGMissingFloor", "Night1Title", "밤 1 — 소리");
+		NightTitle = NSLOCTEXT("IGMissingFloor", "Night1Title", "첫째 밤 · 소리");
 		break;
 	case 2:
-		NightTitle = NSLOCTEXT("IGMissingFloor", "Night2Title", "밤 2 — 기록");
+		NightTitle = NSLOCTEXT("IGMissingFloor", "Night2Title", "둘째 밤 · 기록");
 		break;
 	case 3:
-		NightTitle = NSLOCTEXT("IGMissingFloor", "Night3Title", "밤 3 — 조율");
+		NightTitle = NSLOCTEXT("IGMissingFloor", "Night3Title", "셋째 밤 · 조율");
 		break;
 	case 4:
-		NightTitle = NSLOCTEXT("IGMissingFloor", "Night4Title", "밤 4 — 대답");
+		NightTitle = NSLOCTEXT("IGMissingFloor", "Night4Title", "넷째 밤 · 대답");
 		break;
 	default:
 		break;
@@ -186,7 +186,7 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 		AIGHorrorHUD::ShowChapterCard(
 			this,
 			bRepeatedNight
-				? NSLOCTEXT("IGMissingFloor", "NightCardEyebrowAgain", "다시, 새벽 네 시 반")
+				? NSLOCTEXT("IGMissingFloor", "NightCardEyebrowAgain", "또 새벽 네 시 반")
 				: NSLOCTEXT("IGMissingFloor", "NightCardEyebrow", "새벽 네 시 반"),
 			NightTitle,
 			FText::GetEmpty(),
@@ -556,7 +556,7 @@ void AIGNightPhaseDirector::PlayEntranceLatch()
 	}
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "DawnLatchCaption", "공동현관 잠금이 풀린다"),
+		NSLOCTEXT("IGMissingFloor", "DawnLatchCaption", "공동현관 잠금 풀리는 소리"),
 		2.2f,
 		IGNightPhase::EntranceLatchLocation);
 }
@@ -611,8 +611,8 @@ void AIGNightPhaseDirector::PlayMorningLine()
 	AIGHorrorHUD::PushThought(
 		this,
 		bMissedNight
-			? NSLOCTEXT("IGMissingFloor", "MorningCameMissed", "벌써 다섯 시 반이다. 아직 못 끝냈는데.")
-			: NSLOCTEXT("IGMissingFloor", "MorningCame", "문이 열린다. 아침이다."),
+			? NSLOCTEXT("IGMissingFloor", "MorningCameMissed", "벌써 다섯 시 반이야. 아직 못 끝냈는데.")
+			: NSLOCTEXT("IGMissingFloor", "MorningCame", "아침이다. 현관도 열렸겠지."),
 		3.4f);
 	if (bMissedNight)
 	{
@@ -691,7 +691,7 @@ FText AIGNightPhaseDirector::GetObjectiveText() const
 	{
 		return FText::GetEmpty();
 	}
-	return NSLOCTEXT("IGMissingFloor", "DayObjective", "낮 — 물어볼 사람을 찾자");
+	return NSLOCTEXT("IGMissingFloor", "DayObjective", "낮: 물어볼 사람 찾기");
 }
 
 FString AIGNightPhaseDirector::GetObjectiveTextAscii() const

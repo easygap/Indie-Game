@@ -4959,7 +4959,7 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 				FName(TEXT("State.MissingFloor.Night.MorningCame")),
 				false);
 			Seal.LockedPrompt = NSLOCTEXT(
-				"IGMissingFloor", "EntranceSealedPrompt", "공동현관");
+				"IGMissingFloor", "EntranceSealedPrompt", "공동현관 열어 보기");
 			// '그 시간'의 규칙 1(§1)은 게임 안에서 여기서 배운다. 문은 잠긴 게 아니라
 			// 붙들려 있다 — 걸쇠 소리 없이 밀리다 선다. 폰은 그 뒤에 따로 운다.
 			// 그레이박스 디렉터가 첫 시도에 통화 실패음을 내고 「폰도 안 터진다.」를
@@ -4967,7 +4967,7 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 			Seal.LockedThought = NSLOCTEXT(
 				"IGMissingFloor",
 				"EntranceSealedThought",
-				"…안 열린다. 잠긴 것도 아닌데.");
+				"…안 열리네. 잠긴 것도 아닌데.");
 			Seal.bHeldShut = true;
 			BuildingDoor->SetRequirements(MoveTemp(SealRequirements));
 		}
@@ -6998,7 +6998,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	{
 		Window->ConfigurePrototypeVisuals(CubeMesh, TexMat(TEXT("M_ApartmentNightGlass"), WindowGlowMaterial), FVector(0.534f, 0.0025f, 0.764f));
 		Window->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WindowPrompt", "창문"));
-		Window->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편 불빛이 이 방까지 들어온다.");
+		Window->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편 불빛이 방까지 들어오네.");
 	}
 	if (AIGInspectable* WindowRight = World->SpawnActor<AIGInspectable>(
 		AIGInspectable::StaticClass(),
@@ -7006,7 +7006,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	{
 		WindowRight->ConfigurePrototypeVisuals(CubeMesh, TexMat(TEXT("M_ApartmentNightGlass"), WindowGlowMaterial), FVector(0.534f, 0.0025f, 0.764f));
 		WindowRight->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WindowPrompt", "창문"));
-		WindowRight->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편 불빛이 이 방까지 들어온다.");
+		WindowRight->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편 불빛이 방까지 들어오네.");
 	}
 
 	// Store sliding door.

@@ -26,7 +26,7 @@
 | 위층 사람 | `SheetListenerEntityAnatomyReference.png`, `ListenerEntityFrontCutout.png`, `SheetListenerEntityCrawlPhases.png` | `SM_ListenerEntityCrawl`, `M_MissingFloorListenerPlasterUV`, `T_SpriteListenerCrawl0..3_{D,N,R,A}`, `M_SpriteListenerCrawl0..3` | 3D shell + distance/angle PBR sequence | 1.6m 정면에서 4단계 레이어 활성화, 1.25m까지 유지, 측면은 3D | 128×85cm 투영, 프레임별 초록 프린지 0, 1.6~6fps 속도 연동, 바닥 접지, 숨은 3D 그림자; 측면 평면 노출 0 |
 | 서일영 | `SheetMissingFloorDistantCharacters.png` 좌상 | `T_SpriteSeo_D`, `M_SpriteSeo` | Sprite | 낮3 골목 건너편 1회 | 12m 이상, 접근 불가, 발 알파가 지면과 일치, 8m 내 숨김 |
 | 목한수·황순금·나린 | 같은 시트 나머지 | 각 `T_Sprite*_D`, `M_Sprite*` | Prepared sprite | 고정 원거리 큐가 생길 때만 배치 | 근접 대화 대용 금지. 현재는 미배치가 정답 |
-| 조율 렌치 | `SheetMissingFloorHeroPropsReference.png` 우상 | `SM_TuningHammer` | 3D hero prop | 밤3 자재 위, P3·엔딩 인과 | 27cm L자형, 실제 접촉 그림자, 원통형 청음봉 폴백은 개발 전용 |
+| 튜닝 해머 | `SheetMissingFloorHeroPropsReference.png` 우상 | `SM_TuningHammer` | 3D hero prop | 밤3 자재 위, P3·엔딩 인과 | 27cm L자형, 실제 접촉 그림자, 원통형 청음봉 폴백은 개발 전용 |
 | 조율 공구 카트 | 같은 시트 좌상 | `SM_TunerToolCart` | 3D prop | 5층 서북 모서리 | 45×34×78cm, 선반 틈·바퀴·손잡이 시차, 바닥 관통 0 |
 | 민원 대장·접수철·연필 | `BoothStationeryStudy_20260917.png`, `ComplaintRubbing_20260917.png` | `SM_ComplaintLedger`, `SM_ComplaintImpressionPad`, `SM_GraphitePencil`, `M_ComplaintImpression` | 3D 소품 + 진행에 따른 표면 복원 | 관리실 책상 Z=76cm 위 | A4 대장과 얇은 접수철 구분, 3단계 복원, 중단·재개, 표지 인쇄 정방향, 책등 중첩 없음 |
 | 로비 분전반 | `CircuitPanelReference_20260917.png` | `SM_LobbyCircuitPanel`, `SM_CircuitPanelPrints`, `SM_CircuitToggle` | 함체·인쇄·회전 손잡이 분리 | 계량기함 오른쪽, 현관문 바깥 | 실물 누전차단기 비율, 회로명 정방향, 고정 축 회전, 낮의 복귀, 등갓 발광과 전원 일치 |
@@ -76,7 +76,7 @@
   잔존물은 디테일 활성 중에도 숨은 3D 셸 그림자를 보존하고, 목한수는 얼굴·재킷
   아래 알파를 감쇠해 실제 석고보드·하체·그림자를 덮지 않는다. 원거리 목한수
   `T_SpriteMok_D`와 최종 대치 레이어는 서로 다른 용도이며 교체할 수 없다.
-- `SM_ListenerEntityCrawl`, 조율 렌치, 원장, 일지는 서사 근접 판독 때문에
+- `SM_ListenerEntityCrawl`, 튜닝 해머, 원장, 일지는 서사 근접 판독 때문에
   LOD0를 보존한다. 카트는 SmallProp LOD 그룹을 쓰며 화면 점유율 2% 아래에서
   단순화한다. 불법 5층 구조물은 반복 블록 재질을 공유하고 개별 Tick이 없다.
 - 에필로그 세 장은 전체 화면을 덮는 UI 판이라 월드 아틀라스가 아니라
@@ -101,7 +101,7 @@
 ## 물리·화면 승인
 
 - 프롭 바닥/책상 접지 오차 1cm 이하, 접촉 그림자 중심 이탈 2cm 이하.
-- 손전등을 좌우 60도로 움직여 존재·렌치·카트에 시차와 셀프 섀도가 남아야 한다.
+- 손전등을 좌우 60도로 움직여 존재·튜닝 해머·카트에 시차와 셀프 섀도가 남아야 한다.
 - 흔적을 비스듬히 볼 때 카드 두께나 사각 외곽이 보이면 실패다.
 - 원거리 인물은 720p에서 사람으로 읽히고 1080p에서 마젠타 프린지 픽셀 0,
   지면 아래 알파 누락 0이어야 한다.

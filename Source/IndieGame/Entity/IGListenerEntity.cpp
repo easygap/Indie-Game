@@ -412,7 +412,7 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 			{
 				AIGHorrorHUD::PushAudioCaptionAt(
 					this,
-					NSLOCTEXT("IGMissingFloor", "EntityChaseCaption", "기는 소리가 빨라진다"),
+					NSLOCTEXT("IGMissingFloor", "EntityChaseCaption", "기어 오는 소리가 빨라진다"),
 					2.0f,
 					ChaseAt);
 			}
@@ -1418,7 +1418,7 @@ void AIGListenerEntity::NotifyAnswerKnock(const FVector& KnockLocation)
 	{
 		AIGHorrorHUD::PushAudioCaptionAt(
 			this,
-			NSLOCTEXT("IGMissingFloor", "EntityAnswerReplyCaption", "대답 — 둘"),
+			NSLOCTEXT("IGMissingFloor", "EntityAnswerReplyCaption", "대답하듯 두 번 두드리는 소리"),
 			2.2f,
 			GetActorLocation());
 	}
@@ -2636,8 +2636,8 @@ void AIGListenerEntity::PlayHomeDoorKnock(const bool bSingle)
 		AIGHorrorHUD::PushAudioCaptionAt(
 			this,
 			bSingle
-				? NSLOCTEXT("IGMissingFloor", "EntityDoorKnockOnceCaption", "문 너머 — 한 번 두드리는 소리")
-				: NSLOCTEXT("IGMissingFloor", "EntityDoorKnockCaption", "문 너머 — 연달아 세 번 두드리는 소리"),
+				? NSLOCTEXT("IGMissingFloor", "EntityDoorKnockOnceCaption", "문 너머에서 한 번 두드리는 소리")
+				: NSLOCTEXT("IGMissingFloor", "EntityDoorKnockCaption", "문 너머에서 연달아 세 번 두드리는 소리"),
 			bSingle ? 1.6f : 2.4f,
 			KnockPoint);
 	}

@@ -77,7 +77,7 @@ AIGElevator::AIGElevator()
 	LowerCabTrigger->SetCollisionResponseToChannel(ECC_Pawn, ECR_Overlap);
 	LowerCabTrigger->SetGenerateOverlapEvents(true);
 
-	InteractionPrompt = NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 호출");
+	InteractionPrompt = NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 부르기");
 }
 
 UStaticMeshComponent* AIGElevator::MakePiece(
@@ -559,7 +559,7 @@ FText AIGElevator::GetInteractionPrompt_Implementation(AActor* Interactor) const
 {
 	if (bHourDead)
 	{
-		return NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 호출");
+		return NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 부르기");
 	}
 	if (Interactor)
 	{
@@ -573,12 +573,12 @@ FText AIGElevator::GetInteractionPrompt_Implementation(AActor* Interactor) const
 				return NSLOCTEXT(
 					"IGElevator",
 					"CallFromLobbyPrompt",
-					"엘리베이터 호출");
+					"엘리베이터 부르기");
 			}
 			return NSLOCTEXT("IGElevator", "ReturnPrompt", "4층으로 올라가기");
 		}
 	}
-	return NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 호출");
+	return NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 부르기");
 }
 
 void AIGElevator::CompleteInteraction_Implementation(const FIGInteractionContext& Context)
@@ -626,7 +626,7 @@ void AIGElevator::CompleteInteraction_Implementation(const FIGInteractionContext
 			bHourDeadThoughtShown = true;
 			AIGHorrorHUD::PushThought(
 				this,
-				NSLOCTEXT("IGElevator", "HourDeadThought", "버튼에 불이 안 들어온다."),
+				NSLOCTEXT("IGElevator", "HourDeadThought", "버튼에 불이 안 들어오네."),
 				2.6f);
 		}
 		return;

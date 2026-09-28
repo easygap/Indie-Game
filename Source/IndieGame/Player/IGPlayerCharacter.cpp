@@ -2384,7 +2384,7 @@ void AIGPlayerCharacter::LoadLatestAutosave()
 				NSLOCTEXT(
 					"IGSave",
 					"MissingFloorLoadLocked",
-					"지금은 되돌릴 때가 아니다."),
+					"지금은 되돌릴 수 없어."),
 				2.2f);
 			return;
 		}
