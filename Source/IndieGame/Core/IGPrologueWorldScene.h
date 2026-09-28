@@ -556,6 +556,8 @@ private:
 	void BuildAlley();
 	void BuildStore();
 	void BuildSkyAndFog();
+	/** 옥상과 골목 하늘 끝에 보이는 먼 동네. 새벽 네 시 반의 빌라촌 불빛이다. */
+	void BuildDistantSkyline();
 	void SpawnInteractables();
 	void SpawnStairTransition();
 	void SpawnChapterTwoInteractables();

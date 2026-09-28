@@ -1990,6 +1990,7 @@ void AIGPrologueWorldScene::InitializePrologue()
 	BuildAlley();
 	BuildStore();
 	BuildSkyAndFog();
+	BuildDistantSkyline();
 	SpawnInteractables();
 	SpawnStairTransition();
 
@@ -3148,10 +3149,12 @@ void AIGPrologueWorldScene::BuildCorridor()
 			// the masonry on every edge so it is held by the opening. It keeps
 			// collision: these windows never open, and the envelope has to
 			// stay sealed now that the opening is a real hole in the wall.
+			// 창밖은 침실 창과 같은 건너편 빌라의 밤 풍경이다. 까만 판을 두면
+			// 복도 창이 벽에 붙인 남색 스티커처럼 읽혔다.
 			CreateBlock(
 				FVector(WindowX, -390, 150),
 				FVector(90, 3, 74),
-				WindowDarkMaterial);
+				TexMat(TEXT("M_ApartmentNightGlass"), WindowDarkMaterial));
 			// Aluminium trim ring on the corridor face of the reveal.
 			CreateBlock(FVector(WindowX, -377.5f, 184), FVector(88, 6, 5), PlasticDarkMaterial, false);
 			CreateBlock(FVector(WindowX, -377.5f, 116), FVector(88, 6, 5), PlasticDarkMaterial, false);
@@ -6268,7 +6271,11 @@ void AIGPrologueWorldScene::BuildAlley()
 	CreateBlock(FVector(-330, -542.5f, 250), FVector(20, 295, 500), DarkY);
 
 	// Streetlights; the middle one is wired to fail as the player passes.
-	// A scanned lamp post stands in when the import exists.
+	// 골목 보안등은 아연도금 강관 기둥에 팔을 하나 내고 납작한 LED 등기구를 단
+	// 한국 주택가의 그 모양이다. 예전 자리에 서 있던 유럽식 주물 가로등(스캔 소품)은
+	// 골목을 외국 관광지처럼 보이게 해서 뺐다. 기둥 바깥 지름 11 cm, 높이 4 m,
+	// 팔은 골목 가운데 쪽으로 80 cm.
+	UMaterialInterface* GalvanizedSteel = TexMat(TEXT("M_MetalUV"), PlasticDarkMaterial);
 	const float StreetlightXs[] = {150, 1000, 1850};
 	for (const float PoleX : StreetlightXs)
 	{
@@ -6276,29 +6283,24 @@ void AIGPrologueWorldScene::BuildAlley()
 		CreateBlock(
 			FVector(PoleX, -640, 14), FVector(34, 34, 28),
 			TexMat(TEXT("M_Concrete_XY"), ConcreteMaterial), true, CylinderMesh);
-		if (!PlacePhotoProp(
-			TEXT("street_lamp_01"), FVector(PoleX, -640, 0), FVector(120, 120, 400), 90.0f))
-		{
-			CreateBlock(
-				FVector(PoleX, -650, 190), FVector(12, 12, 380),
-				DarkY, true, CylinderMesh);
-			CreateBlock(FVector(PoleX, -605, 368), FVector(8, 90, 8), PlasticDarkMaterial, false);
-			if (!CreateProp(
-				TEXT("SM_LampShade"), FVector(PoleX, -565, 356), PlasticDarkMaterial))
-			{
-				CreateBlock(
-					FVector(PoleX, -565, 366), FVector(46, 46, 26),
-					PlasticDarkMaterial, false, ConeMesh, FRotator(180, 0, 0));
-			}
-			CreateBlock(
-				FVector(PoleX, -565, 352), FVector(14, 14, 14),
-				StreetLampGlowMaterial, false, SphereMesh);
-		}
+		CreateBlock(
+			FVector(PoleX, -640, 214), FVector(11, 11, 372),
+			GalvanizedSteel, true, CylinderMesh);
+		CreateBlock(
+			FVector(PoleX, -596, 392), FVector(6, 81, 6),
+			GalvanizedSteel, false);
+		// 등기구 몸체와 아래로 향한 발광면. 발광면은 몸체 밑에 붙은 얇은 판이다.
+		CreateBlock(
+			FVector(PoleX, -566, 385.5f), FVector(24, 34, 7),
+			PlasticDarkMaterial, false);
+		CreateBlock(
+			FVector(PoleX, -566, 381.5f), FVector(18, 28, 1),
+			StreetLampGlowMaterial, false);
 		UPointLightComponent* LampLight = CreateLight(
-			FVector(PoleX, -600, 346),
+			FVector(PoleX, -566, 368),
 			2400.0f,
 			760.0f,
-			FLinearColor(1.0f, 0.82f, 0.58f),
+			FLinearColor(0.93f, 0.95f, 1.0f),
 			true,
 			18.0f);
 		LampLight->SetVolumetricScatteringIntensity(0.55f);
@@ -6682,6 +6684,20 @@ void AIGPrologueWorldScene::BuildSkyAndFog()
 	HeightFog->SetVolumetricFogScatteringDistribution(0.55f);
 	HeightFog->SetVolumetricFogExtinctionScale(1.0f);
 	HeightFog->RegisterComponent();
+}
+
+void AIGPrologueWorldScene::BuildDistantSkyline()
+{
+	// 옥상에 올라가면 사방이 새까만 허공이었다. 서울 빌라촌의 새벽 네 시 반은
+	// 건너편 붉은 벽돌 빌라와 그 너머 아파트 몇 채에 불이 남아 있는 풍경이다.
+	// 침실 창과 복도 창이 쓰는 같은 밤 풍경을 30미터 밖에 얇은 판으로 둘러
+	// 세운다. 두께 2 cm라 그림자와 거리장에 들어가지 않고, 안개가 멀리 있는
+	// 만큼 흐리게 덮는다. 바닥은 땅에 닿아 떠 있지 않다.
+	UMaterialInterface* Vista = TexMat(TEXT("M_ApartmentNightGlass"), WindowDarkMaterial);
+	CreateBlock(FVector(200, 3400, 1300), FVector(4600, 2, 2600), Vista, false);
+	CreateBlock(FVector(-3200, 600, 1300), FVector(2, 4200, 2600), Vista, false);
+	CreateBlock(FVector(4400, 800, 1200), FVector(2, 4600, 2400), Vista, false);
+	CreateBlock(FVector(1100, -3800, 1400), FVector(5600, 2, 2800), Vista, false);
 }
 
 void AIGPrologueWorldScene::SpawnStairTransition()
