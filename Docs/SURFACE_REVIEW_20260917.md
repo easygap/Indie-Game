@@ -58,8 +58,8 @@
 
 [UE 5.8 LOD 문서](https://dev.epicgames.com/documentation/en-us/unreal-engine/static-mesh-automatic-lod-generation-in-unreal-engine)를 대조해, 가까이서 필요한 형상을 유지하면서 화면 크기에 따라 단계를 줄이는 구성을 확인했다. [Virtual Shadow Maps 문서](https://dev.epicgames.com/documentation/unreal-engine/virtual-shadow-maps-in-unreal-engine)는 근접 그림자 진단에 참고했다. [UE 5.8 발표](https://www.unrealengine.com/news/unreal-engine-5-8-is-now-available)도 확인했지만, 이번 변경에서 새 렌더링 기능을 추가했다고 주장하지 않는다.
 
-[반입 검사 결과](surface-assets-20260917.json)는 조끼·인터폰·배송 라벨의 4단계 LOD, 단일 재질, 비발광, 텍스처 스트리밍을 확인한다. 확대용 라벨은 UI 전용 BC7 텍스처 하나로 반입했고 패키징 포함 경로도 검사했다. 진열물 1,318개는 기존 27개 배치를 사용한다.
+반입 검사에서 조끼·인터폰·배송 라벨의 4단계 LOD, 단일 재질, 비발광, 텍스처 스트리밍을 확인했다. 확대용 라벨은 UI 전용 BC7 텍스처 하나로 반입했고 패키징 포함 경로도 검사했다. 진열물 1,318개는 기존 27개 배치를 사용한다.
 
 RTX 3060 8GB, Ryzen 9 7900X, UE 5.8, D3D12, 1920×1080, High 설정에서 PNG 저장을 끄고 현관·관리실 9개 시점을 측정했다. 초기 120프레임을 제외한 2,845프레임의 중앙값은 16.586ms, 95백분위는 19.390ms였다. 33.33ms를 넘은 프레임이 50개 있었고 최대값은 82.665ms였다. 이 구간도 60fps 고정으로 보장할 수 없다. 조끼 근접 3개 시점은 이 성능 경로에 포함되지 않으며 화면 검수로 따로 확인했다. [측정 조건과 원본 수치](Performance/Surface20260917-High/README.md)를 함께 남겼다.
 
-실행한 검사는 [결과 요약](surface-validation-20260917.txt)에 있다. 에디터 빌드, 프로젝트 검사, 야간 진행, 이동·상호작용, 실제 포획·복귀, 720p와 1080p 문서 읽기(100%·200%)를 확인했다. 음성·음악을 이번에 새로 제작하거나 사용자 공포 반응을 측정한 것은 아니다.
+에디터 빌드, 프로젝트 검사, 야간 진행, 이동·상호작용, 실제 포획·복귀, 720p와 1080p 문서 읽기(100%·200%)를 확인했다. 음성·음악을 이번에 새로 제작하거나 사용자 공포 반응을 측정한 것은 아니다.

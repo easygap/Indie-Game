@@ -15,7 +15,7 @@
 
 사진은 관찰용으로 사용했다. 게임의 상호는 새벽24이고, 포장 원화와 간판은 별도로 만들었다. 매장 치수는 사진에서 실측한 값이 아니다. 플레이어 캡슐, 일반적인 집기 크기, 실제 화면을 함께 보며 정했다.
 
-실제 사진을 입력한 집기 시트와 상품의 여러 각도 자료는 `Content/SourceArt/AI/RetailFixtures_20260914.png`, `generated-images/retail-turnaround-20260914.png`에 있다. 포장 원화는 `Content/SourceArt/Labels/Store/RetailPackaging.png`다. 한글 간판·물병 라벨·가격표는 맑은 고딕으로 조판했다.
+실제 사진을 입력한 집기 시트와 상품의 여러 각도 자료는 `Content/SourceArt/AI/RetailFixtures_20260914.png`, `Content/SourceArt/AI/RetailTurnaround_20260914.png`에 있다. 포장 원화는 `Content/SourceArt/Labels/Store/RetailPackaging.png`다. 한글 간판·물병 라벨·가격표는 맑은 고딕으로 조판했다.
 
 ## 바뀐 공간과 사물
 
