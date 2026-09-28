@@ -65,9 +65,12 @@ function Invoke-GameCase([string]$Name, [string[]]$ExtraArguments, [switch]$Audi
         $text = Get-Content -LiteralPath $receipt -Raw
         if ($text -notmatch 'AUDIO_PRESENTATION_PROBE PASS failures=0' -or $text -match 'CHECK .+ FAIL') { throw "소리 검사 실패: $receipt" }
         $recording = Join-Path (Split-Path $receipt -Parent) 'presentation-mix.wav'
-        & python (Join-Path $PSScriptRoot 'check_audio_presentation.py') $recording |
-            Tee-Object -FilePath (Join-Path $caseRoot 'waveform.json')
-        if ($LASTEXITCODE -ne 0) { throw '배포 파일의 실제 믹서 녹음이 검사를 통과하지 못했습니다.' }
+        $waveform = @(& python (Join-Path $PSScriptRoot 'check_audio_presentation.py') $recording)
+        $waveformExitCode = $LASTEXITCODE
+        $waveform
+        # Windows PowerShell 5.1의 Tee-Object는 UTF-16으로 쓴다. 다른 검사 기록처럼 UTF-8로 남긴다.
+        [IO.File]::WriteAllLines((Join-Path $caseRoot 'waveform.json'), [string[]]$waveform)
+        if ($waveformExitCode -ne 0) { throw '배포 파일의 실제 믹서 녹음이 검사를 통과하지 못했습니다.' }
     }
     elseif (-not (Test-Path -LiteralPath $receipt) -or (Get-Content -Raw -LiteralPath $receipt) -notmatch '^MISSINGFLOOR_GREYBOX PASS') {
         throw "게임 진행 검사 결과가 없습니다: $Name"
