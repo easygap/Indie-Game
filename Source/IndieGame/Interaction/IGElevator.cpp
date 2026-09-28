@@ -16,6 +16,7 @@
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/Pawn.h"
 #include "IndieGame.h"
+#include "Player/IGHorrorHUD.h"
 #include "TimerManager.h"
 
 namespace IGElevator
@@ -459,6 +460,19 @@ void AIGElevator::RestoreAtLobbyOpen()
 	SetState(EIGElevatorState::DoneAtLobby);
 }
 
+void AIGElevator::SetHourDead(const bool bDead)
+{
+	bHourDead = bDead;
+	// 층 표시도 꺼진다. 불 꺼진 판 앞에서 버튼을 눌러 보는 것까지가 이 규칙이다.
+	for (UTextRenderComponent* Display : HallDisplays)
+	{
+		if (Display)
+		{
+			Display->SetVisibility(!bDead);
+		}
+	}
+}
+
 void AIGElevator::ConfigureIntermediateStop(
 	const bool bEnabled,
 	const float InDoorGapCentimeters)
@@ -519,6 +533,11 @@ bool AIGElevator::CanInteract_Implementation(AActor* Interactor) const
 	{
 		return false;
 	}
+	// 죽은 시간에도 버튼은 누를 수 있다. 눌러 봐야 죽은 줄 안다.
+	if (bHourDead)
+	{
+		return true;
+	}
 
 	const float LocalZ =
 		GetActorTransform().InverseTransformPosition(Interactor->GetActorLocation()).Z;
@@ -538,6 +557,10 @@ bool AIGElevator::CanInteract_Implementation(AActor* Interactor) const
 
 FText AIGElevator::GetInteractionPrompt_Implementation(AActor* Interactor) const
 {
+	if (bHourDead)
+	{
+		return NSLOCTEXT("IGElevator", "CallPrompt", "엘리베이터 호출");
+	}
 	if (Interactor)
 	{
 		const float LocalZ =
@@ -562,23 +585,52 @@ void AIGElevator::CompleteInteraction_Implementation(const FIGInteractionContext
 {
 	Super::CompleteInteraction_Implementation(Context);
 
-	// Pressing a call button is a small, dry click, but it is a sound the one
-	// upstairs can walk toward. Reported once here rather than inside SetState,
-	// which chapter resets and checkpoint restores also route through.
-	if (UWorld* World = GetWorld())
-	{
-		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
-		{
-			Noise->ReportNoise(GetActorLocation(), IGElevator::CallLoudness, Context.Interactor);
-		}
-	}
-
 	const APawn* InteractingPawn = Cast<APawn>(Context.Interactor);
 	const float LocalZ = InteractingPawn
 		? GetActorTransform().InverseTransformPosition(
 			InteractingPawn->GetActorLocation()).Z
 		: 0.0f;
 	const bool bAtLobby = LocalZ < -FloorDeltaZ * 0.5f;
+	const UStaticMeshComponent* Button = bAtLobby
+		? LowerCallButtonMesh.Get()
+		: CallButtonMesh.Get();
+
+	// Pressing a call button is a small, dry click, but it is a sound the one
+	// upstairs can walk toward. Reported once here rather than inside SetState,
+	// which chapter resets and checkpoint restores also route through.
+	// 소리는 누른 버튼판에서 난다. 액터 원점은 4층 승강기 앞이라, 로비에서 누른
+	// 버튼이 거기서 들리면 그는 4층 문 앞을 뒤지고 히트맵도 4층에 쌓인다.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(
+				Button ? Button->GetComponentLocation() : GetActorLocation(),
+				IGElevator::CallLoudness,
+				Context.Interactor);
+		}
+	}
+
+	// 그 시간의 버튼. 눌리는 딸깍뿐이고 불도 차임도 없다. 위의 소음 보고는 그대로
+	// 둔다 — 누른 소리는 났다. 계전기 딸깍은 새벽 잠금이 풀리는 소리라 쓰지 않는다.
+	if (bHourDead)
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateSwitchClick(this, false),
+			Button ? Button->GetComponentLocation() : GetActorLocation(),
+			0.3f,
+			0.8f);
+		if (!bHourDeadThoughtShown)
+		{
+			bHourDeadThoughtShown = true;
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT("IGElevator", "HourDeadThought", "버튼에 불이 안 들어온다."),
+				2.6f);
+		}
+		return;
+	}
 
 	// The player is free to mix stairs and lift. When the cab was left at the
 	// opposite landing, the hall button first calls an empty cab instead of

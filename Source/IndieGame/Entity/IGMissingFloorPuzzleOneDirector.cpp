@@ -15,6 +15,7 @@
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Entity/IGMissingFloorEvidence.h"
 #include "Player/IGHorrorHUD.h"
+#include "TimerManager.h"
 
 namespace IGPuzzleOne
 {
@@ -42,6 +43,14 @@ namespace IGPuzzleOne
 	constexpr float BallastHumVolume = 0.28f;
 	constexpr float BallastHumInnerRadius = 90.0f;
 	constexpr float BallastHumFalloff = 620.0f;
+	/**
+	 * 켜지는 순간만 멀리 간다. 로비(Z 152)에서 이 자리까지 약 10.5 m라 슬래브
+	 * 몇 장을 지나 먹먹하게, 위에서 내려온다. 웅은 새벽까지 남는다.
+	 */
+	constexpr float BallastCueInnerRadius = 300.0f;
+	constexpr float BallastCueFalloff = 2600.0f;
+	constexpr float BallastCueSecondTickSeconds = 0.55f;
+	constexpr float BallastSwellVolume = 0.5f;
 
 	/** Throwing a breaker is a deliberate, loud act. See §5.1. */
 	constexpr float BreakerHoldSeconds = 0.6f;
@@ -251,6 +260,12 @@ void AIGMissingFloorPuzzleOneDirector::EndPlay(const EEndPlayReason::Type EndPla
 {
 	GetWorldTimerManager().ClearTimer(MeterRotationTimer);
 	GetWorldTimerManager().ClearTimer(DaytimeTripTimer);
+	GetWorldTimerManager().ClearTimer(BallastCueTimer);
+	if (UAudioComponent* Swell = BallastSwell.Get())
+	{
+		Swell->Stop();
+	}
+	BallastSwell.Reset();
 	if (Scene.IsValid())
 	{
 		Scene->SetCommonInspectionLightsEnabled(true);
@@ -337,8 +352,10 @@ void AIGMissingFloorPuzzleOneDirector::HandleCommonLighting(AIGMissingFloorEvide
 	CommonLightAction->SetInteractionPrompt(bCommonLightsEnabled
 		? NSLOCTEXT("IGMissingFloor", "P1CommonPrompt", "복도등 끄기")
 		: NSLOCTEXT("IGMissingFloor", "P1CommonRestore", "복도등 켜기"));
-	IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateRelayClick(this),
-		IGPuzzleOne::CommonBreakerFace, .8f, 1.f, 90.f, 900.f, EIGAudioBus::Puzzle);
+	// 공용 조명 차단기도 0.55짜리 행동이다. 이름 없는 쪽보다 작은 손잡이라 조금 높다.
+	IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateBreakerThrow(this),
+		IGPuzzleOne::CommonBreakerFace, .9f, bCommonLightsEnabled ? 1.12f : 1.04f,
+		120.f, 1400.f, EIGAudioBus::Puzzle);
 }
 
 void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
@@ -350,12 +367,12 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 		if (Scene.IsValid()) IGPuzzleOne::SetToggle(Scene->GetUnnamedBreakerToggle(), true);
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateRelayClick(this),
+			UIGToneSequenceSoundWave::CreateBreakerThrow(this),
 			IGPuzzleOne::BreakerFace,
-			0.8f,
 			1.0f,
-			90.0f,
-			900.0f,
+			1.0f,
+			120.0f,
+			1400.0f,
 			EIGAudioBus::Puzzle);
 		GetWorldTimerManager().SetTimer(DaytimeTripTimer, this,
 			&AIGMissingFloorPuzzleOneDirector::ResetDaytimeBreaker, .24f, false);
@@ -373,14 +390,16 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 		IGPuzzleOne::SetToggle(WorldScene->GetUnnamedBreakerToggle(), bBreakerThrown);
 	}
 
+	// 이 밤에서 가장 시끄러운 손짓이다(0.55, §7 「차단기 소리는 위층까지 들린다」).
+	// 올릴 때는 탁, 내릴 때는 조금 낮고 둔하게.
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateRelayClick(this),
+		UIGToneSequenceSoundWave::CreateBreakerThrow(this),
 		IGPuzzleOne::BreakerFace,
-		0.8f,
 		1.0f,
-		90.0f,
-		900.0f,
+		bBreakerThrown ? 1.0f : 0.9f,
+		120.0f,
+		1400.0f,
 		EIGAudioBus::Puzzle);
 
 	if (BallastHum)
@@ -401,8 +420,9 @@ void AIGMissingFloorPuzzleOneDirector::HandleBreakerThrown(
 void AIGMissingFloorPuzzleOneDirector::ResetDaytimeBreaker()
 {
 	if (Scene.IsValid()) IGPuzzleOne::SetToggle(Scene->GetUnnamedBreakerToggle(), false);
-	IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateRelayClick(this),
-		IGPuzzleOne::BreakerFace, .7f, .94f, 90.f, 900.f, EIGAudioBus::Puzzle);
+	// 떨어지는 쪽은 낮고 둔하다. 올린 손에 「탁 — 턱」으로 온다.
+	IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateBreakerThrow(this),
+		IGPuzzleOne::BreakerFace, .8f, .86f, 120.f, 1400.f, EIGAudioBus::Puzzle);
 	AIGHorrorHUD::PushThought(this, NSLOCTEXT("IGMissingFloor", "P1BreakerDaytime", "올려도 다시 떨어진다."), 3.4f);
 }
 
@@ -410,6 +430,21 @@ void AIGMissingFloorPuzzleOneDirector::SetHourActive(const bool bActive)
 {
 	AccumulateMeterMotion();
 	GetWorldTimerManager().ClearTimer(DaytimeTripTimer);
+	// 맞물린 밤에 잠가 둔 차단기를 경계마다 돌려준다. 낮의 「올려도 다시
+	// 떨어진다」도 이 손잡이다.
+	if (BreakerAction)
+	{
+		BreakerAction->SetInteractionEnabled(true);
+	}
+	if (!bActive)
+	{
+		GetWorldTimerManager().ClearTimer(BallastCueTimer);
+		if (UAudioComponent* Swell = BallastSwell.Get())
+		{
+			Swell->FadeOut(1.2f, 0.0f);
+		}
+		BallastSwell.Reset();
+	}
 	bHourActive = bActive;
 	if (!bActive) bBreakerThrown = false;
 	if (Scene.IsValid()) IGPuzzleOne::SetToggle(Scene->GetUnnamedBreakerToggle(), bBreakerThrown);
@@ -453,8 +488,81 @@ void AIGMissingFloorPuzzleOneDirector::AnnounceSolvedIfReady()
 		return;
 	}
 	bSolvedAnnounced = true;
+	// 저장에서 이어 붙인 세션에는 알린 기억이 없다. 이미 푼 퍼즐이면 밤2~4에
+	// 차단기를 올려도 그냥 차단기다 — 여기서 잠그면 새벽까지 못 내리고 안정기
+	// 웅만 남는다.
+	if (Narrative->IsPuzzleSolved(IGPuzzleOne::PuzzleId))
+	{
+		return;
+	}
 	Narrative->MarkPuzzleSolved(IGPuzzleOne::PuzzleId);
+	// 회로를 켜 둔 채로 새벽까지 간다(§7). 결론 뒤에 차단기를 도로 내리면
+	// 방금 위에서 켜진 불이 이유 없이 꺼진다.
+	if (BreakerAction)
+	{
+		BreakerAction->SetInteractionEnabled(false);
+	}
 	OnSolved.Broadcast();
+}
+
+void AIGMissingFloorPuzzleOneDirector::PlayBallastFromAbove()
+{
+	if (!bHourActive || !bBreakerThrown)
+	{
+		return;
+	}
+	PlayBallastTick(0.6f, 1.0f);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "P1BallastFromAboveCaption", "천장 너머 — 안정기가 운다"),
+		3.0f,
+		IGPuzzleOne::BallastHumLocation);
+	// 두 번째 딸깍에 안정기가 물고, 그 뒤로 웅이 남는다. 형광등이 켜지는 순서다.
+	GetWorldTimerManager().SetTimer(
+		BallastCueTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (!bHourActive || !bBreakerThrown)
+			{
+				return;
+			}
+			PlayBallastTick(0.42f, 0.96f);
+			if (BallastSwell.IsValid())
+			{
+				return;
+			}
+			UIGAmbienceSoundWave* Wave = NewObject<UIGAmbienceSoundWave>(this);
+			Wave->Configure(EIGAmbienceMode::StoreBuzz, 0x5A17C0DFu);
+			// 루프 파형이다. SetHourActive(false)와 EndPlay가 끝낸다.
+			BallastSwell = IGAudio::SpawnOneShotAt(
+				this,
+				Wave,
+				IGPuzzleOne::BallastHumLocation,
+				IGPuzzleOne::BallastSwellVolume,
+				1.0f,
+				IGPuzzleOne::BallastCueInnerRadius,
+				IGPuzzleOne::BallastCueFalloff,
+				EIGAudioBus::World);
+		}),
+		IGPuzzleOne::BallastCueSecondTickSeconds,
+		false);
+}
+
+void AIGMissingFloorPuzzleOneDirector::PlayBallastTick(
+	const float Volume,
+	const float Pitch)
+{
+	IGAudio::SpawnOneShotAt(
+		this,
+		IGAudio::SampleOr(
+			TEXT("Ballast_Tick"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateFluorescentBallastSnap(this); }),
+		IGPuzzleOne::BallastHumLocation,
+		Volume,
+		Pitch,
+		IGPuzzleOne::BallastCueInnerRadius,
+		IGPuzzleOne::BallastCueFalloff,
+		EIGAudioBus::World);
 }
 
 void AIGMissingFloorPuzzleOneDirector::HandleSheetRead(

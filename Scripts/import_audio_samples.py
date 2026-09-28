@@ -27,8 +27,15 @@ def main():
     with open(os.path.join(source, "manifest.json"), "r", encoding="utf-8") as handle:
         manifest = json.load(handle)
     tools = unreal.AssetToolsHelpers.get_asset_tools()
+    # IG_AUDIO_ONLY가 있으면 그 이름들만 다시 반입한다. 비어 있으면 전부.
+    only = {n.strip() for n in os.environ.get("IG_AUDIO_ONLY", "").split(",") if n.strip()}
+    unknown = only - {entry["name"] for entry in manifest["sounds"]}
+    if unknown:
+        raise RuntimeError(f"IG_AUDIO_ONLY names not in manifest: {sorted(unknown)}")
     imported = 0
     for entry in manifest["sounds"]:
+        if only and entry["name"] not in only:
+            continue
         name = f"S_{entry['name']}"
         path = os.path.join(source, entry["file"])
         task = unreal.AssetImportTask()

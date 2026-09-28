@@ -27,7 +27,18 @@ struct INDIEGAME_API FIGDoorRequirement
 	/** Inner-voice line pushed when the player tries the locked door. */
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Door")
 	FText LockedThought;
+
+	/**
+	 * 잠긴 게 아니라 붙들린 문. 걸쇠는 풀리는데 문짝이 움직이지 않는다. 그 시간의
+	 * 공동현관이 이렇다. 열쇠 달그락 대신 밀리다 서는 소리를 낸다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Door")
+	bool bHeldShut = false;
 };
+
+class AIGSwingDoor;
+/** 조건이 안 맞는 문을 당겼다. 문 밖에서 이어 받을 반응이 있을 때 묶는다. */
+DECLARE_MULTICAST_DELEGATE_OneParam(FIGSwingDoorLockedAttempt, AIGSwingDoor*);
 
 /**
  * Hinged interactable door. The actor location is the hinge axis; the panel
@@ -62,6 +73,9 @@ public:
 
 	void SetRequirements(TArray<FIGDoorRequirement>&& InRequirements);
 
+	/** 잠긴(또는 붙들린) 문을 당긴 직후. 독백이 먼저 뜨고 그 뒤에 알린다. */
+	FIGSwingDoorLockedAttempt OnLockedAttempt;
+
 	/** Swing direction/extent; negative yaw opens toward local -Y. */
 	void SetOpenYaw(float InOpenYaw) { OpenYaw = InOpenYaw; }
 
@@ -87,6 +101,12 @@ public:
 
 	UFUNCTION(BlueprintPure, Category = "Door")
 	bool IsOpen() const { return bOpen; }
+
+	/**
+	 * 걸쇠 자리. 손잡이 쪽 문선, 문짝 두께 한가운데, 손잡이 높이다. 저작 문짝은
+	 * 원점이 바닥이라 문짝 원점에서 소리를 내면 문 소리가 문턱에서 났다.
+	 */
+	FVector GetLatchSoundLocation() const;
 
 	UFUNCTION(BlueprintPure, Category = "Door")
 	bool IsLocked() const;
@@ -164,6 +184,13 @@ protected:
 	float QuietSwingDurationScale = 1.8f;
 
 private:
+	void UpdateLeafCollision();
+	/** 경첩 쪽 위. 삐걱은 문짝이 매달린 자리에서 운다. */
+	FVector GetHingeSoundLocation() const;
+	/** 닫힐 때 문짝이 문틀에 닿는 자리. */
+	FVector GetStrikeSoundLocation() const;
+	/** 문마다 조금씩 다른 음높이. 같은 녹음을 쓰는 문 둘이 같은 문으로 들리지 않게. */
+	float GetDoorVoice() const;
 	const FIGDoorRequirement* FindUnmetRequirement() const;
 	bool BeginSwing(
 		bool bInOpen,
@@ -183,4 +210,6 @@ private:
 	bool bEverOpened = false;
 	/** 유리문. 걸쇠·자물쇠 녹음은 강철 세대문의 것이라 여기서는 안 낸다. */
 	bool bFramedGlass = false;
+	/** 문짝 치수(두께, 폭, 높이). 문 소리가 날 자리를 여기서 잰다. */
+	FVector LeafSize = FVector(6.0f, 84.0f, 204.0f);
 };

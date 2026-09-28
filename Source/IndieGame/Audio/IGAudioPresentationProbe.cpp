@@ -97,6 +97,24 @@ void AIGAudioPresentationProbe::CheckMixerGain(
 	UE_LOG(LogTemp, Display, TEXT("AUDIO_PRESENTATION_MIX %s actual=%.5f expected=%.5f"), Name, Actual, Expected);
 }
 
+bool AIGAudioPresentationProbe::IsTrackedVoice(
+	const UAudioComponent* Component, const EIGAudioBus Bus) const
+{
+	if (!Component || !Audio.IsValid())
+	{
+		return false;
+	}
+	for (const UIGMissingFloorAudioSubsystem::FTrackedVoice& Voice :
+		Audio->ActiveVoices[static_cast<int32>(Bus)])
+	{
+		if (Voice.Component.Get() == Component)
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
 void AIGAudioPresentationProbe::CheckChaseWave()
 {
 	UIGToneSequenceSoundWave* Wave = UIGToneSequenceSoundWave::CreateChaseScore(this);
@@ -189,6 +207,27 @@ void AIGAudioPresentationProbe::Tick(const float DeltaSeconds)
 		CheckMixerGain(EIGAudioBus::UI, -10, TEXT("ui_bus_registered"));
 		CheckMixerGain(EIGAudioBus::Score, -6, TEXT("score_bus_registered"));
 		CheckVisibility();
+		// 끌림과 숨은 상시 베드라 상한을 차지하지 않는다. 한 번 울고 마는 소리가 상한만큼
+		// 들어와도 하나도 밀리지 않고, 뒤따라 쏟아지는 기는 걸음은 그 소리들을 밀지 못한다.
+		// 세는 방식만 보는 검사라 작게 낸다. 같은 파형이 한 프레임에 겹치면 녹음이 깎인다.
+		const int32 EntityCap = Audio->GetVoiceCap(EIGAudioBus::Entity);
+		TArray<TWeakObjectPtr<UAudioComponent>> ScriptedCues;
+		for (int32 Index = 0; Index < EntityCap; ++Index)
+		{
+			ScriptedCues.Add(IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateWallKnockSingle(this),
+				Entity->GetActorLocation(), 0.05f, 1, 300, 1000, EIGAudioBus::Entity));
+		}
+		for (int32 Index = 0; Index < 8; ++Index)
+		{
+			IGAudio::SpawnExpendableOneShotAt(this, UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false),
+				Entity->GetActorLocation(), 0.05f, 1, 200, 2200, EIGAudioBus::Entity);
+		}
+		int32 ScriptedAlive = 0;
+		for (const TWeakObjectPtr<UAudioComponent>& Cue : ScriptedCues)
+		{
+			ScriptedAlive += IsTrackedVoice(Cue.Get(), EIGAudioBus::Entity) ? 1 : 0;
+		}
+		Check(ScriptedAlive == EntityCap, TEXT("beds_and_steps_leave_scripted_cues_alone"));
 		// 두 상시 소리가 도는 중에 발음 상한을 넘긴다. 오래된 이동음이 멎으면 실패다.
 		for (int32 Index = 0; Index < 8; ++Index)
 		{
@@ -201,22 +240,38 @@ void AIGAudioPresentationProbe::Tick(const float DeltaSeconds)
 		for (int32 Index = 1; Index <= 8; ++Index) { Audio->PlayTruthConfirmation(Index); }
 		Phase = 2; Seconds = 0;
 	}
-	else if (Phase == 2 && Seconds > 0.7f)
+	else if (Phase == 2 && Seconds > 1.0f)
 	{
+		// 확인음은 0.9초 뒤에 첫 타를 친다. 그 한 타가 추격 음악과 겹친 뒤에 본다.
 		Check(Entity->DragLoopComponent->IsPlaying(), TEXT("drag_survives_voice_pressure"));
 		Check(Entity->BreathLoopComponent->IsPlaying(), TEXT("entity_breath_survives_voice_pressure"));
 		Check(Chase.IsValid() && Chase->IsPlaying(), TEXT("truth_cues_do_not_stop_chase_music"));
 		Check(Audio->PlayStinger(EIGStinger::ChaseStart, Entity->GetActorLocation()), TEXT("first_chase_scream"));
 		Check(!Audio->PlayStinger(EIGStinger::ChaseStart, Entity->GetActorLocation()), TEXT("repeat_chase_scream_suppressed"));
 		Check(!Audio->PlayStinger(EIGStinger::CloseCall, Entity->GetActorLocation()), TEXT("close_call_does_not_stack_on_chase"));
+		// 추격 진입 타격 뒤로 기는 걸음과 대본 원샷을 상한 넘게 쏟는다. 타격은 끝까지 간다.
+		for (int32 Index = 0; Index < 6; ++Index)
+		{
+			IGAudio::SpawnExpendableOneShotAt(this, UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false),
+				Entity->GetActorLocation(), 0.05f, 1, 200, 2200, EIGAudioBus::Entity);
+			IGAudio::SpawnOneShotAt(this, UIGToneSequenceSoundWave::CreateWallKnockSingle(this),
+				Entity->GetActorLocation(), 0.05f, 1, 300, 1000, EIGAudioBus::Entity);
+		}
 		Audio->SetThreatState(EIGAudioThreatState::Investigating);
 		Phase = 3; Seconds = 0;
 	}
 	else if (Phase == 3 && Seconds > 0.7f)
 	{
 		Check(Chase.IsValid() && Chase->IsPlaying(), TEXT("chase_release_tail_survives"));
+		// 펄스는 내려가 있고 그 자리에 클러스터 스탭 하나가 운다(§10.2).
+		Check(IsValid(Audio->ChaseTailComponent) && Audio->ChaseTailComponent->IsPlaying()
+			&& Audio->ChaseReleaseStopAtSeconds > 0.0, TEXT("chase_release_leaves_one_stab"));
+		Check(IsValid(Audio->StingerComponent) && Audio->StingerComponent->IsPlaying(),
+			TEXT("chase_stinger_survives_voice_pressure"));
 		Audio->SetThreatState(EIGAudioThreatState::Chasing);
 		Check(Audio->ScoreComponent == Chase.Get(), TEXT("chase_resumes_same_component_and_beat"));
+		Check(!Audio->ChaseTailComponent && Audio->ChaseReleaseStopAtSeconds < 0.0,
+			TEXT("chase_resume_clears_stab_and_stop"));
 		Audio->SetEntityDistance(450);
 		Phase = 4; Seconds = 0;
 	}
@@ -251,10 +306,15 @@ void AIGAudioPresentationProbe::Tick(const float DeltaSeconds)
 		Check(Stress->BreathOneShotComponent && Stress->BreathOneShotComponent->IsPlaying(), TEXT("release_has_one_gasp"));
 		Audio->SetAuthoredSilence(true);
 		Stress->UpdateBreathLayer(0);
+		// P4처럼 침묵 한가운데서 진실이 확정된다. 타건을 붙잡는 것이 침묵뿐이게 해 둔다.
+		Audio->PendingTruthStrikes.Reset();
+		Audio->PlayTruthConfirmation(9);
+		Audio->NextTruthStrikeWorldSeconds = 0.0;
 		Phase = 7; Seconds = 0;
 	}
 	else if (Phase == 7 && Seconds > 0.4f)
 	{
+		Check(Audio->PendingTruthStrikes.Num() == 1, TEXT("truth_strike_waits_out_authored_silence"));
 		CheckMixerGain(EIGAudioBus::Score, -96, TEXT("authored_silence_reaches_audio_device"));
 		CheckMixerGain(EIGAudioBus::World, -24, TEXT("authored_world_duck_reaches_audio_device"));
 		Check(!Stress->BreathComponent || !Stress->BreathComponent->IsPlaying(), TEXT("authored_silence_stops_breath_loop"));
@@ -273,8 +333,16 @@ void AIGAudioPresentationProbe::Tick(const float DeltaSeconds)
 	{
 		// 거리 보고가 끊긴 뒤 잔류 압박이 사라지는지도 실제 틱으로 확인한다.
 		Check(Audio->GetPresenceAlpha() == 0, TEXT("stale_entity_pressure_expires"));
+		Check(Audio->PendingTruthStrikes.Num() == 0, TEXT("truth_strike_follows_released_silence"));
 		Audio->SetTitleMode(true);
 		Check(Audio->GetPresenceAlpha() == 0, TEXT("title_has_no_gameplay_pressure"));
+		// 밤 5가 타이틀 위에 오르면 타이틀의 조율과 노크가 비킨다. 끝나면 처음처럼 돌아온다.
+		Audio->HoldTitleSoundscape(true);
+		Check(!Audio->ScoreComponent && Audio->NextTitleKnockRealTime < 0,
+			TEXT("night_five_holds_title_soundscape"));
+		Audio->HoldTitleSoundscape(false);
+		Check(Audio->ScoreComponent && Audio->NextTitleKnockRealTime > 0,
+			TEXT("title_soundscape_returns_after_night_five"));
 		Stress->UpdateBreathLayer(0);
 		Check(Stress->BreathLevelTarget == 0, TEXT("title_has_no_player_breath"));
 		const FString Directory = FPaths::ConvertRelativePathToFull(FPaths::ProjectSavedDir() / TEXT("AudioPresentation"));

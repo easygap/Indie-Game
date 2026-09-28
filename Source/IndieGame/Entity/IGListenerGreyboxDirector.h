@@ -70,6 +70,8 @@ private:
 	void HandleNeighborhoodDeliveryRead(class AIGReadableNote* Note, bool bOpened);
 	void UpdateArrivalSequence();
 	void HandleArrivalEvidence(class AIGMissingFloorEvidence* Evidence);
+	/** 계약서와 이삿짐 상자 셋을 만지는 손 소리. 처음 여는 상자는 테이프부터 뜯는다. */
+	void PlayArrivalHandSound(class AIGMissingFloorEvidence* Evidence, bool bFirstOpen);
 	void RequestArrivalAutosave();
 	bool AreArrivalBoxesOpened() const;
 
@@ -131,7 +133,11 @@ private:
 	void HandleNightThreeSolved();
 	/** §8 비트 3-7: only 403's floor ends night three. */
 	void HandleNightThreeReturnedHome();
-	/** The 05:30 call belongs to dawn, whichever route brought it. */
+	/**
+	 * 대답을 들은 밤3의 05:30, 신호가 돌아오면 신고한다(§1 밤3 이후 현실 대응).
+	 * 귀가로 끝났든 시간이 다 됐든 새벽의 일이다. 대답을 못 들은 밤3은 신고할
+	 * 것이 없고, 그 밤은 다음 저녁에 되풀이된다.
+	 */
 	void MakeNightThreeFirstReport();
 	void HandleFifthDawnCompleted();
 	void HandleNightFourResolved();
@@ -156,19 +162,78 @@ private:
 	/** 눕는다 → 검은 화면 → 침대에서 네시 반. 자는 동안은 보여 주지 않는다. */
 	void BeginNightAfterSleep(int32 NightIndex);
 	void WakeIntoNight();
-	/** 카드가 걷힌 뒤 403호 천장의 정해진 자리에서 건물이 한 번 운다. */
+	/**
+	 * 카드가 걷힌 뒤 밤을 여는 소리. 밤3은 옥상 철문, 밤4는 5층 벽의 드릴이고,
+	 * 문 비트를 다 쓴 되풀이 밤2는 403호 천장의 정해진 자리에서 건물이 한 번 운다.
+	 */
 	void PlayNightOpeningSettle();
-	/** 밤1 프롤로그 0-5의 「드르륵」. 그의 노크 셋이 끝난 뒤 천장에서 끌린다. */
+	/** 밤3을 여는 옥상 철문. 바람이 부풀고, 닫힌 문짝이 틀 안에서 덜컹인다. */
+	void PlayNightThreeRoofGate();
+	/** 밤4를 여는 5층 벽의 드릴. 밤1 옥상의 그 드릴이고, 목한수가 먼저 벽을 덮는다. */
+	void PlayNightFourMokDrill();
+	/** 드릴이 멎은 뒤 5층 바닥의 발소리 넷, 그리고 철문. 부를 때마다 한 걸음. */
+	void PlayNightFourMokLeaving();
+	/** 그 시간의 공동현관을 밀었다. 한 판에 한 번, 폰이 신호를 못 잡는다. */
+	void HandleSealedEntranceTried(class AIGSwingDoor* Door);
+	void PlayNoSignal();
+	/** 1-7. 밤1을 채운 낮, 401호 문을 등지고 지나가면 황순금이 문틈으로 내다본다. */
+	void PollHwangPeek();
+	void PlayHwangPeek();
+	/**
+	 * 문이 열린 뒤의 시각표. 문짝은 움직이지 않으니 돌아보는 순간 그녀가 문을
+	 * 닫는다. 대사가 아직이면 닫으면서 한다. 돌아보지 않으면 대사, 닫힘 순서다.
+	 */
+	void TickHwangPeekScene();
+	/** 시선이 401호 문 쪽을 향하고 있다(HwangPeekFacingDot). */
+	bool IsFacingHwangDoor() const;
+	/**
+	 * 밤1 프롤로그 0-5의 「쿵, 쿵, 쿵」. 카드가 걷힌 뒤 침대 위 천장에서 먹먹하게
+	 * 난다. 복도의 그는 깨는 순간 첫 칸에서 두드리지 않는다.
+	 */
+	void PlayNightOneCeilingKnock();
+	/** 밤1 프롤로그 0-5의 「드르륵」. 천장 노크 셋이 끝난 뒤 같은 자리에서 끌린다. */
 	void PlayNightOneOpeningDrag();
+	/** 노크와 끌림이 나는 침대 위 천장의 한 자리. */
+	FVector GetNightOneCeilingPoint() const;
+	/** 첫 밤, 노크를 들은 뒤 머리맡의 손전등을 켠다. 먼저 켰으면 아무것도 안 한다. */
+	void ReachForNightOneTorch();
+	/** P1이 맞물린 순간 그가 소리를 좇고 있으면 여유를 두지 않고 새벽으로 간다. */
+	bool IsNightOneSolveUnderThreat() const;
+	/** 밤1 결론 뒤의 새벽. 포획 암전이나 펼쳐 둔 종이 뒤로는 오지 않는다. */
+	void FinishNightOneAtDawn();
 	/** 밤1, 옥상에서 전동 드릴이 다섯 번 돌다 멈춘다. 목한수의 첫 흔적. */
 	void PlayRoofDriverBeat();
 	/** 렌치가 놓이고 독백이 읽힌 뒤에야 화면이 검어진다. */
 	void StartEpilogueAfterGesture();
+	/**
+	 * 신고 뒤의 낮을 문자로 잇는다. 보낸 문자 → 112 접수 → 수십 초 뒤 경찰의
+	 * 현장 확인 → 요구서가 붙는다 → 요구서를 읽으면 담당자에게 사진을 보낸다.
+	 * 단계는 저장되는 비트로 기억해 불러온 낮에도 빠진 데부터 다시 받는다.
+	 * 다음 문자는 대화 줄이 비었을 때만 민다. 진동과 글이 같은 순간이어야
+	 * 폰이 울린 것으로 읽힌다.
+	 */
+	void ScheduleFirstReportTexts(float DelaySeconds);
+	void AdvanceFirstReportTexts();
+	/** 신호가 돌아오자마자 보내는 문자. 그녀가 무엇을 신고했는지가 화면에 남는다. */
+	void PlayFirstReportSent();
 	/** 신호가 돌아온 폰에 접수 문자가 온다. 새벽 독백 뒤에. */
 	void PlayFirstReportReceipt();
+	/** 날이 밝은 5층을 경찰이 보고 간 결과. 전화 대신 문자로 온다(§4.6). */
+	void PlayFirstReportSiteCheck();
+	/** 문자 한 통에 주머니 속 폰이 운다. */
+	void PlayPhoneTextBuzz();
+	/** 요구서를 읽었다. 담당자에게 사진을 보내는 문자가 뒤따른다. */
+	void HandleEvictionNoticeRead(class AIGMissingFloorEvidence* Evidence);
 	void HandleUnit401Knocked(class AIGMissingFloorEvidence* Evidence);
 	/** 401호 문 너머의 말. 진행 상태마다 한 줄, 답이 아니라 어디를 볼지. */
 	FText GetHwangDoorLine() const;
+	/**
+	 * 신고 뒤의 낮, 황순금에게 벽의 대답을 전하는 세 줄. 신고 문자가 나갔고
+	 * 대화 줄이 비어 있을 때만 민다. 밀었으면 참이다.
+	 */
+	bool TryPlayHwangPermission();
+	/** 탁자 위 폰(중고 거래 알림)을 보일지 다시 정한다. 폰은 한 대다. */
+	void RefreshTablePhone();
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGListenerEntity> Entity;
@@ -241,6 +306,39 @@ private:
 	TObjectPtr<class AIGReadableNote> NeighborhoodDeliveryNote;
 	FTimerHandle NeighborhoodSoundTimer;
 	double LastCounterTalkAt = -100.0;
+	/** 입주 손 소리의 둘째 겹(내용물)과, 휴대전화 진동을 한 번에서 끊는 타이머. */
+	FTimerHandle ArrivalHandSoundTimer;
+	FTimerHandle ArrivalPhoneBuzzTimer;
+	TWeakObjectPtr<class UAudioComponent> ArrivalPhoneBuzz;
+	/** 콜드 오픈(§8 0-1). 검은 화면이 걷히고, 위에서 바퀴가 구른 뒤에 제목이 선다. */
+	FTimerHandle ArrivalColdOpenSoundTimer;
+	FTimerHandle ArrivalTitleCardTimer;
+	/**
+	 * 새 게임은 검은 화면으로 연다. 빌라가 지어지는 첫 프레임을 가리고, 무대가
+	 * 서면 콜드 오픈이 걷는다. 다른 길로 무대가 섰거나 서지 못하면 바로 걷는다.
+	 */
+	bool bArrivalOpeningHeldBlack = false;
+	void ReleaseArrivalOpeningBlack();
+	/** 옥상 자물쇠를 만진 뒤 철문 너머에서 쇠붙이가 내려앉는다(§8 0-4). */
+	FTimerHandle ArrivalRoofClinkTimer;
+	/**
+	 * 첫 저녁의 생활음(§8 0-2). 계단을 내려가는 발소리, 벽 속 배관, 다른 집
+	 * 현관문. 밤에 위에서 나는 소리가 어긋나게 들리려면 아래와 옆을 먼저 들어
+	 * 둬야 한다. 잠들면 끝난다.
+	 */
+	FTimerHandle ArrivalBaselineTimer;
+	FTimerHandle ArrivalBaselineStepTimer;
+	int32 LastArrivalBaselineKind = INDEX_NONE;
+	int32 ArrivalBaselineStep = 0;
+	uint32 ArrivalBaselineSeed = 0;
+	TWeakObjectPtr<class UAudioComponent> ArrivalBaselinePipes[2];
+	void ScheduleArrivalBaseline(float MinDelaySeconds, float MaxDelaySeconds);
+	void PlayArrivalBaselineEvent();
+	void StopArrivalBaseline();
+	/** 402호 문 안의 정적을 들은 뒤, 톤이 거의 끝날 무렵의 한 줄. */
+	FTimerHandle Unit402VacancyTimer;
+	/** 프로브·캡처가 무대를 몰고 있다. 새 지연은 이때 즉시 경로로 간다. */
+	bool IsScriptedRun() const;
 
 	/** §20.3's two automatic safety nets: the world moving when nothing else is. */
 	UPROPERTY(Transient)
@@ -291,18 +389,76 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> BoilerHumLoop;
 
-	/** 밤의 환경 베드 셋: 4층 복도, 계단실, 5층. 험 반경 밖이 무음이던 것을 채운다. */
+	/**
+	 * 밤의 환경 베드 다섯: 4층 복도, 계단실, 5층 별관, 옥상, 1층 로비. 험 반경
+	 * 밖이 무음이던 것을 채운다.
+	 */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UAudioComponent>> NightAmbienceBeds;
-	/** 밤 사이 위에서 한 번씩 나는 건물 소리. 45~110초마다. */
+	/** 밤 사이 한 번씩 나는 건물 소리. 밤이 거듭될수록, 05:30이 가까울수록 잦다. */
 	FTimerHandle SettleTimerHandle;
+	/** 바로 앞에 난 건물 소리의 종류. 같은 것이 연달아 나지 않게 한다. */
+	int32 LastSettleKind = INDEX_NONE;
+	/** 밤을 여는 손전등 딸깍. 눈을 뜨고 손이 머리맡을 찾는 만큼 늦다. */
+	FTimerHandle NightWakeTorchTimer;
 	FTimerHandle NightStartTimer;
 	FTimerHandle NightSettleTimer;
 	FTimerHandle RoofDriverTimer;
 	FTimerHandle NightOneDragTimer;
 	FTimerHandle NightOneDragFadeTimer;
+	/**
+	 * 401호 문 너머의 라디오(§8 0-4). 낮과 입주 저녁에는 문 앞에서 낮게
+	 * 웅얼거리고 밤에는 꺼져 있다. 두드리면 멎었다가 대답이 끝난 뒤 돌아오고,
+	 * 귀를 대면 잠시 커진다. 막간의 예불과 같은 재료다.
+	 */
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> Unit401PrayerLoop;
+	/** 귀를 댄 뒤 라디오를 제 크기로 돌린다. */
+	FTimerHandle Unit401RadioFadeTimer;
+	/** 401호 철문 노크의 둘째 손, 그리고 대답이 다 끝난 뒤 돌아오는 라디오. */
+	FTimerHandle Unit401KnockTimer;
+	FTimerHandle Unit401PrayerReturnTimer;
+	/** 라디오를 Level까지 Seconds에 걸쳐 옮긴다. 0이면 멎는다. */
+	void FadeUnit401Prayer(float Level, float Seconds);
+	/** 지금 시간대에 라디오가 머무는 크기. 밤에는 0이다. */
+	float GetUnit401PrayerRestLevel() const;
+	/** 밤1 여는 시각표: 천장 노크, 첫 칸의 멈춤 해제, 손전등, 「…4층이 꼭대기인데.」 */
+	FTimerHandle NightOneCeilingKnockTimer;
+	FTimerHandle NightOneHoldTimer;
+	FTimerHandle NightOneTorchTimer;
+	FTimerHandle NightOneThoughtTimer;
+	/** 밤1 결론 뒤: 위에서 안정기, 「…위에 뭐가 있어.」, 그리고 새벽. */
+	FTimerHandle NightOneBallastTimer;
+	FTimerHandle NightOneRealizationTimer;
+	FTimerHandle NightOneDawnTimer;
+	bool bNightOneDawnHeldByNote = false;
+	/** 밤2 문 노크 전까지 복도 첫 칸의 그를 붙드는 한도. */
+	FTimerHandle NightTwoDoorHoldTimer;
+	/** 밤3·4를 여는 소리의 뒷부분(철문의 덜컹, 떠나는 발소리)과 한 줄. */
+	FTimerHandle NightOpeningFollowTimer;
+	FTimerHandle NightOpeningThoughtTimer;
+	int32 NightOpeningStep = 0;
+	/** 공동현관을 민 뒤 폰을 꺼내 걸어 보기까지. */
+	FTimerHandle NoSignalTimer;
+	/** 1-7 황순금의 기척. 401호 앞을 지나는지 보는 폴링과, 문이 열렸다 닫히는 순서. */
+	FTimerHandle HwangPeekTimer;
+	FTimerHandle HwangPeekSceneTimer;
+	double HwangPeekStartedAt = 0.0;
+	bool bHwangPeekLineShown = false;
+	/** 신고 뒤 첫 노크의 세 줄이 대화 줄이 비기를 기다린다. */
+	FTimerHandle HwangPermissionTimer;
 	FTimerHandle EpilogueStartTimer;
 	FTimerHandle ReportTimer;
+	/** 신고 문자 줄기가 대화 줄이 비기를 기다린 시간, 줄이 빈 뒤 더 쉴 시간. */
+	float ReportLaneWaitSeconds = 0.0f;
+	float ReportPendingGapSeconds = 0.0f;
+	/** 문자가 다 오기 전에 누우려 했다. 남은 문자를 짧은 간격으로 받는다. */
+	bool bFirstReportRushed = false;
+	/** 밤4, 물이 돌기 전에 5층 벽 앞에 섰는지 본다. 한 번 말하면 멎는다. */
+	FTimerHandle NightFourWallCoverTimer;
+	void PollNightFourWallCover();
+	/** 저장된 그 시간을 이어 붙이는 중이다. 되풀이가 아니라서 여는 드릴을 다시 걸지 않는다. */
+	bool bResumingSealedHour = false;
 	int32 PendingNightIndex = 1;
 	int32 SettleCounter = 0;
 	void SpawnNightAmbienceBeds();

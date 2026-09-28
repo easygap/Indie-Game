@@ -34,6 +34,7 @@ class UExponentialHeightFogComponent;
 class UMaterialInterface;
 class UPointLightComponent;
 class UPostProcessComponent;
+class UPrimitiveComponent;
 class USceneComponent;
 class USkyAtmosphereComponent;
 class USkyLightComponent;
@@ -141,6 +142,12 @@ public:
 
 	/** 실제 배치된 벽과 문에 플레이어 캡슐을 통과시킨다. 시작 구간 검사에서 사용한다. */
 	bool AuditPlayerClearance(APawn* Pawn, AIGSwingDoor* BoothDoor);
+
+	/** 403호 현관문. 그가 문 앞에서 두드리려면 문이 닫혀 있는지 알아야 한다. */
+	AIGSwingDoor* GetHomeDoor() const { return HomeDoor; }
+
+	/** 1층 공동현관. 그 시간에 밀어 본 것을 밖에서 이어 받는다(폰 신호). */
+	AIGSwingDoor* GetBuildingDoor() const { return BuildingDoor; }
 
 	/** 종이는 책상 메시의 실제 상판 높이에 놓는다. */
 	float GetDeskSurfaceWorldZ() const { return DeskSurfaceWorldZ; }
@@ -599,6 +606,15 @@ private:
 	UFUNCTION()
 	void HandleFlickerZoneTriggered(AIGZoneTrigger* Zone);
 
+	/** 발에 걸린 물리 소품이 부딪는 소리. 소화기는 제 낙하음이 따로 있어 뺀다. */
+	UFUNCTION()
+	void HandlePhysicsPropHit(
+		UPrimitiveComponent* HitComponent,
+		AActor* OtherActor,
+		UPrimitiveComponent* OtherComp,
+		FVector NormalImpulse,
+		const FHitResult& Hit);
+
 	/** Aging-ballast shimmer on one corridor fluorescent. */
 	void HandleCorridorFlicker();
 
@@ -769,6 +785,11 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UStaticMeshComponent> CorridorExtinguisher;
 	bool bCorridorExtinguisherDropped = false;
 	FTimerHandle ExtinguisherSettleTimer;
+	/** 소품마다 마지막으로 소리를 낸 시각. 구르며 닿는 접촉이 톡톡 이어지지 않게. */
+	TMap<TWeakObjectPtr<UPrimitiveComponent>, double> PropImpactLastSeconds;
+	double PropImpactLastAnySeconds = -1.0;
+	/** 막 생긴 소품이 바닥에 자리 잡는 충돌은 소리가 아니다. 이 시각 전은 듣지 않는다. */
+	double PropImpactArmedAtSeconds = 0.0;
 	UPROPERTY(Transient) TObjectPtr<AIGSwingDoor> MirrorRoomDoor;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomLamp;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> MirrorRoomBounce;
@@ -796,12 +817,19 @@ private:
 	float NightFixtureScale(int32 Index, bool bCorridor) const;
 	/** 등·안개·카메라 룩을 그 시간에 맞추거나 새벽으로 되돌린다. */
 	void ApplyNightAtmosphere(bool bSealed);
+	/**
+	 * 창 너머 도로. 그 시간에는 건물이 닫혀 바깥이 멀어지고, 새벽에는 천천히
+	 * 차오른다. 페이더만 움직인다 — 배수를 건드리거나 0으로 내리면 멈춘다.
+	 */
+	void ApplyStreetNightLevel(bool bNight);
 
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> FlickerStreetlight;
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> DegradedCorridorLight;
 	UPROPERTY(Transient) TArray<TObjectPtr<UPointLightComponent>> StoreLights;
 	UPROPERTY(Transient) TObjectPtr<class AIGStoreClerk> StoreClerk;
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> JingleComponent;
+	/** Bed_City_Night. 새벽마다 차오르는 도로. */
+	UPROPERTY(Transient) TObjectPtr<UAudioComponent> StreetBedComponent;
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> DistantAlarmComponent;
 
 	/** When set, assembly helpers parent to this instead of SceneRoot. */

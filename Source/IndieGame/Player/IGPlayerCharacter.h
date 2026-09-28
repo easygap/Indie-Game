@@ -161,10 +161,8 @@ protected:
 	virtual void OnStartCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 	virtual void OnEndCrouch(float HalfHeightAdjust, float ScaledHalfHeightAdjust) override;
 
-	UFUNCTION()
-	void HandleFocusChanged(AActor* PreviousActor, AActor* NewActor);
-
 private:
+	friend class AIGGameplayRealismProbe;
 	void Move(const FInputActionValue& Value);
 	void Look(const FInputActionValue& Value);
 	void MoveForward(float Value);
@@ -212,6 +210,8 @@ private:
 	void RegisterKnockSequenceTap();
 	void HandleForeignNoise(const FIGNoiseEvent& Event);
 	FDelegateHandle ForeignNoiseHandle;
+	/** 존재의 연출 소리(§19.8 대체 채널). 소음 버스와 따로 온다. */
+	FDelegateHandle ForeignCueHandle;
 	void StopChaseHaptic();
 	void UpdateChaseHaptic(float DeltaSeconds);
 	void PlayHapticFeedback(float Intensity, float DurationSeconds) const;
@@ -266,15 +266,12 @@ private:
 	TObjectPtr<UInputAction> FlashlightInputAction;
 
 	/**
-	 * Distance covered by one footstep, in centimeters.
-	 *
-	 * §18.3이 헤드밥 주기를 0.52초로 적어 두었고, 헤드밥은 발걸음과 같은
-	 * 위상을 쓴다 — 둘이 어긋나면 화면이 세는 걸음과 귀가 세는 걸음이
-	 * 달라진다. 한 주기는 좌우 두 걸음이므로 기준 보행 속도 300cm/s에서
-	 * 0.52 × 300 ÷ 2 = 78cm다.
+	 * 한 번 발을 디딜 때 이동하는 거리(cm).
+	 * 위아래 흔들림은 abs(sin)이므로 한 걸음마다 반복된다.
+	 * §18.3의 걷기 주기 0.52초 × 이동 속도 300cm/s = 156cm.
 	 */
 	UPROPERTY(EditDefaultsOnly, Category = "Player|Camera", meta = (AllowPrivateAccess = "true", ClampMin = "10.0", Units = "cm"))
-	float StepDistance = 78.0f;
+	float StepDistance = 156.0f;
 
 	UPROPERTY(EditDefaultsOnly, Category = "Player|Camera", meta = (AllowPrivateAccess = "true", ClampMin = "0.0", ClampMax = "1.0"))
 	float FootstepVolume = 0.34f;
@@ -287,6 +284,7 @@ private:
 	float ScareCameraKick = 0.0f;
 	float TraveledDistanceAccum = 0.0f;
 	float BreathTime = 0.0f;
+	float BreathPhase = 0.0f;
 	float SprintActiveSeconds = 0.0f;
 	float SprintRecoverySeconds = 0.0f;
 	float ListenHeldSeconds = 0.0f;
@@ -322,6 +320,8 @@ private:
 	bool bHoldingBreath = false;
 	bool bInteractionRedirectedToListen = false;
 	bool bInteractionRedirectedToInterludeListen = false;
+	/** 패드 엿듣기 키를 밤3 벽이 아닌 엿듣기 판정에서 눌러 상호작용 홀드로 넘긴 중. */
+	bool bListenRedirectedToInteraction = false;
 	bool bRebirthOutfitEquipped = false;
 	bool bOutfitPresentationActive = false;
 	float OutfitPresentationElapsed = 0.0f;

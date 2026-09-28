@@ -74,8 +74,21 @@ private:
 	UFUNCTION()
 	void HandleStairTransitionCompleted(bool bGoingDown);
 
+	/**
+	 * 존은 한 번만 울리므로, 그를 화면 밖에서 옮길 수 있을 때까지 여기서 다시
+	 * 본다. 보이는 곳에서 사라지면 순간이동이다(§4.6).
+	 */
+	void TryStageSighting();
+	bool CanStageSightingUnseen() const;
 	void StageSighting();
+	/** 45초 폴백. 복도 첫 칸이 플레이어 곁이거나 시야 안이면 미룬다. */
+	void TryFallbackRestore();
+	bool CanRestoreSightingUnseen() const;
 	void RestoreSightingEntity();
+	/** 자리가 플레이어 시야 원뿔 안에 있고 가려지지 않았는가. Subject가 있으면 그 몸이 그려졌는지로 본다. */
+	bool IsInPlayerView(const FVector& Location, const AActor* Subject) const;
+	/** 프로브와 캡처는 상태를 동기적으로 밟는다. 조건을 기다리지 않는다. */
+	static bool IsScriptedRun();
 	void PlayExtinguisherImpact();
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 
@@ -114,6 +127,7 @@ private:
 	bool bSightingCompleted = false;
 	bool bExtinguisherBeatFired = false;
 	FTimerHandle SightingFallbackTimer;
+	FTimerHandle SightingRetryTimer;
 	FTimerHandle SightingStepTimer;
 	/** 계단 입구 위의 등. 그가 계단참에 있는 동안 죽어 있고, 끝나면 돌아온다. */
 	int32 SightingThroatFixture = INDEX_NONE;

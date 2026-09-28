@@ -48,6 +48,7 @@ void AIGSwingDoor::ConfigurePrototypeVisuals(
 	UMaterialInterface* HandleMaterial,
 	const FVector& PanelSize)
 {
+	LeafSize = PanelSize;
 	if (!CubeMesh)
 	{
 		return;
@@ -137,6 +138,7 @@ void AIGSwingDoor::ConfigureFramedGlassVisuals(
 	const FVector& PanelSize)
 {
 	bFramedGlass = true;
+	LeafSize = PanelSize;
 	if (!CubeMesh)
 	{
 		return;
@@ -217,6 +219,7 @@ void AIGSwingDoor::SetLeverMesh(
 void AIGSwingDoor::ConfigureAuthoredLeaf(
 	UStaticMesh* LeafMesh, UStaticMesh* HardwareMesh, const FVector& PanelSize)
 {
+	LeafSize = PanelSize;
 	if (!LeafMesh)
 	{
 		return;
@@ -271,32 +274,39 @@ void AIGSwingDoor::Tick(const float DeltaSeconds)
 			: -1.0f;
 		if (DistanceToLeaf >= 0.0f && DistanceToLeaf < 45.0f)
 		{
-			// Child-component rotation cannot sweep in Unreal. Re-open before
-			// the leaf enters the capsule instead of crushing or tunnelling
-			// the player when an authored/scripted close catches the doorway.
+			// 문이 닫힐 자리에 서 있으면 다시 연다. 회전하는 문짝은 스윕이
+			// 안 되므로 움직이는 동안 캐릭터를 밀지 않게 해 둔다.
 			bOpen = true;
 			bSuppressNextCloseThud = true;
-			DoorMesh->SetCollisionProfileName(UCollisionProfile::NoCollision_ProfileName);
 			DoorAnimation.Begin(
 				DoorPivot->GetRelativeRotation().Yaw,
 				OpenYaw,
 				FMath::Max(0.3f, SwingDuration * 0.55f));
+			UpdateLeafCollision();
 			return;
 		}
 	}
 
 	if (bFinished)
 	{
+		UpdateLeafCollision();
 		SetActorTickEnabled(false);
 		if (!bOpen && !bSuppressNextCloseThud)
 		{
-			IGAudio::SpawnOneShotAt(
+			// 문짝이 문틀에 닿는 자리에서 닫힌다. 조용히 닫으면 걸쇠만 작고 가볍게
+			// 물리고, 알루미늄 유리문은 철문보다 높고 얇게 운다.
+			const bool bEasedShut = CloseThudVolume < 0.5f;
+			IGAudio::SpawnOneShotFromActorAt(
 				this,
 				IGAudio::SampleOr(
 					TEXT("Door_Steel_Close"),
 					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateDoorThud(this); }),
-				DoorMesh->GetComponentLocation(),
-				CloseThudVolume);
+				GetStrikeSoundLocation(),
+				CloseThudVolume * (bFramedGlass ? 0.8f : 1.0f),
+				GetDoorVoice()
+					* (bFramedGlass ? 1.12f : 1.0f)
+					* (bEasedShut ? 1.03f : 0.98f)
+					* FMath::FRandRange(0.97f, 1.03f));
 		}
 		bSuppressNextCloseThud = false;
 	}
@@ -370,13 +380,19 @@ void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContex
 	{
 		if (const FIGDoorRequirement* Unmet = FindUnmetRequirement())
 		{
-			IGAudio::SpawnOneShotAt(
-				this,
-				IGAudio::SampleOr(
+			// 잠긴 문은 걸쇠가 운다. 붙들린 문은 걸쇠가 풀리는데도 문짝이 서기만
+			// 한다. 여기서 열쇠 소리를 내면 흔한 잠긴 문이 된다.
+			USoundBase* TriedSound = Unmet->bHeldShut
+				? static_cast<USoundBase*>(UIGToneSequenceSoundWave::CreateHeldDoorPush(this))
+				: IGAudio::SampleOr(
 					TEXT("Lock_Rattle"),
-					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateLockedRattle(this); }),
-				HandleMesh->GetComponentLocation(),
-				0.9f);
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateLockedRattle(this); });
+			IGAudio::SpawnOneShotFromActorAt(
+				this,
+				TriedSound,
+				GetLatchSoundLocation(),
+				Unmet->bHeldShut ? 0.8f : 0.9f,
+				FMath::FRandRange(0.96f, 1.04f));
 			// Yanking a sealed door is the loudest thing a locked door does.
 			// The hour has to be a place where trying the exit costs you.
 			ReportSwingNoise(NormalSwingLoudness);
@@ -384,6 +400,7 @@ void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContex
 			{
 				AIGHorrorHUD::PushThought(this, Unmet->LockedThought, 3.2f);
 			}
+			OnLockedAttempt.Broadcast(this);
 			return;
 		}
 	}
@@ -424,16 +441,51 @@ void AIGSwingDoor::EndInteraction_Implementation(
 	BeginSwing(!bOpen, true, false, NormalSwingLoudness, 1.0f);
 }
 
+FVector AIGSwingDoor::GetLatchSoundLocation() const
+{
+	// 문짝의 좌표계는 경첩 축이 원점이고 문짝이 +Y로 뻗으며 두께는 X 가운데다.
+	// 문짝을 따라 돌므로 열린 문의 걸쇠도 제자리에서 운다.
+	return DoorPivot->GetComponentTransform().TransformPosition(
+		FVector(0.0f, LeafSize.Y - 12.0f, LeafSize.Z * 0.47f));
+}
+
+FVector AIGSwingDoor::GetHingeSoundLocation() const
+{
+	return DoorPivot->GetComponentTransform().TransformPosition(
+		FVector(0.0f, 8.0f, LeafSize.Z * 0.8f));
+}
+
+FVector AIGSwingDoor::GetStrikeSoundLocation() const
+{
+	return DoorPivot->GetComponentTransform().TransformPosition(
+		FVector(0.0f, LeafSize.Y - 8.0f, LeafSize.Z * 0.5f));
+}
+
+float AIGSwingDoor::GetDoorVoice() const
+{
+	return 0.96f
+		+ 0.08f * static_cast<float>(GetTypeHash(GetFName()) % 1000u) / 999.0f;
+}
+
+void AIGSwingDoor::UpdateLeafCollision()
+{
+	DoorMesh->SetCollisionProfileName(UCollisionProfile::BlockAll_ProfileName);
+	if (bOpen || DoorAnimation.bActive)
+	{
+		// 열린 문도 바라보고 닫을 수 있어야 한다. 시선 판정은 남기고,
+		// 통행과 회전 중 끼임을 막기 위해 캐릭터 충돌만 끈다.
+		DoorMesh->SetCollisionEnabled(ECollisionEnabled::QueryOnly);
+		DoorMesh->SetCollisionResponseToChannel(ECC_Pawn, ECR_Ignore);
+	}
+}
+
 void AIGSwingDoor::ForceOpenState(const bool bInOpen)
 {
 	DoorAnimation = FIGDoorAnimation();
 	bOpen = bInOpen;
 	bEverOpened = bEverOpened || bOpen;
 	bSuppressNextCloseThud = false;
-	DoorMesh->SetCollisionProfileName(
-		bOpen
-			? UCollisionProfile::NoCollision_ProfileName
-			: UCollisionProfile::BlockAll_ProfileName);
+	UpdateLeafCollision();
 	DoorPivot->SetRelativeRotation(FRotator(0.0f, bOpen ? OpenYaw : 0.0f, 0.0f));
 	SetActorTickEnabled(false);
 }
@@ -468,62 +520,73 @@ bool AIGSwingDoor::BeginSwing(
 	bOpen = bInOpen;
 	bSuppressNextCloseThud = !bOpen && bSuppressCloseThud;
 	CloseThudVolume = DurationScale > 1.0f ? 0.22f : 0.9f;
-	// A rotating child component cannot sweep against the character capsule.
-	// Remove leaf collision as soon as it opens so a narrow Korean unit door
-	// cannot snag the player; restore it before a close, where Tick's proximity
-	// guard can safely reverse the motion instead of pushing through the pawn.
-	DoorMesh->SetCollisionProfileName(
-		bOpen
-			? UCollisionProfile::NoCollision_ProfileName
-			: UCollisionProfile::BlockAll_ProfileName);
 	DoorAnimation.Begin(
 		DoorPivot->GetRelativeRotation().Yaw,
 		bOpen ? OpenYaw : 0.0f,
 		SwingDuration * FMath::Max(DurationScale, 0.05f));
+	UpdateLeafCollision();
 	SetActorTickEnabled(true);
 
-	if (bPlayCreak && bOpen && !bFramedGlass)
+	// 문마다 목소리가 조금 다르고, 같은 문도 매번 똑같이 울지는 않는다. 403호 문과
+	// 관리실 문이 같은 녹음이어도 같은 문으로 들리지 않게.
+	const float DoorVoice = GetDoorVoice();
+	if (bPlayCreak && bOpen && bFramedGlass)
+	{
+		// 유리문에는 강철 걸쇠도 나무 경첩도 없다. 알루미늄 푸시바가 끝까지 들어가는
+		// 딸깍 하나다. 강철 걸쇠 녹음을 높고 작게 쓴다.
+		if (USoundBase* PushBar = IGAudio::Sample(TEXT("Door_Steel_Open")))
+		{
+			IGAudio::SpawnOneShotFromActorAt(
+				this,
+				PushBar,
+				GetLatchSoundLocation(),
+				DurationScale > 1.0f ? 0.22f : 0.40f,
+				1.12f * FMath::FRandRange(0.97f, 1.03f),
+				120.0f,
+				900.0f);
+		}
+	}
+	else if (bPlayCreak && bOpen)
 	{
 		// 손잡이가 경첩보다 먼저다. 잠겨 있던 문은 첫 개방에서 자물쇠가 한 번
 		// 돌아가고, 그 뒤로는 걸쇠만 풀린다. 천천히 열면 걸쇠도 조심스럽다.
-		const FVector HandleLocation = HandleMesh
-			? HandleMesh->GetComponentLocation()
-			: DoorMesh->GetComponentLocation();
+		const FVector LatchLocation = GetLatchSoundLocation();
 		if (!bEverOpened && Requirements.Num() > 0)
 		{
 			if (USoundBase* Unlock = IGAudio::Sample(TEXT("Lock_Open")))
 			{
-				IGAudio::SpawnOneShotAt(
-					this, Unlock, HandleLocation, 0.7f, 1.0f, 120.0f, 900.0f);
+				IGAudio::SpawnOneShotFromActorAt(
+					this, Unlock, LatchLocation, 0.7f, DoorVoice, 120.0f, 900.0f);
 			}
 		}
 		if (USoundBase* Latch = IGAudio::Sample(TEXT("Door_Steel_Open")))
 		{
-			IGAudio::SpawnOneShotAt(
+			IGAudio::SpawnOneShotFromActorAt(
 				this,
 				Latch,
-				HandleLocation,
+				LatchLocation,
 				DurationScale > 1.0f ? 0.30f : 0.55f,
-				DurationScale > 1.0f ? 0.94f : 1.0f,
+				(DurationScale > 1.0f ? 0.94f : 1.0f) * DoorVoice * FMath::FRandRange(0.98f, 1.02f),
 				120.0f,
 				900.0f);
 		}
 	}
 	bEverOpened = bEverOpened || bOpen;
 
-	if (bPlayCreak)
+	if (bPlayCreak && !bFramedGlass)
 	{
 		// A slow leaf creaks more softly than a shoved one. 닫힐 때는 반대로
 		// 내려가는 삐걱이고, 열릴 때보다 조금 작다 — 걸쇠 소리가 뒤에 따로 온다.
-		IGAudio::SpawnOneShotAt(
+		// 삐걱은 문짝이 매달린 경첩 쪽 위에서 운다.
+		IGAudio::SpawnOneShotFromActorAt(
 			this,
 			IGAudio::SampleOr(
 				bOpen ? TEXT("Door_Creak_0") : TEXT("Door_Creak_1"),
 				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateDoorCreak(this, !bOpen); }),
-			DoorMesh->GetComponentLocation(),
-			(DurationScale > 1.0f ? 0.45f : 0.8f) * (bOpen ? 1.0f : 0.7f),
+			GetHingeSoundLocation(),
+			(DurationScale > 1.0f ? 0.45f : 0.8f) * (bOpen ? 1.0f : 0.7f) * FMath::FRandRange(0.9f, 1.0f),
 			// 천천히 열면 낮고 길게 운다.
-			DurationScale > 1.0f ? 0.82f : 1.0f);
+			(DurationScale > 1.0f ? 0.82f : 1.0f) * DoorVoice * FMath::FRandRange(0.95f, 1.05f));
 	}
 
 	// One report per committed swing, at the start of motion: this funnel is

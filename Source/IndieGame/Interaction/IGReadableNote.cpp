@@ -1,5 +1,7 @@
 ﻿#include "Interaction/IGReadableNote.h"
 
+#include "Audio/IGAudioHelpers.h"
+#include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/World.h"
 #include "Entity/IGNoiseSubsystem.h"
@@ -83,6 +85,7 @@ void AIGReadableNote::CompleteInteraction_Implementation(const FIGInteractionCon
 
 	if (bOpen)
 	{
+		PlayHandlingSound(false);
 		Close();
 		return;
 	}
@@ -109,6 +112,77 @@ void AIGReadableNote::CompleteInteraction_Implementation(const FIGInteractionCon
 		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
 		{
 			Noise->ReportNoise(GetActorLocation(), IGReadableNote::PageLoudness, Context.Interactor);
+		}
+	}
+	// 그가 듣는 그 종이 소리를 플레이어도 같은 자리에서 듣는다.
+	PlayHandlingSound(true);
+}
+
+void AIGReadableNote::PlayHandlingSound(const bool bOpening, const float VolumeScale) const
+{
+	AIGReadableNote* Self = const_cast<AIGReadableNote*>(this);
+	USoundBase* Sound = nullptr;
+	float Volume = 0.0f;
+	float Pitch = 1.0f;
+	if (bUsesPhoneNotificationPresentation)
+	{
+		// 휴대전화는 종이가 아니다. 화면을 손톱으로 한 번 톡.
+		Sound = UIGToneSequenceSoundWave::CreateMenuTick(Self, false);
+		Volume = bOpening ? 0.20f : 0.14f;
+		Pitch = 1.3f;
+	}
+	else
+	{
+		const auto PaperSynth = [Self]() -> USoundBase*
+		{
+			return UIGToneSequenceSoundWave::CreateJournalPageTurn(Self);
+		};
+		if (bOpening)
+		{
+			// §5.1에서 걸음(0.15)의 절반쯤 되는 조작이라 발소리보다 작게 둔다.
+			Sound = IGAudio::SampleVariantOr(
+				TEXT("Paper_Turn"), 2, static_cast<uint32>(FMath::Rand()), PaperSynth);
+			Volume = 0.36f;
+			Pitch = FMath::FRandRange(0.95f, 1.05f);
+		}
+		else
+		{
+			// 내려놓는 쪽은 짧은 장으로, 더 작고 조금 높게.
+			Sound = IGAudio::SampleOr(TEXT("Paper_Turn_0"), PaperSynth);
+			Volume = 0.22f;
+			Pitch = 1.10f;
+		}
+		if (bUsesThermalReceiptPresentation)
+		{
+			// 감열지는 얇아서 더 높게 바스락거린다.
+			Pitch *= 1.25f;
+		}
+	}
+	IGAudio::SpawnOneShotAt(
+		this,
+		Sound,
+		GetActorLocation(),
+		Volume * VolumeScale,
+		Pitch,
+		60.0f,
+		500.0f,
+		EIGAudioBus::Player);
+}
+
+void AIGReadableNote::NotifyPageTurned(AActor* Reader) const
+{
+	if (!bOpen)
+	{
+		return;
+	}
+	// §5.1의 「쪽지 넘기기」. 펼 때와 같은 값이다 — 밤에 여러 장을 넘기면 그만큼
+	// 여러 번 들린다.
+	PlayHandlingSound(true, 0.7f);
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGNoiseSubsystem* Noise = World->GetSubsystem<UIGNoiseSubsystem>())
+		{
+			Noise->ReportNoise(GetActorLocation(), IGReadableNote::PageLoudness, Reader);
 		}
 	}
 }

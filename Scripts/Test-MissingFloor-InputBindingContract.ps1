@@ -475,7 +475,7 @@ foreach ($name in $bobValues.Keys) {
 	}
 }
 
-# 주기는 보폭에서 나온다. 헤드밥과 발소리가 같은 위상을 쓰기 때문이다.
+# 위아래 움직임은 abs(sin)이므로 한 걸음마다 반복된다. 2로 나누면 박자가 두 배가 된다.
 $characterHeader = Read-ProjectText 'Source/IndieGame/Player/IGPlayerCharacter.h'
 $strideMatch = [regex]::Match(
 	$characterHeader, 'float StepDistance = (?<value>[0-9.]+)f;')
@@ -490,7 +490,7 @@ if (-not $referenceMatch.Success) {
 	throw 'ReferenceWalkSpeed could not be read.'
 }
 $expectedStride =
-	[double]$bobRow.Groups['period'].Value * [double]$referenceMatch.Groups['value'].Value / 2.0
+	[double]$bobRow.Groups['period'].Value * [double]$referenceMatch.Groups['value'].Value
 $assertionCount++
 if ([Math]::Abs([double]$strideMatch.Groups['value'].Value - $expectedStride) -gt 0.5) {
 	throw (

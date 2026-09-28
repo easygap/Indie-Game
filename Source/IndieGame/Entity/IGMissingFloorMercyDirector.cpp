@@ -1,7 +1,9 @@
 ﻿#include "Entity/IGMissingFloorMercyDirector.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
+#include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/GameInstance.h"
@@ -10,7 +12,9 @@
 #include "Entity/IGListenerEntity.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
+#include "Kismet/GameplayStatics.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "TimerManager.h"
 
 namespace IGMercy
 {
@@ -27,6 +31,18 @@ namespace IGMercy
 	constexpr float PipeCryVolume = 0.66f;
 	constexpr float PipeCryInnerRadius = 220.0f;
 	constexpr float PipeCryFalloff = 2200.0f;
+	/**
+	 * 울음은 한 번의 사건이다. 걸어가 볼 만큼 울고 가라앉는다. 수류는 루프
+	 * 파형이라 여기서 끊지 않으면 건물 전체에 밤새, 낮까지 깔린다.
+	 */
+	constexpr float PipeCrySeconds = 6.0f;
+	constexpr float PipeCryFadeSeconds = 1.8f;
+	/**
+	 * 메모를 쓴 밤에는 배관만 남아 같은 울음이 되풀이된다. 번갈아 조금 낮게 울려
+	 * 같은 소리가 두 번 나지 않게 한다. 원근 단계는 그대로다 — 3단으로 내리면 밤3
+	 * P3의 「속이 찬 벽」과 겹친다.
+	 */
+	constexpr float PipeCryAlternatePitch = 0.93f;
 	/** The shared riser, above the fifth-floor bays. */
 	const FVector RiserLocation = AIGPrologueWorldScene::GetSharedRiserLocation();
 
@@ -60,6 +76,17 @@ void AIGMissingFloorMercyDirector::Configure(
 {
 	Entity = InEntity;
 	NightThree = InNightThree;
+}
+
+void AIGMissingFloorMercyDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
+{
+	GetWorldTimerManager().ClearTimer(PipeCryFadeTimer);
+	// 끊어 줄 타이머가 없어졌으니 울음도 여기서 멈춘다.
+	if (UAudioComponent* Cry = PipeCryVoice.Get())
+	{
+		Cry->Stop();
+	}
+	Super::EndPlay(EndPlayReason);
 }
 
 UIGMissingFloorNarrativeSubsystem*
@@ -97,6 +124,28 @@ void AIGMissingFloorMercyDirector::SetHourActive(const bool bActive)
 		Note->SetWorldRotation(FRotator(0.0f, IGMercy::NoteStartYaw, 0.0f));
 		Note->SetVisibility(false, true);
 		Note->SetHiddenInGame(true, true);
+	}
+}
+
+void AIGMissingFloorMercyDirector::FadeOutPipeCry(const float FadeSeconds)
+{
+	// 연출이 무대를 가져간 순간이다. 막힌 시간을 처음부터 다시 센다. 정적이
+	// 걸리기 전의 한 틈에 90초가 차서 새 울음이 정적 속으로 번지는 일도 막는다.
+	StuckSeconds = 0.0f;
+	// 6초 뒤에 걷으려던 타이머는 지운다. 여기서 먼저 걷는다.
+	GetWorldTimerManager().ClearTimer(PipeCryFadeTimer);
+	UAudioComponent* Cry = PipeCryVoice.Get();
+	if (!Cry || !Cry->IsPlaying())
+	{
+		return;
+	}
+	if (FadeSeconds > 0.0f)
+	{
+		Cry->FadeOut(FadeSeconds, 0.0f);
+	}
+	else
+	{
+		Cry->Stop();
 	}
 }
 
@@ -241,6 +290,16 @@ void AIGMissingFloorMercyDirector::Tick(const float DeltaSeconds)
 		ResetsSinceNewSource = 0;
 		return;
 	}
+	// 연출이 비운 정적(밤3 대답의 8초, 밤4 리빌의 두 번째 완전 침묵)은 막힌
+	// 시간이 아니다. 거기서 배관이 울면 그 정적이 깨진다. 시계도 세지 않는다.
+	if (const UIGMissingFloorAudioSubsystem* AudioDirector =
+		World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		if (AudioDirector->IsAuthoredSilence())
+		{
+			return;
+		}
+	}
 
 	StuckSeconds += DeltaSeconds;
 	if (StuckSeconds < StuckResponseSeconds)
@@ -259,6 +318,7 @@ EIGMercyResponse AIGMissingFloorMercyDirector::FireWorldResponse()
 	// comes twice running. Two of the three are conditional — the ear to the
 	// wall only exists while P3 is unsolved, and the note is once a night — so
 	// the rotation falls through to the pipes, which the building always has.
+	// 벽에 귀를 대는 그는 밤3에, 그녀가 그의 층에서 볼 수 있을 때만 나온다.
 	static const EIGMercyResponse Order[] =
 	{
 		EIGMercyResponse::EarToWall,
@@ -369,8 +429,26 @@ bool AIGMissingFloorMercyDirector::TryEarToWall()
 	{
 		return false;
 	}
+	// 5층 공동 벽은 밤3의 벽이다. 밤1·2에 보내면 벽 아래의 4층 자리가 403호 현관
+	// 앞이라 막 잡혔다 깬 그녀의 문 앞에 그를 세운다. 3-7에 세워 둔 그를 끌어내지도
+	// 않는다.
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative
+		|| Narrative->GetNightIndex() != 3
+		|| NightThreeActor->IsFigureInCorridor())
+	{
+		return false;
+	}
+	// 목격이어야 도움이다. 그는 층을 오르지 못해 5층 벽을 향해서는 계단 아래에서
+	// 귀를 세운다. 그녀가 그의 층에 없거나 그가 갈 길 곁에 있으면 걸지 않고 메모와
+	// 배관 차례로 넘긴다(CanBeginObservationHold).
+	const APawn* Witness = UGameplayStatics::GetPlayerPawn(this, 0);
 	FVector Observation = FVector::ZeroVector;
-	if (!NightThreeActor->GetCavityWallObservationPoint(Observation))
+	if (!Witness
+		|| !NightThreeActor->GetCavityWallObservationPoint(Observation)
+		|| !EntityActor->CanBeginObservationHold(
+			Observation,
+			Witness->GetActorLocation()))
 	{
 		return false;
 	}
@@ -387,17 +465,33 @@ bool AIGMissingFloorMercyDirector::TryPipeCry()
 	{
 		return false;
 	}
-	IGAudio::SpawnOneShotAt(
+	// 앞의 울음이 아직 남아 있으면 먼저 걷는다. 겹쳐 울면 사건이 아니라 배경이 된다.
+	if (UAudioComponent* Previous = PipeCryVoice.Get())
+	{
+		Previous->FadeOut(0.5f, 0.0f);
+	}
+	PipeCryVoice = IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreatePipeWaterFlow(
 			this,
 			IGMercy::PipeCryDistanceStep),
 		IGMercy::RiserLocation,
 		IGMercy::PipeCryVolume,
-		1.0f,
+		(PipeCryCount++ % 2 == 0) ? 1.0f : IGMercy::PipeCryAlternatePitch,
 		IGMercy::PipeCryInnerRadius,
 		IGMercy::PipeCryFalloff,
 		EIGAudioBus::Puzzle);
+	GetWorldTimerManager().SetTimer(
+		PipeCryFadeTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (UAudioComponent* Cry = PipeCryVoice.Get())
+			{
+				Cry->FadeOut(IGMercy::PipeCryFadeSeconds, 0.0f);
+			}
+		}),
+		IGMercy::PipeCrySeconds,
+		false);
 	return true;
 }
 

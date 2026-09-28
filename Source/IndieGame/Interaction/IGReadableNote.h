@@ -181,6 +181,16 @@ public:
 	void Close();
 
 	/**
+	 * 손에 든 종이의 소리. 펼 때는 그도 듣는 소리이고, 내려놓을 때는 더 작고
+	 * 짧다. 플레이어가 직접 펴고 덮는 자리에서만 부른다 — Close()는 암전과 장면
+	 * 전환에서도 강제로 불리므로 그 안에 넣으면 컷 밑에서 종이가 운다.
+	 */
+	void PlayHandlingSound(bool bOpening, float VolumeScale = 1.0f) const;
+
+	/** 읽는 중에 쪽이 실제로 넘어갔다. 펼 때처럼 종이가 울고 그도 듣는다(§5.1). */
+	void NotifyPageTurned(AActor* Reader) const;
+
+	/**
 	 * The note currently being read, if any. Only one can be open at a time,
 	 * so a single weak pointer is enough for the HUD to find it without the
 	 * HUD and the note having to know about each other.

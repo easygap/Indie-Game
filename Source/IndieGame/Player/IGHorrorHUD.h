@@ -450,6 +450,14 @@ public:
 		}
 		return false;
 	}
+	/**
+	 * 대화 줄이 비었는가. 폰 진동처럼 소리와 글이 같은 순간이어야 하는 장면은
+	 * 줄이 빌 때까지 기다렸다가 민다. 줄 뒤에 서면 진동만 먼저 울린다.
+	 */
+	bool IsDialogueLaneIdle() const
+	{
+		return !bHasCurrentDialogue && DialogueQueue.IsEmpty();
+	}
 	int32 GetMissingFloorJournalPageCount() const;
 	void SetInputDevicePresentation(bool bInUsingGamepad)
 	{
@@ -559,7 +567,13 @@ private:
 		float CornerRadius,
 		float Alpha) const;
 	bool DrawDialoguePanel(double CurrentTime, float& OutPanelTop);
+	/** 자막은 넘겨받은 게임 시간 대신 자막 시계(AdvanceAudioCaptionClock)로 잰다. */
 	bool DrawAudioCaption(double CurrentTime, float MaximumBottomY);
+	/**
+	 * 자막 시계를 지금까지 흘리고 그 값을 돌려준다. 일시정지에는 멈추지만
+	 * 타이틀(밤 5 포함)이 떠 있으면 흐른다 — 타이틀은 월드를 멈춘 채로 소리를 낸다.
+	 */
+	double AdvanceAudioCaptionClock();
 	void EnqueueDialogue(FIGDialogueMessage&& Message, double CurrentTime);
 	void ActivateDialogue(FIGDialogueMessage&& Message, double CurrentTime);
 	void AdvanceDialogueQueue(double CurrentTime);
@@ -750,6 +764,8 @@ private:
 
 	TWeakObjectPtr<class UIGNoiseSubsystem> NoiseSubsystem;
 	FDelegateHandle NoiseReportedHandle;
+	/** 존재의 연출 소리(§19.8 대체 채널). 소음 버스와 따로 온다. */
+	FDelegateHandle PresentationCueHandle;
 
 	FIGDialogueMessage CurrentDialogue;
 	TArray<FIGDialogueMessage> DialogueQueue;
@@ -776,6 +792,10 @@ private:
 	TArray<FIGAudioCaptionMessage> AudioCaptionQueue;
 	double AudioCaptionStartTime = 0.0;
 	double AudioCaptionEndTime = -1.0;
+	/** 자막 시계. 시작·끝·대기열이 모두 이 값으로 재진다. */
+	double AudioCaptionClockSeconds = 0.0;
+	/** 자막 시계를 마지막으로 흘린 월드의 멈춤 무관 시각. */
+	double AudioCaptionClockSampledAt = -1.0;
 
 	FVector FearCueWorldLocation = FVector::ZeroVector;
 	double FearCueStartTime = 0.0;
@@ -816,6 +836,12 @@ private:
 	double CaptureWakeEchoStartTime = -1.0;
 	double CaptureWakeEchoEndTime = -1.0;
 	FIGHudGuidance Guidance;
+	/**
+	 * 잡혔다가 깨어날 때마다 오른다. 밤의 목표 키에 섞여서, 조작이 돌아오는
+	 * 첫 프레임에 손목의 시계가 한 번 떠오른다 — 잡힌 값이 시간이라면 그
+	 * 시간을 볼 수 있어야 한다(§5.4).
+	 */
+	int32 NightClockRevealSerial = 0;
 	bool bObjectiveGuideDrawn = false;
 	bool bControlsGuideDrawn = false;
 #if !UE_BUILD_SHIPPING

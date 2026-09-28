@@ -924,6 +924,15 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreatePhysicsProp(
 	Prop->SetCollisionProfileName(UCollisionProfile::PhysicsActor_ProfileName);
 	Prop->RegisterComponent();
 	Prop->SetSimulatePhysics(true);
+	// 걷어차면 굴러가는 물건은 부딪는 소리도 낸다. 생긴 직후 자리 잡는 충돌은
+	// 소리가 아니라서 2초 동안은 듣지 않는다.
+	Prop->SetNotifyRigidBodyCollision(true);
+	Prop->OnComponentHit.AddDynamic(this, &AIGPrologueWorldScene::HandlePhysicsPropHit);
+	if (const UWorld* PropWorld = GetWorld())
+	{
+		PropImpactArmedAtSeconds = FMath::Max(
+			PropImpactArmedAtSeconds, PropWorld->GetTimeSeconds() + 2.0);
+	}
 	Prop->SetMassOverrideInKg(NAME_None, FMath::Max(0.05f, MassKg));
 	// Small household props should settle instead of skating and spinning for
 	// seconds after a light capsule contact.
@@ -933,6 +942,58 @@ UStaticMeshComponent* AIGPrologueWorldScene::CreatePhysicsProp(
 	Prop->SetLinearDamping(1.1f);
 	GeometryComponents.Add(Prop);
 	return Prop;
+}
+
+void AIGPrologueWorldScene::HandlePhysicsPropHit(
+	UPrimitiveComponent* HitComponent,
+	AActor* OtherActor,
+	UPrimitiveComponent* OtherComp,
+	const FVector NormalImpulse,
+	const FHitResult& Hit)
+{
+	// 소화기는 밤1의 낙하 연출이 제 녹음과 소음 보고를 낸다. 여기서 또 내면 두 번 운다.
+	UWorld* World = GetWorld();
+	if (!World || !HitComponent || HitComponent == CorridorExtinguisher)
+	{
+		return;
+	}
+	const double Now = World->GetTimeSeconds();
+	if (Now < PropImpactArmedAtSeconds || Now - PropImpactLastAnySeconds < 0.05)
+	{
+		return;
+	}
+	// 충격량을 질량으로 나누면 부딪는 순간 바뀐 속도다. 가만히 놓였거나 구르는
+	// 동안의 접촉은 한 프레임에 16cm/s 남짓이라 여기서 걸러진다.
+	const float MassKg = FMath::Max(HitComponent->GetMass(), 0.05f);
+	const float DeltaSpeed = NormalImpulse.Size() / MassKg;
+	if (DeltaSpeed < 50.0f)
+	{
+		return;
+	}
+	double& LastSeconds = PropImpactLastSeconds.FindOrAdd(
+		TWeakObjectPtr<UPrimitiveComponent>(HitComponent), -1.0);
+	if (LastSeconds >= 0.0 && Now - LastSeconds < 0.3)
+	{
+		return;
+	}
+	LastSeconds = Now;
+	PropImpactLastAnySeconds = Now;
+	const float KnockVolume = FMath::GetMappedRangeValueClamped(
+		FVector2D(50.0f, 400.0f), FVector2D(0.18f, 0.50f), DeltaSpeed);
+	// 발소리가 아니라 물건 소리다. 그에게 보고하지 않는다 — §5.1의 낙하물 값은
+	// 복도 소화기 하나에 묶여 있고, 실내화를 건드릴 때마다 그 값이 나가면 403호가
+	// 밤마다 시끄러운 방이 된다. 소품과 바닥이 모두 이 씬의 몸이라, 씬을 오클루전
+	// 에서 빼야 닿는 자리의 소리가 제 바닥과 제 몸에 가려지지 않는다. 걷어찬
+	// 사람은 늘 그 옆에 있다. 냉장고 안의 병은 닫힌 냉장고가 가린다.
+	IGAudio::SpawnOneShotFromActorAt(
+		this,
+		UIGToneSequenceSoundWave::CreateKickedPropKnock(this, MassKg < 0.18f),
+		Hit.ImpactPoint,
+		KnockVolume,
+		FMath::FRandRange(0.94f, 1.08f),
+		60.0f,
+		700.0f,
+		EIGAudioBus::World);
 }
 
 UPointLightComponent* AIGPrologueWorldScene::CreateLight(
@@ -4088,6 +4149,25 @@ void AIGPrologueWorldScene::ApplyNightAtmosphere(const bool bSealed)
 		Look.LocalExposureShadowContrastScale = bSealed ? 0.92f : 0.76f;
 		Look.LocalExposureHighlightContrastScale = bSealed ? 0.90f : 0.84f;
 	}
+	ApplyStreetNightLevel(bSealed);
+}
+
+void AIGPrologueWorldScene::ApplyStreetNightLevel(const bool bNight)
+{
+	// 그 시간에는 창이 열리지 않고 도로가 멀다. 새벽에는 잠금이 풀리는 소리와
+	// 함께 8초에 걸쳐 차오른다 — 밤 베드가 가라앉는 사이 낮이 밤보다 조용하지
+	// 않게. 새벽마다 같은 녹음이라 새소리 같은 반복이 드러나는 층은 얹지 않는다.
+	if (StreetBedComponent && StreetBedComponent->IsPlaying())
+	{
+		StreetBedComponent->AdjustVolume(bNight ? 2.0f : 8.0f, bNight ? 0.4f : 1.0f);
+	}
+	// 작아지기만 하면 먼 도로일 뿐이다. 건물이 잠기면 바깥은 유리 한 겹 뒤로
+	// 물러나 고역부터 빠진다.
+	if (StreetBedComponent)
+	{
+		StreetBedComponent->SetLowPassFilterFrequency(bNight ? 1200.0f : 20000.0f);
+		StreetBedComponent->SetLowPassFilterEnabled(bNight);
+	}
 }
 
 FVector AIGPrologueWorldScene::GetCorridorFixtureLocation(const int32 Index) const
@@ -4880,10 +4960,15 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 				false);
 			Seal.LockedPrompt = NSLOCTEXT(
 				"IGMissingFloor", "EntranceSealedPrompt", "공동현관");
+			// '그 시간'의 규칙 1(§1)은 게임 안에서 여기서 배운다. 문은 잠긴 게 아니라
+			// 붙들려 있다 — 걸쇠 소리 없이 밀리다 선다. 폰은 그 뒤에 따로 운다.
+			// 그레이박스 디렉터가 첫 시도에 통화 실패음을 내고 「폰도 안 터진다.」를
+			// 잇는다. 밤에 폰이 죽어 있어야 05:30의 신고가 그날 처음 잡힌 신호로 읽힌다.
 			Seal.LockedThought = NSLOCTEXT(
 				"IGMissingFloor",
 				"EntranceSealedThought",
 				"…안 열린다. 잠긴 것도 아닌데.");
+			Seal.bHeldShut = true;
 			BuildingDoor->SetRequirements(MoveTemp(SealRequirements));
 		}
 		else
@@ -4893,11 +4978,12 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 		}
 	}
 
-	// The lift is dead for the hour. Its hall button *is* its interaction, so
-	// disabling that is a complete lockout while the cab shells stay solid.
+	// 그 시간의 승강기는 죽어 있다. 프롬프트까지 지우면 고장인지 규칙인지 알 수
+	// 없어서, 버튼은 눌리되 불이 안 들어오고 층 표시도 꺼진다(SetHourDead).
 	if (Elevator)
 	{
-		Elevator->SetInteractionEnabled(!bSealed);
+		Elevator->SetInteractionEnabled(true);
+		Elevator->SetHourDead(bSealed);
 		if (!bSealed)
 		{
 			Elevator->ResetForNewRide();
@@ -5496,8 +5582,16 @@ void AIGPrologueWorldScene::BuildLobby()
 	// 게시판 두 장은 실제 A4 비율로 걸며, 우편 투입구를 가리지 않는다.
 	CreateBlock(FVector(633, -146.5f, 153), FVector(82, 3, 76), Metal, false);
 	CreateBlock(FVector(633, -148.2f, 153), FVector(78, .4f, 72), FridgeInteriorMaterial, false);
-	CreateBlock(FVector(610, -148.65f, 166), FVector(21, .08f, 29.7f),
-		TexMat(TEXT("M_LobbyWaterNotice"), SignWhiteMaterial), false);
+	// 옛 이야기의 단수 공지는 없는 층의 게시판에 붙이지 않는다. 4층 승강기 옆에
+	// 걸던 공지와 같은 문구라, 관리인이 추락 시각에 옥상을 막아 둔 것처럼 읽힌다.
+	if (!GetWorld()->URL.HasOption(TEXT("IGMissingFloor"))
+		&& !GetWorld()->URL.HasOption(TEXT("IGListenerGreybox"))
+		&& !FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
+		&& !FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox")))
+	{
+		CreateBlock(FVector(610, -148.65f, 166), FVector(21, .08f, 29.7f),
+			TexMat(TEXT("M_LobbyWaterNotice"), SignWhiteMaterial), false);
+	}
 	CreateBlock(FVector(610, -148.65f, 134), FVector(21, 0.08f, 29.7f),
 		TexMat(TEXT("M_LobbyContactNotice"), SignWhiteMaterial), false);
 
@@ -6780,12 +6874,22 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	// --- Management notice taped beside the lift --------------------------
 	// The seed of the whole story: a routine notice about the roof tank that
 	// means nothing on the first morning and everything on the third.
-	ManagementNotice = World->SpawnActor<AIGReadableNote>(
-		AIGReadableNote::StaticClass(),
-		FTransform(
-			FRotator::ZeroRotator,
-			FVector(348.0f, -236.0f, IGPrologueWorld::FourthFloorZ + 151.0f)),
-		SpawnParameters);
+	// 없는 층에는 걸지 않는다. 옛 이야기의 단수 공지라 「7월 26일(금)
+	// 04:00~06:00 옥상 출입 삼가」가 이 건물의 추락 시각과 겹쳐, 관리인이 그
+	// 시각에 옥상을 막아 둔 것처럼 읽힌다. 본편 어디서도 거두지 않는 단서다.
+	const bool bMissingFloorStory = World->URL.HasOption(TEXT("IGMissingFloor"))
+		|| World->URL.HasOption(TEXT("IGListenerGreybox"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloor"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreybox"));
+	if (!bMissingFloorStory)
+	{
+		ManagementNotice = World->SpawnActor<AIGReadableNote>(
+			AIGReadableNote::StaticClass(),
+			FTransform(
+				FRotator::ZeroRotator,
+				FVector(348.0f, -236.0f, IGPrologueWorld::FourthFloorZ + 151.0f)),
+			SpawnParameters);
+	}
 	if (ManagementNotice)
 	{
 		// Taped up long enough that the bottom has gone wavy with damp — the
@@ -6894,7 +6998,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	{
 		Window->ConfigurePrototypeVisuals(CubeMesh, TexMat(TEXT("M_ApartmentNightGlass"), WindowGlowMaterial), FVector(0.534f, 0.0025f, 0.764f));
 		Window->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WindowPrompt", "창문"));
-		Window->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편도 불이 켜져 있네. 저 집도 못 자나.");
+		Window->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편 불빛이 이 방까지 들어온다.");
 	}
 	if (AIGInspectable* WindowRight = World->SpawnActor<AIGInspectable>(
 		AIGInspectable::StaticClass(),
@@ -6902,7 +7006,7 @@ void AIGPrologueWorldScene::SpawnInteractables()
 	{
 		WindowRight->ConfigurePrototypeVisuals(CubeMesh, TexMat(TEXT("M_ApartmentNightGlass"), WindowGlowMaterial), FVector(0.534f, 0.0025f, 0.764f));
 		WindowRight->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WindowPrompt", "창문"));
-		WindowRight->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편도 불이 켜져 있네. 저 집도 못 자나.");
+		WindowRight->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편 불빛이 이 방까지 들어온다.");
 	}
 
 	// Store sliding door.
@@ -7852,12 +7956,12 @@ void AIGPrologueWorldScene::CreateAmbience()
 			Fallback->Configure(Mode, Seed);
 			Sound = Fallback;
 		}
-		CreateAmbientBed(Sound, Location,
+		return CreateAmbientBed(Sound, Location,
 			bRecorded ? RecordedVolume : FallbackVolume, Inner, Falloff);
 	};
 	RecordedBed(TEXT("Bed_Corridor"), EIGAmbienceMode::RoomTone, 0xA13F92C7u,
 		FVector(0, 0, 1020), 0.055f, 0.6f, 320.0f, 850.0f);
-	RecordedBed(TEXT("Bed_City_Night"), EIGAmbienceMode::StreetWind, 0x5D2E77B1u,
+	StreetBedComponent = RecordedBed(TEXT("Bed_City_Night"), EIGAmbienceMode::StreetWind, 0x5D2E77B1u,
 		FVector(1040, -457, 240), 0.16f, 0.85f, 900.0f, 2600.0f);
 	RecordedBed(TEXT("Hum_Machine"), EIGAmbienceMode::StoreBuzz, 0x3C91D4E5u,
 		FVector(3070, -430, 220), 0.08f, 0.4f, 220.0f, 650.0f);

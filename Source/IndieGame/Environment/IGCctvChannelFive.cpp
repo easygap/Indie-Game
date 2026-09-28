@@ -10,9 +10,12 @@
 #include "Engine/World.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
+#include "Kismet/GameplayStatics.h"
 #include "Misc/CommandLine.h"
 #include "Misc/Parse.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGPlayerCharacter.h"
+#include "Player/IGStressComponent.h"
 
 namespace IGCctvFive
 {
@@ -89,9 +92,28 @@ namespace IGCctvFive
 	constexpr float LiveSoundProgress = 0.46f;
 	/** 부속동 복도, 카메라가 보는 그 자리. */
 	const FVector LiveSoundLocation(-190.0f, 680.0f, 1213.0f);
-	constexpr float LiveSoundVolume = 0.55f;
-	constexpr float LiveSoundInnerRadius = 300.0f;
+	constexpr float LiveSoundInnerRadius = 500.0f;
 	constexpr float LiveSoundFalloff = 4200.0f;
+	/**
+	 * 걸음 하나로는 14미터와 슬래브를 못 넘었다. CRT 베드와 60Hz 험 옆에서
+	 * 0.3초짜리 합성 한 걸음은 스피커로 사실상 안 들렸다. 밤1과 그의 실제
+	 * 걸음과 같은 녹음으로 세 걸음을 친다. 셋째 걸음이 두 번째 끊김(3.90초)
+	 * 안에 떨어져 지나가는 순간 화면이 찢긴다. 4.6초짜리 _2는 쓰지 않는다.
+	 */
+	constexpr int32 LiveStepCount = 3;
+	constexpr float LiveStepSpacingSeconds = 0.67f;
+	const TCHAR* const LiveStepSamples[LiveStepCount] = {
+		TEXT("Entity_CrawlStep_0"), TEXT("Entity_CrawlStep_1"), TEXT("Entity_CrawlStep_0")};
+	constexpr float LiveStepVolumes[LiveStepCount] = {0.80f, 0.85f, 0.75f};
+	constexpr float LiveStepPitches[LiveStepCount] = {0.97f, 1.02f, 0.93f};
+	/** 복도를 따라 옮겨 가는 자리. Y와 높이는 그대로다. */
+	constexpr float LiveStepX[LiveStepCount] = {-190.0f, -120.0f, -50.0f};
+	/**
+	 * 【S】0.65(§8 2-2). 둘째 걸음에 건다 — 0.4를 넘어 들숨이 따라오고, 첫
+	 * 걸음은 숨에 가리지 않고 들린다.
+	 */
+	constexpr int32 LiveScareStep = 1;
+	constexpr float LiveScareAmount = 0.65f;
 
 	/** The monitor is at her elbow, so it is close and quiet on the world bus. */
 	constexpr float MonitorInnerRadius = 90.0f;
@@ -254,6 +276,7 @@ bool AIGCctvChannelFive::Play()
 	}
 	bUsed = true;
 	bLiveSoundPlayed = false;
+	LiveStepsPlayed = 0;
 
 	// §14 상시 렌더 금지 — everything the channel costs is allocated on this line
 	// and released again when it dies.
@@ -440,27 +463,59 @@ void AIGCctvChannelFive::ApplyMaterialParameters()
 
 void AIGCctvChannelFive::UpdateLiveSound(const float LiveProgress01)
 {
-	if (bLiveSoundPlayed || LiveProgress01 < IGCctvFive::LiveSoundProgress)
+	if (LiveStepsPlayed >= IGCctvFive::LiveStepCount
+		|| LiveProgress01 < IGCctvFive::LiveSoundProgress)
 	{
 		return;
 	}
-	bLiveSoundPlayed = true;
-	// 화면은 비어 있고 소리는 그 복도에서 난다. 자막은 방위를 붙인다 — 위.
-	// 관리실은 1층이라 거리가 멀고, 멀어서 맞다.
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false),
-		IGCctvFive::LiveSoundLocation,
-		IGCctvFive::LiveSoundVolume,
-		1.0f,
-		IGCctvFive::LiveSoundInnerRadius,
-		IGCctvFive::LiveSoundFalloff,
-		EIGAudioBus::Entity);
-	AIGHorrorHUD::PushAudioCaptionAt(
-		this,
-		NSLOCTEXT("IGMissingFloor", "CctvLiveSoundCaption", "기는 소리"),
-		2.0f,
-		IGCctvFive::LiveSoundLocation);
+	const float LiveSecondsNow = LiveProgress01 * LiveSeconds;
+	const float FirstStepSeconds = IGCctvFive::LiveSoundProgress * LiveSeconds;
+	while (LiveStepsPlayed < IGCctvFive::LiveStepCount
+		&& LiveSecondsNow >= FirstStepSeconds
+			+ IGCctvFive::LiveStepSpacingSeconds * LiveStepsPlayed)
+	{
+		const int32 Step = LiveStepsPlayed++;
+		// 화면은 비어 있고 소리는 그 복도에서 난다. 관리실은 1층이라 거리가
+		// 멀고, 멀어서 맞다 — 슬래브의 먹먹함이 「위에서」를 말한다.
+		const FVector StepLocation(
+			IGCctvFive::LiveStepX[Step],
+			IGCctvFive::LiveSoundLocation.Y,
+			IGCctvFive::LiveSoundLocation.Z);
+		IGAudio::SpawnOneShotAt(
+			this,
+			IGAudio::SampleOr(
+				IGCctvFive::LiveStepSamples[Step],
+				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, false); }),
+			StepLocation,
+			IGCctvFive::LiveStepVolumes[Step],
+			IGCctvFive::LiveStepPitches[Step],
+			IGCctvFive::LiveSoundInnerRadius,
+			IGCctvFive::LiveSoundFalloff,
+			EIGAudioBus::Entity);
+		if (Step == 0)
+		{
+			bLiveSoundPlayed = true;
+			// 자막은 한 번. 방위를 붙인다 — 위.
+			AIGHorrorHUD::PushAudioCaptionAt(
+				this,
+				NSLOCTEXT("IGMissingFloor", "CctvLiveSoundCaption", "기는 소리"),
+				2.4f,
+				StepLocation);
+		}
+		else if (Step == IGCctvFive::LiveScareStep)
+		{
+			// 빈 화면과 들리는 소리가 어긋나는 것이 이 컷의 공포다. 몸이 먼저
+			// 알아듣는다.
+			if (const AIGPlayerCharacter* Character = Cast<AIGPlayerCharacter>(
+				UGameplayStatics::GetPlayerPawn(this, 0)))
+			{
+				if (UIGStressComponent* Stress = Character->GetStress())
+				{
+					Stress->ApplyScare(IGCctvFive::LiveScareAmount);
+				}
+			}
+		}
+	}
 }
 
 void AIGCctvChannelFive::Tick(const float DeltaSeconds)

@@ -58,6 +58,16 @@ private:
 	void ScheduleNextCue();
 	void HandleNextCue();
 	void FinishInterlude(bool bPersistExperience = true);
+	/**
+	 * 새벽이 바뀔 때 예불을 한 번 끊었다가 더 멀고 먹먹하게 되돌린다. 날짜
+	 * 자막 없이도 다섯 번의 새벽이 귀로 갈린다.
+	 */
+	void DipPrayerForDawn(int32 DawnIndex, float ReturnDelaySeconds);
+	void ReturnPrayer();
+	/** 역사층의 소리 하나를 몇 초 뒤에 낸다. 막간이 끝나면 같이 걷힌다. */
+	void ScheduleInterludeSound(float DelaySeconds, const FTimerDelegate& Sound);
+	/** 타이머와 베드를 걷는다. 끝과 EndPlay가 같은 길로 정리한다. */
+	void ReleaseInterludeAudio();
 	void SetSensoryHud(bool bEnabled) const;
 	void UpdateSensoryHudSkip() const;
 	void PushDirectionCaption(const FText& Caption, float Seconds) const;
@@ -77,6 +87,15 @@ private:
 
 	TWeakObjectPtr<AIGPlayerCharacter> Player;
 	FTimerHandle CueTimerHandle;
+	FTimerHandle PrayerReturnTimer;
+	TArray<FTimerHandle> InterludeSoundTimers;
+	/** 눈을 감은 자리와 그때 보던 방향. 역사층의 소리를 이 축에 놓는다. */
+	FVector InterludeOrigin = FVector::ZeroVector;
+	FVector InterludeForward = FVector::ForwardVector;
+	FVector InterludeRight = FVector::RightVector;
+	float WaterBaseVolume = 0.28f;
+	float PrayerBaseVolume = 0.12f;
+	int32 PrayerDawnIndex = 0;
 	double StartWorldSeconds = 0.0;
 	float ElapsedSeconds = 0.0f;
 	uint32 FiredCueMask = 0;

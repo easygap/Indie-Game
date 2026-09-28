@@ -93,6 +93,12 @@ public:
 	void RestoreAtLobbyOpen();
 
 	/**
+	 * 그 시간(04:30~05:30)의 승강기. 버튼은 눌리지만 불이 안 들어오고 층 표시가
+	 * 꺼진다. 프롬프트를 지우면 고장인지 규칙인지 모른다.
+	 */
+	void SetHourDead(bool bDead);
+
+	/**
 	 * Enables an authored stop at 2F. The lower doors open only by the given
 	 * total gap and then remain held until ReleaseIntermediateStop is called.
 	 * Disabled by default, preserving the chapter-one direct ride.
@@ -307,4 +313,7 @@ private:
 	bool bUpperDoorDepartureStarted = false;
 	bool bRideComplete = false;
 	bool bVisualsConfigured = false;
+	/** 그 시간에는 버튼이 죽어 있다. 독백은 세션에 한 번, 누르는 소리는 매번. */
+	bool bHourDead = false;
+	bool bHourDeadThoughtShown = false;
 };

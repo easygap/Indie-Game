@@ -65,6 +65,24 @@ public:
 	AIGMissingFloorEvidence* GetBoothRiserValve() const { return BoothRiserValve; }
 	bool IsBoothValveOpen() const { return bBoothValveOpen; }
 
+	/**
+	 * 그녀의 폰이 탁자를 떠나 있는가. 밤2 동안과 그 아침에는 현관 바닥에서
+	 * 녹음하고, 재생하는 동안은 손에 있다. 폰은 한 대라서 그동안 탁자의 폰
+	 * (중고 거래 알림)은 비어 있어야 한다.
+	 */
+	bool IsPhoneInUse() const { return bPhoneInUse; }
+	FSimpleMulticastDelegate OnPhoneInUseChanged;
+	/** 아침에 테이프를 손에 들고 듣는 중이다. 그동안 다른 방의 소리를 얹지 않는다. */
+	bool IsPhonePlayingBack() const { return bPhoneInHand; }
+
+	/**
+	 * §13 「물탱크 바람 소리예요」의 심기. 입주한 다음부터 관리실 문 옆에 관리인이
+	 * 붙여 둔 쪽지가 있다. 퇴거 요구서가 붙은 뒤로는 떼어 냈다. 요구서는 낮
+	 * 한가운데 붙으므로 그레이박스 감독이 그 뒤에 한 번 더 부른다.
+	 */
+	void RefreshBoothNotice();
+	AIGReadableNote* GetBoothNotice() const { return BoothNotice; }
+
 protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
@@ -81,6 +99,15 @@ private:
 
 	/** Keeps the phone's prompt honest about which of the two it is offering. */
 	void RefreshPhonePrompt();
+	/**
+	 * 폰은 밤2의 물건이다. 입주 날이나 밤1에 켜 두면 밤1의 순찰 노크가 테이프를
+	 * 먼저 비우고, 아침의 절망(2-6)이 순서를 건너뛰어 먼저 온다.
+	 */
+	void RefreshPhoneOffer();
+	/** 05:30에 신호가 돌아오면 바닥의 폰이 한 번 떤다. 재생하러 오라는 부름이다. */
+	void PlayMorningPhoneBuzz();
+	/** 재생하는 폰은 손에 들린다. 바닥에서 1.5m 떨어진 스피커는 낮 베드에 묻힌다. */
+	FVector GetPhoneInHandLocation(const AIGMissingFloorEvidence* Evidence) const;
 	/** 부동산 문자 사본은 밤3부터 책상에 있다. 밤2의 책상에는 없다. */
 	void RefreshAgentNoteAvailability();
 	void HandleFoamExamined(AIGMissingFloorEvidence* Evidence);
@@ -96,6 +123,9 @@ private:
 	void HandleInnerRoomListenExamined(AIGMissingFloorEvidence* Evidence);
 	UFUNCTION()
 	void HandleBoardReceiptsRead(class AIGReadableNote* Note, bool bOpened);
+	/** §13 밤2 회수. 낮에 본 매물이 관리실 책상에서 돈으로 적혀 있다. */
+	UFUNCTION()
+	void HandleCashMemoRead(class AIGReadableNote* Note, bool bOpened);
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
 
 	UFUNCTION()
@@ -120,8 +150,20 @@ private:
 	TObjectPtr<AIGMissingFloorEvidence> PhoneRecorder;
 
 	bool bPhonePlayedBack = false;
+	bool bHourActiveCached = false;
+	/** 재생하는 동안 폰은 바닥이 아니라 손에 있다. 다 들으면 탁자로 돌아간다. */
+	bool bPhoneInHand = false;
+	bool bPhoneInUse = false;
 	/** 채널 5가 찢어진 뒤에야 글이 온다. 보는 동안은 읽게 하지 않는다. */
 	FTimerHandle CctvThoughtTimer;
+	/** 재생의 결론은 공백 뒤에 온다. */
+	FTimerHandle PhoneThoughtTimer;
+	FTimerHandle PhoneReturnTimer;
+	FTimerHandle PhoneBuzzTimer;
+	FTimerHandle PhoneBuzzCutTimer;
+
+	UPROPERTY(Transient)
+	TObjectPtr<AIGReadableNote> CashMemo;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGReadableNote> AgentMessageNote;
@@ -159,6 +201,19 @@ private:
 	/** 같은 문에서 보는 것과 듣는 것. 문틈은 눈이고 이쪽은 귀다. */
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> InnerRoomListen;
+	/**
+	 * 문 너머의 기계 험 뒤에 삐걱임과 천 스치는 소리가 온다. 독백은 다 들은
+	 * 뒤에 뜬다 — 소리보다 결론이 먼저 오지 않게.
+	 */
+	FTimerHandle InnerRoomCreakTimer;
+	FTimerHandle InnerRoomClothTimer;
+	FTimerHandle InnerRoomThoughtTimer;
+
+	/** 관리실 문 옆 쪽지. 목한수가 게임 안에서 처음으로 하는 말이다. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGReadableNote> BoothNotice;
+	/** 밤4 감독이 요구서를 붙였는가. 쪽지는 그 전까지만 붙어 있다. */
+	bool IsEvictionNoticeUp() const;
 
 	FDelegateHandle TruthHandle;
 	bool bSolvedAnnounced = false;

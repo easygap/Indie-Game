@@ -1,10 +1,13 @@
 ﻿#include "Sequence/IGGameplayRealismProbe.h"
 
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Camera/CameraComponent.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/BoxComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/SkeletalMeshComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "Engine/GameInstance.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Entity/IGListenerEntity.h"
@@ -14,9 +17,13 @@
 #include "IndieGame.h"
 #include "InputKeyEventArgs.h"
 #include "Interaction/IGReadableNote.h"
+#include "Interaction/IGSwingDoor.h"
 #include "Materials/MaterialInterface.h"
 #include "Player/IGInteractionComponent.h"
+#include "Player/IGFlashlightComponent.h"
+#include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGStressComponent.h"
 #include "Player/IGHudGuidance.h"
 
 AIGGameplayRealismProbe::AIGGameplayRealismProbe()
@@ -132,11 +139,153 @@ void AIGGameplayRealismProbe::Tick(const float DeltaSeconds)
 		UE_LOG(LogIndieGame, Display, TEXT("REALISM_VIEW restored actor=%.2f relative=%.2f crouched=%d"), Player->GetActorLocation().Z, Player->GetFirstPersonCamera()->GetRelativeLocation().Z, Player->bIsCrouched);
 		Check(!Player->bIsCrouched && FMath::IsNearlyEqual(Player->FindComponentByClass<UCameraComponent>()->GetComponentLocation().Z, StandingEyeHeight, 1.f),
 			TEXT("uncrouch_restores_view_with_camera_motion_disabled"));
+		CheckDoorRoundtrip();
+		CheckPresentationTiming();
 		CheckInteractionsAndCapture();
 		UE_LOG(LogIndieGame, Display, TEXT("REALISM_PROBE %s failures=%d"), Failures ? TEXT("FAIL") : TEXT("PASS"), Failures);
 		Phase = 9;
 		FPlatformMisc::RequestExitWithStatus(false, Failures ? 1 : 0);
 	}
+}
+
+void AIGGameplayRealismProbe::CheckDoorRoundtrip()
+{
+	UIGInteractionComponent* Interaction = Player->FindComponentByClass<UIGInteractionComponent>();
+	FActorSpawnParameters Spawn;
+	Spawn.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
+	AIGSwingDoor* Door = GetWorld()->SpawnActor<AIGSwingDoor>(FVector(700, 600, 0), FRotator::ZeroRotator, Spawn);
+	Door->ConfigurePrototypeVisuals(
+		LoadObject<UStaticMesh>(nullptr, TEXT("/Engine/BasicShapes/Cube.Cube")),
+		LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_Stucco_X.M_Stucco_X")),
+		LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_Stucco_X.M_Stucco_X")),
+		FVector(5, 86, 200));
+	UStaticMeshComponent* Leaf = Door->FindComponentByClass<UStaticMeshComponent>();
+	auto AimAtLeaf = [&]()
+	{
+		const FVector Normal = Door->GetDoorPivot()->GetComponentRotation().RotateVector(FVector(-1, 0, 0));
+		const FVector Target = Leaf->GetComponentLocation() + FVector(0, 0, 55);
+		FVector Stand = Target + Normal * 125.f;
+		Stand.Z = 98.f;
+		Player->SetActorLocation(Stand);
+		Player->GetCharacterMovement()->StopMovementImmediately();
+		Controller->SetControlRotation((Target - Player->GetPawnViewLocation()).Rotation());
+		Controller->PlayerCameraManager->UpdateCamera(0.f);
+		Interaction->RefreshFocus();
+	};
+	auto TapAndFinish = [&]()
+	{
+		// 상호작용 대상을 직접 호출하면 초점 판정이 꺼지는 결함을 놓친다.
+		Interaction->PressInteraction();
+		Interaction->ReleaseInteraction();
+		for (int32 Frame = 0; Frame < 130; ++Frame)
+		{
+			if (Door->IsActorTickEnabled()) { Door->Tick(1.f / 60.f); }
+		}
+	};
+	Interaction->SetInteractionInputEnabled(true);
+	Door->ForceOpenState(false);
+	AimAtLeaf();
+	Check(Interaction->GetFocusedActor() == Door, TEXT("closed_door_can_be_focused"));
+	TapAndFinish();
+	Check(Door->IsOpen(), TEXT("door_opens_from_interaction_input"));
+	AimAtLeaf();
+	Check(Interaction->GetFocusedActor() == Door, TEXT("open_door_can_be_focused"));
+	Check(Leaf->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Ignore,
+		TEXT("open_door_does_not_snag_player"));
+	TapAndFinish();
+	Check(!Door->IsOpen(), TEXT("open_door_closes_from_interaction_input"));
+	Check(Leaf->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Block
+		&& Leaf->GetCollisionEnabled() != ECollisionEnabled::NoCollision,
+		TEXT("closed_door_restores_blocking_collision"));
+	// 닫히는 문에 선 플레이어를 밀거나 가두지 않아야 한다.
+	Door->ForceOpenState(true);
+	Door->BeginScriptedSwing(false, false, true);
+	Player->SetActorLocation(FVector(700, 643, 98));
+	for (int32 Frame = 0; Frame < 130; ++Frame)
+	{
+		if (Door->IsActorTickEnabled()) { Door->Tick(1.f / 60.f); }
+	}
+	Check(Door->IsOpen() && Leaf->GetCollisionResponseToChannel(ECC_Pawn) == ECR_Ignore,
+		TEXT("closing_door_reopens_in_occupied_doorway"));
+	Door->Destroy();
+	Interaction->CancelInteraction();
+	Interaction->RefreshFocus();
+}
+
+void AIGGameplayRealismProbe::CheckPresentationTiming()
+{
+	UIGStressComponent* Stress = Player->FindComponentByClass<UIGStressComponent>();
+	UIGAccessibilitySubsystem* Accessibility = GetGameInstance()->GetSubsystem<UIGAccessibilitySubsystem>();
+	const FIGAccessibilitySettings Original = Accessibility->GetSettings();
+	FIGAccessibilitySettings Settings = Original;
+	Settings.bReducedCameraMotion = false;
+	Settings.bHeartbeatWarning = true;
+	Accessibility->ApplySettings(Settings);
+	Player->GetCharacterMovement()->StopMovementImmediately();
+	Player->SetCameraMotionEnabled(true);
+	// 오래 플레이한 뒤 긴장이 바뀌어도 호흡에 맞춰 천천히 움직여야 한다.
+	for (const int32 Rate : {30, 60, 120})
+	{
+		const float Step = 1.f / Rate;
+		Stress->Stress = .5f;
+		for (int32 Frame = 0; Frame < Rate * 900; ++Frame) { Player->UpdateCameraMotion(Step); }
+		float PreviousZ = Player->GetFirstPersonCamera()->GetRelativeLocation().Z;
+		float MaxSpeed = 0.f;
+		for (int32 Frame = 0; Frame < Rate * 10; ++Frame)
+		{
+			Stress->Stress = FMath::Lerp(.5f, 1.f, Frame / (Rate * 10.f));
+			Player->UpdateCameraMotion(Step);
+			const float Z = Player->GetFirstPersonCamera()->GetRelativeLocation().Z;
+			MaxSpeed = FMath::Max(MaxSpeed, FMath::Abs(Z - PreviousZ) / Step);
+			PreviousZ = Z;
+		}
+		UE_LOG(LogIndieGame, Display, TEXT("REALISM_BREATH rate=%d max_cm_per_second=%.3f"), Rate, MaxSpeed);
+		Check(MaxSpeed < 4.f, TEXT("long_session_breath_has_no_camera_jumps"));
+	}
+	Stress->Stress = 1.f;
+	Stress->BeatPhase = .5f;
+	Check(FMath::IsNearlyEqual(Stress->GetHeartbeatWarningScale(), 1.4f, .005f),
+		TEXT("heartbeat_warning_follows_audio_phase"));
+	Stress->SuppressHeartbeat(1.f, false);
+	Check(FMath::IsNearlyEqual(Stress->GetHeartbeatWarningScale(), 1.f),
+		TEXT("silenced_heartbeat_does_not_flash_warning"));
+	Stress->HeartbeatSuppressionRemaining = 0.f;
+	Stress->BeatPhase = 0.f;
+	Stress->Stress = 0.f;
+	Player->TraveledDistanceAccum = 0.f;
+	Player->LastStepIndex = 0;
+	Player->GetCharacterMovement()->Velocity = FVector(300, 0, 0);
+	for (int32 Frame = 0; Frame < 312; ++Frame) { Player->UpdateFootsteps(1.f / 60.f); }
+	UE_LOG(LogIndieGame, Display, TEXT("REALISM_FOOTSTEPS walk_seconds=5.2 steps=%d"), Player->LastStepIndex);
+	Check(Player->LastStepIndex >= 9 && Player->LastStepIndex <= 11,
+		TEXT("walking_footsteps_keep_half_second_cadence"));
+	Player->GetCharacterMovement()->StopMovementImmediately();
+	Player->SetCameraMotionEnabled(false);
+	UIGFlashlightComponent* Flashlight = Player->FindComponentByClass<UIGFlashlightComponent>();
+	const FRotator OriginalFlashlightRotation = Flashlight->GetRelativeRotation();
+	for (const int32 Rate : {30, 60, 120})
+	{
+		Flashlight->PreviousWorldRotation = FRotator::ZeroRotator;
+		Flashlight->SwayOffset = FRotator::ZeroRotator;
+		Flashlight->ImpulseOffset = FRotator::ZeroRotator;
+		for (int32 Frame = 1; Frame <= Rate; ++Frame)
+		{
+			Flashlight->SetWorldRotation(FRotator(30.f * Frame / Rate, 90.f * Frame / Rate, 0.f));
+			Flashlight->UpdateSway(1.f / Rate);
+		}
+		UE_LOG(LogIndieGame, Display, TEXT("REALISM_FLASHLIGHT rate=%d yaw=%.3f pitch=%.3f"),
+			Rate, Flashlight->SwayOffset.Yaw, Flashlight->SwayOffset.Pitch);
+		Check(FMath::IsNearlyEqual(Flashlight->SwayOffset.Yaw, -2.1f, .03f)
+			&& FMath::IsNearlyEqual(Flashlight->SwayOffset.Pitch, -.7f, .03f),
+			TEXT("flashlight_turn_lag_matches_across_frame_rates"));
+	}
+	Settings.bReducedCameraMotion = true;
+	Accessibility->ApplySettings(Settings);
+	for (int32 Frame = 0; Frame < 120; ++Frame) { Flashlight->UpdateSway(1.f / 60.f); }
+	Check(Flashlight->SwayOffset.IsNearlyZero(.01f), TEXT("reduced_motion_settles_flashlight"));
+	Flashlight->SetRelativeRotation(OriginalFlashlightRotation);
+	Flashlight->PreviousWorldRotation = Flashlight->GetComponentRotation();
+	Accessibility->ApplySettings(Original);
 }
 
 void AIGGameplayRealismProbe::CheckInteractionsAndCapture()
@@ -166,6 +315,16 @@ void AIGGameplayRealismProbe::CheckInteractionsAndCapture()
 	Controller->PlayerCameraManager->UpdateCamera(0.0f);
 	FVector Eye; FRotator View;
 	Controller->GetPlayerViewPoint(Eye, View);
+	Check(AIGHorrorHUD::MakeSoundBearingTag(this, Eye + FVector(75, 0, -50)).IsEmpty(),
+		TEXT("nearby_door_knock_is_not_below_floor"));
+	Check(AIGHorrorHUD::MakeSoundBearingTag(this, FVector(100, 0, 0)).IsEmpty(),
+		TEXT("same_floor_footsteps_are_not_below_floor"));
+	Check(AIGHorrorHUD::MakeSoundBearingTag(this, Eye + FVector(60, 0, 160)).ToString() == TEXT("위"),
+		TEXT("upstairs_sound_keeps_above_caption"));
+	Check(AIGHorrorHUD::MakeSoundBearingTag(this, Eye + FVector(60, 0, -330)).ToString() == TEXT("아래"),
+		TEXT("downstairs_sound_keeps_below_caption"));
+	Check(AIGHorrorHUD::MakeSoundBearingTag(this, Eye + FVector(-150, 0, -50)).ToString() == TEXT("뒤"),
+		TEXT("same_floor_sound_behind_keeps_direction"));
 	UIGInteractionComponent* Interaction = Player->FindComponentByClass<UIGInteractionComponent>();
 	Check(Interaction != nullptr, TEXT("interaction_component"));
 	if (!Interaction) { return; }

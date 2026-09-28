@@ -24,6 +24,8 @@ private:
 	void CheckVisibility();
 	void CheckChaseWave();
 	void CheckMixerGain(EIGAudioBus Bus, float ExpectedDecibels, const TCHAR* Name);
+	/** 발음 상한이 아직 이 소리를 세고 있는지. 밀려난 소리는 목록에서 빠진다. */
+	bool IsTrackedVoice(const UAudioComponent* Component, EIGAudioBus Bus) const;
 	TWeakObjectPtr<AIGPlayerCharacter> Player;
 	TWeakObjectPtr<AIGListenerEntity> Entity;
 	TWeakObjectPtr<UIGMissingFloorAudioSubsystem> Audio;

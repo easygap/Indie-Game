@@ -30,6 +30,21 @@ enum class EIGNightThreeReturnStage : uint8
 	Home
 };
 
+/** 낮의 서일영 한 컷이 어디까지 왔는가. 반사 정보가 필요 없는 내부 상태다. */
+enum class EIGDistantSeoStage : uint8
+{
+	/** 낮이 아니거나, 이미 한 번 보였다. */
+	Idle,
+	/** 편의점에 들어서기를 기다린다. */
+	Armed,
+	/** 골목 건너 샛길 입구에 서 있다. 아직 그녀가 알아보지 못했다. */
+	Shown,
+	/** 그녀가 한 번 똑바로 봤다. 눈을 돌리면 없다. */
+	Seen,
+	/** 다가오는 그녀 앞에서 샛길 안쪽으로 비켜선다. */
+	Retreating
+};
+
 /**
  * 밤3 「조율」 — the night the player climbs to the floor that is not there
  * (STORY_BIBLE_MISSING_FLOOR.md §7 P3/P4, §8 밤3).
@@ -103,6 +118,12 @@ public:
 	/** Day/night boundary: reveals the journal once T7 is known by day. */
 	void SetHourActive(bool bHourActive);
 
+	/**
+	 * 자재 위의 조율 렌치를 챙겼거나 밤4 벽이 열렸으면 치운다. 막간이 끝나는
+	 * 검은 화면에서 그레이박스가 한 번 더 부른다.
+	 */
+	void RefreshTuningHammerAvailability();
+
 	/** Fired once, when T9 crosses — the night-3 goal. */
 	FIGNightThreeSolvedSignature OnSolved;
 
@@ -151,6 +172,8 @@ private:
 	UFUNCTION()
 	void HandleAnnexRecognitionZone(class AIGZoneTrigger* Zone);
 	void HandleTuningHammerExamined(AIGMissingFloorEvidence* Evidence);
+	/** 공구 카트를 한 번 민다. 입주 저녁 천장 너머에서 구르던 그 바퀴 소리가 난다. */
+	void HandleTunerCartPushed(AIGMissingFloorEvidence* Evidence);
 	void HandleWorkGloveExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleTankAuditionExamined(AIGMissingFloorEvidence* Evidence);
 
@@ -161,19 +184,50 @@ private:
 	 * follows confirms this; it must never be the only thing that says it.
 	 */
 	void PlayWallListenResponse(int32 BayIndex, bool bHollow);
+	/**
+	 * P3의 비교가 끝났는가. 공동 칸과 다른 칸 하나를 귀든 주먹이든 한 번씩
+	 * 들어 봐야 「이 벽만」이라고 말할 수 있다. 밸브 전의 청음은 세 벽이 다
+	 * 같아서 세지 않는다.
+	 */
+	bool HasComparedWalls() const;
 	void HandleWallKnocked(int32 BayIndex);
 	void HandleImpactMarkExamined(AIGMissingFloorEvidence* Evidence);
 	void HandleAnswerKnock(AIGMissingFloorEvidence* Evidence);
 	void DeliverWallAnswer();
+	/**
+	 * 대답을 기다리며 걷어 둔 라이저 물길을 되살린다. 밸브를 연 뒤로 물은
+	 * 밤낮없이 흐른다. 대답이 온 뒤에도, 05:30에 끊긴 뒤에도 여기로 온다.
+	 */
+	void ResumeRiserFlow(float FadeInSeconds);
 	void EndAnswerSilence();
+	/** 대답 뒤의 여운. 공기가 돌아오기 시작한 직후에 숨과 한 줄이 온다. */
+	void AnswerAftermath();
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
 	void AdvanceReturn();
 	void StageReturnFigure();
 	void ReleaseReturnFigure();
+	/**
+	 * 대답을 받고도 05:30을 넘긴 밤3이 되풀이될 때 귀환길을 다시 세운다.
+	 * T9는 새로 확정되지 않으므로 OnSolved가 다시 오지 않는다.
+	 */
+	void RearmReturnPassForRepeatedNight();
+	/** 복도의 그가 그녀 눈앞에 있는가. 가르침 한 줄의 조건이다. */
+	bool IsReturnFigureInSight() const;
 	bool IsPlayerInsideUnit403() const;
 	void RefreshAnswerTargetAvailability();
 	void RefreshJournalAvailability(bool bHourActive);
+	void SetJournalShown(bool bShown);
+	/**
+	 * 황순금이 일지를 401호 문에 거는 아침. 새벽 연출과 대사가 다 지나가고,
+	 * 그녀가 그 문을 보고 있지 않을 때 문이 열렸다 닫힌다.
+	 */
+	void TickJournalHandover();
+	void PlayJournalHandoverSound();
+	bool IsJournalDoorInView() const;
 	void RefreshDistantSeoVisibility();
+	/** 서일영의 한 컷. 틱 대신 짧은 타이머로 그녀의 시선과 거리를 본다. */
+	void TickDistantSeo();
+	void HideDistantSeo(bool bSeenOnce);
 
 	UFUNCTION()
 	void HandleNotebookRead(AIGReadableNote* Note, bool bOpened);
@@ -207,6 +261,17 @@ private:
 	bool bPassedWhileWaiting = false;
 	bool bWasWestOfHim = false;
 	bool bMustLeaveHomeAgain = false;
+	/** 되풀이 밤에 침대에서 다시 세운 귀환길. 독백이 다르다. */
+	bool bRepeatedPass = false;
+	/** 복도에서 그를 처음 본 순간의 한 줄. 잡힌 뒤에는 한 번 더. */
+	bool bReturnHintShown = false;
+	bool bCaughtDuringReturn = false;
+	/** 옆을 지난 뒤 몇 걸음 더 가면 참았던 숨이 나간다. */
+	bool bReliefPending = false;
+	/** 문턱이 아니라 방 안에 머문 시간. 돌아볼 틈을 둔다. */
+	float HomeDwellSeconds = 0.0f;
+	FTimerHandle RepeatPassTimer;
+	FTimerHandle ReturnThoughtTimer;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGSwingDoor> StairGate;
@@ -226,6 +291,16 @@ private:
 	/** ImageGen-derived, fully 3D workshop cart; never an interactive sprite. */
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> TunerToolCart;
+
+	/** 카트를 미는 판정. 그림은 없고 한 번 밀면 꺼진다. */
+	UPROPERTY(Transient)
+	TObjectPtr<AIGMissingFloorEvidence> TunerCartPush;
+	/** 밀린 카트가 한 뼘 구르다 서는 동안의 위치와, 바퀴가 멎은 뒤의 한 줄. */
+	FTimerHandle TunerCartRollTimer;
+	FTimerHandle TunerCartThoughtTimer;
+	FVector TunerCartRollFrom = FVector::ZeroVector;
+	FVector TunerCartRollTo = FVector::ZeroVector;
+	double TunerCartRollStartSeconds = 0.0;
 
 	UPROPERTY(Transient)
 	TObjectPtr<AIGMissingFloorEvidence> RiserValve;
@@ -283,16 +358,46 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UStaticMeshComponent> DistantSeo;
 
+	/** 한 번 들어 본 칸. 밸브 뒤의 귀와 주먹만 센다. */
+	TSet<int32> ComparedBays;
+	/** 밸브 전에 귀를 대 본 칸. 세 벽이 다 똑같다는 말은 세 칸을 다 들은 뒤에 한다. */
+	TSet<int32> DryListenedBays;
+
+	FTimerHandle JournalHandoverTimer;
+	FTimerHandle JournalHandoverSoundTimer;
+
+	FTimerHandle SeoWatchTimer;
+	EIGDistantSeoStage SeoStage = EIGDistantSeoStage::Idle;
+	float SeoSeenSeconds = 0.0f;
+	float SeoAwaySeconds = 0.0f;
+	float SeoRetreatSeconds = 0.0f;
+	FVector SeoRetreatTarget = FVector::ZeroVector;
+
 	FDelegateHandle TruthHandle;
 	FTimerHandle AnswerTimer;
+	/** 벽 안에서 돌아오는 둘-쉬고-하나의 둘째와 셋째 타격. */
+	FTimerHandle AnswerHitTimers[2];
+	/** P4 탭마다 녹음을 바꿔 친다. 같은 녹음이 세 번이면 손이 아니라 기계다. */
+	uint32 AnswerTapSerial = 0;
 	FTimerHandle AnswerSilenceReleaseTimer;
+	FTimerHandle AnswerAftermathTimer;
+	/** 대답 동안 걷어 둔 라이저 물소리를 되살린다. */
+	FTimerHandle RiserResumeTimer;
+	/**
+	 * 벽 청음의 물과 저수조 출렁임은 루프 파형이다. 한 번에 하나만 두고
+	 * 독백이 끝날 무렵 걷는다. 놓아두면 들은 벽마다 밤새 흐른다.
+	 */
+	TWeakObjectPtr<UAudioComponent> WallWaterVoice;
+	TWeakObjectPtr<UAudioComponent> TankSloshVoice;
+	FTimerHandle WallWaterFadeTimer;
+	FTimerHandle TankSloshFadeTimer;
 	TArray<double> AnswerTapTimes;
 	bool bValveOpen = false;
 	bool bAnswerPending = false;
 	bool bAnswerDelivered = false;
 	bool bSolvedAnnounced = false;
 	bool bAnswerTargetAnnounced = false;
-	bool bJournalAnnounced = false;
+	/** 편의점을 나서는 그녀의 눈을 끄는 발소리 하나. 한 번 세울 때마다 한 번. */
 	bool bSeoAnnounced = false;
 	bool bHourCurrentlyActive = true;
 };

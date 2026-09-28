@@ -4,6 +4,7 @@
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Sound/SoundAttenuation.h"
 
+class AActor;
 class UAudioComponent;
 class USoundAttenuation;
 class USoundBase;
@@ -99,6 +100,62 @@ namespace IGAudio
 		float FalloffDistance = 1400.0f,
 		EIGAudioBus Bus = EIGAudioBus::World,
 		bool bPlayWhenPaused = false);
+
+	/**
+	 * SpawnOneShotAt과 같되 소리를 낸 액터를 오클루전 트레이스에서 뺀다. 문의
+	 * 걸쇠·경첩·닫힘은 문짝 두께 안에서 나서, 그냥 내면 제 문짝에 가려 먹먹해진다.
+	 * 다른 벽과 바닥은 그대로 가린다. 엘리베이터처럼 제 몸이 가려야 맞는 소리에는
+	 * 쓰지 않는다.
+	 */
+	INDIEGAME_API UAudioComponent* SpawnOneShotFromActorAt(
+		const AActor* Source,
+		USoundBase* Sound,
+		const FVector& Location,
+		float VolumeMultiplier = 1.0f,
+		float PitchMultiplier = 1.0f,
+		float InnerRadius = 160.0f,
+		float FalloffDistance = 1400.0f,
+		EIGAudioBus Bus = EIGAudioBus::World);
+
+	/**
+	 * SpawnOneShotAt과 같되 소모음으로 건다. 박자마다 쏟아지는 소리(기는 걸음)
+	 * 전용이다. 상한에 닿으면 가장 먼저 밀리고, 스팅어·덮침·들숨 같은 대본 소리를
+	 * 밀어내지 못한다 — 그의 소리가 그의 걸음에 눌리면 안 된다(§21.1).
+	 */
+	INDIEGAME_API UAudioComponent* SpawnExpendableOneShotAt(
+		const UObject* WorldContext,
+		USoundBase* Sound,
+		const FVector& Location,
+		float VolumeMultiplier = 1.0f,
+		float PitchMultiplier = 1.0f,
+		float InnerRadius = 160.0f,
+		float FalloffDistance = 1400.0f,
+		EIGAudioBus Bus = EIGAudioBus::World);
+
+	/**
+	 * SpawnOneShotAt과 같되 처음부터 상시 소리로 건다. 발음 상한을 세지 않으니
+	 * 누구에게도 밀리지 않고 누구도 밀지 않는다. 스팅어처럼 한 번 울고 끝나지만
+	 * 대본 소리와 자리를 다투면 안 되는 소리 전용이다. 끝나면 스스로 지워진다.
+	 */
+	INDIEGAME_API UAudioComponent* SpawnPersistentOneShotAt(
+		const UObject* WorldContext,
+		USoundBase* Sound,
+		const FVector& Location,
+		float VolumeMultiplier = 1.0f,
+		float PitchMultiplier = 1.0f,
+		float InnerRadius = 160.0f,
+		float FalloffDistance = 1400.0f,
+		EIGAudioBus Bus = EIGAudioBus::World);
+
+	/**
+	 * 녹음의 앞부분만 쓰고 뒤를 걷는다. 지정한 시간에 아직 울고 있으면 자르지
+	 * 않고 페이드아웃한다(0으로 가는 페이드는 엔진에서 정지다). 원샷이 먼저
+	 * 끝나 지워졌으면 아무 일도 하지 않는다.
+	 */
+	INDIEGAME_API void FadeOutAfter(
+		UAudioComponent* Component,
+		float DelaySeconds,
+		float FadeSeconds);
 
 	/**
 	 * SpawnOneShotAt with the building reverb send switched off entirely.

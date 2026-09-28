@@ -9,18 +9,22 @@
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Animation/AnimSequence.h"
+#include "Core/IGPrologueWorldScene.h"
 #include "Engine/SkeletalMesh.h"
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Environment/IGDustSubsystem.h"
+#include "Interaction/IGSwingDoor.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGRecordingSubsystem.h"
+#include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/IGStressComponent.h"
+#include "TimerManager.h"
 
 namespace IGListener
 {
@@ -53,6 +57,65 @@ namespace IGListener
 	constexpr float DragSurfacePollInterval = 0.30f;
 	/** Sheet vinyl, tagged by the world scene for the §21.2 footstep matrix. */
 	const FName VinylSurfaceTag(TEXT("Footstep.Vinyl"));
+
+	/**
+	 * 연출이 세워 둔 그를 깨우는 크기. 걷기 0.15와 웅크린 걸음 0.05, 천천히 여는
+	 * 문 0.1은 넘지 못하고 맨손 노크 0.30부터 넘는다.
+	 */
+	constexpr float BeatHoldBreakLoudness = 0.3f;
+
+	/** 위층 소리 아래의 천장 노크 간격. 망치질 한 번마다 대답하지 않는다. */
+	constexpr double CeilingKnockIntervalSeconds = 12.0;
+	/** 4층 천장 바로 밑. 순찰 높이(바닥+60)에서 170 cm 위다. */
+	constexpr float CeilingKnockHeight = 170.0f;
+
+	/** 문 앞에 서는 자리. 밤2 대본의 인물 자리와 같은 47 cm다. */
+	constexpr float HomeDoorStandOffset = 47.0f;
+	/** 노크는 복도 쪽 문짝 겉면에서 난다. */
+	constexpr float HomeDoorKnockOffset = 7.0f;
+	/** 문 앞을 떠난 뒤 닫힌 집 안의 소리를 흘려듣는 시간. */
+	constexpr double HomeDoorIgnoreSeconds = 25.0;
+	/** 안쪽 소리에 한 번 더 두드리기까지. */
+	constexpr float DoorReknockDelaySeconds = 0.5f;
+	/**
+	 * 밤2 대본의 문 노크와 같은 짜임이다. 철문 녹음이 앞에 서고 합성은 문짝 너머의
+	 * 저역을 깐다. 그 밤에 처음 들은 노크가 이 소리였음을 알아듣게 한다.
+	 */
+	constexpr float DoorKnockMuffle = 0.66f;
+	constexpr float DoorKnockSingleMuffle = 0.72f;
+	constexpr float DoorKnockVolume = 0.92f;
+	constexpr float DoorKnockUnderlayVolume = 0.45f;
+	constexpr float DoorKnockInnerRadius = 220.0f;
+	constexpr float DoorKnockFalloff = 1500.0f;
+	constexpr int32 DoorSteelHitCount = 3;
+	const TCHAR* const DoorSteelSamples[DoorSteelHitCount] = {
+		TEXT("Knock_Steel_0"), TEXT("Knock_Steel_1"), TEXT("Knock_Steel_2")};
+	constexpr float DoorSteelPitches[DoorSteelHitCount] = {0.84f, 0.80f, 0.86f};
+	/** 합성 3연과 같은 간격. */
+	constexpr float DoorSteelSpacingSeconds = 0.62f;
+	/**
+	 * 문 앞 복도에서 문 노크에 숨이 걸리는 거리. 두어 칸이다. 집 안에서는 거리와
+	 * 상관없이 걸린다. 순찰 노크에는 놀람이 없다 — 이 노크가 무서운 것은 그녀의
+	 * 문이라서다.
+	 */
+	constexpr float DoorKnockStartleCentimeters = 600.0f;
+	/** 자리를 잡으며 갈라지는 미장은 이 간격 안에 되풀이하지 않는다. */
+	constexpr double PlantSettleIntervalSeconds = 3.0;
+
+	/** §5.6 매복. 평소 도착 청취(5초)의 두 배를 넘게 엎드려 기다린다. */
+	constexpr float AmbushHoldSeconds = 12.0f;
+	/** §20.3 관찰. 지켜볼 틈이 있을 만큼 귀를 대고 있다가 가던 길로 돌아간다. */
+	constexpr float ObservationHoldSeconds = 10.0f;
+	/** 관찰하러 가는 길이 지켜보는 그녀에게서 떨어져 있어야 하는 거리. 복도 폭의 두 배쯤. */
+	constexpr float ObservationClearanceCentimeters = 300.0f;
+	/** §19.8 방위 자막 거리. 자막은 기본값이 켜짐이라 먼 소리까지 적으면 밤새 글이 뜬다. */
+	constexpr float NearCaptionCentimeters = 1600.0f;
+	/** 순찰 노크 자막은 같은 문장을 이 간격 안에 되풀이하지 않는다. */
+	constexpr double KnockCaptionIntervalSeconds = 12.0;
+	/** 다가오는 걸음은 이 거리 안에서만, 이 간격으로 대체 채널에 보낸다. */
+	constexpr float ApproachCueCentimeters = 600.0f;
+	constexpr double ApproachCueIntervalSeconds = 1.5;
+	constexpr double ChaseApproachCueIntervalSeconds = 0.75;
 }
 
 AIGListenerEntity::AIGListenerEntity()
@@ -152,11 +215,23 @@ void AIGListenerEntity::BeginPlay()
 
 void AIGListenerEntity::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
+	GetWorldTimerManager().ClearTimer(CaptureGrabTrimTimer);
 	if (NoiseSubsystem)
 	{
 		NoiseSubsystem->OnNoiseReported.Remove(NoiseHandle);
 		// Never leave the building masked by a dead entity's knock window.
 		NoiseSubsystem->SetGlobalMasking(0.0f);
+	}
+	// 듣던 그가 사라지면 세계가 참던 숨도 돌아온다.
+	if (UWorld* World = GetWorld();
+		World && !bDormant
+		&& (State == EIGListenerState::Listening || State == EIGListenerState::Holding))
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->SetEntityListening(false);
+		}
 	}
 	Super::EndPlay(EndPlayReason);
 }
@@ -205,6 +280,15 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 		NoiseSubsystem->SetGlobalMasking(0.0f);
 	}
 
+	// 소리 없이 가는 걸음은 가는 길과 엎드린 자리에서만 산다. 아래 음악 매핑이
+	// 이 값을 읽으므로 상태를 바꾸기 전에 내린다.
+	if (NewState != EIGListenerState::Investigating
+		&& NewState != EIGListenerState::Holding)
+	{
+		bSilentApproach = false;
+		bObservationHold = false;
+	}
+
 	const EIGListenerState PreviousState = State;
 	State = NewState;
 	StateSeconds = 0.0f;
@@ -212,6 +296,22 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 	if (NewState != EIGListenerState::Chasing)
 	{
 		bLungeArmed = false;
+	}
+	// 위층 소리의 부름은 조사 하나 동안만 유효하다. 새 상태로 들어갈 때마다
+	// 지우고, 위층 소리를 들은 쪽이 조사에 들어간 뒤 다시 세운다.
+	bCallFromAbove = false;
+	bKnockUpOnArrival = false;
+	// 멈춰 선 자리의 맥락은 두드림·청취·제자리 청취가 이어지는 동안만 산다.
+	if (NewState != EIGListenerState::Banging
+		&& NewState != EIGListenerState::Listening
+		&& NewState != EIGListenerState::Holding)
+	{
+		AttentionDirection = FVector::ZeroVector;
+		bKnockingUp = false;
+		bCadenceEarsUp = false;
+		bAtHomeDoor = false;
+		DoorReknockCountdown = -1.0f;
+		DoorSteelHitsPlayed = IGListener::DoorSteelHitCount;
 	}
 
 	// 붙잡히는 동안에도 같은 몸이 남는다. 평면 팔 그림으로 바꿔치기하지 않는다.
@@ -245,6 +345,12 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 				break;
 			case EIGListenerState::Investigating:
 			case EIGListenerState::Holding:
+				// 들은 것 없이 가는 걸음(매복, 관찰)은 평소 순찰처럼 들린다. 조사
+				// 드론이 켜지면 아무것도 듣지 못한 그가 들킨 소리를 낸다.
+				AudioState = bSilentApproach
+					? EIGAudioThreatState::Calm
+					: EIGAudioThreatState::Investigating;
+				break;
 			case EIGListenerState::Searching:
 				AudioState = EIGAudioThreatState::Investigating;
 				break;
@@ -263,6 +369,12 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 				break;
 			}
 			AudioDirector->SetThreatState(AudioState);
+			// 조사 끝의 제자리 청취도 청취 창이다. 음악은 그대로 두고, 세계가 숨을
+			// 참는 −6dB만 LISTENING과 같이 건다. 엎드린 매복과 관찰도 여기에 든다 —
+			// 조용한 건물이 위험하다는 것을 믹스가 말한다.
+			AudioDirector->SetEntityListening(
+				NewState == EIGListenerState::Listening
+				|| NewState == EIGListenerState::Holding);
 			// §18.6 CHASE 진입. 소리가 상태를 바꾸는 자리에서 손도 함께
 			// 바꾼다 — 둘을 떼어 두면 추격이 끝났는데 패드만 계속 우는
 			// 상태가 만들어진다.
@@ -285,22 +397,25 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 			|| PreviousState == EIGListenerState::Banging
 			|| PreviousState == EIGListenerState::Listening
 			|| PreviousState == EIGListenerState::Waiting;
-		if (NewState == EIGListenerState::Investigating && bWasIdle)
+		// 들은 것 없이 나선 걸음(매복, 관찰)은 들숨으로 시작하지 않는다. 들킨 순간에
+		// HandleNoise가 처음으로 이 숨을 낸다.
+		if (NewState == EIGListenerState::Investigating && bWasIdle && !bSilentApproach)
 		{
-			IGAudio::SpawnOneShotAt(
-				this,
-				IGAudio::SampleOr(
-					TEXT("Entity_Alert"),
-					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityAlertVocal(this); }),
-				GetActorLocation() + FVector(30.0f, 0.0f, 30.0f),
-				0.9f,
-				1.0f,
-				220.0f,
-				2400.0f,
-				EIGAudioBus::Entity);
+			PlayAlertVocal();
 		}
 		else if (NewState == EIGListenerState::Chasing && PreviousState != EIGListenerState::Chasing)
 		{
+			// §19.8 대체 채널. 음악과 타격이 없는 침묵 속에서도 끌림은 빨라진다.
+			const FVector ChaseAt = GetActorLocation() + FVector(30.0f, 0.0f, 30.0f);
+			EmitPresentationCue(ChaseAt, 0.9f, 2840.0f);
+			if (IsNearForCaption(ChaseAt))
+			{
+				AIGHorrorHUD::PushAudioCaptionAt(
+					this,
+					NSLOCTEXT("IGMissingFloor", "EntityChaseCaption", "기는 소리가 빨라진다"),
+					2.0f,
+					ChaseAt);
+			}
 			bool bPlayedChaseStinger = false;
 			if (UWorld* World = GetWorld())
 			{
@@ -311,11 +426,17 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 						EIGStinger::ChaseStart, GetActorLocation() + FVector(30.0f, 0.0f, 30.0f));
 				}
 			}
+			// 굳은 몸이 튀어 나가며 미장이 갈라진다(§4.6이 허락한 그의 소리). 침묵
+			// 중이라 타격이 안 났으면 이것도 내지 않는다.
+			if (bPlayedChaseStinger)
+			{
+				PlayPlasterSettle();
+			}
 			if (AIGPlayerCharacter* PlayerCharacter =
 				Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0));
 				bPlayedChaseStinger && PlayerCharacter)
 			{
-				// 비명은 몸으로도 온다. 가까울수록 크게.
+				// 추격 진입은 몸으로도 온다. 가까울수록 크게.
 				const float Distance = FVector::Dist(
 					PlayerCharacter->GetActorLocation(), GetActorLocation());
 				const float Near = FMath::Clamp(1.0f - Distance / 1600.0f, 0.0f, 1.0f);
@@ -344,20 +465,44 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 		}
 	}
 
+	// 첫 칸에 닿기 전에 소리를 듣고 돌아섰다면 그 약속은 버린다. 밤 한가운데의
+	// 노크를 대신 지우면 안 된다.
+	if (NewState != EIGListenerState::Banging && NewState != EIGListenerState::Patrolling)
+	{
+		bSilenceNextStopKnock = false;
+	}
+
 	switch (NewState)
 	{
 	case EIGListenerState::Banging:
+		if (bSilenceNextStopKnock)
+		{
+			// 밤1 첫 노크는 천장이 낸다(§8 0-5). 여기서는 서서 기다리기만 한다.
+			bSilenceNextStopKnock = false;
+			break;
+		}
 		if (NoiseSubsystem)
 		{
 			NoiseSubsystem->SetGlobalMasking(IGListener::BangMasking);
 		}
-		PlayKnockTriple();
+		if (bAtHomeDoor)
+		{
+			PlayHomeDoorKnock(/*bSingle=*/false);
+		}
+		else if (bKnockingUp)
+		{
+			PlayCeilingKnock();
+		}
+		else
+		{
+			PlayKnockTriple();
+		}
 		break;
 
 	case EIGListenerState::Listening:
 	case EIGListenerState::Holding:
-		// It plants itself; the shell settles.
-		PlayPlasterSettle();
+		// It plants itself; the shell settles. 매복으로 엎드릴 때는 반만 갈라진다.
+		PlayPlantSettle(bSilentApproach && !bObservationHold ? 0.3f : 0.6f);
 		break;
 
 	case EIGListenerState::Searching:
@@ -375,6 +520,7 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 		// plant both elbows and listen like a person expecting the next knock.
 		ListenerPhase = 1.0f;
 		ListenerPhaseIndex = INDEX_NONE;
+		bWaitStirred = false;
 		break;
 
 	default:
@@ -391,18 +537,39 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		const FVector* Target = CurrentPatrolTarget();
 		if (!Target)
 		{
+			// 연출이 붙든 동안은 제자리에서 숨만 쉰다.
+			if (bBeatHold)
+			{
+				break;
+			}
 			// No route: haunt the spawn point in place.
 			EnterState(EIGListenerState::Banging);
 			break;
 		}
 		if (CrawlTowards(*Target, CrawlSpeed, DeltaSeconds))
 		{
+			// 밤2 문 앞의 그는 대본의 노크 사이에 제 노크를 끼워 넣지 않는다.
+			if (bBeatHold)
+			{
+				break;
+			}
 			EnterState(EIGListenerState::Banging);
 		}
 		break;
 	}
 
 	case EIGListenerState::Banging:
+		if (!AttentionDirection.IsNearlyZero())
+		{
+			FaceDirection(AttentionDirection, DeltaSeconds);
+		}
+		// 문짝을 치는 철문 녹음은 한 타씩이라 3연의 간격대로 이어 친다.
+		if (bAtHomeDoor
+			&& DoorSteelHitsPlayed < IGListener::DoorSteelHitCount
+			&& StateSeconds >= IGListener::DoorSteelSpacingSeconds * DoorSteelHitsPlayed)
+		{
+			PlayHomeDoorSteelHit();
+		}
 		if (StateSeconds >= IGListener::BangSeconds)
 		{
 			EnterState(EIGListenerState::Listening);
@@ -410,8 +577,43 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		break;
 
 	case EIGListenerState::Listening:
+		if (!AttentionDirection.IsNearlyZero())
+		{
+			FaceDirection(AttentionDirection, DeltaSeconds);
+		}
+		if (DoorReknockCountdown > 0.0f)
+		{
+			DoorReknockCountdown -= DeltaSeconds;
+			if (DoorReknockCountdown <= 0.0f)
+			{
+				DoorReknockCountdown = -1.0f;
+				PlayHomeDoorKnock(/*bSingle=*/true);
+				// 한 번 더 두드렸으니 처음부터 다시 듣는다.
+				StateSeconds = 0.0f;
+			}
+			break;
+		}
 		if (StateSeconds >= ListenSecondsForTier())
 		{
+			// 문 앞에서는 매복으로 가지 않는다. 두드렸고, 기다렸으니 떠난다.
+			if (bAtHomeDoor)
+			{
+				LeaveHomeDoor();
+				break;
+			}
+			// 박자에 귀를 세웠는데 그 뒤로 아무것도 이어지지 않았다. 대답이 아니라
+			// 소리였으니 그 자리를 보러 간다. 갈 자리는 박자를 들을 때 적어 두었다
+			// (NoteAnswerLocation) — 위층에서 친 박자면 계단 아래, 닫힌 문에 대고 친
+			// 박자면 문 앞이다. 듣는 동안 움직이지 않았으니 위층인지만 다시 잰다.
+			if (bCadenceEarsUp)
+			{
+				const bool bFromAbove =
+					CadenceTapLocation.Z - GetActorLocation().Z > FloorHeightThreshold;
+				bReactingToSound = true;
+				EnterState(EIGListenerState::Investigating);
+				bCallFromAbove = bFromAbove;
+				break;
+			}
 			// Tier 3 stops walking the route and goes to sit on the player's
 			// habit instead (§5.6). Everything else takes the next stop.
 			if (!TryBeginAmbush())
@@ -423,26 +625,117 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		break;
 
 	case EIGListenerState::Investigating:
-		if (CrawlTowards(LastHeardLocation, InvestigateSpeed, DeltaSeconds))
+	{
+		// 위층 소리를 향해 가던 중에 연출이 건물을 멈추면(P4의 8초) 그도 멈춘다.
+		// 그 침묵 속에서 그의 걸음만 올라오면 벽의 대답이 묻힌다.
+		if (bCallFromAbove && IsAuthoredSilenceActive())
 		{
-			EnterState(EIGListenerState::Holding);
+			break;
+		}
+		FVector DoorCenter = FVector::ZeroVector;
+		FVector Outward = FVector::ZeroVector;
+		if (ShouldGoToHomeDoor() && GetHomeDoorFrame(DoorCenter, Outward))
+		{
+			const FVector DoorFront =
+				DoorCenter + Outward * IGListener::HomeDoorStandOffset;
+			const bool bArrived =
+				CrawlTowards(DoorFront, InvestigateSpeed, DeltaSeconds);
+			if (bBlockedByHomeDoor
+				|| (bArrived && FVector::Dist2D(GetActorLocation(), DoorFront) <= 120.0f))
+			{
+				ArriveAtHomeDoor();
+			}
+			else if (bArrived)
+			{
+				EnterState(EIGListenerState::Holding);
+			}
+			break;
+		}
+		// 들은 것 없이 가는 걸음은 순찰과 같은 빠르기다. 끌림과 걸음이 평소처럼
+		// 들려야 매복이 조사와 갈린다.
+		if (CrawlTowards(
+				LastHeardLocation,
+				bSilentApproach ? CrawlSpeed : InvestigateSpeed,
+				DeltaSeconds))
+		{
+			if (bCallFromAbove)
+			{
+				ArriveBelowUpperSound();
+			}
+			else
+			{
+				EnterState(EIGListenerState::Holding);
+			}
 		}
 		break;
+	}
 
 	case EIGListenerState::Holding:
-		// §20.2 「INVESTIGATE 도착 청취」. 표는 밤마다 6·6·5·5초라고 적어 두었는데
-		// 실제로는 상수 6초만 읽고 있었다.
-		if (StateSeconds >= FMath::Max(Tuning.InvestigateHoldSeconds, 0.5f))
+	{
+		if (!AttentionDirection.IsNearlyZero())
 		{
+			FaceDirection(AttentionDirection, DeltaSeconds);
+		}
+		// §20.2 「INVESTIGATE 도착 청취」. 표는 밤마다 6·6·5·5초라고 적어 두었는데
+		// 실제로는 상수 6초만 읽고 있었다. 매복과 관찰은 들은 자리가 아니라 기다리는
+		// 자리라 따로 잰다.
+		const float HoldFor = bObservationHold
+			? IGListener::ObservationHoldSeconds
+			: bSilentApproach
+				? IGListener::AmbushHoldSeconds
+				: FMath::Max(Tuning.InvestigateHoldSeconds, 0.5f);
+		if (StateSeconds >= HoldFor)
+		{
+			// 밤2 대본 전의 문 앞에서는 듣기만 하고 떠난다.
+			if (bAtHomeDoor)
+			{
+				LeaveHomeDoor();
+				break;
+			}
+			// 귀를 대 보았고, 아무것도 없었다. 두드리지 않고 가던 길로 돌아간다 —
+			// 여기서 노크가 나면 위층의 그녀에게는 들켰다는 말이 된다.
+			if (bObservationHold)
+			{
+				EnterState(EIGListenerState::Patrolling);
+				break;
+			}
+			// 매복이 끝났다. 엎드려 있던 자리에서 세 번 두드려 거기 있었다는 것을
+			// 드러낸다. 이어지는 청취 뒤에는 매복이 이미 쓰였으니 다음 칸으로 간다.
+			if (bSilentApproach)
+			{
+				EnterState(EIGListenerState::Banging);
+				break;
+			}
 			EnterState(EIGListenerState::Searching);
 		}
 		break;
+	}
 
 	case EIGListenerState::Chasing:
 	{
-		CrawlTowards(LastHeardLocation, ChaseSpeed, DeltaSeconds);
+		// §4.5 그는 문을 부수지 않는다. 쫓던 소리가 닫힌 403호 안으로 들어가면
+		// 문 앞까지 와서 두드린다. 문짝을 밀며 추격 음악만 이어지던 자리다.
+		FVector DoorCenter = FVector::ZeroVector;
+		FVector Outward = FVector::ZeroVector;
+		if (ShouldGoToHomeDoor() && GetHomeDoorFrame(DoorCenter, Outward))
+		{
+			const FVector DoorFront =
+				DoorCenter + Outward * IGListener::HomeDoorStandOffset;
+			const bool bArrived = CrawlTowards(DoorFront, ChaseSpeed, DeltaSeconds);
+			if (bBlockedByHomeDoor
+				|| (bArrived && FVector::Dist2D(GetActorLocation(), DoorFront) <= 120.0f))
+			{
+				ArriveAtHomeDoor();
+				break;
+			}
+		}
+		else
+		{
+			CrawlTowards(LastHeardLocation, ChaseSpeed, DeltaSeconds);
+		}
+		// 소음 이벤트와 같은 게임 시간이다. 일시정지 중에는 둘 다 멈춘다.
 		const double SilenceSeconds =
-			GetWorld()->GetRealTimeSeconds() - LastHeardTime;
+			GetWorld()->GetTimeSeconds() - LastHeardTime;
 		if (SilenceSeconds >= IGListener::ChaseGiveUpSeconds)
 		{
 			EnterState(EIGListenerState::Searching);
@@ -474,14 +767,32 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		break;
 
 	case EIGListenerState::Waiting:
-		// Hope, then the spot the answer came from.
-		if (StateSeconds >= WaitSecondsForTier())
+	{
+		const float WaitFor = WaitSecondsForTier();
+		// 희망이 닳는 것을 몸이 먼저 말한다. 끝나기 2초 전에 팔꿈치를 고쳐 짚고 숨이
+		// 돌아온다. 노크로 알리지는 않는다 — 그의 노크 하나는 다시 대답하라는 말로
+		// 읽히는데, 기다리는 동안의 대답은 받지 않는다.
+		const float StirAt = WaitFor >= 4.0f ? WaitFor - 2.0f : WaitFor * 0.5f;
+		if (!bWaitStirred && StateSeconds >= StirAt)
 		{
-			LastHeardLocation = AnswerKnockLocation;
+			bWaitStirred = true;
+			PlayPlasterSettle(0.42f, 0.94f);
+		}
+		// Hope, then the spot the answer came from.
+		if (StateSeconds >= WaitFor)
+		{
+			// 갈 자리는 대답을 들을 때 적어 두었다(NotifyAnswerKnock). 닫힌 문에 대고
+			// 안에서 한 대답이면 그 뒤 그녀가 집을 나섰어도 문 앞으로 가서 두드리고,
+			// 위층에서 온 대답이면 계단 아래까지 가서 그쪽으로 고개를 든다. 기다리는
+			// 동안 움직이지 않았으니 위층인지만 다시 잰다.
+			const bool bFromAbove =
+				AnswerKnockLocation.Z - GetActorLocation().Z > FloorHeightThreshold;
 			bReactingToSound = true;
 			EnterState(EIGListenerState::Investigating);
+			bCallFromAbove = bFromAbove;
 		}
 		break;
+	}
 
 	case EIGListenerState::CaptureHold:
 		// With a director bound, the reset (and the aggression raise) is its
@@ -494,19 +805,24 @@ void AIGListenerEntity::TickState(const float DeltaSeconds)
 		break;
 
 	case EIGListenerState::FinaleLured:
+	{
 		if (!FinaleRoutePoints.IsValidIndex(FinaleRouteIndex))
 		{
 			SetDormant(true);
 			break;
 		}
+		const float FinaleSpeed = FinaleSpeedOverride > 0.0f
+			? FinaleSpeedOverride
+			: ChaseSpeed * 0.82f;
 		if (CrawlTowards(
 				FinaleRoutePoints[FinaleRouteIndex],
-				ChaseSpeed * 0.82f,
+				FinaleSpeed,
 				DeltaSeconds))
 		{
 			++FinaleRouteIndex;
 		}
 		break;
+	}
 	}
 
 	// Touching the player ends the night. 예전엔 조사·추격·수색 셋에서만 잡았다.
@@ -567,14 +883,62 @@ void AIGListenerEntity::HandleNoise(const FIGNoiseEvent& Event)
 	{
 		return;
 	}
+	// 낮의 그는 잠들어 있다. 몸이 없는 자리에서 들으면 음악과 패드만 깨어난다.
+	// 새벽에 눈을 감는 반 초 동안 멈춰 세운 그(Tick 꺼짐)도 듣지 않는다. 상태
+	// 기계는 서 있는데 소리만 받으면 들숨과 추격 타격이 새벽 위로 난다.
+	if (bDormant || !IsActorTickEnabled())
+	{
+		return;
+	}
 	if (State == EIGListenerState::Waiting
 		|| State == EIGListenerState::CaptureHold
 		|| State == EIGListenerState::FinaleLured)
 	{
 		return;
 	}
+	const AIGSwingDoor* Door = HomeDoor.Get();
+	const bool bHomeSound = Door
+		&& !Door->IsOpen()
+		&& IsHomeSoundAt(Event.Location, Event.Instigator.Get());
+	// 문 앞에서 두드리고 기다렸다가 떠났다. 닫힌 집 안의 소리에 곧장 되돌아오면
+	// 「떠난다」가 없어진다.
+	if (bHomeSound && Event.TimeSeconds < HomeDoorIgnoreUntil)
+	{
+		return;
+	}
 	if (!CanHear(Event))
 	{
+		return;
+	}
+	// 귀를 세우게 한 그 탭의 소리다. 대답 인식이 소음 보고보다 먼저 불리므로
+	// 같은 프레임에 같은 자리에서 한 번 더 들어온다. 이미 듣고 있는 소리다.
+	if (bCadenceEarsUp
+		&& FMath::Abs(Event.TimeSeconds - CadenceTapSeconds) <= 0.01
+		&& FVector::DistSquared(Event.Location, CadenceTapLocation) <= FMath::Square(60.0f))
+	{
+		return;
+	}
+	if (bBeatHold)
+	{
+		// 작은 소리는 흘려듣는다. 닫힌 집 안의 소리도 그렇다. 그는 이미 그 문
+		// 앞에 서 있고, 풀어 주면 순찰로 돌다가 대본 노크 사이에 제 노크를 끼운다.
+		if (bHomeSound || Event.Loudness < IGListener::BeatHoldBreakLoudness)
+		{
+			return;
+		}
+		bBeatHold = false;
+	}
+	// 닫힌 문 너머의 소리에는 문 앞에서 대답한다. 쫓아 들어가지도, 추격으로
+	// 넘어가지도 않는다. 한 번 더 두드리는 것은 청취 중 한 번뿐이다.
+	if (bAtHomeDoor && bHomeSound)
+	{
+		if (State == EIGListenerState::Listening
+			&& !bDoorReknocked
+			&& CanKnockHomeDoor())
+		{
+			bDoorReknocked = true;
+			DoorReknockCountdown = IGListener::DoorReknockDelaySeconds;
+		}
 		return;
 	}
 
@@ -583,13 +947,61 @@ void AIGListenerEntity::HandleNoise(const FIGNoiseEvent& Event)
 		bReactingToSound
 		&& (Now - LastHeardTime) <= IGListener::ReactionMemorySeconds;
 
-	LastHeardLocation = Event.Location;
+	NoteHeardLocation(Event.Location, bHomeSound);
 	LastHeardTime = Now;
+	// 소리 없이 다가오던 걸음(매복, 관찰)이 무언가를 들었다. 여기서부터는 평소의
+	// 조사다. 드론과 들숨은 이 순간에 처음 난다.
+	const bool bWasLyingInWait = bSilentApproach;
+	bSilentApproach = false;
+	bObservationHold = false;
 
 	if (Event.Instigator.IsValid()
 		&& Event.Instigator->IsA<AIGPlayerCharacter>())
 	{
 		CachedPlayer = Cast<APawn>(Event.Instigator.Get());
+	}
+
+	// 위에서 난 소리. 그는 계단을 기어오르지 못하고(CrawlTowards는 Z를 버린다)
+	// 자기가 갇혔던 층에는 올라가지 않는다(§8 3-3, §13). 닿을 수 없는 추격을
+	// 거는 대신 계단 아래까지 와서 듣고, 두 번 들렸으면 위를 향해 두드린다.
+	// 쫓던 그녀가 계단을 올라가 버린 경우도 같다. 아래층 소리(밤2 1층의
+	// 붕괴)는 지금처럼 추격이 된다.
+	if (Event.Location.Z - GetActorLocation().Z > FloorHeightThreshold)
+	{
+		const FVector Below = bHasStairFoot ? StairFoot : Event.Location;
+		LastHeardLocation = FVector(Below.X, Below.Y, GetActorLocation().Z);
+		UpperSoundLocation = Event.Location;
+		const bool bKnockUp = bSecondSound
+			|| State == EIGListenerState::Chasing
+			|| (bCallFromAbove && bKnockUpOnArrival);
+		bReactingToSound = true;
+		const bool bAlreadyBelow =
+			(State == EIGListenerState::Holding
+				|| State == EIGListenerState::Listening
+				|| State == EIGListenerState::Banging)
+			&& FVector::Dist2D(GetActorLocation(), LastHeardLocation) <= 40.0f;
+		if (bAlreadyBelow)
+		{
+			// 이미 계단 아래에 있다. 다시 기어 올 것 없이 그 자리에서 몸을 고쳐
+			// 앉거나(미장 갈라지는 소리) 위를 향해 두드린다. 두드리는 중이면 그대로다.
+			// 엎드려 듣던 중이면 계속 듣는다. 소리 없이 와 엎드려 있던 그(매복, 관찰)만은
+			// 들킨 순간이라 제자리 청취에 다시 들어가 조사로 바뀐다.
+			if (State != EIGListenerState::Banging)
+			{
+				bKnockUpOnArrival = bKnockUp;
+				ArriveBelowUpperSound(
+					/*bKeepHolding=*/State == EIGListenerState::Holding && !bWasLyingInWait);
+			}
+			return;
+		}
+		// 조용히 가던 걸음이면 같은 조사라도 다시 들어가 음악을 평소 조사로 돌린다.
+		if (State != EIGListenerState::Investigating || bWasLyingInWait)
+		{
+			EnterState(EIGListenerState::Investigating);
+		}
+		bCallFromAbove = true;
+		bKnockUpOnArrival = bKnockUp;
+		return;
 	}
 
 	if (State == EIGListenerState::Chasing)
@@ -606,6 +1018,11 @@ void AIGListenerEntity::HandleNoise(const FIGNoiseEvent& Event)
 
 	bReactingToSound = true;
 	EnterState(EIGListenerState::Investigating);
+	// 엎드려 있던 자리에서 돌아선다. 매복이 들킨 순간이자 그녀가 들킨 순간이다.
+	if (bWasLyingInWait)
+	{
+		PlayAlertVocal();
+	}
 }
 
 bool AIGListenerEntity::CanHear(const FIGNoiseEvent& Event) const
@@ -681,11 +1098,63 @@ void AIGListenerEntity::BeginObservationHold(const FVector& Target)
 		return;
 	}
 	// Keep his own floor: he crawls, and the state machine cannot drag him
-	// through a slab to reach a spot the mercy net picked.
+	// through a slab to reach a spot the mercy net picked. 위층의 벽을 자기 층에
+	// 눌러 찍으면 엉뚱한 벽에 가 붙는다 — 밤3의 공동 벽이면 403호 현관 앞이다.
+	// 그래서 위층 소리에 늘 가는 자리, 계단 아래까지만 가서 그쪽으로 고개를 든다.
+	const float Rise = Target.Z - GetActorLocation().Z;
+	const bool bAbove = Rise > FloorHeightThreshold;
+	if (Rise < -FloorHeightThreshold || (bAbove && !bHasStairFoot))
+	{
+		return;
+	}
+	const FVector Destination = bAbove ? StairFoot : Target;
 	LastHeardLocation =
-		FVector(Target.X, Target.Y, GetActorLocation().Z);
+		FVector(Destination.X, Destination.Y, GetActorLocation().Z);
+	UpperSoundLocation = Target;
 	bReactingToSound = false;
+	// 들은 소리가 없으니 들숨도 조사 드론도 없다. 순찰 빠르기로 가서 엎드린다.
+	bSilentApproach = true;
+	bObservationHold = true;
 	EnterState(EIGListenerState::Investigating);
+	// 위를 향한 부름은 EnterState가 지우므로 들어간 뒤에 세운다. 닿으면 두드리지
+	// 않고 듣기만 한다(ArriveBelowUpperSound).
+	bCallFromAbove = bAbove;
+	bKnockUpOnArrival = false;
+}
+
+bool AIGListenerEntity::CanBeginObservationHold(
+	const FVector& Target,
+	const FVector& Witness) const
+{
+	// 도움이 위협을 바꾸면 안 된다. 순찰하거나 제 노크 뒤에 듣는 중일 때만 된다.
+	// 소리에 반응하는 중(박자에 귀를 세움, 위층 소리 아래의 청취 포함)이거나 연출이
+	// 붙든 그, 문 앞의 그는 떼어 내지 않는다.
+	if (bDormant || bBeatHold || bAtHomeDoor || bReactingToSound
+		|| (State != EIGListenerState::Patrolling
+			&& State != EIGListenerState::Listening))
+	{
+		return false;
+	}
+	const FVector Here = GetActorLocation();
+	const float Rise = Target.Z - Here.Z;
+	const bool bAbove = Rise > FloorHeightThreshold;
+	if (Rise < -FloorHeightThreshold || (bAbove && !bHasStairFoot))
+	{
+		return false;
+	}
+	// 목격이어야 도움이다. 그녀가 다른 층에 있으면 보이는 것은 없고, 그가 듣는
+	// 동안 세계가 숨을 참는 것만 닿는다 — 볼 곳이 아니라 들킨 신호다.
+	if (FMath::Abs(Witness.Z - Here.Z) > FloorHeightThreshold)
+	{
+		return false;
+	}
+	// 가는 길이 그녀 곁을 지나면 도움이 포획이 된다. 좁은 복도라 넉넉히 비킨다.
+	const FVector Destination = bAbove ? StairFoot : Target;
+	const float Clearance = FMath::PointDistToSegment(
+		FVector(Witness.X, Witness.Y, 0.0f),
+		FVector(Here.X, Here.Y, 0.0f),
+		FVector(Destination.X, Destination.Y, 0.0f));
+	return Clearance >= IGListener::ObservationClearanceCentimeters;
 }
 
 void AIGListenerEntity::RefreshNightTuning()
@@ -739,10 +1208,28 @@ void AIGListenerEntity::SetPatrolPoints(const TArray<FVector>& Points)
 	PatrolIndex = 0;
 }
 
+void AIGListenerEntity::SetBeatHold(const bool bHold)
+{
+	bBeatHold = bHold;
+}
+
+void AIGListenerEntity::SetHomeDoor(AIGSwingDoor* Door, const FBox& Interior)
+{
+	HomeDoor = Door;
+	HomeInterior = Interior;
+}
+
+void AIGListenerEntity::SetStairFoot(const FVector& Location)
+{
+	StairFoot = Location;
+	bHasStairFoot = true;
+}
+
 bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)
 {
 	const UWorld* World = GetWorld();
-	if (!World || bDormant)
+	// 새벽에 멈춰 세운 그(Tick 꺼짐)는 잠든 그와 같이 대답을 받지 않는다.
+	if (!World || bDormant || !IsActorTickEnabled())
 	{
 		return false;
 	}
@@ -792,12 +1279,65 @@ bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)
 		&& RestInterval >= AnswerRestMinSeconds
 		&& RestInterval <= AnswerRestMaxSeconds;
 	AnswerTapTimes.Reset();
-	if (bCadenceMatches)
+	// 닫힌 집 안에서 친 박자도 소리다. 소음을 흘려듣는 자리에서는 박자도 흘려듣는다
+	// (HandleNoise). 붙들린 그는 문 안에서 친 둘-쉬고-하나에 밤2 대본을 깨지 않는다.
+	// 음성사서함이 가르친 박자라 그 밤에 문에 대고 치는 사람이 많다. 문 앞을 막 떠난
+	// 그도 그 박자에 되돌아오지 않는다.
+	const AIGSwingDoor* Door = HomeDoor.Get();
+	const bool bIgnoredHomeCadence = Door
+		&& !Door->IsOpen()
+		&& (bBeatHold || Now < HomeDoorIgnoreUntil)
+		&& IsHomeSoundAt(KnockLocation, UGameplayStatics::GetPlayerPawn(this, 0));
+	if (bCadenceMatches && !bIgnoredHomeCadence)
 	{
-		NotifyAnswerKnock(KnockLocation);
+		if (IsAnswerLearned())
+		{
+			NotifyAnswerKnock(KnockLocation);
+		}
+		else if (!bBeatHold
+			&& !bAtHomeDoor
+			&& (State == EIGListenerState::Patrolling
+				|| State == EIGListenerState::Banging
+				|| State == EIGListenerState::Listening))
+		{
+			// P4 전에는 아직 대답이 아니다(§4.3 규칙 6). 박자에 멈춰 귀를 세우지만
+			// 기다리지도, 답하지도 않는다. 두 배로 듣는 그 몇 초 동안 한 발만 떼도
+			// 두 번째 소리가 되고, 가만히 있으면 청취가 끝난 뒤 그 자리를 보러 온다.
+			// 이미 무언가를 쫓는 중이면 박자는 그냥 소리다. 연출이 붙든 그도 서 있던
+			// 자리를 지킨다 — 붙듦을 푸는 것은 소음의 몫이다.
+			NoteAnswerLocation(KnockLocation);
+			LastHeardTime = Now;
+			bReactingToSound = true;
+			CadenceTapSeconds = Now;
+			CadenceTapLocation = KnockLocation;
+			EnterState(EIGListenerState::Listening);
+			bCadenceEarsUp = true;
+		}
 	}
 	// Either way the tap was a knock aimed at him, so the caller keeps it.
 	return true;
+}
+
+bool AIGListenerEntity::IsAnswerLearned() const
+{
+	const UWorld* World = GetWorld();
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	// T9는 벽이 같은 리듬으로 대답해야 확정된다. 서사가 없는 시험장에서는
+	// 예전처럼 곧바로 통한다.
+	return !Narrative
+		|| Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
+}
+
+bool AIGListenerEntity::IsAuthoredSilenceActive() const
+{
+	const UWorld* World = GetWorld();
+	const UIGMissingFloorAudioSubsystem* AudioDirector = World
+		? World->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+		: nullptr;
+	return AudioDirector && AudioDirector->IsAuthoredSilence();
 }
 
 bool AIGListenerEntity::CanHearAnswerFrom(const FVector& KnockLocation) const
@@ -832,17 +1372,35 @@ void AIGListenerEntity::NotifyAnswerKnock(const FVector& KnockLocation)
 	// 그는 그 자리를 들었다.
 	if (AnswersThisNight >= IGListener::AnswersPerNight)
 	{
-		LastHeardLocation = KnockLocation;
+		// 들은 자리는 소음과 같은 규칙으로 적는다. 문에 대고 안에서 친 대답이면 문
+		// 앞에 와서 두드리고, 위층에서 친 대답이면 계단 아래까지 온다.
+		const bool bFromAbove = NoteAnswerLocation(KnockLocation);
 		bReactingToSound = true;
-		if (State != EIGListenerState::Chasing)
+		const bool bWasLyingInWait = bSilentApproach;
+		bSilentApproach = false;
+		bObservationHold = false;
+		// 쫓던 중이면 새 자리만으로 충분하다. 다만 위층의 대답은 닿을 수 없는 추격이
+		// 되니 계단 아래까지 와서 위를 향해 두드린다(HandleNoise와 같다).
+		const bool bWasChasing = State == EIGListenerState::Chasing;
+		if (!bWasChasing || bFromAbove)
 		{
 			EnterState(EIGListenerState::Investigating);
+			bCallFromAbove = bFromAbove;
+			bKnockUpOnArrival = bFromAbove && bWasChasing;
+			if (bWasLyingInWait)
+			{
+				PlayAlertVocal();
+			}
 		}
 		return;
 	}
 	++AnswersThisNight;
 
 	AnswerKnockLocation = KnockLocation;
+	// 기다림이 끝나면 갈 자리를 지금 적는다. 문 안에서 친 대답인지는 대답한 그 순간
+	// 그녀가 어디 있었는지로 가린다. 기다리는 동안에는 아무 소리도 이 자리를 바꾸지
+	// 않는다(HandleNoise는 Waiting을 듣지 않는다).
+	NoteAnswerLocation(KnockLocation);
 	EnterState(EIGListenerState::Waiting);
 	// It answers: two knocks. The reply every tester should get chills from.
 	IGAudio::SpawnOneShotAt(
@@ -854,6 +1412,16 @@ void AIGListenerEntity::NotifyAnswerKnock(const FVector& KnockLocation)
 		240.0f,
 		2600.0f,
 		EIGAudioBus::Entity);
+	// §19.8. 소리로 못 듣는 손에게도 대답이 통했다는 것이 닿아야 한다.
+	EmitPresentationCue(GetActorLocation(), 0.6f, 2840.0f);
+	if (IsNearForCaption(GetActorLocation()))
+	{
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "EntityAnswerReplyCaption", "대답 — 둘"),
+			2.2f,
+			GetActorLocation());
+	}
 }
 
 void AIGListenerEntity::SetDormant(const bool bInDormant)
@@ -886,6 +1454,15 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 			BreathLoopComponent->FadeOut(0.5f, 0.0f);
 		}
 		BreathVolumeTarget = 0.0f;
+		// 추격 중에 새벽이 오면 스코어는 Calm으로 내려가는데 손은 계속 울고 있었다.
+		// 패드를 켜고 끄는 곳은 EnterState뿐인데, 잠들 때는 상태를 거치지 않는다.
+		if (AIGPlayerCharacter* PlayerCharacter =
+			Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+		{
+			PlayerCharacter->SetChaseHaptic(false);
+		}
+		bBeatHold = false;
+		HomeDoorIgnoreUntil = -1000.0;
 		// A knock window must never outlive the knocker into the day.
 		if (NoiseSubsystem)
 		{
@@ -896,6 +1473,9 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 			NoiseSubsystem->DecayHeatmapForNewNight();
 		}
 		bAmbushArmed = false;
+		bSilentApproach = false;
+		bObservationHold = false;
+		bSilenceNextStopKnock = false;
 		AnswersThisNight = 0;
 		if (UWorld* World = GetWorld())
 		{
@@ -903,6 +1483,8 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 				World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 			{
 				AudioDirector->SetThreatState(EIGAudioThreatState::Calm);
+				// 엎드린 매복은 음악이 이미 Calm이라 위 호출이 청취 창을 걷지 못한다.
+				AudioDirector->SetEntityListening(false);
 				AudioDirector->SetEntityDistance(MAX_flt);
 			}
 		}
@@ -916,7 +1498,8 @@ void AIGListenerEntity::SetDormant(const bool bInDormant)
 
 void AIGListenerEntity::BeginFinalePass(
 	const FVector& StartLocation,
-	const TArray<FVector>& RoutePoints)
+	const TArray<FVector>& RoutePoints,
+	const float SpeedOverride)
 {
 	if (RoutePoints.Num() == 0)
 	{
@@ -932,6 +1515,8 @@ void AIGListenerEntity::BeginFinalePass(
 	TeleportTo(StartLocation, GetActorRotation(), false, true);
 	FinaleRoutePoints = RoutePoints;
 	FinaleRouteIndex = 0;
+	FinaleSpeedOverride = SpeedOverride;
+	bBeatHold = false;
 	bReactingToSound = false;
 	CachedPlayer.Reset();
 	EnterState(EIGListenerState::FinaleLured);
@@ -939,7 +1524,24 @@ void AIGListenerEntity::BeginFinalePass(
 
 void AIGListenerEntity::ParkForBeat(const FVector& Where, const float Yaw)
 {
-	TeleportTo(Where, FRotator(0.0f, Yaw, 0.0f), false, true);
+	// 연출 좌표는 바닥면 높이로 적혀 있다. 그대로 세우면 캡슐 중심이 바닥에
+	// 놓여 몸 절반이 슬래브에 묻힌다. 문을 열어 본 플레이어가 그걸 봤다.
+	FVector Parked = Where;
+	if (UWorld* World = GetWorld())
+	{
+		FHitResult Floor;
+		FCollisionQueryParams FloorParams(SCENE_QUERY_STAT(IGListenerParkFloor), false, this);
+		if (World->LineTraceSingleByChannel(
+				Floor,
+				Where + FVector(0.0f, 0.0f, 60.0f),
+				Where - FVector(0.0f, 0.0f, 200.0f),
+				ECC_Visibility,
+				FloorParams))
+		{
+			Parked.Z = Floor.ImpactPoint.Z + Body->GetScaledCapsuleHalfHeight() + 2.0f;
+		}
+	}
+	TeleportTo(Parked, FRotator(0.0f, Yaw, 0.0f), false, true);
 	SetActorEnableCollision(true);
 	PatrolIndex = 0;
 	// 이 한 줄이 카메오를 성립시킨다. 남겨 두면 그는 조사 중인 상태로 서 있다가
@@ -961,8 +1563,15 @@ void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 	PatrolIndex = 0;
 	FinaleRoutePoints.Reset();
 	FinaleRouteIndex = 0;
+	FinaleSpeedOverride = -1.0f;
+	bBeatHold = false;
 	bReactingToSound = false;
 	bAmbushArmed = false;
+	// 04:30으로 되감기면 문 앞을 떠난 기억도, 위층을 향한 노크의 간격도 처음부터다.
+	HomeDoorIgnoreUntil = -1000.0;
+	LastCeilingKnockSeconds = -1000.0;
+	// 포획으로 되감긴 04:30에는 첫 칸에서 다시 두드린다. 천장 노크는 한 판에 한 번이다.
+	bSilenceNextStopKnock = false;
 	// The hour restarts at 04:30, so the air restarts with it (§5.4). Leaving
 	// the lane behind would let a reset player read a path nobody walked.
 	bDustTrailSeeded = false;
@@ -984,6 +1593,219 @@ void AIGListenerEntity::ResetToPatrolStart(const bool bRaiseAggression)
 	EnterState(EIGListenerState::Patrolling);
 }
 
+// -- 다른 층의 소리와 닫힌 문 --------------------------------------------------
+
+void AIGListenerEntity::ArriveBelowUpperSound(const bool bKeepHolding)
+{
+	const UWorld* World = GetWorld();
+	const double Now = World ? World->GetTimeSeconds() : 0.0;
+	// 두 번 들렸을 때만 위를 향해 두드린다. 밸브 한 번은 그를 계단 아래까지
+	// 불러낼 뿐이고, 벽을 연달아 두드리는 급한 길은 발밑에서 올라오는 노크를
+	// 산다(§7 P3). 연출이 건물을 멈춘 동안(P4의 8초)과 12초 안의 되풀이는
+	// 듣기만 한다. 밤4 망치질마다 3연이 따라오면 안 된다.
+	const bool bKnockUp = bKnockUpOnArrival
+		&& !IsAuthoredSilenceActive()
+		&& Now - LastCeilingKnockSeconds >= IGListener::CeilingKnockIntervalSeconds;
+	// 소리가 난 쪽으로 고개를 든다. 보지 못하니 듣는 방향이 곧 얼굴 방향이다.
+	const FVector ToSound = UpperSoundLocation - GetActorLocation();
+	AttentionDirection = FVector(ToSound.X, ToSound.Y, 0.0f).GetSafeNormal();
+	bKnockingUp = bKnockUp;
+	bCadenceEarsUp = false;
+	bAtHomeDoor = false;
+	if (bKnockUp)
+	{
+		LastCeilingKnockSeconds = Now;
+		EnterState(EIGListenerState::Banging);
+	}
+	else if (bKeepHolding && State == EIGListenerState::Holding)
+	{
+		// 위층 걸음마다 상태에 다시 들어가면 0.4초마다 미장이 갈라진다. 청취만
+		// 처음부터 다시 재고, 몸을 고쳐 앉는 소리는 몇 초에 한 번이다.
+		StateSeconds = 0.0f;
+		PlayPlantSettle(0.6f);
+	}
+	else
+	{
+		EnterState(EIGListenerState::Holding);
+	}
+}
+
+bool AIGListenerEntity::IsInsideHome(const FVector& Location) const
+{
+	return HomeInterior.IsValid && HomeInterior.IsInsideOrOn(Location);
+}
+
+bool AIGListenerEntity::IsHomeSoundAt(
+	const FVector& Location,
+	const AActor* Maker) const
+{
+	if (IsInsideHome(Location))
+	{
+		return true;
+	}
+	const AIGSwingDoor* Door = HomeDoor.Get();
+	if (!Door)
+	{
+		return false;
+	}
+	// 문면의 소리만 따진다. 복도 멀리서 난 소리를 집 안 사람이 냈을 리 없다.
+	if (FVector::DistSquared2D(Location, Door->GetActorLocation())
+		> FMath::Square(200.0f))
+	{
+		return false;
+	}
+	// 문짝이 낸 소리는 문을 여닫은 사람이 어느 쪽에 있는지로 가린다.
+	if (Maker == Door)
+	{
+		Maker = UGameplayStatics::GetPlayerPawn(this, 0);
+	}
+	const APawn* MakerPawn = Cast<APawn>(Maker);
+	return MakerPawn && IsInsideHome(MakerPawn->GetActorLocation());
+}
+
+void AIGListenerEntity::NoteHeardLocation(
+	const FVector& Location,
+	const bool bHomeSound)
+{
+	LastHeardLocation = Location;
+	FVector DoorCenter = FVector::ZeroVector;
+	FVector Outward = FVector::ZeroVector;
+	if (bHomeSound
+		&& !IsInsideHome(Location)
+		&& GetHomeDoorFrame(DoorCenter, Outward))
+	{
+		LastHeardLocation =
+			DoorCenter - Outward * 25.0f + FVector(0.0f, 0.0f, 60.0f);
+	}
+}
+
+bool AIGListenerEntity::NoteAnswerLocation(const FVector& Location)
+{
+	// 위에서 온 대답. 대답한 자리 바로 아래로 기어가면 엉뚱한 벽에 끼인다 — 5층
+	// 공동 벽 아래는 403호 현관 앞이다. 위층 소리에 늘 가는 자리, 계단 아래로 간다.
+	if (Location.Z - GetActorLocation().Z > FloorHeightThreshold)
+	{
+		const FVector Below = bHasStairFoot ? StairFoot : Location;
+		LastHeardLocation = FVector(Below.X, Below.Y, GetActorLocation().Z);
+		UpperSoundLocation = Location;
+		return true;
+	}
+	// 문에 대고 친 대답은 경첩 자리로 온다. 집 안 상자 밖이라 그대로 적으면 문
+	// 앞에 와서 두드리지 않고 문짝에 부딪혀 끼인다.
+	const AIGSwingDoor* Door = HomeDoor.Get();
+	NoteHeardLocation(
+		Location,
+		Door && !Door->IsOpen()
+			&& IsHomeSoundAt(Location, UGameplayStatics::GetPlayerPawn(this, 0)));
+	return false;
+}
+
+bool AIGListenerEntity::GetHomeDoorFrame(
+	FVector& OutDoorCenter,
+	FVector& OutOutward) const
+{
+	const AIGSwingDoor* Door = HomeDoor.Get();
+	if (!Door)
+	{
+		return false;
+	}
+	// 경첩이 액터 원점이고 문짝은 액터의 +Y로 뻗으며, 바깥면(복도 쪽)은 +X다.
+	OutOutward = Door->GetActorForwardVector().GetSafeNormal2D();
+	OutDoorCenter = Door->GetActorLocation()
+		+ Door->GetActorRightVector()
+			* (AIGPrologueWorldScene::WideDoorLeafWidth * 0.5f);
+	return !OutOutward.IsNearlyZero();
+}
+
+bool AIGListenerEntity::ShouldGoToHomeDoor() const
+{
+	const AIGSwingDoor* Door = HomeDoor.Get();
+	const UWorld* World = GetWorld();
+	if (!Door || !World || Door->IsOpen() || !bReactingToSound)
+	{
+		return false;
+	}
+	if (FMath::Abs(Door->GetActorLocation().Z - GetActorLocation().Z)
+		> FloorHeightThreshold)
+	{
+		return false;
+	}
+	return IsInsideHome(LastHeardLocation)
+		&& !IsInsideHome(GetActorLocation())
+		&& World->GetTimeSeconds() >= HomeDoorIgnoreUntil;
+}
+
+bool AIGListenerEntity::CanKnockHomeDoor() const
+{
+	const UWorld* World = GetWorld();
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	if (!Narrative)
+	{
+		return true;
+	}
+	// 밤2 비트 2-1의 노크가 이 문에서 난 첫 노크여야 한다(「이번엔 현관문에서
+	// 들렸다」). 그 비트는 끌려가는 소리까지 끝나야 기록되므로 비트 도중에도
+	// 닫혀 있다.
+	return Narrative->HasBeatPlayed(FName(TEXT("Night2.DoorKnock")))
+		|| Narrative->GetNightIndex() >= 3;
+}
+
+void AIGListenerEntity::ArriveAtHomeDoor()
+{
+	FVector DoorCenter = FVector::ZeroVector;
+	FVector Outward = FVector::ZeroVector;
+	if (!GetHomeDoorFrame(DoorCenter, Outward))
+	{
+		EnterState(EIGListenerState::Holding);
+		return;
+	}
+	// 문을 향해 돌아선다. 걸어온 방향 그대로 두드리면 옆벽을 치는 그림이 된다.
+	AttentionDirection = -Outward;
+	bAtHomeDoor = true;
+	bDoorReknocked = false;
+	bKnockingUp = false;
+	bCadenceEarsUp = false;
+	if (CanKnockHomeDoor())
+	{
+		// 세 번 두드리고, 문 앞에서 듣는다(§4.5).
+		EnterState(EIGListenerState::Banging);
+	}
+	else
+	{
+		// 밤1과 밤2 대본 전. 문 앞에 서서 소리 없이 듣기만 한다.
+		EnterState(EIGListenerState::Holding);
+	}
+}
+
+void AIGListenerEntity::LeaveHomeDoor()
+{
+	// 두드렸고, 기다렸으니 떠난다. 닫힌 집 안의 소리는 한동안 흘려듣는다.
+	// 곧장 되돌아오면 떠난 것이 아니다.
+	if (const UWorld* World = GetWorld())
+	{
+		HomeDoorIgnoreUntil =
+			World->GetTimeSeconds() + IGListener::HomeDoorIgnoreSeconds;
+	}
+	bReactingToSound = false;
+	AdvancePatrolIndex();
+	EnterState(EIGListenerState::Patrolling);
+	// 문 안쪽에서 숨죽이던 그녀가 그제야 숨을 내쉰다.
+	if (AIGPlayerCharacter* PlayerCharacter =
+		Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+	{
+		if (IsInsideHome(PlayerCharacter->GetActorLocation()))
+		{
+			if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+			{
+				Stress->PlayReliefExhale();
+			}
+		}
+	}
+}
+
 // -- locomotion ------------------------------------------------------------
 
 bool AIGListenerEntity::CrawlTowards(
@@ -991,6 +1813,7 @@ bool AIGListenerEntity::CrawlTowards(
 	const float Speed,
 	const float DeltaSeconds)
 {
+	bBlockedByHomeDoor = false;
 	FVector ToTarget = Target - GetActorLocation();
 	// Crawling cannot climb: steer on the floor plane and let collisions
 	// keep it honest about stairs it has not been routed through.
@@ -1007,7 +1830,12 @@ bool AIGListenerEntity::CrawlTowards(
 	FaceDirection(Direction, DeltaSeconds);
 
 	const FVector Before = GetActorLocation();
-	AddActorWorldOffset(Step, true);
+	FHitResult SweepHit;
+	AddActorWorldOffset(Step, true, &SweepHit);
+	// 닫힌 403호 문짝에 막혔는지. 벽에 걸린 것과 문 앞에 닿은 것은 다르다.
+	bBlockedByHomeDoor = SweepHit.bBlockingHit
+		&& HomeDoor.IsValid()
+		&& SweepHit.GetActor() == HomeDoor.Get();
 	const float Moved =
 		FVector::Dist2D(Before, GetActorLocation());
 	LastMoveSpeed = DeltaSeconds > 0.0f ? Moved / DeltaSeconds : 0.0f;
@@ -1097,12 +1925,26 @@ bool AIGListenerEntity::TryBeginAmbush()
 
 	// Keep his own floor: the hottest zone is a statistic, and dragging himself
 	// through a slab to reach it is not something the state machine can do.
-	AmbushLocation = FVector(Hottest.X, Hottest.Y, GetActorLocation().Z);
+	// 습관이 위층에 있으면(밤3의 5층 퍼즐) 그 아래 자기 층 자리는 슬래브 너머라
+	// 엉뚱한 벽에 가 붙는다. 위층 소리에 늘 가는 자리, 그녀가 내려올 계단 아래에
+	// 엎드린다. 아래층의 습관은 갈 길이 없으니 매복하지 않는다.
+	const float Rise = Hottest.Z - GetActorLocation().Z;
+	const bool bHabitAbove = Rise > FloorHeightThreshold;
+	if (Rise < -FloorHeightThreshold || (bHabitAbove && !bHasStairFoot))
+	{
+		return false;
+	}
+	const FVector Spot = bHabitAbove ? StairFoot : Hottest;
+	AmbushLocation = FVector(Spot.X, Spot.Y, GetActorLocation().Z);
 	bAmbushArmed = true;
-	// Investigating walks him there; arriving hands over to Holding, which is
-	// silent. No knock cycle announces this one.
+	// Investigating walks him there; arriving hands over to Holding. 들숨도 조사
+	// 드론도 없이 순찰 빠르기로 기어가 조용히 엎드린다. 남는 경고는 심장과 압박
+	// 층, 가라앉은 숨, 그리고 세계가 참는 숨(청취 창의 −6dB)뿐이다. 다 기다리면
+	// 그 자리에서 두드린다.
 	LastHeardLocation = AmbushLocation;
 	bReactingToSound = false;
+	bSilentApproach = true;
+	bObservationHold = false;
 	EnterState(EIGListenerState::Investigating);
 	return true;
 }
@@ -1243,8 +2085,9 @@ void AIGListenerEntity::UpdateSkeletalPose(
 		}
 		return;
 	case EIGListenerState::Banging:
-		// 노크 소리와 같은 2.1초짜리 동작. 한 번 재생하고 듣기로 넘어간다.
-		PlayBodyAnim(EIGListenerBodyAnim::Bang, false, 1.0f);
+		// 노크 소리와 같은 2.1초짜리 동작. 한 번 재생하고 듣기로 넘어간다. 티어가
+		// 올라 노크가 빨라지면 손도 같은 배율로 빨라져야 소리와 닿는 순간이 맞는다.
+		PlayBodyAnim(EIGListenerBodyAnim::Bang, false, KnockRate);
 		return;
 	case EIGListenerState::Chasing:
 		if (bLungeArmed)
@@ -1254,8 +2097,9 @@ void AIGListenerEntity::UpdateSkeletalPose(
 		}
 		break;
 	case EIGListenerState::Waiting:
-		// 대답에 얼어붙는다. 숨도 멈춘 것처럼 보이도록 재생을 세운다.
-		PlayBodyAnim(EIGListenerBodyAnim::Listen, true, 0.0f);
+		// 대답에 얼어붙는다. 숨도 멈춘 것처럼 보이도록 재생을 세운다. 기다림이
+		// 닳아 가면 숨이 느리게 돌아온다.
+		PlayBodyAnim(EIGListenerBodyAnim::Listen, true, bWaitStirred ? 0.6f : 0.0f);
 		return;
 	default:
 		break;
@@ -1532,17 +2376,31 @@ void AIGListenerEntity::UpdatePresentationPose(
 			LastCrawlStepIndex = StepIndex;
 			const uint32 StepHash = static_cast<uint32>(StateSeconds * 37.0f + ListenerPhase * 1000.0f) * 2654435761u;
 			const float Pitch = 0.94f + 0.12f * ((StepHash >> 8) & 0xFF) / 255.0f;
-			IGAudio::SpawnOneShotAt(
+			// 걸음은 소모음이다. 추격 속도에서 0.2초마다 쏟아져도 스팅어·덮침·들숨을
+			// 밀어내지 못하고, 자리가 모자라면 걸음끼리 밀린다.
+			const FVector StepAt = GetActorLocation() + FVector(20.0f, 0.0f, -40.0f);
+			IGAudio::SpawnExpendableOneShotAt(
 				this,
 				IGAudio::SampleVariantOr(
 					TEXT("Entity_CrawlStep"), 3, StepHash,
 					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityCrawlStep(this, bDragSurfaceIsVinyl); }),
-				GetActorLocation() + FVector(20.0f, 0.0f, -40.0f),
+				StepAt,
 				0.35f + 0.55f * SpeedAlpha,
 				Pitch,
 				200.0f,
 				2200.0f,
 				EIGAudioBus::Entity);
+			// §19.8 「존재의 노크·접근」. 6m 안에서 기는 걸음만 대체 채널에 보낸다.
+			// 자막은 붙이지 않는다 — 기본값이 켜짐이라 밤새 글이 뜨고 위치를 거저 준다.
+			const double StepNow = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+			const double CueInterval = State == EIGListenerState::Chasing
+				? IGListener::ChaseApproachCueIntervalSeconds
+				: IGListener::ApproachCueIntervalSeconds;
+			if (StepNow - LastApproachCueSeconds >= CueInterval
+				&& EmitPresentationCue(StepAt, 0.3f, IGListener::ApproachCueCentimeters))
+			{
+				LastApproachCueSeconds = StepNow;
+			}
 		}
 	}
 
@@ -1575,6 +2433,11 @@ void AIGListenerEntity::UpdatePresentationPose(
 	case EIGListenerState::Waiting:
 		TargetBreath = 0.0f;
 		TargetTremor = 0.0f;
+		// 기다림이 닳아 가면 멎었던 숨이 조금 돌아온다.
+		if (bWaitStirred)
+		{
+			TargetBreath = 0.16f;
+		}
 		break;
 	case EIGListenerState::Listening:
 	case EIGListenerState::Holding:
@@ -1590,7 +2453,7 @@ void AIGListenerEntity::UpdatePresentationPose(
 	}
 	// 얼어붙는 쪽은 사람이 숨을 삼키는 속도, 풀리는 쪽은 한 호흡.
 	const float InterpSpeed =
-		State == EIGListenerState::Waiting ? 9.0f : 3.0f;
+		State == EIGListenerState::Waiting && !bWaitStirred ? 9.0f : 3.0f;
 	ShellBreathAmplitude = FMath::FInterpTo(
 		ShellBreathAmplitude, TargetBreath, DeltaSeconds, InterpSpeed);
 	ShellTremorAmplitude = FMath::FInterpTo(
@@ -1626,22 +2489,38 @@ void AIGListenerEntity::UpdatePresentationPose(
 		0.0f, WeightShift * 0.3f, 0.0f));
 }
 
+float AIGListenerEntity::RollKnockTempo()
+{
+	// 티어가 오를수록 노크가 급해진다. 짧아진 청취 창을 박자로 먼저 알린다. 사이클마다
+	// 빠르기(±2%)와 세기가 조금씩 흔들려서, 한 밤에 수십 번 나도 배경음이 되지 않는다.
+	static constexpr float TierKnockTempo[4] = {1.00f, 1.05f, 1.10f, 1.16f};
+	const int32 EffectiveTier = Difficulty == EIGNightDifficulty::Hasty
+		? FMath::Max(AggressionTier, 1) : AggressionTier;
+	const uint32 KnockHash = static_cast<uint32>(++KnockSerial) * 2654435761u;
+	const float Sway = 0.98f + 0.04f * ((KnockHash >> 8) & 0xFF) / 255.0f;
+	KnockRate = TierKnockTempo[FMath::Clamp(EffectiveTier, 0, 3)] * Sway;
+	return 0.86f + 0.14f * ((KnockHash >> 16) & 0xFF) / 255.0f;
+}
+
 void AIGListenerEntity::PlayKnockTriple()
 {
+	const float KnockVolume = RollKnockTempo();
+	const FVector KnockAt = GetActorLocation() + FVector(0.0f, 0.0f, 40.0f);
 	IGAudio::SpawnOneShotAt(
 		this,
 		IGAudio::SampleOr(
 			TEXT("Entity_KnockTriple"),
 			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.0f); }),
-		GetActorLocation() + FVector(0.0f, 0.0f, 40.0f),
-		1.0f,
-		1.0f,
+		KnockAt,
+		KnockVolume,
+		KnockRate,
 		300.0f,
 		3600.0f,
 		EIGAudioBus::Entity);
 	// §5.5. 밤2의 대본 노크만 테이프에 구멍을 내고 있었다. 그가 순찰 중에
 	// 두드리는 것도 같은 소리다 — 어느 밤에 켜 둔 폰이든 그의 자리는 빈다.
-	if (UWorld* World = GetWorld())
+	UWorld* World = GetWorld();
+	if (World)
 	{
 		if (UIGRecordingSubsystem* Recording =
 			World->GetSubsystem<UIGRecordingSubsystem>())
@@ -1649,19 +2528,265 @@ void AIGListenerEntity::PlayKnockTriple()
 			Recording->RecordEntitySound(GetActorLocation(), 0.55f, this);
 		}
 	}
+	// §19.8. 「그가 두드리는 동안 움직여라」는 이 소리로 배우는 규칙이다. 듣기
+	// 어려운 손에게도 두드리는 창이 닿아야 한다. 자막은 12초에 한 번만.
+	EmitPresentationCue(KnockAt, 1.0f, 3900.0f);
+	const double Now = World ? World->GetTimeSeconds() : 0.0;
+	if (Now - LastKnockCaptionSeconds >= IGListener::KnockCaptionIntervalSeconds
+		&& IsNearForCaption(KnockAt))
+	{
+		LastKnockCaptionSeconds = Now;
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "EntityKnockCaption", "세 번 두드리는 소리"),
+			2.4f,
+			KnockAt);
+	}
 }
 
-void AIGListenerEntity::PlayPlasterSettle()
+void AIGListenerEntity::PlayCeilingKnock()
+{
+	// 4층 천장 바로 밑을 친다. 위층에서는 발밑 슬래브를 타고 먹먹하게 올라온다.
+	// 같은 녹음을 벽 너머로 걸러 둔 판이다. 순찰 노크와 같은 손이라 티어 빠르기도 같다.
+	const FVector KnockPoint =
+		GetActorLocation() + FVector(0.0f, 0.0f, IGListener::CeilingKnockHeight);
+	const float KnockVolume = RollKnockTempo();
+	IGAudio::SpawnOneShotAt(
+		this,
+		IGAudio::SampleOr(
+			TEXT("Entity_KnockTriple_Muffled"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.78f); }),
+		KnockPoint,
+		KnockVolume,
+		KnockRate,
+		300.0f,
+		3600.0f,
+		EIGAudioBus::Entity);
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGRecordingSubsystem* Recording =
+			World->GetSubsystem<UIGRecordingSubsystem>())
+		{
+			Recording->RecordEntitySound(KnockPoint, 0.55f, this);
+		}
+	}
+	// §19.8. 위층의 그녀에게 방위 딱지가 「아래」를 붙인다. 천장 노크는 이미
+	// 12초에 한 번이라 자막 간격을 따로 두지 않는다.
+	EmitPresentationCue(KnockPoint, 0.8f, 3900.0f);
+	if (IsNearForCaption(KnockPoint))
+	{
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "EntityCeilingKnockCaption", "먹먹하게 세 번 두드리는 소리"),
+			2.4f,
+			KnockPoint);
+	}
+}
+
+void AIGListenerEntity::PlayHomeDoorKnock(const bool bSingle)
+{
+	FVector DoorCenter = FVector::ZeroVector;
+	FVector Outward = FVector::ZeroVector;
+	if (!GetHomeDoorFrame(DoorCenter, Outward))
+	{
+		if (!bSingle)
+		{
+			PlayKnockTriple();
+		}
+		return;
+	}
+	// 복도 쪽 문짝 겉면, 엎드린 그가 손을 뻗는 높이.
+	const FVector KnockPoint =
+		FVector(DoorCenter.X, DoorCenter.Y, GetActorLocation().Z + 40.0f)
+		+ Outward * IGListener::HomeDoorKnockOffset;
+	DoorKnockPoint = KnockPoint;
+	// 문 노크는 밤2 대본 노크와 같은 간격이어야 알아듣는다. 티어 빠르기를 싣지 않고,
+	// 두드리는 동작도 제 속도로 돈다.
+	KnockRate = 1.0f;
+	// 철문 녹음이 없으면 합성이 혼자 예전 크기로 낸다.
+	const bool bSteel = IGAudio::Sample(IGListener::DoorSteelSamples[0]) != nullptr;
+	USoundBase* Knock = bSingle
+		? static_cast<USoundBase*>(UIGToneSequenceSoundWave::CreateWallKnockSingle(
+			this, IGListener::DoorKnockSingleMuffle))
+		: static_cast<USoundBase*>(UIGToneSequenceSoundWave::CreateWallKnockTriple(
+			this, IGListener::DoorKnockMuffle));
+	IGAudio::SpawnOneShotAt(
+		this,
+		Knock,
+		KnockPoint,
+		bSteel ? IGListener::DoorKnockUnderlayVolume : IGListener::DoorKnockVolume,
+		1.0f,
+		IGListener::DoorKnockInnerRadius,
+		IGListener::DoorKnockFalloff,
+		EIGAudioBus::Entity);
+	// 첫 타는 지금 친다. 3연의 나머지 둘은 두드리는 동안 TickState가 친다.
+	DoorSteelHitsPlayed = bSteel ? 0 : IGListener::DoorSteelHitCount;
+	if (bSteel)
+	{
+		PlayHomeDoorSteelHit();
+		if (bSingle)
+		{
+			DoorSteelHitsPlayed = IGListener::DoorSteelHitCount;
+		}
+	}
+	// 대답해 두고 403호를 빠져나간 그녀에게도 기다림이 끝나면 이 노크가 난다. 방위
+	// 자막은 다른 노크처럼 가까이에서만 붙인다.
+	if (IsNearForCaption(KnockPoint))
+	{
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			bSingle
+				? NSLOCTEXT("IGMissingFloor", "EntityDoorKnockOnceCaption", "문 너머 — 한 번 두드리는 소리")
+				: NSLOCTEXT("IGMissingFloor", "EntityDoorKnockCaption", "문 너머 — 연달아 세 번 두드리는 소리"),
+			bSingle ? 1.6f : 2.4f,
+			KnockPoint);
+	}
+	// §19.8. 문 너머의 노크도 진동과 파문으로 온다.
+	EmitPresentationCue(
+		KnockPoint,
+		bSingle ? 0.7f : 1.0f,
+		IGListener::DoorKnockInnerRadius + IGListener::DoorKnockFalloff);
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGRecordingSubsystem* Recording =
+			World->GetSubsystem<UIGRecordingSubsystem>())
+		{
+			Recording->RecordEntitySound(KnockPoint, 0.55f, this);
+		}
+	}
+	// 놀라는 것은 그 문 안에 있거나 같은 층 문 앞에 있을 때다. 계단이나 5층에서
+	// 멀리 듣는 노크에 숨이 걸리면 안 된다.
+	if (AIGPlayerCharacter* PlayerCharacter =
+		Cast<AIGPlayerCharacter>(UGameplayStatics::GetPlayerPawn(this, 0)))
+	{
+		const FVector PlayerAt = PlayerCharacter->GetActorLocation();
+		const bool bAtThisDoor =
+			FMath::Abs(PlayerAt.Z - KnockPoint.Z) <= FloorHeightThreshold
+			&& FVector::Dist2D(PlayerAt, KnockPoint)
+				<= IGListener::DoorKnockStartleCentimeters;
+		UIGStressComponent* Stress = PlayerCharacter->GetStress();
+		if (Stress && (IsInsideHome(PlayerAt) || bAtThisDoor))
+		{
+			Stress->ApplyScare(bSingle ? 0.2f : 0.25f);
+		}
+	}
+}
+
+void AIGListenerEntity::PlayHomeDoorSteelHit()
+{
+	const int32 Hit = DoorSteelHitsPlayed;
+	if (Hit < 0 || Hit >= IGListener::DoorSteelHitCount)
+	{
+		return;
+	}
+	++DoorSteelHitsPlayed;
+	if (USoundBase* Steel = IGAudio::Sample(IGListener::DoorSteelSamples[Hit]))
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			Steel,
+			DoorKnockPoint,
+			IGListener::DoorKnockVolume,
+			IGListener::DoorSteelPitches[Hit],
+			IGListener::DoorKnockInnerRadius,
+			IGListener::DoorKnockFalloff,
+			EIGAudioBus::Entity);
+	}
+}
+
+void AIGListenerEntity::PlayPlasterSettle(const float Volume, const float Pitch)
 {
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreatePlasterSettle(this),
 		GetActorLocation(),
-		0.6f,
-		1.0f,
+		Volume,
+		Pitch,
 		160.0f,
 		1200.0f,
 		EIGAudioBus::Entity);
+}
+
+void AIGListenerEntity::PlayPlantSettle(const float Volume)
+{
+	const UWorld* World = GetWorld();
+	const double Now = World ? World->GetTimeSeconds() : 0.0;
+	if (Now - LastPlantSettleSeconds < IGListener::PlantSettleIntervalSeconds)
+	{
+		return;
+	}
+	LastPlantSettleSeconds = Now;
+	PlayPlasterSettle(Volume);
+}
+
+void AIGListenerEntity::PlayAlertVocal()
+{
+	// 녹음은 일곱 초 동안 네 번 헐떡인다. 이제 걸음에 밀리지 않으니 첫 숨에서
+	// 직접 끊는다(§21.3의 한 숨). 피치를 조금 내려 같은 원본을 쓰는 유담의
+	// 들숨과도 갈라 둔다.
+	const FVector BreathAt = GetActorLocation() + FVector(30.0f, 0.0f, 30.0f);
+	IGAudio::FadeOutAfter(
+		IGAudio::SpawnOneShotAt(
+			this,
+			IGAudio::SampleOr(
+				TEXT("Entity_Alert"),
+				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityAlertVocal(this); }),
+			BreathAt,
+			0.9f,
+			0.9f,
+			220.0f,
+			2400.0f,
+			EIGAudioBus::Entity),
+		1.0f,
+		0.25f);
+	// §19.8. 그가 무언가를 들었다는 것이 소리로만 오면 듣기 어려운 손은 모른다.
+	EmitPresentationCue(BreathAt, 0.5f, 2620.0f);
+	if (IsNearForCaption(BreathAt))
+	{
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "EntityAlertCaption", "숨을 들이켜는 소리"),
+			1.6f,
+			BreathAt);
+	}
+}
+
+bool AIGListenerEntity::EmitPresentationCue(
+	const FVector& At,
+	const float Loudness,
+	const float AudibleRange)
+{
+	if (bDormant || !NoiseSubsystem || Loudness <= 0.0f)
+	{
+		return false;
+	}
+	const APawn* Listener = CachedPlayer.IsValid()
+		? CachedPlayer.Get()
+		: UGameplayStatics::GetPlayerPawn(this, 0);
+	if (!Listener)
+	{
+		return false;
+	}
+	// 그녀 자리에 닿는 만큼. 소리의 감쇠 거리를 넘으면 들리지 않은 것이다.
+	const float Distance = FVector::Dist(Listener->GetActorLocation(), At);
+	const float Heard = Loudness
+		* FMath::Clamp(1.0f - Distance / FMath::Max(AudibleRange, 1.0f), 0.0f, 1.0f);
+	if (Heard < 0.05f)
+	{
+		return false;
+	}
+	NoiseSubsystem->BroadcastPresentationCue(At, Heard, this);
+	return true;
+}
+
+bool AIGListenerEntity::IsNearForCaption(const FVector& At) const
+{
+	const APawn* Listener = CachedPlayer.IsValid()
+		? CachedPlayer.Get()
+		: UGameplayStatics::GetPlayerPawn(this, 0);
+	return Listener
+		&& FVector::DistSquared(Listener->GetActorLocation(), At)
+			<= FMath::Square(IGListener::NearCaptionCentimeters);
 }
 
 void AIGListenerEntity::UpdateDragLoop(const float CurrentSpeed)
@@ -1672,8 +2797,15 @@ void AIGListenerEntity::UpdateDragLoop(const float CurrentSpeed)
 	}
 	// Louder and faster the harder it pulls itself. At rest: true silence,
 	// which is the scariest volume it has.
-	const float SpeedRatio =
-		ChaseSpeed > 0.0f ? FMath::Clamp(CurrentSpeed / ChaseSpeed, 0.0f, 1.0f) : 0.0f;
+	// 밤4에 목한수를 따라가는 느린 걸음은 추격 속도에 대면 끌림이 묻힌다.
+	// 그 걸음의 기준은 정해 준 속도다.
+	const float ReferenceSpeed =
+		State == EIGListenerState::FinaleLured && FinaleSpeedOverride > 0.0f
+			? FinaleSpeedOverride * 1.4f
+			: ChaseSpeed;
+	const float SpeedRatio = ReferenceSpeed > 0.0f
+		? FMath::Clamp(CurrentSpeed / ReferenceSpeed, 0.0f, 1.0f)
+		: 0.0f;
 	DragLoopComponent->SetVolumeMultiplier(SpeedRatio * 0.9f);
 	DragLoopComponent->SetPitchMultiplier(0.85f + 0.45f * SpeedRatio);
 }
@@ -1863,19 +2995,24 @@ void AIGListenerEntity::UpdateBreathLoop(const float Distance)
 		switch (State)
 		{
 		case EIGListenerState::Chasing: Target = 0.85f; break;
-		case EIGListenerState::Investigating: Target = 0.45f; break;
-		case EIGListenerState::Holding:
+		// 들은 것 없이 다가와 엎드린 그는 숨을 죽인다. 남는 경고는 심장과 압박 층,
+		// 그리고 이 가라앉은 숨이다.
+		case EIGListenerState::Investigating: Target = bSilentApproach ? 0.10f : 0.45f; break;
+		case EIGListenerState::Holding: Target = bSilentApproach ? 0.10f : 0.34f; break;
 		case EIGListenerState::Searching: Target = 0.34f; break;
 		case EIGListenerState::Listening: Target = 0.26f; break;
 		case EIGListenerState::Banging:
 		case EIGListenerState::Patrolling: Target = 0.20f; break;
-		case EIGListenerState::Waiting: Target = 0.10f; break;
+		case EIGListenerState::Waiting: Target = bWaitStirred ? 0.30f : 0.10f; break;
 		default: Target = 0.0f; break;
 		}
 	}
 	if (!FMath::IsNearlyEqual(Target, BreathVolumeTarget, 0.02f))
 	{
 		BreathVolumeTarget = Target;
+		// 기다림이 닳아 돌아오는 숨은 천천히 오른다. 한 번에 올리면 들킨 소리가 된다.
+		const float BreathFade =
+			State == EIGListenerState::Waiting && bWaitStirred ? 1.5f : 0.6f;
 		// 0으로 가는 페이드는 엔진이 끝에서 정지다. 다시 낼 때는 FadeIn으로
 		// 되살리고, 도는 중이면 페이더만 옮긴다.
 		if (Target <= 0.01f)
@@ -1887,11 +3024,11 @@ void AIGListenerEntity::UpdateBreathLoop(const float Distance)
 		}
 		else if (!BreathLoopComponent->IsPlaying())
 		{
-			BreathLoopComponent->FadeIn(0.6f, Target);
+			BreathLoopComponent->FadeIn(BreathFade, Target);
 		}
 		else
 		{
-			BreathLoopComponent->AdjustVolume(0.6f, Target);
+			BreathLoopComponent->AdjustVolume(BreathFade, Target);
 		}
 	}
 	// 추격 중엔 숨이 빠르다. 루프 속도는 못 바꾸니 피치로.
@@ -1900,7 +3037,7 @@ void AIGListenerEntity::UpdateBreathLoop(const float Distance)
 
 void AIGListenerEntity::TryCloseCallStinger(const AIGPlayerCharacter* Player, const float Distance)
 {
-	// 코앞에서 마주쳤다: 3.2m 안, 시야 안, 그가 깨어서 움직이거나 듣는 중. 25초에
+	// 코앞에서 마주쳤다: 3.2m 안, 시야 안, 그가 깨어서 움직이거나 두드리는 중. 25초에
 	// 한 번. 「이미 본 형상의 위치 변화」(STORY_DIRECTION §7)를 소리로 찍는다.
 	UWorld* World = GetWorld();
 	if (!World || !Player || bDormant || IsHidden() || Distance > 320.0f)
@@ -1910,7 +3047,11 @@ void AIGListenerEntity::TryCloseCallStinger(const AIGPlayerCharacter* Player, co
 	if (State == EIGListenerState::CaptureHold
 		|| State == EIGListenerState::Chasing
 		|| State == EIGListenerState::FinaleLured
-		|| State == EIGListenerState::Waiting)
+		|| State == EIGListenerState::Waiting
+		// 그가 듣는 창은 조용해야 한다. 여기서 터지는 타격은 세계가 숨을 참는 믹스를
+		// 깨고, 심박을 소음으로 밀어 올려 판정까지 만든다.
+		|| State == EIGListenerState::Listening
+		|| State == EIGListenerState::Holding)
 	{
 		return;
 	}
@@ -1944,7 +3085,11 @@ void AIGListenerEntity::TryCloseCallStinger(const AIGPlayerCharacter* Player, co
 	LastCloseCallSeconds = Now;
 	if (UIGStressComponent* Stress = Player->GetStress())
 	{
-		Stress->ApplyScare(0.45f);
+		// 스팅어 혼자 심박을 소음(0.85)으로 만들지 않는다. 0.70까지만 올려 숨을
+		// 참거나 물러설 두 초쯤을 남긴다. 들숨은 스트레스와 따로 낸다.
+		const float Headroom = FMath::Max(0.0f, 0.70f - Stress->GetStress());
+		Stress->ApplyScare(FMath::Min(0.45f, Headroom));
+		Stress->PlayGasp();
 	}
 	const_cast<AIGPlayerCharacter*>(Player)->PlayScareKick(1.4f);
 }
@@ -2000,13 +3145,35 @@ void AIGListenerEntity::BeginCapture(APawn* Player)
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->PlayStinger(
+			if (AudioDirector->PlayStinger(
 				EIGStinger::Capture,
-				Player ? Player->GetActorLocation() : GetActorLocation());
+				Player ? Player->GetActorLocation() : GetActorLocation()))
+			{
+				// 덮침 녹음은 3.45초이고 뒤 절반이 거친 숨이다. 그 숨이 1.48초와
+				// 1.90초의 노크 둘을 덮었다. 접촉 타격만 남기고 노크 앞에서 걷는다.
+				// 0으로 가는 페이드는 정지다. 다시 올리지 않는다.
+				const TWeakObjectPtr<UAudioComponent> Grab =
+					AudioDirector->GetStingerComponent().Get();
+				World->GetTimerManager().SetTimer(
+					CaptureGrabTrimTimer,
+					FTimerDelegate::CreateWeakLambda(this, [Grab]()
+					{
+						if (UAudioComponent* GrabComponent = Grab.Get())
+						{
+							if (GrabComponent->IsPlaying())
+							{
+								GrabComponent->FadeOut(0.25f, 0.0f);
+							}
+						}
+					}),
+					1.25f,
+					false);
+			}
 		}
 	}
 
-	// 복도 잔향을 빼서 귓가의 마찰, 끊긴 숨, 짧은 두 번의 충격이 바로 들리게 한다.
+	// 복도 잔향을 빼서 귓가의 마찰, 끊긴 숨, 암전 속의 노크 둘이 바로 들리게 한다.
+	// 노크 둘은 밤3에 벽이 돌려주는 대답과 같은 재료, 같은 0.42초 간격이다.
 	IGAudio::SpawnDryOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateCaptureStruggle(this),

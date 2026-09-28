@@ -7,10 +7,12 @@
 #include "Camera/CameraComponent.h"
 #include "Components/AudioComponent.h"
 #include "Components/PostProcessComponent.h"
+#include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Sound/SoundBase.h"
 #include "TimerManager.h"
@@ -126,6 +128,19 @@ void UIGStressComponent::ApplyScare(const float Amount)
 	RefreshTickState();
 }
 
+void UIGStressComponent::ApplyRelief(const float Ceiling, const float Seconds)
+{
+	ScareCharge = 0.0f;
+	ThreatPressure = 0.0f;
+	ReliefCeiling = FMath::Clamp(Ceiling, 0.0f, 1.0f);
+	if (Stress > ReliefCeiling)
+	{
+		ReliefRemaining = FMath::Max(0.1f, Seconds);
+		ReliefRate = (Stress - ReliefCeiling) / ReliefRemaining;
+	}
+	RefreshTickState();
+}
+
 void UIGStressComponent::SetExertion(const float Exertion01)
 {
 	const float Clamped = FMath::Clamp(Exertion01, 0.0f, 1.0f);
@@ -233,6 +248,7 @@ void UIGStressComponent::RefreshTickState()
 		|| ThreatPressure > KINDA_SMALL_NUMBER
 		|| ScareCharge > KINDA_SMALL_NUMBER
 		|| HeartbeatSuppressionRemaining > KINDA_SMALL_NUMBER
+		|| ReliefRemaining > KINDA_SMALL_NUMBER
 		|| HeartbeatReboundRemaining > KINDA_SMALL_NUMBER
 		|| Exertion > KINDA_SMALL_NUMBER
 		|| BreathLevelTarget > KINDA_SMALL_NUMBER;
@@ -262,6 +278,18 @@ void UIGStressComponent::UpdateStress(const float DeltaSeconds)
 	if (Pressure < 0.05f && ScareCharge <= 0.0f)
 	{
 		Stress -= RecoveryRate * DeltaSeconds;
+	}
+
+	// ApplyRelief가 건 하강. 어둠이 올리는 몫까지 되돌려야 정한 시간에 닿는다.
+	if (ReliefRemaining > 0.0f)
+	{
+		ReliefRemaining = FMath::Max(0.0f, ReliefRemaining - DeltaSeconds);
+		if (Stress > ReliefCeiling)
+		{
+			Stress = FMath::Max(
+				ReliefCeiling,
+				Stress - (ReliefRate + Darkness * DarknessRate) * DeltaSeconds);
+		}
 	}
 
 	Stress = FMath::Clamp(Stress, 0.0f, 1.0f);
@@ -317,14 +345,13 @@ void UIGStressComponent::UpdateHeartbeat(const float DeltaSeconds)
 	const float PulseStress = FMath::Max(Stress, 0.18f + 0.22f * ReboundAlpha);
 	const float BeatsPerMinute = FMath::Lerp(RestingBPM, PanicBPM, FMath::Pow(PulseStress, 0.85f))
 		* (1.0f + 0.22f * ReboundAlpha);
-	const float SecondsPerBeat = 60.0f / FMath::Max(BeatsPerMinute, 1.0f);
-
-	BeatPhase += DeltaSeconds;
-	if (BeatPhase < SecondsPerBeat)
+	// 박동 진행도를 0~1로 유지해 심박수가 바뀌어도 박자가 이어지게 한다.
+	BeatPhase += DeltaSeconds * FMath::Max(BeatsPerMinute, 1.0f) / 60.0f;
+	if (BeatPhase < 1.0f)
 	{
 		return;
 	}
-	BeatPhase -= SecondsPerBeat;
+	BeatPhase = FMath::Fmod(BeatPhase, 1.0f);
 	HeartbeatReboundScaleNow = 1.0f + (IGStress::BreathReboundScale - 1.0f) * ReboundAlpha;
 	PlayHeartbeat(PulseStress);
 	HeartbeatReboundScaleNow = 1.0f;
@@ -333,17 +360,21 @@ void UIGStressComponent::UpdateHeartbeat(const float DeltaSeconds)
 void UIGStressComponent::PlayHeartbeat(const float EffectiveStress)
 {
 	const float ReboundScale = HeartbeatReboundScaleNow;
-	// One heartbeat is a lub-dub: a low thump, then a slightly higher,
-	// quieter one about a fifth of a beat later. Both are short noise-shaped
-	// sines so they read as a body sound rather than a drum.
+	// 한 박은 쿵-쿵 둘이다. 두 번째는 5분의 1박쯤 늦고 조금 작다. 저역은 살짝
+	// 포화된 사인이고, 그 위에 가슴이 울리는 짧은 둔탁음을 얹는다. 저역이 안 나오는
+	// 노트북 스피커와 이어폰에서는 둔탁음과 포화 배음이 심박을 전한다. 잡음이라
+	// 음정이 없고 클릭도 없어서 노크(176·196Hz 몸통, 1.1k·3.6k 클릭)로 들리지 않는다.
+	// 대역 잡음은 같은 진폭에서 사인보다 훨씬 작게 나오므로 진폭을 크게 잡는다.
 	TArray<FIGToneNote> Beat;
 	const float SafeStress = FMath::Clamp(EffectiveStress, 0.18f, 1.0f);
 	const float Loudness = FMath::GetMappedRangeValueClamped(
 		FVector2D(0.18f, 1.0f), FVector2D(0.06f, 0.30f), SafeStress)
 		* FMath::Clamp(ReboundScale, 1.0f, IGStress::BreathReboundScale);
-	Beat.Add({0.0f, 0.16f, 44.0f, Loudness, 0.04f, 2.6f, EIGToneWaveform::Sine});
+	Beat.Add({0.0f, 0.16f, 44.0f, Loudness, 0.04f, 2.6f, EIGToneWaveform::Sub});
 	Beat.Add({0.0f, 0.10f, 88.0f, Loudness * 0.35f, 0.05f, 3.0f, EIGToneWaveform::Sine});
-	Beat.Add({0.20f, 0.13f, 38.0f, Loudness * 0.72f, 0.05f, 2.8f, EIGToneWaveform::Sine});
+	Beat.Add({0.0f, 0.07f, 140.0f, Loudness * 0.90f, 0.06f, 2.4f, EIGToneWaveform::BandNoise, 0.0f});
+	Beat.Add({0.20f, 0.13f, 38.0f, Loudness * 0.72f, 0.05f, 2.8f, EIGToneWaveform::Sub});
+	Beat.Add({0.20f, 0.06f, 120.0f, Loudness * 0.60f, 0.06f, 2.6f, EIGToneWaveform::BandNoise, 0.0f});
 
 	// §18.6 심박 진동. 소리를 만드는 자리에서 함께 낸다 — 따로 두면 둘이
 	// 어긋나도 아무도 모른다.
@@ -652,8 +683,7 @@ void UIGStressComponent::UpdateTremor(const float DeltaSeconds)
 
 float UIGStressComponent::GetHeartbeatWarningScale() const
 {
-	// §19.8. 켜져 있고 임계를 넘었을 때만 부푼다. 그 밖에서는 1이라서
-	// 아래 계산이 예전과 한 글자도 다르게 돌지 않는다.
+	// 심박 경고를 켰고 긴장도가 높을 때만 화면 가장자리를 어둡게 한다.
 	const AActor* Owner = GetOwner();
 	const UWorld* World = Owner ? Owner->GetWorld() : nullptr;
 	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
@@ -663,19 +693,14 @@ float UIGStressComponent::GetHeartbeatWarningScale() const
 	if (!Accessibility
 		|| !Accessibility->UsesHeartbeatWarning()
 		|| Stress < IGStress::HeartbeatHapticStressThreshold
+		|| HeartbeatSuppressionRemaining > 0.0f
+		|| bBreathHeld
 		|| !World)
 	{
 		return 1.0f;
 	}
-	// 심박음이 쓰는 것과 같은 곡선이다. 따로 적으면 경고가 제 박자를
-	// 벗어나고, 그러면 심박이 아니라 그냥 흔들리는 화면이 된다.
-	const float WarningBeatsPerMinute =
-		FMath::Lerp(RestingBPM, PanicBPM, FMath::Pow(Stress, 0.85f));
-	const float BeatsPerSecond =
-		FMath::Max(WarningBeatsPerMinute, 1.0f) / 60.0f;
-	const float Phase = FMath::Frac(World->GetTimeSeconds() * BeatsPerSecond);
-	// 한 박에 한 번 부풀었다 돌아온다.
-	const float Pulse = 0.5f - 0.5f * FMath::Cos(Phase * 2.0f * UE_PI);
+	// 소리와 같은 박자를 쓴다. 숨을 참거나 연출로 소리를 끊으면 함께 멎는다.
+	const float Pulse = 0.5f - 0.5f * FMath::Cos(BeatPhase * 2.0f * UE_PI);
 	return FMath::Lerp(1.0f, IGStress::HeartbeatWarningVignetteScale, Pulse);
 }
 
@@ -703,8 +728,7 @@ void UIGStressComponent::UpdatePostProcess()
 		FVector2D(0.25f, 1.0f), FVector2D(0.0f, 1.0f), Stress);
 	// §18.3 멀미 완화 비네트는 공포와 무관하게 늘 서 있다. 같은 후처리를
 	// 쓰되 둘이 만나면 큰 쪽을 남긴다 — 편하라고 넣은 것이 공포의 터널
-	// 시야를 지워서는 안 된다. 설정이 0이면 아래는 예전과 한 글자도 다르게
-	// 돌지 않는다.
+	// 시야를 지워서는 안 된다.
 	const float Comfort = GetComfortVignetteStrength();
 	const float Weight = FMath::Max(Ramp, Comfort);
 	FearPostProcess->BlendWeight = Weight;
@@ -715,31 +739,50 @@ void UIGStressComponent::UpdatePostProcess()
 
 	FPostProcessSettings& Settings = FearPostProcess->Settings;
 
+	// 이 볼륨은 월드 룩 위에 Weight만큼 섞인다. 목표를 월드 값보다 낮게 잡으면
+	// 겁이 날수록 룩이 오히려 풀린다(밤 비네트 0.46, 색수차 0.45 아래로). 그래서
+	// 목표는 지금 룩에서 출발해 공포 몫만큼만 정점으로 민다. 공포가 없으면 몫이
+	// 0이라 편의 비네트를 켜도 밤의 채도와 색수차는 그대로다. 출발 값은
+	// IGPrologueWorldScene::ApplyNightAtmosphere와 같이 움직여야 한다.
+	const UWorld* World = GetWorld();
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
+		? GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	const bool bSealed = Narrative && Narrative->IsHourSealed();
+	const float FearShare = Ramp / Weight;
+	const auto Toward = [FearShare](const float Base, const float Peak)
+	{
+		return FMath::Lerp(Base, Peak, FearShare);
+	};
+
 	Settings.bOverride_VignetteIntensity = true;
 	Settings.VignetteIntensity = FMath::Max(
 		FMath::Lerp(0.28f, 0.72f, Ramp),
-		Comfort * IGStress::ComfortVignetteCeiling)
+		FMath::Max(
+			Toward(bSealed ? 0.46f : 0.17f, 0.72f),
+			Comfort * IGStress::ComfortVignetteCeiling))
 		* GetHeartbeatWarningScale();
 
 	// Colour drains toward grey as fear rises — tunnel vision is partly a
 	// loss of colour discrimination, and it reads instantly on screen.
 	Settings.bOverride_ColorSaturation = true;
 	Settings.ColorSaturation = FVector4(
-		FMath::Lerp(1.0f, 0.66f, Ramp),
-		FMath::Lerp(1.0f, 0.66f, Ramp),
-		FMath::Lerp(1.0f, 0.70f, Ramp),
+		Toward(bSealed ? 0.80f : 0.93f, 0.66f),
+		Toward(bSealed ? 0.86f : 0.95f, 0.66f),
+		Toward(1.0f, 0.70f),
 		1.0f);
 
 	// A cold cast at the edges of panic.
 	Settings.bOverride_ColorGain = true;
 	Settings.ColorGain = FVector4(
-		FMath::Lerp(1.0f, 0.94f, Ramp),
-		FMath::Lerp(1.0f, 0.97f, Ramp),
-		FMath::Lerp(1.0f, 1.06f, Ramp),
+		Toward(1.0f, 0.94f),
+		Toward(1.0f, 0.97f),
+		Toward(1.0f, 1.06f),
 		1.0f);
 
 	Settings.bOverride_SceneFringeIntensity = true;
-	Settings.SceneFringeIntensity = FMath::Lerp(0.0f, 0.8f, Ramp);
+	Settings.SceneFringeIntensity = Toward(bSealed ? 0.45f : 0.0f, 0.8f);
 
 	Settings.bOverride_FilmGrainIntensity = true;
 	// 밤 기본 0.16 위에 얹히는 값. 그레인 텍스처가 실제로 돌게 된 뒤의 눈금이다.

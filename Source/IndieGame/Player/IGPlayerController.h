@@ -5,6 +5,7 @@
 #include "GameFramework/PlayerController.h"
 #include "IGPlayerController.generated.h"
 
+class UAudioComponent;
 class UInputMappingContext;
 class UIGAccessibilitySubsystem;
 class UIGSaveGame;
@@ -304,6 +305,9 @@ private:
 	bool AdvanceNightFive(float DeltaSeconds);
 	void EndNightFive();
 	FVector NightFiveListenPoint() const;
+	FVector NightFiveAnswerPoint() const;
+	/** 방금 낸 밤 5 소리. 검사가 멈춘 월드에서도 실제로 울고 있는지 본다. */
+	TWeakObjectPtr<UAudioComponent> NightFiveLastCue;
 	/**
 	 * -IGNightFiveProbe. 두 가지를 검사한다.
 	 *

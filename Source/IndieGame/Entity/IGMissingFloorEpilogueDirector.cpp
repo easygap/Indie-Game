@@ -307,6 +307,10 @@ bool AIGMissingFloorEpilogueDirector::StartEpilogue(
 		// Calm으로 넘기면 SwitchScore가 밤의 스코어를 먼저 놓는다. 여기에
 		// 남는 스코어는 없고, 다음 장면이 자기 것을 새로 건다.
 		AudioDirector->SetThreatState(EIGAudioThreatState::Calm);
+		// 선택하는 순간 이미 Calm이라(A는 조율 걸음이, B는 기다림이 대치의 드론을
+		// 놓는다) 위 줄은 대개 아무것도 걷지 않는다. 벽 앞에서 시작한 조율 걸음을
+		// 암전(1.10초)과 함께 여기서 감는다. 정음은 공방에서 처음 닿는다(§10.1).
+		AudioDirector->ReleaseScore(1.10f);
 	}
 
 	InPlayer->GetCharacterMovement()->DisableMovement();
@@ -531,7 +535,8 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				if (UIGMissingFloorAudioSubsystem* AudioDirector =
 					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 				{
-					AudioDirector->RegisterComponent(ScoreBed, EIGAudioBus::Score);
+					// 게임에서 한 번뿐인 정음이다. 원샷에 밀리지 않게 베드로 건다.
+					AudioDirector->RegisterPersistentBed(ScoreBed, EIGAudioBus::Score);
 				}
 				ScoreBed->Play();
 			}
@@ -561,7 +566,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 				if (UIGMissingFloorAudioSubsystem* AudioDirector =
 					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 				{
-					AudioDirector->RegisterComponent(ScoreBed, EIGAudioBus::World);
+					AudioDirector->RegisterPersistentBed(ScoreBed, EIGAudioBus::World);
 				}
 				ScoreBed->Play();
 			}
@@ -615,7 +620,7 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"EpilogueServiceBayHeading",
-				"수습이 끝난 날, 옥상 설비실"),
+				"수습이 끝난 날, 5층"),
 			BuildServiceBayLines(),
 			NSLOCTEXT(
 				"IGMissingFloor",
@@ -643,15 +648,18 @@ void AIGMissingFloorEpilogueDirector::FireCue(const int32 CueIndex)
 		return;
 
 	case 7:
-		// 아무도 없는 5층에서 온다. 이 게임에서 마지막으로 울리는 벽이다.
+		// 아무도 없는 5층에서 온다. 이 게임에서 마지막으로 울리는 벽이고, 그 집의
+		// 신호인 둘-쉬고-하나다. 네 밤 동안 그가 찾아다니며 치던 고른 세 번을 여기
+		// 두면 자막과 반대로 들린다. 6.5m 위에 두어 거리만큼 리버브가 젖게 하고,
+		// 멀어진 만큼은 볼륨으로 메운다.
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.55f),
-			Origin,
-			0.66f,
+			UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.55f),
+			Origin + FVector(0.0f, 0.0f, 650.0f),
+			0.80f,
 			1.0f,
-			IGEpilogue::MontageInnerRadius,
-			IGEpilogue::MontageFalloff,
+			200.0f,
+			3200.0f,
 			EIGAudioBus::Entity);
 		AIGHorrorHUD::PushAudioCaption(
 			this,
@@ -797,10 +805,12 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildServiceBayLines() const
 		"IGMissingFloor",
 		"EpilogueServiceBay1b",
 		"관리실 창은 그날 밤부터 어두웠다."));
+	// §9 B. 현장은 보존 중이라 곁에는 못 간다. 수습 전 두 번의 새벽은 황순금과
+	// 벽 밖에서 대답했다. 각주의 소리 일지가 이 줄에서 받쳐진다.
 	Lines.Add(NSLOCTEXT(
 		"IGMissingFloor",
 		"EpilogueServiceBay2",
-		"새벽이 두 번 지날 때까지 그 옆에 있었다."));
+		"새벽이 두 번 더 오는 동안, 401호 할머니와 벽 밖에서 대답했다."));
 	if (Narrative
 		&& Narrative->HasWitness(EIGMissingFloorWitness::RooftopCigarettePack))
 	{
@@ -862,10 +872,12 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 	if (Narrative
 		&& Narrative->HasWitness(EIGMissingFloorWitness::SeoSleepingPills))
 	{
+		// 출석 의사는 공통 사실이라 약봉투를 본 회차에도 남는다. 본 회차에는
+		// 그 사람의 말이 더해질 뿐이다.
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueNews4Seen",
-			"전 세입자 서모씨는 「그 뒤로 새벽마다 깼다」고 말했다"));
+			"전 세입자 서모씨는 「그 뒤로 새벽마다 깼다」며 출석 의사를 밝혔다"));
 	}
 	else
 	{
@@ -888,14 +900,16 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 	else if (Narrative
 		&& Narrative->HasWitness(EIGMissingFloorWitness::BoothWallCalendar))
 	{
+		// 밤2에 본 것은 관리실 벽 달력이다. 그 주의 민원 대장은 비어 있지 않다.
 		Lines.Add(NSLOCTEXT(
 			"IGMissingFloor",
 			"EpilogueNews6Calendar",
-			"관리 일지는 7월 26일 이후 한 주가 통째로 비어 있었다"));
+			"관리실 벽 달력은 지난해 7월 26일에 표시된 채 멈춰 있었다"));
 	}
 
 	// §13의 회수는 목격과 무관하게 남는다. 근무표를 본 회차에만 그 제보가
-	// 무엇으로 뒷받침됐는지까지 말한다.
+	// 무엇으로 뒷받침됐는지까지 말한다. 근무표를 못 봤어도 뒤편 안내문을 보고
+	// 나린에게 택배를 물었다면, 그때 들은 말이 그대로 진술이 된다.
 	if (Narrative
 		&& Narrative->HasWitness(EIGMissingFloorWitness::StoreNightRoster))
 	{
@@ -903,6 +917,14 @@ TArray<FText> AIGMissingFloorEpilogueDirector::BuildNewsLines() const
 			"IGMissingFloor",
 			"EpilogueNews5Roster",
 			"인근 편의점 직원은 사건 당일 야간 근무 중 들은 소리를 진술했다"));
+	}
+	else if (Narrative
+		&& Narrative->HasBeatPlayed(FName(TEXT("Neighborhood.DeliveryDiscussed"))))
+	{
+		Lines.Add(NSLOCTEXT(
+			"IGMissingFloor",
+			"EpilogueNews5Parcel",
+			"인근 편의점 직원은 실종자의 택배를 건물주가 찾아갔다고 진술했다"));
 	}
 	else
 	{

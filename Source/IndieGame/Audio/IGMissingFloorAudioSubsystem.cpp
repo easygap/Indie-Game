@@ -1,13 +1,18 @@
 ﻿#include "Audio/IGMissingFloorAudioSubsystem.h"
 
+#include "Audio/IGAmbienceSoundWave.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "AudioDevice.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
+#include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
+#include "Entity/IGListenerEntity.h"
 #include "GameFramework/PlayerController.h"
 #include "Kismet/GameplayStatics.h"
+#include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Sound/ReverbEffect.h"
@@ -26,6 +31,24 @@ namespace IGMissingFloorMix
 	constexpr float TitleKnockDelaySeconds = 4.0f;
 	constexpr float TitleReplyDelaySeconds = 1.15f;
 	constexpr float TitleCycleSeconds = 12.0f;
+	/**
+	 * 엔딩 카드가 닫힌 뒤의 첫 타이틀. 무음 카드 뒤에 3초를 더 비우고, 모티프는
+	 * 6초에 걸쳐 오르며, 그의 첫 노크는 24초에 온다. 한 번뿐이다.
+	 */
+	constexpr float PostEndingTitleSilenceSeconds = 3.0f;
+	constexpr float PostEndingTitleFadeSeconds = 6.0f;
+	constexpr float PostEndingFirstKnockSeconds = 24.0f;
+	/** 소리 맞추기에서 음악·환경음 칸을 바꿨을 때 들려주는 길이. */
+	constexpr double CalibrationPreviewSeconds = 2.6;
+
+	/**
+	 * 진실 확정 타건. 확정은 대개 망치 타격이나 차단기 딸깍과 같은 프레임에 온다.
+	 * 그 어택을 비켜 조금 늦게 치고, 여럿이 한꺼번에 확정되면 모티프의 타건
+	 * 간격으로 한 음씩 친다. 지정 침묵이 걷힌 뒤에는 음악 버스가 돌아올 틈을 준다.
+	 */
+	constexpr double TruthStrikeGraceSeconds = 0.9;
+	constexpr double TruthStrikeSpacingSeconds = 1.70;
+	constexpr float TruthStrikeAfterSilenceSeconds = 0.6f;
 
 	/**
 	 * §10.4 거리 리버브 문법. 두 프리셋은 같은 태그를 공유하므로 뒤에
@@ -36,6 +59,17 @@ namespace IGMissingFloorMix
 	constexpr float AcousticSpaceReverbPriority = 1.0f;
 	constexpr float AcousticCrossfadeSeconds = 0.90f;
 	constexpr float AcousticPollIntervalSeconds = 0.20f;
+
+	/**
+	 * 지상에서 빌라 밖. 골목·옆 샛길·편의점 바닥에는 발밑 표면 태그가 없어서
+	 * 표면으로 가르면 복도가 된다. 빌라 남쪽 외벽 바깥면(Y −395)보다 남쪽이
+	 * 골목이고, 승강기 샤프트(X 880까지) 동쪽이 옆 샛길과 편의점이다. 편의점은
+	 * 좁고 물건이 들어차 복도 잔향이 맞지 않으니 같이 마른 소리로 둔다. 로비와
+	 * 필로티 주차장은 이 선 안쪽이라 그대로 복도다.
+	 */
+	constexpr float OutdoorGroundMaxZ = 300.0f;
+	constexpr float VillaSouthFaceY = -395.0f;
+	constexpr float VillaEastEdgeX = 900.0f;
 
 	/**
 	 * 복도 — 1.2m 폭, 2.4m 천장, 석고 마감에 세대문 세 짝. 맨 콘크리트
@@ -75,6 +109,8 @@ namespace IGMissingFloorMix
 		-6.0f   // SCORE
 	};
 
+	// 상한은 한 번 울고 마는 소리만 센다. 늘 우는 베드(험·물소리·끌림·숨·음악)는
+	// 자리를 차지하지 않고 밀리지도 않는다.
 	constexpr int32 VoiceCaps[] =
 	{
 		4,  // ENTITY
@@ -82,8 +118,8 @@ namespace IGMissingFloorMix
 		6,  // PUZZLE
 		12, // WORLD
 		8,  // UI: navigation remains responsive under caption churn
-		// SCORE: 거리 압박, 현재 음악, 전환 꼬리, 단서 확인음에 한 자리씩 둔다.
-		// 확인음을 연달아 들어도 음악과 4초짜리 추격 꼬리는 남아야 한다.
+		// SCORE: 거리 압박, 현재 음악, 빠지는 꼬리는 베드라 세지 않는다. 남은 자리는
+		// 확인음처럼 한 번 울고 마는 음악 몫이다.
 		4
 	};
 
@@ -159,6 +195,12 @@ void UIGMissingFloorAudioSubsystem::Deinitialize()
 		}
 	}
 	StopScore(0.0f);
+	if (IsValid(ChaseTailComponent))
+	{
+		ChaseTailComponent->Stop();
+	}
+	ChaseTailComponent = nullptr;
+	ChaseReleaseStopAtSeconds = -1.0;
 	if (IsValid(PresenceComponent))
 	{
 		PresenceComponent->Stop();
@@ -170,6 +212,12 @@ void UIGMissingFloorAudioSubsystem::Deinitialize()
 		StingerComponent->Stop();
 	}
 	StingerComponent = nullptr;
+	if (IsValid(CalibrationPreviewComponent))
+	{
+		CalibrationPreviewComponent->Stop();
+	}
+	CalibrationPreviewComponent = nullptr;
+	CalibrationPreviewStopRealTime = -1.0;
 	bMixPushed = false;
 	bAcousticSpaceApplied = false;
 	bAcousticSpaceResolved = false;
@@ -208,9 +256,17 @@ void UIGMissingFloorAudioSubsystem::OnWorldBeginPlay(UWorld& InWorld)
 
 void UIGMissingFloorAudioSubsystem::Tick(const float DeltaTime)
 {
-	if (bTitleMode)
+	if (bTitleMode && !bTitleSoundscapeHeld)
 	{
 		const double Now = FPlatformTime::Seconds();
+		// 엔딩 직후의 타이틀. 비워 둔 몇 초가 지나면 모티프가 천천히 오른다.
+		if (PendingTitleScoreRealTime > 0.0 && Now >= PendingTitleScoreRealTime)
+		{
+			PendingTitleScoreRealTime = -1.0;
+			bPostEndingScoreFade = true;
+			SwitchScore(EIGAudioThreatState::Calm, true);
+			bPostEndingScoreFade = false;
+		}
 		if (PendingTitleReplyRealTime > 0.0
 			&& Now >= PendingTitleReplyRealTime)
 		{
@@ -221,6 +277,12 @@ void UIGMissingFloorAudioSubsystem::Tick(const float DeltaTime)
 		{
 			PlayTitleKnockCycle();
 		}
+	}
+	// 소리 맞추기의 미리 듣기는 메뉴가 월드를 멈춰 둔 동안 운다. 실시간으로 끝낸다.
+	if (CalibrationPreviewStopRealTime > 0.0
+		&& FPlatformTime::Seconds() >= CalibrationPreviewStopRealTime)
+	{
+		StopCalibrationPreview(0.4f);
 	}
 	VoicePruneAccumulator += DeltaTime;
 	if (VoicePruneAccumulator >= 0.25f)
@@ -237,6 +299,28 @@ void UIGMissingFloorAudioSubsystem::Tick(const float DeltaTime)
 	}
 
 	const UWorld* World = GetWorld();
+	// 추격이 끝나고 내려 둔 루프는 꼬리 시간이 지나도 추격이 돌아오지 않으면 멈춘다.
+	if (ChaseReleaseStopAtSeconds > 0.0 && World
+		&& World->GetTimeSeconds() >= ChaseReleaseStopAtSeconds)
+	{
+		ChaseReleaseStopAtSeconds = -1.0;
+		if (IsValid(ReleasingScoreComponent)
+			&& ReleasingScoreState == EIGAudioThreatState::Chasing)
+		{
+			ReleasingScoreComponent->Stop();
+			ReleasingScoreComponent = nullptr;
+		}
+	}
+	// 진실 확정 타건은 한 번에 하나씩. 침묵 안에서는 기다리고 타이틀에서는 치지 않는다.
+	if (PendingTruthStrikes.Num() > 0 && !bTitleMode && !bAuthoredSilence && World
+		&& World->GetTimeSeconds() >= NextTruthStrikeWorldSeconds)
+	{
+		const int32 StrikeIndex = PendingTruthStrikes[0];
+		PendingTruthStrikes.RemoveAt(0);
+		PlayTruthStrikeNow(StrikeIndex);
+		NextTruthStrikeWorldSeconds =
+			World->GetTimeSeconds() + IGMissingFloorMix::TruthStrikeSpacingSeconds;
+	}
 	if (bEntityNearPlayer && World
 		&& World->GetTimeSeconds() - LastEntityDistanceUpdateSeconds
 			> IGMissingFloorMix::EntityDistanceLeaseSeconds)
@@ -315,7 +399,8 @@ void UIGMissingFloorAudioSubsystem::RegisterComponent(
 void UIGMissingFloorAudioSubsystem::RegisterVoice(
 	UAudioComponent* Component,
 	const EIGAudioBus Bus,
-	const bool bPersistent)
+	const bool bPersistent,
+	const bool bExpendable)
 {
 	if (!Component)
 	{
@@ -329,6 +414,8 @@ void UIGMissingFloorAudioSubsystem::RegisterVoice(
 		PrepareSound(Component->GetSound(), Bus);
 	}
 
+	// 상시 베드는 소모음이 될 수 없다. 둘 다 켜져 오면 베드로 본다.
+	const bool bNewExpendable = bExpendable && !bPersistent;
 	TArray<FTrackedVoice>& Voices = ActiveVoices[BusIndex];
 	Voices.RemoveAll([](const FTrackedVoice& Voice)
 	{
@@ -340,40 +427,69 @@ void UIGMissingFloorAudioSubsystem::RegisterVoice(
 		if (Voice.Component == Component)
 		{
 			Voice.bPersistent = bPersistent;
+			Voice.bExpendable = bNewExpendable;
 			return;
 		}
 	}
 
-	const int32 VoiceCap = GetVoiceCap(Bus);
-	while (Voices.Num() >= VoiceCap && Voices.Num() > 0)
+	// 상한은 한 번 울고 마는 소리만 센다. 베드는 자리를 차지하지도 누구를 밀지도
+	// 않는다. 예전에는 베드까지 세면서 밀기는 비상시 소리만 밀어서, 끌림과 숨이
+	// ENTITY 네 자리 중 둘을 쥐고 있었고 추격 진입 스팅어가 걸음 두 번에 밀렸다.
+	if (!bPersistent)
 	{
-		int32 OldestIndex = INDEX_NONE;
-		for (int32 Index = 0; Index < Voices.Num(); ++Index)
+		const int32 VoiceCap = GetVoiceCap(Bus);
+		int32 TransientCount = 0;
+		for (const FTrackedVoice& Voice : Voices)
 		{
-			if (Voices[Index].bPersistent)
+			TransientCount += Voice.bPersistent ? 0 : 1;
+		}
+		while (TransientCount >= VoiceCap && TransientCount > 0)
+		{
+			// 소모음(기는 걸음)이 있으면 그중 가장 오래된 것, 없으면 가장 오래된 소리.
+			int32 OldestIndex = INDEX_NONE;
+			for (int32 Index = 0; Index < Voices.Num(); ++Index)
 			{
-				continue;
-			}
-			if (OldestIndex == INDEX_NONE
-				|| Voices[Index].Serial < Voices[OldestIndex].Serial)
-			{
+				if (Voices[Index].bPersistent)
+				{
+					continue;
+				}
+				if (OldestIndex != INDEX_NONE)
+				{
+					const FTrackedVoice& Candidate = Voices[Index];
+					const FTrackedVoice& Current = Voices[OldestIndex];
+					const bool bCheaperTier =
+						Candidate.bExpendable && !Current.bExpendable;
+					const bool bOlderSameTier =
+						Candidate.bExpendable == Current.bExpendable
+						&& Candidate.Serial < Current.Serial;
+					if (!bCheaperTier && !bOlderSameTier)
+					{
+						continue;
+					}
+				}
 				OldestIndex = Index;
 			}
+			if (OldestIndex == INDEX_NONE)
+			{
+				// 셀 수 있는 소리가 없다. 여기서 계속 돌면 멈추지 않는다.
+				return;
+			}
+			if (bNewExpendable && !Voices[OldestIndex].bExpendable)
+			{
+				// 걸음은 대본 소리(스팅어·덮침·들숨)를 밀지 않는다. 자리가 없으면
+				// 추적 없이 울고 끝난다 — 짧은 소리라 쌓여도 곧 걷힌다.
+				return;
+			}
+			if (UAudioComponent* Oldest = Voices[OldestIndex].Component.Get())
+			{
+				Oldest->FadeOut(0.12f, 0.0f);
+			}
+			Voices.RemoveAt(OldestIndex);
+			--TransientCount;
 		}
-		if (OldestIndex == INDEX_NONE)
-		{
-			// 남은 게 전부 늘 우는 소리다. 밀 수 있는 게 없으니 새 소리를
-			// 얹지 않고 물러난다 — 여기서 계속 돌면 멈추지 않는다.
-			return;
-		}
-		if (UAudioComponent* Oldest = Voices[OldestIndex].Component.Get())
-		{
-			Oldest->FadeOut(0.12f, 0.0f);
-		}
-		Voices.RemoveAt(OldestIndex);
 	}
 
-	Voices.Add({Component, NextVoiceSerial++, bPersistent});
+	Voices.Add({Component, NextVoiceSerial++, bPersistent, bNewExpendable});
 }
 
 void UIGMissingFloorAudioSubsystem::RegisterPersistentBed(
@@ -383,12 +499,30 @@ void UIGMissingFloorAudioSubsystem::RegisterPersistentBed(
 	RegisterVoice(Component, Bus, /*bPersistent=*/true);
 }
 
+void UIGMissingFloorAudioSubsystem::RegisterExpendable(
+	UAudioComponent* Component,
+	const EIGAudioBus Bus)
+{
+	RegisterVoice(Component, Bus, /*bPersistent=*/false, /*bExpendable=*/true);
+}
+
 void UIGMissingFloorAudioSubsystem::SetThreatState(
 	const EIGAudioThreatState NewState)
 {
 	if (ThreatState == NewState)
 	{
 		return;
+	}
+	// 대치 뒤 그가 잠들며 보내는 Calm은 붙든 피날레 드론을 걷지 않는다. 상태는
+	// Finale로 남겨 두어야 나중에 붙듦을 풀고 Calm을 보낼 때 드론이 실제로 빠진다.
+	// 다른 상태가 오면 장면이 이미 넘어간 것이므로 붙듦을 푼다.
+	if (bFinaleScoreHeld)
+	{
+		if (NewState == EIGAudioThreatState::Calm)
+		{
+			return;
+		}
+		bFinaleScoreHeld = false;
 	}
 	ThreatState = NewState;
 	bEntityListening = NewState == EIGAudioThreatState::Listening;
@@ -510,7 +644,21 @@ void UIGMissingFloorAudioSubsystem::SetPlayerListening(const bool bListening)
 	RefreshMix();
 }
 
-void UIGMissingFloorAudioSubsystem::SetAuthoredSilence(const bool bSilent)
+void UIGMissingFloorAudioSubsystem::SetEntityListening(const bool bListening)
+{
+	// 조사 끝의 제자리 청취(Holding)는 음악이 조사 드론 그대로라 SetThreatState가
+	// 알 수 없다. 청취 창의 WORLD −6dB만 여기서 따로 건다.
+	if (bEntityListening == bListening)
+	{
+		return;
+	}
+	bEntityListening = bListening;
+	RefreshMix();
+}
+
+void UIGMissingFloorAudioSubsystem::SetAuthoredSilence(
+	const bool bSilent,
+	const float ReleaseFadeSeconds)
 {
 	if (bAuthoredSilence == bSilent)
 	{
@@ -521,7 +669,21 @@ void UIGMissingFloorAudioSubsystem::SetAuthoredSilence(const bool bSilent)
 	{
 		StingerComponent->FadeOut(0.08f, 0.0f);
 	}
-	RefreshMix(bSilent ? 0.08f : 0.45f);
+	const float ReleaseSeconds = FMath::Max(0.0f, ReleaseFadeSeconds);
+	if (!bSilent)
+	{
+		// 침묵 안에서 확정된 진실은 침묵이 걷힌 뒤에 친다. 음악 버스가 −∞에서
+		// 돌아올 틈을 먼저 주고, 복귀가 길면 그 중간쯤에서 쳐 공기와 같이 오르게 한다.
+		if (const UWorld* World = GetWorld())
+		{
+			NextTruthStrikeWorldSeconds = FMath::Max(
+				NextTruthStrikeWorldSeconds,
+				World->GetTimeSeconds() + FMath::Max(
+					IGMissingFloorMix::TruthStrikeAfterSilenceSeconds,
+					ReleaseSeconds * 0.6f));
+		}
+	}
+	RefreshMix(bSilent ? 0.08f : ReleaseSeconds);
 }
 
 void UIGMissingFloorAudioSubsystem::SetEntityDistance(
@@ -561,10 +723,19 @@ void UIGMissingFloorAudioSubsystem::UpdatePresenceLayer(const float DistanceCent
 		FadePresenceLayer(0.0f, 0.12f);
 		return;
 	}
-	// 14m 밖에서 0, 3m 안에서 1. 1.6제곱이라 멀리서는 거의 없고 가까워질수록
-	// 급하게 차오른다. 추격 중에는 거리와 무관하게 절반은 깔린다.
+	// 그가 듣는 거리의 3m 바깥에서 0, 3m 안에서 1. 밤이 깊을수록 그가 멀리서
+	// 들으므로 공기도 멀리서부터 무거워진다(밤1 12m, 밤2·3 14m, 밤4 16m). 1.6제곱이라
+	// 멀리서는 거의 없고 가까워질수록 급하게 차오른다. 추격 중에는 거리와 무관하게
+	// 절반은 깔린다.
+	const float Reach = GetPresenceReachCentimeters();
 	float Target = FMath::Pow(
-		FMath::Clamp((1400.0f - DistanceCentimeters) / 1100.0f, 0.0f, 1.0f), 1.6f);
+		FMath::Clamp((Reach - DistanceCentimeters) / (Reach - 300.0f), 0.0f, 1.0f), 1.6f);
+	// 그가 듣는 창에는 세계가 숨을 참는다(§10.2). WORLD가 −6dB 내려가도 코앞에서는
+	// 이 층의 저역이 그 신호를 덮으므로, 같은 −6dB(진폭 절반)를 여기에도 건다.
+	if (bEntityListening)
+	{
+		Target *= 0.5f;
+	}
 	if (ThreatState == EIGAudioThreatState::Chasing)
 	{
 		Target = FMath::Max(Target, 0.5f);
@@ -638,7 +809,7 @@ bool UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVe
 		return false;
 	}
 	const double Now = World->GetTimeSeconds();
-	// 재탐색과 추격이 짧게 오가도 비명을 연달아 지르지 않는다.
+	// 재탐색과 추격이 짧게 오가도 추격 진입 타격을 연달아 내지 않는다.
 	if (Kind == EIGStinger::ChaseStart && Now - LastChaseStingerSeconds < 6.0)
 	{
 		return false;
@@ -662,8 +833,11 @@ bool UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVe
 		Volume = 0.95f;
 		break;
 	case EIGStinger::ChaseStart:
+		// 굳은 몸이 튀어 나가는 소리다. 금속 타격과 땅울림, 목소리는 없다(§4.6
+		// 포효·괴성 금지 — 사람 비명 녹음 Entity_Scream은 쓰지 않는다). 녹음이
+		// 없으면 손바닥·미장·끌림으로 짠 합성음으로 내려간다.
 		Wave = IGAudio::SampleOr(
-			TEXT("Entity_Scream"),
+			TEXT("Stinger_ChaseStart"),
 			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateEntityChaseScream(this); });
 		Volume = 1.0f;
 		break;
@@ -682,7 +856,11 @@ bool UIGMissingFloorAudioSubsystem::PlayStinger(const EIGStinger Kind, const FVe
 	{
 		StingerComponent->FadeOut(0.08f, 0.0f);
 	}
-	StingerComponent = IGAudio::SpawnOneShotAt(
+	// 놀람은 그의 걸음이나 다른 원샷에 밀리지 않고, 제가 대본 소리를 밀지도 않는다.
+	// 처음부터 상시 소리로 건다. 일반 소리로 먼저 들어오면 ENTITY 네 자리가 차
+	// 있을 때 문 노크의 철판 타격 같은 대본 소리 하나를 밀어낸 뒤에야 상시가
+	// 됐다. 끝나면 스스로 지워지고 PruneVoices가 목록에서 걷는다.
+	StingerComponent = IGAudio::SpawnPersistentOneShotAt(
 		this, Wave, Location, Volume, 1.0f, 240.0f, 2600.0f, EIGAudioBus::Entity);
 	if (StingerComponent && Kind == EIGStinger::ChaseStart)
 	{
@@ -700,12 +878,80 @@ void UIGMissingFloorAudioSubsystem::SetTitleMode(const bool bEnabled)
 	bTitleMode = bEnabled;
 	if (bTitleMode)
 	{
+		// 지난 밤에 치지 못한 확정음이 타이틀이나 다음 게임으로 새지 않는다.
+		PendingTruthStrikes.Reset();
+		// 소리 맞추기에서 틀던 미리 듣기가 타이틀 음악 위에 남지 않는다.
+		StopCalibrationPreview();
 		StartTitleSoundscape();
 	}
 	else
 	{
 		StopTitleSoundscape();
 	}
+}
+
+void UIGMissingFloorAudioSubsystem::HoldTitleSoundscape(const bool bHold)
+{
+	if (!bTitleMode || bTitleSoundscapeHeld == bHold)
+	{
+		return;
+	}
+	bTitleSoundscapeHeld = bHold;
+	if (!bHold)
+	{
+		// 처음 타이틀에 들어온 것과 같다. 모티프가 1.2초에 걸쳐 오르고 노크는 4초 뒤.
+		StartTitleSoundscape();
+		return;
+	}
+	// 밤 5의 30초는 대부분 침묵이다. 타이틀의 조율과 사냥 노크가 그 자리를 채우면
+	// 슬롯이 다른 장면이 된다.
+	NextTitleKnockRealTime = -1.0;
+	PendingTitleReplyRealTime = -1.0;
+	StopScore(1.2f);
+}
+
+void UIGMissingFloorAudioSubsystem::ReleaseScore(const float FadeSeconds)
+{
+	if (bTitleMode)
+	{
+		return;
+	}
+	StopScore(FMath::Max(0.0f, FadeSeconds));
+	// 걷은 음악을 지금의 위협 상태가 다시 부르지 않게 맞춰 둔다.
+	ActiveScoreState = ThreatState;
+}
+
+void UIGMissingFloorAudioSubsystem::ReleaseScoreForDawn(const float FadeSeconds)
+{
+	if (bTitleMode)
+	{
+		return;
+	}
+	// 그가 잠드는 것은 눈이 다 감긴 뒤다. 그때 Calm이 와서 추격 꼬리를 새로 치면
+	// 스탭이 「문이 열린다. 아침이다.」 위로 4초를 운다. 눈을 감는 동안 먼저 걷고,
+	// 뒤따르는 Calm에는 걷을 음악이 남지 않게 한다.
+	const float Seconds = FMath::Max(0.05f, FadeSeconds);
+	FadeChaseTail(Seconds);
+	ChaseReleaseStopAtSeconds = -1.0;
+	ReleaseScore(Seconds);
+	FadePresenceLayer(0.0f, Seconds);
+}
+
+void UIGMissingFloorAudioSubsystem::HoldFinaleScore(const bool bHold)
+{
+	bFinaleScoreHeld = bHold && !bTitleMode
+		&& ThreatState == EIGAudioThreatState::Finale
+		&& ActiveScoreState == EIGAudioThreatState::Finale;
+}
+
+void UIGMissingFloorAudioSubsystem::DuckFinaleScore(const float Seconds, const float Level)
+{
+	if (ActiveScoreState != EIGAudioThreatState::Finale || !IsValid(ScoreComponent))
+	{
+		return;
+	}
+	// 0으로 가는 페이드는 엔진에서 정지다. 가라앉히기만 하고 끄지 않는다.
+	ScoreComponent->AdjustVolume(FMath::Max(0.0f, Seconds), FMath::Max(Level, 0.05f));
 }
 
 void UIGMissingFloorAudioSubsystem::SetUserMasterVolume(
@@ -767,6 +1013,8 @@ void UIGMissingFloorAudioSubsystem::PlayCalibrationKnock()
 	{
 		return;
 	}
+	// 보정은 노크 하나로 판단한다. 음악·환경음 미리 듣기가 그 위에 남지 않는다.
+	StopCalibrationPreview();
 	++CalibrationKnockPlayCount;
 	const APlayerController* Controller = GetWorld()->GetFirstPlayerController();
 	const APlayerCameraManager* Camera = Controller
@@ -793,6 +1041,23 @@ void UIGMissingFloorAudioSubsystem::PlayCalibrationKnock()
 }
 
 void UIGMissingFloorAudioSubsystem::PlayTruthConfirmation(
+	const int32 ConfirmationIndex)
+{
+	const UWorld* World = GetWorld();
+	if (!World || ConfirmationIndex <= 0)
+	{
+		return;
+	}
+	// 확정은 망치 타격이나 수첩을 여는 소리와 같은 프레임에 온다. 그 어택 뒤로
+	// 비켜서 치고, 앞선 타건이 남아 있으면 그 뒤에 줄을 선다. 침묵 중이면 Tick이
+	// 침묵이 걷힐 때까지 기다린다(P4의 대답은 정적 한가운데서 확정된다).
+	PendingTruthStrikes.Add(ConfirmationIndex);
+	NextTruthStrikeWorldSeconds = FMath::Max(
+		NextTruthStrikeWorldSeconds,
+		World->GetTimeSeconds() + IGMissingFloorMix::TruthStrikeGraceSeconds);
+}
+
+void UIGMissingFloorAudioSubsystem::PlayTruthStrikeNow(
 	const int32 ConfirmationIndex)
 {
 	UWorld* World = GetWorld();
@@ -829,10 +1094,17 @@ void UIGMissingFloorAudioSubsystem::PlayEndingATuningResolution()
 	{
 		return;
 	}
+	// 조율 걸음은 혼자 울린다. 대기 중인 확정음이 그 위에 얹히지 않는다.
+	PendingTruthStrikes.Reset();
 	bAuthoredSilence = false;
 	RefreshMix(0.45f);
 	StopScore(0.45f);
 	ActiveScoreState = EIGAudioThreatState::Finale;
+	// 붙들어 둔 대치의 드론은 방금 걷었다. 위협 상태를 먼저 Calm으로 두어야 뒤따르는
+	// 새벽 전환과 에필로그의 Calm이 조율 걸음을 끊지 않는다. 걸음은 에필로그의
+	// ReleaseScore가 암전과 함께 감는다.
+	bFinaleScoreHeld = false;
+	ThreatState = EIGAudioThreatState::Calm;
 	UIGToneSequenceSoundWave* Resolution =
 		UIGToneSequenceSoundWave::CreateTuningMotif(this, true);
 	PrepareSound(Resolution, EIGAudioBus::Score);
@@ -1129,6 +1401,16 @@ void UIGMissingFloorAudioSubsystem::PollAcousticSpace()
 	{
 		return;
 	}
+	// 지상의 빌라 밖(골목·옆 샛길·편의점)은 위치로 먼저 가른다. 그 바닥에는
+	// 표면 태그가 없다. 밤에는 건물이 잠겨 여기 올 수 없다.
+	const FVector At = Character->GetActorLocation();
+	if (At.Z < IGMissingFloorMix::OutdoorGroundMaxZ
+		&& (At.Y < IGMissingFloorMix::VillaSouthFaceY
+			|| At.X > IGMissingFloorMix::VillaEastEdgeX))
+	{
+		SetAcousticSpace(EIGAcousticSpace::Open);
+		return;
+	}
 	// 마지막으로 밟은 표면은 끈적하게 유지된다. 계단참에 멈춰 서 있어도
 	// 계단실 반향이 풀리지 않는 것이 옳다 — 공간은 걷지 않아도 그대로다.
 	SetAcousticSpace(
@@ -1189,13 +1471,33 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 	{
 		ReleasingScoreComponent = nullptr;
 	}
+	// 대치의 드론은 최종 선택 아래서 천천히 빠진다. 0.3초에 걷히면 벽 앞이 갑자기
+	// 비어 버린다.
 	const float ReleaseSeconds = ActiveScoreState == EIGAudioThreatState::Chasing
 		? 4.0f
-		: 0.30f;
-	StopScore(NewState == EIGAudioThreatState::Captured ? 0.12f : ReleaseSeconds);
+		: (ActiveScoreState == EIGAudioThreatState::Finale ? 5.0f : 0.30f);
+	// 추격이 다른 상태로 풀리면 펄스부터 빼고 스탭 하나를 남긴다. 포획은 제 연출이
+	// 있고 타이틀은 제 음악이 있으니 거기서는 예전처럼 통째로 줄인다.
+	const bool bChaseRelease = !bTitleMode
+		&& ActiveScoreState == EIGAudioThreatState::Chasing
+		&& NewState != EIGAudioThreatState::Captured;
+	// 붙잡히는 암전과 다시 시작되는 추격 위에는 지난 스탭이 남지 않는다.
+	if (NewState == EIGAudioThreatState::Captured)
+	{
+		FadeChaseTail(0.12f);
+	}
+	else if (NewState == EIGAudioThreatState::Chasing)
+	{
+		FadeChaseTail(0.25f);
+	}
+	StopScore(
+		NewState == EIGAudioThreatState::Captured ? 0.12f : ReleaseSeconds,
+		bChaseRelease);
 	ActiveScoreState = NewState;
 	if (Resume)
 	{
+		// 내려 두었던 그 루프다. 멈출 예약을 거두고 같은 박자에서 다시 올린다.
+		ChaseReleaseStopAtSeconds = -1.0;
 		ScoreComponent = Resume;
 		RegisterPersistentBed(ScoreComponent, EIGAudioBus::Score);
 		ScoreComponent->AdjustVolume(0.25f, 1.0f);
@@ -1204,33 +1506,57 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 
 	UIGToneSequenceSoundWave* Score = nullptr;
 	float Volume = 1.0f;
+	float ScorePitch = 1.0f;
 	// §10.2: 조사 드론은 「페이드인」이다. 갑자기 켜지는 스코어는 드론이 아니라
 	// 스팅이고, 스팅은 그의 것이지 음악의 것이 아니다. 추격만 빠르게 든다 —
-	// 비명이 먼저 왔으니 음악이 그 뒤를 바로 받아야 한다.
+	// 추격 진입 타격이 먼저 왔으니 음악이 그 뒤를 바로 받아야 한다.
 	float FadeInSeconds = 0.30f;
 	if (bTitleMode)
 	{
 		Score = UIGToneSequenceSoundWave::CreateTuningMotif(this, false);
 		Volume = 0.78f;
-		FadeInSeconds = 1.2f;
+		// 엔딩 직후에는 더 천천히 오른다. 배수는 그대로, 페이더만 늦게 올린다.
+		FadeInSeconds = bPostEndingScoreFade
+			? IGMissingFloorMix::PostEndingTitleFadeSeconds
+			: 1.2f;
 	}
 	else
 	{
+		// 밤과 티어가 오를수록 같은 음악이 급해진다. 음이 촘촘해지는 것은 밤마다
+		// 파형이 맡고, 빨라지는 것은 재생 배율이 맡는다(박자와 음높이가 같이 오른다).
+		// 밤2가 118BPM 그대로이고, 밤4 티어3이 약 132BPM이다. 순찰에는 여전히 음악이
+		// 없고, 드론은 여전히 그가 조사할 때만 운다.
+		int32 NightIndex = 2;
+		int32 Tier = 0;
+		if (NewState == EIGAudioThreatState::Investigating
+			|| NewState == EIGAudioThreatState::Chasing)
+		{
+			ResolveScoreEscalation(NightIndex, Tier);
+		}
+		static constexpr float NightChasePitch[] = {1.00f, 1.00f, 1.04f, 1.08f};
+		const float ChasePitch = FMath::Min(
+			1.12f,
+			NightChasePitch[FMath::Clamp(NightIndex, 1, 4) - 1] + 0.015f * Tier);
 		switch (NewState)
 		{
 		case EIGAudioThreatState::Investigating:
-			Score = UIGToneSequenceSoundWave::CreateCavityDrone(this);
-			Volume = 0.82f;
+			Score = UIGToneSequenceSoundWave::CreateCavityDrone(this, NightIndex);
+			// 밤마다 한 걸음씩 앞에 선다. 대치의 드론보다는 늘 뒤다.
+			Volume = FMath::Clamp(0.82f + 0.04f * (NightIndex - 2), 0.78f, 0.90f);
+			ScorePitch = 1.0f + (ChasePitch - 1.0f) * 0.5f;
 			FadeInSeconds = 1.8f;
 			break;
 		case EIGAudioThreatState::Chasing:
-			Score = UIGToneSequenceSoundWave::CreateChaseScore(this);
-			Volume = 1.0f;
+			Score = UIGToneSequenceSoundWave::CreateChaseScore(this, NightIndex);
+			Volume = NightIndex <= 1 ? 0.85f : 1.0f;
+			ScorePitch = ChasePitch;
 			FadeInSeconds = 0.30f;
 			break;
 		case EIGAudioThreatState::Finale:
-			Score = UIGToneSequenceSoundWave::CreateCavityDrone(this);
-			Volume = 0.62f;
+			// 대치의 드론은 조사 드론보다 크고, 열 번째 진실의 음을 품는다. 그 음이
+			// 제 높이에 있어야 엔딩 A의 조율 걸음이 그것을 푼다. 재생 배율은 1이다.
+			Score = UIGToneSequenceSoundWave::CreateCavityDrone(this, 4, true);
+			Volume = 0.95f;
 			FadeInSeconds = 1.6f;
 			break;
 		case EIGAudioThreatState::Calm:
@@ -1251,7 +1577,7 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 		GetWorld(),
 		Score,
 		Volume,
-		1.0f,
+		ScorePitch,
 		0.0f,
 		nullptr,
 		false,
@@ -1267,7 +1593,9 @@ void UIGMissingFloorAudioSubsystem::SwitchScore(
 	}
 }
 
-void UIGMissingFloorAudioSubsystem::StopScore(const float FadeSeconds)
+void UIGMissingFloorAudioSubsystem::StopScore(
+	const float FadeSeconds,
+	const bool bChaseRelease)
 {
 	if (IsValid(ReleasingScoreComponent))
 	{
@@ -1288,10 +1616,42 @@ void UIGMissingFloorAudioSubsystem::StopScore(const float FadeSeconds)
 		ScoreComponent = nullptr;
 		return;
 	}
+	UWorld* World = GetWorld();
 	// 방금 빠지기 시작한 꼬리는 끝까지 보호한다. 단서 확인음이 끊을 수 없다.
 	if (FadeSeconds <= KINDA_SMALL_NUMBER)
 	{
 		ScoreComponent->Stop();
+	}
+	else if (bChaseRelease && World)
+	{
+		// §10.2 「스탭만 남기고 4초 테일」. 루프 전체를 4초에 걸쳐 줄이면 52Hz
+		// 펄스가 대답 노크 둘(58Hz) 위로, 새벽의 날숨 위로 계속 뛴다. 루프는 0.4초
+		// 안에 들리지 않을 만큼 내린다(0까지 내리면 엔진이 멈춘다). 꼬리 시간 동안은
+		// 살려 두어 그 안에 추격이 돌아오면 같은 박자에서 되살린다.
+		ScoreComponent->AdjustVolume(0.4f, 0.02f);
+		ReleasingScoreComponent = ScoreComponent;
+		ReleasingScoreState = ActiveScoreState;
+		ChaseReleaseStopAtSeconds = World->GetTimeSeconds() + FadeSeconds;
+		// 펄스가 빠진 자리의 스탭. 방금 들은 루프와 같은 높이에서 친다.
+		FadeChaseTail(0.12f);
+		UIGToneSequenceSoundWave* Tail = UIGToneSequenceSoundWave::CreateChaseTail(this);
+		PrepareSound(Tail, EIGAudioBus::Score);
+		ChaseTailComponent = UGameplayStatics::CreateSound2D(
+			World,
+			Tail,
+			ScoreComponent->VolumeMultiplier,
+			ScoreComponent->PitchMultiplier,
+			0.0f,
+			nullptr,
+			false,
+			true);
+		if (ChaseTailComponent)
+		{
+			ChaseTailComponent->SetUISound(false);
+			// 한 번 울고 마는 음악이다. 확인음이 몰리면 먼저 밀려나고, 확인음을 밀지는 못한다.
+			RegisterExpendable(ChaseTailComponent, EIGAudioBus::Score);
+			ChaseTailComponent->Play();
+		}
 	}
 	else
 	{
@@ -1302,22 +1662,197 @@ void UIGMissingFloorAudioSubsystem::StopScore(const float FadeSeconds)
 	ScoreComponent = nullptr;
 }
 
+void UIGMissingFloorAudioSubsystem::FadeChaseTail(const float Seconds)
+{
+	if (IsValid(ChaseTailComponent) && ChaseTailComponent->IsPlaying())
+	{
+		if (Seconds <= KINDA_SMALL_NUMBER)
+		{
+			ChaseTailComponent->Stop();
+		}
+		else
+		{
+			ChaseTailComponent->FadeOut(Seconds, 0.0f);
+		}
+	}
+	ChaseTailComponent = nullptr;
+}
+
+void UIGMissingFloorAudioSubsystem::ResolveScoreEscalation(
+	int32& OutNightIndex,
+	int32& OutTier) const
+{
+	OutNightIndex = 2;
+	OutTier = 0;
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	if (const UGameInstance* GameInstance = World->GetGameInstance())
+	{
+		if (const UIGMissingFloorNarrativeSubsystem* Narrative =
+			GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
+		{
+			OutNightIndex = Narrative->GetNightIndex();
+		}
+	}
+	OutNightIndex = FMath::Clamp(OutNightIndex, 1, 4);
+	// 그가 실제로 쓰는 티어다. 성급한 밤은 1에서 시작한다
+	// (AIGListenerEntity::RefreshNightTuning과 같은 규칙).
+	for (TActorIterator<AIGListenerEntity> It(World); It; ++It)
+	{
+		const AIGListenerEntity* Listener = *It;
+		if (!Listener)
+		{
+			continue;
+		}
+		const int32 Tier = Listener->GetDifficulty() == EIGNightDifficulty::Hasty
+			? FMath::Max(Listener->GetAggressionTier(), 1)
+			: Listener->GetAggressionTier();
+		OutTier = FMath::Clamp(Tier, 0, 3);
+		break;
+	}
+}
+
+float UIGMissingFloorAudioSubsystem::GetPresenceReachCentimeters() const
+{
+	// §20.2 기본 청취 반경 9·11·11·13m에 3m를 더한 자리. 낮과 프롤로그처럼 밤이
+	// 아닌 때는 밤2 값이다.
+	static constexpr float NightReach[] = {1200.0f, 1400.0f, 1400.0f, 1600.0f};
+	int32 NightIndex = 2;
+	if (const UWorld* World = GetWorld())
+	{
+		if (const UGameInstance* GameInstance = World->GetGameInstance())
+		{
+			if (const UIGMissingFloorNarrativeSubsystem* Narrative =
+				GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
+			{
+				NightIndex = Narrative->GetNightIndex();
+			}
+		}
+	}
+	return NightIndex >= 1 && NightIndex <= 4 ? NightReach[NightIndex - 1] : 1400.0f;
+}
+
 void UIGMissingFloorAudioSubsystem::StartTitleSoundscape()
 {
 	FadePresenceLayer(0.0f, 0.12f);
+	// 밤의 것은 타이틀로 넘어오지 않는다. 추격 끝의 스탭도, 붙들어 둔 대치의 드론도.
+	FadeChaseTail(0.12f);
+	ChaseReleaseStopAtSeconds = -1.0;
+	bFinaleScoreHeld = false;
 	bAuthoredSilence = false;
 	RefreshMix(0.25f);
+	PendingTitleReplyRealTime = -1.0;
+	if (bPostEndingTitleArmed)
+	{
+		// 엔딩 카드 바로 뒤의 타이틀. 방금 처음 정음에 닿은 귀를 곧바로 미해결
+		// 모티프와 그의 노크로 되돌리지 않는다. 몇 초 비운 뒤 모티프가 천천히 오르고
+		// 첫 노크는 한참 뒤에 온다. 그다음부터는 평소 주기와 네시 반 대답 그대로다.
+		bPostEndingTitleArmed = false;
+		StopScore(0.3f);
+		const double Now = FPlatformTime::Seconds();
+		PendingTitleScoreRealTime = Now + IGMissingFloorMix::PostEndingTitleSilenceSeconds;
+		NextTitleKnockRealTime = Now + IGMissingFloorMix::PostEndingFirstKnockSeconds;
+		return;
+	}
+	PendingTitleScoreRealTime = -1.0;
 	SwitchScore(EIGAudioThreatState::Calm, true);
 	NextTitleKnockRealTime =
 		FPlatformTime::Seconds() + IGMissingFloorMix::TitleKnockDelaySeconds;
-	PendingTitleReplyRealTime = -1.0;
 }
 
 void UIGMissingFloorAudioSubsystem::StopTitleSoundscape()
 {
+	bTitleSoundscapeHeld = false;
 	NextTitleKnockRealTime = -1.0;
 	PendingTitleReplyRealTime = -1.0;
+	// 엔딩 직후 몇 초 안에 새 게임이나 소리 맞추기로 나가도 모티프가 늦게 켜지지 않는다.
+	PendingTitleScoreRealTime = -1.0;
 	SwitchScore(ThreatState, true);
+}
+
+void UIGMissingFloorAudioSubsystem::ArmPostEndingTitle()
+{
+	// 이미 타이틀이면 늦었다. 남겨 두면 밤 5를 마치고 돌아올 때 엉뚱하게 발동한다.
+	bPostEndingTitleArmed = !bTitleMode;
+}
+
+void UIGMissingFloorAudioSubsystem::PlayCalibrationPreview(const bool bMusic)
+{
+	UWorld* World = GetWorld();
+	if (!World)
+	{
+		return;
+	}
+	const double Now = FPlatformTime::Seconds();
+	if (IsValid(CalibrationPreviewComponent) && CalibrationPreviewComponent->IsPlaying())
+	{
+		if (bCalibrationPreviewIsMusic == bMusic)
+		{
+			// 칸을 연달아 넘기는 동안은 처음부터 다시 틀지 않고 끝만 미룬다.
+			CalibrationPreviewStopRealTime =
+				Now + IGMissingFloorMix::CalibrationPreviewSeconds;
+			return;
+		}
+		CalibrationPreviewComponent->FadeOut(0.15f, 0.0f);
+	}
+	CalibrationPreviewComponent = nullptr;
+	CalibrationPreviewStopRealTime = -1.0;
+	// 지정 침묵 중에 멈췄다면 음악 버스가 −96dB라 들려줄 것이 없다.
+	if (bMusic && bAuthoredSilence)
+	{
+		return;
+	}
+
+	const EIGAudioBus Bus = bMusic ? EIGAudioBus::Score : EIGAudioBus::World;
+	USoundBase* Sound = nullptr;
+	float Volume = 1.0f;
+	if (bMusic)
+	{
+		// 타이틀과 같은 모티프, 같은 크기. 첫 타가 바로 나온다.
+		Sound = UIGToneSequenceSoundWave::CreateTuningMotif(this, false);
+		Volume = 0.78f;
+	}
+	else
+	{
+		// 밤 복도의 공기. 한 겹만 틀므로 게임 안에서 여러 베드가 겹친 크기에 맞춰
+		// 조금 올려 둔다.
+		Sound = IGAudio::Sample(TEXT("Bed_Corridor"));
+		Volume = 0.18f;
+		if (!Sound)
+		{
+			UIGAmbienceSoundWave* Fallback = NewObject<UIGAmbienceSoundWave>(this);
+			Fallback->Configure(EIGAmbienceMode::CorridorNight, 0x7A11C0DEu);
+			Sound = Fallback;
+			Volume = 0.75f;
+		}
+	}
+	PrepareSound(Sound, Bus);
+	UAudioComponent* Preview = UGameplayStatics::CreateSound2D(
+		World, Sound, Volume, 1.0f, 0.0f, nullptr, false, true);
+	if (!Preview)
+	{
+		return;
+	}
+	// 메뉴가 월드를 멈춰 두었다. UI 소리여야 엔진이 튼다.
+	Preview->SetUISound(true);
+	RegisterComponent(Preview, Bus);
+	Preview->FadeIn(0.25f, 1.0f);
+	CalibrationPreviewComponent = Preview;
+	bCalibrationPreviewIsMusic = bMusic;
+	CalibrationPreviewStopRealTime = Now + IGMissingFloorMix::CalibrationPreviewSeconds;
+}
+
+void UIGMissingFloorAudioSubsystem::StopCalibrationPreview(const float FadeSeconds)
+{
+	if (IsValid(CalibrationPreviewComponent) && CalibrationPreviewComponent->IsPlaying())
+	{
+		CalibrationPreviewComponent->FadeOut(FMath::Max(0.05f, FadeSeconds), 0.0f);
+	}
+	CalibrationPreviewComponent = nullptr;
+	CalibrationPreviewStopRealTime = -1.0;
 }
 
 void UIGMissingFloorAudioSubsystem::PlayTitleKnockCycle()
@@ -1326,14 +1861,15 @@ void UIGMissingFloorAudioSubsystem::PlayTitleKnockCycle()
 	{
 		return;
 	}
+	// 매번 똑같이 치면 시계가 된다. 셋은 늘 치되 세기·높이·간격만 조금씩 흔든다.
 	IGAudio::SpawnOneShotAt(
 		this,
 		IGAudio::SampleOr(
 			TEXT("Entity_KnockTriple_Muffled"),
 			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.72f); }),
 		ResolveTitleCueLocation(false),
-		0.72f,
-		1.0f,
+		FMath::FRandRange(0.64f, 0.76f),
+		FMath::FRandRange(0.97f, 1.02f),
 		120.0f,
 		1800.0f,
 		EIGAudioBus::Entity,
@@ -1345,7 +1881,9 @@ void UIGMissingFloorAudioSubsystem::PlayTitleKnockCycle()
 		PendingTitleReplyRealTime =
 			Now + IGMissingFloorMix::TitleReplyDelaySeconds;
 	}
-	NextTitleKnockRealTime = Now + IGMissingFloorMix::TitleCycleSeconds;
+	// 평균은 12초(10~14초).
+	NextTitleKnockRealTime = Now + IGMissingFloorMix::TitleCycleSeconds
+		+ FMath::FRandRange(-2.0f, 2.0f);
 }
 
 void UIGMissingFloorAudioSubsystem::PlayTitleReply()

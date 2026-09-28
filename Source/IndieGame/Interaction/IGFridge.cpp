@@ -87,12 +87,9 @@ AIGFridge::AIGFridge()
 
 	HumAudioComponent = CreateDefaultSubobject<UAudioComponent>(TEXT("HumAudio"));
 	HumAudioComponent->SetupAttachment(FridgeRoot);
+	// 뒤판 아래 압축기 자리. 원점은 바닥이라 거기서 울리면 바닥 면에 걸려 먹먹해진다.
+	HumAudioComponent->SetRelativeLocation(FVector(24.0f, 0.0f, 28.0f));
 	HumAudioComponent->bAutoActivate = false;
-	HumAudioComponent->bOverrideAttenuation = true;
-	HumAudioComponent->AttenuationOverrides.bAttenuate = true;
-	HumAudioComponent->AttenuationOverrides.bSpatialize = true;
-	HumAudioComponent->AttenuationOverrides.AttenuationShapeExtents = FVector(90.0f, 0.0f, 0.0f);
-	HumAudioComponent->AttenuationOverrides.FalloffDistance = 620.0f;
 
 	InteractionPrompt = NSLOCTEXT("IGFridge", "OpenPrompt", "냉장고 열기");
 	InspectionThought = NSLOCTEXT("IGFridge", "NoWater", "…물이 없다. 한 병도 안 남았네.");
@@ -409,6 +406,21 @@ void AIGFridge::BeginPlay()
 	UIGAmbienceSoundWave* HumWave = NewObject<UIGAmbienceSoundWave>(this, TEXT("FridgeHumWave"));
 	HumWave->Configure(EIGAmbienceMode::RoomTone, 0x0F51D6E1u);
 	HumAudioComponent->SetSound(HumWave);
+	// 다른 베드와 같은 감쇠를 쓴다. 벽 너머에서는 먹먹해지고 멀수록 젖는다.
+	// 냉장고 몸통은 주인 액터라 오클루전이 알아서 뺀다.
+	HumAudioComponent->AttenuationSettings = IGAudio::MakeAttenuation(
+		this, 90.0f, 620.0f, EIGAudioBus::World);
+	HumAudioComponent->bAllowSpatialization = true;
+	// WORLD 버스의 믹스·더킹·환경음 슬라이더를 받는다. 늘 우는 소리라 상한에는
+	// 세지 않는다. 버스 밖에 있으면 그가 귀를 기울여도, 침묵을 걸어도 혼자 운다.
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterPersistentBed(HumAudioComponent, EIGAudioBus::World);
+		}
+	}
 	HumAudioComponent->SetVolumeMultiplier(0.85f);
 	HumAudioComponent->Play();
 

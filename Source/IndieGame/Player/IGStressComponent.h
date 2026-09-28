@@ -101,6 +101,13 @@ public:
 	/** 추격이 끝났거나 아침이 왔을 때 떨리며 내쉬는 숨. 10초에 한 번. 겁먹은 몸만 쉰다. */
 	void PlayReliefExhale();
 
+	/**
+	 * 공포가 무너지는 자리(§20.1 밤3 P4의 0.90 → 0.30). 스트레스를 Ceiling까지
+	 * Seconds에 걸쳐 내리고, 쌓여 있던 놀람과 위협 압박을 비운다. 한 번에
+	 * 떨어뜨리면 숨 루프와 비네트가 튄다. 이미 Ceiling 아래면 아무것도 안 한다.
+	 */
+	void ApplyRelief(float Ceiling, float Seconds);
+
 	/** Camera tremor in degrees, applied by the pawn on top of its own sway. */
 	UFUNCTION(BlueprintPure, Category = "Stress")
 	FRotator GetTremor() const { return Tremor; }
@@ -139,6 +146,7 @@ protected:
 
 private:
 	friend class AIGAudioPresentationProbe;
+	friend class AIGGameplayRealismProbe;
 	bool IsBreathPresentationSuppressed() const;
 	/** Enables frame updates only while fear state is changing or audible. */
 	void RefreshTickState();
@@ -184,6 +192,10 @@ private:
 	float ScareCharge = 0.0f;
 	float BeatPhase = 0.0f;
 	float HeartbeatSuppressionRemaining = 0.0f;
+	/** ApplyRelief가 건 하강. 남은 시간 동안 초당 ReliefRate씩 ReliefCeiling까지. */
+	float ReliefCeiling = 1.0f;
+	float ReliefRate = 0.0f;
+	float ReliefRemaining = 0.0f;
 	bool bPlayHeartbeatOnSuppressionRelease = false;
 	bool bBreathHeld = false;
 	/** 숨을 놓은 뒤 반동이 남은 시간. 심박이 커지고 빨라진다. */

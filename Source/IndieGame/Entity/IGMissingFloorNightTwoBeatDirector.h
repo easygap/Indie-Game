@@ -8,6 +8,7 @@ class AIGListenerEntity;
 class AIGMissingFloorEvidence;
 class AIGPlayerCharacter;
 class AIGPrologueWorldScene;
+class UAudioComponent;
 class UIGMissingFloorNarrativeSubsystem;
 class UIGNoiseSubsystem;
 class UIGRecordingSubsystem;
@@ -153,10 +154,24 @@ private:
 	bool IsPlayerOutsideBooth() const;
 	void PlayFirstKnock();
 	void PlayAnswer();
+	/** 3연의 철문 녹음 한 타. 0.62초 간격으로 스스로 다음 타를 건다. */
+	void PlayAnswerSteelHit();
+	/** 3연 첫 타 뒤에 들이켜는 숨. 녹음 중이면 공백 한가운데 이것만 남는다. */
+	void PlayAnswerGasp();
 	void PlayDragAway();
+	/** 끌려가는 소리를 계단코어 쪽으로 옮긴다. */
+	void AdvanceDragAway();
 	void StageFigure();
 	void ReleaseFigure();
 	void HandlePeepholeExamined(AIGMissingFloorEvidence* Evidence);
+	/**
+	 * 문구멍 뒤 1.4초. 복도는 캄캄한데 그는 선 사람의 눈높이에 없다 — 문 바로
+	 * 아래에서 석고가 갈라진다. 그가 실제로 거기 있을 때만 난다. 그다음에
+	 * 폰을 가리키는 말이 온다.
+	 */
+	void PlayPeepholeAftermath();
+	/** 2-4의 한기. T7 뒤 관리실 위층 바닥이 한 번 운다 — 곧 무너질 자리의 예고. */
+	void PlayReturnChill();
 
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 	UIGNoiseSubsystem* GetNoise() const;
@@ -181,6 +196,18 @@ private:
 	FTimerHandle CollapseTimer;
 	/** 끌려가는 소리를 복도 끝에서 멎게 하는 시계. 루프 파형이라 잘라 줘야 한다. */
 	FTimerHandle DragFadeTimer;
+	FTimerHandle DragMoveTimer;
+	FTimerHandle AnswerKnockTimer;
+	FTimerHandle AnswerGaspTimer;
+	FTimerHandle PeepholeTimer;
+	/** 두 번째 충돌 뒤 판재에서 가루가 떨어지는 시각. */
+	FTimerHandle CollapseDustTimer;
+	FTimerHandle ReturnChillTimer;
+	TWeakObjectPtr<UAudioComponent> DragAwayLoop;
+	float DragElapsedSeconds = 0.0f;
+	int32 AnswerSteelHits = 0;
+	/** 폰을 가리키는 말은 한 번만. 문구멍을 안 본 사람에게는 이것이 유일한 줄이다. */
+	bool bPhoneNudged = false;
 	EIGNightTwoBeatStage Stage = EIGNightTwoBeatStage::Idle;
 	EIGNightTwoReturnStage ReturnStage = EIGNightTwoReturnStage::Idle;
 	float StageSeconds = 0.0f;

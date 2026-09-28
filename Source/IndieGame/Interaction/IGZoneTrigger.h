@@ -48,6 +48,10 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zone|Story")
 	FName RequiredNarrativeBeat;
 
+	/** 그 시간에만 성립하는 비트. 조건이 안 맞으면 소모하지 않고 다음 방문을 기다린다. */
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Zone|Story")
+	bool bRequireSealedHour = false;
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;

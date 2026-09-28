@@ -8,6 +8,7 @@
 #include "Components/AudioComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
+#include "Entity/IGMissingFloorNightFourDirector.h"
 #include "Entity/IGReplaySkip.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
@@ -34,6 +35,24 @@ namespace IGFifthDawn
 		0.0f, 24.0f, 24.0f, 52.0f, 58.0f, 74.0f,
 		80.0f, 115.0f, 118.0f, 148.0f, 159.2f, DurationSeconds
 	};
+
+	/**
+	 * 새벽마다 예불이 한 걸음씩 멀어진다. 7월 27일부터 31일까지, 볼륨이 줄고
+	 * 고역이 먼저 죽는다 — 날마다 벽을 하나씩 더 사이에 둔 것처럼.
+	 */
+	constexpr float PrayerDawnVolumes[] = {0.12f, 0.10f, 0.08f, 0.065f, 0.05f};
+	constexpr float PrayerDawnLowPassHz[] = {6000.0f, 3600.0f, 2400.0f, 1600.0f, 1100.0f};
+	/**
+	 * 새벽이 바뀌면 예불은 끊겼다가 다시 시작한다. 마지막 새벽은 더 오래
+	 * 끊겨서 118초의 두 번이 그 빈틈에 떨어진다.
+	 */
+	constexpr float PrayerDipSeconds = 1.5f;
+	constexpr float PrayerReturnSeconds = 2.5f;
+	constexpr float PrayerFinalReturnSeconds = 4.5f;
+	constexpr float PrayerReturnFadeSeconds = 3.0f;
+	/** 숨을 죽이면 바깥이 커진다. */
+	constexpr float PrayerListenGain = 1.8f;
+	constexpr float WaterListenGain = 1.5f;
 }
 
 AIGMissingFloorFifthDawnDirector::AIGMissingFloorFifthDawnDirector()
@@ -106,25 +125,46 @@ bool AIGMissingFloorFifthDawnDirector::StartInterlude(
 		|| bReplayAvailabilityForcedForSession;
 	bActive = true;
 	StartWorldSeconds = GetWorld()->GetTimeSeconds();
+	// 역사층의 소리는 눈을 감은 자리와 그때 보던 방향에 놓는다. 화면은 검어도
+	// 그 자리의 공간이라 고개를 돌리면 소리도 돈다.
+	InterludeOrigin = InPlayer->GetActorLocation();
+	const FRotator InterludeYaw(0.0f, InPlayer->GetControlRotation().Yaw, 0.0f);
+	InterludeForward = InterludeYaw.Vector();
+	InterludeRight = InterludeYaw.Quaternion().GetRightVector();
+	WaterBaseVolume = 0.28f;
+	PrayerDawnIndex = 0;
+	PrayerBaseVolume = IGFifthDawn::PrayerDawnVolumes[0];
 
-	WaterBed = NewObject<UAudioComponent>(this, TEXT("FifthDawnWaterBed"));
-	PrayerBed = NewObject<UAudioComponent>(this, TEXT("FifthDawnPrayerBed"));
-	BreathBed = NewObject<UAudioComponent>(this, TEXT("FifthDawnBreathBed"));
+	// 이름은 겹치지 않게 짓는다. 끝날 때 지운 베드가 아직 수거되지 않았을 수 있다.
+	WaterBed = NewObject<UAudioComponent>(this, MakeUniqueObjectName(
+		this, UAudioComponent::StaticClass(), TEXT("FifthDawnWaterBed")));
+	PrayerBed = NewObject<UAudioComponent>(this, MakeUniqueObjectName(
+		this, UAudioComponent::StaticClass(), TEXT("FifthDawnPrayerBed")));
+	BreathBed = NewObject<UAudioComponent>(this, MakeUniqueObjectName(
+		this, UAudioComponent::StaticClass(), TEXT("FifthDawnBreathBed")));
 	if (!WaterBed || !PrayerBed || !BreathBed)
 	{
 		bActive = false;
 		return false;
 	}
+	UIGMissingFloorAudioSubsystem* AudioDirector =
+		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>();
+	// 세 베드는 상주 자리로 건다. 비상주로 두면 노크가 몇 번 겹칠 때 가장
+	// 오래된 소리인 이 베드들이 먼저 밀려 꺼진다.
 	WaterBed->RegisterComponent();
 	WaterBed->SetSound(
 		UIGToneSequenceSoundWave::CreateFloodedCorridorWaterBed(this));
-	WaterBed->bAllowSpatialization = false;
+	// [오른쪽] 물이 흐르는 소리. 벽 너머 배관이라 오른쪽에서 난다.
+	WaterBed->bAllowSpatialization = true;
+	WaterBed->AttenuationSettings = IGAudio::MakeAttenuation(
+		this, 420.0f, 1600.0f, EIGAudioBus::World);
+	WaterBed->SetWorldLocation(
+		InterludeOrigin + InterludeRight * 280.0f + FVector(0.0f, 0.0f, 30.0f));
 	WaterBed->bAutoDestroy = false;
-	WaterBed->SetVolumeMultiplier(0.28f);
-	if (UIGMissingFloorAudioSubsystem* AudioDirector =
-		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	WaterBed->SetVolumeMultiplier(WaterBaseVolume);
+	if (AudioDirector)
 	{
-		AudioDirector->RegisterComponent(WaterBed, EIGAudioBus::World);
+		AudioDirector->RegisterPersistentBed(WaterBed, EIGAudioBus::World);
 	}
 	WaterBed->Play();
 
@@ -133,11 +173,12 @@ bool AIGMissingFloorFifthDawnDirector::StartInterlude(
 		UIGToneSequenceSoundWave::CreateMuffledPrayerRadio(this));
 	PrayerBed->bAllowSpatialization = false;
 	PrayerBed->bAutoDestroy = false;
-	PrayerBed->SetVolumeMultiplier(0.12f);
-	if (UIGMissingFloorAudioSubsystem* AudioDirector =
-		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	PrayerBed->SetLowPassFilterEnabled(true);
+	PrayerBed->SetLowPassFilterFrequency(IGFifthDawn::PrayerDawnLowPassHz[0]);
+	PrayerBed->SetVolumeMultiplier(PrayerBaseVolume);
+	if (AudioDirector)
 	{
-		AudioDirector->RegisterComponent(PrayerBed, EIGAudioBus::World);
+		AudioDirector->RegisterPersistentBed(PrayerBed, EIGAudioBus::World);
 	}
 	PrayerBed->Play();
 
@@ -147,10 +188,9 @@ bool AIGMissingFloorFifthDawnDirector::StartInterlude(
 	BreathBed->bAllowSpatialization = false;
 	BreathBed->bAutoDestroy = false;
 	BreathBed->SetVolumeMultiplier(0.18f);
-	if (UIGMissingFloorAudioSubsystem* AudioDirector =
-		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	if (AudioDirector)
 	{
-		AudioDirector->RegisterComponent(BreathBed, EIGAudioBus::Player);
+		AudioDirector->RegisterPersistentBed(BreathBed, EIGAudioBus::Player);
 	}
 	BreathBed->Play();
 
@@ -243,9 +283,9 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 	}
 	FiredCueMask |= 1u << CueIndex;
 
-	const FVector SoundOrigin = Player.IsValid()
-		? Player->GetActorLocation()
-		: GetActorLocation();
+	// 그가 두드리던 벽. 눈을 감을 때 보던 쪽 바로 앞이다.
+	const FVector HandOnWall =
+		InterludeOrigin + InterludeForward * 45.0f + FVector(0.0f, 0.0f, 40.0f);
 	switch (CueIndex)
 	{
 	case 0:
@@ -253,20 +293,60 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionStart",
-				"[가까이] 얕은 숨  ·  [오른쪽] 물이 흐르는 소리"),
+				"[7월 27일 · 가까이] 얕은 숨  ·  [오른쪽] 물이 흐르는 소리"),
 			4.0f);
+		// 7월 27일. 아직 힘이 있는 두 번. 뒤의 새벽들은 여기서부터 약해진다.
+		ScheduleInterludeSound(8.0f, FTimerDelegate::CreateWeakLambda(this, [this, HandOnWall]()
+		{
+			if (!bActive)
+			{
+				return;
+			}
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.05f),
+				HandOnWall,
+				0.85f,
+				1.0f,
+				120.0f,
+				900.0f,
+				EIGAudioBus::Player);
+		}));
+		ScheduleInterludeSound(8.45f, FTimerDelegate::CreateWeakLambda(this, [this, HandOnWall]()
+		{
+			if (!bActive)
+			{
+				return;
+			}
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.05f),
+				HandOnWall,
+				0.85f,
+				1.0f,
+				120.0f,
+				900.0f,
+				EIGAudioBus::Player);
+		}));
 		break;
 	case 1:
-		// 24 seconds: a concrete audio change before the 30-second error line.
+	{
+		// 24초. 검은 화면이 로딩으로 읽히기 전에 소리의 자리를 옮긴다. 배관이
+		// 머리 위에서 튀고, 오른쪽에 있던 물도 그리로 올라간다.
+		const FVector Overhead = InterludeOrigin + FVector(0.0f, 0.0f, 135.0f);
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateDoorThud(this),
-			SoundOrigin,
-			0.24f,
+			UIGToneSequenceSoundWave::CreateSettlePipeKnock(this),
+			Overhead,
 			1.0f,
-			160.0f,
-			1200.0f,
+			1.0f,
+			200.0f,
+			1400.0f,
 			EIGAudioBus::World);
+		if (WaterBed)
+		{
+			WaterBed->SetWorldLocation(Overhead + InterludeRight * 60.0f);
+		}
 		PushDirectionCaption(
 			NSLOCTEXT(
 				"IGMissingFloor",
@@ -274,7 +354,9 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 				"[머리 위] 배관이 크게 덜컹거린다"),
 			2.6f);
 		break;
+	}
 	case 2:
+		DipPrayerForDawn(1, IGFifthDawn::PrayerReturnSeconds);
 		if (PrayerBed)
 		{
 			PrayerBed->SetPitchMultiplier(0.97f);
@@ -289,8 +371,64 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 				"FifthDawnCaptionSecondDawn",
 				"[7월 28일] 발소리와 예불이 더 멀어진다"),
 			2.8f);
+		// 배관이 가라앉은 뒤 계단을 내려가는 발소리 셋. 아무도 올라오지 않는다.
+		ScheduleInterludeSound(3.0f, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (!bActive)
+			{
+				return;
+			}
+			IGAudio::SpawnOneShotAt(
+				this,
+				IGAudio::SampleVariantOr(
+					TEXT("Foot_Concrete"), 5, 7u,
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateSurfaceFootstep(this, EIGFootstepSurface::Concrete, 0.95f, 0.8f); }),
+				InterludeOrigin + FVector(-260.0f, -120.0f, -180.0f),
+				0.42f,
+				1.0f,
+				150.0f,
+				1600.0f,
+				EIGAudioBus::World);
+		}));
+		ScheduleInterludeSound(3.8f, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (!bActive)
+			{
+				return;
+			}
+			IGAudio::SpawnOneShotAt(
+				this,
+				IGAudio::SampleVariantOr(
+					TEXT("Foot_Concrete"), 5, 11u,
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateSurfaceFootstep(this, EIGFootstepSurface::Concrete, 0.95f, 0.8f); }),
+				InterludeOrigin + FVector(-380.0f, -160.0f, -300.0f),
+				0.28f,
+				1.0f,
+				150.0f,
+				1600.0f,
+				EIGAudioBus::World);
+		}));
+		ScheduleInterludeSound(4.7f, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (!bActive)
+			{
+				return;
+			}
+			IGAudio::SpawnOneShotAt(
+				this,
+				IGAudio::SampleVariantOr(
+					TEXT("Foot_Concrete"), 5, 13u,
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateSurfaceFootstep(this, EIGFootstepSurface::Concrete, 0.95f, 0.8f); }),
+				InterludeOrigin + FVector(-500.0f, -200.0f, -420.0f),
+				0.16f,
+				1.0f,
+				150.0f,
+				1600.0f,
+				EIGAudioBus::World);
+		}));
 		break;
 	case 3:
+		DipPrayerForDawn(2, IGFifthDawn::PrayerReturnSeconds);
 		if (BreathBed)
 		{
 			BreathBed->SetVolumeMultiplier(bPlayerListening ? 0.025f : 0.14f);
@@ -301,39 +439,86 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 				"FifthDawnCaptionThirdDawn",
 				"[7월 29일] 벽을 긁는 소리"),
 			2.8f);
+		// 손끝이 안벽을 끌고 내려간다. 두 번째는 더 짧고 힘이 없다.
+		ScheduleInterludeSound(1.5f, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (!bActive)
+			{
+				return;
+			}
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateCardboardDrag(this),
+				InterludeOrigin + InterludeForward * 35.0f + FVector(0.0f, 0.0f, 20.0f),
+				0.32f,
+				0.72f,
+				100.0f,
+				700.0f,
+				EIGAudioBus::Player);
+		}));
+		ScheduleInterludeSound(3.2f, FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (!bActive)
+			{
+				return;
+			}
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateCardboardDrag(this),
+				InterludeOrigin + InterludeForward * 35.0f + FVector(0.0f, 0.0f, 20.0f),
+				0.24f,
+				0.68f,
+				100.0f,
+				700.0f,
+				EIGAudioBus::Player);
+		}));
 		break;
 	case 4:
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.84f),
-			SoundOrigin,
+			HandOnWall,
 			0.52f,
 			1.0f,
 			140.0f,
 			1000.0f,
 			EIGAudioBus::Player);
+		// 먼저 두드린 쪽이 그다. 자막으로만 따라오는 사람에게도 부름이 있어야
+		// 74초의 대답이 대답으로 읽힌다(§2 7월 29일).
+		PushDirectionCaption(
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"FifthDawnCaptionDohaCall",
+				"[벽 안] 둘, 쉬고, 하나"),
+			2.8f);
 		break;
 	case 5:
+		// 황순금의 대답은 401호 벽 안에서 온다. 밤4에 망치 소리에 답하던 그
+		// 자리다. 거리만큼 젖고 층을 지나며 먹먹해져서 [아주 멀리]가 소리로 선다.
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.93f),
-			SoundOrigin,
-			0.38f,
+			AIGMissingFloorNightFourDirector::GetUnit401ReplyLocation(),
+			0.9f,
 			1.0f,
-			140.0f,
-			1400.0f,
+			300.0f,
+			3000.0f,
 			EIGAudioBus::Entity);
 		PushDirectionCaption(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"FifthDawnCaptionHwangReply",
-				"[아주 멀리 · 7월 29일] 둘, 쉬고, 하나"),
+				"[아주 멀리] 같은 박자로 대답이 온다"),
 			3.2f);
 		break;
 	case 6:
+		DipPrayerForDawn(3, IGFifthDawn::PrayerReturnSeconds);
+		WaterBaseVolume = 0.22f;
 		if (WaterBed)
 		{
-			WaterBed->SetVolumeMultiplier(bPlayerListening ? 0.42f : 0.22f);
+			WaterBed->SetVolumeMultiplier(bPlayerListening
+				? WaterBaseVolume * IGFifthDawn::WaterListenGain
+				: WaterBaseVolume);
 		}
 		if (BreathBed)
 		{
@@ -347,6 +532,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			2.8f);
 		break;
 	case 7:
+		DipPrayerForDawn(4, IGFifthDawn::PrayerFinalReturnSeconds);
 		if (BreathBed)
 		{
 			BreathBed->SetVolumeMultiplier(bPlayerListening ? 0.025f : 0.07f);
@@ -362,7 +548,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateWallKnockReply(this),
-			SoundOrigin,
+			HandOnWall,
 			0.30f,
 			1.0f,
 			120.0f,
@@ -376,6 +562,7 @@ void AIGMissingFloorFifthDawnDirector::FireCue(const int32 CueIndex)
 			3.0f);
 		break;
 	case 9:
+		GetWorldTimerManager().ClearTimer(PrayerReturnTimer);
 		if (WaterBed)
 		{
 			WaterBed->Stop();
@@ -440,13 +627,19 @@ bool AIGMissingFloorFifthDawnDirector::SetPlayerListening(
 		return false;
 	}
 	bPlayerListening = bListening;
+	// 바깥은 그 새벽의 크기에서 커진다. 날이 갈수록 멀어진 예불은 숨을
+	// 죽여도 첫 새벽만큼 가까워지지 않는다.
 	if (WaterBed && WaterBed->IsPlaying())
 	{
-		WaterBed->SetVolumeMultiplier(bListening ? 0.42f : 0.28f);
+		WaterBed->SetVolumeMultiplier(bListening
+			? WaterBaseVolume * IGFifthDawn::WaterListenGain
+			: WaterBaseVolume);
 	}
 	if (PrayerBed && PrayerBed->IsPlaying())
 	{
-		PrayerBed->SetVolumeMultiplier(bListening ? 0.22f : 0.12f);
+		PrayerBed->SetVolumeMultiplier(bListening
+			? PrayerBaseVolume * IGFifthDawn::PrayerListenGain
+			: PrayerBaseVolume);
 	}
 	if (BreathBed && BreathBed->IsPlaying())
 	{
@@ -537,18 +730,7 @@ void AIGMissingFloorFifthDawnDirector::FinishInterlude(
 	bReplaySkipRewinding = false;
 	SetActorTickEnabled(false);
 	GetWorldTimerManager().ClearTimer(CueTimerHandle);
-	if (WaterBed)
-	{
-		WaterBed->Stop();
-	}
-	if (PrayerBed)
-	{
-		PrayerBed->Stop();
-	}
-	if (BreathBed)
-	{
-		BreathBed->Stop();
-	}
+	ReleaseInterludeAudio();
 	SetSensoryHud(false);
 	if (!Player.Get())
 	{
@@ -732,19 +914,84 @@ void AIGMissingFloorFifthDawnDirector::EndPlay(
 	}
 	bActive = false;
 	GetWorldTimerManager().ClearTimer(CueTimerHandle);
+	ReleaseInterludeAudio();
+	SetSensoryHud(false);
+	SetActorTickEnabled(false);
+	Super::EndPlay(EndPlayReason);
+}
+
+void AIGMissingFloorFifthDawnDirector::DipPrayerForDawn(
+	const int32 DawnIndex,
+	const float ReturnDelaySeconds)
+{
+	PrayerDawnIndex = FMath::Clamp(
+		DawnIndex,
+		0,
+		static_cast<int32>(UE_ARRAY_COUNT(IGFifthDawn::PrayerDawnVolumes)) - 1);
+	if (!PrayerBed)
+	{
+		return;
+	}
+	// 0으로 페이드하면 엔진이 소리를 멈춘다. 되살릴 때는 FadeIn으로 새로 건다 —
+	// 예불도 새벽마다 처음부터 다시 시작한다.
+	PrayerBed->FadeOut(IGFifthDawn::PrayerDipSeconds, 0.0f);
+	GetWorldTimerManager().SetTimer(
+		PrayerReturnTimer,
+		this,
+		&AIGMissingFloorFifthDawnDirector::ReturnPrayer,
+		FMath::Max(ReturnDelaySeconds, IGFifthDawn::PrayerDipSeconds),
+		false);
+}
+
+void AIGMissingFloorFifthDawnDirector::ReturnPrayer()
+{
+	if (!bActive || !PrayerBed)
+	{
+		return;
+	}
+	PrayerBaseVolume = IGFifthDawn::PrayerDawnVolumes[PrayerDawnIndex];
+	PrayerBed->SetLowPassFilterFrequency(
+		IGFifthDawn::PrayerDawnLowPassHz[PrayerDawnIndex]);
+	PrayerBed->SetVolumeMultiplier(bPlayerListening
+		? PrayerBaseVolume * IGFifthDawn::PrayerListenGain
+		: PrayerBaseVolume);
+	PrayerBed->FadeIn(IGFifthDawn::PrayerReturnFadeSeconds, 1.0f);
+}
+
+void AIGMissingFloorFifthDawnDirector::ScheduleInterludeSound(
+	const float DelaySeconds,
+	const FTimerDelegate& Sound)
+{
+	FTimerHandle& Handle = InterludeSoundTimers.AddDefaulted_GetRef();
+	GetWorldTimerManager().SetTimer(Handle, Sound, DelaySeconds, false);
+}
+
+void AIGMissingFloorFifthDawnDirector::ReleaseInterludeAudio()
+{
+	GetWorldTimerManager().ClearTimer(PrayerReturnTimer);
+	for (FTimerHandle& Handle : InterludeSoundTimers)
+	{
+		GetWorldTimerManager().ClearTimer(Handle);
+	}
+	InterludeSoundTimers.Reset();
+	// 상주 자리로 건 베드다. 멈추기만 하면 막간이 끝난 뒤에도 버스 자리를
+	// 쥐고 있으므로 지운다.
 	if (WaterBed)
 	{
 		WaterBed->Stop();
+		WaterBed->DestroyComponent();
+		WaterBed = nullptr;
 	}
 	if (PrayerBed)
 	{
 		PrayerBed->Stop();
+		PrayerBed->DestroyComponent();
+		PrayerBed = nullptr;
 	}
 	if (BreathBed)
 	{
 		BreathBed->Stop();
+		BreathBed->DestroyComponent();
+		BreathBed = nullptr;
 	}
-	SetSensoryHud(false);
-	SetActorTickEnabled(false);
-	Super::EndPlay(EndPlayReason);
 }

@@ -27,6 +27,7 @@
 #include "InputActionValue.h"
 #include "InputCoreTypes.h"
 #include "Interaction/IGPickupItem.h"
+#include "Interaction/IGSwingDoor.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
@@ -330,14 +331,6 @@ void AIGPlayerCharacter::BeginPlay()
 			GameInstance->GetSubsystem<UIGAccessibilitySubsystem>();
 	}
 
-	// A short tick whenever something new becomes usable is the cheapest way
-	// to make aiming at objects feel responsive rather than guessy.
-	if (InteractionComponent)
-	{
-		InteractionComponent->OnFocusChanged.AddUniqueDynamic(
-			this, &AIGPlayerCharacter::HandleFocusChanged);
-	}
-
 	RefreshMicrophoneCaptureMode();
 	// §19.8 노크 진동 대체는 소음 버스를 타고 온다. 응답 노크 코드에
 	// 손을 대지 않으므로 §18.5의 무진동 규칙은 그대로 서 있다.
@@ -347,6 +340,10 @@ void AIGPlayerCharacter::BeginPlay()
 			NoiseWorld->GetSubsystem<UIGNoiseSubsystem>())
 		{
 			ForeignNoiseHandle = Noise->OnNoiseReported.AddUObject(
+				this, &AIGPlayerCharacter::HandleForeignNoise);
+			// 그의 노크·대답·추격·다가오는 걸음은 소음 버스에 없다. 대체 채널용
+			// 신호로 따로 온다.
+			ForeignCueHandle = Noise->OnPresentationCue.AddUObject(
 				this, &AIGPlayerCharacter::HandleForeignNoise);
 		}
 	}
@@ -368,6 +365,7 @@ void AIGPlayerCharacter::EndPlay(const EEndPlayReason::Type EndPlayReason)
 			NoiseWorld->GetSubsystem<UIGNoiseSubsystem>())
 		{
 			Noise->OnNoiseReported.Remove(ForeignNoiseHandle);
+			Noise->OnPresentationCue.Remove(ForeignCueHandle);
 		}
 	}
 	Super::EndPlay(EndPlayReason);
@@ -484,24 +482,6 @@ bool AIGPlayerCharacter::ValidateRebirthOutfitProxy(
 		++OutStitchCount;
 	}
 	return OutStitchCount == 3;
-}
-
-void AIGPlayerCharacter::HandleFocusChanged(AActor* PreviousActor, AActor* NewActor)
-{
-	if (!IsValid(NewActor) || !FirstPersonCamera)
-	{
-		return;
-	}
-
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreateFootstep(this, 1.95f, 0.10f),
-		FirstPersonCamera->GetComponentLocation(),
-		0.35f,
-		1.0f,
-		60.0f,
-		260.0f,
-		EIGAudioBus::UI);
 }
 
 void AIGPlayerCharacter::Tick(const float DeltaSeconds)
@@ -1081,13 +1061,17 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 		const float BreathsPerMinute =
 			StressComponent ? StressComponent->GetBreathsPerMinute() : 13.0f;
 		const float BreathHz = BreathsPerMinute / 60.0f;
+		// 누적 시간에 바뀐 호흡수를 곱하면 오래 할수록 화면이 크게 튄다.
+		// 지금 박자에서 이번 프레임만큼만 이어 간다.
+		BreathPhase = FMath::Fmod(
+			BreathPhase + DeltaSeconds * 2.0f * UE_PI * BreathHz, 2.0f * UE_PI);
 		// 0.55~1.35cm는 서 있기만 해도 화면이 출렁여 멀미로 읽혔다. 공포가
 		// 올라올 때 빨라지는 것이 정보지, 깊이가 정보는 아니다.
 		const float BreathDepth = StressComponent
 			? FMath::Lerp(0.30f, 0.85f, StressComponent->GetStress())
 			: 0.30f;
 		TargetOffset.Z +=
-			FMath::Sin(BreathTime * 2.0f * UE_PI * BreathHz)
+			FMath::Sin(BreathPhase)
 			* BreathDepth
 			* BreathScale;
 	}
@@ -1199,6 +1183,11 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 	int32 SampleCount = 5;
 	const TCHAR* SamplePrefix = IGPlayerNoise::FootstepSamplePrefix(Surface, SampleCount);
 	USoundBase* FootSample = IGAudio::SampleVariant(SamplePrefix, SampleCount, StepHash);
+	// 발바닥 16cm 위. 앉으면 캡슐이 바닥으로 내려앉으므로 고정 80cm를 빼면
+	// 발소리가 슬래브 속에서 나고 바닥에 가려 아래층 소리처럼 먹먹해진다.
+	const float FootstepDrop = GetCapsuleComponent()
+		? GetCapsuleComponent()->GetScaledCapsuleHalfHeight() - 16.0f
+		: 80.0f;
 	IGAudio::SpawnOneShotAt(
 		this,
 		FootSample
@@ -1208,7 +1197,7 @@ void AIGPlayerCharacter::PlayFootstep(const float SpeedScale)
 				Surface,
 				PitchVariation,
 				1.0f)),
-		GetActorLocation() - FVector(0.0f, 0.0f, 80.0f),
+		GetActorLocation() - FVector(0.0f, 0.0f, FootstepDrop),
 		FootstepVolume * AudibleLevel * (0.72f + 0.28f * SpeedScale),
 		FootSample ? PitchVariation : 1.0f,
 		120.0f,
@@ -1758,7 +1747,8 @@ void AIGPlayerCharacter::Landed(const FHitResult& Hit)
 			{
 				return UIGToneSequenceSoundWave::CreateSurfaceFootstep(this, Surface, 0.82f, 0.82f);
 			}),
-		Hit.ImpactPoint,
+		// 바닥 면 위에서 시작한 오클루전 트레이스는 그 바닥에 걸린다.
+		Hit.ImpactPoint + FVector(0.0f, 0.0f, 4.0f),
 		FootstepVolume * FMath::Lerp(0.85f, 1.35f, LandingLoudness),
 		0.86f,
 		120.0f,
@@ -1844,6 +1834,16 @@ void AIGPlayerCharacter::Knock()
 				return;
 			}
 		}
+		// 엔딩 B의 기다림. 앉은 자리 곁의 벽을 친다 — 어디를 보고 있든 팔 길이
+		// 안에 벽이 있다.
+		for (TActorIterator<AIGMissingFloorNightFourDirector> It(World); It; ++It)
+		{
+			if (It->RegisterVigilKnock())
+			{
+				ApplyPlayerKnockFeedback();
+				return;
+			}
+		}
 	}
 	if (!InteractionComponent)
 	{
@@ -1880,7 +1880,9 @@ void AIGPlayerCharacter::Knock()
 					SurfaceParams))
 			{
 				bSurfaceInReach = true;
-				KnockLocation = Surface.ImpactPoint;
+				// 벽면 바로 앞 공기에서 난다. 면 위에서 시작한 오클루전 트레이스는
+				// 제 벽에 걸려 주먹 소리가 벽 너머 소리처럼 먹먹해진다.
+				KnockLocation = Surface.ImpactPoint - ViewDirection * 3.0f;
 			}
 		}
 		if (bSurfaceInReach)
@@ -1891,7 +1893,9 @@ void AIGPlayerCharacter::Knock()
 				this,
 				IGAudio::SampleVariantOr(
 					TEXT("Knock_Plaster"), 3,
-					static_cast<uint32>(CurrentWorld->GetTimeSeconds() * 977.0f),
+					// 시각을 그대로 쓰면 4초 남짓마다 한 번 바뀌어 연달아 친 노크가 한
+					// 녹음을 되풀이한다. 착지 소리처럼 섞어서 탭마다 갈리게 한다.
+					static_cast<uint32>(CurrentWorld->GetTimeSeconds() * 977.0f) * 2654435761u,
 					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f); }),
 				KnockLocation,
 				0.82f,
@@ -1933,13 +1937,38 @@ void AIGPlayerCharacter::Knock()
 		// Ordinary doors still answer the verb physically; they simply do not
 		// advance a puzzle unless a chapter director owns that surface.
 		// 현관문은 강철이다. 석고 소리로 철문을 치면 손이 벽을 친 줄 안다.
-		IGAudio::SpawnOneShotAt(
-			this,
+		// 소리는 주먹이 닿은 자리에서 난다. 문 액터의 원점은 바닥의 경첩 축이라
+		// 거기서 내면 눈높이를 친 노크가 문턱 모서리에서 울린다. 시선이 문짝을
+		// 비껴가면 걸쇠 자리를 친 것으로 본다. 소음 보고와 대답 판정은 예전 자리다.
+		FVector DoorKnockLocation = FocusedActor->GetActorLocation();
+		if (const AIGSwingDoor* KnockedDoor = Cast<AIGSwingDoor>(FocusedActor))
+		{
+			DoorKnockLocation = KnockedDoor->GetLatchSoundLocation();
+		}
+		if (FirstPersonCamera)
+		{
+			const FVector DoorViewLocation = FirstPersonCamera->GetComponentLocation();
+			const FVector DoorViewDirection = GetControlRotation().Vector();
+			FHitResult DoorFace;
+			FCollisionQueryParams DoorFaceParams(SCENE_QUERY_STAT(IGPlayerKnockDoor), false, this);
+			if (World->LineTraceSingleByChannel(
+					DoorFace,
+					DoorViewLocation,
+					DoorViewLocation + DoorViewDirection * 250.0f,
+					ECC_Visibility,
+					DoorFaceParams)
+				&& DoorFace.GetActor() == FocusedActor)
+			{
+				DoorKnockLocation = DoorFace.ImpactPoint - DoorViewDirection * 3.0f;
+			}
+		}
+		IGAudio::SpawnOneShotFromActorAt(
+			FocusedActor,
 			IGAudio::SampleVariantOr(
 				TEXT("Knock_Steel"), 3,
-				static_cast<uint32>(World->GetTimeSeconds() * 977.0f),
+				static_cast<uint32>(World->GetTimeSeconds() * 977.0f) * 2654435761u,
 				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f); }),
-			FocusedActor->GetActorLocation(),
+			DoorKnockLocation,
 			0.82f,
 			1.0f,
 			160.0f,
@@ -2178,6 +2207,8 @@ void AIGPlayerCharacter::PlayHapticFeedback(
 
 void AIGPlayerCharacter::BeginListen()
 {
+	// 메뉴가 떼는 입력을 삼켰다면 이전 넘김이 남아 있을 수 있다. 새로 누르면 새로 판단한다.
+	bListenRedirectedToInteraction = false;
 	if (UWorld* World = GetWorld())
 	{
 		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
@@ -2232,10 +2263,25 @@ void AIGPlayerCharacter::BeginListen()
 			EIGAudioBus::Player);
 		return;
 	}
+
+	// 밤3 벽이 아닌 엿듣기 판정(401호 라디오, 402호 문, 저수조 등)은 보통
+	// 상호작용 홀드로 듣는다. 패드 화면은 여기서 엿듣기 키를 안내하므로
+	// 그 키도 같은 홀드로 넘긴다. 떼면 EndListen이 홀드를 놓는다.
+	if (FocusedActor->ActorHasTag(FName(TEXT("MissingFloor.Verb.Listen"))))
+	{
+		bListenRedirectedToInteraction = true;
+		BeginInteraction();
+	}
 }
 
 void AIGPlayerCharacter::EndListen()
 {
+	if (bListenRedirectedToInteraction)
+	{
+		bListenRedirectedToInteraction = false;
+		EndInteraction();
+		return;
+	}
 	if (UWorld* World = GetWorld())
 	{
 		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
@@ -2572,6 +2618,7 @@ void AIGPlayerCharacter::BeginInteraction()
 	// wall you took the note off and then have no way to close it.
 	if (AIGReadableNote* OpenNote = AIGReadableNote::GetOpenNote())
 	{
+		OpenNote->PlayHandlingSound(false);
 		OpenNote->Close();
 		return;
 	}

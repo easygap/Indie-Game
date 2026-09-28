@@ -6,6 +6,7 @@
 
 class AIGListenerEntity;
 class AIGMissingFloorNightThreeDirector;
+class UAudioComponent;
 class UIGMissingFloorNarrativeSubsystem;
 
 /** Which world response the net reached for. Rotates so it never metronomes. */
@@ -75,6 +76,13 @@ public:
 	/** Called when the hour opens and closes; the clock only runs inside it. */
 	void SetHourActive(bool bActive);
 
+	/**
+	 * 울고 있는 배관을 걷는다. 연출이 정적을 만드는 자리(밤3의 대답, 밤4의
+	 * 리빌)에서 부른다. 울음은 PUZZLE이라 저작 침묵이 누르지 않는다. 90초
+	 * 시계도 처음으로 돌린다 — 연출이 무대를 가진 동안은 막힌 시간이 아니다.
+	 */
+	void FadeOutPipeCry(float FadeSeconds);
+
 	UFUNCTION(BlueprintPure, Category = "Mercy")
 	int32 GetResponseCount() const { return ResponseCount; }
 
@@ -105,6 +113,9 @@ public:
 	/** §20.3-1: 2회 연속 리셋. */
 	static constexpr int32 ResetsForEnvironmentHint = 2;
 
+protected:
+	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
+
 private:
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
 
@@ -125,6 +136,12 @@ private:
 	/** The folded note that comes out from under 401. Built hidden, once. */
 	UPROPERTY(Transient)
 	TObjectPtr<class UStaticMeshComponent> Note;
+
+	/** 배관 울음은 루프 파형이다. 한 번 울고 멎게 이 핸들로 걷는다. */
+	TWeakObjectPtr<UAudioComponent> PipeCryVoice;
+	FTimerHandle PipeCryFadeTimer;
+	/** 배관 울음 횟수. 번갈아 피치를 바꾸는 데만 쓴다. */
+	int32 PipeCryCount = 0;
 
 	float StuckSeconds = 0.0f;
 	float NoteSlideSeconds = 0.0f;

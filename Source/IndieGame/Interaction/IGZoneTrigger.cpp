@@ -123,14 +123,17 @@ void AIGZoneTrigger::HandleBeginOverlap(
 		return;
 	}
 
-	if (RequiredNightIndex != INDEX_NONE || !RequiredNarrativeBeat.IsNone())
+	if (RequiredNightIndex != INDEX_NONE || !RequiredNarrativeBeat.IsNone() || bRequireSealedHour)
 	{
 		const UGameInstance* Instance = GetGameInstance();
 		const UIGMissingFloorNarrativeSubsystem* Narrative = Instance
 			? Instance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>() : nullptr;
+		// 밤 번호는 새벽이 와도 그대로다. 밤1 뒤의 낮도 밤 번호는 1이라, 번호만
+		// 보면 대낮에 소화기가 떨어진다.
 		if (!Narrative
 			|| (RequiredNightIndex != INDEX_NONE && Narrative->GetNightIndex() != RequiredNightIndex)
-			|| (!RequiredNarrativeBeat.IsNone() && !Narrative->HasBeatPlayed(RequiredNarrativeBeat)))
+			|| (!RequiredNarrativeBeat.IsNone() && !Narrative->HasBeatPlayed(RequiredNarrativeBeat))
+			|| (bRequireSealedHour && !Narrative->IsHourSealed()))
 		{
 			return;
 		}

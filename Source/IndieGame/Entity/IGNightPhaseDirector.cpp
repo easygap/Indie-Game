@@ -1,13 +1,19 @@
 ﻿#include "Entity/IGNightPhaseDirector.h"
 
 #include "Audio/IGAudioHelpers.h"
+#include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Camera/PlayerCameraManager.h"
+#include "Components/SkeletalMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
+#include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorNightFourDirector.h"
+#include "Entity/IGNightLoopDirector.h"
 #include "GameFramework/PlayerController.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
@@ -25,10 +31,27 @@ namespace IGNightPhase
 	 * 같은 화면이라 끝났다는 감각이 몸에 안 온다.
 	 */
 	constexpr float DawnFadeOutSeconds = 0.45f;
-	constexpr float DawnBlackSeconds = 0.55f;
+	/** 눈이 다 감긴 다음 프레임쯤. 페이드 마지막 프레임에 등이 켜지지 않게. */
+	constexpr float DawnWorldDelaySeconds = DawnFadeOutSeconds + 0.03f;
+	/**
+	 * 다 감긴 뒤의 검은 시간. 등이 켜지고 노출 상한이 풀린 눈이 여기서 자리를
+	 * 잡는다. 잠금 해제음은 이 시간 한가운데 온다 — 소리를 듣고 눈을 뜬다.
+	 */
+	constexpr float DawnBlackSeconds = 0.75f;
+	constexpr float DawnLatchDelaySeconds = DawnFadeOutSeconds + 0.25f;
 	constexpr float DawnFadeInSeconds = 0.9f;
 	/** 공동현관 유리문의 전자 잠금. 문 자체는 (604, -385)에 서 있다. */
 	const FVector EntranceLatchLocation(604.0f, -385.0f, 100.0f);
+	/**
+	 * 계단실 샤프트. 밤마다 계단실 베드가 울던 자리다. 1층의 딸깍은 4·5층에서
+	 * 슬래브에 걸러져 톡 하나로 남으므로, 샤프트를 타고 올라온 걸쇠 소리를 그녀가
+	 * 있는 층의 반 층 아래에서 한 번 더 낸다.
+	 */
+	constexpr float StairShaftX = -445.0f;
+	constexpr float StairShaftY = -305.0f;
+	constexpr float StairLatchDrop = 150.0f;
+	/** 1층 가까이에 있으면 현관의 딸깍이 직접 들린다. */
+	constexpr float StairLatchMinimumHeight = 300.0f;
 }
 
 AIGNightPhaseDirector::AIGNightPhaseDirector()
@@ -39,13 +62,24 @@ AIGNightPhaseDirector::AIGNightPhaseDirector()
 void AIGNightPhaseDirector::BeginPlay()
 {
 	Super::BeginPlay();
+	// 무인 검증과 캡처 투어는 새벽 직후의 세계를 같은 프레임에 확인한다.
+	// 눈을 감는 시각표는 거기서 즉시 경로로 접힌다.
+	bImmediateDawn =
+		FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGNightCapture"));
 }
 
 void AIGNightPhaseDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(HourTimer);
-	// Never leave a torn-down director holding the building shut.
-	if (bHourActive)
+	GetWorldTimerManager().ClearTimer(DawnLatchTimer);
+	GetWorldTimerManager().ClearTimer(DawnTimer);
+	const bool bDawnPending = GetWorldTimerManager().IsTimerActive(DawnWorldTimer);
+	GetWorldTimerManager().ClearTimer(DawnWorldTimer);
+	bDawnTransitionInProgress = false;
+	// Never leave a torn-down director holding the building shut. 눈을 감는
+	// 도중이면 시간은 이미 끝났지만 건물은 아직 봉쇄돼 있다.
+	if (bHourActive || bDawnPending)
 	{
 		if (AIGPrologueWorldScene* WorldScene = Scene.Get())
 		{
@@ -54,6 +88,7 @@ void AIGNightPhaseDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 		}
 		ApplySealedPresentation(false);
 	}
+	ReleaseHeldListeners();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -71,6 +106,15 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 	{
 		return;
 	}
+	// 눈을 감는 사이에 다음 밤이 먼저 오면 미뤄 둔 새벽부터 적용한다. 그냥
+	// 지우면 그는 한 번도 잠들지 않은 채 밤을 맞고, 아래 브로드캐스트의
+	// SetDormant(false)는 멈춰 둔 몸을 되살리지 못한다.
+	if (GetWorldTimerManager().IsTimerActive(DawnWorldTimer))
+	{
+		GetWorldTimerManager().ClearTimer(DawnWorldTimer);
+		FlipWorldUnderBlack();
+	}
+	GetWorldTimerManager().ClearTimer(DawnLatchTimer);
 	bHourActive = true;
 	bGoalComplete = false;
 	bFailureEndingSuspended = false;
@@ -242,6 +286,12 @@ void AIGNightPhaseDirector::TickHour()
 	}
 	if (HourElapsedSeconds >= HourDurationSeconds)
 	{
+		// 05:30이 포획 암전 한가운데 떨어지면 그 암전과 새벽의 눈 감기가 한
+		// 화면을 두고 다툰다. 침대에서 눈을 뜨고 나서 새벽이 온다.
+		if (!bImmediateDawn && IsCaptureResetInFlight())
+		{
+			return;
+		}
 		ReleaseAtDawn();
 	}
 }
@@ -251,83 +301,224 @@ void AIGNightPhaseDirector::ReleaseAtDawn()
 	GetWorldTimerManager().ClearTimer(HourTimer);
 	bHourActive = false;
 
-	if (AIGPrologueWorldScene* WorldScene = Scene.Get())
-	{
-		WorldScene->SetTheHourSealed(false);
-		WorldScene->SetNightStairPocketEnabled(false);
-	}
-	ApplySealedPresentation(false);
-
-	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
-	{
-		Narrative->SetHourSealed(false);
-	}
-
 	// §20.4: dawn on night four with the wall still closed is the substitute
 	// route to ending C. It is the only way there for 듣기만 하는 밤, which has
 	// no captures to raise the tier, and it is harmless in the other modes —
 	// a player who reached 05:30 without opening the wall has failed either way.
+	AIGMissingFloorNightFourDirector* FailureRoute = nullptr;
 	for (TActorIterator<AIGMissingFloorNightFourDirector> It(GetWorld()); It; ++It)
 	{
-		if (It->ResolveDawnFailureEnding())
+		if (It->WouldResolveDawnFailureEnding())
 		{
-			// The failure ending owns the screen from here; the ordinary morning
-			// line would talk over its card.
-			OnHourActiveChanged.Broadcast(false);
-			return;
+			FailureRoute = *It;
 		}
 		break;
 	}
-
-	OnHourActiveChanged.Broadcast(false);
-	RequestMissingFloorAutosave(false);
-
-	if (bMorningPresentationSuppressed)
+	if (FailureRoute)
 	{
-		bMorningPresentationSuppressed = false;
+		// 실패의 새벽은 눈을 감지 않는다. 매물 화면이 제 암전을 갖고 온다.
+		// 낮 전환을 먼저 보내고 엔딩을 그 뒤에 건다 — 순서가 반대면 밤4의 낮
+		// 전환(SetHourActive(false))이 엔딩 C의 카드 타이머와 암전을 지운다.
+		HoldListenersForDawn();
+		const TArray<TWeakObjectPtr<AIGListenerEntity>> InView = DawnHeldListeners;
+		ApplyDawnWorld();
+		if (FailureRoute->ResolveDawnFailureEnding())
+		{
+			// 05:30에 그는 잠든다. 그래도 눈앞에서 지워지지는 않는다(§4.6).
+			// 멈춘 몸은 매물 화면의 2.15초 암전이 다 덮은 뒤 거둔다
+			// (BeginFailureListing). 새벽 전에 이미 잠들어 있던 몸은 건드리지 않는다.
+			for (const TWeakObjectPtr<AIGListenerEntity>& Held : InView)
+			{
+				if (AIGListenerEntity* Listener = Held.Get())
+				{
+					Listener->SetActorHiddenInGame(false);
+				}
+			}
+			// 건물은 열리고 벽은 닫힌 채다. 목표 줄도 아침 독백도 없다 —
+			// 그 아침은 오지 않았다.
+			PlayEntranceLatch();
+			return;
+		}
+		// 판정과 확정이 어긋나면 평범한 아침으로 둔다.
+		ApplySealedPresentation(false);
+		RequestMissingFloorAutosave(false);
+		PlayEntranceLatch();
+		PlayMorningLine();
 		return;
 	}
-	// 세계가 먼저 바뀐다(위의 브로드캐스트). 눈은 그 뒤에 감긴다 — 검은
-	// 화면 아래서 밤의 베드가 죽고 그가 잠들고, 눈을 뜨면 공동현관 잠금이
-	// 풀리는 소리가 아래서 올라온다.
-	AIGPlayerCharacter* PlayerCharacter = Player.Get();
-	APlayerController* Controller = PlayerCharacter
-		? Cast<APlayerController>(PlayerCharacter->GetController())
-		: nullptr;
-	if (Controller && Controller->PlayerCameraManager)
+
+	APlayerController* Controller = GetDawnController();
+	APlayerCameraManager* Camera = Controller ? Controller->PlayerCameraManager : nullptr;
+	const bool bCloseEyes = Camera
+		&& !bMorningPresentationSuppressed
+		&& !bImmediateDawn
+		&& !IsCaptureResetInFlight();
+	if (!bCloseEyes)
 	{
-		Controller->PlayerCameraManager->StartCameraFade(
-			0.0f,
-			1.0f,
-			IGNightPhase::DawnFadeOutSeconds,
-			FLinearColor::Black,
-			/*bShouldFadeAudio=*/false,
-			/*bHoldWhenFinished=*/true);
+		// 즉시 경로. 에필로그가 화면을 가진 엔딩 길, 무인 검증과 캡처, 포획
+		// 암전이 화면을 쥔 동안. 세계와 목표 줄이 같은 프레임에 바뀐다.
+		ApplyDawnWorld();
+		ApplySealedPresentation(false);
+		RequestMissingFloorAutosave(false);
+		if (bMorningPresentationSuppressed)
+		{
+			bMorningPresentationSuppressed = false;
+			return;
+		}
+		PlayEntranceLatch();
+		PlayMorningLine();
+		return;
 	}
+
+	// 그가 먼저 그 자리에 선다. 사라지는 것은 검은 화면 아래서다(§4.6).
+	// 예전에는 세계가 먼저 바뀌고 눈이 그 뒤에 감겨서, 페이드 첫 프레임에
+	// 복도등이 낮 밝기로 켜지고 바로 뒤의 그가 한 프레임 만에 지워졌다.
+	HoldListenersForDawn();
+	// 밤의 음악도 눈과 같이 감긴다. 그가 잠드는 것은 눈이 다 감긴 뒤라, 여기서 먼저
+	// 걷지 않으면 추격의 꼬리가 「문이 열린다. 아침이다.」와 날숨 위로 운다.
+	if (UIGMissingFloorAudioSubsystem* AudioDirector =
+		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+	{
+		AudioDirector->ReleaseScoreForDawn(IGNightPhase::DawnFadeOutSeconds);
+	}
+	// 여기서부터 눈을 다시 뜰 때까지 화면은 새벽의 것이다.
+	bDawnTransitionInProgress = true;
+	// 다른 연출이 화면을 반쯤 덮고 있었다면 거기서부터 감는다. 0에서 다시
+	// 시작하면 한 프레임 밝아졌다가 감긴다.
+	Camera->StartCameraFade(
+		Camera->bEnableFading ? FMath::Clamp(Camera->FadeAmount, 0.0f, 1.0f) : 0.0f,
+		1.0f,
+		IGNightPhase::DawnFadeOutSeconds,
+		FLinearColor::Black,
+		/*bShouldFadeAudio=*/false,
+		/*bHoldWhenFinished=*/true);
+	GetWorldTimerManager().SetTimer(
+		DawnWorldTimer,
+		this,
+		&AIGNightPhaseDirector::FlipWorldUnderBlack,
+		IGNightPhase::DawnWorldDelaySeconds,
+		false);
+	GetWorldTimerManager().SetTimer(
+		DawnLatchTimer,
+		this,
+		&AIGNightPhaseDirector::PlayEntranceLatch,
+		IGNightPhase::DawnLatchDelaySeconds,
+		false);
 	GetWorldTimerManager().SetTimer(
 		DawnTimer,
 		this,
 		&AIGNightPhaseDirector::FinishDawnPresentation,
-		IGNightPhase::DawnBlackSeconds,
+		IGNightPhase::DawnFadeOutSeconds + IGNightPhase::DawnBlackSeconds,
 		false);
 }
 
-void AIGNightPhaseDirector::FinishDawnPresentation()
+void AIGNightPhaseDirector::ApplyDawnWorld()
 {
-	AIGPlayerCharacter* PlayerCharacter = Player.Get();
-	APlayerController* Controller = PlayerCharacter
-		? Cast<APlayerController>(PlayerCharacter->GetController())
-		: nullptr;
-	if (Controller && Controller->PlayerCameraManager)
+	if (AIGPrologueWorldScene* WorldScene = Scene.Get())
 	{
-		Controller->PlayerCameraManager->StartCameraFade(
-			1.0f,
-			0.0f,
-			IGNightPhase::DawnFadeInSeconds,
-			FLinearColor::Black,
-			/*bShouldFadeAudio=*/false,
-			/*bHoldWhenFinished=*/false);
+		// 등·안개·노출, 그리고 창 너머 도로가 낮으로 돌아온다(ApplyNightAtmosphere).
+		WorldScene->SetTheHourSealed(false);
+		WorldScene->SetNightStairPocketEnabled(false);
 	}
+	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+	{
+		Narrative->SetHourSealed(false);
+	}
+	// 그가 잠드는 것(SetDormant)도, 밤의 베드가 가라앉는 것도 이 한 줄이다.
+	OnHourActiveChanged.Broadcast(false);
+	ReleaseHeldListeners();
+}
+
+void AIGNightPhaseDirector::FlipWorldUnderBlack()
+{
+	ApplyDawnWorld();
+	// 낮 전환을 받는 쪽 하나라도 페이드를 걷으면, 눈을 뜨기 전에 낮으로 바뀐
+	// 복도가 보이고 눈을 뜰 때 한 번 더 검게 튄다. 세계를 바꾼 직후 검정을 다시
+	// 붙든다. 걷는 것은 FinishDawnPresentation 하나다.
+	if (bDawnTransitionInProgress)
+	{
+		if (APlayerController* Controller = GetDawnController())
+		{
+			if (Controller->PlayerCameraManager)
+			{
+				Controller->PlayerCameraManager->SetManualCameraFade(
+					1.0f,
+					FLinearColor::Black,
+					/*bInFadeAudio=*/false);
+			}
+		}
+	}
+	RequestMissingFloorAutosave(false);
+}
+
+void AIGNightPhaseDirector::HoldListenersForDawn()
+{
+	DawnHeldListeners.Reset();
+	for (TActorIterator<AIGListenerEntity> It(GetWorld()); It; ++It)
+	{
+		AIGListenerEntity* Listener = *It;
+		if (!Listener || Listener->IsDormant())
+		{
+			continue;
+		}
+		// Tick이 그의 전부다 — 상태 기계, 기는 걸음, 포획 판정. 멈추면 눈을
+		// 감는 반 초 안에 잡히는 일이 없다. 재생도 세운다. 기던 동작이 제자리에서
+		// 계속 돌면 멈춘 것이 아니라 헛도는 것이다. 깨어나면 그의 Tick이 속도를
+		// 다시 넣는다.
+		Listener->SetActorTickEnabled(false);
+		if (USkeletalMeshComponent* Body =
+			Listener->FindComponentByClass<USkeletalMeshComponent>())
+		{
+			Body->SetPlayRate(0.0f);
+		}
+		DawnHeldListeners.Add(Listener);
+	}
+}
+
+void AIGNightPhaseDirector::ReleaseHeldListeners()
+{
+	// 새벽 전환이 재우지 않은 몸은 여기서 되살린다. 멈춘 채로 두면 다음 밤의
+	// SetDormant(false)가 조기 반환해서 그는 밤새 그 자리에 서 있다.
+	for (const TWeakObjectPtr<AIGListenerEntity>& Held : DawnHeldListeners)
+	{
+		AIGListenerEntity* Listener = Held.Get();
+		if (Listener && !Listener->IsDormant())
+		{
+			Listener->SetActorTickEnabled(true);
+		}
+	}
+	DawnHeldListeners.Reset();
+}
+
+bool AIGNightPhaseDirector::IsCaptureResetInFlight() const
+{
+	for (TActorIterator<AIGNightLoopDirector> It(GetWorld()); It; ++It)
+	{
+		if (It->IsCaptureResetInFlight())
+		{
+			return true;
+		}
+	}
+	return false;
+}
+
+APlayerController* AIGNightPhaseDirector::GetDawnController() const
+{
+	if (const AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		if (APlayerController* Controller =
+			Cast<APlayerController>(PlayerCharacter->GetController()))
+		{
+			return Controller;
+		}
+	}
+	const UWorld* World = GetWorld();
+	return World ? World->GetFirstPlayerController() : nullptr;
+}
+
+void AIGNightPhaseDirector::PlayEntranceLatch()
+{
+	// 1층 공동현관의 전자 잠금. 여기서 나는 것이 사실이다.
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateRelayClick(this),
@@ -337,21 +528,100 @@ void AIGNightPhaseDirector::FinishDawnPresentation()
 		300.0f,
 		3200.0f,
 		EIGAudioBus::World);
+	// 그런데 4·5층에서는 세 층의 슬래브가 이것을 210Hz 톡 하나로 거른다.
+	// 계단실을 타고 올라온 걸쇠 소리를 그녀가 있는 층 반 층 아래에서 한 번
+	// 더 낸다 — 가깝고, 아래에서 올라온다. 문마다 걸쇠가 풀릴 때 나던 그
+	// 소리라 몸이 먼저 알아듣는다.
+	if (const AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		const float PlayerZ = PlayerCharacter->GetActorLocation().Z;
+		if (PlayerZ - IGNightPhase::EntranceLatchLocation.Z
+			> IGNightPhase::StairLatchMinimumHeight)
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				IGAudio::SampleOr(
+					TEXT("Door_Steel_Open"),
+					[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateRelayClick(this); }),
+				FVector(
+					IGNightPhase::StairShaftX,
+					IGNightPhase::StairShaftY,
+					PlayerZ - IGNightPhase::StairLatchDrop),
+				0.42f,
+				0.82f,
+				260.0f,
+				1500.0f,
+				EIGAudioBus::World);
+		}
+	}
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT("IGMissingFloor", "DawnLatchCaption", "공동현관 잠금이 풀린다"),
 		2.2f,
 		IGNightPhase::EntranceLatchLocation);
+}
+
+void AIGNightPhaseDirector::FinishDawnPresentation()
+{
+	bDawnTransitionInProgress = false;
+	if (APlayerController* Controller = GetDawnController())
+	{
+		if (APlayerCameraManager* Camera = Controller->PlayerCameraManager)
+		{
+			// 검은 화면이 그 사이 다른 연출(계단 전환 따위)에 걷혔으면 다시 검게
+			// 튀지 않고 지금 밝기에서 뜬다.
+			Camera->StartCameraFade(
+				Camera->bEnableFading ? FMath::Clamp(Camera->FadeAmount, 0.0f, 1.0f) : 0.0f,
+				0.0f,
+				IGNightPhase::DawnFadeInSeconds,
+				FLinearColor::Black,
+				/*bShouldFadeAudio=*/false,
+				/*bHoldWhenFinished=*/false);
+		}
+	}
+	// 눈을 감은 사이에 다음 밤이 먼저 왔으면(저장 복원·시험 경로) 아침을 말하지
+	// 않는다. 눈만 뜬다.
+	if (bHourActive)
+	{
+		return;
+	}
+	// 목표 줄은 눈을 뜰 때 독백과 함께 온다. HUD는 카메라 암전 위에 그려지므로
+	// 이보다 먼저 낮 표시로 바꾸면 검은 화면 위에 글자가 먼저 뜬다.
+	ApplySealedPresentation(false);
+	PlayMorningLine();
+}
+
+void AIGNightPhaseDirector::PlayMorningLine()
+{
 	// The release is announced by the world, not by a banner: the entrance
 	// simply opens again. One inner-voice line is allowed (§7 forbids
 	// confirmation UI, not thought).
+	// 못 채운 밤의 아침은 구원이 아니다. 다음 저녁 카드에서가 아니라 눈을 뜨는
+	// 이 자리에서 안다(§5.4). 밤1은 답을 찾은 순간에 목표를 먼저 적어 두므로
+	// 기록을 같이 본다 — 기다리는 사이 05:30이 먼저 와도 채운 밤이다.
+	// 밤4도 같다. 벽이 닫힌 새벽은 엔딩 C가, 고른 새벽은 에필로그가 가져가서
+	// 여기까지 오는 밤4는 벽을 열고도 고르지 못한 밤뿐이고, 다음 저녁에 되풀이된다.
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const int32 NightIndex = Narrative ? Narrative->GetNightIndex() : 0;
+	const bool bMissedNight = !bGoalComplete
+		&& Narrative
+		&& NightIndex >= 1
+		&& NightIndex <= 4
+		&& !Narrative->HasBeatPlayed(GoalBeatId(NightIndex));
 	AIGHorrorHUD::PushThought(
 		this,
-		NSLOCTEXT("IGMissingFloor", "MorningCame", "문이 열린다. 아침이다."),
+		bMissedNight
+			? NSLOCTEXT("IGMissingFloor", "MorningCameMissed", "벌써 다섯 시 반이다. 아직 못 끝냈는데.")
+			: NSLOCTEXT("IGMissingFloor", "MorningCame", "문이 열린다. 아침이다."),
 		3.4f);
+	if (bMissedNight)
+	{
+		// 딸깍과 자막은 같다. 내쉴 숨이 없을 뿐이다.
+		return;
+	}
 	// 잠금이 풀리는 소리에 숨을 내쉰다. 밤을 무섭게 보낸 몸만 — 스트레스가
 	// 낮으면 그냥 아침이고, 그건 소리 낼 일이 아니다.
-	if (PlayerCharacter)
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 	{
 		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
 		{

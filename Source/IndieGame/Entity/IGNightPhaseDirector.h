@@ -7,6 +7,8 @@
 
 class AIGPrologueWorldScene;
 class AIGPlayerCharacter;
+class AIGListenerEntity;
+class APlayerController;
 class UIGMissingFloorNarrativeSubsystem;
 
 DECLARE_MULTICAST_DELEGATE_OneParam(FIGHourActiveSignature, bool /*bActive*/);
@@ -67,10 +69,21 @@ public:
 	/** 벽 안의 2분 40초는 이 밤의 시간이 아니다. 막간 동안 05:30이 서 있는다. */
 	void SetHourPaused(bool bPaused) { bHourPaused = bPaused; }
 	bool IsHourPaused() const { return bHourPaused; }
+	/**
+	 * 공동현관 잠금 소리만 낸다. 엔딩 B는 벽 앞에 앉은 채 05:30을 먼저 맞고,
+	 * 진짜 새벽은 에필로그 아래서 소리 없이 온다.
+	 */
+	void PlayDawnLatchCue() { PlayEntranceLatch(); }
 
 	UFUNCTION(BlueprintPure, Category = "Night")
 	bool IsHourActive() const { return bHourActive; }
 	bool IsFailureEndingSuspended() const { return bFailureEndingSuspended; }
+	/**
+	 * 05:30에 눈이 감기기 시작해서 다시 뜨기 시작할 때까지 참이다. 세계는 그
+	 * 한가운데, 검은 화면 아래서 낮으로 바뀐다. 낮 전환을 받는 쪽은 이 동안
+	 * 카메라 페이드를 건드리지 않는다.
+	 */
+	bool IsDawnTransitionInProgress() const { return bDawnTransitionInProgress; }
 
 	UFUNCTION(BlueprintPure, Category = "Night")
 	float GetHourElapsedSeconds() const { return HourElapsedSeconds; }
@@ -107,9 +120,27 @@ protected:
 
 private:
 	void TickHour();
+	/**
+	 * 새벽의 시각표. 그가 그 자리에 멈추고(숨기지 않는다), 눈이 감기고, 검은
+	 * 화면 아래서 건물이 낮으로 바뀌고 잠금이 풀리는 소리가 아래에서 올라온
+	 * 뒤에 눈을 뜬다. 엔딩 C의 새벽, 에필로그가 화면을 가진 엔딩 길, 무인
+	 * 검증은 같은 결과를 즉시 만든다.
+	 */
 	void ReleaseAtDawn();
-	/** 검은 반 초 뒤. 공동현관 잠금이 풀리는 소리, 눈을 뜨는 시간, 독백. */
+	/** 봉쇄를 풀고 낮을 알린다. 이 브로드캐스트가 그를 재운다. */
+	void ApplyDawnWorld();
+	/** 눈이 다 감긴 뒤. 세계를 바꾸고 낮의 자동 저장을 건다. */
+	void FlipWorldUnderBlack();
+	/** 공동현관 잠금. 1층의 딸깍과, 계단실을 타고 올라온 걸쇠 소리. */
+	void PlayEntranceLatch();
+	/** 눈을 뜬다. 목표 줄과 아침 독백이 같이 온다. */
 	void FinishDawnPresentation();
+	void PlayMorningLine();
+	/** 눈을 감는 동안 그를 그 자리에 세운다. 포획도 이동도 없다. */
+	void HoldListenersForDawn();
+	void ReleaseHeldListeners();
+	bool IsCaptureResetInFlight() const;
+	APlayerController* GetDawnController() const;
 	void ApplySealedPresentation(bool bSealed);
 	void RequestMissingFloorAutosave(bool bAtNight);
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
@@ -127,6 +158,13 @@ private:
 	bool bRestoringHour = false;
 	bool bMorningPresentationSuppressed = false;
 	bool bHourPaused = false;
+	/** -IGListenerGreyboxProbe / -IGNightCapture: 새벽 직후의 세계를 같은 프레임에 본다. */
+	bool bImmediateDawn = false;
+	/** 새벽의 눈 감기가 화면을 쥐고 있다. FinishDawnPresentation이 놓는다. */
+	bool bDawnTransitionInProgress = false;
 	FTimerHandle HourTimer;
 	FTimerHandle DawnTimer;
+	FTimerHandle DawnWorldTimer;
+	FTimerHandle DawnLatchTimer;
+	TArray<TWeakObjectPtr<AIGListenerEntity>> DawnHeldListeners;
 };

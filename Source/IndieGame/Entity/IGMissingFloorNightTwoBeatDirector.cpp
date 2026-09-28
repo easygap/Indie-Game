@@ -88,6 +88,42 @@ namespace IGNightTwo
 	constexpr float KnockFalloff = 1500.0f;
 	constexpr float DragVolume = 0.62f;
 
+	/**
+	 * 403호 현관문은 강철이다. 플레이어가 같은 문을 두드리면 철문 녹음이 나는데
+	 * 그의 주먹만 석고벽 합성이어서, 그가 철문을 두드리는 유일한 장면이 가장
+	 * 가짜처럼 들렸다. 녹음을 위에 얹고 합성은 문짝 너머의 저역으로 깐다.
+	 */
+	constexpr float SteelKnockVolume = 0.9f;
+	constexpr float SteelKnockPitch = 0.84f;
+	constexpr float SteelUnderlayVolume = 0.45f;
+	constexpr int32 SteelTripleCount = 3;
+	const TCHAR* const SteelTripleSamples[SteelTripleCount] = {
+		TEXT("Knock_Steel_0"), TEXT("Knock_Steel_1"), TEXT("Knock_Steel_2")};
+	constexpr float SteelTriplePitches[SteelTripleCount] = {0.84f, 0.80f, 0.86f};
+	constexpr float SteelTripleVolume = 0.92f;
+	/** 합성 3연, Entity_KnockTriple과 같은 간격. */
+	constexpr float SteelTripleSpacingSeconds = 0.62f;
+
+	/** 3연 첫 타 뒤 숨을 들이켜기까지. 놀람이 아니라 한기라서 0.4 아래다. */
+	constexpr float AnswerGaspDelaySeconds = 0.35f;
+	constexpr float AnswerGaspScare = 0.35f;
+	/** 테이프에 남는 숨의 크기. 발소리보다 작다. */
+	constexpr float AnswerGaspLoudness = 0.06f;
+	/** 폰을 기다린 지 12초. 문구멍을 안 본 사람에게도 할 일을 한 번 말한다. */
+	constexpr float PhoneNudgeSeconds = 12.0f;
+	constexpr float DragMoveStepSeconds = 0.05f;
+
+	/**
+	 * 문구멍을 들여다본 뒤 문 바로 아래에서 석고가 갈라지기까지. 캄캄한 복도를
+	 * 한 번 훑을 시간이다. 그는 기는 몸이라 문구멍 눈높이에 없다 — 보이지
+	 * 않는데 바로 발밑에 있다는 것을 소리가 알려 준다.
+	 */
+	constexpr float PeepholeCrackDelaySeconds = 1.4f;
+	/** 그가 문 앞 자리에서 이만큼 안에 있어야 갈라짐이 난다. */
+	constexpr float PeepholeCrackReach = 120.0f;
+	/** 문 하나 너머, 발밑. 0.4를 넘겨 숨이 걸린다. */
+	constexpr float PeepholeCrackScare = 0.45f;
+
 	const FName BeatId(TEXT("Night2.DoorKnock"));
 	const FName PeepholeBeatId(TEXT("Night2.Peephole"));
 	const FName ReturnBeatId(TEXT("Night2.ReturnChase"));
@@ -115,6 +151,22 @@ namespace IGNightTwo
 	constexpr float CollapseVolume = 1.0f;
 	constexpr float CollapseInnerRadius = 260.0f;
 	constexpr float CollapseFalloff = 2100.0f;
+	/** 판재 더미의 첫 장과 나머지. 나머지가 무겁고 낮다. */
+	constexpr float CollapseFirstPitch = 0.92f;
+	constexpr float CollapseSecondPitch = 0.78f;
+	/** 두 번째 충돌 뒤 판재 모서리에서 가루가 떨어지기까지. */
+	constexpr float CollapseDustDelaySeconds = 0.45f;
+	constexpr float CollapseDustVolume = 0.5f;
+
+	/**
+	 * 2-4 「공포가 아니라 한기」(【S】0.5). 원문을 다 읽은 몸이 식는다. 0.4부터는
+	 * 들숨이 따라와 놀람이 되므로 그 아래다.
+	 */
+	constexpr float ReturnChillScare = 0.30f;
+	/** 한기 뒤 위층 바닥이 한 번 운다. 곧 무너질 자리의 예고다. */
+	constexpr float ReturnChillCreakSeconds = 1.4f;
+	/** 관리실 책상 바로 위층 바닥. */
+	const FVector ReturnCreakLocation(179.0f, -103.0f, 330.0f);
 
 	/** 관리실은 Y -235..-75. 이 선을 넘으면 나선 것이다. */
 	constexpr float BoothExitY = -242.0f;
@@ -195,6 +247,12 @@ void AIGMissingFloorNightTwoBeatDirector::EndPlay(
 	GetWorldTimerManager().ClearTimer(ReturnTimer);
 	GetWorldTimerManager().ClearTimer(CollapseTimer);
 	GetWorldTimerManager().ClearTimer(DragFadeTimer);
+	GetWorldTimerManager().ClearTimer(DragMoveTimer);
+	GetWorldTimerManager().ClearTimer(AnswerKnockTimer);
+	GetWorldTimerManager().ClearTimer(AnswerGaspTimer);
+	GetWorldTimerManager().ClearTimer(PeepholeTimer);
+	GetWorldTimerManager().ClearTimer(CollapseDustTimer);
+	GetWorldTimerManager().ClearTimer(ReturnChillTimer);
 	ReleaseFigure();
 	Super::EndPlay(EndPlayReason);
 }
@@ -236,6 +294,10 @@ void AIGMissingFloorNightTwoBeatDirector::SetHourActive(const bool bHourActive)
 		// 끝났고, 낮에 폴링을 계속할 이유가 없다.
 		GetWorldTimerManager().ClearTimer(StageTimer);
 		GetWorldTimerManager().ClearTimer(ReturnTimer);
+		GetWorldTimerManager().ClearTimer(AnswerKnockTimer);
+		GetWorldTimerManager().ClearTimer(AnswerGaspTimer);
+		GetWorldTimerManager().ClearTimer(PeepholeTimer);
+		GetWorldTimerManager().ClearTimer(ReturnChillTimer);
 		if (ReturnStage != EIGNightTwoReturnStage::Home)
 		{
 			ReturnStage = EIGNightTwoReturnStage::Idle;
@@ -251,6 +313,7 @@ void AIGMissingFloorNightTwoBeatDirector::SetHourActive(const bool bHourActive)
 		return;
 	}
 
+	bPhoneNudged = false;
 	EnterStage(EIGNightTwoBeatStage::Opening);
 	GetWorldTimerManager().SetTimer(
 		StageTimer,
@@ -295,6 +358,18 @@ void AIGMissingFloorNightTwoBeatDirector::AdvanceStage()
 	{
 		const UIGRecordingSubsystem* Recording = GetRecording();
 		const bool bArmed = Recording && Recording->IsRecording();
+		// 문구멍을 안 본 사람에게는 폰을 가리키는 말이 한 줄도 없었다. 그런
+		// 플레이어에게 55초 뒤의 3연은 녹음 없이 지나가고 밤2의 심기가 통째로
+		// 빠진다. 결론이 아니라 할 일로, 한 번만.
+		if (!bArmed && !bPhoneNudged
+			&& StageSeconds >= IGNightTwo::PhoneNudgeSeconds)
+		{
+			bPhoneNudged = true;
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT("IGMissingFloor", "N2PhoneNudgeThought", "녹음이라도 해 두자."),
+				3.2f);
+		}
 		if (bArmed || StageSeconds >= IGNightTwo::PhonePatienceSeconds)
 		{
 			bRecordedAnswer = bArmed;
@@ -344,18 +419,33 @@ void AIGMissingFloorNightTwoBeatDirector::AdvanceStage()
 
 void AIGMissingFloorNightTwoBeatDirector::PlayFirstKnock()
 {
-	// 한 번이다. 부르는 소리이고, 그녀를 문으로 데려오는 것이 전부다.
+	// 한 번이다. 부르는 소리이고, 그녀를 문으로 데려오는 것이 전부다. 주먹이
+	// 닿는 것은 강철 문짝이라 철문 녹음이 앞에 서고, 합성은 문짝 너머로 전해지는
+	// 저역만 맡는다. 녹음이 없으면 합성이 혼자 예전 크기로 낸다.
+	USoundBase* Steel = IGAudio::Sample(IGNightTwo::SteelTripleSamples[0]);
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateWallKnockSingle(
 			this,
 			IGNightTwo::SingleKnockMuffle),
 		IGNightTwo::KnockLocation,
-		IGNightTwo::KnockVolume,
+		Steel ? IGNightTwo::SteelUnderlayVolume : IGNightTwo::KnockVolume,
 		1.0f,
 		IGNightTwo::KnockInnerRadius,
 		IGNightTwo::KnockFalloff,
 		EIGAudioBus::Entity);
+	if (Steel)
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			Steel,
+			IGNightTwo::KnockLocation,
+			IGNightTwo::SteelKnockVolume,
+			IGNightTwo::SteelKnockPitch,
+			IGNightTwo::KnockInnerRadius,
+			IGNightTwo::KnockFalloff,
+			EIGAudioBus::Entity);
+	}
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
 		NSLOCTEXT("IGMissingFloor", "N2DoorKnockCaption", "현관문 — 노크"),
@@ -367,7 +457,7 @@ void AIGMissingFloorNightTwoBeatDirector::PlayFirstKnock()
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2DoorKnockThought",
-			"벽이 아니다. 우리 집 문이다."),
+			"이번엔 현관문에서 들렸다."),
 		4.2f);
 
 	// §5.5가 거부할 것이 생기는 순간이다. 발신자가 존재여야 하므로 소음
@@ -399,20 +489,35 @@ void AIGMissingFloorNightTwoBeatDirector::PlayFirstKnock()
 
 void AIGMissingFloorNightTwoBeatDirector::PlayAnswer()
 {
+	const bool bSteel = IGAudio::Sample(IGNightTwo::SteelTripleSamples[0]) != nullptr;
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateWallKnockTriple(
 			this,
 			IGNightTwo::TripleKnockMuffle),
 		IGNightTwo::KnockLocation,
-		IGNightTwo::KnockVolume,
+		bSteel ? IGNightTwo::SteelUnderlayVolume : IGNightTwo::KnockVolume,
 		1.0f,
 		IGNightTwo::KnockInnerRadius,
 		IGNightTwo::KnockFalloff,
 		EIGAudioBus::Entity);
+	// 철문 세 타는 합성 3연과 같은 0.62초 간격으로 겹친다. 첫 타는 지금,
+	// 나머지는 스스로 다음 타를 건다.
+	AnswerSteelHits = 0;
+	GetWorldTimerManager().ClearTimer(AnswerKnockTimer);
+	if (bSteel)
+	{
+		PlayAnswerSteelHit();
+	}
+	GetWorldTimerManager().SetTimer(
+		AnswerGaspTimer,
+		this,
+		&AIGMissingFloorNightTwoBeatDirector::PlayAnswerGasp,
+		IGNightTwo::AnswerGaspDelaySeconds,
+		false);
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
-		NSLOCTEXT("IGMissingFloor", "N2TripleCaption", "문 너머 — 노크 3연"),
+		NSLOCTEXT("IGMissingFloor", "N2TripleCaption", "문 너머 — 연달아 세 번 두드리는 소리"),
 		2.4f,
 		IGNightTwo::KnockLocation);
 	// 1.0은 §21.2의 3연 값이고, §5.5의 표가 그것을 2.10초의 무음으로 옮긴다.
@@ -456,6 +561,17 @@ void AIGMissingFloorNightTwoBeatDirector::PlayDragAway()
 			}),
 			FMath::Max(IGNightTwo::DragSeconds - 1.2f, 0.2f),
 			false);
+		// 자막이 「멀어짐」이라고 하는 소리는 실제로 멀어져야 한다. 문 앞에 박힌
+		// 루프가 작아지기만 하면 멀어지는 것이 아니라 꺼지는 것이다. 계단코어
+		// 쪽으로 옮기며 페이드한다.
+		DragAwayLoop = DragAway;
+		DragElapsedSeconds = 0.0f;
+		GetWorldTimerManager().SetTimer(
+			DragMoveTimer,
+			this,
+			&AIGMissingFloorNightTwoBeatDirector::AdvanceDragAway,
+			IGNightTwo::DragMoveStepSeconds,
+			true);
 	}
 	AIGHorrorHUD::PushAudioCaptionAt(
 		this,
@@ -470,15 +586,79 @@ void AIGMissingFloorNightTwoBeatDirector::PlayDragAway()
 			Entity.Get());
 	}
 	// 소리만 멀어지는 것이 아니라 그도 멀어진다. 문을 열어 확인하는 플레이어가
-	// 빈 복도를 봐야 한다.
+	// 빈 복도를 봐야 한다. 문 앞 자리를 첫 칸으로 두면 그 자리에서 한 번 더
+	// 두드리고 나서야 떠났다. 붙들린 채 계단코어 쪽으로 기어가고, 닿아도
+	// 두드리지 않는다.
 	if (AIGListenerEntity* Listener = Entity.Get())
 	{
-		Listener->SetPatrolPoints({
-			IGNightTwo::FigureStagePoint,
-			IGNightTwo::DragDepartPoint,
-		});
+		Listener->SetPatrolPoints({IGNightTwo::DragDepartPoint});
 	}
 	KnockCount = 3;
+}
+
+void AIGMissingFloorNightTwoBeatDirector::PlayAnswerSteelHit()
+{
+	if (AnswerSteelHits >= IGNightTwo::SteelTripleCount)
+	{
+		return;
+	}
+	const int32 Hit = AnswerSteelHits++;
+	if (USoundBase* Steel = IGAudio::Sample(IGNightTwo::SteelTripleSamples[Hit]))
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			Steel,
+			IGNightTwo::KnockLocation,
+			IGNightTwo::SteelTripleVolume,
+			IGNightTwo::SteelTriplePitches[Hit],
+			IGNightTwo::KnockInnerRadius,
+			IGNightTwo::KnockFalloff,
+			EIGAudioBus::Entity);
+	}
+	if (AnswerSteelHits < IGNightTwo::SteelTripleCount)
+	{
+		GetWorldTimerManager().SetTimer(
+			AnswerKnockTimer,
+			this,
+			&AIGMissingFloorNightTwoBeatDirector::PlayAnswerSteelHit,
+			IGNightTwo::SteelTripleSpacingSeconds,
+			false);
+	}
+}
+
+void AIGMissingFloorNightTwoBeatDirector::PlayAnswerGasp()
+{
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+		{
+			Stress->ApplyScare(IGNightTwo::AnswerGaspScare);
+			Stress->PlayGasp(/*bIgnoreCooldown=*/true);
+		}
+	}
+	// §5.5는 그녀의 숨을 남긴다. 숨은 소음 이벤트가 아니라서 여기서 직접 적는다.
+	// 아침의 테이프에서 3연이 비운 2.10초 한가운데 이 숨 하나가 있다.
+	if (UIGRecordingSubsystem* Recording = GetRecording())
+	{
+		Recording->RecordPlayerBody(IGNightTwo::AnswerGaspLoudness);
+	}
+}
+
+void AIGMissingFloorNightTwoBeatDirector::AdvanceDragAway()
+{
+	DragElapsedSeconds += IGNightTwo::DragMoveStepSeconds;
+	UAudioComponent* Loop = DragAwayLoop.Get();
+	if (!Loop || DragElapsedSeconds >= IGNightTwo::DragSeconds)
+	{
+		GetWorldTimerManager().ClearTimer(DragMoveTimer);
+		return;
+	}
+	const float Alpha = FMath::Clamp(
+		DragElapsedSeconds / IGNightTwo::DragSeconds, 0.0f, 1.0f);
+	Loop->SetWorldLocation(FMath::Lerp(
+		IGNightTwo::FigureStagePoint,
+		IGNightTwo::DragDepartPoint,
+		Alpha));
 }
 
 void AIGMissingFloorNightTwoBeatDirector::StageFigure()
@@ -499,6 +679,9 @@ void AIGMissingFloorNightTwoBeatDirector::StageFigure()
 	// Without that he stands outside 403 for one frame and then crawls off toward
 	// whatever he last heard, which for a beat that opens with a knock is common.
 	Listener->ParkForBeat(IGNightTwo::FigureStagePoint, 90.0f);
+	// 대본대로 붙든다. 순찰 AI대로 두면 대본 노크 사이에 제 3연을 끼워 넣고,
+	// 문구멍을 보러 장판을 걷는 발소리에 조사로, 두 번째 걸음에 추격으로 넘어갔다.
+	Listener->SetBeatHold(true);
 }
 
 void AIGMissingFloorNightTwoBeatDirector::ReleaseFigure()
@@ -510,6 +693,7 @@ void AIGMissingFloorNightTwoBeatDirector::ReleaseFigure()
 	bFigureStaged = false;
 	if (AIGListenerEntity* Listener = Entity.Get())
 	{
+		Listener->SetBeatHold(false);
 		Listener->SetPatrolPoints(CorridorPatrolPoints);
 		// 연출이었지 실패가 아니다. 공격 티어는 건드리지 않는다.
 		Listener->ResetToPatrolStart(/*bRaiseAggression=*/false);
@@ -530,20 +714,60 @@ void AIGMissingFloorNightTwoBeatDirector::ArmReturnChase()
 		return;
 	}
 	ReturnStage = EIGNightTwoReturnStage::AwaitingExit;
-	// 종이는 손에 있고 밤은 끝나지 않았다. 목표가 바뀐 것을 한 줄로 말한다.
+	// 밤은 끝나지 않았다. 목표가 바뀐 것을 한 줄로 말한다. 밑장은 책상에 남아
+	// 있어서 「들고」 갈 것은 없다.
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2ReturnThought",
-			"이거 들고 집까지 가야 한다."),
+			"이제 403호까지 올라가야 한다."),
 		4.0f);
+	// 지운 민원을 읽은 몸이 식는다. 놀람이 아니라 한기라서 숨은 걸리지 않는다.
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+		{
+			Stress->ApplyScare(IGNightTwo::ReturnChillScare);
+		}
+	}
+	GetWorldTimerManager().SetTimer(
+		ReturnChillTimer,
+		this,
+		&AIGMissingFloorNightTwoBeatDirector::PlayReturnChill,
+		IGNightTwo::ReturnChillCreakSeconds,
+		false);
 	GetWorldTimerManager().SetTimer(
 		ReturnTimer,
 		this,
 		&AIGMissingFloorNightTwoBeatDirector::AdvanceReturn,
 		IGNightTwo::ReturnPollSeconds,
 		true);
+}
+
+void AIGMissingFloorNightTwoBeatDirector::PlayReturnChill()
+{
+	// 아직 관리실 안일 때만. 이미 나섰으면 자재가 대신 운다.
+	if (ReturnStage != EIGNightTwoReturnStage::AwaitingExit)
+	{
+		return;
+	}
+	// 건물이 낸 소리다. 그에게 알리지 않는다 — 두 번 대답하는 소리가 되는 것은
+	// 나서는 순간의 자재 더미다.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateSettleTimberCreak(this),
+		IGNightTwo::ReturnCreakLocation,
+		0.45f,
+		0.9f,
+		160.0f,
+		1400.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "N2ReturnCeilingCreak", "천장이 한 번 삐걱인다"),
+		2.2f,
+		IGNightTwo::ReturnCreakLocation);
 }
 
 bool AIGMissingFloorNightTwoBeatDirector::IsPlayerOutsideBooth() const
@@ -594,6 +818,7 @@ void AIGMissingFloorNightTwoBeatDirector::AdvanceReturn()
 		{
 			ReturnStage = EIGNightTwoReturnStage::Home;
 			GetWorldTimerManager().ClearTimer(ReturnTimer);
+			GetWorldTimerManager().ClearTimer(ReturnChillTimer);
 			if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 			{
 				Narrative->MarkBeatPlayed(IGNightTwo::ReturnBeatId);
@@ -618,21 +843,24 @@ void AIGMissingFloorNightTwoBeatDirector::PlayMaterialCollapse()
 
 	auto Impact = [this](const bool bSecond)
 	{
+		// 판재가 바닥을 치는 소리다. 예전에는 문짝이 문틀에 닿는 저역과 잠긴
+		// 손잡이 덜컹을 빌려 써서, 안쪽 방 문 83cm 옆에서 「누가 문을 닫고
+		// 손잡이를 흔든다」로 들렸다. 첫 장보다 나머지가 무겁고 낮다.
 		IGAudio::SpawnOneShotAt(
 			this,
-			bSecond
-				? UIGToneSequenceSoundWave::CreateLockedRattle(this)
-				: UIGToneSequenceSoundWave::CreateDoorThud(this),
+			UIGToneSequenceSoundWave::CreateBoardStackFall(this),
 			IGNightTwo::CollapseLocation,
 			IGNightTwo::CollapseVolume,
-			bSecond ? 0.74f : 0.86f,
+			bSecond ? IGNightTwo::CollapseSecondPitch : IGNightTwo::CollapseFirstPitch,
 			IGNightTwo::CollapseInnerRadius,
 			IGNightTwo::CollapseFalloff);
 		// 발신자 없음. 건물이 한 일이며, 파문 HUD가 「네가 냈다」고 말해서는
-		// 안 된다 — 1-5의 소화기와 같은 규칙이다.
+		// 안 된다 — 1-5의 소화기와 같은 규칙이다. 험 마스킹으로 깎지 않는다.
+		// 밸브를 열어 둔 채 나서면 책상 둘레의 물소리가 이 소리를 깎아 한 번뿐인
+		// 추격이 조용히 사라질 수 있었다. 험이 삼키는 것은 조용한 소리다.
 		if (UIGNoiseSubsystem* Noise = GetNoise())
 		{
-			Noise->ReportNoise(
+			Noise->ReportNoiseUnmasked(
 				IGNightTwo::CollapseLocation,
 				IGNightTwo::CollapseLoudness,
 				nullptr);
@@ -647,6 +875,24 @@ void AIGMissingFloorNightTwoBeatDirector::PlayMaterialCollapse()
 		CollapseTimer,
 		SecondImpact,
 		IGNightTwo::CollapseSecondImpactSeconds,
+		false);
+	// 다 쓰러진 판재 모서리에서 가루가 떨어진다. 가장 가는 소리라 무너진 뒤에
+	// 남는다.
+	GetWorldTimerManager().SetTimer(
+		CollapseDustTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreatePlasterDustFall(this),
+				IGNightTwo::CollapseLocation + FVector(0.0f, 0.0f, 90.0f),
+				IGNightTwo::CollapseDustVolume,
+				1.0f,
+				120.0f,
+				900.0f,
+				EIGAudioBus::World);
+		}),
+		IGNightTwo::CollapseSecondImpactSeconds + IGNightTwo::CollapseDustDelaySeconds,
 		false);
 
 	AIGHorrorHUD::PushAudioCaptionAt(
@@ -686,22 +932,93 @@ void AIGMissingFloorNightTwoBeatDirector::HandlePeepholeExamined(
 		return;
 	}
 	bPeepholeSeen = true;
+	// 문구멍 덮개를 민다. 문짝에 붙은 작은 금속이라 그녀 쪽에서만 들린다.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateSwitchClick(this, true),
+		IGNightTwo::PeepholeLocation,
+		0.22f,
+		1.5f,
+		30.0f,
+		250.0f,
+		EIGAudioBus::Player);
+	// 밤의 복도에서 살아 있는 등은 계단 쪽 끝의 죽어 가는 것 하나다. 그는 기는
+	// 몸이라 선 사람의 눈높이에는 없다. 보이는 것만 말한다. 점멸 감소를 켠
+	// 사람에게는 그 등이 떨지 않으므로 「깜박인다」고 하지 않는다.
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"N2PeepholeThought1",
-			"복도에 있다. 이쪽을 보고 있는 것도 아니고, 그냥 서 있다."),
-		4.4f);
+			"캄캄하다. 복도 끝 등 하나만 켜져 있다."),
+		3.0f);
+	GetWorldTimerManager().SetTimer(
+		PeepholeTimer,
+		this,
+		&AIGMissingFloorNightTwoBeatDirector::PlayPeepholeAftermath,
+		IGNightTwo::PeepholeCrackDelaySeconds,
+		false);
+}
+
+void AIGMissingFloorNightTwoBeatDirector::PlayPeepholeAftermath()
+{
+	const UIGRecordingSubsystem* Recording = GetRecording();
+	const bool bArmed = Recording && Recording->IsRecording();
+	const bool bBeforeAnswer = Stage == EIGNightTwoBeatStage::AwaitingPeephole
+		|| Stage == EIGNightTwoBeatStage::AwaitingPhone;
+	if (!bBeforeAnswer || bArmed)
+	{
+		// 폰은 이미 돌고 있거나 3연이 시작됐다. 여기서 더할 것이 없다.
+		return;
+	}
+	// 그가 문 앞 자리에 실제로 있을 때만 갈라진다. 없는 자리에서 그의 소리를
+	// 내면 소리가 거짓말을 한다.
+	const AIGListenerEntity* Listener = Entity.Get();
+	if (bFigureStaged
+		&& Listener
+		&& !Listener->IsDormant()
+		&& FVector::Dist2D(Listener->GetActorLocation(), IGNightTwo::FigureStagePoint)
+			<= IGNightTwo::PeepholeCrackReach)
+	{
+		const FVector CrackAt = Listener->GetActorLocation() + FVector(0.0f, 0.0f, 20.0f);
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreatePlasterSettle(this),
+			CrackAt,
+			0.6f,
+			1.0f,
+			60.0f,
+			700.0f,
+			EIGAudioBus::Entity);
+		AIGHorrorHUD::PushAudioCaptionAt(
+			this,
+			NSLOCTEXT("IGMissingFloor", "N2PeepholeCrackCaption", "문 바로 아래 — 석고 갈라지는 소리"),
+			2.2f,
+			CrackAt);
+		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+		{
+			if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+			{
+				Stress->ApplyScare(IGNightTwo::PeepholeCrackScare);
+			}
+			PlayerCharacter->PlayScareKick(0.6f);
+		}
+	}
 	// 이 줄이 폰을 가리킨다. 설계서의 계기는 「증거를 만들 생각」이고,
 	// 프롬프트를 새로 띄우는 대신 그녀가 스스로 그 생각에 도달하게 둔다.
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"N2PeepholeThought2",
-			"폰으로 찍자. 문에서 조금 떨어져서."),
-		4.6f);
+	// 폰을 가리키는 말은 한 번이다 — 12초 뒤의 재촉은 이제 필요 없다. 문구멍을
+	// 늦게 본 사람은 그 재촉을 이미 들었으니 같은 말을 또 하지 않는다.
+	if (!bPhoneNudged)
+	{
+		bPhoneNudged = true;
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"N2PeepholeThought2",
+				"폰 녹음이라도 켜 두자."),
+			3.4f);
+	}
 }
 
 void AIGMissingFloorNightTwoBeatDirector::AdvanceForTesting()

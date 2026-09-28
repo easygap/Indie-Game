@@ -28,7 +28,7 @@ struct FIGNoiseEvent
 	UPROPERTY()
 	TWeakObjectPtr<AActor> Instigator;
 
-	/** World real time when the sound happened, for recency checks. */
+	/** 소리가 난 게임 시각(일시정지 중에는 멈춘다). 최근성 판정에 쓴다. */
 	UPROPERTY(BlueprintReadOnly, Category = "Noise")
 	double TimeSeconds = 0.0;
 };
@@ -66,6 +66,16 @@ public:
 		AActor* Instigator = nullptr);
 
 	/**
+	 * 대본 사건이 낸 소리를 마스킹 없이 알린다. 험이 삼키는 것은 조용한 소리이고,
+	 * 무너지는 자재처럼 반드시 그에게 닿아야 하는 비트가 밸브를 열어 둔 자리에서
+	 * 조용히 사라지면 안 된다. 그녀의 습관이 아니므로 §5.6 열지도도 데우지 않는다.
+	 */
+	FIGNoiseEvent ReportNoiseUnmasked(
+		const FVector& Location,
+		float Loudness,
+		AActor* Instigator = nullptr);
+
+	/**
 	 * Registers a machine hum that masks nearby sounds. Returns a handle for
 	 * unregistration; the source is a fixed point (machines do not walk).
 	 */
@@ -85,6 +95,18 @@ public:
 
 	/** Code listeners (the entity, telemetry, the ripple HUD). */
 	FIGNoiseReportedSignature OnNoiseReported;
+
+	/**
+	 * §19.8 대체 채널만 듣는 신호. 존재가 낸 사건성 소리(노크, 대답, 추격 진입,
+	 * 들숨, 가까이 기는 걸음)를 노크 진동과 노크 파문에 알린다. 마스킹도 히트맵도
+	 * 거치지 않고, 존재 자신과 녹음은 이 신호를 듣지 않는다. 세기는 보내는 쪽이
+	 * 플레이어 자리에 닿는 만큼으로 줄여서 준다.
+	 */
+	FIGNoiseReportedSignature OnPresentationCue;
+	void BroadcastPresentationCue(
+		const FVector& Location,
+		float Loudness,
+		AActor* Instigator);
 
 	/** How far a full-loudness (1.0) sound carries, in centimeters. */
 	static constexpr float CarryPerLoudness = 2600.0f;

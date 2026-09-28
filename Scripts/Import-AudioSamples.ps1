@@ -1,5 +1,9 @@
 [CmdletBinding()]
-param()
+param(
+	# 이름을 주면 그 샘플만 다시 반입한다(예: -Only Entity_Alert,Entity_CrawlStep_2).
+	# 나머지 uasset은 손대지 않으므로 바뀌지 않은 에셋이 LFS 변경으로 올라오지 않는다.
+	[string[]]$Only = @()
+)
 
 # Content/SourceArt/Audio(CC0 녹음을 curate_cc0_audio.py로 다듬은 WAV)를
 # /Game/Audio/S_<이름> USoundWave로 만들어 저장소 Content/Audio에 넣는다.
@@ -47,6 +51,7 @@ if (-not $editor -or -not (Test-Path -LiteralPath $editor)) {
 
 $logPath = Join-Path $importRoot ('Saved\Logs\AudioImport_{0}.log' -f (Get-Date -Format 'yyyyMMdd_HHmmss'))
 $env:IG_AUDIO_SOURCE = Join-Path $importRoot 'ImportAudio'
+$env:IG_AUDIO_ONLY = ($Only | Where-Object { $_ }) -join ','
 try {
 	& $editor $uproject -unattended -nop4 -nosplash -nullrhi -nosound -RenderOffscreen -stdout -FullStdOutLogOutput `
 		"-abslog=$logPath" "-ExecutePythonScript=$(Join-Path $importRoot 'Scripts\import_audio_samples.py')" | Out-Null
@@ -54,6 +59,7 @@ try {
 }
 finally {
 	Remove-Item Env:IG_AUDIO_SOURCE -ErrorAction SilentlyContinue
+	Remove-Item Env:IG_AUDIO_ONLY -ErrorAction SilentlyContinue
 }
 $pass = Select-String -LiteralPath $logPath -Pattern 'AUDIO_IMPORT PASS sounds=\d+' | Select-Object -Last 1
 if ($editorExit -ne 0 -or -not $pass) {

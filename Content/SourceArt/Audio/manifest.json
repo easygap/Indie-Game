@@ -462,7 +462,7 @@
       "name": "Entity_CrawlStep_2",
       "file": "Entity_CrawlStep_2.wav",
       "loop": false,
-      "seconds": 4.565,
+      "seconds": 0.75,
       "sources": [
         "oga_owlish/Impacts/scrape3.wav",
         "kenney_impact/Audio/impactPunch_medium_002.ogg"
@@ -493,11 +493,11 @@
       "name": "Entity_Alert",
       "file": "Entity_Alert.wav",
       "loop": false,
-      "seconds": 7.199,
+      "seconds": 1.525,
       "sources": [
         "oga_owlish/Human/gasp1.wav"
       ],
-      "note": "소리를 들었다. 숨을 들이켠다"
+      "note": "소리를 들었다. 첫 들숨 하나만, 낮고 어둡게"
     },
     {
       "name": "Entity_Grab",

@@ -21,6 +21,8 @@ private:
 	void SendKey(const FKey& Key, bool bPressed);
 	void Check(bool bCondition, const TCHAR* Name);
 	void CheckInteractionsAndCapture();
+	void CheckDoorRoundtrip();
+	void CheckPresentationTiming();
 	UBoxComponent* AddBlock(const FVector& Location, const FVector& Extent);
 	TWeakObjectPtr<AIGPlayerCharacter> Player;
 	TWeakObjectPtr<APlayerController> Controller;

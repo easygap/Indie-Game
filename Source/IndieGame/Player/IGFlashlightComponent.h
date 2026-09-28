@@ -5,7 +5,6 @@
 #include "IGFlashlightComponent.generated.h"
 
 class USpotLightComponent;
-class UPointLightComponent;
 class UIGAccessibilitySubsystem;
 class UIGBeamDustComponent;
 
@@ -88,15 +87,16 @@ protected:
 	float SwayFollowSpeed = 7.5f;
 
 private:
+	friend class AIGGameplayRealismProbe;
 	void UpdateSway(float DeltaSeconds);
 	float SampleFlicker(float DeltaSeconds);
 
 	UPROPERTY(VisibleAnywhere, Category = "Flashlight", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<USpotLightComponent> Beam;
 
-	/** Short-range fill so the torch lights the ground at the player's feet. */
+	/** 발밑까지 비추는 넓은 빛. 벽이나 문을 통과하지 않는다. */
 	UPROPERTY(VisibleAnywhere, Category = "Flashlight", meta = (AllowPrivateAccess = "true"))
-	TObjectPtr<UPointLightComponent> Spill;
+	TObjectPtr<USpotLightComponent> Spill;
 
 	/**
 	 * Airborne plaster dust inside the cone. It belongs to the torch because

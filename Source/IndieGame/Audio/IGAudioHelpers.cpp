@@ -7,6 +7,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Sound/SoundAttenuation.h"
 #include "Sound/SoundBase.h"
+#include "TimerManager.h"
 
 namespace IGAudio
 {
@@ -81,7 +82,10 @@ namespace IGAudio
 			const float FalloffDistance,
 			const EIGAudioBus Bus,
 			const bool bPlayWhenPaused,
-			const bool bForceDry)
+			const bool bForceDry,
+			const bool bExpendable = false,
+			const AActor* OcclusionOwner = nullptr,
+			const bool bPersistent = false)
 		{
 			if (!Sound || !WorldContext)
 			{
@@ -108,8 +112,13 @@ namespace IGAudio
 				FalloffDistance,
 				Bus,
 				bForceDry);
+			// 엔진은 소리에 주인 액터가 있을 때만 그 액터를 오클루전 트레이스에서
+			// 뺀다. 월드를 넘기면 주인이 없다. 주인을 거는 것은 부른 쪽이 고른 때뿐이다.
+			const UObject* SpawnContext = OcclusionOwner
+				? static_cast<const UObject*>(OcclusionOwner)
+				: static_cast<const UObject*>(World);
 			UAudioComponent* Component = UGameplayStatics::SpawnSoundAtLocation(
-				World,
+				SpawnContext,
 				Sound,
 				Location,
 				FRotator::ZeroRotator,
@@ -121,7 +130,17 @@ namespace IGAudio
 			{
 				Component->SetUISound(bPlayWhenPaused);
 			}
-			if (AudioDirector)
+			// 상시 소리는 처음부터 상시로 건다. 일반 소리로 먼저 들어오면 상한을
+			// 세는 그 순간에 대본 소리 하나를 밀어낸다.
+			if (AudioDirector && bPersistent)
+			{
+				AudioDirector->RegisterPersistentBed(Component, Bus);
+			}
+			else if (AudioDirector && bExpendable)
+			{
+				AudioDirector->RegisterExpendable(Component, Bus);
+			}
+			else if (AudioDirector)
 			{
 				AudioDirector->RegisterComponent(Component, Bus);
 			}
@@ -256,6 +275,110 @@ namespace IGAudio
 			Bus,
 			bPlayWhenPaused,
 			/*bForceDry=*/false);
+	}
+
+	UAudioComponent* SpawnOneShotFromActorAt(
+		const AActor* Source,
+		USoundBase* Sound,
+		const FVector& Location,
+		const float VolumeMultiplier,
+		const float PitchMultiplier,
+		const float InnerRadius,
+		const float FalloffDistance,
+		const EIGAudioBus Bus)
+	{
+		return SpawnOneShotInternal(
+			Source,
+			Sound,
+			Location,
+			VolumeMultiplier,
+			PitchMultiplier,
+			InnerRadius,
+			FalloffDistance,
+			Bus,
+			/*bPlayWhenPaused=*/false,
+			/*bForceDry=*/false,
+			/*bExpendable=*/false,
+			/*OcclusionOwner=*/Source);
+	}
+
+	UAudioComponent* SpawnExpendableOneShotAt(
+		const UObject* WorldContext,
+		USoundBase* Sound,
+		const FVector& Location,
+		const float VolumeMultiplier,
+		const float PitchMultiplier,
+		const float InnerRadius,
+		const float FalloffDistance,
+		const EIGAudioBus Bus)
+	{
+		return SpawnOneShotInternal(
+			WorldContext,
+			Sound,
+			Location,
+			VolumeMultiplier,
+			PitchMultiplier,
+			InnerRadius,
+			FalloffDistance,
+			Bus,
+			/*bPlayWhenPaused=*/false,
+			/*bForceDry=*/false,
+			/*bExpendable=*/true);
+	}
+
+	UAudioComponent* SpawnPersistentOneShotAt(
+		const UObject* WorldContext,
+		USoundBase* Sound,
+		const FVector& Location,
+		const float VolumeMultiplier,
+		const float PitchMultiplier,
+		const float InnerRadius,
+		const float FalloffDistance,
+		const EIGAudioBus Bus)
+	{
+		return SpawnOneShotInternal(
+			WorldContext,
+			Sound,
+			Location,
+			VolumeMultiplier,
+			PitchMultiplier,
+			InnerRadius,
+			FalloffDistance,
+			Bus,
+			/*bPlayWhenPaused=*/false,
+			/*bForceDry=*/false,
+			/*bExpendable=*/false,
+			/*OcclusionOwner=*/nullptr,
+			/*bPersistent=*/true);
+	}
+
+	void FadeOutAfter(
+		UAudioComponent* Component,
+		const float DelaySeconds,
+		const float FadeSeconds)
+	{
+		UWorld* World = Component ? Component->GetWorld() : nullptr;
+		if (!World)
+		{
+			return;
+		}
+		// 원샷은 끝나면 스스로 지워진다. 그 컴포넌트에 묶은 약한 람다라서 먼저
+		// 끝났으면 부르지 않고, 핸들을 붙들고 정리할 주인도 필요 없다.
+		const TWeakObjectPtr<UAudioComponent> WeakComponent(Component);
+		const float Fade = FMath::Max(0.01f, FadeSeconds);
+		FTimerHandle TrimHandle;
+		World->GetTimerManager().SetTimer(
+			TrimHandle,
+			FTimerDelegate::CreateWeakLambda(Component, [WeakComponent, Fade]()
+			{
+				UAudioComponent* Trimmed = WeakComponent.Get();
+				if (Trimmed && Trimmed->IsPlaying())
+				{
+					Trimmed->FadeOut(Fade, 0.0f);
+				}
+			}),
+			FMath::Max(0.01f, DelaySeconds),
+			false);
 	}
 
 	UAudioComponent* SpawnDryOneShotAt(

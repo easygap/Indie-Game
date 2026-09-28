@@ -150,6 +150,8 @@ private:
 	float SinceCaptureSeconds = 0.0f;
 	float StaticMix = 1.0f;
 	int32 CaptureCount = 0;
+	/** 화면이 살아 있는 동안 위에서 난 기는 걸음 수. 셋이다. */
+	int32 LiveStepsPlayed = 0;
 	bool bUsed = false;
 	bool bLiveSoundPlayed = false;
 };

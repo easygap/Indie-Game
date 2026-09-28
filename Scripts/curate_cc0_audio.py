@@ -246,9 +246,11 @@ def spec(packs: str):
 
     # --- 위층 사람. ------------------------------------------------------------
     for i in range(3):
+        # 긁힘은 한 걸음 길이(0.6초)에서 자른다. scrape3은 4.6초짜리 원본이라 걸음 하나가
+        # 4초 넘게 울리며 다음 걸음과 겹쳤다.
         add(f"Entity_CrawlStep_{i}", [one(OW, f"scrape{i + 1}.wav"), one(K, f"impactPunch_medium_00{i}.ogg")],
             lambda a, b: normalize(mix([
-                (lowpass(pitch(trim_silence(a), 0.8), 3500.0), 0.0, 0.9),
+                (lowpass(pitch(fade(trim_silence(a)[:int(0.6 * SR)], 0.0, 0.12), 0.8), 3500.0), 0.0, 0.9),
                 (lowpass(pitch(trim_silence(b), 0.7), 900.0), 0.02, 0.55),
             ]), 0.85),
             note="팔꿈치가 닿고 몸이 끌린다. 긁힘 위에 둔탁한 타격")
@@ -258,9 +260,13 @@ def spec(packs: str):
     add("Entity_Scream", [one(OW, "SCREAM.wav")],
         lambda x: normalize(room(lowpass(pitch(trim_silence(x), 0.78), 6000.0), 0.03, 0.42, 0.4), 0.95),
         note="추격 시작. 사람 비명을 낮춰 복도에 울린다")
+    # 유담의 헐떡임(Player_Gasp)과 같은 원본이다. 첫 들숨 하나만 남기고 그의 숨 루프처럼
+    # 어둡게 깎아, 같은 녹음이 두 사람 입에서 나오지 않게 한다. 재생 쪽이 피치 0.9를
+    # 한 번 더 걸므로 실제로는 0.72배로 들린다.
     add("Entity_Alert", [one(OW, "gasp1.wav")],
-        lambda x: normalize(room(pitch(trim_silence(x), 0.8), 0.02, 0.3, 0.3), 0.8),
-        note="소리를 들었다. 숨을 들이켠다")
+        lambda x: normalize(room(lowpass(fade(pitch(trim_silence(x)[:int(0.5 * SR)], 0.8), 0.0, 0.1), 3500.0),
+                                 0.02, 0.3, 0.3), 0.8),
+        note="소리를 들었다. 첫 들숨 하나만, 낮고 어둡게")
     add("Entity_Grab", [one(OW, "shouldergrab.wav"), one(OW, "freakedbreath.wav")],
         lambda a, b: normalize(mix([(trim_silence(a), 0.0, 1.0), (pitch(trim_silence(b), 0.9), 0.15, 0.7)]), 0.95),
         note="덮침. 붙잡는 손과 거친 숨")

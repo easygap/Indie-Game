@@ -7,6 +7,7 @@
 #include "IGListenerEntity.generated.h"
 
 class AIGPlayerCharacter;
+class AIGSwingDoor;
 class UAudioComponent;
 class UCapsuleComponent;
 class UIGDustSubsystem;
@@ -158,9 +159,23 @@ public:
 	 * where to look and told nothing at all. Deliberately not routed through the
 	 * noise path, so this can never escalate into a chase — a player who is
 	 * already stuck must not be punished for being helped.
+	 *
+	 * 그는 층을 오르지 못한다. 벽이 위층에 있으면 위층 소리에 늘 가는 자리, 곧
+	 * 계단 아래까지 가서 그쪽으로 고개를 들고 듣는다. 들숨도 조사 드론도 없이
+	 * 순찰 속도로 가고, 다 들으면 두드리지 않고 가던 길로 돌아간다.
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Listener")
 	void BeginObservationHold(const FVector& Target);
+
+	/**
+	 * 지금 관찰 연출을 걸어도 되는가. 무언가를 쫓거나 기다리거나 두드리는 그를
+	 * 떼어 내면 도움이 위협을 바꾼다 — 추격이 공짜로 끝나거나 노크가 반만 난다.
+	 * 아래층의 벽, 계단 아래를 모르는 위층의 벽도 가 볼 길이 없다.
+	 *
+	 * Witness는 지켜볼 사람의 자리다. 그의 층에 있어야 보이고, 그가 갈 길에서
+	 * 떨어져 있어야 도움이 포획이 되지 않는다.
+	 */
+	bool CanBeginObservationHold(const FVector& Target, const FVector& Witness) const;
 
 	/**
 	 * 저작된 카메오를 위해 그를 한 자리에 세운다 — 위치, 방향, 그리고 **직전
@@ -192,13 +207,46 @@ public:
 	bool IsDormant() const { return bDormant; }
 
 	/**
+	 * 다음 순찰 칸의 노크 한 번을 소리 없이 넘긴다. 밤1의 첫 노크는 천장이
+	 * 내므로(§8 0-5) 깨는 순간 복도에서 한 번 더 두드리면 안 된다. 멈춰 서서
+	 * 기다리는 시간과 그 뒤 청취는 그대로다. 휴면과 순찰 처음으로의 복귀가
+	 * 걷어 낸다.
+	 */
+	void SilenceNextStopKnock() { bSilenceNextStopKnock = true; }
+
+	/**
+	 * 연출이 그를 세워 둔다(밤2 문 앞). 붙들린 동안은 순찰 칸에 닿아도 두드리지
+	 * 않고, 걷기나 웅크린 걸음 같은 0.3 미만의 소리와 닫힌 집 안의 소리에는
+	 * 돌아보지 않는다. 그 밖의 큰 소리는 연출을 깨고 평소처럼 듣는다. 손이 닿는
+	 * 거리의 포획은 그대로다. 순찰 처음으로의 복귀, 휴면, 밤4 통과가 풀어 준다.
+	 */
+	void SetBeatHold(bool bHold);
+
+	/**
+	 * 403호 현관문과 그 안쪽(§4.5). 닫힌 문 너머의 소리를 쫓아오면 문을 부수지
+	 * 않고 문 앞에서 세 번 두드리고, 기다렸다가, 떠난다. 문이 열려 있으면
+	 * 평소처럼 들어온다.
+	 */
+	void SetHomeDoor(AIGSwingDoor* Door, const FBox& Interior);
+
+	/**
+	 * 위층으로 오르는 계단 아래. 그는 층을 오르지 못하므로 위에서 난 소리에는
+	 * 쫓아가지 않고 여기까지 와서 위를 향해 두드린다. 정해 두지 않으면 소리
+	 * 바로 아래로 간다.
+	 */
+	void SetStairFoot(const FVector& Location);
+
+	/**
 	 * Runs the finale-only blind pass from StartLocation through RoutePoints.
 	 * This is presentation locomotion, not a stealth failure: player collision,
 	 * capture and ordinary noise retargeting stay disabled until the pawn exits.
+	 * SpeedOverride가 0보다 크면 추격 속도 대신 그 속도로 기어간다. 밤4에서
+	 * 목한수의 뒷걸음을 따라가려면 추격의 82%는 너무 빨라 그를 앞지른다.
 	 */
 	void BeginFinalePass(
 		const FVector& StartLocation,
-		const TArray<FVector>& RoutePoints);
+		const TArray<FVector>& RoutePoints,
+		float SpeedOverride = -1.0f);
 
 	bool IsFinalePassActive() const
 	{
@@ -247,6 +295,54 @@ private:
 	float HearingMultiplier() const;
 	float ListenSecondsForTier() const;
 	float WaitSecondsForTier() const;
+	/**
+	 * 둘-쉬고-하나가 대답으로 통하는가. P4에서 벽이 대답하기 전(T9 전)에는
+	 * 그 박자가 아직 대답이 아니다(§4.3 규칙 6). 서사가 없는 시험장에서는 통한다.
+	 */
+	bool IsAnswerLearned() const;
+	/** 연출이 건물을 침묵시킨 동안. P4의 8초가 대표다. */
+	bool IsAuthoredSilenceActive() const;
+
+	// -- 다른 층의 소리 (§8 3-3, 3-4) ---------------------------------------
+	/**
+	 * 위에서 난 소리를 듣고 계단 아래(또는 그 바로 아래)에 닿았다. bKeepHolding이면
+	 * 이미 거기 엎드려 위를 듣던 중이다. 상태에 다시 들어가지 않고 청취만 처음부터
+	 * 다시 잰다.
+	 */
+	void ArriveBelowUpperSound(bool bKeepHolding = false);
+	void PlayCeilingKnock();
+
+	// -- 닫힌 문 (§4.5) ------------------------------------------------------
+	bool IsInsideHome(const FVector& Location) const;
+	/**
+	 * 집 안에서 난 소리인가. 문짝 자체의 소리(닫히는 소리, 안에서 문에 대고 친
+	 * 노크)는 문면에서 나므로 낸 사람이 어느 쪽에 있는지로 가린다.
+	 */
+	bool IsHomeSoundAt(const FVector& Location, const AActor* Maker) const;
+	/**
+	 * 들은 자리를 적는다. 닫힌 문면에서 난 집 안의 소리는 문 안쪽으로 옮겨 적어,
+	 * 문짝으로 달려들지 않고 문 앞에 와서 두드리게 한다.
+	 */
+	void NoteHeardLocation(const FVector& Location, bool bHomeSound);
+	/**
+	 * 대답(둘-쉬고-하나)이 온 자리를 들은 자리로 적는다. 소음과 같은 두 규칙이다.
+	 * 위층에서 온 대답이면 계단 아래로 가고, 닫힌 문에 대고 안에서 친 대답이면 문
+	 * 안쪽으로 옮겨 적는다. 문 안에서 친 것인지는 그 순간 그녀가 어디 있는지로
+	 * 가리므로 대답을 들은 때 부른다. 위층이면 true — 조사에 들어간 뒤
+	 * bCallFromAbove를 세우는 것은 부르는 쪽이다(EnterState가 지운다).
+	 */
+	bool NoteAnswerLocation(const FVector& Location);
+	/** 쫓던 소리가 닫힌 403호 안에 있고 그는 밖에 있다. */
+	bool ShouldGoToHomeDoor() const;
+	/** 문짝 가운데 바닥점과 복도 쪽 방향. 문이 없으면 false. */
+	bool GetHomeDoorFrame(FVector& OutDoorCenter, FVector& OutOutward) const;
+	/** 밤2의 대본 노크가 첫 문 노크여야 한다. 그 전에는 문 앞에서 듣기만 한다. */
+	bool CanKnockHomeDoor() const;
+	void ArriveAtHomeDoor();
+	void LeaveHomeDoor();
+	void PlayHomeDoorKnock(bool bSingle);
+	/** 철문 녹음 한 타. 3연은 두드리는 동안 0.62초마다 한 타씩 친다. */
+	void PlayHomeDoorSteelHit();
 
 	// -- locomotion ---------------------------------------------------------
 	/** Sweeps toward Target; returns true on arrival (or when wedged). */
@@ -284,7 +380,33 @@ private:
 	void UpdatePresentationLayer();
 	void UpdatePresentationPose(float CurrentSpeed, float DeltaSeconds);
 	void PlayKnockTriple();
-	void PlayPlasterSettle();
+	/**
+	 * 노크 한 사이클의 빠르기와 세기를 정한다. 티어가 오를수록 빨라지고, 사이클마다
+	 * 조금씩 흔들린다. 빠르기는 KnockRate에 남아 두드리는 동작도 같은 배율로 돈다.
+	 * 돌려주는 값은 볼륨이다.
+	 */
+	float RollKnockTempo();
+	void PlayPlasterSettle(float Volume = 0.6f, float Pitch = 1.0f);
+	/**
+	 * 자리를 잡으며 미장이 갈라진다. 듣는 자리에 엎드릴 때와 계단 아래에서 위의
+	 * 소리에 몸을 고쳐 앉을 때 난다. 몇 초에 한 번뿐이다 — 위층 걸음마다 나면
+	 * 0.4초마다 갈라진다.
+	 */
+	void PlayPlantSettle(float Volume);
+	/**
+	 * 조사 들숨. 조용히 다가오던 걸음(매복, 관찰)이 들킨 순간에도 이 숨이 처음으로
+	 * 난다.
+	 */
+	void PlayAlertVocal();
+	/**
+	 * §19.8 대체 채널. 그가 낸 사건성 소리를 노크 진동·노크 파문에 알린다. 소음
+	 * 버스와 따로 가므로 그 자신과 녹음, 히트맵은 이 신호를 모른다. 세기는 그녀
+	 * 자리에 닿는 만큼으로 줄여 보낸다 — 먼 노크와 문 밖 노크가 같은 세기로 오면
+	 * 대체 채널이 거리를 지운다. 보냈으면 true.
+	 */
+	bool EmitPresentationCue(const FVector& At, float Loudness, float AudibleRange);
+	/** 방위 자막은 그녀 가까이에서 난 소리에만 붙인다. 자막은 기본값이 켜짐이다. */
+	bool IsNearForCaption(const FVector& At) const;
 	void UpdateDragLoop(float CurrentSpeed);
 
 	/**
@@ -378,7 +500,17 @@ private:
 	/** Set when the ambush node has been chosen for this tier-3 stretch. */
 	FVector AmbushLocation = FVector::ZeroVector;
 	bool bAmbushArmed = false;
+	/**
+	 * 들은 소리 없이 가는 걸음(§5.6 매복, §20.3 관찰). 들숨도 조사 드론도 없이 순찰
+	 * 속도로 기어가 엎드린다. 가는 길과 엎드린 자리에서만 살고, 무언가를 들으면
+	 * 곧바로 풀린다.
+	 */
+	bool bSilentApproach = false;
+	/** 그중 자비의 관찰. 다 들으면 두드리지 않고 순찰로 돌아간다. */
+	bool bObservationHold = false;
 	bool bDormant = false;
+	/** SilenceNextStopKnock이 세운다. 다음 Banging 한 번이 소리 없이 지나간다. */
+	bool bSilenceNextStopKnock = false;
 	int32 AggressionTier = 0;
 	int32 PatrolIndex = 0;
 	FVector SpawnLocation = FVector::ZeroVector;
@@ -400,6 +532,58 @@ private:
 	int32 AnswersThisNight = 0;
 	TArray<FVector> FinaleRoutePoints;
 	int32 FinaleRouteIndex = 0;
+	/** BeginFinalePass가 넘긴 속도. 0 이하이면 추격 속도의 82%로 간다. */
+	float FinaleSpeedOverride = -1.0f;
+	/** SetBeatHold가 세운다. 연출이 끝나거나 큰 소리가 나면 풀린다. */
+	bool bBeatHold = false;
+
+	// -- 멈춰 선 자리의 맥락. 두드림·청취·제자리 청취 동안만 살아 있고, 다시
+	// 움직이기 시작하면 EnterState가 지운다 --------------------------------
+	/** 그 자리에서 고개를 돌릴 방향. 0이면 돌지 않는다. */
+	FVector AttentionDirection = FVector::ZeroVector;
+	/** 위층 소리 아래에서 천장을 향해 두드리는 중. */
+	bool bKnockingUp = false;
+	/** P4 전의 둘-쉬고-하나에 귀를 세웠다. 청취가 끝나면 그 자리를 보러 간다. */
+	bool bCadenceEarsUp = false;
+	/** 닫힌 403호 문 앞에 서 있다. */
+	bool bAtHomeDoor = false;
+	/** 문 앞에서 안쪽 소리에 한 번 더 두드렸다. 한 번뿐이다. */
+	bool bDoorReknocked = false;
+	/** 한 번 더 두드리기까지 남은 시간. 0 이하이면 예약이 없다. */
+	float DoorReknockCountdown = -1.0f;
+	/** 이번 문 노크에서 친 철문 타수. 3이면 남은 타가 없다. */
+	int32 DoorSteelHitsPlayed = 3;
+	/** 문 노크가 나는 자리. 두드리는 동안 그는 움직이지 않는다. */
+	FVector DoorKnockPoint = FVector::ZeroVector;
+
+	// -- 위층 소리. 조사 하나 동안만 산다 ---------------------------------------
+	bool bHasStairFoot = false;
+	FVector StairFoot = FVector::ZeroVector;
+	/** 지금 조사가 위에서 난 소리 때문이다. */
+	bool bCallFromAbove = false;
+	/** 위에서 두 번 들렸다. 도착하면 두드린다. */
+	bool bKnockUpOnArrival = false;
+	FVector UpperSoundLocation = FVector::ZeroVector;
+	/** 천장 노크는 12초에 한 번. 밤4 망치질마다 3연이 나면 안 된다. */
+	double LastCeilingKnockSeconds = -1000.0;
+	/** 자리를 잡으며 갈라진 미장의 마지막 시각(PlayPlantSettle). */
+	double LastPlantSettleSeconds = -1000.0;
+
+	/** 귀를 세운 탭의 시각과 자리. 같은 탭의 소음이 곧바로 뒤따른다. */
+	double CadenceTapSeconds = -1000.0;
+	FVector CadenceTapLocation = FVector::ZeroVector;
+
+	// -- 403호 현관문 ---------------------------------------------------------
+	TWeakObjectPtr<AIGSwingDoor> HomeDoor;
+	FBox HomeInterior = FBox(ForceInit);
+	/** 이번 걸음에 문짝에 부딪혔다. */
+	bool bBlockedByHomeDoor = false;
+	/** 문 앞을 떠난 뒤 집 안 소리를 흘려듣는 시한(게임 시간). */
+	double HomeDoorIgnoreUntil = -1000.0;
+
+	/** 포획 때 덮침 녹음의 숨 꼬리를 자르는 타이머. 노크 둘이 그 숨에 묻혔다. */
+	FTimerHandle CaptureGrabTrimTimer;
+
 	float StateSeconds = 0.0f;
 	float SearchRetargetSeconds = 0.0f;
 	float StuckSeconds = 0.0f;
@@ -419,6 +603,16 @@ private:
 	int32 LastCrawlStepIndex = -1;
 	/** 코앞에서 마주친 스팅어의 마지막 시각. 25초에 한 번. */
 	double LastCloseCallSeconds = -1000.0;
+	/** 대답 뒤의 기다림이 끝나 간다. 팔꿈치를 고쳐 짚고 숨이 돌아왔다. */
+	bool bWaitStirred = false;
+	/** 노크 사이클 번호. 사이클마다 빠르기와 세기를 조금씩 흔드는 씨앗이다. */
+	int32 KnockSerial = 0;
+	/** 이번 노크의 재생 배율. 두드리는 동작이 같은 배율로 돌아야 손과 소리가 맞는다. */
+	float KnockRate = 1.0f;
+	/** 순찰 노크 자막의 마지막 시각. 같은 문장은 12초에 한 번. */
+	double LastKnockCaptionSeconds = -1000.0;
+	/** 다가오는 걸음을 대체 채널에 보낸 마지막 시각. */
+	double LastApproachCueSeconds = -1000.0;
 	void UpdateBreathLoop(float Distance);
 	void TryCloseCallStinger(const AIGPlayerCharacter* Player, float Distance);
 

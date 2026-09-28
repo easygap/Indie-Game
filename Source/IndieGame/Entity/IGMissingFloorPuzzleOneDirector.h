@@ -48,6 +48,13 @@ public:
 	bool ValidateFixtures() const;
 
 	/**
+	 * §8 1-6. 밤1이 맞물린 뒤 천장 너머에서 안정기가 켜지는 순간. 딸깍 둘과
+	 * 짧은 웅이 로비까지 내려온다 — 4층 천장 위의 험은 반경이 좁아 로비에서
+	 * 한 번도 들리지 않았다. 회로가 올라가 있을 때만 난다.
+	 */
+	void PlayBallastFromAbove();
+
+	/**
 	 * 회로가 올라가고 T1까지 맞물렸을 때 한 번. 불만 켜고 계량기를 안 본
 	 * 밤은 끝나지 않는다 — 퍼즐은 두 기록의 교차지 버튼이 아니다(§7).
 	 */
@@ -73,6 +80,8 @@ private:
 	UFUNCTION()
 	void HandleSheetRead(AIGReadableNote* Note, bool bOpened);
 	void CreateBallastHum();
+	/** 안정기가 무는 딸깍 한 번. 켜지는 순간이라 로비까지 들린다. */
+	void PlayBallastTick(float Volume, float Pitch);
 	void HandleTruthConfirmed(EIGMissingFloorTruth Truth);
 	void AnnounceSolvedIfReady();
 	UIGMissingFloorNarrativeSubsystem* GetNarrative() const;
@@ -94,6 +103,10 @@ private:
 	/** The hum from above the ceiling. Created silent, started on the throw. */
 	UPROPERTY(Transient)
 	TObjectPtr<UAudioComponent> BallastHum;
+
+	/** 켜지는 순간의 두 번째 딸깍과, 로비까지 내려오는 짧은 웅. 새벽에 걷힌다. */
+	FTimerHandle BallastCueTimer;
+	TWeakObjectPtr<UAudioComponent> BallastSwell;
 
 	bool bBreakerThrown = false;
 	bool bCommonLightsEnabled = true;

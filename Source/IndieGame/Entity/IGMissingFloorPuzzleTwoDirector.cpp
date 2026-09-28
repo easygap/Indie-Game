@@ -9,15 +9,20 @@
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Components/AudioComponent.h"
 #include "Components/StaticMeshComponent.h"
+#include "EngineUtils.h"
 #include "Entity/IGMissingFloorEvidence.h"
+#include "Entity/IGMissingFloorNightFourDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "Environment/IGCctvChannelFive.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSwingDoor.h"
+#include "Kismet/GameplayStatics.h"
 #include "Materials/MaterialInterface.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGPlayerCharacter.h"
+#include "Player/IGStressComponent.h"
 
 namespace IGPuzzleTwo
 {
@@ -70,6 +75,20 @@ namespace IGPuzzleTwo
 	 * X 270..274다. 그 문 앞에 서는 자리로, 문짝에서 1 cm 떨어뜨린다.
 	 */
 	const FVector InnerRoomListenLocation(248.0f, -93.0f, 140.0f);
+	/**
+	 * 기계 험 뒤에 사람이 머무는 흔적이 온다. 간이침대 나무가 한 번 삐걱이고,
+	 * 몸을 뒤척이는 천 소리가 난다. 목소리도 숨도 없다. 독백은 다 들은 뒤다.
+	 */
+	constexpr float InnerRoomCreakSeconds = 1.30f;
+	constexpr float InnerRoomClothSeconds = 2.60f;
+	constexpr float InnerRoomThoughtSeconds = 3.0f;
+
+	/**
+	 * §13 「물탱크 바람 소리예요」의 쪽지. 관리실 남벽의 연결통로 쪽 면(Y -245)
+	 * 이고, 문 개구부(X 110..220) 서쪽이다. 동쪽 벽에는 발신기가 붙어 있다.
+	 * 계단에서 내려오는 사람이 문보다 먼저 본다.
+	 */
+	const FVector BoothNoticeLocation(62.0f, -245.12f, 150.0f);
 
 	/** §5.1: frottage is a sustained 0.25 — three times, on purpose. */
 	constexpr float FrottageLoudness = 0.25f;
@@ -88,6 +107,29 @@ namespace IGPuzzleTwo
 	const FVector PhoneAtDoorLocation(150.0f, -196.0f, FourthFloorZ + 4.0f);
 	/** 폰을 놓는 것은 소리를 내는 행동이다. 발소리보다 조용하지만 0은 아니다. */
 	constexpr float PhonePlacementLoudness = 0.08f;
+	/** 재생의 결론은 공백이 끝나고 숨 한 번 뒤에 온다. */
+	constexpr float PhoneThoughtAfterGapSeconds = 1.2f;
+	/** 비트 2-6 【S】0.4 — 한기. 0.4부터는 들숨이 따라와 놀람이 되므로 그 아래. */
+	constexpr float PhoneSilenceScare = 0.35f;
+	/** 다 듣고 폰을 탁자에 내려놓기까지. */
+	constexpr float PhoneReturnAfterPlaybackSeconds = 1.5f;
+	/**
+	 * 새벽 뒤 폰이 떠는 시각. 눈을 뜨고 「문이 열린다. 아침이다.」가 지나간
+	 * 다음이다. 같은 층, 9미터 안에서만 들린다 — 멀리서 울리는 폰은 부름이
+	 * 아니라 소음이다.
+	 */
+	constexpr float PhoneMorningBuzzSeconds = 6.0f;
+	constexpr float PhoneMorningBuzzReach = 900.0f;
+	constexpr float PhoneMorningBuzzFloorSpan = 200.0f;
+	/** 12초짜리 진동 녹음을 한 번 떨림으로 자른다. */
+	constexpr float PhoneMorningBuzzCutSeconds = 0.9f;
+
+	/**
+	 * §13 밤2 회수. 자재 반입 영수증 옆, 접수철 모서리 앞에 놓인 현금 메모.
+	 * 낮에 본 매물(8/12, 30,000원, 닉네임 달빛)이 관리인 책상에 돈으로 적혀 있다.
+	 */
+	const FVector CashMemoLocation = BoardReceiptsLocation + FVector(-24.0f, 2.0f, 0.0f);
+	const FName CashMemoBeatId(TEXT("Night2.CashMemo"));
 
 	const FName CctvBeatId(TEXT("Night2.CCTV"));
 	const FName FoamBeatId(TEXT("Night2.Foam"));
@@ -416,6 +458,34 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	BoardReceipts->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead);
 
+	// §13 13행의 밤2 쪽. 낮에 폰으로 본 중고 매물이 관리인 책상에서는 현금으로
+	// 적혀 있다. 진실 표에 들어가지 않는다 — 매물을 본 회차에만 한 줄이 붙고,
+	// 못 본 회차에는 누가 무엇을 팔았다는 종이 한 장이다.
+	SpawnParameters.Name = TEXT("MissingFloorBoothCashMemo");
+	CashMemo = World->SpawnActor<AIGReadableNote>(
+		AIGReadableNote::StaticClass(),
+		FTransform(
+			FRotator(0.0f, 166.0f, 0.0f),
+			IGPuzzleTwo::CashMemoLocation),
+		SpawnParameters);
+	if (CashMemo)
+	{
+		CashMemo->ConfigurePrototypeVisuals(
+			CubeMesh,
+			LoadObject<UMaterialInterface>(nullptr, TEXT("/Game/Prototype/Materials/M_PaperOld.M_PaperOld")),
+			FVector(9.0f, 6.5f, 0.06f));
+		CashMemo->SetInteractionPrompt(
+			NSLOCTEXT("IGMissingFloor", "P2CashMemoPrompt", "책상 메모"));
+		CashMemo->SetNoteText(
+			NSLOCTEXT("IGMissingFloor", "P2CashMemoTitle", "현금 메모"),
+			{
+				NSLOCTEXT("IGMissingFloor", "P2CashMemo1", "8/12  옥탑 잔짐  공구 일괄   30,000"),
+				NSLOCTEXT("IGMissingFloor", "P2CashMemo2", "      직거래  ·  닉네임 달빛"),
+			});
+		CashMemo->OnReadStateChanged.AddDynamic(
+			this, &AIGMissingFloorPuzzleTwoDirector::HandleCashMemoRead);
+	}
+
 	// §22.3. 둘 다 진실 표에 들어가지 않는다 — 밤2를 통과하는 데는 필요
 	// 없고, 본 회차에만 목한수 앞에서 댈 것이 늘어난다.
 	SpawnParameters.Name = TEXT("MissingFloorWallCalendar");
@@ -522,6 +592,33 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		this, &AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder);
 	RefreshPhonePrompt();
 
+	// §13 3행. 목한수는 낮에 문을 열어 주지 않는다. 대신 문 옆에 붙여 둔 종이가
+	// 그가 유담에게 하는 첫 말이다. 글은 합쇼체이고, 밤4에 입으로 하는 말은
+	// 해요체다. 여기 적힌 바람이 대치의 「바람이 둘, 쉬고, 하나로 불어요?」가
+	// 되받는 말이고, 옥탑은 배송 라벨에 적힌 오빠의 주소다.
+	SpawnParameters.Name = TEXT("MissingFloorBoothNotice");
+	BoothNotice = World->SpawnActor<AIGReadableNote>(
+		AIGReadableNote::StaticClass(),
+		FTransform(FRotator::ZeroRotator, IGPuzzleTwo::BoothNoticeLocation),
+		SpawnParameters);
+	if (BoothNotice)
+	{
+		BoothNotice->ConfigurePrototypeVisuals(
+			CubeMesh, SheetMaterial, FVector(21.0f, 0.08f, 14.8f));
+		BoothNotice->SetInteractionPrompt(
+			NSLOCTEXT("IGMissingFloor", "BoothNoticePrompt", "관리실 쪽지"));
+		BoothNotice->SetNoteText(
+			NSLOCTEXT("IGMissingFloor", "BoothNoticeTitle", "알림"),
+			{
+				NSLOCTEXT("IGMissingFloor", "BoothNotice1", "옥탑은 창고입니다. 사람 없습니다."),
+				NSLOCTEXT("IGMissingFloor", "BoothNotice2", "새벽에 나는 소리는 물탱크에 바람 드는 소리입니다."),
+				NSLOCTEXT("IGMissingFloor", "BoothNotice3", "민원은 전화 말고 종이에 적어 문 밑으로 넣어 주세요."),
+				FText::GetEmpty(),
+				NSLOCTEXT("IGMissingFloor", "BoothNotice4", "관리인"),
+			});
+	}
+	RefreshBoothNotice();
+
 	// 밤2부터 문자와 접수철을 어느 쪽 순서로도 조사할 수 있다.
 	RefreshAgentNoteAvailability();
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
@@ -542,6 +639,13 @@ void AIGMissingFloorPuzzleTwoDirector::EndPlay(
 	if (UWorld* World = GetWorld())
 	{
 		World->GetTimerManager().ClearTimer(CctvThoughtTimer);
+		World->GetTimerManager().ClearTimer(PhoneThoughtTimer);
+		World->GetTimerManager().ClearTimer(PhoneReturnTimer);
+		World->GetTimerManager().ClearTimer(PhoneBuzzTimer);
+		World->GetTimerManager().ClearTimer(PhoneBuzzCutTimer);
+		World->GetTimerManager().ClearTimer(InnerRoomCreakTimer);
+		World->GetTimerManager().ClearTimer(InnerRoomClothTimer);
+		World->GetTimerManager().ClearTimer(InnerRoomThoughtTimer);
 	}
 	CloseBoothValve();
 	Super::EndPlay(EndPlayReason);
@@ -549,7 +653,16 @@ void AIGMissingFloorPuzzleTwoDirector::EndPlay(
 
 void AIGMissingFloorPuzzleTwoDirector::SetHourActive(const bool bHourActive)
 {
+	bHourActiveCached = bHourActive;
 	RefreshAgentNoteAvailability();
+	RefreshBoothNotice();
+	if (bHourActive)
+	{
+		// 새 밤이 오면 손에 들고 있던 폰도 이미 내려놓았다.
+		bPhoneInHand = false;
+		GetWorldTimerManager().ClearTimer(PhoneReturnTimer);
+		GetWorldTimerManager().ClearTimer(PhoneBuzzTimer);
+	}
 	// §5.5: dawn closes the take. She left it running all night and now there is
 	// something to play — which is the only reason beat 2-6 can exist.
 	if (UWorld* World = GetWorld())
@@ -561,6 +674,18 @@ void AIGMissingFloorPuzzleTwoDirector::SetHourActive(const bool bHourActive)
 			{
 				Recording->StopRecording();
 				bPhonePlayedBack = false;
+				// 신호가 돌아오면 바닥의 폰이 한 번 떤다. 아침 프롬프트만 바뀌고
+				// 아무도 그리로 부르지 않으면 2-6은 지나가 버린다.
+				const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+				if (Narrative && Narrative->GetNightIndex() == 2 && Recording->HasTake())
+				{
+					GetWorldTimerManager().SetTimer(
+						PhoneBuzzTimer,
+						this,
+						&AIGMissingFloorPuzzleTwoDirector::PlayMorningPhoneBuzz,
+						IGPuzzleTwo::PhoneMorningBuzzSeconds,
+						false);
+				}
 			}
 		}
 	}
@@ -569,6 +694,10 @@ void AIGMissingFloorPuzzleTwoDirector::SetHourActive(const bool bHourActive)
 	{
 		// 낮에 그가 도로 잠근다.
 		CloseBoothValve();
+		// 새벽 암전 아래로 문 너머의 뒤척임이 새지 않게.
+		GetWorldTimerManager().ClearTimer(InnerRoomCreakTimer);
+		GetWorldTimerManager().ClearTimer(InnerRoomClothTimer);
+		GetWorldTimerManager().ClearTimer(InnerRoomThoughtTimer);
 	}
 
 	if (!BoothDoor)
@@ -662,7 +791,11 @@ void AIGMissingFloorPuzzleTwoDirector::HandleBoothValveOpened(
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->RegisterComponent(BoothRiserFlow, EIGAudioBus::Puzzle);
+			// 새벽까지 흐르는 물길이다. 한 번 울고 마는 소리로 걸면 PUZZLE 상한에서
+			// 가장 오래된 것으로 밀려 페이드아웃되고, 책상을 덮던 물소리가 마스킹은
+			// 그대로인 채 조용해진다 — 들리지 않는 엄폐가 된다. 밸브를 잠글 때 이
+			// 컴포넌트를 부수므로 자리를 영영 쥐지도 않는다.
+			AudioDirector->RegisterPersistentBed(BoothRiserFlow, EIGAudioBus::Puzzle);
 		}
 		BoothRiserFlow->Play();
 	}
@@ -730,6 +863,37 @@ void AIGMissingFloorPuzzleTwoDirector::RefreshAgentNoteAvailability()
 	AgentMessageNote->SetInteractionEnabled(bPresent);
 }
 
+void AIGMissingFloorPuzzleTwoDirector::RefreshBoothNotice()
+{
+	if (!BoothNotice)
+	{
+		return;
+	}
+	// 입주 날에는 아직 없다. 「내일 관리인부터 만나 봐야겠다」고 잔 다음부터
+	// 닫힌 문 옆에 이 종이가 있다. 경찰이 다녀가고 요구서를 붙인 날 떼어 냈다.
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const bool bPosted = Narrative
+		&& Narrative->GetNightIndex() >= 1
+		&& !IsEvictionNoticeUp();
+	BoothNotice->SetActorHiddenInGame(!bPosted);
+	BoothNotice->SetActorEnableCollision(bPosted);
+	BoothNotice->SetInteractionEnabled(bPosted);
+}
+
+bool AIGMissingFloorPuzzleTwoDirector::IsEvictionNoticeUp() const
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return false;
+	}
+	for (TActorIterator<AIGMissingFloorNightFourDirector> It(World); It; ++It)
+	{
+		return It->IsEvictionNoticePosted();
+	}
+	return false;
+}
+
 void AIGMissingFloorPuzzleTwoDirector::HandleAgentNoteRead(
 	AIGReadableNote* Note,
 	const bool bOpened)
@@ -752,6 +916,7 @@ void AIGMissingFloorPuzzleTwoDirector::RefreshPhonePrompt()
 	{
 		return;
 	}
+	RefreshPhoneOffer();
 	const UWorld* World = GetWorld();
 	const UIGRecordingSubsystem* Recording = World
 		? World->GetSubsystem<UIGRecordingSubsystem>()
@@ -776,6 +941,126 @@ void AIGMissingFloorPuzzleTwoDirector::RefreshPhonePrompt()
 		NSLOCTEXT("IGMissingFloor", "P2PhoneArmPrompt", "폰 — 녹음"));
 }
 
+void AIGMissingFloorPuzzleTwoDirector::RefreshPhoneOffer()
+{
+	if (!PhoneRecorder)
+	{
+		return;
+	}
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const UWorld* World = GetWorld();
+	const UIGRecordingSubsystem* Recording = World
+		? World->GetSubsystem<UIGRecordingSubsystem>()
+		: nullptr;
+	// 밤2 동안, 그리고 밤새 켜 둔 테이프를 아직 틀지 않은 아침에만 바닥에 있다.
+	// NightIndex는 시간이 시작될 때 오르므로 밤2 다음 낮에도 2다.
+	const bool bOnFloor = Narrative && Recording
+		&& Narrative->GetNightIndex() == 2
+		&& (bHourActiveCached
+			|| Recording->IsRecording()
+			|| (Recording->HasTake() && !bPhonePlayedBack));
+	PhoneRecorder->SetActorHiddenInGame(!bOnFloor);
+	PhoneRecorder->SetActorEnableCollision(bOnFloor);
+	PhoneRecorder->SetInteractionEnabled(bOnFloor);
+
+	const bool bInUse = bOnFloor || bPhoneInHand;
+	if (bInUse != bPhoneInUse)
+	{
+		bPhoneInUse = bInUse;
+		OnPhoneInUseChanged.Broadcast();
+	}
+}
+
+void AIGMissingFloorPuzzleTwoDirector::PlayMorningPhoneBuzz()
+{
+	if (!PhoneRecorder || PhoneRecorder->IsHidden() || bPhonePlayedBack)
+	{
+		return;
+	}
+	const APawn* Pawn = UGameplayStatics::GetPlayerPawn(this, 0);
+	if (!Pawn)
+	{
+		return;
+	}
+	const FVector PhoneAt = PhoneRecorder->GetActorLocation();
+	const FVector ToPlayer = Pawn->GetActorLocation() - PhoneAt;
+	if (ToPlayer.Size() > IGPuzzleTwo::PhoneMorningBuzzReach
+		|| FMath::Abs(ToPlayer.Z) > IGPuzzleTwo::PhoneMorningBuzzFloorSpan)
+	{
+		return;
+	}
+	// 바닥에 놓인 물건의 소리라 WORLD다. 그녀의 몸에서 나는 소리가 아니다.
+	UAudioComponent* Buzz = IGAudio::SpawnOneShotAt(
+		this,
+		IGAudio::SampleOr(
+			TEXT("Phone_Vibrate"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreatePhoneVibrationUnfinished(this); }),
+		PhoneAt,
+		0.45f,
+		1.0f,
+		60.0f,
+		500.0f,
+		EIGAudioBus::World);
+	if (Buzz)
+	{
+		// 녹음은 12초다. 한 번 떨고 멎게 자른다.
+		TWeakObjectPtr<UAudioComponent> WeakBuzz(Buzz);
+		GetWorldTimerManager().SetTimer(
+			PhoneBuzzCutTimer,
+			FTimerDelegate::CreateWeakLambda(this, [WeakBuzz]()
+			{
+				if (UAudioComponent* Component = WeakBuzz.Get())
+				{
+					Component->FadeOut(0.25f, 0.0f);
+				}
+			}),
+			IGPuzzleTwo::PhoneMorningBuzzCutSeconds,
+			false);
+	}
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "P2PhoneMorningBuzz", "폰 진동"),
+		1.8f,
+		PhoneAt);
+}
+
+FVector AIGMissingFloorPuzzleTwoDirector::GetPhoneInHandLocation(
+	const AIGMissingFloorEvidence* Evidence) const
+{
+	if (const APawn* Pawn = UGameplayStatics::GetPlayerPawn(this, 0))
+	{
+		// 눈앞 조금 아래, 귀에 대기 직전의 손.
+		return Pawn->GetPawnViewLocation()
+			+ Pawn->GetControlRotation().Vector() * 22.0f
+			+ FVector(0.0f, 0.0f, -12.0f);
+	}
+	return Evidence ? Evidence->GetActorLocation() : IGPuzzleTwo::PhoneAtDoorLocation;
+}
+
+void AIGMissingFloorPuzzleTwoDirector::HandleCashMemoRead(
+	AIGReadableNote* Note,
+	const bool bOpened)
+{
+	if (!bOpened)
+	{
+		return;
+	}
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || !Narrative->MarkBeatPlayed(IGPuzzleTwo::CashMemoBeatId))
+	{
+		return;
+	}
+	// 매물을 본 회차에만. 못 본 사람에게는 누가 무엇을 팔았다는 종이 한 장이고,
+	// 그것도 맞는 말이다.
+	if (Narrative->HasBeatPlayed(FName(TEXT("Day.UsedListing"))))
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT("IGMissingFloor", "P2CashMemoThought", "8월 12일, 3만 원. 그 매물이다."),
+			3.8f);
+	}
+}
+
 void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 	AIGMissingFloorEvidence* Evidence)
 {
@@ -791,37 +1076,77 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 	// 비트 2-6. The take exists, so this press is the morning one.
 	if (!Recording->IsRecording() && Recording->HasTake() && !bPhonePlayedBack)
 	{
-		const FVector At = Evidence
-			? Evidence->GetActorLocation()
-			: IGPuzzleTwo::PhoneAtDoorLocation;
+		// 폰을 집어 들고 듣는다. 바닥에 둔 채 1.5m 떨어진 작은 스피커는 낮
+		// 베드에 깔려서, 정확한 길이의 무음이 아무 일 없는 16초로 들렸다.
+		const FVector At = GetPhoneInHandLocation(Evidence);
 		if (!Recording->PlayBack(At))
 		{
 			return;
 		}
 		bPhonePlayedBack = true;
+		bPhoneInHand = true;
 		RefreshPhonePrompt();
 		// 거부된 자리가 있으면 그 공백이 대사다. 거부된 게 없는 테이프는 둘로
 		// 갈린다 — 규칙이 풀린 뒤라면 담긴 것이고, 아니면 그가 다녀간 뒤에
 		// 켠 것이다. 후자에 「담겼다」를 주면 규칙이 거짓말이 된다.
 		const bool bAnythingRefused = Recording->GetSuppressedCount() > 0;
 		const bool bRuleLifted = Recording->IsRuleLifted();
-		AIGHorrorHUD::PushThought(
-			this,
-			bAnythingRefused
+		const FText Thought = bAnythingRefused
+			? NSLOCTEXT(
+				"IGMissingFloor",
+				"P2PhoneSilence",
+				"내 발소리는 들리는데. 문에서 난 소리는 하나도 안 담겼다.")
+			: bRuleLifted
 				? NSLOCTEXT(
 					"IGMissingFloor",
-					"P2PhoneSilence",
-					"내 발소리는 들리는데. 문에서 난 소리는 하나도 안 담겼다.")
-				: bRuleLifted
-					? NSLOCTEXT(
-						"IGMissingFloor",
-						"P2PhoneKept",
-						"담겼다. 이번엔 담겼어.")
-					: NSLOCTEXT(
-						"IGMissingFloor",
-						"P2PhoneNothing",
-						"발소리하고 숨소리만 담겼다."),
-			5.0f);
+					"P2PhoneKept",
+					"담겼다. 이번엔 담겼어.")
+				: NSLOCTEXT(
+					"IGMissingFloor",
+					"P2PhoneNothing",
+					"발소리하고 숨소리만 담겼다.");
+		// 결론은 증거 뒤에 온다. 재생과 같은 틱에 뜨면 공백이 오기도 전에 글이
+		// 먼저 말해 버린다. 발췌가 둘러싼 순간(3연이 비운 자리)이 끝나고 숨
+		// 한 번 뒤에 띄운다.
+		const float FocusEnd = Recording->GetLastExcerptFocusEndSeconds();
+		if ((bAnythingRefused || bRuleLifted) && FocusEnd >= 0.0f)
+		{
+			GetWorldTimerManager().SetTimer(
+				PhoneThoughtTimer,
+				FTimerDelegate::CreateWeakLambda(this, [this, Thought, bAnythingRefused]()
+				{
+					AIGHorrorHUD::PushThought(this, Thought, 5.0f);
+					if (!bAnythingRefused)
+					{
+						return;
+					}
+					if (const AIGPlayerCharacter* Character = Cast<AIGPlayerCharacter>(
+						UGameplayStatics::GetPlayerPawn(this, 0)))
+					{
+						if (UIGStressComponent* Stress = Character->GetStress())
+						{
+							Stress->ApplyScare(IGPuzzleTwo::PhoneSilenceScare);
+						}
+					}
+				}),
+				FocusEnd + IGPuzzleTwo::PhoneThoughtAfterGapSeconds,
+				false);
+		}
+		else
+		{
+			AIGHorrorHUD::PushThought(this, Thought, 5.0f);
+		}
+		// 다 듣고 나면 폰은 탁자로 돌아간다. 탁자의 폰(중고 거래 알림)이 다시 보인다.
+		GetWorldTimerManager().SetTimer(
+			PhoneReturnTimer,
+			FTimerDelegate::CreateWeakLambda(this, [this]()
+			{
+				bPhoneInHand = false;
+				RefreshPhoneOffer();
+			}),
+			Recording->GetLastPlaybackSeconds()
+				+ IGPuzzleTwo::PhoneReturnAfterPlaybackSeconds,
+			false);
 		return;
 	}
 
@@ -829,6 +1154,13 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 	if (!Recording->IsRecording())
 	{
 		Recording->StartRecording();
+		// 폰은 현관 바닥에서 제 둘레만 듣는다. 내려놓는 소리가 테이프의 첫
+		// 소리다 — 그 소음 보고는 녹음이 켜지기 한 틱 전에 나가서 테이프에 없었다.
+		const FVector PhoneAt = Evidence
+			? Evidence->GetActorLocation()
+			: IGPuzzleTwo::PhoneAtDoorLocation;
+		Recording->SetMicrophoneLocation(PhoneAt);
+		Recording->RecordPlayerBody(IGPuzzleTwo::PhonePlacementLoudness, /*bBreath=*/false);
 		bPhonePlayedBack = false;
 		RefreshPhonePrompt();
 		AIGHorrorHUD::PushThought(
@@ -872,7 +1204,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2CctvThought1",
-				"저 복도는 어디지? 여기 들어올 때는 없었는데."),
+				"방금 그 복도는 어디지? 이 건물은 4층이 꼭대기인데."),
 			4.4f);
 		return;
 	}
@@ -888,7 +1220,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P2CctvThought1",
-					"저 복도는 어디지? 여기 들어올 때는 없었는데."),
+					"방금 그 복도는 어디지? 이 건물은 4층이 꼭대기인데."),
 				4.4f);
 			// §5.5. The picture is on screen and already unrecoverable: nothing
 			// about channel 5 reaches the recorder, and the label on the case
@@ -953,29 +1285,84 @@ void AIGMissingFloorPuzzleTwoDirector::HandleInnerRoomListenExamined(
 		return;
 	}
 	Narrative->RecordWitness(EIGMissingFloorWitness::BoothInnerRoomHum);
+	const FVector Where = Evidence
+		? Evidence->GetActorLocation()
+		: IGPuzzleTwo::InnerRoomListenLocation;
 	IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateFoamedRoomHum(this),
-		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
+		Where,
 		0.60f,
 		1.0f,
 		80.0f,
 		360.0f,
 		EIGAudioBus::World);
+	// 자막은 한 줄씩 줄을 선다. 험 줄을 짧게 두어야 뒤의 소리와 박자가 맞는다.
 	AIGHorrorHUD::PushAudioCaption(
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2InnerRoomCaption",
 			"[문 너머, 낮게] 뭔가 계속 돌고 있다"),
-		3.0f);
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"P2InnerRoomThought",
-			"안에 누가 있다. 지금 문을 열면 들키겠어."),
-		4.4f);
+		IGPuzzleTwo::InnerRoomCreakSeconds);
+	// 기계만 도는 방이 아니다. 간이침대의 나무가 한 번 삐걱이고, 몸을 뒤척이는
+	// 천 소리가 난다. 목소리도 기침도 숨도 넣지 않는다 — 산 사람의 목소리는
+	// 글로만 온다(§4.6).
+	GetWorldTimerManager().SetTimer(
+		InnerRoomCreakTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this, Where]()
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateSettleTimberCreak(this),
+				Where,
+				0.20f,
+				0.78f,
+				60.0f,
+				300.0f,
+				EIGAudioBus::World);
+			AIGHorrorHUD::PushAudioCaption(
+				this,
+				NSLOCTEXT("IGMissingFloor", "P2InnerRoomCreakCaption", "[문 너머] 나무가 한 번 삐걱인다"),
+				IGPuzzleTwo::InnerRoomClothSeconds - IGPuzzleTwo::InnerRoomCreakSeconds);
+		}),
+		IGPuzzleTwo::InnerRoomCreakSeconds,
+		false);
+	GetWorldTimerManager().SetTimer(
+		InnerRoomClothTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this, Where]()
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreateClothSettle(this),
+				Where,
+				0.32f,
+				0.85f,
+				60.0f,
+				300.0f,
+				EIGAudioBus::World);
+			AIGHorrorHUD::PushAudioCaption(
+				this,
+				NSLOCTEXT("IGMissingFloor", "P2InnerRoomClothCaption", "[문 너머] 천이 스친다"),
+				1.8f);
+		}),
+		IGPuzzleTwo::InnerRoomClothSeconds,
+		false);
+	// 들은 뒤에 말한다. 소리와 같은 프레임에 결론이 뜨면 증거보다 말이 먼저다.
+	GetWorldTimerManager().SetTimer(
+		InnerRoomThoughtTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGMissingFloor",
+					"P2InnerRoomThought",
+					"안에서 누가 몸을 뒤척였다. 지금 문을 열면 들킨다."),
+				4.4f);
+		}),
+		IGPuzzleTwo::InnerRoomThoughtSeconds,
+		false);
 }
 
 void AIGMissingFloorPuzzleTwoDirector::HandleRecorderBayExamined(

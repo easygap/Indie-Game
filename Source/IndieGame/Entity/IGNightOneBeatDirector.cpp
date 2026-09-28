@@ -9,8 +9,11 @@
 #include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGNoiseSubsystem.h"
+#include "GameFramework/Controller.h"
 #include "Interaction/IGStairTransition.h"
 #include "Interaction/IGZoneTrigger.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
@@ -49,6 +52,20 @@ namespace IGNightOne
 
 	/** Give up on the cameo if the player retreats and never descends. */
 	constexpr float SightingFallbackSeconds = 45.0f;
+
+	/**
+	 * 그를 계단참에 올리는 조건. 시야 원뿔 밖이거나 벽 뒤라 그려지지 않았고,
+	 * 플레이어 곁이 아니어야 한다. 곁에서 옮기면 숨과 끌림이 귀 옆에서 끊긴다.
+	 */
+	constexpr float SightingRetrySeconds = 0.5f;
+	constexpr float SightingOffscreenDot = 0.3f;
+	constexpr float SightingMinimumDistance = 300.0f;
+	/** 다시 볼 때는 플레이어가 아직 계단 입구에 있어야 한다(수평 250cm, 같은 층). */
+	constexpr float SightingRetryReach = 250.0f;
+	constexpr float SightingRetryHeight = 110.0f;
+	/** 폴백은 복도 첫 칸이 플레이어에게서 이만큼 떨어져 있을 때만 그를 돌려놓는다. */
+	constexpr float FallbackClearance = 450.0f;
+	constexpr float FallbackRetrySeconds = 3.0f;
 
 	/** In front of the fire cabinet, spanning the corridor walkway. */
 	const FVector ExtinguisherZoneCenter(232.0f, -320.0f, 1010.0f);
@@ -140,6 +157,8 @@ bool AIGNightOneBeatDirector::Configure(
 	}
 	SightingZone->SetZoneExtent(IGNightOne::SightingZoneExtent);
 	SightingZone->RequiredNightIndex = 1;
+	// 세 존 모두 그 시간에만 발동한다. 밤1 뒤의 낮에도 밤 번호는 1이다.
+	SightingZone->bRequireSealedHour = true;
 	SightingZone->OnZoneTriggered.AddDynamic(
 		this, &AIGNightOneBeatDirector::HandleSightingZone);
 
@@ -154,6 +173,7 @@ bool AIGNightOneBeatDirector::Configure(
 	}
 	ExtinguisherZone->SetZoneExtent(IGNightOne::ExtinguisherZoneExtent);
 	ExtinguisherZone->RequiredNightIndex = 1;
+	ExtinguisherZone->bRequireSealedHour = true;
 	ExtinguisherZone->OnZoneTriggered.AddDynamic(
 		this, &AIGNightOneBeatDirector::HandleExtinguisherZone);
 
@@ -167,6 +187,7 @@ bool AIGNightOneBeatDirector::Configure(
 		Unit402KnockZone->SetZoneExtent(IGNightOne::Unit402KnockZoneExtent);
 		Unit402KnockZone->RequiredNightIndex = 1;
 		Unit402KnockZone->RequiredNarrativeBeat = IGNightOne::ExtinguisherBeatId;
+		Unit402KnockZone->bRequireSealedHour = true;
 		Unit402KnockZone->OnZoneTriggered.AddDynamic(
 			this, &AIGNightOneBeatDirector::HandleUnit402KnockZone);
 	}
@@ -185,6 +206,7 @@ bool AIGNightOneBeatDirector::Configure(
 void AIGNightOneBeatDirector::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	GetWorldTimerManager().ClearTimer(SightingFallbackTimer);
+	GetWorldTimerManager().ClearTimer(SightingRetryTimer);
 	GetWorldTimerManager().ClearTimer(ImpactTimer);
 	GetWorldTimerManager().ClearTimer(Unit402KnockTimer);
 	GetWorldTimerManager().ClearTimer(SightingStepTimer);
@@ -222,7 +244,121 @@ void AIGNightOneBeatDirector::HandleSightingZone(AIGZoneTrigger* Zone)
 	{
 		return;
 	}
-	StageSighting();
+	TryStageSighting();
+}
+
+bool AIGNightOneBeatDirector::IsScriptedRun()
+{
+	return FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGNightCapture"));
+}
+
+void AIGNightOneBeatDirector::TryStageSighting()
+{
+	if (bSightingStaged || bSightingCompleted)
+	{
+		GetWorldTimerManager().ClearTimer(SightingRetryTimer);
+		return;
+	}
+	if (IsScriptedRun())
+	{
+		StageSighting();
+		return;
+	}
+	// 새벽이 먼저 오면 카메오는 접는다. 폴백이 돌려놓을 것도 없다.
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative || Narrative->GetNightIndex() != 1 || !Narrative->IsHourSealed())
+	{
+		GetWorldTimerManager().ClearTimer(SightingRetryTimer);
+		return;
+	}
+	if (CanStageSightingUnseen())
+	{
+		GetWorldTimerManager().ClearTimer(SightingRetryTimer);
+		StageSighting();
+		return;
+	}
+	// 기다리는 동안은 아무 소리도 따로 내지 않는다. 그가 없는 자리에서 나는
+	// 소리는 이 게임의 귀 규칙을 거스른다.
+	if (!GetWorldTimerManager().IsTimerActive(SightingRetryTimer))
+	{
+		GetWorldTimerManager().SetTimer(
+			SightingRetryTimer,
+			this,
+			&AIGNightOneBeatDirector::TryStageSighting,
+			IGNightOne::SightingRetrySeconds,
+			true);
+	}
+}
+
+bool AIGNightOneBeatDirector::CanStageSightingUnseen() const
+{
+	const AIGListenerEntity* Listener = Entity.Get();
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	if (!Listener || !PlayerCharacter || Listener->IsDormant())
+	{
+		return false;
+	}
+	// 소리를 좇는 중이면 데려오지 않는다. 그가 향하던 소리가 거짓이 된다.
+	const EIGListenerState State = Listener->GetListenerState();
+	if (State != EIGListenerState::Patrolling
+		&& State != EIGListenerState::Banging
+		&& State != EIGListenerState::Listening)
+	{
+		return false;
+	}
+	const FVector PlayerLocation = PlayerCharacter->GetActorLocation();
+	if (FVector::Dist2D(PlayerLocation, IGNightOne::SightingZoneCenter)
+			> IGNightOne::SightingRetryReach
+		|| FMath::Abs(PlayerLocation.Z - IGNightOne::SightingZoneCenter.Z)
+			> IGNightOne::SightingRetryHeight)
+	{
+		return false;
+	}
+	const FVector ListenerLocation = Listener->GetActorLocation();
+	if (FVector::Dist(ListenerLocation, PlayerLocation) < IGNightOne::SightingMinimumDistance)
+	{
+		return false;
+	}
+	return !IsInPlayerView(ListenerLocation, Listener);
+}
+
+bool AIGNightOneBeatDirector::IsInPlayerView(
+	const FVector& Location,
+	const AActor* Subject) const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	UWorld* World = GetWorld();
+	if (!PlayerCharacter || !World)
+	{
+		return false;
+	}
+	FVector ViewLocation = PlayerCharacter->GetPawnViewLocation();
+	FRotator ViewRotation = PlayerCharacter->GetControlRotation();
+	if (const AController* Controller = PlayerCharacter->GetController())
+	{
+		Controller->GetPlayerViewPoint(ViewLocation, ViewRotation);
+	}
+	const FVector ToLocation = (Location - ViewLocation).GetSafeNormal();
+	if (FVector::DotProduct(ViewRotation.Vector(), ToLocation)
+		< IGNightOne::SightingOffscreenDot)
+	{
+		return false;
+	}
+	if (Subject)
+	{
+		// 원뿔 안이어도 벽 뒤라 그려지지 않았으면 보이지 않은 것이다.
+		return Subject->WasRecentlyRendered(0.2f);
+	}
+	// 빈 자리는 몸이 없으니 벽이 가리는지 직접 본다.
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(NightOneSightingView), false, PlayerCharacter);
+	if (const AIGListenerEntity* Listener = Entity.Get())
+	{
+		Params.AddIgnoredActor(Listener);
+	}
+	FHitResult Hit;
+	return !World->LineTraceSingleByChannel(
+		Hit, ViewLocation, Location, ECC_Visibility, Params);
 }
 
 void AIGNightOneBeatDirector::StageSighting()
@@ -310,42 +446,121 @@ void AIGNightOneBeatDirector::StageSighting()
 	GetWorldTimerManager().SetTimer(
 		SightingFallbackTimer,
 		this,
-		&AIGNightOneBeatDirector::RestoreSightingEntity,
+		&AIGNightOneBeatDirector::TryFallbackRestore,
 		IGNightOne::SightingFallbackSeconds,
 		false);
 }
 
 void AIGNightOneBeatDirector::HandleStairTransitionCompleted(const bool bGoingDown)
 {
+	// 그를 옮기지 못한 채 계단을 내려갔다. 이 밤의 첫 목격은 없던 일이다.
+	if (bGoingDown && !bSightingStaged && !bSightingCompleted
+		&& GetWorldTimerManager().IsTimerActive(SightingRetryTimer))
+	{
+		GetWorldTimerManager().ClearTimer(SightingRetryTimer);
+		bSightingCompleted = true;
+		return;
+	}
 	// Only the descent past the figure ends the cameo; riding back up from
 	// the lobby later must not resurrect it.
 	if (bSightingStaged && !bSightingCompleted && bGoingDown)
 	{
-		// 내려가며 그를 지나치는 순간 그가 고개를 든다. 이미 본 형상의 상태 변화
-		// (STORY_DIRECTION §7) — 아무 소리 없이 지나가던 카메오에 놀람이 생긴다.
+		// 내려가며 그를 지나치는 순간, 벽에 귀를 댄 그의 껍질이 한 번 갈라진다.
+		// 감각 규칙 1(§4.3 「눈앞을 지나가도 소리가 없으면 모른다」)을 가르치는
+		// 자리라 「들었다」의 들숨은 내지 않는다. 조용히 지나간 사람에게 그 숨을
+		// 들려주면 조용해도 들킨다고 거꾸로 배운다. 정말 소리를 냈다면 그의 청각이
+		// 이미 조사로 넘어가며 제 들숨을 냈다.
 		if (AIGListenerEntity* Listener = Entity.Get())
 		{
-			IGAudio::SpawnOneShotAt(
-				this,
-				UIGToneSequenceSoundWave::CreateEntityAlertVocal(this),
-				Listener->GetActorLocation() + FVector(0.0f, 0.0f, 30.0f),
-				0.85f,
-				0.96f,
-				220.0f,
-				2200.0f,
-				EIGAudioBus::Entity);
+			const EIGListenerState State = Listener->GetListenerState();
+			const bool bAlreadyHeard = State == EIGListenerState::Investigating
+				|| State == EIGListenerState::Holding
+				|| State == EIGListenerState::Chasing
+				|| State == EIGListenerState::Searching;
+			if (!bAlreadyHeard)
+			{
+				IGAudio::SpawnOneShotAt(
+					this,
+					UIGToneSequenceSoundWave::CreatePlasterSettle(this),
+					Listener->GetActorLocation() + FVector(0.0f, 0.0f, 30.0f),
+					0.8f,
+					0.96f,
+					200.0f,
+					1600.0f,
+					EIGAudioBus::Entity);
+				AIGHorrorHUD::PushAudioCaptionAt(
+					this,
+					NSLOCTEXT("IGMissingFloor", "SightingSettleCaption", "석고가 갈라진다"),
+					2.0f,
+					Listener->GetActorLocation());
+			}
 			AIGHorrorHUD::PushFearDirection(this, Listener->GetActorLocation());
 		}
+		// 놀람은 그녀의 몫이다(§8 1-4 【S】0.55). 들숨 대신 가는 균열음이라 몸의
+		// 움찔도 그만큼 작다.
 		if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
 		{
 			if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
 			{
 				Stress->ApplyScare(0.5f);
 			}
-			PlayerCharacter->PlayScareKick(1.6f);
+			PlayerCharacter->PlayScareKick(1.0f);
 		}
 		RestoreSightingEntity();
 	}
+}
+
+void AIGNightOneBeatDirector::TryFallbackRestore()
+{
+	if (!bSightingStaged || bSightingCompleted)
+	{
+		return;
+	}
+	if (!IsScriptedRun() && !CanRestoreSightingUnseen())
+	{
+		GetWorldTimerManager().SetTimer(
+			SightingFallbackTimer,
+			this,
+			&AIGNightOneBeatDirector::TryFallbackRestore,
+			IGNightOne::FallbackRetrySeconds,
+			false);
+		return;
+	}
+	RestoreSightingEntity();
+}
+
+bool AIGNightOneBeatDirector::CanRestoreSightingUnseen() const
+{
+	const AIGListenerEntity* Listener = Entity.Get();
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	// 낮이면 그는 잠들어 보이지 않는다. 옮길 몸도 볼 사람도 없다.
+	if (!Listener || !PlayerCharacter || Listener->IsDormant())
+	{
+		return true;
+	}
+	const EIGListenerState State = Listener->GetListenerState();
+	if (State == EIGListenerState::Chasing
+		|| State == EIGListenerState::CaptureHold
+		|| State == EIGListenerState::FinaleLured)
+	{
+		return false;
+	}
+	if (CorridorPatrolPoints.Num() > 0)
+	{
+		// 계단 입구에서 지켜보던 플레이어 곁에 불이 켜지며 그가 나타나면 안 된다.
+		const FVector ReturnPoint = CorridorPatrolPoints[0];
+		const FVector PlayerLocation = PlayerCharacter->GetActorLocation();
+		if (FMath::Abs(PlayerLocation.Z - ReturnPoint.Z) < 200.0f
+			&& FVector::Dist2D(PlayerLocation, ReturnPoint) < IGNightOne::FallbackClearance)
+		{
+			return false;
+		}
+		if (IsInPlayerView(ReturnPoint, nullptr))
+		{
+			return false;
+		}
+	}
+	return !IsInPlayerView(Listener->GetActorLocation(), Listener);
 }
 
 void AIGNightOneBeatDirector::RestoreSightingEntity()
@@ -360,9 +575,20 @@ void AIGNightOneBeatDirector::RestoreSightingEntity()
 	if (AIGListenerEntity* Listener = Entity.Get())
 	{
 		Listener->SetPatrolPoints(CorridorPatrolPoints);
-		// Back to its corridor spawn without touching the aggression tier:
-		// the cameo was theatre, not a failure.
-		Listener->ResetToPatrolStart(/*bRaiseAggression=*/false);
+		// 공격 티어는 건드리지 않는다. 카메오는 연출이지 실패가 아니다. 순찰
+		// 처음으로 되감지도 않는다 — 밤 한가운데 먼지 흔적과 발자국이 지워지면
+		// 시간이 되감긴 것처럼 보인다. 자고 있으면 다음 밤이 제자리에 세운다.
+		if (!Listener->IsDormant())
+		{
+			if (CorridorPatrolPoints.Num() > 0)
+			{
+				Listener->ParkForBeat(CorridorPatrolPoints[0], 0.0f);
+			}
+			else
+			{
+				Listener->ResetToPatrolStart(/*bRaiseAggression=*/false);
+			}
+		}
 	}
 	if (AIGPrologueWorldScene* WorldScene = Scene.Get())
 	{
@@ -392,7 +618,7 @@ void AIGNightOneBeatDirector::HandleUnit402KnockZone(AIGZoneTrigger* Zone)
 		IGAudio::SpawnOneShotAt(
 			this,
 			IGAudio::SampleVariantOr(
-				TEXT("Knock_Plaster"), 3, static_cast<uint32>(GetWorld()->GetTimeSeconds() * 977.0f),
+				TEXT("Knock_Plaster"), 3, static_cast<uint32>(GetWorld()->GetTimeSeconds() * 977.0f) * 2654435761u,
 				[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.6f); }),
 			IGNightOne::Unit402KnockSource,
 			0.7f,
@@ -402,6 +628,16 @@ void AIGNightOneBeatDirector::HandleUnit402KnockZone(AIGZoneTrigger* Zone)
 			EIGAudioBus::World);
 	};
 	Knock();
+	// 빈집 안에서 난 첫 노크에 몸이 먼저 굳는다. 0.4 아래라 헐떡이지는 않고
+	// 움찔로 끝난다. 소화기 직후라 더 올리면 심박이 소리로 샌다.
+	if (AIGPlayerCharacter* PlayerCharacter = Player.Get())
+	{
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+		{
+			Stress->ApplyScare(0.22f);
+		}
+		PlayerCharacter->PlayScareKick(0.5f);
+	}
 	GetWorldTimerManager().SetTimer(
 		Unit402KnockTimer,
 		this,

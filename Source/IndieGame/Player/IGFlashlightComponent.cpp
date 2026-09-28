@@ -3,7 +3,6 @@
 #include "IndieGame.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
-#include "Components/PointLightComponent.h"
 #include "Components/SpotLightComponent.h"
 #include "Engine/CollisionProfile.h"
 #include "Engine/GameInstance.h"
@@ -33,16 +32,19 @@ UIGFlashlightComponent::UIGFlashlightComponent()
 	Beam->bCastVolumetricShadow = true;
 	Beam->SetVisibility(false);
 
-	Spill = CreateDefaultSubobject<UPointLightComponent>(TEXT("FlashlightSpill"));
-	Spill->SetupAttachment(this);
+	Spill = CreateDefaultSubobject<USpotLightComponent>(TEXT("FlashlightSpill"));
+	Spill->SetupAttachment(Beam);
 	Spill->SetMobility(EComponentMobility::Movable);
-	Spill->SetRelativeLocation(FVector(24.0f, 0.0f, -14.0f));
-	// 스필은 발밑과 문틀을 읽게 하는 빛이다. 손전등 한 자루가 복도 전체를
-	// 밝히면 안 되지만 코앞은 보여야 한다.
-	Spill->SetAttenuationRadius(480.0f);
+	Spill->SetRelativeRotation(FRotator(-12.0f, 0.0f, 0.0f));
+	// 같은 광원에서 퍼지는 주변 빛도 벽과 문에 가려져야 한다.
+	// 전 방향 점광원 대신 넓은 원뿔 하나로 발밑과 가까운 문틀만 비춘다.
+	Spill->SetInnerConeAngle(50.0f);
+	Spill->SetOuterConeAngle(78.0f);
+	Spill->SetAttenuationRadius(300.0f);
 	Spill->SetLightColor(FLinearColor(0.92f, 0.95f, 1.0f));
-	Spill->SetSourceRadius(6.0f);
-	Spill->SetCastShadows(false);
+	Spill->SetSourceRadius(1.4f);
+	Spill->SetSoftSourceRadius(3.0f);
+	Spill->SetCastShadows(true);
 	Spill->SetVisibility(false);
 
 	// Volumetric scattering above already gives the beam a body in the air.
@@ -196,26 +198,34 @@ void UIGFlashlightComponent::TickComponent(
 
 void UIGFlashlightComponent::UpdateSway(const float DeltaSeconds)
 {
-	// The torch is held in a hand, not bolted to the skull: the beam trails
-	// the view by a few degrees and overshoots slightly when the view stops.
+	if (DeltaSeconds <= SMALL_NUMBER)
+	{
+		return;
+	}
+	// 프레임당 회전량 대신 초당 회전량을 쓴다. 같은 속도로 고개를 돌리면
+	// 30fps와 120fps에서도 빛이 같은 만큼 뒤따라와야 한다.
 	const FRotator CurrentRotation = GetComponentRotation();
 	const FRotator ViewDelta = (CurrentRotation - PreviousWorldRotation).GetNormalized();
 	PreviousWorldRotation = CurrentRotation;
+	constexpr float LagSeconds = 1.4f / 60.0f;
+	const float LagScale = LagSeconds / DeltaSeconds;
 
 	const bool bReducedMotion = AccessibilitySubsystem
 		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled();
 	const FRotator TargetSway = bReducedMotion
 		? FRotator::ZeroRotator
 		: FRotator(
-			FMath::Clamp(-ViewDelta.Pitch * 1.4f, -6.0f, 6.0f),
-			FMath::Clamp(-ViewDelta.Yaw * 1.4f, -7.0f, 7.0f),
+			FMath::Clamp(-ViewDelta.Pitch * LagScale, -6.0f, 6.0f),
+			FMath::Clamp(-ViewDelta.Yaw * LagScale, -7.0f, 7.0f),
 			0.0f);
-	SwayOffset = FMath::RInterpTo(SwayOffset, TargetSway, DeltaSeconds, SwayFollowSpeed);
+	SwayOffset = FMath::Lerp(
+		SwayOffset, TargetSway, 1.0f - FMath::Exp(-SwayFollowSpeed * DeltaSeconds));
 	if (bReducedMotion)
 	{
 		ImpulseOffset = FRotator::ZeroRotator;
 	}
-	ImpulseOffset = FMath::RInterpTo(ImpulseOffset, FRotator::ZeroRotator, DeltaSeconds, 4.5f);
+	ImpulseOffset = FMath::Lerp(
+		ImpulseOffset, FRotator::ZeroRotator, 1.0f - FMath::Exp(-4.5f * DeltaSeconds));
 
 	Beam->SetRelativeRotation(SwayOffset + ImpulseOffset);
 }

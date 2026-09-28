@@ -26,6 +26,16 @@ struct FIGRecordedSound
 
 	/** True when the machine refused it: 그 시간의 소리. */
 	bool bSuppressed = false;
+
+	/**
+	 * 그가 낸 소리. 규칙이 서 있는 동안은 전부 bSuppressed이고, 밤4에 벽이
+	 * 열린 뒤에만 테이프에 남는다. 한 번의 기록이 한 번의 타격으로 그려지므로
+	 * 두 번 두드린 대답은 두 번 적는다.
+	 */
+	bool bFromEntity = false;
+
+	/** 그녀의 숨. 발소리 틱이 아니라 들이켜는 숨으로 그린다. */
+	bool bBody = false;
 };
 
 /**
@@ -76,7 +86,7 @@ public:
 	/**
 	 * Plays the take back through the phone's own speaker, at Location.
 	 * Returns false when there is nothing to play. The excerpt is built around
-	 * the first refusal so the gap is the thing the player hears.
+	 * the longest refusal so the gap is the thing the player hears.
 	 */
 	bool PlayBack(const FVector& Location);
 
@@ -98,6 +108,28 @@ public:
 	 * 테이프에 구멍을 남기는 것은 이 길 하나뿐이다.
 	 */
 	void RecordEntitySound(const FVector& Location, float Loudness, AActor* Instigator);
+
+	/**
+	 * 그녀의 소리를 소음 버스를 거치지 않고 테이프에 적는다. 숨은 그가 듣는
+	 * 소리가 아니라서 소음 이벤트가 없고, 폰을 내려놓는 소리는 녹음이 켜지기
+	 * 한 틱 전에 보고된다. 둘 다 이 길이 아니면 테이프에 없다.
+	 */
+	void RecordPlayerBody(float Loudness, bool bBreath = true);
+
+	/**
+	 * 폰이 놓인 자리. StartRecording 뒤에 부른다. 켜 둔 폰은 제 둘레만 듣는다 —
+	 * 다른 층의 발소리는 담기지 않고 먼 발소리는 작게 담긴다. 그의 소리는
+	 * 거리와 상관없이 적는다. 테이프에 남기는 것이 소리가 아니라 길이라서다.
+	 */
+	void SetMicrophoneLocation(const FVector& Location);
+
+	/**
+	 * 방금 튼 발췌가 둘러싼 순간(가장 긴 거부, 규칙이 풀렸다면 처음 담긴 그의
+	 * 소리)이 끝나는 재생 시각. 그런 순간이 없는 테이프면 -1.
+	 */
+	float GetLastExcerptFocusEndSeconds() const { return LastExcerptFocusEndSeconds; }
+	/** 방금 튼 발췌의 길이. */
+	float GetLastPlaybackSeconds() const { return LastPlaybackSeconds; }
 
 	// -- receipts for the probe and the contracts ---------------------------
 	int32 GetRecordedCount() const { return Recorded.Num(); }
@@ -121,6 +153,8 @@ public:
 private:
 	void HandleNoiseReported(const FIGNoiseEvent& Event);
 	bool ShouldSuppress(const FIGNoiseEvent& Event) const;
+	void AddToTake(const FIGRecordedSound& Sound);
+	float GetTakeOffsetNow() const;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UIGNoiseSubsystem> NoiseSubsystem;
@@ -134,4 +168,8 @@ private:
 	float TakeSeconds = 0.0f;
 	int32 PlaybackCount = 0;
 	bool bRecording = false;
+	FVector MicrophoneLocation = FVector::ZeroVector;
+	bool bHasMicrophoneLocation = false;
+	float LastExcerptFocusEndSeconds = -1.0f;
+	float LastPlaybackSeconds = 0.0f;
 };

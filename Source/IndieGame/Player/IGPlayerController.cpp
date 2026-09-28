@@ -6,6 +6,7 @@
 #include "Audio/IGMissingFloorAudioSubsystem.h"
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "AssetCompilingManager.h"
+#include "Components/AudioComponent.h"
 #include "EnhancedInputSubsystems.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -91,10 +92,16 @@ namespace IGNightFive
 	constexpr float SignalVolume = 0.86f;
 	constexpr float CloseRadius = 4000.0f;
 	constexpr float CloseFalloff = 6000.0f;
-	/** 복도 끝이므로 작고 젖은 소리. 감쇠는 열어 두고 잔향이 거리를 말한다. */
-	constexpr float AnswerVolume = 0.38f;
-	constexpr float FarRadius = 4000.0f;
-	constexpr float FarFalloff = 6000.0f;
+	/**
+	 * 복도 끝이므로 작고 젖은 소리. 카메라 뒤 왼쪽 6m쯤에 두어 §10.4의 거리
+	 * 문법을 태운다 — 멀수록 젖는다. 카메라 자리에서 내면 ENTITY 젖음이 하한에
+	 * 붙어 그녀의 신호보다 말라 버리고, 그건 「같은 방」이라는 뜻이다.
+	 */
+	constexpr float AnswerVolume = 0.70f;
+	constexpr float FarRadius = 200.0f;
+	constexpr float FarFalloff = 2400.0f;
+	constexpr float AnswerBehindCentimeters = 520.0f;
+	constexpr float AnswerLeftCentimeters = 300.0f;
 }
 
 namespace IGDisplaySettings
@@ -3080,6 +3087,18 @@ void AIGPlayerController::StartHeadphoneRecommendationIfNeeded()
 		return;
 	}
 
+	// 첫 실행의 첫 소리는 보정 노크다. 이 문장 뒤에 곧 소리 맞추기로 넘어가므로
+	// 타이틀 음악을 올렸다가 2.5초 만에 자르지 않는다. 보정을 마치고 타이틀로
+	// 돌아올 때 처음 올린다.
+	if (!bAudioCalibrationCompleted)
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+			? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+			: nullptr)
+		{
+			AudioDirector->SetTitleMode(false);
+		}
+	}
 	bHeadphoneRecommendationVisible = true;
 	HeadphoneRecommendationDeadline = FPlatformTime::Seconds() + 2.5;
 	SetActorTickEnabled(true);
@@ -3192,6 +3211,12 @@ void AIGPlayerController::OpenAudioCalibration(const bool bFirstRun)
 
 void AIGPlayerController::CancelAudioCalibration()
 {
+	if (UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+		? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+		: nullptr)
+	{
+		AudioDirector->StopCalibrationPreview();
+	}
 	if (!bAudioCalibrationSessionActive)
 	{
 		SetSystemMenuMode(AudioCalibrationReturnMode);
@@ -3211,6 +3236,12 @@ void AIGPlayerController::CancelAudioCalibration()
 
 void AIGPlayerController::CompleteAudioCalibration()
 {
+	if (UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+		? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+		: nullptr)
+	{
+		AudioDirector->StopCalibrationPreview();
+	}
 	bAudioCalibrationCompleted = true;
 	if (GConfig)
 	{
@@ -3283,21 +3314,33 @@ void AIGPlayerController::AdjustAudioCalibrationSetting(const int32 Direction)
 		NextAudioCalibrationKnockTime = FPlatformTime::Seconds() + 0.12;
 		SetActorTickEnabled(true);
 	}
-	else if (AudioCalibrationSelection == IGAudioCalibration::Music)
+	else if (AudioCalibrationSelection == IGAudioCalibration::Music
+		|| AudioCalibrationSelection == IGAudioCalibration::Ambience)
 	{
-		AudioCalibrationMusicStep = FMath::Clamp(
-			AudioCalibrationMusicStep + Step,
-			0,
-			IGAudioCalibration::MusicStepCount - 1);
+		const bool bMusic = AudioCalibrationSelection == IGAudioCalibration::Music;
+		if (bMusic)
+		{
+			AudioCalibrationMusicStep = FMath::Clamp(
+				AudioCalibrationMusicStep + Step,
+				0,
+				IGAudioCalibration::MusicStepCount - 1);
+		}
+		else
+		{
+			AudioCalibrationAmbienceStep = FMath::Clamp(
+				AudioCalibrationAmbienceStep + Step,
+				0,
+				IGAudioCalibration::AmbienceStepCount - 1);
+		}
 		ApplyAudioCalibrationValues();
-	}
-	else if (AudioCalibrationSelection == IGAudioCalibration::Ambience)
-	{
-		AudioCalibrationAmbienceStep = FMath::Clamp(
-			AudioCalibrationAmbienceStep + Step,
-			0,
-			IGAudioCalibration::AmbienceStepCount - 1);
-		ApplyAudioCalibrationValues();
+		// 메뉴 뒤의 월드는 멈춰 있어 이 두 버스에는 소리가 없다. 바꾼 값을 귀로
+		// 확인하도록 그 버스의 소리를 잠깐 들려준다. 음악 0단은 무음이 맞다.
+		if (UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+			? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+			: nullptr)
+		{
+			AudioDirector->PlayCalibrationPreview(bMusic);
+		}
 	}
 	else if (AudioCalibrationSelection == IGAudioCalibration::Brightness)
 	{
@@ -4521,6 +4564,13 @@ void AIGPlayerController::ShowTitleAfterEnding()
 		return;
 	}
 	SystemMenuSelection = 0;
+	// 엔딩 카드 바로 뒤다. 타이틀 음악과 그의 노크가 곧장 들어오지 않게 한 번 비운다.
+	if (UIGMissingFloorAudioSubsystem* AudioDirector = GetWorld()
+		? GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>()
+		: nullptr)
+	{
+		AudioDirector->ArmPostEndingTitle();
+	}
 	SetSystemMenuMode(EIGSystemMenuMode::Title);
 }
 
@@ -4730,6 +4780,21 @@ bool AIGPlayerController::AdvanceNightFiveProbe(const float DeltaSeconds)
 		return true;
 
 	case 1:
+		// 방금 낸 소리가 멈춘 타이틀 월드에서 실제로 울고 있는지. UI 소리가 아니면
+		// 엔진이 시작시키지 않아서, 자막만 뜨고 노크는 들리지 않는다.
+		if (UAudioComponent* Cue = NightFiveLastCue.Get())
+		{
+			NightFiveLastCue.Reset();
+			if (!Cue->bIsUISound || !Cue->IsPlaying())
+			{
+				UE_LOG(
+					LogTemp,
+					Error,
+					TEXT("MISSINGFLOOR_NIGHT5 FAIL: night five cue is not playing while paused"));
+				RequestNightFiveProbeExit(true);
+				return false;
+			}
+		}
 		// 두 소리가 저작된 시각에 나갔는지. 순서가 뒤집히면 대답이 먼저 온다.
 		if (NightFiveProbeSeconds >= 14.0f && NightFiveCuesPlayed < 2)
 		{
@@ -4814,6 +4879,19 @@ FVector AIGPlayerController::NightFiveListenPoint() const
 	return ViewLocation;
 }
 
+FVector AIGPlayerController::NightFiveAnswerPoint() const
+{
+	// 복도 끝. 보는 방향의 뒤 왼쪽이라 그녀의 신호(카메라 자리)와 방향부터 갈린다.
+	FVector ViewLocation = FVector::ZeroVector;
+	FRotator ViewRotation = FRotator::ZeroRotator;
+	GetPlayerViewPoint(ViewLocation, ViewRotation);
+	const FVector Forward = ViewRotation.Vector().GetSafeNormal2D();
+	const FVector Right = FVector::CrossProduct(FVector::UpVector, Forward);
+	return ViewLocation
+		- Forward * IGNightFive::AnswerBehindCentimeters
+		- Right * IGNightFive::AnswerLeftCentimeters;
+}
+
 void AIGPlayerController::PlayNightFive()
 {
 	UWorld* World = GetWorld();
@@ -4832,7 +4910,10 @@ void AIGPlayerController::PlayNightFive()
 		World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 	{
 		AudioDirector->SetAcousticSpace(EIGAcousticSpace::Corridor);
+		// 타이틀의 조율과 사냥 노크는 그동안 비킨다. 30초의 침묵이 이 슬롯의 내용이다.
+		AudioDirector->HoldTitleSoundscape(true);
 	}
+	NightFiveLastCue.Reset();
 	RefreshMenuHud();
 	NightFiveTicker = FTSTicker::GetCoreTicker().AddTicker(
 		FTickerDelegate::CreateUObject(
@@ -4855,7 +4936,8 @@ bool AIGPlayerController::AdvanceNightFive(const float DeltaSeconds)
 		&& NightFiveSeconds >= IGNightFive::SignalAtSeconds)
 	{
 		NightFiveCuesPlayed = 1;
-		IGAudio::SpawnOneShotAt(
+		// 타이틀이 월드를 멈춰 두었으므로 UI 소리로 내야 엔진이 시작시킨다.
+		NightFiveLastCue = IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 0.0f),
 			NightFiveListenPoint(),
@@ -4863,7 +4945,8 @@ bool AIGPlayerController::AdvanceNightFive(const float DeltaSeconds)
 			1.0f,
 			IGNightFive::CloseRadius,
 			IGNightFive::CloseFalloff,
-			EIGAudioBus::Player);
+			EIGAudioBus::Player,
+			/*bPlayWhenPaused=*/true);
 		AIGHorrorHUD::PushAudioCaption(
 			this,
 			NSLOCTEXT("IGMissingFloor", "NightFiveSignal", "둘 — 쉬고 — 하나"),
@@ -4876,15 +4959,16 @@ bool AIGPlayerController::AdvanceNightFive(const float DeltaSeconds)
 		&& NightFiveSeconds >= IGNightFive::AnswerAtSeconds)
 	{
 		NightFiveCuesPlayed = 2;
-		IGAudio::SpawnOneShotAt(
+		NightFiveLastCue = IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateWallKnockReply(this),
-			NightFiveListenPoint(),
+			NightFiveAnswerPoint(),
 			IGNightFive::AnswerVolume,
 			1.0f,
 			IGNightFive::FarRadius,
 			IGNightFive::FarFalloff,
-			EIGAudioBus::Entity);
+			EIGAudioBus::Entity,
+			/*bPlayWhenPaused=*/true);
 		AIGHorrorHUD::PushAudioCaption(
 			this,
 			NSLOCTEXT("IGMissingFloor", "NightFiveAnswer", "복도 끝 — 대답 둘"),
@@ -4912,6 +4996,15 @@ void AIGPlayerController::EndNightFive()
 		return;
 	}
 	bNightFivePlaying = false;
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			// 타이틀의 조율과 노크가 처음 들어왔을 때처럼 다시 든다.
+			AudioDirector->HoldTitleSoundscape(false);
+		}
+	}
 	// 한 번 재생하면 흐려진다. 사라지지는 않는다 — 다시 들을 수 있다.
 	bNightFiveSpent = true;
 	NightFiveSeconds = 0.0f;

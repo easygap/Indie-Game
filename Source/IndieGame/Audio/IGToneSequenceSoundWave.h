@@ -122,14 +122,34 @@ public:
 	/** 물건을 손에 드는 소리: 천·비닐 스침 두 번과 가벼운 툭. */
 	static UIGToneSequenceSoundWave* CreatePickupRustle(UObject* Outer);
 
+	/** 이삿짐 상자의 박스 테이프를 한 번에 뜯는다. 끝에서 날개가 툭 선다. */
+	static UIGToneSequenceSoundWave* CreatePackingTapeRip(UObject* Outer);
+
+	/** 조율 공구 두루마리 안에서 작은 쇠붙이 둘이 맞닿는다. */
+	static UIGToneSequenceSoundWave* CreateToolRollClink(UObject* Outer);
+
 	/** 손전등 슬라이드 스위치. 켤 때는 위로 딸깍, 끌 때는 아래로 둔탁하게. */
 	static UIGToneSequenceSoundWave* CreateSwitchClick(UObject* Outer, bool bOn);
+
+	/**
+	 * 발에 걸린 가벼운 소품이 바닥이나 벽에 부딪는다. bHollow는 속이 빈 페트병의
+	 * 통 울림, 아니면 실내화·골판지의 둔한 톡이다. 발소리 합성(62Hz 뒤꿈치)을
+	 * 빌리면 150g짜리 병이 사람 걸음처럼 무겁게 난다.
+	 */
+	static UIGToneSequenceSoundWave* CreateKickedPropKnock(UObject* Outer, bool bHollow);
 
 	/** Low thud used when a door settles shut. */
 	static UIGToneSequenceSoundWave* CreateDoorThud(UObject* Outer);
 
 	/** Brief handle rattle for a locked door. */
 	static UIGToneSequenceSoundWave* CreateLockedRattle(UObject* Outer);
+
+	/**
+	 * 그 시간의 공동현관을 민다. 푸시바는 끝까지 들어가는데 문짝이 보이지 않는
+	 * 무언가에 둔하게 막히고, 한 번 더 밀어도 같다. 걸쇠 소리가 없는 것이 요점이다 —
+	 * 잠긴 게 아니다.
+	 */
+	static UIGToneSequenceSoundWave* CreateHeldDoorPush(UObject* Outer);
 
 	/** Single barcode-scanner beep. */
 	static UIGToneSequenceSoundWave* CreateScannerBeep(UObject* Outer);
@@ -159,6 +179,21 @@ public:
 
 	/** One rough cardboard scrape and a small box-settle thump. */
 	static UIGToneSequenceSoundWave* CreateCardboardDrag(UObject* Outer);
+
+	/**
+	 * 공구 카트 바퀴 하나가 짧게 굴러 멎는다(§8 0-1). 금 간 캐스터가 한 바퀴 돌
+	 * 때마다 딸깍이 나고, 카트가 느려지는 만큼 간격이 벌어진다. 입주 저녁 천장
+	 * 너머에서 한 번, 밤3 5층에서 그 카트를 밀 때 한 번 더 난다. 슬래브 차폐
+	 * (900Hz)를 지나도 딸깍이 남게 몸통을 저역에 둔다.
+	 */
+	static UIGToneSequenceSoundWave* CreateToolCartRoll(UObject* Outer);
+
+	/**
+	 * 조율 렌치가 콘크리트에 내려앉는다(§8 0-4). 25cm 강철 자루의 굽힘 모드
+	 * 780·2150·4210Hz와 나무 손잡이의 둔한 톡. 입주 날 옥상 철문 너머에서는
+	 * 차폐가 780Hz 밑만 남기고, 밤3에 렌치를 집을 때는 같은 쇠가 밝게 난다.
+	 */
+	static UIGToneSequenceSoundWave* CreateTuningWrenchClink(UObject* Outer);
 
 	/** Dry paper lift and fingertip brush used by the daylight evidence journal. */
 	static UIGToneSequenceSoundWave* CreateJournalPageTurn(UObject* Outer);
@@ -205,11 +240,32 @@ public:
 		UObject* Outer,
 		int32 ConfirmationIndex);
 
-	/** M-공동: 44 Hz cavity mass, 180 Hz value noise and sparse water ticks. */
-	static UIGToneSequenceSoundWave* CreateCavityDrone(UObject* Outer);
+	/**
+	 * M-공동: 44 Hz cavity mass, 180 Hz value noise and sparse water ticks.
+	 * 밤3부터 벽 안의 숨과 물 틱이 촘촘해지고, 밤4에는 가는 긴장음이 한 줄 더
+	 * 붙는다. 박은 끝까지 없다 — 박이 있는 음악은 추격 하나뿐이다. bFinale은 밤4
+	 * 대치의 드론이다. 루프마다 열 번째 진실의 음(220 Hz −12센트)을 한 번 치고
+	 * 끝내 맞추지 않는다. 그 음은 엔딩 A의 조율 걸음이 푼다.
+	 */
+	static UIGToneSequenceSoundWave* CreateCavityDrone(
+		UObject* Outer,
+		int32 NightIndex = 1,
+		bool bFinale = false);
 
-	/** 118 BPM pursuit loop: 52 Hz pulse plus a 220/223/227 Hz cluster. */
-	static UIGToneSequenceSoundWave* CreateChaseScore(UObject* Outer);
+	/**
+	 * 118 BPM pursuit loop: 52 Hz pulse plus a 220/223/227 Hz cluster.
+	 * 밤2가 기준이다. 밤1은 튕긴 불협 없이 펄스와 클러스터만 가고, 밤3부터 앞박
+	 * 쇳소리와 높은 불협이, 밤4에는 둘째 마디의 반박 펄스와 넷째 불협 줄이 붙는다.
+	 */
+	static UIGToneSequenceSoundWave* CreateChaseScore(
+		UObject* Outer,
+		int32 NightIndex = 2);
+
+	/**
+	 * 추격이 끝나는 자리에 남는 스탭 하나(§10.2). 클러스터 220/223/227을 한 번
+	 * 치고 4초 동안 울린다. 펄스는 없다 — 그건 음악 감독이 먼저 걷는다.
+	 */
+	static UIGToneSequenceSoundWave* CreateChaseTail(UObject* Outer);
 
 	/**
 	 * The isolated first note of the 04:44 alarm pattern. CH02 plays it once
@@ -220,11 +276,28 @@ public:
 	/** Two flat descending handset beeps that end a failed call attempt. */
 	static UIGToneSequenceSoundWave* CreateCallFailTone(UObject* Outer);
 
+	/**
+	 * 국내 통화 연결음. 440+480Hz를 1초 울리고 2초 쉰 뒤, 두 번째 신호가
+	 * 울리다 받는 딸깍에 끊긴다. 뒤에는 열린 회선의 숨만 남고 목소리는 없다.
+	 * 엔딩 B의 05:30, 두 번째 신고.
+	 */
+	static UIGToneSequenceSoundWave* CreateCallRingback(UObject* Outer);
+
 	/** Rounded residential doorbell, softer and lower than the store chime. */
 	static UIGToneSequenceSoundWave* CreateDoorbellChime(UObject* Outer);
 
+	/** 계산대 호출벨. 손바닥으로 치는 종 하나의 짧은 타격과 느리게 맥놀이하는 울림. */
+	static UIGToneSequenceSoundWave* CreateServiceBellDing(UObject* Outer);
+
 	/** Tiny dry relay click for a small appliance switching off. */
 	static UIGToneSequenceSoundWave* CreateRelayClick(UObject* Outer);
+
+	/**
+	 * 두꺼비집 차단기를 손으로 넘기는 소리. 접점이 붙는 딸깍 뒤로 레버가 멈추는
+	 * 몸통과 철제 함의 짧은 울림이 온다. 소음 0.55짜리 행동이 22ms 딸깍이면 위층까지
+	 * 들린다는 걸 귀로 못 배운다. 새벽 잠금·CCTV·폰은 계속 CreateRelayClick이다.
+	 */
+	static UIGToneSequenceSoundWave* CreateBreakerThrow(UObject* Outer);
 
 	// --- CH01 04:33 drink beat --------------------------------------------
 
@@ -346,7 +419,10 @@ public:
 	/** 무엇을 들었을 때: 날카롭게 들이쉬고 낮게 으르렁. 조사가 시작되는 소리. */
 	static UIGToneSequenceSoundWave* CreateEntityAlertVocal(UObject* Outer);
 
-	/** 추격 진입: 올라가는 으르렁, 잡음 밀물, 저역 타격, 불협 클러스터. 1.5초. */
+	/**
+	 * 추격 진입(녹음 Stinger_ChaseStart가 없을 때): 손바닥 두 번, 미장 갈라짐,
+	 * 끌림 밀물, 저역 타격, 불협 세 줄. 목소리는 없다. 1.5초.
+	 */
 	static UIGToneSequenceSoundWave* CreateEntityChaseScream(UObject* Outer);
 
 	/** 코앞에서 마주쳤을 때의 스팅어. 타격·저역 낙하·불협 세 줄·잡음 밀물. */
@@ -437,6 +513,14 @@ public:
 	static UIGToneSequenceSoundWave* CreatePlasterDustFall(UObject* Outer);
 
 	/**
+	 * 석고 판재 더미가 넘어져 바닥을 친다(비트 2-5). 판면이 바닥을 때리는 넓은
+	 * 찰싹, 무게가 실린 저역, 판이 우는 대역, 부서진 모서리의 부스러기. 문짝도
+	 * 걸쇠도 없다 — 예전 자리의 문 쾅과 손잡이 덜컹은 「누가 문을 닫는다」로
+	 * 들렸다. 첫 장과 나머지는 피치로 가른다.
+	 */
+	static UIGToneSequenceSoundWave* CreateBoardStackFall(UObject* Outer);
+
+	/**
 	 * 채널 전환 지직임 (§8 비트 2-2) — an analog tube losing and finding sync.
 	 *
 	 * bCollapse false is the 0.35 s acquire: hiss decaying as the picture locks.
@@ -521,6 +605,17 @@ public:
 	 * later ones break through it, and the sound has to say which.
 	 */
 	static UIGToneSequenceSoundWave* CreateHammerImpact(
+		UObject* Outer,
+		int32 StrikeIndex);
+
+	/**
+	 * 망치 녹음에 얹는 석고 파쇄 층. 녹음은 머리가 판에 닿는 0.2초뿐이라
+	 * 다섯 번이 다 같다. 그 위에 단계만 싣는다 — 1타는 멍, 2~4타는 찢기며
+	 * 속이 빈 105Hz 울림, 5타는 판이 통째로 내려앉는 저역과 파편, 가루.
+	 * 머리의 저역과 접촉음은 녹음에 있으므로 넣지 않는다. 독립 큐가 아니라
+	 * 망치 임팩트의 한 층이다(§21.3.1).
+	 */
+	static UIGToneSequenceSoundWave* CreateHammerFractureLayer(
 		UObject* Outer,
 		int32 StrikeIndex);
 

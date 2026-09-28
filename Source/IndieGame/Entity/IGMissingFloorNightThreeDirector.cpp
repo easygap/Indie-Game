@@ -10,14 +10,20 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/Texture2D.h"
 #include "Engine/World.h"
+#include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
 #include "Entity/IGMissingFloorEvidence.h"
+#include "Entity/IGMissingFloorMercyDirector.h"
+#include "Entity/IGMissingFloorPuzzleTwoDirector.h"
+#include "Entity/IGNightPhaseDirector.h"
 #include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/PlayerController.h"
 #include "Interaction/IGReadableNote.h"
 #include "Interaction/IGSwingDoor.h"
 #include "Interaction/IGZoneTrigger.h"
 #include "Materials/MaterialInterface.h"
+#include "Misc/CommandLine.h"
+#include "Misc/Parse.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Player/IGHorrorHUD.h"
@@ -36,6 +42,8 @@ namespace IGNightThree
 	// 남아 있던 수첩과 렌치도 이 면에 내려놓는다. 좌우로 나눠 서로 겹치지 않는다.
 	const FVector NotebookLocation(-90.0f, 770.0f, 1231.87f);
 	const FVector TuningHammerLocation(-40.0f, 770.0f, 1232.67f);
+	/** 렌치를 챙긴 회차. 저장되는 사실이라 불러온 밤에 자재 위로 돌아오지 않는다. */
+	const FName WrenchTakenBeatId(TEXT("Night3.WrenchTaken"));
 	const FVector WorkGloveLocation(-135.0f, 774.0f, 1231.97f);
 	const FVector TunerToolCartLocation(-280.0f, 865.0f, 1201.0f);
 	const FVector ValveLocation(296.0f, 610.0f, 1266.0f);
@@ -73,6 +81,56 @@ namespace IGNightThree
 	// 관리인에게 남긴 인쇄본은 게시판에 꽂는다. 우편 투입구는 비워 둔다.
 	const FVector ForumLocation(643.0f, -148.65f, 166.0f);
 	const FVector JournalLocation(-172.0f, -237.5f, 985.0f);
+	/**
+	 * 일지는 401호 문에 거는 달력 뒷장이다. 그녀가 문을 열고, 걸고, 닫는다.
+	 * 소리는 문짝 가운데 손잡이 높이에서 난다.
+	 */
+	const FVector Unit401DoorSoundLocation(-145.0f, -245.0f, 1000.0f);
+	/**
+	 * 일지를 거는 때. 새벽의 잠금 소리와 눈을 뜨며 드는 아침 독백, 밤새 녹음하던
+	 * 폰의 진동(새벽 뒤 6초)이 다 지나간 뒤다. 그 뒤로는 대사가 비고 그녀가 그
+	 * 문을 보고 있지 않을 때까지 기다린다.
+	 */
+	constexpr float JournalHandoverDelaySeconds = 8.5f;
+	constexpr float JournalHandoverPollSeconds = 0.5f;
+	/** 저장되는 사실이다. 불러온 낮에 문이 한 번 더 열리면 안 된다. */
+	const FName JournalHandedOverBeatId(TEXT("Day.JournalHandedOver"));
+
+	// -- 낮의 서일영 (§3.4, §8 밤3 낮) ------------------------------------
+	/**
+	 * 골목 건너 서쪽 샛길(X 1210..1390) 입구. 아스팔트 윗면이 Z 0이고, 승용차
+	 * 차체 바깥면(Y -677)보다 23 cm 바깥이라 지나가는 차가 그를 뚫고 가지 않는다.
+	 * 편의점 자동문에서 12 m 남짓이고, 거기서 본 시선이 동쪽 상가 모서리 앞을
+	 * 아슬하게 비켜 간다. 예전 자리(-40, -835)는 남쪽 상가 벽 뒤라 어디서도
+	 * 보이지 않았다.
+	 */
+	const FVector DistantSeoLocation(1240.0f, -700.0f, 90.0f);
+	/**
+	 * 다가오는 그녀 앞에서 비켜서는 자리. 골목에서 오면 샛길 안쪽, 동쪽 상가
+	 * 모서리 뒤로 든다. 샛길 쪽(뒤편 골목)에서 오면 골목으로 나서며 샛길 서쪽
+	 * 벽 뒤로 빠진다. 어느 쪽이든 그녀에게서 멀어지는 걸음이다.
+	 */
+	const FVector DistantSeoRetreatLocation(1270.0f, -800.0f, 90.0f);
+	const FVector DistantSeoStreetRetreatLocation(1130.0f, -660.0f, 90.0f);
+	/** 이보다 남쪽이면 그녀는 상가 벽 뒤, 샛길이나 뒤편 골목에 있다. */
+	constexpr float SeoFacadeLineY = -700.0f;
+	constexpr float SeoPollSeconds = 0.1f;
+	constexpr float SeoRetreatPollSeconds = 0.05f;
+	/** 걸음 빠르기로 비켜선다. */
+	constexpr float SeoRetreatSpeed = 130.0f;
+	/** 계산대 쪽을 보는 사이에 선다. 유리 너머로 생겨나는 순간을 보이면 안 된다. */
+	constexpr float SeoArmFacingDot = 0.2f;
+	/** 화면 가운데 가까이, 가려지지 않고 이만큼 머물러야 알아본 것이다. */
+	constexpr float SeoSeenFacingDot = 0.9f;
+	constexpr float SeoRecognizeSeconds = 0.5f;
+	/** 이보다 바깥이면 화면 밖이다. 거기서만 사라진다. */
+	constexpr float SeoOffscreenDot = 0.6f;
+	constexpr float SeoGoneAwaySeconds = 1.0f;
+	/** 눈을 돌린 채 이만큼 다가오면 이미 없다. */
+	constexpr float SeoHideRange = 1100.0f;
+	/** 보면서 이만큼 다가오면 샛길 안으로 비켜선다. 판이 판으로 보이기 전이다. */
+	constexpr float SeoRetreatRange = 800.0f;
+	const FName DistantSeoBeatId(TEXT("Day3.DistantSeo"));
 
 	// 주먹이 석고보드를 때리는 값은 플레이어 쪽이 든다 —
 	// AIGPlayerCharacter::KnockLoudness. 귀를 대는 건 소리를 안 낸다.
@@ -117,6 +175,28 @@ namespace IGNightThree
 		AIGListenerEntity::AnswerRestMinSeconds;
 	constexpr double AnswerRestMaxSeconds =
 		AIGListenerEntity::AnswerRestMaxSeconds;
+	/**
+	 * 대답 뒤의 시각표. 노크는 0 / 0.42 / 1.15초에 치고, 1.65초에 정적이
+	 * 걷히기 시작해 공기가 이만큼에 걸쳐 돌아온다. 숨과 「…대답이다.」는
+	 * 걷히기 시작한 직후에 온다. 소리가 먼저 대답하고 글은 뒤따른다.
+	 */
+	constexpr float AnswerAirReturnSeconds = 2.4f;
+	constexpr float AnswerAftermathSeconds = 1.7f;
+	/** 「내려가자.」는 여운과 조율음이 다 지나간 뒤에 온다. */
+	constexpr float ReturnThoughtDelaySeconds = 7.0f;
+	/** 대답 동안 걷어 둔 라이저 물소리를 공기가 다 돌아온 뒤에 되살린다. */
+	constexpr float RiserResumeDelaySeconds = 6.0f;
+	constexpr float RiserResumeFadeInSeconds = 4.0f;
+	/**
+	 * 벽 안에서 돌아오는 손은 사흘 밤 복도를 두드리던 그 손이다. 그의 노크 셋
+	 * (Entity_KnockTriple)과 석고 노크(Knock_Plaster_0..2)는 같은 나무 타격
+	 * 세 개에서 나왔다. 같은 순서로 치고, 그의 노크(0.70배)와 같은 높이로
+	 * 내리고, 스터드 너머로 먹인다. 박자는 CreateAnswerKnockPattern과 같다.
+	 */
+	constexpr float AnswerHitStartSeconds[3] = {0.0f, 0.42f, 1.15f};
+	constexpr float AnswerHitVolumes[3] = {0.76f, 0.76f, 0.6f};
+	constexpr float AnswerHitPitch = 0.97f;
+	constexpr float AnswerHitLowPassHz = 760.0f;
 
 	const FName PuzzleThreeId(TEXT("P3"));
 	const FName PuzzleFourId(TEXT("P4"));
@@ -139,9 +219,46 @@ namespace IGNightThree
 	const FBox Unit403Interior(
 		FVector(-190.0f, -235.0f, FourthFloorZ - 20.0f),
 		FVector(190.0f, 235.0f, FourthFloorZ + 230.0f));
+	/**
+	 * 도착은 문턱이 아니라 방 안이다. 문면(Y -225)에서 몸 하나만큼 더 들어온
+	 * 선부터 세고, 거기서 잠시 머물러야 밤이 닫힌다. 들어서자마자 암전되면
+	 * 그를 돌아볼 틈이 없다. 나갔는지는 위의 실내 상자로 본다.
+	 */
+	const FBox Unit403Arrival(
+		FVector(-190.0f, -195.0f, FourthFloorZ - 20.0f),
+		FVector(190.0f, 235.0f, FourthFloorZ + 230.0f));
+	constexpr float HomeArrivalDwellSeconds = 2.5f;
+	/** 옆을 지나고 나서 이만큼 멀어지면 참았던 숨이 나간다. */
+	constexpr float PassReliefCentimeters = 150.0f;
+	/** 계단을 내려와 복도에 들어선 자리에서 그가 보이는 거리. */
+	constexpr float ReturnHintRangeCentimeters = 600.0f;
 	constexpr float ReturnPollSeconds = 0.25f;
 
 	const FName PassByBeatId(TEXT("Night3.PassBy"));
+
+	/**
+	 * 프로브와 캡처는 상태를 동기적으로 밟는다. 여기서 새로 늦춘 상태 전이는
+	 * 그 둘에서 즉시 넘어간다.
+	 */
+	inline bool IsSynchronousHarness()
+	{
+		return FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"))
+			|| FParse::Param(FCommandLine::Get(), TEXT("IGNightCapture"));
+	}
+
+	/**
+	 * 05:30에 눈이 감기기 시작했는가. 이 디렉터가 낮을 받는 것은 다 감긴 뒤
+	 * (0.48초)라서 그 사이에는 새벽 디렉터를 직접 본다.
+	 */
+	inline bool IsDawnUnderway(const UWorld* World)
+	{
+		if (!World)
+		{
+			return false;
+		}
+		TActorIterator<AIGNightPhaseDirector> It(World);
+		return It && !It->IsHourActive();
+	}
 }
 
 AIGMissingFloorNightThreeDirector::AIGMissingFloorNightThreeDirector()
@@ -174,10 +291,10 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		return false;
 	}
 
-	// Seo appears once, across the alley, only after T7 and only by day. A
-	// masked fixed-camera sprite is appropriate here because the player cannot
-	// approach or circle him; all near people and all interactable evidence stay
-	// 3D. Feet sit exactly on Z=0 and the masked card keeps a real cast shadow.
+	// 서일영은 밤2를 넘긴 낮, 편의점을 나서는 길에 골목 건너 샛길 입구에 한 번
+	// 선다(§3.4). 다가가기 전에 비켜서는 원경이라 마스크 스프라이트로 충분하고,
+	// 가까운 사람과 만지는 증거는 전부 3D다. 판은 그녀 쪽으로 돌려 세운다.
+	// Feet sit exactly on Z=0 and the masked card keeps a real cast shadow.
 	if (UStaticMesh* PlaneMesh = LoadObject<UStaticMesh>(
 			nullptr, TEXT("/Engine/BasicShapes/Plane.Plane")))
 	{
@@ -189,7 +306,7 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			DistantSeo->RegisterComponent();
 			DistantSeo->SetStaticMesh(PlaneMesh);
 			DistantSeo->SetMaterial(0, SeoMaterial);
-			DistantSeo->SetWorldLocation(FVector(-40.0f, -835.0f, 90.0f));
+			DistantSeo->SetWorldLocation(IGNightThree::DistantSeoLocation);
 			DistantSeo->SetWorldRotation(FRotator(0.0f, 0.0f, 90.0f));
 			DistantSeo->SetWorldScale3D(FVector(0.86f, 1.80f, 1.0f));
 			DistantSeo->SetCollisionEnabled(ECollisionEnabled::NoCollision);
@@ -376,16 +493,19 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			? FVector::ZeroVector
 			: FVector(3.0f, 3.0f, 26.0f),
 		NSLOCTEXT("IGMissingFloor", "TuningHammerPrompt", "조율 렌치"),
+		// 입주한 날 연 공구 상자에는 이것만 없었다. 여기서 챙겨 가서 밤4에
+		// 유해 곁에 돌려놓는다(§7 소지품 인과 장부).
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"TuningHammerThought",
-			"오빠 렌치다. 늘 공구 가방에 넣어 두던 건데."),
+			"공구 상자에 없던 오빠 렌치다. 챙겼다."),
 		EIGMissingFloorTruth::None,
 		EIGMissingFloorSource::None,
 		0.0f,
 		0.06f);
 	TuningHammer->OnExamined.AddUObject(
 		this, &AIGMissingFloorNightThreeDirector::HandleTuningHammerExamined);
+	RefreshTuningHammerAvailability();
 
 	// §22.3. 도하의 손은 이 크기가 아니다. 진실을 열지는 않는다 — 누구
 	// 것인지는 이미 T5가 말하고, 이건 그 사람이 여기 있었다는 감각이다.
@@ -433,6 +553,33 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		TunerToolCart->SetCollisionResponseToAllChannels(ECR_Block);
 		TunerToolCart->SetCanEverAffectNavigation(false);
 		TunerToolCart->SetCastShadow(true);
+
+		// 카트는 밀린다. 입주 저녁 천장 너머에서 구르던 그 바퀴다(§8 0-1).
+		// 그림은 카트 메시가 맡고 이 부피는 프롬프트와 홀드만 받는다. 이름을
+		// 붙이지 않는다 — 디렉터가 다시 서도 같은 이름에 막히지 않게.
+		SpawnParameters.Name = NAME_None;
+		TunerCartPush = World->SpawnActor<AIGMissingFloorEvidence>(
+			AIGMissingFloorEvidence::StaticClass(),
+			FTransform(
+				FRotator::ZeroRotator,
+				IGNightThree::TunerToolCartLocation + FVector(0.0f, 0.0f, 39.0f)),
+			SpawnParameters);
+		if (TunerCartPush)
+		{
+			TunerCartPush->Configure(
+				CubeMesh,
+				nullptr,
+				FVector(45.0f, 34.0f, 78.0f),
+				NSLOCTEXT("IGMissingFloor", "TunerCartPrompt", "공구 카트를 밀어 본다"),
+				FText::GetEmpty(),
+				EIGMissingFloorTruth::None,
+				EIGMissingFloorSource::None,
+				0.6f,
+				0.25f,
+				/*bPresentationVisible=*/false);
+			TunerCartPush->OnExamined.AddUObject(
+				this, &AIGMissingFloorNightThreeDirector::HandleTunerCartPushed);
+		}
 	}
 
 	SpawnParameters.Name = TEXT("MissingFloorRiserValve");
@@ -723,8 +870,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 			NSLOCTEXT("IGMissingFloor", "Forum1", "6/30  새벽 네 시만 되면 위에서 뭘 질질 끕니다. 자다가 매번 깨요."),
 			NSLOCTEXT("IGMissingFloor", "Forum2", "7/12  관리인은 창고라 사람이 없대요. 그럼 이 소리는 어디서 나는 건가요?"),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "Forum3", "7/26  03:12  또 시작됐네요. 오늘은 직접 올라가 보려고요."),
-			NSLOCTEXT("IGMissingFloor", "Forum4", "댓글  ·  혼자 가서 싸우진 마시고, 일단 녹음해 두세요."),
+			NSLOCTEXT("IGMissingFloor", "Forum3", "7/26  03:12  어차피 네 시면 또 시작이에요. 오늘은 올라가 봅니다. 사람인지 뭔지 얼굴이나 보죠."),
+			NSLOCTEXT("IGMissingFloor", "Forum4", "댓글 12  ·  참지 마세요 / 잘 생각하셨어요 / 가서 확실하게 말하세요"),
 		});
 	ForumNote->OnReadStateChanged.AddDynamic(
 		this, &AIGMissingFloorNightThreeDirector::HandleForumRead);
@@ -756,8 +903,8 @@ bool AIGMissingFloorNightThreeDirector::Configure(
 		NSLOCTEXT("IGMissingFloor", "JournalTitle", "황순금의 일지"),
 		{
 			NSLOCTEXT("IGMissingFloor", "Journal1", "7/27  네 시 반쯤 또 깸. 위에서 다섯 번. 관리실 전화 안 받음."),
-			NSLOCTEXT("IGMissingFloor", "Journal2", "7/28  어제랑 같은 소리. 오늘은 좀 작았음."),
-			NSLOCTEXT("IGMissingFloor", "Journal3", "7/29  벽을 두드려 봄. 저쪽에서도 한 번. 사람 있는 것 아닌지 다시 물어볼 것."),
+			NSLOCTEXT("IGMissingFloor", "Journal2", "7/28  또 다섯 번. 어제보다 힘이 없음."),
+			NSLOCTEXT("IGMissingFloor", "Journal3", "7/29  벽이 하도 울어서 나도 두드려 줬다. 저쪽이 하던 대로 둘, 쉬고, 하나. 그랬더니 조용하데. 사람인가."),
 			NSLOCTEXT("IGMissingFloor", "Journal4", "7/30  네 번 들음. 수도 틀자 안 들림."),
 			NSLOCTEXT("IGMissingFloor", "Journal5", "7/31  오늘은 세 번. 귀가 먹은 건지."),
 			FText::GetEmpty(),
@@ -904,7 +1051,22 @@ void AIGMissingFloorNightThreeDirector::EndPlay(
 {
 	GetWorldTimerManager().ClearTimer(AnswerTimer);
 	GetWorldTimerManager().ClearTimer(AnswerSilenceReleaseTimer);
+	GetWorldTimerManager().ClearTimer(AnswerAftermathTimer);
+	GetWorldTimerManager().ClearTimer(RiserResumeTimer);
 	GetWorldTimerManager().ClearTimer(ReturnTimer);
+	GetWorldTimerManager().ClearTimer(ReturnThoughtTimer);
+	GetWorldTimerManager().ClearTimer(RepeatPassTimer);
+	GetWorldTimerManager().ClearTimer(WallWaterFadeTimer);
+	GetWorldTimerManager().ClearTimer(TankSloshFadeTimer);
+	GetWorldTimerManager().ClearTimer(TunerCartRollTimer);
+	GetWorldTimerManager().ClearTimer(TunerCartThoughtTimer);
+	for (FTimerHandle& HitTimer : AnswerHitTimers)
+	{
+		GetWorldTimerManager().ClearTimer(HitTimer);
+	}
+	GetWorldTimerManager().ClearTimer(JournalHandoverTimer);
+	GetWorldTimerManager().ClearTimer(JournalHandoverSoundTimer);
+	GetWorldTimerManager().ClearTimer(SeoWatchTimer);
 	ReleaseReturnFigure();
 	if (UWorld* World = GetWorld())
 	{
@@ -922,17 +1084,57 @@ void AIGMissingFloorNightThreeDirector::EndPlay(
 	{
 		RiserFlow->Stop();
 	}
+	// 끊어 줄 타이머를 방금 지웠으니 물소리 루프는 여기서 멈춘다.
+	for (UAudioComponent* Loop : {WallWaterVoice.Get(), TankSloshVoice.Get()})
+	{
+		if (Loop)
+		{
+			Loop->Stop();
+		}
+	}
 	Super::EndPlay(EndPlayReason);
 }
 
 void AIGMissingFloorNightThreeDirector::SetHourActive(const bool bHourActive)
 {
 	RefreshKeyringAvailability();
+	RefreshTuningHammerAvailability();
 	bHourCurrentlyActive = bHourActive;
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	// 대답은 한 번 받으면 끝이다. 저장에서 이어 붙인 세션은 이 플래그가 비어
+	// 있어서, 수첩을 다시 읽으면 벽이 다시 열리고 P4가 헛돈다.
+	if (Narrative
+		&& Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer)
+		&& !bAnswerDelivered
+		&& !bAnswerPending)
+	{
+		bAnswerDelivered = true;
+		bSolvedAnnounced = true;
+		if (AnswerTarget)
+		{
+			AnswerTarget->SetActorHiddenInGame(true);
+			AnswerTarget->SetInteractionEnabled(false);
+		}
+	}
 	if (!bHourActive)
 	{
 		GetWorldTimerManager().ClearTimer(AnswerSilenceReleaseTimer);
 		EndAnswerSilence();
+		// 8초 정적 안에서 05:30이 오면 대답은 오지 않는다. 낮에 대답이 돌아오면
+		// 귀환길 없이 T9만 남으니, 벽은 다음 밤에 다시 두드릴 수 있게 둔다.
+		if (bAnswerPending)
+		{
+			GetWorldTimerManager().ClearTimer(AnswerTimer);
+			bAnswerPending = false;
+			AnswerTapTimes.Reset();
+			// 대답을 기다리며 걷어 둔 물길은 대답이 와야 되살아났다. 끊긴 대답은
+			// 그 자리를 못 지나가므로 여기서 되살린다. 밸브는 여전히 열려 있다.
+			ResumeRiserFlow(IGNightThree::RiserResumeFadeInSeconds);
+		}
+		GetWorldTimerManager().ClearTimer(AnswerAftermathTimer);
+		GetWorldTimerManager().ClearTimer(ReturnThoughtTimer);
+		GetWorldTimerManager().ClearTimer(RepeatPassTimer);
+		bRepeatedPass = false;
 		// 새벽은 어떻게 왔든 복도를 비운다. 시간 초과로 왔다면 그를 낮의
 		// 복도에 세워 둔 채로 남기면 안 된다.
 		GetWorldTimerManager().ClearTimer(ReturnTimer);
@@ -942,8 +1144,25 @@ void AIGMissingFloorNightThreeDirector::SetHourActive(const bool bHourActive)
 			ReturnStage = EIGNightThreeReturnStage::Idle;
 		}
 	}
+	// 대답하는 벽은 밤에만 선다. 경계마다 다시 잰다 — 새벽에는 거두고, 밤이
+	// 오면 세운다. 불러온 되풀이 밤3에서는 수첩을 다시 펼치기 전까지 벽을 켜
+	// 줄 곳이 여기뿐이다.
+	RefreshAnswerTargetAvailability();
 	RefreshJournalAvailability(bHourActive);
 	RefreshDistantSeoVisibility();
+	// 대답을 듣고도 05:30을 넘긴 밤3은 다음 저녁에 다시 온다. T9는 이미 있어서
+	// OnSolved가 다시 오지 않으니 귀환길은 여기서 다시 세운다. 그러지 않으면
+	// 403호로 돌아와도 밤이 끝나지 않고, 밤3이 끝없이 되풀이된다.
+	if (bHourActive
+		&& Narrative
+		&& Narrative->GetNightIndex() == 3
+		&& Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer)
+		&& !Narrative->HasBeatPlayed(AIGNightPhaseDirector::GoalBeatId(3))
+		&& ReturnStage != EIGNightThreeReturnStage::Passing)
+	{
+		ReturnStage = EIGNightThreeReturnStage::Idle;
+		RearmReturnPassForRepeatedNight();
+	}
 }
 
 AIGMissingFloorEvidence* AIGMissingFloorNightThreeDirector::GetWallListen(
@@ -982,6 +1201,25 @@ void AIGMissingFloorNightThreeDirector::RefreshKeyringAvailability()
 	Keyring->SetActorHiddenInGame(bTaken);
 	Keyring->SetActorEnableCollision(!bTaken);
 	Keyring->SetInteractionEnabled(!bTaken);
+}
+
+void AIGMissingFloorNightThreeDirector::RefreshTuningHammerAvailability()
+{
+	if (!TuningHammer)
+	{
+		return;
+	}
+	// 챙겼으면 유담이 들고 있다. 못 챙긴 회차도 벽이 열린 뒤에는 자재 위에
+	// 두지 않는다. 밤4 선택 지점에 렌치가 한 자루 놓이는데, 여기 한 자루가
+	// 더 있으면 돌려놓을 물건이 둘이 된다. 막간의 검은 화면이 끝날 때 치운다.
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const bool bGone = Narrative
+		&& (Narrative->HasBeatPlayed(IGNightThree::WrenchTakenBeatId)
+			|| Narrative->IsNightFourWallOpened()
+			|| Narrative->WasFifthDawnInterludeCompleted());
+	TuningHammer->SetActorHiddenInGame(bGone);
+	TuningHammer->SetActorEnableCollision(!bGone);
+	TuningHammer->SetInteractionEnabled(!bGone);
 }
 
 void AIGMissingFloorNightThreeDirector::HandleKeyringTaken(
@@ -1064,7 +1302,9 @@ void AIGMissingFloorNightThreeDirector::HandleValveOpened(
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->RegisterComponent(RiserFlow, EIGAudioBus::Puzzle);
+			// 밤 내내 흐르는 물길이다. 벽을 여러 번 듣다 PUZZLE 상한에 닿아도
+			// 이것이 먼저 밀려나면 안 된다.
+			AudioDirector->RegisterPersistentBed(RiserFlow, EIGAudioBus::Puzzle);
 		}
 		RiserFlow->Play();
 	}
@@ -1104,7 +1344,14 @@ void AIGMissingFloorNightThreeDirector::PlayWallListenResponse(
 	// And the water, at the band the structure left it in.
 	if (bValveOpen)
 	{
-		IGAudio::SpawnOneShotAt(
+		// 물소리는 루프 파형이라 스스로 멎지 않는다. 한 번에 한 벽의 물만 흐르게
+		// 앞 벽의 것을 걷고, 이 벽의 것도 독백이 끝날 무렵 걷는다. 놓아두면
+		// 들은 벽마다 밤새 흘러 세 벽을 견줄 수 없다.
+		if (UAudioComponent* Previous = WallWaterVoice.Get())
+		{
+			Previous->FadeOut(0.25f, 0.0f);
+		}
+		WallWaterVoice = IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreatePipeWaterFlow(
 				this,
@@ -1117,6 +1364,18 @@ void AIGMissingFloorNightThreeDirector::PlayWallListenResponse(
 			IGNightThree::WallListenInnerRadius,
 			IGNightThree::WallListenFalloff,
 			EIGAudioBus::Puzzle);
+		GetWorldTimerManager().SetTimer(
+			WallWaterFadeTimer,
+			FTimerDelegate::CreateWeakLambda(this, [this]()
+			{
+				if (UAudioComponent* Water = WallWaterVoice.Get())
+				{
+					Water->FadeOut(0.9f, 0.0f);
+				}
+			}),
+			// ListenCavity 4.0초, ListenFar 3.2초와 같이 끝난다.
+			bHollow ? 4.0f : 3.2f,
+			false);
 	}
 }
 
@@ -1132,7 +1391,42 @@ void AIGMissingFloorNightThreeDirector::HandleWorkGloveExamined(
 void AIGMissingFloorNightThreeDirector::HandleTuningHammerExamined(
 	AIGMissingFloorEvidence* Evidence)
 {
+	// 집어 드는 손에서 입주 날 옥상 철문 너머의 그 쇠가 운다(§8 0-4). 그날은
+	// 문이 780Hz 밑만 남겼고, 여기서는 같은 쇠가 밝게 난다. 중고 거래 글을 못
+	// 본 회차에도 난다.
+	if (Evidence)
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateTuningWrenchClink(this),
+			Evidence->GetActorLocation(),
+			0.42f,
+			1.0f,
+			60.0f,
+			700.0f,
+			EIGAudioBus::Player);
+	}
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	// 집어 든다. 밤4 엔딩 A의 「돌려놓고」가 이 손에서 나간다.
+	if (Narrative)
+	{
+		Narrative->MarkBeatPlayed(IGNightThree::WrenchTakenBeatId);
+	}
+	RefreshTuningHammerAvailability();
+	// 소리가 먼저 나고, 이 줄은 렌치 독백 다음에 선다. 옥상 문 앞에서 그 소리를
+	// 들은 회차만.
+	if (Narrative
+		&& Narrative->HasBeatPlayed(FName(TEXT("Arrival.RoofDoor")))
+		&& Narrative->MarkBeatPlayed(FName(TEXT("Night3.HammerArrivalEcho"))))
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"TuningHammerArrivalEcho",
+				"이사 온 날 옥상 문 너머에서 난 소리다."),
+			3.6f);
+	}
 	// §13 13행의 회수. 중고 거래 글을 본 회차에만 이 한 줄이 붙는다 —
 	// 못 본 사람에게는 그냥 오빠가 떨어뜨린 렌치이고, 그것도 맞는 말이다.
 	if (!Narrative
@@ -1148,6 +1442,121 @@ void AIGMissingFloorNightThreeDirector::HandleTuningHammerExamined(
 			"TuningHammerListingThought",
 			"목록에 있던 공구다. 이것까지 팔지는 못했네."),
 		5.0f);
+}
+
+void AIGMissingFloorNightThreeDirector::HandleTunerCartPushed(
+	AIGMissingFloorEvidence* Evidence)
+{
+	if (Evidence)
+	{
+		Evidence->SetInteractionEnabled(false);
+	}
+	UWorld* World = GetWorld();
+	if (!World || !TunerToolCart)
+	{
+		return;
+	}
+	const FVector CartAt = TunerToolCart->GetComponentLocation();
+	// 입주 저녁 천장 너머에서 구르던 바퀴다. 금 간 캐스터가 같은 박자로
+	// 딸깍이다 선다. 알아보는 한 줄은 바퀴가 멎은 뒤에 온다.
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateToolCartRoll(this),
+		CartAt + FVector(0.0f, 0.0f, 10.0f),
+		0.55f,
+		1.0f,
+		90.0f,
+		1400.0f,
+		EIGAudioBus::World);
+	GetWorldTimerManager().SetTimer(
+		TunerCartThoughtTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGMissingFloor",
+					"TunerCartThought",
+					"바퀴 하나에 금이 갔다. 이사 온 날 천장에서 구르던 소리다."),
+				4.2f);
+		}),
+		1.6f,
+		false);
+
+	// 미는 쪽으로 한 뼘 구른다. 벽이나 자재에 막히면 막힌 데까지만 간다.
+	FVector Push = FVector::ForwardVector;
+	if (const AIGPlayerCharacter* Pusher = Player.Get())
+	{
+		const FVector Away = (CartAt - Pusher->GetActorLocation()).GetSafeNormal2D();
+		if (!Away.IsNearlyZero())
+		{
+			Push = Away;
+		}
+	}
+	float Distance = 12.0f;
+	const FBoxSphereBounds Bounds = TunerToolCart->Bounds;
+	const FVector Extent(
+		FMath::Max(1.0f, Bounds.BoxExtent.X - 2.0f),
+		FMath::Max(1.0f, Bounds.BoxExtent.Y - 2.0f),
+		FMath::Max(1.0f, Bounds.BoxExtent.Z - 4.0f));
+	// 바닥에 닿지 않게 조금 띄워서 쓴다.
+	const FVector SweepStart = Bounds.Origin + FVector(0.0f, 0.0f, 4.0f);
+	FCollisionQueryParams Query(SCENE_QUERY_STAT(IGTunerCartPush), false, this);
+	if (Evidence)
+	{
+		Query.AddIgnoredActor(Evidence);
+	}
+	if (AIGPlayerCharacter* Pusher = Player.Get())
+	{
+		Query.AddIgnoredActor(Pusher);
+	}
+	FCollisionObjectQueryParams Blockers;
+	Blockers.AddObjectTypesToQuery(ECC_WorldStatic);
+	Blockers.AddObjectTypesToQuery(ECC_WorldDynamic);
+	FHitResult Hit;
+	if (World->SweepSingleByObjectType(
+			Hit,
+			SweepStart,
+			SweepStart + Push * (Distance + 2.0f),
+			FQuat::Identity,
+			Blockers,
+			FCollisionShape::MakeBox(Extent),
+			Query))
+	{
+		Distance = FMath::Max(0.0f, Hit.Distance - 2.0f);
+	}
+	if (Distance < 1.0f)
+	{
+		return;
+	}
+	TunerCartRollFrom = CartAt;
+	TunerCartRollTo = CartAt + Push * Distance;
+	TunerCartRollStartSeconds = World->GetTimeSeconds();
+	GetWorldTimerManager().SetTimer(
+		TunerCartRollTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			const UWorld* RollWorld = GetWorld();
+			if (!RollWorld || !TunerToolCart)
+			{
+				GetWorldTimerManager().ClearTimer(TunerCartRollTimer);
+				return;
+			}
+			const float Alpha = FMath::Clamp(
+				static_cast<float>((RollWorld->GetTimeSeconds() - TunerCartRollStartSeconds) / 1.3),
+				0.0f,
+				1.0f);
+			// 민 힘이 빠지는 만큼 느려진다. 소리의 딸깍 간격이 벌어지는 것과 같다.
+			const float Eased = 1.0f - FMath::Square(1.0f - Alpha);
+			TunerToolCart->SetWorldLocation(
+				FMath::Lerp(TunerCartRollFrom, TunerCartRollTo, Eased));
+			if (Alpha >= 1.0f)
+			{
+				GetWorldTimerManager().ClearTimer(TunerCartRollTimer);
+			}
+		}),
+		1.0f / 30.0f,
+		true);
 }
 
 void AIGMissingFloorNightThreeDirector::HandleAnnexRecognitionZone(
@@ -1188,14 +1597,14 @@ void AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined(
 	Narrative->RegisterTruthSource(
 		EIGMissingFloorTruth::WallSealedThatDay,
 		EIGMissingFloorSource::FreshPlasterDating);
-	// 기록 화면의 「두 겹의 마감」 카드와 같은 사실이어야 한다. 카드는
-	// 「안쪽 보드와 바깥 실란트의 굳은 정도가 다르다」로 적힌다.
+	// 기록 화면의 「덧댄 벽」 카드가 이 독백의 앞 문장을 그대로 옮긴다.
+	// 한쪽을 고치면 다른 쪽도 같이 고친다.
 	AIGHorrorHUD::PushThought(
 		this,
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"PlasterDatingThought",
-			"안쪽 판자는 낡았는데, 바깥 실리콘은 아직 덜 굳었다. 최근에 다시 막았나?"),
+			"안쪽 석고보드는 바싹 말랐는데, 바깥 실리콘은 아직 덜 굳었다. 최근에 다시 막았나?"),
 		4.6f);
 }
 
@@ -1212,8 +1621,14 @@ void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
 		EIGMissingFloorTruth::FiveNightsOfThirst,
 		EIGMissingFloorSource::TankWaterAudition);
 
-	// 수위는 눈으로, 물의 움직임은 소리로 확인한다.
-	IGAudio::SpawnOneShotAt(
+	// 수위는 눈으로, 물의 움직임은 소리로 확인한다. 출렁임은 8.8초 루프라
+	// 물이 한 번 밀려갔다 돌아와 강판을 치는 만큼만 듣고 걷는다. 다시 살피면
+	// 앞의 것부터 걷는다 — 살필 때마다 탱크 소리가 한 겹씩 쌓이면 안 된다.
+	if (UAudioComponent* Previous = TankSloshVoice.Get())
+	{
+		Previous->FadeOut(0.3f, 0.0f);
+	}
+	TankSloshVoice = IGAudio::SpawnOneShotAt(
 		this,
 		UIGToneSequenceSoundWave::CreateRooftopTankSlosh(this),
 		IGNightThree::TankAuditionLocation,
@@ -1222,6 +1637,17 @@ void AIGMissingFloorNightThreeDirector::HandleTankAuditionExamined(
 		120.0f,
 		900.0f,
 		EIGAudioBus::Puzzle);
+	GetWorldTimerManager().SetTimer(
+		TankSloshFadeTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			if (UAudioComponent* Slosh = TankSloshVoice.Get())
+			{
+				Slosh->FadeOut(1.2f, 0.0f);
+			}
+		}),
+		4.6f,
+		false);
 	AIGHorrorHUD::PushAudioCaption(
 		this,
 		NSLOCTEXT(
@@ -1258,113 +1684,191 @@ void AIGMissingFloorNightThreeDirector::HandleWallListened(const int32 BayIndex)
 		// Before the valve there is nothing driving the wall, so all three
 		// answer alike — and they answer, rather than being described as
 		// answering. The dead board is why the player goes looking for water.
+		// 「세 벽 다」는 세 칸을 다 들어 본 뒤에야 할 수 있는 말이다.
+		DryListenedBays.Add(BayIndex);
 		PlayWallListenResponse(BayIndex, /*bHollow=*/false);
 		AIGHorrorHUD::PushThought(
 			this,
-			NSLOCTEXT(
-				"IGMissingFloor",
-				"ListenSilent",
-				"조용하다. 세 벽 다 똑같다."),
+			DryListenedBays.Num() >= 3
+				? NSLOCTEXT(
+					"IGMissingFloor",
+					"ListenSilent",
+					"조용하다. 세 벽 다 똑같다.")
+				: DryListenedBays.Num() == 2
+					? NSLOCTEXT(
+						"IGMissingFloor",
+						"ListenSilentAgain",
+						"조용하다. 여기도 똑같다.")
+					: NSLOCTEXT(
+						"IGMissingFloor",
+						"ListenSilentFirst",
+						"조용하다."),
 			3.2f);
 		return;
 	}
+	// 밸브 뒤로는 칸마다 소리가 다르다. 그래도 한 칸만 듣고 「이 벽만」이라고
+	// 할 수는 없다. 다른 칸 하나와 견준 뒤에야 독백이 들은 것을 확인한다(§7).
+	ComparedBays.Add(BayIndex);
+	const bool bCompared = HasComparedWalls();
+	// 수첩을 안 읽었으면 소리가 다르다는 것까지만 안다. 그게 무슨 뜻인지는
+	// 오빠가 적어 놓은 줄이 말해 준다 — 빠진 조각이 있다는 것은 알려야 한다.
+	const bool bKnowsCriterion = Narrative
+		&& Narrative->HasSource(
+			EIGMissingFloorTruth::SomeoneInTheWall,
+			EIGMissingFloorSource::PipeAuditionCriterion);
 	if (BayIndex == IGNightThree::CavityBayIndex)
 	{
 		PlayWallListenResponse(BayIndex, /*bHollow=*/true);
-		// 수첩을 안 읽었으면 소리가 다르다는 것까지만 안다. 그게 무슨 뜻인지는
-		// 오빠가 적어 놓은 줄이 말해 준다 — 빠진 조각이 있다는 것은 알려야 한다.
-		const bool bKnowsCriterion = Narrative
-			&& Narrative->HasSource(
-				EIGMissingFloorTruth::SomeoneInTheWall,
-				EIGMissingFloorSource::PipeAuditionCriterion);
 		AIGHorrorHUD::PushThought(
 			this,
-			bKnowsCriterion
+			!bCompared
 				? NSLOCTEXT(
 					"IGMissingFloor",
-					"ListenCavity",
-					"바로 뒤에서 흐른다. 이 벽만 속이 비었다.")
-				: NSLOCTEXT(
-					"IGMissingFloor",
-					"ListenCavityUnread",
-					"바로 뒤에서 흐른다. 이 벽만 소리가 다르다. 왜 다른 거지."),
+					"ListenCavityFirst",
+					"바로 뒤에서 흐른다. 소리가 길게 남는다.")
+				: bKnowsCriterion
+					? NSLOCTEXT(
+						"IGMissingFloor",
+						"ListenCavity",
+						"바로 뒤에서 흐른다. 이 벽만 속이 비었다.")
+					: NSLOCTEXT(
+						"IGMissingFloor",
+						"ListenCavityUnread",
+						"바로 뒤에서 흐른다. 이 벽만 소리가 다르다. 왜 다른 거지."),
 			4.0f);
-		if (Narrative)
-		{
-			Narrative->RegisterTruthSource(
-				EIGMissingFloorTruth::SomeoneInTheWall,
-				EIGMissingFloorSource::PipeWaterComparison);
-			if (Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall))
-			{
-				Narrative->MarkPuzzleSolved(IGNightThree::PuzzleThreeId);
-			}
-		}
-		return;
 	}
-	PlayWallListenResponse(BayIndex, /*bHollow=*/false);
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"ListenFar",
-			"물소리가 멀리서 웅웅거린다. 이 벽은 아니다."),
-		3.2f);
+	else
+	{
+		PlayWallListenResponse(BayIndex, /*bHollow=*/false);
+		// 비교 상대는 귀로 들었을 수도, 주먹으로 쳤을 수도 있다. 어느 쪽이든
+		// 공동 칸은 길게 울었으니 그것을 말한다.
+		AIGHorrorHUD::PushThought(
+			this,
+			!bCompared
+				? NSLOCTEXT(
+					"IGMissingFloor",
+					"ListenFar",
+					"물소리가 멀리서 웅웅거린다.")
+				: bKnowsCriterion
+					? NSLOCTEXT(
+						"IGMissingFloor",
+						"ListenFarCompared",
+						"여기선 물이 멀다. 아까 그 벽만 속이 비었다.")
+					: NSLOCTEXT(
+						"IGMissingFloor",
+						"ListenFarComparedUnread",
+						"여기선 물이 멀다. 아까 그 벽만 길게 울었다."),
+			bCompared ? 3.8f : 3.2f);
+	}
+	if (bCompared && Narrative)
+	{
+		Narrative->RegisterTruthSource(
+			EIGMissingFloorTruth::SomeoneInTheWall,
+			EIGMissingFloorSource::PipeWaterComparison);
+		if (Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall))
+		{
+			Narrative->MarkPuzzleSolved(IGNightThree::PuzzleThreeId);
+		}
+	}
 }
 
 void AIGMissingFloorNightThreeDirector::HandleWallKnocked(const int32 BayIndex)
 {
 	// The reckless route: the fist reads the wall instantly, and the sound
 	// it makes is real — reported by the evidence actor itself.
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreateWallKnockTriple(this, 0.2f),
+	// 주먹은 한 번이다. 셋을 치면 그의 사냥 노크(0.62초 간격 셋)를 흉내 낸다.
+	// 치는 소리는 맨손 노크와 같은 석고 녹음 하나로 칸마다 같게 두고, 칸의
+	// 차이는 벽이 대답하는 꼬리(공동 1.45초, 찬 벽 0.22초)에서만 난다. 치는
+	// 소리까지 다르면 벽이 아니라 손을 비교하게 된다.
+	const bool bHollow = BayIndex == IGNightThree::CavityBayIndex;
+	const FVector KnockLocation =
 		WallKnocks.IsValidIndex(BayIndex) && WallKnocks[BayIndex]
 			? WallKnocks[BayIndex]->GetActorLocation()
-			: GetActorLocation(),
+			: GetActorLocation();
+	IGAudio::SpawnOneShotAt(
+		this,
+		IGAudio::SampleOr(
+			TEXT("Knock_Plaster_0"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f); }),
+		KnockLocation,
 		0.8f,
 		1.0f,
 		160.0f,
 		1400.0f,
 		EIGAudioBus::Player);
+	IGAudio::SpawnOneShotAt(
+		this,
+		UIGToneSequenceSoundWave::CreateWallCavityResponse(this, bHollow),
+		KnockLocation,
+		1.0f,
+		1.0f,
+		IGNightThree::WallListenInnerRadius,
+		IGNightThree::WallListenFalloff,
+		EIGAudioBus::Puzzle);
 
-	if (BayIndex == IGNightThree::CavityBayIndex)
+	ComparedBays.Add(BayIndex);
+	const bool bCompared = HasComparedWalls();
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	const bool bKnowsCriterion = Narrative
+		&& Narrative->HasSource(
+			EIGMissingFloorTruth::SomeoneInTheWall,
+			EIGMissingFloorSource::PipeAuditionCriterion);
+	if (bHollow)
 	{
-		UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-		const bool bKnowsCriterion = Narrative
-			&& Narrative->HasSource(
-				EIGMissingFloorTruth::SomeoneInTheWall,
-				EIGMissingFloorSource::PipeAuditionCriterion);
 		AIGHorrorHUD::PushThought(
 			this,
-			bKnowsCriterion
+			!bCompared
 				? NSLOCTEXT(
 					"IGMissingFloor",
-					"KnockCavity",
-					"오래 울린다. 안이 비어 있다.")
-				: NSLOCTEXT(
-					"IGMissingFloor",
-					"KnockCavityUnread",
-					"오래 울린다. 다른 두 벽하고 다르다. 오빠라면 이유를 알았을 텐데."),
+					"KnockCavityFirst",
+					"오래 울린다.")
+				: bKnowsCriterion
+					? NSLOCTEXT(
+						"IGMissingFloor",
+						"KnockCavity",
+						"오래 울린다. 안이 비어 있다.")
+					: NSLOCTEXT(
+						"IGMissingFloor",
+						"KnockCavityUnread",
+						"오래 울린다. 이 벽만 다르다. 오빠라면 이유를 알았을 텐데."),
 			3.8f);
-		if (Narrative)
-		{
-			Narrative->RegisterTruthSource(
-				EIGMissingFloorTruth::SomeoneInTheWall,
-				EIGMissingFloorSource::WallEchoByHand);
-			if (Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall))
-			{
-				Narrative->MarkPuzzleSolved(IGNightThree::PuzzleThreeId);
-			}
-		}
-		return;
 	}
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"KnockSolid",
-			"소리가 금방 끊긴다. 이쪽은 꽉 차 있다."),
-		3.0f);
+	else
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			!bCompared
+				? NSLOCTEXT(
+					"IGMissingFloor",
+					"KnockSolid",
+					"소리가 금방 끊긴다.")
+				: bKnowsCriterion
+					? NSLOCTEXT(
+						"IGMissingFloor",
+						"KnockSolidCompared",
+						"금방 끊긴다. 아까 그 벽만 속이 비었다.")
+					: NSLOCTEXT(
+						"IGMissingFloor",
+						"KnockSolidComparedUnread",
+						"금방 끊긴다. 아까 그 벽만 길게 울었다."),
+			bCompared ? 3.6f : 3.0f);
+	}
+	if (bCompared && Narrative)
+	{
+		Narrative->RegisterTruthSource(
+			EIGMissingFloorTruth::SomeoneInTheWall,
+			EIGMissingFloorSource::WallEchoByHand);
+		if (Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall))
+		{
+			Narrative->MarkPuzzleSolved(IGNightThree::PuzzleThreeId);
+		}
+	}
+}
+
+bool AIGMissingFloorNightThreeDirector::HasComparedWalls() const
+{
+	return ComparedBays.Contains(IGNightThree::CavityBayIndex)
+		&& ComparedBays.Num() >= 2;
 }
 
 void AIGMissingFloorNightThreeDirector::HandleImpactMarkExamined(
@@ -1376,18 +1880,26 @@ void AIGMissingFloorNightThreeDirector::HandleImpactMarkExamined(
 void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 	AIGMissingFloorEvidence* Evidence)
 {
-	if (bAnswerPending || bAnswerDelivered)
+	// 벽은 밤에만 대답한다. 낮에는 표적이 서지 않지만, 서 있던 표적을 낮에
+	// 두드리는 길이 하나라도 남으면 지정 침묵과 T9가 낮에 온다.
+	if (!bHourCurrentlyActive || bAnswerPending || bAnswerDelivered)
 	{
 		return;
 	}
 
 	// Every interaction is one physical tap. The player owns the silence
 	// between taps; no progress bar or prompt leaks the accepted cadence.
+	// 그녀의 손은 어느 벽에서나 같은 석고 녹음이다(맨손 노크). 탭마다 녹음을
+	// 돌려 친다 — 시각 해시는 4초 남짓마다 한 번 바뀌어 세 탭이 한 녹음이 된다.
 	IGAudio::SpawnOneShotAt(
 		this,
-		UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f),
+		IGAudio::SampleVariantOr(
+			TEXT("Knock_Plaster"),
+			3,
+			(AnswerTapSerial++ % 3u) << 12,
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateWallKnockSingle(this, 0.0f); }),
 		Evidence ? Evidence->GetActorLocation() : GetActorLocation(),
-		0.9f,
+		0.82f,
 		1.0f,
 		160.0f,
 		1400.0f,
@@ -1432,12 +1944,40 @@ void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 		}
 		return;
 	}
+	// 박자는 맞았지만 05:30에 눈이 감기기 시작했다. 탭은 들렸고, 대답은 이
+	// 밤에 오지 않는다. 받아 두면 다 감긴 뒤의 낮 전환이 곧바로 끊는다.
+	if (IGNightThree::IsDawnUnderway(World))
+	{
+		AnswerTapTimes.Reset();
+		return;
+	}
 
 	bAnswerPending = true;
 	if (UIGMissingFloorAudioSubsystem* AudioDirector =
 		GetWorld()->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 	{
 		AudioDirector->SetAuthoredSilence(true);
+	}
+	// 지정 침묵은 SCORE와 WORLD만 누른다. 라이저와 벽 앞의 물은 PUZZLE이라
+	// 여기서 직접 걷어야 8초가 정말로 빈다.
+	GetWorldTimerManager().ClearTimer(RiserResumeTimer);
+	if (RiserFlow && RiserFlow->IsPlaying())
+	{
+		RiserFlow->FadeOut(1.2f, 0.0f);
+	}
+	for (UAudioComponent* Loop : {WallWaterVoice.Get(), TankSloshVoice.Get()})
+	{
+		if (Loop)
+		{
+			Loop->FadeOut(0.6f, 0.0f);
+		}
+	}
+	// 안전망의 배관 울음도 이 벽 바로 뒤 공용 입상관에서 운다(PUZZLE). 울던
+	// 중이면 같이 걷는다. 정적 동안에는 안전망이 새로 울지 않는다.
+	for (TActorIterator<AIGMissingFloorMercyDirector> It(GetWorld()); It; ++It)
+	{
+		It->FadeOutPipeCry(0.6f);
+		break;
 	}
 	if (APlayerController* Controller = GetWorld()->GetFirstPlayerController())
 	{
@@ -1475,21 +2015,59 @@ void AIGMissingFloorNightThreeDirector::DeliverWallAnswer()
 		278.0f,
 		IGNightThree::WallBayYs[IGNightThree::CavityBayIndex],
 		1290.0f);
-	IGAudio::SpawnOneShotAt(
-		this,
-		UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 1.0f),
-		InsideWall,
-		0.85f,
-		0.92f,
-		140.0f,
-		1200.0f,
-		EIGAudioBus::Entity);
+	if (IGAudio::Sample(TEXT("Knock_Plaster_0")))
+	{
+		// 사흘 밤 복도에서 들은 그 손이다(AnswerHitStartSeconds 주석). 셋째는
+		// 내려놓는 한 번이라 조금 여리다.
+		const auto Hit = [this, InsideWall](const int32 HitIndex)
+		{
+			if (UAudioComponent* Knock = IGAudio::SpawnOneShotAt(
+				this,
+				IGAudio::SampleVariant(
+					TEXT("Knock_Plaster"),
+					3,
+					static_cast<uint32>(HitIndex) << 12),
+				InsideWall,
+				IGNightThree::AnswerHitVolumes[HitIndex],
+				IGNightThree::AnswerHitPitch,
+				140.0f,
+				1200.0f,
+				EIGAudioBus::Entity))
+			{
+				// 석고 두 겹과 스터드 너머다. 가림 판정이 벽에 걸리든 말든
+				// 그의 먹먹한 노크(700 Hz)만큼은 먹는다.
+				Knock->SetLowPassFilterEnabled(true);
+				Knock->SetLowPassFilterFrequency(IGNightThree::AnswerHitLowPassHz);
+			}
+		};
+		Hit(0);
+		for (int32 HitIndex = 1; HitIndex < 3; ++HitIndex)
+		{
+			GetWorldTimerManager().SetTimer(
+				AnswerHitTimers[HitIndex - 1],
+				FTimerDelegate::CreateWeakLambda(this, [Hit, HitIndex]()
+				{
+					Hit(HitIndex);
+				}),
+				IGNightThree::AnswerHitStartSeconds[HitIndex],
+				false);
+		}
+	}
+	else
+	{
+		IGAudio::SpawnOneShotAt(
+			this,
+			UIGToneSequenceSoundWave::CreateAnswerKnockPattern(this, 1.0f),
+			InsideWall,
+			0.85f,
+			0.92f,
+			140.0f,
+			1200.0f,
+			EIGAudioBus::Entity);
+	}
 
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT("IGMissingFloor", "AnswerThought", "…대답이다."),
-		4.2f);
-
+	// T9와 P4는 첫 노크와 함께 확정한다. 여기서 미루면 그 사이에 05:30이 왔을
+	// 때 대답은 들었는데 T9가 없는 밤이 된다. 늦추는 것은 들리는 것과 글뿐이다.
 	if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
 	{
 		Narrative->RegisterTruthSource(
@@ -1503,6 +2081,55 @@ void AIGMissingFloorNightThreeDirector::DeliverWallAnswer()
 		&AIGMissingFloorNightThreeDirector::EndAnswerSilence,
 		1.65f,
 		false);
+	GetWorldTimerManager().SetTimer(
+		AnswerAftermathTimer,
+		this,
+		&AIGMissingFloorNightThreeDirector::AnswerAftermath,
+		IGNightThree::AnswerAftermathSeconds,
+		false);
+	GetWorldTimerManager().SetTimer(
+		RiserResumeTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			ResumeRiserFlow(IGNightThree::RiserResumeFadeInSeconds);
+		}),
+		IGNightThree::RiserResumeDelaySeconds,
+		false);
+}
+
+void AIGMissingFloorNightThreeDirector::ResumeRiserFlow(const float FadeInSeconds)
+{
+	if (!RiserFlow || !bValveOpen || bAnswerPending)
+	{
+		return;
+	}
+	// 대답 직전에 걸어 둔 1.2초 페이드가 아직 도는 중이면 끝나는 순간 멎는다.
+	// 그것도 멎은 것으로 본다.
+	const bool bFadingOut =
+		RiserFlow->GetPlayState() == EAudioComponentPlayState::FadingOut;
+	if (RiserFlow->IsPlaying() && !bFadingOut)
+	{
+		return;
+	}
+	if (bFadingOut)
+	{
+		RiserFlow->Stop();
+	}
+	// 한 번 멎은 절차 파형은 새로 만들어 건다. 배수 0.5는 그대로 두고
+	// 페이더만 1까지 올린다 — 페이더를 0.5로 두면 반의반이 된다.
+	RiserFlow->SetSound(
+		UIGToneSequenceSoundWave::CreatePipeWaterFlow(
+			this,
+			IGNightThree::RiserBedDistanceStep));
+	if (UWorld* World = GetWorld())
+	{
+		if (UIGMissingFloorAudioSubsystem* AudioDirector =
+			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+		{
+			AudioDirector->RegisterPersistentBed(RiserFlow, EIGAudioBus::Puzzle);
+		}
+	}
+	RiserFlow->FadeIn(FadeInSeconds, 1.0f);
 }
 
 void AIGMissingFloorNightThreeDirector::EndAnswerSilence()
@@ -1512,8 +2139,34 @@ void AIGMissingFloorNightThreeDirector::EndAnswerSilence()
 		if (UIGMissingFloorAudioSubsystem* AudioDirector =
 			World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
 		{
-			AudioDirector->SetAuthoredSilence(false);
+			// 대답 뒤에는 공기가 천천히 돌아온다. 새벽이 거두는 길은 예전처럼 짧다
+			// (SetHourActive가 이 플래그를 먼저 내린다).
+			AudioDirector->SetAuthoredSilence(
+				false,
+				bHourCurrentlyActive ? IGNightThree::AnswerAirReturnSeconds : 0.45f);
 		}
+	}
+}
+
+void AIGMissingFloorNightThreeDirector::AnswerAftermath()
+{
+	// 3-6의 끝. 공기가 돌아오기 시작한 직후에 숨이 먼저 나가고 한 줄이 따라온다.
+	// 조율음은 오디오 쪽이 정적이 걷힌 뒤로 미뤄 둔다.
+	AIGHorrorHUD::PushThought(
+		this,
+		NSLOCTEXT("IGMissingFloor", "AnswerThought", "…대답이다."),
+		3.2f);
+	const UWorld* World = GetWorld();
+	APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
+	AIGPlayerCharacter* Pawn = Controller
+		? Cast<AIGPlayerCharacter>(Controller->GetPawn())
+		: nullptr;
+	if (UIGStressComponent* Stress = Pawn ? Pawn->GetStress() : nullptr)
+	{
+		// 날숨은 스트레스가 높을 때만 난다. 내리기 전에 먼저 쉰다.
+		Stress->PlayReliefExhale();
+		// §20.1 밤3의 0.90 → 0.30. 공포가 무너지는 자리가 몸에 와야 한다.
+		Stress->ApplyRelief(0.30f, 4.0f);
 	}
 }
 
@@ -1529,6 +2182,21 @@ void AIGMissingFloorNightThreeDirector::HandleNotebookRead(
 	if (!Narrative)
 	{
 		return;
+	}
+	// 3-5. 여백의 ●● — ●를 처음 본 순간 유담이 알아본다. 출처를 적기 전에
+	// 띄워야 뒤따르는 확정(T6, 벽에 생긴 새 동사)보다 이 줄이 먼저 온다. 수첩이
+	// 펼쳐져 있는 동안 HUD는 대사를 붙들어 두었다가 덮으면 차례로 내보낸다.
+	if (!Narrative->HasSource(
+		EIGMissingFloorTruth::WaitingForAnAnswer,
+		EIGMissingFloorSource::AnswerRhythmNotebook))
+	{
+		AIGHorrorHUD::PushThought(
+			this,
+			NSLOCTEXT(
+				"IGMissingFloor",
+				"NotebookRhythmRecognized",
+				"아빠 노크다. 오빠가 내 방문에 하던 그거."),
+			4.4f);
 	}
 	// The mother lode: the cover names him, the schedule explains the dawn
 	// noise, the margin teaches the criterion, and the doodle carries the
@@ -1561,6 +2229,19 @@ void AIGMissingFloorNightThreeDirector::HandleLabelsRead(
 		Narrative->RegisterTruthSource(
 			EIGMissingFloorTruth::TenantIdentity,
 			EIGMissingFloorSource::ShippingLabels);
+		// 반송 소포의 송장과 라벨이 같은 방을 다르게 부른다. 어느 쪽이 맞는지는
+		// 말하지 않고 둘을 나란히 놓기만 한다.
+		if (Narrative->HasBeatPlayed(FName(TEXT("Arrival.Box.Parcel")))
+			&& Narrative->MarkBeatPlayed(FName(TEXT("Day.LabelsAddress"))))
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGMissingFloor",
+					"LabelsAddressThought",
+					"송장에는 501호, 라벨에는 옥탑이다."),
+				3.6f);
+		}
 	}
 }
 
@@ -1608,6 +2289,12 @@ void AIGMissingFloorNightThreeDirector::HandleTruthConfirmed(
 {
 	if (Truth == EIGMissingFloorTruth::SomeoneInTheWall)
 	{
+		// 벽을 먼저 견주고 수첩을 나중에 읽어도 P3는 풀린 것이다. 순서를 강제하지
+		// 않는 것이 §7의 자유 경로다.
+		if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+		{
+			Narrative->MarkPuzzleSolved(IGNightThree::PuzzleThreeId);
+		}
 		RefreshAnswerTargetAvailability();
 	}
 	if (Truth == EIGMissingFloorTruth::WaitingForAnAnswer && !bSolvedAnnounced)
@@ -1627,7 +2314,9 @@ FVector AIGMissingFloorNightThreeDirector::GetReturnPassPoint() const
 void AIGMissingFloorNightThreeDirector::ArmReturnPass()
 {
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	if (!Narrative || Narrative->GetNightIndex() != 3)
+	// 낮에는 세우지 않는다. 낮에 걸린 귀환길은 집에 닿아도 밤의 목표를
+	// 채우지 못하고, 되풀이 밤의 재무장까지 막는다.
+	if (!Narrative || Narrative->GetNightIndex() != 3 || !bHourCurrentlyActive)
 	{
 		return;
 	}
@@ -1636,22 +2325,95 @@ void AIGMissingFloorNightThreeDirector::ArmReturnPass()
 		return;
 	}
 	ReturnStage = EIGNightThreeReturnStage::Passing;
+	// 침대에서 무장되면(되풀이 밤, 이어 붙인 세션) 한 번 나갔다 와야 한다.
+	// 누운 자리를 도착으로 세면 밤이 시작하자마자 끝난다.
+	bMustLeaveHomeAgain = IsPlayerInsideUnit403();
 	bWasWestOfHim = false;
+	bPassedWhileWaiting = false;
+	bReturnHintShown = false;
+	bReliefPending = false;
+	HomeDwellSeconds = 0.0f;
 	StageReturnFigure();
+	if (!bRepeatedPass)
+	{
+		// 벽의 대답과 같은 프레임이다. 그를 지금 복도에 세우되 그 자리의 첫
+		// 노크는 삼킨다. 대답 셋에 아래층 노크 셋이 섞이면 여섯 번 두드린 것이
+		// 된다. 다음 노크는 여운이 다 지나간 뒤에 아래에서 올라온다.
+		if (AIGListenerEntity* Listener = Entity.Get())
+		{
+			Listener->SilenceNextStopKnock();
+		}
+	}
 	// 목표가 바뀐 것을 한 줄로만 말한다. 무엇을 해야 하는지는 방금 배웠다.
-	AIGHorrorHUD::PushThought(
-		this,
-		NSLOCTEXT(
-			"IGMissingFloor",
-			"N3ReturnThought",
-			"대답이 왔다. 내려가자."),
-		4.0f);
+	// 「…대답이다.」와 조율음을 밀어내지 않게 늦게 온다.
+	const bool bRepeated = bRepeatedPass;
+	GetWorldTimerManager().SetTimer(
+		ReturnThoughtTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this, bRepeated]()
+		{
+			if (ReturnStage != EIGNightThreeReturnStage::Passing)
+			{
+				return;
+			}
+			if (bRepeated)
+			{
+				AIGHorrorHUD::PushThought(
+					this,
+					NSLOCTEXT(
+						"IGMissingFloor",
+						"N3ReturnRepeatThought",
+						"복도에서 또 두드린다. 이번엔 옆을 지나 돌아오자."),
+					4.2f);
+				return;
+			}
+			// 아직 위층에 있을 때만 맞는 말이다. 그새 잡혀서 침대로 돌아갔다면
+			// 하지 않는다.
+			const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+			if (PlayerCharacter
+				&& PlayerCharacter->GetActorLocation().Z
+					> IGNightThree::FourthFloorZ + 250.0f)
+			{
+				AIGHorrorHUD::PushThought(
+					this,
+					NSLOCTEXT("IGMissingFloor", "N3ReturnThought", "내려가자."),
+					2.6f);
+			}
+		}),
+		bRepeated ? 5.0f : IGNightThree::ReturnThoughtDelaySeconds,
+		false);
 	GetWorldTimerManager().SetTimer(
 		ReturnTimer,
 		this,
 		&AIGMissingFloorNightThreeDirector::AdvanceReturn,
 		IGNightThree::ReturnPollSeconds,
 		true);
+}
+
+void AIGMissingFloorNightThreeDirector::RearmReturnPassForRepeatedNight()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!bHourCurrentlyActive
+		|| !Narrative
+		|| Narrative->GetNightIndex() != 3
+		|| ReturnStage != EIGNightThreeReturnStage::Idle)
+	{
+		return;
+	}
+	// 그가 복도에 세워지는 순간을 그녀가 보면 안 된다. 403호 안에서만 세운다.
+	// 밤은 침대에서 시작하므로 보통은 깨는 그 프레임에 세워지고, 문밖 복도에서
+	// 노크가 난다. 이어 붙인 세션처럼 밖에 있으면 돌아올 때까지 기다린다.
+	if (!IsPlayerInsideUnit403())
+	{
+		GetWorldTimerManager().SetTimer(
+			RepeatPassTimer,
+			this,
+			&AIGMissingFloorNightThreeDirector::RearmReturnPassForRepeatedNight,
+			1.0f,
+			false);
+		return;
+	}
+	bRepeatedPass = true;
+	ArmReturnPass();
 }
 
 void AIGMissingFloorNightThreeDirector::StageReturnFigure()
@@ -1706,11 +2468,34 @@ void AIGMissingFloorNightThreeDirector::AdvanceReturn()
 		GetWorldTimerManager().ClearTimer(ReturnTimer);
 		return;
 	}
-	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
 	const AIGListenerEntity* Listener = Entity.Get();
 	if (!PlayerCharacter || !Listener)
 	{
 		return;
+	}
+
+	// 복도에서 그를 처음 마주친 순간의 한 줄. 대답으로 그를 세울 수 있다는
+	// 것은 방금 벽에서 확인한 사실(T9)이지만, 폭 160cm 복도에서 그것이 떠오르지
+	// 않으면 거듭 잡히다 새벽을 맞는다. 잡힌 뒤에는 더 짧게 짚는다.
+	if (!bReturnHintShown
+		&& !bPassedWhileWaiting
+		&& Listener->GetListenerState() != EIGListenerState::Waiting
+		&& IsReturnFigureInSight())
+	{
+		bReturnHintShown = true;
+		AIGHorrorHUD::PushThought(
+			this,
+			bCaughtDuringReturn
+				? NSLOCTEXT(
+					"IGMissingFloor",
+					"N3ReturnHintAgain",
+					"벽에 했던 것처럼.")
+				: NSLOCTEXT(
+					"IGMissingFloor",
+					"N3ReturnHint",
+					"저기 있다. …대답을 기다린다."),
+			3.4f);
 	}
 
 	// 「그가 멈춰 기다리는 옆을 걸어 지나가는」. 서쪽에 있었다가 그가 기다리는
@@ -1732,25 +2517,24 @@ void AIGMissingFloorNightThreeDirector::AdvanceReturn()
 		{
 			Narrative->MarkBeatPlayed(IGNightThree::PassByBeatId);
 		}
-		// 스치는 순간 그가 숨을 들이쉰다. 움직이지는 않는다 — 기다리는 중이다.
-		// 글 한 줄뿐이던 비트에 몸이 생긴다.
+		// 스치는 순간. 그는 들킨 것이 아니라 기다리는 중이라 경계 소리도,
+		// 헐떡임도, 화면 흔들림도 없다. 굳은 몸이 옆에서 한 번 삐걱이고 그녀의
+		// 심장이 한 박 멎는다. 사흘 동안 「들켰다」를 뜻하던 신호를 여기서 내면
+		// 플레이어는 도망친다.
 		IGAudio::SpawnOneShotAt(
 			this,
-			UIGToneSequenceSoundWave::CreateEntityAlertVocal(this),
-			Listener->GetActorLocation() + FVector(0.0f, 0.0f, 30.0f),
-			0.6f,
-			0.92f,
-			200.0f,
-			1800.0f,
+			UIGToneSequenceSoundWave::CreatePlasterSettle(this),
+			Listener->GetActorLocation(),
+			0.3f,
+			0.9f,
+			120.0f,
+			900.0f,
 			EIGAudioBus::Entity);
-		if (AIGPlayerCharacter* MutablePlayer = Player.Get())
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
 		{
-			if (UIGStressComponent* Stress = MutablePlayer->GetStress())
-			{
-				Stress->ApplyScare(0.4f);
-			}
-			MutablePlayer->PlayScareKick(1.0f);
+			Stress->SuppressHeartbeat(2.5f, true);
 		}
+		bReliefPending = true;
 		// 회피 대상이 애도 대상으로. 이 게임에서 가장 조용한 한 줄이어야 하므로
 		// 설명하지 않는다 — 그가 무엇을 하고 있는지만 말한다.
 		AIGHorrorHUD::PushThought(
@@ -1758,8 +2542,18 @@ void AIGMissingFloorNightThreeDirector::AdvanceReturn()
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"N3PassByThought",
-				"날 지나쳤다. 지금은 소리 내지 말자."),
-			4.6f);
+				"움직이지 않는다. 기다리고 있다."),
+			4.0f);
+	}
+	// 몇 걸음 더 멀어지고서야 참았던 숨이 나간다.
+	if (bReliefPending
+		&& PlayerX > HisX + IGNightThree::PassReliefCentimeters)
+	{
+		bReliefPending = false;
+		if (UIGStressComponent* Stress = PlayerCharacter->GetStress())
+		{
+			Stress->PlayReliefExhale();
+		}
 	}
 
 	if (bMustLeaveHomeAgain)
@@ -1768,15 +2562,59 @@ void AIGMissingFloorNightThreeDirector::AdvanceReturn()
 		{
 			bMustLeaveHomeAgain = false;
 		}
+		HomeDwellSeconds = 0.0f;
 		return;
 	}
-	if (IsPlayerInsideUnit403())
+	// 문턱을 밟는 순간 끝내지 않는다. 방 안으로 들어와 잠시 머물러야 밤이
+	// 닫힌다 — 문 너머의 그를 돌아볼 틈이 있어야 한다.
+	if (IGNightThree::Unit403Arrival.IsInsideOrOn(PlayerCharacter->GetActorLocation()))
+	{
+		HomeDwellSeconds += IGNightThree::ReturnPollSeconds;
+	}
+	else
+	{
+		HomeDwellSeconds = 0.0f;
+	}
+	if (HomeDwellSeconds > 0.0f
+		&& (HomeDwellSeconds >= IGNightThree::HomeArrivalDwellSeconds
+			|| IGNightThree::IsSynchronousHarness()))
 	{
 		ReturnStage = EIGNightThreeReturnStage::Home;
 		GetWorldTimerManager().ClearTimer(ReturnTimer);
-		ReleaseReturnFigure();
+		// 그를 복도에서 거두는 것은 새벽이다(SetHourActive). 여기서 거두면 문
+		// 너머로 돌아보던 그녀 눈앞에서 그가 사라진다.
 		OnReturnedHome.Broadcast();
 	}
+}
+
+bool AIGMissingFloorNightThreeDirector::IsReturnFigureInSight() const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	const AIGListenerEntity* Listener = Entity.Get();
+	const UWorld* World = GetWorld();
+	if (!PlayerCharacter || !Listener || !World)
+	{
+		return false;
+	}
+	const FVector Eye = PlayerCharacter->GetPawnViewLocation();
+	const FVector Chest = Listener->GetActorLocation() + FVector(0.0f, 0.0f, 30.0f);
+	if (FVector::DistSquared(Eye, Chest)
+		> FMath::Square(IGNightThree::ReturnHintRangeCentimeters))
+	{
+		return false;
+	}
+	// 등 뒤나 시야 가장자리에 있는 그를 두고 「저기 있다」고 하지 않는다.
+	if (FVector::DotProduct(
+		PlayerCharacter->GetViewRotation().Vector(),
+		(Chest - Eye).GetSafeNormal()) < 0.5f)
+	{
+		return false;
+	}
+	FCollisionQueryParams Params(SCENE_QUERY_STAT(IGNightThreeReturnHint), false, this);
+	Params.AddIgnoredActor(PlayerCharacter);
+	Params.AddIgnoredActor(Listener);
+	FHitResult Hit;
+	return !World->LineTraceSingleByChannel(Hit, Eye, Chest, ECC_Visibility, Params);
 }
 
 void AIGMissingFloorNightThreeDirector::NotifyCaptureReset()
@@ -1786,6 +2624,11 @@ void AIGMissingFloorNightThreeDirector::NotifyCaptureReset()
 		// 리셋은 침대로 되돌린다. 그것을 도착으로 세면 잡히는 것이 목표 달성이
 		// 되므로, 한 번 밖으로 나갔다 와야 한다. 형체는 다시 복도에 세운다.
 		bMustLeaveHomeAgain = true;
+		HomeDwellSeconds = 0.0f;
+		bReliefPending = false;
+		// 잡힌 뒤에 그를 다시 보면 한 번 더, 더 짧게 짚는다.
+		bCaughtDuringReturn = true;
+		bReturnHintShown = false;
 		bFigureStaged = false;
 		StageReturnFigure();
 	}
@@ -1817,8 +2660,10 @@ void AIGMissingFloorNightThreeDirector::RefreshAnswerTargetAvailability()
 			EIGMissingFloorTruth::WaitingForAnAnswer,
 			EIGMissingFloorSource::AnswerRhythmMaterials);
 	}
+	// 낮에는 서지 않는다. 낮에 받은 대답은 T9만 남기고 돌아갈 귀환길이 없다.
 	const bool bReady =
-		Narrative
+		bHourCurrentlyActive
+		&& Narrative
 		&& Narrative->HasTruth(EIGMissingFloorTruth::SomeoneInTheWall)
 		&& RhythmClueCount >= 2;
 	AnswerTarget->SetActorHiddenInGame(!bReady);
@@ -1826,15 +2671,16 @@ void AIGMissingFloorNightThreeDirector::RefreshAnswerTargetAvailability()
 	if (bReady && !bAnswerTargetAnnounced && bHourCurrentlyActive)
 	{
 		// 새 동사가 생겼다는 것은 알려야 한다. 같은 벽에 「두드린다」가 둘이면
-		// 지금이 리듬인지 잔향 시험인지 알 길이 없다.
+		// 지금이 리듬인지 잔향 시험인지 알 길이 없다. 다만 박자와 할 일은 적지
+		// 않는다(§7 P4). 수첩에서 이미 알아본 노크를 오빠의 음성메시지가 불러낸다.
 		bAnswerTargetAnnounced = true;
 		AIGHorrorHUD::PushThought(
 			this,
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"AnswerTargetReady",
-				"두 군데서 같은 박자가 들렸다. 두 번, 쉬고, 한 번. 이 벽에 답해 보자."),
-			4.6f);
+				"「문 두드리면 알지?」"),
+			3.4f);
 	}
 }
 
@@ -1845,34 +2691,184 @@ void AIGMissingFloorNightThreeDirector::RefreshJournalAvailability(
 	{
 		return;
 	}
-	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
 	const bool bEarned =
 		!bHourActive
 		&& Narrative
 		&& Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive);
-	JournalNote->SetActorHiddenInGame(!bEarned);
-	JournalNote->SetActorEnableCollision(bEarned);
-	JournalNote->SetInteractionEnabled(bEarned);
-	if (bEarned && !bJournalAnnounced)
+	if (!bEarned)
 	{
-		// 그냥 나타나는 물건은 없다. 401호 문 밑으로 밀려 나오는 소리와 함께 —
-		// 자비 쪽지와 같은 손, 같은 종이. 그 노인이 건네는 것이다.
-		bJournalAnnounced = true;
-		IGAudio::SpawnOneShotAt(
-			this,
-			UIGToneSequenceSoundWave::CreatePaperDoorSlide(this),
-			IGNightThree::JournalLocation,
-			0.4f,
-			1.0f,
-			90.0f,
-			900.0f,
-			EIGAudioBus::World);
-		AIGHorrorHUD::PushAudioCaptionAt(
-			this,
-			NSLOCTEXT("IGMissingFloor", "JournalSlideCaption", "401호 문 밑 — 종이가 밀려 나온다"),
-			2.4f,
-			IGNightThree::JournalLocation);
+		GetWorldTimerManager().ClearTimer(JournalHandoverTimer);
+		GetWorldTimerManager().ClearTimer(JournalHandoverSoundTimer);
+		SetJournalShown(false);
+		return;
 	}
+	// 그냥 나타나는 물건은 없다. 처음 받는 아침에는 황순금이 문을 열고 달력
+	// 뒷장을 걸고 닫는다. 새벽 암전 아래서 걸면 아무도 듣지 못하고, 잠금 소리와
+	// 아침 독백에 묻힌다. 한 번 받은 뒤로는 낮마다 그 자리에 걸려 있다.
+	// 프로브와 캡처는 새벽 프레임에 바로 읽는다.
+	if (Narrative->HasBeatPlayed(IGNightThree::JournalHandedOverBeatId)
+		|| IGNightThree::IsSynchronousHarness())
+	{
+		GetWorldTimerManager().ClearTimer(JournalHandoverTimer);
+		Narrative->MarkBeatPlayed(IGNightThree::JournalHandedOverBeatId);
+		SetJournalShown(true);
+		return;
+	}
+	SetJournalShown(false);
+	if (!GetWorldTimerManager().IsTimerActive(JournalHandoverTimer))
+	{
+		GetWorldTimerManager().SetTimer(
+			JournalHandoverTimer,
+			this,
+			&AIGMissingFloorNightThreeDirector::TickJournalHandover,
+			IGNightThree::JournalHandoverDelaySeconds,
+			false);
+	}
+}
+
+void AIGMissingFloorNightThreeDirector::SetJournalShown(const bool bShown)
+{
+	if (!JournalNote)
+	{
+		return;
+	}
+	JournalNote->SetActorHiddenInGame(!bShown);
+	JournalNote->SetActorEnableCollision(bShown);
+	JournalNote->SetInteractionEnabled(bShown);
+}
+
+void AIGMissingFloorNightThreeDirector::TickJournalHandover()
+{
+	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (bHourCurrentlyActive
+		|| !JournalNote
+		|| !Narrative
+		|| !Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive))
+	{
+		return;
+	}
+	if (Narrative->HasBeatPlayed(IGNightThree::JournalHandedOverBeatId))
+	{
+		SetJournalShown(true);
+		return;
+	}
+	// 앞선 대사(신고 문자, 녹음을 들은 결론)와 펼친 종이, 손에 든 녹음이 다
+	// 비기를 기다린다. 테이프를 듣는 사이 옆집 문소리가 끼면 녹음 속 소리로
+	// 들린다. 그녀가 그 문을 보고 있으면 종이가 생겨나는 것을 보게 되니 눈을
+	// 돌릴 때까지 둔다.
+	UWorld* World = GetWorld();
+	const APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
+	const AIGHorrorHUD* Hud = Controller ? Cast<AIGHorrorHUD>(Controller->GetHUD()) : nullptr;
+	bool bTapePlaying = false;
+	if (World)
+	{
+		for (TActorIterator<AIGMissingFloorPuzzleTwoDirector> It(World); It; ++It)
+		{
+			bTapePlaying = bTapePlaying || It->IsPhonePlayingBack();
+		}
+	}
+	if ((Hud && !Hud->IsDialogueLaneIdle())
+		|| bTapePlaying
+		|| AIGReadableNote::GetOpenNote() != nullptr
+		|| IsJournalDoorInView())
+	{
+		GetWorldTimerManager().SetTimer(
+			JournalHandoverTimer,
+			this,
+			&AIGMissingFloorNightThreeDirector::TickJournalHandover,
+			IGNightThree::JournalHandoverPollSeconds,
+			false);
+		return;
+	}
+	Narrative->MarkBeatPlayed(IGNightThree::JournalHandedOverBeatId);
+	SetJournalShown(true);
+	PlayJournalHandoverSound();
+}
+
+bool AIGMissingFloorNightThreeDirector::IsJournalDoorInView() const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	if (!PlayerCharacter || IsPlayerInsideUnit403())
+	{
+		return false;
+	}
+	const FVector Eye = PlayerCharacter->GetPawnViewLocation();
+	const FVector ToDoor = IGNightThree::JournalLocation - Eye;
+	// 4층 복도에 서서 문 쪽을 보고 있을 때만이다. 다른 층이나 방 안에서는 안 보인다.
+	if (FMath::Abs(ToDoor.Z) > 200.0f
+		|| ToDoor.SizeSquared2D() > FMath::Square(1600.0f))
+	{
+		return false;
+	}
+	return FVector::DotProduct(
+		PlayerCharacter->GetViewRotation().Vector(),
+		ToDoor.GetSafeNormal()) > 0.4f;
+}
+
+void AIGMissingFloorNightThreeDirector::PlayJournalHandoverSound()
+{
+	// 다른 층에서는 들리지 않는다. 돌아와서 문에 걸린 것을 보게 된다.
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	if (!PlayerCharacter
+		|| FMath::Abs(
+			PlayerCharacter->GetActorLocation().Z
+			- IGNightThree::Unit401DoorSoundLocation.Z) > 250.0f)
+	{
+		return;
+	}
+	// 403호 안에서는 문과 벽 너머로 듣는다. 가림 판정이 알아서 먹먹하게 한다.
+	IGAudio::SpawnOneShotAt(
+		this,
+		IGAudio::SampleOr(
+			TEXT("Door_Steel_Open"),
+			[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateDoorCreak(this); }),
+		IGNightThree::Unit401DoorSoundLocation,
+		0.42f,
+		0.94f,
+		90.0f,
+		1200.0f,
+		EIGAudioBus::World);
+	AIGHorrorHUD::PushAudioCaptionAt(
+		this,
+		NSLOCTEXT("IGMissingFloor", "JournalHandoverCaption", "401호 — 문 여닫는 소리"),
+		2.8f,
+		IGNightThree::Unit401DoorSoundLocation);
+	// 문에 종이를 거는 손, 그리고 다시 닫히는 문.
+	GetWorldTimerManager().SetTimer(
+		JournalHandoverSoundTimer,
+		FTimerDelegate::CreateWeakLambda(this, [this]()
+		{
+			IGAudio::SpawnOneShotAt(
+				this,
+				UIGToneSequenceSoundWave::CreatePickupRustle(this),
+				IGNightThree::JournalLocation,
+				0.34f,
+				1.0f,
+				60.0f,
+				900.0f,
+				EIGAudioBus::World);
+			GetWorldTimerManager().SetTimer(
+				JournalHandoverSoundTimer,
+				FTimerDelegate::CreateWeakLambda(this, [this]()
+				{
+					IGAudio::SpawnOneShotAt(
+						this,
+						IGAudio::SampleOr(
+							TEXT("Door_Steel_Close"),
+							[this]() -> USoundBase* { return UIGToneSequenceSoundWave::CreateDoorThud(this); }),
+						IGNightThree::Unit401DoorSoundLocation,
+						0.4f,
+						0.96f,
+						90.0f,
+						1200.0f,
+						EIGAudioBus::World);
+				}),
+				0.8f,
+				false);
+		}),
+		0.75f,
+		false);
 }
 
 void AIGMissingFloorNightThreeDirector::RefreshDistantSeoVisibility()
@@ -1882,33 +2878,219 @@ void AIGMissingFloorNightThreeDirector::RefreshDistantSeoVisibility()
 		return;
 	}
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	const bool bShow =
+	// 밤2를 넘긴 낮, 대답을 듣기 전까지. 한 번 알아본 뒤로는 다시 서지 않는다.
+	// 새벽 암전 속 403호에서 울리던 발소리는 없다. 그가 서는 것도, 발소리도
+	// 그녀가 편의점에 들른 뒤의 일이다(§8 「편의점을 나서는 길」).
+	const bool bEligible =
 		!bHourCurrentlyActive
 		&& Narrative
 		&& Narrative->IsPuzzleSolved(FName(TEXT("P2")))
-		&& !Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer);
-	DistantSeo->SetVisibility(bShow, true);
-	if (bShow && !bSeoAnnounced)
+		&& !Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer)
+		&& !Narrative->HasBeatPlayed(IGNightThree::DistantSeoBeatId)
+		&& !IGNightThree::IsSynchronousHarness();
+	if (!bEligible)
 	{
-		// 골목 건너에 사람이 서 있다. 눈이 먼저 가게 발소리 하나.
-		bSeoAnnounced = true;
-		const FVector At = DistantSeo->GetComponentLocation();
+		GetWorldTimerManager().ClearTimer(SeoWatchTimer);
+		SeoStage = EIGDistantSeoStage::Idle;
+		DistantSeo->SetVisibility(false, true);
+		DistantSeo->SetWorldLocation(IGNightThree::DistantSeoLocation);
+		return;
+	}
+	if (SeoStage == EIGDistantSeoStage::Idle)
+	{
+		HideDistantSeo(/*bSeenOnce=*/false);
+	}
+}
+
+void AIGMissingFloorNightThreeDirector::TickDistantSeo()
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	UWorld* World = GetWorld();
+	if (!DistantSeo || !PlayerCharacter || !World || bHourCurrentlyActive)
+	{
+		return;
+	}
+	const FVector Eye = PlayerCharacter->GetPawnViewLocation();
+	const FVector Feet = DistantSeo->GetComponentLocation();
+	const FVector Chest = Feet + FVector(0.0f, 0.0f, 30.0f);
+	const float Facing = FVector::DotProduct(
+		PlayerCharacter->GetViewRotation().Vector(),
+		(Chest - Eye).GetSafeNormal());
+	const float Distance = FVector::Dist2D(Eye, Feet);
+	// 편의점 안은 X 2405..3120, Y -830..-40이다. 골목 북쪽 벽 너머(빌라)나
+	// 1층보다 높은 곳에서는 골목이 보이지 않는다.
+	const bool bInStore = Eye.X > 2410.0f
+		&& Eye.Y > -830.0f
+		&& Eye.Y < -40.0f
+		&& Eye.Z < 300.0f;
+	const bool bIndoors = !bInStore && (Eye.Z > 300.0f || Eye.Y > -385.0f);
+	// 판은 늘 그녀 쪽을 본다. 옆에서 보면 선 하나가 된다. 롤 90이면 판의
+	// 앞면(평면의 +Z)이 +Y로 서므로 그녀 쪽 방위각에서 90도를 뺀다.
+	const auto FaceViewer = [this, &Eye]()
+	{
+		const FVector From = DistantSeo->GetComponentLocation();
+		const float Yaw = FMath::RadiansToDegrees(
+			FMath::Atan2(Eye.Y - From.Y, Eye.X - From.X)) - 90.0f;
+		DistantSeo->SetWorldRotation(FRotator(0.0f, Yaw, 90.0f));
+	};
+	const auto StepAt = [this](const FVector& Where, const float Volume)
+	{
 		IGAudio::SpawnOneShotAt(
 			this,
 			UIGToneSequenceSoundWave::CreateSurfaceFootstep(
 				this, EIGFootstepSurface::Concrete, 0.9f, 0.7f),
-			At,
-			0.55f,
+			Where,
+			Volume,
 			1.0f,
 			300.0f,
 			2600.0f,
 			EIGAudioBus::World);
+	};
+
+	if (SeoStage == EIGDistantSeoStage::Armed)
+	{
+		// 계산대 쪽을 보는 사이에 선다. 유리 너머로 생겨나는 순간을 보이면 안 된다.
+		if (bInStore && Facing < IGNightThree::SeoArmFacingDot)
+		{
+			SeoStage = EIGDistantSeoStage::Shown;
+			bSeoAnnounced = false;
+			DistantSeo->SetWorldLocation(IGNightThree::DistantSeoLocation);
+			FaceViewer();
+			DistantSeo->SetVisibility(true, true);
+		}
+		return;
+	}
+	FaceViewer();
+
+	if (SeoStage == EIGDistantSeoStage::Retreating)
+	{
+		const float Step = IGNightThree::SeoRetreatPollSeconds;
+		SeoRetreatSeconds += Step;
+		const FVector Next = FMath::VInterpConstantTo(
+			Feet,
+			SeoRetreatTarget,
+			Step,
+			IGNightThree::SeoRetreatSpeed);
+		DistantSeo->SetWorldLocation(Next);
+		// 비켜서는 두 걸음째. 첫 걸음은 돌아서는 순간에 났다.
+		if (SeoRetreatSeconds - Step < 0.45f && SeoRetreatSeconds >= 0.45f)
+		{
+			StepAt(Next, 0.3f);
+		}
+		FCollisionQueryParams Params(SCENE_QUERY_STAT(IGNightThreeDistantSeo), false, this);
+		Params.AddIgnoredActor(PlayerCharacter);
+		FHitResult Hit;
+		const bool bHiddenByWall = World->LineTraceSingleByChannel(
+			Hit,
+			Eye,
+			Next + FVector(0.0f, 0.0f, 30.0f),
+			ECC_Visibility,
+			Params);
+		if (Next.Equals(SeoRetreatTarget, 1.0f)
+			|| (SeoRetreatSeconds > 0.3f && bHiddenByWall))
+		{
+			HideDistantSeo(/*bSeenOnce=*/true);
+		}
+		return;
+	}
+
+	if (bIndoors)
+	{
+		HideDistantSeo(SeoStage == EIGDistantSeoStage::Seen);
+		return;
+	}
+	// 편의점 문을 나서면 발소리 하나가 눈을 끈다.
+	if (!bSeoAnnounced && Eye.X < 2400.0f)
+	{
+		bSeoAnnounced = true;
+		StepAt(Feet, 0.55f);
 		AIGHorrorHUD::PushAudioCaptionAt(
 			this,
 			NSLOCTEXT("IGMissingFloor", "DistantSeoCaption", "골목 건너 — 발소리"),
 			2.0f,
-			At);
+			Feet);
 	}
+	const bool bOnScreen = Facing >= IGNightThree::SeoOffscreenDot;
+	// 보면서 다가오면 판이 판으로 보이기 전에 그녀에게서 멀어지는 쪽으로 비켜선다.
+	if (bOnScreen && Distance < IGNightThree::SeoRetreatRange)
+	{
+		SeoStage = EIGDistantSeoStage::Retreating;
+		SeoRetreatSeconds = 0.0f;
+		SeoRetreatTarget = Eye.Y < IGNightThree::SeoFacadeLineY
+			? IGNightThree::DistantSeoStreetRetreatLocation
+			: IGNightThree::DistantSeoRetreatLocation;
+		StepAt(Feet, 0.34f);
+		GetWorldTimerManager().SetTimer(
+			SeoWatchTimer,
+			this,
+			&AIGMissingFloorNightThreeDirector::TickDistantSeo,
+			IGNightThree::SeoRetreatPollSeconds,
+			true);
+		return;
+	}
+	// 눈을 돌린 채 다가오면 이미 없다.
+	if (!bOnScreen && Distance < IGNightThree::SeoHideRange)
+	{
+		HideDistantSeo(SeoStage == EIGDistantSeoStage::Seen);
+		return;
+	}
+	if (SeoStage == EIGDistantSeoStage::Shown)
+	{
+		if (Facing >= IGNightThree::SeoSeenFacingDot)
+		{
+			FCollisionQueryParams Params(SCENE_QUERY_STAT(IGNightThreeDistantSeo), false, this);
+			Params.AddIgnoredActor(PlayerCharacter);
+			FHitResult Hit;
+			if (!World->LineTraceSingleByChannel(Hit, Eye, Chest, ECC_Visibility, Params))
+			{
+				SeoSeenSeconds += IGNightThree::SeoPollSeconds;
+			}
+		}
+		if (SeoSeenSeconds >= IGNightThree::SeoRecognizeSeconds)
+		{
+			SeoStage = EIGDistantSeoStage::Seen;
+			SeoAwaySeconds = 0.0f;
+		}
+		return;
+	}
+	// 한 번 똑바로 봤다. 시선을 돌렸다 다시 보면 없다.
+	SeoAwaySeconds = bOnScreen ? 0.0f : SeoAwaySeconds + IGNightThree::SeoPollSeconds;
+	if (SeoAwaySeconds >= IGNightThree::SeoGoneAwaySeconds)
+	{
+		HideDistantSeo(/*bSeenOnce=*/true);
+	}
+}
+
+void AIGMissingFloorNightThreeDirector::HideDistantSeo(const bool bSeenOnce)
+{
+	if (!DistantSeo)
+	{
+		return;
+	}
+	// 사라질 때는 소리도 자막도 독백도 없다. 다시 볼 때 없을 뿐이다.
+	DistantSeo->SetVisibility(false, true);
+	DistantSeo->SetWorldLocation(IGNightThree::DistantSeoLocation);
+	SeoSeenSeconds = 0.0f;
+	SeoAwaySeconds = 0.0f;
+	SeoRetreatSeconds = 0.0f;
+	if (bSeenOnce)
+	{
+		GetWorldTimerManager().ClearTimer(SeoWatchTimer);
+		SeoStage = EIGDistantSeoStage::Idle;
+		if (UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative())
+		{
+			Narrative->MarkBeatPlayed(IGNightThree::DistantSeoBeatId);
+		}
+		return;
+	}
+	// 알아보지 못했으면 다음에 편의점에 들를 때 다시 선다.
+	SeoStage = EIGDistantSeoStage::Armed;
+	GetWorldTimerManager().SetTimer(
+		SeoWatchTimer,
+		this,
+		&AIGMissingFloorNightThreeDirector::TickDistantSeo,
+		IGNightThree::SeoPollSeconds,
+		true);
 }
 
 UIGMissingFloorNarrativeSubsystem*

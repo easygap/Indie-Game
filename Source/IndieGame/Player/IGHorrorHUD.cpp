@@ -3,6 +3,7 @@
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "CanvasItem.h"
+#include "Components/CapsuleComponent.h"
 #include "Engine/Canvas.h"
 #include "Engine/Engine.h"
 #include "Engine/Font.h"
@@ -149,29 +150,29 @@ namespace IGHorrorHUD
 				TEXT("검침 기록지"), TEXT("다섯 번째 칸. 63 · 58 · 61 · 0"),
 				TEXT("관리실 사본 · 밤 1"), EJournalThumbnail::Document},
 			{TEXT("Office.BoardDeliveryReceipt"), EJournalLane::Administration,
-				TEXT("석고보드 납품서"), TEXT("9.5T 석고보드 / 7월 26일"),
+				TEXT("자재 반입 영수증"), TEXT("석고보드 9.5T 12장씩, 7/26과 7/27"),
 				TEXT("관리실 책상 · 밤 2"), EJournalThumbnail::Document},
 			{TEXT("Office.CarbonLedgerOriginal"), EJournalLane::Administration,
 				TEXT("민원 접수철 밑장"), TEXT("7/27 · 401호: 벽에서 쿵쿵. 사람 소리 같음."),
-				TEXT("관리실 책상 · 7/27~7/31"), EJournalThumbnail::Document},
+				TEXT("관리실 책상 · 밤 2"), EJournalThumbnail::Document},
 			{TEXT("Office.AgentMoveOutMessage"), EJournalLane::Administration,
-				TEXT("중개인 문자"), TEXT("5층 짐 뺐습니다. 7/26."),
+				TEXT("부동산 문자 사본"), TEXT("사장님, 옥탑 짐은 다 뺐습니다. (7/26 14:02)"),
 				TEXT("관리실 책상 · 밤 2"), EJournalThumbnail::Document},
 			{TEXT("Office.EvictionWarning"), EJournalLane::Administration,
-				TEXT("퇴거 요구서"), TEXT("내일 오전 7시 누수 보수. 403호 퇴거 요망."),
-				TEXT("4층 복도 · 낮 3"), EJournalThumbnail::Document},
+				TEXT("퇴거 요구서"), TEXT("무단 시설 조작, 이번 주 내 퇴거. 내일 07:00 옥상 누수 보수."),
+				TEXT("4층 복도 · 낮 4"), EJournalThumbnail::Document},
 
 			{TEXT("Forum.NoisePosts"), EJournalLane::Life,
-				TEXT("층간소음 게시글"), TEXT("04:20~04:40, 공구 카트 끄는 소리"),
-				TEXT("403호 우편물 · 낮 2"), EJournalThumbnail::Document},
+				TEXT("층간소음 게시글"), TEXT("6/30 새벽 네 시만 되면 위에서 뭘 질질 끕니다."),
+				TEXT("1층 게시판 인쇄본"), EJournalThumbnail::Document},
 			{TEXT("Forum.FinalPost"), EJournalLane::Life,
-				TEXT("마지막 게시글"), TEXT("오늘은 올라가서 직접 말하겠습니다."),
-				TEXT("게시글 출력물 · 2024-07-26"), EJournalThumbnail::Document},
+				TEXT("마지막 게시글"), TEXT("7/26 03:12 오늘은 올라가 봅니다. 사람인지 뭔지 얼굴이나 보죠."),
+				TEXT("1층 게시판 인쇄본"), EJournalThumbnail::Document},
 			{TEXT("Fifth.LandingImpactMark"), EJournalLane::Life,
 				TEXT("계단참에 남은 자국"), TEXT("철골 모서리와 바닥에 같은 검은 얼룩이 묻어 있다."),
 				TEXT("5층 계단참 · 밤 3"), EJournalThumbnail::Metal},
 			{TEXT("Fifth.FreshPlasterDating"), EJournalLane::Life,
-				TEXT("덧댄 벽"), TEXT("안쪽 판은 굳었는데, 겉에 바른 실리콘은 아직 덜 굳었다."),
+				TEXT("덧댄 벽"), TEXT("안쪽 석고보드는 바싹 말랐는데, 바깥 실리콘은 아직 덜 굳었다."),
 				TEXT("5층 공동벽 · 밤 3"), EJournalThumbnail::Plaster},
 			{TEXT("Fifth.PipeWaterComparison"), EJournalLane::Life,
 				TEXT("배관에서 들은 소리"), TEXT("한쪽에서는 물이 흐르고, 다른 쪽에서는 속이 빈 듯한 소리가 난다."),
@@ -180,39 +181,39 @@ namespace IGHorrorHUD
 				TEXT("직접 두드린 벽"), TEXT("한쪽 벽만 오래 울린다. 다른 벽은 두드리면 소리가 금방 끊긴다."),
 				TEXT("5층 · 밤 3"), EJournalThumbnail::Plaster},
 			{TEXT("Unit401.KnockTallyJournal"), EJournalLane::Life,
-				TEXT("황순금 소리 일지"), TEXT("7/27부터 닷새. 마지막 날은 세 번뿐."),
+				TEXT("황순금 소리 일지"), TEXT("7/27 위에서 다섯 번 · 7/31 오늘은 세 번."),
 				TEXT("401호 · 낮 3"), EJournalThumbnail::Document},
 			{TEXT("Roof.TankWaterAudition"), EJournalLane::Life,
 				TEXT("물탱크 안내판"), TEXT("용량 2,000 L. 물 높이를 가리키는 바늘이 위쪽에 있었다."),
 				TEXT("옥상 · 밤 3"), EJournalThumbnail::Tank},
 			{TEXT("Fifth.AnswerReturned"), EJournalLane::Life,
 				TEXT("벽 너머의 노크"), TEXT("둘, 쉬고, 하나."),
-				TEXT("5층 공동벽 · 05:12"), EJournalThumbnail::Plaster},
+				TEXT("5층 공동벽 · 밤 3"), EJournalThumbnail::Plaster},
 			{TEXT("Fifth.BreakerCutIntervention"), EJournalLane::Life,
 				TEXT("끊긴 전기"), TEXT("망치 세 번째에 5층 불이 나갔다."),
 				TEXT("5층 · 밤 4"), EJournalThumbnail::Metal},
 
 			{TEXT("Estate.ShippingLabels"), EJournalLane::Personal,
-				TEXT("반송 소포"), TEXT("백도하 / 무영로 달빛빌라 5"),
-				TEXT("403호 이삿짐 · 입주일"), EJournalThumbnail::Document},
+				TEXT("배송 라벨"), TEXT("받는 사람 백도하 / 무영로 27-3 달빛빌라 옥탑"),
+				TEXT("403호 책상 · 입주일"), EJournalThumbnail::Document},
 			{TEXT("Fifth.TunerNotebookName"), EJournalLane::Personal,
-				TEXT("조율 수첩"), TEXT("백도하 / 야간 조율 일정"),
+				TEXT("조율 수첩"), TEXT("조율 수첩 — 백도하"),
 				TEXT("5층 벽 틈 · 밤 3"), EJournalThumbnail::Document},
 			{TEXT("Fifth.TunerWorkSchedule"), EJournalLane::Personal,
-				TEXT("작업 시간표"), TEXT("마지막 작업 23:10 / 귀가 04:18"),
+				TEXT("작업 시간표"), TEXT("월 서초 공연장 · 공연 끝나고 조율 02:30"),
 				TEXT("조율 수첩 · 밤 3"), EJournalThumbnail::Document},
 			{TEXT("Fifth.PipeAuditionCriterion"), EJournalLane::Personal,
-				TEXT("소리를 적어 둔 메모"), TEXT("빈 벽은 낮은 음이 길게 남는다."),
+				TEXT("소리를 적어 둔 메모"), TEXT("옥탑 벽 확인: 빈 곳은 낮게 울리고 소리가 오래 감."),
 				TEXT("조율 수첩 여백 · 밤 3"), EJournalThumbnail::Document},
 			{TEXT("Phone.AnswerRhythmVoicemail"), EJournalLane::Personal,
 				TEXT("마지막 음성사서함"), TEXT("문 두드리면 알지? 둘, 하나."),
 				TEXT("휴대폰 · 입주 전"), EJournalThumbnail::Metal},
 			{TEXT("Fifth.AnswerRhythmNotebook"), EJournalLane::Personal,
-				TEXT("수첩의 리듬"), TEXT("● ●  —  ●"),
+				TEXT("수첩의 리듬"), TEXT("●●  —  ●"),
 				TEXT("조율 수첩 여백 · 밤 3"), EJournalThumbnail::Document},
 			{TEXT("Unit401.AnswerRhythmJournal"), EJournalLane::Personal,
-				TEXT("일지에 적힌 노크"), TEXT("나도 두드려 줬다. 그랬더니 조용하데."),
-				TEXT("401호 · 2024-07-29"), EJournalThumbnail::Document},
+				TEXT("일지에 적힌 노크"), TEXT("7/29 저쪽이 하던 대로 둘, 쉬고, 하나. 그랬더니 조용하데."),
+				TEXT("401호 · 낮 3"), EJournalThumbnail::Document},
 		};
 		return Entries;
 	}
@@ -282,6 +283,10 @@ void AIGHorrorHUD::BeginPlay()
 			NoiseSubsystem = Noise;
 			NoiseReportedHandle = Noise->OnNoiseReported.AddUObject(
 				this, &AIGHorrorHUD::HandleNoiseReported);
+			// 그의 노크·대답·추격·다가오는 걸음은 소음 버스에 없다. 대체 채널용
+			// 신호로 따로 오고, 링은 켠 사람에게만 가늘게 그린다.
+			PresentationCueHandle = Noise->OnPresentationCue.AddUObject(
+				this, &AIGHorrorHUD::HandleNoiseReported);
 		}
 	}
 	if (const AIGPlayerController* IndieController =
@@ -296,17 +301,19 @@ void AIGHorrorHUD::EndPlay(const EEndPlayReason::Type EndPlayReason)
 	if (UIGNoiseSubsystem* Noise = NoiseSubsystem.Get())
 	{
 		Noise->OnNoiseReported.Remove(NoiseReportedHandle);
+		Noise->OnPresentationCue.Remove(PresentationCueHandle);
 	}
 	NoiseReportedHandle.Reset();
+	PresentationCueHandle.Reset();
 	NoiseSubsystem = nullptr;
 	Super::EndPlay(EndPlayReason);
 }
 
 void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
 {
-	// Only the player's own sounds get a ring. The bus also carries the
-	// entity's knocks and any scripted bait, and telling the player "you made
-	// that sound" when they did not would teach the wrong rule.
+	// Only the player's own sounds get a ring. 존재의 소리는 소음 버스가 아니라
+	// OnPresentationCue로 따로 오고, 버스에는 연출용 미끼 소리도 실린다. 그녀가
+	// 내지 않은 소리에 「네가 냈다」는 링을 그리면 틀린 규칙을 가르친다.
 	//
 	// §19.8 노크를 화면으로 표시를 켜면 그 규칙이 뒤집힌다. 소리를 못 듣는 손에게
 	// 존재의 노크는 아무것도 아닌 것이 되므로, 링을 그리되 **두께로** 나눠
@@ -334,8 +341,8 @@ void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
 	{
 		return;
 	}
-	// Game time, not the event's real time: every other HUD timer is game
-	// time, and mixing the two produces a garbage age after any pause.
+	// 이벤트 시각과 같은 게임 시간이다. HUD의 다른 타이머도 모두 게임 시간이라
+	// 일시정지 뒤에도 나이가 어긋나지 않는다.
 	const double Now = World->GetTimeSeconds();
 	const bool bRippleLive = Now < RippleEndTime;
 	if (bRippleLive)
@@ -572,6 +579,8 @@ void AIGHorrorHUD::PlayCaptureWakeEcho(
 		CaptureWakeEchoEndTime =
 			CaptureWakeEchoStartTime + SafeOwnershipDuration;
 		Guidance.Interrupt();
+		// 조작이 돌아오는 첫 프레임에 키가 바뀐 것으로 읽혀 시계가 7초 뜬다.
+		++NightClockRevealSerial;
 	}
 }
 
@@ -1132,9 +1141,12 @@ void AIGHorrorHUD::AdvanceDialogueQueue(const double CurrentTime)
 	{
 		FIGDialogueMessage Next = MoveTemp(DialogueQueue[0]);
 		DialogueQueue.RemoveAt(0);
-		const double MaximumAge = Next.Priority == EIGDialoguePriority::Ambient
+		// 자막을 오래 두는 설정이면 앞줄이 그만큼 길게 머문다. 기다릴 수 있는
+		// 시간도 같이 늘려야 한꺼번에 쌓인 대화의 끝줄이 조용히 버려지지 않는다.
+		const double MaximumAge = (Next.Priority == EIGDialoguePriority::Ambient
 			? IGHorrorHUD::AmbientDialogueMaximumQueueAge
-			: IGHorrorHUD::StoryDialogueMaximumQueueAge;
+			: IGHorrorHUD::StoryDialogueMaximumQueueAge)
+			* FMath::Max(1.0f, GetCaptionDurationScale());
 		if (!Next.bContinuation && CurrentTime - Next.QueuedAt > MaximumAge)
 		{
 			continue;
@@ -1170,9 +1182,9 @@ void AIGHorrorHUD::ResumeDialoguePresentation(const double CurrentTime)
 
 namespace
 {
-	// §10.5. 고도가 먼저다. 훅 자체가 「위에서 나는 소리」라서, 위아래가
-	// 조금이라도 서면 좌우보다 그쪽을 말해야 한다.
+	// 다른 층에서 들리는 소리는 좌우보다 위아래를 먼저 알려 준다.
 	constexpr float SoundBearingElevationDegrees = 25.0f;
+	constexpr float SoundBearingBodyMargin = 40.0f;
 	// 화면 안이라고 볼 각. 이 안쪽은 눈이 이미 알고 있으므로 적지 않는다.
 	constexpr float SoundBearingOnScreenDegrees = 50.0f;
 	constexpr float SoundBearingBehindDegrees = 130.0f;
@@ -1209,7 +1221,15 @@ FText AIGHorrorHUD::MakeSoundBearingTag(
 	const float Elevation = FMath::RadiansToDegrees(
 		FMath::Asin(FMath::Clamp(
 			ToSource.GetSafeNormal().Z, -1.0f, 1.0f)));
-	if (FMath::Abs(Elevation) >= SoundBearingElevationDegrees)
+	const AIGPlayerCharacter* Listener = Cast<AIGPlayerCharacter>(PlayerController->GetPawn());
+	const UCapsuleComponent* Capsule = Listener ? Listener->GetCapsuleComponent() : nullptr;
+	const float BodyCenterZ = Listener ? Listener->GetActorLocation().Z : ViewLocation.Z - 64.0f;
+	const float BodyHalfHeight = Capsule ? Capsule->GetScaledCapsuleHalfHeight() : 98.0f;
+	// 가까운 문의 노크나 같은 층의 발소리는 눈보다 낮다. 각도만 보면
+	// 전부 '아래'로 표시되므로 캐릭터의 몸 높이를 벗어났는지도 확인한다.
+	const bool bOutsideBodyHeight = FMath::Abs(SourceLocation.Z - BodyCenterZ)
+		> BodyHalfHeight + SoundBearingBodyMargin;
+	if (bOutsideBodyHeight && FMath::Abs(Elevation) >= SoundBearingElevationDegrees)
 	{
 		return Elevation > 0.0f
 			? NSLOCTEXT("IGHUD", "SoundBearingAbove", "위")
@@ -1283,6 +1303,28 @@ void AIGHorrorHUD::PushAudioCaption(
 	}
 }
 
+double AIGHorrorHUD::AdvanceAudioCaptionClock()
+{
+	const UWorld* World = GetWorld();
+	if (!World)
+	{
+		return AudioCaptionClockSeconds;
+	}
+	// 자막 시계. 게임 시간처럼 일시정지에 멈춰서, 메뉴를 닫으면 자막이 멈췄던
+	// 자리에서 이어진다. 타이틀은 월드를 멈춘 채로 노크와 대답, 밤 5를 들려주므로
+	// 타이틀이 떠 있는 동안에는 흐른다. 지난 호출 뒤의 시간을 지금 상태로 세니
+	// DrawHUD가 매 프레임 부른다.
+	const double Now = World->GetUnpausedTimeSeconds();
+	const bool bRunning = !World->IsPaused()
+		|| (bSystemMenuVisible && bSystemMenuIsTitle);
+	if (AudioCaptionClockSampledAt >= 0.0 && bRunning)
+	{
+		AudioCaptionClockSeconds += FMath::Max(0.0, Now - AudioCaptionClockSampledAt);
+	}
+	AudioCaptionClockSampledAt = Now;
+	return AudioCaptionClockSeconds;
+}
+
 void AIGHorrorHUD::ShowAudioCaption(
 	const FText& Caption,
 	const float DurationSeconds)
@@ -1292,7 +1334,7 @@ void AIGHorrorHUD::ShowAudioCaption(
 	{
 		return;
 	}
-	const double CurrentTime = World->GetTimeSeconds();
+	const double CurrentTime = AdvanceAudioCaptionClock();
 	const float ClampedDuration =
 		FMath::Max(0.8f, DurationSeconds) * GetCaptionDurationScale();
 	if (!CurrentAudioCaption.IsEmpty()
@@ -1836,6 +1878,9 @@ void AIGHorrorHUD::DrawHUD()
 {
 	Super::DrawHUD();
 	bObjectiveGuideDrawn = bControlsGuideDrawn = false;
+	// 자막 시계는 프레임마다 그 순간의 멈춤 상태로 센다. 일시정지 메뉴처럼 자막을
+	// 그리지 않는 화면에서도 세어야 메뉴를 닫을 때 멈춘 시간이 한꺼번에 들어오지 않는다.
+	AdvanceAudioCaptionClock();
 
 	if (!bShowHUD || !Canvas || !GEngine)
 	{
@@ -1925,7 +1970,10 @@ void AIGHorrorHUD::DrawHUD()
 
 	if (DrawChapterCard(CurrentTime))
 	{
+		// 에필로그와 같은 규칙이다. 카드는 대사를 멈추지만 카드 밑에서 난 소리의
+		// 자막은 그린다 — 04:30 알람도 입주 카드 밑의 소리도 카드 동안 만료됐다.
 		SuspendDialoguePresentation(CurrentTime);
+		DrawAudioCaption(CurrentTime, Canvas->ClipY - 24.0f);
 		LastHudDrawTime = CurrentTime;
 		FinalizeLayoutValidationSample();
 		return;
@@ -1984,8 +2032,17 @@ void AIGHorrorHUD::DrawHUD()
 		? GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>() : nullptr;
 	const bool bTutorialAllowed = !bNightPresentation && (!Narrative
 		|| (Narrative->GetNightIndex() == 0 && !Narrative->HasBeatPlayed(TEXT("Arrival.Complete"))));
+	// 밤의 시계는 05:00, 05:20, 05:25에 한 번씩 손목을 본다. 매분은 아니다 —
+	// 밤의 HUD는 조용해야 한다. 잡혔다 깨어날 때도 한 번(NightClockRevealSerial).
+	int32 NightClockBand = 0;
+	if (bNightPresentation && Narrative)
+	{
+		const float NightElapsed = Narrative->GetNightElapsedSeconds();
+		NightClockBand = NightElapsed >= 1100.0f ? 3 : (NightElapsed >= 1000.0f ? 2 : (NightElapsed >= 600.0f ? 1 : 0));
+	}
 	const FString ObjectiveKey = bNightPresentation
-		? FString::Printf(TEXT("Night.%d"), Narrative ? Narrative->GetNightIndex() : 1) : Objective.ToString();
+		? FString::Printf(TEXT("Night.%d.%d.%d"), Narrative ? Narrative->GetNightIndex() : 1, NightClockBand, NightClockRevealSerial)
+		: Objective.ToString();
 	if (CanShowGameplayGuide()) Guidance.Update(DeltaSeconds, ObjectiveKey, bTutorialAllowed);
 	const float ObjectiveAlpha = CanShowGameplayGuide() ? Guidance.ObjectiveAlpha() : 0.0f;
 	const float ControlsAlpha = CanShowGameplayGuide() ? Guidance.ControlsAlpha() : 0.0f;
@@ -3224,13 +3281,16 @@ bool AIGHorrorHUD::DrawDialoguePanel(
 }
 
 bool AIGHorrorHUD::DrawAudioCaption(
-	const double CurrentTime,
+	const double /*GameTime*/,
 	const float MaximumBottomY)
 {
 	if (!Canvas)
 	{
 		return false;
 	}
+	// 부르는 쪽의 게임 시간은 타이틀과 밤 5에서 멈춰 있다. 자막은 ShowAudioCaption이
+	// 찍은 것과 같은 자막 시계로 잰다.
+	const double CurrentTime = AdvanceAudioCaptionClock();
 	AdvanceAudioCaptionQueue(CurrentTime);
 	if (CurrentAudioCaption.IsEmpty() || CurrentTime >= AudioCaptionEndTime)
 	{
@@ -6187,9 +6247,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			FLinearColor::Black);
 		NightScrim.BlendMode = SE_BLEND_Opaque;
 		Canvas->DrawItem(NightScrim);
-		DrawAudioCaption(
-			GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0,
-			Canvas->ClipY - 24.0f);
+		DrawAudioCaption(AudioCaptionClockSeconds, Canvas->ClipY - 24.0f);
 		return;
 	}
 	if (bSystemMenuIsKeyBindings)
@@ -6422,15 +6480,15 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeThemes1",
-					"오랫동안 숨겨진 시신을 암시하는 장면이 나옵니다."
-					" 신체가 훼손되는 장면은 직접 보여 주지 않습니다.")
+					"벽 속에서 유해를 발견하는 장면과, 갇힌 사람이 숨져 가는"
+					" 소리를 듣는 구간이 있습니다.")
 				: FText::FromString(
-					TEXT("LONG-CONCEALED REMAINS ARE IMPLIED. NO GRAPHIC GORE.")), false},
+					TEXT("HIDDEN REMAINS ARE SHOWN, WITHOUT GORE. A TRAPPED DEATH IS HEARD.")), false},
 			{bKorean
 				? NSLOCTEXT(
 					"IGHUD", "NoticeThemes2",
-					"층간소음, 무단증축, 산업재해 은폐를 다룹니다. 실제 사건이나"
-					" 인물과는 무관합니다.")
+					"층간소음, 무단증축, 사망 사건 은폐를 다룹니다. 잔혹한 묘사는"
+					" 없으며 실제 사건과 무관합니다.")
 				: FText::FromString(
 					TEXT("NOISE DISPUTES, ILLEGAL BUILDING, A COVERED-UP DEATH."
 						" NOT BASED ON REAL EVENTS.")), false},
@@ -6845,6 +6903,15 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		WithAlpha(IGHorrorHUD::FrontendMuted),
 		EIGHudTextRole::Hint,
 		0.84f * SupportScale);
+
+	// 타이틀의 네시 반 대답(§10.5). 소리 없이 하는 사람에게도 있어야 한다.
+	// 아래 조작 안내 줄과 겹치지 않게 그 위에 띄운다.
+	if (bSystemMenuIsTitle)
+	{
+		DrawAudioCaption(
+			AudioCaptionClockSeconds,
+			Metrics.FooterTop - 12.0f * Metrics.Scale);
+	}
 }
 
 
@@ -7353,7 +7420,13 @@ void AIGHorrorHUD::MoveNotePage(const int32 Direction)
 	const AIGReadableNote* Note = AIGReadableNote::GetOpenNote();
 	if (!Note || Direction == 0 || ReadingLayoutNote.Get() != Note
 		|| ReadingLayoutRevision != Note->GetPresentationRevision()) return;
+	const int32 PreviousPage = NotePageIndex;
 	NotePageIndex = FMath::Clamp(NotePageIndex + FMath::Sign(Direction), 0, NotePageCount - 1);
+	// 실제로 넘어갔을 때만 종이가 운다. 끝 장에서 더 미는 입력은 조용하다.
+	if (NotePageIndex != PreviousPage)
+	{
+		Note->NotifyPageTurned(GetOwningPawn());
+	}
 }
 
 void AIGHorrorHUD::DrawNotePanel()

@@ -1,4 +1,4 @@
-#include "Entity/IGNoiseSubsystem.h"
+﻿#include "Entity/IGNoiseSubsystem.h"
 
 #include "Engine/World.h"
 
@@ -12,7 +12,9 @@ FIGNoiseEvent UIGNoiseSubsystem::ReportNoise(
 	Event.Instigator = Instigator;
 
 	const UWorld* World = GetWorld();
-	Event.TimeSeconds = World ? World->GetRealTimeSeconds() : 0.0;
+	// 게임 시간이다. 실시간으로 찍으면 일시정지 메뉴를 8초 열었다 닫는 것만으로
+	// 추격이 끝나고 10초 반응 기억이 지워졌다 — 그의 Tick은 멈춰 있는데 시계만 흘렀다.
+	Event.TimeSeconds = World ? World->GetTimeSeconds() : 0.0;
 
 	const float Effective =
 		FMath::Clamp(Loudness, 0.0f, 1.0f) - GetMaskingAt(Location);
@@ -31,6 +33,52 @@ FIGNoiseEvent UIGNoiseSubsystem::ReportNoise(
 	AccumulateHeat(Location, Effective);
 	OnNoiseReported.Broadcast(Event);
 	return Event;
+}
+
+FIGNoiseEvent UIGNoiseSubsystem::ReportNoiseUnmasked(
+	const FVector& Location,
+	const float Loudness,
+	AActor* Instigator)
+{
+	FIGNoiseEvent Event;
+	Event.Location = Location;
+	Event.Instigator = Instigator;
+	const UWorld* World = GetWorld();
+	Event.TimeSeconds = World ? World->GetTimeSeconds() : 0.0;
+
+	const float Clamped = FMath::Clamp(Loudness, 0.0f, 1.0f);
+	if (Clamped <= 0.0f)
+	{
+		return Event;
+	}
+	Event.Loudness = Clamped;
+	Event.Radius = Clamped * CarryPerLoudness;
+	// 열지도는 건드리지 않는다. 건물이 무너뜨린 것은 그녀가 자주 소리 내는
+	// 자리가 아니다.
+	OnNoiseReported.Broadcast(Event);
+	return Event;
+}
+
+void UIGNoiseSubsystem::BroadcastPresentationCue(
+	const FVector& Location,
+	const float Loudness,
+	AActor* Instigator)
+{
+	const float Clamped = FMath::Clamp(Loudness, 0.0f, 1.0f);
+	if (Clamped <= 0.0f)
+	{
+		return;
+	}
+	// 소음 버스와 같은 모양이라 파문과 진동이 받는 쪽 코드를 그대로 쓴다. 다만
+	// 그의 귀, 녹음, 히트맵으로 가는 길은 없다.
+	FIGNoiseEvent Event;
+	Event.Location = Location;
+	Event.Loudness = Clamped;
+	Event.Radius = Clamped * CarryPerLoudness;
+	Event.Instigator = Instigator;
+	const UWorld* World = GetWorld();
+	Event.TimeSeconds = World ? World->GetTimeSeconds() : 0.0;
+	OnPresentationCue.Broadcast(Event);
 }
 
 FIntVector UIGNoiseSubsystem::ToHeatZoneKey(const FVector& Location)
