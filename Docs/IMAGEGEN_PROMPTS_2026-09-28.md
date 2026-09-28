@@ -55,3 +55,16 @@
 밝게 나왔다. 그래서 그림을 어둡게 눌러 쓰고, 창은 마스크로 걷어 냈다가 시간에
 맞게 다시 켠다. 수평선도 장마다 한가운데에서 조금씩 벗어나 있어서, 재질은 네 장을
 눈으로 맞춰 본 그림 높이 0.46 줄을 옥상 눈높이의 수평선으로 잡는다.
+
+## 5층 옥탑 외벽 패널
+
+바이블 §1의 5층은 옥상 슬래브 북측에 경량 철골로 무단 증축한 공간인데, 바깥에서 보면
+실내 석고를 그대로 쓴 매끈한 상자였다. 한국 옥탑 증축에 가장 흔한 도장 강판 샌드위치
+패널 외피를 한 장 뽑았다. 원본은 `Content/SourceArt/AI/AnnexSandwichPanel_20260928.png`.
+
+생성물은 좌우 이음은 맞았지만 위아래를 붙이면 가운데에 옅은 띠가 생겼다.
+`Scripts/build_annex_panel_texture.py`가 가로 리브 간격(24 px)의 정수배만큼 세로로 민
+사본을 위아래 15%에만 섞어 이음을 지운다. 섞인 띠에서 피스가 흐리게 한 번 더 비치는데,
+오래된 피스 구멍처럼 읽혀서 그대로 둔다.
+
+> Use case: texture generation for a real-time game. Create ONE seamless, tileable, perfectly front-facing diffuse albedo texture of the exterior wall of a cheap Korean rooftop extension built from factory-painted steel sandwich panels with an EPS core. The whole image is the wall surface and covers exactly 2000 mm wide by 1333 mm tall: two vertical panels side by side, each exactly 1000 mm wide, with the interlocking vertical panel joints exactly on the left image edge, the exact horizontal centre and the right image edge, so horizontal tiling joins perfectly. Off-white warm light grey paint over steel, very shallow horizontal micro-ribs every 20 mm across both panels, a vertical column of small hex-head self-tapping screws with dark rubber washers along each joint at even 333 mm spacing so the top and bottom image edges fall halfway between screws and vertical tiling is seamless. Restrained realistic weathering from ten years on a Seoul rooftop: faint grey rain streaks, thin orange-brown rust bleeding down from two or three screw heads, light grime, one or two small dents, a few scuffs. Completely flat even diffuse illumination, no directional light, no cast shadows, no ambient-occlusion halos, no perspective, no vignetting, no glossy highlights. No text, no logos, no stickers, no windows, no doors, no border, no reference-sheet layout. Landscape 3:2. High resolution, sharp enough for a 1 m viewing distance.

@@ -1028,7 +1028,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_MissingFloorSteelStair"), TEXT("M_RooftopWaterproofing_XY"),
 		TEXT("M_MissingFloorGypsumDebris_XY"),
 		TEXT("M_WaterTankMetalUV"), TEXT("M_UtilityTankSteel"), TEXT("M_UtilityFoundation"), TEXT("M_UtilityGraniteCladding"), TEXT("M_UtilityConcreteDark"), TEXT("M_UtilityVillaBrick"), TEXT("M_UtilityStreetBrick"), TEXT("M_CctvStandby"), TEXT("M_UtilityMeterCounter"), TEXT("M_UtilityMeterLabel"), TEXT("M_TankWaterReveal"),
-		TEXT("M_ApartmentNightGlass"), TEXT("M_NightSkyline"), TEXT("M_NightSkyGlow"), TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
+		TEXT("M_ApartmentNightGlass"), TEXT("M_NightSkyline"), TEXT("M_NightSkyGlow"), TEXT("M_AnnexPanel"), TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
 		TEXT("M_SpriteHwang"), TEXT("M_SpriteNarin"),
 		// Aged paper stock for readable notes, and the rental notice.
 		TEXT("M_PaperClean"), TEXT("M_PaperWet"), TEXT("M_PaperFolded"),
@@ -3774,6 +3774,34 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	}
 	CreateBlock(FVector(-397.5f, 700, 1320), FVector(15, 480, 240), AnnexWallY);
 	CreateBlock(FVector(397.5f, 700, 1320), FVector(15, 480, 240), AnnexWallY);
+
+	// 바깥에서 본 5층은 석고 상자가 아니라 경량 철골에 샌드위치 패널을 두른 옥탑
+	// 증축이다(§1). 벽 블록은 안팎이 한 재질이라 안쪽 석고는 두고, 바깥면에서
+	// 6 mm 떨어진 1 cm 외피를 붙인다. 패널 집이면 꼭 있는 모서리 캡과 처마
+	// 후레싱, 문 위 물끊기도 두른다. 철문이 바깥으로 열려도 걸리지 않게 문설주
+	// 후레싱은 두지 않는다. 조각끼리는 면으로만 맞닿고 겹치지 않는다.
+	// 재질이 없으면 예전 석고 그대로 둔다.
+	UMaterialInterface* AnnexPanel = TexMat(TEXT("M_AnnexPanel"), nullptr);
+	if (AnnexPanel)
+	{
+		// 남쪽 외벽은 철문 개구부(X 85~175)를 비켜 세 장이다.
+		CreateBlock(FVector(-160.0f, 444.4f, 1320.0f), FVector(490.0f, 1.0f, 240.0f), AnnexPanel, false);
+		CreateBlock(FVector(290.0f, 444.4f, 1320.0f), FVector(230.0f, 1.0f, 240.0f), AnnexPanel, false);
+		CreateBlock(FVector(130.0f, 444.4f, 1422.5f), FVector(90.0f, 1.0f, 35.0f), AnnexPanel, false);
+		CreateBlock(FVector(-405.6f, 700.0f, 1320.0f), FVector(1.0f, 510.0f, 240.0f), AnnexPanel, false);
+		CreateBlock(FVector(405.6f, 700.0f, 1320.0f), FVector(1.0f, 510.0f, 240.0f), AnnexPanel, false);
+		CreateBlock(FVector(0.0f, 955.6f, 1320.0f), FVector(812.2f, 1.0f, 240.0f), AnnexPanel, false);
+		// 옥상 쪽 두 모서리. 남쪽 외피 끝과 옆 외피 끝이 만나는 자리를 채운다.
+		CreateBlock(FVector(-406.05f, 443.95f, 1320.0f), FVector(2.1f, 2.1f, 240.0f), AnnexPanel, false);
+		CreateBlock(FVector(406.05f, 443.95f, 1320.0f), FVector(2.1f, 2.1f, 240.0f), AnnexPanel, false);
+		// 처마 후레싱. 천장 슬래브 끝이 외벽보다 5 cm 들어가 있어 그 턱을 덮는다.
+		CreateBlock(FVector(0.0f, 446.45f, 1446.0f), FVector(814.2f, 7.1f, 12.0f), AnnexPanel, false);
+		CreateBlock(FVector(0.0f, 953.55f, 1446.0f), FVector(814.2f, 7.1f, 12.0f), AnnexPanel, false);
+		CreateBlock(FVector(-403.55f, 700.0f, 1446.0f), FVector(7.1f, 500.0f, 12.0f), AnnexPanel, false);
+		CreateBlock(FVector(403.55f, 700.0f, 1446.0f), FVector(7.1f, 500.0f, 12.0f), AnnexPanel, false);
+		// 철문 위 물끊기.
+		CreateBlock(FVector(130.0f, 442.9f, 1407.0f), FVector(102.0f, 2.0f, 4.0f), AnnexPanel, false);
+	}
 
 	// Three finished bays in a row: only the middle one hides a cavity, and
 	// only sound can tell them apart. Gypsum faces with exposed stud edges.

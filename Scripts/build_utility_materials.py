@@ -35,8 +35,12 @@ def texture(filename, name):
 steel = texture("TankSatinSteel_20260915.png", "T_UtilityTankSteel_D")
 screen = texture("CctvStandby.png", "T_CctvStandby_D")
 brick = texture("KoreanBrick_20260916.png", "T_KoreanBrick_20260916_D")
+# 5층 옥탑 증축 외벽. build_annex_panel_texture.py가 위아래로도 이어지게 다듬은 것.
+panel = texture("AnnexSandwichPanel_D.png", "T_AnnexSandwichPanel_D")
 if not brick:
     raise RuntimeError("국내 점토벽돌 생성 원본이 없습니다.")
+if not panel:
+    raise RuntimeError("옥탑 샌드위치 패널 원본이 없습니다.")
 if not steel or not screen:
     raise RuntimeError("저수조 원본이나 실제 맵 CCTV 아틀라스가 없습니다.")
 
@@ -90,6 +94,10 @@ def material(name, surface):
             # 190×57mm 벽돌 + 10mm 줄눈, 가로 3장·세로 6단. 정사각형 UV로
             # 늘리지 않는다. 음의 Z로 투영해 원본 위아래와 월드 위아래를 맞춘다.
             code = "float3 n=abs(N); float2 p=n.z>.707 ? P.xy : float2(n.x>n.y?P.y:P.x,-P.z); return p/float2(60.0,40.2);"
+        if surface == "panel":
+            # 폭 1 m 패널 두 장이 한 칸이다. 이음매가 월드 X·Y의 1 m 격자에 오고,
+            # 240 cm 벽에 세로로 정확히 두 칸 들어간다.
+            code = "float3 n=abs(N); float2 p=n.z>.707 ? P.xy : float2(n.x>n.y?P.y:P.x,-P.z); return p/float2(200.0,120.0);"
         uv = node("MaterialExpressionCustom", code=code,
                   output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT2)
         inputs = []
@@ -100,12 +108,26 @@ def material(name, surface):
         uv.set_editor_property("inputs", inputs)
         link(position, uv, "P")
         link(normal, uv, "N")
-        image = steel if surface == "steel" else brick if surface in ("brick", "street_brick") else unreal.load_asset(
+        image = panel if surface == "panel" else steel if surface == "steel" else brick if surface in ("brick", "street_brick") else unreal.load_asset(
             "/Game/Prototype/Textures/T_PocheonGranite_20260915_D" if surface == "granite" else "/Game/Prototype/Textures/T_Concrete_D")
         if not image:
             raise RuntimeError(f"설비 표면 원본 텍스처가 없습니다: {surface}")
         base = node("MaterialExpressionTextureSample", texture=image)
         link(uv, base, "UVs")
+        if surface == "panel":
+            # 옥상 바닥에서 튄 빗물 때. 패널 아래 30 cm쯤이 거뭇하다. 이 재질은
+            # 옥상 바닥(Z 1200) 위의 5층 외벽에만 쓴다.
+            grime = node("MaterialExpressionCustom",
+                         code="return lerp(0.72, 1.0, saturate((P.z - 1200.0) / 32.0));",
+                         output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1)
+            pin = unreal.CustomInput()
+            pin.set_editor_property("input_name", "P")
+            grime.set_editor_property("inputs", [pin])
+            link(position, grime, "P")
+            dirty = node("MaterialExpressionMultiply")
+            link(base, dirty, "A")
+            link(grime, dirty, "B")
+            base = dirty
         if surface in ("dark", "brick"):
             tinted = node("MaterialExpressionMultiply")
             link(base, tinted, "A")
@@ -113,7 +135,7 @@ def material(name, surface):
             base = tinted
         output(base, "MP_BASE_COLOR")
         output(color((0., 0., 0.)), "MP_EMISSIVE_COLOR")
-    output(scalar(.40 if surface == "steel" else .36 if surface == "granite" else .86), "MP_ROUGHNESS")
+    output(scalar(.40 if surface == "steel" else .36 if surface == "granite" else .55 if surface == "panel" else .86), "MP_ROUGHNESS")
     output(scalar(.95 if surface == "steel" else 0.), "MP_METALLIC")
     # 색에 찍힌 얼룩은 높이가 아니다. 금속을 자갈처럼 울퉁불퉁하게 만들지 않는다.
     output(color((0., 0., 1.)), "MP_NORMAL")
@@ -130,6 +152,7 @@ material("M_UtilityConcreteDark", "dark")
 material("M_CctvStandby", "screen")
 material("M_UtilityVillaBrick", "brick")
 material("M_UtilityStreetBrick", "street_brick")
+material("M_AnnexPanel", "panel")
 
 
 def meter_print(kind):
@@ -208,4 +231,4 @@ import build_interior_materials
 build_interior_materials.build(texture, LIB, ASSETS)
 import apply_small_prop_lods
 apply_small_prop_lods.run()
-unreal.log(f"UTILITY_MATERIALS PASS materials=23 cctv_atlas={int(screen is not None)}")
+unreal.log(f"UTILITY_MATERIALS PASS materials=24 cctv_atlas={int(screen is not None)}")

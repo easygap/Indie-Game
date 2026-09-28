@@ -632,3 +632,17 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 - 적용 경계: 옥상에서 보이는 접근할 수 없는 원경만 담당한다. 가까운 난간·물탱크·
   이웃 빌라는 3D 지오메트리이고, 창이 켜지고 꺼지는 시간은 게임이 정한다
 - 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-09-28.md`, 원본마다 같은 이름의 JSON
+
+## 2026-09-28 5층 옥탑 외벽 패널
+
+- 도구/모드: gpt-image 스킬(Codex 내장 image_gen, ChatGPT 구독 인증)
+- 보존 원본: `Content/SourceArt/AI/AnnexSandwichPanel_20260928.png`
+  `E6BAD9852811CB0F418EF3F7697EEEBAD37B3726AD604908ED871645DBBEA7DF`
+- 파생: `Content/SourceArt/AnnexPanel/AnnexSandwichPanel_D.png`. `Scripts/build_annex_panel_texture.py`가
+  위아래로도 이어지게 다듬는다
+- 런타임: `/Game/Prototype/Textures/T_AnnexSandwichPanel_D`, `/Game/Prototype/Materials/M_AnnexPanel`
+  (가로 200 cm·세로 120 cm 한 칸, 옥상 바닥 위 30 cm에 빗물 튄 때)
+- 권리/참조: 참고 사진 없이 문장만으로 만든 가상의 도장 강판이다. 글자·상표가 없다
+- 적용 경계: 5층 증축부 바깥 외피와 후레싱만 담당한다. 안쪽 석고와 문, 충돌은 기존 벽이
+  그대로 맡는다
+- 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-09-28.md`, 원본 옆 JSON
