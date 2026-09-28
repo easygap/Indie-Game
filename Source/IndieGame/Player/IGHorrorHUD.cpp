@@ -6160,7 +6160,7 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 				? NSLOCTEXT(
 					"IGHUD",
 					"LookDetail",
-					"마우스와 게임패드 감도는 따로 조절합니다. 상하 감도 배율을 높이면 위아래로 더 빠르게 움직입니다.")
+					"마우스와 게임패드 감도는 따로 조절합니다. 세로 감도 배율을 높이면 위아래로 더 빠르게 움직입니다.")
 				: FText::FromString(
 					TEXT("MOUSE AND PAD TUNE SEPARATELY; VERTICAL MULTIPLIES THE HORIZONTAL.")),
 			FVector2D(Metrics.ContentLeft, DetailY),
