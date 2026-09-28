@@ -1335,15 +1335,19 @@ bool AIGPlayerController::TryVerifyFrontendDialogueLayout(
 		&& bHasContinuation == bExpectedContinuation
 		&& bInsideSafeArea
 		&& RenderSerial > 0;
-	if (!bValid)
+	// 「이어짐」 표시가 마지막 줄 끝 글자를 덮으면 상자 크기와 줄 수가 맞아도
+	// 읽을 수 없다. 자막 200%에서 실제로 그랬다.
+	const bool bContinuationClear = HorrorHUD->IsDialogueContinuationClear();
+	if (!bValid || !bContinuationClear)
 	{
 		FailFrontendShippingProbe(FString::Printf(
-			TEXT("%s_lines_%d_speaker_%d_cont_%d_safe_%d"),
+			TEXT("%s_lines_%d_speaker_%d_cont_%d_safe_%d_clear_%d"),
 			CaseName,
 			LineCount,
 			bSpeakerVisible ? 1 : 0,
 			bHasContinuation ? 1 : 0,
-			bInsideSafeArea ? 1 : 0));
+			bInsideSafeArea ? 1 : 0,
+			bContinuationClear ? 1 : 0));
 		return false;
 	}
 	return true;

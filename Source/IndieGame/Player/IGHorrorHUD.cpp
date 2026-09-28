@@ -2868,8 +2868,31 @@ bool AIGHorrorHUD::DrawDialoguePanel(
 		: 0.0f;
 	const float HeaderGap = bHasSpeaker ? 10.0f * ResolutionScale : 0.0f;
 	const float TopPadding = 14.0f * ResolutionScale;
-	const float BottomPadding = (
-		bCurrentDialogueHasContinuation ? 26.0f : 19.0f) * ResolutionScale;
+	// 「이어짐」은 마지막 줄 아래 오른쪽 구석에 선다. 자막을 키우면 이 표시도
+	// 같이 커지는데 아래 여백은 26px로 고정이어서, 자막 크기 200%에서 표시가
+	// 꽉 찬 마지막 줄의 끝 글자를 덮었다. 여백을 표시의 실제 높이로 잡는다.
+	const FText ContinuationLabel = NSLOCTEXT(
+		"IGHorrorHUD",
+		"DialogueContinues",
+		"이어짐");
+	const float ContinuationScale = TextScale * 0.72f;
+	float ContinuationRawWidth = 0.0f;
+	float ContinuationRawHeight = 0.0f;
+	if (bCurrentDialogueHasContinuation && SpeakerFont)
+	{
+		Canvas->StrLen(
+			SpeakerFont,
+			ContinuationLabel.ToString(),
+			ContinuationRawWidth,
+			ContinuationRawHeight,
+			true);
+	}
+	const float ContinuationHeight = ContinuationRawHeight * ContinuationScale;
+	const float BottomPadding = bCurrentDialogueHasContinuation
+		? FMath::Max(
+			26.0f * ResolutionScale,
+			ContinuationHeight + 13.0f * ResolutionScale)
+		: 19.0f * ResolutionScale;
 	const float LinesHeight = BodyHeight
 		+ LineStep * FMath::Max(0, CurrentDialogueLines.Num() - 1);
 	const float PanelHeight = TopPadding + SpeakerChipHeight + HeaderGap
@@ -3013,35 +3036,29 @@ bool AIGHorrorHUD::DrawDialoguePanel(
 			TextScale,
 			bUseTextOutline);
 	}
+	bool bContinuationClear = true;
 	if (bCurrentDialogueHasContinuation)
 	{
-		const FText ContinuationLabel = NSLOCTEXT(
-			"IGHorrorHUD",
-			"DialogueContinues",
-			"이어짐");
-		const float ContinuationScale = TextScale * 0.72f;
-		float ContinuationRawWidth = 0.0f;
-		float ContinuationRawHeight = 0.0f;
-		if (SpeakerFont)
-		{
-			Canvas->StrLen(
-				SpeakerFont,
-				ContinuationLabel.ToString(),
-				ContinuationRawWidth,
-				ContinuationRawHeight,
-				true);
-		}
 		FLinearColor ContinuationColor = Accent;
 		ContinuationColor.A *= 0.72f;
 		const float ContinuationY = PanelY + PanelHeight
-			- ContinuationRawHeight * ContinuationScale
+			- ContinuationHeight
 			- 7.0f * ResolutionScale;
+		const float ContinuationLeft = PanelX + PanelWidth - HorizontalPadding
+			- ContinuationRawWidth * ContinuationScale
+			- 16.0f * ResolutionScale;
+		// 표시와 마지막 줄이 실제로 떨어져 있는지 배포판 검사가 본다.
+		const float LastLineBottom = PenY
+			+ LineStep * (CurrentDialogueLines.Num() - 1)
+			+ BodyHeight;
+		const float LastLineRight = PanelX + HorizontalPadding
+			+ MeasureTextWidth(CurrentDialogueLines.Last(), BodyFont, TextScale);
+		bContinuationClear = ContinuationY >= LastLineBottom
+			|| ContinuationLeft >= LastLineRight;
 		FCanvasTileItem ContinuationRule(
 			FVector2D(
-				PanelX + PanelWidth - HorizontalPadding
-					- ContinuationRawWidth * ContinuationScale
-					- 16.0f * ResolutionScale,
-				ContinuationY + ContinuationRawHeight * ContinuationScale * 0.52f),
+				ContinuationLeft,
+				ContinuationY + ContinuationHeight * 0.52f),
 			FVector2D(9.0f * ResolutionScale, FMath::Max(1.0f, ResolutionScale)),
 			ContinuationColor);
 		ContinuationRule.BlendMode = SE_BLEND_Translucent;
@@ -3064,6 +3081,7 @@ bool AIGHorrorHUD::DrawDialoguePanel(
 	DialogueLastLineCount = CurrentDialogueLines.Num();
 	bDialogueLastSpeakerVisible = bHasSpeaker;
 	bDialogueLastHasContinuation = bCurrentDialogueHasContinuation;
+	bDialogueLastContinuationClear = bContinuationClear;
 	bDialogueLastInsideSafeArea =
 		PanelX >= SafeHorizontalInset - 1.0f
 		&& PanelX + PanelWidth <= Canvas->ClipX - SafeHorizontalInset + 1.0f
@@ -4517,8 +4535,8 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			* Settings.CaptionSafeAreaScale,
 		620.0f * Scale);
 	const FText PreviewBodyText = bKorean
-		? NSLOCTEXT("IGHUD", "CaptionPreviewBody", "[위층] 천천히 끌리는 발소리")
-		: FText::FromString(TEXT("[ABOVE] SLOW, DRAGGING FOOTSTEPS"));
+		? NSLOCTEXT("IGHUD", "CaptionPreviewBody", "[위] 천장에서 뭔가 끄는 소리")
+		: FText::FromString(TEXT("[ABOVE] SOMETHING DRAGGING ACROSS THE CEILING"));
 	UFont* PreviewFont = GetFontForRole(EIGHudTextRole::Dialogue);
 	float PreviewRawWidth = 0.0f;
 	float PreviewRawHeight = 19.0f;

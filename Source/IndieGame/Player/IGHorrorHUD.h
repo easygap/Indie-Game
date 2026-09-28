@@ -267,6 +267,9 @@ public:
 		bool& bOutInsideSafeArea,
 		uint64& OutFrameSerial) const;
 
+	/** 마지막으로 그린 대화 상자에서 「이어짐」 표시가 마지막 줄과 겹치지 않았는지. */
+	bool IsDialogueContinuationClear() const { return bDialogueLastContinuationClear; }
+
 	/** 문서의 페이지를 넘긴다. 다시 펼치면 첫 장부터 읽는다. */
 	void MoveNotePage(int32 Direction);
 	int32 GetNotePageIndex() const { return NotePageIndex; }
@@ -736,6 +739,7 @@ private:
 	int32 DialogueLastLineCount = 0;
 	bool bDialogueLastSpeakerVisible = false;
 	bool bDialogueLastHasContinuation = false;
+	bool bDialogueLastContinuationClear = true;
 	bool bDialogueLastInsideSafeArea = false;
 	uint64 DialogueLastRenderSerial = 0;
 
