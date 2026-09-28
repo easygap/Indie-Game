@@ -5138,8 +5138,8 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 			? NSLOCTEXT("IGHUD", "JournalLaneAdministration", "건물 서류")
 			: FText::FromString(TEXT("RECORD")),
 		SupportsKorean()
-			? NSLOCTEXT("IGHUD", "JournalLaneLife", "생활")
-			: FText::FromString(TEXT("LIFE")),
+			? NSLOCTEXT("IGHUD", "JournalLaneLife", "소리와 흔적")
+			: FText::FromString(TEXT("SOUNDS & TRACES")),
 		SupportsKorean()
 			? NSLOCTEXT("IGHUD", "JournalLanePersonal", "오빠의 물건")
 			: FText::FromString(TEXT("PERSONAL")),
