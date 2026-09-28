@@ -701,6 +701,7 @@ UPointLightComponent* AIGPrologueWorldScene::CreateLight(
 	UPointLightComponent* Light = bDownlight
 		? NewObject<USpotLightComponent>(this, LightName)
 		: NewObject<UPointLightComponent>(this, LightName);
+	ZoneLights[static_cast<int32>(BuildingLightZone)].Add(Light);
 	USceneComponent* ResolvedParent =
 		Parent ? Parent : (ActiveParent ? ActiveParent.Get() : SceneRoot.Get());
 	Light->SetupAttachment(ResolvedParent);
@@ -1613,16 +1614,27 @@ void AIGPrologueWorldScene::InitializePrologue()
 	UpperFloorRoot->SetRelativeLocation(FVector(0, 0, 900));
 	UpperFloorRoot->RegisterComponent();
 
+	// 빌더가 만드는 광원은 그 빌더의 공간에 속한다. 보이지 않는 층의 광원을
+	// 끄는 UpdateLightZones가 이 표를 쓴다.
+	BuildingLightZone = EIGLightZone::FourthFloor;
 	BuildApartment();
 	BuildCorridor();
+	BuildingLightZone = EIGLightZone::Lobby;
 	BuildLobby();
+	BuildingLightZone = EIGLightZone::Annex;
 	BuildFifthFloorAnnex();
+	BuildingLightZone = EIGLightZone::Alley;
 	BuildAlley();
+	BuildingLightZone = EIGLightZone::Store;
 	BuildStore();
+	BuildingLightZone = EIGLightZone::Always;
 	BuildSkyAndFog();
 	BuildDistantSkyline();
 	SpawnInteractables();
 	SpawnStairTransition();
+	UpdateLightZones();
+	GetWorldTimerManager().SetTimer(
+		LightZoneTimer, this, &ThisClass::UpdateLightZones, 0.1f, true);
 
 	RefreshPurchaseProfilePresentation();
 	CreateAmbience();
@@ -3201,6 +3213,100 @@ void AIGPrologueWorldScene::ApplyStreetNightLevel(const bool bNight)
 	}
 }
 
+void AIGPrologueWorldScene::UpdateLightZones()
+{
+	const APlayerController* Controller =
+		GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr;
+	if (!Controller || !Controller->PlayerCameraManager)
+	{
+		return;
+	}
+	// 폰이 아니라 카메라 자리로 판단한다. 캡처와 연출이 카메라만 옮길 때도 맞는다.
+	const FVector Eye = GetActorTransform().InverseTransformPosition(
+		Controller->PlayerCameraManager->GetCameraLocation());
+	// 0: 1~2층(로비·골목·편의점), 1: 4층, 2: 옥상·별관. 경계에서 40 cm는 앞의
+	// 판단을 유지해 계단을 오르내릴 때 등이 번갈아 켜지지 않게 한다.
+	constexpr float GroundTop = 700.0f;
+	constexpr float FourthTop = 1170.0f;
+	constexpr float Hysteresis = 40.0f;
+	int32 Band = Eye.Z < GroundTop ? 0 : (Eye.Z < FourthTop ? 1 : 2);
+	if (ActiveLightBand >= 0 && ActiveLightBand <= 2 && Band != ActiveLightBand)
+	{
+		const float Boundary = FMath::Max(Band, ActiveLightBand) == 1 ? GroundTop : FourthTop;
+		if (FMath::Abs(Eye.Z - Boundary) < Hysteresis)
+		{
+			Band = ActiveLightBand;
+		}
+	}
+	// 3: 다른 층을 비추는 화면(관리실 CCTV 5번)이 살아 있다. 모든 층을 켠다.
+	if (RemoteViewCount > 0)
+	{
+		Band = 3;
+	}
+	if (Band == ActiveLightBand)
+	{
+		return;
+	}
+	ActiveLightBand = Band;
+
+	// 층마다 보일 수 있는 공간. 4층 창은 전부 불투명한 원경이고, 로비의 유리
+	// 현관은 골목과 편의점 쪽을 보여 준다. 옥상 가장자리에서는 골목이 내려다보인다.
+	const auto ZoneVisible = [Band](const EIGLightZone Zone)
+	{
+		if (Band == 3)
+		{
+			return true;
+		}
+		switch (Zone)
+		{
+		case EIGLightZone::FourthFloor:
+		case EIGLightZone::UpperStair:
+		case EIGLightZone::Annex:
+			return Band >= 1;
+		case EIGLightZone::Lobby:
+			return Band == 0;
+		case EIGLightZone::Alley:
+		case EIGLightZone::Store:
+			return Band != 1;
+		default:
+			return true;
+		}
+	};
+	for (int32 Zone = 0; Zone < static_cast<int32>(EIGLightZone::Count); ++Zone)
+	{
+		const bool bZoneVisible = ZoneVisible(static_cast<EIGLightZone>(Zone));
+		for (const TWeakObjectPtr<ULightComponent>& Light : ZoneLights[Zone])
+		{
+			if (ULightComponent* Resolved = Light.Get())
+			{
+				// 4일 차 밤에 차단기가 내려간 별관 등은 층을 오르내려도 다시 켜지지 않는다.
+				const bool bVisible = bZoneVisible
+					&& (bMissingFloorAnnexPowered
+						|| !MissingFloorAnnexLights.Contains(Cast<UPointLightComponent>(Resolved)));
+				if (Resolved->IsVisible() != bVisible)
+				{
+					Resolved->SetVisibility(bVisible);
+				}
+			}
+		}
+	}
+}
+
+void AIGPrologueWorldScene::SetRemoteViewActive(const bool bActive)
+{
+	RemoteViewCount = FMath::Max(0, RemoteViewCount + (bActive ? 1 : -1));
+	// 구역을 바로 다시 계산한다. 다음 타이머를 기다리면 CCTV 첫 장면이 꺼진 층을 찍는다.
+	ActiveLightBand = -1;
+	UpdateLightZones();
+}
+
+void AIGPrologueWorldScene::HandleStairTransitionForLights(bool /*bGoingDown*/)
+{
+	// 암전 속에서 순간이동이 끝난 프레임에 바로 맞춘다. 0.1초 주기를 기다리면
+	// 밝아지는 동안 한두 프레임 옛 층의 등으로 그려질 수 있다.
+	UpdateLightZones();
+}
+
 FVector AIGPrologueWorldScene::GetCorridorFixtureLocation(const int32 Index) const
 {
 	return CorridorLights.IsValidIndex(Index) && CorridorLights[Index]
@@ -3771,9 +3877,12 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 	// The upper flight is deliberately dim, but it must still read as fourteen
 	// grounded treads rather than a black transition volume. A cold bulkhead
 	// spill also silhouettes the first real roof door from the fourth floor.
+	// 4층에서 보이는 등이라 별관과 따로 센다.
+	BuildingLightZone = EIGLightZone::UpperStair;
 	MissingFloorAnnexLights.Add(CreateLight(
 		FVector(-277.5f, 92.0f, 1358.0f), 820.0f, 470.0f,
 		FLinearColor(0.50f, 0.61f, 0.76f), true, 8.0f));
+	BuildingLightZone = EIGLightZone::Annex;
 	MissingFloorAnnexLights.Add(CreateLight(
 		FVector(-35.0f, 224.0f, 1450.0f), 760.0f, 760.0f,
 		FLinearColor(0.48f, 0.58f, 0.72f), true, 12.0f));
@@ -4026,11 +4135,14 @@ float AIGPrologueWorldScene::GetMissingFloorCctvFieldOfView() const
 
 void AIGPrologueWorldScene::SetMissingFloorAnnexPower(const bool bPowered)
 {
+	bMissingFloorAnnexPowered = bPowered;
 	for (UPointLightComponent* Light : MissingFloorAnnexLights)
 	{
 		if (Light)
 		{
-			Light->SetVisibility(bPowered, true);
+			// 별관과 윗계단 등은 1~2층에 있는 동안 조명 구역이 꺼 두었다. 전원이 돌아와도
+			// 그 층에서는 켜지 않고, 올라오면 UpdateLightZones가 켠다.
+			Light->SetVisibility(bPowered && ActiveLightBand != 0, true);
 		}
 	}
 }
@@ -5513,6 +5625,8 @@ void AIGPrologueWorldScene::SpawnStairTransition()
 		ToWorld(FVector(-188.0f, -305.0f, 187.0f)),
 		FRotator(0.0f, 0.0f, 0.0f));
 	StairTransition->FinishSpawning(TransitionTransform);
+	StairTransition->OnTransitionCompleted.AddUniqueDynamic(
+		this, &ThisClass::HandleStairTransitionForLights);
 }
 
 void AIGPrologueWorldScene::SpawnInteractables()

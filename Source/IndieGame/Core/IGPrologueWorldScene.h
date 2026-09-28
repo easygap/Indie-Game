@@ -32,6 +32,22 @@ class UInstancedStaticMeshComponent;
 enum class EIGPurchaseProfile : uint8;
 
 /**
+ * 광원이 속한 공간. 보이지 않는 공간의 광원은 켜 두지 않는다.
+ * 층을 가로지르면 바닥에 가려도 거리 컷(16 m) 안이라 계산됐다.
+ */
+enum class EIGLightZone : uint8
+{
+	Always,
+	FourthFloor,
+	UpperStair,
+	Annex,
+	Lobby,
+	Alley,
+	Store,
+	Count
+};
+
+/**
  * 빌라(403호·복도·로비·5층·옥상)와 골목, 편의점을 BeginPlay에 기본 도형과
  * 저작 메시로 세우는 월드. 다 세운 뒤에는 Tick하지 않는다. 밤마다 무엇이
  * 일어나는지는 없는 층 디렉터들이 정하고, 이 씬은 아래 동사로만 건물을 바꾼다.
@@ -216,6 +232,11 @@ public:
 
 	/** Night 4 breaker cut; keeps geometry and flashlight independent. */
 	void SetMissingFloorAnnexPower(bool bPowered);
+	/**
+	 * 관리실 CCTV 5번처럼 다른 층을 따로 렌더하는 화면이 살아 있는 동안 층별 조명
+	 * 구역을 풀어 모든 층의 등을 켜 둔다. 켤 때와 끌 때 짝을 맞춰 부른다.
+	 */
+	void SetRemoteViewActive(bool bActive);
 
 	/**
 	 * §14 CCTV 채널 5's vantage, owned by the world rather than by the beat.
@@ -633,6 +654,20 @@ private:
 	 */
 	void ApplyStreetNightLevel(bool bNight);
 
+	/**
+	 * 카메라가 있는 층에서 보일 수 없는 공간의 광원을 끈다. 4층의 창은 모두
+	 * 불투명한 원경이라 바깥 빛이 들어오지 않고, 계단의 층 압축은 모퉁이 뒤라
+	 * 로비가 보이지 않는다. 세기(연출)는 건드리지 않고 표시 여부만 바꾼다.
+	 */
+	void UpdateLightZones();
+	UFUNCTION()
+	void HandleStairTransitionForLights(bool bGoingDown);
+
+	EIGLightZone BuildingLightZone = EIGLightZone::Always;
+	TArray<TWeakObjectPtr<class ULightComponent>> ZoneLights[static_cast<int32>(EIGLightZone::Count)];
+	int32 ActiveLightBand = -1;
+	FTimerHandle LightZoneTimer;
+
 	UPROPERTY(Transient) TObjectPtr<UPointLightComponent> DegradedCorridorLight;
 	UPROPERTY(Transient) TObjectPtr<class AIGStoreClerk> StoreClerk;
 	UPROPERTY(Transient) TObjectPtr<UAudioComponent> JingleComponent;
@@ -653,6 +688,10 @@ private:
 	/** Night 4: the three practical lights on the upper stair/roof/annex circuit. */
 	UPROPERTY(Transient)
 	TArray<TObjectPtr<UPointLightComponent>> MissingFloorAnnexLights;
+	/** 4일 차 밤의 별관 차단기. 층별 조명 구역이 이 값을 거스르지 않는다. */
+	bool bMissingFloorAnnexPowered = true;
+	/** SetRemoteViewActive로 켜 둔 화면 수. 0보다 크면 조명 구역은 모든 층을 켠다. */
+	int32 RemoteViewCount = 0;
 
 	/** §11 V2: the fifth-floor dust that holds footprints and drag marks. */
 	UPROPERTY(Transient)

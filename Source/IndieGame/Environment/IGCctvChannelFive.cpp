@@ -305,6 +305,9 @@ bool AIGCctvChannelFive::Play()
 	}
 	Capture->SetupAttachment(GetRootComponent());
 	Capture->RegisterComponent();
+	// 관리실은 1층이라 층별 조명 구역이 5층 등을 꺼 두었다. 화면이 사는 동안 켠다.
+	SceneActor->SetRemoteViewActive(true);
+	bHoldsRemoteView = true;
 	Capture->SetAbsolute(true, true, true);
 	Capture->SetWorldLocationAndRotation(
 		SceneActor->GetMissingFloorCctvCameraLocation(),
@@ -430,6 +433,14 @@ void AIGCctvChannelFive::EnterState(const EIGCctvChannelState NextState)
 
 void AIGCctvChannelFive::ReleaseChannel()
 {
+	if (bHoldsRemoteView)
+	{
+		bHoldsRemoteView = false;
+		if (AIGPrologueWorldScene* SceneActor = Scene.Get())
+		{
+			SceneActor->SetRemoteViewActive(false);
+		}
+	}
 	if (Capture)
 	{
 		Capture->TextureTarget = nullptr;

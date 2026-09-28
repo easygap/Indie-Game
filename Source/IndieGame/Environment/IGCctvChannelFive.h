@@ -122,6 +122,8 @@ private:
 
 	UPROPERTY(Transient)
 	TWeakObjectPtr<AIGPrologueWorldScene> Scene;
+	/** 씬의 층별 조명 구역을 풀어 둔 상태인지. ReleaseChannel이 한 번만 되돌린다. */
+	bool bHoldsRemoteView = false;
 
 	/** The channel-5 face, sitting a few millimetres in front of the split. */
 	UPROPERTY(Transient)
