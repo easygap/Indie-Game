@@ -675,6 +675,15 @@ private:
 	UFUNCTION()
 	void HandleStairTransitionForLights(bool bGoingDown);
 
+	/**
+	 * 창밖과 옥상 둘레의 동네가 몇 집이나 깨어 있는지(0~1). 입주한 저녁에는 거의
+	 * 다 켜져 있고, 04:30에는 몇 집만 남았다가 새벽 출근하는 집부터 하나둘 켜진다.
+	 * 원경 재질이 커스텀 프리미티브 데이터 0번으로 받아 창마다 켜고 끈다.
+	 */
+	void UpdateNeighborhoodAwake();
+	UPROPERTY(Transient) TArray<TObjectPtr<UPrimitiveComponent>> NightViewSurfaces;
+	FTimerHandle NeighborhoodAwakeTimer;
+	double HourSealedAtSeconds = -1.0;
 	EIGLightZone BuildingLightZone = EIGLightZone::Always;
 	TArray<TWeakObjectPtr<class ULightComponent>> ZoneLights[static_cast<int32>(EIGLightZone::Count)];
 	int32 ActiveLightBand = -1;

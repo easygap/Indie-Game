@@ -1,0 +1,57 @@
+# 이미지 생성 기록 — 2026-09-28
+
+옥상 사방의 밤 원경으로 GPT Image(ChatGPT 구독 경로)에서 네 장을 뽑았다.
+하늘은 투명으로 받아 게임의 하늘과 달이 그림 위로 그대로 보이게 했다. 사람,
+차, 읽을 수 있는 글자, 실존 상호는 넣지 않았다. 원본은 `Content/SourceArt/AI/`에
+그대로 두고, `Scripts/build_night_view_masks.py`가 네 장을 한 띠로 묶어
+`Content/SourceArt/NightView/`에 색 띠와 불빛 마스크를 만든다.
+
+| 원본 | 방위 | 담은 것 |
+|---|---|---|
+| `SkylineNorth_20260928.png` | 북(+Y) | 산비탈을 따라 올라가는 붉은 벽돌 빌라촌, 교회 십자가 하나, 꼭대기의 낮은 산 능선 |
+| `SkylineEast_20260928.png` | 동(+X) | 빌라 옥상 너머 1 km쯤의 아파트 단지. 해 뜨는 쪽이다 |
+| `SkylineSouth_20260928.png` | 남(-Y) | 4차로 큰길과 상가 건물, 불 켜진 편의점 하나와 버스 정류장 |
+| `SkylineWest_20260928.png` | 서(-X) | 초록 방수 도장 옥상들, 붉은 네온 십자가를 단 작은 교회, 긴 산 능선 |
+
+## 게임에 들어간 방식
+
+- 네 장은 1536×1024로 맞춰 북·동·남·서 순서로 세로로 쌓는다(`NightSkyline_D.png`).
+  생성기가 하늘 가장자리에 남긴 반투명 안개는 걷고, 투명한 곳의 색은 가장자리
+  색으로 채워 밉맵에서 검은 테두리가 번지지 않게 한다.
+- 불빛 마스크(`NightSkyline_M.png`)는 R에 불빛 세기, G에 창마다 다른 문턱값,
+  B에 종류(보통 창·늘 켜진 불·TV)를 담는다. 가로등, 붉은 십자가, 항공 장애등,
+  편의점과 정류장 줄은 늘 켜진 불로 따로 뺀다.
+- `M_NightSkyline`은 판의 UV가 아니라 시선 방향으로 그림을 찾는다. 방위각 90도마다
+  한 장이고 이음매 좌우 4도는 두 장을 섞는다. 그림은 무한히 먼 곳에 붙은 셈이라
+  옥상을 걸어도 따라 밀리지 않는다.
+- 창은 동네가 깨어 있는 정도만큼 켜진다. 입주한 저녁에는 대부분, 04:30에는 몇
+  집만 켜져 있다가 15분에 걸쳐 새벽 출근하는 집부터 하나둘 켜진다.
+- 하늘이 빈 곳에는 `M_NightSkyGlow`가 지평선의 도시 불빛과 동쪽 끝의 새벽 기운을
+  더한다. 그래야 건물 윤곽이 하늘을 등지고 검게 읽힌다.
+
+## 프롬프트
+
+넷 다 `background: transparent`로 뽑았다.
+
+### 북쪽 — 산비탈 빌라촌
+
+> Photorealistic night photograph, wide 3:2 landscape, taken at 4:30 a.m. in late July from the flat rooftop of a five-storey red-brick villa in an old Seoul hillside neighborhood, camera held level so the horizon sits exactly at the vertical middle of the frame, looking toward a hillside densely covered with four-storey red-brick multi-family villas stepping up the slope along narrow lanes, rooftops crowded with blue plastic water tanks, satellite dishes, clothes-drying racks and styrofoam planter boxes, about half of the windows lit in warm tungsten yellow and a few in cold fluorescent white, sparse amber streetlights along the lanes, one small red neon church cross on a rooftop, the dark ridge of a low mountain at the top of the hill, realistic low-light exposure with deep shadows and slight sensor grain, no people, no vehicles, no text, no readable signs, no logos, the entire sky above the skyline fully transparent with a clean hard silhouette edge, no sky, no stars, no moon, no clouds, no glow halo above the rooftops
+
+### 동쪽 — 아파트 단지
+
+> Photorealistic night photograph, wide 3:2 landscape, taken at 4:30 a.m. in late July from the rooftop of a five-storey villa in an old Seoul residential district, camera held level so the horizon sits exactly at the vertical middle of the frame, a foreground band of low red-brick villa rooftops with blue water tanks and TV antennas, and behind them about one kilometre away a row of fifteen- to twenty-five-storey apartment complex towers in pale concrete, the towers mostly dark with many scattered lit windows, vertical columns of dim stairwell lights at the tower ends, small red aviation warning lights on the tower roofs, a few amber streetlights between the buildings, realistic low-light exposure with deep shadows and slight sensor grain, no people, no text, no readable numbers or signs on the towers, no logos, the entire sky above the skyline fully transparent with a clean hard silhouette edge, no sky gradient, no stars, no clouds, no glow halo above the buildings
+
+### 남쪽 — 큰길
+
+> Photorealistic night photograph, wide 3:2 landscape, taken at 4:30 a.m. in late July from the rooftop of a five-storey villa in an old Seoul neighborhood, camera held level so the horizon sits exactly at the vertical middle of the frame, looking across a foreground of low tiled and flat rooftops toward a four-lane main road lined with three- and four-storey commercial buildings, the road lit by tall LED streetlights with a cool white cast and a few older orange sodium lamps, shop fronts shuttered and dark except one small convenience store glow and a lit bus stop shelter, upper-floor windows of the buildings with scattered lights on, tangled power lines crossing the frame, realistic low-light exposure with deep shadows and slight sensor grain, no people, no vehicles, no text, no readable signs, no logos, the entire sky above the skyline fully transparent with a clean hard silhouette edge, no sky, no stars, no clouds, no glow halo above the rooftops
+
+### 서쪽 — 교회와 능선
+
+> Photorealistic night photograph, wide 3:2 landscape, taken at 4:30 a.m. in late July from the rooftop of a five-storey villa in an old Seoul hillside neighborhood, camera held level so the horizon sits exactly at the vertical middle of the frame, looking across a dense jumble of red-brick villa rooftops painted with green urethane waterproof coating, rooftop vegetable planters, clothes lines and blue water tanks, toward a small brick church with a red neon cross on its steeple, and a long dark mountain ridge along the horizon with a few distant lights on its slope, about half of the windows lit in warm tungsten yellow, realistic low-light exposure with deep shadows and slight sensor grain, no people, no text, no readable signs, no logos, the entire sky above the skyline fully transparent with a clean hard silhouette edge, no sky, no stars, no moon, no clouds, no glow halo above the rooftops
+
+## 나온 그림과 다른 점
+
+프롬프트는 04:30 새벽을 적었지만 네 장 모두 해 질 녘처럼 창이 많이 켜지고 벽이
+밝게 나왔다. 그래서 그림을 어둡게 눌러 쓰고, 창은 마스크로 걷어 냈다가 시간에
+맞게 다시 켠다. 수평선도 장마다 한가운데에서 조금씩 벗어나 있어서, 재질은 네 장을
+눈으로 맞춰 본 그림 높이 0.46 줄을 옥상 눈높이의 수평선으로 잡는다.

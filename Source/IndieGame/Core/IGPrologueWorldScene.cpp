@@ -1028,7 +1028,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_MissingFloorSteelStair"), TEXT("M_RooftopWaterproofing_XY"),
 		TEXT("M_MissingFloorGypsumDebris_XY"),
 		TEXT("M_WaterTankMetalUV"), TEXT("M_UtilityTankSteel"), TEXT("M_UtilityFoundation"), TEXT("M_UtilityGraniteCladding"), TEXT("M_UtilityConcreteDark"), TEXT("M_UtilityVillaBrick"), TEXT("M_UtilityStreetBrick"), TEXT("M_CctvStandby"), TEXT("M_UtilityMeterCounter"), TEXT("M_UtilityMeterLabel"), TEXT("M_TankWaterReveal"),
-		TEXT("M_ApartmentNightGlass"), TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
+		TEXT("M_ApartmentNightGlass"), TEXT("M_NightSkyline"), TEXT("M_NightSkyGlow"), TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
 		TEXT("M_SpriteHwang"), TEXT("M_SpriteNarin"),
 		// Aged paper stock for readable notes, and the rental notice.
 		TEXT("M_PaperClean"), TEXT("M_PaperWet"), TEXT("M_PaperFolded"),
@@ -1637,6 +1637,9 @@ void AIGPrologueWorldScene::InitializePrologue()
 	UpdateLightZones();
 	GetWorldTimerManager().SetTimer(
 		LightZoneTimer, this, &ThisClass::UpdateLightZones, 0.1f, true);
+	UpdateNeighborhoodAwake();
+	GetWorldTimerManager().SetTimer(
+		NeighborhoodAwakeTimer, this, &ThisClass::UpdateNeighborhoodAwake, 4.0f, true);
 
 	RefreshPurchaseProfilePresentation();
 	CreateAmbience();
@@ -2544,10 +2547,10 @@ void AIGPrologueWorldScene::BuildCorridor()
 			// stay sealed now that the opening is a real hole in the wall.
 			// 창밖은 침실 창과 같은 건너편 빌라의 밤 풍경이다. 까만 판을 두면
 			// 복도 창이 벽에 붙인 남색 스티커처럼 읽혔다.
-			CreateBlock(
+			NightViewSurfaces.Add(CreateBlock(
 				FVector(WindowX, -390, 150),
 				FVector(90, 3, 74),
-				TexMat(TEXT("M_ApartmentNightGlass"), WindowDarkMaterial));
+				TexMat(TEXT("M_ApartmentNightGlass"), WindowDarkMaterial)));
 			// Aluminium trim ring on the corridor face of the reveal.
 			CreateBlock(FVector(WindowX, -377.5f, 184), FVector(88, 6, 5), PlasticDarkMaterial, false);
 			CreateBlock(FVector(WindowX, -377.5f, 116), FVector(88, 6, 5), PlasticDarkMaterial, false);
@@ -3210,6 +3213,8 @@ void AIGPrologueWorldScene::ApplyNightAtmosphere(const bool bSealed)
 		HeightFog->SetVolumetricFogExtinctionScale(bSealed ? 1.8f : 1.0f);
 	}
 	SetUnit401GapLit(bSealed);
+	HourSealedAtSeconds = bSealed && GetWorld() ? GetWorld()->GetTimeSeconds() : -1.0;
+	UpdateNeighborhoodAwake();
 	if (PostProcess)
 	{
 		// 카메라 룩. 밤은 어둠을 들어 올리지 않고, 가장자리가 흐려지고 색이 빠진다.
@@ -5783,15 +5788,82 @@ void AIGPrologueWorldScene::BuildSkyAndFog()
 void AIGPrologueWorldScene::BuildDistantSkyline()
 {
 	// 옥상에 올라가면 사방이 새까만 허공이었다. 서울 빌라촌의 새벽 네 시 반은
-	// 건너편 붉은 벽돌 빌라와 그 너머 아파트 몇 채에 불이 남아 있는 풍경이다.
-	// 침실 창과 복도 창이 쓰는 같은 밤 풍경을 30미터 밖에 얇은 판으로 둘러
-	// 세운다. 두께 2 cm라 그림자와 거리장에 들어가지 않고, 안개가 멀리 있는
-	// 만큼 흐리게 덮는다. 바닥은 땅에 닿아 떠 있지 않다.
-	UMaterialInterface* Vista = TexMat(TEXT("M_ApartmentNightGlass"), WindowDarkMaterial);
-	CreateBlock(FVector(200, 3400, 1300), FVector(4600, 2, 2600), Vista, false);
-	CreateBlock(FVector(-3200, 600, 1300), FVector(2, 4200, 2600), Vista, false);
-	CreateBlock(FVector(4400, 800, 1200), FVector(2, 4600, 2400), Vista, false);
-	CreateBlock(FVector(1100, -3800, 1400), FVector(5600, 2, 2800), Vista, false);
+	// 동쪽 아파트 단지, 북쪽 산비탈 빌라촌, 남쪽 큰길, 서쪽 교회와 능선이 몇 집만
+	// 불을 켠 채 둘러선 풍경이다. 방향마다 그림 한 장씩이고, 하늘은 비워 두어 게임의
+	// 하늘과 달이 그대로 보인다. 그림 속 창은 동네가 깨어 있는 만큼만 켜진다
+	// (UpdateNeighborhoodAwake).
+	//
+	// 판 네 장을 34 m 앞에 따로 세웠을 때는 모서리마다 하늘이 뚫렸고, 옥상을 걸으면
+	// 무대 배경처럼 같이 밀렸다. 이제 판은 지도를 닫는 상자일 뿐이고 그림은 재질이
+	// 시선 방향으로 찾는다. 원경은 무한히 먼 곳에 붙어 움직이지 않고, 가까운 난간과
+	// 이웃 건물만 그 앞을 지나간다. 두께 2 cm라 그림자와 거리장에 들어가지 않는다.
+	// 상자는 편의점(X 3120)보다 바깥에 두르고, 땅 밑까지 내려 어느 높이에서
+	// 내려다봐도 틈이 없다.
+	UMaterialInterface* Skyline = TexMat(TEXT("M_NightSkyline"), WindowDarkMaterial);
+	UMaterialInterface* Glow = TexMat(TEXT("M_NightSkyGlow"), nullptr);
+	// 좌표와 재질을 호출마다 적어야 정적 배치 감사가 자리와 재질을 읽는다.
+	auto NightWall = [this](const FVector& Center, const FVector& Size, UMaterialInterface* Material)
+	{
+		UStaticMeshComponent* Wall = CreateBlock(Center, Size, Material, false);
+		NightViewSurfaces.Add(Wall);
+		return Wall;
+	};
+	// 상자는 X -3200..4400, Y -3800..3400, Z -4000..3200이다.
+	NightWall(FVector(600.0f, 3400.0f, -400.0f), FVector(7600.0f, 2.0f, 7200.0f), Skyline);
+	NightWall(FVector(600.0f, -3800.0f, -400.0f), FVector(7600.0f, 2.0f, 7200.0f), Skyline);
+	NightWall(FVector(4400.0f, -200.0f, -400.0f), FVector(2.0f, 7200.0f, 7200.0f), Skyline);
+	NightWall(FVector(-3200.0f, -200.0f, -400.0f), FVector(2.0f, 7200.0f, 7200.0f), Skyline);
+
+	// 지평선의 도시 불빛과 동쪽 끝의 새벽 기운은 4 m 바깥 상자에 더해서 그린다.
+	// 원경 그림의 건물이 앞을 가린 곳은 깊이에 막혀 들어가지 않으니 하늘 빈 곳만
+	// 밝아지고, 건물은 그 앞에서 검은 윤곽으로 남는다. 세기 0.2는 옥상 동쪽 측정
+	// 지점(rooftop_skyline)에서 윤곽이 읽히는 가장 낮은 값이다. 재질이 없으면 회색
+	// 기본 재질 상자가 하늘을 덮으므로 아예 세우지 않는다.
+	if (!Glow)
+	{
+		return;
+	}
+	constexpr float GlowStrength = 0.2f;
+	NightWall(FVector(600.0f, 3800.0f, 1650.0f), FVector(8400.0f, 2.0f, 6300.0f), Glow)
+		->SetCustomPrimitiveDataFloat(1, GlowStrength);
+	NightWall(FVector(600.0f, -4200.0f, 1650.0f), FVector(8400.0f, 2.0f, 6300.0f), Glow)
+		->SetCustomPrimitiveDataFloat(1, GlowStrength);
+	NightWall(FVector(4800.0f, -200.0f, 1650.0f), FVector(2.0f, 8000.0f, 6300.0f), Glow)
+		->SetCustomPrimitiveDataFloat(1, GlowStrength);
+	NightWall(FVector(-3600.0f, -200.0f, 1650.0f), FVector(2.0f, 8000.0f, 6300.0f), Glow)
+		->SetCustomPrimitiveDataFloat(1, GlowStrength);
+}
+
+void AIGPrologueWorldScene::UpdateNeighborhoodAwake()
+{
+	if (!GetWorld())
+	{
+		return;
+	}
+	float Awake = 0.45f;
+	if (bTheHourSealed)
+	{
+		// 04:30. 거의 다 자고 있다. 15분에 걸쳐 새벽 출근하는 집부터 하나둘 켜진다.
+		const double Elapsed = HourSealedAtSeconds >= 0.0
+			? GetWorld()->GetTimeSeconds() - HourSealedAtSeconds
+			: 0.0;
+		Awake = 0.10f + 0.22f * static_cast<float>(FMath::Clamp(Elapsed / 900.0, 0.0, 1.0));
+	}
+	else
+	{
+		// 입주한 저녁은 거의 다 켜져 있다. 밤을 넘긴 뒤의 낮은 일어난 집이 반쯤이다.
+		const UIGMissingFloorNarrativeSubsystem* Narrative = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+			: nullptr;
+		Awake = (!Narrative || Narrative->GetNightIndex() <= 0) ? 0.82f : 0.45f;
+	}
+	for (UPrimitiveComponent* Surface : NightViewSurfaces)
+	{
+		if (Surface)
+		{
+			Surface->SetCustomPrimitiveDataFloat(0, Awake);
+		}
+	}
 }
 
 void AIGPrologueWorldScene::SpawnStairTransition()
@@ -6013,6 +6085,10 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		FTransform(FRotator::ZeroRotator, FVector(-130, 209.4f, 1050)), SpawnParameters))
 	{
 		Window->ConfigurePrototypeVisuals(CubeMesh, TexMat(TEXT("M_ApartmentNightGlass"), WindowGlowMaterial), FVector(0.534f, 0.0025f, 0.764f));
+		if (UStaticMeshComponent* Glass = Window->FindComponentByClass<UStaticMeshComponent>())
+		{
+			NightViewSurfaces.Add(Glass);
+		}
 		Window->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WindowPrompt", "창문"));
 		Window->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편 불빛이 방까지 들어오네.");
 	}
@@ -6021,6 +6097,10 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		FTransform(FRotator::ZeroRotator, FVector(-70, 213.3f, 1050)), SpawnParameters))
 	{
 		WindowRight->ConfigurePrototypeVisuals(CubeMesh, TexMat(TEXT("M_ApartmentNightGlass"), WindowGlowMaterial), FVector(0.534f, 0.0025f, 0.764f));
+		if (UStaticMeshComponent* Glass = WindowRight->FindComponentByClass<UStaticMeshComponent>())
+		{
+			NightViewSurfaces.Add(Glass);
+		}
 		WindowRight->SetInteractionPrompt(NSLOCTEXT("IGPrologue", "WindowPrompt", "창문"));
 		WindowRight->ThoughtText = NSLOCTEXT("IGPrologue", "WindowThought", "건너편 불빛이 방까지 들어오네.");
 	}

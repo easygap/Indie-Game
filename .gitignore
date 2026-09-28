@@ -74,3 +74,6 @@ Content/SourceArt/Atlas/*.png
 # Blender 자동 백업
 *.blend1
 *.blend2
+
+# gpt-image 스킬 작업 폴더. 채택한 원본은 Content/SourceArt/AI/로 옮기고 프롬프트는 옆 JSON에 남긴다
+generated-images/

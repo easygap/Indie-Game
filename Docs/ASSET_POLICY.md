@@ -607,3 +607,28 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
   원본만 담당한다. N/R/A와 월드 매핑은 재현 가능한 로컬 스크립트가 만들며,
   UE의 실제 광원과 Lumen이 최종 명암을 계산한다.
 - 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-08-18.md`
+
+## 2026-09-28 옥상 밤 원경
+
+- 도구/모드: gpt-image 스킬(Codex 내장 image_gen, ChatGPT 구독 인증), 배경 투명
+- 보존 원본과 SHA-256:
+  - `Content/SourceArt/AI/SkylineNorth_20260928.png`
+    `D38CB1F2756CBD7DAFFF73428D5FAE50B44C5D6C2EF3622A02E650093FA17941`
+  - `Content/SourceArt/AI/SkylineEast_20260928.png`
+    `869320E7CA90DED6E080C119D8985202B53A104665D9BCE8146ED4CDDDC0FF30`
+  - `Content/SourceArt/AI/SkylineSouth_20260928.png`
+    `2E5649EE54FDAA7C7DFAEB56FBE2C560B251EEEC65FC7E5C075B5CBCE546C44F`
+  - `Content/SourceArt/AI/SkylineWest_20260928.png`
+    `895E62F1809A7E6D805CC7613D9882903B42B5ACA2C15EB65ED0C36D311BA511`
+- 파생: `Content/SourceArt/NightView/NightSkyline_D.png`(네 장을 북·동·남·서 순서로
+  쌓은 1536×4096 RGBA 띠)와 `NightSkyline_M.png`(불빛 세기·창 문턱·종류 마스크).
+  `Scripts/build_night_view_masks.py`가 만든다. 같은 스크립트가 2026-09-16 창밖 사진의
+  마스크 `ApartmentNightVista_M.png`도 만든다
+- 런타임: `/Game/Prototype/Textures/T_NightSkyline_{D,M}`, `T_ApartmentNightVista_M`,
+  `/Game/Prototype/Materials/M_NightSkyline`, `M_NightSkyGlow`. 원경 텍스처는 재질이
+  시선으로 좌표를 계산하므로 스트리밍하지 않는다
+- 권리/참조: 참고 사진 없이 문장만으로 만든 가상의 동네다. 사람·차·읽을 수 있는
+  글자·실존 상호가 없다
+- 적용 경계: 옥상에서 보이는 접근할 수 없는 원경만 담당한다. 가까운 난간·물탱크·
+  이웃 빌라는 3D 지오메트리이고, 창이 켜지고 꺼지는 시간은 게임이 정한다
+- 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-09-28.md`, 원본마다 같은 이름의 JSON
