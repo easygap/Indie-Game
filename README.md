@@ -2,7 +2,7 @@
 
 # 없는 층
 
-https://github.com/user-attachments/assets/0cfa1fe4-cf02-4c95-816c-2cf1d4f99a94
+https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
 
 낡은 빌라에서 사라진 오빠의 흔적을 찾는 1인칭 공포 게임입니다.
 이웃과 이야기를 나누고, 방과 복도를 둘러보며 단서를 모읍니다.
