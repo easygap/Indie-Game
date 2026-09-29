@@ -705,7 +705,18 @@ FText AIGNightPhaseDirector::GetObjectiveText() const
 	{
 		return FText::GetEmpty();
 	}
-	return NSLOCTEXT("IGMissingFloor", "DayObjective", "낮: 물어볼 사람 찾기");
+	// 낮의 도움은 황순금이다(§20.3). 사흘 내내 「물어볼 사람 찾기」만 떠서 어디로
+	// 가라는 건지 알 수 없었다. 401호를 가리키고, 무엇을 물을지는 그녀가 말한다.
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	switch (Narrative ? Narrative->GetNightIndex() : 0)
+	{
+	case 2:
+		return NSLOCTEXT("IGMissingFloor", "DayObjectiveTwo", "401호 할머니께 다시 여쭤보기");
+	case 3:
+		return NSLOCTEXT("IGMissingFloor", "DayObjectiveThree", "401호 할머니께 간밤 일 알리기");
+	default:
+		return NSLOCTEXT("IGMissingFloor", "DayObjectiveOne", "401호 할머니 찾아가기");
+	}
 }
 
 float AIGNightPhaseDirector::GetObjectiveProgress() const

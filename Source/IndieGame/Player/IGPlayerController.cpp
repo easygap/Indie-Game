@@ -3258,6 +3258,21 @@ void AIGPlayerController::CancelAudioCalibration()
 	AudioCalibrationMusicStep = PreviousAudioCalibrationMusicStep;
 	AudioCalibrationAmbienceStep = PreviousAudioCalibrationAmbienceStep;
 	ApplyAudioCalibrationValues();
+	// 첫 실행에서 Esc로 나간 것은 건너뛰겠다는 선택이다. 기록해 두지 않으면
+	// 켤 때마다 보정 화면이 다시 떴다. 보정은 설정에서 언제든 다시 연다.
+	if (bAudioCalibrationFirstRun && !bAudioCalibrationCompleted)
+	{
+		bAudioCalibrationCompleted = true;
+		if (GConfig)
+		{
+			GConfig->SetBool(
+				IGAudioCalibration::ConfigSection,
+				TEXT("CalibrationCompleted"),
+				true,
+				GGameUserSettingsIni);
+			GConfig->Flush(false, GGameUserSettingsIni);
+		}
+	}
 	bAudioCalibrationSessionActive = false;
 	bAudioCalibrationFirstRun = false;
 	NextAudioCalibrationKnockTime = -1.0;

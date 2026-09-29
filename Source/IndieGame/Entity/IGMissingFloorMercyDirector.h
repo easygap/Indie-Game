@@ -105,6 +105,8 @@ public:
 	FVector GetNoteLocation() const;
 	/** 문 아래 메모가 지금 바닥에 보이는가. 다른 언어에서 그 글을 읽어 줄 때 본다. */
 	bool IsNoteVisible() const;
+	/** 배관이 우는 자리. 그 밤에 가야 할 층의 배관이다. */
+	FVector ResolvePipeCryLocation() const;
 
 	/** Harness hook: runs one net immediately without waiting out the clock. */
 	bool ForceWorldResponseForTesting();

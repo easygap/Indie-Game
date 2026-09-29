@@ -4,7 +4,9 @@ param(
 	[string]$ArchiveDirectory,
 	[string]$EvidenceDirectory,
 	[ValidateRange(20, 180)]
-	[int]$TimeoutSeconds = 120
+	[int]$TimeoutSeconds = 120,
+	# 표시 언어 같은 추가 인자. 예: -ExtraArguments '-IGCulture=ja'
+	[string[]]$ExtraArguments = @()
 )
 
 Set-StrictMode -Version Latest
@@ -150,7 +152,7 @@ function Invoke-FrontendCase {
 		"-IGFrontendDefaultScreenshotPath=$defaultScreenshotPath",
 		"-IGFrontendScreenshotPath=$screenshotPath",
 		"-UserDir=$userDirectory"
-	)
+	) + $ExtraArguments
 	$processArguments = @(
 		$arguments | ForEach-Object { ConvertTo-ProcessArgument -Value $_ }
 	)

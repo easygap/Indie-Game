@@ -13,7 +13,9 @@
 #include "Core/IGPrologueWorldScene.h"
 #include "Entity/IGMissingFloorNightThreeDirector.h"
 #include "Kismet/GameplayStatics.h"
+#include "GameplayTagContainer.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
+#include "Narrative/IGStoryHelpers.h"
 #include "TimerManager.h"
 
 namespace IGMercy
@@ -45,6 +47,16 @@ namespace IGMercy
 	constexpr float PipeCryAlternatePitch = 0.93f;
 	/** The shared riser, above the fifth-floor bays. */
 	const FVector RiserLocation = AIGPrologueWorldScene::GetSharedRiserLocation();
+	/**
+	 * 배관이 우는 자리. 예전에는 밤과 상관없이 5층 수직관에서만 울어서, 첫째와
+	 * 둘째 밤에는 올라갈 수도 없는 층을 가리켰다. 밤마다 지금 가야 할 층의
+	 * 배관에서 운다. 좌표는 각 퍼즐 감독이 쓰는 자리와 같다.
+	 */
+	const FVector LobbyMeterPipeLocation(401.0f, -361.0f, 180.0f);
+	const FVector BoothPipeLocation(75.0f, -184.0f, 52.0f);
+	const FVector RoofDrainPipeLocation(-62.0f, 166.0f, 1340.0f);
+	const FVector RoofBypassPipeLocation(72.0f, 166.0f, 1340.0f);
+	const FVector BoothPumpPipeLocation(64.0f, -170.0f, 112.0f);
 
 	/**
 	 * 401's door leaf spans about 92 cm around X = -150. The five-capture note
@@ -480,7 +492,7 @@ bool AIGMissingFloorMercyDirector::TryPipeCry()
 		UIGToneSequenceSoundWave::CreatePipeWaterFlow(
 			this,
 			IGMercy::PipeCryDistanceStep),
-		IGMercy::RiserLocation,
+		ResolvePipeCryLocation(),
 		IGMercy::PipeCryVolume,
 		(PipeCryCount++ % 2 == 0) ? 1.0f : IGMercy::PipeCryAlternatePitch,
 		IGMercy::PipeCryInnerRadius,
@@ -498,6 +510,46 @@ bool AIGMissingFloorMercyDirector::TryPipeCry()
 		IGMercy::PipeCrySeconds,
 		false);
 	return true;
+}
+
+FVector AIGMissingFloorMercyDirector::ResolvePipeCryLocation() const
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative)
+	{
+		return IGMercy::RiserLocation;
+	}
+	switch (Narrative->GetNightIndex())
+	{
+	case 1:
+		return IGMercy::LobbyMeterPipeLocation;
+	case 2:
+		return IGMercy::BoothPipeLocation;
+	case 3:
+	{
+		// 열쇠가 없으면 옥상에도 못 오른다. 열쇠가 놓인 관리실이 먼저다.
+		const bool bHasKey = IGStory::HasState(
+			this,
+			FGameplayTag::RequestGameplayTag(FName(TEXT("State.MissingFloor.HasStairKey")), false));
+		return bHasKey ? IGMercy::RiserLocation : IGMercy::BoothPipeLocation;
+	}
+	case 4:
+		if (Narrative->IsPuzzleSolved(FName(TEXT("P5"))))
+		{
+			return IGMercy::RiserLocation;
+		}
+		if (!Narrative->HasNightFourControl(FName(TEXT("P5.RoofCleaningDrain"))))
+		{
+			return IGMercy::RoofDrainPipeLocation;
+		}
+		if (!Narrative->HasNightFourControl(FName(TEXT("P5.RoofFloatBypass"))))
+		{
+			return IGMercy::RoofBypassPipeLocation;
+		}
+		return IGMercy::BoothPumpPipeLocation;
+	default:
+		return IGMercy::RiserLocation;
+	}
 }
 
 bool AIGMissingFloorMercyDirector::ForceWorldResponseForTesting()

@@ -196,8 +196,8 @@ namespace
 		{
 			return Make(TEXT("Hint.Night4.Wall"), {
 				NSLOCTEXT("IGHint", "NightFourWall1", "물소리가 나는 동안 벽을 쳐야 해."),
-				NSLOCTEXT("IGHint", "NightFourWall2", "튜닝 해머를 들고 5층 벽 앞으로 가자."),
-				NSLOCTEXT("IGHint", "NightFourWall3", "물이 도는 동안 5층 가운데 벽을 해머로 뚫릴 때까지 치자.") });
+				NSLOCTEXT("IGHint", "NightFourWall2", "낮에 사 온 망치가 있잖아. 5층 벽 앞으로 가자."),
+				NSLOCTEXT("IGHint", "NightFourWall3", "물이 도는 동안 5층 가운데 벽을 망치로 뚫릴 때까지 치자.") });
 		}
 		if (!Beat(N, TEXT("Night4.ChoiceOffered")))
 		{
