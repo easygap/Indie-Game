@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
 
 Windows PC · 1人用 · 対応言語：日本語、韓国語、英語、中国語 · 開発中
 
-[Windows版をダウンロード](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [操作方法](#操作方法)
+[Windows版をダウンロード](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip) · [操作方法](#操作方法)
 
 ![古いアパートを背景に、メニューが並ぶタイトル画面。](../Media/readme/title-menu-first-run-1080-ja.webp)
 
@@ -79,7 +79,7 @@ Windows PC · 1人用 · 対応言語：日本語、韓国語、英語、中国�
 
 現在ダウンロードできるのは **2026年9月29日のテスト版**です。最初はWindowsの表示言語で起動し、**設定 > 一般 > 言語 · Language** で日本語、韓国語、英語、中国語を切り替えられます。
 
-1. [Windows版のZIPファイル（739MB）](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)をダウンロードします。
+1. [Windows版のZIPファイル（739MB）](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip)をダウンロードします。
 2. すべてのファイルを展開し、`IndieGame.exe` を起動します。
 3. **ゲームを始める** を選んでください。続きから遊ぶ場合は **つづきから** を選びます。
 

@@ -1,0 +1,167 @@
+{
+  "date": "2026-09-29",
+  "releaseTag": "v1.0.0-test.20260929.2",
+  "commit": "d03b0f9929aa94efe6c30027e6e103c09b890835",
+  "builtFromCleanTree": true,
+  "environment": {
+    "os": "Windows 11 Home 10.0.26200",
+    "cpu": "Ryzen 9 7900X",
+    "gpu": "RTX 3060",
+    "memoryGB": 32,
+    "engine": "Unreal Engine 5.8",
+    "shell": "Windows PowerShell 5.1"
+  },
+  "package": {
+    "file": "MissingFloor-Windows-20260929-2.zip",
+    "bytes": 738843778,
+    "sha256": "85eb7ec589ec92b1b21c89a51e9f8f8faec8a69a0e0d5504e94a8b670dadf1c8",
+    "gameFiles": 89,
+    "verifiedZipContents": true
+  },
+  "shippingExecutableSha256": "9292f53dc4973bc7121978287f18aaf1e9c1e5b84cea0c2efb66bfd38c9af327",
+  "launcherSha256": "038dbc084d526447a828885270d737946e993ca96d27118efa4898396bdda292",
+  "archiveUnchangedDuringTests": true,
+  "runtimeSourceFilesMatchBuildCopy": 157,
+  "runtimeSourceFileCount": 157,
+  "runtimeSourceTreeSha256": "146a27badcb6b6c22fd20209c0c61c97329a076375dc9ea0e17b3d7c0efff337",
+  "frontend": {
+    "resolutionCount": 4,
+    "inputEventCount": 44,
+    "layoutSampleCount": 44,
+    "dialogueCaseCount": 8,
+    "titleCaseCount": 4
+  },
+  "resolutions": [
+    "1280x720",
+    "1600x900",
+    "1920x1080",
+    "2560x1440"
+  ],
+  "gameCases": [
+    {
+      "name": "Arrival",
+      "passed": true,
+      "seconds": 4.36
+    },
+    {
+      "name": "ArrivalResume",
+      "passed": true,
+      "seconds": 3.97
+    },
+    {
+      "name": "FullGame",
+      "passed": true,
+      "seconds": 65.27
+    },
+    {
+      "name": "Audio",
+      "passed": true,
+      "seconds": 16.28
+    }
+  ],
+  "audio": {
+    "checkCount": 53,
+    "waveform": {
+      "file": "presentation-mix.wav",
+      "seconds": 8.597,
+      "sample_rate": 48000,
+      "channels": 2,
+      "peak_dbfs": -2.308,
+      "rms_dbfs": -26.855,
+      "clipped_samples": 0,
+      "passed": true
+    },
+    "checks": [
+      "AUDIO_PRESENTATION_CHECK real_audio_device_and_drag_playback PASS",
+      "AUDIO_PRESENTATION_CHECK chase_repeats_at_118_bpm_without_extra_gap PASS",
+      "AUDIO_PRESENTATION_CHECK chase_wave_has_signal_and_headroom PASS",
+      "AUDIO_PRESENTATION_CHECK entity_bus_registered_unattenuated PASS",
+      "AUDIO_PRESENTATION_CHECK player_bus_registered PASS",
+      "AUDIO_PRESENTATION_CHECK puzzle_bus_registered PASS",
+      "AUDIO_PRESENTATION_CHECK world_bus_registered PASS",
+      "AUDIO_PRESENTATION_CHECK ui_bus_registered PASS",
+      "AUDIO_PRESENTATION_CHECK score_bus_registered PASS",
+      "AUDIO_PRESENTATION_CHECK wall_blocks_scare_without_spending_cooldown PASS",
+      "AUDIO_PRESENTATION_CHECK looking_away_does_not_scare PASS",
+      "AUDIO_PRESENTATION_CHECK silence_blocks_scare_without_spending_cooldown PASS",
+      "AUDIO_PRESENTATION_CHECK visible_face_triggers_scare PASS",
+      "AUDIO_PRESENTATION_CHECK close_call_cooldown PASS",
+      "AUDIO_PRESENTATION_CHECK beds_and_steps_leave_scripted_cues_alone PASS",
+      "AUDIO_PRESENTATION_CHECK drag_survives_voice_pressure PASS",
+      "AUDIO_PRESENTATION_CHECK entity_breath_survives_voice_pressure PASS",
+      "AUDIO_PRESENTATION_CHECK truth_cues_do_not_stop_chase_music PASS",
+      "AUDIO_PRESENTATION_CHECK first_chase_scream PASS",
+      "AUDIO_PRESENTATION_CHECK repeat_chase_scream_suppressed PASS",
+      "AUDIO_PRESENTATION_CHECK close_call_does_not_stack_on_chase PASS",
+      "AUDIO_PRESENTATION_CHECK chase_release_tail_survives PASS",
+      "AUDIO_PRESENTATION_CHECK chase_release_leaves_one_stab PASS",
+      "AUDIO_PRESENTATION_CHECK chase_stinger_survives_voice_pressure PASS",
+      "AUDIO_PRESENTATION_CHECK chase_resumes_same_component_and_beat PASS",
+      "AUDIO_PRESENTATION_CHECK chase_resume_clears_stab_and_stop PASS",
+      "AUDIO_PRESENTATION_CHECK capture_has_own_presentation_state PASS",
+      "AUDIO_PRESENTATION_CHECK capture_clears_music_and_pressure PASS",
+      "AUDIO_PRESENTATION_CHECK capture_leaves_room_for_contact_breath PASS",
+      "AUDIO_PRESENTATION_CHECK chase_is_gone_during_capture PASS",
+      "AUDIO_PRESENTATION_CHECK gasp_starts PASS",
+      "AUDIO_PRESENTATION_CHECK breath_hold_stops_existing_gasp PASS",
+      "AUDIO_PRESENTATION_CHECK breath_hold_stops_loop PASS",
+      "AUDIO_PRESENTATION_CHECK release_has_one_gasp PASS",
+      "AUDIO_PRESENTATION_CHECK truth_strike_waits_out_authored_silence PASS",
+      "AUDIO_PRESENTATION_CHECK authored_silence_reaches_audio_device PASS",
+      "AUDIO_PRESENTATION_CHECK authored_world_duck_reaches_audio_device PASS",
+      "AUDIO_PRESENTATION_CHECK authored_silence_stops_breath_loop PASS",
+      "AUDIO_PRESENTATION_CHECK authored_silence_blocks_breath_accents PASS",
+      "AUDIO_PRESENTATION_CHECK breath_returns_after_silence PASS",
+      "AUDIO_PRESENTATION_CHECK stale_entity_pressure_expires PASS",
+      "AUDIO_PRESENTATION_CHECK truth_strike_follows_released_silence PASS",
+      "AUDIO_PRESENTATION_CHECK title_has_no_gameplay_pressure PASS",
+      "AUDIO_PRESENTATION_CHECK night_five_holds_title_soundscape PASS",
+      "AUDIO_PRESENTATION_CHECK title_soundscape_returns_after_night_five PASS",
+      "AUDIO_PRESENTATION_CHECK title_has_no_player_breath PASS",
+      "AUDIO_PRESENTATION_CHECK master_mix_recording_written PASS",
+      "AUDIO_PRESENTATION_CHECK music_slider_mutes_real_bus PASS",
+      "AUDIO_PRESENTATION_CHECK music_slider_preserves_entity_cues PASS",
+      "AUDIO_PRESENTATION_CHECK master_slider_reaches_entity_bus PASS",
+      "AUDIO_PRESENTATION_CHECK master_slider_reaches_score_bus PASS",
+      "AUDIO_PRESENTATION_CHECK nearly_silent_pressure_reaches_exact_zero PASS",
+      "AUDIO_PRESENTATION_CHECK nearly_silent_pressure_loop_stops PASS",
+      "AUDIO_PRESENTATION_PROBE PASS failures=0"
+    ]
+  },
+  "readme": {
+    "inlineImageCount": 10,
+    "inlineBytes": 2320285
+  },
+  "languages": [
+    {
+      "culture": "en",
+      "frontendResolutionCount": 4,
+      "frontendLayoutSampleCount": 44,
+      "archiveUnchanged": true
+    },
+    {
+      "culture": "ja",
+      "frontendResolutionCount": 4,
+      "frontendLayoutSampleCount": 44,
+      "archiveUnchanged": true
+    },
+    {
+      "culture": "zh-Hans",
+      "frontendResolutionCount": 4,
+      "frontendLayoutSampleCount": 44,
+      "archiveUnchanged": true
+    },
+    {
+      "culture": "zh-Hant",
+      "frontendResolutionCount": 4,
+      "frontendLayoutSampleCount": 44,
+      "archiveUnchanged": true
+    }
+  ],
+  "remainingChecks": [
+    "원어민이 게임 안에서 끝까지 읽는 번역 검수",
+    "처음 하는 사람의 난이도와 소리 방향 구분",
+    "다른 PC와 입력·음향 장치의 성능",
+    "전체 플레이의 통합 음량과 실제 피크"
+  ]
+}

@@ -10,7 +10,7 @@ https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
 
 Windows PC · 싱글플레이 · 게임 언어: 한국어, 영어, 일본어, 중국어 · 개발 중
 
-[Windows 버전 받기](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [조작법](#조작)
+[Windows 버전 받기](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip) · [조작법](#조작)
 
 ![없는 층 타이틀 화면. 오래된 빌라 앞에 게임 시작 메뉴가 보인다.](Docs/Media/readme/title-menu-first-run-1080.webp)
 
@@ -79,7 +79,7 @@ Windows PC · 싱글플레이 · 게임 언어: 한국어, 영어, 일본어, �
 
 지금 받을 수 있는 건 **2026년 9월 29일 테스트 버전**입니다.
 
-1. [Windows용 ZIP 파일(739MB)](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)을 받으세요.
+1. [Windows용 ZIP 파일(739MB)](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip)을 받으세요.
 2. 압축을 모두 풀고 `IndieGame.exe`를 실행하세요.
 3. **게임 시작**을 누르면 됩니다. 저장된 게임이 있다면 **이어하기**로 계속할 수 있습니다.
 

@@ -9,7 +9,7 @@ At night, an enemy hunts by sound. Even opening a door can give you away.
 
 Windows PC · Single-player · Languages: English, Korean, Japanese, Chinese · In development
 
-[Download for Windows](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [Controls](#controls)
+[Download for Windows](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip) · [Controls](#controls)
 
 ![The Missing Floor title screen, showing an old apartment building and the main menu.](../Media/readme/title-menu-first-run-1080-en.webp)
 
@@ -75,7 +75,7 @@ You can review collected clues with `Tab` during the day. Press `H` for a hint i
 
 The **September 29, 2026 test version** is available now. The game starts in your Windows language, and you can switch between English, Korean, Japanese, and Chinese under **Settings > General > Language**.
 
-1. [Download the Windows ZIP (739 MB)](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip).
+1. [Download the Windows ZIP (739 MB)](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip).
 2. Extract the entire archive, then run `IndieGame.exe`.
 3. Select **Start Game**. To resume a saved game, select **Continue**.
 

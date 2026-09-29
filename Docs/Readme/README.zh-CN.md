@@ -9,7 +9,7 @@ https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
 
 Windows PC · 单人游戏 · 支持语言：简体中文、繁体中文、韩语、英语、日语 · 开发中
 
-[下载 Windows 版](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [操作说明](#操作说明)
+[下载 Windows 版](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip) · [操作说明](#操作说明)
 
 ![游戏标题画面：老旧居民楼前显示着主菜单。](../Media/readme/title-menu-first-run-1080-zh-Hans.webp)
 
@@ -77,7 +77,7 @@ Windows PC · 单人游戏 · 支持语言：简体中文、繁体中文、韩�
 
 目前提供 **2026年9月29日测试版**。游戏首次启动时使用 Windows 的显示语言，也可以在 **设置 > 通用 > 语言 · Language** 中切换简体中文、繁体中文、韩语、英语和日语。
 
-1. [下载 Windows 压缩包（ZIP，739MB）](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)。
+1. [下载 Windows 压缩包（ZIP，739MB）](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip)。
 2. 完整解压后，运行 `IndieGame.exe`。
 3. 选择 **开始游戏**。已有存档时，选择 **继续游戏**。
 
