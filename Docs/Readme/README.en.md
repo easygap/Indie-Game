@@ -2,10 +2,11 @@
 
 # Missing Floor
 
-Your brother gave you an address: Unit 501, Moonlight Villa.
-The building has four floors.
+The returned parcel lists your brother’s address as Unit 501, Moonlight Villa.
+The building only has four floors.
 
-Move into Unit 403 and follow the trail he left behind. Ask the neighbors what they remember. Check the records in the caretaker’s office. And when the knocking starts above your ceiling at 4:30 a.m., listen carefully.
+On your first night in Unit 403, at 4:30 in the morning,
+someone knocks three times on a ceiling with nothing above it.
 
 A first-person horror game set in a Korean residential neighborhood. Single-player · Windows · In development.
 
@@ -35,7 +36,7 @@ Listen through walls, compare documents and check the meters. Your journal is av
 
 Download the ZIP, extract it completely and run `MissingFloor.exe`. Keep the `Engine` and `IndieGame` folders beside it. Progress saves automatically. See the [setup guide](../PLAYING.md) for troubleshooting.
 
-The game supports Korean, English, Japanese, Simplified Chinese and Traditional Chinese. It starts in your Windows language; you can change it in Settings. The language links at the top of this page only change the introduction.
+The game supports Korean, English, Japanese, Simplified Chinese and Traditional Chinese. It starts in your Windows language, and you can change it in Settings.
 
 ## Controls
 
@@ -50,6 +51,6 @@ The game supports Korean, English, Japanese, Simplified Chinese and Traditional 
 | Tab / H | Journal during the day / Hint |
 | Esc / F1 / F10 | Pause / Controls / Settings |
 
-Difficulty, subtitles, sound cues and camera motion can be adjusted in Settings. You can also turn off the chase. Microphone input is optional and off by default.
+Difficulty, subtitles, sound cues, camera motion and the camera texture can be adjusted in Settings. You can also turn off the chase. Microphone input is optional and off by default.
 
 Please report problems through [GitHub Issues](https://github.com/easygap/Missing-Floor/issues), including your Windows version, graphics card and where the problem occurred.

@@ -77,9 +77,10 @@ def main() -> None:
         disposal=2,
         comment=b"Actual in-game capture route preview",
     )
-    # 추격 GIF는 같은 빌드의 연속 프레임을 쓴다.
+    # 추격 GIF는 예고편과 같은 촬영분의 연속 프레임을 쓴다. 계단을 기어 내려오는 몸,
+    # 발치에서 일어나는 몸, 넘어지며 얼굴이 덮치는 순간(capture-front 4~45)까지.
     motion = []
-    for shot, start, end in (('listener-approach', 40, 175), ('capture-front', 45, 75)):
+    for shot, start, end in (('stair-landing', 0, 60), ('listener-approach', 0, 66), ('capture-front', 4, 46)):
         for index in range(start, end, 3):
             with Image.open(PROJECT_ROOT / 'Saved/Trailer' / shot / f'frame_{index:04d}.png') as source:
                 motion.append(source.convert('RGB').resize(FRAME_SIZE, Image.Resampling.LANCZOS))

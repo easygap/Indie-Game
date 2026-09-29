@@ -1,5 +1,9 @@
 [CmdletBinding()]
-param([ValidateRange(60, 600)][int]$TimeoutSeconds = 240)
+param(
+	[ValidateRange(60, 600)][int]$TimeoutSeconds = 240,
+	# 전후 비교 촬영에 쓴다. 예: -ExtraArguments '-IGCameraTexture=0'
+	[string[]]$ExtraArguments = @()
+)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
@@ -18,7 +22,7 @@ try {
 		('-UserDir={0}' -f (Join-Path $projectRoot 'Saved/Validation/Readme-User')),
 		'-IGMissingFloor', '-IGIgnoreDirectStart', '-IGArrivalCapture', '-IGReadmeCapture', '-IGSkipFrontend',
 		'"-ExecCmds=Scalability 2,r.ScreenPercentage 100,t.MaxFPS 60"', ('"-abslog={0}"' -f $runLog)
-	)
+	) + $ExtraArguments
 	$process = Start-Process -FilePath $editor -ArgumentList $arguments -WindowStyle Hidden -PassThru
 	# Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
 	$null = $process.Handle

@@ -8441,15 +8441,20 @@ bool AIGListenerGreyboxDirector::AdvanceTrailerCapture()
 		FVector EntityB;
 		float EntityYaw;
 	};
+	// 예고편은 짧게 끊지 않고 걷는 사람의 시선으로 길게 간다(2026-09-29 재편집).
 	static const FTrailerShot Shots[] = {
 		{TEXT("alley"), 0, false, {705,-505,98}, {795,-508,98}, {1,-2,0}, {2,1,0}, 90, 5.0f, false, 0, {}, {}, 0},
 		{TEXT("bedroom-dusk"), 0, false, {80,-100,998}, {70,-92,998}, {-20,132,0}, {-15,146,0}, 90, 5.0f, false, 0, {}, {}, 0},
-		{TEXT("corridor-day"), 0, false, {230,-305,998}, {150,-305,998}, {-4,180,0}, {-3,180,0}, 90, 4.0f, false, 0, {}, {}, 0},
-		{TEXT("bedroom-night"), 2, false, {80,-100,998}, {84,-104,998}, {-14,130,0}, {22,138,0}, 90, 4.5f, false, 0, {}, {}, 0},
-		{TEXT("corridor-night"), 2, false, {330,-305,998}, {230,-305,998}, {-6,180,0}, {-4,178,0}, 90, 5.0f, true, 0, {}, {}, 0},
+		// 엘리베이터 앞에서 서쪽으로 걸으며 왼쪽 현관문들을 흘끗 본다.
+		{TEXT("corridor-day"), 0, false, {430,-310,998}, {170,-300,998}, {-4,180,0}, {-5,171,0}, 90, 7.0f, false, 0, {}, {}, 0},
+		// 402호 문. 스티커에서 메모를 지나 떼지 않은 전단까지 훑어 내려간다.
+		{TEXT("door-402"), 0, false, {-38,-302,998}, {-36,-297,998}, {-10,93,0}, {-40,89,0}, 90, 4.5f, false, 0, {}, {}, 0},
+		{TEXT("bedroom-night"), 2, false, {80,-100,998}, {84,-104,998}, {-14,130,0}, {26,138,0}, 90, 6.0f, false, 0, {}, {}, 0},
+		{TEXT("corridor-night"), 2, false, {380,-305,998}, {200,-305,998}, {-6,180,0}, {-4,176,0}, 90, 7.0f, true, 0, {}, {}, 0},
 		{TEXT("listener-approach"), 2, false, {430,-305,998}, {450,-305,998}, {-9,180,0}, {-11,180,0}, 90, 7.0f, true, 2, {-280,-305,960}, {120,-305,960}, 0},
 		// 순찰 끝이 플레이어에 닿아 실제로 잡힌다. 다가오는 몸과 포획, 끊기는 순간까지 한 번에 찍힌다.
-		{TEXT("capture-front"), 2, false, {420,-305,998}, {446,-305,998}, {-9,180,0}, {-11,180,0}, 90, 7.0f, true, 2, {-40,-305,960}, {360,-305,960}, 0},
+		// 순찰이 짧아야 기다림 없이 닿는다. 순찰 끝(400)이 플레이어(430) 바로 앞이다.
+		{TEXT("capture-front"), 2, false, {430,-305,998}, {436,-305,998}, {-9,180,0}, {-12,180,0}, 90, 7.0f, true, 2, {150,-305,960}, {400,-305,960}, 0},
 		{TEXT("stair-landing"), 2, false, {-300,-305,1005}, {-300,-305,1005}, {-52,180,0}, {-47,178,0}, 90, 4.0f, true, 3, {}, {}, 180},
 		{TEXT("meter-cabinet"), 2, false, {505,-300,92}, {515,-296,92}, {-10,-62,0}, {-8,-58,0}, 90, 3.5f, true, 0, {}, {}, 0},
 		{TEXT("booth-cctv"), 2, false, {165,-190,98}, {165,-178,96}, {-35,90,0}, {-31,90,0}, 90, 4.0f, true, 0, {}, {}, 0},
@@ -8562,6 +8567,15 @@ bool AIGListenerGreyboxDirector::AdvanceTrailerCapture()
 
 	// 준비 프레임 동안에는 시작 자세로 두고 빛과 노출이 가라앉기를 기다린다.
 	const int32 RecordIndex = TrailerShotFrame - WarmupFrames;
+	// 그는 소리를 들어야 움직인다. 노크와 듣기 사이에 멈춰 있는 동안 촬영이 지나가면
+	// 장면마다 결과가 달라지므로, 녹화를 시작하는 순간 플레이어 자리에서 소리를 낸다.
+	// 붙잡히는 장면은 크게(쫓아온다), 다가오는 장면은 작게(살피러 온다).
+	if (RecordIndex == 0 && NoiseSubsystem && Shot.EntityMode == 2)
+	{
+		const bool bCaptureShot = FCString::Strcmp(Shot.Name, TEXT("capture-front")) == 0;
+		NoiseSubsystem->ReportNoiseUnmasked(
+			PlayerCharacter->GetActorLocation(), bCaptureShot ? 1.0f : 0.55f, PlayerCharacter);
+	}
 	const float Alpha = RecordIndex <= 0 ? 0.0f
 		: FMath::Clamp(RecordIndex / FMath::Max(1.0f, RecordFrames - 1.0f), 0.0f, 1.0f);
 	const float Eased = FMath::InterpEaseInOut(0.0f, 1.0f, Alpha, 2.0f);
