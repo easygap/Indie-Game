@@ -14,7 +14,10 @@ param(
     [switch]$CorridorEntranceOnly,
     # 입주 프롤로그에서 사용하는 한글 임대차계약서만 다시 만든다.
     # 문서는 허구이며 주민등록번호는 표기하지 않는다.
-    [switch]$ArrivalPrologueOnly
+    [switch]$ArrivalPrologueOnly,
+    # 현수막, 로비 공지, 담배 판매 안내만 다시 만든다. 글자가 가장자리에 닿지
+    # 않게 폭에 맞춘 뒤 인쇄 아틀라스를 다시 묶을 때 쓴다.
+    [switch]$PrintMarginOnly
 )
 
 $ErrorActionPreference = 'Stop'
@@ -64,8 +67,17 @@ function New-SignBitmap {
 
 function Draw-CenteredText {
     param($Graphics, $Text, $FontFamily, [single]$Size, [System.Drawing.FontStyle]$Style,
-        [System.Drawing.Color]$Color, [single]$CenterX, [single]$CenterY)
+        [System.Drawing.Color]$Color, [single]$CenterX, [single]$CenterY, [single]$MaxWidth = 0)
     $font = New-Object System.Drawing.Font($FontFamily, $Size, $Style, [System.Drawing.GraphicsUnit]::Pixel)
+    if ($MaxWidth -gt 0) {
+        # 폭을 넘으면 글자를 줄인다. 인쇄물 가장자리에 글자가 닿으면 잘린 것처럼 보인다.
+        $measured = $Graphics.MeasureString($Text, $font).Width
+        if ($measured -gt $MaxWidth) {
+            $fittedSize = [single]($Size * $MaxWidth / $measured)
+            $font.Dispose()
+            $font = New-Object System.Drawing.Font($FontFamily, $fittedSize, $Style, [System.Drawing.GraphicsUnit]::Pixel)
+        }
+    }
     $brush = New-Object System.Drawing.SolidBrush($Color)
     $format = New-Object System.Drawing.StringFormat
     $format.Alignment = 'Center'
@@ -301,6 +313,36 @@ function Write-CorridorEntranceSigns {
     }
 }
 
+# 가장자리까지 글자가 닿던 인쇄물 셋. 폭을 정해 두고 글자를 그 안에 맞춘다.
+function Write-FittedPrints {
+New-SignBitmap -Width 1024 -Height 128 -Background ([System.Drawing.Color]::FromArgb(255, 250, 220, 40)) -FileName 'T_Banner_D.png' -Draw {
+    param($g, $w, $h)
+    Draw-CenteredText $g '원룸 · 투룸 월세 문의  010-2345-6789' $malgun 58 ([System.Drawing.FontStyle]::Bold) $red ($w * 0.5) ($h * 0.5) ($w * 0.88)
+}
+New-SignBitmap -Width 256 -Height 352 -Background $nearWhite -FileName 'T_NoticeA4_D.png' -Draw {
+    param($g, $w, $h)
+    Draw-CenteredText $g '공 지' $malgun 44 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.12)
+    Draw-CenteredText $g '7월 관리비 납부 안내' $malgun 26 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.5) ($h * 0.28) ($w * 0.80)
+    $gray = [System.Drawing.Color]::FromArgb(255, 130, 132, 130)
+    for ($i = 0; $i -lt 6; $i++) {
+        $pen = New-Object System.Drawing.Pen($gray, 4)
+        $y = [single]($h * (0.42 + $i * 0.08))
+        $g.DrawLine($pen, [single]($w * 0.12), $y, [single]($w * 0.88), $y)
+        $pen.Dispose()
+    }
+    Draw-CenteredText $g '달빛빌라 관리사무소' $malgun 20 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.5) ($h * 0.93) ($w * 0.80)
+}
+New-SignBitmap -Width 512 -Height 64 -Background $nearWhite -FileName 'T_TobaccoNotice_D.png' -Draw {
+    param($g, $w, $h)
+    Draw-CenteredText $g '청소년에게 담배를 판매하지 않습니다' $malgun 28 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.5) ($w * 0.90)
+}
+}
+
+if ($PrintMarginOnly) {
+    Write-FittedPrints
+    return
+}
+
 if ($CorridorEntranceOnly) {
     Write-CorridorEntranceSigns
     return
@@ -496,26 +538,10 @@ New-SignBitmap -Width 512 -Height 128 -Background ([System.Drawing.Color]::FromA
     Draw-CenteredText $g '달빛노래방' $malgun 66 ([System.Drawing.FontStyle]::Bold) ([System.Drawing.Color]::FromArgb(255, 255, 210, 240)) ($w * 0.5) ($h * 0.5)
 }
 
-# --- Rental banner strung on the facade -------------------------------------
-New-SignBitmap -Width 1024 -Height 128 -Background ([System.Drawing.Color]::FromArgb(255, 250, 220, 40)) -FileName 'T_Banner_D.png' -Draw {
-    param($g, $w, $h)
-    Draw-CenteredText $g '원룸 · 투룸 월세 문의  010-2345-6789' $malgun 58 ([System.Drawing.FontStyle]::Bold) $red ($w * 0.5) ($h * 0.5)
-}
+Write-FittedPrints
+
 
 # --- Lobby notice, door ad stickers, calendar, fire box, tobacco notice -----
-New-SignBitmap -Width 256 -Height 352 -Background $nearWhite -FileName 'T_NoticeA4_D.png' -Draw {
-    param($g, $w, $h)
-    Draw-CenteredText $g '공 지' $malgun 44 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.12)
-    Draw-CenteredText $g '7월 관리비 납부 안내' $malgun 26 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.5) ($h * 0.28)
-    $gray = [System.Drawing.Color]::FromArgb(255, 130, 132, 130)
-    for ($i = 0; $i -lt 6; $i++) {
-        $pen = New-Object System.Drawing.Pen($gray, 4)
-        $y = [single]($h * (0.42 + $i * 0.08))
-        $g.DrawLine($pen, [single]($w * 0.12), $y, [single]($w * 0.88), $y)
-        $pen.Dispose()
-    }
-    Draw-CenteredText $g '달빛빌라 관리사무소' $malgun 20 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.5) ($h * 0.93)
-}
 New-SignBitmap -Width 256 -Height 256 -Background ([System.Drawing.Color]::FromArgb(255, 235, 235, 230)) -FileName 'T_DoorAd_D.png' -Draw {
     param($g, $w, $h)
     $colors = @([System.Drawing.Color]::FromArgb(255,210,60,40), [System.Drawing.Color]::FromArgb(255,40,90,190), [System.Drawing.Color]::FromArgb(255,240,150,20))
@@ -564,10 +590,6 @@ New-SignBitmap -Width 256 -Height 320 -Background $nearWhite -FileName 'T_Calend
 New-SignBitmap -Width 256 -Height 320 -Background ([System.Drawing.Color]::FromArgb(255, 180, 30, 24)) -FileName 'T_FireBox_D.png' -Draw {
     param($g, $w, $h)
     Draw-CenteredText $g '소 화 전' $malgun 58 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.5) ($h * 0.5)
-}
-New-SignBitmap -Width 512 -Height 64 -Background $nearWhite -FileName 'T_TobaccoNotice_D.png' -Draw {
-    param($g, $w, $h)
-    Draw-CenteredText $g '청소년에게 담배를 판매하지 않습니다' $malgun 28 ([System.Drawing.FontStyle]::Bold) $dark ($w * 0.5) ($h * 0.5)
 }
 
 # --- Villa fittings, from the reference photos -----------------------------

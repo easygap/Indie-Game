@@ -23,7 +23,7 @@
     "T_Banner_D": {
       "h": 128,
       "page": 2,
-      "source_sha256": "6c62cbcbaf369831ecee15e465989b57e8105535d2c16b86385276523eb4bc03",
+      "source_sha256": "13ef6f5b33f1dc25b91e2ba5aed65bfc8f64e22240ff53d790f7ec7b27f3ab50",
       "source_size": [
         1024,
         128
@@ -423,7 +423,7 @@
     "T_NoticeA4_D": {
       "h": 352,
       "page": 1,
-      "source_sha256": "2e84f886b7ef916d50508a80781a60cca28f73def4878c4a1c2d1b12c0870fec",
+      "source_sha256": "9823b13fbf0a8817a745f31586bbb6c428dbe1a66f3d85bee0e708d51fd57a42",
       "source_size": [
         256,
         352
@@ -963,7 +963,7 @@
     "T_TobaccoNotice_D": {
       "h": 64,
       "page": 3,
-      "source_sha256": "ef0c6535bbe3f5040f0ba6ffe522087afc9ba91679ac2a8c0d08b3ef2b15851a",
+      "source_sha256": "858694111ff6c1464b2b84226ac11634b5c12bfb590a9ec55cbe53b0503d170a",
       "source_size": [
         512,
         64
