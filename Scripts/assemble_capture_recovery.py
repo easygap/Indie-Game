@@ -41,7 +41,9 @@ def main():
         build('m1-capture-embrace.gif', 'trim=end=3.2,setpts=PTS-STARTPTS,')
         # README의 짧은 포획 장면도 방금 검수한 연속 프레임을 사용한다.
         shutil.copyfile(ROOT / 'Docs/Media/m1-capture-embrace.gif', ROOT / 'Docs/Media/night-listener-chase.gif')
-        build('m1-capture-wake-echo.gif', 'trim=start=2.9,setpts=PTS-STARTPTS,')
+        # 고정 간격(30fps)으로 찍으면 프레임이 모두 달라 GIF가 무거워진다. 침대에서
+        # 눈을 뜨는 3초만 남긴다.
+        build('m1-capture-wake-echo.gif', 'trim=start=2.9:end=5.9,setpts=PTS-STARTPTS,')
     print(f'{len(frames)}장, {frames[-1]["time"] - frames[0]["time"]:.2f}초')
 
 
