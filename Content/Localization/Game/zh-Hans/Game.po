@@ -4827,7 +4827,7 @@ msgstr "{0}  重新开始第四夜"
 #: Source/IndieGame/Player/IGHorrorHUD.cpp(3712)
 msgctxt "IGHorrorHUD,DialogueContinues"
 msgid "이어짐"
-msgstr "未完"
+msgstr "接下页"
 
 #. Key:	SettingsCategoryHeading
 #. SourceLocation:	Source/IndieGame/Player/IGHorrorHUD.cpp(4809)
