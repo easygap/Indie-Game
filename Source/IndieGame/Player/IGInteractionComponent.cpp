@@ -709,6 +709,8 @@ void UIGInteractionComponent::FinishActiveInteraction(
 	{
 		if (bCompleted)
 		{
+			++CompletedInteractionCount;
+			LastCompletedTarget = Target;
 			IIGInteractable::Execute_CompleteInteraction(Target, Context);
 		}
 

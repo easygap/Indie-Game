@@ -213,6 +213,21 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		TEXT("HoldDurationScale"),
 		PersistedSettings.HoldDurationScale,
 		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("AlwaysShowCenterDot"),
+		PersistedSettings.bAlwaysShowCenterDot,
+		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("AlwaysShowPromptKeys"),
+		PersistedSettings.bAlwaysShowPromptKeys,
+		GGameUserSettingsIni);
+	GConfig->GetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("HintsEnabled"),
+		PersistedSettings.bHintsEnabled,
+		GGameUserSettingsIni);
 	PersistedSettings = Sanitize(PersistedSettings);
 }
 
@@ -322,6 +337,21 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
 		PersistedSettings.HoldDurationScale,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("AlwaysShowCenterDot"),
+		PersistedSettings.bAlwaysShowCenterDot,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("AlwaysShowPromptKeys"),
+		PersistedSettings.bAlwaysShowPromptKeys,
+		GGameUserSettingsIni);
+	GConfig->SetBool(
+		IGAccessibility::ConfigSection,
+		TEXT("HintsEnabled"),
+		PersistedSettings.bHintsEnabled,
 		GGameUserSettingsIni);
 	GConfig->Flush(false, GGameUserSettingsIni);
 }

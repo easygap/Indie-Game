@@ -37,7 +37,6 @@ public:
 	AIGListenerGreyboxDirector();
 
 	virtual FText GetObjectiveText() const override;
-	virtual FString GetObjectiveTextAscii() const override;
 	virtual float GetObjectiveProgress() const override;
 
 protected:

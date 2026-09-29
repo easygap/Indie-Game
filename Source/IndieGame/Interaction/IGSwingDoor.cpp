@@ -12,6 +12,7 @@
 #include "GameFramework/PlayerController.h"
 #include "Narrative/IGStoryHelpers.h"
 #include "Player/IGHorrorHUD.h"
+#include "Player/IGOnboardingMemory.h"
 
 AIGSwingDoor::AIGSwingDoor()
 {
@@ -351,6 +352,11 @@ FText AIGSwingDoor::GetInteractionPrompt_Implementation(AActor* Interactor) cons
 	}
 	// The quiet/loud verb pair only matters if the player can discover it.
 	// One short suffix teaches it everywhere without a tutorial screen.
+	// 한 번 조용히 열어 본 뒤로는 모든 문에서 방법 설명을 뗀다.
+	if (IGOnboardingMemory::IsQuietDoorLearned())
+	{
+		return BasePrompt;
+	}
 	return FText::Format(
 		NSLOCTEXT("IGSwingDoor", "HoldHintFormat", "{0} (길게 누르면 조용히)"),
 		BasePrompt);
@@ -407,6 +413,12 @@ void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContex
 
 	// Reaching completion means the hold ran its course (or a director/capture
 	// tour called this directly): the careful, quiet swing. 닫힐 때도 경첩은 운다.
+	// 플레이어가 끝까지 눌러 연 경우만 익힌 것으로 센다. 연출이 대신 연 문은 아니다.
+	if (const APawn* InteractorPawn = Cast<APawn>(Context.Interactor.Get());
+		InteractorPawn && InteractorPawn->IsPlayerControlled() && Context.HeldDuration > 0.0f)
+	{
+		IGOnboardingMemory::MarkQuietDoorLearned();
+	}
 	BeginSwing(
 		!bOpen,
 		true,

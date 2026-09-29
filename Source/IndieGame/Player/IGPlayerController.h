@@ -249,6 +249,12 @@ private:
 	int32 DefaultMappingPriority = 0;
 
 	int32 AccessibilitySelection = 0;
+	/** 「기본값으로 초기화」를 한 번 누른 뒤 두 번째 누름을 기다리는 끝 시각(FPlatformTime 초). */
+	double AccessibilityResetArmedUntil = -1.0;
+	/** 힌트 사다리. 같은 단계에서 누를수록 다음 단계를 떠올린다. */
+	FName HintGoalId;
+	int32 HintTier = 0;
+	double LastHintRequestTime = -10.0;
 	int32 SystemMenuSelection = 0;
 	int32 MissingFloorJournalPage = 0;
 	EIGSystemMenuMode SystemMenuMode = EIGSystemMenuMode::Hidden;

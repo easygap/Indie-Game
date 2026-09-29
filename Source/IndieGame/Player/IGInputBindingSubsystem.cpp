@@ -82,7 +82,7 @@ namespace IGInputBinding
 			{
 				TEXT("RequestHint"),
 				NSLOCTEXT("IGInput", "ActionHint", "힌트"),
-				NSLOCTEXT("IGInput", "DescHint", "막혔을 때 어디서 도움을 받을지 확인합니다."),
+				NSLOCTEXT("IGInput", "DescHint", "막혔을 때 지금 어디를 보면 될지 떠올립니다. 누를수록 조금씩 더 자세해집니다."),
 				EKeys::H,
 				EKeys::Gamepad_RightShoulder,
 			},

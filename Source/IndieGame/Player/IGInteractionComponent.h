@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Components/ActorComponent.h"
@@ -89,6 +89,11 @@ public:
 	UPROPERTY(BlueprintAssignable, Category = "Interaction|Events")
 	FIGInteractionEndedSignature OnInteractionEnded;
 
+	/** 끝까지 마친 상호작용 수. HUD가 첫 조사로 조작 안내를 끝내고 안내를 익혔는지 센다. */
+	int32 GetCompletedInteractionCount() const { return CompletedInteractionCount; }
+	/** 마지막으로 끝까지 마친 상호작용의 대상. 무엇을 익혔는지(엿듣기 등) 가린다. */
+	AActor* GetLastCompletedTarget() const { return LastCompletedTarget.Get(); }
+
 protected:
 	virtual void BeginPlay() override;
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
@@ -120,6 +125,9 @@ private:
 		const FGameplayTag& Tag,
 		float HeldDuration,
 		float HoldProgress);
+
+	int32 CompletedInteractionCount = 0;
+	TWeakObjectPtr<AActor> LastCompletedTarget;
 
 	UPROPERTY(EditAnywhere, Category = "Interaction|Trace", meta = (ClampMin = "50.0", Units = "cm"))
 	float TraceDistance = 220.0f;

@@ -94,7 +94,6 @@ public:
 
 	// IIGObjectiveProvider
 	virtual FText GetObjectiveText() const override;
-	virtual FString GetObjectiveTextAscii() const override;
 	virtual float GetObjectiveProgress() const override;
 
 	/**
@@ -105,12 +104,31 @@ public:
 	FIGHourActiveSignature OnHourActiveChanged;
 
 	/**
-	 * Real seconds the hour lasts. Story time runs 04:30 to 05:30, but the
-	 * story hour compresses to twenty real minutes: the timeout is a mercy
-	 * for a stuck player, and sixty real minutes of fallback would be a wall,
-	 * not a mercy. Nights normally end early through CompleteNightGoal.
+	 * 한 시간이 실제로 몇 초인가. 이야기 시간은 04:30~05:30이지만 실제로는
+	 * 밤마다 22, 26, 32, 28분으로 줄인다. 밤은 보통 목표를 채워서 먼저 끝나고,
+	 * 05:30은 막힌 사람을 낮(황순금의 힌트)으로 넘겨주는 끝이다. 예전에는 네
+	 * 밤 모두 20분이었는데, 처음 하는 사람이 셋째 밤(목표 20~30분)을 다 못
+	 * 마치고 한 단계 거세진 그를 다시 만났다.
 	 */
-	static constexpr float HourDurationSeconds = 1200.0f;
+	static float GetHourDurationSeconds(int32 NightIndex)
+	{
+		switch (NightIndex)
+		{
+		case 1: return 1320.0f;
+		case 2: return 1560.0f;
+		case 3: return 1920.0f;
+		case 4: return 1680.0f;
+		default: return 1320.0f;
+		}
+	}
+	/** 손목 시계. 경과 초를 이야기 시각(분, 04:30이 270)으로 옮긴다. */
+	static int32 GetStoryMinuteAt(const int32 NightIndex, const float ElapsedSeconds)
+	{
+		const float Duration = GetHourDurationSeconds(NightIndex);
+		const float Ratio = FMath::Clamp(ElapsedSeconds / Duration, 0.0f, 1.0f);
+		return StoryStartMinutes
+			+ FMath::FloorToInt(Ratio * (StoryEndMinutes - StoryStartMinutes));
+	}
 	static constexpr int32 StoryStartMinutes = 4 * 60 + 30;
 	static constexpr int32 StoryEndMinutes = 5 * 60 + 30;
 
@@ -152,6 +170,8 @@ private:
 	TWeakObjectPtr<AIGPlayerCharacter> Player;
 
 	float HourElapsedSeconds = 0.0f;
+	/** 지금 밤의 길이. 밤이 시작될 때 GetHourDurationSeconds로 정한다. */
+	float HourDurationSeconds = 1320.0f;
 	bool bHourActive = false;
 	bool bGoalComplete = false;
 	bool bFailureEndingSuspended = false;

@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
@@ -20,11 +20,8 @@ class INDIEGAME_API IIGObjectiveProvider
 	GENERATED_BODY()
 
 public:
-	/** Localized objective shown when the HUD has a Korean-capable font. */
+	/** 화면 위쪽에 잠깐 뜨는 목표 한 줄. 표시 언어를 따른다. */
 	virtual FText GetObjectiveText() const = 0;
-
-	/** ASCII fallback used when the localized font cannot be loaded. */
-	virtual FString GetObjectiveTextAscii() const = 0;
 
 	/**
 	 * Normalized progress through the provider's objective sequence.

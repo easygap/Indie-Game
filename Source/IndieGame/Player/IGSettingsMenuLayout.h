@@ -11,8 +11,8 @@
  */
 namespace IGSettingsMenuLayout
 {
-	/** 다섯 설정 + 접근성 + 소리·밝기 + 조작 + 적용/돌아가기 두 줄. */
-	constexpr int32 DisplayRowCount = 10;
+	/** 다섯 설정 + 언어 + 접근성 + 소리·밝기 + 조작 + 적용/돌아가기 두 줄. */
+	constexpr int32 DisplayRowCount = 11;
 
 	/**
 	 * 화면 설정 행 번호. 접근성 쪽과 같은 이유로 이름을 준다 — 조작 행을
@@ -26,6 +26,7 @@ namespace IGSettingsMenuLayout
 		Quality,
 		VSync,
 		FrameLimit,
+		Language,
 		AccessibilityPanel,
 		AudioCalibrationPanel,
 		KeyBindingsPanel,
@@ -35,7 +36,7 @@ namespace IGSettingsMenuLayout
 	static_assert(
 		BackOrRevert + 1 == DisplayRowCount,
 		"화면 설정 행 이름과 행 수가 어긋났다");
-	constexpr int32 AccessibilityRowCount = 23;
+	constexpr int32 AccessibilityRowCount = 25;
 
 	/**
 	 * 접근성 행 번호. 화면과 컨트롤러와 묶음 범위 셋이 같은 숫자를 봐야 한다.
@@ -44,16 +45,17 @@ namespace IGSettingsMenuLayout
 	enum EAccessibilityRow : int32
 	{
 		NightDifficulty = 0,
+		Hints,
 		ReducedCameraMotion,
 		ReducedFlicker,
 		FieldOfView,
 		ComfortVignette,
+		CenterDot,
 		DirectionalFearCues,
 		KnockRippleSubstitute,
 		KnockHapticSubstitute,
 		HeartbeatWarning,
 		CognitiveAssist,
-		Subtitles,
 		SoundCaptions,
 		CaptionSize,
 		CaptionBackground,
@@ -62,6 +64,7 @@ namespace IGSettingsMenuLayout
 		ToggleCrouch,
 		ToggleHold,
 		HoldDuration,
+		PromptKeys,
 		Haptics,
 		MicrophoneNoise,
 		ResetDefaults,
@@ -204,8 +207,8 @@ namespace IGSettingsMenuLayout
 		{
 		case 0: return {0, 2}; // Display mode and resolution.
 		case 1: return {2, 3}; // Quality, sync, and frame rate.
-		case 2: return {5, 3}; // 접근성, 소리와 밝기, 조작 설정.
-		case 3: return {8, 2}; // 적용과 돌아가기.
+		case 2: return {Language, 4}; // 언어, 접근성, 소리와 밝기, 조작 설정.
+		case 3: return {ApplyOrKeep, 2}; // 적용과 돌아가기.
 		default: return {0, 0};
 		}
 	}
@@ -214,11 +217,11 @@ namespace IGSettingsMenuLayout
 	{
 		switch (Category)
 		{
-		case 0: return {NightDifficulty, 1};       // 게임 난이도.
-		case 1: return {ReducedCameraMotion, 4};   // Motion.
+		case 0: return {NightDifficulty, 2};       // 난이도와 힌트.
+		case 1: return {ReducedCameraMotion, 5};   // 화면 효과와 가운데 점.
 		case 2: return {DirectionalFearCues, 5};   // 소리 안내와 노크 도움.
-		case 3: return {Subtitles, 6};             // Captions.
-		case 4: return {ToggleCrouch, 5};          // Input.
+		case 3: return {SoundCaptions, 5};         // 자막. 음성 대사가 없어 대사 자막 줄은 뺐다.
+		case 4: return {ToggleCrouch, 6};          // 입력과 조작 안내.
 		case 5: return {ResetDefaults, 2};         // General actions.
 		default: return {0, 0};
 		}

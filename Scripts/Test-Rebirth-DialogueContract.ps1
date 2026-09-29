@@ -113,7 +113,8 @@ Assert-ContainsAll $hudSource @(
 	'Remaining / 0.16',
 	'LineStep = BodyHeight * (',
 	'CurrentDialogueLines.Num() >= 3 ? 1.36f : 1.32f',
-	'if (ControlsAlpha > 0.01f && !bDialogueVisible && !bAudioCaptionVisible)',
+	'const bool bLowerLaneBusy = bDialogueVisible || bAudioCaptionVisible;',
+	'if (!bLowerLaneBusy && !bFadedOut)',
 	'const float DialogueLaneGap = 14.0f',
 	'DrawLeftAlignedText('
 ) '화면 크기·안전 영역·동작 감소·HUD 레인'
@@ -127,7 +128,8 @@ Assert-ContainsAll $hudSource @(
 	'840.0f * ResolutionScale',
 	'const bool bUseTextOutline = Settings.CaptionBackgroundOpacity < 0.42f',
 	'const float WaveHeights[] = {5.0f, 11.0f, 16.0f, 8.0f}',
-	'DisplayCaption = DisplayCaption.Mid(1, DisplayCaption.Len() - 2)',
+	'const FString Inner = DisplayCaption.Mid(1, DisplayCaption.Len() - 2);',
+	'DisplayCaption = Inner.TrimStartAndEnd();',
 	'DrawDialogueFilm(',
 	'SpeakerChipHeight * 0.5f'
 ) '2026 하단 글래스 표면·화자 칩·효과음 캡슐'

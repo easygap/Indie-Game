@@ -120,6 +120,7 @@ void AIGNightPhaseDirector::BeginTheHour(const int32 NightIndex)
 	bFailureEndingSuspended = false;
 	bHourPaused = false;
 	HourElapsedSeconds = 0.0f;
+	HourDurationSeconds = GetHourDurationSeconds(NightIndex);
 
 	// 같은 번호의 밤이 다시 오면 카드가 그것을 안다. 못 채운 밤의 되풀이와
 	// 엔딩 C의 재시도가 여기 걸린다. 저장에서 이어 붙이는 것은 되풀이가 아니다.
@@ -641,6 +642,19 @@ void AIGNightPhaseDirector::RequestMissingFloorAutosave(const bool bAtNight)
 	{
 		return;
 	}
+	// 결말 A나 B를 고른 뒤의 새벽은 저장하지 않는다. 에필로그가 끝나면 게임도
+	// 끝났다. 그 아침을 저장하면 이어하기가 할 일 없는 낮으로 들어가고, 거기서
+	// 자면 넷째 밤이 되풀이됐다. 가장 새 저장은 선택 직전(벽 앞)으로 남아서
+	// 이어하기로 다른 결말을 고를 수 있다.
+	if (const UIGMissingFloorNarrativeSubsystem* Narrative =
+		GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>())
+	{
+		const FName Ending = Narrative->GetEndingChoice();
+		if (Ending == FName(TEXT("Ending.A")) || Ending == FName(TEXT("Ending.B")))
+		{
+			return;
+		}
+	}
 	SaveSubsystem->RequestAutosave(
 		FGameplayTag::RequestGameplayTag(FName(TEXT("Chapter.MissingFloor")), false),
 		World->GetOutermost()->GetFName(),
@@ -692,15 +706,6 @@ FText AIGNightPhaseDirector::GetObjectiveText() const
 		return FText::GetEmpty();
 	}
 	return NSLOCTEXT("IGMissingFloor", "DayObjective", "낮: 물어볼 사람 찾기");
-}
-
-FString AIGNightPhaseDirector::GetObjectiveTextAscii() const
-{
-	if (bHourActive)
-	{
-		return FString();
-	}
-	return TEXT("Daytime - find someone who will talk");
 }
 
 float AIGNightPhaseDirector::GetObjectiveProgress() const

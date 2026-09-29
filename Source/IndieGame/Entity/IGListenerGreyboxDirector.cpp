@@ -28,6 +28,7 @@
 #include "Interaction/IGElevator.h"
 #include "Misc/Paths.h"
 #include "Misc/FileHelper.h"
+#include "Misc/App.h"
 #include "Player/IGHorrorHUD.h"
 #include "Kismet/GameplayStatics.h"
 #include "Player/IGPlayerController.h"
@@ -2213,6 +2214,20 @@ void AIGListenerGreyboxDirector::HandleArrivalEvidence(
 			: Evidence == ArrivalNotebookBox ? TEXT("Arrival.Box.Notebook")
 			: Evidence == ArrivalVoicemailBox ? TEXT("Arrival.Box.Voicemail")
 			: TEXT("Arrival.Contract");
+		// 계약서의 전제(지상 4층, 옥상 창고 금지)는 한국어로 인쇄된 종이에만 있다.
+		// 다른 언어로 켠 사람에게는 처음 읽을 때 그 줄을 속말로 한 번 읽어 준다.
+		if (Evidence == ArrivalContract
+			&& !Narrative->HasBeatPlayed(FName(OpenedBeat))
+			&& !AIGHorrorHUD::IsKoreanCulture())
+		{
+			AIGHorrorHUD::PushThought(
+				this,
+				NSLOCTEXT(
+					"IGMissingFloor",
+					"ArrivalContractPrintedRead",
+					"“건축물대장상 지상 4층.” 옥상 창고랑 기계실은 쓰지 말라네."),
+				3.6f);
+		}
 		PlayArrivalHandSound(Evidence, !Narrative->HasBeatPlayed(FName(OpenedBeat)));
 	}
 	// 402호 메모. 빈집이라는 말을 나린에게 들었거나 문 안의 정적을 들었다면 한
@@ -2510,7 +2525,7 @@ void AIGListenerGreyboxDirector::HandleNeighborhoodDeliveryRead(AIGReadableNote*
 		USoundBase* Sound = LoadObject<USoundBase>(nullptr, TEXT("/Game/Audio/S_Door_Steel_Close.S_Door_Steel_Close"));
 		IGAudio::SpawnOneShotAt(this, Sound, Door, 0.36f, 0.87f, 100.f, 1700.f, EIGAudioBus::World);
 		AIGHorrorHUD::PushAudioCaptionAt(this,
-			NSLOCTEXT("IGMissingFloor", "RearDoorCaption", "[뒤편 건물, 철문 닫히는 소리]"), 2.5f, Door);
+			NSLOCTEXT("IGMissingFloor", "RearDoorCaption", "철문 닫히는 소리"), 2.5f, Door);
 	}), 1.4f, false);
 }
 
@@ -2619,24 +2634,6 @@ FText AIGListenerGreyboxDirector::GetObjectiveText() const
 		return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveRoof", "계약서에 적힌 옥상 문 확인하기");
 	}
 	return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveSleep", "403호로 돌아가서 자기");
-}
-
-FString AIGListenerGreyboxDirector::GetObjectiveTextAscii() const
-{
-	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	if (!bProductionMode || !Narrative || Narrative->GetNightIndex() != 0
-		|| (GetWorld() && GetWorld()->GetTimerManager().IsTimerActive(ArrivalTitleCardTimer)))
-	{
-		return FString();
-	}
-	if (GetObjectiveProgress() < 0.5f) return TEXT("UNPACK AND EXPLORE THE NEIGHBORHOOD");
-	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Contract")))) return TEXT("CHECK THE RENTAL CONTRACT");
-	if (!AreArrivalBoxesOpened()) return TEXT("OPEN ALL THREE MOVING BOXES");
-	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Store")))) return TEXT("ASK AT THE CONVENIENCE STORE");
-	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.Unit401")))
-		|| !Narrative->HasBeatPlayed(FName(TEXT("Arrival.Unit402")))) return TEXT("CHECK UNITS 401 AND 402");
-	if (!Narrative->HasBeatPlayed(FName(TEXT("Arrival.RoofDoor")))) return TEXT("CHECK THE ROOFTOP ACCESS DOOR");
-	return TEXT("RETURN TO UNIT 403 AND SLEEP");
 }
 
 float AIGListenerGreyboxDirector::GetObjectiveProgress() const
@@ -3665,6 +3662,12 @@ void AIGListenerGreyboxDirector::HandleNightFourResolved()
 void AIGListenerGreyboxDirector::StartEpilogueAfterGesture()
 {
 	UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (Narrative)
+	{
+		// 다섯째 밤 줄은 이 기록을 본다. 결말 뒤에는 자동 저장을 남기지 않으므로
+		// 세이브에서 결말을 읽을 수 없다.
+		IGOnboardingMemory::MarkEndingSeen(Narrative->GetEndingChoice());
+	}
 	if (Epilogue && Narrative)
 	{
 		Epilogue->StartEpilogue(Player.Get(), Narrative->GetEndingChoice());
@@ -3699,7 +3702,17 @@ void AIGListenerGreyboxDirector::HandleEpilogueCompleted()
 		{
 			IGController->PlayerCameraManager->StopCameraFade();
 		}
-		IGController->ShowTitleAfterEnding();
+		// 엔딩 카드 다음은 크레딧이다. 크레딧이 끝나면 HUD가 타이틀을 부른다.
+		// 무인 검사와 프로브는 곧장 타이틀로 간다.
+		AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(IGController->GetHUD());
+		if (HorrorHUD && !bProbeRequested && !FApp::IsUnattended())
+		{
+			HorrorHUD->StartEndCredits();
+		}
+		else
+		{
+			IGController->ShowTitleAfterEnding();
+		}
 	}
 }
 
@@ -10177,9 +10190,11 @@ namespace IGNightHistogram
 			// Down the corridor, not across it: at yaw 90 the player is 70 cm
 			// from the north wall and the frame is a close-up of plaster, which
 			// measured 91% black and told us nothing about the ripple.
+			// 2026-09-29: 겨눈 것이 없으면 화면 가운데 괄호를 그리지 않게 되면서
+			// 밝은 픽셀이 조금 줄었다(0.9981). 링 자체는 그대로라 위쪽만 넓힌다.
 			TEXT("ripple_ring"), ESetup::RippleRing,
 			FVector(-40.0f, -305.0f, 997.0f), 0.0f, -3.0f,
-			0.97f, 0.998f, 0.010f, /*bShowHud=*/true
+			0.97f, 0.999f, 0.010f, /*bShowHud=*/true
 		},
 		{
 			// §11 규칙 2는 「어느 바닥을 고르느냐」를 선택으로 만든다. 그

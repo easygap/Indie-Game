@@ -1525,9 +1525,12 @@ foreach ($token in @(
 		throw "Missing-floor contextual prompt contract is missing: $token"
 	}
 }
+# §19.4 힌트는 화면의 정답 칸이 아니라 유담의 속말이고, 누를 때마다 한 단계씩
+# 구체적이 된다. 설정에서 끄면 키가 아무것도 하지 않는다.
 foreach ($token in @(
-	'MissingFloor->IsHourSealed()',
-	'401호 할머니께 물어보자.'
+	'IGMissingFloorHints::Resolve(this)',
+	'IsHintRequestAvailable()',
+	'HintTier = FMath::Min(Tier + 1, Step.Tiers.Num() - 1)'
 )) {
 	if (-not $playerControllerSource.Contains($token)) {
 		throw "Missing-floor hint policy runtime is missing: $token"

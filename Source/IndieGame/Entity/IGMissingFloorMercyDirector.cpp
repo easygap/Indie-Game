@@ -205,6 +205,11 @@ FVector AIGMissingFloorMercyDirector::GetNoteLocation() const
 	return Note ? Note->GetComponentLocation() : FVector::ZeroVector;
 }
 
+bool AIGMissingFloorMercyDirector::IsNoteVisible() const
+{
+	return Note && Note->IsVisible() && !Note->bHiddenInGame;
+}
+
 void AIGMissingFloorMercyDirector::UpdateNoteSlide(const float DeltaSeconds)
 {
 	if (!bNoteSliding || !Note)

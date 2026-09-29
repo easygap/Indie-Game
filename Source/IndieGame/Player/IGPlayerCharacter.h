@@ -114,6 +114,10 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Player|Audio")
 	bool IsMicrophoneCaptureRunning() const { return bMicrophoneCaptureRunning; }
 
+	/** HUD의 상황 안내가 알려 준 동작을 실제로 해 봤는지 본다. */
+	bool IsHoldingBreath() const { return bHoldingBreath; }
+	bool IsSprinting() const { return bSprinting; }
+
 	UFUNCTION(BlueprintPure, Category = "Player|Audio")
 	EIGFootstepSurface GetLastFootstepSurface() const { return LastFootstepSurface; }
 

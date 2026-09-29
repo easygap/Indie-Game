@@ -33,6 +33,8 @@
 #include "Misc/FileHelper.h"
 #include "Misc/Parse.h"
 #include "Misc/Paths.h"
+#include "Core/IGLanguageSubsystem.h"
+#include "Narrative/IGMissingFloorHints.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Player/IGCameraFeelModifier.h"
@@ -562,7 +564,7 @@ void AIGPlayerController::StartFrontendShippingProbe()
 
 	bAccessibilityMenuVisible = false;
 	// 글자 크기 미리 보기가 있는 자막 묶음부터 실제 화면을 검사한다.
-	AccessibilitySelection = IGSettingsMenuLayout::Subtitles;
+	AccessibilitySelection = IGSettingsMenuLayout::SoundCaptions;
 	SystemMenuSelection = 0;
 	SetSystemMenuMode(EIGSystemMenuMode::Hidden);
 	SetInputDevicePresentation(false);
@@ -684,7 +686,7 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		return;
 	case 3:
 		if (!bAccessibilityMenuVisible
-			|| AccessibilitySelection != IGSettingsMenuLayout::Subtitles
+			|| AccessibilitySelection != IGSettingsMenuLayout::SoundCaptions
 			|| !bUsingGamepadForHud)
 		{
 			FailFrontendShippingProbe(TEXT("gamepad_dpad_down"));
@@ -1857,7 +1859,7 @@ void AIGPlayerController::StartDisplaySettingsPreviewProbe()
 	// 어느 줄을 세워 둘지 고를 수 있어야 카테고리별로 증빙을 남길 수 있다.
 	int32 RequestedRow = 0;
 	FParse::Value(CommandLine, TEXT("IGDisplaySettingsRow="), RequestedRow);
-	DisplaySettingsSelection = FMath::Clamp(RequestedRow, 0, 8);
+	DisplaySettingsSelection = FMath::Clamp(RequestedRow, 0, IGSettingsMenuLayout::DisplayRowCount - 1);
 	SetInputDevicePresentation(false);
 	SetSystemMenuMode(EIGSystemMenuMode::DisplaySettings);
 	// SetSystemMenuMode는 모드만 바꾼다. HUD가 이 화면을 그리려면 표시 상태를
@@ -2230,6 +2232,12 @@ bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
 
 void AIGPlayerController::ToggleSystemMenu()
 {
+	// 엔딩 크레딧 동안 Esc는 크레딧을 건너뛰는 키다. 일시정지를 열지 않는다.
+	if (const AIGHorrorHUD* CreditsHUD = Cast<AIGHorrorHUD>(GetHUD());
+		CreditsHUD && CreditsHUD->IsEndCreditsActive())
+	{
+		return;
+	}
 	if (bMissingFloorJournalVisible)
 	{
 		CloseMissingFloorJournal();
@@ -2665,27 +2673,33 @@ void AIGPlayerController::RequestManualHint()
 	{
 		return;
 	}
-	if (UGameInstance* GameInstance = GetGameInstance())
+	// 힌트는 화면의 정답 칸이 아니라 유담의 속말이다(§19.4). 누를 때마다 지금
+	// 걸린 자리를 한 단계씩 더 구체적으로 떠올린다. 진행이 바뀌면 처음부터다.
+	// 설정에서 힌트를 끈 사람에게는 아무것도 하지 않는다.
+	const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+	if (!HorrorHUD || !HorrorHUD->IsHintRequestAvailable() || !HorrorHUD->CanShowGameplayGuide())
 	{
-		if (const UIGMissingFloorNarrativeSubsystem* MissingFloor =
-			GameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>();
-			MissingFloor && MissingFloor->GetNightIndex() > 0)
-		{
-			// 없는 층 never reveals a puzzle answer from the default path.
-			// During the hour even this social nudge disappears with the HUD.
-			if (!MissingFloor->IsHourSealed())
-			{
-				AIGHorrorHUD::PushThought(
-					this,
-					NSLOCTEXT(
-						"IGMissingFloor",
-						"DayHintAskHwang",
-						"401호 할머니께 물어보자."),
-					2.4f);
-			}
-			return;
-		}
+		return;
 	}
+	const double Now = FPlatformTime::Seconds();
+	if (Now - LastHintRequestTime < 0.8)
+	{
+		return;
+	}
+	LastHintRequestTime = Now;
+	const FIGHintStep Step = IGMissingFloorHints::Resolve(this);
+	if (!Step.IsValid())
+	{
+		return;
+	}
+	if (Step.GoalId != HintGoalId)
+	{
+		HintGoalId = Step.GoalId;
+		HintTier = 0;
+	}
+	const int32 Tier = FMath::Clamp(HintTier, 0, Step.Tiers.Num() - 1);
+	AIGHorrorHUD::PushThought(this, Step.Tiers[Tier], 3.2f);
+	HintTier = FMath::Min(Tier + 1, Step.Tiers.Num() - 1);
 }
 
 void AIGPlayerController::ChangeAccessibilitySetting(
@@ -2704,8 +2718,18 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 
 	if (AccessibilitySelection == IGSettingsMenuLayout::ResetDefaults)
 	{
+		// 난이도까지 되돌리는 누름이다. 한 번 누르면 4초 동안 한 번 더 누르기를 기다린다.
+		// 메뉴가 열려 있으면 게임 시간이 멈추므로 실제 시계로 잰다.
+		const double Now = FPlatformTime::Seconds();
+		if (bConfirm && Now >= AccessibilityResetArmedUntil)
+		{
+			AccessibilityResetArmedUntil = Now + 4.0;
+			RefreshMenuHud();
+			return;
+		}
 		if (bConfirm)
 		{
+			AccessibilityResetArmedUntil = -1.0;
 			Accessibility->ResetToDefaults();
 			IGAccessibilityMenu::ApplyNightDifficulty(GetWorld(), EIGNightDifficulty::Standard);
 			if (AIGPlayerCharacter* PlayerCharacter =
@@ -2738,6 +2762,9 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		IGAccessibilityMenu::ApplyNightDifficulty(GetWorld(), Difficulty);
 		break;
 	}
+	case IGSettingsMenuLayout::Hints:
+		Settings.bHintsEnabled = !Settings.bHintsEnabled;
+		break;
 	case IGSettingsMenuLayout::ReducedCameraMotion:
 		Settings.bReducedCameraMotion = !Settings.bReducedCameraMotion;
 		break;
@@ -2756,6 +2783,9 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 			0.0f,
 			1.0f);
 		break;
+	case IGSettingsMenuLayout::CenterDot:
+		Settings.bAlwaysShowCenterDot = !Settings.bAlwaysShowCenterDot;
+		break;
 	case IGSettingsMenuLayout::DirectionalFearCues:
 		Settings.bDirectionalFearCues = !Settings.bDirectionalFearCues;
 		break;
@@ -2770,9 +2800,6 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 		break;
 	case IGSettingsMenuLayout::CognitiveAssist:
 		Settings.bCognitiveAssist = !Settings.bCognitiveAssist;
-		break;
-	case IGSettingsMenuLayout::Subtitles:
-		Settings.bSubtitlesEnabled = !Settings.bSubtitlesEnabled;
 		break;
 	case IGSettingsMenuLayout::SoundCaptions:
 		Settings.bSoundCaptionsEnabled = !Settings.bSoundCaptionsEnabled;
@@ -2813,6 +2840,9 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 			Settings.HoldDurationScale + (Direction < 0 ? -0.25f : 0.25f),
 			0.25f,
 			1.0f);
+		break;
+	case IGSettingsMenuLayout::PromptKeys:
+		Settings.bAlwaysShowPromptKeys = !Settings.bAlwaysShowPromptKeys;
 		break;
 	case IGSettingsMenuLayout::Haptics:
 		Settings.bHapticsEnabled = !Settings.bHapticsEnabled;
@@ -2975,6 +3005,16 @@ void AIGPlayerController::ConfirmSystemMenuSelection()
 				return;
 			}
 			StartNewGame();
+		}
+		else if (IsMissingFloorNight())
+		{
+			// F9와 같은 잠금이다. 밤을 되감으면 잡힌 값과 놓친 밤의 값이 전부 사라진다.
+			SystemMenuStatusText = NSLOCTEXT(
+				"IGFrontend",
+				"LoadLockedAtNight",
+				"밤이 지나가기 전에는 불러올 수 없습니다.");
+			bSystemMenuStatusIsError = true;
+			RefreshMenuHud();
 		}
 		else
 		{
@@ -3549,6 +3589,17 @@ void AIGPlayerController::AdjustDisplaySetting(const int32 Direction)
 			DisplayFrameLimitIndex,
 			IGDisplaySettings::FrameLimitCount);
 		break;
+	case IGSettingsMenuLayout::Language:
+		// 언어는 화면 설정 확인(10초 되돌리기)과 상관없이 바로 바꾸고 저장한다.
+		if (UIGLanguageSubsystem* Language = GetGameInstance()
+			? GetGameInstance()->GetSubsystem<UIGLanguageSubsystem>()
+			: nullptr)
+		{
+			Language->CycleCulture(Direction);
+			PlayMenuTick(false);
+		}
+		RefreshMenuHud();
+		return;
 	default:
 		return;
 	}
@@ -3580,7 +3631,8 @@ void AIGPlayerController::ConfirmDisplaySettingsSelection()
 		}
 		return;
 	}
-	if (DisplaySettingsSelection <= 4)
+	if (DisplaySettingsSelection <= IGSettingsMenuLayout::FrameLimit
+		|| DisplaySettingsSelection == IGSettingsMenuLayout::Language)
 	{
 		AdjustDisplaySetting(1);
 		return;
@@ -3917,7 +3969,10 @@ void AIGPlayerController::RefreshMenuHud() const
 	{
 		HorrorHUD->SetAccessibilityMenuState(
 			bAccessibilityMenuVisible,
-			AccessibilitySelection);
+			AccessibilitySelection,
+			AccessibilitySelection == IGSettingsMenuLayout::ResetDefaults
+				? AccessibilityResetArmedUntil
+				: -1.0);
 		FIGSystemMenuPresentation Presentation;
 		Presentation.bVisible =
 			SystemMenuMode != EIGSystemMenuMode::Hidden;
@@ -4985,6 +5040,12 @@ bool AIGPlayerController::HasEndingBAutosave() const
 		// 그 행이 있는 세계를 만든다(§14: 실제 세이브 파일은 만들지 않는다).
 		// 이 자리에 두는 이유는 메뉴가 새로 그려질 때마다 조회가 다시 돌기
 		// 때문이다 — 플래그를 한 번 세워 두는 방식은 곧 지워진다.
+		return true;
+	}
+	// 결말 B를 본 프로필이면 된다. 예전 빌드의 세이브(결말 뒤 아침이 저장된
+	// 것)도 계속 인정한다.
+	if (IGOnboardingMemory::HasSeenEnding(FName(TEXT("Ending.B"))))
+	{
 		return true;
 	}
 	const UIGSaveSubsystem* SaveSubsystem = GetSaveSubsystem();

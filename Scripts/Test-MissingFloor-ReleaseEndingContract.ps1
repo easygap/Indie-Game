@@ -110,8 +110,8 @@ Assert-ContainsAll $hudSource @(
 	'"채광 좋은 남향, 즉시 입주 가능"',
 	'"이 집 새벽에 노크 소리 나요."',
 	'"두 명이서 하는 것 같아요."',
-	'"E  넷째 밤 다시 시작"',
-	'"A  넷째 밤 다시 시작"',
+	'"{0}  넷째 밤 다시 시작"',
+	'GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad)',
 	'RecordLayoutValidationRect(PanelPosition, PanelPosition + PanelSize)'
 ) 'Ending C presentation'
 

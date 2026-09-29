@@ -166,7 +166,7 @@ Require-All $hud @(
 	'FLinearColor::Black',
 	'SE_BLEND_Opaque',
 	'DrawAudioCaption(',
-	'bKorean ? TEXT("다섯째 밤") : TEXT("NIGHT 5")'
+	'NSLOCTEXT("IGHUD", "Menu.Night5", "다섯째 밤")'
 ) 'black screen and the row label'
 # 한 번 재생하면 흐려진다. 사라지지는 않는다.
 Require-All $hud @(

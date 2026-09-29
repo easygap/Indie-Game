@@ -4,8 +4,12 @@
 #include "GameFramework/HUD.h"
 #include "Player/IGSettingsMenuLayout.h"
 #include "Player/IGHudGuidance.h"
+#include "Player/IGContextTips.h"
 #include "IGHorrorHUD.generated.h"
 
+class AIGListenerEntity;
+class UAudioComponent;
+class AIGMissingFloorMercyDirector;
 class AIGReadableNote;
 class IIGObjectiveProvider;
 class UFont;
@@ -157,6 +161,20 @@ public:
 	/** 잠깐 목표와 조작법을 다시 본다. 다시 누르면 바로 닫힌다. */
 	void ToggleGameplayGuide();
 	bool CanShowGameplayGuide() const;
+	/**
+	 * 에필로그 뒤의 엔딩 크레딧. 검은 화면 위로 제작 정보가 올라가고, 다 올라가거나
+	 * 확인 키를 누르면 타이틀로 넘어간다. 도시의 새벽 소리가 낮게 깔린다.
+	 */
+	void StartEndCredits();
+	bool IsEndCreditsActive() const { return bEndCreditsActive; }
+	/** 지금 표시 언어가 한국어인가. 한국어로 인쇄된 그림을 그대로 쓸지 가른다. */
+	static bool IsKoreanCulture();
+	/** 줄 높이 측정용 글자. 표시 언어마다 번역으로 바꾼다. */
+	static FString GetLineHeightSample();
+	/** 힌트 키가 지금 뭔가를 하는가. 설정에서 끄면 안내에도 적지 않는다. */
+	bool IsHintRequestAvailable() const;
+	/** 막힌 것 같을 때 힌트 키를 한 번 알려 준다. 힌트를 끈 사람에게는 띄우지 않는다. */
+	void OfferHintTip();
 	bool IsGameplayGuideRecalled() const { return Guidance.IsRecalled(); }
 	void GetGameplayGuideRenderSample(bool& OutObjective, bool& OutControls) const
 	{
@@ -390,7 +408,8 @@ public:
 	}
 
 	/** Native, asset-independent accessibility panel driven by the controller. */
-	void SetAccessibilityMenuState(bool bVisible, int32 SelectedRow);
+	/** ResetArmedUntil은 FPlatformTime 초다. 그때까지 「기본값으로 초기화」가 한 번 더 누르기를 기다린다. */
+	void SetAccessibilityMenuState(bool bVisible, int32 SelectedRow, double ResetArmedUntil = -1.0);
 	/** Native title, pause and credits presentation shared by packaged builds. */
 	void SetSystemMenuState(const FIGSystemMenuPresentation& Presentation);
 	/**
@@ -460,9 +479,15 @@ private:
 		const TCHAR* RelativePath,
 		const TCHAR* FontFaceName);
 	UFont* MakeRuntimeFont(UFontFace* FontFace, int32 PixelSize, const TCHAR* FontName);
+	/**
+	 * 일본어와 중국어 글꼴. 번들 파일(UI/Fonts/NotoSans*-Regular.otf)이 있으면
+	 * 그것을, 없으면 윈도우 기본 글꼴을 읽는다. 한 번 읽은 글꼴은 다시 읽지 않는다.
+	 */
+	UFontFace* LoadCjkFontFace(const FString& Culture);
+	/** 표시 언어가 바뀌면 역할별 글꼴을 다시 만든다. 한자와 가나는 그 언어의 글꼴로 그린다. */
+	void HandleCultureChanged();
 	UFont* GetFontForRole(EIGHudTextRole TextRole) const;
 	FText GetObjectiveText() const;
-	FString GetObjectiveTextAscii() const;
 	void DrawCenteredText(
 		const FText& Text,
 		float ScreenY,
@@ -493,7 +518,11 @@ private:
 		const FVector2D& ContainerMinimum,
 		const FVector2D& ContainerMaximum);
 	void FinalizeLayoutValidationSample();
-	void DrawCrosshair(const FLinearColor& Color);
+	/**
+	 * 화면 가운데 점. 기본은 조사할 대상을 겨눴을 때만 뜬다. 접근성 설정에서
+	 * 항상 띄우게 하면 멀미 나는 손에 기준점 하나를 남긴다.
+	 */
+	void DrawCenterDot(bool bFocused);
 	bool DrawChapterCard(double CurrentTime);
 	/** Full-screen reading panel for whatever note is currently open. */
 	void DrawNotePanel();
@@ -624,8 +653,27 @@ private:
 	FText GetBoundKeyLabel(EIGBindableAction Action, bool bGamepad) const;
 	void UpdateFocusBracket(AActor* FocusedActor, float DeltaSeconds);
 	void DrawFocusBracket(const FLinearColor& Color, float Progress);
+	/** 카메라 페이드가 화면을 거의 덮었다. 검은 화면 위에는 조준점도 안내도 두지 않는다. */
+	bool IsCameraFadedOut() const;
+	/** 마친 조사 수를 보고 첫 조작 안내를 끝내고, 익힌 동작을 프로필에 센다. */
+	void NoteCompletedInteractions(const UIGInteractionComponent* Interaction);
+	/** 지금 상황에 맞는 조작 안내 한 줄을 고르고 시간을 센다. */
+	void UpdateContextTips(float DeltaSeconds, bool bLaneFree);
+	void DrawContextTip(float Alpha);
+	/**
+	 * 한국어로만 손글씨가 적힌 쪽지(다섯 번 잡힌 뒤의 메모, 문 아래 메모)를
+	 * 다른 언어로 켠 사람이 가까이서 내려다보면 그 글을 속말로 한 번 읽어 준다.
+	 * 한국어판은 종이를 직접 읽으므로 아무것도 띄우지 않는다.
+	 */
+	void UpdatePrintedTextReading();
+	/** 크레딧을 그린다. 끝났으면 false를 돌려주고 타이틀을 부른다. */
+	bool DrawEndCredits();
+	void FinishEndCredits();
+	/** 입주 저녁 첫 안내와 F1 안내가 쓰는 조작 줄. bFull이면 전부, 아니면 첫 안내 두 줄만. */
+	void DrawControlsGuide(float Alpha, bool bFull);
 
 	bool SupportsKorean() const { return KoreanFontMedium != nullptr; }
+
 
 	/** Aged-paper sheet the reading panel is printed on. */
 	UPROPERTY(Transient)
@@ -713,6 +761,14 @@ private:
 	UPROPERTY(Transient)
 	TObjectPtr<UFont> KoreanPhoneMetaFont;
 
+	/** 문화권 이름(ja, zh-Hans, zh-Hant)별 한자·가나 글꼴. */
+	UPROPERTY(Transient)
+	TMap<FString, TObjectPtr<UFontFace>> CjkFontFaces;
+	/** 지금 역할별 글꼴에 붙어 있는 한자·가나 글꼴. 없으면 한국어와 영어만 그린다. */
+	UPROPERTY(Transient)
+	TObjectPtr<UFontFace> ActiveCjkFontFace;
+	FDelegateHandle CultureChangedHandle;
+
 	TWeakObjectPtr<UIGInteractionComponent> InteractionComponent;
 	TWeakObjectPtr<UObject> ObjectiveProvider;
 
@@ -783,6 +839,30 @@ private:
 	double CaptureWakeEchoStartTime = -1.0;
 	double CaptureWakeEchoEndTime = -1.0;
 	FIGHudGuidance Guidance;
+	FIGContextTips ContextTips;
+	/** 지난 프레임에 아래쪽 줄(대사·소리 자막)이 차 있었는가. 조작 안내는 이 줄이 빌 때만 센다. */
+	bool bLowerLaneBusyLastFrame = false;
+	/** 조작 안내가 자막에 자리를 내줄 때 툭 끊기지 않게 따로 페이드한다. */
+	float ControlsLaneAlpha = 1.0f;
+	int32 SeenCompletedInteractions = 0;
+	bool bControlsIntroRecorded = false;
+	/** 기록된 출처 수. 처음 늘어날 때 기록 보기 안내를 띄운다. -1이면 아직 못 읽었다. */
+	int32 SeenSourceCount = -1;
+	TWeakObjectPtr<AIGListenerEntity> ListenerForTips;
+	/** 막힌 밤의 세계 반응(90초 규칙)이 처음 일어날 때 힌트 키를 한 번 알려 준다. */
+	TWeakObjectPtr<AIGMissingFloorMercyDirector> MercyForTips;
+	TWeakObjectPtr<class AIGNightLoopDirector> NightLoopForNotes;
+	bool bReadCaptureMercyNote = false;
+	bool bEndCreditsActive = false;
+	/** 실제 시계(FPlatformTime) 기준. 크레딧 동안 월드가 멈춰 있어도 흐른다. */
+	double EndCreditsStartTime = 0.0;
+	double EndCreditsFinishTime = -1.0;
+	UPROPERTY(Transient)
+	TObjectPtr<UAudioComponent> EndCreditsBed;
+	bool bReadDoorMercyNote = false;
+	int32 SeenMercyResponses = -1;
+	/** 첫 밤이 시작된 뒤 흐른 시간. 앉기 안내는 첫 소동이 가라앉은 뒤에 띄운다. */
+	float NightTipClock = 0.0f;
 	/**
 	 * 잡혔다가 깨어날 때마다 오른다. 밤의 목표 키에 섞여서, 조작이 돌아오는
 	 * 첫 프레임에 손목의 시계가 한 번 떠오른다 — 잡힌 값이 시간이라면 그
@@ -822,6 +902,7 @@ private:
 	bool bLayoutValidationSampleReady = false;
 	bool bLayoutValidationEnabled = false;
 	int32 AccessibilitySelectedRow = 0;
+	double AccessibilityResetArmedUntil = -1.0;
 	int32 SystemMenuSelectedRow = 0;
 	int32 MissingFloorJournalPageIndex = 0;
 	bool bNightPresentation = false;

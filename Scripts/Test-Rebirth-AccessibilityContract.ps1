@@ -183,7 +183,7 @@ Assert-ContainsAll $hudSource @(
 	'TextItem.Scale',
 	'DrawAudioCaption(',
 	'소리 자막',
-	'SOUND CAPTIONS'
+	'A11ySoundCaptions'
 ) '핵심 소리 자막 설정·출력 연결'
 Assert-True (-not $hudSource.Contains(
 	'const FString Ellipsis = TEXT("…")')) '긴 자막을 말줄임표로 손실한다'
@@ -231,7 +231,9 @@ Assert-ContainsAll $hudSource @(
 	'화면 흔들림 줄이기',
 	'빛 깜빡임 줄이기',
 	'소리가 나는 방향 표시',
-	'대사 자막',
+	'힌트',
+	'화면 가운데 점',
+	'조작 키 표시',
 	'소리 자막',
 	'자막 글자 크기',
 	'자막 배경 진하기',
@@ -252,10 +254,10 @@ Assert-ContainsAll $hudSource @(
 	'DrawSettingsFooterText('
 ) '긴 한글·200% 미리 보기 내부 경계 계약'
 Assert-ContainsAll $settingsLayout @(
-	'AccessibilityRowCount = 23',
+	'AccessibilityRowCount = 25',
 	'AccessibilityCategoryCount = 6',
-	'case 3: return {Subtitles, 6}',
-	'case 4: return {ToggleCrouch, 5}',
+	'case 3: return {SoundCaptions, 5}',
+	'case 4: return {ToggleCrouch, 6}',
 	'HitTestSettingsRow'
 ) '접근성 카테고리·포인터 공용 계약'
 
@@ -272,8 +274,12 @@ Assert-ContainsAll $settingsLayout @(
 
 # 묶음 여섯 개가 빈틈도 겹침도 없이 행 전부를 덮는가. 숫자를 손으로 맞추다
 # 한 행이 어느 묶음에도 안 들어가면 그 줄은 화면에서 사라진다.
-$categoryRanges = [regex]::Matches(
+# 화면 설정 묶음도 행 이름을 쓰므로 접근성 묶음 함수 안만 읽는다.
+$accessibilityCategoryBody = [regex]::Match(
 	$settingsLayout,
+	'GetAccessibilityCategory\(const int32 Category\)[\s\S]*?default:').Value
+$categoryRanges = [regex]::Matches(
+	$accessibilityCategoryBody,
 	'case \d: return \{(?<first>[A-Za-z]+), (?<count>\d+)\}')
 Assert-True ($categoryRanges.Count -eq 6) '접근성 묶음 여섯 개'
 $rowNames = [regex]::Match(
@@ -286,7 +292,7 @@ foreach ($entry in [regex]::Matches(
 	$rowNames.Groups['body'].Value, '(?m)^\s*(?<name>[A-Za-z]+)')) {
 	$orderedNames += $entry.Groups['name'].Value
 }
-Assert-True ($orderedNames.Count -eq 23) '접근성 행 이름 23개'
+Assert-True ($orderedNames.Count -eq 25) '접근성 행 이름 25개'
 $expectedFirst = 0
 foreach ($range in $categoryRanges) {
 	$firstName = $range.Groups['first'].Value
@@ -295,7 +301,7 @@ foreach ($range in $categoryRanges) {
 		'접근성 묶음이 이어 붙는다: {0}' -f $firstName)
 	$expectedFirst += [int]$range.Groups['count'].Value
 }
-Assert-True ($expectedFirst -eq 23) '접근성 묶음이 행 전부를 덮는다'
+Assert-True ($expectedFirst -eq 25) '접근성 묶음이 행 전부를 덮는다'
 # --- §19.8 소리의 대체 채널 ---------------------------------------------------
 #
 # 표 여덟 줄 중 넷이 비어 있었다. 소리를 못 듣는 손에게 존재의 노크는
@@ -643,8 +649,9 @@ Assert-ContainsAll $hudSource @(
 	'GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad)',
 	'AccessibilityControlsGamepad',
 	'AccessibilityControlsKeyboard',
-	'[ A ]',
-	'[ E ]',
+	# 휴대폰 내려놓기와 엔딩 C 재시도도 지금 묶인 키 이름을 쓴다.
+	'PhoneCloseFormat',
+	'EndingCRetryFormat',
 	'LS 이동',
 	'WASD 이동'
 ) '입력 장치별 화면 안내'

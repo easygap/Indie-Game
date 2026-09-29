@@ -93,10 +93,14 @@ foreach ($banned in @('JournalFilter', 'JournalSearch', 'DrawJournalHighlight'))
 	}
 }
 
-# 19.4 — 낮의 힌트는 정답이 아니라 한 줄이다.
+# 19.4 — 힌트는 유담의 속말이고, 첫 단계는 볼 곳만 말한다. 낮에는 여전히
+# 할머니를 먼저 가리킨다.
 $assertionCount++
-if (-not $controllerSource.Contains('401호 할머니께 물어보자')) {
-	throw 'The §19.4 daytime hint line is missing.'
+$hintSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Narrative/IGMissingFloorHints.cpp')
+if (-not $hintSource.Contains('401호 할머니께 여쭤보자') -or
+	-not $controllerSource.Contains('IGMissingFloorHints::Resolve(this)')) {
+	throw 'The §19.4 hint ladder is missing.'
 }
 
 # 19.5 — 기상 연출이 짧아지는 것 자체가 정보다.
@@ -830,13 +834,17 @@ if ($story -notmatch '몰입을 만드는 것은 추가가 아니라 \*\*제거\
 #
 # HUD가 그리는 문구를 전부 훑어 퍼센트·진행률 분수가 섞였는지 본다. §24의
 # 17번(밤 구간에 게이지·퍼센트 노출)이 여기서 닫힌다.
-$hudTexts = [regex]::Matches($hudSource, 'NSLOCTEXT\(\s*"[^"]*"\s*,\s*"[^"]*"\s*,\s*"(?<body>[^"]*)"')
+$hudTexts = [regex]::Matches($hudSource, 'NSLOCTEXT\(\s*"(?<ns>[^"]*)"\s*,\s*"[^"]*"\s*,\s*"(?<body>[^"]*)"')
 $assertionCount++
 if ($hudTexts.Count -lt 100) {
 	throw (
 		'HUD 문구를 {0}개만 읽었다. 퍼센트를 볼 수 없다 (§23).' -f $hudTexts.Count)
 }
 foreach ($hudText in $hudTexts) {
+	# 조사 기록은 세계 안 문서를 옮겨 적는다. 7/26 같은 날짜는 진행률이 아니다.
+	if ($hudText.Groups['ns'].Value -eq 'IGJournal') {
+		continue
+	}
 	$drawn = $hudText.Groups['body'].Value
 	$assertionCount++
 	if ($drawn -match '%' -or $drawn -match '퍼센트') {

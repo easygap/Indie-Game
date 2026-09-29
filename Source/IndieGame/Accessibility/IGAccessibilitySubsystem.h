@@ -127,6 +127,27 @@ struct INDIEGAME_API FIGAccessibilitySettings
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bMicrophoneNoiseEnabled = false;
 
+	/**
+	 * 화면 가운데 점. 꺼 두면(기본) 조사할 대상을 겨눴을 때만 뜬다. 멀미가 나는
+	 * 사람에게는 늘 떠 있는 점 하나가 눈의 기준이 되어 준다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bAlwaysShowCenterDot = false;
+
+	/**
+	 * 조사 안내에 키 이름을 늘 붙인다. 꺼 두면(기본) 같은 동작을 세 번 해 본
+	 * 뒤로는 「[ E ]  문 열기」가 「문 열기」로 줄어든다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bAlwaysShowPromptKeys = false;
+
+	/**
+	 * 힌트 키(H). 켜 두면 누를 때마다 지금 볼 곳을 한 단계씩 더 구체적으로
+	 * 떠올린다. 끄면 키도, 막혔을 때 한 번 뜨는 힌트 키 안내도 없다.
+	 */
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
+	bool bHintsEnabled = true;
+
 	/** Multiplier applied only to non-zero hold interactions. */
 	UPROPERTY(
 		EditAnywhere,
@@ -276,6 +297,12 @@ public:
 	bool IsMicrophoneNoiseEnabled() const
 	{
 		return EffectiveSettings.bMicrophoneNoiseEnabled;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Guidance")
+	bool AreHintsEnabled() const
+	{
+		return EffectiveSettings.bHintsEnabled;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Input")

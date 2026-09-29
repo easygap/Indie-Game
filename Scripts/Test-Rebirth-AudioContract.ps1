@@ -456,9 +456,10 @@ $assertions++
 Require-All $greybox @('night_presented=%d') '§24 즉시 차단 17 runtime probe'
 
 # §24 즉시 차단 22의 나머지 절반: UI가 색으로만 정보를 전달하지 않는다.
-# 조준 표시는 조사 대상을 물었을 때와 아닐 때 기하가 같고 색만 다르다. 포커스
-# 브래킷이라는 형태 신호가 뒤따르지만 0.18초 늦으므로, 그 사이를 색만으로
-# 버티지 않으려면 두 색이 회색조에서도 갈려야 한다. 상대 휘도로 확인한다.
+# 기본 설정에서 가운데 점은 조사 대상을 물었을 때만 뜬다. 점이 있고 없고가
+# 형태 신호다. 항상 표시를 켜면 두 상태의 기하가 같고 색만 다르다. 포커스
+# 브래킷이 뒤따르지만 0.18초 늦으므로, 그 사이를 색만으로 버티지 않으려면
+# 두 색이 회색조에서도 갈려야 한다. 상대 휘도로 확인한다.
 $hudColors = @{}
 foreach ($colorName in @('PaleGray', 'RedAccent')) {
 	$colorMatch = [regex]::Match(
@@ -485,7 +486,8 @@ $assertions++
 # 형태 신호가 아예 사라지면 색만 남는다. 브래킷 자체도 지켜야 한다.
 Require-All $hudBody @(
 	'void AIGHorrorHUD::DrawFocusBracket(',
-	'UpdateFocusBracket(bHasFocus ? Interaction->GetFocusedActor() : nullptr'
+	'UpdateFocusBracket(bHasFocus && !bFadedOut ? Interaction->GetFocusedActor() : nullptr',
+	'DrawCenterDot(bHasFocus)'
 ) '§24 즉시 차단 22 형태 신호'
 
 # §11 V5 밤 구간 8지점 히스토그램. 임계는 설계서가 고정한 5%/98%이며, 지점별
