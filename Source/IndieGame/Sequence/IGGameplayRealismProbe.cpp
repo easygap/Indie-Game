@@ -364,8 +364,15 @@ void AIGGameplayRealismProbe::CheckInteractionsAndCapture()
 			Body->RefreshBoneTransforms();
 			Entity->Tick(1.0f / 60.0f);
 		}
-		const FVector FaceFromEye = Entity->GetCaptureFaceLocation() - Player->GetPawnViewLocation();
-		Check(FaceFromEye.Size() > 35.0f && FaceFromEye.Size() < 110.0f
+		// 잡힌 사람은 뒤로 넘어져 바닥 가까이에서 올려다본다. 얼굴은 넘어진 눈 앞에서
+		// 물러났다가 달려든다. 서 있던 눈높이가 아니라 넘어진 눈을 기준으로 잰다.
+		const FVector Back = (Player->GetActorLocation() - Entity->GetActorLocation()).GetSafeNormal2D();
+		const FVector FallenEye = Player->GetPawnViewLocation()
+			+ Back * AIGPlayerCharacter::CaptureFallBackCentimeters
+			- FVector(0, 0, AIGPlayerCharacter::CaptureFallDropCentimeters);
+		const FVector FaceFromEye = Entity->GetCaptureFaceLocation() - FallenEye;
+		Check(FaceFromEye.Size() > 15.0f && FaceFromEye.Size() < 90.0f
+			&& FVector::DotProduct(FaceFromEye.GetSafeNormal2D(), -Back) > 0.5f
 			&& FMath::Abs(FaceFromEye.Z) < 45.0f, TEXT("capture_face_stays_in_front_of_camera"));
 		Entity->SetDormant(true);
 		Entity->KeepCaptureVisible();

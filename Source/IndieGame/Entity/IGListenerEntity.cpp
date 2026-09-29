@@ -6,6 +6,7 @@
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "Components/AudioComponent.h"
 #include "Components/CapsuleComponent.h"
+#include "Components/PointLightComponent.h"
 #include "Components/SkeletalMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Animation/AnimSequence.h"
@@ -21,6 +22,7 @@
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGRecordingSubsystem.h"
+#include "Player/IGFlashlightComponent.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
 #include "Kismet/GameplayStatics.h"
@@ -322,11 +324,12 @@ void AIGListenerEntity::EnterState(const EIGListenerState NewState)
 	}
 	else if (PreviousState == EIGListenerState::CaptureHold)
 	{
+		SetCaptureKeyLight(false);
 		// 낮에는 잠들어 있어야 하므로 휴면 상태를 그대로 따른다.
 		SetActorHiddenInGame(bDormant);
 		if (ListenerSkeletal)
 		{
-			ListenerSkeletal->SetRelativeLocation(FVector(0, 0, -58));
+			ListenerSkeletal->SetRelativeLocationAndRotation(FVector(0, 0, -58), FRotator::ZeroRotator);
 		}
 	}
 
@@ -2172,15 +2175,38 @@ void AIGListenerEntity::UpdateSkeletalPose(
 	switch (State)
 	{
 	case EIGListenerState::CaptureHold:
-		PlayBodyAnim(EIGListenerBodyAnim::Lunge, false, 0.72f);
+	{
+		// 넘어지는 동안 한 번 물러나 웅크렸다가, 점점 빨라지며 눈앞으로 달려들고 화면이
+		// 끊기는 순간 얼굴이 닿는다. 도착해서 머무는 시간은 없다. 눈앞에서 서성이면
+		// 무섭지 않고 어색했다. 0.12초마다 0.045초씩 멈춰 서서 한 장씩 찍어 넘긴 인형처럼
+		// 끊겨 보인다.
+		const AIGPlayerCharacter* Victim = CaptureVictim.Get();
+		const float CutSeconds = Victim && Victim->GetCaptureCutSeconds() > 0.0f
+			? Victim->GetCaptureCutSeconds()
+			: 0.95f;
+		const bool bFrozen = FMath::Fmod(StateSeconds, 0.12f) < 0.045f;
+		PlayBodyAnim(EIGListenerBodyAnim::Crawl, true, bFrozen ? 0.0f : 2.6f);
+		if (!bFrozen)
 		{
-			// 바닥의 자세에서 가슴 높이까지 덮친다. 얼굴을 카메라 앞에 두되
-			// 가까운 면이 시야를 뚫지 않도록 머리 뼈와 눈 사이에 거리를 남긴다.
-			const FVector Delta = (CaptureViewTarget - GetCaptureFaceLocation()).GetClampedToMaxSize(150);
-			const float Approach = 1.0f - FMath::Exp(-12.0f * DeltaSeconds);
-			ListenerSkeletal->AddWorldOffset(Delta * Approach);
+			const float Phase = FMath::Clamp(StateSeconds / CutSeconds, 0.0f, 1.0f);
+			const FVector Coil = CaptureFallenEye + CaptureStrikeLine * 70.0f - FVector(0, 0, 8);
+			const FVector Wanted = Phase < 0.45f
+				? FMath::Lerp(CaptureFaceStart, Coil,
+					FMath::InterpEaseOut(0.0f, 1.0f, Phase / 0.45f, 2.0f))
+				: FMath::Lerp(Coil, CaptureViewTarget,
+					FMath::Pow((Phase - 0.45f) / 0.55f, 2.4f));
+			ListenerSkeletal->AddWorldOffset(Wanted - GetCaptureFaceLocation());
+		}
+		if (CaptureKeyLight)
+		{
+			// 손전등이 바닥에 떨어진 뒤에야 얼굴에 빛이 닿는다.
+			const UIGFlashlightComponent* Torch = Victim ? Victim->GetFlashlight() : nullptr;
+			const float Peak = Torch && Torch->IsProvidingLight() ? 260.0f : 110.0f;
+			CaptureKeyLight->SetIntensity(
+				Peak * FMath::SmoothStep(0.30f * CutSeconds, 0.60f * CutSeconds, StateSeconds));
 		}
 		return;
+	}
 	case EIGListenerState::Banging:
 		// 노크 소리와 같은 2.1초짜리 동작. 한 번 재생하고 듣기로 넘어간다. 티어가
 		// 올라 노크가 빨라지면 손도 같은 배율로 빨라져야 소리와 닿는 순간이 맞는다.
@@ -3191,6 +3217,30 @@ void AIGListenerEntity::TryCloseCallStinger(const AIGPlayerCharacter* Player, co
 	const_cast<AIGPlayerCharacter*>(Player)->PlayScareKick(1.4f);
 }
 
+void AIGListenerEntity::SetCaptureKeyLight(const bool bEnabled)
+{
+	if (bEnabled && !CaptureKeyLight)
+	{
+		CaptureKeyLight = NewObject<UPointLightComponent>(this, TEXT("CaptureKeyLight"));
+		CaptureKeyLight->SetMobility(EComponentMobility::Movable);
+		CaptureKeyLight->SetIntensity(0.0f);
+		// 빛이 멀리 닿지 않아야 물러난 얼굴은 어둠에 묻히고, 달려드는 얼굴만 빛 속으로 들어온다.
+		CaptureKeyLight->SetAttenuationRadius(80.0f);
+		CaptureKeyLight->SetLightColor(FLinearColor(0.72f, 0.82f, 1.0f));
+		CaptureKeyLight->SetSourceRadius(6.0f);
+		CaptureKeyLight->SetCastShadows(false);
+		CaptureKeyLight->SetSpecularScale(0.4f);
+		CaptureKeyLight->RegisterComponent();
+	}
+	if (CaptureKeyLight)
+	{
+		// 켤 때는 어둡게 시작한다. 밝기는 잡는 동안 매 프레임 올린다.
+		CaptureKeyLight->SetIntensity(0.0f);
+		CaptureKeyLight->SetWorldLocation(CaptureKeyLightLocation);
+		CaptureKeyLight->SetVisibility(bEnabled);
+	}
+}
+
 void AIGListenerEntity::KeepCaptureVisible()
 {
 	if (State != EIGListenerState::CaptureHold) return;
@@ -3218,14 +3268,26 @@ void AIGListenerEntity::BeginCapture(APawn* Player)
 	{
 		const FVector Direction = (Player->GetActorLocation() - GetActorLocation()).GetSafeNormal2D();
 		SetActorRotation(Direction.Rotation());
-		CaptureViewTarget = Player->GetPawnViewLocation() - Direction * 75.0f - FVector(0, 0, 22);
+		// 플레이어는 뒤로 넘어져 바닥 가까이에서 괴물 쪽을 조금 올려다본다(AIGPlayerCharacter의
+		// 포획 시점). 기는 자세의 얼굴은 위를 보고 있어서 이 각도에서 가장 잘 읽힌다. 얼굴은
+		// 이 시선 위에서 70cm까지 물러났다가 눈앞 20cm로 달려든다. 주먹 쥔 두 팔을 가슴
+		// 앞으로 드는 덮치기 동작은 쓰지 않는다. 권투 자세로 읽혔다.
+		CaptureFallenEye = Player->GetPawnViewLocation()
+			+ Direction * AIGPlayerCharacter::CaptureFallBackCentimeters
+			- FVector(0, 0, AIGPlayerCharacter::CaptureFallDropCentimeters);
+		CaptureStrikeLine = (-Direction * 34.0f + FVector(0, 0, 10)).GetSafeNormal();
+		CaptureViewTarget = CaptureFallenEye + CaptureStrikeLine * 20.0f;
+		// 바닥에 떨어진 손전등 자리. 달려드는 얼굴이 이 빛 속으로 들어온다.
+		CaptureKeyLightLocation = CaptureViewTarget - FVector(0, 0, 18) + Direction * 4.0f;
 	}
-	if (ListenerSkeletal && LungeAnim)
+	CaptureVictim = Cast<AIGPlayerCharacter>(Player);
+	CaptureFaceStart = GetCaptureFaceLocation();
+	if (ListenerSkeletal)
 	{
 		ListenerSkeletal->PrestreamTextures(3.f, false);
-		ListenerSkeletal->PlayAnimation(LungeAnim, false);
-		ActiveBodyAnim = EIGListenerBodyAnim::Lunge;
+		PlayBodyAnim(EIGListenerBodyAnim::Crawl, true, 2.6f);
 	}
+	SetCaptureKeyLight(true);
 
 	if (AIGPlayerCharacter* Character = Cast<AIGPlayerCharacter>(Player))
 	{

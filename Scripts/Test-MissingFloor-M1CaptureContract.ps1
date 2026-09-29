@@ -64,6 +64,8 @@ $hud = Read-ProjectText 'Source/IndieGame/Player/IGHorrorHUD.cpp'
 $listener = Read-ProjectText 'Source/IndieGame/Entity/IGListenerEntity.cpp'
 $greybox = Read-ProjectText 'Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp'
 $toneSequence = Read-ProjectText 'Source/IndieGame/Audio/IGToneSequenceSoundWave.cpp'
+$flashlight = Read-ProjectText 'Source/IndieGame/Player/IGFlashlightComponent.cpp'
+$audioDirector = Read-ProjectText 'Source/IndieGame/Audio/IGMissingFloorAudioSubsystem.cpp'
 
 Assert-ContainsAll $nightHeader @(
 	'float FadeOutSeconds = 2.15f;',
@@ -72,7 +74,7 @@ Assert-ContainsAll $nightHeader @(
 	'float GetWakeFadeInSeconds() const;'
 ) 'night-loop declarations'
 Assert-ContainsAll $night @(
-	'Character->PlayCaptureFeedback(FadeOutSeconds);',
+	'Character->PlayCaptureFeedback(FadeOutSeconds, CutSeconds);',
 	'Character->DisableInput(Controller);',
 	'FMath::Max(FadeOutSeconds, 0.05f)',
 	'SpawnCaptureHandprint(Character);',
@@ -91,14 +93,18 @@ $captureBlock = Get-Block $night `
 	'void AIGNightLoopDirector::HandlePlayerCaptured(APawn* Player)' `
 	'void AIGNightLoopDirector::FinishReset()'
 Assert-True (
-	$captureBlock.IndexOf('Character->PlayCaptureFeedback(FadeOutSeconds);') -lt
+	$captureBlock.IndexOf('Character->PlayCaptureFeedback(FadeOutSeconds, CutSeconds);') -lt
 	$captureBlock.IndexOf('Character->DisableInput(Controller);')) `
 	'capture feedback must start before input is disabled'
 Assert-True (-not $captureBlock.Contains('+ 0.4f')) `
 	'blackout reset must finish at the authored 2.15-second boundary'
+# 되풀이될수록 짧게 끊는다. 첫 포획도 1초 안에 끊는다.
+Assert-True $captureBlock.Contains(
+	'CaptureCount <= 1 ? 0.95f : (CaptureCount == 2 ? 0.75f : 0.55f)') `
+	'capture cut must shorten 0.95 -> 0.75 -> 0.55 seconds'
 
 Assert-ContainsAll $playerHeader @(
-	'void PlayCaptureFeedback(float DurationSeconds = 1.2f);',
+	'void PlayCaptureFeedback(float DurationSeconds = 1.2f, float CutSeconds = -1.0f);',
 	'void UpdateCaptureFeedback(float DeltaSeconds);',
 	'float CaptureFeedbackRemainingSeconds = 0.0f;',
 	'uint64 CaptureForceFeedbackHandle = 0;'
@@ -137,6 +143,32 @@ Assert-ContainsAll $listener @(
 	'UIGToneSequenceSoundWave::CreateCaptureStruggle(this)',
 	'OnPlayerCaptured.Broadcast(Player);'
 ) 'close capture sound'
+
+# 잡힌 순간: 손전등이 튕겨 나가고, 얼굴은 한 번 물러났다가 끊기는 순간 눈앞에
+# 닿는다. 눈앞에 머무는 시간과 주먹 쥔 덮치기 동작은 다시 들이지 않는다.
+Assert-ContainsAll $player @(
+	'Flashlight->PlayKnockLoose();',
+	'Flashlight->ClearKnockLoose();',
+	'SetManualCameraFade(',
+	'AudioDirector->PlayCaptureCut();'
+) 'capture cut'
+Assert-True (-not $player.Contains('SpawnDryOneShotAt(')) `
+	'the capture cut rides the score bus; only the held knock may be dry'
+Assert-ContainsAll $flashlight @(
+	'void UIGFlashlightComponent::PlayKnockLoose()',
+	'Beam->SetWorldRotation(FRotator(WorldPitch, PreviousWorldRotation.Yaw + YawOffset, 0.0f));'
+) 'knocked-loose torch'
+Assert-True $audioDirector.Contains('void UIGMissingFloorAudioSubsystem::PlayCaptureCut()') `
+	'capture cut player missing'
+$holdBlock = Get-Block $listener `
+	'// 넘어지는 동안 한 번 물러나 웅크렸다가' 'case EIGListenerState::Banging:'
+Assert-ContainsAll $holdBlock @(
+	'Victim->GetCaptureCutSeconds()',
+	'const FVector Coil = CaptureFallenEye + CaptureStrikeLine * 70.0f',
+	'FMath::Lerp(Coil, CaptureViewTarget,'
+) 'coil and strike'
+Assert-True (-not $holdBlock.Contains('EIGListenerBodyAnim::Lunge')) `
+	'the fist-raised lunge must not return to the capture'
 Assert-ContainsAll $greybox @(
 	'NightLoop->GetCaptureHandprintCount() >= 1',
 	'!NightLoop->IsCaptureResetInFlight()',

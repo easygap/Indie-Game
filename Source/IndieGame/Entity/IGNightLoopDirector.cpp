@@ -19,6 +19,7 @@
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Player/IGHorrorHUD.h"
 #include "Player/IGPlayerCharacter.h"
+#include "Player/IGStressComponent.h"
 #include "TimerManager.h"
 
 namespace IGNightLoop
@@ -152,14 +153,18 @@ void AIGNightLoopDirector::HandlePlayerCaptured(APawn* Player)
 	if (APlayerController* Controller =
 		Cast<APlayerController>(Character->GetController()))
 	{
-		Character->PlayCaptureFeedback(FadeOutSeconds);
+		// 처음 잡힐 때만 조금 길게 보여 준다. 되풀이될수록 짧게 끊어 같은 장면에
+		// 지치지 않게 한다. 끊긴 뒤의 암전과 소리는 그대로다.
+		const float CutSeconds = CaptureCount <= 1 ? 0.95f : (CaptureCount == 2 ? 0.75f : 0.55f);
+		Character->PlayCaptureFeedback(FadeOutSeconds, CutSeconds);
 		Character->DisableInput(Controller);
 		if (Controller->PlayerCameraManager)
 		{
 			Controller->PlayerCameraManager->StopCameraFade();
 		}
 	}
-	// 몸이 붙는 순간은 보인다. 숨이 끊기는 뒤쪽에서 시야를 닫는다.
+	// 화면은 캐릭터가 끊는다(PlayCaptureFeedback). 몸이 없는 포획처럼 캐릭터가
+	// 끊지 못한 경우에만 여기서 짧게 닫는다. 이미 검으면 건드리지 않는다.
 	GetWorldTimerManager().SetTimer(CaptureFadeTimer,
 		FTimerDelegate::CreateWeakLambda(this, [this]()
 		{
@@ -167,14 +172,14 @@ void AIGNightLoopDirector::HandlePlayerCaptured(APawn* Player)
 			{
 				if (APlayerController* PC = Cast<APlayerController>(Pawn->GetController()))
 				{
-					if (PC->PlayerCameraManager)
+					if (PC->PlayerCameraManager && PC->PlayerCameraManager->FadeAmount < 0.99f)
 					{
 						PC->PlayerCameraManager->StartCameraFade(0.f, 1.f,
-							FMath::Max(FadeOutSeconds - .65f, .05f), FLinearColor::Black, false, true);
+							.15f, FLinearColor::Black, false, true);
 					}
 				}
 			}
-		}), .65f, false);
+		}), 1.0f, false);
 
 	GetWorldTimerManager().SetTimer(
 		ResetTimer,
@@ -283,6 +288,16 @@ void AIGNightLoopDirector::FinishReset()
 		if (PassBeat)
 		{
 			PassBeat->NotifyCaptureReset();
+		}
+	}
+
+	if (bWakeRecoveryScheduled && Character)
+	{
+		// 눈이 뜨이며 끊겼던 숨을 한 번에 들이켠다. 괴물이 순찰 자리로 돌아간
+		// 뒤라야 포획 중의 숨 막음이 풀려 있다.
+		if (UIGStressComponent* Stress = Character->GetStress())
+		{
+			Stress->PlayGasp(/*bIgnoreCooldown=*/true);
 		}
 	}
 

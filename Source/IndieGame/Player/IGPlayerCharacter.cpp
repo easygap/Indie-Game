@@ -6,6 +6,7 @@
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "AudioCaptureCore.h"
 #include "Camera/CameraComponent.h"
+#include "Camera/PlayerCameraManager.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/PointLightComponent.h"
 #include "Components/PrimitiveComponent.h"
@@ -495,12 +496,29 @@ bool AIGPlayerCharacter::HasPhysicalCaptureView() const
 		&& CaptureThreat->HasPhysicalCaptureBody();
 }
 
-void AIGPlayerCharacter::PlayCaptureFeedback(const float DurationSeconds)
+void AIGPlayerCharacter::PlayCaptureFeedback(const float DurationSeconds, const float CutSeconds)
 {
 	CaptureFeedbackDurationSeconds = FMath::Max(DurationSeconds, 0.05f);
 	CaptureFeedbackRemainingSeconds = CaptureFeedbackDurationSeconds;
 	CaptureStartRotation = GetControlRotation();
+	// 몸이 닿고 1초 안에 화면을 끊는다. 천천히 어두워지면 잡힌 채 멈춰 선 몸을
+	// 2초 가까이 보게 되고, 그게 공포가 아니라 정지 화면으로 읽혔다. 동작
+	// 감소에서는 넘어지지 않고 잠깐 본 뒤 바로 끊는다.
+	const bool bReducedMotion = AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled();
+	CaptureCutSeconds = FMath::Min(
+		bReducedMotion ? 0.45f : (CutSeconds > 0.0f ? CutSeconds : 0.95f),
+		CaptureFeedbackDurationSeconds);
+	bCaptureCutDone = false;
+	CaptureFovScale = 1.0f;
+	CaptureImpactAlpha = 0.0f;
+	CaptureTunnelAlpha = 0.0f;
 	SetCameraMotionEnabled(true);
+	if (Flashlight && HasPhysicalCaptureView())
+	{
+		// 부딪힌 손에서 손전등이 튕겨 나간다. 괴물은 바닥에 떨어진 빛 언저리에서만 보인다.
+		Flashlight->PlayKnockLoose();
+	}
 
 	if (APlayerController* PlayerController = Cast<APlayerController>(Controller))
 	{
@@ -539,16 +557,62 @@ void AIGPlayerCharacter::UpdateCaptureFeedback(const float DeltaSeconds)
 		0.0f,
 		CaptureFeedbackRemainingSeconds - DeltaSeconds);
 	APlayerController* PlayerController = Cast<APlayerController>(Controller);
-	if (PlayerController && HasPhysicalCaptureView()
-		&& (!AccessibilitySubsystem || !AccessibilitySubsystem->IsReducedCameraMotionEnabled()))
+	const bool bReducedMotion = AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled();
+	const float Age = CaptureFeedbackDurationSeconds - CaptureFeedbackRemainingSeconds;
+	const bool bPhysical = HasPhysicalCaptureView();
+	if (PlayerController && bPhysical && !bReducedMotion)
 	{
-		const float Age = CaptureFeedbackDurationSeconds - CaptureFeedbackRemainingSeconds;
-		const float TurnAlpha = FMath::SmoothStep(0.0f, 0.42f, Age);
+		// 0.14초 만에 고개가 그쪽으로 꺾인다. 부드럽게 돌아가면 잡힌 게 아니라
+		// 돌아보는 것처럼 보였다. 넘어지는 동안에도 얼굴을 놓치지 않는다. 얼굴은
+		// 한 번 물러났다가 달려들므로 가운데에 있어도 크기가 크게 변한다.
+		const float TurnAlpha = FMath::SmoothStep(0.0f, 0.14f, Age);
 		FRotator FocusRotation = (CaptureThreat->GetCaptureFaceLocation()
 			- FirstPersonCamera->GetComponentLocation()).Rotation();
-		FocusRotation.Pitch = FMath::Clamp(FocusRotation.Pitch, -72.0f, 55.0f);
+		FocusRotation.Pitch = FMath::Clamp(FocusRotation.Pitch, -60.0f, 70.0f);
 		PlayerController->SetControlRotation(FQuat::Slerp(CaptureStartRotation.Quaternion(),
 			FocusRotation.Quaternion(), TurnAlpha).Rotator());
+	}
+	if (bPhysical)
+	{
+		// 화면 충격은 닿는 순간 가장 크고 곧 가라앉는다. 시야는 끊기기 직전까지
+		// 조여 온다. 동작 감소에서는 시야각을 건드리지 않는다.
+		CaptureImpactAlpha = FMath::Exp(-Age * 6.0f);
+		CaptureTunnelAlpha = FMath::SmoothStep(0.05f, CaptureCutSeconds, Age);
+		CaptureFovScale = bReducedMotion
+			? 1.0f
+			: FMath::Lerp(1.0f, 0.80f, FMath::SmoothStep(0.05f, CaptureCutSeconds, Age));
+		if (!bCaptureCutDone && Age >= CaptureCutSeconds)
+		{
+			// 얼굴이 닿기 전에 끊는다. 검은 화면 뒤로 소리만 이어진다.
+			bCaptureCutDone = true;
+			if (PlayerController && PlayerController->PlayerCameraManager)
+			{
+				PlayerController->PlayerCameraManager->SetManualCameraFade(
+					1.0f, FLinearColor::Black, false);
+			}
+			if (UWorld* World = GetWorld())
+			{
+				if (UIGMissingFloorAudioSubsystem* AudioDirector =
+					World->GetSubsystem<UIGMissingFloorAudioSubsystem>())
+				{
+					AudioDirector->PlayCaptureCut();
+				}
+			}
+			CaptureFovScale = 1.0f;
+			CaptureImpactAlpha = 0.0f;
+			CaptureTunnelAlpha = 0.0f;
+		}
+	}
+	if (CaptureFeedbackRemainingSeconds <= 0.0f || bCaptureCutDone)
+	{
+		CaptureFovScale = 1.0f;
+		CaptureImpactAlpha = 0.0f;
+		CaptureTunnelAlpha = 0.0f;
+	}
+	if (CaptureFeedbackRemainingSeconds <= 0.0f && Flashlight)
+	{
+		Flashlight->ClearKnockLoose();
 	}
 	const bool bHapticsEnabled = !AccessibilitySubsystem
 		|| AccessibilitySubsystem->AreHapticsEnabled();
@@ -856,8 +920,12 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 	LandingDip = FMath::FInterpTo(LandingDip, 0.0f, DeltaSeconds, 9.0f);
 	if (!bReducedMotion && HasPhysicalCaptureView())
 	{
+		// 뒤로 넘어진다. 0.06초 버티다가 가속하며 떨어져 0.36초에 바닥에 닿고,
+		// 그동안 뒤로도 조금 밀린다. 괴물은 넘어진 눈높이로 기어 들어온다.
 		const float Age = CaptureFeedbackDurationSeconds - CaptureFeedbackRemainingSeconds;
-		TargetOffset.Z -= 42.0f * FMath::SmoothStep(0.0f, 0.5f, Age);
+		const float Fall = FMath::Clamp((Age - 0.06f) / 0.30f, 0.0f, 1.0f);
+		TargetOffset.Z -= CaptureFallDropCentimeters * Fall * Fall;
+		TargetOffset.X -= CaptureFallBackCentimeters * FMath::SmoothStep(0.0f, 0.36f, Age);
 	}
 
 	// 보간 없이 그대로 건다. 10/s 보간은 걸음 주파수(1.9~2.9Hz)의 저역 필터라
@@ -885,7 +953,21 @@ void AIGPlayerCharacter::UpdateCameraMotion(const float DeltaSeconds)
 		CameraRotation.Roll += ScareCameraKick * 0.35f;
 	}
 	ScareCameraKick = FMath::FInterpTo(ScareCameraKick, 0.0f, DeltaSeconds, 7.0f);
-	if (!bReducedMotion && CaptureFeedbackRemainingSeconds > 0.0f)
+	if (!bReducedMotion && CaptureFeedbackRemainingSeconds > 0.0f && HasPhysicalCaptureView())
+	{
+		// 넘어지며 옆으로 기울고, 바닥에 닿는 순간 한 번 튄다. 떨림은 부딪힌
+		// 순간이 가장 크고 곧 잦아들지만 끊길 때까지 남는다.
+		const float Age = CaptureFeedbackDurationSeconds - CaptureFeedbackRemainingSeconds;
+		CameraRotation.Roll -= 13.0f * FMath::SmoothStep(0.10f, 0.40f, Age);
+		const float Jolt = Age > 0.36f ? FMath::Exp(-(Age - 0.36f) * 14.0f) : 0.0f;
+		CameraRotation.Pitch += 4.0f * Jolt;
+		CameraRotation.Roll -= 4.5f * Jolt;
+		const float Shake = 2.4f * FMath::Exp(-Age * 5.0f) + 0.35f;
+		CameraRotation.Pitch += Shake * FMath::Sin(Age * 71.0f);
+		CameraRotation.Yaw += Shake * 0.8f * FMath::Sin(Age * 53.0f + 1.3f);
+		CameraRotation.Roll += Shake * 0.6f * FMath::Sin(Age * 89.0f + 2.1f);
+	}
+	else if (!bReducedMotion && CaptureFeedbackRemainingSeconds > 0.0f)
 	{
 		const float CaptureAlpha = CaptureFeedbackRemainingSeconds
 			/ FMath::Max(CaptureFeedbackDurationSeconds, 0.05f);

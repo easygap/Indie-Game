@@ -109,6 +109,7 @@ void UIGFlashlightComponent::SetOn(const bool bNewOn)
 	// Do not carry a stale scare impulse into the next switch-on. Keeping the
 	// component asleep here removes a permanent per-frame update in CH01.
 	BrownOutTimer = 0.0f;
+	KnockLooseAge = -1.0f;
 	SwayOffset = FRotator::ZeroRotator;
 	ImpulseOffset = FRotator::ZeroRotator;
 	Beam->SetRelativeRotation(FRotator::ZeroRotator);
@@ -165,6 +166,30 @@ void UIGFlashlightComponent::TriggerBrownOut(const float DurationSeconds)
 	}
 }
 
+void UIGFlashlightComponent::PlayKnockLoose()
+{
+	if (!bOn || (AccessibilitySubsystem
+		&& AccessibilitySubsystem->IsReducedCameraMotionEnabled()))
+	{
+		return;
+	}
+	KnockLooseAge = 0.0f;
+	KnockLooseStartPitch = Beam->GetComponentRotation().Pitch;
+	SwayOffset = FRotator::ZeroRotator;
+	ImpulseOffset = FRotator::ZeroRotator;
+}
+
+void UIGFlashlightComponent::ClearKnockLoose()
+{
+	if (KnockLooseAge < 0.0f)
+	{
+		return;
+	}
+	KnockLooseAge = -1.0f;
+	PreviousWorldRotation = GetComponentRotation();
+	Beam->SetRelativeRotation(FRotator::ZeroRotator);
+}
+
 void UIGFlashlightComponent::TickComponent(
 	const float DeltaSeconds,
 	const ELevelTick TickType,
@@ -180,7 +205,15 @@ void UIGFlashlightComponent::TickComponent(
 	}
 
 	UpdateSway(DeltaSeconds);
-	const float Flicker = SampleFlicker(DeltaSeconds);
+	float Flicker = SampleFlicker(DeltaSeconds);
+	if (KnockLooseAge >= 0.52f)
+	{
+		// 바닥에 떨어진 손전등은 빛의 절반쯤을 바닥에 빼앗긴다. 닿는 순간에만 한 번
+		// 더 어두워진다. 되풀이하면 점멸이 된다.
+		const bool bLandingDip = KnockLooseAge < 0.64f
+			&& !(AccessibilitySubsystem && AccessibilitySubsystem->IsReducedFlickerEnabled());
+		Flicker *= bLandingDip ? 0.35f : 0.5f;
+	}
 	Beam->SetIntensity(BeamIntensity * Flicker);
 	Spill->SetIntensity(520.0f * Flicker);
 
@@ -202,6 +235,46 @@ void UIGFlashlightComponent::UpdateSway(const float DeltaSeconds)
 	{
 		return;
 	}
+	if (KnockLooseAge >= 0.0f)
+	{
+		// 손을 떠난 빛은 시선을 따라오지 않는다. 0.16초 만에 천장으로 튀어 천장을
+		// 옆으로 쓸고, 0.5초에 옆 바닥으로 떨어진 뒤 조금 튀다 멈춘다. 높이는 시선과
+		// 상관없이 실제 천장과 바닥을 기준으로 잡는다. 시선을 기준으로 하면 바닥의
+		// 괴물을 내려다보는 동안 "천장"이 괴물 머리가 되어 하얗게 타 버렸다. 몸은 떨어진
+		// 빛이 번진 가장자리에서만 보인다.
+		KnockLooseAge += DeltaSeconds;
+		const float Age = KnockLooseAge;
+		float WorldPitch = 0.0f;
+		float YawOffset = 0.0f;
+		if (Age < 0.16f)
+		{
+			const float Rise = FMath::InterpEaseOut(0.0f, 1.0f, Age / 0.16f, 2.0f);
+			WorldPitch = FMath::Lerp(KnockLooseStartPitch, 55.0f, Rise);
+			YawOffset = 30.0f * Rise;
+		}
+		else if (Age < 0.30f)
+		{
+			const float Sweep = FMath::SmoothStep(0.16f, 0.30f, Age);
+			WorldPitch = FMath::Lerp(55.0f, 45.0f, Sweep);
+			YawOffset = FMath::Lerp(30.0f, -48.0f, Sweep);
+		}
+		else if (Age < 0.50f)
+		{
+			WorldPitch = FMath::Lerp(45.0f, -55.0f, FMath::SmoothStep(0.30f, 0.50f, Age));
+			YawOffset = -48.0f;
+		}
+		else
+		{
+			const float Since = Age - 0.50f;
+			const float Settle = FMath::Exp(-Since * 9.0f);
+			WorldPitch = -55.0f + 7.0f * Settle * FMath::Sin(Since * 38.0f);
+			YawOffset = -48.0f + 3.0f * Settle * FMath::Sin(Since * 31.0f);
+		}
+		PreviousWorldRotation = GetComponentRotation();
+		Beam->SetWorldRotation(FRotator(WorldPitch, PreviousWorldRotation.Yaw + YawOffset, 0.0f));
+		return;
+	}
+
 	// 프레임당 회전량 대신 초당 회전량을 쓴다. 같은 속도로 고개를 돌리면
 	// 30fps와 120fps에서도 빛이 같은 만큼 뒤따라와야 한다.
 	const FRotator CurrentRotation = GetComponentRotation();

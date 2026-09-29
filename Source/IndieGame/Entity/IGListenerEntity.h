@@ -478,6 +478,20 @@ private:
 
 	EIGListenerBodyAnim ActiveBodyAnim = EIGListenerBodyAnim::None;
 	FVector CaptureViewTarget = FVector::ZeroVector;
+	/** 잡기 시작한 순간의 얼굴 위치. 여기서 CaptureViewTarget까지 달려든다. */
+	FVector CaptureFaceStart = FVector::ZeroVector;
+	/** 넘어진 눈의 위치와, 거기서 얼굴까지 이어지는 방향. 얼굴은 이 선 위에서 물러났다가 달려든다. */
+	FVector CaptureFallenEye = FVector::ZeroVector;
+	FVector CaptureStrikeLine = FVector::ForwardVector;
+	TWeakObjectPtr<class AIGPlayerCharacter> CaptureVictim;
+	/**
+	 * 바닥에 떨어진 손전등이 얼굴을 아래에서 비추는 빛. 손전등이 꺼져 있었다면
+	 * 더 어둡게 두되, 얼굴의 윤곽은 읽혀야 한다.
+	 */
+	UPROPERTY(Transient)
+	TObjectPtr<class UPointLightComponent> CaptureKeyLight;
+	FVector CaptureKeyLightLocation = FVector::ZeroVector;
+	void SetCaptureKeyLight(bool bEnabled);
 	float TexturePrefetchSeconds = 0.f;
 	/** 추격 중 두 팔 거리 안에 들어오면 덮치는 동작으로 바꾼다. */
 	bool bLungeArmed = false;

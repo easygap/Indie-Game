@@ -64,9 +64,23 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Player|Camera")
 	void SetCameraMotionEnabled(bool bEnabled);
 
-	/** 비폭력 포획 포옹과 카메라 킥, 감쇠 진동을 시작한다. */
 	UFUNCTION(BlueprintCallable, Category = "Player|Camera")
-	void PlayCaptureFeedback(float DurationSeconds = 1.2f);
+	/**
+	 * 잡혔을 때의 시점. 고개가 괴물 얼굴로 꺾이고, 뒤로 넘어져 바닥에서 올려다보다
+	 * CutSeconds에 화면이 검게 끊긴다. CutSeconds를 비우면 0.95초다.
+	 */
+	void PlayCaptureFeedback(float DurationSeconds = 1.2f, float CutSeconds = -1.0f);
+	/** 넘어질 때 시점이 떨어지는 깊이와 뒤로 밀리는 거리(cm). 괴물이 얼굴을 들이밀 자리가 여기서 나온다. */
+	static constexpr float CaptureFallDropCentimeters = 112.0f;
+	static constexpr float CaptureFallBackCentimeters = 26.0f;
+	/** 잡힌 동안 좁아지는 시야각 배율(1이 평소). */
+	float GetCaptureFovScale() const { return CaptureFovScale; }
+	/** 0~1. 부딪힌 순간 치솟았다 가라앉는 화면 충격. 카메라 모디파이어가 후처리로 쓴다. */
+	float GetCaptureImpactAlpha() const { return CaptureImpactAlpha; }
+	/** 0~1. 끊기기 직전까지 조여 오는 시야. */
+	float GetCaptureTunnelAlpha() const { return CaptureTunnelAlpha; }
+	/** 이번 포획에서 화면이 끊기는 시각(초). 괴물은 이 순간에 얼굴이 닿도록 달려든다. 음수면 아직 모른다. */
+	float GetCaptureCutSeconds() const { return CaptureCutSeconds; }
 	void SetCaptureThreat(class AIGListenerEntity* Threat);
 	bool HasPhysicalCaptureView() const;
 
@@ -276,6 +290,11 @@ private:
 	UPROPERTY(Transient) TWeakObjectPtr<class AIGListenerEntity> CaptureThreat;
 	FRotator CaptureStartRotation = FRotator::ZeroRotator;
 	uint64 CaptureForceFeedbackHandle = 0;
+	float CaptureCutSeconds = -1.0f;
+	bool bCaptureCutDone = false;
+	float CaptureFovScale = 1.0f;
+	float CaptureImpactAlpha = 0.0f;
+	float CaptureTunnelAlpha = 0.0f;
 	double LastKnockInputSeconds = -1.0;
 	double KnockInputLockedUntil = -1.0;
 	int32 LastStepIndex = 0;

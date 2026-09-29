@@ -73,6 +73,13 @@ public:
 	/** Presentation-only darkness cue; switch and availability stay intact. */
 	void TriggerBrownOut(float DurationSeconds);
 
+	/**
+	 * 잡히는 순간 손에서 튕겨 나간 손전등. 빛이 천장을 한 번 쓸고 바닥에 떨어져
+	 * 한두 번 튄다. 화면만 바꾸고 켜짐 상태는 그대로 둔다. 동작 감소에서는 쓰지 않는다.
+	 */
+	void PlayKnockLoose();
+	void ClearKnockLoose();
+
 	/** The suspended plaster dust this beam reveals. See §11 V1. */
 	UFUNCTION(BlueprintPure, Category = "Flashlight")
 	UIGBeamDustComponent* GetBeamDust() const { return BeamDust; }
@@ -116,6 +123,10 @@ private:
 	float FlickerTime = 0.0f;
 	float FlickerValue = 1.0f;
 	float BrownOutTimer = 0.0f;
+	/** 손을 떠난 뒤 흐른 시간. 음수면 손에 쥐고 있다. */
+	float KnockLooseAge = -1.0f;
+	/** 손을 떠나던 순간 빛이 향하던 높이(월드 피치). */
+	float KnockLooseStartPitch = 0.0f;
 	uint32 NoiseCounter = 0;
 	bool bOn = false;
 	bool bAvailable = false;
