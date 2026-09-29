@@ -34,7 +34,7 @@ namespace
 		if (!Beat(N, TEXT("Arrival.Contract")))
 		{
 			return Make(TEXT("Hint.Arrival.Contract"), {
-				NSLOCTEXT("IGHint", "ArrivalContract1", "책상에 계약서가 있었지. 제대로 한 번 읽어 봐야겠다."),
+				NSLOCTEXT("IGHint", "ArrivalContract1", "책상 위에 계약서를 뒀지. 한번 읽어 보자."),
 				NSLOCTEXT("IGHint", "ArrivalContract2", "403호 책상 위 임대차계약서. 그것부터 보자.") });
 		}
 		if (!Beat(N, TEXT("Arrival.Box.Parcel"))
@@ -48,7 +48,7 @@ namespace
 		if (!Beat(N, TEXT("Arrival.Store")))
 		{
 			return Make(TEXT("Hint.Arrival.Store"), {
-				NSLOCTEXT("IGHint", "ArrivalStore1", "이 동네 사정은 편의점이 제일 잘 알겠지."),
+				NSLOCTEXT("IGHint", "ArrivalStore1", "편의점에 사진 한번 보여 드릴까."),
 				NSLOCTEXT("IGHint", "ArrivalStore2", "1층으로 내려가서 골목으로 나가 보자. 편의점 계산대에 호출벨이 있을 거야.") });
 		}
 		const bool b401 = Beat(N, TEXT("Arrival.Unit401"));
@@ -86,7 +86,7 @@ namespace
 				: NSLOCTEXT("IGHint", "NightOne3Breaker", "이름표 없는 차단기를 올려 둔 채로 원판을 한 번 더 보자."));
 		return Make(TEXT("Hint.Night1.P1"), {
 			NSLOCTEXT("IGHint", "NightOne1", "위에 누가 있으면 전기를 쓰겠지. 1층 계량기함을 봐야겠다."),
-			NSLOCTEXT("IGHint", "NightOne2", "계량기가 하나 더 있었어. 이름표 없는 거. 복도등을 끄면 그게 도는지 보이겠지."),
+			NSLOCTEXT("IGHint", "NightOne2", "이름 없는 계량기가 하나 더 있었지. 복도등을 꺼도 돌아가면 다른 데 전기가 들어가는 거야."),
 			Last });
 	}
 
@@ -132,7 +132,7 @@ namespace
 		{
 			return Make(TEXT("Hint.Night3.Return"), {
 				NSLOCTEXT("IGHint", "NightThreeReturn1", "이제 403호로 돌아가자."),
-				NSLOCTEXT("IGHint", "NightThreeReturn2", "복도에서 기다리고 있을 거야. 벽에 했던 대로 하면 멈춰 줄지도 몰라."),
+				NSLOCTEXT("IGHint", "NightThreeReturn2", "아까 그 박자로 두드리니까 멈췄어. 복도에서도 통할까."),
 				NSLOCTEXT("IGHint", "NightThreeReturn3", "복도에서 둘, 쉬고, 하나로 두드리고, 멈춘 사이에 403호로 들어가자.") });
 		}
 		if (bSomeoneInWall)
@@ -197,16 +197,16 @@ namespace
 			return Make(TEXT("Hint.Night4.Wall"), {
 				NSLOCTEXT("IGHint", "NightFourWall1", "물소리가 나는 동안 벽을 쳐야 해."),
 				NSLOCTEXT("IGHint", "NightFourWall2", "낮에 사 온 망치가 있잖아. 5층 벽 앞으로 가자."),
-				NSLOCTEXT("IGHint", "NightFourWall3", "물이 도는 동안 5층 가운데 벽을 망치로 뚫릴 때까지 치자.") });
+				NSLOCTEXT("IGHint", "NightFourWall3", "물소리가 날 때 5층 가운데 벽을 망치로 치자. 구멍이 날 때까지.") });
 		}
 		if (!Beat(N, TEXT("Night4.ChoiceOffered")))
 		{
 			return Make(TEXT("Hint.Night4.Reveal"), {
 				NSLOCTEXT("IGHint", "NightFourReveal1", "벽 안을 봐야 해."),
-				NSLOCTEXT("IGHint", "NightFourReveal2", "눈을 돌리지 말고 끝까지 보자.") });
+				NSLOCTEXT("IGHint", "NightFourReveal2", "손전등으로 벽 안쪽을 비춰 보자.") });
 		}
 		return Make(TEXT("Hint.Night4.Choice"), {
-			NSLOCTEXT("IGHint", "NightFourChoice1", "이제 정해야 해."),
+			NSLOCTEXT("IGHint", "NightFourChoice1", "오빠 곁에 가 보자."),
 			NSLOCTEXT("IGHint", "NightFourChoice2", "튜닝 해머를 오빠 곁에 두고 물러나거나, 녹음을 끄고 곁에 앉아 있거나.") });
 	}
 

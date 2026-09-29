@@ -1,126 +1,55 @@
-[한국어](../../README.md) · [English](README.en.md) · [日本語](README.ja.md) · **简体中文** · [繁體中文](README.zh-TW.md)
+[한국어](../../README.md) · [English](README.en.md) · [日本語](README.ja.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md)
 
-# The Missing Floor
+# Missing Floor
 
-https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
+哥哥留下的地址是月光公寓501室。
+可这栋楼，明明只有四层。
 
-这是一款以韩国老式居民楼为背景的第一人称恐怖游戏。为了找到失踪的哥哥，你得向邻居打听消息，在房间和走廊里搜寻线索。
-到了夜里，敌人会循着声音找过来，就连开门也得小心。
+为了寻找失联的哥哥，侑潭搬进了403室。她向邻居打听消息，翻查哥哥留下的东西。直到凌晨四点半，敲击声从天花板上传来。
 
-Windows PC · 单人游戏 · 支持语言：简体中文、繁体中文、韩语、英语、日语 · 开发中
+一款以韩国老旧居民楼为背景的第一人称恐怖游戏。Windows · 单人 · 开发中。
 
-[下载 Windows 版](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip) · [操作说明](#操作说明)
+[下载 Windows 测试版](https://github.com/easygap/Missing-Floor/releases/download/v0.2.0/MissingFloor-0.2.0-Windows.zip) · [观看预告片](https://github.com/easygap/Missing-Floor/releases/download/v0.2.0/MissingFloor-Trailer.mp4)
 
-![游戏标题画面：老旧居民楼前显示着主菜单。](../Media/readme/title-menu-first-run-1080-zh-Hans.webp)
+![月光公寓四楼走廊](../Media/readme/game-corridor-day.webp)
 
-## 故事背景
+## 沿着哥哥留下的线索找下去
 
-为了寻找失联的哥哥，主角搬进了这栋楼的403室。退回的包裹上写着哥哥的地址：501室。可这栋楼明明只有四层。
+退回的包裹、旧语音留言，还有邻居们零碎的回忆。整理房间，去巷子对面的便利店问问，再看看管理室的账簿和监控。有人记得哥哥，也有人不愿多说。
 
-搬来后的第一晚，凌晨四点半，天花板上传来了敲击声。
+![还没整理好的403室](../Media/readme/game-bedroom.webp)
 
-![主角的403室，搬家纸箱和生活用品还没收拾好。](../Media/readme/game-bedroom.webp)
+![公寓门前的小巷](../Media/readme/game-alley.webp)
 
-## 在附近寻找线索
+## 凌晨四点半，别出声
 
-白天可以拜访邻居，到巷子和便利店打听消息。
-居民的只言片语、屋里留下的物品，都可能帮你找到哥哥的下落。
+夜里，有东西在走廊上游荡，循着声音靠近。奔跑的脚步声、猛然开门的动静，都可能暴露你的位置。慢慢开门，经过它身边时，先屏住呼吸。
 
-<table>
-  <tr>
-    <td width="50%"><img src="../Media/readme/game-alley.webp" alt="从居民楼通往便利店的小巷。"></td>
-    <td width="50%"><img src="../Media/readme/game-store.webp" alt="便利店的收银台，店员正站在柜台后。"></td>
-  </tr>
-  <tr>
-    <td>楼前的小巷</td>
-    <td>附近的便利店</td>
-  </tr>
-</table>
+被抓住后，你会在房间里醒来。找到的线索还在，但时间不会倒退。
 
-[查看更多房间和街巷画面 · GIF 4.9MB](../Media/readme/readme-route-preview.gif)
+![熄灯后的走廊](../Media/readme/game-corridor-night.webp)
 
-## 入夜后，放轻脚步
+贴着墙听声音，比对文件，检查电表。白天可以按`Tab`翻看调查记录，卡住时按`H`查看提示。
 
-在走廊里奔跑，或是猛地打开一扇门，都可能把敌人引过来。
-慢慢开门，必要时短暂屏住呼吸，尽量别让对方发现你。
+## 测试版 0.2.0
 
-<table>
-  <tr>
-    <td width="50%"><img src="../Media/readme/game-corridor-day.webp" alt="白天亮着灯的四楼走廊。"></td>
-    <td width="50%"><img src="../Media/readme/game-corridor-night.webp" alt="凌晨四点半，同一条走廊陷入昏暗。"></td>
-  </tr>
-  <tr>
-    <td>白天的走廊</td>
-    <td>凌晨4:30</td>
-  </tr>
-</table>
+完整解压 ZIP 文件后，运行`MissingFloor.exe`。请保留同目录下的`Engine`和`IndieGame`文件夹。游戏会自动保存进度。[运行指南](../PLAYING.md)目前为韩文。
 
-![实机演示：敌人在走廊里靠近并抓住玩家。](../Media/readme/night-listener-chase.gif)
+游戏支持韩语、英语、日语、简体中文和繁体中文。首次启动时会跟随 Windows 的语言，也可以在设置中切换。本页顶部的链接只切换介绍页面的语言。
 
-## 调查与解谜
+## 操作
 
-翻看管理室的文件，查看监控和电表箱，也别忘了贴着墙听一听。有些线索藏在墙后的声音里。
-白天按 `Tab` 可以回看收集到的记录。卡关时，按 `H` 查看提示。
-
-<table>
-  <tr>
-    <td width="50%"><img src="../Media/readme/p1-meter-cabinet.webp" alt="电表箱里排列着各房间的电表和抄表记录。"></td>
-    <td width="50%"><img src="../Media/readme/game-booth.webp" alt="管理室的桌上放着文件和监控显示器。"></td>
-  </tr>
-  <tr>
-    <td>电表箱</td>
-    <td>管理室</td>
-  </tr>
-</table>
-
-## 下载与运行
-
-目前提供 **2026年9月29日测试版**。游戏首次启动时使用 Windows 的显示语言，也可以在 **设置 > 通用 > 语言 · Language** 中切换简体中文、繁体中文、韩语、英语和日语。
-
-1. [下载 Windows 压缩包（ZIP，739MB）](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip)。
-2. 完整解压后，运行 `IndieGame.exe`。
-3. 选择 **开始游戏**。已有存档时，选择 **继续游戏**。
-
-游戏会自动保存进度。请保留与运行程序放在一起的 `Engine` 和 `IndieGame` 文件夹。
-
-已在 Windows 11、Ryzen 9 7900X、RTX 3060、32GB 内存的电脑上测试。最低配置尚未确定。
-
-如果提示缺少 DLL，请先确认文件已完整解压，再运行 `Engine/Extras/Redist/en-us/vc_redist.x64.exe`。遇到卡顿时，可以尝试调低分辨率或画质。
-
-## 操作说明
-
-使用 `WASD` 移动，鼠标控制视角。按 `E` 查看物品或开门，在门前长按 `E` 可以轻轻开门。
-
-支持手柄，键位和按钮都能在设置中修改。按 `F1` 或手柄方向键上，可重新查看操作说明。
-
-<details>
-<summary>完整按键表</summary>
-
-| 按键 | 功能 |
+| 按键 | 操作 |
 |---|---|
-| `W A S D` / 鼠标 | 移动 / 转动视角 |
-| `左 Shift` / `C` / `Space` | 奔跑 / 蹲下 / 跳跃 |
-| `E` | 查看物品 / 开门 |
-| 长按 `E` | 轻轻开门 / 贴墙听声 |
-| `Q` / `左 Ctrl` | 敲击 / 屏住呼吸 |
-| `F` | 手电筒 |
-| `F1` | 目标与操作说明 |
-| `Tab` / `H` | 查看记录（白天）/ 提示 |
-| `← →` / 鼠标滚轮 | 翻阅文件 |
-| `Esc` / `F10` | 暂停 / 辅助功能设置 |
+| WASD / 鼠标 | 移动 / 转动视角 |
+| 左 Shift / C / Space | 奔跑 / 蹲下 / 跳跃 |
+| E / 长按 E | 调查、开门 / 缓慢开门、贴墙倾听 |
+| Q | 敲击 |
+| 左 Ctrl | 屏住呼吸 |
+| F | 手电筒 |
+| Tab / H | 调查记录（白天）/ 提示 |
+| Esc / F1 / F10 | 暂停 / 操作说明 / 设置 |
 
-</details>
+设置中可调整难度、字幕、声音方向提示和镜头晃动，也可以关闭追逐。麦克风输入为可选功能，默认关闭。
 
-## 难度与辅助设置
-
-不想被追赶的话，可以按 `F10`，选择 **不追击**。敌人不会抓住你，解谜和剧情仍可完整体验。另有简单、普通和困难三种难度，游玩途中也能切换。
-
-字幕可以调整字号、背景深浅和显示时间。声音方向可以显示在画面上，敲击声也能通过手柄震动提示。还支持减轻镜头晃动和闪烁、将长按改为单次按键切换，以及分别调整背景音乐和环境音的音量。
-
-![辅助功能设置，可调整字幕大小、背景深浅和显示时间。](../Media/readme/settings-accessibility-20260929-zh-Hans.webp)
-
-游戏包含昏暗场景、突然出现的敌人和音量较大的音效。开始前请先调整音量和亮度。
-
-## 问题与反馈
-
-遇到问题或有想法，可以[在这里留言](https://github.com/easygap/Missing-Floor/issues/new)。反馈故障时，请写明发生的场景、之前做了什么，以及具体出现了什么问题。有截图或报错信息也可以一并附上。
+遇到问题时，请在[Issues](https://github.com/easygap/Missing-Floor/issues)中说明发生的场景，并附上 Windows 版本和显卡型号。

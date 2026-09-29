@@ -15,15 +15,9 @@ DECLARE_MULTICAST_DELEGATE_OneParam(
 	AIGMissingFloorEvidence* /*Evidence*/);
 
 /**
- * A thing in the world worth looking at twice, in 없는 층 terms: examining it
- * files one evidence record against one truth, pushes one inner-voice line,
- * and makes one sound.
- *
- * Deliberately not AIGInspectable, which can only push a thought and owns no
- * state, and deliberately not the legacy CH03 action actor, whose enum is
- * 4시 44분 canon. The sound is the part that matters here: examining anything
- * during the hour is an act the one upstairs can hear, so loudness is authored
- * per prop — a dial is nearly silent, a breaker handle is not.
+ * 조사하면 단서와 독백, 소리를 함께 남기는 물건.
+ * 밤에는 조사할 때 난 소리도 귀신에게 들린다. 계량기를 만질 때와
+ * 차단기를 내릴 때처럼 행동마다 소음 크기를 따로 정한다.
  */
 UCLASS(NotBlueprintable)
 class INDIEGAME_API AIGMissingFloorEvidence : public AIGInteractableActor

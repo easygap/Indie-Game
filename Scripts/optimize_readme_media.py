@@ -45,6 +45,8 @@ STILLS = (
     "game-store.png",
     "game-corridor-night.png",
     "game-booth.png",
+    "game-bedroom-dawn.png",
+    "game-alley-dawn.png",
     # 검수 기록도 본문에 전후 비교 캡처를 여러 장 건다. 원본을 그대로 걸면
     # 문서 하나를 여는 데 수십 MB가 들어서 같이 줄인다.
     "bedroom-before-bed.png",
@@ -77,23 +79,13 @@ STILLS = (
     # 계약이 Docs/Media에 증거로 잡고 있고, 표시용 파생본만 여기서 빠진다.
 )
 
-# 낮 동선 GIF는 「4시 44분」 시절 모닝 루틴 디렉터가 같이 돌 때 찍은 프롤로그
-# 캡처를 이어 붙였다. 화면 위쪽 목표 띠에 "골목 끝 편의점에서 물을 사 오자"가
-# 그대로 남아 있어서, 「없는 층」을 설명하는 README에 걸면 글과 그림이 서로 다른
-# 말을 한다. 빌라·복도·골목·편의점은 두 작품이 같이 쓰던 실제 맵이므로 목표
-# 띠만 잘라낸다. 원본은 Docs/Media에 그대로 두고 파생본에서만 자른다.
-OBJECTIVE_BAND = 0.09
-LEGACY_OBJECTIVE = frozenset((
-    "readme-route-preview.gif",
-))
-
-# 움직임이 설명의 절반인 것만 인라인이므로, 그 하나는 제대로 줄인다.
+# GIF는 현재 빌드의 화면을 사용한다. 원본의 화면 비율을 유지한다.
 # 애니메이션 WebP는 브라우저마다 첫 프레임만 보이는 경우가 있어 GIF로 남긴다.
 ANIMATIONS = (
     # 추격 컷은 README에서 가장 무거운 파일 하나다. 720·12fps에서 4.5 MB였고
     # 그것만으로 첫 화면 무게의 절반을 넘겼다. 640·10fps면 절반 아래로 떨어지고,
     # GitHub 본문 폭에서는 차이가 눈에 띄지 않는다.
-    ("night-listener-chase.gif", 640, 10),
+    ("night-listener-chase.gif", 560, 8),
     # 기상 잔향은 README에서 뺐지만 파생본 자체는 M1 기상 잔향 계약이
     # 파일로 잡고 있어 계속 만든다.
     ("m1-capture-wake-echo.gif", 640, 12),
@@ -105,24 +97,11 @@ MAX_WIDTH = 1600
 QUALITY = 86
 
 
-# 같은 캡처의 아래쪽에는 늘 떠 있던 조작 안내 줄이 남아 있다. 지금 게임은 이 줄을
-# 처음 몇 초만 보여 주므로 README에서도 잘라낸다.
-CONTROLS_BAND = 0.06
-
-
-def objective_band(height):
-    """잘라낼 위쪽 목표 띠의 픽셀 높이."""
-    return int(round(height * OBJECTIVE_BAND))
-
-
 def optimize_still(name):
     source = os.path.join(MEDIA, name)
     target = os.path.join(OUT, os.path.splitext(name)[0] + ".webp")
     with Image.open(source) as image:
         frame = image.convert("RGB")
-        if name in LEGACY_OBJECTIVE:
-            top = objective_band(frame.height)
-            frame = frame.crop((0, top, frame.width, frame.height))
         if frame.width > MAX_WIDTH:
             height = round(frame.height * MAX_WIDTH / frame.width)
             frame = frame.resize((MAX_WIDTH, height), Image.LANCZOS)
@@ -135,19 +114,13 @@ def optimize_animation(name, width, fps):
     target = os.path.join(OUT, name)
     palette = os.path.join(OUT, "_palette.png")
     chain = "fps={0},scale={1}:-1:flags=lanczos".format(fps, width)
-    if name in LEGACY_OBJECTIVE:
-        with Image.open(source) as probe:
-            top = objective_band(probe.height)
-            bottom = int(round(probe.height * CONTROLS_BAND))
-            chain = "crop={0}:{1}:0:{2},".format(
-                probe.width, probe.height - top - bottom, top) + chain
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", source,
-         "-vf", chain + ",palettegen=stats_mode=diff", palette],
+         "-vf", chain + ",palettegen=max_colors=96:stats_mode=diff", palette],
         check=True)
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", source, "-i", palette,
-         "-lavfi", chain + " [x]; [x][1:v] paletteuse=dither=bayer:bayer_scale=3",
+         "-lavfi", chain + " [x]; [x][1:v] paletteuse=dither=bayer:bayer_scale=5:diff_mode=rectangle",
          target],
         check=True)
     os.remove(palette)

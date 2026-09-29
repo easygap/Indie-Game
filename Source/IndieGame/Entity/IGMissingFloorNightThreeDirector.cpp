@@ -1477,7 +1477,7 @@ void AIGMissingFloorNightThreeDirector::HandleTunerCartPushed(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"TunerCartThought",
-					"바퀴 하나에 금이 가 있다. 이사 온 날 천장에서 굴러가던 그 소리네."),
+					"바퀴 하나가 깨졌네. 천장에서 들리던 소리랑 비슷하다."),
 				4.2f);
 		}),
 		1.6f,
@@ -1582,7 +1582,7 @@ void AIGMissingFloorNightThreeDirector::HandleAnnexRecognitionZone(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"AnnexRecognitionThought",
-			"CCTV에서 본 그 복도다. 전구 하나에, 왼쪽으로 꺾이는 길."),
+			"CCTV에서 본 곳이다. 저 전구, 왼쪽으로 꺾이는 복도."),
 		4.8f);
 }
 
@@ -1604,7 +1604,7 @@ void AIGMissingFloorNightThreeDirector::HandlePlasterDatingExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"PlasterDatingThought",
-			"안쪽 석고보드는 바싹 말랐는데, 바깥 실리콘은 아직 덜 굳었다. 최근에 다시 막았나?"),
+			"안쪽은 바싹 말랐는데, 바깥 실리콘은 덜 굳었어. 얼마 전에 또 막았나?"),
 		4.6f);
 }
 

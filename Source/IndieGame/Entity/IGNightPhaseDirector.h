@@ -14,19 +14,9 @@ class UIGMissingFloorNarrativeSubsystem;
 DECLARE_MULTICAST_DELEGATE_OneParam(FIGHourActiveSignature, bool /*bActive*/);
 
 /**
- * Owner of '그 시간' — the hour from half past four to half past five in which
- * 없는 층 actually takes place (STORY_BIBLE_MISSING_FLOOR.md §1).
- *
- * There is no clock anywhere in this project: every "04:44" in the codebase is
- * a string on a note or a receipt. So this director keeps its own elapsed
- * seconds and maps them onto the hour, and it is the single authority for when
- * the building is shut.
- *
- * While the hour holds, the envelope is sealed (the common entrance refuses,
- * the lift is dead, the connector shutter is down), the phone has no signal,
- * and the HUD shows no objective — the player is told nothing and has to
- * listen. Morning arrives either when the hour runs out or when the night's
- * goal is met, and it arrives as the world opening rather than as a notice.
+ * 새벽 04:30부터 05:30까지의 시간과 건물 출입을 관리한다.
+ * 경과 시간을 게임 속 시각으로 환산하며, 밤의 목표를 마치거나 시간이
+ * 다 되면 아침으로 넘어간다. 포획으로 돌아와도 경과 시간은 유지한다.
  */
 UCLASS(NotBlueprintable, Transient)
 class INDIEGAME_API AIGNightPhaseDirector

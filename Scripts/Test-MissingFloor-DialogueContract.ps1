@@ -23,7 +23,7 @@ function Assert-True {
 		[Parameter(Mandatory = $true)][string]$Message
 	)
 	if (-not $Condition) {
-		throw "REBIRTH_DIALOGUE_CONTRACT FAIL: $Message"
+		throw "MISSINGFLOOR_DIALOGUE_CONTRACT FAIL: $Message"
 	}
 	$script:assertionCount++
 }
@@ -233,7 +233,7 @@ foreach ($profile in @(
 }
 
 Write-Host (
-	"REBIRTH_DIALOGUE_CONTRACT PASS assertions=$assertionCount " +
+	"MISSINGFLOOR_DIALOGUE_CONTRACT PASS assertions=$assertionCount " +
 	'dialogue_queue=1 speaker=1 device=1 pagination=1 no_truncation=1 ' +
 	'reading_time=1 max_scale=2.0 layout_profiles=4 sound_lane=1 reduced_motion=1'
 ) -ForegroundColor Green

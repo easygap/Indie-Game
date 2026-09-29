@@ -161,12 +161,12 @@ Assert-ContainsAll $worldSource @(
 	'TEXT("Footstep.Rooftop")',
 	'TEXT("Footstep.GypsumDebris")',
 	'EmergencyPractical->SetVolumetricScatteringIntensity(0.14f)',
-	'FilmGrainIntensity = bSealed ? 0.16f : 0.06f',
+	'FilmGrainIntensity = bSealed ? 0.045f : 0.015f',
 	'AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f'
 ) 'M6 world surface and night visual'
 Assert-ContainsAll $stressSource @(
 	'Settings.bOverride_FilmGrainIntensity = true',
-	'Settings.FilmGrainIntensity = FMath::Lerp(0.16f, 0.30f, Ramp)'
+	'Settings.FilmGrainIntensity = Toward(bSealed ? 0.045f : 0.015f, 0.10f)'
 ) 'M6 pursuit post process'
 
 Assert-ContainsAll $accessibilityHeader @(
@@ -194,8 +194,8 @@ Assert-ContainsAll $playerSource @(
 Assert-ContainsAll $hudSource @(
 	'마이크 소리 사용',
 	'헤드폰을 쓰면 소리가 나는 방향을 구분하기 쉽습니다.',
-	'THE MISSING FLOOR',
-	'없는 층'
+	'달빛빌라 · 403호',
+	'Missing Floor'
 ) 'M6 user-facing audio UI'
 Assert-ContainsAll $controllerSource @(
 	'HeadphoneRecommendationShown',
@@ -230,8 +230,8 @@ foreach ($pluginName in @('AudioCapture', 'ResonanceAudio')) {
 	}
 }
 Assert-ContainsAll $gameConfig @(
-	'ProjectName=없는 층',
-	'ProjectVersion=1.0.0',
+	'ProjectName=Missing Floor',
+	'ProjectVersion=0.2.0',
 	'CompanyName=easygap'
 ) 'M6 product metadata'
 

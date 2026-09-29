@@ -39,6 +39,7 @@ Copy-Item -LiteralPath (Join-Path $utilityRoot 'Content/SourceArt/AI/PocheonGran
 Copy-Item -LiteralPath (Join-Path $utilityRoot 'Content/SourceArt/AI/LandingPaint_20260915.png') -Destination $graniteSources -Force
 Copy-Item -LiteralPath (Join-Path $PSScriptRoot 'retail_surface_contract.py') -Destination (Join-Path $utilityStage 'Scripts/retail_surface_contract.py') -Force
 Copy-Item -LiteralPath (Join-Path $utilityRoot 'Content/SourceArt/AI/ApartmentNightVista_20260916.png') -Destination $utilitySources -Force
+Copy-Item -LiteralPath (Join-Path $utilityRoot 'Content/SourceArt/AI/ApartmentDawnVista.png') -Destination $utilitySources -Force
 # 밤 원경의 불빛 마스크는 build_night_view_masks.py가 만든다. 옥상 사방 원경은 네 장을 한 띠로 묶었다.
 & python (Join-Path $PSScriptRoot 'build_night_view_masks.py')
 if ($LASTEXITCODE -ne 0) { throw '밤 원경 불빛 마스크 생성 실패' }
@@ -70,6 +71,7 @@ foreach ($name in @('T_RoomInteriors_D', 'T_AnnexSandwichPanel_D', 'T_ApartmentN
     if (Test-Path -LiteralPath $source) { Copy-Item -LiteralPath $source -Destination (Join-Path $utilityRoot 'Content/Prototype/Textures') -Force }
 }
 Copy-Item -LiteralPath (Join-Path $utilityStage 'Content/Prototype/Textures/T_KoreanBrick_20260916_D.uasset') -Destination (Join-Path $utilityRoot 'Content/Prototype/Textures') -Force
+Copy-Item -LiteralPath (Join-Path $utilityStage 'Content/Prototype/Textures/T_ApartmentDawnVista_D.uasset') -Destination (Join-Path $utilityRoot 'Content/Prototype/Textures') -Force
 foreach ($mesh in @('SM_BottleCap', 'SM_WaterBottle')) {
     Copy-Item -LiteralPath (Join-Path $utilityStage "Content/Meshes/$mesh.uasset") -Destination (Join-Path $utilityRoot 'Content/Meshes') -Force
 }

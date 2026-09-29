@@ -2,7 +2,7 @@
 	"FileVersion": 3,
 	"EngineAssociation": "5.8",
 	"Category": "Games",
-	"Description": "없는 층 — a Korean first-person psychological horror game about listening, memory, and an illegal floor.",
+	"Description": "Missing Floor — 사라진 오빠의 마지막 주소를 찾아가는 1인칭 공포 게임",
 	"Modules": [
 		{
 			"Name": "IndieGame",

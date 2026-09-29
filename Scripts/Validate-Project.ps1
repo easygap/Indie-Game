@@ -123,12 +123,12 @@ $requiredFiles = @(
 	'Docs/UI_STYLE_GUIDE.md',
 	'Scripts/RunGame.bat',
 	'Scripts/Resolve-UnrealEditor.ps1',
-	'Scripts/Run-Rebirth-FrontendShippingProbe.ps1',
+	'Scripts/Run-MissingFloor-FrontendShippingProbe.ps1',
 	'Scripts/Run-MissingFloor-SettingsPreview.ps1',
-	'Scripts/Test-Rebirth-AudioContract.ps1',
-	'Scripts/Test-Rebirth-AccessibilityContract.ps1',
-	'Scripts/Test-Rebirth-DialogueContract.ps1',
-	'Scripts/Test-Rebirth-FrontendContract.ps1',
+	'Scripts/Test-MissingFloor-AudioContract.ps1',
+	'Scripts/Test-MissingFloor-AccessibilityContract.ps1',
+	'Scripts/Test-MissingFloor-DialogueContract.ps1',
+	'Scripts/Test-MissingFloor-FrontendContract.ps1',
 	'Scripts/prepare_application_icon.py',
 	'Scripts/Test-Windows-ExecutableIcon.ps1',
 	'Scripts/Copy-Windows-ExecutableVersionResource.ps1',
@@ -265,8 +265,8 @@ $readmeMediaRecipe = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/create_readme_media.py')
 foreach ($requiredRecipeToken in @(
 	'CAPTURES = (',
-	'prologue-bedroom.png',
-	'prologue-store.png',
+	'game-bedroom.png',
+	'game-store.png',
 	'Actual in-game capture route preview'
 )) {
 	if (-not $readmeMediaRecipe.Contains($requiredRecipeToken)) {
@@ -702,7 +702,7 @@ $saveSubsystemSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 $gameplayTagsConfig = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Config/DefaultGameplayTags.ini')
 $frontendShippingProbeScriptPath = Join-Path $projectRoot (
-	'Scripts/Run-Rebirth-FrontendShippingProbe.ps1')
+	'Scripts/Run-MissingFloor-FrontendShippingProbe.ps1')
 $frontendShippingProbeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	$frontendShippingProbeScriptPath)
 $performanceContract = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -1023,7 +1023,7 @@ foreach ($requiredFrontendShippingHarnessInvariant in @(
 	'speaker=1 continuation=1 default_scale=100 max_scale=200',
 	'sound_lane=1 samples=11 elements_min=',
 	'input_events=11 bounds=',
-	'REBIRTH_FRONTEND_SHIPPING PASS resolutions=4 input_events=44',
+	'MISSINGFLOOR_FRONTEND_SHIPPING PASS resolutions=4 input_events=44',
 	'layout_samples=44 dialogue_cases=8 title_cases=4',
 	'schemaVersion = 4',
 	'titleCaseCount = $results.Count',
@@ -1127,7 +1127,7 @@ foreach ($requiredFrontendProbeControllerInvariant in @(
 	'Settings.CaptionSizeScale = 2.0f',
 	'FrontendProbeLayoutSampleCount != 11',
 	'FrontendProbePressedEventCount != 11',
-	'REBIRTH_FRONTEND PASS contract=4 resolution=%dx%d',
+	'MISSINGFLOOR_FRONTEND PASS contract=4 resolution=%dx%d',
 	'FPlatformMisc::RequestExitWithStatus'
 )) {
 	if (-not $playerControllerSource.Contains(
@@ -1201,19 +1201,19 @@ foreach ($requiredNeighborhoodFeature in @(
 }
 
 $audioContractScript = Join-Path $projectRoot `
-	'Scripts/Test-Rebirth-AudioContract.ps1'
+	'Scripts/Test-MissingFloor-AudioContract.ps1'
 & $audioContractScript
 
 $accessibilityContractScript = Join-Path $projectRoot `
-	'Scripts/Test-Rebirth-AccessibilityContract.ps1'
+	'Scripts/Test-MissingFloor-AccessibilityContract.ps1'
 & $accessibilityContractScript
 
 $dialogueContractScript = Join-Path $projectRoot `
-	'Scripts/Test-Rebirth-DialogueContract.ps1'
+	'Scripts/Test-MissingFloor-DialogueContract.ps1'
 & $dialogueContractScript
 
 $frontendContractScript = Join-Path $projectRoot `
-	'Scripts/Test-Rebirth-FrontendContract.ps1'
+	'Scripts/Test-MissingFloor-FrontendContract.ps1'
 & $frontendContractScript
 
 $artAssetContractScript = Join-Path $projectRoot `

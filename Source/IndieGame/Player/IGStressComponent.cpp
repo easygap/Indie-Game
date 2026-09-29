@@ -740,7 +740,7 @@ void UIGStressComponent::UpdatePostProcess()
 	FPostProcessSettings& Settings = FearPostProcess->Settings;
 
 	// 이 볼륨은 월드 룩 위에 Weight만큼 섞인다. 목표를 월드 값보다 낮게 잡으면
-	// 겁이 날수록 룩이 오히려 풀린다(밤 비네트 0.46, 색수차 0.45 아래로). 그래서
+	// 겁이 날수록 룩이 오히려 풀린다(현재 월드의 비네트와 색수차 아래로). 그래서
 	// 목표는 지금 룩에서 출발해 공포 몫만큼만 정점으로 민다. 공포가 없으면 몫이
 	// 0이라 편의 비네트를 켜도 밤의 채도와 색수차는 그대로다. 출발 값은
 	// IGPrologueWorldScene::ApplyNightAtmosphere와 같이 움직여야 한다.
@@ -760,7 +760,7 @@ void UIGStressComponent::UpdatePostProcess()
 	Settings.VignetteIntensity = FMath::Max(
 		FMath::Lerp(0.28f, 0.72f, Ramp),
 		FMath::Max(
-			Toward(bSealed ? 0.46f : 0.17f, 0.72f),
+			Toward(bSealed ? 0.28f : 0.12f, 0.72f),
 			Comfort * IGStress::ComfortVignetteCeiling))
 		* GetHeartbeatWarningScale();
 
@@ -782,11 +782,11 @@ void UIGStressComponent::UpdatePostProcess()
 		1.0f);
 
 	Settings.bOverride_SceneFringeIntensity = true;
-	Settings.SceneFringeIntensity = Toward(bSealed ? 0.45f : 0.0f, 0.8f);
+	Settings.SceneFringeIntensity = Toward(0.0f, 0.35f);
 
 	Settings.bOverride_FilmGrainIntensity = true;
-	// 밤 기본 0.16 위에 얹히는 값. 그레인 텍스처가 실제로 돌게 된 뒤의 눈금이다.
-	Settings.FilmGrainIntensity = FMath::Lerp(0.16f, 0.30f, Ramp);
+	// 낮과 밤의 기본값을 유지하고, 공포가 높을 때만 입자를 조금 더한다.
+	Settings.FilmGrainIntensity = Toward(bSealed ? 0.045f : 0.015f, 0.10f);
 
 	// 불안이 높아져도 가까운 기록은 읽을 수 있어야 한다. 초점을 7~24m에
 	// 고정하면 손에 든 단서까지 흐려진다. 압박은 주변 시야·색·심박으로 전한다.

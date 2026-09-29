@@ -46,7 +46,7 @@ $executableMetadataSyncScript = Get-Content `
 $executableMetadataScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/Test-Windows-ExecutableMetadata.ps1')
 $frontendProbeScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Scripts/Run-Rebirth-FrontendShippingProbe.ps1')
+	Join-Path $projectRoot 'Scripts/Run-MissingFloor-FrontendShippingProbe.ps1')
 $prepareAiArtScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Scripts/Prepare-AIArt.ps1')
 $surfaceTextureScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
@@ -71,7 +71,7 @@ function Assert-True {
 		[string]$Message
 	)
 	if (-not $Condition) {
-		throw "REBIRTH_FRONTEND_CONTRACT FAIL: $Message"
+		throw "MISSINGFLOOR_FRONTEND_CONTRACT FAIL: $Message"
 	}
 	$script:assertionCount++
 }
@@ -198,9 +198,8 @@ Assert-ContainsAll $hudHeader @(
 ) 'HUD 프런트엔드 인터페이스'
 Assert-ContainsAll $hudSource @(
 	'DrawSystemMenuPanel()',
-	'없는 층',
-	'THE MISSING FLOOR',
-	'무영로 · 04:30',
+	'Missing Floor',
+	'달빛빌라 · 403호',
 	'헤드폰을 쓰면 소리가 나는 방향을 구분하기 쉽습니다.',
 	'소리와 밝기',
 	'노크가 또렷하게 들리면서도',
@@ -214,8 +213,8 @@ Assert-ContainsAll $hudSource @(
 	'Enter 시작  ·  Esc 취소',
 	'최근 자동 저장 불러오기',
 	'화면 설정',
-	'화면과 그래픽 품질을 맞추고 다른 설정을 엽니다.',
-	'카테고리',
+	'해상도, 그래픽 품질, 언어를 바꿀 수 있습니다.',
+	'설정 항목',
 	'세부 설정',
 	'선택한 항목',
 	'"일반"',
@@ -293,7 +292,7 @@ Assert-ContainsAll $controllerSource @(
 	'GShaderCompilingManager->FinishAllCompilation()',
 	'&& !bCategoryHit',
 	'if (!bCategoryHit)'
-) '설정 카테고리·옵션 포인터 계약'
+) '설정 설정 항목·옵션 포인터 계약'
 Assert-ContainsAll $hudSource @(
 	'LoadBundledFontFace(',
 	'Pretendard-Regular.otf',
@@ -343,8 +342,8 @@ Assert-True (-not $controllerSource.Contains('ToggleCursorMode')) `
 	'컨트롤러에 이전 커서 토글 경로가 남아 있다'
 
 Assert-ContainsAll $gameConfig @(
-	'ProjectName=없는 층',
-	'ProjectVersion=1.0.0',
+	'ProjectName=Missing Floor',
+	'ProjectVersion=0.2.0',
 	'Description=연락이 끊긴 오빠를 찾아 낡은 빌라로 이사 온 뒤, 새벽마다 천장에서 들리는 노크를 따라가는 1인칭 공포 게임',
 	'CompanyName=easygap',
 	'Homepage=https://github.com/easygap/Missing-Floor',
@@ -366,7 +365,7 @@ Assert-True (-not $gameConfig.Contains('BuildConfiguration=PPBC_Development')) `
 Assert-True (-not $gameConfig.Contains('ForDistribution=False')) `
 	'배포 플래그가 비활성화되어 있다'
 Assert-ContainsAll $gameTarget @(
-	'BuildVersion = "1.0.0";',
+	'BuildVersion = "0.2.0";',
 	'WindowsPlatform.bSetResourceVersions = true;'
 ) 'Win64 공개 버전 리소스 계약'
 $configuredVersion = [regex]::Match(
@@ -388,7 +387,7 @@ Assert-True (
 Assert-ContainsAll $projectDescriptor @(
 	'"EngineAssociation": "5.8"',
 	'"Category": "Games"',
-	'"Description": "없는 층 — a Korean first-person psychological horror game about listening, memory, and an illegal floor."'
+	'"Description": "Missing Floor — 사라진 오빠의 마지막 주소를 찾아가는 1인칭 공포 게임"'
 ) '프로젝트 설명자 제품 정보'
 Assert-ContainsAll $userSettingsConfig @(
 	'[/Script/Engine.GameUserSettings]',
@@ -538,8 +537,8 @@ Assert-ContainsAll $executableMetadataSyncScript @(
 	'WINDOWS_EXECUTABLE_METADATA_SYNC PASS'
 ) 'Shipping 루트 런처 VERSIONINFO 동기화'
 Assert-ContainsAll $executableMetadataScript @(
-	"ExpectedProductName = '없는 층'",
-	"ExpectedVersion = '1.0.0'",
+	"ExpectedProductName = 'Missing Floor'",
+	"ExpectedVersion = '0.2.0'",
 	"ExpectedCompanyName = 'easygap'",
 	'FileDescription',
 	'FileVersion',
@@ -621,6 +620,6 @@ foreach ($height in @(720.0, 900.0, 1080.0, 1440.0)) {
 }
 
 Write-Host (
-	"REBIRTH_FRONTEND_CONTRACT PASS assertions=$assertionCount " +
+	"MISSINGFLOOR_FRONTEND_CONTRACT PASS assertions=$assertionCount " +
 	"title=1 pause=1 settings=1 mouse=1 save_failure_feedback=1 continue=1 new_game_reset=1 credits=1 quit=1 shipping_defaults=1 unattended_bypass=1 layout_profiles=4 icon_levels=7 exe_icon_verifier=1 exe_metadata_verifier=1 bootstrap_metadata_sync=1"
 ) -ForegroundColor Green

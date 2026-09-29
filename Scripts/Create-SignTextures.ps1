@@ -165,7 +165,7 @@ function Write-ArrivalContract {
             $g.DrawLine($thin, $labelX, $top, $labelX, $top + $row * 4)
             $labels = @('소 재 지', '토지·건물', '임대할 부분', '용    도')
             $values = @(
-                '서울특별시 은평구 무영로44길 4  달빛빌라 403호',
+                '서울특별시 은평구 무영로 27-3  달빛빌라 403호',
                 '철근콘크리트조 · 다세대주택 / 건축물대장상 지상 4층',
                 '제4층 403호 전부  29.7㎡',
                 '주거용'
@@ -209,9 +209,9 @@ function Write-ArrivalContract {
             }
 
             $g.DrawString('2025년  7월  25일', $headingFont, $brush, 545, 1694)
-            $g.DrawString('임대인  목 한 수    주소  서울 은평구 무영로44길 4',
+            $g.DrawString('임대인  목 한 수    주소  서울 은평구 무영로 27-3',
                 $bodyFont, $brush, $left, 1778)
-            $g.DrawString('임차인  백 유 담    주소  서울 은평구 무영로44길 4, 403호',
+            $g.DrawString('임차인  백 유 담    주소  서울 은평구 무영로 27-3, 403호',
                 $bodyFont, $brush, $left, 1848)
             $g.DrawString('중개인  무영공인중개사사무소  (등록번호·연락처는 게임 내 가상 정보)',
                 $smallFont, $mutedBrush, $left, 1920)

@@ -8,7 +8,7 @@ Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $archiveRoot = (Resolve-Path -LiteralPath $ArchiveDirectory).Path
-$launcher = Join-Path $archiveRoot 'Windows/IndieGame.exe'
+$launcher = Join-Path $archiveRoot 'Windows/MissingFloor.exe'
 if (-not (Test-Path -LiteralPath $launcher)) { throw "실행 파일이 없습니다: $launcher" }
 if (-not $EvidenceDirectory) {
     $EvidenceDirectory = Join-Path $projectRoot ('Saved/Validation/WindowsPackage-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
@@ -80,7 +80,7 @@ function Invoke-GameCase([string]$Name, [string[]]$ExtraArguments, [switch]$Audi
     Write-Host "WINDOWS_GAME_CASE PASS $Name"
 }
 
-& (Join-Path $PSScriptRoot 'Run-Rebirth-FrontendShippingProbe.ps1') -ArchiveDirectory $archiveRoot -EvidenceDirectory (Join-Path $EvidenceDirectory 'Frontend')
+& (Join-Path $PSScriptRoot 'Run-MissingFloor-FrontendShippingProbe.ps1') -ArchiveDirectory $archiveRoot -EvidenceDirectory (Join-Path $EvidenceDirectory 'Frontend')
 $saveUser = Join-Path $EvidenceDirectory 'SaveUser'
 Invoke-GameCase 'Arrival' @('-IGMissingFloor', '-IGIgnoreDirectStart', '-IGArrivalProbe', '-IGArrivalSaveWrite', '-d3d12') -UserDirectory $saveUser
 $saveFiles = @(Get-ChildItem -LiteralPath $saveUser -Recurse -Filter 'AutoSave_*.sav')

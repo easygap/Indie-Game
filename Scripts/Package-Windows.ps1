@@ -42,7 +42,8 @@ $arguments = @(
 & $uat @arguments
 if ($LASTEXITCODE -ne 0) { throw "Windows 배포 파일 생성 실패: $LASTEXITCODE" }
 
-$launcher = Join-Path $ArchiveDirectory 'Windows/IndieGame.exe'
+$launcher = Join-Path $ArchiveDirectory 'Windows/MissingFloor.exe'
+Move-Item -LiteralPath (Join-Path $ArchiveDirectory 'Windows/IndieGame.exe') -Destination $launcher
 $game = Join-Path $ArchiveDirectory 'Windows/IndieGame/Binaries/Win64/IndieGame-Win64-Shipping.exe'
 & (Join-Path $PSScriptRoot 'Copy-Windows-ExecutableVersionResource.ps1') -SourceExecutable $game -DestinationExecutable $launcher
 foreach ($exe in @($launcher, $game)) {

@@ -626,7 +626,7 @@ $assertionCount++
 if ($story -notmatch '720p·1080p·1440p·4K에서 파문 링과 브래킷이 안전 영역 안에 들어온다') {
 	throw 'The §19.9 resolution criterion was removed.'
 }
-$accessibilityContract = Read-ProjectText 'Scripts/Test-Rebirth-AccessibilityContract.ps1'
+$accessibilityContract = Read-ProjectText 'Scripts/Test-MissingFloor-AccessibilityContract.ps1'
 $assertionCount++
 if ($accessibilityContract -notmatch 'Width = 3840\.0; Height = 2160\.0') {
 	throw 'The layout check must reach 4K, which §19.9 names.'
@@ -1046,7 +1046,7 @@ if ($namedScripts.Count -lt 8) {
 #
 # 세는 것과 번호마다 보는 것은 다르다. 스크립트 없이 닫히는 번호는 정해져 있고,
 # 여기에 하나가 더 들어오려면 이 목록을 같이 고쳐야 한다. 9번(아이템 연속성)은
-# 옛 이야기의 계약이 잠근다고 적혀 있었지만 그 계약은 없는 층의 물건을 보지
+# 옛 이야기의 계약이 잠근다고 적혀 있었지만 그 계약은 Missing Floor의 물건을 보지
 # 않았다. 옛 코드를 지우면서 실측 증거 쪽으로 옮겼다.
 $manualBlockers = @(1, 2, 3, 4, 5, 9, 12, 13)
 $manualReasons = @{

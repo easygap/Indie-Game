@@ -185,7 +185,7 @@ namespace IGHorrorHUD
 				NSLOCTEXT("IGJournal", "MeterReadingSheet.Where", "관리실 사본 · 첫째 밤"), EJournalThumbnail::Document},
 			{TEXT("Office.BoardDeliveryReceipt"), EJournalLane::Administration,
 				NSLOCTEXT("IGJournal", "BoardDeliveryReceipt.Title", "자재 반입 영수증"),
-				NSLOCTEXT("IGJournal", "BoardDeliveryReceipt.Excerpt", "석고보드 9.5T 12장씩, 7/26과 7/27"),
+				NSLOCTEXT("IGJournal", "BoardDeliveryReceipt.Excerpt", "석고보드 12.5T 12장씩, 7/26과 7/27"),
 				NSLOCTEXT("IGJournal", "BoardDeliveryReceipt.Where", "관리실 책상 · 둘째 밤"), EJournalThumbnail::Document},
 			{TEXT("Office.CarbonLedgerOriginal"), EJournalLane::Administration,
 				NSLOCTEXT("IGJournal", "CarbonLedgerOriginal.Title", "민원 접수철 밑장"),
@@ -2151,7 +2151,7 @@ bool AIGHorrorHUD::DrawEndCredits()
 		float GapAfter;
 	};
 	const FCreditLine Lines[] = {
-		{NSLOCTEXT("IGHUD", "CreditsGameTitle", "없는 층"), EIGHudTextRole::Objective, 1.35f, 90.0f},
+		{NSLOCTEXT("IGHUD", "CreditsGameTitle", "Missing Floor"), EIGHudTextRole::Objective, 1.35f, 90.0f},
 		{NSLOCTEXT("IGHUD", "CreditsDeveloper", "기획 · 개발    easygap"), EIGHudTextRole::Prompt, 1.0f, 46.0f},
 		{NSLOCTEXT("IGHUD", "CreditsEngine", "제작 도구    Unreal Engine 5.8"), EIGHudTextRole::Hint, 1.0f, 38.0f},
 		{NSLOCTEXT("IGHUD", "CreditsMaterials", "일부 재질    ambientCG · CC0"), EIGHudTextRole::Hint, 1.0f, 38.0f},
@@ -2290,7 +2290,7 @@ void AIGHorrorHUD::DrawContextTip(const float Alpha)
 		break;
 	case EIGContextTip::Journal:
 		Line = FText::Format(
-			NSLOCTEXT("IGHUD", "TipJournal", "[ {0} ]  조사 기록 보기  ·  낮에만"),
+			NSLOCTEXT("IGHUD", "TipJournal", "[ {0} ]  조사 기록  ·  낮에 확인할 수 있다"),
 			GetBoundKeyLabel(EIGBindableAction::Journal, bUsingGamepad));
 		break;
 	case EIGContextTip::Hint:
@@ -5021,7 +5021,7 @@ void AIGHorrorHUD::DrawSettingsShell(
 		EIGHudTextRole::Hint,
 		ContextScale);
 	DrawLeftAlignedText(
-		NSLOCTEXT("IGHUD", "SettingsCategoryHeading", "카테고리"),
+		NSLOCTEXT("IGHUD", "SettingsCategoryHeading", "설정 항목"),
 		FVector2D(
 			Metrics.RailLeft + 10.0f * Scale,
 			Metrics.HeaderBottom + 17.0f * Scale),
@@ -5361,10 +5361,10 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 	const EIGNightDifficulty Difficulty = IGListenerTuning::LoadPersistedDifficulty();
 	const FString DifficultyLabel = IGListenerTuning::GetDifficultyLabel(Difficulty).ToString();
 	const FText DifficultyDescriptions[] = {
-		NSLOCTEXT("IGHUD", "DifficultyDescQuiet", "적이 소리에 덜 민감하고 쫓아오는 속도도 느려집니다."),
-		NSLOCTEXT("IGHUD", "DifficultyDescStandard", "소리를 조심하며 단서를 찾습니다. 처음 시작할 때의 난이도입니다."),
-		NSLOCTEXT("IGHUD", "DifficultyDescHasty", "적이 더 빨리 반응하고 오래 쫓아옵니다. 익숙해진 뒤 도전해 보세요."),
-		NSLOCTEXT("IGHUD", "DifficultyDescListenOnly", "적이 소리를 듣고 다가오지만 쫓아오거나 붙잡지는 않습니다. 모든 퍼즐과 결말을 볼 수 있습니다.")
+		NSLOCTEXT("IGHUD", "DifficultyDescQuiet", "귀신이 소리를 잘 알아채지 못하고, 쫓아오는 속도도 느려집니다."),
+		NSLOCTEXT("IGHUD", "DifficultyDescStandard", "작은 소리에도 주의하며 돌아다녀야 합니다. 기본 난이도입니다."),
+		NSLOCTEXT("IGHUD", "DifficultyDescHasty", "귀신이 작은 소리도 잘 듣고 오래 쫓아옵니다."),
+		NSLOCTEXT("IGHUD", "DifficultyDescListenOnly", "귀신이 소리를 듣고 다가오지만 쫓거나 붙잡지는 않습니다. 퍼즐과 결말은 그대로 즐길 수 있습니다.")
 	};
 	const auto InputMode = [](const bool bToggle)
 	{
@@ -5417,7 +5417,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		Percent(Settings.ComfortVignetteStrength),
 		Settings.bAlwaysShowCenterDot
 			? NSLOCTEXT("IGHUD", "CenterDotAlways", "항상").ToString()
-			: NSLOCTEXT("IGHUD", "CenterDotFocus", "겨눌 때만").ToString(),
+			: NSLOCTEXT("IGHUD", "CenterDotFocus", "물건을 볼 때").ToString(),
 		OnOff(Settings.bDirectionalFearCues),
 		OnOff(Settings.bKnockRippleSubstitute),
 		OnOff(Settings.bKnockHapticSubstitute),
@@ -5453,8 +5453,8 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		NSLOCTEXT("IGHUD", "A11yVignetteDesc", "화면 가장자리를 어둡게 합니다. 움직일 때 주변 풍경이 덜 보이게 할 수 있습니다."),
 		NSLOCTEXT("IGHUD", "A11yCenterDotDesc", "평소에는 조사할 물건을 겨눌 때만 화면 가운데에 점이 뜹니다. 어지럽다면 항상 띄워 두세요. 화면을 볼 때 기준점이 됩니다."),
 		NSLOCTEXT("IGHUD", "A11yFearDirectionDesc", "중요한 소리가 나면 화면 가장자리에 그 방향을 표시합니다."),
-		NSLOCTEXT("IGHUD", "A11yKnockRingDesc", "적이 낸 소리를 화면에 얇은 원으로 표시합니다. 내가 낸 소리는 굵은 원으로 표시됩니다."),
-		NSLOCTEXT("IGHUD", "A11yKnockHapticDesc", "적이 소리를 내면 게임패드가 진동합니다. 소리가 멀수록 진동도 약해집니다."),
+		NSLOCTEXT("IGHUD", "A11yKnockRingDesc", "귀신이 낸 소리는 얇은 원으로, 내가 낸 소리는 굵은 원으로 표시합니다."),
+		NSLOCTEXT("IGHUD", "A11yKnockHapticDesc", "귀신이 소리를 내면 게임패드가 진동합니다. 멀리서 나는 소리일수록 진동도 약해집니다."),
 		NSLOCTEXT("IGHUD", "A11yHeartbeatDesc", "긴장했을 때 화면 가장자리가 심장 박동에 맞춰 움직입니다."),
 		NSLOCTEXT("IGHUD", "A11yKnockAssistDesc", "노크 박자를 조금 늦거나 빠르게 맞춰도 인정합니다."),
 		NSLOCTEXT("IGHUD", "A11ySoundCaptionsDesc", "노크나 발소리처럼 진행에 필요한 소리를 글로 보여 줍니다."),
@@ -5467,7 +5467,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		NSLOCTEXT("IGHUD", "A11yHoldDurationDesc", "문을 열거나 조사할 때 버튼을 얼마나 오래 누를지 정합니다."),
 		NSLOCTEXT("IGHUD", "A11yPromptKeysDesc", "항상으로 두면 조사 안내 앞에 누를 키를 늘 붙입니다. 익힐 때까지로 두면 같은 동작을 세 번 한 뒤부터는 키 이름을 빼고 보여 줍니다."),
 		NSLOCTEXT("IGHUD", "A11yHapticsDesc", "게임패드 진동을 켜거나 끕니다."),
-		NSLOCTEXT("IGHUD", "A11yMicrophoneDesc", "켜면 실제로 말하거나 낸 소리를 게임 속 적도 듣습니다. 꺼 두면 마이크를 사용하지 않습니다."),
+		NSLOCTEXT("IGHUD", "A11yMicrophoneDesc", "켜면 내 목소리와 주변 소리에 게임 속 귀신이 반응합니다. 꺼 두면 마이크를 사용하지 않습니다."),
 		NSLOCTEXT("IGHUD", "A11yResetDesc", "이 화면의 설정을 처음 상태로 되돌립니다."),
 		NSLOCTEXT("IGHUD", "A11yCloseDesc", "설정을 저장하고 이전 화면으로 돌아갑니다.")
 	};
@@ -6397,7 +6397,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 	if (AudioCalibrationSelectedRow == 1 || AudioCalibrationSelectedRow == 2)
 	{
 		DrawCenteredText(
-			NSLOCTEXT("IGHUD", "AudioCalibrationBusNote", "배경 음악과 환경음만 바뀝니다. 노크와 적의 소리는 전체 소리에서 조절하세요."),
+			NSLOCTEXT("IGHUD", "AudioCalibrationBusNote", "배경 음악과 환경음은 따로 조절할 수 있습니다. 노크와 귀신이 내는 소리는 전체 소리 크기를 따릅니다."),
 			Layout.NoteTop,
 			IGHorrorHUD::PaleGray,
 			EIGHudTextRole::Hint,
@@ -6529,7 +6529,7 @@ void AIGHorrorHUD::DrawDisplaySettingsPanel()
 	DrawSettingsShell(
 		Metrics,
 		NSLOCTEXT("IGHUD", "DisplaySettingsTitle", "화면 설정"),
-		NSLOCTEXT("IGHUD", "DisplaySettingsSubtitle", "화면과 그래픽 품질을 맞추고 다른 설정을 엽니다."),
+		NSLOCTEXT("IGHUD", "DisplaySettingsSubtitle", "해상도, 그래픽 품질, 언어를 바꿀 수 있습니다."),
 		NSLOCTEXT("IGHUD", "DisplayImmediateStatus", "바꾸는 즉시 적용되고 저장됩니다"));
 
 	const int32 ActiveCategory = IGSettingsMenuLayout::FindCategoryForRow(
@@ -7145,12 +7145,15 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		{
 			return 0.0f;
 		}
-		const float EffectiveScale = KoreanFrontendTitleFont
+		float EffectiveScale = KoreanFrontendTitleFont
 			? Scale
 			: Scale * 2.45f;
 		float Width = 0.0f;
 		float Height = 0.0f;
 		Canvas->StrLen(Font, Text.ToString(), Width, Height, true);
+		// 영문 제목도 작은 창에서 메뉴 영역 안에 들어오게 한다.
+		EffectiveScale = FMath::Min(EffectiveScale,
+			(Canvas->ClipX * 0.48f - Position.X) / FMath::Max(1.0f, Width));
 		FCanvasTextItem Item(
 			Position,
 			Text,
@@ -7199,13 +7202,12 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		const FNoticeLine NoticeLines[] =
 		{
 			{NSLOCTEXT("IGHUD", "NoticeSensory", "화면과 소리"), true},
-			{NSLOCTEXT("IGHUD", "NoticeSensory1", "갑자기 다가오는 적과 큰 소리, 어두운 장면, 화면 흔들림과 깜빡이는 조명이 나옵니다."), false},
+			{NSLOCTEXT("IGHUD", "NoticeSensory1", "어두운 곳에서 귀신이 갑자기 다가오거나 큰 소리가 날 수 있습니다. 화면 흔들림과 조명 깜빡임도 있습니다."), false},
 			{NSLOCTEXT("IGHUD", "NoticeSensory2", "화면이나 소리가 불편하면 잠시 쉬거나 설정을 조절해 주세요."), false},
 			{NSLOCTEXT("IGHUD", "NoticeThemes", "다루는 내용"), true},
 			{NSLOCTEXT("IGHUD", "NoticeThemes1", "시신이 나오는 장면과, 사람이 죽어 가는"
 					" 소리를 듣는 구간이 있습니다."), false},
-			{NSLOCTEXT("IGHUD", "NoticeThemes2", "층간소음, 불법 증축, 죽음을 숨긴 사건을 다룹니다. 잔인한 묘사는"
-					" 없으며 실제 사건과는 관계가 없습니다."), false},
+			{NSLOCTEXT("IGHUD", "NoticeThemes2", "층간소음 분쟁과 불법 증축, 실종 사건을 다루는 허구의 이야기입니다."), false},
 			{NSLOCTEXT("IGHUD", "NoticeControls", "불편하다면"), true},
 			{NSLOCTEXT("IGHUD", "NoticeControls1", "접근성 설정에서 화면 흔들림과 빛 깜빡임을 줄일 수 있습니다."), false},
 			{NSLOCTEXT("IGHUD", "NoticeControls2", "쫓기는 게 부담스럽다면 난이도를 ‘추격 없음’으로 바꿔 주세요."
@@ -7293,7 +7295,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			CreditsTitleOrigin,
 			0.78f * TitleScale);
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "CreditsGameTitle", "없는 층"),
+			NSLOCTEXT("IGHUD", "CreditsGameTitle", "Missing Floor"),
 			FVector2D(
 				HeaderOrigin.X + 2.0f,
 				CreditsTitleOrigin.Y
@@ -7344,8 +7346,8 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 
 	DrawLeftAlignedText(
 		bSystemMenuIsTitle
-			? NSLOCTEXT("IGHUD", "TitleContext", "무영로 · 04:30")
-			: NSLOCTEXT("IGHUD", "PauseContext", "SYSTEM · PAUSE"),
+			? FText::GetEmpty()
+			: NSLOCTEXT("IGHUD", "PauseContext", "메뉴"),
 		HeaderOrigin,
 		WithAlpha(IGHorrorHUD::FrontendMuted),
 		EIGHudTextRole::Hint,
@@ -7354,16 +7356,15 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		HeaderOrigin + FVector2D(0.0f, 24.0f * Metrics.Scale);
 	const float MainTitleHeight = DrawDisplayTitle(
 		bSystemMenuIsTitle
-			? NSLOCTEXT("IGHUD", "MainTitle", "없는 층")
+			? NSLOCTEXT("IGHUD", "MainTitle", "Missing Floor")
 			: NSLOCTEXT("IGHUD", "PauseTitle", "잠시 멈춤"),
 		MainTitleOrigin,
 		TitleScale);
 	DrawLeftAlignedText(
-		// 제목 밑의 작은 영문 부제. 영어판에서는 제목이 이미 영어라서 한국어
-		// 원제를 부제로 두는 편이 낫다. 번역에서 정한다.
+		// 작품명은 모든 언어에서 같고, 그 아래에 게임 속 주소를 적는다.
 		bSystemMenuIsTitle
-			? NSLOCTEXT("IGHUD", "MainTitleSubtitle", "THE MISSING FLOOR")
-			: NSLOCTEXT("IGHUD", "PauseSubtitle", "PAUSED"),
+			? NSLOCTEXT("IGHUD", "MainTitleSubtitle", "달빛빌라 · 403호")
+			: NSLOCTEXT("IGHUD", "PauseSubtitle", "진행 중"),
 		FVector2D(
 			HeaderOrigin.X + 2.0f,
 			MainTitleOrigin.Y

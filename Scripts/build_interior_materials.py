@@ -140,7 +140,9 @@ SKYLINE_LOOKUP = (
     'float4 M2 = TexM.SampleGrad(TexMSampler, uv2, gx, gy);'
     '{lights1}'
     '{lights2}'
-    'return float4(lerp(E1, E2, w), lerp(D1.a, D2.a, w));'
+    'float3 dawn1 = pow(max(D1.rgb, 0.0001), 0.65) * float3(2.4,2.5,2.65);'
+    'float3 dawn2 = pow(max(D2.rgb, 0.0001), 0.65) * float3(2.4,2.5,2.65);'
+    'return float4(lerp(lerp(E1, E2, w), lerp(dawn1,dawn2,w), Dawn), lerp(D1.a, D2.a, w));'
 )
 
 
@@ -158,7 +160,7 @@ SKY_GLOW = (
     'float dawn = pow(saturate(cos(yaw)), 3.0) * exp(-max(t, 0.0) / 0.3);'
     'float3 city = float3(1.0, 0.62, 0.42) * (0.75 + 0.25 * A);'
     'float3 blue = float3(0.30, 0.50, 1.0) * 1.6 * dawn;'
-    'return (city + blue) * band * G;'
+    'return (city + blue) * band * G * (1.0 - Dawn);'
 )
 
 
@@ -167,11 +169,12 @@ def build_sky_glow():
     mat.set_editor_property('shading_model', unreal.MaterialShadingModel.MSM_UNLIT)
     mat.set_editor_property('blend_mode', unreal.BlendMode.BLEND_ADDITIVE)
     mat.set_editor_property('two_sided', True)
-    glow = custom(mat, SKY_GLOW, ('P', 'C', 'A', 'G'), unreal.CustomMaterialOutputType.CMOT_FLOAT3)
+    glow = custom(mat, SKY_GLOW, ('P', 'C', 'A', 'G', 'Dawn'), unreal.CustomMaterialOutputType.CMOT_FLOAT3)
     link(node(mat, 'WorldPosition'), '', glow, 'P')
     link(node(mat, 'CameraPositionWS'), '', glow, 'C')
     link(primitive_scalar(mat, 'Awake', 0, 0.4), '', glow, 'A')
     link(primitive_scalar(mat, 'Glow', 1, 0.15), '', glow, 'G')
+    link(primitive_scalar(mat, 'Dawn', 2, 0.0), '', glow, 'Dawn')
     LIB.connect_material_property(glow, '', unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     finish(mat)
 
@@ -246,11 +249,12 @@ def build_night_skyline():
     code = SKYLINE_LOOKUP.format(
         lights1=window_lights('D1', 'M1', 'E1', 0.26, 0.55),
         lights2=window_lights('D2', 'M2', 'E2', 0.26, 0.55))
-    look = custom(mat, code, ('P', 'C', 'A', 'T', 'TexD', 'TexM'),
+    look = custom(mat, code, ('P', 'C', 'A', 'T', 'TexD', 'TexM', 'Dawn'),
                   unreal.CustomMaterialOutputType.CMOT_FLOAT4)
     link(node(mat, 'WorldPosition'), '', look, 'P')
     link(node(mat, 'CameraPositionWS'), '', look, 'C')
     link(primitive_scalar(mat, 'Awake', 0, 0.4), '', look, 'A')
+    link(primitive_scalar(mat, 'Dawn', 2, 0.0), '', look, 'Dawn')
     link(node(mat, 'Time'), '', look, 'T')
     link(node(mat, 'TextureObject', texture=color), '', look, 'TexD')
     link(node(mat, 'TextureObject', texture=lights), '', look, 'TexM')
@@ -268,6 +272,12 @@ def build(texture_loader, material_library, asset_subsystem):
     texture, LIB, ASSETS = texture_loader, material_library, asset_subsystem
     photo=texture('ApartmentNightVista_20260916.png','T_ApartmentNightVista_D')
     if not photo: raise RuntimeError('창 밖 원경 원본이 없습니다.')
+    dawn_photo=texture('ApartmentDawnVista.png','T_ApartmentDawnVista_D')
+    if not dawn_photo: raise RuntimeError('아침 창밖 원경 원본이 없습니다.')
+    dawn_photo.set_editor_property('address_x',unreal.TextureAddress.TA_CLAMP)
+    dawn_photo.set_editor_property('address_y',unreal.TextureAddress.TA_CLAMP)
+    dawn_photo.set_editor_property('never_stream',True)
+    ASSETS.save_loaded_asset(dawn_photo)
     photo.set_editor_property('address_x',unreal.TextureAddress.TA_CLAMP)
     photo.set_editor_property('address_y',unreal.TextureAddress.TA_CLAMP)
     # 창 너머 사진도 좌표를 재질이 계산한다. 창 면의 UV로 밉을 고르면 흐려진다.
@@ -301,7 +311,16 @@ def build(texture_loader, material_library, asset_subsystem):
     link(sample_lights,'RGB',glow,'M')
     link(awake,'',glow,'A')
     link(time,'',glow,'T')
-    LIB.connect_material_property(glow,'',unreal.MaterialProperty.MP_EMISSIVE_COLOR)
+    # 같은 건물의 아침 사진을 같은 좌표로 읽는다. 화면 암전 중에만 시간이 바뀐다.
+    dawn_sample=node(mat,'TextureSample',texture=dawn_photo)
+    link(uv,'',dawn_sample,'UVs')
+    dawn_gain=node(mat,'Multiply',const_b=4.0)
+    link(dawn_sample,'RGB',dawn_gain,'A')
+    blend=node(mat,'LinearInterpolate')
+    link(glow,'',blend,'A')
+    link(dawn_gain,'',blend,'B')
+    link(primitive_scalar(mat,'Dawn',2,0.0),'',blend,'Alpha')
+    LIB.connect_material_property(blend,'',unreal.MaterialProperty.MP_EMISSIVE_COLOR)
     constant(mat,'BASE_COLOR',(.008,.012,.014));constant(mat,'ROUGHNESS',.16);constant(mat,'SPECULAR',.55)
     finish(mat)
     build_night_skyline()

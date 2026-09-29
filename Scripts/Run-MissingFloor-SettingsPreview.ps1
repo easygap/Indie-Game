@@ -22,7 +22,7 @@ if (Test-Path -LiteralPath $outputRoot) {
 	}
 }
 
-$probeScript = Join-Path $PSScriptRoot 'Run-Rebirth-FrontendShippingProbe.ps1'
+$probeScript = Join-Path $PSScriptRoot 'Run-MissingFloor-FrontendShippingProbe.ps1'
 & $probeScript `
 	-ArchiveDirectory $ArchiveDirectory `
 	-EvidenceDirectory $outputRoot `

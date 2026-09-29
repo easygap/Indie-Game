@@ -648,6 +648,11 @@ private:
 	float NightFixtureScale(int32 Index, bool bCorridor) const;
 	/** 등·안개·카메라 룩을 그 시간에 맞추거나 새벽으로 되돌린다. */
 	void ApplyNightAtmosphere(bool bSealed);
+	/** 밤이 끝난 뒤의 아침빛. 입주 저녁과 새벽의 조명을 구분한다. */
+	void ApplyExteriorTimeOfDay();
+	/** 공용 복도의 센서등. 계량기 퍼즐과 야간 연출이 등을 끄면 개입하지 않는다. */
+	void UpdateCorridorSensors(const FVector& LocalEye);
+	TArray<double> CorridorSensorLastSeen;
 	/**
 	 * 창 너머 도로. 그 시간에는 건물이 닫혀 바깥이 멀어지고, 새벽에는 천천히
 	 * 차오른다. 페이더만 움직인다 — 배수를 건드리거나 0으로 내리면 멈춘다.

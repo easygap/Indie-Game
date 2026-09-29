@@ -2192,7 +2192,7 @@ bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
 	if (bSuccess)
 	{
 		Receipt = FString::Printf(
-			TEXT("REBIRTH_FRONTEND PASS contract=4 resolution=%dx%d ")
+			TEXT("MISSINGFLOOR_FRONTEND PASS contract=4 resolution=%dx%d ")
 			TEXT("keyboard_access=1 gamepad_access=1 dpad_down=1 ")
 			TEXT("keyboard_up=1 gamepad_close=1 keyboard_pause=1 ")
 			TEXT("gamepad_pause=1 display=1 title=1 first_run=1 ")
@@ -2218,7 +2218,7 @@ bool AIGPlayerController::WriteFrontendShippingProbeReceipt(
 		SafeReason.ReplaceInline(TEXT("\n"), TEXT("_"));
 		SafeReason.ReplaceInline(TEXT(" "), TEXT("_"));
 		Receipt = FString::Printf(
-			TEXT("REBIRTH_FRONTEND FAIL reason=%s step=%d samples=%d inputs=%d"),
+			TEXT("MISSINGFLOOR_FRONTEND FAIL reason=%s step=%d samples=%d inputs=%d"),
 			*SafeReason,
 			FrontendProbeStep,
 			FrontendProbeLayoutSampleCount,

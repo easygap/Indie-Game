@@ -425,7 +425,7 @@ bool AIGMissingFloorNightFourDirector::Configure(AIGPrologueWorldScene* InScene)
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"EvictionNoticeThought",
-			"시설 무단 조작으로 이번 주 안에 나가 달래. 밤에 올라간 걸 알고 있는 거야."),
+			"이번 주 안에 나가라고? 내가 밤에 올라간 걸 아는 거야."),
 		EIGMissingFloorTruth::StillCoveringIt,
 		EIGMissingFloorSource::EvictionWarning,
 		0.0f,

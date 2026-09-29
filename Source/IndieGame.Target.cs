@@ -12,8 +12,8 @@ public class IndieGameTarget : TargetRules
 
 		if (Target.Platform == UnrealTargetPlatform.Win64)
 		{
-			// Keep the Windows executable metadata on the public game version.
-			BuildVersion = "1.0.0";
+			// Windows 파일 속성에도 배포 버전을 표시한다.
+			BuildVersion = "0.2.0";
 			WindowsPlatform.bSetResourceVersions = true;
 		}
 	}

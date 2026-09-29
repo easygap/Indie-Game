@@ -1,8 +1,4 @@
-"""Build compact README previews from checked-in gameplay captures.
-
-The output is intentionally assembled from real in-game screenshots.  Keeping the
-recipe in the repository makes the README media reproducible when captures change.
-"""
+"""현재 빌드에서 찍은 화면으로 소개용 GIF를 만든다."""
 
 from __future__ import annotations
 
@@ -18,14 +14,13 @@ FRAME_SIZE = (768, 432)
 PALETTE_COLORS = 160
 
 CAPTURES = (
-    "prologue-bedroom.png",
-    "prologue-kitchen.png",
-    "prologue-corridor.png",
-    "prologue-elevator.png",
-    "prologue-lobby.png",
-    "prologue-villa.png",
-    "prologue-alley.png",
-    "prologue-store.png",
+    "game-bedroom.png",
+    "game-corridor-day.png",
+    "game-alley.png",
+    "game-store.png",
+    "game-booth.png",
+    "game-bedroom-dawn.png",
+    "game-alley-dawn.png",
 )
 
 
@@ -58,7 +53,7 @@ def main() -> None:
     durations: list[int] = []
     for index, current in enumerate(captures):
         rgb_frames.append(current)
-        durations.append(700)
+        durations.append(1200)
 
         if index == len(captures) - 1:
             continue
@@ -82,6 +77,16 @@ def main() -> None:
         disposal=2,
         comment=b"Actual in-game capture route preview",
     )
+    # 추격 GIF는 같은 빌드의 연속 프레임을 쓴다.
+    motion = []
+    for shot, start, end in (('listener-approach', 40, 175), ('capture-front', 45, 75)):
+        for index in range(start, end, 3):
+            with Image.open(PROJECT_ROOT / 'Saved/Trailer' / shot / f'frame_{index:04d}.png') as source:
+                motion.append(source.convert('RGB').resize(FRAME_SIZE, Image.Resampling.LANCZOS))
+    motion_palette = build_global_palette(motion[::5])
+    motion = [frame.quantize(palette=motion_palette, dither=Image.Dither.FLOYDSTEINBERG) for frame in motion]
+    motion[0].save(MEDIA_ROOT / 'night-listener-chase.gif', save_all=True, append_images=motion[1:],
+                   duration=100, loop=0, optimize=True, disposal=2)
     print(
         "README_MEDIA PASS "
         f"captures={len(captures)} frames={len(gif_frames)} output={OUTPUT_PATH}"

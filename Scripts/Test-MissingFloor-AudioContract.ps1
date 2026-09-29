@@ -870,6 +870,6 @@ if ($playerCharacter -notmatch 'VinylSurfaceTag\(TEXT\("Footstep\.Vinyl"\)\)') {
 $assertions++
 
 Write-Host (
-	"REBIRTH_AUDIO_CONTRACT PASS assertions=$assertions " +
+	"MISSINGFLOOR_AUDIO_CONTRACT PASS assertions=$assertions " +
 	'reverb_presets=2 dust_density_max=2.0') `
 	-ForegroundColor Green

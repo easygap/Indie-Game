@@ -36,7 +36,7 @@ function Assert-True {
 	)
 
 	if (-not $Condition) {
-		throw "REBIRTH_ACCESSIBILITY_CONTRACT FAIL: $Message"
+		throw "MISSINGFLOOR_ACCESSIBILITY_CONTRACT FAIL: $Message"
 	}
 	$script:assertionCount++
 }
@@ -259,7 +259,7 @@ Assert-ContainsAll $settingsLayout @(
 	'case 3: return {SoundCaptions, 5}',
 	'case 4: return {ToggleCrouch, 6}',
 	'HitTestSettingsRow'
-) '접근성 카테고리·포인터 공용 계약'
+) '접근성 설정 항목·포인터 공용 계약'
 
 # 행 이름이 생기면서 숫자와 이름이 갈라질 수 있다. 마지막 이름이 행 수와
 # 맞는지는 static_assert가 컴파일 때 보고, 여기서는 그 그물이 남아 있는지를
@@ -284,7 +284,8 @@ $categoryRanges = [regex]::Matches(
 Assert-True ($categoryRanges.Count -eq 6) '접근성 묶음 여섯 개'
 $rowNames = [regex]::Match(
 	$settingsLayout,
-	'enum EAccessibilityRow : int32\s*?
+	'enum EAccessibilityRow : int32\s*
+?
 \s*\{(?<body>[\s\S]*?)\}')
 Assert-True $rowNames.Success '접근성 행 이름 목록'
 $orderedNames = @()
@@ -823,6 +824,6 @@ foreach ($flickerOwner in $flickerOwners) {
 }
 
 Write-Host (
-	"REBIRTH_ACCESSIBILITY_CONTRACT PASS assertions=$assertionCount " +
+	"MISSINGFLOOR_ACCESSIBILITY_CONTRACT PASS assertions=$assertionCount " +
 	"gamepad=1 input_switch=1 captions=1 layout_profiles=$($layoutProfiles.Count) persistence=1 reduced_motion=1 reduced_flicker=1 toggle_hold=1"
 ) -ForegroundColor Green

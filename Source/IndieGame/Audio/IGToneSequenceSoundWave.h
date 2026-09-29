@@ -267,10 +267,7 @@ public:
 	 */
 	static UIGToneSequenceSoundWave* CreateChaseTail(UObject* Outer);
 
-	/**
-	 * The isolated first note of the 04:44 alarm pattern. CH02 plays it once
-	 * in place of a call-connect tone; ending A replays it inside the blackout.
-	 */
+	/** 첫 밤에 잠을 깨우는 짧은 알람음. */
 	static UIGToneSequenceSoundWave* CreateAlarmFirstNote(UObject* Outer);
 
 	/** Two flat descending handset beeps that end a failed call attempt. */

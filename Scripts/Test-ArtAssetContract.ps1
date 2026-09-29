@@ -976,7 +976,7 @@ foreach ($token in @(
 		throw "First-person sleeve mesh contract is missing: $token"
 	}
 }
-# 이름은 P3지만 밸브 핸들 둘은 없는 층 밤4 설비와 부스 수직관 밸브가 그대로 쓴다.
+# 이름은 P3지만 밸브 핸들 둘은 Missing Floor 밤4 설비와 부스 수직관 밸브가 그대로 쓴다.
 foreach ($token in @(
 	'def build_p3_service_cabinet_shell',
 	'(270.0, 4.0, 196.0)',
@@ -1094,7 +1094,7 @@ foreach ($token in @(
 	}
 }
 
-# 「없는 층」의 ImageGen 원본은 참고 시트에서 끝나지 않는다. 근접 인체는
+# 「Missing Floor」의 ImageGen 원본은 참고 시트에서 끝나지 않는다. 근접 인체는
 # 연속 3D 접지 셸과 정면 PBR 레이어를 결합하고, 흔적은 값 마스크, 접근
 # 불가 인물은 고정 스프라이트로 제한하는 적용 경계를 소스 계약으로 잠근다.
 foreach ($token in @(
@@ -1404,7 +1404,7 @@ foreach ($truthName in $truthNames) {
 }
 
 foreach ($token in @(
-	'2026-09-14 수정',
+	'2026년 9월 29일',
 	'세척 배수 OPEN',
 	'부자밸브 우회 OPEN',
 	'저수조 이송펌프',

@@ -1,124 +1,55 @@
-[한국어](../../README.md) · **English** · [日本語](README.ja.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md)
+[한국어](../../README.md) · [English](README.en.md) · [日本語](README.ja.md) · [简体中文](README.zh-CN.md) · [繁體中文](README.zh-TW.md)
 
-# The Missing Floor
+# Missing Floor
 
-https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
+Your brother gave you an address: Unit 501, Moonlight Villa.
+The building has four floors.
 
-A first-person horror game set in an old Korean apartment building. Search for your missing brother by talking to the neighbors and following clues through the rooms and corridors.
-At night, an enemy hunts by sound. Even opening a door can give you away.
+Move into Unit 403 and follow the trail he left behind. Ask the neighbors what they remember. Check the records in the caretaker’s office. And when the knocking starts above your ceiling at 4:30 a.m., listen carefully.
 
-Windows PC · Single-player · Languages: English, Korean, Japanese, Chinese · In development
+A first-person horror game set in a Korean residential neighborhood. Single-player · Windows · In development.
 
-[Download for Windows](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip) · [Controls](#controls)
+[Download the Windows playtest](https://github.com/easygap/Missing-Floor/releases/download/v0.2.0/MissingFloor-0.2.0-Windows.zip) · [Watch the trailer](https://github.com/easygap/Missing-Floor/releases/download/v0.2.0/MissingFloor-Trailer.mp4)
 
-![The Missing Floor title screen, showing an old apartment building and the main menu.](../Media/readme/title-menu-first-run-1080-en.webp)
+![The fourth-floor corridor at Moonlight Villa](../Media/readme/game-corridor-day.webp)
 
-## The story
+## Settle in. Look around.
 
-Yudam moves into Unit 403 at Moonlight Villa to find her missing brother. A returned package lists his address as Unit 501, but the building only has four floors.
+Yudam has come here to find her missing brother. His belongings, a returned parcel and an old voicemail are all she has to go on. Unpack, meet the neighbors and stop by the convenience store across the alley. Someone might remember him.
 
-On her first night, she hears knocking from the ceiling at 4:30 a.m.
+![Unpacked boxes in Yudam’s room](../Media/readme/game-bedroom.webp)
 
-![Yudam’s room, with moving boxes and everyday belongings still unpacked.](../Media/readme/game-bedroom.webp)
+![The alley outside Moonlight Villa](../Media/readme/game-alley.webp)
 
-## Explore the neighborhood
+## After 4:30 a.m.
 
-During the day, visit the neighbors and look around the alley and convenience store. Conversations and objects left behind can help you trace your brother’s whereabouts.
+Something roams the corridor, listening. Running or throwing a door open can draw it toward you. Move carefully, ease doors open and hold your breath when it passes close by.
 
-<table>
-  <tr>
-    <td width="50%"><img src="../Media/readme/game-alley.webp" alt="The alley between the apartment building and the convenience store."></td>
-    <td width="50%"><img src="../Media/readme/game-store.webp" alt="A clerk behind the counter at the neighborhood convenience store."></td>
-  </tr>
-  <tr>
-    <td>The alley outside</td>
-    <td>The convenience store</td>
-  </tr>
-</table>
+If it catches you, you wake up back in your room. You keep the clues you found, but the clock keeps running.
 
-[More views of the apartment and neighborhood · 4.9 MB GIF](../Media/readme/readme-route-preview.gif)
+![The corridor after dark](../Media/readme/game-corridor-night.webp)
 
-## Keep quiet after dark
+Listen through walls, compare documents and check the meters. Your journal is available during the day; press `H` if you need a hint.
 
-Running down the corridor or opening a door too quickly can bring the enemy straight to you. Open doors slowly and hold your breath for a moment to make less noise as you pass.
+## Playtest 0.2.0
 
-<table>
-  <tr>
-    <td width="50%"><img src="../Media/readme/game-corridor-day.webp" alt="The fourth-floor corridor during the day, with the lights on."></td>
-    <td width="50%"><img src="../Media/readme/game-corridor-night.webp" alt="The same corridor after dark, at 4:30 a.m."></td>
-  </tr>
-  <tr>
-    <td>During the day</td>
-    <td>4:30 a.m.</td>
-  </tr>
-</table>
+Download the ZIP, extract it completely and run `MissingFloor.exe`. Keep the `Engine` and `IndieGame` folders beside it. Progress saves automatically. See the [setup guide](../PLAYING.md) for troubleshooting.
 
-![Gameplay footage of the enemy approaching and catching the player in the corridor.](../Media/readme/night-listener-chase.gif)
-
-## Follow the clues
-
-Listen through walls, read the building records, check the CCTV, and inspect the meter cabinet.
-You can review collected clues with `Tab` during the day. Press `H` for a hint if you get stuck.
-
-<table>
-  <tr>
-    <td width="50%"><img src="../Media/readme/p1-meter-cabinet.webp" alt="Electricity meters and a reading sheet inside the meter cabinet."></td>
-    <td width="50%"><img src="../Media/readme/game-booth.webp" alt="Documents and CCTV monitors on the building manager’s desk."></td>
-  </tr>
-  <tr>
-    <td>The meter cabinet</td>
-    <td>The management office</td>
-  </tr>
-</table>
-
-## Download and play
-
-The **September 29, 2026 test version** is available now. The game starts in your Windows language, and you can switch between English, Korean, Japanese, and Chinese under **Settings > General > Language**.
-
-1. [Download the Windows ZIP (739 MB)](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929.2/MissingFloor-Windows-20260929-2.zip).
-2. Extract the entire archive, then run `IndieGame.exe`.
-3. Select **Start Game**. To resume a saved game, select **Continue**.
-
-Progress saves automatically. Keep the `Engine` and `IndieGame` folders alongside the executable.
-
-Tested on Windows 11 with a Ryzen 9 7900X, RTX 3060, and 32 GB RAM. Minimum requirements have not been established yet.
-
-If a DLL is missing, check that you extracted all the files, then run `Engine/Extras/Redist/en-us/vc_redist.x64.exe`. If the game stutters, try a lower resolution or graphics setting.
+The game supports Korean, English, Japanese, Simplified Chinese and Traditional Chinese. It starts in your Windows language; you can change it in Settings. The language links at the top of this page only change the introduction.
 
 ## Controls
 
-Move with `WASD` and look around with the mouse. Press `E` to inspect objects or open doors; hold it to open a door quietly.
-
-Controllers are supported, and you can remap keys and buttons in the settings. Press `F1` or D-pad Up to bring up the controls again.
-
-<details>
-<summary>Full control list</summary>
-
-| Input | Action |
+| Key | Action |
 |---|---|
-| `W A S D` / mouse | Move / look around |
-| `Left Shift` / `C` / `Space` | Run / crouch / jump |
-| `E` | Inspect / open door |
-| Hold `E` | Open door quietly / listen through a wall |
-| `Q` / `Left Ctrl` | Knock / hold breath |
-| `F` | Flashlight |
-| `F1` | Objectives and controls |
-| `Tab` / `H` | Clue journal (daytime) / hint |
-| `← →` / mouse wheel | Turn document pages |
-| `Esc` / `F10` | Pause / accessibility settings |
+| WASD / Mouse | Move / Look |
+| Left Shift / C / Space | Run / Crouch / Jump |
+| E / Hold E | Interact / Open a door slowly / Listen at a wall |
+| Q | Knock |
+| Left Ctrl | Hold your breath |
+| F | Flashlight |
+| Tab / H | Journal during the day / Hint |
+| Esc / F1 / F10 | Pause / Controls / Settings |
 
-</details>
+Difficulty, subtitles, sound cues and camera motion can be adjusted in Settings. You can also turn off the chase. Microphone input is optional and off by default.
 
-## Difficulty and accessibility
-
-If you’d rather explore without being chased, press `F10` and choose **No Chase**. You can still solve the puzzles and finish the story without being caught. Easy, Normal, and Hard are also available, and you can change difficulty while playing.
-
-Adjust subtitle size, background opacity, and how long text stays on screen. Visual sound cues and controller vibration can help you notice sounds and knocks. You can also reduce camera shake and flashing, replace button holds with toggles, and adjust music and ambient sound separately.
-
-![The accessibility menu, with subtitle size, background opacity, and display time settings.](../Media/readme/settings-accessibility-20260929-en.webp)
-
-Contains dark scenes, jump scares, and loud sounds. Adjust the volume and brightness before you start.
-
-## Need help?
-
-[Report a problem](https://github.com/easygap/Missing-Floor/issues/new) or [leave feedback](https://github.com/easygap/Missing-Floor/issues/new). For bugs, include what you were doing, what went wrong, and a screenshot or error message if you have one.
+Please report problems through [GitHub Issues](https://github.com/easygap/Missing-Floor/issues), including your Windows version, graphics card and where the problem occurred.

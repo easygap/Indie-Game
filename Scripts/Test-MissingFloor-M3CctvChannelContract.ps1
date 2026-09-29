@@ -218,7 +218,7 @@ Require-All $channel @(
 ) '§5.5 AUX label placement'
 Require-All $puzzleTwo @(
 	'CctvChannelFive->Play()',
-	'녹화는 안 되는 채널이네. 화면이라도 잘 봐 두자.'
+	'녹화는 안 되네. 어디로 이어지는지 봐 두자.'
 ) '§5.5 AUX label reading'
 
 # --- 오디오 ----------------------------------------------------------------

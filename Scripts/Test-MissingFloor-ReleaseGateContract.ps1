@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Stop'
 #
 #   16번        Test-MissingFloor-M0InputContract.ps1 — 다섯 동사의 독립 바인딩과
 #               「Q must never alias Interact」
-#   17·19·22번  Test-Rebirth-AudioContract.ps1 / Test-Rebirth-AccessibilityContract.ps1
+#   17·19·22번  Test-MissingFloor-AudioContract.ps1 / Test-MissingFloor-AccessibilityContract.ps1
 #   21번        Test-ArtAssetContract.ps1 — 출처·진실 열거형을 게임플레이 파일과 대조
 #   18번        Test-MissingFloor-ReleaseEndingContract.ps1 — 엔딩 C 재도전 경로
 #

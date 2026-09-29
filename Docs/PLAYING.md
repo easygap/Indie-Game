@@ -1,10 +1,10 @@
-# 없는 층 실행 안내
+# Missing Floor 실행 안내
 
 ## Windows에서 플레이하기
 
-1. [Windows 테스트 버전](https://github.com/easygap/Missing-Floor/releases/tag/v1.0.0-test.20260929.2)에서 `MissingFloor-Windows-20260929-2.zip`을 받습니다.
+1. [Windows 테스트 버전](https://github.com/easygap/Missing-Floor/releases/tag/v0.2.0)에서 `MissingFloor-0.2.0-Windows.zip`을 받습니다.
 2. ZIP 파일의 **압축을 모두 풉니다.** 실행 파일 옆의 `Engine`, `IndieGame` 폴더도 함께 있어야 합니다.
-3. `IndieGame.exe`를 실행하고 **게임 시작**을 선택합니다.
+3. `MissingFloor.exe`를 실행하고 **게임 시작**을 선택합니다.
 4. 소리 크기와 밝기를 맞춘 뒤 시작합니다. 조작법은 `F1`, 난이도와 접근성 설정은 `F10`으로 다시 열 수 있습니다.
 
 게임은 처음 켤 때 Windows 언어를 따릅니다. 한국어, 영어, 일본어, 중국어(간체, 번체) 가운데
@@ -13,7 +13,7 @@
 Unreal Engine이나 Visual Studio를 설치할 필요는 없습니다.
 저장된 진행이 있으면 타이틀 화면의 **이어하기**로 계속할 수 있습니다.
 
-![없는 층 타이틀 화면](Media/readme/title-menu-first-run-1080.webp)
+![Missing Floor 타이틀 화면](Media/readme/title-menu-first-run-1080.webp)
 
 Windows 11, Ryzen 9 7900X, RTX 3060, 메모리 32GB PC에서 실행을 확인했습니다.
 다른 PC에서는 아직 확인하지 않아 최소 사양은 정하지 않았습니다.
@@ -34,7 +34,7 @@ Windows 11, Ryzen 9 7900X, RTX 3060, 메모리 32GB PC에서 실행을 확인했
 ```powershell
 git lfs install
 git clone https://github.com/easygap/Missing-Floor.git
-cd Indie-Game
+cd Missing-Floor
 git lfs pull
 pwsh -NoProfile -File .\Scripts\Build-ArtAssets.ps1 -CodeOnly
 .\Scripts\RunGame.bat
@@ -46,4 +46,4 @@ pwsh -NoProfile -File .\Scripts\Build-ArtAssets.ps1 -CodeOnly
 pwsh -NoProfile -File .\Scripts\Package-Windows.ps1
 ```
 
-완료되면 배포 폴더 경로가 출력됩니다. `Windows/IndieGame.exe`가 실행 파일입니다.
+완료되면 배포 폴더 경로가 출력됩니다. `Windows/MissingFloor.exe`가 실행 파일입니다.

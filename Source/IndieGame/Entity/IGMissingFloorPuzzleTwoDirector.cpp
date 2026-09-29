@@ -442,12 +442,12 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 	BoardReceipts->SetNoteText(
 		NSLOCTEXT("IGMissingFloor", "P2ReceiptsTitle", "자재 반입 영수증 (2장)"),
 		{
-			NSLOCTEXT("IGMissingFloor", "P2Receipt1", "무영건재  ·  무영로44길 4 달빛빌라"),
+			NSLOCTEXT("IGMissingFloor", "P2Receipt1", "무영건재  ·  무영로 27-3 달빛빌라"),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "P2Receipt2", "7/26   석고보드 9.5T   12장     현금"),
+			NSLOCTEXT("IGMissingFloor", "P2Receipt2", "7/26   석고보드 12.5T  12장     현금"),
 			NSLOCTEXT("IGMissingFloor", "P2Receipt3", "       경량스터드 3.6m  8본     현금"),
 			FText::GetEmpty(),
-			NSLOCTEXT("IGMissingFloor", "P2Receipt4", "7/27   석고보드 9.5T   12장     현금"),
+			NSLOCTEXT("IGMissingFloor", "P2Receipt4", "7/27   석고보드 12.5T  12장     현금"),
 			NSLOCTEXT("IGMissingFloor", "P2Receipt5", "       미장몰탈 20kg    4포     현금"),
 			FText::GetEmpty(),
 			NSLOCTEXT(
@@ -608,11 +608,11 @@ bool AIGMissingFloorPuzzleTwoDirector::Configure(AIGPrologueWorldScene* InScene)
 		BoothNotice->SetInteractionPrompt(
 			NSLOCTEXT("IGMissingFloor", "BoothNoticePrompt", "관리실 쪽지"));
 		BoothNotice->SetNoteText(
-			NSLOCTEXT("IGMissingFloor", "BoothNoticeTitle", "알립니다"),
+			NSLOCTEXT("IGMissingFloor", "BoothNoticeTitle", "입주민 여러분께"),
 			{
-				NSLOCTEXT("IGMissingFloor", "BoothNotice1", "옥탑은 창고입니다. 사람 없습니다."),
-				NSLOCTEXT("IGMissingFloor", "BoothNotice2", "새벽에 나는 소리는 물탱크에 바람 드는 소리입니다."),
-				NSLOCTEXT("IGMissingFloor", "BoothNotice3", "민원은 전화 말고 종이에 적어 문 밑으로 넣어 주세요."),
+				NSLOCTEXT("IGMissingFloor", "BoothNotice1", "옥탑은 창고로 쓰고 있습니다. 거주자는 없습니다."),
+				NSLOCTEXT("IGMissingFloor", "BoothNotice2", "새벽에 들리는 소리는 물탱크 배관 소음입니다."),
+				NSLOCTEXT("IGMissingFloor", "BoothNotice3", "불편한 점은 호수와 연락처를 적어 관리실 문 아래로 넣어 주세요."),
 				FText::GetEmpty(),
 				NSLOCTEXT("IGMissingFloor", "BoothNotice4", "관리인"),
 			});
@@ -1204,7 +1204,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2CctvThought1",
-				"방금 그 복도는 어디야? 이 건물에 저런 층은 없는데."),
+				"어디지? 이 건물에 이런 복도가 있었나?"),
 			4.4f);
 		return;
 	}
@@ -1220,7 +1220,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P2CctvThought1",
-					"방금 그 복도는 어디야? 이 건물에 저런 층은 없는데."),
+					"어디지? 이 건물에 이런 복도가 있었나?"),
 				4.4f);
 			// §5.5. The picture is on screen and already unrecoverable: nothing
 			// about channel 5 reaches the recorder, and the label on the case
@@ -1231,7 +1231,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleCctvExamined(
 				NSLOCTEXT(
 					"IGMissingFloor",
 					"P2CctvThought2",
-					"녹화는 안 되는 채널이네. 화면이라도 잘 봐 두자."),
+					"녹화는 안 되네. 어디로 이어지는지 봐 두자."),
 				4.2f);
 		}),
 		0.32f + AIGCctvChannelFive::LiveSeconds + 0.86f + 0.25f,
@@ -1262,7 +1262,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleBoardReceiptsRead(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"P2ReceiptsThought",
-				"같은 석고보드를 26일, 27일 이틀에 나눠 샀네. 대장엔 하루만 적혀 있는데."),
+				"26일에도 사고, 27일에도 샀네. 장부엔 26일 것만 적혀 있는데."),
 			4.6f);
 	}
 }
@@ -1390,7 +1390,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandleFoamExamined(
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"P2FoamThought",
-			"문틈까지 막아 놨다. 여기 안에서는 바깥 소리가 안 들리겠네."),
+			"문틈을 다 막아 놨네. 밖에서 불러도 안 들리겠어."),
 		4.6f);
 }
 

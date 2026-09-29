@@ -14,19 +14,19 @@ $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $archiveRoot = (Resolve-Path -LiteralPath $ArchiveDirectory).Path.TrimEnd(
 	[char[]]@('\', '/'))
-$launcher = Join-Path $archiveRoot 'Windows\IndieGame.exe'
+$launcher = Join-Path $archiveRoot 'Windows\MissingFloor.exe'
 $shippingExecutable = Join-Path $archiveRoot (
 	'Windows\IndieGame\Binaries\Win64\IndieGame-Win64-Shipping.exe')
 if (-not (Test-Path -LiteralPath $launcher -PathType Leaf) -or
 	-not (Test-Path -LiteralPath $shippingExecutable -PathType Leaf)) {
 	throw (
 		'ArchiveDirectory must be a BuildCookRun archive root containing ' +
-		"Windows\IndieGame.exe and the Shipping executable: $archiveRoot")
+		"Windows\MissingFloor.exe and the Shipping executable: $archiveRoot")
 }
 if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
 	$runId = [DateTime]::UtcNow.ToString('yyyyMMddTHHmmssfffZ')
 	$EvidenceDirectory = Join-Path $projectRoot (
-		"Saved\Validation\RebirthFrontendShipping\$runId")
+		"Saved\Validation\MissingFloorFrontendShipping\$runId")
 }
 $evidenceRoot = [IO.Path]::GetFullPath($EvidenceDirectory)
 if (Test-Path -LiteralPath $evidenceRoot) {
@@ -243,7 +243,7 @@ function Invoke-FrontendCase {
 		Get-Content -Raw -Encoding UTF8 -LiteralPath $receiptPath
 	).Trim()
 	$pattern = (
-		'^REBIRTH_FRONTEND PASS contract=4 ' +
+		'^MISSINGFLOOR_FRONTEND PASS contract=4 ' +
 		"resolution=${Width}x${Height} " +
 		'keyboard_access=1 gamepad_access=1 dpad_down=1 ' +
 		'keyboard_up=1 gamepad_close=1 keyboard_pause=1 ' +
@@ -349,6 +349,6 @@ $summaryPath = Join-Path $evidenceRoot 'summary.json'
 	results = $results
 } | ConvertTo-Json -Depth 6 | Set-Content -LiteralPath $summaryPath -Encoding UTF8
 Write-Host (
-	'REBIRTH_FRONTEND_SHIPPING PASS resolutions=4 input_events=44 ' +
+	'MISSINGFLOOR_FRONTEND_SHIPPING PASS resolutions=4 input_events=44 ' +
 	"layout_samples=44 dialogue_cases=8 title_cases=4 archive_files=$($archiveManifestBefore.Count) " +
 	"summary=$summaryPath") -ForegroundColor Green

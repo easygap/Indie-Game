@@ -3145,6 +3145,12 @@ void AIGPrologueWorldScene::BuildCorridor()
 			FLinearColor(0.86f, 0.97f, 1.0f), true, 16.0f);
 		CorridorLight->SetVolumetricScatteringIntensity(0.10f);
 		CorridorLights.Add(CorridorLight);
+		CorridorSensorLastSeen.Add(-100.0);
+		// 실제로 교체한 전구처럼 등마다 색이 조금 다르다.
+		if (FixtureX == 300.0f)
+		{
+			CorridorLight->SetLightColor(FLinearColor(1.0f, 0.91f, 0.75f));
+		}
 		if (FixtureX < 0.0f)
 		{
 			DegradedCorridorLight = CorridorLight;
@@ -3177,7 +3183,15 @@ void AIGPrologueWorldScene::SetFixtureLive(
 
 	// A fixture is the light AND the disc: kill both or the ceiling keeps a
 	// glowing ring where the lamp used to be.
-	const float Scale = NightFixtureScale(Index, bCorridor);
+	float Scale = NightFixtureScale(Index, bCorridor);
+	if (bCorridor && !bTheHourSealed)
+	{
+		// 계단 쪽 낡은 등 하나는 상시등, 나머지는 사람이 지나갈 때 켜진다.
+		const double Now = GetWorld() ? GetWorld()->GetTimeSeconds() : 0.0;
+		const bool bSensorOn = Index == 0 || (CorridorSensorLastSeen.IsValidIndex(Index)
+			&& Now - CorridorSensorLastSeen[Index] < 18.0);
+		Scale *= bSensorOn ? 0.72f : 0.0f;
+	}
 	const bool bShines = bLive && bCommonInspectionLightsEnabled && Scale > 0.0f;
 	if (UPointLightComponent* Light = FixtureLights[Index])
 	{
@@ -3233,6 +3247,7 @@ void AIGPrologueWorldScene::ApplyNightAtmosphere(const bool bSealed)
 	}
 	SetUnit401GapLit(bSealed);
 	HourSealedAtSeconds = bSealed && GetWorld() ? GetWorld()->GetTimeSeconds() : -1.0;
+	ApplyExteriorTimeOfDay();
 	UpdateNeighborhoodAwake();
 	if (PostProcess)
 	{
@@ -3240,8 +3255,8 @@ void AIGPrologueWorldScene::ApplyNightAtmosphere(const bool bSealed)
 		// 그림자는 차갑고 손전등의 하이라이트는 따뜻하다.
 		FPostProcessSettings& Look = PostProcess->Settings;
 		Look.bOverride_SceneFringeIntensity = true;
-		Look.SceneFringeIntensity = bSealed ? 0.45f : 0.0f;
-		Look.VignetteIntensity = bSealed ? 0.46f : 0.17f;
+		Look.SceneFringeIntensity = 0.0f;
+		Look.VignetteIntensity = bSealed ? 0.28f : 0.12f;
 		Look.ColorSaturation = bSealed
 			? FVector4(0.80f, 0.86f, 1.0f, 1.0f)
 			: FVector4(0.93f, 0.95f, 1.0f, 1.0f);
@@ -3291,6 +3306,7 @@ void AIGPrologueWorldScene::UpdateLightZones()
 	// 폰이 아니라 카메라 자리로 판단한다. 캡처와 연출이 카메라만 옮길 때도 맞는다.
 	const FVector Eye = GetActorTransform().InverseTransformPosition(
 		Controller->PlayerCameraManager->GetCameraLocation());
+	UpdateCorridorSensors(Eye);
 	// 0: 1~2층(로비·골목·편의점), 1: 4층, 2: 옥상·별관. 경계에서 40 cm는 앞의
 	// 판단을 유지해 계단을 오르내릴 때 등이 번갈아 켜지지 않게 한다.
 	constexpr float GroundTop = 700.0f;
@@ -3357,6 +3373,69 @@ void AIGPrologueWorldScene::UpdateLightZones()
 			}
 		}
 	}
+}
+
+void AIGPrologueWorldScene::UpdateCorridorSensors(const FVector& LocalEye)
+{
+	if (bTheHourSealed || !GetWorld())
+	{
+		return;
+	}
+	const double Now = GetWorld()->GetTimeSeconds();
+	const bool bInCorridor = LocalEye.Z > 910.0f && LocalEye.Z < 1160.0f
+		&& LocalEye.Y > -395.0f && LocalEye.Y < -218.0f;
+	for (int32 Index = 1; Index < CorridorLights.Num(); ++Index)
+	{
+		if (!CorridorLights[Index] || !CorridorSensorLastSeen.IsValidIndex(Index))
+		{
+			continue;
+		}
+		const float FixtureX = GetActorTransform().InverseTransformPosition(
+			CorridorLights[Index]->GetComponentLocation()).X;
+		if (bInCorridor && FMath::Abs(LocalEye.X - FixtureX) < 185.0f)
+		{
+			CorridorSensorLastSeen[Index] = Now;
+		}
+		SetFixtureLive(Index, true, true);
+	}
+}
+
+void AIGPrologueWorldScene::ApplyExteriorTimeOfDay()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>() : nullptr;
+	const bool bMorning = !bTheHourSealed && Narrative && Narrative->GetNightIndex() > 0;
+	if (PreDawnSun)
+	{
+		PreDawnSun->SetWorldRotation(FRotator(bMorning ? -2.0f : 14.0f, 180.0f, 0.0f));
+		PreDawnSun->SetIntensity(bMorning ? 900.0f : 120000.0f);
+		PreDawnSun->SetLightColor(bMorning
+			? FLinearColor(1.0f, 0.82f, 0.64f) : FLinearColor(1.0f, 0.86f, 0.72f));
+		PreDawnSun->ForwardShadingPriority = bMorning ? 1 : 0;
+	}
+	if (MoonLight)
+	{
+		MoonLight->SetIntensity(bMorning ? 0.0f : 0.25f);
+		MoonLight->ForwardShadingPriority = bMorning ? 0 : 1;
+	}
+	if (SkyAmbient) { SkyAmbient->SetIntensity(bMorning ? 0.85f : 0.62f); }
+	if (bMorning && HeightFog)
+	{
+		HeightFog->SetFogDensity(0.004f);
+		HeightFog->SetFogInscatteringColor(FLinearColor(0.12f, 0.15f, 0.18f));
+	}
+	if (bMorning && PostProcess)
+	{
+		PostProcess->Settings.AutoExposureMinBrightness = 0.0f;
+		PostProcess->Settings.AutoExposureMaxBrightness = 10.0f;
+	}
+	for (UPrimitiveComponent* Surface : NightViewSurfaces)
+	{
+		if (Surface) { Surface->SetCustomPrimitiveDataFloat(2, bMorning ? 1.0f : 0.0f); }
+	}
+	UE_LOG(LogIndieGame, Display, TEXT("EXTERIOR_TIME mode=%s night=%d"),
+		bTheHourSealed ? TEXT("night") : (bMorning ? TEXT("morning") : TEXT("arrival")),
+		Narrative ? Narrative->GetNightIndex() : 0);
 }
 
 void AIGPrologueWorldScene::SetRemoteViewActive(const bool bActive)
@@ -4171,7 +4250,7 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 	{
 		// Night never lifts the corridor into grey. Film grain is restrained at
 		// rest, then the stress layer can take it to 0.08 during pursuit.
-		PostProcess->Settings.FilmGrainIntensity = bSealed ? 0.16f : 0.06f;
+		PostProcess->Settings.FilmGrainIntensity = bSealed ? 0.045f : 0.015f;
 		PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;
 		// §11 V1: 자동노출 하한 잠금. Capping the ceiling alone still let the
 		// histogram adapt *down* into an unlit corridor and quietly hand the

@@ -31,7 +31,7 @@ title_font = ImageFont.truetype("C:/Windows/Fonts/malgunbd.ttf", 46)
 body_font = ImageFont.truetype("C:/Windows/Fonts/malgun.ttf", 31)
 for name, title, lines in (
     ("BoothAgentNote", "무영부동산 문자 사본", ["7/26  14:02  부동산", "사장님, 옥탑 짐은 다 뺐습니다.", "", "7/26  14:05  목한수", "네. 이제 창고로 쓸 거예요.", "", "7/26  14:11  부동산", "열쇠는 우편함에 넣고 갑니다."]),
-    ("BoothReceipts", "자재 반입 영수증", ["무영건재 / 달빛빌라", "7/26  석고보드 9.5T 12장 · 현금", "       경량스터드 3.6m 8본", "7/27  석고보드 9.5T 12장 · 현금", "       미장몰탈 20kg 4포", "기재일 7/26 · 옥상 보수비"]),
+    ("BoothReceipts", "자재 반입 영수증", ["무영건재 / 달빛빌라", "7/26  석고보드 12.5T 12장 · 현금", "       경량스터드 3.6m 8본", "7/27  석고보드 12.5T 12장 · 현금", "       미장몰탈 20kg 4포", "기재일 7/26 · 옥상 보수비"]),
 ):
     image = Image.new("RGB", (768, 1024) if name == "BoothAgentNote" else (1024, 576), (210, 207, 194))
     draw = ImageDraw.Draw(image)
