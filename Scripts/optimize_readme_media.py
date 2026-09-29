@@ -26,7 +26,16 @@ OUT = os.path.join(MEDIA, "readme")
 # 인라인으로 걸리는 무거운 캡처만 줄인다. 접힌 <details> 안이나 이미 작은
 # 파일은 그대로 쓴다 — 파생본이 하나 늘 때마다 확인해야 할 것도 하나 늘어난다.
 STILLS = (
-    "settings-accessibility-20260928.png",
+    "settings-accessibility-20260929.png",
+    # 번역 README는 그 언어로 켠 화면을 건다.
+    "settings-accessibility-20260929-en.png",
+    "settings-accessibility-20260929-ja.png",
+    "settings-accessibility-20260929-zh-Hans.png",
+    "settings-accessibility-20260929-zh-Hant.png",
+    "title-menu-first-run-1080-en.png",
+    "title-menu-first-run-1080-ja.png",
+    "title-menu-first-run-1080-zh-Hans.png",
+    "title-menu-first-run-1080-zh-Hant.png",
     "settings-accessibility-20260922.png",
     "settings-controls-20260922.png",
     "settings-audio-20260922.png",

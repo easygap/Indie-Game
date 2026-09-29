@@ -5,11 +5,11 @@
 A first-person horror game set in an old Korean apartment building. Search for your missing brother by talking to the neighbors and following clues through the rooms and corridors.
 At night, an enemy hunts by sound. Even opening a door can give you away.
 
-Windows PC · Single-player · In-game language: Korean only · In development
+Windows PC · Single-player · Languages: English, Korean, Japanese, Chinese · In development
 
-[Download for Windows](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip) · [Controls](#controls)
+[Download for Windows](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [Controls](#controls)
 
-![The Missing Floor title screen, showing an old apartment building and the Korean main menu.](../Media/readme/title-menu-first-run-1080.webp)
+![The Missing Floor title screen, showing an old apartment building and the main menu.](../Media/readme/title-menu-first-run-1080-en.webp)
 
 ## The story
 
@@ -71,11 +71,11 @@ You can review collected clues with `Tab` during the day. Press `H` for a hint i
 
 ## Download and play
 
-The **September 28, 2026 test version** is available now. **The game currently supports Korean only**, including menus, dialogue, and clues.
+The **September 29, 2026 test version** is available now. The game starts in your Windows language, and you can switch between English, Korean, Japanese, and Chinese under **Settings > General > Language**.
 
-1. [Download the Windows ZIP (726 MB)](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip).
+1. [Download the Windows ZIP (739 MB)](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip).
 2. Extract the entire archive, then run `IndieGame.exe`.
-3. Select **게임 시작** (New Game). To resume a saved game, select **이어하기** (Continue).
+3. Select **Start Game**. To resume a saved game, select **Continue**.
 
 Progress saves automatically. Keep the `Engine` and `IndieGame` folders alongside the executable.
 
@@ -109,11 +109,11 @@ Controllers are supported, and you can remap keys and buttons in the settings. P
 
 ## Difficulty and accessibility
 
-If you’d rather explore without being chased, press `F10` and choose **추격 없음** (No Chases). You can still solve the puzzles and finish the story without being caught. Easy, Normal, and Hard are also available, and you can change difficulty while playing.
+If you’d rather explore without being chased, press `F10` and choose **No Chase**. You can still solve the puzzles and finish the story without being caught. Easy, Normal, and Hard are also available, and you can change difficulty while playing.
 
 Adjust subtitle size, background opacity, and how long text stays on screen. Visual sound cues and controller vibration can help you notice sounds and knocks. You can also reduce camera shake and flashing, replace button holds with toggles, and adjust music and ambient sound separately.
 
-![The Korean accessibility menu, with subtitle size, background opacity, and display time settings.](../Media/readme/settings-accessibility-20260928.webp)
+![The accessibility menu, with subtitle size, background opacity, and display time settings.](../Media/readme/settings-accessibility-20260929-en.webp)
 
 Contains dark scenes, jump scares, and loud sounds. Adjust the volume and brightness before you start.
 

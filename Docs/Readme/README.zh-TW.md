@@ -5,11 +5,11 @@
 一款以韓國老舊公寓為背景的第一人稱恐怖遊戲。為了找到失蹤的哥哥，你得向鄰居打聽消息，仔細查看房間和走廊裡的線索。
 入夜後，敵人會循著聲音找上門，連開門都得放輕動作。
 
-Windows PC · 單人遊戲 · 遊戲內語言：僅韓文 · 開發中
+Windows PC · 單人遊戲 · 支援語言：繁體中文、簡體中文、韓文、英文、日文 · 開發中
 
-[下載 Windows 版](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip) · [操作說明](#操作說明)
+[下載 Windows 版](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [操作說明](#操作說明)
 
-![遊戲標題畫面：老舊公寓前顯示著韓文主選單。](../Media/readme/title-menu-first-run-1080.webp)
+![遊戲標題畫面：老舊公寓前顯示著主選單。](../Media/readme/title-menu-first-run-1080-zh-Hant.webp)
 
 ## 故事簡介
 
@@ -73,11 +73,11 @@ Windows PC · 單人遊戲 · 遊戲內語言：僅韓文 · 開發中
 
 ## 下載與執行
 
-目前提供 **2026年9月28日測試版**。**遊戲本體目前僅支援韓文**，選單、對話和線索文字都是韓文。
+目前提供 **2026年9月29日測試版**。遊戲第一次啟動時會使用 Windows 的顯示語言，也可以在 **設定 > 一般 > 語言 · Language** 切換繁體中文、簡體中文、韓文、英文和日文。
 
-1. [下載 Windows 壓縮檔（ZIP，726MB）](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip)。
+1. [下載 Windows 壓縮檔（ZIP，739MB）](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)。
 2. 完整解壓縮後，執行 `IndieGame.exe`。
-3. 選擇 **게임 시작**（開始遊戲）。已有存檔時，選擇 **이어하기**（繼續遊戲）。
+3. 選擇 **開始遊戲**。已有存檔時，選擇 **繼續遊戲**。
 
 遊戲會自動儲存進度。請保留執行檔旁的 `Engine` 和 `IndieGame` 資料夾。
 
@@ -111,11 +111,11 @@ Windows PC · 單人遊戲 · 遊戲內語言：僅韓文 · 開發中
 
 ## 難度與輔助設定
 
-不喜歡被追趕的話，可以按 `F10`，選擇 **추격 없음**（關閉追逐）。敵人不會抓住你，謎題和故事仍能完整玩完。另外也有簡單、普通、困難三種難度，遊戲中隨時都能更改。
+不喜歡被追趕的話，可以按 `F10`，選擇 **不追擊**。敵人不會抓住你，謎題和故事仍能完整玩完。另外也有簡單、普通、困難三種難度，遊戲中隨時都能更改。
 
 字幕的大小、背景深淺和顯示時間都能調整。你可以讓畫面標出聲音的方向，或用手把震動提示敲擊聲。也能減少鏡頭晃動與閃爍、把長按操作改成按一下切換，並分別調整背景音樂和環境音的音量。
 
-![韓文設定選單，可調整字幕大小、背景深淺和顯示時間。](../Media/readme/settings-accessibility-20260928.webp)
+![無障礙設定選單，可調整字幕大小、背景深淺和顯示時間。](../Media/readme/settings-accessibility-20260929-zh-Hant.webp)
 
 遊戲有昏暗場景、突然出現的敵人和較大聲的音效。開始前，請先調整音量和亮度。
 

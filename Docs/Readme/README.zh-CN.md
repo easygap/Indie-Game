@@ -5,11 +5,11 @@
 这是一款以韩国老式居民楼为背景的第一人称恐怖游戏。为了找到失踪的哥哥，你得向邻居打听消息，在房间和走廊里搜寻线索。
 到了夜里，敌人会循着声音找过来，就连开门也得小心。
 
-Windows PC · 单人游戏 · 游戏内语言：仅韩语 · 开发中
+Windows PC · 单人游戏 · 支持语言：简体中文、繁体中文、韩语、英语、日语 · 开发中
 
-[下载 Windows 版](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip) · [操作说明](#操作说明)
+[下载 Windows 版](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [操作说明](#操作说明)
 
-![游戏标题画面：老旧居民楼前显示着韩语主菜单。](../Media/readme/title-menu-first-run-1080.webp)
+![游戏标题画面：老旧居民楼前显示着主菜单。](../Media/readme/title-menu-first-run-1080-zh-Hans.webp)
 
 ## 故事背景
 
@@ -73,11 +73,11 @@ Windows PC · 单人游戏 · 游戏内语言：仅韩语 · 开发中
 
 ## 下载与运行
 
-目前提供 **2026年9月28日测试版**。**游戏本体暂时仅支持韩语**，菜单、对话和线索文字均为韩语。
+目前提供 **2026年9月29日测试版**。游戏首次启动时使用 Windows 的显示语言，也可以在 **设置 > 通用 > 语言 · Language** 中切换简体中文、繁体中文、韩语、英语和日语。
 
-1. [下载 Windows 压缩包（ZIP，726MB）](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip)。
+1. [下载 Windows 压缩包（ZIP，739MB）](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)。
 2. 完整解压后，运行 `IndieGame.exe`。
-3. 选择 **게임 시작**（开始游戏）。已有存档时，选择 **이어하기**（继续游戏）。
+3. 选择 **开始游戏**。已有存档时，选择 **继续游戏**。
 
 游戏会自动保存进度。请保留与运行程序放在一起的 `Engine` 和 `IndieGame` 文件夹。
 
@@ -105,17 +105,17 @@ Windows PC · 单人游戏 · 游戏内语言：仅韩语 · 开发中
 | `F1` | 目标与操作说明 |
 | `Tab` / `H` | 查看记录（白天）/ 提示 |
 | `← →` / 鼠标滚轮 | 翻阅文件 |
-| `Esc` / `F10` | 暂停 / 无障碍设置 |
+| `Esc` / `F10` | 暂停 / 辅助功能设置 |
 
 </details>
 
 ## 难度与辅助设置
 
-不想被追赶的话，可以按 `F10`，选择 **추격 없음**（无追逐）。敌人不会抓住你，解谜和剧情仍可完整体验。另有简单、普通和困难三种难度，游玩途中也能切换。
+不想被追赶的话，可以按 `F10`，选择 **不追击**。敌人不会抓住你，解谜和剧情仍可完整体验。另有简单、普通和困难三种难度，游玩途中也能切换。
 
 字幕可以调整字号、背景深浅和显示时间。声音方向可以显示在画面上，敲击声也能通过手柄震动提示。还支持减轻镜头晃动和闪烁、将长按改为单次按键切换，以及分别调整背景音乐和环境音的音量。
 
-![韩语设置菜单，可调整字幕大小、背景深浅和显示时间。](../Media/readme/settings-accessibility-20260928.webp)
+![辅助功能设置，可调整字幕大小、背景深浅和显示时间。](../Media/readme/settings-accessibility-20260929-zh-Hans.webp)
 
 游戏包含昏暗场景、突然出现的敌人和音量较大的音效。开始前请先调整音量和亮度。
 

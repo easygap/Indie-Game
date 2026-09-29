@@ -6,9 +6,9 @@
 이웃과 이야기를 나누고, 방과 복도를 둘러보며 단서를 모읍니다.
 밤에는 소리에 반응하는 적이 돌아다녀서 문 하나도 조심해서 열어야 합니다.
 
-Windows PC · 싱글플레이 · 게임 언어: 한국어 · 개발 중
+Windows PC · 싱글플레이 · 게임 언어: 한국어, 영어, 일본어, 중국어 · 개발 중
 
-[Windows 버전 받기](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip) · [조작법](#조작)
+[Windows 버전 받기](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [조작법](#조작)
 
 ![없는 층 타이틀 화면. 오래된 빌라 앞에 게임 시작 메뉴가 보인다.](Docs/Media/readme/title-menu-first-run-1080.webp)
 
@@ -75,9 +75,9 @@ Windows PC · 싱글플레이 · 게임 언어: 한국어 · 개발 중
 
 ## 다운로드
 
-지금 받을 수 있는 건 **2026년 9월 28일 테스트 버전**입니다.
+지금 받을 수 있는 건 **2026년 9월 29일 테스트 버전**입니다.
 
-1. [Windows용 ZIP 파일(726MB)](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260928/MissingFloor-Windows-20260928.zip)을 받으세요.
+1. [Windows용 ZIP 파일(739MB)](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)을 받으세요.
 2. 압축을 모두 풀고 `IndieGame.exe`를 실행하세요.
 3. **게임 시작**을 누르면 됩니다. 저장된 게임이 있다면 **이어하기**로 계속할 수 있습니다.
 
@@ -122,7 +122,7 @@ Windows PC · 싱글플레이 · 게임 언어: 한국어 · 개발 중
 노크를 게임패드 진동으로 알리도록 설정할 수도 있습니다. 화면 흔들림과 깜빡임 줄이기,
 길게 누르기 대신 한 번씩 누르기, 배경 음악과 환경음 크기 조절도 지원합니다.
 
-![자막 크기와 배경 진하기, 표시 시간을 조절하는 설정 화면](Docs/Media/readme/settings-accessibility-20260928.webp)
+![자막 크기와 배경 진하기, 표시 시간을 조절하는 설정 화면](Docs/Media/readme/settings-accessibility-20260929.webp)
 
 어두운 장면과 갑자기 튀어나오는 적, 큰 소리가 나옵니다. 시작할 때 소리 크기와 밝기를 편하게 맞춰 주세요.
 
