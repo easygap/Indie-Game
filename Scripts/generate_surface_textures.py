@@ -122,7 +122,6 @@ CORRIDOR_SIGNAGE_ONLY = os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1"
 CORRIDOR_SIGNAGE_TEXTURE_NAMES = {
     "T_CaptureMercyNote_D",
     "T_MercyNoteUnderDoor_D",
-    "T_Note404NotFound_D",
     "T_Plate401_D",
     "T_Plate402_D",
     "T_Plate403_D",
@@ -671,7 +670,6 @@ def import_textures():
             asset_name in {
                 "T_ArrivalContract_D",
                 "T_NoteFridge_D",
-                "T_Note404NotFound_D",
                 "T_CaptureMercyNote_D",
                 "T_MercyNoteUnderDoor_D",
                 "T_SignAux5MonitorOnly_D",

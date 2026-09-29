@@ -179,7 +179,6 @@ MASK_MATERIALS = {
 
 PRINT_MATERIALS = {
     "M_NoteFridge": "T_NoteFridge_D",
-    "M_Note404NotFound": "T_Note404NotFound_D",
     "M_CaptureMercyNote": "T_CaptureMercyNote_D",
     "M_MercyNoteUnderDoor": "T_MercyNoteUnderDoor_D",
     "M_SignAux5MonitorOnly": "T_SignAux5MonitorOnly_D",
@@ -260,7 +259,6 @@ EVIDENCE_MASK_MATERIALS = {
 }
 
 TWO_SIDED_PRINT_MATERIALS = {
-    "M_Note404NotFound",
     "M_CaptureMercyNote",
     "M_MercyNoteUnderDoor",
 }

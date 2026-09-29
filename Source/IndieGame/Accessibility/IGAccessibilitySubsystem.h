@@ -39,6 +39,17 @@ struct INDIEGAME_API FIGAccessibilitySettings
 		meta = (ClampMin = "0.00", ClampMax = "1.00"))
 	float ComfortVignetteStrength = 0.0f;
 
+	/**
+	 * 화면 질감. 렌즈 왜곡, 어두운 곳의 노이즈, 번지는 색을 얼마나 입힐지다.
+	 * 기본 1이 의도한 화면이고, 눈이 피로한 사람은 0까지 내릴 수 있다.
+	 */
+	UPROPERTY(
+		EditAnywhere,
+		BlueprintReadWrite,
+		Category = "Accessibility",
+		meta = (ClampMin = "0.00", ClampMax = "1.00"))
+	float CameraTextureStrength = 1.0f;
+
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Accessibility")
 	bool bDirectionalFearCues = false;
 
@@ -261,6 +272,12 @@ public:
 	float GetComfortVignetteStrength() const
 	{
 		return EffectiveSettings.ComfortVignetteStrength;
+	}
+
+	UFUNCTION(BlueprintPure, Category = "Accessibility|Motion")
+	float GetCameraTextureStrength() const
+	{
+		return EffectiveSettings.CameraTextureStrength;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Motion")

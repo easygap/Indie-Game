@@ -55,6 +55,7 @@ $builders = [ordered]@{
 	'unit_door' = @('SM_UnitDoorLeaf', 'SM_UnitDoorLeafL', 'SM_UnitDoorHardware', 'SM_UnitDoorHardwareL', 'SM_UnitDoorFrame', 'SM_UnitDoorLeafWideL', 'SM_UnitDoorHardwareWideL', 'SM_UnitDoorFrameWide')
 	'corridor_fixtures' = @('SM_FireExtinguisherBox')
 	'neighborhood_prints' = @('SM_DoorDeliveryMagnet', 'SM_RentalNoticeA4', 'SM_ApartmentCalendar2025', 'SM_NeighborMemo402')
+	'door_prints' = @('SM_DoorPrints401', 'SM_DoorPrints402')
 	'fire_safety' = @('SM_FireAlarmPanel', 'SM_FireExtinguisher')
 	'house_slipper' = @('SM_HouseSlipper')
 	'outdoor_condenser' = @('SM_AcOutdoorUnit')

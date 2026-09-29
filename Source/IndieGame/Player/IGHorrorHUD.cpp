@@ -233,7 +233,7 @@ namespace IGHorrorHUD
 				NSLOCTEXT("IGJournal", "TankWaterAudition.Excerpt", "용량 2,000 L. 물 높이를 가리키는 바늘이 위쪽에 있었다."),
 				NSLOCTEXT("IGJournal", "TankWaterAudition.Where", "옥상 · 셋째 밤"), EJournalThumbnail::Tank},
 			{TEXT("Fifth.AnswerReturned"), EJournalLane::Life,
-				NSLOCTEXT("IGJournal", "AnswerReturned.Title", "벽 너머 노크 소리"),
+				NSLOCTEXT("IGJournal", "AnswerReturned.Title", "벽 너머에서 돌아온 소리"),
 				NSLOCTEXT("IGJournal", "AnswerReturned.Excerpt", "둘, 쉬고, 하나."),
 				NSLOCTEXT("IGJournal", "AnswerReturned.Where", "5층 공동벽 · 셋째 밤"), EJournalThumbnail::Plaster},
 			{TEXT("Fifth.BreakerCutIntervention"), EJournalLane::Life,
@@ -266,7 +266,7 @@ namespace IGHorrorHUD
 				NSLOCTEXT("IGJournal", "AnswerRhythmNotebook.Excerpt", "●●  —  ●"),
 				NSLOCTEXT("IGJournal", "AnswerRhythmNotebook.Where", "조율 수첩 여백 · 셋째 밤"), EJournalThumbnail::Document},
 			{TEXT("Unit401.AnswerRhythmJournal"), EJournalLane::Personal,
-				NSLOCTEXT("IGJournal", "AnswerRhythmJournal.Title", "일지에 적힌 노크"),
+				NSLOCTEXT("IGJournal", "AnswerRhythmJournal.Title", "일지에 적힌 박자"),
 				NSLOCTEXT("IGJournal", "AnswerRhythmJournal.Excerpt", "7/29 저쪽이 하던 대로 둘, 쉬고, 하나. 그랬더니 조용하데."),
 				NSLOCTEXT("IGJournal", "AnswerRhythmJournal.Where", "401호 · 셋째 날 낮"), EJournalThumbnail::Document},
 		};
@@ -382,7 +382,7 @@ void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
 	// OnPresentationCue로 따로 오고, 버스에는 연출용 미끼 소리도 실린다. 그녀가
 	// 내지 않은 소리에 「네가 냈다」는 링을 그리면 틀린 규칙을 가르친다.
 	//
-	// §19.8 노크를 화면으로 표시를 켜면 그 규칙이 뒤집힌다. 소리를 못 듣는 손에게
+	// §19.8 두드리는 소리를 화면에 표시를 켜면 그 규칙이 뒤집힌다. 소리를 못 듣는 손에게
 	// 존재의 노크는 아무것도 아닌 것이 되므로, 링을 그리되 **두께로** 나눠
 	// 내 소리와 구분한다 — 색으로만 나누면 색각에서 다시 사라진다.
 	const APawn* OwningPawn = GetOwningPawn();
@@ -3604,7 +3604,7 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 		const float CommentInset = 24.0f * Scale;
 		const float CommentTextWidth = ContentWidth - CommentInset * 2.0f;
 		const FText CommentOne =
-			NSLOCTEXT("IGHUD", "EndingCCommentLineOne", "이 집 새벽에 노크 소리 나요.");
+			NSLOCTEXT("IGHUD", "EndingCCommentLineOne", "이 집 새벽마다 뭐 두드리는 소리 나요.");
 		const FText CommentTwo =
 			NSLOCTEXT("IGHUD", "EndingCCommentLineTwo", "두 명이서 하는 것 같아요.");
 		// 한 사람이 쓴 두 줄이라 글자 크기를 같이 맞춘다.
@@ -5385,12 +5385,13 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		NSLOCTEXT("IGHUD", "A11yReducedFlicker", "빛 깜빡임 줄이기").ToString(),
 		NSLOCTEXT("IGHUD", "A11yFieldOfView", "시야각").ToString(),
 		NSLOCTEXT("IGHUD", "A11yVignette", "화면 가장자리 어둡게").ToString(),
+		NSLOCTEXT("IGHUD", "A11yCameraTexture", "화면 질감").ToString(),
 		NSLOCTEXT("IGHUD", "A11yCenterDot", "화면 가운데 점").ToString(),
 		NSLOCTEXT("IGHUD", "A11yFearDirection", "소리가 나는 방향 표시").ToString(),
-		NSLOCTEXT("IGHUD", "A11yKnockRing", "노크를 화면으로 표시").ToString(),
-		NSLOCTEXT("IGHUD", "A11yKnockHaptic", "노크를 진동으로 알림").ToString(),
+		NSLOCTEXT("IGHUD", "A11yKnockRing", "두드리는 소리를 화면에 표시").ToString(),
+		NSLOCTEXT("IGHUD", "A11yKnockHaptic", "두드리는 소리를 진동으로 알림").ToString(),
 		NSLOCTEXT("IGHUD", "A11yHeartbeat", "심장 박동 표시").ToString(),
-		NSLOCTEXT("IGHUD", "A11yKnockAssist", "노크 박자 맞추기 도움").ToString(),
+		NSLOCTEXT("IGHUD", "A11yKnockAssist", "박자 맞추기 도움").ToString(),
 		NSLOCTEXT("IGHUD", "A11ySoundCaptions", "소리 자막").ToString(),
 		NSLOCTEXT("IGHUD", "A11yCaptionSize", "자막 글자 크기").ToString(),
 		NSLOCTEXT("IGHUD", "A11yCaptionBackground", "자막 배경 진하기").ToString(),
@@ -5415,6 +5416,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 			TEXT("%d°"),
 			FMath::RoundToInt(Settings.FieldOfViewDegrees)),
 		Percent(Settings.ComfortVignetteStrength),
+		Percent(Settings.CameraTextureStrength),
 		Settings.bAlwaysShowCenterDot
 			? NSLOCTEXT("IGHUD", "CenterDotAlways", "항상").ToString()
 			: NSLOCTEXT("IGHUD", "CenterDotFocus", "물건을 볼 때").ToString(),
@@ -5451,13 +5453,14 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		NSLOCTEXT("IGHUD", "A11yReducedFlickerDesc", "손전등과 조명이 빠르게 깜빡이는 효과를 줄입니다."),
 		NSLOCTEXT("IGHUD", "A11yFieldOfViewDesc", "한 화면에 보이는 범위를 조절합니다. 화면이 답답하거나 어지럽다면 편한 값으로 맞춰 보세요."),
 		NSLOCTEXT("IGHUD", "A11yVignetteDesc", "화면 가장자리를 어둡게 합니다. 움직일 때 주변 풍경이 덜 보이게 할 수 있습니다."),
+		NSLOCTEXT("IGHUD", "A11yCameraTextureDesc", "렌즈가 살짝 휘고 어두운 곳에 잡티가 끼는 카메라 화면처럼 보이게 합니다. 눈이 피로하면 낮추세요."),
 		NSLOCTEXT("IGHUD", "A11yCenterDotDesc", "평소에는 조사할 물건을 겨눌 때만 화면 가운데에 점이 뜹니다. 어지럽다면 항상 띄워 두세요. 화면을 볼 때 기준점이 됩니다."),
 		NSLOCTEXT("IGHUD", "A11yFearDirectionDesc", "중요한 소리가 나면 화면 가장자리에 그 방향을 표시합니다."),
 		NSLOCTEXT("IGHUD", "A11yKnockRingDesc", "귀신이 낸 소리는 얇은 원으로, 내가 낸 소리는 굵은 원으로 표시합니다."),
 		NSLOCTEXT("IGHUD", "A11yKnockHapticDesc", "귀신이 소리를 내면 게임패드가 진동합니다. 멀리서 나는 소리일수록 진동도 약해집니다."),
 		NSLOCTEXT("IGHUD", "A11yHeartbeatDesc", "긴장했을 때 화면 가장자리가 심장 박동에 맞춰 움직입니다."),
-		NSLOCTEXT("IGHUD", "A11yKnockAssistDesc", "노크 박자를 조금 늦거나 빠르게 맞춰도 인정합니다."),
-		NSLOCTEXT("IGHUD", "A11ySoundCaptionsDesc", "노크나 발소리처럼 진행에 필요한 소리를 글로 보여 줍니다."),
+		NSLOCTEXT("IGHUD", "A11yKnockAssistDesc", "박자가 조금 늦거나 빨라도 맞은 것으로 칩니다."),
+		NSLOCTEXT("IGHUD", "A11ySoundCaptionsDesc", "두드리는 소리나 발소리처럼 진행에 필요한 소리를 글로 보여 줍니다."),
 		NSLOCTEXT("IGHUD", "A11yCaptionSizeDesc", "대화와 소리 자막의 글자 크기를 함께 바꿉니다. 아래에서 미리 볼 수 있습니다."),
 		NSLOCTEXT("IGHUD", "A11yCaptionBackgroundDesc", "자막 뒤의 검은 배경을 얼마나 진하게 표시할지 정합니다."),
 		NSLOCTEXT("IGHUD", "A11yCaptionSafeAreaDesc", "값을 줄이면 자막이 화면 안쪽에 표시됩니다."),
@@ -6266,7 +6269,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 			: PreferredScale;
 	};
 	const FText KnockLabel =
-		NSLOCTEXT("IGHUD", "AudioCalibrationKnockLabel", "위층 노크 소리");
+		NSLOCTEXT("IGHUD", "AudioCalibrationKnockLabel", "위층에서 두드리는 소리");
 	DrawLeftAlignedText(
 		KnockLabel,
 		FVector2D(LeftX, ContentY),
@@ -6275,7 +6278,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		GetFittedTextScale(
 			KnockLabel, EIGHudTextRole::Prompt, Scale, LeftColumnWidth, 0.7f * Scale));
 	const FText KnockInstruction =
-		NSLOCTEXT("IGHUD", "AudioCalibrationKnockInstruction", "노크가 또렷하게 들리면서도\n깜짝 놀라지 않을 만큼 맞춰 주세요.");
+		NSLOCTEXT("IGHUD", "AudioCalibrationKnockInstruction", "두드리는 소리가 또렷하게 들리면서도\n깜짝 놀라지 않을 만큼 맞춰 주세요.");
 	DrawLeftAlignedText(
 		KnockInstruction,
 		FVector2D(LeftX, ContentY + 38.0f * Scale),
@@ -6351,7 +6354,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		NSLOCTEXT("IGHUD", "AudioCal.Ambience", "환경음").ToString(),
 		NSLOCTEXT("IGHUD", "AudioCal.ListeningOn", "출력 장치").ToString(),
 		NSLOCTEXT("IGHUD", "AudioCal.DisplayBrightness", "화면 밝기").ToString(),
-		NSLOCTEXT("IGHUD", "AudioCal.PlayKnockAgain", "노크 다시 듣기").ToString(),
+		NSLOCTEXT("IGHUD", "AudioCal.PlayKnockAgain", "다시 듣기").ToString(),
 		bSystemMenuAudioCalibrationFirstRun
 			? NSLOCTEXT("IGHUD", "AudioCal.SaveAndContinue", "저장하고 시작하기").ToString()
 			: NSLOCTEXT("IGHUD", "AudioCal.SaveAndBack", "저장하고 돌아가기").ToString()
@@ -6397,7 +6400,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 	if (AudioCalibrationSelectedRow == 1 || AudioCalibrationSelectedRow == 2)
 	{
 		DrawCenteredText(
-			NSLOCTEXT("IGHUD", "AudioCalibrationBusNote", "배경 음악과 환경음은 따로 조절할 수 있습니다. 노크와 귀신이 내는 소리는 전체 소리 크기를 따릅니다."),
+			NSLOCTEXT("IGHUD", "AudioCalibrationBusNote", "배경 음악과 환경음은 따로 조절할 수 있습니다. 두드리는 소리와 귀신이 내는 소리는 전체 소리 크기를 따릅니다."),
 			Layout.NoteTop,
 			IGHorrorHUD::PaleGray,
 			EIGHudTextRole::Hint,

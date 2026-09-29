@@ -23,6 +23,8 @@ namespace IGAccessibility
 	constexpr float MaximumFieldOfView = 100.0f;
 	constexpr float MinimumComfortVignette = 0.0f;
 	constexpr float MaximumComfortVignette = 1.0f;
+	constexpr float MinimumCameraTexture = 0.0f;
+	constexpr float MaximumCameraTexture = 1.0f;
 	// §19.8 표의 두 배율. 문서에 적힌 숫자를 여기 한 번만 적는다.
 	constexpr float KnockWindowAssistScale = 1.6f;
 }
@@ -78,6 +80,12 @@ FIGAccessibilitySettings UIGAccessibilitySubsystem::Sanitize(
 			: 0.0f,
 		IGAccessibility::MinimumComfortVignette,
 		IGAccessibility::MaximumComfortVignette);
+	Result.CameraTextureStrength = FMath::Clamp(
+		FMath::IsFinite(Result.CameraTextureStrength)
+			? Result.CameraTextureStrength
+			: 1.0f,
+		IGAccessibility::MinimumCameraTexture,
+		IGAccessibility::MaximumCameraTexture);
 	Result.FieldOfViewDegrees = FMath::Clamp(
 		FMath::IsFinite(Result.FieldOfViewDegrees)
 			? Result.FieldOfViewDegrees
@@ -210,6 +218,11 @@ void UIGAccessibilitySubsystem::LoadPersistedSettings()
 		GGameUserSettingsIni);
 	GConfig->GetFloat(
 		IGAccessibility::ConfigSection,
+		TEXT("CameraTextureStrength"),
+		PersistedSettings.CameraTextureStrength,
+		GGameUserSettingsIni);
+	GConfig->GetFloat(
+		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
 		PersistedSettings.HoldDurationScale,
 		GGameUserSettingsIni);
@@ -335,6 +348,11 @@ void UIGAccessibilitySubsystem::SavePersistedSettings() const
 		GGameUserSettingsIni);
 	GConfig->SetFloat(
 		IGAccessibility::ConfigSection,
+		TEXT("CameraTextureStrength"),
+		PersistedSettings.CameraTextureStrength,
+		GGameUserSettingsIni);
+	GConfig->SetFloat(
+		IGAccessibility::ConfigSection,
 		TEXT("HoldDurationScale"),
 		PersistedSettings.HoldDurationScale,
 		GGameUserSettingsIni);
@@ -411,6 +429,12 @@ void UIGAccessibilitySubsystem::ApplyCommandLineOverrides(
 		CaptionBackgroundOpacity))
 	{
 		Settings.CaptionBackgroundOpacity = CaptionBackgroundOpacity;
+	}
+	// 전후 비교 촬영용. 저장된 설정은 건드리지 않는다.
+	float CameraTexture = Settings.CameraTextureStrength;
+	if (FParse::Value(CommandLine, TEXT("IGCameraTexture="), CameraTexture))
+	{
+		Settings.CameraTextureStrength = CameraTexture;
 	}
 	float CaptionSafeArea = Settings.CaptionSafeAreaScale;
 	if (FParse::Value(

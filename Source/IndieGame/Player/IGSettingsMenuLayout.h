@@ -36,7 +36,7 @@ namespace IGSettingsMenuLayout
 	static_assert(
 		BackOrRevert + 1 == DisplayRowCount,
 		"화면 설정 행 이름과 행 수가 어긋났다");
-	constexpr int32 AccessibilityRowCount = 25;
+	constexpr int32 AccessibilityRowCount = 26;
 
 	/**
 	 * 접근성 행 번호. 화면과 컨트롤러와 묶음 범위 셋이 같은 숫자를 봐야 한다.
@@ -50,6 +50,7 @@ namespace IGSettingsMenuLayout
 		ReducedFlicker,
 		FieldOfView,
 		ComfortVignette,
+		CameraTexture,
 		CenterDot,
 		DirectionalFearCues,
 		KnockRippleSubstitute,
@@ -218,7 +219,7 @@ namespace IGSettingsMenuLayout
 		switch (Category)
 		{
 		case 0: return {NightDifficulty, 2};       // 난이도와 힌트.
-		case 1: return {ReducedCameraMotion, 5};   // 화면 효과와 가운데 점.
+		case 1: return {ReducedCameraMotion, 6};   // 화면 효과, 화면 질감, 가운데 점.
 		case 2: return {DirectionalFearCues, 5};   // 소리 안내와 노크 도움.
 		case 3: return {SoundCaptions, 5};         // 자막. 음성 대사가 없어 대사 자막 줄은 뺐다.
 		case 4: return {ToggleCrouch, 6};          // 입력과 조작 안내.

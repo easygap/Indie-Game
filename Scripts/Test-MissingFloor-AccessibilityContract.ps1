@@ -254,7 +254,7 @@ Assert-ContainsAll $hudSource @(
 	'DrawSettingsFooterText('
 ) '긴 한글·200% 미리 보기 내부 경계 계약'
 Assert-ContainsAll $settingsLayout @(
-	'AccessibilityRowCount = 25',
+	'AccessibilityRowCount = 26',
 	'AccessibilityCategoryCount = 6',
 	'case 3: return {SoundCaptions, 5}',
 	'case 4: return {ToggleCrouch, 6}',
@@ -269,6 +269,7 @@ Assert-ContainsAll $settingsLayout @(
 	'CloseMenu + 1 == AccessibilityRowCount',
 	'FieldOfView,',
 	'ComfortVignette,',
+	'CameraTexture,',
 	'CaptionDuration,'
 ) '접근성 행 이름과 행 수의 일치'
 
@@ -293,7 +294,7 @@ foreach ($entry in [regex]::Matches(
 	$rowNames.Groups['body'].Value, '(?m)^\s*(?<name>[A-Za-z]+)')) {
 	$orderedNames += $entry.Groups['name'].Value
 }
-Assert-True ($orderedNames.Count -eq 25) '접근성 행 이름 25개'
+Assert-True ($orderedNames.Count -eq 26) '접근성 행 이름 26개'
 $expectedFirst = 0
 foreach ($range in $categoryRanges) {
 	$firstName = $range.Groups['first'].Value
@@ -302,7 +303,7 @@ foreach ($range in $categoryRanges) {
 		'접근성 묶음이 이어 붙는다: {0}' -f $firstName)
 	$expectedFirst += [int]$range.Groups['count'].Value
 }
-Assert-True ($expectedFirst -eq 25) '접근성 묶음이 행 전부를 덮는다'
+Assert-True ($expectedFirst -eq 26) '접근성 묶음이 행 전부를 덮는다'
 # --- §19.8 소리의 대체 채널 ---------------------------------------------------
 #
 # 표 여덟 줄 중 넷이 비어 있었다. 소리를 못 듣는 손에게 존재의 노크는
@@ -319,10 +320,10 @@ Assert-ContainsAll $header @(
 
 # 넷 다 기본은 꺼짐이다. 표의 「기본」 열이 그렇게 적혀 있다.
 $substituteRows = @(
-	@{ Name = '노크를 진동으로 알림'; Field = 'bKnockHapticSubstitute' },
-	@{ Name = '노크를 화면으로 표시'; Field = 'bKnockRippleSubstitute' },
+	@{ Name = '두드리는 소리를 진동으로 알림'; Field = 'bKnockHapticSubstitute' },
+	@{ Name = '두드리는 소리를 화면에 표시'; Field = 'bKnockRippleSubstitute' },
 	@{ Name = '심장 박동 표시'; Field = 'bHeartbeatWarning' },
-	@{ Name = '노크 박자 맞추기 도움'; Field = 'bCognitiveAssist' })
+	@{ Name = '박자 맞추기 도움'; Field = 'bCognitiveAssist' })
 foreach ($row in $substituteRows) {
 	$tableRow = [regex]::Match(
 		$storyText, ('\| {0} \| (?<default>[^|]+?) \|' -f [regex]::Escape($row.Name)))
@@ -357,7 +358,7 @@ foreach ($half in @(
 	}
 }
 
-# 노크를 화면으로 표시는 색이 아니라 두께로 나눈다. 색으로만 나누면 색각에서
+# 「두드리는 소리를 화면에 표시」는 색이 아니라 두께로 나눈다. 색으로만 나누면 색각에서
 # 다시 사라져서, 대체 채널이 또 하나의 벽이 된다.
 $noiseBody = [regex]::Match(
 	$hudSource,
@@ -371,7 +372,7 @@ Assert-True ($hudSource -match 'bRippleIsForeign \? [0-9.]+f : 1\.0f') `
 Assert-True ($storyText -match '색이 아니라 두께로 구분') `
 	'§19.8의 두께 구분 규칙이 남아 있다'
 
-# 노크를 진동으로 알림는 소음 버스를 탄다. 응답 노크 코드에 손을 대면 §18.5의
+# 「두드리는 소리를 진동으로 알림」은 소음 버스를 탄다. 응답 노크 코드에 손을 대면 §18.5의
 # 무진동 규칙이 무너진다.
 Assert-True ($character -match 'OnNoiseReported.AddUObject\(\s*\r?\n?\s*this, &AIGPlayerCharacter::HandleForeignNoise\)') `
 	'대체 진동은 소음 버스에서 온다'
@@ -419,7 +420,7 @@ Assert-True (
 Assert-True ($warningBody.Groups['body'].Value -match 'return 1\.0f;') `
 	'심장 박동 표시가 꺼져 있으면 비네트가 그대로다'
 
-# 노크 박자 맞추기 도움: 판정창 ×1.6.
+# 박자 맞추기 도움: 판정창 ×1.6.
 $windowRow = [regex]::Match($storyText, '노크 판정창 ×(?<scale>[0-9.]+)')
 Assert-True $windowRow.Success '§19.8 노크 판정창 줄을 읽을 수 있다'
 $windowDeclared = [regex]::Match(
@@ -473,6 +474,25 @@ Assert-ContainsAll $header @(
 # 기본은 꺼짐이다. 의도한 화면은 비네트가 없는 쪽이다.
 Assert-True ($header -match 'float ComfortVignetteStrength = 0\.0f;') `
 	'멀미 완화 비네트의 기본은 꺼짐'
+
+# 화면 질감은 반대로 켜 둔 쪽이 의도한 화면이다. 0까지 내릴 수 있어야 하고,
+# 저장·불러오기와 전후 비교용 실행 인자가 같이 있어야 한다.
+Assert-ContainsAll $header @(
+	'float CameraTextureStrength = 1.0f;',
+	'GetCameraTextureStrength() const'
+) '화면 질감 설정'
+Assert-ContainsAll $source @(
+	'TEXT("CameraTextureStrength")',
+	'TEXT("IGCameraTexture=")',
+	'IGAccessibility::MinimumCameraTexture'
+) '화면 질감 저장과 비교 촬영 인자'
+$sensorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
+	Join-Path $projectRoot 'Source/IndieGame/Player/IGCameraSensorComponent.cpp')
+Assert-ContainsAll $sensorSource @(
+	'GetCameraTextureStrength()',
+	'IsReducedFlickerEnabled()',
+	'ReducedFlickerNoiseRate = 8.0f'
+) '화면 질감이 설정과 빛 깜빡임 줄이기를 따른다'
 
 foreach ($half in @(
 	@{ Name = 'LoadPersistedSettings'; Call = 'GConfig->GetFloat(' },

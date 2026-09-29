@@ -13,6 +13,7 @@ namespace Audio
 
 class UCameraComponent;
 class UIGAccessibilitySubsystem;
+class UIGCameraSensorComponent;
 class UIGFlashlightComponent;
 class UIGInteractionComponent;
 class UIGStressComponent;
@@ -115,6 +116,9 @@ public:
 
 	/** 접근성 설정의 시야각을 카메라에 건다. 설정이 바뀔 때마다 부른다. */
 	void RefreshFieldOfView();
+
+	/** 접근성 설정의 화면 질감을 후처리에 건다. 설정이 바뀔 때마다 부른다. */
+	void RefreshCameraTexture();
 	/**
 	 * 이번 프레임의 손맛 회전(노크 킥·포획 킥·공포 떨림). 카메라 컴포넌트에
 	 * 상대 회전을 주면 bUsePawnControlRotation이 GetCameraView에서 폰 제어
@@ -232,6 +236,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
 	TObjectPtr<UIGStressComponent> StressComponent;
+
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Player|Components", meta = (AllowPrivateAccess = "true"))
+	TObjectPtr<UIGCameraSensorComponent> CameraSensor;
 
 	UPROPERTY(Transient)
 	TObjectPtr<UIGAccessibilitySubsystem> AccessibilitySubsystem;

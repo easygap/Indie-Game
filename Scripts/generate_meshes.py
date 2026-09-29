@@ -863,39 +863,6 @@ def build_snack_bag():
     return bake(mesh, "SM_SnackBag")
 
 
-def build_alarm_clock():
-    """Clock radio with one continuous, load-bearing lower chassis.
-
-    Separate feet are physically plausible at inspection distance but, under
-    the nearby bedside lamp, their gap projected a second dark rectangle below
-    the clock and made it read as hovering.  The release silhouette therefore
-    uses the broad chassis itself as the contact surface.  Its exact -0.40 cm
-    lower bound is shared with runtime placement; there is no empty padding or
-    hidden air gap below the visible mesh.
-    """
-    mesh = new_mesh()
-    box(mesh, (13.0, 8.5, 6.4), location=(0.0, 0.0, 3.2))
-    bevel_all(mesh, distance=0.5)
-
-    plinth = new_mesh()
-    box(plinth, (12.2, 7.7, 0.65), location=(0.0, 0.0, -0.075))
-    bevel_all(plinth, distance=0.16)
-    union(mesh, plinth)
-
-    recess = new_mesh()
-    box(recess, (9.6, 1.4, 4.2), location=(0.0, 4.3, 3.4))
-    subtract(mesh, recess)
-    for offset in (-3.6, 0.0, 3.6):
-        button = new_mesh()
-        box(button, (2.4, 3.0, 0.7), location=(offset, -0.6, 6.5))
-        bevel_all(button, distance=0.22)
-        options = unreal.GeometryScriptMeshBooleanOptions()
-        BOOL_LIB.apply_mesh_boolean(
-            mesh, xf(), button, xf(),
-            unreal.GeometryScriptBooleanOperation.UNION, options)
-    return bake(mesh, "SM_AlarmClock")
-
-
 def build_lever_handle():
     """Door lever on a rose plate, swept as a real tube."""
     mesh = new_mesh()
@@ -2689,7 +2656,6 @@ BUILDERS = (
     build_offering_water_bowl,
     build_milk_carton,
     build_snack_bag,
-    build_alarm_clock,
     build_lever_handle,
     build_lamp_shade,
     build_stool,
@@ -2747,9 +2713,7 @@ BUILDERS = (
 def run():
     log(f"normals library: {NORMALS}, queries library: {QUERIES}")
     builders = BUILDERS
-    if os.environ.get("IG_ALARM_CLOCK_ONLY") == "1":
-        builders = (build_alarm_clock,)
-    elif os.environ.get("IG_RETAIL_REALISM_ONLY") == "1":
+    if os.environ.get("IG_RETAIL_REALISM_ONLY") == "1":
         builders = (build_drink_can,)
     elif os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
         builders = (build_capture_mercy_note,)

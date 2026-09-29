@@ -9,8 +9,8 @@ param(
     # thermal POS receipt. This prevents a small retail-data correction from
     # replacing the already authored poster and neighbourhood art.
     [switch]$RetailIdentityOnly,
-    # Rebuild only the 403 entrance plates and the 404 Not Found memo. This
-    # keeps a targeted Unreal import from touching unrelated authored signs.
+    # Rebuild only the landing door plates and the 401 note. This keeps a
+    # targeted Unreal import from touching unrelated authored signs.
     [switch]$CorridorEntranceOnly,
     # 입주 프롤로그에서 사용하는 한글 임대차계약서만 다시 만든다.
     # 문서는 허구이며 주민등록번호는 표기하지 않는다.
@@ -107,7 +107,6 @@ if (-not $noteFontFamily) {
 }
 
 $stickyNotePaper = Join-Path $outDir 'AI\TextureStickyNotePaper_D.png'
-$notFoundPaper = Join-Path $outDir 'AI\TextureStickyNote404Doodle_D.png'
 $captureMercyNotePaper = Join-Path $outDir 'AI\TextureCaptureMercyNotePaper_D.png'
 $cleanPaper = Join-Path $outDir 'T_PaperClean_V2_D.png'
 
@@ -209,17 +208,22 @@ function Write-ArrivalContract {
             }
 
             $g.DrawString('2025년  7월  25일', $headingFont, $brush, 545, 1694)
-            $g.DrawString('임대인  목 한 수    주소  서울 은평구 무영로 27-3',
-                $bodyFont, $brush, $left, 1778)
-            $g.DrawString('임차인  백 유 담    주소  서울 은평구 무영로 27-3, 403호',
-                $bodyFont, $brush, $left, 1848)
-            $g.DrawString('중개인  무영공인중개사사무소  (등록번호·연락처는 게임 내 가상 정보)',
+            # 이름 뒤 (인) 자리에 도장을 찍고, 주소는 그 오른쪽 칸에 둔다.
+            # 주민번호나 서명을 꾸며내지 않고도 체결된 계약서임을 알 수 있다.
+            $addressX = $left + 470
+            foreach ($party in @(
+                @('임대인  목 한 수  ', '서울 은평구 무영로 27-3', 1778),
+                @('임차인  백 유 담  ', '서울 은평구 무영로 27-3, 403호', 1848)
+            )) {
+                $nameText = [string]$party[0]
+                $rowY = [int]$party[2]
+                $g.DrawString($nameText + '(인)', $bodyFont, $brush, $left, $rowY)
+                $sealX = $left + $g.MeasureString($nameText, $bodyFont).Width - 6
+                $g.DrawEllipse($seal, [single]$sealX, [single]($rowY - 16), 72, 72)
+                $g.DrawString('주소  ' + [string]$party[1], $bodyFont, $brush, $addressX, $rowY)
+            }
+            $g.DrawString('중개인  무영공인중개사사무소',
                 $smallFont, $mutedBrush, $left, 1920)
-
-            # 주민번호나 서명을 꾸며내지 않고도 체결된 계약서임을 알 수 있도록
-            # 작은 붉은 도장 두 개만 넣는다.
-            $g.DrawEllipse($seal, 418, 1750, 88, 88)
-            $g.DrawEllipse($seal, 418, 1822, 88, 88)
         }
         finally {
             $format.Dispose(); $smallFont.Dispose(); $bodyFont.Dispose()
@@ -230,23 +234,7 @@ function Write-ArrivalContract {
 }
 
 function Write-CorridorEntranceSigns {
-    # The room number stays an ordinary 403. A single handwritten memo occupies
-    # the empty wall where the next door would be, so 404 is a background joke
-    # instead of a horror clue. Exact lettering is rasterised here because image
-    # generation is intentionally not trusted with UI-critical Latin text.
-    New-SignBitmap -Width 512 -Height 512 `
-        -Background ([System.Drawing.Color]::FromArgb(255, 245, 228, 130)) `
-        -BackgroundImagePath $notFoundPaper `
-        -FileName 'T_Note404NotFound_D.png' -Draw {
-        param($g, $w, $h)
-
-        $latinNoteFont = 'Segoe Print'
-        $ink = [System.Drawing.Color]::FromArgb(255, 31, 30, 28)
-        Draw-CenteredText $g '404' $latinNoteFont 72 ([System.Drawing.FontStyle]::Bold) $ink ($w * 0.50) ($h * 0.17)
-        Draw-CenteredText $g 'Not' $latinNoteFont 82 ([System.Drawing.FontStyle]::Regular) $ink ($w * 0.43) ($h * 0.40)
-        Draw-CenteredText $g 'Found' $latinNoteFont 82 ([System.Drawing.FontStyle]::Regular) $ink ($w * 0.53) ($h * 0.59)
-    }
-
+    # 문패는 평범한 401·402·403이다. 403호 다음 벽은 비워 둔다.
     foreach ($unit in @('401', '402', '403')) {
         $file = "T_Plate$unit`_D.png"
         New-SignBitmap -Width 128 -Height 64 -Background $nearWhite -FileName $file -Draw {
@@ -468,18 +456,8 @@ Write-RetailPriceStrip
 # --- Building name plate over the common entrance --------------------------
 New-SignBitmap -Width 320 -Height 96 -Background ([System.Drawing.Color]::FromArgb(255, 30, 36, 48)) -FileName 'T_SignVilla_D.png' -Draw {
     param($g, $w, $h)
-    Draw-CenteredText $g '달빛빌라' $malgun 52 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.42) ($h * 0.5)
-    Draw-CenteredText $g '37-4' $malgun 30 ([System.Drawing.FontStyle]::Regular) ([System.Drawing.Color]::FromArgb(255, 150, 200, 190)) ($w * 0.85) ($h * 0.5)
-}
-
-# --- Alarm clock LED face ---------------------------------------------------
-New-SignBitmap -Width 256 -Height 128 -Background ([System.Drawing.Color]::FromArgb(255, 8, 6, 6)) -FileName 'T_ClockFace_D.png' -Draw {
-    param($g, $w, $h)
-    $led = [System.Drawing.Color]::FromArgb(255, 255, 40, 24)
-    $ledDim = [System.Drawing.Color]::FromArgb(255, 120, 18, 12)
-    Draw-CenteredText $g '4:44' 'Consolas' 92 ([System.Drawing.FontStyle]::Bold) $led ($w * 0.56) ($h * 0.5)
-    Draw-CenteredText $g 'AM' $malgun 26 ([System.Drawing.FontStyle]::Bold) $ledDim ($w * 0.12) ($h * 0.3)
-    Draw-CenteredText $g 'ALARM' $malgun 16 ([System.Drawing.FontStyle]::Regular) $ledDim ($w * 0.12) ($h * 0.72)
+    Draw-CenteredText $g '달빛빌라' $malgun 50 ([System.Drawing.FontStyle]::Bold) $white ($w * 0.39) ($h * 0.5)
+    Draw-CenteredText $g '27-3' $malgun 24 ([System.Drawing.FontStyle]::Regular) ([System.Drawing.Color]::FromArgb(255, 150, 200, 190)) ($w * 0.845) ($h * 0.52)
 }
 
 # --- Elevator floor indicator ----------------------------------------------

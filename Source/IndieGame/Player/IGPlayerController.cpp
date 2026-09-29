@@ -2736,6 +2736,8 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 				Cast<AIGPlayerCharacter>(GetPawn()))
 			{
 				PlayerCharacter->RefreshMicrophoneCaptureMode();
+				PlayerCharacter->RefreshFieldOfView();
+				PlayerCharacter->RefreshCameraTexture();
 			}
 		}
 		RefreshMenuHud();
@@ -2780,6 +2782,12 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 	case IGSettingsMenuLayout::ComfortVignette:
 		Settings.ComfortVignetteStrength = FMath::Clamp(
 			Settings.ComfortVignetteStrength + (Direction < 0 ? -0.25f : 0.25f),
+			0.0f,
+			1.0f);
+		break;
+	case IGSettingsMenuLayout::CameraTexture:
+		Settings.CameraTextureStrength = FMath::Clamp(
+			Settings.CameraTextureStrength + (Direction < 0 ? -0.25f : 0.25f),
 			0.0f,
 			1.0f);
 		break;
@@ -2859,6 +2867,7 @@ void AIGPlayerController::ChangeAccessibilitySetting(
 	{
 		PlayerCharacter->RefreshMicrophoneCaptureMode();
 		PlayerCharacter->RefreshFieldOfView();
+		PlayerCharacter->RefreshCameraTexture();
 	}
 	RefreshMenuHud();
 }

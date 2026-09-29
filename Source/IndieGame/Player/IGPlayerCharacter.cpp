@@ -36,6 +36,7 @@
 #include "Player/IGInteractionComponent.h"
 #include "Player/IGPlayerController.h"
 #include "GameFramework/PlayerInput.h"
+#include "Player/IGCameraSensorComponent.h"
 #include "Player/IGStressComponent.h"
 #include "Save/IGSaveSubsystem.h"
 
@@ -207,6 +208,7 @@ AIGPlayerCharacter::AIGPlayerCharacter()
 	Flashlight->SetRelativeRotation(FRotator(-3.5f, 1.5f, 0.0f));
 
 	StressComponent = CreateDefaultSubobject<UIGStressComponent>(TEXT("Stress"));
+	CameraSensor = CreateDefaultSubobject<UIGCameraSensorComponent>(TEXT("CameraSensor"));
 }
 
 AIGPlayerCharacter::~AIGPlayerCharacter()
@@ -2310,6 +2312,14 @@ void AIGPlayerCharacter::RefreshFieldOfView()
 	BaseFieldOfView = Accessibility ? Accessibility->GetFieldOfViewDegrees() : 78.0f;
 	// 달리기로 열린 만큼은 그대로 얹는다. 설정을 바꾸는 순간 시야가 튀지 않는다.
 	FirstPersonCamera->SetFieldOfView(BaseFieldOfView + SprintFovOffset);
+}
+
+void AIGPlayerCharacter::RefreshCameraTexture()
+{
+	if (CameraSensor)
+	{
+		CameraSensor->RefreshFromSettings();
+	}
 }
 
 float AIGPlayerCharacter::GetLookSensitivity() const

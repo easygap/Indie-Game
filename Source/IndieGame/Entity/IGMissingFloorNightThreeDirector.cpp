@@ -1910,7 +1910,7 @@ void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 		return;
 	}
 	const double Now = World->GetTimeSeconds();
-	// 노크 박자 맞추기 도움은 여기서도 같은 배율로 창을 넓힌다. 벽 앞에서 익힌
+	// 박자 맞추기 도움은 여기서도 같은 배율로 창을 넓힌다. 벽 앞에서 익힌
 	// 박자가 복도에서 안 통하면 도움이 반쪽이다.
 	const double WindowScale = AIGListenerEntity::GetAnswerWindowScale(this);
 	if (AnswerTapTimes.Num() > 0
@@ -2197,7 +2197,7 @@ void AIGMissingFloorNightThreeDirector::HandleNotebookRead(
 			NSLOCTEXT(
 				"IGMissingFloor",
 				"NotebookRhythmRecognized",
-				"아빠 노크잖아. 오빠가 내 방문 두드리던 그거."),
+				"아빠가 문 두드리던 박자잖아. 오빠가 내 방문에 하던 거."),
 			4.4f);
 	}
 	// The mother lode: the cover names him, the schedule explains the dawn

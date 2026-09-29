@@ -42,7 +42,6 @@ $requiredRaw = @(
 	'AI\TextureApartmentWallpaperVintage.png',
 	'AI\MaskApartmentWallPatina.png',
 	'AI\TextureStickyNotePaper_D.png',
-	'AI\TextureStickyNote404Doodle_D.png',
 	'AI\TextureCaptureMercyNotePaper_D.png',
 	'AI\SheetMissingFloorEnvironmentReference.png',
 	'AI\SheetListenerEntityAnatomyReference.png',
@@ -223,7 +222,6 @@ $requiredDerived = @(
 )
 $requiredEasterEggSigns = @{
 	'T_CaptureMercyNote_D.png' = @(1024, 640)
-	'T_Note404NotFound_D.png' = @(512, 512)
 	'T_Plate401_D.png' = @(128, 64)
 	'T_Plate402_D.png' = @(128, 64)
 	'T_Plate403_D.png' = @(128, 64)
@@ -243,14 +241,14 @@ foreach ($entry in $requiredEasterEggSigns.GetEnumerator()) {
 	$relativePath = [string]$entry.Key
 	$path = Join-Path $sourceArt $relativePath
 	if (-not (Test-Path -LiteralPath $path -PathType Leaf)) {
-		throw "403/404 entrance sign source is missing: $relativePath"
+		throw "Landing door sign source is missing: $relativePath"
 	}
 	$image = [System.Drawing.Bitmap]::FromFile($path)
 	try {
 		$expectedWidth = [int]$entry.Value[0]
 		$expectedHeight = [int]$entry.Value[1]
 		if ($image.Width -ne $expectedWidth -or $image.Height -ne $expectedHeight) {
-			throw "403/404 entrance sign must be ${expectedWidth}x${expectedHeight}: $relativePath"
+			throw "Landing door sign must be ${expectedWidth}x${expectedHeight}: $relativePath"
 		}
 		$darkSamples = 0
 		$lightSamples = 0
@@ -264,7 +262,7 @@ foreach ($entry in $requiredEasterEggSigns.GetEnumerator()) {
 			}
 		}
 		if ($darkSamples -lt 4 -or $lightSamples -lt 4) {
-			throw "403/404 entrance sign lost its readable ink contrast: $relativePath"
+			throw "Landing door sign lost its readable ink contrast: $relativePath"
 		}
 	}
 	finally {
@@ -585,8 +583,6 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'"M_Note404NotFound": {',
-	'"tex_asset": "T_Note404NotFound_D", "rough": 0.88, "two_sided": True,',
 	'"M_CaptureMercyNote": {',
 	'"tex_asset": "T_CaptureMercyNote_D", "rough": 0.92, "two_sided": True,',
 	'"M_Plate402":      {"tex_asset": "T_Plate402_D", "rough": 0.35}',
@@ -596,37 +592,31 @@ foreach ($token in @(
 	'Corridor entrance signage material update complete'
 )) {
 	if (-not $materialScript.Contains($token)) {
-		throw "403/404 entrance material contract is missing: $token"
+		throw "Landing door material contract is missing: $token"
 	}
 }
 foreach ($token in @(
 	'[switch]$CorridorEntranceOnly',
-	"AI\TextureStickyNote404Doodle_D.png",
 	"AI\TextureCaptureMercyNotePaper_D.png",
-	"-BackgroundImagePath `$notFoundPaper",
 	"-BackgroundImagePath `$captureMercyNotePaper",
-	"Draw-CenteredText `$g '404'",
-	"Draw-CenteredText `$g 'Not'",
-	"Draw-CenteredText `$g 'Found'",
 	"Draw-CenteredText `$g '소리를 줄여라.'",
 	"Draw-CenteredText `$g '걔는 눈이 없어.'"
 )) {
 	if (-not $signScript.Contains($token)) {
-		throw "403/404 generated-paper composition contract is missing: $token"
+		throw "Landing generated-paper composition contract is missing: $token"
 	}
 }
 foreach ($token in @(
 	'CORRIDOR_SIGNAGE_ONLY = os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1"',
 	'CORRIDOR_SIGNAGE_TEXTURE_NAMES',
 	'"T_CaptureMercyNote_D"',
-	'"T_Note404NotFound_D"',
 	'"T_PlateCommon_D"',
 	'"T_NoteFridge_D",',
 	'"T_CaptureMercyNote_D",',
 	'asset_name.startswith("T_Plate")'
 )) {
 	if (-not $surfaceScript.Contains($token)) {
-		throw "403/404 targeted texture-import contract is missing: $token"
+		throw "Landing targeted texture-import contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -643,17 +633,15 @@ if (-not $materialScript.Contains('material.set_editor_property("two_sided", Tru
 	throw 'Wrapped product film must be authored and audited as two-sided.'
 }
 foreach ($token in @(
-	'"M_Note404NotFound": "T_Note404NotFound_D"',
 	'"M_CaptureMercyNote": "T_CaptureMercyNote_D"',
 	'ENTRANCE_PLATE_MATERIALS',
 	'TWO_SIDED_PRINT_MATERIALS = {',
-	'"M_Note404NotFound",',
 	'"M_CaptureMercyNote",',
 	'"M_MercyNoteUnderDoor",',
 	'Printed paper lost two-sided rendering'
 )) {
 	if (-not $auditScript.Contains($token)) {
-		throw "403/404 baked-material audit contract is missing: $token"
+		throw "Landing baked-material audit contract is missing: $token"
 	}
 }
 if ($meshScript.Contains('set_mesh_u_vs_from_cylinder_projection') -or
@@ -674,16 +662,12 @@ foreach ($token in @(
 	}
 }
 foreach ($token in @(
-	'const FName NotFoundEasterEggTag(TEXT("EasterEgg.404NotFound"));',
 	'TEXT("M_Plate402"), TEXT("M_Plate401")',
 	'TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial)',
-	'TexMat(TEXT("M_Note404NotFound"), SignWhiteMaterial)',
-	'FVector(216.0f, -235.12f, 171.0f)',
-	'NotFoundNote->SetCullDistance(520.0f);',
 	'TEXT("M_Plate403"), TEXT("M_PlateCommon")'
 )) {
 	if (-not $prologueSource.Contains($token)) {
-		throw "403/404 entrance runtime contract is missing: $token"
+		throw "Landing door runtime contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -1007,8 +991,6 @@ foreach ($token in @(
 	'SM_CaptureMercyNote.uasset',
 	'T_CaptureMercyNote_D.uasset',
 	'M_CaptureMercyNote.uasset',
-	'T_Note404NotFound_D.uasset',
-	'M_Note404NotFound.uasset',
 	'T_HudDialogueFilm_D.uasset',
 	'T_AudioCalibrationWall_D.uasset',
 	'T_MissingFloorJournalPaper_D.uasset',
@@ -1580,13 +1562,11 @@ foreach ($token in @(
 }
 foreach ($token in @(
 	'세대 계량기 3개(401·402·403)',
-	'**403호 정사·404 이스터에그:**',
-	'**`404 / Not Found`**',
-	'상호작용·윤곽선·자막·',
-	'진실·엔딩·04:30과 연결하지 않는다'
+	'**403호 정사:**',
+	'403호 다음 벽은 비워 둔다'
 )) {
 	if (-not $missingFloorStory.Contains($token)) {
-		throw "403/404 entrance story boundary is missing: $token"
+		throw "403 entrance story boundary is missing: $token"
 	}
 }
 foreach ($forbidden in @(

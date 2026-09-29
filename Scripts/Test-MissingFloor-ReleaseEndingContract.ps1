@@ -108,7 +108,7 @@ Assert-ContainsAll $hudSource @(
 	'GetCaptionSizeScale()',
 	'"무영로 달빛빌라 403호"',
 	'"채광 좋은 남향, 즉시 입주 가능"',
-	'"이 집 새벽에 노크 소리 나요."',
+	'"이 집 새벽마다 뭐 두드리는 소리 나요."',
 	'"두 명이서 하는 것 같아요."',
 	'"{0}  넷째 밤 다시 시작"',
 	'GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad)',

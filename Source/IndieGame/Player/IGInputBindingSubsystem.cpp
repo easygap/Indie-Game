@@ -61,7 +61,7 @@ namespace IGInputBinding
 			{
 				TEXT("Flashlight"),
 				NSLOCTEXT("IGInput", "ActionFlashlight", "손전등"),
-				NSLOCTEXT("IGInput", "DescFlashlight", "손전등을 켜거나 끕니다. 스위치 소리도 적에게 들릴 수 있습니다."),
+				NSLOCTEXT("IGInput", "DescFlashlight", "손전등을 켜거나 끕니다. 딸깍 소리도 귀신이 들을 수 있습니다."),
 				EKeys::F,
 				EKeys::Gamepad_FaceButton_Left,
 			},

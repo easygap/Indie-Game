@@ -1,0 +1,30 @@
+{
+  "name": "SM_DoorPrints401",
+  "mesh_class": "prop",
+  "fbx": "SM_DoorPrints401.fbx",
+  "textures": {
+    "D": "SM_DoorPrints401_D.png",
+    "N": "SM_DoorPrints401_N.png",
+    "ORM": "SM_DoorPrints401_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 180,
+  "bounds_m": {
+    "min": [
+      -0.255,
+      -0.0005,
+      1.3886
+    ],
+    "max": [
+      0.2607,
+      -0.0002,
+      1.7255
+    ]
+  },
+  "origin": "door-face",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "401호 문짝 앞면 가운데 바닥이 원점, 앞 -Y. 가스 점검(지름 7cm)·전단지 부착 금지(12×3.1cm)·열쇠 출장(8×4cm) 스티커. 원본은 SourceArt/AI/Door*_20260929(gpt-image). 충돌·그림자 없음."
+}

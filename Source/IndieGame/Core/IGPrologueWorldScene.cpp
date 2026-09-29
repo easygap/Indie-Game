@@ -122,7 +122,6 @@ namespace IGPrologueWorld
 	const FVector CheckoutLocation(2650.0f, -205.0f, 96.0f);
 
 	const FName PurchaseBagProxyTag(TEXT("Store.PurchaseBagProxy"));
-	const FName NotFoundEasterEggTag(TEXT("EasterEgg.404NotFound"));
 	const FName FootstepVinylTag(TEXT("Footstep.Vinyl"));
 	const FName FootstepConcreteTag(TEXT("Footstep.Concrete"));
 	const FName FootstepMetalStairTag(TEXT("Footstep.MetalStair"));
@@ -985,12 +984,12 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_StoreWall_X"), TEXT("M_StoreWall_Y"),
 		TEXT("M_MetalUV"), TEXT("M_ShelfSteelUV"),
 		TEXT("M_PosterSale"), TEXT("M_PosterRamyeon"),
-		TEXT("M_NoteFridge"), TEXT("M_Note404NotFound"),
+		TEXT("M_NoteFridge"),
 		TEXT("M_SignToilet"), TEXT("M_SignAutoDoor"),
 		TEXT("M_PriceStrip"), TEXT("M_SignMainLit"), TEXT("M_SignBladeLit"),
 		TEXT("M_SignVilla"), TEXT("M_Plate401"), TEXT("M_Plate402"),
 		TEXT("M_Plate403"), TEXT("M_PlateCommon"),
-		TEXT("M_ElevatorPanel"), TEXT("M_ClockFace"),
+		TEXT("M_ElevatorPanel"),
 		TEXT("M_LobbyWaterNotice"), TEXT("M_LobbyContactNotice"),
 		TEXT("M_LobbyMeterSheet"), TEXT("M_LobbyForumPrint"),
 		TEXT("M_Shutter_X"), TEXT("M_SignLaundry"), TEXT("M_SignHair"),
@@ -2742,8 +2741,8 @@ void AIGPrologueWorldScene::BuildCorridor()
 	};
 
 	// West to east the landing reads 401, 402, 403. Keeping the ordinary
-	// sequence matters: 403 is Yudam's home, while 404 exists only as the tiny
-	// optional joke beside the last frame and never becomes a horror number.
+	// sequence matters: 403 is Yudam's home and the wall past it stays bare,
+	// so no door number turns into a horror sign.
 	const float NeighborDoorXs[] = {-30.0f, -150.0f};
 	const TCHAR* NeighborPlates[] = {TEXT("M_Plate402"), TEXT("M_Plate401")};
 	for (int32 NeighborIndex = 0; NeighborIndex < 2; ++NeighborIndex)
@@ -2771,6 +2770,25 @@ void AIGPrologueWorldScene::BuildCorridor()
 		CreateBlock(
 			FVector(DoorX, -236, 214), FVector(16, 2, 8),
 			TexMat(NeighborPlates[NeighborIndex], FridgeInteriorMaterial), false);
+	}
+
+	// 현관문에 붙은 것들. 사는 사람이 붙인 것보다 남이 붙이고 간 것이 많다.
+	// 봄에 비어 버린 402호는 전단지를 떼는 사람이 없어 문에 그대로 남아 있다.
+	// 문마다 스티커·전단을 한 메시(텍스처 한 장)로 묶어 그리기 호출이 하나다
+	// (Scripts/blender/build_door_prints.py). 원점은 문짝 앞면(Y -237.35) 가운데 바닥.
+	if (UStaticMeshComponent* Prints = CreateProp(
+		TEXT("SM_DoorPrints401"), FVector(-150.0f, -237.35f, 0.0f), nullptr, 0, 1, false))
+	{
+		Prints->SetCastShadow(false);
+		Prints->bAffectDistanceFieldLighting = false;
+		Prints->SetCullDistance(900.0f);
+	}
+	if (UStaticMeshComponent* Prints = CreateProp(
+		TEXT("SM_DoorPrints402"), FVector(-30.0f, -237.35f, 0.0f), nullptr, 0, 1, false))
+	{
+		Prints->SetCastShadow(false);
+		Prints->bAffectDistanceFieldLighting = false;
+		Prints->SetCullDistance(900.0f);
 	}
 
 	// 401호 문 아래로 새는 불빛(§11 V1 ③). 문짝 앞면은 Y -237.35이고 바닥까지
@@ -2842,28 +2860,6 @@ void AIGPrologueWorldScene::BuildCorridor()
 		FVector(131, -236, 214), FVector(16, 2, 8),
 		TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial), false);
 	CreateProp(TEXT("SM_EntranceCamera"), FVector(205, -235, 130), nullptr, 0, 1, false);
-
-	// One dry joke before the building starts lying: a real 76 mm memo sits on
-	// the empty wall where the next unit would continue. It has no collision,
-	// prompt, outline, subtitle or state change; close inspection is the whole
-	// reward. The curled mesh and rough paper material keep it grounded in the
-	// corridor light instead of reading as a flat UI sticker.
-	if (UStaticMesh* StickyNoteMesh = PropMesh(TEXT("SM_StickyNote76mm")))
-	{
-		if (UStaticMeshComponent* NotFoundNote = CreateDecoOnComponent(
-				ActiveParent.Get(),
-				StickyNoteMesh,
-				TexMat(TEXT("M_Note404NotFound"), SignWhiteMaterial),
-				FVector(216.0f, -235.12f, 171.0f),
-				FRotator(0.0f, 90.0f, 0.0f),
-				FVector::OneVector))
-		{
-			NotFoundNote->ComponentTags.AddUnique(
-				IGPrologueWorld::NotFoundEasterEggTag);
-			NotFoundNote->SetCullDistance(520.0f);
-			NotFoundNote->SetAffectDistanceFieldLighting(false);
-		}
-	}
 
 	// Granite skirting, the way real landings finish the stucco to the tile.
 	// It stands on the landing side of each wall: the north face is at

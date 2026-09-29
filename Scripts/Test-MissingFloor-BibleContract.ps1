@@ -715,31 +715,10 @@ $assertionCount++
 if ($sceneSource -notmatch 'TexMat\(TEXT\("M_Plate403"\)') {
 	throw 'The §22.3 403 nameplate is not drawn on its own door.'
 }
+# 403호 다음 벽에는 아무것도 없다. 404를 농담으로도 공포 기호로도 쓰지 않는다(§0).
 $assertionCount++
-if (-not $sceneSource.Contains('M_Note404NotFound')) {
-	throw 'The §22.3 404 memo is missing.'
-}
-# 상호작용·윤곽선·자막·업적·기록 카드·독백·효과음·별도 광원 전부 없다.
-# 그래서 이 소품이 §0의 숫자 절제를 깨는 공포 기호가 되지 않는다.
-$eggBlock = [regex]::Match(
-	$sceneSource,
-	'M_Note404NotFound(?<body>[\s\S]{0,900}?)\r?\n\t\}')
-$assertionCount++
-if (-not $eggBlock.Success) {
-	throw 'The 404 memo block could not be isolated.'
-}
-foreach ($banned in @(
-	'SetCollisionProfileName(UCollisionProfile::BlockAll',
-	'PushThought', 'PushAudioCaption', 'SpawnOneShotAt',
-	'PointLightComponent', 'AIGInteractable')) {
-	$assertionCount++
-	if ($eggBlock.Groups['body'].Value.Contains($banned)) {
-		throw "The 404 memo stays a background prop (§22.3): $banned"
-	}
-}
-$assertionCount++
-if ($story -notmatch '상호작용·윤곽선·자막·\s*\r?\n?\s*업적·기록 카드·독백·효과음·별도 광원은 없고') {
-	throw 'The §22.3 easter-egg restraint list was removed.'
+if ($sceneSource.Contains('404NotFound')) {
+	throw 'The landing past 403 must stay bare (§22.3).'
 }
 
 # 22.4 — 「밤 5」는 엔딩 B를 본 세이브에만, 타이틀에서만 보인다.

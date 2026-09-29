@@ -75,14 +75,12 @@ PRINT_ATLAS_ENTRIES = (
     "T_Plate401_D",
     "T_Plate402_D",
     "T_Plate403_D",
-    "T_Plate404_D",
     "T_PlateCommon_D",
     "T_DoorLock_D",
     "T_Intercom_D",
     "T_SwitchPlate_D",
     "T_FireBox_D",
     "T_DoorAd_D",
-    "T_Note404NotFound_D",
     "T_MercyNoteUnderDoor_D",
     "T_CaptureMercyNote_D",
     # Lobby and lift.
@@ -93,7 +91,6 @@ PRINT_ATLAS_ENTRIES = (
     "T_NoticeRent_D",
     "T_SignVilla_D",
     "T_SignToilet_D",
-    "T_ClockFace_D",
     "T_Calendar_D",
     # Apartment paper.
     "T_ArrivalContract_D",

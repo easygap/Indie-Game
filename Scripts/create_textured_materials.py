@@ -318,9 +318,6 @@ DECAL_MATERIALS = {
     "M_PosterRamyeon": {"tex_asset": "T_PosterRamyeon_D", "rough": 0.55, "emissive_scale": 0.06},
     "M_PosterFlyer":   {"tex_asset": "T_PosterFlyer_D", "rough": 0.75, "flutter": True},
     "M_NoteFridge":    {"tex_asset": "T_NoteFridge_D", "rough": 0.86},
-    "M_Note404NotFound": {
-        "tex_asset": "T_Note404NotFound_D", "rough": 0.88, "two_sided": True,
-    },
     "M_CaptureMercyNote": {
         "tex_asset": "T_CaptureMercyNote_D", "rough": 0.92, "two_sided": True,
     },
@@ -343,10 +340,8 @@ DECAL_MATERIALS = {
     "M_Plate401":      {"tex_asset": "T_Plate401_D", "rough": 0.35},
     "M_Plate402":      {"tex_asset": "T_Plate402_D", "rough": 0.35},
     "M_Plate403":      {"tex_asset": "T_Plate403_D", "rough": 0.35},
-    "M_Plate404":      {"tex_asset": "T_Plate404_D", "rough": 0.35},
     "M_PlateCommon":   {"tex_asset": "T_PlateCommon_D", "rough": 0.35},
     "M_ElevatorPanel": {"tex_asset": "T_ElevatorPanel_D", "rough": 0.3, "emissive_scale": 0.8},
-    "M_ClockFace":     {"tex_asset": "T_ClockFace_D", "rough": 0.25, "emissive_scale": 1.6},
     "M_SignLaundry":   {"tex_asset": "T_SignLaundry_D", "rough": 0.45, "emissive_scale": 0.05},
     "M_SignHair":      {"tex_asset": "T_SignHair_D", "rough": 0.45, "emissive_scale": 0.05},
     "M_SignHof":       {"tex_asset": "T_SignHof_D", "rough": 0.45, "emissive_scale": 0.5},
@@ -3606,7 +3601,6 @@ def run():
         return
     if os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
         names = (
-            "M_Note404NotFound",
             "M_CaptureMercyNote",
             "M_MercyNoteUnderDoor",
             "M_SignAux5MonitorOnly",

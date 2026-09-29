@@ -34,11 +34,48 @@ def floor_albedo(finish):
     return texture
 
 
+# 공용부의 때. gpt-image로 만든 때 사진(SourceArt/AI/Grime*_20260929)을
+# build_grime_masks.py가 반복되게 다듬은 것을 월드 좌표로 편다.
+# (텍스처, 한 벌의 크기 cm, 얼룩 세기, 얼룩 자리의 거칠기 변화).
+# 편의점 매장 마감은 청소가 잦아 넣지 않는다.
+GRIME = {
+    "landing_wall": ("WallGrime_M", 420.0, 2.6, -.10),
+    "landing_dado": ("WallGrime_M", 340.0, 1.8, -.08),
+    "landing_ceiling": ("CeilingStain_M", 520.0, 1.2, .0),
+    "granite": ("FloorGrime_M", 300.0, 1.3, .16),
+}
+
+
+def grime_mask(name):
+    asset_name = f"T_{name}"
+    source = os.path.join(unreal.SystemLibrary.get_project_directory(),
+                          "Content", "SourceArt", "Grime", f"{name}.png")
+    if not os.path.isfile(source):
+        raise RuntimeError(f"때 마스크 원본이 없다: {source}")
+    task = unreal.AssetImportTask()
+    task.filename = source
+    task.destination_path = "/Game/Prototype/Textures"
+    task.destination_name = asset_name
+    task.automated = True
+    task.replace_existing = True
+    unreal.AssetToolsHelpers.get_asset_tools().import_asset_tasks([task])
+    texture = unreal.load_asset(f"{task.destination_path}/{asset_name}")
+    # 회색 128이 곱하기 1이 되도록 선형으로 읽는다. 옅은 물때가 뭉개지지 않게 BC7.
+    texture.set_editor_property("srgb", False)
+    texture.set_editor_property("compression_settings", unreal.TextureCompressionSettings.TC_BC7)
+    texture.set_editor_property("lod_group", unreal.TextureGroup.TEXTUREGROUP_WORLD)
+    texture.set_editor_property("max_texture_size", 1024)
+    texture.set_editor_property("never_stream", False)
+    unreal.get_editor_subsystem(unreal.EditorAssetSubsystem).save_loaded_asset(texture)
+    return texture
+
+
 def author(material, finish):
     # 재반입은 이 텍스처를 쓰는 재질을 갱신한다. 노드를 만드는 도중 실행하면
     # 막 연결한 그래프가 이전 저장 상태로 돌아갈 수 있으므로 먼저 끝낸다.
     painted = finish.startswith("landing_")
     albedo = floor_albedo(finish) if finish in ("floor", "granite") or painted else None
+    grime = grime_mask(GRIME[finish][0]) if finish in GRIME else None
     lib = unreal.MaterialEditingLibrary
     # UE 5.8의 일괄 삭제는 순회 중 원본 배열을 줄여 일부 노드를 남긴다.
     # 목록을 복사해 하나씩 지워야 재실행 때 텍스처 샘플이 쌓이지 않는다.
@@ -144,6 +181,47 @@ def author(material, finish):
         link(scalar(.78), rough_mix, "B")
         link(grid, rough_mix, "Alpha")
         rough = rough_mix
+    if grime:
+        # 사람이 오래 산 빌라 공용부. 벽은 누렇게 바래고 위에서 물때가 흐르고,
+        # 천장에는 물이 번졌다 마른 테두리가 남고, 바닥은 발길이 모이는 곳이 탁하다.
+        # 텍스처는 회색(0.5)이 곱하기 1인 색 오버레이다. 두 배 해서 원래 색에 곱하되,
+        # 세기(G)만큼 회색에서 멀어지게 키운다.
+        _, tile, gain, rough_shift = GRIME[finish]
+        grime_axes = node("MaterialExpressionComponentMask", r=True, g=True, b=False, a=False)
+        link(position, grime_axes, "")
+        grime_uv = node("MaterialExpressionDivide", const_b=tile)
+        link(grime_axes, grime_uv, "A")
+        overlay = node("MaterialExpressionTextureSample", texture=grime,
+                       sampler_type=unreal.MaterialSamplerType.SAMPLERTYPE_LINEAR_COLOR)
+        link(grime_uv, overlay, "UVs")
+
+        def custom(code, labels, output, description):
+            expression = node("MaterialExpressionCustom", output_type=output, code=code,
+                              description=description)
+            pins = []
+            for label in labels:
+                pin = unreal.CustomInput()
+                pin.set_editor_property("input_name", label)
+                pins.append(pin)
+            expression.set_editor_property("inputs", pins)
+            return expression
+
+        tinted = custom("return B*saturate(1.0-(1.0-saturate(M.rgb*2.0))*G);",
+                        ("B", "M", "G"), unreal.CustomMaterialOutputType.CMOT_FLOAT3, "때")
+        link(base, tinted, "B")
+        link(overlay, tinted, "M")
+        link(scalar(gain), tinted, "G")
+        base = tinted
+        if rough_shift:
+            shifted = custom(
+                "float3 f=saturate(1.0-(1.0-saturate(M.rgb*2.0))*G);"
+                "return saturate(R+(1.0-dot(f,1.0/3.0))*S);",
+                ("R", "M", "G", "S"), unreal.CustomMaterialOutputType.CMOT_FLOAT1, "때 거칠기")
+            link(rough, shifted, "R")
+            link(overlay, shifted, "M")
+            link(scalar(gain), shifted, "G")
+            link(scalar(rough_shift), shifted, "S")
+            rough = shifted
     lib.connect_material_property(base, "", unreal.MaterialProperty.MP_BASE_COLOR)
     lib.connect_material_property(rough, "", unreal.MaterialProperty.MP_ROUGHNESS)
     # 기존 그래프의 노드를 지워도 출력 핀 참조는 남을 수 있어 모두 다시 연결한다.

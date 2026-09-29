@@ -1,0 +1,30 @@
+{
+  "name": "SM_DoorPrints402",
+  "mesh_class": "prop",
+  "fbx": "SM_DoorPrints402.fbx",
+  "textures": {
+    "D": "SM_DoorPrints402_D.png",
+    "N": "SM_DoorPrints402_N.png",
+    "ORM": "SM_DoorPrints402_ORM.png"
+  },
+  "slots": [
+    "Baked"
+  ],
+  "triangles": 1120,
+  "bounds_m": {
+    "min": [
+      -0.255,
+      -0.0076,
+      0.589
+    ],
+    "max": [
+      0.2605,
+      -0.0002,
+      1.535
+    ]
+  },
+  "origin": "door-face",
+  "emissive_strength": 0.0,
+  "blender": "5.2.0 LTS",
+  "notes": "402호 문짝 앞면 가운데 바닥이 원점, 앞 -Y. 봄에 비어 버린 집이라 떼지 않은 A5 전단 두 장(홍반점·무영부동산, 아래쪽 5~6mm 들뜸, 위쪽 테이프)과 가스·열쇠 스티커. 원본은 SourceArt/AI/Door*_20260929(gpt-image). 충돌·그림자 없음. 402호 메모(Z 1.18)와 겹치지 않는다."
+}
