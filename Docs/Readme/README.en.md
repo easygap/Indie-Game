@@ -2,7 +2,7 @@
 
 # The Missing Floor
 
-https://github.com/user-attachments/assets/0cfa1fe4-cf02-4c95-816c-2cf1d4f99a94
+https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
 
 A first-person horror game set in an old Korean apartment building. Search for your missing brother by talking to the neighbors and following clues through the rooms and corridors.
 At night, an enemy hunts by sound. Even opening a door can give you away.

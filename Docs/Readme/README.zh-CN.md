@@ -2,7 +2,7 @@
 
 # The Missing Floor
 
-https://github.com/user-attachments/assets/0cfa1fe4-cf02-4c95-816c-2cf1d4f99a94
+https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
 
 这是一款以韩国老式居民楼为背景的第一人称恐怖游戏。为了找到失踪的哥哥，你得向邻居打听消息，在房间和走廊里搜寻线索。
 到了夜里，敌人会循着声音找过来，就连开门也得小心。

@@ -2,7 +2,7 @@
 
 # The Missing Floor
 
-https://github.com/user-attachments/assets/0cfa1fe4-cf02-4c95-816c-2cf1d4f99a94
+https://github.com/user-attachments/assets/7331d9df-28ed-4c79-aecb-d7b43905d0c2
 
 韓国の古いアパートを舞台に、行方不明の兄を探す一人称視点のホラーゲームです。
 住人に話を聞き、部屋や廊下を調べて手がかりを集めます。
