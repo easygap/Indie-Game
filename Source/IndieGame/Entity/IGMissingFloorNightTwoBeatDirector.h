@@ -21,6 +21,12 @@ enum class EIGNightTwoReturnStage : uint8
 {
 	/** T7 is not confirmed yet, or this is not night two. */
 	Idle,
+	/**
+	 * 밑장은 이미 읽었는데 둘째 밤의 목표가 남았다. 첫째 밤에 관리실을 먼저
+	 * 풀었거나, 풀고 나서 05:30을 넘긴 되풀이 밤이다. 관리실에 다시 들어서면
+	 * 귀환이 걸린다.
+	 */
+	AwaitingBooth,
 	/** T7 is in. The collapse is waiting for her to step out of the booth. */
 	AwaitingExit,
 	/** 낙하물 dropped, the building heard it twice, and she has to get home. */
@@ -152,6 +158,13 @@ private:
 	void PlayMaterialCollapse();
 	bool IsPlayerInsideUnit403() const;
 	bool IsPlayerOutsideBooth() const;
+	bool IsPlayerInsideBooth() const;
+	/**
+	 * 되풀이 밤의 귀환 재무장. P2 신호는 세션에 한 번만 나가서, 그 신호를 이미
+	 * 써 버린 밤2는 끝낼 길이 없었다. 밤3의 RearmReturnPassForRepeatedNight와 같은
+	 * 자리에서 저장된 사실로 다시 건다.
+	 */
+	void RearmReturnIfOwed();
 	void PlayFirstKnock();
 	void PlayAnswer();
 	/** 3연의 철문 녹음 한 타. 0.62초 간격으로 스스로 다음 타를 건다. */

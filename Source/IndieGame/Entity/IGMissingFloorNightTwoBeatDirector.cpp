@@ -170,6 +170,12 @@ namespace IGNightTwo
 
 	/** 관리실은 Y -235..-75. 이 선을 넘으면 나선 것이다. */
 	constexpr float BoothExitY = -242.0f;
+	constexpr float BoothNorthY = -75.0f;
+	/** 관리실 책상(밑장 자리). 관리실 안인지 가를 때 X 범위를 대신한다. */
+	const FVector BoothDeskLocation(179.0f, -103.0f, 76.0f);
+	constexpr float BoothDeskReach = 300.0f;
+	const FName PuzzleTwoId(TEXT("P2"));
+	const FName NightTwoGoalBeatId(TEXT("Night2.Goal"));
 	/** 403호 실내는 4층 X -190..190, Y -235..235. */
 	const FBox Unit403Interior(
 		FVector(-190.0f, -235.0f, FourthFloorZ - 20.0f),
@@ -310,6 +316,11 @@ void AIGMissingFloorNightTwoBeatDirector::SetHourActive(const bool bHourActive)
 		Stage = bAlreadyPlayed
 			? EIGNightTwoBeatStage::Spent
 			: EIGNightTwoBeatStage::Idle;
+		// 문 앞 노크를 이미 겪은 되풀이 밤2도 끝낼 길은 있어야 한다.
+		if (bHourActive && bIsNightTwo)
+		{
+			RearmReturnIfOwed();
+		}
 		return;
 	}
 
@@ -320,6 +331,31 @@ void AIGMissingFloorNightTwoBeatDirector::SetHourActive(const bool bHourActive)
 		this,
 		&AIGMissingFloorNightTwoBeatDirector::AdvanceStage,
 		IGNightTwo::PollSeconds,
+		true);
+	RearmReturnIfOwed();
+}
+
+void AIGMissingFloorNightTwoBeatDirector::RearmReturnIfOwed()
+{
+	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
+	if (!Narrative
+		|| Narrative->GetNightIndex() != 2
+		|| !Narrative->IsPuzzleSolved(IGNightTwo::PuzzleTwoId)
+		|| Narrative->HasBeatPlayed(IGNightTwo::NightTwoGoalBeatId)
+		|| ReturnStage != EIGNightTwoReturnStage::Idle)
+	{
+		return;
+	}
+	// 남은 일은 관리실에서 403호까지 돌아오는 길 하나다. 되풀이되는 새벽이니
+	// 자재 더미도 다시 무너진다.
+	ReturnStage = EIGNightTwoReturnStage::AwaitingBooth;
+	bReturnChaseFired = false;
+	bMustLeaveHomeAgain = false;
+	GetWorldTimerManager().SetTimer(
+		ReturnTimer,
+		this,
+		&AIGMissingFloorNightTwoBeatDirector::AdvanceReturn,
+		IGNightTwo::ReturnPollSeconds,
 		true);
 }
 
@@ -783,6 +819,20 @@ bool AIGMissingFloorNightTwoBeatDirector::IsPlayerOutsideBooth() const
 		&& Where.Y < IGNightTwo::BoothExitY;
 }
 
+bool AIGMissingFloorNightTwoBeatDirector::IsPlayerInsideBooth() const
+{
+	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	if (!PlayerCharacter)
+	{
+		return false;
+	}
+	const FVector Where = PlayerCharacter->GetActorLocation();
+	return Where.Z < IGNightTwo::FourthFloorZ * 0.5f
+		&& Where.Y >= IGNightTwo::BoothExitY
+		&& Where.Y <= IGNightTwo::BoothNorthY
+		&& FVector::Dist2D(Where, IGNightTwo::BoothDeskLocation) <= IGNightTwo::BoothDeskReach;
+}
+
 bool AIGMissingFloorNightTwoBeatDirector::IsPlayerInsideUnit403() const
 {
 	const AIGPlayerCharacter* PlayerCharacter = Player.Get();
@@ -795,6 +845,16 @@ void AIGMissingFloorNightTwoBeatDirector::AdvanceReturn()
 {
 	switch (ReturnStage)
 	{
+	case EIGNightTwoReturnStage::AwaitingBooth:
+		if (IsPlayerInsideBooth())
+		{
+			// 관리실에 다시 들어섰다. 처음 풀었을 때와 같은 한 줄과 한기로 건다.
+			GetWorldTimerManager().ClearTimer(ReturnTimer);
+			ReturnStage = EIGNightTwoReturnStage::Idle;
+			ArmReturnChase();
+		}
+		break;
+
 	case EIGNightTwoReturnStage::AwaitingExit:
 		if (IsPlayerOutsideBooth())
 		{

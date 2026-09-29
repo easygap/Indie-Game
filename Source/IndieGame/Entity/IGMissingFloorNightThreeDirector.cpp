@@ -1910,6 +1910,14 @@ void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 		return;
 	}
 	const double Now = World->GetTimeSeconds();
+	// 노크 박자 맞추기 도움은 여기서도 같은 배율로 창을 넓힌다. 벽 앞에서 익힌
+	// 박자가 복도에서 안 통하면 도움이 반쪽이다.
+	const double WindowScale = AIGListenerEntity::GetAnswerWindowScale(this);
+	if (AnswerTapTimes.Num() > 0
+		&& Now - AnswerTapTimes.Last() > AIGListenerEntity::AnswerSequenceResetSeconds * WindowScale)
+	{
+		AnswerTapTimes.Reset();
+	}
 	AnswerTapTimes.Add(Now);
 	while (AnswerTapTimes.Num() > 3)
 	{
@@ -1922,18 +1930,12 @@ void AIGMissingFloorNightThreeDirector::HandleAnswerKnock(
 
 	const double PairInterval = AnswerTapTimes[1] - AnswerTapTimes[0];
 	const double RestInterval = AnswerTapTimes[2] - AnswerTapTimes[1];
-	const bool bPairAccepted =
-		PairInterval >= IGNightThree::AnswerPairMinSeconds
-		&& PairInterval <= IGNightThree::AnswerPairMaxSeconds;
-	const bool bRestAccepted =
-		RestInterval >= IGNightThree::AnswerRestMinSeconds
-		&& RestInterval <= IGNightThree::AnswerRestMaxSeconds;
-	if (!bPairAccepted || !bRestAccepted)
+	if (!AIGListenerEntity::MatchesAnswerCadence(PairInterval, RestInterval, WindowScale))
 	{
 		// Keep a plausible new pair, otherwise make this tap the next attempt's
 		// first beat. Failure feedback is only the ordinary wall resonance.
 		if (RestInterval >= IGNightThree::AnswerPairMinSeconds
-			&& RestInterval <= IGNightThree::AnswerPairMaxSeconds)
+			&& RestInterval <= IGNightThree::AnswerPairMaxSeconds * WindowScale)
 		{
 			AnswerTapTimes.RemoveAt(0);
 		}

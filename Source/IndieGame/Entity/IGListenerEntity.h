@@ -151,6 +151,15 @@ public:
 	static constexpr double AnswerSequenceResetSeconds = 3.0;
 
 	/**
+	 * 노크 박자 맞추기 도움(§19.8)의 창 배율. 켜면 두 간격의 위쪽 끝과 새로
+	 * 시작하는 간격이 늘어난다. 밤4 곁을 지키는 박자, P4의 벽, 복도의 대답이
+	 * 모두 같은 배율을 쓴다.
+	 */
+	static double GetAnswerWindowScale(const UObject* WorldContext);
+	/** 둘, 쉬고, 하나. 넓힌 창에서도 쉼은 짝보다 길어야 한다. */
+	static bool MatchesAnswerCadence(double PairInterval, double RestInterval, double WindowScale);
+
+	/**
 	 * Walks him to a spot and lets him hold there, silently, without any sound
 	 * having called him.
 	 *
@@ -300,6 +309,12 @@ private:
 	 * 그 박자가 아직 대답이 아니다(§4.3 규칙 6). 서사가 없는 시험장에서는 통한다.
 	 */
 	bool IsAnswerLearned() const;
+	/**
+	 * 박자를 치는 도중의 탭. 첫 두 탭에 조사와 추격으로 넘어가면 셋째 탭은 칠
+	 * 틈도 없다. 멈춰서 박자를 끝까지 듣고, 틀리거나 끊기면 듣기가 끝난 뒤 그
+	 * 자리를 보러 온다.
+	 */
+	void AttendAnswerTap(const FVector& KnockLocation, double Now);
 	/** 연출이 건물을 침묵시킨 동안. P4의 8초가 대표다. */
 	bool IsAuthoredSilenceActive() const;
 

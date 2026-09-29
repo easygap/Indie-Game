@@ -18,6 +18,7 @@
 #include "Interaction/IGSwingDoor.h"
 #include "Materials/MaterialInstanceDynamic.h"
 #include "Materials/MaterialInterface.h"
+#include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGRecordingSubsystem.h"
 #include "Player/IGHorrorHUD.h"
@@ -1254,8 +1255,9 @@ bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)
 	}
 
 	const double Now = World->GetTimeSeconds();
+	const double WindowScale = GetAnswerWindowScale(this);
 	if (AnswerTapTimes.Num() > 0
-		&& Now - AnswerTapTimes.Last() > AnswerSequenceResetSeconds)
+		&& Now - AnswerTapTimes.Last() > AnswerSequenceResetSeconds * WindowScale)
 	{
 		// Too long a gap: this is the beginning of a new attempt, not the end of
 		// the old one. The player owns the silence between taps (§7 P4).
@@ -1268,16 +1270,14 @@ bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)
 	}
 	if (AnswerTapTimes.Num() < 3)
 	{
+		AttendAnswerTap(KnockLocation, Now);
 		return true;
 	}
 
 	const double PairInterval = AnswerTapTimes[1] - AnswerTapTimes[0];
 	const double RestInterval = AnswerTapTimes[2] - AnswerTapTimes[1];
 	const bool bCadenceMatches =
-		PairInterval >= AnswerPairMinSeconds
-		&& PairInterval <= AnswerPairMaxSeconds
-		&& RestInterval >= AnswerRestMinSeconds
-		&& RestInterval <= AnswerRestMaxSeconds;
+		MatchesAnswerCadence(PairInterval, RestInterval, WindowScale);
 	AnswerTapTimes.Reset();
 	// 닫힌 집 안에서 친 박자도 소리다. 소음을 흘려듣는 자리에서는 박자도 흘려듣는다
 	// (HandleNoise). 붙들린 그는 문 안에서 친 둘-쉬고-하나에 밤2 대본을 깨지 않는다.
@@ -1314,8 +1314,78 @@ bool AIGListenerEntity::TryAnswerKnock(const FVector& KnockLocation)
 			bCadenceEarsUp = true;
 		}
 	}
+	else if (!bCadenceMatches)
+	{
+		// 틀린 박자의 셋째 탭도 앞의 두 탭과 한 덩어리 소리다. 여기서 추격으로
+		// 넘어가지 않고, 듣기가 끝나면 그 자리를 보러 온다.
+		AttendAnswerTap(KnockLocation, Now);
+	}
 	// Either way the tap was a knock aimed at him, so the caller keeps it.
 	return true;
+}
+
+double AIGListenerEntity::GetAnswerWindowScale(const UObject* WorldContext)
+{
+	const UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;
+	const UGameInstance* GameInstance = World ? World->GetGameInstance() : nullptr;
+	const UIGAccessibilitySubsystem* Accessibility = GameInstance
+		? GameInstance->GetSubsystem<UIGAccessibilitySubsystem>()
+		: nullptr;
+	return Accessibility
+		? FMath::Max(1.0, static_cast<double>(Accessibility->GetKnockWindowScale()))
+		: 1.0;
+}
+
+bool AIGListenerEntity::MatchesAnswerCadence(
+	const double PairInterval,
+	const double RestInterval,
+	const double WindowScale)
+{
+	const double Scale = FMath::Max(1.0, WindowScale);
+	return PairInterval >= AnswerPairMinSeconds
+		&& PairInterval <= AnswerPairMaxSeconds * Scale
+		&& RestInterval >= AnswerRestMinSeconds
+		&& RestInterval <= AnswerRestMaxSeconds * Scale
+		&& RestInterval > PairInterval;
+}
+
+void AIGListenerEntity::AttendAnswerTap(const FVector& KnockLocation, const double Now)
+{
+	// 연출이 붙든 그, 문 앞에 선 그는 박자를 따로 듣지 않는다. 쫓는 그에게
+	// 탭은 그냥 새 자리다. 이때의 탭은 평소 소리 규칙(HandleNoise)을 탄다.
+	if (bBeatHold || bAtHomeDoor)
+	{
+		return;
+	}
+	if (State != EIGListenerState::Patrolling
+		&& State != EIGListenerState::Banging
+		&& State != EIGListenerState::Listening
+		&& State != EIGListenerState::Investigating
+		&& State != EIGListenerState::Holding
+		&& State != EIGListenerState::Searching)
+	{
+		return;
+	}
+	const AIGSwingDoor* Door = HomeDoor.Get();
+	if (Door
+		&& !Door->IsOpen()
+		&& Now < HomeDoorIgnoreUntil
+		&& IsHomeSoundAt(KnockLocation, UGameplayStatics::GetPlayerPawn(this, 0)))
+	{
+		return;
+	}
+	NoteAnswerLocation(KnockLocation);
+	LastHeardTime = Now;
+	bReactingToSound = true;
+	bSilentApproach = false;
+	bObservationHold = false;
+	CadenceTapSeconds = Now;
+	CadenceTapLocation = KnockLocation;
+	if (State != EIGListenerState::Listening)
+	{
+		EnterState(EIGListenerState::Listening);
+	}
+	bCadenceEarsUp = true;
 }
 
 bool AIGListenerEntity::IsAnswerLearned() const
