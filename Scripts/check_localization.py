@@ -47,13 +47,13 @@ GLOSSARY = {
     '달빛빌라': {'en': ['Moonlight Villa'], 'ja': ['月光ヴィラ'], 'zh-Hans': ['月光公寓'], 'zh-Hant': ['月光公寓']},
     '열쇠 꾸러미': {'en': ['key ring'], 'ja': ['鍵束'], 'zh-Hans': ['钥匙'], 'zh-Hant': ['鑰匙']},
     '검침 기록지': {'en': ['meter reading log', 'reading log'], 'ja': ['検針記録'], 'zh-Hans': ['抄表记录'], 'zh-Hant': ['抄表紀錄']},
-    '민원 대장': {'en': ['complaint ledger'], 'ja': ['苦情受付簿'], 'zh-Hans': ['投诉登记簿'], 'zh-Hant': ['投訴登記簿']},
+    '민원 대장': {'en': ['complaint ledger'], 'ja': ['苦情台帳'], 'zh-Hans': ['投诉台账'], 'zh-Hant': ['投訴紀錄簿', '投訴紀錄']},
     '저수조': {'en': ['water tank', 'tank'], 'ja': ['貯水槽'], 'zh-Hans': ['水箱'], 'zh-Hant': ['水塔']},
     '이송 펌프': {'en': ['transfer pump'], 'ja': ['揚水ポンプ'], 'zh-Hans': ['抽水泵'], 'zh-Hant': ['抽水馬達']},
     '우회 밸브': {'en': ['bypass valve'], 'ja': ['バイパスバルブ'], 'zh-Hans': ['旁通阀'], 'zh-Hant': ['旁通閥']},
 }
-# 번역하지 않는 키(줄 높이 표본). 한국어가 남아도 된다.
-EXEMPT_HANGUL = {'IGHUD,LineHeightSample'}
+# 한국어가 남아도 되는 키. 줄 높이 표본과, 영어판 제목 밑에 원제를 부제로 다는 두 줄.
+EXEMPT_HANGUL = {'IGHUD,LineHeightSample', 'IGHUD,MainTitleSubtitle', 'IGHUD,PauseSubtitle'}
 
 
 def load_source():
