@@ -334,6 +334,7 @@ void AIGHorrorHUD::BeginPlay()
 		FCommandLine::Get(),
 		TEXT("IGM1WakeEchoPreview"));
 #endif
+	bTextAuditEnabled = FParse::Param(FCommandLine::Get(), TEXT("IGTextAudit"));
 
 	ResolveInteractionComponent();
 
@@ -2405,6 +2406,10 @@ void AIGHorrorHUD::ToggleGameplayGuide()
 void AIGHorrorHUD::DrawHUD()
 {
 	Super::DrawHUD();
+	if (bTextAuditEnabled)
+	{
+		FinishTextAuditFrame();
+	}
 	bObjectiveGuideDrawn = bControlsGuideDrawn = false;
 	// 자막 시계는 프레임마다 그 순간의 멈춤 상태로 센다. 일시정지 메뉴처럼 자막을
 	// 그리지 않는 화면에서도 세어야 메뉴를 닫을 때 멈춘 시간이 한꺼번에 들어오지 않는다.
@@ -2441,7 +2446,9 @@ void AIGHorrorHUD::DrawHUD()
 	if (bEndCreditsActive)
 	{
 		SuspendDialoguePresentation(CurrentTime);
+		bTextAuditScrolling = true;
 		DrawEndCredits();
+		bTextAuditScrolling = false;
 		LastHudDrawTime = CurrentTime;
 		FinalizeLayoutValidationSample();
 		return;
@@ -2803,6 +2810,100 @@ void AIGHorrorHUD::BeginLayoutValidationSample()
 	bLayoutValidationAllInsideCanvas = true;
 	bLayoutValidationAllInsideSettingsContainers = true;
 	bLayoutValidationSampleReady = false;
+}
+
+void AIGHorrorHUD::RecordTextAudit(
+	const FString& Text,
+	const FVector2D& Min,
+	const FVector2D& Max)
+{
+	if (!bTextAuditEnabled || !Canvas || Text.TrimStartAndEnd().IsEmpty())
+	{
+		return;
+	}
+	FTextAuditEntry& Entry = TextAuditEntries.AddDefaulted_GetRef();
+	Entry.Text = Text.Replace(TEXT("\n"), TEXT(" / "));
+	Entry.Min = Min;
+	Entry.Max = Max;
+	Entry.bScrolling = bTextAuditScrolling;
+	Entry.Container = TextAuditContainerStack.Num() > 0
+		? TextAuditContainerStack.Last()
+		: INDEX_NONE;
+	TextAuditCanvasSize = FVector2D(Canvas->ClipX, Canvas->ClipY);
+}
+
+void AIGHorrorHUD::PushTextAuditContainer(const FVector2D& Min, const FVector2D& Max)
+{
+	if (bTextAuditEnabled)
+	{
+		TextAuditContainerStack.Add(TextAuditContainers.Add(FBox2D(Min, Max)));
+	}
+}
+
+void AIGHorrorHUD::PopTextAuditContainer()
+{
+	if (TextAuditContainerStack.Num() > 0)
+	{
+		TextAuditContainerStack.Pop();
+	}
+}
+
+void AIGHorrorHUD::FinishTextAuditFrame()
+{
+	const FString Culture = FInternationalization::Get().GetCurrentCulture()->GetName();
+	auto Report = [this, &Culture](const TCHAR* Kind, const FString& First, const FString& Second)
+	{
+		const uint32 Key = HashCombine(
+			GetTypeHash(FString(Kind)),
+			HashCombine(GetTypeHash(First), GetTypeHash(Second)));
+		if (TextAuditReported.Contains(Key))
+		{
+			return;
+		}
+		TextAuditReported.Add(Key);
+		UE_LOG(LogTemp, Warning, TEXT("TEXT_AUDIT %s culture=%s canvas=%.0fx%.0f \"%s\" \"%s\""),
+			Kind, *Culture, TextAuditCanvasSize.X, TextAuditCanvasSize.Y,
+			*First.Left(80), *Second.Left(80));
+	};
+	// 상자 높이에는 줄 간격이 들어 있어 이웃 줄과 조금 겹치는 것은 정상이다.
+	// 작은 쪽 높이의 30%를 넘게 겹쳐야 글자가 실제로 겹친 것으로 본다.
+	constexpr float Tolerance = 1.5f;
+	for (int32 First = 0; First < TextAuditEntries.Num(); ++First)
+	{
+		const FTextAuditEntry& A = TextAuditEntries[First];
+		if (!A.bScrolling && (A.Min.X < -Tolerance || A.Min.Y < -Tolerance
+			|| A.Max.X > TextAuditCanvasSize.X + Tolerance
+			|| A.Max.Y > TextAuditCanvasSize.Y + Tolerance))
+		{
+			Report(TEXT("OFFSCREEN"), A.Text, FString());
+		}
+		if (TextAuditContainers.IsValidIndex(A.Container))
+		{
+			const FBox2D& Panel = TextAuditContainers[A.Container];
+			if (A.Min.X < Panel.Min.X - Tolerance || A.Min.Y < Panel.Min.Y - Tolerance
+				|| A.Max.X > Panel.Max.X + Tolerance || A.Max.Y > Panel.Max.Y + Tolerance)
+			{
+				Report(TEXT("OUTSIDE_PANEL"), A.Text, FString::Printf(
+					TEXT("text=%.0f,%.0f-%.0f,%.0f panel=%.0f,%.0f-%.0f,%.0f"),
+					A.Min.X, A.Min.Y, A.Max.X, A.Max.Y,
+					Panel.Min.X, Panel.Min.Y, Panel.Max.X, Panel.Max.Y));
+			}
+		}
+		for (int32 Second = First + 1; Second < TextAuditEntries.Num(); ++Second)
+		{
+			const FTextAuditEntry& B = TextAuditEntries[Second];
+			const float OverlapX = FMath::Min(A.Max.X, B.Max.X) - FMath::Max(A.Min.X, B.Min.X);
+			const float OverlapY = FMath::Min(A.Max.Y, B.Max.Y) - FMath::Max(A.Min.Y, B.Min.Y);
+			const float SmallerHeight = FMath::Min(A.Max.Y - A.Min.Y, B.Max.Y - B.Min.Y);
+			if (OverlapX > 3.0f && OverlapY > SmallerHeight * 0.3f)
+			{
+				Report(TEXT("OVERLAP"), A.Text, B.Text);
+			}
+		}
+	}
+	TextAuditEntries.Reset();
+	TextAuditContainers.Reset();
+	TextAuditContainerStack.Reset();
 }
 
 void AIGHorrorHUD::RecordLayoutValidationRect(
@@ -3337,6 +3438,7 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 	const FVector2D PanelPosition(
 		(Canvas->ClipX - PanelSize.X) * 0.5f,
 		(Canvas->ClipY - PanelSize.Y) * 0.5f);
+	PushTextAuditContainer(PanelPosition, PanelPosition + PanelSize);
 	DrawRoundedHudSurface(
 		PanelPosition + FVector2D(0.0f, 9.0f * Scale),
 		PanelSize,
@@ -3573,6 +3675,7 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 			RetryScale);
 	}
 
+	PopTextAuditContainer();
 	RecordLayoutValidationRect(PanelPosition, PanelPosition + PanelSize);
 	return true;
 }
@@ -4398,88 +4501,179 @@ void AIGHorrorHUD::WrapHudText(
 		return;
 	}
 
-	FString Remaining = Source;
-	Remaining.ReplaceInline(TEXT("\r"), TEXT(""));
-	Remaining = Remaining.TrimStartAndEnd();
-	while (!Remaining.IsEmpty() && OutLines.Num() < MaximumLines)
+	// 숫자와 로마자는 한 덩어리로 넘긴다. "11점"이 "1 / 1점"으로, "02:30"이
+	// "02: / 30"으로 갈라지면 다른 숫자로 읽힌다.
+	auto IsRunCharacter = [](const TCHAR Character)
 	{
-		const int32 NewlineIndex = Remaining.Find(TEXT("\n"));
-		const int32 ParagraphLength = NewlineIndex == INDEX_NONE
-			? Remaining.Len()
-			: NewlineIndex;
-		FString Paragraph = Remaining.Left(ParagraphLength).TrimStartAndEnd();
-		if (Paragraph.IsEmpty())
-		{
-			Remaining = NewlineIndex == INDEX_NONE
-				? FString()
-				: Remaining.Mid(NewlineIndex + 1).TrimStart();
-			continue;
-		}
+		return (Character >= TEXT('0') && Character <= TEXT('9'))
+			|| (Character >= TEXT('A') && Character <= TEXT('Z'))
+			|| (Character >= TEXT('a') && Character <= TEXT('z'))
+			|| (Character >= 0xFF10 && Character <= 0xFF19)
+			|| (Character >= 0xFF21 && Character <= 0xFF3A)
+			|| (Character >= 0xFF41 && Character <= 0xFF5A)
+			|| Character == TEXT(':') || Character == TEXT('.')
+			|| Character == TEXT(',') || Character == TEXT('%')
+			|| Character == TEXT('-') || Character == TEXT('/');
+	};
 
-		if (MeasureTextWidth(Paragraph, Font, TextScale) <= MaximumWidth)
-		{
-			OutLines.Add(MoveTemp(Paragraph));
-			Remaining = NewlineIndex == INDEX_NONE
-				? FString()
-				: Remaining.Mid(NewlineIndex + 1).TrimStart();
-			continue;
-		}
-
-		int32 BreakIndex = FindFittingCaptionPrefix(
-			Paragraph,
-			Font,
-			TextScale,
-			MaximumWidth);
-		BreakIndex = FMath::Clamp(BreakIndex, 1, Paragraph.Len());
+	// 한 줄에 들어가는 만큼을 고른다. 쉼표나 띄어쓰기에서 끊고, 일본어와
+	// 중국어의 줄바꿈 금칙을 지킨다.
+	auto ChooseBreak = [&](const FString& Text, const float Width)
+	{
+		int32 BreakIndex = FindFittingCaptionPrefix(Text, Font, TextScale, Width);
+		BreakIndex = FMath::Clamp(BreakIndex, 1, Text.Len());
 		const int32 MinimumEditorialBreak = FMath::Max(1, BreakIndex / 2);
-		int32 EditorialBreak = INDEX_NONE;
 		for (int32 Index = BreakIndex - 1; Index >= MinimumEditorialBreak; --Index)
 		{
-			const TCHAR Character = Paragraph[Index];
+			const TCHAR Character = Text[Index];
 			if (FChar::IsWhitespace(Character))
 			{
-				EditorialBreak = Index;
+				BreakIndex = Index;
 				break;
 			}
-			if (FCString::Strchr(TEXT(".,!?;:…。！？、，"), Character))
+			if (FCString::Strchr(TEXT(".,!?;:…。！？、，"), Character)
+				&& !(Index + 1 < Text.Len() && IsRunCharacter(Character) && IsRunCharacter(Text[Index + 1])))
 			{
-				EditorialBreak = Index + 1;
+				BreakIndex = Index + 1;
 				break;
 			}
 		}
-		if (EditorialBreak > 0)
+		if (BreakIndex > 1 && BreakIndex < Text.Len()
+			&& IsRunCharacter(Text[BreakIndex - 1]) && IsRunCharacter(Text[BreakIndex]))
 		{
-			BreakIndex = EditorialBreak;
+			int32 RunStart = BreakIndex - 1;
+			while (RunStart > 0 && IsRunCharacter(Text[RunStart - 1]))
+			{
+				--RunStart;
+			}
+			if (RunStart >= 1)
+			{
+				BreakIndex = RunStart;
+			}
 		}
-		// 일본어와 중국어의 줄바꿈 금칙. 닫는 문장 부호, 작은 가나, 장음은 줄
-		// 앞에 오지 않고 여는 괄호는 줄 끝에 남지 않는다. 앞 글자를 다음 줄로 넘긴다.
+		// 닫는 문장 부호, 작은 가나, 장음은 줄 앞에 오지 않고 여는 괄호는 줄 끝에
+		// 남지 않는다. 이름 사이의 가운뎃점도 양쪽을 붙여 둔다. 앞 글자를 다음 줄로 넘긴다.
 		static const TCHAR* NoLineStart =
 			TEXT("、。，．・：；？！）」』】〕〉》］｝ーぁぃぅぇぉっゃゅょゎァィゥェォッャュョヮヵヶ…‥”’");
-		static const TCHAR* NoLineEnd = TEXT("（「『【〔〈《［｛“‘");
-		for (int32 Guard = 0; Guard < 2 && BreakIndex > 1 && BreakIndex < Paragraph.Len(); ++Guard)
+		static const TCHAR* NoLineEnd = TEXT("（「『【〔〈《［｛“‘・");
+		for (int32 Guard = 0; Guard < 3 && BreakIndex > 1 && BreakIndex < Text.Len(); ++Guard)
 		{
-			const bool bBadStart = FCString::Strchr(NoLineStart, Paragraph[BreakIndex]) != nullptr;
-			const bool bBadEnd = FCString::Strchr(NoLineEnd, Paragraph[BreakIndex - 1]) != nullptr;
+			const bool bBadStart = FCString::Strchr(NoLineStart, Text[BreakIndex]) != nullptr;
+			const bool bBadEnd = FCString::Strchr(NoLineEnd, Text[BreakIndex - 1]) != nullptr;
 			if (!bBadStart && !bBadEnd)
 			{
 				break;
 			}
 			--BreakIndex;
 		}
+		return BreakIndex;
+	};
 
-		FString Line = Paragraph.Left(BreakIndex).TrimEnd();
-		if (Line.IsEmpty())
+	// 문단 하나를 줄로 나눈다. Ends에는 각 줄이 문단에서 끝나는 위치를 담는다.
+	auto BreakParagraph = [&](const FString& Paragraph, const float Width,
+		TArray<FString>& Lines, TArray<int32>& Ends)
+	{
+		Lines.Reset();
+		Ends.Reset();
+		int32 Start = 0;
+		while (Start < Paragraph.Len())
 		{
-			Line = Paragraph.Left(1);
-			BreakIndex = 1;
+			while (Start < Paragraph.Len() && FChar::IsWhitespace(Paragraph[Start]))
+			{
+				++Start;
+			}
+			if (Start >= Paragraph.Len())
+			{
+				break;
+			}
+			const FString Rest = Paragraph.Mid(Start);
+			if (MeasureTextWidth(Rest, Font, TextScale) <= Width)
+			{
+				Lines.Add(Rest.TrimEnd());
+				Ends.Add(Paragraph.Len());
+				break;
+			}
+			const int32 BreakIndex = ChooseBreak(Rest, Width);
+			FString Line = Rest.Left(BreakIndex).TrimEnd();
+			if (Line.IsEmpty())
+			{
+				Line = Rest.Left(1);
+				Start += 1;
+			}
+			else
+			{
+				Start += BreakIndex;
+			}
+			Lines.Add(MoveTemp(Line));
+			Ends.Add(Start);
 		}
-		OutLines.Add(MoveTemp(Line));
-		const FString ParagraphRemainder =
-			Paragraph.Mid(BreakIndex).TrimStart();
+	};
+
+	// 마지막 줄에 한두 글자나 짧은 한 단어만 남는 줄. "い。", "받음."처럼 남으면
+	// 문장이 끝난 줄 알았다가 한 번 더 읽게 된다.
+	auto IsLonelyLastLine = [&](const FString& Line)
+	{
+		const FString Trimmed = Line.TrimStartAndEnd();
+		if (Trimmed.Len() <= 2)
+		{
+			return true;
+		}
+		return !Trimmed.Contains(TEXT(" "))
+			&& MeasureTextWidth(Trimmed, Font, TextScale) < MaximumWidth * 0.22f;
+	};
+
+	FString Remaining = Source;
+	Remaining.ReplaceInline(TEXT("\r"), TEXT(""));
+	Remaining = Remaining.TrimStartAndEnd();
+	TArray<FString> Lines;
+	TArray<int32> Ends;
+	while (!Remaining.IsEmpty() && OutLines.Num() < MaximumLines)
+	{
+		const int32 NewlineIndex = Remaining.Find(TEXT("\n"));
+		const int32 ParagraphLength = NewlineIndex == INDEX_NONE
+			? Remaining.Len()
+			: NewlineIndex;
+		const FString Paragraph = Remaining.Left(ParagraphLength).TrimStartAndEnd();
 		const FString FollowingParagraphs = NewlineIndex == INDEX_NONE
 			? FString()
 			: Remaining.Mid(NewlineIndex);
-		Remaining = (ParagraphRemainder + FollowingParagraphs).TrimStart();
+		if (Paragraph.IsEmpty())
+		{
+			Remaining = FollowingParagraphs.TrimStart();
+			continue;
+		}
+
+		BreakParagraph(Paragraph, MaximumWidth, Lines, Ends);
+		if (Lines.Num() >= 2 && IsLonelyLastLine(Lines.Last()))
+		{
+			// 줄 수는 그대로 두고 폭만 조금씩 좁혀 끝줄에 글자를 나눠 준다.
+			for (const float Factor : { 0.93f, 0.86f, 0.80f })
+			{
+				TArray<FString> Balanced;
+				TArray<int32> BalancedEnds;
+				BreakParagraph(Paragraph, MaximumWidth * Factor, Balanced, BalancedEnds);
+				if (Balanced.Num() == Lines.Num() && !IsLonelyLastLine(Balanced.Last()))
+				{
+					Lines = MoveTemp(Balanced);
+					Ends = MoveTemp(BalancedEnds);
+					break;
+				}
+			}
+		}
+
+		const int32 Room = MaximumLines - OutLines.Num();
+		if (Lines.Num() <= Room)
+		{
+			OutLines.Append(Lines);
+			Remaining = FollowingParagraphs.TrimStart();
+			continue;
+		}
+		for (int32 Index = 0; Index < Room; ++Index)
+		{
+			OutLines.Add(Lines[Index]);
+		}
+		Remaining = (Paragraph.Mid(Ends[Room - 1]).TrimStart() + FollowingParagraphs).TrimStart();
+		break;
 	}
 	OutRemainder = Remaining.TrimStartAndEnd();
 }
@@ -5403,7 +5597,12 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		PreviewRawHeight * PreviewTextScale * 1.20f);
 	const float PreviewBodyHeight =
 		PreviewLineHeight * PreviewLines.Num();
-	const float PreviewSpeakerHeight = 14.0f * PreviewTextScale * 0.78f;
+	// 이름표 높이는 실제 글꼴로 잰다. 14px로 박아 두었더니 이름표가 본문
+	// 첫 줄을 덮었고, 한자·가나 글꼴에서는 더 크게 겹쳤다.
+	UFont* PreviewSpeakerFont = GetFontForRole(EIGHudTextRole::Speaker);
+	const float PreviewSpeakerHeight = PreviewSpeakerFont
+		? MeasureTextHeight(GetLineHeightSample(), PreviewSpeakerFont, PreviewTextScale * 0.78f)
+		: 14.0f * PreviewTextScale * 0.78f;
 	const float PreviewHeight = FMath::Max(
 		48.0f * Scale,
 		PreviewSpeakerHeight + PreviewBodyHeight + 23.0f * Scale);
@@ -5566,6 +5765,7 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 		PaperSize.X,
 		PaperSize.Y);
 
+	PushTextAuditContainer(PaperOrigin, PaperOrigin + PaperSize);
 	const FLinearColor Ink(0.075f, 0.070f, 0.060f, 0.98f);
 	const FLinearColor FaintInk(0.18f, 0.19f, 0.18f, 0.78f);
 	const FLinearColor BlueRule(0.20f, 0.29f, 0.31f, 0.56f);
@@ -5586,12 +5786,16 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 		FCanvasTextItem Item(Position, Text, Font, Color);
 		Item.Scale = FVector2D(SafeScale);
 		Canvas->DrawItem(Item);
-		if (bLayoutValidationEnabled)
+		if (bLayoutValidationEnabled || bTextAuditEnabled)
 		{
 			float Width = 0.0f;
 			float Height = 0.0f;
 			Canvas->StrLen(Font, Text.ToString(), Width, Height, true);
 			RecordLayoutValidationRect(
+				Position,
+				Position + FVector2D(Width * SafeScale, Height * SafeScale));
+			RecordTextAudit(
+				Text.ToString(),
 				Position,
 				Position + FVector2D(Width * SafeScale, Height * SafeScale));
 		}
@@ -5620,20 +5824,34 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 	};
 	const float OuterMargin = 30.0f * ResolutionScale;
 	const float HeaderTop = PaperOrigin.Y + 20.0f * ResolutionScale;
+	// 글자 크기는 해상도를 따르고, 위치는 실제로 잰 글자 높이에서 잡는다.
+	// 고정 배율과 고정 간격을 섞어 두었더니 720p에서 제목이 부제를 덮고,
+	// 글자를 키우면 발췌 줄끼리 포개졌다.
+	const FString HeightSample = GetLineHeightSample();
+	const auto LineHeightFor = [this, &HeightSample](
+		const EIGHudTextRole TextRole,
+		const float TextScale)
+	{
+		return MeasureTextHeight(HeightSample, GetFontForRole(TextRole), TextScale);
+	};
+	const float HeaderTitleScale = 1.08f * ResolutionScale;
+	const float HeaderSubtitleScale = 0.78f * ResolutionScale;
 	DrawPaperText(
 		NSLOCTEXT("IGHUD", "MissingFloorJournalTitle", "조사 기록"),
 		FVector2D(PaperOrigin.X + OuterMargin, HeaderTop),
 		Ink,
 		EIGHudTextRole::Objective,
-		1.08f);
+		HeaderTitleScale);
+	const float SubtitleTop = HeaderTop
+		+ LineHeightFor(EIGHudTextRole::Objective, HeaderTitleScale) * 0.95f;
 	DrawPaperText(
 		NSLOCTEXT("IGHUD", "MissingFloorJournalSubtitle", "달빛빌라에서 알아낸 것들"),
-		FVector2D(
-			PaperOrigin.X + OuterMargin,
-			HeaderTop + 27.0f * ResolutionScale),
+		FVector2D(PaperOrigin.X + OuterMargin, SubtitleTop),
 		FaintInk,
 		EIGHudTextRole::Hint,
-		0.78f);
+		HeaderSubtitleScale);
+	const float HeaderBottom = SubtitleTop
+		+ LineHeightFor(EIGHudTextRole::Hint, HeaderSubtitleScale);
 
 	const UGameInstance* GameInstance = GetGameInstance();
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GameInstance
@@ -5679,24 +5897,35 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 		FText::AsNumber(ObservedCount),
 		FText::AsNumber(SafePage + 1),
 		FText::AsNumber(PageCount));
+	const float CountScale = 0.75f * ResolutionScale;
 	DrawPaperText(
 		CountText,
 		FVector2D(
-			PaperOrigin.X + PaperSize.X - 190.0f * ResolutionScale,
+			PaperOrigin.X + PaperSize.X - OuterMargin
+				- MeasureTextWidth(
+					CountText.ToString(),
+					GetFontForRole(EIGHudTextRole::Hint),
+					CountScale),
 			HeaderTop + 5.0f * ResolutionScale),
 		FaintInk,
 		EIGHudTextRole::Hint,
-		0.75f);
+		CountScale);
 
 	const float ContentLeft = PaperOrigin.X + OuterMargin;
 	const float ContentRight = PaperOrigin.X + PaperSize.X - OuterMargin;
-	const float ContentTop = PaperOrigin.Y + 82.0f * ResolutionScale;
-	const float FooterHeight = 43.0f * ResolutionScale;
+	const float ContentTop = FMath::Max(
+		PaperOrigin.Y + 82.0f * ResolutionScale,
+		HeaderBottom + 12.0f * ResolutionScale);
+	const float FooterScale = 0.78f * ResolutionScale;
+	const float FooterLineHeight = LineHeightFor(EIGHudTextRole::Hint, FooterScale);
+	const float FooterHeight = FooterLineHeight + 20.0f * ResolutionScale;
 	const float ContentBottom = PaperOrigin.Y + PaperSize.Y - FooterHeight;
 	const float LaneGap = 13.0f * ResolutionScale;
 	const float LaneWidth =
 		(ContentRight - ContentLeft - LaneGap * 2.0f) / 3.0f;
-	const float LaneHeaderHeight = 30.0f * ResolutionScale;
+	const float LaneTitleScale = 0.90f * ResolutionScale;
+	const float LaneTitleHeight = LineHeightFor(EIGHudTextRole::Speaker, LaneTitleScale);
+	const float LaneHeaderHeight = LaneTitleHeight + 9.0f * ResolutionScale;
 	const float CardGap = 9.0f * ResolutionScale;
 	const int32 CardsPerLanePerPage = UserTextScale > 1.50f
 		? 1
@@ -5719,11 +5948,16 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 			FVector2D(LaneX + 3.0f * ResolutionScale, ContentTop),
 			LaneIndex == 0 ? OxideRed : Ink,
 			EIGHudTextRole::Speaker,
-			0.90f);
+			GetFittedTextScale(
+				LaneTitles[LaneIndex],
+				EIGHudTextRole::Speaker,
+				LaneTitleScale,
+				LaneWidth - 6.0f * ResolutionScale,
+				LaneTitleScale * 0.7f));
 		DrawRect(
 			LaneIndex == 0 ? OxideRed : BlueRule,
 			LaneX,
-			ContentTop + 23.0f * ResolutionScale,
+			ContentTop + LaneTitleHeight + 3.0f * ResolutionScale,
 			LaneWidth,
 			LaneIndex == 0 ? 1.4f : 1.0f);
 		if (LaneIndex > 0)
@@ -5858,37 +6092,53 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 				+ 9.0f * ResolutionScale;
 			const float TextWidth = LaneWidth - (TextX - LaneX) - Padding;
 			// 제목과 장소 줄은 한 줄이다. 번역이 길면 카드 폭에 맞춰 줄인다.
+			const float CardTitleScale = GetFittedTextScale(
+				Entry.Title,
+				EIGHudTextRole::Speaker,
+				CardTextScale * 0.86f,
+				TextWidth,
+				CardTextScale * 0.86f * 0.7f);
 			DrawPaperText(
 				Entry.Title,
 				FVector2D(TextX, CardY + Padding - 1.0f * ResolutionScale),
 				Ink,
 				EIGHudTextRole::Speaker,
-				GetFittedTextScale(
-					Entry.Title,
-					EIGHudTextRole::Speaker,
-					CardTextScale * 0.86f,
-					TextWidth,
-					CardTextScale * 0.86f * 0.7f));
+				CardTitleScale);
 
 			TArray<FString> ExcerptLines;
 			FString ExcerptRemainder;
 			// 발췌는 카드에 들어가는 만큼 줄을 쓴다. 두 줄로 잘라 나머지를 버리면
 			// 한국어보다 긴 영어 번역에서 문서의 뒷말이 사라졌다.
-			const float ExcerptTop = Padding + 23.0f * ResolutionScale;
-			const float ExcerptBottom = CardHeight - 26.0f * ResolutionScale;
+			const float WhereScale = GetFittedTextScale(
+				Entry.WhereWhen,
+				EIGHudTextRole::Hint,
+				CardTextScale * 0.62f,
+				LaneWidth - Padding * 2.0f,
+				CardTextScale * 0.62f * 0.7f);
+			const float WhereHeight = LineHeightFor(EIGHudTextRole::Hint, WhereScale);
+			const float ExcerptScale = CardTextScale * 0.72f;
+			const float ExcerptStep = LineHeightFor(EIGHudTextRole::Dialogue, ExcerptScale) * 1.04f;
+			const float ExcerptTop = Padding - 1.0f * ResolutionScale
+				+ LineHeightFor(EIGHudTextRole::Speaker, CardTitleScale) + 3.0f * ResolutionScale;
+			const float ExcerptBottom = CardHeight - WhereHeight - 10.0f * ResolutionScale;
 			const int32 ExcerptMaxLines = FMath::Clamp(
-				FMath::FloorToInt((ExcerptBottom - ExcerptTop) / (17.0f * ResolutionScale)),
-				2,
-				5);
+				FMath::FloorToInt((ExcerptBottom - ExcerptTop) / FMath::Max(ExcerptStep, 1.0f)),
+				1,
+				10);
 			WrapHudText(
 				Entry.Excerpt.ToString(),
 				BodyFont,
-				CardTextScale * 0.72f,
+				ExcerptScale,
 				TextWidth,
 				ExcerptMaxLines,
 				ExcerptLines,
 				ExcerptRemainder);
-			float TextY = CardY + Padding + 23.0f * ResolutionScale;
+			// 카드에 다 들어가지 않으면 끝에 줄임표를 달아 뒷말이 있다는 걸 남긴다.
+			if (!ExcerptRemainder.IsEmpty() && ExcerptLines.Num() > 0)
+			{
+				ExcerptLines.Last() += TEXT("…");
+			}
+			float TextY = CardY + ExcerptTop;
 			for (const FString& Line : ExcerptLines)
 			{
 				DrawPaperText(
@@ -5896,22 +6146,17 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 					FVector2D(TextX, TextY),
 					FaintInk,
 					EIGHudTextRole::Dialogue,
-					CardTextScale * 0.72f);
-				TextY += 17.0f * ResolutionScale;
+					ExcerptScale);
+				TextY += ExcerptStep;
 			}
 			DrawPaperText(
 				Entry.WhereWhen,
 				FVector2D(
 					LaneX + Padding,
-					CardY + CardHeight - 22.0f * ResolutionScale),
+					CardY + CardHeight - WhereHeight - 5.0f * ResolutionScale),
 				FaintInk,
 				EIGHudTextRole::Hint,
-				GetFittedTextScale(
-					Entry.WhereWhen,
-					EIGHudTextRole::Hint,
-					CardTextScale * 0.62f,
-					LaneWidth - Padding * 2.0f,
-					CardTextScale * 0.62f * 0.7f));
+				WhereScale);
 		}
 	}
 
@@ -5922,7 +6167,7 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 			ContentTop + (ContentBottom - ContentTop) * 0.48f,
 			FaintInk,
 			EIGHudTextRole::Dialogue,
-			0.90f);
+			0.90f * ResolutionScale);
 	}
 
 	DrawCenteredPaperText(
@@ -5935,10 +6180,11 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 					"IGHUD",
 					"MissingFloorJournalControlsKeyboard",
 					"← / →  기록 넘기기  ·  Tab 닫기"),
-		PaperOrigin.Y + PaperSize.Y - 29.0f * ResolutionScale,
+		PaperOrigin.Y + PaperSize.Y - FooterLineHeight - 9.0f * ResolutionScale,
 		FaintInk,
 		EIGHudTextRole::Hint,
-		0.78f);
+		FooterScale);
+	PopTextAuditContainer();
 	RecordLayoutValidationRect(PaperOrigin, PaperOrigin + PaperSize);
 }
 
@@ -5953,6 +6199,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 	const float Scale = Layout.Scale;
 	const FVector2D PanelSize = Layout.PanelSize;
 	const FVector2D PanelOrigin = Layout.PanelPosition;
+	PushTextAuditContainer(PanelOrigin, PanelOrigin + PanelSize);
 
 	DrawRoundedHudSurface(
 		PanelOrigin,
@@ -6183,6 +6430,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint,
 		0.78f * Scale);
+	PopTextAuditContainer();
 	RecordLayoutValidationRect(PanelOrigin, PanelOrigin + PanelSize);
 }
 
@@ -7493,7 +7741,7 @@ void AIGHorrorHUD::DrawCenteredText(
 		Color);
 	TextItem.bCentreX = true;
 	TextItem.Scale = FVector2D(FMath::Max(0.5f, TextScale));
-	if (bLayoutValidationEnabled)
+	if (bLayoutValidationEnabled || bTextAuditEnabled)
 	{
 		float TextWidth = 0.0f;
 		float TextHeight = 0.0f;
@@ -7501,13 +7749,10 @@ void AIGHorrorHUD::DrawCenteredText(
 		const FVector2D ScaledSize(
 			TextWidth * TextItem.Scale.X,
 			TextHeight * TextItem.Scale.Y);
-		RecordLayoutValidationRect(
-			FVector2D(
-				(Canvas->ClipX - ScaledSize.X) * 0.5f,
-				ScreenY),
-			FVector2D(
-				(Canvas->ClipX + ScaledSize.X) * 0.5f,
-				ScreenY + ScaledSize.Y));
+		const FVector2D TextMin((Canvas->ClipX - ScaledSize.X) * 0.5f, ScreenY);
+		const FVector2D TextMax((Canvas->ClipX + ScaledSize.X) * 0.5f, ScreenY + ScaledSize.Y);
+		RecordLayoutValidationRect(TextMin, TextMax);
+		RecordTextAudit(Text.ToString(), TextMin, TextMax);
 	}
 
 	// A one-pixel outline keeps small Hangul legible on bright surfaces;
@@ -7560,16 +7805,16 @@ void AIGHorrorHUD::DrawLeftAlignedText(
 		TextItem.EnableShadow(EffectColor, FVector2D(1.0f, 1.0f));
 	}
 
-	if (bLayoutValidationEnabled)
+	if (bLayoutValidationEnabled || bTextAuditEnabled)
 	{
 		float TextWidth = 0.0f;
 		float TextHeight = 0.0f;
 		Canvas->StrLen(Font, Text.ToString(), TextWidth, TextHeight, true);
-		RecordLayoutValidationRect(
-			Position,
-			Position + FVector2D(
-				TextWidth * SafeTextScale,
-				TextHeight * SafeTextScale));
+		const FVector2D TextMax = Position + FVector2D(
+			TextWidth * SafeTextScale,
+			TextHeight * SafeTextScale);
+		RecordLayoutValidationRect(Position, TextMax);
+		RecordTextAudit(Text.ToString(), Position, TextMax);
 	}
 	Canvas->DrawItem(TextItem);
 }
@@ -7622,6 +7867,10 @@ void AIGHorrorHUD::DrawRightAlignedText(
 			DrawPosition,
 			DrawPosition + Size);
 	}
+	RecordTextAudit(
+		Text.ToString(),
+		DrawPosition,
+		DrawPosition + FVector2D(TextWidth, TextHeight) * SafeTextScale);
 	Canvas->DrawItem(TextItem);
 }
 
@@ -7857,6 +8106,7 @@ void AIGHorrorHUD::DrawNotePanel()
 	else
 		DrawRect(FLinearColor(.91f,.91f,.89f,1), Origin.X, Origin.Y, PaperWidth, Height);
 	bNoteTextWithinPaper = true;
+	PushTextAuditContainer(Origin, Origin + FVector2D(PaperWidth, Height));
 	if (!ArtworkPage)
 	{
 		const FString Title = Note->GetTitle().ToString();
@@ -7864,6 +8114,8 @@ void AIGHorrorHUD::DrawNotePanel()
 		FCanvasTextItem Header(Origin+FVector2D(Margin,Margin), FText::FromString(Title), BodyFont, Ink);
 		Header.Scale = FVector2D(TitleScale);
 		Canvas->DrawItem(Header);
+		RecordTextAudit(Title, Origin + FVector2D(Margin, Margin), Origin + FVector2D(Margin, Margin)
+			+ FVector2D(MeasureTextWidth(Title, BodyFont, TitleScale), MeasureTextHeight(Title, BodyFont, TitleScale)));
 		DrawRect(FLinearColor(.25f,.28f,.29f,.5f), Origin.X+Margin,
 			Origin.Y+Margin+HeaderHeight, TextWidth, ScreenScale);
 		const TArray<FString>& Lines = ReadingTextPages[NotePageIndex-int32(bArtworkFirst)];
@@ -7873,11 +8125,14 @@ void AIGHorrorHUD::DrawNotePanel()
 			FCanvasTextItem Text(FVector2D(Origin.X+Margin,Y), FText::FromString(Line), BodyFont, Ink);
 			Text.Scale = FVector2D(Scale);
 			Canvas->DrawItem(Text);
+			RecordTextAudit(Line, FVector2D(Origin.X + Margin, Y), FVector2D(Origin.X + Margin, Y)
+				+ FVector2D(MeasureTextWidth(Line, BodyFont, Scale), MeasureTextHeight(Line, BodyFont, Scale)));
 			bNoteTextWithinPaper &= MeasureTextWidth(Line,BodyFont,Scale) <= TextWidth+.5f
 				&& Y+MeasureTextHeight(Line,BodyFont,Scale) <= BodyBottom+.5f;
 			Y += LineHeight;
 		}
 	}
+	PopTextAuditContainer();
 	// 안내는 종이 바깥에 둔다. 큰 글씨가 본문과 겹치거나 인쇄처럼 보이지 않는다.
 	FString Footer;
 	if (NotePageCount > 1)
@@ -7931,6 +8186,7 @@ void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)
 	const FVector2D ScreenOrigin = PhoneOrigin + FVector2D(Bezel, Bezel);
 	const float InnerWidth = PhoneWidth - Bezel * 2.0f;
 	const float InnerHeight = PhoneHeight - Bezel * 2.0f;
+	PushTextAuditContainer(ScreenOrigin, ScreenOrigin + FVector2D(InnerWidth, InnerHeight));
 
 	DrawRect(
 		FLinearColor(0.0f, 0.0f, 0.0f, 0.62f),
@@ -7987,6 +8243,16 @@ void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)
 		Item.Scale = FVector2D(TextScale);
 		Item.EnableShadow(FLinearColor(0.0f, 0.0f, 0.0f, 0.75f), FVector2D(1.0f, 1.0f));
 		Canvas->DrawItem(Item);
+		if (bTextAuditEnabled)
+		{
+			float Width = 0.0f;
+			float Height = 0.0f;
+			Canvas->StrLen(Font, Text.ToString(), Width, Height, true);
+			RecordTextAudit(
+				Text.ToString(),
+				FVector2D(X, Y),
+				FVector2D(X + Width * TextScale, Y + Height * TextScale));
+		}
 	};
 	// 폰 화면은 폭이 좁다. 번역이 길면 이 폭 안에 들어올 만큼 줄인다.
 	auto FitPhoneScale = [this](
@@ -8145,6 +8411,7 @@ void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)
 			BodyScale);
 		PenY += BodyLineHeight;
 	}
+	PopTextAuditContainer();
 	const FText Hint = FText::Format(
 		NSLOCTEXT("IGHUD", "PhoneCloseFormat", "[ {0} ]  휴대폰 내려놓기"),
 		GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad));

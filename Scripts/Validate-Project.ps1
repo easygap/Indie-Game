@@ -1156,12 +1156,14 @@ foreach ($requiredHudLayoutProbeInvariant in @(
 }
 $layoutMeasurementIndex = $horrorHudSource.IndexOf(
 	'Canvas->StrLen(Font, Text.ToString(), TextWidth, TextHeight, true)')
+# 글자 겹침 검사(-IGTextAudit)도 같은 자리에서 잰다. 둘 다 명령줄로만 켜진다.
 $layoutGateIndex = $horrorHudSource.LastIndexOf(
-	'if (bLayoutValidationEnabled)',
+	'if (bLayoutValidationEnabled || bTextAuditEnabled)',
 	$layoutMeasurementIndex)
 if ($layoutMeasurementIndex -lt 0 -or
 	$layoutGateIndex -lt 0 -or
-	$layoutMeasurementIndex - $layoutGateIndex -gt 100) {
+	$layoutMeasurementIndex - $layoutGateIndex -gt 140 -or
+	-not $horrorHudSource.Contains('bTextAuditEnabled = FParse::Param(')) {
 	throw 'HUD layout measurement must remain gated out of normal gameplay.'
 }
 

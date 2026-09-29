@@ -514,6 +514,12 @@ private:
 		float TextScale = 1.0f,
 		bool bUseOutline = false);
 	void BeginLayoutValidationSample();
+	/** -IGTextAudit: 이번 프레임 글자 상자를 모은다. 다음 프레임 첫머리에 판정한다. */
+	void RecordTextAudit(const FString& Text, const FVector2D& Min, const FVector2D& Max);
+	/** 글자가 이 판 안에 있어야 한다. 그리기 순서대로 쌓고 끝나면 꺼낸다. */
+	void PushTextAuditContainer(const FVector2D& Min, const FVector2D& Max);
+	void PopTextAuditContainer();
+	void FinishTextAuditFrame();
 	void RecordLayoutValidationRect(
 		const FVector2D& Minimum,
 		const FVector2D& Maximum);
@@ -915,6 +921,26 @@ private:
 	bool bLayoutValidationAllInsideSettingsContainers = false;
 	bool bLayoutValidationSampleReady = false;
 	bool bLayoutValidationEnabled = false;
+	/**
+	 * 번역 글자 점검. 글자끼리 겹치거나 화면·판 밖으로 나가면 TEXT_AUDIT 줄을
+	 * 남긴다. 같은 문제는 한 번만 적는다. 언어·해상도·글자 크기를 바꿔 가며 돌린다.
+	 */
+	bool bTextAuditEnabled = false;
+	/** 흘러가는 크레딧처럼 화면 밖에서 들어오는 글자는 화면 밖 판정에서 뺀다. */
+	bool bTextAuditScrolling = false;
+	struct FTextAuditEntry
+	{
+		FString Text;
+		FVector2D Min = FVector2D::ZeroVector;
+		FVector2D Max = FVector2D::ZeroVector;
+		int32 Container = INDEX_NONE;
+		bool bScrolling = false;
+	};
+	TArray<FTextAuditEntry> TextAuditEntries;
+	TArray<FBox2D> TextAuditContainers;
+	TArray<int32> TextAuditContainerStack;
+	TSet<uint32> TextAuditReported;
+	FVector2D TextAuditCanvasSize = FVector2D::ZeroVector;
 	int32 AccessibilitySelectedRow = 0;
 	double AccessibilityResetArmedUntil = -1.0;
 	int32 SystemMenuSelectedRow = 0;
