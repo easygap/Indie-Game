@@ -2,13 +2,15 @@
 
 # The Missing Floor
 
+https://github.com/user-attachments/assets/0cfa1fe4-cf02-4c95-816c-2cf1d4f99a94
+
 韓国の古いアパートを舞台に、行方不明の兄を探す一人称視点のホラーゲームです。
 住人に話を聞き、部屋や廊下を調べて手がかりを集めます。
 夜になると音に反応する敵が現れるため、ドアを開けるときも油断できません。
 
 Windows PC · 1人用 · 対応言語：日本語、韓国語、英語、中国語 · 開発中
 
-[Windows版をダウンロード](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [操作方法](#操作方法)
+[Windows版をダウンロード](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [操作方法](#操作方法)
 
 ![古いアパートを背景に、メニューが並ぶタイトル画面。](../Media/readme/title-menu-first-run-1080-ja.webp)
 
@@ -77,7 +79,7 @@ Windows PC · 1人用 · 対応言語：日本語、韓国語、英語、中国�
 
 現在ダウンロードできるのは **2026年9月29日のテスト版**です。最初はWindowsの表示言語で起動し、**設定 > 一般 > 言語 · Language** で日本語、韓国語、英語、中国語を切り替えられます。
 
-1. [Windows版のZIPファイル（739MB）](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)をダウンロードします。
+1. [Windows版のZIPファイル（739MB）](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)をダウンロードします。
 2. すべてのファイルを展開し、`IndieGame.exe` を起動します。
 3. **ゲームを始める** を選んでください。続きから遊ぶ場合は **つづきから** を選びます。
 
@@ -123,4 +125,4 @@ DLLが見つからないと表示された場合は、ZIPをすべて展開し�
 
 ## 不具合・ご意見
 
-[不具合の報告やご意見はこちら](https://github.com/easygap/Indie-Game/issues/new)。不具合の場合は、発生した場面と直前に行った操作を教えてください。スクリーンショットやエラーメッセージがあれば、あわせて添付してください。
+[不具合の報告やご意見はこちら](https://github.com/easygap/Missing-Floor/issues/new)。不具合の場合は、発生した場面と直前に行った操作を教えてください。スクリーンショットやエラーメッセージがあれば、あわせて添付してください。

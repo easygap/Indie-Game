@@ -69,6 +69,10 @@ night_len = T['rush_start'] - T['night_start']
 put(mix_dry, fade(lowpass(loop_to(corridor, night_len), 2600), 0.8, 1.0), T['night_start'], 0.22)
 put(mix_dry, fade(lowpass(loop_to(hum, night_len), 900), 1.5, 1.0), T['night_start'], 0.07)
 
+# 제목 앞의 정적도 디지털 무음은 아니다. 아주 옅은 방 공기만 남긴다.
+put(mix_dry, fade(lowpass(loop_to(corridor, T['title'] - T['wake']), 1800), 0.8, 0.4), T['wake'], 0.08)
+put(mix_dry, fade(lowpass(loop_to(corridor, T['last_knock'] - T['title'] + 1.0), 1800), 1.5, 0.8), T['title'], 0.06)
+
 # --- 노크 -------------------------------------------------------------------
 knock_muffled = load('Entity_KnockTriple_Muffled')
 knock_triple = load('Entity_KnockTriple')

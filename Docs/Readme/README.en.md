@@ -2,18 +2,20 @@
 
 # The Missing Floor
 
+https://github.com/user-attachments/assets/0cfa1fe4-cf02-4c95-816c-2cf1d4f99a94
+
 A first-person horror game set in an old Korean apartment building. Search for your missing brother by talking to the neighbors and following clues through the rooms and corridors.
 At night, an enemy hunts by sound. Even opening a door can give you away.
 
 Windows PC · Single-player · Languages: English, Korean, Japanese, Chinese · In development
 
-[Download for Windows](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [Controls](#controls)
+[Download for Windows](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [Controls](#controls)
 
 ![The Missing Floor title screen, showing an old apartment building and the main menu.](../Media/readme/title-menu-first-run-1080-en.webp)
 
 ## The story
 
-Yudam moves into Apartment 403 at Dalbit Villa to find her missing brother. The address on a returned package says Apartment 501, but the building only has four floors.
+Yudam moves into Unit 403 at Moonlight Villa to find her missing brother. A returned package lists his address as Unit 501, but the building only has four floors.
 
 On her first night, she hears knocking from the ceiling at 4:30 a.m.
 
@@ -73,7 +75,7 @@ You can review collected clues with `Tab` during the day. Press `H` for a hint i
 
 The **September 29, 2026 test version** is available now. The game starts in your Windows language, and you can switch between English, Korean, Japanese, and Chinese under **Settings > General > Language**.
 
-1. [Download the Windows ZIP (739 MB)](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip).
+1. [Download the Windows ZIP (739 MB)](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip).
 2. Extract the entire archive, then run `IndieGame.exe`.
 3. Select **Start Game**. To resume a saved game, select **Continue**.
 
@@ -119,4 +121,4 @@ Contains dark scenes, jump scares, and loud sounds. Adjust the volume and bright
 
 ## Need help?
 
-[Report a problem](https://github.com/easygap/Indie-Game/issues/new) or [leave feedback](https://github.com/easygap/Indie-Game/issues/new). For bugs, include what you were doing, what went wrong, and a screenshot or error message if you have one.
+[Report a problem](https://github.com/easygap/Missing-Floor/issues/new) or [leave feedback](https://github.com/easygap/Missing-Floor/issues/new). For bugs, include what you were doing, what went wrong, and a screenshot or error message if you have one.

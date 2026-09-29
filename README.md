@@ -2,13 +2,15 @@
 
 # 없는 층
 
+https://github.com/user-attachments/assets/0cfa1fe4-cf02-4c95-816c-2cf1d4f99a94
+
 낡은 빌라에서 사라진 오빠의 흔적을 찾는 1인칭 공포 게임입니다.
 이웃과 이야기를 나누고, 방과 복도를 둘러보며 단서를 모읍니다.
 밤에는 소리에 반응하는 적이 돌아다녀서 문 하나도 조심해서 열어야 합니다.
 
 Windows PC · 싱글플레이 · 게임 언어: 한국어, 영어, 일본어, 중국어 · 개발 중
 
-[Windows 버전 받기](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [조작법](#조작)
+[Windows 버전 받기](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [조작법](#조작)
 
 ![없는 층 타이틀 화면. 오래된 빌라 앞에 게임 시작 메뉴가 보인다.](Docs/Media/readme/title-menu-first-run-1080.webp)
 
@@ -77,7 +79,7 @@ Windows PC · 싱글플레이 · 게임 언어: 한국어, 영어, 일본어, �
 
 지금 받을 수 있는 건 **2026년 9월 29일 테스트 버전**입니다.
 
-1. [Windows용 ZIP 파일(739MB)](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)을 받으세요.
+1. [Windows용 ZIP 파일(739MB)](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)을 받으세요.
 2. 압축을 모두 풀고 `IndieGame.exe`를 실행하세요.
 3. **게임 시작**을 누르면 됩니다. 저장된 게임이 있다면 **이어하기**로 계속할 수 있습니다.
 
@@ -128,5 +130,5 @@ Windows PC · 싱글플레이 · 게임 언어: 한국어, 영어, 일본어, �
 
 ## 문제 제보
 
-게임이 멈추거나 제대로 동작하지 않으면 [오류 제보](https://github.com/easygap/Indie-Game/issues/new?template=bug_report.yml)에 장면과 증상을 남겨 주세요.
-[플레이 소감이나 제안](https://github.com/easygap/Indie-Game/issues/new?template=feedback.yml)도 같은 곳에서 받고 있습니다.
+게임이 멈추거나 제대로 동작하지 않으면 [오류 제보](https://github.com/easygap/Missing-Floor/issues/new?template=bug_report.yml)에 장면과 증상을 남겨 주세요.
+[플레이 소감이나 제안](https://github.com/easygap/Missing-Floor/issues/new?template=feedback.yml)도 같은 곳에서 받고 있습니다.

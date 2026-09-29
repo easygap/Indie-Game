@@ -2,12 +2,14 @@
 
 # The Missing Floor
 
+https://github.com/user-attachments/assets/0cfa1fe4-cf02-4c95-816c-2cf1d4f99a94
+
 一款以韓國老舊公寓為背景的第一人稱恐怖遊戲。為了找到失蹤的哥哥，你得向鄰居打聽消息，仔細查看房間和走廊裡的線索。
 入夜後，敵人會循著聲音找上門，連開門都得放輕動作。
 
 Windows PC · 單人遊戲 · 支援語言：繁體中文、簡體中文、韓文、英文、日文 · 開發中
 
-[下載 Windows 版](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [操作說明](#操作說明)
+[下載 Windows 版](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip) · [操作說明](#操作說明)
 
 ![遊戲標題畫面：老舊公寓前顯示著主選單。](../Media/readme/title-menu-first-run-1080-zh-Hant.webp)
 
@@ -75,7 +77,7 @@ Windows PC · 單人遊戲 · 支援語言：繁體中文、簡體中文、韓�
 
 目前提供 **2026年9月29日測試版**。遊戲第一次啟動時會使用 Windows 的顯示語言，也可以在 **設定 > 一般 > 語言 · Language** 切換繁體中文、簡體中文、韓文、英文和日文。
 
-1. [下載 Windows 壓縮檔（ZIP，739MB）](https://github.com/easygap/Indie-Game/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)。
+1. [下載 Windows 壓縮檔（ZIP，739MB）](https://github.com/easygap/Missing-Floor/releases/download/v1.0.0-test.20260929/MissingFloor-Windows-20260929.zip)。
 2. 完整解壓縮後，執行 `IndieGame.exe`。
 3. 選擇 **開始遊戲**。已有存檔時，選擇 **繼續遊戲**。
 
@@ -121,4 +123,4 @@ Windows PC · 單人遊戲 · 支援語言：繁體中文、簡體中文、韓�
 
 ## 問題回報
 
-遇到問題或想分享遊玩感想，都可以[在這裡留言](https://github.com/easygap/Indie-Game/issues/new)。回報錯誤時，請附上發生的場景、當時做了什麼，以及遇到的狀況。如果有畫面截圖或錯誤訊息，也可以一起附上。
+遇到問題或想分享遊玩感想，都可以[在這裡留言](https://github.com/easygap/Missing-Floor/issues/new)。回報錯誤時，請附上發生的場景、當時做了什麼，以及遇到的狀況。如果有畫面截圖或錯誤訊息，也可以一起附上。
