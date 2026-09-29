@@ -231,7 +231,7 @@ private:
 	 * 대화 줄이 비어 있을 때만 민다. 밀었으면 참이다.
 	 */
 	bool TryPlayHwangPermission();
-	/** 탁자 위 폰(중고 거래 알림)을 보일지 다시 정한다. 폰은 한 대다. */
+	/** 탁자 위 폰(중고 거래 앱 화면)을 보일지 다시 정한다. 폰은 한 대다. */
 	void RefreshTablePhone();
 
 	UPROPERTY(Transient)

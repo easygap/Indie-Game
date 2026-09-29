@@ -1136,7 +1136,7 @@ void AIGMissingFloorPuzzleTwoDirector::HandlePhoneRecorder(
 		{
 			AIGHorrorHUD::PushThought(this, Thought, 5.0f);
 		}
-		// 다 듣고 나면 폰은 탁자로 돌아간다. 탁자의 폰(중고 거래 알림)이 다시 보인다.
+		// 다 듣고 나면 폰은 탁자로 돌아간다. 탁자의 폰(중고 거래 앱 화면)이 다시 보인다.
 		GetWorldTimerManager().SetTimer(
 			PhoneReturnTimer,
 			FTimerDelegate::CreateWeakLambda(this, [this]()

@@ -4,6 +4,7 @@
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Camera/PlayerCameraManager.h"
 #include "Components/AudioComponent.h"
+#include "UnrealClient.h"
 #include "Audio/IGAudioHelpers.h"
 #include "Kismet/GameplayStatics.h"
 #include "CanvasItem.h"
@@ -317,6 +318,12 @@ void AIGHorrorHUD::BeginPlay()
 	InitializeMissingFloorJournalTextures();
 	InitializeFirstPersonActionTextures();
 #if !UE_BUILD_SHIPPING
+	if (FParse::Value(FCommandLine::Get(), TEXT("IGEndCreditsPreview="), EndCreditsPreviewPath))
+	{
+		EndCreditsPreviewPath.TrimQuotesInline();
+		bEndCreditsPreview = true;
+		StartEndCredits();
+	}
 	bFirstPersonKnockPreview = FParse::Param(
 		FCommandLine::Get(),
 		TEXT("IGM0KnockPreview"));
@@ -2066,6 +2073,46 @@ bool AIGHorrorHUD::DrawEndCredits()
 	Black.BlendMode = SE_BLEND_Opaque;
 	Canvas->DrawItem(Black);
 
+	// 결말의 마지막 그림을 아주 어둡게 깔아 둔다. A는 증축 층을 뜯어내는 가을의
+	// 빌라, B는 비어 있는 서비스 베이다. 글자를 읽는 데 방해가 되지 않을 만큼만.
+	const UIGMissingFloorNarrativeSubsystem* CreditsNarrative = GetGameInstance()
+		? GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	UTexture2D* Backdrop = CreditsNarrative
+		&& CreditsNarrative->GetEndingChoice() == FName(TEXT("Ending.B"))
+			? EpilogueServiceBayTexture.Get()
+			: EpilogueAutumnTexture.Get();
+	if (Backdrop && Backdrop->GetSizeX() > 0 && Backdrop->GetSizeY() > 0)
+	{
+		// 화면을 꽉 채우되 비율은 지킨다. 넘치는 쪽을 잘라 낸다.
+		const float ScreenAspect = Canvas->ClipX / FMath::Max(1.0f, Canvas->ClipY);
+		const float ImageAspect = static_cast<float>(Backdrop->GetSizeX()) / Backdrop->GetSizeY();
+		FVector2D UV0(0.0f, 0.0f);
+		FVector2D UV1(1.0f, 1.0f);
+		if (ImageAspect > ScreenAspect)
+		{
+			const float Keep = ScreenAspect / ImageAspect;
+			UV0.X = (1.0f - Keep) * 0.5f;
+			UV1.X = UV0.X + Keep;
+		}
+		else
+		{
+			// 세로 그림은 위쪽을 남긴다. 가을 빌라에서 봐야 할 것은 뜯겨 나가는 옥상 층이다.
+			const float Keep = ImageAspect / ScreenAspect;
+			UV0.Y = (1.0f - Keep) * 0.12f;
+			UV1.Y = UV0.Y + Keep;
+		}
+		FCanvasTileItem Still(
+			FVector2D::ZeroVector,
+			Backdrop->GetResource(),
+			FVector2D(Canvas->ClipX, Canvas->ClipY),
+			UV0,
+			UV1,
+			FLinearColor(1.0f, 1.0f, 1.0f, 0.22f * FMath::SmoothStep(0.0f, 3.0f, Elapsed)));
+		Still.BlendMode = SE_BLEND_Translucent;
+		Canvas->DrawItem(Still);
+	}
+
 	struct FCreditLine
 	{
 		FText Text;
@@ -2113,6 +2160,19 @@ bool AIGHorrorHUD::DrawEndCredits()
 		}
 		Y += Line.GapAfter * Scale;
 	}
+#if !UE_BUILD_SHIPPING
+	// 미리 보기는 크레딧이 절반쯤 올라왔을 때 한 장 찍고 끝낸다.
+	if (bEndCreditsPreview && !bEndCreditsPreviewShot && Offset >= Travel * 0.55f)
+	{
+		bEndCreditsPreviewShot = true;
+		FScreenshotRequest::RequestScreenshot(EndCreditsPreviewPath, false, false);
+		FTimerHandle Quit;
+		GetWorldTimerManager().SetTimer(Quit, FTimerDelegate::CreateWeakLambda(this, []()
+		{
+			FPlatformMisc::RequestExit(false);
+		}), 1.5f, false);
+	}
+#endif
 	if (EndCreditsFinishTime >= 0.0 && Now >= EndCreditsFinishTime)
 	{
 		FinishEndCredits();
@@ -2895,6 +2955,22 @@ void AIGHorrorHUD::DrawSensoryInterludeSkip()
 {
 	if (!Canvas || !bSensoryInterludeSkipAvailable)
 	{
+		SensoryInterludeSkipShownAt = -1.0;
+		return;
+	}
+	// 다시 보는 장면에서 건너뛸 수 있다는 것만 알리면 된다. 2분 40초 내내 모서리에
+	// 떠 있으면 장면을 가린다. 처음 4초만 보이고, 누르는 동안에는 다시 선다.
+	const double Now = FPlatformTime::Seconds();
+	if (SensoryInterludeSkipShownAt < 0.0)
+	{
+		SensoryInterludeSkipShownAt = Now;
+	}
+	const bool bPressing = bSensoryInterludeSkipInProgress || SensoryInterludeSkipProgress > 0.001f;
+	const float ChipAlpha = bPressing
+		? 1.0f
+		: 1.0f - FMath::SmoothStep(4.0f, 4.6f, static_cast<float>(Now - SensoryInterludeSkipShownAt));
+	if (ChipAlpha <= 0.01f)
+	{
 		return;
 	}
 
@@ -2909,20 +2985,19 @@ void AIGHorrorHUD::DrawSensoryInterludeSkip()
 		PanelPosition,
 		FVector2D(PanelWidth, PanelHeight),
 		12.0f * Scale,
-		FLinearColor(0.012f, 0.016f, 0.015f, 0.78f));
+		FLinearColor(0.012f, 0.016f, 0.015f, 0.78f * ChipAlpha));
 
+	// 건너뛰기는 기록 보기 키다. 키를 바꾼 사람에게 TAB을 누르라고 하지 않는다.
+	const FText SkipKey = GetBoundKeyLabel(EIGBindableAction::Journal, bUsingGamepad);
 	const FText Label = bSensoryInterludeSkipToggleMode
-		? (bSensoryInterludeSkipInProgress
-			? (bUsingGamepad
-				? NSLOCTEXT("IGHUD", "FifthDawnSkipToggleCancelPad", "Y  다시 눌러 취소")
-				: NSLOCTEXT("IGHUD", "FifthDawnSkipToggleCancel", "TAB  다시 눌러 취소"))
-			: (bUsingGamepad
-				? NSLOCTEXT("IGHUD", "FifthDawnSkipToggleStartPad", "Y  눌러 건너뛰기")
-				: NSLOCTEXT("IGHUD", "FifthDawnSkipToggleStart", "TAB  눌러 건너뛰기")))
+		? FText::Format(
+			bSensoryInterludeSkipInProgress
+				? NSLOCTEXT("IGHUD", "ReplaySkipToggleCancel", "{0}  다시 눌러 취소")
+				: NSLOCTEXT("IGHUD", "ReplaySkipToggleStart", "{0}  눌러 건너뛰기"),
+			SkipKey)
 		: FText::Format(
-			bUsingGamepad
-				? NSLOCTEXT("IGHUD", "FifthDawnSkipHoldPad", "Y  {0}초 누르기 · 건너뛰기")
-				: NSLOCTEXT("IGHUD", "FifthDawnSkipHold", "TAB  {0}초 누르기 · 건너뛰기"),
+			NSLOCTEXT("IGHUD", "ReplaySkipHold", "{0}  {1}초 눌러 건너뛰기"),
+			SkipKey,
 			FText::AsNumber(SensoryInterludeSkipHoldSeconds));
 	const float TextScale = GetFittedTextScale(
 		Label,
@@ -2933,7 +3008,7 @@ void AIGHorrorHUD::DrawSensoryInterludeSkip()
 	DrawLeftAlignedText(
 		Label,
 		PanelPosition + FVector2D(17.0f * Scale, 13.0f * Scale),
-		FLinearColor(0.78f, 0.79f, 0.75f, 0.94f),
+		FLinearColor(0.78f, 0.79f, 0.75f, 0.94f * ChipAlpha),
 		EIGHudTextRole::Hint,
 		TextScale);
 
@@ -2944,7 +3019,7 @@ void AIGHorrorHUD::DrawSensoryInterludeSkip()
 		TrackPosition,
 		TrackSize,
 		1.5f * Scale,
-		FLinearColor(0.25f, 0.27f, 0.25f, 0.72f));
+		FLinearColor(0.25f, 0.27f, 0.25f, 0.72f * ChipAlpha));
 	if (SensoryInterludeSkipProgress > 0.001f)
 	{
 		DrawRoundedHudSurface(
@@ -3119,11 +3194,19 @@ bool AIGHorrorHUD::DrawMissingFloorEpilogue(const double CurrentTime)
 			FVector2D(ContentLeft, PenY),
 			FLinearColor(0.56f, 0.55f, 0.51f, 0.92f * Entrance),
 			EIGHudTextRole::Speaker,
-			0.76f * TypeScale);
+			GetFittedTextScale(
+				MissingFloorEpilogueHeading,
+				EIGHudTextRole::Speaker,
+				0.76f * TypeScale,
+				ContentWidth,
+				0.76f * TypeScale * 0.7f));
 		PenY += 40.0f * FMath::Max(Scale, TypeScale * 0.72f);
 	}
 
+	// 글자를 키우거나 번역이 길면 기사 한 줄이 화면 폭을 넘는다. 폭에서 줄을
+	// 바꾸고, 같은 문장 안의 줄은 조금 좁게 붙인다.
 	const float LineStride = 42.0f * FMath::Max(Scale, TypeScale * 0.74f);
+	UFont* EpilogueBodyFont = GetFontForRole(EIGHudTextRole::Dialogue);
 	for (const FText& Line : MissingFloorEpilogueBodyLines)
 	{
 		if (Line.IsEmpty())
@@ -3131,13 +3214,30 @@ bool AIGHorrorHUD::DrawMissingFloorEpilogue(const double CurrentTime)
 			PenY += LineStride * 0.55f;
 			continue;
 		}
-		DrawLeftAlignedText(
-			Line,
-			FVector2D(ContentLeft, PenY),
-			FLinearColor(0.88f, 0.87f, 0.83f, Entrance),
-			EIGHudTextRole::Dialogue,
-			0.90f * TypeScale);
-		PenY += LineStride;
+		TArray<FString> Wrapped;
+		FString Remainder;
+		WrapHudText(
+			Line.ToString(),
+			EpilogueBodyFont,
+			0.90f * TypeScale,
+			ContentWidth,
+			3,
+			Wrapped,
+			Remainder);
+		if (Wrapped.IsEmpty())
+		{
+			Wrapped.Add(Line.ToString());
+		}
+		for (int32 Piece = 0; Piece < Wrapped.Num(); ++Piece)
+		{
+			DrawLeftAlignedText(
+				FText::FromString(Wrapped[Piece]),
+				FVector2D(ContentLeft, PenY),
+				FLinearColor(0.88f, 0.87f, 0.83f, Entrance),
+				EIGHudTextRole::Dialogue,
+				0.90f * TypeScale);
+			PenY += Piece + 1 < Wrapped.Num() ? LineStride * 0.78f : LineStride;
+		}
 	}
 
 	if (!MissingFloorEpilogueFootnote.IsEmpty())
@@ -3148,7 +3248,12 @@ bool AIGHorrorHUD::DrawMissingFloorEpilogue(const double CurrentTime)
 			FVector2D(ContentLeft, PenY),
 			FLinearColor(0.62f, 0.61f, 0.57f, 0.90f * Entrance),
 			EIGHudTextRole::Hint,
-			0.74f * TypeScale);
+			GetFittedTextScale(
+				MissingFloorEpilogueFootnote,
+				EIGHudTextRole::Hint,
+				0.74f * TypeScale,
+				ContentWidth,
+				0.74f * TypeScale * 0.7f));
 		PenY += 34.0f * FMath::Max(Scale, TypeScale * 0.70f);
 	}
 
@@ -3215,15 +3320,36 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 		FLinearColor(0.91f, 0.90f, 0.86f, EntranceAlpha));
 
 	const float Padding = 34.0f * Scale;
-	const float TopBarHeight = 68.0f * Scale;
 	const float ContentLeft = PanelPosition.X + Padding;
 	const float ContentWidth = PanelSize.X - Padding * 2.0f;
+	// 번역이 길어도 판 밖으로 나가지 않게 줄마다 폭에 맞춰 줄인다.
+	auto FitScale = [this](
+		const FText& Text,
+		const EIGHudTextRole TextRole,
+		const float PreferredScale,
+		const float MaximumWidth)
+	{
+		return GetFittedTextScale(
+			Text, TextRole, PreferredScale, MaximumWidth, PreferredScale * 0.6f);
+	};
+	const FText AppSection = NSLOCTEXT("IGHUD", "EndingCAppSection", "주거  ·  빌라");
+	const float AppSectionScale =
+		FitScale(AppSection, EIGHudTextRole::Speaker, 0.82f * TypeScale, ContentWidth);
 	DrawLeftAlignedText(
-		NSLOCTEXT("IGHUD", "EndingCAppSection", "주거  ·  빌라"),
+		AppSection,
 		FVector2D(ContentLeft, PanelPosition.Y + 22.0f * Scale),
 		FLinearColor(0.20f, 0.22f, 0.20f, 0.88f * EntranceAlpha),
 		EIGHudTextRole::Speaker,
-		0.82f * TypeScale);
+		AppSectionScale);
+	// 글자를 키우면 머리줄도 같이 내려간다. 구분선이 글자를 긋지 않게 한다.
+	const float TopBarHeight = FMath::Max(
+		68.0f * Scale,
+		22.0f * Scale
+			+ MeasureTextHeight(
+				AppSection.ToString(),
+				GetFontForRole(EIGHudTextRole::Speaker),
+				AppSectionScale)
+			+ 10.0f * Scale);
 	DrawRoundedHudSurface(
 		FVector2D(ContentLeft, PanelPosition.Y + TopBarHeight - 2.0f * Scale),
 		FVector2D(ContentWidth, 1.0f * Scale),
@@ -3252,45 +3378,59 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 		RecordLayoutValidationRect(
 			FVector2D(ContentLeft, BodyTop - HeroTravel),
 			FVector2D(ContentLeft + ContentWidth, BodyTop - HeroTravel + HeroHeight));
+		// 칩은 글자 폭에 맞춰 넓힌다. 「Unit 403」은 「403호」보다 길다.
+		const FText UnitChip = NSLOCTEXT("IGHUD", "EndingCUnitChip", "403호");
+		const float ChipTextScale = 0.66f * Scale;
+		const float ChipTextWidth = MeasureTextWidth(
+			UnitChip.ToString(),
+			GetFontForRole(EIGHudTextRole::Hint),
+			ChipTextScale);
+		const float ChipWidth = FMath::Max(72.0f * Scale, ChipTextWidth + 30.0f * Scale);
 		DrawRoundedHudSurface(
 			FVector2D(ContentLeft + 14.0f * Scale, BodyTop + 14.0f * Scale - HeroTravel),
-			FVector2D(72.0f * Scale, 31.0f * Scale),
+			FVector2D(ChipWidth, 31.0f * Scale),
 			15.5f * Scale,
 			FLinearColor(0.05f, 0.06f, 0.055f, 0.80f * HeroAlpha));
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCUnitChip", "403호"),
+			UnitChip,
 			FVector2D(
-				ContentLeft + 29.0f * Scale,
+				ContentLeft + 14.0f * Scale + (ChipWidth - ChipTextWidth) * 0.5f,
 				BodyTop + 20.0f * Scale - HeroTravel),
 			FLinearColor(0.91f, 0.90f, 0.84f, HeroAlpha),
 			EIGHudTextRole::Hint,
-			0.66f * Scale);
+			ChipTextScale);
 	}
 
 	const float ListingAlpha = EntranceAlpha * (1.0f - ScrollAlpha);
 	if (ListingAlpha > 0.01f)
 	{
 		float PenY = BodyTop + HeroHeight + 28.0f * Scale;
+		const FText ListingTitle =
+			NSLOCTEXT("IGHUD", "EndingCListingTitle", "무영로 달빛빌라 403호");
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCListingTitle", "무영로 달빛빌라 403호"),
+			ListingTitle,
 			FVector2D(ContentLeft, PenY),
 			FLinearColor(0.095f, 0.105f, 0.095f, ListingAlpha),
 			EIGHudTextRole::Prompt,
-			0.98f * TypeScale);
+			FitScale(ListingTitle, EIGHudTextRole::Prompt, 0.98f * TypeScale, ContentWidth));
 		PenY += 45.0f * FMath::Max(Scale, TypeScale * 0.72f);
+		const FText ListingCopy =
+			NSLOCTEXT("IGHUD", "EndingCListingCopy", "채광 좋은 남향, 즉시 입주 가능");
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCListingCopy", "채광 좋은 남향, 즉시 입주 가능"),
+			ListingCopy,
 			FVector2D(ContentLeft, PenY),
 			FLinearColor(0.25f, 0.27f, 0.24f, 0.88f * ListingAlpha),
 			EIGHudTextRole::Dialogue,
-			0.83f * TypeScale);
+			FitScale(ListingCopy, EIGHudTextRole::Dialogue, 0.83f * TypeScale, ContentWidth));
 		PenY += 42.0f * FMath::Max(Scale, TypeScale * 0.72f);
+		const FText ListingMeta =
+			NSLOCTEXT("IGHUD", "EndingCListingMeta", "빌라  ·  4층  ·  남향");
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCListingMeta", "빌라  ·  4층  ·  남향"),
+			ListingMeta,
 			FVector2D(ContentLeft, PenY),
 			FLinearColor(0.38f, 0.40f, 0.37f, 0.78f * ListingAlpha),
 			EIGHudTextRole::Hint,
-			0.70f * TypeScale);
+			FitScale(ListingMeta, EIGHudTextRole::Hint, 0.70f * TypeScale, ContentWidth));
 	}
 
 	const float CommentAlpha = EntranceAlpha * ScrollAlpha;
@@ -3300,19 +3440,23 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 			? 0.0f
 			: (1.0f - ScrollAlpha) * 28.0f * Scale;
 		float PenY = BodyTop + MotionOffset;
+		const FText ScrolledTitle =
+			NSLOCTEXT("IGHUD", "EndingCScrolledTitle", "무영로 달빛빌라 403호");
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCScrolledTitle", "무영로 달빛빌라 403호"),
+			ScrolledTitle,
 			FVector2D(ContentLeft, PenY),
 			FLinearColor(0.095f, 0.105f, 0.095f, CommentAlpha),
 			EIGHudTextRole::Prompt,
-			0.90f * TypeScale);
+			FitScale(ScrolledTitle, EIGHudTextRole::Prompt, 0.90f * TypeScale, ContentWidth));
 		PenY += 48.0f * FMath::Max(Scale, TypeScale * 0.72f);
+		const FText CommentHeading =
+			NSLOCTEXT("IGHUD", "EndingCCommentHeading", "입주자 후기");
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCCommentHeading", "입주자 후기"),
+			CommentHeading,
 			FVector2D(ContentLeft, PenY),
 			FLinearColor(0.31f, 0.33f, 0.30f, 0.90f * CommentAlpha),
 			EIGHudTextRole::Speaker,
-			0.72f * TypeScale);
+			FitScale(CommentHeading, EIGHudTextRole::Speaker, 0.72f * TypeScale, ContentWidth));
 		PenY += 39.0f * FMath::Max(Scale, TypeScale * 0.72f);
 
 		const float CommentHeight = FMath::Min(
@@ -3327,28 +3471,39 @@ bool AIGHorrorHUD::DrawMissingFloorFailureEnding(const double CurrentTime)
 			FVector2D(ContentLeft, PenY),
 			FVector2D(ContentLeft + ContentWidth, PenY + CommentHeight));
 		const float CommentInset = 24.0f * Scale;
+		const float CommentTextWidth = ContentWidth - CommentInset * 2.0f;
+		const FText CommentOne =
+			NSLOCTEXT("IGHUD", "EndingCCommentLineOne", "이 집 새벽에 노크 소리 나요.");
+		const FText CommentTwo =
+			NSLOCTEXT("IGHUD", "EndingCCommentLineTwo", "두 명이서 하는 것 같아요.");
+		// 한 사람이 쓴 두 줄이라 글자 크기를 같이 맞춘다.
+		const float CommentScale = FMath::Min(
+			FitScale(CommentOne, EIGHudTextRole::Dialogue, 0.84f * TypeScale, CommentTextWidth),
+			FitScale(CommentTwo, EIGHudTextRole::Dialogue, 0.84f * TypeScale, CommentTextWidth));
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCCommentLineOne", "이 집 새벽에 노크 소리 나요."),
+			CommentOne,
 			FVector2D(ContentLeft + CommentInset, PenY + 27.0f * Scale),
 			FLinearColor(0.11f, 0.12f, 0.105f, CommentAlpha),
 			EIGHudTextRole::Dialogue,
-			0.84f * TypeScale);
+			CommentScale);
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCCommentLineTwo", "두 명이서 하는 것 같아요."),
+			CommentTwo,
 			FVector2D(
 				ContentLeft + CommentInset,
 				PenY + 27.0f * Scale + 43.0f * FMath::Max(Scale, TypeScale * 0.72f)),
 			FLinearColor(0.11f, 0.12f, 0.105f, CommentAlpha),
 			EIGHudTextRole::Dialogue,
-			0.84f * TypeScale);
+			CommentScale);
+		const FText CommentMeta =
+			NSLOCTEXT("IGHUD", "EndingCCommentMeta", "방금 전  ·  조회 17");
 		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "EndingCCommentMeta", "방금 전  ·  조회 17"),
+			CommentMeta,
 			FVector2D(
 				ContentLeft + CommentInset,
 				PenY + CommentHeight - 37.0f * Scale),
 			FLinearColor(0.39f, 0.40f, 0.37f, 0.80f * CommentAlpha),
 			EIGHudTextRole::Hint,
-			0.66f * TypeScale);
+			FitScale(CommentMeta, EIGHudTextRole::Hint, 0.66f * TypeScale, CommentTextWidth));
 	}
 
 	if (bMissingFloorFailureRetryEnabled)
@@ -5673,21 +5828,35 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 			const float TextX = LaneX + Padding + ThumbnailSize
 				+ 9.0f * ResolutionScale;
 			const float TextWidth = LaneWidth - (TextX - LaneX) - Padding;
+			// 제목과 장소 줄은 한 줄이다. 번역이 길면 카드 폭에 맞춰 줄인다.
 			DrawPaperText(
 				Entry.Title,
 				FVector2D(TextX, CardY + Padding - 1.0f * ResolutionScale),
 				Ink,
 				EIGHudTextRole::Speaker,
-				CardTextScale * 0.86f);
+				GetFittedTextScale(
+					Entry.Title,
+					EIGHudTextRole::Speaker,
+					CardTextScale * 0.86f,
+					TextWidth,
+					CardTextScale * 0.86f * 0.7f));
 
 			TArray<FString> ExcerptLines;
 			FString ExcerptRemainder;
+			// 발췌는 카드에 들어가는 만큼 줄을 쓴다. 두 줄로 잘라 나머지를 버리면
+			// 한국어보다 긴 영어 번역에서 문서의 뒷말이 사라졌다.
+			const float ExcerptTop = Padding + 23.0f * ResolutionScale;
+			const float ExcerptBottom = CardHeight - 26.0f * ResolutionScale;
+			const int32 ExcerptMaxLines = FMath::Clamp(
+				FMath::FloorToInt((ExcerptBottom - ExcerptTop) / (17.0f * ResolutionScale)),
+				2,
+				5);
 			WrapHudText(
 				Entry.Excerpt.ToString(),
 				BodyFont,
 				CardTextScale * 0.72f,
 				TextWidth,
-				2,
+				ExcerptMaxLines,
 				ExcerptLines,
 				ExcerptRemainder);
 			float TextY = CardY + Padding + 23.0f * ResolutionScale;
@@ -5708,7 +5877,12 @@ void AIGHorrorHUD::DrawMissingFloorJournalPanel()
 					CardY + CardHeight - 22.0f * ResolutionScale),
 				FaintInk,
 				EIGHudTextRole::Hint,
-				CardTextScale * 0.62f);
+				GetFittedTextScale(
+					Entry.WhereWhen,
+					EIGHudTextRole::Hint,
+					CardTextScale * 0.62f,
+					LaneWidth - Padding * 2.0f,
+					CardTextScale * 0.62f * 0.7f));
 		}
 	}
 
@@ -6223,6 +6397,8 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 	const float LookRowStride = 28.0f * Scale;
 	const float LookFirstY = Metrics.TitleTop + 62.0f * Scale;
 	const float ValueX = Metrics.ContentLeft + 300.0f * Scale;
+	// 동사 이름 칸. 번역이 길면 옆 칸을 덮기 전에 줄인다.
+	const float LabelColumnWidth = ValueX - Metrics.ContentLeft - 20.0f * Scale;
 	FNumberFormattingOptions TwoDecimals;
 	TwoDecimals.MinimumFractionalDigits = 2;
 	TwoDecimals.MaximumFractionalDigits = 2;
@@ -6264,7 +6440,8 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 			FVector2D(Metrics.ContentLeft, RowY),
 			bSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
 			EIGHudTextRole::Hint,
-			1.05f * Scale);
+			GetFittedTextScale(
+				Label, EIGHudTextRole::Hint, 1.05f * Scale, LabelColumnWidth, 0.7f * Scale));
 		// 고른 행에만 꺾쇠를 붙여 좌우로 움직이는 행임을 알린다.
 		DrawLeftAlignedText(
 			bSelected
@@ -6282,25 +6459,36 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 	// 고른 칸에는 꺾쇠를 함께 그린다(§24 즉시 차단 22).
 	const float ColumnKeyboardX = Metrics.ContentLeft + 300.0f * Scale;
 	const float ColumnGamepadX = Metrics.ContentLeft + 470.0f * Scale;
+	// 칸 폭. 번역된 키 이름이나 입력 대기 문구가 옆 칸을 덮지 않게 한다.
+	const float KeyboardColumnWidth = ColumnGamepadX - ColumnKeyboardX - 14.0f * Scale;
+	const float GamepadColumnWidth = FMath::Max(
+		KeyboardColumnWidth,
+		Canvas->ClipX - Metrics.ContentLeft - ColumnGamepadX);
 	const float HeaderY = LookFirstY
 		+ UIGInputBindingSubsystem::LookRowCount * LookRowStride
 		+ 16.0f * Scale;
+	const FText KeyboardHeader =
+		MakeBindingColumnHeader(false, bSystemMenuKeyBindingColumnGamepad);
+	const FText GamepadHeader =
+		MakeBindingColumnHeader(true, bSystemMenuKeyBindingColumnGamepad);
 	DrawLeftAlignedText(
-		MakeBindingColumnHeader(false, bSystemMenuKeyBindingColumnGamepad),
+		KeyboardHeader,
 		FVector2D(ColumnKeyboardX, HeaderY),
 		bSystemMenuKeyBindingColumnGamepad
 			? IGHorrorHUD::SettingsSecondary
 			: IGHorrorHUD::SettingsAccent,
 		EIGHudTextRole::Hint,
-		0.84f * Scale);
+		GetFittedTextScale(
+			KeyboardHeader, EIGHudTextRole::Hint, 0.84f * Scale, KeyboardColumnWidth, 0.6f * Scale));
 	DrawLeftAlignedText(
-		MakeBindingColumnHeader(true, bSystemMenuKeyBindingColumnGamepad),
+		GamepadHeader,
 		FVector2D(ColumnGamepadX, HeaderY),
 		bSystemMenuKeyBindingColumnGamepad
 			? IGHorrorHUD::SettingsAccent
 			: IGHorrorHUD::SettingsSecondary,
 		EIGHudTextRole::Hint,
-		0.84f * Scale);
+		GetFittedTextScale(
+			GamepadHeader, EIGHudTextRole::Hint, 0.84f * Scale, GamepadColumnWidth, 0.6f * Scale));
 
 	const int32 ActionCount = UIGInputBindingSubsystem::GetActionCount();
 	const float RowStride = 30.0f * Scale;
@@ -6327,7 +6515,8 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 			FVector2D(Metrics.ContentLeft, RowY),
 			bSelected ? IGHorrorHUD::SettingsPrimary : IGHorrorHUD::SettingsSecondary,
 			EIGHudTextRole::Hint,
-			1.05f * Scale);
+			GetFittedTextScale(
+				Info.Label, EIGHudTextRole::Hint, 1.05f * Scale, LabelColumnWidth, 0.7f * Scale));
 
 		for (int32 Column = 0; Column < 2; ++Column)
 		{
@@ -6358,12 +6547,13 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 				Shown = GetBoundKeyLabel(static_cast<EIGBindableAction>(Row), bGamepadColumn);
 			}
 			const bool bOverridden = !Bindings->IsDefaultBinding(Row, bGamepadColumn);
+			const FText CellText = bOverridden
+				? FText::Format(
+					NSLOCTEXT("IGHUD", "KeyBindingsChanged", "{0} *"),
+					Shown)
+				: Shown;
 			DrawLeftAlignedText(
-				bOverridden
-					? FText::Format(
-						NSLOCTEXT("IGHUD", "KeyBindingsChanged", "{0} *"),
-						Shown)
-					: Shown,
+				CellText,
 				FVector2D(bGamepadColumn ? ColumnGamepadX : ColumnKeyboardX, RowY),
 				bCapturingHere
 					? IGHorrorHUD::SettingsAccent
@@ -6371,7 +6561,12 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 						? IGHorrorHUD::SettingsPrimary
 						: IGHorrorHUD::SettingsSecondary,
 				EIGHudTextRole::Hint,
-				1.05f * Scale);
+				GetFittedTextScale(
+					CellText,
+					EIGHudTextRole::Hint,
+					1.05f * Scale,
+					bGamepadColumn ? GamepadColumnWidth : KeyboardColumnWidth,
+					0.7f * Scale));
 		}
 	}
 
@@ -6395,43 +6590,55 @@ void AIGHorrorHUD::DrawKeyBindingsPanel()
 
 	// 고른 행의 설명. §18.1이 그 동사에 대해 말하는 것을 그대로 보여 준다.
 	const float DetailY = ResetY + 34.0f * Scale;
+	// 설명 줄은 화면 양쪽 여백 안에 맞춘다.
+	const float DetailWidth = Canvas->ClipX - Metrics.ContentLeft * 2.0f;
+	auto DrawDetailLine = [this, DetailWidth, &Metrics](
+		const FText& Text,
+		const float Y,
+		const FLinearColor& Color,
+		const float PreferredScale)
+	{
+		DrawLeftAlignedText(
+			Text,
+			FVector2D(Metrics.ContentLeft, Y),
+			Color,
+			EIGHudTextRole::Hint,
+			GetFittedTextScale(
+				Text, EIGHudTextRole::Hint, PreferredScale, DetailWidth, PreferredScale * 0.7f));
+	};
 	const int32 DetailAction =
 		SystemMenuKeyBindingSelection - UIGInputBindingSubsystem::LookRowCount;
 	if (SystemMenuKeyBindingSelection < UIGInputBindingSubsystem::LookRowCount)
 	{
-		DrawLeftAlignedText(
+		DrawDetailLine(
 			NSLOCTEXT("IGHUD", "LookDetail", "마우스와 게임패드 감도는 따로 조절합니다. 세로 감도 배율을 높이면 위아래로 더 빠르게 움직입니다."),
-			FVector2D(Metrics.ContentLeft, DetailY),
+			DetailY,
 			IGHorrorHUD::SettingsSecondary,
-			EIGHudTextRole::Hint,
 			0.82f * Scale);
 	}
 	else if (DetailAction >= 0 && DetailAction < ActionCount)
 	{
-		DrawLeftAlignedText(
+		DrawDetailLine(
 			UIGInputBindingSubsystem::GetActionInfo(DetailAction).Description,
-			FVector2D(Metrics.ContentLeft, DetailY),
+			DetailY,
 			IGHorrorHUD::SettingsSecondary,
-			EIGHudTextRole::Hint,
 			0.82f * Scale);
 	}
 	if (!SystemMenuKeyBindingStatus.IsEmpty())
 	{
-		DrawLeftAlignedText(
+		DrawDetailLine(
 			SystemMenuKeyBindingStatus,
-			FVector2D(Metrics.ContentLeft, DetailY + 24.0f * Scale),
+			DetailY + 24.0f * Scale,
 			bSystemMenuKeyBindingStatusIsError
 				? IGHorrorHUD::SettingsAccent
 				: IGHorrorHUD::SettingsSuccess,
-			EIGHudTextRole::Hint,
 			0.82f * Scale);
 	}
 
-	DrawLeftAlignedText(
+	DrawDetailLine(
 		NSLOCTEXT("IGHUD", "KeyBindingsFixedNote", "Esc(일시정지)와 F10(접근성 설정)은 바꿀 수 없습니다. 패드 버튼은 Xbox 기준입니다."),
-		FVector2D(Metrics.ContentLeft, DetailY + 48.0f * Scale),
+		DetailY + 48.0f * Scale,
 		IGHorrorHUD::SettingsSecondary,
-		EIGHudTextRole::Hint,
 		0.78f * Scale);
 
 	DrawLeftAlignedText(
@@ -6695,6 +6902,10 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 					" 어느 난이도에서도 모든 결말을 볼 수 있습니다."), false},
 		};
 
+		// 번역은 한국어보다 길다. 왼쪽 그늘 안에서 줄을 바꾼다.
+		const float NoticeWidth = FMath::Max(
+			Metrics.ContentWidth,
+			Canvas->ClipX * 0.58f - Metrics.ContentLeft);
 		float NoticePenY = Metrics.MenuTop - 18.0f * SupportScale;
 		for (const FNoticeLine& Line : NoticeLines)
 		{
@@ -6702,16 +6913,40 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			{
 				NoticePenY += 10.0f * SupportScale;
 			}
-			DrawLeftAlignedText(
-				Line.Text,
-				FVector2D(Metrics.ContentLeft, NoticePenY),
-				WithAlpha(
-					Line.bHeading
-						? IGHorrorHUD::FrontendIvory
-						: IGHorrorHUD::FrontendMuted),
-				Line.bHeading ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
-				(Line.bHeading ? 0.94f : 0.88f) * SupportScale);
-			NoticePenY += (Line.bHeading ? 30.0f : 27.0f) * SupportScale;
+			const EIGHudTextRole LineRole =
+				Line.bHeading ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint;
+			const float LineScale = (Line.bHeading ? 0.94f : 0.88f) * SupportScale;
+			TArray<FString> Wrapped;
+			FString Overflow;
+			WrapHudText(
+				Line.Text.ToString(),
+				GetFontForRole(LineRole),
+				LineScale,
+				NoticeWidth,
+				3,
+				Wrapped,
+				Overflow);
+			if (Wrapped.IsEmpty())
+			{
+				Wrapped.Add(Line.Text.ToString());
+			}
+			for (const FString& Piece : Wrapped)
+			{
+				DrawLeftAlignedText(
+					FText::FromString(Piece),
+					FVector2D(Metrics.ContentLeft, NoticePenY),
+					WithAlpha(
+						Line.bHeading
+							? IGHorrorHUD::FrontendIvory
+							: IGHorrorHUD::FrontendMuted),
+					LineRole,
+					LineScale);
+				NoticePenY += (Line.bHeading ? 30.0f : 25.0f) * SupportScale;
+			}
+			if (!Line.bHeading)
+			{
+				NoticePenY += 2.0f * SupportScale;
+			}
 		}
 
 		DrawLeftAlignedText(
@@ -6828,11 +7063,11 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		EIGHudTextRole::Hint,
 		0.76f * SupportScale);
 
-	TArray<FString> MessageLines;
+	TArray<FString> MessageSources;
 	FLinearColor MessageColor = IGHorrorHUD::FrontendIvory;
 	if (bSystemMenuIsTitle && bSystemMenuHeadphoneRecommendation)
 	{
-		MessageLines = {
+		MessageSources = {
 			NSLOCTEXT("IGHUD", "Menu.ThisGameIsMadeToBeHeardOnHeadphones", "헤드폰을 쓰면 소리가 나는 방향을 구분하기 쉽습니다.").ToString(),
 			NSLOCTEXT("IGHUD", "Menu.PressAnyKeyToSkip", "아무 키를 누르면 건너뜁니다.").ToString()
 		};
@@ -6840,7 +7075,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 	}
 	else if (bSystemMenuIsTitle && bSystemMenuConfirmNewGame)
 	{
-		MessageLines = {
+		MessageSources = {
 			NSLOCTEXT("IGHUD", "Menu.ThisOverwritesYourAutosave", "자동 저장을 덮어씁니다.").ToString(),
 			NSLOCTEXT("IGHUD", "Menu.SelectNewGameAgainToStart", "한 번 더 누르면 새 게임을 시작합니다").ToString()
 		};
@@ -6848,33 +7083,48 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 	}
 	else if (!SystemMenuStatusText.IsEmpty())
 	{
-		UFont* HintFont = GetFontForRole(EIGHudTextRole::Hint);
-		FString Remainder;
-		if (HintFont)
-		{
-			WrapHudText(
-				SystemMenuStatusText.ToString(),
-				HintFont,
-				SupportScale,
-				Metrics.ContentWidth,
-				2,
-				MessageLines,
-				Remainder);
-		}
-		if (MessageLines.IsEmpty())
-		{
-			MessageLines.Add(SystemMenuStatusText.ToString());
-		}
+		MessageSources.Add(SystemMenuStatusText.ToString());
 		MessageColor = bSystemMenuStatusIsError
 			? IGHorrorHUD::FrontendOxide
 			: IGHorrorHUD::FrontendIvory;
 	}
+	// 안내 문장은 메뉴 행 바로 위에 붙는다. 번역이 길면 그늘 안에서 줄을
+	// 바꾸고, 늘어난 줄 수만큼 위로 올린다.
+	const float MessageWidth = FMath::Max(
+		Metrics.ContentWidth,
+		Canvas->ClipX * 0.56f - Metrics.ContentLeft);
+	TArray<FString> MessageLines;
+	UFont* MessageFont = GetFontForRole(EIGHudTextRole::Hint);
+	for (const FString& MessageSource : MessageSources)
+	{
+		TArray<FString> Wrapped;
+		FString Remainder;
+		if (MessageFont)
+		{
+			WrapHudText(
+				MessageSource,
+				MessageFont,
+				SupportScale,
+				MessageWidth,
+				2,
+				Wrapped,
+				Remainder);
+		}
+		if (Wrapped.IsEmpty())
+		{
+			Wrapped.Add(MessageSource);
+		}
+		MessageLines.Append(Wrapped);
+	}
 	if (!MessageLines.IsEmpty())
 	{
+		const float MessageStep = 21.0f * SupportScale;
+		const float MessageStartY = Metrics.MessageTop
+			- FMath::Max(0, MessageLines.Num() - 2) * MessageStep;
 		FCanvasTileItem MessageMark(
 			FVector2D(
 				Metrics.ContentLeft - 13.0f * Metrics.Scale,
-				Metrics.MessageTop + 2.0f * Metrics.Scale),
+				MessageStartY + 2.0f * Metrics.Scale),
 			FVector2D(
 				FMath::Max(2.0f, 2.0f * Metrics.Scale),
 				MessageLines.Num() * 20.0f * SupportScale),
@@ -6887,7 +7137,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 				FText::FromString(MessageLines[Line]),
 				FVector2D(
 					Metrics.ContentLeft,
-					Metrics.MessageTop + Line * 21.0f * SupportScale),
+					MessageStartY + Line * MessageStep),
 				WithAlpha(MessageColor),
 				EIGHudTextRole::Hint,
 				SupportScale);
@@ -7008,18 +7258,33 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		// 흐려진 밤 5는 여전히 선택 가능하므로 비활성 색이 아니라 밝기만 낮춘다.
 		const float DisabledMultiplier =
 			(bEnabled ? 1.0f : 0.52f) * (bDimmed ? 0.55f : 1.0f);
-		const float RowTextScale = bSelected
+		const FText LabelText = FText::FromString(Label);
+		const EIGHudTextRole RowRole = bSelected
+			? EIGHudTextRole::Prompt
+			: EIGHudTextRole::Hint;
+		const float PreferredRowScale = bSelected
 			? SupportScale
 			: SupportScale * (20.0f / 18.0f);
+		// 행 폭은 정해져 있다. 긴 번역은 행 안에 들어올 만큼만 줄이고,
+		// 줄어든 만큼 아래로 내려 행 가운데에 둔다.
+		const float RowTextScale = GetFittedTextScale(
+			LabelText,
+			RowRole,
+			PreferredRowScale,
+			Metrics.ContentWidth - 21.0f * Metrics.Scale,
+			SupportScale * 0.6f);
+		UFont* RowFont = GetFontForRole(RowRole);
+		const float ShrinkDrop = RowTextScale < PreferredRowScale
+			? (MeasureTextHeight(Label, RowFont, PreferredRowScale)
+				- MeasureTextHeight(Label, RowFont, RowTextScale)) * 0.5f
+			: 0.0f;
 		DrawLeftAlignedText(
-			FText::FromString(Label),
+			LabelText,
 			FVector2D(
 				Metrics.ContentLeft + 13.0f * Metrics.Scale,
-				RowPosition.Y + FMath::Max(9.0f, 13.0f * Metrics.Scale)),
+				RowPosition.Y + FMath::Max(9.0f, 13.0f * Metrics.Scale) + ShrinkDrop),
 			WithAlpha(LabelColor, DisabledMultiplier),
-			bSelected
-				? EIGHudTextRole::Prompt
-				: EIGHudTextRole::Hint,
+			RowRole,
 			RowTextScale);
 
 		const FBox2D HitBox = Metrics.GetRowHitBox(VisibleSlot);
@@ -7648,20 +7913,42 @@ void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)
 		UFont* Font,
 		const float X,
 		const float Y,
-		const FLinearColor& Color)
+		const FLinearColor& Color,
+		const float TextScale)
 	{
 		FCanvasTextItem Item(FVector2D(X, Y), Text, Font, Color);
+		Item.Scale = FVector2D(TextScale);
 		Item.EnableShadow(FLinearColor(0.0f, 0.0f, 0.0f, 0.75f), FVector2D(1.0f, 1.0f));
 		Canvas->DrawItem(Item);
 	};
+	// 폰 화면은 폭이 좁다. 번역이 길면 이 폭 안에 들어올 만큼 줄인다.
+	auto FitPhoneScale = [this](
+		const FText& Text,
+		UFont* Font,
+		const float PreferredScale,
+		const float MaximumWidth)
+	{
+		const float RawWidth = MeasureTextWidth(Text.ToString(), Font, 1.0f);
+		return RawWidth > KINDA_SMALL_NUMBER
+			? FMath::Clamp(MaximumWidth / RawWidth, PreferredScale * 0.7f, PreferredScale)
+			: PreferredScale;
+	};
 
+	// 탁자 위 폰은 그 시간(04:30~05:30)에는 손에 없다. 이사 온 날 저녁이
+	// 아니면 낮에 보는 화면이다.
+	const UGameInstance* PhoneGameInstance = GetGameInstance();
+	const UIGMissingFloorNarrativeSubsystem* PhoneNarrative = PhoneGameInstance
+		? PhoneGameInstance->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
+		: nullptr;
+	const bool bDaytime = PhoneNarrative && PhoneNarrative->GetNightIndex() > 0;
 	const float ContentLeft = ScreenOrigin.X + 16.0f;
 	DrawPhoneText(
-		FText::FromString(TEXT("04:44")),
+		FText::FromString(bDaytime ? TEXT("14:17") : TEXT("19:48")),
 		MetaFont,
 		ContentLeft,
 		ScreenOrigin.Y + 9.0f,
-		PrimaryText);
+		PrimaryText,
+		1.0f);
 	const FText StatusText = FText::FromString(TEXT("LTE   76%"));
 	float StatusWidth = 0.0f;
 	float StatusHeight = 0.0f;
@@ -7671,12 +7958,64 @@ void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)
 		MetaFont,
 		ScreenOrigin.X + InnerWidth - StatusWidth - 14.0f,
 		ScreenOrigin.Y + 9.0f,
-		SecondaryText);
+		SecondaryText,
+		1.0f);
 
 	const float NotificationX = ScreenOrigin.X + 11.0f;
 	const float NotificationY = ScreenOrigin.Y + 48.0f;
 	const float NotificationWidth = InnerWidth - 22.0f;
-	const float NotificationHeight = FMath::Min(250.0f, InnerHeight * 0.47f);
+	const float TextLeft = NotificationX + 16.0f;
+	const float TextWidth = NotificationWidth - 32.0f;
+
+	// 본문은 폰 화면 폭에서 줄을 바꾼다. 한국어도 한 줄에 다 들어가지 않는다.
+	// 빈 줄은 문단 사이를 반 줄 띄운다. 마지막 줄은 거래 상태다.
+	constexpr float BodyScale = 0.8f;
+	float SampleWidth = 0.0f;
+	float SampleHeight = 20.0f;
+	Canvas->StrLen(BodyFont, *GetLineHeightSample(), SampleWidth, SampleHeight, true);
+	const float BodyLineHeight = SampleHeight * BodyScale * 1.18f;
+	struct FPhoneLine
+	{
+		FString Text;
+		bool bStatus = false;
+	};
+	TArray<FPhoneLine> BodyLines;
+	const TArray<FText>& Lines = Note.GetBodyLines();
+	for (int32 LineIndex = 0; LineIndex < Lines.Num(); ++LineIndex)
+	{
+		if (Lines[LineIndex].IsEmpty())
+		{
+			BodyLines.Add(FPhoneLine());
+			continue;
+		}
+		TArray<FString> Wrapped;
+		FString Remainder;
+		WrapHudText(
+			Lines[LineIndex].ToString(),
+			BodyFont,
+			BodyScale,
+			TextWidth,
+			3,
+			Wrapped,
+			Remainder);
+		for (FString& Piece : Wrapped)
+		{
+			FPhoneLine Wrap;
+			Wrap.Text = MoveTemp(Piece);
+			Wrap.bStatus = LineIndex == Lines.Num() - 1;
+			BodyLines.Add(MoveTemp(Wrap));
+		}
+	}
+	float BodyHeight = 0.0f;
+	for (const FPhoneLine& Line : BodyLines)
+	{
+		BodyHeight += Line.Text.IsEmpty() ? BodyLineHeight * 0.5f : BodyLineHeight;
+	}
+	const float BodyTop = NotificationY + 98.0f;
+	const float NotificationHeight = FMath::Clamp(
+		BodyTop + BodyHeight + 18.0f - NotificationY,
+		FMath::Min(250.0f, InnerHeight * 0.47f),
+		InnerHeight - 92.0f);
 	DrawRect(
 		FLinearColor(0.065f, 0.086f, 0.092f, 0.98f),
 		NotificationX,
@@ -7695,53 +8034,50 @@ void AIGHorrorHUD::DrawPhoneNotificationPanel(const AIGReadableNote& Note)
 		NotificationY + 15.0f,
 		28.0f,
 		28.0f);
-	// 읽지 않은 상태는 색 면이나 확대 대신 작은 푸른 점 하나로만 남긴다.
-	DrawRect(
-		FLinearColor(0.20f, 0.55f, 0.95f, 1.0f),
-		NotificationX + NotificationWidth - 20.0f,
-		NotificationY + 18.0f,
-		6.0f,
-		6.0f);
+	// 동네 중고 거래 앱에서 오빠 공구를 찾아본 화면이다. 알림이 아니다.
+	const float HeaderTextWidth = NotificationWidth - 51.0f - 12.0f;
+	const FText AppName = NSLOCTEXT("IGHUD", "PhoneMarketApp", "동네장터");
 	DrawPhoneText(
-		NSLOCTEXT("IGHUD", "PhoneApprovalApp", "해온카드"),
+		AppName,
 		MetaFont,
 		NotificationX + 51.0f,
-		NotificationY + 13.0f,
-		PrimaryText);
+		NotificationY + 10.0f,
+		PrimaryText,
+		FitPhoneScale(AppName, MetaFont, 1.0f, HeaderTextWidth));
+	const FText SearchLabel =
+		NSLOCTEXT("IGHUD", "PhoneMarketSearch", "‘조율 공구’ 관련 글");
 	DrawPhoneText(
-		NSLOCTEXT("IGHUD", "PhoneApprovalJustNow", "방금 전"),
+		SearchLabel,
 		MetaFont,
 		NotificationX + 51.0f,
-		NotificationY + 31.0f,
-		SecondaryText);
+		NotificationY + 33.0f,
+		SecondaryText,
+		FitPhoneScale(SearchLabel, MetaFont, 1.0f, HeaderTextWidth));
 
 	DrawPhoneText(
 		Note.GetTitle(),
 		BodyFont,
-		NotificationX + 16.0f,
-		NotificationY + 60.0f,
-		PrimaryText);
-	float PenY = NotificationY + 94.0f;
-	const float LineHeight = FMath::Clamp(NotificationHeight / 7.8f, 24.0f, 30.0f);
-	const TArray<FText>& Lines = Note.GetBodyLines();
-	for (int32 LineIndex = 0; LineIndex < Lines.Num(); ++LineIndex)
+		TextLeft,
+		NotificationY + 63.0f,
+		PrimaryText,
+		FitPhoneScale(Note.GetTitle(), BodyFont, 0.94f, TextWidth));
+	float PenY = BodyTop;
+	for (const FPhoneLine& Line : BodyLines)
 	{
-		const bool bStatusLine = LineIndex == Lines.Num() - 1;
+		if (Line.Text.IsEmpty())
+		{
+			PenY += BodyLineHeight * 0.5f;
+			continue;
+		}
 		DrawPhoneText(
-			Lines[LineIndex],
+			FText::FromString(Line.Text),
 			BodyFont,
-			NotificationX + 16.0f,
+			TextLeft,
 			PenY,
-			bStatusLine ? Accent : PrimaryText);
-		PenY += LineHeight;
+			Line.bStatus ? Accent : PrimaryText,
+			BodyScale);
+		PenY += BodyLineHeight;
 	}
-
-	DrawPhoneText(
-		NSLOCTEXT("IGHUD", "PhoneApprovalHistory", "알림 기록"),
-		MetaFont,
-		ContentLeft,
-		ScreenOrigin.Y + InnerHeight - 31.0f,
-		SecondaryText);
 	const FText Hint = FText::Format(
 		NSLOCTEXT("IGHUD", "PhoneCloseFormat", "[ {0} ]  휴대폰 내려놓기"),
 		GetBoundKeyLabel(EIGBindableAction::Interact, bUsingGamepad));

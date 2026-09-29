@@ -534,7 +534,7 @@ private:
 	int32 NotePageIndex = 0;
 	int32 NotePageCount = 1;
 	bool bNoteTextWithinPaper = false;
-	/** 어두운 세로 휴대폰 화면. 중고 거래 알림처럼 폰으로 보는 기록을 여기에 띄운다. */
+	/** 어두운 세로 휴대폰 화면. 중고 거래 글처럼 폰으로 보는 기록을 여기에 띄운다. */
 	void DrawPhoneNotificationPanel(const AIGReadableNote& Note);
 	void DrawFearDirection(double CurrentTime);
 	void DrawFirstPersonKnock(double CurrentTime);
@@ -854,6 +854,12 @@ private:
 	TWeakObjectPtr<class AIGNightLoopDirector> NightLoopForNotes;
 	bool bReadCaptureMercyNote = false;
 	bool bEndCreditsActive = false;
+#if !UE_BUILD_SHIPPING
+	/** -IGEndCreditsPreview: 크레딧을 띄워 한 장 찍고 끝낸다. 언어별 글자 확인용. */
+	bool bEndCreditsPreview = false;
+	bool bEndCreditsPreviewShot = false;
+	FString EndCreditsPreviewPath;
+#endif
 	/** 실제 시계(FPlatformTime) 기준. 크레딧 동안 월드가 멈춰 있어도 흐른다. */
 	double EndCreditsStartTime = 0.0;
 	double EndCreditsFinishTime = -1.0;
@@ -912,6 +918,8 @@ private:
 	bool bSensoryInterludeSkipToggleMode = false;
 	float SensoryInterludeSkipProgress = 0.0f;
 	float SensoryInterludeSkipHoldSeconds = 2.0f;
+	/** 건너뛰기 칩이 처음 뜬 시각(FPlatformTime). 4초 뒤 걷히고, 누르는 동안만 다시 선다. */
+	double SensoryInterludeSkipShownAt = -1.0;
 	bool bMissingFloorFailureEndingVisible = false;
 	bool bMissingFloorFailureRetryEnabled = false;
 	double MissingFloorFailureEndingStartedAt = 0.0;

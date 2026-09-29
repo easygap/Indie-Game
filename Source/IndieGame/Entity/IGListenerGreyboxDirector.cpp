@@ -1185,7 +1185,7 @@ bool AIGListenerGreyboxDirector::SetupStage()
 
 		SpawnOptionalWitnesses(CubeMesh);
 
-	// §13 13행. 낮에 폰으로 보는 글이라 종이가 아니라 알림 화면으로 띄운다.
+	// §13 13행. 낮에 폰으로 보는 글이라 종이가 아니라 폰 화면으로 띄운다.
 	// 진실 표에 들어가지 않는다 — 이건 출처가 아니라 심기다.
 	{
 		FActorSpawnParameters ListingParameters;
@@ -1207,7 +1207,7 @@ bool AIGListenerGreyboxDirector::SetupStage()
 				CubeMesh, PhoneMaterial, FVector(7.0f, 14.0f, 1.6f));
 			UsedListingNote->SetPhoneNotificationPresentation();
 			UsedListingNote->SetInteractionPrompt(
-				NSLOCTEXT("IGMissingFloor", "UsedListingPrompt", "휴대폰 알림 보기"));
+				NSLOCTEXT("IGMissingFloor", "UsedListingPrompt", "휴대폰 보기"));
 			UsedListingNote->SetNoteText(
 				NSLOCTEXT("IGMissingFloor", "UsedListingTitle", "달빛  ·  동네 중고 거래"),
 				{
@@ -8616,6 +8616,16 @@ void AIGListenerGreyboxDirector::AdvanceReadingReview()
 		CaptureShot(TEXT("reading-tuning"));
 		break;
 	case 14:
+		// 탁자 위 휴대폰. 중고 거래 글이 폰 화면 폭 안에서 줄을 바꾸는지 본다.
+		Check(UsedListingNote != nullptr,TEXT("phone_listing_exists"));
+		if (UsedListingNote) Open(UsedListingNote.Get());
+		else ArrivalCaptureStep = 16;
+		break;
+	case 15:
+		Check(AIGReadableNote::GetOpenNote()==UsedListingNote.Get(),TEXT("phone_listing_opens"));
+		CaptureShot(TEXT("reading-phone"));
+		break;
+	case 16:
 		if (AIGReadableNote* Note=AIGReadableNote::GetOpenNote()) Note->Close();
 		GetWorldTimerManager().ClearTimer(ArrivalCaptureTimer);
 		UE_LOG(LogTemp,Display,TEXT("READING_REVIEW %s failures=%d"),

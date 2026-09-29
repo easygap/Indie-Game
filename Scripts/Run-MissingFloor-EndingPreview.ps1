@@ -2,7 +2,9 @@
 param(
 	[string]$OutputDirectory,
 	[ValidateRange(30, 180)]
-	[int]$TimeoutSeconds = 120
+	[int]$TimeoutSeconds = 120,
+	# 번역본 글자 폭을 볼 때 쓴다. 비우면 저장된 언어 설정을 따른다.
+	[string]$Culture
 )
 
 $ErrorActionPreference = 'Stop'
@@ -83,8 +85,12 @@ foreach ($case in $cases) {
 	if ($case.reducedMotion) {
 		$arguments += '-IGReducedMotion'
 	}
+	if (-not [string]::IsNullOrWhiteSpace($Culture)) {
+		$arguments += ('-IGCulture=' + $Culture)
+	}
 
-	$process = Start-Process -FilePath $editor -ArgumentList $arguments -PassThru
+	# 창을 숨긴다. 떠 있는 콘솔 창을 누가 닫으면 편집기가 그대로 꺼진다.
+	$process = Start-Process -FilePath $editor -ArgumentList $arguments -PassThru -WindowStyle Hidden
 	# Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
 	$null = $process.Handle
 	if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {

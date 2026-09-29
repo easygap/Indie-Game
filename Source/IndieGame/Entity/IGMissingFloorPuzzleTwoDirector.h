@@ -68,7 +68,7 @@ public:
 	/**
 	 * 그녀의 폰이 탁자를 떠나 있는가. 밤2 동안과 그 아침에는 현관 바닥에서
 	 * 녹음하고, 재생하는 동안은 손에 있다. 폰은 한 대라서 그동안 탁자의 폰
-	 * (중고 거래 알림)은 비어 있어야 한다.
+	 * (중고 거래 앱 화면)은 비어 있어야 한다.
 	 */
 	bool IsPhoneInUse() const { return bPhoneInUse; }
 	FSimpleMulticastDelegate OnPhoneInUseChanged;
