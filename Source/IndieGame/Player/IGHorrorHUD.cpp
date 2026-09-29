@@ -717,7 +717,7 @@ UFont* AIGHorrorHUD::MakeRuntimeFont(
 		FCompositeSubFont& SubFont = Composite.SubTypefaces.AddDefaulted_GetRef();
 		FTypefaceEntry& CjkEntry = SubFont.Typeface.Fonts.AddDefaulted_GetRef();
 		CjkEntry.Name = TEXT("Regular");
-		CjkEntry.Font = FFontData(ActiveCjkFontFace.Get());
+		CjkEntry.Font = FFontData(ActiveCjkFontFace.Get(), ActiveCjkSubFaceIndex);
 		const TPair<int32, int32> Ranges[] = {
 			{0x3000, 0x303F},  // 전각 문장 부호
 			{0x3040, 0x30FF},  // 히라가나, 가타카나
@@ -750,13 +750,17 @@ UFontFace* AIGHorrorHUD::LoadCjkFontFace(const FString& Culture)
 		const TCHAR* Culture;
 		const TCHAR* Bundled;
 		const TCHAR* System[3];
+		int32 SystemFace[3];
 	};
 	// 번들은 OFL인 Noto Sans 지역 서브셋이다. 시스템 글꼴은 개발 PC와 번들이
 	// 빠진 빌드에서만 쓰는 대체다(윈도우 10/11에 기본으로 들어 있다).
+	// 글꼴 모음에서는 화면용 UI 서체를 고른다. Yu Gothic Medium(0번)은 가나가
+	// 전각 폭이라 글자 사이가 벌어져 보이고, Yu Gothic UI(1번)는 가나 폭이 좁다.
+	// YaHei와 JhengHei의 UI 서체는 줄 높이가 게임 글자에 맞다.
 	static const FCandidate Candidates[] = {
-		{TEXT("ja"), TEXT("NotoSansJP-Regular.otf"), {TEXT("YuGothM.ttc"), TEXT("meiryo.ttc"), TEXT("msgothic.ttc")}},
-		{TEXT("zh-Hans"), TEXT("NotoSansSC-Regular.otf"), {TEXT("msyh.ttc"), TEXT("simsun.ttc"), nullptr}},
-		{TEXT("zh-Hant"), TEXT("NotoSansTC-Regular.otf"), {TEXT("msjh.ttc"), TEXT("mingliub.ttc"), nullptr}},
+		{TEXT("ja"), TEXT("NotoSansJP-Regular.otf"), {TEXT("YuGothM.ttc"), TEXT("meiryo.ttc"), TEXT("msgothic.ttc")}, {1, 2, 2}},
+		{TEXT("zh-Hans"), TEXT("NotoSansSC-Regular.otf"), {TEXT("msyh.ttc"), TEXT("simsun.ttc"), nullptr}, {1, 0, 0}},
+		{TEXT("zh-Hant"), TEXT("NotoSansTC-Regular.otf"), {TEXT("msjh.ttc"), TEXT("mingliub.ttc"), nullptr}, {1, 0, 0}},
 	};
 	UFontFace* Result = nullptr;
 	for (const FCandidate& Candidate : Candidates)
@@ -773,8 +777,9 @@ UFontFace* AIGHorrorHUD::LoadCjkFontFace(const FString& Culture)
 			FontsDirectory = FontsDirectory.IsEmpty()
 				? TEXT("C:/Windows/Fonts")
 				: FPaths::Combine(FontsDirectory, TEXT("Fonts"));
-			for (const TCHAR* SystemFile : Candidate.System)
+			for (int32 SystemIndex = 0; SystemIndex < UE_ARRAY_COUNT(Candidate.System); ++SystemIndex)
 			{
+				const TCHAR* SystemFile = Candidate.System[SystemIndex];
 				TArray<uint8> FontBytes;
 				const FString FontPath = SystemFile ? FPaths::Combine(FontsDirectory, SystemFile) : FString();
 				if (FontPath.IsEmpty() || !FPaths::FileExists(FontPath)
@@ -787,7 +792,9 @@ UFontFace* AIGHorrorHUD::LoadCjkFontFace(const FString& Culture)
 				Result->Hinting = EFontHinting::Default;
 				Result->SourceFilename = FontPath;
 				Result->FontFaceData = FFontFaceData::MakeFontFaceData(MoveTemp(FontBytes));
-				UE_LOG(LogIndieGame, Display, TEXT("CJK HUD font for %s loaded from the system: %s"), *Culture, *FontPath);
+				CjkFontSubFaces.Add(Culture, Candidate.SystemFace[SystemIndex]);
+				UE_LOG(LogIndieGame, Display, TEXT("CJK HUD font for %s loaded from the system: %s (face %d)"),
+					*Culture, *FontPath, Candidate.SystemFace[SystemIndex]);
 				break;
 			}
 		}
@@ -823,6 +830,7 @@ void AIGHorrorHUD::InitializeKoreanFont()
 			: TEXT("zh-Hans");
 	}
 	ActiveCjkFontFace = CjkCulture.IsEmpty() ? nullptr : LoadCjkFontFace(CjkCulture);
+	ActiveCjkSubFaceIndex = CjkFontSubFaces.FindRef(CjkCulture);
 	if (KoreanBodyFontFace && KoreanEmphasisFontFace && KoreanDisplayFontFace)
 	{
 		// 두 번째부터는 얼굴은 그대로 두고 역할별 글꼴만 새로 만든다.
@@ -5966,18 +5974,46 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 	const float LeftX = PanelOrigin.X + 54.0f * Scale;
 	const float RightX = PanelOrigin.X + PanelSize.X * 0.55f;
 	const float ContentY = PanelOrigin.Y + 144.0f * Scale;
+	// 두 칸의 폭. 가운데 구분선과 판 오른쪽 끝을 넘지 않는다.
+	const float LeftColumnWidth =
+		PanelOrigin.X + PanelSize.X * 0.50f - 24.0f * Scale - LeftX;
+	const float RightColumnWidth =
+		PanelOrigin.X + PanelSize.X - 40.0f * Scale - RightX;
+	// 설명은 두 줄로 나뉘어 있다. 번역에서 가장 긴 줄이 칸을 넘으면 글자를 줄인다.
+	auto FitBlockScale = [this](
+		const FText& Text,
+		const float PreferredScale,
+		const float MaximumWidth)
+	{
+		TArray<FString> Lines;
+		Text.ToString().ParseIntoArrayLines(Lines);
+		UFont* Font = GetFontForRole(EIGHudTextRole::Hint);
+		float Widest = 0.0f;
+		for (const FString& Line : Lines)
+		{
+			Widest = FMath::Max(Widest, MeasureTextWidth(Line, Font, 1.0f));
+		}
+		return Widest > KINDA_SMALL_NUMBER
+			? FMath::Clamp(MaximumWidth / Widest, PreferredScale * 0.7f, PreferredScale)
+			: PreferredScale;
+	};
+	const FText KnockLabel =
+		NSLOCTEXT("IGHUD", "AudioCalibrationKnockLabel", "위층 노크 소리");
 	DrawLeftAlignedText(
-		NSLOCTEXT("IGHUD", "AudioCalibrationKnockLabel", "위층 노크 소리"),
+		KnockLabel,
 		FVector2D(LeftX, ContentY),
 		IGHorrorHUD::ThoughtBlue,
 		EIGHudTextRole::Prompt,
-		Scale);
+		GetFittedTextScale(
+			KnockLabel, EIGHudTextRole::Prompt, Scale, LeftColumnWidth, 0.7f * Scale));
+	const FText KnockInstruction =
+		NSLOCTEXT("IGHUD", "AudioCalibrationKnockInstruction", "노크가 또렷하게 들리면서도\n깜짝 놀라지 않을 만큼 맞춰 주세요.");
 	DrawLeftAlignedText(
-		NSLOCTEXT("IGHUD", "AudioCalibrationKnockInstruction", "노크가 또렷하게 들리면서도\n깜짝 놀라지 않을 만큼 맞춰 주세요."),
+		KnockInstruction,
 		FVector2D(LeftX, ContentY + 38.0f * Scale),
 		IGHorrorHUD::PaleGray,
 		EIGHudTextRole::Hint,
-		0.86f * Scale);
+		FitBlockScale(KnockInstruction, 0.86f * Scale, LeftColumnWidth));
 
 	const float MeterY = ContentY + 116.0f * Scale;
 	const float MeterGap = 10.0f * Scale;
@@ -5997,18 +6033,23 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 		Canvas->DrawItem(Bar);
 	}
 
+	const FText ShadowLabel =
+		NSLOCTEXT("IGHUD", "AudioCalibrationShadowLabel", "어두운 화면 확인");
 	DrawLeftAlignedText(
-		NSLOCTEXT("IGHUD", "AudioCalibrationShadowLabel", "어두운 화면 확인"),
+		ShadowLabel,
 		FVector2D(RightX, ContentY),
 		IGHorrorHUD::ThoughtBlue,
 		EIGHudTextRole::Prompt,
-		Scale);
+		GetFittedTextScale(
+			ShadowLabel, EIGHudTextRole::Prompt, Scale, RightColumnWidth, 0.7f * Scale));
+	const FText ShadowInstruction =
+		NSLOCTEXT("IGHUD", "AudioCalibrationShadowInstruction", "가운데 칸이 희미하게 보이도록 맞춰 주세요.\n왼쪽 칸은 배경과 구분되지 않아야 합니다.");
 	DrawLeftAlignedText(
-		NSLOCTEXT("IGHUD", "AudioCalibrationShadowInstruction", "가운데 칸이 희미하게 보이도록 맞춰 주세요.\n왼쪽 칸은 배경과 구분되지 않아야 합니다."),
+		ShadowInstruction,
 		FVector2D(RightX, ContentY + 38.0f * Scale),
 		IGHorrorHUD::PaleGray,
 		EIGHudTextRole::Hint,
-		0.86f * Scale);
+		FitBlockScale(ShadowInstruction, 0.86f * Scale, RightColumnWidth));
 	const FLinearColor ShadowPatches[] =
 	{
 		FLinearColor(0.006f, 0.007f, 0.008f, 1.0f),
@@ -7738,9 +7779,11 @@ void AIGHorrorHUD::DrawNotePanel()
 	const float UserScale = Accessibility ? Accessibility->GetCaptionSizeScale() : 1.f;
 	const float Scale = GetResolutionTextScale(UserScale);
 	const float ScreenScale = FMath::Clamp(Canvas->ClipY / 1080.f, .65f, 1.5f);
-	// 읽기 그림은 한국어로 인쇄된 원본이다. 다른 언어에서는 번역된 글자를 보여 준다.
-	UTexture2D* Artwork = IsKoreanCulture() ? Note->GetReadingArtwork() : nullptr;
+	// 읽기 그림은 한국어로 인쇄된 원본이다. 한국어에서는 그림이 첫 장이다. 다른
+	// 언어에서는 번역된 글을 먼저 보여 주고 원본 그림은 마지막 장에 둔다.
+	UTexture2D* Artwork = Note->GetReadingArtwork();
 	const bool HasArtwork = Artwork != nullptr;
+	const bool bArtworkFirst = HasArtwork && IsKoreanCulture();
 	const float PaperHeight = FMath::Min(Canvas->ClipY * .80f, 860.f * ScreenScale);
 	const float PaperWidth = FMath::Min(Canvas->ClipX * .86f,
 		HasArtwork ? PaperHeight * 1.385f : PaperHeight * .707f);
@@ -7779,13 +7822,14 @@ void AIGHorrorHUD::DrawNotePanel()
 		}
 		if (ReadingTextPages.IsEmpty()) ReadingTextPages.AddDefaulted();
 		NotePageCount = ReadingTextPages.Num() + int32(HasArtwork);
-		if (Reopened) NotePageIndex = HasArtwork && UserScale > 1.15f ? 1 : 0;
+		if (Reopened) NotePageIndex = bArtworkFirst && UserScale > 1.15f ? 1 : 0;
 		NotePageIndex = FMath::Clamp(NotePageIndex, 0, NotePageCount-1);
 	}
 	const FLinearColor Ink(.075f, .080f, .078f, 1);
 	DrawRect(FLinearColor(0,0,0,.72f), 0, 0, Canvas->ClipX, Canvas->ClipY);
 	DrawRect(FLinearColor(0,0,0,.55f), Origin.X+5*ScreenScale, Origin.Y+7*ScreenScale, PaperWidth, Height);
-	const bool ArtworkPage = HasArtwork && NotePageIndex == 0;
+	const bool ArtworkPage = HasArtwork
+		&& NotePageIndex == (bArtworkFirst ? 0 : NotePageCount - 1);
 	UTexture2D* Paper = ArtworkPage ? Artwork : NotePaperTexture.Get();
 	if (Paper)
 		DrawTexture(Paper, Origin.X, Origin.Y, PaperWidth, Height, 0, 0, 1, 1, FLinearColor::White, BLEND_Opaque);
@@ -7801,7 +7845,7 @@ void AIGHorrorHUD::DrawNotePanel()
 		Canvas->DrawItem(Header);
 		DrawRect(FLinearColor(.25f,.28f,.29f,.5f), Origin.X+Margin,
 			Origin.Y+Margin+HeaderHeight, TextWidth, ScreenScale);
-		const TArray<FString>& Lines = ReadingTextPages[NotePageIndex-int32(HasArtwork)];
+		const TArray<FString>& Lines = ReadingTextPages[NotePageIndex-int32(bArtworkFirst)];
 		float Y = BodyTop;
 		for (const FString& Line : Lines)
 		{
@@ -7822,7 +7866,9 @@ void AIGHorrorHUD::DrawNotePanel()
 			: NSLOCTEXT("IGHUD", "NoteNavigationKeyboard", "← → / 휠");
 		Footer = FText::Format(
 			ArtworkPage
-				? NSLOCTEXT("IGHUD", "NotePageArtworkFormat", "[ {0} ]  {1} / {2} · 다음 장은 본문")
+				? (bArtworkFirst
+					? NSLOCTEXT("IGHUD", "NotePageArtworkFormat", "[ {0} ]  {1} / {2} · 다음 장은 본문")
+					: NSLOCTEXT("IGHUD", "NotePageOriginalFormat", "[ {0} ]  {1} / {2} · 한국어 원본"))
 				: NSLOCTEXT("IGHUD", "NotePageFormat", "[ {0} ]  {1} / {2}"),
 			Navigation,
 			FText::AsNumber(NotePageIndex + 1),

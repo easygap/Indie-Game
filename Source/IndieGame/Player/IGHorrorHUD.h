@@ -767,6 +767,9 @@ private:
 	/** 지금 역할별 글꼴에 붙어 있는 한자·가나 글꼴. 없으면 한국어와 영어만 그린다. */
 	UPROPERTY(Transient)
 	TObjectPtr<UFontFace> ActiveCjkFontFace;
+	/** 글꼴 모음(.ttc) 안에서 쓸 서체 번호. 문화권별로 CjkFontFaces와 짝이다. */
+	TMap<FString, int32> CjkFontSubFaces;
+	int32 ActiveCjkSubFaceIndex = 0;
 	FDelegateHandle CultureChangedHandle;
 
 	TWeakObjectPtr<UIGInteractionComponent> InteractionComponent;

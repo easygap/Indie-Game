@@ -8531,6 +8531,9 @@ void AIGListenerGreyboxDirector::AdvanceReadingReview()
 	float TextScale = 1;
 	FParse::Value(FCommandLine::Get(),TEXT("IGCaptionScale="),TextScale);
 	const bool LargeText = TextScale > 1.15f;
+	// 한국어는 인쇄된 원본 그림이 첫 장이고 큰 글씨면 본문부터 연다. 다른 언어는
+	// 번역된 본문이 첫 장이고 원본 그림이 마지막 장이다.
+	const int32 LabelFirstPage = AIGHorrorHUD::IsKoreanCulture() && LargeText ? 1 : 0;
 	auto Check = [this](bool Ok, const TCHAR* Name)
 	{
 		ImmersionReviewFailures += !Ok;
@@ -8559,15 +8562,15 @@ void AIGListenerGreyboxDirector::AdvanceReadingReview()
 		break;
 	case 1:
 		Check(NightThree->GetLabelsNote()->GetReadingArtwork()!=nullptr,TEXT("label_uses_installed_artwork"));
-		Check(Hud->GetNotePageIndex()==int32(LargeText),TEXT("first_page_respects_text_size"));
+		Check(Hud->GetNotePageIndex()==LabelFirstPage,TEXT("first_page_respects_text_size"));
 		Check(Hud->IsNoteTextWithinPaper(),TEXT("label_text_inside_paper"));
 		CaptureShot(TEXT("reading-label"));
 		break;
 	case 2:
-		Key(LargeText?EKeys::Left:EKeys::Right);
+		Key(LabelFirstPage==1?EKeys::Left:EKeys::Right);
 		break;
 	case 3:
-		Check(Hud->GetNotePageIndex()==int32(!LargeText),TEXT("keyboard_turns_page"));
+		Check(Hud->GetNotePageIndex()==1-LabelFirstPage,TEXT("keyboard_turns_page"));
 		Check(Hud->IsNoteTextWithinPaper(),TEXT("label_second_page_inside_paper"));
 		CaptureShot(TEXT("reading-label-alternate"));
 		break;
