@@ -105,6 +105,11 @@ MAX_WIDTH = 1600
 QUALITY = 86
 
 
+# 같은 캡처의 아래쪽에는 늘 떠 있던 조작 안내 줄이 남아 있다. 지금 게임은 이 줄을
+# 처음 몇 초만 보여 주므로 README에서도 잘라낸다.
+CONTROLS_BAND = 0.06
+
+
 def objective_band(height):
     """잘라낼 위쪽 목표 띠의 픽셀 높이."""
     return int(round(height * OBJECTIVE_BAND))
@@ -133,8 +138,9 @@ def optimize_animation(name, width, fps):
     if name in LEGACY_OBJECTIVE:
         with Image.open(source) as probe:
             top = objective_band(probe.height)
+            bottom = int(round(probe.height * CONTROLS_BAND))
             chain = "crop={0}:{1}:0:{2},".format(
-                probe.width, probe.height - top, top) + chain
+                probe.width, probe.height - top - bottom, top) + chain
     subprocess.run(
         ["ffmpeg", "-y", "-loglevel", "error", "-i", source,
          "-vf", chain + ",palettegen=stats_mode=diff", palette],
