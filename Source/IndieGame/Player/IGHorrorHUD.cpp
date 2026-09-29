@@ -1842,8 +1842,14 @@ FText AIGHorrorHUD::GetBoundKeyLabel(
 	{
 		return NSLOCTEXT("IGHUD", "KeyLabelNone", "없음");
 	}
+	return GetShortKeyLabel(Key);
+}
+
+FText AIGHorrorHUD::GetShortKeyLabel(const FKey& Key)
+{
 	// 패드는 Xbox 배열의 짧은 이름으로. 「Gamepad Face Button Bottom」은 힌트 줄에
-	// 못 들어간다. 키보드는 자주 쓰는 긴 이름만 줄인다.
+	// 못 들어간다. 키보드는 키캡에 적힌 이름으로 둔다. 엔진 이름은 언어마다
+	// 번역되어 간체에서만 「Tab键」처럼 모양이 달라진다.
 	struct FShortLabel
 	{
 		FKey Key;
@@ -1878,6 +1884,21 @@ FText AIGHorrorHUD::GetBoundKeyLabel(
 		{EKeys::ThumbMouseButton, TEXT("M4")},
 		{EKeys::ThumbMouseButton2, TEXT("M5")},
 		{EKeys::CapsLock, TEXT("Caps")},
+		{EKeys::Tab, TEXT("Tab")},
+		{EKeys::Enter, TEXT("Enter")},
+		{EKeys::Escape, TEXT("Esc")},
+		{EKeys::BackSpace, TEXT("Backspace")},
+		{EKeys::Delete, TEXT("Del")},
+		{EKeys::Insert, TEXT("Ins")},
+		{EKeys::Home, TEXT("Home")},
+		{EKeys::End, TEXT("End")},
+		{EKeys::PageUp, TEXT("PgUp")},
+		{EKeys::PageDown, TEXT("PgDn")},
+		{EKeys::Up, TEXT("↑")},
+		{EKeys::Down, TEXT("↓")},
+		{EKeys::Left, TEXT("←")},
+		{EKeys::Right, TEXT("→")},
+		{EKeys::RightAlt, TEXT("R-Alt")},
 	};
 	for (const FShortLabel& Short : ShortLabels)
 	{

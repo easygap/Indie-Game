@@ -171,6 +171,11 @@ public:
 	static bool IsKoreanCulture();
 	/** 줄 높이 측정용 글자. 표시 언어마다 번역으로 바꾼다. */
 	static FString GetLineHeightSample();
+	/**
+	 * 키의 짧은 이름. 패드는 Xbox 배열 이름, 키보드는 키캡에 적힌 이름이다.
+	 * 엔진 키 이름은 언어마다 번역돼서(간체의 「Tab键」) 다른 키와 모양이 어긋난다.
+	 */
+	static FText GetShortKeyLabel(const FKey& Key);
 	/** 힌트 키가 지금 뭔가를 하는가. 설정에서 끄면 안내에도 적지 않는다. */
 	bool IsHintRequestAvailable() const;
 	/** 막힌 것 같을 때 힌트 키를 한 번 알려 준다. 힌트를 끈 사람에게는 띄우지 않는다. */

@@ -4525,7 +4525,7 @@ bool AIGPlayerController::CaptureKeyBindingInput(const FInputKeyEventArgs& Param
 		bKeyBindingCapturing = false;
 		KeyBindingStatusText = FText::Format(
 			NSLOCTEXT("IGHUD", "KeyBindingsBound", "‘{0}’ 키로 바꿨습니다."),
-			Params.Key.GetDisplayName());
+			AIGHorrorHUD::GetShortKeyLabel(Params.Key));
 		bKeyBindingStatusIsError = false;
 	}
 	else
