@@ -2284,7 +2284,9 @@ void AIGPrologueWorldScene::BuildApartment()
 	// Ceiling: the flush LED slab every 원룸 has, plus the perimeter molding
 	// that finishes wallpaper to ceiling. Both are cold at this hour — the
 	// room is lit by the lamp and the window, not by the fixture.
-	CreateBlock(FVector(-30, 0, 227), FVector(96, 62, 6), SignWhiteMaterial, false);
+	// 꺼진 등이라 빛나지 않는 흰 플라스틱이다. 간판용 흰색은 스스로 빛나서
+	// 새벽에 천장을 올려다보면 불 꺼진 방에 판만 하얗게 떠 있었다.
+	CreateBlock(FVector(-30, 0, 227), FVector(96, 62, 6), FridgeInteriorMaterial, false);
 	CreateBlock(FVector(-30, 0, 230.5f), FVector(104, 70, 3), Furniture, false);
 	for (const float MoldY : {-213.0f, 213.0f})
 	{
