@@ -8376,6 +8376,16 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 	}
 	ArrivalCaptureStep = FParse::Param(FCommandLine::Get(), TEXT("IGCircuitCorridorOnly")) ? 32 : 0;
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGBedroomInteractionOnly"))) ArrivalCaptureStep = 26;
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGTrailerCapture")))
+	{
+		// 트레일러는 프레임마다 카메라를 옮기고 한 장씩 찍는다. -UseFixedTimeStep과 함께 돌린다.
+		TWeakObjectPtr<AIGListenerGreyboxDirector> WeakThis(this);
+		FTSTicker::GetCoreTicker().AddTicker(FTickerDelegate::CreateLambda([WeakThis](float)
+		{
+			return WeakThis.IsValid() && WeakThis->AdvanceTrailerCapture();
+		}));
+		return;
+	}
 	if (FParse::Param(FCommandLine::Get(), TEXT("IGImmersionReview")))
 	{
 		// 일시 정지 메뉴에서도 검사가 이어져야 한다.
@@ -8407,6 +8417,190 @@ void AIGListenerGreyboxDirector::StartArrivalCapture()
 		1.4f,
 		true,
 		bDetailScreens ? 8.4f : -1.f);
+}
+
+bool AIGListenerGreyboxDirector::AdvanceTrailerCapture()
+{
+	// 장면 표. Night가 0이면 입주 날 저녁, 그 밖에는 그 밤의 04:30이다. bCamera가
+	// 거짓이면 플레이어 시점이라 손전등과 손떨림이 같이 찍힌다. Entity는 0이면
+	// 잠들고, 1이면 A에 세워 두고, 2면 A에서 B로 기어 온다.
+	struct FTrailerShot
+	{
+		const TCHAR* Name;
+		int32 Night;
+		bool bCamera;
+		FVector From;
+		FVector To;
+		FRotator RotFrom;
+		FRotator RotTo;
+		float Fov;
+		float Seconds;
+		bool bTorch;
+		int32 EntityMode;
+		FVector EntityA;
+		FVector EntityB;
+		float EntityYaw;
+	};
+	static const FTrailerShot Shots[] = {
+		{TEXT("alley"), 0, false, {705,-505,98}, {795,-508,98}, {1,-2,0}, {2,1,0}, 90, 5.0f, false, 0, {}, {}, 0},
+		{TEXT("bedroom-dusk"), 0, false, {80,-100,998}, {70,-92,998}, {-20,132,0}, {-15,146,0}, 90, 5.0f, false, 0, {}, {}, 0},
+		{TEXT("corridor-day"), 0, false, {230,-305,998}, {150,-305,998}, {-4,180,0}, {-3,180,0}, 90, 4.0f, false, 0, {}, {}, 0},
+		{TEXT("bedroom-night"), 2, false, {80,-100,998}, {84,-104,998}, {-14,130,0}, {22,138,0}, 90, 4.5f, false, 0, {}, {}, 0},
+		{TEXT("corridor-night"), 2, false, {330,-305,998}, {230,-305,998}, {-6,180,0}, {-4,178,0}, 90, 5.0f, true, 0, {}, {}, 0},
+		{TEXT("listener-approach"), 2, false, {430,-305,998}, {450,-305,998}, {-9,180,0}, {-11,180,0}, 90, 7.0f, true, 2, {-280,-305,960}, {120,-305,960}, 0},
+		{TEXT("stair-landing"), 2, false, {-300,-305,1005}, {-300,-305,1005}, {-52,180,0}, {-47,178,0}, 90, 4.0f, true, 3, {}, {}, 180},
+		{TEXT("meter-cabinet"), 2, false, {505,-300,92}, {515,-296,92}, {-10,-62,0}, {-8,-58,0}, 90, 3.5f, true, 0, {}, {}, 0},
+		{TEXT("booth-cctv"), 2, false, {165,-190,98}, {165,-178,96}, {-35,90,0}, {-31,90,0}, 90, 4.0f, true, 0, {}, {}, 0},
+	};
+	constexpr float FrameRate = 30.0f;
+
+	UWorld* World = GetWorld();
+	APlayerController* Controller = World ? World->GetFirstPlayerController() : nullptr;
+	AIGPlayerCharacter* PlayerCharacter = Player.Get();
+	if (!Controller || !PlayerCharacter)
+	{
+		FailProbe(TEXT("트레일러 촬영 초기화 실패"));
+		return false;
+	}
+	// -IGTrailerShot=a,b 처럼 이름을 주면 그 장면만 다시 찍는다.
+	FString Only;
+	FParse::Value(FCommandLine::Get(), TEXT("IGTrailerShot="), Only, false);
+	TArray<FString> OnlyNames;
+	Only.ParseIntoArray(OnlyNames, TEXT(","));
+	while (TrailerShotIndex < UE_ARRAY_COUNT(Shots)
+		&& OnlyNames.Num() > 0 && !OnlyNames.Contains(Shots[TrailerShotIndex].Name))
+	{
+		++TrailerShotIndex;
+	}
+	if (TrailerShotIndex >= UE_ARRAY_COUNT(Shots))
+	{
+		UE_LOG(LogTemp, Display, TEXT("TRAILER_CAPTURE PASS dropped=%d"), TrailerDroppedFrames);
+		RequestExit(TrailerDroppedFrames > 0);
+		return false;
+	}
+	const FTrailerShot& Shot = Shots[TrailerShotIndex];
+	const int32 RecordFrames = FMath::RoundToInt(Shot.Seconds * FrameRate);
+	// 첫 장면과 밤이 바뀐 장면은 입주 자막과 밤 제목 카드가 걷힐 때까지 8초 기다린다.
+	const bool bLongWarmup = TrailerShotIndex == 0 || !Only.IsEmpty()
+		|| Shots[TrailerShotIndex - 1].Night != Shot.Night;
+	const int32 WarmupFrames = bLongWarmup ? 240 : 75;
+
+	if (TrailerShotFrame == 0)
+	{
+		if (AHUD* Hud = Controller->GetHUD())
+		{
+			Hud->bShowHUD = false;
+		}
+		if (Shot.Night != TrailerNight && Shot.Night > 0 && NightPhase)
+		{
+			NightPhase->BeginTheHour(Shot.Night);
+			NightPhase->SetHourPaused(true);
+			TrailerNight = Shot.Night;
+		}
+		if (PuzzleTwo && PuzzleTwo->GetBoothDoor())
+		{
+			PuzzleTwo->GetBoothDoor()->ForceOpenState(true);
+		}
+		if (Entity)
+		{
+			Entity->SetDormant(Shot.EntityMode == 0);
+			if (Shot.EntityMode == 1 || Shot.EntityMode == 2)
+			{
+				CaptureParkEntity(Shot.EntityA, Shot.EntityYaw);
+			}
+			if (Shot.EntityMode == 2)
+			{
+				Entity->SetPatrolPoints({Shot.EntityA, Shot.EntityB});
+			}
+			if (Shot.EntityMode == 3)
+			{
+				Entity->TeleportTo(AIGNightOneBeatDirector::GetSightingStagePoint(),
+					FRotator(0.0f, Shot.EntityYaw, 0.0f), false, true);
+				Entity->SetPatrolPoints({AIGNightOneBeatDirector::GetSightingStagePoint(),
+					AIGNightOneBeatDirector::GetSightingShufflePoint()});
+			}
+			Entity->SetActorTickEnabled(Shot.EntityMode != 0);
+		}
+		if (UIGFlashlightComponent* Torch = PlayerCharacter->GetFlashlight())
+		{
+			Torch->SetAvailable(true);
+			Torch->SetOn(Shot.bTorch);
+		}
+		if (ACameraActor* OldCamera = TrailerCamera.Get())
+		{
+			OldCamera->Destroy();
+		}
+		TrailerCamera = nullptr;
+		if (Shot.bCamera)
+		{
+			// 플레이어는 문 닫힌 방에 두어 그의 귀에 걸리지 않게 한다.
+			CaptureTeleportPlayer(FVector(40, -70, 998), -90, 0);
+			ACameraActor* Camera = World->SpawnActor<ACameraActor>(Shot.From, Shot.RotFrom);
+			if (!Camera)
+			{
+				FailProbe(TEXT("트레일러 카메라 없음"));
+				return false;
+			}
+			Camera->GetCameraComponent()->SetFieldOfView(Shot.Fov);
+			Controller->SetViewTarget(Camera);
+			TrailerCamera = Camera;
+		}
+		else
+		{
+			Controller->SetViewTarget(PlayerCharacter);
+			CaptureTeleportPlayer(Shot.From, Shot.RotFrom.Yaw, Shot.RotFrom.Pitch);
+		}
+		FAssetCompilingManager::Get().FinishAllCompilation();
+		if (GShaderCompilingManager)
+		{
+			GShaderCompilingManager->FinishAllCompilation();
+		}
+		UE_LOG(LogTemp, Display, TEXT("TRAILER_SHOT %s frames=%d"), Shot.Name, RecordFrames);
+	}
+
+	// 준비 프레임 동안에는 시작 자세로 두고 빛과 노출이 가라앉기를 기다린다.
+	const int32 RecordIndex = TrailerShotFrame - WarmupFrames;
+	const float Alpha = RecordIndex <= 0 ? 0.0f
+		: FMath::Clamp(RecordIndex / FMath::Max(1.0f, RecordFrames - 1.0f), 0.0f, 1.0f);
+	const float Eased = FMath::InterpEaseInOut(0.0f, 1.0f, Alpha, 2.0f);
+	const FVector Location = FMath::Lerp(Shot.From, Shot.To, Eased);
+	FRotator Rotation = FMath::Lerp(Shot.RotFrom, Shot.RotTo, Eased);
+	if (!Shot.bCamera)
+	{
+		// 손에 든 카메라처럼 아주 조금 흔들린다.
+		const float Time = TrailerShotFrame / FrameRate;
+		Rotation.Pitch += 0.22f * FMath::Sin(Time * 1.7f) + 0.08f * FMath::Sin(Time * 4.3f + 1.1f);
+		Rotation.Yaw += 0.26f * FMath::Sin(Time * 1.1f + 0.4f) + 0.07f * FMath::Sin(Time * 3.7f);
+	}
+	if (ACameraActor* Camera = TrailerCamera.Get())
+	{
+		Camera->SetActorLocationAndRotation(Location, Rotation);
+	}
+	else
+	{
+		PlayerCharacter->SetActorLocation(Location, false, nullptr, ETeleportType::TeleportPhysics);
+		Controller->SetControlRotation(Rotation);
+	}
+
+	if (RecordIndex >= 0 && RecordIndex < RecordFrames)
+	{
+		if (FScreenshotRequest::IsScreenshotRequested())
+		{
+			++TrailerDroppedFrames;
+			UE_LOG(LogTemp, Warning, TEXT("TRAILER_DROP %s frame=%d"), Shot.Name, RecordIndex);
+		}
+		const FString Path = FPaths::ConvertRelativePathToFull(FPaths::Combine(
+			FPaths::ProjectDir(), TEXT("Saved/Trailer"), Shot.Name,
+			FString::Printf(TEXT("frame_%04d.png"), RecordIndex)));
+		FScreenshotRequest::RequestScreenshot(Path, false, false);
+	}
+	++TrailerShotFrame;
+	if (RecordIndex >= RecordFrames)
+	{
+		++TrailerShotIndex;
+		TrailerShotFrame = 0;
+	}
+	return true;
 }
 
 void AIGListenerGreyboxDirector::AdvanceImmersionReview()
@@ -10065,7 +10259,9 @@ void AIGListenerGreyboxDirector::StartNightCapture()
 			if (AHUD* Hud = PlayerController->GetHUD())
 			{
 				// 포획 검수는 실제 HUD가 연출 중 스스로 숨는지까지 확인한다.
-				Hud->bShowHUD = StartStep == 18;
+				// 트레일러 촬영(-IGTrailerNoHud)은 화면 글자 없이 찍는다.
+				Hud->bShowHUD = StartStep == 18
+					&& !FParse::Param(FCommandLine::Get(), TEXT("IGTrailerNoHud"));
 			}
 		}
 	}
@@ -10806,6 +11002,15 @@ void AIGListenerGreyboxDirector::CaptureBeginBurst(
 
 void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 {
+	// 한 장면만 다시 찍을 때는 다음 단계로 넘어가는 순간 끝낸다.
+	int32 StopAfter = -1;
+	if (FParse::Value(FCommandLine::Get(), TEXT("IGNightCaptureStopAfter="), StopAfter)
+		&& StopAfter >= 0 && StepIndex > StopAfter)
+	{
+		UE_LOG(LogTemp, Display, TEXT("NIGHT_CAPTURE_STOP after=%d"), StopAfter);
+		RequestExit(false);
+		return;
+	}
 	CaptureStepIndex = StepIndex;
 	CaptureStepSeconds = 0.0f;
 	bCaptureActionADone = false;

@@ -604,6 +604,13 @@ private:
 	int32 ArrivalCaptureStep = 0;
 	void AdvanceImmersionReview();
 	void AdvanceReadingReview();
+	/** 트레일러 촬영(-IGTrailerCapture). 장면마다 카메라를 옮기며 UI 없는 프레임을 한 장씩 남긴다. */
+	bool AdvanceTrailerCapture();
+	int32 TrailerShotIndex = 0;
+	int32 TrailerShotFrame = 0;
+	int32 TrailerNight = 0;
+	int32 TrailerDroppedFrames = 0;
+	TWeakObjectPtr<class ACameraActor> TrailerCamera;
 	double ImmersionReviewNextTime = 0.0;
 	int32 ImmersionReviewFailures = 0;
 	bool bProductionMode = false;
