@@ -2,7 +2,7 @@
 
 ## Windows에서 플레이하기
 
-1. [Windows 테스트 버전](https://github.com/easygap/Indie-Game/releases/tag/v1.0.0-test.20260929)에서 `MissingFloor-Windows-20260929.zip`을 받습니다.
+1. [Windows 테스트 버전](https://github.com/easygap/Missing-Floor/releases/tag/v1.0.0-test.20260929)에서 `MissingFloor-Windows-20260929.zip`을 받습니다.
 2. ZIP 파일의 **압축을 모두 풉니다.** 실행 파일 옆의 `Engine`, `IndieGame` 폴더도 함께 있어야 합니다.
 3. `IndieGame.exe`를 실행하고 **게임 시작**을 선택합니다.
 4. 소리 크기와 밝기를 맞춘 뒤 시작합니다. 조작법은 `F1`, 난이도와 접근성 설정은 `F10`으로 다시 열 수 있습니다.
@@ -24,7 +24,7 @@ Windows 11, Ryzen 9 7900X, RTX 3060, 메모리 32GB PC에서 실행을 확인했
 - **화면이 끊길 때:** 설정에서 그래픽 품질과 해상도를 낮춰 보세요.
 - **소리가 작을 때:** 게임의 전체 소리와 Windows 볼륨 믹서를 확인해 주세요. 배경 음악과 환경음도 따로 조절할 수 있습니다.
 
-문제가 계속되면 [이슈](https://github.com/easygap/Indie-Game/issues)에
+문제가 계속되면 [이슈](https://github.com/easygap/Missing-Floor/issues)에
 오류 메시지, Windows 버전, 그래픽카드와 문제가 생긴 장면을 남겨 주세요.
 
 ## 소스에서 빌드하기
@@ -33,7 +33,7 @@ Windows 11, Ryzen 9 7900X, RTX 3060, 메모리 32GB PC에서 실행을 확인했
 
 ```powershell
 git lfs install
-git clone https://github.com/easygap/Indie-Game.git
+git clone https://github.com/easygap/Missing-Floor.git
 cd Indie-Game
 git lfs pull
 pwsh -NoProfile -File .\Scripts\Build-ArtAssets.ps1 -CodeOnly
