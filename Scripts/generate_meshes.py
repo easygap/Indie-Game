@@ -721,69 +721,6 @@ def build_soju_bottle():
     return bake(mesh, "SM_SojuBottle")
 
 
-def build_cup_noodle():
-    """Tapered cup ramyeon with a rolled rim and a domed foil lid."""
-    mesh = new_mesh()
-    profile = [
-        (0.0, 0.0), (3.6, 0.0), (3.9, 0.6), (4.6, 5.0),
-        (5.35, 9.6), (5.6, 10.2), (5.35, 10.7), (5.1, 10.4),
-        (4.4, 5.2), (3.7, 0.9), (0.0, 0.9),
-    ]
-    revolve(mesh, profile, steps=40, scale_to_fill=True)
-    lid = new_mesh()
-    revolve(lid, [(0.0, 10.5), (5.3, 10.4), (5.5, 10.7), (0.0, 11.1)], steps=40)
-    options = unreal.GeometryScriptMeshBooleanOptions()
-    BOOL_LIB.apply_mesh_boolean(
-        mesh, xf(), lid, xf(),
-        unreal.GeometryScriptBooleanOperation.UNION, options)
-    return bake(mesh, "SM_CupNoodle")
-
-
-def build_cup_sleeve():
-    """Tapered label band that wraps the cup ramyeon wall.
-
-    The cup is a cone, so a straight cylinder sleeve would either float off
-    the wall at the bottom or cut into it at the top. This matches the cup
-    profile's radii (3.95 at the base of the printed area, 5.30 just under
-    the rim) with a hair of clearance, and carries its own cylindrical UVs so
-    the label art wraps once around without shearing.
-
-    The alternative — putting the label material on the cup mesh itself —
-    is what was there before, and it painted the foil lid and the underside
-    with the ramyeon artwork too, because the lid is unioned into the same
-    mesh and therefore shares material slot 0.
-    """
-    mesh = new_mesh()
-    # Real centimetres, matching the cup wall from local Z 1.6 to 8.8. The
-    # roughly 1 mm radial clearance is deliberate: the old sub-millimetre gap
-    # collapsed in the depth buffer and let the opaque foam cup erase its own
-    # printed film. V=1 is the bottom; V=0 is the top of the artwork.
-    append_wrapped_label_surface(
-        mesh,
-        [(4.18, 0.0, 1.0), (5.36, 7.2, 0.0)],
-        segments=64)
-    return bake(
-        mesh, "SM_CupSleeve", add_collision=False, weld_edges=False)
-
-
-def build_cup_lid():
-    # Kept deliberately shallow and a hair above the cup's own domed top: it
-    # is a foil colour pass over geometry that already exists, not a second
-    # lid. Overlapping the two produced a black ring at grazing angles.
-    """Foil lid disc for the cup ramyeon, with the rolled-over crimp edge.
-
-    Sits on top of the cup as its own prop so it can carry a foil material
-    instead of the label.
-    """
-    mesh = new_mesh()
-    profile = [
-        (0.0, 10.74), (5.12, 10.70), (5.46, 10.84),
-        (5.40, 10.98), (5.02, 10.90), (0.0, 10.94),
-    ]
-    revolve(mesh, profile, steps=48)
-    return bake(mesh, "SM_CupLid", add_collision=False)
-
-
 def build_kimchi_tub():
     mesh = new_mesh()
     profile = [
@@ -1497,9 +1434,6 @@ BUILDERS = (
     build_water_bottle,
     build_bottle_cap,
     build_soju_bottle,
-    build_cup_noodle,
-    build_cup_sleeve,
-    build_cup_lid,
     build_kimchi_tub,
     build_milk_carton,
     build_lever_handle,
@@ -1533,7 +1467,7 @@ def run():
     if os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
         builders = (build_capture_mercy_note,)
     elif os.environ.get("IG_LABEL_SLEEVE_ONLY") == "1":
-        builders = (build_label_sleeve, build_cup_sleeve)
+        builders = (build_label_sleeve,)
     elif os.environ.get("IG_MISSING_FLOOR_ONLY") == "1":
         builders = (
             build_listener_entity_crawl,
@@ -1565,10 +1499,6 @@ def run():
         "build_mok_hansoo_workwear": "SM_MokHansooFigure",
         "build_mok_hansoo_head_hands": "SM_MokHansooFigure",
         "build_mok_hansoo_gypsum_board": "SM_MokHansooFigure",
-        # 컵라면 세 조각은 Blender에서 다시 만들었다(build_store_products.py).
-        "build_cup_noodle": "SM_CupNoodle",
-        "build_cup_sleeve": "SM_CupSleeve",
-        "build_cup_lid": "SM_CupLid",
     }
     built = 0
     skipped = 0

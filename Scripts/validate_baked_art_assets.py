@@ -33,7 +33,6 @@ MESH_NAMES = (
     "SM_P3ValveWheelLarge",
     "SM_P3ValveWheelSmall",
     "SM_CrackedPhone",
-    "SM_CupSleeve",
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
     "SM_CaptureMercyNote",
@@ -56,7 +55,6 @@ MESH_NAMES = (
 HERO_MESHES = mesh_lod_contract.HERO_MESHES
 
 PRINT_SURFACE_MESHES = {
-    "SM_CupSleeve": 120,
     "SM_LabelSleeve": 120,
     "SM_StickyNote76mm": 60,
     "SM_CaptureMercyNote": 60,
@@ -130,7 +128,6 @@ PRINT_MATERIALS = {
     "M_LabelGreenTea": "T_LabelGreenTea_D",
     "M_LabelBarley": "T_LabelBarley_D",
     "M_LabelSoda": "T_LabelSoda_D",
-    "M_LabelRamyeon": "T_LabelRamyeon_D",
 }
 
 ENTRANCE_PLATE_MATERIALS = {
@@ -142,11 +139,9 @@ ENTRANCE_PLATE_MATERIALS = {
 INSTANCED_PRODUCT_MATERIALS = {
     "M_BottleBrown",
     "M_BottleGreen",
-    "M_CupNoodle",
     "M_FridgeInterior",
     "M_LabelBarley",
     "M_LabelGreenTea",
-    "M_LabelRamyeon",
     "M_LabelSoda",
     "M_LabelWater",
     "M_SnackBlue",
@@ -158,7 +153,6 @@ INSTANCED_PRODUCT_MATERIALS = {
 WRAPPED_LABEL_MATERIALS = {
     "M_LabelBarley",
     "M_LabelGreenTea",
-    "M_LabelRamyeon",
     "M_LabelSoda",
     "M_LabelWater",
 }
@@ -172,7 +166,6 @@ PRINT_RESPONSE_MATERIALS = {
         "M_LabelGreenTea",
         "M_LabelBarley",
         "M_LabelSoda",
-        "M_LabelRamyeon",
     )
 }
 

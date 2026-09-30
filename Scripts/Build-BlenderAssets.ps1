@@ -52,7 +52,7 @@ $builders = [ordered]@{
 	'lift_call_plate' = @('SM_LiftCallPlate')
 	'utility_fixtures' = @('SM_InductionMeter', 'SM_MeterRotor', 'SM_MeterCabinetFive', 'SM_BoothMonitor', 'SM_BoothRecorder', 'SM_BoothKeyring')
 	'retail_refresh' = @('SM_RetailPOS', 'SM_ServiceBell', 'SM_RetailPotato', 'SM_RetailShrimp', 'SM_RetailCorn', 'SM_RetailCupBeef', 'SM_RetailCupKimchi', 'SM_RetailBiscuit', 'SM_WaterBottle')
-	'unit_door' = @('SM_UnitDoorLeaf', 'SM_UnitDoorLeafL', 'SM_UnitDoorHardware', 'SM_UnitDoorHardwareL', 'SM_UnitDoorFrame', 'SM_UnitDoorLeafWideL', 'SM_UnitDoorHardwareWideL', 'SM_UnitDoorFrameWide')
+	'unit_door' = @('SM_UnitDoorLeaf', 'SM_UnitDoorHardware', 'SM_UnitDoorFrame', 'SM_UnitDoorLeafWideL', 'SM_UnitDoorHardwareWideL', 'SM_UnitDoorFrameWide')
 	'corridor_fixtures' = @('SM_FireExtinguisherBox')
 	'neighborhood_prints' = @('SM_DoorDeliveryMagnet', 'SM_RentalNoticeA4', 'SM_ApartmentCalendar2025', 'SM_NeighborMemo402')
 	'door_prints' = @('SM_DoorPrints401', 'SM_DoorPrints402')
@@ -67,10 +67,10 @@ $builders = [ordered]@{
 	'kitchen' = @('SM_KitchenBaseRun', 'SM_DrumWasher', 'SM_KitchenWallUnits', 'SM_RangeHood', 'SM_Microwave', 'SM_KitchenSink', 'SM_InductionHob')
 	'apartment_props' = @('SM_Wardrobe', 'SM_WallAirConditioner')
 	'alley_props' = @('SM_TrafficCone', 'SM_UtilityPole', 'SM_GasMeterBox', 'SM_ConvexMirror')
-	'store_fixtures' = @('SM_StoreCoolerBank', 'SM_StoreCoolerDoor', 'SM_StoreGondola', 'SM_StoreCounter', 'SM_CardTerminal', 'SM_HotSnackWarmer', 'SM_ChestFreezer', 'SM_OpenShowcase', 'SM_RamyeonRack')
+	'store_fixtures' = @('SM_StoreCoolerBank', 'SM_StoreCoolerDoor', 'SM_StoreGondola', 'SM_StoreCounter', 'SM_CardTerminal', 'SM_HotSnackWarmer', 'SM_ChestFreezer', 'SM_OpenShowcase')
 	'apartment_fixtures' = @('SM_ApartmentWindow', 'SM_VenetianBlind', 'SM_WallSwitch', 'SM_ShoeCabinet')
 	'villa_window' = @('SM_VillaWindow')
-	'store_products' = @('SM_CupNoodle', 'SM_CupSleeve', 'SM_CupLid', 'SM_SnackBoxA', 'SM_SnackBoxB', 'SM_SnackBoxC', 'SM_SnackBoxD', 'SM_RiceBowlPack', 'SM_TobaccoCabinet', 'SM_WindowBar', 'SM_HotWaterDispenser', 'SM_TrashBin')
+	'store_products' = @('SM_TobaccoCabinet', 'SM_WindowBar', 'SM_HotWaterDispenser', 'SM_TrashBin')
 }
 
 $selected = @()

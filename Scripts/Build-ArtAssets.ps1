@@ -419,7 +419,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 		'\[IndieGame\] Corridor entrance signage material update complete'
 	}
 	elseif ($LabelSleeveOnly) {
-		'\[MESHGEN\] complete: 2/2 meshes'
+		'\[MESHGEN\] complete: 1/1 meshes'
 	}
 	else {
 		'\[IndieGame\] Missing-floor visual material update complete'
@@ -498,7 +498,6 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Materials\M_LabelGreenTea.uasset',
 			'Content\Prototype\Materials\M_LabelBarley.uasset',
 			'Content\Prototype\Materials\M_LabelSoda.uasset',
-			'Content\Prototype\Materials\M_LabelRamyeon.uasset',
 			'Content\Prototype\Materials\M_Glass.uasset',
 			'Content\Prototype\Materials\M_BottleGreen.uasset',
 			'Content\Prototype\Materials\M_BottleBrown.uasset',
@@ -543,8 +542,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($LabelSleeveOnly) {
 		@(
-			'Content\Meshes\SM_LabelSleeve.uasset',
-			'Content\Meshes\SM_CupSleeve.uasset'
+			'Content\Meshes\SM_LabelSleeve.uasset'
 		)
 	}
 	else {
@@ -982,7 +980,6 @@ if ($usingAsciiMirror) {
 
 $requiredAssets = @(
 	'Content\Meshes\SM_CrackedPhone.uasset',
-	'Content\Meshes\SM_CupSleeve.uasset',
 	'Content\Meshes\SM_LabelSleeve.uasset',
 	'Content\Meshes\SM_StickyNote76mm.uasset',
 	'Content\Meshes\SM_AlleyCatRun.uasset',
@@ -1088,8 +1085,7 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_LabelWater_D.uasset',
 	'Content\Prototype\Textures\T_LabelRamyeon_D.uasset',
 	'Content\Prototype\Materials\M_NoteFridge.uasset',
-	'Content\Prototype\Materials\M_LabelWater.uasset',
-	'Content\Prototype\Materials\M_LabelRamyeon.uasset'
+	'Content\Prototype\Materials\M_LabelWater.uasset'
 )
 $missing = @(
 	$requiredAssets |

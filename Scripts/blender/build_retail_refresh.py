@@ -13,7 +13,7 @@ import bpy
 
 sys.path.insert(0, os.path.dirname(__file__))
 import ig_blender_lib as ig
-from build_store_products import wrapped_strip, planar_uv
+from build_store_products import wrapped_strip
 
 ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 ART = os.path.join(ROOT, "Content", "SourceArt", "Labels", "Store")

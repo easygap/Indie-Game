@@ -13,9 +13,8 @@
     SM_HotSnackWarmer   계산대 온장고. 원점 상판 윗면 (2510, -198, 99), 앞면 -Y
     SM_ChestFreezer     서쪽 유리벽 앞 아이스크림 평대 냉동고
     SM_OpenShowcase     남쪽 벽 오픈 쇼케이스(김밥·샌드위치)
-    SM_RamyeonRack      창가 라면 코너 선반
 
-    blender -b --factory-startup --python Scripts/blender/build_store_fixtures.py -- <out_dir> [cooler|door|gondola|counter|freezer|showcase|rack ...]
+    blender -b --factory-startup --python Scripts/blender/build_store_fixtures.py -- <out_dir> [cooler|door|gondola|counter|freezer|showcase ...]
 """
 
 import math
@@ -374,33 +373,6 @@ def build_showcase(out_root):
         texture_size=2048, preview_yaw=210.0)
 
 
-# --------------------------------------------------------------------------
-# 라면 선반
-# --------------------------------------------------------------------------
-
-def build_rack(out_root):
-    ig.reset_scene()
-    m = mats()
-    parts = []
-    parts.append(ig.box("back", (0.70, 0.03, 1.60), location=(0.0, -0.145, 0.80), material=m["grey"]))
-    for x in (-0.335, 0.335):
-        parts.append(ig.box("upright", (0.03, 0.32, 1.60), location=(x, 0.0, 0.80), bevel=0.003, segments=1,
-                            material=m["grey"]))
-    for tier in (16.0, 46.0, 76.0, 106.0, 136.0, 166.0):
-        zc = (tier - FLOOR_Z) / 100.0
-        parts.append(ig.box("tier", (0.70, 0.32, 0.03), location=(0.0, 0.0, zc), bevel=0.003, segments=1,
-                            material=m["grey"]))
-        if tier < 166.0:
-            parts.append(ig.box("lip", (0.70, 0.015, 0.04), location=(0.0, 0.1525, zc + 0.02),
-                                material=m["price"]))
-    return ig.build_asset(
-        "SM_RamyeonRack", "prop", parts, out_root,
-        collision_parts=[parts],
-        notes=("편의점 창가 라면 선반 70 x 32 x 162. 앞면 +Y, 원점 바닥 중심(씬 (2452, -664, 6)). "
-               "단 윗면 씬 Z 17.5/47.5/…/167.5, 컵은 씬 코드가 놓는다."),
-        texture_size=1024, preview_yaw=210.0)
-
-
 BUILDERS = {
     "cooler": build_cooler,
     "door": build_cooler_door,
@@ -410,7 +382,6 @@ BUILDERS = {
     "warmer": build_warmer,
     "freezer": build_freezer,
     "showcase": build_showcase,
-    "rack": build_rack,
 }
 
 

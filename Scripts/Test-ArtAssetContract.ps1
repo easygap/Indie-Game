@@ -462,7 +462,7 @@ foreach ($token in @(
 	'"SM_CaptureMercyNote"',
 	'width = 18.0',
 	'depth = 11.0',
-	'[(4.18, 0.0, 1.0), (5.36, 7.2, 0.0)]'
+	'[(1.0, 0.0, 1.0), (1.0, 1.0, 0.0)]'
 )) {
 	if (-not $meshScript.Contains($token)) {
 		throw "Physical packaging UV/adhesive-note mesh contract is missing: $token"

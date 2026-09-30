@@ -80,7 +80,6 @@ HERO_MESHES = frozenset({
     "SM_CrackedPhone",
     "SM_P3ValveWheelLarge",
     "SM_P3ValveWheelSmall",
-    "SM_CupSleeve",
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
     "SM_CaptureMercyNote",
@@ -106,7 +105,6 @@ LARGE_MESH_PREFIXES = ()
 # never to weld across the UV seam, so these keep split-vertex preservation on
 # and never get the more aggressive collapse.
 PRINTED_SURFACE_MESHES = frozenset({
-    "SM_CupSleeve",
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
     "SM_CaptureMercyNote",

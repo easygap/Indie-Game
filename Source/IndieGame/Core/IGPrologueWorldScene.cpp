@@ -973,7 +973,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_TobaccoNotice"), TEXT("M_ConeOrange"),
 		TEXT("M_SignPC"), TEXT("M_SignKaraoke"),
 		TEXT("M_LabelWater"), TEXT("M_LabelGreenTea"), TEXT("M_LabelBarley"),
-		TEXT("M_LabelSoda"), TEXT("M_LabelRamyeon"),
+		TEXT("M_LabelSoda"),
 		TEXT("M_CarrierBagFilm"),
 		TEXT("M_ConstructionFilm"),
 		// Villa surfaces and fittings from the reference photos.

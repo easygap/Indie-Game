@@ -226,13 +226,12 @@ pwsh -NoProfile -File Scripts\Import-BlenderAssets.ps1 -Only SM_MokHansooFigure
 | SM_KitchenBaseRun 등 주방 7종 | 절차 | BuildApartment |
 | SM_ApartmentWindow / SM_VenetianBlind | 절차 | 403호 북쪽 창. 유리는 씬 발광판, 블라인드 원점은 헤드레일 윗면 |
 | SM_VideoIntercom / SM_WallSwitch / SM_ShoeCabinet | 절차 | 403호 현관 벽(Y -215). 인터폰 앞면은 생성 패널 그림 |
-| SM_StoreCoolerBank / Door, SM_StoreGondola, SM_StoreCounter, SM_CardTerminal, SM_HotSnackWarmer, SM_ChestFreezer, SM_OpenShowcase, SM_RamyeonRack | 절차 | BuildStore. 선반 윗면 높이가 씬 상품 배치와 같다. 열린 칸 문짝은 힌지 원점에 yaw 120. 단말기·온장고는 상판 위(Z 99) 별도 메시라 계산대 바운드가 상판에서 끝난다 |
+| SM_StoreCoolerBank / Door, SM_StoreGondola, SM_StoreCounter, SM_CardTerminal, SM_HotSnackWarmer, SM_ChestFreezer, SM_OpenShowcase | 절차 | BuildStore. 선반 윗면 높이가 씬 상품 배치와 같다. 열린 칸 문짝은 힌지 원점에 yaw 120. 단말기·온장고는 상판 위(Z 99) 별도 메시라 계산대 바운드가 상판에서 끝난다 |
 | SM_VillaWindow | 절차 | 골목 빌라 파사드 창 열다섯 자리. 유리 판은 씬 상자 |
 | SM_UtilityPole | 절차 | 골목 전주 둘. 분전함은 스캔 소품 |
 | SM_GasMeterBox / SM_AcOutdoorUnit / SM_ConvexMirror | 절차 | 골목 샛길 둘의 벽 소품. 거울면은 금속이라 루멘이 비춘다 |
-| SM_CupNoodle / Sleeve / Lid | 절차, raw_uv | 컵라면. 슬리브는 U 한 바퀴·V 위가 0으로 M_LabelRamyeon을 그대로 읽고, 뚜껑은 평면 UV로 M_StainlessUV. 굽지 않고 씬이 재질을 준다 |
-| SM_SnackBoxA~D, SM_TriangleKimbapA~D, SM_RiceBowlPack | 절차 | 편의점 상품. 앞면은 `create_store_product_art.py`의 가상 브랜드 아틀라스를 image_quad(uv_rect)로 붙여 굽는다 |
-| SM_TobaccoCabinet, SM_WindowBar, SM_HotWaterDispenser, SM_TrashBin | 절차 | 계산대 뒤 담배 진열장(담뱃갑 136), 창가 취식대, 온수기, 2구 쓰레기통 |
+| SM_TriangleKimbapA~D | 절차 | 편의점 삼각김밥. 김 필름은 `AI/KimbapFilmAlbedo_20260916.png`, 앞뒤 인쇄와 개봉 번호는 `UtilityPrints/Kimbap*.png`를 붙여 굽는다(`build_detail_props.py`) |
+| SM_TobaccoCabinet, SM_WindowBar, SM_HotWaterDispenser, SM_TrashBin | 절차 | 계산대 뒤 담배 진열장(담뱃갑 192), 창가 취식대, 온수기, 2구 쓰레기통 |
 | SK_ListenerCrawler | 생성+리깅 | 위층 사람의 기는 몸. 위 「리깅된 인물」. Crawl·Listen·Bang·Lunge |
 | SM_ListenerEntityCrawl | 생성 | 위층 사람(정적 폴백). 해부 시트의 옆모습 칸에서 뽑았다(앞모습 3/4 칸은 네 발 짐승처럼 읽혔다). 폰의 앞이 +X라 머리가 +X에 와야 한다. 프로브에서 높은 끝이 이미 +X면 `--yaw 0`, 길이는 `--length 190`. 정점 AO, 석고 재질은 그대로 |
 | SM_AlleyCatRun | 생성 | 골목 고양이. 구운 털 색을 MI로 쓴다 |

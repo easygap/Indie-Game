@@ -15,7 +15,7 @@ SM_UnitDoorHardware로 따로 낸다. 문틀은 8 x 7 cm 도장 강판 문선에
 원점은 문짝 바닥 중심. 앞면(복도에서 보는 면)은 -Y. 씬 코드가 DressUnitDoor에서
 문짝을 (DoorX, -234.5, 0)에 두고 철물을 -Y쪽에 붙이므로 그 관례를 그대로 따른다.
 
-    blender -b --factory-startup --python Scripts/blender/build_unit_door.py -- <out_dir> [leaf|leafL|hardware|hardwareL|frame ...]
+    blender -b --factory-startup --python Scripts/blender/build_unit_door.py -- <out_dir> [leaf|hardware|frame|wide ...]
 """
 
 import math
@@ -241,12 +241,8 @@ def main():
     only = [a for a in sys.argv[sys.argv.index("--") + 2:]] if "--" in sys.argv else []
     if not only or "leaf" in only:
         build_leaf(out_root, "R")
-    if not only or "leafL" in only:
-        build_leaf(out_root, "L")
     if not only or "hardware" in only:
         build_hardware(out_root, "R")
-    if not only or "hardwareL" in only:
-        build_hardware(out_root, "L")
     if not only or "frame" in only:
         build_frame(out_root)
     if not only or "wide" in only:

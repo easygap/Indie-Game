@@ -345,11 +345,6 @@ DECAL_MATERIALS = {
         "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.06,
         "rough_low": 0.20, "rough_high": 0.34, "specular": 0.56,
     },
-    "M_LabelRamyeon": {
-        "tex_asset": "T_LabelRamyeon_D", "rough": 0.42,
-        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.08,
-        "rough_low": 0.32, "rough_high": 0.50, "specular": 0.48,
-    },
     # ImageGen scans are BaseColor inputs on authored geometry, not finished
     # materials. Companion N/R/A/W/M maps make them respond to flashlight,
     # Lumen reflections and contact shadowing without baking light into colour.
@@ -511,11 +506,9 @@ INSTANCED_PRODUCT_MATERIALS = {
     "M_RetailPET",
     "M_BottleBrown",
     "M_BottleGreen",
-    "M_CupNoodle",
     "M_FridgeInterior",
     "M_LabelBarley",
     "M_LabelGreenTea",
-    "M_LabelRamyeon",
     "M_LabelSoda",
     "M_LabelWater",
     "M_LabelWater1L",
@@ -529,7 +522,6 @@ INSTANCED_PRODUCT_MATERIALS = {
 WRAPPED_LABEL_MATERIALS = {
     "M_LabelBarley",
     "M_LabelGreenTea",
-    "M_LabelRamyeon",
     "M_LabelSoda",
     "M_LabelWater",
     "M_LabelWater1L",
@@ -2877,7 +2869,6 @@ def run():
             "M_LabelGreenTea",
             "M_LabelBarley",
             "M_LabelSoda",
-            "M_LabelRamyeon",
         )
         created = create_flat_texture_materials(
             assets,

@@ -48,7 +48,6 @@ $requiredFiles = @(
 	'Content/Prototype/Materials/M_SnackRed.uasset',
 	'Content/Prototype/Materials/M_SnackYellow.uasset',
 	'Content/Prototype/Materials/M_SnackBlue.uasset',
-	'Content/Prototype/Materials/M_CupNoodle.uasset',
 	'Content/SourceArt/AI/SheetPaperNotes_v2.png',
 	'Content/SourceArt/AI/ApplicationIcon_20260930.png',
 	'Content/SourceArt/AI/DialogueHUDConcept_v1.png',
