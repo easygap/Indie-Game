@@ -48,6 +48,10 @@ $game = Join-Path $ArchiveDirectory 'Windows/IndieGame/Binaries/Win64/IndieGame-
 & (Join-Path $PSScriptRoot 'Copy-Windows-ExecutableVersionResource.ps1') -SourceExecutable $game -DestinationExecutable $launcher
 foreach ($exe in @($launcher, $game)) {
     & (Join-Path $PSScriptRoot 'Test-Windows-ExecutableMetadata.ps1') -Executable $exe
+    # 실행 파일 둘 다 저장소의 Application.ico를 달고 나와야 한다.
+    & (Join-Path $PSScriptRoot 'Test-Windows-ExecutableIcon.ps1') -Executable $exe `
+        -ExpectedIco (Join-Path $projectRoot 'Build/Windows/Application.ico') `
+        -EvidencePng (Join-Path $ArchiveDirectory ('icon-' + [IO.Path]::GetFileNameWithoutExtension($exe) + '.png'))
 }
 $files = Get-ChildItem -LiteralPath (Join-Path $ArchiveDirectory 'Windows') -File -Recurse | ForEach-Object {
     [ordered]@{
