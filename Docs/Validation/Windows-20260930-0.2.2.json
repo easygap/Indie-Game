@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "generatedAt": "2026-09-30T05:49:23.4877948Z",
+  "version": "0.2.2",
+  "buildCommit": "3057f462e436e88795bbc3b86a6b10b2603b490a",
+  "hasLocalChanges": false,
+  "scope": "같은 Windows PC에서 배포 파일, 다섯 언어의 화면·입력, 입주 저장·이어하기, 전체 진행, 실제 소리 믹서와 입주 세이브 호환성을 자동 검사했습니다. 여러 PC의 성능 인증과 사람의 완주 검수는 별도로 필요합니다.",
+  "archiveUnchanged": true,
+  "archiveGameFileCount": 89,
+  "zipBytes": 635152799,
+  "zipSha256": "15559a0372321314a1ed700730bd9e5f93f1b2935e62c9ec7daad3c729ee06de",
+  "verifiedZipContents": true,
+  "packageManifestSha256": "1c5154011707bd228b9593cc231d2153c6503b541ef316d2521a4e7725af12c5",
+  "settingsLayoutSamples": 3160,
+  "textFailures": 0,
+  "inputEvents": 220,
+  "languages": [
+    {
+      "culture": "ko",
+      "passed": true,
+      "resolutions": [
+        "1280x720",
+        "1600x900",
+        "1920x1080",
+        "2560x1440"
+      ],
+      "settingsLayoutSamples": 632.0,
+      "textFailures": 0,
+      "inputEvents": 44.0,
+      "summarySha256": "b0f8d84cab192db73890f42eacdad57980374d6b22f7c02e99402cc57767537d"
+    },
+    {
+      "culture": "en",
+      "passed": true,
+      "resolutions": [
+        "1280x720",
+        "1600x900",
+        "1920x1080",
+        "2560x1440"
+      ],
+      "settingsLayoutSamples": 632.0,
+      "textFailures": 0,
+      "inputEvents": 44.0,
+      "summarySha256": "4581282134c2fea0e8c3b5c9ed84b03ed9601772531d233f16529b2a5a7f18d6"
+    },
+    {
+      "culture": "ja",
+      "passed": true,
+      "resolutions": [
+        "1280x720",
+        "1600x900",
+        "1920x1080",
+        "2560x1440"
+      ],
+      "settingsLayoutSamples": 632.0,
+      "textFailures": 0,
+      "inputEvents": 44.0,
+      "summarySha256": "6370d8a790cc1b1703f284cd129bdd04afaebfbfcfbcfc8cef24f3b235847499"
+    },
+    {
+      "culture": "zh-Hans",
+      "passed": true,
+      "resolutions": [
+        "1280x720",
+        "1600x900",
+        "1920x1080",
+        "2560x1440"
+      ],
+      "settingsLayoutSamples": 632.0,
+      "textFailures": 0,
+      "inputEvents": 44.0,
+      "summarySha256": "c7985e059419f6f931bb73368bd74277293381edc64d5cb7551de78aee8b8338"
+    },
+    {
+      "culture": "zh-Hant",
+      "passed": true,
+      "resolutions": [
+        "1280x720",
+        "1600x900",
+        "1920x1080",
+        "2560x1440"
+      ],
+      "settingsLayoutSamples": 632.0,
+      "textFailures": 0,
+      "inputEvents": 44.0,
+      "summarySha256": "18cec6b5023c9ec95f920aaff673b74f76e96e8d47bb8bf1f0efc66214cdbb08"
+    }
+  ],
+  "cases": [
+    {
+      "name": "Arrival",
+      "passed": true,
+      "seconds": 3.81,
+      "receiptSha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "name": "ArrivalResume",
+      "passed": true,
+      "seconds": 3.54,
+      "receiptSha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "name": "FullGame",
+      "passed": true,
+      "seconds": 64.36,
+      "receiptSha256": "7a62486c3026b39a5811330e1da271f337ac4c4697ed17c1ddacc43febaf200c"
+    },
+    {
+      "name": "Audio",
+      "passed": true,
+      "seconds": 15.92,
+      "receiptSha256": "84679146d2d61490c6c9a7b5c9d58df6152df9179056b15c8c95eaf4e9393677"
+    }
+  ],
+  "previousVersionArrivalSave": {
+    "from": "0.2.1",
+    "to": "0.2.2",
+    "passed": true,
+    "receiptSha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+  },
+  "audio": {
+    "rmsDbfs": -26.725,
+    "seconds": 8.619,
+    "passed": true,
+    "peakDbfs": -2.431,
+    "sampleRate": 48000,
+    "clippedSamples": 0,
+    "channels": 2
+  },
+  "shippingHigh60Certified": false,
+  "multipleHardwareCertified": false
+}
