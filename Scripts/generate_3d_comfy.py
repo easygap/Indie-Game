@@ -249,7 +249,6 @@ def main() -> None:
     upload_name = f"{args.name}-{source_hash[:12]}{os.path.splitext(image_path)[1].lower()}"
     uploaded = upload_image(args.url, image_path, upload_name)
     log(f"uploaded {os.path.basename(image_path)} -> {uploaded}")
-    shutil.copy2(image_path, os.path.join(out_dir, "source" + os.path.splitext(image_path)[1].lower()))
 
     prefix = f"ig3d/{args.name}/{trial}"
     graph = make_prompt(uploaded, args.route, args.resolution, args.seed, prefix,
