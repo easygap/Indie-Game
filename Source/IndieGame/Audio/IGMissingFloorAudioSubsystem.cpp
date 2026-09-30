@@ -476,8 +476,9 @@ void UIGMissingFloorAudioSubsystem::RegisterVoice(
 			}
 			if (bNewExpendable && !Voices[OldestIndex].bExpendable)
 			{
-				// 걸음은 대본 소리(스팅어·덮침·들숨)를 밀지 않는다. 자리가 없으면
-				// 추적 없이 울고 끝난다 — 짧은 소리라 쌓여도 곧 걷힌다.
+				// 대본 소리는 보존하고 추가 걸음을 짧게 걷는다. 추적만 생략하면
+				// 걸음이 계속 재생되어 버스 상한과 출력 방식 변경을 모두 우회한다.
+				Component->FadeOut(0.04f, 0.0f);
 				return;
 			}
 			if (UAudioComponent* Oldest = Voices[OldestIndex].Component.Get())
@@ -1674,9 +1675,10 @@ void UIGMissingFloorAudioSubsystem::StopScore(
 		if (ChaseTailComponent)
 		{
 			ChaseTailComponent->SetUISound(false);
-			// 한 번 울고 마는 음악이다. 확인음이 몰리면 먼저 밀려나고, 확인음을 밀지는 못한다.
-			RegisterExpendable(ChaseTailComponent, EIGAudioBus::Score);
+			// 재생 전에 등록하면 상한에 걸려도 FadeOut이 작동하지 않는다.
+			// 먼저 재생해야 확인음이 몰렸을 때 이 꼬리를 짧게 걷을 수 있다.
 			ChaseTailComponent->Play();
+			RegisterExpendable(ChaseTailComponent, EIGAudioBus::Score);
 		}
 	}
 	else
