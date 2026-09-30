@@ -224,7 +224,10 @@ void AIGListenerGreyboxDirector::FinishEndingLifecycleProbe(const bool bPassed, 
 	Result->SetStringField(TEXT("ending"), EndingProbeChoice);
 	Result->SetStringField(TEXT("reason"), Reason);
 	Result->SetStringField(TEXT("saveSlot"), EndingCheckpointSlot);
-	Result->SetStringField(TEXT("profilePath"), FPaths::ConvertRelativePathToFull(GGameUserSettingsIni));
+	const FConfigBranch* SettingsBranch = GConfig
+		? GConfig->FindBranch(FName(TEXT("GameUserSettings")), GGameUserSettingsIni) : nullptr;
+	Result->SetStringField(TEXT("profilePath"), SettingsBranch
+		? FPaths::ConvertRelativePathToFull(SettingsBranch->IniPath) : FString());
 	Result->SetBoolField(TEXT("restoredThroughSaveSubsystem"), bEndingRestored);
 	Result->SetBoolField(TEXT("vigilObserved"), bEndingVigilObserved);
 	Result->SetBoolField(TEXT("sevenSecondWaitObserved"), bEndingSevenSecondsObserved);

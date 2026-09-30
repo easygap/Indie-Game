@@ -2,6 +2,8 @@
 param(
     [Parameter(Mandatory)][string]$ArchiveDirectory,
     [string]$EvidenceDirectory,
+    # 경로를 캐시 키로 잘못 기록한 구형 배포본을 진단할 때만 허용한다.
+    [switch]$AllowLegacyProfilePathMetadata,
     [ValidateRange(180, 900)][int]$TimeoutSeconds = 450
 )
 Set-StrictMode -Version Latest
@@ -54,6 +56,7 @@ function Invoke-EndingProcess([string]$Name, [string]$Mode, [string]$Ending, [st
     if (-not (Test-Path -LiteralPath $receiptPath -PathType Leaf) -or
         (Get-Item -LiteralPath $receiptPath).LastWriteTimeUtc -lt $started) { throw "새 검사 영수증이 없습니다: $Name" }
     $receipt = Get-Content -LiteralPath $receiptPath -Raw -Encoding UTF8 | ConvertFrom-Json
+    $profileEvidence = $null
     if ($receipt.probe -cne 'MISSINGFLOOR_ENDING_LIFECYCLE' -or $receipt.status -cne 'PASS' -or
         $receipt.mode -cne $Mode -or $receipt.ending -cne $Ending) {
         throw "엔딩 검사 실패: $Name ($($receipt.reason))"
@@ -65,10 +68,33 @@ function Invoke-EndingProcess([string]$Name, [string]$Mode, [string]$Ending, [st
         $expectB = $Ending -eq 'B'
         if ([bool]$receipt.nightFiveAvailable -ne $expectB -or [bool]$receipt.endingBSeen -ne $expectB -or
             [bool]$receipt.endingASeen -eq $expectB) { throw "엔딩 분기의 프로필이 섞였거나 해금 상태가 다릅니다: $Name" }
-        $profilePath = [IO.Path]::GetFullPath([string]$receipt.profilePath)
-        $userPrefix = [IO.Path]::GetFullPath($UserDirectory).TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar
-        if (-not $profilePath.StartsWith($userPrefix, [StringComparison]::OrdinalIgnoreCase) -or
-            -not (Test-Path -LiteralPath $profilePath -PathType Leaf)) { throw '독립 UserDir 안에 실제 프로필 파일이 생성되지 않았습니다.' }
+        # UE 5.8의 GGameUserSettingsIni는 캐시 키일 수 있다. 영수증의 추정 경로로
+        # 프로필 존재 여부를 판단하지 않고, 이 실행에 넘긴 독립 UserDir의 파일을 읽는다.
+        $profilePath = [IO.Path]::GetFullPath((Join-Path $UserDirectory 'Saved/Config/Windows/GameUserSettings.ini'))
+        if (-not (Test-Path -LiteralPath $profilePath -PathType Leaf)) { throw '독립 UserDir 안에 실제 프로필 파일이 생성되지 않았습니다.' }
+        $iniValues = @{}
+        $section = ''
+        foreach ($line in [IO.File]::ReadAllLines($profilePath)) {
+            if ($line -match '^\s*\[([^\]]+)\]\s*$') { $section = $Matches[1] }
+            elseif ($line -match '^\s*([^;#][^=]*?)\s*=\s*(.*?)\s*$') { $iniValues[$section + '/' + $Matches[1]] = $Matches[2] }
+        }
+        $profileA = $iniValues['IndieGame.Onboarding/EndingSeen.Ending.A'] -in @('1', 'true')
+        $profileB = $iniValues['IndieGame.Onboarding/EndingSeen.Ending.B'] -in @('1', 'true')
+        $experienced = $iniValues['IndieGame.MissingFloorProfile/EpilogueExperienced'] -in @('1', 'true')
+        if ($profileA -eq $expectB -or $profileB -ne $expectB -or -not $experienced) {
+            throw "실제 프로필 파일에 엔딩 분기 또는 에필로그 완료 기록이 없습니다: $Name"
+        }
+        $reportedPath = [IO.Path]::GetFullPath([string]$receipt.profilePath)
+        $metadataMismatch = -not $reportedPath.Equals($profilePath, [StringComparison]::OrdinalIgnoreCase)
+        if ($metadataMismatch) {
+            if (-not $AllowLegacyProfilePathMetadata) { throw "프로필 경로 메타데이터가 실제 파일과 다릅니다: $Name" }
+            Write-Host "ENDING_RECEIPT_METADATA_WARNING $Name : 영수증의 profilePath가 실제 프로필 경로와 다릅니다. 독립 UserDir의 실제 파일 내용으로 검사했습니다."
+        }
+        $profileEvidence = [ordered]@{
+            path = $profilePath; sha256 = (Get-FileHash -LiteralPath $profilePath -Algorithm SHA256).Hash
+            endingASeen = $profileA; endingBSeen = $profileB; epilogueExperienced = $experienced
+            reportedProfilePath = $receipt.profilePath; profilePathMetadataMismatch = $metadataMismatch
+        }
         if ($Mode -eq 'ending') {
             $minimumSeconds = if ($expectB) { 70.0 } else { 86.0 }
             $expectedScenes = if ($expectB) { 4 } else { 5 }
@@ -82,6 +108,7 @@ function Invoke-EndingProcess([string]$Name, [string]$Mode, [string]$Ending, [st
         name = $Name; passed = $true; processId = $processId
         seconds = [math]::Round(([DateTime]::UtcNow - $started).TotalSeconds, 2)
         receipt = $receiptPath; receiptSha256 = (Get-FileHash -LiteralPath $receiptPath -Algorithm SHA256).Hash
+        profileEvidence = $profileEvidence
     })
     Write-Host "ENDING_LIFECYCLE_CASE PASS $Name"
     return $receipt
@@ -106,9 +133,11 @@ if ((Get-FileHash -LiteralPath $seedFile -Algorithm SHA256).Hash -cne $seedHash)
 & (Join-Path $PSScriptRoot 'Test-WindowsPackageManifest.ps1') -ArchiveDirectory $archiveRoot
 if ((Get-FileHash -LiteralPath $manifestPath -Algorithm SHA256).Hash -cne $manifestHash) { throw '검사 중 패키지 명세가 바뀌었습니다.' }
 [ordered]@{
-    schemaVersion = 1; createdAt = [DateTime]::UtcNow.ToString('o'); archive = $archiveRoot
+    schemaVersion = 2; createdAt = [DateTime]::UtcNow.ToString('o'); archive = $archiveRoot
     commit = $manifest.commit; hasLocalChanges = $manifest.hasLocalChanges; manifestSha256 = $manifestHash
     scope = '실제 FullGame 진행의 선택 직전 저장, 새 프로세스의 정상 저장 복원, A/B 상호작용 완료, B의 30초 기다림, A 87초/B 71초 에필로그, 프로필 기록과 재시작 후 다섯째 밤 해금. NullRHI 기능 검사이며 영상·음질·실제 키 홀드·사람의 완주 평가는 별도입니다.'
     seed = $seedFile; seedSha256 = $seedHash; seedUnchanged = $true; cases = $results.ToArray()
+    profilePathMetadataMismatchCount = @($results | Where-Object { $_.profileEvidence -and $_.profileEvidence.profilePathMetadataMismatch }).Count
+    allowLegacyProfilePathMetadata = $AllowLegacyProfilePathMetadata.IsPresent
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'summary.json') -Encoding utf8
 Write-Host "ENDING_LIFECYCLE PASS $EvidenceDirectory"
