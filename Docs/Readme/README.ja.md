@@ -9,7 +9,7 @@
 
 韓国の古い集合住宅を舞台にした一人称ホラーゲームです。Windows向け・1人用・開発中。
 
-[Windows体験版をダウンロード](https://github.com/easygap/Missing-Floor/releases/download/v0.2.0/MissingFloor-0.2.0-Windows.zip) · [トレーラーを見る](https://github.com/easygap/Missing-Floor/releases/download/v0.2.0/MissingFloor-Trailer.mp4)
+[Windows体験版をダウンロード](https://github.com/easygap/Missing-Floor/releases/download/v0.2.1/MissingFloor-0.2.1-Windows.zip) · [トレーラーを見る](https://github.com/easygap/Missing-Floor/releases/download/v0.2.1/MissingFloor-Trailer.mp4)
 
 ![月光ヴィラ4階の廊下](../Media/readme/game-corridor-day.webp)
 
@@ -31,7 +31,7 @@
 
 壁に耳を当て、書類を読み比べ、電気メーターを確かめる。昼間は`Tab`で調査記録を読み返せます。行き詰まったら`H`でヒントを確認してください。
 
-## 体験版 0.2.0
+## 体験版 0.2.1
 
 ZIPファイルをすべて展開し、`MissingFloor.exe`を起動してください。同じフォルダーの`Engine`と`IndieGame`も必要です。進行状況は自動で保存されます。[起動ガイド](../PLAYING.md)は韓国語です。
 
