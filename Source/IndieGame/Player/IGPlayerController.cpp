@@ -11,6 +11,7 @@
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
 #include "Engine/LocalPlayer.h"
+#include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "EngineUtils.h"
 #include "Entity/IGListenerEntity.h"
@@ -246,6 +247,7 @@ void AIGPlayerController::BeginPlay()
 void AIGPlayerController::EndPlay(const EEndPlayReason::Type EndPlayReason)
 {
 	UnbindSaveNotifications();
+	RestoreMenuWorldRendering();
 	Super::EndPlay(EndPlayReason);
 }
 
@@ -484,8 +486,6 @@ void AIGPlayerController::StartFrontendShippingProbe()
 	const auto VerifySettingsRows = [this](const int32 RowCount,
 		const int32 CategoryCount, auto GetCategory)
 	{
-		const auto Metrics = IGSettingsMenuLayout::MakePanelMetrics(
-			FrontendProbeExpectedWidth, FrontendProbeExpectedHeight);
 		TArray<int32> Coverage;
 		Coverage.Init(0, RowCount);
 		for (int32 Category = 0; Category < CategoryCount; ++Category)
@@ -494,6 +494,10 @@ void AIGPlayerController::StartFrontendShippingProbe()
 			for (int32 LocalRow = 0; LocalRow < Range.RowCount; ++LocalRow)
 			{
 				const int32 Row = Range.FirstRow + LocalRow;
+				const auto Metrics = RowCount == IGSettingsMenuLayout::AccessibilityRowCount
+					? IGSettingsMenuLayout::MakeAccessibilityPanelMetrics(
+						FrontendProbeExpectedWidth, FrontendProbeExpectedHeight, Row)
+					: IGSettingsMenuLayout::MakePanelMetrics(FrontendProbeExpectedWidth, FrontendProbeExpectedHeight);
 				if (!Coverage.IsValidIndex(Row)) return false;
 				++Coverage[Row];
 				int32 HitRow = INDEX_NONE;
@@ -1126,12 +1130,122 @@ void AIGPlayerController::TickFrontendShippingProbe()
 				return;
 			}
 		}
+		if (FParse::Param(FCommandLine::Get(), TEXT("IGSettingsLayoutReview")))
+		{
+			FrontendSettingsReviewIndex = 0;
+			FrontendSettingsReviewSamples = 0;
+			PrepareFrontendSettingsReviewRow();
+			FrontendProbeStep = 36;
+			AwaitFrontendProbeFrame();
+			return;
+		}
+		CompleteFrontendShippingProbe();
+		return;
+	case 36:
+		if (!TryCaptureFrontendProbeLayout(TEXT("settings_review"), 8, false, false))
+		{
+			return;
+		}
+		++FrontendSettingsReviewSamples;
+		// 키보드 화면은 증거로 저장한다. 패드 화면도 같은 글자 검사를 거친다.
+		FrontendSettingsReviewScreenshotPath.Reset();
+		if (FrontendSettingsReviewIndex % 2 == 0)
+		{
+			FrontendSettingsReviewScreenshotPath = FPaths::GetPath(FrontendProbeTitleScreenshotPath)
+				/ FString::Printf(TEXT("settings-row-%02d.png"), FrontendSettingsReviewIndex / 2);
+			FScreenshotRequest::RequestScreenshot(FrontendSettingsReviewScreenshotPath, true, false);
+		}
+		FrontendProbeStep = 37;
+		FrontendProbeNextActionTime = Now + 0.08;
+		FrontendProbeStepDeadline = Now + 8.0;
+		return;
+	case 37:
+		if (!FrontendSettingsReviewScreenshotPath.IsEmpty()
+			&& !FPaths::FileExists(FrontendSettingsReviewScreenshotPath))
+		{
+			FrontendProbeNextActionTime = Now + 0.05;
+			return;
+		}
+		++FrontendSettingsReviewIndex;
+		if (FrontendSettingsReviewIndex < 2 * (IGSettingsMenuLayout::DisplayRowCount
+			+ 2 * IGSettingsMenuLayout::AccessibilityRowCount
+			+ 2 * IGSettingsMenuLayout::AudioCalibrationRowCount + 2))
+		{
+			PrepareFrontendSettingsReviewRow();
+			FrontendProbeStep = 36;
+			AwaitFrontendProbeFrame();
+			return;
+		}
+		{
+			const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+			const FString Failures = HorrorHUD ? HorrorHUD->GetTextAuditFailureReport() : TEXT("HUD가 없습니다.");
+			const FString Receipt = FString::Printf(
+				TEXT("MISSINGFLOOR_SETTINGS_LAYOUT %s samples=%d text_failures=%d\n%s"),
+				Failures.IsEmpty() ? TEXT("PASS") : TEXT("FAIL"),
+				FrontendSettingsReviewSamples, Failures.IsEmpty() ? 0 : 1, *Failures);
+			FFileHelper::SaveStringToFile(Receipt,
+				*(FPaths::GetPath(FrontendProbeTitleScreenshotPath) / TEXT("settings-layout.txt")),
+				FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM);
+			if (!Failures.IsEmpty())
+			{
+				FailFrontendShippingProbe(TEXT("settings_text_audit"));
+				return;
+			}
+		}
 		CompleteFrontendShippingProbe();
 		return;
 	default:
 		FailFrontendShippingProbe(TEXT("invalid_step"));
 		return;
 	}
+}
+
+void AIGPlayerController::PrepareFrontendSettingsReviewRow()
+{
+	const int32 ReviewRow = FrontendSettingsReviewIndex / 2;
+	const bool bGamepad = FrontendSettingsReviewIndex % 2 != 0;
+	const int32 AccessibilityStart = IGSettingsMenuLayout::DisplayRowCount;
+	const int32 AudioStart = AccessibilityStart + 2 * IGSettingsMenuLayout::AccessibilityRowCount;
+	const int32 KeysStart = AudioStart + 2 * IGSettingsMenuLayout::AudioCalibrationRowCount;
+	if (bAccessibilityMenuVisible) CloseAccessibilityMenu();
+	SetSystemMenuMode(EIGSystemMenuMode::Title);
+	if (ReviewRow < AccessibilityStart)
+	{
+		OpenDisplaySettings();
+		DisplaySettingsSelection = ReviewRow;
+		DisplayFrameLimitIndex = 2;
+	}
+	else if (ReviewRow < AudioStart)
+	{
+		const int32 CaptionPass = (ReviewRow - AccessibilityStart) / IGSettingsMenuLayout::AccessibilityRowCount;
+		if (UIGAccessibilitySubsystem* Accessibility = GetAccessibilitySubsystem())
+		{
+			FIGAccessibilitySettings Settings = Accessibility->GetSettings();
+			Settings.CaptionSizeScale = CaptionPass == 0 ? 1.0f : 2.0f;
+			Settings.CaptionSafeAreaScale = 0.80f;
+			Accessibility->ApplySettings(Settings);
+		}
+		ToggleAccessibilityMenu();
+		AccessibilitySelection = (ReviewRow - AccessibilityStart) % IGSettingsMenuLayout::AccessibilityRowCount;
+		if (AccessibilitySelection == IGSettingsMenuLayout::ResetDefaults)
+			AccessibilityResetArmedUntil = FPlatformTime::Seconds() + 4.0;
+	}
+	else if (ReviewRow < KeysStart)
+	{
+		OpenAudioCalibration(false);
+		AudioCalibrationSelection = (ReviewRow - AudioStart) % IGSettingsMenuLayout::AudioCalibrationRowCount;
+		bHeadphoneOutput = ReviewRow - AudioStart < IGSettingsMenuLayout::AudioCalibrationRowCount;
+		bAudioCalibrationFirstRun = !bHeadphoneOutput;
+	}
+	else
+	{
+		OpenKeyBindings();
+		KeyBindingSelection = UIGInputBindingSubsystem::LookRowCount;
+		bKeyBindingColumnGamepad = ReviewRow != KeysStart;
+		bKeyBindingCapturing = true;
+	}
+	SetInputDevicePresentation(bGamepad);
+	RefreshMenuHud();
 }
 
 void AIGPlayerController::DispatchFrontendProbeKey(const FKey& Key)
@@ -1190,11 +1304,21 @@ void AIGPlayerController::AwaitFrontendProbeFrame()
 bool AIGPlayerController::TryCaptureFrontendProbeLayout(
 	const TCHAR* PanelName,
 	const int32 MinimumElementCount,
-	const bool bIncludeInMinimumElementCoverage)
+	const bool bIncludeInMinimumElementCoverage,
+	const bool bIncludeInReceiptCoverage)
 {
 	const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
 	if (!HorrorHUD)
 	{
+		return false;
+	}
+	const UGameViewportClient* Viewport = GetLocalPlayer() ? GetLocalPlayer()->ViewportClient : nullptr;
+	const bool bExpectedWorldSuspended = FCString::Strncmp(PanelName, TEXT("accessibility"), 13) == 0
+		|| FCString::Strncmp(PanelName, TEXT("display"), 7) == 0
+		|| FCString::Strcmp(PanelName, TEXT("settings_review")) == 0;
+	if (!Viewport || Viewport->bDisableWorldRendering != bExpectedWorldSuspended)
+	{
+		FailFrontendShippingProbe(FString::Printf(TEXT("%s_world_rendering"), PanelName));
 		return false;
 	}
 	FVector2D CanvasSize;
@@ -1212,7 +1336,7 @@ bool AIGPlayerController::TryCaptureFrontendProbeLayout(
 		bAllInsideCanvas,
 		bAllInsideSettingsContainers,
 		FrameSerial)
-		|| FrameSerial <= FrontendProbeAwaitFrameSerial)
+		|| FrameSerial <= FrontendProbeAwaitFrameSerial + (bIncludeInReceiptCoverage ? 0 : 1))
 	{
 		return false;
 	}
@@ -1271,7 +1395,7 @@ bool AIGPlayerController::TryCaptureFrontendProbeLayout(
 			FrontendProbeMinimumElementCount,
 			ElementCount);
 	}
-	++FrontendProbeLayoutSampleCount;
+	if (bIncludeInReceiptCoverage) ++FrontendProbeLayoutSampleCount;
 	FrontendProbeAwaitFrameSerial = FrameSerial;
 	return true;
 }
@@ -3662,6 +3786,7 @@ void AIGPlayerController::SetInputDevicePresentation(const bool bUsingGamepad)
 
 void AIGPlayerController::ApplyMenuInputMode()
 {
+	UpdateMenuWorldRendering();
 	const bool bPointerMenuVisible = bAccessibilityMenuVisible
 		|| SystemMenuMode != EIGSystemMenuMode::Hidden;
 	const bool bInputLayerVisible = bPointerMenuVisible
@@ -3678,6 +3803,37 @@ void AIGPlayerController::ApplyMenuInputMode()
 		FInputModeGameOnly InputMode;
 		SetInputMode(InputMode);
 	}
+}
+
+void AIGPlayerController::UpdateMenuWorldRendering()
+{
+	UGameViewportClient* Viewport = GetLocalPlayer() ? GetLocalPlayer()->ViewportClient : nullptr;
+	if (!Viewport) return;
+	// 설정은 화면을 덮는다. 보이지 않는 3D 장면의 조명과 그림자를 다시 그릴 필요가 없다.
+	const bool bMenuCoversWorld = bAccessibilityMenuVisible
+		|| SystemMenuMode == EIGSystemMenuMode::DisplaySettings
+		|| SystemMenuMode == EIGSystemMenuMode::AudioCalibration
+		|| SystemMenuMode == EIGSystemMenuMode::KeyBindings;
+	if (bMenuCoversWorld && !bMenuWorldRenderingSuspended)
+	{
+		bWorldRenderingWasDisabled = Viewport->bDisableWorldRendering;
+		Viewport->bDisableWorldRendering = true;
+		bMenuWorldRenderingSuspended = true;
+	}
+	else if (!bMenuCoversWorld)
+	{
+		RestoreMenuWorldRendering();
+	}
+}
+
+void AIGPlayerController::RestoreMenuWorldRendering()
+{
+	if (!bMenuWorldRenderingSuspended) return;
+	if (UGameViewportClient* Viewport = GetLocalPlayer() ? GetLocalPlayer()->ViewportClient : nullptr)
+	{
+		Viewport->bDisableWorldRendering = bWorldRenderingWasDisabled;
+	}
+	bMenuWorldRenderingSuspended = false;
 }
 
 bool AIGPlayerController::TryGetMenuRowFromPointer(
@@ -3793,7 +3949,8 @@ bool AIGPlayerController::TryGetAccessibilityRowFromPointer(
 		return false;
 	}
 	return IGSettingsMenuLayout::HitTestSettingsRow(
-		IGSettingsMenuLayout::MakePanelMetrics(ViewportWidth, ViewportHeight),
+		IGSettingsMenuLayout::MakeAccessibilityPanelMetrics(
+			ViewportWidth, ViewportHeight, AccessibilitySelection),
 		FVector2D(PointerX, PointerY),
 		AccessibilitySelection,
 		IGSettingsMenuLayout::AccessibilityCategoryCount,

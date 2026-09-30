@@ -328,7 +328,8 @@ void AIGHorrorHUD::BeginPlay()
 		FCommandLine::Get(),
 		TEXT("IGM1WakeEchoPreview"));
 #endif
-	bTextAuditEnabled = FParse::Param(FCommandLine::Get(), TEXT("IGTextAudit"));
+	bTextAuditEnabled = FParse::Param(FCommandLine::Get(), TEXT("IGTextAudit"))
+		|| FParse::Param(FCommandLine::Get(), TEXT("IGSettingsLayoutReview"));
 
 	ResolveInteractionComponent();
 
@@ -2847,6 +2848,10 @@ void AIGHorrorHUD::FinishTextAuditFrame()
 			return;
 		}
 		TextAuditReported.Add(Key);
+		TextAuditFailures.Add(FString::Printf(
+			TEXT("TEXT_AUDIT %s culture=%s canvas=%.0fx%.0f \"%s\" \"%s\""),
+			Kind, *Culture, TextAuditCanvasSize.X, TextAuditCanvasSize.Y,
+			*First.Left(80), *Second.Left(80)));
 		UE_LOG(LogTemp, Warning, TEXT("TEXT_AUDIT %s culture=%s canvas=%.0fx%.0f \"%s\" \"%s\""),
 			Kind, *Culture, TextAuditCanvasSize.X, TextAuditCanvasSize.Y,
 			*First.Left(80), *Second.Left(80));
@@ -5205,7 +5210,7 @@ void AIGHorrorHUD::DrawSettingsOptionRow(
 	}
 }
 
-void AIGHorrorHUD::DrawSettingsDetailText(
+float AIGHorrorHUD::DrawSettingsDetailText(
 	const FString& Text,
 	const FVector2D& Position,
 	const float MaximumWidth,
@@ -5215,7 +5220,7 @@ void AIGHorrorHUD::DrawSettingsDetailText(
 	UFont* Font = GetFontForRole(EIGHudTextRole::Hint);
 	if (!Font || Text.IsEmpty() || MaximumWidth <= 0.0f)
 	{
-		return;
+		return Position.Y;
 	}
 
 	float FitScale = TextScale;
@@ -5234,13 +5239,13 @@ void AIGHorrorHUD::DrawSettingsDetailText(
 	}
 	if (!Remainder.IsEmpty())
 	{
-		// At the minimum supported scale, preserve the full explanation by
-		// using a third line instead of clipping or silently dropping copy.
+		// 두 줄에 담기지 않으면 세 줄로 보여 준다. 설명을 중간에서 자르지 않는다.
 		Lines.Reset();
 		Remainder.Reset();
 		WrapHudText(Text, Font, FitScale, MaximumWidth, 3, Lines, Remainder);
 	}
 
+	float Bottom = Position.Y;
 	for (int32 Index = 0; Index < Lines.Num(); ++Index)
 	{
 		const float DetailLineHeight = MeasureTextHeight(
@@ -5252,6 +5257,7 @@ void AIGHorrorHUD::DrawSettingsDetailText(
 			Index * FMath::Max(
 				IGHorrorHUD::SmallFontSize * FitScale * 1.48f,
 				DetailLineHeight + 6.0f * FitScale));
+		Bottom = FMath::Max(Bottom, LinePosition.Y + DetailLineHeight);
 		const float LineWidth = MeasureTextWidth(
 			Lines[Index],
 			Font,
@@ -5272,6 +5278,7 @@ void AIGHorrorHUD::DrawSettingsDetailText(
 			EIGHudTextRole::Hint,
 			FitScale);
 	}
+	return Bottom;
 }
 
 void AIGHorrorHUD::DrawSettingsFooterText(
@@ -5335,7 +5342,8 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 	}
 	const FIGAccessibilitySettings Settings = Accessibility->GetSettings();
 	const IGSettingsMenuLayout::FPanelMetrics Metrics =
-		IGSettingsMenuLayout::MakePanelMetrics(Canvas->ClipX, Canvas->ClipY);
+		IGSettingsMenuLayout::MakeAccessibilityPanelMetrics(
+			Canvas->ClipX, Canvas->ClipY, AccessibilitySelectedRow);
 	const float Scale = Metrics.Scale;
 	const auto OnOff = [](const bool bEnabled)
 	{
@@ -5517,9 +5525,10 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		+ ActiveRange.RowCount * Metrics.OptionRowHeight
 		+ 18.0f * Scale;
 	const float DetailBottom = Metrics.FooterTop - 18.0f * Scale;
-	const float DetailHeight = FMath::Min(
-		ActiveCategory == 3 ? 210.0f * Scale : 150.0f * Scale,
-		DetailBottom - DetailTop);
+	const float DetailHeight = ActiveCategory == 3
+		? DetailBottom - DetailTop
+		: FMath::Min(150.0f * Scale, DetailBottom - DetailTop);
+	float DescriptionBottom = DetailTop;
 	if (DetailTop < DetailBottom - 54.0f * Scale)
 	{
 		DrawRoundedHudSurface(
@@ -5529,19 +5538,18 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 				DetailHeight),
 			8.0f * Scale,
 			IGHorrorHUD::SettingsRaised);
-		DrawLeftAlignedText(
-			NSLOCTEXT("IGHUD", "SettingsEffectHeading", "설명"),
-			FVector2D(
-				Metrics.ContentLeft + 18.0f * Scale,
-				DetailTop + 13.0f * Scale),
-			IGHorrorHUD::SettingsSecondary,
-			EIGHudTextRole::Hint,
-			0.72f * Scale);
-		DrawSettingsDetailText(
+		if (ActiveCategory != 3)
+		{
+			DrawLeftAlignedText(
+				NSLOCTEXT("IGHUD", "SettingsEffectHeading", "설명"),
+				FVector2D(Metrics.ContentLeft + 18.0f * Scale, DetailTop + 13.0f * Scale),
+				IGHorrorHUD::SettingsSecondary, EIGHudTextRole::Hint, 0.72f * Scale);
+		}
+		DescriptionBottom = DrawSettingsDetailText(
 			Descriptions[AccessibilitySelectedRow].ToString(),
 			FVector2D(
 				Metrics.ContentLeft + 18.0f * Scale,
-				DetailTop + 41.0f * Scale),
+				DetailTop + (ActiveCategory == 3 ? 14.0f : 41.0f) * Scale),
 			Metrics.ContentRight - Metrics.ContentLeft - 36.0f * Scale,
 			0.82f * Scale,
 			IGHorrorHUD::SettingsPrimary);
@@ -5550,10 +5558,8 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 	// 자막 카테고리에서는 설정 설명만으로 결과를 상상하게 하지 않는다.
 	// 선택한 크기·배경·안전 영역을 같은 화면의 실제 렌더링으로 확인한다.
 	const float PreviewTextScale = GetResolutionTextScale(Settings.CaptionSizeScale);
-	const float PreviewWidth = FMath::Min(
-		(Metrics.ContentRight - Metrics.ContentLeft - 36.0f * Scale)
-			* Settings.CaptionSafeAreaScale,
-		620.0f * Scale);
+	const float PreviewWidth = (Metrics.ContentRight - Metrics.ContentLeft - 36.0f * Scale)
+		* Settings.CaptionSafeAreaScale;
 	const FText PreviewBodyText = NSLOCTEXT("IGHUD", "CaptionPreviewBody", "[위] 천장에서 뭔가 끄는 소리");
 	UFont* PreviewFont = GetFontForRole(EIGHudTextRole::Dialogue);
 	float PreviewRawWidth = 0.0f;
@@ -5600,7 +5606,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		const float PreviewX = Metrics.ContentLeft
 			+ (Metrics.ContentRight - Metrics.ContentLeft - PreviewWidth) * 0.5f;
 		const float PreviewY = FMath::Max(
-			DetailTop + 62.0f * Scale,
+			DescriptionBottom + 12.0f * Scale,
 			DetailTop + DetailHeight - PreviewHeight - 12.0f * Scale);
 		ValidateSettingsTextRect(
 			FVector2D(PreviewX, PreviewY),
@@ -6376,49 +6382,49 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 				: NSLOCTEXT("IGHUD", "AudioCal.Speakers", "스피커").ToString();
 			Label += FString::Printf(TEXT("    < %s >"), *Output);
 		}
+		const FText RowText = FText::FromString(Label);
+		const EIGHudTextRole RowRole = bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint;
 		DrawCenteredText(
-			FText::FromString(Label),
+			RowText,
 			RowStartY + Row * RowSpacing,
 			bSelected ? IGHorrorHUD::RedAccent : IGHorrorHUD::PaleGray,
-			bSelected ? EIGHudTextRole::Prompt : EIGHudTextRole::Hint,
-			0.92f * Scale);
+			RowRole,
+			GetFittedTextScale(RowText, RowRole, 0.92f * Scale,
+				PanelSize.X - 72.0f * Scale, 0.65f * Scale));
 	}
+	FText CalibrationNote;
 	if (AudioCalibrationSelectedRow == 1 || AudioCalibrationSelectedRow == 2)
 	{
-		DrawCenteredText(
-			NSLOCTEXT("IGHUD", "AudioCalibrationBusNote", "배경 음악과 환경음은 따로 조절할 수 있습니다. 두드리는 소리와 위층 사람이 내는 소리는 전체 소리 크기를 따릅니다."),
-			Layout.NoteTop,
-			IGHorrorHUD::PaleGray,
-			EIGHudTextRole::Hint,
-			0.78f * Scale);
+		CalibrationNote = NSLOCTEXT("IGHUD", "AudioCalibrationBusNote", "배경 음악과 환경음은 따로 조절할 수 있습니다. 두드리는 소리와 위층 사람이 내는 소리는 전체 소리 크기를 따릅니다.");
 	}
 	if (AudioCalibrationSelectedRow == 3)
 	{
-		DrawCenteredText(
-			bSystemMenuHeadphoneOutput
+		CalibrationNote = bSystemMenuHeadphoneOutput
 					? NSLOCTEXT(
 						"IGHUD", "AudioCalibrationOutputHeadphones",
 						"헤드폰에 맞는 입체 음향을 사용합니다.")
 					: NSLOCTEXT(
 						"IGHUD", "AudioCalibrationOutputSpeakers",
-						"스피커에 맞게 소리를 재생합니다. 방향을 구분하기 어렵다면 소리 자막을 켜 주세요."),
-			Layout.NoteTop,
-			IGHorrorHUD::PaleGray,
-			EIGHudTextRole::Hint,
-			0.78f * Scale);
+						"스피커에 맞게 소리를 재생합니다. 방향을 구분하기 어렵다면 소리 자막을 켜 주세요.");
 	}
-	DrawCenteredText(
-		bUsingGamepad
+	// 설명은 두 줄까지 쓴다. 긴 번역이 판 밖으로 나가거나 아래 조작 안내를 덮지 않는다.
+	DrawSettingsDetailText(CalibrationNote.ToString(),
+		FVector2D(PanelOrigin.X + 36.0f * Scale, Layout.NoteTop),
+		PanelSize.X - 72.0f * Scale, 0.78f * Scale, IGHorrorHUD::PaleGray);
+	const FText CalibrationControls = bUsingGamepad
 				? NSLOCTEXT(
 					"IGHUD", "AudioCalibrationControlsGamepad",
 					"D-pad 항목·조정  ·  A 선택  ·  B 취소")
 				: NSLOCTEXT(
 					"IGHUD", "AudioCalibrationControlsKeyboard",
-					"방향키/WASD 항목·조정  ·  Enter 선택  ·  Esc 취소  ·  마우스 선택"),
+					"방향키/WASD 항목·조정  ·  Enter 선택  ·  Esc 취소  ·  마우스 선택");
+	DrawCenteredText(
+		CalibrationControls,
 		Layout.FooterTop,
 		IGHorrorHUD::MutedGray,
 		EIGHudTextRole::Hint,
-		0.78f * Scale);
+		GetFittedTextScale(CalibrationControls, EIGHudTextRole::Hint, 0.78f * Scale,
+			PanelSize.X - 72.0f * Scale, 0.56f * Scale));
 	PopTextAuditContainer();
 	RecordLayoutValidationRect(PanelOrigin, PanelOrigin + PanelSize);
 }

@@ -161,6 +161,8 @@ private:
 		UIGSaveGame* SaveGame);
 	void SetInputDevicePresentation(bool bUsingGamepad);
 	void ApplyMenuInputMode();
+	void UpdateMenuWorldRendering();
+	void RestoreMenuWorldRendering();
 	void UpdateMenuPointerHover();
 	bool HandleMenuPointerClick();
 	bool TryGetMenuRowFromPointer(
@@ -187,7 +189,10 @@ private:
 	bool TryCaptureFrontendProbeLayout(
 		const TCHAR* PanelName,
 		int32 MinimumElementCount,
-		bool bIncludeInMinimumElementCoverage = true);
+		bool bIncludeInMinimumElementCoverage = true,
+		bool bIncludeInReceiptCoverage = true);
+	/** 모든 설정 줄을 실제 글꼴로 그린 뒤 검사한다. 일반 실행에서는 부르지 않는다. */
+	void PrepareFrontendSettingsReviewRow();
 	bool TryVerifyFrontendDialogueLayout(
 		const TCHAR* CaseName,
 		int32 MinimumLineCount,
@@ -278,6 +283,8 @@ private:
 	int32 PreviousDisplayQualityLevel = 2;
 	int32 DisplayConfirmationSecondsRemaining = 0;
 	bool bAccessibilityMenuVisible = false;
+	bool bMenuWorldRenderingSuspended = false;
+	bool bWorldRenderingWasDisabled = false;
 	bool bGameWasPausedBeforeAccessibility = false;
 	bool bMissingFloorJournalVisible = false;
 	bool bJournalInputHeld = false;
@@ -356,6 +363,9 @@ private:
 	int32 FrontendProbeLayoutSampleCount = 0;
 	int32 FrontendProbeMinimumElementCount = MAX_int32;
 	int32 FrontendProbePressedEventCount = 0;
+	int32 FrontendSettingsReviewIndex = 0;
+	int32 FrontendSettingsReviewSamples = 0;
+	FString FrontendSettingsReviewScreenshotPath;
 	int32 AudioCalibrationPreviewExpectedWidth = 0;
 	int32 AudioCalibrationPreviewExpectedHeight = 0;
 	int32 MissingFloorEndingPreviewExpectedWidth = 0;

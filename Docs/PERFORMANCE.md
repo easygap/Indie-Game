@@ -140,6 +140,18 @@ Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드�
 사이에 설정, 드라이버, 패키지 또는 맵이 바뀌면 같은 표본으로 합치지
 않는다.
 
+## 설정창 뒤의 렌더링 — 2026-09-30
+
+화면 설정, 접근성, 소리·밝기와 키 설정이 화면을 덮을 때는 해당 플레이어의
+`UGameViewportClient::bDisableWorldRendering`으로 3D 렌더링을 쉰다. Canvas로
+그리는 글자와 미리 보기는 계속 갱신한다. 메뉴를 닫거나 컨트롤러가 끝나면 이전
+렌더링 상태로 돌아간다. 게임 장면이 보이는 일시 정지 화면은 계속 그린다.
+
+실제 화면 검사에서 설정을 열었을 때의 중단과 일시 정지·타이틀로 돌아왔을 때의
+복원을 함께 확인한다. 메뉴 비용을 줄이는 변경이며 플레이 중의 GPU 성능과
+여섯 장비의 출시 합격선을 대신하지 않는다. 동작은 설치된 UE 5.8의
+`GameViewportClient.cpp`와 [Epic의 API 문서](https://dev.epicgames.com/documentation/en-us/unreal-engine/API/Runtime/Engine/UGameViewportClient)에서 확인했다.
+
 ## 2026-09-30 갱신 비용과 측정 보완
 
 5층 바닥 흔적은 개수가 그대로여도 위치와 방향이 바뀌고, 최대 96개가

@@ -165,7 +165,7 @@ namespace IGSettingsMenuLayout
 		float RowSpacing = 42.0f;
 		/** 글자 윗변에서 줄 가운데까지. 마우스 판정은 가운데를 기준으로 잡는다. */
 		float RowCenterOffset = 12.0f;
-		/** 고른 줄의 설명 한 줄. 마지막 메뉴 줄과 조작 안내 사이에 선다. */
+		/** 고른 줄의 설명. 두 줄로 접혀도 마지막 메뉴 줄과 조작 안내 사이에 선다. */
 		float NoteTop = 0.0f;
 		float FooterTop = 0.0f;
 	};
@@ -182,19 +182,19 @@ namespace IGSettingsMenuLayout
 		const float Scale = Result.Scale;
 		Result.PanelSize = FVector2D(
 			FMath::Min(ViewportWidth * 0.76f, 980.0f * Scale),
-			FMath::Min(ViewportHeight * 0.70f, 690.0f * Scale));
+			FMath::Min(ViewportHeight * 0.76f, 740.0f * Scale));
 		Result.PanelPosition = FVector2D(
 			(ViewportWidth - Result.PanelSize.X) * 0.5f,
 			(ViewportHeight - Result.PanelSize.Y) * 0.5f + 12.0f * Scale);
-		// 아래에서부터 쌓는다. 조작 안내, 설명 한 줄, 메뉴 일곱 줄 순서다.
+		// 아래에서부터 쌓는다. 조작 안내, 설명 두 줄, 메뉴 일곱 줄 순서다.
 		// 설명이 마지막 메뉴 줄과 같은 높이에 그려져 「저장하고 돌아가기」를
 		// 덮던 자리를 이렇게 떼어 놓았다.
 		const float PanelBottom = Result.PanelPosition.Y + Result.PanelSize.Y;
 		Result.FooterTop = PanelBottom - 34.0f * Scale;
-		Result.NoteTop = PanelBottom - 64.0f * Scale;
+		Result.NoteTop = PanelBottom - 98.0f * Scale;
 		Result.RowSpacing = 42.0f * Scale;
 		Result.RowCenterOffset = 12.0f * Scale;
-		Result.RowTop = PanelBottom - 352.0f * Scale;
+		Result.RowTop = PanelBottom - 386.0f * Scale;
 		Result.DividerTop = Result.PanelPosition.Y + 122.0f * Scale;
 		Result.DividerBottom = FMath::Min(
 			Result.PanelPosition.Y + 324.0f * Scale,
@@ -226,6 +226,21 @@ namespace IGSettingsMenuLayout
 		case 5: return {ResetDefaults, 2};         // General actions.
 		default: return {0, 0};
 		}
+	}
+
+	/** 자막 묶음에는 200% 미리 보기를 위한 높이를 남긴다. 클릭 판정에도 같은 간격을 쓴다. */
+	inline FPanelMetrics MakeAccessibilityPanelMetrics(
+		const float ViewportWidth,
+		const float ViewportHeight,
+		const int32 SelectedRow)
+	{
+		FPanelMetrics Result = MakePanelMetrics(ViewportWidth, ViewportHeight);
+		if (SelectedRow >= SoundCaptions && SelectedRow <= CaptionDuration)
+		{
+			Result.OptionRowHeight = FMath::Max(44.0f, 52.0f * Result.Scale);
+			Result.OptionStartY = Result.HeaderBottom + 44.0f * Result.Scale;
+		}
+		return Result;
 	}
 
 	template <typename RangeGetter>

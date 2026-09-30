@@ -273,6 +273,9 @@ public:
 		bool& bOutAllInsideSettingsContainers,
 		uint64& OutFrameSerial) const;
 
+	/** 실제로 그린 글자의 겹침·영역 이탈을 배포본 검사 결과에도 남긴다. */
+	FString GetTextAuditFailureReport() const { return FString::Join(TextAuditFailures, TEXT("\n")); }
+
 	/** Last lower-third dialogue layout actually drawn by the Shipping probe. */
 	bool GetDialogueRenderSample(
 		FVector2D& OutPanelMinimum,
@@ -642,7 +645,7 @@ private:
 		const FText& Value,
 		bool bSelected,
 		bool bAdjustable);
-	void DrawSettingsDetailText(
+	float DrawSettingsDetailText(
 		const FString& Text,
 		const FVector2D& Position,
 		float MaximumWidth,
@@ -932,6 +935,7 @@ private:
 	TArray<FBox2D> TextAuditContainers;
 	TArray<int32> TextAuditContainerStack;
 	TSet<uint32> TextAuditReported;
+	TArray<FString> TextAuditFailures;
 	FVector2D TextAuditCanvasSize = FVector2D::ZeroVector;
 	int32 AccessibilitySelectedRow = 0;
 	double AccessibilityResetArmedUntil = -1.0;

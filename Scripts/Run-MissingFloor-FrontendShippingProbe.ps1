@@ -147,6 +147,7 @@ function Invoke-FrontendCase {
 		'-NoVSync',
 		'-IGFrontendShippingProbe',
 		'-IGFrontendCopyReview',
+		'-IGSettingsLayoutReview',
 		"-IGFrontendExpectedWidth=$Width",
 		"-IGFrontendExpectedHeight=$Height",
 		"-IGFrontendResultPath=$receiptPath",
@@ -247,6 +248,14 @@ function Invoke-FrontendCase {
 	$receipt = (
 		Get-Content -Raw -Encoding UTF8 -LiteralPath $receiptPath
 	).Trim()
+	$settingsLayoutReceiptPath = Join-Path $caseRoot 'settings-layout.txt'
+	if (-not (Test-Path -LiteralPath $settingsLayoutReceiptPath -PathType Leaf)) {
+		throw "설정 전체 항목의 글자 검사 결과가 없습니다: $settingsLayoutReceiptPath"
+	}
+	$settingsLayoutReceipt = (Get-Content -Raw -Encoding UTF8 -LiteralPath $settingsLayoutReceiptPath).Trim()
+	if ($settingsLayoutReceipt -cne 'MISSINGFLOOR_SETTINGS_LAYOUT PASS samples=158 text_failures=0') {
+		throw "설정 글자가 겹치거나 영역을 벗어났습니다: $settingsLayoutReceipt"
+	}
 	$pattern = (
 		'^MISSINGFLOOR_FRONTEND PASS contract=4 ' +
 		"resolution=${Width}x${Height} " +
@@ -282,6 +291,9 @@ function Invoke-FrontendCase {
 		}
 		inputEvents = 11
 		layoutSamples = 11
+		settingsLayoutSamples = 158
+		settingsLayoutReceiptPath = $settingsLayoutReceiptPath
+		settingsLayoutReceiptSha256 = (Get-FileHash -Algorithm SHA256 -LiteralPath $settingsLayoutReceiptPath).Hash
 		receipt = $receipt
 		receiptPath = $receiptPath
 		receiptSha256 = (
