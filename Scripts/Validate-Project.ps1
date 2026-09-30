@@ -21,7 +21,6 @@ $requiredFiles = @(
 	'Content/Prototype/Materials/M_Alarm.uasset',
 	'Content/Prototype/Materials/M_FridgeBody.uasset',
 	'Content/Prototype/Materials/M_FridgeInterior.uasset',
-	'Content/Prototype/Materials/M_WalletBrown.uasset',
 	'Content/Prototype/Materials/M_WindowGlow.uasset',
 	'Content/Prototype/Materials/M_Asphalt.uasset',
 	'Content/Prototype/Materials/M_Concrete.uasset',

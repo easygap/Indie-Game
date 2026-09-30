@@ -137,27 +137,7 @@ def author(material, finish):
             link(color((.44, .48, .46) if finish == "landing_dado" else (1., 1., 1.)), tint, "B")
             base = tint
             rough = scalar(.62 if finish == "landing_dado" else .88)
-    if finish == "gypsum":
-        # 넓은 면은 아이보리 원지, 절단면은 회백색 석고다. 옆면에 평면 투영을 늘리지 않는다.
-        normal = node("MaterialExpressionVertexNormalWS")
-        axis = node("MaterialExpressionComponentMask", r=False, g=False, b=True, a=False)
-        link(normal, axis, "")
-        face = node("MaterialExpressionAbs")
-        link(axis, face, "")
-        paper = node("MaterialExpressionLinearInterpolate")
-        link(color((.48, .46, .42)), paper, "A")
-        link(color((.69, .65, .55)), paper, "B")
-        link(face, paper, "Alpha")
-        random = node("MaterialExpressionPerInstanceRandom")
-        variation = node("MaterialExpressionMultiply", const_b=.06)
-        link(random, variation, "A")
-        brightness = node("MaterialExpressionAdd", const_b=.97)
-        link(variation, brightness, "A")
-        base = node("MaterialExpressionMultiply")
-        link(paper, base, "A")
-        link(brightness, base, "B")
-        rough = scalar(.9)
-    if finish not in ("wall", "gypsum") and not painted:
+    if finish != "wall" and not painted:
         # 반복 전 좌표의 미분으로 픽셀 면적을 구한다. frac의 경계에서 미분하면
         # 줄눈 한 줄이 타일 너비만큼 번지거나 먼 바닥에서 반짝인다.
         grid = node("MaterialExpressionCustom", output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT1,

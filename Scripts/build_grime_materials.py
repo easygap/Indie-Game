@@ -18,7 +18,6 @@ FINISHES = (
     ("M_Stucco_Y", "landing_wall"),
     ("M_StuccoCeil", "landing_ceiling"),
     ("M_StuccoDado_X", "landing_dado"),
-    ("M_StuccoDado_Y", "landing_dado"),
     ("M_GraniteTile_XY", "granite"),
 )
 

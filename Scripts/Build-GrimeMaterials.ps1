@@ -9,7 +9,7 @@ if (-not (Get-ChildItem -LiteralPath $stage -Filter '*.uproject' -ErrorAction Si
 	& (Join-Path $PSScriptRoot 'Import-BlenderAssets.ps1') -Only 'SM_BoothMonitor'
 }
 $project = (Get-ChildItem -LiteralPath $stage -Filter '*.uproject' | Select-Object -First 1).FullName
-$materials = @('M_Stucco_X', 'M_Stucco_Y', 'M_StuccoCeil', 'M_StuccoDado_X', 'M_StuccoDado_Y', 'M_GraniteTile_XY')
+$materials = @('M_Stucco_X', 'M_Stucco_Y', 'M_StuccoCeil', 'M_StuccoDado_X', 'M_GraniteTile_XY')
 $masks = @('WallGrime_M', 'CeilingStain_M', 'FloorGrime_M')
 
 & python (Join-Path $PSScriptRoot 'build_grime_masks.py')

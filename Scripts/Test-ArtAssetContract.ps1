@@ -504,7 +504,6 @@ foreach ($token in @(
 	'"M_CaptureMercyNote": {',
 	'"tex_asset": "T_CaptureMercyNote_D", "rough": 0.92, "two_sided": True,',
 	'"M_Plate402":      {"tex_asset": "T_Plate402_D", "rough": 0.35}',
-	'"M_PlateCommon":   {"tex_asset": "T_PlateCommon_D", "rough": 0.35}',
 	'material.set_editor_property("two_sided", bool(spec.get("two_sided", False)))',
 	'IG_CORRIDOR_SIGNAGE_ONLY',
 	'Corridor entrance signage material update complete'
@@ -581,8 +580,7 @@ foreach ($token in @(
 }
 foreach ($token in @(
 	'TEXT("M_Plate402"), TEXT("M_Plate401")',
-	'TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial)',
-	'TEXT("M_Plate403"), TEXT("M_PlateCommon")'
+	'TexMat(TEXT("M_Plate403"), FridgeInteriorMaterial)'
 )) {
 	if (-not $prologueSource.Contains($token)) {
 		throw "Landing door runtime contract is missing: $token"
@@ -621,14 +619,7 @@ foreach ($forbiddenToken in @(
 }
 
 foreach ($token in @(
-	'M_EvidenceSlipperTrail',
-	'M_EvidenceCatPawTrail',
-	'M_EvidenceHoseDrag',
-	'M_EvidenceHandSmear',
 	'M_DecalDampWallpaper',
-	'M_DecalRustFasteners',
-	'M_DecalMineralScale',
-	'M_DecalRainGrime',
 	'M_ApartmentWallPatina',
 	'"tex": "ApartmentWallpaperV2"',
 	'M_AlleyCatTabbyUV',
@@ -830,9 +821,6 @@ foreach ($token in @(
 	'M_MovingBoxCardboardUV',
 	'M_MissingFloorSteelStair',
 	'M_RooftopWaterproofing_XY',
-	'M_MissingFloorGypsumDebris_XY',
-	'M_UtilityMeterDial',
-	'M_CarbonPaper',
 	'M_UnitDoorPaintedSteel',
 	'M_MissingFloorListenerPlasterUV',
 	'M_MissingFloorHandprints',
@@ -870,10 +858,7 @@ foreach ($token in @(
 	"-Destination (Join-Path `$projectRoot `$relativeFolder)",
 	'Content\Prototype\Materials\M_MissingFloorSteelStair.uasset',
 	'Content\Prototype\Materials\M_RooftopWaterproofing_XY.uasset',
-	'Content\Prototype\Materials\M_MissingFloorGypsumDebris_XY.uasset',
-	'Content\Prototype\Materials\M_UnitDoorPaintedSteel.uasset',
-	'Content\Prototype\Materials\M_UtilityMeterDial.uasset',
-	'Content\Prototype\Materials\M_CarbonPaper.uasset'
+	'Content\Prototype\Materials\M_UnitDoorPaintedSteel.uasset'
 )) {
 	if (-not $buildScript.Contains($token)) {
 		throw "ASCII targeted-build asset delivery is missing: $token"

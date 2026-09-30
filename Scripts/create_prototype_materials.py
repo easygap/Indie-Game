@@ -41,10 +41,6 @@ MATERIALS = {
         "base": (0.85, 0.87, 0.86, 1.0),
         "roughness": 0.6,
     },
-    "M_WalletBrown": {
-        "base": (0.12, 0.06, 0.03, 1.0),
-        "roughness": 0.7,
-    },
     "M_WindowGlow": {
         "base": (0.02, 0.03, 0.06, 1.0),
         "roughness": 0.2,

@@ -85,8 +85,6 @@ MATERIAL_TEXTURES = {
     "M_Wallpaper_X": "T_ApartmentWallpaperV2",
     "M_Wallpaper_Y": "T_ApartmentWallpaperV2",
     "M_WallpaperCeil": "T_ApartmentWallpaperV2",
-    "M_WallpaperEmboss_X": "T_ApartmentWallpaperEmboss",
-    "M_WallpaperEmboss_Y": "T_ApartmentWallpaperEmboss",
     "M_VillaStucco_X": "T_KoreanVillaStucco",
     "M_VillaStucco_Y": "T_KoreanVillaStucco",
     "M_MovingBoxCardboardUV": "T_MovingBoxCardboard",
@@ -108,22 +106,13 @@ MATERIAL_TEXTURES = {
 
 MASK_MATERIALS = {
     "M_ApartmentWallPatina": "T_ApartmentWallPatina_M",
-    "M_EvidenceSlipperTrail": "T_EvidenceSlipperTrail_M",
-    "M_EvidenceCatPawTrail": "T_EvidenceCatPawTrail_M",
-    "M_EvidenceHoseDrag": "T_EvidenceHoseDrag_M",
-    "M_EvidenceHandSmear": "T_EvidenceHandSmear_M",
     "M_DecalDampWallpaper": "T_DecalDampWallpaper_D",
-    "M_DecalRustFasteners": "T_DecalRustFasteners_D",
-    "M_DecalMineralScale": "T_DecalMineralScale_D",
-    "M_DecalRainGrime": "T_DecalRainGrime_D",
     "M_MissingFloorHandprints": "T_MissingFloorHandprints_M",
     "M_MissingFloorDragTrails": "T_MissingFloorDragTrails_M",
     "M_MissingFloorDustJoint": "T_MissingFloorDustJoint_M",
     "M_MissingFloorCavityScratches": "T_MissingFloorCavityScratches_M",
     "M_SpriteSeo": "T_SpriteSeo_D",
     "M_SpriteMok": "T_SpriteMok_D",
-    "M_SpriteHwang": "T_SpriteHwang_D",
-    "M_SpriteNarin": "T_SpriteNarin_D",
     "M_SpriteListenerFront": "T_SpriteListenerFront_D",
     "M_SpriteListenerCrawl0": "T_SpriteListenerCrawl0_D",
     "M_SpriteListenerCrawl1": "T_SpriteListenerCrawl1_D",
@@ -142,7 +131,6 @@ PRINT_MATERIALS = {
     "M_LabelGreenTea": "T_LabelGreenTea_D",
     "M_LabelBarley": "T_LabelBarley_D",
     "M_LabelSoda": "T_LabelSoda_D",
-    "M_LabelSoju": "T_LabelSoju_D",
     "M_LabelRamyeon": "T_LabelRamyeon_D",
 }
 
@@ -150,7 +138,6 @@ ENTRANCE_PLATE_MATERIALS = {
     "M_Plate401": "T_Plate401_D",
     "M_Plate402": "T_Plate402_D",
     "M_Plate403": "T_Plate403_D",
-    "M_PlateCommon": "T_PlateCommon_D",
 }
 
 INSTANCED_PRODUCT_MATERIALS = {
@@ -162,14 +149,9 @@ INSTANCED_PRODUCT_MATERIALS = {
     "M_LabelGreenTea",
     "M_LabelRamyeon",
     "M_LabelSoda",
-    "M_LabelSoju",
     "M_LabelWater",
     "M_SnackBlue",
-    "M_SnackCorn",
-    "M_SnackPotato",
     "M_SnackRed",
-    "M_SnackShrimp",
-    "M_SnackSquid",
     "M_SnackYellow",
     "M_StainlessUV",
 }
@@ -179,7 +161,6 @@ WRAPPED_LABEL_MATERIALS = {
     "M_LabelGreenTea",
     "M_LabelRamyeon",
     "M_LabelSoda",
-    "M_LabelSoju",
     "M_LabelWater",
 }
 
@@ -187,27 +168,16 @@ PRINT_RESPONSE_MATERIALS = {
     name: DECAL_MATERIALS[name]
     for name in (
         "M_PaperClean",
-        "M_PaperWet",
-        "M_PaperFolded",
         "M_PaperOld",
         "M_LabelWater",
         "M_LabelGreenTea",
         "M_LabelBarley",
         "M_LabelSoda",
-        "M_LabelSoju",
         "M_LabelRamyeon",
-        "M_SnackShrimp",
-        "M_SnackPotato",
-        "M_SnackSquid",
-        "M_SnackCorn",
     )
 }
 
 EVIDENCE_MASK_MATERIALS = {
-    "M_EvidenceSlipperTrail": "T_EvidenceSlipperTrail_M",
-    "M_EvidenceCatPawTrail": "T_EvidenceCatPawTrail_M",
-    "M_EvidenceHoseDrag": "T_EvidenceHoseDrag_M",
-    "M_EvidenceHandSmear": "T_EvidenceHandSmear_M",
     "M_MissingFloorHandprints": "T_MissingFloorHandprints_M",
     "M_MissingFloorDragTrails": "T_MissingFloorDragTrails_M",
     "M_MissingFloorDustJoint": "T_MissingFloorDustJoint_M",
@@ -961,8 +931,6 @@ def validate_apartment_visual_assets() -> None:
         "M_Wallpaper_X",
         "M_Wallpaper_Y",
         "M_WallpaperCeil",
-        "M_WallpaperEmboss_X",
-        "M_WallpaperEmboss_Y",
     )
     material_specs = {
         name: TEXTURED_MATERIALS[name]

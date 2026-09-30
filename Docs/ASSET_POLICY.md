@@ -220,8 +220,9 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
   - `Content/Prototype/Textures/T_PaperFolded_V2_D.uasset`
   - `Content/Prototype/Textures/T_PaperOld_V2_D.uasset`
 - 적용: `Scripts/Prepare-AIArt.ps1`이 2×2 시트를 네 장으로 분리하고,
-  `Scripts/create_textured_materials.py`가 `M_PaperClean`, `M_PaperWet`,
-  `M_PaperFolded`, `M_PaperOld` 머티리얼에 V2 텍스처를 연결합니다.
+  `Scripts/create_textured_materials.py`가 `M_PaperClean`, `M_PaperOld`
+  머티리얼에 V2 텍스처를 연결합니다. 젖은 종이·접힌 종이 재질은 쓰는 곳이
+  없어 2026-09-30에 뺐고, 두 텍스처는 인쇄 아틀라스 자리로만 남아 있습니다.
 - 이전 `Content/SourceArt/AI/SheetPaper.png`와 V1 파생 텍스처는 삭제하지
   않고 증빙을 위해 보존하지만, 현재 머티리얼에서는 사용하지 않습니다.
 

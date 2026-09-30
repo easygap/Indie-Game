@@ -66,19 +66,13 @@ UNIFORM_SURFACES = frozenset({
     # 읽는 종이의 지질. 한글 본문은 HUD가 런타임에 그리므로 텍스처에는
     # 구김·테이프·물자국만 있다.
     "M_PaperClean",
-    "M_PaperFolded",
     "M_PaperOld",
-    "M_PaperWet",
 })
 
 # 금속 명판의 몸체와 얇은 인쇄물을 구분한다. 단위는 cm.
 MAX_DRESSING_THICKNESS = 3.0
 PAPER_THICKNESS_LIMITS = {
-    "M_NoticeA4": .10,
-    "M_DoorAd": .10,
-    "M_PosterFlyer": .10,
     "M_Calendar": .30,
-    "M_Banner": .15,
 }
 
 TABLE_PATTERN = re.compile(r"^([A-Z_]+) = \{", re.M)
@@ -233,8 +227,7 @@ def _self_test() -> int:
     check("얇은 판", findings, [])
 
     # 명판은 통과해도 같은 두께의 종이는 통과하면 안 된다.
-    for paper_name, old_thickness in (("M_NoticeA4", 1.6), ("M_DoorAd", .8),
-                                      ("M_Calendar", 1.5), ("M_PosterFlyer", 2), ("M_Banner", 2.5)):
+    for paper_name, old_thickness in (("M_Calendar", 1.5),):
         paper_bindings = projection.parse_bindings(f'UMaterialInterface* Paper = TexMat(TEXT("{paper_name}"), F);\n')
         paper = projection._FakeBox(9, "Paper", (0, 0, 140), (31, old_thickness, 42))
         findings, _ = audit_boxes([paper], paper_bindings, {paper_name}, "Fake.cpp")

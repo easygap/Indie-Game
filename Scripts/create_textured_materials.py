@@ -157,37 +157,10 @@ TEXTURED_MATERIALS = {
     "M_WallpaperCeil":  {"tex": "ApartmentWallpaperV2", "mapping": "XY", "tile": 220.0,
                          "rough": 0.92, "ao": True, "desaturate": 0.82,
                          "tint": (0.48, 0.48, 0.46)},
-    # 403호 벽지. 주인공 집과 같은 165cm 반복이라 벽에서 밀도가 같고,
-    # 무늬가 없으므로 손전등이 훑을 때 세로 결만 다르게 읽힌다.
-    #
-    # 틴트는 취향이 아니라 계산이다. 옆방과 같은 밝기로 앉혀야 403호가
-    # 「어두운 방」이 아니라 「남의 집」으로 읽힌다. 기준은 출시 중인 벽지의
-    # 실효 알베도다 — 원본 0.772 x 틴트 0.70 = 0.541.
-    #
-    #   채택본 실측 luma 0.654  ->  0.541 / 0.654 = 0.827
-    #   확인:                       0.654 x 0.83  = 0.543
-    #
-    # 초록은 조금 뺀다. 복도 실용등이 차가운데 벽까지 녹색으로 깔리면
-    # 오래된 종이가 아니라 곰팡이로 읽히고, 그건 이 프로젝트 프롬프트가
-    # 줄곧 피해 온 공포 클리셰다.
-    "M_WallpaperEmboss_X": {"tex": "ApartmentWallpaperEmboss", "mapping": "XZ",
-                            "tile": 165.0, "rough": 0.86, "ao": True,
-                            "tint": (0.85, 0.83, 0.81)},
-    "M_WallpaperEmboss_Y": {"tex": "ApartmentWallpaperEmboss", "mapping": "YZ",
-                            "tile": 165.0, "rough": 0.86, "ao": True,
-                            "tint": (0.85, 0.83, 0.81)},
     "M_WoodFurnitureUV": {"tex": "WoodDark", "mapping": "UV", "tile": 1.0, "rough": 0.55},
     "M_BeddingUV":      {"tex": "Blanket", "mapping": "UV", "tile": 2.0, "rough": 0.95},
     # --- alley -------------------------------------------------------------
     # (M_AsphaltWorld is built by create_wet_asphalt: dew puddles + mirror wet)
-    "M_Brick_X":        {"tex": "Brick", "mapping": "XZ", "tile": 210.0, "rough": 0.9},
-    "M_Brick_Y":        {"tex": "Brick", "mapping": "YZ", "tile": 210.0, "rough": 0.9},
-    # 빌라 파사드. Bricks059(ambientCG, CC0) 2K 한 장이 벽돌 약 아홉 줄, 190 cm.
-    # 표준 벽돌 190×57 mm에 줄눈 10 mm를 더한 높이로 맞췄다.
-    "M_VillaBrick_X":   {"tex": "VillaBrick", "mapping": "XZ", "tile": 190.0, "rough": 0.92,
-                         "ao": True, "tint": (0.86, 0.80, 0.76)},
-    "M_VillaBrick_Y":   {"tex": "VillaBrick", "mapping": "YZ", "tile": 190.0, "rough": 0.92,
-                         "ao": True, "tint": (0.86, 0.80, 0.76)},
     "M_VillaStucco_X":  {"tex": "KoreanVillaStucco", "mapping": "XZ", "tile": 235.0,
                           "rough": 0.88, "ao": True, "tint": (0.82, 0.85, 0.88)},
     "M_VillaStucco_Y":  {"tex": "KoreanVillaStucco", "mapping": "YZ", "tile": 235.0,
@@ -198,11 +171,8 @@ TEXTURED_MATERIALS = {
     },
     "M_Concrete_XY":    {"tex": "Concrete", "mapping": "XY", "tile": 150.0},
     "M_Concrete_X":     {"tex": "Concrete", "mapping": "XZ", "tile": 150.0},
-    "M_Concrete_Y":     {"tex": "Concrete", "mapping": "YZ", "tile": 150.0},
     "M_Shutter_X":      {"tex": "Shutter", "mapping": "XZ", "tile": 130.0},
     "M_ConcreteDark_X": {"tex": "Concrete", "mapping": "XZ", "tile": 260.0,
-                         "tint": (0.32, 0.33, 0.36)},
-    "M_ConcreteDark_Y": {"tex": "Concrete", "mapping": "YZ", "tile": 260.0,
                          "tint": (0.32, 0.33, 0.36)},
     # 수평면용. _X는 월드 좌표를 (X, Z)로 마스킹하므로 Z가 일정한 바닥에서는
     # V가 상수가 되어 텍스처가 한 줄로 잘려 Y 방향으로 무한히 늘어난다.
@@ -234,13 +204,8 @@ TEXTURED_MATERIALS = {
     "M_Stucco_Y": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_wall"},
     "M_StuccoCeil": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_ceiling"},
     "M_StuccoDado_X": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_dado"},
-    "M_StuccoDado_Y": {"tex": "Stucco", "mapping": "DOMINANT", "tile": 180., "retail_finish": "landing_dado"},
     # 포천석 사진에서 새로 만든 원본과 600mm 줄눈. 테라초를 화강석으로 위장하지 않는다.
     "M_GraniteTile_XY": {"tex": "GraniteTile", "mapping": "DOMINANT", "tile": 60.0, "retail_finish": "granite"},
-    "M_GranitePanel_X": {"tex": "GranitePanel", "mapping": "XZ", "tile": 24.0,
-                         "desaturate": 0.92, "tint": (0.80, 0.80, 0.78), "rough": 0.58},
-    "M_GranitePanel_Y": {"tex": "GranitePanel", "mapping": "YZ", "tile": 24.0,
-                         "desaturate": 0.92, "tint": (0.80, 0.80, 0.78), "rough": 0.58},
     "M_MarbleFloor_XY": {"tex": "MarbleFloor", "mapping": "XY", "tile": 130.0,
                          "desaturate": 0.55, "tint": (1.35, 1.35, 1.32),
                          "force_rough": 0.34},
@@ -251,8 +216,6 @@ TEXTURED_MATERIALS = {
                          "force_rough": 0.17},
     "M_StainlessUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
                          "tint": (0.72, 0.75, 0.78), "metallic": 1.0, "force_rough": 0.42},
-    "M_CabMirrorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
-                         "tint": (1.22, 1.24, 1.28), "metallic": 1.0, "force_rough": 0.14},
     "M_SteelDoorUV":    {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
                           "tint": (0.22, 0.23, 0.25), "metallic": 0.65, "force_rough": 0.48},
     "M_KitchenGlossUV": {"tex": "MetalBrushed", "mapping": "UV", "tile": 1.0,
@@ -268,14 +231,13 @@ TEXTURED_MATERIALS = {
         "tex": "MissingFloorDryPlaster", "mapping": "YZ", "tile": 138.0,
         "rough": 0.91, "ao": True, "tint": (0.78, 0.76, 0.71),
     },
-    "M_GypsumBoard": {"tex": "MissingFloorDryPlaster", "mapping": "UV", "tile": 1.0, "retail_finish": "gypsum"},
     "M_MissingFloorPlaster_XY": {
         "tex": "MissingFloorDryPlaster", "mapping": "XY", "tile": 138.0,
         "rough": 0.93, "ao": True, "tint": (0.74, 0.73, 0.69),
     },
-    # 발소리 표면 3종. §11 규칙 2가 「어느 바닥을 고르느냐」를 선택으로 만드는데,
-    # 지금까지 이 셋은 전부 복도 콘크리트로 그려지고 있었다. 소리는 다른데
-    # 그림이 같으면 고를 수가 없다.
+    # 발소리 표면. §11 규칙 2가 「어느 바닥을 고르느냐」를 선택으로 만드는데,
+    # 한때 전부 복도 콘크리트로 그려지고 있었다. 소리는 다른데 그림이 같으면
+    # 고를 수가 없다.
     #
     # 계단 타일은 55cm에 다이아몬드 16개 = 피치 34mm로, 실제 체커플레이트
     # 규격 안이다. 거칠기를 콘크리트(0.9+)보다 낮게 두는 것이 핵심이다 —
@@ -287,10 +249,6 @@ TEXTURED_MATERIALS = {
     "M_RooftopWaterproofing_XY": {
         "tex": "RooftopWaterproofing", "mapping": "XY", "tile": 150.0,
         "rough": 0.82, "ao": True, "tint": (0.80, 0.82, 0.76),
-    },
-    "M_MissingFloorGypsumDebris_XY": {
-        "tex": "MissingFloorGypsumDebris", "mapping": "XY", "tile": 150.0,
-        "rough": 0.93, "ao": True, "tint": (0.78, 0.77, 0.74),
     },
     # 세대 현관문 문짝. 지금까지 브러시드 스테인리스를 쓰고 있었는데, 한국
     # 빌라 현관문은 무광 도장 강판이라 재질 계열 자체가 다르다. 기하(브러시드
@@ -315,8 +273,6 @@ DECAL_MATERIALS = {
         "two_sided": True,
     },
     "M_PosterSale":    {"tex_asset": "T_PosterSale_D", "rough": 0.55, "emissive_scale": 0.06},
-    "M_PosterRamyeon": {"tex_asset": "T_PosterRamyeon_D", "rough": 0.55, "emissive_scale": 0.06},
-    "M_PosterFlyer":   {"tex_asset": "T_PosterFlyer_D", "rough": 0.75, "flutter": True},
     "M_NoteFridge":    {"tex_asset": "T_NoteFridge_D", "rough": 0.86},
     "M_CaptureMercyNote": {
         "tex_asset": "T_CaptureMercyNote_D", "rough": 0.92, "two_sided": True,
@@ -332,22 +288,14 @@ DECAL_MATERIALS = {
     "M_SignAux5MonitorOnly": {
         "tex_asset": "T_SignAux5MonitorOnly_D", "rough": 0.74,
     },
-    "M_SignToilet":    {"tex_asset": "T_SignToilet_D", "rough": 0.4},
-    "M_SignAutoDoor":  {"tex_asset": "T_SignAutoDoor_D", "rough": 0.3, "emissive_scale": 0.15},
-    "M_PriceStrip":    {"tex_asset": "T_PriceStrip_D", "rough": 0.4, "emissive_scale": 0.03,
-                        "tile_u": 2.0},
     "M_SignVilla":     {"tex_asset": "T_SignVilla_D", "rough": 0.4, "emissive_scale": 0.25},
     "M_Plate401":      {"tex_asset": "T_Plate401_D", "rough": 0.35},
     "M_Plate402":      {"tex_asset": "T_Plate402_D", "rough": 0.35},
     "M_Plate403":      {"tex_asset": "T_Plate403_D", "rough": 0.35},
-    "M_PlateCommon":   {"tex_asset": "T_PlateCommon_D", "rough": 0.35},
-    "M_ElevatorPanel": {"tex_asset": "T_ElevatorPanel_D", "rough": 0.3, "emissive_scale": 0.8},
     "M_SignLaundry":   {"tex_asset": "T_SignLaundry_D", "rough": 0.45, "emissive_scale": 0.05},
     "M_SignHair":      {"tex_asset": "T_SignHair_D", "rough": 0.45, "emissive_scale": 0.05},
     "M_SignHof":       {"tex_asset": "T_SignHof_D", "rough": 0.45, "emissive_scale": 0.5},
     "M_SignSuper":     {"tex_asset": "T_SignSuper_D", "rough": 0.45, "emissive_scale": 0.05},
-    "M_Banner":        {"tex_asset": "T_Banner_D", "rough": 0.7, "flutter": True},
-    "M_NoticeA4":      {"tex_asset": "T_NoticeA4_D", "rough": 0.7},
     # Aged paper stock for readable notes. The Korean copy is drawn over these
     # at runtime by the HUD, so the sheets themselves carry no text — only
     # creases, tape, water damage and age.
@@ -359,35 +307,19 @@ DECAL_MATERIALS = {
         "rough_low": 0.76, "rough_high": 0.90, "ao": True,
         "specular": 0.22,
     },
-    "M_PaperWet": {
-        "tex_asset": "T_PaperWet_V2_D", "rough": 0.62,
-        "micro_stem": "T_PaperClean_V2", "normal_strength": 0.18,
-        "rough_low": 0.48, "rough_high": 0.70, "ao": True,
-        "specular": 0.42,
-    },
-    "M_PaperFolded": {
-        "tex_asset": "T_PaperFolded_V2_D", "rough": 0.84,
-        "micro_stem": "T_PaperClean_V2", "normal_strength": 0.27,
-        "rough_low": 0.78, "rough_high": 0.92, "ao": True,
-        "specular": 0.20,
-    },
     "M_PaperOld": {
         "tex_asset": "T_PaperOld_V2_D", "rough": 0.86,
         "micro_stem": "T_PaperClean_V2", "normal_strength": 0.30,
         "rough_low": 0.80, "rough_high": 0.94, "ao": True,
         "specular": 0.18,
     },
-    "M_NoticeRent":    {"tex_asset": "T_NoticeRent_D", "rough": 0.72},
-    "M_DoorAd":        {"tex_asset": "T_DoorAd_D", "rough": 0.6},
     "M_Calendar":      {"tex_asset": "T_Calendar_D", "rough": 0.7},
-    "M_FireBox":       {"tex_asset": "T_FireBox_D", "rough": 0.4, "emissive_scale": 0.08},
     "M_TobaccoNotice": {"tex_asset": "T_TobaccoNotice_D", "rough": 0.5},
     "M_SignPC":        {"tex_asset": "T_SignPC_D", "rough": 0.45, "emissive_scale": 0.05},
     "M_SignKaraoke":   {"tex_asset": "T_SignKaraoke_D", "rough": 0.45, "emissive_scale": 0.45},
     # Villa fittings. The lift readouts are the only thing genuinely emitting
     # in the shaft, so they carry a strong emissive; the rest are plastic.
     "M_DoorLock":      {"tex_asset": "T_DoorLock_D", "rough": 0.34, "emissive_scale": 0.12},
-    "M_MeterBox":      {"tex_asset": "T_MeterBox_D", "rough": 0.52},
     "M_Intercom":      {"tex_asset": "T_Intercom_D", "rough": 0.34, "emissive_scale": 0.08},
     "M_LiftCOP":       {"tex_asset": "T_LiftCOP_D", "rough": 0.26, "emissive_scale": 0.03},
     "M_LiftHall":      {"tex_asset": "T_LiftHall_D", "rough": 0.3, "emissive_scale": 1.4},
@@ -413,35 +345,10 @@ DECAL_MATERIALS = {
         "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.06,
         "rough_low": 0.20, "rough_high": 0.34, "specular": 0.56,
     },
-    "M_LabelSoju": {
-        "tex_asset": "T_LabelSoju_D", "rough": 0.32,
-        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.05,
-        "rough_low": 0.24, "rough_high": 0.38, "specular": 0.52,
-    },
     "M_LabelRamyeon": {
         "tex_asset": "T_LabelRamyeon_D", "rough": 0.42,
         "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.08,
         "rough_low": 0.32, "rough_high": 0.50, "specular": 0.48,
-    },
-    "M_SnackShrimp": {
-        "tex_asset": "T_SnackShrimp_D", "rough": 0.22,
-        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.16,
-        "rough_low": 0.14, "rough_high": 0.30, "specular": 0.62,
-    },
-    "M_SnackPotato": {
-        "tex_asset": "T_SnackPotato_D", "rough": 0.22,
-        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.16,
-        "rough_low": 0.14, "rough_high": 0.30, "specular": 0.62,
-    },
-    "M_SnackSquid": {
-        "tex_asset": "T_SnackSquid_D", "rough": 0.22,
-        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.16,
-        "rough_low": 0.14, "rough_high": 0.30, "specular": 0.62,
-    },
-    "M_SnackCorn": {
-        "tex_asset": "T_SnackCorn_D", "rough": 0.22,
-        "micro_stem": "T_CarrierBagFilm", "normal_strength": 0.16,
-        "rough_low": 0.14, "rough_high": 0.30, "specular": 0.62,
     },
     # ImageGen scans are BaseColor inputs on authored geometry, not finished
     # materials. Companion N/R/A/W/M maps make them respond to flashlight,
@@ -473,19 +380,6 @@ DECAL_MATERIALS = {
             "tremor": 0.1, "tremor_rate": 7.0,
         },
     },
-    # P1 계량기 문자판. 눈금과 붉은 호까지만 텍스처이고, 지침과 다섯 번째가
-    # 돌지 않는다는 사실은 코드가 소유한다(§ART_MATRIX 원칙 4). 드럼 창은
-    # 비어 있는 채로 들어오며 숫자는 런타임이 그린다.
-    "M_UtilityMeterDial": {
-        "tex_asset": "T_UtilityMeterDial_D", "pbr_stem": "T_UtilityMeterDial",
-        "specular": 0.42,
-    },
-    # P2 먹지. 눌린 원문은 굽지 않는다 — 5회 포획 메모와 같은 규율로,
-    # 종이는 ImageGen이 만들고 그 위의 한글은 Create-SignTextures.ps1이 그린다.
-    "M_CarbonPaper": {
-        "tex_asset": "T_CarbonPaper_D", "pbr_stem": "T_CarbonPaper",
-        "specular": 0.38,
-    },
 }
 
 # ImageGen source is split by Prepare-AIArt.ps1. Evidence sheets remain
@@ -495,22 +389,6 @@ EVIDENCE_MASK_MATERIALS = {
     "M_ApartmentWallPatina": {
         # 벽지 위의 투영 재질은 create_apartment_patina_material에서 만든다.
         "tex_asset": "T_ApartmentWallPatina_M",
-    },
-    "M_EvidenceSlipperTrail": {
-        "tex_asset": "T_EvidenceSlipperTrail_M", "rough": 0.10,
-        "color": (0.025, 0.034, 0.038), "mask_gain": 4.0,
-    },
-    "M_EvidenceCatPawTrail": {
-        "tex_asset": "T_EvidenceCatPawTrail_M", "rough": 0.08,
-        "color": (0.023, 0.032, 0.036), "mask_gain": 4.4,
-    },
-    "M_EvidenceHoseDrag": {
-        "tex_asset": "T_EvidenceHoseDrag_M", "rough": 0.09,
-        "color": (0.026, 0.035, 0.039), "mask_gain": 4.2,
-    },
-    "M_EvidenceHandSmear": {
-        "tex_asset": "T_EvidenceHandSmear_M", "rough": 0.07,
-        "color": (0.021, 0.030, 0.034), "mask_gain": 4.0,
     },
     # 5층의 분진 잔흔 네 장. 어두운 콘크리트 바닥 위의 석고 분진은 **살짝**
     # 밝은 얼룩이지 흰 자국이 아니다. 원래 값(0.48~0.68 알베도, 증폭 1.8~2.5)은
@@ -565,23 +443,12 @@ SURFACE_OVERLAY_MATERIALS = {
     "M_DecalDampWallpaper": {
         "tex_asset": "T_DecalDampWallpaper_D", "rough": 0.78,
     },
-    "M_DecalRustFasteners": {
-        "tex_asset": "T_DecalRustFasteners_D", "rough": 0.66,
-    },
-    "M_DecalMineralScale": {
-        "tex_asset": "T_DecalMineralScale_D", "rough": 0.84,
-    },
-    "M_DecalRainGrime": {
-        "tex_asset": "T_DecalRainGrime_D", "rough": 0.80,
-    },
     # Each person card is fixed to an authored viewing cue, receives real
     # scene light, and stays masked/opaque so hair edges cannot sort like a
     # translucent card. The listener front layer also carries conservative
     # N/R/A maps and is paired with a continuous contact-shadow shell.
     "M_SpriteSeo": {"tex_asset": "T_SpriteSeo_D", "rough": 0.82},
     "M_SpriteMok": {"tex_asset": "T_SpriteMok_D", "rough": 0.86},
-    "M_SpriteHwang": {"tex_asset": "T_SpriteHwang_D", "rough": 0.88},
-    "M_SpriteNarin": {"tex_asset": "T_SpriteNarin_D", "rough": 0.80},
     "M_SpriteListenerFront": {
         "tex_asset": "T_SpriteListenerFront_D",
         "pbr_stem": "T_SpriteListenerFront",
@@ -640,7 +507,6 @@ SIGN_MATERIALS = {
 # generated assets; without the persisted usage flag the editor substitutes
 # its grey default material at runtime even though the texture graph is valid.
 INSTANCED_PRODUCT_MATERIALS = {
-    "M_GypsumBoard",
     *(f"M_RetailPrice{sku}" for sku in ("Potato", "Shrimp", "Corn", "CupBeef", "CupKimchi", "Biscuit", "Water", "Soda", "Barley", "GreenTea")),
     "M_RetailPET",
     "M_BottleBrown",
@@ -651,16 +517,11 @@ INSTANCED_PRODUCT_MATERIALS = {
     "M_LabelGreenTea",
     "M_LabelRamyeon",
     "M_LabelSoda",
-    "M_LabelSoju",
     "M_LabelWater",
     "M_LabelWater1L",
     "M_LabelWater2L",
     "M_SnackBlue",
-    "M_SnackCorn",
-    "M_SnackPotato",
     "M_SnackRed",
-    "M_SnackShrimp",
-    "M_SnackSquid",
     "M_SnackYellow",
     "M_StainlessUV",
 }
@@ -670,7 +531,6 @@ WRAPPED_LABEL_MATERIALS = {
     "M_LabelGreenTea",
     "M_LabelRamyeon",
     "M_LabelSoda",
-    "M_LabelSoju",
     "M_LabelWater",
     "M_LabelWater1L",
     "M_LabelWater2L",
@@ -1651,35 +1511,6 @@ def create_flat_texture_materials(
             material, texture, uv, unreal.MaterialSamplerType.SAMPLERTYPE_COLOR, 0
         )
 
-        # Paper flutter in the pre-dawn wind via world position offset.
-        if spec.get("flutter"):
-            time_expr = _expr(material, unreal.MaterialExpressionTime, -1300, 700)
-            time_scale = _expr(material, unreal.MaterialExpressionConstant, -1300, 840)
-            time_scale.set_editor_property("r", 0.42)
-            phase = _expr(material, unreal.MaterialExpressionMultiply, -1100, 720)
-            unreal.MaterialEditingLibrary.connect_material_expressions(time_expr, "", phase, "A")
-            unreal.MaterialEditingLibrary.connect_material_expressions(time_scale, "", phase, "B")
-            wobble = _expr(material, unreal.MaterialExpressionSine, -950, 720)
-            unreal.MaterialEditingLibrary.connect_material_expressions(phase, "", wobble, "")
-            amplitude = _expr(material, unreal.MaterialExpressionConstant, -950, 860)
-            amplitude.set_editor_property("r", 0.9)
-            offset_y = _expr(material, unreal.MaterialExpressionMultiply, -780, 740)
-            unreal.MaterialEditingLibrary.connect_material_expressions(wobble, "", offset_y, "A")
-            unreal.MaterialEditingLibrary.connect_material_expressions(amplitude, "", offset_y, "B")
-            zero_a = _expr(material, unreal.MaterialExpressionConstant, -780, 880)
-            zero_a.set_editor_property("r", 0.0)
-            xy = _expr(material, unreal.MaterialExpressionAppendVector, -620, 760)
-            unreal.MaterialEditingLibrary.connect_material_expressions(zero_a, "", xy, "A")
-            unreal.MaterialEditingLibrary.connect_material_expressions(offset_y, "", xy, "B")
-            zero_b = _expr(material, unreal.MaterialExpressionConstant, -620, 900)
-            zero_b.set_editor_property("r", 0.0)
-            xyz = _expr(material, unreal.MaterialExpressionAppendVector, -470, 780)
-            unreal.MaterialEditingLibrary.connect_material_expressions(xy, "", xyz, "A")
-            unreal.MaterialEditingLibrary.connect_material_expressions(zero_b, "", xyz, "B")
-            unreal.MaterialEditingLibrary.connect_material_property(
-                xyz, "", unreal.MaterialProperty.MP_WORLD_POSITION_OFFSET
-            )
-
         # 위층 사람 셸의 미동: 느린 법선 방향 팽창(숨)과 위상이 몸을 타고
         # 흐르는 잔떨림. 뼈대 없이 정적 메시를 살아 있게 하는 WPO다. 진폭
         # 둘만 파라미터라서 상태 머신이 MID로 죽이고 살린다 — Waiting에서
@@ -2650,116 +2481,6 @@ def create_wet_asphalt(assets, tools, update_in_place=False):
     return material
 
 
-def create_wet_step(assets, tools):
-    """Thin opaque puddle material for footprint meshes.
-
-    The print is dark because the underlying floor is wet, not because it is
-    painted black. A low roughness/high specular response lets the same surface
-    read under the lift and lobby lights without a translucent sorting fringe.
-    """
-    material = _recreate_material(assets, tools, "M_WetStep")
-    material.set_editor_property("two_sided", True)
-
-    base = _expr(material, unreal.MaterialExpressionConstant3Vector, -600, 0)
-    base.set_editor_property(
-        "constant", unreal.LinearColor(0.040, 0.045, 0.050, 1.0)
-    )
-    roughness = _expr(material, unreal.MaterialExpressionConstant, -600, 160)
-    roughness.set_editor_property("r", 0.18)
-    specular = _expr(material, unreal.MaterialExpressionConstant, -600, 280)
-    specular.set_editor_property("r", 0.55)
-
-    unreal.MaterialEditingLibrary.connect_material_property(
-        base, "", unreal.MaterialProperty.MP_BASE_COLOR
-    )
-    unreal.MaterialEditingLibrary.connect_material_property(
-        roughness, "", unreal.MaterialProperty.MP_ROUGHNESS
-    )
-    unreal.MaterialEditingLibrary.connect_material_property(
-        specular, "", unreal.MaterialProperty.MP_SPECULAR
-    )
-    unreal.MaterialEditingLibrary.layout_material_expressions(material)
-    unreal.MaterialEditingLibrary.recompile_material(material)
-    unreal.log("[IndieGame] Created wet footprint material: M_WetStep")
-    return material
-
-
-def create_sky_material(assets, tools):
-    material = _recreate_material(assets, tools, "M_SkyDawn")
-    material.set_editor_property("shading_model", unreal.MaterialShadingModel.MSM_UNLIT)
-    material.set_editor_property("two_sided", True)
-
-    world_position = _expr(material, unreal.MaterialExpressionWorldPosition, -1500, 0)
-
-    # Vertical gradient: horizon glow fades into a near-black zenith.
-    mask_z = _expr(material, unreal.MaterialExpressionComponentMask, -1300, 0)
-    mask_z.set_editor_property("r", False)
-    mask_z.set_editor_property("g", False)
-    mask_z.set_editor_property("b", True)
-    unreal.MaterialEditingLibrary.connect_material_expressions(world_position, "", mask_z, "")
-
-    height_scale = _expr(material, unreal.MaterialExpressionConstant, -1300, 160)
-    height_scale.set_editor_property("r", 1.0 / 2600.0)
-    height_norm = _expr(material, unreal.MaterialExpressionMultiply, -1100, 40)
-    unreal.MaterialEditingLibrary.connect_material_expressions(mask_z, "", height_norm, "A")
-    unreal.MaterialEditingLibrary.connect_material_expressions(height_scale, "", height_norm, "B")
-    height_saturated = _expr(material, unreal.MaterialExpressionSaturate, -950, 40)
-    unreal.MaterialEditingLibrary.connect_material_expressions(height_norm, "", height_saturated, "")
-
-    horizon = _expr(material, unreal.MaterialExpressionConstant3Vector, -800, -160)
-    horizon.set_editor_property("constant", unreal.LinearColor(0.085, 0.052, 0.075, 1.0))
-    zenith = _expr(material, unreal.MaterialExpressionConstant3Vector, -800, 0)
-    zenith.set_editor_property("constant", unreal.LinearColor(0.004, 0.008, 0.02, 1.0))
-    gradient = _expr(material, unreal.MaterialExpressionLinearInterpolate, -600, -60)
-    unreal.MaterialEditingLibrary.connect_material_expressions(horizon, "", gradient, "A")
-    unreal.MaterialEditingLibrary.connect_material_expressions(zenith, "", gradient, "B")
-    unreal.MaterialEditingLibrary.connect_material_expressions(height_saturated, "", gradient, "Alpha")
-
-    # A faint warm smear low in the east: dawn is close but not here yet.
-    mask_x = _expr(material, unreal.MaterialExpressionComponentMask, -1300, 400)
-    mask_x.set_editor_property("r", True)
-    mask_x.set_editor_property("g", False)
-    mask_x.set_editor_property("b", False)
-    unreal.MaterialEditingLibrary.connect_material_expressions(world_position, "", mask_x, "")
-    east_scale = _expr(material, unreal.MaterialExpressionConstant, -1300, 560)
-    east_scale.set_editor_property("r", 1.0 / 5200.0)
-    east_norm = _expr(material, unreal.MaterialExpressionMultiply, -1100, 440)
-    unreal.MaterialEditingLibrary.connect_material_expressions(mask_x, "", east_norm, "A")
-    unreal.MaterialEditingLibrary.connect_material_expressions(east_scale, "", east_norm, "B")
-    east_saturated = _expr(material, unreal.MaterialExpressionSaturate, -950, 440)
-    unreal.MaterialEditingLibrary.connect_material_expressions(east_norm, "", east_saturated, "")
-
-    inverse_height = _expr(material, unreal.MaterialExpressionOneMinus, -950, 240)
-    unreal.MaterialEditingLibrary.connect_material_expressions(
-        height_saturated, "", inverse_height, ""
-    )
-    east_falloff = _expr(material, unreal.MaterialExpressionMultiply, -750, 380)
-    unreal.MaterialEditingLibrary.connect_material_expressions(
-        east_saturated, "", east_falloff, "A"
-    )
-    unreal.MaterialEditingLibrary.connect_material_expressions(
-        inverse_height, "", east_falloff, "B"
-    )
-
-    warm = _expr(material, unreal.MaterialExpressionConstant3Vector, -750, 540)
-    warm.set_editor_property("constant", unreal.LinearColor(0.14, 0.05, 0.015, 1.0))
-    east_glow = _expr(material, unreal.MaterialExpressionMultiply, -550, 440)
-    unreal.MaterialEditingLibrary.connect_material_expressions(east_falloff, "", east_glow, "A")
-    unreal.MaterialEditingLibrary.connect_material_expressions(warm, "", east_glow, "B")
-
-    sky = _expr(material, unreal.MaterialExpressionAdd, -350, 120)
-    unreal.MaterialEditingLibrary.connect_material_expressions(gradient, "", sky, "A")
-    unreal.MaterialEditingLibrary.connect_material_expressions(east_glow, "", sky, "B")
-    unreal.MaterialEditingLibrary.connect_material_property(
-        sky, "", unreal.MaterialProperty.MP_EMISSIVE_COLOR
-    )
-
-    unreal.MaterialEditingLibrary.layout_material_expressions(material)
-    unreal.MaterialEditingLibrary.recompile_material(material)
-    unreal.log("[IndieGame] Created sky material: M_SkyDawn")
-    return material
-
-
 def create_cctv_monitor_material(assets, tools):
     """§14 CCTV 채널 5 — the render-target monitor face.
 
@@ -3149,8 +2870,6 @@ def run():
     if os.environ.get("IG_PROP_RESPONSE_ONLY") == "1":
         print_names = (
             "M_PaperClean",
-            "M_PaperWet",
-            "M_PaperFolded",
             "M_PaperOld",
             "M_LabelWater",
     "M_LabelWater1L",
@@ -3158,12 +2877,7 @@ def run():
             "M_LabelGreenTea",
             "M_LabelBarley",
             "M_LabelSoda",
-            "M_LabelSoju",
             "M_LabelRamyeon",
-            "M_SnackShrimp",
-            "M_SnackPotato",
-            "M_SnackSquid",
-            "M_SnackCorn",
         )
         created = create_flat_texture_materials(
             assets,
@@ -3210,19 +2924,12 @@ def run():
         )
         return
 
-    if os.environ.get("IG_WET_STEP_ONLY") == "1":
-        wet_step = create_wet_step(assets, tools)
-        if not assets.save_loaded_assets([wet_step], False):
-            raise RuntimeError("Could not save M_WetStep")
-        unreal.log("[IndieGame] Wet footprint material update complete")
-        return
     if os.environ.get("IG_CORRIDOR_SIGNAGE_ONLY") == "1":
         names = (
             "M_CaptureMercyNote",
             "M_MercyNoteUnderDoor",
             "M_SignAux5MonitorOnly",
             "M_Plate402",
-            "M_PlateCommon",
         )
         signage = create_flat_texture_materials(
             assets,
@@ -3246,11 +2953,10 @@ def run():
             "M_MissingFloorPlaster_X",
             "M_MissingFloorPlaster_Y",
             "M_MissingFloorPlaster_XY",
-            # 발소리 표면 3종과 현관문 문짝. 셋은 지금까지 복도 콘크리트로,
+            # 발소리 표면과 현관문 문짝. 표면은 한때 복도 콘크리트로,
             # 문짝은 브러시드 스테인리스로 그려지고 있었다.
             "M_MissingFloorSteelStair",
             "M_RooftopWaterproofing_XY",
-            "M_MissingFloorGypsumDebris_XY",
             "M_UnitDoorPaintedSteel",
         )
         residue_names = (
@@ -3262,8 +2968,6 @@ def run():
         sprite_names = (
             "M_SpriteSeo",
             "M_SpriteMok",
-            "M_SpriteHwang",
-            "M_SpriteNarin",
             "M_SpriteListenerFront",
             "M_SpriteListenerCrawl0",
             "M_SpriteListenerCrawl1",
@@ -3284,8 +2988,6 @@ def run():
                 name: DECAL_MATERIALS[name]
                 for name in (
                     "M_MissingFloorListenerPlasterUV",
-                    "M_UtilityMeterDial",
-                    "M_CarbonPaper",
                 )
             },
             False,
@@ -3316,8 +3018,8 @@ def run():
                     "used_with_instanced_static_meshes", True
                 )
                 unreal.MaterialEditingLibrary.recompile_material(material)
-        # 19에서 25로. 발소리 표면 3종과 판독면 2종, 현관문 강판이 더해졌다.
-        if len(missing_floor) != 25 or not assets.save_loaded_assets(
+        # 벽 6(석고 셋·발소리 표면 둘·현관문 강판), 위층 사람 1, 흔적 4, 인물 카드 9.
+        if len(missing_floor) != 20 or not assets.save_loaded_assets(
             missing_floor, False
         ):
             raise RuntimeError("Could not save missing-floor visual materials")
@@ -3328,8 +3030,6 @@ def run():
             "M_Wallpaper_X",
             "M_Wallpaper_Y",
             "M_WallpaperCeil",
-            "M_WallpaperEmboss_X",
-            "M_WallpaperEmboss_Y",
         )
         apartment_materials = create_textured_materials(
             assets,
@@ -3350,19 +3050,11 @@ def run():
             True,
         )
         apartment_materials.append(create_corridor_scuff_material(assets, tools))
-        if len(apartment_materials) != 7 or not assets.save_loaded_assets(
+        if len(apartment_materials) != 5 or not assets.save_loaded_assets(
             apartment_materials, False
         ):
             raise RuntimeError("Could not save apartment visual materials")
         unreal.log("[IndieGame] Apartment visual material update complete")
-        return
-    if os.environ.get("IG_CAB_MIRROR_ONLY") == "1":
-        mirrors = create_textured_materials(
-            assets, tools, {"M_CabMirrorUV": TEXTURED_MATERIALS["M_CabMirrorUV"]}
-        )
-        if not assets.save_loaded_assets(mirrors, False):
-            raise RuntimeError("Could not save M_CabMirrorUV")
-        unreal.log("[IndieGame] Cab mirror material update complete")
         return
     if os.environ.get("IG_RETAIL_SIGNS_ONLY") == "1":
         signs = create_flat_texture_materials(
@@ -3391,8 +3083,6 @@ def run():
     if construction_film is not None:
         created.append(construction_film)
     created.append(create_wet_asphalt(assets, tools))
-    created.append(create_wet_step(assets, tools))
-    created.append(create_sky_material(assets, tools))
     created += create_optical_prop_materials(
         assets, tools, update_in_place=True
     )

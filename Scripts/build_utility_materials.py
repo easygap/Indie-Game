@@ -220,8 +220,7 @@ if not granite_tile:
 retail_surface_contract.author(granite_tile, "granite")
 ASSETS.save_loaded_asset(granite_tile)
 for wall_name, finish in (("M_Stucco_X", "landing_wall"), ("M_Stucco_Y", "landing_wall"),
-                          ("M_StuccoCeil", "landing_ceiling"), ("M_StuccoDado_X", "landing_dado"),
-                          ("M_StuccoDado_Y", "landing_dado")):
+                          ("M_StuccoCeil", "landing_ceiling"), ("M_StuccoDado_X", "landing_dado")):
     wall = unreal.load_asset(f"/Game/Prototype/Materials/{wall_name}")
     if not wall:
         raise RuntimeError(f"공용부 벽 재질이 없습니다: {wall_name}")
