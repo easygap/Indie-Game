@@ -94,7 +94,6 @@ $requiredFiles = @(
 	'Content/Prototype/Materials/M_CaptureMercyNote.uasset',
 	'Content/Meshes/SM_CaptureMercyNote.uasset',
 	'Content/Prototype/Textures/T_SignMain_D.uasset',
-	'Content/Prototype/Textures/T_PriceStrip_D.uasset',
 	'Content/Prototype/Textures/T_PosterSale_D.uasset',
 	'Content/Prototype/Textures/T_LabelWater_D.uasset',
 	'Docs/Media/dialogue-hud-default-1080.png',

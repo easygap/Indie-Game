@@ -137,7 +137,6 @@ PRINT_ATLAS_ENTRIES = (
 # the HUD draws nothing. Scripts/check_cook_references.py fails if one of them
 # reappears in PRINT_ATLAS_ENTRIES.
 ATLAS_EXCLUSIONS = {
-    "T_PriceStrip_D": "tiles along U; an atlas rect cannot wrap",
     "T_SignMain_D": "1K facade hero sign, lit by its own emissive path",
     "T_SignBlade_D": "1K facade hero sign, lit by its own emissive path",
     "T_TitleBackground_D": "full-screen frontend art, never in the world",

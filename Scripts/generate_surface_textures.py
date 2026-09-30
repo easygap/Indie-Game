@@ -46,10 +46,6 @@ APARTMENT_VISUAL_TEXTURE_NAMES = {
     "T_ApartmentWallpaperV2_R",
     "T_ApartmentWallpaperV2_A",
     "T_ApartmentWallPatina_M",
-    "T_ApartmentWallpaperEmboss_D",
-    "T_ApartmentWallpaperEmboss_N",
-    "T_ApartmentWallpaperEmboss_R",
-    "T_ApartmentWallpaperEmboss_A",
 }
 MISSING_FLOOR_ONLY = os.environ.get("IG_MISSING_FLOOR_ONLY") == "1"
 MISSING_FLOOR_TEXTURE_NAMES = {
@@ -63,8 +59,6 @@ MISSING_FLOOR_TEXTURE_NAMES = {
     "T_MissingFloorCavityScratches_M",
     "T_SpriteSeo_D",
     "T_SpriteMok_D",
-    "T_SpriteHwang_D",
-    "T_SpriteNarin_D",
     "T_SpriteListenerFront_D",
     "T_SpriteListenerFront_N",
     "T_SpriteListenerFront_R",
@@ -101,18 +95,6 @@ MISSING_FLOOR_TEXTURE_NAMES = {
     "T_RooftopWaterproofing_N",
     "T_RooftopWaterproofing_R",
     "T_RooftopWaterproofing_A",
-    "T_MissingFloorGypsumDebris_D",
-    "T_MissingFloorGypsumDebris_N",
-    "T_MissingFloorGypsumDebris_R",
-    "T_MissingFloorGypsumDebris_A",
-    "T_UtilityMeterDial_D",
-    "T_UtilityMeterDial_N",
-    "T_UtilityMeterDial_R",
-    "T_UtilityMeterDial_A",
-    "T_CarbonPaper_D",
-    "T_CarbonPaper_N",
-    "T_CarbonPaper_R",
-    "T_CarbonPaper_A",
     "T_UnitDoorPaintedSteel_D",
     "T_UnitDoorPaintedSteel_N",
     "T_UnitDoorPaintedSteel_R",
@@ -345,36 +327,6 @@ def build_asphalt():
     return color, height, rough
 
 
-def build_brick():
-    color = _rows()
-    height = [[0.0] * SIZE for _ in range(SIZE)]
-    for y in range(SIZE):
-        for x in range(SIZE):
-            u = x / SIZE
-            v = y / SIZE
-            row = v * 8.0
-            row_index = int(row)
-            offset = 0.5 if row_index % 2 else 0.0
-            col = u * 4.0 + offset
-            col_index = int(col)
-            fy = row % 1.0
-            fx = col % 1.0
-            mortar = 1.0 if (fy < 0.10 or fx < 0.06) else 0.0
-            jitter = _hash01(col_index, row_index, 55)
-            wear = fbm(u * 6.0, v * 6.0, 6, 56, 3)
-            brick_r = 0.34 + jitter * 0.12 + wear * 0.06
-            brick_g = 0.16 + jitter * 0.05 + wear * 0.04
-            brick_b = 0.11 + jitter * 0.03 + wear * 0.03
-            if mortar:
-                base = 0.42 + wear * 0.08
-                _put(color, x, y, base, base * 0.98, base * 0.94)
-                height[y][x] = 0.1
-            else:
-                _put(color, x, y, brick_r, brick_g, brick_b)
-                height[y][x] = 0.6 + wear * 0.4
-    return color, height, None
-
-
 def build_store_tile():
     color = _rows()
     height = [[0.0] * SIZE for _ in range(SIZE)]
@@ -520,7 +472,6 @@ SURFACES = {
     "Wallpaper": build_wallpaper,
     "Concrete": build_concrete,
     "Asphalt": build_asphalt,
-    "Brick": build_brick,
     "StoreTile": build_store_tile,
     "CeilingTile": build_ceiling_tile,
     "WoodDark": build_wood_dark,

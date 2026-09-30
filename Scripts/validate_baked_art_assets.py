@@ -64,7 +64,6 @@ PRINT_SURFACE_MESHES = {
 
 PBR_STEMS = {
     "T_ApartmentWallpaperV2": ("D", "N", "R", "A"),
-    "T_ApartmentWallpaperEmboss": ("D", "N", "R", "A"),
     "T_KoreanVillaStucco": ("D", "N", "R", "A"),
     "T_MovingBoxCardboard": ("D", "N", "R", "A"),
     "T_PaperClean_V2": ("D", "N", "R", "A"),
@@ -924,7 +923,6 @@ def validate_apartment_visual_assets() -> None:
         stem: PBR_STEMS[stem]
         for stem in (
             "T_ApartmentWallpaperV2",
-            "T_ApartmentWallpaperEmboss",
         )
     }
     material_names = (

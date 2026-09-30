@@ -34,15 +34,6 @@ SURFACES = (
     SurfaceSpec(
         "T_ApartmentWallpaperV2", 0.86, 0.72, 0.94, 0.32,
         rough_detail=0.12, ao_depth=0.62),
-    # The plain embossed sibling. Same paper, same room light, so the same
-    # conservative numbers -- with one difference: the emboss is a real ridge
-    # where the floral print is only ink, so the normal may carry it and the
-    # roughness must not. A vinyl skin is uniformly matte whatever shape it is
-    # pressed into; letting rough_detail follow the ribs would draw them twice
-    # and turn a wall into corduroy under the flashlight.
-    SurfaceSpec(
-        "T_ApartmentWallpaperEmboss", 0.86, 0.74, 0.92, 0.38,
-        rough_detail=0.06, ao_depth=0.55),
     # Exterior cement render is deliberately matte. The generated scan owns
     # only colour; this conservative relief keeps rain streaks from becoming
     # deep grooves and remains stable under the moving alley practicals.
@@ -122,24 +113,6 @@ SURFACES = (
     SurfaceSpec(
         "T_RooftopWaterproofing", 0.82, 0.70, 0.92, 0.45,
         rough_detail=0.14, ao_depth=0.70),
-    # Gypsum debris on a raw slab. The strongest normal of the floors, because
-    # the shards genuinely sit proud of the concrete and the player is meant to
-    # register that this floor is covered in something.
-    SurfaceSpec(
-        "T_MissingFloorGypsumDebris", 0.93, 0.85, 0.97, 0.66,
-        rough_detail=0.16, ao_depth=1.00),
-    # Enamel over stamped metal. Nearly flat and the only surface here with a
-    # real sheen; the graduation ticks are printed, not engraved, so relief
-    # stays minimal or the dial starts to look embossed.
-    SurfaceSpec(
-        "T_UtilityMeterDial", 0.42, 0.30, 0.58, 0.18,
-        rough_detail=0.08, ao_depth=0.40),
-    # Waxed carbon coating. The whole read is that used areas catch light
-    # differently from unused ones, which is a roughness story rather than a
-    # normal one — hence the wide roughness range and the low normal.
-    SurfaceSpec(
-        "T_CarbonPaper", 0.55, 0.38, 0.74, 0.28,
-        rough_detail=0.12, ao_depth=0.50),
     # Powder coat on a door leaf. Flat is correct here: orange peel is a
     # sub-millimetre swell, and any more relief turns a maintained door into a
     # corroded one. Metallic stays 0 — the paint is what the light meets.

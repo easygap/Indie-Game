@@ -4,31 +4,6 @@
 `Content/SourceArt/AI/`에 보존하고, 게임에는
 `Scripts/Prepare-AIArt.ps1`이 만든 파생 파일만 사용합니다.
 
-## P5 젖은 흔적 마스크
-
-최초 생성:
-
-```text
-Create a square 2x2 production texture atlas for a photorealistic first-person Korean everyday-horror game set on a damp rooftop before dawn. Orthographic top-down scan-like presentation, neutral technical asset sheet, no scene perspective.
-
-Canvas and layout:
-- exactly four equal quadrants with generous internal padding
-- pure matte black background (#000000) across the entire canvas
-- no dividers, no borders, no captions, no symbols, no text
-- every mark completely contained inside its own quadrant and never touching an edge
-- all marks rendered only in physically plausible white-to-gray values on black, suitable as grayscale opacity/roughness masks
-- no colored lighting, no cast shadows, no floor texture
-
-Quadrants:
-1. top-left: two consecutive partial wet sole prints from a cheap adult Korean rubber bathroom slipper, slightly different water coverage, elongated oval forefoot and shallow heel, readable direction, no shoe object
-2. top-right: a short trail of four small wet domestic cat paw prints, natural alternating gait, one print slightly compressed, anatomically correct pads, no cat
-3. bottom-left: a curved garden-hose compression and drag mark with a damp coupling impact crescent, irregular pooled edges, no hose object
-4. bottom-right: a human palm and finger smear dragged inward across wet painted metal, incomplete fingertips, broken water film, ambiguous and unsettling but non-graphic, no blood
-
-Style:
-macro forensic photography converted into clean PBR masks; restrained, irregular, realistic water breakup; subtle specular mottling encoded as gray values; consistent scale and moisture behavior across all four cells; unsettling because it looks ordinary and physically real. No gore, no footprints outside the specified cells, no branding, no watermark.
-```
-
 ## CH03 열린 자물쇠·관리 열쇠 모델링 기준
 
 ```text

@@ -110,25 +110,6 @@ $plan = @(
     # Blank aged paper: the base every readable note is printed onto. The
     # Korean copy is drawn on top at runtime by the HUD, never baked in.
     [pscustomobject]@{
-        Source = 'SheetPaper'; Target = 'T_PaperClean_D.png'
-        Crop = @(0.055, 0.020, 0.400, 0.460); Size = @(512, 724)
-    }
-    [pscustomobject]@{
-        Source = 'SheetPaper'; Target = 'T_PaperWet_D.png'
-        Crop = @(0.545, 0.020, 0.400, 0.460); Size = @(512, 724)
-    }
-    [pscustomobject]@{
-        Source = 'SheetPaper'; Target = 'T_PaperFolded_D.png'
-        Crop = @(0.055, 0.520, 0.400, 0.460); Size = @(512, 724)
-    }
-    [pscustomobject]@{
-        Source = 'SheetPaper'; Target = 'T_PaperOld_D.png'
-        Crop = @(0.545, 0.520, 0.400, 0.460); Size = @(512, 724)
-    }
-    # Versioned replacement for the first paper sheet, which was accidentally
-    # populated with snack artwork. Keep the old source/outputs as provenance;
-    # materials consume these V2 textures instead.
-    [pscustomobject]@{
         Source = 'SheetPaperNotes_v2'; Target = 'T_PaperClean_V2_D.png'
         Crop = @(0.091, 0.023, 0.318, 0.453); Size = @(512, 724)
     }
@@ -144,29 +125,6 @@ $plan = @(
         Source = 'SheetPaperNotes_v2'; Target = 'T_PaperOld_V2_D.png'
         Crop = @(0.588, 0.522, 0.323, 0.453); Size = @(512, 724)
     }
-    # P5 forensic reads. The source is intentionally a black-backed value
-    # atlas; each crop remains grayscale so the material can use one channel
-    # for both opacity breakup and wetness variation.
-    [pscustomobject]@{
-        Source = 'SheetHorrorEvidenceMasks'; Target = 'T_EvidenceSlipperTrail_M.png'
-        Crop = @(0.000, 0.000, 0.500, 0.500); Size = @(512, 512)
-        Mode = 'Mask'
-    }
-    [pscustomobject]@{
-        Source = 'SheetHorrorEvidenceMasks'; Target = 'T_EvidenceCatPawTrail_M.png'
-        Crop = @(0.500, 0.000, 0.500, 0.500); Size = @(512, 512)
-        Mode = 'Mask'
-    }
-    [pscustomobject]@{
-        Source = 'SheetHorrorEvidenceMasks'; Target = 'T_EvidenceHoseDrag_M.png'
-        Crop = @(0.000, 0.500, 0.500, 0.500); Size = @(512, 512)
-        Mode = 'Mask'
-    }
-    [pscustomobject]@{
-        Source = 'SheetHorrorEvidenceMasks'; Target = 'T_EvidenceHandSmear_M.png'
-        Crop = @(0.500, 0.500, 0.500, 0.500); Size = @(512, 512)
-        Mode = 'Mask'
-    }
     # Environment overlays arrive on a flat chroma backing. ChromaAlpha
     # removes only pixels that are decisively key-coloured; rust and damp
     # browns remain intact instead of being flattened into generic gray dirt.
@@ -174,21 +132,6 @@ $plan = @(
         Source = 'SheetHorrorSurfaceBlends'; Target = 'T_DecalDampWallpaper_D.png'
         Crop = @(0.000, 0.000, 0.500, 0.500); Size = @(512, 512)
         Mode = 'ChromaAlpha'
-    }
-    [pscustomobject]@{
-        Source = 'SheetHorrorSurfaceBlends'; Target = 'T_DecalRustFasteners_D.png'
-        Crop = @(0.500, 0.000, 0.500, 0.500); Size = @(512, 512)
-        Mode = 'ChromaAlpha'
-    }
-    [pscustomobject]@{
-        Source = 'SheetHorrorSurfaceBlends'; Target = 'T_DecalMineralScale_D.png'
-        Crop = @(0.000, 0.500, 0.500, 0.500); Size = @(512, 512)
-        Mode = 'ChromaAlpha'
-    }
-    [pscustomobject]@{
-        Source = 'SheetHorrorSurfaceBlends'; Target = 'T_DecalRainGrime_D.png'
-        Crop = @(0.500, 0.500, 0.500, 0.500); Size = @(512, 512)
-        Mode = 'ChromaAlpha'; Desaturate = 0.82
     }
     # Standalone ImageGen material scans. They are intentionally kept as
     # ordinary color textures: roughness and translucency remain authored in
@@ -249,15 +192,6 @@ $plan = @(
         Source = 'TextureApartmentWallpaperVintage'; Target = 'T_ApartmentWallpaperV2_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
-    # 두 번째 세대 벽지. 무늬가 없고 세로 엠보싱 결만 있는 비닐 벽지로,
-    # 꽃무늬인 V2와 한눈에 구분된다. 403호가 주인공 집과 같은 벽지를 쓰고
-    # 있었는데, 있을 수 없는 그 방이 자기 집의 복사본으로 보이면 안 된다.
-    # V2와 같은 1024: 같은 벽에 같은 165cm 반복이라 픽셀 밀도를 맞춘다.
-    [pscustomobject]@{
-        Source = 'TextureApartmentWallpaperEmbossedPlainGreyGreen_v1'
-        Target = 'T_ApartmentWallpaperEmboss_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
     # 한국 저층 빌라 외벽. 생성본은 조명과 문자를 배제한 BaseColor만
     # 제공하고, 미세 요철·거칠기·차폐는 아래 PBR 파생 단계가 담당한다.
     [pscustomobject]@{
@@ -297,29 +231,6 @@ $plan = @(
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
     [pscustomobject]@{
-        Source = 'TextureRooftopAnnexConcreteGypsumDebris'
-        Target = 'T_MissingFloorGypsumDebris_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
-    # The P1 dial face. Kept at 1024 because the player leans into this one:
-    # the fifth meter not turning is the first puzzle in the game. The reading
-    # itself is never in the texture — the drum window ships blank and the
-    # numbers, like every other meaningful glyph in this project, belong to
-    # runtime.
-    [pscustomobject]@{
-        Source = 'TextureUtilityMeterDialFaceBlank'
-        Target = 'T_UtilityMeterDial_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
-    # A4 proportion, not square: this sheet sits under the 22x30.7 cm ledger
-    # and is UV-mapped to it. Resampling it to a square would stretch the paper
-    # fibre and the fold with it, so the non-power-of-two size is deliberate.
-    [pscustomobject]@{
-        Source = 'TextureComplaintLedgerCarbonPaperBlank'
-        Target = 'T_CarbonPaper_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(724, 1024)
-    }
-    [pscustomobject]@{
         Source = 'TextureApartmentEntranceDoorCharcoalSteel'
         Target = 'T_UnitDoorPaintedSteel_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
@@ -355,16 +266,6 @@ $plan = @(
         Source = 'SheetMissingFloorDistantCharacters'; Target = 'T_SpriteMok_D.png'
         Crop = @(0.506, 0.010, 0.484, 0.484); Size = @(512, 512)
         Mode = 'ChromaAlpha'; Desaturate = 0.32
-    }
-    [pscustomobject]@{
-        Source = 'SheetMissingFloorDistantCharacters'; Target = 'T_SpriteHwang_D.png'
-        Crop = @(0.010, 0.506, 0.484, 0.484); Size = @(512, 512)
-        Mode = 'ChromaAlpha'; Desaturate = 0.28
-    }
-    [pscustomobject]@{
-        Source = 'SheetMissingFloorDistantCharacters'; Target = 'T_SpriteNarin_D.png'
-        Crop = @(0.506, 0.506, 0.484, 0.484); Size = @(512, 512)
-        Mode = 'ChromaAlpha'; Desaturate = 0.18
     }
     # The listener is seen head-on down a long corridor. A lit 2.5D card
     # preserves the generated human anatomy at that one authored angle while

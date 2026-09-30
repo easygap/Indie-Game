@@ -16,21 +16,15 @@ New-Item -ItemType Directory -Force $photoDir | Out-Null
 
 # Surface -> candidate ambientCG asset ids (first one that downloads wins).
 $surfaces = [ordered]@{
-    'Brick'       = @('Bricks090', 'Bricks051', 'Bricks075')
     'Asphalt'     = @('Asphalt025', 'Asphalt026', 'Asphalt012')
     'Concrete'    = @('Concrete034', 'Concrete016', 'Concrete042')
     'Jangpan'     = @('WoodFloor051', 'WoodFloor040', 'WoodFloor007')
     'MetalBrushed'= @('Metal032', 'Metal012', 'Metal009')
     'Blanket'     = @('Fabric022', 'Fabric030', 'Fabric001')
     'WoodDark'    = @('Wood067', 'Wood051', 'Wood026')
-    # Villa surfaces from the reference photos: granite cladding panels for the
-    # facade, marble for the lift car floor. The corridor floor and walls use
-    # generated textures (SourceArt/AI/PocheonGranite, LandingPaint).
-    'GranitePanel'= @('Terrazzo018', 'Marble016', 'Concrete031')
+    # 승강기 바닥 대리석. 복도 바닥과 벽은 생성 텍스처(SourceArt/AI의
+    # PocheonGranite, LandingPaint)를 쓰고, 빌라 파사드 벽돌은 설비 재질이 맡는다.
     'MarbleFloor' = @('Marble016', 'Marble006', 'Terrazzo004')
-    # 빌라 파사드. README와 타이틀이 말하는 붉은 벽돌이다. 화강석 판은 1층
-    # 기단과 승강기 벽에만 남는다. Bricks059가 회색 줄눈의 적벽돌에 가장 가깝다.
-    'VillaBrick'  = @('Bricks059', 'Bricks085', 'Bricks101')
 }
 
 $report = @()

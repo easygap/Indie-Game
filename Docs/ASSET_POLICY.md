@@ -14,16 +14,13 @@
 
 | 프로젝트 경로 | 제작자/출처 | 라이선스 | 취득일 | 수정 여부 | 증빙 위치 | 비고 |
 |---|---|---|---|---|---|---|
-| `/Game/Prototype/Textures/T_Photo_Brick_*` | ambientCG.com — Bricks090 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Brick/` | 골목 적벽돌 |
 | `/Game/Prototype/Textures/T_Photo_Asphalt_*` | ambientCG.com — Asphalt012 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Asphalt/` | 골목 노면 |
 | `/Game/Prototype/Textures/T_Photo_Concrete_*` | ambientCG.com — Concrete034 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Concrete/` | 외벽/매장 벽 |
 | `/Game/Prototype/Textures/T_Photo_Jangpan_*` | ambientCG.com — WoodFloor051 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Jangpan/` | 원룸 장판 |
 | `/Game/Prototype/Textures/T_Photo_MetalBrushed_*` | ambientCG.com — Metal032 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/MetalBrushed/` | 금속 표면 |
 | `/Game/Prototype/Textures/T_Photo_Blanket_*` | ambientCG.com — Fabric022 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Blanket/` | 침구 원단 |
 | `/Game/Prototype/Textures/T_Photo_WoodDark_*` | ambientCG.com — Wood067 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/WoodDark/` | 가구 목재 |
-| `/Game/Prototype/Textures/T_Photo_GranitePanel_*` | ambientCG.com — Terrazzo018 | CC0 1.0 | 2026-07-26 | 원본(2K JPG) | `Content/SourceArt/Photo/GranitePanel/` | 1층 기단과 승강기 벽의 화강석 판. `M_GranitePanel_{X,Y}` |
 | `/Game/Prototype/Textures/T_Photo_MarbleFloor_*` | ambientCG.com — Marble016 | CC0 1.0 | 2026-07-26 | 원본(2K JPG) | `Content/SourceArt/Photo/MarbleFloor/` | 승강기 바닥 대리석. `M_MarbleFloor_XY` |
-| `/Game/Prototype/Textures/T_Photo_VillaBrick_*` | ambientCG.com — Bricks059 | CC0 1.0 | 2026-09-11 | 원본(2K JPG) | `Content/SourceArt/Photo/VillaBrick/` | 빌라 파사드 적벽돌. `M_VillaBrick_{X,Y}` |
 | `/Game/Audio/S_*` (67종: 발소리 6면·문·노크·위층 사람·놀람·베드) | OpenGameArt rubberduck 「100 CC0 SFX」 1·2·wood-metal, Kenney 「Impact Sounds」, Owlish Media 「Sound Effects Pack」 | CC0 1.0 | 2026-09-11 | 가공(피치·저역·겹침·되울림·루프 이음) | `Content/SourceArt/Audio/manifest.json`, `Scripts/curate_cc0_audio.py` | 원본 팩은 `Saved/AudioCC0/`에 두고 저장소에는 가공본만 둔다. 게임은 `IGAudio::Sample`로 찾고 없으면 합성기 |
 | `/Game/Meshes/SK_ListenerCrawler`, `A_ListenerCrawler_{Crawl,Listen,Bang,Lunge}`, `DA_IGCharacterLODs` | 직접 제작 (사진 참고 → gpt-image 기준 이미지 → TRELLIS.2 → Blender 표면 정리·접지 리깅) | 프로젝트 소유 | 2026-09-14 | 새 원본으로 교체 | `Content/SourceArt/Blender/SK_ListenerCrawler/`, `Scripts/blender/rig_crawler.py` | 12,000삼각형, 21개 뼈, 네 동작, 스켈레탈 LOD 네 단계. `Docs/BLENDER_PIPELINE.md` 「리깅된 인물」 |
 | `Content/SourceArt/Reference/Listener/*` | Wikimedia Commons — 미 육군·해병대 낮은 포복 사진, 살아 있는 조각상 사진 | 파일별 공개 저작물·CC 라이선스, 참고 전용 | 2026-09-11 | 원본 | 파일명이 Commons 파일명 | 이번에 채택한 두 사진의 정확한 출처와 공개 조건은 `Docs/REALISM_REVIEW_2026-09-14.md`. 다른 사진의 라이선스까지 같은 것으로 간주하지 않는다 |
@@ -62,10 +59,8 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `SheetBottles.png` | `T_LabelGreenTea_D` · `T_LabelBarley_D` · `T_LabelSoda_D` · `T_LabelSoju_D` | 음료 라벨 4종 (산들녹차·구수한보리·톡소다·새벽이슬) |
 | `SheetSigns.png` | `T_SignLaundry_D` · `T_SignHair_D` · `T_SignHof_D` · `T_SignSuper_D` · `T_SignPC_D` · `T_SignKaraoke_D` | 골목 상가 간판 6종 |
 | `SheetPosters.png` | `T_PosterSale_D` · `T_PosterRamyeon_D` · `T_PosterFlyer_D` · `T_NoticeRent_D` | 편의점·골목 인쇄물 4종 |
-| `SheetPaper.png` | 없음 | 초기 종이 시트로 분류했으나 실제 결과물이 주황색 새우 스낵 봉지 이미지였음. 원본 추적을 위해 보존하되 게임과 머티리얼에서는 **미사용** |
 | `SheetPaperNotes_v2.png` | `T_PaperClean_V2_D` · `T_PaperWet_V2_D` · `T_PaperFolded_V2_D` · `T_PaperOld_V2_D` | CH02 문서용 빈 종이 4종(깨끗함·젖음·접힘·낡음). 한국어와 영수증 정보는 런타임 텍스트로 표시 |
-| `SheetHorrorEvidenceMasks.png` | `T_EvidenceSlipperTrail_M` · `T_EvidenceCatPawTrail_M` · `T_EvidenceHoseDrag_M` · `T_EvidenceHandSmear_M` | P5 능동 대조용 젖은 흔적 마스크. 검정 바탕을 머티리얼의 불투명도·습윤 거칠기 입력으로 사용 |
-| `SheetHorrorSurfaceBlends.png` | `T_DecalDampWallpaper_D` · `T_DecalRustFasteners_D` · `T_DecalMineralScale_D` · `T_DecalRainGrime_D` | CH03 벽지·계단실·탱크 환경 블렌드. 마젠타 키 제거 후 RGBA 마스크드 오버레이로 사용 |
+| `SheetHorrorSurfaceBlends.png` | `T_DecalDampWallpaper_D` | 네 칸 가운데 젖은 벽지 얼룩 한 칸만 쓴다(`M_DecalDampWallpaper`). 마젠타 키 제거 후 RGBA 마스크드 오버레이로 사용 |
 | `SheetEvidenceProps.png` | 직접 텍스처로 사용하지 않음 | 뿔테 안경·점검봉·금 간 휴대폰·편의점 봉지를 한 장에 그린 형상·재질 기준. 지금은 금 간 휴대폰(`SM_CrackedPhone`)만 이 시트로 만든다 |
 | `SheetAlleyCatPoseReference.png` | 직접 텍스처로 사용하지 않음 | 동일한 고등어태비의 좌측 달리기·정면 3/4·정지·후면 3/4 비례 기준. `SM_AlleyCatRun` 정적 메시로 재구성 |
 | `SheetFirstPersonKnockPhases_v1.png` · `v1_RGBA.png` · `SheetFirstPersonKnockPhases_v2.png` · `v2_RGBA.png` | `T_FPHandKnock0_D` · `T_FPHandKnock1_D` · `T_FPHandKnock2_D` · `T_FPHandKnock3_D` | M0 Q/B 두드리기의 같은 오른손·후드 소매 준비/예비/접촉/반동 4단계. v1은 화면 안 소매 절단면 때문에 증빙 전용, v2가 런타임 원본. UI-space 전용 RGBA이며 문·벽·인물·동물·배경을 평면으로 대체하지 않음 |
@@ -88,14 +83,11 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `SheetListenerEntityCrawlPhases.png` | `T_SpriteListenerCrawl0..3_{D,N,R,A}` · `M_SpriteListenerCrawl0..3` | 같은 인물의 좌우 팔꿈치 지지·중앙 지지·회복 네 자세. 속도 연동 1.6~6fps, 정지 프레임 유지, 응답 노크 대기 시 중앙 자세 고정 |
 | `TextureMissingFloorDryPlaster.png` | `T_MissingFloorDryPlaster_{D,N,R,A}` | 불법 5층과 존재의 건식 석고 표면. 조명 없는 타일 알베도에서 PBR 동반 채널 생성 |
 | `SheetMissingFloorResidueMasks.png` | `T_MissingFloorHandprints_M` · `T_MissingFloorDragTrails_M` · `T_MissingFloorDustJoint_M` · `T_MissingFloorCavityScratches_M` | 손자국·끌림·분진 이음·공동 긁힘 값 마스크. 실표면에 masked 블렌드 |
-| `SheetMissingFloorDistantCharacters.png` | `T_SpriteSeo_D` · `T_SpriteMok_D` · `T_SpriteHwang_D` · `T_SpriteNarin_D` | 접근 불가 12m 이상 고정 컷용 RGBA 인물. 현재 서일영만 런타임 배치, 나머지는 근접 대용 방지를 위해 미배치 |
+| `SheetMissingFloorDistantCharacters.png` | `T_SpriteSeo_D` · `T_SpriteMok_D` | 접근 불가 12m 이상 고정 컷용 RGBA 인물. 네 칸 가운데 서일영과 목한수만 자른다 |
 | `SheetMissingFloorHeroPropsReference.png` | `SM_TuningHammer` · `SM_TunerToolCart` · `SM_ComplaintLedger` · `SM_CalendarJournal` | 조율 렌치·공구 카트·민원 원장·달력 일지의 실제 두께·접지·시차를 가진 3D 프롭 기준 |
 | `TextureVillaStairCheckerPlatePaintedSteel.png` | 미사용 (증빙 보존) | v1. 계약은 전부 통과했으나 손전등 프레임에서 디딤판이 매끈한 판으로 보여 폐기. 계조 범위가 11%뿐이라 게인으로도 살아나지 않았다 |
 | `TextureVillaStairCheckerPlatePaintedSteel_v2.png` | `T_MissingFloorSteelStair_{D,N,R,A}` | 도장 체커플레이트 철제 계단 디딤판. `Footstep.MetalStair` 표면이 복도 콘크리트로 그려지던 것을 교체한다. 55cm 타일에 다이아몬드 16개(피치 34mm), 거칠기 0.68로 콘크리트(0.9+)와 손전등 반사가 갈린다 |
 | `TextureRooftopUrethaneWaterproofing.png` | `T_RooftopWaterproofing_{D,N,R,A}` | 옥상 녹색 우레탄 방수 도막. `Footstep.Rooftop` 전용이며 1.5m 타일. 물 고임 자국은 이미지에 굽지 않고 균일 분포로만 둔다 |
-| `TextureRooftopAnnexConcreteGypsumDebris.png` | `T_MissingFloorGypsumDebris_{D,N,R,A}` | 5층 슬래브의 석고 파편. `Footstep.GypsumDebris` 전용. 발자국·끌림은 `UIGSettledDustComponent`가 런타임 ISM으로 그리므로 굽지 않는다 |
-| `TextureUtilityMeterDialFaceBlank.png` | `T_UtilityMeterDial_{D,N,R,A}` | P1 계량기 문자판. 눈금·붉은 호·스핀들 보스만 담고 드럼 창은 비어 있다. 지침과 「다섯 번째가 돌지 않는다」는 `FifthMeterDisc`가 소유한다 |
-| `TextureComplaintLedgerCarbonPaperBlank.png` | `T_CarbonPaper_{D,N,R,A}` | P2 먹지. 왁스 안료가 눌린 자리에서 얇아지는 광택 차이만 담는다. 눌린 원문 한글은 굽지 않는다. A4 비율 724×1024로 원장 메시에 UV 매핑 |
 | `TextureApartmentEntranceDoorCharcoalSteel.png` | `T_UnitDoorPaintedSteel_{D,N,R,A}` | 세대 현관문 문짝의 무광 도장 강판. 브러시드 스테인리스를 대체하며 밴드·인레이·레버·도어록·도어스코프는 기존 3D 기하를 유지한다. 발치 마모는 타일이 아니라 별도 masked 평면 |
 | `SheetVillaCorridorFixturesReference.png` | 직접 텍스처로 사용하지 않음 | 세대 현관문·우편함 3x3·소화전함·천장 LED 등의 비례·재질 기준. Blender 절차 메시로 재구성 (2026-09-04) |
 | `SheetOneroomKitchenAppliancesReference.png` | 직접 텍스처로 사용하지 않음 | 소형 냉장고·빌트인 주방·전자레인지·인터폰 기준. `SM_FridgeBody·Door`, 주방 7종으로 재구성 |
@@ -164,13 +156,13 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
   확인했다.
 - 전체 프롬프트: `Docs/IMAGEGEN_PROMPTS_2026-09-30.md`
 
-### CH03 흔적·환경·증거 소품 생성 기록
+### 벽지 얼룩·증거 소품 생성 기록
 
 - 서비스: OpenAI ImageGen
 - 생성일: 2026-08-03
-- 보존 원본: `Content/SourceArt/AI/SheetHorrorEvidenceMasks.png`,
-  `SheetHorrorSurfaceBlends.png`, `SheetEvidenceProps.png`
-- 파생: 흔적 마스크 4장, 환경 오버레이 4장, 금 간 휴대폰 절차 메시 1종
+- 보존 원본: `Content/SourceArt/AI/SheetHorrorSurfaceBlends.png`,
+  `SheetEvidenceProps.png`
+- 파생: 젖은 벽지 오버레이 1장, 금 간 휴대폰 절차 메시 1종
 - 적용: `Scripts/Build-ArtAssets.ps1`이 소스 분리, PBR 파생, 텍스처 임포트,
   마스크드 머티리얼 생성과 Geometry Script 메시 베이크를 순서대로 수행한다.
   마지막 UAsset 감사에서 LOD·해상도·압축·재질 입력과 텍스처 연결을 검사한다.
@@ -223,8 +215,8 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
   `Scripts/create_textured_materials.py`가 `M_PaperClean`, `M_PaperOld`
   머티리얼에 V2 텍스처를 연결합니다. 젖은 종이·접힌 종이 재질은 쓰는 곳이
   없어 2026-09-30에 뺐고, 두 텍스처는 인쇄 아틀라스 자리로만 남아 있습니다.
-- 이전 `Content/SourceArt/AI/SheetPaper.png`와 V1 파생 텍스처는 삭제하지
-  않고 증빙을 위해 보존하지만, 현재 머티리얼에서는 사용하지 않습니다.
+- 이전 V1 시트(`SheetPaper.png`)는 종이가 아니라 새우 과자 봉지 그림이었습니다.
+  2026-09-30에 파생 텍스처와 함께 지웠습니다.
 
 사용한 프롬프트 전문:
 
@@ -263,17 +255,15 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 - 전체 프롬프트: `Docs/IMAGEGEN_PROMPTS_2026-08-10.md`
 - 배치·거리·LOD 합격표: `Docs/MISSING_FLOOR_ART_MATRIX.md`
 
-### 발소리 표면·퍼즐 판독면·현관문 생성 기록
+### 발소리 표면·현관문 생성 기록
 
 - 서비스: 로컬 ChatGPT 소프트웨어의 ImageGen (프로젝트 동일 작업공간)
 - 생성일: 2026-08-14
 - 보존 원본: `TextureVillaStairCheckerPlatePaintedSteel.png`,
   `TextureRooftopUrethaneWaterproofing.png`,
-  `TextureRooftopAnnexConcreteGypsumDebris.png`,
-  `TextureUtilityMeterDialFaceBlank.png`,
-  `TextureComplaintLedgerCarbonPaperBlank.png`,
   `TextureApartmentEntranceDoorCharcoalSteel.png`
-- 파생: 알베도 6장과 PBR 동반 채널 18장, 머티리얼 6종
+- 파생: 알베도 3장과 PBR 동반 채널 9장, 머티리얼 3종. 같이 만든 석고 파편 바닥·
+  계량기 문자판·먹지는 게임이 쓰지 않아 2026-09-30에 지웠다
 - 신규 파이프라인 단계: `Scripts/condition_ai_tiles.py`. ImageGen 스캔은
   타일이 될 수 없다 — 생성기는 구도를 만들고, 그 저주파 밝기 얼룩은 타일
   격자마다 반복되어 조명을 구운 것으로 읽힌다(`MISSING_FLOOR_ART_MATRIX.md`

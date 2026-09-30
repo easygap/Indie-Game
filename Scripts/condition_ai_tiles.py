@@ -116,36 +116,7 @@ TILES: tuple[TileSpec, ...] = (
         "roller laps that make this read as a coating rather than a green "
         "floor would not survive into the normal.",
     ),
-    TileSpec(
-        "T_MissingFloorGypsumDebris",
-        detail_gain=2.4,
-        seam="crossfade",
-        blend=0.10,
-        note="Debris scatter on a slab. Keep the margin narrow so shards are "
-        "not obviously doubled along the seam. Gain 2.4 because the shards "
-        "have to sit proud of the concrete: at stddev 3.8 this floor derives a "
-        "normal indistinguishable from the corridor it is supposed to differ "
-        "from, which is the whole reason the texture exists.",
-    ),
-    # Puzzle-readable surfaces and the door leaf.
-    TileSpec(
-        "T_UtilityMeterDial",
-        flat_field=0.6,
-        seam="none",
-        note="A single round face, not a tile. Partial flat-field only: the "
-        "enamel really is slightly uneven and flattening it fully makes the "
-        "dial look printed.",
-    ),
-    TileSpec(
-        "T_CarbonPaper",
-        flat_field=1.0,
-        detail_gain=2.0,
-        seam="none",
-        note="One sheet. The sheen difference between used and unused coating "
-        "is the whole point, and it lives above the field cutoff. Gain kept "
-        "modest at 2.0 — paper, not plate; pushing it further starts to read "
-        "as crumpling.",
-    ),
+    # The door leaf.
     TileSpec(
         "T_UnitDoorPaintedSteel",
         detail_gain=2.6,
@@ -155,22 +126,6 @@ TILES: tuple[TileSpec, ...] = (
         "Gain 2.6 only lifts orange peel to visible; a maintained Korean "
         "entrance door is supposed to be flat, and the target here is well "
         "under the 10-12 of the weathered surfaces.",
-    ),
-    TileSpec(
-        "T_ApartmentWallpaperEmboss",
-        detail_gain=1.7,
-        seam="period",
-        blend=0.03,
-        period_axis="vertical",
-        note="Plain embossed vinyl wallpaper. Period, not crossfade: the rib "
-        "pitch is regular structure and a dissolve would smear two ribs into "
-        "each other exactly the way it would smear the stair diamonds. The "
-        "narrow fade is for the same reason. Gain 1.7 is measured, not "
-        "reasoned by analogy: the adopted scan arrived at stddev 6.5, which "
-        "is already twice what the 2026-08-14 batch came in at, and a sweep "
-        "puts 1.7 at stddev 10.9 -- the middle of the 10-12 band the approved "
-        "surfaces sit in. 2.0 overshoots to 12.8. Measured on the transit "
-        "copy of the scan, so re-run the sweep if the original differs.",
     ),
 )
 

@@ -174,9 +174,6 @@ if ($MissingFloorOnly) {
 			'MokHansooFinalFrontBlend_v1',
 			'TextureVillaStairCheckerPlatePaintedSteel_v2',
 			'TextureRooftopUrethaneWaterproofing',
-			'TextureRooftopAnnexConcreteGypsumDebris',
-			'TextureUtilityMeterDialFaceBlank',
-			'TextureComplaintLedgerCarbonPaperBlank',
 			'TextureApartmentEntranceDoorCharcoalSteel'
 		)
 	$python = Get-Command python -ErrorAction Stop
@@ -189,9 +186,6 @@ if ($MissingFloorOnly) {
 	& $python.Source $tileConditioner `
 		--only T_MissingFloorSteelStair `
 		--only T_RooftopWaterproofing `
-		--only T_MissingFloorGypsumDebris `
-		--only T_UtilityMeterDial `
-		--only T_CarbonPaper `
 		--only T_UnitDoorPaintedSteel
 	if ($LASTEXITCODE -ne 0) {
 		throw "AI tile conditioning failed ($LASTEXITCODE)"
@@ -210,9 +204,6 @@ if ($MissingFloorOnly) {
 		--only T_SpriteMokFinalUpper `
 		--only T_MissingFloorSteelStair `
 		--only T_RooftopWaterproofing `
-		--only T_MissingFloorGypsumDebris `
-		--only T_UtilityMeterDial `
-		--only T_CarbonPaper `
 		--only T_UnitDoorPaintedSteel `
 		--force
 	if ($LASTEXITCODE -ne 0) {
@@ -232,25 +223,14 @@ if ($ApartmentVisualOnly) {
 	& (Join-Path $PSScriptRoot 'Prepare-AIArt.ps1') `
 		-OnlySource @(
 			'TextureApartmentWallpaperVintage',
-			'MaskApartmentWallPatina',
-			'TextureApartmentWallpaperEmbossedPlainGreyGreen_v1'
+			'MaskApartmentWallPatina'
 		)
 	$python = Get-Command python -ErrorAction Stop
-	$tileConditioner = Join-Path $PSScriptRoot 'condition_ai_tiles.py'
-	Write-Host 'ART_BUILD running apartment tile conditioning'
-	& $python.Source $tileConditioner `
-		--only T_ApartmentWallpaperEmboss
-	if ($LASTEXITCODE -ne 0) {
-		throw "Apartment tile conditioning failed ($LASTEXITCODE)"
-	}
-
 	$pbrGenerator = Join-Path $PSScriptRoot 'generate_ai_pbr_maps.py'
 	Write-Host 'ART_BUILD running apartment PBR source-map generation'
-	# --only is `action="append"`, so each stem needs its own flag; passing
-	# both to one flag makes the second an unrecognized positional.
+	# --only is `action="append"`, so each stem needs its own flag.
 	& $python.Source $pbrGenerator `
 		--only T_ApartmentWallpaperV2 `
-		--only T_ApartmentWallpaperEmboss `
 		--force
 	if ($LASTEXITCODE -ne 0) {
 		throw "Apartment PBR source-map generation failed ($LASTEXITCODE)"
@@ -462,10 +442,6 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Textures\T_ApartmentWallpaperV2_R.uasset',
 			'Content\Prototype\Textures\T_ApartmentWallpaperV2_A.uasset',
 			'Content\Prototype\Textures\T_ApartmentWallPatina_M.uasset',
-			'Content\Prototype\Textures\T_ApartmentWallpaperEmboss_D.uasset',
-			'Content\Prototype\Textures\T_ApartmentWallpaperEmboss_N.uasset',
-			'Content\Prototype\Textures\T_ApartmentWallpaperEmboss_R.uasset',
-			'Content\Prototype\Textures\T_ApartmentWallpaperEmboss_A.uasset',
 			'Content\Prototype\Materials\M_Wallpaper_X.uasset',
 			'Content\Prototype\Materials\M_Wallpaper_Y.uasset',
 			'Content\Prototype\Materials\M_WallpaperCeil.uasset',
@@ -595,22 +571,10 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Textures\T_RooftopWaterproofing_N.uasset',
 			'Content\Prototype\Textures\T_RooftopWaterproofing_R.uasset',
 			'Content\Prototype\Textures\T_RooftopWaterproofing_A.uasset',
-			'Content\Prototype\Textures\T_MissingFloorGypsumDebris_D.uasset',
-			'Content\Prototype\Textures\T_MissingFloorGypsumDebris_N.uasset',
-			'Content\Prototype\Textures\T_MissingFloorGypsumDebris_R.uasset',
-			'Content\Prototype\Textures\T_MissingFloorGypsumDebris_A.uasset',
 			'Content\Prototype\Textures\T_UnitDoorPaintedSteel_D.uasset',
 			'Content\Prototype\Textures\T_UnitDoorPaintedSteel_N.uasset',
 			'Content\Prototype\Textures\T_UnitDoorPaintedSteel_R.uasset',
 			'Content\Prototype\Textures\T_UnitDoorPaintedSteel_A.uasset',
-			'Content\Prototype\Textures\T_UtilityMeterDial_D.uasset',
-			'Content\Prototype\Textures\T_UtilityMeterDial_N.uasset',
-			'Content\Prototype\Textures\T_UtilityMeterDial_R.uasset',
-			'Content\Prototype\Textures\T_UtilityMeterDial_A.uasset',
-			'Content\Prototype\Textures\T_CarbonPaper_D.uasset',
-			'Content\Prototype\Textures\T_CarbonPaper_N.uasset',
-			'Content\Prototype\Textures\T_CarbonPaper_R.uasset',
-			'Content\Prototype\Textures\T_CarbonPaper_A.uasset',
 			'Content\Prototype\Materials\M_MissingFloorSteelStair.uasset',
 			'Content\Prototype\Materials\M_RooftopWaterproofing_XY.uasset',
 			'Content\Prototype\Materials\M_UnitDoorPaintedSteel.uasset',
@@ -624,8 +588,6 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Textures\T_MissingFloorCavityScratches_M.uasset',
 			'Content\Prototype\Textures\T_SpriteSeo_D.uasset',
 			'Content\Prototype\Textures\T_SpriteMok_D.uasset',
-			'Content\Prototype\Textures\T_SpriteHwang_D.uasset',
-			'Content\Prototype\Textures\T_SpriteNarin_D.uasset',
 			'Content\Prototype\Textures\T_SpriteListenerFront_D.uasset',
 			'Content\Prototype\Textures\T_SpriteListenerFront_N.uasset',
 			'Content\Prototype\Textures\T_SpriteListenerFront_R.uasset',
@@ -686,7 +648,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 		@(
 			@{
 				Script = 'generate_surface_textures.py'
-				SuccessPattern = '\[IndieGame\] Imported 9 textures'
+				SuccessPattern = '\[IndieGame\] Imported 5 textures'
 				TargetEnvironment = $true
 			},
 			@{
@@ -808,9 +770,9 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 				TargetEnvironment = $true
 			},
 			@{
-				# 40 + 24: 발소리 표면 3종·문자판·먹지·문짝의 D/N/R/A.
+				# 38 + 12: 인물·흔적 38장에 발소리 표면 둘과 문짝의 D/N/R/A.
 				Script = 'generate_surface_textures.py'
-				SuccessPattern = '\[IndieGame\] Imported 64 textures'
+				SuccessPattern = '\[IndieGame\] Imported 50 textures'
 				TargetEnvironment = $true
 			},
 			@{
@@ -1038,8 +1000,6 @@ $requiredAssets = @(
 	'Content\Meshes\SM_CalendarJournal.uasset',
 	'Content\Meshes\SM_P3ValveWheelLarge.uasset',
 	'Content\Meshes\SM_P3ValveWheelSmall.uasset',
-	'Content\Prototype\Textures\T_EvidenceCatPawTrail_M.uasset',
-	'Content\Prototype\Textures\T_DecalRustFasteners_D.uasset',
 	'Content\Prototype\Textures\T_CarrierBagFilm_D.uasset',
 	'Content\Prototype\Textures\T_AlleyCatTabby_D.uasset',
 	'Content\Prototype\Textures\T_P3CabinetPaintedSteel_D.uasset',
@@ -1064,8 +1024,6 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_MissingFloorCavityScratches_M.uasset',
 	'Content\Prototype\Textures\T_SpriteSeo_D.uasset',
 	'Content\Prototype\Textures\T_SpriteMok_D.uasset',
-	'Content\Prototype\Textures\T_SpriteHwang_D.uasset',
-	'Content\Prototype\Textures\T_SpriteNarin_D.uasset',
 	'Content\Prototype\Textures\T_SpriteListenerFront_D.uasset',
 	'Content\Prototype\Textures\T_SpriteListenerFront_N.uasset',
 	'Content\Prototype\Textures\T_SpriteListenerFront_R.uasset',

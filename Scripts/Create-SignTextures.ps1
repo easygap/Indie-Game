@@ -5,10 +5,6 @@
 
 [CmdletBinding()]
 param(
-    # Rebuild only the two textures that must stay synchronized with the
-    # thermal POS receipt. This prevents a small retail-data correction from
-    # replacing the already authored poster and neighbourhood art.
-    [switch]$RetailIdentityOnly,
     # Rebuild only the landing door plates and the 401 note. This keeps a
     # targeted Unreal import from touching unrelated authored signs.
     [switch]$CorridorEntranceOnly,
@@ -372,23 +368,6 @@ New-SignBitmap -Width 1024 -Height 256 -Background ([System.Drawing.Color]::From
     Draw-CenteredText $g '24 HOURS' $malgun 31 ([System.Drawing.FontStyle]::Regular) $white ($w * 0.86) ($h * 0.68)
 }
 
-function Write-RetailPriceStrip {
-    New-SignBitmap -Width 1024 -Height 64 -Background $white -FileName 'T_PriceStrip_D.png' -Draw {
-        param($g, $w, $h)
-        for ($i = 0; $i -lt 4; $i++) {
-            $x = [single]($w * (0.125 + 0.25 * $i))
-            Draw-CenteredText $g '새벽샘물 1,000' $malgun 29 ([System.Drawing.FontStyle]::Regular) $dark $x ($h * 0.5)
-            $pen = New-Object System.Drawing.Pen([System.Drawing.Color]::FromArgb(255, 190, 192, 190), 3)
-            $g.DrawLine($pen, [single]($w * 0.25 * ($i + 1)), 8, [single]($w * 0.25 * ($i + 1)), [single]($h - 8))
-            $pen.Dispose()
-        }
-    }
-}
-
-if ($RetailIdentityOnly) {
-    Write-RetailPriceStrip
-    return
-}
 
 # --- Vertical blade sign ---------------------------------------------------
 New-SignBitmap -Width 192 -Height 640 -Background $white -FileName 'T_SignBlade_D.png' -Draw {
@@ -449,9 +428,6 @@ New-SignBitmap -Width 256 -Height 128 -Background $white -FileName 'T_SignAutoDo
     Draw-CenteredText $g '자동문' $malgun 56 ([System.Drawing.FontStyle]::Bold) $mint ($w * 0.5) ($h * 0.36)
     Draw-CenteredText $g '24시간 영업' $malgun 30 ([System.Drawing.FontStyle]::Regular) $dark ($w * 0.5) ($h * 0.74)
 }
-
-# --- Cooler price strip ----------------------------------------------------
-Write-RetailPriceStrip
 
 # --- Building name plate over the common entrance --------------------------
 New-SignBitmap -Width 320 -Height 96 -Background ([System.Drawing.Color]::FromArgb(255, 30, 36, 48)) -FileName 'T_SignVilla_D.png' -Draw {

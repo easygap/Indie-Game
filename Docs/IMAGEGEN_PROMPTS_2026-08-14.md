@@ -2,6 +2,9 @@
 
 ## 발소리 표면 3종 · 퍼즐 판독면 2종 · 세대 현관문 1종
 
+> 2026-09-30: 석고 파편 바닥·계량기 문자판·먹지는 게임이 쓰지 않아 원본과 파생을
+> 지웠다. 남은 것은 계단 디딤판, 옥상 방수층, 세대 현관문 세 장이다.
+
 - 실행 경로: 로컬 ChatGPT 소프트웨어의 ImageGen (프로젝트 동일 작업공간)
 - 용도 분류: `stylized-concept`
 - 입력 이미지: 없음
@@ -32,9 +35,6 @@ README 규칙 2가 「발밑도 규칙입니다」인데, 발소리 표면 5종 
 | `TextureVillaStairCheckerPlatePaintedSteel.png` | (증빙 전용, 미사용) | `064D84D76ACDBBB93565CE298EEDE431C67463B3C954D97A9D12279E9C9A0F04` |
 | `TextureVillaStairCheckerPlatePaintedSteel_v2.png` | `T_MissingFloorSteelStair_{D,N,R,A}` | `3A973BD9FAF581955F61AD577C293694A60B5738B4D2E9D697CF030A5C088A82` |
 | `TextureRooftopUrethaneWaterproofing.png` | `T_RooftopWaterproofing_{D,N,R,A}` | `42116A76598BDCBB9A933BAA4C679C8A97981AD27731B1703F89C53DD04A5FE5` |
-| `TextureRooftopAnnexConcreteGypsumDebris.png` | `T_MissingFloorGypsumDebris_{D,N,R,A}` | `6A6FA67CB3407BF18322010FA7F98A273AFE2FD7234AF21DEDB105B79BAFF6B8` |
-| `TextureUtilityMeterDialFaceBlank.png` | `T_UtilityMeterDial_{D,N,R,A}` | `E3E3E3F9949ACEA716ECB3000C294922C34A8682A1BE6CD443C1853850A45F98` |
-| `TextureComplaintLedgerCarbonPaperBlank.png` | `T_CarbonPaper_{D,N,R,A}` | `2F22C7CE8E9DD7E5A2F93D05DAA2A16AD8A40497903D26B4707D8D0BD52BC59E` |
 | `TextureApartmentEntranceDoorCharcoalSteel.png` | `T_UnitDoorPaintedSteel_{D,N,R,A}` | `A3E5A30007597E439284602800B988839C06C879BFA322214C53A7F019E481C2` |
 
 ### 적용 경계
@@ -110,54 +110,6 @@ Materials/textures: soft rubbery matte coating, slightly uneven thickness with g
 Constraints: the tile must repeat seamlessly on all four edges; no drains, no parapet, no pipes, no antenna, no plants, no moss growth, no puddled water, no reflections, no sky, no footprints, no perspective
 Avoid: bright chroma-key green, cartoon flatness, peeling sheets, dramatic decay, wet glossy sheen, high-contrast staining
 ```
-
-### 3. 5층 석고 파편 바닥
-
-```text
-Use case: stylized-concept
-Asset type: seamlessly tiling production albedo texture for a debris-strewn raw concrete slab in an illegally built rooftop annex
-Primary request: a perfectly top-down, orthographic 1:1 square scan of a dark unfinished concrete slab lightly scattered with broken dry gypsum board fragments and settled plaster powder, covering roughly 1.5 meters by 1.5 meters of real surface, filling the canvas edge to edge with no background
-Subject: the dark slab remains clearly dominant and readable; broken gypsum pieces of mixed sizes from 2 cm chips up to 15 cm angular shards lie sparsely and evenly across the whole frame, showing both their pale gray paper face and their soft crumbling white core at the break; a thin even veil of fine plaster powder
-Color palette: dark cool gray concrete as the base, pale bone-ivory gypsum, no warm tones, no color casts, everything low saturation
-Materials/textures: rough troweled concrete with shallow pitting, matte chalky gypsum with soft fractured edges
-Constraints: the tile must repeat seamlessly on all four edges; the debris must stay sparse enough that the concrete underneath is visible across most of the surface; no footprints, no drag marks, no handprints, no body, no blood, no tools, no timber, no nails, no wires, no plastic sheeting, no perspective
-Avoid: an even continuous white layer, snow-like coverage, high-contrast bright white chips, dramatic rubble, demolition-site chaos, dust clouds
-```
-
-발자국과 끌림 자국은 굽지 않는다. `UIGSettledDustComponent`가 런타임 ISM으로
-그리므로 구워 넣으면 이중으로 찍힌다.
-
-### 4. 계량기 문자판
-
-```text
-Use case: stylized-concept
-Asset type: production albedo texture for the dial face of an old analogue utility meter in a Korean apartment lobby
-Primary request: a perfectly front-facing, orthographic 1:1 square image of the circular dial face of an aged analogue electricity meter, with the circular face filling the entire square canvas edge to edge and no surrounding background, housing, or glass
-Subject: a cream-white enamel dial plate with a plain rectangular recessed window across the middle where a mechanical digit drum would sit, left completely blank and empty; a fine engraved circular tick scale near the outer rim with small evenly spaced graduation marks; one narrow deep-red painted arc segment on the lower right; a small central spindle boss
-Style/medium: restrained photorealistic instrument face, physically plausible enamel and printed ink, not an illustration and not a UI mockup
-Color palette: aged cream and warm off-white, faded charcoal engraving, one muted deep red arc, very low saturation
-Materials/textures: slightly yellowed enamel over stamped metal, faint concentric machining under the enamel, a light even film of settled dust in the recessed window, tiny handling scuffs near the rim
-Constraints: absolutely no numbers, no digits, no letters, no Hangul, no manufacturer name, no model number, no units, no logo, no needle, no pointer, no glass, no reflection, no housing, no screws, no perspective, no cast shadow; the digit window must remain completely blank so Korean text and the reading can be composited at runtime
-Avoid: steampunk gauges, ornate dials, dramatic rust, cracked glass, glowing elements, high-contrast grime
-```
-
-### 5. 먹지
-
-```text
-Use case: stylized-concept
-Asset type: production albedo texture for a used sheet of carbon paper resting under a building complaint ledger
-Primary request: a perfectly front-facing, orthographic portrait sheet at exactly 1:1.414 aspect ratio, a single used A4 carbon paper sheet filling the entire canvas edge to edge with no surrounding background
-Subject: the coated face of an old carbon transfer sheet, its waxy pigment layer unevenly depleted from repeated use, showing broad soft areas where the coating has been pressed thin and now catches light differently from the untouched areas; one gentle diagonal curl relaxation across the lower third; slightly frayed and darkened handled edges; a few faint fingertip smudges near the top corners
-Style/medium: restrained photorealistic paper scan, physically plausible waxed carbon coating, not concept art
-Color palette: deep prussian blue-black shifting toward a cooler graphite sheen where worn, extremely low saturation, no true black
-Materials/textures: thin waxy pigment over lightweight tissue paper, the paper fiber faintly visible only where the coating has thinned, gentle sheen variation rather than gloss
-Constraints: absolutely no words, no Hangul, no letters, no numbers, no dates, no legible writing, no readable impressions, no ruled lines, no stamps, no logo, no watermark, no hands, no pen, no desk, no perspective, no cast shadow; keep the central 70 percent calm and even so pressed handwriting can be composited at runtime
-Avoid: dramatic tearing, burned edges, heavy crumpling, high-contrast stains, horror clichés, glossy plastic look, blue-purple oversaturation
-```
-
-A4 비율은 유지한다(`724×1024`). 22×30.7cm 원장 아래에 UV로 붙는 종이라
-정사각으로 리샘플하면 섬유와 접힘이 함께 늘어난다. 아트 계약에 이 예외를
-명시했다.
 
 ### 6. 세대 현관문 도장 강판
 
