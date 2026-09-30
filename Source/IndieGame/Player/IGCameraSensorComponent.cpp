@@ -12,12 +12,6 @@ namespace IGCameraSensor
 {
 	const TCHAR* MaterialPath =
 		TEXT("/Game/Prototype/Materials/M_PP_CameraSensor.M_PP_CameraSensor");
-	// 재질의 기본값과 같다. build_camera_sensor_material.py를 고치면 같이 고친다.
-	constexpr float NoiseAmount = 0.06f;
-	constexpr float NoiseRate = 30.0f;
-	// 깜빡임을 줄이면 화면 전체가 초당 30번 바뀌는 대신 8번만 바뀐다.
-	constexpr float ReducedFlickerNoiseRate = 8.0f;
-	constexpr float ReducedFlickerNoiseScale = 0.6f;
 }
 
 UIGCameraSensorComponent::UIGCameraSensorComponent()
@@ -67,12 +61,6 @@ void UIGCameraSensorComponent::RefreshFromSettings()
 	const float Strength = Accessibility
 		? Accessibility->GetCameraTextureStrength()
 		: 1.0f;
-	const bool bReducedFlicker = Accessibility && Accessibility->IsReducedFlickerEnabled();
-	const float Noise = IGCameraSensor::NoiseAmount
-		* (bReducedFlicker ? IGCameraSensor::ReducedFlickerNoiseScale : 1.0f);
-	const float NoiseRate = bReducedFlicker
-		? IGCameraSensor::ReducedFlickerNoiseRate
-		: IGCameraSensor::NoiseRate;
 
 	// 0이면 블렌더블째 뺀다. 세기 0인 재질도 화면을 한 번 더 그리기 때문이다.
 	SensorPostProcess->BlendWeight = Strength > KINDA_SMALL_NUMBER ? 1.0f : 0.0f;
@@ -80,15 +68,5 @@ void UIGCameraSensorComponent::RefreshFromSettings()
 	{
 		SensorMaterial->SetScalarParameterValue(TEXT("Strength"), Strength);
 		AppliedStrength = Strength;
-	}
-	if (!FMath::IsNearlyEqual(Noise, AppliedNoise, 0.0005f))
-	{
-		SensorMaterial->SetScalarParameterValue(TEXT("NoiseAmount"), Noise);
-		AppliedNoise = Noise;
-	}
-	if (!FMath::IsNearlyEqual(NoiseRate, AppliedNoiseRate))
-	{
-		SensorMaterial->SetScalarParameterValue(TEXT("NoiseRate"), NoiseRate);
-		AppliedNoiseRate = NoiseRate;
 	}
 }

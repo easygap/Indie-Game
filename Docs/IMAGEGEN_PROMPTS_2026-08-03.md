@@ -1,5 +1,10 @@
 # ImageGen 생성 기록 — 2026-08-03
 
+이 문서는 이전 기획에서 에셋을 만들 때 쓴 프롬프트 원문이다.
+아래의 04:44, CH03 등은 현재 게임 설정에 적용하지 않는다.
+현행 이야기와 시간은 [Missing Floor 설정집](STORY_BIBLE_MISSING_FLOOR.md)의
+새벽 04:30을 따른다. 새 에셋은 [현재 생성 지침](IMAGEGEN_GUIDE.md)으로 만든다.
+
 서비스는 OpenAI ImageGen을 사용했습니다. 생성 원본은
 `Content/SourceArt/AI/`에 보존하고, 게임에는
 `Scripts/Prepare-AIArt.ps1`이 만든 파생 파일만 사용합니다.

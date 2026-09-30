@@ -64,7 +64,7 @@ Assert-ContainsAll $story @(
 	'코드와 자동 게이트 완료·체감 승인 대기',
 	'ImageGen 출력을 추가하지 않았다',
 	'WORLD는 최종 −24dB',
-	'0.04→0.08 필름 그레인'
+	'야간 적색 비상등과 스트레스에 따른 시야·색 변화'
 ) 'M6 story'
 
 Assert-ContainsAll $audioHeader @(
@@ -161,12 +161,12 @@ Assert-ContainsAll $worldSource @(
 	'TEXT("Footstep.Rooftop")',
 	'TEXT("Footstep.GypsumDebris")',
 	'EmergencyPractical->SetVolumetricScatteringIntensity(0.14f)',
-	'FilmGrainIntensity = bSealed ? 0.045f : 0.015f',
+	'FilmGrainIntensity = 0.0f',
 	'AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f'
 ) 'M6 world surface and night visual'
 Assert-ContainsAll $stressSource @(
 	'Settings.bOverride_FilmGrainIntensity = true',
-	'Settings.FilmGrainIntensity = Toward(bSealed ? 0.045f : 0.015f, 0.10f)'
+	'Settings.FilmGrainIntensity = 0.0f'
 ) 'M6 pursuit post process'
 
 Assert-ContainsAll $accessibilityHeader @(

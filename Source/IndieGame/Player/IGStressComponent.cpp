@@ -785,8 +785,8 @@ void UIGStressComponent::UpdatePostProcess()
 	Settings.SceneFringeIntensity = Toward(0.0f, 0.35f);
 
 	Settings.bOverride_FilmGrainIntensity = true;
-	// 낮과 밤의 기본값을 유지하고, 공포가 높을 때만 입자를 조금 더한다.
-	Settings.FilmGrainIntensity = Toward(bSealed ? 0.045f : 0.015f, 0.10f);
+	// 추격 중에도 문틈과 바닥 흔적은 선명하게 남긴다.
+	Settings.FilmGrainIntensity = 0.0f;
 
 	// 불안이 높아져도 가까운 기록은 읽을 수 있어야 한다. 초점을 7~24m에
 	// 고정하면 손에 든 단서까지 흐려진다. 압박은 주변 시야·색·심박으로 전한다.

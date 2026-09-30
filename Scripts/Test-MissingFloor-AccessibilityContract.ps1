@@ -488,9 +488,8 @@ $sensorSource = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Source/IndieGame/Player/IGCameraSensorComponent.cpp')
 Assert-ContainsAll $sensorSource @(
 	'GetCameraTextureStrength()',
-	'IsReducedFlickerEnabled()',
-	'ReducedFlickerNoiseRate = 8.0f'
-) '화면 질감이 설정과 빛 깜빡임 줄이기를 따른다'
+	'SensorPostProcess->BlendWeight = Strength > KINDA_SMALL_NUMBER ? 1.0f : 0.0f'
+) '화면 질감이 설정을 따르고 0이면 패스를 끈다'
 
 foreach ($half in @(
 	@{ Name = 'LoadPersistedSettings'; Call = 'GConfig->GetFloat(' },

@@ -1,17 +1,9 @@
-"""1인칭 화면에 싼 디지털 카메라의 질감을 입히는 후처리 재질.
+"""표면과 글씨를 흐리지 않는 가벼운 렌즈 후처리.
 
-두 참고작(AFTERLIGHT: The Apartment, The Strange Lights)이 사실감을 얻는 곳은
-모델이 아니라 화면이다. 다만 이 게임은 2025년이라 VHS 테이프를 씌우면 시대가
-어긋난다. 그래서 휴대폰·보급형 카메라가 어두운 곳에서 내는 흠만 고른다.
-
-- 렌즈의 가벼운 통 왜곡과 가장자리 색 번짐
-- 센서가 뭉갠 부드러움과 기기 안 샤프닝이 남기는 테두리
-- 오른쪽으로 번지는 색(4:2:0 압축)
-- 어두운 곳일수록 커지는 노이즈, 약간 뜬 검정
-
-톤매핑 뒤에 건다. 업스케일이 끝난 화면이라 노이즈가 번지지 않고, HUD는 이
-재질보다 나중에 그려져서 글자가 흐려지지 않는다. 세기는 UIGCameraSensorComponent가
-접근성 설정 「화면 질감」에서 받아 Strength로 넘긴다.
+화면 가장자리의 약한 통 왜곡과 색 번짐만 남긴다. 전면 노이즈, 흐림,
+과도한 샤프닝은 재질의 작은 요철과 문서 글씨를 덮으므로 사용하지 않는다.
+톤매핑 뒤에서 동작하며 HUD에는 적용되지 않는다. 화면 질감을 0으로
+내리면 UIGCameraSensorComponent가 후처리 패스 자체를 끈다.
 """
 
 from pathlib import Path
@@ -28,14 +20,8 @@ FOLDER = "/Game/Prototype/Materials"
 # 기본값이 곧 「화면 질감 100%」다. 조절은 Strength 하나로 한다.
 PARAMETERS = (
     ("Strength", 1.0),
-    ("NoiseAmount", 0.06),
-    ("NoiseRate", 30.0),
-    ("Distortion", 0.055),
-    ("Fringe", 1.2),
-    ("Soften", 0.6),
-    ("Halo", 0.32),
-    ("ChromaSmear", 0.55),
-    ("BlackLift", 0.003),
+    ("Distortion", 0.016),
+    ("Fringe", 0.35),
 )
 
 CODE = r"""
@@ -70,53 +56,7 @@ float2 fringe = c * 2.0 * Fringe * s * inv;
 float3 centre = tap.At(duv);
 float3 col = float3(tap.At(duv + fringe).r, centre.g, tap.At(duv - fringe).b);
 
-// 센서의 부드러움과 기기 안 샤프닝.
-float2 o1 = inv;
-float2 o2 = inv * 2.5;
-float3 near4 = tap.At(duv + float2(o1.x, 0)) + tap.At(duv - float2(o1.x, 0))
-	+ tap.At(duv + float2(0, o1.y)) + tap.At(duv - float2(0, o1.y));
-float3 soft = (col * 4.0 + near4) / 8.0;
-float3 wide4 = tap.At(duv + o2) + tap.At(duv - o2)
-	+ tap.At(duv + float2(o2.x, -o2.y)) + tap.At(duv + float2(-o2.x, o2.y));
-float3 wide = (soft * 4.0 + wide4) / 8.0;
-float3 img = lerp(col, soft, saturate(Soften * s));
-img += (img - wide) * (Halo * s);
-
-// 색은 밝기보다 넓게, 오른쪽으로 번진다.
-float3 luma = float3(0.299, 0.587, 0.114);
-float3 right = tap.At(duv + float2(o2.x, 0));
-float3 chromaSource = (soft * 2.0 + right) / 3.0;
-float Y = dot(img, luma);
-float3 smeared = chromaSource - dot(chromaSource, luma);
-img = Y + lerp(img - Y, smeared, saturate(ChromaSmear * s));
-
-// 어두운 곳일수록 커지는 센서 노이즈. NoiseRate만큼 초마다 새로 뿌린다.
-uint2 ip = uint2(vuv * viewSize.xy);
-uint frame = (uint)floor(Time * max(NoiseRate, 1.0));
-uint h = ip.x * 1973u + ip.y * 9277u + frame * 26699u;
-h = (h ^ 61u) ^ (h >> 16);
-h *= 9u;
-h = h ^ (h >> 4);
-h *= 0x27d4eb2du;
-h = h ^ (h >> 15);
-uint h2 = h * 747796405u + 2891336453u;
-h2 ^= h2 >> 13;
-h2 *= 0x5bd1e995u;
-h2 ^= h2 >> 15;
-float grain = (h & 0xFFFFu) / 65535.0 - 0.5;
-float grainBlue = (h2 & 0xFFFFu) / 65535.0 - 0.5;
-float grainRed = ((h2 >> 16) & 0xFFFFu) / 65535.0 - 0.5;
-// 완전한 검정에는 노이즈를 얹지 않는다. 카메라의 노이즈 제거가 먼저 뭉개는
-// 곳이고, 여기서 검정을 띄우면 밤 복도의 대비가 죽는다.
-float shade = 1.0 - saturate(Y);
-float amp = NoiseAmount * s * smoothstep(0.0, 0.08, Y) * (0.25 + 0.75 * shade * shade);
-img += grain * amp;
-img += float3(grainRed, 0.0, grainBlue) * amp * 0.4;
-
-// 센서의 검정은 완전한 0이 아니다.
-float lift = BlackLift * s;
-img = img * (1.0 - lift) + lift * float3(0.92, 1.0, 1.07);
-return max(img, 0.0);
+return max(col, 0.0);
 """
 
 
@@ -160,7 +100,7 @@ def build():
         code=CODE,
         output_type=unreal.CustomMaterialOutputType.CMOT_FLOAT3,
         description="CameraSensor")
-    pins = ["SceneTex", "Time"] + [name for name, _ in PARAMETERS]
+    pins = ["SceneTex"] + [name for name, _ in PARAMETERS]
     inputs = []
     for label in pins:
         pin = unreal.CustomInput()
@@ -174,7 +114,6 @@ def build():
         scene_texture_id=enum_value(
             unreal.SceneTextureId, "PPI_POST_PROCESS_INPUT0"))
     link(scene, custom, "SceneTex")
-    link(node("MaterialExpressionTime"), custom, "Time")
     for name, default in PARAMETERS:
         parameter = node(
             "MaterialExpressionScalarParameter",

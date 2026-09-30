@@ -333,25 +333,8 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	PostProcess->Settings.bOverride_VignetteIntensity = true;
 	PostProcess->Settings.VignetteIntensity = 0.17f;
 	PostProcess->Settings.bOverride_FilmGrainIntensity = true;
-	PostProcess->Settings.FilmGrainIntensity = 0.02f;
-	// 5.x의 그레인은 텍스처가 있어야 돈다. 비워 두면 세기를 아무리 올려도
-	// 아무 일이 없다 — 지금까지 이 값들은 전부 헛돌고 있었다.
-	{
-		static ConstructorHelpers::FObjectFinder<UTexture2D> GrainFinder(
-			TEXT("/Engine/EngineResources/FilmGrains/Marcie_Grain_v3_128_M2_000.Marcie_Grain_v3_128_M2_000"));
-		if (GrainFinder.Succeeded())
-		{
-			PostProcess->Settings.bOverride_FilmGrainTexture = true;
-			PostProcess->Settings.FilmGrainTexture = GrainFinder.Object;
-			// 어둠에 알갱이가 살고 하이라이트는 깨끗하다.
-			PostProcess->Settings.bOverride_FilmGrainIntensityShadows = true;
-			PostProcess->Settings.FilmGrainIntensityShadows = 1.0f;
-			PostProcess->Settings.bOverride_FilmGrainIntensityMidtones = true;
-			PostProcess->Settings.FilmGrainIntensityMidtones = 0.55f;
-			PostProcess->Settings.bOverride_FilmGrainIntensityHighlights = true;
-			PostProcess->Settings.FilmGrainIntensityHighlights = 0.18f;
-		}
-	}
+	// 조명과 표면의 명암을 그대로 남기고 화면에 입자를 덧씌우지 않는다.
+	PostProcess->Settings.FilmGrainIntensity = 0.0f;
 	PostProcess->Settings.bOverride_ColorSaturation = true;
 	PostProcess->Settings.ColorSaturation = FVector4(0.93f, 0.95f, 1.0f, 1.0f);
 	// A restrained film curve gives PBR roughness and normal changes somewhere
@@ -4152,9 +4135,8 @@ void AIGPrologueWorldScene::SetTheHourSealed(const bool bSealed)
 	bTheHourSealed = bSealed;
 	if (PostProcess)
 	{
-		// Night never lifts the corridor into grey. Film grain is restrained at
-		// rest, then the stress layer can take it to 0.08 during pursuit.
-		PostProcess->Settings.FilmGrainIntensity = bSealed ? 0.045f : 0.015f;
+		// 밤에도 먼지 자국과 문 아래 빛이 노이즈에 묻히지 않게 한다.
+		PostProcess->Settings.FilmGrainIntensity = 0.0f;
 		PostProcess->Settings.AutoExposureMaxBrightness = bSealed ? 1.30f : 5.0f;
 		// §11 V1: 자동노출 하한 잠금. Capping the ceiling alone still let the
 		// histogram adapt *down* into an unlit corridor and quietly hand the

@@ -5439,7 +5439,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		NSLOCTEXT("IGHUD", "A11yReducedFlickerDesc", "손전등과 조명이 빠르게 깜빡이는 효과를 줄입니다."),
 		NSLOCTEXT("IGHUD", "A11yFieldOfViewDesc", "한 화면에 보이는 범위를 조절합니다. 화면이 답답하거나 어지럽다면 편한 값으로 맞춰 보세요."),
 		NSLOCTEXT("IGHUD", "A11yVignetteDesc", "화면 가장자리를 어둡게 합니다. 움직일 때 주변 풍경이 덜 보이게 할 수 있습니다."),
-		NSLOCTEXT("IGHUD", "A11yCameraTextureDesc", "렌즈가 살짝 휘고 어두운 곳에 잡티가 끼는 카메라 화면처럼 보이게 합니다. 눈이 피로하면 낮추세요."),
+		NSLOCTEXT("IGHUD", "A11yCameraTextureDesc", "화면 가장자리에 약한 렌즈 왜곡 효과를 더합니다. 눈이 피로하면 낮춰 주세요."),
 		NSLOCTEXT("IGHUD", "A11yCenterDotDesc", "평소에는 조사할 물건을 겨눌 때만 화면 가운데에 점이 뜹니다. 어지럽다면 항상 띄워 두세요. 화면을 볼 때 기준점이 됩니다."),
 		NSLOCTEXT("IGHUD", "A11yFearDirectionDesc", "중요한 소리가 나면 화면 가장자리에 그 방향을 표시합니다."),
 		NSLOCTEXT("IGHUD", "A11yKnockRingDesc", "귀신이 낸 소리는 얇은 원으로, 내가 낸 소리는 굵은 원으로 표시합니다."),
