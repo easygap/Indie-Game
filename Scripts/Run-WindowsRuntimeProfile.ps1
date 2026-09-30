@@ -21,7 +21,7 @@ $manifestArguments = @{ ArchiveDirectory = $archiveRoot; RequireCleanCommit = $R
 if ($ExpectedCommit) { $manifestArguments.ExpectedCommit = $ExpectedCommit }
 & (Join-Path $PSScriptRoot 'Test-WindowsPackageManifest.ps1') @manifestArguments
 if ($LASTEXITCODE -ne 0) { throw '패키지 검증에 실패했습니다.' }
-$launcher = Join-Path $archiveRoot 'MissingFloor.exe'
+$launcher = Join-Path $archiveRoot 'Windows\MissingFloor.exe'
 $python = (Get-Command python -ErrorAction Stop).Source
 $results = [Collections.Generic.List[object]]::new()
 for ($run = 1; $run -le $RepeatCount; $run++) {
@@ -41,7 +41,7 @@ for ($run = 1; $run -le $RepeatCount; $run++) {
         '"' + $_ + '"'
     })
     $started = [DateTime]::UtcNow
-    $process = Start-Process -FilePath $launcher -ArgumentList $quoted -WorkingDirectory $archiveRoot -WindowStyle Hidden -PassThru
+    $process = Start-Process -FilePath $launcher -ArgumentList $quoted -WorkingDirectory (Split-Path $launcher -Parent) -WindowStyle Hidden -PassThru
     try {
         $null = $process.Handle
         if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
