@@ -797,6 +797,22 @@ void AIGPlayerController::TickFrontendShippingProbe()
 			FailFrontendShippingProbe(TEXT("gamepad_a_display_open"));
 			return;
 		}
+		{
+			const UGameUserSettings* Settings = GEngine ? GEngine->GetGameUserSettings() : nullptr;
+			Scalability::FQualityLevels LowPreset;
+			Scalability::FQualityLevels HighPreset;
+			LowPreset.SetFromSingleQualityLevel(1);
+			HighPreset.SetFromSingleQualityLevel(2);
+			// 기본 높음이 낮음으로 보이거나 품질 변경이 내부 해상도를 낮추면 실패한다.
+			if (!Settings || Settings->GetOverallScalabilityLevel() != 2 || DisplayQualityIndex != 1
+				|| LowPreset.GetSingleQualityLevel() != 1 || HighPreset.GetSingleQualityLevel() != 2
+				|| !FMath::IsNearlyEqual(LowPreset.ResolutionQuality, 100.0f)
+				|| !FMath::IsNearlyEqual(HighPreset.ResolutionQuality, 100.0f))
+			{
+				FailFrontendShippingProbe(TEXT("native_quality_preset"));
+				return;
+			}
+		}
 		ReleaseFrontendProbeKey(EKeys::Gamepad_FaceButton_Bottom);
 		// Performance has the most simultaneous display rows and is therefore
 		// the strongest packaged screenshot for horizontal text fitting.
