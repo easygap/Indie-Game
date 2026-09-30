@@ -54,7 +54,7 @@ $surfaceTextureScript = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 $assetPolicy = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Docs/ASSET_POLICY.md')
 $iconPrompt = Get-Content -Raw -Encoding UTF8 -LiteralPath (
-	Join-Path $projectRoot 'Docs/IMAGEGEN_PROMPTS_2026-08-05.md')
+	Join-Path $projectRoot 'Docs/IMAGEGEN_PROMPTS_2026-09-30.md')
 $titlePrompt = Get-Content -Raw -Encoding UTF8 -LiteralPath (
 	Join-Path $projectRoot 'Docs/IMAGEGEN_PROMPTS_2026-08-12.md')
 $iconPngPath = Join-Path $projectRoot 'Build/Windows/ApplicationIcon.png'
@@ -422,10 +422,10 @@ Assert-ContainsAll $iconScript @(
 	'format="ICO"'
 ) 'Windows 아이콘 재현 스크립트'
 Assert-ContainsAll $assetPolicy @(
-	'Content/SourceArt/AI/ApplicationIcon_raw.png',
+	'Content/SourceArt/AI/ApplicationIcon_20260930.png',
 	'Build/Windows/ApplicationIcon.png',
 	'Build/Windows/Application.ico',
-	'Docs/IMAGEGEN_PROMPTS_2026-08-05.md',
+	'Docs/IMAGEGEN_PROMPTS_2026-09-30.md',
 	'Pretendard 1.3.9',
 	'GowunBatang-Bold.ttf',
 	'SIL Open Font License 1.1',
@@ -472,10 +472,11 @@ foreach ($relativePath in @(
 		"타이틀 에셋이 없다: $relativePath"
 }
 Assert-ContainsAll $iconPrompt @(
-	'Windows application icon',
-	'4시 44분',
-	'no text, no numbers, no letters',
-	'16, 24, 32, 48, 64, 128 and 256 pixel'
+	'Windows 배포 아이콘',
+	'application icon for a Korean first-person horror game',
+	'rooftop room made of pale grey sandwich panels',
+	'No text, no numbers, no letters',
+	'16, 24, 32, 48, 64, 128, 256'
 ) '배포 아이콘 최종 프롬프트·검수 기록'
 Assert-True ($iconPngBytes.Length -gt 100000) '등급 PNG가 비었거나 지나치게 작다'
 Assert-True (

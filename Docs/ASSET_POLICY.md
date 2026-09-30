@@ -74,7 +74,7 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `TextureAlleyCatTabby.png` | `T_AlleyCatTabby_D` | 고등어태비 단모와 좁은 줄무늬의 저채도 알베도. `M_AlleyCatTabbyUV`로 단일 풀 고양이에 적용 |
 | `TextureCarrierBagFilm.png` | `T_CarrierBagFilm_D` | 가상 옅은 청색 무늬가 있는 편의점 LDPE 박막. 구매 봉지(`M_CarrierBagFilm`)와 공사 비닐(`M_ConstructionFilm`)이 같이 쓴다 |
 | 위 재질 스캔 3종(고양이·봉지·도장 강판)의 `T_*_D` | `T_*_{N,R,A}` 9종 · `T_P3CabinetPaintedSteel_W` | `generate_ai_pbr_maps.py`로 만드는 PBR 동반 채널 10종. 젖음 맵은 알베도·거칠기·노멀 블렌드에 함께 쓴다 |
-| `ApplicationIcon_raw.png` | `Build/Windows/ApplicationIcon.png` · `Application.ico` | 물탱크 점검구·새벽빛 모티프의 Windows 배포 아이콘. `prepare_application_icon.py`로 1024px 등급 PNG와 16~256px 7단계 ICO를 생성 |
+| `ApplicationIcon_20260930.png` | `Build/Windows/ApplicationIcon.png` · `Application.ico` | 새벽 빌라 옥상의 무단 증축 옥탑방에 불이 하나 켜진 Windows 배포 아이콘. `prepare_application_icon.py`가 옥탑방 쪽을 잘라 1024px 등급 PNG와 16~256px 7단계 ICO를 만든다 |
 | `DialogueHUDConcept_v1.png` | UI 아트 디렉션 기준 이미지 | 실제 Shipping 캡처의 디버그형 대화창을 낮은 하단 점유율, 분리된 환경음 캡슐, 작은 화자 태그와 습기 낀 smoked-glass 재질로 재설계한 시안. 런타임 텍스트를 굽지 않고 색·여백·질감 기준만 사용 |
 | `TextureHudDialogueFilm.png` | `T_HudDialogueFilm_D` | 대화창 표면의 저대비 charcoal/oxidized-green 미세 필름 스캔. UI 그룹·NoMipmaps·비스트리밍으로 임포트하고 런타임 둥근 마스크 안에서 낮은 알파로만 사용 |
 | `TextureMissingFloorJournalPaper_v1.png` | `T_MissingFloorJournalPaper_D` | 「듣는 것들」 전체 화면의 무문자 장부 종이 표면. 16:9 정면 스캔 질감만 쓰고 모든 한글·출처 카드·썸네일·교차선은 런타임이 그린다. UI 그룹·NoMipmaps·Clamp·비스트리밍으로 임포트 |
@@ -153,16 +153,16 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 
 ### Windows 배포 아이콘 생성 기록
 
-- 서비스: OpenAI ImageGen built-in
-- 생성일: 2026-08-05
-- 보존 원본: `Content/SourceArt/AI/ApplicationIcon_raw.png`
+- 도구: gpt-image 스킬(Codex 내장 image_gen, ChatGPT 구독 인증)
+- 생성일: 2026-09-30. 옛 이야기의 물탱크 점검구 아이콘(2026-08-05)을 바꿨다
+- 보존 원본: `Content/SourceArt/AI/ApplicationIcon_20260930.png`와 같은 이름의 JSON
 - 파생: `Build/Windows/ApplicationIcon.png`, `Build/Windows/Application.ico`
-- 처리: `Scripts/prepare_application_icon.py`가 정사각 크롭, 중간톤 감마,
-  대비·채도·샤프닝을 고정값으로 적용하고 16/24/32/48/64/128/256px
-  ICO 디렉터리를 만든다.
-- 검수: 최종 32px 레벨을 최근접 확대해 원형 점검구 실루엣, 검은 내부와
-  하단의 억제된 적색 반사가 남는지 확인했다.
-- 전체 프롬프트: `Docs/IMAGEGEN_PROMPTS_2026-08-05.md`
+- 처리: `Scripts/prepare_application_icon.py --crop 0.20 0.12 0.80 0.72`가 옥탑방과
+  꼭대기층을 잘라 정사각형으로 맞추고 중간톤 감마, 대비·채도·샤프닝을 고정값으로
+  건 뒤 16/24/32/48/64/128/256px ICO 디렉터리를 만든다.
+- 검수: 밝은·어두운 작업 표시줄에서 16~48px을 보고 옥탑방 벽과 창 불빛이 남는지
+  확인했다.
+- 전체 프롬프트: `Docs/IMAGEGEN_PROMPTS_2026-09-30.md`
 
 ### CH03 흔적·환경·증거 소품 생성 기록
 

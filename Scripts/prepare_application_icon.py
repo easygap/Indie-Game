@@ -18,6 +18,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--input", required=True, type=Path)
     parser.add_argument("--png-output", required=True, type=Path)
     parser.add_argument("--ico-output", required=True, type=Path)
+    # 원본에서 아이콘으로 쓸 구역(왼쪽, 위, 오른쪽, 아래를 0~1 비율로). 원본은
+    # 생성한 그대로 두고, 작은 크기에서 읽히도록 여기서 당겨 자른다.
+    parser.add_argument("--crop", type=float, nargs=4, metavar=("LEFT", "TOP", "RIGHT", "BOTTOM"))
     return parser.parse_args()
 
 
@@ -29,13 +32,18 @@ def center_square(image: Image.Image) -> Image.Image:
     return image.crop((left, top, left + edge, top + edge))
 
 
-def grade_icon(image: Image.Image) -> Image.Image:
+def grade_icon(image: Image.Image, crop: list[float] | None = None) -> Image.Image:
     image = ImageOps.exif_transpose(image).convert("RGB")
+    if crop:
+        width, height = image.size
+        left, top, right, bottom = crop
+        image = image.crop((round(left * width), round(top * height),
+                            round(right * width), round(bottom * height)))
     image = center_square(image).resize((1024, 1024), Image.Resampling.LANCZOS)
 
-    # The source is intentionally near-black, but Windows renders small taskbar
-    # icons against both dark and light shells. Lift only the metal midtones;
-    # pure black in the hatch remains black and keeps the silhouette readable.
+    # 새벽 빌라는 거의 검은색이지만 작업 표시줄은 밝은 테마와 어두운 테마를
+    # 다 쓴다. 중간톤만 조금 올려 옥탑방 벽이 떠오르게 하고, 검은 벽돌과
+    # 창 불빛의 대비는 그대로 둔다.
     gamma = 0.82
     gamma_lut = [round(((value / 255.0) ** gamma) * 255.0) for value in range(256)]
     image = image.point(gamma_lut * 3)
@@ -54,7 +62,7 @@ def main() -> int:
     args.ico_output.parent.mkdir(parents=True, exist_ok=True)
 
     with Image.open(args.input) as source:
-        icon = grade_icon(source)
+        icon = grade_icon(source, args.crop)
     icon.save(args.png_output, format="PNG", optimize=True)
     icon.save(args.ico_output, format="ICO", sizes=[(size, size) for size in ICON_SIZES])
 
