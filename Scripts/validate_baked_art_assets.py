@@ -30,37 +30,9 @@ from create_textured_materials import (
 
 MESH_NAMES = (
     "SM_AlleyCatRun",
-    "SM_DrinkCan",
-    "SM_FirstPersonHoodieSleeve",
-    "SM_P3ServiceCabinetShell",
-    "SM_P3ServiceManifold",
     "SM_P3ValveWheelLarge",
     "SM_P3ValveWheelSmall",
-    "SM_P3PressureGauge",
-    "SM_SubmergedHoodieCurl",
-    "SM_SubmergedPantsCurl",
-    "SM_SubmergedSlippersCurl",
-    "SM_RooftopWaterTankShell",
-    "SM_TankInternalLining",
-    "SM_RooftopTankPipeCluster",
-    "SM_TankInternalLadder",
-    "SM_TankAccessGuardRail",
-    "SM_TankAccessDeck",
-    "SM_TankAccessLid",
-    "SM_RooftopServiceHose",
-    "SM_HoseCoupling",
-    "SM_CarrierBagCollapsed",
-    "SM_RooftopFireDoorLeaf",
-    "SM_RooftopFireDoorFrame",
-    "SM_RooftopUnlockedPadlockKeys",
-    "SM_TankExteriorAccessStair",
-    "SM_LadderFailureRung",
-    "SM_LadderRungPadLifted",
-    "SM_LadderRungRetainingClips",
-    "SM_HornRimGlasses",
-    "SM_InspectionRod",
     "SM_CrackedPhone",
-    "SM_OfferingWaterBowl",
     "SM_CupSleeve",
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
@@ -96,15 +68,9 @@ PBR_STEMS = {
     "T_KoreanVillaStucco": ("D", "N", "R", "A"),
     "T_MovingBoxCardboard": ("D", "N", "R", "A"),
     "T_PaperClean_V2": ("D", "N", "R", "A"),
-    "T_WetHoodie": ("D", "N", "R", "A", "W"),
     "T_AlleyCatTabby": ("D", "N", "R", "A"),
-    "T_WaterTankGalvanized": ("D", "N", "R", "A", "W", "M"),
-    "T_TankInteriorBiofilm": ("D", "N", "R", "A", "W", "M"),
-    "T_WetServiceHose": ("D", "N", "R", "A", "W"),
-    "T_WetRungPad": ("D", "N", "R", "A", "W"),
     "T_P3CabinetPaintedSteel": ("D", "N", "R", "A", "W"),
     "T_CarrierBagFilm": ("D", "N", "R", "A"),
-    "T_TankWaterSurface": ("D", "N", "R", "A"),
     "T_MissingFloorDryPlaster": ("D", "N", "R", "A"),
     "T_SpriteListenerFront": ("D", "N", "R", "A"),
     "T_SpriteListenerCrawl0": ("D", "N", "R", "A"),
@@ -124,19 +90,9 @@ MATERIAL_TEXTURES = {
     "M_VillaStucco_X": "T_KoreanVillaStucco",
     "M_VillaStucco_Y": "T_KoreanVillaStucco",
     "M_MovingBoxCardboardUV": "T_MovingBoxCardboard",
-    "M_WetHoodieUV": "T_WetHoodie",
-    "M_SubmergedHoodieUV": "T_WetHoodie",
-    "M_SubmergedPantsUV": "T_WetHoodie",
-    "M_SubmergedSlippersUV": "T_WetServiceHose",
-    "M_SubmergedSlipperWearUV": "T_WetRungPad",
     "M_AlleyCatTabbyUV": "T_AlleyCatTabby",
-    "M_WaterTankMetalUV": "T_WaterTankGalvanized",
-    "M_TankInteriorBiofilmUV": "T_TankInteriorBiofilm",
-    "M_WetServiceHoseUV": "T_WetServiceHose",
-    "M_WetRungPadUV": "T_WetRungPad",
     "M_P3CabinetMetalUV": "T_P3CabinetPaintedSteel",
     "M_CarrierBagFilm": "T_CarrierBagFilm",
-    "M_TankWaterReveal": "T_TankWaterSurface",
     "M_MissingFloorPlaster_X": "T_MissingFloorDryPlaster",
     "M_MissingFloorPlaster_Y": "T_MissingFloorDryPlaster",
     "M_MissingFloorPlaster_XY": "T_MissingFloorDryPlaster",
@@ -879,62 +835,13 @@ def validate_materials() -> tuple[int, int]:
             unreal.MaterialProperty.MP_AMBIENT_OCCLUSION,
         ):
             material_input(material, material_property)
-        if name in {"M_WaterTankMetalUV", "M_TankInteriorBiofilmUV"}:
-            material_input(material, unreal.MaterialProperty.MP_METALLIC)
-        if name in {"M_CarrierBagFilm", "M_TankWaterReveal"}:
+        if name == "M_CarrierBagFilm":
             require(
                 material.get_editor_property("blend_mode")
                 == unreal.BlendMode.BLEND_TRANSLUCENT,
                 f"Translucent blend mode missing: {name}",
             )
             material_input(material, unreal.MaterialProperty.MP_OPACITY)
-        if name == "M_TankWaterReveal":
-            expressions = unreal.MaterialEditingLibrary.get_material_expressions(
-                material
-            )
-            panner_count = sum(
-                isinstance(expression, unreal.MaterialExpressionPanner)
-                for expression in expressions
-            )
-            normal_layer_count = 0
-            for expression in expressions:
-                if not isinstance(
-                    expression, unreal.MaterialExpressionTextureSample
-                ):
-                    continue
-                texture = expression.get_editor_property("texture")
-                if texture is not None and texture_path(texture).endswith(
-                    "/T_TankWaterSurface_N"
-                ):
-                    normal_layer_count += 1
-            require(
-                panner_count >= 2,
-                "Tank water needs two independent ripple panners",
-            )
-            require(
-                normal_layer_count >= 2,
-                "Tank water needs two blended normal layers",
-            )
-        if name == "M_TankInteriorBiofilmUV":
-            expressions = unreal.MaterialEditingLibrary.get_material_expressions(
-                material
-            )
-            require(
-                any(
-                    isinstance(
-                        expression, unreal.MaterialExpressionWorldPosition
-                    )
-                    for expression in expressions
-                ),
-                "Tank interior needs a world-height waterline blend",
-            )
-            require(
-                any(
-                    isinstance(expression, unreal.MaterialExpressionSubtract)
-                    for expression in expressions
-                ),
-                "Tank interior waterline blend lost its depth calculation",
-            )
         checked += 1
 
     for name, texture_name in MASK_MATERIALS.items():

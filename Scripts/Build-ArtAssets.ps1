@@ -9,10 +9,7 @@ param(
 	[switch]$RetailRealismOnly,
 	[switch]$CorridorSignageOnly,
 	[switch]$LabelSleeveOnly,
-	[switch]$MissingFloorOnly,
-	[switch]$TankWaterOnly,
-	[switch]$TankInteriorOnly,
-	[switch]$SubmergedClothingOnly
+	[switch]$MissingFloorOnly
 )
 
 Set-StrictMode -Version Latest
@@ -120,17 +117,13 @@ $modeCount = @(
 	$RetailRealismOnly.IsPresent,
 	$CorridorSignageOnly.IsPresent,
 	$LabelSleeveOnly.IsPresent,
-	$MissingFloorOnly.IsPresent,
-	$TankWaterOnly.IsPresent,
-	$TankInteriorOnly.IsPresent,
-	$SubmergedClothingOnly.IsPresent
+	$MissingFloorOnly.IsPresent
 ) | Where-Object { $_ } | Measure-Object | Select-Object -ExpandProperty Count
 if ($modeCount -gt 1) {
-	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, PropResponseOnly, RetailRealismOnly, CorridorSignageOnly, LabelSleeveOnly, MissingFloorOnly, TankWaterOnly, TankInteriorOnly, SubmergedClothingOnly는 동시에 사용할 수 없습니다.'
+	throw 'SourceOnly, CodeOnly, HudUiOnly, ApartmentVisualOnly, SurfaceResponseOnly, PropResponseOnly, RetailRealismOnly, CorridorSignageOnly, LabelSleeveOnly, MissingFloorOnly는 동시에 사용할 수 없습니다.'
 }
 
-if (-not $CodeOnly -and -not $TankWaterOnly -and -not $TankInteriorOnly -and
-	-not $SubmergedClothingOnly -and -not $HudUiOnly -and
+if (-not $CodeOnly -and -not $HudUiOnly -and
 	-not $ApartmentVisualOnly -and -not $SurfaceResponseOnly -and
 	-not $PropResponseOnly -and -not $RetailRealismOnly -and
 	-not $CorridorSignageOnly -and -not $LabelSleeveOnly -and
@@ -293,7 +286,7 @@ if ($SourceOnly) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "Art source contract failed ($LASTEXITCODE)"
 	}
-	Write-Host 'ART_SOURCE_BUILD PASS material_scans=13 material_masks=9 overlays=19 pbr_maps=65 no_unreal_process=true'
+	Write-Host 'ART_SOURCE_BUILD PASS no_unreal_process=true'
 	return
 }
 
@@ -378,8 +371,7 @@ if ($CodeOnly) {
 if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	$PropResponseOnly -or $RetailRealismOnly -or
 	$CorridorSignageOnly -or $LabelSleeveOnly -or
-	$MissingFloorOnly -or $TankWaterOnly -or $TankInteriorOnly -or
-	$SubmergedClothingOnly) {
+	$MissingFloorOnly) {
 	$targetName = if ($HudUiOnly) {
 		'HudUi'
 	}
@@ -401,17 +393,8 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	elseif ($LabelSleeveOnly) {
 		'LabelSleeve'
 	}
-	elseif ($MissingFloorOnly) {
-		'MissingFloor'
-	}
-	elseif ($TankWaterOnly) {
-		'TankWater'
-	}
-	elseif ($TankInteriorOnly) {
-		'TankInterior'
-	}
 	else {
-		'SubmergedClothing'
+		'MissingFloor'
 	}
 	$targetEnvironment = if ($HudUiOnly) {
 		'IG_HUD_UI_ONLY'
@@ -434,17 +417,8 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	elseif ($LabelSleeveOnly) {
 		'IG_LABEL_SLEEVE_ONLY'
 	}
-	elseif ($MissingFloorOnly) {
-		'IG_MISSING_FLOOR_ONLY'
-	}
-	elseif ($TankWaterOnly) {
-		'IG_TANK_WATER_ONLY'
-	}
-	elseif ($TankInteriorOnly) {
-		'IG_TANK_INTERIOR_ONLY'
-	}
 	else {
-		'IG_SUBMERGED_CLOTHING_ONLY'
+		'IG_MISSING_FLOOR_ONLY'
 	}
 	$targetSuccessPattern = if ($HudUiOnly) {
 		'\[IndieGame\] Imported 11 textures'
@@ -467,17 +441,8 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	elseif ($LabelSleeveOnly) {
 		'\[MESHGEN\] complete: 2/2 meshes'
 	}
-	elseif ($MissingFloorOnly) {
-		'\[IndieGame\] Missing-floor visual material update complete'
-	}
-	elseif ($TankWaterOnly) {
-		'\[IndieGame\] Tank water material update complete'
-	}
-	elseif ($TankInteriorOnly) {
-		'\[IndieGame\] Tank interior material update complete'
-	}
 	else {
-		'\[IndieGame\] Submerged clothing material update complete'
+		'\[IndieGame\] Missing-floor visual material update complete'
 	}
 	$targetRelativeAssets = if ($HudUiOnly) {
 		@(
@@ -591,7 +556,6 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	}
 	elseif ($RetailRealismOnly) {
 		@(
-			'Content\Meshes\SM_DrinkCan.uasset',
 			'Content\Prototype\Textures\T_KoreanVillaStucco_D.uasset',
 			'Content\Prototype\Textures\T_KoreanVillaStucco_N.uasset',
 			'Content\Prototype\Textures\T_KoreanVillaStucco_R.uasset',
@@ -627,7 +591,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Meshes\SM_CupSleeve.uasset'
 		)
 	}
-	elseif ($MissingFloorOnly) {
+	else {
 		@(
 			'Content\Meshes\SM_ListenerEntityCrawl.uasset',
 			'Content\Meshes\SM_FinalCavityClothingShell.uasset',
@@ -734,23 +698,6 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			'Content\Prototype\Materials\M_SpriteMokFinalUpper.uasset'
 		)
 	}
-	elseif ($TankWaterOnly) {
-		@('Content\Prototype\Materials\M_TankWaterReveal.uasset')
-	}
-	elseif ($TankInteriorOnly) {
-		@('Content\Prototype\Materials\M_TankInteriorBiofilmUV.uasset')
-	}
-	else {
-		@(
-			'Content\Meshes\SM_SubmergedHoodieCurl.uasset',
-			'Content\Meshes\SM_SubmergedPantsCurl.uasset',
-			'Content\Meshes\SM_SubmergedSlippersCurl.uasset',
-			'Content\Prototype\Materials\M_SubmergedHoodieUV.uasset',
-			'Content\Prototype\Materials\M_SubmergedPantsUV.uasset',
-			'Content\Prototype\Materials\M_SubmergedSlippersUV.uasset',
-			'Content\Prototype\Materials\M_SubmergedSlipperWearUV.uasset'
-		)
-	}
 	$targetedStages = if ($HudUiOnly) {
 		@(
 			@{
@@ -822,11 +769,6 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 	elseif ($RetailRealismOnly) {
 		@(
 			@{
-				Script = 'generate_meshes.py'
-				SuccessPattern = '\[MESHGEN\] complete: 1/1 meshes'
-				TargetEnvironment = $true
-			},
-			@{
 				Script = 'generate_surface_textures.py'
 				SuccessPattern = '\[IndieGame\] Imported 4 textures'
 				TargetEnvironment = $true
@@ -883,7 +825,7 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 			}
 		)
 	}
-	elseif ($MissingFloorOnly) {
+	else {
 		@(
 			@{
 				Script = 'generate_meshes.py'
@@ -896,39 +838,6 @@ if ($HudUiOnly -or $ApartmentVisualOnly -or $SurfaceResponseOnly -or
 				SuccessPattern = '\[IndieGame\] Imported 64 textures'
 				TargetEnvironment = $true
 			},
-			@{
-				Script = 'create_textured_materials.py'
-				SuccessPattern = $targetSuccessPattern
-				TargetEnvironment = $true
-			},
-			@{
-				Script = 'validate_baked_art_assets.py'
-				SuccessPattern = 'ART_UASSET_AUDIT PASS'
-				TargetEnvironment = $false
-			}
-		)
-	}
-	elseif ($SubmergedClothingOnly) {
-		@(
-			@{
-				Script = 'generate_meshes.py'
-				SuccessPattern = '\[MESHGEN\] complete: 3/3 meshes'
-				TargetEnvironment = $true
-			},
-			@{
-				Script = 'create_textured_materials.py'
-				SuccessPattern = $targetSuccessPattern
-				TargetEnvironment = $true
-			},
-			@{
-				Script = 'validate_baked_art_assets.py'
-				SuccessPattern = 'ART_UASSET_AUDIT PASS'
-				TargetEnvironment = $false
-			}
-		)
-	}
-	else {
-		@(
 			@{
 				Script = 'create_textured_materials.py'
 				SuccessPattern = $targetSuccessPattern
@@ -1135,16 +1044,11 @@ if ($usingAsciiMirror) {
 }
 
 $requiredAssets = @(
-	'Content\Meshes\SM_HornRimGlasses.uasset',
-	'Content\Meshes\SM_InspectionRod.uasset',
 	'Content\Meshes\SM_CrackedPhone.uasset',
-	'Content\Meshes\SM_OfferingWaterBowl.uasset',
-	'Content\Meshes\SM_DrinkCan.uasset',
 	'Content\Meshes\SM_CupSleeve.uasset',
 	'Content\Meshes\SM_LabelSleeve.uasset',
 	'Content\Meshes\SM_StickyNote76mm.uasset',
 	'Content\Meshes\SM_AlleyCatRun.uasset',
-	'Content\Meshes\SM_FirstPersonHoodieSleeve.uasset',
 	'Content\Meshes\SM_ListenerEntityCrawl.uasset',
 	'Content\Meshes\SM_FinalCavityClothingShell.uasset',
 	'Content\Meshes\SM_FinalCavityBoneInsert.uasset',
@@ -1157,41 +1061,12 @@ $requiredAssets = @(
 	'Content\Meshes\SM_TunerToolCart.uasset',
 	'Content\Meshes\SM_ComplaintLedger.uasset',
 	'Content\Meshes\SM_CalendarJournal.uasset',
-	'Content\Meshes\SM_P3ServiceCabinetShell.uasset',
-	'Content\Meshes\SM_P3ServiceManifold.uasset',
 	'Content\Meshes\SM_P3ValveWheelLarge.uasset',
 	'Content\Meshes\SM_P3ValveWheelSmall.uasset',
-	'Content\Meshes\SM_P3PressureGauge.uasset',
-	'Content\Meshes\SM_SubmergedHoodieCurl.uasset',
-	'Content\Meshes\SM_SubmergedPantsCurl.uasset',
-	'Content\Meshes\SM_SubmergedSlippersCurl.uasset',
-	'Content\Meshes\SM_RooftopWaterTankShell.uasset',
-	'Content\Meshes\SM_TankInternalLining.uasset',
-	'Content\Meshes\SM_RooftopTankPipeCluster.uasset',
-	'Content\Meshes\SM_TankInternalLadder.uasset',
-	'Content\Meshes\SM_TankAccessGuardRail.uasset',
-	'Content\Meshes\SM_TankAccessDeck.uasset',
-	'Content\Meshes\SM_TankAccessLid.uasset',
-	'Content\Meshes\SM_RooftopServiceHose.uasset',
-	'Content\Meshes\SM_HoseCoupling.uasset',
-	'Content\Meshes\SM_CarrierBagCollapsed.uasset',
-	'Content\Meshes\SM_RooftopFireDoorLeaf.uasset',
-	'Content\Meshes\SM_RooftopFireDoorFrame.uasset',
-	'Content\Meshes\SM_RooftopUnlockedPadlockKeys.uasset',
-	'Content\Meshes\SM_TankExteriorAccessStair.uasset',
-	'Content\Meshes\SM_LadderFailureRung.uasset',
-	'Content\Meshes\SM_LadderRungPadLifted.uasset',
-	'Content\Meshes\SM_LadderRungRetainingClips.uasset',
 	'Content\Prototype\Textures\T_EvidenceCatPawTrail_M.uasset',
 	'Content\Prototype\Textures\T_DecalRustFasteners_D.uasset',
-	'Content\Prototype\Textures\T_WetHoodie_D.uasset',
 	'Content\Prototype\Textures\T_CarrierBagFilm_D.uasset',
 	'Content\Prototype\Textures\T_AlleyCatTabby_D.uasset',
-	'Content\Prototype\Textures\T_WaterTankGalvanized_D.uasset',
-	'Content\Prototype\Textures\T_TankInteriorBiofilm_D.uasset',
-	'Content\Prototype\Textures\T_WetServiceHose_D.uasset',
-	'Content\Prototype\Textures\T_WetRungPad_D.uasset',
-	'Content\Prototype\Textures\T_TankWaterSurface_D.uasset',
 	'Content\Prototype\Textures\T_P3CabinetPaintedSteel_D.uasset',
 	'Content\Prototype\Textures\T_HudDialogueFilm_D.uasset',
 	'Content\Prototype\Textures\T_MissingFloorJournalPaper_D.uasset',
@@ -1244,31 +1119,9 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_SpriteMokFinalUpper_N.uasset',
 	'Content\Prototype\Textures\T_SpriteMokFinalUpper_R.uasset',
 	'Content\Prototype\Textures\T_SpriteMokFinalUpper_A.uasset',
-	'Content\Prototype\Textures\T_WetHoodie_N.uasset',
-	'Content\Prototype\Textures\T_WetHoodie_R.uasset',
-	'Content\Prototype\Textures\T_WetHoodie_A.uasset',
-	'Content\Prototype\Textures\T_WetHoodie_W.uasset',
 	'Content\Prototype\Textures\T_AlleyCatTabby_N.uasset',
 	'Content\Prototype\Textures\T_AlleyCatTabby_R.uasset',
 	'Content\Prototype\Textures\T_AlleyCatTabby_A.uasset',
-	'Content\Prototype\Textures\T_WaterTankGalvanized_N.uasset',
-	'Content\Prototype\Textures\T_WaterTankGalvanized_R.uasset',
-	'Content\Prototype\Textures\T_WaterTankGalvanized_A.uasset',
-	'Content\Prototype\Textures\T_WaterTankGalvanized_W.uasset',
-	'Content\Prototype\Textures\T_WaterTankGalvanized_M.uasset',
-	'Content\Prototype\Textures\T_TankInteriorBiofilm_N.uasset',
-	'Content\Prototype\Textures\T_TankInteriorBiofilm_R.uasset',
-	'Content\Prototype\Textures\T_TankInteriorBiofilm_A.uasset',
-	'Content\Prototype\Textures\T_TankInteriorBiofilm_W.uasset',
-	'Content\Prototype\Textures\T_TankInteriorBiofilm_M.uasset',
-	'Content\Prototype\Textures\T_WetServiceHose_N.uasset',
-	'Content\Prototype\Textures\T_WetServiceHose_R.uasset',
-	'Content\Prototype\Textures\T_WetServiceHose_A.uasset',
-	'Content\Prototype\Textures\T_WetServiceHose_W.uasset',
-	'Content\Prototype\Textures\T_WetRungPad_N.uasset',
-	'Content\Prototype\Textures\T_WetRungPad_R.uasset',
-	'Content\Prototype\Textures\T_WetRungPad_A.uasset',
-	'Content\Prototype\Textures\T_WetRungPad_W.uasset',
 	'Content\Prototype\Textures\T_P3CabinetPaintedSteel_N.uasset',
 	'Content\Prototype\Textures\T_P3CabinetPaintedSteel_R.uasset',
 	'Content\Prototype\Textures\T_P3CabinetPaintedSteel_A.uasset',
@@ -1276,22 +1129,10 @@ $requiredAssets = @(
 	'Content\Prototype\Textures\T_CarrierBagFilm_N.uasset',
 	'Content\Prototype\Textures\T_CarrierBagFilm_R.uasset',
 	'Content\Prototype\Textures\T_CarrierBagFilm_A.uasset',
-	'Content\Prototype\Textures\T_TankWaterSurface_N.uasset',
-	'Content\Prototype\Textures\T_TankWaterSurface_R.uasset',
-	'Content\Prototype\Textures\T_TankWaterSurface_A.uasset',
 	'Content\Prototype\Materials\M_EvidenceCatPawTrail.uasset',
 	'Content\Prototype\Materials\M_DecalRustFasteners.uasset',
-	'Content\Prototype\Materials\M_WetHoodieUV.uasset',
-	'Content\Prototype\Materials\M_SubmergedPantsUV.uasset',
-	'Content\Prototype\Materials\M_SubmergedSlippersUV.uasset',
-	'Content\Prototype\Materials\M_SubmergedSlipperWearUV.uasset',
 	'Content\Prototype\Materials\M_CarrierBagFilm.uasset',
 	'Content\Prototype\Materials\M_AlleyCatTabbyUV.uasset',
-	'Content\Prototype\Materials\M_WaterTankMetalUV.uasset',
-	'Content\Prototype\Materials\M_TankInteriorBiofilmUV.uasset',
-	'Content\Prototype\Materials\M_WetServiceHoseUV.uasset',
-	'Content\Prototype\Materials\M_WetRungPadUV.uasset',
-	'Content\Prototype\Materials\M_TankWaterReveal.uasset',
 	'Content\Prototype\Materials\M_P3CabinetMetalUV.uasset',
 	'Content\Prototype\Materials\M_MissingFloorListenerPlasterUV.uasset',
 	'Content\Prototype\Materials\M_MissingFloorPlaster_X.uasset',
@@ -1355,4 +1196,4 @@ if ($LASTEXITCODE -ne 0) {
 	throw "Cook reference audit failed after the art build ($LASTEXITCODE)"
 }
 
-Write-Host 'ART_BUILD PASS meshes=40 evidence_masks=8 material_masks=1 environment_overlays=10 material_scans=13 pbr_maps=50 uasset_audit=1'
+Write-Host 'ART_BUILD PASS uasset_audit=1 cook_audit=1'

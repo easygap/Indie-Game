@@ -25,8 +25,6 @@ class SurfaceSpec:
     rough_detail: float = 0.22
     ao_depth: float = 1.35
     wetness: float = 0.0
-    metallic: bool = False
-    coated_metal: bool = False
 
 
 SURFACES = (
@@ -64,17 +62,9 @@ SURFACES = (
     SurfaceSpec(
         "T_PaperClean_V2", 0.84, 0.72, 0.93, 0.24,
         rough_detail=0.10, ao_depth=0.48),
-    SurfaceSpec("T_WetHoodie", 0.67, 0.48, 0.84, 0.52, wetness=0.92),
     SurfaceSpec("T_AlleyCatTabby", 0.83, 0.68, 0.94, 0.34, rough_detail=0.14),
-    SurfaceSpec("T_WaterTankGalvanized", 0.46, 0.25, 0.68, 0.78, wetness=0.72, metallic=True),
-    SurfaceSpec(
-        "T_TankInteriorBiofilm", 0.58, 0.22, 0.86, 0.84,
-        wetness=0.82, metallic=True, coated_metal=True),
-    SurfaceSpec("T_WetServiceHose", 0.61, 0.42, 0.76, 0.66, wetness=0.88),
-    SurfaceSpec("T_WetRungPad", 0.70, 0.50, 0.86, 0.72, wetness=0.82),
     SurfaceSpec("T_P3CabinetPaintedSteel", 0.64, 0.48, 0.78, 0.58, wetness=0.42),
     SurfaceSpec("T_CarrierBagFilm", 0.29, 0.18, 0.46, 0.24, rough_detail=0.12),
-    SurfaceSpec("T_TankWaterSurface", 0.12, 0.06, 0.24, 0.86, rough_detail=0.10),
     # Dry gypsum is shared by the fifth-floor shell and the listener mesh.
     # Keep it highly diffuse; the flashlight should reveal powder and cracks
     # through N/A, never turn the body into polished stone.
@@ -185,8 +175,6 @@ def _generate(spec: SurfaceSpec, source_root: Path, force: bool) -> list[Path]:
     }
     if spec.wetness > 0.0:
         outputs["W"] = source_root / f"{spec.stem}_W.png"
-    if spec.metallic:
-        outputs["M"] = source_root / f"{spec.stem}_M.png"
 
     if not force and all(path.exists() and path.stat().st_mtime >= base_path.stat().st_mtime for path in outputs.values()):
         print(f"[PBR] up-to-date: {spec.stem}")
@@ -196,7 +184,6 @@ def _generate(spec: SurfaceSpec, source_root: Path, force: bool) -> list[Path]:
     gray = base.convert("L")
     width, height = gray.size
     pixels = gray.tobytes()
-    rgb = base.tobytes()
     local_blur = gray.filter(ImageFilter.GaussianBlur(radius=3.0)).tobytes()
     broad_blur = gray.filter(ImageFilter.GaussianBlur(radius=18.0)).tobytes()
     mean_luma = ImageStat.Stat(gray).mean[0]
@@ -205,7 +192,6 @@ def _generate(spec: SurfaceSpec, source_root: Path, force: bool) -> list[Path]:
     roughness = bytearray(width * height)
     occlusion = bytearray(width * height)
     wetness = bytearray(width * height) if spec.wetness > 0.0 else None
-    metalness = bytearray(width * height) if spec.metallic else None
 
     for y in range(height):
         y_up = (y - 1) % height
@@ -248,24 +234,6 @@ def _generate(spec: SurfaceSpec, source_root: Path, force: bool) -> list[Path]:
                 wet = _clamp(broad_cavity * 0.82 + low_tone * 0.38 - 0.035)
                 wetness[index] = round(wet * 255.0)
 
-            if metalness is not None:
-                r = rgb[n_index]
-                g = rgb[n_index + 1]
-                b = rgb[n_index + 2]
-                warm_rust = _clamp(max(0.0, r - g) / 54.0 + max(0.0, g - b) / 92.0)
-                dark_oxide = _clamp((72.0 - value) / 72.0) * 0.24
-                if spec.coated_metal:
-                    # Calcite, biofilm and rust are dielectric coatings over
-                    # steel. Their pixels must not reflect as bare metal.
-                    pale_scale = _clamp((value - 135.0) / 90.0)
-                    olive_biofilm = _clamp(
-                        max(0.0, g - r) / 40.0 + max(0.0, g - b) / 55.0)
-                    coating = max(warm_rust, pale_scale * 0.78, olive_biofilm)
-                    metal = _clamp(0.82 - coating * 0.76 - dark_oxide, 0.02, 0.88)
-                else:
-                    metal = _clamp(0.93 - warm_rust * 0.88 - dark_oxide, 0.03, 0.96)
-                metalness[index] = round(metal * 255.0)
-
     Image.frombytes("RGB", (width, height), bytes(normal)).save(outputs["N"], optimize=True)
     _save_l(outputs["R"], roughness, (width, height))
     _save_l(outputs["A"], occlusion, (width, height))
@@ -274,8 +242,6 @@ def _generate(spec: SurfaceSpec, source_root: Path, force: bool) -> list[Path]:
         wet_image = ImageOps.autocontrast(wet_image, cutoff=(4.0, 1.0))
         wet_image = wet_image.point(lambda value: round(value * spec.wetness))
         wet_image.save(outputs["W"], optimize=True)
-    if metalness is not None:
-        _save_l(outputs["M"], metalness, (width, height))
 
     print(f"[PBR] generated: {spec.stem} ({width}x{height}, maps={','.join(outputs)})")
     return list(outputs.values())

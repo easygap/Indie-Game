@@ -194,35 +194,11 @@ $plan = @(
     # ordinary color textures: roughness and translucency remain authored in
     # the UE material graph, so baked highlights cannot fight the flashlight.
     [pscustomobject]@{
-        Source = 'TextureWetHoodieFabric'; Target = 'T_WetHoodie_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
-    [pscustomobject]@{
         Source = 'TextureCarrierBagFilm'; Target = 'T_CarrierBagFilm_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
     [pscustomobject]@{
         Source = 'TextureAlleyCatTabby'; Target = 'T_AlleyCatTabby_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
-    [pscustomobject]@{
-        Source = 'TextureWaterTankGalvanized'; Target = 'T_WaterTankGalvanized_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
-    [pscustomobject]@{
-        Source = 'TextureTankInteriorBiofilm'; Target = 'T_TankInteriorBiofilm_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
-    [pscustomobject]@{
-        Source = 'TextureWetServiceHoseRubber'; Target = 'T_WetServiceHose_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
-    [pscustomobject]@{
-        Source = 'TextureWetRungPadRubber'; Target = 'T_WetRungPad_D.png'
-        Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
-    }
-    [pscustomobject]@{
-        Source = 'TextureTankWaterSurface'; Target = 'T_TankWaterSurface_D.png'
         Crop = @(0.000, 0.000, 1.000, 1.000); Size = @(1024, 1024)
     }
     [pscustomobject]@{

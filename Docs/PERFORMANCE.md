@@ -123,9 +123,9 @@ Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드�
    게임을 실행한 뒤 2분간 워밍업하고, 다음 장면을 포함한 동일 입력
    경로를 각 프리셋마다 세 번 실행한다. 재부팅 뒤 첫 실행도 별도로
    보존한다.
-   - CH01 집→엘리베이터→현관→골목→편의점 왕복
-   - CH02 403호 복도, 문서·폰 UI, 셔터와 추적 압박
-   - CH03 사고 현장→계단→옥상 탱크→P3→P5→엔딩 선택
+   - 프롤로그: 골목→편의점→공동현관→엘리베이터→403호
+   - 밤1·밤2: 403호→4층 복도→1층 계량기함·관리실, 저널과 문서 UI
+   - 밤3·밤4: 5층 공동벽→옥상 저수조→위층 사람이 쫓는 계단→엔딩 선택
 4. 세 반복 중 어느 하나라도 표의 합격선을 넘으면 실패다. 가장 좋은
    반복만 골라 제출하지 않는다.
 5. `stat unit`, `stat gpu`, Unreal Insights의 CPU/GPU/frame/loadtime/
@@ -179,9 +179,9 @@ Shipping 경로에서 비교하고 GPU 시간, fallback mesh, 메모리와 그�
 
 정식 프로파일은 추측 대신 Unreal Insights와 `stat unit`, `stat gpu`,
 `stat RHI`, `stat InitViews`, `stat Streaming`, `stat PSOPrecache`를 함께
-쓴다. 특히 첫 편의점 진입 전후의 draw call/primitive 수, CH03 탱크 공개
-직전의 PSO `Too Late`/miss, 세 챕터의 texture-pool over budget 여부를
-별도 북마크로 남긴다.
+쓴다. 특히 첫 편의점 진입 전후의 draw call/primitive 수, 위층 사람이
+처음 달려드는 순간의 PSO `Too Late`/miss, 밤마다의 texture-pool over budget
+여부를 별도 북마크로 남긴다.
 
 관련 UE 5.8 기준은 [성능 프로파일링](https://dev.epicgames.com/documentation/en-us/unreal-engine/introduction-to-performance-profiling-and-configuration-in-unreal-engine),
 [Static Mesh LOD](https://dev.epicgames.com/documentation/en-us/unreal-engine/creating-and-using-lods-in-unreal-engine),
@@ -233,7 +233,7 @@ CSV, `csv-stats.json`, `csv-critical-stats.json`, `render-stats.json`,
 ## 런타임 예산 규칙
 
 - Actor Tick은 기본 비활성화하고 이벤트 또는 제한 주기 타이머를 사용한다.
-- 플레이 중 동기 에셋 로드는 금지하며 챕터 데이터의 soft reference를
+- 플레이 중 동기 에셋 로드는 금지하며 다음 밤에 쓸 에셋의 soft reference를
   미리 비동기 로드한다.
 - 상호작용 trace는 플레이어당 하나, 10~15Hz를 기본값으로 한다.
 - 공간 오디오는 virtualization과 streaming을 사용하고 동시 활성 음성을

@@ -51,7 +51,6 @@ $requiredFiles = @(
 	'Content/Prototype/Materials/M_SnackBlue.uasset',
 	'Content/Prototype/Materials/M_CupNoodle.uasset',
 	'Content/SourceArt/AI/SheetPaperNotes_v2.png',
-	'Content/SourceArt/AI/SheetSubmergedBodyAnatomyReference_v2.png',
 	'Content/SourceArt/AI/ApplicationIcon_raw.png',
 	'Content/SourceArt/AI/DialogueHUDConcept_v1.png',
 	'Content/SourceArt/AI/TextureHudDialogueFilm.png',
@@ -99,9 +98,6 @@ $requiredFiles = @(
 	'Content/Prototype/Textures/T_PriceStrip_D.uasset',
 	'Content/Prototype/Textures/T_PosterSale_D.uasset',
 	'Content/Prototype/Textures/T_LabelWater_D.uasset',
-	'Docs/Media/prologue-bedroom.png',
-	'Docs/Media/prologue-alley.png',
-	'Docs/Media/prologue-store.png',
 	'Docs/Media/dialogue-hud-default-1080.png',
 	'Docs/Media/dialogue-hud-accessibility-200-1080.png',
 	'Docs/Media/title-menu-first-run-1080.png',
@@ -1560,7 +1556,7 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "A scanned prop lands inside the structure it stands against ($LASTEXITCODE)"
 	}
-	Assert-AuditBlindSpot $photoPropOutput '건너뛴 원본 (?<count>\d+)종' 6 `
+	Assert-AuditBlindSpot $photoPropOutput '건너뛴 원본 (?<count>\d+)종' 1 `
 		'메시가 여럿이라 크기를 못 재는 사진 원본'
 
 	# 나중에 세운 상자가 이미 있던 상자의 면과 소수점까지 같은 평면에 놓이면

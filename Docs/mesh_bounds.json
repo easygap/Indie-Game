@@ -180,18 +180,6 @@
         5.2329
       ]
     },
-    "SM_CarrierBagCollapsed": {
-      "origin": [
-        0.0,
-        0.0,
-        3.4586
-      ],
-      "extent": [
-        6.0,
-        9.0,
-        13.5414
-      ]
-    },
     "SM_CeilingLightDome": {
       "origin": [
         0.0,
@@ -444,30 +432,6 @@
         47.3001
       ]
     },
-    "SM_DrinkBottle": {
-      "origin": [
-        0.0,
-        0.0,
-        8.55
-      ],
-      "extent": [
-        3.6,
-        3.6,
-        8.55
-      ]
-    },
-    "SM_DrinkCan": {
-      "origin": [
-        0.0,
-        0.0,
-        6.1
-      ],
-      "extent": [
-        3.28,
-        3.28,
-        6.1
-      ]
-    },
     "SM_DrumWasher": {
       "origin": [
         14.0,
@@ -588,18 +552,6 @@
         17.0
       ]
     },
-    "SM_FirstPersonHoodieSleeve": {
-      "origin": [
-        0.2309,
-        0.0,
-        0.4671
-      ],
-      "extent": [
-        7.0547,
-        6.2,
-        18.4671
-      ]
-    },
     "SM_FridgeBody": {
       "origin": [
         -0.5,
@@ -684,30 +636,6 @@
         35.8776
       ]
     },
-    "SM_HornRimGlasses": {
-      "origin": [
-        0.0,
-        4.1125,
-        0.2225
-      ],
-      "extent": [
-        6.72,
-        6.1875,
-        0.3725
-      ]
-    },
-    "SM_HoseCoupling": {
-      "origin": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "extent": [
-        5.0,
-        4.15,
-        5.4
-      ]
-    },
     "SM_HotSnackWarmer": {
       "origin": [
         0.0,
@@ -768,30 +696,6 @@
         11.025
       ]
     },
-    "SM_InspectionRod": {
-      "origin": [
-        3.31,
-        0.0,
-        59.0
-      ],
-      "extent": [
-        3.31,
-        1.22,
-        59.0
-      ]
-    },
-    "SM_KimbapPack": {
-      "origin": [
-        0.0,
-        0.0,
-        2.65
-      ],
-      "extent": [
-        9.0,
-        4.5,
-        2.65
-      ]
-    },
     "SM_KimchiTub": {
       "origin": [
         0.0,
@@ -850,54 +754,6 @@
         1.0,
         1.0,
         0.5
-      ]
-    },
-    "SM_LadderFailureRung": {
-      "origin": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "extent": [
-        10.0,
-        52.5,
-        1.5
-      ]
-    },
-    "SM_LadderRungPadLifted": {
-      "origin": [
-        -0.0231,
-        0.0,
-        2.0912
-      ],
-      "extent": [
-        4.2269,
-        27.0,
-        0.5812
-      ]
-    },
-    "SM_LadderRungRetainingClips": {
-      "origin": [
-        0.0,
-        0.0,
-        1.65
-      ],
-      "extent": [
-        5.1,
-        31.1,
-        1.95
-      ]
-    },
-    "SM_LampShade": {
-      "origin": [
-        0.0,
-        0.0,
-        5.55
-      ],
-      "extent": [
-        23.0,
-        23.0,
-        6.45
       ]
     },
     "SM_LeverHandle": {
@@ -1068,18 +924,6 @@
         5.25
       ]
     },
-    "SM_OfferingWaterBowl": {
-      "origin": [
-        0.0,
-        0.0,
-        4.35
-      ],
-      "extent": [
-        12.2,
-        12.2,
-        4.35
-      ]
-    },
     "SM_OpenShowcase": {
       "origin": [
         0.0,
@@ -1090,42 +934,6 @@
         120.0,
         19.5,
         85.0
-      ]
-    },
-    "SM_P3PressureGauge": {
-      "origin": [
-        0.0,
-        0.0,
-        -1.6552
-      ],
-      "extent": [
-        8.07,
-        8.07,
-        4.1448
-      ]
-    },
-    "SM_P3ServiceCabinetShell": {
-      "origin": [
-        5.7386,
-        58.57,
-        0.0
-      ],
-      "extent": [
-        165.2644,
-        74.57,
-        98.0
-      ]
-    },
-    "SM_P3ServiceManifold": {
-      "origin": [
-        0.0,
-        0.0,
-        -3.4
-      ],
-      "extent": [
-        104.0,
-        8.0,
-        81.4
       ]
     },
     "SM_P3ValveWheelLarge": {
@@ -1392,90 +1200,6 @@
         7.0
       ]
     },
-    "SM_RooftopFireDoorFrame": {
-      "origin": [
-        7.0,
-        0.0,
-        4.45
-      ],
-      "extent": [
-        7.2,
-        68.0,
-        121.05
-      ]
-    },
-    "SM_RooftopFireDoorLeaf": {
-      "origin": [
-        1.925,
-        -1.65,
-        0.0
-      ],
-      "extent": [
-        6.275,
-        59.65,
-        115.0
-      ]
-    },
-    "SM_RooftopServiceHose": {
-      "origin": [
-        35.0,
-        -126.5,
-        434.9
-      ],
-      "extent": [
-        153.0,
-        54.5,
-        187.1
-      ]
-    },
-    "SM_RooftopTankPipeCluster": {
-      "origin": [
-        143.0,
-        -119.55,
-        391.0
-      ],
-      "extent": [
-        38.0,
-        14.55,
-        149.0
-      ]
-    },
-    "SM_RooftopUnlockedPadlockKeys": {
-      "origin": [
-        0.57,
-        0.681,
-        -1.4859
-      ],
-      "extent": [
-        2.03,
-        3.241,
-        10.1859
-      ]
-    },
-    "SM_RooftopWaterTankShell": {
-      "origin": [
-        0.0,
-        0.0,
-        0.0
-      ],
-      "extent": [
-        157.0,
-        157.0,
-        130.0
-      ]
-    },
-    "SM_SandwichPack": {
-      "origin": [
-        2.25,
-        4.7606,
-        0.0
-      ],
-      "extent": [
-        2.25,
-        4.7611,
-        6.5108
-      ]
-    },
     "SM_ServiceBell": {
       "origin": [
         0.0,
@@ -1510,18 +1234,6 @@
         42.0,
         17.4,
         56.5
-      ]
-    },
-    "SM_SnackBag": {
-      "origin": [
-        0.0,
-        0.0,
-        3.0
-      ],
-      "extent": [
-        8.2,
-        2.75,
-        12.5
       ]
     },
     "SM_SnackBoxA": {
@@ -1654,114 +1366,6 @@
         120.25,
         38.4,
         84.5
-      ]
-    },
-    "SM_SubmergedHoodieCurl": {
-      "origin": [
-        12.1716,
-        -6.2402,
-        3.7259
-      ],
-      "extent": [
-        51.9371,
-        28.2402,
-        14.7259
-      ]
-    },
-    "SM_SubmergedPantsCurl": {
-      "origin": [
-        -3.8535,
-        20.4347,
-        0.25
-      ],
-      "extent": [
-        46.8595,
-        34.3797,
-        13.25
-      ]
-    },
-    "SM_SubmergedSlippersCurl": {
-      "origin": [
-        45.4291,
-        15.4166,
-        -3.9
-      ],
-      "extent": [
-        17.8172,
-        17.3205,
-        5.4
-      ]
-    },
-    "SM_TankAccessDeck": {
-      "origin": [
-        0.0,
-        0.0,
-        3.0
-      ],
-      "extent": [
-        157.0,
-        157.0,
-        7.0
-      ]
-    },
-    "SM_TankAccessGuardRail": {
-      "origin": [
-        -30.5,
-        3.0,
-        37.5
-      ],
-      "extent": [
-        39.5,
-        113.0,
-        37.5
-      ]
-    },
-    "SM_TankAccessLid": {
-      "origin": [
-        0.0,
-        0.0,
-        5.5
-      ],
-      "extent": [
-        54.0,
-        54.0,
-        8.5
-      ]
-    },
-    "SM_TankExteriorAccessStair": {
-      "origin": [
-        172.5,
-        0.0,
-        230.6301
-      ],
-      "extent": [
-        182.5,
-        105.0,
-        224.3699
-      ]
-    },
-    "SM_TankInternalLadder": {
-      "origin": [
-        -135.3,
-        0.0,
-        488.0
-      ],
-      "extent": [
-        10.3,
-        28.0,
-        102.0
-      ]
-    },
-    "SM_TankInternalLining": {
-      "origin": [
-        0.0,
-        0.0,
-        488.6
-      ],
-      "extent": [
-        147.0,
-        147.0,
-        107.4
       ]
     },
     "SM_TobaccoCabinet": {

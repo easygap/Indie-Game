@@ -212,11 +212,8 @@ def spec(packs: str):
     # --- 문. 세대 현관은 철문이다. -------------------------------------------
     add("Door_Steel_Open", [one(WM, "metal_open_01.ogg")], lambda x: normalize(trim_silence(x), 0.8))
     add("Door_Steel_Close", [one(WM, "metal_close_01.ogg")], lambda x: normalize(trim_silence(x), 0.85))
-    add("Door_Steel_Slam", [one(WM, "metal_slam_01.ogg")], lambda x: normalize(room(trim_silence(x), 0.024, 0.36, 0.3), 0.95))
     add("Door_Creak_0", [one(WM, "wood_squeak_01.ogg")], lambda x: normalize(pitch(trim_silence(x), 0.9), 0.7))
     add("Door_Creak_1", [one(WM, "wood_squeak_02.ogg")], lambda x: normalize(pitch(trim_silence(x), 0.85), 0.7))
-    add("Door_Wood_Open", [one(S1, "door_open.ogg")], lambda x: normalize(trim_silence(x), 0.75))
-    add("Door_Wood_Close", [one(S1, "door_close_02.ogg")], lambda x: normalize(trim_silence(x), 0.8))
     add("Lock_Rattle", [one(WM, "keys_03.ogg")], lambda x: normalize(trim_silence(x)[:int(0.9 * SR)], 0.7),
         note="잠긴 문 손잡이")
     add("Lock_Open", [one(WM, "lock_open_01.ogg")], lambda x: normalize(trim_silence(x), 0.8))
@@ -257,9 +254,6 @@ def spec(packs: str):
     add("Entity_Breath_Loop", [one(OW, "breath-male.wav")],
         lambda x: normalize(loop_seamless(lowpass(pitch(x, 0.86), 4000.0), 6.0, 1.0), 0.6), loop=True,
         note="숨. 남자 숨을 낮춰서")
-    add("Entity_Scream", [one(OW, "SCREAM.wav")],
-        lambda x: normalize(room(lowpass(pitch(trim_silence(x), 0.78), 6000.0), 0.03, 0.42, 0.4), 0.95),
-        note="추격 시작. 사람 비명을 낮춰 복도에 울린다")
     # 유담의 헐떡임(Player_Gasp)과 같은 원본이다. 첫 들숨 하나만 남기고 그의 숨 루프처럼
     # 어둡게 깎아, 같은 녹음이 두 사람 입에서 나오지 않게 한다. 재생 쪽이 피치 0.9를
     # 한 번 더 걸므로 실제로는 0.72배로 들린다.

@@ -14,23 +14,22 @@
 
 | 프로젝트 경로 | 제작자/출처 | 라이선스 | 취득일 | 수정 여부 | 증빙 위치 | 비고 |
 |---|---|---|---|---|---|---|
-| `/Game/Prototype/Textures/T_Photo_Brick_*` | ambientCG.com — Bricks090 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 골목 적벽돌 |
-| `/Game/Prototype/Textures/T_Photo_Asphalt_*` | ambientCG.com — Asphalt012 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 골목 노면 |
-| `/Game/Prototype/Textures/T_Photo_Concrete_*` | ambientCG.com — Concrete034 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 외벽/매장 벽 |
-| `/Game/Prototype/Textures/T_Photo_StoreTile_*` | ambientCG.com — Tiles101 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 편의점 바닥 |
-| `/Game/Prototype/Textures/T_Photo_Jangpan_*` | ambientCG.com — WoodFloor051 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 원룸 장판 |
-| `/Game/Prototype/Textures/T_Photo_Wallpaper_*` | ambientCG.com — Plaster003 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 원룸 벽지 |
-| `/Game/Prototype/Textures/T_Photo_CeilingTile_*` | ambientCG.com — OfficeCeiling005 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 매장 천장 |
-| `/Game/Prototype/Textures/T_Photo_MetalBrushed_*` | ambientCG.com — Metal032 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 금속 표면 |
-| `/Game/Prototype/Textures/T_Photo_Blanket_*` | ambientCG.com — Fabric022 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 침구 원단 |
-| `/Game/Prototype/Textures/T_Photo_WoodDark_*` | ambientCG.com — Wood067 | CC0 1.0 | 2026-07-19 | 원본(1K JPG) | `Content/SourceArt/PhotoZips/` | 가구 목재 |
-| `/Game/Prototype/Textures/T_Photo_VillaBrick_*` | ambientCG.com — Bricks059 | CC0 1.0 | 2026-09-11 | 원본(2K JPG) | `Content/SourceArt/PhotoZips/` | 빌라 파사드 적벽돌. `M_VillaBrick_{X,Y}` |
+| `/Game/Prototype/Textures/T_Photo_Brick_*` | ambientCG.com — Bricks090 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Brick/` | 골목 적벽돌 |
+| `/Game/Prototype/Textures/T_Photo_Asphalt_*` | ambientCG.com — Asphalt012 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Asphalt/` | 골목 노면 |
+| `/Game/Prototype/Textures/T_Photo_Concrete_*` | ambientCG.com — Concrete034 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Concrete/` | 외벽/매장 벽 |
+| `/Game/Prototype/Textures/T_Photo_Jangpan_*` | ambientCG.com — WoodFloor051 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Jangpan/` | 원룸 장판 |
+| `/Game/Prototype/Textures/T_Photo_MetalBrushed_*` | ambientCG.com — Metal032 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/MetalBrushed/` | 금속 표면 |
+| `/Game/Prototype/Textures/T_Photo_Blanket_*` | ambientCG.com — Fabric022 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/Blanket/` | 침구 원단 |
+| `/Game/Prototype/Textures/T_Photo_WoodDark_*` | ambientCG.com — Wood067 | CC0 1.0 | 2026-07-19 | 원본(2K JPG) | `Content/SourceArt/Photo/WoodDark/` | 가구 목재 |
+| `/Game/Prototype/Textures/T_Photo_GranitePanel_*` | ambientCG.com — Terrazzo018 | CC0 1.0 | 2026-07-26 | 원본(2K JPG) | `Content/SourceArt/Photo/GranitePanel/` | 1층 기단과 승강기 벽의 화강석 판. `M_GranitePanel_{X,Y}` |
+| `/Game/Prototype/Textures/T_Photo_MarbleFloor_*` | ambientCG.com — Marble016 | CC0 1.0 | 2026-07-26 | 원본(2K JPG) | `Content/SourceArt/Photo/MarbleFloor/` | 승강기 바닥 대리석. `M_MarbleFloor_XY` |
+| `/Game/Prototype/Textures/T_Photo_VillaBrick_*` | ambientCG.com — Bricks059 | CC0 1.0 | 2026-09-11 | 원본(2K JPG) | `Content/SourceArt/Photo/VillaBrick/` | 빌라 파사드 적벽돌. `M_VillaBrick_{X,Y}` |
 | `/Game/Audio/S_*` (67종: 발소리 6면·문·노크·위층 사람·놀람·베드) | OpenGameArt rubberduck 「100 CC0 SFX」 1·2·wood-metal, Kenney 「Impact Sounds」, Owlish Media 「Sound Effects Pack」 | CC0 1.0 | 2026-09-11 | 가공(피치·저역·겹침·되울림·루프 이음) | `Content/SourceArt/Audio/manifest.json`, `Scripts/curate_cc0_audio.py` | 원본 팩은 `Saved/AudioCC0/`에 두고 저장소에는 가공본만 둔다. 게임은 `IGAudio::Sample`로 찾고 없으면 합성기 |
 | `/Game/Meshes/SK_ListenerCrawler`, `A_ListenerCrawler_{Crawl,Listen,Bang,Lunge}`, `DA_IGCharacterLODs` | 직접 제작 (사진 참고 → gpt-image 기준 이미지 → TRELLIS.2 → Blender 표면 정리·접지 리깅) | 프로젝트 소유 | 2026-09-14 | 새 원본으로 교체 | `Content/SourceArt/Blender/SK_ListenerCrawler/`, `Scripts/blender/rig_crawler.py` | 12,000삼각형, 21개 뼈, 네 동작, 스켈레탈 LOD 네 단계. `Docs/BLENDER_PIPELINE.md` 「리깅된 인물」 |
 | `Content/SourceArt/Reference/Listener/*` | Wikimedia Commons — 미 육군·해병대 낮은 포복 사진, 살아 있는 조각상 사진 | 파일별 공개 저작물·CC 라이선스, 참고 전용 | 2026-09-11 | 원본 | 파일명이 Commons 파일명 | 이번에 채택한 두 사진의 정확한 출처와 공개 조건은 `Docs/REALISM_REVIEW_2026-09-14.md`. 다른 사진의 라이선스까지 같은 것으로 간주하지 않는다 |
 | `Content/SourceArt/AI/ListenerPhotoAnchor_20260914.png`, `ListenerTurnaround_20260914.png` | OpenAI 내장 ImageGen, gpt-image 스킬 흐름 | 생성 원본, 프로젝트 제작 자료 | 2026-09-14 | 원본 | `Docs/REALISM_REVIEW_2026-09-14.md` | 가상 인물의 기준 이미지와 다각도·확대 시트. 게임 패키지에 직접 포함하지 않는다 |
-| `/Game/Photo/Props/*` (15종: old_bed_frame, side_table_01, metal_office_desk, painted_wooden_chair_01, modern_wooden_cabinet, desk_lamp_arm_01, electric_stove, street_lamp_01, trashbag, cardboard_box_01, steel_frame_shelves_01, CashRegister_01, plastic_crate_01, utility_box_01, wine_bottles_01) | polyhaven.com (포토그래메트리 스캔) | CC0 1.0 | 2026-07-19 | 원본(glTF, 1K 텍스처) | `Content/SourceArt/PhotoProps/` | 실물 스캔 소품 |
-| `/Game/Meshes/SM_*` (56종: 기존 49종 + M5 공동 잔존물 4종·목한수 근접 대치 3종) | 직접 제작 (UE5 Geometry Script 절차 모델링) | 프로젝트 소유 | 2026-08-05 | 원본 | `Scripts/generate_meshes.py` | 회전체·베벨·불리언·스윕. 생활 소품·생물·설비·인체·사고 프롭과 M5의 건조한 의복/골격/방수포/캐스터·목한수 작업복/머리와 손/석고보드를 ImageGen 비율 기준과 실제 치수 계약에 맞춰 절차 메시로 재구성 |
+| `/Game/Photo/Props/*` (9종: old_bed_frame, side_table_01, metal_office_desk, painted_wooden_chair_01, desk_lamp_arm_01, trashbag, cardboard_box_01, plastic_crate_01, utility_box_01) | polyhaven.com (포토그래메트리 스캔) | CC0 1.0 | 2026-07-19 | 원본(glTF, 1K 텍스처) | `Content/SourceArt/PhotoProps/` | 실물 스캔 소품 |
+| `/Game/Meshes/SM_*` (30종: 생활 소품·밸브 손잡이·고양이·위층 사람·M5 공동 잔존물·목한수 근접 대치) | 직접 제작 (UE5 Geometry Script 절차 모델링) | 프로젝트 소유 | 2026-08-05 | 원본 | `Scripts/generate_meshes.py` | 회전체·베벨·불리언·스윕. ImageGen 비율 기준과 실제 치수 계약에 맞춰 절차 메시로 재구성 |
 | `/Game/Meshes/SM_UnitDoorLeaf·L, SM_UnitDoorHardware·L, SM_UnitDoorFrame, SM_FireExtinguisherBox, SM_FireExtinguisher, SM_MailboxUnit, SM_CeilingLightRing·Dome, SM_FridgeBody·Door, SM_KitchenBaseRun, SM_DrumWasher, SM_KitchenWallUnits, SM_RangeHood, SM_Microwave, SM_KitchenSink, SM_InductionHob, SM_Wardrobe, SM_WallAirConditioner, SM_TrafficCone, SM_StoreCoolerBank·Door, SM_StoreGondola, SM_StoreCounter, SM_CardTerminal, SM_HotSnackWarmer, SM_ChestFreezer, SM_OpenShowcase, SM_RamyeonRack, SM_ApartmentWindow, SM_VenetianBlind, SM_VideoIntercom, SM_WallSwitch, SM_ShoeCabinet, SM_VillaWindow, SM_UtilityPole, SM_GasMeterBox, SM_AcOutdoorUnit, SM_ConvexMirror, SM_CupNoodle·Sleeve·Lid, SM_SnackBoxA~D, SM_TriangleKimbapA~D, SM_RiceBowlPack, SM_TobaccoCabinet, SM_WindowBar, SM_HotWaterDispenser, SM_TrashBin` (58종) | 직접 제작 (Blender 5.2 헤드리스 절차 모델링, Cycles 베이크) | 프로젝트 소유 | 2026-09-04 | 원본 | `Content/SourceArt/Blender/<이름>/`, `Scripts/blender/build_*.py` | 실제 치수·베벨·UCX 충돌·구운 D/N/ORM. `Docs/BLENDER_PIPELINE.md` |
 | `/Game/Meshes/SM_ListenerEntityCrawl, SM_AlleyCatRun, SM_MokHansooFigure, SM_FinalCavityRemains` | 직접 제작 (기준 시트 한 칸 → ComfyUI 네이티브 TRELLIS.2 형상 생성 → Blender 다듬기) | 프로젝트 소유. TRELLIS.2 가중치 MIT(Microsoft, Comfy-Org 재포장), DINOv3 Meta 제한 허가, BiRefNet MIT | 2026-09-08 | 원본 | `Content/SourceArt/Generated/<이름>/<시도>/generation.json`, `Scripts/generate_3d_comfy.py`, `Scripts/blender/refine_generated.py` | 입력은 우리 기준 시트뿐. Hunyuan3D는 한국 제외 라이선스라 쓰지 않는다 |
 | `/Game/Prototype/Textures/T_<Blender 에셋>_{D,N,ORM,E}` · `/Game/Prototype/Materials/M_IGBakedProp, MI_*` | 직접 제작 (Cycles 베이크, UE 마스터 재질 인스턴스) | 프로젝트 소유 | 2026-09-04 | 원본 | `Scripts/import_blender_assets.py` | 에셋마다 한 세트. ORM은 AO·거칠기·금속성 채널 |
@@ -41,7 +40,7 @@
 | `Source/IndieGame/UI/Fonts/Pretendard-{Regular,SemiBold}.otf` | orioncactus / Pretendard 1.3.9 | SIL Open Font License 1.1 | 2026-08-12 | 원본 | `Source/IndieGame/UI/Fonts/OFL-Pretendard.txt` | 설정·대화·본문·보조문구. 패키지 실행 파일 옆 `UI/Fonts`에 NonUFS 스테이징 |
 | `Source/IndieGame/UI/Fonts/GowunBatang-Bold.ttf` | Yanghee Ryu / Google Fonts | SIL Open Font License 1.1 | 2026-08-12 | 원본 | `Source/IndieGame/UI/Fonts/OFL-GowunBatang.txt` | 타이틀·장면 제목 전용. 패키지 실행 파일 옆 `UI/Fonts`에 NonUFS 스테이징 |
 
-ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 표기 불요)이며, 원본 zip은 `Content/SourceArt/PhotoZips/`에 증빙으로 보관합니다.
+ambientCG 자료는 CC0 1.0(상업적 사용·수정·재배포 허용, 출처 표기 불요)입니다. 내려받은 zip은 `Scripts/Get-PhotoTextures.ps1`이 풀 때만 쓰고 저장소에는 두지 않으며, 풀어 둔 JPG가 `Content/SourceArt/Photo/`에 있습니다.
 
 두 한글 서체는 OFL 1.1에 따라 상업적 사용·수정·재배포가 가능하며 폰트 파일과
 라이선스 원문을 함께 배포한다. Pretendard는 내비게이션과 긴 문장의 중립적
@@ -67,29 +66,14 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 | `SheetPaperNotes_v2.png` | `T_PaperClean_V2_D` · `T_PaperWet_V2_D` · `T_PaperFolded_V2_D` · `T_PaperOld_V2_D` | CH02 문서용 빈 종이 4종(깨끗함·젖음·접힘·낡음). 한국어와 영수증 정보는 런타임 텍스트로 표시 |
 | `SheetHorrorEvidenceMasks.png` | `T_EvidenceSlipperTrail_M` · `T_EvidenceCatPawTrail_M` · `T_EvidenceHoseDrag_M` · `T_EvidenceHandSmear_M` | P5 능동 대조용 젖은 흔적 마스크. 검정 바탕을 머티리얼의 불투명도·습윤 거칠기 입력으로 사용 |
 | `SheetHorrorSurfaceBlends.png` | `T_DecalDampWallpaper_D` · `T_DecalRustFasteners_D` · `T_DecalMineralScale_D` · `T_DecalRainGrime_D` | CH03 벽지·계단실·탱크 환경 블렌드. 마젠타 키 제거 후 RGBA 마스크드 오버레이로 사용 |
-| `SheetEvidenceProps.png` | 직접 텍스처로 사용하지 않음 | 뿔테 안경·점검봉·금 간 휴대폰·편의점 봉지의 통일된 형상/재질 기준. 앞의 세 소품을 `generate_meshes.py` 정적 메시로 재구성 |
+| `SheetEvidenceProps.png` | 직접 텍스처로 사용하지 않음 | 뿔테 안경·점검봉·금 간 휴대폰·편의점 봉지를 한 장에 그린 형상·재질 기준. 지금은 금 간 휴대폰(`SM_CrackedPhone`)만 이 시트로 만든다 |
 | `SheetAlleyCatPoseReference.png` | 직접 텍스처로 사용하지 않음 | 동일한 고등어태비의 좌측 달리기·정면 3/4·정지·후면 3/4 비례 기준. `SM_AlleyCatRun` 정적 메시로 재구성 |
-| `SheetFirstPersonSleeveReference.png` | 직접 텍스처로 사용하지 않음 | 36cm 왼쪽 후드 소매, 13.5cm 상완부→10.5cm 커프 테이퍼, 안쪽 아래팔의 검은 실 세 땀 기준. 손·피부 없이 `SM_FirstPersonHoodieSleeve` 정적 메시로 재구성 |
 | `SheetFirstPersonKnockPhases_v1.png` · `v1_RGBA.png` · `SheetFirstPersonKnockPhases_v2.png` · `v2_RGBA.png` | `T_FPHandKnock0_D` · `T_FPHandKnock1_D` · `T_FPHandKnock2_D` · `T_FPHandKnock3_D` | M0 Q/B 두드리기의 같은 오른손·후드 소매 준비/예비/접촉/반동 4단계. v1은 화면 안 소매 절단면 때문에 증빙 전용, v2가 런타임 원본. UI-space 전용 RGBA이며 문·벽·인물·동물·배경을 평면으로 대체하지 않음 |
-| `SheetP3ServiceCabinetReference.png` | 직접 텍스처로 사용하지 않음 | 270×196×18cm 열린 급수 서비스함, 18/12cm 밸브, 16cm 압력계, 수직 블리드 튜브와 래치의 빈 나사 구멍 정확히 두 개 기준. 정적 메시 5종으로 분리해 조작 상태를 유지 |
-| `SheetRooftopFireDoorReference.png` | 직접 텍스처로 사용하지 않음 | 한국 빌라 옥상의 116×230×4.5cm 철문과 120×234cm 문틀, 하부 경첩 처짐·문턱 마찰 흔적 기준. `SM_RooftopFireDoorLeaf`와 `SM_RooftopFireDoorFrame`으로 재구성하고 11cm는 문 아래 높이가 아닌 자유단의 수평 열림으로 계산 |
-| `SheetRooftopUnlockedPadlockKeysReference.png` | 직접 텍스처로 사용하지 않음 | 문틀 고리에 열린 채 걸린 50mm 적층 자물쇠, 삽입 열쇠 1개, 고리 1개, 추가 열쇠 정확히 3개와 무문자 금속 태그 기준. `SM_RooftopUnlockedPadlockKeys` 한 메시로 묶어 열쇠 획득·잠금 퍼즐·프롭 복제를 만들지 않음 |
-| `TextureP3CabinetPaintedSteel.png` | `T_P3CabinetPaintedSteel_D` | 회녹색 도장 아연강판과 억제된 습기·잔흠집 알베도. `M_P3CabinetMetalUV`로 P3 서비스함 문짝과 외함에 적용 |
+| `SheetRooftopUnlockedPadlockKeysReference.png` | 직접 텍스처로 사용하지 않음 | 금속 열쇠와 분리링의 형상 기준. 관리실 열쇠 꾸러미 `SM_BoothKeyring`(`Scripts/blender/build_utility_fixtures.py`)을 만들 때 대조했다 |
+| `TextureP3CabinetPaintedSteel.png` | `T_P3CabinetPaintedSteel_D` | 회녹색 도장 아연강판과 억제된 습기·잔흠집 알베도. `M_P3CabinetMetalUV`로 넷째 밤의 밸브 손잡이·캐스터·조율 망치에 적용 |
 | `TextureAlleyCatTabby.png` | `T_AlleyCatTabby_D` | 고등어태비 단모와 좁은 줄무늬의 저채도 알베도. `M_AlleyCatTabbyUV`로 단일 풀 고양이에 적용 |
-| `TextureWetHoodieFabric.png` | `T_WetHoodie_D` | 물에 잠긴 검정 면 후드 원단. 현재 소매와 탱크 복장의 동일 재질 계약에 사용 |
-| `TextureCarrierBagFilm.png` | `T_CarrierBagFilm_D` | 가상 옅은 청색 무늬가 있는 편의점 LDPE 박막. CH01/CH02 운반 프롭과 CH03 사고 봉지에 같은 반투명 머티리얼 적용 |
-| `SheetSubmergedBodyPoseReference.png` · `SheetSubmergedBodyAnatomyReference_v2.png` | 직접 텍스처로 사용하지 않음 | CH03 최종 리빌의 동일 인물 4시점 기준. v2는 얼굴·피부·상처를 노출하지 않으면서 후드 속 머리, 목·어깨, 위팔·팔꿈치·아래팔·가려진 손, 골반·허벅지·무릎·정강이·발목·슬리퍼가 이어지는 인체 실루엣을 고정한다. 후드·하의·슬리퍼는 공통 원점의 정적 메시 3종으로 재구성 |
-| `TextureWaterTankGalvanized.png` | `T_WaterTankGalvanized_D` | 저채도 청회색 아연도금 강판과 습윤 흘러내림의 타일형 알베도. 탱크 외피·보강띠·배관·사다리·점검구에 `M_WaterTankMetalUV`로 공통 적용 |
-| `TextureTankInteriorBiofilm.png` | `T_TankInteriorBiofilm_D` | 수면 아래 아연강판의 석회 침착·얇은 바이오필름·국부 녹을 억제된 알베도로 사용. 전용 N/R/A/W/M 채널과 `M_TankInteriorBiofilmUV`를 거쳐 비충돌 내부 라이닝 `SM_TankInternalLining`에만 적용한다. 월드 Z 561cm를 중심으로 8cm 습윤 전이를 두어 수중부와 35cm 공기층의 반사·거칠기를 분리한다 |
-| `SheetRooftopWaterTankReference.png` | 직접 텍스처로 사용하지 않음 | 외경 306cm·높이 260cm의 16절 외피, 보강띠 3줄, 89/76mm 배관, 18cm 밸브와 내부 바닥·잔수 비례 기준. `SM_RooftopWaterTankShell`과 `SM_RooftopTankPipeCluster`로 재구성 |
-| `SheetTankAccessSafetyHardwareReference.png` | 직접 텍스처로 사용하지 않음 | 열린 접근부의 42mm 상부 난간·U볼트 1개·걸린 안경 1쌍과 탱크 내부 7단 사다리의 형상·부착·수면 아래 판독 기준. `SM_TankAccessGuardRail`과 `SM_TankInternalLadder`로 재구성 |
-| `SheetTankExteriorAccessStairReference.png` | 직접 텍스처로 사용하지 않음 | 20cm 단차·20cm 진행의 18단 45도 외부 계단, 오픈 트레드, 양측 스트링거·42mm 난간과 상단 두 번째 사고 단의 공간 관계 기준. 정확한 단 수와 좌표는 `SM_TankExteriorAccessStair` 절차 메시로 고정 |
-| `SheetAccidentPropsReference.png` | 직접 텍스처로 사용하지 않음 | P5의 42mm EPDM 호스·65mm 커플링·2병용 LDPE 봉지 형상 기준. 호스 경로와 봉지는 절차 정적 메시로 재구성하고 병 수·수위는 런타임 상태로 유지 |
-| `TextureWetServiceHoseRubber.png` | `T_WetServiceHose_D` | 젖은 검정 EPDM 보강 고무의 저대비 타일형 알베도. `M_WetServiceHoseUV`로 연속 호스 메시와 42mm 폴백에 공통 적용 |
-| `SheetLadderRungFailureReference.png` | 직접 텍스처로 사용하지 않음 | P5 상단 두 번째 발판의 젖은 리브 고무·양 끝 고정 클립 2개·억제된 부식 디테일 기준. 과거 수직 발판 비례는 폐기하고 정확한 몸체 치수와 위치는 외부 계단 계약을 따른다 |
-| `TextureWetRungPadRubber.png` | `T_WetRungPad_D` | 젖은 흑연색 세로 리브 고무의 저대비 타일형 알베도. `M_WetRungPadUV`로 들뜬 패드와 정확한 치수의 폴백에 공통 적용 |
-| `TextureTankWaterSurface.png` | `T_TankWaterSurface_D` | 최종 리빌용 어두운 청회색 탱크 수면. 이미지에는 인체를 굽지 않고 낮은 물결·광도 변화·미세 광물 입자만 둔다. 알베도는 고정하고 전용 노멀을 서로 다른 배율·방향으로 두 번 천천히 이동시켜 `M_TankWaterReveal`의 반사와 약한 굴절만 변화시킨다 |
-| 위 재질 스캔 10종의 `T_*_D` | `T_*_{N,R,A}` 30종 · `T_*_W` 6종 · 금속 마스크 2종 | `generate_ai_pbr_maps.py`로 생성하는 PBR 동반 채널 38종. 젖음은 알베도·거칠기·노멀 블렌드에 함께 사용하며 외부 녹과 내부 석회·바이오필름·녹 피복을 비금속으로 분리 |
+| `TextureCarrierBagFilm.png` | `T_CarrierBagFilm_D` | 가상 옅은 청색 무늬가 있는 편의점 LDPE 박막. 구매 봉지(`M_CarrierBagFilm`)와 공사 비닐(`M_ConstructionFilm`)이 같이 쓴다 |
+| 위 재질 스캔 3종(고양이·봉지·도장 강판)의 `T_*_D` | `T_*_{N,R,A}` 9종 · `T_P3CabinetPaintedSteel_W` | `generate_ai_pbr_maps.py`로 만드는 PBR 동반 채널 10종. 젖음 맵은 알베도·거칠기·노멀 블렌드에 함께 쓴다 |
 | `ApplicationIcon_raw.png` | `Build/Windows/ApplicationIcon.png` · `Application.ico` | 물탱크 점검구·새벽빛 모티프의 Windows 배포 아이콘. `prepare_application_icon.py`로 1024px 등급 PNG와 16~256px 7단계 ICO를 생성 |
 | `DialogueHUDConcept_v1.png` | UI 아트 디렉션 기준 이미지 | 실제 Shipping 캡처의 디버그형 대화창을 낮은 하단 점유율, 분리된 환경음 캡슐, 작은 화자 태그와 습기 낀 smoked-glass 재질로 재설계한 시안. 런타임 텍스트를 굽지 않고 색·여백·질감 기준만 사용 |
 | `TextureHudDialogueFilm.png` | `T_HudDialogueFilm_D` | 대화창 표면의 저대비 charcoal/oxidized-green 미세 필름 스캔. UI 그룹·NoMipmaps·비스트리밍으로 임포트하고 런타임 둥근 마스크 안에서 낮은 알파로만 사용 |
@@ -186,219 +170,43 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 - 생성일: 2026-08-03
 - 보존 원본: `Content/SourceArt/AI/SheetHorrorEvidenceMasks.png`,
   `SheetHorrorSurfaceBlends.png`, `SheetEvidenceProps.png`
-- 파생: 흔적 마스크 4장, 환경 오버레이 4장, 절차 정적 메시 3종
+- 파생: 흔적 마스크 4장, 환경 오버레이 4장, 금 간 휴대폰 절차 메시 1종
 - 적용: `Scripts/Build-ArtAssets.ps1`이 소스 분리, PBR 파생, 텍스처 임포트,
   마스크드 머티리얼 생성과 Geometry Script 메시 베이크를 순서대로 수행한다.
   마지막 UAsset 감사에서 LOD·해상도·압축·재질 입력과 텍스처 연결을 검사한다.
-- 런타임: CH03 디렉터가 전용 에셋을 우선 로드하고, 아직 베이크되지 않은
-  개발 환경에서는 기존 정적 프록시로만 폴백한다. 에셋 누락이 진행을 막거나
-  기본 머티리얼 사각형을 노출하지 않는다.
 - 전체 생성·수정 프롬프트: `Docs/IMAGEGEN_PROMPTS_2026-08-03.md`
 
-### 골목 고양이·복장·봉지 재질 생성 기록
+### 골목 고양이·봉지 재질 생성 기록
 
 - 서비스: OpenAI ImageGen
 - 생성일: 2026-08-03
 - 보존 원본: `SheetAlleyCatPoseReference.png`, `TextureAlleyCatTabby.png`,
-  `TextureWetHoodieFabric.png`, `TextureCarrierBagFilm.png`
-- 파생: 1024 알베도 3장, Geometry Script 정적 고양이 1종
+  `TextureCarrierBagFilm.png`
+- 파생: 1024 알베도 2장, Geometry Script 정적 고양이 1종
 - 적용: 고양이는 0.9~1.35초 풀 이벤트용 단일 정적 메시로 사용하고,
-  애니메이션 파이프라인을 추가하지 않는다. 후드와 봉지는 각각 CH03 신원
-  대조와 CH01~CH03 소지품 연속성에 동일 머티리얼을 공유한다.
-- 폴백: 메시·머티리얼 미베이크 환경에서는 기존 여섯 도형 고양이,
-  침구 원단, 유리 봉지 프록시를 유지해 진행을 차단하지 않는다.
+  애니메이션 파이프라인을 추가하지 않는다. 봉지 재질은 구매 봉지와
+  공사 비닐이 같이 쓴다.
+- 폴백: 메시·머티리얼 미베이크 환경에서는 기존 여섯 도형 고양이와
+  유리 봉지 프록시를 유지해 진행을 차단하지 않는다.
 
-### 1인칭 착의 소매 생성 기록
-
-- 서비스: OpenAI ImageGen
-- 생성일: 2026-08-03
-- 보존 원본: `Content/SourceArt/AI/SheetFirstPersonSleeveReference.png`
-- 파생: `SM_FirstPersonHoodieSleeve` Geometry Script 정적 메시 1종
-- 적용: 약 36cm 길이, 상단 13.5cm에서 10.5cm 커프로 좁아지는 왼쪽
-  소매를 완만히 굽히고 `M_WetHoodieUV`를 탱크 착의와 공유한다. 검은 실
-  세 땀은 텍스처에 굽지 않고 소매에 부착된 별도 기하로 유지한다.
-- 연출 계약: 손·손목·피부를 만들지 않으며 기존 1.2초 비차단 제시와 78도
-  수평 시야각을 유지한다. 확대·스포트라이트·입력 잠금으로 물증을 강요하지 않는다.
-- 폴백: 정식 메시가 없을 때만 기존 원기둥 소매와 동일한 세 땀 기하를 함께
-  사용한다. 정식 치수와 원기둥용 축척을 섞지 않는다.
-
-### P3 급수 서비스함 생성 기록
+### 밸브 손잡이·도장 강판 생성 기록
 
 - 서비스: OpenAI ImageGen
 - 생성일: 2026-08-03
-- 보존 원본: `Content/SourceArt/AI/SheetP3ServiceCabinetReference.png`,
-  `Content/SourceArt/AI/TextureP3CabinetPaintedSteel.png`
+- 보존 원본: `Content/SourceArt/AI/TextureP3CabinetPaintedSteel.png`
 - 파생: `T_P3CabinetPaintedSteel_D`, `M_P3CabinetMetalUV`,
-  `SM_P3ServiceCabinetShell`, `SM_P3ServiceManifold`,
-  `SM_P3ValveWheelLarge`, `SM_P3ValveWheelSmall`, `SM_P3PressureGauge`
-- 적용: 270×196×18cm 열린 외함과 34/25mm 배관, 18/12cm 오륜
-  손잡이, 16cm 계기를 실제 치수로 분리했다. 압력 숫자·바늘·블리드 수위와
-  네 조작 상태는 이미지에 굽지 않고 기존 런타임 상태를 그대로 사용한다.
-- 물증: 굽은 래치 옆 빈 나사 구멍은 정확히 두 개의 별도 어두운 기하로
-  유지한다. 텍스처의 우연한 점이나 부식 자국을 나사 구멍으로 세지 않는다.
-- 폴백: 다섯 메시 중 하나라도 없으면 기존 외함·배관·원기둥 조작부 전체로
-  전환한다. 정식/프록시 부품을 섞거나 조작 좌표와 저장 경계를 바꾸지 않는다.
+  `SM_P3ValveWheelLarge`, `SM_P3ValveWheelSmall`
+- 적용: 이름은 옛 급수 서비스함(P3)에서 왔다. 서비스함은 옛 이야기와 함께
+  빠졌고, 18/12cm 오륜 밸브 손잡이 둘만 넷째 밤 설비와 관리실 수직관에 남았다.
 
-### CH03 옥상 철문 생성 기록
-
-- 서비스: OpenAI ImageGen 내장 도구
-- 생성일: 2026-08-03
-- 보존 원본: `Content/SourceArt/AI/SheetRooftopFireDoorReference.png`
-- 파생: `SM_RooftopFireDoorLeaf`, `SM_RooftopFireDoorFrame` Geometry Script
-  정적 메시 2종
-- 적용: 문짝을 116×230×4.5cm 접이강판으로 고치고 120×234cm 유효
-  개구부, 3개 힌지, 문턱 마찰판, 손잡이와 도어클로저를 한 세계관의 생활
-  설비로 구성한다. 걸림 상태는 힌지 축을 보존한 5.441396도 회전이며
-  자유단 중심이 닫힘 평면에서 수평 11cm 떨어진 값으로 실측한다.
-- 충돌: 바닥 아래 전체가 11cm 뜨는 이전 프록시를 폐기했다. 7cm 지름의
-  고양이 캡슐은 자유단과 문설주 사이 곡선 경로로 왕복하고, 사람 캡슐은
-  중앙에서 문을 당기기 전 차단된다. 문설주 정지 볼륨은 시각 문틀과 별개로
-  좁은 우회로를 막는다.
-- 폴백: 메시가 하나라도 없으면 같은 4.5cm 문짝과 120×234cm 문틀 프록시를
-  사용한다. 11cm 측정식, 세 상태, 열쇠 조사 위치와 충돌 경로는 바꾸지 않는다.
-
-### CH03 열린 자물쇠·관리 열쇠 생성 기록
+### 관리 열쇠 기준 이미지 생성 기록
 
 - 서비스: OpenAI ImageGen 내장 도구
 - 생성일: 2026-08-03
 - 보존 원본:
   `Content/SourceArt/AI/SheetRooftopUnlockedPadlockKeysReference.png`
-- 참조 원본: `Content/SourceArt/AI/SheetRooftopFireDoorReference.png`를
-  재질·습도·마모 일관성 기준으로만 사용
-- 파생: `SM_RooftopUnlockedPadlockKeys` Geometry Script 정적 메시 1종
-- 적용: 50×28×62mm 적층 자물쇠와 8mm 열린 걸쇠, 삽입된 관리 열쇠 1개,
-  42mm 고리 1개, 추가 열쇠 정확히 3개와 무문자 금속 태그를 한 메시로
-  구성한다. 자물쇠는 문짝을 잠그지 않고 문틀 고리에 열린 채 걸려 있다.
-- 상호작용: “확인하기”만 제공하며 획득·인벤토리·잠금 해제 동작을 만들지
-  않는다. 조사 뒤에도 옥상문 입력은 열쇠 사용이 아니라 손잡이 당기기다.
-- 폴백: 미베이크 환경은 작은 자물쇠 몸체와 열린 걸쇠·삽입 줄기·열쇠
-  3개를 같은 좌표에 구성한다. 프롭 수와 문 상태는 바뀌지 않는다.
-
-### CH03 수중 인체 포즈 생성 기록
-
-- 서비스: OpenAI ImageGen
-- 생성일: 2026-08-03, 인체 실루엣 개정 2026-08-07
-- 보존 원본: `Content/SourceArt/AI/SheetSubmergedBodyPoseReference.png`,
-  `Content/SourceArt/AI/SheetSubmergedBodyAnatomyReference_v2.png`
-- 파생: `SM_SubmergedHoodieCurl`, `SM_SubmergedPantsCurl`,
-  `SM_SubmergedSlippersCurl` Geometry Script 정적 메시 3종
-- 적용: 세 메시가 같은 로컬 원점을 사용하며 CH03 디렉터가 점검구 바로 아래
-  하나의 공유 변환에 겹쳐 젖은 후드·검은 하의·검은 슬리퍼 재질을 분리
-  적용한다. 후드는 탱크 수중 전용 타일링·습윤 하한을 가진
-  `M_SubmergedHoodieUV`, 하의는 기존 젖은 후드 원단의 PBR 채널을 타일링한
-  `M_SubmergedPantsUV`, 슬리퍼는 젖은 EPDM
-  고무 채널을 재해석한 `M_SubmergedSlippersUV`, 뒤꿈치 마모와 세 줄은
-  리브 고무 채널의 `M_SubmergedSlipperWearUV`를 사용한다. 세 재질은 습윤도
-  하한을 0.82~0.90으로 고정해 수중에서 건조한 프록시처럼 보이지 않으며,
-  별도 생성 이미지를 늘리지 않고 승인된 ImageGen 원본의 물성 채널을
-  재사용한다. 얼굴과 피부는 메시 자체에 만들지 않되 후드 속 머리와 목 전이,
-  어깨선, 분리된 팔꿈치·가려진 손, 골반·무릎·정강이·발목의 연결과 팔다리
-  사이 음영 공간을 실제 기하로 만든다. 세 땀·왼발 뒤꿈치
-  마모·슬리퍼 세 줄은 별도 기하로 유지한다. 신원 조사 볼륨은 별도 좌표를
-  복사하지 않고 이 공유 인체 변환과 같은 소매 로컬 오프셋에서 계산하므로,
-  포즈나 배치를 바꿔도 보이는 세 땀과 상호작용 지점이 함께 이동한다.
-- 폴백: 세 메시 중 하나라도 미베이크면 기존 구·원통 그레이박스 전체로만
-  전환한다. 그레이박스도 동일한 세 전용 재질을 사용하며, 개별 머티리얼이
-  없을 때에만 침구·플라스틱·젖은 종이 재질로 되돌아간다. 정식 그룹과
-  그레이박스가 겹쳐 보이지 않는다.
-
-### CH03 물탱크 금속·점검구 생성 기록
-
-- 서비스: OpenAI ImageGen
-- 생성일: 2026-08-03
-- 보존 원본: `Content/SourceArt/AI/TextureWaterTankGalvanized.png`,
-  `Content/SourceArt/AI/SheetRooftopWaterTankReference.png`,
-  `Content/SourceArt/AI/SheetTankAccessSafetyHardwareReference.png`
-- 파생: `T_WaterTankGalvanized_D`, `M_WaterTankMetalUV`,
-  `SM_RooftopWaterTankShell`, `SM_RooftopTankPipeCluster`,
-  `SM_TankInternalLadder`, `SM_TankAccessGuardRail`, `SM_TankAccessDeck`,
-  `SM_TankAccessLid`
-- 적용: 외경 306cm·높이 260cm의 속 빈 16절 외피와 연속 보강띠 3줄,
-  외경 89/76mm 배관, 18cm 밸브, 사다리·상판·점검구가 같은 금속 재질을
-  공유한다. 내부 바닥 Z 381cm, 점검구 하단 Z 596cm, 수면 Z 561cm로
-  고정해 내부 높이 2.15m·잔수 1.80m·상부 여유 35cm를 동시에 만족한다.
-  내부에는 46cm 레일 간격·7단·30cm 간격 사다리를 실제로 두고, 외부
-  상부 발판에는 접근부가 열린 양측 난간과 U볼트 1개를 둔다. 검은 뿔테
-  안경은 옥상 바닥 프롭이 아니라 그 U볼트에 한쪽 안경다리로 걸린 동일
-  조사 액터다.
-  사람이 들 수 없던 3.1m 전체 상판은 지름 104cm 개구부와 지름 108cm
-  1인 점검구로 교체한다. 개구부 중심은 탱크 중심에서 서쪽 서비스면으로
-  96cm 치우치며, 폭 87cm 상부 착지부는 개구부 서쪽 테두리에서 끝난다.
-  상단 두 번째 단에서 테두리까지 약 107cm라서 사다리에 선 사람의 손이
-  테두리에 닿는다. 내부 7단 사다리도 같은 개구부 아래 서쪽 내벽으로 옮겼다.
-- 폴백: 미베이크 환경은 같은 외경의 16개 충돌 패널, 현실 치수 배관,
-  네 장의 상판 프록시와 원기둥 점검구를 쓴다. 정식 외피가 로드되면 패널은
-  충돌만 남기고 숨겨 이중 실루엣을 만들지 않는다. 진행·상호작용 위치는 같다.
-
-### P5 호스·커플링·봉지 생성 기록
-
-- 서비스: OpenAI ImageGen
-- 생성일: 2026-08-03
-- 보존 원본: `SheetAccidentPropsReference.png`,
-  `TextureWetServiceHoseRubber.png`
-- 파생: `T_WetServiceHose_D`, `M_WetServiceHoseUV`,
-  `SM_RooftopServiceHose`, `SM_HoseCoupling`, `SM_CarrierBagCollapsed`
-- 적용: 14cm 원통 다섯 개를 42mm 연속 EPDM 호스로 교체하고 상단에
-  65mm 아연도금 커플링을 별도 배치한다. 봉지는 한 개의 얇은 열린 메시를
-  A/B/C 구매 크기에 맞춰 비균일 스케일하며 병 수·수위·마개는 기존 런타임
-  상태 프롭을 그대로 사용한다.
-- 폴백: 미베이크 환경도 42mm 원통만 사용하고, 봉지는 기존 얇은 벽과
-  손잡이 조합을 유지한다. 정식 봉지 메시가 로드되면 기존 벽을 함께 만들지
-  않아 반투명 외피가 중복되지 않는다.
-
-### P5 상단 발판 파손 생성 기록
-
-- 서비스: OpenAI ImageGen
-- 생성일: 2026-08-03
-- 보존 원본: `SheetTankExteriorAccessStairReference.png`,
-  `SheetLadderRungFailureReference.png`,
-  `TextureWetRungPadRubber.png`
-- 파생: `T_WetRungPad_D`, `M_WetRungPadUV`,
-  `SM_TankExteriorAccessStair`,
-  `SM_LadderFailureRung`, `SM_LadderRungPadLifted`,
-  `SM_LadderRungRetainingClips`
-- 적용: 옥상 바닥부터 상판까지 20cm 진행·20cm 단차의 18단 오픈 계단을
-  실제 이동 충돌과 같은 원점에 둔다. 상단 두 번째인 16번 단만 20×105×3cm
-  금속 몸체, 54×8.5×0.3cm 리브 고무 패드, 양 끝 고정 클립 2개로 분리한다.
-  패드의 안쪽 긴 변만 8~10mm 들뜨며 젖은 슬리퍼 전이 흔적은 패드 위 조사
-  평면으로 유지한다.
-- 연결: 계단 끝의 착지부는 월드 X 2265~2352cm만 차지하고, 서쪽으로
-  96cm 치우친 지름 104cm 점검구의 바깥 테두리 X 2352cm에서 정확히 끝난다.
-  정중앙 점검구나 탱크 안으로 58cm 파고드는 착지부로 되돌리지 않는다.
-- 폴백: 네 메시 중 하나라도 없으면 정식 그룹 전체를 쓰지 않고 18개 충돌
-  단과 같은 대각선 난간, 정확한 치수의 얇은 패드 프록시로 전환한다. 흔적 조사 평면은 어느
-  경로에서도 발판 안에 파묻히지 않으며, 주황색 전체 클립 대신 작은 부식
-  나사 머리 두 개만 보인다.
-
-### CH03 탱크 수면·굴절 생성 기록
-
-- 서비스: OpenAI ImageGen
-- 생성일: 2026-08-03
-- 보존 원본: `Content/SourceArt/AI/TextureTankWaterSurface.png`
-- 파생: `T_TankWaterSurface_D`, `M_TankWaterReveal`
-- 적용: 기존 불투명 청색 블록을 270cm 단일 수평 평면으로 교체한다.
-  텍스처의 낮은 광도 변화는 약 1.006~1.018 범위의 약한 굴절에 사용하고,
-  투명도는 약 0.25 부근으로 제한해 손전등이 닿기 전 인체를 설명하지 않는다.
-- 렌더링: 평면은 그림자를 드리우지 않고 투명 정렬 우선순위 2를 사용한다.
-  큐브 폴백은 평면 메시가 없는 경우에만 남기며, 전용 머티리얼 미베이크
-  환경에서는 기존 `M_WaterBlue`로 진행과 리빌 타이밍을 유지한다.
-
-### CH02 공동현관 제물 물그릇 생성 기록
-
-- 제작: 프로젝트 소유 Geometry Script 절차 메시
-- 생성일: 2026-08-05
-- 파생: `SM_OfferingWaterBowl` 정적 메시 1종
-- 형상: 외경 24.4cm·높이 8.7cm의 얕은 스테인리스 그릇이다. 48분할 회전체
-  프로파일로 무게 받침, 벌어진 측벽, 말린 림과 실제 열린 내부를 만들고,
-  충돌 없는 증거 프롭으로 베이크한다. 막힌 원기둥 프록시는 정식 베이크가
-  없을 때만 사용한다.
-- 수면: 별도 수평 수면을 내부 Z 7.72cm에 배치하고 그림자를 끈다. 두 개의
-  끊긴 비발광 반사만 더해 어두운 복도에서도 물로 읽히되 상호작용 표식처럼
-  빛나지 않게 한다.
-- 주변 흔적: 쌀·숟가락·향을 제거한 CH02 상태에서 물그릇은 끊긴 마른
-  공양그릇 자국 밖에 놓인다. 쓸린 소금은 대칭 띠나 돌무더기가 아니라 높이
-  0.5cm 미만의 서로 다른 크기 8덩이와 낱알로 구성하고, 보행과 닦인 흔적이
-  세 곳에서 원형 자국을 끊는다. 물그릇·소금·마른 자국은 모두 비충돌이다.
+- 적용: 옛 이야기의 옥상 자물쇠 메시는 지웠다. 이미지는 관리실 열쇠 꾸러미
+  `SM_BoothKeyring`의 금속 열쇠와 분리링을 대조하는 데만 쓴다.
 
 ### CH02 종이 시트 생성 기록
 
@@ -665,3 +473,33 @@ OpenAI ImageGen으로 생성하고 각 항목의 생성 방식과 날짜를 아�
 - 적용 경계: 골목 이웃 건물의 창 여덟 개 뒤에서만 보인다. 들어갈 수 없는 방이고, 빌라 자기 앞면 창과
   403호·복도 창은 쓰지 않는다
 - 프롬프트 전문: `Docs/IMAGEGEN_PROMPTS_2026-09-28.md`, 원본마다 같은 이름의 JSON
+
+## 2026-09-29 현관문 인쇄물과 공용부 때
+
+- 도구/모드: gpt-image 스킬(Codex 내장 image_gen, ChatGPT 구독 인증)
+- 보존 원본과 SHA-256:
+  - `Content/SourceArt/AI/DoorFlyerChinese_20260929.png`
+    `3DA9E088D0707B9563A458F59E6AEE7F673B6ABF8A88114B7FA5E6C957CC71A0`
+  - `Content/SourceArt/AI/DoorFlyerRealty_20260929.png`
+    `D92907E3266A57C96F238432ABA9C7B9A54CEE972E68D7869CCA2F7783B331EE`
+  - `Content/SourceArt/AI/DoorGasSticker_20260929.png`
+    `958088E6E04E20D5AC29408274E93B1F1194506D102746AE30C541440E9F1F80`
+  - `Content/SourceArt/AI/DoorKeySticker_20260929.png`
+    `03631DCB257E061A29FCCDF25111398474C470C3DCF40CF5A6F12DE50CF8EE12`
+  - `Content/SourceArt/AI/DoorNoFlyer_20260929.png`
+    `026A68B29527CBBC4CE581645C5BE6E1060D0A7236E2C152ED5CE9B44A2F2B8C`
+  - `Content/SourceArt/AI/GrimeCeiling_20260929.png`
+    `0DFBAAC04449C36659B5334E8F9E7BA1D8990F33006A03BE46C0B25FA0EF6BD2`
+  - `Content/SourceArt/AI/GrimeFloor_20260929.png`
+    `5BAA3889E0326F74496BDA7DAA167A0E7FE780DDAA340B4251219BECA76B9846`
+  - `Content/SourceArt/AI/GrimeWall_20260929.png`
+    `856B3475A1ED036F3E48D2C96E24138E6D1D60FE8BFC61E3674BF30DA8ADB126`
+- 파생: 현관문 인쇄물은 `Scripts/blender/build_door_prints.py`가 401호·402호 문마다
+  한 장씩 모아 `SM_DoorPrints401`·`SM_DoorPrints402`와 구운 D/N/ORM을 만든다.
+  때 셋은 `Scripts/build_grime_masks.py`가 잔점을 걷고 이음매 없이 다듬어
+  `Content/SourceArt/Grime/*_M.png` → `T_WallGrime_M`·`T_FloorGrime_M`·`T_CeilingStain_M`이 된다
+- 런타임: 인쇄물 메시는 그림자와 거리장 조명을 끄고 9m에서 컬링한다. 때는 공용부 벽·바닥·천장
+  재질이 월드 좌표로 곱하는 회색 마스크라 드로우콜이 늘지 않는다
+- 권리/참조: 상호·전화번호는 모두 가상이다. 번호는 국번이 0으로 시작해 실제로 걸리지 않는다.
+  사람·실제 상표·읽을 수 없는 가짜 글자가 없다
+- 프롬프트 전문: 원본마다 같은 이름의 JSON

@@ -13,29 +13,14 @@ $requiredRaw = @(
 	'AI\SheetHorrorSurfaceBlends.png',
 	'AI\SheetEvidenceProps.png',
 	'AI\SheetAlleyCatPoseReference.png',
-	'AI\SheetFirstPersonSleeveReference.png',
 	'AI\SheetFirstPersonKnockPhases_v1.png',
 	'AI\SheetFirstPersonKnockPhases_v1_RGBA.png',
 	'AI\SheetFirstPersonKnockPhases_v2.png',
 	'AI\SheetFirstPersonKnockPhases_v2_RGBA.png',
-	'AI\SheetP3ServiceCabinetReference.png',
-	'AI\SheetRooftopFireDoorReference.png',
 	'AI\SheetRooftopUnlockedPadlockKeysReference.png',
-	'AI\SheetRooftopWaterTankReference.png',
-	'AI\SheetTankAccessSafetyHardwareReference.png',
-	'AI\SheetTankExteriorAccessStairReference.png',
 	'AI\TextureP3CabinetPaintedSteel.png',
-	'AI\TextureWetHoodieFabric.png',
 	'AI\TextureCarrierBagFilm.png',
 	'AI\TextureAlleyCatTabby.png',
-	'AI\SheetSubmergedBodyPoseReference.png',
-	'AI\TextureWaterTankGalvanized.png',
-	'AI\TextureTankInteriorBiofilm.png',
-	'AI\SheetAccidentPropsReference.png',
-	'AI\TextureWetServiceHoseRubber.png',
-	'AI\SheetLadderRungFailureReference.png',
-	'AI\TextureWetRungPadRubber.png',
-	'AI\TextureTankWaterSurface.png',
 	'AI\DialogueHUDConcept_v1.png',
 	'AI\TextureHudDialogueFilm.png',
 	'AI\ApartmentVisualTarget_v1.png',
@@ -104,14 +89,8 @@ $requiredMaterialMasks = @(
 	'T_ApartmentWallPatina_M.png'
 )
 $requiredMaterialTextures = @(
-	'T_WetHoodie_D.png',
 	'T_CarrierBagFilm_D.png',
 	'T_AlleyCatTabby_D.png',
-	'T_WaterTankGalvanized_D.png',
-	'T_TankInteriorBiofilm_D.png',
-	'T_WetServiceHose_D.png',
-	'T_WetRungPad_D.png',
-	'T_TankWaterSurface_D.png',
 	'T_P3CabinetPaintedSteel_D.png',
 	'T_AudioCalibrationWall_D.png',
 	'T_HudDialogueFilm_D.png',
@@ -129,31 +108,9 @@ $requiredMaterialTextures = @(
 	'T_UnitDoorPaintedSteel_D.png'
 )
 $requiredPbrMaps = @(
-	'T_WetHoodie_N.png',
-	'T_WetHoodie_R.png',
-	'T_WetHoodie_A.png',
-	'T_WetHoodie_W.png',
 	'T_AlleyCatTabby_N.png',
 	'T_AlleyCatTabby_R.png',
 	'T_AlleyCatTabby_A.png',
-	'T_WaterTankGalvanized_N.png',
-	'T_WaterTankGalvanized_R.png',
-	'T_WaterTankGalvanized_A.png',
-	'T_WaterTankGalvanized_W.png',
-	'T_WaterTankGalvanized_M.png',
-	'T_TankInteriorBiofilm_N.png',
-	'T_TankInteriorBiofilm_R.png',
-	'T_TankInteriorBiofilm_A.png',
-	'T_TankInteriorBiofilm_W.png',
-	'T_TankInteriorBiofilm_M.png',
-	'T_WetServiceHose_N.png',
-	'T_WetServiceHose_R.png',
-	'T_WetServiceHose_A.png',
-	'T_WetServiceHose_W.png',
-	'T_WetRungPad_N.png',
-	'T_WetRungPad_R.png',
-	'T_WetRungPad_A.png',
-	'T_WetRungPad_W.png',
 	'T_P3CabinetPaintedSteel_N.png',
 	'T_P3CabinetPaintedSteel_R.png',
 	'T_P3CabinetPaintedSteel_A.png',
@@ -161,9 +118,6 @@ $requiredPbrMaps = @(
 	'T_CarrierBagFilm_N.png',
 	'T_CarrierBagFilm_R.png',
 	'T_CarrierBagFilm_A.png',
-	'T_TankWaterSurface_N.png',
-	'T_TankWaterSurface_R.png',
-	'T_TankWaterSurface_A.png',
 	'T_ApartmentWallpaperV2_N.png',
 	'T_ApartmentWallpaperV2_R.png',
 	'T_ApartmentWallpaperV2_A.png',
@@ -390,11 +344,6 @@ foreach ($relativePath in $requiredDerived) {
 			$meanLuma = $lumaTotal / [Math]::Max(1, $colorSamples)
 			$dynamicRange = $lumaMaximum - $lumaMinimum
 			switch ($relativePath) {
-				'T_WetHoodie_D.png' {
-					if ($meanLuma -gt 70 -or $dynamicRange -lt 70) {
-						throw "Wet hoodie lost its dark soaked-fabric range: $relativePath"
-					}
-				}
 				'T_CarrierBagFilm_D.png' {
 					if ($meanLuma -lt 125 -or $meanLuma -gt 185 -or $dynamicRange -lt 55) {
 						throw "Carrier film no longer preserves translucent midtones: $relativePath"
@@ -403,31 +352,6 @@ foreach ($relativePath in $requiredDerived) {
 				'T_AlleyCatTabby_D.png' {
 					if ($meanLuma -lt 45 -or $meanLuma -gt 125 -or $dynamicRange -lt 120) {
 						throw "Tabby coat lost its restrained stripe contrast: $relativePath"
-					}
-				}
-				'T_WaterTankGalvanized_D.png' {
-					if ($meanLuma -lt 95 -or $meanLuma -gt 190 -or $dynamicRange -lt 45) {
-						throw "Tank metal lost its restrained galvanized range: $relativePath"
-					}
-				}
-				'T_TankInteriorBiofilm_D.png' {
-					if ($meanLuma -lt 65 -or $meanLuma -gt 160 -or $dynamicRange -lt 45) {
-						throw "Tank interior lost its restrained mineral and biofilm range: $relativePath"
-					}
-				}
-				'T_WetServiceHose_D.png' {
-					if ($meanLuma -gt 55 -or $dynamicRange -lt 35) {
-						throw "Service hose lost its dark wet-rubber range: $relativePath"
-					}
-				}
-				'T_WetRungPad_D.png' {
-					if ($meanLuma -gt 65 -or $dynamicRange -lt 40) {
-						throw "Rung pad lost its dark ribbed-rubber range: $relativePath"
-					}
-				}
-				'T_TankWaterSurface_D.png' {
-					if ($meanLuma -gt 75 -or $dynamicRange -lt 25) {
-						throw "Tank water lost its dark low-contrast ripple range: $relativePath"
 					}
 				}
 				'T_P3CabinetPaintedSteel_D.png' {
@@ -473,14 +397,8 @@ foreach ($relativePath in $requiredDerived) {
 					throw "Wetness mask lacks a restrained local blend range: $relativePath"
 				}
 			}
-			elseif ($relativePath.EndsWith('_M.png')) {
-				if ($dynamicRange -lt 35 -or $meanLuma -lt 120) {
-					throw "Galvanized metal mask no longer separates rust from metal: $relativePath"
-				}
-			}
 			elseif ($relativePath.EndsWith('_R.png')) {
-				$minimumRoughnessRange = if ($relativePath -eq 'T_TankWaterSurface_R.png') { 2 } else { 4 }
-				if ($dynamicRange -lt $minimumRoughnessRange -or $meanLuma -lt 12 -or $meanLuma -gt 242) {
+				if ($dynamicRange -lt 4 -or $meanLuma -lt 12 -or $meanLuma -gt 242) {
 					throw "Roughness map lost usable physical variation: $relativePath"
 				}
 			}
@@ -713,35 +631,16 @@ foreach ($token in @(
 	'M_DecalRainGrime',
 	'M_ApartmentWallPatina',
 	'"tex": "ApartmentWallpaperV2"',
-	'M_WetHoodieUV',
-	'M_SubmergedHoodieUV',
-	'M_SubmergedPantsUV',
-	'M_SubmergedSlippersUV',
-	'M_SubmergedSlipperWearUV',
 	'M_AlleyCatTabbyUV',
-	'M_WaterTankMetalUV',
-	'M_TankInteriorBiofilmUV',
-	'M_WetServiceHoseUV',
-	'M_WetRungPadUV',
 	'M_P3CabinetMetalUV',
-	'M_TankWaterReveal',
 	'M_CarrierBagFilm',
 	'BLEND_MASKED',
 	'MP_OPACITY_MASK',
 	'BLEND_TRANSLUCENT',
 	'MP_OPACITY',
-	'MaterialExpressionPanner',
 	'MaterialExpressionNormalize',
-	'ripple_a_uv',
-	'ripple_b_uv',
-	'IG_TANK_WATER_ONLY',
-	'IG_TANK_INTERIOR_ONLY',
-	'IG_SUBMERGED_CLOTHING_ONLY',
 	'MaterialExpressionMax',
-	'minimum_wetness',
-	'"wet_waterline_z": 561.0',
-	'MaterialExpressionWorldPosition',
-	'"M_TankInteriorBiofilmUV": DECAL_MATERIALS['
+	'MaterialExpressionWorldPosition'
 )) {
 	if (-not $materialScript.Contains($token)) {
 		throw "Masked material contract is missing: $token"
@@ -752,20 +651,12 @@ if ($materialScript -notmatch
 	throw 'Evidence mask textures must use the Masks material sampler type.'
 }
 foreach ($token in @(
-	'SurfaceSpec("T_WetHoodie"',
 	'SurfaceSpec("T_AlleyCatTabby"',
-	'SurfaceSpec("T_WaterTankGalvanized"',
-	'"T_TankInteriorBiofilm", 0.58',
-	'SurfaceSpec("T_WetServiceHose"',
-	'SurfaceSpec("T_WetRungPad"',
 	'SurfaceSpec("T_P3CabinetPaintedSteel"',
 	'SurfaceSpec("T_CarrierBagFilm"',
-	'SurfaceSpec("T_TankWaterSurface"',
 	'ImageOps.autocontrast',
 	'normal_strength',
-	'wetness',
-	'metalness',
-	'coated_metal'
+	'wetness'
 )) {
 	if (-not $pbrScript.Contains($token)) {
 		throw "PBR source-map generation contract is missing: $token"
@@ -812,8 +703,7 @@ foreach ($token in @(
 		throw "Static-mesh LOD chain is not applied at bake time: $token"
 	}
 }
-if (-not $meshScript.Contains('SM_DrinkCan') -or
-	-not $prologueSource.Contains('M_LabelWater1L') -or
+if (-not $prologueSource.Contains('M_LabelWater1L') -or
 	-not $prologueSource.Contains('M_LabelWater2L')) {
 	throw '냉장고의 용량별 상품 라벨이 빠졌다.'
 }
@@ -822,155 +712,16 @@ if (-not $meshScript.Contains('SM_AlleyCatRun') -or
 	-not $neighborhoodSource.Contains('M_AlleyCatTabbyUV')) {
 	throw 'Alley cat mesh/material is not generated and loaded'
 }
-# 잠긴 몸·옥상 방화문·물탱크 소품은 옛 이야기(REBIRTH)에서만 쓰던 것이다. 불러
-# 쓰던 디렉터는 지웠고, 에셋과 생성기가 남아 있는 동안은 생성기 쪽 치수만 본다.
-foreach ($token in @(
-	'Anatomically readable wet hoodie',
-	'leg_segments = (',
-	'Two grounded slide slippers',
-	'location=(50.0, -22.0, 7.0)',
-	'((45.0, 6.0, -8.0), -8.0)'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "Submerged human-anatomy silhouette contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'Content\Meshes\SM_RooftopFireDoorLeaf.uasset',
-	'Content\Meshes\SM_RooftopFireDoorFrame.uasset',
-	'Content\Meshes\SM_RooftopUnlockedPadlockKeys.uasset'
-)) {
-	if (-not $buildScript.Contains($token)) {
-		throw "Rooftop door build output is not release-gated: $token"
-	}
-}
-foreach ($token in @(
-	'def build_rooftop_unlocked_padlock_keys',
-	'for key_index, (key_y, blade_z, blade_length, blade_width, roll) in enumerate(key_specs)',
-	'return bake(mesh, "SM_RooftopUnlockedPadlockKeys", add_collision=True)'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "Rooftop padlock/key mesh contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'def build_rooftop_fire_door_leaf',
-	'(4.5, 116.0, 230.0)',
-	'def build_rooftop_fire_door_frame',
-	'(14.0, 136.0, 1.2)'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "Rooftop fire-door mesh dimensional contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'def build_tank_exterior_access_stair',
-	'for tread_index in range(18)',
-	'if tread_index == 16',
-	'(20.0, 105.0, 3.0)',
-	'(355.0, platform_y, 455.0)',
-	'return bake(mesh, "SM_TankExteriorAccessStair", add_collision=False)'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "Exterior access-stair dimensional contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'def build_rooftop_water_tank_shell',
-	'(149.0, -130.0)',
-	'(153.0, 130.0)',
-	'for seam_index in range(16)',
-	'for hoop_z in (-118.0, 0.0, 118.0)',
-	'location=(0.0, 0.0, -91.0)',
-	'def build_rooftop_tank_pipe_cluster',
-	'4.45,',
-	'3.8,',
-	'return bake(mesh, "SM_RooftopTankPipeCluster", add_collision=False)'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "Rooftop water-tank dimensional mesh contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'def build_tank_internal_ladder',
-	'for rung_index in range(7)',
-	'rung_z = 400.0 + rung_index * 30.0',
-	'[(-125.0, -23.0, rung_z), (-125.0, 23.0, rung_z)]',
-	'for bracket_z in (405.0, 575.0)',
-	'return bake(mesh, "SM_TankInternalLadder", add_collision=False)',
-	'def build_tank_access_guard_rail',
-	'for rail_y in (-105.0, 105.0)',
-	'(-65.0, rail_y, 0.0)',
-	'(0.0, 116.0, 56.0)',
-	'return bake(mesh, "SM_TankAccessGuardRail", add_collision=False)'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "Tank access-safety mesh contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'def create_tank_water_material',
-	'MaterialProperty.MP_OPACITY',
-	'MaterialProperty.MP_REFRACTION',
-	'refraction_floor.set_editor_property("r", 1.006)'
-)) {
-	if (-not $materialScript.Contains($token)) {
-		throw "Tank-water material contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'(5.0, 54.0, 0.30)',
-	'(3.5, 54.0, 0.30)',
-	'location=(-1.75, 0.0, 1.66)',
-	'rotation=(15.0, 0.0, 0.0)'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "Rung-pad long-edge lift contract is missing: $token"
-	}
-}
-foreach ($token in @(
-	'Content\Meshes\SM_TankExteriorAccessStair.uasset',
-	'Content\Meshes\SM_TankInternalLining.uasset',
-	'ART_BUILD PASS meshes=40'
-)) {
-	if (-not $buildScript.Contains($token)) {
-		throw "Exterior access-stair output is not release-gated: $token"
-	}
-}
-foreach ($token in @(
-	'location=(-96.0, 0.0, -7.0)',
-	'location=(-96.0, 0.0, 3.0)',
-	'location=(49.0, hinge_y, 2.0)'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "West-side service-hatch mesh contract is missing: $token"
-	}
-}
 if (-not $prologueSource.Contains('M_CarrierBagFilm')) {
 	throw 'Purchase bag does not share the carrier-film material'
 }
-foreach ($token in @(
-	'def build_first_person_hoodie_sleeve',
-	'(13.5, 12.4, 24.0)',
-	'(11.8, 11.0, 18.0)',
-	'5.25,',
-	'SM_FirstPersonHoodieSleeve'
-)) {
-	if (-not $meshScript.Contains($token)) {
-		throw "First-person sleeve mesh contract is missing: $token"
-	}
-}
 # 이름은 P3지만 밸브 핸들 둘은 Missing Floor 밤4 설비와 부스 수직관 밸브가 그대로 쓴다.
 foreach ($token in @(
-	'def build_p3_service_cabinet_shell',
-	'(270.0, 4.0, 196.0)',
-	'def build_p3_service_manifold',
 	'_build_p3_valve_wheel("SM_P3ValveWheelLarge", 18.0',
-	'_build_p3_valve_wheel("SM_P3ValveWheelSmall", 12.0',
-	'build_p3_pressure_gauge'
+	'_build_p3_valve_wheel("SM_P3ValveWheelSmall", 12.0'
 )) {
 	if (-not $meshScript.Contains($token)) {
-		throw "P3 mesh dimensional contract is missing: $token"
+		throw "Valve wheel mesh contract is missing: $token"
 	}
 }
 foreach ($token in @(
@@ -981,9 +732,6 @@ foreach ($token in @(
 	'[switch]$HudUiOnly',
 	'[switch]$CorridorSignageOnly',
 	'-CorridorEntranceOnly',
-	'[switch]$TankWaterOnly',
-	'[switch]$TankInteriorOnly',
-	'[switch]$SubmergedClothingOnly',
 	'ART_TARGETED_BUILD PASS',
 	'@($targetRelativeAssets).Count',
 	'IG_HUD_UI_ONLY',
@@ -1004,9 +752,6 @@ foreach ($token in @(
 	'IG_APARTMENT_VISUAL_ONLY',
 	'T_ApartmentWallpaperV2_D.uasset',
 	'T_ApartmentWallPatina_M.uasset',
-	'IG_TANK_WATER_ONLY',
-	'IG_TANK_INTERIOR_ONLY',
-	'IG_SUBMERGED_CLOTHING_ONLY',
 	'ART_SOURCE_BUILD PASS',
 	'ART_CODE_BUILD PASS',
 	'ART_BUILD compiling IndieGameEditor Win64 Development',

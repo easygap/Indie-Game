@@ -1,5 +1,6 @@
-﻿# Downloads the CC0 photo-texture sets (ambientCG.com, 1K JPG) used by the
-# prologue realism pass and extracts them into Content/SourceArt/Photo/<Surface>.
+﻿# Downloads the CC0 photo-texture sets (ambientCG.com, 2K JPG) the game still
+# samples and extracts them into Content/SourceArt/Photo/<Surface>. The zip is a
+# download cache under Content/SourceArt/PhotoZips and is not kept in the repo.
 # CC0 1.0: free for commercial use, modification and redistribution; each
 # download is recorded in Docs/ASSET_POLICY.md.
 
@@ -18,19 +19,14 @@ $surfaces = [ordered]@{
     'Brick'       = @('Bricks090', 'Bricks051', 'Bricks075')
     'Asphalt'     = @('Asphalt025', 'Asphalt026', 'Asphalt012')
     'Concrete'    = @('Concrete034', 'Concrete016', 'Concrete042')
-    'StoreTile'   = @('Tiles101', 'Tiles074', 'Tiles131')
     'Jangpan'     = @('WoodFloor051', 'WoodFloor040', 'WoodFloor007')
-    'Wallpaper'   = @('Plaster003', 'PaintedPlaster017', 'Plaster001')
-    'CeilingTile' = @('OfficeCeiling005', 'OfficeCeiling001', 'OfficeCeiling006')
     'MetalBrushed'= @('Metal032', 'Metal012', 'Metal009')
     'Blanket'     = @('Fabric022', 'Fabric030', 'Fabric001')
     'WoodDark'    = @('Wood067', 'Wood051', 'Wood026')
-    # Villa surfaces from the reference photos: speckled granite tile for the
-    # corridor/lobby floor, granite cladding panels for the facade, troweled
-    # stucco for the hallway walls, marble for the lift car floor.
-    'GraniteTile' = @('Terrazzo009', 'Terrazzo004', 'Tiles074')
+    # Villa surfaces from the reference photos: granite cladding panels for the
+    # facade, marble for the lift car floor. The corridor floor and walls use
+    # generated textures (SourceArt/AI/PocheonGranite, LandingPaint).
     'GranitePanel'= @('Terrazzo018', 'Marble016', 'Concrete031')
-    'Stucco'      = @('Plaster004', 'Plaster006', 'PaintedPlaster014')
     'MarbleFloor' = @('Marble016', 'Marble006', 'Terrazzo004')
     # 빌라 파사드. README와 타이틀이 말하는 붉은 벽돌이다. 화강석 판은 1층
     # 기단과 승강기 벽에만 남는다. Bricks059가 회색 줄눈의 적벽돌에 가장 가깝다.

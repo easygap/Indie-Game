@@ -53,9 +53,8 @@ SOURCE_ART = os.path.join("Content", "SourceArt", "PhotoProps")
 SCENE_SOURCE = os.path.join(
     "Source", "IndieGame", "Core", "IGPrologueWorldScene.cpp")
 
-# 이 에셋만 FindPhotoPropMesh가 일부러 nullptr을 돌려준다. 사진 소품이 아니라
-# 대체 상자가 사는 자리이므로 여기서도 보지 않는다.
-REJECTED_ASSETS = frozenset({"modern_wooden_cabinet"})
+# FindPhotoPropMesh가 일부러 nullptr을 돌려주는 원본. 지금은 없다.
+REJECTED_ASSETS = frozenset()
 
 # 구조물로 볼 상자의 최소 두께. 이보다 얇으면 걸레받이나 바닥 도색이라
 # 소품이 겹쳐도 잘못이 아니다.
@@ -273,7 +272,7 @@ def self_test() -> int:
     if not chair or abs(chair[0] - 43) > 2 or abs(chair[1] - 54) > 2             or abs(chair[2] - 96) > 2:
         failures.append("의자 원본이 43x54x96이 아니다 — 축 대응이 틀렸다: "
                         + str(chair))
-    if "outdoor_table_chair_set_01" in sizes:
+    if "metal_office_desk" in sizes:
         failures.append("메시가 여럿인 원본을 걸러 내지 못했다")
     if not skipped:
         failures.append("건너뛴 원본이 하나도 없다 — 걸러 내기가 안 돈다")

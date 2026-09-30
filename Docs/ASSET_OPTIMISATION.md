@@ -8,12 +8,12 @@
 
 ## 1. 물리적 타당성 — `Scripts/audit_world_geometry.py`
 
-건물·골목·편의점·CH03 옥상은 레벨 에디터가 아니라 C++ 안의 센티미터
+건물·골목·편의점·옥상은 레벨 에디터가 아니라 C++ 안의 센티미터
 좌표로 조립된다. 빠르지만 눈으로는 검증이 불가능하다. 선반이 벽 속으로
 3cm 들어가도, 병이 상판 위 4cm에 떠 있어도 컴파일러도 엔진도 아무 말을
 하지 않는다. 플레이어만 "저건 물건이 저렇게 있을 수 없는데"라고 느낀다.
 
-검사기는 UE 없이 `IGPrologueWorldScene.cpp`와 `IGThirdMorningDirector.cpp`의
+검사기는 UE 없이 `IGPrologueWorldScene.cpp`의
 배치 호출(`CreateBlock`·`AddStoreStockBlock`·`CreatePhysicsProp`)을 다시
 평가해 상자를 복원한다. 범위 for, 카운트 for, 배열 상수,
 로컬 람다, 삼항 연산자까지 해석해 현재 배치식의 **78.8%**를 복원한다.

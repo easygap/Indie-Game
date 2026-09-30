@@ -16,19 +16,11 @@ PROPS = [
     "side_table_01",
     "metal_office_desk",
     "painted_wooden_chair_01",
-    "modern_wooden_cabinet",
     "desk_lamp_arm_01",
-    "electric_stove",
-    "street_lamp_01",
     "trashbag",
     "cardboard_box_01",
-    "steel_frame_shelves_01",
-    "CashRegister_01",
     "plastic_crate_01",
     "utility_box_01",
-    "wine_bottles_01",
-    "outdoor_table_chair_set_01",
-    "plastic_monobloc_chair_01",
 ]
 
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))

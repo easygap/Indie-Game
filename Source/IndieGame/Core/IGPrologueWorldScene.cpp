@@ -1000,7 +1000,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		TEXT("M_LabelSoda"), TEXT("M_LabelSoju"), TEXT("M_LabelRamyeon"),
 		TEXT("M_SnackShrimp"), TEXT("M_SnackPotato"),
 		TEXT("M_SnackSquid"), TEXT("M_SnackCorn"),
-		TEXT("M_CarrierBagFilm"), TEXT("M_WetHoodieUV"),
+		TEXT("M_CarrierBagFilm"),
 		TEXT("M_ConstructionFilm"),
 		TEXT("M_SkyDawn"),
 		// Villa surfaces and fittings from the reference photos.
@@ -1026,7 +1026,7 @@ void AIGPrologueWorldScene::LoadTexturedMaterials()
 		// 소리만 다르고 그림은 복도 콘크리트 그대로다.
 		TEXT("M_MissingFloorSteelStair"), TEXT("M_RooftopWaterproofing_XY"),
 		TEXT("M_MissingFloorGypsumDebris_XY"),
-		TEXT("M_WaterTankMetalUV"), TEXT("M_UtilityTankSteel"), TEXT("M_UtilityFoundation"), TEXT("M_UtilityGraniteCladding"), TEXT("M_UtilityConcreteDark"), TEXT("M_UtilityVillaBrick"), TEXT("M_UtilityStreetBrick"), TEXT("M_CctvStandby"), TEXT("M_UtilityMeterCounter"), TEXT("M_UtilityMeterLabel"), TEXT("M_TankWaterReveal"),
+		TEXT("M_UtilityTankSteel"), TEXT("M_UtilityFoundation"), TEXT("M_UtilityGraniteCladding"), TEXT("M_UtilityConcreteDark"), TEXT("M_UtilityVillaBrick"), TEXT("M_UtilityStreetBrick"), TEXT("M_CctvStandby"), TEXT("M_UtilityMeterCounter"), TEXT("M_UtilityMeterLabel"),
 		TEXT("M_ApartmentNightGlass"), TEXT("M_NightSkyline"), TEXT("M_NightSkyGlow"), TEXT("M_AnnexPanel"), TEXT("M_RoomInterior"), TEXT("M_SpriteSeo"), TEXT("M_SpriteMok"),
 		TEXT("M_SpriteHwang"), TEXT("M_SpriteNarin"),
 		// Aged paper stock for readable notes, and the rental notice.
@@ -1373,18 +1373,9 @@ UStaticMesh* AIGPrologueWorldScene::FindPhotoPropMesh(const TCHAR* AssetId) cons
 	// turned a cash register into a loose drawer and an outdoor set into one
 	// chair. Explicitly select the authored primary mesh.
 	static const TMap<FName, FName> PreferredAssetNames = {
-		{TEXT("CashRegister_01"), TEXT("CashRegister_01_body")},
 		{TEXT("metal_office_desk"), TEXT("metal_office_desk")},
-		{TEXT("outdoor_table_chair_set_01"), TEXT("outdoor_table_chair_set_01_table")},
-		{TEXT("wine_bottles_01"), TEXT("wine_bottles_01_bordeaux")},
 	};
 	const FName AssetIdName(AssetId);
-	if (AssetIdName == TEXT("modern_wooden_cabinet"))
-	{
-		// This source imported its body only as a skeletal mesh; its two static
-		// entries are detached doors. Use the complete procedural cabinet.
-		return nullptr;
-	}
 	const FName PreferredName = PreferredAssetNames.Contains(AssetIdName)
 		? PreferredAssetNames[AssetIdName]
 		: FName(FString::Printf(TEXT("%s_1k"), AssetId));
@@ -1994,7 +1985,7 @@ void AIGPrologueWorldScene::BuildApartment()
 			FVector(-170, -104, 0), FVector(100, 100, 100),
 			nullptr, true, WardrobeMesh, FRotator::ZeroRotator);
 	}
-	else if (!PlacePhotoProp(TEXT("modern_wooden_cabinet"), FVector(-170, -104, 0), FVector(40, 80, 186), 0.0f))
+	else
 	{
 		// physics-audit: intentional 저작 메시가 없을 때만 짓는 폴백이다. 위 if와 배타적이라 화면에 함께 없다.
 		CreateBlock(FVector(-170, -104, 90), FVector(40, 80, 180), Furniture);

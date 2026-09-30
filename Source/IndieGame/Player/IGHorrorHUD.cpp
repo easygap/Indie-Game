@@ -572,19 +572,15 @@ void AIGHorrorHUD::InitializeMissingFloorJournalTextures()
 		nullptr,
 		TEXT("/Game/Prototype/Textures/T_MissingFloorDryPlaster_D."
 			"T_MissingFloorDryPlaster_D"));
+	// 썸네일은 증거가 나온 자리에서 플레이어가 본 표면이어야 한다. 옥상
+	// 저수조는 M_UtilityTankSteel의 새틴 강판이다.
 	JournalTankTexture = LoadObject<UTexture2D>(
 		nullptr,
-		TEXT("/Game/Prototype/Textures/T_WaterTankGalvanized_D."
-			"T_WaterTankGalvanized_D"));
-	// The capture, not T_MetalBrushed_D. A journal thumbnail stands in for the
-	// place the evidence came from -- the fifth-floor landing, the ground-floor
-	// distribution board -- so it has to be the metal the player saw. Every
-	// metal surface in the game samples T_Photo_MetalBrushed_D, because
-	// create_textured_materials._load_texture takes the CC0 capture over the
-	// procedural fallback; the other three thumbnails already match their
-	// surface, and this one was the odd one out, showing a texture that
-	// appears nowhere in the world. Scripts/check_cook_references.py fails if
-	// the two sides drift apart again.
+		TEXT("/Game/Prototype/Textures/T_UtilityTankSteel_D."
+			"T_UtilityTankSteel_D"));
+	// 5층 계단참과 1층 분전반의 금속은 전부 CC0 사진 캡처를 쓴다.
+	// create_textured_materials._load_texture가 절차 텍스처보다 캡처를
+	// 먼저 고르므로 T_MetalBrushed_D가 아니라 이쪽이다.
 	JournalMetalTexture = LoadObject<UTexture2D>(
 		nullptr,
 		TEXT("/Game/Prototype/Textures/T_Photo_MetalBrushed_D."

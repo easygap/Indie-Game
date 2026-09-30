@@ -69,15 +69,6 @@ UNIFORM_SURFACES = frozenset({
     "M_PaperFolded",
     "M_PaperOld",
     "M_PaperWet",
-    "M_SubmergedHoodieUV",
-    "M_SubmergedPantsUV",
-    "M_SubmergedSlipperWearUV",
-    "M_SubmergedSlippersUV",
-    "M_TankInteriorBiofilmUV",
-    "M_WaterTankMetalUV",
-    "M_WetHoodieUV",
-    "M_WetRungPadUV",
-    "M_WetServiceHoseUV",
 })
 
 # 금속 명판의 몸체와 얇은 인쇄물을 구분한다. 단위는 cm.
@@ -199,7 +190,7 @@ TEXTURED_MATERIALS = {
 
 DECAL_MATERIALS = {
     "M_DemoNotice": {"tex_asset": "T_DemoNotice_D", "rough": 0.7},
-    "M_WaterTankMetalUV": {"tex_asset": "T_WaterTankGalvanized_D"},
+    "M_P3CabinetMetalUV": {"tex_asset": "T_P3CabinetPaintedSteel_D"},
 }
 
 SIGN_MATERIALS = {
@@ -222,7 +213,7 @@ def _self_test() -> int:
     materials = parse_print_materials(SELF_TEST_RECIPE)
     check("표 경계", sorted(materials), ["M_DemoNotice", "M_DemoSignLit"])
     # 표면 스캔은 이름이 표 안에 있어도 빠진다.
-    check("표면 스캔 제외", "M_WaterTankMetalUV" in materials, False)
+    check("표면 스캔 제외", "M_P3CabinetMetalUV" in materials, False)
     # 다른 표의 이름이 새어 들어오면 안 된다.
     check("다른 표", "M_NotAPrint" in materials, False)
 

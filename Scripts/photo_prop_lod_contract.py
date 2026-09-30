@@ -32,18 +32,12 @@ PHOTO_PROP_ROOT = "/Game/Photo/Props"
 # handheld or shelf-size clutter. Screen-size thresholds still come from the
 # LOD chain in mesh_lod_contract; these names only choose which chain.
 LARGE_PROP_IDS = {
-    "electric_stove",
     "metal_office_desk",
-    "modern_wooden_cabinet",
     "old_bed_frame",
-    "outdoor_table_chair_set_01",
     "painted_wooden_chair_01",
     # 크기로는 소품이지만 스캔의 UV 심 보존 감축 바닥이 6652라 3000 예산에
     # 물리적으로 못 들어간다. 실측(18320 -> 6652 수렴)이 근거다.
     "plastic_crate_01",
-    "plastic_monobloc_chair_01",
-    "steel_frame_shelves_01",
-    "street_lamp_01",
 }
 
 

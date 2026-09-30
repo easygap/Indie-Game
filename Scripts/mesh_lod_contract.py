@@ -77,18 +77,9 @@ MESH_CLASSES = {cls.name: cls for cls in (HERO, PROP, LARGE)}
 # Props the story puts in the player's hands or a metre from their face.
 HERO_MESHES = frozenset({
     "SM_AlleyCatRun",
-    "SM_FirstPersonHoodieSleeve",
-    "SM_HornRimGlasses",
-    "SM_InspectionRod",
     "SM_CrackedPhone",
-    "SM_CarrierBagCollapsed",
-    "SM_LadderFailureRung",
-    "SM_LadderRungPadLifted",
-    "SM_LadderRungRetainingClips",
     "SM_P3ValveWheelLarge",
     "SM_P3ValveWheelSmall",
-    "SM_P3PressureGauge",
-    "SM_OfferingWaterBowl",
     "SM_CupSleeve",
     "SM_LabelSleeve",
     "SM_StickyNote76mm",
@@ -105,22 +96,10 @@ HERO_MESHES = frozenset({
     "SM_TunerToolCart",
     "SM_ComplaintLedger",
     "SM_CalendarJournal",
-    # 자물쇠·열쇠 세 개·태그가 한 뭉치인 조사 물증이다. 분리된 고리와 원통이
-    # 많아 QEM이 3000까지 못 내려가고(실측 5628에서 수렴), 팔 길이에서
-    # 읽는 프롭이라 hero 예산이 맞다.
-    "SM_RooftopUnlockedPadlockKeys",
 })
 
-LARGE_MESH_PREFIXES = (
-    "SM_RooftopWaterTank",
-    "SM_RooftopTank",
-    "SM_TankInternal",
-    "SM_TankAccess",
-    "SM_TankExterior",
-    "SM_RooftopFireDoor",
-    "SM_P3ServiceCabinet",
-    "SM_RooftopServiceHose",
-)
+# 옥상 물탱크·방화문처럼 이름으로 묶던 큰 설비는 옛 이야기와 함께 빠졌다.
+LARGE_MESH_PREFIXES = ()
 
 # Meshes whose UVs carry printed artwork placed by hand — a label band, a
 # cup sleeve, a sticky note. Simplification is allowed to move vertices but
@@ -133,7 +112,6 @@ PRINTED_SURFACE_MESHES = frozenset({
     "SM_CaptureMercyNote",
     "SM_ComplaintLedger",
     "SM_CalendarJournal",
-    "SM_SnackBag",
     "SM_MilkCarton",
 })
 
