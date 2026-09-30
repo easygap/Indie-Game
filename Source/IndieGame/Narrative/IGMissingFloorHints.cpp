@@ -103,7 +103,7 @@ namespace
 					: NSLOCTEXT("IGHint", "NightTwo3Desk", "관리실 책상을 한 번 더 둘러보자."));
 			return Make(TEXT("Hint.Night2.P2"), {
 				NSLOCTEXT("IGHint", "NightTwo1", "소리 민원이 들어갔다면 관리실에 기록이 남았겠지."),
-				NSLOCTEXT("IGHint", "NightTwo2", "민원 대장이 너무 깨끗해. 뜯어낸 밑장에 눌린 자국이 남았을지도."),
+				NSLOCTEXT("IGHint", "NightTwo2", "민원 대장이 너무 깨끗해. 접수철은 윗장이 뜯겼던데, 밑장에 눌린 자국이 남았을지도."),
 				Last });
 		}
 		const UWorld* World = WorldContext ? WorldContext->GetWorld() : nullptr;

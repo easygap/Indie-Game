@@ -1867,7 +1867,7 @@ void AIGListenerGreyboxDirector::SpawnArrivalInteractables(UStaticMesh* CubeMesh
 		NSLOCTEXT(
 			"IGMissingFloor",
 			"ArrivalVoicemailThought",
-			"“유담아, 나 이사했어. 집이 좀 이상하긴 한데… 와 보면 알아. 문 두드릴 땐 알지? 둘, 하나.” 뒤에서 뭔가 긁히는 소리가 들린다."),
+			"“유담아, 나 이사했어. 집이 좀 이상하긴 한데… 와 보면 알아. 문 두드리면 알지? 둘, 하나.” 뒤에서 뭔가 긁히는 소리가 들린다."),
 		0.8f,
 		0.09f);
 	ArrivalStoreBell = SpawnEvidence(

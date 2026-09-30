@@ -5347,10 +5347,10 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 	const EIGNightDifficulty Difficulty = IGListenerTuning::LoadPersistedDifficulty();
 	const FString DifficultyLabel = IGListenerTuning::GetDifficultyLabel(Difficulty).ToString();
 	const FText DifficultyDescriptions[] = {
-		NSLOCTEXT("IGHUD", "DifficultyDescQuiet", "귀신이 소리를 잘 알아채지 못하고, 쫓아오는 속도도 느려집니다."),
+		NSLOCTEXT("IGHUD", "DifficultyDescQuiet", "위층 사람이 소리를 잘 알아채지 못하고, 쫓아오는 속도도 느려집니다."),
 		NSLOCTEXT("IGHUD", "DifficultyDescStandard", "작은 소리에도 주의하며 돌아다녀야 합니다. 기본 난이도입니다."),
-		NSLOCTEXT("IGHUD", "DifficultyDescHasty", "귀신이 작은 소리도 잘 듣고 오래 쫓아옵니다."),
-		NSLOCTEXT("IGHUD", "DifficultyDescListenOnly", "귀신이 소리를 듣고 다가오지만 쫓거나 붙잡지는 않습니다. 퍼즐과 결말은 그대로 즐길 수 있습니다.")
+		NSLOCTEXT("IGHUD", "DifficultyDescHasty", "위층 사람이 작은 소리도 잘 듣고 오래 쫓아옵니다."),
+		NSLOCTEXT("IGHUD", "DifficultyDescListenOnly", "위층 사람이 소리를 듣고 다가오지만 쫓거나 붙잡지는 않습니다. 퍼즐과 결말은 그대로 즐길 수 있습니다.")
 	};
 	const auto InputMode = [](const bool bToggle)
 	{
@@ -5442,8 +5442,8 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		NSLOCTEXT("IGHUD", "A11yCameraTextureDesc", "화면 가장자리에 약한 렌즈 왜곡 효과를 더합니다. 눈이 피로하면 낮춰 주세요."),
 		NSLOCTEXT("IGHUD", "A11yCenterDotDesc", "평소에는 조사할 물건을 겨눌 때만 화면 가운데에 점이 뜹니다. 어지럽다면 항상 띄워 두세요. 화면을 볼 때 기준점이 됩니다."),
 		NSLOCTEXT("IGHUD", "A11yFearDirectionDesc", "중요한 소리가 나면 화면 가장자리에 그 방향을 표시합니다."),
-		NSLOCTEXT("IGHUD", "A11yKnockRingDesc", "귀신이 낸 소리는 얇은 원으로, 내가 낸 소리는 굵은 원으로 표시합니다."),
-		NSLOCTEXT("IGHUD", "A11yKnockHapticDesc", "귀신이 소리를 내면 게임패드가 진동합니다. 멀리서 나는 소리일수록 진동도 약해집니다."),
+		NSLOCTEXT("IGHUD", "A11yKnockRingDesc", "위층 사람이 낸 소리는 얇은 원으로, 내가 낸 소리는 굵은 원으로 표시합니다."),
+		NSLOCTEXT("IGHUD", "A11yKnockHapticDesc", "위층 사람이 소리를 내면 게임패드가 진동합니다. 멀리서 나는 소리일수록 진동도 약해집니다."),
 		NSLOCTEXT("IGHUD", "A11yHeartbeatDesc", "긴장했을 때 화면 가장자리가 심장 박동에 맞춰 움직입니다."),
 		NSLOCTEXT("IGHUD", "A11yKnockAssistDesc", "박자가 조금 늦거나 빨라도 맞은 것으로 칩니다."),
 		NSLOCTEXT("IGHUD", "A11ySoundCaptionsDesc", "두드리는 소리나 발소리처럼 진행에 필요한 소리를 글로 보여 줍니다."),
@@ -5456,7 +5456,7 @@ void AIGHorrorHUD::DrawAccessibilityPanel()
 		NSLOCTEXT("IGHUD", "A11yHoldDurationDesc", "문을 열거나 조사할 때 버튼을 얼마나 오래 누를지 정합니다."),
 		NSLOCTEXT("IGHUD", "A11yPromptKeysDesc", "항상으로 두면 조사 안내 앞에 누를 키를 늘 붙입니다. 익힐 때까지로 두면 같은 동작을 세 번 한 뒤부터는 키 이름을 빼고 보여 줍니다."),
 		NSLOCTEXT("IGHUD", "A11yHapticsDesc", "게임패드 진동을 켜거나 끕니다."),
-		NSLOCTEXT("IGHUD", "A11yMicrophoneDesc", "켜면 내 목소리와 주변 소리에 게임 속 귀신이 반응합니다. 꺼 두면 마이크를 사용하지 않습니다."),
+		NSLOCTEXT("IGHUD", "A11yMicrophoneDesc", "켜면 내 목소리와 주변 소리에 위층 사람이 반응합니다. 꺼 두면 마이크를 사용하지 않습니다."),
 		NSLOCTEXT("IGHUD", "A11yResetDesc", "이 화면의 설정을 처음 상태로 되돌립니다."),
 		NSLOCTEXT("IGHUD", "A11yCloseDesc", "설정을 저장하고 이전 화면으로 돌아갑니다.")
 	};
@@ -6386,7 +6386,7 @@ void AIGHorrorHUD::DrawAudioCalibrationPanel()
 	if (AudioCalibrationSelectedRow == 1 || AudioCalibrationSelectedRow == 2)
 	{
 		DrawCenteredText(
-			NSLOCTEXT("IGHUD", "AudioCalibrationBusNote", "배경 음악과 환경음은 따로 조절할 수 있습니다. 두드리는 소리와 귀신이 내는 소리는 전체 소리 크기를 따릅니다."),
+			NSLOCTEXT("IGHUD", "AudioCalibrationBusNote", "배경 음악과 환경음은 따로 조절할 수 있습니다. 두드리는 소리와 위층 사람이 내는 소리는 전체 소리 크기를 따릅니다."),
 			Layout.NoteTop,
 			IGHorrorHUD::PaleGray,
 			EIGHudTextRole::Hint,
@@ -7191,7 +7191,7 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		const FNoticeLine NoticeLines[] =
 		{
 			{NSLOCTEXT("IGHUD", "NoticeSensory", "화면과 소리"), true},
-			{NSLOCTEXT("IGHUD", "NoticeSensory1", "어두운 곳에서 귀신이 갑자기 다가오거나 큰 소리가 날 수 있습니다. 화면 흔들림과 조명 깜빡임도 있습니다."), false},
+			{NSLOCTEXT("IGHUD", "NoticeSensory1", "어두운 곳에서 무언가 갑자기 다가오거나 큰 소리가 날 수 있습니다. 화면 흔들림과 조명 깜빡임도 있습니다."), false},
 			{NSLOCTEXT("IGHUD", "NoticeSensory2", "화면이나 소리가 불편하면 잠시 쉬거나 설정을 조절해 주세요."), false},
 			{NSLOCTEXT("IGHUD", "NoticeThemes", "다루는 내용"), true},
 			{NSLOCTEXT("IGHUD", "NoticeThemes1", "시신이 나오는 장면과, 사람이 죽어 가는"
