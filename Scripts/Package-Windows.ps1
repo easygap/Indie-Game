@@ -1,9 +1,16 @@
 [CmdletBinding()]
-param([string]$ArchiveDirectory)
+param([string]$ArchiveDirectory, [switch]$RequireCleanCommit)
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$buildCommit = (& git -C $projectRoot rev-parse HEAD)
+if ($LASTEXITCODE -ne 0) { throw '패키징할 커밋을 확인하지 못했습니다.' }
+$buildStatus = @(& git -C $projectRoot status --porcelain)
+if ($LASTEXITCODE -ne 0) { throw '작업 폴더의 변경 내역을 확인하지 못했습니다.' }
+if ($RequireCleanCommit -and $buildStatus.Count) {
+    throw '출시 후보는 변경 사항을 모두 커밋한 뒤 만들어 주세요.'
+}
 if ([string]::IsNullOrWhiteSpace($ArchiveDirectory)) {
     $ArchiveDirectory = Join-Path $projectRoot ('Saved/Packages/Windows-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 }
@@ -60,11 +67,21 @@ $files = Get-ChildItem -LiteralPath (Join-Path $ArchiveDirectory 'Windows') -Fil
         sha256 = (Get-FileHash -LiteralPath $_.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
     }
 }
+$afterCommit = (& git -C $projectRoot rev-parse HEAD)
+if ($LASTEXITCODE -ne 0) { throw '패키징 뒤 커밋을 확인하지 못했습니다.' }
+$afterStatus = @(& git -C $projectRoot status --porcelain)
+if ($LASTEXITCODE -ne 0) { throw '패키징 뒤 변경 내역을 확인하지 못했습니다.' }
+if ($afterCommit -ne $buildCommit -or ($buildStatus -join "`n") -cne ($afterStatus -join "`n")) {
+    throw '패키징 도중 소스가 바뀌었습니다. 완성된 커밋에서 다시 만들어 주세요.'
+}
 [ordered]@{
+    schemaVersion = 2
     createdAt = [DateTime]::UtcNow.ToString('o')
-    commit = (& git -C $projectRoot rev-parse HEAD)
-    hasLocalChanges = [bool](& git -C $projectRoot status --porcelain)
+    commit = $buildCommit
+    hasLocalChanges = [bool]$buildStatus.Count
     buildProject = $buildProject
     files = @($files)
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $ArchiveDirectory 'manifest.json') -Encoding utf8
+& (Join-Path $PSScriptRoot 'Test-WindowsPackageManifest.ps1') -ArchiveDirectory $ArchiveDirectory `
+    -ExpectedCommit $buildCommit -RequireCleanCommit:$RequireCleanCommit
 Write-Host "WINDOWS_PACKAGE PASS $ArchiveDirectory"

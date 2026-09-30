@@ -8,13 +8,12 @@
 
 message_file="$1"
 
-if grep -qiE '^Co-Authored-By:.*(claude|anthropic|copilot|cursor|codex)' "$message_file"; then
-	echo >&2 "커밋 거부: Co-Authored-By 에 AI 도구 이름이 들어 있다."
-	echo >&2 "  GitHub 이 이걸 읽고 contributor 목록에 올린다. 그 줄을 지우고 다시 커밋해라."
+if grep -qiE '^[[:space:]]*Co-Authored-By[[:space:]]*:' "$message_file"; then
+	echo >&2 "커밋 거부: Co-Authored-By 트레일러를 지워 주세요."
 	exit 1
 fi
 
-if grep -qiE '^(Claude-Session|Generated-By|AI-Assisted):' "$message_file"; then
+if grep -qiE '^[[:space:]]*(Codex-Session|Claude-Session|Generated-By|AI-Assisted)[[:space:]]*:|^[[:space:]]*[A-Za-z0-9-]+[[:space:]]*:.*(claude|anthropic|copilot|cursor|codex|openai)' "$message_file"; then
 	echo >&2 "커밋 거부: AI 도구 트레일러가 들어 있다."
 	echo >&2 "  해당 줄을 지우고 다시 커밋해라."
 	exit 1
@@ -23,20 +22,12 @@ fi
 author_name=$(git var GIT_AUTHOR_IDENT | sed 's/ <.*//')
 author_email=$(git var GIT_AUTHOR_IDENT | sed 's/.*<//; s/>.*//')
 
-case "$author_name" in
-	*[Cc]laude*|*[Aa]nthropic*|*[Cc]opilot*|*[Cc]ursor*)
-		echo >&2 "커밋 거부: 작성자 이름이 '$author_name' 이다."
-		echo >&2 "  git config user.name easygap"
-		exit 1
-		;;
-esac
-
-case "$author_email" in
-	*anthropic.com*|*openai.com*|*noreply@github.com)
-		echo >&2 "커밋 거부: 작성자 메일이 '$author_email' 이다."
-		echo >&2 "  git config user.email 103491329+easygap@users.noreply.github.com"
-		exit 1
-		;;
-esac
+if [ "$author_name" != 'easygap' ] ||
+   [ "$author_email" != '103491329+easygap@users.noreply.github.com' ]; then
+	echo >&2 "커밋 거부: 작성자는 easygap 계정이어야 합니다."
+	echo >&2 "  git config user.name easygap"
+	echo >&2 "  git config user.email 103491329+easygap@users.noreply.github.com"
+	exit 1
+fi
 
 exit 0

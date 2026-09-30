@@ -2,18 +2,28 @@
 param(
     [Parameter(Mandatory)][string]$ArchiveDirectory,
     [string]$EvidenceDirectory,
+    [ValidatePattern('^[0-9a-fA-F]{40}$')][string]$ExpectedCommit,
+    [switch]$RequireCleanCommit,
     [ValidateRange(60, 900)][int]$TimeoutSeconds = 360
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
 $archiveRoot = (Resolve-Path -LiteralPath $ArchiveDirectory).Path
+$manifestArguments = @{ ArchiveDirectory = $archiveRoot; RequireCleanCommit = $RequireCleanCommit }
+if ($ExpectedCommit) { $manifestArguments.ExpectedCommit = $ExpectedCommit }
+& (Join-Path $PSScriptRoot 'Test-WindowsPackageManifest.ps1') @manifestArguments
+$packageManifest = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $archiveRoot 'manifest.json') | ConvertFrom-Json
 $launcher = Join-Path $archiveRoot 'Windows/MissingFloor.exe'
 if (-not (Test-Path -LiteralPath $launcher)) { throw "실행 파일이 없습니다: $launcher" }
 if (-not $EvidenceDirectory) {
     $EvidenceDirectory = Join-Path $projectRoot ('Saved/Validation/WindowsPackage-' + (Get-Date -Format 'yyyyMMdd-HHmmss'))
 }
 $EvidenceDirectory = [IO.Path]::GetFullPath($EvidenceDirectory)
+if ($EvidenceDirectory.TrimEnd('\', '/') -eq $archiveRoot.TrimEnd('\', '/') -or
+    $EvidenceDirectory.StartsWith($archiveRoot.TrimEnd('\', '/') + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+    throw '검사 결과 폴더는 배포 폴더 밖에 두어야 합니다.'
+}
 if ((Test-Path -LiteralPath $EvidenceDirectory) -and @(Get-ChildItem -LiteralPath $EvidenceDirectory -Force).Count) {
     throw "검사 결과는 새 폴더에 저장해야 합니다: $EvidenceDirectory"
 }
@@ -72,11 +82,11 @@ function Invoke-GameCase([string]$Name, [string[]]$ExtraArguments, [switch]$Audi
         [IO.File]::WriteAllLines((Join-Path $caseRoot 'waveform.json'), [string[]]$waveform)
         if ($waveformExitCode -ne 0) { throw '배포 파일의 실제 믹서 녹음이 검사를 통과하지 못했습니다.' }
     }
-    elseif (-not (Test-Path -LiteralPath $receipt) -or (Get-Content -Raw -LiteralPath $receipt) -notmatch '^MISSINGFLOOR_GREYBOX PASS') {
+    elseif (-not (Test-Path -LiteralPath $receipt) -or (Get-Content -Raw -LiteralPath $receipt).Trim() -notmatch '^MISSINGFLOOR_GREYBOX PASS step=[0-9]+$') {
         throw "게임 진행 검사 결과가 없습니다: $Name"
     }
     if ((Get-Item -LiteralPath $receipt).LastWriteTimeUtc -lt $started) { throw "이전 검사 결과가 남아 있습니다: $Name" }
-    $results.Add([ordered]@{ name = $Name; passed = $true; seconds = [math]::Round(([DateTime]::UtcNow - $started).TotalSeconds, 2); receipt = $receipt })
+    $results.Add([ordered]@{ name = $Name; passed = $true; seconds = [math]::Round(([DateTime]::UtcNow - $started).TotalSeconds, 2); receipt = $receipt; receiptSha256 = (Get-FileHash -LiteralPath $receipt -Algorithm SHA256).Hash })
     Write-Host "WINDOWS_GAME_CASE PASS $Name"
 }
 
@@ -85,14 +95,22 @@ $saveUser = Join-Path $EvidenceDirectory 'SaveUser'
 Invoke-GameCase 'Arrival' @('-IGMissingFloor', '-IGArrivalProbe', '-IGArrivalSaveWrite', '-d3d12') -UserDirectory $saveUser
 $saveFiles = @(Get-ChildItem -LiteralPath $saveUser -Recurse -Filter 'AutoSave_*.sav')
 if ($saveFiles.Count -lt 1 -or $saveFiles.Count -gt 2) { throw '자동 저장 파일이 생성되지 않았습니다.' }
+foreach ($save in $saveFiles) {
+    if ($save.Length -le 0) { throw "자동 저장 파일이 비어 있습니다: $($save.Name)" }
+}
 Invoke-GameCase 'ArrivalResume' @('-IGMissingFloor', '-IGArrivalSaveRead', '-d3d12') -UserDirectory $saveUser
 Invoke-GameCase 'FullGame' @('-IGListenerGreybox', '-IGListenerGreyboxProbe', '-nullrhi')
 Invoke-GameCase 'Audio' @('-IGAudioPresentationProbe') -Audio
 $after = Get-ArchiveHashes
 if (@(Compare-Object $before $after).Count) { throw '검사 중 배포 폴더의 파일이 바뀌었습니다.' }
 [ordered]@{
+    schemaVersion = 2
     createdAt = [DateTime]::UtcNow.ToString('o')
     archive = $archiveRoot
+    commit = $packageManifest.commit
+    hasLocalChanges = $packageManifest.hasLocalChanges
+    manifestSha256 = (Get-FileHash -LiteralPath (Join-Path $archiveRoot 'manifest.json') -Algorithm SHA256).Hash
+    scope = '패키지 무결성, 화면·입력, 입주 저장·이어하기, 전체 진행, 소리 자동 검사. 여러 PC의 성능 인증과 사람의 완주 검수는 별도로 필요합니다.'
     launcherSha256 = (Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash
     archiveUnchanged = $true
     frontend = (Join-Path $EvidenceDirectory 'Frontend/summary.json')

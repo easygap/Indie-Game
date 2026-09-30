@@ -47,3 +47,17 @@ pwsh -NoProfile -File .\Scripts\Package-Windows.ps1
 ```
 
 완료되면 배포 폴더 경로가 출력됩니다. `Windows/MissingFloor.exe`가 실행 파일입니다.
+
+패키징이 끝나면 파일 해시, 설치 용량, 실행 구성 요소, 폰트와 사용 허가문을
+자동으로 확인합니다. 실제 게임을 켜서 화면·입력, 저장·이어하기, 전체 진행과
+소리까지 검사하려면 출력된 경로를 다음 명령에 넣습니다.
+
+```powershell
+pwsh -NoProfile -File .\Scripts\Run-WindowsPackageReview.ps1 -ArchiveDirectory '배포 폴더 경로'
+```
+
+출시 후보를 만들 때는 변경 사항을 모두 커밋하고 두 명령에 `-RequireCleanCommit`을
+붙입니다. 다른 PC에서 검사할 때는 `-ExpectedCommit`에 검토 중인 40자리 커밋 값을
+넣으면 후보가 뒤섞이는 일을 막을 수 있습니다. 자동 검사를 통과해도
+[성능 검증](PERFORMANCE.md)의 장비별 측정과 사람이 직접 처음부터 끝까지
+플레이하는 검수는 따로 필요합니다.

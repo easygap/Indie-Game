@@ -127,6 +127,8 @@ $requiredFiles = @(
 	'Scripts/Test-Windows-ExecutableIcon.ps1',
 	'Scripts/Copy-Windows-ExecutableVersionResource.ps1',
 	'Scripts/Test-Windows-ExecutableMetadata.ps1',
+	'Scripts/Test-WindowsPackageManifest.ps1',
+	'Scripts/Test-WindowsPackageManifestRegression.ps1',
 	'Scripts/create_readme_media.py',
 	'Scripts/Test-ArtAssetContract.ps1',
 	'Scripts/Test-MissingFloor-M0InputContract.ps1',
@@ -1581,5 +1583,9 @@ if ($python) {
 } else {
 	Write-Warning 'python not found; skipped the geometry audit, atlas self-test, cook reference audit, scene material audit, director prop audit, surface projection audit, printed face audit, footstep surface audit, light placement audit, photo prop fit audit and coplanar surface audit.'
 }
+
+# Test-WindowsPackageManifest.ps1은 배포 경로가 필요하므로 임시 패키지로
+# 정상 결과와 손상·누락 차단을 실행한다. 실제 배포물은 Package-Windows.ps1이 검사한다.
+& (Join-Path $PSScriptRoot 'Test-WindowsPackageManifestRegression.ps1')
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

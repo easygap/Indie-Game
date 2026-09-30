@@ -29,6 +29,10 @@ if ([string]::IsNullOrWhiteSpace($EvidenceDirectory)) {
 		"Saved\Validation\MissingFloorFrontendShipping\$runId")
 }
 $evidenceRoot = [IO.Path]::GetFullPath($EvidenceDirectory)
+if ($evidenceRoot.TrimEnd('\', '/') -eq $archiveRoot -or
+	$evidenceRoot.StartsWith($archiveRoot + [IO.Path]::DirectorySeparatorChar, [StringComparison]::OrdinalIgnoreCase)) {
+	throw '화면 검사 결과 폴더는 배포 폴더 밖에 두어야 합니다.'
+}
 if (Test-Path -LiteralPath $evidenceRoot) {
 	$existingEntries = @(Get-ChildItem -LiteralPath $evidenceRoot -Force)
 	if ($existingEntries.Count -gt 0) {
@@ -166,7 +170,8 @@ function Invoke-FrontendCase {
 		# Windows PowerShell 5.1은 핸들을 먼저 잡아 두지 않으면 ExitCode를 비워 둔다.
 		$null = $process.Handle
 		if (-not $process.WaitForExit($TimeoutSeconds * 1000)) {
-			$process.Kill()
+			# 런처만 종료하면 그 아래의 게임이 남아 다음 검사와 충돌한다.
+			& taskkill.exe /PID $process.Id /T /F | Out-Null
 			[void]$process.WaitForExit(5000)
 			throw "Frontend Shipping probe timed out: $caseName"
 		}
