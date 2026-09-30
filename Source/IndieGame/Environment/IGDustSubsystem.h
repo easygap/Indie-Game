@@ -109,6 +109,9 @@ public:
 	/** Every live print, oldest first, so the renderer can fade the tail. */
 	void CollectSettledPrints(TArray<FIGDustPrint>& OutPrints) const;
 
+	/** 개수가 같아도 위치 갱신이나 오래된 자국 교체가 있으면 바뀐다. */
+	uint64 GetSettledPrintRevision() const { return SettledPrintRevision; }
+
 	/** Reset returns the hour to 04:30, and the floor with it. */
 	void ClearSettledPrints();
 
@@ -151,4 +154,5 @@ private:
 
 	/** Oldest first. Settled dust does not fade with time, only with the hour. */
 	TArray<FIGDustPrint> SettledPrints;
+	uint64 SettledPrintRevision = 0;
 };

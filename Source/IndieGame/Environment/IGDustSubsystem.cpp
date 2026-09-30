@@ -126,8 +126,13 @@ void UIGDustSubsystem::ReportSettledPrint(
 			&& FVector::DistSquared(Existing.Location, Location)
 				<= PrintMergeDistance * PrintMergeDistance)
 		{
-			Existing.Location = Location;
-			Existing.YawDegrees = YawDegrees;
+			if (!Existing.Location.Equals(Location, 0.01f)
+				|| !FMath::IsNearlyEqual(Existing.YawDegrees, YawDegrees, 0.01f))
+			{
+				Existing.Location = Location;
+				Existing.YawDegrees = YawDegrees;
+				++SettledPrintRevision;
+			}
 			return;
 		}
 	}
@@ -138,6 +143,7 @@ void UIGDustSubsystem::ReportSettledPrint(
 		SettledPrints.RemoveAt(0, 1, EAllowShrinking::No);
 	}
 	SettledPrints.Add({Location, YawDegrees, Kind});
+	++SettledPrintRevision;
 }
 
 void UIGDustSubsystem::CollectSettledPrints(
@@ -148,7 +154,11 @@ void UIGDustSubsystem::CollectSettledPrints(
 
 void UIGDustSubsystem::ClearSettledPrints()
 {
-	SettledPrints.Reset();
+	if (!SettledPrints.IsEmpty())
+	{
+		SettledPrints.Reset();
+		++SettledPrintRevision;
+	}
 }
 
 int32 UIGDustSubsystem::GetLiveDisturbanceCount() const

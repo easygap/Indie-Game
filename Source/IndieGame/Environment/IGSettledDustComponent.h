@@ -41,11 +41,7 @@ public:
 		ELevelTick TickType,
 		FActorComponentTickFunction* ThisTickFunction) override;
 
-	/**
-	 * Where dust actually lies, in world space. Marks outside are discarded.
-	 * FloorZ is the surface the prints sit on; the box only needs to be right in
-	 * plan, because a print is always laid flat on that one height.
-	 */
+	/** 먼지 영역의 평면 범위와 바닥 높이. 다른 층의 흔적은 그리지 않는다. */
 	void ConfigureField(const FBox& WorldBoundsXY, float FloorZ);
 
 	UFUNCTION(BlueprintPure, Category = "Dust")
@@ -95,9 +91,9 @@ private:
 
 	FBox FieldBounds = FBox(ForceInit);
 	float FieldFloorZ = 0.0f;
-	float RebuildAccumulator = 0.0f;
 	int32 DrawnFootfalls = 0;
 	int32 DrawnDrags = 0;
-	int32 LastPrintCount = -1;
+	uint64 LastPrintRevision = 0;
+	bool bPrintsDirty = true;
 	bool bFieldConfigured = false;
 };

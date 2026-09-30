@@ -5599,13 +5599,9 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			FailProbe(TEXT("motes survived the torch going out"));
 			return;
 		}
-		// §11 V2 분진 퇴적. The field owns its own extent, so the two facts worth
-		// proving are that a mark inside the fifth-floor slab is drawn and a mark
-		// outside it is silently discarded. Getting that backwards would either
-		// litter the whole building with footprints or draw none at all, and both
-		// look like "the feature is off" from a screenshot.
+		// §11 V2. 개수뿐 아니라 실제 인스턴스의 위치·회전과 층별 필터를 검사한다.
 		const AIGPrologueWorldScene* SceneActor = WorldScene.Get();
-		const UIGSettledDustComponent* DustField = SceneActor
+		UIGSettledDustComponent* DustField = SceneActor
 			? SceneActor->FindComponentByClass<UIGSettledDustComponent>()
 			: nullptr;
 		if (!DustField || !DustField->IsFieldReady())
@@ -5622,23 +5618,69 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			90.0f,
 			EIGDustPrintKind::Drag);
 		Dust->ReportSettledPrint(OutsideField, 0.0f, EIGDustPrintKind::Footfall);
-		// Standing still must not evict the trail: a repeat inside the merge
-		// radius replaces its neighbour instead of stacking.
 		Dust->ReportSettledPrint(
-			InsideField + FVector(UIGDustSubsystem::PrintMergeDistance * 0.4f, 0, 0),
-			12.0f,
-			EIGDustPrintKind::Footfall);
-		const int32 ReportedPrints = Dust->GetSettledPrintCount();
-		Dust->ClearSettledPrints();
-		const int32 PrintsAfterReset = Dust->GetSettledPrintCount();
-		if (ReportedPrints != 3 || PrintsAfterReset != 0)
+			InsideField - FVector(0, 0, 300), 0.0f, EIGDustPrintKind::Footfall);
+		DustField->TickComponent(0.25f, LEVELTICK_All, nullptr);
+		if (DustField->GetDrawnFootfallCount() != 1 || DustField->GetDrawnDragCount() != 1)
 		{
-			FailProbe(FString::Printf(
-				TEXT("settled dust bookkeeping drifted: reported=%d reset=%d"),
-				ReportedPrints,
-				PrintsAfterReset));
+			FailProbe(TEXT("먼지 영역 밖이나 다른 층의 흔적이 5층에 표시됨"));
 			return;
 		}
+		// 같은 자국을 옮겨도 개수는 그대로다. 화면의 위치와 방향은 갱신돼야 한다.
+		const FVector MovedPrint = InsideField
+			+ FVector(UIGDustSubsystem::PrintMergeDistance * 0.4f, 0, 0);
+		Dust->ReportSettledPrint(
+			MovedPrint,
+			12.0f,
+			EIGDustPrintKind::Footfall);
+		DustField->TickComponent(0.25f, LEVELTICK_All, nullptr);
+		TArray<UInstancedStaticMeshComponent*> DustLayers;
+		SceneActor->GetComponents(DustLayers);
+		bool bMovedPrintDrawn = false;
+		for (UInstancedStaticMeshComponent* Layer : DustLayers)
+		{
+			if (Layer->GetFName() != FName(TEXT("SettledDustFootfalls")))
+			{
+				continue;
+			}
+			FTransform RenderedPrint;
+			bMovedPrintDrawn = Layer->GetInstanceCount() == 1
+				&& Layer->GetInstanceTransform(0, RenderedPrint, true)
+				&& RenderedPrint.GetLocation().Equals(
+					MovedPrint + FVector(0, 0, UIGSettledDustComponent::SurfaceOffset), 0.01f)
+				&& FMath::IsNearlyEqual(RenderedPrint.Rotator().Yaw, 12.0f, 0.01f);
+			break;
+		}
+		const int32 ReportedPrints = Dust->GetSettledPrintCount();
+		if (ReportedPrints != 4 || !bMovedPrintDrawn)
+		{
+			FailProbe(TEXT("같은 개수에서 바뀐 발자국의 위치나 방향이 화면에 반영되지 않음"));
+			return;
+		}
+		// 배열이 꽉 찬 뒤 오래된 자국을 교체해도 새 발자국을 그려야 한다.
+		for (int32 PrintIndex = 0; PrintIndex < UIGDustSubsystem::MaxSettledPrints; ++PrintIndex)
+		{
+			Dust->ReportSettledPrint(
+				FVector(2000.0f + 40.0f * PrintIndex, -305.0f, 1200.0f),
+				0.0f, EIGDustPrintKind::Footfall);
+		}
+		DustField->TickComponent(0.25f, LEVELTICK_All, nullptr);
+		const bool bEvictedMarksGone = DustField->GetDrawnFootfallCount() == 0
+			&& DustField->GetDrawnDragCount() == 0;
+		Dust->ReportSettledPrint(InsideField, 0.0f, EIGDustPrintKind::Footfall);
+		DustField->TickComponent(0.25f, LEVELTICK_All, nullptr);
+		const bool bFullPoolUpdated = Dust->GetSettledPrintCount() == UIGDustSubsystem::MaxSettledPrints
+			&& DustField->GetDrawnFootfallCount() == 1;
+		Dust->ClearSettledPrints();
+		DustField->TickComponent(0.25f, LEVELTICK_All, nullptr);
+		const int32 PrintsAfterReset = Dust->GetSettledPrintCount();
+		if (!bEvictedMarksGone || !bFullPoolUpdated || PrintsAfterReset != 0
+			|| DustField->GetDrawnFootfallCount() != 0 || DustField->GetDrawnDragCount() != 0)
+		{
+			FailProbe(TEXT("가득 찬 흔적 배열의 교체 또는 초기화가 화면에 반영되지 않음"));
+			return;
+		}
+		UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_DUST PASS movement rotation floor_filter capacity reset"));
 
 		// §11 V2 403호 3단계 노화: cumulative, and clean in the prologue.
 		AIGPrologueWorldScene* MutableScene = WorldScene.Get();
@@ -9524,13 +9566,19 @@ void AIGListenerGreyboxDirector::EnterHistogramPoint(const int32 PointIndex)
 			const FVector Ahead = Point.PlayerLocation
 				+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 220.0f;
 			Dust->ReportDisturbance(Ahead, 1.0f);
+			// 실제 발자국은 플레이어 중심에서 88cm 아래에 찍힌다(IGPlayerCharacter).
+			// 끌림은 존재의 캡슐 중심 58cm에서 18cm 아래다(IGListenerEntity).
+			// 촬영 좌표는 높이 96cm인 플레이어 중심이므로 같은 바닥 높이로 맞춘다.
+			constexpr float FootprintDrop = 88.0f;
+			constexpr float DragDrop = 96.0f - (58.0f - 18.0f);
 			Dust->ReportSettledPrint(
-				Ahead,
+				Ahead - FVector(0.0f, 0.0f, DragDrop),
 				Point.PlayerYaw,
 				EIGDustPrintKind::Drag);
 			Dust->ReportSettledPrint(
 				Point.PlayerLocation
-					+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 120.0f,
+					+ FRotator(0.0f, Point.PlayerYaw, 0.0f).Vector() * 120.0f
+					- FVector(0.0f, 0.0f, FootprintDrop),
 				Point.PlayerYaw,
 				EIGDustPrintKind::Footfall);
 		}

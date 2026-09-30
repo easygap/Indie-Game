@@ -1,4 +1,4 @@
-#include "Environment/IGSettledDustComponent.h"
+﻿#include "Environment/IGSettledDustComponent.h"
 
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Engine/CollisionProfile.h"
@@ -13,6 +13,8 @@ namespace IGSettledDust
 {
 	/** How often the field re-reads the subsystem, in seconds. */
 	constexpr float RebuildIntervalSeconds = 0.25f;
+	// 발자국은 발밑, 끌림은 바닥에서 약 40cm 위로 보고된다. 층간 흔적은 제외한다.
+	constexpr float FloorReportToleranceCentimeters = 80.0f;
 
 	/**
 	 * The same authored residue masks the fifth-floor walls use, so a print in
@@ -37,6 +39,7 @@ UIGSettledDustComponent::UIGSettledDustComponent()
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	PrimaryComponentTick.bStartWithTickEnabled = false;
+	PrimaryComponentTick.TickInterval = IGSettledDust::RebuildIntervalSeconds;
 
 	static ConstructorHelpers::FObjectFinder<UStaticMesh> PlaneFinder(
 		TEXT("/Engine/BasicShapes/Plane.Plane"));
@@ -143,7 +146,7 @@ void UIGSettledDustComponent::ConfigureField(
 	FieldBounds = WorldBoundsXY;
 	FieldFloorZ = FloorZ;
 	bFieldConfigured = WorldBoundsXY.IsValid != 0;
-	LastPrintCount = -1;
+	bPrintsDirty = true;
 	SetComponentTickEnabled(bFieldConfigured);
 	if (Footfalls)
 	{
@@ -170,12 +173,6 @@ void UIGSettledDustComponent::TickComponent(
 	{
 		return;
 	}
-	RebuildAccumulator += DeltaSeconds;
-	if (RebuildAccumulator < IGSettledDust::RebuildIntervalSeconds)
-	{
-		return;
-	}
-	RebuildAccumulator = 0.0f;
 	RebuildMarks();
 }
 
@@ -193,15 +190,17 @@ void UIGSettledDustComponent::RebuildMarks()
 		}
 	}
 
-	TArray<FIGDustPrint> Prints;
-	DustSubsystem->CollectSettledPrints(Prints);
-	// Nothing pressed the dust since the last pass, so nothing needs rebuilding.
-	// Standing still in a dark corridor is the common case.
-	if (Prints.Num() == LastPrintCount)
+	// 개수만 보면 96개가 찬 뒤의 교체와 같은 자리에서 방향을 튼 흔적을 놓친다.
+	// 바뀌지 않은 동안은 배열 복사와 인스턴스 버퍼 갱신도 생략한다.
+	const uint64 PrintRevision = DustSubsystem->GetSettledPrintRevision();
+	if (!bPrintsDirty && PrintRevision == LastPrintRevision)
 	{
 		return;
 	}
-	LastPrintCount = Prints.Num();
+	LastPrintRevision = PrintRevision;
+	bPrintsDirty = false;
+	TArray<FIGDustPrint> Prints;
+	DustSubsystem->CollectSettledPrints(Prints);
 
 	TArray<FTransform> FootfallTransforms;
 	TArray<FTransform> DragTransforms;
@@ -214,7 +213,9 @@ void UIGSettledDustComponent::RebuildMarks()
 		if (Print.Location.X < FieldBounds.Min.X
 			|| Print.Location.X > FieldBounds.Max.X
 			|| Print.Location.Y < FieldBounds.Min.Y
-			|| Print.Location.Y > FieldBounds.Max.Y)
+			|| Print.Location.Y > FieldBounds.Max.Y
+			|| FMath::Abs(Print.Location.Z - FieldFloorZ)
+				> IGSettledDust::FloorReportToleranceCentimeters)
 		{
 			continue;
 		}
@@ -247,17 +248,24 @@ void UIGSettledDustComponent::RebuildMarks()
 
 	DrawnFootfalls = FootfallTransforms.Num();
 	DrawnDrags = DragTransforms.Num();
-	// Prints appear and are evicted a handful at a time, so rebuilding the two
-	// buffers outright is simpler than tracking instance identity and costs
-	// nothing at this count.
-	Footfalls->ClearInstances();
-	if (DrawnFootfalls > 0)
+	// 개수가 유지되는 갱신에서는 기존 버퍼를 재사용한다.
+	const auto UpdateLayer = [](UInstancedStaticMeshComponent* Layer,
+		const TArray<FTransform>& Transforms)
 	{
-		Footfalls->AddInstances(FootfallTransforms, false, true);
-	}
-	Drags->ClearInstances();
-	if (DrawnDrags > 0)
-	{
-		Drags->AddInstances(DragTransforms, false, true);
-	}
+		if (Layer->GetInstanceCount() == Transforms.Num())
+		{
+			if (!Transforms.IsEmpty())
+			{
+				Layer->BatchUpdateInstancesTransforms(0, Transforms, true, true, true);
+			}
+			return;
+		}
+		Layer->ClearInstances();
+		if (!Transforms.IsEmpty())
+		{
+			Layer->AddInstances(Transforms, false, true);
+		}
+	};
+	UpdateLayer(Footfalls, FootfallTransforms);
+	UpdateLayer(Drags, DragTransforms);
 }
