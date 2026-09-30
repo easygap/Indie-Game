@@ -1,8 +1,8 @@
-# 선택한 -IGNightCapture 연속 프레임을 README GIF로 묶는다.
+# -IGNightCapture 연속 프레임을 GIF로 묶는다.
 # 어두운 복도에 색 단계가 생기지 않도록 ffmpeg 팔레트를 두 번에 나눠 처리한다.
-#   Saved/NightCapture/extinguisher -> Docs/Media/night1-extinguisher-drop.gif
-#   Saved/NightCapture/chase        -> Docs/Media/night-listener-chase.gif
 #   Saved/NightCapture/mercy-note   -> Docs/Media/m65-mercy-note-slide.gif
+# README의 추격 GIF는 create_readme_media.py가 새 촬영으로 만든다. 여기서
+# 다시 묶으면 예전 촬영으로 덮어쓰게 되므로 이 스크립트에서는 뺐다.
 $ErrorActionPreference = 'Stop'
 $projectRoot = Split-Path -Parent $PSScriptRoot
 $Only = $args
@@ -50,15 +50,6 @@ function Convert-Burst {
     Write-Output ("{0}: {1} frames -> {2:N1} MB" -f $OutputName, $frameCount, ($size / 1MB))
 }
 
-# 6 fps matches roughly twice the sustained capture rate (each 1080p PNG
-# write throttles the burst to ~3 fps), so playback reads as a brisk clip
-# rather than a slideshow.
-if ($Only.Count -eq 0 -or $Only -contains 'extinguisher') {
-	Convert-Burst -BurstName 'extinguisher' -OutputName 'night1-extinguisher-drop.gif' -Fps 6
-}
-if ($Only.Count -eq 0 -or $Only -contains 'chase') {
-	Convert-Burst -BurstName 'chase' -OutputName 'night-listener-chase.gif' -Fps 6
-}
 if ($Only.Count -eq 0 -or $Only -contains 'mercy-note') {
 	Convert-Burst -BurstName 'mercy-note' -OutputName 'm65-mercy-note-slide.gif' -Fps 7 -MinimumFrames 12
 }
