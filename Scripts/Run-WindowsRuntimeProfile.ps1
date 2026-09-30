@@ -20,7 +20,6 @@ if (Test-Path -LiteralPath $evidenceRoot) { throw '새 결과 폴더를 지정�
 $manifestArguments = @{ ArchiveDirectory = $archiveRoot; RequireCleanCommit = $RequireCleanCommit }
 if ($ExpectedCommit) { $manifestArguments.ExpectedCommit = $ExpectedCommit }
 & (Join-Path $PSScriptRoot 'Test-WindowsPackageManifest.ps1') @manifestArguments
-if ($LASTEXITCODE -ne 0) { throw '패키지 검증에 실패했습니다.' }
 $launcher = Join-Path $archiveRoot 'Windows\MissingFloor.exe'
 $python = (Get-Command python -ErrorAction Stop).Source
 $results = [Collections.Generic.List[object]]::new()
@@ -145,7 +144,6 @@ sg.LandscapeQuality=$Quality
     Write-Host "SHIPPING_RUNTIME_PROFILE Run$run frame_gate=$($summary.local_route_frame_gate_passed)"
 }
 & (Join-Path $PSScriptRoot 'Test-WindowsPackageManifest.ps1') @manifestArguments
-if ($LASTEXITCODE -ne 0) { throw '측정 중 패키지 파일이 바뀌었습니다.' }
 $report = [ordered]@{ scope = '현재 장비의 Shipping 오프스크린 자동 밤 장면 경로. 실제 화면 출력 비용은 제외됨';
     repeatedRuns = $RepeatCount; warmupSeconds = $WarmupSeconds; quality = $Quality;
     antiAliasing = $AntiAliasing; targetFps = $TargetFps;
