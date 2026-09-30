@@ -140,6 +140,49 @@ Windows-v1 인증 화면비는 16:9다. 창 모드, 테두리 없는 창 모드�
 사이에 설정, 드라이버, 패키지 또는 맵이 바뀌면 같은 표본으로 합치지
 않는다.
 
+## 2026-09-30 갱신 비용과 측정 보완
+
+5층 바닥 흔적은 개수가 그대로여도 위치와 방향이 바뀌고, 최대 96개가
+차면 가장 오래된 자국이 새 자국으로 교체된다. 이전에는 개수만 비교해
+이 두 경우를 화면에 반영하지 못했다. 이제 변경 번호가 달라질 때만
+배열을 읽고, 인스턴스 수가 같으면 기존 버퍼의 좌표를 갱신한다. 확인
+주기도 매 프레임의 누적 계산에서 실제 0.25초 컴포넌트 Tick으로 옮겼다.
+높이를 함께 검사해 다른 층의 발자국이 같은 평면 위치의 5층 바닥에
+찍히던 문제도 고쳤다.
+
+기존 게임플레이 프로브는 실제 ISM 위치·회전, 다른 층 제외, 96개 포화
+이후의 교체, 초기화까지 확인한다. 런타임에서 이 검사를 통과하면
+`MISSINGFLOOR_DUST PASS movement rotation floor_filter capacity reset`을
+기록한다. 정적 검사 통과만으로 이 영수증을 대신하지 않는다.
+
+오디오 버스가 대본 소리로 차 있을 때 새 걸음을 추적 없이 계속 재생하던
+경로를 막았다. 대본은 그대로 두고 추가 걸음만 40ms에 걸쳐 걷는다.
+일반적인 오래된 소리 교체의 120ms 꼬리와 상시 베드 보호는 유지한다.
+이는 [Epic의 동시 발음 관리](https://dev.epicgames.com/documentation/unreal-engine/sound-concurrency-reference-guide)가
+설명하는 최대 발음 수, 우선순위와 짧은 퇴출 페이드를 현재 버스 구조에
+적용한 것이다.
+
+High의 Lumen 반사는 기존 거칠기 한계 0.25를 유지한다. 다만 전역
+`r.Lumen.Reflections.MaxRoughnessToTrace` 강제를 없애고
+`ReflectionQuality@2`의 `MaxRoughnessToTraceClamp`로 옮겼다. 장면의
+포스트 프로세스가 더 낮은 한계를 지정하면 이제 그 값도 적용된다.
+[Epic의 Lumen 성능 안내](https://dev.epicgames.com/documentation/unreal-engine/lumen-performance-guide-for-unreal-engine?lang=en-US)와
+설치된 UE 5.8 `LumenReflections.cpp`에서 이 차이를 확인했다. Low의
+기존 확장성 경로와 High의 기본 화질을 바꾸는 최적화는 아니다.
+
+`summarize_runtime_profile.py`는 출시 계약에 필요한 1% low와 50ms 초과
+프레임 수도 기록한다. 가장 느린 표본 수는 전체의 1%를 올림하고 그
+프레임 시간 평균의 역수를 쓴다. 손상된 행과 음수·0 프레임 시간은 실패로 처리한다.
+2026-09-18의 기존 CSV를 다시 읽는 것은 요약 도구 검증에만 쓰며,
+이번 코드의 성능 측정 결과로 사용하지 않는다.
+
+2026-09-30에 검토한 [Tom Looman의 UE 5.8 정리](https://tomlooman.com/unreal-engine-5-8-performance-highlights/)와
+[DX12 PSO 검증 경험](https://tomlooman.com/psocaching-unreal-engine/)도
+실행 경로를 측정하고 첫 노출 때의 지연을 따로 확인하는 데 초점을 둔다.
+현재 절차 생성 월드에 Nanite·HLOD·MegaLights를 일괄 적용하지 않고,
+기존 LOD·ISM·PSO 준비를 유지한 채 실제 결함과 불필요한 갱신부터 줄인다.
+GPU 시간 개선 여부는 같은 장면의 D3D12 재측정으로 판정한다.
+
 ## 2026-08-06 적용 구조
 
 아래 표는 목표가 아니라 현재 소스와 자동 검증이 강제하는 구현 계약이다.
