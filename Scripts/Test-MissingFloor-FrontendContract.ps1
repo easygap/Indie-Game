@@ -171,13 +171,38 @@ Assert-ContainsAll $saveHeader @(
 Assert-ContainsAll $saveSource @(
 	'FindNewestCompatibleAutosave(NewestSlot)',
 	'UGameplayStatics::DoesSaveGameExist',
-	'UGameplayStatics::LoadGameFromSlot',
 	'IsAutosaveLoadable(Candidate)',
 	'SaveGame->Progress.ChapterId.IsValid()',
 	'!SaveGame->Progress.MapPackageName.IsNone()',
 	'SaveGame->Progress.CheckpointTag.IsValid()',
 	'Candidate->Progress.SavedAtUtc > NewestTimestamp'
 ) '최신 호환 자동 저장 선별'
+
+# 길이와 개수 검증은 실제 손상 저장 실행 검사에서 확인한다. 여기서는
+# 메뉴의 세 읽기 경로가 검증을 우회하지 않는지만 검사한다.
+$safeReadPaths = [ordered]@{
+	RequestLoad = 'SlotName'
+	HasEndingBAutosave = 'NewestSlot'
+	FindNewestCompatibleAutosave = 'SlotName'
+}
+foreach ($functionName in $safeReadPaths.Keys) {
+	$functionPattern = '(?ms)^bool UIGSaveSubsystem::' +
+		[regex]::Escape($functionName) + '\b.*?^\}'
+	$functionSource = [regex]::Match($saveSource, $functionPattern)
+	$expectedCall = 'IGSave::LoadCheckedSave(' + $safeReadPaths[$functionName] + ')'
+	Assert-True (
+		$functionSource.Success -and $functionSource.Value.Contains($expectedCall)
+	) "안전한 저장 읽기 경로가 없다: $functionName"
+	if ($functionName -eq 'RequestLoad') {
+		Assert-True (
+			$functionSource.Value.Contains('FTSTicker::GetCoreTicker().AddTicker(')
+		) '일시정지 중에도 불러오기 완료 콜백이 실행되어야 한다'
+	}
+}
+Assert-True (
+	$saveSource -notmatch '\bUGameplayStatics::(?:LoadGameFromSlot|AsyncLoadGameFromSlot|LoadGameFromMemory|StripSaveGameHeader)\s*\('
+) '제한 없는 저장 역직렬화 API가 남아 있다'
+
 Assert-ContainsAll $saveSource @(
 	'const FName PlayableMap(TEXT("/Game/Maps/Prologue_Morning"));',
 	'SaveGame->Progress.MapPackageName == IGSave::PlayableMap',
