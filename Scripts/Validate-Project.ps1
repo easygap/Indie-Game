@@ -374,11 +374,6 @@ foreach ($launcherScript in @(
 }
 
 $engineConfig = Get-Content -Raw -LiteralPath (Join-Path $projectRoot 'Config/DefaultEngine.ini')
-foreach ($primaryAssetType in @('IGChapter', 'IGStoryBeat')) {
-    if ($engineConfig -notmatch "PrimaryAssetType=`"$primaryAssetType`"") {
-        throw "Asset Manager scan rule is missing for $primaryAssetType."
-    }
-}
 
 foreach ($requiredSetting in @(
 	'GameDefaultMap=/Game/Maps/Prologue_Morning',
@@ -1186,8 +1181,7 @@ foreach ($requiredNeighborhoodFeature in @(
 	'bOutdoorSequencePrimed',
 	'EIGPooledVehicleKind::DeliveryMotorcycle',
 	'ActivateLeaves',
-	'CatTraceRoot',
-	'EIGNeighborhoodChapterVariant::ChapterTwoAbsent'
+	'CatTraceRoot'
 )) {
 	if (-not $neighborhoodSource.Contains($requiredNeighborhoodFeature)) {
 		throw "Required neighborhood-life feature is missing: $requiredNeighborhoodFeature"
@@ -1317,7 +1311,7 @@ if ($python) {
 	if ($LASTEXITCODE -ne 0) {
 		throw "World geometry audit found impossible placements ($LASTEXITCODE)"
 	}
-	Assert-AuditBlindSpot $worldGeometryOutput '자리를 풀지 못한 상자 (?<count>\d+)건' 11 `
+	Assert-AuditBlindSpot $worldGeometryOutput '자리를 풀지 못한 상자 (?<count>\d+)건' 9 `
 		'좌표가 트랜스폼 지역 변수나 포인터 삼항에 걸려 자리를 풀지 못한 상자'
 
 	$atlasPacker = Join-Path $projectRoot 'Scripts/build_texture_atlas.py'
@@ -1489,7 +1483,7 @@ if ($python) {
 	# 아무도 안 부르는 접근자. 설정 자체는 다른 경로로 살아 있어서 고장은
 	# 아니지만, 이 수가 늘면 쓰지도 않는 문을 계속 세우고 있다는 뜻이다.
 	Assert-AuditBlindSpot $accessibilityReachOutput `
-		'아무도 안 부르는 접근자 (?<count>\d+)개' 3 `
+		'아무도 안 부르는 접근자 (?<count>\d+)개' 0 `
 		'설정을 읽지만 아무도 부르지 않는 접근자'
 
 	# 합성기는 음을 그냥 더하고 ±1.0에서 자른다. 겹친 음의 합이 1을 넘으면
@@ -1511,7 +1505,7 @@ if ($python) {
 	# 못 읽은 것을 통과로 세지 않으니, 이 수가 늘면 판정 못 하는 파형이 늘어난
 	# 것이다.
 	Assert-AuditBlindSpot $toneHeadroomOutput `
-		'판정을 못 하는 생성기 (?<count>\d+)개' 33 `
+		'판정을 못 하는 생성기 (?<count>\d+)개' 28 `
 		'음을 다 못 읽어서 깎임 여부를 판정 못 한 생성기'
 
 	# 설계값을 맨 숫자로 찾는 계약. 3300줄 문서에서 0.6은 열일곱 번 나오므로

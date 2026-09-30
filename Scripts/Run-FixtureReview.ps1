@@ -8,7 +8,7 @@ $fixtureLog = Join-Path $fixtureRoot 'Saved/Logs/FixtureReview.log'
 $fixtureStart = Get-Date
 $fixtureArgs = @($fixtureProject, '-game', '-unattended', '-nosplash', '-NoLoadingScreen',
     '-RenderOffscreen', '-d3d12', '-nosound', '-Windowed', '-ResX=1920', '-ResY=1080', '-ForceRes',
-    '-IGMissingFloor', '-IGIgnoreDirectStart', '-IGArrivalCapture', '-IGFixtureAudit', '-IGSkipFrontend',
+    '-IGMissingFloor', '-IGArrivalCapture', '-IGFixtureAudit', '-IGSkipFrontend',
     '-ExecCmds=Scalability 2,sg.ResolutionQuality 100,r.ScreenPercentage 100', "-abslog=$fixtureLog")
 if ($BakeCctv) { $fixtureArgs += '-IGBakeCctv' }
 if ($Interior) { $fixtureArgs += '-IGInteriorAudit' }

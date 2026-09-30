@@ -180,12 +180,6 @@ public:
 	bool IsHintRequestAvailable() const;
 	/** 막힌 것 같을 때 힌트 키를 한 번 알려 준다. 힌트를 끈 사람에게는 띄우지 않는다. */
 	void OfferHintTip();
-	bool IsGameplayGuideRecalled() const { return Guidance.IsRecalled(); }
-	void GetGameplayGuideRenderSample(bool& OutObjective, bool& OutControls) const
-	{
-		OutObjective = bObjectiveGuideDrawn;
-		OutControls = bControlsGuideDrawn;
-	}
 
 	/** Pushes a short inner-voice line onto the local player's HUD. */
 	static void PushThought(
@@ -889,8 +883,6 @@ private:
 	 * 시간을 볼 수 있어야 한다(§5.4).
 	 */
 	int32 NightClockRevealSerial = 0;
-	bool bObjectiveGuideDrawn = false;
-	bool bControlsGuideDrawn = false;
 #if !UE_BUILD_SHIPPING
 	double FirstPersonKnockPreviewNextTime = 0.0;
 	double CaptureEmbracePreviewNextTime = 0.0;

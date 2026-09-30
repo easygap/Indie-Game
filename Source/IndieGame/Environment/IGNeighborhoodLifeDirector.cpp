@@ -20,21 +20,6 @@ namespace IGNeighborhoodLife
 	constexpr float SoundSpeedCentimetersPerSecond = 34300.0f;
 
 	constexpr uint32 NormalSeedSalt = 0x23A16E41u;
-	constexpr uint32 UncannySeedSalt = 0x7819BC05u;
-	constexpr uint32 AbsentSeedSalt = 0xD0044A11u;
-
-	uint32 VariantSalt(const EIGNeighborhoodChapterVariant Variant)
-	{
-		switch (Variant)
-		{
-		case EIGNeighborhoodChapterVariant::ChapterTwoUncanny:
-			return UncannySeedSalt;
-		case EIGNeighborhoodChapterVariant::ChapterTwoAbsent:
-			return AbsentSeedSalt;
-		default:
-			return NormalSeedSalt;
-		}
-	}
 }
 
 AIGNeighborhoodLifeDirector::AIGNeighborhoodLifeDirector()
@@ -90,28 +75,12 @@ void AIGNeighborhoodLifeDirector::ConfigureNeighborhood(
 	}
 }
 
-void AIGNeighborhoodLifeDirector::SetChapterVariant(
-	const EIGNeighborhoodChapterVariant InVariant)
-{
-	if (ChapterVariant == InVariant)
-	{
-		return;
-	}
-
-	ChapterVariant = InVariant;
-	if (HasActorBegunPlay())
-	{
-		RestartDeterministicSchedule();
-	}
-}
-
 void AIGNeighborhoodLifeDirector::PrimeOutdoorSequence()
 {
 	// The street-level trigger may overlap again while the pawn is still
 	// crossing its boundary.  Re-arming here would restart the cat/wind/car
 	// sequence and turn ordinary neighbourhood sound into a noticeable loop.
-	if (!GetWorld() || bOutdoorSequencePrimed ||
-		ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent)
+	if (!GetWorld() || bOutdoorSequencePrimed)
 	{
 		return;
 	}
@@ -138,41 +107,6 @@ void AIGNeighborhoodLifeDirector::PrimeOutdoorSequence()
 		&ThisClass::LaunchWindGust,
 		3.4f,
 		false);
-}
-
-void AIGNeighborhoodLifeDirector::RegisterWindReactiveComponent(
-	USceneComponent* Component,
-	const float ResponseScale)
-{
-	if (!Component)
-	{
-		return;
-	}
-
-	for (FWindReactorRuntime& Reactor : WindReactors)
-	{
-		if (Reactor.Component == Component)
-		{
-			Reactor.NeutralRotation = Component->GetRelativeRotation();
-			Reactor.ResponseScale = FMath::Clamp(ResponseScale, 0.0f, 4.0f);
-			return;
-		}
-	}
-
-	FWindReactorRuntime& Reactor = WindReactors.AddDefaulted_GetRef();
-	Reactor.Component = Component;
-	Reactor.NeutralRotation = Component->GetRelativeRotation();
-	Reactor.ResponseScale = FMath::Clamp(ResponseScale, 0.0f, 4.0f);
-}
-
-void AIGNeighborhoodLifeDirector::UnregisterWindReactiveComponent(USceneComponent* Component)
-{
-	WindReactors.RemoveAllSwap(
-		[Component](const FWindReactorRuntime& Reactor)
-		{
-			return !Reactor.Component.IsValid() || Reactor.Component == Component;
-		},
-		EAllowShrinking::No);
 }
 
 void AIGNeighborhoodLifeDirector::InitializePools()
@@ -423,32 +357,22 @@ UIGToneSequenceSoundWave* AIGNeighborhoodLifeDirector::CreateGustSound(
 	return Wave;
 }
 
-UIGToneSequenceSoundWave* AIGNeighborhoodLifeDirector::CreateCatCall(
-	UObject* Outer,
-	const bool bUncanny) const
+UIGToneSequenceSoundWave* AIGNeighborhoodLifeDirector::CreateCatCall(UObject* Outer) const
 {
 	UIGToneSequenceSoundWave* Wave = NewObject<UIGToneSequenceSoundWave>(Outer);
 	TArray<FIGToneNote> Notes;
 
-	const float PitchScale = bUncanny ? 0.82f : 1.0f;
-	const float Amplitude = bUncanny ? 0.075f : 0.105f;
+	const float Amplitude = 0.105f;
 	// Stepped glide is softened by overlapping sine partials. It reads as a
 	// distant cat call without presenting an animal directly.
 	const float Frequencies[] = {690.0f, 760.0f, 825.0f, 790.0f, 710.0f, 625.0f};
 	for (int32 NoteIndex = 0; NoteIndex < static_cast<int32>(UE_ARRAY_COUNT(Frequencies)); ++NoteIndex)
 	{
 		const float Start = NoteIndex * 0.085f;
-		Notes.Add({Start, 0.18f, Frequencies[NoteIndex] * PitchScale, Amplitude,
+		Notes.Add({Start, 0.18f, Frequencies[NoteIndex], Amplitude,
 			0.18f, 1.15f, EIGToneWaveform::Sine});
-		Notes.Add({Start, 0.16f, Frequencies[NoteIndex] * 2.01f * PitchScale,
+		Notes.Add({Start, 0.16f, Frequencies[NoteIndex] * 2.01f,
 			Amplitude * 0.18f, 0.20f, 1.35f, EIGToneWaveform::Sine});
-	}
-	if (bUncanny)
-	{
-		// The second call arrives too late and too low, implying a location the
-		// fleeting ground trace cannot account for.
-		Notes.Add({1.15f, 0.62f, 410.0f, 0.055f, 0.16f, 1.6f, EIGToneWaveform::Sine});
-		Notes.Add({1.23f, 0.58f, 816.0f, 0.012f, 0.20f, 1.8f, EIGToneWaveform::Sine});
 	}
 	Wave->ConfigureNotes(MoveTemp(Notes), false);
 	return Wave;
@@ -467,18 +391,10 @@ void AIGNeighborhoodLifeDirector::RestartDeterministicSchedule()
 	StopAllRuntimeEvents();
 
 	const uint32 CombinedSeed =
-		static_cast<uint32>(DeterministicSeed) ^
-		IGNeighborhoodLife::VariantSalt(ChapterVariant);
+		static_cast<uint32>(DeterministicSeed) ^ IGNeighborhoodLife::NormalSeedSalt;
 	Random.Initialize(static_cast<int32>(CombinedSeed));
 	bOutdoorSequencePrimed = false;
 	ActiveVehicleOrdinal = 0;
-
-	if (ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent)
-	{
-		// The return beat deliberately leaves the distant alarm as the sole
-		// source.  Scheduling wind here would undercut that authored silence.
-		return;
-	}
 
 	ScheduleNextGust();
 	ScheduleNextVehicle();
@@ -508,36 +424,23 @@ void AIGNeighborhoodLifeDirector::StopAllRuntimeEvents()
 
 	GustElapsed = -1.0f;
 	CurrentWindSignal = FVector::ZeroVector;
-	UpdateWindReactors();
 	SetActorTickEnabled(false);
-}
-
-float AIGNeighborhoodLifeDirector::RandomRangeForVariant(
-	const float NormalMin,
-	const float NormalMax,
-	const float UncannyMin,
-	const float UncannyMax)
-{
-	return ChapterVariant == EIGNeighborhoodChapterVariant::ChapterOneNormal
-		? Random.FRandRange(NormalMin, NormalMax)
-		: Random.FRandRange(UncannyMin, UncannyMax);
 }
 
 void AIGNeighborhoodLifeDirector::ScheduleNextVehicle()
 {
-	if (!GetWorld() || ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent)
+	if (!GetWorld())
 	{
 		return;
 	}
 
 	// Sparse enough for a residential alley before dawn: individual passes
 	// register as events, not a continuous traffic loop.
-	float Delay = RandomRangeForVariant(22.0f, 40.0f, 38.0f, 70.0f);
+	float Delay = Random.FRandRange(22.0f, 40.0f);
 	if (bOutdoorSequencePrimed
 		&& ActiveVehicleOrdinal == 1)
 	{
-		// The second authored life beat is the delivery motorcycle in both
-		// loops; CH02 changes its sound/causality rather than replacing it.
+		// 정해 둔 두 번째 비트는 배달 오토바이다.
 		Delay = 5.4f;
 	}
 	GetWorldTimerManager().SetTimer(
@@ -555,11 +458,7 @@ void AIGNeighborhoodLifeDirector::ScheduleNextGust()
 		return;
 	}
 
-	float Delay = RandomRangeForVariant(5.0f, 13.0f, 9.0f, 22.0f);
-	if (ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent)
-	{
-		Delay = Random.FRandRange(13.0f, 27.0f);
-	}
+	const float Delay = Random.FRandRange(5.0f, 13.0f);
 	GetWorldTimerManager().SetTimer(
 		GustScheduleHandle,
 		this,
@@ -570,12 +469,12 @@ void AIGNeighborhoodLifeDirector::ScheduleNextGust()
 
 void AIGNeighborhoodLifeDirector::ScheduleNextCatTrace()
 {
-	if (!GetWorld() || ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent)
+	if (!GetWorld())
 	{
 		return;
 	}
 
-	const float Delay = RandomRangeForVariant(17.0f, 31.0f, 29.0f, 53.0f);
+	const float Delay = Random.FRandRange(17.0f, 31.0f);
 	GetWorldTimerManager().SetTimer(
 		CatScheduleHandle,
 		this,
@@ -623,14 +522,11 @@ void AIGNeighborhoodLifeDirector::LaunchVehicleEvent()
 	const FVector Start = (bReverse ? RoadEnd : RoadStart) + SideOffset;
 	const FVector End = (bReverse ? RoadStart : RoadEnd) + SideOffset;
 	const float Speed = bMotorcycle
-		? RandomRangeForVariant(760.0f, 1040.0f, 520.0f, 710.0f)
-		: RandomRangeForVariant(560.0f, 760.0f, 390.0f, 570.0f);
+		? Random.FRandRange(760.0f, 1040.0f)
+		: Random.FRandRange(560.0f, 760.0f);
 
 	FVehicleRuntime& Runtime = VehicleRuntime[SlotIndex];
 	Runtime.bActive = true;
-	Runtime.bAudioDropsOut =
-		ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoUncanny &&
-		Random.FRand() < 0.72f;
 	Runtime.Kind = bMotorcycle
 		? EIGPooledVehicleKind::DeliveryMotorcycle
 		: EIGPooledVehicleKind::PassengerCar;
@@ -735,11 +631,6 @@ void AIGNeighborhoodLifeDirector::LaunchVehicleEvent()
 
 void AIGNeighborhoodLifeDirector::LaunchWindGust()
 {
-	if (ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent)
-	{
-		return;
-	}
-
 	ScheduleNextGust();
 	if (!IsPlayerNearRoad(EventActivationDistance))
 	{
@@ -747,20 +638,15 @@ void AIGNeighborhoodLifeDirector::LaunchWindGust()
 	}
 
 	GustElapsed = 0.0f;
-	GustDuration = RandomRangeForVariant(2.2f, 4.2f, 3.4f, 6.2f);
-	if (ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent)
-	{
-		GustDuration = Random.FRandRange(4.5f, 7.5f);
-	}
-	GustPeakStrength = RandomRangeForVariant(0.35f, 0.70f, 0.58f, 0.95f);
+	GustDuration = Random.FRandRange(2.2f, 4.2f);
+	GustPeakStrength = Random.FRandRange(0.35f, 0.70f);
 	const FVector RoadDirection = (RoadEnd - RoadStart).GetSafeNormal();
 	const float DirectionSign = Random.FRand() < 0.5f ? -1.0f : 1.0f;
 	GustDirection = (
 		RoadDirection * DirectionSign +
 		FVector(0.0f, Random.FRandRange(-0.22f, 0.22f), 0.04f)).GetSafeNormal();
-	GustVisualPhase = Random.FRandRange(0.0f, 2.0f * UE_PI);
-
-	OnWindGust.Broadcast(GustPeakStrength, GustDirection, GustDuration);
+	// 값은 쓰지 않는다. 이 뽑기를 빼면 뒤에 오는 소리 자리와 잎이 전부 달라진다.
+	Random.FRandRange(0.0f, 2.0f * UE_PI);
 
 	UIGToneSequenceSoundWave* GustSound = CreateGustSound(this, GustDuration);
 	TransientAudio.RemoveAllSwap(
@@ -776,17 +662,13 @@ void AIGNeighborhoodLifeDirector::LaunchWindGust()
 	TransientAudio.Add(GustAudio);
 	GustAudio->SetWorldLocation(FMath::Lerp(RoadStart, RoadEnd, Random.FRand()) + FVector(0, 0, 160));
 	GustAudio->SetSound(GustSound);
-	GustAudio->SetVolumeMultiplier(
-		ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent ? 0.48f : 0.34f);
+	GustAudio->SetVolumeMultiplier(0.34f);
 	GustAudio->Play();
 
 	const FVector LeafOrigin =
 		FMath::Lerp(RoadStart, RoadEnd, Random.FRandRange(0.12f, 0.88f)) +
 		FVector(0.0f, Random.FRandRange(-85.0f, 85.0f), 3.0f);
-	const int32 LeafCount =
-		ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoAbsent
-			? Random.RandRange(2, 5)
-			: Random.RandRange(7, 13);
+	const int32 LeafCount = Random.RandRange(7, 13);
 	ActivateLeaves(LeafOrigin, LeafCount, GustPeakStrength);
 	RefreshRuntimeUpdates();
 }
@@ -799,14 +681,10 @@ void AIGNeighborhoodLifeDirector::LaunchCatTrace()
 		return;
 	}
 
-	const bool bUncanny =
-		ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoUncanny;
 	const FVector SideAlleyMouth(1220.0f, -405.0f, 4.0f);
-	const FVector CallLocation = bUncanny
-		? SideAlleyMouth + FVector(0.0f, 80.0f, 420.0f)
-		: SideAlleyMouth + FVector(0.0f, 35.0f, 38.0f);
+	const FVector CallLocation = SideAlleyMouth + FVector(0.0f, 35.0f, 38.0f);
 
-	UIGToneSequenceSoundWave* CatCall = CreateCatCall(this, bUncanny);
+	UIGToneSequenceSoundWave* CatCall = CreateCatCall(this);
 	TransientAudio.RemoveAllSwap(
 		[](const TObjectPtr<UAudioComponent>& Component)
 		{
@@ -820,17 +698,8 @@ void AIGNeighborhoodLifeDirector::LaunchCatTrace()
 	TransientAudio.Add(CatAudio);
 	CatAudio->SetWorldLocation(CallLocation);
 	CatAudio->SetSound(CatCall);
-	CatAudio->SetVolumeMultiplier(bUncanny ? 0.42f : 0.55f);
+	CatAudio->SetVolumeMultiplier(0.55f);
 	CatAudio->Play();
-
-	// CH02 deliberately withholds the source: the call is above the roofline,
-	// while only disturbed litter remains at ground level.
-	if (bUncanny)
-	{
-		ActivateLeaves(SideAlleyMouth, Random.RandRange(3, 6), 0.40f);
-		RefreshRuntimeUpdates();
-		return;
-	}
 
 	const bool bReverse = Random.FRand() < 0.5f;
 	CatRuntime.bActive = true;
@@ -851,112 +720,6 @@ void AIGNeighborhoodLifeDirector::LaunchCatTrace()
 	}
 	ActivateLeaves(CatRuntime.End, Random.RandRange(3, 6), 0.55f);
 	RefreshRuntimeUpdates();
-}
-
-void AIGNeighborhoodLifeDirector::PlayAuthoredReturnIncident(
-	const FVector CatStart,
-	const FVector CatEnd)
-{
-	if (ChapterVariant != EIGNeighborhoodChapterVariant::ChapterOneNormal
-		|| CatStart.Equals(CatEnd, 10.0f))
-	{
-		return;
-	}
-	InitializePools();
-	GetWorldTimerManager().ClearTimer(VehicleScheduleHandle);
-	GetWorldTimerManager().ClearTimer(GustScheduleHandle);
-	GetWorldTimerManager().ClearTimer(CatScheduleHandle);
-
-	// The first two gusts belong to the ambient baseline. This authored third
-	// gust always follows the road toward the villa and is never duplicated by
-	// a newly scheduled ambient event.
-	GustElapsed = 0.0f;
-	GustDuration = 3.1f;
-	GustPeakStrength = 0.72f;
-	GustDirection = (CatEnd - CatStart).GetSafeNormal();
-	GustVisualPhase = 0.35f * UE_PI;
-	OnWindGust.Broadcast(GustPeakStrength, GustDirection, GustDuration);
-
-	UAudioComponent* GustAudio = CreateSpatialAudioComponent(
-		SceneRoot,
-		MakeUniqueObjectName(
-			this,
-			UAudioComponent::StaticClass(),
-			TEXT("AuthoredReturnGust")),
-		320.0f,
-		1900.0f);
-	GustAudio->bAutoDestroy = true;
-	TransientAudio.Add(GustAudio);
-	GustAudio->SetWorldLocation(FMath::Lerp(CatStart, CatEnd, 0.35f));
-	GustAudio->SetSound(CreateGustSound(this, GustDuration));
-	GustAudio->SetVolumeMultiplier(0.42f);
-	GustAudio->Play();
-	ActivateLeaves(CatStart, 11, GustPeakStrength);
-
-	UAudioComponent* CatAudio = CreateSpatialAudioComponent(
-		SceneRoot,
-		MakeUniqueObjectName(
-			this,
-			UAudioComponent::StaticClass(),
-			TEXT("AuthoredReturnCat")),
-		90.0f,
-		1500.0f);
-	CatAudio->bAutoDestroy = true;
-	TransientAudio.Add(CatAudio);
-	CatAudio->SetWorldLocation(CatStart + FVector(0, 0, 35));
-	CatAudio->SetSound(CreateCatCall(this, false));
-	CatAudio->SetVolumeMultiplier(0.58f);
-	CatAudio->Play();
-
-	CatRuntime.bActive = true;
-	CatRuntime.Start = CatStart;
-	CatRuntime.End = CatEnd;
-	CatRuntime.Elapsed = 0.0f;
-	CatRuntime.Duration = 0.95f;
-	CatTraceRoot->SetWorldLocation(CatRuntime.Start);
-	CatTraceRoot->SetWorldRotation((CatRuntime.End - CatRuntime.Start).Rotation());
-	CatTraceRoot->SetWorldScale3D(FVector::OneVector);
-	for (UStaticMeshComponent* Part : CatSilhouetteParts)
-	{
-		if (Part)
-		{
-			Part->SetVisibility(true);
-			Part->SetHiddenInGame(false);
-		}
-	}
-	ActivateLeaves(CatRuntime.End, 5, 0.58f);
-	RefreshRuntimeUpdates();
-}
-
-void AIGNeighborhoodLifeDirector::PlayAuthoredCatCall(
-	const FVector WorldLocation,
-	const bool bUncanny)
-{
-	if (!GetWorld() || !SceneRoot)
-	{
-		return;
-	}
-
-	TransientAudio.RemoveAllSwap(
-		[](const TObjectPtr<UAudioComponent>& Component)
-		{
-			return !IsValid(Component.Get());
-		},
-		EAllowShrinking::No);
-	UAudioComponent* CatAudio = CreateSpatialAudioComponent(
-		SceneRoot,
-		MakeUniqueObjectName(
-			this,
-			UAudioComponent::StaticClass(),
-			TEXT("AuthoredCatCall")),
-		85.0f,
-		1250.0f);
-	CatAudio->bAutoDestroy = true;
-	TransientAudio.Add(CatAudio);
-	CatAudio->SetWorldLocation(WorldLocation);
-	CatAudio->SetSound(CreateCatCall(this, bUncanny));
-	CatAudio->SetVolumeMultiplier(bUncanny ? 0.38f : 0.50f);
-	CatAudio->Play();
 }
 
 void AIGNeighborhoodLifeDirector::ActivateLeaves(
@@ -982,13 +745,8 @@ void AIGNeighborhoodLifeDirector::ActivateLeaves(
 			Random.FRandRange(-60.0f, 60.0f),
 			Random.FRandRange(1.0f, 15.0f));
 
-		const FVector EffectiveDirection =
-			ChapterVariant == EIGNeighborhoodChapterVariant::ChapterTwoUncanny &&
-			(LeafIndex % 3) == 0
-				? -GustDirection
-				: GustDirection;
 		Runtime.Velocity =
-			EffectiveDirection * Random.FRandRange(55.0f, 145.0f) * FMath::Max(0.25f, ImpulseScale) +
+			GustDirection * Random.FRandRange(55.0f, 145.0f) * FMath::Max(0.25f, ImpulseScale) +
 			FVector(
 				Random.FRandRange(-22.0f, 22.0f),
 				Random.FRandRange(-18.0f, 18.0f),
@@ -1019,7 +777,6 @@ void AIGNeighborhoodLifeDirector::UpdateRuntime(const float DeltaSeconds)
 	UpdateVehicles(DeltaSeconds, ListenerLocation);
 	UpdateLeaves(DeltaSeconds, ListenerLocation);
 	UpdateCatTrace(DeltaSeconds);
-	UpdateWindReactors();
 	RefreshRuntimeUpdates();
 }
 
@@ -1057,11 +814,6 @@ void AIGNeighborhoodLifeDirector::UpdateVehicles(
 			FMath::Clamp(Alpha / 0.12f, 0.0f, 1.0f),
 			FMath::Clamp((1.0f - Alpha) / 0.12f, 0.0f, 1.0f));
 		Volume *= EdgeFade;
-		if (Runtime.bAudioDropsOut && Alpha > 0.52f)
-		{
-			// CH02's image continues through the frame after its engine vanishes.
-			Volume *= FMath::Clamp(1.0f - (Alpha - 0.52f) / 0.08f, 0.0f, 1.0f);
-		}
 		Audio->SetVolumeMultiplier(Volume);
 
 		if (Alpha >= 1.0f)
@@ -1086,7 +838,6 @@ void AIGNeighborhoodLifeDirector::UpdateGust(const float DeltaSeconds)
 	{
 		GustElapsed = -1.0f;
 		CurrentWindSignal = FVector::ZeroVector;
-		OnWindGust.Broadcast(0.0f, GustDirection, 0.0f);
 	}
 }
 
@@ -1157,29 +908,6 @@ void AIGNeighborhoodLifeDirector::UpdateCatTrace(const float DeltaSeconds)
 	if (Alpha >= 1.0f)
 	{
 		DeactivateCatTrace();
-	}
-}
-
-void AIGNeighborhoodLifeDirector::UpdateWindReactors()
-{
-	WindReactors.RemoveAllSwap(
-		[](const FWindReactorRuntime& Reactor) { return !Reactor.Component.IsValid(); },
-		EAllowShrinking::No);
-
-	const float Strength = CurrentWindSignal.Size();
-	for (FWindReactorRuntime& Reactor : WindReactors)
-	{
-		if (USceneComponent* Component = Reactor.Component.Get())
-		{
-			const float Oscillation =
-				FMath::Sin(GustVisualPhase + GustElapsed * 6.3f) *
-				Strength * Reactor.ResponseScale;
-			const FRotator Offset(
-				CurrentWindSignal.X * 2.0f * Reactor.ResponseScale,
-				Oscillation * 0.9f,
-				CurrentWindSignal.Y * 4.0f * Reactor.ResponseScale + Oscillation * 1.8f);
-			Component->SetRelativeRotation(Reactor.NeutralRotation + Offset);
-		}
 	}
 }
 
@@ -1294,7 +1022,6 @@ void AIGNeighborhoodLifeDirector::RefreshRuntimeUpdates()
 
 	if (!bHasActiveWork)
 	{
-		UpdateWindReactors();
 		SetActorTickEnabled(false);
 		return;
 	}

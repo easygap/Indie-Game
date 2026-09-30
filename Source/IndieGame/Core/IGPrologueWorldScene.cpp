@@ -280,7 +280,6 @@ AIGPrologueWorldScene::AIGPrologueWorldScene()
 	SnackRedMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_SnackRed.M_SnackRed"));
 	SnackYellowMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_SnackYellow.M_SnackYellow"));
 	SnackBlueMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_SnackBlue.M_SnackBlue"));
-	CupNoodleMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_CupNoodle.M_CupNoodle"));
 	WindowGlowMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_WindowGlow.M_WindowGlow"));
 	WindowDarkMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_WindowDark.M_WindowDark"));
 	NightSkyMaterial = FindMaterial(TEXT("/Game/Prototype/Materials/M_NightSky.M_NightSky"));
@@ -1221,62 +1220,6 @@ void AIGPrologueWorldScene::AddStoreStockBlock(
 	ensureMsgf(bAdded, TEXT("The store-stock cube fallback must always be available."));
 }
 
-void AIGPrologueWorldScene::AddStoreStockCup(
-	const FVector& BaseLocation,
-	const float YawDegrees)
-{
-	// Foam cup body. The fallback keeps the batch contract intact when an
-	// artist is rebuilding an authored mesh locally.
-	if (!AddStoreStockProp(
-			TEXT("SM_CupNoodle"),
-			BaseLocation,
-			CupNoodleMaterial,
-			YawDegrees))
-	{
-		AddStoreStockBlock(
-			BaseLocation + FVector(0.0f, 0.0f, 5.5f),
-			FVector(10.8f, 10.8f, 11.0f),
-			CupNoodleMaterial,
-			true,
-			FRotator(0.0f, YawDegrees, 0.0f));
-	}
-
-	// The wrapper is authored at the cup's real dimensions and carries one
-	// explicit 360-degree UV seam. Runtime scaling would reintroduce the broken
-	// vertical strips that made the printed film look torn.
-	UMaterialInterface* LabelMaterial =
-		TexMat(TEXT("M_LabelRamyeon"), CupNoodleMaterial);
-	const bool bAddedSleeve = AddStoreStockInstance(
-			PropMesh(TEXT("SM_CupSleeve")),
-			LabelMaterial,
-			FTransform(
-				FRotator(0.0f, YawDegrees, 0.0f),
-				BaseLocation + FVector(0.0f, 0.0f, 1.6f),
-				FVector::OneVector),
-			false);
-	ensureMsgf(
-		bAddedSleeve,
-		TEXT("SM_CupSleeve is release-required; a flat box is not a valid wrapper."));
-
-	UMaterialInterface* LidMaterial =
-		TexMat(TEXT("M_StainlessUV"), MetalFrameMaterial);
-	if (!AddStoreStockProp(
-			TEXT("SM_CupLid"),
-			BaseLocation,
-			LidMaterial,
-			YawDegrees,
-			1.0f,
-			false))
-	{
-		AddStoreStockBlock(
-			BaseLocation + FVector(0.0f, 0.0f, 10.85f),
-			FVector(10.9f, 10.9f, 0.3f),
-			LidMaterial,
-			false,
-			FRotator(0.0f, YawDegrees, 0.0f));
-	}
-}
-
 void AIGPrologueWorldScene::AddStoreStockBottleLabel(
 	const FVector& BottleBase,
 	const float Radius,
@@ -1621,10 +1564,8 @@ void AIGPrologueWorldScene::InitializePrologue()
 	RefreshPurchaseProfilePresentation();
 	CreateAmbience();
 
-	// Ordinary street life is a narrative baseline, not decoration. CH01
-	// establishes a car, a delivery motorcycle, wind-blown leaves and a
-	// peripheral stray cat; later chapters can vary or remove that grammar
-	// without allocating a second set of actors.
+	// 평범한 골목 생활은 이야기가 기대는 기준선이다. 승용차와 배달 오토바이,
+	// 바람에 날리는 잎, 시야 끝을 스치는 길고양이가 그 몫을 한다.
 	FActorSpawnParameters NeighborhoodParameters;
 	NeighborhoodParameters.Owner = this;
 	NeighborhoodParameters.SpawnCollisionHandlingOverride =
@@ -1834,7 +1775,6 @@ void AIGPrologueWorldScene::BuildApartment()
 	{
 		// 프레임의 단순 충돌은 빈 공간까지 감싼다. 조사 판정은 침구의 눕기 대상에 맡긴다.
 		Frame->SetCollisionResponseToChannel(ECC_Visibility, ECR_Ignore);
-		Frame->ComponentTags.Add(TEXT("Apartment.BedFrame"));
 	}
 	else
 	{
@@ -1870,7 +1810,6 @@ void AIGPrologueWorldScene::BuildApartment()
 	float BedsideSurfaceLocalZ = IGPrologueWorld::BedsideTableTopZ;
 	if (BedsideTable)
 	{
-		BedsideTable->ComponentTags.Add(TEXT("Apartment.BedsideTable"));
 		const FBoxSphereBounds TableBounds = BedsideTable->CalcBounds(
 			BedsideTable->GetComponentTransform());
 		const float BedsideSurfaceWorldZ =
@@ -2187,15 +2126,9 @@ void AIGPrologueWorldScene::BuildApartment()
 	if (MicrowaveMesh)
 	{
 		// 상판 윗면(Z 87)에 발이 닿는다.
-		UStaticMeshComponent* Appliance = CreateBlock(
+		CreateBlock(
 			FVector(157, 68, 87), FVector(100, 100, 100),
 			nullptr, false, MicrowaveMesh, FRotator::ZeroRotator);
-		const FBox Footprint = MicrowaveMesh->GetBoundingBox().TransformBy(Appliance->GetRelativeTransform());
-		const bool bSupported = Footprint.Min.X >= 132.f && Footprint.Max.X <= 190.f
-			&& Footprint.Min.Y >= 40.f && Footprint.Max.Y <= 216.f
-			&& FMath::IsNearlyEqual(Footprint.Min.Z, 87.f, .2f);
-		UE_LOG(LogTemp, Display, TEXT("KITCHEN_SUPPORT %s microwave_min=%s max=%s"),
-			bSupported ? TEXT("PASS") : TEXT("FAIL"), *Footprint.Min.ToString(), *Footprint.Max.ToString());
 	}
 	else
 	{
@@ -2305,10 +2238,9 @@ void AIGPrologueWorldScene::BuildApartment()
 	UStaticMesh* WindowMesh = PropMesh(TEXT("SM_ApartmentWindow"));
 	if (WindowMesh)
 	{
-		UStaticMeshComponent* Window = CreateBlock(
+		CreateBlock(
 			FVector(-100, 212.5f, 100), FVector(100, 100, 100),
 			nullptr, false, WindowMesh, FRotator::ZeroRotator);
-		Window->ComponentTags.Add(TEXT("Apartment.Window"));
 	}
 	else
 	{
@@ -3621,7 +3553,6 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		Treads->SetCanEverAffectNavigation(false);
 		Treads->SetCastShadow(false);
 		Treads->SetAffectDistanceFieldLighting(false);
-		Treads->ComponentTags.Add(TEXT("Visual.RoofStairFinish"));
 		for (int32 Index = 0; Index < 4; ++Index)
 		{
 			Treads->AddInstance(FTransform(FRotator::ZeroRotator, FVector(-277.5f, -216.f + Index * 22.f, 918.f + Index * 18.f), FVector(1, 1, 18.f / 17.f)));
@@ -3923,7 +3854,6 @@ void AIGPrologueWorldScene::BuildFifthFloorAnnex()
 		Proxy->SetRenderInMainPass(false);
 		Proxy->SetRenderInDepthPass(false);
 		Proxy->SetReceivesDecals(false);
-		Proxy->ComponentTags.Add(TEXT("Visual.BoardShadowProxy"));
 		for (int32 Layer = 0; Layer < Count; ++Layer)
 		{
 			BoardStack->AddInstance(FTransform(FRotator::ZeroRotator,
@@ -5182,7 +5112,6 @@ void AIGPrologueWorldScene::BuildAlley()
 		Condensers->SetGenerateOverlapEvents(false);
 		Condensers->SetCanEverAffectNavigation(false);
 		Condensers->SetCullDistances(0, 5500);
-		Condensers->ComponentTags.Add(TEXT("Exterior.Condenser"));
 		for (const FVector& Spot : {
 			FVector(-100.0f, -395.0f, 268.0f), FVector(220.0f, -395.0f, 568.0f),
 			FVector(380.0f, -395.0f, 268.0f), FVector(-260.0f, -395.0f, 868.0f)})

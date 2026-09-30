@@ -228,12 +228,6 @@ public:
 		return EffectiveSettings.CaptionSizeScale;
 	}
 
-	UFUNCTION(BlueprintPure, Category = "Accessibility|Subtitles")
-	float GetCaptionBackgroundOpacity() const
-	{
-		return EffectiveSettings.CaptionBackgroundOpacity;
-	}
-
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Captions")
 	float GetCaptionDurationScale() const
 	{
@@ -258,12 +252,6 @@ public:
 		return EffectiveSettings.bHeartbeatWarning;
 	}
 
-	UFUNCTION(BlueprintPure, Category = "Accessibility|Guidance")
-	bool UsesCognitiveAssist() const
-	{
-		return EffectiveSettings.bCognitiveAssist;
-	}
-
 	/** §19.8. 인지 지원에서 노크 판정창이 넓어지는 배율. */
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Guidance")
 	float GetKnockWindowScale() const;
@@ -284,12 +272,6 @@ public:
 	float GetFieldOfViewDegrees() const
 	{
 		return EffectiveSettings.FieldOfViewDegrees;
-	}
-
-	UFUNCTION(BlueprintPure, Category = "Accessibility|Subtitles")
-	float GetCaptionSafeAreaScale() const
-	{
-		return EffectiveSettings.CaptionSafeAreaScale;
 	}
 
 	UFUNCTION(BlueprintPure, Category = "Accessibility|Input")

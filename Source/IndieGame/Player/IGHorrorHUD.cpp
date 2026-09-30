@@ -288,16 +288,10 @@ void AIGHorrorHUD::BeginPlay()
 		TEXT("IGFrontendShippingProbe"))
 		|| FParse::Param(
 			FCommandLine::Get(),
-			TEXT("IGMissingFloorJournalPreview"))
-		|| FParse::Param(
-			FCommandLine::Get(),
 			TEXT("IGAudioCalibrationPreview"))
 		|| FParse::Param(
 			FCommandLine::Get(),
-			TEXT("IGMissingFloorEndingPreview"))
-		|| FParse::Param(
-			FCommandLine::Get(),
-			TEXT("IGDisplaySettingsPreview"));
+			TEXT("IGMissingFloorEndingPreview"));
 	InitializeKoreanFont();
 	CultureChangedHandle = FInternationalization::Get().OnCultureChanged().AddUObject(
 		this, &AIGHorrorHUD::HandleCultureChanged);
@@ -2406,7 +2400,6 @@ void AIGHorrorHUD::DrawHUD()
 	{
 		FinishTextAuditFrame();
 	}
-	bObjectiveGuideDrawn = bControlsGuideDrawn = false;
 	// 자막 시계는 프레임마다 그 순간의 멈춤 상태로 센다. 일시정지 메뉴처럼 자막을
 	// 그리지 않는 화면에서도 세어야 메뉴를 닫을 때 멈춘 시간이 한꺼번에 들어오지 않는다.
 	AdvanceAudioCaptionClock();
@@ -2617,14 +2610,12 @@ void AIGHorrorHUD::DrawHUD()
 		if (bNightPresentation)
 		{
 			DrawNightClock();
-			bObjectiveGuideDrawn = true;
 		}
 		else if (!Objective.IsEmpty())
 		{
 			FLinearColor Color = IGHorrorHUD::PaleGray;
 			Color.A *= ObjectiveAlpha;
 			DrawCenteredText(Objective, 42.0f, Color, EIGHudTextRole::Objective);
-			bObjectiveGuideDrawn = true;
 		}
 	}
 
@@ -2726,7 +2717,6 @@ void AIGHorrorHUD::DrawHUD()
 		if (ControlsAlpha > 0.01f)
 		{
 			DrawControlsGuide(ControlsAlpha * ControlsLaneAlpha, Guidance.IsRecalled());
-			bControlsGuideDrawn = true;
 		}
 		else if (bGuideAllowed && ContextTips.Alpha() > 0.01f)
 		{

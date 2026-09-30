@@ -22,7 +22,7 @@ $tags = Read-ProjectText 'Config/DefaultGameplayTags.ini'
 $probe = Read-ProjectText 'Scripts/Run-MissingFloor-ArrivalProbe.ps1'
 
 foreach ($token in @(
-	'IGMissingFloor=1?IGIgnoreDirectStart=1?IGNewGame=1',
+	'IGMissingFloor=1?IGNewGame=1',
 	'MissingFloorState->ResetNarrative()'
 )) {
 	if (-not $controller.Contains($token)) {
@@ -74,7 +74,7 @@ foreach ($token in @(
 foreach ($token in @(
 	'bIsMissingFloorSave',
 	'MissingFloorSnapshot.Night.CompletedBeats.Num() > 0',
-	'IGMissingFloor=1?IGIgnoreDirectStart=1?IGResumeSave=1'
+	'IGMissingFloor=1?IGResumeSave=1'
 )) {
 	if (-not $save.Contains($token)) {
 		throw "Missing Floor save-resume route is missing: $token"

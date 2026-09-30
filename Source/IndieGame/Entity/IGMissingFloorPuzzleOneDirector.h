@@ -32,12 +32,6 @@ public:
 	/** Spawns the puzzle's interactables against an already-built lobby. */
 	bool Configure(AIGPrologueWorldScene* InScene);
 
-	UFUNCTION(BlueprintPure, Category = "Puzzle")
-	bool IsBallastHumAudible() const { return bBallastHumAudible; }
-
-	UFUNCTION(BlueprintPure, Category = "Puzzle")
-	bool HasBreakerBeenThrown() const { return bBreakerThrown; }
-
 	/**
 	 * 낮에는 계전기가 곧장 되돌려서 아무 일도 없다(§7 P1). 위가 켜지는
 	 * 것은 그 시간에만이다.

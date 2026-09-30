@@ -45,7 +45,6 @@ $arguments = @(
 	'-FullStdOutLogOutput',
 	"-abslog=$runLog",
 	'-IGMissingFloor',
-	'-IGIgnoreDirectStart',
 	'-IGArrivalProbe',
 	'-IGSkipFrontend'
 )

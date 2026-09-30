@@ -82,10 +82,10 @@ function Invoke-GameCase([string]$Name, [string[]]$ExtraArguments, [switch]$Audi
 
 & (Join-Path $PSScriptRoot 'Run-MissingFloor-FrontendShippingProbe.ps1') -ArchiveDirectory $archiveRoot -EvidenceDirectory (Join-Path $EvidenceDirectory 'Frontend')
 $saveUser = Join-Path $EvidenceDirectory 'SaveUser'
-Invoke-GameCase 'Arrival' @('-IGMissingFloor', '-IGIgnoreDirectStart', '-IGArrivalProbe', '-IGArrivalSaveWrite', '-d3d12') -UserDirectory $saveUser
+Invoke-GameCase 'Arrival' @('-IGMissingFloor', '-IGArrivalProbe', '-IGArrivalSaveWrite', '-d3d12') -UserDirectory $saveUser
 $saveFiles = @(Get-ChildItem -LiteralPath $saveUser -Recurse -Filter 'AutoSave_*.sav')
 if ($saveFiles.Count -lt 1 -or $saveFiles.Count -gt 2) { throw '자동 저장 파일이 생성되지 않았습니다.' }
-Invoke-GameCase 'ArrivalResume' @('-IGMissingFloor', '-IGIgnoreDirectStart', '-IGArrivalSaveRead', '-d3d12') -UserDirectory $saveUser
+Invoke-GameCase 'ArrivalResume' @('-IGMissingFloor', '-IGArrivalSaveRead', '-d3d12') -UserDirectory $saveUser
 Invoke-GameCase 'FullGame' @('-IGListenerGreybox', '-IGListenerGreyboxProbe', '-nullrhi')
 Invoke-GameCase 'Audio' @('-IGAudioPresentationProbe') -Audio
 $after = Get-ArchiveHashes

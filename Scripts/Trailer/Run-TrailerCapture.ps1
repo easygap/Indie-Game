@@ -22,7 +22,7 @@ $user = Join-Path $root 'Saved\Validation\Trailer-User'
 New-Item -ItemType Directory -Force -Path $user | Out-Null
 $arguments = @((Join-Path $root 'IndieGame.uproject'), '-game', '-unattended', '-nosplash', '-NoLoadingScreen',
 	'-RenderOffscreen', '-d3d12', '-nosound', '-Windowed', "-ResX=$Width", "-ResY=$Height", '-ForceRes',
-	'-IGMissingFloor', '-IGIgnoreDirectStart', '-IGArrivalCapture', '-IGTrailerCapture', '-IGSkipFrontend',
+	'-IGMissingFloor', '-IGArrivalCapture', '-IGTrailerCapture', '-IGSkipFrontend',
 	'-UseFixedTimeStep', '-FPS=30', "-UserDir=$user",
 	'"-ExecCmds=Scalability 3,r.ScreenPercentage 100"', "-abslog=$log")
 if ($Shot) { $arguments += "-IGTrailerShot=$Shot" }

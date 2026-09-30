@@ -399,15 +399,6 @@ private:
 		const TCHAR* LabelMaterialName,
 		float YawDegrees);
 
-	/**
-	 * Adds one batched cup ramyeon: foam cup, printed sleeve, foil lid.
-	 *
-	 * Three instances rather than one, because the cup mesh has a single material
-	 * slot and the lid is unioned into it — texturing the mesh with the label
-	 * smears the artwork across the foil and the base.
-	 */
-	void AddStoreStockCup(const FVector& BaseLocation, float YawDegrees);
-
 	/** Registers completed batches once, after all instances have been added. */
 	void FinalizeStoreStockBatches();
 
@@ -578,7 +569,6 @@ private:
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> SnackRedMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> SnackYellowMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> SnackBlueMaterial;
-	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> CupNoodleMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WindowGlowMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> WindowDarkMaterial;
 	UPROPERTY(Transient) TObjectPtr<UMaterialInterface> NightSkyMaterial;

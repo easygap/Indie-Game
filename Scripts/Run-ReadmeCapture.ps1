@@ -20,7 +20,7 @@ try {
 		'-game', '-unattended', '-nosplash', '-NoLoadingScreen',
 		'-RenderOffscreen', '-d3d12', '-nosound', '-Windowed', '-ResX=1920', '-ResY=1080', '-ForceRes',
 		('-UserDir={0}' -f (Join-Path $projectRoot 'Saved/Validation/Readme-User')),
-		'-IGMissingFloor', '-IGIgnoreDirectStart', '-IGArrivalCapture', '-IGReadmeCapture', '-IGSkipFrontend',
+		'-IGMissingFloor', '-IGArrivalCapture', '-IGReadmeCapture', '-IGSkipFrontend',
 		'"-ExecCmds=Scalability 2,r.ScreenPercentage 100,t.MaxFPS 60"', ('"-abslog={0}"' -f $runLog)
 	) + $ExtraArguments
 	$process = Start-Process -FilePath $editor -ArgumentList $arguments -WindowStyle Hidden -PassThru

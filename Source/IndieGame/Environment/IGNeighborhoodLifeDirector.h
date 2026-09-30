@@ -11,29 +11,6 @@ class UStaticMesh;
 class UStaticMeshComponent;
 
 /**
- * Environmental grammar used by the first two mornings.
- *
- * CH01 establishes ordinary pre-dawn traffic and animal activity. CH02 can
- * either make the same systems subtly wrong, or remove them altogether.  The
- * enum is deliberately independent of story tags so later chapters can reuse
- * the director without depending on the prologue state machine.
- */
-UENUM(BlueprintType)
-enum class EIGNeighborhoodChapterVariant : uint8
-{
-	ChapterOneNormal UMETA(DisplayName = "CH01 - Normal"),
-	ChapterTwoUncanny UMETA(DisplayName = "CH02 - Uncanny"),
-	ChapterTwoAbsent UMETA(DisplayName = "CH02 - Absent")
-};
-
-/** One coarse gust signal for signs, wires, foliage and chapter scripting. */
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_ThreeParams(
-	FIGNeighborhoodWindGustSignature,
-	float, PeakStrength,
-	FVector, Direction,
-	float, DurationSeconds);
-
-/**
  * Allocation-bounded life for a small Korean residential alley.
  *
  * The actor intentionally needs no imported vehicle, animal, VFX or audio
@@ -60,10 +37,6 @@ public:
 		FVector InRoadEnd,
 		int32 InDeterministicSeed = 4040444);
 
-	/** Switches normal/uncanny/absent grammar without reallocating the pools. */
-	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
-	void SetChapterVariant(EIGNeighborhoodChapterVariant InVariant);
-
 	/**
 	 * Starts the authored alley sequence when the player reaches street level.
 	 * CH01 then guarantees a car followed by a delivery motorcycle instead of
@@ -71,37 +44,6 @@ public:
 	 */
 	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
 	void PrimeOutdoorSequence();
-
-	/**
-	 * Stops ambient scheduling and plays the canonical third gust with a cat
-	 * trace from the villa forecourt into the common entrance.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
-	void PlayAuthoredReturnIncident(FVector CatStart, FVector CatEnd);
-
-	/** Emits one directed cat call without spawning or moving the cat trace. */
-	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
-	void PlayAuthoredCatCall(FVector WorldLocation, bool bUncanny = false);
-
-	UFUNCTION(BlueprintPure, Category = "Indie Game|Neighborhood")
-	EIGNeighborhoodChapterVariant GetChapterVariant() const { return ChapterVariant; }
-
-	/**
-	 * Optional wind response for a movable sign or cable assembly.
-	 * The component returns to the captured neutral rotation after every gust.
-	 */
-	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
-	void RegisterWindReactiveComponent(USceneComponent* Component, float ResponseScale = 1.0f);
-
-	UFUNCTION(BlueprintCallable, Category = "Indie Game|Neighborhood")
-	void UnregisterWindReactiveComponent(USceneComponent* Component);
-
-	/** Current signed wind vector; magnitude is normalized to roughly 0..1. */
-	UFUNCTION(BlueprintPure, Category = "Indie Game|Neighborhood")
-	FVector GetCurrentWindSignal() const { return CurrentWindSignal; }
-
-	UPROPERTY(BlueprintAssignable, Category = "Indie Game|Neighborhood")
-	FIGNeighborhoodWindGustSignature OnWindGust;
 
 protected:
 	virtual void BeginPlay() override;
@@ -118,7 +60,6 @@ private:
 	struct FVehicleRuntime
 	{
 		bool bActive = false;
-		bool bAudioDropsOut = false;
 		EIGPooledVehicleKind Kind = EIGPooledVehicleKind::PassengerCar;
 		FVector Start = FVector::ZeroVector;
 		FVector End = FVector::ZeroVector;
@@ -137,13 +78,6 @@ private:
 		float Age = 0.0f;
 		float Lifetime = 1.0f;
 		float Phase = 0.0f;
-	};
-
-	struct FWindReactorRuntime
-	{
-		TWeakObjectPtr<USceneComponent> Component;
-		FRotator NeutralRotation = FRotator::ZeroRotator;
-		float ResponseScale = 1.0f;
 	};
 
 	struct FCatTraceRuntime
@@ -173,7 +107,6 @@ private:
 	void UpdateGust(float DeltaSeconds);
 	void UpdateLeaves(float DeltaSeconds, const FVector& ListenerLocation);
 	void UpdateCatTrace(float DeltaSeconds);
-	void UpdateWindReactors();
 
 	void ActivateLeaves(const FVector& Origin, int32 Count, float ImpulseScale);
 	void DeactivateVehicle(int32 SlotIndex);
@@ -189,18 +122,13 @@ private:
 		UObject* Outer,
 		EIGPooledVehicleKind Kind) const;
 	class UIGToneSequenceSoundWave* CreateGustSound(UObject* Outer, float Duration) const;
-	class UIGToneSequenceSoundWave* CreateCatCall(UObject* Outer, bool bUncanny) const;
+	class UIGToneSequenceSoundWave* CreateCatCall(UObject* Outer) const;
 
 	bool TryGetListenerLocation(FVector& OutLocation) const;
 	bool IsPlayerNearRoad(float MaxDistance) const;
-	float RandomRangeForVariant(float NormalMin, float NormalMax, float UncannyMin, float UncannyMax) ;
 
 	UPROPERTY(VisibleAnywhere, Category = "Indie Game|Neighborhood")
 	TObjectPtr<USceneComponent> SceneRoot;
-
-	UPROPERTY(EditAnywhere, Category = "Indie Game|Neighborhood|Scheduling")
-	EIGNeighborhoodChapterVariant ChapterVariant =
-		EIGNeighborhoodChapterVariant::ChapterOneNormal;
 
 	UPROPERTY(EditAnywhere, Category = "Indie Game|Neighborhood|Scheduling", meta = (ClampMin = "1"))
 	int32 DeterministicSeed = 4040444;
@@ -271,7 +199,6 @@ private:
 
 	TArray<FVehicleRuntime> VehicleRuntime;
 	TArray<FLeafRuntime> LeafRuntime;
-	TArray<FWindReactorRuntime> WindReactors;
 	FCatTraceRuntime CatRuntime;
 	FRandomStream Random;
 
@@ -284,7 +211,6 @@ private:
 	float GustElapsed = -1.0f;
 	float GustDuration = 0.0f;
 	float GustPeakStrength = 0.0f;
-	float GustVisualPhase = 0.0f;
 	int32 ActiveVehicleOrdinal = 0;
 	bool bPoolsInitialized = false;
 	bool bOutdoorSequencePrimed = false;

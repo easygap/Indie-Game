@@ -76,8 +76,6 @@ Assert-ContainsAll $header @(
 	'UsesToggleCrouch',
 	'AreHapticsEnabled',
 	'GetCaptionSizeScale',
-	'GetCaptionBackgroundOpacity',
-	'GetCaptionSafeAreaScale',
 	'ApplySettings',
 	'ResetToDefaults'
 ) '공용 설정 표면'

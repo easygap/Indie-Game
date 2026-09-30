@@ -34,8 +34,6 @@ void UIGAmbienceSoundWave::Configure(const EIGAmbienceMode InMode, const uint32 
 	Mode = InMode;
 	NoiseState = InNoiseSeed != 0 ? InNoiseSeed : 0x1F123BB5u;
 	BrownAccumulator = 0.0f;
-	DoorNoiseLow180 = 0.0f;
-	DoorNoiseLow320 = 0.0f;
 	BandLowA = BandBandA = BandLowB = BandBandB = BandLowC = BandBandC = 0.0f;
 	GeneratedSampleCount = 0;
 }
@@ -125,58 +123,6 @@ int32 UIGAmbienceSoundWave::OnGeneratePCMAudio(TArray<uint8>& OutAudio, const in
 				BallastFlutter * Buzz * 0.011f +
 				White * 0.0035f +
 				0.0022f * IGAmbience::StableSine(7902.0f, SampleIndex);
-			break;
-		}
-
-		case EIGAmbienceMode::DoorBeyond:
-		{
-			// Two one-pole low passes form a cheap, stable 180-320 Hz band.
-			// The band keeps the clue audible on small speakers while the 38/57 Hz
-			// pair carries the physical pressure on full-range systems.
-			DoorNoiseLow180 += (White - DoorNoiseLow180) * 0.0233f;
-			DoorNoiseLow320 += (White - DoorNoiseLow320) * 0.0410f;
-			const float LimitedNoise = FMath::Clamp(
-				(DoorNoiseLow320 - DoorNoiseLow180) * 4.8f,
-				-1.0f,
-				1.0f);
-			const float SlowBreath =
-				0.82f + 0.18f * IGAmbience::StableSine(0.09f, SampleIndex);
-			const float LowPair =
-				0.014f * IGAmbience::StableSine(38.0f, SampleIndex)
-				+ 0.012f * IGAmbience::StableSine(57.0f, SampleIndex);
-			Output = SlowBreath * LowPair + LimitedNoise * 0.018f;
-			break;
-		}
-
-		case EIGAmbienceMode::RoofWindRope:
-		{
-			const float Gust = FMath::Square(FMath::Clamp(
-				0.55f
-					+ 0.34f * IGAmbience::StableSine(0.043f, SampleIndex)
-					+ 0.21f * IGAmbience::StableSine(0.017f, SampleIndex),
-				0.0f,
-				1.0f));
-			const float RopeGate = FMath::Square(FMath::Clamp(
-				(IGAmbience::StableSine(0.071f, SampleIndex) - 0.72f) / 0.28f,
-				0.0f,
-				1.0f));
-			const float RopeTension = RopeGate * (
-				0.009f * IGAmbience::StableSine(164.0f, SampleIndex)
-				+ 0.004f * IGAmbience::StableSine(328.0f, SampleIndex));
-			Output = Brown * (0.025f + 0.050f * Gust)
-				+ White * (0.003f + 0.006f * Gust)
-				+ RopeTension;
-			break;
-		}
-
-		case EIGAmbienceMode::RoofTankPressure:
-		{
-			const float PressurePulse =
-				0.58f + 0.42f * IGAmbience::StableSine(0.13f, SampleIndex);
-			Output = Brown * 0.022f * PressurePulse
-				+ 0.012f * PressurePulse
-					* IGAmbience::StableSine(72.0f, SampleIndex)
-				+ 0.004f * IGAmbience::StableSine(144.0f, SampleIndex);
 			break;
 		}
 

@@ -17,5 +17,5 @@ if not defined RESOLVED_UE_EDITOR (
 )
 
 rem 없는 층 본편: 안전한 입주 저녁부터 시작해 첫날 밤과 이후 진행으로 이어진다.
-start "Missing Floor" "%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -windowed -ResX=1600 -ResY=900 -IGMissingFloor -IGIgnoreDirectStart -IGNewGame -IGSkipFrontend
+start "Missing Floor" "%RESOLVED_UE_EDITOR%" "%PROJECT_FILE%" -game -windowed -ResX=1600 -ResY=900 -IGMissingFloor -IGSkipFrontend
 endlocal

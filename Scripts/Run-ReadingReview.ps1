@@ -13,7 +13,7 @@ $readingStart = Get-Date
 try {
     & $readingEditor "$readingRoot/IndieGame.uproject" -game -unattended -nosplash -NoLoadingScreen `
         -RenderOffscreen -d3d12 -nosound -Windowed "-ResX=$Width" "-ResY=$Height" -ForceRes `
-        -IGMissingFloor -IGIgnoreDirectStart -IGArrivalCapture -IGReadingReview -IGSkipFrontend `
+        -IGMissingFloor -IGArrivalCapture -IGReadingReview -IGSkipFrontend `
         "-IGCaptionScale=$TextScale" @readingCulture '-ExecCmds=Scalability 2,r.ScreenPercentage 100,t.MaxFPS 60' "-abslog=$readingLog" | Out-Null
     $readingResult = $LASTEXITCODE
 }

@@ -39,7 +39,7 @@ $arguments = @(
 	'-RenderOffScreen', '-d3d12', '-nosound', '-NoVSync',
 	"-ResX=$ResX", "-ResY=$ResY", '-ForceRes',
 	'-stdout', '-FullStdOutLogOutput', "-abslog=$runLog",
-	'-IGMissingFloor', '-IGIgnoreDirectStart', '-IGArrivalCapture', '-IGSkipFrontend'
+	'-IGMissingFloor', '-IGArrivalCapture', '-IGSkipFrontend'
 )
 if ($arguments -notcontains '-RenderOffScreen' -or $arguments -notcontains '-d3d12') {
 	throw 'Arrival capture requires offscreen D3D12.'

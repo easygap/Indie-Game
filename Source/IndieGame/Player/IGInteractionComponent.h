@@ -55,9 +55,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category = "Interaction|Input")
 	void SetInteractionInputEnabled(bool bEnabled);
 
-	UFUNCTION(BlueprintPure, Category = "Interaction|Input")
-	bool IsInteractionInputEnabled() const { return bInteractionInputEnabled; }
-
 	/** Performs an immediate camera-centred trace outside the regular timer cadence. */
 	UFUNCTION(BlueprintCallable, Category = "Interaction")
 	void RefreshFocus();

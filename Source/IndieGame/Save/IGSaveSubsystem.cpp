@@ -430,8 +430,8 @@ void UIGSaveSubsystem::HandleLoadComplete(
 			IGSave::IsMissingFloorSave(*LastLoadedSave);
 		const FString TravelOptions =
 			bIsMissingFloorSave
-				? TEXT("IGMissingFloor=1?IGIgnoreDirectStart=1?IGResumeSave=1")
-				: TEXT("IGIgnoreDirectStart=1?IGResumeSave=1");
+				? TEXT("IGMissingFloor=1?IGResumeSave=1")
+				: TEXT("IGResumeSave=1");
 		UGameplayStatics::OpenLevel(
 			this,
 			SavedMap,

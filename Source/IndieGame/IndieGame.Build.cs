@@ -22,16 +22,12 @@ public class IndieGame : ModuleRules
 			"InputCore",
 			"EnhancedInput",
 			"GameplayTags",
-			"LevelSequence",
 			// Runtime composite font (Korean HUD text) uses SlateCore types.
-			"Slate",
 			"SlateCore",
 			// Photo-prop meshes are resolved by path at runtime.
 			"AssetRegistry"
 		});
 
-		PrivateDependencyModuleNames.Add("Json");
-		PrivateDependencyModuleNames.Add("PhysicsCore");
 		// Optional microphone mode reduces capture buffers to a local envelope;
 		// the platform backend is loaded by the AudioCapture project plugin.
 		PrivateDependencyModuleNames.Add("AudioCaptureCore");

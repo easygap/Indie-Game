@@ -230,13 +230,6 @@ void AIGPlayerController::BeginPlay()
 	else if (IsLocalController()
 		&& FParse::Param(
 			FCommandLine::Get(),
-			TEXT("IGMissingFloorJournalPreview")))
-	{
-		StartMissingFloorJournalPreviewProbe();
-	}
-	else if (IsLocalController()
-		&& FParse::Param(
-			FCommandLine::Get(),
 			TEXT("IGAudioCalibrationPreview")))
 	{
 		StartAudioCalibrationPreviewProbe();
@@ -247,13 +240,6 @@ void AIGPlayerController::BeginPlay()
 			TEXT("IGMissingFloorEndingPreview")))
 	{
 		StartMissingFloorEndingPreviewProbe();
-	}
-	else if (IsLocalController()
-		&& FParse::Param(
-			FCommandLine::Get(),
-			TEXT("IGDisplaySettingsPreview")))
-	{
-		StartDisplaySettingsPreviewProbe();
 	}
 }
 
@@ -271,11 +257,6 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 		TickFrontendShippingProbe();
 		return;
 	}
-	if (bMissingFloorJournalPreviewProbe)
-	{
-		TickMissingFloorJournalPreviewProbe();
-		return;
-	}
 	if (bAudioCalibrationPreviewProbe)
 	{
 		TickAudioCalibrationPreviewProbe();
@@ -284,11 +265,6 @@ void AIGPlayerController::Tick(const float DeltaSeconds)
 	if (bMissingFloorEndingPreviewProbe)
 	{
 		TickMissingFloorEndingPreviewProbe();
-		return;
-	}
-	if (bDisplaySettingsPreviewProbe)
-	{
-		TickDisplaySettingsPreviewProbe();
 		return;
 	}
 	if (InputLockWatchdogNextReportTime > 0.0
@@ -1389,204 +1365,6 @@ void AIGPlayerController::FailFrontendShippingProbe(const FString& Reason)
 	FPlatformMisc::RequestExitWithStatus(true, 2);
 }
 
-void AIGPlayerController::StartMissingFloorJournalPreviewProbe()
-{
-	const TCHAR* CommandLine = FCommandLine::Get();
-	FParse::Value(
-		CommandLine,
-		TEXT("IGJournalPreviewExpectedWidth="),
-		MissingFloorJournalPreviewExpectedWidth);
-	FParse::Value(
-		CommandLine,
-		TEXT("IGJournalPreviewExpectedHeight="),
-		MissingFloorJournalPreviewExpectedHeight);
-	FParse::Value(
-		CommandLine,
-		TEXT("IGJournalPreviewScreenshotPath="),
-		MissingFloorJournalPreviewScreenshotPath);
-	MissingFloorJournalPreviewScreenshotPath.TrimQuotesInline();
-	MissingFloorJournalPreviewScreenshotPath = FPaths::ConvertRelativePathToFull(
-		MissingFloorJournalPreviewScreenshotPath);
-	if (MissingFloorJournalPreviewExpectedWidth <= 0
-		|| MissingFloorJournalPreviewExpectedHeight <= 0
-		|| MissingFloorJournalPreviewScreenshotPath.IsEmpty())
-	{
-		FailMissingFloorJournalPreviewProbe(TEXT("arguments_missing"));
-		return;
-	}
-
-	UIGMissingFloorNarrativeSubsystem* Narrative = GetGameInstance()
-		? GetGameInstance()->GetSubsystem<UIGMissingFloorNarrativeSubsystem>()
-		: nullptr;
-	if (!Narrative)
-	{
-		FailMissingFloorJournalPreviewProbe(TEXT("narrative_missing"));
-		return;
-	}
-	Narrative->ResetNarrative();
-	auto AddSource = [Narrative](
-		const EIGMissingFloorTruth Truth,
-		const EIGMissingFloorSource Source)
-	{
-		Narrative->RegisterTruthSource(Truth, Source);
-	};
-	AddSource(EIGMissingFloorTruth::LivedUpstairs,
-		EIGMissingFloorSource::MeterFifthDial);
-	AddSource(EIGMissingFloorTruth::LivedUpstairs,
-		EIGMissingFloorSource::MeterReadingSheet);
-	AddSource(EIGMissingFloorTruth::TenantIdentity,
-		EIGMissingFloorSource::ShippingLabels);
-	AddSource(EIGMissingFloorTruth::TenantIdentity,
-		EIGMissingFloorSource::TunerNotebookName);
-	AddSource(EIGMissingFloorTruth::NoiseWasHomecoming,
-		EIGMissingFloorSource::NoiseForumPosts);
-	AddSource(EIGMissingFloorTruth::NoiseWasHomecoming,
-		EIGMissingFloorSource::TunerWorkSchedule);
-	AddSource(EIGMissingFloorTruth::LandingStruggle,
-		EIGMissingFloorSource::ForumFinalPost);
-	AddSource(EIGMissingFloorTruth::LandingStruggle,
-		EIGMissingFloorSource::LandingImpactMark);
-	AddSource(EIGMissingFloorTruth::WallSealedThatDay,
-		EIGMissingFloorSource::BoardDeliveryReceipt);
-	AddSource(EIGMissingFloorTruth::WallSealedThatDay,
-		EIGMissingFloorSource::FreshPlasterDating);
-	AddSource(EIGMissingFloorTruth::FiveNightsOfThirst,
-		EIGMissingFloorSource::KnockTallyJournal);
-	AddSource(EIGMissingFloorTruth::FiveNightsOfThirst,
-		EIGMissingFloorSource::TankWaterAudition);
-
-	float RequestedTextScale = 1.0f;
-	FParse::Value(
-		CommandLine,
-		TEXT("IGJournalPreviewTextScale="),
-		RequestedTextScale);
-	if (UIGAccessibilitySubsystem* Accessibility =
-		GetAccessibilitySubsystem())
-	{
-		FIGAccessibilitySettings Settings = Accessibility->GetSettings();
-		Settings.CaptionSizeScale = FMath::Clamp(RequestedTextScale, 0.85f, 2.0f);
-		Accessibility->ApplySettings(Settings);
-	}
-
-	bMissingFloorJournalPreviewProbe = true;
-	bMissingFloorJournalPreviewScreenshotRequested = false;
-	bMissingFloorJournalPreviewCompilationDrained = false;
-	SystemMenuMode = EIGSystemMenuMode::Hidden;
-	bAccessibilityMenuVisible = false;
-	SetInputDevicePresentation(false);
-	// The production path pauses in OpenMissingFloorJournal. This probe keeps
-	// the world running until the GPU has produced and saved one evidence frame;
-	// pausing before the first offscreen present can starve the capture driver.
-	bMissingFloorJournalVisible = true;
-	MissingFloorJournalPage = 0;
-	ApplyMenuInputMode();
-	RefreshMenuHud();
-	IFileManager::Get().MakeDirectory(
-		*FPaths::GetPath(MissingFloorJournalPreviewScreenshotPath),
-		true);
-	const double Now = FPlatformTime::Seconds();
-	MissingFloorJournalPreviewNextActionTime = Now + 0.75;
-	MissingFloorJournalPreviewDeadline = Now + 8.0;
-	SetActorTickEnabled(true);
-}
-
-void AIGPlayerController::TickMissingFloorJournalPreviewProbe()
-{
-	const double Now = FPlatformTime::Seconds();
-	if (Now > MissingFloorJournalPreviewDeadline)
-	{
-		FailMissingFloorJournalPreviewProbe(TEXT("timeout"));
-		return;
-	}
-	if (Now < MissingFloorJournalPreviewNextActionTime)
-	{
-		return;
-	}
-	if (!bMissingFloorJournalPreviewCompilationDrained)
-	{
-		FAssetCompilingManager::Get().FinishAllCompilation();
-		if (GShaderCompilingManager)
-		{
-			GShaderCompilingManager->FinishAllCompilation();
-		}
-		if (GEngine)
-		{
-			GEngine->bEnableOnScreenDebugMessages = false;
-		}
-		ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
-		bMissingFloorJournalPreviewCompilationDrained = true;
-		MissingFloorJournalPreviewNextActionTime = Now + 0.40;
-		MissingFloorJournalPreviewDeadline = Now + 8.0;
-		return;
-	}
-	if (!bMissingFloorJournalPreviewScreenshotRequested)
-	{
-		const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
-		FVector2D CanvasSize;
-		FVector2D BoundsMinimum;
-		FVector2D BoundsMaximum;
-		int32 ElementCount = 0;
-		bool bInsideCanvas = false;
-		bool bInsideSettingsContainers = false;
-		uint64 FrameSerial = 0;
-		const bool bLayoutReady = HorrorHUD
-			&& HorrorHUD->IsMissingFloorJournalVisible()
-			&& HorrorHUD->GetLayoutValidationSample(
-				CanvasSize,
-				BoundsMinimum,
-				BoundsMaximum,
-				ElementCount,
-				bInsideCanvas,
-				bInsideSettingsContainers,
-				FrameSerial)
-			&& FMath::Abs(
-				CanvasSize.X - MissingFloorJournalPreviewExpectedWidth) <= 1.0f
-			&& FMath::Abs(
-				CanvasSize.Y - MissingFloorJournalPreviewExpectedHeight) <= 1.0f
-			&& bInsideCanvas
-			&& ElementCount >= 12
-			&& FrameSerial > 0;
-		if (!bLayoutReady)
-		{
-			MissingFloorJournalPreviewNextActionTime = Now + 0.05;
-			return;
-		}
-		FScreenshotRequest::RequestScreenshot(
-			MissingFloorJournalPreviewScreenshotPath,
-			true,
-			false);
-		bMissingFloorJournalPreviewScreenshotRequested = true;
-		MissingFloorJournalPreviewNextActionTime = Now + 0.08;
-		return;
-	}
-	if (!FPaths::FileExists(MissingFloorJournalPreviewScreenshotPath))
-	{
-		MissingFloorJournalPreviewNextActionTime = Now + 0.05;
-		return;
-	}
-
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("MISSINGFLOOR_JOURNAL_PREVIEW PASS resolution=%dx%d path=%s"),
-		MissingFloorJournalPreviewExpectedWidth,
-		MissingFloorJournalPreviewExpectedHeight,
-		*MissingFloorJournalPreviewScreenshotPath);
-	bMissingFloorJournalPreviewProbe = false;
-	FPlatformMisc::RequestExitWithStatus(true, 0);
-}
-
-void AIGPlayerController::FailMissingFloorJournalPreviewProbe(
-	const FString& Reason) const
-{
-	UE_LOG(
-		LogTemp,
-		Error,
-		TEXT("MISSINGFLOOR_JOURNAL_PREVIEW FAIL reason=%s"),
-		*Reason);
-	FPlatformMisc::RequestExitWithStatus(true, 2);
-}
-
 void AIGPlayerController::StartAudioCalibrationPreviewProbe()
 {
 	const TCHAR* CommandLine = FCommandLine::Get();
@@ -1821,185 +1599,6 @@ void AIGPlayerController::ApplyInputLocks()
 			FPlatformTime::Seconds() + IGInputLocks::WatchdogSeconds;
 		SetActorTickEnabled(true);
 	}
-}
-
-void AIGPlayerController::StartDisplaySettingsPreviewProbe()
-{
-	const TCHAR* CommandLine = FCommandLine::Get();
-	FParse::Value(
-		CommandLine,
-		TEXT("IGDisplaySettingsExpectedWidth="),
-		DisplaySettingsPreviewExpectedWidth);
-	FParse::Value(
-		CommandLine,
-		TEXT("IGDisplaySettingsExpectedHeight="),
-		DisplaySettingsPreviewExpectedHeight);
-	FParse::Value(
-		CommandLine,
-		TEXT("IGDisplaySettingsScreenshotPath="),
-		DisplaySettingsPreviewScreenshotPath);
-	DisplaySettingsPreviewScreenshotPath.TrimQuotesInline();
-	DisplaySettingsPreviewScreenshotPath = FPaths::ConvertRelativePathToFull(
-		DisplaySettingsPreviewScreenshotPath);
-	bDisplaySettingsPreviewProbe = true;
-	if (DisplaySettingsPreviewExpectedWidth <= 0
-		|| DisplaySettingsPreviewExpectedHeight <= 0
-		|| DisplaySettingsPreviewScreenshotPath.IsEmpty())
-	{
-		FailDisplaySettingsPreviewProbe(TEXT("arguments_missing"));
-		return;
-	}
-
-	bDisplaySettingsPreviewScreenshotRequested = false;
-	bDisplaySettingsPreviewCompilationDrained = false;
-	bAccessibilityMenuVisible = false;
-	// 저장된 값을 그대로 읽어 화면에 세운다. 프리뷰가 임의의 값을 보여 주면
-	// 증빙으로 쓸 수 없다.
-	RefreshStagedDisplaySettings();
-	// 어느 줄을 세워 둘지 고를 수 있어야 카테고리별로 증빙을 남길 수 있다.
-	int32 RequestedRow = 0;
-	FParse::Value(CommandLine, TEXT("IGDisplaySettingsRow="), RequestedRow);
-	DisplaySettingsSelection = FMath::Clamp(RequestedRow, 0, IGSettingsMenuLayout::DisplayRowCount - 1);
-	SetInputDevicePresentation(false);
-	SetSystemMenuMode(EIGSystemMenuMode::DisplaySettings);
-	// SetSystemMenuMode는 모드만 바꾼다. HUD가 이 화면을 그리려면 표시 상태를
-	// 한 번 밀어 줘야 한다.
-	RefreshMenuHud();
-	IFileManager::Get().MakeDirectory(
-		*FPaths::GetPath(DisplaySettingsPreviewScreenshotPath),
-		true);
-	const double Now = FPlatformTime::Seconds();
-	DisplaySettingsPreviewNextActionTime = Now + 0.75;
-	DisplaySettingsPreviewDeadline = Now + 8.0;
-	SetActorTickEnabled(true);
-}
-
-void AIGPlayerController::TickDisplaySettingsPreviewProbe()
-{
-	const double Now = FPlatformTime::Seconds();
-	if (Now > DisplaySettingsPreviewDeadline)
-	{
-		const AIGHorrorHUD* TimedOutHud = Cast<AIGHorrorHUD>(GetHUD());
-		FVector2D TimedOutCanvas = FVector2D::ZeroVector;
-		FVector2D Unused0;
-		FVector2D Unused1;
-		int32 TimedOutElements = 0;
-		bool bTimedOutInsideCanvas = false;
-		bool bTimedOutInsideContainers = false;
-		uint64 TimedOutSerial = 0;
-		const bool bSampled = TimedOutHud
-			&& TimedOutHud->GetLayoutValidationSample(
-				TimedOutCanvas, Unused0, Unused1, TimedOutElements,
-				bTimedOutInsideCanvas, bTimedOutInsideContainers,
-				TimedOutSerial);
-		UE_LOG(
-			LogTemp,
-			Error,
-			TEXT("MISSINGFLOOR_DISPLAY_SETTINGS_PREVIEW DIAG hud=%d mode=%d "
-				"sampled=%d canvas=%.0fx%.0f elements=%d inside=%d serial=%llu"),
-			TimedOutHud ? 1 : 0,
-			static_cast<int32>(SystemMenuMode),
-			bSampled ? 1 : 0,
-			TimedOutCanvas.X,
-			TimedOutCanvas.Y,
-			TimedOutElements,
-			bTimedOutInsideCanvas ? 1 : 0,
-			TimedOutSerial);
-		FailDisplaySettingsPreviewProbe(TEXT("timeout"));
-		return;
-	}
-	if (Now < DisplaySettingsPreviewNextActionTime)
-	{
-		return;
-	}
-	if (!bDisplaySettingsPreviewCompilationDrained)
-	{
-		FAssetCompilingManager::Get().FinishAllCompilation();
-		if (GShaderCompilingManager)
-		{
-			GShaderCompilingManager->FinishAllCompilation();
-		}
-		if (GEngine)
-		{
-			GEngine->bEnableOnScreenDebugMessages = false;
-		}
-		ConsoleCommand(TEXT("DisableAllScreenMessages"), true);
-		bDisplaySettingsPreviewCompilationDrained = true;
-		DisplaySettingsPreviewNextActionTime = Now + 0.40;
-		DisplaySettingsPreviewDeadline = Now + 8.0;
-		return;
-	}
-	if (!bDisplaySettingsPreviewScreenshotRequested)
-	{
-		// BeginPlay 시점에는 HUD가 아직 없을 수 있다. 표시 상태를 한 번만
-		// 밀면 그 호출이 통째로 헛돌고, 화면은 영원히 열리지 않는다.
-		RefreshMenuHud();
-		const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
-		FVector2D CanvasSize;
-		FVector2D BoundsMinimum;
-		FVector2D BoundsMaximum;
-		int32 ElementCount = 0;
-		bool bInsideCanvas = false;
-		bool bInsideSettingsContainers = false;
-		uint64 FrameSerial = 0;
-		const bool bLayoutReady = HorrorHUD
-			&& SystemMenuMode == EIGSystemMenuMode::DisplaySettings
-			&& HorrorHUD->GetLayoutValidationSample(
-				CanvasSize,
-				BoundsMinimum,
-				BoundsMaximum,
-				ElementCount,
-				bInsideCanvas,
-				bInsideSettingsContainers,
-				FrameSerial)
-			&& FMath::Abs(
-				CanvasSize.X - DisplaySettingsPreviewExpectedWidth) <= 1.0f
-			&& FMath::Abs(
-				CanvasSize.Y - DisplaySettingsPreviewExpectedHeight) <= 1.0f
-			&& bInsideCanvas
-			&& ElementCount >= 1
-			&& FrameSerial > 0;
-		if (!bLayoutReady)
-		{
-			DisplaySettingsPreviewNextActionTime = Now + 0.05;
-			return;
-		}
-		FScreenshotRequest::RequestScreenshot(
-			DisplaySettingsPreviewScreenshotPath,
-			true,
-			false);
-		bDisplaySettingsPreviewScreenshotRequested = true;
-		DisplaySettingsPreviewNextActionTime = Now + 0.08;
-		return;
-	}
-	if (!FPaths::FileExists(DisplaySettingsPreviewScreenshotPath))
-	{
-		DisplaySettingsPreviewNextActionTime = Now + 0.05;
-		return;
-	}
-
-	UE_LOG(
-		LogTemp,
-		Display,
-		TEXT("MISSINGFLOOR_DISPLAY_SETTINGS_PREVIEW PASS "
-			"resolution=%dx%d awaiting_confirmation=%d path=%s"),
-		DisplaySettingsPreviewExpectedWidth,
-		DisplaySettingsPreviewExpectedHeight,
-		bDisplaySettingsAwaitingConfirmation ? 1 : 0,
-		*DisplaySettingsPreviewScreenshotPath);
-	bDisplaySettingsPreviewProbe = false;
-	FPlatformMisc::RequestExitWithStatus(true, 0);
-}
-
-void AIGPlayerController::FailDisplaySettingsPreviewProbe(
-	const FString& Reason) const
-{
-	UE_LOG(
-		LogTemp,
-		Error,
-		TEXT("MISSINGFLOOR_DISPLAY_SETTINGS_PREVIEW FAIL reason=%s"),
-		*Reason);
-	FPlatformMisc::RequestExitWithStatus(true, 2);
 }
 
 void AIGPlayerController::StartMissingFloorEndingPreviewProbe()
@@ -3097,9 +2696,7 @@ void AIGPlayerController::StartHeadphoneRecommendationIfNeeded()
 	if (!IsLocalController()
 		|| SystemMenuMode != EIGSystemMenuMode::Title
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGFrontendShippingProbe"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloorJournalPreview"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGAudioCalibrationPreview"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGDisplaySettingsPreview"))
 		// 밤 5 검증은 타이틀 목록 그 자체를 검사한다. 첫 실행 온보딩이 메뉴를
 		// 가져가면 어떤 행도 선택 가능하지 않다.
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGNightFiveProbe")))
@@ -3860,7 +3457,7 @@ void AIGPlayerController::StartNewGame()
 		this,
 		LevelName,
 		true,
-		TEXT("IGMissingFloor=1?IGIgnoreDirectStart=1?IGNewGame=1"));
+		TEXT("IGMissingFloor=1?IGNewGame=1"));
 }
 
 void AIGPlayerController::ContinueLatestAutosave()
@@ -4553,9 +4150,7 @@ void AIGPlayerController::ShowContentNoticeIfNeeded()
 	if (!IsLocalController()
 		|| SystemMenuMode != EIGSystemMenuMode::Title
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGFrontendShippingProbe"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGMissingFloorJournalPreview"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGAudioCalibrationPreview"))
-		|| FParse::Param(FCommandLine::Get(), TEXT("IGDisplaySettingsPreview"))
 		|| FParse::Param(FCommandLine::Get(), TEXT("IGNightFiveProbe")))
 	{
 		return;
@@ -4645,8 +4240,7 @@ bool AIGPlayerController::ShouldShowTitleMenu() const
 	const TCHAR* CommandLine = FCommandLine::Get();
 	if (FParse::Param(CommandLine, TEXT("IGSkipFrontend"))
 		|| FParse::Param(CommandLine, TEXT("IGFrontendShippingProbe"))
-		|| FParse::Param(CommandLine, TEXT("IGAudioCalibrationPreview"))
-		|| FParse::Param(CommandLine, TEXT("IGDisplaySettingsPreview")))
+		|| FParse::Param(CommandLine, TEXT("IGAudioCalibrationPreview")))
 	{
 		return false;
 	}
