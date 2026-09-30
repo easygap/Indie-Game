@@ -179,6 +179,13 @@ Assert-ContainsAll $saveSource @(
 	'Candidate->Progress.SavedAtUtc > NewestTimestamp'
 ) '최신 호환 자동 저장 선별'
 Assert-ContainsAll $saveSource @(
+	'const FName PlayableMap(TEXT("/Game/Maps/Prologue_Morning"));',
+	'SaveGame->Progress.MapPackageName == IGSave::PlayableMap',
+	'FPackageName::DoesPackageExist(SaveGame->Progress.MapPackageName.ToString())',
+	'const bool bLoaded = IsAutosaveLoadable(TypedSave);',
+	'if (!IsAutosaveLoadable(LastLoadedSave))'
+) '자동 선택과 직접 불러오기에서 같은 복원 가능 맵 검사'
+Assert-ContainsAll $saveSource @(
 	'bool UIGSaveSubsystem::ClearRotatingAutosavesNow()',
 	'!UGameplayStatics::DeleteGameInSlot',
 	'Failed to delete autosave slot',
@@ -343,7 +350,7 @@ Assert-True (-not $controllerSource.Contains('ToggleCursorMode')) `
 
 Assert-ContainsAll $gameConfig @(
 	'ProjectName=Missing Floor',
-	'ProjectVersion=0.2.2',
+	'ProjectVersion=0.2.3',
 	'Description=연락이 끊긴 오빠를 찾아 낡은 빌라로 이사 온 뒤, 새벽마다 천장을 두드리는 소리를 따라가는 1인칭 공포 게임',
 	'CompanyName=easygap',
 	'Homepage=https://github.com/easygap/Missing-Floor',
@@ -365,7 +372,7 @@ Assert-True (-not $gameConfig.Contains('BuildConfiguration=PPBC_Development')) `
 Assert-True (-not $gameConfig.Contains('ForDistribution=False')) `
 	'배포 플래그가 비활성화되어 있다'
 Assert-ContainsAll $gameTarget @(
-	'BuildVersion = "0.2.2";',
+	'BuildVersion = "0.2.3";',
 	'WindowsPlatform.bSetResourceVersions = true;'
 ) 'Win64 공개 버전 리소스 계약'
 $configuredVersion = [regex]::Match(
@@ -539,7 +546,7 @@ Assert-ContainsAll $executableMetadataSyncScript @(
 ) 'Shipping 루트 런처 VERSIONINFO 동기화'
 Assert-ContainsAll $executableMetadataScript @(
 	"ExpectedProductName = 'Missing Floor'",
-	"ExpectedVersion = '0.2.2'",
+	"ExpectedVersion = '0.2.3'",
 	"ExpectedCompanyName = 'easygap'",
 	'FileDescription',
 	'FileVersion',

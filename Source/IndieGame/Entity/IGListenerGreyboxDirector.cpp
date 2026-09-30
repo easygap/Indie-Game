@@ -15,6 +15,7 @@
 #include "Components/InstancedStaticMeshComponent.h"
 #include "Components/StaticMeshComponent.h"
 #include "Core/IGPrologueWorldScene.h"
+#include "Core/IGGameInstance.h"
 #include "Engine/World.h"
 #include "Engine/Texture2D.h"
 #include "Engine/StaticMesh.h"
@@ -219,7 +220,9 @@ namespace IGListenerGreybox
 
 AIGListenerGreyboxDirector::AIGListenerGreyboxDirector()
 {
-	PrimaryActorTick.bCanEverTick = false;
+	PrimaryActorTick.bCanEverTick = true;
+	PrimaryActorTick.bStartWithTickEnabled = false;
+	PrimaryActorTick.bTickEvenWhenPaused = true;
 }
 
 void AIGListenerGreyboxDirector::BeginPlay()
@@ -231,6 +234,24 @@ void AIGListenerGreyboxDirector::BeginPlay()
 
 	bProbeRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGListenerGreyboxProbe"));
+	bEndingCheckpointWrite = FParse::Param(FCommandLine::Get(), TEXT("IGEndingCheckpointWrite"));
+	bEndingProfileProbe = FParse::Param(FCommandLine::Get(), TEXT("IGEndingProfileRead"));
+	FParse::Value(FCommandLine::Get(), TEXT("IGEndingResume="), EndingProbeChoice);
+	if (bEndingCheckpointWrite || bEndingProfileProbe || !EndingProbeChoice.IsEmpty())
+	{
+		EndingProbeStartedAt = FPlatformTime::Seconds();
+		SetActorTickEnabled(true);
+		if ((bEndingCheckpointWrite && !bProbeRequested)
+			|| (!bEndingCheckpointWrite && (bProbeRequested
+				|| (EndingProbeChoice != TEXT("A") && EndingProbeChoice != TEXT("B"))
+				|| FParse::Param(FCommandLine::Get(), TEXT("IGSkipFrontend"))
+				|| FParse::Param(FCommandLine::Get(), TEXT("IGFreshOnboarding")))))
+		{
+			FinishEndingLifecycleProbe(false, TEXT("엔딩 검사의 실행 인자가 잘못됨"));
+			return;
+		}
+		if (bEndingProfileProbe) { return; }
+	}
 	bArrivalProbeRequested =
 		FParse::Param(FCommandLine::Get(), TEXT("IGArrivalProbe"));
 	bArrivalCaptureRequested =
@@ -248,13 +269,18 @@ void AIGListenerGreyboxDirector::BeginPlay()
 		FParse::Param(FCommandLine::Get(), TEXT("IGCctvFeedProbe"));
 	// 저장 검사는 새 프로세스에서 실제 불러오기와 맵 이동을 거친다.
 	// 입주 장면을 먼저 만들면 초기 자동 저장이 검사할 파일을 덮을 수 있다.
-	if (FParse::Param(FCommandLine::Get(), TEXT("IGArrivalSaveRead"))
+	if ((FParse::Param(FCommandLine::Get(), TEXT("IGArrivalSaveRead"))
+			|| !EndingProbeChoice.IsEmpty())
 		&& !GetWorld()->URL.HasOption(TEXT("IGResumeSave")))
 	{
 		UIGSaveSubsystem* Save = GetGameInstance()->GetSubsystem<UIGSaveSubsystem>();
 		if (!Save || !Save->RequestLoadLatestAutosave())
 		{
-			FailProbe(TEXT("다시 실행한 게임에서 자동 저장을 불러오지 못함"));
+			if (!EndingProbeChoice.IsEmpty())
+			{
+				FinishEndingLifecycleProbe(false, TEXT("선택 직전 저장을 불러오지 못함"));
+			}
+			else { FailProbe(TEXT("다시 실행한 게임에서 자동 저장을 불러오지 못함")); }
 		}
 		return;
 	}
@@ -295,6 +321,7 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 		bStageReady = true;
 		// 입주가 아닌 길로 무대가 섰다면 검은 화면을 여기서 걷는다.
 		ReleaseArrivalOpeningBlack();
+		if (!EndingProbeChoice.IsEmpty()) { return; }
 		if (FParse::Param(FCommandLine::Get(), TEXT("IGArrivalSaveRead")))
 		{
 			const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
@@ -322,7 +349,36 @@ void AIGListenerGreyboxDirector::TrySetupStage()
 		// drivers of the same stage. The two that need real pixels win.
 		if (bNightCaptureRequested)
 		{
-			StartNightCapture();
+			float WarmupSeconds = 0.0f;
+			FParse::Value(FCommandLine::Get(), TEXT("IGPerformanceWarmupSeconds="), WarmupSeconds);
+			WarmupSeconds = FMath::IsFinite(WarmupSeconds)
+				? FMath::Clamp(WarmupSeconds, 0.0f, 600.0f) : 0.0f;
+			if (WarmupSeconds <= 0.0f)
+			{
+				StartNightCapture();
+			}
+			else
+			{
+				// 성능 검수의 준비 시간은 게임 배속이나 고정 프레임 수로 세지 않는다.
+				// 무대를 그대로 그리다가 지정한 실제 시간이 지나면 같은 경로를 시작한다.
+				const double StartedAt = FPlatformTime::Seconds();
+				const bool bHourWasPaused = NightPhase && NightPhase->IsHourPaused();
+				const bool bEntityTickWasEnabled = Entity && Entity->IsActorTickEnabled();
+				if (NightPhase) { NightPhase->SetHourPaused(true); }
+				if (Entity) { Entity->SetActorTickEnabled(false); }
+				UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_PERFORMANCE_WARMUP START seconds=%.2f"), WarmupSeconds);
+				GetWorldTimerManager().SetTimer(NightCaptureWarmupTimer,
+					FTimerDelegate::CreateWeakLambda(this, [this, StartedAt, WarmupSeconds, bHourWasPaused, bEntityTickWasEnabled]()
+					{
+						const double Elapsed = FPlatformTime::Seconds() - StartedAt;
+						if (Elapsed < WarmupSeconds) { return; }
+						GetWorldTimerManager().ClearTimer(NightCaptureWarmupTimer);
+						if (NightPhase) { NightPhase->SetHourPaused(bHourWasPaused); }
+						if (Entity) { Entity->SetActorTickEnabled(bEntityTickWasEnabled); }
+						UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_PERFORMANCE_WARMUP DONE seconds=%.2f"), Elapsed);
+						StartNightCapture();
+					}), 0.1f, true);
+			}
 		}
 		else if (bHistogramRequested)
 		{
@@ -3324,6 +3380,20 @@ namespace IGListenerGreybox
 		return EFirstReportText::None;
 	}
 
+	/** 문자가 잠시 멎어도 요구서를 읽고 후속 신고를 마치기 전에는 밤4로 가지 않는다. */
+	static bool HasCompletedFirstReportDay(const UIGMissingFloorNarrativeSubsystem& Narrative)
+	{
+		return Narrative.WasFirstReportMade()
+			&& Narrative.HasBeatPlayed(ReportSentBeat)
+			&& Narrative.HasBeatPlayed(ReportReceiptBeat)
+			&& Narrative.HasBeatPlayed(SiteCheckBeat)
+			&& Narrative.HasSource(
+				EIGMissingFloorTruth::StillCoveringIt,
+				EIGMissingFloorSource::EvictionWarning)
+			&& Narrative.HasBeatPlayed(EvictionPhotoBeat)
+			&& Narrative.HasBeatPlayed(EvictionDeadlineBeat);
+	}
+
 	/** 화면에 대사가 떠 있거나 줄을 서 있다. */
 	static bool IsDialogueLaneBusy(const UWorld* World)
 	{
@@ -3753,6 +3823,41 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 		BeginNightAfterSleep(1);
 		return;
 	}
+	// 자동 문자가 없는 것과 낮에 할 일을 마친 것은 다르다. 요구서를 아직
+	// 읽지 않았을 때도 문자 줄기는 잠시 멎으므로 취침 조건을 따로 확인한다.
+	if (Narrative->GetNightIndex() == 3
+		&& Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer))
+	{
+		if (!IGListenerGreybox::HasCompletedFirstReportDay(*Narrative))
+		{
+			if (!Narrative->WasFirstReportMade())
+			{
+				MakeNightThreeFirstReport();
+			}
+			const IGListenerGreybox::EFirstReportText Next =
+				IGListenerGreybox::NextFirstReportText(*Narrative, NightFour.Get());
+			if (Next == IGListenerGreybox::EFirstReportText::None)
+			{
+				AIGHorrorHUD::PushThought(
+					this,
+					NSLOCTEXT("IGMissingFloor", "EvictionNoticeSleepBlocked", "문에 붙은 종이부터 확인해 보자."),
+					2.6f);
+			}
+			else if (!bProbeRequested && (!bFirstReportRushed
+				|| !GetWorldTimerManager().IsTimerActive(ReportTimer)))
+			{
+				bFirstReportRushed = true;
+				ScheduleFirstReportTexts(0.05f);
+			}
+			return;
+		}
+		// 마지막 독백의 비트는 화면에 띄울 때 기록된다. 그 문장이 끝나기 전에
+		// 침대 암전으로 덮지 않는다. 프로브는 대사의 재생 시간만 생략한다.
+		if (!bProbeRequested && IGListenerGreybox::IsDialogueLaneBusy(GetWorld()))
+		{
+			return;
+		}
+	}
 	if (Narrative->GetNightIndex() == 3
 		&& !Narrative->WasFifthDawnInterludeCompleted()
 		&& bProbeRequested)
@@ -3771,21 +3876,6 @@ void AIGListenerGreyboxDirector::HandleSleepRequested(
 			FailProbe(TEXT("fifth-dawn start/input/finish contract failed"));
 			return;
 		}
-	}
-	// 신고 문자가 다 오기 전에는 잠들지 않는다. 눕는 순간 폰이 울리고, 남은
-	// 문자를 받은 뒤 한 번 더 누우면 잔다. 현장 확인과 요구서를 못 본 채
-	// 밤4로 가면 벽을 여는 이유가 비어 버린다. 프로브는 새벽에 이미 다 밟았다.
-	if (!bProbeRequested
-		&& IGListenerGreybox::NextFirstReportText(*Narrative, NightFour.Get())
-			!= IGListenerGreybox::EFirstReportText::None)
-	{
-		if (!bFirstReportRushed
-			|| !GetWorldTimerManager().IsTimerActive(ReportTimer))
-		{
-			bFirstReportRushed = true;
-			ScheduleFirstReportTexts(0.05f);
-		}
-		return;
 	}
 	const int32 CurrentNight = Narrative->GetNightIndex();
 	int32 NextNight = FMath::Clamp(CurrentNight + 1, 1, 4);
@@ -4932,6 +5022,12 @@ void AIGListenerGreyboxDirector::HandleUnit401Knocked(
 			EIGDialogueChannel::Conversation,
 			0.0f,
 			EIGDialoguePriority::Story);
+		if (Narrative && Narrative->GetNightIndex() >= 1
+			&& Narrative->GetNightIndex() <= 3)
+		{
+			Narrative->MarkBeatPlayed(AIGNightPhaseDirector::DayConversationBeatId(
+				Narrative->GetNightIndex()));
+		}
 	}
 
 	if (bProductionMode && Narrative && Narrative->GetNightIndex() == 0
@@ -4956,6 +5052,8 @@ bool AIGListenerGreyboxDirector::TryPlayHwangPermission()
 		return false;
 	}
 	GetWorldTimerManager().ClearTimer(HwangPermissionTimer);
+	Narrative->MarkBeatPlayed(AIGNightPhaseDirector::DayConversationBeatId(
+		Narrative->GetNightIndex()));
 	const FText Speaker =
 		NSLOCTEXT("IGMissingFloor", "HwangSpeaker", "황순금");
 	// 물값 한 줄이 공용 설비를 여는 허락이다. P5 힌트는 이번에는 건너뛰고 다음
@@ -6437,15 +6535,27 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 		{
 			// The day holds. Go to bed and expect night 2 to begin with the
 			// pursuer awake again.
-			if (!SleepTarget)
+			if (!SleepTarget || !Unit401Door)
 			{
 				FailProbe(TEXT("sleep target missing"));
 				return;
 			}
 			FIGInteractionContext SleepContext;
 			SleepContext.Interactor = Player.Get();
-			SleepContext.TargetActor = SleepTarget;
 			SleepContext.HoldProgress = 1.0f;
+			const FText BeforeConversation = NightPhase->GetObjectiveText();
+			SleepContext.TargetActor = Unit401Door;
+			IIGInteractable::Execute_CompleteInteraction(Unit401Door, SleepContext);
+			if (!GetNarrative()->HasBeatPlayed(AIGNightPhaseDirector::DayConversationBeatId(1))
+				|| NightPhase->GetObjectiveText().EqualTo(BeforeConversation)
+				|| !NightPhase->GetObjectiveText().EqualTo(
+					NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveSleep", "403호로 돌아가서 자기")))
+			{
+				FailProbe(TEXT("401호 대화를 마쳐도 낮 목표가 취침으로 바뀌지 않음"));
+				return;
+			}
+			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_DAYOBJECTIVE PASS: 401호 대화 뒤 취침 안내"));
+			SleepContext.TargetActor = SleepTarget;
 			IIGInteractable::Execute_CompleteInteraction(
 				SleepTarget, SleepContext);
 
@@ -7652,35 +7762,85 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			return;
 		}
 
-		// Day after the first report: read Mok's repair/eviction notice,
-		// then sleep into night 4. T10 still needs the breaker cut later.
+		// 요구서와 후속 신고를 빠뜨린 채 잠들 수 없어야 한다. 실제 침대의
+		// 상호작용을 사용해 자동 문자가 없는 상태도 취침 허가가 아님을 확인한다.
 		AIGMissingFloorEvidence* Eviction = NightFour->GetEvictionNotice();
 		if (!Eviction || Eviction->IsHidden()
-			|| !Eviction->IsInteractionEnabled())
+			|| !Eviction->IsInteractionEnabled() || !SleepTarget)
 		{
 			FailProbe(TEXT("the day-four eviction notice was not available"));
 			return;
 		}
 		FIGInteractionContext Context;
 		Context.Interactor = Player.Get();
-		Context.TargetActor = Eviction;
 		Context.HoldProgress = 1.0f;
+		const auto IsSleepBlocked = [this, Narrative, &Context]()
+		{
+			Context.TargetActor = SleepTarget;
+			IIGInteractable::Execute_CompleteInteraction(SleepTarget, Context);
+			return !NightPhase->IsHourActive() && Narrative->GetNightIndex() == 3
+				&& !GetWorldTimerManager().IsTimerActive(NightStartTimer)
+				&& !Narrative->WasFifthDawnInterludeCompleted();
+		};
+		if (Narrative->HasSource(EIGMissingFloorTruth::StillCoveringIt,
+			EIGMissingFloorSource::EvictionWarning)
+			|| !NightPhase->GetObjectiveText().EqualTo(
+				NSLOCTEXT("IGMissingFloor", "DayObjectiveNotice", "403호 문에 붙은 통보문 읽기"))
+			|| IGListenerGreybox::NextFirstReportText(*Narrative, NightFour.Get())
+				!= IGListenerGreybox::EFirstReportText::None
+			|| !IsSleepBlocked())
+		{
+			FailProbe(TEXT("요구서를 읽지 않았는데 밤4 취침이 허용됨"));
+			return;
+		}
+		Context.TargetActor = Eviction;
 		IIGInteractable::Execute_CompleteInteraction(Eviction, Context);
 		if (Narrative->HasTruth(EIGMissingFloorTruth::StillCoveringIt))
 		{
 			FailProbe(TEXT("eviction notice alone confirmed T10"));
 			return;
 		}
-		if (SleepTarget)
+		if (!Narrative->HasSource(EIGMissingFloorTruth::StillCoveringIt,
+			EIGMissingFloorSource::EvictionWarning)
+			|| !NightPhase->GetObjectiveText().EqualTo(
+				NSLOCTEXT("IGMissingFloor", "DayObjectiveReport", "신고 문자 확인하기"))
+			|| Narrative->HasBeatPlayed(IGListenerGreybox::EvictionPhotoBeat)
+			|| !IsSleepBlocked())
 		{
-			Context.TargetActor = SleepTarget;
-			IIGInteractable::Execute_CompleteInteraction(SleepTarget, Context);
+			FailProbe(TEXT("요구서 사진을 보내기 전에 밤4 취침이 허용됨"));
+			return;
 		}
+		// 대기 시간만 건너뛰고 실제 문자 처리로 사진과 마지막 독백을 보낸다.
+		const auto AdvanceReportWithoutWaiting = [this]()
+		{
+			ReportLaneWaitSeconds = IGListenerGreybox::ReportLaneMaxWaitSeconds;
+			ReportPendingGapSeconds = 0.0f;
+			AdvanceFirstReportTexts();
+			GetWorldTimerManager().ClearTimer(ReportTimer);
+		};
+		AdvanceReportWithoutWaiting();
+		if (!Narrative->HasBeatPlayed(IGListenerGreybox::EvictionPhotoBeat)
+			|| Narrative->HasBeatPlayed(IGListenerGreybox::EvictionDeadlineBeat)
+			|| !IsSleepBlocked())
+		{
+			FailProbe(TEXT("공사 시한 독백 전에 밤4 취침이 허용됨"));
+			return;
+		}
+		AdvanceReportWithoutWaiting();
+		if (!IGListenerGreybox::HasCompletedFirstReportDay(*Narrative))
+		{
+			FailProbe(TEXT("요구서와 후속 신고를 마쳐도 밤4 취침 조건이 충족되지 않음"));
+			return;
+		}
+		Context.TargetActor = SleepTarget;
+		IIGInteractable::Execute_CompleteInteraction(SleepTarget, Context);
 		if (!NightPhase->IsHourActive() || Narrative->GetNightIndex() != 4)
 		{
 			FailProbe(TEXT("sleeping did not begin night 4"));
 			return;
 		}
+		UE_LOG(LogTemp, Display,
+			TEXT("MISSINGFLOOR_N4SLEEP PASS: 요구서, 사진 전송, 공사 시한 독백을 마친 뒤 밤4 진입"));
 		ProbeStep = EProbeStep::SealedHourUiContract;
 		StepDeadlineSeconds = 0.0f;
 		break;
@@ -7938,6 +8098,11 @@ void AIGListenerGreyboxDirector::AdvanceProbe()
 			|| !NightFour->GetEndingBTarget()->IsInteractionEnabled())
 		{
 			FailProbe(TEXT("wall discovery did not expose both mourning choices"));
+			return;
+		}
+		if (bEndingCheckpointWrite)
+		{
+			WriteEndingCheckpointForProbe();
 			return;
 		}
 		Context.TargetActor = NightFour->GetEndingATarget();
@@ -9989,6 +10154,10 @@ void AIGListenerGreyboxDirector::EnterCaptureStep(const int32 StepIndex)
 		return;
 	}
 	CaptureStepIndex = StepIndex;
+	if (UIGGameInstance* GameInstance = GetGameInstance<UIGGameInstance>())
+	{
+		GameInstance->SetRuntimeProfileStage(StepIndex);
+	}
 	CaptureStepSeconds = 0.0f;
 	bCaptureActionADone = false;
 	bCaptureActionBDone = false;
@@ -10477,7 +10646,7 @@ void AIGListenerGreyboxDirector::AdvanceNightCapture()
 		// 고정 검수 카메라에서 종이가 어두운 타일을 지나면 TSR 히스토리가
 		// 실제보다 길게 남는다. 연속 캡처 후의 문서용 스틸만 FXAA로
 		// 바꾸어 멈춘 메모를 잔상 없이 남긴다. 게임 렌더러와 GIF는 기본 설정을 유지한다.
-		if (ActionC(2.65f))
+		if (!bCaptureMetricsOnly && ActionC(2.65f))
 		{
 			if (APlayerController* PlayerController =
 				GetWorld() ? GetWorld()->GetFirstPlayerController() : nullptr)

@@ -10,7 +10,7 @@ someone knocks three times on a ceiling with nothing above it.
 
 A first-person horror game set in a Korean residential neighborhood. Single-player · Windows · In development.
 
-[Download the Windows playtest](https://github.com/easygap/Missing-Floor/releases/download/v0.2.2/MissingFloor-0.2.2-Windows.zip) · [Watch the trailer](https://github.com/easygap/Missing-Floor/releases/download/v0.2.2/MissingFloor-Trailer.mp4)
+[Download the Windows playtest](https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-0.2.3-Windows.zip) · [Watch the trailer](https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-Trailer.mp4)
 
 ![The fourth-floor corridor at Moonlight Villa](../Media/readme/game-corridor-day.webp)
 
@@ -32,7 +32,7 @@ If it catches you, you wake up back in your room. You keep the clues you found, 
 
 Listen through walls, compare documents and check the meters. Your journal is available during the day; press `H` if you need a hint.
 
-## Playtest 0.2.2
+## Playtest 0.2.3
 
 Download the ZIP, extract it completely and run `MissingFloor.exe`. Keep the `Engine` and `IndieGame` folders beside it. Progress saves automatically. See the [setup guide](../PLAYING.md) for troubleshooting.
 

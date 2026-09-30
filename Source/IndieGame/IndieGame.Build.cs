@@ -33,6 +33,10 @@ public class IndieGame : ModuleRules
 		PrivateDependencyModuleNames.Add("AudioCaptureCore");
 		// 연출 검사에서 실제 게임 믹서 출력을 녹음한다.
 		PrivateDependencyModuleNames.Add("AudioMixer");
+		// 배포본의 명시적인 성능 검사에서 GPU 시간과 메모리를 읽는다.
+		PrivateDependencyModuleNames.Add("RHI");
+		PrivateDependencyModuleNames.Add("RenderCore");
+		PrivateDependencyModuleNames.Add("Json");
 
 		// Bundle UI typefaces with every target. Loading from the project
 		// directory keeps glyph metrics identical in Editor and packaged builds.

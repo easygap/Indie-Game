@@ -4,8 +4,8 @@
 msgid ""
 msgstr ""
 "Project-Id-Version: Game\n"
-"POT-Creation-Date: 2026-09-30 05:12\n"
-"PO-Revision-Date: 2026-09-30 05:12\n"
+"POT-Creation-Date: 2026-09-30 07:06\n"
+"PO-Revision-Date: 2026-09-30 07:06\n"
 "Language-Team: \n"
 "Language: en\n"
 "MIME-Version: 1.0\n"
@@ -70,71 +70,71 @@ msgid "…안 열리네. 잠긴 것도 아닌데."
 msgstr "…It won’t open. It’s not even locked."
 
 #. Key:	BuildingDoorPrompt
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6039)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6039)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6043)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6043)
 msgctxt "IGPrologue,BuildingDoorPrompt"
 msgid "공동현관 열기"
 msgstr "Open the entrance door"
 
 #. Key:	WindowPrompt
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6107)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6107)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6111)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6111)
 msgctxt "IGPrologue,WindowPrompt"
 msgid "창문"
 msgstr "Window"
 
 #. Key:	WindowThought
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6108)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6108)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6112)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6112)
 msgctxt "IGPrologue,WindowThought"
 msgid "건너편 불빛이 방까지 들어오네."
 msgstr "Light from across the way comes right in."
 
 #. Key:	WaterProfileA
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6160)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6160)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6164)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6164)
 msgctxt "IGPrologue,WaterProfileA"
 msgid "새벽샘물 500mL 2병 고르기"
 msgstr "Take two 500mL Saebyeok Spring bottles"
 
 #. Key:	WaterProfileAThought
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6162)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6162)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6166)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6166)
 msgctxt "IGPrologue,WaterProfileAThought"
 msgid "두 병이면 충분하겠지."
 msgstr "Two should be enough."
 
 #. Key:	WaterProfileB
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6167)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6167)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6171)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6171)
 msgctxt "IGPrologue,WaterProfileB"
 msgid "한강수 1L 1병 고르기"
 msgstr "Take one 1L Hangang bottle"
 
 #. Key:	WaterProfileBThought
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6169)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6169)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6173)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6173)
 msgctxt "IGPrologue,WaterProfileBThought"
 msgid "이거 하나면 되겠다."
 msgstr "This one should do."
 
 #. Key:	WaterProfileC
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6175)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6175)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6179)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6179)
 msgctxt "IGPrologue,WaterProfileC"
 msgid "맑은산 2L 2병 고르기"
 msgstr "Take two 2L Malgeunsan bottles"
 
 #. Key:	WaterProfileCThought
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6177)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6177)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6181)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6181)
 msgctxt "IGPrologue,WaterProfileCThought"
 msgid "무겁지만 한 번에 가져가자."
 msgstr "Heavy, but I’ll take both at once."
 
 #. Key:	LeftHomeThought
-#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6299)
-#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6299)
+#. SourceLocation:	Source/IndieGame/Core/IGPrologueWorldScene.cpp(6303)
+#: Source/IndieGame/Core/IGPrologueWorldScene.cpp(6303)
 msgctxt "IGPrologue,LeftHomeThought"
 msgid "밖은 후텁지근하네."
 msgstr "It’s muggy out."
@@ -189,935 +189,956 @@ msgid "기어 오는 소리가 빨라진다"
 msgstr "the crawling speeds up"
 
 #. Key:	SleepPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1142)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1142)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1198)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1198)
 msgctxt "IGMissingFloor,SleepPrompt"
 msgid "침대에 눕기"
 msgstr "Get into bed"
 
 #. Key:	Unit401Prompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1171)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1171)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1227)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1227)
 msgctxt "IGMissingFloor,Unit401Prompt"
 msgid "401호 문 두드리기"
 msgstr "Knock on 401’s door"
 
 #. Key:	UsedListingPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1206)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1206)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1262)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1262)
 msgctxt "IGMissingFloor,UsedListingPrompt"
 msgid "휴대폰 보기"
 msgstr "Check the phone"
 
 #. Key:	UsedListingTitle
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1208)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1208)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1264)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1264)
 msgctxt "IGMissingFloor,UsedListingTitle"
 msgid "달빛  ·  동네 중고 거래"
 msgstr "Moonlight  ·  Local Marketplace"
 
 #. Key:	UsedListing1
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1210)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1210)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1266)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1266)
 msgctxt "IGMissingFloor,UsedListing1"
 msgid "피아노 조율 공구 일괄 (튜닝해머 외 11점)"
 msgstr "Piano tuning tool lot (tuning hammer + 11 more)"
 
 #. Key:	UsedListing2
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1211)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1211)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1267)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1267)
 msgctxt "IGMissingFloor,UsedListing2"
 msgid "무영동  ·  직거래만  ·  30,000원"
 msgstr "Muyeong-dong  ·  Pickup only  ·  30,000 won"
 
 #. Key:	UsedListing3
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1213)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1213)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1269)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1269)
 msgctxt "IGMissingFloor,UsedListing3"
 msgid "세입자가 두고 간 짐 정리합니다. 상태 좋아요."
 msgstr "Clearing out stuff a tenant left behind. Good condition."
 
 #. Key:	UsedListing4
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1215)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1215)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1271)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1271)
 msgctxt "IGMissingFloor,UsedListing4"
 msgid "작년 8월 12일  ·  거래 완료"
 msgstr "Aug 12 last year  ·  Sold"
 
 #. Key:	DeliveryPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1312)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1312)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1368)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1368)
 msgctxt "IGMissingFloor,DeliveryPrompt"
 msgid "택배 안내문 읽기"
 msgstr "Read the delivery note"
 
 #. Key:	DeliveryTitle
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1313)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1313)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1369)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1369)
 msgctxt "IGMissingFloor,DeliveryTitle"
 msgid "택배 기사님께"
 msgstr "To Delivery Drivers"
 
 #. Key:	Delivery1
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1314)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1314)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1370)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1370)
 msgctxt "IGMissingFloor,Delivery1"
 msgid "달빛빌라 옥탑"
 msgstr "Moonlight Villa Rooftop"
 
 #. Key:	Delivery2
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1315)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1315)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1371)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1371)
 msgctxt "IGMissingFloor,Delivery2"
 msgid "집에 없으면 맞은편 새벽24 편의점에 맡겨 주세요."
 msgstr "If no one is home, please leave the parcel at Dawn24 across the street."
 
 #. Key:	Delivery3
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1316)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1316)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1372)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1372)
 msgctxt "IGMissingFloor,Delivery3"
 msgid "맡기신 뒤 받는 분께 연락 부탁드립니다."
 msgstr "Please contact the recipient after leaving the parcel."
 
 #. Key:	Delivery4
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1317)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1317)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1373)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1373)
 msgctxt "IGMissingFloor,Delivery4"
 msgid "달빛빌라 관리실  목한수"
 msgstr "Moonlight Villa Management Office  Mok Han-su"
 
 #. Key:	WitnessBowlPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1333)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1333)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1389)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1389)
 msgctxt "IGMissingFloor,WitnessBowlPrompt"
 msgid "물그릇"
 msgstr "Water bowl"
 
 #. Key:	WitnessBowlThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1334)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1334)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1390)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1390)
 msgctxt "IGMissingFloor,WitnessBowlThought"
 msgid "고양이 물그릇인가? 물은 깨끗하네."
 msgstr "A water bowl for a cat? The water’s clean."
 
 #. Key:	WitnessPillsPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1358)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1358)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1414)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1414)
 msgctxt "IGMissingFloor,WitnessPillsPrompt"
 msgid "떨어진 약봉투"
 msgstr "Pharmacy bag"
 
 #. Key:	WitnessPillsThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1359)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1359)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1415)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1415)
 msgctxt "IGMissingFloor,WitnessPillsThought"
 msgid "‘서일영 님’이라고 적혀 있다."
 msgstr "It’s made out to “Seo Il-yeong.”"
 
 #. Key:	WitnessPackPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1385)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1385)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1441)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1441)
 msgctxt "IGMissingFloor,WitnessPackPrompt"
 msgid "담배꽁초"
 msgstr "Cigarette butts"
 
 #. Key:	WitnessPackThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1388)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1388)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1444)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1444)
 msgctxt "IGMissingFloor,WitnessPackThought"
 msgid "꽁초 끝을 다 납작하게 눌러 놨네. 오빠도 이렇게 껐는데."
 msgstr "Six butts in one pile, all pressed flat at the tip. That’s how my brother put his out."
 
 #. Key:	WitnessRosterPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1414)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1414)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1470)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1470)
 msgctxt "IGMissingFloor,WitnessRosterPrompt"
 msgid "야간 근무표"
 msgstr "Shift schedule"
 
 #. Key:	WitnessRosterThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1415)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1415)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1471)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1471)
 msgctxt "IGMissingFloor,WitnessRosterThought"
 msgid "나린 씨는 이번 주도 평일 밤 근무네."
 msgstr "Na-rin’s on weeknight shifts again this week."
 
 #. Key:	WitnessRadioPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1458)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1458)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1514)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1514)
 msgctxt "IGMissingFloor,WitnessRadioPrompt"
 msgid "401호 문에 귀 대기"
 msgstr "Listen at 401’s door"
 
 #. Key:	WitnessUnit402Prompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1508)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1508)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1564)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1564)
 msgctxt "IGMissingFloor,WitnessUnit402Prompt"
 msgid "402호 문에 귀 대기"
 msgstr "Listen at 402’s door"
 
 #. Key:	WitnessRoofWindPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1522)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1522)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1578)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1578)
 msgctxt "IGMissingFloor,WitnessRoofWindPrompt"
 msgid "옥상 문에 귀 대기"
 msgstr "Listen at the roof door"
 
 #. Key:	WitnessUnit402Caption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1602)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1602)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1658)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1658)
 msgctxt "IGMissingFloor,WitnessUnit402Caption"
 msgid "[안에서 아무 소리도 안 난다]"
 msgstr "[not a sound from inside]"
 
 #. Key:	WitnessUnit402Thought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1623)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1623)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1679)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1679)
 msgctxt "IGMissingFloor,WitnessUnit402Thought"
 msgid "냉장고 소리도 안 나네."
 msgstr "Not even a fridge running."
 
 #. Key:	WitnessRoofWindCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1668)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1668)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1724)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1724)
 msgctxt "IGMissingFloor,WitnessRoofWindCaption"
 msgid "[바깥] 바람이 세졌다 약해지는 소리"
 msgstr "[outside] wind rising and falling"
 
 #. Key:	WitnessRoofWindThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1679)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1679)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1735)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1735)
 msgctxt "IGMissingFloor,WitnessRoofWindThought"
 msgid "바람 소리야. 천장에서 들은 건 분명히 두드리는 소리였는데."
 msgstr "Just the wind. The sound from the ceiling had a rhythm, though."
 
 #. Key:	WitnessRoofWindThoughtFirstEvening
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1683)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1683)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1739)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1739)
 msgctxt "IGMissingFloor,WitnessRoofWindThoughtFirstEvening"
 msgid "그냥 바람 소리네."
 msgstr "Just the wind."
 
 #. Key:	WitnessRadioThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1716)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1716)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1772)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1772)
 msgctxt "IGMissingFloor,WitnessRadioThought"
 msgid "안에서 라디오 소리가 난다. 불경 방송인가?"
 msgstr "There’s a radio on inside. Buddhist chanting?"
 
 #. Key:	ArrivalContractPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1821)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1821)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1877)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1877)
 msgctxt "IGMissingFloor,ArrivalContractPrompt"
 msgid "임대차계약서 보기"
 msgstr "Read the lease"
 
 #. Key:	ArrivalContractThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1822)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1822)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1878)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1878)
 msgctxt "IGMissingFloor,ArrivalContractThought"
 msgid "403호. 옥상은 같이 쓰는 거라고 돼 있네."
 msgstr "Unit 403. It says the roof is shared."
 
 #. Key:	ArrivalParcelPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1840)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1840)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1896)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1896)
 msgctxt "IGMissingFloor,ArrivalParcelPrompt"
 msgid "반송된 택배 상자 열기"
 msgstr "Open the returned box"
 
 #. Key:	ArrivalParcelThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1841)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1841)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1897)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1897)
 msgctxt "IGMissingFloor,ArrivalParcelThought"
 msgid "백도하, 달빛빌라 501호… 주소를 못 찾았다고 돌아온 택배야."
 msgstr "To Baek Doha, Moonlight Villa, Unit 501. Returned as “address unknown.”"
 
 #. Key:	ArrivalNotebookPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1853)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1853)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1909)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1909)
 msgctxt "IGMissingFloor,ArrivalNotebookPrompt"
 msgid "조율 공구 상자 열기"
 msgstr "Open the box of tuning tools"
 
 #. Key:	ArrivalNotebookThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1854)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1854)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1910)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1910)
 msgctxt "IGMissingFloor,ArrivalNotebookThought"
 msgid "공방에 남아 있던 오빠 공구다. 늘 쓰던 튜닝 해머만 없네."
 msgstr "My brother’s tuning tools, from his workshop storage. Only the tuning hammer he always carried is missing."
 
 #. Key:	ArrivalVoicemailPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1866)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1866)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1922)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1922)
 msgctxt "IGMissingFloor,ArrivalVoicemailPrompt"
 msgid "예전 휴대폰 상자 열기"
 msgstr "Open the box with the old phone"
 
 #. Key:	ArrivalVoicemailThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1867)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1867)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1923)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1923)
 msgctxt "IGMissingFloor,ArrivalVoicemailThought"
 msgid "“유담아, 나 이사했어. 집이 좀 이상하긴 한데… 와 보면 알아. 문 두드리면 알지? 둘, 하나.” 뒤에서 뭔가 긁히는 소리가 들린다."
 msgstr "“Yudam, I’ve moved. This place is a bit strange… You’ll see when you visit. You know my knock, right? Two, then one.” There’s a scraping sound in the background."
 
 #. Key:	ArrivalStoreBellPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1879)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1879)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1935)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1935)
 msgctxt "IGMissingFloor,ArrivalStoreBellPrompt"
 msgid "계산대 호출벨 누르기"
 msgstr "Ring the counter bell"
 
 #. Key:	Arrival402Prompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1889)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1889)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1945)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1945)
 msgctxt "IGMissingFloor,Arrival402Prompt"
 msgid "402호 문에 붙은 메모 읽기"
 msgstr "Read the note on 402’s door"
 
 #. Key:	Arrival402Thought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1890)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1890)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1946)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1946)
 msgctxt "IGMissingFloor,Arrival402Thought"
 msgid "새벽마다 위에서 뭘 끄는 소리가 납니다. 혹시 같은 소리 들으시면 관리실에 말씀해 주세요. 402호"
 msgstr "Every morning before dawn, something gets dragged around upstairs. If you hear it too, please tell the management office. Unit 402"
 
 #. Key:	ArrivalRoofLockPrompt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1922)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1922)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1978)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1978)
 msgctxt "IGMissingFloor,ArrivalRoofLockPrompt"
 msgid "옥상 문 자물쇠 보기"
 msgstr "Check the roof door lock"
 
 #. Key:	ArrivalRoofLockThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1923)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1923)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1979)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1979)
 msgctxt "IGMissingFloor,ArrivalRoofLockThought"
 msgid "자물쇠가 채워져 있네. 옥상은 같이 쓴다더니."
 msgstr "It’s padlocked. I thought the roof was shared."
 
 #. Key:	ArrivalCasterCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1973)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1973)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2029)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2029)
 msgctxt "IGMissingFloor,ArrivalCasterCaption"
 msgid "바퀴 구르다 멈추는 소리"
 msgstr "wheels rolling to a stop"
 
 #. Key:	ArrivalEyebrow
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1981)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1981)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2037)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2037)
 msgctxt "IGMissingFloor,ArrivalEyebrow"
 msgid "입주 첫날 · 20:47"
 msgstr "Move-in Day · 20:47"
 
 #. Key:	ArrivalTitle
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1982)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1982)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2038)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2038)
 msgctxt "IGMissingFloor,ArrivalTitle"
 msgid "Missing Floor"
 msgstr "Missing Floor"
 
 #. Key:	ArrivalSubtitle
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1983)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(1983)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2039)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2039)
 msgctxt "IGMissingFloor,ArrivalSubtitle"
 msgid "오빠의 마지막 주소, 달빛빌라 501호"
 msgstr "My brother’s last address: Moonlight Villa, Unit 501"
 
 #. Key:	ArrivalContractAgain
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2059)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2059)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2115)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2115)
 msgctxt "IGMissingFloor,ArrivalContractAgain"
 msgid "임대차계약서 다시 보기"
 msgstr "Read the lease again"
 
 #. Key:	ArrivalParcelAgain
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2065)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2065)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2121)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2121)
 msgctxt "IGMissingFloor,ArrivalParcelAgain"
 msgid "송장 주소 다시 확인하기"
 msgstr "Recheck the address on the box"
 
 #. Key:	ArrivalNotebookAgain
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2071)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2071)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2127)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2127)
 msgctxt "IGMissingFloor,ArrivalNotebookAgain"
 msgid "조율 공구 다시 보기"
 msgstr "Check the tuning tools again"
 
 #. Key:	ArrivalVoicemailAgain
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2077)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2077)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2133)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2133)
 msgctxt "IGMissingFloor,ArrivalVoicemailAgain"
 msgid "음성 메시지 다시 보기"
 msgstr "Read the voicemail again"
 
+#. Key:	Unit402VacancyThought
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(214)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(214)
+msgctxt "IGMissingFloor,Unit402VacancyThought"
+msgid "메모는 붙어 있는데, 안에서 냉장고 소리도 안 나네."
+msgstr "The note’s still up, but there’s not even a fridge running in there."
+
 #. Key:	Arrival402Again
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2090)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2090)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2146)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2146)
 msgctxt "IGMissingFloor,Arrival402Again"
 msgid "402호 메모 다시 읽기"
 msgstr "Read 402’s note again"
 
 #. Key:	ArrivalReadyForBed
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2104)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2104)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2160)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2160)
 msgctxt "IGMissingFloor,ArrivalReadyForBed"
 msgid "내일 관리인한테 물어보자. 알람은 네 시 반. 오빠가 집에 돌아오던 시간이다."
 msgstr "Tomorrow I’ll start with the building manager. I’ve set the alarm for 4:30 a.m. That’s when my brother always got home."
 
-#. Key:	Unit402VacancyThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(213)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(213)
-msgctxt "IGMissingFloor,Unit402VacancyThought"
-msgid "메모는 붙어 있는데, 안에서 냉장고 소리도 안 나네."
-msgstr "The note’s still up, but there’s not even a fridge running in there."
-
 #. Key:	YudamCounterSpeaker
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2179)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2179)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2235)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2235)
 msgctxt "IGMissingFloor,YudamCounterSpeaker"
 msgid "백유담"
 msgstr "Baek Yudam"
 
 #. Key:	NarinDeliveryQuestion
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2181)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2181)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2237)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2237)
 msgctxt "IGMissingFloor,NarinDeliveryQuestion"
 msgid "뒤에 붙은 택배 안내문 보고 왔는데요. 백도하 앞으로 온 택배도 여기 맡긴 적 있어요?"
 msgstr "I saw the delivery note out back. Did packages for Baek Doha ever get left here too?"
 
 #. Key:	NarinRoofQuestion
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2183)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2183)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2239)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2239)
 msgctxt "IGMissingFloor,NarinRoofQuestion"
 msgid "저희 빌라 옥상 문이요, 원래 잠가 둬요? 자물쇠가 채워져 있던데."
 msgstr "Is the roof door in my building usually kept locked? There was a padlock on it."
 
 #. Key:	NarinRepeatQuestion
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2186)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2186)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2242)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2242)
 msgctxt "IGMissingFloor,NarinRepeatQuestion"
 msgid "혹시 생각나는 게 더 있으세요?"
 msgstr "Can you think of anything else?"
 
 #. Key:	NarinFirstQuestion
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2187)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2187)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2243)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2243)
 msgctxt "IGMissingFloor,NarinFirstQuestion"
 msgid "달빛빌라 403호에 이사 왔어요. 백도하라는 사람 아세요? 제 오빠예요."
 msgstr "I just moved into Unit 403 at Moonlight Villa. Do you know someone named Baek Doha? He’s my brother."
 
 #. Key:	NarinLaterQuestion
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2188)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2188)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2244)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2244)
 msgctxt "IGMissingFloor,NarinLaterQuestion"
 msgid "저 왔어요. 혹시 그 뒤로 뭐 들으신 건 없어요?"
 msgstr "Hi, it’s me again. Have you heard anything since?"
 
 #. Key:	NarinSpeaker
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2191)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2191)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2247)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2247)
 msgctxt "IGMissingFloor,NarinSpeaker"
 msgid "한나린"
 msgstr "Han Na-rin"
 
 #. Key:	ArrivalContractPrintedRead
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2221)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2221)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2277)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2277)
 msgctxt "IGMissingFloor,ArrivalContractPrintedRead"
 msgid "지상 4층. 옥상은 같이 쓰되, 창고랑 기계실은 들어가지 말라고 돼 있네."
 msgstr "Four stories. The roof is shared, but it says to keep out of the storage and machine rooms."
 
 #. Key:	Arrival402VacantThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2244)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2244)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2300)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2300)
 msgctxt "IGMissingFloor,Arrival402VacantThought"
 msgid "빈집이라더니. 메모만 붙어 있네."
 msgstr "Supposedly empty. Just the note on the door."
 
 #. Key:	ArrivalRoofClinkCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2317)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2317)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2373)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2373)
 msgctxt "IGMissingFloor,ArrivalRoofClinkCaption"
 msgid "쇠붙이 내려놓는 소리"
 msgstr "metal being set down"
 
 #. Key:	ArrivalRoofRationalize
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2338)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2338)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2394)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2394)
 msgctxt "IGMissingFloor,ArrivalRoofRationalize"
 msgid "창고에서 짐 정리하나 보네."
 msgstr "Someone must be tidying up storage."
 
 #. Key:	UsedListingMemoThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2495)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2495)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2551)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2551)
 msgctxt "IGMissingFloor,UsedListingMemoThought"
 msgid "관리실 책상 메모에 있던 그 거래네. 8월 12일, 3만 원."
 msgstr "That’s the sale from the note on the office desk. August 12, 30,000 won."
 
 #. Key:	UsedListingThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2499)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2499)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2555)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2555)
 msgctxt "IGMissingFloor,UsedListingThought"
 msgid "오빠 공구랑 똑같다. 판 사람이… ‘달빛’?"
 msgstr "Same tools as my brother’s. The seller’s username is… “Moonlight”?"
 
 #. Key:	RearDoorCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2524)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2524)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2580)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2580)
 msgctxt "IGMissingFloor,RearDoorCaption"
 msgid "철문 닫히는 소리"
 msgstr "a steel door closing"
 
 #. Key:	NarinDeliveryAnswer
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2534)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2534)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2590)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2590)
 msgctxt "IGMissingFloor,NarinDeliveryAnswer"
 msgid "작년 여름에 몇 번 맡겼어요. 마지막 건 건물주 아저씨가 찾아가셨고요. 오빠분이 부탁했다고 하던데요."
 msgstr "A few got left here last summer. The landlord came and picked up the last one. He said your brother asked him to."
 
 #. Key:	NarinLineLastDay
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2543)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2543)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2599)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2599)
 msgctxt "IGMissingFloor,NarinLineLastDay"
 msgid "아직은요. 저 오늘도 밤새 있으니까, 무슨 일 있으면 바로 이쪽으로 오세요."
 msgstr "Not yet. I’m here all night again tonight, so if anything happens, come straight over."
 
 #. Key:	NarinLineRoof
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2552)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2552)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2608)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2608)
 msgctxt "IGMissingFloor,NarinLineRoof"
 msgid "옥상요? 작년 여름에 건물주 아저씨가 자물쇠를 싹 바꿨대요. 열쇠는 관리실에나 있을걸요."
 msgstr "The roof? I heard the landlord changed all the locks last summer. If anyone has a key, it’s the management office."
 
 #. Key:	NarinLineMidWeek
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2559)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2559)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2615)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2615)
 msgctxt "IGMissingFloor,NarinLineMidWeek"
 msgid "아직 소식 없으세요? 저도 단골들한테 물어봤는데, 최근에 봤다는 사람은 없더라고요."
 msgstr "Still no news? I asked some of my regulars too, but nobody’s seen him lately."
 
 #. Key:	NarinRepeatAnswer
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2566)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2566)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2622)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2622)
 msgctxt "IGMissingFloor,NarinRepeatAnswer"
 msgid "지금은 그 정도예요. 다른 손님들한테도 한번 물어볼게요."
 msgstr "That’s all I’ve got for now. I’ll ask my other customers too."
 
 #. Key:	ArrivalNarinLine
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2571)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2571)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2627)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2627)
 msgctxt "IGMissingFloor,ArrivalNarinLine"
 msgid "아, 큰 가방 메고 다니시던 분? 작년 여름쯤부터 안 오시던데요. 403호로 오셨어요? 그 집은 올해만 벌써 세 번째네요. 옆집도 봄부터 비어 있고요."
 msgstr "Oh, the guy who always came in with a big bag? I haven’t seen him since last summer. You’re already the third person to move into 403 this year. And 402 next door’s been empty since spring."
 
 #. Key:	ArrivalObjectiveExplore
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2609)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2609)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2665)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2665)
 msgctxt "IGMissingFloor,ArrivalObjectiveExplore"
 msgid "짐 풀고 빌라와 편의점 둘러보기"
 msgstr "Unpack and explore the building and store"
 
 #. Key:	ArrivalObjectiveContract
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2613)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2613)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2669)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2669)
 msgctxt "IGMissingFloor,ArrivalObjectiveContract"
 msgid "책상 위 임대차계약서 보기"
 msgstr "Read the lease on the desk"
 
 #. Key:	ArrivalObjectiveBoxes
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2617)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2617)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2673)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2673)
 msgctxt "IGMissingFloor,ArrivalObjectiveBoxes"
 msgid "오빠가 남긴 짐 살펴보기"
 msgstr "Look through my brother’s things"
 
 #. Key:	ArrivalObjectiveStore
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2621)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2621)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2677)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2677)
 msgctxt "IGMissingFloor,ArrivalObjectiveStore"
 msgid "편의점 직원에게 오빠 소식 묻기"
 msgstr "Ask the shop clerk about my brother"
 
 #. Key:	ArrivalObjectiveNeighbors
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2626)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2626)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2682)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2682)
 msgctxt "IGMissingFloor,ArrivalObjectiveNeighbors"
 msgid "401호, 402호 앞 살펴보기"
 msgstr "Look around outside 401 and 402"
 
 #. Key:	ArrivalObjectiveRoof
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2630)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2630)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2686)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2686)
 msgctxt "IGMissingFloor,ArrivalObjectiveRoof"
 msgid "계약서에 적힌 옥상 문 확인하기"
 msgstr "Check the roof door the lease mentions"
 
 #. Key:	ArrivalObjectiveSleep
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2632)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2632)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2688)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2688)
 msgctxt "IGMissingFloor,ArrivalObjectiveSleep"
 msgid "403호로 돌아가서 자기"
 msgstr "Go back to 403 and sleep"
 
 #. Key:	BaselineStairsCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2838)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2838)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2894)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2894)
 msgctxt "IGMissingFloor,BaselineStairsCaption"
 msgid "계단을 내려가는 발소리"
 msgstr "footsteps going downstairs"
 
 #. Key:	BaselinePipeCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2866)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2866)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2922)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2922)
 msgctxt "IGMissingFloor,BaselinePipeCaption"
 msgid "벽 속 배관으로 물 내려가는 소리"
 msgstr "water running down a pipe in the wall"
 
 #. Key:	BaselineDoorCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2920)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2920)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2976)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(2976)
 msgctxt "IGMissingFloor,BaselineDoorCaption"
 msgid "현관문 닫히는 소리"
 msgstr "a front door closing"
 
 #. Key:	NightOneSolvedThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3107)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3107)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3163)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3163)
 msgctxt "IGMissingFloor,NightOneSolvedThought"
 msgid "…위에 뭐가 있어."
 msgstr "…Something’s up there."
 
 #. Key:	ReportSentSpeaker
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3486)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3486)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3556)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3556)
 msgctxt "IGMissingFloor,ReportSentSpeaker"
 msgid "보낸 문자"
 msgstr "Sent message"
 
 #. Key:	EvictionPhotoSent
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3487)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3487)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3557)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3557)
 msgctxt "IGMissingFloor,EvictionPhotoSent"
 msgid "[사진] 관리인이 문에 붙인 종이입니다. 내일 오전 7시에 옥상 누수 공사를 한답니다. 그 전에 5층 벽을 꼭 확인해 주세요."
 msgstr "[Photo] The building manager put this on my door. He says they’re fixing a roof leak at 7 a.m. tomorrow. Please check the fifth-floor wall before then."
 
 #. Key:	EvictionDeadlineThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3501)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3501)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3571)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3571)
 msgctxt "IGMissingFloor,EvictionDeadlineThought"
 msgid "일곱 시에 벽을 덮으면… 그 전에 와 줄 수 있을까."
 msgstr "He’s covering the wall at seven… Will they get here in time?"
 
 #. Key:	FirstReportSignalThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3522)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3522)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3592)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3592)
 msgctxt "IGMissingFloor,FirstReportSignalThought"
 msgid "신호 잡힌다. 112에 문자부터 보내자."
 msgstr "I’ve got a signal. I’ll text 112 first."
 
 #. Key:	FirstReportSent
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3527)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3527)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3597)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3597)
 msgctxt "IGMissingFloor,FirstReportSent"
 msgid "무영로 27-3 달빛빌라입니다. 옥상에 방이 하나 있어요. 작년 7월에 실종된 오빠 백도하가 살던 곳인데, 벽 안에서 두드리는 소리가 나요. 사람일 수도 있어요. 와 주세요."
 msgstr "I’m at Moonlight Villa, 27-3 Muyeong-ro. There’s a room on the roof where my brother Baek Doha lived before he went missing last July. I can hear knocking inside the wall. Someone might be in there. Please come."
 
 #. Key:	ReportSpeaker
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3546)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3546)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3616)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3616)
 msgctxt "IGMissingFloor,ReportSpeaker"
 msgid "112"
 msgstr "112"
 
 #. Key:	FirstReportReceipt
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3547)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3547)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3617)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3617)
 msgctxt "IGMissingFloor,FirstReportReceipt"
 msgid "[112 문자신고] 신고가 접수됐습니다. 담당 경찰관이 확인 후 연락드리겠습니다."
 msgstr "[112 Text Report] Your report has been received. An officer will review it and contact you."
 
 #. Key:	SiteCheckSpeaker
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3569)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3569)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3639)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3639)
 msgctxt "IGMissingFloor,SiteCheckSpeaker"
 msgid "무영경찰서 실종수사팀"
 msgstr "Muyeong Police Station, Missing Persons"
 
 #. Key:	FirstReportSiteCheck
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3570)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3570)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3640)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3640)
 msgctxt "IGMissingFloor,FirstReportSiteCheck"
 msgid "옥탑은 확인했습니다. 지금은 안에서 소리나 움직임이 없어요. 보내 주신 자료로 추가 확인 중입니다. 다시 소리가 나면 바로 연락 주시고, 벽에는 손대지 마세요."
 msgstr "We’ve checked the rooftop room. There’s no sound or movement from inside at the moment. We’re following up on the documents you sent. Call us immediately if you hear anything else, and please leave the wall alone."
 
 #. Key:	ArrivalSleepBlocked
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3746)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3746)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3816)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3816)
 msgctxt "IGMissingFloor,ArrivalSleepBlocked"
 msgid "아직 볼 게 남았어."
 msgstr "I’m not done looking around."
 
+#. Key:	EvictionNoticeSleepBlocked
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3843)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3843)
+msgctxt "IGMissingFloor,EvictionNoticeSleepBlocked"
+msgid "문에 붙은 종이부터 확인해 보자."
+msgstr ""
+
 #. Key:	NightAlarmCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3894)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3894)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3984)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3984)
 msgctxt "IGMissingFloor,NightAlarmCaption"
 msgid "[04:30 알람]"
 msgstr "[04:30 alarm]"
 
 #. Key:	NightFourHammerThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3920)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(3920)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4010)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4010)
 msgctxt "IGMissingFloor,NightFourHammerThought"
 msgid "낮에 철물점에서 사 온 망치를 챙겼다."
 msgstr "I brought the hammer I got at the hardware store."
 
 #. Key:	NightOneCeilingKnockCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4091)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4091)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4181)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4181)
 msgctxt "IGMissingFloor,NightOneCeilingKnockCaption"
 msgid "천장에서 세 번 두드리는 소리"
 msgstr "three knocks from the ceiling"
 
 #. Key:	NightTorchThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4125)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4125)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4215)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4215)
 msgctxt "IGMissingFloor,NightTorchThought"
 msgid "손전등은 머리맡에 꺼내 뒀다."
 msgstr "I left the flashlight out by my pillow."
 
 #. Key:	NightOneOpeningDragCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4192)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4192)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4282)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4282)
 msgctxt "IGMissingFloor,NightOneOpeningDragCaption"
 msgid "천장에서 뭔가 끄는 소리"
 msgstr "something dragged across the ceiling"
 
 #. Key:	NightOneTopFloorThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4223)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4223)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4313)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4313)
 msgctxt "IGMissingFloor,NightOneTopFloorThought"
 msgid "…4층이 꼭대기인데."
 msgstr "…The fourth floor’s the top floor, though."
 
 #. Key:	RoofDriverCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4252)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4252)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4342)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4342)
 msgctxt "IGMissingFloor,RoofDriverCaption"
 msgid "전동 드릴 소리, 다섯 번 돌다 멈춘다"
 msgstr "a drill whirring five times, then stopping"
 
 #. Key:	NightOpeningCreak
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4302)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4302)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4392)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4392)
 msgctxt "IGMissingFloor,NightOpeningCreak"
 msgid "나무 삐걱거리는 소리"
 msgstr "wood creaking"
 
 #. Key:	NightThreeRoofWindCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4339)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4339)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4429)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4429)
 msgctxt "IGMissingFloor,NightThreeRoofWindCaption"
 msgid "옥상 문틈으로 바람 드는 소리"
 msgstr "wind through the gap in the roof door"
 
 #. Key:	NightThreeRoofGateCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4355)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4355)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4445)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4445)
 msgctxt "IGMissingFloor,NightThreeRoofGateCaption"
 msgid "바람에 옥상 철문 덜컹거리는 소리"
 msgstr "the steel roof door rattling in the wind"
 
 #. Key:	NightFourDriverCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4387)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4387)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4477)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4477)
 msgctxt "IGMissingFloor,NightFourDriverCaption"
 msgid "전동 드릴 소리, 다섯 번 돌다 멈춘다"
 msgstr "a drill whirring five times, then stopping"
 
 #. Key:	NightFourDrillThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4423)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4423)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4513)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4513)
 msgctxt "IGMissingFloor,NightFourDrillThought"
 msgid "일곱 시라더니, 지금 네 시 반인데."
 msgstr "The notice said seven. It’s 4:30."
 
 #. Key:	NightFourMokStepsCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4469)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4469)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4559)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4559)
 msgctxt "IGMissingFloor,NightFourMokStepsCaption"
 msgid "철문 쪽으로 가는 발소리"
 msgstr "footsteps toward the steel door"
 
 #. Key:	NightFourAnnexDoorCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4495)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4495)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4585)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4585)
 msgctxt "IGMissingFloor,NightFourAnnexDoorCaption"
 msgid "5층 철문 닫히는 소리"
 msgstr "the fifth-floor door closing"
 
 #. Key:	NoSignalCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4550)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4550)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4640)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4640)
 msgctxt "IGMissingFloor,NoSignalCaption"
 msgid "[휴대폰 통화 실패음]"
 msgstr "[failed call tone]"
 
 #. Key:	NoSignalThought
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4554)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4554)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4644)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4644)
 msgctxt "IGMissingFloor,NoSignalThought"
 msgid "폰도 안 터지네."
 msgstr "No signal, either."
 
 #. Key:	Hwang401PeekCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4635)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4635)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4725)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4725)
 msgctxt "IGMissingFloor,Hwang401PeekCaption"
 msgid "401호 문 살짝 열리는 소리"
 msgstr "401’s door opening a crack"
 
 #. Key:	HwangSpeaker
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4671)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4671)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4761)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4761)
 msgctxt "IGMissingFloor,HwangSpeaker"
 msgid "황순금"
 msgstr "Hwang Sun-geum"
 
 #. Key:	Hwang401Peek
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4672)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4672)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4762)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4762)
 msgctxt "IGMissingFloor,Hwang401Peek"
 msgid "새벽에 나와 있었죠? 들어가서 눈 좀 붙여요."
 msgstr "You were out before dawn, weren’t you? Go in and get some sleep."
 
 #. Key:	Hwang401Greeting
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4718)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4718)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4808)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4808)
 msgctxt "IGMissingFloor,Hwang401Greeting"
 msgid "403호 새로 온 아가씨죠? 밤엔 문 좀 살살 닫아 줘요. 여기 소리가 잘 울려서."
 msgstr "You’re new in 403? Close your door gently at night, would you? Sound carries in this building."
 
 #. Key:	Hwang401HintP5
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4734)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4734)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4824)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4824)
 msgctxt "IGMissingFloor,Hwang401HintP5"
 msgid "내일 아침에 또 벽을 막는대요. 물탱크 청소할 땐 배관 소리가 어찌나 큰지, 벽을 쳐도 안 들리던데."
 msgstr "I hear he’s sealing the wall up again tomorrow morning. The pipes shake every wall when they clean the tank before dawn. No one would know if someone hit one."
 
 #. Key:	Hwang401HintP4
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4742)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4742)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4832)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4832)
 msgctxt "IGMissingFloor,Hwang401HintP4"
 msgid "벽이 하도 울길래 나도 똑같이 두드려 줬어요. 그랬더니 그날 밤은 조용하더라고요."
 msgstr "The wall kept banging, so I knocked back the same way. And that night, it went quiet."
 
 #. Key:	Hwang401HintP3
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4750)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4750)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4840)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4840)
 msgctxt "IGMissingFloor,Hwang401HintP3"
 msgid "관리인 없어요? 열쇠는 늘 책상 위에 두던데. 못 들어가게 하면 나한테 말해요."
 msgstr "The manager’s not in? He always leaves his keys on the desk. If he won’t let you in, come and tell me."
 
 #. Key:	Hwang401AfterT7
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4758)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4758)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4848)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4848)
 msgctxt "IGMissingFloor,Hwang401AfterT7"
 msgid "그날도 들었어요. 사람이 없다는데, 난 분명히 들었다니까요."
 msgstr "I heard it that day too. They say nobody was there, but I know what I heard."
 
 #. Key:	Hwang401HintP2
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4769)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4769)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4859)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4859)
 msgctxt "IGMissingFloor,Hwang401HintP2"
 msgid "몇 번을 전화했는데 맨날 배관 소리래요. 장부에 적기는 했나 좀 봐 줘요."
 msgstr "I’ve called the office about that noise so many times. He just says it’s the pipes. Could you see what he wrote in his complaint ledger?"
 
 #. Key:	Hwang401HintP1
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4777)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4777)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4867)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4867)
 msgctxt "IGMissingFloor,Hwang401HintP1"
 msgid "전기 나갔으면 1층 계량기함 봐요. 검침표도 거기 붙어 있어요."
 msgstr "If the power’s out, look in the lobby meter box. The meter reading log’s there too."
 
 #. Key:	Hwang401Neutral
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4784)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4784)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4874)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4874)
 msgctxt "IGMissingFloor,Hwang401Neutral"
 msgid "잠은 좀 잤어요? 물이라도 한 잔 마시고 가요."
 msgstr "Did you get any sleep? Have a glass of water before you go."
 
 #. Key:	Arrival401PrayerStops
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4837)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4837)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4927)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4927)
 msgctxt "IGMissingFloor,Arrival401PrayerStops"
 msgid "안에서 들리던 불경 소리가 멈춘다"
 msgstr "the chanting inside stops"
 
 #. Key:	Hwang401JournalGiven
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4920)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4920)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5010)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5010)
 msgctxt "IGMissingFloor,Hwang401JournalGiven"
 msgid "문고리에 걸어 둔 거 읽어 봐요. 사람이 없다는데, 난 분명히 들었다니까요."
 msgstr "Read what I hung on the doorknob. They say nobody was there, but I know what I heard."
 
 #. Key:	YudamToHwangAnswer
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4966)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4966)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5064)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5064)
 msgctxt "IGMissingFloor,YudamToHwangAnswer"
 msgid "벽 안에서 대답이 왔어요. 둘, 쉬고, 하나. 오빠가 문 두드리던 박자예요."
 msgstr "An answer came back from inside the wall. Two, pause, one. That’s how my brother used to knock."
 
 #. Key:	Hwang401IsItYourBrother
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4976)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4976)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5074)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5074)
 msgctxt "IGMissingFloor,Hwang401IsItYourBrother"
 msgid "그게 아가씨 오빠였어요?"
 msgstr "That was your brother?"
 
 #. Key:	Hwang401Permission
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4983)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(4983)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5081)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5081)
 msgctxt "IGMissingFloor,Hwang401Permission"
 msgid "꺼내 줘요. 물 필요하면 써요. 그깟 물값, 내가 낼 테니까."
 msgstr "Get him out. You can run the tank. I’ll pay for the water."
 
 #. Key:	NightFourWallNeedsCover
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5039)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5039)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5137)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(5137)
 msgctxt "IGMissingFloor,NightFourWallNeedsCover"
 msgid "지금 치면 건물 사람들이 다 듣겠어. 소리를 덮을 게 필요해."
 msgstr "If I hit it now, the whole building will hear. I need something to cover the noise."
 
 #. Key:	SettlePipe
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(601)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(601)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(657)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(657)
 msgctxt "IGNight,SettlePipe"
 msgid "배관에서 딱 하는 소리"
 msgstr "a sharp tick from a pipe"
 
 #. Key:	SettleCreak
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(607)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(607)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(663)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(663)
 msgctxt "IGNight,SettleCreak"
 msgid "나무 삐걱거리는 소리"
 msgstr "wood creaking"
 
 #. Key:	SettleTick
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(611)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(611)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(667)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(667)
 msgctxt "IGNight,SettleTick"
 msgid "벽에 금 가는 소리"
 msgstr "a wall cracking"
 
 #. Key:	SettleSlam
-#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(615)
-#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(615)
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(671)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(671)
 msgctxt "IGNight,SettleSlam"
 msgid "멀리서 문 닫히는 소리"
 msgstr "a door shutting far off"
+
+#. Key:	DayObjectiveNotice
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(7788)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(7788)
+msgctxt "IGMissingFloor,DayObjectiveNotice"
+msgid "403호 문에 붙은 통보문 읽기"
+msgstr ""
+
+#. Key:	DayObjectiveReport
+#. SourceLocation:	Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(7806)
+#: Source/IndieGame/Entity/IGListenerGreyboxDirector.cpp(7806)
+msgctxt "IGMissingFloor,DayObjectiveReport"
+msgid "신고 문자 확인하기"
+msgstr ""
 
 #. Key:	DifficultyQuiet
 #. SourceLocation:	Source/IndieGame/Entity/IGListenerTuning.cpp(116)
@@ -3262,43 +3283,57 @@ msgid "새벽 네 시 반"
 msgstr "4:30 a.m."
 
 #. Key:	DawnLatchCaption
-#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(560)
-#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(560)
+#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(565)
+#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(565)
 msgctxt "IGMissingFloor,DawnLatchCaption"
 msgid "공동현관 잠금 풀리는 소리"
 msgstr "the entrance door unlocking"
 
 #. Key:	MorningCameMissed
-#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(615)
-#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(615)
+#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(620)
+#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(620)
 msgctxt "IGMissingFloor,MorningCameMissed"
 msgid "벌써 다섯 시 반이야. 아직 못 끝냈는데."
 msgstr "It’s already 5:30. I didn’t finish."
 
 #. Key:	MorningCame
-#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(616)
-#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(616)
+#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(621)
+#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(621)
 msgctxt "IGMissingFloor,MorningCame"
 msgid "아침이다. 현관도 열렸겠지."
 msgstr "Morning. The entrance should be open."
 
+#. Key:	DayObjectiveRoom
+#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(732)
+#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(732)
+msgctxt "IGMissingFloor,DayObjectiveRoom"
+msgid "403호로 돌아가기"
+msgstr ""
+
+#. Key:	DayObjectiveJournal
+#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(743)
+#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(743)
+msgctxt "IGMissingFloor,DayObjectiveJournal"
+msgid "401호 문고리에 걸린 일지 읽기"
+msgstr ""
+
 #. Key:	DayObjectiveTwo
-#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(714)
-#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(714)
+#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(757)
+#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(757)
 msgctxt "IGMissingFloor,DayObjectiveTwo"
 msgid "401호 할머니께 다시 여쭤보기"
 msgstr "Ask Mrs. Hwang in 401 again"
 
 #. Key:	DayObjectiveThree
-#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(716)
-#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(716)
+#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(759)
+#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(759)
 msgctxt "IGMissingFloor,DayObjectiveThree"
 msgid "401호 할머니께 간밤 일 알리기"
 msgstr "Tell Mrs. Hwang in 401 about last night"
 
 #. Key:	DayObjectiveOne
-#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(718)
-#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(718)
+#. SourceLocation:	Source/IndieGame/Entity/IGNightPhaseDirector.cpp(761)
+#: Source/IndieGame/Entity/IGNightPhaseDirector.cpp(761)
 msgctxt "IGMissingFloor,DayObjectiveOne"
 msgid "401호 할머니 찾아가기"
 msgstr "Visit Mrs. Hwang in 401"

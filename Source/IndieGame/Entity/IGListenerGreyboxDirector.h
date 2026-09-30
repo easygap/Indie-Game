@@ -35,6 +35,7 @@ class INDIEGAME_API AIGListenerGreyboxDirector
 
 public:
 	AIGListenerGreyboxDirector();
+	virtual void Tick(float DeltaSeconds) override;
 
 	virtual FText GetObjectiveText() const override;
 	virtual float GetObjectiveProgress() const override;
@@ -50,6 +51,12 @@ private:
 	void FailProbe(const FString& Reason);
 	void PassProbe();
 	void RequestExit(bool bFailed);
+	/** 실제 완주 중 만든 저장으로 다른 프로세스에서 두 결말을 끝까지 확인한다. */
+	void AdvanceEndingLifecycleProbe();
+	void FinishEndingLifecycleProbe(bool bPassed, const FString& Reason);
+	void WriteEndingCheckpointForProbe();
+	UFUNCTION()
+	void HandleEndingCheckpointSaved(bool bSuccess, FString SlotName);
 	void RunArrivalProbe();
 	void StartArrivalCapture();
 	void AdvanceArrivalCapture();
@@ -589,6 +596,7 @@ private:
 	bool bCaptureActionBDone = false;
 	bool bCaptureActionCDone = false;
 	FTimerHandle CaptureTimer;
+	FTimerHandle NightCaptureWarmupTimer;
 	FVector ProbeNoiseLocation = FVector::ZeroVector;
 	FVector ExpectedWakeLocation = FVector::ZeroVector;
 	/** Trail sample the beam-dust step lit up, so it can be cleaned up after. */
@@ -615,4 +623,19 @@ private:
 	FTimerHandle SetupTimer;
 	FTimerHandle ArrivalCaptureTimer;
 	FTimerHandle ProbeTimer;
+	FString EndingProbeChoice;
+	FString EndingCheckpointSlot;
+	double EndingProbeStartedAt = 0.0;
+	double EndingChoiceStartedAt = 0.0;
+	double EndingEpilogueStartedAt = 0.0;
+	double EndingEpilogueSeconds = 0.0;
+	double EndingVigilSeconds = 0.0;
+	int32 EndingLifecycleStep = 0;
+	bool bEndingCheckpointWrite = false;
+	bool bEndingProfileProbe = false;
+	bool bEndingCheckpointRequested = false;
+	bool bEndingLifecycleDone = false;
+	bool bEndingVigilObserved = false;
+	bool bEndingSevenSecondsObserved = false;
+	bool bEndingRestored = false;
 };

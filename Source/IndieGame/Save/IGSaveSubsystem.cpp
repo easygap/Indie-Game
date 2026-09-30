@@ -3,6 +3,7 @@
 #include "IndieGame.h"
 #include "Engine/GameInstance.h"
 #include "Kismet/GameplayStatics.h"
+#include "Misc/PackageName.h"
 #include "Narrative/IGMissingFloorNarrativeSubsystem.h"
 #include "Narrative/IGStoryStateSubsystem.h"
 #include "Save/IGSaveGame.h"
@@ -12,6 +13,9 @@ namespace IGSave
 {
 	constexpr int32 AutosaveSlotCount = 2;
 	const TCHAR* AutosaveSlotPrefix = TEXT("AutoSave");
+	// 이 빌드에서 진행을 복원하는 맵은 하나다. 다른 에셋이나 예전 맵을
+	// 체크포인트로 받으면 불러오기에 성공한 뒤 맵 이동에서 멎는다.
+	const FName PlayableMap(TEXT("/Game/Maps/Prologue_Morning"));
 
 	/**
 	 * 없는 층에서 쓴 저장인지. 없는 층의 자동 저장은 모두 이 챕터 태그를
@@ -321,7 +325,7 @@ bool UIGSaveSubsystem::ApplyLoadedProgressInternal(
 	{
 		return true;
 	}
-	if (!IsSaveCompatible(LastLoadedSave))
+	if (!IsAutosaveLoadable(LastLoadedSave))
 	{
 		return false;
 	}
@@ -396,7 +400,8 @@ void UIGSaveSubsystem::HandleLoadComplete(
 {
 	bLoadInProgress = false;
 	UIGSaveGame* TypedSave = Cast<UIGSaveGame>(LoadedObject);
-	const bool bLoaded = IsSaveCompatible(TypedSave);
+	// 슬롯 이름을 직접 지정한 불러오기도 자동 선택과 같은 기준을 적용한다.
+	const bool bLoaded = IsAutosaveLoadable(TypedSave);
 	LastLoadedSave = bLoaded ? TypedSave : nullptr;
 	bLastLoadedProgressApplied = false;
 
@@ -480,6 +485,8 @@ bool UIGSaveSubsystem::IsAutosaveLoadable(const UIGSaveGame* SaveGame) const
 	return IsSaveCompatible(SaveGame)
 		&& SaveGame->Progress.ChapterId.IsValid()
 		&& !SaveGame->Progress.MapPackageName.IsNone()
+		&& SaveGame->Progress.MapPackageName == IGSave::PlayableMap
+		&& FPackageName::DoesPackageExist(SaveGame->Progress.MapPackageName.ToString())
 		&& SaveGame->Progress.CheckpointTag.IsValid()
 		&& IGSave::IsMissingFloorSave(*SaveGame);
 }

@@ -51,6 +51,8 @@ public:
 	void CompleteNightGoal();
 	/** 채운 밤의 기록. 못 채운 밤은 다음 저녁에 같은 밤이 온다(§5.4). */
 	static FName GoalBeatId(int32 NightIndex);
+	/** 그날 황순금과 대화를 마쳤는지 저장해 낮 안내에 반영한다. */
+	static FName DayConversationBeatId(int32 NightIndex);
 	/**
 	 * 다음 새벽은 눈을 감기지도, 아침 독백을 하지도 않는다. 엔딩 길에서
 	 * 에필로그가 제 암전을 갖고 오므로 두 번 깜빡이면 안 된다.

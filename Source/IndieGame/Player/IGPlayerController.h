@@ -50,6 +50,9 @@ public:
 	 * 보인다.
 	 */
 	void ShowTitleAfterEnding();
+	/** 타이틀에 실제로 노출되는 추가 밤과 메뉴 항목의 상태. */
+	bool IsNightFiveAvailable() const { return bNightFiveAvailable; }
+	bool IsSystemMenuRowEnabled(int32 Row) const;
 
 	/**
 	 * §24 즉시 차단 12 · 「플레이 전에 알아 두실 것」. 첫 실행에 한 번만
@@ -226,12 +229,10 @@ private:
 	 */
 	void PlayNightFive();
 	bool IsNightFivePlaying() const { return bNightFivePlaying; }
-	bool IsNightFiveAvailable() const { return bNightFiveAvailable; }
 	bool IsNightFiveSpent() const { return bNightFiveSpent; }
 	int32 GetNightFiveCuesPlayed() const { return NightFiveCuesPlayed; }
 	/** 30초. 이 길이가 §9의 약속이다. */
 	static constexpr float NightFiveTotalSeconds = 30.0f;
-	bool IsSystemMenuRowEnabled(int32 Row) const;
 	UIGAccessibilitySubsystem* GetAccessibilitySubsystem() const;
 	UIGSaveSubsystem* GetSaveSubsystem() const;
 

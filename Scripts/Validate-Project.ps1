@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -128,6 +128,9 @@ $requiredFiles = @(
 	'Scripts/Test-Windows-ExecutableMetadata.ps1',
 	'Scripts/Test-WindowsPackageManifest.ps1',
 	'Scripts/Test-WindowsPackageManifestRegression.ps1',
+	'Scripts/Run-MissingFloor-SaveRecoveryProbe.ps1',
+	'Scripts/Run-MissingFloor-EndingLifecycleProbe.ps1',
+	'Source/IndieGame/Entity/IGEndingLifecycleProbe.cpp',
 	'Scripts/create_readme_media.py',
 	'Scripts/Test-ArtAssetContract.ps1',
 	'Scripts/Test-MissingFloor-M0InputContract.ps1',
@@ -634,6 +637,9 @@ $tickingActors = Get-ChildItem -LiteralPath (Join-Path $projectRoot 'Source') -R
 # (-IGListenerGreybox spawns it), it owns no timers that could substitute for
 # the tick, and gating it would make the pursuit visibly step.
 $reviewedTickingFiles = @(
+	# 평소에는 꺼 둔다. 엔딩 저장·재시작 검사 인자가 있을 때만 켜고,
+	# 에필로그 뒤 타이틀이 게임을 멈춘 상태에서도 프로필 결과를 읽은 뒤 종료한다.
+	'IGListenerGreyboxDirector.cpp',
 	# 전용 실행 인자에서만 생성하고 약 3초 뒤 종료한다. 실제 입력 제동 거리를 잰다.
 	'IGGameplayRealismProbe.cpp',
 	# 전용 인자로만 생성한다. 실제 오디오 페이드와 충돌을 순서대로 확인한 뒤 종료한다.

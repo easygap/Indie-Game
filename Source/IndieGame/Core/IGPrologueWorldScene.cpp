@@ -5421,7 +5421,11 @@ void AIGPrologueWorldScene::BuildAlley()
 			760.0f,
 			FLinearColor(0.93f, 0.95f, 1.0f),
 			true,
-			18.0f);
+			18.0f,
+			nullptr,
+			true);
+		// 아래로 향한 등기구에 맞추되 가로등 사이 바닥까지 고르게 비춘다.
+		CastChecked<USpotLightComponent>(LampLight)->SetInnerConeAngle(65.0f);
 		LampLight->SetVolumetricScatteringIntensity(0.55f);
 	}
 

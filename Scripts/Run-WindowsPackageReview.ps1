@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$ArchiveDirectory,
     [string]$EvidenceDirectory,
@@ -99,7 +99,12 @@ foreach ($save in $saveFiles) {
     if ($save.Length -le 0) { throw "자동 저장 파일이 비어 있습니다: $($save.Name)" }
 }
 Invoke-GameCase 'ArrivalResume' @('-IGMissingFloor', '-IGArrivalSaveRead', '-d3d12') -UserDirectory $saveUser
+$seedSave = $saveFiles | Sort-Object LastWriteTimeUtc -Descending | Select-Object -First 1
+& (Join-Path $PSScriptRoot 'Run-MissingFloor-SaveRecoveryProbe.ps1') -ArchiveDirectory $archiveRoot `
+    -SeedSaveFile $seedSave.FullName -EvidenceDirectory (Join-Path $EvidenceDirectory 'SaveRecovery')
 Invoke-GameCase 'FullGame' @('-IGListenerGreybox', '-IGListenerGreyboxProbe', '-nullrhi')
+& (Join-Path $PSScriptRoot 'Run-MissingFloor-EndingLifecycleProbe.ps1') -ArchiveDirectory $archiveRoot `
+    -EvidenceDirectory (Join-Path $EvidenceDirectory 'EndingLifecycle')
 Invoke-GameCase 'Audio' @('-IGAudioPresentationProbe') -Audio
 $after = Get-ArchiveHashes
 if (@(Compare-Object $before $after).Count) { throw '검사 중 배포 폴더의 파일이 바뀌었습니다.' }
@@ -110,10 +115,12 @@ if (@(Compare-Object $before $after).Count) { throw '검사 중 배포 폴더의
     commit = $packageManifest.commit
     hasLocalChanges = $packageManifest.hasLocalChanges
     manifestSha256 = (Get-FileHash -LiteralPath (Join-Path $archiveRoot 'manifest.json') -Algorithm SHA256).Hash
-    scope = '패키지 무결성, 화면·입력, 입주 저장·이어하기, 전체 진행, 소리 자동 검사. 여러 PC의 성능 인증과 사람의 완주 검수는 별도로 필요합니다.'
+    scope = '패키지 무결성, 화면·입력, 입주 저장·이어하기와 손상 슬롯 복원, 전체 진행, 소리 자동 검사. 여러 PC의 성능 인증과 사람의 완주 검수는 별도로 필요합니다.'
     launcherSha256 = (Get-FileHash -LiteralPath $launcher -Algorithm SHA256).Hash
     archiveUnchanged = $true
     frontend = (Join-Path $EvidenceDirectory 'Frontend/summary.json')
+    saveRecovery = (Join-Path $EvidenceDirectory 'SaveRecovery/summary.json')
+    endingLifecycle = (Join-Path $EvidenceDirectory 'EndingLifecycle/summary.json')
     cases = $results.ToArray()
 } | ConvertTo-Json -Depth 5 | Set-Content -LiteralPath (Join-Path $EvidenceDirectory 'summary.json') -Encoding utf8
 Write-Host "WINDOWS_PACKAGE_REVIEW PASS $EvidenceDirectory"

@@ -1,13 +1,11 @@
-#pragma once
+﻿#pragma once
 
 #include "CoreMinimal.h"
 #include "Engine/GameInstance.h"
+#include "Core/IGRuntimeProfile.h"
 #include "IGGameInstance.generated.h"
 
-/**
- * Persistent application-level state for IndieGame.
- * Story progression and save services can be added here without coupling them to a level.
- */
+/** 맵 전환 동안 유지하는 게임 실행 상태. */
 UCLASS()
 class INDIEGAME_API UIGGameInstance : public UGameInstance
 {
@@ -16,4 +14,8 @@ class INDIEGAME_API UIGGameInstance : public UGameInstance
 public:
 	virtual void Init() override;
 	virtual void Shutdown() override;
+	void SetRuntimeProfileStage(int32 Stage) { RuntimeProfile.SetStage(Stage); }
+
+private:
+	FIGRuntimeProfile RuntimeProfile;
 };

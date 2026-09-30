@@ -10,7 +10,7 @@
 
 Windows · 1인칭 공포 · 한국어/English/日本語/中文 · 개발 중인 무료 플레이 테스트
 
-[Windows 플레이 테스트 받기](https://github.com/easygap/Missing-Floor/releases/download/v0.2.2/MissingFloor-0.2.2-Windows.zip) · [예고편](https://github.com/easygap/Missing-Floor/releases/download/v0.2.2/MissingFloor-Trailer.mp4) · [조작](#조작)
+[Windows 플레이 테스트 받기](https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-0.2.3-Windows.zip) · [예고편](https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-Trailer.mp4) · [조작](#조작)
 
 ![달빛빌라 4층 복도. 현관문마다 가스 점검 스티커와 떼지 않은 전단지가 붙어 있다.](Docs/Media/readme/game-corridor-day.webp)
 
@@ -58,9 +58,9 @@ Windows · 1인칭 공포 · 한국어/English/日本語/中文 · 개발 중인
 
 ## 다운로드
 
-지금 받을 수 있는 버전은 **플레이 테스트 0.2.2**입니다. 무료이고, 아직 만드는 중입니다.
+지금 받을 수 있는 버전은 **플레이 테스트 0.2.3**입니다. 무료이고, 아직 만드는 중입니다.
 
-1. [Windows용 ZIP 파일](https://github.com/easygap/Missing-Floor/releases/download/v0.2.2/MissingFloor-0.2.2-Windows.zip)을 받습니다.
+1. [Windows용 ZIP 파일](https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-0.2.3-Windows.zip)을 받습니다.
 2. 압축을 모두 풀고 `MissingFloor.exe`를 실행합니다. 실행 파일만 따로 옮기면 켜지지 않습니다.
 3. **게임 시작**을 누릅니다. 진행은 자동으로 저장되고, 다음에는 **이어하기**로 이어집니다.
 

@@ -270,6 +270,11 @@ FName AIGNightPhaseDirector::GoalBeatId(const int32 NightIndex)
 	return FName(*FString::Printf(TEXT("Night%d.Goal"), NightIndex));
 }
 
+FName AIGNightPhaseDirector::DayConversationBeatId(const int32 NightIndex)
+{
+	return FName(*FString::Printf(TEXT("Day.Hwang.%d"), NightIndex));
+}
+
 void AIGNightPhaseDirector::TickHour()
 {
 	if (!bHourActive || bFailureEndingSuspended)
@@ -705,10 +710,48 @@ FText AIGNightPhaseDirector::GetObjectiveText() const
 	{
 		return FText::GetEmpty();
 	}
-	// 낮의 도움은 황순금이다(§20.3). 사흘 내내 「물어볼 사람 찾기」만 떠서 어디로
-	// 가라는 건지 알 수 없었다. 401호를 가리키고, 무엇을 물을지는 그녀가 말한다.
 	const UIGMissingFloorNarrativeSubsystem* Narrative = GetNarrative();
-	switch (Narrative ? Narrative->GetNightIndex() : 0)
+	const int32 NightIndex = Narrative ? Narrative->GetNightIndex() : 0;
+	if (Narrative)
+	{
+		// 밤4의 이유가 되는 요구서와 신고 문자는 대화가 끝났어도 남을 수 있다.
+		if (NightIndex == 3 && Narrative->HasTruth(EIGMissingFloorTruth::WaitingForAnAnswer))
+		{
+			if (Narrative->HasBeatPlayed(TEXT("Day.EvictionPosted"))
+				&& !Narrative->HasSource(EIGMissingFloorTruth::StillCoveringIt,
+					EIGMissingFloorSource::EvictionWarning))
+			{
+				return NSLOCTEXT("IGMissingFloor", "DayObjectiveNotice", "403호 문에 붙은 통보문 읽기");
+			}
+			if (!Narrative->HasBeatPlayed(TEXT("Night3.SiteCheck")))
+			{
+				return NSLOCTEXT("IGMissingFloor", "DayObjectiveReport", "신고 문자 확인하기");
+			}
+			if (!Narrative->HasBeatPlayed(TEXT("Day.EvictionPosted")))
+			{
+				return NSLOCTEXT("IGMissingFloor", "DayObjectiveRoom", "403호로 돌아가기");
+			}
+			if (!Narrative->HasBeatPlayed(TEXT("Day.EvictionDeadline")))
+			{
+				return NSLOCTEXT("IGMissingFloor", "DayObjectiveReport", "신고 문자 확인하기");
+			}
+		}
+		if (NightIndex >= 2 && Narrative->HasTruth(EIGMissingFloorTruth::WasStillAlive)
+			&& !Narrative->HasSource(EIGMissingFloorTruth::FiveNightsOfThirst,
+				EIGMissingFloorSource::KnockTallyJournal))
+		{
+			return NSLOCTEXT("IGMissingFloor", "DayObjectiveJournal", "401호 문고리에 걸린 일지 읽기");
+		}
+		// 이미 끝낸 대화로 되돌려 보내지 않는다. 이전 저장의 특별 대화 기록도 읽는다.
+		const bool bTalked = Narrative->HasBeatPlayed(DayConversationBeatId(NightIndex))
+			|| (NightIndex == 2 && Narrative->HasBeatPlayed(TEXT("Day.Hwang.Journal")))
+			|| (NightIndex == 3 && Narrative->HasBeatPlayed(TEXT("Day.Hwang.Permission")));
+		if (bTalked)
+		{
+			return NSLOCTEXT("IGMissingFloor", "ArrivalObjectiveSleep", "403호로 돌아가서 자기");
+		}
+	}
+	switch (NightIndex)
 	{
 	case 2:
 		return NSLOCTEXT("IGMissingFloor", "DayObjectiveTwo", "401호 할머니께 다시 여쭤보기");

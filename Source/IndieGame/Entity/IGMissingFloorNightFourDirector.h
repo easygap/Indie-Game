@@ -127,6 +127,8 @@ public:
 	 * 보통 노크가 그대로 간다.
 	 */
 	bool RegisterVigilKnock();
+	/** 저장·이어하기 검사는 기다림을 생략하지 않고 현재 상태만 읽는다. */
+	bool IsEndingBVigilActive() const { return bEndingBVigilActive; }
 
 	FIGNightFourResolvedSignature OnResolved;
 
