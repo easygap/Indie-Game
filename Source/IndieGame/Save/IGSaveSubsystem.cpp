@@ -89,9 +89,9 @@ namespace IGSave
 			// 엔진이 문자열을 보정하기 전에 종결 문자와 중간 NUL도 검사한다.
 			for (int64 Index = 0; Index < Characters; ++Index)
 			{
-				const int32 Offset = static_cast<int32>(Tell() + Index * CharacterBytes);
-				const uint16 Character = Bytes[Offset]
-					| (CharacterBytes == 2 ? static_cast<uint16>(Bytes[Offset + 1]) << 8 : 0);
+				const int32 ByteOffset = static_cast<int32>(Tell() + Index * CharacterBytes);
+				const uint16 Character = Bytes[ByteOffset]
+					| (CharacterBytes == 2 ? static_cast<uint16>(Bytes[ByteOffset + 1]) << 8 : 0);
 				if ((Character == 0) != (Index == Characters - 1) || Character == 0xffff)
 				{
 					return false;
