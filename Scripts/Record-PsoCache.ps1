@@ -82,7 +82,7 @@ $sessions = @(
 	@{ Name = 'ArrivalDay'; Quality = 2; Args = @('-IGMissingFloor', '-IGArrivalProbe', '-IGSkipFrontend') },
 	@{ Name = 'ReadmeRoute'; Quality = 2; Args = @('-IGMissingFloor', '-IGArrivalCapture', '-IGReadmeCapture', '-IGSkipFrontend') },
 	@{ Name = 'NightHigh'; Quality = 2; Args = @('-IGListenerGreybox', '-IGNightCapture', '-IGCaptureMetricsOnly', '-IGSkipFrontend') },
-	@{ Name = 'NightLow'; Quality = 0; Args = @('-IGListenerGreybox', '-IGNightCapture', '-IGCaptureMetricsOnly', '-IGSkipFrontend') },
+	@{ Name = 'NightLow'; Quality = 1; Args = @('-IGListenerGreybox', '-IGNightCapture', '-IGCaptureMetricsOnly', '-IGSkipFrontend') },
 	@{ Name = 'Endings'; Quality = 2; Args = @('-IGListenerGreybox', '-IGListenerGreyboxProbe', '-IGMissingFloor', '-IGSkipFrontend', '-IGEndingCheckpointWrite') },
 	@{ Name = 'NightFive'; Quality = 2; Args = @('-IGNightFiveProbe', '-IGCulture=ko') }
 )
