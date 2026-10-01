@@ -29,9 +29,25 @@ function ConvertTo-QuotedArgument([string]$Value) {
 $sessionName = 'MissingFloor-' + [Guid]::NewGuid().ToString('N')
 $presentCsv = Join-Path $outputRoot 'presentmon.csv'
 $memoryCsv = Join-Path $outputRoot 'gpu-memory.csv'
-$presentArguments = @('-process_name', [IO.Path]::GetFileName($shippingPath), '-no_top',
-    '-qpc_time_s', '-terminate_on_proc_exit', '-timed', [string]($TimeoutSeconds + 10),
-    '-terminate_after_timed', '-session_name', $sessionName, '-output_file', $presentCsv)
+$toolHelp = (& $PresentMonPath --help 2>&1 | Out-String)
+if ($toolHelp -notmatch '(?m)^PresentMon (?<version>(?<major>[12])\.\d+\.\d+)') {
+    throw 'PresentMon 버전을 확인할 수 없습니다. 1.x 또는 2.x 콘솔 실행 파일을 지정해 주세요.'
+}
+$presentMonVersion = $Matches.version
+if ($Matches.major -eq '2') {
+    # 현재 분석기와 같은 열을 쓰며 입력 이벤트는 수집하지 않는다.
+    $presentArguments = @('--process_name', [IO.Path]::GetFileName($shippingPath), '--no_console_stats',
+        '--v1_metrics', '--no_track_input', '--terminate_on_proc_exit', '--timed', [string]($TimeoutSeconds + 10),
+        '--terminate_after_timed', '--session_name', $sessionName, '--output_file', $presentCsv)
+    $terminateSessionArguments = @('--terminate_existing_session', '--session_name', $sessionName)
+}
+else {
+    $presentArguments = @('-process_name', [IO.Path]::GetFileName($shippingPath), '-no_top',
+        '-qpc_time_s', '-terminate_on_proc_exit', '-timed', [string]($TimeoutSeconds + 10),
+        '-terminate_after_timed', '-session_name', $sessionName, '-output_file', $presentCsv)
+    $terminateSessionArguments = @('-terminate_existing', '-session_name', $sessionName)
+}
+$memoryAtStart = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory,TotalVirtualMemorySize,FreeVirtualMemory
 $logger = $null
 $game = $null
 $writer = $null
@@ -104,7 +120,7 @@ try {
     if (-not $gameProcessId -or $sampleCount -lt 2) { throw '게임 프로세스의 메모리 기록이 부족합니다.' }
     if (-not $logger.WaitForExit(10000)) {
         # 이 검사에서 만든 세션 하나만 종료한다. 다른 계측 도구의 세션은 건드리지 않는다.
-        & $PresentMonPath -terminate_existing -session_name $sessionName 2>&1 | Out-Null
+        & $PresentMonPath @terminateSessionArguments 2>&1 | Out-Null
         if (-not $logger.WaitForExit(5000)) { throw 'PresentMon 기록을 마무리하지 못했습니다.' }
     }
     if ($logger.ExitCode -ne 0) { throw "PresentMon 종료 코드: $($logger.ExitCode)" }
@@ -117,7 +133,7 @@ finally {
     }
     if ($logger) {
         if (-not $logger.HasExited) {
-            & $PresentMonPath -terminate_existing -session_name $sessionName 2>&1 | Out-Null
+            & $PresentMonPath @terminateSessionArguments 2>&1 | Out-Null
             $null = $logger.WaitForExit(5000)
         }
         $logger.Dispose()
@@ -132,7 +148,10 @@ $report = [ordered]@{
     memorySource = 'Windows GPU Process Memory: Dedicated Usage / Shared Usage';
     memoryScope = '게임 프로세스의 GPU 메모리 표본. 시작·워밍업·경로·종료를 포함하며, 프로세스 사이 공유분도 포함한다. 순간 최댓값은 보증하지 않는다.';
     timingScope = 'PresentMon 전체 캡처. 게임 내부 경로 시계와 정렬하지 않았으므로 워밍업 포함 수치로만 쓴다.';
-    presentMonVersion = (Get-Item -LiteralPath $PresentMonPath).VersionInfo.FileVersion;
+    presentMonVersion = $presentMonVersion; presentMonMetrics = 'v1';
+    systemMemoryKiBAtStart = $memoryAtStart;
+    systemMemoryKiBAtEnd = Get-CimInstance Win32_OperatingSystem | Select-Object TotalVisibleMemorySize,FreePhysicalMemory,TotalVirtualMemorySize,FreeVirtualMemory;
+    environmentScope = '현재 데스크톱의 관측이다. 다른 프로그램을 종료하거나 드라이버 캐시를 지우지 않았다.';
     presentMonSha256 = (Get-FileHash -LiteralPath $PresentMonPath -Algorithm SHA256).Hash.ToLowerInvariant();
     presentCsv = 'presentmon.csv'; presentCsvSha256 = (Get-FileHash -LiteralPath $presentCsv -Algorithm SHA256).Hash.ToLowerInvariant();
     memoryCsv = 'gpu-memory.csv'; memoryCsvSha256 = (Get-FileHash -LiteralPath $memoryCsv -Algorithm SHA256).Hash.ToLowerInvariant();

@@ -29,7 +29,7 @@ $dimensions = @{ '720p' = @(1280, 720); '1080p' = @(1920, 1080); '1440p' = @(256
 $width, $height = $dimensions
 if ($PresentationMode -eq 'Windowed') {
     if (-not $PresentMonPath -or -not (Test-Path -LiteralPath $PresentMonPath -PathType Leaf)) {
-        throw '화면 출력 검사는 PresentMon 1.x 실행 파일 경로가 필요합니다.'
+        throw '화면 출력 검사는 PresentMon 콘솔 실행 파일 경로가 필요합니다.'
     }
     $PresentMonPath = (Resolve-Path -LiteralPath $PresentMonPath).Path
 }
