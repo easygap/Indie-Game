@@ -1,5 +1,10 @@
 * text=auto
 
+# 배치 파일은 CRLF여야 cmd가 제대로 읽는다.
+*.bat text eol=crlf
+# 묶음 PSO 캐시(Build/Windows/PipelineCaches)는 이진 파일이다.
+*.spc binary
+
 # Unreal assets are binary and must never be line-merged.
 *.uasset filter=lfs diff=lfs merge=lfs -text
 *.umap filter=lfs diff=lfs merge=lfs -text
