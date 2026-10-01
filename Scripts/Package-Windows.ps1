@@ -49,6 +49,14 @@ $arguments = @(
 & $uat @arguments
 if ($LASTEXITCODE -ne 0) { throw "Windows 배포 파일 생성 실패: $LASTEXITCODE" }
 
+# 쿠커는 설정을 읽고도 에셋을 조용히 빠뜨릴 수 있다. 실제 컨테이너 목록으로 코드가
+# 경로로 부르는 에셋이 다 들었는지 확인한다(Scripts/check_package_contents.py).
+$containerCsv = Join-Path $ArchiveDirectory 'container.csv'
+& $editor -run=IoStore "-List=$(Join-Path $windowsDirectory 'IndieGame/Content/Paks/IndieGame-Windows.utoc')" "-csv=$containerCsv" -unattended -nopause | Out-Null
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $containerCsv)) { throw "배포 컨테이너 목록을 읽지 못했습니다: $LASTEXITCODE" }
+& python (Join-Path $PSScriptRoot 'check_package_contents.py') $containerCsv
+if ($LASTEXITCODE -ne 0) { throw '배포본에 코드가 부르는 에셋이 빠져 있습니다.' }
+
 $launcher = Join-Path $ArchiveDirectory 'Windows/MissingFloor.exe'
 Move-Item -LiteralPath (Join-Path $ArchiveDirectory 'Windows/IndieGame.exe') -Destination $launcher
 $game = Join-Path $ArchiveDirectory 'Windows/IndieGame/Binaries/Win64/IndieGame-Win64-Shipping.exe'
