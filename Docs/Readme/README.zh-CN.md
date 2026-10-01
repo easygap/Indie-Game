@@ -9,7 +9,7 @@
 
 一款以韩国老旧居民楼为背景的第一人称恐怖游戏。Windows · 单人 · 开发中。
 
-[下载 Windows 测试版](https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-0.2.3-Windows.zip) · [观看预告片](https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-Trailer.mp4)
+[下载 Windows 测试版](https://github.com/easygap/Missing-Floor/releases/download/v0.2.4/MissingFloor-0.2.4-Windows.zip) · [观看预告片](https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-Trailer.mp4)
 
 ![月光公寓四楼走廊](../Media/readme/game-corridor-day.webp)
 
@@ -31,7 +31,7 @@
 
 贴着墙听声音，比对文件，检查电表。白天可以按`Tab`翻看调查记录，卡住时按`H`查看提示。
 
-## 测试版 0.2.3
+## 测试版 0.2.4
 
 完整解压 ZIP 文件后，运行`MissingFloor.exe`。请保留同目录下的`Engine`和`IndieGame`文件夹。游戏会自动保存进度。[运行指南](../PLAYING.md)目前为韩文。
 
