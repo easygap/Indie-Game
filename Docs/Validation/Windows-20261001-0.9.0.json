@@ -1,0 +1,842 @@
+{
+  "schemaVersion": 1,
+  "version": "0.9.0",
+  "generatedAt": "2026-10-01T08:46:24.384230+00:00",
+  "status": "RELEASE_CANDIDATE",
+  "buildCommit": "7cb2422d0c50f8d42d932f5ebac01c30b5dde607",
+  "hasLocalChanges": false,
+  "releaseComplete": false,
+  "shippingReleaseCertified": false,
+  "scope": "같은 개발 PC의 배포본 자동 검사와 실제 창 성능 측정이다. 여섯 장비의 출시 인증과 처음 하는 사람의 완주 검수를 포함하지 않는다.",
+  "measurementEnvironment": "측정은 이 저장소 밖의 Unreal 프로세스(에디터·셰이더 컴파일·빌드)가 없을 때만 시작했고, 끝난 뒤 그사이 새로 뜬 프로세스가 없음을 확인했다. 재부팅하거나 드라이버 셰이더 캐시를 지우지는 않았다.",
+  "package": {
+    "gameFileCount": 89,
+    "gameBytes": 801323005,
+    "shippingSha256": "c7393913e5b56792fcbad2116338bffccb8965a6f38e37ad790dffd4817f8df5",
+    "launcherSha256": "80938ca765fa48d1f0005ad79a453f6d9b288747fd5c4bf273dadb66f9e99c51",
+    "manifestSha256": "fb59197b4e5da164644096c5681054a0a1cc798df7312dd027ee322c4b71378a"
+  },
+  "sections": {
+    "packageContents": {
+      "command": "Scripts/check_package_contents.py",
+      "required": 118,
+      "missing": 0,
+      "shippedPackages": 1065,
+      "note": "HUD 텍스처 8개(손 4, 기록 종이, 대사 필름, 계량기함, 소리 맞춤 벽) 포함"
+    },
+    "shippingRealismProbe": {
+      "command": "MissingFloor.exe -IGGameplayRealismProbe -IGSkipFrontend",
+      "exitCode": 0,
+      "covers": "마우스 위·아래 시점 방향, 걷기 소리에 소음 파문 없음, 노크에 소음 파문, 이동·앉기·문·포획 검사"
+    },
+    "pipelineCache": {
+      "pakEntry": "IndieGame/Content/PipelineCaches/Windows/IndieGame_PCD3D_SM6.stable.upipelinecache",
+      "bytes": 114057,
+      "stablePsos": 262,
+      "rejected": 0,
+      "filteredBySanitizer": 0
+    },
+    "packageReview": {
+      "passed": true,
+      "cases": [
+        {
+          "name": "Arrival",
+          "passed": true
+        },
+        {
+          "name": "ArrivalResume",
+          "passed": true
+        },
+        {
+          "name": "FullGame",
+          "passed": true
+        },
+        {
+          "name": "Audio",
+          "passed": true
+        }
+      ],
+      "archiveUnchanged": true
+    },
+    "frontend_ko": {
+      "resolutions": 4,
+      "layoutSamples": 44,
+      "inputEvents": 44,
+      "dialogueCases": 8,
+      "titleCases": 4,
+      "archiveUnchanged": true
+    },
+    "frontend_en": {
+      "resolutions": 4,
+      "layoutSamples": 44,
+      "inputEvents": 44,
+      "dialogueCases": 8,
+      "titleCases": 4,
+      "archiveUnchanged": true
+    },
+    "frontend_ja": {
+      "resolutions": 4,
+      "layoutSamples": 44,
+      "inputEvents": 44,
+      "dialogueCases": 8,
+      "titleCases": 4,
+      "archiveUnchanged": true
+    },
+    "frontend_zh-Hans": {
+      "resolutions": 4,
+      "layoutSamples": 44,
+      "inputEvents": 44,
+      "dialogueCases": 8,
+      "titleCases": 4,
+      "archiveUnchanged": true
+    },
+    "frontend_zh-Hant": {
+      "resolutions": 4,
+      "layoutSamples": 44,
+      "inputEvents": 44,
+      "dialogueCases": 8,
+      "titleCases": 4,
+      "archiveUnchanged": true
+    }
+  },
+  "profileRuns": [
+    {
+      "group": "1080p-q1",
+      "batch": "first",
+      "run": 1,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 1,
+      "targetFps": 30,
+      "frameP95Ms": 9.644,
+      "onePercentLowFps": 75.969,
+      "gpuP95Ms": 8.987,
+      "maxFrameMs": 26.454,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 5,
+        "frameP95Ms": 10.907,
+        "gpuP95Ms": 10.142
+      },
+      "sampledPeakDedicatedVramGb": 2.601234,
+      "displayedFrames": 11037,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1080p-q1",
+      "batch": "first",
+      "run": 2,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 1,
+      "targetFps": 30,
+      "frameP95Ms": 9.76,
+      "onePercentLowFps": 80.923,
+      "gpuP95Ms": 8.942,
+      "maxFrameMs": 18.264,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 5,
+        "frameP95Ms": 11.331,
+        "gpuP95Ms": 10.476
+      },
+      "sampledPeakDedicatedVramGb": 2.59779,
+      "displayedFrames": 11041,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1080p-q1",
+      "batch": "first",
+      "run": 3,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 1,
+      "targetFps": 30,
+      "frameP95Ms": 15.256,
+      "onePercentLowFps": 44.169,
+      "gpuP95Ms": 13.548,
+      "maxFrameMs": 36.918,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 15,
+        "frameP95Ms": 21.658,
+        "gpuP95Ms": 19.836
+      },
+      "sampledPeakDedicatedVramGb": 2.605208,
+      "displayedFrames": 6024,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1080p-q2",
+      "batch": "first",
+      "run": 1,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 2,
+      "targetFps": 60,
+      "frameP95Ms": 12.911,
+      "onePercentLowFps": 37.238,
+      "gpuP95Ms": 12.032,
+      "maxFrameMs": 63.675,
+      "framesOver50ms": 1,
+      "framesOver100ms": 0,
+      "frameGatePassed": false,
+      "slowestStage": {
+        "stage": 10,
+        "frameP95Ms": 23.798,
+        "gpuP95Ms": 22.399
+      },
+      "sampledPeakDedicatedVramGb": 3.098972,
+      "displayedFrames": 1540,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1080p-q2",
+      "batch": "first",
+      "run": 2,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 2,
+      "targetFps": 60,
+      "frameP95Ms": 12.407,
+      "onePercentLowFps": 69.962,
+      "gpuP95Ms": 11.674,
+      "maxFrameMs": 21.815,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 5,
+        "frameP95Ms": 14.258,
+        "gpuP95Ms": 13.658
+      },
+      "sampledPeakDedicatedVramGb": 3.100344,
+      "displayedFrames": 10038,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1080p-q2",
+      "batch": "first",
+      "run": 3,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 2,
+      "targetFps": 60,
+      "frameP95Ms": 12.748,
+      "onePercentLowFps": 41.765,
+      "gpuP95Ms": 11.884,
+      "maxFrameMs": 38.307,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": false,
+      "slowestStage": {
+        "stage": 9,
+        "frameP95Ms": 23.311,
+        "gpuP95Ms": 22.349
+      },
+      "sampledPeakDedicatedVramGb": 3.102327,
+      "displayedFrames": 11002,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1440p-q2",
+      "batch": "first",
+      "run": 1,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1440p",
+      "quality": 2,
+      "targetFps": 30,
+      "frameP95Ms": 19.049,
+      "onePercentLowFps": 33.365,
+      "gpuP95Ms": 18.186,
+      "maxFrameMs": 45.571,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 14,
+        "frameP95Ms": 43.01,
+        "gpuP95Ms": 41.597
+      },
+      "sampledPeakDedicatedVramGb": 3.404149,
+      "displayedFrames": 10855,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1440p-q2",
+      "batch": "first",
+      "run": 2,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1440p",
+      "quality": 2,
+      "targetFps": 30,
+      "frameP95Ms": 20.38,
+      "onePercentLowFps": 41.133,
+      "gpuP95Ms": 19.387,
+      "maxFrameMs": 30.853,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 14,
+        "frameP95Ms": 22.955,
+        "gpuP95Ms": 21.95
+      },
+      "sampledPeakDedicatedVramGb": 3.406889,
+      "displayedFrames": 10849,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1440p-q2",
+      "batch": "first",
+      "run": 3,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1440p",
+      "quality": 2,
+      "targetFps": 30,
+      "frameP95Ms": 19.113,
+      "onePercentLowFps": 46.387,
+      "gpuP95Ms": 18.2,
+      "maxFrameMs": 24.43,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 5,
+        "frameP95Ms": 21.843,
+        "gpuP95Ms": 20.826
+      },
+      "sampledPeakDedicatedVramGb": 3.467002,
+      "displayedFrames": 10119,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "720p-q1",
+      "batch": "first",
+      "run": 1,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "720p",
+      "quality": 1,
+      "targetFps": 30,
+      "frameP95Ms": 6.729,
+      "onePercentLowFps": 118.089,
+      "gpuP95Ms": 5.278,
+      "maxFrameMs": 16.756,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 6,
+        "frameP95Ms": 7.826,
+        "gpuP95Ms": 5.428
+      },
+      "sampledPeakDedicatedVramGb": 2.339901,
+      "displayedFrames": 3279,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "720p-q1",
+      "batch": "first",
+      "run": 2,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "720p",
+      "quality": 1,
+      "targetFps": 30,
+      "frameP95Ms": 6.286,
+      "onePercentLowFps": 94.389,
+      "gpuP95Ms": 5.092,
+      "maxFrameMs": 72.615,
+      "framesOver50ms": 1,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 0,
+        "frameP95Ms": 7.468,
+        "gpuP95Ms": 5.149
+      },
+      "sampledPeakDedicatedVramGb": 2.340446,
+      "displayedFrames": 2181,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "720p-q1",
+      "batch": "first",
+      "run": 3,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "720p",
+      "quality": 1,
+      "targetFps": 30,
+      "frameP95Ms": 5.867,
+      "onePercentLowFps": 142.237,
+      "gpuP95Ms": 5.113,
+      "maxFrameMs": 14.979,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 5,
+        "frameP95Ms": 6.726,
+        "gpuP95Ms": 5.931
+      },
+      "sampledPeakDedicatedVramGb": 2.346471,
+      "displayedFrames": 1519,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "Startup1080High",
+      "batch": "first",
+      "run": 1,
+      "warmupSeconds": 0,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 2,
+      "targetFps": 60,
+      "frameP95Ms": 12.19,
+      "onePercentLowFps": 65.679,
+      "gpuP95Ms": 11.363,
+      "maxFrameMs": 47.397,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 6,
+        "frameP95Ms": 14.626,
+        "gpuP95Ms": 13.463
+      },
+      "sampledPeakDedicatedVramGb": 3.101041,
+      "displayedFrames": 1525,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1080p-q2",
+      "batch": "retry",
+      "run": 1,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 2,
+      "targetFps": 60,
+      "frameP95Ms": 12.079,
+      "onePercentLowFps": 70.76,
+      "gpuP95Ms": 11.396,
+      "maxFrameMs": 19.572,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 5,
+        "frameP95Ms": 14.317,
+        "gpuP95Ms": 13.224
+      },
+      "sampledPeakDedicatedVramGb": 3.100508,
+      "displayedFrames": 2465,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1080p-q2",
+      "batch": "retry",
+      "run": 2,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 2,
+      "targetFps": 60,
+      "frameP95Ms": 12.102,
+      "onePercentLowFps": 70.145,
+      "gpuP95Ms": 11.29,
+      "maxFrameMs": 21.39,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 5,
+        "frameP95Ms": 14.594,
+        "gpuP95Ms": 13.272
+      },
+      "sampledPeakDedicatedVramGb": 3.101659,
+      "displayedFrames": 1493,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    },
+    {
+      "group": "1080p-q2",
+      "batch": "retry",
+      "run": 3,
+      "warmupSeconds": 120,
+      "presentationMode": "Windowed",
+      "resolution": "1080p",
+      "quality": 2,
+      "targetFps": 60,
+      "frameP95Ms": 12.18,
+      "onePercentLowFps": 63.075,
+      "gpuP95Ms": 11.486,
+      "maxFrameMs": 37.104,
+      "framesOver50ms": 0,
+      "framesOver100ms": 0,
+      "frameGatePassed": true,
+      "slowestStage": {
+        "stage": 5,
+        "frameP95Ms": 14.022,
+        "gpuP95Ms": 13.147
+      },
+      "sampledPeakDedicatedVramGb": 3.101078,
+      "displayedFrames": 2401,
+      "hardware": {
+        "cpu": "AMD Ryzen 9 7900X 12-Core Processor",
+        "gpu": "NVIDIA GeForce RTX 3060",
+        "driver": "595.79",
+        "os": "10.0.26200.1.768.64bit",
+        "rhi": "D3D12"
+      }
+    }
+  ],
+  "profileNotes": {
+    "1080p-q2/first": "세 번 중 두 번이 9·10단계에서 3초 남짓 GPU가 두 배로 느려져 1% low 기준에 못 미쳤다. 그 시각 이 PC에서 다른 Unreal 에디터와 브라우저가 GPU를 썼다(nvidia-smi pmon, 클럭은 1905MHz 그대로). 다른 프로세스를 지켜보며 다시 잰 retry 묶음은 세 번 모두 통과했다. 두 묶음 모두 남긴다."
+  },
+  "remainingValidation": [
+    "지정한 여섯 실제 PC의 성능 검사(테스트 도구로 수집)",
+    "처음 하는 다섯 사람의 플레이 기록과 설문(테스트 도구로 수집)",
+    "재부팅 뒤 빈 드라이버 셰이더 캐시에서의 첫 실행",
+    "전체 보행 경로의 화면 출력과 사람의 완주·가독성·청취 검사",
+    "외국어 원어민의 문맥 검수"
+  ],
+  "sources": [
+    {
+      "path": "Saved/Packages/Windows-20261001-162856/manifest.json",
+      "bytes": 25289,
+      "sha256": "fb59197b4e5da164644096c5681054a0a1cc798df7312dd027ee322c4b71378a"
+    },
+    {
+      "path": "Saved/Packages/Windows-20261001-162856/container.csv",
+      "bytes": 1119604,
+      "sha256": "794ef922210cd67e9d54dab00390570453ed0ad442cd5e0d819cc022476da7e4"
+    },
+    {
+      "path": "Saved/Validation/Review090-20261001-162856/summary.json",
+      "bytes": 2989,
+      "sha256": "f675e989868ef140d75d64a1ae3581f202e70ef9d9d890414400a27f2403522e"
+    },
+    {
+      "path": "Saved/Validation/Review090-20261001-162856/Frontend/summary.json",
+      "bytes": 15042,
+      "sha256": "5c6e422ea4dc261f4dc65015946388ee2624b0792ff561f16926b5c7fe32abe1"
+    },
+    {
+      "path": "Saved/Validation/Frontend090-en-20261001-162856/summary.json",
+      "bytes": 14902,
+      "sha256": "f9fbeda8943d8d17939d84d800a39bd5fa05d7ad837d41f02e18a629ebd4b9f9"
+    },
+    {
+      "path": "Saved/Validation/Frontend090-ja-20261001-162856/summary.json",
+      "bytes": 14902,
+      "sha256": "026c8c359f8175ab618fbad4d1ff4569b0440e130a2f8168a978bbb240243471"
+    },
+    {
+      "path": "Saved/Validation/Frontend090-zh-Hans-20261001-162856/summary.json",
+      "bytes": 15042,
+      "sha256": "d44686a9d9d25f574dc96da44303adbc8dc4fc9af1239fbe51ba6614bedb4315"
+    },
+    {
+      "path": "Saved/Validation/Frontend090-zh-Hant-20261001-162856/summary.json",
+      "bytes": 15042,
+      "sha256": "ad51607a60c2318312efce804b4cd1ea1f1929e5068ffdc7737b01dc3a072b52"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q1-20261001-162856/summary.json",
+      "bytes": 4705,
+      "sha256": "88f61910b8aa08e8db0b31931d85900708b4a3e8c12a5e2b79d983af33162d22"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q1-20261001-162856/Run1/summary.json",
+      "bytes": 8680,
+      "sha256": "8e914954472fee6fadbe65225680ac91924325a469b39f2b7545af136d9ebacb"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q1-20261001-162856/Run1/windows-telemetry-summary.json",
+      "bytes": 3138,
+      "sha256": "8dbc101f1371c8e768ed433b8c2217c1e823d079ed2efcc0a242e33834943bed"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q1-20261001-162856/Run2/summary.json",
+      "bytes": 8668,
+      "sha256": "9ef1e58edccd7249274a0fcb2c1574bd65fd9dce38bd29f7aa9f7eb970f6c63c"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q1-20261001-162856/Run2/windows-telemetry-summary.json",
+      "bytes": 3134,
+      "sha256": "4c180084f07ffde4708e649de9aa92bac7e3c7659677c15aff1fb79a3f725f01"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q1-20261001-162856/Run3/summary.json",
+      "bytes": 8682,
+      "sha256": "4a0e0b9d6eebbbc60ecf34504b817cd4af242e700456e69ff2d9c804a510074a"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q1-20261001-162856/Run3/windows-telemetry-summary.json",
+      "bytes": 2958,
+      "sha256": "76b645499efe9ee9f6ec5478d93ab75938e4042d29463849953b4e5982b2badc"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-162856/summary.json",
+      "bytes": 4711,
+      "sha256": "098765b93075b04ba0e94533987f989f036dad9cc86a06e551add430d2f3375f"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-162856/Run1/summary.json",
+      "bytes": 8740,
+      "sha256": "9d2012d803e0685f094a3ecb677ea9de5672b0a48fba4a4af509da7f4e4cef7f"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-162856/Run1/windows-telemetry-summary.json",
+      "bytes": 3151,
+      "sha256": "f49d62dc60744dc75ae943f98ff030f1702a96368601eeaebf05eb9f1778e05e"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-162856/Run2/summary.json",
+      "bytes": 8719,
+      "sha256": "725aeb4c4b1a1e18335ba1594d0e8d465086fbdf7ab8f5bdefac31e10ea6c805"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-162856/Run2/windows-telemetry-summary.json",
+      "bytes": 2874,
+      "sha256": "2aef0b9777aca4b6df663dbb1a695d95a8df8dae3fd689f4c62ab25be97210ec"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-162856/Run3/summary.json",
+      "bytes": 8735,
+      "sha256": "8460277c810a5e079f397f55e6b21297459a6c30c2081198f0ba747a40dbaa95"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-162856/Run3/windows-telemetry-summary.json",
+      "bytes": 3138,
+      "sha256": "35cb1404870df1d8d09e019772904781c93dd9276d9088230b67f417c11b04d2"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1440p-q2-20261001-162856/summary.json",
+      "bytes": 4707,
+      "sha256": "76e790078c1ceabcd2d500b1c3c9294e8a7d6af6e0f6434fad41c89cd9415558"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1440p-q2-20261001-162856/Run1/summary.json",
+      "bytes": 8730,
+      "sha256": "a15d2a7138eee447729891ae5b25fe212d635555d0fd39e3f17729ca66cfa747"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1440p-q2-20261001-162856/Run1/windows-telemetry-summary.json",
+      "bytes": 3226,
+      "sha256": "e6a6fb58c28544291ad000cb9c57c02ef5a6f3d2f8006d810beda01222d9f054"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1440p-q2-20261001-162856/Run2/summary.json",
+      "bytes": 8724,
+      "sha256": "debcab43771b8f5b3535ccc6ba0bd376dc2e5d658c134cacebb7e1fd159adb77"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1440p-q2-20261001-162856/Run2/windows-telemetry-summary.json",
+      "bytes": 3227,
+      "sha256": "224fc1b92f2846ee249b7e761d6c695087fe9bf3e5abc4605aedd03d8a3b1ec2"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1440p-q2-20261001-162856/Run3/summary.json",
+      "bytes": 8726,
+      "sha256": "73945b6d8468f9f0d3b9506a3c19014dd026ee0e1135fca28256d0474497b784"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1440p-q2-20261001-162856/Run3/windows-telemetry-summary.json",
+      "bytes": 2955,
+      "sha256": "d2057bb4b68061a5098063cd1c3102996ec99f14dc09a0a23daff412da3d1be0"
+    },
+    {
+      "path": "Saved/Validation/Perf090-720p-q1-20261001-162856/summary.json",
+      "bytes": 4705,
+      "sha256": "671a4da4c039816c67a363f97e1508eaf2611a06793dddd6e6a82cbb13bf9cf0"
+    },
+    {
+      "path": "Saved/Validation/Perf090-720p-q1-20261001-162856/Run1/summary.json",
+      "bytes": 8665,
+      "sha256": "cadac44a16b843c4aa1129d11449259f065947f2db1d666136c5eb353eacee07"
+    },
+    {
+      "path": "Saved/Validation/Perf090-720p-q1-20261001-162856/Run1/windows-telemetry-summary.json",
+      "bytes": 3147,
+      "sha256": "1291e49242eb45466c393f750e06886c4da03e248784879db535ab21aefdf3bb"
+    },
+    {
+      "path": "Saved/Validation/Perf090-720p-q1-20261001-162856/Run2/summary.json",
+      "bytes": 8672,
+      "sha256": "c75c4808ec611bce329d61f47655ff172d5e78977e262d80c81457ea6db42c67"
+    },
+    {
+      "path": "Saved/Validation/Perf090-720p-q1-20261001-162856/Run2/windows-telemetry-summary.json",
+      "bytes": 3142,
+      "sha256": "67dc966c5db9c817d071c123a50086bef32a19c6ae4bb23fa6c02f4744153f74"
+    },
+    {
+      "path": "Saved/Validation/Perf090-720p-q1-20261001-162856/Run3/summary.json",
+      "bytes": 8662,
+      "sha256": "9cbec7d8ffc346c8ffebc5ed8bce4848d7beb82c9813637bdde0567735319833"
+    },
+    {
+      "path": "Saved/Validation/Perf090-720p-q1-20261001-162856/Run3/windows-telemetry-summary.json",
+      "bytes": 3145,
+      "sha256": "0d1cc2ef4ef3c6144e48d836a67a9950a1efc199c66e8fbf2e3a9f943606b8e7"
+    },
+    {
+      "path": "Saved/Validation/Perf090-Startup1080High-20261001-162856/summary.json",
+      "bytes": 2999,
+      "sha256": "a3eb189420a02ea44e50b53388491b011f838b2affc1a6bd862d141499fee7a0"
+    },
+    {
+      "path": "Saved/Validation/Perf090-Startup1080High-20261001-162856/Run1/summary.json",
+      "bytes": 8719,
+      "sha256": "5b603afa7101e8f24efdc443ef028683ab686845d803be3c6a79d608b4984ad7"
+    },
+    {
+      "path": "Saved/Validation/Perf090-Startup1080High-20261001-162856/Run1/windows-telemetry-summary.json",
+      "bytes": 3138,
+      "sha256": "fde81078eff93bc2d45bd4ee9f91ae79ea44c93d16f03ceedd778155d23710bf"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-173533/summary.json",
+      "bytes": 4706,
+      "sha256": "f7a7e27b95b2295616bfcfa9f542562d7b0a76f7b6a1c096d76b968cf52a7250"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-173533/Run1/summary.json",
+      "bytes": 8719,
+      "sha256": "08e4eb84ec3b4b3252821ab2fe613bee6e3381f834fd245edaa6b3a823b039d3"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-173533/Run1/windows-telemetry-summary.json",
+      "bytes": 3148,
+      "sha256": "b067e11a39531364c3851fd5fca288d2f5bb13a7f167aef9eda79175ba436fdb"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-173533/Run2/summary.json",
+      "bytes": 8712,
+      "sha256": "fbf7c5f5761bd89c60a5cf1cb067f0f7da01ca4bf8366e50928511ff881d7628"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-173533/Run2/windows-telemetry-summary.json",
+      "bytes": 3154,
+      "sha256": "c26f5edaa0cca3c4b008e9503d5bd79ff43eb79fc092660b0660894ee5b31ca7"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-173533/Run3/summary.json",
+      "bytes": 8725,
+      "sha256": "41b86b67662e9cfef2a18df7727b834d78f6ef67b9949ab2afe1e0b121984a9f"
+    },
+    {
+      "path": "Saved/Validation/Perf090-1080p-q2-20261001-173533/Run3/windows-telemetry-summary.json",
+      "bytes": 3148,
+      "sha256": "bb1f833d4ac544902e2909afe67253effd829f975bdcf7535d480602393ca980"
+    }
+  ]
+}
