@@ -184,6 +184,7 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 	CabLight->SetMobility(EComponentMobility::Movable);
 	CabLight->SetVolumetricScatteringIntensity(0.12f);
 	CabLight->RegisterComponent();
+	CabLights.Add(CabLight);
 
 	// Floor bounce so the marble and the rider's feet are not a black hole.
 	UPointLightComponent* FloorFill = NewObject<UPointLightComponent>(
@@ -198,6 +199,7 @@ void AIGElevator::BuildCabInterior(USceneComponent* Parent, const float BaseZ)
 	FloorFill->SetSpecularScale(0.0f);
 	FloorFill->SetMobility(EComponentMobility::Movable);
 	FloorFill->RegisterComponent();
+	CabLights.Add(FloorFill);
 
 	// --- Floor: marble slab with the dark diamond inlay and a border band. ---
 	MakePiece(Parent, CachedCubeMesh, CachedInlayMaterial,

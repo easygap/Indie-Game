@@ -1521,8 +1521,9 @@ void AIGPrologueWorldScene::InitializePrologue()
 
 	// 빌더가 만드는 광원은 그 빌더의 공간에 속한다. 보이지 않는 층의 광원을
 	// 끄는 UpdateLightZones가 이 표를 쓴다.
-	BuildingLightZone = EIGLightZone::FourthFloor;
+	BuildingLightZone = EIGLightZone::HomeInterior;
 	BuildApartment();
+	BuildingLightZone = EIGLightZone::FourthFloor;
 	BuildCorridor();
 	BuildingLightZone = EIGLightZone::Lobby;
 	BuildLobby();
@@ -3215,15 +3216,27 @@ void AIGPrologueWorldScene::UpdateLightZones()
 	{
 		Band = 3;
 	}
-	if (Band == ActiveLightBand)
+	// 403호 문이 완전히 닫혀 있으면 방 안과 복도의 등은 서로 닿지 않는다. 등의 구는
+	// 벽을 지나 반대편까지 걸쳐서, 켜 두면 가려질 그림자를 매 픽셀 다시 계산한다.
+	// 문이 움직이기 시작하면 bOpen이 먼저 바뀌어 양쪽이 바로 다시 켜진다.
+	int32 HomeView = 0;
+	if (Band == 1 && HomeDoor && HomeDoor->IsFullyClosed())
+	{
+		const bool bInsideHome = FMath::Abs(Eye.X) < 200.0f
+			&& Eye.Y > HomeDoorY && Eye.Y < 225.0f
+			&& Eye.Z > FourthFloorZ - 10.0f && Eye.Z < FourthFloorZ + 250.0f;
+		HomeView = bInsideHome ? 1 : 2;
+	}
+	if (Band == ActiveLightBand && HomeView == ActiveHomeView)
 	{
 		return;
 	}
 	ActiveLightBand = Band;
+	ActiveHomeView = HomeView;
 
 	// 층마다 보일 수 있는 공간. 4층 창은 전부 불투명한 원경이고, 로비의 유리
 	// 현관은 골목과 편의점 쪽을 보여 준다. 옥상 가장자리에서는 골목이 내려다보인다.
-	const auto ZoneVisible = [Band](const EIGLightZone Zone)
+	const auto ZoneVisible = [Band, HomeView](const EIGLightZone Zone)
 	{
 		if (Band == 3)
 		{
@@ -3231,10 +3244,18 @@ void AIGPrologueWorldScene::UpdateLightZones()
 		}
 		switch (Zone)
 		{
+		case EIGLightZone::HomeInterior:
+			return Band == 1 && HomeView != 2;
+		case EIGLightZone::FourthFloorRooms:
+			return Band == 1 && HomeView != 1;
 		case EIGLightZone::FourthFloor:
 		case EIGLightZone::UpperStair:
+			return Band >= 1 && HomeView != 1;
+		// 별관은 옥상에서만 보인다. 4층에서 보이는 윗계단 등은 UpperStair에 따로 있다.
+		// 켜 두면 별관 등의 구가 바닥판을 지나 403호까지 닿아, 가려진 그림자를 매
+		// 픽셀 다시 계산하고 그림자 없는 등은 천장을 뚫고 비춘다.
 		case EIGLightZone::Annex:
-			return Band >= 1;
+			return Band >= 2;
 		case EIGLightZone::Lobby:
 			return Band == 0;
 		case EIGLightZone::Alley:
@@ -3301,6 +3322,8 @@ void AIGPrologueWorldScene::ApplyExteriorTimeOfDay()
 		PreDawnSun->SetLightColor(bMorning
 			? FLinearColor(1.0f, 0.82f, 0.64f) : FLinearColor(1.0f, 0.86f, 0.72f));
 		PreDawnSun->ForwardShadingPriority = bMorning ? 1 : 0;
+		// 2026-10-01 측정: 밤에 그림자를 꺼도 §11 V5 11지점 값이 소수 셋째 자리까지 같았다.
+		PreDawnSun->SetCastShadows(bMorning);
 	}
 	if (MoonLight)
 	{
@@ -5759,10 +5782,10 @@ void AIGPrologueWorldScene::BuildSkyAndFog()
 	PreDawnSun->SetWorldRotation(FRotator(14.0f, 180.0f, 0.0f));
 	PreDawnSun->SetIntensity(120000.0f); // physical sun illuminance in lux
 	PreDawnSun->SetLightColor(FLinearColor(1.0f, 0.86f, 0.72f));
-	// A shadowless 120 klux directional light shines straight through the
-	// villa and overexposes every surface even while the sun is below the
-	// horizon. Let the ground/building occlude it.
-	PreDawnSun->SetCastShadows(true);
+	// 지평선 아래에 있는 동안은 대기 투과율이 지면에 닿는 빛을 이미 0으로 만든다.
+	// 그림자를 켜 두면 아무것도 비추지 않는 해의 클립맵만 매 프레임 그린다.
+	// 해가 뜨는 아침에 ApplyExteriorTimeOfDay가 그림자를 켠다.
+	PreDawnSun->SetCastShadows(false);
 	PreDawnSun->SetAtmosphereSunLight(true);
 	PreDawnSun->SetAtmosphereSunLightIndex(0);
 	PreDawnSun->ForwardShadingPriority = 0;
@@ -6093,6 +6116,14 @@ void AIGPrologueWorldScene::SpawnInteractables()
 		// A matte white lens keeps the panel shape readable without baked light.
 		CabVisuals.DiffuserMaterial = SignWhiteMaterial;
 		Elevator->ConfigurePrototypeVisuals(CabVisuals, 900.0f);
+		// 칸은 층마다 하나다. 그 층에 있을 때만 칸 등이 켜지도록 구역에 넣는다.
+		for (UPointLightComponent* CabLight : Elevator->GetCabLights())
+		{
+			if (!CabLight) { continue; }
+			const float LocalZ = GetActorTransform().InverseTransformPosition(CabLight->GetComponentLocation()).Z;
+			const EIGLightZone CabZone = LocalZ >= 700.0f ? EIGLightZone::FourthFloorRooms : EIGLightZone::Lobby;
+			ZoneLights[static_cast<int32>(CabZone)].Add(CabLight);
+		}
 
 		// BuildCabInterior owns the sole rider COP. Adding a camera-facing copy
 		// here used to bury buttons inside the opposite handrail.

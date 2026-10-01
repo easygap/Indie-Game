@@ -2,6 +2,12 @@
 
 #include "DynamicRHI.h"
 #include "Engine/GameInstance.h"
+#include "Components/LocalLightComponent.h"
+#include "Components/PointLightComponent.h"
+#include "Components/SpotLightComponent.h"
+#include "Engine/Engine.h"
+#include "EngineUtils.h"
+#include "GameFramework/PlayerController.h"
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "GPUProfiler.h"
@@ -12,6 +18,7 @@
 #include "Misc/CoreDelegates.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "ProfilingDebugging/CsvProfiler.h"
 #include "RenderingThread.h"
 #include "RHIStats.h"
 #include "Scalability.h"
@@ -47,13 +54,38 @@ void FIGRuntimeProfile::Start(UGameInstance* GameInstance)
 	GPUState = MakeUnique<FGPUState>();
 	GPUState->Samples.Reserve(16384);
 	StartTime = LastFrameTime = FPlatformTime::Seconds();
+#if !UE_BUILD_SHIPPING
+	FString ProfileStages;
+	if (FParse::Value(FCommandLine::Get(), TEXT("IGProfileGPUStages="), ProfileStages, false))
+	{
+		TArray<FString> Parts;
+		ProfileStages.ParseIntoArray(Parts, TEXT(","));
+		for (const FString& Part : Parts) { ProfileGPUStages.Add(FCString::Atoi(*Part)); }
+	}
+#endif
 	FrameHandle = FCoreDelegates::OnEndFrame.AddRaw(this, &FIGRuntimeProfile::RecordFrame);
 	ExitHandle = FCoreDelegates::OnPreExit.AddRaw(this, &FIGRuntimeProfile::Stop);
+}
+
+void FIGRuntimeProfile::SetStage(const int32 InStage)
+{
+	if (InStage != Stage) { StageEnteredAt = FPlatformTime::Seconds(); }
+	Stage = InStage;
 }
 
 void FIGRuntimeProfile::RecordFrame()
 {
 	const double Now = FPlatformTime::Seconds();
+#if !UE_BUILD_SHIPPING
+	// 장면이 자리 잡은 뒤의 한 프레임을 패스·광원별로 기록한다.
+	if (ProfileGPUStages.Contains(Stage) && !ProfiledGPUStages.Contains(Stage) && Now - StageEnteredAt > 0.5 && GEngine)
+	{
+		ProfiledGPUStages.Add(Stage);
+		UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_PROFILEGPU stage=%d"), Stage);
+		GEngine->Exec(Owner ? Owner->GetWorld() : nullptr, TEXT("ProfileGPU"));
+		LogActiveLights();
+	}
+#endif
 	if (Now >= NextMemorySampleTime)
 	{
 		// OS와 드라이버 조회는 초당 한 번만 한다. 이 값은 순간 최대치가 아닌 표본이다.
@@ -76,6 +108,10 @@ void FIGRuntimeProfile::RecordFrame()
 	Frame.EngineFrame = GFrameCounter;
 	Frame.Elapsed = Now - StartTime;
 	Frame.Stage = Stage;
+#if CSV_PROFILER
+	// 개발 빌드의 csvprofile에 장면 번호를 같이 남겨 패스별 GPU 시간을 장면별로 나눈다.
+	CSV_CUSTOM_STAT_GLOBAL(MissingFloorStage, Stage, ECsvCustomStatOp::Set);
+#endif
 	Frame.FrameMs = (Now - LastFrameTime) * 1000.0;
 	RecordGPUFrames(Frame.Elapsed);
 	Frame.CommittedMiB = CommittedMiB;
@@ -106,6 +142,36 @@ void FIGRuntimeProfile::RecordFrame()
 	Frame.FrameLimit = FrameLimit ? FrameLimit->GetFloat() : -1;
 	Frame.Quality = Scalability::GetQualityLevels().GetSingleQualityLevel();
 	LastFrameTime = Now;
+}
+
+void FIGRuntimeProfile::LogActiveLights() const
+{
+#if !UE_BUILD_SHIPPING
+	UWorld* World = Owner ? Owner->GetWorld() : nullptr;
+	if (!World) { return; }
+	FVector Eye = FVector::ZeroVector;
+	FRotator View;
+	if (APlayerController* Controller = World->GetFirstPlayerController()) { Controller->GetPlayerViewPoint(Eye, View); }
+	for (const TCHAR* Name : {TEXT("r.Shadow.Virtual.SMRT.RayCountLocal"), TEXT("r.Shadow.Virtual.SMRT.SamplesPerRayLocal"),
+		TEXT("r.Shadow.Virtual.OnePassProjection"), TEXT("sg.ShadowQuality"), TEXT("r.Shadow.Virtual.ResolutionLodBiasLocal")})
+	{
+		if (const IConsoleVariable* Variable = IConsoleManager::Get().FindConsoleVariable(Name))
+		{
+			UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_CVAR stage=%d %s=%s"), Stage, Name, *Variable->GetString());
+		}
+	}
+	for (TObjectIterator<ULocalLightComponent> It; It; ++It)
+	{
+		const ULocalLightComponent* Light = *It;
+		if (!Light || Light->GetWorld() != World || !Light->IsRegistered() || !Light->IsVisible() || Light->Intensity <= 0.f) { continue; }
+		const float Distance = FVector::Dist(Eye, Light->GetComponentLocation());
+		UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_LIGHT stage=%d name=%s owner=%s type=%s shadows=%d intensity=%.1f radius=%.0f distance=%.0f maxdraw=%.0f loc=%s"),
+			Stage, *Light->GetName(), Light->GetOwner() ? *Light->GetOwner()->GetName() : TEXT("-"),
+			Light->IsA<USpotLightComponent>() ? TEXT("spot") : Light->IsA<UPointLightComponent>() ? TEXT("point") : TEXT("rect"),
+			Light->CastShadows ? 1 : 0, Light->Intensity, Light->AttenuationRadius, Distance, Light->MaxDrawDistance,
+			*Light->GetComponentLocation().ToCompactString());
+	}
+#endif
 }
 
 void FIGRuntimeProfile::RecordGPUFrames(const double ReceivedElapsed)

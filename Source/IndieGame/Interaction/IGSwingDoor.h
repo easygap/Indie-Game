@@ -102,6 +102,9 @@ public:
 	UFUNCTION(BlueprintPure, Category = "Door")
 	bool IsOpen() const { return bOpen; }
 
+	/** 닫힌 채 멈춰 있다. 열리기 시작하면 bOpen이 먼저 바뀌므로 닫히는 도중도 제외한다. */
+	bool IsFullyClosed() const { return !bOpen && !DoorAnimation.bActive; }
+
 	/**
 	 * 걸쇠 자리. 손잡이 쪽 문선, 문짝 두께 한가운데, 손잡이 높이다. 저작 문짝은
 	 * 원점이 바닥이라 문짝 원점에서 소리를 내면 문 소리가 문턱에서 났다.

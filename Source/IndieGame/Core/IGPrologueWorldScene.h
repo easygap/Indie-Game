@@ -44,6 +44,10 @@ enum class EIGLightZone : uint8
 	Lobby,
 	Alley,
 	Store,
+	// 4층 승강기 칸. 계단이나 옥상, 닫힌 403호 안에서는 보이지 않는다.
+	FourthFloorRooms,
+	// 403호 안. 문이 닫혀 있으면 복도에서 보이지 않는다.
+	HomeInterior,
 	Count
 };
 
@@ -682,6 +686,8 @@ private:
 	EIGLightZone BuildingLightZone = EIGLightZone::Always;
 	TArray<TWeakObjectPtr<class ULightComponent>> ZoneLights[static_cast<int32>(EIGLightZone::Count)];
 	int32 ActiveLightBand = -1;
+	// 0: 403호 문이 열려 있거나 4층이 아님, 1: 닫힌 403호 안, 2: 닫힌 403호 밖.
+	int32 ActiveHomeView = -1;
 	FTimerHandle LightZoneTimer;
 
 	UPROPERTY(Transient) TArray<TObjectPtr<UStaticMeshComponent>> Unit401GapSegments;

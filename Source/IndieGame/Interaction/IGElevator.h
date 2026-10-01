@@ -76,6 +76,9 @@ public:
 	 */
 	void ConfigurePrototypeVisuals(const FIGElevatorVisuals& Visuals, float InFloorDeltaZ);
 
+	/** 층마다 있는 칸의 등. 장면이 층별 조명 구역에 넣어 다른 층의 칸 등을 끈다. */
+	const TArray<TObjectPtr<class UPointLightComponent>>& GetCabLights() const { return CabLights; }
+
 	UFUNCTION(BlueprintPure, Category = "Elevator")
 	bool IsRideComplete() const { return bRideComplete; }
 
@@ -309,6 +312,8 @@ private:
 	float IntermediateDoorOffset = 6.0f;
 	int32 ChimeFloor = 4;
 	int32 PieceCounter = 0;
+	UPROPERTY(Transient)
+	TArray<TObjectPtr<class UPointLightComponent>> CabLights;
 	bool bIntermediateStopEnabled = false;
 	bool bUpperDoorDepartureStarted = false;
 	bool bRideComplete = false;

@@ -12,11 +12,12 @@ public:
 	~FIGRuntimeProfile();
 	void Start(UGameInstance* GameInstance);
 	void Stop();
-	void SetStage(int32 InStage) { Stage = InStage; }
+	void SetStage(int32 InStage);
 
 private:
 	void RecordFrame();
 	void RecordGPUFrames(double ReceivedElapsed);
+	void LogActiveLights() const;
 	struct FGPUState;
 	TUniquePtr<FGPUState> GPUState;
 	struct FMemorySample
@@ -55,4 +56,8 @@ private:
 	double CommittedMiB = 0;
 	FString OutputPath;
 	int32 Stage = -1;
+	double StageEnteredAt = 0;
+	// 개발 빌드 진단용. -IGProfileGPUStages=0,10,13 에 든 장면마다 ProfileGPU를 한 번 남긴다.
+	TSet<int32> ProfileGPUStages;
+	TSet<int32> ProfiledGPUStages;
 };
