@@ -81,15 +81,15 @@ if (-not (Test-Path -LiteralPath $receipt) -or (Get-Item -LiteralPath $receipt).
     (Get-Content -LiteralPath $receipt -Raw).Trim() -cnotmatch '^MISSINGFLOOR_GREYBOX PASS step=([0-9]+)$') {
     throw '진행 로직을 완료한 새 검사 기록이 없습니다.'
 }
-$steps = [int]$Matches[1]
-if ($steps -lt 38) { throw '예상한 진행 검사 범위보다 적습니다.' }
+$terminalStage = [int]$Matches[1]
+if ($terminalStage -ne 38) { throw '예상한 진행 검사 완료 상태가 아닙니다.' }
 $result = [ordered]@{
     schemaVersion = 1; status = 'PASS'; version = $version; releaseTag = $ReleaseTag;
     releaseUrl = $release.html_url; zipSha256 = $zipSha; zipBytes = $assets[0].size;
     serverDigestMatched = $true; checksumFileMatched = $true;
     shippingSha256 = (Get-FileHash -LiteralPath $shipping -Algorithm SHA256).Hash.ToLowerInvariant();
     receiptSha256 = (Get-FileHash -LiteralPath $receipt -Algorithm SHA256).Hash.ToLowerInvariant();
-    completedSteps = $steps; elapsedSeconds = [math]::Round(([DateTime]::UtcNow - $started).TotalSeconds, 3);
+    terminalStage = $terminalStage; elapsedSeconds = [math]::Round(([DateTime]::UtcNow - $started).TotalSeconds, 3);
     os = (Get-CimInstance Win32_OperatingSystem | Select-Object Caption,Version,BuildNumber);
     runnerImage = $env:ImageOS; runnerImageVersion = $env:ImageVersion; workflowCommit = $env:GITHUB_SHA;
     workflowRunId = $env:GITHUB_RUN_ID; workflowRunAttempt = $env:GITHUB_RUN_ATTEMPT;
@@ -98,4 +98,4 @@ $result = [ordered]@{
     humanFullPlaythroughApproved = $false; shippingReleaseCertified = $false
 }
 [IO.File]::WriteAllText((Join-Path $evidenceRoot 'summary.json'), ($result | ConvertTo-Json -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))
-Write-Host "PUBLISHED_WINDOWS_SMOKE PASS version=$version steps=$steps zip_sha256=$zipSha"
+Write-Host "PUBLISHED_WINDOWS_SMOKE PASS version=$version terminal_stage=$terminalStage zip_sha256=$zipSha"

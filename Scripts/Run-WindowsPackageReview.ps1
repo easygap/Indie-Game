@@ -44,7 +44,7 @@ function Invoke-GameCase([string]$Name, [string[]]$ExtraArguments, [switch]$Audi
     $receipt = Join-Path $caseRoot 'receipt.txt'
     if (-not $UserDirectory) { $UserDirectory = Join-Path $caseRoot 'User' }
     $arguments = @('-unattended', '-nosplash', '-NoLoadingScreen', '-RenderOffscreen',
-        '-Windowed', '-ResX=1280', '-ResY=720', '-ForceRes', '-IGSkipFrontend',
+        '-Windowed', '-ResX=1280', '-ResY=720', '-ForceRes', '-IGSkipFrontend', '-IGCulture=ko',
         "-UserDir=$UserDirectory", "-IGMissingFloorResultPath=$receipt") + $ExtraArguments
     if ($Audio) {
         $arguments += @('-d3d12', '-AudioMixer', '-AllowCommandletAudio',
@@ -90,7 +90,9 @@ function Invoke-GameCase([string]$Name, [string[]]$ExtraArguments, [switch]$Audi
     Write-Host "WINDOWS_GAME_CASE PASS $Name"
 }
 
-& (Join-Path $PSScriptRoot 'Run-MissingFloor-FrontendShippingProbe.ps1') -ArchiveDirectory $archiveRoot -EvidenceDirectory (Join-Path $EvidenceDirectory 'Frontend')
+# 기본 검수는 한국어로 고정한다. 외국어 화면 검수는 각 언어를 지정해 별도로 실행한다.
+& (Join-Path $PSScriptRoot 'Run-MissingFloor-FrontendShippingProbe.ps1') -ArchiveDirectory $archiveRoot `
+    -EvidenceDirectory (Join-Path $EvidenceDirectory 'Frontend') -ExtraArguments @('-IGCulture=ko')
 $saveUser = Join-Path $EvidenceDirectory 'SaveUser'
 Invoke-GameCase 'Arrival' @('-IGMissingFloor', '-IGArrivalProbe', '-IGArrivalSaveWrite', '-d3d12') -UserDirectory $saveUser
 $saveFiles = @(Get-ChildItem -LiteralPath $saveUser -Recurse -Filter 'AutoSave_*.sav')
