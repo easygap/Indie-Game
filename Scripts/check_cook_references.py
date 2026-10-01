@@ -204,9 +204,10 @@ def _read_config(path: str) -> str:
 class PrimaryAssetRule:
     """One parsed `+PrimaryAssetTypesToScan=` line, and what is wrong with it."""
 
-    def __init__(self, line: int, text: str):
+    def __init__(self, line: int, text: str, source: str = ""):
         self.line = line
         self.text = text
+        self.source = source
         self.name = "?"
         self.base_class = ""
         self.cook_rule = ""
@@ -298,9 +299,18 @@ def _validate_rule_assets(audit: CookAudit, rule: PrimaryAssetRule) -> None:
 
 def _read_primary_asset_rules(audit: CookAudit) -> None:
     """Parse the Asset Manager rules instead of pattern-matching them."""
-    text = _read_config(audit.engine_config)
+    # UAssetManagerSettings는 config=Game이다. DefaultEngine.ini에 둔 규칙은 여기서는
+    # 멀쩡히 읽히지만 언리얼은 읽지 않는다. 0.2.4까지 HUD 텍스처 8개가 그렇게 빠졌다.
+    misplaced = _read_config(audit.engine_config)
+    for line, body in ue_config.ini_entries(misplaced, PRIMARY_ASSET_SETTING):
+        rule = PrimaryAssetRule(line, body, audit.engine_config)
+        rule.problems.append(
+            "Asset Manager 설정은 Game 설정이라 DefaultEngine.ini의 규칙은 "
+            "언리얼이 읽지 않는다. DefaultGame.ini로 옮겨야 한다")
+        audit.primary_asset_rules.append(rule)
+    text = _read_config(audit.game_config)
     for line, body in ue_config.ini_entries(text, PRIMARY_ASSET_SETTING):
-        rule = PrimaryAssetRule(line, body)
+        rule = PrimaryAssetRule(line, body, audit.game_config)
         audit.primary_asset_rules.append(rule)
         try:
             fields = ue_config.parse_struct(body)
@@ -618,7 +628,7 @@ def atlas_rule_cover(audit: CookAudit, entries=PRINT_ATLAS_ENTRIES) -> dict:
                 if package in rule.packages:
                     reasons.append(
                         f"named by the {rule.name} rule "
-                        f"({audit.engine_config}:{rule.line})")
+                        f"({rule.source}:{rule.line})")
         for directory in audit.always_cook:
             if _is_under(package, directory):
                 reasons.append(f"inside always-cook directory {directory}")
@@ -1120,7 +1130,7 @@ def _report(audit: CookAudit) -> None:
         )
 
     for rule, problem in cook_rule_problems(audit):
-        print(f"  [COOK_RULE] {audit.engine_config}:{rule.line} "
+        print(f"  [COOK_RULE] {rule.source}:{rule.line} "
               f"{rule.name}: {problem}")
 
     for rule in rule_coverage(audit):
@@ -1244,7 +1254,7 @@ def command_explain_rules(audit: CookAudit) -> int:
     _close(without)
 
     problems = cook_rule_problems(audit)
-    print(f"COOK RULES  {audit.engine_config}")
+    print(f"COOK RULES  {audit.game_config}")
     for rule in audit.primary_asset_rules:
         print(
             f"\n  line {rule.line}  {rule.name}  CookRule={rule.cook_rule}  "
@@ -1550,9 +1560,8 @@ def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
         handle.write(
             "[/Script/UnrealEd.ProjectPackagingSettings]\n"
             "+DirectoriesToAlwaysCook=(Path=\"/Game/Prototype/Materials\")\n"
+            "\n[/Script/Engine.AssetManagerSettings]\n"
         )
-    with open(os.path.join(root, "Config", "DefaultEngine.ini"), "w") as handle:
-        handle.write("[/Script/Engine.AssetManagerSettings]\n")
         if rule:
             handle.write(rule + "\n")
 
@@ -1776,6 +1785,20 @@ def command_self_test() -> int:
             code, message = gate(audit, entries=entries)
             assert code == 1 and message.startswith("FAIL"), \
                 f"a rule broken by {name} did not fail the gate"
+
+        # 멀쩡한 규칙도 DefaultEngine.ini에 두면 언리얼은 읽지 않는다(config=Game).
+        # 0.2.4까지 HUD 텍스처 8개가 이렇게 빠졌다.
+        misplaced = _fixture(
+            os.path.join(tmp, "bad_engine_config"), None,
+            "/Game/Prototype/Textures/T_PrintAtlas0_D")
+        with open(os.path.join(misplaced, "Config", "DefaultEngine.ini"), "w") as handle:
+            handle.write("[/Script/Engine.AssetManagerSettings]\n" + good_rule + "\n")
+        audit = run_audit(misplaced)
+        assert cook_rule_problems(audit), \
+            "a rule left in DefaultEngine.ini was accepted"
+        code, message = gate(audit, entries=entries)
+        assert code == 1 and message.startswith("FAIL"), \
+            "a rule left in DefaultEngine.ini did not fail the gate"
 
         # 2c. The rebuild simulation, forwards. Before the editor runs, the
         #     material still samples its own texture, and moving that one edge
@@ -2014,7 +2037,8 @@ def command_self_test() -> int:
         f"an absent path told apart from an absent path with a fallback "
         f"(nearest pointer, every site, no pointer at all), "
         f"the code-load conflict, the unfetched-LFS hole, and "
-        f"{len(tampered)} ways a cook rule can look right and hold nothing"
+        f"{len(tampered) + 1} ways a cook rule can look right and hold nothing "
+        f"(one of them a rule left in DefaultEngine.ini)"
     )
     return 0
 

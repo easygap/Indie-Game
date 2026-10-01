@@ -208,10 +208,16 @@ LFS를 받지 않은 체크아웃에서도 이 검증만은 돌아간다. 원본
 그 안에 든 스캔 이름과 함께 찍는다.
 
 `CODE_ONLY`로 걸린 HUD 텍스처 12장(노크·포옹 프레임 각 4, 대화 필름
-그레인, 보정 벽, 일지 종이, 브러시드 메탈)은 `DefaultEngine.ini`의
+그레인, 보정 벽, 일지 종이, 브러시드 메탈)은 `DefaultGame.ini`의
 `PrimaryAssetTypesToScan` 규칙 하나로 붙들어 뒀다. `SpecificAssets`가
 언리얼이 주는 유일한 **에셋 단위** 쿠킹 규칙이다 — 디렉터리를 적으면
 아틀라스가 빼낸 텍스처 251장이 통째로 돌아온다.
+
+이 규칙은 처음에 `DefaultEngine.ini`에 적혀 있었다. `UAssetManagerSettings`는
+`config=Game`이라 언리얼은 그 줄을 읽지 않았고, 0.2.4까지의 배포본에는 규칙이
+붙들어야 할 텍스처 8장이 없었다. 아래 파서는 줄의 문법만 보고 파일 자리는 보지
+않았다. 2026-10-01 배포본의 IoStore 목록을 대조하는 `check_package_contents.py`가
+잡았고, 지금은 이 검사도 `DefaultEngine.ini`에 남은 규칙을 실패로 본다.
 
 ### 규칙은 훑지 않고 파싱한다 — `Scripts/ue_config.py`
 

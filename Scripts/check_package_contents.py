@@ -2,8 +2,8 @@
 
 check_cook_references.py는 쿠크를 돌리지 않고 설정과 참조만 읽는다. 그래서
 설정이 맞아 보여도 쿠커가 조용히 빠뜨린 에셋은 잡지 못한다. 0.2.4까지 HUD
-텍스처 8개가 그랬다. Texture2D는 스스로 PrimaryAssetId를 내지 않아 Asset
-Manager 규칙이 읽히기만 하고 쿠크에는 들지 않았다.
+텍스처 8개가 그랬다. Asset Manager 규칙이 Game 설정이 아닌 DefaultEngine.ini에
+있어서 언리얼이 읽지 않았는데, 정적 검사는 그 파일을 그대로 읽어 통과시켰다.
 
 이 검사는 실제 배포본의 IoStore 목록(UnrealEditor-Cmd -run=IoStore -List)을
 읽는다. 소스의 TEXT("/Game/...") 리터럴과 IGHudTexture 규칙의 에셋 가운데
@@ -46,11 +46,11 @@ def source_paths():
 
 def rule_paths():
     found = {}
-    with open(os.path.join(ROOT, "Config", "DefaultEngine.ini"), encoding="utf-8-sig") as handle:
+    with open(os.path.join(ROOT, "Config", "DefaultGame.ini"), encoding="utf-8-sig") as handle:
         for line in handle:
             if line.startswith("+PrimaryAssetTypesToScan=") and "SpecificAssets=" in line:
                 for match in SPECIFIC.finditer(line.split("SpecificAssets=", 1)[1]):
-                    found.setdefault(package_of(match.group(1)), "Config/DefaultEngine.ini")
+                    found.setdefault(package_of(match.group(1)), "Config/DefaultGame.ini")
     return found
 
 
