@@ -16,6 +16,11 @@
 	Shipping은 PSO를 기록하지 않고, 설치형 엔진은 Test 구성을 빌드하지 못해 Development로
 	따로 묶는다. 쿠크한 셰이더는 같아서 안정 키가 그대로 맞는다. 결과물은 저장소에
 	커밋하는 빌드 입력이다.
+
+	UE 5.8은 셰이더 해시가 8바이트로 줄었는데, .spc를 읽는 쪽은 8바이트짜리 읽기를 모두
+	해시로 여긴다. PSO 사용 마스크가 기본값(-1)이면 9바이트 가변 정수로 저장되고, 쿠크는
+	그 뒤부터 어긋나게 읽다가 멈춘다. 그래서 기록할 때만 마스크를 1로 둔다. 게임은
+	r.ShaderPipelineCache.GameFileMaskEnabled가 꺼져 있어 마스크와 상관없이 모두 미리 컴파일한다.
 #>
 [CmdletBinding()]
 param(
@@ -57,13 +62,17 @@ $RecordArchive = (Resolve-Path -LiteralPath $RecordArchive).Path
 $launcher = Get-ChildItem -LiteralPath (Join-Path $RecordArchive 'Windows') -Filter 'IndieGame.exe' -File | Select-Object -First 1
 if (-not $launcher) { throw "PSO 기록용 배포본의 실행 파일이 없습니다: $RecordArchive" }
 
-function Write-QualitySettings([string]$UserRoot, [int]$Quality) {
+function Write-SessionConfig([string]$UserRoot, [int]$Quality) {
 	$configRoot = Join-Path $UserRoot 'Saved/Config/Windows'
 	New-Item -ItemType Directory -Force -Path $configRoot | Out-Null
 	$groups = @('ViewDistance', 'AntiAliasing', 'Shadow', 'GlobalIllumination', 'Reflection', 'PostProcess',
 		'Texture', 'Effects', 'Foliage', 'Shading', 'Landscape') | ForEach-Object { "sg.${_}Quality=$Quality" }
 	$text = "[/Script/Engine.GameUserSettings]`nbUseVSync=False`nFrameRateLimit=0.000000`nVersion=5`n`n[ScalabilityGroups]`nsg.ResolutionQuality=100`n" + ($groups -join "`n") + "`n"
 	[IO.File]::WriteAllText((Join-Path $configRoot 'GameUserSettings.ini'), $text, [Text.UTF8Encoding]::new($false))
+	# 마스크는 위 .NOTES의 엔진 문제를 피한다. 기록은 원래 종료할 때만 저장해서, 스스로 강제
+	# 종료하는 검사 장면(타이틀은 7초 만에 끝난다)은 아무것도 남기지 못했다. 2초마다 저장해 둔다.
+	$engine = "[SystemSettings]`nr.ShaderPipelineCache.PreCompileMask=1`nr.ShaderPipelineCache.AutoSaveTimeBoundPSO=2`n"
+	[IO.File]::WriteAllText((Join-Path $configRoot 'Engine.ini'), $engine, [Text.UTF8Encoding]::new($false))
 }
 
 # 실제로 그리는 경로만 기록한다. -nullrhi 검사는 PSO를 만들지 않는다.
@@ -81,7 +90,7 @@ $records = [Collections.Generic.List[string]]::new()
 foreach ($session in $sessions) {
 	$sessionRoot = Join-Path $workRoot $session.Name
 	$userRoot = Join-Path $sessionRoot 'User'
-	Write-QualitySettings $userRoot $session.Quality
+	Write-SessionConfig $userRoot $session.Quality
 	$arguments = @('-unattended', '-nosplash', '-NoLoadingScreen', '-RenderOffscreen', '-d3d12', '-nosound',
 		'-Windowed', '-ResX=1920', '-ResY=1080', '-ForceRes', '-logPSO',
 		"-UserDir=$userRoot", "-IGMissingFloorResultPath=$(Join-Path $sessionRoot 'receipt.txt')") + $session.Args
@@ -112,8 +121,10 @@ foreach ($session in $sessions) {
 if ($records.Count -eq 0) { throw '기록된 PSO 파일이 없습니다. -logPSO가 기록용 배포본에서 동작하는지 확인해 주세요.' }
 
 # 쿠크가 남긴 셰이더 안정 키. Zen 저장소를 써도 메타데이터는 파일로 남는다.
-$stableKeys = @(Get-ChildItem -LiteralPath (Join-Path $buildRoot 'Saved/Cooked/Windows') -Recurse -Filter '*.shk' -File |
+# D3D11용 SM5 키도 함께 남는데, 캐시에 섞이면 머리말의 형식과 키가 달라져 쿠크가 멈춘다.
+$cookKeys = @(Get-ChildItem -LiteralPath (Join-Path $buildRoot 'Saved/Cooked/Windows') -Recurse -Filter '*.shk' -File |
 	Where-Object { $_.FullName -match 'PipelineCaches' })
+$stableKeys = @($cookKeys | Where-Object { $_.Name -like '*-PCD3D_SM6.shk' })
 if ($stableKeys.Count -eq 0) { throw '셰이더 안정 키(.shk)가 없습니다. DefaultEngine.ini의 NeedsShaderStableKeys를 확인해 주세요.' }
 
 # 엔진 도구에는 ASCII 경로로 넘긴다. 기록 파일은 한글 경로의 사용자 폴더에 있다.
@@ -128,6 +139,12 @@ $output = Join-Path $toolRoot 'PSO_IndieGame_PCD3D_SM6.spc'
 $toolArguments = @($buildProject, '-run=ShaderPipelineCacheTools', 'expand') + @($toolRecords) + @($stableKeys.FullName) + @($output, '-unattended', '-nopause', '-utf8output')
 & $editor @toolArguments
 if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $output)) { throw "PSO 캐시 합치기 실패: $LASTEXITCODE" }
+
+# 쿠크와 같은 조건(모든 형식의 키)으로 한 번 읽어 본다. 여기서 못 읽는 캐시는 쿠크도 멈춘다.
+$verified = Join-Path $toolRoot 'IndieGame_PCD3D_SM6.upipelinecache'
+$verifyArguments = @($buildProject, '-run=ShaderPipelineCacheTools', 'build', $output) + @($cookKeys.FullName) + @($verified, '-unattended', '-nopause', '-utf8output')
+& $editor @verifyArguments
+if ($LASTEXITCODE -ne 0 -or -not (Test-Path -LiteralPath $verified)) { throw "만든 PSO 캐시를 쿠크 조건으로 읽지 못했습니다: $LASTEXITCODE" }
 
 $destinationRoot = Join-Path $projectRoot 'Build/Windows/PipelineCaches'
 New-Item -ItemType Directory -Force -Path $destinationRoot | Out-Null
