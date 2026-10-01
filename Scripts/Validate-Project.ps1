@@ -1,4 +1,4 @@
-﻿[CmdletBinding()]
+[CmdletBinding()]
 param()
 
 $ErrorActionPreference = 'Stop'
@@ -1592,5 +1592,10 @@ if ($python) {
 # Test-WindowsPackageManifest.ps1은 배포 경로가 필요하므로 임시 패키지로
 # 정상 결과와 손상·누락 차단을 실행한다. 실제 배포물은 Package-Windows.ps1이 검사한다.
 & (Join-Path $PSScriptRoot 'Test-WindowsPackageManifestRegression.ps1')
+
+if ($python) {
+    & $python.Source (Join-Path $PSScriptRoot 'test_windows_telemetry.py')
+    if ($LASTEXITCODE -ne 0) { throw 'Windows 화면 출력·GPU 메모리 계측 검사 실패' }
+}
 
 Write-Host 'Project structure validation passed (this is not an Unreal build).' -ForegroundColor Green

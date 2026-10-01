@@ -55,7 +55,8 @@ def describe(values):
             "max": round(max(values), 3), "samples": len(values)}
 
 
-def summarize(source, output, warmup_seconds, width, height, quality, aa, target_fps):
+def summarize(source, output, warmup_seconds, width, height, quality, aa, target_fps,
+              presentation_mode="offscreen"):
     rows = read_samples(source, CPU_COLUMNS)
     metadata_path = source.with_suffix(".csv.txt")
     metadata = dict(line.split("=", 1) for line in metadata_path.read_text(
@@ -134,7 +135,10 @@ def summarize(source, output, warmup_seconds, width, height, quality, aa, target
             "cpu_duration_seconds": round(sum(row["FrameTime"] for row in cpu_stage) / 1000, 6),
         }
     summary = {
-        "scope": "현재 장비의 Shipping 오프스크린 자동 밤 장면 경로. 실제 화면 출력, 여러 장비, 사람의 완주 검수는 별도로 필요하다.",
+        "scope": ("현재 장비의 Shipping 창 모드 자동 밤 장면 경로. 실제 표시 여부는 별도 PresentMon 기록으로 확인한다."
+                  if presentation_mode == "windowed" else
+                  "현재 장비의 Shipping 오프스크린 자동 밤 장면 경로. 실제 화면 출력, 여러 장비, 사람의 완주 검수는 별도로 필요하다."),
+        "presentation_mode": presentation_mode,
         "source_sha256": hashlib.sha256(source.read_bytes()).hexdigest(),
         "gpu_source_sha256": hashlib.sha256(gpu_path.read_bytes()).hexdigest(),
         "metadata_sha256": hashlib.sha256(metadata_path.read_bytes()).hexdigest(),
@@ -171,8 +175,10 @@ if __name__ == "__main__":
     parser.add_argument("--quality", type=int, choices=[1, 2], default=2)
     parser.add_argument("--aa", type=int, choices=[2, 4], default=2)
     parser.add_argument("--target-fps", type=int, choices=[30, 60], default=60)
+    parser.add_argument("--presentation-mode", choices=["offscreen", "windowed"], default="offscreen")
     args = parser.parse_args()
     if not math.isfinite(args.warmup_seconds) or args.warmup_seconds < 0:
         parser.error("워밍업은 유효한 0 이상의 숫자여야 합니다.")
-    summarize(args.source, args.output, args.warmup_seconds, args.width, args.height, args.quality, args.aa, args.target_fps)
+    summarize(args.source, args.output, args.warmup_seconds, args.width, args.height, args.quality, args.aa, args.target_fps,
+              args.presentation_mode)
 
