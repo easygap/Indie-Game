@@ -1,0 +1,61 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-01T01:13:43.956466+00:00",
+  "version": "0.2.3",
+  "status": "PLAYTEST_PUBLISHED",
+  "publicReleasePublished": true,
+  "releaseComplete": false,
+  "shippingReleaseCertified": false,
+  "scope": "GitHub 공개 상태와 주석 태그 대상, 첨부 파일 크기·서버 SHA-256을 로컬 원본과 대조했다. 정식 출시 인증을 뜻하지 않는다.",
+  "releaseUrl": "https://github.com/easygap/Missing-Floor/releases/tag/v0.2.3",
+  "publishedAt": "2026-10-01T01:12:20Z",
+  "githubReleaseId": 400567858,
+  "prerelease": true,
+  "author": "easygap",
+  "tag": "v0.2.3",
+  "buildCommit": "aec8fd3ea7ad89e3bec64e245c62e5c60520061f",
+  "tagObjectSha": "6fdb89651e726175044e67eb1ce7fd5c200c2d78",
+  "assets": [
+    {
+      "name": "MissingFloor-0.2.3-Windows.zip",
+      "bytes": 635175094,
+      "sha256": "ab8e9b19a3ec48a54a60f5ef89e431eaf409fea8d6d7208ef4a884442e74ab9a",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-0.2.3-Windows.zip"
+    },
+    {
+      "name": "MissingFloor-Trailer.mp4",
+      "bytes": 59763629,
+      "sha256": "bdcd71c0673a93f222680374235631cefa2d489319cccf3f23f3acbc3502961a",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-Trailer.mp4"
+    },
+    {
+      "name": "Release023Title-validation.json",
+      "bytes": 123897,
+      "sha256": "c650782d109bd9f0b803e71c0e0ce83e2ee278264585d484e37e043f1bba5320",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/Release023Title-validation.json"
+    },
+    {
+      "name": "MissingFloor-0.2.3-QA.zip",
+      "bytes": 1084347,
+      "sha256": "66680bc0c4becc354b1f8766516b85a5b7d2abc39f1db9d49328820e069b47ee",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/MissingFloor-0.2.3-QA.zip"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 378,
+      "sha256": "34a3868816fcb42460da208e76ccd59caae03376b89b521f19950b4eceea5573",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.3/SHA256SUMS.txt"
+    }
+  ],
+  "prepublicationValidation": {
+    "path": "Windows-20261001-0.2.3.json",
+    "assetSha256": "c650782d109bd9f0b803e71c0e0ce83e2ee278264585d484e37e043f1bba5320",
+    "publicReleasePublishedAtGeneration": false,
+    "scope": "배포 전 검수 JSON은 생성 당시 값을 유지한다. 현재 공개 상태는 이 영수증에 기록했다."
+  }
+}
