@@ -1,0 +1,65 @@
+name: 처음 플레이 기록
+description: 「플레이테스트로 시작」으로 처음부터 플레이한 기록을 보내 주세요. 처음 하는 사람이 어디서 헤매는지 보는 데 씁니다.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        기록 방법은 [테스트 안내](https://github.com/easygap/Missing-Floor/blob/main/Docs/TESTING.md)에 있습니다.
+        기록에는 밤마다 걸린 시간, 붙잡힌 횟수, 위치(5초마다), 처음 써 본 동작, 프레임 시간, PC 사양이 들어 있습니다. 이름이나 계정 같은 개인 정보는 없습니다.
+  - type: textarea
+    id: record
+    attributes:
+      label: 기록 파일
+      description: 게임을 끄면 열리는 PlayRecords 폴더의 playrecord-…json 파일을 끌어다 놓아 주세요.
+    validations:
+      required: true
+  - type: dropdown
+    id: first_time
+    attributes:
+      label: 이 게임을 처음 해 보셨나요?
+      options:
+        - 처음이다
+        - 예전 판을 해 본 적 있다
+    validations:
+      required: true
+  - type: dropdown
+    id: device
+    attributes:
+      label: 무엇으로 플레이했나요?
+      options:
+        - 키보드와 마우스
+        - 게임패드
+        - 둘 다
+  - type: dropdown
+    id: headphones
+    attributes:
+      label: 헤드폰을 썼나요?
+      options:
+        - 헤드폰이나 이어폰
+        - 스피커
+  - type: dropdown
+    id: which_floor
+    attributes:
+      label: 소리만 듣고 위층 사람이 어느 층에 있는지 알 수 있었나요?
+      options:
+        - 대부분 알 수 있었다
+        - 가끔 알 수 있었다
+        - 거의 알 수 없었다
+  - type: dropdown
+    id: waiting
+    attributes:
+      label: 위층 사람이 멈춰서 소리를 기다리는 때를 알아챘나요?
+      options:
+        - 알아챘다
+        - 헷갈렸다
+        - 몰랐다
+  - type: textarea
+    id: stuck
+    attributes:
+      label: 오래 헤맨 곳이 있었나요?
+      description: 어느 밤, 어디서, 무엇을 찾고 있었는지 적어 주세요.
+  - type: textarea
+    id: impressions
+    attributes:
+      label: 무서웠던 장면, 아쉬운 점
+      description: 편하게 적어 주세요.

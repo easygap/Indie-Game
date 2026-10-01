@@ -1,0 +1,38 @@
+name: 성능 측정 결과
+description: 「테스트 도구」의 성능 측정으로 만든 ZIP을 보내 주세요. 정식 출시 전에 여러 PC에서 얼마나 부드럽게 도는지 확인하는 데 씁니다.
+body:
+  - type: markdown
+    attributes:
+      value: |
+        측정 방법은 [테스트 안내](https://github.com/easygap/Missing-Floor/blob/main/Docs/TESTING.md)에 있습니다.
+        ZIP에는 CPU·그래픽카드 이름과 드라이버 버전, 메모리 크기, Windows 버전, 게임 설정과 프레임 기록만 들어 있습니다.
+  - type: textarea
+    id: result
+    attributes:
+      label: 측정 결과 ZIP
+      description: 바탕 화면에 생긴 MissingFloor-performance-…zip 파일을 이 칸에 끌어다 놓아 주세요.
+    validations:
+      required: true
+  - type: dropdown
+    id: preset
+    attributes:
+      label: 어느 측정을 실행했나요?
+      options:
+        - 성능 측정 - 높음 (1080p High)
+        - 성능 측정 - 낮음 (1080p Low)
+        - 둘 다
+    validations:
+      required: true
+  - type: dropdown
+    id: machine
+    attributes:
+      label: PC 종류
+      options:
+        - 데스크톱
+        - 노트북 (전원 연결)
+        - 노트북 (배터리)
+  - type: textarea
+    id: notes
+    attributes:
+      label: 측정 중에 눈에 띈 점
+      description: 화면이 멈추거나 끊긴 장면, 측정이 끝나지 않은 경우를 적어 주세요. 없으면 비워 두셔도 됩니다.

@@ -1,4 +1,5 @@
 ﻿#include "Player/IGPlayerCharacter.h"
+#include "Core/IGPlayRecord.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Audio/IGMissingFloorAudioSubsystem.h"
@@ -270,6 +271,7 @@ void AIGPlayerCharacter::OnStartCrouch(
 	const float ScaledHalfHeightAdjust)
 {
 	Super::OnStartCrouch(HalfHeightAdjust, ScaledHalfHeightAdjust);
+	UIGPlayRecordSubsystem::Note(this, TEXT("crouch"));
 	CrouchTransitionRemaining = IGPlayerNoise::CrouchTransitionSeconds;
 	CrouchCameraCompensationStart =
 		AppliedCrouchCameraCompensation + ScaledHalfHeightAdjust;
@@ -415,6 +417,7 @@ void AIGPlayerCharacter::ToggleFlashlight()
 	}
 
 	const bool bNowOn = Flashlight->Toggle();
+	UIGPlayRecordSubsystem::Note(this, TEXT("flashlight"));
 	// The click is audible either way — a dead cell still clicks. 바코드
 	// 스캐너 삐 소리를 높여 쓰던 것을 진짜 슬라이드 스위치 소리로 바꿨다.
 	IGAudio::SpawnOneShotAt(
@@ -1518,6 +1521,7 @@ void AIGPlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputC
 void AIGPlayerCharacter::BeginSprint()
 {
 	bSprintInputHeld = true;
+	UIGPlayRecordSubsystem::Note(this, TEXT("sprint"));
 	RefreshSprintState();
 }
 
@@ -1665,6 +1669,7 @@ void AIGPlayerCharacter::Knock()
 	{
 		return;
 	}
+	UIGPlayRecordSubsystem::Note(this, TEXT("knock"));
 	if (UWorld* World = GetWorld())
 	{
 		for (TActorIterator<AIGMissingFloorFifthDawnDirector> It(World); It; ++It)
@@ -2083,6 +2088,7 @@ void AIGPlayerCharacter::BeginListen()
 		}
 		bSprinting = false;
 		bListening = true;
+		UIGPlayRecordSubsystem::Note(this, TEXT("listen"));
 		bListenTriggered = false;
 		ListenHeldSeconds = 0.0f;
 		ApplyContextMovementSpeed();
@@ -2161,6 +2167,7 @@ void AIGPlayerCharacter::BeginHoldBreath()
 	}
 	bHoldingBreath = true;
 	BreathHeldSeconds = 0.0f;
+	UIGPlayRecordSubsystem::Note(this, TEXT("hold_breath"));
 	// 설명은 「심박을 4초까지 지운다」였는데 실제로는 카메라 숨 흔들림만
 	// 멈췄다. 심장은 계속 뛰고 계속 샜다. 이제 정말로 지운다.
 	if (StressComponent)

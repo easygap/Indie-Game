@@ -1,4 +1,5 @@
 ﻿#include "Player/IGPlayerController.h"
+#include "Core/IGPlayRecord.h"
 
 #include "Accessibility/IGAccessibilitySubsystem.h"
 #include "Audio/IGAudioHelpers.h"
@@ -2391,6 +2392,7 @@ void AIGPlayerController::OpenMissingFloorJournal()
 	}
 
 	bMissingFloorJournalVisible = true;
+	UIGPlayRecordSubsystem::Note(this, TEXT("journal"));
 	MissingFloorJournalPage = 0;
 	bGameWasPausedBeforeJournal = UGameplayStatics::IsGamePaused(this);
 	PlayMissingFloorJournalPaperSound(1.0f);
@@ -2623,6 +2625,7 @@ void AIGPlayerController::RequestManualHint()
 	{
 		return;
 	}
+	UIGPlayRecordSubsystem::Note(this, TEXT("hint"));
 	if (Step.GoalId != HintGoalId)
 	{
 		HintGoalId = Step.GoalId;

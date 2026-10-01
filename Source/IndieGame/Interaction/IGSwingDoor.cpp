@@ -1,4 +1,5 @@
 ﻿#include "Interaction/IGSwingDoor.h"
+#include "Core/IGPlayRecord.h"
 
 #include "Audio/IGAudioHelpers.h"
 #include "Audio/IGToneSequenceSoundWave.h"
@@ -418,6 +419,7 @@ void AIGSwingDoor::CompleteInteraction_Implementation(const FIGInteractionContex
 		InteractorPawn && InteractorPawn->IsPlayerControlled() && Context.HeldDuration > 0.0f)
 	{
 		IGOnboardingMemory::MarkQuietDoorLearned();
+		UIGPlayRecordSubsystem::Note(this, TEXT("quiet_door"));
 	}
 	BeginSwing(
 		!bOpen,
