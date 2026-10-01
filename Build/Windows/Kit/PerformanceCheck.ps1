@@ -78,7 +78,18 @@ for ($run = 1; $run -le $Runs; $run++) {
 	$csv = Join-Path $userRoot 'Saved/Profiling/MissingFloorRuntime.csv'
 	$summary = if (Test-Path -LiteralPath $csv) { Measure-Run $csv } else { $null }
 	$passed = (Test-Path -LiteralPath $receipt) -and ((Get-Content -Raw -LiteralPath $receipt) -match 'MISSINGFLOOR_GREYBOX PASS')
-	$results += [ordered]@{ run = $run; route_completed = $passed; summary = $summary }
+	# 게임이 실제로 그린 어댑터. 내장 GPU가 함께 있는 PC에서는 장치 목록만으로 알 수 없다.
+	$adapter = $null
+	$metadata = "$csv.txt"
+	if (Test-Path -LiteralPath $metadata) {
+		$values = @{}
+		foreach ($line in Get-Content -LiteralPath $metadata -Encoding UTF8) {
+			$key, $value = $line -split '=', 2
+			if ($value) { $values[$key] = $value.Trim() }
+		}
+		$adapter = [ordered]@{ gpu = $values['gpu']; driver = $values['driver']; rhi = $values['rhi'] }
+	}
+	$results += [ordered]@{ run = $run; route_completed = $passed; adapter = $adapter; summary = $summary }
 	if ($summary) {
 		Write-Host ("  p95 {0} ms, 1% low {1} fps, 50 ms 넘은 프레임 {2}개" -f $summary.p95_ms, $summary.one_percent_low_fps, $summary.over_50ms)
 	}
@@ -97,6 +108,7 @@ $report = [ordered]@{
 	quality = $Quality; resolution = $Resolution; warmup_seconds = $WarmupSeconds
 	system = [ordered]@{ cpu = $cpu.Trim(); gpus = $gpu; memory_gb = $memoryGb; os = "$($os.Caption) $($os.Version) build $($os.BuildNumber)"; power_scheme = $power }
 	game_version = (Get-Item -LiteralPath $game).VersionInfo.ProductVersion
+	game_gpu = @($results | Where-Object { $_.adapter } | ForEach-Object { $_.adapter }) | Select-Object -First 1
 	runs = $results
 }
 [IO.File]::WriteAllText((Join-Path $outRoot 'performance-report.json'), ($report | ConvertTo-Json -Depth 6), [Text.UTF8Encoding]::new($false))

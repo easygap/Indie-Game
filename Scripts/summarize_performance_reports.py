@@ -13,6 +13,7 @@
 import glob
 import json
 import os
+import re
 import sys
 import zipfile
 
@@ -33,13 +34,19 @@ def reports(folder):
             yield os.path.relpath(os.path.dirname(path), folder), json.load(handle)
 
 
-def gpu_name(system):
-    gpus = system.get("gpus") or []
+INTEGRATED = re.compile(r"^(AMD Radeon\(TM\) Graphics|Intel\(R\) (UHD|HD|Iris).*Graphics.*)$")
+
+
+def gpu_name(report):
+    # 게임이 실제로 그린 어댑터가 있으면 그것이 답이다(측정 도구가 게임의 기록에서 옮긴다).
+    game = report.get("game_gpu") or {}
+    if game.get("gpu"):
+        return game["gpu"], game.get("driver") or "?"
+    gpus = report.get("system", {}).get("gpus") or []
     if isinstance(gpus, dict):
         gpus = [gpus]
-    # 내장 GPU와 함께 잡히면 전용 GPU를 고른다.
-    ordered = sorted(gpus, key=lambda g: ("Intel" in g.get("name", "") and "Arc" not in g.get("name", ""),
-                                          g.get("name", "")))
+    # 예전 결과는 장치 목록뿐이다. 내장 GPU가 함께 잡히면 전용 GPU를 고른다.
+    ordered = sorted(gpus, key=lambda g: (bool(INTEGRATED.match(g.get("name", ""))), g.get("name", "")))
     if not ordered:
         return "?", "?"
     return ordered[0].get("name", "?"), ordered[0].get("driver", "?")
@@ -60,7 +67,7 @@ def main(argv=None):
     verdicts = []
     for source, report in rows:
         system = report.get("system", {})
-        gpu, driver = gpu_name(system)
+        gpu, driver = gpu_name(report)
         condition = (report.get("quality", "?"), report.get("resolution", "?"))
         p95_limit, low_limit, hitch_key = LIMITS.get(condition, DEFAULT_LIMIT)
         passed_runs = 0
