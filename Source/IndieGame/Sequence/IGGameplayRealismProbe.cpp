@@ -11,6 +11,7 @@
 #include "Engine/StaticMesh.h"
 #include "Engine/World.h"
 #include "Entity/IGListenerEntity.h"
+#include "Entity/IGNoiseSubsystem.h"
 #include "GameFramework/CharacterMovementComponent.h"
 #include "GameFramework/PlayerController.h"
 #include "HAL/PlatformMisc.h"
@@ -51,7 +52,6 @@ void AIGGameplayRealismProbe::SendKey(const FKey& Key, const bool bPressed)
 	Controller->InputKey(Event);
 }
 
-void AIGGameplayRealismProbe::Check(const bool bCondition, const TCHAR* Name)
 void AIGGameplayRealismProbe::SendMouseY(const float Delta)
 {
 	// 실제 마우스와 같은 축 이벤트다. 축 매핑 배율, LookUp, 레거시 입력 배율 설정을
@@ -61,6 +61,7 @@ void AIGGameplayRealismProbe::SendMouseY(const float Delta)
 	Controller->InputKey(Event);
 }
 
+void AIGGameplayRealismProbe::Check(const bool bCondition, const TCHAR* Name)
 {
 	Failures += bCondition ? 0 : 1;
 	UE_LOG(LogIndieGame, Display, TEXT("REALISM_CHECK %s %s"), Name, bCondition ? TEXT("PASS") : TEXT("FAIL"));
@@ -86,7 +87,6 @@ void AIGGameplayRealismProbe::Tick(const float DeltaSeconds)
 		Controller->ResetIgnoreLookInput();
 		Player->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 		Player->SetCameraMotionEnabled(false);
-		Phase = 1; Seconds = 0;
 		Phase = 20; Seconds = 0;
 	}
 	else if (Phase == 20 && Seconds > 0.5f)
@@ -110,6 +110,7 @@ void AIGGameplayRealismProbe::Tick(const float DeltaSeconds)
 		UE_LOG(LogIndieGame, Display, TEXT("REALISM_LOOK mouse_down_pitch=%.3f"), Pitch);
 		Check(Pitch < PitchAfterMouseUp - 0.5f && Pitch < 0.0f, TEXT("mouse_down_looks_down"));
 		Controller->SetControlRotation(FRotator::ZeroRotator);
+		Phase = 1; Seconds = 0;
 	}
 	else if (Phase == 1 && Seconds > 0.5f)
 	{
@@ -174,6 +175,24 @@ void AIGGameplayRealismProbe::Tick(const float DeltaSeconds)
 		CheckDoorRoundtrip();
 		CheckPresentationTiming();
 		CheckInteractionsAndCapture();
+		Phase = 30; Seconds = 0;
+	}
+	else if (Phase == 30 && Seconds > 1.0f)
+	{
+		// 앞 검사의 문소리 링이 끝난 뒤에 본다. 걷기(0.15)는 발소리로만 듣고, 노크(0.3)부터
+		// 링이 생긴다. 걷는 내내 깜빡이던 원호가 화면 결함으로 읽혔다(2026-10-01).
+		AIGHorrorHUD* Hud = Cast<AIGHorrorHUD>(Controller->GetHUD());
+		UIGNoiseSubsystem* Noise = GetWorld()->GetSubsystem<UIGNoiseSubsystem>();
+		Check(Hud && Noise && !Hud->IsNoiseRippleActive(), TEXT("ripple_idle_before_noise"));
+		if (Hud && Noise)
+		{
+			const FVector At = Player->GetActorLocation();
+			// 마스킹이 섞이면 값이 흔들리므로 HUD의 기준만 본다.
+			Noise->ReportNoiseUnmasked(At, 0.15f, Player.Get());
+			Check(!Hud->IsNoiseRippleActive(), TEXT("walking_draws_no_ripple"));
+			Noise->ReportNoiseUnmasked(At, AIGPlayerCharacter::KnockLoudness, Player.Get());
+			Check(Hud->IsNoiseRippleActive(), TEXT("knock_draws_ripple"));
+		}
 		UE_LOG(LogIndieGame, Display, TEXT("REALISM_PROBE %s failures=%d"), Failures ? TEXT("FAIL") : TEXT("PASS"), Failures);
 		Phase = 9;
 		FPlatformMisc::RequestExitWithStatus(false, Failures ? 1 : 0);

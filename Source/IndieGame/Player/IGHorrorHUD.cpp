@@ -88,7 +88,7 @@ namespace IGHorrorHUD
 
 	/**
 	 * The noise ripple (§5.1). One slot, deliberately short, with a minimum
-	 * gap so a walking player gets a pulse per few steps rather than a strobe.
+	 * gap so a running player gets a pulse per few steps rather than a strobe.
 	 */
 	// §19.7 저장 표시. 점 하나 0.8초다. §23이 금지한 것은 「상시 표시」이지
 	// 저장됐다는 사실 자체가 아니다 — 수동 슬롯이 없는 게임에서 아무 표시도
@@ -99,6 +99,9 @@ namespace IGHorrorHUD
 	constexpr double NoiseRippleRetriggerSeconds = 0.34;
 	/** Arc geometry: segment count, sweep at full carry, and stroke weight. */
 	constexpr int32 NoiseRippleSegmentCount = 14;
+	// 내 소리는 노크(§5.1 표 0.3) 이상일 때만 링을 그린다. 걷기(0.15)까지 그리면
+	// 걷는 내내 화면 위쪽에 원호가 깜빡여, 처음 하는 사람에게는 화면 결함으로 보였다.
+	constexpr float NoiseRippleMinimumOwnLoudness = 0.3f;
 	constexpr float NoiseRippleMaximumSweepDegrees = 78.0f;
 	constexpr float NoiseRippleMinimumSweepDegrees = 16.0f;
 	constexpr float NoiseRippleMaximumThickness = 2.6f;
@@ -394,6 +397,12 @@ void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
 	{
 		return;
 	}
+	// 조용한 동작(걷기, 천천히 여닫기, 쪽지)은 발소리로만 듣는다. 마스킹 뒤 값이라
+	// 냉장고 곁에서 낸 노크도 묻히면 링이 없다.
+	if (bMine && Event.Loudness + KINDA_SMALL_NUMBER < IGHorrorHUD::NoiseRippleMinimumOwnLoudness)
+	{
+		return;
+	}
 
 	const UWorld* World = GetWorld();
 	if (!World)
@@ -422,6 +431,12 @@ void AIGHorrorHUD::HandleNoiseReported(const FIGNoiseEvent& Event)
 	RippleStartTime = Now;
 	RippleEndTime = Now + IGHorrorHUD::NoiseRippleDurationSeconds;
 	bRippleIsForeign = !bMine;
+}
+
+bool AIGHorrorHUD::IsNoiseRippleActive() const
+{
+	const UWorld* World = GetWorld();
+	return World && World->GetTimeSeconds() < RippleEndTime;
 }
 
 void AIGHorrorHUD::InitializeDialogueSurfaceTextures()

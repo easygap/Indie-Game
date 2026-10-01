@@ -299,6 +299,9 @@ public:
 	int32 GetNotePageCount() const { return NotePageCount; }
 	bool IsNoteTextWithinPaper() const { return bNoteTextWithinPaper; }
 
+	/** 소음 파문 링이 지금 화면에 걸려 있는지. 실행 검사가 쓴다. */
+	bool IsNoiseRippleActive() const;
+
 	/**
 	 * Shows a reusable story-transition card over a fading black scrim.
 	 * All copy is supplied by the caller so the HUD remains chapter-agnostic.

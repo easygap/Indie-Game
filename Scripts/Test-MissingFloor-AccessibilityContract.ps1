@@ -367,6 +367,11 @@ Assert-True (
 	'존재의 소리에 링을 그릴지 설정이 정한다'
 Assert-True ($hudSource -match 'bRippleIsForeign \? [0-9.]+f : 1\.0f') `
 	'존재의 링은 두께로 구분한다'
+# 내 소리의 링은 노크(0.3) 이상에만 그린다. 걷기마다 깜빡이던 원호가 화면 결함으로 읽혔다.
+Assert-True ($hudSource -match 'NoiseRippleMinimumOwnLoudness = 0\.3f') '내 소리 링의 최소 크기가 노크와 같다'
+Assert-True (
+	$noiseBody.Groups['body'].Value -match 'bMine && Event\.Loudness[^;]*< IGHorrorHUD::NoiseRippleMinimumOwnLoudness') `
+	'조용한 내 소리에는 링을 그리지 않는다'
 Assert-True ($storyText -match '색이 아니라 두께로 구분') `
 	'§19.8의 두께 구분 규칙이 남아 있다'
 
