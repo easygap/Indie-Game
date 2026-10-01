@@ -97,6 +97,14 @@ Assert-True (-not $inputConfig.Contains(
 	'ActionName="Interact",bShift=False,bCtrl=False,bAlt=False,bCmd=False,Key=Q')) `
 	'Q must never alias Interact'
 
+# 레거시 입력 배율이 꺼져 있으면 엔진이 피치를 뒤집지 않는다. 위로 민 마우스·스틱(+)이
+# 그대로 +피치(위)가 되어야 한다. 0.2.4까지 -1을 걸어 위아래가 반대로 돌았다.
+Assert-True $inputConfig.Contains('bEnableLegacyInputScales=False') 'legacy input scales stay off'
+Assert-True $inputConfig.Contains('+AxisMappings=(AxisName="LookUp",Scale=1.000000,Key=MouseY)') `
+	'mouse up looks up'
+Assert-True ($inputConfig -notmatch 'AxisName="LookUp",Scale=-') 'no negative look-up axis scale'
+Assert-True ($character -notmatch 'AddControllerPitchInput\(\s*-Degrees') 'stick up looks up'
+
 Assert-ContainsAll $character @(
 	'ReferenceWalkSpeed = 300.0f',
 	'SprintSpeed = 460.0f',

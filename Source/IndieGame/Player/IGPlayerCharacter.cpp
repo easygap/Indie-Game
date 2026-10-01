@@ -2401,10 +2401,11 @@ bool AIGPlayerCharacter::ApplyGamepadLook(const FKey& StickAxis, const bool bYaw
 	}
 	else
 	{
-		// 축 매핑이 이미 -1.2를 걸어 두었으므로 부호를 여기서 맞춘다. 반전은
+		// 원시 스틱 값을 읽으므로 축 매핑의 배율은 여기 오지 않는다. 스틱을 위로
+		// 밀면 +이고, 레거시 배율이 꺼져 있어 +피치가 곧 위를 보는 것이다. 반전은
 		// 마우스와 같은 설정을 읽는다 — 패드만 안 뒤집히면 설정이 거짓말이다.
 		AddControllerPitchInput(
-			-Degrees * GetVerticalLookScale() * (IsLookInverted() ? -1.0f : 1.0f));
+			Degrees * GetVerticalLookScale() * (IsLookInverted() ? -1.0f : 1.0f));
 	}
 	return true;
 }
@@ -2426,7 +2427,8 @@ void AIGPlayerCharacter::LookUp(const float Value)
 		ApplyGamepadLook(EKeys::Gamepad_RightY, /*bYaw=*/false);
 		return;
 	}
-	// 상하 반전은 축 매핑이 이미 -1을 걸고 있으므로 여기서 한 번 더 뒤집는다.
+	// 레거시 입력 배율이 꺼져 있어 +피치가 위다. 마우스를 위로 밀면 축 값이
+	// +이므로 반전 설정만 부호를 바꾼다.
 	AddControllerPitchInput(
 		Value * GetLookSensitivity() * GetVerticalLookScale()
 			* (IsLookInverted() ? -1.0f : 1.0f));

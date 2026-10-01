@@ -19,6 +19,7 @@ public:
 
 private:
 	void SendKey(const FKey& Key, bool bPressed);
+	void SendMouseY(float Delta);
 	void Check(bool bCondition, const TCHAR* Name);
 	void CheckInteractionsAndCapture();
 	void CheckDoorRoundtrip();
@@ -29,6 +30,7 @@ private:
 	FVector BrakeStart = FVector::ZeroVector;
 	float Seconds = 0.0f;
 	float StandingEyeHeight = 0.0f;
+	float PitchAfterMouseUp = 0.0f;
 	int32 Phase = 0;
 	int32 Failures = 0;
 };

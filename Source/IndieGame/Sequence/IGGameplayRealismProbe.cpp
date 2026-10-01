@@ -52,6 +52,15 @@ void AIGGameplayRealismProbe::SendKey(const FKey& Key, const bool bPressed)
 }
 
 void AIGGameplayRealismProbe::Check(const bool bCondition, const TCHAR* Name)
+void AIGGameplayRealismProbe::SendMouseY(const float Delta)
+{
+	// 실제 마우스와 같은 축 이벤트다. 축 매핑 배율, LookUp, 레거시 입력 배율 설정을
+	// 모두 거쳐야 위아래가 뒤집힌 것을 잡는다.
+	const FInputKeyEventArgs Event(nullptr, FInputDeviceId::CreateFromInternalId(0), EKeys::MouseY,
+		Delta, 1.0f / 60.0f, 1, FPlatformTime::Cycles64());
+	Controller->InputKey(Event);
+}
+
 {
 	Failures += bCondition ? 0 : 1;
 	UE_LOG(LogIndieGame, Display, TEXT("REALISM_CHECK %s %s"), Name, bCondition ? TEXT("PASS") : TEXT("FAIL"));
@@ -78,6 +87,29 @@ void AIGGameplayRealismProbe::Tick(const float DeltaSeconds)
 		Player->GetCharacterMovement()->SetMovementMode(MOVE_Walking);
 		Player->SetCameraMotionEnabled(false);
 		Phase = 1; Seconds = 0;
+		Phase = 20; Seconds = 0;
+	}
+	else if (Phase == 20 && Seconds > 0.5f)
+	{
+		// 마우스를 위로 밀면 위를 본다. 0.2.4까지 축 매핑이 -1이라 반대로 돌았다.
+		Controller->SetControlRotation(FRotator::ZeroRotator);
+		SendMouseY(40.0f);
+		Phase = 21; Seconds = 0;
+	}
+	else if (Phase == 21 && Seconds > 0.15f)
+	{
+		PitchAfterMouseUp = FRotator::NormalizeAxis(Controller->GetControlRotation().Pitch);
+		UE_LOG(LogIndieGame, Display, TEXT("REALISM_LOOK mouse_up_pitch=%.3f"), PitchAfterMouseUp);
+		Check(PitchAfterMouseUp > 0.5f, TEXT("mouse_up_looks_up"));
+		SendMouseY(-80.0f);
+		Phase = 22; Seconds = 0;
+	}
+	else if (Phase == 22 && Seconds > 0.15f)
+	{
+		const float Pitch = FRotator::NormalizeAxis(Controller->GetControlRotation().Pitch);
+		UE_LOG(LogIndieGame, Display, TEXT("REALISM_LOOK mouse_down_pitch=%.3f"), Pitch);
+		Check(Pitch < PitchAfterMouseUp - 0.5f && Pitch < 0.0f, TEXT("mouse_down_looks_down"));
+		Controller->SetControlRotation(FRotator::ZeroRotator);
 	}
 	else if (Phase == 1 && Seconds > 0.5f)
 	{
