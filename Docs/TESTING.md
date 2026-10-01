@@ -56,7 +56,8 @@ Missing Floor는 정식 출시 전에 두 가지를 확인해야 합니다. 여�
 
 ## 모인 결과
 
-보내 주신 플레이 기록은 `Scripts/summarize_playtest_records.py`로 모아
+보내 주신 성능 측정 ZIP은 `Scripts/summarize_performance_reports.py`로 모아
+[성능 기준](PERFORMANCE.md)과, 플레이 기록은 `Scripts/summarize_playtest_records.py`로 모아
 [출시 기준](MISSING_FLOOR_ACCEPTANCE.md)과 비교합니다.
 
 ## Helping test (English)
