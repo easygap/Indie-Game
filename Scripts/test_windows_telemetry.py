@@ -45,12 +45,45 @@ class WindowsTelemetryTest(unittest.TestCase):
         self.assertFalse(result["display_observed"])
         self.assertFalse(result["display_observation_sufficient"])
 
-    def test_nan_and_reversed_clock_are_rejected(self):
-        for field, value in [("msBetweenPresents", "nan"), ("msUntilDisplayed", "-1"), ("QPCTime", "99")]:
+    def test_nan_and_negative_metrics_are_rejected(self):
+        for field, value in [("msBetweenPresents", "nan"), ("msUntilDisplayed", "-1")]:
             rows = present_rows()
             rows[3][field] = value
             with self.assertRaises(ValueError):
                 telemetry.analyze_present(rows, 123, "IndieGame-Win64-Shipping.exe")
+
+    def test_reversed_etw_rows_remain_observed_but_timing_is_invalid(self):
+        rows = present_rows()
+        rows[3], rows[4] = rows[4], rows[3]
+        original = copy.deepcopy(rows)
+        result = telemetry.analyze_present(rows, 123, "IndieGame-Win64-Shipping.exe")
+        self.assertEqual(rows, original)
+        self.assertEqual(result["captured_frames"], 120)
+        self.assertEqual(result["displayed_frames"], 120)
+        self.assertEqual(result["timestamp_reversal_count"], 1)
+        self.assertFalse(result["timestamp_order_valid"])
+        self.assertFalse(result["display_interval_valid"])
+        self.assertTrue(result["display_observation_sufficient"])
+        self.assertIsNone(result["between_presents_ms"])
+        self.assertIsNone(result["between_display_changes_ms"])
+        self.assertIsNone(result["until_displayed_ms"])
+        self.assertEqual(result["reported_between_presents_ms"]["samples"], 120)
+        self.assertEqual(result["reported_between_display_changes_ms"]["samples"], 120)
+
+    def test_duplicate_present_does_not_inflate_display_count(self):
+        rows = present_rows()
+        rows.insert(6, copy.deepcopy(rows[2]))
+        with self.assertRaisesRegex(ValueError, "중복"):
+            telemetry.analyze_present(rows, 123, "IndieGame-Win64-Shipping.exe")
+
+    def test_modern_legacy_csv_clock_is_supported(self):
+        rows = present_rows()
+        for row in rows:
+            row["TimeInSeconds"] = row.pop("QPCTime")
+        result = telemetry.analyze_present(rows, 123, "IndieGame-Win64-Shipping.exe")
+        self.assertEqual(result["clock"], "TimeInSeconds")
+        self.assertTrue(result["timestamp_order_valid"])
+        self.assertTrue(result["display_interval_valid"])
 
     def test_system_uptime_is_not_reported_as_display_interval(self):
         rows = present_rows()

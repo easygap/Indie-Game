@@ -40,6 +40,8 @@ def analyze_present(rows, process_id, executable_name):
     intervals, displayed, present_api, display_latency = [], [], [], []
     modes, swapchains = set(), set()
     previous = {}
+    seen = set()
+    reversed_timestamps = 0
     timestamps = []
     clock = "QPCTime" if "QPCTime" in rows[0] else "TimeInSeconds"
     for row in rows:
@@ -50,8 +52,12 @@ def analyze_present(rows, process_id, executable_name):
         now = finite(row[clock], "화면 출력 시각")
         timestamps.append(now)
         swapchain = row["SwapChainAddress"]
-        if now <= previous.get(swapchain, -1):
-            raise ValueError("화면 출력 시각이 뒤집히거나 중복됐습니다.")
+        key = (swapchain, now)
+        if key in seen:
+            raise ValueError("화면 출력 시각이 중복됐습니다.")
+        seen.add(key)
+        if now < previous.get(swapchain, -1):
+            reversed_timestamps += 1
         previous[swapchain] = now
         swapchains.add(swapchain)
         modes.add(row["PresentMode"])
@@ -68,20 +74,27 @@ def analyze_present(rows, process_id, executable_name):
             display_latency.append(latency)
         else:
             result["dropped_frames"] += 1
-    # 캡처 전체보다 긴 표시 간격은 계측 이상으로 남긴다. 원본 통계는 보존하고
-    # 그 실행의 화면 변경 간격은 지연 측정 결과로 쓰지 않는다.
+    # 실시간 ETW 기록의 순서가 뒤집힌 사례가 있어 표시 관측과 시간 통계를
+    # 나눈다. 행을 정렬하거나 버리지 않고 원본 통계와 오류 수를 함께 남긴다.
     capture_seconds = max(timestamps) - min(timestamps)
     interval_limit = capture_seconds * 1000 + max(display_latency, default=0)
     invalid_intervals = sum(value > interval_limit for value in displayed)
     reported_intervals = describe(displayed)
+    timestamp_order_valid = reversed_timestamps == 0
+    timing_valid = timestamp_order_valid and invalid_intervals == 0
     result.update({"clock": clock, "swapchain_count": len(swapchains), "present_modes": sorted(modes),
                    "capture_seconds": round(capture_seconds, 6),
-                   "between_presents_ms": describe(intervals),
-                   "between_display_changes_ms": None if invalid_intervals else reported_intervals,
+                   "timestamp_reversal_count": reversed_timestamps,
+                   "timestamp_order_valid": timestamp_order_valid,
+                   "between_presents_ms": describe(intervals) if timestamp_order_valid else None,
+                   "reported_between_presents_ms": describe(intervals),
+                   "between_display_changes_ms": reported_intervals if timing_valid else None,
                    "reported_between_display_changes_ms": reported_intervals,
                    "display_interval_out_of_capture_count": invalid_intervals,
-                   "display_interval_valid": invalid_intervals == 0 and bool(displayed),
-                   "present_api_ms": describe(present_api), "until_displayed_ms": describe(display_latency),
+                   "display_interval_valid": timing_valid and bool(displayed),
+                   "present_api_ms": describe(present_api),
+                   "until_displayed_ms": describe(display_latency) if timing_valid else None,
+                   "reported_until_displayed_ms": describe(display_latency),
                    "display_observed": result["displayed_frames"] > 0,
                    "display_observation_sufficient": result["displayed_frames"] >= 100 and bool(displayed),
                    "scope": "게임 프로세스의 전체 캡처다. 워밍업과 종료를 포함하며 야간 경로의 합격 판정에 섞지 않는다. 입력 장치 지연은 측정하지 않는다."})
@@ -146,14 +159,18 @@ def summarize(root):
     if memory["unavailable_samples"] != metadata["queryFailures"]:
         raise ValueError("누락된 메모리 표본 수가 기록과 다릅니다.")
     presentation = analyze_present(contents["presentCsv"], metadata["processId"], metadata["executableName"])
-    result = {"schemaVersion": 1, "status": "OBSERVED" if presentation["display_observation_sufficient"] else "INSUFFICIENT_DISPLAY",
+    status = ("OBSERVED" if presentation["display_interval_valid"] else "OBSERVED_WITH_TIMING_ANOMALY")
+    if not presentation["display_observation_sufficient"]:
+        status = "INSUFFICIENT_DISPLAY"
+    result = {"schemaVersion": 2, "status": status,
+              "analysis_script_sha256": digest(Path(__file__)),
               "metadata_sha256": digest(metadata_path),
               "shipping_sha256": metadata["shippingSha256"], "present_source_sha256": metadata["presentCsvSha256"],
               "memory_source_sha256": metadata["memoryCsvSha256"],
               "presentation": presentation,
               "gpu_memory": memory, "shipping_release_certified": False}
     (root / "windows-telemetry-summary.json").write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"WINDOWS_TELEMETRY_OBSERVED displayed={result['presentation']['displayed_frames']} "
+    print(f"WINDOWS_TELEMETRY_{status} displayed={result['presentation']['displayed_frames']} "
           f"sampled_vram_gb={memory['sampled_peak_dedicated_gb']}")
     return result
 
