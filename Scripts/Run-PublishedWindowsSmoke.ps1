@@ -58,8 +58,9 @@ foreach ($path in @($launcher, $shipping)) {
 }
 $receipt = Join-Path $evidenceRoot 'receipt.txt'
 $userRoot = Join-Path $root 'User'
+# 진행 검사에는 한국어 대사와 직접 대조하는 항목이 있어 호스트 언어를 따르지 않는다.
 $arguments = @('-unattended', '-nosplash', '-NoLoadingScreen', '-nullrhi', '-nosound',
-    '-IGSkipFrontend', '-IGListenerGreybox', '-IGListenerGreyboxProbe',
+    '-IGSkipFrontend', '-IGCulture=ko', '-IGListenerGreybox', '-IGListenerGreyboxProbe',
     "-UserDir=$userRoot", "-IGMissingFloorResultPath=$receipt")
 $quoted = @($arguments | ForEach-Object {
     if ($_.Contains('"')) { throw '실행 인자에 따옴표를 넣을 수 없습니다.' }
@@ -93,7 +94,7 @@ $result = [ordered]@{
     runnerImage = $env:ImageOS; runnerImageVersion = $env:ImageVersion; workflowCommit = $env:GITHUB_SHA;
     workflowRunId = $env:GITHUB_RUN_ID; workflowRunAttempt = $env:GITHUB_RUN_ATTEMPT;
     scope = '공개 ZIP의 다운로드·해시·파일 버전과 NullRHI 진행 로직 검사. Unreal Engine 설치 단계 없이 실행한다. 호스트에 개발용 런타임이 미리 설치돼 있을 수 있다.';
-    graphicsTested = $false; audioTested = $false; supportedDesktopOsCertified = $false;
+    culture = 'ko'; graphicsTested = $false; audioTested = $false; supportedDesktopOsCertified = $false;
     humanFullPlaythroughApproved = $false; shippingReleaseCertified = $false
 }
 [IO.File]::WriteAllText((Join-Path $evidenceRoot 'summary.json'), ($result | ConvertTo-Json -Depth 5) + "`n", [Text.UTF8Encoding]::new($false))
