@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 1,
+  "verifiedAt": "2026-10-01T03:01:31.183413+00:00",
+  "version": "0.2.4",
+  "status": "PLAYTEST_PUBLISHED",
+  "publicReleasePublished": true,
+  "releaseComplete": false,
+  "shippingReleaseCertified": false,
+  "scope": "GitHub 태그 대상·첨부 파일 해시·크기와 별도 Windows 서버의 공개 ZIP 진행 검사를 대조했다. 정식 출시 인증은 포함하지 않는다.",
+  "releaseUrl": "https://github.com/easygap/Missing-Floor/releases/tag/v0.2.4",
+  "publishedAt": "2026-10-01T02:58:10Z",
+  "githubReleaseId": 400612561,
+  "prerelease": true,
+  "author": "easygap",
+  "tag": "v0.2.4",
+  "buildCommit": "eaa202c7b380149cee0642c0a8266e9236441814",
+  "tagObjectSha": "15f5b2317d54051d912ea4b1a3cf45ad2ef6907a",
+  "assets": [
+    {
+      "name": "MissingFloor-0.2.4-Windows.zip",
+      "bytes": 635174945,
+      "sha256": "01d5e755cad376f043c905ce4ac0efefceb8f3e4df21581a24c3d626476cf596",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.4/MissingFloor-0.2.4-Windows.zip"
+    },
+    {
+      "name": "Windows-20261001-0.2.4.json",
+      "bytes": 318899,
+      "sha256": "2050a0e2f1ef86b62b60ade07cbc7841b3af2aec4c20baede1019f51aadfd90b",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.4/Windows-20261001-0.2.4.json"
+    },
+    {
+      "name": "MissingFloor-0.2.4-QA.zip",
+      "bytes": 7623846,
+      "sha256": "3063a3107f9a73542d9d45f4e3f723c82c674427a09e27ab95dba5100382478a",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.4/MissingFloor-0.2.4-QA.zip"
+    },
+    {
+      "name": "SHA256SUMS.txt",
+      "bytes": 283,
+      "sha256": "ad35d072e67f705061f479e2b3e1babc51d484cf400cabbece89b6377e153b5a",
+      "githubDigestMatched": true,
+      "url": "https://github.com/easygap/Missing-Floor/releases/download/v0.2.4/SHA256SUMS.txt"
+    }
+  ],
+  "finalProjectValidation": {
+    "status": "PASS",
+    "command": "pwsh -NoProfile -File Scripts/Validate-Project.ps1",
+    "measurementCommit": "e11adf05c6cc9171bc5ddd24ffe62c2c8d300c17",
+    "sourceDocumentationWasUncommitted": true,
+    "fullLogSha256": "251fb61e94debaa62a872fbf0ff1b736b5c2aa3d399779badbb429ca4bb9ce80",
+    "telemetryTests": 12,
+    "scope": "0.2.4 다운로드 안내와 검수 문서를 반영한 작업 트리의 전체 정적 검사. 이후 성능 문장의 조사·표현만 세 곳 바로잡았다."
+  },
+  "independentWindowsSmoke": {
+    "url": "https://github.com/easygap/Missing-Floor/actions/runs/36808347792",
+    "summarySha256": "bbaacc41efe0ff3174d2f3c7a5601a4a3271049da775b11c7fe2950d9d6270a4",
+    "result": {
+      "schemaVersion": 1,
+      "status": "PASS",
+      "version": "0.2.4",
+      "releaseTag": "v0.2.4",
+      "releaseUrl": "https://github.com/easygap/Missing-Floor/releases/tag/v0.2.4",
+      "zipSha256": "01d5e755cad376f043c905ce4ac0efefceb8f3e4df21581a24c3d626476cf596",
+      "zipBytes": 635174945,
+      "serverDigestMatched": true,
+      "checksumFileMatched": true,
+      "shippingSha256": "ae35ea54ab117b720319e94041c7fd0e21aa2717ec0f81aaeadb45a1ec63b00e",
+      "receiptSha256": "7a62486c3026b39a5811330e1da271f337ac4c4697ed17c1ddacc43febaf200c",
+      "terminalStage": 38,
+      "elapsedSeconds": 64.225,
+      "os": {
+        "Caption": "Microsoft Windows Server 2025 Datacenter",
+        "Version": "10.0.26100",
+        "BuildNumber": "26100"
+      },
+      "runnerImage": "win25-vs2026",
+      "runnerImageVersion": "20260925.250.1",
+      "workflowCommit": "eea363cf8b881d22064b80a00657dafe9821bf26",
+      "workflowRunId": "36808347792",
+      "workflowRunAttempt": "1",
+      "scope": "공개 ZIP의 다운로드·해시·파일 버전과 NullRHI 진행 로직 검사. Unreal Engine 설치 단계 없이 실행한다. 호스트에 개발용 런타임이 미리 설치돼 있을 수 있다.",
+      "culture": "ko",
+      "graphicsTested": false,
+      "audioTested": false,
+      "supportedDesktopOsCertified": false,
+      "humanFullPlaythroughApproved": false,
+      "shippingReleaseCertified": false
+    }
+  },
+  "remainingWork": [
+    "현재 PC의 1080p High 반복 검사 실패 원인 확인·개선",
+    "재부팅 후 첫 실행과 전체 보행 경로 측정",
+    "지정된 여섯 실제 PC의 기능·성능 확인",
+    "사람의 초견 완주·청취와 외국어 원어민 문맥 검수"
+  ],
+  "prepublicationValidation": {
+    "path": "Windows-20261001-0.2.4.json",
+    "assetSha256": "2050a0e2f1ef86b62b60ade07cbc7841b3af2aec4c20baede1019f51aadfd90b",
+    "publicReleasePublishedAtGeneration": false,
+    "scope": "배포 전 JSON은 생성 당시 상태를 유지한다. 공개 여부와 이후 서버 검사는 이 기록에서 확인한다."
+  }
+}
