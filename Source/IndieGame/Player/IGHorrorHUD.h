@@ -275,6 +275,9 @@ public:
 
 	/** 실제로 그린 글자의 겹침·영역 이탈을 배포본 검사 결과에도 남긴다. */
 	FString GetTextAuditFailureReport() const { return FString::Join(TextAuditFailures, TEXT("\n")); }
+	/** 마지막 HUD 프레임에 소리 자막을 실제로 그렸는지 검사한다. */
+	bool WasAudioCaptionDrawnInLastHudFrame() const { return bAudioCaptionDrawnInLastHudFrame; }
+	bool HasPendingAudioCaption() const { return !CurrentAudioCaption.IsEmpty() || AudioCaptionQueue.Num() > 0; }
 
 	/** Last lower-third dialogue layout actually drawn by the Shipping probe. */
 	bool GetDialogueRenderSample(
@@ -811,6 +814,7 @@ private:
 	uint64 DialogueLastRenderSerial = 0;
 
 	FText CurrentAudioCaption;
+	bool bAudioCaptionDrawnInLastHudFrame = false;
 	TArray<FIGAudioCaptionMessage> AudioCaptionQueue;
 	double AudioCaptionStartTime = 0.0;
 	double AudioCaptionEndTime = -1.0;

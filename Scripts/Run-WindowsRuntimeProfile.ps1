@@ -20,6 +20,11 @@ if (Test-Path -LiteralPath $evidenceRoot) { throw '새 결과 폴더를 지정�
 $manifestArguments = @{ ArchiveDirectory = $archiveRoot; RequireCleanCommit = $RequireCleanCommit }
 if ($ExpectedCommit) { $manifestArguments.ExpectedCommit = $ExpectedCommit }
 & (Join-Path $PSScriptRoot 'Test-WindowsPackageManifest.ps1') @manifestArguments
+$packageManifestPath = Join-Path $archiveRoot 'manifest.json'
+$packageManifest = Get-Content -LiteralPath $packageManifestPath -Raw -Encoding UTF8 | ConvertFrom-Json
+$manifestHashBefore = (Get-FileHash -LiteralPath $packageManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$shippingExecutable = Join-Path $archiveRoot 'Windows/IndieGame/Binaries/Win64/IndieGame-Win64-Shipping.exe'
+$shippingHashBefore = (Get-FileHash -LiteralPath $shippingExecutable -Algorithm SHA256).Hash.ToLowerInvariant()
 $launcher = Join-Path $archiveRoot 'Windows\MissingFloor.exe'
 $python = (Get-Command python -ErrorAction Stop).Source
 $results = [Collections.Generic.List[object]]::new()
@@ -144,7 +149,15 @@ sg.LandscapeQuality=$Quality
     Write-Host "SHIPPING_RUNTIME_PROFILE Run$run frame_gate=$($summary.local_route_frame_gate_passed)"
 }
 & (Join-Path $PSScriptRoot 'Test-WindowsPackageManifest.ps1') @manifestArguments
+$manifestHashAfter = (Get-FileHash -LiteralPath $packageManifestPath -Algorithm SHA256).Hash.ToLowerInvariant()
+$shippingHashAfter = (Get-FileHash -LiteralPath $shippingExecutable -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($manifestHashAfter -ne $manifestHashBefore -or $shippingHashAfter -ne $shippingHashBefore) {
+    throw '성능 측정 도중 배포본이나 파일 목록이 바뀌었습니다.'
+}
 $report = [ordered]@{ scope = '현재 장비의 Shipping 오프스크린 자동 밤 장면 경로. 실제 화면 출력 비용은 제외됨';
+    schemaVersion = 2; createdAt = [DateTime]::UtcNow.ToString('o');
+    commit = $packageManifest.commit; hasLocalChanges = $packageManifest.hasLocalChanges;
+    manifestSha256 = $manifestHashBefore; shippingSha256 = $shippingHashBefore; archiveUnchanged = $true;
     repeatedRuns = $RepeatCount; warmupSeconds = $WarmupSeconds; quality = $Quality;
     antiAliasing = $AntiAliasing; targetFps = $TargetFps;
     allLocalFrameGatesPassed = @($results | Where-Object { -not $_.frameGatePassed }).Count -eq 0;

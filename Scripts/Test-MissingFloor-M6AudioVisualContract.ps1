@@ -194,7 +194,7 @@ Assert-ContainsAll $playerSource @(
 Assert-ContainsAll $hudSource @(
 	'마이크 소리 사용',
 	'헤드폰을 쓰면 소리가 나는 방향을 구분하기 쉽습니다.',
-	'달빛빌라 · 403호',
+	'bSystemMenuIsTitle && !bSystemMenuNightFivePlaying',
 	'Missing Floor'
 ) 'M6 user-facing audio UI'
 Assert-ContainsAll $controllerSource @(

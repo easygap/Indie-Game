@@ -1930,11 +1930,6 @@ void UIGMissingFloorAudioSubsystem::PlayTitleReply()
 		1700.0f,
 		EIGAudioBus::Entity,
 		true);
-	// 자막만 켜고 듣는 사람에게도 네시 반은 있어야 한다(§10.5).
-	AIGHorrorHUD::PushAudioCaption(
-		this,
-		NSLOCTEXT("IGMissingFloor", "TitleReplyCaption", "[벽 너머에서 대답하듯 두 번 두드리는 소리]"),
-		2.2f);
 }
 
 FVector UIGMissingFloorAudioSubsystem::ResolveTitleCueLocation(

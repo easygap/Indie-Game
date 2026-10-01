@@ -226,12 +226,13 @@ Assert-ContainsAll $hudHeader @(
 	'bUseTitleBackdrop',
 	'DrawDisplaySettingsPanel',
 	'DrawAudioCalibrationPanel',
-	'bSystemMenuCanContinue'
+	'bSystemMenuCanContinue',
+	'WasAudioCaptionDrawnInLastHudFrame',
+	'HasPendingAudioCaption'
 ) 'HUD 프런트엔드 인터페이스'
 Assert-ContainsAll $hudSource @(
 	'DrawSystemMenuPanel()',
 	'Missing Floor',
-	'달빛빌라 · 403호',
 	'헤드폰을 쓰면 소리가 나는 방향을 구분하기 쉽습니다.',
 	'소리와 밝기',
 	'두드리는 소리가 또렷하게 들리면서도',
@@ -305,6 +306,15 @@ Assert-ContainsAll $hudSource @(
 	'IGFrontendMenuLayout::GetVisibleSlotForAction',
 	'RecordLayoutValidationRect(HitBox.Min, HitBox.Max)'
 ) '타이틀 키아트·타이포·동작 감소·포커스 계약'
+Assert-ContainsAll $controllerSource @(
+	'gameplay_sound_caption_not_drawn',
+	'gameplay_sound_caption_queue_empty',
+	'title_retained_gameplay_sound_caption',
+	'title_accepted_sound_caption',
+	'HorrorHUD->WasAudioCaptionDrawnInLastHudFrame()',
+	'HorrorHUD->HasPendingAudioCaption()',
+	'TryCaptureFrontendProbeLayout(TEXT("title_first_run"), 9)'
+) '플레이 소리 자막 출력·타이틀 자막 제거 검증'
 Assert-ContainsAll $settingsLayout @(
 	'FPanelMetrics',
 	'MakePanelMetrics',

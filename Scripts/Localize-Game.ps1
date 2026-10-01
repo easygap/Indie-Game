@@ -65,6 +65,12 @@ if ($Gather) {
 	Invoke-Gather $mirror 'Game_Gather.ini'
 }
 if ($Compile) {
+	# 수집은 archive의 번역을 내보낸다. JSON에만 있던 새 번역이 빈 문자열로
+	# 되돌아가지 않도록 원본 번역을 다시 적용한 뒤 리소스를 만든다.
+	Sync-Folder (Join-Path $mirror $localizationPart) (Join-Path $repoRoot $localizationPart)
+	& python (Join-Path $PSScriptRoot 'apply_localization.py')
+	if ($LASTEXITCODE -ne 0) { throw '번역 적용 검사를 통과하지 못했습니다.' }
+	Sync-Folder (Join-Path $repoRoot $localizationPart) (Join-Path $mirror $localizationPart)
 	Invoke-Gather $mirror 'Game_Compile.ini'
 }
 Sync-Folder (Join-Path $mirror $localizationPart) (Join-Path $repoRoot $localizationPart)

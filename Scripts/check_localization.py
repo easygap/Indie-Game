@@ -52,8 +52,8 @@ GLOSSARY = {
     '이송 펌프': {'en': ['transfer pump'], 'ja': ['揚水ポンプ'], 'zh-Hans': ['抽水泵'], 'zh-Hant': ['抽水馬達']},
     '우회 밸브': {'en': ['bypass valve'], 'ja': ['バイパスバルブ'], 'zh-Hans': ['旁通阀'], 'zh-Hant': ['旁通閥']},
 }
-# 한국어가 남아도 되는 키. 줄 높이 표본과, 영어판 제목 밑에 원제를 부제로 다는 두 줄.
-EXEMPT_HANGUL = {'IGHUD,LineHeightSample', 'IGHUD,MainTitleSubtitle', 'IGHUD,PauseSubtitle'}
+# 글자 높이 표본은 번역문이 아니므로 한국어 검사를 건너뛴다.
+EXEMPT_HANGUL = {'IGHUD,LineHeightSample'}
 
 
 def load_source():
@@ -110,7 +110,7 @@ def main():
         print('WARN  ' + line)
     missing = [key for key in source if key not in table]
     print(f'{culture}: {len(table)}개 번역, 오류 {len(errors)}, 경고 {len(warnings)}, 원문 대비 빠진 키 {len(missing)}')
-    if errors or (strict and warnings):
+    if errors or missing or (strict and warnings):
         sys.exit(1)
 
 

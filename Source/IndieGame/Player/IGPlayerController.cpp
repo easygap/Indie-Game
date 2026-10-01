@@ -7,6 +7,7 @@
 #include "Audio/IGToneSequenceSoundWave.h"
 #include "AssetCompilingManager.h"
 #include "Components/AudioComponent.h"
+#include "CoreGlobals.h"
 #include "EnhancedInputSubsystems.h"
 #include "Engine/Engine.h"
 #include "Engine/GameInstance.h"
@@ -525,6 +526,9 @@ void AIGPlayerController::StartFrontendShippingProbe()
 	FrontendProbeMinimumElementCount = MAX_int32;
 	FrontendProbePressedEventCount = 0;
 	bFrontendDialogueDefaultVerified = false;
+	bFrontendCaptionPauseVerified = false;
+	FrontendCaptionPausedAt = 0.0;
+	FrontendCaptionPauseSeconds = 0.0;
 	bFrontendDialogueVerified = false;
 	bFrontendDialogueSpeakerVerified = false;
 	bFrontendDialogueContinuationVerified = false;
@@ -883,6 +887,10 @@ void AIGPlayerController::TickFrontendShippingProbe()
 			FIGAccessibilitySettings Settings = Accessibility->GetSettings();
 			Settings.bSubtitlesEnabled = true;
 			Settings.bSoundCaptionsEnabled = true;
+			if (FParse::Param(FCommandLine::Get(), TEXT("IGCaptionLifecycleReview")))
+			{
+				Settings.CaptionDurationScale = 1.0f;
+			}
 			Settings.CaptionSizeScale = 1.0f;
 			Settings.CaptionBackgroundOpacity = 0.82f;
 			Settings.CaptionSafeAreaScale = 0.90f;
@@ -936,6 +944,21 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		{
 			return;
 		}
+		// 소리 자막은 플레이 화면에서 실제로 그려져야 한다. 타이틀의 자막을
+		// 없애는 변경이 접근성 기능까지 꺼 버리지 않았는지 먼저 확인한다.
+		if (const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			if (!HorrorHUD->WasAudioCaptionDrawnInLastHudFrame())
+			{
+				FailFrontendShippingProbe(TEXT("gameplay_sound_caption_not_drawn"));
+				return;
+			}
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("dialogue_hud_missing"));
+			return;
+		}
 		bFrontendDialogueDefaultVerified = true;
 		if (FParse::Value(
 			FCommandLine::Get(),
@@ -953,6 +976,122 @@ void AIGPlayerController::TickFrontendShippingProbe()
 				true,
 				false);
 		}
+		FrontendProbeStep = FParse::Param(FCommandLine::Get(), TEXT("IGCaptionLifecycleReview"))
+			? 38 : 23;
+		FrontendProbeNextActionTime = Now + 0.08;
+		FrontendProbeStepDeadline = Now + 5.0;
+		return;
+	case 38:
+		if (FrontendProbeDefaultScreenshotPath.IsEmpty())
+		{
+			FailFrontendShippingProbe(TEXT("caption_pause_screenshot_argument_missing"));
+			return;
+		}
+		if (!FPaths::FileExists(FrontendProbeDefaultScreenshotPath))
+		{
+			FrontendProbeNextActionTime = Now + 0.05;
+			return;
+		}
+		if (AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			// 캡처 저장 시간과 무관하게 정확히 5초짜리 자막을 멈춘다.
+			HorrorHUD->ShowAudioCaption(
+				NSLOCTEXT("IGFrontendProbe", "SoundCaption", "[천장에서 세 번 두드리는 소리]"),
+				5.0f);
+			if (!HorrorHUD->HasPendingAudioCaption())
+			{
+				FailFrontendShippingProbe(TEXT("caption_pause_queue_empty"));
+				return;
+			}
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("caption_pause_hud_missing"));
+			return;
+		}
+		SetSystemMenuMode(EIGSystemMenuMode::Pause);
+		FrontendCaptionPausedAt = Now;
+		FrontendProbeStep = 39;
+		AwaitFrontendProbeFrame();
+		return;
+	case 39:
+		if (!TryCaptureFrontendProbeLayout(TEXT("caption_pause"), 8, false, false))
+		{
+			return;
+		}
+		if (const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			if (!GetWorld()->IsPaused() || HorrorHUD->WasAudioCaptionDrawnInLastHudFrame()
+				|| !HorrorHUD->HasPendingAudioCaption())
+			{
+				FailFrontendShippingProbe(TEXT("caption_pause_not_preserved"));
+				return;
+			}
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("caption_pause_hud_missing"));
+			return;
+		}
+		FScreenshotRequest::RequestScreenshot(
+			FPaths::GetPath(FrontendProbeDefaultScreenshotPath) / TEXT("caption-paused.png"), true, false);
+		FrontendProbeStep = 40;
+		// 원래 수명보다 길게 기다려, 일시정지 중 시계가 흐르는 결함을 잡는다.
+		FrontendProbeNextActionTime = FMath::Max(Now, FrontendCaptionPausedAt + 6.0);
+		FrontendProbeStepDeadline = FrontendProbeNextActionTime + 5.0;
+		return;
+	case 40:
+		if (const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			if (!GetWorld()->IsPaused() || HorrorHUD->WasAudioCaptionDrawnInLastHudFrame()
+				|| !HorrorHUD->HasPendingAudioCaption())
+			{
+				FailFrontendShippingProbe(TEXT("caption_pause_expired_or_drawn"));
+				return;
+			}
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("caption_pause_hud_missing"));
+			return;
+		}
+		FrontendCaptionPauseSeconds = Now - FrontendCaptionPausedAt;
+		SetSystemMenuMode(EIGSystemMenuMode::Hidden);
+		FrontendProbeStep = 41;
+		AwaitFrontendProbeFrame();
+		FrontendProbeNextActionTime = Now + 0.30;
+		return;
+	case 41:
+		if (!TryCaptureFrontendProbeLayout(TEXT("caption_resume"), 5, false, false))
+		{
+			return;
+		}
+		if (const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			if (GetWorld()->IsPaused() || !HorrorHUD->WasAudioCaptionDrawnInLastHudFrame()
+				|| !HorrorHUD->HasPendingAudioCaption() || FrontendCaptionPauseSeconds < 6.0)
+			{
+				FailFrontendShippingProbe(TEXT("caption_resume_not_drawn"));
+				return;
+			}
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("caption_pause_hud_missing"));
+			return;
+		}
+		FScreenshotRequest::RequestScreenshot(
+			FPaths::GetPath(FrontendProbeDefaultScreenshotPath) / TEXT("caption-resumed.png"), true, false);
+		if (!FFileHelper::SaveStringToFile(FString::Printf(
+			TEXT("MISSINGFLOOR_CAPTION_PAUSE PASS pause_seconds=%.3f gameplay_draw=1 pause_draw=0 resume_draw=1 queue_preserved=1\n"),
+			FrontendCaptionPauseSeconds),
+			*(FPaths::GetPath(FrontendProbeDefaultScreenshotPath) / TEXT("caption-pause.txt")),
+			FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
+		{
+			FailFrontendShippingProbe(TEXT("caption_pause_receipt_write_failed"));
+			return;
+		}
+		bFrontendCaptionPauseVerified = true;
 		FrontendProbeStep = 23;
 		FrontendProbeNextActionTime = Now + 0.08;
 		FrontendProbeStepDeadline = Now + 5.0;
@@ -1057,6 +1196,26 @@ void AIGPlayerController::TickFrontendShippingProbe()
 		IFileManager::Get().MakeDirectory(
 			*FPaths::GetPath(FrontendProbeTitleScreenshotPath),
 			true);
+		// 캡처 저장이 오래 걸려도 전환 검사가 빈 자막 큐로 시작하지 않게 한다.
+		if (AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			HorrorHUD->ShowAudioCaption(
+				NSLOCTEXT(
+					"IGFrontendProbe",
+					"SoundCaption",
+					"[천장에서 세 번 두드리는 소리]"),
+				5.0f);
+			if (!HorrorHUD->HasPendingAudioCaption())
+			{
+				FailFrontendShippingProbe(TEXT("gameplay_sound_caption_queue_empty"));
+				return;
+			}
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("dialogue_hud_missing"));
+			return;
+		}
 		SystemMenuSelection = 0;
 		SetSystemMenuMode(EIGSystemMenuMode::Title);
 		SetInputDevicePresentation(false);
@@ -1075,8 +1234,35 @@ void AIGPlayerController::TickFrontendShippingProbe()
 			FailFrontendShippingProbe(TEXT("title_first_run_state"));
 			return;
 		}
-		if (!TryCaptureFrontendProbeLayout(TEXT("title_first_run"), 10))
+		// 제목 하나와 네 메뉴의 글자·클릭 영역이 타이틀의 필수 요소다.
+		if (!TryCaptureFrontendProbeLayout(TEXT("title_first_run"), 9))
 		{
+			return;
+		}
+		if (AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD()))
+		{
+			// 앞 단계의 자막이 실제 타이틀 프레임과 대기열 모두에서 사라져야 한다.
+			if (HorrorHUD->WasAudioCaptionDrawnInLastHudFrame()
+				|| HorrorHUD->HasPendingAudioCaption())
+			{
+				FailFrontendShippingProbe(TEXT("title_retained_gameplay_sound_caption"));
+				return;
+			}
+			HorrorHUD->ShowAudioCaption(
+				NSLOCTEXT(
+					"IGFrontendProbe",
+					"SoundCaption",
+					"[천장에서 세 번 두드리는 소리]"),
+				5.0f);
+			if (HorrorHUD->HasPendingAudioCaption())
+			{
+				FailFrontendShippingProbe(TEXT("title_accepted_sound_caption"));
+				return;
+			}
+		}
+		else
+		{
+			FailFrontendShippingProbe(TEXT("title_hud_missing"));
 			return;
 		}
 		FScreenshotRequest::RequestScreenshot(
@@ -1476,6 +1662,12 @@ bool AIGPlayerController::TryVerifyFrontendDialogueLayout(
 
 void AIGPlayerController::CompleteFrontendShippingProbe()
 {
+	if (FParse::Param(FCommandLine::Get(), TEXT("IGCaptionLifecycleReview"))
+		&& !bFrontendCaptionPauseVerified)
+	{
+		FailFrontendShippingProbe(TEXT("caption_pause_not_verified"));
+		return;
+	}
 	if (FrontendProbeLayoutSampleCount != 11
 		|| FrontendProbeMinimumElementCount < 8
 		|| FrontendProbePressedEventCount != 11
@@ -4452,17 +4644,70 @@ bool AIGPlayerController::IsSystemMenuRowEnabled(const int32 Row) const
 
 void AIGPlayerController::RequestNightFiveProbeExit(const bool bFailed)
 {
+	bool bExitFailed = bFailed;
+	if (bNightFiveCaptionReview)
+	{
+		bExitFailed |= NightFiveCaptionDrawMask != 3 || !bNightFiveCaptionReturnVerified;
+		const FString Receipt = FString::Printf(
+			TEXT("MISSINGFLOOR_CAPTION_NIGHT5 %s signal_draw=%d answer_draw=%d return_clear=%d unlock_bypass=1\n")
+			TEXT("범위: 다섯째 밤 행의 해금 조회를 우회한 자막 표시 검사이며, 실제 엔딩 완주나 해금을 증명하지 않습니다.\n"),
+			bExitFailed ? TEXT("FAIL") : TEXT("PASS"),
+			(NightFiveCaptionDrawMask & 1) != 0 ? 1 : 0,
+			(NightFiveCaptionDrawMask & 2) != 0 ? 1 : 0,
+			bNightFiveCaptionReturnVerified ? 1 : 0);
+		if (NightFiveCaptionResultPath.IsEmpty()
+			|| !FFileHelper::SaveStringToFile(Receipt, *NightFiveCaptionResultPath,
+				FFileHelper::EEncodingOptions::ForceUTF8WithoutBOM))
+		{
+			bExitFailed = true;
+		}
+	}
 	if (NightFiveProbeTicker.IsValid())
 	{
 		FTSTicker::GetCoreTicker().RemoveTicker(NightFiveProbeTicker);
 		NightFiveProbeTicker.Reset();
 	}
 	EndNightFive();
-	FPlatformMisc::RequestExitWithStatus(true, bFailed ? 2 : 0);
+	FPlatformMisc::RequestExitWithStatus(true, bExitFailed ? 2 : 0);
 }
 
 void AIGPlayerController::StartNightFiveProbe()
 {
+	bNightFiveCaptionReview = FParse::Param(FCommandLine::Get(), TEXT("IGCaptionLifecycleReview"));
+	if (bNightFiveCaptionReview)
+	{
+		FParse::Value(FCommandLine::Get(), TEXT("IGCaptionResultPath="), NightFiveCaptionResultPath);
+		FParse::Value(FCommandLine::Get(), TEXT("IGCaptionScreenshotDirectory="), NightFiveCaptionScreenshotDirectory);
+		NightFiveCaptionResultPath.TrimQuotesInline();
+		NightFiveCaptionScreenshotDirectory.TrimQuotesInline();
+		if (NightFiveCaptionResultPath.IsEmpty() || NightFiveCaptionScreenshotDirectory.IsEmpty()
+			|| FParse::Param(FCommandLine::Get(), TEXT("nullrhi")))
+		{
+			UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_NIGHT5 FAIL: caption review needs a renderer and evidence paths"));
+			RequestNightFiveProbeExit(true);
+			return;
+		}
+		NightFiveCaptionResultPath = FPaths::ConvertRelativePathToFull(NightFiveCaptionResultPath);
+		NightFiveCaptionScreenshotDirectory = FPaths::ConvertRelativePathToFull(NightFiveCaptionScreenshotDirectory);
+		IFileManager::Get().MakeDirectory(*FPaths::GetPath(NightFiveCaptionResultPath), true);
+		IFileManager::Get().MakeDirectory(*NightFiveCaptionScreenshotDirectory, true);
+		NightFiveCaptionDrawMask = 0;
+		NightFiveCaptionReturnFrame = 0;
+		bNightFiveCaptionReturnVerified = false;
+		if (UIGAccessibilitySubsystem* Accessibility = GetAccessibilitySubsystem())
+		{
+			FIGAccessibilitySettings Settings = Accessibility->GetSettings();
+			Settings.bSoundCaptionsEnabled = true;
+			Settings.CaptionDurationScale = 1.0f;
+			Settings.CaptionSizeScale = 1.0f;
+			Accessibility->ApplySettings(Settings);
+		}
+		else
+		{
+			RequestNightFiveProbeExit(true);
+			return;
+		}
+	}
 	// --- 대응이 전단사인지 -------------------------------------------------
 	// 밤 5는 액션 5이면서 화면 자리 1이다. 이 치환이 깨지면 플레이어가 누른
 	// 줄과 실행되는 액션이 달라진다 — 조용히, 그리고 정확히 한 행씩.
@@ -4563,6 +4808,34 @@ void AIGPlayerController::StartNightFiveProbe()
 bool AIGPlayerController::AdvanceNightFiveProbe(const float DeltaSeconds)
 {
 	NightFiveProbeSeconds += DeltaSeconds;
+	if (bNightFiveCaptionReview && bNightFivePlaying)
+	{
+		// 실제 신호가 난 뒤 충분히 그려진 프레임을 잡는다. 두 자막은 별도로 확인한다.
+		const float CueTimes[] = {IGNightFive::SignalAtSeconds, IGNightFive::AnswerAtSeconds};
+		const TCHAR* CaptureNames[] = {TEXT("night-five-signal.png"), TEXT("night-five-answer.png")};
+		for (int32 CueIndex = 0; CueIndex < 2; ++CueIndex)
+		{
+			const uint8 CueBit = static_cast<uint8>(1 << CueIndex);
+			if ((NightFiveCaptionDrawMask & CueBit) != 0 || NightFiveSeconds < CueTimes[CueIndex] + 0.5f)
+			{
+				continue;
+			}
+			const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+			if (NightFiveSeconds > CueTimes[CueIndex] + 2.2f)
+			{
+				UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_NIGHT5 FAIL: caption %d was not drawn"), CueIndex);
+				RequestNightFiveProbeExit(true);
+				return false;
+			}
+			if (NightFiveCuesPlayed >= CueIndex + 1 && HorrorHUD
+				&& HorrorHUD->WasAudioCaptionDrawnInLastHudFrame())
+			{
+				FScreenshotRequest::RequestScreenshot(
+					NightFiveCaptionScreenshotDirectory / CaptureNames[CueIndex], true, false);
+				NightFiveCaptionDrawMask |= CueBit;
+			}
+		}
+	}
 	switch (NightFiveProbeStep)
 	{
 	case 0:
@@ -4666,6 +4939,29 @@ bool AIGPlayerController::AdvanceNightFiveProbe(const float DeltaSeconds)
 					: 0);
 			RequestNightFiveProbeExit(true);
 			return false;
+		}
+		if (bNightFiveCaptionReview)
+		{
+			if (NightFiveCaptionReturnFrame == 0)
+			{
+				NightFiveCaptionReturnFrame = GFrameCounter;
+				return true;
+			}
+			if (GFrameCounter <= NightFiveCaptionReturnFrame + 2)
+			{
+				return true;
+			}
+			const AIGHorrorHUD* HorrorHUD = Cast<AIGHorrorHUD>(GetHUD());
+			if (NightFiveCaptionDrawMask != 3 || !HorrorHUD
+				|| HorrorHUD->WasAudioCaptionDrawnInLastHudFrame() || HorrorHUD->HasPendingAudioCaption()
+				|| IFileManager::Get().FileSize(*(NightFiveCaptionScreenshotDirectory / TEXT("night-five-signal.png"))) < 128
+				|| IFileManager::Get().FileSize(*(NightFiveCaptionScreenshotDirectory / TEXT("night-five-answer.png"))) < 128)
+			{
+				UE_LOG(LogTemp, Error, TEXT("MISSINGFLOOR_NIGHT5 FAIL: caption evidence or title cleanup missing"));
+				RequestNightFiveProbeExit(true);
+				return false;
+			}
+			bNightFiveCaptionReturnVerified = true;
 		}
 		UE_LOG(
 			LogTemp,

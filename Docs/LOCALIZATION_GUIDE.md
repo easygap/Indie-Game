@@ -12,7 +12,8 @@
   `Saved/Localization/context.json`으로 뽑는다.
 - `Localization/Translations/<culture>.json`: 번역 원본. `{"네임스페이스,키": "번역"}`.
 - `Scripts/apply_localization.py`: 번역을 `.po`에 넣으며 인자, 줄 수, 소리 자막 괄호를 검사한다.
-- `Scripts/Localize-Game.ps1 -Compile`: `.locres`를 만든다.
+- `Scripts/Localize-Game.ps1 -Compile`: JSON의 번역을 `.po`에 다시 적용하고 검사한 뒤
+  `.locres`를 만든다. 수집과 컴파일을 함께 실행해도 새 번역이 빈 문자열로 돌아가지 않는다.
 
 ## 1. 원칙
 
@@ -206,9 +207,8 @@
 - **줄 높이 표본.** `IGHUD,LineHeightSample`은 번역이 아니다. 그 언어에서 가장
   키가 큰 글자와 영문 대소문자를 넣는다(영어 `Ag`, 일본어 `漢Ag`,
   중국어 `漢Ag`).
-- **제목 밑 부제.** `IGHUD,MainTitleSubtitle`은 원문이 영문 부제
-  "THE MISSING FLOOR"다. 영어판은 제목이 이미 영어라 한국어 원제를 부제로 둔다
-  (없는 층). 일본어·중국어판은 영문 부제를 그대로 둔다.
+- **타이틀.** 작품명은 모든 언어에서 Missing Floor로 표시한다. 제목 아래의
+  주소와 상시 조작 안내는 쓰지 않는다. 시작 확인과 일시정지에는 필요한 조작을 안내한다.
 
 ## 6. 텍스처에 인쇄된 글자
 

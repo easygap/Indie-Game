@@ -120,14 +120,11 @@ namespace IGHorrorHUD
 	const FLinearColor DialogueIvory(0.88f, 0.87f, 0.81f, 1.0f);
 	const FLinearColor DialogueTeal(0.42f, 0.64f, 0.59f, 1.0f);
 
-	// Title-screen palette: wet concrete, old ivory and one oxidized focus mark.
-	// Keeping these semantic tokens here avoids per-row colour drift.
+	// 타이틀은 빌라의 새벽빛과 글자만 남긴다. 경고 색은 실제 확인·오류에만 쓴다.
 	const FLinearColor FrontendInk(0.018f, 0.024f, 0.025f, 1.0f);
 	const FLinearColor FrontendIvory(0.89f, 0.88f, 0.83f, 1.0f);
 	const FLinearColor FrontendMuted(0.55f, 0.57f, 0.54f, 1.0f);
 	const FLinearColor FrontendOxide(0.62f, 0.25f, 0.21f, 1.0f);
-	const FLinearColor FrontendFocus(0.028f, 0.033f, 0.032f, 0.88f);
-	const FLinearColor FrontendGuide(0.46f, 0.48f, 0.45f, 0.34f);
 
 	// 설정 전용 색은 의미 단위로 묶는다. 행마다 임의의 RGB를 넣지 않아야
 	// 선택·경고·완료 상태의 대비를 한 곳에서 조정할 수 있다.
@@ -1410,6 +1407,12 @@ void AIGHorrorHUD::ShowAudioCaption(
 	{
 		return;
 	}
+	// 타이틀 배경의 소리와 이전 플레이 자막이 메뉴 위로 올라오지 않게 한다.
+	// 다섯째 밤의 검정 화면은 실제 사건을 재생하므로 자막을 유지한다.
+	if (bSystemMenuVisible && bSystemMenuIsTitle && !bSystemMenuNightFivePlaying)
+	{
+		return;
+	}
 	const double CurrentTime = AdvanceAudioCaptionClock();
 	const float ClampedDuration =
 		FMath::Max(0.8f, DurationSeconds) * GetCaptionDurationScale();
@@ -1613,6 +1616,14 @@ void AIGHorrorHUD::SetAccessibilityMenuState(
 void AIGHorrorHUD::SetSystemMenuState(
 	const FIGSystemMenuPresentation& Presentation)
 {
+	if (Presentation.bVisible && Presentation.bTitle && !Presentation.bNightFivePlaying
+		&& (!bSystemMenuVisible || !bSystemMenuIsTitle || bSystemMenuNightFivePlaying))
+	{
+		// 일시정지 복귀에서는 보존하고, 타이틀로 돌아올 때만 지난 사건을 비운다.
+		CurrentAudioCaption = FText::GetEmpty();
+		AudioCaptionQueue.Reset();
+		AudioCaptionEndTime = -1.0;
+	}
 	const bool bPresentationChanged = Presentation.bVisible
 		&& (!bSystemMenuVisible
 			|| bSystemMenuIsTitle != Presentation.bTitle
@@ -2397,6 +2408,7 @@ void AIGHorrorHUD::ToggleGameplayGuide()
 void AIGHorrorHUD::DrawHUD()
 {
 	Super::DrawHUD();
+	bAudioCaptionDrawnInLastHudFrame = false;
 	if (bTextAuditEnabled)
 	{
 		FinishTextAuditFrame();
@@ -4234,6 +4246,7 @@ bool AIGHorrorHUD::DrawAudioCaption(
 			CaptionScale,
 			bUseTextOutline);
 	}
+	bAudioCaptionDrawnInLastHudFrame = true;
 	return true;
 }
 
@@ -5053,11 +5066,6 @@ void AIGHorrorHUD::DrawSettingsCategoryRow(
 			Size,
 			7.0f * Scale,
 			IGHorrorHUD::SettingsRaised);
-		DrawRoundedHudSurface(
-			Position + FVector2D(2.0f * Scale, 8.0f * Scale),
-			FVector2D(3.0f * Scale, Size.Y - 16.0f * Scale),
-			1.5f * Scale,
-			IGHorrorHUD::SettingsAccent);
 	}
 	const float CategoryTextScale = GetFittedTextScale(
 		Label,
@@ -5116,11 +5124,6 @@ void AIGHorrorHUD::DrawSettingsOptionRow(
 			Size,
 			8.0f * Scale,
 			IGHorrorHUD::SettingsSelected);
-		DrawRoundedHudSurface(
-			Position + FVector2D(2.0f * Scale, 9.0f * Scale),
-			FVector2D(3.0f * Scale, Size.Y - 18.0f * Scale),
-			1.5f * Scale,
-			IGHorrorHUD::SettingsAccent);
 	}
 	else
 	{
@@ -7355,19 +7358,16 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			: NSLOCTEXT("IGHUD", "PauseTitle", "잠시 멈춤"),
 		MainTitleOrigin,
 		TitleScale);
-	DrawLeftAlignedText(
-		// 작품명은 모든 언어에서 같고, 그 아래에 게임 속 주소를 적는다.
-		bSystemMenuIsTitle
-			? NSLOCTEXT("IGHUD", "MainTitleSubtitle", "달빛빌라 · 403호")
-			: NSLOCTEXT("IGHUD", "PauseSubtitle", "진행 중"),
-		FVector2D(
-			HeaderOrigin.X + 2.0f,
-			MainTitleOrigin.Y
-				+ MainTitleHeight
-				+ 2.0f * Metrics.Scale),
-		WithAlpha(IGHorrorHUD::FrontendMuted),
-		EIGHudTextRole::Hint,
-		0.76f * SupportScale);
+	if (!bSystemMenuIsTitle)
+	{
+		DrawLeftAlignedText(
+			NSLOCTEXT("IGHUD", "PauseSubtitle", "진행 중"),
+			FVector2D(HeaderOrigin.X + 2.0f,
+				MainTitleOrigin.Y + MainTitleHeight + 2.0f * Metrics.Scale),
+			WithAlpha(IGHorrorHUD::FrontendMuted),
+			EIGHudTextRole::Hint,
+			0.76f * SupportScale);
+	}
 
 	TArray<FString> MessageSources;
 	FLinearColor MessageColor = IGHorrorHUD::FrontendIvory;
@@ -7427,16 +7427,6 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		const float MessageStep = 21.0f * SupportScale;
 		const float MessageStartY = Metrics.MessageTop
 			- FMath::Max(0, MessageLines.Num() - 2) * MessageStep;
-		FCanvasTileItem MessageMark(
-			FVector2D(
-				Metrics.ContentLeft - 13.0f * Metrics.Scale,
-				MessageStartY + 2.0f * Metrics.Scale),
-			FVector2D(
-				FMath::Max(2.0f, 2.0f * Metrics.Scale),
-				MessageLines.Num() * 20.0f * SupportScale),
-			WithAlpha(MessageColor, 0.86f));
-		MessageMark.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(MessageMark);
 		for (int32 Line = 0; Line < MessageLines.Num(); ++Line)
 		{
 			DrawLeftAlignedText(
@@ -7474,24 +7464,6 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		FString()
 	};
 
-	const int32 VisibleRowCount = IGFrontendMenuLayout::GetVisibleActionCount(
-		bSystemMenuIsTitle,
-		bSystemMenuCanContinue,
-		bSystemMenuNightFiveAvailable);
-	const float GuideX = Metrics.ContentLeft - 20.0f * Metrics.Scale;
-	const float GuideTop = Metrics.MenuTop + Metrics.RowHeight * 0.5f;
-	const float GuideBottom = Metrics.MenuTop
-		+ (VisibleRowCount - 1) * Metrics.GetRowStride()
-		+ Metrics.RowHeight * 0.5f;
-	FCanvasTileItem FloorGuide(
-		FVector2D(GuideX, GuideTop),
-		FVector2D(
-			FMath::Max(1.0f, Metrics.Scale),
-			FMath::Max(1.0f, GuideBottom - GuideTop)),
-		WithAlpha(IGHorrorHUD::FrontendGuide));
-	FloorGuide.BlendMode = SE_BLEND_Translucent;
-	Canvas->DrawItem(FloorGuide);
-
 	const int32 LoadRow = bSystemMenuIsTitle ? 0 : 1;
 	for (int32 ActionRow = 0;
 		ActionRow < IGFrontendMenuLayout::ActionCount;
@@ -7528,49 +7500,21 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		}
 
 		const FVector2D RowPosition = Metrics.GetRowPosition(VisibleSlot);
-		if (bSelected)
-		{
-			FCanvasTileItem FocusSurface(
-				RowPosition - FVector2D(4.0f * Metrics.Scale, 0.0f),
-				FVector2D(
-					Metrics.ContentWidth + 4.0f * Metrics.Scale,
-					Metrics.RowHeight),
-				WithAlpha(IGHorrorHUD::FrontendFocus));
-			FocusSurface.BlendMode = SE_BLEND_Translucent;
-			Canvas->DrawItem(FocusSurface);
-		}
-
-		const float TickWidth = bSelected
-			? 30.0f * Metrics.Scale
-			: 9.0f * Metrics.Scale;
-		const float TickHeight = bSelected
-			? FMath::Max(2.0f, 2.0f * Metrics.Scale)
-			: FMath::Max(1.0f, Metrics.Scale);
-		FCanvasTileItem FloorTick(
-			FVector2D(
-				GuideX - (bSelected ? 7.0f * Metrics.Scale : 0.0f),
-				RowPosition.Y + Metrics.RowHeight * 0.5f - TickHeight * 0.5f),
-			FVector2D(TickWidth, TickHeight),
-			WithAlpha(
-				bSelected
-					? IGHorrorHUD::FrontendOxide
-					: IGHorrorHUD::FrontendGuide));
-		FloorTick.BlendMode = SE_BLEND_Translucent;
-		Canvas->DrawItem(FloorTick);
 
 		const FLinearColor LabelColor = bEnabled
 			? IGHorrorHUD::FrontendIvory
 			: IGHorrorHUD::FrontendMuted;
 		// 흐려진 밤 5는 여전히 선택 가능하므로 비활성 색이 아니라 밝기만 낮춘다.
 		const float DisabledMultiplier =
-			(bEnabled ? 1.0f : 0.52f) * (bDimmed ? 0.55f : 1.0f);
+			(bEnabled ? 1.0f : 0.52f) * (bDimmed ? 0.55f : 1.0f)
+			* (bSelected ? 1.0f : 0.70f);
 		const FText LabelText = FText::FromString(Label);
 		const EIGHudTextRole RowRole = bSelected
 			? EIGHudTextRole::Prompt
 			: EIGHudTextRole::Hint;
 		const float PreferredRowScale = bSelected
-			? SupportScale
-			: SupportScale * (20.0f / 18.0f);
+			? SupportScale * 1.10f
+			: SupportScale;
 		// 행 폭은 정해져 있다. 긴 번역은 행 안에 들어올 만큼만 줄이고,
 		// 줄어든 만큼 아래로 내려 행 가운데에 둔다.
 		const float RowTextScale = GetFittedTextScale(
@@ -7580,15 +7524,12 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 			Metrics.ContentWidth - 21.0f * Metrics.Scale,
 			SupportScale * 0.6f);
 		UFont* RowFont = GetFontForRole(RowRole);
-		const float ShrinkDrop = RowTextScale < PreferredRowScale
-			? (MeasureTextHeight(Label, RowFont, PreferredRowScale)
-				- MeasureTextHeight(Label, RowFont, RowTextScale)) * 0.5f
-			: 0.0f;
+		const float TextHeight = MeasureTextHeight(Label, RowFont, RowTextScale);
 		DrawLeftAlignedText(
 			LabelText,
 			FVector2D(
-				Metrics.ContentLeft + 13.0f * Metrics.Scale,
-				RowPosition.Y + FMath::Max(9.0f, 13.0f * Metrics.Scale) + ShrinkDrop),
+				Metrics.ContentLeft,
+				RowPosition.Y + (Metrics.RowHeight - TextHeight) * 0.5f),
 			WithAlpha(LabelColor, DisabledMultiplier),
 			RowRole,
 			RowTextScale);
@@ -7597,31 +7538,21 @@ void AIGHorrorHUD::DrawSystemMenuPanel()
 		RecordLayoutValidationRect(HitBox.Min, HitBox.Max);
 	}
 
-	const FText SystemControls = bUsingGamepad
+	if (!bSystemMenuIsTitle || bSystemMenuConfirmNewGame)
+	{
+		const FText SystemControls = bUsingGamepad
 			? bSystemMenuIsTitle
-				? bSystemMenuConfirmNewGame
-					? NSLOCTEXT("IGHUD", "TitleConfirmControlsGamepad", "A 시작  ·  View 취소")
-					: NSLOCTEXT("IGHUD", "TitleControlsGamepad", "D-pad 이동  ·  A 선택  ·  Menu 접근성")
+				? NSLOCTEXT("IGHUD", "TitleConfirmControlsGamepad", "A 시작  ·  View 취소")
 				: NSLOCTEXT("IGHUD", "SystemMenuControlsGamepad", "D-pad 이동  ·  A 선택  ·  View 돌아가기")
 			: bSystemMenuIsTitle
-				? bSystemMenuConfirmNewGame
-					? NSLOCTEXT("IGHUD", "TitleConfirmControlsKeyboard", "Enter 시작  ·  Esc 취소")
-					: NSLOCTEXT("IGHUD", "TitleControlsKeyboard", "↑↓ 이동  ·  Enter 선택  ·  F10 접근성")
+				? NSLOCTEXT("IGHUD", "TitleConfirmControlsKeyboard", "Enter 시작  ·  Esc 취소")
 				: NSLOCTEXT("IGHUD", "SystemMenuControlsKeyboard", "↑↓ 이동  ·  Enter 선택  ·  Esc 돌아가기");
-	DrawLeftAlignedText(
-		SystemControls,
-		FVector2D(Metrics.ContentLeft, Metrics.FooterTop),
-		WithAlpha(IGHorrorHUD::FrontendMuted),
-		EIGHudTextRole::Hint,
-		0.84f * SupportScale);
-
-	// 타이틀의 네시 반 대답(§10.5). 소리 없이 하는 사람에게도 있어야 한다.
-	// 아래 조작 안내 줄과 겹치지 않게 그 위에 띄운다.
-	if (bSystemMenuIsTitle)
-	{
-		DrawAudioCaption(
-			AudioCaptionClockSeconds,
-			Metrics.FooterTop - 12.0f * Metrics.Scale);
+		DrawLeftAlignedText(
+			SystemControls,
+			FVector2D(Metrics.ContentLeft, Metrics.FooterTop),
+			WithAlpha(IGHorrorHUD::FrontendMuted),
+			EIGHudTextRole::Hint,
+			0.84f * SupportScale);
 	}
 }
 

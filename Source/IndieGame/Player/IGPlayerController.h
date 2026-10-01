@@ -325,6 +325,13 @@ private:
 	bool AdvanceNightFiveProbe(float DeltaSeconds);
 	void RequestNightFiveProbeExit(bool bFailed);
 	bool bNightFiveProbeRequested = false;
+	/** 별도 자막 검사에서만 실제 렌더와 캡처를 기록한다. 해금 검사는 아니다. */
+	bool bNightFiveCaptionReview = false;
+	uint8 NightFiveCaptionDrawMask = 0;
+	uint64 NightFiveCaptionReturnFrame = 0;
+	bool bNightFiveCaptionReturnVerified = false;
+	FString NightFiveCaptionResultPath;
+	FString NightFiveCaptionScreenshotDirectory;
 	int32 NightFiveProbeStep = 0;
 	float NightFiveProbeSeconds = 0.0f;
 	FTSTicker::FDelegateHandle NightFiveProbeTicker;
@@ -353,6 +360,9 @@ private:
 	bool bMissingFloorEndingPreviewScreenshotRequested = false;
 	bool bMissingFloorEndingPreviewCompilationDrained = false;
 	bool bFrontendDialogueDefaultVerified = false;
+	bool bFrontendCaptionPauseVerified = false;
+	double FrontendCaptionPausedAt = 0.0;
+	double FrontendCaptionPauseSeconds = 0.0;
 	bool bFrontendDialogueVerified = false;
 	bool bFrontendDialogueSpeakerVerified = false;
 	bool bFrontendDialogueContinuationVerified = false;
