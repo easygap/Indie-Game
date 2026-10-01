@@ -1,4 +1,4 @@
-[CmdletBinding()]
+﻿[CmdletBinding()]
 param(
     [Parameter(Mandatory)][string]$Launcher,
     [Parameter(Mandatory)][string]$ShippingExecutable,
@@ -29,7 +29,15 @@ function ConvertTo-QuotedArgument([string]$Value) {
 $sessionName = 'MissingFloor-' + [Guid]::NewGuid().ToString('N')
 $presentCsv = Join-Path $outputRoot 'presentmon.csv'
 $memoryCsv = Join-Path $outputRoot 'gpu-memory.csv'
-$toolHelp = (& $PresentMonPath --help 2>&1 | Out-String)
+# Windows PowerShell 5.1은 Stop 설정에서 네이티브 프로그램이 stderr에 쓴 첫 줄을 오류로
+# 던진다. PresentMon은 버전 배너를 stderr에 쓰므로 이 호출만 Continue로 돌린다.
+function Invoke-PresentMon([string[]]$Arguments) {
+    $previous = $ErrorActionPreference
+    $ErrorActionPreference = 'Continue'
+    try { return ((& $PresentMonPath @Arguments 2>&1 | ForEach-Object { "$_" }) -join "`n") }
+    finally { $ErrorActionPreference = $previous }
+}
+$toolHelp = Invoke-PresentMon @('--help')
 if ($toolHelp -notmatch '(?m)^PresentMon (?<version>(?<major>[12])\.\d+\.\d+)') {
     throw 'PresentMon 버전을 확인할 수 없습니다. 1.x 또는 2.x 콘솔 실행 파일을 지정해 주세요.'
 }
@@ -120,7 +128,7 @@ try {
     if (-not $gameProcessId -or $sampleCount -lt 2) { throw '게임 프로세스의 메모리 기록이 부족합니다.' }
     if (-not $logger.WaitForExit(10000)) {
         # 이 검사에서 만든 세션 하나만 종료한다. 다른 계측 도구의 세션은 건드리지 않는다.
-        & $PresentMonPath @terminateSessionArguments 2>&1 | Out-Null
+        $null = Invoke-PresentMon $terminateSessionArguments
         if (-not $logger.WaitForExit(5000)) { throw 'PresentMon 기록을 마무리하지 못했습니다.' }
     }
     if ($logger.ExitCode -ne 0) { throw "PresentMon 종료 코드: $($logger.ExitCode)" }
@@ -133,7 +141,7 @@ finally {
     }
     if ($logger) {
         if (-not $logger.HasExited) {
-            & $PresentMonPath @terminateSessionArguments 2>&1 | Out-Null
+            $null = Invoke-PresentMon $terminateSessionArguments
             $null = $logger.WaitForExit(5000)
         }
         $logger.Dispose()
