@@ -18,7 +18,8 @@ $gameRoot = Split-Path $PSScriptRoot -Parent
 $game = Join-Path $gameRoot 'MissingFloor.exe'
 if (-not (Test-Path -LiteralPath $game)) { throw 'ZIP의 압축을 모두 푼 뒤 「테스트 도구」 폴더에서 실행해 주세요.' }
 $width, $height = @{ '720p' = @(1280, 720); '1080p' = @(1920, 1080); '1440p' = @(2560, 1440) }[$Resolution]
-$level = if ($Quality -eq 'High') { 2 } else { 0 }
+# 게임 설정의 낮음은 엔진 품질 단계 1, 높음은 2다(IGPlayerController).
+$level = if ($Quality -eq 'High') { 2 } else { 1 }
 $stamp = Get-Date -Format 'yyyyMMdd-HHmm'
 $desktop = [Environment]::GetFolderPath('Desktop')
 $outRoot = Join-Path $desktop "MissingFloor-performance-$stamp"
