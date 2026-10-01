@@ -1,0 +1,3491 @@
+{
+  "schemaVersion": 3,
+  "generatedAt": "2026-10-01T01:00:40.204702+00:00",
+  "version": "0.2.3",
+  "status": "PLAYTEST_CANDIDATE",
+  "releaseComplete": false,
+  "publicReleasePublished": false,
+  "buildCommit": "aec8fd3ea7ad89e3bec64e245c62e5c60520061f",
+  "hasLocalChanges": false,
+  "scope": "같은 개발 PC의 자동 검수 기록이다. 없는 항목과 오류는 통과로 세지 않고, 성능 기준 실패도 원본 값대로 남긴다.",
+  "pathBase": {
+    "id": "release_validation_root",
+    "kind": "external_evidence_directory",
+    "name": "MissingFloor-ReleaseValidation-20261001",
+    "scope": "모든 path와 rawSources는 이 공통 증거 폴더에 대한 상대 경로다."
+  },
+  "package": {
+    "manifest": {
+      "path": "Package-023Title/manifest.json",
+      "bytes": 18225,
+      "sha256": "7562de11b2792b9ba08c6f0edddac3a59a7e53c44c4651c499cb6820b621a733"
+    },
+    "archive": "Package-023Title",
+    "gameFiles": 89,
+    "gameBytes": 795617232,
+    "shippingExecutableSha256": "20d2c75475f63276e99127070671d488c4f8d0c1cc323d5ead0d855e25f032ea",
+    "launcherSha256": "0e3f9c8e2194fd4346197207b55f5cbea47fd91d104a3643d6e2c3a5ae899ef5",
+    "payloadVerificationScope": "이 생성기는 작은 검수 텍스트를 해시한다. 게임 파일 전수 대조는 패키지 러너와 ZIP 검증 기록에 둔다."
+  },
+  "completedCultureCount": 5,
+  "settingsLayoutSamples": 3160,
+  "inputEvents": 220,
+  "historicalEvidence": [
+    {
+      "buildCommit": "98987a399692829c2c49de8c4103fba30d6bb99e",
+      "status": "FAIL",
+      "scope": "타이틀 수정 전 Safe Run2의 로컬 프레임 기준 실패. 새 후보 판정에 합치지 않는다.",
+      "sourceIncludedInThisBundle": false
+    }
+  ],
+  "languages": [
+    {
+      "culture": "ko",
+      "passed": true,
+      "scope": "설정 전체 순회, 자막 100%·200%, 글자 경계와 키보드·패드 입력",
+      "source": {
+        "path": "PackageReview/Frontend/summary.json",
+        "bytes": 11056,
+        "sha256": "af549b8dc93db1594e516c8f623cd77450e8aa4f9271a221e8a24f9be0553857"
+      },
+      "settingsLayoutSamples": 632,
+      "inputEvents": 44,
+      "textFailures": 0,
+      "resolutions": [
+        {
+          "resolution": "1280x720",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "PackageReview/Frontend/1280x720/receipt.txt",
+            "bytes": 361,
+            "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+          },
+          "settingsReceipt": {
+            "path": "PackageReview/Frontend/1280x720/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1600x900",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "PackageReview/Frontend/1600x900/receipt.txt",
+            "bytes": 361,
+            "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+          },
+          "settingsReceipt": {
+            "path": "PackageReview/Frontend/1600x900/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1920x1080",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "PackageReview/Frontend/1920x1080/receipt.txt",
+            "bytes": 365,
+            "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+          },
+          "settingsReceipt": {
+            "path": "PackageReview/Frontend/1920x1080/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "2560x1440",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "PackageReview/Frontend/2560x1440/receipt.txt",
+            "bytes": 365,
+            "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+          },
+          "settingsReceipt": {
+            "path": "PackageReview/Frontend/2560x1440/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "culture": "en",
+      "passed": true,
+      "scope": "설정 전체 순회, 자막 100%·200%, 글자 경계와 키보드·패드 입력",
+      "source": {
+        "path": "ForeignUi/en/summary.json",
+        "bytes": 10776,
+        "sha256": "1c0c2f1b02b623e54c4bf9e8f108df3993d17fa3d68f473d348ec4e5d0e37c80"
+      },
+      "settingsLayoutSamples": 632,
+      "inputEvents": 44,
+      "textFailures": 0,
+      "resolutions": [
+        {
+          "resolution": "1280x720",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/en/1280x720/receipt.txt",
+            "bytes": 361,
+            "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/en/1280x720/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1600x900",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/en/1600x900/receipt.txt",
+            "bytes": 361,
+            "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/en/1600x900/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1920x1080",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/en/1920x1080/receipt.txt",
+            "bytes": 365,
+            "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/en/1920x1080/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "2560x1440",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/en/2560x1440/receipt.txt",
+            "bytes": 365,
+            "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/en/2560x1440/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "culture": "ja",
+      "passed": true,
+      "scope": "설정 전체 순회, 자막 100%·200%, 글자 경계와 키보드·패드 입력",
+      "source": {
+        "path": "ForeignUi/ja/summary.json",
+        "bytes": 10776,
+        "sha256": "00596cf410516911fe2bf2f681fab1c806309ae86bb74f017d3fed58005f161e"
+      },
+      "settingsLayoutSamples": 632,
+      "inputEvents": 44,
+      "textFailures": 0,
+      "resolutions": [
+        {
+          "resolution": "1280x720",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/ja/1280x720/receipt.txt",
+            "bytes": 361,
+            "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/ja/1280x720/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1600x900",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/ja/1600x900/receipt.txt",
+            "bytes": 361,
+            "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/ja/1600x900/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1920x1080",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/ja/1920x1080/receipt.txt",
+            "bytes": 365,
+            "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/ja/1920x1080/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "2560x1440",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/ja/2560x1440/receipt.txt",
+            "bytes": 365,
+            "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/ja/2560x1440/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "culture": "zh-Hans",
+      "passed": true,
+      "scope": "설정 전체 순회, 자막 100%·200%, 글자 경계와 키보드·패드 입력",
+      "source": {
+        "path": "ForeignUi/zh-Hans/summary.json",
+        "bytes": 10916,
+        "sha256": "ecd9a4c3fd5f41fbabe10a5b2e8d66626515ec12082f77ca7c890c00360db851"
+      },
+      "settingsLayoutSamples": 632,
+      "inputEvents": 44,
+      "textFailures": 0,
+      "resolutions": [
+        {
+          "resolution": "1280x720",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/zh-Hans/1280x720/receipt.txt",
+            "bytes": 361,
+            "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/zh-Hans/1280x720/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1600x900",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/zh-Hans/1600x900/receipt.txt",
+            "bytes": 361,
+            "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/zh-Hans/1600x900/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1920x1080",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/zh-Hans/1920x1080/receipt.txt",
+            "bytes": 365,
+            "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/zh-Hans/1920x1080/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "2560x1440",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/zh-Hans/2560x1440/receipt.txt",
+            "bytes": 365,
+            "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/zh-Hans/2560x1440/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        }
+      ],
+      "status": "PASS"
+    },
+    {
+      "culture": "zh-Hant",
+      "passed": true,
+      "scope": "설정 전체 순회, 자막 100%·200%, 글자 경계와 키보드·패드 입력",
+      "source": {
+        "path": "ForeignUi/zh-Hant/summary.json",
+        "bytes": 10916,
+        "sha256": "1b842317cf5611bb65c21cc16e255ecc5e6271ae88817a00155830a4930c20a0"
+      },
+      "settingsLayoutSamples": 632,
+      "inputEvents": 44,
+      "textFailures": 0,
+      "resolutions": [
+        {
+          "resolution": "1280x720",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/zh-Hant/1280x720/receipt.txt",
+            "bytes": 361,
+            "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/zh-Hant/1280x720/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1600x900",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/zh-Hant/1600x900/receipt.txt",
+            "bytes": 361,
+            "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/zh-Hant/1600x900/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "1920x1080",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/zh-Hant/1920x1080/receipt.txt",
+            "bytes": 365,
+            "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/zh-Hant/1920x1080/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        },
+        {
+          "resolution": "2560x1440",
+          "settingsLayoutSamples": 158,
+          "inputEvents": 11,
+          "textFailures": 0,
+          "receipt": {
+            "path": "ForeignUi/zh-Hant/2560x1440/receipt.txt",
+            "bytes": 365,
+            "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+          },
+          "settingsReceipt": {
+            "path": "ForeignUi/zh-Hant/2560x1440/settings-layout.txt",
+            "bytes": 62,
+            "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+          }
+        }
+      ],
+      "status": "PASS"
+    }
+  ],
+  "saveRecovery": {
+    "passed": true,
+    "source": {
+      "path": "PackageReview/SaveRecovery/summary.json",
+      "bytes": 6872,
+      "sha256": "5a8deb5ba1a69d62c53a6251220f9c735de2f8005d5fc38a7883c0beded4a350"
+    },
+    "scope": "Shipping NullRHI에서 입주 저장 복원, 손상·없는 맵·거대한 길이·다른 클래스·8 MiB 초과 슬롯의 안전 거부와 정상 슬롯 복구, 저장 파일 보존과 2 GiB 메모리 상한을 검사합니다. 화면·일반 플레이 성능·사람의 완주 평가는 별도입니다.",
+    "rhi": "NullRHI",
+    "fromVersion": "0.2.3",
+    "seedSaveSha256": "a9210b425dec7980ec1e8b162bc7ac71282a568312531fc32b3366b48cb71799",
+    "seedUnchanged": true,
+    "caseCount": 16,
+    "cases": [
+      {
+        "name": "SingleValidSlot",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.94,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 332.66,
+        "peakCommittedMiB": 319.69,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/SingleValidSlot/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "CorruptSlot0",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.16,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 336.62,
+        "peakCommittedMiB": 320.5,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/CorruptSlot0/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "CorruptSlot1",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.96,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.66,
+        "peakCommittedMiB": 320.32,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/CorruptSlot1/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "TruncatedSlot0",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.42,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.38,
+        "peakCommittedMiB": 320.22,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/TruncatedSlot0/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "MissingMapSlot0",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.94,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 339.83,
+        "peakCommittedMiB": 319.62,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/MissingMapSlot0/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "OnlyMissingMap",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.29,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 307.57,
+        "peakCommittedMiB": 290.52,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/OnlyMissingMap/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      },
+      {
+        "name": "BothCorrupt",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.13,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 307.26,
+        "peakCommittedMiB": 290.32,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/BothCorrupt/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      },
+      {
+        "name": "NoSave",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.36,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 305.31,
+        "peakCommittedMiB": 288.25,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/NoSave/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      },
+      {
+        "name": "HugeBranchWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.16,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.38,
+        "peakCommittedMiB": 319.87,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/HugeBranchWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "HugeCustomVersionsWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.16,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.98,
+        "peakCommittedMiB": 320.3,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/HugeCustomVersionsWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "HugeClassWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.09,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.03,
+        "peakCommittedMiB": 319.43,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/HugeClassWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "WrongClassWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.19,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.5,
+        "peakCommittedMiB": 320.24,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/WrongClassWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "HugeArrayWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.05,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.91,
+        "peakCommittedMiB": 320.37,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/HugeArrayWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "OversizedWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.95,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 339.52,
+        "peakCommittedMiB": 319.3,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/OversizedWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "OnlyHugeArray",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.84,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 309.72,
+        "peakCommittedMiB": 292.84,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/OnlyHugeArray/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      },
+      {
+        "name": "OnlyOversized",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.8,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 295.2,
+        "peakCommittedMiB": 287.45,
+        "receiptSource": {
+          "path": "PackageReview/SaveRecovery/OnlyOversized/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      }
+    ],
+    "peakWorkingSetMiB": 340.98,
+    "peakCommittedMiB": 320.5,
+    "performanceMeasurementValid": false,
+    "status": "PASS"
+  },
+  "previousVersionSaveCompatibility": {
+    "passed": true,
+    "source": {
+      "path": "LegacySave022/summary.json",
+      "bytes": 6875,
+      "sha256": "1d32c7602858f273827e93608cc2f5fe881de289bcfc53d269c76cd4450a7c1c"
+    },
+    "scope": "Shipping NullRHI에서 입주 저장 복원, 손상·없는 맵·거대한 길이·다른 클래스·8 MiB 초과 슬롯의 안전 거부와 정상 슬롯 복구, 저장 파일 보존과 2 GiB 메모리 상한을 검사합니다. 화면·일반 플레이 성능·사람의 완주 평가는 별도입니다.",
+    "rhi": "NullRHI",
+    "fromVersion": "0.2.2",
+    "seedSaveSha256": "84f0dea72fd766315a587a2330eac3f09a6e42768051ca17b33436156743c35e",
+    "seedUnchanged": true,
+    "caseCount": 16,
+    "cases": [
+      {
+        "name": "SingleValidSlot",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.17,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.74,
+        "peakCommittedMiB": 320.15,
+        "receiptSource": {
+          "path": "LegacySave022/SingleValidSlot/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "CorruptSlot0",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.04,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 332.15,
+        "peakCommittedMiB": 319.62,
+        "receiptSource": {
+          "path": "LegacySave022/CorruptSlot0/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "CorruptSlot1",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.09,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 332.69,
+        "peakCommittedMiB": 320.13,
+        "receiptSource": {
+          "path": "LegacySave022/CorruptSlot1/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "TruncatedSlot0",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.09,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 332.6,
+        "peakCommittedMiB": 320.14,
+        "receiptSource": {
+          "path": "LegacySave022/TruncatedSlot0/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "MissingMapSlot0",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.42,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 335.67,
+        "peakCommittedMiB": 320.21,
+        "receiptSource": {
+          "path": "LegacySave022/MissingMapSlot0/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "OnlyMissingMap",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 2.05,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 309.71,
+        "peakCommittedMiB": 291.69,
+        "receiptSource": {
+          "path": "LegacySave022/OnlyMissingMap/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      },
+      {
+        "name": "BothCorrupt",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.99,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 310.16,
+        "peakCommittedMiB": 291.77,
+        "receiptSource": {
+          "path": "LegacySave022/BothCorrupt/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      },
+      {
+        "name": "NoSave",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.94,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 309.77,
+        "peakCommittedMiB": 291.73,
+        "receiptSource": {
+          "path": "LegacySave022/NoSave/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      },
+      {
+        "name": "HugeBranchWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.95,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 341.08,
+        "peakCommittedMiB": 320.29,
+        "receiptSource": {
+          "path": "LegacySave022/HugeBranchWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "HugeCustomVersionsWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.89,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.91,
+        "peakCommittedMiB": 320.0,
+        "receiptSource": {
+          "path": "LegacySave022/HugeCustomVersionsWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "HugeClassWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.83,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.21,
+        "peakCommittedMiB": 319.09,
+        "receiptSource": {
+          "path": "LegacySave022/HugeClassWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "WrongClassWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.85,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.91,
+        "peakCommittedMiB": 320.08,
+        "receiptSource": {
+          "path": "LegacySave022/WrongClassWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "HugeArrayWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.84,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.71,
+        "peakCommittedMiB": 319.8,
+        "receiptSource": {
+          "path": "LegacySave022/HugeArrayWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "OversizedWithBackup",
+        "passed": true,
+        "restored": true,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.85,
+        "receipt": "MISSINGFLOOR_GREYBOX PASS step=0",
+        "receiptSha256": "6D4FC9D5573CC7CCB9C56B0A56967382AF744F9508F60955CA5C62248AE7F37A",
+        "peakWorkingSetMiB": 340.95,
+        "peakCommittedMiB": 320.36,
+        "receiptSource": {
+          "path": "LegacySave022/OversizedWithBackup/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "OnlyHugeArray",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.86,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 310.51,
+        "peakCommittedMiB": 291.75,
+        "receiptSource": {
+          "path": "LegacySave022/OnlyHugeArray/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      },
+      {
+        "name": "OnlyOversized",
+        "passed": true,
+        "restored": false,
+        "exitCode": 0,
+        "savesUnchanged": true,
+        "seconds": 1.84,
+        "receipt": "MISSINGFLOOR_GREYBOX FAIL step=38",
+        "receiptSha256": "508DA042138C2BC356FC0A855D5F8EA402F81829AE89C539DA3FFE16AFA55331",
+        "peakWorkingSetMiB": 305.44,
+        "peakCommittedMiB": 286.46,
+        "receiptSource": {
+          "path": "LegacySave022/OnlyOversized/receipt.txt",
+          "bytes": 34,
+          "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+        }
+      }
+    ],
+    "peakWorkingSetMiB": 341.08,
+    "peakCommittedMiB": 320.36,
+    "performanceMeasurementValid": false,
+    "status": "PASS"
+  },
+  "endingLifecycle": {
+    "passed": true,
+    "source": {
+      "path": "PackageReview/EndingLifecycle/summary.json",
+      "bytes": 5069,
+      "sha256": "516efaa58b9d97bea326253d9693db0fbde944e108476149e5b21e0cc71ee29e"
+    },
+    "scope": "실제 FullGame 진행의 선택 직전 저장, 새 프로세스의 정상 저장 복원, A/B 상호작용 완료, B의 30초 기다림, A 87초/B 71초 에필로그, 프로필 기록과 재시작 후 다섯째 밤 해금. NullRHI 기능 검사이며 영상·음질·실제 키 홀드·사람의 완주 평가는 별도입니다.",
+    "rhi": "NullRHI",
+    "caseCount": 5,
+    "seed": "PackageReview/EndingLifecycle/Checkpoint/User/Saved/SaveGames/AutoSave_1.sav",
+    "seedSha256": "ae6560d759c2a2e6bf72de51af4a337aa9847339d08d472d0f2d4b11f6815ac5",
+    "seedUnchanged": true,
+    "profilePathMetadataMismatchCount": 0,
+    "allowLegacyProfilePathMetadata": false,
+    "cases": [
+      {
+        "name": "Checkpoint",
+        "passed": true,
+        "seconds": 63.92,
+        "receipt": {
+          "path": "PackageReview/EndingLifecycle/Checkpoint/receipt.json",
+          "bytes": 625,
+          "sha256": "ee194d98183894300fd78aa5c23f2be9e9b952c03681931f3722ad79fd56d707"
+        },
+        "measurements": {
+          "probe": "MISSINGFLOOR_ENDING_LIFECYCLE",
+          "status": "PASS",
+          "mode": "checkpoint",
+          "ending": "",
+          "reason": "실제 완주 과정의 선택 직전 저장을 디스크에서 확인함",
+          "saveSlot": "AutoSave_1",
+          "profilePath": "PackageReview/EndingLifecycle/Checkpoint/User/Saved/Config/Windows/GameUserSettings.ini",
+          "restoredThroughSaveSubsystem": false,
+          "vigilObserved": false,
+          "sevenSecondWaitObserved": false,
+          "endingASeen": false,
+          "endingBSeen": false,
+          "nightFiveAvailable": false,
+          "vigilSeconds": 0,
+          "epilogueSeconds": 0,
+          "epilogueScenes": 0
+        },
+        "profileEvidence": null
+      },
+      {
+        "name": "EndingA",
+        "passed": true,
+        "seconds": 92.08,
+        "receipt": {
+          "path": "PackageReview/EndingLifecycle/EndingA/receipt.json",
+          "bytes": 627,
+          "sha256": "0e3afec1b4ccd19c83e75cd5bb181417da944001b50fda6552f144a782b5d430"
+        },
+        "measurements": {
+          "probe": "MISSINGFLOOR_ENDING_LIFECYCLE",
+          "status": "PASS",
+          "mode": "ending",
+          "ending": "A",
+          "reason": "실제 에필로그 종료와 타이틀의 다섯째 밤 상태를 확인함",
+          "saveSlot": "",
+          "profilePath": "PackageReview/EndingLifecycle/EndingA/User/Saved/Config/Windows/GameUserSettings.ini",
+          "restoredThroughSaveSubsystem": true,
+          "vigilObserved": false,
+          "sevenSecondWaitObserved": false,
+          "endingASeen": true,
+          "endingBSeen": false,
+          "nightFiveAvailable": false,
+          "vigilSeconds": 0,
+          "epilogueSeconds": 87.00818959996104,
+          "epilogueScenes": 5
+        },
+        "profileEvidence": {
+          "path": "PackageReview/EndingLifecycle/EndingA/User/Saved/Config/Windows/GameUserSettings.ini",
+          "sha256": "DCAB1DC2585DD3A8AA44275173901678496288EB65C1A48274351AA2EC0AF2D7",
+          "endingASeen": true,
+          "endingBSeen": false,
+          "epilogueExperienced": true,
+          "reportedProfilePath": "PackageReview/EndingLifecycle/EndingA/User/Saved/Config/Windows/GameUserSettings.ini",
+          "profilePathMetadataMismatch": false
+        }
+      },
+      {
+        "name": "ProfileA",
+        "passed": true,
+        "seconds": 1.82,
+        "receipt": {
+          "path": "PackageReview/EndingLifecycle/ProfileA/receipt.json",
+          "bytes": 609,
+          "sha256": "2510fc033f5ad7b3d7dde3f98ff46c300a81fbd3e50add7ec9a0b6ffcfbb20d9"
+        },
+        "measurements": {
+          "probe": "MISSINGFLOOR_ENDING_LIFECYCLE",
+          "status": "PASS",
+          "mode": "profile",
+          "ending": "A",
+          "reason": "새 프로세스에서 엔딩 기록과 다섯째 밤 해금이 유지됨",
+          "saveSlot": "",
+          "profilePath": "PackageReview/EndingLifecycle/EndingA/User/Saved/Config/Windows/GameUserSettings.ini",
+          "restoredThroughSaveSubsystem": false,
+          "vigilObserved": false,
+          "sevenSecondWaitObserved": false,
+          "endingASeen": true,
+          "endingBSeen": false,
+          "nightFiveAvailable": false,
+          "vigilSeconds": 0,
+          "epilogueSeconds": 0,
+          "epilogueScenes": 0
+        },
+        "profileEvidence": {
+          "path": "PackageReview/EndingLifecycle/EndingA/User/Saved/Config/Windows/GameUserSettings.ini",
+          "sha256": "DCAB1DC2585DD3A8AA44275173901678496288EB65C1A48274351AA2EC0AF2D7",
+          "endingASeen": true,
+          "endingBSeen": false,
+          "epilogueExperienced": true,
+          "reportedProfilePath": "PackageReview/EndingLifecycle/EndingA/User/Saved/Config/Windows/GameUserSettings.ini",
+          "profilePathMetadataMismatch": false
+        }
+      },
+      {
+        "name": "EndingB",
+        "passed": true,
+        "seconds": 107.88,
+        "receipt": {
+          "path": "PackageReview/EndingLifecycle/EndingB/receipt.json",
+          "bytes": 641,
+          "sha256": "bbcc62610daa77606ef190bc4a75d2c0f2dfc79558a8fe8c4f45add0bf48acab"
+        },
+        "measurements": {
+          "probe": "MISSINGFLOOR_ENDING_LIFECYCLE",
+          "status": "PASS",
+          "mode": "ending",
+          "ending": "B",
+          "reason": "실제 에필로그 종료와 타이틀의 다섯째 밤 상태를 확인함",
+          "saveSlot": "",
+          "profilePath": "PackageReview/EndingLifecycle/EndingB/User/Saved/Config/Windows/GameUserSettings.ini",
+          "restoredThroughSaveSubsystem": true,
+          "vigilObserved": true,
+          "sevenSecondWaitObserved": true,
+          "endingASeen": false,
+          "endingBSeen": true,
+          "nightFiveAvailable": true,
+          "vigilSeconds": 31.901886202394962,
+          "epilogueSeconds": 71.00503750145435,
+          "epilogueScenes": 4
+        },
+        "profileEvidence": {
+          "path": "PackageReview/EndingLifecycle/EndingB/User/Saved/Config/Windows/GameUserSettings.ini",
+          "sha256": "99F1A85C3ADCFD8EE480313B9BEC89A57AEB3CA2D6A9A4115A5E77E48A6B46E6",
+          "endingASeen": false,
+          "endingBSeen": true,
+          "epilogueExperienced": true,
+          "reportedProfilePath": "PackageReview/EndingLifecycle/EndingB/User/Saved/Config/Windows/GameUserSettings.ini",
+          "profilePathMetadataMismatch": false
+        }
+      },
+      {
+        "name": "ProfileB",
+        "passed": true,
+        "seconds": 1.89,
+        "receipt": {
+          "path": "PackageReview/EndingLifecycle/ProfileB/receipt.json",
+          "bytes": 608,
+          "sha256": "ce350ebd73c71a207acea8596b9ee1ac666d2e1a9f9e15b68fb12d26de286aa3"
+        },
+        "measurements": {
+          "probe": "MISSINGFLOOR_ENDING_LIFECYCLE",
+          "status": "PASS",
+          "mode": "profile",
+          "ending": "B",
+          "reason": "새 프로세스에서 엔딩 기록과 다섯째 밤 해금이 유지됨",
+          "saveSlot": "",
+          "profilePath": "PackageReview/EndingLifecycle/EndingB/User/Saved/Config/Windows/GameUserSettings.ini",
+          "restoredThroughSaveSubsystem": false,
+          "vigilObserved": false,
+          "sevenSecondWaitObserved": false,
+          "endingASeen": false,
+          "endingBSeen": true,
+          "nightFiveAvailable": true,
+          "vigilSeconds": 0,
+          "epilogueSeconds": 0,
+          "epilogueScenes": 0
+        },
+        "profileEvidence": {
+          "path": "PackageReview/EndingLifecycle/EndingB/User/Saved/Config/Windows/GameUserSettings.ini",
+          "sha256": "99F1A85C3ADCFD8EE480313B9BEC89A57AEB3CA2D6A9A4115A5E77E48A6B46E6",
+          "endingASeen": false,
+          "endingBSeen": true,
+          "epilogueExperienced": true,
+          "reportedProfilePath": "PackageReview/EndingLifecycle/EndingB/User/Saved/Config/Windows/GameUserSettings.ini",
+          "profilePathMetadataMismatch": false
+        }
+      }
+    ],
+    "status": "PASS"
+  },
+  "userSettingsMigration": {
+    "passed": true,
+    "source": {
+      "path": "SettingsMigration/summary.json",
+      "bytes": 1584,
+      "sha256": "02535db6fbdcf1d59bf517c3f115e5ddfff049254b79323b7ab7430437025eb2"
+    },
+    "scope": "실제 Shipping의 기존 화면 설정 이관과 입주 조사·자동 저장을 확인한 NullRHI 진단",
+    "caseCount": 2,
+    "performanceMeasurementValid": false,
+    "cases": [
+      {
+        "name": "High87-VSyncOn-30fps",
+        "passed": true,
+        "source": {
+          "path": "SettingsMigration/High87-VSyncOn-30fps/settings-result.json",
+          "bytes": 1991,
+          "sha256": "fc3e0d11856c334aa407050fd566186a6e02ae1c6b27a0e7b393614bfdaa1cec"
+        },
+        "measurements": {
+          "scope": "기존 사용자 화면 설정의 Shipping 이관만 확인한 NullRHI 진단",
+          "passed": true,
+          "old_resolution_percentage": 87.0,
+          "new_resolution_percentage": 100,
+          "quality": 2,
+          "eleven_quality_levels_preserved": true,
+          "profile_sections_preserved": true,
+          "profile_values_in_raw_after": {
+            "IndieGame.Onboarding/EndingSeen.Ending.B": "1",
+            "IndieGame.MissingFloorProfile/EpilogueExperienced": "True"
+          },
+          "profile_scope": "SaveSettings가 다른 프로필 섹션을 보존하는지만 검사했다. 게임 해금 동작을 검증한 결과가 아니다.",
+          "vsync_preserved": true,
+          "frame_limit_preserved": 30.0,
+          "profile_rows": 13,
+          "observed_settings": {
+            "ScreenPercentage": [
+              100.0
+            ],
+            "QualityLevel": [
+              2.0
+            ],
+            "VSync": [
+              1.0
+            ],
+            "FrameLimit": [
+              30.0
+            ]
+          },
+          "saved_delta_omitted_keys": [
+            "sg.ResolutionQuality",
+            "sg.ViewDistanceQuality",
+            "sg.AntiAliasingQuality",
+            "sg.ShadowQuality",
+            "sg.GlobalIlluminationQuality",
+            "sg.ReflectionQuality",
+            "sg.PostProcessQuality",
+            "sg.TextureQuality",
+            "sg.EffectsQuality",
+            "sg.FoliageQuality",
+            "sg.ShadingQuality",
+            "sg.LandscapeQuality"
+          ],
+          "saved_settings_note": "UE가 기본값과의 차이만 저장하므로 생략된 키는 패키지 빌드 커밋의 기본 설정과 합쳐 확인했다.",
+          "before_sha256": "fe0fdcb46fde133c9732502ac3e64c8fb418d53448956b9e81838a863e245ea8",
+          "after_sha256": "7f56fbba29f52a3c331622b72b599f1c73270b8e6ef31150bf3f23793787cf6c",
+          "package_defaults_sha256": "d9ab6c14b4e588fcfe13ea9bc98e721df5d459f5c70cce6888ff1f3adb45bf45",
+          "profile_sha256": "ecbe58eb2357ef68dc7e2942ee3d99108d4da62b3ed137450501db6f59a2c38e",
+          "profile_metadata_sha256": "b61409d8095c722ff25366e25e735eaad456400b03e33f4e89956975fa71130e",
+          "rhi": "Null",
+          "performance_measurement_valid": false,
+          "shipping_release_certified": false
+        },
+        "arrivalReceiptSha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a",
+        "saves": [
+          {
+            "name": "AutoSave_0.sav",
+            "sha256": "8b187d17f0616d32a6d665378891bcc2fe51b14733cc5e29dd93448fa42e7166"
+          },
+          {
+            "name": "AutoSave_1.sav",
+            "sha256": "123991b160431bdc7fcdccf879bfdd71680fc11cf6c30f114fceb690b6721aab"
+          }
+        ]
+      },
+      {
+        "name": "Medium71-VSyncOff-Unlimited",
+        "passed": true,
+        "source": {
+          "path": "SettingsMigration/Medium71-VSyncOff-Unlimited/settings-result.json",
+          "bytes": 1555,
+          "sha256": "b4cc2660dad9a3cfcfc529ea7e82abaa89805a7ecba9d707f68e14debb16111c"
+        },
+        "measurements": {
+          "scope": "기존 사용자 화면 설정의 Shipping 이관만 확인한 NullRHI 진단",
+          "passed": true,
+          "old_resolution_percentage": 71.0,
+          "new_resolution_percentage": 100,
+          "quality": 1,
+          "eleven_quality_levels_preserved": true,
+          "profile_sections_preserved": null,
+          "profile_values_in_raw_after": null,
+          "profile_scope": "SaveSettings가 다른 프로필 섹션을 보존하는지만 검사했다. 게임 해금 동작을 검증한 결과가 아니다.",
+          "vsync_preserved": false,
+          "frame_limit_preserved": 0.0,
+          "profile_rows": 648,
+          "observed_settings": {
+            "ScreenPercentage": [
+              100.0
+            ],
+            "QualityLevel": [
+              1.0
+            ],
+            "VSync": [
+              0.0
+            ],
+            "FrameLimit": [
+              0.0
+            ]
+          },
+          "saved_delta_omitted_keys": [
+            "sg.ResolutionQuality"
+          ],
+          "saved_settings_note": "UE가 기본값과의 차이만 저장하므로 생략된 키는 패키지 빌드 커밋의 기본 설정과 합쳐 확인했다.",
+          "before_sha256": "95dc245233d32c5d8fae9dec8f400e680e2c0af13980fbef45310c1b6e1a8583",
+          "after_sha256": "615cdcf3c33afaaf29f3d090917fecebae76c8d08ef3e0a212e16bc65d0c7f5b",
+          "package_defaults_sha256": "d9ab6c14b4e588fcfe13ea9bc98e721df5d459f5c70cce6888ff1f3adb45bf45",
+          "profile_sha256": "17ab93414050a60d5e27523e4f72cf8ee698f914cfee5b0261c53e26d7b70b20",
+          "profile_metadata_sha256": "3110bcfccc3c24da23a81563f8b9a2960ec181f9f6ee148f52d1268ab6bc9989",
+          "rhi": "Null",
+          "performance_measurement_valid": false,
+          "shipping_release_certified": false
+        },
+        "arrivalReceiptSha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a",
+        "saves": [
+          {
+            "name": "AutoSave_0.sav",
+            "sha256": "6fa7c4751c989331757a9dfb2ddf1c3ec95e340c97f5c97b98bef790aa59a34b"
+          },
+          {
+            "name": "AutoSave_1.sav",
+            "sha256": "7200d652e146811745de498be7d51923b493bfa38848863c23b140486454af7b"
+          }
+        ]
+      }
+    ],
+    "status": "PASS"
+  },
+  "packageReview": {
+    "passed": true,
+    "source": {
+      "path": "PackageReview/summary.json",
+      "bytes": 2186,
+      "sha256": "028221e9388c978ca7af8472ae78c968869a86e552de52e39970c0346dbb2494"
+    },
+    "scope": "패키지 무결성, 화면·입력, 입주 저장·이어하기와 손상 슬롯 복원, 전체 진행, 소리 자동 검사. 여러 PC의 성능 인증과 사람의 완주 검수는 별도로 필요합니다.",
+    "archiveUnchanged": true,
+    "cases": [
+      {
+        "name": "Arrival",
+        "passed": true,
+        "seconds": 3.67,
+        "receipt": {
+          "path": "PackageReview/Arrival/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "ArrivalResume",
+        "passed": true,
+        "seconds": 3.61,
+        "receipt": {
+          "path": "PackageReview/ArrivalResume/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        }
+      },
+      {
+        "name": "FullGame",
+        "passed": true,
+        "seconds": 64.34,
+        "receipt": {
+          "path": "PackageReview/FullGame/receipt.txt",
+          "bytes": 34,
+          "sha256": "7a62486c3026b39a5811330e1da271f337ac4c4697ed17c1ddacc43febaf200c"
+        }
+      },
+      {
+        "name": "Audio",
+        "passed": true,
+        "seconds": 17.81,
+        "receipt": {
+          "path": "PackageReview/Audio/User/Saved/AudioPresentation/receipt.txt",
+          "bytes": 3329,
+          "sha256": "84679146d2d61490c6c9a7b5c9d58df6152df9179056b15c8c95eaf4e9393677"
+        }
+      }
+    ],
+    "audioScope": "실제 믹서·버스·음량 동작의 자동 검사. 사람의 청감 평가는 별도다.",
+    "status": "PASS"
+  },
+  "captionLifecycle": {
+    "status": "PASS",
+    "source": {
+      "path": "CaptionReview/summary.json",
+      "bytes": 5447,
+      "sha256": "af4e6ff7231afef4b8263b3afce05ec47abcc67f8b8aadfeb41cee321af7bfab"
+    },
+    "scope": "D3D12에서 4개 해상도의 플레이 자막, 6초 일시정지 뒤 복귀와 타이틀 자막 제거를 검사합니다. 다섯째 밤은 해금 조회를 우회해 두 소리 자막의 실제 출력과 타이틀 복귀만 검사합니다. 소리 재생과 실제 엔딩 해금 검사는 별도입니다.",
+    "pauseCases": [
+      {
+        "resolution": "1280x720",
+        "pauseSeconds": 6.01,
+        "passed": true,
+        "receipt": {
+          "path": "PackageReview/Frontend/1280x720/caption-pause.txt",
+          "sha256": "2C838AD2059031C5FD9F2B2CF9298E17D133B946D99B72FC8530F489D5ABD903"
+        },
+        "screenshots": [
+          {
+            "path": "PackageReview/Frontend/1280x720/caption-paused.png",
+            "sha256": "378105F597DE36588DB5E8A73701078CCAA40FEA5AD50E2C4CC888E80ECD5679",
+            "width": 1280,
+            "height": 720
+          },
+          {
+            "path": "PackageReview/Frontend/1280x720/caption-resumed.png",
+            "sha256": "4414171EA5CA639B663B671F30289FC4DB865AE150DC51B767F0886540E652D7",
+            "width": 1280,
+            "height": 720
+          }
+        ]
+      },
+      {
+        "resolution": "1600x900",
+        "pauseSeconds": 6.015,
+        "passed": true,
+        "receipt": {
+          "path": "PackageReview/Frontend/1600x900/caption-pause.txt",
+          "sha256": "F3258391F2EA462512A99A76E8F383702EF6F5AD9BBCB487894D1BD0B8B14EEA"
+        },
+        "screenshots": [
+          {
+            "path": "PackageReview/Frontend/1600x900/caption-paused.png",
+            "sha256": "B81794A2CE6BC97E9141D27F75C324F59FD0A7BCA8645348E881F92085A312C5",
+            "width": 1600,
+            "height": 900
+          },
+          {
+            "path": "PackageReview/Frontend/1600x900/caption-resumed.png",
+            "sha256": "0CD3ED58A21795FC3E9ABB33B45E03A26076E544D46EC4F4AF19F81A9BF91EA6",
+            "width": 1600,
+            "height": 900
+          }
+        ]
+      },
+      {
+        "resolution": "1920x1080",
+        "pauseSeconds": 6.003,
+        "passed": true,
+        "receipt": {
+          "path": "PackageReview/Frontend/1920x1080/caption-pause.txt",
+          "sha256": "3847EAC3658235796F65308961ADE229A5FA968687D382F2103559DFDA1913D0"
+        },
+        "screenshots": [
+          {
+            "path": "PackageReview/Frontend/1920x1080/caption-paused.png",
+            "sha256": "6FDC230074C098B78F98B13999DD0D2DA36698865ECA48C0D20D64D39F0E48FE",
+            "width": 1920,
+            "height": 1080
+          },
+          {
+            "path": "PackageReview/Frontend/1920x1080/caption-resumed.png",
+            "sha256": "3E548F329B027CFE882865214145F87E767373053F267493D2C0EC17B6ACDBC7",
+            "width": 1920,
+            "height": 1080
+          }
+        ]
+      },
+      {
+        "resolution": "2560x1440",
+        "pauseSeconds": 6.006,
+        "passed": true,
+        "receipt": {
+          "path": "PackageReview/Frontend/2560x1440/caption-pause.txt",
+          "sha256": "8818C15D16FB51F554D0FA2BBEF8DDA80A411615AE5490C1DF05F62A3366175D"
+        },
+        "screenshots": [
+          {
+            "path": "PackageReview/Frontend/2560x1440/caption-paused.png",
+            "sha256": "0146CFA9AA9AECFFABFC363B3B12BE8F43BA6A0A0A131EEB9D7630B716357456",
+            "width": 2560,
+            "height": 1440
+          },
+          {
+            "path": "PackageReview/Frontend/2560x1440/caption-resumed.png",
+            "sha256": "D49CB7371DF43229145349D0282D9C47A55DBD13C7FB30BB5792AD242D67B9D7",
+            "width": 2560,
+            "height": 1440
+          }
+        ]
+      }
+    ],
+    "nightFive": {
+      "passed": true,
+      "unlockBypass": true,
+      "processId": 43540,
+      "receipt": {
+        "path": "CaptionReview/NightFive/receipt.txt",
+        "sha256": "3F0780806C1D170CA5B7B3521B8F6266FE9405773638532736137A3DBCF7ADA9"
+      },
+      "screenshots": [
+        {
+          "path": "CaptionReview/NightFive/night-five-signal.png",
+          "sha256": "BE96EB9C02FAB28ADAE2CD424E557CCCFA567BDC464E52671602E9BA478D28A9",
+          "width": 1280,
+          "height": 720
+        },
+        {
+          "path": "CaptionReview/NightFive/night-five-answer.png",
+          "sha256": "F3D47E3052633632ABD6F72B2B6CAE8C1823201FFC10B46E9BB082298683776D",
+          "width": 1280,
+          "height": 720
+        }
+      ]
+    },
+    "rawImageSources": [
+      {
+        "path": "PackageReview/Frontend/1280x720/caption-paused.png",
+        "sha256": "378105f597de36588db5e8a73701078ccaa40fea5ad50e2c4cc888e80ecd5679",
+        "width": 1280,
+        "height": 720
+      },
+      {
+        "path": "PackageReview/Frontend/1280x720/caption-resumed.png",
+        "sha256": "4414171ea5ca639b663b671f30289fc4db865ae150dc51b767f0886540e652d7",
+        "width": 1280,
+        "height": 720
+      },
+      {
+        "path": "PackageReview/Frontend/1600x900/caption-paused.png",
+        "sha256": "b81794a2ce6bc97e9141d27f75c324f59fd0a7bca8645348e881f92085a312c5",
+        "width": 1600,
+        "height": 900
+      },
+      {
+        "path": "PackageReview/Frontend/1600x900/caption-resumed.png",
+        "sha256": "0cd3ed58a21795fc3e9abb33b45e03a26076e544d46ec4f4af19f81a9bf91ea6",
+        "width": 1600,
+        "height": 900
+      },
+      {
+        "path": "PackageReview/Frontend/1920x1080/caption-paused.png",
+        "sha256": "6fdc230074c098b78f98b13999dd0d2da36698865eca48c0d20d64d39f0e48fe",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "path": "PackageReview/Frontend/1920x1080/caption-resumed.png",
+        "sha256": "3e548f329b027cfe882865214145f87e767373053f267493d2c0ec17b6acdbc7",
+        "width": 1920,
+        "height": 1080
+      },
+      {
+        "path": "PackageReview/Frontend/2560x1440/caption-paused.png",
+        "sha256": "0146cfa9aa9aecffabfc363b3b12be8f43ba6a0a0a131eeb9d7630b716357456",
+        "width": 2560,
+        "height": 1440
+      },
+      {
+        "path": "PackageReview/Frontend/2560x1440/caption-resumed.png",
+        "sha256": "d49cb7371df43229145349d0282d9c47a55dbd13c7fb30bb5792ad242d67b9d7",
+        "width": 2560,
+        "height": 1440
+      },
+      {
+        "path": "CaptionReview/NightFive/night-five-signal.png",
+        "sha256": "be96eb9c02fab28adae2cd424e557cccfa567bdc464e52671602e9ba478d28a9",
+        "width": 1280,
+        "height": 720
+      },
+      {
+        "path": "CaptionReview/NightFive/night-five-answer.png",
+        "sha256": "f3d47e3052633632abd6f72b2b6cae8c1823201ffc10b46e9bb082298683776d",
+        "width": 1280,
+        "height": 720
+      }
+    ],
+    "rawImageHashVerification": "자막 러너가 검증한 PNG 해시를 보존한다. 이 생성기는 PNG를 다시 읽거나 해시하지 않는다.",
+    "realNightFiveUnlockVerifiedByThisProbe": false
+  },
+  "shippingProfile": {
+    "source": {
+      "path": "HighTaaProfile/summary.json",
+      "bytes": 2445,
+      "sha256": "8bf5faafabe544448f53b82b761b42e96f9c30177465a515db36abb257642a11"
+    },
+    "buildCommit": "aec8fd3ea7ad89e3bec64e245c62e5c60520061f",
+    "manifestSha256": "7562de11b2792b9ba08c6f0edddac3a59a7e53c44c4651c499cb6820b621a733",
+    "shippingExecutableSha256": "20d2c75475f63276e99127070671d488c4f8d0c1cc323d5ead0d855e25f032ea",
+    "scope": "현재 장비의 Shipping 오프스크린 자동 밤 장면 경로. 실제 화면 출력 비용은 제외됨",
+    "status": "PASS",
+    "repeatedRuns": 3,
+    "allLocalFrameGatesPassed": true,
+    "presentCostMeasured": false,
+    "shippingReleaseCertified": false,
+    "vramObserved": false,
+    "runs": [
+      {
+        "run": 1,
+        "source": {
+          "path": "HighTaaProfile/Run1/summary.json",
+          "bytes": 8736,
+          "sha256": "79e4d495f65be77a1ae2768f13d0a9fb4fe1b884a225a2d929ef9c48fdfdfa44"
+        },
+        "rawSources": [
+          {
+            "path": "HighTaaProfile/Run1/User/Saved/Profiling/MissingFloorRuntime.csv",
+            "sha256": "570770dd0b4284119c967929cc01ce8e36a09ce1ccf48d3d2c2fd6417814e3b0"
+          },
+          {
+            "path": "HighTaaProfile/Run1/User/Saved/Profiling/MissingFloorRuntime.gpu.csv",
+            "sha256": "5b2e3094b94896ae0e12d1369501875799bd1ac81bac8693022a287e41dc72a1"
+          }
+        ],
+        "rawHashVerification": "원본 분석기가 검증·기록한 해시를 상위 요약과 대조했다. 이 생성기에서는 CSV를 다시 해시하지 않는다.",
+        "metadataSource": {
+          "path": "HighTaaProfile/Run1/User/Saved/Profiling/MissingFloorRuntime.csv.txt",
+          "bytes": 267,
+          "sha256": "5ada0838da298877508f9e551289feec8370ab3aa98b7c85e5da4fecdb0f1200"
+        },
+        "settingsSource": {
+          "path": "HighTaaProfile/Run1/settings.json",
+          "bytes": 577,
+          "sha256": "492a39e8569304e9d9d70dcc13884e33bac9735fb4ff7ee95431ab34befae5e2"
+        },
+        "receipt": {
+          "path": "HighTaaProfile/Run1/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        },
+        "measurements": {
+          "scope": "현재 장비의 Shipping 오프스크린 자동 밤 장면 경로. 실제 화면 출력, 여러 장비, 사람의 완주 검수는 별도로 필요하다.",
+          "source_sha256": "570770dd0b4284119c967929cc01ce8e36a09ce1ccf48d3d2c2fd6417814e3b0",
+          "gpu_source_sha256": "5b2e3094b94896ae0e12d1369501875799bd1ac81bac8693022a287e41dc72a1",
+          "metadata_sha256": "5ada0838da298877508f9e551289feec8370ab3aa98b7c85e5da4fecdb0f1200",
+          "hardware": {
+            "cpu": "AMD Ryzen 9 7900X 12-Core Processor            ",
+            "gpu": "NVIDIA GeForce RTX 3060",
+            "driver": "595.79",
+            "os": "10.0.26200.1.768.64bit",
+            "rhi": "D3D12",
+            "frames": "12504",
+            "ram_mib": "31849",
+            "memory_sampling_seconds": "1",
+            "gpu_timing": "history_queue",
+            "gpu_samples": "12502",
+            "gpu_stage": "receipt_time",
+            "gpu_tail_waited": "0"
+          },
+          "settings": {
+            "Width": 1920,
+            "Height": 1080,
+            "ScreenPercentage": 100,
+            "SecondaryScreenPercentage": 100,
+            "DynamicResolutionMode": 0,
+            "QualityLevel": 2,
+            "AntiAliasingMethod": 2,
+            "VSync": 0,
+            "FrameLimit": 0
+          },
+          "target_fps": 60,
+          "captured_frames": 12504,
+          "warmup_seconds": 120.0,
+          "analyzed_frames": 4877,
+          "analyzed_seconds": 63.824,
+          "stage_samples": {
+            "0": 534,
+            "1": 124,
+            "2": 132,
+            "3": 124,
+            "4": 107,
+            "5": 99,
+            "6": 108,
+            "7": 356,
+            "8": 595,
+            "9": 463,
+            "10": 348,
+            "11": 145,
+            "12": 126,
+            "13": 488,
+            "14": 119,
+            "15": 196,
+            "16": 127,
+            "18": 686
+          },
+          "stage_metrics": {
+            "0": {
+              "FrameTime": {
+                "median": 15.954,
+                "p95": 16.83,
+                "max": 19.51,
+                "samples": 534
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.517,
+                "p95": 16.242,
+                "max": 18.549,
+                "samples": 534
+              },
+              "cpu_duration_seconds": 8.521975
+            },
+            "1": {
+              "FrameTime": {
+                "median": 11.606,
+                "p95": 12.585,
+                "max": 18.433,
+                "samples": 124
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.219,
+                "p95": 12.449,
+                "max": 15.612,
+                "samples": 124
+              },
+              "cpu_duration_seconds": 1.448032
+            },
+            "2": {
+              "FrameTime": {
+                "median": 10.896,
+                "p95": 12.152,
+                "max": 13.679,
+                "samples": 132
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.56,
+                "p95": 11.508,
+                "max": 13.115,
+                "samples": 132
+              },
+              "cpu_duration_seconds": 1.438875
+            },
+            "3": {
+              "FrameTime": {
+                "median": 10.566,
+                "p95": 11.885,
+                "max": 15.174,
+                "samples": 124
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.054,
+                "p95": 10.939,
+                "max": 13.525,
+                "samples": 124
+              },
+              "cpu_duration_seconds": 1.318188
+            },
+            "4": {
+              "FrameTime": {
+                "median": 13.678,
+                "p95": 14.79,
+                "max": 16.561,
+                "samples": 107
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 13.261,
+                "p95": 14.096,
+                "max": 16.542,
+                "samples": 107
+              },
+              "cpu_duration_seconds": 1.445848
+            },
+            "5": {
+              "FrameTime": {
+                "median": 14.289,
+                "p95": 15.843,
+                "max": 18.63,
+                "samples": 99
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 13.903,
+                "p95": 15.174,
+                "max": 18.719,
+                "samples": 99
+              },
+              "cpu_duration_seconds": 1.431165
+            },
+            "6": {
+              "FrameTime": {
+                "median": 13.086,
+                "p95": 15.484,
+                "max": 16.369,
+                "samples": 108
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 12.697,
+                "p95": 14.62,
+                "max": 15.254,
+                "samples": 108
+              },
+              "cpu_duration_seconds": 1.44105
+            },
+            "7": {
+              "FrameTime": {
+                "median": 10.796,
+                "p95": 12.023,
+                "max": 16.923,
+                "samples": 356
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.352,
+                "p95": 11.332,
+                "max": 13.607,
+                "samples": 356
+              },
+              "cpu_duration_seconds": 3.839507
+            },
+            "8": {
+              "FrameTime": {
+                "median": 13.868,
+                "p95": 15.489,
+                "max": 22.172,
+                "samples": 595
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 13.35,
+                "p95": 14.944,
+                "max": 24.147,
+                "samples": 595
+              },
+              "cpu_duration_seconds": 8.23637
+            },
+            "9": {
+              "FrameTime": {
+                "median": 12.226,
+                "p95": 13.388,
+                "max": 17.421,
+                "samples": 463
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.768,
+                "p95": 12.752,
+                "max": 15.011,
+                "samples": 463
+              },
+              "cpu_duration_seconds": 5.64563
+            },
+            "10": {
+              "FrameTime": {
+                "median": 15.625,
+                "p95": 16.342,
+                "max": 19.911,
+                "samples": 348
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.237,
+                "p95": 15.71,
+                "max": 18.751,
+                "samples": 348
+              },
+              "cpu_duration_seconds": 5.437582
+            },
+            "11": {
+              "FrameTime": {
+                "median": 10.523,
+                "p95": 12.053,
+                "max": 17.428,
+                "samples": 145
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.177,
+                "p95": 10.995,
+                "max": 15.281,
+                "samples": 145
+              },
+              "cpu_duration_seconds": 1.524021
+            },
+            "12": {
+              "FrameTime": {
+                "median": 12.131,
+                "p95": 13.234,
+                "max": 13.859,
+                "samples": 126
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.81,
+                "p95": 12.739,
+                "max": 13.503,
+                "samples": 126
+              },
+              "cpu_duration_seconds": 1.523041
+            },
+            "13": {
+              "FrameTime": {
+                "median": 11.183,
+                "p95": 12.327,
+                "max": 14.723,
+                "samples": 488
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.776,
+                "p95": 11.66,
+                "max": 13.681,
+                "samples": 488
+              },
+              "cpu_duration_seconds": 5.432873
+            },
+            "14": {
+              "FrameTime": {
+                "median": 12.797,
+                "p95": 13.924,
+                "max": 15.394,
+                "samples": 119
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 12.433,
+                "p95": 13.039,
+                "max": 14.943,
+                "samples": 119
+              },
+              "cpu_duration_seconds": 1.521829
+            },
+            "15": {
+              "FrameTime": {
+                "median": 12.119,
+                "p95": 12.986,
+                "max": 15.29,
+                "samples": 196
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.816,
+                "p95": 12.567,
+                "max": 13.887,
+                "samples": 196
+              },
+              "cpu_duration_seconds": 2.361623
+            },
+            "16": {
+              "FrameTime": {
+                "median": 12.047,
+                "p95": 13.353,
+                "max": 15.06,
+                "samples": 127
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.631,
+                "p95": 12.334,
+                "max": 14.906,
+                "samples": 127
+              },
+              "cpu_duration_seconds": 1.514629
+            },
+            "18": {
+              "FrameTime": {
+                "median": 15.508,
+                "p95": 16.592,
+                "max": 21.784,
+                "samples": 686
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.077,
+                "p95": 16.037,
+                "max": 19.027,
+                "samples": 687
+              },
+              "cpu_duration_seconds": 9.741957
+            }
+          },
+          "captured_gpu_samples": 12502,
+          "analyzed_gpu_samples": 4878,
+          "gpu_sample_coverage": 1.000205,
+          "gpu_disjoint_warmup_events": 0.0,
+          "gpu_disjoint_measured_events": 0,
+          "metrics": {
+            "FrameTime": {
+              "median": 12.658,
+              "p95": 16.267,
+              "max": 22.172,
+              "samples": 4877
+            },
+            "Process/CommittedMiB": {
+              "median": 4509.777,
+              "p95": 4584.684,
+              "max": 4602.191,
+              "samples": 4877
+            },
+            "GPUMem/LocalUsedMB": null,
+            "GPUTime": {
+              "median": 12.161,
+              "p95": 15.783,
+              "max": 24.147,
+              "samples": 4878
+            }
+          },
+          "one_percent_low_fps": 55.847,
+          "frames_over_50ms": 0,
+          "frames_over_100ms": 0,
+          "local_route_frame_gate_passed": true,
+          "shipping_release_certified": false,
+          "notes": "GPU 시간은 큐에서 한 번씩 꺼낸 결과다. 장면 번호와 경과 시간은 수신 시점이므로 렌더 시점과 지연 차이가 있다. 종료 때 GPU를 기다리지 않으며 마지막 미도착 결과는 제외된다. 메모리는 초당 한 번의 표본이고 최초 로딩·워밍업·순간 멈춤은 원본에 보존한다."
+        }
+      },
+      {
+        "run": 2,
+        "source": {
+          "path": "HighTaaProfile/Run2/summary.json",
+          "bytes": 8741,
+          "sha256": "144adbd9d1ba76632c72f26407a092c3e2253e7e20227174752a8d6afd4e6166"
+        },
+        "rawSources": [
+          {
+            "path": "HighTaaProfile/Run2/User/Saved/Profiling/MissingFloorRuntime.csv",
+            "sha256": "34a9e1c0f94d934373cf2e9c571db552e34157269d405b1004f619f0780d170a"
+          },
+          {
+            "path": "HighTaaProfile/Run2/User/Saved/Profiling/MissingFloorRuntime.gpu.csv",
+            "sha256": "6b91cc4080f80fbba586e96a1379b73feff88b3f5414c2f0d70b5a4748108578"
+          }
+        ],
+        "rawHashVerification": "원본 분석기가 검증·기록한 해시를 상위 요약과 대조했다. 이 생성기에서는 CSV를 다시 해시하지 않는다.",
+        "metadataSource": {
+          "path": "HighTaaProfile/Run2/User/Saved/Profiling/MissingFloorRuntime.csv.txt",
+          "bytes": 267,
+          "sha256": "f52a48e00af587d318fa631f93b4334a158b84dfcc85a50f501ed4870f34218b"
+        },
+        "settingsSource": {
+          "path": "HighTaaProfile/Run2/settings.json",
+          "bytes": 577,
+          "sha256": "492a39e8569304e9d9d70dcc13884e33bac9735fb4ff7ee95431ab34befae5e2"
+        },
+        "receipt": {
+          "path": "HighTaaProfile/Run2/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        },
+        "measurements": {
+          "scope": "현재 장비의 Shipping 오프스크린 자동 밤 장면 경로. 실제 화면 출력, 여러 장비, 사람의 완주 검수는 별도로 필요하다.",
+          "source_sha256": "34a9e1c0f94d934373cf2e9c571db552e34157269d405b1004f619f0780d170a",
+          "gpu_source_sha256": "6b91cc4080f80fbba586e96a1379b73feff88b3f5414c2f0d70b5a4748108578",
+          "metadata_sha256": "f52a48e00af587d318fa631f93b4334a158b84dfcc85a50f501ed4870f34218b",
+          "hardware": {
+            "cpu": "AMD Ryzen 9 7900X 12-Core Processor            ",
+            "gpu": "NVIDIA GeForce RTX 3060",
+            "driver": "595.79",
+            "os": "10.0.26200.1.768.64bit",
+            "rhi": "D3D12",
+            "frames": "11984",
+            "ram_mib": "31849",
+            "memory_sampling_seconds": "1",
+            "gpu_timing": "history_queue",
+            "gpu_samples": "11982",
+            "gpu_stage": "receipt_time",
+            "gpu_tail_waited": "0"
+          },
+          "settings": {
+            "Width": 1920,
+            "Height": 1080,
+            "ScreenPercentage": 100,
+            "SecondaryScreenPercentage": 100,
+            "DynamicResolutionMode": 0,
+            "QualityLevel": 2,
+            "AntiAliasingMethod": 2,
+            "VSync": 0,
+            "FrameLimit": 0
+          },
+          "target_fps": 60,
+          "captured_frames": 11984,
+          "warmup_seconds": 120.0,
+          "analyzed_frames": 4838,
+          "analyzed_seconds": 63.821,
+          "stage_samples": {
+            "0": 531,
+            "1": 122,
+            "2": 133,
+            "3": 122,
+            "4": 106,
+            "5": 98,
+            "6": 108,
+            "7": 356,
+            "8": 599,
+            "9": 459,
+            "10": 346,
+            "11": 137,
+            "12": 121,
+            "13": 489,
+            "14": 116,
+            "15": 195,
+            "16": 127,
+            "18": 673
+          },
+          "stage_metrics": {
+            "0": {
+              "FrameTime": {
+                "median": 16.067,
+                "p95": 16.847,
+                "max": 18.941,
+                "samples": 531
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.643,
+                "p95": 16.182,
+                "max": 18.388,
+                "samples": 531
+              },
+              "cpu_duration_seconds": 8.531191
+            },
+            "1": {
+              "FrameTime": {
+                "median": 11.497,
+                "p95": 12.992,
+                "max": 18.231,
+                "samples": 122
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.231,
+                "p95": 12.228,
+                "max": 15.666,
+                "samples": 122
+              },
+              "cpu_duration_seconds": 1.430729
+            },
+            "2": {
+              "FrameTime": {
+                "median": 10.922,
+                "p95": 11.989,
+                "max": 14.386,
+                "samples": 133
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.385,
+                "p95": 11.264,
+                "max": 13.747,
+                "samples": 133
+              },
+              "cpu_duration_seconds": 1.439865
+            },
+            "3": {
+              "FrameTime": {
+                "median": 10.795,
+                "p95": 12.052,
+                "max": 15.591,
+                "samples": 122
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.542,
+                "p95": 11.194,
+                "max": 14.337,
+                "samples": 122
+              },
+              "cpu_duration_seconds": 1.324571
+            },
+            "4": {
+              "FrameTime": {
+                "median": 13.845,
+                "p95": 14.552,
+                "max": 15.373,
+                "samples": 106
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 13.43,
+                "p95": 14.078,
+                "max": 14.829,
+                "samples": 106
+              },
+              "cpu_duration_seconds": 1.443658
+            },
+            "5": {
+              "FrameTime": {
+                "median": 14.731,
+                "p95": 15.564,
+                "max": 16.431,
+                "samples": 98
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 14.355,
+                "p95": 15.035,
+                "max": 16.387,
+                "samples": 98
+              },
+              "cpu_duration_seconds": 1.443414
+            },
+            "6": {
+              "FrameTime": {
+                "median": 13.211,
+                "p95": 14.629,
+                "max": 16.416,
+                "samples": 108
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 12.724,
+                "p95": 13.972,
+                "max": 15.582,
+                "samples": 108
+              },
+              "cpu_duration_seconds": 1.430649
+            },
+            "7": {
+              "FrameTime": {
+                "median": 10.777,
+                "p95": 11.946,
+                "max": 15.174,
+                "samples": 356
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.413,
+                "p95": 11.272,
+                "max": 12.63,
+                "samples": 356
+              },
+              "cpu_duration_seconds": 3.8399
+            },
+            "8": {
+              "FrameTime": {
+                "median": 13.491,
+                "p95": 15.843,
+                "max": 18.057,
+                "samples": 599
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 12.963,
+                "p95": 15.282,
+                "max": 18.465,
+                "samples": 599
+              },
+              "cpu_duration_seconds": 8.246791
+            },
+            "9": {
+              "FrameTime": {
+                "median": 12.217,
+                "p95": 13.294,
+                "max": 19.207,
+                "samples": 459
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.839,
+                "p95": 12.782,
+                "max": 16.551,
+                "samples": 459
+              },
+              "cpu_duration_seconds": 5.629955
+            },
+            "10": {
+              "FrameTime": {
+                "median": 15.711,
+                "p95": 16.63,
+                "max": 22.802,
+                "samples": 346
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.282,
+                "p95": 16.233,
+                "max": 23.581,
+                "samples": 346
+              },
+              "cpu_duration_seconds": 5.451561
+            },
+            "11": {
+              "FrameTime": {
+                "median": 10.812,
+                "p95": 12.508,
+                "max": 21.67,
+                "samples": 137
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.551,
+                "p95": 11.992,
+                "max": 20.456,
+                "samples": 137
+              },
+              "cpu_duration_seconds": 1.509541
+            },
+            "12": {
+              "FrameTime": {
+                "median": 12.492,
+                "p95": 13.958,
+                "max": 18.433,
+                "samples": 121
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 12.181,
+                "p95": 13.537,
+                "max": 15.267,
+                "samples": 121
+              },
+              "cpu_duration_seconds": 1.518629
+            },
+            "13": {
+              "FrameTime": {
+                "median": 11.055,
+                "p95": 12.297,
+                "max": 18.514,
+                "samples": 489
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.792,
+                "p95": 11.708,
+                "max": 16.682,
+                "samples": 489
+              },
+              "cpu_duration_seconds": 5.439544
+            },
+            "14": {
+              "FrameTime": {
+                "median": 13.209,
+                "p95": 14.415,
+                "max": 15.025,
+                "samples": 116
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 12.859,
+                "p95": 13.92,
+                "max": 15.027,
+                "samples": 116
+              },
+              "cpu_duration_seconds": 1.523997
+            },
+            "15": {
+              "FrameTime": {
+                "median": 12.123,
+                "p95": 13.22,
+                "max": 21.696,
+                "samples": 195
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.68,
+                "p95": 12.937,
+                "max": 20.548,
+                "samples": 195
+              },
+              "cpu_duration_seconds": 2.364917
+            },
+            "16": {
+              "FrameTime": {
+                "median": 11.981,
+                "p95": 12.961,
+                "max": 15.054,
+                "samples": 127
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.644,
+                "p95": 12.525,
+                "max": 14.832,
+                "samples": 127
+              },
+              "cpu_duration_seconds": 1.520746
+            },
+            "18": {
+              "FrameTime": {
+                "median": 15.669,
+                "p95": 17.169,
+                "max": 21.325,
+                "samples": 673
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.166,
+                "p95": 16.592,
+                "max": 20.09,
+                "samples": 674
+              },
+              "cpu_duration_seconds": 9.731529
+            }
+          },
+          "captured_gpu_samples": 11982,
+          "analyzed_gpu_samples": 4839,
+          "gpu_sample_coverage": 1.000207,
+          "gpu_disjoint_warmup_events": 0.0,
+          "gpu_disjoint_measured_events": 0,
+          "metrics": {
+            "FrameTime": {
+              "median": 12.689,
+              "p95": 16.571,
+              "max": 22.802,
+              "samples": 4838
+            },
+            "Process/CommittedMiB": {
+              "median": 4454.188,
+              "p95": 4533.961,
+              "max": 4570.988,
+              "samples": 4838
+            },
+            "GPUMem/LocalUsedMB": null,
+            "GPUTime": {
+              "median": 12.261,
+              "p95": 16.039,
+              "max": 23.581,
+              "samples": 4839
+            }
+          },
+          "one_percent_low_fps": 55.122,
+          "frames_over_50ms": 0,
+          "frames_over_100ms": 0,
+          "local_route_frame_gate_passed": true,
+          "shipping_release_certified": false,
+          "notes": "GPU 시간은 큐에서 한 번씩 꺼낸 결과다. 장면 번호와 경과 시간은 수신 시점이므로 렌더 시점과 지연 차이가 있다. 종료 때 GPU를 기다리지 않으며 마지막 미도착 결과는 제외된다. 메모리는 초당 한 번의 표본이고 최초 로딩·워밍업·순간 멈춤은 원본에 보존한다."
+        }
+      },
+      {
+        "run": 3,
+        "source": {
+          "path": "HighTaaProfile/Run3/summary.json",
+          "bytes": 8734,
+          "sha256": "ee227240e2cb28e6cc1e07ab5f742f38c1ef6c924f8449fe7c33260c78e6c359"
+        },
+        "rawSources": [
+          {
+            "path": "HighTaaProfile/Run3/User/Saved/Profiling/MissingFloorRuntime.csv",
+            "sha256": "9f4456f96bff08c145bd8753371051096880eab7e318ca5a376491977277c8bb"
+          },
+          {
+            "path": "HighTaaProfile/Run3/User/Saved/Profiling/MissingFloorRuntime.gpu.csv",
+            "sha256": "c53c04eabed1e2e660c77b5ba1aa331de1c4b9793c93f24b2c8892d7dd705090"
+          }
+        ],
+        "rawHashVerification": "원본 분석기가 검증·기록한 해시를 상위 요약과 대조했다. 이 생성기에서는 CSV를 다시 해시하지 않는다.",
+        "metadataSource": {
+          "path": "HighTaaProfile/Run3/User/Saved/Profiling/MissingFloorRuntime.csv.txt",
+          "bytes": 267,
+          "sha256": "4672bbbff6db6931dd120f6441d3879533b677f687b3acc92ef05424a111e10f"
+        },
+        "settingsSource": {
+          "path": "HighTaaProfile/Run3/settings.json",
+          "bytes": 577,
+          "sha256": "492a39e8569304e9d9d70dcc13884e33bac9735fb4ff7ee95431ab34befae5e2"
+        },
+        "receipt": {
+          "path": "HighTaaProfile/Run3/receipt.txt",
+          "bytes": 33,
+          "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+        },
+        "measurements": {
+          "scope": "현재 장비의 Shipping 오프스크린 자동 밤 장면 경로. 실제 화면 출력, 여러 장비, 사람의 완주 검수는 별도로 필요하다.",
+          "source_sha256": "9f4456f96bff08c145bd8753371051096880eab7e318ca5a376491977277c8bb",
+          "gpu_source_sha256": "c53c04eabed1e2e660c77b5ba1aa331de1c4b9793c93f24b2c8892d7dd705090",
+          "metadata_sha256": "4672bbbff6db6931dd120f6441d3879533b677f687b3acc92ef05424a111e10f",
+          "hardware": {
+            "cpu": "AMD Ryzen 9 7900X 12-Core Processor            ",
+            "gpu": "NVIDIA GeForce RTX 3060",
+            "driver": "595.79",
+            "os": "10.0.26200.1.768.64bit",
+            "rhi": "D3D12",
+            "frames": "11967",
+            "ram_mib": "31849",
+            "memory_sampling_seconds": "1",
+            "gpu_timing": "history_queue",
+            "gpu_samples": "11965",
+            "gpu_stage": "receipt_time",
+            "gpu_tail_waited": "0"
+          },
+          "settings": {
+            "Width": 1920,
+            "Height": 1080,
+            "ScreenPercentage": 100,
+            "SecondaryScreenPercentage": 100,
+            "DynamicResolutionMode": 0,
+            "QualityLevel": 2,
+            "AntiAliasingMethod": 2,
+            "VSync": 0,
+            "FrameLimit": 0
+          },
+          "target_fps": 60,
+          "captured_frames": 11967,
+          "warmup_seconds": 120.0,
+          "analyzed_frames": 4828,
+          "analyzed_seconds": 63.82,
+          "stage_samples": {
+            "0": 535,
+            "1": 117,
+            "2": 128,
+            "3": 119,
+            "4": 105,
+            "5": 96,
+            "6": 105,
+            "7": 346,
+            "8": 587,
+            "9": 453,
+            "10": 346,
+            "11": 143,
+            "12": 126,
+            "13": 494,
+            "14": 118,
+            "15": 197,
+            "16": 128,
+            "18": 685
+          },
+          "stage_metrics": {
+            "0": {
+              "FrameTime": {
+                "median": 15.808,
+                "p95": 17.696,
+                "max": 20.811,
+                "samples": 535
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.329,
+                "p95": 16.971,
+                "max": 18.506,
+                "samples": 535
+              },
+              "cpu_duration_seconds": 8.532659
+            },
+            "1": {
+              "FrameTime": {
+                "median": 12.178,
+                "p95": 14.016,
+                "max": 18.071,
+                "samples": 117
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.857,
+                "p95": 13.434,
+                "max": 14.976,
+                "samples": 117
+              },
+              "cpu_duration_seconds": 1.433834
+            },
+            "2": {
+              "FrameTime": {
+                "median": 11.33,
+                "p95": 12.846,
+                "max": 13.759,
+                "samples": 128
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.885,
+                "p95": 11.776,
+                "max": 13.059,
+                "samples": 128
+              },
+              "cpu_duration_seconds": 1.441453
+            },
+            "3": {
+              "FrameTime": {
+                "median": 11.128,
+                "p95": 12.081,
+                "max": 14.499,
+                "samples": 119
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.63,
+                "p95": 11.59,
+                "max": 13.333,
+                "samples": 119
+              },
+              "cpu_duration_seconds": 1.312477
+            },
+            "4": {
+              "FrameTime": {
+                "median": 13.875,
+                "p95": 14.988,
+                "max": 15.811,
+                "samples": 105
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 13.553,
+                "p95": 14.222,
+                "max": 15.069,
+                "samples": 105
+              },
+              "cpu_duration_seconds": 1.440581
+            },
+            "5": {
+              "FrameTime": {
+                "median": 14.979,
+                "p95": 16.467,
+                "max": 17.27,
+                "samples": 96
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 14.535,
+                "p95": 15.726,
+                "max": 16.893,
+                "samples": 96
+              },
+              "cpu_duration_seconds": 1.444943
+            },
+            "6": {
+              "FrameTime": {
+                "median": 13.65,
+                "p95": 14.833,
+                "max": 17.774,
+                "samples": 105
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 13.258,
+                "p95": 14.667,
+                "max": 17.337,
+                "samples": 105
+              },
+              "cpu_duration_seconds": 1.446917
+            },
+            "7": {
+              "FrameTime": {
+                "median": 11.104,
+                "p95": 12.308,
+                "max": 16.972,
+                "samples": 346
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.664,
+                "p95": 11.618,
+                "max": 13.706,
+                "samples": 346
+              },
+              "cpu_duration_seconds": 3.834027
+            },
+            "8": {
+              "FrameTime": {
+                "median": 13.863,
+                "p95": 16.066,
+                "max": 18.386,
+                "samples": 587
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 13.322,
+                "p95": 15.501,
+                "max": 19.835,
+                "samples": 587
+              },
+              "cpu_duration_seconds": 8.237584
+            },
+            "9": {
+              "FrameTime": {
+                "median": 12.488,
+                "p95": 13.652,
+                "max": 23.957,
+                "samples": 453
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 12.075,
+                "p95": 13.08,
+                "max": 23.578,
+                "samples": 453
+              },
+              "cpu_duration_seconds": 5.645142
+            },
+            "10": {
+              "FrameTime": {
+                "median": 15.7,
+                "p95": 16.609,
+                "max": 20.665,
+                "samples": 346
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.302,
+                "p95": 15.997,
+                "max": 20.877,
+                "samples": 346
+              },
+              "cpu_duration_seconds": 5.441224
+            },
+            "11": {
+              "FrameTime": {
+                "median": 10.488,
+                "p95": 11.697,
+                "max": 16.262,
+                "samples": 143
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.155,
+                "p95": 11.197,
+                "max": 15.118,
+                "samples": 143
+              },
+              "cpu_duration_seconds": 1.513318
+            },
+            "12": {
+              "FrameTime": {
+                "median": 12.182,
+                "p95": 13.07,
+                "max": 14.446,
+                "samples": 126
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.834,
+                "p95": 12.568,
+                "max": 14.354,
+                "samples": 126
+              },
+              "cpu_duration_seconds": 1.526369
+            },
+            "13": {
+              "FrameTime": {
+                "median": 11.035,
+                "p95": 12.146,
+                "max": 13.649,
+                "samples": 494
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 10.732,
+                "p95": 11.55,
+                "max": 13.557,
+                "samples": 494
+              },
+              "cpu_duration_seconds": 5.43778
+            },
+            "14": {
+              "FrameTime": {
+                "median": 12.837,
+                "p95": 13.793,
+                "max": 14.525,
+                "samples": 118
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 12.593,
+                "p95": 13.088,
+                "max": 14.81,
+                "samples": 118
+              },
+              "cpu_duration_seconds": 1.515774
+            },
+            "15": {
+              "FrameTime": {
+                "median": 12.029,
+                "p95": 13.065,
+                "max": 14.855,
+                "samples": 197
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.69,
+                "p95": 12.412,
+                "max": 13.053,
+                "samples": 197
+              },
+              "cpu_duration_seconds": 2.357377
+            },
+            "16": {
+              "FrameTime": {
+                "median": 12.042,
+                "p95": 12.948,
+                "max": 14.272,
+                "samples": 128
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 11.562,
+                "p95": 12.163,
+                "max": 14.729,
+                "samples": 128
+              },
+              "cpu_duration_seconds": 1.522483
+            },
+            "18": {
+              "FrameTime": {
+                "median": 15.536,
+                "p95": 16.694,
+                "max": 20.53,
+                "samples": 685
+              },
+              "GPUTimeByReceiptStage": {
+                "median": 15.181,
+                "p95": 16.04,
+                "max": 19.841,
+                "samples": 686
+              },
+              "cpu_duration_seconds": 9.736479
+            }
+          },
+          "captured_gpu_samples": 11965,
+          "analyzed_gpu_samples": 4829,
+          "gpu_sample_coverage": 1.000207,
+          "gpu_disjoint_warmup_events": 0.0,
+          "gpu_disjoint_measured_events": 0,
+          "metrics": {
+            "FrameTime": {
+              "median": 12.824,
+              "p95": 16.448,
+              "max": 23.957,
+              "samples": 4828
+            },
+            "Process/CommittedMiB": {
+              "median": 4525.012,
+              "p95": 4612.742,
+              "max": 4614.469,
+              "samples": 4828
+            },
+            "GPUMem/LocalUsedMB": null,
+            "GPUTime": {
+              "median": 12.345,
+              "p95": 15.893,
+              "max": 23.578,
+              "samples": 4829
+            }
+          },
+          "one_percent_low_fps": 54.34,
+          "frames_over_50ms": 0,
+          "frames_over_100ms": 0,
+          "local_route_frame_gate_passed": true,
+          "shipping_release_certified": false,
+          "notes": "GPU 시간은 큐에서 한 번씩 꺼낸 결과다. 장면 번호와 경과 시간은 수신 시점이므로 렌더 시점과 지연 차이가 있다. 종료 때 GPU를 기다리지 않으며 마지막 미도착 결과는 제외된다. 메모리는 초당 한 번의 표본이고 최초 로딩·워밍업·순간 멈춤은 원본에 보존한다."
+        }
+      }
+    ]
+  },
+  "releaseZip": {
+    "status": "PASS",
+    "scope": "매니페스트의 게임 89개와 안내 2개를 압축한 뒤 다시 열어 각 파일의 크기·해시를 대조했다.",
+    "source": {
+      "path": "ReleaseZip/package.json",
+      "bytes": 627,
+      "sha256": "76084256ccb13f548431f40bfc75f832ee3389d8e4b83e839486daddccf52c63"
+    },
+    "verification": {
+      "path": "ReleaseZip/verification.json",
+      "bytes": 18092,
+      "sha256": "dee7e5a61d2f22fdcbebc382058f4116b84c595db291f47cfe6feb8adb7f2211"
+    },
+    "path": "ReleaseZip/MissingFloor-0.2.3-Windows.zip",
+    "bytes": 635175094,
+    "sha256": "ab8e9b19a3ec48a54a60f5ef89e431eaf409fea8d6d7208ef4a884442e74ab9a",
+    "entries": 91
+  },
+  "shippingReleaseCertified": false,
+  "shippingHigh60Certified": false,
+  "multipleHardwareCertified": false,
+  "humanFullPlaythroughApproved": false,
+  "presentCostMeasured": false,
+  "remainingValidation": [
+    {
+      "id": "six_physical_pcs",
+      "status": "BLOCKED",
+      "completed": false,
+      "description": "지정 여섯 실제 PC의 측정 미수행"
+    },
+    {
+      "id": "human_full_playthrough",
+      "status": "NOT_RUN",
+      "completed": false,
+      "description": "사람의 초견 완주·청감·가독성 검수 미수행"
+    },
+    {
+      "id": "present_and_full_walk",
+      "status": "NOT_RUN",
+      "completed": false,
+      "description": "실제 화면 출력 비용을 포함한 전체 보행 경로 측정 미수행"
+    }
+  ],
+  "sources": [
+    {
+      "path": "Package-023Title/manifest.json",
+      "bytes": 18225,
+      "sha256": "7562de11b2792b9ba08c6f0edddac3a59a7e53c44c4651c499cb6820b621a733"
+    },
+    {
+      "path": "PackageReview/Frontend/summary.json",
+      "bytes": 11056,
+      "sha256": "af549b8dc93db1594e516c8f623cd77450e8aa4f9271a221e8a24f9be0553857"
+    },
+    {
+      "path": "PackageReview/Frontend/1280x720/receipt.txt",
+      "bytes": 361,
+      "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+    },
+    {
+      "path": "PackageReview/Frontend/1280x720/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "PackageReview/Frontend/1600x900/receipt.txt",
+      "bytes": 361,
+      "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+    },
+    {
+      "path": "PackageReview/Frontend/1600x900/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "PackageReview/Frontend/1920x1080/receipt.txt",
+      "bytes": 365,
+      "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+    },
+    {
+      "path": "PackageReview/Frontend/1920x1080/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "PackageReview/Frontend/2560x1440/receipt.txt",
+      "bytes": 365,
+      "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+    },
+    {
+      "path": "PackageReview/Frontend/2560x1440/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/en/summary.json",
+      "bytes": 10776,
+      "sha256": "1c0c2f1b02b623e54c4bf9e8f108df3993d17fa3d68f473d348ec4e5d0e37c80"
+    },
+    {
+      "path": "ForeignUi/en/1280x720/receipt.txt",
+      "bytes": 361,
+      "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+    },
+    {
+      "path": "ForeignUi/en/1280x720/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/en/1600x900/receipt.txt",
+      "bytes": 361,
+      "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+    },
+    {
+      "path": "ForeignUi/en/1600x900/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/en/1920x1080/receipt.txt",
+      "bytes": 365,
+      "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+    },
+    {
+      "path": "ForeignUi/en/1920x1080/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/en/2560x1440/receipt.txt",
+      "bytes": 365,
+      "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+    },
+    {
+      "path": "ForeignUi/en/2560x1440/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/ja/summary.json",
+      "bytes": 10776,
+      "sha256": "00596cf410516911fe2bf2f681fab1c806309ae86bb74f017d3fed58005f161e"
+    },
+    {
+      "path": "ForeignUi/ja/1280x720/receipt.txt",
+      "bytes": 361,
+      "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+    },
+    {
+      "path": "ForeignUi/ja/1280x720/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/ja/1600x900/receipt.txt",
+      "bytes": 361,
+      "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+    },
+    {
+      "path": "ForeignUi/ja/1600x900/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/ja/1920x1080/receipt.txt",
+      "bytes": 365,
+      "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+    },
+    {
+      "path": "ForeignUi/ja/1920x1080/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/ja/2560x1440/receipt.txt",
+      "bytes": 365,
+      "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+    },
+    {
+      "path": "ForeignUi/ja/2560x1440/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/summary.json",
+      "bytes": 10916,
+      "sha256": "ecd9a4c3fd5f41fbabe10a5b2e8d66626515ec12082f77ca7c890c00360db851"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/1280x720/receipt.txt",
+      "bytes": 361,
+      "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/1280x720/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/1600x900/receipt.txt",
+      "bytes": 361,
+      "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/1600x900/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/1920x1080/receipt.txt",
+      "bytes": 365,
+      "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/1920x1080/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/2560x1440/receipt.txt",
+      "bytes": 365,
+      "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+    },
+    {
+      "path": "ForeignUi/zh-Hans/2560x1440/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/summary.json",
+      "bytes": 10916,
+      "sha256": "1b842317cf5611bb65c21cc16e255ecc5e6271ae88817a00155830a4930c20a0"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/1280x720/receipt.txt",
+      "bytes": 361,
+      "sha256": "5f34d4db5908883cebb4f0fe44501debe07d12c9b609dd13ea584a328b36e858"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/1280x720/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/1600x900/receipt.txt",
+      "bytes": 361,
+      "sha256": "acb8672102f43e178eb66cc4ef1ba7ea4f64a9f8d5d8956947d8439477065977"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/1600x900/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/1920x1080/receipt.txt",
+      "bytes": 365,
+      "sha256": "327a667ef7804784fccdcc93b370f42a54712f016653031af657b9410842a6d7"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/1920x1080/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/2560x1440/receipt.txt",
+      "bytes": 365,
+      "sha256": "719f931fba47b8fcd252e7983916e7569584b926d4664b0dcaf0e2d88a650e22"
+    },
+    {
+      "path": "ForeignUi/zh-Hant/2560x1440/settings-layout.txt",
+      "bytes": 62,
+      "sha256": "3893979e704219606988a23f93b8baf9c20357fefc3f8f1b8dd367813ac9d14e"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/summary.json",
+      "bytes": 6872,
+      "sha256": "5a8deb5ba1a69d62c53a6251220f9c735de2f8005d5fc38a7883c0beded4a350"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/SingleValidSlot/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/CorruptSlot0/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/CorruptSlot1/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/TruncatedSlot0/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/MissingMapSlot0/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/OnlyMissingMap/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/BothCorrupt/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/NoSave/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/HugeBranchWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/HugeCustomVersionsWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/HugeClassWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/WrongClassWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/HugeArrayWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/OversizedWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/OnlyHugeArray/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "PackageReview/SaveRecovery/OnlyOversized/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "LegacySave022/summary.json",
+      "bytes": 6875,
+      "sha256": "1d32c7602858f273827e93608cc2f5fe881de289bcfc53d269c76cd4450a7c1c"
+    },
+    {
+      "path": "LegacySave022/SingleValidSlot/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/CorruptSlot0/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/CorruptSlot1/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/TruncatedSlot0/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/MissingMapSlot0/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/OnlyMissingMap/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "LegacySave022/BothCorrupt/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "LegacySave022/NoSave/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "LegacySave022/HugeBranchWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/HugeCustomVersionsWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/HugeClassWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/WrongClassWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/HugeArrayWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/OversizedWithBackup/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "LegacySave022/OnlyHugeArray/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "LegacySave022/OnlyOversized/receipt.txt",
+      "bytes": 34,
+      "sha256": "508da042138c2bc356fc0a855d5f8ea402f81829ae89c539da3ffe16afa55331"
+    },
+    {
+      "path": "PackageReview/EndingLifecycle/summary.json",
+      "bytes": 5069,
+      "sha256": "516efaa58b9d97bea326253d9693db0fbde944e108476149e5b21e0cc71ee29e"
+    },
+    {
+      "path": "PackageReview/EndingLifecycle/Checkpoint/receipt.json",
+      "bytes": 625,
+      "sha256": "ee194d98183894300fd78aa5c23f2be9e9b952c03681931f3722ad79fd56d707"
+    },
+    {
+      "path": "PackageReview/EndingLifecycle/EndingA/receipt.json",
+      "bytes": 627,
+      "sha256": "0e3afec1b4ccd19c83e75cd5bb181417da944001b50fda6552f144a782b5d430"
+    },
+    {
+      "path": "PackageReview/EndingLifecycle/EndingA/User/Saved/Config/Windows/GameUserSettings.ini",
+      "bytes": 628,
+      "sha256": "dcab1dc2585dd3a8aa44275173901678496288eb65c1a48274351aa2ec0af2d7"
+    },
+    {
+      "path": "PackageReview/EndingLifecycle/ProfileA/receipt.json",
+      "bytes": 609,
+      "sha256": "2510fc033f5ad7b3d7dde3f98ff46c300a81fbd3e50add7ec9a0b6ffcfbb20d9"
+    },
+    {
+      "path": "PackageReview/EndingLifecycle/EndingB/receipt.json",
+      "bytes": 641,
+      "sha256": "bbcc62610daa77606ef190bc4a75d2c0f2dfc79558a8fe8c4f45add0bf48acab"
+    },
+    {
+      "path": "PackageReview/EndingLifecycle/EndingB/User/Saved/Config/Windows/GameUserSettings.ini",
+      "bytes": 628,
+      "sha256": "99f1a85c3adcfd8ee480313b9bec89a57aeb3ca2d6a9a4115a5e77e48a6b46e6"
+    },
+    {
+      "path": "PackageReview/EndingLifecycle/ProfileB/receipt.json",
+      "bytes": 608,
+      "sha256": "ce350ebd73c71a207acea8596b9ee1ac666d2e1a9f9e15b68fb12d26de286aa3"
+    },
+    {
+      "path": "SettingsMigration/summary.json",
+      "bytes": 1584,
+      "sha256": "02535db6fbdcf1d59bf517c3f115e5ddfff049254b79323b7ab7430437025eb2"
+    },
+    {
+      "path": "SettingsMigration/High87-VSyncOn-30fps/settings-result.json",
+      "bytes": 1991,
+      "sha256": "fc3e0d11856c334aa407050fd566186a6e02ae1c6b27a0e7b393614bfdaa1cec"
+    },
+    {
+      "path": "SettingsMigration/Medium71-VSyncOff-Unlimited/settings-result.json",
+      "bytes": 1555,
+      "sha256": "b4cc2660dad9a3cfcfc529ea7e82abaa89805a7ecba9d707f68e14debb16111c"
+    },
+    {
+      "path": "PackageReview/summary.json",
+      "bytes": 2186,
+      "sha256": "028221e9388c978ca7af8472ae78c968869a86e552de52e39970c0346dbb2494"
+    },
+    {
+      "path": "PackageReview/Arrival/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/ArrivalResume/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "PackageReview/FullGame/receipt.txt",
+      "bytes": 34,
+      "sha256": "7a62486c3026b39a5811330e1da271f337ac4c4697ed17c1ddacc43febaf200c"
+    },
+    {
+      "path": "PackageReview/Audio/User/Saved/AudioPresentation/receipt.txt",
+      "bytes": 3329,
+      "sha256": "84679146d2d61490c6c9a7b5c9d58df6152df9179056b15c8c95eaf4e9393677"
+    },
+    {
+      "path": "CaptionReview/summary.json",
+      "bytes": 5447,
+      "sha256": "af4e6ff7231afef4b8263b3afce05ec47abcc67f8b8aadfeb41cee321af7bfab"
+    },
+    {
+      "path": "PackageReview/Frontend/1280x720/caption-pause.txt",
+      "bytes": 113,
+      "sha256": "2c838ad2059031c5fd9f2b2cf9298e17d133b946d99b72fc8530f489d5abd903"
+    },
+    {
+      "path": "PackageReview/Frontend/1600x900/caption-pause.txt",
+      "bytes": 113,
+      "sha256": "f3258391f2ea462512a99a76e8f383702ef6f5ad9bbcb487894d1bd0b8b14eea"
+    },
+    {
+      "path": "PackageReview/Frontend/1920x1080/caption-pause.txt",
+      "bytes": 113,
+      "sha256": "3847eac3658235796f65308961ade229a5fa968687d382f2103559dfda1913d0"
+    },
+    {
+      "path": "PackageReview/Frontend/2560x1440/caption-pause.txt",
+      "bytes": 113,
+      "sha256": "8818c15d16fb51f554d0fa2bbef8dda80a411615ae5490c1df05f62a3366175d"
+    },
+    {
+      "path": "CaptionReview/NightFive/receipt.txt",
+      "bytes": 237,
+      "sha256": "3f0780806c1d170ca5b7b3521b8f6266fe9405773638532736137a3dbcf7ada9"
+    },
+    {
+      "path": "HighTaaProfile/summary.json",
+      "bytes": 2445,
+      "sha256": "8bf5faafabe544448f53b82b761b42e96f9c30177465a515db36abb257642a11"
+    },
+    {
+      "path": "HighTaaProfile/Run1/summary.json",
+      "bytes": 8736,
+      "sha256": "79e4d495f65be77a1ae2768f13d0a9fb4fe1b884a225a2d929ef9c48fdfdfa44"
+    },
+    {
+      "path": "HighTaaProfile/Run1/settings.json",
+      "bytes": 577,
+      "sha256": "492a39e8569304e9d9d70dcc13884e33bac9735fb4ff7ee95431ab34befae5e2"
+    },
+    {
+      "path": "HighTaaProfile/Run1/Input-Engine.ini",
+      "bytes": 277,
+      "sha256": "ecf57e718125f435c8d992dd1b5b80d6b681a77c707adbe21f3897f21c6e0a1b"
+    },
+    {
+      "path": "HighTaaProfile/Run1/Input-GameUserSettings.ini",
+      "bytes": 704,
+      "sha256": "c755f101ad41e01b8596d3106ce978ca08218235cc55dc0af033b2d6a9ffc2e4"
+    },
+    {
+      "path": "HighTaaProfile/Run1/After-GameUserSettings.ini",
+      "bytes": 636,
+      "sha256": "7e5855824d8dc15a181231ee7e00f8a1e215bb3374acfb31ae2b5ac20e962fac"
+    },
+    {
+      "path": "HighTaaProfile/Run1/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "HighTaaProfile/Run1/User/Saved/Profiling/MissingFloorRuntime.csv.txt",
+      "bytes": 267,
+      "sha256": "5ada0838da298877508f9e551289feec8370ab3aa98b7c85e5da4fecdb0f1200"
+    },
+    {
+      "path": "HighTaaProfile/Run2/summary.json",
+      "bytes": 8741,
+      "sha256": "144adbd9d1ba76632c72f26407a092c3e2253e7e20227174752a8d6afd4e6166"
+    },
+    {
+      "path": "HighTaaProfile/Run2/settings.json",
+      "bytes": 577,
+      "sha256": "492a39e8569304e9d9d70dcc13884e33bac9735fb4ff7ee95431ab34befae5e2"
+    },
+    {
+      "path": "HighTaaProfile/Run2/Input-Engine.ini",
+      "bytes": 277,
+      "sha256": "ecf57e718125f435c8d992dd1b5b80d6b681a77c707adbe21f3897f21c6e0a1b"
+    },
+    {
+      "path": "HighTaaProfile/Run2/Input-GameUserSettings.ini",
+      "bytes": 704,
+      "sha256": "c755f101ad41e01b8596d3106ce978ca08218235cc55dc0af033b2d6a9ffc2e4"
+    },
+    {
+      "path": "HighTaaProfile/Run2/After-GameUserSettings.ini",
+      "bytes": 636,
+      "sha256": "7e5855824d8dc15a181231ee7e00f8a1e215bb3374acfb31ae2b5ac20e962fac"
+    },
+    {
+      "path": "HighTaaProfile/Run2/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "HighTaaProfile/Run2/User/Saved/Profiling/MissingFloorRuntime.csv.txt",
+      "bytes": 267,
+      "sha256": "f52a48e00af587d318fa631f93b4334a158b84dfcc85a50f501ed4870f34218b"
+    },
+    {
+      "path": "HighTaaProfile/Run3/summary.json",
+      "bytes": 8734,
+      "sha256": "ee227240e2cb28e6cc1e07ab5f742f38c1ef6c924f8449fe7c33260c78e6c359"
+    },
+    {
+      "path": "HighTaaProfile/Run3/settings.json",
+      "bytes": 577,
+      "sha256": "492a39e8569304e9d9d70dcc13884e33bac9735fb4ff7ee95431ab34befae5e2"
+    },
+    {
+      "path": "HighTaaProfile/Run3/Input-Engine.ini",
+      "bytes": 277,
+      "sha256": "ecf57e718125f435c8d992dd1b5b80d6b681a77c707adbe21f3897f21c6e0a1b"
+    },
+    {
+      "path": "HighTaaProfile/Run3/Input-GameUserSettings.ini",
+      "bytes": 704,
+      "sha256": "c755f101ad41e01b8596d3106ce978ca08218235cc55dc0af033b2d6a9ffc2e4"
+    },
+    {
+      "path": "HighTaaProfile/Run3/After-GameUserSettings.ini",
+      "bytes": 636,
+      "sha256": "7e5855824d8dc15a181231ee7e00f8a1e215bb3374acfb31ae2b5ac20e962fac"
+    },
+    {
+      "path": "HighTaaProfile/Run3/receipt.txt",
+      "bytes": 33,
+      "sha256": "6d4fc9d5573cc7ccb9c56b0a56967382af744f9508f60955ca5c62248ae7f37a"
+    },
+    {
+      "path": "HighTaaProfile/Run3/User/Saved/Profiling/MissingFloorRuntime.csv.txt",
+      "bytes": 267,
+      "sha256": "4672bbbff6db6931dd120f6441d3879533b677f687b3acc92ef05424a111e10f"
+    },
+    {
+      "path": "ReleaseZip/package.json",
+      "bytes": 627,
+      "sha256": "76084256ccb13f548431f40bfc75f832ee3389d8e4b83e839486daddccf52c63"
+    },
+    {
+      "path": "ReleaseZip/verification.json",
+      "bytes": 18092,
+      "sha256": "dee7e5a61d2f22fdcbebc382058f4116b84c595db291f47cfe6feb8adb7f2211"
+    }
+  ]
+}
