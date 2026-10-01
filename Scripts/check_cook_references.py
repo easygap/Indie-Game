@@ -132,6 +132,14 @@ NEVER_COOK_DIRECTORY = re.compile(
     re.MULTILINE,
 )
 PRIMARY_ASSET_SETTING = "PrimaryAssetTypesToScan"
+DETERMINE_ID_SETTING = "bShouldManagerDetermineTypeAndName"
+# 스스로 PrimaryAssetId를 내는 클래스. 나머지(Texture2D 등)는 Asset Manager가 ID를
+# 정해 줘야 쿠크가 규칙으로 등록한 ID와 객체의 ID를 맞춰 본다.
+NATIVE_PRIMARY_CLASSES = {
+    "/Script/Engine.PrimaryDataAsset",
+    "/Script/Engine.PrimaryAssetLabel",
+    "/Script/Engine.World",
+}
 
 # FPrimaryAssetTypeInfo and FPrimaryAssetRules, as Unreal declares them. A rule
 # is only worth trusting if every field it names is a field that exists: Unreal
@@ -309,6 +317,8 @@ def _read_primary_asset_rules(audit: CookAudit) -> None:
             "언리얼이 읽지 않는다. DefaultGame.ini로 옮겨야 한다")
         audit.primary_asset_rules.append(rule)
     text = _read_config(audit.game_config)
+    determine = [value for _, value in ue_config.ini_entries(text, DETERMINE_ID_SETTING)]
+    determines_ids = bool(determine) and determine[-1].strip().lower() == "true"
     for line, body in ue_config.ini_entries(text, PRIMARY_ASSET_SETTING):
         rule = PrimaryAssetRule(line, body, audit.game_config)
         audit.primary_asset_rules.append(rule)
@@ -322,6 +332,10 @@ def _read_primary_asset_rules(audit: CookAudit) -> None:
         rule.name = str(fields.get("PrimaryAssetType", "?"))
         rule.base_class = str(fields.get("AssetBaseClass", ""))
         _validate_rule_fields(rule, fields)
+        if rule.base_class.strip('"') not in NATIVE_PRIMARY_CLASSES and not determines_ids:
+            rule.problems.append(
+                f"{rule.base_class}는 PrimaryAssetId를 스스로 내지 않는다. "
+                f"{DETERMINE_ID_SETTING}=True가 없으면 쿠크가 ID 불일치로 멈춘다")
 
         try:
             for entry in ue_config.as_array(fields.get("Directories")):
@@ -1547,7 +1561,8 @@ def command_simulate_targeted(audit: CookAudit) -> int:
     return 0
 
 
-def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
+def _fixture(root: str, rule: str | None, atlas_material_reads: str,
+             determine_ids: bool = True) -> str:
     """A small project: a map, a mesh, a print material and three textures.
 
     ``rule`` is the Asset Manager line to write, or None for a config with no
@@ -1564,6 +1579,8 @@ def _fixture(root: str, rule: str | None, atlas_material_reads: str) -> str:
         )
         if rule:
             handle.write(rule + "\n")
+            if determine_ids:
+                handle.write(f"{DETERMINE_ID_SETTING}=True\n")
 
     def package(relative: str, body: str) -> None:
         path = os.path.join(root, "Content", *relative.split("/"))
@@ -1785,6 +1802,14 @@ def command_self_test() -> int:
             code, message = gate(audit, entries=entries)
             assert code == 1 and message.startswith("FAIL"), \
                 f"a rule broken by {name} did not fail the gate"
+
+        # Texture2D 규칙은 Asset Manager가 ID를 정하게 해야 쿠크가 멈추지 않는다.
+        no_ids = _fixture(
+            os.path.join(tmp, "bad_no_determine"), good_rule,
+            "/Game/Prototype/Textures/T_PrintAtlas0_D", determine_ids=False)
+        audit = run_audit(no_ids)
+        assert cook_rule_problems(audit), \
+            f"a Texture2D rule without {DETERMINE_ID_SETTING} was accepted"
 
         # 멀쩡한 규칙도 DefaultEngine.ini에 두면 언리얼은 읽지 않는다(config=Game).
         # 0.2.4까지 HUD 텍스처 8개가 이렇게 빠졌다.
@@ -2037,8 +2062,9 @@ def command_self_test() -> int:
         f"an absent path told apart from an absent path with a fallback "
         f"(nearest pointer, every site, no pointer at all), "
         f"the code-load conflict, the unfetched-LFS hole, and "
-        f"{len(tampered) + 1} ways a cook rule can look right and hold nothing "
-        f"(one of them a rule left in DefaultEngine.ini)"
+        f"{len(tampered) + 2} ways a cook rule can look right and hold nothing "
+        f"(two of them a rule left in DefaultEngine.ini and a Texture2D rule "
+        f"without {DETERMINE_ID_SETTING})"
     )
     return 0
 
