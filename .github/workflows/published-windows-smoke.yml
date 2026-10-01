@@ -1,0 +1,43 @@
+name: 공개 Windows 배포본 검사
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 검사할 공개 릴리스 태그
+        required: true
+        type: string
+        default: v0.2.4
+
+permissions:
+  contents: read
+
+jobs:
+  published-game:
+    if: github.repository == 'easygap/Missing-Floor'
+    runs-on: windows-2025
+    timeout-minutes: 15
+    steps:
+      - name: 검사 스크립트 받기
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+          lfs: false
+          sparse-checkout: Scripts
+      - name: 공개 ZIP 확인과 진행 로직 실행
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: >-
+          ./Scripts/Run-PublishedWindowsSmoke.ps1
+          -ReleaseTag $env:RELEASE_TAG
+          -WorkDirectory (Join-Path $env:RUNNER_TEMP 'MissingFloorPublishedSmoke')
+      - name: 검사 기록 보관
+        if: always()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: published-windows-smoke-${{ github.run_id }}
+          path: ${{ runner.temp }}/MissingFloorPublishedSmoke/Evidence/
+          if-no-files-found: warn
+          retention-days: 30
