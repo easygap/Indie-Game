@@ -60,4 +60,7 @@ private:
 	// 개발 빌드 진단용. -IGProfileGPUStages=0,10,13 에 든 장면마다 ProfileGPU를 한 번 남긴다.
 	TSet<int32> ProfileGPUStages;
 	TSet<int32> ProfiledGPUStages;
+	// -IGProfileGPUSpikeMs=18 을 함께 주면 그 장면에서 GPU가 이 값을 처음 넘은 뒤에도 한 번 남긴다.
+	double ProfileGPUSpikeMs = 0;
+	TSet<int32> ProfiledGPUSpikes;
 };

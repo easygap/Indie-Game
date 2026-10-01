@@ -61,7 +61,13 @@ void FIGRuntimeProfile::Start(UGameInstance* GameInstance)
 		TArray<FString> Parts;
 		ProfileStages.ParseIntoArray(Parts, TEXT(","));
 		for (const FString& Part : Parts) { ProfileGPUStages.Add(FCString::Atoi(*Part)); }
+		// 결과 창을 띄우면 그 창의 Slate 그리기(2천여 회)가 다음 프레임부터 GPU 시간에 섞인다.
+		if (IConsoleVariable* ShowUI = IConsoleManager::Get().FindConsoleVariable(TEXT("r.ProfileGPU.ShowUI")))
+		{
+			ShowUI->Set(0, ECVF_SetByCode);
+		}
 	}
+	FParse::Value(FCommandLine::Get(), TEXT("IGProfileGPUSpikeMs="), ProfileGPUSpikeMs);
 #endif
 	FrameHandle = FCoreDelegates::OnEndFrame.AddRaw(this, &FIGRuntimeProfile::RecordFrame);
 	ExitHandle = FCoreDelegates::OnPreExit.AddRaw(this, &FIGRuntimeProfile::Stop);
@@ -114,6 +120,20 @@ void FIGRuntimeProfile::RecordFrame()
 #endif
 	Frame.FrameMs = (Now - LastFrameTime) * 1000.0;
 	RecordGPUFrames(Frame.Elapsed);
+#if !UE_BUILD_SHIPPING
+	// 가끔만 튀는 프레임은 장면에 들어선 직후의 기록으로는 잡히지 않는다. 순간이동 직후의
+	// 프레임은 그림자 캐시를 새로 그려 늘 느리므로 0.5초 뒤부터 본다.
+	if (ProfileGPUSpikeMs > 0 && ProfileGPUStages.Contains(Stage) && !ProfiledGPUSpikes.Contains(Stage)
+		&& Now - StageEnteredAt > 0.5 && GPUState->Samples.Num() > 0 && GPUState->Samples.Last().Stage == Stage
+		&& GPUState->Samples.Last().GpuMs > ProfileGPUSpikeMs && GEngine)
+	{
+		ProfiledGPUSpikes.Add(Stage);
+		UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_PROFILEGPU stage=%d spike_ms=%.2f at=%.2f"), Stage,
+			GPUState->Samples.Last().GpuMs, Now - StageEnteredAt);
+		GEngine->Exec(Owner ? Owner->GetWorld() : nullptr, TEXT("ProfileGPU"));
+		LogActiveLights();
+	}
+#endif
 	Frame.CommittedMiB = CommittedMiB;
 	Frame.LocalMiB = Memory->Valid.Load() ? Memory->LocalBytes.Load() / (1024.0 * 1024.0) : -1;
 	if (const UWorld* World = Owner->GetWorld())
@@ -152,6 +172,7 @@ void FIGRuntimeProfile::LogActiveLights() const
 	FVector Eye = FVector::ZeroVector;
 	FRotator View;
 	if (APlayerController* Controller = World->GetFirstPlayerController()) { Controller->GetPlayerViewPoint(Eye, View); }
+	UE_LOG(LogTemp, Display, TEXT("MISSINGFLOOR_VIEW stage=%d eye=%s rot=%s"), Stage, *Eye.ToCompactString(), *View.ToCompactString());
 	for (const TCHAR* Name : {TEXT("r.Shadow.Virtual.SMRT.RayCountLocal"), TEXT("r.Shadow.Virtual.SMRT.SamplesPerRayLocal"),
 		TEXT("r.Shadow.Virtual.OnePassProjection"), TEXT("sg.ShadowQuality"), TEXT("r.Shadow.Virtual.ResolutionLodBiasLocal")})
 	{
