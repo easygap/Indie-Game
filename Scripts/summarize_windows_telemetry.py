@@ -40,6 +40,7 @@ def analyze_present(rows, process_id, executable_name):
     intervals, displayed, present_api, display_latency = [], [], [], []
     modes, swapchains = set(), set()
     previous = {}
+    timestamps = []
     clock = "QPCTime" if "QPCTime" in rows[0] else "TimeInSeconds"
     for row in rows:
         if int(row["ProcessID"]) != process_id or row["Application"].lower() != executable_name.lower():
@@ -47,6 +48,7 @@ def analyze_present(rows, process_id, executable_name):
         if row["Runtime"] != "DXGI" or row["Dropped"] not in ("0", "1"):
             raise ValueError("DXGI 출력 또는 프레임 표시 상태를 확인할 수 없습니다.")
         now = finite(row[clock], "화면 출력 시각")
+        timestamps.append(now)
         swapchain = row["SwapChainAddress"]
         if now <= previous.get(swapchain, -1):
             raise ValueError("화면 출력 시각이 뒤집히거나 중복됐습니다.")
@@ -66,8 +68,19 @@ def analyze_present(rows, process_id, executable_name):
             display_latency.append(latency)
         else:
             result["dropped_frames"] += 1
+    # 캡처 전체보다 긴 표시 간격은 계측 이상으로 남긴다. 원본 통계는 보존하고
+    # 그 실행의 화면 변경 간격은 지연 측정 결과로 쓰지 않는다.
+    capture_seconds = max(timestamps) - min(timestamps)
+    interval_limit = capture_seconds * 1000 + max(display_latency, default=0)
+    invalid_intervals = sum(value > interval_limit for value in displayed)
+    reported_intervals = describe(displayed)
     result.update({"clock": clock, "swapchain_count": len(swapchains), "present_modes": sorted(modes),
-                   "between_presents_ms": describe(intervals), "between_display_changes_ms": describe(displayed),
+                   "capture_seconds": round(capture_seconds, 6),
+                   "between_presents_ms": describe(intervals),
+                   "between_display_changes_ms": None if invalid_intervals else reported_intervals,
+                   "reported_between_display_changes_ms": reported_intervals,
+                   "display_interval_out_of_capture_count": invalid_intervals,
+                   "display_interval_valid": invalid_intervals == 0 and bool(displayed),
                    "present_api_ms": describe(present_api), "until_displayed_ms": describe(display_latency),
                    "display_observed": result["displayed_frames"] > 0,
                    "display_observation_sufficient": result["displayed_frames"] >= 100 and bool(displayed),

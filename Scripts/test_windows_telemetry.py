@@ -52,6 +52,16 @@ class WindowsTelemetryTest(unittest.TestCase):
             with self.assertRaises(ValueError):
                 telemetry.analyze_present(rows, 123, "IndieGame-Win64-Shipping.exe")
 
+    def test_system_uptime_is_not_reported_as_display_interval(self):
+        rows = present_rows()
+        rows[40]["msBetweenDisplayChange"] = "6492976.66"
+        result = telemetry.analyze_present(rows, 123, "IndieGame-Win64-Shipping.exe")
+        self.assertTrue(result["display_observation_sufficient"])
+        self.assertFalse(result["display_interval_valid"])
+        self.assertEqual(result["display_interval_out_of_capture_count"], 1)
+        self.assertIsNone(result["between_display_changes_ms"])
+        self.assertEqual(result["reported_between_display_changes_ms"]["max"], 6492976.66)
+
     def test_absent_memory_remains_absent(self):
         rows = memory_rows()
         rows[0].update(DedicatedBytes="-1", SharedBytes="-1", ValidCounters="0", QueryStatus="unavailable")
